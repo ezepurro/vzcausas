@@ -15,7 +15,7 @@ export class ApiError extends Error {
         this.details = details;
     }
 
-    /** Choque con una regla de negocio. Ej: el CUIT ya está registrado. */
+    /** Choque con una regla de negocio.*/
     get isConflict(): boolean {
         return this.status === 409;
     }
