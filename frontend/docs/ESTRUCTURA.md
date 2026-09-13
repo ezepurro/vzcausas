@@ -19,7 +19,7 @@ Lo acordado en el Sprint 0:
 | Empaquetador | Vite |
 | Ruteo | React Router |
 | Datos del servidor | TanStack Query |
-| Formularios | React Hook Form |
+| Formularios | React Controlled Forms|
 | Validación | Zod |
 | Estilos | CSS propio con variables (tokens) |
 
