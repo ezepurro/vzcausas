@@ -1,0 +1,10 @@
+/* Estilos de los avisos (toasts).
+   Archivo creado vacío para que resuelva el import de ToastProvider.tsx.
+
+   Falta definir:
+   - .toasts          el contenedor fijo donde se apilan (esquina de la pantalla)
+   - .toast           la tarjeta del aviso
+   - .toast--success / .toast--error / .toast--info   los tres tonos
+   - .toast__icon     el círculo con el símbolo
+   - .toast__message  el texto
+   - .toast__close    la cruz para cerrarlo */
