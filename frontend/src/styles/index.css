@@ -1,0 +1,12 @@
+/* Punto de entrada único de los estilos compartidos.
+   En el entry de la app:  import '@/styles/index.css';
+   El orden importa: tokens antes que todo lo demás. */
+
+@import url('https://fonts.googleapis.com/css2?family=Figtree:wght@300..900&family=Roboto+Mono:wght@400;500&display=swap');
+
+@import './tokens.css';
+@import './base.css';
+@import './shell.css';
+@import './controls.css';
+@import './table.css';
+@import './feedback.css';

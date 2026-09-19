@@ -1,0 +1,128 @@
+/* Botones, campos de formulario. */
+
+/* ─────────── botones ─────────── */
+.vz-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 18px;
+  border: 1px solid transparent;
+  border-radius: var(--vz-r-btn);
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background .12s, border-color .12s, color .12s;
+}
+.vz-btn:disabled { cursor: not-allowed; }
+
+.vz-btn--primary { background: var(--vz-primary); color: #fff; }
+.vz-btn--primary:hover:not(:disabled) { background: var(--vz-primary-hi); }
+.vz-btn--primary:disabled { background: var(--vz-border-strong); color: #fff; }
+
+.vz-btn--secondary {
+  background: var(--vz-surface);
+  border-color: var(--vz-border-strong);
+  color: var(--vz-ink);
+}
+.vz-btn--secondary:hover:not(:disabled) { background: var(--vz-sunken); }
+.vz-btn--secondary:disabled { opacity: .4; }
+
+.vz-btn--danger {
+  background: var(--vz-surface);
+  border-color: var(--vz-danger-action-bd);
+  color: var(--vz-danger-action);
+}
+.vz-btn--danger:hover:not(:disabled) { background: var(--vz-danger-bg); }
+.vz-btn--danger:disabled { opacity: .4; }
+
+.vz-btn--ghost { background: none; color: var(--vz-muted); }
+.vz-btn--ghost:hover:not(:disabled) { background: var(--vz-sunken); color: var(--vz-ink); }
+
+/* tamaños */
+.vz-btn--md { height: 34px; padding: 0 14px; font-size: 12.5px; }
+.vz-btn--sm { height: 28px; padding: 0 11px; font-size: 12px; }
+.vz-btn--block { width: 100%; }
+
+/* ─────────── campos ─────────── */
+.vz-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+
+.vz-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--vz-muted);
+}
+.vz-label__req { color: var(--vz-danger-action); margin-left: 2px; }
+
+.vz-input, .vz-select, .vz-textarea {
+  width: 100%;
+  border: 1px solid var(--vz-border);
+  border-radius: var(--vz-r-sm);
+  background: var(--vz-surface);
+  color: var(--vz-ink);
+  font-size: 13.5px;
+}
+.vz-input, .vz-select { height: 40px; padding: 0 12px; }
+.vz-select { padding-right: 34px; cursor: pointer; appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235A6560' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 12px center;
+}
+.vz-textarea { padding: 10px 12px; min-height: 84px; resize: vertical; line-height: 1.5; }
+
+.vz-input::placeholder, .vz-textarea::placeholder { color: var(--vz-faint); }
+.vz-input:hover, .vz-select:hover, .vz-textarea:hover { border-color: var(--vz-border-strong); }
+.vz-input:disabled, .vz-select:disabled, .vz-textarea:disabled {
+  background: var(--vz-sunken); color: var(--vz-faint); cursor: not-allowed;
+}
+.vz-input--mono { font-family: var(--vz-font-mono); }
+
+.vz-field--error .vz-input,
+.vz-field--error .vz-select,
+.vz-field--error .vz-textarea { border-color: var(--vz-danger-bd); background: var(--vz-danger-bg); }
+
+.vz-note { font-size: 12px; color: var(--vz-faint); line-height: 1.45; }
+.vz-error { font-size: 12px; color: var(--vz-danger); font-weight: 600; }
+
+/* casilla: tarjeta clicable, no checkbox suelto */
+.vz-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 13px 14px;
+  border: 1px solid var(--vz-border);
+  border-radius: var(--vz-r-sm);
+  background: var(--vz-sunken);
+  font-size: 13.5px;
+  line-height: 1.45;
+  cursor: pointer;
+}
+.vz-check:hover { border-color: var(--vz-border-strong); }
+.vz-check input { margin: 2px 0 0; accent-color: var(--vz-primary); flex: 0 0 auto; }
+
+/* grilla de formulario: 2 columnas, los campos anchos ocupan las dos */
+.vz-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 14px;
+}
+.vz-form-grid > .vz-col-full { grid-column: span 2; }
+@media (max-width: 640px) {
+  .vz-form-grid { grid-template-columns: minmax(0, 1fr); }
+  .vz-form-grid > .vz-col-full { grid-column: span 1; }
+}
+
+/* separador de sección dentro de un formulario */
+.vz-form-sep {
+  grid-column: span 2;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 4px;
+}
+.vz-form-sep__label {
+  font-size: 11px; font-weight: 700; letter-spacing: .09em;
+  text-transform: uppercase; color: var(--vz-primary); white-space: nowrap;
+}
+.vz-form-sep__rule { flex: 1; height: 1px; background: var(--vz-border); }

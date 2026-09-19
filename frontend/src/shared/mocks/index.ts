@@ -1,0 +1,95 @@
+/**
+ * Mocks de la API v1.
+ *
+ * Este barrel sólo exporta lo que **no depende de MSW**: el contrato, los
+ * datos y el servidor falso puro. Así importar un tipo o un fixture desde una
+ * feature no arrastra MSW al bundle.
+ *
+ * Lo que sí depende de la plataforma vive aparte:
+ *
+ * - navegador → `import { startMocks } from '@/shared/mocks/browser'`
+ * - Node / tests → `import { server } from '@/shared/mocks/server'`
+ * - configuración → `configureMocks`, reexportado por los dos anteriores
+ *
+ * Ver `README.md` de esta carpeta para el uso y las divergencias respecto de
+ * `docs/api contract v1.md`.
+ */
+
+
+export {
+    buildPagination,
+    errorBody,
+    itemBody,
+    listBody,
+    sessionRoleFrom,
+    BASE_PATH,
+    DAY_TYPES,
+    DEFAULT_LIMIT,
+    DEFAULT_PAGE,
+    ERROR_CODES,
+    JURISDICTIONS,
+    MAX_LIMIT,
+    MIN_LIMIT,
+    ROLES,
+    SESSION_ROLES,
+    type ChangePasswordRequest,
+    type CreateLawyerRequest,
+    type CreateUserRequest,
+    type DayType,
+    type ErrorBody,
+    type ErrorCode,
+    type ItemResponse,
+    type Jurisdiction,
+    type Lawyer,
+    type ListResponse,
+    type LoginErrorBody,
+    type LoginRequest,
+    type PaginatedQuery,
+    type Pagination,
+    type ProceduralState,
+    type ProceduralStatesQuery,
+    type Role,
+    type Session,
+    type SessionRole,
+    type SessionUser,
+    type UpdateUserRequest,
+    type User,
+    type UsersQuery,
+} from './contract';
+
+export {
+    db,
+    issueToken,
+    resetMockDb,
+    revokeToken,
+    userFromToken,
+    type MockDb,
+} from './db';
+
+export {
+    CREDENTIALS,
+    DEFAULT_PASSWORD,
+    EXPIRES_IN,
+    LAWYERS,
+    PROCEDURAL_STATES,
+    PROTECTED_ADMIN_USER,
+    USERS,
+    USERS_WITH_DEPENDENCIES,
+    USER_LAWYER,
+} from './fixtures';
+
+export {
+    resolveRequest,
+    IMPLEMENTED_ENDPOINTS,
+    type HttpMethod,
+    type MockRequest,
+} from './handlers';
+
+export {
+    businessRuleViolation,
+    ERRORS,
+    NO_CONTENT,
+    RESPONSES,
+    type BusinessRuleOperation,
+    type MockResponse,
+} from './responses';
