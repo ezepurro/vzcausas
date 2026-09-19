@@ -1,23 +1,23 @@
 import type { ButtonHTMLAttributes } from 'react';
-import { Icon, type NombreIcono } from './Icon';
+import { Icon, type IconName } from './Icon';
 
 export interface IconButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  nombre: NombreIcono;
+  name: IconName;
   /** obligatorio: el botón no tiene texto visible */
-  etiqueta: string;
+  label: string;
 }
 
 /** Botón cuadrado de 40px con un solo icono. */
-export function IconButton({ nombre, etiqueta, className = '', ...rest }: IconButtonProps) {
+export function IconButton({ name, label, className = '', ...rest }: IconButtonProps) {
   return (
     <button
       type="button"
       className={`vz-iconbtn ${className}`}
-      title={etiqueta}
-      aria-label={etiqueta}
+      title={label}
+      aria-label={label}
       {...rest}
     >
-      <Icon nombre={nombre} tamano={18} />
+      <Icon name={name} size={18} />
     </button>
   );
 }

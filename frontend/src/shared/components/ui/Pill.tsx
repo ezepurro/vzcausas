@@ -1,11 +1,11 @@
 import type { ReactNode } from 'react';
 
-export type TonoPill = 'neutral' | 'ok' | 'warn' | 'danger' | 'primary';
+export type PillTone = 'neutral' | 'ok' | 'warn' | 'danger' | 'primary';
 
 export interface PillProps {
-  tono?: TonoPill;
+  tone?: PillTone;
   /** muestra el punto a la izquierda; 'hollow' lo deja sin relleno */
-  punto?: boolean | 'hollow';
+  dot?: boolean | 'hollow';
   children: ReactNode;
 }
 
@@ -13,10 +13,10 @@ export interface PillProps {
  * Píldora de estado. El tono es decisión de la pantalla:
  * warn = plazo por vencer, danger = vencido o prescripta, ok = al día.
  */
-export function Pill({ tono = 'neutral', punto, children }: PillProps) {
+export function Pill({ tone = 'neutral', dot, children }: PillProps) {
   return (
-    <span className={`vz-pill vz-pill--${tono}`}>
-      {punto && <span className={`vz-dot ${punto === 'hollow' ? 'vz-dot--hollow' : ''}`} />}
+    <span className={`vz-pill vz-pill--${tone}`}>
+      {dot && <span className={`vz-dot ${dot === 'hollow' ? 'vz-dot--hollow' : ''}`} />}
       {children}
     </span>
   );

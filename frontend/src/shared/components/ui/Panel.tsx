@@ -1,32 +1,32 @@
 import type { ReactNode } from 'react';
 
 export interface PanelProps {
-  titulo?: string;
+  title?: string;
   sub?: string;
   /** controles a la derecha de la cabecera: filtros, botón de alta */
-  acciones?: ReactNode;
+  actions?: ReactNode;
   /** nota al pie del panel: reglas de negocio, aclaraciones */
-  pie?: ReactNode;
+  footer?: ReactNode;
   children: ReactNode;
 }
 
 /** Contenedor con cabecera y pie. Envuelve tablas, formularios y listas. */
-export function Panel({ titulo, sub, acciones, pie, children }: PanelProps) {
+export function Panel({ title, sub, actions, footer, children }: PanelProps) {
   return (
     <section className="vz-panel">
-      {(titulo || acciones) && (
+      {(title || actions) && (
         <header className="vz-panel__head">
-          {titulo && (
+          {title && (
             <div>
-              <div className="vz-panel__title">{titulo}</div>
+              <div className="vz-panel__title">{title}</div>
               {sub && <div className="vz-panel__sub">{sub}</div>}
             </div>
           )}
-          {acciones && <div className="vz-filters">{acciones}</div>}
+          {actions && <div className="vz-filters">{actions}</div>}
         </header>
       )}
       {children}
-      {pie && <footer className="vz-panel__foot">{pie}</footer>}
+      {footer && <footer className="vz-panel__foot">{footer}</footer>}
     </section>
   );
 }

@@ -3,41 +3,41 @@ import { Button } from '../ui/Button';
 import { Modal } from '../ui/Modal';
 import { Field, TextInput, Select, Textarea, Checkbox, FormSection } from './Field';
 
-export type TipoCampo = 'texto' | 'pass' | 'select' | 'date' | 'area' | 'check' | 'seccion';
+export type FieldType = 'text' | 'pass' | 'select' | 'date' | 'area' | 'check' | 'section';
 
-export type ValoresForm = Record<string, string | boolean>;
+export type FormValues = Record<string, string | boolean>;
 
-export interface CampoSpec {
-  /** clave del valor; no hace falta en 'seccion' */
+export interface FieldSpec {
+  /** clave del valor; no hace falta en 'section' */
   k?: string;
   label: string;
-  tipo?: TipoCampo;
-  ancho?: 'half' | 'full';
-  requerido?: boolean;
+  type?: FieldType;
+  width?: 'half' | 'full';
+  required?: boolean;
   mono?: boolean;
   placeholder?: string;
-  nota?: ReactNode;
-  opciones?: string[];
+  note?: ReactNode;
+  options?: string[];
   /** muestra el campo solo si devuelve true; recibe los valores actuales */
-  si?: (valores: ValoresForm) => boolean;
+  when?: (values: FormValues) => boolean;
 }
 
 export interface FormModalProps {
-  titulo: string;
+  title: string;
   sub?: string;
   /** aclaración destacada arriba del formulario: reglas de negocio, advertencias */
-  nota?: ReactNode;
-  tono?: 'normal' | 'danger';
-  ancho?: 'sm' | 'md' | 'lg';
-  campos?: CampoSpec[];
-  valores: ValoresForm;
-  onCambiar: (k: string, v: string | boolean) => void;
+  note?: ReactNode;
+  tone?: 'normal' | 'danger';
+  width?: 'sm' | 'md' | 'lg';
+  fields?: FieldSpec[];
+  values: FormValues;
+  onChange: (k: string, v: string | boolean) => void;
   okLabel?: string;
-  cancelarLabel?: string;
+  cancelLabel?: string;
   /** deshabilita el confirmar; la validación vive en la pantalla */
-  okDeshabilitado?: boolean;
-  onConfirmar: () => void;
-  onCancelar: () => void;
+  okDisabled?: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
   /** contenido propio además de los campos declarados */
   children?: ReactNode;
 }
@@ -45,56 +45,56 @@ export interface FormModalProps {
 /**
  * Modal de formulario declarativo: los campos se describen como datos y el
  * modal los dibuja. Cubre alta, modificación y confirmación de baja.
- * No valida ni guarda: avisa con onConfirmar y la pantalla decide.
+ * No valida ni guarda: avisa con onConfirm y la pantalla decide.
  */
 export function FormModal({
-  titulo, sub, nota, tono = 'normal', ancho = 'md', campos = [],
-  valores, onCambiar, okLabel = 'Confirmar', cancelarLabel = 'Cancelar',
-  okDeshabilitado, onConfirmar, onCancelar, children,
+  title, sub, note, tone = 'normal', width = 'md', fields = [],
+  values, onChange, okLabel = 'Confirmar', cancelLabel = 'Cancelar',
+  okDisabled, onConfirm, onCancel, children,
 }: FormModalProps) {
-  const visibles = campos.filter((c) => !c.si || c.si(valores));
+  const visible = fields.filter((c) => !c.when || c.when(values));
 
   return (
     <Modal
-      titulo={titulo}
+      title={title}
       sub={sub}
-      ancho={ancho}
-      onCerrar={onCancelar}
-      pie={
+      width={width}
+      onClose={onCancel}
+      footer={
         <>
-          <Button variante="secondary" onClick={onCancelar}>{cancelarLabel}</Button>
+          <Button variant="secondary" onClick={onCancel}>{cancelLabel}</Button>
           <Button
-            variante={tono === 'danger' ? 'danger' : 'primary'}
-            disabled={okDeshabilitado}
-            onClick={onConfirmar}
+            variant={tone === 'danger' ? 'danger' : 'primary'}
+            disabled={okDisabled}
+            onClick={onConfirm}
           >
             {okLabel}
           </Button>
         </>
       }
     >
-      {nota && (
-        <p className={`vz-modal__note ${tono === 'danger' ? 'vz-modal__note--danger' : ''}`}>
-          {nota}
+      {note && (
+        <p className={`vz-modal__note ${tone === 'danger' ? 'vz-modal__note--danger' : ''}`}>
+          {note}
         </p>
       )}
 
-      {visibles.length > 0 && (
+      {visible.length > 0 && (
         <div className="vz-form-grid">
-          {visibles.map((c, i) => {
-            if (c.tipo === 'seccion') return <FormSection key={`s${i}`} label={c.label} />;
+          {visible.map((c, i) => {
+            if (c.type === 'section') return <FormSection key={`s${i}`} label={c.label} />;
 
             const k = c.k as string;
-            const id = `campo-${k}`;
-            const valor = valores[k];
+            const id = `field-${k}`;
+            const value = values[k];
 
-            if (c.tipo === 'check') {
+            if (c.type === 'check') {
               return (
-                <div key={k} className={c.ancho === 'half' ? '' : 'vz-col-full'}>
+                <div key={k} className={c.width === 'half' ? '' : 'vz-col-full'}>
                   <Checkbox
                     label={c.label}
-                    checked={Boolean(valor)}
-                    onChange={(e) => onCambiar(k, e.target.checked)}
+                    checked={Boolean(value)}
+                    onChange={(e) => onChange(k, e.target.checked)}
                   />
                 </div>
               );
@@ -104,33 +104,33 @@ export function FormModal({
               <Field
                 key={k}
                 label={c.label}
-                requerido={c.requerido}
-                nota={c.nota}
-                ancho={c.ancho ?? 'full'}
+                required={c.required}
+                note={c.note}
+                width={c.width ?? 'full'}
                 htmlFor={id}
               >
-                {c.tipo === 'select' ? (
+                {c.type === 'select' ? (
                   <Select
                     id={id}
-                    opciones={c.opciones ?? []}
-                    value={String(valor ?? '')}
-                    onChange={(e) => onCambiar(k, e.target.value)}
+                    options={c.options ?? []}
+                    value={String(value ?? '')}
+                    onChange={(e) => onChange(k, e.target.value)}
                   />
-                ) : c.tipo === 'area' ? (
+                ) : c.type === 'area' ? (
                   <Textarea
                     id={id}
                     placeholder={c.placeholder}
-                    value={String(valor ?? '')}
-                    onChange={(e) => onCambiar(k, e.target.value)}
+                    value={String(value ?? '')}
+                    onChange={(e) => onChange(k, e.target.value)}
                   />
                 ) : (
                   <TextInput
                     id={id}
-                    type={c.tipo === 'pass' ? 'password' : c.tipo === 'date' ? 'date' : 'text'}
+                    type={c.type === 'pass' ? 'password' : c.type === 'date' ? 'date' : 'text'}
                     mono={c.mono}
                     placeholder={c.placeholder}
-                    value={String(valor ?? '')}
-                    onChange={(e) => onCambiar(k, e.target.value)}
+                    value={String(value ?? '')}
+                    onChange={(e) => onChange(k, e.target.value)}
                   />
                 )}
               </Field>

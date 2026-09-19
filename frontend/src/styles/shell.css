@@ -44,13 +44,13 @@
 /* acción destacada bajo el logo.
    El botón recorta: con el rail colapsado (64px) la etiqueta se esconde
    en lugar de derramarse sobre el fondo oscuro. */
-.vz-rail__accion { padding: 0 12px 4px; }
-.vz-rail__accion .vz-btn { overflow: hidden; }
-.vz-rail__accion-label { display: var(--vz-rail-label); white-space: nowrap; }
+.vz-rail__action { padding: 0 12px 4px; }
+.vz-rail__action .vz-btn { overflow: hidden; }
+.vz-rail__action-label { display: var(--vz-rail-label); white-space: nowrap; }
 
 .vz-rail__nav { flex: 1; display: flex; flex-direction: column; padding: 0 12px; overflow-y: auto; }
-.vz-rail__seccion { display: flex; flex-direction: column; gap: 2px; }
-.vz-rail__seccion + .vz-rail__seccion { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--vz-rail-div); }
+.vz-rail__section { display: flex; flex-direction: column; gap: 2px; }
+.vz-rail__section + .vz-rail__section { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--vz-rail-div); }
 
 .vz-rail__group {
   display: var(--vz-rail-label);
@@ -118,13 +118,13 @@
   font-size: 11px; font-weight: 700;
 }
 .vz-rail__ident { min-width: 0; flex: 1; display: var(--vz-rail-label); }
-.vz-rail__ident-nombre {
+.vz-rail__ident-name {
   color: var(--vz-rail-fg-on);
   font-size: 12.5px;
   font-weight: 600;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.vz-rail__ident-perfil { color: var(--vz-rail-fg); font-size: 11px; }
+.vz-rail__ident-profile { color: var(--vz-rail-fg); font-size: 11px; }
 
 .vz-rail__iconbtn {
   display: var(--vz-rail-label);

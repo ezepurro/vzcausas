@@ -1,4 +1,4 @@
-/* Píldoras, pestañas, modal, toast, estado vacío. */
+/* Píldoras, pestañas, modal, estado vacío. */
 
 /* ─────────── píldora de estado ─────────── */
 .vz-pill {
@@ -85,26 +85,6 @@
   border-top: 1px solid var(--vz-border);
   background: var(--vz-sunken);
 }
-
-/* ─────────── toast ─────────── */
-.vz-toast {
-  position: fixed;
-  bottom: 22px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 95;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  max-width: min(520px, calc(100vw - 32px));
-  padding: 12px 18px;
-  border-radius: var(--vz-r-btn);
-  background: var(--vz-rail);
-  color: #fff;
-  font-size: 13px;
-  box-shadow: var(--vz-pop-sh);
-}
-.vz-toast__dot { width: 7px; height: 7px; flex: 0 0 7px; border-radius: 50%; background: #7FB08A; }
 
 /* ─────────── estado vacío ─────────── */
 .vz-empty {

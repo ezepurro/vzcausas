@@ -1,32 +1,32 @@
 import type { ReactNode } from 'react';
 
 export interface ModalProps {
-  titulo: string;
+  title: string;
   sub?: string;
-  ancho?: 'sm' | 'md' | 'lg';
+  width?: 'sm' | 'md' | 'lg';
   /** botonera del pie; normalmente Cancelar + la acción */
-  pie?: ReactNode;
+  footer?: ReactNode;
   /** click en el fondo o Escape */
-  onCerrar: () => void;
+  onClose: () => void;
   children: ReactNode;
 }
 
 /** Caparazón de modal: fondo, tarjeta, cabecera, cuerpo scrolleable y pie. */
-export function Modal({ titulo, sub, ancho = 'md', pie, onCerrar, children }: ModalProps) {
+export function Modal({ title, sub, width = 'md', footer, onClose, children }: ModalProps) {
   return (
-    <div className="vz-modal-backdrop" role="dialog" aria-modal="true" onClick={onCerrar}>
+    <div className="vz-modal-backdrop" role="dialog" aria-modal="true" onClick={onClose}>
       <div
-        className={`vz-modal ${ancho !== 'md' ? `vz-modal--${ancho}` : ''}`}
+        className={`vz-modal ${width !== 'md' ? `vz-modal--${width}` : ''}`}
         onClick={(e) => e.stopPropagation()}
       >
         <header className="vz-modal__head">
-          <h2 className="vz-modal__title">{titulo}</h2>
+          <h2 className="vz-modal__title">{title}</h2>
           {sub && <p className="vz-modal__sub">{sub}</p>}
         </header>
 
         <div className="vz-modal__body">{children}</div>
 
-        {pie && <footer className="vz-modal__foot">{pie}</footer>}
+        {footer && <footer className="vz-modal__foot">{footer}</footer>}
       </div>
     </div>
   );

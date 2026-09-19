@@ -5,7 +5,7 @@ import {
     Logo,
     RailUser,
     SearchInput,
-    type GrupoRail,
+    type RailGroup,
 } from '@/shared/components/ui'
 
 /**
@@ -25,25 +25,28 @@ import {
  * Están TODAS las secciones del sistema, no sólo las del sprint: se navega
  * la aplicación entera desde el primer día. Las que todavía no tienen
  * pantalla caen en la ruta de "no encontrada" del router.
+ *
+ * Las rutas y las etiquetas quedan en castellano a propósito: son parte del
+ * producto, que es en castellano. Lo que está en inglés es el código.
  */
-const GRUPOS: GrupoRail[] = [
+const GROUPS: RailGroup[] = [
     {
         label: 'Trabajo diario',
         items: [
-            { id: '/inicio', label: 'Inicio', icono: 'inicio' },
-            { id: '/causas', label: 'Causas', icono: 'causas' },
-            { id: '/vencimientos', label: 'Vencimientos', icono: 'vencimientos' },
-            { id: '/clientes', label: 'Clientes', icono: 'clientes' },
-            { id: '/modelos', label: 'Modelos', icono: 'modelos' },
+            { id: '/inicio', label: 'Inicio', icon: 'home' },
+            { id: '/causas', label: 'Causas', icon: 'cases' },
+            { id: '/vencimientos', label: 'Vencimientos', icon: 'deadlines' },
+            { id: '/clientes', label: 'Clientes', icon: 'clients' },
+            { id: '/modelos', label: 'Modelos', icon: 'templates' },
         ],
     },
     {
         label: 'Administración',
         items: [
-            { id: '/usuarios', label: 'Usuarios', icono: 'usuarios' },
-            { id: '/abogados', label: 'Abogados', icono: 'abogados' },
-            { id: '/estados-y-plazos', label: 'Estados y plazos', icono: 'plazos' },
-            { id: '/reportes', label: 'Reportes', icono: 'reportes' },
+            { id: '/usuarios', label: 'Usuarios', icon: 'users' },
+            { id: '/abogados', label: 'Abogados', icon: 'lawyers' },
+            { id: '/estados-y-plazos', label: 'Estados y plazos', icon: 'timeLimits' },
+            { id: '/reportes', label: 'Reportes', icon: 'reports' },
         ],
     },
 ]
@@ -52,7 +55,7 @@ const GRUPOS: GrupoRail[] = [
  * Usuario de prueba hasta que exista el inicio de sesión (HU 1).
  * Cuando esté, el nombre y el perfil salen de la sesión y esto se borra.
  */
-const USUARIO_PROVISORIO = { nombre: 'Fernando G. Vázquez', perfil: 'Administrador' }
+const PLACEHOLDER_USER = { name: 'Fernando G. Vázquez', profile: 'Administrador' }
 
 export function AppLayout() {
     const navigate = useNavigate()
@@ -60,33 +63,33 @@ export function AppLayout() {
 
     /* El ítem activo es aquel cuya ruta es la actual o el comienzo de la
        actual: estando en /usuarios/8 tiene que quedar marcado Usuarios. */
-    const activo =
-        GRUPOS.flatMap((g) => g.items)
+    const active =
+        GROUPS.flatMap((g) => g.items)
             .map((it) => it.id)
-            .find((ruta) => pathname === ruta || pathname.startsWith(`${ruta}/`)) ?? ''
+            .find((route) => pathname === route || pathname.startsWith(`${route}/`)) ?? ''
 
     return (
         <AppShell
-            grupos={GRUPOS}
-            activo={activo}
-            onNavegar={(ruta) => navigate(ruta)}
-            marca={<Logo />}
-            barraSuperior={
+            groups={GROUPS}
+            active={active}
+            onNavigate={(route) => navigate(route)}
+            brand={<Logo />}
+            topBar={
                 <>
                     <SearchInput placeholder="Buscar por carátula, SAC o cliente" aria-label="Buscar" />
                     <div className="vz-topbar__right">
-                        <IconButton nombre="notificaciones" etiqueta="Notificaciones" />
+                        <IconButton name="notifications" label="Notificaciones" />
                     </div>
                 </>
             }
-            pieRail={
+            railFooter={
                 <RailUser
-                    nombre={USUARIO_PROVISORIO.nombre}
-                    perfil={USUARIO_PROVISORIO.perfil}
+                    name={PLACEHOLDER_USER.name}
+                    profile={PLACEHOLDER_USER.profile}
                     // Las dos acciones son de la épica de sesión (HU 2 y HU 3).
                     // Por ahora sólo la salida tiene a dónde ir.
-                    onCambiarContrasena={() => {}}
-                    onCerrarSesion={() => navigate('/login')}
+                    onChangePassword={() => {}}
+                    onLogout={() => navigate('/login')}
                 />
             }
         >

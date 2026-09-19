@@ -5,29 +5,29 @@ import type {
 export interface FieldProps {
   label: string;
   /** marca el asterisco: es señalización visual, la validación va afuera */
-  requerido?: boolean;
+  required?: boolean;
   /** aclaración bajo el campo */
-  nota?: ReactNode;
+  note?: ReactNode;
   /** mensaje de error; lo decide la pantalla */
   error?: string;
   /** ocupa las dos columnas de .vz-form-grid */
-  ancho?: 'half' | 'full';
+  width?: 'half' | 'full';
   htmlFor?: string;
   children: ReactNode;
 }
 
 /** Envoltorio de campo: etiqueta, control, nota y error. */
 export function Field({
-  label, requerido, nota, error, ancho = 'full', htmlFor, children,
+  label, required, note, error, width = 'full', htmlFor, children,
 }: FieldProps) {
   return (
-    <div className={`vz-field ${error ? 'vz-field--error' : ''} ${ancho === 'full' ? 'vz-col-full' : ''}`}>
+    <div className={`vz-field ${error ? 'vz-field--error' : ''} ${width === 'full' ? 'vz-col-full' : ''}`}>
       <label className="vz-label" htmlFor={htmlFor}>
         {label}
-        {requerido && <span className="vz-label__req">*</span>}
+        {required && <span className="vz-label__req">*</span>}
       </label>
       {children}
-      {nota && !error && <div className="vz-note">{nota}</div>}
+      {note && !error && <div className="vz-note">{note}</div>}
       {error && <div className="vz-error">{error}</div>}
     </div>
   );
@@ -40,11 +40,11 @@ export function TextInput({ mono, className = '', ...rest }: InputHTMLAttributes
 }
 
 export function Select({
-  opciones, className = '', ...rest
-}: SelectHTMLAttributes<HTMLSelectElement> & { opciones: string[] }) {
+  options, className = '', ...rest
+}: SelectHTMLAttributes<HTMLSelectElement> & { options: string[] }) {
   return (
     <select className={`vz-select ${className}`} {...rest}>
-      {opciones.map((o) => <option key={o} value={o}>{o}</option>)}
+      {options.map((o) => <option key={o} value={o}>{o}</option>)}
     </select>
   );
 }

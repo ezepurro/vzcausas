@@ -1,14 +1,14 @@
 export { AppShell } from './AppShell';
-export type { AppShellProps, GrupoRail, ItemRail } from './AppShell';
+export type { AppShellProps, RailGroup, RailItem } from './AppShell';
 
 export { Button } from './Button';
 export type { ButtonProps } from './Button';
 
 export { DataTable } from './DataTable';
-export type { Columna, DataTableProps } from './DataTable';
+export type { Column, DataTableProps } from './DataTable';
 
-export { Icon, ICONOS } from './Icon';
-export type { IconProps, NombreIcono } from './Icon';
+export { Icon, ICONS } from './Icon';
+export type { IconName, IconProps } from './Icon';
 
 export { IconButton } from './IconButton';
 export type { IconButtonProps } from './IconButton';
@@ -25,7 +25,7 @@ export { Panel } from './Panel';
 export type { PanelProps } from './Panel';
 
 export { Pill } from './Pill';
-export type { PillProps, TonoPill } from './Pill';
+export type { PillProps, PillTone } from './Pill';
 
 export { RailUser } from './RailUser';
 export type { RailUserProps } from './RailUser';

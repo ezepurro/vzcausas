@@ -1,28 +1,28 @@
 import type { ReactNode } from 'react';
 
-export interface Columna<T> {
+export interface Column<T> {
   /** clave estable de la columna */
   id: string;
-  encabezado: string;
+  header: string;
   /** contenido de la celda, ya formateado por la pantalla */
-  celda: (fila: T) => ReactNode;
+  cell: (row: T) => ReactNode;
   /** tipografía monoespaciada: SAC, fechas, matrículas, importes */
   mono?: boolean;
   /** no parte el contenido en dos renglones */
   nowrap?: boolean;
   /** alinea a la derecha; usalo para la columna de acciones */
-  acciones?: boolean;
-  ancho?: string;
+  actions?: boolean;
+  width?: string;
 }
 
 export interface DataTableProps<T> {
-  columnas: Columna<T>[];
-  filas: T[];
-  claveFila: (fila: T) => string;
+  columns: Column<T>[];
+  rows: T[];
+  rowKey: (row: T) => string;
   /** ancho mínimo antes de que la tabla scrollee en horizontal */
-  anchoMinimo?: number;
+  minWidth?: number;
   /** se muestra en lugar del cuerpo cuando no hay filas */
-  vacio?: ReactNode;
+  empty?: ReactNode;
 }
 
 /**
@@ -30,35 +30,35 @@ export interface DataTableProps<T> {
  * Las filas llegan ya ordenadas y formateadas desde la pantalla.
  */
 export function DataTable<T>({
-  columnas, filas, claveFila, anchoMinimo = 960, vacio,
+  columns, rows, rowKey, minWidth = 960, empty,
 }: DataTableProps<T>) {
-  if (filas.length === 0 && vacio) return <>{vacio}</>;
+  if (rows.length === 0 && empty) return <>{empty}</>;
 
   return (
     <div className="vz-panel__scroll">
-      <table className="vz-table" style={{ minWidth: anchoMinimo }}>
+      <table className="vz-table" style={{ minWidth }}>
         <thead>
           <tr>
-            {columnas.map((c) => (
+            {columns.map((c) => (
               <th
                 key={c.id}
                 scope="col"
-                style={{ width: c.ancho, textAlign: c.acciones ? 'right' : undefined }}
+                style={{ width: c.width, textAlign: c.actions ? 'right' : undefined }}
               >
-                {c.encabezado}
+                {c.header}
               </th>
             ))}
           </tr>
         </thead>
         <tbody>
-          {filas.map((f) => (
-            <tr key={claveFila(f)}>
-              {columnas.map((c) => (
+          {rows.map((r) => (
+            <tr key={rowKey(r)}>
+              {columns.map((c) => (
                 <td
                   key={c.id}
                   className={[c.mono ? 'vz-table__num' : '', c.nowrap ? 'vz-table__nowrap' : ''].filter(Boolean).join(' ')}
                 >
-                  {c.acciones ? <div className="vz-table__actions">{c.celda(f)}</div> : c.celda(f)}
+                  {c.actions ? <div className="vz-table__actions">{c.cell(r)}</div> : c.cell(r)}
                 </td>
               ))}
             </tr>

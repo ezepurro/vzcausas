@@ -1,45 +1,45 @@
 import { Icon } from './Icon';
 
 export interface RailUserProps {
-  nombre: string;
-  perfil: string;
+  name: string;
+  profile: string;
   /** iniciales para el avatar; si no viene se derivan del nombre */
-  iniciales?: string;
-  onCambiarContrasena: () => void;
-  onCerrarSesion: () => void;
+  initials?: string;
+  onChangePassword: () => void;
+  onLogout: () => void;
 }
 
-const derivar = (nombre: string) =>
-  nombre.split(' ').filter(Boolean).slice(0, 2).map((p) => p[0]).join('').toUpperCase();
+const deriveInitials = (name: string) =>
+  name.split(' ').filter(Boolean).slice(0, 2).map((p) => p[0]).join('').toUpperCase();
 
 /** Pie del rail: quién está adentro, cambiar contraseña y cerrar sesión. */
 export function RailUser({
-  nombre, perfil, iniciales, onCambiarContrasena, onCerrarSesion,
+  name, profile, initials, onChangePassword, onLogout,
 }: RailUserProps) {
   return (
     <div className="vz-rail__user">
-      <span className="vz-rail__avatar" title={nombre}>{iniciales ?? derivar(nombre)}</span>
+      <span className="vz-rail__avatar" title={name}>{initials ?? deriveInitials(name)}</span>
       <div className="vz-rail__ident">
-        <div className="vz-rail__ident-nombre">{nombre}</div>
-        <div className="vz-rail__ident-perfil">{perfil}</div>
+        <div className="vz-rail__ident-name">{name}</div>
+        <div className="vz-rail__ident-profile">{profile}</div>
       </div>
       <button
         type="button"
         className="vz-rail__iconbtn"
         title="Cambiar contraseña"
         aria-label="Cambiar contraseña"
-        onClick={onCambiarContrasena}
+        onClick={onChangePassword}
       >
-        <Icon nombre="contrasena" />
+        <Icon name="password" />
       </button>
       <button
         type="button"
         className="vz-rail__iconbtn"
         title="Cerrar sesión"
         aria-label="Cerrar sesión"
-        onClick={onCerrarSesion}
+        onClick={onLogout}
       >
-        <Icon nombre="salir" />
+        <Icon name="logout" />
       </button>
     </div>
   );

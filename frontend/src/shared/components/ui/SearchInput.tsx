@@ -7,7 +7,7 @@ export function SearchInput({
 }: InputHTMLAttributes<HTMLInputElement>) {
   return (
     <div className={`vz-search ${className}`}>
-      <Icon nombre="buscar" tamano={16} className="vz-search__icon" />
+      <Icon name="search" size={16} className="vz-search__icon" />
       <input type="search" className="vz-search__input" {...rest} />
     </div>
   );

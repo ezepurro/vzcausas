@@ -1,0 +1,175 @@
+/**
+ * Datos semilla del mock.
+ *
+ * Son constantes de sólo lectura: el servidor falso trabaja sobre una copia
+ * (ver `db.ts`), así que se pueden importar desde un test o una pantalla sin
+ * miedo a que alguien las haya mutado antes.
+ *
+ * El volumen está elegido a propósito para que la paginación del contrato se
+ * pueda probar: con el `limit` por defecto de 20 los usuarios dan 2 páginas y
+ * los estados procesales también.
+ */
+
+import type { Lawyer, ProceduralState, User } from './contract';
+
+/* ------------------------------------------------------------------ */
+/* Credenciales                                                        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Contraseña de todos los usuarios semilla, salvo las de `CREDENTIALS`.
+ * El contrato usa `admin` / `password` en el ejemplo del login.
+ */
+export const DEFAULT_PASSWORD = 'password';
+
+/** Contraseñas por usuario. Lo que no esté acá usa `DEFAULT_PASSWORD`. */
+export const CREDENTIALS: Record<string, string> = {
+    admin: 'password',
+    jperez: 'abogado123',
+    mdominguez: 'secre123',
+};
+
+/** Segundos de vigencia del token, como en el ejemplo del contrato. */
+export const EXPIRES_IN = 3600;
+
+/**
+ * Prefijo del token falso. Se completa con el id del usuario y un contador
+ * para que dos logins no devuelvan el mismo string.
+ */
+export const TOKEN_PREFIX = 'eyJhbGciOi';
+
+/* ------------------------------------------------------------------ */
+/* Abogados                                                            */
+/* ------------------------------------------------------------------ */
+
+export const LAWYERS: readonly Lawyer[] = [
+    { id: 1, firstName: 'Juan', lastName: 'Pérez', registrationNumber: 'MP-12345', email: 'juan.perez@example.com', phone: '351249249' },
+    { id: 2, firstName: 'María', lastName: 'Domínguez', registrationNumber: 'MP-10482', email: 'maria.dominguez@example.com', phone: '351204871' },
+    { id: 3, firstName: 'Carlos', lastName: 'Bianchi', registrationNumber: 'MP-20713', email: 'carlos.bianchi@example.com', phone: '351663094' },
+    { id: 4, firstName: 'Lucía', lastName: 'Fernández', registrationNumber: 'MP-31860', email: 'lucia.fernandez@example.com', phone: '351778512' },
+    { id: 5, firstName: 'Martín', lastName: 'Quiroga', registrationNumber: 'MP-14509', email: 'martin.quiroga@example.com', phone: '351330927' },
+    { id: 6, firstName: 'Sofía', lastName: 'Ledesma', registrationNumber: 'MP-27341', email: 'sofia.ledesma@example.com', phone: '351415688' },
+    { id: 7, firstName: 'Diego', lastName: 'Arrieta', registrationNumber: 'MP-18904', email: 'diego.arrieta@example.com', phone: '351902374' },
+    { id: 8, firstName: 'Valeria', lastName: 'Sosa', registrationNumber: 'MP-22615', email: 'valeria.sosa@example.com', phone: '351586210' },
+    { id: 9, firstName: 'Ramiro', lastName: 'Ocampo', registrationNumber: 'MP-30128', email: 'ramiro.ocampo@example.com', phone: '351247733' },
+    { id: 10, firstName: 'Agustina', lastName: 'Ferreyra', registrationNumber: 'MP-11736', email: 'agustina.ferreyra@example.com', phone: '351860145' },
+    { id: 11, firstName: 'Nicolás', lastName: 'Vargas', registrationNumber: 'MP-25490', email: 'nicolas.vargas@example.com', phone: '351119802' },
+    { id: 12, firstName: 'Paula', lastName: 'Cabrera', registrationNumber: 'MP-19052', email: 'paula.cabrera@example.com', phone: '351374026' },
+    { id: 13, firstName: 'Federico', lastName: 'Luna', registrationNumber: 'MP-28317', email: 'federico.luna@example.com', phone: '351650918' },
+    { id: 14, firstName: 'Camila', lastName: 'Ibarra', registrationNumber: 'MP-13664', email: 'camila.ibarra@example.com', phone: '351298470' },
+];
+
+/* ------------------------------------------------------------------ */
+/* Usuarios                                                            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * 22 usuarios: el `admin` del contrato, abogados con cuenta, secretaría y
+ * dos casos mixtos (`role` con dos entradas) para que la UI no asuma que el
+ * arreglo tiene siempre un solo elemento.
+ */
+export const USERS: readonly User[] = [
+    { id: 1, username: 'admin', role: ['ADMINISTATOR'] },
+    { id: 2, username: 'jperez', role: ['LAWYER', 'ADMINISTATOR'] },
+    { id: 3, username: 'mdominguez', role: ['SECRETARIAT'] },
+    { id: 4, username: 'cbianchi', role: ['LAWYER'] },
+    { id: 5, username: 'lfernandez', role: ['LAWYER'] },
+    { id: 6, username: 'mquiroga', role: ['LAWYER'] },
+    { id: 7, username: 'sledesma', role: ['LAWYER', 'SECRETARIAT'] },
+    { id: 8, username: 'darrieta', role: ['LAWYER'] },
+    { id: 9, username: 'vsosa', role: ['LAWYER'] },
+    { id: 10, username: 'rocampo', role: ['LAWYER'] },
+    { id: 11, username: 'aferreyra', role: ['LAWYER'] },
+    { id: 12, username: 'nvargas', role: ['LAWYER'] },
+    { id: 13, username: 'pcabrera', role: ['LAWYER'] },
+    { id: 14, username: 'fluna', role: ['LAWYER'] },
+    { id: 15, username: 'cibarra', role: ['LAWYER'] },
+    { id: 16, username: 'rmoyano', role: ['SECRETARIAT'] },
+    { id: 17, username: 'gsalinas', role: ['SECRETARIAT'] },
+    { id: 18, username: 'ynunez', role: ['SECRETARIAT'] },
+    { id: 19, username: 'ltoledo', role: ['SECRETARIAT'] },
+    { id: 20, username: 'earroyo', role: ['SECRETARIAT'] },
+    { id: 21, username: 'supervision', role: ['ADMINISTATOR'] },
+    { id: 22, username: 'mesaentrada', role: ['SECRETARIAT'] },
+];
+
+/**
+ * Qué usuario corresponde a qué abogado.
+ *
+ * El contrato manda `abogadoId` al crear un usuario pero **no lo devuelve**
+ * en ninguna respuesta, así que el vínculo no vive dentro de `User`. Se
+ * guarda acá aparte para poder aplicar la regla "un usuario LAWYER tiene que
+ * tener abogado asociado" sin inventar campos que el contrato no define.
+ */
+export const USER_LAWYER: Readonly<Record<number, number>> = {
+    2: 1,
+    4: 3,
+    5: 4,
+    6: 5,
+    7: 6,
+    8: 7,
+    9: 8,
+    10: 9,
+    11: 10,
+    12: 11,
+    13: 12,
+    14: 13,
+    15: 14,
+};
+
+/* ------------------------------------------------------------------ */
+/* Estados procesales                                                  */
+/* ------------------------------------------------------------------ */
+
+/**
+ * 27 estados repartidos en los seis fueros, para que el filtro
+ * `jurisdiction` devuelva conjuntos de distinto tamaño.
+ *
+ * `proceduralTimeLimit` es string porque así lo define el contrato.
+ */
+export const PROCEDURAL_STATES: readonly ProceduralState[] = [
+    { id: 1, name: 'ALLEGATION', jurisdiction: 'ADMINISTRATIVE', proceduralTimeLimit: '10', dayType: 'BUSINESS' },
+    { id: 2, name: 'ADMINISTRATIVE_APPEAL', jurisdiction: 'ADMINISTRATIVE', proceduralTimeLimit: '15', dayType: 'BUSINESS' },
+    { id: 3, name: 'EVIDENCE_PRODUCTION', jurisdiction: 'ADMINISTRATIVE', proceduralTimeLimit: '20', dayType: 'BUSINESS' },
+    { id: 4, name: 'HIERARCHICAL_APPEAL', jurisdiction: 'ADMINISTRATIVE', proceduralTimeLimit: '15', dayType: 'BUSINESS' },
+    { id: 5, name: 'FINAL_RESOLUTION', jurisdiction: 'ADMINISTRATIVE', proceduralTimeLimit: '30', dayType: 'BUSINESS' },
+    { id: 6, name: 'PRELIMINARY_INQUIRY', jurisdiction: 'CRIMINAL', proceduralTimeLimit: '20', dayType: 'CONSECUTIVE' },
+    { id: 7, name: 'INDICTMENT', jurisdiction: 'CRIMINAL', proceduralTimeLimit: '10', dayType: 'BUSINESS' },
+    { id: 8, name: 'PRECAUTIONARY_MEASURE', jurisdiction: 'CRIMINAL', proceduralTimeLimit: '5', dayType: 'CONSECUTIVE' },
+    { id: 9, name: 'ORAL_TRIAL', jurisdiction: 'CRIMINAL', proceduralTimeLimit: '60', dayType: 'CONSECUTIVE' },
+    { id: 10, name: 'CASSATION_APPEAL', jurisdiction: 'CRIMINAL', proceduralTimeLimit: '20', dayType: 'BUSINESS' },
+    { id: 11, name: 'CASE_DISMISSAL', jurisdiction: 'CRIMINAL', proceduralTimeLimit: '3', dayType: 'BUSINESS' },
+    { id: 12, name: 'CLAIM_FILING', jurisdiction: 'CIVIL', proceduralTimeLimit: '15', dayType: 'BUSINESS' },
+    { id: 13, name: 'ANSWER_TO_CLAIM', jurisdiction: 'CIVIL', proceduralTimeLimit: '15', dayType: 'BUSINESS' },
+    { id: 14, name: 'EVIDENCE_OPENING', jurisdiction: 'CIVIL', proceduralTimeLimit: '40', dayType: 'BUSINESS' },
+    { id: 15, name: 'CLOSING_ARGUMENTS', jurisdiction: 'CIVIL', proceduralTimeLimit: '6', dayType: 'BUSINESS' },
+    { id: 16, name: 'JUDGMENT', jurisdiction: 'CIVIL', proceduralTimeLimit: '40', dayType: 'BUSINESS' },
+    { id: 17, name: 'APPEAL', jurisdiction: 'CIVIL', proceduralTimeLimit: '5', dayType: 'BUSINESS' },
+    { id: 18, name: 'BANKRUPTCY_FILING', jurisdiction: 'COMMERCIAL', proceduralTimeLimit: '10', dayType: 'BUSINESS' },
+    { id: 19, name: 'CREDITOR_VERIFICATION', jurisdiction: 'COMMERCIAL', proceduralTimeLimit: '30', dayType: 'BUSINESS' },
+    { id: 20, name: 'REORGANIZATION_PROPOSAL', jurisdiction: 'COMMERCIAL', proceduralTimeLimit: '90', dayType: 'CONSECUTIVE' },
+    { id: 21, name: 'LABOR_CLAIM', jurisdiction: 'LABOR', proceduralTimeLimit: '10', dayType: 'BUSINESS' },
+    { id: 22, name: 'CONCILIATION_HEARING', jurisdiction: 'LABOR', proceduralTimeLimit: '20', dayType: 'BUSINESS' },
+    { id: 23, name: 'EXPERT_REPORT', jurisdiction: 'LABOR', proceduralTimeLimit: '15', dayType: 'BUSINESS' },
+    { id: 24, name: 'LABOR_APPEAL', jurisdiction: 'LABOR', proceduralTimeLimit: '6', dayType: 'BUSINESS' },
+    { id: 25, name: 'MEDIATION', jurisdiction: 'FAMILY', proceduralTimeLimit: '60', dayType: 'CONSECUTIVE' },
+    { id: 26, name: 'CUSTODY_HEARING', jurisdiction: 'FAMILY', proceduralTimeLimit: '10', dayType: 'BUSINESS' },
+    { id: 27, name: 'ALIMONY_REQUEST', jurisdiction: 'FAMILY', proceduralTimeLimit: '5', dayType: 'BUSINESS' },
+];
+
+/* ------------------------------------------------------------------ */
+/* Reglas de negocio simuladas                                         */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Usuarios que no se pueden borrar: el mock responde `409` con
+ * `USER_HAS_DEPENDENCIES`. Representan cuentas con causas asignadas.
+ */
+export const USERS_WITH_DEPENDENCIES: readonly number[] = [2, 4, 9];
+
+/**
+ * El `admin` original no se puede eliminar ni degradar: el mock responde
+ * `422` con `BUSINESS_RULE_VIOLATION`. Es el caso "el sistema tiene que
+ * conservar al menos un administrador".
+ */
+export const PROTECTED_ADMIN_USER = 1;

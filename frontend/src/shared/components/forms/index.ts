@@ -2,4 +2,4 @@ export { Field, TextInput, Select, Textarea, Checkbox, FormSection } from './Fie
 export type { FieldProps } from './Field';
 
 export { FormModal } from './FormModal';
-export type { CampoSpec, FormModalProps, TipoCampo, ValoresForm } from './FormModal';
+export type { FieldSpec, FieldType, FormModalProps, FormValues } from './FormModal';

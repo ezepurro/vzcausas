@@ -1,64 +1,64 @@
 import type { ReactNode } from 'react';
-import { Icon, type NombreIcono } from './Icon';
+import { Icon, type IconName } from './Icon';
 
-export interface ItemRail {
+export interface RailItem {
   id: string;
   label: string;
-  icono: NombreIcono;
+  icon: IconName;
 }
 
-export interface GrupoRail {
+export interface RailGroup {
   /** título del grupo: 'Trabajo diario', 'Administración' */
   label: string;
-  items: ItemRail[];
+  items: RailItem[];
 }
 
 export interface AppShellProps {
-  grupos: GrupoRail[];
-  activo: string;
-  onNavegar: (id: string) => void;
+  groups: RailGroup[];
+  active: string;
+  onNavigate: (id: string) => void;
   /** logo, o lo que vaya arriba del rail */
-  marca: ReactNode;
+  brand: ReactNode;
   /**
    * Acción destacada bajo el logo: normalmente 'Nueva causa'.
-   * El texto del botón va envuelto en <span className="vz-rail__accion-label">
+   * El texto del botón va envuelto en <span className="vz-rail__action-label">
    * para que se esconda cuando el rail colapsa a 64px.
    */
-  accionRail?: ReactNode;
+  railAction?: ReactNode;
   /** pie del rail: usar <RailUser> */
-  pieRail?: ReactNode;
+  railFooter?: ReactNode;
   /** contenido de la barra superior clara: buscador, avisos, notificaciones */
-  barraSuperior?: ReactNode;
+  topBar?: ReactNode;
   children: ReactNode;
 }
 
 /**
  * Estructura de la aplicación: rail a la izquierda, barra superior y página.
- * No rutea: recibe `activo` y avisa con onNavegar.
+ * No rutea: recibe `active` y avisa con onNavigate.
  */
 export function AppShell({
-  grupos, activo, onNavegar, marca, accionRail, pieRail, barraSuperior, children,
+  groups, active, onNavigate, brand, railAction, railFooter, topBar, children,
 }: AppShellProps) {
   return (
     <div className="vz-app">
       <nav className="vz-rail" aria-label="Navegación principal">
-        {marca}
-        {accionRail && <div className="vz-rail__accion">{accionRail}</div>}
+        {brand}
+        {railAction && <div className="vz-rail__action">{railAction}</div>}
 
         <div className="vz-rail__nav">
-          {grupos.map((g) => (
-            <div key={g.label} className="vz-rail__seccion">
+          {groups.map((g) => (
+            <div key={g.label} className="vz-rail__section">
               <div className="vz-rail__group">{g.label}</div>
               {g.items.map((it) => (
                 <button
                   key={it.id}
                   type="button"
-                  aria-current={it.id === activo ? 'page' : undefined}
-                  className={`vz-rail__item ${it.id === activo ? 'is-on' : ''}`}
-                  onClick={() => onNavegar(it.id)}
+                  aria-current={it.id === active ? 'page' : undefined}
+                  className={`vz-rail__item ${it.id === active ? 'is-on' : ''}`}
+                  onClick={() => onNavigate(it.id)}
                   title={it.label}
                 >
-                  <Icon nombre={it.icono} />
+                  <Icon name={it.icon} />
                   <span className="vz-rail__item-label">{it.label}</span>
                 </button>
               ))}
@@ -66,11 +66,11 @@ export function AppShell({
           ))}
         </div>
 
-        {pieRail}
+        {railFooter}
       </nav>
 
       <div className="vz-main">
-        {barraSuperior && <header className="vz-topbar">{barraSuperior}</header>}
+        {topBar && <header className="vz-topbar">{topBar}</header>}
         <main className="vz-page">{children}</main>
       </div>
     </div>
