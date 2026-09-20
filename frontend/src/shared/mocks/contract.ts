@@ -58,18 +58,19 @@ export function sessionRoleFrom(roles: Role[]): SessionRole {
 /**
  * Fueros de los estados procesales.
  *
- * El contrato sólo nombra `ADMINISTRATIVE` y `CRIMINAL`; los otros cuatro se
- * agregan para que el filtro `jurisdiction` tenga algo que filtrar. Si el
- * backend publica la lista real, se reemplaza esta constante.
+ * El contrato sólo nombra `ADMINISTRATIVE` y `CRIMINAL`. `AMPARO` lo agrega
+ * este equipo: es el tercer fuero con el que trabaja el estudio —ver el
+ * prototipo y `docs/TRADUCCION_DOMINIO.md`, donde `Amparo` figura como
+ * término que no se traduce— y sin él no entra la mitad del ciclo de vida
+ * real.
+ *
+ * Antes había cuatro fueros más (CIVIL, COMMERCIAL, LABOR, FAMILY) que el
+ * mock había inventado para que el filtro tuviera algo que filtrar. Se
+ * sacaron: inventaban dominio que el estudio no usa.
+ *
+ * PROPUESTA: hay que confirmar la lista con el backend.
  */
-export const JURISDICTIONS = [
-    'ADMINISTRATIVE',
-    'CRIMINAL',
-    'CIVIL',
-    'COMMERCIAL',
-    'LABOR',
-    'FAMILY',
-] as const;
+export const JURISDICTIONS = ['ADMINISTRATIVE', 'CRIMINAL', 'AMPARO'] as const;
 export type Jurisdiction = (typeof JURISDICTIONS)[number];
 
 /** Cómo se cuentan los días de un plazo procesal. */
@@ -177,6 +178,31 @@ export interface CreateLawyerRequest {
     email: string;
     phone: string;
 }
+
+
+/**
+ * PROPUESTA: el contrato v1 no define el alta de estados procesales.
+ * Ver "Endpoints que no están en el contrato" en el README de esta carpeta.
+ */
+export interface CreateProceduralStateRequest {
+    name: string;
+    jurisdiction: Jurisdiction;
+    /** DIVERGENCIA 5: viaja como string (`"10"`), igual que en la respuesta. */
+    proceduralTimeLimit: string;
+    dayType: DayType;
+}
+
+/**
+ * PROPUESTA. Todos los campos son opcionales, pero hay que mandar al menos
+ * uno: un PATCH vacío responde 400, como en `/users`.
+ */
+export interface UpdateProceduralStateRequest {
+    name?: string;
+    jurisdiction?: Jurisdiction;
+    proceduralTimeLimit?: string;
+    dayType?: DayType;
+}
+
 
 /* ------------------------------------------------------------------ */
 /* Parámetros de consulta                                              */

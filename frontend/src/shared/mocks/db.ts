@@ -29,6 +29,7 @@ export interface MockDb {
     sessions: Map<string, number>;
     nextUserId: number;
     nextLawyerId: number;
+    nextProceduralStateId: number;
     /** Sufijo incremental para que dos logins no devuelvan el mismo token. */
     issuedTokens: number;
 }
@@ -39,6 +40,7 @@ function initialState(): MockDb {
     for (const user of users) {
         passwords.set(user.username, CREDENTIALS[user.username] ?? DEFAULT_PASSWORD);
     }
+    
 
     return {
         users,
@@ -49,6 +51,7 @@ function initialState(): MockDb {
         sessions: new Map(),
         nextUserId: Math.max(...USERS.map((u) => u.id)) + 1,
         nextLawyerId: Math.max(...LAWYERS.map((l) => l.id)) + 1,
+        nextProceduralStateId: Math.max(...PROCEDURAL_STATES.map((s) => s.id)) + 1,
         issuedTokens: 0,
     };
 }

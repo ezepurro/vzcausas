@@ -27,6 +27,11 @@ export const ERROR_CODES = [
     'BUSINESS_RULE_VIOLATION',
     'INVALID_CURRENT_PASSWORD',
     'LAWYER_REGISTRATION_ALREADY_EXISTS',
+    // PROPUESTA: el contrato v1 sólo define GET /procedural-states. Estos dos
+    // códigos acompañan el ABM que este equipo propuso y que hoy sólo existe
+    // en el mock. Ver shared/mocks/README.md.
+    'PROCEDURAL_STATE_ALREADY_EXISTS',
+    'PROCEDURAL_STATE_HAS_DEPENDENCIES',
     'RESOURCE_NOT_FOUND',
     'INTERNAL_SERVER_ERROR',
 ] as const;

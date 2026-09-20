@@ -122,39 +122,57 @@ export const USER_LAWYER: Readonly<Record<number, number>> = {
 /* ------------------------------------------------------------------ */
 
 /**
- * 27 estados repartidos en los seis fueros, para que el filtro
- * `jurisdiction` devuelva conjuntos de distinto tamaño.
+ * 24 estados repartidos en los tres fueros del estudio: el ciclo de vida
+ * completo, tal como lo muestra el prototipo (`frontend/docs/prototypes/`).
+ * Con el `limit=20` por defecto dan dos páginas.
+ *
+ * Los nombres van en castellano y como texto libre, no como constantes en
+ * inglés: es el vocabulario con el que el estudio los escribe en el
+ * expediente, y en un ABM los carga una persona. El ejemplo del contrato usa
+ * `"ALLEGATION"`, pero es sólo un ejemplo.
+ *
+ * "Archivada" aparece en los tres fueros (ids 9, 17 y 24): por eso la
+ * unicidad del mock es por **nombre + fuero** y no por nombre solo.
+ *
+ * HUECO DEL CONTRATO: los estados terminales o de puro trámite no abren
+ * ningún plazo —en el prototipo muestran `—` en la columna "Días"— pero el
+ * contrato no tiene cómo expresarlo. Acá van como `'0'` + `BUSINESS`, que no
+ * es lo mismo: "0 días hábiles" vence hoy, "sin plazo" no vence nunca. Hay
+ * que resolverlo con el backend antes de que el módulo de vencimientos lea
+ * esta tabla.
  *
  * `proceduralTimeLimit` es string porque así lo define el contrato.
  */
 export const PROCEDURAL_STATES: readonly ProceduralState[] = [
-    { id: 1, name: 'ALLEGATION', jurisdiction: 'ADMINISTRATIVE', proceduralTimeLimit: '10', dayType: 'BUSINESS' },
-    { id: 2, name: 'ADMINISTRATIVE_APPEAL', jurisdiction: 'ADMINISTRATIVE', proceduralTimeLimit: '15', dayType: 'BUSINESS' },
-    { id: 3, name: 'EVIDENCE_PRODUCTION', jurisdiction: 'ADMINISTRATIVE', proceduralTimeLimit: '20', dayType: 'BUSINESS' },
-    { id: 4, name: 'HIERARCHICAL_APPEAL', jurisdiction: 'ADMINISTRATIVE', proceduralTimeLimit: '15', dayType: 'BUSINESS' },
-    { id: 5, name: 'FINAL_RESOLUTION', jurisdiction: 'ADMINISTRATIVE', proceduralTimeLimit: '30', dayType: 'BUSINESS' },
-    { id: 6, name: 'PRELIMINARY_INQUIRY', jurisdiction: 'CRIMINAL', proceduralTimeLimit: '20', dayType: 'CONSECUTIVE' },
-    { id: 7, name: 'INDICTMENT', jurisdiction: 'CRIMINAL', proceduralTimeLimit: '10', dayType: 'BUSINESS' },
-    { id: 8, name: 'PRECAUTIONARY_MEASURE', jurisdiction: 'CRIMINAL', proceduralTimeLimit: '5', dayType: 'CONSECUTIVE' },
-    { id: 9, name: 'ORAL_TRIAL', jurisdiction: 'CRIMINAL', proceduralTimeLimit: '60', dayType: 'CONSECUTIVE' },
-    { id: 10, name: 'CASSATION_APPEAL', jurisdiction: 'CRIMINAL', proceduralTimeLimit: '20', dayType: 'BUSINESS' },
-    { id: 11, name: 'CASE_DISMISSAL', jurisdiction: 'CRIMINAL', proceduralTimeLimit: '3', dayType: 'BUSINESS' },
-    { id: 12, name: 'CLAIM_FILING', jurisdiction: 'CIVIL', proceduralTimeLimit: '15', dayType: 'BUSINESS' },
-    { id: 13, name: 'ANSWER_TO_CLAIM', jurisdiction: 'CIVIL', proceduralTimeLimit: '15', dayType: 'BUSINESS' },
-    { id: 14, name: 'EVIDENCE_OPENING', jurisdiction: 'CIVIL', proceduralTimeLimit: '40', dayType: 'BUSINESS' },
-    { id: 15, name: 'CLOSING_ARGUMENTS', jurisdiction: 'CIVIL', proceduralTimeLimit: '6', dayType: 'BUSINESS' },
-    { id: 16, name: 'JUDGMENT', jurisdiction: 'CIVIL', proceduralTimeLimit: '40', dayType: 'BUSINESS' },
-    { id: 17, name: 'APPEAL', jurisdiction: 'CIVIL', proceduralTimeLimit: '5', dayType: 'BUSINESS' },
-    { id: 18, name: 'BANKRUPTCY_FILING', jurisdiction: 'COMMERCIAL', proceduralTimeLimit: '10', dayType: 'BUSINESS' },
-    { id: 19, name: 'CREDITOR_VERIFICATION', jurisdiction: 'COMMERCIAL', proceduralTimeLimit: '30', dayType: 'BUSINESS' },
-    { id: 20, name: 'REORGANIZATION_PROPOSAL', jurisdiction: 'COMMERCIAL', proceduralTimeLimit: '90', dayType: 'CONSECUTIVE' },
-    { id: 21, name: 'LABOR_CLAIM', jurisdiction: 'LABOR', proceduralTimeLimit: '10', dayType: 'BUSINESS' },
-    { id: 22, name: 'CONCILIATION_HEARING', jurisdiction: 'LABOR', proceduralTimeLimit: '20', dayType: 'BUSINESS' },
-    { id: 23, name: 'EXPERT_REPORT', jurisdiction: 'LABOR', proceduralTimeLimit: '15', dayType: 'BUSINESS' },
-    { id: 24, name: 'LABOR_APPEAL', jurisdiction: 'LABOR', proceduralTimeLimit: '6', dayType: 'BUSINESS' },
-    { id: 25, name: 'MEDIATION', jurisdiction: 'FAMILY', proceduralTimeLimit: '60', dayType: 'CONSECUTIVE' },
-    { id: 26, name: 'CUSTODY_HEARING', jurisdiction: 'FAMILY', proceduralTimeLimit: '10', dayType: 'BUSINESS' },
-    { id: 27, name: 'ALIMONY_REQUEST', jurisdiction: 'FAMILY', proceduralTimeLimit: '5', dayType: 'BUSINESS' },
+    // ── Penal ──
+    { id: 1, name: 'Designación de abogado defensor', jurisdiction: 'CRIMINAL', proceduralTimeLimit: '0', dayType: 'BUSINESS' },
+    { id: 2, name: 'Cédula de notificación', jurisdiction: 'CRIMINAL', proceduralTimeLimit: '3', dayType: 'BUSINESS' },
+    { id: 3, name: 'Requerimiento de elevación a juicio', jurisdiction: 'CRIMINAL', proceduralTimeLimit: '0', dayType: 'BUSINESS' },
+    { id: 4, name: 'Oposición al requerimiento de elevación', jurisdiction: 'CRIMINAL', proceduralTimeLimit: '5', dayType: 'BUSINESS' },
+    { id: 5, name: 'Citación a juicio', jurisdiction: 'CRIMINAL', proceduralTimeLimit: '3', dayType: 'BUSINESS' },
+    { id: 6, name: 'Ofrecimiento de prueba', jurisdiction: 'CRIMINAL', proceduralTimeLimit: '5', dayType: 'BUSINESS' },
+    { id: 7, name: 'Recurso de apelación', jurisdiction: 'CRIMINAL', proceduralTimeLimit: '3', dayType: 'BUSINESS' },
+    { id: 8, name: 'Recurso de casación', jurisdiction: 'CRIMINAL', proceduralTimeLimit: '15', dayType: 'BUSINESS' },
+    { id: 9, name: 'Archivada', jurisdiction: 'CRIMINAL', proceduralTimeLimit: '0', dayType: 'BUSINESS' },
+    { id: 10, name: 'Prescripta', jurisdiction: 'CRIMINAL', proceduralTimeLimit: '0', dayType: 'BUSINESS' },
+
+    // ── Administrativo ──
+    { id: 11, name: 'Notificación de imputación en sumario', jurisdiction: 'ADMINISTRATIVE', proceduralTimeLimit: '10', dayType: 'BUSINESS' },
+    { id: 12, name: 'Presentación de descargo', jurisdiction: 'ADMINISTRATIVE', proceduralTimeLimit: '10', dayType: 'BUSINESS' },
+    { id: 13, name: 'Levantamiento de medida cautelar', jurisdiction: 'ADMINISTRATIVE', proceduralTimeLimit: '5', dayType: 'BUSINESS' },
+    { id: 14, name: 'Alegato', jurisdiction: 'ADMINISTRATIVE', proceduralTimeLimit: '6', dayType: 'BUSINESS' },
+    { id: 15, name: 'Recurso de reconsideración', jurisdiction: 'ADMINISTRATIVE', proceduralTimeLimit: '10', dayType: 'BUSINESS' },
+    { id: 16, name: 'Demanda contencioso administrativa', jurisdiction: 'ADMINISTRATIVE', proceduralTimeLimit: '30', dayType: 'CONSECUTIVE' },
+    { id: 17, name: 'Archivada', jurisdiction: 'ADMINISTRATIVE', proceduralTimeLimit: '0', dayType: 'BUSINESS' },
+
+    // ── Amparo ──
+    { id: 18, name: 'Interposición de demanda de amparo', jurisdiction: 'AMPARO', proceduralTimeLimit: '0', dayType: 'BUSINESS' },
+    { id: 19, name: 'Traslado a la demandada', jurisdiction: 'AMPARO', proceduralTimeLimit: '3', dayType: 'BUSINESS' },
+    { id: 20, name: 'Decreto de prueba', jurisdiction: 'AMPARO', proceduralTimeLimit: '3', dayType: 'BUSINESS' },
+    { id: 21, name: 'Aporto la prueba', jurisdiction: 'AMPARO', proceduralTimeLimit: '5', dayType: 'BUSINESS' },
+    { id: 22, name: 'Pase a fallo', jurisdiction: 'AMPARO', proceduralTimeLimit: '0', dayType: 'BUSINESS' },
+    { id: 23, name: 'Apelación de sentencia de amparo', jurisdiction: 'AMPARO', proceduralTimeLimit: '3', dayType: 'BUSINESS' },
+    { id: 24, name: 'Archivada', jurisdiction: 'AMPARO', proceduralTimeLimit: '0', dayType: 'BUSINESS' },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -173,3 +191,14 @@ export const USERS_WITH_DEPENDENCIES: readonly number[] = [2, 4, 9];
  * conservar al menos un administrador".
  */
 export const PROTECTED_ADMIN_USER = 1;
+
+/**
+ * Estados procesales que no se pueden borrar: el mock responde `409` con
+ * `PROCEDURAL_STATE_HAS_DEPENDENCIES`. Representan estados con causas
+ * asociadas — el caso que el prototipo muestra como "Hay N causas en este
+ * estado".
+ *
+ * PROPUESTA: el contrato v1 no define la baja. Ver el README.
+ */
+export const PROCEDURAL_STATES_WITH_DEPENDENCIES: readonly number[] = [4, 14, 21];
+

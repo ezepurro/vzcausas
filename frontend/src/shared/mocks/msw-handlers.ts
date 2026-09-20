@@ -193,12 +193,15 @@ async function resolver({ request }: { request: Request }) {
 /* ------------------------------------------------------------------ */
 
 /**
- * Los diez endpoints del contrato.
+ * Los endpoints que el mock intercepta.
  *
  * El método y la ruta se declaran acá sólo para que MSW sepa qué
  * interceptar; quién responde qué lo decide `resolveRequest`. Lo que no
  * esté en esta lista no se toca (`onUnhandledRequest: 'bypass'`), así que
  * el HMR de Vite, las fuentes y los assets siguen andando.
+ *
+ * Los tres últimos son PROPUESTA de este equipo: el contrato v1 sólo define
+ * el GET de `/procedural-states`. Ver el README.
  */
 const ENDPOINTS = [
     { method: 'post', path: '/auth/login' },
@@ -211,7 +214,11 @@ const ENDPOINTS = [
     { method: 'delete', path: '/users/:userId' },
     { method: 'post', path: '/lawyers' },
     { method: 'get', path: '/procedural-states' },
+    { method: 'post', path: '/procedural-states' },
+    { method: 'patch', path: '/procedural-states/:proceduralStateId' },
+    { method: 'delete', path: '/procedural-states/:proceduralStateId' },
 ] as const;
+
 
 /**
  * `*` al principio hace que el patrón matchee cualquier origen y cualquier

@@ -123,7 +123,7 @@ El login es `POST /auth/login` con `{ username, password }`.
 Sin `Authorization: Bearer <token>` válido todo endpoint protegido responde
 `401`; con un token de alguien que no es administrador, `403`.
 
-Datos semilla: **22 usuarios**, **14 abogados**, **27 estados procesales** —
+Datos semilla: **22 usuarios**, **14 abogados**, **24 estados procesales** —
 suficiente para que la paginación por defecto (`limit=20`) dé dos páginas.
 
 ---
@@ -142,6 +142,10 @@ suficiente para que la paginación por defecto (`limit=20`) dé dos páginas.
 | `DELETE` | `/users/{userId}` | 204, 400, 401, 403, 404, 409, 422 |
 | `POST` | `/lawyers` | 201, 400, 401, 403, 409, 422 |
 | `GET` | `/procedural-states` | 200, 400, 401, 403 |
+| `POST` | `/procedural-states` | 201, 400, 401, 403, 409 |
+| `PATCH` | `/procedural-states/{proceduralStateId}` | 200, 400, 401, 403, 404, 409 |
+| `DELETE` | `/procedural-states/{proceduralStateId}` | 204, 400, 401, 403, 404, 409 |
+
 
 Un método o una ruta que MSW sí intercepta pero que el contrato no define
 —`GET /users/3/causas`, por ejemplo— devuelve el `404 RESOURCE_NOT_FOUND`
@@ -158,14 +162,14 @@ va a ser así: hay que elegir una forma.
 
 | Código | Cómo |
 | --- | --- |
-| `400` validación | `username` de menos de 3 caracteres, matrícula sin formato `MP-12345`, contraseña de menos de 8 caracteres o sin número |
+| `400` validación | `username` de menos de 3 caracteres, matrícula sin formato `MP-12345`, contraseña de menos de 8 caracteres o sin número; nombre de estado procesal de menos de 3 caracteres; `proceduralTimeLimit` no numérico; `PATCH /procedural-states/{id}` sin ningún campo |
 | `400` paginación | `?page=0`, `?limit=500`, `?limit=abc` |
-| `400` ruta | `GET /users/abc` |
+| `400` ruta | `GET /users/abc`, `DELETE /procedural-states/abc` |
 | `400` query | `?role=NOPE`, `?jurisdiction=NOPE` |
 | `401` | sin header `Authorization`, o token revocado por un logout |
 | `403` | token de `mdominguez` |
-| `404` | `GET /users/999` |
-| `409` | crear un usuario con `username: "admin"`; crear un abogado con `MP-12345`; borrar el usuario 2, 4 o 9 (tienen recursos asociados) |
+| `404` | `GET /users/999`, `DELETE /procedural-states/999` |
+| `409` | crear un usuario con `username: "admin"`; crear un abogado con `MP-12345`; borrar el usuario 2, 4 o 9; crear un estado procesal con un nombre que ya existe en ese fuero; borrar el estado procesal 4, 14 o 21 |
 | `422` | crear un usuario `LAWYER` sin `abogadoId` válido; borrar o degradar el usuario 1; contraseña actual incorrecta en `PATCH /auth/password` |
 | `500` / red | `configureMocks({ forceFailure: 500 })` / `configureMocks({ forceFailure: 'network' })` |
 
@@ -262,8 +266,17 @@ El contrato no los define; son decisiones de este mock, no del backend.
   número.
 - **Formato de matrícula**: `MP-` y 4 a 6 dígitos.
 - **Valores de `jurisdiction`**: el contrato sólo nombra `ADMINISTRATIVE` y
-  `CRIMINAL`; se agregaron `CIVIL`, `COMMERCIAL`, `LABOR` y `FAMILY` para que el
-  filtro tenga algo que filtrar.
+  `CRIMINAL`; se agregó `AMPARO`, que es el tercer fuero con el que trabaja el
+  estudio (ver el prototipo y `docs/TRADUCCION_DOMINIO.md`). Falta confirmarlo
+  con el backend. Antes había cuatro fueros inventados por el mock —`CIVIL`,
+  `COMMERCIAL`, `LABOR` y `FAMILY`— que se sacaron: agregaban dominio que el
+  estudio no usa.
+- **Estados sin plazo**: el prototipo tiene estados terminales o de trámite que
+  no abren ningún plazo (muestran `—` en la columna "Días"), pero el contrato no
+  tiene cómo expresarlo. En las semillas van como `proceduralTimeLimit: '0'` +
+  `dayType: 'BUSINESS'`, que **no es lo mismo**: "0 días hábiles" vence hoy,
+  "sin plazo" no vence nunca. Hay que resolverlo con el backend antes de que el
+  módulo de vencimientos lea esta tabla.
 - **`?role=` inválido en `GET /users`**: el contrato no documenta el error, así
   que se usa el mismo formato que el `jurisdiction` inválido de
   `/procedural-states` (`400 INVALID_REQUEST`).
@@ -308,3 +321,31 @@ producción; este mock los reexporta.
 La única respuesta sin `code` es el `401` de `/auth/login`, que por la
 divergencia 3 usa otra forma: ahí `e.code` queda en `null` y hay que mirar
 `e.status`.
+
+
+## Endpoints que NO están en el contrato
+
+El contrato v1 define **sólo** `GET /procedural-states`. El ABM
+(`POST`, `PATCH`, `DELETE`) es una **propuesta de este equipo**, necesaria
+para la feature de ABMC de estados procesales, y hoy existe únicamente acá.
+
+Está marcado con `PROPUESTA` en el código: `handlers.ts`, `contract.ts`,
+`responses.ts`, `msw-handlers.ts` y los dos códigos de error nuevos en
+`shared/api/contract.ts` (`PROCEDURAL_STATE_ALREADY_EXISTS`,
+`PROCEDURAL_STATE_HAS_DEPENDENCIES`).
+
+Decisiones que tomó el mock y que el backend puede resolver distinto:
+
+- **La unicidad es por nombre + fuero**, no por nombre solo.
+- **La baja es física** (`DELETE` → 204), replicando `/users`. Pero
+  `docs/TRADUCCION_DOMINIO.md` dice que la baja del dominio es **lógica**
+  (`active: boolean`, nunca `delete`, RN12). Hay que confirmarlo.
+- **El 404 usa `RESOURCE_NOT_FOUND`**, el código general de §4.2, en vez de
+  uno propio del recurso.
+- **Nombre de 3 a 60 caracteres**; el contrato no define formato.
+- **`proceduralTimeLimit` de 0 a 9999**, aceptado como string o número y
+  normalizado a string.
+
+Cuando el backend publique los suyos, hay que comparar contra esto y
+corregir lo que no coincida, o sacarlos del mock con
+`startMocks({ passthrough: ['/procedural-states'] })`.

@@ -30,12 +30,14 @@ import {
     itemBody,
     listBody,
     sessionRoleFrom,
+    DAY_TYPES,
     DEFAULT_LIMIT,
     DEFAULT_PAGE,
     JURISDICTIONS,
     MAX_LIMIT,
     MIN_LIMIT,
     ROLES,
+    type DayType,
     type Jurisdiction,
     type Lawyer,
     type ProceduralState,
@@ -44,7 +46,12 @@ import {
     type User,
 } from './contract';
 import { db, issueToken, revokeToken, userFromToken } from './db';
-import { EXPIRES_IN, PROTECTED_ADMIN_USER, USERS_WITH_DEPENDENCIES } from './fixtures';
+import {
+    EXPIRES_IN,
+    PROCEDURAL_STATES_WITH_DEPENDENCIES,
+    PROTECTED_ADMIN_USER,
+    USERS_WITH_DEPENDENCIES,
+} from './fixtures';
 import { businessRuleViolation, ERRORS, NO_CONTENT, type MockResponse } from './responses';
 
 /* ------------------------------------------------------------------ */
@@ -162,6 +169,38 @@ function isRole(value: unknown): value is Role {
 function isJurisdiction(value: unknown): value is Jurisdiction {
     return typeof value === 'string' && (JURISDICTIONS as readonly string[]).includes(value);
 }
+
+function isDayType(value: unknown): value is DayType {
+    return typeof value === 'string' && (DAY_TYPES as readonly string[]).includes(value);
+}
+
+/**
+ * Largo del nombre de un estado procesal. El contrato no define formato: los
+ * datos semilla usan constantes en mayúsculas (`ALLEGATION`), pero el alta la
+ * escribe una persona, así que el mock sólo exige un largo razonable.
+ */
+const NAME_MIN = 3;
+const NAME_MAX = 60;
+
+function isValidStateName(value: string): boolean {
+    return value.length >= NAME_MIN && value.length <= NAME_MAX;
+}
+
+/** Plazo procesal: entero de 0 a 9999. */
+const RE_TIME_LIMIT = /^\d{1,4}$/;
+
+/**
+ * Lee `proceduralTimeLimit` y lo normaliza a string.
+ *
+ * La DIVERGENCIA 5 dice que viaja como string (`"10"`), pero un cliente
+ * distraído puede mandar el número. Se aceptan las dos formas, igual que ya
+ * se hace con `abogadoId`. `undefined` = no sirve.
+ */
+function readTimeLimit(value: unknown): string | undefined {
+    const raw = typeof value === 'number' ? String(value) : asText(value);
+    return RE_TIME_LIMIT.test(raw) ? raw : undefined;
+}
+
 
 /**
  * Normaliza el campo `role`, que el contrato manda a veces como arreglo y a
@@ -535,6 +574,144 @@ const listProceduralStates: Handler = ({ request }) => {
     return ok(paginate(filtered, page.page, page.limit));
 };
 
+/** `proceduralStateId` de la ruta. `undefined` si no es un entero. */
+function readProceduralStateId(params: Record<string, string>): number | undefined {
+    const raw = params.proceduralStateId ?? '';
+    if (!/^\d+$/.test(raw)) return undefined;
+    return Number(raw);
+}
+
+/**
+ * La unicidad es por **nombre + fuero**, no por nombre solo: dos fueros
+ * pueden tener un estado que se llame igual (una "Apelación" penal y una
+ * administrativa son dos cosas distintas con dos plazos distintos).
+ */
+function stateNameTaken(name: string, jurisdiction: Jurisdiction, exceptId?: number): boolean {
+    return db.proceduralStates.some(
+        (s) =>
+            s.id !== exceptId &&
+            s.jurisdiction === jurisdiction &&
+            s.name.toLowerCase() === name.toLowerCase(),
+    );
+}
+
+const createProceduralState: Handler = ({ request }) => {
+    const auth = requireAdmin(request);
+    if (!auth.ok) return auth.response;
+
+    const body = asObject(request.body);
+    const name = asText(body.name);
+    const timeLimit = readTimeLimit(body.proceduralTimeLimit);
+
+    const details: Record<string, string> = {};
+    if (!isValidStateName(name)) {
+        details.name = `Debe tener entre ${NAME_MIN} y ${NAME_MAX} caracteres.`;
+    }
+    if (!isJurisdiction(body.jurisdiction)) {
+        details.jurisdiction = 'No existe un fuero procesal con ese nombre.';
+    }
+    if (timeLimit === undefined) {
+        details.proceduralTimeLimit = 'Debe ser un número entero mayor o igual a 0.';
+    }
+    if (!isDayType(body.dayType)) {
+        details.dayType = 'Debe ser BUSINESS o CONSECUTIVE.';
+    }
+    if (Object.keys(details).length > 0) return validationError(details);
+
+    // Después de validar, los campos ya están estrechados por los type guards.
+    const jurisdiction = body.jurisdiction as Jurisdiction;
+    const dayType = body.dayType as DayType;
+
+    if (stateNameTaken(name, jurisdiction)) {
+        return fail(409, ERRORS.proceduralStateNameTaken);
+    }
+
+    const state: ProceduralState = {
+        id: db.nextProceduralStateId,
+        name,
+        jurisdiction,
+        proceduralTimeLimit: timeLimit as string,
+        dayType,
+    };
+    db.nextProceduralStateId += 1;
+    db.proceduralStates.push(state);
+
+    return created(itemBody(state));
+};
+
+const updateProceduralState: Handler = ({ request, params }) => {
+    const auth = requireAdmin(request);
+    if (!auth.ok) return auth.response;
+
+    const stateId = readProceduralStateId(params);
+    if (stateId === undefined) return fail(400, ERRORS.invalidProceduralStateId);
+
+    const body = asObject(request.body);
+    const hasName = body.name !== undefined;
+    const hasJurisdiction = body.jurisdiction !== undefined;
+    const hasTimeLimit = body.proceduralTimeLimit !== undefined;
+    const hasDayType = body.dayType !== undefined;
+
+    if (!hasName && !hasJurisdiction && !hasTimeLimit && !hasDayType) {
+        return validationError({ body: 'Debe enviarse al menos un campo para modificar.' });
+    }
+
+    const details: Record<string, string> = {};
+    const name = asText(body.name);
+    if (hasName && !isValidStateName(name)) {
+        details.name = `Debe tener entre ${NAME_MIN} y ${NAME_MAX} caracteres.`;
+    }
+    if (hasJurisdiction && !isJurisdiction(body.jurisdiction)) {
+        details.jurisdiction = 'No existe un fuero procesal con ese nombre.';
+    }
+    const timeLimit = hasTimeLimit ? readTimeLimit(body.proceduralTimeLimit) : undefined;
+    if (hasTimeLimit && timeLimit === undefined) {
+        details.proceduralTimeLimit = 'Debe ser un número entero mayor o igual a 0.';
+    }
+    if (hasDayType && !isDayType(body.dayType)) {
+        details.dayType = 'Debe ser BUSINESS o CONSECUTIVE.';
+    }
+    if (Object.keys(details).length > 0) return validationError(details);
+
+    const state = db.proceduralStates.find((s) => s.id === stateId);
+    if (!state) return fail(404, ERRORS.proceduralStateNotFound);
+
+    // La unicidad se chequea contra los valores que van a QUEDAR, no contra
+    // los que llegaron: mover un estado de fuero puede chocar con uno que ya
+    // existe allá aunque el nombre no haya cambiado.
+    const nextName = hasName ? name : state.name;
+    const nextJurisdiction = hasJurisdiction ? (body.jurisdiction as Jurisdiction) : state.jurisdiction;
+    if ((hasName || hasJurisdiction) && stateNameTaken(nextName, nextJurisdiction, stateId)) {
+        return fail(409, ERRORS.proceduralStateNameTaken);
+    }
+
+    state.name = nextName;
+    state.jurisdiction = nextJurisdiction;
+    if (timeLimit !== undefined) state.proceduralTimeLimit = timeLimit;
+    if (hasDayType) state.dayType = body.dayType as DayType;
+
+    return ok(itemBody(state));
+};
+
+const deleteProceduralState: Handler = ({ request, params }) => {
+    const auth = requireAdmin(request);
+    if (!auth.ok) return auth.response;
+
+    const stateId = readProceduralStateId(params);
+    if (stateId === undefined) return fail(400, ERRORS.invalidProceduralStateId);
+
+    const index = db.proceduralStates.findIndex((s) => s.id === stateId);
+    if (index === -1) return fail(404, ERRORS.proceduralStateNotFound);
+
+    if (PROCEDURAL_STATES_WITH_DEPENDENCIES.includes(stateId)) {
+        return fail(409, ERRORS.proceduralStateHasDependencies);
+    }
+
+    db.proceduralStates.splice(index, 1);
+    return NO_CONTENT;
+};
+
+
 /* ------------------------------------------------------------------ */
 /* Tabla de rutas                                                      */
 /* ------------------------------------------------------------------ */
@@ -556,6 +733,9 @@ const ROUTES: Route[] = [
     { method: 'DELETE', pattern: /^\/users\/(?<userId>[^/]+)$/, handler: deleteUser },
     { method: 'POST', pattern: /^\/lawyers$/, handler: createLawyer },
     { method: 'GET', pattern: /^\/procedural-states$/, handler: listProceduralStates },
+    { method: 'POST', pattern: /^\/procedural-states$/, handler: createProceduralState },
+    { method: 'PATCH', pattern: /^\/procedural-states\/(?<proceduralStateId>[^/]+)$/, handler: updateProceduralState,},
+    { method: 'DELETE', pattern: /^\/procedural-states\/(?<proceduralStateId>[^/]+)$/, handler: deleteProceduralState,},
 ];
 
 /**

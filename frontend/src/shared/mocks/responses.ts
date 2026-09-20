@@ -103,6 +103,23 @@ export const ERRORS = {
         'INVALID_CURRENT_PASSWORD',
         'La contraseña actual es incorrecta.',
     ),
+        proceduralStateNameTaken: errorBody(
+        'PROCEDURAL_STATE_ALREADY_EXISTS',
+        'Ya existe un estado procesal con ese nombre en el fuero indicado.',
+    ),
+    proceduralStateHasDependencies: errorBody(
+        'PROCEDURAL_STATE_HAS_DEPENDENCIES',
+        'No se puede eliminar el estado procesal porque posee causas asociadas.',
+    ),
+    proceduralStateNotFound: errorBody(
+        'RESOURCE_NOT_FOUND',
+        'No se encontró el estado procesal solicitado.',
+    ),
+    invalidProceduralStateId: errorBody(
+        'INVALID_PATH_PARAMETER',
+        'El identificador del estado procesal no es válido.',
+        { proceduralStateId: 'Debe ser un número entero válido.' },
+    ),
     resourceNotFound: errorBody('RESOURCE_NOT_FOUND', 'No se encontró el recurso solicitado.'),
     internalError: errorBody('INTERNAL_SERVER_ERROR', 'Ocurrió un error interno inesperado.'),
 } satisfies Record<string, ErrorBody>;
@@ -149,6 +166,20 @@ const EXAMPLE_CREATED_LAWYER: Lawyer = {
     email: 'juan.perez@example.com',
     phone: '351249249',
 };
+
+const EXAMPLE_CREATED_STATE: ProceduralState = {
+    id: 25,
+    name: 'Vista al fiscal',
+    jurisdiction: 'CRIMINAL',
+    proceduralTimeLimit: '5',
+    dayType: 'BUSINESS',
+};
+
+const EXAMPLE_UPDATED_STATE: ProceduralState = {
+    ...EXAMPLE_CREATED_STATE,
+    proceduralTimeLimit: '20',
+};
+
 
 const EXAMPLE_STATES: ProceduralState[] = [
     { id: 1, name: 'ALLEGATION', jurisdiction: 'ADMINISTRATIVE', proceduralTimeLimit: '10', dayType: 'BUSINESS' },
@@ -292,6 +323,47 @@ export const RESPONSES = {
         forbidden: response(403, ERRORS.forbiddenNotAdmin),
         empty: response(200, listBody<ProceduralState>([], buildPagination(0, 1, 20))),
     },
+
+        /** `POST /procedural-states` — PROPUESTA, no está en el contrato v1. */
+    createProceduralState: {
+        created: response(201, itemBody(EXAMPLE_CREATED_STATE)),
+        validation: response(
+            400,
+            errorBody('VALIDATION_ERROR', 'Los datos enviados no son válidos.', {
+                proceduralTimeLimit: 'Debe ser un número entero mayor o igual a 0.',
+            }),
+        ),
+        unauthenticated: response(401, ERRORS.unauthenticated),
+        forbidden: response(403, ERRORS.forbiddenNotAdmin),
+        conflict: response(409, ERRORS.proceduralStateNameTaken),
+    },
+
+    /** `PATCH /procedural-states/{proceduralStateId}` — PROPUESTA. */
+    updateProceduralState: {
+        ok: response(200, itemBody(EXAMPLE_UPDATED_STATE)),
+        validation: response(
+            400,
+            errorBody('VALIDATION_ERROR', 'Los datos enviados no son válidos.', {
+                body: 'Debe enviarse al menos un campo para modificar.',
+            }),
+        ),
+        invalidId: response(400, ERRORS.invalidProceduralStateId),
+        unauthenticated: response(401, ERRORS.unauthenticated),
+        forbidden: response(403, ERRORS.forbiddenNotAdmin),
+        notFound: response(404, ERRORS.proceduralStateNotFound),
+        conflict: response(409, ERRORS.proceduralStateNameTaken),
+    },
+
+    /** `DELETE /procedural-states/{proceduralStateId}` — PROPUESTA. */
+    deleteProceduralState: {
+        ok: NO_CONTENT,
+        invalidId: response(400, ERRORS.invalidProceduralStateId),
+        unauthenticated: response(401, ERRORS.unauthenticated),
+        forbidden: response(403, ERRORS.forbiddenNotAdmin),
+        notFound: response(404, ERRORS.proceduralStateNotFound),
+        hasDependencies: response(409, ERRORS.proceduralStateHasDependencies),
+    },
+
 
     /** Respuestas generales (§4.2). */
     general: {
