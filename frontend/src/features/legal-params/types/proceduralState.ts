@@ -1,86 +1,116 @@
 /**
- * Estado procesal: el registro que gobierna el cómputo de plazos del sistema
- * (RN4). Cada estado pertenece a un fuero y define cuántos días corren y si
- * se cuentan hábiles o corridos.
+ * Las formas del estado procesal, sacadas del contrato (§3.4).
  *
- * Escrito a partir del contrato (§2.4), no copiado de `shared/mocks`: los
- * mocks son sólo para desarrollo.
+ * Los valores cerrados van como arreglo tipado y como unión derivada de él: si
+ * el contrato agrega un fuero, se toca una sola línea y todo lo que discrimine
+ * sobre la unión deja de compilar hasta contemplarlo.
  */
 
-/**
- * Fueros con los que trabaja el estudio.
- *
- * El contrato sólo nombra `ADMINISTRATIVE` y `CRIMINAL` en sus ejemplos.
- * `AMPARO` es el tercero y está pendiente de confirmación con el backend
- * (ver `shared/mocks/README.md`).
- *
- * Va como arreglo tipado y como unión de literales: así el arreglo deja de
- * compilar si alguien cambia la unión y se olvida del arreglo.
- */
-
-export const JURISDICTIONS = [
-    'ADMINISTRATIVE',
-    'CRIMINAL',
-    'AMPARO',
-
-] as const;
-
+/** Orden del contrato (§2). Es también el orden de las lengüetas. */
+export const JURISDICTIONS = ['CRIMINAL', 'ADMINISTRATIVE', 'AMPARO'] as const;
 export type Jurisdiction = (typeof JURISDICTIONS)[number];
 
-/** Cómo se cuentan los días del plazo: hábiles o corridos. */
-export const DAY_TYPES = ['BUSINESS', 'CONSECUTIVE'] as const;
+/** Rótulos de pantalla. Ver `docs/TRADUCCION_DOMINIO.md`. */
+export const JURISDICTION_LABELS: Record<Jurisdiction, string> = {
+    CRIMINAL: 'Penal',
+    ADMINISTRATIVE: 'Administrativo',
+    AMPARO: 'Amparo',
+};
 
+/**
+ * `NONE` no es "ninguno de los otros dos": es el tipo de día de los estados que
+ * no abren plazo. El contrato lo ata a `timeLimitDays`: vale `NONE` si y sólo
+ * si el plazo es `0`.
+ */
+export const DAY_TYPES = ['BUSINESS', 'CONSECUTIVE', 'NONE'] as const;
 export type DayType = (typeof DAY_TYPES)[number];
+
+export const DAY_TYPE_LABELS: Record<DayType, string> = {
+    BUSINESS: 'Hábiles',
+    CONSECUTIVE: 'Corridos',
+    NONE: 'Sin plazo',
+};
+
+/** Los que puede elegir el usuario: `NONE` lo pone el sistema, no se elige. */
+export const SELECTABLE_DAY_TYPES = ['BUSINESS', 'CONSECUTIVE'] as const;
 
 /** El recurso tal como viene adentro de `data`. */
 export interface ProceduralState {
     id: number;
     name: string;
     jurisdiction: Jurisdiction;
-    /**
-     * Cantidad de días del plazo. Es un **string** (`"10"`), no un número: así
-     * lo define el contrato. No lo conviertas en la capa `api/`; si hace falta
-     * como número, se convierte donde se calcule.
-     */
-    proceduralTimeLimit: string;
+    /** Lugar dentro del ciclo de vida del fuero, desde 1. Lo renumera el backend. */
+    position: number;
+    /** Días que abre el estado. `0` = no abre plazo. */
+    timeLimitDays: number;
     dayType: DayType;
+    /** Cierra el ciclo de vida de la causa. */
+    terminal: boolean;
+    /** Calculado, sólo lectura. El contrato devuelve `0` hasta que exista el módulo de causas. */
+    activeCases: number;
+    /** La baja es lógica: un estado inactivo no se borra, se deja de ofrecer. */
+    active: boolean;
 }
 
-/** Cuerpo del `POST`: sin `id`, que lo genera el backend. */
 export interface CreateProceduralStateBody {
     name: string;
     jurisdiction: Jurisdiction;
-    proceduralTimeLimit: string;
+    /** Ausente = al final del ciclo. El backend corre a los que vienen después. */
+    position?: number;
+    timeLimitDays: number;
     dayType: DayType;
+    terminal: boolean;
 }
 
 /**
- * Cuerpo del `PATCH`: todo opcional, pero hay que mandar al menos un campo.
- * Un PATCH vacío responde 400 — de eso se ocupa `buildProceduralStatePatch`.
+ * Sin `jurisdiction` y sin `activeCases`: el contrato dice que un estado no
+ * puede cambiar de fuero y que las causas activas las calcula el backend.
+ *
+ * Tampoco lleva `active`. El contrato lo admite para reactivar una baja, pero
+ * desde el cliente eliminar es eliminar: la pantalla no ofrece deshacerlo, así
+ * que el tipo no deja mandarlo por error.
  */
-export type UpdateProceduralStateBody = Partial<CreateProceduralStateBody>;
+export type UpdateProceduralStateBody = Partial<
+    Pick<ProceduralState, 'name' | 'position' | 'timeLimitDays' | 'dayType' | 'terminal'>
+>;
 
 /**
- * Los valores del formulario.
+ * Dónde va el estado dentro del ciclo, tal como lo elige el usuario.
  *
- * Sólo `string`, que es lo que admite `FormValues` de `FormModal`. Nunca
- * `undefined`: un campo vacío es `''`, no ausencia. Por eso `jurisdiction` y
- * `dayType` son `string` pelado y no su unión: mientras están en el
- * formulario pueden tener cualquier cosa, y recién `schemas/` decide si sirven.
+ * El contrato habla de un número, pero un número no significa nada para quien
+ * carga: lo que sabe es que el estado va al principio, al final, o detrás de
+ * otro que puede nombrar. La traducción a `position` la hace `resolvePosition`.
+ */
+export const POSITION_FIRST = 'FIRST';
+export const POSITION_LAST = 'LAST';
+export const POSITION_AFTER_PREFIX = 'AFTER:';
+
+/**
+ * Los valores del formulario. Sólo `string` y `boolean`, que es lo que admite
+ * `FormValues` de `FormModal`, y nunca `undefined`.
  *
- * Declarado con `type` y NO con `interface` a propósito: ver la nota abajo.
+ * `jurisdiction` no está: en el alta la fija la lengüeta activa y en la edición
+ * el contrato no deja cambiarla. No es un campo, es contexto.
  */
 export type ProceduralStateFormValues = {
     name: string;
-    jurisdiction: string;
-    proceduralTimeLimit: string;
+    /** `'FIRST'` | `'LAST'` | `` `AFTER:${id}` `` */
+    positionChoice: string;
+    /** Entero como texto: es lo que devuelve un `input`. Se convierte al armar el cuerpo. */
+    timeLimitDays: string;
     dayType: string;
+    terminal: boolean;
 };
 
-/** Parámetros del listado: paginación y filtros (§2.4). */
 export interface ProceduralStatesParams {
     page: number;
     limit: number;
     search?: string;
-    jurisdiction?: Jurisdiction;
+    /**
+     * No es opcional: la pantalla muestra el ciclo de vida de UN fuero. Sin
+     * filtro, "posición 3" aparecería tres veces y no querría decir nada.
+     */
+    jurisdiction: Jurisdiction;
+    /** El contrato asume `true` si no viaja. */
+    active?: boolean;
 }

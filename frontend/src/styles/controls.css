@@ -41,6 +41,16 @@
 .vz-btn--ghost { background: none; color: var(--vz-muted); }
 .vz-btn--ghost:hover:not(:disabled) { background: var(--vz-sunken); color: var(--vz-ink); }
 
+/* Destructivo de baja intensidad: callado como el ghost, rojo sólo al
+   apuntarlo. Para acciones que se repiten en cada fila de una tabla. */
+.vz-btn--ghost-danger { background: none; color: var(--vz-muted); }
+.vz-btn--ghost-danger:hover:not(:disabled) {
+  background: var(--vz-danger-bg);
+  border-color: var(--vz-danger-action-bd);
+  color: var(--vz-danger-action);
+}
+.vz-btn--ghost-danger:disabled { opacity: .4; }
+
 /* tamaños */
 .vz-btn--md { height: 34px; padding: 0 14px; font-size: 12.5px; }
 .vz-btn--sm { height: 28px; padding: 0 11px; font-size: 12px; }

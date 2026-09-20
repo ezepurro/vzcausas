@@ -1,4 +1,4 @@
-import { Button } from '@/shared/components/ui';
+import { Button, Icon } from '@/shared/components/ui';
 
 export interface PaginationProps {
     page: number;
@@ -22,14 +22,23 @@ export function Pagination({ page, totalPages, totalItems, onChange }: Paginatio
     return (
         <div className="vz-pager">
             <span className="vz-pager__status">
-                {totalItems === 0
-                    ? 'Sin resultados'
-                    : `${totalItems} ${totalItems === 1 ? 'estado' : 'estados'} · página ${page} de ${totalPages}`}
+                {totalItems === 0 ? (
+                    'Sin resultados'
+                ) : (
+                    <>
+                        <span className="vz-pager__count">{totalItems}</span>
+                        {totalItems === 1 ? ' estado · página ' : ' estados · página '}
+                        <span className="vz-pager__count">{page}</span>
+                        {' de '}
+                        <span className="vz-pager__count">{totalPages}</span>
+                    </>
+                )}
             </span>
             <div className="vz-pager__controls">
                 <Button
                     variant="secondary"
                     size="sm"
+                    icon={<Icon name="back" size={15} />}
                     disabled={page <= 1}
                     onClick={() => onChange(page - 1)}
                 >
@@ -41,7 +50,10 @@ export function Pagination({ page, totalPages, totalItems, onChange }: Paginatio
                     disabled={page >= totalPages}
                     onClick={() => onChange(page + 1)}
                 >
+                    {/* La flecha va DESPUÉS del texto, así que entra por los
+                        children: `icon` siempre se dibuja a la izquierda. */}
                     Siguiente
+                    <Icon name="forward" size={15} />
                 </Button>
             </div>
         </div>
