@@ -161,7 +161,7 @@ Un subsistema agrupa **un conjunto de entidades que cambian juntas por la misma 
 | ------------------ | ----------------------- | ------------ | ----------------------- | ------------------------------------------------ |
 | `identity`         | Identidad y Acceso      | EP-01        | `User`                  | User, Role, Permission, RefreshToken             |
 | `people`           | Personas                | EP-02        | `Client`, `Lawyer`      | Client, Lawyer, ContactInfo                      |
-| `legal-parameters` | Parametría Jurídica     | EP-03        | `Jurisdiction`          | Jurisdiction (fuero), ProceduralStatus, TermRule |
+| `legal-parameters` | Parametría Jurídica     | EP-03        | `Jurisdiction`          | Jurisdiction (fuero), ProceduralState, TimeLimit |
 | `cases`            | Gestión de Causas       | EP-04, EP-05 | `Case`                  | Case, ProceduralAct, InterruptiveAct, CourtFee   |
 | `deadlines`        | Plazos y Notificaciones | EP-06        | `Deadline`              | Deadline, PrescriptionAlert, Notification        |
 | `documents`        | Documentos              | EP-07        | `DocumentTemplate`      | DocumentTemplate, CaseFolder, CaseDocument       |
@@ -446,10 +446,10 @@ Ejemplo de posibles dependencias en el proyecto y su motivo:
 | ----------- | ------------------ | ---------------------- | ---------------------------------------------------------------------------------------- | ---------- |
 | `identity`  | `people`           | `LawyerLookupPort`     | Validar que el `lawyerId` de un usuario con rol Abogado corresponde a un abogado vigente | §7.6       |
 | `cases`     | `people`           | `PeopleLookupPort`     | Validar existencia y vigencia del cliente y del abogado responsable                      | RN3        |
-| `cases`     | `legal-parameters` | `ProceduralStatusPort` | Obtener los estados procesales válidos para el fuero de la causa                         | RN4        |
-| `cases`     | `deadlines`        | `TermCalculatorPort`   | Calcular la fecha de vencimiento al registrar un acto procesal                           | RN5, HU26  |
+| `cases`     | `legal-parameters` | `ProceduralStatePort`  | Obtener los estados procesales válidos para el fuero de la causa                         | RN4        |
+| `cases`     | `deadlines`        | `DeadlineCalculatorPort` | Calcular la fecha de vencimiento al registrar un acto procesal                         | RN5, HU26  |
 | `cases`     | `documents`        | `CaseFolderPort`       | Crear la carpeta de la causa al registrarla                                              | HU39, HU40 |
-| `deadlines` | `legal-parameters` | `TermRulePort`         | Leer la tabla de plazos por acto procesal y tipo de día                                  | RN5        |
+| `deadlines` | `legal-parameters` | `TimeLimitPort`        | Leer la tabla de plazos por acto procesal y tipo de día                                  | RN5        |
 
 ### 6.4 Adaptadores de entrada que no son HTTP
 

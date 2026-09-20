@@ -1,11 +1,11 @@
 /**
- * Servidor falso: implementa los diez endpoints del contrato v1 sobre la
+ * Servidor falso: implementa los dieciocho endpoints del contrato sobre la
  * base en memoria de `db.ts`.
  *
  * Es una función pura respecto del transporte (`resolveRequest`): recibe un
  * pedido ya normalizado y devuelve `{ status, body }`. No sabe de axios ni de
- * fetch — de eso se encarga `adapter.ts`—, así que también se puede llamar
- * directo desde un test.
+ * fetch —de eso se encarga `msw-handlers.ts`—, así que también se puede
+ * llamar directo desde un test.
  *
  * ## Orden de validación
  *
@@ -17,11 +17,17 @@
  * 3. `400` parámetros de ruta y de consulta
  * 4. `400` cuerpo
  * 5. `404` existencia del recurso
- * 6. `409` unicidad
+ * 6. `409` unicidad y dependencias
  * 7. `422` regla de negocio
  *
  * El contrato no fija ese orden; es una decisión del mock para que el
  * comportamiento sea previsible.
+ *
+ * ## Bajas
+ *
+ * Los `DELETE` **no borran**: ponen `active` en `false`. Los listados
+ * devuelven sólo los activos salvo que se pida `?active=false`. La
+ * reactivación es un `PATCH` con `active: true`.
  */
 
 import {
@@ -29,7 +35,6 @@ import {
     errorBody,
     itemBody,
     listBody,
-    sessionRoleFrom,
     DAY_TYPES,
     DEFAULT_LIMIT,
     DEFAULT_PAGE,
@@ -43,14 +48,22 @@ import {
     type ProceduralState,
     type Role,
     type Session,
-    type User,
 } from './contract';
-import { db, issueToken, revokeToken, userFromToken } from './db';
+import {
+    db,
+    issueToken,
+    revokeToken,
+    revokeUserSessions,
+    toUser,
+    userFromToken,
+} from './db';
 import {
     EXPIRES_IN,
+    LAWYERS_WITH_DEPENDENCIES,
     PROCEDURAL_STATES_WITH_DEPENDENCIES,
     PROTECTED_ADMIN_USER,
     USERS_WITH_DEPENDENCIES,
+    type StoredUser,
 } from './fixtures';
 import { businessRuleViolation, ERRORS, NO_CONTENT, type MockResponse } from './responses';
 
@@ -106,7 +119,7 @@ function validationError(details: Record<string, string>): MockResponse {
 /* Autenticación y autorización                                        */
 /* ------------------------------------------------------------------ */
 
-type AuthResult = { ok: true; user: User } | { ok: false; response: MockResponse };
+type AuthResult = { ok: true; user: StoredUser } | { ok: false; response: MockResponse };
 
 /** Sólo exige sesión válida; sirve para los endpoints de `/auth`. */
 function requireSession(request: MockRequest): AuthResult {
@@ -118,14 +131,14 @@ function requireSession(request: MockRequest): AuthResult {
 /**
  * Exige sesión válida **y** rol administrador.
  *
- * `forbiddenBody` existe porque el contrato redacta el 403 distinto en
- * `POST /users` que en el resto.
+ * Vale tanto para leer como para escribir: el contrato pide `ADMINISTRATOR`
+ * en los tres recursos administrados, también en los `GET`.
  */
-function requireAdmin(request: MockRequest, forbiddenBody = ERRORS.forbiddenNotAdmin): AuthResult {
+function requireAdmin(request: MockRequest): AuthResult {
     const user = userFromToken(request.token);
     if (!user) return { ok: false, response: fail(401, ERRORS.unauthenticated) };
-    if (!user.role.includes('ADMINISTATOR')) {
-        return { ok: false, response: fail(403, forbiddenBody) };
+    if (!user.roles.includes('ADMINISTRATOR')) {
+        return { ok: false, response: fail(403, ERRORS.forbidden) };
     }
     return { ok: true, user };
 }
@@ -134,24 +147,24 @@ function requireAdmin(request: MockRequest, forbiddenBody = ERRORS.forbiddenNotA
 /* Validación                                                          */
 /* ------------------------------------------------------------------ */
 
-/**
- * Formato de `username`. El contrato no lo define —sólo dice "no cumple con
- * el formato requerido"—, así que el mock elige uno razonable: 3 a 30
- * caracteres, letras, números, punto, guion y guion bajo.
- */
+/** `username`: 3 a 30 caracteres, letras, números, punto, guión y guión bajo. */
 const RE_USERNAME = /^[a-z0-9._-]{3,30}$/i;
 
-/** Matrícula profesional: `MP-` y 4 a 6 dígitos, como el `MP-12345` del contrato. */
-const RE_REGISTRATION = /^MP-\d{4,6}$/;
+/**
+ * Matrícula del Colegio de Abogados de Córdoba: circunscripción (uno o dos
+ * dígitos), guión y cinco dígitos. Ej: `1-28114`.
+ *
+ * El contrato deja anotado que hay que confirmar con el estudio si la
+ * circunscripción puede tener dos dígitos: se acepta, porque una expresión
+ * de más rechaza matrículas legítimas y eso es peor que una de menos.
+ */
+const RE_REGISTRATION = /^\d{1,2}-\d{5}$/;
 
 const RE_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
-/** Teléfono: sólo dígitos, 6 a 15, como el `351249249` del contrato. */
-const RE_PHONE = /^\d{6,15}$/;
-
-/** Requisito de contraseña elegido por el mock: 8+ caracteres, con letra y número. */
+/** Requisito del contrato: 8 caracteres o más, con al menos un número. */
 function isValidPassword(value: string): boolean {
-    return value.length >= 8 && /[a-z]/i.test(value) && /\d/.test(value);
+    return value.length >= 8 && /\d/.test(value);
 }
 
 function asObject(body: unknown): Record<string, unknown> {
@@ -174,44 +187,32 @@ function isDayType(value: unknown): value is DayType {
     return typeof value === 'string' && (DAY_TYPES as readonly string[]).includes(value);
 }
 
-/**
- * Largo del nombre de un estado procesal. El contrato no define formato: los
- * datos semilla usan constantes en mayúsculas (`ALLEGATION`), pero el alta la
- * escribe una persona, así que el mock sólo exige un largo razonable.
- */
+/** Largo del nombre de un estado procesal. Lo escribe una persona (RN4). */
 const NAME_MIN = 3;
-const NAME_MAX = 60;
+const NAME_MAX = 80;
 
 function isValidStateName(value: string): boolean {
     return value.length >= NAME_MIN && value.length <= NAME_MAX;
 }
 
-/** Plazo procesal: entero de 0 a 9999. */
-const RE_TIME_LIMIT = /^\d{1,4}$/;
-
-/**
- * Lee `proceduralTimeLimit` y lo normaliza a string.
- *
- * La DIVERGENCIA 5 dice que viaja como string (`"10"`), pero un cliente
- * distraído puede mandar el número. Se aceptan las dos formas, igual que ya
- * se hace con `abogadoId`. `undefined` = no sirve.
- */
-function readTimeLimit(value: unknown): string | undefined {
-    const raw = typeof value === 'number' ? String(value) : asText(value);
-    return RE_TIME_LIMIT.test(raw) ? raw : undefined;
+/** Entero no negativo. `undefined` si no lo es. */
+function readCount(value: unknown, max: number): number | undefined {
+    const n = typeof value === 'number' ? value : Number(asText(value));
+    if (!Number.isInteger(n) || n < 0 || n > max) return undefined;
+    return n;
 }
 
-
-/**
- * Normaliza el campo `role`, que el contrato manda a veces como arreglo y a
- * veces como string suelto. Devuelve `undefined` si hay algún valor inválido.
- */
+/** Los roles del cuerpo. `undefined` si hay alguno inválido o si está vacío. */
 function normalizeRoles(value: unknown): Role[] | undefined {
-    const list = Array.isArray(value) ? value : [value];
-    if (list.length === 0) return undefined;
-    if (!list.every(isRole)) return undefined;
+    if (!Array.isArray(value) || value.length === 0) return undefined;
+    if (!value.every(isRole)) return undefined;
     // Sin repetidos: ["LAWYER","LAWYER"] no tiene sentido como rol.
-    return [...new Set(list)];
+    return [...new Set(value)];
+}
+
+/** Un usuario con estos roles necesita ficha profesional. */
+function needsLawyer(roles: Role[]): boolean {
+    return roles.includes('LAWYER') || roles.includes('ADMINISTRATOR');
 }
 
 /* ------------------------------------------------------------------ */
@@ -259,6 +260,20 @@ function readInteger(value: string | null, fallbackValue: number): number | unde
     return Number(value);
 }
 
+/**
+ * Filtro `?active=`. Por defecto `true`: un listado trae sólo los activos.
+ *
+ * `?active=false` trae **sólo los dados de baja**, que es lo que necesita una
+ * pantalla para encontrar un registro y reactivarlo.
+ */
+function readActiveFilter(query: URLSearchParams): boolean | undefined {
+    const raw = query.get('active');
+    if (raw === null || raw.trim() === '') return true;
+    if (raw === 'true') return true;
+    if (raw === 'false') return false;
+    return undefined;
+}
+
 /** Corta la página pedida y arma el envoltorio `{ data, pagination }`. */
 function paginate<T>(items: T[], page: number, limit: number) {
     const from = (page - 1) * limit;
@@ -269,6 +284,17 @@ function paginate<T>(items: T[], page: number, limit: number) {
 function contains(haystack: string, needle: string): boolean {
     const normalize = (v: string) => v.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
     return normalize(haystack).includes(normalize(needle));
+}
+
+/** Momento actual en ISO 8601 con el offset de Córdoba, como pide el contrato. */
+function nowIso(): string {
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const local = new Date(now.getTime() - 3 * 60 * 60 * 1000);
+    return (
+        `${local.getUTCFullYear()}-${pad(local.getUTCMonth() + 1)}-${pad(local.getUTCDate())}` +
+        `T${pad(local.getUTCHours())}:${pad(local.getUTCMinutes())}:${pad(local.getUTCSeconds())}-03:00`
+    );
 }
 
 /* ------------------------------------------------------------------ */
@@ -286,16 +312,23 @@ const login: Handler = ({ request }) => {
     if (Object.keys(details).length > 0) return validationError(details);
 
     const user = db.users.find((u) => u.username === username);
-    if (!user || db.passwords.get(user.username) !== password) {
-        // DIVERGENCIA: este 401 no usa el envoltorio estándar (ver contract.ts).
-        return fail(401, { statusCode: 401, error: 'Unauthorized', message: 'Credenciales inválidas' });
+    // Un usuario dado de baja no entra, y no se distingue de credenciales
+    // incorrectas: decirle "existís pero estás inactivo" filtra información.
+    if (!user || !user.active || db.passwords.get(user.username) !== password) {
+        return fail(401, ERRORS.invalidCredentials);
     }
+
+    /* El contrato pide que `lastLoginAt` sea el acceso ANTERIOR, no este: es
+       lo que le permite a la persona detectar un ingreso que no hizo. Se lee
+       antes de pisarlo y se devuelve el valor viejo. */
+    const previousLogin = user.lastLoginAt;
+    user.lastLoginAt = nowIso();
 
     const session: Session = {
         accessToken: issueToken(user.id),
         tokenType: 'Bearer',
         expiresIn: EXPIRES_IN,
-        user: { id: user.id, username: user.username, role: sessionRoleFrom(user.role) },
+        user: { ...toUser(user), lastLoginAt: previousLogin },
     };
     return ok(itemBody(session));
 };
@@ -337,44 +370,130 @@ const changePassword: Handler = ({ request }) => {
 /* /users                                                              */
 /* ------------------------------------------------------------------ */
 
+/** Entero de un parámetro de ruta. `undefined` si no lo es. */
+function readRouteId(params: Record<string, string>, key: string): number | undefined {
+    const raw = params[key] ?? '';
+    if (!/^\d+$/.test(raw)) return undefined;
+    return Number(raw);
+}
+
+function usernameTaken(username: string, exceptId?: number): boolean {
+    return db.users.some(
+        (u) => u.id !== exceptId && u.username.toLowerCase() === username.toLowerCase(),
+    );
+}
+
+function emailTaken(email: string, exceptId?: number): boolean {
+    return db.users.some((u) => u.id !== exceptId && u.email.toLowerCase() === email.toLowerCase());
+}
+
+function registrationTaken(registrationNumber: string, exceptId?: number): boolean {
+    return db.lawyers.some((l) => l.id !== exceptId && l.registrationNumber === registrationNumber);
+}
+
 const createUser: Handler = ({ request }) => {
-    // Este endpoint es el único cuyo 403 habla de "permisos suficientes".
-    const auth = requireAdmin(request, ERRORS.forbiddenNoPermissions);
+    const auth = requireAdmin(request);
     if (!auth.ok) return auth.response;
 
     const body = asObject(request.body);
     const username = asText(body.username);
+    const fullName = asText(body.fullName);
+    const email = asText(body.email);
     const password = typeof body.password === 'string' ? body.password : '';
-    const roles = normalizeRoles(body.role);
+    const roles = normalizeRoles(body.roles);
 
     const details: Record<string, string> = {};
     if (!RE_USERNAME.test(username)) {
         details.username = 'El nombre de usuario no cumple con el formato requerido.';
     }
+    if (fullName === '') details.fullName = 'El nombre y apellido es obligatorio.';
+    if (!RE_EMAIL.test(email)) details.email = 'El correo electrónico no es válido.';
     if (!isValidPassword(password)) {
         details.password = 'La contraseña no cumple con los requisitos establecidos.';
     }
-    if (!roles) details.role = 'Debe indicarse al menos un rol válido.';
+    if (!roles) details.roles = 'Debe indicarse al menos un rol válido.';
+
+    /* `lawyerId` y `lawyer` son mutuamente excluyentes: mandar los dos es
+       ambiguo —¿vinculo el que existe o creo uno nuevo?— y el contrato lo
+       prohíbe explícitamente. */
+    const hasLawyerId = body.lawyerId !== undefined && body.lawyerId !== null;
+    const hasInlineLawyer = body.lawyer !== undefined && body.lawyer !== null;
+    if (hasLawyerId && hasInlineLawyer) {
+        details.lawyer = 'Debe enviarse lawyerId o lawyer, no ambos.';
+    }
     if (Object.keys(details).length > 0) return validationError(details);
 
-    if (db.users.some((u) => u.username.toLowerCase() === username.toLowerCase())) {
-        return fail(409, ERRORS.usernameTaken);
+    const validRoles = roles as Role[];
+
+    if (usernameTaken(username)) return fail(409, ERRORS.usernameTaken);
+    if (emailTaken(email)) return fail(409, ERRORS.emailTaken);
+
+    /* Regla de negocio: un usuario que ejerce necesita ficha profesional, y
+       un usuario de secretaría no la lleva. */
+    if (needsLawyer(validRoles) && !hasLawyerId && !hasInlineLawyer) {
+        return fail(422, businessRuleViolation('createUser'));
+    }
+    if (!needsLawyer(validRoles) && (hasLawyerId || hasInlineLawyer)) {
+        return fail(422, businessRuleViolation('createUser'));
     }
 
-    // Regla de negocio del mock: un usuario LAWYER necesita un abogado que exista.
-    const lawyerId = body.abogadoId === undefined ? undefined : Number(body.abogadoId);
-    if ((roles as Role[]).includes('LAWYER')) {
-        const exists = lawyerId !== undefined && db.lawyers.some((l) => l.id === lawyerId);
-        if (!exists) return fail(422, businessRuleViolation('createUser'));
+    /* El alta con abogado nuevo es una transacción: se valida todo antes de
+       escribir nada, así un fallo no deja un abogado huérfano. */
+    let lawyerId: number | null = null;
+
+    if (hasLawyerId) {
+        const id = readCount(body.lawyerId, Number.MAX_SAFE_INTEGER);
+        const lawyer = id === undefined ? undefined : db.lawyers.find((l) => l.id === id);
+        if (!lawyer || !lawyer.active) return fail(422, businessRuleViolation('createUser'));
+        lawyerId = lawyer.id;
     }
 
-    const user: User = { id: db.nextUserId, username, role: roles as Role[] };
+    let newLawyer: Lawyer | undefined;
+    if (hasInlineLawyer) {
+        const inline = asObject(body.lawyer);
+        const lawyerFullName = asText(inline.fullName);
+        const registrationNumber = asText(inline.registrationNumber);
+
+        const lawyerDetails: Record<string, string> = {};
+        if (lawyerFullName === '') lawyerDetails['lawyer.fullName'] = 'El nombre y apellido es obligatorio.';
+        if (!RE_REGISTRATION.test(registrationNumber)) {
+            lawyerDetails['lawyer.registrationNumber'] = 'El formato de la matrícula no es válido.';
+        }
+        if (Object.keys(lawyerDetails).length > 0) return validationError(lawyerDetails);
+
+        if (registrationTaken(registrationNumber)) return fail(409, ERRORS.registrationTaken);
+
+        newLawyer = {
+            id: db.nextLawyerId,
+            fullName: lawyerFullName,
+            registrationNumber,
+            activeCases: 0,
+            active: true,
+        };
+        lawyerId = newLawyer.id;
+    }
+
+    // A partir de acá no falla nada: recién ahora se escribe.
+    if (newLawyer) {
+        db.nextLawyerId += 1;
+        db.lawyers.push(newLawyer);
+    }
+
+    const user: StoredUser = {
+        id: db.nextUserId,
+        username,
+        fullName,
+        email,
+        roles: validRoles,
+        lawyerId,
+        lastLoginAt: null,
+        active: true,
+    };
     db.nextUserId += 1;
     db.users.push(user);
     db.passwords.set(username, password);
-    if (lawyerId !== undefined) db.userLawyer.set(user.id, lawyerId);
 
-    return created(itemBody(user));
+    return created(itemBody(toUser(user)));
 };
 
 const listUsers: Handler = ({ request }) => {
@@ -386,78 +505,103 @@ const listUsers: Handler = ({ request }) => {
 
     const role = request.query.get('role');
     if (role !== null && role !== '' && !isRole(role)) {
-        // El contrato no documenta este error para /users (sí el análogo de
-        // jurisdiction en /procedural-states). Se replica ese formato.
-        return fail(400, errorBody('INVALID_REQUEST', 'Parametros de query inválidos', {
-            role: 'No existe un rol con ese nombre',
-        }));
+        return fail(400, ERRORS.invalidRole);
     }
+
+    const active = readActiveFilter(request.query);
+    if (active === undefined) return fail(400, ERRORS.invalidActive);
 
     const search = asText(request.query.get('search'));
     const filtered = db.users
-        .filter((u) => (search === '' ? true : contains(u.username, search)))
-        .filter((u) => (role === null || role === '' ? true : u.role.includes(role as Role)))
-        .sort((a, b) => a.id - b.id);
+        .filter((u) => u.active === active)
+        .filter((u) => (search === '' ? true : contains(u.username, search) || contains(u.fullName, search)))
+        .filter((u) => (role === null || role === '' ? true : u.roles.includes(role as Role)))
+        .sort((a, b) => a.id - b.id)
+        .map(toUser);
 
     return ok(paginate(filtered, page.page, page.limit));
 };
-
-/** `userId` de la ruta. `undefined` si no es un entero. */
-function readUserId(params: Record<string, string>): number | undefined {
-    const raw = params.userId ?? '';
-    if (!/^\d+$/.test(raw)) return undefined;
-    return Number(raw);
-}
 
 const getUser: Handler = ({ request, params }) => {
     const auth = requireAdmin(request);
     if (!auth.ok) return auth.response;
 
-    const userId = readUserId(params);
+    const userId = readRouteId(params, 'userId');
     if (userId === undefined) return fail(400, ERRORS.invalidUserId);
 
     const user = db.users.find((u) => u.id === userId);
     if (!user) return fail(404, ERRORS.userNotFound);
 
-    return ok(itemBody(user));
+    return ok(itemBody(toUser(user)));
 };
 
 const updateUser: Handler = ({ request, params }) => {
     const auth = requireAdmin(request);
     if (!auth.ok) return auth.response;
 
-    const userId = readUserId(params);
+    const userId = readRouteId(params, 'userId');
     if (userId === undefined) return fail(400, ERRORS.invalidUserId);
 
     const body = asObject(request.body);
     const hasUsername = body.username !== undefined;
-    const hasRole = body.role !== undefined;
-    if (!hasUsername && !hasRole) {
+    const hasFullName = body.fullName !== undefined;
+    const hasEmail = body.email !== undefined;
+    const hasRoles = body.roles !== undefined;
+    const hasLawyerId = body.lawyerId !== undefined;
+    const hasActive = body.active !== undefined;
+
+    if (!hasUsername && !hasFullName && !hasEmail && !hasRoles && !hasLawyerId && !hasActive) {
         return validationError({ body: 'Debe enviarse al menos un campo para modificar.' });
     }
 
     const details: Record<string, string> = {};
     const username = asText(body.username);
+    const fullName = asText(body.fullName);
+    const email = asText(body.email);
+
     if (hasUsername && !RE_USERNAME.test(username)) {
         details.username = 'El nombre de usuario no cumple con el formato requerido.';
     }
-    const roles = hasRole ? normalizeRoles(body.role) : undefined;
-    if (hasRole && !roles) details.role = 'Debe indicarse al menos un rol válido.';
+    if (hasFullName && fullName === '') details.fullName = 'El nombre y apellido es obligatorio.';
+    if (hasEmail && !RE_EMAIL.test(email)) details.email = 'El correo electrónico no es válido.';
+
+    const roles = hasRoles ? normalizeRoles(body.roles) : undefined;
+    if (hasRoles && !roles) details.roles = 'Debe indicarse al menos un rol válido.';
+    if (hasActive && typeof body.active !== 'boolean') {
+        details.active = 'Debe ser verdadero o falso.';
+    }
     if (Object.keys(details).length > 0) return validationError(details);
 
     const user = db.users.find((u) => u.id === userId);
     if (!user) return fail(404, ERRORS.userNotFound);
 
-    if (
-        hasUsername &&
-        db.users.some((u) => u.id !== userId && u.username.toLowerCase() === username.toLowerCase())
-    ) {
-        return fail(409, ERRORS.usernameTaken);
+    if (hasUsername && usernameTaken(username, userId)) return fail(409, ERRORS.usernameTaken);
+    if (hasEmail && emailTaken(email, userId)) return fail(409, ERRORS.emailTaken);
+
+    // Regla de negocio: el sistema conserva siempre un administrador.
+    const losesAdmin = roles !== undefined && !roles.includes('ADMINISTRATOR');
+    const isDeactivating = hasActive && body.active === false;
+    if (userId === PROTECTED_ADMIN_USER && (losesAdmin || isDeactivating)) {
+        return fail(422, businessRuleViolation('updateUser'));
     }
 
-    // Regla de negocio del mock: el sistema conserva siempre un administrador.
-    const losesAdmin = roles !== undefined && !roles.includes('ADMINISTATOR');
-    if (userId === PROTECTED_ADMIN_USER && losesAdmin) {
+    /* `lawyerId: null` desvincula; un id tiene que apuntar a un abogado
+       activo. Es la única forma de expresar "sacale la ficha". */
+    let nextLawyerId = user.lawyerId;
+    if (hasLawyerId) {
+        if (body.lawyerId === null) {
+            nextLawyerId = null;
+        } else {
+            const id = readCount(body.lawyerId, Number.MAX_SAFE_INTEGER);
+            const lawyer = id === undefined ? undefined : db.lawyers.find((l) => l.id === id);
+            if (!lawyer || !lawyer.active) return fail(422, businessRuleViolation('updateUser'));
+            nextLawyerId = lawyer.id;
+        }
+    }
+
+    // El vínculo se valida contra los roles que van a QUEDAR, no los de antes.
+    const nextRoles = roles ?? user.roles;
+    if (needsLawyer(nextRoles) && nextLawyerId === null) {
         return fail(422, businessRuleViolation('updateUser'));
     }
 
@@ -467,20 +611,27 @@ const updateUser: Handler = ({ request, params }) => {
         if (password !== undefined) db.passwords.set(username, password);
         user.username = username;
     }
-    if (roles) user.role = roles;
+    if (hasFullName) user.fullName = fullName;
+    if (hasEmail) user.email = email;
+    if (roles) user.roles = roles;
+    if (hasLawyerId) user.lawyerId = nextLawyerId;
+    if (hasActive) {
+        user.active = body.active as boolean;
+        if (!user.active) revokeUserSessions(user.id);
+    }
 
-    return ok(itemBody(user));
+    return ok(itemBody(toUser(user)));
 };
 
 const deleteUser: Handler = ({ request, params }) => {
     const auth = requireAdmin(request);
     if (!auth.ok) return auth.response;
 
-    const userId = readUserId(params);
+    const userId = readRouteId(params, 'userId');
     if (userId === undefined) return fail(400, ERRORS.invalidUserId);
 
-    const index = db.users.findIndex((u) => u.id === userId);
-    if (index === -1) return fail(404, ERRORS.userNotFound);
+    const user = db.users.find((u) => u.id === userId);
+    if (!user) return fail(404, ERRORS.userNotFound);
 
     if (USERS_WITH_DEPENDENCIES.includes(userId)) {
         return fail(409, ERRORS.userHasDependencies);
@@ -489,13 +640,9 @@ const deleteUser: Handler = ({ request, params }) => {
         return fail(422, businessRuleViolation('deleteUser'));
     }
 
-    const [removed] = db.users.splice(index, 1);
-    db.passwords.delete(removed.username);
-    db.userLawyer.delete(userId);
-    // Se caen también sus sesiones abiertas.
-    for (const [token, id] of db.sessions) {
-        if (id === userId) db.sessions.delete(token);
-    }
+    // Baja lógica: el registro queda, pierde el acceso y sale de los listados.
+    user.active = false;
+    revokeUserSessions(userId);
 
     return NO_CONTENT;
 };
@@ -509,39 +656,24 @@ const createLawyer: Handler = ({ request }) => {
     if (!auth.ok) return auth.response;
 
     const body = asObject(request.body);
-    const firstName = asText(body.firstName);
-    const lastName = asText(body.lastName);
+    const fullName = asText(body.fullName);
     const registrationNumber = asText(body.registrationNumber);
-    const email = asText(body.email);
-    const phone = asText(body.phone);
 
     const details: Record<string, string> = {};
-    if (firstName === '') details.firstName = 'El nombre es obligatorio.';
-    if (lastName === '') details.lastName = 'El apellido es obligatorio.';
+    if (fullName === '') details.fullName = 'El nombre y apellido es obligatorio.';
     if (!RE_REGISTRATION.test(registrationNumber)) {
         details.registrationNumber = 'El formato de la matrícula no es válido.';
     }
-    if (!RE_EMAIL.test(email)) details.email = 'El correo electrónico no es válido.';
-    if (!RE_PHONE.test(phone)) details.phone = 'El teléfono no es válido.';
     if (Object.keys(details).length > 0) return validationError(details);
 
-    if (db.lawyers.some((l) => l.registrationNumber === registrationNumber)) {
-        return fail(409, ERRORS.registrationTaken);
-    }
-
-    // Regla de negocio del mock: el correo tampoco se puede repetir, pero el
-    // contrato no le da un código propio, así que cae en el 422 genérico.
-    if (db.lawyers.some((l) => l.email.toLowerCase() === email.toLowerCase())) {
-        return fail(422, businessRuleViolation('createLawyer'));
-    }
+    if (registrationTaken(registrationNumber)) return fail(409, ERRORS.registrationTaken);
 
     const lawyer: Lawyer = {
         id: db.nextLawyerId,
-        firstName,
-        lastName,
+        fullName,
         registrationNumber,
-        email,
-        phone,
+        activeCases: 0,
+        active: true,
     };
     db.nextLawyerId += 1;
     db.lawyers.push(lawyer);
@@ -549,37 +681,112 @@ const createLawyer: Handler = ({ request }) => {
     return created(itemBody(lawyer));
 };
 
-/* ------------------------------------------------------------------ */
-/* /procedural-states                                                  */
-/* ------------------------------------------------------------------ */
-
-const listProceduralStates: Handler = ({ request }) => {
+const listLawyers: Handler = ({ request }) => {
     const auth = requireAdmin(request);
     if (!auth.ok) return auth.response;
 
     const page = readPagination(request.query);
     if (!page.ok) return page.response;
 
-    const jurisdiction = request.query.get('jurisdiction');
-    if (jurisdiction !== null && jurisdiction !== '' && !isJurisdiction(jurisdiction)) {
-        return fail(400, ERRORS.invalidJurisdiction);
-    }
+    const active = readActiveFilter(request.query);
+    if (active === undefined) return fail(400, ERRORS.invalidActive);
 
     const search = asText(request.query.get('search'));
-    const filtered: ProceduralState[] = db.proceduralStates
-        .filter((s) => (search === '' ? true : contains(s.name, search)))
-        .filter((s) => (jurisdiction === null || jurisdiction === '' ? true : s.jurisdiction === jurisdiction))
+    const filtered = db.lawyers
+        .filter((l) => l.active === active)
+        .filter((l) =>
+            search === '' ? true : contains(l.fullName, search) || contains(l.registrationNumber, search),
+        )
         .sort((a, b) => a.id - b.id);
 
     return ok(paginate(filtered, page.page, page.limit));
 };
 
-/** `proceduralStateId` de la ruta. `undefined` si no es un entero. */
-function readProceduralStateId(params: Record<string, string>): number | undefined {
-    const raw = params.proceduralStateId ?? '';
-    if (!/^\d+$/.test(raw)) return undefined;
-    return Number(raw);
-}
+const getLawyer: Handler = ({ request, params }) => {
+    const auth = requireAdmin(request);
+    if (!auth.ok) return auth.response;
+
+    const lawyerId = readRouteId(params, 'lawyerId');
+    if (lawyerId === undefined) return fail(400, ERRORS.invalidLawyerId);
+
+    const lawyer = db.lawyers.find((l) => l.id === lawyerId);
+    if (!lawyer) return fail(404, ERRORS.lawyerNotFound);
+
+    return ok(itemBody(lawyer));
+};
+
+const updateLawyer: Handler = ({ request, params }) => {
+    const auth = requireAdmin(request);
+    if (!auth.ok) return auth.response;
+
+    const lawyerId = readRouteId(params, 'lawyerId');
+    if (lawyerId === undefined) return fail(400, ERRORS.invalidLawyerId);
+
+    const body = asObject(request.body);
+    const hasFullName = body.fullName !== undefined;
+    const hasRegistration = body.registrationNumber !== undefined;
+    const hasActive = body.active !== undefined;
+
+    if (!hasFullName && !hasRegistration && !hasActive) {
+        return validationError({ body: 'Debe enviarse al menos un campo para modificar.' });
+    }
+
+    const details: Record<string, string> = {};
+    const fullName = asText(body.fullName);
+    const registrationNumber = asText(body.registrationNumber);
+
+    if (hasFullName && fullName === '') details.fullName = 'El nombre y apellido es obligatorio.';
+    if (hasRegistration && !RE_REGISTRATION.test(registrationNumber)) {
+        details.registrationNumber = 'El formato de la matrícula no es válido.';
+    }
+    if (hasActive && typeof body.active !== 'boolean') {
+        details.active = 'Debe ser verdadero o falso.';
+    }
+    if (Object.keys(details).length > 0) return validationError(details);
+
+    const lawyer = db.lawyers.find((l) => l.id === lawyerId);
+    if (!lawyer) return fail(404, ERRORS.lawyerNotFound);
+
+    if (hasRegistration && registrationTaken(registrationNumber, lawyerId)) {
+        return fail(409, ERRORS.registrationTaken);
+    }
+
+    /* Dar de baja un abogado que todavía tiene un usuario vinculado dejaría
+       a ese usuario sin ficha, que es justo lo que la regla del alta impide. */
+    if (hasActive && body.active === false) {
+        const linked = db.users.some((u) => u.active && u.lawyerId === lawyerId);
+        if (linked) return fail(409, ERRORS.lawyerHasDependencies);
+    }
+
+    if (hasFullName) lawyer.fullName = fullName;
+    if (hasRegistration) lawyer.registrationNumber = registrationNumber;
+    if (hasActive) lawyer.active = body.active as boolean;
+
+    return ok(itemBody(lawyer));
+};
+
+const deleteLawyer: Handler = ({ request, params }) => {
+    const auth = requireAdmin(request);
+    if (!auth.ok) return auth.response;
+
+    const lawyerId = readRouteId(params, 'lawyerId');
+    if (lawyerId === undefined) return fail(400, ERRORS.invalidLawyerId);
+
+    const lawyer = db.lawyers.find((l) => l.id === lawyerId);
+    if (!lawyer) return fail(404, ERRORS.lawyerNotFound);
+
+    const linked = db.users.some((u) => u.active && u.lawyerId === lawyerId);
+    if (LAWYERS_WITH_DEPENDENCIES.includes(lawyerId) || linked) {
+        return fail(409, ERRORS.lawyerHasDependencies);
+    }
+
+    lawyer.active = false;
+    return NO_CONTENT;
+};
+
+/* ------------------------------------------------------------------ */
+/* /procedural-states                                                  */
+/* ------------------------------------------------------------------ */
 
 /**
  * La unicidad es por **nombre + fuero**, no por nombre solo: dos fueros
@@ -595,13 +802,36 @@ function stateNameTaken(name: string, jurisdiction: Jurisdiction, exceptId?: num
     );
 }
 
+/** Los estados activos de un fuero, en orden de ciclo de vida. */
+function statesOf(jurisdiction: Jurisdiction, exceptId?: number): ProceduralState[] {
+    return db.proceduralStates
+        .filter((s) => s.active && s.jurisdiction === jurisdiction && s.id !== exceptId)
+        .sort((a, b) => a.position - b.position);
+}
+
+/**
+ * Renumera las posiciones de un fuero para que queden 1..n sin huecos.
+ *
+ * Se llama después de insertar, de mover y de dar de baja: el contrato dice
+ * que el backend renumera y que el cliente no manda esa renumeración.
+ */
+function renumber(jurisdiction: Jurisdiction): void {
+    statesOf(jurisdiction).forEach((state, index) => {
+        state.position = index + 1;
+    });
+}
+
+/** El `dayType` tiene que ser coherente con el plazo. */
+function dayTypeMismatch(timeLimitDays: number, dayType: DayType): boolean {
+    return (timeLimitDays === 0) !== (dayType === 'NONE');
+}
+
 const createProceduralState: Handler = ({ request }) => {
     const auth = requireAdmin(request);
     if (!auth.ok) return auth.response;
 
     const body = asObject(request.body);
     const name = asText(body.name);
-    const timeLimit = readTimeLimit(body.proceduralTimeLimit);
 
     const details: Record<string, string> = {};
     if (!isValidStateName(name)) {
@@ -610,49 +840,130 @@ const createProceduralState: Handler = ({ request }) => {
     if (!isJurisdiction(body.jurisdiction)) {
         details.jurisdiction = 'No existe un fuero procesal con ese nombre.';
     }
-    if (timeLimit === undefined) {
-        details.proceduralTimeLimit = 'Debe ser un número entero mayor o igual a 0.';
+
+    const timeLimitDays = body.timeLimitDays === undefined ? 0 : readCount(body.timeLimitDays, 9999);
+    if (timeLimitDays === undefined) {
+        details.timeLimitDays = 'Debe ser un número entero entre 0 y 9999.';
     }
-    if (!isDayType(body.dayType)) {
-        details.dayType = 'Debe ser BUSINESS o CONSECUTIVE.';
+
+    const dayType: DayType = body.dayType === undefined ? 'NONE' : (body.dayType as DayType);
+    if (body.dayType !== undefined && !isDayType(body.dayType)) {
+        details.dayType = 'Debe ser BUSINESS, CONSECUTIVE o NONE.';
+    }
+
+    const position = body.position === undefined ? undefined : readCount(body.position, 9999);
+    if (body.position !== undefined && (position === undefined || position < 1)) {
+        details.position = 'Debe ser un número entero mayor o igual a 1.';
+    }
+
+    if (body.terminal !== undefined && typeof body.terminal !== 'boolean') {
+        details.terminal = 'Debe ser verdadero o falso.';
     }
     if (Object.keys(details).length > 0) return validationError(details);
 
-    // Después de validar, los campos ya están estrechados por los type guards.
     const jurisdiction = body.jurisdiction as Jurisdiction;
-    const dayType = body.dayType as DayType;
+    const days = timeLimitDays as number;
+
+    if (dayTypeMismatch(days, dayType)) {
+        return validationError({
+            dayType:
+                days === 0
+                    ? 'Debe ser NONE cuando el plazo es 0.'
+                    : 'Debe indicarse el tipo de día cuando el plazo es mayor a 0.',
+        });
+    }
 
     if (stateNameTaken(name, jurisdiction)) {
         return fail(409, ERRORS.proceduralStateNameTaken);
     }
 
+    /* Insertar corre un lugar a los que vienen después. Sin posición, va al
+       final del ciclo. */
+    const siblings = statesOf(jurisdiction);
+    const target = Math.min(position ?? siblings.length + 1, siblings.length + 1);
+
     const state: ProceduralState = {
         id: db.nextProceduralStateId,
         name,
         jurisdiction,
-        proceduralTimeLimit: timeLimit as string,
+        position: target,
+        timeLimitDays: days,
         dayType,
+        terminal: body.terminal === true,
+        activeCases: 0,
+        active: true,
     };
     db.nextProceduralStateId += 1;
+
+    for (const sibling of siblings) {
+        if (sibling.position >= target) sibling.position += 1;
+    }
     db.proceduralStates.push(state);
+    renumber(jurisdiction);
 
     return created(itemBody(state));
+};
+
+const listProceduralStates: Handler = ({ request }) => {
+    const auth = requireAdmin(request);
+    if (!auth.ok) return auth.response;
+
+    const page = readPagination(request.query);
+    if (!page.ok) return page.response;
+
+    const jurisdiction = request.query.get('jurisdiction');
+    if (jurisdiction !== null && jurisdiction !== '' && !isJurisdiction(jurisdiction)) {
+        return fail(400, ERRORS.invalidJurisdiction);
+    }
+
+    const active = readActiveFilter(request.query);
+    if (active === undefined) return fail(400, ERRORS.invalidActive);
+
+    const search = asText(request.query.get('search'));
+    const filtered = db.proceduralStates
+        .filter((s) => s.active === active)
+        .filter((s) => (search === '' ? true : contains(s.name, search)))
+        .filter((s) => (jurisdiction === null || jurisdiction === '' ? true : s.jurisdiction === jurisdiction))
+        /* El contrato fija el orden: por fuero y, dentro de cada uno, por
+           posición. La pantalla muestra el ciclo de vida en orden. */
+        .sort((a, b) =>
+            a.jurisdiction === b.jurisdiction
+                ? a.position - b.position
+                : JURISDICTIONS.indexOf(a.jurisdiction) - JURISDICTIONS.indexOf(b.jurisdiction),
+        );
+
+    return ok(paginate(filtered, page.page, page.limit));
+};
+
+const getProceduralState: Handler = ({ request, params }) => {
+    const auth = requireAdmin(request);
+    if (!auth.ok) return auth.response;
+
+    const stateId = readRouteId(params, 'stateId');
+    if (stateId === undefined) return fail(400, ERRORS.invalidProceduralStateId);
+
+    const state = db.proceduralStates.find((s) => s.id === stateId);
+    if (!state) return fail(404, ERRORS.proceduralStateNotFound);
+
+    return ok(itemBody(state));
 };
 
 const updateProceduralState: Handler = ({ request, params }) => {
     const auth = requireAdmin(request);
     if (!auth.ok) return auth.response;
 
-    const stateId = readProceduralStateId(params);
+    const stateId = readRouteId(params, 'stateId');
     if (stateId === undefined) return fail(400, ERRORS.invalidProceduralStateId);
 
     const body = asObject(request.body);
     const hasName = body.name !== undefined;
-    const hasJurisdiction = body.jurisdiction !== undefined;
-    const hasTimeLimit = body.proceduralTimeLimit !== undefined;
+    const hasPosition = body.position !== undefined;
+    const hasTimeLimit = body.timeLimitDays !== undefined;
     const hasDayType = body.dayType !== undefined;
+    const hasTerminal = body.terminal !== undefined;
+    const hasActive = body.active !== undefined;
 
-    if (!hasName && !hasJurisdiction && !hasTimeLimit && !hasDayType) {
+    if (!hasName && !hasPosition && !hasTimeLimit && !hasDayType && !hasTerminal && !hasActive) {
         return validationError({ body: 'Debe enviarse al menos un campo para modificar.' });
     }
 
@@ -661,34 +972,70 @@ const updateProceduralState: Handler = ({ request, params }) => {
     if (hasName && !isValidStateName(name)) {
         details.name = `Debe tener entre ${NAME_MIN} y ${NAME_MAX} caracteres.`;
     }
-    if (hasJurisdiction && !isJurisdiction(body.jurisdiction)) {
-        details.jurisdiction = 'No existe un fuero procesal con ese nombre.';
+
+    /* El fuero no se puede cambiar: el contrato lo dice explícitamente. Un
+       estado que se muda de fuero rompería el ciclo de vida de los dos. */
+    if (body.jurisdiction !== undefined) {
+        details.jurisdiction = 'El fuero de un estado procesal no se puede modificar.';
     }
-    const timeLimit = hasTimeLimit ? readTimeLimit(body.proceduralTimeLimit) : undefined;
-    if (hasTimeLimit && timeLimit === undefined) {
-        details.proceduralTimeLimit = 'Debe ser un número entero mayor o igual a 0.';
+
+    const timeLimitDays = hasTimeLimit ? readCount(body.timeLimitDays, 9999) : undefined;
+    if (hasTimeLimit && timeLimitDays === undefined) {
+        details.timeLimitDays = 'Debe ser un número entero entre 0 y 9999.';
     }
     if (hasDayType && !isDayType(body.dayType)) {
-        details.dayType = 'Debe ser BUSINESS o CONSECUTIVE.';
+        details.dayType = 'Debe ser BUSINESS, CONSECUTIVE o NONE.';
+    }
+    const position = hasPosition ? readCount(body.position, 9999) : undefined;
+    if (hasPosition && (position === undefined || position < 1)) {
+        details.position = 'Debe ser un número entero mayor o igual a 1.';
+    }
+    if (hasTerminal && typeof body.terminal !== 'boolean') {
+        details.terminal = 'Debe ser verdadero o falso.';
+    }
+    if (hasActive && typeof body.active !== 'boolean') {
+        details.active = 'Debe ser verdadero o falso.';
     }
     if (Object.keys(details).length > 0) return validationError(details);
 
     const state = db.proceduralStates.find((s) => s.id === stateId);
     if (!state) return fail(404, ERRORS.proceduralStateNotFound);
 
-    // La unicidad se chequea contra los valores que van a QUEDAR, no contra
-    // los que llegaron: mover un estado de fuero puede chocar con uno que ya
-    // existe allá aunque el nombre no haya cambiado.
+    // La coherencia se chequea contra los valores que van a QUEDAR.
+    const nextDays = timeLimitDays ?? state.timeLimitDays;
+    const nextDayType = hasDayType ? (body.dayType as DayType) : state.dayType;
+    if (dayTypeMismatch(nextDays, nextDayType)) {
+        return validationError({
+            dayType:
+                nextDays === 0
+                    ? 'Debe ser NONE cuando el plazo es 0.'
+                    : 'Debe indicarse el tipo de día cuando el plazo es mayor a 0.',
+        });
+    }
+
     const nextName = hasName ? name : state.name;
-    const nextJurisdiction = hasJurisdiction ? (body.jurisdiction as Jurisdiction) : state.jurisdiction;
-    if ((hasName || hasJurisdiction) && stateNameTaken(nextName, nextJurisdiction, stateId)) {
+    if (hasName && stateNameTaken(nextName, state.jurisdiction, stateId)) {
         return fail(409, ERRORS.proceduralStateNameTaken);
     }
 
     state.name = nextName;
-    state.jurisdiction = nextJurisdiction;
-    if (timeLimit !== undefined) state.proceduralTimeLimit = timeLimit;
-    if (hasDayType) state.dayType = body.dayType as DayType;
+    state.timeLimitDays = nextDays;
+    state.dayType = nextDayType;
+    if (hasTerminal) state.terminal = body.terminal as boolean;
+    if (hasActive) state.active = body.active as boolean;
+
+    /* Mover un estado reordena el ciclo: se lo saca de su lugar, se lo mete
+       en el nuevo y se renumera todo el fuero. */
+    if (hasPosition) {
+        const siblings = statesOf(state.jurisdiction, stateId);
+        const target = Math.min(position as number, siblings.length + 1);
+        siblings.splice(target - 1, 0, state);
+        siblings.forEach((s, index) => {
+            s.position = index + 1;
+        });
+    } else {
+        renumber(state.jurisdiction);
+    }
 
     return ok(itemBody(state));
 };
@@ -697,20 +1044,22 @@ const deleteProceduralState: Handler = ({ request, params }) => {
     const auth = requireAdmin(request);
     if (!auth.ok) return auth.response;
 
-    const stateId = readProceduralStateId(params);
+    const stateId = readRouteId(params, 'stateId');
     if (stateId === undefined) return fail(400, ERRORS.invalidProceduralStateId);
 
-    const index = db.proceduralStates.findIndex((s) => s.id === stateId);
-    if (index === -1) return fail(404, ERRORS.proceduralStateNotFound);
+    const state = db.proceduralStates.find((s) => s.id === stateId);
+    if (!state) return fail(404, ERRORS.proceduralStateNotFound);
 
     if (PROCEDURAL_STATES_WITH_DEPENDENCIES.includes(stateId)) {
         return fail(409, ERRORS.proceduralStateHasDependencies);
     }
 
-    db.proceduralStates.splice(index, 1);
+    state.active = false;
+    // Los que quedan se renumeran: el ciclo no puede tener huecos.
+    renumber(state.jurisdiction);
+
     return NO_CONTENT;
 };
-
 
 /* ------------------------------------------------------------------ */
 /* Tabla de rutas                                                      */
@@ -726,23 +1075,31 @@ const ROUTES: Route[] = [
     { method: 'POST', pattern: /^\/auth\/login$/, handler: login },
     { method: 'POST', pattern: /^\/auth\/logout$/, handler: logout },
     { method: 'PATCH', pattern: /^\/auth\/password$/, handler: changePassword },
+
     { method: 'POST', pattern: /^\/users$/, handler: createUser },
     { method: 'GET', pattern: /^\/users$/, handler: listUsers },
     { method: 'GET', pattern: /^\/users\/(?<userId>[^/]+)$/, handler: getUser },
     { method: 'PATCH', pattern: /^\/users\/(?<userId>[^/]+)$/, handler: updateUser },
     { method: 'DELETE', pattern: /^\/users\/(?<userId>[^/]+)$/, handler: deleteUser },
+
     { method: 'POST', pattern: /^\/lawyers$/, handler: createLawyer },
-    { method: 'GET', pattern: /^\/procedural-states$/, handler: listProceduralStates },
+    { method: 'GET', pattern: /^\/lawyers$/, handler: listLawyers },
+    { method: 'GET', pattern: /^\/lawyers\/(?<lawyerId>[^/]+)$/, handler: getLawyer },
+    { method: 'PATCH', pattern: /^\/lawyers\/(?<lawyerId>[^/]+)$/, handler: updateLawyer },
+    { method: 'DELETE', pattern: /^\/lawyers\/(?<lawyerId>[^/]+)$/, handler: deleteLawyer },
+
     { method: 'POST', pattern: /^\/procedural-states$/, handler: createProceduralState },
-    { method: 'PATCH', pattern: /^\/procedural-states\/(?<proceduralStateId>[^/]+)$/, handler: updateProceduralState,},
-    { method: 'DELETE', pattern: /^\/procedural-states\/(?<proceduralStateId>[^/]+)$/, handler: deleteProceduralState,},
+    { method: 'GET', pattern: /^\/procedural-states$/, handler: listProceduralStates },
+    { method: 'GET', pattern: /^\/procedural-states\/(?<stateId>[^/]+)$/, handler: getProceduralState },
+    { method: 'PATCH', pattern: /^\/procedural-states\/(?<stateId>[^/]+)$/, handler: updateProceduralState },
+    { method: 'DELETE', pattern: /^\/procedural-states\/(?<stateId>[^/]+)$/, handler: deleteProceduralState },
 ];
 
 /**
  * Resuelve un pedido contra el contrato.
  *
  * Una ruta que no está en la tabla devuelve el `404 RESOURCE_NOT_FOUND`
- * general de §4.2, con el método y la ruta en el mensaje para que se note
+ * general de §5.2, con el método y la ruta en el mensaje para que se note
  * rápido cuándo el front está pegándole a un endpoint que no existe.
  */
 export function resolveRequest(request: MockRequest): MockResponse {
@@ -755,7 +1112,7 @@ export function resolveRequest(request: MockRequest): MockResponse {
 
     return fail(
         404,
-        errorBody('RESOURCE_NOT_FOUND', `${request.method} ${request.path} no existe en el contrato v1.`),
+        errorBody('RESOURCE_NOT_FOUND', `${request.method} ${request.path} no existe en el contrato.`),
     );
 }
 
