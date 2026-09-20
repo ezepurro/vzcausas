@@ -1,0 +1,78 @@
+/* Panel y tabla de datos. */
+
+.vz-panel {
+  background: var(--vz-surface);
+  border: 1px solid var(--vz-border);
+  border-radius: var(--vz-r);
+  box-shadow: var(--vz-card-sh);
+  overflow: hidden;
+}
+
+.vz-panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--vz-border);
+  background: var(--vz-sunken);
+}
+.vz-panel__title { font-size: 14px; font-weight: 700; }
+.vz-panel__sub { font-size: 12px; color: var(--vz-muted); margin-top: 2px; }
+
+.vz-panel__foot {
+  padding: 12px 18px;
+  border-top: 1px solid var(--vz-border);
+  font-size: 12px;
+  color: var(--vz-muted);
+  line-height: 1.5;
+}
+
+.vz-panel__scroll { overflow-x: auto; }
+
+.vz-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+.vz-table th {
+  text-align: left;
+  padding: 11px 16px;
+  background: var(--vz-th-bg);
+  color: var(--vz-th-fg);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.vz-table td {
+  padding: var(--vz-cell-y) 16px;
+  border-bottom: 1px solid var(--vz-border);
+  vertical-align: middle;
+}
+.vz-table tbody tr:last-child td { border-bottom: none; }
+.vz-table tbody tr:hover { background: var(--vz-sunken); }
+
+.vz-table__num { font-family: var(--vz-font-mono); font-variant-numeric: tabular-nums; }
+.vz-table__nowrap { white-space: nowrap; }
+.vz-table__actions { display: flex; gap: 6px; justify-content: flex-end; }
+.vz-table__primary { font-weight: 600; }
+.vz-table__secondary { font-size: 12px; color: var(--vz-muted); margin-top: 2px; }
+
+/* barra de filtros sobre la tabla */
+.vz-filters { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.vz-filters .vz-input,
+.vz-filters .vz-select { height: 36px; width: auto; min-width: 180px; font-size: 13px; }
+
+/* Paginado: va en el pie del panel, que ya trae borde y color apagado. */
+.vz-pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.vz-pager__status { font-family: var(--vz-font-mono); }
+.vz-pager__controls { display: flex; align-items: center; gap: 8px; }

@@ -1,8 +1,15 @@
+import { RouterProvider } from "react-router";
+import { QueryProvider } from "./app/providers/QueryProvider";
+import { ToastProvider } from "./app/providers/ToastProvider";
+import { router } from "./app/router";
+
+
 export function App() {
   return (
-    <main>
-      <h1>VZ Causas</h1>
-      <p>Sistema Integral de Gestión de Causas — Vázquez &amp; Zárate</p>
-    </main>
+    <QueryProvider>
+      <ToastProvider>
+        <RouterProvider router={router} />
+      </ToastProvider>
+    </QueryProvider>
   )
 }
