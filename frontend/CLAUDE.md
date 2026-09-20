@@ -6,14 +6,14 @@ no lo repito, leelo.
 
 ## Antes de escribir código, leé
 
-1. `frontend/docs/ESTRUCTURA.md` — el mapa general, las tres reglas entre
+1. `docs/Frontend-Architecture/ESTRUCTURA.md` — el mapa general, las tres reglas entre
    carpetas, los nombres y qué épica corresponde a qué módulo.
-2. `frontend/src/shared/README.md` — todos los componentes compartidos, el
+2. `docs/Frontend-Architecture/SHARED.md` — todos los componentes compartidos, el
    cliente HTTP y `ApiError`. Tiene su propia guía para Claude al final.
 3. `frontend/src/shared/mocks/README.md` — **antes de escribir cualquier
    llamada a la API**. Tiene las divergencias del contrato y cómo disparar cada
    error.
-4. `docs/api contract v1.md` — la fuente de verdad del backend. Si un documento
+4. `docs/Api-Contract/API_CONTRACT_V2` — la fuente de verdad del backend. Si un documento
    y el contrato no coinciden, manda el contrato.
 
 ## Reglas que no se negocian
