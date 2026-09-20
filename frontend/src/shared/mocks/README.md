@@ -1,9 +1,9 @@
-# Mocks — API v1 simulada
+# Mocks — API simulada
 
-Implementación en memoria de `docs/api contract v1.md`: los diez endpoints del
-contrato, con sus códigos de error, su paginación y sus filtros. Sirve para
-desarrollar pantallas sin backend levantado y para tener fixtures estables en
-los tests.
+Implementación en memoria de `docs/Api-Contract/API_CONTRACT_V1.md`: los
+dieciocho endpoints del contrato, con sus códigos de error, su paginación,
+sus filtros y sus bajas lógicas. Sirve para desarrollar pantallas sin backend
+levantado y para tener fixtures estables en los tests.
 
 Está armado sobre **MSW** (`msw@2`), que intercepta el tráfico de red de
 verdad: un service worker en el navegador y la capa `http` de Node en los
@@ -113,18 +113,25 @@ tocar el mock general.
 
 El login es `POST /auth/login` con `{ username, password }`.
 
-| Usuario | Contraseña | Rol | Sirve para |
+| Usuario | Contraseña | Roles | Sirve para |
 | --- | --- | --- | --- |
-| `admin` | `password` | `ADMINISTATOR` | Todo. Es el único que pasa los endpoints de administración. |
-| `jperez` | `abogado123` | `LAWYER` + `ADMINISTATOR` | Rol múltiple. |
-| `mdominguez` | `secre123` | `SECRETARIAT` | Probar el `403`. |
-| el resto | `password` | varios | Ver `fixtures.ts`. |
+| `fvazquez` | `password1` | `ADMINISTRATOR` + `LAWYER` | Todo. Es el administrador del estudio y el único perfil que pasa los endpoints de administración. |
+| `mrios` | `abogado123` | `LAWYER` | Probar el `403`. |
+| `gestion` | `secre123` | `SECRETARY` | Probar el `403` y el usuario sin ficha profesional (`lawyer: null`). |
+| el resto | `password1` | varios | Ver `fixtures.ts`. |
 
 Sin `Authorization: Bearer <token>` válido todo endpoint protegido responde
 `401`; con un token de alguien que no es administrador, `403`.
 
-Datos semilla: **22 usuarios**, **14 abogados**, **24 estados procesales** —
-suficiente para que la paginación por defecto (`limit=20`) dé dos páginas.
+Datos semilla: **22 usuarios** (21 activos y uno dado de baja), **7 abogados**
+y **24 estados procesales** — suficiente para que la paginación por defecto
+(`limit=20`) dé dos páginas.
+
+Los nombres, las matrículas y el ciclo de vida de cada fuero salen del
+prototipo, así lo que se ve desarrollando es lo que el estudio aprobó.
+
+`vsosa` está dado de baja a propósito: sólo aparece con `?active=false` y
+sirve para probar la baja lógica y el `409` contra un registro invisible.
 
 ---
 
@@ -141,15 +148,25 @@ suficiente para que la paginación por defecto (`limit=20`) dé dos páginas.
 | `PATCH` | `/users/{userId}` | 200, 400, 401, 403, 404, 409, 422 |
 | `DELETE` | `/users/{userId}` | 204, 400, 401, 403, 404, 409, 422 |
 | `POST` | `/lawyers` | 201, 400, 401, 403, 409, 422 |
+| `GET` | `/lawyers` | 200, 400, 401, 403 |
+| `GET` | `/lawyers/{lawyerId}` | 200, 400, 401, 403, 404 |
+| `PATCH` | `/lawyers/{lawyerId}` | 200, 400, 401, 403, 404, 409, 422 |
+| `DELETE` | `/lawyers/{lawyerId}` | 204, 400, 401, 403, 404, 409, 422 |
+| `POST` | `/procedural-states` | 201, 400, 401, 403, 409, 422 |
 | `GET` | `/procedural-states` | 200, 400, 401, 403 |
-| `POST` | `/procedural-states` | 201, 400, 401, 403, 409 |
-| `PATCH` | `/procedural-states/{proceduralStateId}` | 200, 400, 401, 403, 404, 409 |
-| `DELETE` | `/procedural-states/{proceduralStateId}` | 204, 400, 401, 403, 404, 409 |
+| `GET` | `/procedural-states/{stateId}` | 200, 400, 401, 403, 404 |
+| `PATCH` | `/procedural-states/{stateId}` | 200, 400, 401, 403, 404, 409, 422 |
+| `DELETE` | `/procedural-states/{stateId}` | 204, 400, 401, 403, 404, 409, 422 |
 
+
+**Las bajas son lógicas.** Los `DELETE` no borran: ponen `active` en `false`.
+El registro sigue existiendo —`GET /users/15` lo devuelve— pero sale de los
+listados. Para verlo hay que pedir `?active=false`, y para revivirlo, un
+`PATCH` con `active: true`.
 
 Un método o una ruta que MSW sí intercepta pero que el contrato no define
 —`GET /users/3/causas`, por ejemplo— devuelve el `404 RESOURCE_NOT_FOUND`
-general de §4.2, con el método y la ruta en el mensaje. Lo que no matchea
+general de §5.2, con el método y la ruta en el mensaje. Lo que no matchea
 ningún handler (HMR de Vite, fuentes, assets) sale a la red sin tocarse.
 
 **Prefijos**: el contrato define la base `/api/v1` pero `http.ts` usa
@@ -162,15 +179,16 @@ va a ser así: hay que elegir una forma.
 
 | Código | Cómo |
 | --- | --- |
-| `400` validación | `username` de menos de 3 caracteres, matrícula sin formato `MP-12345`, contraseña de menos de 8 caracteres o sin número; nombre de estado procesal de menos de 3 caracteres; `proceduralTimeLimit` no numérico; `PATCH /procedural-states/{id}` sin ningún campo |
+| `400` validación | `username` de menos de 3 caracteres, matrícula fuera del formato `1-28114`, contraseña de menos de 8 caracteres o sin número; nombre de estado procesal de menos de 3 caracteres; `timeLimitDays` no numérico; un `dayType` incoherente con el plazo; mandar `lawyerId` **y** `lawyer` juntos; `PATCH` sin ningún campo |
 | `400` paginación | `?page=0`, `?limit=500`, `?limit=abc` |
 | `400` ruta | `GET /users/abc`, `DELETE /procedural-states/abc` |
-| `400` query | `?role=NOPE`, `?jurisdiction=NOPE` |
-| `401` | sin header `Authorization`, o token revocado por un logout |
-| `403` | token de `mdominguez` |
-| `404` | `GET /users/999`, `DELETE /procedural-states/999` |
-| `409` | crear un usuario con `username: "admin"`; crear un abogado con `MP-12345`; borrar el usuario 2, 4 o 9; crear un estado procesal con un nombre que ya existe en ese fuero; borrar el estado procesal 4, 14 o 21 |
-| `422` | crear un usuario `LAWYER` sin `abogadoId` válido; borrar o degradar el usuario 1; contraseña actual incorrecta en `PATCH /auth/password` |
+| `400` query | `?role=NOPE`, `?jurisdiction=NOPE`, `?active=quizas` |
+| `401` credenciales | `POST /auth/login` con contraseña incorrecta, o con un usuario dado de baja → `INVALID_CREDENTIALS` |
+| `401` sesión | sin header `Authorization`, o token revocado por un logout → `UNAUTHENTICATED` |
+| `403` | token de `mrios` o de `gestion`: leer también exige `ADMINISTRATOR` |
+| `404` | `GET /users/999`, `GET /lawyers/999`, `GET /procedural-states/999` |
+| `409` | crear un usuario con `username: "fvazquez"` o con un email ya usado; crear un abogado con `1-28114`; dar de baja el usuario 3, 4 o 5; dar de baja un abogado con usuario vinculado; crear un estado procesal con un nombre que ya existe en ese fuero; dar de baja el estado 4, 14 o 21 |
+| `422` | crear un usuario `LAWYER` o `ADMINISTRATOR` sin ficha profesional; crear un `SECRETARY` **con** ficha; dar de baja o degradar el usuario 1; contraseña actual incorrecta en `PATCH /auth/password` |
 | `500` / red | `configureMocks({ forceFailure: 500 })` / `configureMocks({ forceFailure: 'network' })` |
 
 ---
@@ -180,9 +198,9 @@ va a ser así: hay que elegir una forma.
 | Archivo | Contenido |
 | --- | --- |
 | `contract.ts` | Los tipos del contrato (recursos, cuerpos de petición, envoltorios, códigos de error) y los constructores `itemBody` / `listBody` / `errorBody` / `buildPagination`. |
-| `fixtures.ts` | Datos semilla de sólo lectura: usuarios, abogados, estados procesales, credenciales. |
+| `fixtures.ts` | Datos semilla de sólo lectura, sacados del prototipo: usuarios, abogados, estados procesales y credenciales. También el tipo `StoredUser`, que es cómo la base guarda un usuario. |
 | `responses.ts` | Una respuesta de ejemplo por cada código documentado, en `RESPONSES.<endpoint>.<case>`, más los mensajes de error compartidos en `ERRORS`. |
-| `db.ts` | Base en memoria (copia mutable de las semillas), tokens de sesión y `resetMockDb()`. |
+| `db.ts` | Base en memoria (copia mutable de las semillas), tokens de sesión, `resetMockDb()` y `toUser()`, que arma el `lawyer` embebido al serializar. |
 | `handlers.ts` | **El servidor falso**: `resolveRequest(request)` → `{ status, body }`. Toda la lógica del contrato vive acá, y no sabe de MSW ni de axios. |
 | `msw-handlers.ts` | La capa MSW: normaliza la url, aplica `passthrough`, latencia y fallos forzados, y convierte el resultado en `HttpResponse`. Sin lógica de negocio. |
 | `browser.ts` | `startMocks()` / `stopMocks()` — service worker. Sólo navegador. |
@@ -228,67 +246,63 @@ El estado vive en memoria: dura lo que dura la pestaña. Un F5 —o
 
 ---
 
-## Divergencias del contrato
+## Lo que el contrato dejó sin definir
 
-Están replicadas tal cual, no corregidas: un mock que arregla el contrato deja
-de servir para detectar el problema cuando aparezca el backend real. En el
-código están marcadas con `DIVERGENCIA`.
+El contrato anterior tenía seis divergencias —roles con dos vocabularios y
+dos formas, `abogadoId` en castellano, el `401` del login con otro
+envoltorio, el plazo como string— y este mock las replicaba a propósito, para
+que no se escondiera el problema. **Ya no existen ninguna**: el contrato
+vigente las resolvió y el mock lo sigue tal cual.
 
-1. **El rol tiene dos vocabularios y dos formas.** En `/users` es un arreglo en
-   inglés (`["LAWYER", "ADMINISTATOR"]`); en la respuesta del login es un
-   string en castellano (`"ADMINISTRADOR"`); el ejemplo de `PATCH /users/{id}`
-   manda `"role": "USUARIO"`, un valor que no aparece en ninguna otra parte del
-   documento. El mock acepta string o arreglo al escribir, siempre devuelve
-   arreglo en `/users`, y traduce al rol único del login con `sessionRoleFrom()`.
-2. **`ADMINISTATOR` está escrito sin la "R"** en todos los ejemplos de `/users`,
-   pero `ADMINISTRADOR` en la tabla de endpoints y en el login. Se respeta la
-   grafía de los payloads. Si el backend define otra, se cambia la constante
-   `ROLES` en `contract.ts` y el resto sigue funcionando.
-3. **El `401` del login no usa el envoltorio de error estándar**: devuelve
-   `{ statusCode, error, message }` en vez de `{ error: { code, message, details } }`.
-   Es el único caso en todo el contrato.
-4. **`abogadoId`** es el único campo en castellano, y viaja como string
-   (`"abogadoId": "1"`) aunque los ids sean enteros. El mock acepta las dos
-   formas. Además el contrato lo recibe pero no lo devuelve nunca, así que el
-   vínculo usuario↔abogado se guarda aparte (`USER_LAWYER` en `fixtures.ts`).
-5. **`proceduralTimeLimit` es un string** (`"10"`), no un número.
-6. **El `403` está redactado de dos maneras**: `POST /users` habla de "permisos
-   suficientes" y el resto nombra el rol `ADMINISTRADOR`. Igual el `401`, que en
-   `/auth/*` menciona el token y en `/users` no. Los dos textos están en
-   `ERRORS`.
-
-### Huecos que el mock tuvo que completar
-
-El contrato no los define; son decisiones de este mock, no del backend.
+Lo que queda son decisiones que el mock tuvo que tomar porque el contrato no
+las fija. Son de este mock, no del backend.
 
 - **Formato de `username`**: 3 a 30 caracteres, letras, números, `.`, `-`, `_`.
-- **Requisito de contraseña**: 8 o más caracteres, con al menos una letra y un
-  número.
-- **Formato de matrícula**: `MP-` y 4 a 6 dígitos.
-- **Valores de `jurisdiction`**: el contrato sólo nombra `ADMINISTRATIVE` y
-  `CRIMINAL`; se agregó `AMPARO`, que es el tercer fuero con el que trabaja el
-  estudio (ver el prototipo y `docs/TRADUCCION_DOMINIO.md`). Falta confirmarlo
-  con el backend. Antes había cuatro fueros inventados por el mock —`CIVIL`,
-  `COMMERCIAL`, `LABOR` y `FAMILY`— que se sacaron: agregaban dominio que el
-  estudio no usa.
-- **Estados sin plazo**: el prototipo tiene estados terminales o de trámite que
-  no abren ningún plazo (muestran `—` en la columna "Días"), pero el contrato no
-  tiene cómo expresarlo. En las semillas van como `proceduralTimeLimit: '0'` +
-  `dayType: 'BUSINESS'`, que **no es lo mismo**: "0 días hábiles" vence hoy,
-  "sin plazo" no vence nunca. Hay que resolverlo con el backend antes de que el
-  módulo de vencimientos lea esta tabla.
-- **`?role=` inválido en `GET /users`**: el contrato no documenta el error, así
-  que se usa el mismo formato que el `jurisdiction` inválido de
-  `/procedural-states` (`400 INVALID_REQUEST`).
-- **Qué cuenta como regla de negocio (`422`)**: un usuario `LAWYER` necesita un
-  `abogadoId` que exista; el usuario 1 no se puede borrar ni quedarse sin rol de
-  administrador; el email de un abogado no se puede repetir.
-- **Qué usuarios tienen dependencias (`409` al borrar)**: los ids 2, 4 y 9.
-- **Orden de validación**: 401 → 403 → 400 de ruta → 400 de cuerpo → 404 → 409
-  → 422. El contrato no fija un orden; el mock necesita uno para ser previsible.
+  El contrato sólo dice "no cumple con el formato requerido".
+- **Formato de matrícula**: `^d{1,2}-d{5}$`. El contrato documenta `1-28114`
+  y deja anotado que hay que confirmar con el estudio si la circunscripción
+  puede tener dos dígitos. Se aceptan los dos casos: una expresión de más
+  **rechaza matrículas legítimas**, que es peor que una de menos.
+- **Largo del nombre de un estado procesal**: 3 a 80 caracteres. Lo escribe
+  una persona (RN4), así que sólo se exige un largo razonable.
+- **`?role=` y `?active=` inválidos**: el contrato no documenta el error, así
+  que se usa el mismo formato que el `jurisdiction` inválido
+  (`400 INVALID_REQUEST`).
+- **Qué cuenta como regla de negocio (`422`)**: un usuario con rol `LAWYER` o
+  `ADMINISTRATOR` necesita ficha profesional y uno de `SECRETARY` no puede
+  tenerla; el usuario 1 no se puede dar de baja ni quedarse sin rol de
+  administrador.
+- **Qué registros tienen dependencias (`409` al dar de baja)**: usuarios 3, 4
+  y 5; abogados 1 y 3 —más cualquier abogado con un usuario activo
+  vinculado—; estados procesales 4, 14 y 21.
+- **Orden de validación**: 401 → 403 → 400 de ruta → 400 de cuerpo → 404 →
+  409 → 422. El contrato no fija un orden; el mock necesita uno para ser
+  previsible.
 - **`totalPages` de una colección vacía es `0`**, no `1`.
 - **Un `PATCH` sin ningún campo devuelve `400`**, porque el contrato dice que
   hay que mandar al menos uno pero no indica qué error corresponde.
+- **Sesiones y baja lógica**: dar de baja un usuario le cierra las sesiones
+  abiertas, y un usuario inactivo no puede iniciar sesión. El contrato no lo
+  dice, pero lo contrario sería un agujero: el `DELETE` no le sacaría el
+  acceso a nadie que ya estuviera adentro.
+- **El `401` del login no distingue** entre contraseña incorrecta y usuario
+  dado de baja. Responder "existís pero estás inactivo" filtraría información
+  a quien no está autenticado.
+
+### Cosas que el contrato sí resolvió y conviene saber
+
+- **Los estados sin plazo** ahora se expresan con `timeLimitDays: 0` +
+  `dayType: "NONE"`. Antes había que escribir "0 días hábiles", que **no es lo
+  mismo**: eso vence hoy, "sin plazo" no vence nunca.
+- **El alta de usuario con abogado nuevo es transaccional.** `POST /users`
+  acepta `lawyerId` (vincular uno existente) o `lawyer` (crear uno nuevo),
+  nunca los dos. Con `lawyer`, si el alta del usuario falla, el abogado no se
+  crea: el mock valida todo antes de escribir cualquier cosa.
+- **Las posiciones de los estados procesales se renumeran solas.** Insertar,
+  mover o dar de baja deja el ciclo del fuero en 1..n sin huecos. El cliente
+  no manda esa renumeración.
+- **`activeCases` devuelve siempre `0`**, en abogados y en estados: depende
+  del módulo de causas, que todavía no existe.
 
 ---
 
@@ -318,34 +332,27 @@ por campo para pintar el formulario.
 Los códigos viven en `@/shared/api/contract.ts` —no acá— porque son contrato de
 producción; este mock los reexporta.
 
-La única respuesta sin `code` es el `401` de `/auth/login`, que por la
-divergencia 3 usa otra forma: ahí `e.code` queda en `null` y hay que mirar
-`e.status`.
+**Todas** las respuestas de error traen `code`, sin excepciones. El `401` del
+login, que en el contrato anterior venía con otro envoltorio y sin código,
+ahora responde `INVALID_CREDENTIALS` como cualquier otro error.
 
 
-## Endpoints que NO están en el contrato
+## Qué pasa cuando el backend publique un endpoint
 
-El contrato v1 define **sólo** `GET /procedural-states`. El ABM
-(`POST`, `PATCH`, `DELETE`) es una **propuesta de este equipo**, necesaria
-para la feature de ABMC de estados procesales, y hoy existe únicamente acá.
+Todo lo que el mock implementa está en el contrato: ya no hay endpoints
+"propuestos" que existan sólo acá. El ABM de estados procesales, el listado de
+abogados y las bajas lógicas se agregaron al contrato y el mock los sigue.
 
-Está marcado con `PROPUESTA` en el código: `handlers.ts`, `contract.ts`,
-`responses.ts`, `msw-handlers.ts` y los dos códigos de error nuevos en
-`shared/api/contract.ts` (`PROCEDURAL_STATE_ALREADY_EXISTS`,
-`PROCEDURAL_STATE_HAS_DEPENDENCIES`).
+Cuando el backend publique uno, se lo saca del mock sin tocar nada más:
 
-Decisiones que tomó el mock y que el backend puede resolver distinto:
+```ts
+await startMocks({ passthrough: ['/lawyers'] })
+// /lawyers y /lawyers/3 van al backend real; el resto sigue mockeado
+```
 
-- **La unicidad es por nombre + fuero**, no por nombre solo.
-- **La baja es física** (`DELETE` → 204), replicando `/users`. Pero
-  `docs/TRADUCCION_DOMINIO.md` dice que la baja del dominio es **lógica**
-  (`active: boolean`, nunca `delete`, RN12). Hay que confirmarlo.
-- **El 404 usa `RESOURCE_NOT_FOUND`**, el código general de §4.2, en vez de
-  uno propio del recurso.
-- **Nombre de 3 a 60 caracteres**; el contrato no define formato.
-- **`proceduralTimeLimit` de 0 a 9999**, aceptado como string o número y
-  normalizado a string.
+Ese es el camino para ir apagando el mock endpoint por endpoint, en vez de
+apagarlo entero el día del primer deploy.
 
-Cuando el backend publique los suyos, hay que comparar contra esto y
-corregir lo que no coincida, o sacarlos del mock con
-`startMocks({ passthrough: ['/procedural-states'] })`.
+Conviene comparar contra las decisiones listadas más arriba —formato de
+matrícula, orden de validación, qué registros tienen dependencias— y corregir
+lo que no coincida.
