@@ -955,13 +955,11 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
 
         <sc-if value="{{ enAbogados }}" hint-placeholder-val="{{ false }}">
         <div style="background:var(--surface);border:var(--panel-bd);border-radius:var(--r);box-shadow:var(--card-sh);overflow:hidden;overflow-x:auto">
-          <table style="width:100%;min-width:960px;border-collapse:collapse;font-size:13.5px">
+          <table style="width:100%;min-width:720px;border-collapse:collapse;font-size:13.5px">
             <thead>
               <tr style="background:var(--th-bg)">
-                <th scope="col" style="text-align:left;padding:11px 16px;color:var(--th-fg);font-size:11px;font-weight:var(--th-weight);letter-spacing:.07em;text-transform:uppercase;width:24%">Abogado</th>
+                <th scope="col" style="text-align:left;padding:11px 16px;color:var(--th-fg);font-size:11px;font-weight:var(--th-weight);letter-spacing:.07em;text-transform:uppercase;width:42%">Abogado</th>
                 <th scope="col" style="text-align:left;padding:11px 16px;color:var(--th-fg);font-size:11px;font-weight:var(--th-weight);letter-spacing:.07em;text-transform:uppercase;white-space:nowrap">Matrícula</th>
-                <th scope="col" style="text-align:left;padding:11px 16px;color:var(--th-fg);font-size:11px;font-weight:var(--th-weight);letter-spacing:.07em;text-transform:uppercase">Especialidad</th>
-                <th scope="col" style="text-align:left;padding:11px 16px;color:var(--th-fg);font-size:11px;font-weight:var(--th-weight);letter-spacing:.07em;text-transform:uppercase">Nivel</th>
                 <th scope="col" style="text-align:left;padding:11px 16px;color:var(--th-fg);font-size:11px;font-weight:var(--th-weight);letter-spacing:.07em;text-transform:uppercase">Causas activas</th>
                 <th scope="col" style="padding:11px 16px;width:1%"></th>
               </tr>
@@ -971,8 +969,6 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
                 <tr style="border-top:1px solid var(--border)" style-hover="background:var(--sunken)">
                   <td style="padding:var(--cell-y) 16px;height:var(--row);font-weight:600">{{ a.nombre }}</td>
                   <td style="padding:var(--cell-y) 16px;font-family:'Roboto Mono',monospace;font-size:12.5px;color:var(--muted);white-space:nowrap">{{ a.matricula }}</td>
-                  <td style="padding:var(--cell-y) 16px;color:var(--muted)">{{ a.especialidad }}</td>
-                  <td style="padding:var(--cell-y) 16px;color:var(--muted)">{{ a.nivel }}</td>
                   <td style="padding:var(--cell-y) 16px">
                     <div style="display:flex;align-items:center;gap:10px">
                       <div style="width:84px;height:6px;border-radius:3px;background:var(--sunken);border:1px solid var(--border);overflow:hidden">
@@ -1324,12 +1320,11 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
             <h2 style="font-size:15px;font-weight:700;margin:0">Causas por abogado responsable</h2>
             <p style="margin:4px 0 0;font-size:12px;color:var(--muted)">Al 15/09/2026 · {{ repTotalCarga }} causas activas distribuidas entre 7 profesionales.</p>
           </div>
-          <table style="width:100%;min-width:820px;border-collapse:collapse;font-size:13.5px">
+          <table style="width:100%;min-width:760px;border-collapse:collapse;font-size:13.5px">
             <thead>
               <tr style="background:var(--th-bg)">
-                <th scope="col" style="text-align:left;padding:11px 16px;color:var(--th-fg);font-size:11px;font-weight:var(--th-weight);letter-spacing:.07em;text-transform:uppercase;width:26%">Abogado</th>
-                <th scope="col" style="text-align:left;padding:11px 16px;color:var(--th-fg);font-size:11px;font-weight:var(--th-weight);letter-spacing:.07em;text-transform:uppercase">Nivel</th>
-                <th scope="col" style="text-align:left;padding:11px 16px;color:var(--th-fg);font-size:11px;font-weight:var(--th-weight);letter-spacing:.07em;text-transform:uppercase;width:32%">Distribución</th>
+                <th scope="col" style="text-align:left;padding:11px 16px;color:var(--th-fg);font-size:11px;font-weight:var(--th-weight);letter-spacing:.07em;text-transform:uppercase;width:32%">Abogado</th>
+                <th scope="col" style="text-align:left;padding:11px 16px;color:var(--th-fg);font-size:11px;font-weight:var(--th-weight);letter-spacing:.07em;text-transform:uppercase;width:34%">Distribución</th>
                 <th scope="col" style="text-align:right;padding:11px 16px;color:var(--th-fg);font-size:11px;font-weight:var(--th-weight);letter-spacing:.07em;text-transform:uppercase">Causas</th>
                 <th scope="col" style="text-align:right;padding:11px 16px;color:var(--th-fg);font-size:11px;font-weight:var(--th-weight);letter-spacing:.07em;text-transform:uppercase">Del total</th>
                 <th scope="col" style="text-align:left;padding:11px 16px;color:var(--th-fg);font-size:11px;font-weight:var(--th-weight);letter-spacing:.07em;text-transform:uppercase">Estado</th>
@@ -1339,7 +1334,6 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
               <sc-for list="{{ repFilas }}" as="r" hint-placeholder-count="7">
                 <tr style="border-top:1px solid var(--border)" style-hover="background:var(--sunken)">
                   <td style="padding:var(--cell-y) 16px;height:var(--row);font-weight:600">{{ r.nombre }}</td>
-                  <td style="padding:var(--cell-y) 16px;color:var(--muted)">{{ r.nivel }}</td>
                   <td style="padding:var(--cell-y) 16px">
                     <div style="height:7px;border-radius:4px;background:var(--sunken);border:1px solid var(--border);overflow:hidden">
                       <div style="{{ r.barCss }}"></div>
@@ -1779,13 +1773,13 @@ const USUARIOS = [
 ];
 
 const ABOGADOS = [
-  { nombre: 'Dr. Fernando G. Vázquez', matricula: '1-28114', especialidad: 'Penal · Fuerzas de seguridad', nivel: 'Director', causas: 14, activo: true },
-  { nombre: 'Dr. Oscar Zárate', matricula: '1-28109', especialidad: 'Administrativo · Fuerzas de seguridad', nivel: 'Director', causas: 13, activo: true },
-  { nombre: 'Dra. Malena Ríos', matricula: '1-36842', especialidad: 'Penal · Cibercrimen', nivel: 'Coordinadora', causas: 17, activo: true },
-  { nombre: 'Dr. Ignacio Peralta', matricula: '1-35207', especialidad: 'Administrativo', nivel: 'Coordinador', causas: 16, activo: true },
-  { nombre: 'Dra. Carolina Bustos', matricula: '1-39510', especialidad: 'Amparo · Familia', nivel: 'Especialista', causas: 15, activo: true },
-  { nombre: 'Dr. Matías Ferreyra', matricula: '1-38226', especialidad: 'Penal · Narcotráfico', nivel: 'Especialista', causas: 16, activo: true },
-  { nombre: 'Dra. Lucía Ortega', matricula: '1-41033', especialidad: 'Amparo · Violencia familiar y género', nivel: 'Especialista', causas: 14, activo: true }
+  { nombre: 'Dr. Fernando G. Vázquez', matricula: '1-28114', causas: 14, activo: true },
+  { nombre: 'Dr. Oscar Zárate', matricula: '1-28109', causas: 13, activo: true },
+  { nombre: 'Dra. Malena Ríos', matricula: '1-36842', causas: 17, activo: true },
+  { nombre: 'Dr. Ignacio Peralta', matricula: '1-35207', causas: 16, activo: true },
+  { nombre: 'Dra. Carolina Bustos', matricula: '1-39510', causas: 15, activo: true },
+  { nombre: 'Dr. Matías Ferreyra', matricula: '1-38226', causas: 16, activo: true },
+  { nombre: 'Dra. Lucía Ortega', matricula: '1-41033', causas: 14, activo: true }
 ];
 
 const CLIENTES = [
@@ -2436,7 +2430,7 @@ class Component extends DCLogic {
       califWrapCss: ncPenal ? '' : 'display:none',
       contraWrapCss: ncPenal ? 'display:none' : '',
       ncContra: s.ncContra, setNcContra: e => this.setState({ ncContra: e.target.value }),
-      responsables: ABOGADOS.filter(a => a.activo).map(a => ({ nombre: a.nombre, etiqueta: a.nombre + ' · ' + a.especialidad })),
+      responsables: ABOGADOS.filter(a => a.activo).map(a => ({ nombre: a.nombre, etiqueta: a.nombre + ' · matrícula ' + a.matricula })),
       ncResp: s.ncResp, setNcResp: e => this.setState({ ncResp: e.target.value }),
       ncFecha: s.ncFecha, setNcFecha: e => this.setState({ ncFecha: e.target.value }),
       ncDrive: s.ncDrive, toggleDrive: () => this.setState({ ncDrive: !s.ncDrive, ncModelos: !s.ncDrive ? s.ncModelos : false }),
@@ -2527,26 +2521,25 @@ class Component extends DCLogic {
         soloAdmin: true, titulo: 'Registrar abogado', sub: 'El abogado se vincula a un usuario para poder operar el sistema.',
         campos: [
           { k: 'nom', label: 'Nombre y apellido', req: true, ancho: 'half', ph: 'Dr. / Dra. Nombre Apellido' },
-          { k: 'mat', label: 'Matrícula', req: true, ancho: 'half', mono: true, ph: '1-00000' },
-          { k: 'esp', label: 'Especialidad', ancho: 'half', ph: 'Penal · Fuerzas de seguridad' },
-          { k: 'niv', label: 'Nivel', tipo: 'select', ancho: 'half', opciones: ['Director', 'Coordinador', 'Coordinadora', 'Especialista'] }
+          { k: 'mat', label: 'Matrícula', req: true, ancho: 'half', mono: true, ph: '1-00000' }
         ],
         okLabel: 'Registrar abogado', ok: v => 'Abogado ' + v.nom + ' registrado con matrícula ' + v.mat + '.'
       } : {
         soloAdmin: true, titulo: 'Registrar usuario', sub: 'El perfil determina qué puede operar, no qué puede ver.',
-        nota: 'La contraseña inicial se envía por correo y debe cambiarse en el primer ingreso. Si el perfil ejerce, se completan además los datos profesionales y queda registrado como abogado del estudio.',
+        nota: 'La contraseña inicial la define el administrador y se la comunica al usuario. Si el perfil ejerce, se completan además los datos profesionales y queda registrado como abogado del estudio.',
         campos: [
           { k: 'nom', label: 'Nombre y apellido', req: true, ancho: 'half' },
           { k: 'usr', label: 'Nombre de usuario', req: true, ancho: 'half', mono: true, ph: 'napellido' },
           { k: 'mail', label: 'Correo electrónico', req: true, ancho: 'half' },
           { k: 'perf', label: 'Perfil', tipo: 'select', ancho: 'half', valor: 'Abogado', opciones: ['Administrador', 'Abogado', 'Secretaría'] },
+          { tipo: 'grupo', label: 'Contraseña inicial' },
+          { k: 'pass', label: 'Contraseña', tipo: 'pass', req: true, ancho: 'half', nota: 'Mínimo 8 caracteres, con al menos un número.' },
+          { k: 'pass2', label: 'Repetir la contraseña', tipo: 'pass', req: true, ancho: 'half' },
           { k: 'modo', label: 'Ficha de abogado', tipo: 'select', valor: 'Vincular un abogado ya registrado', opciones: ['Vincular un abogado ya registrado', 'Registrar un abogado nuevo'], si: v => v.perf !== 'Secretaría', nota: 'Con perfil Administrador o Abogado el usuario necesita una ficha profesional: de ahí salen sus causas.' },
           { k: 'abog', label: 'Abogado', tipo: 'select', req: true, valor: ABOGADOS[0].nombre + ' · matrícula ' + ABOGADOS[0].matricula, opciones: ABOGADOS.map(a => a.nombre + ' · matrícula ' + a.matricula), si: v => v.perf !== 'Secretaría' && v.modo !== 'Registrar un abogado nuevo' },
-          { k: 'mat', label: 'Matrícula', req: true, ancho: 'half', mono: true, ph: '1-00000', si: v => v.perf !== 'Secretaría' && v.modo === 'Registrar un abogado nuevo' },
-          { k: 'esp', label: 'Especialidad', ancho: 'half', ph: 'Penal · Fuerzas de seguridad', si: v => v.perf !== 'Secretaría' && v.modo === 'Registrar un abogado nuevo' },
-          { k: 'niv', label: 'Nivel', tipo: 'select', ancho: 'half', opciones: ['Director', 'Coordinador', 'Coordinadora', 'Especialista'], si: v => v.perf !== 'Secretaría' && v.modo === 'Registrar un abogado nuevo' }
+          { k: 'mat', label: 'Matrícula', req: true, ancho: 'half', mono: true, ph: '1-00000', si: v => v.perf !== 'Secretaría' && v.modo === 'Registrar un abogado nuevo' }
         ],
-        okLabel: 'Registrar usuario', ok: v => (v.perf === 'Secretaría')
+        okLabel: 'Registrar usuario', ok: v => v.pass !== v.pass2 ? 'Las contraseñas no coinciden.' : (v.pass || '').length < 8 ? 'La contraseña inicial debe tener al menos 8 caracteres.' : (v.perf === 'Secretaría')
           ? 'Usuario ' + v.usr + ' creado con perfil Secretaría.'
           : v.modo === 'Registrar un abogado nuevo'
             ? 'Usuario ' + v.usr + ' creado con perfil ' + (v.perf || 'Abogado') + ' y alta como abogado, matrícula ' + v.mat + '.'
@@ -2557,11 +2550,12 @@ class Component extends DCLogic {
         nota: 'RN4: los estados dependen del fuero y son parametrizables. El plazo que se carga acá es el que el sistema computa cuando una causa entra en este estado.',
         campos: [
           { k: 'nom', label: 'Nombre del estado', req: true, ph: 'Como lo nombra el estudio en el expediente' },
+          { k: 'fue', label: 'Fuero al que pertenece', tipo: 'select', ancho: 'half', req: true, valor: s.fuero, opciones: ['Penal', 'Administrativo', 'Amparo'], nota: 'RN4: cada estado pertenece a un único fuero.' },
           { k: 'pos', label: 'Ubicación en el ciclo', tipo: 'select', valor: 'Al final', opciones: ['Al inicio'].concat((ESTADOS[s.fuero] || []).map((e, i) => 'Después de ' + (i + 1) + '. ' + e.nombre)).concat(['Al final']) },
           { tipo: 'grupo', label: 'Plazo que abre el estado' },
           { k: 'dias', label: 'Días', ancho: 'half', mono: true, ph: '5' },
           { k: 'tipo', label: 'Se cuentan en días', tipo: 'select', ancho: 'half', valor: 'Hábiles', opciones: ['Hábiles', 'Corridos', 'Sin plazo'] },
-          { k: 'notif', label: 'El plazo se computa desde la fecha de notificación y no de oficio (RN6).', tipo: 'check', valor: s.fuero === 'Administrativo' }
+          { k: 'term', label: 'Es un estado terminal: cierra el ciclo de vida de la causa.', tipo: 'check' }
         ],
         okLabel: 'Registrar estado', ok: v => 'Estado "' + v.nom + '" agregado al ciclo de vida del fuero ' + s.fuero + '.'
       }),
@@ -2596,7 +2590,8 @@ class Component extends DCLogic {
               { k: 'usr', label: 'Nombre de usuario', req: true, ancho: 'half', mono: true, valor: u.usuario },
               { k: 'perf', label: 'Perfil', tipo: 'select', ancho: 'half', valor: u.perfil, opciones: ['Administrador', 'Abogado', 'Secretaría'] },
               { k: 'abog', label: 'Abogado vinculado', tipo: 'select', ancho: 'half', valor: u.abogado, opciones: ['—'].concat(ABOGADOS.map(a => a.nombre)) },
-              { k: 'reset', label: 'Restablecer la contraseña y avisar por correo', tipo: 'check' }
+              { k: 'reset', label: 'Asignar una contraseña nueva', tipo: 'check' },
+              { k: 'pass', label: 'Contraseña nueva', tipo: 'pass', ancho: 'half', si: v => v.reset, nota: 'Se la comunica el administrador al usuario.' }
             ],
             ok: 'Usuario actualizado.'
           }),
@@ -2615,9 +2610,7 @@ class Component extends DCLogic {
           soloAdmin: true, titulo: 'Modificar abogado', sub: a.nombre + ' · matrícula ' + a.matricula,
           campos: [
             { k: 'nom', label: 'Nombre y apellido', req: true, ancho: 'half', valor: a.nombre },
-            { k: 'mat', label: 'Matrícula', req: true, ancho: 'half', mono: true, valor: a.matricula },
-            { k: 'esp', label: 'Especialidad', ancho: 'half', valor: a.especialidad },
-            { k: 'niv', label: 'Nivel', tipo: 'select', ancho: 'half', valor: a.nivel, opciones: ['Director', 'Coordinador', 'Coordinadora', 'Especialista'] }
+            { k: 'mat', label: 'Matrícula', req: true, ancho: 'half', mono: true, valor: a.matricula }
           ],
           ok: 'Datos del abogado actualizados.'
         }),
@@ -2651,11 +2644,12 @@ class Component extends DCLogic {
           nota: e.uso > 0 ? 'Hay ' + e.uso + ' causas en este estado. Renombrarlo actualiza la etiqueta en todas; el plazo nuevo rige para los actos que se registren de acá en adelante.' : 'El plazo rige para los actos que se registren de acá en adelante.',
           campos: [
             { k: 'nom', label: 'Nombre del estado', req: true, valor: e.nombre },
+            { k: 'fue', label: 'Fuero al que pertenece', tipo: 'select', ancho: 'half', req: true, valor: s.fuero, opciones: ['Penal', 'Administrativo', 'Amparo'], nota: 'RN4: cada estado pertenece a un único fuero.' },
             { k: 'pos', label: 'Ubicación en el ciclo', tipo: 'select', valor: 'Posición ' + (i + 1) + ' (actual)', opciones: ['Posición ' + (i + 1) + ' (actual)'].concat((ESTADOS[s.fuero] || []).filter(x => x.nombre !== e.nombre).map(x => 'Después de ' + x.nombre)) },
             { tipo: 'grupo', label: 'Plazo que abre el estado' },
             { k: 'dias', label: 'Días', ancho: 'half', mono: true, valor: e.dias ? String(e.dias) : '' },
             { k: 'tipo', label: 'Se cuentan en días', tipo: 'select', ancho: 'half', valor: e.tipoDia, opciones: ['Hábiles', 'Corridos', '—'] },
-            { k: 'notif', label: 'El plazo se computa desde la fecha de notificación (RN6)', tipo: 'check', valor: s.fuero === 'Administrativo' }
+            { k: 'term', label: 'Es un estado terminal: cierra el ciclo de vida de la causa.', tipo: 'check', valor: !!e.terminal }
           ],
           ok: 'Estado actualizado en el fuero ' + s.fuero + '.'
         }),
@@ -2732,7 +2726,7 @@ class Component extends DCLogic {
       cssRepAbogado: this.tabBtn(s.repTab === 'abogado'), cssRepFuero: this.tabBtn(s.repTab === 'fuero'),
       verRepAbogado: () => this.setState({ repTab: 'abogado' }), verRepFuero: () => this.setState({ repTab: 'fuero' }),
       repFilas: ABOGADOS.map(a => ({
-        nombre: a.nombre, nivel: a.nivel, causas: a.causas,
+        nombre: a.nombre, causas: a.causas,
         pct: Math.round(a.causas / totalCarga * 100) + ' %',
         barCss: 'height:100%;width:' + Math.round(a.causas / maxCarga * 100) + '%;background:' + (a.causas >= maxCarga ? '#A8894C' : 'var(--primary)'),
         estado: a.activo ? 'Activo' : 'Dado de baja'
