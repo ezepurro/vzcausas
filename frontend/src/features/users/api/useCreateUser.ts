@@ -1,4 +1,4 @@
-/** `POST /users` — alta. */
+/** `POST /users`*/
 
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
