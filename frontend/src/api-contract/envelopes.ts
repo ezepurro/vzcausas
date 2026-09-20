@@ -29,3 +29,11 @@ export interface ApiList<T> {
     data: T[];
     pagination: Pagination;
 }
+/**
+ * Parámetros de paginación de cualquier colección (§4.1). Opcionales porque
+ * el backend tiene default: `page` 1, `limit` 20.
+ */
+export interface PaginatedQuery {
+    page?: number;
+    limit?: number;
+}
