@@ -137,6 +137,22 @@ http.interceptors.request.use(
 
 
 /**LA FUNCION OBTENER TOKEN HOY EN DIA DEVUELVE NULL, MAS ADELANTE VA A FUNCIONAR */
+//function getToken(): string | null {
+//    return null
+//}
+
+
+/**
+ * Token de la sesión.
+ *
+ * PROVISORIO: lo lee de localStorage hasta que exista el login (HU 1).
+ * Cuando la épica de sesión esté, el token sale de ahí y esta función se
+ * conecta a esa fuente. La clave la comparte todo el front: no cambiarla
+ * sin avisar.
+ */
+const TOKEN_KEY = 'vz.token'
+
 function getToken(): string | null {
-    return null
+    return localStorage.getItem(TOKEN_KEY)
 }
+

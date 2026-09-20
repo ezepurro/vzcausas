@@ -65,3 +65,14 @@
 .vz-filters { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 .vz-filters .vz-input,
 .vz-filters .vz-select { height: 36px; width: auto; min-width: 180px; font-size: 13px; }
+
+/* Paginado: va en el pie del panel, que ya trae borde y color apagado. */
+.vz-pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.vz-pager__status { font-family: var(--vz-font-mono); }
+.vz-pager__controls { display: flex; align-items: center; gap: 8px; }

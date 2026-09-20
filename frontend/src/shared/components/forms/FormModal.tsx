@@ -17,11 +17,12 @@ export interface FieldSpec {
   mono?: boolean;
   placeholder?: string;
   note?: ReactNode;
+  /** mensaje de error del campo; lo decide la pantalla, igual que en `Field` */
+  error?: string;
   options?: string[];
   /** muestra el campo solo si devuelve true; recibe los valores actuales */
   when?: (values: FormValues) => boolean;
 }
-
 export interface FormModalProps {
   title: string;
   sub?: string;
@@ -106,6 +107,7 @@ export function FormModal({
                 label={c.label}
                 required={c.required}
                 note={c.note}
+                error={c.error}
                 width={c.width ?? 'full'}
                 htmlFor={id}
               >

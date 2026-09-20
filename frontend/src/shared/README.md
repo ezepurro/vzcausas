@@ -305,6 +305,8 @@ FormModal
 **`FieldSpec`:** `k?` (clave del valor; no hace falta en `'section'`), `label`,
 `type?: 'text' | 'pass' | 'select' | 'date' | 'area' | 'check' | 'section'`,
 `width?: 'half' | 'full'`, `required?`, `mono?`, `placeholder?`, `note?`,
+`error?` (mensaje de error **del campo**; lo decide la pantalla, igual que en
+`Field`: oculta la `note` y pinta el control en rojo),
 `options?: string[]`, `when?: (values) => boolean` (campo condicional).
 
 **`FormValues` = `Record<string, string | boolean>`** — sólo texto y booleanos.
