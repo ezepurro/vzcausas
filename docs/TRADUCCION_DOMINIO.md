@@ -4,7 +4,7 @@
 
 ## Regla de precedencia
 
-Cuando este glosario y `API_CONTRACT_V1.md` no coincidan, **manda el contrato**: es la superficie que backend y frontend comparten, y cambiarla cuesta una migración de los dos lados. Este documento se adapta al contrato, no al revés.
+Cuando este glosario y `API_CONTRACT_V2.md` no coincidan, **manda el contrato**: es la superficie que backend y frontend comparten, y cambiarla cuesta una migración de los dos lados. Este documento se adapta al contrato, no al revés.
 
 De ahí sale la segunda regla: **un concepto que viaja por la API se nombra igual en el dominio y en el contrato**. Tener `Term` en el código y `timeLimitDays` en el JSON obliga a traducir mentalmente en cada lectura, que es exactamente lo que un glosario existe para evitar.
 
@@ -113,10 +113,10 @@ Pendientes de resolver con el equipo. No corregir por cuenta propia: cambiarlas 
 
 | Dónde | Dice | Debería decir | Estado |
 | --- | --- | --- | --- |
-| `frontend/src/shared/mocks/` | Todo el vocabulario anterior | El del contrato vigente | Los mocks implementan el contrato anterior de punta a punta |
-| `frontend/src/features/users/` | `ADMINISTATOR`, `SECRETARIAT`, `role`, `abogadoId` | `ADMINISTRATOR`, `SECRETARY`, `roles`, `lawyerId` | Migrar junto con los mocks |
-| `frontend/src/features/legal-params/` | `proceduralTimeLimit: string` | `timeLimitDays: number` | Migrar junto con los mocks |
+| `frontend/src/features/users/` | `ADMINISTATOR`, `SECRETARIAT`, `role`, `abogadoId` | `ADMINISTRATOR`, `SECRETARY`, `roles`, `lawyerId` | **Pendiente.** Es lo único que queda del vocabulario anterior |
 
-Las tres **se migran juntas o no se migra ninguna**: si los módulos hablan el vocabulario nuevo y los mocks el anterior, la aplicación deja de funcionar contra `VITE_USE_MOCKS=true`. Los dos módulos arrastran además los campos que el contrato incorporó y todavía no existen en el código: `fullName`, `email`, `lawyer` y `active` en usuarios; `position`, `terminal`, `activeCases` y `active` en estados procesales.
+`frontend/src/shared/mocks/` y `frontend/src/features/legal-params/` ya están migrados: los mocks implementan el contrato vigente de punta a punta, y el módulo de estados procesales habla `timeLimitDays: number` e incorporó `position`, `terminal`, `activeCases` y `active`.
+
+Al módulo de usuarios le falta además lo que el contrato incorporó y todavía no existe en el código: `fullName`, `email`, `lawyer` y `active`. Mientras no se migre, esa pantalla no funciona contra `VITE_USE_MOCKS=true`.
 
 `ARQUITECTURA_BACKEND_V1.md` ya fue corregido: `ProceduralState`, `ProceduralStatePort`, `TimeLimit`, `TimeLimitPort` y `DeadlineCalculatorPort`.

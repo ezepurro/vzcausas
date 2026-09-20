@@ -39,12 +39,23 @@ export function TextInput({ mono, className = '', ...rest }: InputHTMLAttributes
   return <input className={`vz-input ${mono ? 'vz-input--mono' : ''} ${className}`} {...rest} />;
 }
 
+/**
+ * Opción de un `Select`. Una cadena suelta es el caso en que el valor y la
+ * etiqueta son lo mismo; el par separa el código que viaja del texto que se lee
+ * —"Penal" en pantalla, `CRIMINAL` en la API—, igual que `Tabs` separa `id` de
+ * `label`.
+ */
+export type SelectOption = string | { value: string; label: string };
+
 export function Select({
   options, className = '', ...rest
-}: SelectHTMLAttributes<HTMLSelectElement> & { options: string[] }) {
+}: SelectHTMLAttributes<HTMLSelectElement> & { options: SelectOption[] }) {
   return (
     <select className={`vz-select ${className}`} {...rest}>
-      {options.map((o) => <option key={o} value={o}>{o}</option>)}
+      {options.map((o) => {
+        const { value, label } = typeof o === 'string' ? { value: o, label: o } : o;
+        return <option key={value} value={value}>{label}</option>;
+      })}
     </select>
   );
 }
