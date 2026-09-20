@@ -1,5 +1,5 @@
 /**
- * Mocks de la API v1.
+ * Mocks de la API.
  *
  * Este barrel sólo exporta lo que **no depende de MSW**: el contrato, los
  * datos y el servidor falso puro. Así importar un tipo o un fixture desde una
@@ -11,17 +11,16 @@
  * - Node / tests → `import { server } from '@/shared/mocks/server'`
  * - configuración → `configureMocks`, reexportado por los dos anteriores
  *
- * Ver `README.md` de esta carpeta para el uso y las divergencias respecto de
- * `docs/api contract v1.md`.
+ * Ver `README.md` de esta carpeta para el uso y para lo que el contrato deja
+ * sin definir.
  */
-
 
 export {
     buildPagination,
     errorBody,
     itemBody,
     listBody,
-    sessionRoleFrom,
+    principalRole,
     BASE_PATH,
     DAY_TYPES,
     DEFAULT_LIMIT,
@@ -31,17 +30,19 @@ export {
     MAX_LIMIT,
     MIN_LIMIT,
     ROLES,
-    SESSION_ROLES,
+    ROLE_PRECEDENCE,
     type ChangePasswordRequest,
     type CreateLawyerRequest,
     type CreateProceduralStateRequest,
     type CreateUserRequest,
     type DayType,
+    type EmbeddedLawyer,
     type ErrorBody,
     type ErrorCode,
     type ItemResponse,
     type Jurisdiction,
     type Lawyer,
+    type LawyersQuery,
     type ListResponse,
     type LoginErrorBody,
     type LoginRequest,
@@ -51,8 +52,7 @@ export {
     type ProceduralStatesQuery,
     type Role,
     type Session,
-    type SessionRole,
-    type SessionUser,
+    type UpdateLawyerRequest,
     type UpdateProceduralStateRequest,
     type UpdateUserRequest,
     type User,
@@ -64,6 +64,8 @@ export {
     issueToken,
     resetMockDb,
     revokeToken,
+    revokeUserSessions,
+    toUser,
     userFromToken,
     type MockDb,
 } from './db';
@@ -73,12 +75,13 @@ export {
     DEFAULT_PASSWORD,
     EXPIRES_IN,
     LAWYERS,
+    LAWYERS_WITH_DEPENDENCIES,
     PROCEDURAL_STATES,
     PROCEDURAL_STATES_WITH_DEPENDENCIES,
     PROTECTED_ADMIN_USER,
     USERS,
     USERS_WITH_DEPENDENCIES,
-    USER_LAWYER,
+    type StoredUser,
 } from './fixtures';
 
 export {

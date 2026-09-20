@@ -15,24 +15,33 @@
  * aparecer en el autocompletado de `is()`.
  */
 export const ERROR_CODES = [
+    // 400 — datos o parámetros inválidos
     'VALIDATION_ERROR',
-    'UNAUTHENTICATED',
-    'FORBIDDEN',
     'INVALID_PAGINATION',
     'INVALID_PATH_PARAMETER',
     'INVALID_REQUEST',
+    // 401 — sin identidad
+    'INVALID_CREDENTIALS',
+    'UNAUTHENTICATED',
+    // 403 — con identidad, sin permiso suficiente
+    'FORBIDDEN',
+    // 404 — el recurso no existe
     'USER_NOT_FOUND',
-    'USERNAME_ALREADY_EXISTS',
-    'USER_HAS_DEPENDENCIES',
-    'BUSINESS_RULE_VIOLATION',
-    'INVALID_CURRENT_PASSWORD',
-    'LAWYER_REGISTRATION_ALREADY_EXISTS',
-    // PROPUESTA: el contrato v1 sólo define GET /procedural-states. Estos dos
-    // códigos acompañan el ABM que este equipo propuso y que hoy sólo existe
-    // en el mock. Ver shared/mocks/README.md.
-    'PROCEDURAL_STATE_ALREADY_EXISTS',
-    'PROCEDURAL_STATE_HAS_DEPENDENCIES',
+    'LAWYER_NOT_FOUND',
+    'PROCEDURAL_STATE_NOT_FOUND',
     'RESOURCE_NOT_FOUND',
+    // 409 — unicidad y dependencias
+    'USERNAME_ALREADY_EXISTS',
+    'EMAIL_ALREADY_EXISTS',
+    'LAWYER_REGISTRATION_ALREADY_EXISTS',
+    'PROCEDURAL_STATE_ALREADY_EXISTS',
+    'USER_HAS_DEPENDENCIES',
+    'LAWYER_HAS_DEPENDENCIES',
+    'PROCEDURAL_STATE_HAS_DEPENDENCIES',
+    // 422 — regla de negocio
+    'INVALID_CURRENT_PASSWORD',
+    'BUSINESS_RULE_VIOLATION',
+    // 500
     'INTERNAL_SERVER_ERROR',
 ] as const;
 
@@ -70,9 +79,9 @@ export interface ErrorBody {
 /**
  * Cuerpo del `401` de `POST /auth/login`.
  *
- * DIVERGENCIA del contrato: es el único error que no usa el envoltorio
- * `{ error: { code, message, details } }`. No trae código, así que
- * `ApiError.code` queda en `null` para este caso.
+ * CONTRATO ANTERIOR: ya no se usa. El login responde con el envoltorio
+ * estándar y el código `INVALID_CREDENTIALS`. El tipo se conserva porque
+ * `http.ts` mantiene la rama que lo parsea como red de seguridad.
  */
 export interface LoginErrorBody {
     statusCode: 401;

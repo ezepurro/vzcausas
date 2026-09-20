@@ -1,80 +1,52 @@
 /**
- * Tipos del contrato de API v1.
+ * Tipos del contrato de API.
  *
- * Fuente: `docs/api contract v1.md`. Este archivo es la traducción literal
- * del documento a TypeScript.
+ * Fuente: `docs/Api-Contract/API_CONTRACT_V1.md`. Este archivo es la
+ * traducción literal del documento a TypeScript.
  *
  * Los **mensajes** quedan en castellano porque son los que define el
  * contrato y los que ve el usuario; lo que está en inglés es el código.
  *
- * Las divergencias del documento (roles en dos vocabularios, `abogadoId`
- * como string, el 401 del login con otra forma) se replican tal cual en vez
- * de "arreglarse": un mock que corrige el contrato deja de servir para
- * detectar el problema cuando aparezca el backend real. Todas están
- * marcadas con un comentario DIVERGENCIA y listadas en el README.
+ * El contrato anterior tenía seis divergencias (roles con dos vocabularios y
+ * dos formas, `abogadoId` en castellano, el 401 del login con otro
+ * envoltorio, el plazo como string). **Ya no existen**: el contrato vigente
+ * las resolvió y este archivo no tiene que replicar ninguna.
  */
 
-/** Base URL del contrato (§3). El mock acepta pedidos con o sin este prefijo. */
+/** Base URL del contrato (§4). El mock acepta pedidos con o sin este prefijo. */
 export const BASE_PATH = '/api/v1';
 
 /* ------------------------------------------------------------------ */
-/* Enumerados                                                          */
+/* Enumerados (§2)                                                     */
 /* ------------------------------------------------------------------ */
 
 /**
- * Roles tal como aparecen en los payloads de `/users`.
+ * Roles del usuario. Un usuario puede tener más de uno.
  *
- * DIVERGENCIA: el contrato escribe `ADMINISTATOR` (sin la "R") en todos los
- * ejemplos de `/users`, pero `ADMINISTRADOR` en la tabla de endpoints y en la
- * respuesta del login. Se respeta la grafía de los payloads porque es la que
- * un cliente tendría que comparar. Si el backend define otra, se cambia acá
- * y el resto del mock sigue funcionando.
+ * El rótulo que ve la persona lo resuelve el cliente: `ADMINISTRATOR` se
+ * muestra como "Administrador".
  */
-export const ROLES = ['ADMINISTATOR', 'LAWYER', 'SECRETARIAT'] as const;
+export const ROLES = ['ADMINISTRATOR', 'LAWYER', 'SECRETARY'] as const;
 export type Role = (typeof ROLES)[number];
 
 /**
- * Rol que devuelve el login dentro de `data.user`.
- *
- * DIVERGENCIA: en el login el rol es un string suelto y en castellano
- * (`"role": "ADMINISTRADOR"`), mientras que en `/users` es un arreglo en
- * inglés. Son dos formas distintas del mismo dato.
+ * Orden de precedencia para cuando la interfaz muestra un rol solo.
+ * Gana el de más peso.
  */
-export const SESSION_ROLES = ['ADMINISTRADOR', 'LAWYER', 'SECRETARIAT'] as const;
-export type SessionRole = (typeof SESSION_ROLES)[number];
+export const ROLE_PRECEDENCE: readonly Role[] = ['ADMINISTRATOR', 'SECRETARY', 'LAWYER'];
 
-/**
- * Traduce los roles del recurso usuario al rol único que espera el login.
- *
- * Existe sólo por la DIVERGENCIA de arriba: el contrato maneja el mismo dato
- * con dos vocabularios y dos formas. Gana el rol de mayor privilegio.
- */
-export function sessionRoleFrom(roles: Role[]): SessionRole {
-    if (roles.includes('ADMINISTATOR')) return 'ADMINISTRADOR';
-    if (roles.includes('LAWYER')) return 'LAWYER';
-    return 'SECRETARIAT';
-}
-
-/**
- * Fueros de los estados procesales.
- *
- * El contrato sólo nombra `ADMINISTRATIVE` y `CRIMINAL`. `AMPARO` lo agrega
- * este equipo: es el tercer fuero con el que trabaja el estudio —ver el
- * prototipo y `docs/TRADUCCION_DOMINIO.md`, donde `Amparo` figura como
- * término que no se traduce— y sin él no entra la mitad del ciclo de vida
- * real.
- *
- * Antes había cuatro fueros más (CIVIL, COMMERCIAL, LABOR, FAMILY) que el
- * mock había inventado para que el filtro tuviera algo que filtrar. Se
- * sacaron: inventaban dominio que el estudio no usa.
- *
- * PROPUESTA: hay que confirmar la lista con el backend.
- */
-export const JURISDICTIONS = ['ADMINISTRATIVE', 'CRIMINAL', 'AMPARO'] as const;
+/** Fueros con los que trabaja el estudio. */
+export const JURISDICTIONS = ['CRIMINAL', 'ADMINISTRATIVE', 'AMPARO'] as const;
 export type Jurisdiction = (typeof JURISDICTIONS)[number];
 
-/** Cómo se cuentan los días de un plazo procesal. */
-export const DAY_TYPES = ['BUSINESS', 'CONSECUTIVE'] as const;
+/**
+ * Cómo se cuentan los días de un plazo.
+ *
+ * `NONE` es para los estados que no abren plazo (`timeLimitDays: 0`). El
+ * contrato anterior no tenía cómo expresarlo y obligaba a guardar "0 días
+ * hábiles", que no es lo mismo: eso vence hoy, "sin plazo" no vence nunca.
+ */
+export const DAY_TYPES = ['BUSINESS', 'CONSECUTIVE', 'NONE'] as const;
 export type DayType = (typeof DAY_TYPES)[number];
 
 /**
@@ -93,43 +65,66 @@ export {
 } from '../api/contract';
 
 /* ------------------------------------------------------------------ */
-/* Recursos                                                            */
+/* Recursos (§3)                                                       */
 /* ------------------------------------------------------------------ */
 
-/** Usuario tal como lo devuelve `/users` (§2.2). */
+/**
+ * La ficha profesional embebida dentro de un usuario (§3.2).
+ *
+ * Son los tres campos que la pantalla necesita para dibujar la columna
+ * "Abogado vinculado": el id para operar, el nombre para mostrar y la
+ * matrícula porque desambigua dos homónimos. No es la ficha completa.
+ */
+export interface EmbeddedLawyer {
+    id: number;
+    fullName: string;
+    registrationNumber: string;
+}
+
+/** Usuario tal como lo devuelve `/users` y el login (§3.2). */
 export interface User {
     id: number;
     username: string;
-    /** Siempre arreglo en `/users`, aunque el login lo mande como string. */
-    role: Role[];
+    fullName: string;
+    email: string;
+    /** Siempre arreglo, también en el login. Al menos un rol. */
+    roles: Role[];
+    /** `null` para un usuario sin ficha profesional (secretaría). */
+    lawyer: EmbeddedLawyer | null;
+    /** ISO 8601 con offset. `null` si nunca inició sesión. */
+    lastLoginAt: string | null;
+    /** Estado de alta. La baja es lógica. */
+    active: boolean;
 }
 
-/** Usuario embebido en la respuesta del login (§2.1). */
-export interface SessionUser {
-    id: number;
-    username: string;
-    role: SessionRole;
-}
-
-/** Abogado tal como lo devuelve `POST /lawyers` (§2.3). */
+/** Abogado tal como lo devuelve `/lawyers` (§3.3). */
 export interface Lawyer {
     id: number;
-    firstName: string;
-    lastName: string;
-    /** Matrícula profesional, formato `MP-12345`. */
+    /** Incluye el tratamiento: "Dr. Ignacio Peralta". */
+    fullName: string;
+    /** Matrícula del Colegio de Abogados de Córdoba, formato `1-28114`. */
     registrationNumber: string;
-    email: string;
-    phone: string;
+    /** Causas activas donde es responsable. Calculado, sólo lectura. */
+    activeCases: number;
+    active: boolean;
 }
 
-/** Estado procesal tal como lo devuelve `GET /procedural-states` (§2.4). */
+/** Estado procesal tal como lo devuelve `/procedural-states` (§3.4). */
 export interface ProceduralState {
     id: number;
+    /** Texto libre en castellano: lo carga el estudio (RN4). Único por fuero. */
     name: string;
     jurisdiction: Jurisdiction;
-    /** DIVERGENCIA: el contrato lo manda como string (`"10"`), no como número. */
-    proceduralTimeLimit: string;
+    /** Lugar en el ciclo de vida del fuero, desde 1. Único por fuero. */
+    position: number;
+    /** Días que abre el estado. `0` = no abre plazo. */
+    timeLimitDays: number;
     dayType: DayType;
+    /** Cierra el ciclo de vida de la causa (Archivada, Prescripta). */
+    terminal: boolean;
+    /** Causas que están hoy en este estado. Calculado, sólo lectura. */
+    activeCases: number;
+    active: boolean;
 }
 
 /* ------------------------------------------------------------------ */
@@ -146,69 +141,88 @@ export interface ChangePasswordRequest {
     newPassword: string;
 }
 
+/**
+ * Alta de usuario (§3.2).
+ *
+ * `lawyerId` y `lawyer` son **mutuamente excluyentes**: se manda uno de los
+ * dos, nunca los dos. Cuando viene `lawyer`, el abogado y el usuario se crean
+ * en una sola transacción — si algo falla, no queda ninguno.
+ */
 export interface CreateUserRequest {
     username: string;
+    fullName: string;
+    email: string;
     password: string;
-    role: Role[];
-    /**
-     * DIVERGENCIA: único campo en castellano del contrato, y llega como
-     * string (`"abogadoId": "1"`) aunque los ids sean enteros. El mock acepta
-     * las dos formas. El nombre se deja tal cual porque es lo que viaja por
-     * la red: renombrarlo rompería el pedido contra el backend real.
-     */
-    abogadoId?: string | number;
+    roles: Role[];
+    /** Vincular un abogado ya registrado. */
+    lawyerId?: number;
+    /** Registrar un abogado nuevo junto con el usuario. */
+    lawyer?: CreateLawyerRequest;
 }
 
 /**
- * Todos los campos son opcionales, pero hay que mandar al menos uno.
+ * Edición de usuario. Todos los campos son opcionales, pero hay que mandar
+ * al menos uno: un PATCH vacío responde 400.
  *
- * DIVERGENCIA: el ejemplo del contrato manda `"role": "USUARIO"` —un string,
- * y con un valor que no aparece en ninguna otra parte del documento—. El mock
- * acepta string o arreglo y normaliza a arreglo.
+ * `roles` **reemplaza el conjunto completo**. Para conservar los roles que
+ * ya tiene, se omite el campo.
+ *
+ * `lawyerId: null` desvincula la ficha profesional.
  */
 export interface UpdateUserRequest {
     username?: string;
-    role?: Role[] | Role;
+    fullName?: string;
+    email?: string;
+    roles?: Role[];
+    lawyerId?: number | null;
+    /** Reactivar un usuario dado de baja. */
+    active?: boolean;
 }
 
+/** Alta de abogado (§3.3). Dos campos y nada más. */
 export interface CreateLawyerRequest {
-    firstName: string;
-    lastName: string;
+    fullName: string;
     registrationNumber: string;
-    email: string;
-    phone: string;
 }
 
+/** Edición de abogado. Al menos un campo. `activeCases` no es modificable. */
+export interface UpdateLawyerRequest {
+    fullName?: string;
+    registrationNumber?: string;
+    active?: boolean;
+}
 
-/**
- * PROPUESTA: el contrato v1 no define el alta de estados procesales.
- * Ver "Endpoints que no están en el contrato" en el README de esta carpeta.
- */
+/** Alta de estado procesal (§3.4). */
 export interface CreateProceduralStateRequest {
     name: string;
     jurisdiction: Jurisdiction;
-    /** DIVERGENCIA 5: viaja como string (`"10"`), igual que en la respuesta. */
-    proceduralTimeLimit: string;
-    dayType: DayType;
+    /** Por defecto, al final del ciclo. Insertar en el medio renumera. */
+    position?: number;
+    timeLimitDays?: number;
+    dayType?: DayType;
+    terminal?: boolean;
 }
 
 /**
- * PROPUESTA. Todos los campos son opcionales, pero hay que mandar al menos
- * uno: un PATCH vacío responde 400, como en `/users`.
+ * Edición de estado procesal. Al menos un campo.
+ *
+ * `jurisdiction` **no está**: un estado no puede cambiar de fuero. Para
+ * trasladarlo hay que darlo de baja y registrarlo en el que corresponda.
  */
 export interface UpdateProceduralStateRequest {
     name?: string;
-    jurisdiction?: Jurisdiction;
-    proceduralTimeLimit?: string;
+    position?: number;
+    timeLimitDays?: number;
     dayType?: DayType;
+    terminal?: boolean;
+    active?: boolean;
 }
-
 
 /* ------------------------------------------------------------------ */
 /* Parámetros de consulta                                              */
 /* ------------------------------------------------------------------ */
 
-/** Valores por defecto y límites de paginación (§2.2 y §2.4). */
+/** Valores por defecto y límites de paginación (§3). */
 export const DEFAULT_PAGE = 1;
 export const DEFAULT_LIMIT = 20;
 export const MIN_LIMIT = 1;
@@ -218,18 +232,22 @@ export interface PaginatedQuery {
     page?: number;
     limit?: number;
     search?: string;
+    /** Filtra por estado de alta. Por defecto `true`. */
+    active?: boolean;
 }
 
 export interface UsersQuery extends PaginatedQuery {
     role?: Role;
 }
 
+export type LawyersQuery = PaginatedQuery;
+
 export interface ProceduralStatesQuery extends PaginatedQuery {
     jurisdiction?: Jurisdiction;
 }
 
 /* ------------------------------------------------------------------ */
-/* Envoltorios de respuesta (§4)                                       */
+/* Envoltorios de respuesta (§5.1)                                     */
 /* ------------------------------------------------------------------ */
 
 /** POST / PATCH / GET de un recurso individual. */
@@ -256,7 +274,13 @@ export interface Session {
     tokenType: 'Bearer';
     /** Segundos de vigencia del token. */
     expiresIn: number;
-    user: SessionUser;
+    /**
+     * El usuario completo, con la misma forma que devuelve `/users`.
+     *
+     * Su `lastLoginAt` es el acceso **anterior** a este, no el de ahora: es
+     * lo que le sirve a la persona para detectar un ingreso que no hizo.
+     */
+    user: User;
 }
 
 /* `ErrorBody` y `LoginErrorBody` se definen en `api/contract.ts` y se
@@ -291,4 +315,9 @@ export function buildPagination(totalItems: number, page: number, limit: number)
         // Una colección vacía tiene 0 páginas, no 1.
         totalPages: Math.ceil(totalItems / limit),
     };
+}
+
+/** El rol de más peso de un usuario, o `null` si viene sin roles. */
+export function principalRole(roles: Role[]): Role | null {
+    return ROLE_PRECEDENCE.find((role) => roles.includes(role)) ?? null;
 }
