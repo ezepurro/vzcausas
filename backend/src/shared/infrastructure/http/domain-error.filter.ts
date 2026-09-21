@@ -17,6 +17,11 @@ import {
   ValidationError,
 } from "@shared/domain/domain-error";
 
+/**
+ * Uniform error envelope emitted by the API. Every HTTP error response
+ * conforms to this shape; the frontend depends on `code` for behavior
+ * and on `message` for user-facing copy.
+ */
 type ErrorEnvelope = {
   error: {
     code: string;
@@ -25,6 +30,19 @@ type ErrorEnvelope = {
   };
 };
 
+/**
+ * Global exception filter. The sole place where errors are translated
+ * into HTTP responses. Handles three families:
+ *
+ * 1. {@link DomainError} — mapped to its HTTP status via the subtype
+ *    and rendered with its own `code`, `message` and `details`.
+ * 2. {@link HttpException} raised by Nest (typically by the
+ *    `ValidationPipe`) — normalized to the same envelope so 400s stay
+ *    consistent (C-04 in IMPLEMENTACION_AUTH.md).
+ * 3. Anything else — logged with the request's correlation id and
+ *    returned as an opaque 500 with `INTERNAL_SERVER_ERROR`, without
+ *    leaking stack traces or internal messages.
+ */
 @Catch()
 export class DomainErrorFilter implements ExceptionFilter {
   private readonly logger = new Logger(DomainErrorFilter.name);
@@ -65,7 +83,7 @@ export class DomainErrorFilter implements ExceptionFilter {
       .json(
         this.envelope(
           "INTERNAL_SERVER_ERROR",
-          "Ocurrió un error interno inesperado.",
+          "An unexpected internal error occurred.",
           null,
         ),
       );
@@ -122,7 +140,7 @@ export class DomainErrorFilter implements ExceptionFilter {
     if (typeof body === "object" && body !== null && "message" in body) {
       const raw = (body as { message: unknown }).message;
       if (Array.isArray(raw)) {
-        message = "Los datos enviados no son válidos.";
+        message = "The submitted data is invalid.";
         details = raw.reduce<Record<string, unknown>>(
           (acc, m, i) => ({ ...acc, [`error_${i}`]: m }),
           {},

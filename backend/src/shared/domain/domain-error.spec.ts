@@ -10,16 +10,16 @@ import {
 
 describe("DomainError", () => {
   it("preserves code, message and null details by default", () => {
-    const err = new ConflictError("USERNAME_ALREADY_EXISTS", "ya existe");
+    const err = new ConflictError("USERNAME_ALREADY_EXISTS", "already exists");
 
     expect(err.code).toBe("USERNAME_ALREADY_EXISTS");
-    expect(err.message).toBe("ya existe");
+    expect(err.message).toBe("already exists");
     expect(err.details).toBeNull();
   });
 
   it("preserves custom details", () => {
-    const details = { newPassword: "no cumple" };
-    const err = new ValidationError("VALIDATION_ERROR", "invalido", details);
+    const details = { newPassword: "does not meet the policy" };
+    const err = new ValidationError("VALIDATION_ERROR", "invalid", details);
 
     expect(err.details).toEqual(details);
   });

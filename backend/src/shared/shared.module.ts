@@ -5,6 +5,19 @@ import { SystemClockAdapter } from "./infrastructure/clock/system-clock.adapter"
 import { CorrelationMiddleware } from "./infrastructure/http/correlation-id.middleware";
 import { DomainErrorFilter } from "./infrastructure/http/domain-error.filter";
 
+/**
+ * Shared kernel module. Wires cross-cutting concerns that every
+ * subsystem depends on:
+ *
+ * - Binds the {@link CLOCK} token to {@link SystemClockAdapter} and
+ *   exports it so other modules can inject the clock.
+ * - Registers {@link DomainErrorFilter} as the global exception filter
+ *   via `APP_FILTER`. Doing it through DI (rather than
+ *   `app.useGlobalFilters` in main.ts) lets the filter participate in
+ *   the container and receive injected dependencies.
+ * - Applies {@link CorrelationMiddleware} to every route so an
+ *   `X-Correlation-Id` is available on every request and response.
+ */
 @Module({
   providers: [
     { provide: CLOCK, useClass: SystemClockAdapter },
