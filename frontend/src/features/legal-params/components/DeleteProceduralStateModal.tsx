@@ -1,5 +1,8 @@
 import { FormModal } from '@/shared/components/forms';
-import type { ProceduralState } from '@/features/legal-params/types/proceduralState';
+import {
+    JURISDICTION_LABELS,
+    type ProceduralState,
+} from '@/features/legal-params/types/proceduralState';
 
 export interface DeleteProceduralStateModalProps {
     state: ProceduralState;
@@ -9,8 +12,13 @@ export interface DeleteProceduralStateModalProps {
 }
 
 /**
- * Confirmación de baja. Es un `FormModal` sin campos: el `shared/README` dice
- * que `tone="danger"` + sin `fields` es el modo "confirmar baja" del producto.
+ * Confirmación de eliminación. Es un `FormModal` sin campos: el `shared/README`
+ * dice que `tone="danger"` + sin `fields` es el modo "confirmar baja" del
+ * producto.
+ *
+ * Del lado del servidor la baja es lógica, pero eso es asunto del backend: acá
+ * el estado se elimina y no hay forma de traerlo de vuelta desde la pantalla.
+ * El texto no promete lo contrario.
  *
  * `values` y `onChange` son obligatorios aunque no haya campos, así que van
  * vacíos.
@@ -21,10 +29,10 @@ export function DeleteProceduralStateModal({
     return (
         <FormModal
             title="Eliminar el estado"
-            sub={`${state.name} · fuero ${state.jurisdiction}`}
+            sub={`${state.name} · fuero ${JURISDICTION_LABELS[state.jurisdiction]}`}
             tone="danger"
             width="sm"
-            note="Las causas que hoy estén en este estado conservan el que tienen registrado, pero ninguna causa va a poder pasar a él. Si el estado tiene causas asociadas, el sistema no deja eliminarlo."
+            note="Esta acción es irreversible. El estado se eliminará del fuero, conservándose únicamente como registro histórico en las causas que ya lo hayan transitado. No es posible eliminarlo si existen causas activas asociadas."
             values={{}}
             onChange={() => {}}
             okLabel="Eliminar"

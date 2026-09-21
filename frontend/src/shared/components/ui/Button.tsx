@@ -1,6 +1,12 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
 
-type Variant = 'primary' | 'secondary' | 'danger' | 'ghost';
+/**
+ * `ghost-danger` es el destructivo de baja intensidad: se ve igual de callado
+ * que `ghost` hasta que el cursor lo apunta, y recién ahí se tiñe. Es para las
+ * acciones destructivas que se repiten en cada fila de una tabla, donde un
+ * `danger` con borde pintaría la pantalla de rojo.
+ */
+type Variant = 'primary' | 'secondary' | 'danger' | 'ghost' | 'ghost-danger';
 type Size = 'lg' | 'md' | 'sm';
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {

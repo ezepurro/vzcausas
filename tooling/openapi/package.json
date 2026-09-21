@@ -1,0 +1,23 @@
+{
+  "name": "openapi",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "lint": "redocly lint ../../docs/openapi/openapi.yaml",
+    "spectral": "spectral lint ../../docs/openapi/openapi.yaml",
+    "validate": "npm run lint && npm run spectral",
+    "bundle": "redocly bundle ../../docs/openapi/openapi.yaml -o ../../build/openapi.yaml",
+    "docs": "redocly build-docs ../../build/openapi.yaml -o ../../build/index.html",
+    "build": "npm run validate && npm run bundle && npm run docs"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "@redocly/cli": "^2.46.2",
+    "@stoplight/spectral-cli": "^6.16.3",
+    "swagger-ui-watcher": "^2.1.14"
+  }
+}
