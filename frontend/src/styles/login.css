@@ -1,0 +1,144 @@
+/* Pantalla de inicio de sesión.
+
+   Es la única pantalla que se ve sin sesión y la única que no vive adentro
+   del rail, así que arma su propio marco a sangre completa. Todo sale de los
+   tokens: acá no hay un solo color escrito a mano. */
+
+.vz-login {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  min-height: 100vh;
+  background: var(--vz-surface);
+}
+
+/* ─────────── columna institucional ─────────── */
+
+.vz-login__aside {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 40px;
+  padding: 56px 60px;
+  background: var(--vz-rail);
+  min-width: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+/* El monograma del estudio, enorme y apenas visible, recortado por el borde. */
+.vz-login__watermark {
+  position: absolute;
+  right: -90px;
+  top: 50%;
+  transform: translateY(-50%);
+  opacity: .05;
+  color: var(--vz-rail-logo);
+  pointer-events: none;
+}
+
+.vz-login__brand {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  position: relative;
+}
+.vz-login__brand-mark { color: var(--vz-rail-logo); flex: 0 0 auto; }
+.vz-login__brand-name {
+  color: var(--vz-rail-fg-on);
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -.01em;
+}
+.vz-login__brand-kicker {
+  color: var(--vz-rail-fg);
+  font-size: 10.5px;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  margin-top: 2px;
+}
+
+.vz-login__quote {
+  position: relative;
+  max-width: 480px;
+}
+.vz-login__quote p {
+  color: var(--vz-rail-fg-on);
+  font-size: 26px;
+  line-height: 1.4;
+  font-weight: 500;
+  font-style: italic;
+  letter-spacing: -.015em;
+  margin: 0 0 20px;
+}
+.vz-login__quote-rule {
+  display: block;
+  width: 52px;
+  height: 2px;
+  background: var(--vz-primary);
+}
+
+/* ─────────── columna del formulario ─────────── */
+
+.vz-login__panel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 40px;
+  min-width: 0;
+}
+
+.vz-login__form { width: 100%; max-width: 380px; }
+
+.vz-login__title {
+  font-size: 27px;
+  font-weight: 700;
+  letter-spacing: -.02em;
+  margin: 0 0 6px;
+  color: var(--vz-ink);
+}
+.vz-login__sub {
+  margin: 0 0 28px;
+  font-size: 14px;
+  color: var(--vz-muted);
+}
+
+/* Aviso de error del formulario entero: credenciales inválidas, servidor
+   caído. Los errores de un campo se muestran en el campo, no acá. */
+.vz-login__alert {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 12px 14px;
+  margin-bottom: 20px;
+  border: 1px solid var(--vz-danger-bd);
+  border-radius: var(--vz-r-sm);
+  background: var(--vz-danger-bg);
+}
+.vz-login__alert-icon { color: var(--vz-danger-action); flex: 0 0 auto; margin-top: 1px; }
+.vz-login__alert-text { font-size: 13px; color: var(--vz-danger); line-height: 1.5; }
+
+.vz-login__fields { display: flex; flex-direction: column; gap: 16px; }
+
+.vz-login__hint { margin: 10px 0 0; font-size: 12.5px; color: var(--vz-faint); line-height: 1.5; }
+
+.vz-login__actions { margin-top: 22px; }
+
+/* Las etiquetas del login son más chicas y en mayúsculas que las del resto
+   del sistema. El ajuste va con el alcance del formulario para no cambiarle
+   los campos a todos los demás formularios. */
+.vz-login__form .vz-label {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.vz-login__form .vz-input { height: 44px; font-size: 15px; }
+
+/* ─────────── pantallas angostas ─────────── */
+
+/* La columna institucional es decoración: cuando no entra, se va entera y
+   queda el formulario solo. */
+@media (max-width: 860px) {
+  .vz-login { grid-template-columns: minmax(0, 1fr); }
+  .vz-login__aside { display: none; }
+}

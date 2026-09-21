@@ -121,9 +121,32 @@ export const http = axios.create({
     timeout:15000,
     headers: {'Content-Type': 'application/json'}
 })
+/**
+ * Qué hacer cuando el backend dice que no hay sesión válida.
+ *
+ * Lo registra el proveedor de sesión al montarse. `shared/api` no sabe qué
+ * significa cerrar sesión ni a dónde navegar después: sólo avisa.
+ */
+let onUnauthenticated: (() => void) | null = null
+
+export function setUnauthenticatedHandler(handler: (() => void) | null): void {
+    onUnauthenticated = handler
+}
+
 http.interceptors.response.use(
     response => response,
-    (error:unknown) => Promise.reject(toApiError(error))
+    (error: unknown) => {
+        const apiError = toApiError(error)
+
+        /* Se compara el CÓDIGO y no el 401 pelado, porque hay dos errores
+           distintos con ese mismo estado: `UNAUTHENTICATED` es "tu sesión no
+           sirve", pero `INVALID_CREDENTIALS` es "te equivocaste al entrar", y
+           ese no tiene que cerrar nada —si no, cada intento fallido de login
+           dispararía un cierre de sesión que no existe—. */
+        if (apiError.is('UNAUTHENTICATED')) onUnauthenticated?.()
+
+        return Promise.reject(apiError)
+    }
 );
 http.interceptors.request.use(
     config => {
@@ -136,21 +159,18 @@ http.interceptors.request.use(
 );
 
 
-/**LA FUNCION OBTENER TOKEN HOY EN DIA DEVUELVE NULL, MAS ADELANTE VA A FUNCIONAR */
-//function getToken(): string | null {
-//    return null
-//}
-
-
 /**
- * Token de la sesión.
+ * Clave del token de sesión en el almacenamiento del navegador.
  *
- * PROVISORIO: lo lee de localStorage hasta que exista el login (HU 1).
- * Cuando la épica de sesión esté, el token sale de ahí y esta función se
- * conecta a esa fuente. La clave la comparte todo el front: no cambiarla
- * sin avisar.
+ * Se exporta para que tenga un solo dueño: quien escribe el token es
+ * `features/auth/utils/sessionStorage.ts`, y si la clave estuviera copiada en
+ * los dos lados, el día que cambie va a cambiar en uno solo.
+ *
+ * Acá se lee y nada más. La política de la sesión —cuándo se guarda, cuándo
+ * se borra, cuánto dura— es del módulo de autenticación: `shared/api` no
+ * tiene por qué saber que existe un login.
  */
-const TOKEN_KEY = 'vz.token'
+export const TOKEN_KEY = 'vz.token'
 
 function getToken(): string | null {
     return localStorage.getItem(TOKEN_KEY)
