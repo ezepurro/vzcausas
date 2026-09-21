@@ -21,6 +21,9 @@ export type { ModalProps } from './Modal';
 export { PageHeader } from './PageHeader';
 export type { PageHeaderProps } from './PageHeader';
 
+export { Pagination } from './Pagination';
+export type { PaginationProps } from './Pagination';
+
 export { Panel } from './Panel';
 export type { PanelProps } from './Panel';
 

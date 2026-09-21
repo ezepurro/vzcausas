@@ -130,8 +130,13 @@ y **24 estados procesales** — suficiente para que la paginación por defecto
 Los nombres, las matrículas y el ciclo de vida de cada fuero salen del
 prototipo, así lo que se ve desarrollando es lo que el estudio aprobó.
 
-`vsosa` está dado de baja a propósito: sólo aparece con `?active=false` y
-sirve para probar la baja lógica y el `409` contra un registro invisible.
+`vsosa` está dado de baja a propósito. No tiene que aparecer en ningún lado:
+sirve para probar que los listados no lo filtren por error, que el `GET` por
+id responda `404` y que el `409` de username choque contra un registro que
+no se ve.
+
+`supervision` es administrador y **no tiene ficha**: es el caso que prueba
+que la matrícula la pide el rol `LAWYER` y no el administrativo.
 
 ---
 
@@ -159,10 +164,11 @@ sirve para probar la baja lógica y el `409` contra un registro invisible.
 | `DELETE` | `/procedural-states/{stateId}` | 204, 400, 401, 403, 404, 409, 422 |
 
 
-**Las bajas son lógicas.** Los `DELETE` no borran: ponen `active` en `false`.
-El registro sigue existiendo —`GET /users/15` lo devuelve— pero sale de los
-listados. Para verlo hay que pedir `?active=false`, y para revivirlo, un
-`PATCH` con `active: true`.
+**Las bajas son lógicas, pero no se notan.** Los `DELETE` no borran: ponen
+`active` en `false`. Eso es asunto del servidor —para el cliente el registro
+dejó de existir: sale de los listados, el `GET` por id responde `404`, y no
+hay parámetro de consulta ni campo de `PATCH` que permita alcanzarlo o
+reactivarlo.
 
 Un método o una ruta que MSW sí intercepta pero que el contrato no define
 —`GET /users/3/causas`, por ejemplo— devuelve el `404 RESOURCE_NOT_FOUND`
@@ -182,13 +188,13 @@ va a ser así: hay que elegir una forma.
 | `400` validación | `username` de menos de 3 caracteres, matrícula fuera del formato `1-28114`, contraseña de menos de 8 caracteres o sin número; nombre de estado procesal de menos de 3 caracteres; `timeLimitDays` no numérico; un `dayType` incoherente con el plazo; mandar `lawyerId` **y** `lawyer` juntos; `PATCH` sin ningún campo |
 | `400` paginación | `?page=0`, `?limit=500`, `?limit=abc` |
 | `400` ruta | `GET /users/abc`, `DELETE /procedural-states/abc` |
-| `400` query | `?role=NOPE`, `?jurisdiction=NOPE`, `?active=quizas` |
+| `400` query | `?role=NOPE`, `?jurisdiction=NOPE` |
 | `401` credenciales | `POST /auth/login` con contraseña incorrecta, o con un usuario dado de baja → `INVALID_CREDENTIALS` |
 | `401` sesión | sin header `Authorization`, o token revocado por un logout → `UNAUTHENTICATED` |
 | `403` | token de `mrios` o de `gestion`: leer también exige `ADMINISTRATOR` |
-| `404` | `GET /users/999`, `GET /lawyers/999`, `GET /procedural-states/999` |
+| `404` | `GET /users/999`; también `GET /users/22`, que existe pero está dado de baja |
 | `409` | crear un usuario con `username: "fvazquez"` o con un email ya usado; crear un abogado con `1-28114`; dar de baja el usuario 3, 4 o 5; dar de baja un abogado con usuario vinculado; crear un estado procesal con un nombre que ya existe en ese fuero; dar de baja el estado 4, 14 o 21 |
-| `422` | crear un usuario `LAWYER` o `ADMINISTRATOR` sin ficha profesional; crear un `SECRETARY` **con** ficha; dar de baja o degradar el usuario 1; contraseña actual incorrecta en `PATCH /auth/password` |
+| `422` | crear un usuario `LAWYER` sin ficha profesional; crear un usuario sin rol `LAWYER` **con** ficha; dar de baja o degradar el usuario 1; contraseña actual incorrecta en `PATCH /auth/password` |
 | `500` / red | `configureMocks({ forceFailure: 500 })` / `configureMocks({ forceFailure: 'network' })` |
 
 ---
@@ -265,12 +271,10 @@ las fija. Son de este mock, no del backend.
   **rechaza matrículas legítimas**, que es peor que una de menos.
 - **Largo del nombre de un estado procesal**: 3 a 80 caracteres. Lo escribe
   una persona (RN4), así que sólo se exige un largo razonable.
-- **`?role=` y `?active=` inválidos**: el contrato no documenta el error, así
-  que se usa el mismo formato que el `jurisdiction` inválido
-  (`400 INVALID_REQUEST`).
-- **Qué cuenta como regla de negocio (`422`)**: un usuario con rol `LAWYER` o
-  `ADMINISTRATOR` necesita ficha profesional y uno de `SECRETARY` no puede
-  tenerla; el usuario 1 no se puede dar de baja ni quedarse sin rol de
+- **`?role=` inválido**: el contrato no documenta el error, así que se usa el
+  mismo formato que el `jurisdiction` inválido (`400 INVALID_REQUEST`).
+- **Qué cuenta como regla de negocio (`422`)**: un usuario con rol `LAWYER`
+  necesita ficha profesional y uno que no ejerce no puede tenerla; el usuario 1 no se puede dar de baja ni quedarse sin rol de
   administrador.
 - **Qué registros tienen dependencias (`409` al dar de baja)**: usuarios 3, 4
   y 5; abogados 1 y 3 —más cualquier abogado con un usuario activo

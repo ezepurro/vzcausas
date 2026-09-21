@@ -39,12 +39,25 @@ export function TextInput({ mono, className = '', ...rest }: InputHTMLAttributes
   return <input className={`vz-input ${mono ? 'vz-input--mono' : ''} ${className}`} {...rest} />;
 }
 
+/**
+ * Una opción del select cuando el valor que viaja no es el texto que se lee:
+ * un id, o un código del contrato con su rótulo en castellano.
+ */
+export interface SelectOption {
+  value: string;
+  label: string;
+}
+
 export function Select({
   options, className = '', ...rest
-}: SelectHTMLAttributes<HTMLSelectElement> & { options: string[] }) {
+}: SelectHTMLAttributes<HTMLSelectElement> & { options: (string | SelectOption)[] }) {
   return (
     <select className={`vz-select ${className}`} {...rest}>
-      {options.map((o) => <option key={o} value={o}>{o}</option>)}
+      {options.map((o) => {
+        // Una cadena suelta es valor y rótulo a la vez: el caso de siempre.
+        const { value, label } = typeof o === 'string' ? { value: o, label: o } : o;
+        return <option key={value} value={value}>{label}</option>;
+      })}
     </select>
   );
 }

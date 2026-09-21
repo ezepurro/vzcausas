@@ -1,72 +1,56 @@
 /**
- * El contrato maneja `role` como arreglo,
- * pero la pantalla muestra uno solo: el de más peso.
+ * Traducción de roles: el contrato los maneja en inglés y como arreglo, la
+ * pantalla los muestra en castellano.
  */
 
 import type { PillTone } from '@/shared/components/ui'
-import type { Role } from '@/features/users/types/user'
+import { ROLES, type Role, type UserFormValues } from '@/features/users/types/user'
 
-/** Código del contrato → lo que lee la persona. */
+/** Código del contrato → lo que lee la persona (§2, `Role`). */
 export const ROLE_LABELS: Record<Role, string> = {
-    ADMINISTATOR: 'Administrador',
+    ADMINISTRATOR: 'Administrador',
     LAWYER: 'Abogado',
-    SECRETARIAT: 'Secretaría',
+    SECRETARY: 'Secretaría',
 }
-
-/** Las opciones del select, en el orden en que se muestran. */
-export const ROLE_OPTIONS: string[] = [
-    ROLE_LABELS.ADMINISTATOR,
-    ROLE_LABELS.LAWYER,
-    ROLE_LABELS.SECRETARIAT,
-]
-
-/**
- * De mayor a menor peso. Decide cuál se muestra cuando hay varios.
- *
- * OJO: el mock usa otro orden en `sessionRoleFrom()` (LAWYER antes que
- * SECRETARIAT). Si el equipo unifica el criterio, se cambia acá.
- */
-const ROLE_PRECEDENCE: readonly Role[] = ['ADMINISTATOR', 'SECRETARIAT', 'LAWYER']
 
 export function roleLabel(role: Role): string {
     return ROLE_LABELS[role]
 }
 
-/** Del rótulo del select al código del contrato. `null` si no corresponde a ninguno. */
-export function roleFromLabel(label: string): Role | null {
-    const entry = Object.entries(ROLE_LABELS).find(([, text]) => text === label)
-    return entry ? (entry[0] as Role) : null
-}
-
-/** El rol de más peso de un usuario. `null` si viene sin roles. */
-export function principalRole(roles: Role[]): Role | null {
-    return ROLE_PRECEDENCE.find((role) => roles.includes(role)) ?? null
-}
-
-/** El rótulo del rol de más peso, listo para la tabla. */
-export function principalRoleLabel(roles: Role[]): string {
-    const role = principalRole(roles)
-    return role ? roleLabel(role) : '—'
-}
-
 /**
- * Reemplaza el rol principal y **conserva los demás**.
+ * La clave del formulario que le corresponde a cada rol.
  *
- * Es lo que evita que editar a un usuario con dos roles le borre uno: si
- * `jperez` es ['LAWYER','ADMINISTATOR'] y le cambiás el perfil a Secretaría,
- * queda ['LAWYER','SECRETARIAT'], no ['SECRETARIAT'].
+ * El formulario no tiene un select con el perfil sino un tilde por rol,
+ * porque el contrato guarda un arreglo y una persona puede tener más de uno.
+ * `satisfies` es lo que hace que agregar un rol al contrato y olvidarse de su
+ * campo deje de compilar.
  */
-export function withPrincipalRole(roles: Role[], role: Role): Role[] {
-    const rest = roles.filter((r) => r !== principalRole(roles))
-    return rest.includes(role) ? rest : [...rest, role]
+export const ROLE_FIELD = {
+    ADMINISTRATOR: 'roleAdministrator',
+    LAWYER: 'roleLawyer',
+    SECRETARY: 'roleSecretary',
+} as const satisfies Record<Role, keyof UserFormValues>
+
+/** Los roles tildados, en el orden en que los declara el contrato. */
+export function rolesFromValues(values: UserFormValues): Role[] {
+    return ROLES.filter((role) => values[ROLE_FIELD[role]] === true)
+}
+
+/** Los tildes que le corresponden a un usuario, para abrir la edición. */
+export function roleChecks(roles: Role[]) {
+    return {
+        roleAdministrator: roles.includes('ADMINISTRATOR'),
+        roleLawyer: roles.includes('LAWYER'),
+        roleSecretary: roles.includes('SECRETARY'),
+    }
 }
 
 /**
  * Tono del `Pill` de la tabla.
  *
  * `ok`, `warn` y `danger` están reservados para los plazos por convención
- * del producto (ver `shared/README.md`), así que no se usan para roles.
+ * del producto, así que no se usan para roles.
  */
 export function roleTone(role: Role): PillTone {
-    return role === 'ADMINISTATOR' ? 'primary' : 'neutral'
+    return role === 'ADMINISTRATOR' ? 'primary' : 'neutral'
 }

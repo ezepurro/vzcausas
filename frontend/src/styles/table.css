@@ -76,3 +76,18 @@
 }
 .vz-pager__status { font-family: var(--vz-font-mono); }
 .vz-pager__controls { display: flex; align-items: center; gap: 8px; }
+
+/* Avatar de iniciales de una celda. El del rail es otro: vive sobre fondo
+   oscuro y tiene su propio tamaño. */
+.vz-table__ident { display: flex; align-items: center; gap: 10px; }
+.vz-avatar {
+  width: 28px; height: 28px; flex: 0 0 28px;
+  border-radius: var(--vz-r-pill);
+  display: flex; align-items: center; justify-content: center;
+  background: var(--vz-primary-soft);
+  color: var(--vz-primary-hi);
+  font-size: 10.5px; font-weight: 700;
+}
+
+/* Varios `Pill` en una misma celda: roles, etiquetas. Envuelven si no entran. */
+.vz-pills { display: flex; flex-wrap: wrap; gap: 5px; }

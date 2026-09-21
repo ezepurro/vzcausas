@@ -2,7 +2,7 @@ import { createBrowserRouter, Navigate } from 'react-router'
 import { AppLayout } from '@/app/layouts/AppLayout'
 import { AuthLayout } from '@/app/layouts/AuthLayout'
 import { ProceduralStatesPage } from '@/features/legal-params/pages/ProceduralStatesPage';
-
+import { UsersPage } from '@/features/users/pages/UsersPage';
 
 
 export const router = createBrowserRouter([
@@ -20,10 +20,10 @@ export const router = createBrowserRouter([
       // La raíz manda a Inicio, que es donde arranca el prototipo.
         { index: true, element: <Navigate to="/inicio" replace /> },
         { path: 'estados-y-plazos', element: <ProceduralStatesPage /> },
-
+        { path: 'usuarios', element: <UsersPage /> },
       // Las secciones del sprint 1. Hasta que existan las pantallas,
       // se agregan acá una por una.
-      // { path: 'usuarios', element: <UsuariosPage /> },
+
       // { path: 'abogados', element: <AbogadosPage /> },
 
       // reportes) todavía no tiene pantalla y cae acá.

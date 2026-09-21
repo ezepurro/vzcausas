@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Button } from '../ui/Button';
 import { Modal } from '../ui/Modal';
-import { Field, TextInput, Select, Textarea, Checkbox, FormSection } from './Field';
+import { Field, TextInput, Select, Textarea, Checkbox, FormSection, type SelectOption } from './Field';
 
 export type FieldType = 'text' | 'pass' | 'select' | 'date' | 'area' | 'check' | 'section';
 
@@ -19,7 +19,7 @@ export interface FieldSpec {
   note?: ReactNode;
   /** mensaje de error del campo; lo decide la pantalla, igual que en `Field` */
   error?: string;
-  options?: string[];
+  options?: (string | SelectOption)[];
   /** muestra el campo solo si devuelve true; recibe los valores actuales */
   when?: (values: FormValues) => boolean;
 }
@@ -97,6 +97,7 @@ export function FormModal({
                     checked={Boolean(value)}
                     onChange={(e) => onChange(k, e.target.checked)}
                   />
+                  {c.error && <div className="vz-error">{c.error}</div>}
                 </div>
               );
             }

@@ -81,9 +81,6 @@ export const ERRORS = {
     invalidJurisdiction: errorBody('INVALID_REQUEST', 'Parámetros de query inválidos.', {
         jurisdiction: 'No existe un fuero procesal con ese nombre.',
     }),
-    invalidActive: errorBody('INVALID_REQUEST', 'Parámetros de query inválidos.', {
-        active: 'Debe ser true o false.',
-    }),
 
     /* ---- 401 ---- */
     /** Credenciales incorrectas. Sólo en el login. */

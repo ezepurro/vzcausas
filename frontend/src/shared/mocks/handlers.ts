@@ -25,9 +25,10 @@
  *
  * ## Bajas
  *
- * Los `DELETE` **no borran**: ponen `active` en `false`. Los listados
- * devuelven sólo los activos salvo que se pida `?active=false`. La
- * reactivación es un `PATCH` con `active: true`.
+ * Los `DELETE` **no borran**: ponen `active` en `false`. Pero eso es asunto
+ * del servidor: para el cliente el registro desapareció. Los listados traen
+ * sólo los activos y no hay forma de pedir los dados de baja, ni de
+ * reactivarlos.
  */
 
 import {
@@ -210,9 +211,15 @@ function normalizeRoles(value: unknown): Role[] | undefined {
     return [...new Set(value)];
 }
 
-/** Un usuario con estos roles necesita ficha profesional. */
+/**
+ * Un usuario con estos roles necesita ficha profesional.
+ *
+ * Sólo `LAWYER`: la ficha es de quien ejerce. Un administrador que no lleva
+ * causas —un gerente de oficina, alguien de sistemas— no tiene matrícula, y
+ * exigírsela obligaba a inventarle una.
+ */
 function needsLawyer(roles: Role[]): boolean {
-    return roles.includes('LAWYER') || roles.includes('ADMINISTRATOR');
+    return roles.includes('LAWYER');
 }
 
 /* ------------------------------------------------------------------ */
@@ -258,20 +265,6 @@ function readInteger(value: string | null, fallbackValue: number): number | unde
     if (value === null || value.trim() === '') return fallbackValue;
     if (!/^-?\d+$/.test(value.trim())) return undefined;
     return Number(value);
-}
-
-/**
- * Filtro `?active=`. Por defecto `true`: un listado trae sólo los activos.
- *
- * `?active=false` trae **sólo los dados de baja**, que es lo que necesita una
- * pantalla para encontrar un registro y reactivarlo.
- */
-function readActiveFilter(query: URLSearchParams): boolean | undefined {
-    const raw = query.get('active');
-    if (raw === null || raw.trim() === '') return true;
-    if (raw === 'true') return true;
-    if (raw === 'false') return false;
-    return undefined;
 }
 
 /** Corta la página pedida y arma el envoltorio `{ data, pagination }`. */
@@ -508,12 +501,10 @@ const listUsers: Handler = ({ request }) => {
         return fail(400, ERRORS.invalidRole);
     }
 
-    const active = readActiveFilter(request.query);
-    if (active === undefined) return fail(400, ERRORS.invalidActive);
-
     const search = asText(request.query.get('search'));
+    /* Sólo los de alta. Un registro dado de baja no existe para el cliente. */
     const filtered = db.users
-        .filter((u) => u.active === active)
+        .filter((u) => u.active)
         .filter((u) => (search === '' ? true : contains(u.username, search) || contains(u.fullName, search)))
         .filter((u) => (role === null || role === '' ? true : u.roles.includes(role as Role)))
         .sort((a, b) => a.id - b.id)
@@ -529,7 +520,10 @@ const getUser: Handler = ({ request, params }) => {
     const userId = readRouteId(params, 'userId');
     if (userId === undefined) return fail(400, ERRORS.invalidUserId);
 
-    const user = db.users.find((u) => u.id === userId);
+    /* Un registro dado de baja no existe para el cliente: 404, igual que uno
+       que nunca existió. Devolverlo con `active: false` sería contarle que
+       está ahí, y no hay nada que pueda hacer con eso. */
+    const user = db.users.find((u) => u.id === userId && u.active);
     if (!user) return fail(404, ERRORS.userNotFound);
 
     return ok(itemBody(toUser(user)));
@@ -548,9 +542,8 @@ const updateUser: Handler = ({ request, params }) => {
     const hasEmail = body.email !== undefined;
     const hasRoles = body.roles !== undefined;
     const hasLawyerId = body.lawyerId !== undefined;
-    const hasActive = body.active !== undefined;
 
-    if (!hasUsername && !hasFullName && !hasEmail && !hasRoles && !hasLawyerId && !hasActive) {
+    if (!hasUsername && !hasFullName && !hasEmail && !hasRoles && !hasLawyerId) {
         return validationError({ body: 'Debe enviarse al menos un campo para modificar.' });
     }
 
@@ -567,12 +560,9 @@ const updateUser: Handler = ({ request, params }) => {
 
     const roles = hasRoles ? normalizeRoles(body.roles) : undefined;
     if (hasRoles && !roles) details.roles = 'Debe indicarse al menos un rol válido.';
-    if (hasActive && typeof body.active !== 'boolean') {
-        details.active = 'Debe ser verdadero o falso.';
-    }
     if (Object.keys(details).length > 0) return validationError(details);
 
-    const user = db.users.find((u) => u.id === userId);
+    const user = db.users.find((u) => u.id === userId && u.active);
     if (!user) return fail(404, ERRORS.userNotFound);
 
     if (hasUsername && usernameTaken(username, userId)) return fail(409, ERRORS.usernameTaken);
@@ -580,8 +570,7 @@ const updateUser: Handler = ({ request, params }) => {
 
     // Regla de negocio: el sistema conserva siempre un administrador.
     const losesAdmin = roles !== undefined && !roles.includes('ADMINISTRATOR');
-    const isDeactivating = hasActive && body.active === false;
-    if (userId === PROTECTED_ADMIN_USER && (losesAdmin || isDeactivating)) {
+    if (userId === PROTECTED_ADMIN_USER && losesAdmin) {
         return fail(422, businessRuleViolation('updateUser'));
     }
 
@@ -615,10 +604,6 @@ const updateUser: Handler = ({ request, params }) => {
     if (hasEmail) user.email = email;
     if (roles) user.roles = roles;
     if (hasLawyerId) user.lawyerId = nextLawyerId;
-    if (hasActive) {
-        user.active = body.active as boolean;
-        if (!user.active) revokeUserSessions(user.id);
-    }
 
     return ok(itemBody(toUser(user)));
 };
@@ -630,7 +615,7 @@ const deleteUser: Handler = ({ request, params }) => {
     const userId = readRouteId(params, 'userId');
     if (userId === undefined) return fail(400, ERRORS.invalidUserId);
 
-    const user = db.users.find((u) => u.id === userId);
+    const user = db.users.find((u) => u.id === userId && u.active);
     if (!user) return fail(404, ERRORS.userNotFound);
 
     if (USERS_WITH_DEPENDENCIES.includes(userId)) {
@@ -688,12 +673,9 @@ const listLawyers: Handler = ({ request }) => {
     const page = readPagination(request.query);
     if (!page.ok) return page.response;
 
-    const active = readActiveFilter(request.query);
-    if (active === undefined) return fail(400, ERRORS.invalidActive);
-
     const search = asText(request.query.get('search'));
     const filtered = db.lawyers
-        .filter((l) => l.active === active)
+        .filter((l) => l.active)
         .filter((l) =>
             search === '' ? true : contains(l.fullName, search) || contains(l.registrationNumber, search),
         )
@@ -709,7 +691,7 @@ const getLawyer: Handler = ({ request, params }) => {
     const lawyerId = readRouteId(params, 'lawyerId');
     if (lawyerId === undefined) return fail(400, ERRORS.invalidLawyerId);
 
-    const lawyer = db.lawyers.find((l) => l.id === lawyerId);
+    const lawyer = db.lawyers.find((l) => l.id === lawyerId && l.active);
     if (!lawyer) return fail(404, ERRORS.lawyerNotFound);
 
     return ok(itemBody(lawyer));
@@ -725,9 +707,7 @@ const updateLawyer: Handler = ({ request, params }) => {
     const body = asObject(request.body);
     const hasFullName = body.fullName !== undefined;
     const hasRegistration = body.registrationNumber !== undefined;
-    const hasActive = body.active !== undefined;
-
-    if (!hasFullName && !hasRegistration && !hasActive) {
+    if (!hasFullName && !hasRegistration) {
         return validationError({ body: 'Debe enviarse al menos un campo para modificar.' });
     }
 
@@ -739,28 +719,17 @@ const updateLawyer: Handler = ({ request, params }) => {
     if (hasRegistration && !RE_REGISTRATION.test(registrationNumber)) {
         details.registrationNumber = 'El formato de la matrícula no es válido.';
     }
-    if (hasActive && typeof body.active !== 'boolean') {
-        details.active = 'Debe ser verdadero o falso.';
-    }
     if (Object.keys(details).length > 0) return validationError(details);
 
-    const lawyer = db.lawyers.find((l) => l.id === lawyerId);
+    const lawyer = db.lawyers.find((l) => l.id === lawyerId && l.active);
     if (!lawyer) return fail(404, ERRORS.lawyerNotFound);
 
     if (hasRegistration && registrationTaken(registrationNumber, lawyerId)) {
         return fail(409, ERRORS.registrationTaken);
     }
 
-    /* Dar de baja un abogado que todavía tiene un usuario vinculado dejaría
-       a ese usuario sin ficha, que es justo lo que la regla del alta impide. */
-    if (hasActive && body.active === false) {
-        const linked = db.users.some((u) => u.active && u.lawyerId === lawyerId);
-        if (linked) return fail(409, ERRORS.lawyerHasDependencies);
-    }
-
     if (hasFullName) lawyer.fullName = fullName;
     if (hasRegistration) lawyer.registrationNumber = registrationNumber;
-    if (hasActive) lawyer.active = body.active as boolean;
 
     return ok(itemBody(lawyer));
 };
@@ -772,7 +741,7 @@ const deleteLawyer: Handler = ({ request, params }) => {
     const lawyerId = readRouteId(params, 'lawyerId');
     if (lawyerId === undefined) return fail(400, ERRORS.invalidLawyerId);
 
-    const lawyer = db.lawyers.find((l) => l.id === lawyerId);
+    const lawyer = db.lawyers.find((l) => l.id === lawyerId && l.active);
     if (!lawyer) return fail(404, ERRORS.lawyerNotFound);
 
     const linked = db.users.some((u) => u.active && u.lawyerId === lawyerId);
@@ -916,12 +885,9 @@ const listProceduralStates: Handler = ({ request }) => {
         return fail(400, ERRORS.invalidJurisdiction);
     }
 
-    const active = readActiveFilter(request.query);
-    if (active === undefined) return fail(400, ERRORS.invalidActive);
-
     const search = asText(request.query.get('search'));
     const filtered = db.proceduralStates
-        .filter((s) => s.active === active)
+        .filter((s) => s.active)
         .filter((s) => (search === '' ? true : contains(s.name, search)))
         .filter((s) => (jurisdiction === null || jurisdiction === '' ? true : s.jurisdiction === jurisdiction))
         /* El contrato fija el orden: por fuero y, dentro de cada uno, por
@@ -942,7 +908,7 @@ const getProceduralState: Handler = ({ request, params }) => {
     const stateId = readRouteId(params, 'stateId');
     if (stateId === undefined) return fail(400, ERRORS.invalidProceduralStateId);
 
-    const state = db.proceduralStates.find((s) => s.id === stateId);
+    const state = db.proceduralStates.find((s) => s.id === stateId && s.active);
     if (!state) return fail(404, ERRORS.proceduralStateNotFound);
 
     return ok(itemBody(state));
@@ -961,9 +927,7 @@ const updateProceduralState: Handler = ({ request, params }) => {
     const hasTimeLimit = body.timeLimitDays !== undefined;
     const hasDayType = body.dayType !== undefined;
     const hasTerminal = body.terminal !== undefined;
-    const hasActive = body.active !== undefined;
-
-    if (!hasName && !hasPosition && !hasTimeLimit && !hasDayType && !hasTerminal && !hasActive) {
+    if (!hasName && !hasPosition && !hasTimeLimit && !hasDayType && !hasTerminal) {
         return validationError({ body: 'Debe enviarse al menos un campo para modificar.' });
     }
 
@@ -993,12 +957,9 @@ const updateProceduralState: Handler = ({ request, params }) => {
     if (hasTerminal && typeof body.terminal !== 'boolean') {
         details.terminal = 'Debe ser verdadero o falso.';
     }
-    if (hasActive && typeof body.active !== 'boolean') {
-        details.active = 'Debe ser verdadero o falso.';
-    }
     if (Object.keys(details).length > 0) return validationError(details);
 
-    const state = db.proceduralStates.find((s) => s.id === stateId);
+    const state = db.proceduralStates.find((s) => s.id === stateId && s.active);
     if (!state) return fail(404, ERRORS.proceduralStateNotFound);
 
     // La coherencia se chequea contra los valores que van a QUEDAR.
@@ -1022,7 +983,6 @@ const updateProceduralState: Handler = ({ request, params }) => {
     state.timeLimitDays = nextDays;
     state.dayType = nextDayType;
     if (hasTerminal) state.terminal = body.terminal as boolean;
-    if (hasActive) state.active = body.active as boolean;
 
     /* Mover un estado reordena el ciclo: se lo saca de su lugar, se lo mete
        en el nuevo y se renumera todo el fuero. */
@@ -1047,7 +1007,7 @@ const deleteProceduralState: Handler = ({ request, params }) => {
     const stateId = readRouteId(params, 'stateId');
     if (stateId === undefined) return fail(400, ERRORS.invalidProceduralStateId);
 
-    const state = db.proceduralStates.find((s) => s.id === stateId);
+    const state = db.proceduralStates.find((s) => s.id === stateId && s.active);
     if (!state) return fail(404, ERRORS.proceduralStateNotFound);
 
     if (PROCEDURAL_STATES_WITH_DEPENDENCIES.includes(stateId)) {

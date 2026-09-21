@@ -123,13 +123,16 @@ export const USERS: readonly StoredUser[] = [
     { id: 14, username: 'ltoledo', fullName: 'Leandro Toledo', email: MAIL('ltoledo'), roles: ['SECRETARY'], lawyerId: null, lastLoginAt: '2026-09-11T10:18:00-03:00', active: true },
     { id: 15, username: 'earroyo', fullName: 'Emilia Arroyo', email: MAIL('earroyo'), roles: ['SECRETARY'], lawyerId: null, lastLoginAt: '2026-09-10T12:33:00-03:00', active: true },
     { id: 16, username: 'mesaentrada', fullName: 'Mesa de Entradas', email: MAIL('mesaentrada'), roles: ['SECRETARY'], lawyerId: null, lastLoginAt: '2026-09-19T07:30:00-03:00', active: true },
-    { id: 17, username: 'supervision', fullName: 'Supervisión Estudio', email: MAIL('supervision'), roles: ['ADMINISTRATOR'], lawyerId: 1, lastLoginAt: '2026-09-05T19:00:00-03:00', active: true },
+    // Administrador que no ejerce: sin ficha. Es el caso que prueba que la
+    // matrícula la pide `LAWYER` y no el rol administrativo.
+    { id: 17, username: 'supervision', fullName: 'Supervisión Estudio', email: MAIL('supervision'), roles: ['ADMINISTRATOR'], lawyerId: null, lastLoginAt: '2026-09-05T19:00:00-03:00', active: true },
     { id: 18, username: 'pcabrera', fullName: 'Paula Cabrera', email: MAIL('pcabrera'), roles: ['SECRETARY'], lawyerId: null, lastLoginAt: '2026-08-29T09:55:00-03:00', active: true },
     { id: 19, username: 'fluna', fullName: 'Federico Luna', email: MAIL('fluna'), roles: ['SECRETARY'], lawyerId: null, lastLoginAt: '2026-08-14T15:12:00-03:00', active: true },
     { id: 20, username: 'cibarra', fullName: 'Camila Ibarra', email: MAIL('cibarra'), roles: ['SECRETARY'], lawyerId: null, lastLoginAt: null, active: true },
     { id: 21, username: 'nvargas', fullName: 'Nicolás Vargas', email: MAIL('nvargas'), roles: ['SECRETARY'], lawyerId: null, lastLoginAt: null, active: true },
-    // Dado de baja: sólo aparece con `?active=false`. Sirve para probar la
-    // baja lógica y el 409 contra un registro invisible.
+    // Dado de baja: NO tiene que aparecer en ningún listado ni responder a un
+    // `GET` por id. Está acá justamente para probar que no se filtre, y para
+    // el 409 de un username que choca contra un registro que no se ve.
     { id: 22, username: 'vsosa', fullName: 'Verónica Sosa', email: MAIL('vsosa'), roles: ['SECRETARY'], lawyerId: null, lastLoginAt: '2026-06-30T10:00:00-03:00', active: false },
 ];
 
