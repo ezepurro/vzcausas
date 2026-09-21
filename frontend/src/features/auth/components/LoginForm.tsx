@@ -68,14 +68,6 @@ export function LoginForm({
                 </Field>
             </div>
 
-            {/* No hay recuperación de contraseña: las asigna el estudio. En
-                cuanto el backend publique el restablecimiento, esto pasa a
-                ser el acceso a ese trámite. */}
-            <p className="vz-login__hint">
-                ¿Olvidaste tu contraseña? Pedile al administrador del estudio que te
-                asigne una nueva.
-            </p>
-
             <div className="vz-login__actions">
                 <Button type="submit" block disabled={submitting}>
                     {submitting ? 'Ingresando…' : 'Ingresar'}

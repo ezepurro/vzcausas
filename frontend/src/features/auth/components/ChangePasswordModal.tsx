@@ -130,7 +130,7 @@ export function ChangePasswordModal({ onClose }: ChangePasswordModalProps) {
         <FormModal
             title="Cambiar contraseña"
             sub={`${user.fullName} · ${user.username}`}
-            note="Mínimo 8 caracteres, con al menos un número. Se guarda cifrada con función de hash y sal."
+            note="Mínimo 8 caracteres, con al menos un número"
             width="sm"
             fields={fields}
             values={values}
