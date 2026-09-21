@@ -63,7 +63,7 @@ export function UsersTable({ rows, onEdit, onDelete, empty }: UsersTableProps) {
             cell: (u) => (
                 <>
                     <Button variant="ghost" size="sm" onClick={() => onEdit(u)}>Modificar</Button>
-                    <Button variant="ghost" size="sm" onClick={() => onDelete(u)}>Eliminar</Button>
+                    <Button variant="ghost-danger" size="sm" onClick={() => onDelete(u)}>Eliminar</Button>
                 </>
             ),
         },

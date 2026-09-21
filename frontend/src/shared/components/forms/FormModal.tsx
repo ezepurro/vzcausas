@@ -19,7 +19,8 @@ export interface FieldSpec {
   note?: ReactNode;
   /** mensaje de error del campo; lo decide la pantalla, igual que en `Field` */
   error?: string;
-  options?: (string | SelectOption)[];
+  /** opciones del 'select': una cadena, o `{ value, label }` si el código que viaja no es el texto que se lee */
+  options?: SelectOption[];
   /** muestra el campo solo si devuelve true; recibe los valores actuales */
   when?: (values: FormValues) => boolean;
 }

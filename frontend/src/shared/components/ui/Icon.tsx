@@ -20,6 +20,7 @@ export const ICONS = {
   alert: 'M12 8v4M12 16h.01M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z',
   download: 'M12 4v12M7 11l5 5 5-5M4 20h16',
   back: 'M15 18l-6-6 6-6',
+  forward: 'M9 18l6-6-6-6',
 } as const;
 
 export type IconName = keyof typeof ICONS;

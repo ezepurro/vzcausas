@@ -1,7 +1,7 @@
 /**
  * Tipos del contrato de API.
  *
- * Fuente: `docs/Api-Contract/API_CONTRACT_V1.md`. Este archivo es la
+ * Fuente: `docs/Api-Contract/API_CONTRACT_V2.md`. Este archivo es la
  * traducción literal del documento a TypeScript.
  *
  * Los **mensajes** quedan en castellano porque son los que define el

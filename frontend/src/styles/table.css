@@ -57,7 +57,27 @@
 
 .vz-table__num { font-family: var(--vz-font-mono); font-variant-numeric: tabular-nums; }
 .vz-table__nowrap { white-space: nowrap; }
-.vz-table__actions { display: flex; gap: 6px; justify-content: flex-end; }
+/* Acciones de fila.
+   Quedan tenues mientras el cursor no está en la fila: en una tabla larga, dos
+   botones por renglón compiten con los datos, que son lo que se vino a leer.
+   Al entrar en la fila toman contraste, y al apuntar uno se dibuja su borde.
+   El fondo del hover es el blanco de la superficie y no el hundido, porque la
+   fila ya está hundida y el botón tiene que despegarse de ella. */
+.vz-table__actions { display: flex; gap: 4px; justify-content: flex-end; }
+.vz-table__actions .vz-btn { opacity: .72; transition: opacity .12s, background .12s, border-color .12s, color .12s; }
+.vz-table tbody tr:hover .vz-table__actions .vz-btn { opacity: 1; }
+.vz-table__actions .vz-btn:focus-visible { opacity: 1; }
+
+.vz-table__actions .vz-btn--ghost:hover:not(:disabled) {
+  background: var(--vz-surface);
+  border-color: var(--vz-border-strong);
+  color: var(--vz-ink);
+}
+.vz-table__actions .vz-btn--ghost-danger:hover:not(:disabled) {
+  background: var(--vz-surface);
+  border-color: var(--vz-danger-action-bd);
+  color: var(--vz-danger-action);
+}
 .vz-table__primary { font-weight: 600; }
 .vz-table__secondary { font-size: 12px; color: var(--vz-muted); margin-top: 2px; }
 
@@ -74,8 +94,22 @@
   gap: 12px;
   flex-wrap: wrap;
 }
-.vz-pager__status { font-family: var(--vz-font-mono); }
-.vz-pager__controls { display: flex; align-items: center; gap: 8px; }
+
+/* Antes el renglón entero era monoespaciado y competía con la tabla. Ahora el
+   texto es texto y sólo los números van en mono, con cifras de ancho fijo para
+   que la línea no se corra al pasar de la página 9 a la 10. */
+.vz-pager__status { color: var(--vz-muted); }
+.vz-pager__count {
+  font-family: var(--vz-font-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--vz-ink);
+}
+
+/* Los dos controles se leen como un par, no como dos botones sueltos. */
+.vz-pager__controls { display: flex; align-items: center; gap: 6px; }
+.vz-pager__controls .vz-btn { padding: 0 10px; }
+.vz-pager__controls .vz-btn:disabled { opacity: .38; }
 
 /* Avatar de iniciales de una celda. El del rail es otro: vive sobre fondo
    oscuro y tiene su propio tamaño. */

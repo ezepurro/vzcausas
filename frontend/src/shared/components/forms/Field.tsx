@@ -40,21 +40,19 @@ export function TextInput({ mono, className = '', ...rest }: InputHTMLAttributes
 }
 
 /**
- * Una opción del select cuando el valor que viaja no es el texto que se lee:
- * un id, o un código del contrato con su rótulo en castellano.
+ * Opción de un `Select`. Una cadena suelta es el caso en que el valor y la
+ * etiqueta son lo mismo; el par separa el código que viaja del texto que se lee
+ * —"Penal" en pantalla, `CRIMINAL` en la API—, igual que `Tabs` separa `id` de
+ * `label`.
  */
-export interface SelectOption {
-  value: string;
-  label: string;
-}
+export type SelectOption = string | { value: string; label: string };
 
 export function Select({
   options, className = '', ...rest
-}: SelectHTMLAttributes<HTMLSelectElement> & { options: (string | SelectOption)[] }) {
+}: SelectHTMLAttributes<HTMLSelectElement> & { options: SelectOption[] }) {
   return (
     <select className={`vz-select ${className}`} {...rest}>
       {options.map((o) => {
-        // Una cadena suelta es valor y rótulo a la vez: el caso de siempre.
         const { value, label } = typeof o === 'string' ? { value: o, label: o } : o;
         return <option key={value} value={value}>{label}</option>;
       })}

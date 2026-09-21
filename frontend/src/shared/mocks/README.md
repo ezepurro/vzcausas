@@ -1,6 +1,6 @@
 # Mocks — API simulada
 
-Implementación en memoria de `docs/Api-Contract/API_CONTRACT_V1.md`: los
+Implementación en memoria de `docs/Api-Contract/API_CONTRACT_V2.md`: los
 dieciocho endpoints del contrato, con sus códigos de error, su paginación,
 sus filtros y sus bajas lógicas. Sirve para desarrollar pantallas sin backend
 levantado y para tener fixtures estables en los tests.
