@@ -21,6 +21,7 @@
 | Método   | Endpoint                         | Autenticación | Rol                           | Descripción                   |
 | -------- | -------------------------------- | :-----------: | ----------------------------- | ----------------------------- |
 | `POST`   | `/auth/login`                    |      No       | -                             | Iniciar sesión                |
+| `POST`   | `/auth/refresh`                  |      No       | -                             | Renovar el token de acceso    |
 | `POST`   | `/auth/logout`                   |      Sí       | Cualquier usuario autenticado | Cerrar sesión                 |
 | `PATCH`  | `/auth/password`                 |      Sí       | Cualquier usuario autenticado | Cambiar contraseña            |
 | `POST`   | `/users`                         |      Sí       | `ADMINISTRATOR`               | Registrar usuario             |
@@ -267,6 +268,91 @@ La respuesta no contiene cuerpo. La sesión permanece abierta.
 	}
 }
 ```
+
+---
+
+#### `POST /auth/refresh`
+
+Renueva el token de acceso a partir del refresh token que el cliente
+posee en la cookie `refresh_token` emitida durante `POST /auth/login`.
+El endpoint no recibe cuerpo ni encabezado `Authorization`: el refresh
+viaja únicamente en la cookie `HttpOnly`.
+
+En cada uso el refresh se **rota**: se emite uno nuevo y se marca el
+anterior como revocado. Si se recibe un refresh ya revocado, se
+considera indicio de robo y se revoca la familia completa de tokens
+del usuario.
+
+**Autenticación requerida:** No (el access token puede estar vencido;
+la autorización se resuelve con el refresh de la cookie).
+
+**Cuerpo de la petición**
+
+No requiere cuerpo.
+
+**Parámetros de consulta**
+
+No requiere parámetros de consulta.
+
+**Respuestas**
+
+**`200 OK`**
+
+```json
+{
+	"data": {
+		"accessToken": "eyJhbGciOi...",
+		"tokenType": "Bearer",
+		"expiresIn": 900,
+		"user": {
+			"id": 1,
+			"username": "fvazquez",
+			"roleNames": ["ADMINISTRATOR", "LAWYER"],
+			"lawyerId": 10,
+			"permissions": ["user:manage", "case:read", "case:change-status"]
+		}
+	}
+}
+```
+
+Adicionalmente, la respuesta trae la cookie del refresh rotado:
+
+```http
+Set-Cookie: refresh_token=<nuevo valor opaco>; HttpOnly; Secure; SameSite=Lax; Path=/api/v1/auth; Expires=<7 días>
+```
+
+El objeto `user` en esta respuesta es una **proyección reducida**: solo
+incluye los campos que pueden variar entre sesión y sesión y que
+inciden en la autorización (`roleNames`, `lawyerId`, `permissions`).
+Los datos estables (`fullName`, `email`, `active`, `lawyer`) el cliente
+los conserva de `POST /auth/login`. `lastLoginAt` no se devuelve aquí
+porque semánticamente pertenece al inicio de sesión, no a la
+renovación.
+
+**`401 Unauthorized`**
+
+```json
+{
+	"error": {
+		"code": "UNAUTHENTICATED",
+		"message": "Session expired or invalid.",
+		"details": null
+	}
+}
+```
+
+Adicionalmente, la respuesta invalida la cookie del cliente:
+
+```http
+Set-Cookie: refresh_token=; HttpOnly; Secure; SameSite=Lax; Path=/api/v1/auth; Max-Age=0
+```
+
+El mismo `401 UNAUTHENTICATED` cubre todos los caminos de falla, de
+manera deliberadamente opaca al cliente: cookie ausente, token
+inexistente en la base, token revocado (rotación previa o robo
+detectado), token expirado, o usuario dado de baja luego del último
+login. La reacción del cliente es la misma en todos los casos:
+redirigir al login.
 
 ---
 
