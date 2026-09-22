@@ -3,6 +3,7 @@ import { AppLayout } from '@/app/layouts/AppLayout'
 import { AuthLayout } from '@/app/layouts/AuthLayout'
 import { ProceduralStatesPage } from '@/features/legal-params/pages/ProceduralStatesPage';
 import { UsersPage } from '@/features/users/pages/UsersPage';
+import { LawyersPage } from '@/features/lawyers/pages/LawyersPage'
 
 
 export const router = createBrowserRouter([
@@ -21,10 +22,11 @@ export const router = createBrowserRouter([
         { index: true, element: <Navigate to="/inicio" replace /> },
         { path: 'estados-y-plazos', element: <ProceduralStatesPage /> },
         { path: 'usuarios', element: <UsersPage /> },
+        { path: 'abogados', element: <LawyersPage /> },
+
       // Las secciones del sprint 1. Hasta que existan las pantallas,
       // se agregan acá una por una.
 
-      // { path: 'abogados', element: <AbogadosPage /> },
 
       // reportes) todavía no tiene pantalla y cae acá.
         { path: '*',  },

@@ -200,8 +200,9 @@ async function resolver({ request }: { request: Request }) {
  * esté en esta lista no se toca (`onUnhandledRequest: 'bypass'`), así que
  * el HMR de Vite, las fuentes y los assets siguen andando.
  *
- * Los tres últimos son PROPUESTA de este equipo: el contrato v1 sólo define
- * el GET de `/procedural-states`. Ver el README.
+ * Tiene que coincidir con la tabla de rutas de `handlers.ts`: un endpoint
+ * implementado allá pero ausente acá no se intercepta, sale a la red y Vite
+ * le responde 200 con el `index.html`, sin ningún error visible.
  */
 const ENDPOINTS = [
     { method: 'post', path: '/auth/login' },
@@ -213,7 +214,12 @@ const ENDPOINTS = [
     { method: 'patch', path: '/users/:userId' },
     { method: 'delete', path: '/users/:userId' },
     { method: 'post', path: '/lawyers' },
+    { method: 'get', path: '/lawyers' },
+    { method: 'get', path: '/lawyers/:lawyerId' },
+    { method: 'patch', path: '/lawyers/:lawyerId' },
+    { method: 'delete', path: '/lawyers/:lawyerId' },
     { method: 'get', path: '/procedural-states' },
+    { method: 'get', path: '/procedural-states/:proceduralStateId' },
     { method: 'post', path: '/procedural-states' },
     { method: 'patch', path: '/procedural-states/:proceduralStateId' },
     { method: 'delete', path: '/procedural-states/:proceduralStateId' },

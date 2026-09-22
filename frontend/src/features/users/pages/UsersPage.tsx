@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router'
 import { isApiError } from '@/shared/api/ApiError'
 import { useToast } from '@/app/providers/ToastContext'
 import {
@@ -8,6 +9,7 @@ import {
     Pagination,
     Panel,
     SearchInput,
+    Tabs,
 } from '@/shared/components/ui'
 import { Select, type SelectOption } from '@/shared/components/forms'
 import { useLawyers } from '@/features/lawyers'
@@ -42,6 +44,18 @@ const ROLE_FILTER: SelectOption[] = [
 ]
 
 /**
+ * Usuarios y abogados son dos pantallas con dos rutas, pero el prototipo las
+ * muestra como pestañas de una sola sección. Cada pestaña navega a su ruta:
+ * así el rail y la pestaña llevan a la misma URL y un F5 no te cambia de lugar.
+ */
+type AdminTab = '/usuarios' | '/abogados'
+
+const ADMIN_TABS: { id: AdminTab; label: string }[] = [
+    { id: '/usuarios', label: 'Usuarios' },
+    { id: '/abogados', label: 'Abogados' },
+]
+
+/**
  * Qué modal está abierto y con qué registro: UN estado
  */
 type Modal =
@@ -65,6 +79,7 @@ const EMPTY_FORM: UserFormValues = {
 
 export function UsersPage() {
     const toast = useToast()
+    const navigate = useNavigate()
 
     /* Filtros y paginado viven acá y se le pasan al hook: `DataTable` no
        pagina ni filtra, y los parámetros tienen que estar en la clave de caché. */
@@ -258,12 +273,15 @@ export function UsersPage() {
             <PageHeader
                 eyebrow="Administración"
                 title="Usuarios y abogados"
+                sub="El perfil determina qué se puede operar, no qué se puede ver. Todos los integrantes del estudio acceden a la totalidad de las causas."
                 actions={
                     <Button icon={<Icon name="plus" />} size="md" onClick={openCreate}>
                         Registrar usuario
                     </Button>
                 }
             />
+
+            <Tabs tabs={ADMIN_TABS} active="/usuarios" onChange={(route) => navigate(route)} />
 
             <Panel
                 title="Usuarios"
