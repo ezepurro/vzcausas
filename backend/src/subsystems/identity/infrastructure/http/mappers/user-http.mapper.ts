@@ -1,7 +1,11 @@
-import { RegisterUserCommand, RegisterUserResult } from "../../../core/application/use-cases/register-user.use-case";
+import { RegisterUserCommand } from "../../../core/application/use-cases/register-user.use-case";
 import { Role } from "../../../core/domain/entities/role.entity";
+import { User } from "../../../core/domain/entities/user.entity";
 import { RegisterUserRequestDto } from "../dtos/register-user.request.dto";
 import { UserResponseDto } from "../dtos/user.response.dto";
+
+/** Shape shared by every use case that hands back a user to render (`RegisterUser`, `GetUser`, ...). */
+export type UserWithRoles = { user: User; roles: Role[] };
 
 /**
  * Translates between HTTP DTOs and the `identity` application layer.
@@ -21,7 +25,7 @@ export class UserHttpMapper {
     };
   }
 
-  static toResponse(result: RegisterUserResult): UserResponseDto {
+  static toResponse(result: UserWithRoles): UserResponseDto {
     const dto = new UserResponseDto();
     dto.id = result.user.id;
     dto.username = result.user.username.toString();

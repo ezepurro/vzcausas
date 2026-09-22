@@ -1,6 +1,7 @@
 import {
   BusinessRuleError,
   ConflictError,
+  NotFoundError,
   UnauthorizedError,
   ValidationError,
 } from "@shared/domain/domain-error";
@@ -108,6 +109,35 @@ export class LawyerNotFoundError extends BusinessRuleError {
   constructor(lawyerId: number) {
     super("LAWYER_NOT_FOUND", "The referenced lawyer does not exist.", {
       lawyerId,
+    });
+  }
+}
+
+/**
+ * Emitted by `GetUser` (HU5) when no user matches the requested id —
+ * including a user that exists but was logically deleted (RN12,
+ * `active: false`). Per the API contract (§3.2, `DELETE
+ * /users/{userId}`): *"no aparece en ningún listado y `GET
+ * /users/{userId}` responde 404"* — a deactivated user must be
+ * indistinguishable from a nonexistent one through this endpoint.
+ */
+export class UserNotFoundError extends NotFoundError {
+  constructor(userId: number) {
+    super("USER_NOT_FOUND", "The requested user was not found.", { userId });
+  }
+}
+
+/**
+ * Emitted when the `userId` path parameter is not a positive integer.
+ * Syntactic, not semantic, but modeled as a domain error (not a bare
+ * Nest exception) so the response carries the exact `code` the
+ * contract requires (`INVALID_PATH_PARAMETER`), matching how DTOs are
+ * validated everywhere else in this subsystem.
+ */
+export class InvalidUserIdError extends ValidationError {
+  constructor() {
+    super("INVALID_PATH_PARAMETER", "The user identifier is not valid.", {
+      userId: "Debe ser un número entero válido.",
     });
   }
 }
