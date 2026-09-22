@@ -239,6 +239,17 @@ export class User {
     return this._active;
   }
 
+  /**
+   * Exposes the stored hash for persistence adapters only (HU4:
+   * `PrismaUserRepository.create/save` need it to write the row).
+   * Deliberately not named `passwordHash` — that name is reserved to
+   * signal "do not read this casually"; only repository code should
+   * call this.
+   */
+  hashForPersistence(): string {
+    return this._passwordHash;
+  }
+
   private static validatePasswordRules(plain: string): void {
     if (typeof plain !== "string") {
       throw new WeakPasswordError("Password must be a string.");
