@@ -286,7 +286,7 @@ El recurso usuario posee la siguiente estructura:
 | `roles`       | `Role[]`              |  No  | Al menos un rol                                                          |
 | `lawyer`      | Object \| `null`      |  Sí  | Ficha profesional vinculada. `null` si el usuario no posee vínculo       |
 | `lastLoginAt` | String (ISO 8601) \| `null` | Sí | Último ingreso registrado. `null` si el usuario nunca inició sesión |
-| `active`      | Boolean               |  No  | Estado de alta. La baja es lógica: ver `DELETE /users/{userId}`          |
+| `active`      | Boolean               |  No  | Estado de alta. Vale siempre `true`: ver `DELETE /users/{userId}`        |
 
 La contraseña no se devuelve en ninguna respuesta, ni en texto plano ni
 cifrada.
@@ -343,9 +343,11 @@ Registrando un abogado nuevo en la misma operación:
 Los campos `lawyerId` y `lawyer` son **mutuamente excluyentes**: se envía uno
 de los dos, nunca ambos.
 
-- Si los roles incluyen `LAWYER` o `ADMINISTRATOR`, **debe enviarse uno de los
-  dos**. Un usuario con esos roles requiere ficha profesional.
-- Si los roles son únicamente `SECRETARY`, no debe enviarse ninguno de los dos.
+- Si los roles incluyen `LAWYER`, **debe enviarse uno de los dos**. La ficha
+  profesional corresponde a quien ejerce.
+- Si los roles no incluyen `LAWYER`, no debe enviarse ninguno de los dos. Un
+  usuario con rol `ADMINISTRATOR` o `SECRETARY` que no ejerce no posee
+  matrícula.
 
 Cuando se envía `lawyer`, el registro del abogado y el del usuario se realizan
 en **una única transacción**: si alguna de las dos operaciones falla, ninguna
@@ -474,7 +476,6 @@ Obtiene una lista paginada de usuarios.
 | `limit`   | Integer |    No     | `20`              | Entre `1` y `100`   | Cantidad máxima de elementos por página        |
 | `search`  | String  |    No     | -                 | -                   | Filtra por `username` y por `fullName`         |
 | `role`    | String  |    No     | -                 | Rol válido          | Filtra por los usuarios que poseen ese rol     |
-| `active`  | Boolean |    No     | `true`            | -                   | Filtra por estado de alta                      |
 
 Ejemplo:
 
@@ -681,8 +682,7 @@ Todos los campos son opcionales, aunque debe enviarse al menos uno.
 	"fullName": "Ignacio Peralta",
 	"email": "iperalta@vazquezzarate.com",
 	"roles": ["LAWYER", "ADMINISTRATOR"],
-	"lawyerId": 4,
-	"active": true
+	"lawyerId": 4
 }
 ```
 
@@ -693,7 +693,6 @@ Todos los campos son opcionales, aunque debe enviarse al menos uno.
 | `email`    | String             | Mismas restricciones que en el alta                                  |
 | `roles`    | `Role[]`           | Reemplaza el conjunto completo de roles                              |
 | `lawyerId` | Integer \| `null`  | `null` desvincula la ficha profesional                               |
-| `active`   | Boolean            | Permite reactivar un usuario dado de baja                            |
 
 Este endpoint no modifica la contraseña. El cambio de contraseña se realiza
 mediante `PATCH /auth/password`.
@@ -814,10 +813,11 @@ existentes debe omitirse el campo, no enviarse parcialmente.
 
 Da de baja un usuario.
 
-**La baja es lógica.** El backend establece `active` en `false`; el registro no
-se elimina de la base de datos. Un usuario dado de baja no puede iniciar sesión
-y no aparece en los listados, salvo que se solicite explícitamente mediante el
-parámetro `active`. La reactivación se realiza mediante `PATCH`.
+**La baja es lógica, pero el cliente no la percibe.** El backend establece
+`active` en `false` y conserva el registro; para el cliente el usuario deja de
+existir. No puede iniciar sesión, sus sesiones abiertas se cierran, no aparece
+en ningún listado y `GET /users/{userId}` responde `404`. No existe forma de
+consultarlo ni de reactivarlo desde la API.
 
 **Parámetros de ruta**
 
@@ -908,7 +908,7 @@ El recurso abogado posee la siguiente estructura:
 | `fullName`           | String  |  No  | Nombre y apellido en un único campo, incluyendo el tratamiento       |
 | `registrationNumber` | String  |  No  | Matrícula. Única                                                     |
 | `activeCases`        | Integer |  No  | Causas activas en las que es responsable. Calculado, sólo lectura    |
-| `active`             | Boolean |  No  | Estado de alta. La baja es lógica: ver `DELETE /lawyers/{lawyerId}`  |
+| `active`             | Boolean |  No  | Estado de alta. Vale siempre `true`: ver `DELETE /lawyers/{lawyerId}` |
 
 **Formato de la matrícula:** el vigente en el Colegio de Abogados de Córdoba,
 compuesto por circunscripción y número separados por guión: `1-28114`.
@@ -1029,7 +1029,6 @@ Obtiene una lista paginada de abogados.
 | `page`    | Integer |    No     | `1`               | Mayor o igual a `1` | Número de página                                   |
 | `limit`   | Integer |    No     | `20`              | Entre `1` y `100`   | Cantidad máxima de elementos por página            |
 | `search`  | String  |    No     | -                 | -                   | Filtra por `fullName` y por `registrationNumber`   |
-| `active`  | Boolean |    No     | `true`            | -                   | Filtra por estado de alta                          |
 
 Ejemplo:
 
@@ -1204,8 +1203,7 @@ Todos los campos son opcionales, aunque debe enviarse al menos uno.
 ```json
 {
 	"fullName": "Dr. Ignacio Peralta",
-	"registrationNumber": "1-35207",
-	"active": true
+	"registrationNumber": "1-35207"
 }
 ```
 
@@ -1213,7 +1211,6 @@ Todos los campos son opcionales, aunque debe enviarse al menos uno.
 | -------------------- | ------- | ------------------------------------------ |
 | `fullName`           | String  | -                                          |
 | `registrationNumber` | String  | Formato `1-28114`. Única                   |
-| `active`             | Boolean | Permite reactivar un abogado dado de baja  |
 
 El campo `activeCases` no es modificable: lo calcula el backend.
 
@@ -1313,11 +1310,11 @@ El campo `activeCases` no es modificable: lo calcula el backend.
 
 Da de baja un abogado.
 
-**La baja es lógica.** El backend establece `active` en `false`; el registro no
-se elimina de la base de datos. Un abogado dado de baja no aparece en los
-listados ni puede vincularse a un usuario nuevo, salvo que se solicite
-explícitamente mediante el parámetro `active`. La reactivación se realiza
-mediante `PATCH`.
+**La baja es lógica, pero el cliente no la percibe.** El backend establece
+`active` en `false` y conserva el registro; para el cliente el abogado deja de
+existir. No aparece en ningún listado, no puede vincularse a un usuario y
+`GET /lawyers/{lawyerId}` responde `404`. No existe forma de consultarlo ni de
+reactivarlo desde la API.
 
 **Parámetros de ruta**
 
@@ -1424,7 +1421,7 @@ El recurso estado procesal posee la siguiente estructura:
 | `dayType`       | `DayType`      |  No  | Forma de cómputo de los días                                                 |
 | `terminal`      | Boolean        |  No  | Indica si el estado cierra el ciclo de vida de la causa                      |
 | `activeCases`   | Integer        |  No  | Causas que se encuentran en este estado. Calculado, sólo lectura             |
-| `active`        | Boolean        |  No  | Estado de alta. La baja es lógica: ver `DELETE /procedural-states/{stateId}` |
+| `active`        | Boolean        |  No  | Estado de alta. Vale siempre `true`: ver `DELETE /procedural-states/{stateId}` |
 
 **Sobre `name`:** RN4 establece que los estados procesales dependen del fuero y
 son parametrizables, es decir que los da de alta el estudio. Por ese motivo la
@@ -1566,7 +1563,6 @@ Los resultados se ordenan por `jurisdiction` y, dentro de cada fuero, por
 | `limit`        | Integer |    No     | `20`              | Entre `1` y `100`   | Cantidad máxima de elementos por página |
 | `search`       | String  |    No     | -                 | -                   | Filtra por `name`                       |
 | `jurisdiction` | String  |    No     | -                 | Fuero válido        | Filtra por fuero                        |
-| `active`       | Boolean |    No     | `true`            | -                   | Filtra por estado de alta               |
 
 Ejemplo:
 
@@ -1768,8 +1764,7 @@ Todos los campos son opcionales, aunque debe enviarse al menos uno.
 	"position": 5,
 	"timeLimitDays": 6,
 	"dayType": "BUSINESS",
-	"terminal": false,
-	"active": true
+	"terminal": false
 }
 ```
 
@@ -1780,7 +1775,6 @@ Todos los campos son opcionales, aunque debe enviarse al menos uno.
 | `timeLimitDays` | Integer   | Mayor o igual a `0`                                     |
 | `dayType`       | `DayType` | Debe ser coherente con `timeLimitDays`                  |
 | `terminal`      | Boolean   | -                                                       |
-| `active`        | Boolean   | Permite reactivar un estado dado de baja                |
 
 El campo `jurisdiction` no es modificable: un estado procesal no puede cambiar
 de fuero. Para trasladarlo debe darse de baja y registrarse en el fuero que
@@ -1888,11 +1882,12 @@ El campo `activeCases` no es modificable: lo calcula el backend.
 
 Da de baja un estado procesal.
 
-**La baja es lógica.** El backend establece `active` en `false`; el registro no
-se elimina de la base de datos. Un estado dado de baja no aparece en los
-listados ni puede asignarse a una causa, salvo que se solicite explícitamente
-mediante el parámetro `active`. Las posiciones de los estados siguientes del
-fuero se renumeran. La reactivación se realiza mediante `PATCH`.
+**La baja es lógica, pero el cliente no la percibe.** El backend establece
+`active` en `false` y conserva el registro; para el cliente el estado deja de
+existir. No aparece en ningún listado, no puede asignarse a una causa y
+`GET /procedural-states/{stateId}` responde `404`. Las posiciones de los
+estados siguientes del fuero se renumeran. No existe forma de consultarlo ni
+de reactivarlo desde la API.
 
 **Parámetros de ruta**
 
@@ -2019,10 +2014,17 @@ Las fechas y horas se expresan en formato ISO 8601 con desplazamiento horario:
 ### Bajas
 
 Las bajas de usuarios, abogados y estados procesales son **lógicas**: el
-backend establece el campo `active` en `false` y conserva el registro. Los
-listados devuelven únicamente los registros activos, salvo que se indique lo
-contrario mediante el parámetro de consulta `active`. La reactivación se
-realiza mediante el `PATCH` del recurso correspondiente.
+backend establece el campo `active` en `false` y conserva el registro por
+trazabilidad.
+
+Esa conservación es interna del servidor. **Para el cliente, un registro dado
+de baja no existe**: no aparece en ningún listado, el `GET` por identificador
+responde `404` y no hay parámetro de consulta ni campo de modificación que
+permita alcanzarlo o reactivarlo. Revertir una baja es una operación
+administrativa de la base de datos, no una operación de la API.
+
+El campo `active` se devuelve igual dentro de cada recurso, donde vale
+siempre `true`, porque forma parte del modelo que el backend expone.
 
 ---
 
@@ -2184,7 +2186,7 @@ equipo.
 | Usuario | `fullName`, `email` | Requeridos por el formulario de alta y por la tabla |
 | Usuario | `lawyer` | v1 recibía el vínculo y no lo devolvía nunca |
 | Usuario | `lastLoginAt` | Columna "Último acceso" |
-| Todos | `active` | Las bajas son lógicas |
+| Todos | `active` | Las bajas son lógicas del lado del servidor |
 | Abogado | `activeCases` | Columna "Causas activas" |
 | Estado procesal | `position`, `terminal` | Los estados conforman una secuencia ordenada con estados de cierre |
 

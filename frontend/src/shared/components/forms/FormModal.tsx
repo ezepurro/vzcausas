@@ -98,6 +98,7 @@ export function FormModal({
                     checked={Boolean(value)}
                     onChange={(e) => onChange(k, e.target.checked)}
                   />
+                  {c.error && <div className="vz-error">{c.error}</div>}
                 </div>
               );
             }

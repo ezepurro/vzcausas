@@ -175,8 +175,6 @@ export interface UpdateUserRequest {
     email?: string;
     roles?: Role[];
     lawyerId?: number | null;
-    /** Reactivar un usuario dado de baja. */
-    active?: boolean;
 }
 
 /** Alta de abogado (§3.3). Dos campos y nada más. */
@@ -189,7 +187,6 @@ export interface CreateLawyerRequest {
 export interface UpdateLawyerRequest {
     fullName?: string;
     registrationNumber?: string;
-    active?: boolean;
 }
 
 /** Alta de estado procesal (§3.4). */
@@ -215,7 +212,6 @@ export interface UpdateProceduralStateRequest {
     timeLimitDays?: number;
     dayType?: DayType;
     terminal?: boolean;
-    active?: boolean;
 }
 
 /* ------------------------------------------------------------------ */
@@ -232,8 +228,6 @@ export interface PaginatedQuery {
     page?: number;
     limit?: number;
     search?: string;
-    /** Filtra por estado de alta. Por defecto `true`. */
-    active?: boolean;
 }
 
 export interface UsersQuery extends PaginatedQuery {

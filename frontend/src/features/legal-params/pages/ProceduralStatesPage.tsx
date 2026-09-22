@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { isApiError } from '@/shared/api/ApiError';
 import { useToast } from '@/app/providers/ToastContext';
-import { Button, Icon, PageHeader, Panel, SearchInput, Tabs } from '@/shared/components/ui';
+import { Button, Icon, PageHeader, Pagination, Panel, SearchInput, Tabs } from '@/shared/components/ui';
 import { useProceduralStates } from '@/features/legal-params/api/useProceduralStates';
 import { useProceduralStateCycle } from '@/features/legal-params/api/useProceduralStateCycle';
 import { useCreateProceduralState } from '@/features/legal-params/api/useCreateProceduralState';
@@ -33,7 +33,6 @@ import { hasNoFieldErrors, toFormErrors } from '@/features/legal-params/utils/to
 import { ProceduralStatesTable } from '@/features/legal-params/components/ProceduralStatesTable';
 import { ProceduralStateFormModal } from '@/features/legal-params/components/ProceduralStateFormModal';
 import { DeleteProceduralStateModal } from '@/features/legal-params/components/DeleteProceduralStateModal';
-import { Pagination } from '@/features/legal-params/components/Pagination';
 
 const LIMIT = 20;
 
@@ -309,6 +308,7 @@ export function ProceduralStatesPage() {
                         page={pagination?.page ?? 1}
                         totalPages={pagination?.totalPages ?? 1}
                         totalItems={pagination?.totalItems ?? 0}
+                        noun={['estado', 'estados']}
                         onChange={setPage}
                     />
                 }

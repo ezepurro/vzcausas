@@ -136,3 +136,91 @@
   text-transform: uppercase; color: var(--vz-primary); white-space: nowrap;
 }
 .vz-form-sep__rule { flex: 1; height: 1px; background: var(--vz-border); }
+
+/* ------------------------------------------------------------------ */
+/* La lista desplegable del select                                     */
+/*                                                                     */
+/* Las `<option>` de un select nativo las dibuja el sistema operativo:  */
+/* no hay CSS que las alcance, y por eso la lista abierta no se parece  */
+/* al resto de la aplicación. El prototipo tiene el mismo problema.     */
+/*                                                                     */
+/* `appearance: base-select` sí las alcanza, pero todavía no la         */
+/* entienden todos los navegadores. Por eso va adentro de un            */
+/* `@supports`: donde existe se ve el panel del estudio, y donde no,    */
+/* queda el desplegable nativo de siempre. En los dos casos sigue       */
+/* siendo un `<select>` de verdad, con su teclado y su lector de        */
+/* pantalla: no estamos reemplazando el control, sólo pintándolo.       */
+/* ------------------------------------------------------------------ */
+@supports (appearance: base-select) {
+  .vz-select,
+  .vz-select::picker(select) { appearance: base-select; }
+
+  .vz-select {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding-right: 12px;
+    text-align: left;
+    /* La flecha deja de ser un fondo y pasa a ser `::picker-icon`, que sí
+       puede girar al abrir. */
+    background-image: none;
+  }
+
+  /* Una matrícula larga se recorta en vez de empujar la flecha afuera. */
+  .vz-select selectedcontent {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .vz-select::picker-icon {
+    color: var(--vz-muted);
+    transition: transform .15s ease;
+  }
+  .vz-select:open::picker-icon { transform: rotate(180deg); }
+
+  /* El panel habla el mismo idioma que el Modal: superficie, borde fino y
+     la sombra de los elementos flotantes. */
+  .vz-select::picker(select) {
+    border: 1px solid var(--vz-border);
+    border-radius: var(--vz-r-sm);
+    background: var(--vz-surface);
+    box-shadow: var(--vz-pop-sh);
+    padding: 4px;
+    margin-top: 4px;
+    max-height: 280px;
+    overflow-y: auto;
+  }
+
+  .vz-select option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-size: 13.5px;
+    line-height: 1.35;
+    color: var(--vz-ink);
+    cursor: pointer;
+  }
+
+  /* El teclado y el mouse marcan igual: moverse con las flechas tiene que
+     verse como pasar por encima con el cursor. */
+  .vz-select option:hover,
+  .vz-select option:focus { background: var(--vz-sunken); outline: none; }
+
+  .vz-select option:checked {
+    background: var(--vz-primary-soft);
+    color: var(--vz-primary-hi);
+    font-weight: 600;
+  }
+
+  /* El tilde de la elegida. Se queda: distinguir sólo por color deja afuera
+     a quien no lo percibe. */
+  .vz-select option::checkmark {
+    order: 1;
+    margin-left: auto;
+    color: var(--vz-primary);
+  }
+}
