@@ -1,14 +1,24 @@
 import { TOKEN_KEY } from '@/shared/api/http'
-import { ROLES, type AuthUser, type Role, type Session, type StoredSession } from '@/features/auth/types/session'
+import {
+    ROLES,
+    type AuthUser,
+    type RefreshedSession,
+    type Role,
+    type Session,
+    type StoredSession,
+} from '@/features/auth/types/session'
 
 /**
  * El único lugar de todo el front que toca el almacenamiento del navegador.
  *
- * Está concentrado acá a propósito. La forma de guardar la sesión es una
- * decisión provisoria: el equipo de backend todavía discute si el token va a
- * viajar en una cookie `httpOnly` —que el front no puede leer ni escribir— o
- * en el cuerpo, como dice hoy el contrato. Cuando eso se resuelva, se
+ * Está concentrado acá a propósito: si mañana cambia dónde vive la sesión, se
  * reescribe este archivo y ni las pantallas ni los hooks se enteran.
+ *
+ * Acá se guarda **sólo el token de acceso**, que es el que viaja en cada
+ * pedido. El token de renovación no pasa por acá ni podría: vive en una
+ * cookie `httpOnly` que este código no puede leer ni escribir, y de eso se
+ * trata —si un script malicioso entra a la página, se lleva quince minutos de
+ * acceso y no siete días—.
  *
  * Por qué se guarda el usuario entero y no sólo el token: el contrato no
  * publica un `GET /users/me`, así que después de una recarga no hay forma de
@@ -61,9 +71,12 @@ function isAuthUser(value: unknown): value is AuthUser {
  * La sesión guardada, o `null` si no hay ninguna utilizable.
  *
  * Devuelve `null` —y limpia lo que haya— cuando falta el token, cuando el
- * contenido no tiene la forma esperada, o cuando el token ya venció. Como no
- * existe renovación de token, un vencimiento es final: hay que volver a
- * entrar.
+ * contenido no tiene la forma esperada, o cuando el token ya venció.
+ *
+ * Se descarta el token vencido en vez de intentar renovarlo acá: esta función
+ * es pura y síncrona, y corre en el primer render. La renovación la maneja
+ * `http.ts` cuando el servidor rechaza un pedido; si la cookie sigue viva, el
+ * usuario vuelve a entrar sin escribir nada.
  */
 export function readStoredSession(): StoredSession | null {
     try {
@@ -133,4 +146,33 @@ export function clearStoredSession(): void {
     } catch {
         /* Nada que hacer: si no se puede escribir, tampoco se pudo guardar. */
     }
+}
+
+/**
+ * Guarda el token renovado sobre la sesión que ya estaba abierta.
+ *
+ * **Conserva el usuario del login a propósito.** Lo que devuelve la
+ * renovación bajo el nombre `user` es el contenido del token —id, usuario,
+ * roles, permisos— y no trae el nombre completo, el correo ni la ficha
+ * profesional. Pisar el usuario guardado con eso dejaría el rail sin nombre.
+ *
+ * Si el token renovado viniera de otra persona —lo que sólo podría pasar por
+ * un error del backend— se descarta todo y se devuelve `null`: es preferible
+ * mandar al login antes que mostrarle a alguien los datos de otro.
+ */
+export function writeRefreshedSession(
+    current: StoredSession,
+    refreshed: RefreshedSession,
+): StoredSession | null {
+    if (refreshed.user.id !== current.user.id) {
+        clearStoredSession()
+        return null
+    }
+
+    return writeStoredSession({
+        accessToken: refreshed.accessToken,
+        tokenType: refreshed.tokenType,
+        expiresIn: refreshed.expiresIn,
+        user: current.user,
+    })
 }

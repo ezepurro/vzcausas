@@ -140,6 +140,7 @@ sirve para probar la baja lógica y el `409` contra un registro invisible.
 | Método | Ruta | Códigos que puede devolver |
 | --- | --- | --- |
 | `POST` | `/auth/login` | 200, 400, 401 |
+| `POST` | `/auth/refresh` | 200, 401 · **fuera del contrato**, ver abajo |
 | `POST` | `/auth/logout` | 204, 401 |
 | `PATCH` | `/auth/password` | 204, 400, 401, 422 |
 | `POST` | `/users` | 201, 400, 401, 403, 409, 422 |
@@ -175,6 +176,51 @@ se normaliza sacando `/api`, `/v1` y `/api/v1`, así que el mock responde igual
 a `/users`, `/v1/users` o `/api/v1/users`. Contra el backend real eso **no**
 va a ser así: hay que elegir una forma.
 
+### `POST /auth/refresh`, el que todavía no está en el contrato
+
+El equipo de backend lo está implementando y confirmó la forma de la
+respuesta; el contrato no lo publica todavía. Está acá porque sin él no se
+puede ejercer la renovación del token, que es lo más delicado del frontend.
+**Cuando se publique, hay que revisar que coincida.**
+
+Devuelve `{ data: { accessToken, tokenType, expiresIn, user } }`, donde ese
+`user` **no es el del login**: trae `roleNames` en vez de `roles`, `lawyerId`
+suelto en vez de la ficha, agrega `permissions`, y no trae `fullName`,
+`email`, `lastLoginAt` ni `active`. Es el contenido del token, no el recurso
+usuario. El frontend conserva el usuario que guardó al iniciar sesión.
+
+**Dos libertades que se toma el mock**, las dos anotadas en el código:
+
+1. **La credencial.** En el backend real la renovación se autoriza con una
+   cookie `httpOnly`, que un service worker no puede emitir. Acá se usa el
+   token de acceso vencido como sustituto. No cambia nada de lo que el
+   frontend tiene que resolver.
+2. **El vencimiento.** El mock no mide el tiempo. Se provoca a mano.
+
+**Cómo probar la renovación**, desde la consola del navegador con la sesión
+abierta:
+
+```js
+const { expireIssuedTokens } = await import('/src/shared/mocks/index.ts')
+expireIssuedTokens()
+```
+
+A partir de ahí, el siguiente pedido de cualquier pantalla responde `401` y
+el frontend renueva solo: en la pestaña de red se ve el pedido fallido, el
+`POST /auth/refresh` y el pedido original reintentado. El usuario no se entera.
+
+Para probar el camino contrario —la renovación también falló, hay que volver
+a entrar— vencé los tokens y además revocá la sesión:
+
+```js
+const { expireIssuedTokens, db } = await import('/src/shared/mocks/index.ts')
+expireIssuedTokens()
+db.sessions.clear()
+```
+
+El token rota en cada renovación, igual que en el backend real: el viejo deja
+de servir en el acto.
+
 ### Cómo disparar cada error
 
 | Código | Cómo |
@@ -184,7 +230,8 @@ va a ser así: hay que elegir una forma.
 | `400` ruta | `GET /users/abc`, `DELETE /procedural-states/abc` |
 | `400` query | `?role=NOPE`, `?jurisdiction=NOPE`, `?active=quizas` |
 | `401` credenciales | `POST /auth/login` con contraseña incorrecta, o con un usuario dado de baja → `INVALID_CREDENTIALS` |
-| `401` sesión | sin header `Authorization`, o token revocado por un logout → `UNAUTHENTICATED` |
+| `401` sesión | sin header `Authorization`, token revocado por un logout, o token vencido con `expireIssuedTokens()` → `UNAUTHENTICATED` |
+| `401` renovación | `POST /auth/refresh` con la sesión ya revocada (`db.sessions.clear()`) → `UNAUTHENTICATED` |
 | `403` | token de `mrios` o de `gestion`: leer también exige `ADMINISTRATOR` |
 | `404` | `GET /users/999`, `GET /lawyers/999`, `GET /procedural-states/999` |
 | `409` | crear un usuario con `username: "fvazquez"` o con un email ya usado; crear un abogado con `1-28114`; dar de baja el usuario 3, 4 o 5; dar de baja un abogado con usuario vinculado; crear un estado procesal con un nombre que ya existe en ese fuero; dar de baja el estado 4, 14 o 21 |

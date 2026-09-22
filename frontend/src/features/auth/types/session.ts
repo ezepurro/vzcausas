@@ -66,3 +66,36 @@ export interface StoredSession {
     user: AuthUser
     expiresAt: number
 }
+
+/* ---------------- renovación del token ---------------- */
+
+/**
+ * Los datos que el backend mete adentro del token de acceso y que devuelve
+ * al renovarlo.
+ *
+ * **No es el mismo objeto que el `user` del login**, aunque el backend lo
+ * llame igual: acá no vienen `fullName`, `email`, `lastLoginAt` ni `active`,
+ * los roles se llaman `roleNames` en vez de `roles`, y el abogado es un
+ * número suelto en vez de la ficha entera. Es el contenido del JWT, no el
+ * recurso usuario.
+ *
+ * Por eso se declara aparte y con otro nombre: si se reusara `AuthUser`, una
+ * renovación dejaría la sesión sin el nombre de la persona y el rail
+ * quedaría en blanco.
+ */
+export interface SessionPrincipal {
+    id: number
+    username: string
+    roleNames: Role[]
+    lawyerId: number | null
+    /** Permisos finos del usuario. Todavía no los usa ninguna pantalla. */
+    permissions: string[]
+}
+
+/** Lo que devuelve `POST /auth/refresh` adentro de `data`. */
+export interface RefreshedSession {
+    accessToken: string
+    tokenType: 'Bearer'
+    expiresIn: number
+    user: SessionPrincipal
+}

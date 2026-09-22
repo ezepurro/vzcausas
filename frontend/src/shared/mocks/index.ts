@@ -20,6 +20,7 @@ export {
     errorBody,
     itemBody,
     listBody,
+    permissionsFor,
     principalRole,
     BASE_PATH,
     DAY_TYPES,
@@ -50,7 +51,9 @@ export {
     type Pagination,
     type ProceduralState,
     type ProceduralStatesQuery,
+    type RefreshedSession,
     type Role,
+    type SessionPrincipal,
     type Session,
     type UpdateLawyerRequest,
     type UpdateProceduralStateRequest,
@@ -61,11 +64,13 @@ export {
 
 export {
     db,
+    expireIssuedTokens,
     issueToken,
     resetMockDb,
     revokeToken,
     revokeUserSessions,
     toUser,
+    userForRenewal,
     userFromToken,
     type MockDb,
 } from './db';
