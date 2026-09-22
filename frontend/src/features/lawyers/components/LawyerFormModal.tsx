@@ -45,7 +45,7 @@ export function LawyerFormModal({
     return (
         <FormModal
             title="Registrar abogado"
-            sub="El abogado se vincula a un usuario para poder operar el sistema."
+            sub="El abogado se debe vincular a un usuario para poder operar el sistema. La vinculación se realiza en la pantalla de usuarios a través del registro o la modificación de un usuario."
             fields={fields}
             values={values}
             onChange={onChange}

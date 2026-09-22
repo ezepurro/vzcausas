@@ -273,7 +273,7 @@ export function UsersPage() {
             <PageHeader
                 eyebrow="Administración"
                 title="Usuarios y abogados"
-                sub="El perfil determina qué se puede operar, no qué se puede ver. Todos los integrantes del estudio acceden a la totalidad de las causas."
+                sub="Desde esta sección podés administrar los ingresos al sistema. Consultá el registro de usuarios, sus niveles de permiso y el historial de conexiones del estudio."
                 actions={
                     <Button icon={<Icon name="plus" />} size="md" onClick={openCreate}>
                         Registrar usuario

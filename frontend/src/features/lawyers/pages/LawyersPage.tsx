@@ -130,7 +130,7 @@ export function LawyersPage() {
             <PageHeader
                 eyebrow="Administración"
                 title="Usuarios y abogados"
-                sub="El perfil determina qué se puede operar, no qué se puede ver. Todos los integrantes del estudio acceden a la totalidad de las causas."
+                sub="Desde esta sección podés administrar el equipo del estudio. Consultá el listado de abogados, sus matrículas y la cantidad de causas activas a su cargo."
                 actions={
                     <Button icon={<Icon name="plus" />} size="md" onClick={openCreate}>
                         Registrar abogado

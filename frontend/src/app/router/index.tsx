@@ -1,6 +1,7 @@
 import { createBrowserRouter, Navigate } from 'react-router'
 import { AppLayout } from '@/app/layouts/AppLayout'
 import { AuthLayout } from '@/app/layouts/AuthLayout'
+import { NotFoundLayout } from '@/app/layouts/NotFoundLayout'
 import { ProceduralStatesPage } from '@/features/legal-params/pages/ProceduralStatesPage';
 import { UsersPage } from '@/features/users/pages/UsersPage';
 import { LawyersPage } from '@/features/lawyers/pages/LawyersPage'
@@ -26,10 +27,9 @@ export const router = createBrowserRouter([
 
       // Las secciones del sprint 1. Hasta que existan las pantallas,
       // se agregan acá una por una.
-
-
-      // reportes) todavía no tiene pantalla y cae acá.
-        { path: '*',  },
     ],
     },
+    // Cualquier ruta que no esté arriba (incluidas las secciones del rail que
+    // todavía no tienen pantalla, como causas o reportes) cae acá.
+    { path: '*', element: <NotFoundLayout /> },
 ])
