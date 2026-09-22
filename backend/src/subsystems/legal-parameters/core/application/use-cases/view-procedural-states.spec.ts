@@ -2,6 +2,9 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ViewProceduralStates } from './view-procedural-states.use-case';
 import { ProceduralStateRepository } from '../../domain/ports/procedural-states.repository';
 import { ProceduralStateInMemoryRepository } from '@subsystems/legal-parameters/infraestructure/persistence/proc-state-in-memo.repository';
+import { ProceduralState } from '../../domain/entities/procedural-states';
+import { DayType } from '../../domain/entities/day-types';
+import { Jurisdiction } from '../../domain/entities/jurisdiction';
 
 describe('GetAllUsersUseCase', () => {
   let useCase: ViewProceduralStates;
@@ -19,13 +22,19 @@ describe('GetAllUsersUseCase', () => {
     repository = module.get<ProceduralStateRepository>(ProceduralStateRepository);
   });
 
-  it('debería devolver todos los usuarios cargados', async () => {
-    await repository.save(new User('1', 'Ana'));
-    await repository.save(new User('2', 'Luis'));
+  it('debería devolver todos los estados procesales cargados', async () => {
+    const newProcState = {
+      id: 1,
+      name: 'Investigacion',
+      dayType: DayType.BUSINESS,
+      jurisdiction: Jurisdiction.create({ id: 1, name: 'ADMINISTRATIVE', dayTypeDefault: DayType.BUSINESS }),
+      position: 1,
+      timeLimitDays: 20,
+    };
+    await repository.save(ProceduralState.create(newProcState));
 
     const result = await useCase.getAll();
 
-    expect(result).toHaveLength(2);
-    expect(result.map((u) => u.name)).toEqual(['Ana', 'Luis']);
+    expect(result).toHaveLength(1);
   });
 });

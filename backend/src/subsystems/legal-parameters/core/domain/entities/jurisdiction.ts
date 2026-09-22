@@ -7,4 +7,8 @@ export class Jurisdiction {
     private readonly _dayTypeDefault: DayType,
     private _isActive: boolean,
   ) {}
+
+  static create(props: { id: number; name: String; dayTypeDefault: DayType; active?: boolean }): Jurisdiction {
+    return new Jurisdiction(props.id, props.name, props.dayTypeDefault, props.active ?? true);
+  }
 }
