@@ -26,6 +26,14 @@ export interface MockDb {
     passwords: Map<string, string>;
     /** Tokens vivos: `accessToken` → `userId`. El logout borra la entrada. */
     sessions: Map<string, number>;
+    /**
+     * Tokens emitidos que ya "vencieron".
+     *
+     * El mock no mide el tiempo: el vencimiento se provoca a mano con
+     * `expireIssuedTokens()`. El token sigue en `sessions` —la sesión no se
+     * cerró, sólo caducó el acceso— y por eso todavía sirve para renovar.
+     */
+    expiredTokens: Set<string>;
     nextUserId: number;
     nextLawyerId: number;
     nextProceduralStateId: number;
@@ -46,6 +54,7 @@ function initialState(): MockDb {
         proceduralStates: PROCEDURAL_STATES.map((s) => ({ ...s })),
         passwords,
         sessions: new Map(),
+        expiredTokens: new Set(),
         nextUserId: Math.max(...USERS.map((u) => u.id)) + 1,
         nextLawyerId: Math.max(...LAWYERS.map((l) => l.id)) + 1,
         nextProceduralStateId: Math.max(...PROCEDURAL_STATES.map((s) => s.id)) + 1,
@@ -124,6 +133,7 @@ export function issueToken(userId: number): string {
  */
 export function userFromToken(token: string | undefined): StoredUser | undefined {
     if (!token) return undefined;
+    if (db.expiredTokens.has(token)) return undefined;
     const userId = db.sessions.get(token);
     if (userId === undefined) return undefined;
     const user = db.users.find((u) => u.id === userId);
@@ -132,7 +142,46 @@ export function userFromToken(token: string | undefined): StoredUser | undefined
 
 /** Cierra una sesión. Devuelve `false` si el token ya no existía. */
 export function revokeToken(token: string): boolean {
+    db.expiredTokens.delete(token);
     return db.sessions.delete(token);
+}
+
+/**
+ * Usuario habilitado a renovar con este token.
+ *
+ * A diferencia de `userFromToken`, acepta un token vencido: de eso se trata
+ * renovar. Lo que no acepta es un token revocado por un logout, ni el de un
+ * usuario dado de baja.
+ *
+ * En el backend real la credencial de la renovación es la cookie `httpOnly`,
+ * no el token de acceso. El mock no puede emitir esa cookie desde un service
+ * worker, así que usa el token vencido como sustituto. Es la única libertad
+ * que se toma acá, y no cambia nada de lo que el frontend tiene que resolver.
+ */
+export function userForRenewal(token: string | undefined): StoredUser | undefined {
+    if (!token) return undefined;
+    const userId = db.sessions.get(token);
+    if (userId === undefined) return undefined;
+    const user = db.users.find((u) => u.id === userId);
+    return user?.active ? user : undefined;
+}
+
+/**
+ * Vence todos los tokens vivos, como si hubieran pasado los quince minutos.
+ *
+ * Es la forma de probar la renovación sin esperar. Desde la consola:
+ *
+ * ```ts
+ * const { expireIssuedTokens } = await import('/src/shared/mocks/index.ts')
+ * expireIssuedTokens()
+ * ```
+ *
+ * A partir de ahí, el siguiente pedido a cualquier pantalla responde 401 y
+ * el frontend tiene que renovar solo, sin que el usuario note nada.
+ */
+export function expireIssuedTokens(): number {
+    for (const token of db.sessions.keys()) db.expiredTokens.add(token);
+    return db.expiredTokens.size;
 }
 
 /** Cierra todas las sesiones abiertas de un usuario. */

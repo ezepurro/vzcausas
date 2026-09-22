@@ -48,6 +48,8 @@ import {
     type Lawyer,
     type ProceduralState,
     type Role,
+    permissionsFor,
+    type RefreshedSession,
     type Session,
 } from './contract';
 import {
@@ -56,6 +58,7 @@ import {
     revokeToken,
     revokeUserSessions,
     toUser,
+    userForRenewal,
     userFromToken,
 } from './db';
 import {
@@ -324,6 +327,45 @@ const login: Handler = ({ request }) => {
         user: { ...toUser(user), lastLoginAt: previousLogin },
     };
     return ok(itemBody(session));
+};
+
+/**
+ * Renovación del token de acceso.
+ *
+ * **No está en el contrato**: lo está implementando el equipo de backend y la
+ * forma de la respuesta la confirmaron ellos. Cuando se publique, revisar que
+ * coincida.
+ *
+ * Dos cosas para tener presentes, porque el frontend depende de las dos:
+ *
+ * 1. **El token de acceso rota.** El viejo deja de servir en el acto. Si
+ *    llegaran dos renovaciones en paralelo con el mismo token, la segunda
+ *    encontraría un token revocado; el backend real, además, da por robada la
+ *    sesión y la cierra entera.
+ * 2. **El `user` de la respuesta no es el del login.** Trae lo que viaja
+ *    adentro del token —roles, abogado y permisos— y no el nombre ni el
+ *    correo. El frontend conserva el usuario del login.
+ */
+const refresh: Handler = ({ request }) => {
+    const user = userForRenewal(request.token);
+    if (!user) return fail(401, ERRORS.unauthenticatedAuth);
+
+    // Rotación: el token vencido se da de baja y se emite uno nuevo.
+    revokeToken(request.token as string);
+
+    const renewed: RefreshedSession = {
+        accessToken: issueToken(user.id),
+        tokenType: 'Bearer',
+        expiresIn: EXPIRES_IN,
+        user: {
+            id: user.id,
+            username: user.username,
+            roleNames: [...user.roles],
+            lawyerId: user.lawyerId,
+            permissions: permissionsFor(user.roles),
+        },
+    };
+    return ok(itemBody(renewed));
 };
 
 const logout: Handler = ({ request }) => {
@@ -1033,6 +1075,7 @@ interface Route {
 
 const ROUTES: Route[] = [
     { method: 'POST', pattern: /^\/auth\/login$/, handler: login },
+    { method: 'POST', pattern: /^\/auth\/refresh$/, handler: refresh },
     { method: 'POST', pattern: /^\/auth\/logout$/, handler: logout },
     { method: 'PATCH', pattern: /^\/auth\/password$/, handler: changePassword },
 
