@@ -21,34 +21,54 @@ export class FakeHasher implements PasswordHasher {
   }
 }
 
+/**
+ * `byId` is the only source of truth — username/email lookups scan
+ * it, rather than keeping side maps that would go stale on `save()`
+ * (e.g. after a username change). Fine for the small sets a unit test
+ * seeds.
+ */
 export class FakeUserRepository implements UserRepository {
   private nextIdValue = 1;
   readonly byId = new Map<number, User>();
-  readonly byUsername = new Map<string, User>();
-  readonly byEmail = new Map<string, User>();
   readonly created: User[] = [];
+  readonly saved: User[] = [];
 
   async findByUsername(username: Username): Promise<User | null> {
-    return this.byUsername.get(username.toString()) ?? null;
+    return (
+      [...this.byId.values()].find((u) =>
+        u.username.equals(username),
+      ) ?? null
+    );
   }
   async findById(id: number): Promise<User | null> {
     return this.byId.get(id) ?? null;
   }
-  async save(): Promise<void> {}
+  async save(user: User): Promise<void> {
+    this.saved.push(user);
+    this.byId.set(user.id, user);
+  }
   async nextId(): Promise<number> {
     return this.nextIdValue++;
   }
-  async existsByUsername(username: Username): Promise<boolean> {
-    return this.byUsername.has(username.toString());
+  async existsByUsername(
+    username: Username,
+    excludingUserId?: number,
+  ): Promise<boolean> {
+    return [...this.byId.values()].some(
+      (u) => u.username.equals(username) && u.id !== excludingUserId,
+    );
   }
-  async existsByEmail(email: Email): Promise<boolean> {
-    return this.byEmail.has(email.toString());
+  async existsByEmail(
+    email: Email,
+    excludingUserId?: number,
+  ): Promise<boolean> {
+    return [...this.byId.values()].some(
+      (u) => u.email.equals(email) && u.id !== excludingUserId,
+    );
   }
   async create(user: User): Promise<void> {
     this.created.push(user);
     this.byId.set(user.id, user);
-    this.byUsername.set(user.username.toString(), user);
-    this.byEmail.set(user.email.toString(), user);
   }
 }
 

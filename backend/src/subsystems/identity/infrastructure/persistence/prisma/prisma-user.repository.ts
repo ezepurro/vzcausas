@@ -43,13 +43,27 @@ export class PrismaUserRepository implements UserRepository {
     return row ? UserPrismaMapper.toDomain(row) : null;
   }
 
+  /**
+   * Persists every mutable field, including roles: HU6's `UpdateUser`
+   * can replace the full role set, so the join table is synced by
+   * deleting and recreating it — simplest correct approach for the
+   * handful of rows a user has.
+   */
   async save(user: User): Promise<void> {
     await this.prisma.user.update({
       where: { id: user.id },
       data: {
+        username: user.username.toString(),
+        name: user.fullName,
+        email: user.email.toString(),
         passwordHash: user.hashForPersistence(),
+        lawyerId: user.lawyerId,
         lastLoginAt: user.lastLoginAt,
         active: user.isActive(),
+        roles: {
+          deleteMany: {},
+          create: user.roleIds.map((roleId) => ({ roleId })),
+        },
       },
     });
   }
@@ -61,20 +75,26 @@ export class PrismaUserRepository implements UserRepository {
     return Number(nextval);
   }
 
-  async existsByUsername(username: Username): Promise<boolean> {
+  async existsByUsername(
+    username: Username,
+    excludingUserId?: number,
+  ): Promise<boolean> {
     const row = await this.prisma.user.findUnique({
       where: { username: username.toString() },
       select: { id: true },
     });
-    return row !== null;
+    return row !== null && row.id !== excludingUserId;
   }
 
-  async existsByEmail(email: Email): Promise<boolean> {
+  async existsByEmail(
+    email: Email,
+    excludingUserId?: number,
+  ): Promise<boolean> {
     const row = await this.prisma.user.findUnique({
       where: { email: email.toString() },
       select: { id: true },
     });
-    return row !== null;
+    return row !== null && row.id !== excludingUserId;
   }
 
   async create(user: User): Promise<void> {

@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { GetUserUseCase } from "./core/application/use-cases/get-user.use-case";
 import { RegisterUserUseCase } from "./core/application/use-cases/register-user.use-case";
+import { UpdateUserUseCase } from "./core/application/use-cases/update-user.use-case";
 import { LAWYER_LOOKUP } from "./core/domain/ports/lawyer-lookup.port";
 import { PASSWORD_HASHER } from "./core/domain/ports/password-hasher.port";
 import { ROLE_REPOSITORY } from "./core/domain/ports/role.repository";
@@ -22,6 +23,7 @@ import { PrismaUserRepository } from "./infrastructure/persistence/prisma/prisma
   providers: [
     RegisterUserUseCase,
     GetUserUseCase,
+    UpdateUserUseCase,
     { provide: USER_REPOSITORY, useClass: PrismaUserRepository },
     { provide: ROLE_REPOSITORY, useClass: PrismaRoleRepository },
     { provide: LAWYER_LOOKUP, useClass: StubLawyerLookupAdapter },

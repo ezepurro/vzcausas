@@ -141,3 +141,16 @@ export class InvalidUserIdError extends ValidationError {
     });
   }
 }
+
+/**
+ * Emitted by `UpdateUser` (HU6) when the request body has none of
+ * `username`/`fullName`/`email`/`roles`/`lawyerId` set — the contract
+ * requires at least one (§3.2, `PATCH /users/{userId}`).
+ */
+export class EmptyUpdateRequestError extends ValidationError {
+  constructor() {
+    super("VALIDATION_ERROR", "At least one field must be provided.", {
+      body: "Debe enviarse al menos un campo para modificar.",
+    });
+  }
+}

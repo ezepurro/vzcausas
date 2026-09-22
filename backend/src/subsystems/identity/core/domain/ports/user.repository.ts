@@ -26,9 +26,10 @@ export interface UserRepository {
   findById(id: number): Promise<User | null>;
 
   /**
-   * Persists changes on an existing user (currently used by
-   * `ChangePassword` to store the new password hash). Insertion of
-   * new users goes through {@link UserRepository.create}.
+   * Persists every mutable field of an existing user: password hash
+   * (`ChangePassword`), `lastLoginAt` (`AuthenticateUser`), and
+   * profile/roles/lawyerId (`UpdateUser`, HU6). Insertion of new
+   * users goes through {@link UserRepository.create}.
    */
   save(user: User): Promise<void>;
 
@@ -39,11 +40,21 @@ export interface UserRepository {
    */
   nextId(): Promise<number>;
 
-  /** `true` if a user with this username already exists (HU4, 409). */
-  existsByUsername(username: Username): Promise<boolean>;
+  /**
+   * `true` if a user with this username already exists (HU4, 409).
+   * `excludingUserId` lets `UpdateUser` (HU6) check without
+   * conflicting with the user's own current username.
+   */
+  existsByUsername(
+    username: Username,
+    excludingUserId?: number,
+  ): Promise<boolean>;
 
-  /** `true` if a user with this email already exists (HU4, 409). */
-  existsByEmail(email: Email): Promise<boolean>;
+  /**
+   * `true` if a user with this email already exists (HU4, 409). Same
+   * `excludingUserId` use as {@link UserRepository.existsByUsername}.
+   */
+  existsByEmail(email: Email, excludingUserId?: number): Promise<boolean>;
 
   /** Inserts a freshly created user. */
   create(user: User): Promise<void>;
