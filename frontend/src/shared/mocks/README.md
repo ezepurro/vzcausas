@@ -254,8 +254,8 @@ de servir en el acto.
 | `fixtures.ts` | Datos semilla de sólo lectura, sacados del prototipo: usuarios, abogados, estados procesales y credenciales. También el tipo `StoredUser`, que es cómo la base guarda un usuario. |
 | `responses.ts` | Una respuesta de ejemplo por cada código documentado, en `RESPONSES.<endpoint>.<case>`, más los mensajes de error compartidos en `ERRORS`. |
 | `db.ts` | Base en memoria (copia mutable de las semillas), tokens de sesión, `resetMockDb()` y `toUser()`, que arma el `lawyer` embebido al serializar. |
-| `handlers.ts` | **El servidor falso**: `resolveRequest(request)` → `{ status, body }`. Toda la lógica del contrato vive acá, y no sabe de MSW ni de axios. |
-| `msw-handlers.ts` | La capa MSW: normaliza la url, aplica `passthrough`, latencia y fallos forzados, y convierte el resultado en `HttpResponse`. Sin lógica de negocio. |
+| `handlers.ts` | **El servidor falso**: `resolveRequest(request)` → `{ status, body }`. Toda la lógica del contrato vive acá, y no sabe de MSW ni de axios. Su tabla `ROUTES` es la única lista de endpoints; `ROUTE_TABLE` es lo que exporta para la capa de transporte. |
+| `msw-handlers.ts` | La capa MSW: normaliza la url, aplica `passthrough`, latencia y fallos forzados, y convierte el resultado en `HttpResponse`. Sin lógica de negocio. Sus interceptores salen de `ROUTE_TABLE`. |
 | `browser.ts` | `startMocks()` / `stopMocks()` — service worker. Sólo navegador. |
 | `server.ts` | `server` de `msw/node` — tests. Sólo Node. |
 | `index.ts` | Barrel de lo que sirve en cualquier entorno. **No** reexporta `browser.ts` ni `server.ts`, porque cada uno arrastra su plataforma. |
@@ -263,6 +263,19 @@ de servir en el acto.
 La separación entre `handlers.ts` y `msw-handlers.ts` es deliberada: si algún
 día MSW deja de convenir, se reescribe la capa fina y el contrato queda como
 está.
+
+### Agregar un endpoint
+
+**Se toca un solo archivo: `handlers.ts`.** Se escribe el handler y se suma su
+entrada a `ROUTES`, con `path` (la ruta en notación MSW, `:param` incluido) y
+`pattern` (la expresión regular con la que se resuelve). `msw-handlers.ts`
+deriva sus interceptores de ahí y no hay nada más que sincronizar.
+
+> Antes eran dos listas, una en cada archivo, con un comentario advirtiendo
+> que tenían que coincidir. No alcanzó: faltaba `POST /auth/refresh`, así que
+> la renovación del token no se interceptaba, salía por el proxy de Vite y
+> nunca se simuló ni en dev ni en los E2E. Si volvés a separar las listas,
+> volvés a abrir esa puerta.
 
 ---
 

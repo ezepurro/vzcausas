@@ -9,7 +9,7 @@ import {
 } from '@/features/auth/utils/sessionStorage'
 import { refreshSession } from '@/features/auth/api/auth.api'
 import type { Session, StoredSession } from '@/features/auth/types/session'
-import { AuthContext, type AuthValue } from './AuthContext'
+import { AuthContext, type AuthValue, type SignOutReason } from './AuthContext'
 
 type Props = {
     children: ReactNode
@@ -28,11 +28,20 @@ export function AuthProvider({ children }: Props) {
        render y no sólo en el primero. */
     const [session, setSession] = useState<StoredSession | null>(readStoredSession)
 
+    /* Si la última salida fue a pedido de la persona.
+       Se actualiza siempre **junto** con `session` y antes que ella: React
+       agrupa las dos en un solo render, así que `RequireSession` ve el motivo
+       en el mismo render en que la sesión pasa a nulo. Aunque no las agrupara,
+       el orden alcanza: el motivo llegaría primero. */
+    const [leftOnPurpose, setLeftOnPurpose] = useState(false)
+
     const signIn = useCallback((incoming: Session) => {
+        setLeftOnPurpose(false)
         setSession(writeStoredSession(incoming))
     }, [])
 
-    const signOut = useCallback(() => {
+    const signOut = useCallback((reason: SignOutReason = 'expired') => {
+        setLeftOnPurpose(reason === 'user')
         clearStoredSession()
         setSession(null)
 
@@ -91,8 +100,8 @@ export function AuthProvider({ children }: Props) {
     }, [signOut, renew])
 
     const value = useMemo<AuthValue>(
-        () => ({ session, signIn, signOut }),
-        [session, signIn, signOut],
+        () => ({ session, signIn, signOut, leftOnPurpose }),
+        [session, signIn, signOut, leftOnPurpose],
     )
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

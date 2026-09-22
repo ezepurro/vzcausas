@@ -69,7 +69,17 @@ describe('UserFormModal', () => {
             const options = Array.from(
                 screen.getByLabelText(label.lawyerId).querySelectorAll('option'),
             ).map((o) => o.textContent)
-            expect(options).toEqual(LAWYER_OPTIONS.map((o) => o.label))
+            expect(options).toEqual(['Seleccioná un abogado', ...LAWYER_OPTIONS.map((o) => o.label)])
+        })
+
+        /* La aserción que faltaba: que lo que se ve sea lo que vale. Sin la
+           opción vacía, `lawyerId` arranca en `''`, ninguna opción coincide y
+           el navegador selecciona la primera ficha — así que la pantalla
+           muestra un abogado elegido que el formulario no tiene. */
+        it('arranca sin ningún abogado elegido', () => {
+            renderModal()
+
+            expect(screen.getByLabelText(label.lawyerId)).toHaveValue('')
         })
 
         it('en modo registrar pide nombre y matrícula de la ficha nueva', () => {

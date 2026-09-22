@@ -84,12 +84,15 @@ export function AppLayout() {
      * La sesión local se cierra pase lo que pase: la persona pidió salir y
      * dejarla adentro por un error de red sería peor. La redirección al login
      * la hace sola la guarda, apenas la sesión queda en nulo.
+     *
+     * El motivo `'user'` importa: le dice a la guarda que **no** anote esta
+     * pantalla, así el próximo que inicie sesión arranca en Inicio y no acá.
      */
     function handleLogout() {
         if (logout.isPending) return
 
         logout.mutate(undefined, {
-            onSettled: () => signOut(),
+            onSettled: () => signOut('user'),
             onError: (error) => {
                 /* Un 401 quiere decir que el token ya estaba muerto: no hay
                    nada que avisar. Un error de red o del servidor sí importa,

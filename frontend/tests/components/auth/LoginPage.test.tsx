@@ -6,10 +6,22 @@ import { server } from '@/shared/mocks/server'
 import { errorBody } from '@/shared/mocks'
 import { readStoredSession } from '@/features/auth/utils/sessionStorage'
 import { LoginPage } from '@/features/auth/pages/LoginPage'
+import { RedirectIfSession } from '@/app/router/RedirectIfSession'
 
+/**
+ * La pantalla se monta **debajo de su guarda**, como en `router/index.tsx`, y
+ * no suelta.
+ *
+ * No es ceremonia. `LoginPage` no navega: abre la sesión y el destino lo
+ * decide `RedirectIfSession`. Montada sola, la pantalla no llega nunca a
+ * ningún lado, y —peor— así estaba antes: el test "vuelve a la pantalla que se
+ * había pedido" pasaba en verde mientras la aplicación mandaba a Inicio,
+ * porque sin la guarda encima no existía la carrera que causaba el bug. La
+ * composición de las dos piezas es justamente lo que hay que probar.
+ */
 const ROUTES = {
-    path: '/login',
     route: '/login',
+    children: [{ path: '/login', element: <LoginPage /> }],
     routes: [
         { path: '/inicio', element: <p>Pantalla de inicio</p> },
         { path: '/usuarios', element: <p>Pantalla de usuarios</p> },
@@ -18,7 +30,7 @@ const ROUTES = {
 
 describe('LoginPage', () => {
     it('con credenciales válidas abre la sesión y va a inicio', async () => {
-        const { user } = renderWithProviders(<LoginPage />, ROUTES)
+        const { user } = renderWithProviders(<RedirectIfSession />, ROUTES)
 
         await user.type(screen.getByLabelText('Usuario'), 'fvazquez')
         await user.type(screen.getByLabelText('Contraseña'), 'password1')
@@ -29,7 +41,7 @@ describe('LoginPage', () => {
     })
 
     it('vuelve a la pantalla que se había pedido antes del login', async () => {
-        const { user } = renderWithProviders(<LoginPage />, { ...ROUTES, state: { from: '/usuarios' } })
+        const { user } = renderWithProviders(<RedirectIfSession />, { ...ROUTES, state: { from: '/usuarios' } })
 
         await user.type(screen.getByLabelText('Usuario'), 'fvazquez')
         await user.type(screen.getByLabelText('Contraseña'), 'password1')
@@ -39,7 +51,7 @@ describe('LoginPage', () => {
     })
 
     it('recorta los espacios del usuario antes de mandarlo', async () => {
-        const { user } = renderWithProviders(<LoginPage />, ROUTES)
+        const { user } = renderWithProviders(<RedirectIfSession />, ROUTES)
 
         await user.type(screen.getByLabelText('Usuario'), '  fvazquez  ')
         await user.type(screen.getByLabelText('Contraseña'), 'password1')
@@ -49,7 +61,7 @@ describe('LoginPage', () => {
     })
 
     it('enviado vacío muestra los errores sin llamar al servidor', async () => {
-        const { user } = renderWithProviders(<LoginPage />, ROUTES)
+        const { user } = renderWithProviders(<RedirectIfSession />, ROUTES)
 
         await user.click(screen.getByRole('button', { name: 'Ingresar' }))
 
@@ -59,7 +71,7 @@ describe('LoginPage', () => {
     })
 
     it('el error de un campo se va apenas se empieza a corregir', async () => {
-        const { user } = renderWithProviders(<LoginPage />, ROUTES)
+        const { user } = renderWithProviders(<RedirectIfSession />, ROUTES)
 
         await user.click(screen.getByRole('button', { name: 'Ingresar' }))
         await user.type(screen.getByLabelText('Usuario'), 'f')
@@ -69,7 +81,7 @@ describe('LoginPage', () => {
     })
 
     it('con credenciales inválidas muestra el aviso y borra la contraseña', async () => {
-        const { user } = renderWithProviders(<LoginPage />, ROUTES)
+        const { user } = renderWithProviders(<RedirectIfSession />, ROUTES)
 
         await user.type(screen.getByLabelText('Usuario'), 'fvazquez')
         await user.type(screen.getByLabelText('Contraseña'), 'incorrecta1')
@@ -82,7 +94,7 @@ describe('LoginPage', () => {
     })
 
     it('un usuario dado de baja no puede entrar', async () => {
-        const { user } = renderWithProviders(<LoginPage />, ROUTES)
+        const { user } = renderWithProviders(<RedirectIfSession />, ROUTES)
 
         await user.type(screen.getByLabelText('Usuario'), 'vsosa')
         await user.type(screen.getByLabelText('Contraseña'), 'password1')
@@ -100,7 +112,7 @@ describe('LoginPage', () => {
                 }),
             ),
         )
-        const { user } = renderWithProviders(<LoginPage />, ROUTES)
+        const { user } = renderWithProviders(<RedirectIfSession />, ROUTES)
 
         await user.type(screen.getByLabelText('Usuario'), 'fvazquez')
         await user.type(screen.getByLabelText('Contraseña'), 'password1')
@@ -111,7 +123,7 @@ describe('LoginPage', () => {
 
     it('si no hay red, avisa que se revise la conexión', async () => {
         server.use(http.post('*/auth/login', () => HttpResponse.error()))
-        const { user } = renderWithProviders(<LoginPage />, ROUTES)
+        const { user } = renderWithProviders(<RedirectIfSession />, ROUTES)
 
         await user.type(screen.getByLabelText('Usuario'), 'fvazquez')
         await user.type(screen.getByLabelText('Contraseña'), 'password1')
@@ -121,7 +133,7 @@ describe('LoginPage', () => {
     })
 
     it('el aviso se va cuando se vuelve a escribir', async () => {
-        const { user } = renderWithProviders(<LoginPage />, ROUTES)
+        const { user } = renderWithProviders(<RedirectIfSession />, ROUTES)
 
         await user.type(screen.getByLabelText('Usuario'), 'fvazquez')
         await user.type(screen.getByLabelText('Contraseña'), 'incorrecta1')

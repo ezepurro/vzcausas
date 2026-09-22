@@ -210,11 +210,12 @@ describe('UsersPage', () => {
             await user.click(within(dialog).getByRole('checkbox', { name: /^abogado/i }))
             await user.click(within(dialog).getByRole('button', { name: 'Registrar usuario' }))
 
-            // Se vuelve a buscar el diálogo: con este error, UserFormModal se remonta
-            // (esparce un elemento JSX como props) y la referencia anterior queda vieja.
-            expect(
-                within(screen.getByRole('dialog')).getAllByText('Elegí al menos un perfil.').length,
-            ).toBeGreaterThan(0)
+            /* Se busca dentro de la referencia original a propósito: si el
+               modal se remontara —como pasaba cuando este error se esparcía
+               como props— `dialog` quedaría obsoleto y esto fallaría. Es la
+               aserción del remonte, además de la del mensaje. */
+            expect(within(dialog).getByText('Elegí al menos un perfil.')).toBeInTheDocument()
+            expect(within(dialog).getByLabelText(label.fullName)).toHaveValue('Ana Pérez')
         })
 
         it('un nombre de usuario ya registrado se marca en el campo', async () => {

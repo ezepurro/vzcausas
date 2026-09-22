@@ -75,8 +75,9 @@ export function validateUser(
         }
     }
 
-    /* El error va en el primer tilde porque es el único de los tres que
-       tiene dónde dibujarlo. */
+    /* El error es del grupo, no de un perfil: se cuelga del último tilde para
+       que se lea justo debajo de los tres. Los tres specs de `UserFormModal`
+       pasan `error`, así que cualquiera de ellos sabría dibujarlo. */
     if (ctx.roles.length === 0) {
         errors.roleSecretary = 'Elegí al menos un perfil.'
     }
@@ -89,10 +90,10 @@ export function validateUser(
 /**
  * El vínculo con la ficha profesional.
  *
- * Con perfil Administrador o Abogado hace falta una ficha; con Secretaría no
- * corresponde ninguna. Cuál de los dos caminos se valida lo decide el modo
- * elegido, que es el mismo `lawyerId` / `lawyer` del contrato con otro
- * nombre.
+ * Hace falta ficha **sólo con perfil Abogado**. El contrato es explícito:
+ * "un usuario con rol ADMINISTRATOR o SECRETARY que no ejerce no posee
+ * matrícula". Cuál de los dos caminos se valida lo decide el modo elegido,
+ * que es el mismo `lawyerId` / `lawyer` del contrato con otro nombre.
  */
 function validateLawyerLink(
     values: UserFormValues,

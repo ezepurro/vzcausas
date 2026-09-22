@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { useLocation, useNavigate } from 'react-router'
 import { isApiError } from '@/shared/api/ApiError'
 import { useAuth } from '@/app/providers/AuthContext'
 import { useLogin } from '@/features/auth/api/useLogin'
@@ -10,18 +9,18 @@ import { LoginForm } from '@/features/auth/components/LoginForm'
 
 const EMPTY_FORM: LoginFormValues = { username: '', password: '' }
 
-/** A dónde va quien entra sin haber pedido antes otra pantalla. */
-const DEFAULT_DESTINATION = '/inicio'
-
+/**
+ * La pantalla de inicio de sesión.
+ *
+ * **No navega.** Abre la sesión y nada más: a dónde va quien acaba de entrar
+ * lo decide `RedirectIfSession`, la guarda que tiene esta pantalla encima, que
+ * es la que sabe de dónde venía. Antes acá había un `navigate(from)` que
+ * competía con esa guarda y perdía —ver el comentario de
+ * `app/router/RedirectIfSession.tsx`—, así que la persona terminaba en Inicio
+ * y no en la pantalla que había pedido.
+ */
 export function LoginPage() {
     const { signIn } = useAuth()
-    const navigate = useNavigate()
-    const location = useLocation()
-
-    /* Si llegó acá porque la guarda lo sacó de otra pantalla, se vuelve a
-       esa. Es lo que hace que un enlace pegado en el navegador siga
-       funcionando después de iniciar sesión. */
-    const from = (location.state as { from?: string } | null)?.from ?? DEFAULT_DESTINATION
 
     const [values, setValues] = useState<LoginFormValues>(EMPTY_FORM)
     const [errors, setErrors] = useState<LoginErrors>({})
@@ -77,11 +76,10 @@ export function LoginPage() {
         login.mutate(
             { username: values.username.trim(), password: values.password },
             {
-                onSuccess: (session) => {
-                    signIn(session)
-                    // `replace`: el login no tiene que quedar en el historial.
-                    navigate(from, { replace: true })
-                },
+                /* Sólo abrir la sesión: `RedirectIfSession` se encarga del
+                   resto, y con `replace` para que el login no quede en el
+                   historial. */
+                onSuccess: signIn,
                 onError: handleLoginError,
             },
         )

@@ -22,13 +22,6 @@ test.describe('Autenticación', () => {
     })
 
     test('sin sesión, una pantalla privada manda al login y después vuelve a ella', async ({ page }) => {
-        /* BUG CONOCIDO: después del login se termina en /inicio y no en /usuarios.
-           `LoginPage` hace `signIn()` y después `navigate(from)`, pero
-           `RedirectIfSession` ve la sesión nueva y redirige a /inicio, y gana.
-           `test.fail()` marca que hoy se espera que falle: cuando se arregle,
-           Playwright va a avisar que "pasó inesperadamente" y hay que sacar esta línea. */
-        test.fail()
-
         await page.goto('/usuarios')
         await expect(page).toHaveURL(/\/login$/)
 

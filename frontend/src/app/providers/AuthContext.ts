@@ -15,13 +15,35 @@ import type { AuthUser, Session, StoredSession } from '@/features/auth/types/ses
  * `AuthProvider`, y las reglas de la sesión —qué se guarda, cómo se valida,
  * cuánto dura— viven en `features/auth/`.
  */
+/**
+ * Por qué se cerró la sesión.
+ *
+ * No es decoración: de esto depende si después del login se vuelve a la
+ * pantalla en la que se estaba. A quien lo echó un token vencido hay que
+ * devolverlo a donde estaba; quien pidió salir empieza de cero, que además es
+ * lo correcto en una máquina compartida.
+ */
+export type SignOutReason = 'user' | 'expired'
+
 export interface AuthValue {
     /** La sesión abierta, o `null` si no hay nadie adentro. */
     session: StoredSession | null
     /** Abre la sesión con lo que devolvió el login y la persiste. */
     signIn: (session: Session) => void
-    /** Cierra la sesión: borra lo guardado y vacía la caché. Es idempotente. */
-    signOut: () => void
+    /**
+     * Cierra la sesión: borra lo guardado y vacía la caché. Es idempotente.
+     * El motivo por defecto es `'expired'`, que es el caso conservador:
+     * recuerda la pantalla. Quien cierra sesión a mano pasa `'user'`.
+     */
+    signOut: (reason?: SignOutReason) => void
+    /**
+     * `true` si la última salida fue a pedido de la persona.
+     *
+     * Lo consume `RequireSession` para decidir si anota la pantalla actual.
+     * Se actualiza junto con `session`, así que llega en el mismo render en
+     * que la sesión pasa a nulo.
+     */
+    leftOnPurpose: boolean
 }
 
 export const AuthContext = createContext<AuthValue | null>(null)
