@@ -1,9 +1,9 @@
 import { createBrowserRouter, Navigate } from 'react-router'
 import { AppLayout } from '@/app/layouts/AppLayout'
 import { AuthLayout } from '@/app/layouts/AuthLayout'
+import { NotFoundLayout } from '@/app/layouts/NotFoundLayout'
 import { RequireSession } from '@/app/router/RequireSession'
 import { RedirectIfSession } from '@/app/router/RedirectIfSession'
-import { SectionPlaceholder } from '@/app/router/SectionPlaceholder'
 import { LoginPage } from '@/features/auth/pages/LoginPage'
 import { HomePage } from '@/features/home/pages/HomePage'
 import { ProceduralStatesPage } from '@/features/legal-params/pages/ProceduralStatesPage'
@@ -33,11 +33,13 @@ export const router = createBrowserRouter([
                     { path: 'estados-y-plazos', element: <ProceduralStatesPage /> },
                     { path: 'usuarios', element: <UsersPage /> },
                     { path: 'abogados', element: <LawyersPage /> },
-
-                    // Lo que el rail nombra pero todavía no existe cae acá.
-                    { path: '*', element: <SectionPlaceholder /> },
                 ],
             },
+
+            // Cualquier ruta desconocida, incluidas las secciones del rail que
+            // todavía no tienen pantalla. Va a sangre, sin el rail, pero sigue
+            // detrás de la guarda: sin sesión no se ve nada que no sea el login.
+            { path: '*', element: <NotFoundLayout /> },
         ],
     },
 ])
