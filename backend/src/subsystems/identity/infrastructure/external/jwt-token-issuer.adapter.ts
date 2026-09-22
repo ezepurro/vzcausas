@@ -17,6 +17,24 @@ const TTL_MULTIPLIERS: Record<string, number> = {
 };
 const MIN_SECRET_BYTES = 32;
 
+/**
+ * Production {@link TokenIssuer} implementation backed by
+ * `@nestjs/jwt`. Signs and verifies HS256 access tokens (D-06)
+ * using the symmetric key in `JWT_ACCESS_SECRET` and the TTL
+ * declared in `JWT_ACCESS_TTL` (D-04).
+ *
+ * The constructor is strict at bootstrap:
+ * - `JWT_ACCESS_SECRET` shorter than 32 bytes (D-43) triggers a
+ *   fatal error to prevent minting tokens under a weak key.
+ * - `JWT_ACCESS_TTL` is parsed with a minimal inline scheme
+ *   `<digits>(s|m|h|d)` (D-41); no external `ms` dependency.
+ *   Anything else fails immediately.
+ *
+ * `verify` collapses every failure — bad signature, expired
+ * token, malformed claims (D-42) — into a single opaque
+ * {@link UnauthorizedError} so callers cannot distinguish the
+ * reason from the outside.
+ */
 @Injectable()
 export class JwtTokenIssuerAdapter implements TokenIssuer {
   private readonly secret: string;
@@ -55,6 +73,9 @@ export class JwtTokenIssuerAdapter implements TokenIssuer {
         algorithms: ["HS256"],
       });
     } catch {
+      // Bad signature, expired, malformed JWT — every failure
+      // funnels to the same opaque error (D-42). No distinction
+      // leaks to the client.
       throw new UnauthorizedError(
         "UNAUTHENTICATED",
         "Invalid or expired access token",
@@ -65,6 +86,14 @@ export class JwtTokenIssuerAdapter implements TokenIssuer {
   }
 }
 
+/**
+ * Parses a TTL string like `"15m"` or `"7d"` into a positive
+ * integer number of seconds. Only the compact
+ * `<digits>(s|m|h|d)` form is accepted (D-41) — enough for the
+ * two settings we control (`JWT_ACCESS_TTL`, `JWT_REFRESH_TTL`).
+ * Anything else is rejected with an actionable message so
+ * bootstrap fails loudly.
+ */
 function parseTtlToSeconds(value: string): number {
   const match = TTL_PATTERN.exec(value);
   if (!match) {
@@ -83,6 +112,14 @@ function parseTtlToSeconds(value: string): number {
   return seconds;
 }
 
+/**
+ * Defensive claims-shape validation (D-42). A JWT with a valid
+ * signature may still carry claims from an older deployment — for
+ * example a token minted before D-22 with `role: string` instead
+ * of `roles: string[]`. Rather than pass garbage into the domain,
+ * reject with the same opaque error as an invalid signature via
+ * {@link invalidClaims}.
+ */
 function assertClaims(raw: unknown): AccessTokenClaims {
   if (typeof raw !== "object" || raw === null) {
     throw invalidClaims();
@@ -109,6 +146,9 @@ function assertClaims(raw: unknown): AccessTokenClaims {
     throw invalidClaims();
   }
 
+  // Strip iat/exp and any other JWT-injected fields: the port
+  // contract exposes only these four. Consumers should not be
+  // able to peek at token metadata through this surface.
   return {
     sub: r.sub,
     roles: r.roles,
@@ -117,6 +157,12 @@ function assertClaims(raw: unknown): AccessTokenClaims {
   };
 }
 
+/**
+ * Single source of truth for the opaque token error. Kept as a
+ * helper (rather than inlining `new UnauthorizedError(...)`) so
+ * the code and message stay consistent between the catch of
+ * `verify` and every branch of {@link assertClaims}.
+ */
 function invalidClaims(): UnauthorizedError {
   return new UnauthorizedError(
     "UNAUTHENTICATED",

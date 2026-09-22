@@ -7,6 +7,12 @@ import { JwtTokenIssuerAdapter } from "./jwt-token-issuer.adapter";
 /** Exactly 32 ASCII bytes — the minimum accepted by the adapter (D-43). */
 const SECRET_32B = "0123456789abcdef0123456789abcdef";
 
+/**
+ * `ConfigService` fake with the semantics we depend on: a hit
+ * returns the stored value, a miss throws — same contract as the
+ * real `getOrThrow`. Enough for the adapter's constructor
+ * validation (D-39).
+ */
 class FakeConfigService {
   constructor(private readonly values: Record<string, unknown>) {}
   getOrThrow<T>(key: string): T {
