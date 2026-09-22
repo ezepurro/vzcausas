@@ -5,17 +5,18 @@
 export const TOKEN_ISSUER = Symbol("TOKEN_ISSUER");
 
 /**
- * Claims embedded in every access token (D-06). `sub` is the standard
- * JWT subject claim; the rest are custom claims consumed by
- * `JwtAuthGuard` and `PermissionsGuard` so authorization on each
- * request does not need a database round-trip.
+ * Claims embedded in every access token (D-06, updated by D-22).
+ * `sub` is the standard JWT subject claim; the rest are custom
+ * claims consumed by `JwtAuthGuard` and `PermissionsGuard` so
+ * authorization on each request does not need a database round-trip.
  *
- * See glossary §7.4 in IMPLEMENTACION_AUTH.md for the intent of each
+ * `roles` is plural: API v2 supports multiple roles per user. See
+ * glossary §7.4 in IMPLEMENTACION_AUTH.md for the intent of each
  * field in plain language.
  */
 export type AccessTokenClaims = {
   sub: number;
-  role: string;
+  roles: string[];
   lawyerId: number | null;
   permissions: string[];
 };

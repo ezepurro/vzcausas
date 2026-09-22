@@ -4,6 +4,7 @@ import {
   WeakPasswordError,
 } from "../errors/identity.errors";
 import { PasswordHasher } from "../ports/password-hasher.port";
+import { Email } from "../value-objects/email.vo";
 import { Username } from "../value-objects/username.vo";
 
 const MIN_PASSWORD_LENGTH = 8;
@@ -12,17 +13,23 @@ const MIN_PASSWORD_LENGTH = 8;
  * passwords up front avoids silent truncation surprises.
  */
 const MAX_PASSWORD_BYTES = 72;
+const PASSWORD_DIGIT_REGEX = /\d/;
 
 /**
  * Aggregate root of the `identity` subsystem. Encapsulates a user's
- * credentials and role/lawyer references.
+ * credentials, personal fields and role/lawyer references.
  *
  * The password hash is deliberately private: there is no public
- * getter, so nothing outside the entity can read it. Verification and
- * change happen through {@link User.verifyPassword} and
- * {@link User.changePassword}, both of which receive a
- * {@link PasswordHasher} instead of importing one — the entity stays
+ * getter, so nothing outside the entity can read it. Verification
+ * and change happen through {@link User.verifyPassword} and
+ * {@link User.changePassword}, both receiving a
+ * {@link PasswordHasher} via port — the entity stays
  * infrastructure-agnostic.
+ *
+ * The `lastLoginAt` field reflects the timestamp of the previous
+ * successful login. The API v2 login response returns this value so
+ * users can spot unfamiliar access; {@link User.registerLogin}
+ * rotates it atomically (returns the previous, stores the current).
  *
  * Two static factories are exposed:
  * - {@link User.hydrate} is used by repositories to rebuild the
@@ -37,8 +44,11 @@ export class User {
     private readonly _id: number,
     private readonly _username: Username,
     private _passwordHash: string,
-    private readonly _roleId: number,
+    private readonly _fullName: string,
+    private readonly _email: Email,
+    private readonly _roleIds: readonly number[],
     private readonly _lawyerId: number | null,
+    private _lastLoginAt: Date | null,
     private readonly _active: boolean,
   ) {}
 
@@ -51,41 +61,49 @@ export class User {
     id: number;
     username: Username;
     passwordHash: string;
-    roleId: number;
+    fullName: string;
+    email: Email;
+    roleIds: readonly number[];
     lawyerId: number | null;
+    lastLoginAt: Date | null;
     active: boolean;
   }): User {
     return new User(
       props.id,
       props.username,
       props.passwordHash,
-      props.roleId,
+      props.fullName,
+      props.email,
+      props.roleIds,
       props.lawyerId,
+      props.lastLoginAt,
       props.active,
     );
   }
 
   /**
    * Creates a fresh {@link User}. Validates structural invariants
-   * (positive integer ids, well-formed lawyerId, password policy)
-   * and hashes the plain password before storing it.
+   * (positive integer ids, non-empty fullName, at least one role,
+   * well-formed lawyerId, password policy) and hashes the plain
+   * password before storing it.
    *
-   * The cross-invariant "role ABOGADO implies lawyerId is not null"
-   * (see Q-07, D-19) cannot be checked here because this factory
-   * only receives `roleId`, not the role name. That check is
-   * expected to happen in the calling use case (HU4's
-   * `RegisterUserUseCase`).
+   * The cross-invariant "roles include ADMINISTRATOR or LAWYER
+   * implies lawyerId is not null" (Q-07, D-19, D-25) is not checked
+   * here because this factory only receives numeric role ids; the
+   * calling use case in HU4 resolves the role names and enforces it.
    *
    * @throws {ValidationError} on structural invariant violations.
    * @throws {WeakPasswordError} if the password does not meet the
-   *   policy in D-03.
+   *   policy (D-24: min 8 chars, at least one digit, max 72 bytes).
    */
   static async create(
     props: {
       id: number;
       username: Username;
       plainPassword: string;
-      roleId: number;
+      fullName: string;
+      email: Email;
+      roleIds: readonly number[];
       lawyerId: number | null;
       active?: boolean;
     },
@@ -98,11 +116,27 @@ export class User {
       );
     }
 
-    if (!Number.isInteger(props.roleId) || props.roleId <= 0) {
+    if (!props.fullName || props.fullName.trim().length === 0) {
       throw new ValidationError(
         "INVALID_USER",
-        "User role id must be a positive integer.",
+        "User must have a non-empty full name.",
       );
+    }
+
+    if (!Array.isArray(props.roleIds) || props.roleIds.length === 0) {
+      throw new ValidationError(
+        "INVALID_USER",
+        "User must have at least one role.",
+      );
+    }
+
+    for (const roleId of props.roleIds) {
+      if (!Number.isInteger(roleId) || roleId <= 0) {
+        throw new ValidationError(
+          "INVALID_USER",
+          "Each role id must be a positive integer.",
+        );
+      }
     }
 
     if (
@@ -122,8 +156,11 @@ export class User {
       props.id,
       props.username,
       hash,
-      props.roleId,
+      props.fullName.trim(),
+      props.email,
+      props.roleIds,
       props.lawyerId,
+      null,
       props.active ?? true,
     );
   }
@@ -157,6 +194,19 @@ export class User {
     this._passwordHash = await hasher.hash(newPlain);
   }
 
+  /**
+   * Records a successful login: returns the previously stored
+   * timestamp and updates the internal one to `now`. The returned
+   * value is what the login response surfaces to the client (API v2:
+   * the *previous* login, not the current one, so users can spot
+   * suspicious access).
+   */
+  registerLogin(now: Date): Date | null {
+    const previous = this._lastLoginAt;
+    this._lastLoginAt = now;
+    return previous;
+  }
+
   get id(): number {
     return this._id;
   }
@@ -165,12 +215,24 @@ export class User {
     return this._username;
   }
 
-  get roleId(): number {
-    return this._roleId;
+  get fullName(): string {
+    return this._fullName;
+  }
+
+  get email(): Email {
+    return this._email;
+  }
+
+  get roleIds(): readonly number[] {
+    return this._roleIds;
   }
 
   get lawyerId(): number | null {
     return this._lawyerId;
+  }
+
+  get lastLoginAt(): Date | null {
+    return this._lastLoginAt;
   }
 
   isActive(): boolean {
@@ -181,15 +243,17 @@ export class User {
     if (typeof plain !== "string") {
       throw new WeakPasswordError("Password must be a string.");
     }
-
     if (plain.length < MIN_PASSWORD_LENGTH) {
       throw new WeakPasswordError(
         `Password must be at least ${MIN_PASSWORD_LENGTH} characters long.`,
       );
     }
-
+    if (!PASSWORD_DIGIT_REGEX.test(plain)) {
+      throw new WeakPasswordError(
+        "Password must contain at least one digit.",
+      );
+    }
     const byteLength = Buffer.byteLength(plain, "utf8");
-
     if (byteLength > MAX_PASSWORD_BYTES) {
       throw new WeakPasswordError(
         `Password must not exceed ${MAX_PASSWORD_BYTES} bytes in UTF-8.`,

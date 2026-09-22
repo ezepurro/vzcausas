@@ -11,13 +11,17 @@ export const ROLE_REPOSITORY = Symbol("ROLE_REPOSITORY");
  * role administration (create/update/delete) belongs to HU4 and is
  * out of the auth scope.
  *
- * Loaded during login by `AuthenticateUser` so the role's permissions
- * can be embedded in the access token's `permissions[]` claim (D-06).
+ * Loaded during login by `AuthenticateUser` so the roles' names and
+ * combined permissions can be embedded in the access token (D-06).
+ * API v2 permits multiple roles per user (D-22), so this port loads
+ * them in batch.
  */
 export interface RoleRepository {
   /**
-   * Loads a role with its permissions eagerly by primary key.
-   * Returns `null` if no role matches.
+   * Loads all roles whose ids appear in the input list, each with
+   * its permissions eagerly resolved. Roles not found are silently
+   * omitted from the result — the caller compares the returned
+   * length against the input length to detect missing roles.
    */
-  findById(id: number): Promise<Role | null>;
+  findByIds(ids: readonly number[]): Promise<Role[]>;
 }
