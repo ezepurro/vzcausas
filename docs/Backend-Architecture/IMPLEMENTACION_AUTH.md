@@ -38,6 +38,11 @@
 | D-18 | Usuario inactivo se comunica al cliente como `InvalidCredentialsError` (401, code `INVALID_CREDENTIALS`), igual que credenciales incorrectas. La entidad `User` expone `isActive()`; es responsabilidad del caso de uso `AuthenticateUser` (P-05) decidir devolver el mismo error opaco para no filtrar la existencia del usuario. Alineado con OWASP guidance. `UserNotActiveError` no se crea. | 2026-09-20 | Sesión P-03. |
 | D-19 | El invariante cruzado "rol `ABOGADO` implica `lawyerId != null`" (ver Q-07) **no se valida en la entidad `User`**, porque `User.create` solo recibe `roleId` (número), no el nombre del rol. Se valida en el caso de uso `RegisterUserUseCase` de HU4 (fuera del scope actual), que carga `Role` para armar el usuario y por tanto conoce el nombre. Mantiene la entidad simple y pone la lógica de composición donde vive naturalmente. | 2026-09-20 | Sesión P-03. |
 | D-20 | Todo el código (identificadores, mensajes de error, comentarios, descripciones de tests) se escribe en **inglés**, conforme `ARQUITECTURA_BACKEND_V1.md` §5.5. La UI mantiene terminología del dominio en español; el código no. Los archivos públicos llevan **JSDoc en inglés** que explica el porqué de la decisión, no lo que hace el código (nombres autoexplicativos alcanzan). | 2026-09-20 | Sesión P-03. |
+| D-21 | **API contract v2** (`docs/Api-Contract/API_CONTRACT_V2.md`) es la fuente autoritativa. V1 (`docs/API_CONTRACT_V1.md`) queda superseded. Las correcciones C-01 a C-06 se releen contra V2: algunas ya están aplicadas por V2 (C-01 email→username documentado, C-04 envelope 401), otras dejan de aplicar (C-03 /auth/refresh no existe en V2), otras siguen abiertas (C-02 Set-Cookie del login). | 2026-09-21 | Sesión P-03b. |
+| D-22 | `User` soporta **múltiples roles**: `roleId: number` (singular) pasa a `roleIds: readonly number[]` (al menos uno). Cambian consecuentemente: `AuthenticatedUser.roleName → roleNames: readonly string[]`, `AccessTokenClaims.role → roles: string[]`, `RoleRepository.findById → findByIds(ids)` (batch). Motivo: V2 §7.1 unifica el uso plural, y varios usuarios reales del estudio combinan `ADMINISTRATOR` con `LAWYER`. | 2026-09-21 | Sesión P-03b. |
+| D-23 | `User` incorpora `fullName: string`, `email: Email` (nuevo VO) y `lastLoginAt: Date \| null`. Nuevo método `registerLogin(now: Date): Date \| null` que rota atómicamente: devuelve el valor anterior y guarda el nuevo. Motivo: V2 §7.2 requiere estos campos en la respuesta de login y en el listado de usuarios; `lastLoginAt` se expone al usuario como acceso *anterior* al actual, para que detecte accesos ajenos. | 2026-09-21 | Sesión P-03b. |
+| D-24 | Política de contraseña actualizada: **mínimo 8 caracteres, al menos un dígito, máximo 72 bytes UTF-8**. Motivo: V2 §7.4 lo especifica ("mínimo 8 caracteres con al menos un número"). Reemplaza la política laxa de D-03. Impacta `User.validatePasswordRules` (aplica a `create` y a `changePassword`) y el nuevo error message. | 2026-09-21 | Sesión P-03b. |
+| D-25 | Invariante cruzada Q-07 ampliada: **roles ∩ {ADMINISTRATOR, LAWYER} ≠ ∅ ⇒ lawyerId requerido**; solo usuarios con únicamente `SECRETARY` pueden tener `lawyerId = null`. Motivo: V2 §3.2 lo especifica en el alta. Sigue validándose en `RegisterUserUseCase` de HU4 (D-19), no en la entidad. | 2026-09-21 | Sesión P-03b. |
 
 ## 2. Preguntas abiertas
 
@@ -89,15 +94,15 @@ Estas correcciones se aplican **antes** de mergear la implementación, no ahora,
 
 ## 5. Plan de trabajo
 
-Se sigue el orden "de adentro hacia afuera" de `EJEMPLO_CASO_DE_USO.md` §15. Cada paso se cierra con un commit y se marca en la bitácora de §7.
+Se sigue el orden "de adentro hacia afuera" de `EJEMPLO_CASO_DE_USO.md` §15. Cada paso se cierra con un commit y se marca en la bitácora de §8.
 
 | Paso | Descripción | Estado |
 |------|-------------|:------:|
 | P-01 | Inicializar proyecto NestJS (package.json, tsconfig, nest-cli, main.ts, app.module.ts) sin tocar la estructura de carpetas. | ✅ |
 | P-02 | Kernel compartido: `AuthenticatedUser`, `DomainError` + subtipos, `ClockPort`, filtro HTTP de errores de dominio, middleware de correlación. | ✅ |
 | P-03 | Dominio `identity`: entidad `User`, entidad `Role`, entidad `Permission`, VO `Username`, errores de dominio del subsistema. | ✅ |
-| P-04 | Puertos: `UserRepository`, `RoleRepository`, `PasswordHasher`, `TokenIssuer`, `RefreshTokenStore`. | ⏳ |
-| P-05 | Caso de uso `AuthenticateUser` + tests unitarios con repos en memoria. | ⏳ |
+| P-04 | Puertos: `UserRepository`, `RoleRepository`, `PasswordHasher`, `TokenIssuer`, `RefreshTokenStore`. | ✅ |
+| P-05 | Caso de uso `AuthenticateUser` + tests unitarios con repos en memoria. | ✅ |
 | P-06 | Caso de uso `RefreshSession` + tests. Rotación y detección de reutilización. | ⏳ |
 | P-07 | Caso de uso `Logout` + tests. | ⏳ |
 | P-08 | Caso de uso `ChangePassword` + tests. Revocación de refresh según Q-01. | ⏳ |
@@ -132,7 +137,105 @@ APP_TIMEZONE=America/Argentina/Cordoba
 
 La aplicación no debe arrancar si falta alguna obligatoria. La validación ocurre en el arranque, contra un schema (ver `ARQUITECTURA_BACKEND_V1.md` §7.6).
 
-## 7. Bitácora de avance
+## 7. Glosario de conceptos
+
+Explicaciones en lenguaje llano de los términos técnicos que aparecen en el código y en esta bitácora. Pensado para quien recién empieza con vocabulario de auth.
+
+### 7.1 `Symbol()` como token de DI
+
+`Symbol()` es un valor primitivo de JavaScript **garantizado único**. Dos llamadas a `Symbol("X")` producen valores distintos, aunque compartan la etiqueta. La etiqueta (`"X"`) es solo texto descriptivo para debugging, no participa de la identidad.
+
+Se usa como **token de inyección** en NestJS porque las interfaces de TypeScript no existen en runtime. Nest necesita un identificador concreto para linkear "cuando alguien pida X, entregale Y". Un string podría colisionar entre módulos; un Symbol es imposible de duplicar sin importar la misma constante.
+
+Por eso cada puerto se declara junto a su Symbol:
+
+```ts
+export const USER_REPOSITORY = Symbol("USER_REPOSITORY");
+export interface UserRepository { ... }
+```
+
+Y se enlaza en el módulo:
+
+```ts
+providers: [{ provide: USER_REPOSITORY, useClass: PrismaUserRepository }]
+```
+
+Y se inyecta en el consumidor:
+
+```ts
+constructor(@Inject(USER_REPOSITORY) private readonly users: UserRepository) {}
+```
+
+### 7.2 Access token vs refresh token
+
+**El problema.** Si le pedimos al usuario su contraseña en cada request, la UX es horrible. Si emitimos un token de larga vida y se lo roban, no lo podemos invalidar.
+
+**La solución.** Dos tokens con roles distintos:
+
+| | Access token | Refresh token |
+|---|---|---|
+| Vida | Corta (15 min, D-04) | Larga (7 días, D-04) |
+| Formato | JWT firmado (contiene datos) | Cadena opaca (sin datos adentro) |
+| Dónde vive | En memoria del frontend | Cookie `HttpOnly; Secure` (D-08) |
+| Cómo se valida | Verificando la firma, sin ir a base | Consultando la tabla `refresh_tokens` |
+| Se puede revocar? | **No** (válido hasta expirar) | **Sí** (borrando o marcando `revoked_at` en la base) |
+| Se manda en cada request | Sí, header `Authorization: Bearer` | No, solo al endpoint `POST /auth/refresh` |
+
+El access token corto acota la ventana de exposición si es robado. El refresh token largo se persiste para poder revocarlo en cualquier momento — eso es lo que hace que HU2 (logout) sea funcional y no decorativa.
+
+### 7.3 Rotación y "familia" del refresh token
+
+**Rotación.** Cada vez que el cliente usa su refresh para pedir un access nuevo, el servidor devuelve un refresh nuevo y revoca el viejo. Un mismo refresh se usa una única vez.
+
+**Familia.** Todos los refresh que van rotando desde un mismo login comparten un `familyId` (UUID opaco). Es el "árbol genealógico" del linaje de refresh.
+
+```
+Login   → refresh_A (familyId=F1)
+Uso 1   → refresh_B (familyId=F1), refresh_A queda revoked
+Uso 2   → refresh_C (familyId=F1), refresh_B queda revoked
+```
+
+**Detección de reuso.** Si de repente aparece un uso de `refresh_A` (que ya está revoked), asumimos robo y **revocamos toda la familia F1**. El atacante pierde acceso; el usuario legítimo se ve forzado a loguearse de nuevo. Mejor una molestia puntual que un secuestro persistente. Esta política está codificada en D-05.
+
+### 7.4 `TokenIssuer` — puerto de emisión y verificación del access token
+
+Es la máquina que **firma** los access tokens con el secreto del servidor y **verifica** los que llegan.
+
+- `issue(claims)`: fabrica un JWT nuevo con los claims dados. Devuelve el token firmado y cuánto dura (`expiresIn` en segundos).
+- `verify(token)`: comprueba que la firma es válida y no está vencido. Devuelve los claims. Lanza `UnauthorizedError` si algo falla.
+
+Los use cases dependen del puerto, no de `@nestjs/jwt`. Si mañana cambiamos de librería o algoritmo, cambia solo el adapter.
+
+**Tipos:**
+
+- `AccessTokenClaims`: lo que va **dentro** del JWT.
+    - `sub`: userId (convención JWT para *subject*).
+    - `role`: nombre del rol (ADMINISTRADOR, ABOGADO, SECRETARIA).
+    - `lawyerId`: id de ficha profesional si es abogado, `null` en otro caso.
+    - `permissions`: lista de permisos, para autorizar sin ir a base en cada request.
+- `IssuedAccessToken`: lo que devuelve `issue()`.
+    - `token`: la cadena firmada.
+    - `expiresIn`: segundos hasta expirar (900 para nuestro caso).
+
+### 7.5 `RefreshTokenStore` — puerto de persistencia del refresh
+
+Guarda, busca y revoca los refresh opacos. No firma nada; los refresh son valores random sin información interna.
+
+- `issue({ userId, familyId })`: crea un refresh nuevo. `familyId=null` arranca una familia nueva (login fresco); un `familyId` existente continúa la familia (rotación).
+- `find(token)`: busca un refresh por su valor. **Devuelve el registro aunque esté revocado o expirado** — el use case es el que decide qué hacer con esos casos. Devuelve `null` solo si nunca existió.
+- `revoke(token)`: marca un refresh específico como muerto. Usado en logout y en cada rotación.
+- `revokeFamily(familyId)`: mata toda una familia. Usado cuando se detecta reuso (§7.3).
+- `revokeAllForUser(userId)`: mata todos los refresh de un usuario. Usado al cambiar contraseña (Q-01).
+
+**Tipo `StoredRefresh`** — un registro tal como vive en la base:
+
+- `token`: cadena random opaca (lo que el cliente tiene en la cookie).
+- `userId`: a quién pertenece.
+- `familyId`: UUID de la familia.
+- `expiresAt`: fecha de expiración.
+- `revokedAt`: fecha de revocación, o `null` si sigue vivo.
+
+## 8. Bitácora de avance
 
 _Cada entrada se agrega al terminar el paso correspondiente. Formato: fecha · paso · resumen · commit._
 
@@ -144,6 +247,9 @@ _Cada entrada se agrega al terminar el paso correspondiente. Formato: fecha · p
 | 2026-09-20 | P-02 | Kernel compartido: `AuthenticatedUser` (contrato del contexto de seguridad, `shared/domain/`), `DomainError` + 6 subtipos (agrega `UnauthorizedError`, D-16), `ClockPort` con solo `now()` (D-15) + `SystemClockAdapter`, `CorrelationMiddleware` (genera/propaga `X-Correlation-Id`), `DomainErrorFilter` global con normalización de `HttpException` (resuelve parcialmente C-04). `SharedModule` compone: enlaza `CLOCK`, registra el filtro por `APP_FILTER`, aplica el middleware a todas las rutas. `AppModule` importa `SharedModule`. Alias `@shared/*` funciona en runtime, build y tests (D-09). | _(pendiente)_ |
 | 2026-09-20 | P-03 | Dominio de `identity`: VO `Username` (D-17) y `Permission`, entidades `Role` y `User` con métodos `hydrate`/`create`, puerto `PasswordHasher` (para HU9 pero requerido por `User.verifyPassword`/`User.changePassword`), errores `InvalidCredentialsError` (D-18), `InvalidCurrentPasswordError`, `WeakPasswordError`. La cross-invariant "ABOGADO ⇒ lawyerId" queda documentada como D-19 (se valida en HU4, no en la entidad). Tests unitarios de `Username` (6 casos) y `User` (7 casos: hydrate, create con happy path + password corta/larga + lawyerId negativo, changePassword con happy + wrong current + weak new). Cero dependencias de infraestructura. | _(pendiente)_ |
 | 2026-09-20 | P-03 hotfix | Correcciones detectadas en revisión: (a) rename `AuthenticateUser` → `AuthenticatedUser` en `shared/domain/`; (b) fix typo `verifyPassWord` → `verifyPassword` en `User` (rompía el spec); (c) fix `Promise<Boolean>` → `Promise<boolean>` (tipo primitivo); (d) fix paréntesis en check de `lawyerId` de `User.create` que dejaba pasar enteros negativos. Traducción al inglés de todos los mensajes de error y descripciones de tests. JSDoc en inglés agregado a todos los archivos públicos (D-20). | _(pendiente)_ |
+| 2026-09-20 | P-04 | Puertos restantes de `identity`: `UserRepository` (findByUsername / findById / save), `RoleRepository` (findById), `TokenIssuer` (issue / verify + tipos `AccessTokenClaims` e `IssuedAccessToken`, D-06), `RefreshTokenStore` (issue / find / revoke / revokeFamily / revokeAllForUser + tipo `StoredRefresh`, D-05). Cada puerto con su Symbol. `familyId` es `string` (UUID, opaco); `find` devuelve registros incluso si están revocados/expirados para permitir detección de reuso en el use case. | _(pendiente)_ |
+| 2026-09-21 | P-03b | Alineación a API contract v2 (D-21 a D-25). Nuevo VO `Email` (regex pragmático, normalización trim+lowercase) con 5 tests. `User` expandido: constructor con 9 campos, incorpora `fullName`, `email`, `roleIds[]`, `lastLoginAt`; método `registerLogin(now)` que rota el valor. Policy de password añade check de dígito. `AuthenticatedUser.roleNames` plural. `AccessTokenClaims.roles` plural. `RoleRepository.findById → findByIds` (batch). Tests de `User` reescritos: 13 casos (hydrate, create con happy + short/no-digit/long password + negative lawyerId + empty/invalid roles + empty fullName, changePassword con happy + wrong current + weak new, registerLogin con primer llamada + subsiguientes). Total del proyecto: 30 tests verdes. | _(pendiente)_ |
+| 2026-09-21 | P-05 | Caso de uso `AuthenticateUser` (HU1). Coordina 6 puertos (`UserRepository`, `RoleRepository`, `PasswordHasher`, `TokenIssuer`, `RefreshTokenStore`, `ClockPort`). Flujo: parse username → find user → verify password → check active → load roles by batch → union+dedup permissions → issue access JWT + refresh (nueva familia) → rotar `lastLoginAt` → persistir. Cuatro caminos colapsan al mismo `InvalidCredentialsError` opaco (username malformado, usuario inexistente, password mal, inactivo — D-18). Rol faltante en `findByIds` → `Error` genérico → 500 (integridad de datos, se loguea con correlation id). Fetch del `lawyer` nested queda para el controller (P-11). Tests: 8 casos con fakes inline (happy path, multi-rol con union+dedup de permisos, cada camino de 401 opaco, rol faltante → 500, rotación de `lastLoginAt` entre dos logins). Total del proyecto: 38 tests. | _(pendiente)_ |
 
 ---
 
@@ -152,6 +258,9 @@ _Cada entrada se agrega al terminar el paso correspondiente. Formato: fecha · p
 | Versión | Fecha | Cambios |
 |---------|-------|---------|
 | 1.0 | 2026-09-20 | Versión inicial. Se fijan D-01 a D-08; se abren Q-01 a Q-07; se listan correcciones C-01 a C-06; se define el alcance y el plan de trabajo P-01 a P-15. |
-| 1.1 | 2026-09-20 | Endurecimiento de toolchain: se agregan D-09 (alias + `tsc-alias` + Jest `moduleNameMapper`), D-10 (`strict: true`), D-11 (`rootDir`/`include`, remoción de `baseUrl`) y D-12 (bump de `@nestjs/config` y `@nestjs/jwt` para NestJS 11). Nueva entrada en la bitácora §7 con el mismo alcance. |
-| 1.2 | 2026-09-20 | Se agregan D-13 (implementación de bcrypt: `bcryptjs` en lugar de `bcrypt` nativo, elimina vuln crítica de `tar`) y D-14 (deuda técnica aceptada por vulns _high_ de `multer`, con condiciones de revisión). Se actualiza D-07 para referenciar D-13. Nueva entrada en bitácora §7. |
-| 1.3 | 2026-09-20 | P-02 y P-03 aplicados y marcados ✅. Se agregan D-15 (`ClockPort` solo con `now()`), D-16 (`UnauthorizedError` como sexto subtipo), D-17 (formato de `Username`), D-18 (usuario inactivo devuelve `InvalidCredentialsError` opaco), D-19 (cross-invariant ABOGADO/lawyerId se valida en HU4) y D-20 (todo en inglés + JSDoc). Q-07 se anota apuntando a D-19. Cuatro entradas nuevas en la bitácora §7 (dos para P-02 y P-03 y una hotfix con fixes de typos + paréntesis + tipo). |
+| 1.1 | 2026-09-20 | Endurecimiento de toolchain: se agregan D-09 (alias + `tsc-alias` + Jest `moduleNameMapper`), D-10 (`strict: true`), D-11 (`rootDir`/`include`, remoción de `baseUrl`) y D-12 (bump de `@nestjs/config` y `@nestjs/jwt` para NestJS 11). Nueva entrada en la bitácora §8 con el mismo alcance. |
+| 1.2 | 2026-09-20 | Se agregan D-13 (implementación de bcrypt: `bcryptjs` en lugar de `bcrypt` nativo, elimina vuln crítica de `tar`) y D-14 (deuda técnica aceptada por vulns _high_ de `multer`, con condiciones de revisión). Se actualiza D-07 para referenciar D-13. Nueva entrada en bitácora §8. |
+| 1.3 | 2026-09-20 | P-02 y P-03 aplicados y marcados ✅. Se agregan D-15 (`ClockPort` solo con `now()`), D-16 (`UnauthorizedError` como sexto subtipo), D-17 (formato de `Username`), D-18 (usuario inactivo devuelve `InvalidCredentialsError` opaco), D-19 (cross-invariant ABOGADO/lawyerId se valida en HU4) y D-20 (todo en inglés + JSDoc). Q-07 se anota apuntando a D-19. Cuatro entradas nuevas en la bitácora §8 (dos para P-02 y P-03 y una hotfix con fixes de typos + paréntesis + tipo). |
+| 1.4 | 2026-09-20 | P-04 aplicado y marcado ✅ (cuatro puertos: `UserRepository`, `RoleRepository`, `TokenIssuer`, `RefreshTokenStore`, cada uno con Symbol). Se agrega §7 "Glosario de conceptos" que explica en lenguaje llano `Symbol` como token de DI, access vs refresh token, rotación y familia con detección de reuso, y el propósito de `TokenIssuer` y `RefreshTokenStore` con sus tipos (`AccessTokenClaims`, `IssuedAccessToken`, `StoredRefresh`). "Bitácora de avance" pasa a §8. Nueva entrada en §8 para P-04. |
+| 1.5 | 2026-09-21 | Alineación a `docs/Api-Contract/API_CONTRACT_V2.md` como fuente autoritativa (D-21). Rework del modelo de `User` para soportar multi-rol (D-22), campos `fullName`/`email`/`lastLoginAt` (D-23), password con dígito (D-24), invariante cruzada extendida a ADMINISTRATOR+LAWYER (D-25). Nuevo VO `Email`. `AccessTokenClaims` y `AuthenticatedUser` plural. `RoleRepository.findById → findByIds`. Nueva entrada P-03b en §8. Total de tests pasando: 30. |
+| 1.6 | 2026-09-21 | P-05 aplicado y marcado ✅: caso de uso `AuthenticateUser` con JSDoc en inglés (D-20), 8 tests unitarios con fakes inline (repos, hasher, tokenIssuer, refreshStore, clock). Colapso de 4 caminos de fallo al mismo error opaco (D-18). Rol faltante degrada a 500 con log. Nueva entrada P-05 en §8. Total de tests pasando: 38. |
