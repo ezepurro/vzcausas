@@ -38,10 +38,17 @@ export default defineConfig(({ mode }) => {
        *
        * El destino sale de VITE_BACKEND_URL para que cada uno lo apunte a
        * donde lo tenga corriendo, sin tocar este archivo.
+       *
+       * Se mira primero process.env porque loadEnv solo lee archivos .env:
+       * dentro de Docker la variable llega por el `environment` del compose,
+       * y ahí el backend es http://backend:3000, no localhost.
        */
       proxy: {
         '/api': {
-          target: env.VITE_BACKEND_URL ?? 'http://localhost:3000',
+          target:
+            process.env.VITE_BACKEND_URL ??
+            env.VITE_BACKEND_URL ??
+            'http://localhost:3000',
           changeOrigin: true,
         },
       },
