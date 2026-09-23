@@ -2,6 +2,10 @@ import { Role } from "../../../domain/entities/role.entity";
 import { User } from "../../../domain/entities/user.entity";
 import { LawyerLookupPort } from "../../../domain/ports/lawyer-lookup.port";
 import { PasswordHasher } from "../../../domain/ports/password-hasher.port";
+import {
+  RefreshTokenStore,
+  StoredRefresh,
+} from "../../../domain/ports/refresh-token-store.port";
 import { RoleRepository } from "../../../domain/ports/role.repository";
 import { UserRepository } from "../../../domain/ports/user.repository";
 import { Email } from "../../../domain/value-objects/email.vo";
@@ -95,5 +99,22 @@ export class FakeLawyerLookup implements LawyerLookupPort {
   constructor(private readonly existingIds: readonly number[] = []) {}
   async existsById(lawyerId: number): Promise<boolean> {
     return this.existingIds.includes(lawyerId);
+  }
+}
+
+/** Records which users had their sessions revoked (HU7). */
+export class FakeRefreshTokenStore implements RefreshTokenStore {
+  readonly revokedForUsers: number[] = [];
+
+  async issue(): Promise<StoredRefresh> {
+    throw new Error("not used in these specs");
+  }
+  async find(): Promise<StoredRefresh | null> {
+    return null;
+  }
+  async revoke(): Promise<void> {}
+  async revokeFamily(): Promise<void> {}
+  async revokeAllForUser(userId: number): Promise<void> {
+    this.revokedForUsers.push(userId);
   }
 }

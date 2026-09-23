@@ -49,7 +49,7 @@ export class User {
     private _roleIds: readonly number[],
     private _lawyerId: number | null,
     private _lastLoginAt: Date | null,
-    private readonly _active: boolean,
+    private _active: boolean,
   ) {}
 
   /**
@@ -249,6 +249,20 @@ export class User {
       }
     }
     this._roleIds = newRoleIds;
+  }
+
+  /**
+   * HU7 — logical deletion (RN12). The record is kept; only the
+   * vigency flag flips. There is deliberately no counterpart:
+   * *"No existe forma de consultarlo ni de reactivarlo desde la API"*
+   * (API contract §3.2, `DELETE /users/{userId}`).
+   *
+   * Whether an already-deactivated user may be deactivated again is
+   * not this entity's call — the use case rejects that as "not
+   * found", the same way {@link GetUserUseCase} does.
+   */
+  deactivate(): void {
+    this._active = false;
   }
 
   changeLawyerId(newLawyerId: number | null): void {
