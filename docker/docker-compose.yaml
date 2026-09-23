@@ -80,21 +80,21 @@ services:
       - ../frontend:/app
       - /app/node_modules
 
-  # migrate:
-  #   build:
-  #     context: ../backend
-  #     dockerfile: Dockerfile
-  #     target: development
-  #   container_name: causas-migrate
-  #   environment:
-  #     <<: *database-url
-  #   restart: 'no'
-  #   networks:
-  #     - causas-network
-  #   depends_on:
-  #     postgres:
-  #       condition: service_healthy
-  #   command: npx prisma migrate deploy
+  migrate:
+     build:
+       context: ../backend
+       dockerfile: Dockerfile
+       target: development
+     container_name: causas-migrate
+     environment:
+       <<: *database-url
+     restart: 'no'
+     networks:
+       - causas-network
+     depends_on:
+       postgres:
+         condition: service_healthy
+     command: npx prisma migrate deploy
 
   # openapi-build:
   #   build:

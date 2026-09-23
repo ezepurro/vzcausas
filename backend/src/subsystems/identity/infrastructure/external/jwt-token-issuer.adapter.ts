@@ -7,14 +7,8 @@ import {
   IssuedAccessToken,
   TokenIssuer,
 } from "@subsystems/identity/core/domain/ports/token-issuer.port";
+import { parseTtlToSeconds } from "@shared/config/parse-ttl";
 
-const TTL_PATTERN = /^(\d+)(s|m|h|d)$/;
-const TTL_MULTIPLIERS: Record<string, number> = {
-  s: 1,
-  m: 60,
-  h: 3_600,
-  d: 86_400,
-};
 const MIN_SECRET_BYTES = 32;
 
 /**
@@ -26,9 +20,12 @@ const MIN_SECRET_BYTES = 32;
  * The constructor is strict at bootstrap:
  * - `JWT_ACCESS_SECRET` shorter than 32 bytes (D-43) triggers a
  *   fatal error to prevent minting tokens under a weak key.
- * - `JWT_ACCESS_TTL` is parsed with a minimal inline scheme
- *   `<digits>(s|m|h|d)` (D-41); no external `ms` dependency.
- *   Anything else fails immediately.
+ * - `JWT_ACCESS_TTL` is parsed by the shared
+ *   {@link parseTtlToSeconds} helper, which accepts only
+ *   `<digits>(s|m|h|d)` and needs no external `ms` dependency
+ *   (D-41; extracted out of this file in D-47 once the in-memory
+ *   refresh store needed the same parsing). Anything else fails
+ *   immediately.
  *
  * `verify` collapses every failure — bad signature, expired
  * token, malformed claims (D-42) — into a single opaque
@@ -84,32 +81,6 @@ export class JwtTokenIssuerAdapter implements TokenIssuer {
 
     return assertClaims(raw);
   }
-}
-
-/**
- * Parses a TTL string like `"15m"` or `"7d"` into a positive
- * integer number of seconds. Only the compact
- * `<digits>(s|m|h|d)` form is accepted (D-41) — enough for the
- * two settings we control (`JWT_ACCESS_TTL`, `JWT_REFRESH_TTL`).
- * Anything else is rejected with an actionable message so
- * bootstrap fails loudly.
- */
-function parseTtlToSeconds(value: string): number {
-  const match = TTL_PATTERN.exec(value);
-  if (!match) {
-    throw new Error(
-      `Invalid TTL value ${JSON.stringify(value)}: expected <digits>(s|m|h|d) (e.g. "15m", "7d").`,
-    );
-  }
-
-  const seconds = Number.parseInt(match[1], 10) * TTL_MULTIPLIERS[match[2]];
-  if (seconds <= 0) {
-    throw new Error(
-      `Invalid TTL value ${JSON.stringify(value)}: must resolve to a positive number of seconds.`,
-    );
-  }
-
-  return seconds;
 }
 
 /**
