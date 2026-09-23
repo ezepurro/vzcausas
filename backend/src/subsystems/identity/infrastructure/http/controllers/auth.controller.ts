@@ -23,6 +23,7 @@ import {
 import { LoginRequestDto } from "../dtos/login.request.dto";
 import { AuthHttpMapper } from "../mappers/auth-http.mapper";
 import { RefreshCookieOptions } from "../refresh-cookie.options";
+import { Public } from "@shared/infrastructure/http/public.decorator";
 
 /**
  * HTTP entry point for `/auth` (API v2 §3.1). Translates requests
@@ -40,10 +41,12 @@ import { RefreshCookieOptions } from "../refresh-cookie.options";
  * exception is {@link AuthController.refresh}, which must clear the
  * cookie before the error propagates (D-26, D-51).
  *
- * `logout` and `changePassword` read the actor via {@link CurrentUser},
- * populated by `JwtAuthGuard`. Until P-12 lands those routes are
- * **unprotected** (D-49); the decorator still rejects an absent actor
- * with a 401 rather than failing obscurely.
+ * Authentication is enforced globally (D-56), so only `login` and
+ * `refresh` carry `@Public()`; `logout` and `changePassword` are
+ * protected by default and read the actor via {@link CurrentUser},
+ * populated by `JwtAuthGuard`. The guards are registered in
+ * `AppModule` (D-57), so none of this takes effect until P-13 wires
+ * the modules.
  */
 @Controller("auth")
 export class AuthController {
@@ -60,6 +63,7 @@ export class AuthController {
    * `POST /auth/login` — 200 with the session payload, or 401
    * `INVALID_CREDENTIALS` for every failed path (D-18).
    */
+  @Public()
   @Post("login")
   @HttpCode(HttpStatus.OK)
   async login(
@@ -89,6 +93,7 @@ export class AuthController {
    * retrying with it forever (D-26). The error is re-thrown for the
    * global filter to render (D-51).
    */
+  @Public()
   @Post("refresh")
   @HttpCode(HttpStatus.OK)
   async refresh(
