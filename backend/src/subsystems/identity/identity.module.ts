@@ -1,4 +1,5 @@
 import { Module } from "@nestjs/common";
+import { PeopleModule } from "@subsystems/people/people.module";
 import { DeactivateUserUseCase } from "./core/application/use-cases/deactivate-user.use-case";
 import { GetUserUseCase } from "./core/application/use-cases/get-user.use-case";
 import { RegisterUserUseCase } from "./core/application/use-cases/register-user.use-case";
@@ -8,7 +9,7 @@ import { PASSWORD_HASHER } from "./core/domain/ports/password-hasher.port";
 import { REFRESH_TOKEN_STORE } from "./core/domain/ports/refresh-token-store.port";
 import { ROLE_REPOSITORY } from "./core/domain/ports/role.repository";
 import { USER_REPOSITORY } from "./core/domain/ports/user.repository";
-import { StubLawyerLookupAdapter } from "./infrastructure/acl/lawyer-lookup.adapter";
+import { PeopleLawyerLookupAdapter } from "./infrastructure/acl/lawyer-lookup.adapter";
 import { BcryptPasswordHasher } from "./infrastructure/external/bcrypt-password-hasher.adapter";
 import { NoopRefreshTokenStoreAdapter } from "./infrastructure/external/noop-refresh-token-store.adapter";
 import { UserController } from "./infrastructure/http/controllers/user.controller";
@@ -22,6 +23,9 @@ import { PrismaUserRepository } from "./infrastructure/persistence/prisma/prisma
  * without an explicit import.
  */
 @Module({
+  // `people` exports only its FindLawyer use case; the ACL adapter
+  // below is what consumes it.
+  imports: [PeopleModule],
   controllers: [UserController],
   providers: [
     RegisterUserUseCase,
@@ -30,7 +34,7 @@ import { PrismaUserRepository } from "./infrastructure/persistence/prisma/prisma
     DeactivateUserUseCase,
     { provide: USER_REPOSITORY, useClass: PrismaUserRepository },
     { provide: ROLE_REPOSITORY, useClass: PrismaRoleRepository },
-    { provide: LAWYER_LOOKUP, useClass: StubLawyerLookupAdapter },
+    { provide: LAWYER_LOOKUP, useClass: PeopleLawyerLookupAdapter },
     { provide: PASSWORD_HASHER, useClass: BcryptPasswordHasher },
     // TODO(EP-01): reemplazar por el store real cuando mergee feat/auth.
     { provide: REFRESH_TOKEN_STORE, useClass: NoopRefreshTokenStoreAdapter },
