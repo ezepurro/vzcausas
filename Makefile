@@ -21,7 +21,7 @@ export
 .PHONY: help \
         dev-up dev-build dev-down dev-down-v dev-logs ps clean \
         backend-restart backend-logs backend-shell backend-build \
-        migrate seed \
+        migrate seed test-int \
         frontend-restart frontend-logs frontend-shell frontend-build \
         shell-db \
 				openapi-docs-build openapi-docs-logs \
@@ -84,6 +84,9 @@ migrate-create: ## Create Prisma migration inside the backend container (dev)
 
 seed: ## Runs Prisma seed inside the backend container (dev)
 	$(DC_DEV) exec backend npx prisma db seed
+
+test-int: ## Runs backend integration tests inside the backend container (dev)
+	$(DC_DEV) exec backend npm run test:int
 
 # ---- Frontend Scoped ------------------------------------------------------
 
