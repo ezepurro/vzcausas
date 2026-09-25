@@ -56,8 +56,7 @@ backend/test/
     │   ├── global-setup.ts
     │   ├── global-teardown.ts
     │   ├── container-registry.ts
-    │   ├── test-app.ts
-    │   └── database.ts
+    │   └── test-app.ts
     ├── factories/                ← constructores de datos de test
     │   └── user.factory.ts
     ├── contract/                 ← verificación del contrato de la API
@@ -109,7 +108,6 @@ subsistema.
 | `container-registry.ts` | — | Guarda la referencia al contenedor en `globalThis` para que `global-teardown.ts` pueda detenerlo. Jest solo comparte ese contexto entre setup y teardown. |
 | `global-teardown.ts` | **Una vez**, al terminar la suite | Detiene y elimina el contenedor. Si la corrida se corta a la fuerza, Testcontainers (Ryuk) lo limpia igual. |
 | `test-app.ts` | En `beforeAll` / `afterAll` de cada spec | `startTestApp()` compila `AppModule` y le aplica `configureApp()` (`src/app.setup.ts`), **la misma función que usa `main.ts`**: el test ejercita el mismo prefijo `/api/v1` y el mismo `ValidationPipe` que producción. Acepta un parámetro opcional para reemplazar adaptadores **externos** (correo, Google Drive) por fakes. `stopTestApp()` cierra la app y la conexión. `getPrisma()` da acceso directo a la base para preparar datos y verificar lo persistido. |
-| `database.ts` | En `beforeEach` de cada spec | `resetDatabase()` vacía **todas** las tablas (`TRUNCATE … RESTART IDENTITY CASCADE`), menos `_prisma_migrations`. Cada test arranca desde una base limpia y no depende del orden de ejecución. Borra datos, no el contenedor. |
 
 ### 3.5 `shared/factories/` — datos de test
 
@@ -179,7 +177,7 @@ npm run test:int
    │
    ├─ por cada *.int.spec.ts (en serie):
    │     beforeAll  → startTestApp()      app NestJS contra esa base
-   │     beforeEach → resetDatabase()     base vacía
+   │     beforeEach → getPrisma().<tabla>.deleteMany()   limpia las tablas del spec
    │     it(...)    → factories → petición HTTP → contrato → base
    │     afterAll   → stopTestApp()
    │
@@ -188,6 +186,9 @@ npm run test:int
 
 Hay **un solo contenedor por corrida**, compartido por todos los specs.
 Levantarlo cuesta unos segundos; vaciar tablas, milisegundos.
+
+La limpieza de datos **no la hace el harness**: cada spec vacía en su
+`beforeEach` las tablas que usa (ver §5).
 
 ---
 
@@ -201,6 +202,11 @@ Levantarlo cuesta unos segundos; vaciar tablas, milisegundos.
   `describe('POST /api/v1/lawyers', …)`.
 - **`it`:** en castellano, describiendo el comportamiento esperado:
   `it('rechaza una matrícula ya registrada y no guarda nada', …)`.
+- **Limpiar en `beforeEach` solo las tablas que usa el spec**, con
+  `getPrisma().<tabla>.deleteMany()`. Se borran datos, no el contenedor.
+- **Borrar primero las tablas hijas y después las padres.** Si una clave
+  foránea no tiene `onDelete: Cascade`, borrar la tabla padre falla mientras
+  queden filas hijas.
 - **Estructura de cada test:** preparar (factories) → ejecutar (Supertest) →
   verificar el contrato (`expect*`) → verificar la base (`getPrisma()`).
 - **Siempre verificar la base en las escrituras.** Un `201` no alcanza: hay que
@@ -269,5 +275,6 @@ Docker del host, y se conecta a ella a través del host.
 | Desde `make test-int`: timeout conectando a la base | Falta el socket o `TESTCONTAINERS_HOST_OVERRIDE` en el contenedor | Recrear el servicio: `make dev-build` |
 | `Cannot find module '@shared/…'` | Import con alias fuera de `moduleNameMapper` | Usar solo `@shared/*` y `@subsystems/*`, o agregar el alias al config de Jest |
 | `404` en todas las rutas | La ruta del test no lleva el prefijo | Siempre `/api/v1/...` |
-| Un test pasa solo y falla con la suite | Depende de datos de otro test | Llamar a `resetDatabase()` en `beforeEach` y crear todo lo que necesita con factories |
+| Un test pasa solo y falla con la suite | Depende de datos de otro test | Limpiar en `beforeEach` las tablas que usa el spec (`deleteMany()`) y crear todo lo que necesita con factories |
+| `Foreign key constraint violated` en un `deleteMany()` | Se borró una tabla padre antes que su hija | Invertir el orden: primero la tabla hija, después la padre |
 | `SyntaxError: Cannot use import statement outside a module` en Faker | Se instaló Faker v10 (solo ESM) | Usar `@faker-js/faker@^9` |
