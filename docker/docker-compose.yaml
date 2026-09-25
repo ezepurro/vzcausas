@@ -11,6 +11,8 @@ services:
     container_name: causas-backend
     environment:
       <<: *database-url
+      # Los contenedores que crea Testcontainers se alcanzan vía el host.
+      TESTCONTAINERS_HOST_OVERRIDE: host.docker.internal
     ports:
       - '3000:3000'
     env_file:
@@ -29,6 +31,9 @@ services:
       - ../build:/build:ro
       - ../backend:/app
       - /app/node_modules
+      # Testcontainers: permite que `make test-int` levante la base de test
+      # desde dentro del contenedor usando el Docker del host.
+      - /var/run/docker.sock:/var/run/docker.sock
     command: npm run start:dev
 
   postgres:
