@@ -23,6 +23,7 @@ export class ProceduralStatePrismaRepository implements ProceduralStateRepositor
     const [rows, total] = await this.prisma.$transaction([
       this.prisma.proceduralState.findMany({
         where,
+        include: { jurisdiction: true },
         skip: (page - 1) * limit,
         take: limit,
         orderBy: [{ position: 'asc' }, { stateId: 'asc' }],

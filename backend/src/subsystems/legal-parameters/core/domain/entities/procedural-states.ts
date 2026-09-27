@@ -14,10 +14,15 @@ export interface ProceduralStateProps {
   createdAt: Date | null;
 }
 
+/**
+ * Procedural state of a jurisdiction's lifecycle (RN4). Holds the
+ * {@link Jurisdiction} it belongs to as an object, not as a name.
+ */
 export class ProceduralState {
   private constructor(private readonly props: ProceduralStateProps) {}
 
-  static construct(props: ProceduralStateProps): ProceduralState {
+  /** Rebuilds a {@link ProceduralState} from persisted data, without validation. */
+  static hydrate(props: ProceduralStateProps): ProceduralState {
     return new ProceduralState(props);
   }
 
@@ -31,5 +36,41 @@ export class ProceduralState {
     }
 
     return new ProceduralState(props);
+  }
+
+  get id(): number {
+    return this.props.id;
+  }
+
+  get name(): string {
+    return this.props.name;
+  }
+
+  get position(): number {
+    return this.props.position;
+  }
+
+  get timeLimitDays(): number {
+    return this.props.timeLimitDays;
+  }
+
+  get dayType(): DayType | null {
+    return this.props.dayType;
+  }
+
+  get terminal(): boolean {
+    return this.props.terminal;
+  }
+
+  get isActive(): boolean {
+    return this.props.isActive;
+  }
+
+  get jurisdiction(): Jurisdiction {
+    return this.props.jurisdiction;
+  }
+
+  get createdAt(): Date | null {
+    return this.props.createdAt;
   }
 }

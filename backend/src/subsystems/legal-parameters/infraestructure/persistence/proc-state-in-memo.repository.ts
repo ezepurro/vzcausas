@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { ProceduralState } from '@subsystems/legal-parameters/core/domain/entities/procedural-states';
 import { ProceduralStateRepository } from '@subsystems/legal-parameters/core/domain/ports/procedural-states.repository';
+import { ProcStateFilter } from '@subsystems/legal-parameters/core/application/common/get-proc-states.interfaces';
+import { PaginatedResult } from '../../../../common/pagination/paginated-result';
 
 @Injectable()
 export class ProceduralStateInMemoryRepository implements ProceduralStateRepository {
@@ -11,7 +13,24 @@ export class ProceduralStateInMemoryRepository implements ProceduralStateReposit
   }
 
   async findAll(): Promise<ProceduralState[]> {
-    console.log('Repo');
     return [...this.procStates];
+  }
+
+  async findPaginated(filter: ProcStateFilter, page: number, limit: number): Promise<PaginatedResult<ProceduralState>> {
+    const search = filter.search?.toLowerCase();
+    const matches = this.procStates.filter(
+      (state) =>
+        (!filter.jurisdictionName || state.jurisdiction.code === filter.jurisdictionName) &&
+        (!search || state.name.toLowerCase().includes(search)),
+    );
+    const start = (page - 1) * limit;
+
+    return {
+      items: matches.slice(start, start + limit),
+      total: matches.length,
+      page,
+      limit,
+      totalPages: Math.ceil(matches.length / limit),
+    };
   }
 }
