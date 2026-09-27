@@ -20,7 +20,8 @@ export class ProceduralStateInMemoryRepository implements ProceduralStateReposit
     const search = filter.search?.toLowerCase();
     const matches = this.procStates.filter(
       (state) =>
-        (!filter.jurisdictionName || state.jurisdiction.code === filter.jurisdictionName) &&
+        state.isActive &&
+        (!filter.jurisdiction || state.jurisdiction.code === filter.jurisdiction) &&
         (!search || state.name.toLowerCase().includes(search)),
     );
     const start = (page - 1) * limit;

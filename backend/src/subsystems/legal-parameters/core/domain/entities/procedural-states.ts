@@ -28,11 +28,11 @@ export class ProceduralState {
 
   static create(props: ProceduralStateProps): ProceduralState {
     if (!Number.isInteger(props.id) || props.id <= 0) {
-      throw new ValidationError('INVALID_PROCEDURAL_STATE', 'Procedural State id must be a positive integer.');
+      throw new ValidationError('INVALID_PROCEDURAL_STATE', 'El identificador del estado procesal debe ser un entero positivo.');
     }
 
     if (!props.name || props.name.trim().length === 0) {
-      throw new ValidationError('INVALID_PROCEDURAL_STATE', 'Procedural State must have a non-empty name.');
+      throw new ValidationError('INVALID_PROCEDURAL_STATE', 'El estado procesal debe tener una denominación.');
     }
 
     return new ProceduralState(props);

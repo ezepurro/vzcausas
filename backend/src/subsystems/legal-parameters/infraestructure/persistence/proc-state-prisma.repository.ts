@@ -26,7 +26,8 @@ export class ProceduralStatePrismaRepository implements ProceduralStateRepositor
         include: { jurisdiction: true },
         skip: (page - 1) * limit,
         take: limit,
-        orderBy: [{ position: 'asc' }, { stateId: 'asc' }],
+        // Contract §3.4: by jurisdiction, then by position within it.
+        orderBy: [{ jurisdiction: { name: 'asc' } }, { position: 'asc' }, { stateId: 'asc' }],
       }),
       this.prisma.proceduralState.count({ where }),
     ]);
@@ -46,10 +47,10 @@ export class ProceduralStatePrismaRepository implements ProceduralStateRepositor
 
   private toWhere(filter: ProcStateFilter): Prisma.ProceduralStateWhereInput {
     return {
-      ...(filter.jurisdictionName && {
-        jurisdiction: {
-          name: { equals: filter.jurisdictionName, mode: 'insensitive' },
-        },
+      // Logical deletes are invisible to the client (contract §4).
+      isActive: true,
+      ...(filter.jurisdiction && {
+        jurisdiction: { name: filter.jurisdiction },
       }),
       ...(filter.search && {
         name: { contains: filter.search, mode: 'insensitive' },

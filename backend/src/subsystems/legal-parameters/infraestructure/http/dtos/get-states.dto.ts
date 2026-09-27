@@ -1,12 +1,12 @@
 import { PaginationQueryDto } from '../../../../../common/pagination/query-pagination.dto';
 import { Transform } from 'class-transformer';
 import { IsOptional, IsString, MaxLength, IsEnum } from 'class-validator';
-import { Jurisdiction } from '@subsystems/legal-parameters/core/domain/entities/jurisdiction';
+import { JurisdictionCode } from '@subsystems/legal-parameters/core/domain/value-objects/jurisdiction-code';
 
 export class getStatesQueryDto extends PaginationQueryDto {
   @IsOptional()
-  @IsString()
-  @MaxLength(100)
+  @IsString({ message: 'Debe ser un texto.' })
+  @MaxLength(100, { message: 'Debe tener como máximo 100 caracteres.' })
   @Transform(({ value }) => value?.trim())
   search?: string;
 
@@ -16,8 +16,8 @@ export class getStatesQueryDto extends PaginationQueryDto {
     const limpio = value.trim().toUpperCase();
     return limpio === '' ? undefined : limpio; // vacío = "sin filtro"
   })
-  @IsEnum(Jurisdiction, {
-    message: `jurisdiction must be: ${Object.values(Jurisdiction).join(', ')}`,
+  @IsEnum(JurisdictionCode, {
+    message: 'No existe un fuero procesal con ese nombre.',
   })
-  jurisdiction?: Jurisdiction;
+  jurisdiction?: JurisdictionCode;
 }

@@ -58,6 +58,43 @@ const ROLE_PERMISSIONS: Record<string, readonly string[]> = {
 	SECRETARY: [],
 };
 
+/**
+ * Fueros del enumerado `Jurisdiction` del contrato (§2). `name` guarda
+ * el código, que es lo que lee `JurisdictionMapper`.
+ */
+const JURISDICTIONS = [
+	{ name: "CRIMINAL", dayTypeDefault: "BUSINESS" },
+	{ name: "ADMINISTRATIVE", dayTypeDefault: "BUSINESS" },
+	{ name: "AMPARO", dayTypeDefault: "BUSINESS" },
+] as const;
+
+/**
+ * Estados procesales de ejemplo, cinco por fuero, para desarrollo. La
+ * tabla definitiva la provee el estudio (RN4, RN5) y se carga desde la
+ * API. `name` es única en toda la tabla, por eso no se repite entre
+ * fueros. Regla del contrato: `timeLimitDays = 0` ⇔ `dayType = NONE`.
+ */
+const PROCEDURAL_STATES = [
+	// Penal
+	{ jurisdiction: "CRIMINAL", position: 1, name: "Designación de abogado defensor", timeLimitDays: 3, dayType: "BUSINESS", terminal: false },
+	{ jurisdiction: "CRIMINAL", position: 2, name: "Declaración del imputado", timeLimitDays: 5, dayType: "BUSINESS", terminal: false },
+	{ jurisdiction: "CRIMINAL", position: 3, name: "Requerimiento de citación a juicio", timeLimitDays: 10, dayType: "BUSINESS", terminal: false },
+	{ jurisdiction: "CRIMINAL", position: 4, name: "Oposición al requerimiento de elevación", timeLimitDays: 5, dayType: "BUSINESS", terminal: false },
+	{ jurisdiction: "CRIMINAL", position: 5, name: "Sentencia definitiva", timeLimitDays: 0, dayType: "NONE", terminal: true },
+	// Administrativo
+	{ jurisdiction: "ADMINISTRATIVE", position: 1, name: "Notificación de imputación en sumario", timeLimitDays: 10, dayType: "BUSINESS", terminal: false },
+	{ jurisdiction: "ADMINISTRATIVE", position: 2, name: "Presentación de descargo", timeLimitDays: 10, dayType: "BUSINESS", terminal: false },
+	{ jurisdiction: "ADMINISTRATIVE", position: 3, name: "Apertura a prueba", timeLimitDays: 20, dayType: "BUSINESS", terminal: false },
+	{ jurisdiction: "ADMINISTRATIVE", position: 4, name: "Presentación de alegato", timeLimitDays: 5, dayType: "BUSINESS", terminal: false },
+	{ jurisdiction: "ADMINISTRATIVE", position: 5, name: "Archivada", timeLimitDays: 0, dayType: "NONE", terminal: true },
+	// Amparo
+	{ jurisdiction: "AMPARO", position: 1, name: "Interposición de la acción", timeLimitDays: 0, dayType: "NONE", terminal: false },
+	{ jurisdiction: "AMPARO", position: 2, name: "Pedido de informe", timeLimitDays: 5, dayType: "BUSINESS", terminal: false },
+	{ jurisdiction: "AMPARO", position: 3, name: "Contestación del informe", timeLimitDays: 5, dayType: "BUSINESS", terminal: false },
+	{ jurisdiction: "AMPARO", position: 4, name: "Recurso de apelación", timeLimitDays: 3, dayType: "BUSINESS", terminal: false },
+	{ jurisdiction: "AMPARO", position: 5, name: "Sentencia firme", timeLimitDays: 0, dayType: "NONE", terminal: true },
+] as const;
+
 async function main(): Promise<void> {
 	const adapter = new PrismaPg({
 		connectionString: process.env.DATABASE_URL,
@@ -113,10 +150,34 @@ async function main(): Promise<void> {
 			}
 		}
 
+		for (const jurisdiction of JURISDICTIONS) {
+			await prisma.jurisdiction.upsert({
+				where: { name: jurisdiction.name },
+				update: { dayTypeDefault: jurisdiction.dayTypeDefault },
+				create: jurisdiction,
+			});
+		}
+
+		for (const { jurisdiction: code, ...state } of PROCEDURAL_STATES) {
+			const jurisdiction = await prisma.jurisdiction.findUniqueOrThrow({
+				where: { name: code },
+			});
+			const data = { ...state, jurisdictionId: jurisdiction.jurisdictionId };
+
+			await prisma.proceduralState.upsert({
+				where: { name: state.name },
+				update: data,
+				create: data,
+			});
+		}
+
 		const roleCount = await prisma.role.count();
 		const permissionCount = await prisma.permission.count();
+		const jurisdictionCount = await prisma.jurisdiction.count();
+		const stateCount = await prisma.proceduralState.count();
 		console.log(
-			`Seed completado: ${roleCount} roles, ${permissionCount} permisos.`,
+			`Seed completado: ${roleCount} roles, ${permissionCount} permisos, ` +
+				`${jurisdictionCount} fueros, ${stateCount} estados procesales.`,
 		);
 	} finally {
 		await prisma.$disconnect();

@@ -83,7 +83,7 @@ export class DomainErrorFilter implements ExceptionFilter {
       .json(
         this.envelope(
           "INTERNAL_SERVER_ERROR",
-          "An unexpected internal error occurred.",
+          "Ocurrió un error interno inesperado.",
           null,
         ),
       );
@@ -119,7 +119,9 @@ export class DomainErrorFilter implements ExceptionFilter {
       case HttpStatus.FORBIDDEN:
         return "FORBIDDEN";
       case HttpStatus.NOT_FOUND:
-        return "NOT_FOUND";
+        // Only Nest's "no route matched" reaches here: resource-level
+        // 404s are DomainErrors with their own code.
+        return "RESOURCE_NOT_FOUND";
       case HttpStatus.CONFLICT:
         return "CONFLICT";
       case HttpStatus.UNPROCESSABLE_ENTITY:
@@ -134,22 +136,41 @@ export class DomainErrorFilter implements ExceptionFilter {
     details: Record<string, unknown> | null;
   } {
     const body = exception.getResponse();
-    let message = exception.message;
+    // Nest's own texts are in English ("Cannot GET /x"); the contract
+    // requires user-facing Spanish copy (§5.2), so the message is fixed
+    // per status.
+    const message = this.messageForHttpStatus(exception.getStatus());
     let details: Record<string, unknown> | null = null;
 
     if (typeof body === "object" && body !== null && "message" in body) {
       const raw = (body as { message: unknown }).message;
       if (Array.isArray(raw)) {
-        message = "The submitted data is invalid.";
         details = raw.reduce<Record<string, unknown>>(
           (acc, m, i) => ({ ...acc, [`error_${i}`]: m }),
           {},
         );
-      } else if (typeof raw === "string") {
-        message = raw;
       }
     }
 
     return { message, details };
+  }
+
+  private messageForHttpStatus(status: number): string {
+    switch (status) {
+      case HttpStatus.BAD_REQUEST:
+        return "Los datos enviados no son válidos.";
+      case HttpStatus.UNAUTHORIZED:
+        return "La autenticación es requerida.";
+      case HttpStatus.FORBIDDEN:
+        return "No tiene permisos para realizar esta operación.";
+      case HttpStatus.NOT_FOUND:
+        return "El recurso solicitado no existe.";
+      case HttpStatus.CONFLICT:
+        return "La operación entra en conflicto con el estado actual del recurso.";
+      case HttpStatus.UNPROCESSABLE_ENTITY:
+        return "No se puede realizar la operación debido a una regla de negocio.";
+      default:
+        return "No se pudo procesar la solicitud.";
+    }
   }
 }

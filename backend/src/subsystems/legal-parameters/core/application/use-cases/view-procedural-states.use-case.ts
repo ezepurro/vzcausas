@@ -12,9 +12,8 @@ export class ViewProceduralStates {
   ) {}
 
   async getAll(queryParams: GetProcStatesInput): Promise<PaginatedResult<ProceduralState>> {
-    console.log('Use Case');
     const filter: ProcStateFilter = {
-      jurisdictionName: queryParams.jurisdictionName,
+      jurisdiction: queryParams.jurisdiction,
       search: queryParams.search?.trim() || undefined,
     };
     return await this.procStateRepo.findPaginated(filter, queryParams.page, queryParams.limit);

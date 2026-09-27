@@ -1,13 +1,13 @@
-import { Jurisdiction } from '../../domain/entities/jurisdiction';
+import { JurisdictionCode } from '../../domain/value-objects/jurisdiction-code';
 
 export interface GetProcStatesInput {
-  jurisdictionName?: string;
+  jurisdiction?: JurisdictionCode;
   search?: string;
   page: number;
   limit: number;
 }
 
 export interface ProcStateFilter {
-  jurisdictionName?: string;
+  jurisdiction?: JurisdictionCode;
   search?: string;
 }
