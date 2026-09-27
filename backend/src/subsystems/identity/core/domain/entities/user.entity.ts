@@ -42,14 +42,14 @@ const PASSWORD_DIGIT_REGEX = /\d/;
 export class User {
   private constructor(
     private readonly _id: number,
-    private readonly _username: Username,
+    private _username: Username,
     private _passwordHash: string,
-    private readonly _fullName: string,
-    private readonly _email: Email,
-    private readonly _roleIds: readonly number[],
-    private readonly _lawyerId: number | null,
+    private _fullName: string,
+    private _email: Email,
+    private _roleIds: readonly number[],
+    private _lawyerId: number | null,
     private _lastLoginAt: Date | null,
-    private readonly _active: boolean,
+    private _active: boolean,
   ) {}
 
   /**
@@ -208,41 +208,74 @@ export class User {
   }
 
   /**
-   * Full state of the aggregate, for a repository to write down.
-   *
-   * This is the one sanctioned way out for `passwordHash`, which has
-   * no getter on purpose: the hash must not be reachable from a
-   * response DTO, a log line or an error message, and the absence of a
-   * getter is what enforces that. A repository, however, cannot do its
-   * job without it.
-   *
-   * The name is deliberately unattractive. Anything calling
-   * `toPersistence()` outside an adapter that writes to a store is
-   * misusing it, and that reads as wrong at the call site — which is
-   * the whole point of not simply exposing a getter.
+   * HU6 — the following methods back `PATCH /users/{userId}`. Each
+   * validates only its own local format invariant (mirroring the
+   * checks in {@link User.create}). The LAWYER↔lawyerId cross-role
+   * invariant is, as with {@link User.create}, left to the calling
+   * use case — it needs the resolved role names, which this entity
+   * does not have.
    */
-  toPersistence(): {
-    readonly id: number;
-    readonly username: string;
-    readonly passwordHash: string;
-    readonly fullName: string;
-    readonly email: string;
-    readonly roleIds: readonly number[];
-    readonly lawyerId: number | null;
-    readonly lastLoginAt: Date | null;
-    readonly active: boolean;
-  } {
-    return {
-      id: this._id,
-      username: this._username.toString(),
-      passwordHash: this._passwordHash,
-      fullName: this._fullName,
-      email: this._email.toString(),
-      roleIds: this._roleIds,
-      lawyerId: this._lawyerId,
-      lastLoginAt: this._lastLoginAt,
-      active: this._active,
-    };
+  changeUsername(newUsername: Username): void {
+    this._username = newUsername;
+  }
+
+  changeFullName(newFullName: string): void {
+    if (!newFullName || newFullName.trim().length === 0) {
+      throw new ValidationError(
+        "INVALID_USER",
+        "User must have a non-empty full name.",
+      );
+    }
+    this._fullName = newFullName.trim();
+  }
+
+  changeEmail(newEmail: Email): void {
+    this._email = newEmail;
+  }
+
+  changeRoles(newRoleIds: readonly number[]): void {
+    if (!Array.isArray(newRoleIds) || newRoleIds.length === 0) {
+      throw new ValidationError(
+        "INVALID_USER",
+        "User must have at least one role.",
+      );
+    }
+    for (const roleId of newRoleIds) {
+      if (!Number.isInteger(roleId) || roleId <= 0) {
+        throw new ValidationError(
+          "INVALID_USER",
+          "Each role id must be a positive integer.",
+        );
+      }
+    }
+    this._roleIds = newRoleIds;
+  }
+
+  /**
+   * HU7 — logical deletion (RN12). The record is kept; only the
+   * vigency flag flips. There is deliberately no counterpart:
+   * *"No existe forma de consultarlo ni de reactivarlo desde la API"*
+   * (API contract §3.2, `DELETE /users/{userId}`).
+   *
+   * Whether an already-deactivated user may be deactivated again is
+   * not this entity's call — the use case rejects that as "not
+   * found", the same way {@link GetUserUseCase} does.
+   */
+  deactivate(): void {
+    this._active = false;
+  }
+
+  changeLawyerId(newLawyerId: number | null): void {
+    if (
+      newLawyerId !== null &&
+      (!Number.isInteger(newLawyerId) || newLawyerId <= 0)
+    ) {
+      throw new ValidationError(
+        "INVALID_USER",
+        "lawyerId must be a positive integer or null.",
+      );
+    }
+    this._lawyerId = newLawyerId;
   }
 
   get id(): number {
@@ -277,6 +310,17 @@ export class User {
     return this._active;
   }
 
+  /**
+   * Exposes the stored hash for persistence adapters only (HU4:
+   * `PrismaUserRepository.create/save` need it to write the row).
+   * Deliberately not named `passwordHash` — that name is reserved to
+   * signal "do not read this casually"; only repository code should
+   * call this.
+   */
+  hashForPersistence(): string {
+    return this._passwordHash;
+  }
+
   private static validatePasswordRules(plain: string): void {
     if (typeof plain !== "string") {
       throw new WeakPasswordError("Password must be a string.");
@@ -287,9 +331,7 @@ export class User {
       );
     }
     if (!PASSWORD_DIGIT_REGEX.test(plain)) {
-      throw new WeakPasswordError(
-        "Password must contain at least one digit.",
-      );
+      throw new WeakPasswordError("Password must contain at least one digit.");
     }
     const byteLength = Buffer.byteLength(plain, "utf8");
     if (byteLength > MAX_PASSWORD_BYTES) {

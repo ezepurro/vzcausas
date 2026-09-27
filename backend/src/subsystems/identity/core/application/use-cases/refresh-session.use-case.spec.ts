@@ -37,12 +37,38 @@ class FakeUserRepository implements UserRepository {
     this.byUsername.set(user.username.toString(), user);
     this.byId.set(user.id, user);
   }
+
+  // HU4/HU6/HU7 widened `UserRepository`. These specs exercise the
+  // session-refresh path only, so the additions throw rather than
+  // pretend to work: a spec that starts needing one should implement
+  // it deliberately instead of inheriting a silent stub.
+  async nextId(): Promise<number> {
+    throw new Error("not used in these specs");
+  }
+  async existsByUsername(): Promise<boolean> {
+    throw new Error("not used in these specs");
+  }
+  async existsByEmail(): Promise<boolean> {
+    throw new Error("not used in these specs");
+  }
+  async create(): Promise<void> {
+    throw new Error("not used in these specs");
+  }
+  async countActiveByRoleName(): Promise<number> {
+    throw new Error("not used in these specs");
+  }
+  async search(): Promise<never> {
+    throw new Error("not used in these specs");
+  }
 }
 
 class FakeRoleRepository implements RoleRepository {
   constructor(private readonly roles: Role[]) {}
   async findByIds(ids: readonly number[]): Promise<Role[]> {
     return this.roles.filter((r) => ids.includes(r.getId()));
+  }
+  async findByNames(names: readonly string[]): Promise<Role[]> {
+    return this.roles.filter((r) => names.includes(r.getName()));
   }
 }
 

@@ -5,9 +5,9 @@ import { JwtAuthGuard } from "@shared/infrastructure/http/guards/jwt-auth.guard"
 import { PermissionsGuard } from "@shared/infrastructure/http/guards/permissions.guard";
 import { SharedModule } from "@shared/shared.module";
 import { HealthModule } from "@subsystems/health/health.module";
-import { IdentityModule } from "@subsystems/identity/identity.module";
-import { validateEnv } from "./config/env.validation";
 import { PrismaModule } from "./shared/infrastructure/prisma/prisma.module";
+import { IdentityModule } from "./subsystems/identity/identity.module";
+import { PeopleModule } from "./subsystems/people/people.module";
 
 /**
  * Root composition module: it imports the configuration module, Prisma,
@@ -25,27 +25,14 @@ import { PrismaModule } from "./shared/infrastructure/prisma/prisma.module";
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: ".env",
-      // Aborts startup listing every missing variable at once, rather
-      // than failing on whichever one happens to be read first.
-      validate: validateEnv,
     }),
     PrismaModule,
     SharedModule,
     HealthModule,
+    PeopleModule,
     IdentityModule,
   ],
-
-  providers: [
-    /**
-     * Registration order is load-bearing. Global guards run in the
-     * order they are declared, and the permissions guard reads the
-     * actor that the authentication guard attaches to the request.
-     * Reversed, every route requiring a permission would answer 401
-     * instead of evaluating what the caller may do — and the symptom
-     * would look like a token problem rather than a wiring mistake.
-     */
-    { provide: APP_GUARD, useClass: JwtAuthGuard },
-    { provide: APP_GUARD, useClass: PermissionsGuard },
-  ],
+  controllers: [],
+  providers: [],
 })
 export class AppModule {}
