@@ -1,14 +1,15 @@
-import { Module } from "@nestjs/common";
-import { ConfigModule } from "@nestjs/config";
-import { APP_GUARD } from "@nestjs/core";
-import { JwtAuthGuard } from "@shared/infrastructure/http/guards/jwt-auth.guard";
-import { PermissionsGuard } from "@shared/infrastructure/http/guards/permissions.guard";
-import { SharedModule } from "@shared/shared.module";
-import { HealthModule } from "@subsystems/health/health.module";
-import { validateEnv } from "./config/env.validation";
-import { PrismaModule } from "./shared/infrastructure/prisma/prisma.module";
-import { IdentityModule } from "./subsystems/identity/identity.module";
-import { PeopleModule } from "./subsystems/people/people.module";
+import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
+import { JwtAuthGuard } from '@shared/infrastructure/http/guards/jwt-auth.guard';
+import { PermissionsGuard } from '@shared/infrastructure/http/guards/permissions.guard';
+import { SharedModule } from '@shared/shared.module';
+import { HealthModule } from '@subsystems/health/health.module';
+import { validateEnv } from './config/env.validation';
+import { PrismaModule } from './shared/infrastructure/prisma/prisma.module';
+import { IdentityModule } from './subsystems/identity/identity.module';
+import { PeopleModule } from './subsystems/people/people.module';
+import { LegalParametersModule } from './subsystems/legal-parameters/legal-parameters.module';
 
 /**
  * Root composition module: it imports the configuration module, Prisma,
@@ -25,7 +26,7 @@ import { PeopleModule } from "./subsystems/people/people.module";
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: ".env",
+      envFilePath: '.env',
       // Reports every missing variable at once, before any provider is
       // constructed. Without this hook the adapters' `getOrThrow` calls
       // surface them one at a time, in provider instantiation order.
@@ -36,6 +37,7 @@ import { PeopleModule } from "./subsystems/people/people.module";
     HealthModule,
     PeopleModule,
     IdentityModule,
+    LegalParametersModule,
   ],
   controllers: [],
   providers: [

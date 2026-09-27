@@ -1,4 +1,4 @@
-.claude
+
 
 # Dependencies
 node_modules/
@@ -33,3 +33,7 @@ docker-compose.override.yml
 
 #Prisma
 generated/
+
+# IAs
+claude
+.claude
