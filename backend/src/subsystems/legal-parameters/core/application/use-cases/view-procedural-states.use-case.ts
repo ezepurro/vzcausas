@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { ProceduralState } from '../../domain/entities/procedural-states';
 import { ProceduralStateRepository } from '../../domain/ports/procedural-states.repository';
+import { GetProcStatesInput } from '../common/get-proc-states.interfaces';
 
 @Injectable()
 export class ViewProceduralStates {
@@ -9,8 +10,10 @@ export class ViewProceduralStates {
     private readonly procStateRepo: ProceduralStateRepository,
   ) {}
 
-  async getAll(): Promise<ProceduralState[]> {
+  async getAll(queryParams: GetProcStatesInput): Promise<ProceduralState[]> {
     console.log('Use Case');
-    return await this.procStateRepo.findAll();
+    const offset = (queryParams.page - 1) * queryParams.limit;
+
+    return await this.procStateRepo.findAndCountAll();
   }
 }
