@@ -23,9 +23,7 @@ export
         backend-restart backend-logs backend-shell backend-build \
         migrate seed test-int \
         frontend-restart frontend-logs frontend-shell frontend-build \
-        shell-db \
-				openapi-docs-build openapi-docs-logs \
-        prod-up prod-build prod-down prod-logs
+        shell-db
 
 help: ## Shows this list of commands
 	@echo ""
@@ -73,7 +71,7 @@ backend-shell: ## Opens a shell inside the backend container (dev)
 backend-build: ## Rebuild the backend image only
 	$(DC_DEV) build backend
 
-migrate-deploy: ## Runs Prisma migrations inside the backend container (deploy/prod)
+migrate-deploy: ## Runs pending Prisma migrations without prompts (dev)
 	$(DC_DEV) exec backend npm run prisma:migrate-deploy
 
 migrate-dev: ## Runs Prisma migrations inside the backend container (dev)
@@ -107,16 +105,3 @@ frontend-build: ## Rebuild the frontend image only
 
 shell-db: ## Opens psql inside the postgres container (dev)
 	$(DC_DEV) exec postgres psql -U $(POSTGRES_USER) -d $(POSTGRES_DB)
-
-# ---- Web Scoped (Nginx) ---------------------------------------------------
-
-web-logs: ## Shows only the web logs (nginx)
-	$(DC_DEV) logs -f web
-
-# ---- Docs Scoped ----------------------------------------------------------
-
-openapi-docs-build: ## Rebuild the openapi image only and serve on port 8081
-	$(DC_DEV) build openapi-build openapi-docs
-
-openapi-docs-logs: ## Shows only the openapi-docs logs
-	$(DC_DEV) logs -f openapi-docs

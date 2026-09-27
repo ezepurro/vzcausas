@@ -191,3 +191,18 @@ export class LastAdministratorError extends BusinessRuleError {
     );
   }
 }
+
+/**
+ * Emitted by `RefreshSession` for every failure path (D-26): missing
+ * or unknown refresh token, revoked token (reuse — the use case also
+ * revokes the whole family before throwing, D-05/D-29), expired token,
+ * user deleted after the last login, or user marked inactive. The
+ * shared `UNAUTHENTICATED` code is used deliberately so the client
+ * cannot distinguish the paths — the reaction is always the same
+ * (redirect to login). Message aligned to API v2 §3.1.
+ */
+export class SessionExpiredError extends UnauthorizedError {
+  constructor() {
+    super("UNAUTHENTICATED", "Session expired or invalid.");
+  }
+}
