@@ -1,14 +1,17 @@
 import { DayType } from './day-types';
+import { ProceduralState } from './procedural-states';
+
+export interface JurisdictionProps {
+  id: number;
+  name: string;
+  dayTypeDefault: DayType;
+  isActive: boolean;
+}
 
 export class Jurisdiction {
-  private constructor(
-    private readonly _id: number,
-    private readonly _name: String,
-    private readonly _dayTypeDefault: DayType,
-    private _isActive: boolean,
-  ) {}
+  private constructor(private readonly props: JurisdictionProps) {}
 
-  static create(props: { id: number; name: String; dayTypeDefault: DayType; active?: boolean }): Jurisdiction {
-    return new Jurisdiction(props.id, props.name, props.dayTypeDefault, props.active ?? true);
+  static create(props: JurisdictionProps): Jurisdiction {
+    return new Jurisdiction(props);
   }
 }

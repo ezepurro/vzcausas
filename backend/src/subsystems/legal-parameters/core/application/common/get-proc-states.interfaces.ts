@@ -1,15 +1,13 @@
 import { Jurisdiction } from '../../domain/entities/jurisdiction';
 
 export interface GetProcStatesInput {
-  jurisdiction?: Jurisdiction;
+  jurisdictionName?: string;
   search?: string;
   page: number;
   limit: number;
 }
 
 export interface ProcStateFilter {
-  jurisdictionId?: number;
-  isActive?: boolean;
-  terminal?: boolean;
+  jurisdictionName?: string;
   search?: string;
 }

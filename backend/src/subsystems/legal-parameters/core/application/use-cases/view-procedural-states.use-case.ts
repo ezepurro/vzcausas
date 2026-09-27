@@ -1,7 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { ProceduralState } from '../../domain/entities/procedural-states';
 import { ProceduralStateRepository } from '../../domain/ports/procedural-states.repository';
-import { GetProcStatesInput } from '../common/get-proc-states.interfaces';
+import { GetProcStatesInput, ProcStateFilter } from '../common/get-proc-states.interfaces';
+import { PaginatedResult } from '../../../../../common/pagination/paginated-result';
 
 @Injectable()
 export class ViewProceduralStates {
@@ -10,10 +11,12 @@ export class ViewProceduralStates {
     private readonly procStateRepo: ProceduralStateRepository,
   ) {}
 
-  async getAll(queryParams: GetProcStatesInput): Promise<ProceduralState[]> {
+  async getAll(queryParams: GetProcStatesInput): Promise<PaginatedResult<ProceduralState>> {
     console.log('Use Case');
-    const offset = (queryParams.page - 1) * queryParams.limit;
-
-    return await this.procStateRepo.findAndCountAll();
+    const filter: ProcStateFilter = {
+      jurisdictionName: queryParams.jurisdictionName,
+      search: queryParams.search?.trim() || undefined,
+    };
+    return await this.procStateRepo.findPaginated(filter, queryParams.page, queryParams.limit);
   }
 }

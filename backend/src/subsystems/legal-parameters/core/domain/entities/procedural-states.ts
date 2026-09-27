@@ -2,26 +2,26 @@ import { DayType } from './day-types';
 import { Jurisdiction } from './jurisdiction';
 import { ValidationError } from '@shared/domain/domain-error';
 
-export class ProceduralState {
-  private constructor(
-    private readonly _id: number,
-    private _name: String,
-    private _dayType: DayType,
-    private _timeLimitDays: number,
-    private _position: number,
-    private _isActive: boolean,
-    private jurisdiction: Jurisdiction,
-  ) {}
+export interface ProceduralStateProps {
+  id: number;
+  name: string;
+  position: number;
+  timeLimitDays: number;
+  dayType: DayType | null;
+  terminal: boolean;
+  isActive: boolean;
+  jurisdiction: Jurisdiction;
+  createdAt: Date | null;
+}
 
-  static create(props: {
-    id: number;
-    name: String;
-    dayType: DayType;
-    jurisdiction: Jurisdiction;
-    active?: boolean;
-    position: number;
-    timeLimitDays: number;
-  }): ProceduralState {
+export class ProceduralState {
+  private constructor(private readonly props: ProceduralStateProps) {}
+
+  static construct(props: ProceduralStateProps): ProceduralState {
+    return new ProceduralState(props);
+  }
+
+  static create(props: ProceduralStateProps): ProceduralState {
     if (!Number.isInteger(props.id) || props.id <= 0) {
       throw new ValidationError('INVALID_PROCEDURAL_STATE', 'Procedural State id must be a positive integer.');
     }
@@ -30,14 +30,6 @@ export class ProceduralState {
       throw new ValidationError('INVALID_PROCEDURAL_STATE', 'Procedural State must have a non-empty name.');
     }
 
-    return new ProceduralState(
-      props.id,
-      props.name,
-      props.dayType,
-      props.timeLimitDays,
-      props.position,
-      props.active ?? true,
-      props.jurisdiction,
-    );
+    return new ProceduralState(props);
   }
 }
