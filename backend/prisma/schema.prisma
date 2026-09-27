@@ -147,6 +147,10 @@ enum DayType {
   @@map("day_type")
 }
 
+// ─────────────────────────────────────────────────────────────
+// Legal-Parameters - Sprint 01
+// ─────────────────────────────────────────────────────────────
+
 model Jurisdiction {
   jurisdictionId Int     @id @default(autoincrement()) @map("jurisdiction_id")
   name           String  @unique
@@ -174,4 +178,3 @@ model ProceduralState {
   @@index([jurisdictionId])
   @@map("procedural_states")
 }
-
