@@ -78,7 +78,8 @@ migrate-deploy: ## Runs Prisma migrations inside the backend container (deploy/p
 
 migrate-dev: ## Runs Prisma migrations inside the backend container (dev)
 	$(DC_DEV) exec backend npm run prisma:migrate-dev
-
+	$(DC_DEV) exec backend npm run prisma:generate
+	
 migrate-create: ## Create Prisma migration inside the backend container (dev)
 	$(DC_DEV) exec backend npx prisma migrate dev --create-only --name $(name)
 
