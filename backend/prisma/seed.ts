@@ -6,121 +6,143 @@ import { PrismaClient } from "../src/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 
 /**
- * Role catalog and the permissions each role grants.
+ * Catálogo de roles. Son datos de referencia, no datos de usuario: ningún
+ * endpoint los crea en ningún alcance, así que sembrarlos es la única
+ * manera de que existan. Sin esto la autenticación tiene éxito y después
+ * falla al resolver los roles del usuario, con un 500 que parece un
+ * defecto y es una base sin sembrar.
  *
- * This is the authoritative definition of the permission matrix. Keep
- * it aligned with the permission strings the endpoints actually
- * require: a permission that no role grants makes an endpoint
- * unreachable for everybody, and the failure surfaces as a bare 403
- * with nothing explaining why.
- *
- * Roles are reference data, not user data — they are not created
- * through the API in any scope, so seeding is the only way they come
- * into existence. Without this, authentication succeeds and then
- * fails resolving the user's roles.
+ * Sin `id` explícito a propósito: las columnas son autoincrementales, y
+ * fijar los ids en el `create` deja la secuencia de Postgres en cero.
+ * El primer alta posterior que no fije el id choca con una clave
+ * duplicada.
  */
-const ROLES: ReadonlyArray<{
-  id: number;
-  name: string;
-  description: string;
-  permissions: readonly string[];
-}> = [
-  {
-    id: 1,
-    name: "ADMINISTRATOR",
-    description: "Socios directores y coordinadores.",
-    permissions: [
-      "user:manage",
-      "lawyer:manage",
-      "procedural-state:manage",
-      "case:read",
-    ],
-  },
-  {
-    id: 2,
-    name: "LAWYER",
-    description: "Abogados especialistas.",
-    permissions: ["case:read", "case:change-status"],
-  },
-  {
-    id: 3,
-    name: "SECRETARY",
-    description: "Secretaría administrativa.",
-    permissions: ["case:read"],
-  },
-];
+const ROLES = [
+	{
+		name: "ADMINISTRATOR",
+		description: "Administra usuarios, abogados y parametría del estudio.",
+	},
+	{
+		name: "LAWYER",
+		description: "Abogado del estudio. Opera sobre las causas a su cargo.",
+	},
+	{
+		name: "SECRETARY",
+		description: "Secretaría del estudio. Apoyo administrativo.",
+	},
+] as const;
+
+/**
+ * Formato `namespace:action`, validado por el value object `Permission`.
+ * Se embeben en el claim `permissions[]` del access token, y los lee
+ * `PermissionsGuard` en cada petición.
+ *
+ * Mantener alineada esta lista con los permisos que los endpoints
+ * realmente exigen: un permiso que ningún rol otorga vuelve un endpoint
+ * inalcanzable para todo el mundo, y el fallo se manifiesta como un 403
+ * pelado que no explica nada.
+ */
+const PERMISSIONS = [
+	{ name: "user:create", description: "Registrar usuarios." },
+	{ name: "user:read", description: "Consultar usuarios." },
+	{ name: "user:update", description: "Modificar usuarios." },
+	{ name: "user:delete", description: "Dar de baja usuarios." },
+	{ name: "lawyer:create", description: "Registrar abogados." },
+	{ name: "lawyer:read", description: "Consultar abogados." },
+	{ name: "lawyer:update", description: "Modificar abogados." },
+	{ name: "lawyer:delete", description: "Dar de baja abogados." },
+] as const;
+
+/**
+ * Todas las operaciones de administración exigen rol `ADMINISTRATOR`
+ * según el contrato (§3.2 y §3.3), así que hoy concentra todos los
+ * permisos. `LAWYER` y `SECRETARY` quedan sin permisos administrativos
+ * hasta que existan los subsistemas de causas y documentos.
+ */
+const ROLE_PERMISSIONS: Record<string, readonly string[]> = {
+	ADMINISTRATOR: PERMISSIONS.map((p) => p.name),
+	LAWYER: [],
+	SECRETARY: [],
+};
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
-  throw new Error(
-    "DATABASE_URL no está definida. Revisá backend/.env (o el entorno del contenedor).",
-  );
+	throw new Error(
+		"DATABASE_URL no está definida. Revisá backend/.env (o el entorno del contenedor).",
+	);
 }
-
-const adapter = new PrismaPg({ connectionString });
-const prisma = new PrismaClient({ adapter });
 
 /**
- * Idempotent by construction: every write is an upsert keyed on a
- * unique column, so running this against an already-seeded database
- * is a no-op rather than a duplicate-key failure. That matters because
- * it runs on every deploy, not just on a fresh database.
+ * Idempotente por construcción: toda escritura es un upsert sobre una
+ * columna única, así que correrlo contra una base ya sembrada no hace
+ * nada en vez de fallar por clave duplicada. Importa porque corre en
+ * cada despliegue, no solo sobre una base nueva.
  */
 async function main(): Promise<void> {
-  const permissionNames = [
-    ...new Set(ROLES.flatMap((role) => role.permissions)),
-  ];
+	const adapter = new PrismaPg({ connectionString });
+	const prisma = new PrismaClient({ adapter });
 
-  const permissionIds = new Map<string, number>();
-  for (const name of permissionNames) {
-    const permission = await prisma.permission.upsert({
-      where: { name },
-      update: {},
-      create: { name },
-    });
-    permissionIds.set(name, permission.id);
-  }
+	try {
+		for (const role of ROLES) {
+			await prisma.role.upsert({
+				where: { name: role.name },
+				// `isSystem` marca los roles de los que depende la aplicación
+				// por nombre, para que nada ofrezca eliminarlos más adelante.
+				update: { description: role.description, isSystem: true },
+				create: {
+					name: role.name,
+					description: role.description,
+					isSystem: true,
+				},
+			});
+		}
 
-  for (const role of ROLES) {
-    await prisma.role.upsert({
-      where: { name: role.name },
-      // `isSystem` marks the roles the application depends on by name,
-      // so nothing offers them for deletion later.
-      update: { description: role.description, isSystem: true },
-      create: {
-        id: role.id,
-        name: role.name,
-        description: role.description,
-        isSystem: true,
-      },
-    });
+		for (const permission of PERMISSIONS) {
+			await prisma.permission.upsert({
+				where: { name: permission.name },
+				update: { description: permission.description },
+				create: {
+					name: permission.name,
+					description: permission.description,
+				},
+			});
+		}
 
-    const stored = await prisma.role.findUniqueOrThrow({
-      where: { name: role.name },
-    });
+		for (const [roleName, permissionNames] of Object.entries(
+			ROLE_PERMISSIONS,
+		)) {
+			const role = await prisma.role.findUniqueOrThrow({
+				where: { name: roleName },
+			});
 
-    // Replace rather than merge: the constant above is the source of
-    // truth, so a permission removed from it must disappear from the
-    // database too. Merging would let a revoked permission survive
-    // forever because nothing would ever delete the row.
-    await prisma.rolePermission.deleteMany({ where: { roleId: stored.id } });
-    await prisma.rolePermission.createMany({
-      data: role.permissions.map((name) => ({
-        roleId: stored.id,
-        permissionId: permissionIds.get(name)!,
-      })),
-    });
-  }
+			const permissions = await prisma.permission.findMany({
+				where: { name: { in: [...permissionNames] } },
+			});
 
-  const summary = ROLES.map((r) => `${r.name}(${r.permissions.length})`).join(
-    ", ",
-  );
-  console.log(`Seeded ${ROLES.length} roles: ${summary}`);
+			// Se reemplaza, no se fusiona: las constantes de arriba son la
+			// fuente de verdad, así que un permiso que se quita de acá tiene
+			// que desaparecer de la base. Fusionando, un permiso revocado
+			// sobreviviría para siempre porque nada borraría la fila.
+			await prisma.rolePermission.deleteMany({ where: { roleId: role.id } });
+			await prisma.rolePermission.createMany({
+				data: permissions.map((permission) => ({
+					roleId: role.id,
+					permissionId: permission.id,
+				})),
+			});
+		}
+
+		const roleCount = await prisma.role.count();
+		const permissionCount = await prisma.permission.count();
+		console.log(
+			`Seed completado: ${roleCount} roles, ${permissionCount} permisos.`,
+		);
+	} finally {
+		await prisma.$disconnect();
+	}
 }
 
-main()
-  .catch((error) => {
-    console.error(error);
-    process.exit(1);
-  })
-  .finally(() => prisma.$disconnect());
+main().catch((error) => {
+	console.error(error);
+	process.exit(1);
+});
