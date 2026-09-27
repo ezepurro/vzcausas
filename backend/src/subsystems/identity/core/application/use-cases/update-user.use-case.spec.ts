@@ -3,6 +3,7 @@ import {
   EmailAlreadyExistsError,
   EmptyUpdateRequestError,
   InvalidRoleError,
+  LastAdministratorError,
   LawyerLinkNotAllowedError,
   LawyerLinkRequiredError,
   LawyerNotFoundError,
@@ -13,6 +14,7 @@ import { Email } from "../../domain/value-objects/email.vo";
 import { Username } from "../../domain/value-objects/username.vo";
 import { UpdateUserUseCase } from "./update-user.use-case";
 import {
+  FAKE_ROLE_IDS_BY_NAME,
   FakeHasher,
   FakeLawyerLookup,
   FakeRoleRepository,
@@ -183,5 +185,70 @@ describe("UpdateUserUseCase", () => {
     });
 
     expect(result.user.lawyerId).toBeNull();
+  });
+
+  // CA-6.3 — the system may never be left without an administrator.
+  describe("last administrator (CA-6.3)", () => {
+    const ADMIN = FAKE_ROLE_IDS_BY_NAME.ADMINISTRATOR;
+
+    it("refuses to strip ADMINISTRATOR from the only active administrator", async () => {
+      const { useCase, users } = build();
+      await seedUser(users, { roleIds: [ADMIN] });
+
+      await expect(
+        useCase.execute({ id: 1, roles: ["SECRETARY"] }),
+      ).rejects.toBeInstanceOf(LastAdministratorError);
+      expect(users.saved).toHaveLength(0);
+    });
+
+    it("allows stripping it when another active administrator remains", async () => {
+      const { useCase, users } = build();
+      await seedUser(users, { roleIds: [ADMIN] });
+      await seedUser(users, {
+        id: 2,
+        username: "other",
+        email: "other@vazquezzarate.com",
+        roleIds: [ADMIN],
+      });
+
+      const result = await useCase.execute({ id: 1, roles: ["SECRETARY"] });
+
+      expect(result.roles.map((r) => r.getName())).toEqual(["SECRETARY"]);
+    });
+
+    /**
+     * The rule guards against the system losing its administrator, not
+     * against the last administrator being edited at all: keeping the
+     * role while gaining another leaves the system administered.
+     */
+    it("allows editing the last administrator while keeping the role", async () => {
+      const { useCase, users } = build();
+      await seedUser(users, { roleIds: [ADMIN] });
+
+      const result = await useCase.execute({
+        id: 1,
+        roles: ["ADMINISTRATOR", "SECRETARY"],
+      });
+
+      expect(result.roles.map((r) => r.getName()).sort()).toEqual([
+        "ADMINISTRATOR",
+        "SECRETARY",
+      ]);
+    });
+
+    it("does not interfere with role changes on a non-administrator", async () => {
+      const { useCase, users } = build();
+      await seedUser(users, { roleIds: [ADMIN] });
+      await seedUser(users, {
+        id: 2,
+        username: "other",
+        email: "other@vazquezzarate.com",
+        roleIds: [FAKE_ROLE_IDS_BY_NAME.SECRETARY],
+      });
+
+      const result = await useCase.execute({ id: 2, roles: ["ADMINISTRATOR"] });
+
+      expect(result.roles.map((r) => r.getName())).toEqual(["ADMINISTRATOR"]);
+    });
   });
 });

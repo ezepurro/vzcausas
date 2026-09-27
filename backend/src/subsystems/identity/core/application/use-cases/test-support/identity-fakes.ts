@@ -26,6 +26,17 @@ export class FakeHasher implements PasswordHasher {
 }
 
 /**
+ * The role catalogue both fakes agree on. Shared so that
+ * {@link FakeUserRepository.countActiveByRoleName} and
+ * {@link FakeRoleRepository} cannot drift apart.
+ */
+export const FAKE_ROLE_IDS_BY_NAME: Readonly<Record<string, number>> = {
+  ADMINISTRATOR: 1,
+  LAWYER: 2,
+  SECRETARY: 3,
+};
+
+/**
  * `byId` is the only source of truth — username/email lookups scan
  * it, rather than keeping side maps that would go stale on `save()`
  * (e.g. after a username change). Fine for the small sets a unit test
@@ -74,14 +85,35 @@ export class FakeUserRepository implements UserRepository {
     this.created.push(user);
     this.byId.set(user.id, user);
   }
+
+  /**
+   * Resolves role names through {@link FakeRoleRepository}'s fixed
+   * catalogue so specs can seed administrators by name without
+   * wiring the two fakes together.
+   */
+  async countActiveByRoleName(roleName: string): Promise<number> {
+    const roleId = FAKE_ROLE_IDS_BY_NAME[roleName];
+    if (roleId === undefined) return 0;
+    return [...this.byId.values()].filter(
+      (u) => u.isActive() && u.roleIds.includes(roleId),
+    ).length;
+  }
 }
 
 export class FakeRoleRepository implements RoleRepository {
   private readonly roles = [
-    Role.create({ id: 1, name: "ADMINISTRATOR", permissions: [] }),
-    Role.create({ id: 2, name: "LAWYER", permissions: [] }),
     Role.create({
-      id: 3,
+      id: FAKE_ROLE_IDS_BY_NAME.ADMINISTRATOR,
+      name: "ADMINISTRATOR",
+      permissions: [],
+    }),
+    Role.create({
+      id: FAKE_ROLE_IDS_BY_NAME.LAWYER,
+      name: "LAWYER",
+      permissions: [],
+    }),
+    Role.create({
+      id: FAKE_ROLE_IDS_BY_NAME.SECRETARY,
       name: "SECRETARY",
       permissions: [Permission.create("case:read")],
     }),

@@ -43,10 +43,10 @@ export type RegisterUserResult = {
  * resolution, the LAWYER↔lawyerId cross-invariant (deliberately left
  * out of {@link User.create}, see its docstring), and persistence.
  *
- * The lawyer↔user link only supports an existing `lawyerId` for now.
- * `people` (owner of `Lawyer`, HU-12) does not exist yet, so
- * {@link LawyerLookupPort} is bound to a stub adapter that always
- * resolves "not found" — see `infrastructure/acl/lawyer-lookup.adapter.ts`.
+ * The lawyer↔user link only supports an existing `lawyerId`: there is
+ * no "register the lawyer inline" path. {@link LawyerLookupPort} is
+ * resolved by `people`'s HU-12 use case through the anti-corruption
+ * adapter in `infrastructure/acl/lawyer-lookup.adapter.ts`.
  */
 @Injectable()
 export class RegisterUserUseCase {

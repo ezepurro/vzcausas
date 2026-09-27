@@ -58,4 +58,19 @@ export interface UserRepository {
 
   /** Inserts a freshly created user. */
   create(user: User): Promise<void>;
+
+  /**
+   * Counts the **active** users holding the role with this name.
+   *
+   * Exists for the "last administrator" rule (CA-6.3, CA-7.4): before
+   * removing the ADMINISTRATOR role from someone, or deactivating
+   * them, the use case must know whether anyone else would be left to
+   * administer the system.
+   *
+   * Takes a role *name* rather than an id because that is what the
+   * rule is expressed in ("ADMINISTRATOR"); resolving the id first
+   * would cost a second round trip for no gain. Deactivated users
+   * must not be counted — they cannot administer anything.
+   */
+  countActiveByRoleName(roleName: string): Promise<number>;
 }

@@ -54,7 +54,7 @@ export class PrismaUserRepository implements UserRepository {
       where: { id: user.id },
       data: {
         username: user.username.toString(),
-        name: user.fullName,
+        fullName: user.fullName,
         email: user.email.toString(),
         passwordHash: user.hashForPersistence(),
         lawyerId: user.lawyerId,
@@ -102,7 +102,7 @@ export class PrismaUserRepository implements UserRepository {
       data: {
         id: user.id,
         username: user.username.toString(),
-        name: user.fullName,
+        fullName: user.fullName,
         email: user.email.toString(),
         passwordHash: user.hashForPersistence(),
         lawyerId: user.lawyerId,
@@ -110,6 +110,20 @@ export class PrismaUserRepository implements UserRepository {
         roles: {
           create: user.roleIds.map((roleId) => ({ roleId })),
         },
+      },
+    });
+  }
+
+  /**
+   * Counted in the database rather than by loading the users: the
+   * rule only ever asks "is there more than one?", and materializing
+   * every administrator to check `.length` would be wasteful.
+   */
+  async countActiveByRoleName(roleName: string): Promise<number> {
+    return this.prisma.user.count({
+      where: {
+        active: true,
+        roles: { some: { role: { name: roleName } } },
       },
     });
   }

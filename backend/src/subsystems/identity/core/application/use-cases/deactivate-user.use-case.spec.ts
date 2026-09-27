@@ -1,31 +1,43 @@
 import { User } from "../../domain/entities/user.entity";
-import { UserNotFoundError } from "../../domain/errors/identity.errors";
+import {
+  LastAdministratorError,
+  UserNotFoundError,
+} from "../../domain/errors/identity.errors";
 import { Email } from "../../domain/value-objects/email.vo";
 import { Username } from "../../domain/value-objects/username.vo";
 import { DeactivateUserUseCase } from "./deactivate-user.use-case";
 import {
+  FAKE_ROLE_IDS_BY_NAME,
   FakeHasher,
   FakeRefreshTokenStore,
+  FakeRoleRepository,
   FakeUserRepository,
 } from "./test-support/identity-fakes";
 
 describe("DeactivateUserUseCase", () => {
   const hasher = new FakeHasher();
+  const ADMIN = FAKE_ROLE_IDS_BY_NAME.ADMINISTRATOR;
+  const SECRETARY = FAKE_ROLE_IDS_BY_NAME.SECRETARY;
 
   async function seedUser(
     users: FakeUserRepository,
-    active = true,
+    overrides: {
+      id?: number;
+      roleIds?: number[];
+      active?: boolean;
+    } = {},
   ): Promise<User> {
+    const id = overrides.id ?? 1;
     const user = await User.create(
       {
-        id: 1,
-        username: Username.create("iperalta"),
+        id,
+        username: Username.create(`user${id}`),
         plainPassword: "password1",
         fullName: "Ignacio Peralta",
-        email: Email.create("iperalta@vazquezzarate.com"),
-        roleIds: [3],
+        email: Email.create(`user${id}@vazquezzarate.com`),
+        roleIds: overrides.roleIds ?? [SECRETARY],
         lawyerId: null,
-        active,
+        active: overrides.active ?? true,
       },
       hasher,
     );
@@ -35,9 +47,10 @@ describe("DeactivateUserUseCase", () => {
 
   function build() {
     const users = new FakeUserRepository();
+    const roles = new FakeRoleRepository();
     const refreshTokens = new FakeRefreshTokenStore();
     return {
-      useCase: new DeactivateUserUseCase(users, refreshTokens),
+      useCase: new DeactivateUserUseCase(users, roles, refreshTokens),
       users,
       refreshTokens,
     };
@@ -65,11 +78,59 @@ describe("DeactivateUserUseCase", () => {
 
   it("throws UserNotFoundError for an already deactivated user", async () => {
     const { useCase, users } = build();
-    await seedUser(users, false);
+    await seedUser(users, { active: false });
 
     await expect(useCase.execute({ id: 1 })).rejects.toBeInstanceOf(
       UserNotFoundError,
     );
     expect(users.saved).toHaveLength(0);
+  });
+
+  // CA-7.4 — the system may never be left without an administrator.
+  describe("last administrator (CA-7.4)", () => {
+    it("refuses to deactivate the only active administrator", async () => {
+      const { useCase, users, refreshTokens } = build();
+      await seedUser(users, { id: 1, roleIds: [ADMIN] });
+
+      await expect(useCase.execute({ id: 1 })).rejects.toBeInstanceOf(
+        LastAdministratorError,
+      );
+      expect(users.saved).toHaveLength(0);
+      expect(refreshTokens.revokedForUsers).toEqual([]);
+    });
+
+    it("allows it when another active administrator remains", async () => {
+      const { useCase, users } = build();
+      const target = await seedUser(users, { id: 1, roleIds: [ADMIN] });
+      await seedUser(users, { id: 2, roleIds: [ADMIN] });
+
+      await useCase.execute({ id: 1 });
+
+      expect(target.isActive()).toBe(false);
+    });
+
+    /**
+     * A deactivated administrator cannot administer anything, so they
+     * must not keep the last active one alive by proxy.
+     */
+    it("does not count deactivated administrators as a replacement", async () => {
+      const { useCase, users } = build();
+      await seedUser(users, { id: 1, roleIds: [ADMIN] });
+      await seedUser(users, { id: 2, roleIds: [ADMIN], active: false });
+
+      await expect(useCase.execute({ id: 1 })).rejects.toBeInstanceOf(
+        LastAdministratorError,
+      );
+    });
+
+    it("does not block deactivating a non-administrator", async () => {
+      const { useCase, users } = build();
+      await seedUser(users, { id: 1, roleIds: [ADMIN] });
+      const secretary = await seedUser(users, { id: 2, roleIds: [SECRETARY] });
+
+      await useCase.execute({ id: 2 });
+
+      expect(secretary.isActive()).toBe(false);
+    });
   });
 });

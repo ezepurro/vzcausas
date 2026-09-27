@@ -5,6 +5,7 @@ import {
   EmailAlreadyExistsError,
   EmptyUpdateRequestError,
   InvalidRoleError,
+  LastAdministratorError,
   LawyerLinkNotAllowedError,
   LawyerLinkRequiredError,
   LawyerNotFoundError,
@@ -21,6 +22,7 @@ import { Email } from "../../domain/value-objects/email.vo";
 import { Username } from "../../domain/value-objects/username.vo";
 
 const LAWYER_ROLE_NAME = "LAWYER";
+const ADMINISTRATOR_ROLE_NAME = "ADMINISTRATOR";
 
 export type UpdateUserCommand = {
   id: number;
@@ -67,6 +69,11 @@ export class UpdateUserUseCase {
       throw new UserNotFoundError(command.id);
     }
 
+    // Captured before any mutation: `user.changeRoles` below replaces
+    // the set in place, and CA-6.3 needs to know what the user held
+    // when the request arrived.
+    const previousRoleIds = [...user.roleIds];
+
     if (command.username !== undefined) {
       const newUsername = Username.create(command.username);
       if (await this.users.existsByUsername(newUsername, user.id)) {
@@ -93,6 +100,7 @@ export class UpdateUserUseCase {
       if (finalRoles.length !== command.roles.length) {
         throw new InvalidRoleError(command.roles);
       }
+      await this.assertKeepsAnAdministrator(previousRoleIds, finalRoles);
       user.changeRoles(finalRoles.map((role) => role.getId()));
     } else {
       finalRoles = await this.roleRepository.findByIds(user.roleIds);
@@ -113,8 +121,9 @@ export class UpdateUserUseCase {
     }
     // Only re-validate against `people` when this request actually
     // changes lawyerId — an unchanged link was already valid when it
-    // was first set, and re-checking it here would always fail today
-    // (the lookup is a stub) even for updates that never touch it.
+    // was first set, and re-checking it on every unrelated edit would
+    // turn a deactivated lawyer into a wall the user cannot get past
+    // while fixing, say, a typo in their email.
     if (
       command.lawyerId !== undefined &&
       command.lawyerId !== null &&
@@ -126,5 +135,44 @@ export class UpdateUserUseCase {
     await this.users.save(user);
 
     return { user, roles: finalRoles };
+  }
+
+  /**
+   * CA-6.3 — *"el sistema nunca puede quedar sin administrador"*.
+   *
+   * Fires only when the request would actually **strip** the
+   * ADMINISTRATOR role from the last active administrator. Editing
+   * that administrator in a way that keeps the role (adding
+   * SECRETARY alongside it, say) is allowed: it leaves the system
+   * administered, which is what the criterion protects. Reading it as
+   * "the last administrator is frozen entirely" would also forbid
+   * harmless edits, and the criterion states the reason plainly
+   * enough to prefer the narrower rule. Worth confirming with the
+   * team if they meant the stricter one.
+   */
+  private async assertKeepsAnAdministrator(
+    previousRoleIds: readonly number[],
+    finalRoles: readonly Role[],
+  ): Promise<void> {
+    const [administrator] = await this.roleRepository.findByNames([
+      ADMINISTRATOR_ROLE_NAME,
+    ]);
+    if (!administrator || !previousRoleIds.includes(administrator.getId())) {
+      return;
+    }
+
+    const keepsAdministrator = finalRoles.some(
+      (role) => role.getName() === ADMINISTRATOR_ROLE_NAME,
+    );
+    if (keepsAdministrator) {
+      return;
+    }
+
+    const activeAdministrators = await this.users.countActiveByRoleName(
+      ADMINISTRATOR_ROLE_NAME,
+    );
+    if (activeAdministrators <= 1) {
+      throw new LastAdministratorError("update");
+    }
   }
 }

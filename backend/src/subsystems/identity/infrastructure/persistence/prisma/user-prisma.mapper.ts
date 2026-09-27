@@ -3,25 +3,23 @@ import { Email } from "../../../core/domain/value-objects/email.vo";
 import { Username } from "../../../core/domain/value-objects/username.vo";
 
 /**
- * Prisma row shape this mapper expects for `users`, WRITTEN AGAINST
- * THE INTENDED SCHEMA — not the one currently in `schema.prisma`.
+ * Prisma row shape this mapper expects for `users`.
  *
- * Known gaps in the current `schema.prisma` (agreed with the team to
- * fix together, out of scope for this branch — see plan notes):
- *  1. `User.id` is `String @db.Uuid`; the domain requires `number`.
- *  2. There is no `username` column (only `name`); the domain needs a
- *     login identifier distinct from `fullName`.
- *  3. There is no `lawyerId` column at all.
+ * The three gaps this file used to document — `id` as `String
+ * @db.Uuid`, no `username` column, no `lawyerId` — were closed on
+ * `develop` when `schema.prisma` was aligned with the domain.
  *
- * Until the schema is fixed, this file (and `prisma-user.repository.ts`)
- * will not type-check against the generated Prisma Client. Everything
- * else in this branch (domain, use case, tests, HTTP layer) is
- * independent of this gap and works today.
+ * One step is still outstanding: the migration for that schema has
+ * not been generated yet, so the Prisma Client on disk was produced
+ * from the old schema and this file (plus
+ * `prisma-user.repository.ts`) still will not type-check against it.
+ * Run `npx prisma migrate dev` and regenerate, then drop the
+ * `@ts-nocheck` at the top of the repository adapter.
  */
 type UserRow = {
   id: number;
   username: string;
-  name: string;
+  fullName: string;
   email: string;
   passwordHash: string;
   lawyerId: number | null;
@@ -36,7 +34,7 @@ export class UserPrismaMapper {
       id: row.id,
       username: Username.create(row.username),
       passwordHash: row.passwordHash,
-      fullName: row.name,
+      fullName: row.fullName,
       email: Email.create(row.email),
       roleIds: row.roles.map((r) => r.roleId),
       lawyerId: row.lawyerId,

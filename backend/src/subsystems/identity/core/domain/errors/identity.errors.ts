@@ -42,20 +42,33 @@ export class WeakPasswordError extends ValidationError {
   }
 }
 
-/** Emitted by `RegisterUser` (HU4) when the username is already taken. */
+/**
+ * Emitted by `RegisterUser` (HU4) when the username is already taken.
+ *
+ * `details.field` names the offending input so the frontend can mark
+ * that control instead of showing a form-level error: CA-4.3 requires
+ * the response to *"marcar el campo en conflicto con su motivo"*.
+ */
 export class UsernameAlreadyExistsError extends ConflictError {
   constructor() {
     super(
       "USERNAME_ALREADY_EXISTS",
       "The username is already registered.",
+      { field: "username" },
     );
   }
 }
 
-/** Emitted by `RegisterUser` (HU4) when the email is already taken. */
+/**
+ * Emitted by `RegisterUser` (HU4) when the email is already taken.
+ * Carries `details.field` for the same reason as
+ * {@link UsernameAlreadyExistsError}.
+ */
 export class EmailAlreadyExistsError extends ConflictError {
   constructor() {
-    super("EMAIL_ALREADY_EXISTS", "The email is already registered.");
+    super("EMAIL_ALREADY_EXISTS", "The email is already registered.", {
+      field: "email",
+    });
   }
 }
 
@@ -101,9 +114,9 @@ export class LawyerLinkNotAllowedError extends BusinessRuleError {
 
 /**
  * Emitted by `RegisterUser` (HU4) when the referenced `lawyerId` does
- * not resolve via {@link LawyerLookupPort}. Until the `people`
- * subsystem (HU-12) exists, the stub adapter always resolves to
- * "not found", so this error always fires for LAWYER registrations.
+ * not resolve via {@link LawyerLookupPort} — either no such lawyer
+ * exists or the professional record was logically deleted (RN12),
+ * which the lookup reports as "not found" all the same.
  */
 export class LawyerNotFoundError extends BusinessRuleError {
   constructor(lawyerId: number) {
@@ -152,5 +165,29 @@ export class EmptyUpdateRequestError extends ValidationError {
     super("VALIDATION_ERROR", "At least one field must be provided.", {
       body: "Debe enviarse al menos un campo para modificar.",
     });
+  }
+}
+
+/**
+ * Emitted by `UpdateUser` (HU6) and `DeactivateUser` (HU7) when an
+ * operation would leave the system with no active administrator.
+ *
+ * Covers CA-6.3 (*"se intenta cambiarle el perfil […] el sistema
+ * nunca puede quedar sin administrador"*) and CA-7.4 (*"cuando se
+ * intenta darlo de baja —incluso a sí mismo—, el sistema lo
+ * impide"*). There is no self-exception: the rule protects the
+ * system, not the account, so it applies regardless of who asks.
+ *
+ * Modeled as a {@link BusinessRuleError} (422) rather than a
+ * validation error: the request is perfectly well-formed, it is the
+ * resulting state that the domain refuses.
+ */
+export class LastAdministratorError extends BusinessRuleError {
+  constructor(operation: "update" | "deactivate") {
+    super(
+      "LAST_ADMINISTRATOR",
+      "The last active administrator cannot be modified or deactivated.",
+      { operation },
+    );
   }
 }
