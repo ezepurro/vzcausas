@@ -36,8 +36,19 @@ export default async function globalSetup(): Promise<void> {
   // Siempre se pisa: nunca se corre contra la base de desarrollo.
   process.env.DATABASE_URL = container.getConnectionUri();
 
+  const backendRoot = join(__dirname, '..', '..', '..');
+
   execSync('npx prisma migrate deploy', {
-    cwd: join(__dirname, '..', '..', '..'),
+    cwd: backendRoot,
+    env: process.env,
+    stdio: 'inherit',
+  });
+
+  // Los roles son datos de referencia: no los crea ningún endpoint, así
+  // que sin esto la base de test queda con el catálogo vacío y cualquier
+  // login termina en 500 al no poder resolver los roles del usuario.
+  execSync('npx prisma db seed', {
+    cwd: backendRoot,
     env: process.env,
     stdio: 'inherit',
   });

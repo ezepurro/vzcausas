@@ -18,9 +18,9 @@ import { JwtTokenIssuerAdapter } from "./infrastructure/external/jwt-token-issue
 import { AuthController } from "./infrastructure/http/controllers/auth.controller";
 import { AuthHttpMapper } from "./infrastructure/http/mappers/auth-http.mapper";
 import { RefreshCookieOptions } from "./infrastructure/http/refresh-cookie.options";
-import { InMemoryRefreshTokenStore } from "./infrastructure/persistence/in-memory/in-memory-refresh-token-store.adapter";
-import { InMemoryRoleRepository } from "./infrastructure/persistence/in-memory/in-memory-role.repository";
-import { InMemoryUserRepository } from "./infrastructure/persistence/in-memory/in-memory-user.repository";
+import { PrismaRefreshTokenStore } from "./infrastructure/persistence/prisma/prisma-refresh-token-store.adapter";
+import { PrismaRoleRepository } from "./infrastructure/persistence/prisma/prisma-role.repository";
+import { PrismaUserRepository } from "./infrastructure/persistence/prisma/prisma-user.repository";
 
 /**
  * Composition point of the identity subsystem: it binds each port to
@@ -28,15 +28,12 @@ import { InMemoryUserRepository } from "./infrastructure/persistence/in-memory/i
  * controller, and exports what the rest of the application consumes.
  * No behaviour lives here.
  *
- * Every port is bound with `useExisting` rather than `useClass`.
- * `useClass` builds a separate instance per token, so an adapter that
- * someone also injects by its concrete type would exist twice: two
- * stores, two sets of data, and reads that never see what the other
- * instance wrote. Because the in-memory adapters keep their state in
- * the process, that duplication is completely silent — no error is
- * raised anywhere, requests simply behave as if nothing had been
- * stored. Registering each adapter once and aliasing its token avoids
- * the whole failure mode.
+ * Ports are bound with `useClass`. That is safe now that persistence
+ * is a database: the adapters hold no state of their own, so a second
+ * instance would read and write exactly the same rows. It was not safe
+ * while the adapters kept their data in a `Map` — back then two
+ * instances meant two disjoint stores and writes that silently went
+ * nowhere, which is why those bindings had to alias a single provider.
  *
  * The empty `JwtModule.register({})` is intentional: the token adapter
  * passes secret, algorithm and expiry explicitly on every call, so a
@@ -54,19 +51,12 @@ import { InMemoryUserRepository } from "./infrastructure/persistence/in-memory/i
   controllers: [AuthController],
 
   providers: [
-    // --- Adapters, registered once by their concrete class ---
-    BcryptPasswordHasherAdapter,
-    JwtTokenIssuerAdapter,
-    InMemoryUserRepository,
-    InMemoryRoleRepository,
-    InMemoryRefreshTokenStore,
-
     // --- Port bindings ---
-    { provide: PASSWORD_HASHER, useExisting: BcryptPasswordHasherAdapter },
-    { provide: TOKEN_ISSUER, useExisting: JwtTokenIssuerAdapter },
-    { provide: USER_REPOSITORY, useExisting: InMemoryUserRepository },
-    { provide: ROLE_REPOSITORY, useExisting: InMemoryRoleRepository },
-    { provide: REFRESH_TOKEN_STORE, useExisting: InMemoryRefreshTokenStore },
+    { provide: PASSWORD_HASHER, useClass: BcryptPasswordHasherAdapter },
+    { provide: TOKEN_ISSUER, useClass: JwtTokenIssuerAdapter },
+    { provide: USER_REPOSITORY, useClass: PrismaUserRepository },
+    { provide: ROLE_REPOSITORY, useClass: PrismaRoleRepository },
+    { provide: REFRESH_TOKEN_STORE, useClass: PrismaRefreshTokenStore },
 
     // The kernel declares this port in its own vocabulary; this
     // subsystem supplies the adapter that translates its token format

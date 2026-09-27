@@ -11,8 +11,19 @@ describe("Username", () => {
     expect(() => Username.create("ab")).toThrow(ValidationError);
   });
 
-  it("rejects if too long", () => {
-    expect(() => Username.create("a".repeat(51))).toThrow(ValidationError);
+  // Boundary rather than a round number: `repeat(51)` passed under both
+  // the old 50-char limit and the current one, so it never actually
+  // pinned the bound it was meant to guard.
+  it("accepts the longest allowed username", () => {
+    expect(() => Username.create("a".repeat(30))).not.toThrow();
+  });
+
+  it("rejects one character past the limit", () => {
+    expect(() => Username.create("a".repeat(31))).toThrow(ValidationError);
+  });
+
+  it("accepts the shortest allowed username", () => {
+    expect(() => Username.create("abc")).not.toThrow();
   });
 
   it("rejects disallowed characters", () => {

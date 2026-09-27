@@ -15,10 +15,10 @@ const TTL_MULTIPLIERS: Record<string, number> = {
  * `JWT_REFRESH_TTL` (D-04, 7d) — without pulling in a dependency such
  * as `ms` just to read two environment variables.
  *
- * Lives in `shared/config` rather than inside a single adapter (D-47):
- * both `JwtTokenIssuerAdapter` and `InMemoryRefreshTokenStore` need
- * it, and exporting it from one adapter so the other could import it
- * would leak that adapter's internals.
+ * Lives in `shared/config` rather than inside a single adapter: the
+ * access-token issuer and the refresh-token store both need it, and
+ * exporting it from one adapter so the other could import it would
+ * leak that adapter's internals.
  *
  * Callers invoke this during construction, so a malformed value fails
  * the application bootstrap instead of surfacing on the first request.

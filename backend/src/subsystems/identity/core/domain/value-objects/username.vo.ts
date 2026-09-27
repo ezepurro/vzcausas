@@ -1,6 +1,6 @@
 import { ValidationError } from "@shared/domain/domain-error";
 
-const USERNAME_REGEX = /^[a-z0-9._-]{3,50}$/;
+const USERNAME_REGEX = /^[a-z0-9._-]{3,30}$/;
 
 /**
  * Login identifier of a {@link User}. Value object: any `Username`
@@ -16,7 +16,12 @@ export class Username {
   /**
    * Validates and normalizes a raw string into a {@link Username}.
    * Trims surrounding whitespace and lowercases before checking
-   * against the allowed pattern (3–50 chars of `[a-z0-9._-]`).
+   * against the allowed pattern (3–30 chars of `[a-z0-9._-]`).
+   *
+   * The upper bound comes from the API contract, which is the
+   * authoritative source for what a client may send. The database
+   * column is wider, so it is the check here — not the storage — that
+   * defines the limit.
    *
    * @throws {ValidationError} if the input is not a string, is
    *   outside the allowed length, or contains disallowed characters.
@@ -33,7 +38,7 @@ export class Username {
     if (!USERNAME_REGEX.test(normalized)) {
       throw new ValidationError(
         "INVALID_USERNAME",
-        "Username must be between 3 and 50 characters and contain only lowercase letters, digits, dots, hyphens or underscores.",
+        "Username must be between 3 and 30 characters and contain only lowercase letters, digits, dots, hyphens or underscores.",
       );
     }
 

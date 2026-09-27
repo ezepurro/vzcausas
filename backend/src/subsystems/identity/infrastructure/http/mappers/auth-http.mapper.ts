@@ -13,8 +13,8 @@ import {
  *
  * Keeping this out of the controller means the HTTP handlers stay
  * three lines long and the contract's field names live in one file —
- * when C-09 or C-11 get resolved, the diff lands here and nowhere
- * else.
+ * when the shape of a response changes, the diff lands here and
+ * nowhere else.
  *
  * Never returns the refresh token: it travels exclusively in the
  * `HttpOnly` cookie (D-08) and must not reach JavaScript.
@@ -57,7 +57,7 @@ export class AuthHttpMapper {
       user: {
         id: result.user.id,
         username: result.user.username,
-        roleNames: [...result.user.roleNames],
+        roles: [...result.user.roleNames],
         lawyerId: result.user.lawyerId,
         permissions: [...result.user.permissions],
       },

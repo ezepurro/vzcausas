@@ -202,6 +202,10 @@ describe("AuthController", () => {
         refreshToken: "presented-token",
       });
       expect(body.data.user.permissions).toEqual(["user:manage", "case:read"]);
+      // Keyed `roles`, same as the login response and the users
+      // resource. Nothing pinned this before, so the refresh block
+      // could drift to a different name for the same data unnoticed.
+      expect(body.data.user.roles).toEqual(["ADMINISTRATOR"]);
       expect(res.cookieCalls[0].value).toBe("rotated-refresh");
       expect(res.clearCalls).toHaveLength(0);
     });

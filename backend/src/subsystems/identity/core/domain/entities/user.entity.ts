@@ -207,6 +207,44 @@ export class User {
     return previous;
   }
 
+  /**
+   * Full state of the aggregate, for a repository to write down.
+   *
+   * This is the one sanctioned way out for `passwordHash`, which has
+   * no getter on purpose: the hash must not be reachable from a
+   * response DTO, a log line or an error message, and the absence of a
+   * getter is what enforces that. A repository, however, cannot do its
+   * job without it.
+   *
+   * The name is deliberately unattractive. Anything calling
+   * `toPersistence()` outside an adapter that writes to a store is
+   * misusing it, and that reads as wrong at the call site — which is
+   * the whole point of not simply exposing a getter.
+   */
+  toPersistence(): {
+    readonly id: number;
+    readonly username: string;
+    readonly passwordHash: string;
+    readonly fullName: string;
+    readonly email: string;
+    readonly roleIds: readonly number[];
+    readonly lawyerId: number | null;
+    readonly lastLoginAt: Date | null;
+    readonly active: boolean;
+  } {
+    return {
+      id: this._id,
+      username: this._username.toString(),
+      passwordHash: this._passwordHash,
+      fullName: this._fullName,
+      email: this._email.toString(),
+      roleIds: this._roleIds,
+      lawyerId: this._lawyerId,
+      lastLoginAt: this._lastLoginAt,
+      active: this._active,
+    };
+  }
+
   get id(): number {
     return this._id;
   }

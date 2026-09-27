@@ -39,19 +39,20 @@ export type LoginResponseDto = {
 };
 
 /**
- * The `user` block of the refresh response — a reduced projection
- * (D-26): only the fields that can change between sessions and that
- * drive authorization. The stable ones are retained by the client
- * from the login response.
+ * The `user` block of the refresh response — a reduced projection:
+ * only the fields that can change between sessions and that drive
+ * authorization. The stable ones are retained by the client from the
+ * login response.
  *
- * Note the key is `roleNames` here and `roles` in
- * {@link LoginUserResponseDto}: that mirrors the contract as written
- * today, which is inconsistent between the two blocks (C-11).
+ * The role list is keyed `roles`, the same as in
+ * {@link LoginUserResponseDto} and in the `/users` resource. It was
+ * briefly `roleNames` here only, which meant the same data arrived
+ * under two names depending on which endpoint answered.
  */
 export type RefreshUserResponseDto = {
   id: number;
   username: string;
-  roleNames: string[];
+  roles: string[];
   lawyerId: number | null;
   permissions: string[];
 };
