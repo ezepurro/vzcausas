@@ -32,12 +32,12 @@ shared/
 │   └── queryClient.ts
 ├── components/
 │   ├── index.ts              barrel: reexporta ui + forms
-│   ├── ui/                   13 componentes + index.ts
+│   ├── ui/                   14 componentes + index.ts
 │   ├── forms/                Field.tsx, FormModal.tsx + index.ts
 │   └── feedback/             VACÍA (sólo .gitkeep)
 ├── hooks/                    VACÍA (sólo .gitkeep)
-├── lib/                      VACÍA (sólo .gitkeep)
-├── mocks/                    API v1 simulada (ver su propio README)
+├── lib/                      dates.ts (formato del último ingreso)
+├── mocks/                    la API del contrato, simulada (ver su README)
 │   ├── contract.ts           tipos del contrato
 │   ├── fixtures.ts           datos semilla
 │   ├── responses.ts          una respuesta por cada código documentado
@@ -50,10 +50,11 @@ shared/
 └── types/                    VACÍA (sólo .gitkeep)
 ```
 
-Hoy **no existen** hooks, utilidades ni tipos de dominio compartidos. Si una
-feature necesita uno, es un archivo nuevo, no algo que haya que buscar.
+`hooks/`, `types/` y `components/feedback/` siguen vacías. Si una feature
+necesita algo de ahí, es un archivo nuevo, no algo que haya que buscar. `lib/`
+dejó de estarlo: tiene `dates.ts`.
 
-`mocks/` sí existe: implementa `docs/api contract v1.md` sobre **MSW**, que
+`mocks/` implementa `docs/Api-Contract/API_CONTRACT_V2.md` sobre **MSW**, que
 intercepta la red de verdad (los pedidos se ven en la pestaña Network). Se
 enciende con `await startMocks()` de `@/shared/mocks/browser`. **Leer
 `mocks/README.md` antes de escribir una llamada a la API**: ahí están las
@@ -75,8 +76,9 @@ import { ApiError, isApiError } from '@/shared/api/ApiError';
 
 - `components/ui/index.ts` y `components/forms/index.ts` son los barrels reales;
   `components/index.ts` sólo hace `export * from './ui'` y `'./forms'`.
-- **`api/` no tiene barrel**: se importa archivo por archivo.
-- El código existente (`AppLayout`, `AuthLayout`) importa desde
+- **`api/` y `lib/` no tienen barrel**: se importan archivo por archivo
+  (`@/shared/lib/dates`).
+- El código existente (`AppLayout`, `UsersPage`, `LawyersPage`…) importa desde
   `@/shared/components/ui`. Seguir ese patrón.
 
 ---
@@ -91,6 +93,7 @@ import { ApiError, isApiError } from '@/shared/api/ApiError';
 | `PageHeader` | Component | `components/ui/PageHeader.tsx` | Título de pantalla + acciones |
 | `Panel` | Component | `components/ui/Panel.tsx` | Tarjeta con cabecera/pie |
 | `DataTable` | Component | `components/ui/DataTable.tsx` | Tabla de datos |
+| `Pagination` | Component | `components/ui/Pagination.tsx` | Paginado del pie de un panel |
 | `Tabs` | Component | `components/ui/Tabs.tsx` | Pestañas |
 | `Button` | Component | `components/ui/Button.tsx` | Acciones |
 | `IconButton` | Component | `components/ui/IconButton.tsx` | Acción sólo icono (40px) |
@@ -106,7 +109,11 @@ import { ApiError, isApiError } from '@/shared/api/ApiError';
 | `ApiError` / `isApiError` | Class + guard | `api/ApiError.ts` | Errores normalizados: `status`, `code`, `details` |
 | `ERROR_CODES` / `ErrorCode` | Const + type | `api/contract.ts` | Códigos de error del contrato |
 | `queryClient` | QueryClient | `api/queryClient.ts` | Config de react-query |
+| `setRenewHandler` / `setUnauthenticatedHandler` | Funciones | `api/http.ts` | Los enchufa `AuthProvider`: cómo renovar y qué hacer al quedar afuera |
+| `TOKEN_KEY` | Const | `api/http.ts` | Clave del token en `localStorage`: `'vz.token'` |
+| `formatLastLogin` | Función | `lib/dates.ts` | `Hoy 08:12`, `Ayer 18:20` o `08/09/2026` |
 | `startMocks` | Función | `mocks/browser.ts` | Enciende la API simulada (async) |
+| `configureMocks` | Función | `mocks/browser.ts` · `mocks/server.ts` | Demora, logs y passthrough del mock |
 | `server` | SetupServer | `mocks/server.ts` | Los mismos handlers para tests en Node |
 | `resolveRequest` | Función | `mocks/handlers.ts` | Servidor falso puro, sin MSW |
 | `RESPONSES` / `ERRORS` | Const | `mocks/responses.ts` | Fixtures por endpoint y código |
@@ -127,6 +134,8 @@ import { ApiError, isApiError } from '@/shared/api/ApiError';
 | Campo dentro de un form propio | `Field` + `TextInput`/`Select`/`Textarea`/`Checkbox` | |
 | Agrupar campos | `FormSection` | Dentro de `.vz-form-grid` |
 | Filtros sobre una tabla | `Panel actions={...}` | Se renderiza en `.vz-filters` |
+| Paginar una tabla | `Pagination` | Va en `Panel footer={...}` |
+| Mostrar un último ingreso | `formatLastLogin` de `@/shared/lib/dates` | Para que la fecha no se formatee distinto en cada feature |
 | Buscador | `SearchInput` | Pensado para la topbar |
 | Iconos | `Icon name="..."` | Sólo los nombres de `ICONS` |
 | Estado vacío de tabla | `DataTable empty={...}` con clases `.vz-empty` | **No hay componente**, ver Observaciones |
@@ -208,6 +217,35 @@ monoespaciada: SAC, fechas, importes), `nowrap?`, `actions?` (alinea a la derech
 pantalla antes de pasar `rows`. Si no se pasa `empty`, con 0 filas dibuja la
 tabla vacía igual.
 
+### Pagination
+
+**Path:** `components/ui/Pagination.tsx`
+**Props:** `page`, `totalPages`, `totalItems`, `noun: [singular, plural]`,
+`onChange(page)`.
+**Notas:** va en el `footer` del `Panel` que envuelve la tabla, no adentro de la
+tabla. Presentacional como el resto: no sabe cuántas páginas hay de verdad ni
+pide datos, sólo avisa a qué página quiere ir el usuario; el estado y el
+refetch son de la pantalla. El `noun` va como par y no derivado con una `s`
+porque el castellano no siempre pluraliza así. Con `totalItems` en 0 muestra
+"Sin resultados".
+
+```tsx
+<Panel
+  title="Usuarios"
+  footer={
+    <Pagination
+      page={pagination?.page ?? 1}
+      totalPages={pagination?.totalPages ?? 1}
+      totalItems={pagination?.totalItems ?? 0}
+      noun={['usuario', 'usuarios']}
+      onChange={setPage}
+    />
+  }
+>
+  <DataTable … />
+</Panel>
+```
+
 ### Button
 
 **Path:** `components/ui/Button.tsx` — extiende `ButtonHTMLAttributes`.
@@ -228,7 +266,7 @@ y el `title`), más los atributos de `<button>`. Cuadrado de 40px.
 **Props:** `name: IconName`, `size?` (default 17), `className?`.
 **Nombres disponibles:** `home`, `cases`, `deadlines`, `clients`, `templates`,
 `users`, `lawyers`, `timeLimits`, `reports`, `search`, `notifications`,
-`password`, `logout`, `plus`, `alert`, `download`, `back`.
+`password`, `logout`, `plus`, `alert`, `download`, `back`, `forward`.
 **Notas:** el color sale de `currentColor`. Si falta un icono, se agrega un path a
 `ICONS` (viewBox 24×24, trazo 1.7) — no crear otro componente de icono.
 
@@ -257,9 +295,13 @@ props extra; renderiza icono + `<input type="search">`. No debounce, no busca.
 **Path:** `components/ui/Modal.tsx`
 **Props:** `title`, `sub?`, `width?: 'sm' | 'md' | 'lg'` (default `md`), `footer?`
 (la botonera), `onClose()`, `children`.
-**Notas:** cierra al hacer click en el fondo. El comentario de la prop menciona
-Escape, pero **no hay handler de teclado** (ver Observaciones). No tiene foco
-atrapado ni portal: se renderiza donde se lo monte.
+**Notas:** cierra con **Escape** y con click en el fondo, pero sólo si el gesto
+*empezó* ahí: si no, seleccionar texto adentro del formulario y soltar el botón
+afuera cerraría el modal con todo lo escrito. **Atrapa el foco**: al abrir lo
+lleva a la tarjeta, el tabulador da vueltas adentro (en los dos sentidos) y al
+cerrar lo devuelve a donde estaba. Es `role="dialog"` con `aria-modal` y
+`aria-labelledby` apuntando al título. Lo que no tiene es portal: se renderiza
+donde se lo monte.
 
 ### Logo / RailUser
 
@@ -307,7 +349,8 @@ FormModal
 `width?: 'half' | 'full'`, `required?`, `mono?`, `placeholder?`, `note?`,
 `error?` (mensaje de error **del campo**; lo decide la pantalla, igual que en
 `Field`: oculta la `note` y pinta el control en rojo),
-`options?: string[]`, `when?: (values) => boolean` (campo condicional).
+`options?: SelectOption[]` (ver `Select`: cadena suelta o par valor/etiqueta),
+`when?: (values) => boolean` (campo condicional).
 
 **`FormValues` = `Record<string, string | boolean>`** — sólo texto y booleanos.
 Fechas y números se manejan como string.
@@ -340,8 +383,11 @@ es el modo "confirmar baja". El `children` se agrega debajo de los campos.
   `width?: 'half' | 'full'` (default `full` = ocupa las 2 columnas), `htmlFor?`, `children`.
   Con `error` oculta la `note` y pinta el control en rojo.
 - `TextInput` — props de `<input>` + `mono?`.
-- `Select` — props de `<select>` + `options: string[]`. **Las opciones son strings
-  planos: el value es el mismo texto**, no hay `{ value, label }`.
+- `Select` — props de `<select>` + `options: SelectOption[]`, con
+  `SelectOption = string | { value: string; label: string }`. Una cadena suelta
+  es el caso en que el valor y la etiqueta son lo mismo; el par separa el código
+  que viaja del texto que se lee —`CRIMINAL` en la API, "Penal" en pantalla—,
+  igual que `Tabs` separa `id` de `label`.
 - `Textarea` — props de `<textarea>`.
 - `Checkbox` — props de `<input>` + `label: ReactNode`. Se dibuja como tarjeta clicable.
 - `FormSection` — prop `label`. Separador de sección; ocupa las 2 columnas.
@@ -356,20 +402,57 @@ es el modo "confirmar baja". El `children` se agrega debajo de los campos.
 `baseURL = import.meta.env.VITE_API_URL ?? '/api'`, `timeout` 15 s,
 `Content-Type: application/json`.
 
+- **Interceptor de request:** agrega `Authorization: Bearer <token>`. El token
+  sale de `localStorage`, de la clave `TOKEN_KEY` (`'vz.token'`), que este
+  archivo exporta para que tenga un solo dueño: quien lo **escribe** es
+  `features/auth/utils/sessionStorage.ts`; acá sólo se lee.
 - **Interceptor de respuesta:** todo error sale convertido en `ApiError`. Un `catch`
   nunca ve un `AxiosError`.
-- **Interceptor de request:** agrega `Authorization: Bearer <token>`, pero
-  `getToken()` hoy devuelve `null` a propósito (no hay login todavía).
-- **Parseo del error:** lee la forma que fija el contrato (§4.2),
+- **Parseo del error:** lee la forma que fija el contrato (§5.2),
   `{ error: { code, message, details } }`, más el `{ statusCode, error, message }`
   del `401` de `/auth/login`, que es la única excepción. Queda una red de
   seguridad para un `message` suelto en la raíz; **no es un formato soportado**:
   si aparece, hay que corregir el backend.
 
+#### Renovación de la sesión
+
+El interceptor de respuesta hace algo más que normalizar el error: cuando llega
+un `401` con el código **`UNAUTHENTICATED`** —"tu token no sirve"— intenta
+renovar la sesión y reintenta el pedido. Se compara el *código* y no el `401`
+pelado a propósito: `INVALID_CREDENTIALS` también es 401, pero significa "te
+equivocaste al entrar", y no tiene que disparar nada; si no, cada intento
+fallido de login trataría de renovar una sesión que no existe.
+
+`shared/api` no sabe cómo se renueva ni qué significa quedarse afuera. Eso lo
+enchufa `AuthProvider` al montarse, con dos funciones que este archivo exporta:
+
+| Export | Qué es |
+| --- | --- |
+| `setRenewHandler(fn)` | Cómo renovar. `fn` devuelve `true` si consiguió un token nuevo |
+| `setUnauthenticatedHandler(fn)` | Qué hacer cuando ya no hay forma de seguir: cerrar la sesión |
+| `TOKEN_KEY` | La clave del token en `localStorage` |
+
+Tres detalles que conviene conocer antes de tocar esto:
+
+- **Se renueva una sola vez aunque fallen cinco pedidos a la vez.** Si una
+  pantalla dispara cinco y los cinco vuelven con el token vencido, los cinco
+  esperan la misma renovación. No es un lujo: el backend rota el token de
+  renovación en cada uso y, si le llega uno ya usado, da la sesión por robada y
+  la revoca entera.
+- **`/auth/refresh` y `/auth/logout` no se renuevan.** El primero *es* la
+  renovación, y renovarla giraría para siempre; en el segundo la persona se
+  está yendo, y gastar la última renovación para después cerrar la sesión no
+  tiene sentido.
+- **Un pedido se reintenta una vez y no más.** Si vuelve a fallar, se llama al
+  handler de "sin sesión" y el error se propaga igual.
+
+Desde una feature no hay que hacer nada de esto: se llama a `http` y, si la
+sesión se puede salvar, se salva sola.
+
 ### contract
 
 **Path:** `api/contract.ts` — la forma de los errores según el contrato.
-Exporta `ERROR_CODES` / `ErrorCode` (los 14 códigos documentados),
+Exporta `ERROR_CODES` / `ErrorCode` (los 22 códigos documentados),
 `isErrorCode()`, `ErrorBody` y `LoginErrorBody`.
 Vive en `api/` y no en `mocks/` porque es contrato de producción; los mocks
 lo reexportan desde acá.
@@ -439,8 +522,13 @@ las clases `vz-*` existentes o agregando reglas al archivo que corresponda.
 | `base.css` | Reset, tipografía, `.vz-mono`, `.vz-eyebrow`, `.vz-muted`, `.vz-sr-only` |
 | `shell.css` | `.vz-app`, `.vz-rail*`, `.vz-topbar`, `.vz-search*`, `.vz-iconbtn`, `.vz-notice*`, `.vz-page-head*` |
 | `controls.css` | `.vz-btn*`, `.vz-field`, `.vz-input/select/textarea`, `.vz-check`, `.vz-form-grid`, `.vz-form-sep*` |
-| `table.css` | `.vz-panel*`, `.vz-table*`, `.vz-filters` |
+| `table.css` | `.vz-panel*`, `.vz-table*`, `.vz-filters`, `.vz-pager*` |
 | `feedback.css` | `.vz-pill*`, `.vz-dot`, `.vz-tabs`, `.vz-modal*`, `.vz-empty*` |
+| `login.css` | `.vz-login*`: lo propio de la pantalla de login |
+
+`index.css` es el punto de entrada: importa la tipografía y después los siete
+archivos, con `tokens.css` primero porque todo el resto depende de sus
+variables.
 
 ### Tokens principales (`tokens.css`)
 
@@ -475,15 +563,17 @@ las clases `vz-*` existentes o agregando reglas al archivo que corresponda.
 ### Pública (exportada por los barrels)
 
 `AppShell`, `Button`, `DataTable`, `Icon`, `ICONS`, `IconButton`, `Logo`, `Modal`,
-`PageHeader`, `Panel`, `Pill`, `RailUser`, `SearchInput`, `Tabs`, `Field`,
-`TextInput`, `Select`, `Textarea`, `Checkbox`, `FormSection`, `FormModal`.
+`PageHeader`, `Pagination`, `Panel`, `Pill`, `RailUser`, `SearchInput`, `Tabs`,
+`Field`, `TextInput`, `Select`, `Textarea`, `Checkbox`, `FormSection`, `FormModal`.
 
 Tipos: `AppShellProps`, `RailGroup`, `RailItem`, `ButtonProps`, `Column`,
 `DataTableProps`, `IconProps`, `IconName`, `IconButtonProps`, `ModalProps`,
-`PageHeaderProps`, `PanelProps`, `PillProps`, `PillTone`, `RailUserProps`,
-`TabsProps`, `FieldProps`, `FieldSpec`, `FormModalProps`, `FieldType`, `FormValues`.
+`PageHeaderProps`, `PaginationProps`, `PanelProps`, `PillProps`, `PillTone`,
+`RailUserProps`, `TabsProps`, `FieldProps`, `SelectOption`, `FieldSpec`,
+`FormModalProps`, `FieldType`, `FormValues`.
 
-`api/` es público también, pero se importa por ruta directa (no hay barrel).
+`api/` y `lib/` son públicos también, pero se importan por ruta directa (no
+tienen barrel).
 
 ### Interno / no exportado
 
@@ -500,10 +590,14 @@ Tipos: `AppShellProps`, `RailGroup`, `RailItem`, `ButtonProps`, `Column`,
 
 | Recurso | Dónde está | Para qué |
 | --- | --- | --- |
-| `useToast()` / `ToastProvider` | `@/app/providers/ToastContext.ts`, `ToastProvider.tsx` | Avisos: `show('success' \| 'error' \| 'info', mensaje)` |
+| `useToast()` / `ToastProvider` | `@/app/providers/ToastContext.ts`, `ToastProvider.tsx` | Avisos. Devuelve la función directo: `toast('success' \| 'error' \| 'info', mensaje)` |
+| `useAuth()` / `useCurrentUser()` | `@/app/providers/AuthContext.ts` | La sesión: `session`, `signIn`, `signOut(motivo)`, `leftOnPurpose`. `useCurrentUser()` es el atajo para las pantallas que viven detrás de la guarda, donde siempre hay alguien adentro |
+| `AuthProvider` | `@/app/providers/AuthProvider.tsx` | Monta la sesión y le enchufa a `http` cómo renovar y qué hacer al quedar afuera |
 | `QueryProvider` | `@/app/providers/QueryProvider.tsx` | Monta `queryClient` + devtools |
-| `AppLayout` / `AuthLayout` | `@/app/layouts/` | Marco con y sin sesión |
+| `AppLayout` / `AuthLayout` / `NotFoundLayout` | `@/app/layouts/` | Marco con sesión, sin sesión y para las rutas desconocidas |
+| `RequireSession` / `RedirectIfSession` | `@/app/router/` | Las guardas: sin sesión al login, con sesión fuera del login |
 | `router` | `@/app/router/index.tsx` | Rutas; las pantallas nuevas se registran acá |
+| Envoltorios de respuesta | `@/api-contract/envelopes.ts` | `ApiItem`, `ApiList`, `Pagination`, `PaginatedQuery` |
 | Estilos `vz-*` | `@/styles/` | Ver sección anterior |
 
 ---
@@ -516,31 +610,24 @@ Puramente informativo; nada de esto está resuelto ni debe corregirse al paso.
   `.vz-notice`, y aunque el toast ya esté implementado en `app/providers/`. Candidatos
   a extraer si se repiten: `EmptyState` (hoy cada `DataTable.empty` lo escribe a mano)
   y `Notice`.
-- **`Modal` documenta cierre con Escape pero no lo implementa** (`ModalProps.onClose`
-  dice "click en el fondo o Escape"; sólo hay `onClick` en el backdrop). Tampoco
-  atrapa el foco.
 - **`Logo` exporta `LogoProps` pero el barrel no**, a diferencia del resto de los
   componentes. Export inconsistente.
 - **`SearchInput` no tiene interfaz de props propia** ni tipo exportado, a diferencia
   del resto.
-- **`react-hook-form` está en `package.json` pero no se usa en ningún lado.**
-  `FormModal` maneja los valores de forma controlada (`values` + `onChange`). Definir
-  si los formularios nuevos van con react-hook-form o con el patrón actual antes de
-  mezclar los dos.
+- **Los formularios son una decisión pendiente.** `react-hook-form` está en
+  `package.json` y no lo usa nadie; `zod` ni siquiera está instalado. Hoy
+  `FormModal` maneja los valores de forma controlada (`values` + `onChange`) y
+  la validación son funciones puras en el `schemas/` de cada feature. Definir
+  con qué van los formularios nuevos **antes** de mezclar los dos patrones.
 - **`FormValues` sólo admite `string | boolean`.** Un formulario con multi-select,
   fechas como `Date` o números tipados no entra en `FormModal` sin cambiarlo.
-- **`api/` no tiene barrel** mientras que `components/` sí. Imports asimétricos.
-- **`AuthLayout` usa estilos inline** (con tokens) porque el CSS del login todavía no
-  está extraído a `src/styles/`.
-- **`getToken()` en `http.ts` devuelve `null` fijo**: cuando exista el login hay que
-  conectarlo, si no ningún request va autenticado. Mientras tanto, contra los mocks
-  hay que mandar el header `Authorization` a mano o todo responde `401`.
-- **El `422` y el `400` ya no comparten getter.** `isValidation` pasó a ser sólo
-  400 y apareció `isBusinessRule` para 422, siguiendo la separación del contrato.
-  No había consumidores al momento del cambio, pero conviene saberlo.
-- **`npm run build` hoy falla por imports sin usar** (fuera de shared):
-  `RouterProvider` en `app/router/index.tsx`, y `QueryProvider` / `ToastProvider` en
-  `main.tsx`. `noUnusedLocals` está activo.
+- **`api/` y `lib/` no tienen barrel** mientras que `components/` sí. Imports
+  asimétricos.
+- **El `422` y el `400` no comparten getter.** `isValidation` es sólo 400 y
+  `isBusinessRule` es 422, siguiendo la separación del contrato.
+- **`src/app/router/SectionPlaceholder.tsx` quedó huérfano** (fuera de shared):
+  no lo importa nadie desde que las secciones sin pantalla caen en
+  `NotFoundLayout`.
 - No se detectaron componentes duplicados ni solapados dentro de `shared`.
 
 ---
@@ -570,10 +657,10 @@ Puramente informativo; nada de esto está resuelto ni debe corregirse al paso.
    más `e.code` para ramificar y `e.details` para marcar campos.
 8. **Avisos al usuario:** `useToast()` de `@/app/providers/ToastContext`, no un
    componente propio.
-9. **Antes de crear algo en `shared/hooks`, `lib` o `types`:** están vacías a
-   propósito. Si algo lo usa una sola feature, va en `src/features/<feature>/`;
-   sólo subir a `shared` cuando lo compartan dos o más. (`mocks/` es la
-   excepción: ya está poblada, porque el contrato de API es uno solo para todas
-   las features.)
+9. **Antes de crear algo en `shared/hooks`, `lib` o `types`:** `hooks/` y
+   `types/` están vacías a propósito, y `lib/` tiene un solo archivo. Si algo lo
+   usa una sola feature, va en `src/features/<feature>/`; sólo sube a `shared`
+   cuando lo compartan dos o más. (`mocks/` es la excepción: ya está poblada,
+   porque el contrato de API es uno solo para todas las features.)
 10. **Si un componente de `shared` casi sirve, extenderlo antes de duplicarlo** (una
     prop opcional nueva, una variante más), y actualizar este README con el cambio.

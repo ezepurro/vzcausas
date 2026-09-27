@@ -9,9 +9,12 @@ Si tenés una duda del tipo "¿este test dónde va?", saltá a
 [Dónde pongo este test](#6-dónde-pongo-este-test).
 
 > **Estado actual:** todo instalado y funcionando. Están escritos los tests de
-> `auth`, `lawyers`, `legal-params` y `users`: 278 de Vitest y 14 de
-> Playwright. Primera vez en tu máquina: `npm install` y
-> `npx playwright install chromium` (descarga el navegador de los E2E).
+> `auth`, `lawyers`, `legal-params`, `users`, las guardas del router y el
+> `Modal` de `shared`: **297 de Vitest** en 35 archivos y **15 de Playwright**
+> en 4. Los números son de la última corrida; los de hoy te los dice `npm test`.
+> Primera vez en tu máquina: `npm install` y `npx playwright install chromium`,
+> que descarga el navegador de los E2E. Ese segundo paso hay que repetirlo cada
+> vez que se actualiza Playwright (ver [§9](#9-problemas-comunes)).
 
 ---
 
@@ -89,7 +92,9 @@ navegación entre pantallas, todo junto.
 
 `tests/` vive en `frontend/`, al lado de `src/`. Adentro de cada nivel se
 **repiten los nombres de las features de `src/features/`**, así cada uno sabe
-cuál es su carpeta.
+cuál es su carpeta. Hay dos carpetas que no son una feature y siguen la misma
+idea: `components/app/`, para las guardas del router, y `components/shared/`,
+para los componentes de `src/shared/` que tienen comportamiento propio.
 
 ```
 frontend/
@@ -106,7 +111,8 @@ frontend/
 │   │   └── users/
 │   │
 │   ├── components/                       Vitest + RTL + MSW
-│   │   ├── app/                          guards del router
+│   │   ├── app/                          guardas del router
+│   │   ├── shared/                       componentes de src/shared/
 │   │   ├── auth/
 │   │   ├── lawyers/
 │   │   ├── legal-params/
@@ -131,7 +137,9 @@ rompe el build**.
 Las features que todavía no tienen código (`cases`, `clients`, `dashboard`,
 `deadlines`, `documents`, `proceedings`) **no tienen carpeta en `tests/`**. Se
 crea cuando alguien empieza a programar la feature (ver
-[sección 7](#7-cuando-arrancás-una-feature-nueva)).
+[sección 7](#7-cuando-arrancás-una-feature-nueva)). `home` sí tiene código y
+tampoco tiene carpeta: su `HomePage` es presentación pura, ver
+[§3.2](#32-lo-que-no-se-testea-a-propósito).
 
 ### 3.1 El detalle por feature
 
@@ -166,10 +174,13 @@ tests/
 │   ├── app/
 │   │   ├── RequireSession.test.tsx         sin sesión → redirige al login
 │   │   └── RedirectIfSession.test.tsx      con sesión → no deja ver el login
+│   ├── shared/
+│   │   └── Modal.test.tsx                  Escape, foco atrapado, click en el fondo
 │   ├── auth/
 │   │   ├── LoginForm.test.tsx
 │   │   ├── LoginPage.test.tsx
-│   │   └── ChangePasswordModal.test.tsx
+│   │   ├── ChangePasswordModal.test.tsx
+│   │   └── tokenRenewal.test.tsx           renovación del token y sesión vencida
 │   ├── lawyers/
 │   │   ├── LawyerFormModal.test.tsx
 │   │   ├── LawyersTable.test.tsx
@@ -204,6 +215,13 @@ tests/
 
 Si alguno de estos empieza a tener lógica (un hook que transforma datos, un
 layout que decide qué mostrar según el rol), pasa a tener test.
+
+**La excepción a lo de `api/`** es `tests/components/auth/tokenRenewal.test.tsx`.
+Lo que prueba ahí no es la llamada de una feature sino el interceptor de
+`src/shared/api/http.ts`: que un `401 UNAUTHENTICATED` renueve la sesión, que
+reintente el pedido una sola vez y que, si no lo logra, mande al login. Es el
+mecanismo que sostiene a todas las features y ninguna pantalla lo cubre de
+casualidad, así que tiene test propio.
 
 ---
 
@@ -334,6 +352,13 @@ Tres cosas para notar:
 | `children` | Rutas hijas, para marcos y guardas con `<Outlet />` | ver `tests/components/app/` |
 | `state` | `location.state` de la entrada inicial | `{ state: { from: '/usuarios' } }` |
 
+`tests/setup/render.tsx` exporta también **`signInAs(username)`**, que es lo que
+`as` usa por dentro: emite un token en la base del mock y lo guarda donde lo
+busca la aplicación, igual que después de un login de verdad. Sirve cuando hace
+falta la sesión abierta pero no querés renderizar todavía. Hay que llamarla
+**antes** de renderizar, porque `AuthProvider` lee la sesión guardada en el
+primer render.
+
 Las pantallas de administración piden un administrador: casi todos los tests
 de páginas usan `as: 'fvazquez'`. Para probar el estado de error, el camino
 más simple es entrar con alguien sin permiso (`as: 'mrios'`): el mock responde
@@ -451,8 +476,8 @@ test no lo ve el siguiente.
 Si un E2E encuentra un bug que no se arregla en ese momento, no se borra ni se
 deja fallando: se marca con `test.fail()` y un comentario que explique el bug.
 La suite queda en verde, y el día que se arregle, Playwright avisa que el test
-"pasó inesperadamente" para que se saque la marca. Hay un ejemplo en
-`e2e/auth.spec.ts`.
+"pasó inesperadamente" para que se saque la marca. Hoy no hay ningún test
+marcado así.
 
 ---
 
@@ -466,6 +491,7 @@ La suite queda en verde, y el día que se arregle, Playwright avisa que el test
 | Que un modal llame a la API y cierre | `tests/components/<feature>/` | Vitest + RTL + MSW |
 | Que una página muestre la lista, el vacío o el error | `tests/components/<feature>/` | Vitest + RTL + MSW |
 | Que una ruta protegida redirija | `tests/components/app/` | Vitest + RTL |
+| El comportamiento propio de un componente de `shared/` | `tests/components/shared/` | Vitest + RTL |
 | Un flujo que pasa por varias pantallas | `tests/e2e/<feature>.spec.ts` | Playwright |
 | Algo que se repite en muchos E2E (login) | `tests/e2e/fixtures/` | Playwright |
 
@@ -551,6 +577,13 @@ perfil".
 **"Un E2E me devuelve al login sin razón"**
 Casi seguro hubo un `page.goto()` o un `reload()` después del login. Ver
 [No recargues la página después del login](#no-recargues-la-página-después-del-login).
+
+**"Todos los E2E fallan de golpe con `browserType.launch: Executable doesn't exist`"**
+No es que se rompió nada: falta el navegador. Pasa la primera vez en una máquina
+nueva y, sobre todo, **cada vez que se actualiza Playwright**, porque cada
+versión trae su propio build de Chromium. Se arregla con `npx playwright install
+chromium`. Mientras falte, los 15 tests fallan antes de arrancar, así que el
+error se reconoce porque fallan *todos* y ninguno llega a abrir una pantalla.
 
 **"El E2E anda en mi máquina y falla en la de otro"**
 Casi siempre es un `waitForTimeout` o un selector por clase CSS. Usá

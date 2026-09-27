@@ -19,11 +19,18 @@ Lo acordado en el Sprint 0:
 | Empaquetador | Vite |
 | Ruteo | React Router |
 | Datos del servidor | TanStack Query |
-| Formularios | React Controlled Forms|
-| Validación | Zod |
+| Formularios | Formularios controlados de React (`values` + `onChange`) |
+| Validación | Funciones puras propias, una por formulario |
 | Estilos | CSS propio con variables (tokens) |
 
-El backend es aparte (Node + Express + Prisma + Postgres) y se consume por HTTP.
+El backend es aparte (Node + NestJS + Prisma + Postgres) y se consume por HTTP.
+
+**Sobre la validación: no hay librería.** Cada formulario tiene en su carpeta
+`schemas/` una función pura que recibe los valores y devuelve un objeto con un
+mensaje por campo con problema (`validateLogin`, `validateUser`…). `zod` **no
+está instalado**, y `react-hook-form` figura en `package.json` pero no lo usa
+nadie. Las dos son una decisión pendiente del equipo: hasta que se tome,
+formularios controlados y validación a mano, sin mezclar los dos patrones.
 
 ---
 
@@ -31,8 +38,8 @@ El backend es aparte (Node + Express + Prisma + Postgres) y se consume por HTTP.
 
 ```
 frontend/
-├── docs/                 este documento y lo que se escriba sobre el front
-├── public/               archivos que se sirven tal cual (favicon, imágenes fijas)
+├── public/               archivos que se sirven tal cual (favicon, worker de MSW)
+├── tests/                los tests; espeja los nombres de features/ (ver TESTING.md)
 └── src/
     ├── app/              el armado de la aplicación
     │   ├── router/       las rutas y los permisos de acceso
@@ -40,6 +47,7 @@ frontend/
     │   └── providers/    lo que envuelve a toda la app (sesión, datos, avisos)
     ├── features/         un módulo por área funcional del sistema
     │   ├── auth/
+    │   ├── home/
     │   ├── users/
     │   ├── clients/
     │   ├── lawyers/
@@ -59,8 +67,8 @@ frontend/
     │   ├── lib/          utilidades sueltas (fechas, textos, clases CSS)
     │   ├── mocks/        datos y servidor simulado para desarrollar sin backend
     │   └── types/        tipos que usan varios módulos
-    ├── domain/           las reglas del negocio jurídico, sin React
-    ├── api-contract/     cómo se habla con el backend
+    ├── domain/           las reglas del negocio jurídico, sin React (hoy vacía)
+    ├── api-contract/     cómo se habla con el backend (envoltorios y paginación)
     └── styles/           los tokens y la hoja de estilos
 ```
 
@@ -93,13 +101,19 @@ Esto tiene tres ventajas concretas:
 Acá vive el andamiaje: lo que existe una sola vez y envuelve a todo lo demás. **No va
 lógica de negocio.**
 
-- **`router/`**: el mapa de rutas. Qué URL muestra qué pantalla. También las guardas:
-  la que manda al login si no hay sesión y la que controla, según el perfil del
-  usuario, si puede entrar a una pantalla.
-- **`layouts/`**: los marcos de pantalla. Uno con la barra de navegación y el
-  encabezado, para el sistema ya logueado, y otro sin nada, para el login.
-- **`providers/`**: lo que tiene que estar disponible en toda la app: la sesión del
-  usuario, el cliente de TanStack Query y el sistema de avisos (toasts).
+- **`router/`**: el mapa de rutas (`index.tsx`). Qué URL muestra qué pantalla.
+  También las guardas: `RequireSession` manda al login a quien no tiene sesión y
+  se acuerda de dónde estaba; `RedirectIfSession` rebota a Inicio a quien ya
+  entró. Las secciones del rail que todavía no tienen pantalla caen en la ruta
+  comodín.
+- **`layouts/`**: los marcos de pantalla. `AppLayout` —rail, barra superior y
+  contenido— para el sistema ya logueado; `AuthLayout` para el login, que hoy no
+  dibuja nada porque esa pantalla arma su propia composición; y `NotFoundLayout`
+  para las rutas desconocidas.
+- **`providers/`**: lo que tiene que estar disponible en toda la app:
+  `AuthProvider` (la sesión, que se lee con `useAuth` y `useCurrentUser`),
+  `QueryProvider` (el cliente de TanStack Query) y `ToastProvider` (los avisos,
+  que se disparan con `useToast`).
 
 ### `src/features/` — un módulo por área funcional
 
@@ -111,18 +125,24 @@ carpetas**:
 | `api/` | Llamadas al backend y los hooks de TanStack Query que las usan | `useCases.ts`, `cases.api.ts` |
 | `components/` | Componentes que sólo usa este módulo | `CasesTable.tsx`, `CaseForm.tsx` |
 | `pages/` | Las pantallas completas, las que el router monta | `CasesPage.tsx`, `CaseDetailPage.tsx` |
-| `schemas/` | Validación con Zod de los formularios del módulo | `case.schema.ts` |
+| `schemas/` | La validación de los formularios del módulo, como funciones puras | `case.schema.ts` |
 | `types/` | Los tipos de este módulo | `case.ts` |
 | `utils/` | Funciones auxiliares del módulo | `caseStatusTone.ts` |
 
-Si una de esas carpetas queda vacía, se deja igual: la estructura tiene que ser
-predecible.
+Si una de esas carpetas queda vacía, se deja igual, con un `.gitkeep`: la
+estructura tiene que ser predecible.
+
+**Hay un séptimo archivo, y es opcional: `index.ts` en la raíz del módulo.** Es
+la cara pública del módulo y sólo lo tiene el que necesita que otro lo use; ver
+la regla 1 en [§5](#5-las-tres-reglas-que-sostienen-todo). Hoy lo tiene
+`lawyers/` y nadie más. Si no hace falta, no se crea.
 
 **Los módulos y qué cubre cada uno:**
 
 | Módulo | Qué hace |
 |---|---|
-| `auth/` | Iniciar y cerrar sesión, cambiar contraseña |
+| `auth/` | Iniciar y cerrar sesión, renovar la sesión, cambiar contraseña |
+| `home/` | La pantalla de entrada, a la que se llega después del login (`/inicio`) |
 | `users/` | Alta, baja, consulta y permisos de los usuarios del sistema |
 | `clients/` | Los clientes del estudio |
 | `lawyers/` | Los abogados del staff |
@@ -131,7 +151,11 @@ predecible.
 | `proceedings/` | Actos procesales y actos interruptivos de cada causa |
 | `deadlines/` | Vencimientos, prescripción y alertas |
 | `documents/` | Documentos de cada causa y los modelos formales del estudio |
-| `dashboard/` | La pantalla de inicio accionable y los reportes |
+| `dashboard/` | El tablero de control accionable y los reportes |
+
+De los once, hoy tienen código `auth/`, `home/`, `users/`, `lawyers/` y
+`legal-params/`. Los demás están creados con sus seis carpetas vacías, para que
+el día que arranquen no haya que discutir dónde van.
 
 ### `src/shared/` — lo reutilizable
 
@@ -148,19 +172,24 @@ módulo.**
 - **`components/feedback/`**: avisos, mensajes de error, estados de carga y de lista
   vacía.
 - **`hooks/`**: hooks reutilizables, por ejemplo uno de búsqueda con demora o uno que
-  guarda algo en el navegador.
+  guarda algo en el navegador. Hoy está vacía.
 - **`lib/`**: funciones sueltas sin estado: formatear fechas, armar clases de CSS,
-  formatear números.
+  formatear números. Hoy tiene `dates.ts`, que formatea el último ingreso.
 - **`mocks/`**: datos de mentira y un servidor simulado, para poder desarrollar
   pantallas antes de que el backend esté listo.
-- **`types/`**: tipos que cruzan módulos, como el perfil del usuario o la forma de una
-  respuesta paginada.
+- **`types/`**: tipos que cruzan módulos, como el perfil del usuario. Hoy está
+  vacía: la forma de las respuestas paginadas no vive acá sino en
+  `api-contract/`, porque es contrato y no un tipo nuestro.
 
 ### `src/domain/` — las reglas del negocio
 
 Acá van las reglas jurídicas del sistema, escritas como funciones y tipos **sin React
 adentro**: nada de componentes, hooks ni llamadas HTTP. Entra sola y se puede probar
 sin levantar la interfaz.
+
+**Hoy está vacía**, porque las épicas que la van a poblar —plazos, vencimientos
+y prescripción— todavía no se programaron. Lo que sigue describe para qué está
+reservada.
 
 Es la carpeta que en este proyecto pesa más que en un ABM común, porque el negocio
 tiene reglas de verdad:
@@ -181,6 +210,12 @@ La forma de lo que viaja entre el front y el back: qué manda cada endpoint y qu
 devuelve. Sirve como única fuente de verdad cuando el backend cambia algo, y evita que
 cada módulo invente su propia versión de lo mismo.
 
+Hoy tiene `envelopes.ts`, con los envoltorios que el contrato pone alrededor de
+toda respuesta exitosa: `ApiItem`, `ApiList`, `Pagination` y `PaginatedQuery`.
+La capa `api/` de cada módulo los desenvuelve y entrega los datos pelados, así
+el envoltorio no se propaga a las pantallas. La fuente es
+`docs/Api-Contract/API_CONTRACT_V2.md`.
+
 ### `src/styles/` — los estilos
 
 La hoja de estilos global y los tokens: colores, tipografías, espaciados, bordes y
@@ -189,11 +224,25 @@ color de la marca es tocar un solo lugar.
 
 ### `public/` — archivos servidos tal cual
 
-El favicon, el logo y cualquier archivo que se sirva sin pasar por el empaquetador.
+El favicon y cualquier archivo que se sirva sin pasar por el empaquetador. Ahí
+vive también `mockServiceWorker.js`, el worker que MSW necesita para interceptar
+la red en el navegador; lo genera la propia librería y no se edita a mano.
 
-### `docs/` — documentación del front
+### Dónde está esta documentación
 
-Este documento y lo que se vaya escribiendo sobre decisiones del frontend.
+No vive adentro de `frontend/`. Los tres documentos del front están en
+`docs/Frontend-Architecture/`, en la raíz del repositorio, al lado de los del
+backend y del contrato de API:
+
+| Documento | De qué habla |
+|---|---|
+| `ESTRUCTURA.md` | Este: el mapa de `src/` y las reglas entre carpetas |
+| `SHARED.md` | Todo lo de `src/shared/`: componentes, `http`, `ApiError`, estilos |
+| `TESTING.md` | Con qué se testea, qué se testea y dónde va cada test |
+
+Hay dos más pegados al código que explican, y por eso viven adentro de
+`frontend/`: `CLAUDE.md` (cómo se trabaja adentro de un módulo) y
+`src/shared/mocks/README.md` (la API simulada y sus divergencias del contrato).
 
 ---
 
@@ -201,8 +250,19 @@ Este documento y lo que se vaya escribiendo sobre decisiones del frontend.
 
 Si se respetan estas tres, la estructura se mantiene sola con el tiempo:
 
-1. **Un módulo no importa de otro módulo.** `cases/` no importa nada de `clients/`. Si
-   dos módulos necesitan lo mismo, eso se muda a `shared/` o a `domain/`.
+1. **Un módulo no importa las entrañas de otro módulo.** `cases/` no puede
+   escribir `@/features/clients/api/clients.api`. Si dos módulos necesitan la
+   misma lógica o el mismo componente, eso se muda a `shared/` o a `domain/`.
+
+   **La excepción:** cuando un módulo necesita *el dato* de otro y no su lógica.
+   El usuario se vincula a la ficha de un abogado, y más adelante la causa
+   también. En ese caso el módulo dueño del dato publica un `index.ts` en su
+   raíz con lo mínimo indispensable, y el otro importa **sólo eso**:
+   `@/features/lawyers`, nunca `@/features/lawyers/api/...`. Lo que no está en
+   ese `index.ts` es asunto interno y puede cambiar sin avisar. Hoy pasa en un
+   solo lugar —`UsersPage` usa `useLawyers`— y la alternativa era que cada
+   módulo se escribiera su propio `GET /lawyers`, con el mismo endpoint
+   mantenido en cuatro lados.
 2. **`shared/` no sabe que los módulos existen.** Es de una sola mano: los módulos usan
    `shared/`, nunca al revés. Un componente de `shared/ui` no puede saber qué es una
    causa.
@@ -228,6 +288,9 @@ equivocado.
 | Formatear una fecha para mostrarla | `shared/lib/` |
 | El tipo de una causa | `features/cases/types/` |
 | El tipo del perfil del usuario, que usan varios | `shared/types/` |
+| El envoltorio de una respuesta del backend | `api-contract/` |
+| Algo de tu módulo que otro módulo va a necesitar | el `index.ts` del módulo |
+| Un test de cualquiera de estas cosas | `tests/`, ver `TESTING.md` |
 | Una ruta nueva | `app/router/` |
 | Un color o un espaciado nuevo | `styles/` |
 
@@ -239,7 +302,12 @@ equivocado.
 2. Definí los tipos en `types/` y las validaciones en `schemas/`.
 3. Escribí las llamadas al backend en `api/`, con sus hooks de TanStack Query.
 4. Armá la pantalla en `pages/` y lo que necesite en `components/`.
-5. Registrá la ruta en `app/router/`, con la guarda de perfil si corresponde.
+5. Registrá la ruta en `app/router/`, con la guarda si corresponde, y el ítem en
+   el rail de `app/layouts/AppLayout.tsx` si la sección todavía no está.
+6. Si otro módulo va a necesitar algo de éste, publicá **eso solo** en un
+   `index.ts` en la raíz del módulo (ver la regla 1 de §5).
+7. Creá sus carpetas en `tests/unit/` y `tests/components/`, como explica
+   `TESTING.md` §7.
 
 Si mientras lo hacés necesitás un componente que ya existe en otro módulo, no lo
 copies: mudalo a `shared/components/` y que los dos lo usen de ahí.
@@ -286,3 +354,8 @@ código y al revés:
 | EP-06 Plazos, alertas y vencimientos | `features/deadlines/` + reglas en `domain/` |
 | EP-07 Documentación e integración cloud | `features/documents/` |
 | EP-08 Tablero de control y reportes | `features/dashboard/` |
+
+`features/home/` es el único módulo que no sale de una épica: es la pantalla de
+entrada, la que recibe apenas se inicia sesión y desde la que se navega al
+resto. Le guarda el lugar y la ruta al tablero de EP-08, que cuando se programe
+va a vivir en `dashboard/` y mostrarse ahí.
