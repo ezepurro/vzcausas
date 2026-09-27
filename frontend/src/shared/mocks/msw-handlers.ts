@@ -17,7 +17,7 @@
 
 import { delay, http, passthrough, HttpResponse, type RequestHandler } from 'msw';
 import { BASE_PATH, errorBody } from './contract';
-import { resolveRequest, type HttpMethod, type MockRequest } from './handlers';
+import { resolveRequest, ROUTE_TABLE, type HttpMethod, type MockRequest } from './handlers';
 
 /* ------------------------------------------------------------------ */
 /* Configuración                                                       */
@@ -193,40 +193,25 @@ async function resolver({ request }: { request: Request }) {
 /* ------------------------------------------------------------------ */
 
 /**
- * Los endpoints que el mock intercepta.
+ * Los endpoints que el mock intercepta, derivados de la tabla de rutas de
+ * `handlers.ts`.
  *
- * El método y la ruta se declaran acá sólo para que MSW sepa qué
- * interceptar; quién responde qué lo decide `resolveRequest`. Lo que no
- * esté en esta lista no se toca (`onUnhandledRequest: 'bypass'`), así que
- * el HMR de Vite, las fuentes y los assets siguen andando.
+ * **Son la misma lista a propósito.** Antes esto era un arreglo escrito a
+ * mano que tenía que coincidir con `ROUTES`, con un comentario advirtiendo
+ * que si se desincronizaban el pedido salía a la red sin ningún error
+ * visible. La advertencia no alcanzó: faltaba `POST /auth/refresh`, así que
+ * la renovación del token nunca se simuló ni en dev ni en los E2E. Ahora la
+ * ruta se declara una sola vez, al lado de su handler.
  *
- * Los tres últimos son PROPUESTA de este equipo: el contrato v1 sólo define
- * el GET de `/procedural-states`. Ver el README.
- */
-const ENDPOINTS = [
-    { method: 'post', path: '/auth/login' },
-    { method: 'post', path: '/auth/logout' },
-    { method: 'patch', path: '/auth/password' },
-    { method: 'post', path: '/users' },
-    { method: 'get', path: '/users' },
-    { method: 'get', path: '/users/:userId' },
-    { method: 'patch', path: '/users/:userId' },
-    { method: 'delete', path: '/users/:userId' },
-    { method: 'post', path: '/lawyers' },
-    { method: 'get', path: '/procedural-states' },
-    { method: 'post', path: '/procedural-states' },
-    { method: 'patch', path: '/procedural-states/:proceduralStateId' },
-    { method: 'delete', path: '/procedural-states/:proceduralStateId' },
-] as const;
-
-
-/**
+ * Lo que no esté en la tabla no se toca (`onUnhandledRequest: 'bypass'`), así
+ * que el HMR de Vite, las fuentes y los assets siguen andando.
+ *
  * `*` al principio hace que el patrón matchee cualquier origen y cualquier
  * prefijo, así el mismo handler sirve para `/users`, `/api/users` y
  * `/api/v1/users` sin registrar una variante por cada uno.
  */
-export const handlers: RequestHandler[] = ENDPOINTS.map(({ method, path }) =>
-    http[method](`*${path}`, resolver),
+export const handlers: RequestHandler[] = ROUTE_TABLE.map(({ method, path }) =>
+    http[method.toLowerCase() as Lowercase<HttpMethod>](`*${path}`, resolver),
 );
 
 /** `true` si el `.env` pide mocks (`VITE_USE_MOCKS=true`). */

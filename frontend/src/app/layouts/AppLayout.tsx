@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router'
 import {
     AppShell,
@@ -7,6 +8,12 @@ import {
     SearchInput,
     type RailGroup,
 } from '@/shared/components/ui'
+import { isApiError } from '@/shared/api/ApiError'
+import { useAuth, useCurrentUser } from '@/app/providers/AuthContext'
+import { useToast } from '@/app/providers/ToastContext'
+import { useLogout } from '@/features/auth/api/useLogout'
+import { profileLabel } from '@/features/auth/utils/profileLabel'
+import { ChangePasswordModal } from '@/features/auth/components/ChangePasswordModal'
 
 /**
  * Marco de la aplicación con sesión iniciada: rail oscuro a la izquierda,
@@ -51,15 +58,18 @@ const GROUPS: RailGroup[] = [
     },
 ]
 
-/**
- * Usuario de prueba hasta que exista el inicio de sesión (HU 1).
- * Cuando esté, el nombre y el perfil salen de la sesión y esto se borra.
- */
-const PLACEHOLDER_USER = { name: 'Fernando G. Vázquez', profile: 'Administrador' }
-
 export function AppLayout() {
     const navigate = useNavigate()
     const { pathname } = useLocation()
+    const toast = useToast()
+
+    /* Este marco vive detrás de la guarda de sesión, así que siempre hay
+       alguien adentro: el nombre y el perfil salen de ahí. */
+    const user = useCurrentUser()
+    const { signOut } = useAuth()
+    const logout = useLogout()
+
+    const [changingPassword, setChangingPassword] = useState(false)
 
     /* El ítem activo es aquel cuya ruta es la actual o el comienzo de la
        actual: estando en /usuarios/8 tiene que quedar marcado Usuarios. */
@@ -68,7 +78,35 @@ export function AppLayout() {
             .map((it) => it.id)
             .find((route) => pathname === route || pathname.startsWith(`${route}/`)) ?? ''
 
+    /**
+     * Cerrar sesión.
+     *
+     * La sesión local se cierra pase lo que pase: la persona pidió salir y
+     * dejarla adentro por un error de red sería peor. La redirección al login
+     * la hace sola la guarda, apenas la sesión queda en nulo.
+     *
+     * El motivo `'user'` importa: le dice a la guarda que **no** anote esta
+     * pantalla, así el próximo que inicie sesión arranca en Inicio y no acá.
+     */
+    function handleLogout() {
+        if (logout.isPending) return
+
+        logout.mutate(undefined, {
+            onSettled: () => signOut('user'),
+            onError: (error) => {
+                /* Un 401 quiere decir que el token ya estaba muerto: no hay
+                   nada que avisar. Un error de red o del servidor sí importa,
+                   porque la sesión puede haber quedado abierta del otro lado. */
+                if (isApiError(error) && !error.isAuth) {
+                    toast('error', error.message)
+                }
+            },
+        })
+    }
+
     return (
+        <>
+
         <AppShell
             groups={GROUPS}
             active={active}
@@ -84,16 +122,19 @@ export function AppLayout() {
             }
             railFooter={
                 <RailUser
-                    name={PLACEHOLDER_USER.name}
-                    profile={PLACEHOLDER_USER.profile}
-                    // Las dos acciones son de la épica de sesión (HU 2 y HU 3).
-                    // Por ahora sólo la salida tiene a dónde ir.
-                    onChangePassword={() => {}}
-                    onLogout={() => navigate('/login')}
+                    name={user.fullName}
+                    profile={profileLabel(user.roles)}
+                    onChangePassword={() => setChangingPassword(true)}
+                    onLogout={handleLogout}
                 />
             }
         >
             <Outlet />
         </AppShell>
+
+        {changingPassword && (
+            <ChangePasswordModal onClose={() => setChangingPassword(false)} />
+        )}
+        </>
     )
 }

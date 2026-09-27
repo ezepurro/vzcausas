@@ -145,6 +145,7 @@ que la matrícula la pide el rol `LAWYER` y no el administrativo.
 | Método | Ruta | Códigos que puede devolver |
 | --- | --- | --- |
 | `POST` | `/auth/login` | 200, 400, 401 |
+| `POST` | `/auth/refresh` | 200, 401 · **fuera del contrato**, ver abajo |
 | `POST` | `/auth/logout` | 204, 401 |
 | `PATCH` | `/auth/password` | 204, 400, 401, 422 |
 | `POST` | `/users` | 201, 400, 401, 403, 409, 422 |
@@ -181,6 +182,51 @@ se normaliza sacando `/api`, `/v1` y `/api/v1`, así que el mock responde igual
 a `/users`, `/v1/users` o `/api/v1/users`. Contra el backend real eso **no**
 va a ser así: hay que elegir una forma.
 
+### `POST /auth/refresh`, el que todavía no está en el contrato
+
+El equipo de backend lo está implementando y confirmó la forma de la
+respuesta; el contrato no lo publica todavía. Está acá porque sin él no se
+puede ejercer la renovación del token, que es lo más delicado del frontend.
+**Cuando se publique, hay que revisar que coincida.**
+
+Devuelve `{ data: { accessToken, tokenType, expiresIn, user } }`, donde ese
+`user` **no es el del login**: trae `roleNames` en vez de `roles`, `lawyerId`
+suelto en vez de la ficha, agrega `permissions`, y no trae `fullName`,
+`email`, `lastLoginAt` ni `active`. Es el contenido del token, no el recurso
+usuario. El frontend conserva el usuario que guardó al iniciar sesión.
+
+**Dos libertades que se toma el mock**, las dos anotadas en el código:
+
+1. **La credencial.** En el backend real la renovación se autoriza con una
+   cookie `httpOnly`, que un service worker no puede emitir. Acá se usa el
+   token de acceso vencido como sustituto. No cambia nada de lo que el
+   frontend tiene que resolver.
+2. **El vencimiento.** El mock no mide el tiempo. Se provoca a mano.
+
+**Cómo probar la renovación**, desde la consola del navegador con la sesión
+abierta:
+
+```js
+const { expireIssuedTokens } = await import('/src/shared/mocks/index.ts')
+expireIssuedTokens()
+```
+
+A partir de ahí, el siguiente pedido de cualquier pantalla responde `401` y
+el frontend renueva solo: en la pestaña de red se ve el pedido fallido, el
+`POST /auth/refresh` y el pedido original reintentado. El usuario no se entera.
+
+Para probar el camino contrario —la renovación también falló, hay que volver
+a entrar— vencé los tokens y además revocá la sesión:
+
+```js
+const { expireIssuedTokens, db } = await import('/src/shared/mocks/index.ts')
+expireIssuedTokens()
+db.sessions.clear()
+```
+
+El token rota en cada renovación, igual que en el backend real: el viejo deja
+de servir en el acto.
+
 ### Cómo disparar cada error
 
 | Código | Cómo |
@@ -190,7 +236,8 @@ va a ser así: hay que elegir una forma.
 | `400` ruta | `GET /users/abc`, `DELETE /procedural-states/abc` |
 | `400` query | `?role=NOPE`, `?jurisdiction=NOPE` |
 | `401` credenciales | `POST /auth/login` con contraseña incorrecta, o con un usuario dado de baja → `INVALID_CREDENTIALS` |
-| `401` sesión | sin header `Authorization`, o token revocado por un logout → `UNAUTHENTICATED` |
+| `401` sesión | sin header `Authorization`, token revocado por un logout, o token vencido con `expireIssuedTokens()` → `UNAUTHENTICATED` |
+| `401` renovación | `POST /auth/refresh` con la sesión ya revocada (`db.sessions.clear()`) → `UNAUTHENTICATED` |
 | `403` | token de `mrios` o de `gestion`: leer también exige `ADMINISTRATOR` |
 | `404` | `GET /users/999`; también `GET /users/22`, que existe pero está dado de baja |
 | `409` | crear un usuario con `username: "fvazquez"` o con un email ya usado; crear un abogado con `1-28114`; dar de baja el usuario 3, 4 o 5; dar de baja un abogado con usuario vinculado; crear un estado procesal con un nombre que ya existe en ese fuero; dar de baja el estado 4, 14 o 21 |
@@ -207,8 +254,8 @@ va a ser así: hay que elegir una forma.
 | `fixtures.ts` | Datos semilla de sólo lectura, sacados del prototipo: usuarios, abogados, estados procesales y credenciales. También el tipo `StoredUser`, que es cómo la base guarda un usuario. |
 | `responses.ts` | Una respuesta de ejemplo por cada código documentado, en `RESPONSES.<endpoint>.<case>`, más los mensajes de error compartidos en `ERRORS`. |
 | `db.ts` | Base en memoria (copia mutable de las semillas), tokens de sesión, `resetMockDb()` y `toUser()`, que arma el `lawyer` embebido al serializar. |
-| `handlers.ts` | **El servidor falso**: `resolveRequest(request)` → `{ status, body }`. Toda la lógica del contrato vive acá, y no sabe de MSW ni de axios. |
-| `msw-handlers.ts` | La capa MSW: normaliza la url, aplica `passthrough`, latencia y fallos forzados, y convierte el resultado en `HttpResponse`. Sin lógica de negocio. |
+| `handlers.ts` | **El servidor falso**: `resolveRequest(request)` → `{ status, body }`. Toda la lógica del contrato vive acá, y no sabe de MSW ni de axios. Su tabla `ROUTES` es la única lista de endpoints; `ROUTE_TABLE` es lo que exporta para la capa de transporte. |
+| `msw-handlers.ts` | La capa MSW: normaliza la url, aplica `passthrough`, latencia y fallos forzados, y convierte el resultado en `HttpResponse`. Sin lógica de negocio. Sus interceptores salen de `ROUTE_TABLE`. |
 | `browser.ts` | `startMocks()` / `stopMocks()` — service worker. Sólo navegador. |
 | `server.ts` | `server` de `msw/node` — tests. Sólo Node. |
 | `index.ts` | Barrel de lo que sirve en cualquier entorno. **No** reexporta `browser.ts` ni `server.ts`, porque cada uno arrastra su plataforma. |
@@ -216,6 +263,19 @@ va a ser así: hay que elegir una forma.
 La separación entre `handlers.ts` y `msw-handlers.ts` es deliberada: si algún
 día MSW deja de convenir, se reescribe la capa fina y el contrato queda como
 está.
+
+### Agregar un endpoint
+
+**Se toca un solo archivo: `handlers.ts`.** Se escribe el handler y se suma su
+entrada a `ROUTES`, con `path` (la ruta en notación MSW, `:param` incluido) y
+`pattern` (la expresión regular con la que se resuelve). `msw-handlers.ts`
+deriva sus interceptores de ahí y no hay nada más que sincronizar.
+
+> Antes eran dos listas, una en cada archivo, con un comentario advirtiendo
+> que tenían que coincidir. No alcanzó: faltaba `POST /auth/refresh`, así que
+> la renovación del token no se interceptaba, salía por el proxy de Vite y
+> nunca se simuló ni en dev ni en los E2E. Si volvés a separar las listas,
+> volvés a abrir esa puerta.
 
 ---
 

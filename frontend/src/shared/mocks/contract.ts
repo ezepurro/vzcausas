@@ -315,3 +315,50 @@ export function buildPagination(totalItems: number, page: number, limit: number)
 export function principalRole(roles: Role[]): Role | null {
     return ROLE_PRECEDENCE.find((role) => roles.includes(role)) ?? null;
 }
+
+/* ------------------------------------------------------------------ */
+/* Renovación del token                                                */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Lo que viaja adentro del token de acceso.
+ *
+ * Ojo: **no es el mismo objeto que el `user` del login**, aunque el backend
+ * lo devuelva con ese nombre. Los roles se llaman `roleNames`, el abogado es
+ * un id suelto, aparecen los permisos y faltan el nombre completo, el correo,
+ * el último acceso y el estado de alta.
+ */
+export interface SessionPrincipal {
+    id: number;
+    username: string;
+    roleNames: Role[];
+    lawyerId: number | null;
+    permissions: string[];
+}
+
+/** Respuesta de `POST /auth/refresh`. Todavía no está en el contrato. */
+export interface RefreshedSession {
+    accessToken: string;
+    tokenType: 'Bearer';
+    expiresIn: number;
+    user: SessionPrincipal;
+}
+
+/**
+ * Permisos por rol.
+ *
+ * Es una aproximación del mock: el contrato no publica el catálogo de
+ * permisos y ninguna pantalla los usa todavía. Están para que la forma de la
+ * respuesta sea la correcta, no para decidir nada.
+ */
+const PERMISSIONS_BY_ROLE: Record<Role, string[]> = {
+    ADMINISTRATOR: ['user:manage', 'lawyer:manage', 'procedural-state:manage', 'case:read'],
+    LAWYER: ['case:read', 'case:change-status'],
+    SECRETARY: ['case:read'],
+};
+
+/** Los permisos de un usuario, sin repetidos y en orden estable. */
+export function permissionsFor(roles: Role[]): string[] {
+    const all = roles.flatMap((role) => PERMISSIONS_BY_ROLE[role] ?? []);
+    return [...new Set(all)].sort();
+}

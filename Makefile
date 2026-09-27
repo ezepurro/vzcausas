@@ -21,7 +21,7 @@ export
 .PHONY: help \
         dev-up dev-build dev-down dev-down-v dev-logs ps clean \
         backend-restart backend-logs backend-shell backend-build \
-        migrate-deploy migrate-dev migrate-create seed \
+        migrate seed test-int \
         frontend-restart frontend-logs frontend-shell frontend-build \
         shell-db
 
@@ -76,12 +76,16 @@ migrate-deploy: ## Runs pending Prisma migrations without prompts (dev)
 
 migrate-dev: ## Runs Prisma migrations inside the backend container (dev)
 	$(DC_DEV) exec backend npm run prisma:migrate-dev
-
+	$(DC_DEV) exec backend npm run prisma:generate
+	
 migrate-create: ## Create Prisma migration inside the backend container (dev)
 	$(DC_DEV) exec backend npx prisma migrate dev --create-only --name $(name)
 
 seed: ## Runs Prisma seed inside the backend container (dev)
 	$(DC_DEV) exec backend npx prisma db seed
+
+test-int: ## Runs backend integration tests inside the backend container (dev)
+	$(DC_DEV) exec backend npm run test:int
 
 # ---- Frontend Scoped ------------------------------------------------------
 

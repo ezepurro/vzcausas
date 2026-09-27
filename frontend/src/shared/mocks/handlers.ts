@@ -48,6 +48,8 @@ import {
     type Lawyer,
     type ProceduralState,
     type Role,
+    permissionsFor,
+    type RefreshedSession,
     type Session,
 } from './contract';
 import {
@@ -56,6 +58,7 @@ import {
     revokeToken,
     revokeUserSessions,
     toUser,
+    userForRenewal,
     userFromToken,
 } from './db';
 import {
@@ -324,6 +327,45 @@ const login: Handler = ({ request }) => {
         user: { ...toUser(user), lastLoginAt: previousLogin },
     };
     return ok(itemBody(session));
+};
+
+/**
+ * Renovación del token de acceso.
+ *
+ * **No está en el contrato**: lo está implementando el equipo de backend y la
+ * forma de la respuesta la confirmaron ellos. Cuando se publique, revisar que
+ * coincida.
+ *
+ * Dos cosas para tener presentes, porque el frontend depende de las dos:
+ *
+ * 1. **El token de acceso rota.** El viejo deja de servir en el acto. Si
+ *    llegaran dos renovaciones en paralelo con el mismo token, la segunda
+ *    encontraría un token revocado; el backend real, además, da por robada la
+ *    sesión y la cierra entera.
+ * 2. **El `user` de la respuesta no es el del login.** Trae lo que viaja
+ *    adentro del token —roles, abogado y permisos— y no el nombre ni el
+ *    correo. El frontend conserva el usuario del login.
+ */
+const refresh: Handler = ({ request }) => {
+    const user = userForRenewal(request.token);
+    if (!user) return fail(401, ERRORS.unauthenticatedAuth);
+
+    // Rotación: el token vencido se da de baja y se emite uno nuevo.
+    revokeToken(request.token as string);
+
+    const renewed: RefreshedSession = {
+        accessToken: issueToken(user.id),
+        tokenType: 'Bearer',
+        expiresIn: EXPIRES_IN,
+        user: {
+            id: user.id,
+            username: user.username,
+            roleNames: [...user.roles],
+            lawyerId: user.lawyerId,
+            permissions: permissionsFor(user.roles),
+        },
+    };
+    return ok(itemBody(renewed));
 };
 
 const logout: Handler = ({ request }) => {
@@ -1027,32 +1069,44 @@ const deleteProceduralState: Handler = ({ request, params }) => {
 
 interface Route {
     method: HttpMethod;
+    /**
+     * La ruta en la notación de MSW, con `:param` donde `pattern` tiene un
+     * grupo. Es lo único que mira la capa de transporte para decidir qué
+     * interceptar; quién responde qué lo sigue decidiendo `pattern`.
+     *
+     * Vive acá y no en `msw-handlers.ts` porque antes eran dos listas
+     * sincronizadas a mano y se desincronizaron: faltaba `POST /auth/refresh`,
+     * así que la renovación del token nunca se interceptaba y el pedido salía
+     * a la red. Con la ruta declarada una sola vez eso no puede repetirse.
+     */
+    path: string;
     pattern: RegExp;
     handler: Handler;
 }
 
 const ROUTES: Route[] = [
-    { method: 'POST', pattern: /^\/auth\/login$/, handler: login },
-    { method: 'POST', pattern: /^\/auth\/logout$/, handler: logout },
-    { method: 'PATCH', pattern: /^\/auth\/password$/, handler: changePassword },
+    { method: 'POST', path: '/auth/login', pattern: /^\/auth\/login$/, handler: login },
+    { method: 'POST', path: '/auth/refresh', pattern: /^\/auth\/refresh$/, handler: refresh },
+    { method: 'POST', path: '/auth/logout', pattern: /^\/auth\/logout$/, handler: logout },
+    { method: 'PATCH', path: '/auth/password', pattern: /^\/auth\/password$/, handler: changePassword },
 
-    { method: 'POST', pattern: /^\/users$/, handler: createUser },
-    { method: 'GET', pattern: /^\/users$/, handler: listUsers },
-    { method: 'GET', pattern: /^\/users\/(?<userId>[^/]+)$/, handler: getUser },
-    { method: 'PATCH', pattern: /^\/users\/(?<userId>[^/]+)$/, handler: updateUser },
-    { method: 'DELETE', pattern: /^\/users\/(?<userId>[^/]+)$/, handler: deleteUser },
+    { method: 'POST', path: '/users', pattern: /^\/users$/, handler: createUser },
+    { method: 'GET', path: '/users', pattern: /^\/users$/, handler: listUsers },
+    { method: 'GET', path: '/users/:userId', pattern: /^\/users\/(?<userId>[^/]+)$/, handler: getUser },
+    { method: 'PATCH', path: '/users/:userId', pattern: /^\/users\/(?<userId>[^/]+)$/, handler: updateUser },
+    { method: 'DELETE', path: '/users/:userId', pattern: /^\/users\/(?<userId>[^/]+)$/, handler: deleteUser },
 
-    { method: 'POST', pattern: /^\/lawyers$/, handler: createLawyer },
-    { method: 'GET', pattern: /^\/lawyers$/, handler: listLawyers },
-    { method: 'GET', pattern: /^\/lawyers\/(?<lawyerId>[^/]+)$/, handler: getLawyer },
-    { method: 'PATCH', pattern: /^\/lawyers\/(?<lawyerId>[^/]+)$/, handler: updateLawyer },
-    { method: 'DELETE', pattern: /^\/lawyers\/(?<lawyerId>[^/]+)$/, handler: deleteLawyer },
+    { method: 'POST', path: '/lawyers', pattern: /^\/lawyers$/, handler: createLawyer },
+    { method: 'GET', path: '/lawyers', pattern: /^\/lawyers$/, handler: listLawyers },
+    { method: 'GET', path: '/lawyers/:lawyerId', pattern: /^\/lawyers\/(?<lawyerId>[^/]+)$/, handler: getLawyer },
+    { method: 'PATCH', path: '/lawyers/:lawyerId', pattern: /^\/lawyers\/(?<lawyerId>[^/]+)$/, handler: updateLawyer },
+    { method: 'DELETE', path: '/lawyers/:lawyerId', pattern: /^\/lawyers\/(?<lawyerId>[^/]+)$/, handler: deleteLawyer },
 
-    { method: 'POST', pattern: /^\/procedural-states$/, handler: createProceduralState },
-    { method: 'GET', pattern: /^\/procedural-states$/, handler: listProceduralStates },
-    { method: 'GET', pattern: /^\/procedural-states\/(?<stateId>[^/]+)$/, handler: getProceduralState },
-    { method: 'PATCH', pattern: /^\/procedural-states\/(?<stateId>[^/]+)$/, handler: updateProceduralState },
-    { method: 'DELETE', pattern: /^\/procedural-states\/(?<stateId>[^/]+)$/, handler: deleteProceduralState },
+    { method: 'POST', path: '/procedural-states', pattern: /^\/procedural-states$/, handler: createProceduralState },
+    { method: 'GET', path: '/procedural-states', pattern: /^\/procedural-states$/, handler: listProceduralStates },
+    { method: 'GET', path: '/procedural-states/:stateId', pattern: /^\/procedural-states\/(?<stateId>[^/]+)$/, handler: getProceduralState },
+    { method: 'PATCH', path: '/procedural-states/:stateId', pattern: /^\/procedural-states\/(?<stateId>[^/]+)$/, handler: updateProceduralState },
+    { method: 'DELETE', path: '/procedural-states/:stateId', pattern: /^\/procedural-states\/(?<stateId>[^/]+)$/, handler: deleteProceduralState },
 ];
 
 /**
@@ -1076,5 +1130,16 @@ export function resolveRequest(request: MockRequest): MockResponse {
     );
 }
 
+/**
+ * El método y la ruta de cada endpoint implementado, sin los handlers.
+ *
+ * Es lo que consume `msw-handlers.ts` para registrar los interceptores. Se
+ * expone sólo esto y no `ROUTES` entera porque la capa de transporte no tiene
+ * nada que hacer con `pattern` ni con `handler`.
+ */
+export const ROUTE_TABLE: readonly { method: HttpMethod; path: string }[] = ROUTES.map(
+    ({ method, path }) => ({ method, path }),
+);
+
 /** Las rutas implementadas, para documentación o para un panel de debug. */
-export const IMPLEMENTED_ENDPOINTS = ROUTES.map((r) => `${r.method} ${r.pattern.source}`);
+export const IMPLEMENTED_ENDPOINTS = ROUTE_TABLE.map((r) => `${r.method} ${r.path}`);

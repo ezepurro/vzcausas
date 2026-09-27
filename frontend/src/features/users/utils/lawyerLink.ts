@@ -1,8 +1,11 @@
 /**
  * La regla del vínculo con la ficha profesional, en un solo lugar.
- *  Si los roles incluyen `LAWYER` o`ADMINISTRATOR` hay que 
- *  mandar ficha —`lawyerId` o `lawyer`—, y si el rol
- * es únicamente `SECRETARY` no hay que mandar ninguna de las dos.
+ *
+ * Si los roles incluyen `LAWYER` hay que mandar ficha —`lawyerId` o
+ * `lawyer`—; si no, no hay que mandar ninguna de las dos. El contrato lo dice
+ * así: "un usuario con rol `ADMINISTRATOR` o `SECRETARY` que no ejerce no
+ * posee matrícula". O sea que `ADMINISTRATOR` **no** pide ficha por sí solo;
+ * quien es administrador y abogado a la vez la pide por lo segundo.
  *
  * La usan el schema (para no gastar un viaje al servidor) y el formulario
  * (para mostrar u ocultar los campos).

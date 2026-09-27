@@ -85,6 +85,9 @@
 .vz-filters { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 .vz-filters .vz-input,
 .vz-filters .vz-select { height: 36px; width: auto; min-width: 180px; font-size: 13px; }
+/* En la cabecera del panel el buscador no tiene de dónde crecer y quedaba en
+   su mínimo, cortando el placeholder. */
+.vz-filters .vz-search { min-width: 280px; }
 
 /* Paginado: va en el pie del panel, que ya trae borde y color apagado. */
 .vz-pager {

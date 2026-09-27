@@ -127,7 +127,13 @@ export function UserFormModal({
             label: 'Abogado',
             type: 'select',
             required: true,
-            options: lawyerOptions,
+            /* La opción vacía primero, y no las fichas peladas. Sin ella, el
+               valor inicial `''` no coincide con ninguna opción y el navegador
+               selecciona la primera: en pantalla se ve un abogado elegido
+               mientras el valor real sigue vacío, y al confirmar salta "este
+               perfil necesita una ficha vinculada" sin que se entienda por
+               qué. Mismo patrón que `ROLE_FILTER` en `UsersPage`. */
+            options: [{ value: '', label: 'Seleccioná un abogado' }, ...lawyerOptions],
             error: errors.lawyerId,
             when: (v) => withLawyer() && !creatingLawyer(v),
         },
@@ -163,7 +169,6 @@ export function UserFormModal({
             okDisabled={saving}
             onConfirm={onConfirm}
             onCancel={onCancel}
-            {...errors.roleSecretary && <div className="vz-error">{errors.roleSecretary}</div>}
         />
     )
 }

@@ -1,4 +1,4 @@
-import axios from 'axios'
+import axios, { type InternalAxiosRequestConfig } from 'axios'
 import { ApiError } from './ApiError'
 
 /**
@@ -121,9 +121,103 @@ export const http = axios.create({
     timeout:15000,
     headers: {'Content-Type': 'application/json'}
 })
+/**
+ * Qué hacer cuando ya no hay forma de seguir con esta sesión.
+ *
+ * Lo registra el proveedor de sesión al montarse. `shared/api` no sabe qué
+ * significa cerrar sesión ni a dónde navegar después: sólo avisa.
+ */
+let onUnauthenticated: (() => void) | null = null
+
+export function setUnauthenticatedHandler(handler: (() => void) | null): void {
+    onUnauthenticated = handler
+}
+
+/**
+ * Cómo renovar el token de acceso. Devuelve `true` si lo consiguió.
+ *
+ * También lo registra el proveedor de sesión. Acá no se sabe qué endpoint
+ * hay que llamar ni dónde se guarda el token: eso es del módulo de
+ * autenticación. Lo que sí es de acá es *cuándo* hace falta renovar y cómo
+ * evitar hacerlo diez veces a la vez.
+ */
+let renewSession: (() => Promise<boolean>) | null = null
+
+export function setRenewHandler(handler: (() => Promise<boolean>) | null): void {
+    renewSession = handler
+}
+
+/**
+ * La renovación en curso, si hay una.
+ *
+ * Es lo que evita la tormenta: si una pantalla dispara cinco pedidos y los
+ * cinco vuelven con el token vencido, se renueva **una sola vez** y los otros
+ * cuatro esperan ese mismo resultado. No es un lujo: el backend rota el token
+ * de renovación en cada uso y, si le llega uno ya usado, da por robada la
+ * sesión y la revoca entera. Renovar de a cinco sería echarse solo.
+ */
+let renewalInFlight: Promise<boolean> | null = null
+
+function renewOnce(): Promise<boolean> {
+    if (renewalInFlight === null) {
+        renewalInFlight = (renewSession?.() ?? Promise.resolve(false)).finally(() => {
+            renewalInFlight = null
+        })
+    }
+    return renewalInFlight
+}
+
+/** Marca en el pedido para no reintentarlo más de una vez. */
+interface RetriableConfig extends InternalAxiosRequestConfig {
+    vzRetried?: boolean
+}
+
+/**
+ * Pedidos que no se renuevan ni se reintentan.
+ *
+ * - `/auth/refresh`: es la renovación misma; renovarla giraría para siempre.
+ * - `/auth/logout`: el usuario se está yendo. Renovar la sesión para después
+ *   cerrarla es gastar la única renovación que queda al pedo.
+ */
+const NON_RENEWABLE_PATHS = ['/auth/refresh', '/auth/logout']
+
 http.interceptors.response.use(
     response => response,
-    (error:unknown) => Promise.reject(toApiError(error))
+    async (error: unknown) => {
+        const apiError = toApiError(error)
+
+        /* Se compara el CÓDIGO y no el 401 pelado, porque hay dos errores
+           distintos con ese mismo estado: `UNAUTHENTICATED` es "tu token no
+           sirve", pero `INVALID_CREDENTIALS` es "te equivocaste al entrar", y
+           ese no tiene que disparar nada —si no, cada intento fallido de
+           login intentaría renovar una sesión que no existe—. */
+        if (!apiError.is('UNAUTHENTICATED')) {
+            return Promise.reject(apiError)
+        }
+
+        const config = axios.isAxiosError(error)
+            ? (error.config as RetriableConfig | undefined)
+            : undefined
+
+        /* Tres razones para no intentar renovar:
+           - no hay pedido que reintentar;
+           - el que falló no admite renovación (ver arriba);
+           - ya se reintentó una vez y volvió a fallar. */
+        const renewable =
+            config !== undefined &&
+            !NON_RENEWABLE_PATHS.some((path) => config.url?.includes(path)) &&
+            config.vzRetried !== true
+
+        if (renewable && (await renewOnce())) {
+            config.vzRetried = true
+            // El interceptor de pedido vuelve a correr y toma el token nuevo.
+            return http.request(config)
+        }
+
+        // No se pudo renovar: se acabó la sesión de verdad.
+        onUnauthenticated?.()
+        return Promise.reject(apiError)
+    }
 );
 http.interceptors.request.use(
     config => {
@@ -136,21 +230,18 @@ http.interceptors.request.use(
 );
 
 
-/**LA FUNCION OBTENER TOKEN HOY EN DIA DEVUELVE NULL, MAS ADELANTE VA A FUNCIONAR */
-//function getToken(): string | null {
-//    return null
-//}
-
-
 /**
- * Token de la sesión.
+ * Clave del token de sesión en el almacenamiento del navegador.
  *
- * PROVISORIO: lo lee de localStorage hasta que exista el login (HU 1).
- * Cuando la épica de sesión esté, el token sale de ahí y esta función se
- * conecta a esa fuente. La clave la comparte todo el front: no cambiarla
- * sin avisar.
+ * Se exporta para que tenga un solo dueño: quien escribe el token es
+ * `features/auth/utils/sessionStorage.ts`, y si la clave estuviera copiada en
+ * los dos lados, el día que cambie va a cambiar en uno solo.
+ *
+ * Acá se lee y nada más. La política de la sesión —cuándo se guarda, cuándo
+ * se borra, cuánto dura— es del módulo de autenticación: `shared/api` no
+ * tiene por qué saber que existe un login.
  */
-const TOKEN_KEY = 'vz.token'
+export const TOKEN_KEY = 'vz.token'
 
 function getToken(): string | null {
     return localStorage.getItem(TOKEN_KEY)
