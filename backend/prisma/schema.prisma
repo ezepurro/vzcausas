@@ -145,8 +145,6 @@ enum DayType {
   NONE
   BUSINESS
   CONSECUTIVE
-
-  @@map("day_type")
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -158,25 +156,4 @@ model Jurisdiction {
   name           String  @unique
   dayTypeDefault DayType @map("day_type_default")
   isActive       Boolean @default(true) @map("is_active")
-
-  proceduralStates ProceduralState[]
-
-  @@map("jurisdictions")
-}
-
-model ProceduralState {
-  stateId       Int      @id @default(autoincrement()) @map("state_id")
-  name          String   @unique
-  position      Int      @default(1)
-  timeLimitDays Int      @map("time_limit_days")
-  dayType       DayType? @map("day_type")
-  terminal      Boolean  @default(false)
-  isActive      Boolean  @default(true) @map("is_active")
-  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-
-  jurisdictionId Int          @map("jurisdiction_id")
-  jurisdiction   Jurisdiction @relation(fields: [jurisdictionId], references: [jurisdictionId], onDelete: Restrict)
-
-  @@index([jurisdictionId])
-  @@map("procedural_states")
 }
