@@ -28,6 +28,8 @@ import { DomainErrorFilter } from "./infrastructure/http/domain-error.filter";
 })
 export class SharedModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {
-    consumer.apply(CorrelationMiddleware).forRoutes("*");
+    // `{*path}` rather than the bare `*`: path-to-regexp v7 (used by
+    // Nest 11) requires a named wildcard and warns on the legacy form.
+    consumer.apply(CorrelationMiddleware).forRoutes("{*path}");
   }
 }

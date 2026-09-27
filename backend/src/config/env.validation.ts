@@ -1,6 +1,33 @@
+/**
+ * Startup check that every mandatory environment variable is present
+ * and non-empty.
+ *
+ * Written by hand instead of on top of a schema library: the adapters
+ * already validate the *format* of whatever each one owns, inside their
+ * own constructors — token lifetimes, secret length, hashing cost,
+ * cookie attribute coherence. What was missing was the *presence* of
+ * all of them at once, reported as a single readable failure instead of
+ * one variable at a time across four constructors. That is a few dozen
+ * lines, not a dependency.
+ *
+ * It sits next to the root module rather than in the shared kernel: the
+ * list below names variables owned by individual subsystems, and the
+ * kernel is what every subsystem depends on. The root module is the
+ * composition point, and the only place legitimately allowed to know
+ * the full inventory.
+ */
+
+/**
+ * Variables the application requires in order to serve a request.
+ *
+ * The development seed credentials are deliberately absent: they are
+ * optional by design, and the service reading them degrades to a
+ * warning when they are missing rather than blocking startup.
+ */
 const REQUIRED_VARS = [
   "NODE_ENV",
   "PORT",
+  "DATABASE_URL",
   "JWT_ACCESS_SECRET",
   "JWT_ACCESS_TTL",
   "JWT_REFRESH_TTL",
@@ -15,6 +42,15 @@ const REQUIRED_VARS = [
 
 const KNOWN_ENVIRONMENTS = ["development", "test", "production"] as const;
 
+/**
+ * Hook for the configuration module's `validate` option. It receives the
+ * merged environment once at startup and returns it untouched: this
+ * function validates, it never transforms.
+ *
+ * @throws {Error} listing *all* offending variables at once. Failing on
+ *   the first one turns a fresh checkout into several consecutive
+ *   restarts, each revealing one more missing value.
+ */
 export function validateEnv(
   raw: Record<string, unknown>,
 ): Record<string, unknown> {
@@ -26,7 +62,7 @@ export function validateEnv(
   if (missing.length > 0) {
     throw new Error(
       `Missing or empty required environment variables: ${missing.join(", ")}. ` +
-        `See backend/.env.example and IMPLEMENTACION_AUTH.md.`,
+        `See backend/.env.example for the expected set.`,
     );
   }
 
@@ -41,6 +77,9 @@ export function validateEnv(
     );
   }
 
+  // A non-numeric port throws nothing downstream: listening on `NaN`
+  // binds a random free port instead, and the frontend then fails to
+  // connect with nothing in the logs pointing at the cause.
   const port = Number(raw.PORT);
   if (!Number.isInteger(port) || port <= 0 || port > 65_535) {
     throw new Error(
