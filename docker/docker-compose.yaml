@@ -14,10 +14,10 @@ services:
       # Los contenedores que crea Testcontainers se alcanzan vía el host.
       TESTCONTAINERS_HOST_OVERRIDE: host.docker.internal
     ports:
-      - '3000:3000'
+      - "3000:3000"
     env_file:
       - ./.env
-    restart: 'unless-stopped'
+    restart: "unless-stopped"
     networks:
       - causas-network
     depends_on:
@@ -25,8 +25,8 @@ services:
         condition: service_healthy
       # openapi-build:
       #   condition: service_completed_successfully
-      # migrate:
-      #   condition: service_completed_successfully
+      migrate:
+        condition: service_completed_successfully
     volumes:
       - ../build:/build:ro
       - ../backend:/app
@@ -34,7 +34,18 @@ services:
       # Testcontainers: permite que `make test-int` levante la base de test
       # desde dentro del contenedor usando el Docker del host.
       - /var/run/docker.sock:/var/run/docker.sock
-    command: npm run start:dev
+    command: sh -c "npx prisma generate && npm run start:dev"
+    # El contenedor está "up" desde que arranca el shell, pero Nest tarda
+    # bastante más en escuchar: prisma generate más la compilación de TS sobre
+    # el bind mount. Sin esto el frontend proxea contra un puerto cerrado y
+    # devuelve 502, que se lee como un error del backend en vez de como
+    # "todavía no terminó de arrancar".
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/v1/health/db || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 90s
 
   postgres:
     container_name: causas-db
@@ -45,13 +56,13 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
-    restart: 'unless-stopped'
+    restart: "unless-stopped"
     ports:
-      - '5432:5432'
+      - "5432:5432"
     networks:
       - causas-network
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -63,7 +74,7 @@ services:
     container_name: causas-adminer
     restart: unless-stopped
     ports:
-      - '8080:8080'
+      - "8080:8080"
     networks:
       - causas-network
     depends_on:
@@ -76,13 +87,31 @@ services:
       context: ../frontend
       dockerfile: Dockerfile
       target: development
-    restart: 'unless-stopped'
+    restart: "unless-stopped"
+    # Solo las VITE_*, no un env_file completo: Vite expone al bundle del
+    # navegador cualquier variable con ese prefijo, y el contenedor del
+    # frontend no tiene por qué recibir POSTGRES_PASSWORD, JWT_ACCESS_SECRET
+    # ni DEV_SEED_PASSWORD.
+    environment:
+      # Destino del proxy de vite.config.ts. En la red de compose el backend
+      # se llama "backend"; el fallback del archivo es localhost:3000, que
+      # dentro de este contenedor no atiende nadie y devuelve 502.
+      VITE_BACKEND_URL: http://backend:3000
+      # El backend monta todo bajo el prefijo global api/v1. Sin esto,
+      # http.ts arma las URLs con "/api" y el proxy las reenvía tal cual a
+      # una ruta que no existe.
+      VITE_API_URL: /api/v1
+      VITE_USE_MOCKS: ${VITE_USE_MOCKS}
     ports:
-      - '5173:5173'
+      - "5173:5173"
     networks:
       - causas-network
+    # service_healthy y no la forma corta: esta última solo espera a que el
+    # contenedor arranque, y el frontend quedaba sirviendo mientras Nest
+    # todavía compilaba.
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     volumes:
       - ../frontend:/app
       - /app/node_modules
@@ -95,13 +124,13 @@ services:
     container_name: causas-migrate
     environment:
       <<: *database-url
-    restart: 'no'
+    restart: "no"
     networks:
       - causas-network
     depends_on:
       postgres:
         condition: service_healthy
-    command: npx prisma migrate deploy
+    command: sh -c "npx prisma migrate deploy && npx prisma db seed"
 
   # openapi-build:
   #   build:
