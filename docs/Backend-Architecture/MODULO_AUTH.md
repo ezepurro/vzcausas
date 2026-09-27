@@ -10,37 +10,40 @@
 ```mermaid
 erDiagram
     USER ||--o| LAWYER : "lawyerId (opcional)"
-    USER }o--|| ROLE : "tiene"
+    USER }o--o{ ROLE : "tiene"
     ROLE }o--o{ PERMISSION : "agrupa"
     LAWYER ||--o{ CASE : "es responsable de"
 
     USER {
-        uuid id
-        string email
+        int id
+        string username
         string passwordHash
-        uuid roleId
-        uuid lawyerId "NULL si no es abogado"
+        string fullName
+        string email
+        int_array roleIds "al menos uno"
+        int lawyerId "NULL solo si el usuario es unicamente SECRETARY"
+        datetime lastLoginAt "NULL si nunca inicio sesion"
         bool active
     }
     LAWYER {
-        uuid id
-        string firstName
-        string lastName
+        int id
+        string fullName
         string registrationNumber
         bool active
     }
     CASE {
-        uuid id
+        int id
         string sacNumber
-        uuid responsibleLawyerId
+        int responsibleLawyerId
         string status
     }
 ```
 
 La causa referencia a `Lawyer`, no a `User`, porque el responsable de una causa es un hecho **profesional**, no un hecho de seguridad. Un abogado puede existir en el sistema antes de tener credenciales (HU12 y HU4 son historias separadas, en sprints distintos), y puede perder el acceso sin dejar de ser el responsable histórico de sus causas.
 
-- Un usuario con rol **Abogado** tiene `lawyerId` obligatorio.
-- Un usuario con rol **Administrador** o **Secretaria** tiene `lawyerId` nulo.
+- Un usuario cuyos roles incluyan **`ADMINISTRATOR`** o **`LAWYER`** tiene `lawyerId` obligatorio.
+- Solo un usuario que sea **únicamente `SECRETARY`** puede tener `lawyerId` nulo.
+- La invariante cruzada no se valida en la entidad `User`, porque su factoría solo recibe identificadores numéricos de rol y no conoce los nombres. Se valida en el caso de uso de alta de usuarios, que carga los roles para armar el usuario.
 - Cuando `cases` necesita saber si el usuario actuante es el responsable de la causa, compara `Case.responsibleLawyerId` con el `lawyerId` del usuario autenticado.
 
 ### 2 Resguardo de credenciales (RNF 8)
@@ -56,7 +59,7 @@ La causa referencia a `Lawyer`, no a `User`, porque el responsable de una causa 
 
 | Token             | Dónde viaja                               | Vida útil       | Contenido                                         |
 | ----------------- | ----------------------------------------- | --------------- | ------------------------------------------------- |
-| **Access token**  | Encabezado `Authorization: Bearer`        | Corta (minutos) | `userId`, `roleId`, `lawyerId`, lista de permisos |
+| **Access token**  | Encabezado `Authorization: Bearer`        | Corta (minutos) | `sub` (userId), `roles[]` (nombres), `lawyerId`, lista de permisos |
 | **Refresh token** | Cookie `httpOnly` + `Secure` + `SameSite` | Larga (días)    | Identificador opaco, persistido en base           |
 
 **Refresh en cookie `httpOnly`:** Es el credencial de larga vida: si lo captura código malicioso en el navegador, el atacante mantiene acceso persistente a datos sensibles alcanzados por la Ley 25.326. Una cookie `httpOnly` no es legible desde JavaScript. El atributo `Secure` exige HTTPS, lo que se apoya directamente en el RNF 7.
@@ -72,7 +75,7 @@ sequenceDiagram
     participant ID as identity
 
     Note over C,ID: Inicio de sesión (HU1)
-    C->>API: POST /auth/login (email, password)
+    C->>API: POST /auth/login (username, password)
     API->>ID: AuthenticateUser.execute()
     ID->>ID: bcrypt.compare
     ID->>ID: emite access + persiste refresh
@@ -89,7 +92,9 @@ sequenceDiagram
     API-->>C: cookie eliminada
 ```
 
-**Rotación.** Cada uso del refresh emite uno nuevo y revoca el anterior. Si se intenta reutilizar un refresh ya consumido, se revoca la familia completa de tokens de ese usuario: es la señal de que fue robado.
+**Rotación.** Al usar el refresh N se emite el N+1 y se marca el N con `revokedAt`. Todos los refresh que descienden de un mismo inicio de sesión comparten un `familyId`, y ese linaje es lo que permite detectar el robo.
+
+**Detección de reutilización.** Si llega un refresh cuyo `revokedAt` no es nulo, se asume robo y se revoca la **familia completa**, no solo ese token: el atacante pierde el acceso y el usuario legítimo queda forzado a iniciar sesión de nuevo. Un refresh simplemente vencido, en cambio, se rechaza sin tocar la familia — vencer es el curso normal, reutilizar no.
 
 ### 4 Modelo de permisos
 
@@ -99,11 +104,13 @@ Un usuario podrá tener uno o muchos roles y cada rol tendrá ciertos permisos *
 
 Roles iniciales (datos semilla, no constantes de código):
 
-| Rol             | Descripción                                                                             |
-| --------------- | --------------------------------------------------------------------------------------- |
-| `ADMINISTRADOR` | Socios directores y coordinadores. Administra usuarios, abogados, parametría y reportes |
-| `ABOGADO`       | Abogados especialistas. Opera causas, actos procesales y documentos                     |
-| `SECRETARIA`    | Secretaría administrativa. Registra clientes y causas, consulta                         |
+Los identificadores de rol son los del contrato de la API, en inglés; la interfaz muestra la denominación en castellano.
+
+| Rol             | Denominación en la interfaz | Descripción                                                                             |
+| --------------- | --------------------------- | --------------------------------------------------------------------------------------- |
+| `ADMINISTRATOR` | Administrador               | Socios directores y coordinadores. Administra usuarios, abogados, parametría y reportes |
+| `LAWYER`        | Abogado                     | Abogados especialistas. Opera causas, actos procesales y documentos                     |
+| `SECRETARY`     | Secretaria                  | Secretaría administrativa. Registra clientes y causas, consulta                         |
 
 ### 5 Los dos niveles de autorización
 
@@ -140,12 +147,14 @@ El tipo que viaja es propiedad del _kernel compartido_, no de `identity`:
 ```typescript
 // src/shared/domain/authenticated-user.ts
 export interface AuthenticatedUser {
-	readonly userId: string;
-	readonly roleName: string;
-	readonly lawyerId: string | null; // null si no es abogado
+	readonly userId: number;
+	readonly roleNames: readonly string[];
+	readonly lawyerId: number | null; // null solo si es únicamente SECRETARY
 	readonly permissions: readonly string[];
 }
 ```
+
+`roleNames` es plural porque un usuario puede acumular roles: el conjunto de permisos efectivo es la unión de los permisos de todos ellos.
 
 > **Nota sobre RN11 y el secreto de sumario.** RN11 establece que no existen causas de visibilidad restringida, y por eso **no se implementa filtrado de datos por usuario**. Sin embargo, el _Plan de Proyecto_ menciona el secreto de sumario, bajo el cual la información no es accesible ni al propio cliente. Ambas afirmaciones podrían no ser compatibles.
 

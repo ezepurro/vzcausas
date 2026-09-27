@@ -499,8 +499,7 @@ backend/
 │   ├── app.module.ts              # Composición raíz
 │   │
 │   ├── config/
-│   │   ├── configuration.ts       # Lectura tipada de variables de entorno
-│   │   └── validation.schema.ts   # Validación al arranque
+│   │   └── env.validation.ts      # Validación al arranque
 │   │
 │   ├── shared/                    # Kernel compartido — ver 8.2
 │   │   ├── domain/
@@ -601,7 +600,14 @@ El caso de uso envuelve la secuencia de escrituras en `runInTransaction`. La imp
 
 ### 7.6 Configuración y variables de entorno
 
-Toda la configuración se lee de variables de entorno, se **valida al arranque** contra un esquema, y se expone mediante un servicio tipado. **La aplicación no arranca si falta una variable obligatoria**: es preferible un fallo inmediato y explícito a un fallo oscuro en el primer uso.
+Toda la configuración se lee de variables de entorno, se **valida al arranque** y se expone mediante un servicio tipado. **La aplicación no arranca si falta una variable obligatoria**: es preferible un fallo inmediato y explícito a un fallo oscuro en el primer uso.
+
+La validación se reparte en dos niveles, y el reparto es deliberado:
+
+1. **Presencia**, en `config/env.validation.ts`: una función enganchada como `validate` del módulo de configuración, que verifica que estén todas las obligatorias y corta con la **lista completa** de las que faltan. Es una función escrita a mano y no un esquema de Joi o Zod — de ahí que el archivo no se llame `validation.schema.ts`: el nombre describiría algo que no hay.
+2. **Formato**, en el constructor de cada adaptador que consume la variable: sintaxis de los TTL, longitud mínima del secreto de firma, rango del factor de costo, coherencia entre los atributos de la cookie. Cada adaptador valida lo suyo, donde está el conocimiento de qué es un valor válido.
+
+No existe un `configuration.ts` con lectura tipada centralizada: cada adaptador ya lee sus variables y las tipa en su constructor, así que una capa de `registerAs` por encima sería duplicación sin consumidor.
 
 Variables previstas:
 

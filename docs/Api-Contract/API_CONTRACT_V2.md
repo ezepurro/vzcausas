@@ -113,7 +113,7 @@ No requiere parámetros de consulta.
 	"data": {
 		"accessToken": "eyJhbGciOi...",
 		"tokenType": "Bearer",
-		"expiresIn": 3600,
+		"expiresIn": 900,
 		"user": {
 			"id": 1,
 			"username": "fvazquez",
@@ -131,6 +131,17 @@ No requiere parámetros de consulta.
 	}
 }
 ```
+
+Adicionalmente, la respuesta emite la cookie del refresh token:
+
+```http
+Set-Cookie: refresh_token=<valor opaco>; HttpOnly; Secure; SameSite=Lax; Path=/api/v1/auth; Expires=<7 días>
+```
+
+El refresh viaja **solo** en esta cookie, nunca en el cuerpo. El atributo
+`Path` la restringe a los endpoints de `/auth`, de modo que no se envía en
+las peticiones al resto de la API. En despliegues donde el frontend y la API
+no comparten origen, `SameSite` pasa a `None` y exige `Secure`.
 
 El objeto `user` posee la misma estructura que devuelve `/users`.
 
@@ -307,7 +318,7 @@ No requiere parámetros de consulta.
 		"user": {
 			"id": 1,
 			"username": "fvazquez",
-			"roleNames": ["ADMINISTRATOR", "LAWYER"],
+			"roles": ["ADMINISTRATOR", "LAWYER"],
 			"lawyerId": 10,
 			"permissions": ["user:manage", "case:read", "case:change-status"]
 		}
@@ -323,7 +334,7 @@ Set-Cookie: refresh_token=<nuevo valor opaco>; HttpOnly; Secure; SameSite=Lax; P
 
 El objeto `user` en esta respuesta es una **proyección reducida**: solo
 incluye los campos que pueden variar entre sesión y sesión y que
-inciden en la autorización (`roleNames`, `lawyerId`, `permissions`).
+inciden en la autorización (`roles`, `lawyerId`, `permissions`).
 Los datos estables (`fullName`, `email`, `active`, `lawyer`) el cliente
 los conserva de `POST /auth/login`. `lastLoginAt` no se devuelve aquí
 porque semánticamente pertenece al inicio de sesión, no a la
@@ -2161,7 +2172,7 @@ estructura:
 | Campo     | Descripción                                                                              |
 | --------- | ---------------------------------------------------------------------------------------- |
 | `code`    | Código del catálogo. Es el valor que el cliente utiliza para discriminar el tipo de error |
-| `message` | Descripción en castellano, apta para mostrar al usuario                                  |
+| `message` | Descripción legible del error, **en inglés**, destinada a desarrollo y registros. No se muestra al usuario final |
 | `details` | Objeto `campo → mensaje` en los errores de validación; `null` en el resto                |
 
 El cliente discrimina los errores por `code` y nunca por el texto de
@@ -2169,6 +2180,14 @@ El cliente discrimina los errores por `code` y nunca por el texto de
 requieren códigos distintos: por ese motivo `USERNAME_ALREADY_EXISTS` y
 `EMAIL_ALREADY_EXISTS` son códigos separados, aunque ambos correspondan a un
 `409`.
+
+De ahí que `message` esté en inglés: **la copia que ve el usuario la resuelve
+el cliente a partir del `code`**, no la envía el servidor. El `message` sirve
+para depurar y para los registros del servidor, donde todo el código —
+identificadores, mensajes y comentarios — está en inglés por convención del
+proyecto. Los ejemplos de esta sección que muestran texto en castellano
+corresponden a la redacción anterior y se leen como ilustración del formato,
+no del idioma.
 
 **Ejemplo — validación de campos**
 
