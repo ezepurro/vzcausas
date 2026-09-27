@@ -8,12 +8,10 @@ import {
     SearchInput,
     type RailGroup,
 } from '@/shared/components/ui'
-import { isApiError } from '@/shared/api/ApiError'
-import { useAuth, useCurrentUser } from '@/app/providers/AuthContext'
-import { useToast } from '@/app/providers/ToastContext'
-import { useLogout } from '@/features/auth/api/useLogout'
+import { useCurrentUser } from '@/app/providers/AuthContext'
 import { profileLabel } from '@/features/auth/utils/profileLabel'
 import { ChangePasswordModal } from '@/features/auth/components/ChangePasswordModal'
+import { LogoutConfirmModal } from '@/features/auth/components/LogoutConfirmModal'
 
 /**
  * Marco de la aplicación con sesión iniciada: rail oscuro a la izquierda,
@@ -61,15 +59,13 @@ const GROUPS: RailGroup[] = [
 export function AppLayout() {
     const navigate = useNavigate()
     const { pathname } = useLocation()
-    const toast = useToast()
 
     /* Este marco vive detrás de la guarda de sesión, así que siempre hay
        alguien adentro: el nombre y el perfil salen de ahí. */
     const user = useCurrentUser()
-    const { signOut } = useAuth()
-    const logout = useLogout()
 
     const [changingPassword, setChangingPassword] = useState(false)
+    const [confirmingLogout, setConfirmingLogout] = useState(false)
 
     /* El ítem activo es aquel cuya ruta es la actual o el comienzo de la
        actual: estando en /usuarios/8 tiene que quedar marcado Usuarios. */
@@ -77,32 +73,6 @@ export function AppLayout() {
         GROUPS.flatMap((g) => g.items)
             .map((it) => it.id)
             .find((route) => pathname === route || pathname.startsWith(`${route}/`)) ?? ''
-
-    /**
-     * Cerrar sesión.
-     *
-     * La sesión local se cierra pase lo que pase: la persona pidió salir y
-     * dejarla adentro por un error de red sería peor. La redirección al login
-     * la hace sola la guarda, apenas la sesión queda en nulo.
-     *
-     * El motivo `'user'` importa: le dice a la guarda que **no** anote esta
-     * pantalla, así el próximo que inicie sesión arranca en Inicio y no acá.
-     */
-    function handleLogout() {
-        if (logout.isPending) return
-
-        logout.mutate(undefined, {
-            onSettled: () => signOut('user'),
-            onError: (error) => {
-                /* Un 401 quiere decir que el token ya estaba muerto: no hay
-                   nada que avisar. Un error de red o del servidor sí importa,
-                   porque la sesión puede haber quedado abierta del otro lado. */
-                if (isApiError(error) && !error.isAuth) {
-                    toast('error', error.message)
-                }
-            },
-        })
-    }
 
     return (
         <>
@@ -125,7 +95,7 @@ export function AppLayout() {
                     name={user.fullName}
                     profile={profileLabel(user.roles)}
                     onChangePassword={() => setChangingPassword(true)}
-                    onLogout={handleLogout}
+                    onLogout={() => setConfirmingLogout(true)}
                 />
             }
         >
@@ -134,6 +104,10 @@ export function AppLayout() {
 
         {changingPassword && (
             <ChangePasswordModal onClose={() => setChangingPassword(false)} />
+        )}
+
+        {confirmingLogout && (
+            <LogoutConfirmModal onClose={() => setConfirmingLogout(false)} />
         )}
         </>
     )
