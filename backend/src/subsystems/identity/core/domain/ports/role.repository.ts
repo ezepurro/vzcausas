@@ -24,4 +24,11 @@ export interface RoleRepository {
    * length against the input length to detect missing roles.
    */
   findByIds(ids: readonly number[]): Promise<Role[]>;
+
+  /**
+   * Loads all roles whose name appears in the input list (HU4:
+   * `RegisterUser` receives role codes like `"LAWYER"`, not ids).
+   * Same omit-on-miss contract as {@link RoleRepository.findByIds}.
+   */
+  findByNames(names: readonly string[]): Promise<Role[]>;
 }

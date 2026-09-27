@@ -42,14 +42,14 @@ const PASSWORD_DIGIT_REGEX = /\d/;
 export class User {
   private constructor(
     private readonly _id: number,
-    private readonly _username: Username,
+    private _username: Username,
     private _passwordHash: string,
-    private readonly _fullName: string,
-    private readonly _email: Email,
-    private readonly _roleIds: readonly number[],
-    private readonly _lawyerId: number | null,
+    private _fullName: string,
+    private _email: Email,
+    private _roleIds: readonly number[],
+    private _lawyerId: number | null,
     private _lastLoginAt: Date | null,
-    private readonly _active: boolean,
+    private _active: boolean,
   ) {}
 
   /**
@@ -207,6 +207,77 @@ export class User {
     return previous;
   }
 
+  /**
+   * HU6 — the following methods back `PATCH /users/{userId}`. Each
+   * validates only its own local format invariant (mirroring the
+   * checks in {@link User.create}). The LAWYER↔lawyerId cross-role
+   * invariant is, as with {@link User.create}, left to the calling
+   * use case — it needs the resolved role names, which this entity
+   * does not have.
+   */
+  changeUsername(newUsername: Username): void {
+    this._username = newUsername;
+  }
+
+  changeFullName(newFullName: string): void {
+    if (!newFullName || newFullName.trim().length === 0) {
+      throw new ValidationError(
+        "INVALID_USER",
+        "User must have a non-empty full name.",
+      );
+    }
+    this._fullName = newFullName.trim();
+  }
+
+  changeEmail(newEmail: Email): void {
+    this._email = newEmail;
+  }
+
+  changeRoles(newRoleIds: readonly number[]): void {
+    if (!Array.isArray(newRoleIds) || newRoleIds.length === 0) {
+      throw new ValidationError(
+        "INVALID_USER",
+        "User must have at least one role.",
+      );
+    }
+    for (const roleId of newRoleIds) {
+      if (!Number.isInteger(roleId) || roleId <= 0) {
+        throw new ValidationError(
+          "INVALID_USER",
+          "Each role id must be a positive integer.",
+        );
+      }
+    }
+    this._roleIds = newRoleIds;
+  }
+
+  /**
+   * HU7 — logical deletion (RN12). The record is kept; only the
+   * vigency flag flips. There is deliberately no counterpart:
+   * *"No existe forma de consultarlo ni de reactivarlo desde la API"*
+   * (API contract §3.2, `DELETE /users/{userId}`).
+   *
+   * Whether an already-deactivated user may be deactivated again is
+   * not this entity's call — the use case rejects that as "not
+   * found", the same way {@link GetUserUseCase} does.
+   */
+  deactivate(): void {
+    this._active = false;
+  }
+
+  changeLawyerId(newLawyerId: number | null): void {
+    if (
+      newLawyerId !== null &&
+      (!Number.isInteger(newLawyerId) || newLawyerId <= 0)
+    ) {
+      throw new ValidationError(
+        "INVALID_USER",
+        "lawyerId must be a positive integer or null.",
+      );
+    }
+    this._lawyerId = newLawyerId;
+  }
+
   get id(): number {
     return this._id;
   }
@@ -237,6 +308,17 @@ export class User {
 
   isActive(): boolean {
     return this._active;
+  }
+
+  /**
+   * Exposes the stored hash for persistence adapters only (HU4:
+   * `PrismaUserRepository.create/save` need it to write the row).
+   * Deliberately not named `passwordHash` — that name is reserved to
+   * signal "do not read this casually"; only repository code should
+   * call this.
+   */
+  hashForPersistence(): string {
+    return this._passwordHash;
   }
 
   private static validatePasswordRules(plain: string): void {
