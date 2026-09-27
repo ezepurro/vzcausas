@@ -1,5 +1,7 @@
 import { Module } from "@nestjs/common";
 import { FindLawyerUseCase } from "./core/application/use-cases/find-lawyer.use-case";
+import { FindLawyersUseCase } from "./core/application/use-cases/find-lawyers.use-case";
+import { ListLawyersUseCase } from "./core/application/use-cases/list-lawyers.use-case";
 import { RegisterLawyerUseCase } from "./core/application/use-cases/register-lawyer.use-case";
 import { LAWYER_REPOSITORY } from "./core/domain/ports/lawyer.repository";
 import { LawyerController } from "./infrastructure/http/controllers/lawyer.controller";
@@ -16,9 +18,11 @@ import { PrismaLawyerRepository } from "./infrastructure/persistence/prisma/pris
   controllers: [LawyerController],
   providers: [
     RegisterLawyerUseCase,
+    ListLawyersUseCase,
     FindLawyerUseCase,
+    FindLawyersUseCase,
     { provide: LAWYER_REPOSITORY, useClass: PrismaLawyerRepository },
   ],
-  exports: [FindLawyerUseCase],
+  exports: [FindLawyerUseCase, FindLawyersUseCase],
 })
 export class PeopleModule {}

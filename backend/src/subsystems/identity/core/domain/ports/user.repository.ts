@@ -73,4 +73,31 @@ export interface UserRepository {
    * must not be counted — they cannot administer anything.
    */
   countActiveByRoleName(roleName: string): Promise<number>;
+
+  /**
+   * One page of users, newest-first, for `GET /users` (§3.2).
+   *
+   * Only active users are returned: a logically deleted one *"no
+   * aparece en ningún listado"* per the contract, the same rule
+   * `GetUser` applies when it answers 404.
+   *
+   * Returns the total alongside the page because the `pagination`
+   * block needs it and counting belongs to the database.
+   */
+  search(criteria: UserSearchCriteria): Promise<UserPage>;
 }
+
+/**
+ * `search` matches a free-text fragment against username and full
+ * name; `roleId` narrows to users holding that role. The use case
+ * resolves the role *name* the contract exposes into an id before
+ * calling, so the repository never has to know role vocabulary.
+ */
+export type UserSearchCriteria = {
+  page: number;
+  limit: number;
+  search?: string;
+  roleId?: number;
+};
+
+export type UserPage = { items: User[]; totalItems: number };

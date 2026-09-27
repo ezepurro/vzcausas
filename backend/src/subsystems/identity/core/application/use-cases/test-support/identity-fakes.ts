@@ -1,13 +1,20 @@
 import { Role } from "../../../domain/entities/role.entity";
 import { User } from "../../../domain/entities/user.entity";
-import { LawyerLookupPort } from "../../../domain/ports/lawyer-lookup.port";
+import {
+  LawyerLookupPort,
+  LawyerSummary,
+} from "../../../domain/ports/lawyer-lookup.port";
 import { PasswordHasher } from "../../../domain/ports/password-hasher.port";
 import {
   RefreshTokenStore,
   StoredRefresh,
 } from "../../../domain/ports/refresh-token-store.port";
 import { RoleRepository } from "../../../domain/ports/role.repository";
-import { UserRepository } from "../../../domain/ports/user.repository";
+import {
+  UserPage,
+  UserRepository,
+  UserSearchCriteria,
+} from "../../../domain/ports/user.repository";
 import { Email } from "../../../domain/value-objects/email.vo";
 import { Permission } from "../../../domain/value-objects/permission.vo";
 import { Username } from "../../../domain/value-objects/username.vo";
@@ -91,6 +98,40 @@ export class FakeUserRepository implements UserRepository {
    * catalogue so specs can seed administrators by name without
    * wiring the two fakes together.
    */
+
+  /**
+   * Mirrors what the Prisma adapter does in SQL: active users only,
+   * newest first, case-insensitive match on username or full name,
+   * optional role filter, then the page slice. Kept faithful on
+   * purpose — a fake that filtered differently would let specs pass
+   * against behaviour production does not have.
+   */
+  async search(criteria: UserSearchCriteria): Promise<UserPage> {
+    const needle = criteria.search?.toLowerCase();
+
+    const matches = [...this.byId.values()]
+      .filter((user) => user.isActive())
+      .filter(
+        (user) =>
+          needle === undefined ||
+          user.username.toString().toLowerCase().includes(needle) ||
+          user.fullName.toLowerCase().includes(needle),
+      )
+      .filter(
+        (user) =>
+          criteria.roleId === undefined ||
+          user.roleIds.includes(criteria.roleId),
+      )
+      .sort((a, b) => b.id - a.id);
+
+    const offset = (criteria.page - 1) * criteria.limit;
+
+    return {
+      items: matches.slice(offset, offset + criteria.limit),
+      totalItems: matches.length,
+    };
+  }
+
   async countActiveByRoleName(roleName: string): Promise<number> {
     const roleId = FAKE_ROLE_IDS_BY_NAME[roleName];
     if (roleId === undefined) return 0;
@@ -131,6 +172,20 @@ export class FakeLawyerLookup implements LawyerLookupPort {
   constructor(private readonly existingIds: readonly number[] = []) {}
   async existsById(lawyerId: number): Promise<boolean> {
     return this.existingIds.includes(lawyerId);
+  }
+
+  /** Renders a predictable summary for every id it knows about. */
+  async findSummaries(
+    lawyerIds: readonly number[],
+  ): Promise<Map<number, LawyerSummary>> {
+    return new Map(
+      lawyerIds
+        .filter((id) => this.existingIds.includes(id))
+        .map((id) => [
+          id,
+          { id, fullName: `Lawyer ${id}`, registrationNumber: `1-${id}` },
+        ]),
+    );
   }
 }
 

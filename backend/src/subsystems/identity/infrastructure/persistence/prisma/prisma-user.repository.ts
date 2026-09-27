@@ -1,7 +1,11 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "@shared/infrastructure/prisma/prisma.service";
 import { User } from "../../../core/domain/entities/user.entity";
-import { UserRepository } from "../../../core/domain/ports/user.repository";
+import {
+  UserPage,
+  UserRepository,
+  UserSearchCriteria,
+} from "../../../core/domain/ports/user.repository";
 import { Email } from "../../../core/domain/value-objects/email.vo";
 import { Username } from "../../../core/domain/value-objects/username.vo";
 import { UserPrismaMapper } from "./user-prisma.mapper";
@@ -113,6 +117,54 @@ export class PrismaUserRepository implements UserRepository {
    * rule only ever asks "is there more than one?", and materializing
    * every administrator to check `.length` would be wasteful.
    */
+  /**
+   * Page and count share one `$transaction` so both see the same
+   * snapshot; issued apart, a concurrent insert between them could
+   * report a total that disagrees with the page.
+   *
+   * `mode: "insensitive"` is what makes the contract's `search`
+   * case-insensitive — Postgres `LIKE` is not by default.
+   */
+  async search(criteria: UserSearchCriteria): Promise<UserPage> {
+    const where = {
+      active: true,
+      ...(criteria.search
+        ? {
+            OR: [
+              {
+                username: {
+                  contains: criteria.search,
+                  mode: "insensitive" as const,
+                },
+              },
+              {
+                fullName: {
+                  contains: criteria.search,
+                  mode: "insensitive" as const,
+                },
+              },
+            ],
+          }
+        : {}),
+      ...(criteria.roleId !== undefined
+        ? { roles: { some: { roleId: criteria.roleId } } }
+        : {}),
+    };
+
+    const [rows, totalItems] = await this.prisma.$transaction([
+      this.prisma.user.findMany({
+        where,
+        include: USER_INCLUDE,
+        orderBy: { id: "desc" },
+        skip: (criteria.page - 1) * criteria.limit,
+        take: criteria.limit,
+      }),
+      this.prisma.user.count({ where }),
+    ]);
+
+    return { items: rows.map(UserPrismaMapper.toDomain), totalItems };
+  }
+
   async countActiveByRoleName(roleName: string): Promise<number> {
     return this.prisma.user.count({
       where: {

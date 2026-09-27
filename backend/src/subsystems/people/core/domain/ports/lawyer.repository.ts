@@ -27,4 +27,38 @@ export interface LawyerRepository {
 
   /** Loads a lawyer by primary key. Returns `null` if none. */
   findById(id: number): Promise<Lawyer | null>;
+
+  /**
+   * One page of lawyers, newest-first, for `GET /lawyers` (§3.3).
+   *
+   * Returns the total alongside the page because the contract's
+   * `pagination` block needs it and counting is the database's job,
+   * not the use case's.
+   *
+   * Only active lawyers are returned: a logically deleted one (RN12)
+   * *"no aparece en ningún listado"* per §3.3, the same rule
+   * `findById`'s callers apply.
+   */
+  search(criteria: LawyerSearchCriteria): Promise<LawyerPage>;
+
+  /**
+   * Loads several lawyers by id in one query. Ids that do not match
+   * are omitted, so the caller compares lengths if it cares.
+   *
+   * Exists so `identity` can render a page of users with their
+   * linked lawyer without issuing one query per row.
+   */
+  findByIds(ids: readonly number[]): Promise<Lawyer[]>;
 }
+
+/**
+ * `search` filters on a free-text fragment matched against the full
+ * name and the registration number, as the contract specifies.
+ */
+export type LawyerSearchCriteria = {
+  page: number;
+  limit: number;
+  search?: string;
+};
+
+export type LawyerPage = { items: Lawyer[]; totalItems: number };

@@ -58,6 +58,9 @@ class FakeUserRepository implements UserRepository {
   async countActiveByRoleName(): Promise<number> {
     throw new Error("not used in these specs");
   }
+  async search(): Promise<never> {
+    throw new Error("not used in these specs");
+  }
 }
 
 class FakeRoleRepository implements RoleRepository {

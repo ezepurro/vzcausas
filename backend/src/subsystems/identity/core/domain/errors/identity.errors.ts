@@ -206,3 +206,21 @@ export class SessionExpiredError extends UnauthorizedError {
     super("UNAUTHENTICATED", "Session expired or invalid.");
   }
 }
+
+/**
+ * Emitted by `ListUsers` when the `role` query parameter names a
+ * role that does not exist.
+ *
+ * The contract answers this with `INVALID_REQUEST` and the offending
+ * parameter in `details` (§3.2), not with an empty page: a caller
+ * that mistyped "LAWER" deserves to be told, and an empty list would
+ * read as "there are no lawyers".
+ */
+export class UnknownRoleFilterError extends ValidationError {
+  constructor(roleName: string) {
+    super("INVALID_REQUEST", "Parámetros de query inválidos.", {
+      role: "No existe un rol con ese nombre.",
+      received: roleName,
+    });
+  }
+}

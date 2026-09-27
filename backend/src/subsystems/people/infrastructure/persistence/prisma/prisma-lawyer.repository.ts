@@ -1,12 +1,11 @@
-// @ts-nocheck — the `lawyers` table does not exist in schema.prisma
-// yet (see the expected model in lawyer-prisma.mapper.ts). Without
-// this, Nest's watch-mode compiler refuses to boot the ENTIRE app,
-// which would break local dev for everyone on this branch. Remove it
-// once the team adds the model and regenerates the Prisma client.
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "@shared/infrastructure/prisma/prisma.service";
 import { Lawyer } from "../../../core/domain/entities/lawyer.entity";
-import { LawyerRepository } from "../../../core/domain/ports/lawyer.repository";
+import {
+  LawyerPage,
+  LawyerRepository,
+  LawyerSearchCriteria,
+} from "../../../core/domain/ports/lawyer.repository";
 import { RegistrationNumber } from "../../../core/domain/value-objects/registration-number.vo";
 import { LawyerPrismaMapper } from "./lawyer-prisma.mapper";
 
@@ -45,5 +44,58 @@ export class PrismaLawyerRepository implements LawyerRepository {
   async findById(id: number): Promise<Lawyer | null> {
     const row = await this.prisma.lawyer.findUnique({ where: { id } });
     return row ? LawyerPrismaMapper.toDomain(row) : null;
+  }
+
+  /**
+   * Page and count run inside one `$transaction` so both observe the
+   * same snapshot. Issued separately, a concurrent insert between
+   * them could yield a `totalItems` that disagrees with the page —
+   * the kind of drift that shows up as a phantom empty last page.
+   *
+   * `mode: "insensitive"` gives the case-insensitive match the
+   * contract's `search` implies; Postgres `LIKE` is case-sensitive by
+   * default, so without it "peralta" would miss "Peralta".
+   */
+  async findByIds(ids: readonly number[]): Promise<Lawyer[]> {
+    const rows = await this.prisma.lawyer.findMany({
+      where: { id: { in: [...ids] } },
+    });
+    return rows.map(LawyerPrismaMapper.toDomain);
+  }
+
+  async search(criteria: LawyerSearchCriteria): Promise<LawyerPage> {
+    const where = {
+      active: true,
+      ...(criteria.search
+        ? {
+            OR: [
+              {
+                fullName: {
+                  contains: criteria.search,
+                  mode: "insensitive" as const,
+                },
+              },
+              {
+                registrationNumber: {
+                  contains: criteria.search,
+                  mode: "insensitive" as const,
+                },
+              },
+            ],
+          }
+        : {}),
+    };
+
+    const [rows, totalItems] = await this.prisma.$transaction([
+      this.prisma.lawyer.findMany({
+        where,
+        orderBy: { id: "desc" },
+        skip: (criteria.page - 1) * criteria.limit,
+        take: criteria.limit,
+      }),
+      this.prisma.lawyer.count({ where }),
+    ]);
+
+    return { items: rows.map(LawyerPrismaMapper.toDomain), totalItems };
   }
 }

@@ -1,6 +1,10 @@
 import { Injectable } from "@nestjs/common";
 import { FindLawyerUseCase } from "@subsystems/people/core/application/use-cases/find-lawyer.use-case";
-import { LawyerLookupPort } from "../../core/domain/ports/lawyer-lookup.port";
+import { FindLawyersUseCase } from "@subsystems/people/core/application/use-cases/find-lawyers.use-case";
+import {
+  LawyerLookupPort,
+  LawyerSummary,
+} from "../../core/domain/ports/lawyer-lookup.port";
 
 /**
  * Anti-corruption adapter: implements `identity`'s
@@ -20,10 +24,41 @@ import { LawyerLookupPort } from "../../core/domain/ports/lawyer-lookup.port";
  */
 @Injectable()
 export class PeopleLawyerLookupAdapter implements LawyerLookupPort {
-  constructor(private readonly findLawyer: FindLawyerUseCase) {}
+  constructor(
+    private readonly findLawyer: FindLawyerUseCase,
+    private readonly findLawyers: FindLawyersUseCase,
+  ) {}
 
   async existsById(lawyerId: number): Promise<boolean> {
     const lawyer = await this.findLawyer.execute({ id: lawyerId });
     return lawyer !== null && lawyer.active;
+  }
+
+  /**
+   * Deactivated lawyers are dropped here too, for the same reason
+   * {@link existsById} treats them as absent: the professional record
+   * is logically deleted (RN12), so a user should not render a link
+   * to it. That user's `lawyer` comes back `null`.
+   *
+   * Duplicate ids in the input are harmless — the result is a map, so
+   * a lawyer shared by two users is fetched and stored once.
+   */
+  async findSummaries(
+    lawyerIds: readonly number[],
+  ): Promise<Map<number, LawyerSummary>> {
+    const lawyers = await this.findLawyers.execute({ ids: lawyerIds });
+
+    return new Map(
+      lawyers
+        .filter((lawyer) => lawyer.active)
+        .map((lawyer) => [
+          lawyer.id,
+          {
+            id: lawyer.id,
+            fullName: lawyer.fullName,
+            registrationNumber: lawyer.registrationNumber,
+          },
+        ]),
+    );
   }
 }

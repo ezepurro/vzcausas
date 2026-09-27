@@ -1,4 +1,5 @@
 import { RegisterLawyerCommand } from "../../../core/application/use-cases/register-lawyer.use-case";
+import { LawyerView } from "../../../core/application/use-cases/find-lawyer.use-case";
 import { Lawyer } from "../../../core/domain/entities/lawyer.entity";
 import { LawyerResponseDto } from "../dtos/lawyer.response.dto";
 import { RegisterLawyerRequestDto } from "../dtos/register-lawyer.request.dto";
@@ -29,6 +30,23 @@ export class LawyerHttpMapper {
     dto.registrationNumber = lawyer.registrationNumber.toString();
     dto.activeCases = ACTIVE_CASES_UNTIL_CASES_SUBSYSTEM_EXISTS;
     dto.active = lawyer.isActive();
+    return dto;
+  }
+
+  /**
+   * Renders the flat {@link LawyerView} that `FindLawyer` returns.
+   *
+   * That use case deliberately hands back a plain object rather than
+   * the entity (§6.3), so this overload exists instead of having the
+   * controller rehydrate a `Lawyer` just to render it.
+   */
+  static fromView(view: LawyerView): LawyerResponseDto {
+    const dto = new LawyerResponseDto();
+    dto.id = view.id;
+    dto.fullName = view.fullName;
+    dto.registrationNumber = view.registrationNumber;
+    dto.activeCases = ACTIVE_CASES_UNTIL_CASES_SUBSYSTEM_EXISTS;
+    dto.active = view.active;
     return dto;
   }
 }

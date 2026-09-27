@@ -5,6 +5,7 @@ import { Username } from "../../domain/value-objects/username.vo";
 import { GetUserUseCase } from "./get-user.use-case";
 import {
   FakeHasher,
+  FakeLawyerLookup,
   FakeRoleRepository,
   FakeUserRepository,
 } from "./test-support/identity-fakes";
@@ -36,7 +37,12 @@ describe("GetUserUseCase", () => {
   function build() {
     const users = new FakeUserRepository();
     const roles = new FakeRoleRepository();
-    return { useCase: new GetUserUseCase(users, roles), users, roles };
+    const lawyerLookup = new FakeLawyerLookup();
+    return {
+      useCase: new GetUserUseCase(users, roles, lawyerLookup),
+      users,
+      roles,
+    };
   }
 
   it("returns the user with its resolved roles", async () => {

@@ -1,6 +1,10 @@
 import { Injectable } from "@nestjs/common";
 import { User } from "@subsystems/identity/core/domain/entities/user.entity";
-import { UserRepository } from "@subsystems/identity/core/domain/ports/user.repository";
+import {
+  UserPage,
+  UserRepository,
+  UserSearchCriteria,
+} from "@subsystems/identity/core/domain/ports/user.repository";
 import { Email } from "@subsystems/identity/core/domain/value-objects/email.vo";
 import { Username } from "@subsystems/identity/core/domain/value-objects/username.vo";
 import { ROLE_CATALOG } from "./in-memory-role.repository";
@@ -103,6 +107,40 @@ export class InMemoryUserRepository implements UserRepository {
    * is no join table to query in memory. Deactivated users are not
    * counted — they cannot administer anything (CA-6.3, CA-7.4).
    */
+
+  /**
+   * Mirrors what the Prisma adapter does in SQL: active users only,
+   * newest first, case-insensitive match on username or full name,
+   * optional role filter, then the page slice. Kept faithful on
+   * purpose — a fake that filtered differently would let specs pass
+   * against behaviour production does not have.
+   */
+  async search(criteria: UserSearchCriteria): Promise<UserPage> {
+    const needle = criteria.search?.toLowerCase();
+
+    const matches = [...this.byId.values()]
+      .filter((user) => user.isActive())
+      .filter(
+        (user) =>
+          needle === undefined ||
+          user.username.toString().toLowerCase().includes(needle) ||
+          user.fullName.toLowerCase().includes(needle),
+      )
+      .filter(
+        (user) =>
+          criteria.roleId === undefined ||
+          user.roleIds.includes(criteria.roleId),
+      )
+      .sort((a, b) => b.id - a.id);
+
+    const offset = (criteria.page - 1) * criteria.limit;
+
+    return {
+      items: matches.slice(offset, offset + criteria.limit),
+      totalItems: matches.length,
+    };
+  }
+
   async countActiveByRoleName(roleName: string): Promise<number> {
     const role = ROLE_CATALOG.find((entry) => entry.name === roleName);
     if (role === undefined) return 0;

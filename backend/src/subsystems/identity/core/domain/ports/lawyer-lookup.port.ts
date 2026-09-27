@@ -5,19 +5,41 @@
 export const LAWYER_LOOKUP = Symbol("LAWYER_LOOKUP");
 
 /**
- * Declared by `identity`, in its own vocabulary, to validate that a
- * `lawyerId` supplied to `RegisterUser` refers to an existing lawyer
- * in the `people` subsystem (RN via API contract §3.2: a user with
- * role `LAWYER` must reference one).
+ * The professional record behind a user's `lawyerId`, in the shape
+ * the API contract embeds under `user.lawyer` (§3.2).
  *
- * `people` does not exist yet (it is HU-12's scope, tracked
- * separately). Until then, `infrastructure/acl/lawyer-lookup.adapter.ts`
- * provides a stub implementation of this port so `identity` can be
- * built and tested end-to-end without a hard dependency on `people`.
- * When `people` lands, only that adapter needs to change — this
- * interface and everything that depends on it stay untouched.
+ * Deliberately narrower than what `people` knows about a lawyer:
+ * `identity` renders these three fields and has no business seeing
+ * the rest.
+ */
+export type LawyerSummary = {
+  id: number;
+  fullName: string;
+  registrationNumber: string;
+};
+
+/**
+ * Declared by `identity`, in its own vocabulary, to reach the
+ * `people` subsystem for the one thing it legitimately needs: the
+ * lawyer a user is linked to.
+ *
+ * Implemented by `infrastructure/acl/lawyer-lookup.adapter.ts`, which
+ * delegates to `people`'s exported use case. Nothing else in
+ * `identity` knows that subsystem exists.
  */
 export interface LawyerLookupPort {
   /** `true` if a lawyer with this id exists (and is current). */
   existsById(lawyerId: number): Promise<boolean>;
+
+  /**
+   * Resolves several lawyers at once, keyed by id; ids that do not
+   * resolve are simply absent from the map.
+   *
+   * Batched rather than one-at-a-time because `GET /users` renders a
+   * whole page of users, each possibly linked to a lawyer: resolving
+   * them individually would issue one query per row.
+   */
+  findSummaries(
+    lawyerIds: readonly number[],
+  ): Promise<Map<number, LawyerSummary>>;
 }

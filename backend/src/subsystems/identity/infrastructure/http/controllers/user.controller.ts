@@ -1,4 +1,15 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Patch,
+  Post,
+  Query,
+} from "@nestjs/common";
 import { DeactivateUserUseCase } from "../../../core/application/use-cases/deactivate-user.use-case";
 import { GetUserUseCase } from "../../../core/application/use-cases/get-user.use-case";
 import { RegisterUserUseCase } from "../../../core/application/use-cases/register-user.use-case";
@@ -9,6 +20,13 @@ import { UpdateUserRequestDto } from "../dtos/update-user.request.dto";
 import { UserResponseDto } from "../dtos/user.response.dto";
 import { UserHttpMapper } from "../mappers/user-http.mapper";
 import { RequirePermissions } from "@shared/infrastructure/http/require-permissions.decorator";
+import {
+  PaginatedResponse,
+  paginate,
+  toPageRequest,
+} from "@shared/infrastructure/http/pagination";
+import { ListUsersUseCase } from "../../../core/application/use-cases/list-users.use-case";
+import { ListUsersQueryDto } from "../dtos/list-users.query.dto";
 
 /**
  * HTTP entry point for `/users` (API contract §3.2).
@@ -39,6 +57,7 @@ export class UserController {
   constructor(
     private readonly registerUser: RegisterUserUseCase,
     private readonly getUser: GetUserUseCase,
+    private readonly listUsers: ListUsersUseCase,
     private readonly updateUser: UpdateUserUseCase,
     private readonly deactivateUser: DeactivateUserUseCase,
   ) {}
@@ -48,20 +67,49 @@ export class UserController {
   @HttpCode(HttpStatus.CREATED)
   async register(
     @Body() dto: RegisterUserRequestDto,
-  ): Promise<UserResponseDto> {
+  ): Promise<{ data: UserResponseDto }> {
     const result = await this.registerUser.execute(
       UserHttpMapper.toRegisterCommand(dto),
     );
-    return UserHttpMapper.toResponse(result);
+    return { data: UserHttpMapper.toResponse(result) };
+  }
+
+  /**
+   * Declared before `@Get(":userId")`: Nest matches routes in
+   * declaration order, and the parametric one would otherwise
+   * swallow `GET /users` as a request for the user whose id is the
+   * empty string.
+   */
+  @RequirePermissions("user:read")
+  @Get()
+  async list(
+    @Query() query: ListUsersQueryDto,
+  ): Promise<PaginatedResponse<UserResponseDto>> {
+    const page = toPageRequest(query);
+
+    const result = await this.listUsers.execute({
+      page: page.page,
+      limit: page.limit,
+      search: query.search,
+      role: query.role,
+    });
+
+    return paginate(
+      result.users.map((listed) => UserHttpMapper.toResponse(listed)),
+      result.totalItems,
+      page,
+    );
   }
 
   @RequirePermissions("user:read")
   @Get(":userId")
-  async getById(@Param("userId") userIdParam: string): Promise<UserResponseDto> {
+  async getById(
+    @Param("userId") userIdParam: string,
+  ): Promise<{ data: UserResponseDto }> {
     const result = await this.getUser.execute({
       id: this.parseUserId(userIdParam),
     });
-    return UserHttpMapper.toResponse(result);
+    return { data: UserHttpMapper.toResponse(result) };
   }
 
   @RequirePermissions("user:update")
@@ -69,11 +117,11 @@ export class UserController {
   async update(
     @Param("userId") userIdParam: string,
     @Body() dto: UpdateUserRequestDto,
-  ): Promise<UserResponseDto> {
+  ): Promise<{ data: UserResponseDto }> {
     const result = await this.updateUser.execute(
       UserHttpMapper.toUpdateCommand(dto, this.parseUserId(userIdParam)),
     );
-    return UserHttpMapper.toResponse(result);
+    return { data: UserHttpMapper.toResponse(result) };
   }
 
   @RequirePermissions("user:delete")

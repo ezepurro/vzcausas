@@ -15,6 +15,7 @@ import {
 import {
   LAWYER_LOOKUP,
   LawyerLookupPort,
+  LawyerSummary,
 } from "../../domain/ports/lawyer-lookup.port";
 import { ROLE_REPOSITORY, RoleRepository } from "../../domain/ports/role.repository";
 import { USER_REPOSITORY, UserRepository } from "../../domain/ports/user.repository";
@@ -36,7 +37,11 @@ export type UpdateUserCommand = {
   lawyerId?: number | null;
 };
 
-export type UpdateUserResult = { user: User; roles: Role[] };
+export type UpdateUserResult = {
+  user: User;
+  roles: Role[];
+  lawyer: LawyerSummary | null;
+};
 
 /**
  * HU6 — partially updates a user. Does not touch the password
@@ -134,7 +139,27 @@ export class UpdateUserUseCase {
 
     await this.users.save(user);
 
-    return { user, roles: finalRoles };
+    return {
+      user,
+      roles: finalRoles,
+      lawyer: await this.resolveLawyer(user.lawyerId),
+    };
+  }
+
+  /**
+   * The contract embeds the linked professional record under
+   * `user.lawyer` (§3.2), so a write answers with the same shape a
+   * read would return.
+   */
+  private async resolveLawyer(
+    lawyerId: number | null,
+  ): Promise<LawyerSummary | null> {
+    if (lawyerId === null) {
+      return null;
+    }
+
+    const summaries = await this.lawyerLookup.findSummaries([lawyerId]);
+    return summaries.get(lawyerId) ?? null;
   }
 
   /**

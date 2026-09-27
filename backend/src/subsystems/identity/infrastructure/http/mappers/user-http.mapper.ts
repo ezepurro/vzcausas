@@ -1,13 +1,25 @@
 import { RegisterUserCommand } from "../../../core/application/use-cases/register-user.use-case";
 import { UpdateUserCommand } from "../../../core/application/use-cases/update-user.use-case";
 import { Role } from "../../../core/domain/entities/role.entity";
+import { LawyerSummary } from "../../../core/domain/ports/lawyer-lookup.port";
 import { User } from "../../../core/domain/entities/user.entity";
 import { RegisterUserRequestDto } from "../dtos/register-user.request.dto";
 import { UpdateUserRequestDto } from "../dtos/update-user.request.dto";
 import { UserResponseDto } from "../dtos/user.response.dto";
 
-/** Shape shared by every use case that hands back a user to render (`RegisterUser`, `GetUser`, ...). */
-export type UserWithRoles = { user: User; roles: Role[] };
+/**
+ * Shape shared by every use case that hands back a user to render
+ * (`RegisterUser`, `GetUser`, `ListUsers`, ...).
+ *
+ * `lawyer` is optional so a caller that has not resolved the linked
+ * record can omit it; it then renders as `null`, which is also the
+ * right answer for a user who has no lawyer at all.
+ */
+export type UserWithRoles = {
+  user: User;
+  roles: Role[];
+  lawyer?: LawyerSummary | null;
+};
 
 /**
  * Translates between HTTP DTOs and the `identity` application layer.
@@ -53,9 +65,10 @@ export class UserHttpMapper {
     dto.fullName = result.user.fullName;
     dto.email = result.user.email.toString();
     dto.roles = result.roles.map((role: Role) => role.getName());
-    // `lawyer` stays null until `people` (HU-12) can resolve the
-    // linked professional record — see LawyerLookupPort.
-    dto.lawyer = null;
+    // Resolved by the use case through `LawyerLookupPort`. This used
+    // to be hardcoded to null while `people` did not exist; HU-12
+    // landed, so a linked record now actually renders.
+    dto.lawyer = result.lawyer ?? null;
     dto.lastLoginAt = result.user.lastLoginAt?.toISOString() ?? null;
     dto.active = result.user.isActive();
     return dto;
