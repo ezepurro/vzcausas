@@ -1,10 +1,3 @@
-// @ts-nocheck — written against the intended schema (see notice below),
-// not the one currently applied. Remove this line once the team's
-// schema.prisma fix (id: Int, + username/lawyerId columns) lands and
-// `npx prisma generate` regenerates the client. Without this, Nest's
-// watch-mode compiler refuses to boot the ENTIRE app (any TS error
-// anywhere under src/ blocks it), which would break local dev for
-// everyone on this branch — not just this file.
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "@shared/infrastructure/prisma/prisma.service";
 import { User } from "../../../core/domain/entities/user.entity";
@@ -16,12 +9,13 @@ import { UserPrismaMapper } from "./user-prisma.mapper";
 const USER_INCLUDE = { roles: true } as const;
 
 /**
- * WRITTEN AGAINST THE INTENDED SCHEMA (see the gap notice in
- * `user-prisma.mapper.ts`): `User.id` as `Int`, plus `username` and
- * `lawyerId` columns that `schema.prisma` does not have yet. This
- * file will not type-check against the current generated Prisma
- * Client. Everything upstream of this adapter (domain, use case,
- * tests, HTTP layer) does not depend on it and works today.
+ * Prisma-backed {@link UserRepository}.
+ *
+ * This file carried a `@ts-nocheck` while `schema.prisma` still had
+ * `User.id` as a UUID and lacked the `username` and `lawyerId`
+ * columns. The schema was aligned with the domain and the migration
+ * generated, so the adapter now type-checks against the real
+ * generated client and the suppression is gone — keep it that way.
  */
 @Injectable()
 export class PrismaUserRepository implements UserRepository {

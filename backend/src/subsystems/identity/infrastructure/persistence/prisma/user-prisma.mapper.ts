@@ -9,12 +9,9 @@ import { Username } from "../../../core/domain/value-objects/username.vo";
  * @db.Uuid`, no `username` column, no `lawyerId` — were closed on
  * `develop` when `schema.prisma` was aligned with the domain.
  *
- * One step is still outstanding: the migration for that schema has
- * not been generated yet, so the Prisma Client on disk was produced
- * from the old schema and this file (plus
- * `prisma-user.repository.ts`) still will not type-check against it.
- * Run `npx prisma migrate dev` and regenerate, then drop the
- * `@ts-nocheck` at the top of the repository adapter.
+ * The migration for that schema has since been generated too, so both
+ * this mapper and `prisma-user.repository.ts` type-check against the
+ * real generated client — the adapter's `@ts-nocheck` is gone.
  */
 type UserRow = {
   id: number;
