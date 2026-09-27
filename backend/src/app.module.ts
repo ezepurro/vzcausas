@@ -5,6 +5,7 @@ import { JwtAuthGuard } from "@shared/infrastructure/http/guards/jwt-auth.guard"
 import { PermissionsGuard } from "@shared/infrastructure/http/guards/permissions.guard";
 import { SharedModule } from "@shared/shared.module";
 import { HealthModule } from "@subsystems/health/health.module";
+import { validateEnv } from "./config/env.validation";
 import { PrismaModule } from "./shared/infrastructure/prisma/prisma.module";
 import { IdentityModule } from "./subsystems/identity/identity.module";
 import { PeopleModule } from "./subsystems/people/people.module";
@@ -25,6 +26,10 @@ import { PeopleModule } from "./subsystems/people/people.module";
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: ".env",
+      // Reports every missing variable at once, before any provider is
+      // constructed. Without this hook the adapters' `getOrThrow` calls
+      // surface them one at a time, in provider instantiation order.
+      validate: validateEnv,
     }),
     PrismaModule,
     SharedModule,
@@ -33,6 +38,13 @@ import { PeopleModule } from "./subsystems/people/people.module";
     IdentityModule,
   ],
   controllers: [],
-  providers: [],
+  providers: [
+    // Registration order is load bearing: Nest runs global guards in the
+    // order they are declared, and `PermissionsGuard` reads the actor
+    // that `JwtAuthGuard` puts on the request. Inverted, every 403 would
+    // surface as a 401 instead.
+    { provide: APP_GUARD, useClass: JwtAuthGuard },
+    { provide: APP_GUARD, useClass: PermissionsGuard },
+  ],
 })
 export class AppModule {}
