@@ -61,7 +61,11 @@ const LOGIN_RESULT: AuthenticateUserResult = {
     fullName: "Fernando Vázquez",
     email: "fvazquez@vazquezzarate.com",
     roleNames: ["ADMINISTRATOR", "LAWYER"],
-    lawyerId: 10,
+    lawyer: {
+      id: 10,
+      fullName: "Dr. Fernando G. Vázquez",
+      registrationNumber: "1-28114",
+    },
     previousLoginAt: new Date("2026-09-19T11:12:00Z"),
     active: true,
   },
@@ -141,8 +145,13 @@ describe("AuthController", () => {
       expect(body.data.expiresIn).toBe(900);
       expect(body.data.user.username).toBe("fvazquez");
       expect(body.data.user.roles).toEqual(["ADMINISTRATOR", "LAWYER"]);
-      // Plain id, not a nested lawyer object (D-52).
-      expect(body.data.user.lawyerId).toBe(10);
+      // The nested record the contract embeds, same shape `/users`
+      // returns (§3.1). Was a bare id until `/lawyers` existed (D-52).
+      expect(body.data.user.lawyer).toEqual({
+        id: 10,
+        fullName: "Dr. Fernando G. Vázquez",
+        registrationNumber: "1-28114",
+      });
 
       expect(res.cookieCalls).toHaveLength(1);
       expect(res.cookieCalls[0].name).toBe(COOKIE_NAME);
