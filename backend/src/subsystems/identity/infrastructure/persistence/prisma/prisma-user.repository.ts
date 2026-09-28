@@ -165,6 +165,29 @@ export class PrismaUserRepository implements UserRepository {
     return { items: rows.map(UserPrismaMapper.toDomain), totalItems };
   }
 
+  /**
+   * Mirrors the partial unique index the migration creates. The index
+   * is the real guarantee — it holds under concurrency, this check
+   * does not — and this exists so the caller gets the contract error
+   * instead of a raw constraint violation.
+   */
+  async existsActiveByLawyerId(
+    lawyerId: number,
+    excludingUserId?: number,
+  ): Promise<boolean> {
+    const row = await this.prisma.client.user.findFirst({
+      where: {
+        lawyerId,
+        active: true,
+        ...(excludingUserId !== undefined
+          ? { id: { not: excludingUserId } }
+          : {}),
+      },
+      select: { id: true },
+    });
+    return row !== null;
+  }
+
   async countActiveByRoleName(roleName: string): Promise<number> {
     return this.prisma.client.user.count({
       where: {

@@ -75,6 +75,22 @@ export interface UserRepository {
   countActiveByRoleName(roleName: string): Promise<number>;
 
   /**
+   * `true` if an **active** user is already linked to this lawyer.
+   *
+   * A lawyer holds at most one account at a time. Deactivated users
+   * are not counted: a lawyer whose account was closed can be given a
+   * new one, since they are still practising — only the account
+   * changed.
+   *
+   * `excludingUserId` lets `UpdateUser` check without colliding with
+   * the link the user already holds.
+   */
+  existsActiveByLawyerId(
+    lawyerId: number,
+    excludingUserId?: number,
+  ): Promise<boolean>;
+
+  /**
    * One page of users, newest-first, for `GET /users` (§3.2).
    *
    * Only active users are returned: a logically deleted one *"no

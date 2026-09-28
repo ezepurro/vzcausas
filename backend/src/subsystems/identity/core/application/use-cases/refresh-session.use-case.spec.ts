@@ -60,6 +60,9 @@ class FakeUserRepository implements UserRepository {
   async search(): Promise<never> {
     throw new Error("not used in these specs");
   }
+  async existsActiveByLawyerId(): Promise<boolean> {
+    throw new Error("not used in these specs");
+  }
 }
 
 class FakeRoleRepository implements RoleRepository {

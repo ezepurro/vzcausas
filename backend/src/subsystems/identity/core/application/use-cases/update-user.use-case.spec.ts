@@ -3,6 +3,7 @@ import {
   EmailAlreadyExistsError,
   EmptyUpdateRequestError,
   InvalidRoleError,
+  LawyerAlreadyLinkedError,
   LastAdministratorError,
   LawyerLinkNotAllowedError,
   LawyerLinkRequiredError,
@@ -185,6 +186,55 @@ describe("UpdateUserUseCase", () => {
     });
 
     expect(result.user.lawyerId).toBeNull();
+  });
+
+  // A lawyer holds at most one live account.
+  describe("one active account per lawyer", () => {
+    it("rejects pointing at a lawyer another active user already holds", async () => {
+      const { useCase, users } = build([4]);
+      await seedUser(users, { roleIds: [2], lawyerId: 4 });
+      await seedUser(users, {
+        id: 2,
+        username: "otro",
+        email: "otro@vazquezzarate.com",
+        roleIds: [3],
+      });
+
+      await expect(
+        useCase.execute({ id: 2, roles: ["LAWYER"], lawyerId: 4 }),
+      ).rejects.toBeInstanceOf(LawyerAlreadyLinkedError);
+    });
+
+    /** Re-sending your own link is a no-op, not a conflict with yourself. */
+    it("lets a user keep the lawyer it already holds", async () => {
+      const { useCase, users } = build([4]);
+      await seedUser(users, { roleIds: [2], lawyerId: 4 });
+
+      const result = await useCase.execute({ id: 1, lawyerId: 4 });
+
+      expect(result.user.lawyerId).toBe(4);
+    });
+
+    it("lets a deactivated user's lawyer be taken over", async () => {
+      const { useCase, users } = build([4]);
+      const previous = await seedUser(users, { roleIds: [2], lawyerId: 4 });
+      previous.deactivate();
+      await users.save(previous);
+      await seedUser(users, {
+        id: 2,
+        username: "otro",
+        email: "otro@vazquezzarate.com",
+        roleIds: [3],
+      });
+
+      const result = await useCase.execute({
+        id: 2,
+        roles: ["LAWYER"],
+        lawyerId: 4,
+      });
+
+      expect(result.user.lawyerId).toBe(4);
+    });
   });
 
   // CA-6.4 — "si se le quita el perfil, se desvincula la ficha, pero el

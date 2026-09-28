@@ -8,6 +8,7 @@ import { User } from "../../domain/entities/user.entity";
 import {
   EmailAlreadyExistsError,
   InvalidRoleError,
+  LawyerAlreadyLinkedError,
   LawyerLinkNotAllowedError,
   LawyerLinkRequiredError,
   LawyerNotFoundError,
@@ -121,6 +122,14 @@ export class RegisterUserUseCase {
       linkedLawyer = summaries.get(existingLawyerId) ?? null;
       if (linkedLawyer === null) {
         throw new LawyerNotFoundError(existingLawyerId);
+      }
+
+      // A lawyer holds at most one live account. Checked here so the
+      // caller gets the contract's 409 rather than the raw violation
+      // of the partial unique index, which is what actually enforces
+      // this under concurrency.
+      if (await this.users.existsActiveByLawyerId(existingLawyerId)) {
+        throw new LawyerAlreadyLinkedError(existingLawyerId);
       }
     }
 

@@ -224,3 +224,26 @@ export class UnknownRoleFilterError extends ValidationError {
     });
   }
 }
+
+/**
+ * Emitted when a lawyer already has an active account and someone
+ * tries to link a second one.
+ *
+ * A professional record stands for one person, and two live accounts
+ * under the same matrícula would let the same lawyer act as two
+ * actors in the audit trail. Deactivating the first account frees the
+ * lawyer, so this is never a dead end.
+ *
+ * A {@link ConflictError} (409) rather than a business rule: it is
+ * the same shape as a duplicate username, and `details.field` lets
+ * the frontend mark the lawyer selector.
+ */
+export class LawyerAlreadyLinkedError extends ConflictError {
+  constructor(lawyerId: number) {
+    super(
+      "LAWYER_ALREADY_LINKED",
+      "El abogado ya tiene una cuenta de usuario activa.",
+      { field: "lawyerId", lawyerId },
+    );
+  }
+}

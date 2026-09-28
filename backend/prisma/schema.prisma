@@ -39,10 +39,21 @@ model User {
   // borrado físico no debería ocurrir nunca; si alguien lo intenta,
   // preferimos que falle ruidosamente antes que desvincular en silencio.
   //
-  // Sin `@unique`: que un abogado pueda tener a lo sumo una cuenta es
-  // razonable pero no está relevado — P-07 de PENDIENTE_DEFINICION.md
-  // marca la obligatoriedad del vínculo como decisión del equipo sin
-  // respaldo documental. No se fija esa regla en la base hasta definirla.
+  // Un abogado tiene como máximo una cuenta ACTIVA. La regla la
+  // impone un índice único parcial que crea la migración
+  // `one_active_account_per_lawyer`:
+  //
+  //   CREATE UNIQUE INDEX "users_lawyer_id_active_key"
+  //     ON "users" ("lawyer_id")
+  //     WHERE "active" = true AND "lawyer_id" IS NOT NULL;
+  //
+  // Es parcial y no un `@unique` porque dar de baja una cuenta libera
+  // la matrícula: el abogado sigue ejerciendo y solo cambió de cuenta.
+  //
+  // ATENCIÓN: Prisma no sabe expresar índices parciales, así que este
+  // índice no figura en el modelo y `prisma migrate dev` lo va a ver
+  // como deriva. Si una migración generada trae un DROP de
+  // `users_lawyer_id_active_key`, hay que quitarlo a mano.
   lawyer Lawyer? @relation(fields: [lawyerId], references: [id], onDelete: Restrict)
 
   @@index([lawyerId])

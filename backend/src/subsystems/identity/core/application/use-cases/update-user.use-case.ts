@@ -5,6 +5,7 @@ import {
   EmailAlreadyExistsError,
   EmptyUpdateRequestError,
   InvalidRoleError,
+  LawyerAlreadyLinkedError,
   LastAdministratorError,
   LawyerLinkNotAllowedError,
   LawyerLinkRequiredError,
@@ -145,12 +146,19 @@ export class UpdateUserUseCase {
     // was first set, and re-checking it on every unrelated edit would
     // turn a deactivated lawyer into a wall the user cannot get past
     // while fixing, say, a typo in their email.
-    if (
-      command.lawyerId !== undefined &&
-      command.lawyerId !== null &&
-      !(await this.lawyerLookup.existsById(command.lawyerId))
-    ) {
-      throw new LawyerNotFoundError(command.lawyerId);
+    if (command.lawyerId !== undefined && command.lawyerId !== null) {
+      if (!(await this.lawyerLookup.existsById(command.lawyerId))) {
+        throw new LawyerNotFoundError(command.lawyerId);
+      }
+
+      // A lawyer holds at most one live account. The user's own link
+      // is excluded, so re-sending the same lawyerId is a no-op
+      // rather than a conflict with itself.
+      if (
+        await this.users.existsActiveByLawyerId(command.lawyerId, user.id)
+      ) {
+        throw new LawyerAlreadyLinkedError(command.lawyerId);
+      }
     }
 
     await this.users.save(user);

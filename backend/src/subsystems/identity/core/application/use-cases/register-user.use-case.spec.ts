@@ -1,6 +1,7 @@
 import {
   EmailAlreadyExistsError,
   InvalidRoleError,
+  LawyerAlreadyLinkedError,
   LawyerLinkNotAllowedError,
   LawyerLinkRequiredError,
   LawyerNotFoundError,
@@ -113,6 +114,44 @@ describe("RegisterUserUseCase", () => {
     });
 
     expect(result.user.lawyerId).toBe(4);
+  });
+
+  // A lawyer holds at most one live account.
+  describe("one active account per lawyer", () => {
+    const asLawyer = { ...baseCommand, roles: ["LAWYER"], lawyerId: 4 };
+
+    it("rejects linking a lawyer that already has an active user", async () => {
+      const { useCase } = build([4]);
+      await useCase.execute(asLawyer);
+
+      await expect(
+        useCase.execute({
+          ...asLawyer,
+          username: "otro",
+          email: "otro@vazquezzarate.com",
+        }),
+      ).rejects.toBeInstanceOf(LawyerAlreadyLinkedError);
+    });
+
+    /**
+     * Deactivating an account frees the matrícula: the lawyer is still
+     * practising, only the account changed. A plain UNIQUE would leave
+     * them unable to ever hold an account again.
+     */
+    it("frees the lawyer once the account is deactivated", async () => {
+      const { useCase, users } = build([4]);
+      const first = await useCase.execute(asLawyer);
+      first.user.deactivate();
+      await users.save(first.user);
+
+      const second = await useCase.execute({
+        ...asLawyer,
+        username: "otro",
+        email: "otro@vazquezzarate.com",
+      });
+
+      expect(second.user.lawyerId).toBe(4);
+    });
   });
 
   // Contract §3.2: sending `lawyer` registers the professional record
