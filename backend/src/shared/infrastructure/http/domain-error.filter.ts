@@ -145,10 +145,7 @@ export class DomainErrorFilter implements ExceptionFilter {
     if (typeof body === "object" && body !== null && "message" in body) {
       const raw = (body as { message: unknown }).message;
       if (Array.isArray(raw)) {
-        details = raw.reduce<Record<string, unknown>>(
-          (acc, m, i) => ({ ...acc, [`error_${i}`]: m }),
-          {},
-        );
+        details = keyByField(raw);
       }
     }
 
@@ -173,4 +170,44 @@ export class DomainErrorFilter implements ExceptionFilter {
         return "No se pudo procesar la solicitud.";
     }
   }
+}
+
+/**
+ * Turns the `ValidationPipe`'s flat list of messages into a map keyed
+ * by the field each one is about.
+ *
+ * The contract asks the response to *"marcar el campo en conflicto"*
+ * (CA-4.3, CA-6.6), and the previous shape — `error_0`, `error_1`, … —
+ * did not: the frontend had to parse the English message to work out
+ * which input to highlight. That was survivable while every field was
+ * flat, because the message opens with the property name, and stops
+ * being survivable with nested objects like `lawyer.registrationNumber`.
+ *
+ * `class-validator` puts the property path at the start of each
+ * message, so the first token is the key. Anything that does not look
+ * like a path (a class-level constraint, for instance) is filed under
+ * `_` rather than dropped — losing an error is worse than filing it
+ * imprecisely.
+ *
+ * Several messages about the same field are joined, so a password
+ * failing both length and digit rules reports both.
+ */
+function keyByField(messages: readonly unknown[]): Record<string, unknown> {
+  const byField = new Map<string, string[]>();
+
+  for (const raw of messages) {
+    const text = String(raw);
+    const [first] = text.split(" ");
+    const field = /^[A-Za-z_$][\w$]*(\.[\w$]+|\[\d+\])*$/.test(first ?? "")
+      ? first
+      : "_";
+
+    const previous = byField.get(field) ?? [];
+    previous.push(text);
+    byField.set(field, previous);
+  }
+
+  return Object.fromEntries(
+    [...byField].map(([field, texts]) => [field, texts.join(" ")]),
+  );
 }

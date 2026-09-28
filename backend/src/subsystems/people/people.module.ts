@@ -23,6 +23,6 @@ import { PrismaLawyerRepository } from "./infrastructure/persistence/prisma/pris
     FindLawyersUseCase,
     { provide: LAWYER_REPOSITORY, useClass: PrismaLawyerRepository },
   ],
-  exports: [FindLawyerUseCase, FindLawyersUseCase],
+  exports: [FindLawyerUseCase, FindLawyersUseCase, RegisterLawyerUseCase],
 })
 export class PeopleModule {}

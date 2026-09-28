@@ -13,6 +13,7 @@ import { RefreshSessionUseCase } from "./core/application/use-cases/refresh-sess
 import { RegisterUserUseCase } from "./core/application/use-cases/register-user.use-case";
 import { UpdateUserUseCase } from "./core/application/use-cases/update-user.use-case";
 import { LAWYER_LOOKUP } from "./core/domain/ports/lawyer-lookup.port";
+import { LAWYER_REGISTRAR } from "./core/domain/ports/lawyer-registrar.port";
 import { PASSWORD_HASHER } from "./core/domain/ports/password-hasher.port";
 import { REFRESH_TOKEN_STORE } from "./core/domain/ports/refresh-token-store.port";
 import { ROLE_REPOSITORY } from "./core/domain/ports/role.repository";
@@ -72,6 +73,9 @@ import { PrismaUserRepository } from "./infrastructure/persistence/prisma/prisma
     { provide: ROLE_REPOSITORY, useClass: PrismaRoleRepository },
     { provide: REFRESH_TOKEN_STORE, useClass: PrismaRefreshTokenStore },
     { provide: LAWYER_LOOKUP, useClass: PeopleLawyerLookupAdapter },
+    // useExisting, no useClass: ambos puertos tienen que resolver al
+    // MISMO adaptador. Con useClass Nest instancia uno por token.
+    { provide: LAWYER_REGISTRAR, useExisting: LAWYER_LOOKUP },
 
     // The kernel declares this port in its own vocabulary; this
     // subsystem supplies the adapter that translates its token format
