@@ -1,27 +1,13 @@
-import { Inject, Injectable } from "@nestjs/common";
-import { CLOCK, ClockPort } from "@shared/domain/clock.port";
-import { InvalidCredentialsError } from "../../domain/errors/identity.errors";
-import {
-  PASSWORD_HASHER,
-  PasswordHasher,
-} from "../../domain/ports/password-hasher.port";
-import {
-  REFRESH_TOKEN_STORE,
-  RefreshTokenStore,
-} from "../../domain/ports/refresh-token-store.port";
-import {
-  ROLE_REPOSITORY,
-  RoleRepository,
-} from "../../domain/ports/role.repository";
-import {
-  TOKEN_ISSUER,
-  TokenIssuer,
-} from "../../domain/ports/token-issuer.port";
-import {
-  USER_REPOSITORY,
-  UserRepository,
-} from "../../domain/ports/user.repository";
-import { Username } from "../../domain/value-objects/username.vo";
+import { Inject, Injectable } from '@nestjs/common';
+import { CLOCK, ClockPort } from '@shared/domain/clock.port';
+import { InvalidCredentialsError } from '../../domain/errors/identity.errors';
+import { PASSWORD_HASHER, PasswordHasher } from '../../domain/ports/password-hasher.port';
+import { REFRESH_TOKEN_STORE, RefreshTokenStore } from '../../domain/ports/refresh-token-store.port';
+import { ROLE_REPOSITORY, RoleRepository } from '../../domain/ports/role.repository';
+import { TOKEN_ISSUER, TokenIssuer } from '../../domain/ports/token-issuer.port';
+import { USER_REPOSITORY, UserRepository } from '../../domain/ports/user.repository';
+import { Username } from '../../domain/value-objects/username.vo';
+import { LAWYER_LOOKUP, LawyerLookupPort, LawyerSummary } from '../../domain/ports/lawyer-lookup.port';
 
 /**
  * Input command for {@link AuthenticateUserUseCase}. Raw strings from
@@ -41,9 +27,11 @@ export type AuthenticateUserCommand = {
  *   user can spot access they did not perform.
  * - `refreshExpiresIn` carries the moment the refresh token expires;
  *   the controller uses it to set the cookie's `Expires` attribute.
- * - `user.lawyerId` is returned as a bare id; enriching it into the
- *   nested `lawyer` object of the API v2 response is the controller's
- *   job (via a lookup into the `people` subsystem, out of this scope).
+ * - `user.lawyer` is the professional record behind the user's
+ *   `lawyerId`, resolved here through {@link LawyerLookupPort}. The
+ *   contract embeds it (§3.1) and states this `user` has the same
+ *   shape `/users` returns, so it is resolved in the use case exactly
+ *   as `GetUserUseCase` does — not in the mapper, which does no I/O.
  */
 export type AuthenticateUserResult = {
   accessToken: string;
@@ -56,7 +44,7 @@ export type AuthenticateUserResult = {
     fullName: string;
     email: string;
     roleNames: string[];
-    lawyerId: number | null;
+    lawyer: LawyerSummary | null;
     previousLoginAt: Date | null;
     active: boolean;
   };
@@ -79,6 +67,10 @@ export type AuthenticateUserResult = {
  * 6. Issue an access JWT and a refresh token (fresh family).
  * 7. Rotate `lastLoginAt` on the aggregate (return the previous,
  *    save the current) and persist the update.
+ * 8. Resolve the linked professional record so the response can embed
+ *    it under `user.lawyer`. A link that does not resolve renders
+ *    `null` rather than failing the login: a deactivated lawyer must
+ *    not lock its user out.
  *
  * Steps 1–4 collapse into a single {@link InvalidCredentialsError}
  * on failure: the client cannot distinguish "user does not exist"
@@ -95,11 +87,10 @@ export class AuthenticateUserUseCase {
     @Inject(REFRESH_TOKEN_STORE)
     private readonly refreshStore: RefreshTokenStore,
     @Inject(CLOCK) private readonly clock: ClockPort,
+    @Inject(LAWYER_LOOKUP) private readonly lawyerLookup: LawyerLookupPort,
   ) {}
 
-  async execute(
-    command: AuthenticateUserCommand,
-  ): Promise<AuthenticateUserResult> {
+  async execute(command: AuthenticateUserCommand): Promise<AuthenticateUserResult> {
     let username: Username;
 
     try {
@@ -136,9 +127,7 @@ export class AuthenticateUserUseCase {
     }
 
     const roleNames = roles.map((r) => r.getName());
-    const permissions = Array.from(
-      new Set(roles.flatMap((r) => r.getPermissions())),
-    );
+    const permissions = Array.from(new Set(roles.flatMap((r) => r.getPermissions())));
 
     const accessToken = await this.tokenIssuer.issue({
       sub: user.id,
@@ -156,6 +145,8 @@ export class AuthenticateUserUseCase {
     const previousLoginAt = user.registerLogin(now);
     await this.users.save(user);
 
+    const lawyer = await this.resolveLawyer(user.lawyerId);
+
     return {
       accessToken: accessToken.token,
       expiresIn: accessToken.expiresIn,
@@ -167,10 +158,26 @@ export class AuthenticateUserUseCase {
         fullName: user.fullName,
         email: user.email.toString(),
         roleNames,
-        lawyerId: user.lawyerId,
+        lawyer,
         previousLoginAt,
         active: user.isActive(),
       },
     };
+  }
+
+  /**
+   * The contract embeds the linked professional record under
+   * `user.lawyer` (§3.1, same shape as §3.2). A user without a link,
+   * and one whose lawyer was deactivated, both render `null` — the
+   * lookup reports a logically deleted record as absent, and neither
+   * case is a reason to refuse the login.
+   */
+  private async resolveLawyer(lawyerId: number | null): Promise<LawyerSummary | null> {
+    if (lawyerId === null) {
+      return null;
+    }
+
+    const summaries = await this.lawyerLookup.findSummaries([lawyerId]);
+    return summaries.get(lawyerId) ?? null;
   }
 }

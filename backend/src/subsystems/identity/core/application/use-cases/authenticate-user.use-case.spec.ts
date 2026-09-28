@@ -2,6 +2,10 @@ import { ClockPort } from "@shared/domain/clock.port";
 import { Role } from "../../domain/entities/role.entity";
 import { User } from "../../domain/entities/user.entity";
 import { InvalidCredentialsError } from "../../domain/errors/identity.errors";
+import {
+  LawyerLookupPort,
+  LawyerSummary,
+} from "../../domain/ports/lawyer-lookup.port";
 import { PasswordHasher } from "../../domain/ports/password-hasher.port";
 import {
   RefreshTokenStore,
@@ -70,6 +74,26 @@ class FakeRoleRepository implements RoleRepository {
   }
   async findByNames(names: readonly string[]): Promise<Role[]> {
     return this.roles.filter((r) => names.includes(r.getName()));
+  }
+}
+
+class FakeLawyerLookup implements LawyerLookupPort {
+  constructor(private readonly existingIds: readonly number[] = []) {}
+  async existsById(lawyerId: number): Promise<boolean> {
+    return this.existingIds.includes(lawyerId);
+  }
+  /** Renders a predictable summary for every id it knows about. */
+  async findSummaries(
+    lawyerIds: readonly number[],
+  ): Promise<Map<number, LawyerSummary>> {
+    return new Map(
+      lawyerIds
+        .filter((id) => this.existingIds.includes(id))
+        .map((id) => [
+          id,
+          { id, fullName: `Lawyer ${id}`, registrationNumber: `1-${id}` },
+        ]),
+    );
   }
 }
 
@@ -171,13 +195,14 @@ describe("AuthenticateUserUseCase", () => {
 
   const now = new Date("2026-09-21T10:00:00Z");
 
-  const build = (roles: Role[] = [roleAdmin]) => {
+  const build = (roles: Role[] = [roleAdmin], knownLawyerIds: number[] = []) => {
     const users = new FakeUserRepository();
     const rolesRepo = new FakeRoleRepository(roles);
     const hasher = new FakeHasher();
     const tokenIssuer = new FakeTokenIssuer();
     const refreshStore = new FakeRefreshStore();
     const clock = new FakeClock(now);
+    const lawyerLookup = new FakeLawyerLookup(knownLawyerIds);
     const useCase = new AuthenticateUserUseCase(
       users,
       rolesRepo,
@@ -185,6 +210,7 @@ describe("AuthenticateUserUseCase", () => {
       tokenIssuer,
       refreshStore,
       clock,
+      lawyerLookup,
     );
     return {
       users,
@@ -193,6 +219,7 @@ describe("AuthenticateUserUseCase", () => {
       tokenIssuer,
       refreshStore,
       clock,
+      lawyerLookup,
       useCase,
     };
   };
@@ -212,6 +239,7 @@ describe("AuthenticateUserUseCase", () => {
     expect(result.user.id).toBe(1);
     expect(result.user.username).toBe("fvazquez");
     expect(result.user.roleNames).toEqual(["ADMINISTRATOR"]);
+    expect(result.user.lawyer).toBeNull();
     expect(result.user.previousLoginAt).toBeNull();
     expect(tokenIssuer.issued[0]).toEqual({
       sub: 1,
@@ -234,6 +262,48 @@ describe("AuthenticateUserUseCase", () => {
       "case:change-status",
     ]);
     expect(tokenIssuer.issued[0].roles).toEqual(["ADMINISTRATOR", "LAWYER"]);
+    expect(tokenIssuer.issued[0].lawyerId).toBe(10);
+  });
+
+  it("embeds the linked professional record under user.lawyer", async () => {
+    const { users, useCase } = build([roleAdmin, roleLawyer], [10]);
+    users.seed(await makeUser({ roleIds: [1, 2], lawyerId: 10 }));
+
+    const result = await useCase.execute({
+      username: "fvazquez",
+      password: "password-123",
+    });
+
+    expect(result.user.lawyer).toEqual({
+      id: 10,
+      fullName: "Lawyer 10",
+      registrationNumber: "1-10",
+    });
+  });
+
+  it("renders lawyer as null when the link does not resolve", async () => {
+    // The user points at lawyer 99, which the lookup does not know: a
+    // deactivated record reads the same as no link at all, and must
+    // not keep its user from logging in.
+    const { users, useCase } = build([roleAdmin], [10]);
+    users.seed(await makeUser({ roleIds: [1], lawyerId: 99 }));
+
+    const result = await useCase.execute({
+      username: "fvazquez",
+      password: "password-123",
+    });
+
+    expect(result.user.lawyer).toBeNull();
+  });
+
+  // The access token keeps carrying the bare id: it is a credential,
+  // not a view. Only the HTTP response embeds the record.
+  it("still puts the bare lawyerId in the access token claims", async () => {
+    const { users, useCase, tokenIssuer } = build([roleLawyer], [10]);
+    users.seed(await makeUser({ roleIds: [2], lawyerId: 10 }));
+
+    await useCase.execute({ username: "fvazquez", password: "password-123" });
+
     expect(tokenIssuer.issued[0].lawyerId).toBe(10);
   });
 
