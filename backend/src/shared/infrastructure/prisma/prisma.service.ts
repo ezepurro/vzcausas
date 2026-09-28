@@ -33,11 +33,21 @@ export class PrismaService
    */
   private readonly transaction = new AsyncLocalStorage<PrismaTransactionalClient>();
 
+  /**
+   * The Proxy that `PrismaClient`'s constructor returns, which is what
+   * actually carries the model delegates (`user`, `role`, ...). Getters
+   * invoked through that Proxy receive the bare target as `this`, so
+   * `client` cannot just return `this` — it would hand out an object
+   * where `.user` is `undefined`.
+   */
+  private readonly root: PrismaTransactionalClient;
+
   constructor() {
     const adapter = new PrismaPg({
       connectionString: process.env.DATABASE_URL,
     });
     super({ adapter });
+    this.root = this;
   }
 
   async onModuleInit() {
@@ -58,7 +68,7 @@ export class PrismaService
    * back with the rest.
    */
   get client(): PrismaTransactionalClient {
-    return this.transaction.getStore() ?? this;
+    return this.transaction.getStore() ?? this.root;
   }
 
   /**
