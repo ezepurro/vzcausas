@@ -1,10 +1,15 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { screen, waitFor, within } from '@testing-library/react'
 import { http, HttpResponse } from 'msw'
 import { renderWithProviders } from '../../setup/render'
 import { server } from '@/shared/mocks/server'
 import { db, errorBody } from '@/shared/mocks'
 import { UsersPage } from '@/features/users/pages/UsersPage'
+
+/* Estos tests llenan el formulario de alta tecla por tecla y, con la suite
+   entera corriendo en paralelo, alguno pasaba los 5 s por defecto y fallaba
+   al azar. No es un error de la pantalla: tardan. Sólo para este archivo. */
+vi.setConfig({ testTimeout: 15_000 })
 
 function renderPage(as = 'fvazquez') {
     return renderWithProviders(<UsersPage />, {

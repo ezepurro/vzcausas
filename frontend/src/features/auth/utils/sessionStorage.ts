@@ -173,6 +173,6 @@ export function writeRefreshedSession(
         accessToken: refreshed.accessToken,
         tokenType: refreshed.tokenType,
         expiresIn: refreshed.expiresIn,
-        user: current.user,
+        user: { ...current.user, roles: refreshed.user.roles }
     })
 }

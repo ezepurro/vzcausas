@@ -75,9 +75,9 @@ export interface StoredSession {
  *
  * **No es el mismo objeto que el `user` del login**, aunque el backend lo
  * llame igual: acá no vienen `fullName`, `email`, `lastLoginAt` ni `active`,
- * los roles se llaman `roleNames` en vez de `roles`, y el abogado es un
- * número suelto en vez de la ficha entera. Es el contenido del JWT, no el
- * recurso usuario.
+ * y el abogado es un número suelto en vez de la ficha entera. Es el
+ * contenido del JWT, no el recurso usuario. Los roles sí vienen como
+ * `roles`: son lo único que la sesión toma de acá al renovarse.
  *
  * Por eso se declara aparte y con otro nombre: si se reusara `AuthUser`, una
  * renovación dejaría la sesión sin el nombre de la persona y el rail
@@ -86,7 +86,7 @@ export interface StoredSession {
 export interface SessionPrincipal {
     id: number
     username: string
-    roleNames: Role[]
+    roles: Role[]
     lawyerId: number | null
     /** Permisos finos del usuario. Todavía no los usa ninguna pantalla. */
     permissions: string[]

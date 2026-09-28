@@ -360,7 +360,7 @@ const refresh: Handler = ({ request }) => {
         user: {
             id: user.id,
             username: user.username,
-            roleNames: [...user.roles],
+            roles: [...user.roles],
             lawyerId: user.lawyerId,
             permissions: permissionsFor(user.roles),
         },

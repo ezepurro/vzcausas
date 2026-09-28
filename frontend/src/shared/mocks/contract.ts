@@ -324,14 +324,14 @@ export function principalRole(roles: Role[]): Role | null {
  * Lo que viaja adentro del token de acceso.
  *
  * Ojo: **no es el mismo objeto que el `user` del login**, aunque el backend
- * lo devuelva con ese nombre. Los roles se llaman `roleNames`, el abogado es
- * un id suelto, aparecen los permisos y faltan el nombre completo, el correo,
- * el último acceso y el estado de alta.
+ * lo devuelva con ese nombre. El abogado es un id suelto, aparecen los
+ * permisos y faltan el nombre completo, el correo, el último acceso y el
+ * estado de alta. Los roles sí se llaman `roles`, igual que en el login.
  */
 export interface SessionPrincipal {
     id: number;
     username: string;
-    roleNames: Role[];
+    roles: Role[];
     lawyerId: number | null;
     permissions: string[];
 }

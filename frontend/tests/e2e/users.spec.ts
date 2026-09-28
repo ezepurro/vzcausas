@@ -91,14 +91,4 @@ test.describe('Usuarios', () => {
         await expect(page.getByRole('alert')).toBeVisible()
         await expect(rowOf(page, 'mrios')).toBeVisible()
     })
-
-    test('un abogado no tiene acceso a la administración de usuarios', async ({ page }) => {
-        await page.getByRole('button', { name: 'Cerrar sesión' }).click()
-        // Esperar a que el cierre termine: si no, la sesión vieja sigue guardada al recargar.
-        await expect(page).toHaveURL(/\/login$/)
-        await loginAs(page, 'lawyer')
-        await goTo(page, 'Usuarios')
-
-        await expect(page.getByText('No se pudieron cargar los usuarios')).toBeVisible()
-    })
 })

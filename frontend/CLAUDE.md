@@ -203,9 +203,29 @@ No llama al servidor directo.
 
 ## Enchufar un módulo nuevo
 
-1. Registrar las páginas en `src/app/router/index.tsx`.
+1. Registrar las páginas en `src/app/router/index.tsx`, **adentro** de
+   `<RequireAccess />`.
 2. Si falta, agregar el ítem en `src/app/layouts/AppLayout.tsx`.
-3. Si el mock no tiene el endpoint, agregarlo en `src/shared/mocks/`.
+3. **Declarar la ruta en `ROUTE_ACCESS`** (`src/app/access/access.ts`) con los
+   roles que la ven, tal como los fija el contrato para sus endpoints.
+4. Si el mock no tiene el endpoint, agregarlo en `src/shared/mocks/`.
+
+### Acceso por perfil
+
+`ROUTE_ACCESS` es la única fuente de quién ve qué: de ahí leen el rail (esconde
+los ítems y los grupos que quedan vacíos) y `RequireAccess` (muestra "Sin
+acceso" si alguien escribe la URL a mano).
+
+- **Lo que no está declarado queda denegado para todos**, administrador
+  incluido. Si una pantalla nueva no aparece en el menú, casi seguro falta
+  acá.
+- Las subrutas heredan el permiso de su sección: `/usuarios/8` → `/usuarios`.
+- Para esconder un botón suelto dentro de una pantalla, `useCanAccess(ruta)`
+  de `@/app/access/useCanAccess`. **No** escribas
+  `roles.includes('ADMINISTRATOR')` en un componente: la regla tiene que
+  seguir viviendo en un solo lugar.
+- Es comodidad, no seguridad: quien autoriza es el backend (responde `403`).
+  Lo que se esconde acá es para no mostrarle a nadie algo que no puede usar.
 
 ## Verificar
 
@@ -223,5 +243,5 @@ No llama al servidor directo.
 4. Hooks, uno por archivo, con la caché resuelta en cada mutación.
 5. Validación en `schemas/` y transformaciones en `utils/`.
 6. Componentes del módulo, después de revisar `shared/README.md`.
-7. Página, ruta y, si falta, ítem del menú.
+7. Página, ruta, ítem del menú si falta, y la ruta en `ROUTE_ACCESS`.
 8. Lint y build.

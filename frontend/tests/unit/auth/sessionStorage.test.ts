@@ -36,7 +36,7 @@ function refreshed(overrides: Partial<RefreshedSession['user']> = {}): Refreshed
         user: {
             id: 1,
             username: 'fvazquez',
-            roleNames: ['ADMINISTRATOR', 'LAWYER'],
+            roles: ['ADMINISTRATOR', 'LAWYER'],
             lawyerId: 1,
             permissions: [],
             ...overrides,
@@ -144,6 +144,21 @@ describe('writeRefreshedSession', () => {
         // El usuario de la renovación no trae fullName: tiene que quedar el del login.
         expect(updated?.user).toEqual(USER)
         expect(localStorage.getItem(TOKEN_KEY)).toBe('token-2')
+    })
+
+    /* Si un administrador le cambia el perfil a alguien con la sesión
+       abierta, el menú y las rutas se tienen que ajustar en la próxima
+       renovación, sin esperar a que vuelva a iniciar sesión. */
+    it('toma los roles de la renovación y conserva el resto del usuario', () => {
+        const current = writeStoredSession(SESSION)
+
+        const updated = writeRefreshedSession(current, refreshed({ roles: ['LAWYER'] }))
+
+        expect(updated?.user.roles).toEqual(['LAWYER'])
+        expect(updated?.user.fullName).toBe(USER.fullName)
+        expect(updated?.user.email).toBe(USER.email)
+        // Y sobrevive a una recarga con los roles nuevos.
+        expect(readStoredSession()?.user.roles).toEqual(['LAWYER'])
     })
 
     it('si el token renovado es de otra persona, descarta todo', () => {

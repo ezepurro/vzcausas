@@ -190,10 +190,11 @@ puede ejercer la renovación del token, que es lo más delicado del frontend.
 **Cuando se publique, hay que revisar que coincida.**
 
 Devuelve `{ data: { accessToken, tokenType, expiresIn, user } }`, donde ese
-`user` **no es el del login**: trae `roleNames` en vez de `roles`, `lawyerId`
-suelto en vez de la ficha, agrega `permissions`, y no trae `fullName`,
-`email`, `lastLoginAt` ni `active`. Es el contenido del token, no el recurso
-usuario. El frontend conserva el usuario que guardó al iniciar sesión.
+`user` **no es el del login**: trae `lawyerId` suelto en vez de la ficha,
+agrega `permissions`, y no trae `fullName`, `email`, `lastLoginAt` ni
+`active`. Es el contenido del token, no el recurso usuario. Los roles sí
+vienen como `roles`, igual que en el login. El frontend conserva el usuario
+que guardó al iniciar sesión y sólo actualiza los roles.
 
 **Dos libertades que se toma el mock**, las dos anotadas en el código:
 
