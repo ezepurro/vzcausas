@@ -187,6 +187,44 @@ describe("UpdateUserUseCase", () => {
     expect(result.user.lawyerId).toBeNull();
   });
 
+  // CA-6.4 — "si se le quita el perfil, se desvincula la ficha, pero el
+  // abogado no se da de baja".
+  describe("dropping the LAWYER role (CA-6.4)", () => {
+    it("unlinks the lawyer without being told to", async () => {
+      const { useCase, users } = build([4]);
+      await seedUser(users, { roleIds: [2], lawyerId: 4 });
+
+      const result = await useCase.execute({ id: 1, roles: ["SECRETARY"] });
+
+      expect(result.user.lawyerId).toBeNull();
+      expect(result.roles.map((r) => r.getName())).toEqual(["SECRETARY"]);
+      expect(users.saved).toHaveLength(1);
+    });
+
+    /**
+     * The lawyer belongs to `people`; this use case only drops the
+     * reference. Nothing here may reach into that subsystem, and the
+     * criterion says so explicitly.
+     */
+    it("does not touch the lawyer record itself", async () => {
+      const { useCase, users, lawyerLookup } = build([4]);
+      await seedUser(users, { roleIds: [2], lawyerId: 4 });
+
+      await useCase.execute({ id: 1, roles: ["SECRETARY"] });
+
+      expect(await lawyerLookup.existsById(4)).toBe(true);
+    });
+
+    it("still rejects pointing at a lawyer without holding the role", async () => {
+      const { useCase, users } = build([4]);
+      await seedUser(users, { roleIds: [3], lawyerId: null });
+
+      await expect(
+        useCase.execute({ id: 1, roles: ["SECRETARY"], lawyerId: 4 }),
+      ).rejects.toBeInstanceOf(LawyerLinkNotAllowedError);
+    });
+  });
+
   // CA-6.3 — the system may never be left without an administrator.
   describe("last administrator (CA-6.3)", () => {
     const ADMIN = FAKE_ROLE_IDS_BY_NAME.ADMINISTRATOR;

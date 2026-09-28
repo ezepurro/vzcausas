@@ -121,8 +121,24 @@ export class UpdateUserUseCase {
     if (includesLawyer && user.lawyerId === null) {
       throw new LawyerLinkRequiredError();
     }
+
     if (!includesLawyer && user.lawyerId !== null) {
-      throw new LawyerLinkNotAllowedError();
+      // Asking to point at a lawyer while not holding the role is a
+      // contradiction the caller has to resolve, so it still fails.
+      if (command.lawyerId !== undefined && command.lawyerId !== null) {
+        throw new LawyerLinkNotAllowedError();
+      }
+
+      // CA-6.4 — dropping the LAWYER role unlinks the professional
+      // record on its own: "si se le quita el perfil, se desvincula la
+      // ficha". Requiring the caller to also send `lawyerId: null`
+      // turned the documented behaviour into an error, so removing a
+      // lawyer's role failed unless you knew to unlink by hand.
+      //
+      // Only the link is dropped. The lawyer stays exactly as it was —
+      // that record belongs to `people` and the rest of the criterion
+      // is explicit that it is not deactivated here.
+      user.changeLawyerId(null);
     }
     // Only re-validate against `people` when this request actually
     // changes lawyerId — an unchanged link was already valid when it
