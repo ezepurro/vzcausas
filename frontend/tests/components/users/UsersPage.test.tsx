@@ -164,14 +164,41 @@ describe('UsersPage', () => {
             const dialog = await openCreate(user)
 
             await fillPersonalData(user, dialog)
+            // Una ficha sin cuenta: las que ya tienen una no se pueden vincular.
+            await user.selectOptions(
+                within(dialog).getByLabelText(label.lawyerId),
+                'Dra. Julieta Campos · matrícula 1-43890',
+            )
+            await user.click(within(dialog).getByRole('button', { name: 'Registrar usuario' }))
+
+            expect(await screen.findByText('Usuario aperez registrado.')).toBeInTheDocument()
+            expect(db.users.find((u) => u.username === 'aperez')?.lawyerId).toBe(9)
+        })
+
+        /* Es un 409, pero el problema es de UN campo: va en el select de
+           fichas, no en un aviso suelto, y el modal queda abierto para
+           elegir otra. */
+        it('un abogado que ya tiene cuenta se marca en el campo', async () => {
+            const { user } = renderPage()
+            const before = db.users.length
+            const dialog = await openCreate(user)
+
+            await fillPersonalData(user, dialog)
+            // Ignacio Peralta ya tiene la cuenta `iperalta`.
             await user.selectOptions(
                 within(dialog).getByLabelText(label.lawyerId),
                 'Dr. Ignacio Peralta · matrícula 1-35207',
             )
             await user.click(within(dialog).getByRole('button', { name: 'Registrar usuario' }))
 
-            expect(await screen.findByText('Usuario aperez registrado.')).toBeInTheDocument()
-            expect(db.users.find((u) => u.username === 'aperez')?.lawyerId).toBe(4)
+            expect(
+                await within(dialog).findByText('El abogado ya tiene una cuenta de usuario activa.'),
+            ).toBeInTheDocument()
+            expect(within(dialog).getByLabelText(label.lawyerId).closest('.vz-field')).toHaveClass(
+                'vz-field--error',
+            )
+            expect(screen.getByRole('dialog')).toBeInTheDocument()
+            expect(db.users).toHaveLength(before)
         })
 
         it('registra un abogado junto con su ficha nueva', async () => {

@@ -76,12 +76,13 @@ test.describe('Usuarios', () => {
             dialog.getByText('Este perfil necesita una ficha de abogado vinculada.'),
         ).toBeVisible()
 
-        await lawyer.selectOption({ label: 'Dr. Ignacio Peralta · matrícula 1-35207' })
+        // Una ficha sin cuenta: un abogado tiene a lo sumo una cuenta activa.
+        await lawyer.selectOption({ label: 'Dra. Julieta Campos · matrícula 1-43890' })
         await dialog.getByRole('button', { name: 'Registrar usuario' }).click()
 
         await expect(page.getByText('Usuario bsosa registrado.')).toBeVisible()
         await page.getByRole('searchbox', { name: 'Buscar usuario' }).fill('bsosa')
-        await expect(rowOf(page, 'bsosa').getByText('Dr. Ignacio Peralta')).toBeVisible()
+        await expect(rowOf(page, 'bsosa').getByText('Dra. Julieta Campos')).toBeVisible()
     })
 
     test('un usuario con causas asignadas no se puede eliminar', async ({ page }) => {

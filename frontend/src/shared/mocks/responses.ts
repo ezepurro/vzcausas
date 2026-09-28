@@ -124,6 +124,13 @@ export const ERRORS = {
         'LAWYER_REGISTRATION_ALREADY_EXISTS',
         'La matrícula del abogado ya se encuentra registrada.',
     ),
+    /* El backend además manda `lawyerId` numérico en `details`; se omite
+       porque acá sólo van textos y el front no lo lee. */
+    lawyerAlreadyLinked: errorBody(
+        'LAWYER_ALREADY_LINKED',
+        'El abogado ya tiene una cuenta de usuario activa.',
+        { field: 'lawyerId' },
+    ),
     proceduralStateNameTaken: errorBody(
         'PROCEDURAL_STATE_ALREADY_EXISTS',
         'Ya existe un estado procesal con esa denominación en el fuero.',
@@ -338,6 +345,7 @@ export const RESPONSES = {
         usernameTaken: response(409, ERRORS.usernameTaken),
         emailTaken: response(409, ERRORS.emailTaken),
         registrationTaken: response(409, ERRORS.registrationTaken),
+        lawyerAlreadyLinked: response(409, ERRORS.lawyerAlreadyLinked),
         businessRule: response(422, businessRuleViolation('createUser')),
     },
 

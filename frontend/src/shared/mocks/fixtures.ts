@@ -57,6 +57,11 @@ export const TOKEN_PREFIX = 'eyJhbGciOi';
  * `activeCases` va en `0` porque el módulo de causas todavía no existe: el
  * contrato define el campo desde ahora para no cambiar la forma del recurso
  * más adelante.
+ *
+ * Un abogado tiene a lo sumo **una** cuenta activa (`LAWYER_ALREADY_LINKED`
+ * en el backend). Por eso cada usuario que ejerce tiene su propia ficha, y
+ * las dos últimas quedan **sin cuenta**: son las que se pueden vincular en
+ * un alta sin chocar con esa regla.
  */
 export const LAWYERS: readonly Lawyer[] = [
     { id: 1, fullName: 'Dr. Fernando G. Vázquez', registrationNumber: '1-28114', activeCases: 0, active: true },
@@ -66,6 +71,10 @@ export const LAWYERS: readonly Lawyer[] = [
     { id: 5, fullName: 'Dra. Carolina Bustos', registrationNumber: '1-39510', activeCases: 0, active: true },
     { id: 6, fullName: 'Dr. Matías Ferreyra', registrationNumber: '1-38226', activeCases: 0, active: true },
     { id: 7, fullName: 'Dra. Lucía Ortega', registrationNumber: '1-41033', activeCases: 0, active: true },
+    { id: 8, fullName: 'Dra. Sofía Ledesma', registrationNumber: '1-42517', activeCases: 0, active: true },
+    // Sin cuenta de usuario: libres para vincular en un alta.
+    { id: 9, fullName: 'Dra. Julieta Campos', registrationNumber: '1-43890', activeCases: 0, active: true },
+    { id: 10, fullName: 'Dr. Tomás Aguirre', registrationNumber: '1-44102', activeCases: 0, active: true },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -116,7 +125,7 @@ export const USERS: readonly StoredUser[] = [
     { id: 8, username: 'gestion', fullName: 'Gestión Estudio', email: MAIL('gestion'), roles: ['SECRETARY'], lawyerId: null, lastLoginAt: '2026-09-19T07:58:00-03:00', active: true },
     { id: 9, username: 'ravila', fullName: 'Romina Ávila', email: MAIL('ravila'), roles: ['SECRETARY'], lawyerId: null, lastLoginAt: '2026-08-22T16:45:00-03:00', active: true },
     // Relleno: secretaría y mesa de entradas, para llegar a dos páginas.
-    { id: 10, username: 'sledesma', fullName: 'Sofía Ledesma', email: MAIL('sledesma'), roles: ['SECRETARY', 'LAWYER'], lawyerId: 3, lastLoginAt: '2026-09-17T09:10:00-03:00', active: true },
+    { id: 10, username: 'sledesma', fullName: 'Sofía Ledesma', email: MAIL('sledesma'), roles: ['SECRETARY', 'LAWYER'], lawyerId: 8, lastLoginAt: '2026-09-17T09:10:00-03:00', active: true },
     { id: 11, username: 'rmoyano', fullName: 'Rocío Moyano', email: MAIL('rmoyano'), roles: ['SECRETARY'], lawyerId: null, lastLoginAt: '2026-09-16T14:22:00-03:00', active: true },
     { id: 12, username: 'gsalinas', fullName: 'Gabriel Salinas', email: MAIL('gsalinas'), roles: ['SECRETARY'], lawyerId: null, lastLoginAt: '2026-09-15T08:40:00-03:00', active: true },
     { id: 13, username: 'ynunez', fullName: 'Yamila Núñez', email: MAIL('ynunez'), roles: ['SECRETARY'], lawyerId: null, lastLoginAt: '2026-09-12T17:05:00-03:00', active: true },

@@ -180,6 +180,12 @@ export function UsersPage() {
             return
         }
 
+        // El abogado elegido ya tiene una cuenta activa: es del select de fichas.
+        if (error.is('LAWYER_ALREADY_LINKED')) {
+            setErrors({ lawyerId: error.message })
+            return
+        }
+
         if (error.is('LAWYER_REGISTRATION_ALREADY_EXISTS')) {
             setErrors({ registrationNumber: error.message })
             return

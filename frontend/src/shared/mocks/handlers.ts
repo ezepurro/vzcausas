@@ -422,6 +422,15 @@ function emailTaken(email: string, exceptId?: number): boolean {
     return db.users.some((u) => u.id !== exceptId && u.email.toLowerCase() === email.toLowerCase());
 }
 
+/**
+ * `true` si el abogado ya tiene una cuenta activa, sin contar la del usuario
+ * `exceptUserId`: en una edición, volver a mandar el mismo abogado no es un
+ * choque consigo mismo. Mismo criterio que el backend.
+ */
+function lawyerLinked(lawyerId: number, exceptUserId?: number): boolean {
+    return db.users.some((u) => u.active && u.lawyerId === lawyerId && u.id !== exceptUserId);
+}
+
 function registrationTaken(registrationNumber: string, exceptId?: number): boolean {
     return db.lawyers.some((l) => l.id !== exceptId && l.registrationNumber === registrationNumber);
 }
@@ -480,6 +489,8 @@ const createUser: Handler = ({ request }) => {
         const id = readCount(body.lawyerId, Number.MAX_SAFE_INTEGER);
         const lawyer = id === undefined ? undefined : db.lawyers.find((l) => l.id === id);
         if (!lawyer || !lawyer.active) return fail(422, businessRuleViolation('createUser'));
+        // Un abogado tiene a lo sumo una cuenta activa.
+        if (lawyerLinked(lawyer.id)) return fail(409, ERRORS.lawyerAlreadyLinked);
         lawyerId = lawyer.id;
     }
 
@@ -626,6 +637,7 @@ const updateUser: Handler = ({ request, params }) => {
             const id = readCount(body.lawyerId, Number.MAX_SAFE_INTEGER);
             const lawyer = id === undefined ? undefined : db.lawyers.find((l) => l.id === id);
             if (!lawyer || !lawyer.active) return fail(422, businessRuleViolation('updateUser'));
+            if (lawyerLinked(lawyer.id, userId)) return fail(409, ERRORS.lawyerAlreadyLinked);
             nextLawyerId = lawyer.id;
         }
     }
