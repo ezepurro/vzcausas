@@ -28,6 +28,11 @@ export type UserWithRoles = {
  * controller never builds a command by hand.
  */
 export class UserHttpMapper {
+  /**
+   * `lawyer` is forwarded as a plain object, not the DTO instance:
+   * the application layer must not end up holding a class that
+   * carries `class-validator` metadata.
+   */
   static toRegisterCommand(dto: RegisterUserRequestDto): RegisterUserCommand {
     return {
       username: dto.username,
@@ -36,6 +41,13 @@ export class UserHttpMapper {
       plainPassword: dto.password,
       roles: dto.roles,
       lawyerId: dto.lawyerId ?? null,
+      lawyer:
+        dto.lawyer === undefined
+          ? undefined
+          : {
+              fullName: dto.lawyer.fullName,
+              registrationNumber: dto.lawyer.registrationNumber,
+            },
     };
   }
 

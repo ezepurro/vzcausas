@@ -1,4 +1,8 @@
 import { Inject, Injectable } from "@nestjs/common";
+import {
+  TRANSACTION_MANAGER,
+  TransactionManagerPort,
+} from "@shared/domain/transaction-manager.port";
 import { Role } from "../../domain/entities/role.entity";
 import { User } from "../../domain/entities/user.entity";
 import {
@@ -12,7 +16,13 @@ import {
 import {
   LAWYER_LOOKUP,
   LawyerLookupPort,
+  LawyerSummary,
 } from "../../domain/ports/lawyer-lookup.port";
+import {
+  LAWYER_REGISTRAR,
+  LawyerRegistrarPort,
+  NewLawyer,
+} from "../../domain/ports/lawyer-registrar.port";
 import {
   PASSWORD_HASHER,
   PasswordHasher,
@@ -30,23 +40,33 @@ export type RegisterUserCommand = {
   email: string;
   plainPassword: string;
   roles: readonly string[];
+  /** Links to an existing lawyer. Never sent together with `lawyer`. */
   lawyerId?: number | null;
+  /** Registers the lawyer along with the user. Never sent with `lawyerId`. */
+  lawyer?: NewLawyer;
 };
 
 export type RegisterUserResult = {
   user: User;
   roles: Role[];
+  lawyer: LawyerSummary | null;
 };
 
 /**
- * HU4 — registers a new user. Orchestrates: uniqueness checks, role
- * resolution, the LAWYER↔lawyerId cross-invariant (deliberately left
- * out of {@link User.create}, see its docstring), and persistence.
+ * HU4 — registers a new user (contract §3.2).
  *
- * The lawyer↔user link only supports an existing `lawyerId`: there is
- * no "register the lawyer inline" path. {@link LawyerLookupPort} is
- * resolved by `people`'s HU-12 use case through the anti-corruption
- * adapter in `infrastructure/acl/lawyer-lookup.adapter.ts`.
+ * The professional record arrives in one of two shapes: `lawyerId`
+ * for one that already exists, or `lawyer` to create it here. The
+ * request carries one or the other — the DTO rejects both together —
+ * and whether either is required follows from the roles.
+ *
+ * When `lawyer` is sent, the two inserts are **atomic**: the contract
+ * is explicit that a failure registering the user must not leave a
+ * lawyer behind, because the client has no way to delete it and the
+ * matrícula would then block the retry.
+ *
+ * Everything that only reads happens **before** the transaction opens
+ * (§7.5, rule 2), so it stays as short as the two writes.
  */
 @Injectable()
 export class RegisterUserUseCase {
@@ -54,7 +74,11 @@ export class RegisterUserUseCase {
     @Inject(USER_REPOSITORY) private readonly users: UserRepository,
     @Inject(ROLE_REPOSITORY) private readonly roleRepository: RoleRepository,
     @Inject(LAWYER_LOOKUP) private readonly lawyerLookup: LawyerLookupPort,
+    @Inject(LAWYER_REGISTRAR)
+    private readonly lawyerRegistrar: LawyerRegistrarPort,
     @Inject(PASSWORD_HASHER) private readonly hasher: PasswordHasher,
+    @Inject(TRANSACTION_MANAGER)
+    private readonly transactions: TransactionManagerPort,
   ) {}
 
   async execute(command: RegisterUserCommand): Promise<RegisterUserResult> {
@@ -68,9 +92,7 @@ export class RegisterUserUseCase {
       throw new EmailAlreadyExistsError();
     }
 
-    const resolvedRoles = await this.roleRepository.findByNames(
-      command.roles,
-    );
+    const resolvedRoles = await this.roleRepository.findByNames(command.roles);
     if (resolvedRoles.length !== command.roles.length) {
       throw new InvalidRoleError(command.roles);
     }
@@ -78,34 +100,55 @@ export class RegisterUserUseCase {
     const includesLawyer = resolvedRoles.some(
       (role) => role.getName() === LAWYER_ROLE_NAME,
     );
-    const lawyerId = command.lawyerId ?? null;
+    const existingLawyerId = command.lawyerId ?? null;
+    const newLawyer = command.lawyer;
+    const hasLink = existingLawyerId !== null || newLawyer !== undefined;
 
-    if (includesLawyer && lawyerId === null) {
+    if (includesLawyer && !hasLink) {
       throw new LawyerLinkRequiredError();
     }
-    if (!includesLawyer && lawyerId !== null) {
+    if (!includesLawyer && hasLink) {
       throw new LawyerLinkNotAllowedError();
     }
-    if (lawyerId !== null && !(await this.lawyerLookup.existsById(lawyerId))) {
-      throw new LawyerNotFoundError(lawyerId);
+
+    // Reading the existing lawyer is a validation, so it happens out
+    // here rather than inside the transaction (§7.5, rule 2).
+    let linkedLawyer: LawyerSummary | null = null;
+    if (existingLawyerId !== null) {
+      const summaries = await this.lawyerLookup.findSummaries([
+        existingLawyerId,
+      ]);
+      linkedLawyer = summaries.get(existingLawyerId) ?? null;
+      if (linkedLawyer === null) {
+        throw new LawyerNotFoundError(existingLawyerId);
+      }
     }
 
-    const id = await this.users.nextId();
-    const user = await User.create(
-      {
-        id,
-        username,
-        plainPassword: command.plainPassword,
-        fullName: command.fullName,
-        email,
-        roleIds: resolvedRoles.map((role) => role.getId()),
-        lawyerId,
-      },
-      this.hasher,
-    );
+    return this.transactions.runInTransaction(async () => {
+      // Inside the transaction because it writes: if creating the user
+      // fails below, this insert is rolled back with it.
+      const lawyer =
+        newLawyer !== undefined
+          ? await this.lawyerRegistrar.register(newLawyer)
+          : linkedLawyer;
 
-    await this.users.create(user);
+      const id = await this.users.nextId();
+      const user = await User.create(
+        {
+          id,
+          username,
+          plainPassword: command.plainPassword,
+          fullName: command.fullName,
+          email,
+          roleIds: resolvedRoles.map((role) => role.getId()),
+          lawyerId: lawyer?.id ?? null,
+        },
+        this.hasher,
+      );
 
-    return { user, roles: resolvedRoles };
+      await this.users.create(user);
+
+      return { user, roles: resolvedRoles, lawyer };
+    });
   }
 }

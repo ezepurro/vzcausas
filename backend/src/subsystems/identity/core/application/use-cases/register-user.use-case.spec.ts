@@ -10,7 +10,9 @@ import { RegisterUserUseCase } from "./register-user.use-case";
 import {
   FakeHasher,
   FakeLawyerLookup,
+  FakeLawyerRegistrar,
   FakeRoleRepository,
+  FakeTransactionManager,
   FakeUserRepository,
 } from "./test-support/identity-fakes";
 
@@ -24,17 +26,21 @@ describe("RegisterUserUseCase", () => {
     roles: ["SECRETARY"],
   };
 
-  function build(lawyerIds: readonly number[] = []) {
+  function build(lawyerIds: readonly number[] = [], registrarFails?: Error) {
     const users = new FakeUserRepository();
     const roles = new FakeRoleRepository();
     const lawyerLookup = new FakeLawyerLookup(lawyerIds);
+    const registrar = new FakeLawyerRegistrar(registrarFails);
+    const transactions = new FakeTransactionManager(users, registrar);
     const useCase = new RegisterUserUseCase(
       users,
       roles,
       lawyerLookup,
+      registrar,
       hasher,
+      transactions,
     );
-    return { useCase, users, roles, lawyerLookup };
+    return { useCase, users, roles, lawyerLookup, registrar, transactions };
   }
 
   it("registers a user without a lawyer link", async () => {
@@ -107,5 +113,74 @@ describe("RegisterUserUseCase", () => {
     });
 
     expect(result.user.lawyerId).toBe(4);
+  });
+
+  // Contract §3.2: sending `lawyer` registers the professional record
+  // together with the user, in a single transaction.
+  describe("registering the lawyer inline", () => {
+    const withNewLawyer = {
+      ...baseCommand,
+      roles: ["LAWYER"],
+      lawyer: { fullName: "Dr. Ignacio Peralta", registrationNumber: "1-35207" },
+    };
+
+    it("creates the lawyer and links the user to it", async () => {
+      const { useCase, registrar } = build();
+
+      const result = await useCase.execute(withNewLawyer);
+
+      expect(registrar.registered).toHaveLength(1);
+      expect(result.lawyer?.registrationNumber).toBe("1-35207");
+      expect(result.user.lawyerId).toBe(result.lawyer?.id);
+    });
+
+    it("does both writes inside one transaction", async () => {
+      const { useCase, transactions } = build();
+
+      await useCase.execute(withNewLawyer);
+
+      expect(transactions.calls).toBe(1);
+    });
+
+    /**
+     * The reason the transaction exists: a lawyer left behind by a
+     * failed registration cannot be deleted from the app, and its
+     * matrícula would then reject the retry.
+     */
+    it("persists no user when registering the lawyer fails", async () => {
+      const { useCase, users } = build([], new Error("matrícula repetida"));
+
+      await expect(useCase.execute(withNewLawyer)).rejects.toThrow(
+        "matrícula repetida",
+      );
+      expect(users.created).toHaveLength(0);
+    });
+
+    it("leaves no lawyer behind when the user cannot be created", async () => {
+      const { useCase, users, registrar } = build();
+      // Fails at the insert, past every up-front validation — the only
+      // point where a lawyer has already been written and the rollback
+      // is what has to undo it.
+      users.failNextCreate = new Error("insert falló");
+
+      await expect(useCase.execute(withNewLawyer)).rejects.toThrow(
+        "insert falló",
+      );
+      expect(registrar.registered).toHaveLength(0);
+    });
+
+    it("rejects a lawyer for a user that does not hold the role", async () => {
+      const { useCase } = build();
+
+      await expect(
+        useCase.execute({ ...withNewLawyer, roles: ["SECRETARY"] }),
+      ).rejects.toBeInstanceOf(LawyerLinkNotAllowedError);
+    });
+
+    it("accepts the LAWYER role when the link comes as a new lawyer", async () => {
+      const { useCase } = build();
+
+      await expect(useCase.execute(withNewLawyer)).resolves.toBeDefined();
+    });
   });
 });

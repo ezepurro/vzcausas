@@ -83,7 +83,7 @@ export class DomainErrorFilter implements ExceptionFilter {
       .json(
         this.envelope(
           "INTERNAL_SERVER_ERROR",
-          "An unexpected internal error occurred.",
+          "Ocurrió un error interno inesperado.",
           null,
         ),
       );
@@ -119,7 +119,9 @@ export class DomainErrorFilter implements ExceptionFilter {
       case HttpStatus.FORBIDDEN:
         return "FORBIDDEN";
       case HttpStatus.NOT_FOUND:
-        return "NOT_FOUND";
+        // Only Nest's "no route matched" reaches here: resource-level
+        // 404s are DomainErrors with their own code.
+        return "RESOURCE_NOT_FOUND";
       case HttpStatus.CONFLICT:
         return "CONFLICT";
       case HttpStatus.UNPROCESSABLE_ENTITY:
@@ -134,22 +136,78 @@ export class DomainErrorFilter implements ExceptionFilter {
     details: Record<string, unknown> | null;
   } {
     const body = exception.getResponse();
-    let message = exception.message;
+    // Nest's own texts are in English ("Cannot GET /x"); the contract
+    // requires user-facing Spanish copy (§5.2), so the message is fixed
+    // per status.
+    const message = this.messageForHttpStatus(exception.getStatus());
     let details: Record<string, unknown> | null = null;
 
     if (typeof body === "object" && body !== null && "message" in body) {
       const raw = (body as { message: unknown }).message;
       if (Array.isArray(raw)) {
-        message = "The submitted data is invalid.";
-        details = raw.reduce<Record<string, unknown>>(
-          (acc, m, i) => ({ ...acc, [`error_${i}`]: m }),
-          {},
-        );
-      } else if (typeof raw === "string") {
-        message = raw;
+        details = keyByField(raw);
       }
     }
 
     return { message, details };
   }
+
+  private messageForHttpStatus(status: number): string {
+    switch (status) {
+      case HttpStatus.BAD_REQUEST:
+        return "Los datos enviados no son válidos.";
+      case HttpStatus.UNAUTHORIZED:
+        return "La autenticación es requerida.";
+      case HttpStatus.FORBIDDEN:
+        return "No tiene permisos para realizar esta operación.";
+      case HttpStatus.NOT_FOUND:
+        return "El recurso solicitado no existe.";
+      case HttpStatus.CONFLICT:
+        return "La operación entra en conflicto con el estado actual del recurso.";
+      case HttpStatus.UNPROCESSABLE_ENTITY:
+        return "No se puede realizar la operación debido a una regla de negocio.";
+      default:
+        return "No se pudo procesar la solicitud.";
+    }
+  }
+}
+
+/**
+ * Turns the `ValidationPipe`'s flat list of messages into a map keyed
+ * by the field each one is about.
+ *
+ * The contract asks the response to *"marcar el campo en conflicto"*
+ * (CA-4.3, CA-6.6), and the previous shape — `error_0`, `error_1`, … —
+ * did not: the frontend had to parse the English message to work out
+ * which input to highlight. That was survivable while every field was
+ * flat, because the message opens with the property name, and stops
+ * being survivable with nested objects like `lawyer.registrationNumber`.
+ *
+ * `class-validator` puts the property path at the start of each
+ * message, so the first token is the key. Anything that does not look
+ * like a path (a class-level constraint, for instance) is filed under
+ * `_` rather than dropped — losing an error is worse than filing it
+ * imprecisely.
+ *
+ * Several messages about the same field are joined, so a password
+ * failing both length and digit rules reports both.
+ */
+function keyByField(messages: readonly unknown[]): Record<string, unknown> {
+  const byField = new Map<string, string[]>();
+
+  for (const raw of messages) {
+    const text = String(raw);
+    const [first] = text.split(" ");
+    const field = /^[A-Za-z_$][\w$]*(\.[\w$]+|\[\d+\])*$/.test(first ?? "")
+      ? first
+      : "_";
+
+    const previous = byField.get(field) ?? [];
+    previous.push(text);
+    byField.set(field, previous);
+  }
+
+  return Object.fromEntries(
+    [...byField].map(([field, texts]) => [field, texts.join(" ")]),
+  );
 }

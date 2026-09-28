@@ -1,9 +1,14 @@
 import { Role } from "../../../domain/entities/role.entity";
 import { User } from "../../../domain/entities/user.entity";
+import { TransactionManagerPort } from "@shared/domain/transaction-manager.port";
 import {
   LawyerLookupPort,
   LawyerSummary,
 } from "../../../domain/ports/lawyer-lookup.port";
+import {
+  LawyerRegistrarPort,
+  NewLawyer,
+} from "../../../domain/ports/lawyer-registrar.port";
 import { PasswordHasher } from "../../../domain/ports/password-hasher.port";
 import {
   RefreshTokenStore,
@@ -88,7 +93,15 @@ export class FakeUserRepository implements UserRepository {
       (u) => u.email.equals(email) && u.id !== excludingUserId,
     );
   }
+  /** Set by a spec to make the next insert fail (rollback tests). */
+  failNextCreate?: Error;
+
   async create(user: User): Promise<void> {
+    if (this.failNextCreate !== undefined) {
+      const error = this.failNextCreate;
+      this.failNextCreate = undefined;
+      throw error;
+    }
     this.created.push(user);
     this.byId.set(user.id, user);
   }
@@ -203,5 +216,76 @@ export class FakeRefreshTokenStore implements RefreshTokenStore {
   async revokeFamily(): Promise<void> {}
   async revokeAllForUser(userId: number): Promise<void> {
     this.revokedForUsers.push(userId);
+  }
+}
+
+/**
+ * Records the lawyers it was asked to create so a spec can assert
+ * both that one was registered and that a rolled-back registration
+ * left nothing behind.
+ *
+ * `failWith` makes the registration throw, which is how the specs
+ * exercise the "matrícula already taken" path without involving
+ * `people`.
+ */
+export class FakeLawyerRegistrar implements LawyerRegistrarPort {
+  readonly registered: NewLawyer[] = [];
+  private nextId = 100;
+
+  constructor(private readonly failWith?: Error) {}
+
+  async register(lawyer: NewLawyer): Promise<LawyerSummary> {
+    if (this.failWith !== undefined) {
+      throw this.failWith;
+    }
+
+    this.registered.push(lawyer);
+    return {
+      id: this.nextId++,
+      fullName: lawyer.fullName,
+      registrationNumber: lawyer.registrationNumber,
+    };
+  }
+}
+
+/**
+ * Runs the work and, when it throws, undoes whatever the repositories
+ * recorded during it — the observable part of a rollback, which is
+ * what the specs need to assert.
+ *
+ * Deliberately not a no-op passthrough: a fake that merely called
+ * `work()` would let a spec claim atomicity that the real manager
+ * provides and this test never exercised.
+ */
+export class FakeTransactionManager implements TransactionManagerPort {
+  calls = 0;
+
+  constructor(
+    private readonly users?: FakeUserRepository,
+    private readonly registrar?: FakeLawyerRegistrar,
+  ) {}
+
+  async runInTransaction<T>(work: () => Promise<T>): Promise<T> {
+    this.calls++;
+
+    const usersBefore = this.users ? [...this.users.byId.keys()] : [];
+    const lawyersBefore = this.registrar
+      ? this.registrar.registered.length
+      : 0;
+
+    try {
+      return await work();
+    } catch (error) {
+      if (this.users) {
+        for (const id of [...this.users.byId.keys()]) {
+          if (!usersBefore.includes(id)) this.users.byId.delete(id);
+        }
+        this.users.created.length = 0;
+      }
+      if (this.registrar) {
+        this.registrar.registered.length = lawyersBefore;
+      }
+      throw error;
+    }
   }
 }

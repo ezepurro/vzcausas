@@ -1,9 +1,11 @@
 import { MiddlewareConsumer, Module, NestModule } from "@nestjs/common";
 import { APP_FILTER } from "@nestjs/core";
 import { CLOCK } from "./domain/clock.port";
+import { TRANSACTION_MANAGER } from "./domain/transaction-manager.port";
 import { SystemClockAdapter } from "./infrastructure/clock/system-clock.adapter";
 import { CorrelationMiddleware } from "./infrastructure/http/correlation-id.middleware";
 import { DomainErrorFilter } from "./infrastructure/http/domain-error.filter";
+import { PrismaTransactionManager } from "./infrastructure/prisma/prisma-transaction-manager";
 
 /**
  * Shared kernel module. Wires cross-cutting concerns that every
@@ -22,9 +24,10 @@ import { DomainErrorFilter } from "./infrastructure/http/domain-error.filter";
   providers: [
     { provide: CLOCK, useClass: SystemClockAdapter },
     { provide: APP_FILTER, useClass: DomainErrorFilter },
+    { provide: TRANSACTION_MANAGER, useClass: PrismaTransactionManager },
   ],
 
-  exports: [CLOCK],
+  exports: [CLOCK, TRANSACTION_MANAGER],
 })
 export class SharedModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {
