@@ -1,21 +1,21 @@
-// Este script corre fuera de Nest, así que nadie cargó el `.env` por él.
-// Sin esto la conexión falla con un error de SASL que no dice nada sobre
-// la causa real.
+// This script runs outside Nest, so nothing has loaded `.env` on its
+// behalf. Without this the connection fails with a SASL error that says
+// nothing about the actual cause.
 import 'dotenv/config';
 import { PrismaClient } from '../src/generated/prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
-
+import * as bcrypt from 'bcryptjs';
 /**
- * Catálogo de roles. Son datos de referencia, no datos de usuario: ningún
- * endpoint los crea en ningún alcance, así que sembrarlos es la única
- * manera de que existan. Sin esto la autenticación tiene éxito y después
- * falla al resolver los roles del usuario, con un 500 que parece un
- * defecto y es una base sin sembrar.
+ * Role catalog. Reference data, not user data: no endpoint creates
+ * these at any scope, so seeding them is the only way they come to
+ * exist. Without this, authentication succeeds and then fails resolving
+ * the user's roles — a 500 on login that looks like a defect and is
+ * really an unseeded database.
  *
- * Sin `id` explícito a propósito: las columnas son autoincrementales, y
- * fijar los ids en el `create` deja la secuencia de Postgres en cero.
- * El primer alta posterior que no fije el id choca con una clave
- * duplicada.
+ * No explicit `id`, deliberately: the columns are autoincrement, and
+ * pinning ids in the `create` leaves the Postgres sequence at zero. The
+ * first later insert that does not pin an id collides on a duplicate
+ * key.
  */
 const ROLES = [
   {
@@ -33,14 +33,14 @@ const ROLES = [
 ] as const;
 
 /**
- * Formato `namespace:action`, validado por el value object `Permission`.
- * Se embeben en el claim `permissions[]` del access token, y los lee
- * `PermissionsGuard` en cada petición.
+ * `namespace:action` format, validated by the `Permission` value
+ * object. These are embedded in the access token's `permissions[]`
+ * claim and read by `PermissionsGuard` on every request.
  *
- * Mantener alineada esta lista con los permisos que los endpoints
- * realmente exigen: un permiso que ningún rol otorga vuelve un endpoint
- * inalcanzable para todo el mundo, y el fallo se manifiesta como un 403
- * pelado que no explica nada.
+ * Keep this list aligned with the permissions the endpoints actually
+ * demand: a permission no role grants makes an endpoint unreachable for
+ * everyone, and the failure shows up as a bare 403 that explains
+ * nothing.
  */
 const PERMISSIONS = [
   { name: 'user:create', description: 'Registrar usuarios.' },
@@ -54,10 +54,10 @@ const PERMISSIONS = [
 ] as const;
 
 /**
- * Todas las operaciones de administración exigen rol `ADMINISTRATOR`
- * según el contrato (§3.2 y §3.3), así que hoy concentra todos los
- * permisos. `LAWYER` y `SECRETARY` quedan sin permisos administrativos
- * hasta que existan los subsistemas de causas y documentos.
+ * Every administrative operation requires the `ADMINISTRATOR` role per
+ * the contract (§3.2 and §3.3), so today it holds all the permissions.
+ * `LAWYER` and `SECRETARY` carry no administrative permissions until
+ * the cases and documents subsystems exist.
  */
 const ROLE_PERMISSIONS: Record<string, readonly string[]> = {
   ADMINISTRATOR: PERMISSIONS.map((p) => p.name),
@@ -67,18 +67,12 @@ const ROLE_PERMISSIONS: Record<string, readonly string[]> = {
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
-  throw new Error('DATABASE_URL no está definida. Revisá backend/.env (o el entorno del contenedor).');
+  throw new Error('DATABASE_URL is not set. Check backend/.env (or the container environment).');
 }
 
 /**
- * Idempotente por construcción: toda escritura es un upsert sobre una
- * columna única, así que correrlo contra una base ya sembrada no hace
- * nada en vez de fallar por clave duplicada. Importa porque corre en
- * cada despliegue, no solo sobre una base nueva.
- */
-/**
- * Fueros del enumerado `Jurisdiction` del contrato (§2). `name` guarda
- * el código, que es lo que lee `JurisdictionMapper`.
+ * Jurisdictions from the contract's `Jurisdiction` enum (§2). `name`
+ * stores the code, which is what `JurisdictionMapper` reads.
  */
 const JURISDICTIONS = [
   { name: 'CRIMINAL', dayTypeDefault: 'BUSINESS' },
@@ -87,13 +81,17 @@ const JURISDICTIONS = [
 ] as const;
 
 /**
- * Estados procesales de ejemplo, cinco por fuero, para desarrollo. La
- * tabla definitiva la provee el estudio (RN4, RN5) y se carga desde la
- * API. `name` es única en toda la tabla, por eso no se repite entre
- * fueros. Regla del contrato: `timeLimitDays = 0` ⇔ `dayType = NONE`.
+ * Sample procedural states, five per jurisdiction, for development. The
+ * definitive table is supplied by the firm (RN4, RN5) and loaded
+ * through the API. `name` is unique across the whole table, which is why
+ * it is never repeated between jurisdictions. Contract rule:
+ * `timeLimitDays = 0` ⇔ `dayType = NONE`.
+ *
+ * The `name` values stay in Spanish: they are legal terminology the
+ * firm reads verbatim, not developer-facing strings.
  */
 const PROCEDURAL_STATES = [
-  // Penal
+  // Criminal
   {
     jurisdiction: 'CRIMINAL',
     position: 1,
@@ -134,7 +132,7 @@ const PROCEDURAL_STATES = [
     dayType: 'NONE',
     terminal: true,
   },
-  // Administrativo
+  // Administrative
   {
     jurisdiction: 'ADMINISTRATIVE',
     position: 1,
@@ -168,7 +166,7 @@ const PROCEDURAL_STATES = [
     terminal: false,
   },
   { jurisdiction: 'ADMINISTRATIVE', position: 5, name: 'Archivada', timeLimitDays: 0, dayType: 'NONE', terminal: true },
-  // Amparo
+  // Amparo (constitutional relief)
   {
     jurisdiction: 'AMPARO',
     position: 1,
@@ -204,6 +202,179 @@ const PROCEDURAL_STATES = [
   { jurisdiction: 'AMPARO', position: 5, name: 'Sentencia firme', timeLimitDays: 0, dayType: 'NONE', terminal: true },
 ] as const;
 
+/**
+ * Development fixture. It lives here rather than in `DevSeedService`
+ * because that service exists to guarantee *one* account that can log
+ * in; this is bulk data to exercise listings and role-based access.
+ *
+ * Registration numbers follow the `<circuit>-<number>` shape validated
+ * by the `RegistrationNumber` value object. The object itself is not
+ * imported: the `@shared/*` and `@subsystems/*` aliases do not resolve
+ * under `ts-node prisma/seed.ts`, so the literals must already be in
+ * their normalized form.
+ */
+const DEV_LAWYERS = [
+  { fullName: 'Fernando Vázquez', registrationNumber: '1-28114' },
+  { fullName: 'Lucía Zárate', registrationNumber: '1-30455' },
+  { fullName: 'Carla Pereyra', registrationNumber: '1-31002' },
+  { fullName: 'Diego Molina', registrationNumber: '2-18447' },
+  { fullName: 'Valeria Quiroga', registrationNumber: '2-20113' },
+  { fullName: 'Martín Ludueña', registrationNumber: '1-29876' },
+  { fullName: 'Sofía Bustos', registrationNumber: '1-33120' },
+  { fullName: 'Javier Ceballos', registrationNumber: '3-10455' },
+  { fullName: 'Noelia Ferreyra', registrationNumber: '2-21988' },
+  { fullName: 'Gonzalo Aguirre', registrationNumber: '1-34567' },
+] as const;
+
+/**
+ * Mapped one-to-one onto `DEV_LAWYERS`, the same way `DevSeedService`
+ * links its `admin` account to a professional record.
+ *
+ * The partial unique index `users_lawyer_id_active_key` allows at most
+ * one *active* account per lawyer, so every registration number appears
+ * exactly once here and all ten end up taken. A further active account
+ * in development needs a registration number of its own.
+ *
+ * Neither `admin` nor registration number `0-00000` appear on purpose:
+ * those belong to `DevSeedService`, which runs after this script and
+ * would overwrite them.
+ *
+ * Roles are spread so all three can be exercised — two partners holding
+ * a double role, management as a plain administrator, two secretaries.
+ * Usernames are restricted to `[a-z0-9._-]` by the `Username` value
+ * object, hence `m.luduena` rather than the accented spelling.
+ */
+const DEV_USERS = [
+  {
+    username: 'f.vazquez',
+    fullName: 'Fernando Vázquez',
+    email: 'f.vazquez@vzcausas.local',
+    roles: ['ADMINISTRATOR', 'LAWYER'],
+    registrationNumber: '1-28114',
+  },
+  {
+    username: 'l.zarate',
+    fullName: 'Lucía Zárate',
+    email: 'l.zarate@vzcausas.local',
+    roles: ['ADMINISTRATOR', 'LAWYER'],
+    registrationNumber: '1-30455',
+  },
+  {
+    username: 'c.pereyra',
+    fullName: 'Carla Pereyra',
+    email: 'c.pereyra@vzcausas.local',
+    roles: ['LAWYER'],
+    registrationNumber: '1-31002',
+  },
+  {
+    username: 'd.molina',
+    fullName: 'Diego Molina',
+    email: 'd.molina@vzcausas.local',
+    roles: ['LAWYER'],
+    registrationNumber: '2-18447',
+  },
+  {
+    username: 'v.quiroga',
+    fullName: 'Valeria Quiroga',
+    email: 'v.quiroga@vzcausas.local',
+    roles: ['LAWYER'],
+    registrationNumber: '2-20113',
+  },
+  {
+    username: 'm.luduena',
+    fullName: 'Martín Ludueña',
+    email: 'm.luduena@vzcausas.local',
+    roles: ['LAWYER'],
+    registrationNumber: '1-29876',
+  },
+  {
+    username: 's.bustos',
+    fullName: 'Sofía Bustos',
+    email: 's.bustos@vzcausas.local',
+    roles: ['LAWYER'],
+    registrationNumber: '1-33120',
+  },
+  {
+    username: 'j.ceballos',
+    fullName: 'Javier Ceballos',
+    email: 'j.ceballos@vzcausas.local',
+    roles: ['ADMINISTRATOR'],
+    registrationNumber: '3-10455',
+  },
+  {
+    username: 'n.ferreyra',
+    fullName: 'Noelia Ferreyra',
+    email: 'n.ferreyra@vzcausas.local',
+    roles: ['SECRETARY'],
+    registrationNumber: '2-21988',
+  },
+  {
+    username: 'g.aguirre',
+    fullName: 'Gonzalo Aguirre',
+    email: 'g.aguirre@vzcausas.local',
+    roles: ['SECRETARY'],
+    registrationNumber: '1-34567',
+  },
+] as const;
+
+async function seedDevPeople(prisma: PrismaClient): Promise<void> {
+  const password = process.env.DEV_SEED_PASSWORD ?? 'admin123';
+  // One hash for all ten accounts: bcrypt at cost 12 takes around
+  // 250 ms per call, so hashing each one separately would add two and a
+  // half seconds to every boot and buy nothing — the password is shared
+  // and is not a secret.
+  const passwordHash = await bcrypt.hash(password, Number(process.env.BCRYPT_COST ?? 12));
+
+  const lawyerIds = new Map<string, number>();
+  for (const lawyer of DEV_LAWYERS) {
+    const row = await prisma.lawyer.upsert({
+      where: { registrationNumber: lawyer.registrationNumber },
+      update: { fullName: lawyer.fullName, active: true },
+      create: lawyer,
+    });
+    lawyerIds.set(lawyer.registrationNumber, row.id);
+  }
+
+  for (const user of DEV_USERS) {
+    const lawyerId = lawyerIds.get(user.registrationNumber);
+    // Without this, a typo in a registration number would come through
+    // as `undefined`, which Prisma reads as "field omitted" and inserts
+    // as NULL — leaving a silently unlinked account behind.
+    if (lawyerId === undefined) {
+      throw new Error(
+        `User ${user.username} references registration number ${user.registrationNumber}, which is not in DEV_LAWYERS.`,
+      );
+    }
+
+    const row = await prisma.user.upsert({
+      where: { username: user.username },
+      // The password is refreshed so that editing the variable takes
+      // effect without wiping the volume.
+      update: { passwordHash, fullName: user.fullName, email: user.email, lawyerId, active: true, deletedAt: null },
+      create: { username: user.username, fullName: user.fullName, email: user.email, passwordHash, lawyerId },
+    });
+
+    const roles = await prisma.role.findMany({ where: { name: { in: [...user.roles] } } });
+    // Replaced rather than merged, for the same reason as
+    // `role_permissions`: the constants above are the source of truth.
+    // Note this discards roles assigned through the API in development.
+    await prisma.userRole.deleteMany({ where: { userId: row.id } });
+    await prisma.userRole.createMany({
+      data: roles.map((role) => ({ userId: row.id, roleId: role.id })),
+    });
+  }
+
+  console.log(
+    `Development fixture: ${DEV_LAWYERS.length} lawyers, ${DEV_USERS.length} users (password in DEV_SEED_PASSWORD).`,
+  );
+}
+
+/**
+ * Idempotent by construction: every write is an upsert on a unique
+ * column, so running this against an already-seeded database does
+ * nothing rather than failing on a duplicate key. That matters because
+ * it runs on every deploy, not only against a fresh database.
+ */
 async function main(): Promise<void> {
   const adapter = new PrismaPg({ connectionString });
   const prisma = new PrismaClient({ adapter });
@@ -212,8 +383,8 @@ async function main(): Promise<void> {
     for (const role of ROLES) {
       await prisma.role.upsert({
         where: { name: role.name },
-        // `isSystem` marca los roles de los que depende la aplicación
-        // por nombre, para que nada ofrezca eliminarlos más adelante.
+        // `isSystem` marks the roles the application depends on by
+        // name, so that nothing offers to delete them later on.
         update: { description: role.description, isSystem: true },
         create: {
           name: role.name,
@@ -243,10 +414,10 @@ async function main(): Promise<void> {
         where: { name: { in: [...permissionNames] } },
       });
 
-      // Se reemplaza, no se fusiona: las constantes de arriba son la
-      // fuente de verdad, así que un permiso que se quita de acá tiene
-      // que desaparecer de la base. Fusionando, un permiso revocado
-      // sobreviviría para siempre porque nada borraría la fila.
+      // Replaced, not merged: the constants above are the source of
+      // truth, so a permission removed from there has to disappear from
+      // the database. Merging would keep a revoked permission alive
+      // forever, because nothing would ever delete the row.
       await prisma.rolePermission.deleteMany({ where: { roleId: role.id } });
       await prisma.rolePermission.createMany({
         data: permissions.map((permission) => ({
@@ -277,13 +448,20 @@ async function main(): Promise<void> {
       });
     }
 
+    // Development only: a database holding accounts with a known
+    // password is precisely what must never exist anywhere else. The
+    // gate is the entire security argument for this fixture.
+    if (process.env.NODE_ENV === 'development') {
+      await seedDevPeople(prisma);
+    }
+
     const roleCount = await prisma.role.count();
     const permissionCount = await prisma.permission.count();
     const jurisdictionCount = await prisma.jurisdiction.count();
     const stateCount = await prisma.proceduralState.count();
     console.log(
-      `Seed completado: ${roleCount} roles, ${permissionCount} permisos, ` +
-        `${jurisdictionCount} fueros, ${stateCount} estados procesales.`,
+      `Seed complete: ${roleCount} roles, ${permissionCount} permissions, ` +
+        `${jurisdictionCount} jurisdictions, ${stateCount} procedural states.`,
     );
   } finally {
     await prisma.$disconnect();
