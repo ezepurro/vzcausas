@@ -1,0 +1,226 @@
+/* Botones, campos de formulario. */
+
+/* ─────────── botones ─────────── */
+.vz-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 18px;
+  border: 1px solid transparent;
+  border-radius: var(--vz-r-btn);
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background .12s, border-color .12s, color .12s;
+}
+.vz-btn:disabled { cursor: not-allowed; }
+
+.vz-btn--primary { background: var(--vz-primary); color: #fff; }
+.vz-btn--primary:hover:not(:disabled) { background: var(--vz-primary-hi); }
+.vz-btn--primary:disabled { background: var(--vz-border-strong); color: #fff; }
+
+.vz-btn--secondary {
+  background: var(--vz-surface);
+  border-color: var(--vz-border-strong);
+  color: var(--vz-ink);
+}
+.vz-btn--secondary:hover:not(:disabled) { background: var(--vz-sunken); }
+.vz-btn--secondary:disabled { opacity: .4; }
+
+.vz-btn--danger {
+  background: var(--vz-surface);
+  border-color: var(--vz-danger-action-bd);
+  color: var(--vz-danger-action);
+}
+.vz-btn--danger:hover:not(:disabled) { background: var(--vz-danger-bg); }
+.vz-btn--danger:disabled { opacity: .4; }
+
+.vz-btn--ghost { background: none; color: var(--vz-muted); }
+.vz-btn--ghost:hover:not(:disabled) { background: var(--vz-sunken); color: var(--vz-ink); }
+
+/* Destructivo de baja intensidad: callado como el ghost, rojo sólo al
+   apuntarlo. Para acciones que se repiten en cada fila de una tabla. */
+.vz-btn--ghost-danger { background: none; color: var(--vz-muted); }
+.vz-btn--ghost-danger:hover:not(:disabled) {
+  background: var(--vz-danger-bg);
+  border-color: var(--vz-danger-action-bd);
+  color: var(--vz-danger-action);
+}
+.vz-btn--ghost-danger:disabled { opacity: .4; }
+
+/* tamaños */
+.vz-btn--md { height: 34px; padding: 0 14px; font-size: 12.5px; }
+.vz-btn--sm { height: 28px; padding: 0 11px; font-size: 12px; }
+.vz-btn--block { width: 100%; }
+
+/* ─────────── campos ─────────── */
+.vz-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+
+.vz-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--vz-muted);
+}
+.vz-label__req { color: var(--vz-danger-action); margin-left: 2px; }
+
+.vz-input, .vz-select, .vz-textarea {
+  width: 100%;
+  border: 1px solid var(--vz-border);
+  border-radius: var(--vz-r-sm);
+  background: var(--vz-surface);
+  color: var(--vz-ink);
+  font-size: 13.5px;
+}
+.vz-input, .vz-select { height: 40px; padding: 0 12px; }
+.vz-select { padding-right: 34px; cursor: pointer; appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235A6560' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 12px center;
+}
+.vz-textarea { padding: 10px 12px; min-height: 84px; resize: vertical; line-height: 1.5; }
+
+.vz-input::placeholder, .vz-textarea::placeholder { color: var(--vz-faint); }
+.vz-input:hover, .vz-select:hover, .vz-textarea:hover { border-color: var(--vz-border-strong); }
+.vz-input:disabled, .vz-select:disabled, .vz-textarea:disabled {
+  background: var(--vz-sunken); color: var(--vz-faint); cursor: not-allowed;
+}
+.vz-input--mono { font-family: var(--vz-font-mono); }
+
+.vz-field--error .vz-input,
+.vz-field--error .vz-select,
+.vz-field--error .vz-textarea { border-color: var(--vz-danger-bd); background: var(--vz-danger-bg); }
+
+.vz-note { font-size: 12px; color: var(--vz-faint); line-height: 1.45; }
+.vz-error { font-size: 12px; color: var(--vz-danger); font-weight: 600; }
+
+/* casilla: tarjeta clicable, no checkbox suelto */
+.vz-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 13px 14px;
+  border: 1px solid var(--vz-border);
+  border-radius: var(--vz-r-sm);
+  background: var(--vz-sunken);
+  font-size: 13.5px;
+  line-height: 1.45;
+  cursor: pointer;
+}
+.vz-check:hover { border-color: var(--vz-border-strong); }
+.vz-check input { margin: 2px 0 0; accent-color: var(--vz-primary); flex: 0 0 auto; }
+
+/* grilla de formulario: 2 columnas, los campos anchos ocupan las dos */
+.vz-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 14px;
+}
+.vz-form-grid > .vz-col-full { grid-column: span 2; }
+@media (max-width: 640px) {
+  .vz-form-grid { grid-template-columns: minmax(0, 1fr); }
+  .vz-form-grid > .vz-col-full { grid-column: span 1; }
+}
+
+/* separador de sección dentro de un formulario */
+.vz-form-sep {
+  grid-column: span 2;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 4px;
+}
+.vz-form-sep__label {
+  font-size: 11px; font-weight: 700; letter-spacing: .09em;
+  text-transform: uppercase; color: var(--vz-primary); white-space: nowrap;
+}
+.vz-form-sep__rule { flex: 1; height: 1px; background: var(--vz-border); }
+
+/* ------------------------------------------------------------------ */
+/* La lista desplegable del select                                     */
+/*                                                                     */
+/* Las `<option>` de un select nativo las dibuja el sistema operativo:  */
+/* no hay CSS que las alcance, y por eso la lista abierta no se parece  */
+/* al resto de la aplicación. El prototipo tiene el mismo problema.     */
+/*                                                                     */
+/* `appearance: base-select` sí las alcanza, pero todavía no la         */
+/* entienden todos los navegadores. Por eso va adentro de un            */
+/* `@supports`: donde existe se ve el panel del estudio, y donde no,    */
+/* queda el desplegable nativo de siempre. En los dos casos sigue       */
+/* siendo un `<select>` de verdad, con su teclado y su lector de        */
+/* pantalla: no estamos reemplazando el control, sólo pintándolo.       */
+/* ------------------------------------------------------------------ */
+@supports (appearance: base-select) {
+  .vz-select,
+  .vz-select::picker(select) { appearance: base-select; }
+
+  .vz-select {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding-right: 12px;
+    text-align: left;
+    /* La flecha deja de ser un fondo y pasa a ser `::picker-icon`, que sí
+       puede girar al abrir. */
+    background-image: none;
+  }
+
+  /* Una matrícula larga se recorta en vez de empujar la flecha afuera. */
+  .vz-select selectedcontent {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .vz-select::picker-icon {
+    color: var(--vz-muted);
+    transition: transform .15s ease;
+  }
+  .vz-select:open::picker-icon { transform: rotate(180deg); }
+
+  /* El panel habla el mismo idioma que el Modal: superficie, borde fino y
+     la sombra de los elementos flotantes. */
+  .vz-select::picker(select) {
+    border: 1px solid var(--vz-border);
+    border-radius: var(--vz-r-sm);
+    background: var(--vz-surface);
+    box-shadow: var(--vz-pop-sh);
+    padding: 4px;
+    margin-top: 4px;
+    max-height: 280px;
+    overflow-y: auto;
+  }
+
+  .vz-select option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-size: 13.5px;
+    line-height: 1.35;
+    color: var(--vz-ink);
+    cursor: pointer;
+  }
+
+  /* El teclado y el mouse marcan igual: moverse con las flechas tiene que
+     verse como pasar por encima con el cursor. */
+  .vz-select option:hover,
+  .vz-select option:focus { background: var(--vz-sunken); outline: none; }
+
+  .vz-select option:checked {
+    background: var(--vz-primary-soft);
+    color: var(--vz-primary-hi);
+    font-weight: 600;
+  }
+
+  /* El tilde de la elegida. Se queda: distinguir sólo por color deja afuera
+     a quien no lo percibe. */
+  .vz-select option::checkmark {
+    order: 1;
+    margin-left: auto;
+    color: var(--vz-primary);
+  }
+}

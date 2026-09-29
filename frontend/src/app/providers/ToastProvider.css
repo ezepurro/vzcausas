@@ -1,10 +1,62 @@
-/* Estilos de los avisos (toasts).
-   Archivo creado vacío para que resuelva el import de ToastProvider.tsx.
+/* Pila de avisos (hasta 2), apilados desde abajo y al centro de la pantalla.
+   Colores y radios tomados de los tokens usados en .vz-toast (feedback.css). */
 
-   Falta definir:
-   - .toasts          el contenedor fijo donde se apilan (esquina de la pantalla)
-   - .toast           la tarjeta del aviso
-   - .toast--success / .toast--error / .toast--info   los tres tonos
-   - .toast__icon     el círculo con el símbolo
-   - .toast__message  el texto
-   - .toast__close    la cruz para cerrarlo */
+.toasts {
+  position: fixed;
+  bottom: 22px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 95;
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: center;
+  gap: 8px;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(520px, calc(100vw - 32px));
+  padding: 10px 14px 10px 12px;
+  border-radius: var(--vz-r-btn);
+  background: var(--vz-rail);
+  color: #fff;
+  font-size: 13px;
+  box-shadow: var(--vz-pop-sh);
+}
+
+.toast__icon {
+  display: flex;
+  flex: 0 0 18px;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.toast--success .toast__icon { background: var(--vz-ok-bd); color: var(--vz-ok); }
+.toast--error .toast__icon { background: var(--vz-danger-bd); color: var(--vz-danger); }
+.toast--info .toast__icon { background: var(--vz-border); color: var(--vz-rail); }
+
+.toast__message {
+  flex: 1;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.toast__close {
+  flex: 0 0 auto;
+  padding: 2px;
+  border: none;
+  background: none;
+  color: var(--vz-rail-fg);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+.toast__close:hover { color: #fff; }

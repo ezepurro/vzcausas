@@ -1,0 +1,82 @@
+/* VZ Causas — tokens visuales. Dirección: Órbita.
+   Única fuente de verdad del color, el radio y la densidad.
+   No hardcodear colores en ningún componente: siempre var(--vz-*). */
+
+:root {
+  /* ── superficies ── */
+  --vz-canvas: #F6F7F4;
+  --vz-surface: #FFFFFF;
+  --vz-sunken: #F1F3EF;
+
+  /* ── rail de navegación (oscuro) ── */
+  --vz-rail: #0C1406;
+  --vz-rail-fg: #A9B6A3;
+  --vz-rail-fg-on: #FFFFFF;
+  --vz-rail-on-bg: #1B2714;
+  --vz-rail-logo: #FFFFFF;
+  --vz-rail-div: #22301B;
+
+  /* ── bordes ── */
+  --vz-border: #DDE2DC;
+  --vz-border-strong: #C3CBC1;
+
+  /* ── texto ── */
+  --vz-ink: #0F172A;
+  --vz-muted: #5A6560;
+  --vz-faint: #68716C;
+
+  /* ── verde institucional ── */
+  --vz-primary: #406640;
+  --vz-primary-hi: #2F4D2F;
+  --vz-primary-soft: #EEF3EC;
+
+  /* ── semántica de plazos y estados ── */
+  --vz-ok: #2F4D2F;
+  --vz-ok-bg: #EEF3EC;
+  --vz-ok-bd: #D8E4D5;
+  --vz-warn: #7A5C1E;
+  --vz-warn-bg: #FBF3E2;
+  --vz-warn-bd: #EBDCB8;
+  --vz-danger: #8E1F19;
+  --vz-danger-bg: #FBEAE8;
+  --vz-danger-bd: #F0CDC9;
+  --vz-danger-action: #B3261E;
+  --vz-danger-action-bd: #E8C9C6;
+
+  /* ── radios (lo que define Órbita) ── */
+  --vz-r: 12px;
+  --vz-r-sm: 8px;
+  --vz-r-btn: 999px;
+  --vz-r-pill: 999px;
+
+  /* ── densidad de tabla ── */
+  --vz-row: 48px;
+  --vz-cell-y: 10px;
+
+  /* ── sombras ── */
+  --vz-card-sh: none;
+  --vz-pop-sh: 0 8px 28px rgba(12, 20, 6, .16);
+
+  /* ── cabecera de tabla ── */
+  --vz-th-bg: #0C1406;
+  --vz-th-fg: #FFFFFF;
+
+  /* ── layout ── */
+  --vz-rail-w: 248px;
+  --vz-rail-pad: 20px;
+  --vz-main-pad: 28px;
+  --vz-rail-label: block;
+
+  /* ── tipografía ── */
+  --vz-font: Figtree, system-ui, -apple-system, sans-serif;
+  --vz-font-mono: 'Roboto Mono', ui-monospace, SFMono-Regular, monospace;
+}
+
+@media (max-width: 1023px) {
+  :root {
+    --vz-rail-w: 64px;
+    --vz-rail-pad: 10px;
+    --vz-main-pad: 16px;
+    --vz-rail-label: none;
+  }
+}

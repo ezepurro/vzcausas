@@ -1,0 +1,130 @@
+/* Panel y tabla de datos. */
+
+.vz-panel {
+  background: var(--vz-surface);
+  border: 1px solid var(--vz-border);
+  border-radius: var(--vz-r);
+  box-shadow: var(--vz-card-sh);
+  overflow: hidden;
+}
+
+.vz-panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--vz-border);
+  background: var(--vz-sunken);
+}
+.vz-panel__title { font-size: 14px; font-weight: 700; }
+.vz-panel__sub { font-size: 12px; color: var(--vz-muted); margin-top: 2px; }
+
+.vz-panel__foot {
+  padding: 12px 18px;
+  border-top: 1px solid var(--vz-border);
+  font-size: 12px;
+  color: var(--vz-muted);
+  line-height: 1.5;
+}
+
+.vz-panel__scroll { overflow-x: auto; }
+
+.vz-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+.vz-table th {
+  text-align: left;
+  padding: 11px 16px;
+  background: var(--vz-th-bg);
+  color: var(--vz-th-fg);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.vz-table td {
+  padding: var(--vz-cell-y) 16px;
+  border-bottom: 1px solid var(--vz-border);
+  vertical-align: middle;
+}
+.vz-table tbody tr:last-child td { border-bottom: none; }
+.vz-table tbody tr:hover { background: var(--vz-sunken); }
+
+.vz-table__num { font-family: var(--vz-font-mono); font-variant-numeric: tabular-nums; }
+.vz-table__nowrap { white-space: nowrap; }
+/* Acciones de fila.
+   Quedan tenues mientras el cursor no está en la fila: en una tabla larga, dos
+   botones por renglón compiten con los datos, que son lo que se vino a leer.
+   Al entrar en la fila toman contraste, y al apuntar uno se dibuja su borde.
+   El fondo del hover es el blanco de la superficie y no el hundido, porque la
+   fila ya está hundida y el botón tiene que despegarse de ella. */
+.vz-table__actions { display: flex; gap: 4px; justify-content: flex-end; }
+.vz-table__actions .vz-btn { opacity: .72; transition: opacity .12s, background .12s, border-color .12s, color .12s; }
+.vz-table tbody tr:hover .vz-table__actions .vz-btn { opacity: 1; }
+.vz-table__actions .vz-btn:focus-visible { opacity: 1; }
+
+.vz-table__actions .vz-btn--ghost:hover:not(:disabled) {
+  background: var(--vz-surface);
+  border-color: var(--vz-border-strong);
+  color: var(--vz-ink);
+}
+.vz-table__actions .vz-btn--ghost-danger:hover:not(:disabled) {
+  background: var(--vz-surface);
+  border-color: var(--vz-danger-action-bd);
+  color: var(--vz-danger-action);
+}
+.vz-table__primary { font-weight: 600; }
+.vz-table__secondary { font-size: 12px; color: var(--vz-muted); margin-top: 2px; }
+
+/* barra de filtros sobre la tabla */
+.vz-filters { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.vz-filters .vz-input,
+.vz-filters .vz-select { height: 36px; width: auto; min-width: 180px; font-size: 13px; }
+/* En la cabecera del panel el buscador no tiene de dónde crecer y quedaba en
+   su mínimo, cortando el placeholder. */
+.vz-filters .vz-search { min-width: 280px; }
+
+/* Paginado: va en el pie del panel, que ya trae borde y color apagado. */
+.vz-pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* Antes el renglón entero era monoespaciado y competía con la tabla. Ahora el
+   texto es texto y sólo los números van en mono, con cifras de ancho fijo para
+   que la línea no se corra al pasar de la página 9 a la 10. */
+.vz-pager__status { color: var(--vz-muted); }
+.vz-pager__count {
+  font-family: var(--vz-font-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--vz-ink);
+}
+
+/* Los dos controles se leen como un par, no como dos botones sueltos. */
+.vz-pager__controls { display: flex; align-items: center; gap: 6px; }
+.vz-pager__controls .vz-btn { padding: 0 10px; }
+.vz-pager__controls .vz-btn:disabled { opacity: .38; }
+
+/* Avatar de iniciales de una celda. El del rail es otro: vive sobre fondo
+   oscuro y tiene su propio tamaño. */
+.vz-table__ident { display: flex; align-items: center; gap: 10px; }
+.vz-avatar {
+  width: 28px; height: 28px; flex: 0 0 28px;
+  border-radius: var(--vz-r-pill);
+  display: flex; align-items: center; justify-content: center;
+  background: var(--vz-primary-soft);
+  color: var(--vz-primary-hi);
+  font-size: 10.5px; font-weight: 700;
+}
+
+/* Varios `Pill` en una misma celda: roles, etiquetas. Envuelven si no entran. */
+.vz-pills { display: flex; flex-wrap: wrap; gap: 5px; }
