@@ -84,15 +84,18 @@ se mantiene igual.
 | `GET`    | `/legal-qualifications/{qualificationId}`             |      Sí       | Cualquier usuario autenticado | Consultar calificación legal             | Nuevo      |
 | `PATCH`  | `/legal-qualifications/{qualificationId}`             |      Sí       | `ADMINISTRATOR`               | Modificar calificación legal             | Nuevo      |
 | `DELETE` | `/legal-qualifications/{qualificationId}`             |      Sí       | `ADMINISTRATOR`               | Dar de baja calificación legal           | Nuevo      |
-| `POST`   | `/clients`                                            |      Sí       | `ADMINISTRATOR`               | Registrar cliente                        | Nuevo      |
+| `POST`   | `/clients`                                            |      Sí       | `SECRETARY`                   | Registrar cliente                        | Nuevo      |
 | `GET`    | `/clients`                                            |      Sí       | Cualquier usuario autenticado | Consultar clientes                       | Nuevo      |
 | `GET`    | `/clients/{clientId}`                                 |      Sí       | Cualquier usuario autenticado | Consultar cliente                        | Nuevo      |
 | `POST`   | `/cases`                                              |      Sí       | Cualquier usuario autenticado | Registrar causa                          | Nuevo      |
 | `GET`    | `/cases`                                              |      Sí       | Cualquier usuario autenticado | Consultar causas                         | Nuevo      |
 | `GET`    | `/cases/custom-states`                                |      Sí       | Cualquier usuario autenticado | Consultar estados escritos a mano        | Nuevo      |
 | `GET`    | `/cases/{caseId}`                                     |      Sí       | Cualquier usuario autenticado | Consultar detalle de causa               | Nuevo      |
-| `POST`   | `/cases/{caseId}/procedural-acts`                     |      Sí       | Cualquier usuario autenticado | Registrar acto procesal                  | Nuevo      |
-| `GET`    | `/cases/{caseId}/procedural-acts/deadline-preview`    |      Sí       | Cualquier usuario autenticado | Previsualizar el vencimiento de un acto  | Nuevo      |
+| `POST`   | `/cases/{caseId}/procedural-acts`                     |      Sí       | `LAWYER`                      | Registrar acto procesal                  | Nuevo      |
+| `GET`    | `/cases/{caseId}/procedural-acts/deadline-preview`    |      Sí       | `LAWYER`                      | Previsualizar el vencimiento de un acto  | Nuevo      |
+
+La columna **Rol** se deriva de la tabla de
+[permisos por perfil](#permisos-por-perfil) de la sección 4.
 
 ---
 
@@ -148,16 +151,6 @@ causa.
 | `DEFENDANT`          | Demandada              | `AMPARO`                       |
 
 No confundir con `Role`, que es el perfil de seguridad del usuario.
-
-### `ProceduralActStatus` (nuevo)
-
-Estado de confirmación de un acto procesal respecto del cambio de estado de la
-causa (RN13). Ver [`POST /cases/{caseId}/procedural-acts`](#post-casescaseidprocedural-acts).
-
-| Código                 | Rótulo                     |
-| ---------------------- | -------------------------- |
-| `CONFIRMED`            | Confirmado                 |
-| `PENDING_CONFIRMATION` | Pendiente de confirmación  |
 
 ---
 
@@ -426,7 +419,7 @@ renovación.
 {
 	"error": {
 		"code": "UNAUTHENTICATED",
-		"message": "Session expired or invalid.",
+		"message": "La sesión expiró o no es válida.",
 		"details": null
 	}
 }
@@ -1587,10 +1580,11 @@ La respuesta no contiene cuerpo.
 autenticado; la escritura (`POST`, `PATCH`, `DELETE`) requiere
 `ADMINISTRATOR`.
 
-La lectura se abre porque el registro de un acto procesal (HU26), que opera
-cualquier perfil, necesita los estados del fuero y sus plazos. La escritura
-queda en `ADMINISTRATOR` porque así la restringe el prototipo, aunque HU17,
-HU45 y HU46 estén redactadas "como abogado" (ver [D-04](#81-decisiones-tomadas)).
+La lectura se abre porque la consulta de estados y plazos (HU16) corresponde a
+los tres perfiles, y el registro de un acto procesal (HU26) necesita los
+estados del fuero y sus plazos. La escritura (HU17, HU45 y HU46) queda en
+`ADMINISTRATOR`, según la tabla de [permisos por perfil](#permisos-por-perfil)
+(ver [D-04](#81-decisiones-tomadas)).
 
 El recurso estado procesal posee la siguiente estructura:
 
@@ -2166,8 +2160,9 @@ una por cada uno, y cada una computa su propia prescripción.
 La lectura se abre porque el alta de causa, que opera cualquier perfil, ofrece
 el selector de calificaciones. La escritura queda en `ADMINISTRATOR`, tal como
 la restringe el prototipo, tanto desde la pantalla de Administración como desde
-el botón "Registrar calificación nueva" del alta de causa
-(ver [C-01](#82-puntos-a-verificar)).
+el botón "Registrar calificación nueva" del alta de causa. La tabla de
+[permisos por perfil](#permisos-por-perfil) no la menciona; se le aplica el
+mismo criterio que a los estados procesales.
 
 El recurso calificación legal posee la siguiente estructura:
 
@@ -2242,9 +2237,9 @@ Registra una nueva calificación legal.
 {
 	"error": {
 		"code": "VALIDATION_ERROR",
-		"message": "Invalid request data.",
+		"message": "Los datos enviados no son válidos.",
 		"details": {
-			"prescriptionMonths": "Must be an integer greater than or equal to 1."
+			"prescriptionMonths": "Debe ser un número entero mayor o igual a 1."
 		}
 	}
 }
@@ -2256,7 +2251,7 @@ Registra una nueva calificación legal.
 {
 	"error": {
 		"code": "UNAUTHENTICATED",
-		"message": "Authentication is required.",
+		"message": "La autenticación es requerida.",
 		"details": null
 	}
 }
@@ -2268,7 +2263,7 @@ Registra una nueva calificación legal.
 {
 	"error": {
 		"code": "FORBIDDEN",
-		"message": "The ADMINISTRATOR role is required to perform this operation.",
+		"message": "Se requiere el rol ADMINISTRATOR para realizar esta operación.",
 		"details": null
 	}
 }
@@ -2280,7 +2275,7 @@ Registra una nueva calificación legal.
 {
 	"error": {
 		"code": "LEGAL_QUALIFICATION_ALREADY_EXISTS",
-		"message": "A legal qualification with that name already exists.",
+		"message": "Ya existe una calificación legal con esa denominación.",
 		"details": null
 	}
 }
@@ -2346,10 +2341,10 @@ GET /api/v1/legal-qualifications?page=1&limit=20&search=art. 162
 {
 	"error": {
 		"code": "INVALID_PAGINATION",
-		"message": "Invalid pagination parameters.",
+		"message": "Los parámetros de paginación no son válidos.",
 		"details": {
-			"page": "Must be an integer greater than or equal to 1.",
-			"limit": "Must be an integer between 1 and 100."
+			"page": "Debe ser un número entero mayor o igual a 1.",
+			"limit": "Debe ser un número entero entre 1 y 100."
 		}
 	}
 }
@@ -2361,7 +2356,7 @@ GET /api/v1/legal-qualifications?page=1&limit=20&search=art. 162
 {
 	"error": {
 		"code": "UNAUTHENTICATED",
-		"message": "Authentication is required.",
+		"message": "La autenticación es requerida.",
 		"details": null
 	}
 }
@@ -2403,9 +2398,9 @@ Obtiene una calificación legal específica.
 {
 	"error": {
 		"code": "INVALID_PATH_PARAMETER",
-		"message": "Invalid legal qualification identifier.",
+		"message": "El identificador de la calificación legal no es válido.",
 		"details": {
-			"qualificationId": "Must be a valid integer."
+			"qualificationId": "Debe ser un número entero válido."
 		}
 	}
 }
@@ -2417,7 +2412,7 @@ Obtiene una calificación legal específica.
 {
 	"error": {
 		"code": "UNAUTHENTICATED",
-		"message": "Authentication is required.",
+		"message": "La autenticación es requerida.",
 		"details": null
 	}
 }
@@ -2429,7 +2424,7 @@ Obtiene una calificación legal específica.
 {
 	"error": {
 		"code": "LEGAL_QUALIFICATION_NOT_FOUND",
-		"message": "The requested legal qualification was not found.",
+		"message": "No se encontró la calificación legal solicitada.",
 		"details": null
 	}
 }
@@ -2489,9 +2484,9 @@ El campo `activeCases` no es modificable: lo calcula el backend.
 {
 	"error": {
 		"code": "VALIDATION_ERROR",
-		"message": "Invalid request data.",
+		"message": "Los datos enviados no son válidos.",
 		"details": {
-			"name": "Must not be empty."
+			"name": "No puede estar vacío."
 		}
 	}
 }
@@ -2503,7 +2498,7 @@ El campo `activeCases` no es modificable: lo calcula el backend.
 {
 	"error": {
 		"code": "UNAUTHENTICATED",
-		"message": "Authentication is required.",
+		"message": "La autenticación es requerida.",
 		"details": null
 	}
 }
@@ -2515,7 +2510,7 @@ El campo `activeCases` no es modificable: lo calcula el backend.
 {
 	"error": {
 		"code": "FORBIDDEN",
-		"message": "The ADMINISTRATOR role is required to perform this operation.",
+		"message": "Se requiere el rol ADMINISTRATOR para realizar esta operación.",
 		"details": null
 	}
 }
@@ -2527,7 +2522,7 @@ El campo `activeCases` no es modificable: lo calcula el backend.
 {
 	"error": {
 		"code": "LEGAL_QUALIFICATION_NOT_FOUND",
-		"message": "The requested legal qualification was not found.",
+		"message": "No se encontró la calificación legal solicitada.",
 		"details": null
 	}
 }
@@ -2539,7 +2534,7 @@ El campo `activeCases` no es modificable: lo calcula el backend.
 {
 	"error": {
 		"code": "LEGAL_QUALIFICATION_ALREADY_EXISTS",
-		"message": "A legal qualification with that name already exists.",
+		"message": "Ya existe una calificación legal con esa denominación.",
 		"details": null
 	}
 }
@@ -2581,9 +2576,9 @@ La respuesta no contiene cuerpo.
 {
 	"error": {
 		"code": "INVALID_PATH_PARAMETER",
-		"message": "Invalid legal qualification identifier.",
+		"message": "El identificador de la calificación legal no es válido.",
 		"details": {
-			"qualificationId": "Must be a valid integer."
+			"qualificationId": "Debe ser un número entero válido."
 		}
 	}
 }
@@ -2595,7 +2590,7 @@ La respuesta no contiene cuerpo.
 {
 	"error": {
 		"code": "UNAUTHENTICATED",
-		"message": "Authentication is required.",
+		"message": "La autenticación es requerida.",
 		"details": null
 	}
 }
@@ -2607,7 +2602,7 @@ La respuesta no contiene cuerpo.
 {
 	"error": {
 		"code": "FORBIDDEN",
-		"message": "The ADMINISTRATOR role is required to perform this operation.",
+		"message": "Se requiere el rol ADMINISTRATOR para realizar esta operación.",
 		"details": null
 	}
 }
@@ -2619,7 +2614,7 @@ La respuesta no contiene cuerpo.
 {
 	"error": {
 		"code": "LEGAL_QUALIFICATION_NOT_FOUND",
-		"message": "The requested legal qualification was not found.",
+		"message": "No se encontró la calificación legal solicitada.",
 		"details": null
 	}
 }
@@ -2631,12 +2626,12 @@ La respuesta no contiene cuerpo.
 
 **Autenticación requerida:** Sí.
 **Rol requerido:** la lectura (`GET`) está habilitada para cualquier usuario
-autenticado; el alta (`POST`) requiere `ADMINISTRATOR`.
+autenticado; el alta (`POST`) requiere `SECRETARY`.
 
-El rol del alta sigue al prototipo, que la restringe al Administrador tanto
-desde la pantalla Clientes como desde el botón "Registrar cliente nuevo" del
-alta de causa. HU8 la asigna en cambio a abogado y secretaría: es el primer
-punto a verificar de este contrato ([C-01](#82-puntos-a-verificar)).
+Según la tabla de [permisos por perfil](#permisos-por-perfil), la
+administración de clientes (HU8 a HU11) corresponde solo a la Secretaría; la
+consulta (HU9), a los tres perfiles. El botón "Registrar cliente nuevo" del
+alta de causa queda, por lo tanto, habilitado solo para la Secretaría.
 
 La modificación y la baja de clientes (HU10 y HU11) corresponden al Sprint 4 y
 no forman parte de esta versión.
@@ -2675,7 +2670,7 @@ registrar el cliente y no lo ofrece para editar.
 
 Registra un nuevo cliente (HU8).
 
-**Rol requerido:** `ADMINISTRATOR`.
+**Rol requerido:** `SECRETARY`.
 
 **Cuerpo de la petición**
 
@@ -2723,10 +2718,10 @@ Registra un nuevo cliente (HU8).
 {
 	"error": {
 		"code": "VALIDATION_ERROR",
-		"message": "Invalid request data.",
+		"message": "Los datos enviados no son válidos.",
 		"details": {
-			"dni": "Must contain 7 or 8 digits, without dots.",
-			"email": "Invalid email format."
+			"dni": "Debe contener 7 u 8 dígitos, sin puntos.",
+			"email": "El formato del correo electrónico no es válido."
 		}
 	}
 }
@@ -2738,7 +2733,7 @@ Registra un nuevo cliente (HU8).
 {
 	"error": {
 		"code": "UNAUTHENTICATED",
-		"message": "Authentication is required.",
+		"message": "La autenticación es requerida.",
 		"details": null
 	}
 }
@@ -2750,7 +2745,7 @@ Registra un nuevo cliente (HU8).
 {
 	"error": {
 		"code": "FORBIDDEN",
-		"message": "The ADMINISTRATOR role is required to perform this operation.",
+		"message": "Se requiere el rol SECRETARY para realizar esta operación.",
 		"details": null
 	}
 }
@@ -2762,7 +2757,7 @@ Registra un nuevo cliente (HU8).
 {
 	"error": {
 		"code": "CLIENT_DNI_ALREADY_EXISTS",
-		"message": "A client with that DNI is already registered.",
+		"message": "Ya existe un cliente registrado con ese DNI.",
 		"details": null
 	}
 }
@@ -2839,10 +2834,10 @@ Las causas asociadas a un cliente, que HU9 pide consultar, se obtienen con
 {
 	"error": {
 		"code": "INVALID_PAGINATION",
-		"message": "Invalid pagination parameters.",
+		"message": "Los parámetros de paginación no son válidos.",
 		"details": {
-			"page": "Must be an integer greater than or equal to 1.",
-			"limit": "Must be an integer between 1 and 100."
+			"page": "Debe ser un número entero mayor o igual a 1.",
+			"limit": "Debe ser un número entero entre 1 y 100."
 		}
 	}
 }
@@ -2854,7 +2849,7 @@ Las causas asociadas a un cliente, que HU9 pide consultar, se obtienen con
 {
 	"error": {
 		"code": "UNAUTHENTICATED",
-		"message": "Authentication is required.",
+		"message": "La autenticación es requerida.",
 		"details": null
 	}
 }
@@ -2900,9 +2895,9 @@ Obtiene la información de un cliente específico.
 {
 	"error": {
 		"code": "INVALID_PATH_PARAMETER",
-		"message": "Invalid client identifier.",
+		"message": "El identificador del cliente no es válido.",
 		"details": {
-			"clientId": "Must be a valid integer."
+			"clientId": "Debe ser un número entero válido."
 		}
 	}
 }
@@ -2914,7 +2909,7 @@ Obtiene la información de un cliente específico.
 {
 	"error": {
 		"code": "UNAUTHENTICATED",
-		"message": "Authentication is required.",
+		"message": "La autenticación es requerida.",
 		"details": null
 	}
 }
@@ -2926,7 +2921,7 @@ Obtiene la información de un cliente específico.
 {
 	"error": {
 		"code": "CLIENT_NOT_FOUND",
-		"message": "The requested client was not found.",
+		"message": "No se encontró el cliente solicitado.",
 		"details": null
 	}
 }
@@ -2957,6 +2952,7 @@ El recurso causa posee la siguiente estructura:
 | `instructorName`       | String \| `null`              |  Sí  | Instructor de la causa: quien lleva la instrucción en el tribunal o la dependencia            |
 | `instructorPhone`      | String \| `null`              |  Sí  | Teléfono e interno del instructor. Texto libre: `0351 448-1200 int. 214`                      |
 | `counterparty`         | String \| `null`              |  Sí  | Contraparte u organismo. Solo en `ADMINISTRATIVE` y `AMPARO`; en `CRIMINAL` vale `null`       |
+| `subjectMatter`        | String \| `null`              |  Sí  | Objeto del reclamo (`ADMINISTRATIVE`) u objeto del amparo (`AMPARO`): el motivo por el que se inicia la causa, redactado por el abogado. En `CRIMINAL` vale `null` |
 | `client`               | Object                        |  No  | Cliente de la causa. Ver estructura más abajo                                                 |
 | `responsibleLawyer`    | Object                        |  No  | Abogado responsable (RN3): `id`, `fullName`, `registrationNumber`                             |
 | `legalQualifications`  | Object[]                      |  No  | Calificaciones legales con su prescripción. Al menos una en `CRIMINAL`; vacío en los demás    |
@@ -3057,6 +3053,7 @@ Amparo:
 	"clientId": 6,
 	"proceduralRole": "PLAINTIFF",
 	"counterparty": "APROSS",
+	"subjectMatter": "Que se ordene a APROSS la cobertura integral del tratamiento de rehabilitación prescripto a la actora.",
 	"responsibleLawyerId": 1,
 	"startDate": "2026-09-08"
 }
@@ -3074,6 +3071,7 @@ Amparo:
 | `proceduralRole`        | `ProceduralRole` |     Sí      | Debe corresponder al fuero (ver [`ProceduralRole`](#proceduralrole-nuevo))                        |
 | `legalQualificationIds` | Integer[]        | Condicional | Obligatorio en `CRIMINAL`, con al menos un elemento, sin repetidos y todos vigentes. No se envía en los demás fueros |
 | `counterparty`          | String           |     No      | Hasta 255 caracteres. Solo en `ADMINISTRATIVE` y `AMPARO`; no se envía en `CRIMINAL`              |
+| `subjectMatter`         | String           | Condicional | Obligatorio en `ADMINISTRATIVE` y `AMPARO`, no vacío, hasta 2000 caracteres. No se envía en `CRIMINAL` |
 | `responsibleLawyerId`   | Integer          |     Sí      | Abogado vigente (RN3)                                                                             |
 | `startDate`             | String (fecha)   |     No      | Por defecto, la fecha del día. No puede ser posterior a hoy                                       |
 
@@ -3117,6 +3115,7 @@ tienen campo en esta versión.
 		"instructorName": "Dra. Verónica Ledesma",
 		"instructorPhone": "0351 448-1200 int. 214",
 		"counterparty": null,
+		"subjectMatter": null,
 		"client": {
 			"id": 1,
 			"lastName": "GÓMEZ",
@@ -3158,11 +3157,11 @@ tienen campo en esta versión.
 {
 	"error": {
 		"code": "VALIDATION_ERROR",
-		"message": "Invalid request data.",
+		"message": "Los datos enviados no son válidos.",
 		"details": {
-			"sacNumber": "Must contain exactly 8 digits.",
-			"legalQualificationIds": "At least one legal qualification is required for criminal cases.",
-			"proceduralRole": "The procedural role does not apply to the jurisdiction."
+			"sacNumber": "Debe contener exactamente 8 dígitos.",
+			"legalQualificationIds": "Las causas penales requieren al menos una calificación legal.",
+			"proceduralRole": "El rol procesal no corresponde al fuero."
 		}
 	}
 }
@@ -3172,9 +3171,21 @@ tienen campo en esta versión.
 {
 	"error": {
 		"code": "VALIDATION_ERROR",
-		"message": "Invalid request data.",
+		"message": "Los datos enviados no son válidos.",
 		"details": {
-			"responsibleLawyerId": "There is no active lawyer with that identifier."
+			"subjectMatter": "Es obligatorio en los fueros administrativo y de amparo."
+		}
+	}
+}
+```
+
+```json
+{
+	"error": {
+		"code": "VALIDATION_ERROR",
+		"message": "Los datos enviados no son válidos.",
+		"details": {
+			"responsibleLawyerId": "No existe un abogado vigente con ese identificador."
 		}
 	}
 }
@@ -3186,7 +3197,7 @@ tienen campo en esta versión.
 {
 	"error": {
 		"code": "UNAUTHENTICATED",
-		"message": "Authentication is required.",
+		"message": "La autenticación es requerida.",
 		"details": null
 	}
 }
@@ -3198,7 +3209,7 @@ tienen campo en esta versión.
 {
 	"error": {
 		"code": "CASE_SAC_ALREADY_EXISTS",
-		"message": "A case with that SAC number is already registered.",
+		"message": "Ya existe una causa registrada con ese número de SAC.",
 		"details": null
 	}
 }
@@ -3210,7 +3221,7 @@ tienen campo en esta versión.
 {
 	"error": {
 		"code": "JURISDICTION_WITHOUT_PROCEDURAL_STATES",
-		"message": "The jurisdiction has no active procedural states to start the case.",
+		"message": "El fuero no tiene estados procesales vigentes para iniciar la causa.",
 		"details": null
 	}
 }
@@ -3271,6 +3282,7 @@ colección vacía.
 			"instructorName": "Crio. Insp. Raúl Bazán",
 			"instructorPhone": "0351 428-6000 int. 3120",
 			"counterparty": null,
+			"subjectMatter": "Descargo frente a la imputación de falta grave por abandono de servicio y pedido de sobreseimiento.",
 			"client": {
 				"id": 2,
 				"lastName": "PEREYRA",
@@ -3311,6 +3323,7 @@ colección vacía.
 			"instructorName": "Dra. Verónica Ledesma",
 			"instructorPhone": "0351 448-1200 int. 214",
 			"counterparty": null,
+			"subjectMatter": null,
 			"client": {
 				"id": 1,
 				"lastName": "GÓMEZ",
@@ -3367,9 +3380,9 @@ realizada el martes 15/09/2026, la fecha que usa el prototipo.
 {
 	"error": {
 		"code": "INVALID_REQUEST",
-		"message": "Invalid query parameters.",
+		"message": "Parámetros de query inválidos.",
 		"details": {
-			"customState": "Cannot be combined with proceduralStateId."
+			"customState": "No puede combinarse con proceduralStateId."
 		}
 	}
 }
@@ -3379,10 +3392,10 @@ realizada el martes 15/09/2026, la fecha que usa el prototipo.
 {
 	"error": {
 		"code": "INVALID_PAGINATION",
-		"message": "Invalid pagination parameters.",
+		"message": "Los parámetros de paginación no son válidos.",
 		"details": {
-			"page": "Must be an integer greater than or equal to 1.",
-			"limit": "Must be an integer between 1 and 100."
+			"page": "Debe ser un número entero mayor o igual a 1.",
+			"limit": "Debe ser un número entero entre 1 y 100."
 		}
 	}
 }
@@ -3394,7 +3407,7 @@ realizada el martes 15/09/2026, la fecha que usa el prototipo.
 {
 	"error": {
 		"code": "UNAUTHENTICATED",
-		"message": "Authentication is required.",
+		"message": "La autenticación es requerida.",
 		"details": null
 	}
 }
@@ -3445,9 +3458,9 @@ La respuesta no está paginada: es una lista corta de textos.
 {
 	"error": {
 		"code": "INVALID_REQUEST",
-		"message": "Invalid query parameters.",
+		"message": "Parámetros de query inválidos.",
 		"details": {
-			"jurisdiction": "There is no jurisdiction with that name."
+			"jurisdiction": "No existe un fuero procesal con ese nombre."
 		}
 	}
 }
@@ -3459,7 +3472,7 @@ La respuesta no está paginada: es una lista corta de textos.
 {
 	"error": {
 		"code": "UNAUTHENTICATED",
-		"message": "Authentication is required.",
+		"message": "La autenticación es requerida.",
 		"details": null
 	}
 }
@@ -3501,6 +3514,7 @@ prototipo pertenecen a historias de sprints posteriores (ver
 		"instructorName": "Dra. Verónica Ledesma",
 		"instructorPhone": "0351 448-1200 int. 214",
 		"counterparty": null,
+		"subjectMatter": null,
 		"client": {
 			"id": 1,
 			"lastName": "GÓMEZ",
@@ -3547,9 +3561,9 @@ prototipo pertenecen a historias de sprints posteriores (ver
 {
 	"error": {
 		"code": "INVALID_PATH_PARAMETER",
-		"message": "Invalid case identifier.",
+		"message": "El identificador de la causa no es válido.",
 		"details": {
-			"caseId": "Must be a valid integer."
+			"caseId": "Debe ser un número entero válido."
 		}
 	}
 }
@@ -3561,7 +3575,7 @@ prototipo pertenecen a historias de sprints posteriores (ver
 {
 	"error": {
 		"code": "UNAUTHENTICATED",
-		"message": "Authentication is required.",
+		"message": "La autenticación es requerida.",
 		"details": null
 	}
 }
@@ -3573,7 +3587,7 @@ prototipo pertenecen a historias de sprints posteriores (ver
 {
 	"error": {
 		"code": "CASE_NOT_FOUND",
-		"message": "The requested case was not found.",
+		"message": "No se encontró la causa solicitada.",
 		"details": null
 	}
 }
@@ -3584,10 +3598,13 @@ prototipo pertenecen a historias de sprints posteriores (ver
 ### 3.8 Actos procesales: /cases/{caseId}/procedural-acts
 
 **Autenticación requerida:** Sí.
-**Rol requerido:** cualquier usuario autenticado.
+**Rol requerido:** `LAWYER` para el registro y su previsualización. La
+consulta de actos (HU27, sprints posteriores) será para los tres perfiles.
 
 El acto procesal es lo que **mueve la causa**: al registrarlo se elige el
-estado procesal al que pasa, y el plazo sale de la tabla del fuero (RN5). La
+estado procesal al que pasa, y el plazo sale de la tabla del fuero (RN5). Solo
+el abogado registra actos (ver [permisos por perfil](#permisos-por-perfil)), y
+el acto se aplica a la causa en el momento: no hay confirmación posterior. La
 consulta, la modificación y la anulación de actos (HU27, HU28 y HU29)
 corresponden a sprints posteriores; esta versión solo incorpora el registro
 (HU26) y su previsualización.
@@ -3603,8 +3620,7 @@ El recurso acto procesal posee la siguiente estructura:
 | `notificationDate` | String (fecha ISO 8601) \| `null` | Sí | Fecha de notificación. Solo en el fuero `ADMINISTRATIVE` (RN6)                  |
 | `notes`            | String \| `null`              |  Sí  | Observaciones: situaciones que el estado no alcanza a expresar                      |
 | `deadline`         | Object \| `null`              |  Sí  | Plazo que abre el acto. `null` si no abre ninguno. Ver estructura más abajo         |
-| `status`           | `ProceduralActStatus`         |  No  | Si el acto ya movió la causa o espera la confirmación del abogado (RN13)            |
-| `registeredBy`     | Object                        |  No  | Usuario que registró el acto: `id` y `fullName`                                     |
+| `registeredBy`     | Object                        |  No  | Usuario (abogado) que registró el acto: `id` y `fullName`                           |
 | `registeredAt`     | String (ISO 8601)             |  No  | Fecha y hora del registro                                                           |
 
 **`deadline`**
@@ -3638,8 +3654,8 @@ reflejar "situaciones que el estado no alcanza a expresar". Ese estado:
 
 Registra un acto procesal sobre la causa (HU26).
 
-**Rol requerido:** cualquier usuario autenticado. Ver más abajo el efecto
-según quién lo registra (RN13).
+**Rol requerido:** `LAWYER`. Un usuario con varios roles puede registrar
+actos si `LAWYER` está entre ellos.
 
 **Parámetros de ruta**
 
@@ -3713,18 +3729,11 @@ de un acto: el combo del prototipo los excluye.
 
 **Efecto sobre la causa**
 
-- Si quien registra **tiene una ficha de abogado vinculada** (`user.lawyer`
-  distinto de `null`), el acto se registra `CONFIRMED` y la causa pasa al
-  estado del acto. El plazo que abre el acto reemplaza al plazo abierto
-  anterior; si no abre ninguno, la causa queda sin plazo abierto.
-- Si quien registra **no tiene ficha de abogado** —el caso de la Secretaría—,
-  el acto se registra `PENDING_CONFIRMATION` y **la causa no cambia de estado
-  ni de plazo**. Es lo que indica el prototipo: "RN13: el cambio de estado lo
-  consigna el abogado responsable. Podés cargar el acto; el estado queda
-  pendiente de confirmación". La confirmación no forma parte de esta versión
-  (ver [C-03](#82-puntos-a-verificar)).
-- La causa toma el estado del acto confirmado **con la fecha de acto más
-  reciente**. Si se carga un acto con fecha anterior al último registrado —por
+- El acto se aplica al registrarse: la causa pasa al estado del acto
+  (`currentState`), y el plazo que abre el acto reemplaza al plazo abierto
+  anterior (`nextDeadline`). Si el acto no abre plazo, la causa queda sin
+  plazo abierto (`nextDeadline` en `null`).
+- La causa toma el estado del acto **con la fecha de acto más reciente**. Si se carga un acto con fecha anterior al último registrado —por
   ejemplo, al completar la historia de una causa vieja—, el acto queda
   asentado pero no retrocede el estado actual ni reemplaza el plazo abierto.
 
@@ -3757,7 +3766,6 @@ tiene campo en esta versión.
 			"dueDate": "2026-09-16",
 			"manuallyAdjusted": false
 		},
-		"status": "CONFIRMED",
 		"registeredBy": {
 			"id": 3,
 			"fullName": "Malena Ríos"
@@ -3767,7 +3775,7 @@ tiene campo en esta versión.
 }
 ```
 
-Registrado por la Secretaría, con estado escrito a mano y vencimiento manual:
+Con estado escrito a mano y vencimiento manual:
 
 ```json
 {
@@ -3790,10 +3798,9 @@ Registrado por la Secretaría, con estado escrito a mano y vencimiento manual:
 			"dueDate": "2026-09-25",
 			"manuallyAdjusted": true
 		},
-		"status": "PENDING_CONFIRMATION",
 		"registeredBy": {
-			"id": 8,
-			"fullName": "Gestión Estudio"
+			"id": 1,
+			"fullName": "Fernando G. Vázquez"
 		},
 		"registeredAt": "2026-09-15T10:05:00-03:00"
 	}
@@ -3806,9 +3813,9 @@ Registrado por la Secretaría, con estado escrito a mano y vencimiento manual:
 {
 	"error": {
 		"code": "VALIDATION_ERROR",
-		"message": "Invalid request data.",
+		"message": "Los datos enviados no son válidos.",
 		"details": {
-			"notificationDate": "Required in the administrative jurisdiction when the state opens a time limit (RN6)."
+			"notificationDate": "Es obligatoria en el fuero administrativo cuando el estado abre plazo (RN6)."
 		}
 	}
 }
@@ -3818,9 +3825,9 @@ Registrado por la Secretaría, con estado escrito a mano y vencimiento manual:
 {
 	"error": {
 		"code": "VALIDATION_ERROR",
-		"message": "Invalid request data.",
+		"message": "Los datos enviados no son válidos.",
 		"details": {
-			"proceduralStateId": "The procedural state does not belong to the jurisdiction of the case or is terminal."
+			"proceduralStateId": "El estado procesal no pertenece al fuero de la causa o es terminal."
 		}
 	}
 }
@@ -3830,9 +3837,9 @@ Registrado por la Secretaría, con estado escrito a mano y vencimiento manual:
 {
 	"error": {
 		"code": "INVALID_PATH_PARAMETER",
-		"message": "Invalid case identifier.",
+		"message": "El identificador de la causa no es válido.",
 		"details": {
-			"caseId": "Must be a valid integer."
+			"caseId": "Debe ser un número entero válido."
 		}
 	}
 }
@@ -3844,7 +3851,19 @@ Registrado por la Secretaría, con estado escrito a mano y vencimiento manual:
 {
 	"error": {
 		"code": "UNAUTHENTICATED",
-		"message": "Authentication is required.",
+		"message": "La autenticación es requerida.",
+		"details": null
+	}
+}
+```
+
+**`403 Forbidden`**
+
+```json
+{
+	"error": {
+		"code": "FORBIDDEN",
+		"message": "Se requiere el rol LAWYER para realizar esta operación.",
 		"details": null
 	}
 }
@@ -3856,7 +3875,7 @@ Registrado por la Secretaría, con estado escrito a mano y vencimiento manual:
 {
 	"error": {
 		"code": "CASE_NOT_FOUND",
-		"message": "The requested case was not found.",
+		"message": "No se encontró la causa solicitada.",
 		"details": null
 	}
 }
@@ -3868,7 +3887,7 @@ Registrado por la Secretaría, con estado escrito a mano y vencimiento manual:
 {
 	"error": {
 		"code": "CASE_IN_TERMINAL_STATE",
-		"message": "The case is in a terminal state and does not accept procedural acts.",
+		"message": "La causa se encuentra en un estado terminal y no admite actos procesales.",
 		"details": null
 	}
 }
@@ -3880,7 +3899,7 @@ Registrado por la Secretaría, con estado escrito a mano y vencimiento manual:
 
 Calcula el vencimiento que tendría un acto procesal, **sin registrarlo**.
 
-**Rol requerido:** cualquier usuario autenticado.
+**Rol requerido:** `LAWYER`, el mismo que el registro del acto al que sirve.
 
 Alimenta el panel "Cómputo del plazo" del formulario de HU26, que muestra el
 vencimiento mientras el usuario completa los datos. Existe para que el cálculo
@@ -3937,9 +3956,9 @@ el cliente muestra "Este acto no dispara un plazo de presentación".
 {
 	"error": {
 		"code": "INVALID_REQUEST",
-		"message": "Invalid query parameters.",
+		"message": "Parámetros de query inválidos.",
 		"details": {
-			"notificationDate": "Required in the administrative jurisdiction when the state opens a time limit (RN6)."
+			"notificationDate": "Es obligatoria en el fuero administrativo cuando el estado abre plazo (RN6)."
 		}
 	}
 }
@@ -3951,7 +3970,19 @@ el cliente muestra "Este acto no dispara un plazo de presentación".
 {
 	"error": {
 		"code": "UNAUTHENTICATED",
-		"message": "Authentication is required.",
+		"message": "La autenticación es requerida.",
+		"details": null
+	}
+}
+```
+
+**`403 Forbidden`**
+
+```json
+{
+	"error": {
+		"code": "FORBIDDEN",
+		"message": "Se requiere el rol LAWYER para realizar esta operación.",
 		"details": null
 	}
 }
@@ -3963,7 +3994,7 @@ el cliente muestra "Este acto no dispara un plazo de presentación".
 {
 	"error": {
 		"code": "CASE_NOT_FOUND",
-		"message": "The requested case was not found.",
+		"message": "No se encontró la causa solicitada.",
 		"details": null
 	}
 }
@@ -3989,11 +4020,48 @@ Authorization: Bearer <accessToken>
 
 ### Autorización
 
-Los endpoints indicados como `ADMINISTRATOR` requieren que el usuario
-autenticado posea dicho rol. Un usuario con varios roles satisface el
-requisito si `ADMINISTRATOR` se encuentra entre ellos.
+Un endpoint indicado con un rol (`ADMINISTRATOR`, `LAWYER` o `SECRETARY`)
+requiere que el usuario autenticado lo posea. Un usuario con varios roles
+satisface el requisito si el rol exigido se encuentra entre ellos: por ejemplo,
+un usuario `ADMINISTRATOR` y `LAWYER` puede registrar actos procesales. Si no
+lo posee, la respuesta es `403 FORBIDDEN`.
 
-Matriz por recurso:
+#### Permisos por perfil
+
+Tabla de permisos acordada por el equipo. Es la fuente de los roles de cada
+endpoint; cubre también funcionalidades de sprints posteriores, para que los
+contratos siguientes la respeten.
+
+| Funcionalidad                                                                     | HU       | Admin. | Abogado | Secret. |
+| --------------------------------------------------------------------------------- | -------- | :----: | :-----: | :-----: |
+| Iniciar y cerrar sesión, cambiar contraseña                                       | 1 – 3    |   ✓    |    ✓    |    ✓    |
+| Administrar usuarios                                                              | 4 – 7    |   ✓    |    —    |    —    |
+| Administrar clientes                                                              | 8 – 11   |   —    |    —    |    ✓    |
+| Administrar abogados                                                              | 12 – 15  |   ✓    |    —    |    —    |
+| Consultar estados procesales y plazos                                             | 16       |   ✓    |    ✓    |    ✓    |
+| Modificar estados procesales                                                      | 17       |   ✓    |    —    |    —    |
+| Consultar clientes                                                                | 9        |   ✓    |    ✓    |    ✓    |
+| Consultar causas                                                                  | 20       |   ✓    |    ✓    |    ✓    |
+| Gestionar causas (alta, consulta, detalle, línea de tiempo, carátula, expediente, baja) | 18 – 25 | ✓ |    ✓    |    ✓    |
+| Consultar actos procesales                                                        | 27       |   ✓    |    ✓    |    ✓    |
+| Registrar, modificar y dar de baja actos procesales                               | 26, 28, 29 |  —   |    ✓    |    —    |
+| Registrar actos interruptivos                                                     | 31       |   —    |    ✓    |    —    |
+| Recibir avisos de vencimiento y alertas de prescripción                           | 30 – 33  |   —    |    ✓    |    —    |
+| Administrar modelos formales                                                      | 34 – 37  |   ✓    |    —    |    —    |
+| Consultar documentos de causa                                                     | 38       |   ✓    |    ✓    |    ✓    |
+| Crear carpeta y modelos en la nube                                                | 39 – 40  |   —    |    —    |    ✓    |
+| Tablero del abogado                                                               | 41       |   —    |    ✓    |    —    |
+| Tablero del administrador y reportes                                              | 42 – 44  |   ✓    |    —    |    —    |
+| Registrar y dar de baja estados procesales                                        | 45, 46   |   ✓    |    —    |    —    |
+
+La tabla no menciona las calificaciones legales, que no tienen HU: siguen el
+mismo criterio que los estados procesales (lectura para todos, escritura para
+`ADMINISTRATOR`). La **consulta** de abogados se mantiene abierta a los tres
+perfiles porque el alta de causa, que opera cualquiera de ellos, necesita el
+listado para elegir al responsable; la **administración** (alta, modificación
+y baja) es solo del Administrador, como indica la tabla.
+
+#### Matriz por recurso
 
 | Recurso                            | Lectura (`GET`)               | Escritura                                                        |
 | ---------------------------------- | ----------------------------- | ---------------------------------------------------------------- |
@@ -4002,9 +4070,9 @@ Matriz por recurso:
 | `/lawyers`                         | Cualquier usuario autenticado | `ADMINISTRATOR`                                                  |
 | `/procedural-states`               | Cualquier usuario autenticado | `ADMINISTRATOR`                                                  |
 | `/legal-qualifications`            | Cualquier usuario autenticado | `ADMINISTRATOR`                                                  |
-| `/clients`                         | Cualquier usuario autenticado | `ADMINISTRATOR`                                                  |
+| `/clients`                         | Cualquier usuario autenticado | `SECRETARY`                                                      |
 | `/cases`                           | Cualquier usuario autenticado | Cualquier usuario autenticado                                    |
-| `/cases/{caseId}/procedural-acts`  | Cualquier usuario autenticado | Cualquier usuario autenticado. Sin ficha de abogado, el acto queda pendiente de confirmación (RN13) |
+| `/cases/{caseId}/procedural-acts`  | `LAWYER` (`deadline-preview`) | `LAWYER`                                                         |
 
 RN11 establece que todo el estudio accede a todas las causas: la diferencia
 entre perfiles está en lo que pueden **operar**, no en lo que pueden **ver**.
@@ -4129,7 +4197,7 @@ estructura:
 | Campo     | Descripción                                                                              |
 | --------- | ---------------------------------------------------------------------------------------- |
 | `code`    | Código del catálogo. Es el valor que el cliente utiliza para discriminar el tipo de error |
-| `message` | Descripción legible del error, **en inglés**, destinada a desarrollo y registros. No se muestra al usuario final |
+| `message` | Descripción legible del error, **en castellano** |
 | `details` | Objeto `campo → mensaje` en los errores de validación; `null` en el resto                |
 
 El cliente discrimina los errores por `code` y nunca por el texto de
@@ -4138,16 +4206,12 @@ requieren códigos distintos: por ese motivo `USERNAME_ALREADY_EXISTS` y
 `EMAIL_ALREADY_EXISTS` son códigos separados, aunque ambos correspondan a un
 `409`.
 
-De ahí que `message` esté en inglés: **la copia que ve el usuario la resuelve
-el cliente a partir del `code`**, no la envía el servidor. El `message` sirve
-para depurar y para los registros del servidor, donde todo el código —
-identificadores, mensajes y comentarios — está en inglés por convención del
-proyecto.
-
-Los ejemplos de las secciones 3.1 a 3.4 conservan la redacción en castellano
-de V2 y se leen como ilustración del formato, no del idioma. Los de las
-secciones 3.5 a 3.8, nuevas en esta versión, ya están en inglés, como los
-devuelve el backend.
+Los textos de `message` y de `details` están **en castellano** en todos los
+endpoints, tal como figuran en los ejemplos. Aun así, el cliente no debe
+depender de su redacción exacta para decidir qué hacer: para eso está `code`.
+Los identificadores y los comentarios del código del backend siguen en inglés
+por convención del proyecto; lo que se traduce son los textos que viajan en la
+respuesta.
 
 **Ejemplo — validación de campos**
 
@@ -4155,10 +4219,10 @@ devuelve el backend.
 {
 	"error": {
 		"code": "VALIDATION_ERROR",
-		"message": "Invalid request data.",
+		"message": "Los datos enviados no son válidos.",
 		"details": {
-			"username": "Must be between 3 and 30 characters long.",
-			"email": "Invalid email format."
+			"username": "Debe tener entre 3 y 30 caracteres.",
+			"email": "El formato del correo electrónico no es válido."
 		}
 	}
 }
@@ -4170,7 +4234,7 @@ devuelve el backend.
 {
 	"error": {
 		"code": "INTERNAL_SERVER_ERROR",
-		"message": "An unexpected internal error occurred.",
+		"message": "Ocurrió un error interno inesperado.",
 		"details": null
 	}
 }
@@ -4255,7 +4319,9 @@ equipo.
 | Endpoint | V2 | V3 | Motivo |
 | --- | --- | --- | --- |
 | `GET /lawyers`, `GET /lawyers/{lawyerId}` | `ADMINISTRATOR` | Cualquier usuario autenticado | HU13 asigna la consulta a la Secretaría; el alta de causa necesita el listado de responsables |
-| `GET /procedural-states`, `GET /procedural-states/{stateId}` | `ADMINISTRATOR` | Cualquier usuario autenticado | El registro de actos procesales, que opera cualquier perfil, necesita los estados del fuero |
+| `GET /procedural-states`, `GET /procedural-states/{stateId}` | `ADMINISTRATOR` | Cualquier usuario autenticado | HU16 (consultar estados y plazos) es de los tres perfiles, y el registro de actos necesita los estados del fuero |
+| `POST /clients` | - | `SECRETARY` | Tabla de [permisos por perfil](#permisos-por-perfil): administrar clientes es solo de la Secretaría |
+| `POST /cases/{caseId}/procedural-acts` y `deadline-preview` | - | `LAWYER` | Tabla de permisos por perfil: solo el abogado registra actos procesales |
 | `PATCH /procedural-states/{stateId}` | `jurisdiction` no modificable | Modificable si ninguna causa registra el estado | El formulario del prototipo ofrece el selector de fuero |
 | `DELETE /procedural-states/{stateId}` | `409` si el estado tenía causas | La baja procede; las causas conservan el estado | Nota del prototipo al eliminar un estado en uso |
 | `POST /procedural-states` | `position` mayor o igual a `1` | Entre `1` y la cantidad de estados del fuero más uno | Evita huecos en la secuencia |
@@ -4266,7 +4332,6 @@ equipo.
 | Enumerado | Motivo |
 | --- | --- |
 | `ProceduralRole` | Rol procesal del cliente, con los valores por fuero que ofrece el prototipo |
-| `ProceduralActStatus` | Acto confirmado o pendiente de confirmación del abogado (RN13) |
 
 ### 7.4 Códigos de error
 
@@ -4308,9 +4373,9 @@ antes o durante la implementación.
 | --- | --- | --- |
 | D-01 | El alcance es HU 8, 9, 13, 17, 18, 20, 22, 26, 45 y 46, más el ABMC de calificaciones legales | Story Map actualizado del Seguimiento v1.1 (§4.1.2). La tabla del PDF es difícil de leer por la maquetación, así que la asignación se verificó sumando los puntos: esas diez historias suman exactamente los 112 SP declarados para el Sprint 2 |
 | D-02 | V3 es autocontenido y V2 queda sin modificar | Mismo criterio que V2 respecto de V1. `/auth` y `/users` se copian de V2 sin cambios. `PATCH` y `DELETE /lawyers` (HU14 y HU15, sprints 3 y 4) se mantienen porque ya figuraban en V2: quitarlos sería un cambio que nadie pidió |
-| D-03 | La lectura de `/lawyers`, `/procedural-states`, `/legal-qualifications`, `/clients` y `/cases` se abre a cualquier usuario autenticado | RN11; el banner del prototipo ("El perfil determina qué se puede operar, no qué se puede ver"); y los formularios de alta de causa y de acto, que opera cualquier perfil, necesitan esos listados. `/users` sigue en `ADMINISTRATOR` ([C-14](#82-puntos-a-verificar)) |
+| D-03 | La lectura de `/lawyers`, `/procedural-states`, `/legal-qualifications`, `/clients` y `/cases` se abre a cualquier usuario autenticado | RN11; el banner del prototipo ("El perfil determina qué se puede operar, no qué se puede ver"); y los formularios de alta de causa y de acto necesitan esos listados. `/users` sigue en `ADMINISTRATOR` ([C-14](#82-puntos-a-verificar)) |
 | D-04 | La escritura de estados procesales y calificaciones legales requiere `ADMINISTRATOR` | El prototipo deshabilita esas acciones para los demás perfiles, aunque HU17, HU45 y HU46 digan "Como abogado". Manda el prototipo |
-| D-05 | El alta de cliente requiere `ADMINISTRATOR` | Así lo restringe el prototipo, en contra de HU8. Es el primer punto a verificar ([C-01](#82-puntos-a-verificar)) |
+| D-05 | El alta de cliente requiere `SECRETARY` | Tabla de [permisos por perfil](#permisos-por-perfil): administrar clientes (HU8 a HU11) es solo de la Secretaría. Reemplaza el criterio del prototipo, que lo restringía al Administrador |
 | D-06 | La baja de un estado procesal procede aunque haya causas en él, y se retira `PROCEDURAL_STATE_HAS_DEPENDENCIES` | Nota del prototipo: las causas "conservan el estado que ya tienen registrado". Lo mismo para la baja de calificaciones legales |
 | D-07 | `PATCH /procedural-states` admite `jurisdiction`, solo si ninguna causa registra el estado | El prototipo muestra el selector de fuero al modificar. La restricción evita que causas de un fuero apunten a un estado de otro |
 | D-08 | Cambiar el plazo de un estado **no** recalcula vencimientos; cambiar la prescripción de una calificación **sí** recalcula la de sus causas | Las dos notas del prototipo dicen exactamente eso. Por eso el acto copia los valores del plazo y la causa calcula la prescripción en cada lectura |
@@ -4318,8 +4383,8 @@ antes o durante la implementación.
 | D-10 | El acto procesal se registra como estado resultante, fechas y observaciones, sin un "nombre de acto" aparte | El formulario de HU26 solo pide el estado ("El acto procesal es el que mueve la causa: elegí el estado al que la lleva") ([C-10](#82-puntos-a-verificar)) |
 | D-11 | El "estado escrito a mano" se modela como `customState`, sin plazo salvo ajuste manual, con su endpoint de valores distintos para el filtro | Es la descripción libre que pide HU22. El prototipo lo muestra en el combo del acto y en el filtro del listado |
 | D-12 | En `ADMINISTRATIVE`, `notificationDate` es obligatoria si el estado abre plazo | RN6. El prototipo no habilita "Registrar acto" sin esa fecha, lo que resuelve el pendiente P-04 de la arquitectura: el acto no existe sin vencimiento calculable |
-| D-13 | Un acto registrado por un usuario sin ficha de abogado queda `PENDING_CONFIRMATION` y no mueve la causa | RN13 y la nota del prototipo para el perfil Secretaría. Se usa la ficha de abogado y no el rol porque RN13 habla del abogado, y un `ADMINISTRATOR` que ejerce tiene ficha ([C-03](#82-puntos-a-verificar)) |
-| D-14 | El estado actual de la causa es el del acto confirmado con la fecha de acto más reciente | Permite cargar actos viejos sin retroceder la causa |
+| D-13 | Solo el rol `LAWYER` registra actos procesales, y el acto se aplica a la causa al registrarse, sin confirmación posterior. No existe un estado del acto | Tabla de [permisos por perfil](#permisos-por-perfil). Reemplaza el flujo de "pendiente de confirmación" del prototipo (RN13), que dejaba cargar actos a la Secretaría |
+| D-14 | El estado actual de la causa es el del acto con la fecha de acto más reciente | Permite cargar actos viejos sin retroceder la causa |
 | D-15 | Los estados terminales no pueden ser destino de un acto | El combo del prototipo los excluye ([C-04](#82-puntos-a-verificar)) |
 | D-16 | El número de SAC tiene exactamente 8 dígitos y es único en todo el sistema | Validación del prototipo ("El SAC tiene 8 dígitos"). Resuelve provisoriamente el pendiente P-03 ([C-09](#82-puntos-a-verificar)) |
 | D-17 | El DNI viaja sin puntos y es único entre los clientes vigentes | Separa el dato de su presentación. La unicidad entre vigentes permite volver a registrar a un cliente dado de baja cuando exista HU11 |
@@ -4328,18 +4393,19 @@ antes o durante la implementación.
 | D-20 | Se incorpora `deadline-preview` | Con un único lugar de cálculo, lo que el usuario ve antes de guardar coincide siempre con lo que se guarda |
 | D-21 | `activeCases` deja de valer `0` y se unifica la definición de causa activa | Ver §4 |
 | D-22 | Un identificador inexistente en el cuerpo (`clientId`, `responsibleLawyerId`, `legalQualificationIds`, `proceduralStateId`) responde `400 VALIDATION_ERROR` sobre ese campo | Es un dato del formulario a corregir, no una regla de negocio. Evita agregar un código de error por cada referencia |
-| D-23 | Los mensajes de los endpoints nuevos están en inglés; los de 3.1 a 3.4 conservan la redacción de V2 | Convención de §5.2 y lo que efectivamente devuelve hoy el backend (`domain-error.filter.ts`) |
-| D-24 | Nombres nuevos: `LegalQualification`, `prescriptionMonths`, `lastName`, `firstName`, `dni`, `clientSince`, `caption`, `court`, `instructorName`, `instructorPhone`, `counterparty`, `customState`, `notificationDate`, `dueDate`, `ProceduralRole`, `ProceduralActStatus` | Hay que incorporarlos a `TRADUCCION_DOMINIO.md`. `caption` y no `CaseCover` porque el glosario ya reserva `CaseCover` para el documento imprimible de HU24; `dni` conserva la sigla como `SacNumber` |
+| D-23 | Todos los mensajes de error (`message` y `details`) están en castellano, en todos los endpoints | Pedido del equipo. Unifica la redacción de V2 con la de los endpoints nuevos. Ver §5.2 y el impacto en [§8.4](#84-impacto-sobre-lo-ya-implementado) |
+| D-24 | Nombres nuevos: `LegalQualification`, `prescriptionMonths`, `lastName`, `firstName`, `dni`, `clientSince`, `caption`, `court`, `instructorName`, `instructorPhone`, `counterparty`, `subjectMatter`, `customState`, `notificationDate`, `dueDate`, `ProceduralRole` | Hay que incorporarlos a `TRADUCCION_DOMINIO.md`. `caption` y no `CaseCover` porque el glosario ya reserva `CaseCover` para el documento imprimible de HU24; `dni` conserva la sigla como `SacNumber` |
 | D-25 | El listado de causas se ordena por urgencia, y `openDeadline=true` incluye las vencidas | Es el orden que usan el tablero y la pantalla de vencimientos del prototipo, y una causa vencida es la que más atención requiere |
 | D-26 | `GET /cases` acepta `clientId` | HU9 pide consultar los clientes "con sus causas asociadas"; el prototipo solo muestra la cantidad, pero el filtro evita un endpoint anidado |
+| D-27 | Las causas `ADMINISTRATIVE` y `AMPARO` registran `subjectMatter` (objeto del reclamo u objeto del amparo), obligatorio en esos fueros y `null` en `CRIMINAL` | Pedido del equipo: es donde el abogado escribe la razón por la que se inicia la causa. Un único campo para ambos fueros; el rótulo ("Objeto del reclamo" u "Objeto del amparo") lo pone el cliente según el fuero |
 
 ### 8.2 Puntos a verificar
 
 | ID | Punto | Con quién |
 | --- | --- | --- |
-| C-01 | **Alta de cliente y de calificación legal solo para `ADMINISTRATOR`.** El prototipo la restringe, pero HU8 la asigna a abogado y secretaría, y el alta de causa —que hacen abogados y secretaría— ofrece "Registrar cliente nuevo" y "Registrar calificación nueva", que para ellos quedarían deshabilitados. Parece un efecto del `soloAdmin` aplicado a todos los modales del prototipo. Si se confirma que debe abrirse, alcanza con cambiar el rol del `POST` | PO / cliente |
+| C-01 | ~~Alta de cliente solo para `ADMINISTRATOR`~~. **Resuelto** con la tabla de [permisos por perfil](#permisos-por-perfil): el alta de cliente es de `SECRETARY` (D-05). La calificación legal sigue en `ADMINISTRATOR` | - |
 | C-02 | **Apellido y nombre separados** (observación de la Sprint Review del Sprint 1). El prototipo lo aplica en el listado y en la modificación de usuarios, pero no en el alta de usuario ni en abogados, que siguen con "Nombre y apellido". Este contrato solo lo aplica al cliente, que es nuevo; cambiar `/users` y `/lawyers` rompe el contrato del Sprint 1 y queda fuera del alcance. Conviene decidirlo antes de HU14 (Modificar Abogado, Sprint 3) | Equipo / PO |
-| C-03 | **Confirmación de actos pendientes.** No hay pantalla ni endpoint para que el abogado confirme un acto `PENDING_CONFIRMATION`, así que ese acto no tiene salida en esta versión. Además, mientras está pendiente, **su plazo no se ve** en el listado ni en el detalle: un vencimiento cargado por la Secretaría podría pasar inadvertido, que es justamente el riesgo que el sistema viene a evitar. Por otro lado, la arquitectura (§7.6) exige que el cambio de estado lo haga el **responsable**, y el prototipo deja que lo haga cualquier abogado. Hay que definir el flujo, idealmente junto con HU27 (Sprint 3) | Equipo / cliente |
+| C-03 | ~~Confirmación de actos pendientes~~. **Resuelto:** solo el abogado registra actos y el acto se aplica al registrarse; no hay actos pendientes ni flujo de confirmación (D-13) | - |
 | C-04 | **¿Cómo llega una causa a "Archivada"?** Los estados terminales no pueden ser destino de un acto, y ninguna historia del Sprint 2 archiva una causa. "Prescripta" llega con HU33 (Sprint 3); para "Archivada" no hay historia | PO |
 | C-05 | **Feriados y feria judicial** (P-02). El cómputo solo excluye sábados y domingos. El prototipo remite a "Administración → Estados y plazos" para cargarlos y trae datos de ejemplo (`FERIADOS`), pero no hay pantalla ni historia. También conviene confirmar qué pasa cuando un plazo en días corridos vence en un día inhábil | Cliente |
 | C-06 | **Inicio del cómputo de la prescripción.** El prototipo la cuenta desde la fecha de inicio de la causa; en derecho penal suele correr desde la comisión del hecho. Si es así, falta un campo "fecha del hecho" en el alta. Confirmar también que no aplica a amparos, aunque el Plan de Proyecto hable de "prescripción de causa o amparo" | Cliente |
@@ -4394,3 +4460,9 @@ historias. No tienen endpoint ni campo en esta versión.
 - **Esquema.** Nuevas tablas para clientes, calificaciones legales, causas, la
   relación causa–calificación y actos procesales.
 - **Glosario.** Incorporar a `TRADUCCION_DOMINIO.md` los nombres de D-24.
+- **Mensajes en castellano.** Los errores de dominio, los mensajes fijos de
+  `domain-error.filter.ts` y los de validación de los DTO (`class-validator`)
+  deben devolver `message` y `details` en castellano (D-23).
+- **Guards de rol.** `POST /clients` pasa a `SECRETARY` y
+  `POST /cases/{caseId}/procedural-acts` y su `deadline-preview`, a `LAWYER`
+  (ver [Permisos por perfil](#permisos-por-perfil)).
