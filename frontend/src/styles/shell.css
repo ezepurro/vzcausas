@@ -219,3 +219,44 @@
   text-wrap: pretty;
 }
 .vz-page-head__actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* ─────────── migas ─────────── */
+.vz-crumbs {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+  font-size: 13px;
+}
+.vz-crumbs__sep { color: var(--vz-border-strong); }
+.vz-crumbs__link {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--vz-primary);
+  font-size: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.vz-crumbs__link:hover { color: var(--vz-primary-hi); text-decoration: underline; }
+.vz-crumbs__step { color: var(--vz-muted); }
+.vz-crumbs__current { color: var(--vz-ink); font-weight: 600; }
+
+/* ─────────── formulario con panel al costado ─────────── */
+/* Registrar causa y Registrar acto procesal: el formulario a la izquierda y un
+   panel que se va completando a la derecha ("Resumen del alta", "Cómputo del
+   plazo"). El panel acompaña el scroll por debajo de la barra superior, que
+   mide 73px. En pantallas angostas va abajo del formulario. */
+.vz-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(300px, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+.vz-split__aside { position: sticky; top: calc(73px + 16px); }
+
+@media (max-width: 1180px) {
+  .vz-split { grid-template-columns: minmax(0, 1fr); }
+  .vz-split__aside { position: static; }
+}

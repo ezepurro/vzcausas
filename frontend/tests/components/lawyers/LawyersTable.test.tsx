@@ -13,7 +13,7 @@ describe('LawyersTable', () => {
         render(<LawyersTable rows={ROWS} />)
 
         const headers = screen.getAllByRole('columnheader').map((th) => th.textContent)
-        expect(headers).toEqual(['Abogado', 'Matrícula', 'Causas activas'])
+        expect(headers).toEqual(['Apellido y Nombre', 'Matrícula', 'Causas activas'])
     })
 
     it('muestra una fila por abogado con sus datos', () => {

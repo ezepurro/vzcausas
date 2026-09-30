@@ -37,6 +37,9 @@
   --vz-warn: #7A5C1E;
   --vz-warn-bg: #FBF3E2;
   --vz-warn-bd: #EBDCB8;
+  /* relleno de barra "cerca del límite": el texto warn es muy oscuro para una
+     superficie grande y el fondo warn no se distingue del riel */
+  --vz-warn-mark: #A8894C;
   --vz-danger: #8E1F19;
   --vz-danger-bg: #FBEAE8;
   --vz-danger-bd: #F0CDC9;

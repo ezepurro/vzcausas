@@ -1,0 +1,117 @@
+/* Lo propio de las pantallas de causas y actos procesales: el encabezado de
+   la causa, la barra de prescripción, el selector de calificaciones del alta
+   y el vencimiento del cómputo del plazo. Como login.css, es de un área del
+   sistema y no de shared. */
+
+/* ─────────── encabezado de la causa ─────────── */
+/* Detalle y Registrar acto: SAC, carátula, datos y estado actual. */
+.vz-case-head {
+  margin-bottom: 16px;
+  padding: 20px 22px;
+  border: 1px solid var(--vz-border);
+  border-radius: var(--vz-r);
+  background: var(--vz-surface);
+}
+.vz-case-head__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+.vz-case-head__main { flex: 1; min-width: 280px; }
+.vz-case-head__sac {
+  font-family: var(--vz-font-mono);
+  font-size: 12px;
+  color: var(--vz-muted);
+  margin-bottom: 4px;
+}
+.vz-case-head__title { font-size: 22px; line-height: 1.25; }
+.vz-case-head__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--vz-muted);
+}
+.vz-case-head__meta b { color: var(--vz-ink); font-weight: 600; }
+.vz-case-head__sep { color: var(--vz-border-strong); }
+.vz-case-head__side { display: flex; flex-direction: column; gap: 10px; min-width: 240px; }
+.vz-case-head__state {
+  padding: 11px 14px;
+  border: 1px solid var(--vz-border);
+  border-radius: var(--vz-r-sm);
+  background: var(--vz-sunken);
+}
+.vz-case-head__state-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: var(--vz-muted);
+}
+.vz-case-head__state-value { margin-top: 3px; font-size: 15px; font-weight: 700; }
+
+/* ─────────── barra de prescripción ─────────── */
+.vz-presc { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--vz-border); }
+.vz-presc__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+.vz-presc__title { font-size: 12.5px; font-weight: 700; }
+.vz-presc__qualification { font-weight: 400; color: var(--vz-muted); }
+.vz-presc__remaining { font-family: var(--vz-font-mono); font-size: 12.5px; color: var(--vz-muted); }
+.vz-presc__dates {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 7px;
+  font-family: var(--vz-font-mono);
+  font-size: 11.5px;
+  color: var(--vz-faint);
+}
+.vz-presc__note { margin-top: 6px; font-size: 12px; color: var(--vz-muted); }
+
+/* ─────────── calificaciones elegidas en el alta ─────────── */
+.vz-picker { display: flex; flex-direction: column; gap: 8px; }
+.vz-picker__list { display: flex; flex-direction: column; gap: 6px; }
+.vz-picker__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 12px;
+  border: 1px solid var(--vz-border);
+  border-radius: var(--vz-r-sm);
+  background: var(--vz-surface);
+}
+.vz-picker__name { font-size: 13.5px; font-weight: 600; }
+.vz-picker__term { font-size: 12px; color: var(--vz-muted); }
+
+/* Nombre de la persona arriba de su ficha: la tarjeta Cliente del detalle. */
+.vz-person-name { margin-bottom: 12px; font-size: 15px; font-weight: 700; }
+
+/* ─────────── vencimiento del cómputo del plazo ─────────── */
+.vz-due {
+  margin-top: 14px;
+  padding: 13px 14px;
+  border: 1px solid var(--vz-border);
+  border-radius: var(--vz-r-sm);
+  background: var(--vz-sunken);
+}
+.vz-due__label { font-size: 12px; font-weight: 600; color: inherit; opacity: .85; }
+.vz-due__date { margin-top: 2px; font-family: var(--vz-font-mono); font-size: 22px; font-weight: 700; }
+.vz-due__detail { margin-top: 2px; font-size: 12.5px; }
+.vz-due--ok { color: var(--vz-ok); background: var(--vz-ok-bg); border-color: var(--vz-ok-bd); }
+.vz-due--warn { color: var(--vz-warn); background: var(--vz-warn-bg); border-color: var(--vz-warn-bd); }
+.vz-due--danger { color: var(--vz-danger); background: var(--vz-danger-bg); border-color: var(--vz-danger-bd); }
+.vz-due--neutral { color: var(--vz-muted); }
+
+/* ─────────── resumen del alta ─────────── */
+.vz-summary__caption-action { margin: 8px 0 16px; }
+/* Separa un bloque del anterior dentro del panel ("Para poder registrar"). */
+.vz-summary__block { margin-top: 18px; }

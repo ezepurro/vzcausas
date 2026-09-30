@@ -21,7 +21,7 @@ export function validateLawyer(values: LawyerFormValues): LawyerFormErrors {
     const errors: LawyerFormErrors = {}
 
     if (!values.fullName.trim()) {
-        errors.fullName = 'El nombre y apellido es obligatorio.'
+        errors.fullName = 'El apellido y nombre es obligatorio.'
     }
 
     const registrationNumber = values.registrationNumber.trim()

@@ -12,7 +12,7 @@ test.describe('Abogados', () => {
     test('registrar un abogado y verlo en la tabla', async ({ page }) => {
         await page.getByRole('button', { name: 'Registrar abogado' }).click()
         const dialog = page.getByRole('dialog')
-        await dialog.getByLabel(/^Nombre y apellido/).fill('Dra. Ana Pérez')
+        await dialog.getByLabel(/^apellido y nombre/i).fill('Dra. Ana Pérez')
         await dialog.getByLabel(/^Matrícula/).fill('1-50000')
         await dialog.getByRole('button', { name: 'Registrar abogado' }).click()
 
@@ -29,7 +29,7 @@ test.describe('Abogados', () => {
     test('una matrícula ya registrada no se puede repetir', async ({ page }) => {
         await page.getByRole('button', { name: 'Registrar abogado' }).click()
         const dialog = page.getByRole('dialog')
-        await dialog.getByLabel(/^Nombre y apellido/).fill('Otro Vázquez')
+        await dialog.getByLabel(/^apellido y nombre/i).fill('Otro Vázquez')
         await dialog.getByLabel(/^Matrícula/).fill('1-28114')
         await dialog.getByRole('button', { name: 'Registrar abogado' }).click()
 

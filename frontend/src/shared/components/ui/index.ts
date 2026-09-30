@@ -1,11 +1,20 @@
 export { AppShell } from './AppShell';
 export type { AppShellProps, RailGroup, RailItem } from './AppShell';
 
+export { Avatar } from './Avatar';
+export type { AvatarProps } from './Avatar';
+
+export { Breadcrumbs } from './Breadcrumbs';
+export type { BreadcrumbItem, BreadcrumbsProps } from './Breadcrumbs';
+
 export { Button } from './Button';
 export type { ButtonProps } from './Button';
 
 export { DataTable } from './DataTable';
 export type { Column, DataTableProps } from './DataTable';
+
+export { DetailList } from './DetailList';
+export type { DetailItem, DetailListProps } from './DetailList';
 
 export { Icon, ICONS } from './Icon';
 export type { IconName, IconProps } from './Icon';
@@ -14,6 +23,9 @@ export { IconButton } from './IconButton';
 export type { IconButtonProps } from './IconButton';
 
 export { Logo } from './Logo';
+
+export { Meter } from './Meter';
+export type { MeterProps, MeterTone } from './Meter';
 
 export { Modal } from './Modal';
 export type { ModalProps } from './Modal';

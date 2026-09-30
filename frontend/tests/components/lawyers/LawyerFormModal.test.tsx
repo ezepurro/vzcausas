@@ -29,7 +29,7 @@ describe('LawyerFormModal', () => {
         renderModal({ values: { fullName: 'Dra. Ana Pérez', registrationNumber: '1-50000' } })
 
         expect(screen.getByRole('heading', { name: 'Registrar abogado' })).toBeInTheDocument()
-        expect(screen.getByLabelText(/^nombre y apellido/i)).toHaveValue('Dra. Ana Pérez')
+        expect(screen.getByLabelText(/^apellido y nombre/i)).toHaveValue('Dra. Ana Pérez')
         expect(screen.getByLabelText(/^matrícula/i)).toHaveValue('1-50000')
     })
 

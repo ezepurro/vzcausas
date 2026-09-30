@@ -41,7 +41,7 @@ describe('UsersTable', () => {
         renderTable()
 
         const headers = screen.getAllByRole('columnheader').map((th) => th.textContent)
-        expect(headers).toEqual(['Nombre', 'Usuario', 'Perfil', 'Abogado vinculado', 'Último acceso', ''])
+        expect(headers).toEqual(['Apellido y Nombre', 'Usuario', 'Perfil', 'Abogado vinculado', 'Último acceso', ''])
     })
 
     it('muestra el nombre con sus iniciales y el usuario', () => {
