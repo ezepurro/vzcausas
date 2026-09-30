@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router'
 import { isApiError } from '@/shared/api/ApiError'
 import { useToast } from '@/app/providers/ToastContext'
 import {
@@ -9,7 +8,6 @@ import {
     Pagination,
     Panel,
     SearchInput,
-    Tabs,
 } from '@/shared/components/ui'
 import { useLawyers } from '@/features/lawyers/api/useLawyers'
 import { useCreateLawyer } from '@/features/lawyers/api/useCreateLawyer'
@@ -20,18 +18,6 @@ import { LawyersTable } from '@/features/lawyers/components/LawyersTable'
 import { LawyerFormModal } from '@/features/lawyers/components/LawyerFormModal'
 
 const LIMIT = 20
-
-/**
- * Usuarios y abogados son dos pantallas con dos rutas, pero el prototipo las
- * muestra como pestañas de una sola sección. Cada pestaña navega a su ruta:
- * así el rail y la pestaña llevan a la misma URL y un F5 no te cambia de lugar.
- */
-type AdminTab = '/usuarios' | '/abogados'
-
-const ADMIN_TABS: { id: AdminTab; label: string }[] = [
-    { id: '/usuarios', label: 'Usuarios' },
-    { id: '/abogados', label: 'Abogados' },
-]
 
 /**
  * Qué modal está abierto: UN estado. Hoy sólo existe el alta; la
@@ -46,7 +32,6 @@ const EMPTY_FORM: LawyerFormValues = {
 
 export function LawyersPage() {
     const toast = useToast()
-    const navigate = useNavigate()
 
     /* Paginado y búsqueda viven acá y se pasan al hook: van en la clave de caché. */
     const [page, setPage] = useState(1)
@@ -129,7 +114,7 @@ export function LawyersPage() {
         <>
             <PageHeader
                 eyebrow="Administración"
-                title="Usuarios y abogados"
+                title="Abogados"
                 sub="Desde esta sección podés administrar el equipo del estudio. Consultá el listado de abogados, sus matrículas y la cantidad de causas activas a su cargo."
                 actions={
                     <Button icon={<Icon name="plus" />} size="md" onClick={openCreate}>
@@ -138,13 +123,11 @@ export function LawyersPage() {
                 }
             />
 
-            <Tabs tabs={ADMIN_TABS} active="/abogados" onChange={(route) => navigate(route)} />
-
             <Panel
                 title="Abogados"
                 actions={
                     <SearchInput
-                        placeholder="Buscar por nombre o matrícula"
+                        placeholder="Buscar por apellido o matrícula"
                         aria-label="Buscar abogado"
                         value={search}
                         onChange={(e) => changeSearch(e.target.value)}

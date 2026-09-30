@@ -8,14 +8,14 @@ describe('validateLawyer', () => {
 
     it('marca los dos campos si están vacíos', () => {
         expect(validateLawyer({ fullName: '', registrationNumber: '' })).toEqual({
-            fullName: 'El nombre y apellido es obligatorio.',
+            fullName: 'El apellido y nombre es obligatorio.',
             registrationNumber: 'La matrícula es obligatoria.',
         })
     })
 
     it('trata un nombre de puros espacios como vacío', () => {
         expect(validateLawyer({ fullName: '   ', registrationNumber: '1-28114' }).fullName).toBe(
-            'El nombre y apellido es obligatorio.',
+            'El apellido y nombre es obligatorio.',
         )
     })
 

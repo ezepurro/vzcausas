@@ -47,15 +47,35 @@ export function TextInput({ mono, className = '', ...rest }: InputHTMLAttributes
  */
 export type SelectOption = string | { value: string; label: string };
 
+/**
+ * Un grupo de opciones con título, que el select dibuja como `<optgroup>`.
+ * Es el filtro de estado procesal del listado de causas: los estados de cada
+ * fuero bajo su nombre, y aparte los "Escritos a mano en causas".
+ */
+export interface SelectOptionGroup {
+  group: string;
+  options: SelectOption[];
+}
+
+function renderOption(o: SelectOption) {
+  const { value, label } = typeof o === 'string' ? { value: o, label: o } : o;
+  return <option key={value} value={value}>{label}</option>;
+}
+
 export function Select({
   options, className = '', ...rest
-}: SelectHTMLAttributes<HTMLSelectElement> & { options: SelectOption[] }) {
+}: SelectHTMLAttributes<HTMLSelectElement> & { options: (SelectOption | SelectOptionGroup)[] }) {
   return (
     <select className={`vz-select ${className}`} {...rest}>
-      {options.map((o) => {
-        const { value, label } = typeof o === 'string' ? { value: o, label: o } : o;
-        return <option key={value} value={value}>{label}</option>;
-      })}
+      {options.map((o) =>
+        typeof o === 'object' && 'group' in o ? (
+          <optgroup key={`group-${o.group}`} label={o.group}>
+            {o.options.map(renderOption)}
+          </optgroup>
+        ) : (
+          renderOption(o)
+        ),
+      )}
     </select>
   );
 }

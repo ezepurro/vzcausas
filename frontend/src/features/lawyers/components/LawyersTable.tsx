@@ -1,26 +1,36 @@
 import type { ReactNode } from 'react'
-import { DataTable, type Column } from '@/shared/components/ui'
+import { DataTable, Meter, type Column } from '@/shared/components/ui'
 import type { Lawyer } from '@/features/lawyers/types/lawyer'
 
 export interface LawyersTableProps {
     rows: Lawyer[]
+    /**
+     * Contra qué se compara la carga de cada abogado: el máximo del estudio.
+     * Si la pantalla no lo pasa, se toma el máximo de las filas, que con los
+     * abogados del estudio en una sola página es lo mismo.
+     */
+    maxActiveCases?: number
     empty?: ReactNode
 }
 
 /**
  * Tabla de abogados. Presentacional: no ordena, no filtra, no pagina.
  *
- * Las columnas son las del prototipo. La barra de carga de "Causas activas"
- * no va todavía: el backend devuelve siempre `0` hasta que exista el módulo
- * de causas, y una barra vacía en todas las filas no dice nada.
+ * Las columnas son las del prototipo. "Causas activas" lleva la barra de carga
+ * desde V3, que calcula `activeCases` de verdad: compara a cada abogado con el
+ * más cargado del estudio, y el más cargado se pinta en bronce, como en el
+ * prototipo. Mientras nadie tiene causas no se dibuja: una barra vacía en
+ * todas las filas no dice nada.
  *
  * Sin columna de acciones: modificar y dar de baja todavía no están en alcance.
  */
-export function LawyersTable({ rows, empty }: LawyersTableProps) {
+export function LawyersTable({ rows, maxActiveCases, empty }: LawyersTableProps) {
+    const max = maxActiveCases ?? Math.max(0, ...rows.map((l) => l.activeCases))
+
     const columns: Column<Lawyer>[] = [
         {
             id: 'fullName',
-            header: 'Abogado',
+            header: 'Apellido y Nombre',
             width: '42%',
             cell: (l) => <span className="vz-table__primary">{l.fullName}</span>,
         },
@@ -34,8 +44,24 @@ export function LawyersTable({ rows, empty }: LawyersTableProps) {
         {
             id: 'activeCases',
             header: 'Causas activas',
-            cell: (l) => l.activeCases,
+            cell: (l) => (
+                <div className="vz-load">
+                    <span className="vz-load__count">{l.activeCases}</span>
+                    {max > 0 && (
+                        <div className="vz-load__bar">
+                            <Meter
+                                label={`Carga de ${l.fullName}`}
+                                value={l.activeCases}
+                                max={max}
+                                valueText={`${l.activeCases} de ${max} causas`}
+                                tone={l.activeCases >= max ? 'warn' : 'primary'}
+                            />
+                        </div>
+                    )}
+                </div>
+            ),
             mono: true,
+            width: '28%',
         },
     ]
 

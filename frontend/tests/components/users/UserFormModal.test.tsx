@@ -44,11 +44,11 @@ function renderModal(props: Partial<UserFormModalProps> = {}) {
 
 /* Los rótulos llevan el asterisco de obligatorio pegado: "Matrícula*". */
 const label = {
-    fullName: /^nombre y apellido\*?$/i,
+    fullName: /^apellido y nombre\*?$/i,
     password: /^contraseña inicial/i,
     lawyerMode: /^ficha de abogado/i,
     lawyerId: /^abogado\*?$/i,
-    lawyerFullName: /^nombre y apellido del abogado/i,
+    lawyerFullName: /^apellido y nombre del abogado/i,
     registrationNumber: /^matrícula/i,
 }
 

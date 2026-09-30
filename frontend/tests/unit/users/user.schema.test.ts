@@ -32,7 +32,7 @@ describe('validateUser', () => {
                 CREATE,
             )
             expect(errors).toEqual({
-                fullName: 'El nombre y apellido es obligatorio.',
+                fullName: 'El apellido y nombre es obligatorio.',
                 username: 'El nombre de usuario es obligatorio.',
                 email: 'El correo electrónico es obligatorio.',
                 password: 'La contraseña es obligatoria.',
@@ -117,7 +117,7 @@ describe('validateUser', () => {
         it('con modo registrar, exige nombre y matrícula de la ficha nueva', () => {
             const errors = validateUser({ ...SECRETARY, lawyerMode: LAWYER_MODES.create }, LAWYER)
             expect(errors).toEqual({
-                lawyerFullName: 'El nombre y apellido del abogado es obligatorio.',
+                lawyerFullName: 'El apellido y nombre del abogado es obligatorio.',
                 registrationNumber: 'La matrícula es obligatoria.',
             })
         })

@@ -18,13 +18,13 @@ test.describe('Usuarios', () => {
         // Registrar: un abogado nuevo, con su ficha, en una sola operación.
         await page.getByRole('button', { name: 'Registrar usuario' }).click()
         const dialog = page.getByRole('dialog')
-        await dialog.getByLabel(/^Nombre y apellido\*?$/).fill('Ana Pérez')
+        await dialog.getByLabel(/^apellido y nombre\*?$/i).fill('Ana Pérez')
         await dialog.getByLabel(/^Nombre de usuario/).fill('aperez')
         await dialog.getByLabel(/^Correo electrónico/).fill('aperez@vazquezzarate.com')
         await dialog.getByLabel(/^Contraseña inicial/).fill('inicial2026')
         await dialog.getByLabel(/^Repetir contraseña/).fill('inicial2026')
         await dialog.getByLabel(/^Ficha de abogado/).selectOption({ label: 'Registrar un abogado nuevo' })
-        await dialog.getByLabel(/^Nombre y apellido del abogado/).fill('Dra. Ana Pérez')
+        await dialog.getByLabel(/^apellido y nombre del abogado/i).fill('Dra. Ana Pérez')
         await dialog.getByLabel(/^Matrícula/).fill('1-50000')
         await dialog.getByRole('button', { name: 'Registrar usuario' }).click()
 
@@ -60,7 +60,7 @@ test.describe('Usuarios', () => {
     test('registrar un usuario vinculándolo a una ficha existente', async ({ page }) => {
         await page.getByRole('button', { name: 'Registrar usuario' }).click()
         const dialog = page.getByRole('dialog')
-        await dialog.getByLabel(/^Nombre y apellido\*?$/).fill('Bruno Sosa')
+        await dialog.getByLabel(/^apellido y nombre\*?$/i).fill('Bruno Sosa')
         await dialog.getByLabel(/^Nombre de usuario/).fill('bsosa')
         await dialog.getByLabel(/^Correo electrónico/).fill('bsosa@vazquezzarate.com')
         await dialog.getByLabel(/^Contraseña inicial/).fill('inicial2026')

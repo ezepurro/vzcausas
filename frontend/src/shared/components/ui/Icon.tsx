@@ -10,6 +10,7 @@ export const ICONS = {
   users: 'M16 20v-1a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v1M9.5 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7M19 8v6M22 11h-6',
   lawyers: 'M12 3 3 7l9 4 9-4zM3 12l9 4 9-4M3 17l9 4 9-4',
   timeLimits: 'M4 5h16M4 12h16M4 19h9M18 16v6M15 19h6',
+  qualifications: 'M12 3v18M8 21h8M5 7h14M5 7l-3 7a3 3 0 0 0 6 0zM19 7l-3 7a3 3 0 0 0 6 0z',
   reports: 'M4 20V10M10 20V4M16 20v-7M22 20H2',
   // ── acciones ──
   search: 'M18 18l-3.5-3.5M4 11a7 7 0 1 0 14 0 7 7 0 0 0-14 0z',

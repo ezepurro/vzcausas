@@ -128,3 +128,49 @@
 
 /* Varios `Pill` en una misma celda: roles, etiquetas. Envuelven si no entran. */
 .vz-pills { display: flex; flex-wrap: wrap; gap: 5px; }
+
+/* Cuerpo con aire: un panel que envuelve un formulario o una ficha, y no una
+   tabla que va de borde a borde. */
+.vz-panel__body { padding: 18px; }
+
+/* ─────────── pares etiqueta–valor ─────────── */
+.vz-details { margin: 0; display: flex; flex-direction: column; }
+.vz-details__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--vz-border);
+  font-size: 13px;
+}
+.vz-details__row:first-child { padding-top: 0; }
+.vz-details__row:last-child { border-bottom: none; padding-bottom: 0; }
+.vz-details__label { color: var(--vz-muted); }
+.vz-details__value {
+  margin: 0;
+  font-weight: 700;
+  color: var(--vz-ink);
+  text-align: right;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* ─────────── barra de medida ─────────── */
+.vz-meter {
+  height: 6px;
+  border: 1px solid var(--vz-border);
+  border-radius: 3px;
+  background: var(--vz-sunken);
+  overflow: hidden;
+}
+.vz-meter__fill { height: 100%; transition: width .2s ease; }
+.vz-meter--primary .vz-meter__fill { background: var(--vz-primary); }
+.vz-meter--warn .vz-meter__fill { background: var(--vz-warn-mark); }
+.vz-meter--danger .vz-meter__fill { background: var(--vz-danger-action); }
+
+/* Un número con su barra al lado, en una celda: la carga de causas de un
+   abogado. El número tiene ancho fijo para que las barras arranquen parejas. */
+.vz-load { display: flex; align-items: center; gap: 10px; }
+.vz-load__count { flex: 0 0 2.5ch; text-align: right; }
+.vz-load__bar { flex: 1; max-width: 160px; }

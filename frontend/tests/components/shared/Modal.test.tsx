@@ -41,6 +41,39 @@ describe('Modal', () => {
         expect(screen.getByRole('dialog', { name: 'Registrar usuario' })).toBeInTheDocument()
     })
 
+    describe('scroll del fondo', () => {
+        it('mientras está abierto, la página de atrás no scrollea', () => {
+            renderModal()
+
+            expect(document.body.style.overflow).toBe('hidden')
+        })
+
+        it('al cerrarse, la página vuelve a scrollear como estaba', () => {
+            document.body.style.overflow = 'auto'
+            const { unmount } = render(
+                <Modal title="Eliminar usuario" onClose={() => {}}>contenido</Modal>,
+            )
+
+            unmount()
+
+            expect(document.body.style.overflow).toBe('auto')
+            document.body.style.overflow = ''
+        })
+
+        /* Un modal abierto encima de otro: cerrar el de arriba no puede
+           desbloquear el fondo mientras el de abajo sigue abierto. */
+        it('cerrar un modal apilado no desbloquea el de abajo', () => {
+            const below = render(<Modal title="Abajo" onClose={() => {}}>a</Modal>)
+            const above = render(<Modal title="Arriba" onClose={() => {}}>b</Modal>)
+
+            above.unmount()
+            expect(document.body.style.overflow).toBe('hidden')
+
+            below.unmount()
+            expect(document.body.style.overflow).toBe('')
+        })
+    })
+
     it('Escape lo cierra', async () => {
         const { onClose, user } = renderModal()
 

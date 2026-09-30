@@ -16,7 +16,6 @@ function renderPage(as = 'fvazquez') {
         as,
         path: '/usuarios',
         route: '/usuarios',
-        routes: [{ path: '/abogados', element: <p>Pantalla de abogados</p> }],
     })
 }
 
@@ -24,14 +23,14 @@ type User = ReturnType<typeof renderPage>['user']
 
 /* Los rótulos llevan el asterisco de obligatorio pegado: "Matrícula*". */
 const label = {
-    fullName: /^nombre y apellido\*?$/i,
+    fullName: /^apellido y nombre\*?$/i,
     username: /^nombre de usuario/i,
     email: /^correo electrónico/i,
     password: /^contraseña inicial/i,
     passwordConfirm: /^repetir contraseña/i,
     lawyerMode: /^ficha de abogado/i,
     lawyerId: /^abogado\*?$/i,
-    lawyerFullName: /^nombre y apellido del abogado/i,
+    lawyerFullName: /^apellido y nombre del abogado/i,
     registrationNumber: /^matrícula/i,
 }
 
@@ -133,12 +132,15 @@ describe('UsersPage', () => {
             expect(await screen.findByText('No se pudieron cargar los usuarios')).toBeInTheDocument()
         })
 
-        it('la pestaña Abogados navega a su pantalla', async () => {
-            const { user } = renderPage()
+        /* Usuarios y abogados son dos secciones del rail, no pestañas de una
+           misma pantalla: cada una lleva su propio título. */
+        it('es una pantalla propia, sin pestañas hacia abogados', async () => {
+            renderPage()
+            // Se espera el listado para no dejar la consulta en vuelo al test siguiente.
+            await screen.findByRole('cell', { name: 'fvazquez' })
 
-            await user.click(screen.getByRole('tab', { name: 'Abogados' }))
-
-            expect(await screen.findByText('Pantalla de abogados')).toBeInTheDocument()
+            expect(screen.getByRole('heading', { name: 'Usuarios', level: 1 })).toBeInTheDocument()
+            expect(screen.queryByRole('tablist')).not.toBeInTheDocument()
         })
     })
 
@@ -224,7 +226,7 @@ describe('UsersPage', () => {
 
             await user.click(within(dialog).getByRole('button', { name: 'Registrar usuario' }))
 
-            expect(within(dialog).getByText('El nombre y apellido es obligatorio.')).toBeInTheDocument()
+            expect(within(dialog).getByText('El apellido y nombre es obligatorio.')).toBeInTheDocument()
             expect(within(dialog).getByText('El nombre de usuario es obligatorio.')).toBeInTheDocument()
             expect(within(dialog).getByText('El correo electrónico es obligatorio.')).toBeInTheDocument()
             expect(within(dialog).getByText('La contraseña es obligatoria.')).toBeInTheDocument()

@@ -11,7 +11,6 @@ function renderPage(as = 'fvazquez') {
         as,
         path: '/abogados',
         route: '/abogados',
-        routes: [{ path: '/usuarios', element: <p>Pantalla de usuarios</p> }],
     })
 }
 
@@ -66,12 +65,15 @@ describe('LawyersPage', () => {
             expect(await screen.findByText('No se pudieron cargar los abogados')).toBeInTheDocument()
         })
 
-        it('la pestaña Usuarios navega a su pantalla', async () => {
-            const { user } = renderPage()
+        /* Usuarios y abogados son dos secciones del rail, no pestañas de una
+           misma pantalla: cada una lleva su propio título. */
+        it('es una pantalla propia, sin pestañas hacia usuarios', async () => {
+            renderPage()
+            // Se espera el listado para no dejar la consulta en vuelo al test siguiente.
+            await screen.findByText('Dr. Fernando G. Vázquez')
 
-            await user.click(screen.getByRole('tab', { name: 'Usuarios' }))
-
-            expect(await screen.findByText('Pantalla de usuarios')).toBeInTheDocument()
+            expect(screen.getByRole('heading', { name: 'Abogados', level: 1 })).toBeInTheDocument()
+            expect(screen.queryByRole('tablist')).not.toBeInTheDocument()
         })
     })
 
@@ -81,7 +83,7 @@ describe('LawyersPage', () => {
             await screen.findByText('Dr. Fernando G. Vázquez')
 
             const dialog = await openCreate(user)
-            await user.type(within(dialog).getByLabelText(/^nombre y apellido/i), 'Dra. Ana Pérez')
+            await user.type(within(dialog).getByLabelText(/^apellido y nombre/i), 'Dra. Ana Pérez')
             await user.type(within(dialog).getByLabelText(/^matrícula/i), '1-50000')
             await user.click(within(dialog).getByRole('button', { name: 'Registrar abogado' }))
 
@@ -99,7 +101,7 @@ describe('LawyersPage', () => {
 
             await user.click(within(dialog).getByRole('button', { name: 'Registrar abogado' }))
 
-            expect(within(dialog).getByText('El nombre y apellido es obligatorio.')).toBeInTheDocument()
+            expect(within(dialog).getByText('El apellido y nombre es obligatorio.')).toBeInTheDocument()
             expect(within(dialog).getByText('La matrícula es obligatoria.')).toBeInTheDocument()
             expect(db.lawyers).toHaveLength(LAWYERS.length)
         })
@@ -108,7 +110,7 @@ describe('LawyersPage', () => {
             const { user } = renderPage()
             const dialog = await openCreate(user)
 
-            await user.type(within(dialog).getByLabelText(/^nombre y apellido/i), 'Dra. Ana Pérez')
+            await user.type(within(dialog).getByLabelText(/^apellido y nombre/i), 'Dra. Ana Pérez')
             await user.type(within(dialog).getByLabelText(/^matrícula/i), '50000')
             await user.click(within(dialog).getByRole('button', { name: 'Registrar abogado' }))
 
@@ -121,7 +123,7 @@ describe('LawyersPage', () => {
             const { user } = renderPage()
             const dialog = await openCreate(user)
 
-            await user.type(within(dialog).getByLabelText(/^nombre y apellido/i), 'Otro Vázquez')
+            await user.type(within(dialog).getByLabelText(/^apellido y nombre/i), 'Otro Vázquez')
             await user.type(within(dialog).getByLabelText(/^matrícula/i), '1-28114')
             await user.click(within(dialog).getByRole('button', { name: 'Registrar abogado' }))
 
@@ -142,7 +144,7 @@ describe('LawyersPage', () => {
             const { user } = renderPage()
             const dialog = await openCreate(user)
 
-            await user.type(within(dialog).getByLabelText(/^nombre y apellido/i), 'Dra. Ana Pérez')
+            await user.type(within(dialog).getByLabelText(/^apellido y nombre/i), 'Dra. Ana Pérez')
             await user.type(within(dialog).getByLabelText(/^matrícula/i), '1-50000')
             await user.click(within(dialog).getByRole('button', { name: 'Registrar abogado' }))
 

@@ -16,6 +16,12 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   block?: boolean;
   /** icono a la izquierda del texto */
   icon?: ReactNode;
+  /**
+   * Botón que se prende y se apaga, como "Solo con plazo por vencer". Sin la
+   * prop es un botón común; con ella anuncia su estado (`aria-pressed`) y se
+   * pinta de verde mientras está prendido.
+   */
+  pressed?: boolean;
 }
 
 /** Botón presentacional. No decide nada: el onClick lo pone la pantalla. */
@@ -24,6 +30,7 @@ export function Button({
   size = 'lg',
   block = false,
   icon,
+  pressed,
   children,
   className = '',
   type = 'button',
@@ -34,11 +41,12 @@ export function Button({
     `vz-btn--${variant}`,
     size !== 'lg' ? `vz-btn--${size}` : '',
     block ? 'vz-btn--block' : '',
+    pressed ? 'is-pressed' : '',
     className,
   ].filter(Boolean).join(' ');
 
   return (
-    <button type={type} className={classes} {...rest}>
+    <button type={type} className={classes} aria-pressed={pressed} {...rest}>
       {icon}
       {children}
     </button>

@@ -223,4 +223,117 @@
     margin-left: auto;
     color: var(--vz-primary);
   }
+
+  /* El título de un grupo ("Penal", "Escritos a mano en causas") se lee como
+     el separador de sección de los formularios, no como otra opción. */
+  .vz-select optgroup {
+    padding: 8px 10px 2px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    color: var(--vz-primary);
+  }
+  .vz-select optgroup option {
+    font-size: 13.5px;
+    font-weight: 400;
+    letter-spacing: normal;
+    text-transform: none;
+  }
 }
+
+/* ─────────── botón que se prende y se apaga ─────────── */
+/* "Solo con plazo por vencer": prendido se lee como elegido, igual que una
+   opción del SegmentedControl. */
+.vz-btn--secondary.is-pressed,
+.vz-btn--ghost.is-pressed {
+  background: var(--vz-primary-soft);
+  border-color: var(--vz-primary);
+  color: var(--vz-primary-hi);
+}
+.vz-btn--secondary.is-pressed:hover:not(:disabled),
+.vz-btn--ghost.is-pressed:hover:not(:disabled) { background: var(--vz-ok-bd); }
+
+/* ─────────── combobox ─────────── */
+/* Campo de texto con lista: la lista flota debajo, con el mismo panel que el
+   desplegable del select. */
+.vz-combobox { position: relative; }
+
+.vz-combobox__list {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 30;
+  max-height: 280px;
+  overflow-y: auto;
+  padding: 4px;
+  border: 1px solid var(--vz-border);
+  border-radius: var(--vz-r-sm);
+  background: var(--vz-surface);
+  box-shadow: var(--vz-pop-sh);
+}
+
+.vz-combobox__option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.vz-combobox__option.is-active { background: var(--vz-sunken); }
+
+.vz-combobox__text { flex: 1; min-width: 0; }
+.vz-combobox__label { font-size: 13.5px; line-height: 1.35; color: var(--vz-ink); }
+.vz-combobox__description { font-size: 12px; color: var(--vz-faint); margin-top: 1px; }
+.vz-combobox__check { color: var(--vz-primary); font-weight: 700; }
+.vz-combobox__empty { padding: 10px; font-size: 12.5px; color: var(--vz-faint); }
+
+/* ─────────── segmented control ─────────── */
+/* Botones pegados en una cápsula: se elige uno. Envuelve si no entran. */
+.vz-segmented {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--vz-border);
+  border-radius: var(--vz-r-btn);
+  background: var(--vz-sunken);
+}
+.vz-segmented__option {
+  height: 32px;
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: var(--vz-r-btn);
+  background: none;
+  color: var(--vz-muted);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.vz-segmented__option:hover:not(:disabled) { color: var(--vz-ink); }
+.vz-segmented__option.is-on {
+  background: var(--vz-surface);
+  border-color: var(--vz-border-strong);
+  color: var(--vz-primary-hi);
+}
+.vz-segmented__option:disabled { cursor: not-allowed; opacity: .5; }
+
+/* ─────────── botonera de un formulario de página ─────────── */
+/* Va en el pie del Panel que envuelve el formulario: una aclaración a la
+   izquierda (opcional) y los botones a la derecha, como el pie de un modal. */
+.vz-form-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.vz-form-actions__note { flex: 1; min-width: 200px; font-size: 12.5px; color: var(--vz-muted); }
+
+/* Un control con un botón al lado: "Cliente" + "Registrar cliente nuevo". */
+.vz-field-row { display: flex; gap: 8px; align-items: center; }
+.vz-field-row > .vz-select,
+.vz-field-row > .vz-input { flex: 1; min-width: 0; }

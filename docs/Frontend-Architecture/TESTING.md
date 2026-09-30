@@ -9,9 +9,12 @@ Si tenés una duda del tipo "¿este test dónde va?", saltá a
 [Dónde pongo este test](#6-dónde-pongo-este-test).
 
 > **Estado actual:** todo instalado y funcionando. Están escritos los tests de
-> `auth`, `lawyers`, `legal-params`, `users`, las guardas del router y el
-> `Modal` de `shared`: **297 de Vitest** en 35 archivos y **15 de Playwright**
-> en 4. Los números son de la última corrida; los de hoy te los dice `npm test`.
+> `auth`, `lawyers`, `legal-params`, `users`, el acceso por perfil, las guardas
+> del router, el `AppLayout` y el `Modal` de `shared`: **329 de Vitest** en 38
+> archivos y **17 de Playwright** en 5. Los números son de la última corrida; los
+> de hoy te los dice `npm test`. Los componentes de `shared` que se agregaron
+> para el Sprint 2 (`Breadcrumbs`, `Combobox`, `SegmentedControl`, etc.)
+> todavía no tienen test.
 > Primera vez en tu máquina: `npm install` y `npx playwright install chromium`,
 > que descarga el navegador de los E2E. Ese segundo paso hay que repetirlo cada
 > vez que se actualiza Playwright (ver [§9](#9-problemas-comunes)).
@@ -92,9 +95,11 @@ navegación entre pantallas, todo junto.
 
 `tests/` vive en `frontend/`, al lado de `src/`. Adentro de cada nivel se
 **repiten los nombres de las features de `src/features/`**, así cada uno sabe
-cuál es su carpeta. Hay dos carpetas que no son una feature y siguen la misma
-idea: `components/app/`, para las guardas del router, y `components/shared/`,
-para los componentes de `src/shared/` que tienen comportamiento propio.
+cuál es su carpeta. Hay carpetas que no son una feature y siguen la misma
+idea: `app/` para lo de `src/app/` (`unit/app/` para la tabla de acceso,
+`components/app/` para las guardas del router y el `AppLayout`) y
+`components/shared/`, para los componentes de `src/shared/` que tienen
+comportamiento propio.
 
 ```
 frontend/
@@ -105,13 +110,14 @@ frontend/
 │   │   └── render.tsx                    renderWithProviders()
 │   │
 │   ├── unit/                             Vitest · schemas/ y utils/
+│   │   ├── app/                          la tabla de acceso por perfil
 │   │   ├── auth/
 │   │   ├── lawyers/
 │   │   ├── legal-params/
 │   │   └── users/
 │   │
 │   ├── components/                       Vitest + RTL + MSW
-│   │   ├── app/                          guardas del router
+│   │   ├── app/                          guardas del router y AppLayout
 │   │   ├── shared/                       componentes de src/shared/
 │   │   ├── auth/
 │   │   ├── lawyers/
@@ -120,6 +126,7 @@ frontend/
 │   │
 │   └── e2e/                              Playwright
 │       ├── fixtures/                     helpers compartidos (loginAs, etc.)
+│       ├── access.spec.ts
 │       ├── auth.spec.ts
 │       ├── lawyers.spec.ts
 │       ├── legal-params.spec.ts
@@ -134,9 +141,11 @@ Los tests tienen el mismo chequeo de tipos que el código: `tsconfig.test.json`
 está referenciado desde `tsconfig.json`, así que **un test que no compila
 rompe el build**.
 
-Las features que todavía no tienen código (`cases`, `clients`, `dashboard`,
-`deadlines`, `documents`, `proceedings`) **no tienen carpeta en `tests/`**. Se
-crea cuando alguien empieza a programar la feature (ver
+Las features que todavía no tienen código (`dashboard`, `deadlines`,
+`documents`) **no tienen carpeta en `tests/`**. `clients`, `cases` y
+`proceedings`, del Sprint 2, ya tienen esquemas, utilidades y componentes pero
+todavía no sus tests. La carpeta se crea cuando alguien empieza a programar la
+feature (ver
 [sección 7](#7-cuando-arrancás-una-feature-nueva)). `home` sí tiene código y
 tampoco tiene carpeta: su `HomePage` es presentación pura, ver
 [§3.2](#32-lo-que-no-se-testea-a-propósito).
@@ -148,6 +157,8 @@ Esto es lo que hay que testear **hoy**, según el código que existe:
 ```
 tests/
 ├── unit/
+│   ├── app/
+│   │   └── access.test.ts                  ROUTE_ACCESS y canAccess
 │   ├── auth/
 │   │   ├── login.schema.test.ts
 │   │   ├── changePassword.schema.test.ts
@@ -173,9 +184,11 @@ tests/
 ├── components/
 │   ├── app/
 │   │   ├── RequireSession.test.tsx         sin sesión → redirige al login
-│   │   └── RedirectIfSession.test.tsx      con sesión → no deja ver el login
+│   │   ├── RedirectIfSession.test.tsx      con sesión → no deja ver el login
+│   │   ├── RequireAccess.test.tsx          sin permiso → "Sin acceso"
+│   │   └── AppLayout.test.tsx              el rail muestra sólo lo que el perfil puede abrir
 │   ├── shared/
-│   │   └── Modal.test.tsx                  Escape, foco atrapado, click en el fondo
+│   │   └── Modal.test.tsx                  Escape, foco atrapado, click en el fondo, fondo sin scroll
 │   ├── auth/
 │   │   ├── LoginForm.test.tsx
 │   │   ├── LoginPage.test.tsx
@@ -198,7 +211,8 @@ tests/
 │
 └── e2e/
     ├── fixtures/
-    │   └── auth.ts                         loginAs('admin'), etc.
+    │   └── auth.ts                         loginAs('admin'), goTo(page, 'Usuarios')
+    ├── access.spec.ts                      qué secciones ve cada perfil en el menú
     ├── auth.spec.ts                        login, logout, cambio de contraseña, sesión vencida
     ├── lawyers.spec.ts                     crear abogado y verlo en la tabla
     ├── legal-params.spec.ts                crear, editar y borrar estado procesal
@@ -436,7 +450,7 @@ test('registrar un abogado y verlo en la tabla', async ({ page }) => {
 
     await page.getByRole('button', { name: 'Registrar abogado' }).click()
     const dialog = page.getByRole('dialog')
-    await dialog.getByLabel(/^Nombre y apellido/).fill('Dra. Ana Pérez')
+    await dialog.getByLabel(/^apellido y nombre/i).fill('Dra. Ana Pérez')
     await dialog.getByLabel(/^Matrícula/).fill('1-50000')
     await dialog.getByRole('button', { name: 'Registrar abogado' }).click()
 
@@ -446,7 +460,9 @@ test('registrar un abogado y verlo en la tabla', async ({ page }) => {
 
 Los rótulos de los campos obligatorios llevan el asterisco pegado
 ("Matrícula\*"), por eso se buscan con una expresión regular (`/^Matrícula/`)
-y no con el texto exacto. Lo mismo vale en Testing Library.
+y no con el texto exacto. Con la `i` final tampoco importan las mayúsculas, así
+un cambio de "Nombre" a "nombre" en el rótulo no rompe el test. Lo mismo vale
+en Testing Library.
 
 - Los selectores son los mismos que en Testing Library (`getByRole`,
   `getByLabel`): se aprende una sola forma.
@@ -571,8 +587,9 @@ Si el mensaje aparece después de una respuesta de la API, usá `findByText`
 **"`findByRole('dialog')` encontró el modal pero después `within(dialog)` no encuentra nada"**
 El modal se volvió a montar y tu referencia quedó vieja (desconectada del
 documento). Volvé a buscarlo con `screen.getByRole('dialog')` después de la
-acción. Hoy pasa en `UserFormModal` cuando aparece el error "Elegí al menos un
-perfil".
+acción. Si el modal no debería remontarse, es un bug del componente: pasaba en
+`UserFormModal` con el error "Elegí al menos un perfil", ya se arregló, y
+`UsersPage.test.tsx` lo verifica buscando adentro de la referencia original.
 
 **"Un E2E me devuelve al login sin razón"**
 Casi seguro hubo un `page.goto()` o un `reload()` después del login. Ver
@@ -582,7 +599,7 @@ Casi seguro hubo un `page.goto()` o un `reload()` después del login. Ver
 No es que se rompió nada: falta el navegador. Pasa la primera vez en una máquina
 nueva y, sobre todo, **cada vez que se actualiza Playwright**, porque cada
 versión trae su propio build de Chromium. Se arregla con `npx playwright install
-chromium`. Mientras falte, los 15 tests fallan antes de arrancar, así que el
+chromium`. Mientras falte, todos los E2E fallan antes de arrancar, así que el
 error se reconoce porque fallan *todos* y ninguno llega a abrir una pantalla.
 
 **"El E2E anda en mi máquina y falla en la de otro"**
@@ -597,7 +614,9 @@ Casi siempre es un `waitForTimeout` o un selector por clase CSS. Usá
   `tests/` copia.
 - `frontend/src/shared/mocks/README.md`: los mocks, los fixtures y cómo
   disparar cada error.
-- `docs/Api-Contract/API_CONTRACT_V2.md`: lo que la API tiene que responder.
+- `docs/Api-Contract/`: lo que la API tiene que responder. `API_CONTRACT_V2.md`
+  para lo del Sprint 1, que es lo que implementan hoy los mocks, y
+  `API_CONTRACT_V3.md` para lo del Sprint 2.
 - [Vitest](https://vitest.dev) ·
   [Testing Library](https://testing-library.com/docs/react-testing-library/intro) ·
   [MSW](https://mswjs.io) ·

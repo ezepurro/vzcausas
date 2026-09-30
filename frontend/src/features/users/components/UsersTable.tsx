@@ -21,7 +21,7 @@ export function UsersTable({ rows, onEdit, onDelete, empty }: UsersTableProps) {
     const columns: Column<User>[] = [
         {
             id: 'fullName',
-            header: 'Nombre',
+            header: 'Apellido y Nombre',
             width: '24%',
             cell: (u) => (
                 <div className="vz-table__ident">
