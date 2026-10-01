@@ -29,11 +29,6 @@ export interface ProceduralActFormProps {
      * estado escrito a mano. Lo decide la pantalla con `findStateByName`.
      */
     customState: boolean
-    /**
-     * `true` si quien registra no tiene ficha de abogado (Secretaría): el acto
-     * queda pendiente de confirmación y la causa no cambia (RN13).
-     */
-    pendingConfirmation: boolean
     /** true mientras la mutación está en vuelo: bloquea el confirmar */
     saving: boolean
     onConfirm: () => void
@@ -48,12 +43,17 @@ export interface ProceduralActFormProps {
  * No valida ni guarda: recibe los errores ya calculados y avisa con
  * `onConfirm`.
  *
+ * Lo registra sólo el abogado y se aplica a la causa en el momento (V3 D-13).
+ * La nota de RN13 que el prototipo le muestra a la Secretaría ("el estado
+ * queda pendiente de confirmación") no está: ese flujo no existe, y a quien no
+ * tiene el rol la pantalla no le ofrece registrar actos.
+ *
  * "Adjuntar cédula o comprobante" no está: el adjunto va a la carpeta de
  * Drive de la causa, que llega con HU39 en el Sprint 3 (V3 §8.3).
  */
 export function ProceduralActForm({
     values, errors, jurisdiction, stateOptions, onStateTextChange, onStateSelect, onChange,
-    customState, pendingConfirmation, saving, onConfirm, onCancel,
+    customState, saving, onConfirm, onCancel,
 }: ProceduralActFormProps) {
     const administrative = jurisdiction === 'ADMINISTRATIVE'
 
@@ -68,12 +68,6 @@ export function ProceduralActForm({
                 title="Datos del acto procesal"
                 footer={
                     <div className="vz-form-actions">
-                        {pendingConfirmation && (
-                            <span className="vz-form-actions__note">
-                                RN13: el cambio de estado lo consigna el abogado responsable. Podés
-                                cargar el acto; el estado queda pendiente de confirmación.
-                            </span>
-                        )}
                         <Button variant="secondary" size="md" onClick={onCancel}>Cancelar</Button>
                         <Button type="submit" size="md" disabled={saving}>Registrar acto</Button>
                     </div>

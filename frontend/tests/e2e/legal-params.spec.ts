@@ -53,13 +53,17 @@ test.describe('Estados y plazos', () => {
         await expect(created).toBeHidden()
     })
 
-    test('un estado con causas asociadas no se puede eliminar', async ({ page }) => {
+    /* La baja procede aunque haya causas en el estado (V3 D-06): el modal lo
+       avisa y el estado sale del ciclo. */
+    test('un estado con causas asociadas también se puede eliminar', async ({ page }) => {
         const name = 'Oposición al requerimiento de elevación'
 
         await rowOf(page, name).getByRole('button', { name: 'Eliminar' }).click()
-        await page.getByRole('dialog').getByRole('button', { name: 'Eliminar' }).click()
+        const dialog = page.getByRole('dialog')
+        await expect(dialog).toContainText('Hay 1 causa en este estado')
+        await dialog.getByRole('button', { name: 'Eliminar' }).click()
 
-        await expect(page.getByRole('alert')).toBeVisible()
-        await expect(rowOf(page, name)).toBeVisible()
+        await expect(page.getByText(`Estado "${name}" eliminado del fuero Penal.`)).toBeVisible()
+        await expect(rowOf(page, name)).toBeHidden()
     })
 })

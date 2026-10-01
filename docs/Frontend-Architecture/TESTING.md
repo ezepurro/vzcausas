@@ -10,11 +10,13 @@ Si tenés una duda del tipo "¿este test dónde va?", saltá a
 
 > **Estado actual:** todo instalado y funcionando. Están escritos los tests de
 > `auth`, `lawyers`, `legal-params`, `users`, el acceso por perfil, las guardas
-> del router, el `AppLayout` y el `Modal` de `shared`: **329 de Vitest** en 38
-> archivos y **17 de Playwright** en 5. Los números son de la última corrida; los
-> de hoy te los dice `npm test`. Los componentes de `shared` que se agregaron
-> para el Sprint 2 (`Breadcrumbs`, `Combobox`, `SegmentedControl`, etc.)
-> todavía no tienen test.
+> del router, el `AppLayout`, el `Modal`, el `Field` y el `DetailList` de
+> `shared`, el **servidor falso** (`unit/mocks/`) y, del Sprint 2, lo que ya
+> existe de `cases` y `proceedings`: **565 de Vitest** en 53 archivos y **17 de
+> Playwright** en 5. Los números son de la última corrida; los de hoy te los
+> dice `npm test`. Los demás componentes de `shared` que se agregaron para el
+> Sprint 2 (`Breadcrumbs`, `Combobox`, `SegmentedControl`, etc.) todavía no
+> tienen test, y `clients` tampoco.
 > Primera vez en tu máquina: `npm install` y `npx playwright install chromium`,
 > que descarga el navegador de los E2E. Ese segundo paso hay que repetirlo cada
 > vez que se actualiza Playwright (ver [§9](#9-problemas-comunes)).
@@ -64,6 +66,14 @@ datos y devuelven datos, sin React y sin red. Ejemplos: `validateLogin`,
   límite, combinaciones raras. Es el lugar para ser exhaustivo.
 - No hace falta `render`, ni MSW, ni providers.
 
+En este nivel van también los tests del **servidor falso**, en `unit/mocks/`.
+`resolveRequest` de `@/shared/mocks` es una función común —recibe un pedido y
+devuelve `{ status, body }`—, así que una regla del contrato se prueba sin
+levantar MSW ni renderizar nada (ver
+[§5.4](#54-un-test-del-servidor-falso)). Sirven para dos cosas: confirmar que
+el mock responde lo que dice el contrato, y que los datos semilla no tienen
+referencias rotas.
+
 ### 2.2 `components/` — componentes con la API simulada
 
 Formularios, modales, tablas y páginas. Se renderiza el componente, se
@@ -111,7 +121,9 @@ frontend/
 │   │
 │   ├── unit/                             Vitest · schemas/ y utils/
 │   │   ├── app/                          la tabla de acceso por perfil
+│   │   ├── mocks/                        el servidor falso de src/shared/mocks
 │   │   ├── auth/
+│   │   ├── cases/
 │   │   ├── lawyers/
 │   │   ├── legal-params/
 │   │   └── users/
@@ -120,8 +132,10 @@ frontend/
 │   │   ├── app/                          guardas del router y AppLayout
 │   │   ├── shared/                       componentes de src/shared/
 │   │   ├── auth/
+│   │   ├── cases/
 │   │   ├── lawyers/
 │   │   ├── legal-params/
+│   │   ├── proceedings/
 │   │   └── users/
 │   │
 │   └── e2e/                              Playwright
@@ -142,10 +156,12 @@ está referenciado desde `tsconfig.json`, así que **un test que no compila
 rompe el build**.
 
 Las features que todavía no tienen código (`dashboard`, `deadlines`,
-`documents`) **no tienen carpeta en `tests/`**. `clients`, `cases` y
-`proceedings`, del Sprint 2, ya tienen esquemas, utilidades y componentes pero
-todavía no sus tests. La carpeta se crea cuando alguien empieza a programar la
-feature (ver
+`documents`) **no tienen carpeta en `tests/`**. De las del Sprint 2, `cases` y
+`proceedings` tienen test de lo que ya existe —esquemas, utilidades y
+componentes—, salvo las piezas que se listan en [§3.1](#31-el-detalle-por-feature);
+les faltan los de las páginas, que todavía no están programadas. `clients`
+tiene esquema, utilidades y componentes, pero todavía no tests. La carpeta se
+crea cuando alguien empieza a programar la feature (ver
 [sección 7](#7-cuando-arrancás-una-feature-nueva)). `home` sí tiene código y
 tampoco tiene carpeta: su `HomePage` es presentación pura, ver
 [§3.2](#32-lo-que-no-se-testea-a-propósito).
@@ -159,11 +175,23 @@ tests/
 ├── unit/
 │   ├── app/
 │   │   └── access.test.ts                  ROUTE_ACCESS y canAccess
+│   ├── mocks/
+│   │   ├── helpers.ts                      call(), dataOf(), errorOf() y usePrototypeToday()
+│   │   ├── calendar.test.ts                días hábiles, corridos y businessDaysRemaining
+│   │   ├── seeds.test.ts                   coherencia de los datos semilla
+│   │   ├── cases.test.ts                   /cases: alta, listado, filtros, detalle
+│   │   ├── proceduralActs.test.ts          registro de acto y deadline-preview
+│   │   └── parametrization.test.ts         permisos por perfil, calificaciones, clientes, estados
 │   ├── auth/
 │   │   ├── login.schema.test.ts
 │   │   ├── changePassword.schema.test.ts
 │   │   ├── profileLabel.test.ts
 │   │   └── sessionStorage.test.ts
+│   ├── cases/
+│   │   ├── case.schema.test.ts             fecha del hecho y objeto del reclamo obligatorios
+│   │   ├── caseForm.test.ts                emptyCaseForm y changeJurisdiction
+│   │   ├── prescription.test.ts            nearestQualification, prescriptionProgress, estimatedExpiry
+│   │   └── stateFilter.test.ts             el filtro de estado y el rótulo "Sin acto procesal"
 │   ├── lawyers/
 │   │   ├── lawyer.schema.test.ts
 │   │   └── toCreateLawyerBody.test.ts
@@ -188,12 +216,20 @@ tests/
 │   │   ├── RequireAccess.test.tsx          sin permiso → "Sin acceso"
 │   │   └── AppLayout.test.tsx              el rail muestra sólo lo que el perfil puede abrir
 │   ├── shared/
-│   │   └── Modal.test.tsx                  Escape, foco atrapado, click en el fondo, fondo sin scroll
+│   │   ├── Modal.test.tsx                  Escape, foco atrapado, click en el fondo, fondo sin scroll
+│   │   └── Field.test.tsx                  Field (nota, error, hint) y DetailList (raya, note)
 │   ├── auth/
 │   │   ├── LoginForm.test.tsx
 │   │   ├── LoginPage.test.tsx
 │   │   ├── ChangePasswordModal.test.tsx
 │   │   └── tokenRenewal.test.tsx           renovación del token y sesión vencida
+│   ├── cases/
+│   │   ├── CaseForm.test.tsx               lo que pide cada fuero, el objeto y su contador
+│   │   ├── LegalQualificationPicker.test.tsx   la fecha del hecho de cada calificación
+│   │   ├── CaseSummaryAside.test.tsx       "Sin acto procesal" y la prescripción por calificación
+│   │   └── CasesTable.test.tsx             CasesTable y CaseHeader, con y sin estado procesal
+│   ├── proceedings/
+│   │   └── ProceduralActForm.test.tsx      campos por fuero; sin la nota de RN13
 │   ├── lawyers/
 │   │   ├── LawyerFormModal.test.tsx
 │   │   ├── LawyersTable.test.tsx
@@ -218,6 +254,14 @@ tests/
     ├── legal-params.spec.ts                crear, editar y borrar estado procesal
     └── users.spec.ts                       crear, editar y borrar usuario
 ```
+
+**Lo que existe y todavía no tiene test.** De `cases`: `suggestedCaption`,
+`deadlineStatus`, `CaseFilters`, `PrescriptionBar` y `ClientCard`. De
+`proceedings`: el esquema del acto, `stateOptions`, `dueDateText` y
+`DeadlinePreviewAside`. De `legal-params`: lo de calificaciones legales
+(esquema, `prescription`, tabla y modales). De `clients`: todo. Se escriben
+junto con sus páginas, que es cuando la feature tiene que llegar al
+[mínimo](#mínimo-por-feature).
 
 ### 3.2 Lo que no se testea (a propósito)
 
@@ -359,7 +403,7 @@ Tres cosas para notar:
 
 | Opción | Para qué | Ejemplo |
 |---|---|---|
-| `as` | Abre la sesión con un usuario de los fixtures antes de renderizar | `{ as: 'fvazquez' }` (admin), `'mrios'` (abogado, recibe 403), `'gestion'` (secretaría) |
+| `as` | Abre la sesión con un usuario de los fixtures antes de renderizar | `{ as: 'fvazquez' }` (administrador y abogado), `'mrios'` (abogado), `'gestion'` (secretaría) |
 | `route` | URL en la que arranca (acepta query) | `{ route: '/usuarios?page=2' }` |
 | `path` | Patrón de ruta donde se monta el componente | `{ path: '/abogados' }` |
 | `routes` | Rutas extra para verificar a dónde navega | `{ routes: [{ path: '/inicio', element: <p>Inicio</p> }] }` |
@@ -374,9 +418,25 @@ falta la sesión abierta pero no querés renderizar todavía. Hay que llamarla
 primer render.
 
 Las pantallas de administración piden un administrador: casi todos los tests
-de páginas usan `as: 'fvazquez'`. Para probar el estado de error, el camino
-más simple es entrar con alguien sin permiso (`as: 'mrios'`): el mock responde
-`403` y la pantalla muestra su error.
+de páginas usan `as: 'fvazquez'`.
+
+**Qué responde el mock a cada perfil** (contrato V3 §4, permisos por perfil):
+
+| Operación | Quién puede | El resto recibe |
+|---|---|---|
+| Leer abogados, estados, calificaciones, clientes y causas | Cualquiera con sesión | — |
+| Leer y escribir `/users` | `fvazquez` | `403` |
+| Escribir abogados, estados y calificaciones | `fvazquez` | `403` |
+| Registrar un cliente | `gestion` | `403` |
+| Registrar una causa | Cualquiera con sesión | — |
+| Registrar un acto procesal y previsualizar su vencimiento | `fvazquez`, `mrios` | `403` |
+
+Por eso entrar como `mrios` **ya no sirve para probar el estado de error de un
+listado**: desde V3 un abogado lee abogados y estados sin problema. Hoy ese
+atajo sólo funciona en `/users`. Para el resto, el error se fuerza con
+`server.use(...)` (ver [Probar un error del servidor](#probar-un-error-del-servidor)),
+y conviene responder un `403` y no un `500`: las consultas reintentan los `5xx`
+y el test tardaría segundos en ver el error.
 
 #### Componentes presentacionales
 
@@ -435,7 +495,57 @@ MSW trabaja sobre una base en memoria (`src/shared/mocks/db.ts`). Si un test
 crea un usuario, el siguiente **no lo ve**: el setup llama a `resetMockDb()`
 después de cada test. Cada test arranca siempre con los mismos fixtures, así
 que podés confiar en los datos de `@/shared/mocks` (`USERS`, `LAWYERS`,
-`CREDENTIALS`…).
+`CLIENTS`, `CASE_SEEDS`, `CREDENTIALS`…).
+
+Lo que **no** conviene escribir a mano en un test son los valores que el mock
+calcula: `activeCases`, el estado actual de una causa, su plazo abierto. Para
+eso están `toCase`, `toLawyer`, `toClient` y compañía, que devuelven el recurso
+tal como lo devuelve la API:
+
+```ts
+import { db, toCase } from '@/shared/mocks'
+
+const gomez = toCase(db.cases[0])   // la causa 13284571, con su estado y su plazo
+```
+
+#### Tests que dependen del día
+
+Los actos recientes de las causas semilla se ubican **respecto de hoy** ("4
+días hábiles atrás"), para que el listado se vea como el prototipo cualquier
+día que se abra: una causa que vence hoy, otra vencida hace dos días, otra a
+tres días hábiles. La contra es que un test que afirme "Vence hoy" o una fecha
+concreta pasaría un martes y fallaría un sábado.
+
+La solución es fijar el reloj en el día del prototipo —martes 15/09/2026— y
+rearmar la base **después** de fijarlo:
+
+```ts
+import { afterEach, beforeEach, vi } from 'vitest'
+import { resetMockDb } from '@/shared/mocks'
+
+beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] })          // sólo Date: los timers siguen reales
+    vi.setSystemTime(new Date(2026, 8, 15, 12, 0, 0))
+    resetMockDb()                                    // las semillas se recalculan con ese "hoy"
+})
+afterEach(() => {
+    vi.useRealTimers()
+})
+```
+
+Con el reloj fijo, las seis causas del prototipo tienen exactamente sus
+vencimientos del prototipo (16/09, 11/09, 18/09…). `toFake: ['Date']` importa:
+si se falsean también los temporizadores, `findByText` y `waitFor` se quedan
+esperando para siempre. En `tests/unit/mocks/helpers.ts` está hecho como
+`usePrototypeToday()`.
+
+Lo mismo vale para una validación que compara contra hoy (`validateCase`,
+`validateProceduralAct`): sin fijar el día, "no puede ser posterior a hoy" se
+prueba con una fecha que algún día deja de ser futura.
+
+Los componentes que **reciben** el dato ya calculado (`CasesTable` con su
+`businessDaysRemaining`, `PrescriptionBar` con su prop `today`) no necesitan
+nada de esto: se les pasa el valor y listo.
 
 ### 5.3 Un test de `e2e/`
 
@@ -495,6 +605,52 @@ La suite queda en verde, y el día que se arregle, Playwright avisa que el test
 "pasó inesperadamente" para que se saque la marca. Hoy no hay ningún test
 marcado así.
 
+### 5.4 Un test del servidor falso
+
+```ts
+// tests/unit/mocks/cases.test.ts
+import { describe, expect, it } from 'vitest'
+import type { Case } from '@/shared/mocks'
+import { call, dataOf, errorOf, usePrototypeToday } from './helpers'
+
+describe('mock · POST /cases', () => {
+    usePrototypeToday()
+
+    it('la causa nace sin estado procesal (D-09)', () => {
+        const response = call('POST', '/cases', { as: 'gestion', body: CRIMINAL_BODY })
+
+        expect(response.status).toBe(201)
+        expect(dataOf<Case>(response).currentState).toBeNull()
+    })
+
+    it('un SAC ya registrado responde 409', () => {
+        const response = call('POST', '/cases', { as: 'gestion', body: { ...CRIMINAL_BODY, sacNumber: '13284571' } })
+
+        expect(errorOf(response).code).toBe('CASE_SAC_ALREADY_EXISTS')
+    })
+})
+```
+
+Sin `render`, sin MSW y sin esperar nada: `call` arma el pedido y llama a
+`resolveRequest`. Los helpers están en `tests/unit/mocks/helpers.ts`:
+
+| Helper | Qué hace |
+|---|---|
+| `call(method, path, { as, body, query })` | Hace el pedido como ese usuario de los fixtures. Sin `as`, va sin token (para el `401`) |
+| `dataOf<T>(response)` | El `data` de una respuesta exitosa |
+| `errorOf(response)` | El `error` de una fallida: `code`, `message`, `details` |
+| `usePrototypeToday()` | Fija el día en el 15/09/2026 y rearma la base, en cada test del `describe` |
+
+**Cuándo se escribe uno de estos.** Cada vez que se agrega o se cambia un
+endpoint del mock: un test por regla del contrato (qué valida, qué devuelve,
+quién puede). Y cuando se agregan datos semilla, `seeds.test.ts` ya revisa
+solo que no haya referencias rotas —una causa con un cliente que no existe, un
+acto con un estado de otro fuero—; si la semilla nueva trae una regla nueva,
+se suma ahí.
+
+No reemplazan a los tests de `components/`: prueban que el mock cumple el
+contrato, no que la pantalla lo use bien.
+
 ---
 
 ## 6. Dónde pongo este test
@@ -508,6 +664,8 @@ marcado así.
 | Que una página muestre la lista, el vacío o el error | `tests/components/<feature>/` | Vitest + RTL + MSW |
 | Que una ruta protegida redirija | `tests/components/app/` | Vitest + RTL |
 | El comportamiento propio de un componente de `shared/` | `tests/components/shared/` | Vitest + RTL |
+| Que el mock responda lo que dice el contrato | `tests/unit/mocks/` | Vitest (`resolveRequest`, sin MSW) |
+| Que los datos semilla sean coherentes entre sí | `tests/unit/mocks/seeds.test.ts` | Vitest |
 | Un flujo que pasa por varias pantallas | `tests/e2e/<feature>.spec.ts` | Playwright |
 | Algo que se repite en muchos E2E (login) | `tests/e2e/fixtures/` | Playwright |
 
@@ -528,6 +686,8 @@ Cuando empieces a programar, por ejemplo, `clients`:
 4. Si la feature tiene un flujo importante de punta a punta → `e2e/clients.spec.ts`.
 5. Si la feature usa endpoints nuevos, primero tienen que estar en los mocks
    (`src/shared/mocks`). Sin handler, el test falla a propósito (ver abajo).
+   Los del Sprint 2 ya están; un endpoint que se agregue lleva su test en
+   `tests/unit/mocks/`.
 
 ### Mínimo por feature
 
@@ -580,6 +740,20 @@ fuera de un `it`, o estado guardado en `sessionStorage` / `localStorage`. El
 setup limpia MSW y la base del mock, pero si tu feature guarda algo en el
 navegador, limpialo en un `afterEach`.
 
+**"Un test de vencimientos pasa hoy y falla mañana"** (o pasa de lunes a
+viernes y falla el fin de semana)
+Las causas semilla tienen los vencimientos atados a hoy. Fijá el día antes de
+rearmar la base: ver [Tests que dependen del día](#tests-que-dependen-del-día).
+
+**"Fijé el reloj y ahora `findByText` no termina nunca"**
+Se falsearon también los temporizadores. Usá
+`vi.useFakeTimers({ toFake: ['Date'] })`, que sólo toca `Date`.
+
+**"Entro como `mrios` y la pantalla no muestra el error que esperaba"**
+Desde V3 leer abogados, estados, calificaciones, clientes y causas está abierto
+a cualquier perfil: el mock ya no responde `403`. Forzá el error con
+`server.use(...)`.
+
 **"`getByText` no encuentra el mensaje de error"**
 Si el mensaje aparece después de una respuesta de la API, usá `findByText`
 (que espera) en vez de `getByText` (que no espera).
@@ -614,9 +788,9 @@ Casi siempre es un `waitForTimeout` o un selector por clase CSS. Usá
   `tests/` copia.
 - `frontend/src/shared/mocks/README.md`: los mocks, los fixtures y cómo
   disparar cada error.
-- `docs/Api-Contract/`: lo que la API tiene que responder. `API_CONTRACT_V2.md`
-  para lo del Sprint 1, que es lo que implementan hoy los mocks, y
-  `API_CONTRACT_V3.md` para lo del Sprint 2.
+- `docs/Api-Contract/API_CONTRACT_V3.md`: lo que la API tiene que responder, y
+  lo que implementan hoy los mocks (con su revisión del 01/10/2026, §7.7).
+  `API_CONTRACT_V2.md` queda como registro del Sprint 1.
 - [Vitest](https://vitest.dev) ·
   [Testing Library](https://testing-library.com/docs/react-testing-library/intro) ·
   [MSW](https://mswjs.io) ·

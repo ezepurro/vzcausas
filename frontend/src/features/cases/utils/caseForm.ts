@@ -20,21 +20,25 @@ export function emptyCaseForm(): CaseFormValues {
         instructorPhone: '',
         clientId: '',
         proceduralRole: PROCEDURAL_ROLES_BY_JURISDICTION.CRIMINAL[0],
-        legalQualificationIds: [],
+        legalQualifications: [],
         counterparty: '',
+        subjectMatter: '',
         responsibleLawyerId: '',
         startDate: todayIsoDate(),
     }
 }
 
 /**
- * Cambiar el fuero no es cambiar un campo: arrastra otros tres.
+ * Cambiar el fuero no es cambiar un campo: arrastra otros.
  *
  * - El rol procesal vuelve al primero que admite el fuero nuevo: "Querellante
  *   particular" no existe en un amparo.
- * - Las calificaciones sólo van en el penal (V3 §3.7): fuera de él se vacían,
- *   si no viajarían y el backend respondería `400`.
- * - La contraparte es al revés: no va en el penal.
+ * - Las calificaciones, con sus fechas del hecho, sólo van en el penal (V3
+ *   §3.7): fuera de él se vacían, si no viajarían y el backend respondería
+ *   `400`.
+ * - La contraparte y el objeto del reclamo son al revés: no van en el penal.
+ *   Entre administrativo y amparo se conservan, porque el campo es el mismo y
+ *   sólo cambia su rótulo.
  */
 export function changeJurisdiction(values: CaseFormValues, jurisdiction: Jurisdiction): CaseFormValues {
     const criminal = jurisdiction === 'CRIMINAL'
@@ -42,7 +46,8 @@ export function changeJurisdiction(values: CaseFormValues, jurisdiction: Jurisdi
         ...values,
         jurisdiction,
         proceduralRole: PROCEDURAL_ROLES_BY_JURISDICTION[jurisdiction][0],
-        legalQualificationIds: criminal ? values.legalQualificationIds : [],
+        legalQualifications: criminal ? values.legalQualifications : [],
         counterparty: criminal ? '' : values.counterparty,
+        subjectMatter: criminal ? '' : values.subjectMatter,
     }
 }

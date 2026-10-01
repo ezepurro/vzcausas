@@ -257,8 +257,8 @@ export function ProceduralStatesPage() {
                 if (rows.length === 1 && page > 1) setPage(page - 1);
             },
             onError: (error) => {
-                // Acá no hay campos que marcar: el 409 de dependencias es del
-                // registro entero.
+                // Acá no hay campos que marcar: un rechazo de la baja es del
+                // registro entero. Tener causas ya no la impide (V3 D-06).
                 if (isApiError(error)) toast('error', error.message);
                 closeModal();
             },

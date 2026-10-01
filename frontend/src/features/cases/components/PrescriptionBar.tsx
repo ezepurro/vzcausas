@@ -5,11 +5,11 @@ import { prescriptionProgress } from '@/features/cases/utils/prescription'
 export interface PrescriptionBarProps {
     /** La calificación que manda: la que vence primero (`nearestQualification`). */
     qualificationName: string
-    /** `YYYY-MM-DD`: `prescriptionStartsOn` de la causa. */
+    /** `YYYY-MM-DD`: `prescriptionStartsOn` de esa calificación. Hoy, la fecha de su hecho. */
     startsOn: string
     /** `YYYY-MM-DD`: `prescriptionExpiresOn` de la calificación. */
     expiresOn: string
-    /** Aclaración al pie, si la pantalla tiene algo que decir. */
+    /** Aclaración al pie: desde cuándo corre y, si hay varias, cuál calificación se muestra. */
     note?: string
     /** Para fijar el día en los tests; por defecto, hoy. */
     today?: Date
@@ -20,6 +20,10 @@ export interface PrescriptionBarProps {
  * fechas de inicio y de vencimiento. Va al pie del `CaseHeader`, y sólo en las
  * causas penales: fuera del penal la prescripción no aplica (V3 D-19), y es la
  * pantalla la que decide no dibujarla.
+ *
+ * Cada calificación prescribe por su lado, desde la fecha de su hecho: la
+ * barra muestra una sola, la que prescribe primero. La pantalla la elige con
+ * `nearestQualification` y le pasa sus dos fechas.
  */
 export function PrescriptionBar({
     qualificationName, startsOn, expiresOn, note, today,

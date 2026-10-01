@@ -14,8 +14,9 @@ export interface CaseFiltersProps {
     /** Los abogados, ya armados por la pantalla. */
     lawyerOptions: SelectOption[]
     /**
-     * Los estados, agrupados por fuero, más el grupo "Escritos a mano en
-     * causas". Los arma la pantalla con `utils/stateFilter`.
+     * Los estados agrupados por fuero, el grupo "Causas nuevas" con "Sin acto
+     * procesal" (`WITHOUT_ACTS`) y, si hay, "Escritos a mano en causas". Los
+     * arma la pantalla con los valores de `utils/stateFilter`.
      */
     stateOptions: SelectOptionGroup[]
     onJurisdictionChange: (value: Jurisdiction | '') => void
@@ -36,6 +37,9 @@ const JURISDICTION_OPTIONS: SelectOption[] = [
  * Presentacional: los valores y el efecto de cambiarlos (volver a la página
  * 1, pedir de nuevo) son de la pantalla. "Limpiar filtros" aparece sólo
  * cuando hay algo que limpiar.
+ *
+ * Al cambiar el fuero, la pantalla decide si el estado elegido se conserva:
+ * uno del fuero anterior no, "Sin acto procesal" sí.
  */
 export function CaseFilters({
     jurisdiction, responsibleLawyerId, state, openDeadline, lawyerOptions, stateOptions,

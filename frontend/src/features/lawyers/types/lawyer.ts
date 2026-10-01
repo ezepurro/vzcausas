@@ -19,9 +19,8 @@ export interface Lawyer {
      */
     registrationNumber: string
     /**
-     * Causas activas a su cargo. Depende del módulo de causas, que no está en
-     * este alcance: hasta entonces el backend devuelve `0`. El campo existe
-     * desde ahora para no tener que cambiar la forma del recurso después.
+     * Causas activas de las que es responsable: las que no fueron dadas de
+     * baja y no están en un estado terminal (V3 §4). Calculado, sólo lectura.
      */
     activeCases: number
     /** Estado de alta. La baja es lógica. */

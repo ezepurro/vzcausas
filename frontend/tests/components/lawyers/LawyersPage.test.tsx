@@ -59,10 +59,23 @@ describe('LawyersPage', () => {
             expect(await screen.findByText('Sin abogados')).toBeInTheDocument()
         })
 
-        it('si no tiene permiso, muestra el error del servidor', async () => {
-            renderPage('mrios')
+        /* Leer abogados está abierto a cualquier perfil (V3 D-03), así que el
+           mock ya no responde 403 a un abogado: el rechazo se fuerza. */
+        it('si el servidor rechaza la consulta, muestra el error', async () => {
+            server.use(
+                http.get('*/lawyers', () =>
+                    HttpResponse.json(errorBody('FORBIDDEN', 'Rechazo de prueba.'), { status: 403 }),
+                ),
+            )
+            renderPage()
 
             expect(await screen.findByText('No se pudieron cargar los abogados')).toBeInTheDocument()
+        })
+
+        it('un abogado sin rol de administrador también puede leer el listado', async () => {
+            renderPage('mrios')
+
+            expect(await screen.findByText('Dr. Fernando G. Vázquez')).toBeInTheDocument()
         })
 
         /* Usuarios y abogados son dos secciones del rail, no pestañas de una

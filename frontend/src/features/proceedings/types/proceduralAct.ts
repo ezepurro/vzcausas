@@ -2,22 +2,19 @@
  * Acto procesal: las formas sacadas del contrato (V3 §3.8).
  *
  * El acto es lo que **mueve la causa**: al registrarlo se elige el estado al
- * que pasa, y el plazo sale de la tabla del fuero (RN5). En este sprint sólo
- * existe el registro (HU26) y su previsualización; consultar, modificar y
- * anular actos son de sprints posteriores.
+ * que pasa, y el plazo sale de la tabla del fuero (RN5). El primer acto es
+ * además el que le da a la causa su primer estado (V3 D-09).
+ *
+ * Sólo el abogado registra actos, y el acto se aplica a la causa en el
+ * momento: no hay actos pendientes ni confirmación posterior (V3 D-13), así
+ * que el recurso no tiene un estado propio.
+ *
+ * En este sprint sólo existe el registro (HU26) y su previsualización;
+ * consultar, modificar y anular actos son de sprints posteriores.
  */
 
 import type { CaseState } from '@/features/cases'
 import type { DayType } from '@/features/legal-params'
-
-/** Si el acto ya movió la causa o espera la confirmación del abogado (RN13). */
-export const PROCEDURAL_ACT_STATUSES = ['CONFIRMED', 'PENDING_CONFIRMATION'] as const
-export type ProceduralActStatus = (typeof PROCEDURAL_ACT_STATUSES)[number]
-
-export const PROCEDURAL_ACT_STATUS_LABELS: Record<ProceduralActStatus, string> = {
-    CONFIRMED: 'Confirmado',
-    PENDING_CONFIRMATION: 'Pendiente de confirmación',
-}
 
 /** El plazo que abre el acto. Los valores de la tabla se copian al registrarlo. */
 export interface ActDeadline {
@@ -36,6 +33,7 @@ export interface ActDeadline {
 export interface ProceduralAct {
     id: number
     caseId: number
+    /** El estado al que pasó la causa. A diferencia del de la causa, nunca es `null`. */
     resultingState: CaseState
     actDate: string
     /** Sólo en el fuero administrativo (RN6). */
@@ -43,7 +41,6 @@ export interface ProceduralAct {
     notes: string | null
     /** `null` si el acto no abre plazo. */
     deadline: ActDeadline | null
-    status: ProceduralActStatus
     registeredBy: { id: number; fullName: string }
     /** Fecha y hora del registro, ISO 8601. */
     registeredAt: string

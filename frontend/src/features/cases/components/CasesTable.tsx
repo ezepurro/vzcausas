@@ -3,6 +3,7 @@ import { Button, DataTable, Pill, type Column } from '@/shared/components/ui'
 import { formatDate } from '@/shared/lib/dates'
 import { JURISDICTION_LABELS } from '@/features/legal-params'
 import type { Case } from '@/features/cases/types/case'
+import { caseStateLabel } from '@/features/cases/utils/caseState'
 import { deadlineStatus } from '@/features/cases/utils/deadlineStatus'
 
 export interface CasesTableProps {
@@ -17,7 +18,9 @@ export interface CasesTableProps {
  * El orden por urgencia —plazos abiertos primero, vencidos arriba— lo resuelve
  * el backend (V3 D-25).
  *
- * Las columnas son las del prototipo.
+ * Las columnas son las del prototipo. Una causa que todavía no tiene actos
+ * procesales viene sin estado (`currentState` en `null`, V3 D-09): la columna
+ * muestra "Sin acto procesal", y el vencimiento, "Sin plazo abierto".
  */
 export function CasesTable({ rows, onOpen, empty }: CasesTableProps) {
     const columns: Column<Case>[] = [
@@ -42,7 +45,7 @@ export function CasesTable({ rows, onOpen, empty }: CasesTableProps) {
         {
             id: 'state',
             header: 'Estado procesal',
-            cell: (c) => <Pill>{c.currentState.name}</Pill>,
+            cell: (c) => <Pill>{caseStateLabel(c.currentState)}</Pill>,
             nowrap: true,
         },
         {

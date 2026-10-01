@@ -6,13 +6,23 @@
  * Los límites son los del cuerpo de `POST /cases` (V3 §3.7).
  */
 
-import { todayIsoDate } from '@/shared/lib/dates'
+import { parseDateOnly, todayIsoDate } from '@/shared/lib/dates'
 import {
     PROCEDURAL_ROLES_BY_JURISDICTION,
     type CaseFormValues,
 } from '@/features/cases/types/case'
 
-export type CaseFormErrors = Partial<Record<keyof CaseFormValues, string>>
+/**
+ * Un error por campo, más el detalle de las fechas del hecho.
+ *
+ * `legalQualifications` es el mensaje del grupo, el que va debajo del selector
+ * (es también la clave con la que el backend informa sus errores).
+ * `offenseDates` dice además **cuál** fila está mal, por id de calificación,
+ * para que el formulario marque esa fecha y no todas.
+ */
+export type CaseFormErrors = Partial<Record<keyof CaseFormValues, string>> & {
+    offenseDates?: Record<number, string>
+}
 
 /** El SAC tiene exactamente 8 dígitos (V3 D-16). */
 const SAC_PATTERN = /^\d{8}$/
@@ -23,9 +33,13 @@ const INSTRUCTOR_MAX = 150
 const PHONE_MAX = 50
 const COUNTERPARTY_MAX = 255
 
+/** El largo del objeto del reclamo o del amparo (V3 D-27). Lo usa también el contador del campo. */
+export const SUBJECT_MATTER_MAX = 800
+
 export function validateCase(values: CaseFormValues): CaseFormErrors {
     const errors: CaseFormErrors = {}
     const criminal = values.jurisdiction === 'CRIMINAL'
+    const today = todayIsoDate()
 
     const sac = values.sacNumber.trim()
     if (!sac) {
@@ -61,20 +75,50 @@ export function validateCase(values: CaseFormValues): CaseFormErrors {
         errors.proceduralRole = 'Ese rol procesal no corresponde al fuero.'
     }
 
-    if (criminal && values.legalQualificationIds.length === 0) {
-        errors.legalQualificationIds = 'Una causa penal necesita al menos una calificación legal.'
-    }
+    if (criminal) {
+        if (values.legalQualifications.length === 0) {
+            errors.legalQualifications = 'Una causa penal necesita al menos una calificación legal.'
+        } else {
+            /* La fecha del hecho es obligatoria en cada calificación (V3 D-28):
+               sin ella no hay desde cuándo computar la prescripción. El
+               prototipo deja registrar sin cargarla; el contrato no. */
+            const offenseDates: Record<number, string> = {}
+            for (const q of values.legalQualifications) {
+                if (!q.offenseDate) {
+                    offenseDates[q.legalQualificationId] = 'Cargá la fecha del hecho.'
+                } else if (!parseDateOnly(q.offenseDate)) {
+                    offenseDates[q.legalQualificationId] = 'La fecha del hecho no es válida.'
+                } else if (q.offenseDate > today) {
+                    // Las dos son `YYYY-MM-DD`, así que se comparan como texto.
+                    offenseDates[q.legalQualificationId] = 'No puede ser posterior a hoy.'
+                }
+            }
+            if (Object.keys(offenseDates).length > 0) {
+                errors.offenseDates = offenseDates
+                errors.legalQualifications = 'Revisá la fecha del hecho de cada calificación.'
+            }
+        }
+    } else {
+        if (values.counterparty.trim().length > COUNTERPARTY_MAX) {
+            errors.counterparty = `Puede tener hasta ${COUNTERPARTY_MAX} caracteres.`
+        }
 
-    if (!criminal && values.counterparty.trim().length > COUNTERPARTY_MAX) {
-        errors.counterparty = `Puede tener hasta ${COUNTERPARTY_MAX} caracteres.`
+        // Obligatorio en administrativo y amparo (V3 D-27).
+        const subject = values.subjectMatter.trim()
+        if (!subject) {
+            errors.subjectMatter = values.jurisdiction === 'AMPARO'
+                ? 'El objeto del amparo es obligatorio.'
+                : 'El objeto del reclamo es obligatorio.'
+        } else if (subject.length > SUBJECT_MATTER_MAX) {
+            errors.subjectMatter = `Puede tener hasta ${SUBJECT_MATTER_MAX} caracteres.`
+        }
     }
 
     if (!values.responsibleLawyerId) {
         errors.responsibleLawyerId = 'Elegí el abogado responsable.'
     }
 
-    // Las dos son `YYYY-MM-DD`, así que se comparan como texto.
-    if (values.startDate && values.startDate > todayIsoDate()) {
+    if (values.startDate && values.startDate > today) {
         errors.startDate = 'La fecha de inicio no puede ser posterior a hoy.'
     }
 

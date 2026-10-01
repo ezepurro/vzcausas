@@ -1,5 +1,6 @@
 /**
- * Causa: las formas sacadas del contrato (V3 §3.7).
+ * Causa: las formas sacadas del contrato (V3 §3.7, con la revisión del
+ * 01/10/2026).
  *
  * Escrito a partir del contrato, no copiado de `shared/mocks`.
  */
@@ -53,16 +54,26 @@ export interface CaseLawyer {
     registrationNumber: string
 }
 
-/** Una calificación de la causa, con su prescripción ya calculada por el backend. */
+/**
+ * Una calificación de la causa, con su fecha del hecho y su prescripción ya
+ * calculada por el backend. Cada una prescribe por su lado (V3 D-19).
+ */
 export interface CaseLegalQualification {
     id: number
     name: string
     prescriptionMonths: number
+    /** Fecha del hecho imputado bajo esta calificación, `YYYY-MM-DD`. La carga el usuario. */
+    offenseDate: string
+    /**
+     * Desde cuándo se computa la prescripción, `YYYY-MM-DD`. Hoy es igual a
+     * `offenseDate`; con los actos interruptivos (HU31) será la fecha del último.
+     */
+    prescriptionStartsOn: string
     /** `prescriptionStartsOn` más `prescriptionMonths`, `YYYY-MM-DD`. */
     prescriptionExpiresOn: string
 }
 
-/** El estado procesal actual. */
+/** El estado procesal de una causa, o el resultante de un acto. */
 export interface CaseState {
     /** `null` si el estado fue escrito a mano en un acto. */
     proceduralStateId: number | null
@@ -95,24 +106,36 @@ export interface Case {
     instructorPhone: string | null
     /** Contraparte u organismo. `null` en el fuero penal. */
     counterparty: string | null
+    /** Objeto del reclamo o del amparo (D-27). `null` en el fuero penal. */
+    subjectMatter: string | null
     client: CaseClient
     responsibleLawyer: CaseLawyer
     /** Al menos una en el penal; vacío en los demás fueros. */
     legalQualifications: CaseLegalQualification[]
-    /** `YYYY-MM-DD` */
+    /** `YYYY-MM-DD`. No interviene en la prescripción: esa corre desde la fecha del hecho. */
     startDate: string
-    /** Desde cuándo corre la prescripción. `null` fuera del penal. */
-    prescriptionStartsOn: string | null
-    currentState: CaseState
+    /**
+     * `null` mientras la causa no tenga actos procesales: nace sin estado y lo
+     * fija su primer acto (D-09). Se muestra como "Sin acto procesal"; ver
+     * `utils/caseState`.
+     */
+    currentState: CaseState | null
     /** `null` si la causa no tiene plazo abierto: es una causa "para impulsar". */
     nextDeadline: NextDeadline | null
     active: boolean
 }
 
+/** Una calificación en el cuerpo del alta: cuál es y cuándo fue el hecho. */
+export interface CaseQualificationBody {
+    legalQualificationId: number
+    /** `YYYY-MM-DD`. Obligatoria (D-28) y no posterior a hoy. */
+    offenseDate: string
+}
+
 /**
- * Cuerpo del `POST /cases`. `legalQualificationIds` va sólo en el penal y
- * `counterparty` sólo en los otros dos fueros: mandar cualquiera de los dos
- * donde no corresponde es un `400`.
+ * Cuerpo del `POST /cases`. `legalQualifications` va sólo en el penal;
+ * `counterparty` y `subjectMatter`, sólo en los otros dos fueros. Mandar
+ * cualquiera donde no corresponde es un `400`.
  */
 export interface CreateCaseBody {
     sacNumber: string
@@ -123,11 +146,20 @@ export interface CreateCaseBody {
     instructorPhone?: string
     clientId: number
     proceduralRole: ProceduralRole
-    legalQualificationIds?: number[]
+    legalQualifications?: CaseQualificationBody[]
     counterparty?: string
+    /** Obligatorio fuera del penal, hasta 800 caracteres. */
+    subjectMatter?: string
     responsibleLawyerId: number
     /** Por defecto, hoy. No puede ser posterior a hoy. */
     startDate?: string
+}
+
+/** Una calificación elegida en el formulario, con la fecha del hecho que se va cargando. */
+export interface CaseQualificationValue {
+    legalQualificationId: number
+    /** `YYYY-MM-DD`, o `''` mientras no se cargó. */
+    offenseDate: string
 }
 
 /**
@@ -145,8 +177,11 @@ export type CaseFormValues = {
     /** Id como texto: sale de un select. `''` = sin elegir. */
     clientId: string
     proceduralRole: ProceduralRole
-    legalQualificationIds: number[]
+    /** En el orden en que se agregaron. Sólo en el fuero penal. */
+    legalQualifications: CaseQualificationValue[]
     counterparty: string
+    /** Objeto del reclamo o del amparo. Sólo fuera del fuero penal. */
+    subjectMatter: string
     /** Id como texto: sale de un select. `''` = sin elegir. */
     responsibleLawyerId: string
     startDate: string
@@ -158,10 +193,15 @@ export interface CaseListParams extends PaginatedQuery {
     search?: string
     jurisdiction?: Jurisdiction
     responsibleLawyerId?: number
-    /** Excluyente con `customState`. */
+    /** Excluyente con `customState` y `withoutProceduralActs`. */
     proceduralStateId?: number
-    /** Excluyente con `proceduralStateId`. */
+    /** Excluyente con `proceduralStateId` y `withoutProceduralActs`. */
     customState?: string
+    /**
+     * `true`: sólo las causas "Sin acto procesal" (D-29). Excluyente con
+     * `proceduralStateId` y `customState`.
+     */
+    withoutProceduralActs?: boolean
     clientId?: number
     /** `true`: sólo causas con plazo abierto, vencidas incluidas. */
     openDeadline?: boolean

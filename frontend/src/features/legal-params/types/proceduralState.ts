@@ -46,7 +46,7 @@ export interface ProceduralState {
     dayType: DayType;
     /** Cierra el ciclo de vida de la causa. */
     terminal: boolean;
-    /** Calculado, sólo lectura. El contrato devuelve `0` hasta que exista el módulo de causas. */
+    /** Causas activas que están hoy en este estado. Calculado, sólo lectura; `0` en un estado terminal. */
     activeCases: number;
     /** La baja es lógica: un estado inactivo no se borra, se deja de ofrecer. */
     active: boolean;
@@ -63,8 +63,12 @@ export interface CreateProceduralStateBody {
 }
 
 /**
- * Sin `jurisdiction` y sin `activeCases`: el contrato dice que un estado no
- * puede cambiar de fuero y que las causas activas las calcula el backend.
+ * Sin `activeCases`: las causas activas las calcula el backend.
+ *
+ * Tampoco lleva `jurisdiction`, aunque V3 ya lo admite en el `PATCH` si
+ * ninguna causa registra el estado (D-07): el formulario todavía no ofrece el
+ * selector "Fuero al que pertenece". Cuando se agregue, entra acá junto con el
+ * `422 PROCEDURAL_STATE_IN_USE`.
  *
  * Tampoco lleva `active`. El contrato lo admite para reactivar una baja, pero
  * desde el cliente eliminar es eliminar: la pantalla no ofrece deshacerlo, así

@@ -6,7 +6,8 @@
  * interno del módulo y puede cambiar sin avisarle a nadie.
  *
  * Existe porque Registrar acto procesal (`proceedings/`) muestra la causa con
- * el mismo encabezado y la misma barra de prescripción que el detalle. Cuando
+ * el mismo encabezado y la misma barra de prescripción que el detalle, y
+ * nombra su estado igual: "Sin acto procesal" mientras no tenga ninguno. Cuando
  * existan `useCase` y las claves de caché (`casesKeys`), se publican acá: el
  * acto cambia el estado de la causa y tiene que invalidarlas.
  */

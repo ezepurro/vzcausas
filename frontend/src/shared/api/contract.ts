@@ -1,5 +1,6 @@
 /**
- * Forma de los errores de la API, según `docs/api contract v1.md` §4.2.
+ * Forma de los errores de la API, según `docs/Api-Contract/API_CONTRACT_V3.md`
+ * §5.2 y §5.3.
  *
  * Vive en `api/` y no en `mocks/` porque es contrato de producción: lo usa
  * `http.ts` para parsear y `ApiError` para exponerlo. Los mocks lo importan
@@ -7,7 +8,12 @@
  */
 
 /**
- * Códigos de error documentados (§2 y §4.2).
+ * Códigos de error documentados (catálogo de V3 §5.3).
+ *
+ * `PROCEDURAL_STATE_HAS_DEPENDENCIES` no está: V3 lo retiró, porque la baja de
+ * un estado procesal ya no se rechaza por tener causas (D-06).
+ * `LAWYER_ALREADY_LINKED` no figura en el catálogo pero el backend lo emite al
+ * vincular un abogado que ya tiene cuenta.
  *
  * El contrato pide que los códigos sean **generales**, así que esta lista es
  * cerrada a propósito: si el backend manda uno que no está, `ApiError.code`
@@ -29,6 +35,9 @@ export const ERROR_CODES = [
     'USER_NOT_FOUND',
     'LAWYER_NOT_FOUND',
     'PROCEDURAL_STATE_NOT_FOUND',
+    'LEGAL_QUALIFICATION_NOT_FOUND',
+    'CLIENT_NOT_FOUND',
+    'CASE_NOT_FOUND',
     'RESOURCE_NOT_FOUND',
     // 409 — unicidad y dependencias
     'USERNAME_ALREADY_EXISTS',
@@ -36,11 +45,15 @@ export const ERROR_CODES = [
     'LAWYER_REGISTRATION_ALREADY_EXISTS',
     'LAWYER_ALREADY_LINKED',
     'PROCEDURAL_STATE_ALREADY_EXISTS',
+    'LEGAL_QUALIFICATION_ALREADY_EXISTS',
+    'CLIENT_DNI_ALREADY_EXISTS',
+    'CASE_SAC_ALREADY_EXISTS',
     'USER_HAS_DEPENDENCIES',
     'LAWYER_HAS_DEPENDENCIES',
-    'PROCEDURAL_STATE_HAS_DEPENDENCIES',
     // 422 — regla de negocio
     'INVALID_CURRENT_PASSWORD',
+    'PROCEDURAL_STATE_IN_USE',
+    'CASE_IN_TERMINAL_STATE',
     'BUSINESS_RULE_VIOLATION',
     // 500
     'INTERNAL_SERVER_ERROR',

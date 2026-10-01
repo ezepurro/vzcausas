@@ -79,18 +79,42 @@
 /* ─────────── calificaciones elegidas en el alta ─────────── */
 .vz-picker { display: flex; flex-direction: column; gap: 8px; }
 .vz-picker__list { display: flex; flex-direction: column; gap: 6px; }
+/* Cada elegida: nombre y plazo, la fecha de su hecho y "Quitar". En una
+   pantalla angosta la fecha baja a su propio renglón. */
 .vz-picker__item {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: 10px 12px;
   padding: 9px 12px;
   border: 1px solid var(--vz-border);
   border-radius: var(--vz-r-sm);
   background: var(--vz-surface);
 }
+.vz-picker__main { flex: 1; min-width: 180px; }
 .vz-picker__name { font-size: 13.5px; font-weight: 600; }
 .vz-picker__term { font-size: 12px; color: var(--vz-muted); }
+.vz-picker__date { flex: 0 0 160px; display: flex; flex-direction: column; gap: 4px; }
+.vz-picker__date .vz-input { height: 34px; padding: 0 8px; font-size: 12.5px; }
+.vz-picker__date-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--vz-muted);
+}
+/* El error del campo "Calificaciones legales" no pinta todo lo de adentro: cada
+   fecha se marca sólo si es la suya la que está mal, y el selector, sólo
+   cuando el problema es que todavía no hay ninguna calificación elegida. */
+.vz-field--error .vz-picker__date .vz-input,
+.vz-field--error .vz-picker__list ~ .vz-field-row .vz-select {
+  border-color: var(--vz-border);
+  background-color: var(--vz-surface);
+}
+.vz-picker__date.vz-field--error .vz-input {
+  border-color: var(--vz-danger-bd);
+  background-color: var(--vz-danger-bg);
+}
 
 /* Nombre de la persona arriba de su ficha: la tarjeta Cliente del detalle. */
 .vz-person-name { margin-bottom: 12px; font-size: 15px; font-weight: 700; }

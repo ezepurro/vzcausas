@@ -41,6 +41,7 @@ shared/
 │   ├── contract.ts           tipos del contrato
 │   ├── fixtures.ts           datos semilla
 │   ├── responses.ts          una respuesta por cada código documentado
+│   ├── calendar.ts           fechas sin hora y cómputo de días hábiles
 │   ├── db.ts                 base en memoria + resetMockDb()
 │   ├── handlers.ts           servidor falso: resolveRequest()
 │   ├── msw-handlers.ts       capa MSW (navegador y Node)
@@ -54,14 +55,30 @@ shared/
 necesita algo de ahí, es un archivo nuevo, no algo que haya que buscar. `lib/`
 dejó de estarlo: tiene `dates.ts` e `initials.ts`.
 
-`mocks/` implementa `docs/Api-Contract/API_CONTRACT_V2.md` sobre **MSW**, que
-intercepta la red de verdad (los pedidos se ven en la pestaña Network). Se
-enciende con `await startMocks()` de `@/shared/mocks/browser`. **Leer
-`mocks/README.md` antes de escribir una llamada a la API**: ahí están las
-divergencias del contrato y los huecos que el mock tuvo que completar. Los
-endpoints nuevos del Sprint 2 (`API_CONTRACT_V3.md`: clientes, causas, actos,
-calificaciones legales) **todavía no están en el mock**: hay que agregarlos
-antes de escribir las pantallas o sus tests.
+`mocks/` implementa `docs/Api-Contract/API_CONTRACT_V3.md` (con su revisión
+del 01/10/2026) sobre **MSW**, que intercepta la red de verdad (los pedidos se
+ven en la pestaña Network). Se enciende con `await startMocks()` de
+`@/shared/mocks/browser`. Están **todos los endpoints del contrato**, incluidos
+los del Sprint 2: calificaciones legales, clientes, causas, registro de acto
+procesal y `deadline-preview`. Lo que conviene saber antes de usarlo:
+
+- **Quién puede qué** sale de la tabla de permisos del contrato (V3 §4): leer
+  está abierto a cualquier usuario autenticado, salvo `/users`; registrar un
+  cliente pide `SECRETARY`, registrar un acto pide `LAWYER`, y el resto de las
+  escrituras, `ADMINISTRATOR`. Un abogado (`mrios`) ya **no** recibe `403` al
+  leer abogados o estados procesales.
+- **Nada se escribe a mano si se puede contar.** `activeCases`, el estado
+  actual de una causa y su plazo abierto se calculan en cada lectura a partir
+  de las causas y los actos de la base.
+- **Los vencimientos de las semillas son relativos a hoy.** Los actos
+  recientes se ubican "N días hábiles atrás", así el listado muestra una causa
+  que vence hoy, otra vencida hace dos días y otra a tres días, igual que el
+  prototipo, cualquier día que se abra. Un test que afirme algo sobre
+  vencimientos tiene que fijar el día (ver `TESTING.md`).
+- **El detalle está en `mocks/README.md`**: los usuarios de prueba, qué causa
+  semilla sirve para probar cada regla, cómo disparar cada error y las
+  decisiones que el mock tomó donde el contrato no dice nada. **Leerlo antes
+  de escribir una llamada a la API.**
 
 ## Cómo importar
 
@@ -130,7 +147,9 @@ import { ApiError, isApiError } from '@/shared/api/ApiError';
 | `server` | SetupServer | `mocks/server.ts` | Los mismos handlers para tests en Node |
 | `resolveRequest` | Función | `mocks/handlers.ts` | Servidor falso puro, sin MSW |
 | `RESPONSES` / `ERRORS` | Const | `mocks/responses.ts` | Fixtures por endpoint y código |
-| `resetMockDb` | Función | `mocks/db.ts` | Vuelve los datos del mock al estado inicial |
+| `resetMockDb` | Función | `mocks/db.ts` | Vuelve los datos del mock al estado inicial (y recalcula las fechas relativas a hoy) |
+| `toCase` / `toClient` / `toLawyer` … | Funciones | `mocks/db.ts` | El recurso del contrato a partir de lo guardado, con lo embebido y lo calculado |
+| `addBusinessDays` / `businessDaysUntil` / `computeDueDate` | Funciones | `mocks/calendar.ts` | El cómputo de plazos del contrato (V3 §4), para armar expectativas en un test |
 
 ---
 
@@ -154,6 +173,8 @@ import { ApiError, isApiError } from '@/shared/api/ApiError';
 | Primera columna de una persona en una tabla | `Avatar` + `.vz-table__ident` | Usuarios, clientes |
 | Ubicar al usuario en una pantalla interna | `Breadcrumbs` | Arriba del título, en lugar del `eyebrow` |
 | Ficha de datos (cliente, resumen, cómputo) | `Panel` + `.vz-panel__body` + `DetailList` | Un `null` se muestra como `—` |
+| Aclarar de dónde sale un dato de una ficha | `DetailList` con `note` | "8 años desde el 27/02/2021", debajo de la etiqueta |
+| Contador de caracteres de un texto largo | `Field` con `hint` | `hint="23 / 800"`, a la derecha de la etiqueta |
 | Barra de proporción | `Meter` | `tone`: warn = cerca del límite |
 | Formulario de página con panel al costado | `.vz-split` + `.vz-split__aside` | Registrar causa, Registrar acto |
 | Filtro con opciones agrupadas | `Select` con `{ group, options }` | Se dibuja como `<optgroup>` |
@@ -377,13 +398,21 @@ también queda como texto (el SAC en Registrar causa, por ejemplo).
 ### DetailList
 
 **Path:** `components/ui/DetailList.tsx`
-**Props:** `items: DetailItem[]`, con `DetailItem = { label, value: ReactNode, mono? }`.
+**Props:** `items: DetailItem[]`, con
+`DetailItem = { label, note?: ReactNode, value: ReactNode, mono? }`.
 **Notas:** un renglón por dato, etiqueta apagada a la izquierda y valor en
 negrita a la derecha. Es un `<dl>`: el lector de pantalla anuncia cada valor con
 su etiqueta. Un `value` en `null`, `undefined` o `''` se muestra como `—`; el
 `0` se muestra, porque es un dato. Los valores llegan formateados por la
 pantalla (`formatDate`, el DNI con puntos). Para una ficha, va adentro de un
 `Panel` con `.vz-panel__body`.
+
+`note` agrega un segundo renglón, chico y apagado, **debajo de la etiqueta**:
+de dónde sale el dato. Es la prescripción de cada calificación en el "Resumen
+del alta" ("8 años desde el 27/02/2021" bajo "Robo calificado"). Para una
+aclaración **debajo del valor**, el `value` puede traer un
+`<span className="vz-details__note">`: es el "El estado lo fija el primer acto
+procesal" bajo "Sin acto procesal".
 
 ```tsx
 <Panel title="Cliente">
@@ -508,9 +537,12 @@ es el modo "confirmar baja". El `children` se agrega debajo de los campos.
 ### Field y controles
 
 **Path:** `components/forms/Field.tsx`
-- `Field` — props `label`, `required?` (sólo el asterisco), `note?`, `error?`,
+- `Field` — props `label`, `required?` (sólo el asterisco), `note?`, `hint?`, `error?`,
   `width?: 'half' | 'full'` (default `full` = ocupa las 2 columnas), `htmlFor?`, `children`.
-  Con `error` oculta la `note` y pinta el control en rojo.
+  Con `error` oculta la `note` y pinta el control en rojo. `hint` es un dato
+  chico a la derecha de la etiqueta, en monoespaciada: el contador de un texto
+  largo (`hint="23 / 800"` en el objeto del reclamo). Lo calcula la pantalla;
+  `Field` sólo lo ubica. Sin `hint`, la etiqueta se dibuja como siempre.
 - `TextInput` — props de `<input>` + `mono?`.
 - `Select` — props de `<select>` + `options: SelectOption[]`, con
   `SelectOption = string | { value: string; label: string }`. Una cadena suelta
@@ -656,7 +688,10 @@ sesión se puede salvar, se salva sola.
 ### contract
 
 **Path:** `api/contract.ts` — la forma de los errores según el contrato.
-Exporta `ERROR_CODES` / `ErrorCode` (los 22 códigos documentados),
+Exporta `ERROR_CODES` / `ErrorCode` (los 29 códigos: el catálogo de V3 §5.3,
+con los ocho que sumó el Sprint 2 —`CASE_NOT_FOUND`, `CASE_SAC_ALREADY_EXISTS`,
+`CLIENT_DNI_ALREADY_EXISTS`, `CASE_IN_TERMINAL_STATE`, `PROCEDURAL_STATE_IN_USE`,
+etc.— y sin `PROCEDURAL_STATE_HAS_DEPENDENCIES`, que el contrato retiró),
 `isErrorCode()`, `ErrorBody` y `LoginErrorBody`.
 Vive en `api/` y no en `mocks/` porque es contrato de producción; los mocks
 lo reexportan desde acá.
@@ -725,8 +760,8 @@ las clases `vz-*` existentes o agregando reglas al archivo que corresponda.
 | `tokens.css` | Variables `--vz-*` (única fuente de color, radio, densidad) |
 | `base.css` | Reset, tipografía, `.vz-mono`, `.vz-eyebrow`, `.vz-muted`, `.vz-sr-only` |
 | `shell.css` | `.vz-app`, `.vz-rail*`, `.vz-topbar`, `.vz-search*`, `.vz-iconbtn`, `.vz-notice*`, `.vz-page-head*`, `.vz-crumbs*`, `.vz-split*` |
-| `controls.css` | `.vz-btn*` (y `.is-pressed`), `.vz-field`, `.vz-input/select/textarea`, `.vz-check`, `.vz-form-grid`, `.vz-form-sep*`, `.vz-combobox*`, `.vz-segmented*`, `.vz-form-actions*`, `.vz-field-row` |
-| `table.css` | `.vz-panel*` (y `.vz-panel__body`), `.vz-table*`, `.vz-filters`, `.vz-pager*`, `.vz-avatar`, `.vz-details*`, `.vz-meter*`, `.vz-load*` |
+| `controls.css` | `.vz-btn*` (y `.is-pressed`), `.vz-field`, `.vz-label*` (y `.vz-label-row`, `.vz-label__hint`), `.vz-input/select/textarea`, `.vz-check`, `.vz-form-grid`, `.vz-form-sep*`, `.vz-combobox*`, `.vz-segmented*`, `.vz-form-actions*`, `.vz-field-row` |
+| `table.css` | `.vz-panel*` (y `.vz-panel__body`), `.vz-table*`, `.vz-filters`, `.vz-pager*`, `.vz-avatar`, `.vz-details*` (y `.vz-details__note`), `.vz-meter*`, `.vz-load*` |
 | `feedback.css` | `.vz-pill*`, `.vz-dot`, `.vz-tabs`, `.vz-modal*`, `.vz-empty*`, `.vz-callout*`, `.vz-checklist*`, `.vz-overline` |
 | `cases.css` | `.vz-case-head*`, `.vz-presc*`, `.vz-picker*`, `.vz-due*`, `.vz-summary*`, `.vz-person-name`: lo propio de las pantallas de causas y actos |
 | `login.css` | `.vz-login*`: lo propio de la pantalla de login |

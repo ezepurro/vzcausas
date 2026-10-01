@@ -3,7 +3,7 @@ import { screen, waitFor, within } from '@testing-library/react'
 import { http, HttpResponse } from 'msw'
 import { renderWithProviders } from '../../setup/render'
 import { server } from '@/shared/mocks/server'
-import { db, errorBody } from '@/shared/mocks'
+import { db, errorBody, toCase } from '@/shared/mocks'
 import { ProceduralStatesPage } from '@/features/legal-params/pages/ProceduralStatesPage'
 
 function renderPage(as = 'fvazquez') {
@@ -69,8 +69,15 @@ describe('ProceduralStatesPage', () => {
             expect(await screen.findByText('Sin estados procesales')).toBeInTheDocument()
         })
 
-        it('si no tiene permiso, muestra el error', async () => {
-            renderPage('mrios')
+        /* Leer los estados está abierto a cualquier perfil (V3 D-03), así que
+           el mock ya no responde 403 a un abogado: el rechazo se fuerza. */
+        it('si el servidor rechaza la consulta, muestra el error', async () => {
+            server.use(
+                http.get('*/procedural-states', () =>
+                    HttpResponse.json(errorBody('FORBIDDEN', 'Rechazo de prueba.'), { status: 403 }),
+                ),
+            )
+            renderPage()
 
             expect(await screen.findByText('No se pudieron cargar los estados')).toBeInTheDocument()
         })
@@ -240,7 +247,30 @@ describe('ProceduralStatesPage', () => {
             )
         })
 
-        it('si el estado tiene causas asociadas, avisa el error y no lo elimina', async () => {
+        /* La baja procede aunque haya causas en el estado (V3 D-06): ya no hay
+           409. La causa que estaba en él lo conserva. */
+        it('un estado con causas también se elimina, y la causa lo conserva', async () => {
+            const { user } = renderPage()
+            const name = 'Oposición al requerimiento de elevación'
+            await screen.findByRole('cell', { name })
+
+            await user.click(within(rowOf(name)).getByRole('button', { name: 'Eliminar' }))
+            const dialog = screen.getByRole('dialog')
+            expect(dialog).toHaveTextContent('Hay 1 causa en este estado')
+            await user.click(within(dialog).getByRole('button', { name: 'Eliminar' }))
+
+            expect(await screen.findByText(`Estado "${name}" eliminado del fuero Penal.`)).toBeInTheDocument()
+            await waitFor(() => expect(screen.queryByRole('cell', { name })).not.toBeInTheDocument())
+            expect(db.proceduralStates.find((s) => s.id === 4)?.active).toBe(false)
+            expect(toCase(db.cases[0]).currentState?.name).toBe(name)
+        })
+
+        it('si el servidor rechaza la baja, avisa el error y no lo elimina', async () => {
+            server.use(
+                http.delete('*/procedural-states/:stateId', () =>
+                    HttpResponse.json(errorBody('FORBIDDEN', 'Rechazo de prueba.'), { status: 403 }),
+                ),
+            )
             const { user } = renderPage()
             const name = 'Oposición al requerimiento de elevación'
             await screen.findByRole('cell', { name })

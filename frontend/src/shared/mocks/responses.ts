@@ -20,9 +20,15 @@ import {
     errorBody,
     itemBody,
     listBody,
+    type Case,
+    type Client,
+    type DeadlinePreview,
     type ErrorBody,
     type Lawyer,
+    type LegalQualification,
+    type ProceduralAct,
     type ProceduralState,
+    type Role,
     type Session,
     type User,
 } from './contract';
@@ -48,7 +54,8 @@ export const NO_CONTENT: MockResponse<null> = response(204, null);
  * Los mensajes que el contrato repite endpoint por endpoint.
  *
  * El contrato conserva **dos redacciones del 401**: la de `/auth/*` menciona
- * el token y la del resto no. El 403, en cambio, quedó unificado.
+ * el token y la del resto no. El 403 es una sola redacción que nombra el rol
+ * que falta: `ADMINISTRATOR`, `SECRETARY` o `LAWYER` (§4, permisos por perfil).
  */
 export const ERRORS = {
     /* ---- 400 ---- */
@@ -66,6 +73,21 @@ export const ERRORS = {
         'INVALID_PATH_PARAMETER',
         'El identificador del estado procesal no es válido.',
         { stateId: 'Debe ser un número entero válido.' },
+    ),
+    invalidLegalQualificationId: errorBody(
+        'INVALID_PATH_PARAMETER',
+        'El identificador de la calificación legal no es válido.',
+        { qualificationId: 'Debe ser un número entero válido.' },
+    ),
+    invalidClientId: errorBody(
+        'INVALID_PATH_PARAMETER',
+        'El identificador del cliente no es válido.',
+        { clientId: 'Debe ser un número entero válido.' },
+    ),
+    invalidCaseId: errorBody(
+        'INVALID_PATH_PARAMETER',
+        'El identificador de la causa no es válido.',
+        { caseId: 'Debe ser un número entero válido.' },
     ),
     invalidPagination: errorBody(
         'INVALID_PAGINATION',
@@ -97,10 +119,12 @@ export const ERRORS = {
     unauthenticated: errorBody('UNAUTHENTICATED', 'La autenticación es requerida.'),
 
     /* ---- 403 ---- */
-    forbidden: errorBody(
-        'FORBIDDEN',
-        'Se requiere el rol ADMINISTRATOR para realizar esta operación.',
-    ),
+    /** Administración: usuarios, abogados, estados y calificaciones. */
+    forbidden: forbiddenFor('ADMINISTRATOR'),
+    /** Alta de cliente (D-05). */
+    forbiddenSecretary: forbiddenFor('SECRETARY'),
+    /** Registro de un acto procesal y su previsualización (D-13). */
+    forbiddenLawyer: forbiddenFor('LAWYER'),
 
     /* ---- 404 ---- */
     userNotFound: errorBody('USER_NOT_FOUND', 'No se encontró el usuario solicitado.'),
@@ -109,6 +133,12 @@ export const ERRORS = {
         'PROCEDURAL_STATE_NOT_FOUND',
         'No se encontró el estado procesal solicitado.',
     ),
+    legalQualificationNotFound: errorBody(
+        'LEGAL_QUALIFICATION_NOT_FOUND',
+        'No se encontró la calificación legal solicitada.',
+    ),
+    clientNotFound: errorBody('CLIENT_NOT_FOUND', 'No se encontró el cliente solicitado.'),
+    caseNotFound: errorBody('CASE_NOT_FOUND', 'No se encontró la causa solicitada.'),
     resourceNotFound: errorBody('RESOURCE_NOT_FOUND', 'No se encontró el recurso solicitado.'),
 
     /* ---- 409 ---- */
@@ -143,9 +173,17 @@ export const ERRORS = {
         'LAWYER_HAS_DEPENDENCIES',
         'No se puede dar de baja el abogado porque posee recursos asociados.',
     ),
-    proceduralStateHasDependencies: errorBody(
-        'PROCEDURAL_STATE_HAS_DEPENDENCIES',
-        'No se puede dar de baja el estado procesal porque posee causas asociadas.',
+    legalQualificationNameTaken: errorBody(
+        'LEGAL_QUALIFICATION_ALREADY_EXISTS',
+        'Ya existe una calificación legal con esa denominación.',
+    ),
+    clientDniTaken: errorBody(
+        'CLIENT_DNI_ALREADY_EXISTS',
+        'Ya existe un cliente registrado con ese DNI.',
+    ),
+    caseSacTaken: errorBody(
+        'CASE_SAC_ALREADY_EXISTS',
+        'Ya existe una causa registrada con ese número de SAC.',
     ),
 
     /* ---- 422 ---- */
@@ -153,10 +191,23 @@ export const ERRORS = {
         'INVALID_CURRENT_PASSWORD',
         'La contraseña actual es incorrecta.',
     ),
+    proceduralStateInUse: errorBody(
+        'PROCEDURAL_STATE_IN_USE',
+        'El estado procesal está registrado en causas y no puede cambiar de fuero.',
+    ),
+    caseInTerminalState: errorBody(
+        'CASE_IN_TERMINAL_STATE',
+        'La causa se encuentra en un estado terminal y no admite actos procesales.',
+    ),
 
     /* ---- 500 ---- */
     internalError: errorBody('INTERNAL_SERVER_ERROR', 'Ocurrió un error interno inesperado.'),
 } satisfies Record<string, ErrorBody>;
+
+/** `403 FORBIDDEN` con el rol que exige la operación. */
+export function forbiddenFor(role: Role): ErrorBody {
+    return errorBody('FORBIDDEN', `Se requiere el rol ${role} para realizar esta operación.`);
+}
 
 /**
  * Fragmento en castellano del `422` de cada operación.
@@ -169,9 +220,6 @@ const BUSINESS_RULE_TEXT = {
     createLawyer: 'registrar el abogado',
     updateLawyer: 'modificar el abogado',
     deleteLawyer: 'dar de baja el abogado',
-    createProceduralState: 'registrar el estado procesal',
-    updateProceduralState: 'modificar el estado procesal',
-    deleteProceduralState: 'dar de baja el estado procesal',
 } as const;
 
 export type BusinessRuleOperation = keyof typeof BUSINESS_RULE_TEXT;
@@ -244,7 +292,7 @@ const EXAMPLE_LAWYER: Lawyer = {
     id: 4,
     fullName: 'Dr. Ignacio Peralta',
     registrationNumber: '1-35207',
-    activeCases: 0,
+    activeCases: 2,
     active: true,
 };
 
@@ -264,7 +312,7 @@ const EXAMPLE_STATE: ProceduralState = {
     timeLimitDays: 5,
     dayType: 'BUSINESS',
     terminal: false,
-    activeCases: 0,
+    activeCases: 1,
     active: true,
 };
 
@@ -296,6 +344,148 @@ const EXAMPLE_CREATED_STATE: ProceduralState = {
 const EXAMPLE_UPDATED_STATE: ProceduralState = {
     ...EXAMPLE_CREATED_STATE,
     timeLimitDays: 20,
+};
+
+const EXAMPLE_QUALIFICATION: LegalQualification = {
+    id: 1,
+    name: 'Robo calificado — art. 167 inc. 2 CP',
+    prescriptionMonths: 96,
+    activeCases: 2,
+    active: true,
+};
+
+const EXAMPLE_CREATED_QUALIFICATION: LegalQualification = {
+    id: 10,
+    name: 'Estafa — art. 172 CP',
+    prescriptionMonths: 72,
+    activeCases: 0,
+    active: true,
+};
+
+const EXAMPLE_CLIENT: Client = {
+    id: 1,
+    lastName: 'GÓMEZ',
+    firstName: 'Ariel Fernando',
+    dni: '34812905',
+    phone: '351 415-2288',
+    email: 'afgomez@gmail.com',
+    clientSince: '2021-03-12',
+    activeCases: 2,
+    active: true,
+};
+
+const EXAMPLE_CREATED_CLIENT: Client = {
+    id: 25,
+    lastName: 'TORRES',
+    firstName: 'Bruno',
+    dni: '35778120',
+    phone: null,
+    email: null,
+    clientSince: '2026-09-29',
+    activeCases: 0,
+    active: true,
+};
+
+/** Causa penal con plazo abierto: el ejemplo del contrato. */
+const EXAMPLE_CASE: Case = {
+    id: 1,
+    sacNumber: '13284571',
+    caption: 'GÓMEZ, Ariel Fernando p.s.a. Robo calificado',
+    court: 'Juzgado de Control N° 3 · Córdoba',
+    jurisdiction: 'CRIMINAL',
+    proceduralRole: 'DEFENSE',
+    instructorName: 'Dra. Verónica Ledesma',
+    instructorPhone: '0351 448-1200 int. 214',
+    counterparty: null,
+    subjectMatter: null,
+    client: {
+        id: 1,
+        lastName: 'GÓMEZ',
+        firstName: 'Ariel Fernando',
+        dni: '34812905',
+        phone: '351 415-2288',
+        email: 'afgomez@gmail.com',
+        clientSince: '2021-03-12',
+    },
+    responsibleLawyer: { id: 3, fullName: 'Dra. Malena Ríos', registrationNumber: '1-36842' },
+    legalQualifications: [
+        {
+            id: 1,
+            name: 'Robo calificado — art. 167 inc. 2 CP',
+            prescriptionMonths: 96,
+            offenseDate: '2021-02-27',
+            prescriptionStartsOn: '2021-02-27',
+            prescriptionExpiresOn: '2029-02-27',
+        },
+    ],
+    startDate: '2021-03-12',
+    currentState: {
+        proceduralStateId: 4,
+        name: 'Oposición al requerimiento de elevación',
+        custom: false,
+    },
+    nextDeadline: {
+        proceduralActId: 3,
+        dueDate: '2026-09-16',
+        businessDaysRemaining: 1,
+        manuallyAdjusted: false,
+    },
+    active: true,
+};
+
+/**
+ * Causa recién registrada: sin estado procesal ni plazo abierto. Es lo que
+ * devuelve siempre el `POST /cases` (V3 D-09).
+ */
+const EXAMPLE_CREATED_CASE: Case = {
+    ...EXAMPLE_CASE,
+    id: 23,
+    sacNumber: '14200315',
+    startDate: '2026-09-29',
+    currentState: null,
+    nextDeadline: null,
+};
+
+const EXAMPLE_ACT: ProceduralAct = {
+    id: 3,
+    caseId: 1,
+    resultingState: {
+        proceduralStateId: 4,
+        name: 'Oposición al requerimiento de elevación',
+        custom: false,
+    },
+    actDate: '2026-09-09',
+    notificationDate: null,
+    notes: 'Con acusación, pero con oposición.',
+    deadline: {
+        timeLimitDays: 5,
+        dayType: 'BUSINESS',
+        countsFrom: '2026-09-09',
+        computedDueDate: '2026-09-16',
+        dueDate: '2026-09-16',
+        manuallyAdjusted: false,
+    },
+    registeredBy: { id: 3, fullName: 'Malena Ríos' },
+    registeredAt: '2026-09-09T11:42:00-03:00',
+};
+
+const EXAMPLE_PREVIEW: DeadlinePreview = {
+    proceduralStateId: 4,
+    timeLimitDays: 5,
+    dayType: 'BUSINESS',
+    countsFrom: '2026-09-15',
+    dueDate: '2026-09-22',
+    businessDaysRemaining: 5,
+};
+
+/** Lo que devuelve el cómputo para un estado que no abre plazo. */
+const EXAMPLE_PREVIEW_NO_TERM: DeadlinePreview = {
+    proceduralStateId: 3,
+    timeLimitDays: 0,
+    dayType: 'NONE',
+    countsFrom: '2026-09-15',
+    dueDate: null,
+    businessDaysRemaining: null,
 };
 
 export const RESPONSES = {
@@ -415,21 +605,19 @@ export const RESPONSES = {
         businessRule: response(422, businessRuleViolation('createLawyer')),
     },
 
-    /** `GET /lawyers` */
+    /** `GET /lawyers` — cualquier usuario autenticado (V3 D-03). */
     listLawyers: {
-        ok: response(200, listBody<Lawyer>([EXAMPLE_LAWYER], buildPagination(7, 1, 20))),
+        ok: response(200, listBody<Lawyer>([EXAMPLE_LAWYER], buildPagination(10, 1, 20))),
         invalidPagination: response(400, ERRORS.invalidPagination),
         unauthenticated: response(401, ERRORS.unauthenticated),
-        forbidden: response(403, ERRORS.forbidden),
         empty: response(200, listBody<Lawyer>([], buildPagination(0, 1, 20))),
     },
 
-    /** `GET /lawyers/{lawyerId}` */
+    /** `GET /lawyers/{lawyerId}` — cualquier usuario autenticado. */
     getLawyer: {
         ok: response(200, itemBody(EXAMPLE_LAWYER)),
         invalidId: response(400, ERRORS.invalidLawyerId),
         unauthenticated: response(401, ERRORS.unauthenticated),
-        forbidden: response(403, ERRORS.forbidden),
         notFound: response(404, ERRORS.lawyerNotFound),
     },
 
@@ -472,10 +660,9 @@ export const RESPONSES = {
         unauthenticated: response(401, ERRORS.unauthenticated),
         forbidden: response(403, ERRORS.forbidden),
         conflict: response(409, ERRORS.proceduralStateNameTaken),
-        businessRule: response(422, businessRuleViolation('createProceduralState')),
     },
 
-    /** `GET /procedural-states` */
+    /** `GET /procedural-states` — cualquier usuario autenticado (V3 D-03). */
     listProceduralStates: {
         ok: response(
             200,
@@ -487,16 +674,14 @@ export const RESPONSES = {
         invalidJurisdiction: response(400, ERRORS.invalidJurisdiction),
         invalidPagination: response(400, ERRORS.invalidPagination),
         unauthenticated: response(401, ERRORS.unauthenticated),
-        forbidden: response(403, ERRORS.forbidden),
         empty: response(200, listBody<ProceduralState>([], buildPagination(0, 1, 20))),
     },
 
-    /** `GET /procedural-states/{stateId}` */
+    /** `GET /procedural-states/{stateId}` — cualquier usuario autenticado. */
     getProceduralState: {
         ok: response(200, itemBody(EXAMPLE_STATE)),
         invalidId: response(400, ERRORS.invalidProceduralStateId),
         unauthenticated: response(401, ERRORS.unauthenticated),
-        forbidden: response(403, ERRORS.forbidden),
         notFound: response(404, ERRORS.proceduralStateNotFound),
     },
 
@@ -514,18 +699,188 @@ export const RESPONSES = {
         forbidden: response(403, ERRORS.forbidden),
         notFound: response(404, ERRORS.proceduralStateNotFound),
         conflict: response(409, ERRORS.proceduralStateNameTaken),
-        businessRule: response(422, businessRuleViolation('updateProceduralState')),
+        /** Cambio de fuero de un estado que alguna causa registra (D-07). */
+        inUse: response(422, ERRORS.proceduralStateInUse),
     },
 
-    /** `DELETE /procedural-states/{stateId}` — baja lógica. */
+    /**
+     * `DELETE /procedural-states/{stateId}` — baja lógica. Procede aunque haya
+     * causas en el estado: lo conservan (D-06). Ya no hay `409`.
+     */
     deleteProceduralState: {
         ok: NO_CONTENT,
         invalidId: response(400, ERRORS.invalidProceduralStateId),
         unauthenticated: response(401, ERRORS.unauthenticated),
         forbidden: response(403, ERRORS.forbidden),
         notFound: response(404, ERRORS.proceduralStateNotFound),
-        hasDependencies: response(409, ERRORS.proceduralStateHasDependencies),
-        businessRule: response(422, businessRuleViolation('deleteProceduralState')),
+    },
+
+    /** `POST /legal-qualifications` */
+    createLegalQualification: {
+        created: response(201, itemBody(EXAMPLE_CREATED_QUALIFICATION)),
+        validation: response(
+            400,
+            errorBody('VALIDATION_ERROR', 'Los datos enviados no son válidos.', {
+                prescriptionMonths: 'Debe ser un número entero mayor o igual a 1.',
+            }),
+        ),
+        unauthenticated: response(401, ERRORS.unauthenticated),
+        forbidden: response(403, ERRORS.forbidden),
+        conflict: response(409, ERRORS.legalQualificationNameTaken),
+    },
+
+    /** `GET /legal-qualifications` — cualquier usuario autenticado. */
+    listLegalQualifications: {
+        ok: response(
+            200,
+            listBody<LegalQualification>([EXAMPLE_QUALIFICATION], buildPagination(8, 1, 20)),
+        ),
+        invalidPagination: response(400, ERRORS.invalidPagination),
+        unauthenticated: response(401, ERRORS.unauthenticated),
+        empty: response(200, listBody<LegalQualification>([], buildPagination(0, 1, 20))),
+    },
+
+    /** `GET /legal-qualifications/{qualificationId}` */
+    getLegalQualification: {
+        ok: response(200, itemBody(EXAMPLE_QUALIFICATION)),
+        invalidId: response(400, ERRORS.invalidLegalQualificationId),
+        unauthenticated: response(401, ERRORS.unauthenticated),
+        notFound: response(404, ERRORS.legalQualificationNotFound),
+    },
+
+    /** `PATCH /legal-qualifications/{qualificationId}` */
+    updateLegalQualification: {
+        ok: response(200, itemBody({ ...EXAMPLE_QUALIFICATION, prescriptionMonths: 120 })),
+        validation: response(
+            400,
+            errorBody('VALIDATION_ERROR', 'Los datos enviados no son válidos.', {
+                name: 'No puede estar vacío.',
+            }),
+        ),
+        invalidId: response(400, ERRORS.invalidLegalQualificationId),
+        unauthenticated: response(401, ERRORS.unauthenticated),
+        forbidden: response(403, ERRORS.forbidden),
+        notFound: response(404, ERRORS.legalQualificationNotFound),
+        conflict: response(409, ERRORS.legalQualificationNameTaken),
+    },
+
+    /** `DELETE /legal-qualifications/{qualificationId}` — baja lógica; las causas la conservan. */
+    deleteLegalQualification: {
+        ok: NO_CONTENT,
+        invalidId: response(400, ERRORS.invalidLegalQualificationId),
+        unauthenticated: response(401, ERRORS.unauthenticated),
+        forbidden: response(403, ERRORS.forbidden),
+        notFound: response(404, ERRORS.legalQualificationNotFound),
+    },
+
+    /** `POST /clients` — sólo `SECRETARY` (D-05). */
+    createClient: {
+        created: response(201, itemBody(EXAMPLE_CREATED_CLIENT)),
+        validation: response(
+            400,
+            errorBody('VALIDATION_ERROR', 'Los datos enviados no son válidos.', {
+                dni: 'Debe contener 7 u 8 dígitos, sin puntos.',
+                email: 'El formato del correo electrónico no es válido.',
+            }),
+        ),
+        unauthenticated: response(401, ERRORS.unauthenticated),
+        forbidden: response(403, ERRORS.forbiddenSecretary),
+        conflict: response(409, ERRORS.clientDniTaken),
+    },
+
+    /** `GET /clients` — cualquier usuario autenticado. */
+    listClients: {
+        ok: response(200, listBody<Client>([EXAMPLE_CLIENT], buildPagination(23, 1, 20))),
+        invalidPagination: response(400, ERRORS.invalidPagination),
+        unauthenticated: response(401, ERRORS.unauthenticated),
+        empty: response(200, listBody<Client>([], buildPagination(0, 1, 20))),
+    },
+
+    /** `GET /clients/{clientId}` */
+    getClient: {
+        ok: response(200, itemBody(EXAMPLE_CLIENT)),
+        invalidId: response(400, ERRORS.invalidClientId),
+        unauthenticated: response(401, ERRORS.unauthenticated),
+        notFound: response(404, ERRORS.clientNotFound),
+    },
+
+    /** `POST /cases` — cualquier usuario autenticado. La causa nace sin estado. */
+    createCase: {
+        created: response(201, itemBody(EXAMPLE_CREATED_CASE)),
+        validation: response(
+            400,
+            errorBody('VALIDATION_ERROR', 'Los datos enviados no son válidos.', {
+                sacNumber: 'Debe contener exactamente 8 dígitos.',
+                legalQualifications: 'Las causas penales requieren al menos una calificación legal.',
+                proceduralRole: 'El rol procesal no corresponde al fuero.',
+            }),
+        ),
+        unauthenticated: response(401, ERRORS.unauthenticated),
+        conflict: response(409, ERRORS.caseSacTaken),
+    },
+
+    /** `GET /cases` */
+    listCases: {
+        ok: response(200, listBody<Case>([EXAMPLE_CASE], buildPagination(22, 1, 20))),
+        invalidFilter: response(
+            400,
+            errorBody('INVALID_REQUEST', 'Parámetros de query inválidos.', {
+                withoutProceduralActs: 'No puede combinarse con proceduralStateId ni con customState.',
+            }),
+        ),
+        invalidPagination: response(400, ERRORS.invalidPagination),
+        unauthenticated: response(401, ERRORS.unauthenticated),
+        empty: response(200, listBody<Case>([], buildPagination(0, 1, 20))),
+    },
+
+    /** `GET /cases/custom-states` — la única colección sin paginar. */
+    listCustomStates: {
+        ok: response(200, itemBody(['Con acusación, pero con oposición'])),
+        invalidJurisdiction: response(400, ERRORS.invalidJurisdiction),
+        unauthenticated: response(401, ERRORS.unauthenticated),
+        empty: response(200, itemBody<string[]>([])),
+    },
+
+    /** `GET /cases/{caseId}` */
+    getCase: {
+        ok: response(200, itemBody(EXAMPLE_CASE)),
+        invalidId: response(400, ERRORS.invalidCaseId),
+        unauthenticated: response(401, ERRORS.unauthenticated),
+        notFound: response(404, ERRORS.caseNotFound),
+    },
+
+    /** `POST /cases/{caseId}/procedural-acts` — sólo `LAWYER` (D-13). */
+    createProceduralAct: {
+        created: response(201, itemBody(EXAMPLE_ACT)),
+        validation: response(
+            400,
+            errorBody('VALIDATION_ERROR', 'Los datos enviados no son válidos.', {
+                notificationDate:
+                    'Es obligatoria en el fuero administrativo cuando el estado abre plazo (RN6).',
+            }),
+        ),
+        invalidId: response(400, ERRORS.invalidCaseId),
+        unauthenticated: response(401, ERRORS.unauthenticated),
+        forbidden: response(403, ERRORS.forbiddenLawyer),
+        notFound: response(404, ERRORS.caseNotFound),
+        terminalState: response(422, ERRORS.caseInTerminalState),
+    },
+
+    /** `GET /cases/{caseId}/procedural-acts/deadline-preview` — sólo `LAWYER`. */
+    deadlinePreview: {
+        ok: response(200, itemBody(EXAMPLE_PREVIEW)),
+        /** Estado que no abre plazo: `dueDate` y `businessDaysRemaining` en `null`. */
+        noTerm: response(200, itemBody(EXAMPLE_PREVIEW_NO_TERM)),
+        invalidQuery: response(
+            400,
+            errorBody('INVALID_REQUEST', 'Parámetros de query inválidos.', {
+                notificationDate:
+                    'Es obligatoria en el fuero administrativo cuando el estado abre plazo (RN6).',
+            }),
+        ),
+        unauthenticated: response(401, ERRORS.unauthenticated),
+        forbidden: response(403, ERRORS.forbiddenLawyer),
+        notFound: response(404, ERRORS.caseNotFound),
     },
 
     /** Respuestas generales (§5.2). */

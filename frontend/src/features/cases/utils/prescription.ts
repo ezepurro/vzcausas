@@ -2,10 +2,12 @@
  * La barra de prescripción de la causa: cuánto del plazo ya pasó y cuánto
  * falta.
  *
- * El vencimiento lo calcula el backend (`prescriptionExpiresOn`); el contrato
- * deja explícitamente del lado del front el porcentaje transcurrido y el
- * "Restan 5 años 9 meses" (V3 §3.7). Es presentación, no una regla jurídica:
- * la regla —desde cuándo corre y cuánto dura— vive en el backend.
+ * Cada calificación prescribe por su lado, **desde la fecha de su hecho** (V3
+ * D-19). El vencimiento lo calcula el backend (`prescriptionExpiresOn`); el
+ * contrato deja explícitamente del lado del front qué calificación mostrar, el
+ * porcentaje transcurrido y el "Restan 5 años 9 meses" (V3 §3.7). Es
+ * presentación, no una regla jurídica: la regla —desde cuándo corre y cuánto
+ * dura— vive en el backend.
  */
 
 import { parseDateOnly } from '@/shared/lib/dates'
@@ -25,15 +27,20 @@ export interface PrescriptionProgress {
 
 /**
  * Con varias calificaciones, cada una prescribe por su lado (V3 §3.5). La
- * barra del encabezado muestra la que vence primero, que es la que manda.
+ * barra del encabezado muestra **la que prescribe primero**, que es la que
+ * manda. `null` si la causa no tiene calificaciones (fuera del fuero penal).
  */
-export function nearestQualification(c: Case): CaseLegalQualification | null {
+export function nearestQualification(c: Pick<Case, 'legalQualifications'>): CaseLegalQualification | null {
     if (c.legalQualifications.length === 0) return null
     return [...c.legalQualifications].sort((a, b) =>
         a.prescriptionExpiresOn.localeCompare(b.prescriptionExpiresOn),
     )[0]
 }
 
+/**
+ * Cuánto pasó entre `startsOn` y `expiresOn`: el `prescriptionStartsOn` y el
+ * `prescriptionExpiresOn` de una calificación.
+ */
 export function prescriptionProgress(
     startsOn: string,
     expiresOn: string,
@@ -57,11 +64,12 @@ export function prescriptionProgress(
 
 /**
  * Vencimiento estimado para el resumen del alta, antes de guardar la causa:
- * fecha de inicio más los meses de la calificación, que es la misma cuenta
- * que hace el backend (V3 D-19). Devuelve `YYYY-MM-DD` o `null`.
+ * la **fecha del hecho** de la calificación más sus meses, que es la misma
+ * cuenta que hace el backend (V3 D-19). Devuelve `YYYY-MM-DD`, o `null` si
+ * todavía no se cargó la fecha.
  */
-export function estimatedExpiry(startDate: string, months: number): string | null {
-    const start = parseDateOnly(startDate)
+export function estimatedExpiry(offenseDate: string, months: number): string | null {
+    const start = parseDateOnly(offenseDate)
     if (!start) return null
     const end = new Date(start.getFullYear(), start.getMonth() + months, start.getDate())
     const pad = (n: number) => String(n).padStart(2, '0')

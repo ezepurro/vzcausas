@@ -8,6 +8,11 @@ export interface FieldProps {
   required?: boolean;
   /** aclaración bajo el campo */
   note?: ReactNode;
+  /**
+   * dato chico a la derecha de la etiqueta: el contador de caracteres de un
+   * texto largo (`120 / 800`). Lo calcula la pantalla
+   */
+  hint?: ReactNode;
   /** mensaje de error; lo decide la pantalla */
   error?: string;
   /** ocupa las dos columnas de .vz-form-grid */
@@ -18,14 +23,23 @@ export interface FieldProps {
 
 /** Envoltorio de campo: etiqueta, control, nota y error. */
 export function Field({
-  label, required, note, error, width = 'full', htmlFor, children,
+  label, required, note, hint, error, width = 'full', htmlFor, children,
 }: FieldProps) {
+  const labelNode = (
+    <label className="vz-label" htmlFor={htmlFor}>
+      {label}
+      {required && <span className="vz-label__req">*</span>}
+    </label>
+  );
+
   return (
     <div className={`vz-field ${error ? 'vz-field--error' : ''} ${width === 'full' ? 'vz-col-full' : ''}`}>
-      <label className="vz-label" htmlFor={htmlFor}>
-        {label}
-        {required && <span className="vz-label__req">*</span>}
-      </label>
+      {hint === undefined ? labelNode : (
+        <div className="vz-label-row">
+          {labelNode}
+          <span className="vz-label__hint">{hint}</span>
+        </div>
+      )}
       {children}
       {note && !error && <div className="vz-note">{note}</div>}
       {error && <div className="vz-error">{error}</div>}

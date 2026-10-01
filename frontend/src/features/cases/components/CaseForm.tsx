@@ -5,14 +5,15 @@ import {
     FormSection,
     SegmentedControl,
     Select,
+    Textarea,
     TextInput,
     type SelectOption,
 } from '@/shared/components/forms'
+import { todayIsoDate } from '@/shared/lib/dates'
 import {
     JURISDICTION_LABELS,
     JURISDICTIONS,
     type Jurisdiction,
-    type LegalQualification,
 } from '@/features/legal-params'
 import {
     PROCEDURAL_ROLE_LABELS,
@@ -20,13 +21,16 @@ import {
     type CaseFormValues,
     type ProceduralRole,
 } from '@/features/cases/types/case'
-import type { CaseFormErrors } from '@/features/cases/schemas/case.schema'
-import { LegalQualificationPicker } from '@/features/cases/components/LegalQualificationPicker'
+import { SUBJECT_MATTER_MAX, type CaseFormErrors } from '@/features/cases/schemas/case.schema'
+import {
+    LegalQualificationPicker,
+    type SelectedQualification,
+} from '@/features/cases/components/LegalQualificationPicker'
 
 export interface CaseFormProps {
     values: CaseFormValues
     errors: CaseFormErrors
-    /** Cada campo, salvo el fuero. */
+    /** Cada campo, salvo el fuero y las calificaciones. */
     onChange: <K extends keyof CaseFormValues>(key: K, value: CaseFormValues[K]) => void
     /**
      * El fuero va aparte porque arrastra otros campos: la pantalla aplica
@@ -37,18 +41,24 @@ export interface CaseFormProps {
     clientOptions: SelectOption[]
     /** Los abogados vigentes, ya armados. */
     lawyerOptions: SelectOption[]
-    /** Las calificaciones elegidas, resueltas a partir de `values.legalQualificationIds`. */
-    selectedQualifications: Pick<LegalQualification, 'id' | 'name' | 'prescriptionMonths'>[]
+    /**
+     * Las calificaciones elegidas, resueltas a partir de
+     * `values.legalQualifications`: cada una con su nombre, su plazo y la fecha
+     * del hecho cargada hasta ahora.
+     */
+    selectedQualifications: SelectedQualification[]
     /** Las que todavía se pueden agregar. */
     qualificationOptions: SelectOption[]
     onAddQualification: (id: number) => void
     onRemoveQualification: (id: number) => void
+    onOffenseDateChange: (id: number, offenseDate: string) => void
     /** "Registrar cliente nuevo". */
     onNewClient: () => void
     /** "Registrar calificación nueva". */
     onNewQualification: () => void
-    /** Sólo `ADMINISTRATOR` registra clientes y calificaciones (V3 D-04, D-05). */
+    /** Sólo `SECRETARY` registra clientes (V3 D-05). */
     canCreateClient: boolean
+    /** Sólo `ADMINISTRATOR` registra calificaciones (V3 D-04). */
     canCreateQualification: boolean
     /** true mientras la mutación está en vuelo: bloquea el confirmar */
     saving: boolean
@@ -62,12 +72,30 @@ const JURISDICTION_OPTIONS: SelectOption[] = JURISDICTIONS.map((j) => ({
 }))
 
 /**
+ * El campo es el mismo en los dos fueros (`subjectMatter`, V3 D-27); lo que
+ * cambia es cómo lo llama el estudio y el ejemplo que orienta al que carga.
+ */
+const SUBJECT_MATTER_TEXT: Record<Exclude<Jurisdiction, 'CRIMINAL'>, { label: string; placeholder: string }> = {
+    ADMINISTRATIVE: {
+        label: 'Objeto del reclamo',
+        placeholder:
+            'Ej. Se deje sin efecto la sanción de cesantía dispuesta por el Tribunal de Conducta Policial y se reincorpore al agente…',
+    },
+    AMPARO: {
+        label: 'Objeto del amparo',
+        placeholder:
+            'Ej. Se ordene a APROSS la cobertura integral del tratamiento prescripto, denegada por resolución del…',
+    },
+}
+
+/**
  * El formulario de "Registrar causa" (HU18), en tres secciones como el
  * prototipo: identificación, cliente y rol procesal, y asignación.
  *
  * No valida ni guarda: recibe los errores ya calculados y avisa con
  * `onConfirm`. Lo que depende del fuero lo decide con `values.jurisdiction`:
- * en el penal pide calificaciones legales; en los otros dos, la contraparte.
+ * en el penal pide calificaciones legales, cada una con la fecha de su hecho;
+ * en los otros dos, la contraparte y el objeto del reclamo o del amparo.
  *
  * Las casillas de Drive y de modelos del prototipo no están: son HU39 y HU40,
  * del Sprint 3 (V3 §8.3).
@@ -75,11 +103,9 @@ const JURISDICTION_OPTIONS: SelectOption[] = JURISDICTIONS.map((j) => ({
 export function CaseForm({
     values, errors, onChange, onJurisdictionChange, clientOptions, lawyerOptions,
     selectedQualifications, qualificationOptions, onAddQualification, onRemoveQualification,
-    onNewClient, onNewQualification, canCreateClient, canCreateQualification,
+    onOffenseDateChange, onNewClient, onNewQualification, canCreateClient, canCreateQualification,
     saving, onConfirm, onCancel,
 }: CaseFormProps) {
-    const criminal = values.jurisdiction === 'CRIMINAL'
-
     const roleOptions: SelectOption[] = PROCEDURAL_ROLES_BY_JURISDICTION[values.jurisdiction].map(
         (role) => ({ value: role, label: PROCEDURAL_ROLE_LABELS[role] }),
     )
@@ -182,7 +208,7 @@ export function CaseForm({
                                 variant="secondary"
                                 size="md"
                                 disabled={!canCreateClient}
-                                title={canCreateClient ? undefined : 'Sólo el Administrador puede registrar clientes.'}
+                                title={canCreateClient ? undefined : 'Sólo la Secretaría puede registrar clientes.'}
                                 onClick={onNewClient}
                             >
                                 Registrar cliente nuevo
@@ -201,13 +227,13 @@ export function CaseForm({
                         />
                     </Field>
 
-                    {criminal ? (
+                    {values.jurisdiction === 'CRIMINAL' ? (
                         <Field
                             label="Calificaciones legales"
                             required
                             htmlFor="case-qualifications"
-                            error={errors.legalQualificationIds}
-                            note="Si en la causa concurren varios delitos, agregá una calificación por cada uno: cada una tiene su propio plazo de prescripción."
+                            error={errors.legalQualifications}
+                            note="Si en la causa concurren varios delitos, agregá una calificación por cada uno: cada una tiene su propio plazo de prescripción, que corre desde la fecha del hecho."
                         >
                             <LegalQualificationPicker
                                 id="case-qualifications"
@@ -215,19 +241,42 @@ export function CaseForm({
                                 options={qualificationOptions}
                                 onAdd={onAddQualification}
                                 onRemove={onRemoveQualification}
+                                onOffenseDateChange={onOffenseDateChange}
+                                dateErrors={errors.offenseDates}
+                                maxDate={todayIsoDate()}
                                 onCreate={onNewQualification}
                                 canCreate={canCreateQualification}
                             />
                         </Field>
                     ) : (
-                        <Field label="Contraparte u organismo" htmlFor="case-counterparty" error={errors.counterparty}>
-                            <TextInput
-                                id="case-counterparty"
-                                placeholder="APROSS, Provincia de Córdoba, Tribunal de Conducta…"
-                                value={values.counterparty}
-                                onChange={(e) => onChange('counterparty', e.target.value)}
-                            />
-                        </Field>
+                        <>
+                            <Field label="Contraparte u organismo" htmlFor="case-counterparty" error={errors.counterparty}>
+                                <TextInput
+                                    id="case-counterparty"
+                                    placeholder="APROSS, Provincia de Córdoba, Tribunal de Conducta…"
+                                    value={values.counterparty}
+                                    onChange={(e) => onChange('counterparty', e.target.value)}
+                                />
+                            </Field>
+
+                            <Field
+                                label={SUBJECT_MATTER_TEXT[values.jurisdiction].label}
+                                required
+                                htmlFor="case-subject"
+                                hint={`${values.subjectMatter.length} / ${SUBJECT_MATTER_MAX}`}
+                                error={errors.subjectMatter}
+                                note="Qué se reclama y por qué: el acto o la omisión que origina la causa y lo que se pide."
+                            >
+                                <Textarea
+                                    id="case-subject"
+                                    rows={4}
+                                    maxLength={SUBJECT_MATTER_MAX}
+                                    placeholder={SUBJECT_MATTER_TEXT[values.jurisdiction].placeholder}
+                                    value={values.subjectMatter}
+                                    onChange={(e) => onChange('subjectMatter', e.target.value)}
+                                />
+                            </Field>
+                        </>
                     )}
 
                     <FormSection label="Asignación" />

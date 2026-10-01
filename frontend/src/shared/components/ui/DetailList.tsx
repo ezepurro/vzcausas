@@ -2,6 +2,11 @@ import type { ReactNode } from 'react';
 
 export interface DetailItem {
   label: string;
+  /**
+   * aclaración chica debajo de la etiqueta: de dónde sale el dato
+   * ("8 años desde el 27/02/2021")
+   */
+  note?: ReactNode;
   /** ya formateado por la pantalla; vacío muestra una raya */
   value: ReactNode;
   /** tipografía monoespaciada: DNI, fechas, matrículas */
@@ -26,6 +31,10 @@ const EMPTY = '—';
  * Un valor `null`, `undefined` o `''` se muestra como `—`. Los datos
  * opcionales del contrato (teléfono, correo) llegan en `null`, y un renglón
  * con la etiqueta sola parece un error de carga.
+ *
+ * `note` agrega un segundo renglón, apagado, debajo de la etiqueta. Para una
+ * aclaración debajo del valor, el `value` puede traer un
+ * `<span className="vz-details__note">`.
  */
 export function DetailList({ items }: DetailListProps) {
   return (
@@ -35,7 +44,10 @@ export function DetailList({ items }: DetailListProps) {
 
         return (
           <div key={item.label} className="vz-details__row">
-            <dt className="vz-details__label">{item.label}</dt>
+            <dt className="vz-details__label">
+              {item.label}
+              {item.note && <span className="vz-details__note">{item.note}</span>}
+            </dt>
             <dd className={`vz-details__value ${item.mono && !missing ? 'vz-mono' : ''}`}>
               {missing ? EMPTY : item.value}
             </dd>

@@ -1,12 +1,16 @@
 import { Button, DetailList, Panel, type DetailItem } from '@/shared/components/ui'
 import { formatDate } from '@/shared/lib/dates'
+import { NO_PROCEDURAL_ACT_LABEL } from '@/features/cases/utils/caseState'
 
 /** Una calificación elegida, con su vencimiento estimado. */
 export interface SummaryPrescription {
+    /** La parte de la denominación antes del artículo: "Robo calificado". */
     name: string
     /** "8 años", ya formateado. */
     term: string
-    /** `YYYY-MM-DD`, o `null` si todavía no hay fecha de inicio. */
+    /** La fecha del hecho, `YYYY-MM-DD`, o `''` si todavía no se cargó. */
+    offenseDate: string
+    /** `YYYY-MM-DD` (`estimatedExpiry`), o `null` si todavía no hay fecha del hecho. */
     expiresOn: string | null
 }
 
@@ -22,8 +26,6 @@ export interface CaseSummaryAsideProps {
     onUseCaption: () => void
     /** `true` si la carátula del formulario ya es la sugerida: el botón no hace falta. */
     captionIsSuggested: boolean
-    /** El estado de posición 1 del fuero, o `null` si todavía no se cargó. */
-    initialState: string | null
     /**
      * `null` fuera del fuero penal: la prescripción no aplica. En el penal, una
      * por calificación elegida (puede ser una lista vacía).
@@ -41,39 +43,48 @@ export interface CaseSummaryAsideProps {
  * registrarla.
  *
  * Todo lo recibe calculado: la carátula con `utils/suggestedCaption`, el
- * vencimiento con `utils/prescription`. No muestra un vencimiento de plazo
- * porque el alta no abre ninguno (V3 D-09).
+ * vencimiento con `utils/prescription`.
+ *
+ * El estado inicial es siempre el mismo y por eso no es una prop: la causa
+ * nace "Sin acto procesal" en cualquier fuero, y el estado lo fija su primer
+ * acto (V3 D-09). Tampoco muestra un vencimiento de plazo, porque el alta no
+ * abre ninguno.
  *
  * La "Carpeta en Drive" del prototipo no está: es HU39, del Sprint 3.
  */
 export function CaseSummaryAside({
-    suggestedCaption, onUseCaption, captionIsSuggested, initialState,
+    suggestedCaption, onUseCaption, captionIsSuggested,
     prescriptions, jurisdictionLabel, checklist,
 }: CaseSummaryAsideProps) {
-    const summary: DetailItem[] = [
-        { label: 'Estado inicial', value: initialState },
-        {
-            label: 'Prescripción',
-            value: prescriptions === null
-                ? `No aplica al fuero ${jurisdictionLabel}`
-                : prescriptions.length === 0
-                    ? 'Falta la calificación legal'
-                    : undefined,
-        },
-    ]
+    const initialState: DetailItem = {
+        label: 'Estado inicial',
+        value: (
+            <>
+                {NO_PROCEDURAL_ACT_LABEL}
+                <span className="vz-details__note">El estado lo fija el primer acto procesal</span>
+            </>
+        ),
+    }
 
     // En el penal con calificaciones, el renglón de prescripción se reemplaza
-    // por uno por calificación, con su vencimiento.
-    const items: DetailItem[] = prescriptions && prescriptions.length > 0
-        ? [
-            summary[0],
-            ...prescriptions.map((p) => ({
-                label: `${p.name} · ${p.term}`,
-                value: formatDate(p.expiresOn),
-                mono: true,
-            })),
+    // por uno por calificación: cada una corre desde la fecha de su hecho.
+    const prescriptionItems: DetailItem[] = prescriptions && prescriptions.length > 0
+        ? prescriptions.map((p) => ({
+            label: p.name,
+            note: p.offenseDate
+                ? `${p.term} desde el ${formatDate(p.offenseDate)}`
+                : `${p.term} · falta la fecha del hecho`,
+            value: formatDate(p.expiresOn),
+            mono: true,
+        }))
+        : [
+            {
+                label: 'Prescripción',
+                value: prescriptions === null
+                    ? `No aplica al fuero ${jurisdictionLabel}`
+                    : 'Falta la calificación legal',
+            },
         ]
-        : summary
 
     return (
         <Panel title="Resumen del alta">
@@ -93,7 +104,7 @@ export function CaseSummaryAside({
                     </Button>
                 </div>
 
-                <DetailList items={items} />
+                <DetailList items={[initialState, ...prescriptionItems]} />
 
                 <div className="vz-overline vz-summary__block">Para poder registrar</div>
                 <ul className="vz-checklist">

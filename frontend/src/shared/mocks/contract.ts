@@ -1,8 +1,9 @@
 /**
  * Tipos del contrato de API.
  *
- * Fuente: `docs/Api-Contract/API_CONTRACT_V2.md`. Este archivo es la
- * traducción literal del documento a TypeScript.
+ * Fuente: `docs/Api-Contract/API_CONTRACT_V3.md`, con la revisión del
+ * 01/10/2026 (§7.7). Este archivo es la traducción literal del documento a
+ * TypeScript.
  *
  * Los **mensajes** quedan en castellano porque son los que define el
  * contrato y los que ve el usuario; lo que está en inglés es el código.
@@ -48,6 +49,26 @@ export type Jurisdiction = (typeof JURISDICTIONS)[number];
  */
 export const DAY_TYPES = ['BUSINESS', 'CONSECUTIVE', 'NONE'] as const;
 export type DayType = (typeof DAY_TYPES)[number];
+
+/**
+ * Posición que ocupa el cliente en la causa (§2). No es el `Role` de
+ * seguridad del usuario.
+ */
+export const PROCEDURAL_ROLES = [
+    'DEFENSE',
+    'PRIVATE_PROSECUTOR',
+    'APPELLANT',
+    'PLAINTIFF',
+    'DEFENDANT',
+] as const;
+export type ProceduralRole = (typeof PROCEDURAL_ROLES)[number];
+
+/** Qué roles admite cada fuero. Uno que no corresponde es un `400`. */
+export const PROCEDURAL_ROLES_BY_JURISDICTION: Record<Jurisdiction, readonly ProceduralRole[]> = {
+    CRIMINAL: ['DEFENSE', 'PRIVATE_PROSECUTOR'],
+    ADMINISTRATIVE: ['DEFENSE', 'APPELLANT'],
+    AMPARO: ['PLAINTIFF', 'DEFENDANT'],
+};
 
 /**
  * Los códigos y las formas de error viven en `api/contract.ts`, que es
@@ -127,6 +148,135 @@ export interface ProceduralState {
     active: boolean;
 }
 
+/** Calificación legal tal como la devuelve `/legal-qualifications` (§3.5). */
+export interface LegalQualification {
+    id: number;
+    /** Denominación con la norma: `Hurto simple — art. 162 CP`. Única entre las vigentes. */
+    name: string;
+    /** Plazo de prescripción de la acción, en meses enteros. */
+    prescriptionMonths: number;
+    /** Causas activas que la registran. Calculado, sólo lectura. */
+    activeCases: number;
+    active: boolean;
+}
+
+/** Cliente tal como lo devuelve `/clients` (§3.6). */
+export interface Client {
+    id: number;
+    lastName: string;
+    firstName: string;
+    /** Sólo dígitos, sin puntos. Único entre los vigentes. */
+    dni: string;
+    phone: string | null;
+    email: string | null;
+    /** Fecha de alta en el estudio, `YYYY-MM-DD`. La asigna el backend. */
+    clientSince: string;
+    /** Causas activas en las que es cliente. Calculado, sólo lectura. */
+    activeCases: number;
+    active: boolean;
+}
+
+/** El cliente embebido en una causa: sin `activeCases` ni `active` (§3.7). */
+export type CaseClient = Omit<Client, 'activeCases' | 'active'>;
+
+/** Una calificación de la causa, con su fecha del hecho y su prescripción (§3.7). */
+export interface CaseLegalQualification {
+    id: number;
+    name: string;
+    prescriptionMonths: number;
+    /** Fecha del hecho imputado. La carga el usuario. */
+    offenseDate: string;
+    /** Desde cuándo se computa. Hoy es igual a `offenseDate` (D-19). */
+    prescriptionStartsOn: string;
+    /** `prescriptionStartsOn` más `prescriptionMonths`. */
+    prescriptionExpiresOn: string;
+}
+
+/** Estado procesal de una causa, o el resultante de un acto (§3.7). */
+export interface CaseState {
+    /** `null` si el estado fue escrito a mano. */
+    proceduralStateId: number | null;
+    name: string;
+    /** `true` si es un estado escrito a mano para esta causa. */
+    custom: boolean;
+}
+
+/** El plazo abierto de una causa (§3.7). */
+export interface NextDeadline {
+    proceduralActId: number;
+    dueDate: string;
+    /** `0` vence hoy; negativo, ya vencido. */
+    businessDaysRemaining: number;
+    manuallyAdjusted: boolean;
+}
+
+/** Causa tal como la devuelve `/cases` (§3.7). */
+export interface Case {
+    id: number;
+    /** 8 dígitos. Identifica la causa (RN2). */
+    sacNumber: string;
+    caption: string;
+    court: string | null;
+    jurisdiction: Jurisdiction;
+    proceduralRole: ProceduralRole;
+    instructorName: string | null;
+    instructorPhone: string | null;
+    /** `null` en el fuero penal. */
+    counterparty: string | null;
+    /** Objeto del reclamo o del amparo. `null` en el fuero penal. */
+    subjectMatter: string | null;
+    client: CaseClient;
+    responsibleLawyer: EmbeddedLawyer;
+    /** Al menos una en el penal; vacío en los demás fueros. */
+    legalQualifications: CaseLegalQualification[];
+    startDate: string;
+    /** `null` mientras la causa no tenga actos procesales (D-09). */
+    currentState: CaseState | null;
+    /** `null` si la causa no tiene plazo abierto. */
+    nextDeadline: NextDeadline | null;
+    active: boolean;
+}
+
+/** El plazo que abre un acto. Los valores de la tabla se copian al registrarlo (§3.8). */
+export interface ActDeadline {
+    timeLimitDays: number;
+    dayType: DayType;
+    /** `notificationDate` en el fuero administrativo, `actDate` en los demás. */
+    countsFrom: string;
+    /** Lo que da la tabla. `null` si el estado no abre plazo. */
+    computedDueDate: string | null;
+    /** El vigente: el calculado o, si se ajustó, el manual. */
+    dueDate: string;
+    manuallyAdjusted: boolean;
+}
+
+/** Acto procesal tal como lo devuelve su registro (§3.8). */
+export interface ProceduralAct {
+    id: number;
+    caseId: number;
+    resultingState: CaseState;
+    actDate: string;
+    /** Sólo en el fuero administrativo (RN6). */
+    notificationDate: string | null;
+    notes: string | null;
+    /** `null` si el acto no abre plazo. */
+    deadline: ActDeadline | null;
+    registeredBy: { id: number; fullName: string };
+    registeredAt: string;
+}
+
+/** Respuesta de `GET /cases/{caseId}/procedural-acts/deadline-preview` (§3.8). */
+export interface DeadlinePreview {
+    proceduralStateId: number;
+    timeLimitDays: number;
+    dayType: DayType;
+    countsFrom: string;
+    /** `null` si el estado no abre plazo. */
+    dueDate: string | null;
+    /** `null` si el estado no abre plazo. */
+    businessDaysRemaining: number | null;
+}
+
 /* ------------------------------------------------------------------ */
 /* Cuerpos de petición                                                 */
 /* ------------------------------------------------------------------ */
@@ -203,15 +353,77 @@ export interface CreateProceduralStateRequest {
 /**
  * Edición de estado procesal. Al menos un campo.
  *
- * `jurisdiction` **no está**: un estado no puede cambiar de fuero. Para
- * trasladarlo hay que darlo de baja y registrarlo en el que corresponda.
+ * `jurisdiction` traslada el estado a otro fuero, y sólo procede si ninguna
+ * causa lo registra (V3 D-07): si no, `422 PROCEDURAL_STATE_IN_USE`.
  */
 export interface UpdateProceduralStateRequest {
     name?: string;
+    jurisdiction?: Jurisdiction;
     position?: number;
     timeLimitDays?: number;
     dayType?: DayType;
     terminal?: boolean;
+}
+
+/** Alta de calificación legal (§3.5). */
+export interface CreateLegalQualificationRequest {
+    name: string;
+    prescriptionMonths: number;
+}
+
+/** Edición de calificación legal. Al menos un campo. */
+export type UpdateLegalQualificationRequest = Partial<CreateLegalQualificationRequest>;
+
+/** Alta de cliente (§3.6). Teléfono y correo son opcionales. */
+export interface CreateClientRequest {
+    lastName: string;
+    firstName: string;
+    dni: string;
+    phone?: string;
+    email?: string;
+}
+
+/** Una calificación en el alta de causa: cuál y cuándo fue el hecho (D-28). */
+export interface CaseQualificationRequest {
+    legalQualificationId: number;
+    offenseDate: string;
+}
+
+/**
+ * Alta de causa (§3.7).
+ *
+ * `legalQualifications` va sólo en el fuero penal; `counterparty` y
+ * `subjectMatter`, sólo en los otros dos. Mandar cualquiera donde no
+ * corresponde es un `400`.
+ */
+export interface CreateCaseRequest {
+    sacNumber: string;
+    jurisdiction: Jurisdiction;
+    caption: string;
+    court?: string;
+    instructorName?: string;
+    instructorPhone?: string;
+    clientId: number;
+    proceduralRole: ProceduralRole;
+    legalQualifications?: CaseQualificationRequest[];
+    counterparty?: string;
+    subjectMatter?: string;
+    responsibleLawyerId: number;
+    /** Por defecto, hoy. */
+    startDate?: string;
+}
+
+/**
+ * Registro de un acto procesal (§3.8). `proceduralStateId` y `customState`
+ * son excluyentes: va uno de los dos.
+ */
+export interface CreateProceduralActRequest {
+    proceduralStateId?: number;
+    customState?: string;
+    actDate: string;
+    notificationDate?: string;
+    manualDueDate?: string;
+    notes?: string;
 }
 
 /* ------------------------------------------------------------------ */
@@ -238,6 +450,30 @@ export type LawyersQuery = PaginatedQuery;
 
 export interface ProceduralStatesQuery extends PaginatedQuery {
     jurisdiction?: Jurisdiction;
+}
+
+export type LegalQualificationsQuery = PaginatedQuery;
+
+export type ClientsQuery = PaginatedQuery;
+
+/**
+ * Filtros de `GET /cases` (§3.7). `proceduralStateId`, `customState` y
+ * `withoutProceduralActs` son excluyentes entre sí.
+ */
+export interface CasesQuery extends PaginatedQuery {
+    jurisdiction?: Jurisdiction;
+    responsibleLawyerId?: number;
+    proceduralStateId?: number;
+    customState?: string;
+    withoutProceduralActs?: boolean;
+    clientId?: number;
+    openDeadline?: boolean;
+}
+
+export interface DeadlinePreviewQuery {
+    proceduralStateId: number;
+    actDate: string;
+    notificationDate?: string;
 }
 
 /* ------------------------------------------------------------------ */
@@ -352,9 +588,15 @@ export interface RefreshedSession {
  * respuesta sea la correcta, no para decidir nada.
  */
 const PERMISSIONS_BY_ROLE: Record<Role, string[]> = {
-    ADMINISTRATOR: ['user:manage', 'lawyer:manage', 'procedural-state:manage', 'case:read'],
+    ADMINISTRATOR: [
+        'user:manage',
+        'lawyer:manage',
+        'procedural-state:manage',
+        'legal-qualification:manage',
+        'case:read',
+    ],
     LAWYER: ['case:read', 'case:change-status'],
-    SECRETARY: ['case:read'],
+    SECRETARY: ['case:read', 'client:manage'],
 };
 
 /** Los permisos de un usuario, sin repetidos y en orden estable. */
