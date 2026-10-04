@@ -9,6 +9,7 @@ import { HomePage } from '@/features/home/pages/HomePage'
 import { ProceduralStatesPage } from '@/features/legal-params/pages/ProceduralStatesPage'
 import { UsersPage } from '@/features/users/pages/UsersPage'
 import { LawyersPage } from '@/features/lawyers/pages/LawyersPage'
+import { RegisterProceduralActPage } from '@/features/proceedings/pages/RegisterProceduralActPage'
 import { RequireAccess } from '@/app/router/RequireAccess'
 
 export const router = createBrowserRouter([
@@ -37,6 +38,7 @@ export const router = createBrowserRouter([
                             { path: 'estados-y-plazos', element: <ProceduralStatesPage /> },
                             { path: 'usuarios', element: <UsersPage /> },
                             { path: 'abogados', element: <LawyersPage /> },
+                            { path: 'causas/:caseId/acto', element: <RegisterProceduralActPage /> },
                         ],
                     },
                 ],
