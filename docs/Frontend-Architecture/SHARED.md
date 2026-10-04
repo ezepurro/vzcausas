@@ -129,6 +129,7 @@ import { ApiError, isApiError } from '@/shared/api/ApiError';
 | `Field` | Component | `components/forms/Field.tsx` | Label + control + nota + error |
 | `TextInput` `Select` `Textarea` `Checkbox` | Components | `components/forms/Field.tsx` | Controles sueltos |
 | `FormSection` | Component | `components/forms/Field.tsx` | Separador dentro del form |
+| `PasswordInput` | Component | `components/forms/PasswordInput.tsx` | Contraseña con un ojo para mostrarla u ocultarla |
 | `Combobox` | Component | `components/forms/Combobox.tsx` | Texto libre con lista para elegir |
 | `SegmentedControl` | Component | `components/forms/SegmentedControl.tsx` | Elegir una entre pocas opciones a la vista |
 | `http` | Axios instance | `api/http.ts` | Todas las llamadas al backend |
@@ -180,6 +181,7 @@ import { ApiError, isApiError } from '@/shared/api/ApiError';
 | Filtro con opciones agrupadas | `Select` con `{ group, options }` | Se dibuja como `<optgroup>` |
 | Botón que se prende y se apaga | `Button pressed={…}` | "Solo con plazo por vencer" |
 | Elegir de una lista o escribir otra cosa | `Combobox` | La pantalla filtra las opciones |
+| Campo de contraseña que se pueda ver | `PasswordInput` | Dentro de un `Field`, igual que `TextInput` |
 | Elegir una entre 2 a 4 opciones cortas | `SegmentedControl` | Más opciones, `Select` |
 | Buscador | `SearchInput` | En la topbar o en `Panel actions` (ahí toma 280px de mínimo) |
 | Iconos | `Icon name="..."` | Sólo los nombres de `ICONS` |
@@ -317,7 +319,7 @@ y el `title`), más los atributos de `<button>`. Cuadrado de 40px.
 **Props:** `name: IconName`, `size?` (default 17), `className?`.
 **Nombres disponibles:** `home`, `cases`, `deadlines`, `clients`, `templates`,
 `users`, `lawyers`, `timeLimits`, `qualifications`, `reports`, `search`, `notifications`,
-`password`, `logout`, `plus`, `alert`, `download`, `back`, `forward`.
+`password`, `eye`, `eyeOff`, `logout`, `plus`, `alert`, `download`, `back`, `forward`.
 **Notas:** el color sale de `currentColor`. Si falta un icono, se agrega un path a
 `ICONS` (viewBox 24×24, trazo 1.7) — no crear otro componente de icono.
 
@@ -555,6 +557,12 @@ es el modo "confirmar baja". El `children` se agrega debajo de los campos.
   opciones sueltas (la de "Todos…" arriba). `FieldSpec.options` de `FormModal`
   sigue sin grupos.
 - `Textarea` — props de `<textarea>`.
+- `PasswordInput` — `components/forms/PasswordInput.tsx`. Props de `TextInput`
+  salvo `type`: un ojo a la derecha muestra u oculta la contraseña. Ese estado
+  vive adentro del componente, porque no es un dato del formulario, y arranca
+  oculta. El nombre del botón ("Mostrar contraseña" / "Ocultar contraseña") es
+  texto oculto y no `aria-label`, para no chocar con la etiqueta "Contraseña"
+  del campo cuando un test la busca. Lo usa el login.
 - `Checkbox` — props de `<input>` + `label: ReactNode`. Se dibuja como tarjeta clicable.
 - `FormSection` — prop `label`. Separador de sección; ocupa las 2 columnas.
 
