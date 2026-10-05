@@ -1,15 +1,19 @@
 # ERD — Base de datos del Sprint 2
 
-Propuesta de diseño (revisión 2, 05/10/2026). Refleja los cambios acordados al
-API Contract V3: sin `position` en estados procesales, `activeCases` solo
-calculado en los GET, SAC / instructor / interno / calificación legal
-opcionales, estado inicial explícito por fuero ("Iniciada") y sin
-`nextDeadline` en la causa.
+Diseño de la base para el Sprint 2 (revisión 3, 05/10/2026). Coincide con
+`backend/prisma/schema.prisma` y con `API_CONTRACT_V3.md` (revisión del
+05/10/2026, §7.8): sin `position` en estados procesales, `activeCases` solo
+calculado en los `GET`, SAC / instructor / interno / calificación legal
+opcionales, estado inicial "Iniciada" por fuero y vencimiento dentro de
+`currentState`.
 
-> **Estado:** propuesta, todavía no migrada. `API_CONTRACT_V3.md` aún no
-> refleja estos cambios.
+> **Estado:** `schema.prisma` actualizado. **Falta la migración** (incluido el
+> SQL manual de abajo) y adaptar el código y el seed que usan `position`.
 
 ```mermaid
+---
+id: 4aaecd7b-b929-49e0-8f6c-b781b17167c8
+---
 erDiagram
     %% ───────── identity ─────────
     users {
@@ -82,7 +86,7 @@ erDiagram
     }
     procedural_states {
         int state_id PK
-        varchar name "UK por fuero entre vigentes"
+        text name "UK por fuero entre vigentes"
         int jurisdiction_id FK
         int time_limit_days ">= 0"
         day_type day_type "NOT NULL, coherente con dias"
@@ -181,20 +185,20 @@ Van en una migración manual (`migrate dev --create-only`), porque Prisma no
 las expresa:
 
 - **Índices únicos parciales**
-  - `clients (dni) WHERE active`
-  - `legal_qualifications (lower(name)) WHERE active`
-  - `procedural_states (jurisdiction_id, lower(name)) WHERE is_active`
-  - `procedural_states (jurisdiction_id) WHERE is_initial`
+    - `clients (dni) WHERE active`
+    - `legal_qualifications (lower(name)) WHERE active`
+    - `procedural_states (jurisdiction_id, lower(name)) WHERE is_active`
+    - `procedural_states (jurisdiction_id) WHERE is_initial`
 - **Exclusión mutua (xor)**
-  - `cases`: `num_nonnulls(current_state_id, current_custom_state) = 1`
-  - `procedural_acts`: `num_nonnulls(procedural_state_id, custom_state) = 1`
+    - `cases`: `num_nonnulls(current_state_id, current_custom_state) = 1`
+    - `procedural_acts`: `num_nonnulls(procedural_state_id, custom_state) = 1`
 - **CHECK**
-  - `procedural_states`: `(time_limit_days = 0) = (day_type = 'NONE')`, `time_limit_days >= 0`
-  - `procedural_states`: `NOT is_initial OR (NOT terminal AND time_limit_days = 0 AND day_type = 'NONE')`
-  - `cases`: `sac_number IS NULL OR sac_number ~ '^\d{8}$'`
-  - `clients`: `dni ~ '^\d{7,8}$'`
-  - `legal_qualifications`: `prescription_months >= 1`
-  - `procedural_acts`: `notification_date >= act_date`, `deadline_manual_due_date IS NULL OR deadline_manual_due_date >= deadline_counts_from`
+    - `procedural_states`: `(time_limit_days = 0) = (day_type = 'NONE')`, `time_limit_days >= 0`
+    - `procedural_states`: `NOT is_initial OR (NOT terminal AND time_limit_days = 0 AND day_type = 'NONE')`
+    - `cases`: `sac_number IS NULL OR sac_number ~ '^\d{8}$'`
+    - `clients`: `dni ~ '^\d{7,8}$'`
+    - `legal_qualifications`: `prescription_months >= 1`
+    - `procedural_acts`: `notification_date >= act_date`, `deadline_manual_due_date IS NULL OR deadline_manual_due_date >= deadline_counts_from`
 
 ## Reglas que quedan en el dominio
 
@@ -217,10 +221,28 @@ las expresa:
 
 Los valores se guardan y viajan por la API en inglés (convención de `TRADUCCION_DOMINIO.md`). El rótulo en español lo resuelve el frontend:
 
-| Código | Rótulo (frontend) | Fueros |
-|---|---|---|
-| `DEFENSE` | Defensa | `CRIMINAL`, `ADMINISTRATIVE` |
-| `PRIVATE_PROSECUTOR` | Querellante particular | `CRIMINAL` |
-| `APPELLANT` | Recurrente | `ADMINISTRATIVE` |
-| `PLAINTIFF` | Actora | `AMPARO` |
-| `DEFENDANT` | Demandada | `AMPARO` |
+| Código               | Rótulo (frontend)      | Fueros                       |
+| -------------------- | ---------------------- | ---------------------------- |
+| `DEFENSE`            | Defensa                | `CRIMINAL`, `ADMINISTRATIVE` |
+| `PRIVATE_PROSECUTOR` | Querellante particular | `CRIMINAL`                   |
+| `APPELLANT`          | Recurrente             | `ADMINISTRATIVE`             |
+| `PLAINTIFF`          | Actora                 | `AMPARO`                     |
+| `DEFENDANT`          | Demandada              | `AMPARO`                     |
+
+## Correspondencia con el API Contract
+
+`currentState` de la causa (§3.7 del contrato) se arma así:
+
+| Campo de la API | Origen en la base |
+|---|---|
+| `proceduralStateId` | `cases.current_state_id`, salvo que el estado sea el inicial (`is_initial`): entonces `null` |
+| `name` | `procedural_states.name` o `cases.current_custom_state` |
+| `custom` | `cases.current_custom_state IS NOT NULL` |
+| `initial` | `procedural_states.is_initial` del estado actual |
+| `proceduralActId` | `cases.current_procedural_act_id` |
+| `dueDate` | `COALESCE(deadline_manual_due_date, deadline_computed_due_date)` del acto vigente |
+| `businessDaysRemaining` | Calculado al leer, contra la fecha del día en Córdoba |
+| `manuallyAdjusted` | `deadline_manual_due_date IS NOT NULL` del acto vigente |
+
+`activeCases` de estados procesales y calificaciones legales no se guarda: se
+calcula con una agregación al responder los `GET`.
