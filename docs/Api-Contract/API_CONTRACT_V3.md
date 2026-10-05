@@ -14,7 +14,13 @@ decisiones tomadas al redactarlo, junto con los puntos a verificar, en la
 Cuando una historia de usuario y el prototipo no coinciden, este contrato sigue
 al prototipo y lo deja asentado en la sección 8.
 
-**Última revisión: 01/10/2026**, por la actualización del prototipo. Cambia
+**Última revisión: 05/10/2026**, por decisiones del equipo: solo el abogado
+responsable registra actos, los estados procesales dejan de tener posición, la
+causa nace en el estado inicial "Iniciada", el vencimiento pasa a
+`currentState` y varios datos de la causa pasan a ser opcionales. El detalle
+está en la [sección 7.8](#78-revisión-de-v3-del-05102026).
+
+**Revisión anterior: 01/10/2026**, por la actualización del prototipo. Cambia
 cómo nace una causa (sin estado procesal), cómo se computa la prescripción
 (desde la fecha del hecho de cada calificación) y el filtro de estado del
 listado. El detalle está en la
@@ -97,8 +103,8 @@ se mantiene igual.
 | `GET`    | `/cases`                                              |      Sí       | Cualquier usuario autenticado | Consultar causas                         | Nuevo      |
 | `GET`    | `/cases/custom-states`                                |      Sí       | Cualquier usuario autenticado | Consultar estados escritos a mano        | Nuevo      |
 | `GET`    | `/cases/{caseId}`                                     |      Sí       | Cualquier usuario autenticado | Consultar detalle de causa               | Nuevo      |
-| `POST`   | `/cases/{caseId}/procedural-acts`                     |      Sí       | `LAWYER`                      | Registrar acto procesal                  | Nuevo      |
-| `GET`    | `/cases/{caseId}/procedural-acts/deadline-preview`    |      Sí       | `LAWYER`                      | Previsualizar el vencimiento de un acto  | Nuevo      |
+| `POST`   | `/cases/{caseId}/procedural-acts`                     |      Sí       | Abogado responsable de la causa | Registrar acto procesal                  | Nuevo      |
+| `GET`    | `/cases/{caseId}/procedural-acts/deadline-preview`    |      Sí       | Abogado responsable de la causa | Previsualizar el vencimiento de un acto  | Nuevo      |
 
 La columna **Rol** se deriva de la tabla de
 [permisos por perfil](#permisos-por-perfil) de la sección 4.
@@ -1599,11 +1605,10 @@ El recurso estado procesal posee la siguiente estructura:
 | `id`            | Integer        |  No  | Identificador único                                                          |
 | `name`          | String         |  No  | Denominación del estado, en castellano. Texto libre. Única dentro del fuero  |
 | `jurisdiction`  | `Jurisdiction` |  No  | Fuero al que pertenece                                                       |
-| `position`      | Integer        |  No  | Posición dentro del ciclo de vida del fuero, desde `1`. Única dentro del fuero |
 | `timeLimitDays` | Integer        |  No  | Días que abre el estado. `0` indica que no abre plazo                        |
 | `dayType`       | `DayType`      |  No  | Forma de cómputo de los días                                                 |
 | `terminal`      | Boolean        |  No  | Indica si el estado cierra el ciclo de vida de la causa                      |
-| `activeCases`   | Integer        |  No  | Causas activas que se encuentran en este estado. Calculado, sólo lectura     |
+| `activeCases`   | Integer        |  No  | Causas activas que se encuentran en este estado. Calculado, sólo lectura. Solo en las respuestas de `GET` |
 | `active`        | Boolean        |  No  | Estado de alta. Vale siempre `true`: ver `DELETE /procedural-states/{stateId}` |
 
 **Sobre `name`:** RN4 establece que los estados procesales dependen del fuero y
@@ -1612,16 +1617,23 @@ denominación es texto libre en castellano —"Designación de abogado defensor"
 "Oposición al requerimiento de elevación"— y no un valor de un conjunto
 cerrado. La unicidad es **por fuero**: "Archivada" existe en los tres.
 
-**Sobre `position`:** los estados de un fuero conforman una secuencia ordenada.
-Al insertar, mover o eliminar un estado, el backend renumera las posiciones
-afectadas; el cliente no envía esa renumeración. La posición ordena el ciclo,
-pero **no determina el estado de una causa nueva**: la causa nace sin estado
-procesal y lo fija su primer acto, que puede llevarla a cualquier estado no
-terminal del fuero (ver [`POST /cases`](#post-cases)).
+**Sobre el orden:** los estados procesales no tienen posición ni orden dentro
+del fuero: se listan en el orden en que se registraron. Una causa nueva no
+entra a ningún estado de la tabla: nace en el estado inicial, y su primer acto
+puede llevarla a cualquier estado no terminal del fuero (ver
+[`POST /cases`](#post-cases)).
+
+**Estado inicial.** Cada fuero tiene además un estado de sistema, **"Iniciada"**,
+en el que nace toda causa. No forma parte de este recurso: no aparece en los
+listados, `GET /procedural-states/{stateId}` responde `404` con su
+identificador, no se modifica ni se da de baja y no puede elegirse como destino
+de un acto. Su denominación está reservada: registrar en un fuero un estado
+llamado "Iniciada" responde `409 PROCEDURAL_STATE_ALREADY_EXISTS`.
 
 **Sobre `activeCases`:** a partir de esta versión se calcula según la
 definición de [causa activa](#causa-activa). En la tabla del prototipo es la
-columna "Causas".
+columna "Causas". Es un dato de consulta: se devuelve **solo en las respuestas
+de `GET`**; las respuestas de `POST` y `PATCH` no lo incluyen.
 
 **Sobre el efecto de los cambios en las causas:** renombrar un estado actualiza
 la denominación en todas las causas que lo tienen, porque la causa referencia
@@ -1644,7 +1656,6 @@ Registra un nuevo estado procesal (HU45).
 {
 	"name": "Oposición al requerimiento de elevación",
 	"jurisdiction": "CRIMINAL",
-	"position": 4,
 	"timeLimitDays": 5,
 	"dayType": "BUSINESS",
 	"terminal": false
@@ -1655,14 +1666,11 @@ Registra un nuevo estado procesal (HU45).
 | --------------- | -------------- | :-------: | ----------------- | --------------------------------------------------------------------------------- |
 | `name`          | String         |    Sí     | -                 | Única dentro del fuero                                                            |
 | `jurisdiction`  | `Jurisdiction` |    Sí     | -                 | Fuero válido                                                                      |
-| `position`      | Integer        |    No     | Última posición   | Entre `1` y la cantidad de estados del fuero más uno                              |
 | `timeLimitDays` | Integer        |    No     | `0`               | Mayor o igual a `0`                                                               |
 | `dayType`       | `DayType`      |    No     | `NONE`            | Debe ser `NONE` si `timeLimitDays` es `0`, y distinto de `NONE` si es mayor a `0` |
 | `terminal`      | Boolean        |    No     | `false`           | -                                                                                 |
 
-**Correspondencia con el formulario.** El selector "Ubicación en el ciclo" del
-prototipo se traduce a `position` del lado del cliente: "Al inicio" es `1`,
-"Después de *n*. …" es `n + 1` y "Al final" es omitir el campo. La opción
+**Correspondencia con el formulario.** La opción
 "Sin plazo" del selector "Se cuentan en días" corresponde a `dayType: "NONE"`
 con `timeLimitDays: 0`.
 
@@ -1676,11 +1684,9 @@ con `timeLimitDays: 0`.
 		"id": 12,
 		"name": "Oposición al requerimiento de elevación",
 		"jurisdiction": "CRIMINAL",
-		"position": 4,
 		"timeLimitDays": 5,
 		"dayType": "BUSINESS",
 		"terminal": false,
-		"activeCases": 0,
 		"active": true
 	}
 }
@@ -1745,7 +1751,8 @@ Obtiene una lista paginada de los estados procesales.
 **Rol requerido:** cualquier usuario autenticado.
 
 Los resultados se ordenan por `jurisdiction` y, dentro de cada fuero, por
-`position` ascendente.
+orden de registro (`id` ascendente). El estado inicial "Iniciada" no forma
+parte del listado.
 
 **Parámetros de consulta**
 
@@ -1763,7 +1770,7 @@ GET /api/v1/procedural-states?page=1&limit=100&jurisdiction=ADMINISTRATIVE
 ```
 
 La pestaña de un fuero en "Estados y plazos" y el selector de estado del
-registro de acto procesal piden el ciclo completo del fuero con `limit=100`.
+registro de acto procesal piden todos los estados del fuero con `limit=100`.
 
 **Respuestas**
 
@@ -1776,7 +1783,6 @@ registro de acto procesal piden el ciclo completo del fuero con `limit=100`.
 			"id": 1,
 			"name": "Notificación de imputación en sumario",
 			"jurisdiction": "ADMINISTRATIVE",
-			"position": 1,
 			"timeLimitDays": 10,
 			"dayType": "BUSINESS",
 			"terminal": false,
@@ -1787,7 +1793,6 @@ registro de acto procesal piden el ciclo completo del fuero con `limit=100`.
 			"id": 7,
 			"name": "Archivada",
 			"jurisdiction": "ADMINISTRATIVE",
-			"position": 7,
 			"timeLimitDays": 0,
 			"dayType": "NONE",
 			"terminal": true,
@@ -1870,7 +1875,6 @@ Obtiene la información de un estado procesal específico.
 		"id": 12,
 		"name": "Oposición al requerimiento de elevación",
 		"jurisdiction": "CRIMINAL",
-		"position": 4,
 		"timeLimitDays": 5,
 		"dayType": "BUSINESS",
 		"terminal": false,
@@ -1939,7 +1943,6 @@ Todos los campos son opcionales, aunque debe enviarse al menos uno.
 ```json
 {
 	"name": "Oposición al requerimiento de elevación a juicio",
-	"position": 5,
 	"timeLimitDays": 6,
 	"dayType": "BUSINESS",
 	"terminal": false
@@ -1950,7 +1953,6 @@ Todos los campos son opcionales, aunque debe enviarse al menos uno.
 | --------------- | -------------- | -------------------------------------------------------------------------- |
 | `name`          | String         | Única dentro del fuero                                                     |
 | `jurisdiction`  | `Jurisdiction` | Traslada el estado a otro fuero. Ver la restricción más abajo              |
-| `position`      | Integer        | Modificarla reordena el ciclo de vida del fuero                            |
 | `timeLimitDays` | Integer        | Mayor o igual a `0`                                                        |
 | `dayType`       | `DayType`      | Debe ser coherente con `timeLimitDays`                                     |
 | `terminal`      | Boolean        | -                                                                          |
@@ -1960,16 +1962,13 @@ selector "Fuero al que pertenece", por lo que V3 admite `jurisdiction` en el
 `PATCH` (V2 no lo admitía). Para no dejar causas de un fuero apuntando a un
 estado de otro, el traslado solo procede si **ninguna causa registra el
 estado**, ni como estado actual ni en sus actos procesales; en caso contrario
-se responde `422 PROCEDURAL_STATE_IN_USE`. Al trasladarse, el estado se ubica
-al final del ciclo del fuero de destino, salvo que se envíe `position`, y el
-fuero de origen renumera sus posiciones.
+se responde `422 PROCEDURAL_STATE_IN_USE`.
 
-**Correspondencia con el formulario.** El selector "Ubicación en el ciclo"
-("Posición *n* (actual)" o "Después de …") lo traduce el cliente a `position`;
-si el usuario deja la posición actual, el campo se omite. La opción "—" del
+**Correspondencia con el formulario.** La opción "—" del
 selector de tipo de día corresponde a `dayType: "NONE"`.
 
-El campo `activeCases` no es modificable: lo calcula el backend.
+El campo `activeCases` no es modificable y no se incluye en esta respuesta:
+se consulta con `GET`.
 
 **Respuestas**
 
@@ -1981,11 +1980,9 @@ El campo `activeCases` no es modificable: lo calcula el backend.
 		"id": 12,
 		"name": "Oposición al requerimiento de elevación a juicio",
 		"jurisdiction": "CRIMINAL",
-		"position": 5,
 		"timeLimitDays": 6,
 		"dayType": "BUSINESS",
 		"terminal": false,
-		"activeCases": 7,
 		"active": true
 	}
 }
@@ -1999,7 +1996,7 @@ El campo `activeCases` no es modificable: lo calcula el backend.
 		"code": "VALIDATION_ERROR",
 		"message": "Los datos enviados no son válidos.",
 		"details": {
-			"position": "Debe ser un número entero entre 1 y la cantidad de estados del fuero."
+			"dayType": "Debe ser NONE cuando el plazo es 0."
 		}
 	}
 }
@@ -2076,9 +2073,8 @@ Da de baja un estado procesal (HU46).
 **La baja es lógica, pero el cliente no la percibe.** El backend establece
 `active` en `false` y conserva el registro; para el cliente el estado deja de
 existir. No aparece en ningún listado, no puede elegirse como destino de un
-acto procesal y `GET /procedural-states/{stateId}` responde `404`. Las
-posiciones de los estados siguientes del fuero se renumeran. No existe forma de
-consultarlo ni de reactivarlo desde la API.
+acto procesal y `GET /procedural-states/{stateId}` responde `404`. No existe
+forma de consultarlo ni de reactivarlo desde la API.
 
 **La baja procede aunque haya causas en ese estado.** Es un cambio respecto de
 V2, que la rechazaba con `409 PROCEDURAL_STATE_HAS_DEPENDENCIES`. El prototipo
@@ -2161,8 +2157,8 @@ autenticado; la escritura (`POST`, `PATCH`, `DELETE`) requiere
 La calificación legal es el encuadre jurídico del hecho imputado y **determina
 el plazo de prescripción de la acción** (glosario del Plan de Proyecto). Forma
 parte de la parametrización jurídica (EP-03), junto con los estados procesales.
-Una causa penal registra al menos una; si concurren varios delitos, registra
-una por cada uno, y cada una computa su propia prescripción desde la fecha del
+Una causa penal puede registrar una o más, o ninguna (es opcional); si
+concurren varios delitos, registra una por cada uno, y cada una computa su propia prescripción desde la fecha del
 hecho que se carga junto con ella (ver [`/cases`](#37-causas-cases)).
 
 La lectura se abre porque el alta de causa, que opera cualquier perfil, ofrece
@@ -2179,7 +2175,7 @@ El recurso calificación legal posee la siguiente estructura:
 | `id`                 | Integer |  No  | Identificador único                                                                 |
 | `name`               | String  |  No  | Denominación, incluida la norma: `Hurto simple — art. 162 CP`. Única entre las vigentes |
 | `prescriptionMonths` | Integer |  No  | Plazo de prescripción de la acción, expresado en meses                              |
-| `activeCases`        | Integer |  No  | Causas activas que la registran. Calculado, sólo lectura                            |
+| `activeCases`        | Integer |  No  | Causas activas que la registran. Calculado, sólo lectura. Solo en las respuestas de `GET` |
 | `active`             | Boolean |  No  | Estado de alta. Vale siempre `true`: ver `DELETE /legal-qualifications/{qualificationId}` |
 
 **Sobre `name`:** el prototipo carga en un único campo la denominación del
@@ -2233,7 +2229,6 @@ Registra una nueva calificación legal.
 		"id": 6,
 		"name": "Hurto simple — art. 162 CP",
 		"prescriptionMonths": 24,
-		"activeCases": 0,
 		"active": true
 	}
 }
@@ -2468,7 +2463,8 @@ Todos los campos son opcionales, aunque debe enviarse al menos uno.
 | `name`               | String  | Mismas restricciones que en el alta                            |
 | `prescriptionMonths` | Integer | Mayor o igual a `1`. Recalcula la prescripción de sus causas   |
 
-El campo `activeCases` no es modificable: lo calcula el backend.
+El campo `activeCases` no es modificable y no se incluye en esta respuesta:
+se consulta con `GET`.
 
 **Respuestas**
 
@@ -2480,7 +2476,6 @@ El campo `activeCases` no es modificable: lo calcula el backend.
 		"id": 1,
 		"name": "Robo calificado — art. 167 inc. 2 CP",
 		"prescriptionMonths": 96,
-		"activeCases": 3,
 		"active": true
 	}
 }
@@ -2952,21 +2947,21 @@ El recurso causa posee la siguiente estructura:
 | Campo                  | Tipo                          | Nulo | Descripción                                                                                   |
 | ---------------------- | ----------------------------- | :--: | --------------------------------------------------------------------------------------------- |
 | `id`                   | Integer                       |  No  | Identificador único interno                                                                   |
-| `sacNumber`            | String                        |  No  | Número de SAC: 8 dígitos. Identifica la causa de forma unívoca (RN2). No modificable          |
+| `sacNumber`            | String \| `null`              |  Sí  | Número de SAC: 8 dígitos. Opcional. Si se informa, es único en todo el sistema (RN2)          |
 | `caption`              | String                        |  No  | Carátula                                                                                      |
 | `court`                | String \| `null`              |  Sí  | Tribunal o dependencia                                                                        |
 | `jurisdiction`         | `Jurisdiction`                |  No  | Fuero. Define el ciclo de vida y la tabla de plazos aplicable                                 |
 | `proceduralRole`       | `ProceduralRole`              |  No  | Rol procesal del cliente                                                                      |
 | `instructorName`       | String \| `null`              |  Sí  | Instructor de la causa: quien lleva la instrucción en el tribunal o la dependencia            |
-| `instructorPhone`      | String \| `null`              |  Sí  | Teléfono e interno del instructor. Texto libre: `0351 448-1200 int. 214`                      |
+| `instructorPhone`      | String \| `null`              |  Sí  | Teléfono del instructor. Texto libre: `0351 448-1200`                                          |
+| `instructorExtension`  | String \| `null`              |  Sí  | Número de interno del instructor. Texto libre: `214`                                           |
 | `counterparty`         | String \| `null`              |  Sí  | Contraparte u organismo. Solo en `ADMINISTRATIVE` y `AMPARO`; en `CRIMINAL` vale `null`       |
 | `subjectMatter`        | String \| `null`              |  Sí  | Objeto del reclamo (`ADMINISTRATIVE`) u objeto del amparo (`AMPARO`): el motivo por el que se inicia la causa, redactado por el abogado. En `CRIMINAL` vale `null` |
 | `client`               | Object                        |  No  | Cliente de la causa. Ver estructura más abajo                                                 |
 | `responsibleLawyer`    | Object                        |  No  | Abogado responsable (RN3): `id`, `fullName`, `registrationNumber`                             |
-| `legalQualifications`  | Object[]                      |  No  | Calificaciones legales, cada una con su fecha del hecho y su prescripción. Al menos una en `CRIMINAL`; vacío en los demás |
+| `legalQualifications`  | Object[]                      |  No  | Calificaciones legales, cada una con su fecha del hecho y su prescripción. Opcional en `CRIMINAL`; vacío en los demás |
 | `startDate`            | String (fecha ISO 8601)       |  No  | Fecha de inicio de la causa. No interviene en el cómputo de la prescripción                   |
-| `currentState`         | Object \| `null`              |  Sí  | Estado procesal actual. `null` mientras la causa no tenga actos procesales. Ver estructura más abajo |
-| `nextDeadline`         | Object \| `null`              |  Sí  | Plazo abierto de la causa. `null` si no tiene ninguno. Ver estructura más abajo               |
+| `currentState`         | Object                        |  No  | Estado procesal actual, con el vencimiento del acto que llevó la causa a él. Ver estructura más abajo |
 | `active`               | Boolean                       |  No  | Estado de alta. Vale siempre `true` en esta versión                                           |
 
 **`client`** reúne los datos que muestra la tarjeta "Cliente" del detalle:
@@ -2987,36 +2982,41 @@ mismo significado que en [`/clients`](#36-clientes-clients).
 Una calificación dada de baja **sigue apareciendo** en las causas que la
 registran (ver [`DELETE /legal-qualifications`](#delete-legal-qualificationsqualificationid)).
 
+Una causa penal puede registrarse sin calificaciones legales: en ese caso
+`legalQualifications` llega vacío y la causa no computa prescripción hasta que
+se le cargue una.
+
 **`currentState`**
 
-Vale `null` desde el alta hasta que se registra el primer acto procesal: la
-causa todavía no entró al ciclo de vida del fuero. El prototipo lo muestra con
-el rótulo **"Sin acto procesal"**, que es un estado de sistema: no pertenece a
-la tabla de ningún fuero, no se da de alta ni se modifica, y el rótulo lo pone
-el cliente. Cuando no es `null`, tiene esta estructura:
+Nunca es `null`. Toda causa nace en el **estado inicial** de su fuero,
+**"Iniciada"**, y permanece en él hasta que se registra el primer acto procesal.
+El estado inicial es un estado de sistema: existe uno por fuero, no forma parte
+del listado de [`/procedural-states`](#34-estados-procesales-procedural-states),
+no se modifica ni se da de baja, no puede ser destino de un acto y **no se
+muestra en la línea de tiempo de la causa**, porque no lo originó ningún acto.
 
-| Campo               | Tipo              | Descripción                                                                   |
-| ------------------- | ----------------- | ----------------------------------------------------------------------------- |
-| `proceduralStateId` | Integer \| `null` | Estado de la tabla del fuero. `null` si el estado fue escrito a mano          |
-| `name`              | String            | Denominación a mostrar                                                        |
-| `custom`            | Boolean           | `true` si es un estado escrito a mano para esta causa (ver §3.8)              |
+El vencimiento de la causa forma parte de su estado actual: es el que abrió el
+acto procesal que la llevó a ese estado.
 
-**`nextDeadline`**
-
-| Campo                    | Tipo                    | Descripción                                                                  |
-| ------------------------ | ----------------------- | ---------------------------------------------------------------------------- |
-| `proceduralActId`        | Integer                 | Acto procesal que abrió el plazo                                             |
-| `dueDate`                | String (fecha ISO 8601) | Fecha de vencimiento                                                         |
-| `businessDaysRemaining`  | Integer                 | Días hábiles desde hoy hasta `dueDate`. `0` vence hoy; negativo, ya vencido  |
-| `manuallyAdjusted`       | Boolean                 | `true` si el vencimiento se ajustó a mano al registrar el acto               |
+| Campo                   | Tipo                            | Descripción                                                                   |
+| ----------------------- | ------------------------------- | ----------------------------------------------------------------------------- |
+| `proceduralStateId`     | Integer \| `null`               | Estado de la tabla del fuero. `null` si es el estado inicial o un estado escrito a mano |
+| `name`                  | String                          | Denominación a mostrar. "Iniciada" en el estado inicial                       |
+| `custom`                | Boolean                         | `true` si es un estado escrito a mano para esta causa (ver §3.8)              |
+| `initial`               | Boolean                         | `true` si es el estado inicial                                                |
+| `proceduralActId`       | Integer \| `null`               | Acto procesal que llevó la causa a este estado. `null` en el estado inicial   |
+| `dueDate`               | String (fecha ISO 8601) \| `null` | Vencimiento vigente del plazo que abrió ese acto. `null` si no abrió plazo o si es el estado inicial |
+| `businessDaysRemaining` | Integer \| `null`               | Días hábiles desde hoy hasta `dueDate`. `0` vence hoy; negativo, ya vencido. `null` si `dueDate` es `null` |
+| `manuallyAdjusted`      | Boolean                         | `true` si el vencimiento se ajustó a mano al registrar el acto                |
 
 Con `businessDaysRemaining` el cliente arma los rótulos del prototipo: "Vencido
 hace 2 días", "Vence hoy", "En 3 días hábiles". Se calcula en cada respuesta,
 contra la fecha del día en Córdoba (ver [§4](#cómputo-de-días)).
 
 Un plazo vencido **sigue abierto** —y la causa lo sigue mostrando— hasta que un
-acto procesal posterior la lleve a otro estado. Una causa sin plazo abierto es
-una de las "causas para impulsar" del prototipo.
+acto procesal posterior la lleve a otro estado. Una causa sin vencimiento
+(`currentState.dueDate` en `null`) es una de las "causas para impulsar" del
+prototipo.
 
 **Sobre la prescripción:** solo se computa en el fuero `CRIMINAL`; en los demás
 el prototipo informa "No aplica al fuero". **Cada calificación computa la suya
@@ -3054,7 +3054,8 @@ Causa penal:
 	"caption": "GÓMEZ, Ariel Fernando p.s.a. Robo calificado",
 	"court": "Juzgado de Control N° 3 · Córdoba",
 	"instructorName": "Dra. Verónica Ledesma",
-	"instructorPhone": "0351 448-1200 int. 214",
+	"instructorPhone": "0351 448-1200",
+	"instructorExtension": "214",
 	"clientId": 1,
 	"proceduralRole": "DEFENSE",
 	"legalQualifications": [
@@ -3077,7 +3078,8 @@ Amparo:
 	"caption": "MOYANO, Daniela c/ APROSS — Amparo de salud",
 	"court": "Juzgado Civil y Comercial 37ª Nom.",
 	"instructorName": "Dra. Inés Ferrero",
-	"instructorPhone": "0351 448-1600 int. 517",
+	"instructorPhone": "0351 448-1600",
+	"instructorExtension": "517",
 	"clientId": 6,
 	"proceduralRole": "PLAINTIFF",
 	"counterparty": "APROSS",
@@ -3089,15 +3091,16 @@ Amparo:
 
 | Campo                   | Tipo             | Requerido   | Restricciones                                                                                     |
 | ----------------------- | ---------------- | :---------: | ------------------------------------------------------------------------------------------------- |
-| `sacNumber`             | String           |     Sí      | Exactamente 8 dígitos. Único en todo el sistema                                                   |
+| `sacNumber`             | String           |     No      | Exactamente 8 dígitos. Si se envía, único en todo el sistema                                      |
 | `jurisdiction`          | `Jurisdiction`   |     Sí      | Fuero válido                                                                                      |
 | `caption`               | String           |     Sí      | Hasta 255 caracteres                                                                              |
 | `court`                 | String           |     No      | Hasta 255 caracteres                                                                              |
 | `instructorName`        | String           |     No      | Hasta 150 caracteres                                                                              |
 | `instructorPhone`       | String           |     No      | Hasta 50 caracteres                                                                               |
+| `instructorExtension`   | String           |     No      | Número de interno. Hasta 20 caracteres                                                            |
 | `clientId`              | Integer          |     Sí      | Cliente vigente                                                                                   |
 | `proceduralRole`        | `ProceduralRole` |     Sí      | Debe corresponder al fuero (ver [`ProceduralRole`](#proceduralrole-nuevo))                        |
-| `legalQualifications`   | Object[]         | Condicional | Obligatorio en `CRIMINAL`, con al menos un elemento y sin calificaciones repetidas. No se envía en los demás fueros. Ver estructura más abajo |
+| `legalQualifications`   | Object[]         |     No      | Opcional en `CRIMINAL`; si se envía, sin calificaciones repetidas. No se envía en los demás fueros. Ver estructura más abajo |
 | `counterparty`          | String           |     No      | Hasta 255 caracteres. Solo en `ADMINISTRATIVE` y `AMPARO`; no se envía en `CRIMINAL`              |
 | `subjectMatter`         | String           | Condicional | Obligatorio en `ADMINISTRATIVE` y `AMPARO`, no vacío, hasta 800 caracteres. No se envía en `CRIMINAL` |
 | `responsibleLawyerId`   | Integer          |     Sí      | Abogado vigente (RN3)                                                                             |
@@ -3122,14 +3125,15 @@ de una calificación se informan sobre `legalQualifications`.
 
 **Efectos del alta**
 
-- **Sin estado procesal.** La causa nace con `currentState` en `null` ("Sin
-  acto procesal"): el alta no deriva ningún estado de la tabla del fuero. El
-  estado lo fija el primer acto procesal que se registre. Por eso el alta no
-  depende de que el fuero tenga estados cargados.
-- **Sin plazo abierto.** El alta no abre plazo: `nextDeadline` vale `null`
-  hasta que un acto procesal abra uno.
+- **Estado inicial.** La causa nace en el estado inicial de su fuero,
+  "Iniciada" (`currentState.initial` en `true`). El estado de la tabla lo fija
+  el primer acto procesal que se registre. Por eso el alta no depende de que el
+  fuero tenga estados cargados.
+- **Sin vencimiento.** El estado inicial no abre plazo: `currentState.dueDate`
+  vale `null` hasta que un acto procesal abra uno.
 - **Ciclo de vida vacío.** El alta no es un movimiento del ciclo de vida: el
-  ciclo empieza con el primer acto procesal.
+  estado inicial no aparece en la línea de tiempo, que empieza con el primer
+  acto procesal.
 - **Carátula sugerida.** El panel "Carátula sugerida" del prototipo lo arma el
   cliente con el cliente elegido, las calificaciones o la contraparte; el
   backend recibe la carátula final en `caption`.
@@ -3152,7 +3156,8 @@ tienen campo en esta versión.
 		"jurisdiction": "CRIMINAL",
 		"proceduralRole": "DEFENSE",
 		"instructorName": "Dra. Verónica Ledesma",
-		"instructorPhone": "0351 448-1200 int. 214",
+		"instructorPhone": "0351 448-1200",
+		"instructorExtension": "214",
 		"counterparty": null,
 		"subjectMatter": null,
 		"client": {
@@ -3180,8 +3185,16 @@ tienen campo en esta versión.
 			}
 		],
 		"startDate": "2021-03-12",
-		"currentState": null,
-		"nextDeadline": null,
+		"currentState": {
+			"proceduralStateId": null,
+			"name": "Iniciada",
+			"custom": false,
+			"initial": true,
+			"proceduralActId": null,
+			"dueDate": null,
+			"businessDaysRemaining": null,
+			"manuallyAdjusted": false
+		},
 		"active": true
 	}
 }
@@ -3196,7 +3209,6 @@ tienen campo en esta versión.
 		"message": "Los datos enviados no son válidos.",
 		"details": {
 			"sacNumber": "Debe contener exactamente 8 dígitos.",
-			"legalQualifications": "Las causas penales requieren al menos una calificación legal.",
 			"proceduralRole": "El rol procesal no corresponde al fuero."
 		}
 	}
@@ -3271,9 +3283,9 @@ Obtiene una lista paginada de las causas (HU20).
 
 **Rol requerido:** cualquier usuario autenticado.
 
-Los resultados se ordenan por urgencia: primero las causas con plazo abierto,
-por `nextDeadline.dueDate` ascendente (las vencidas quedan primeras), y luego
-las que no tienen plazo abierto, por `sacNumber`.
+Los resultados se ordenan por urgencia: primero las causas con vencimiento,
+por `currentState.dueDate` ascendente (las vencidas quedan primeras), y luego
+las que no tienen vencimiento, por `id`.
 
 **Parámetros de consulta**
 
@@ -3286,9 +3298,9 @@ las que no tienen plazo abierto, por `sacNumber`.
 | `responsibleLawyerId` | Integer |    No     | -                 | -                               | Filtro "Todos los responsables"                                             |
 | `proceduralStateId`   | Integer |    No     | -                 | Excluyente con `customState` y `withoutProceduralActs` | Filtro "Todos los estados procesales": estado de la tabla |
 | `customState`         | String  |    No     | -                 | Excluyente con `proceduralStateId` y `withoutProceduralActs` | Mismo filtro, grupo "Escritos a mano en causas". Coincidencia exacta sin distinguir mayúsculas |
-| `withoutProceduralActs` | Boolean |  No     | -                 | Excluyente con `proceduralStateId` y `customState` | Mismo filtro, grupo "Causas nuevas", opción "Sin acto procesal". `true`: solo causas con `currentState` en `null` |
+| `withoutProceduralActs` | Boolean |  No     | -                 | Excluyente con `proceduralStateId` y `customState` | Mismo filtro, grupo "Causas nuevas", opción "Iniciada". `true`: solo causas en el estado inicial (`currentState.initial` en `true`) |
 | `clientId`            | Integer |    No     | -                 | -                               | Causas de un cliente (HU9)                                                  |
-| `openDeadline`        | Boolean |    No     | -                 | -                               | `true`: solo causas con plazo abierto, incluidas las vencidas. Botón "Solo con plazo por vencer" |
+| `openDeadline`        | Boolean |    No     | -                 | -                               | `true`: solo causas con vencimiento (`currentState.dueDate` no nulo), incluidas las vencidas. Botón "Solo con plazo por vencer" |
 
 Ejemplo:
 
@@ -3309,11 +3321,11 @@ una sola, los tres son excluyentes entre sí:
 | Grupo del desplegable            | Parámetro                       |
 | -------------------------------- | ------------------------------- |
 | "Fuero Penal", "Fuero Administrativo", "Fuero Amparo" | `proceduralStateId` |
-| "Causas nuevas" → "Sin acto procesal" | `withoutProceduralActs=true` |
+| "Causas nuevas" → "Iniciada"     | `withoutProceduralActs=true` |
 | "Escritos a mano en causas"      | `customState`                   |
 
-"Sin acto procesal" no depende del fuero: combinado con `jurisdiction`
-devuelve las causas de ese fuero que todavía no tienen actos.
+"Iniciada" no depende del fuero: combinado con `jurisdiction` devuelve las
+causas de ese fuero que todavía están en el estado inicial.
 
 **Respuestas**
 
@@ -3330,7 +3342,8 @@ devuelve las causas de ese fuero que todavía no tienen actos.
 			"jurisdiction": "ADMINISTRATIVE",
 			"proceduralRole": "DEFENSE",
 			"instructorName": "Crio. Insp. Raúl Bazán",
-			"instructorPhone": "0351 428-6000 int. 3120",
+			"instructorPhone": "0351 428-6000",
+			"instructorExtension": "3120",
 			"counterparty": null,
 			"subjectMatter": "Descargo frente a la imputación de falta grave por abandono de servicio y pedido de sobreseimiento.",
 			"client": {
@@ -3352,9 +3365,8 @@ devuelve las causas de ese fuero que todavía no tienen actos.
 			"currentState": {
 				"proceduralStateId": 4,
 				"name": "Alegato",
-				"custom": false
-			},
-			"nextDeadline": {
+				"custom": false,
+				"initial": false,
 				"proceduralActId": 18,
 				"dueDate": "2026-09-11",
 				"businessDaysRemaining": -2,
@@ -3370,7 +3382,8 @@ devuelve las causas de ese fuero que todavía no tienen actos.
 			"jurisdiction": "CRIMINAL",
 			"proceduralRole": "DEFENSE",
 			"instructorName": "Dra. Verónica Ledesma",
-			"instructorPhone": "0351 448-1200 int. 214",
+			"instructorPhone": "0351 448-1200",
+			"instructorExtension": "214",
 			"counterparty": null,
 			"subjectMatter": null,
 			"client": {
@@ -3401,9 +3414,8 @@ devuelve las causas de ese fuero que todavía no tienen actos.
 			"currentState": {
 				"proceduralStateId": 12,
 				"name": "Oposición al requerimiento de elevación",
-				"custom": false
-			},
-			"nextDeadline": {
+				"custom": false,
+				"initial": false,
 				"proceduralActId": 31,
 				"dueDate": "2026-09-16",
 				"businessDaysRemaining": 1,
@@ -3424,9 +3436,9 @@ devuelve las causas de ese fuero que todavía no tienen actos.
 Los valores de `businessDaysRemaining` del ejemplo corresponden a una consulta
 realizada el martes 15/09/2026, la fecha que usa el prototipo.
 
-Una causa que todavía no tiene actos procesales llega con `currentState` y
-`nextDeadline` en `null` (ver el ejemplo de [`POST /cases`](#post-cases)); la
-tabla la muestra como "Sin acto procesal" y "Sin plazo abierto".
+Una causa que todavía no tiene actos procesales llega con `currentState` en el
+estado inicial ("Iniciada", `initial` en `true`) y sin vencimiento (ver el
+ejemplo de [`POST /cases`](#post-cases)).
 
 **`400 Bad Request`**
 
@@ -3492,9 +3504,9 @@ Alimenta el grupo "Escritos a mano en causas" del filtro de estado procesal del
 listado. Esos valores no están en la tabla de estados del fuero y no pueden
 deducirse de una página del listado, por eso tienen su propio endpoint.
 
-"Sin acto procesal" **no** forma parte de esta lista: no es un estado escrito a
-mano, sino la ausencia de estado (`currentState` en `null`), y el filtro lo
-ofrece como opción fija del grupo "Causas nuevas".
+"Iniciada" **no** forma parte de esta lista: no es un estado escrito a mano,
+sino el estado inicial de la causa, y el filtro lo ofrece como opción fija del
+grupo "Causas nuevas".
 
 **Parámetros de consulta**
 
@@ -3563,11 +3575,11 @@ prototipo pertenecen a historias de sprints posteriores (ver
 [§8.3](#83-visto-en-el-prototipo-y-fuera-de-alcance)).
 
 El prototipo lleva al detalle después de registrar una causa y después de
-registrar un acto. En una causa recién registrada `currentState` vale `null`:
-el encabezado muestra "Sin acto procesal" y ofrece registrar el primer acto.
-Después de registrar un acto, el detalle refleja el estado y el plazo nuevos en
-`currentState` y `nextDeadline`; el listado de los actos (HU27) llega en el
-Sprint 3.
+registrar un acto. En una causa recién registrada `currentState` es el estado
+inicial ("Iniciada"): el encabezado lo muestra y ofrece registrar el primer
+acto. Después de registrar un acto, el detalle refleja el estado y el
+vencimiento nuevos en `currentState`; el listado de los actos (HU27) llega en
+el Sprint 3.
 
 **Parámetros de ruta**
 
@@ -3589,7 +3601,8 @@ Sprint 3.
 		"jurisdiction": "CRIMINAL",
 		"proceduralRole": "DEFENSE",
 		"instructorName": "Dra. Verónica Ledesma",
-		"instructorPhone": "0351 448-1200 int. 214",
+		"instructorPhone": "0351 448-1200",
+		"instructorExtension": "214",
 		"counterparty": null,
 		"subjectMatter": null,
 		"client": {
@@ -3620,9 +3633,8 @@ Sprint 3.
 		"currentState": {
 			"proceduralStateId": 12,
 			"name": "Oposición al requerimiento de elevación",
-			"custom": false
-		},
-		"nextDeadline": {
+			"custom": false,
+			"initial": false,
 			"proceduralActId": 31,
 			"dueDate": "2026-09-16",
 			"businessDaysRemaining": 1,
@@ -3676,15 +3688,17 @@ Sprint 3.
 ### 3.8 Actos procesales: /cases/{caseId}/procedural-acts
 
 **Autenticación requerida:** Sí.
-**Rol requerido:** `LAWYER` para el registro y su previsualización. La
-consulta de actos (HU27, sprints posteriores) será para los tres perfiles.
+**Rol requerido:** abogado responsable de la causa, para el registro y su
+previsualización. La consulta de actos (HU27, sprints posteriores) será para
+los tres perfiles.
 
 El acto procesal es lo que **mueve la causa**: al registrarlo se elige el
 estado procesal al que pasa, y el plazo sale de la tabla del fuero (RN5). El
-**primer acto** es además el que le da a la causa su primer estado: hasta
-entonces la causa está "Sin acto procesal" (`currentState` en `null`). Solo
-el abogado registra actos (ver [permisos por perfil](#permisos-por-perfil)), y
-el acto se aplica a la causa en el momento: no hay confirmación posterior. La
+**primer acto** es además el que saca a la causa del estado inicial: hasta
+entonces la causa está en "Iniciada". Solo el **abogado responsable de la
+causa** registra sus actos —ningún otro usuario, ni siquiera un
+`ADMINISTRATOR`— (ver [permisos por perfil](#permisos-por-perfil)), y el acto
+se aplica a la causa en el momento: no hay confirmación posterior. La
 consulta, la modificación y la anulación de actos (HU27, HU28 y HU29)
 corresponden a sprints posteriores; esta versión solo incorpora el registro
 (HU26) y su previsualización.
@@ -3695,7 +3709,7 @@ El recurso acto procesal posee la siguiente estructura:
 | ------------------ | ----------------------------- | :--: | ----------------------------------------------------------------------------------- |
 | `id`               | Integer                       |  No  | Identificador único                                                                 |
 | `caseId`           | Integer                       |  No  | Causa a la que pertenece                                                            |
-| `resultingState`   | Object                        |  No  | Estado al que pasa la causa. Misma estructura que `currentState` de la causa, pero nunca `null` |
+| `resultingState`   | Object                        |  No  | Estado al que pasa la causa: `proceduralStateId`, `name` y `custom`, con el mismo significado que en `currentState`. Nunca es el estado inicial |
 | `actDate`          | String (fecha ISO 8601)       |  No  | Fecha del acto                                                                      |
 | `notificationDate` | String (fecha ISO 8601) \| `null` | Sí | Fecha de notificación. Solo en el fuero `ADMINISTRATIVE` (RN6)                  |
 | `notes`            | String \| `null`              |  Sí  | Observaciones: situaciones que el estado no alcanza a expresar                      |
@@ -3734,8 +3748,11 @@ reflejar "situaciones que el estado no alcanza a expresar". Ese estado:
 
 Registra un acto procesal sobre la causa (HU26).
 
-**Rol requerido:** `LAWYER`. Un usuario con varios roles puede registrar
-actos si `LAWYER` está entre ellos.
+**Rol requerido:** abogado responsable de la causa. El usuario autenticado
+debe tener una ficha de abogado (`lawyerId`) igual a `responsibleLawyer.id` de
+la causa. Ningún otro usuario puede registrar actos sobre ella, aunque tenga el
+rol `LAWYER` o `ADMINISTRATOR`: la respuesta es `403 FORBIDDEN`. Si la causa no
+existe, la respuesta es `404 CASE_NOT_FOUND`.
 
 **Parámetros de ruta**
 
@@ -3810,17 +3827,16 @@ de un acto: el combo del prototipo los excluye.
 **Efecto sobre la causa**
 
 - El acto se aplica al registrarse: la causa pasa al estado del acto
-  (`currentState`), y el plazo que abre el acto reemplaza al plazo abierto
-  anterior (`nextDeadline`). Si el acto no abre plazo, la causa queda sin
-  plazo abierto (`nextDeadline` en `null`).
-- **Primer acto.** En una causa sin actos (`currentState` en `null`), el acto
-  la hace entrar al ciclo de vida del fuero: `currentState` deja de ser `null`.
-  El primer acto no tiene restricciones propias: puede llevar la causa a
-  cualquier estado no terminal del fuero, no necesariamente al de posición `1`,
-  o a un estado escrito a mano.
+  (`currentState`), y su vencimiento pasa a ser el que abre el acto
+  (`currentState.dueDate`). Si el acto no abre plazo, la causa queda sin
+  vencimiento (`dueDate` en `null`).
+- **Primer acto.** En una causa en el estado inicial, el acto la hace entrar al
+  ciclo de vida del fuero: `currentState.initial` pasa a `false`. El primer
+  acto no tiene restricciones propias: puede llevar la causa a cualquier estado
+  no terminal del fuero o a un estado escrito a mano.
 - La causa toma el estado del acto **con la fecha de acto más reciente**. Si se carga un acto con fecha anterior al último registrado —por
   ejemplo, al completar la historia de una causa vieja—, el acto queda
-  asentado pero no retrocede el estado actual ni reemplaza el plazo abierto.
+  asentado pero no retrocede el estado actual ni reemplaza el vencimiento vigente.
 
 El adjunto de la cédula o comprobante ("Adjuntar cédula o comprobante") se
 guarda en la carpeta de Drive de la causa, que llega con HU39 (Sprint 3); no
@@ -3948,7 +3964,7 @@ Con estado escrito a mano y vencimiento manual:
 {
 	"error": {
 		"code": "FORBIDDEN",
-		"message": "Se requiere el rol LAWYER para realizar esta operación.",
+		"message": "Solo el abogado responsable de la causa puede registrar actos procesales.",
 		"details": null
 	}
 }
@@ -3984,7 +4000,8 @@ Con estado escrito a mano y vencimiento manual:
 
 Calcula el vencimiento que tendría un acto procesal, **sin registrarlo**.
 
-**Rol requerido:** `LAWYER`, el mismo que el registro del acto al que sirve.
+**Rol requerido:** abogado responsable de la causa, igual que el registro del
+acto al que sirve.
 
 Alimenta el panel "Cómputo del plazo" del formulario de HU26, que muestra el
 vencimiento mientras el usuario completa los datos. Existe para que el cálculo
@@ -4067,7 +4084,7 @@ el cliente muestra "Este acto no dispara un plazo de presentación".
 {
 	"error": {
 		"code": "FORBIDDEN",
-		"message": "Se requiere el rol LAWYER para realizar esta operación.",
+		"message": "Solo el abogado responsable de la causa puede registrar actos procesales.",
 		"details": null
 	}
 }
@@ -4108,8 +4125,12 @@ Authorization: Bearer <accessToken>
 Un endpoint indicado con un rol (`ADMINISTRATOR`, `LAWYER` o `SECRETARY`)
 requiere que el usuario autenticado lo posea. Un usuario con varios roles
 satisface el requisito si el rol exigido se encuentra entre ellos: por ejemplo,
-un usuario `ADMINISTRATOR` y `LAWYER` puede registrar actos procesales. Si no
-lo posee, la respuesta es `403 FORBIDDEN`.
+un usuario `ADMINISTRATOR` y `SECRETARY` puede administrar usuarios y registrar
+clientes. Si no lo posee, la respuesta es `403 FORBIDDEN`.
+
+Los **actos procesales** son la excepción: no alcanza con un rol. Solo los
+registra el abogado responsable de la causa, comparando el `lawyerId` del
+usuario con el responsable de la causa (ver [§3.8](#38-actos-procesales-casescaseidprocedural-acts)).
 
 #### Permisos por perfil
 
@@ -4146,6 +4167,10 @@ perfiles porque el alta de causa, que opera cualquiera de ellos, necesita el
 listado para elegir al responsable; la **administración** (alta, modificación
 y baja) es solo del Administrador, como indica la tabla.
 
+**Actos procesales.** La fila "Registrar, modificar y dar de baja actos
+procesales" se restringe además a cada causa: solo el abogado responsable opera
+sus actos. Ningún otro abogado ni el `ADMINISTRATOR` puede hacerlo.
+
 #### Matriz por recurso
 
 | Recurso                            | Lectura (`GET`)               | Escritura                                                        |
@@ -4157,7 +4182,7 @@ y baja) es solo del Administrador, como indica la tabla.
 | `/legal-qualifications`            | Cualquier usuario autenticado | `ADMINISTRATOR`                                                  |
 | `/clients`                         | Cualquier usuario autenticado | `SECRETARY`                                                      |
 | `/cases`                           | Cualquier usuario autenticado | Cualquier usuario autenticado                                    |
-| `/cases/{caseId}/procedural-acts`  | `LAWYER` (`deadline-preview`) | `LAWYER`                                                         |
+| `/cases/{caseId}/procedural-acts`  | Abogado responsable de la causa (`deadline-preview`) | Abogado responsable de la causa             |
 
 RN11 establece que todo el estudio accede a todas las causas: la diferencia
 entre perfiles está en lo que pueden **operar**, no en lo que pueden **ver**.
@@ -4197,10 +4222,10 @@ aplican todos los campos `activeCases` del contrato:
 
 Un estado escrito a mano no es terminal: la causa que lo tiene es activa.
 
-Una causa que todavía no tiene actos procesales (`currentState` en `null`)
-también es activa: cuenta para su abogado, su cliente y sus calificaciones
-legales, pero no para el `activeCases` de ningún estado procesal, porque no
-está en ninguno.
+Una causa en el estado inicial ("Iniciada") también es activa: cuenta para su
+abogado, su cliente y sus calificaciones legales. No cuenta para el
+`activeCases` de ningún estado procesal, porque el estado inicial no forma
+parte del listado de estados.
 
 ### Cómputo de días
 
@@ -4410,10 +4435,10 @@ equipo.
 | `GET /lawyers`, `GET /lawyers/{lawyerId}` | `ADMINISTRATOR` | Cualquier usuario autenticado | HU13 asigna la consulta a la Secretaría; el alta de causa necesita el listado de responsables |
 | `GET /procedural-states`, `GET /procedural-states/{stateId}` | `ADMINISTRATOR` | Cualquier usuario autenticado | HU16 (consultar estados y plazos) es de los tres perfiles, y el registro de actos necesita los estados del fuero |
 | `POST /clients` | - | `SECRETARY` | Tabla de [permisos por perfil](#permisos-por-perfil): administrar clientes es solo de la Secretaría |
-| `POST /cases/{caseId}/procedural-acts` y `deadline-preview` | - | `LAWYER` | Tabla de permisos por perfil: solo el abogado registra actos procesales |
+| `POST /cases/{caseId}/procedural-acts` y `deadline-preview` | - | Abogado responsable de la causa | Solo el abogado responsable registra actos procesales ([§7.8](#78-revisión-de-v3-del-05102026)) |
 | `PATCH /procedural-states/{stateId}` | `jurisdiction` no modificable | Modificable si ninguna causa registra el estado | El formulario del prototipo ofrece el selector de fuero |
 | `DELETE /procedural-states/{stateId}` | `409` si el estado tenía causas | La baja procede; las causas conservan el estado | Nota del prototipo al eliminar un estado en uso |
-| `POST /procedural-states` | `position` mayor o igual a `1` | Entre `1` y la cantidad de estados del fuero más uno | Evita huecos en la secuencia |
+| `POST /procedural-states` | `position` mayor o igual a `1` | Sin `position`: retirado en la [revisión del 05/10/2026](#78-revisión-de-v3-del-05102026) | Los estados no tienen orden |
 | `activeCases` en `/lawyers` y `/procedural-states` | Valía `0` fijo | Calculado | El módulo de causas existe desde esta versión |
 
 ### 7.3 Enumerados incorporados
@@ -4463,6 +4488,24 @@ causas y actos procesales; el resto del documento no cambió.
 | `prescriptionStartsOn` de la causa | Campo de la causa, igual a `startDate` | **Eliminado** de la causa: pasa a cada calificación y es igual a su `offenseDate` | D-19 |
 | `subjectMatter` | Hasta 2000 caracteres | Hasta 800 caracteres. Sigue obligatorio en `ADMINISTRATIVE` y `AMPARO` | D-27 |
 
+### 7.8 Revisión de V3 del 05/10/2026
+
+Cambios acordados por el equipo sobre el propio V3. Afectan a estados
+procesales, calificaciones legales, causas y actos procesales.
+
+| Qué | Antes | Ahora | Decisión |
+| --- | --- | --- | --- |
+| Quién registra actos procesales | Cualquier usuario con rol `LAWYER` | Solo el abogado responsable de la causa. Ningún otro usuario, ni siquiera `ADMINISTRATOR` | D-30 |
+| `position` de los estados procesales | Posición única dentro del fuero, con renumeración | **Retirado.** Los estados no tienen orden; se listan en el orden en que se registraron | D-31 |
+| `activeCases` de estados procesales y calificaciones legales | En todas las respuestas | Solo en las respuestas de `GET`; no aparece en `POST` ni en `PATCH` | D-32 |
+| `sacNumber` | Obligatorio | Opcional; si se envía, único | D-33 |
+| `legalQualifications` en causas penales | Obligatorio, al menos una | Opcional | D-33 |
+| `instructorPhone` | Teléfono e interno en un único texto | Solo el teléfono; el interno pasa a `instructorExtension`, opcional | D-33 |
+| Estado de una causa nueva | `currentState` en `null` ("Sin acto procesal") | Estado inicial "Iniciada": un estado de sistema por fuero, que no aparece en la línea de tiempo. `currentState` deja de ser anulable y suma `initial` | D-34 |
+| Filtro `withoutProceduralActs` | Causas con `currentState` en `null` | Causas en el estado inicial | D-34 |
+| `nextDeadline` | Objeto aparte en la causa | **Retirado.** El vencimiento pasa a `currentState`: `proceduralActId`, `dueDate`, `businessDaysRemaining` y `manuallyAdjusted` | D-35 |
+| Orden de `GET /cases` | Por `nextDeadline.dueDate`, luego `sacNumber` | Por `currentState.dueDate`, luego `id` | D-35 |
+
 ---
 
 ## 8. Observaciones
@@ -4482,14 +4525,14 @@ antes o durante la implementación.
 | D-06 | La baja de un estado procesal procede aunque haya causas en él, y se retira `PROCEDURAL_STATE_HAS_DEPENDENCIES` | Nota del prototipo: las causas "conservan el estado que ya tienen registrado". Lo mismo para la baja de calificaciones legales |
 | D-07 | `PATCH /procedural-states` admite `jurisdiction`, solo si ninguna causa registra el estado | El prototipo muestra el selector de fuero al modificar. La restricción evita que causas de un fuero apunten a un estado de otro |
 | D-08 | Cambiar el plazo de un estado **no** recalcula vencimientos; cambiar la prescripción de una calificación **sí** recalcula la de sus causas | Las dos notas del prototipo dicen exactamente eso. Por eso el acto copia los valores del plazo y la causa calcula la prescripción en cada lectura |
-| D-09 | Toda causa nace **sin estado procesal** (`currentState` en `null`, "Sin acto procesal") y sin plazo abierto; el estado lo fija el primer acto. El alta no es un movimiento del ciclo de vida, y se retira `JURISDICTION_WITHOUT_PROCEDURAL_STATES` | Prototipo actualizado: "El estado lo fija el primer acto procesal" en el resumen del alta, y "Todavía no hay actos procesales" en el detalle. El prototipo lo define como un estado de sistema que no pertenece al ciclo parametrizado de ningún fuero; por eso se modela como ausencia de estado y no como un registro de la tabla. Reemplaza al criterio anterior, que derivaba el estado de posición `1` |
+| D-09 | **Reemplazada por D-34.** Toda causa nacía **sin estado procesal** (`currentState` en `null`, "Sin acto procesal") y sin plazo abierto; el estado lo fija el primer acto. El alta no es un movimiento del ciclo de vida, y se retira `JURISDICTION_WITHOUT_PROCEDURAL_STATES` | Prototipo actualizado: "El estado lo fija el primer acto procesal" en el resumen del alta, y "Todavía no hay actos procesales" en el detalle. El prototipo lo define como un estado de sistema que no pertenece al ciclo parametrizado de ningún fuero; por eso se modela como ausencia de estado y no como un registro de la tabla. Reemplaza al criterio anterior, que derivaba el estado de posición `1` |
 | D-10 | El acto procesal se registra como estado resultante, fechas y observaciones, sin un "nombre de acto" aparte | El formulario de HU26 solo pide el estado ("El acto procesal es el que mueve la causa: elegí el estado al que la lleva") ([C-10](#82-puntos-a-verificar)) |
 | D-11 | El "estado escrito a mano" se modela como `customState`, sin plazo salvo ajuste manual, con su endpoint de valores distintos para el filtro | Es la descripción libre que pide HU22. El prototipo lo muestra en el combo del acto y en el filtro del listado |
 | D-12 | En `ADMINISTRATIVE`, `notificationDate` es obligatoria si el estado abre plazo | RN6. El prototipo no habilita "Registrar acto" sin esa fecha, lo que resuelve el pendiente P-04 de la arquitectura: el acto no existe sin vencimiento calculable |
-| D-13 | Solo el rol `LAWYER` registra actos procesales, y el acto se aplica a la causa al registrarse, sin confirmación posterior. No existe un estado del acto | Tabla de [permisos por perfil](#permisos-por-perfil). Reemplaza el flujo de "pendiente de confirmación" del prototipo (RN13), que dejaba cargar actos a la Secretaría |
+| D-13 | **Reemplazada en parte por D-30.** Solo el rol `LAWYER` registra actos procesales, y el acto se aplica a la causa al registrarse, sin confirmación posterior. No existe un estado del acto | Tabla de [permisos por perfil](#permisos-por-perfil). Reemplaza el flujo de "pendiente de confirmación" del prototipo (RN13), que dejaba cargar actos a la Secretaría |
 | D-14 | El estado actual de la causa es el del acto con la fecha de acto más reciente | Permite cargar actos viejos sin retroceder la causa |
 | D-15 | Los estados terminales no pueden ser destino de un acto | El combo del prototipo los excluye ([C-04](#82-puntos-a-verificar)) |
-| D-16 | El número de SAC tiene exactamente 8 dígitos y es único en todo el sistema | Validación del prototipo ("El SAC tiene 8 dígitos"). Resuelve provisoriamente el pendiente P-03 ([C-09](#82-puntos-a-verificar)) |
+| D-16 | El número de SAC tiene exactamente 8 dígitos y es único en todo el sistema. **Modificada por D-33:** es opcional | Validación del prototipo ("El SAC tiene 8 dígitos"). Resuelve provisoriamente el pendiente P-03 ([C-09](#82-puntos-a-verificar)) |
 | D-17 | El DNI viaja sin puntos y es único entre los clientes vigentes | Separa el dato de su presentación. La unicidad entre vigentes permite volver a registrar a un cliente dado de baja cuando exista HU11 |
 | D-18 | `ProceduralRole` es un enumerado cerrado, con valores válidos por fuero | El prototipo lo trata como lista fija por fuero (`ROLES_FUERO`), no como parametría |
 | D-19 | La prescripción se expresa en meses enteros, solo aplica a `CRIMINAL` y se computa **por calificación, desde la fecha del hecho** (`offenseDate`): vence en `prescriptionStartsOn + meses`. `prescriptionStartsOn` vive en cada calificación y en este sprint es igual a `offenseDate` | Prototipo actualizado: cada calificación elegida pide su "Fecha del hecho" y el resumen calcula "8 años desde el …". Se devuelven los dos campos para que los actos interruptivos (HU31, Sprint 3) muevan `prescriptionStartsOn` sin cambiar la estructura. Reemplaza al criterio anterior, que computaba desde `startDate` |
@@ -4503,6 +4546,12 @@ antes o durante la implementación.
 | D-27 | Las causas `ADMINISTRATIVE` y `AMPARO` registran `subjectMatter` (objeto del reclamo u objeto del amparo), obligatorio en esos fueros, de hasta 800 caracteres, y `null` en `CRIMINAL` | Pedido del equipo, ya incorporado al prototipo: es donde el abogado escribe qué se reclama y por qué. Un único campo para ambos fueros; el rótulo ("Objeto del reclamo" u "Objeto del amparo") lo pone el cliente según el fuero. El largo es el del prototipo (800). La obligatoriedad es decisión del equipo: el prototipo no lo exige para habilitar "Registrar causa" |
 | D-28 | La fecha del hecho (`offenseDate`) es obligatoria en cada calificación legal de una causa penal | Decisión del equipo. El prototipo deja registrar sin ella y muestra "falta la fecha del hecho", pero sin esa fecha la prescripción no se puede computar, que es para lo que se carga la calificación. El formulario debe exigirla |
 | D-29 | El filtro "Sin acto procesal" de `GET /cases` es un parámetro propio, `withoutProceduralActs`, excluyente con `proceduralStateId` y `customState` | No es un estado de la tabla ni un estado escrito a mano, sino la ausencia de estado. El prototipo lo ofrece en un grupo aparte, "Causas nuevas", y lo excluye del grupo "Escritos a mano en causas" |
+| D-30 | Solo el **abogado responsable de la causa** registra actos procesales y usa `deadline-preview`. Se compara el `lawyerId` del usuario con `responsibleLawyer.id`; un usuario sin ficha de abogado no registra actos. El acto se sigue aplicando sin confirmación | Decisión del equipo (05/10/2026). Ningún otro abogado ni el `ADMINISTRATOR` opera los actos de una causa ajena |
+| D-31 | Los estados procesales no tienen posición ni orden: se registran y se listan en el orden en que llegan | Decisión del equipo (05/10/2026) |
+| D-32 | `activeCases` de estados procesales y calificaciones legales se devuelve solo en las respuestas de `GET` | Decisión del equipo (05/10/2026): es un dato calculado de consulta, no parte de lo que se registra. Se aplicó también a `PATCH`, que tampoco es una consulta |
+| D-33 | `sacNumber`, `legalQualifications` (en `CRIMINAL`), `instructorName` e `instructorExtension` son opcionales. El interno del instructor se separa del teléfono en `instructorExtension` | Decisión del equipo (05/10/2026). RN2 queda condicionada: el SAC identifica la causa cuando se conoce ([C-20](#82-puntos-a-verificar)) |
+| D-34 | Toda causa nace en el **estado inicial "Iniciada"**, un estado de sistema por fuero: no forma parte de `/procedural-states`, no se modifica ni se da de baja, no es destino de un acto y no se muestra en la línea de tiempo. `currentState` deja de ser anulable y suma `initial` | Decisión del equipo (05/10/2026). Reemplaza a D-09. El nombre es neutral para los tres fueros y describe un estado, no una ausencia |
+| D-35 | Se retira `nextDeadline`: el vencimiento es parte del estado actual y viaja en `currentState` | Decisión del equipo (05/10/2026): el vencimiento lo abre el acto que llevó la causa a su estado actual |
 
 ### 8.2 Puntos a verificar
 
@@ -4526,7 +4575,10 @@ antes o durante la implementación.
 | C-16 | **Pago de tasa.** El detalle de causa tiene "Registrar pago de tasa", RN10 lo exige y el Plan de Proyecto lo lista como requerimiento, pero no hay historia de usuario en el backlog | PO |
 | C-17 | **Baja de abogado con reasignación.** El prototipo propone "Eliminar y reasignar", eligiendo a quién pasan las causas; V2 rechaza la baja con `409`. Revisar al planificar HU15 (Sprint 4), junto con el pendiente P-05 | Equipo |
 | C-18 | **Textos del prototipo que quedaron de la versión anterior.** El subtítulo de "Registrar causa" todavía dice "el sistema deriva el estado procesal inicial del fuero", y el pie de "Registrar acto" todavía muestra a la Secretaría la nota de RN13 ("el estado queda pendiente de confirmación"). Contradicen al resumen del alta y a D-13; conviene corregirlos en el prototipo para que no se copien a la pantalla | Equipo |
-| C-19 | **Primer estado de la causa.** El primer acto puede llevar la causa a cualquier estado no terminal del fuero, o a uno escrito a mano: el combo del prototipo no restringe. Confirmar que no debe limitarse al estado de posición `1` | PO |
+| C-19 | **Primer estado de la causa.** El primer acto puede llevar la causa a cualquier estado no terminal del fuero, o a uno escrito a mano: el combo del prototipo no restringe. Confirmar que no debe limitarse a un estado en particular | PO |
+| C-20 | **SAC opcional y RN2.** RN2 dice que el SAC identifica la causa. Con el SAC opcional, nada impide registrar dos veces la misma causa sin SAC. Reformular RN2 con el cliente y decidir si el SAC podrá cargarse después (HU19) | Cliente / PO |
+| C-21 | **Abogado responsable dado de baja.** Con D-30, si el responsable se da de baja nadie puede registrar actos en sus causas, ni siquiera el `ADMINISTRATOR`, hasta que se reasignen (P-05, HU15) | Equipo / PO |
+| C-22 | **Causa penal sin calificación legal.** No computa prescripción, así que las alertas de prescripción (HU32, Sprint 3) no la alcanzan. Evaluar si el tablero debe marcarla | PO |
 
 ### 8.3 Visto en el prototipo y fuera de alcance
 
@@ -4572,8 +4624,9 @@ historias. No tienen endpoint ni campo en esta versión.
   `domain-error.filter.ts` y los de validación de los DTO (`class-validator`)
   deben devolver `message` y `details` en castellano (D-23).
 - **Guards de rol.** `POST /clients` pasa a `SECRETARY` y
-  `POST /cases/{caseId}/procedural-acts` y su `deadline-preview`, a `LAWYER`
-  (ver [Permisos por perfil](#permisos-por-perfil)).
+  `POST /cases/{caseId}/procedural-acts` y su `deadline-preview` pasan al
+  abogado responsable de la causa (D-30), que no es un guard de rol sino una
+  comprobación sobre la causa (ver [Permisos por perfil](#permisos-por-perfil)).
 - **Revisión del 01/10/2026 ([§7.7](#77-revisión-de-v3-del-01102026)).** El
   backend todavía no tiene módulo de causas, así que no hay nada que migrar:
   la tabla causa–calificación nace con la fecha del hecho, y el estado actual
@@ -4583,3 +4636,10 @@ historias. No tienen endpoint ni campo en esta versión.
   `currentState` no anulable; les falta `subjectMatter`, `offenseDate` y el
   filtro `withoutProceduralActs`, y el tipo del acto conserva un `status`
   (`ProceduralActStatus`) que este contrato retiró con D-13.
+- **Revisión del 05/10/2026 ([§7.8](#78-revisión-de-v3-del-05102026)).** El
+  backend todavía no tiene causas ni actos, así que no hay datos que migrar. Sí
+  cambia lo implementado de estados procesales: hay que quitar `position` del
+  esquema y de los DTO, sembrar el estado inicial "Iniciada" de cada fuero,
+  excluirlo de `GET /procedural-states` y quitar `activeCases` de las
+  respuestas de `POST` y `PATCH`. El guard de los actos deja de ser por rol y
+  pasa a comparar el abogado del usuario con el responsable de la causa.
