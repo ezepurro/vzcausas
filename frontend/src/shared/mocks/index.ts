@@ -51,6 +51,7 @@ export {
     type CreateProceduralActRequest,
     type CreateProceduralStateRequest,
     type CreateUserRequest,
+    type CurrentState,
     type DayType,
     type DeadlinePreview,
     type DeadlinePreviewQuery,
@@ -66,7 +67,6 @@ export {
     type ListResponse,
     type LoginErrorBody,
     type LoginRequest,
-    type NextDeadline,
     type PaginatedQuery,
     type Pagination,
     type ProceduralAct,
@@ -83,6 +83,8 @@ export {
     type UpdateUserRequest,
     type User,
     type UsersQuery,
+    type WrittenLegalQualification,
+    type WrittenProceduralState,
 } from './contract';
 
 export {
@@ -126,6 +128,7 @@ export {
     CREDENTIALS,
     DEFAULT_PASSWORD,
     EXPIRES_IN,
+    INITIAL_STATE_NAME,
     LAWYERS,
     LEGAL_QUALIFICATIONS,
     PROCEDURAL_STATES,
@@ -137,6 +140,7 @@ export {
     type SeedDate,
     type StoredClient,
     type StoredLegalQualification,
+    type StoredProceduralState,
     type StoredUser,
 } from './fixtures';
 

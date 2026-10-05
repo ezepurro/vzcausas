@@ -1,7 +1,7 @@
 # Mocks — API simulada
 
 Implementación en memoria de `docs/Api-Contract/API_CONTRACT_V3.md`, con su
-revisión del 01/10/2026 (§7.7): los treinta y tres endpoints del contrato, con
+revisión del 05/10/2026 (§7.8): los treinta y tres endpoints del contrato, con
 sus códigos de error, su paginación, sus filtros, sus permisos por perfil y sus
 bajas lógicas. Sirve para desarrollar pantallas sin backend levantado y para
 tener fixtures estables en los tests.
@@ -120,10 +120,11 @@ El login es `POST /auth/login` con `{ username, password }`.
 
 | Usuario | Contraseña | Roles | Sirve para |
 | --- | --- | --- | --- |
-| `fvazquez` | `password1` | `ADMINISTRATOR` + `LAWYER` | Todo menos registrar clientes. Administra y, como también es abogado, registra actos. |
-| `mrios` | `abogado123` | `LAWYER` | Registrar actos procesales. Probar el `403` de la administración. |
+| `fvazquez` | `password1` | `ADMINISTRATOR` + `LAWYER` | Administrar. Registra actos sólo en **sus** causas (la 4, la 6 y la 20): en las demás recibe `403`, aunque sea administrador. |
+| `mrios` | `abogado123` | `LAWYER` | Registrar actos en sus causas (la 1 y la 17; la 9 está archivada). Probar el `403` de la administración y el de una causa ajena. |
 | `gestion` | `secre123` | `SECRETARY` | Registrar clientes. Probar el `403` de los actos y el usuario sin ficha profesional (`lawyer: null`). |
 | `supervision` | `password1` | `ADMINISTRATOR` | Administrador que no ejerce: sin ficha, y recibe `403` al registrar un acto. |
+| `sledesma` | `password1` | `SECRETARY` + `LAWYER` | Registra clientes y, como lleva las causas 15 y 16, también sus actos. |
 | el resto | `password1` | varios | Ver `fixtures.ts`. |
 
 Sin `Authorization: Bearer <token>` válido todo endpoint protegido responde
@@ -141,10 +142,17 @@ varios roles pasa si el rol pedido está entre ellos.
 | Escribir abogados, estados procesales y calificaciones legales | `ADMINISTRATOR` |
 | Registrar un cliente | `SECRETARY` |
 | Registrar una causa | Cualquier usuario autenticado |
-| Registrar un acto procesal y previsualizar su vencimiento | `LAWYER` |
+| Registrar un acto procesal y previsualizar su vencimiento | El abogado responsable de la causa |
 
 El `403` nombra el rol que falta: "Se requiere el rol SECRETARY para realizar
 esta operación."
+
+**Los actos procesales no se rigen por un rol** (D-30). Los registra el abogado
+responsable de la causa y nadie más: ni otro abogado, ni el administrador. Se
+compara la ficha del usuario (`lawyerId`) con el responsable de la causa, y
+quien no lo es recibe "Solo el abogado responsable de la causa puede registrar
+actos procesales." Para saber con quién probar una causa, mirá su
+`responsibleLawyer`; las cuentas de cada abogado están en `fixtures.ts`.
 
 ---
 
@@ -154,10 +162,10 @@ esta operación."
 | --- | --- | --- |
 | Usuarios | 22 | 21 vigentes y uno dado de baja (`vsosa`) |
 | Abogados | 10 | Los 9 y 10 no tienen cuenta ni causas: son los únicos que se pueden dar de baja |
-| Estados procesales | 24 | El ciclo completo de los tres fueros |
+| Estados procesales | 24 | Los de los tres fueros. El estado inicial "Iniciada" no está: es de sistema |
 | Calificaciones legales | 9 | 8 vigentes y una dada de baja (la 9), que una causa todavía registra |
 | Clientes | 24 | 23 vigentes y uno dado de baja (`SOSA`, id 8) |
-| Causas | 22 | Con los actos que las llevaron a su estado actual |
+| Causas | 23 | Con los actos que las llevaron a su estado actual |
 
 Con el `limit` por defecto de 20, los usuarios, los estados, los clientes y las
 causas dan dos páginas.
@@ -170,8 +178,8 @@ aprobó.
 
 | Causa | Para qué está |
 | --- | --- |
-| 1 a 6 | Las del prototipo: a un día hábil, vencida hace dos, a tres días, sin plazo abierto, a diez días, vence hoy |
-| 7, 11, 22 | **Sin acto procesal** (`currentState` en `null`), una por fuero. La 7 tiene dos calificaciones con hechos de fechas distintas |
+| 1 a 6 | Las del prototipo: a un día hábil, vencida hace dos, a tres días, sin vencimiento, a diez días, vence hoy |
+| 7, 11, 22 | En el estado inicial, **"Iniciada"** (`currentState.initial`), una por fuero. La 7 tiene dos calificaciones con hechos de fechas distintas |
 | 8 | Estado **escrito a mano**, con el vencimiento ajustado manualmente |
 | 9, 10, 21 | En estado **terminal** (Archivada, Prescripta): no son causas activas y no admiten actos |
 | 12 | En un estado que no abre plazo |
@@ -181,6 +189,7 @@ aprobó.
 | 16 | Estado de la tabla con el vencimiento ajustado a mano |
 | 17 | Segunda causa del mismo cliente (GÓMEZ), vencida hace una semana |
 | 18, 20 | Los roles `DEFENDANT` y `PRIVATE_PROSECUTOR` |
+| 23 | Penal **sin SAC y sin calificaciones legales** (D-33), todavía "Iniciada" |
 
 Los clientes `JUÁREZ` (18) y `RUIZ` (24) no tienen causas.
 
@@ -229,11 +238,16 @@ lectura:
 
 - **`activeCases`** de abogados, estados, calificaciones y clientes: las causas
   activas (no dadas de baja y fuera de un estado terminal) que les
-  corresponden. En las semillas el campo vale `0` y se pisa al serializar.
+  corresponden. Las semillas no lo guardan; se calcula al serializar. En
+  estados y calificaciones viene **sólo en los `GET`**: el `POST` y el `PATCH`
+  devuelven el recurso sin ese campo (D-32).
 - **El estado actual de una causa** es el del acto con la **fecha de acto más
-  reciente** (D-14). Sin actos, `null`.
-- **El plazo abierto** es el de ese mismo acto, con `businessDaysRemaining`
-  calculado contra hoy.
+  reciente** (D-14). Sin actos, el estado inicial: `name: "Iniciada"`,
+  `initial: true` y todo lo demás en `null` (D-34). "Iniciada" no se guarda en
+  ningún lado: una causa está en él mientras no tenga actos.
+- **El vencimiento** es el de ese mismo acto y viaja adentro de `currentState`
+  (`dueDate`, `businessDaysRemaining`, `manuallyAdjusted`, D-35). Ya no existe
+  `nextDeadline`.
 - **La prescripción** de cada calificación: la fecha del hecho más los meses
   vigentes de la calificación.
 
@@ -357,17 +371,17 @@ de servir en el acto.
 
 | Código | Cómo |
 | --- | --- |
-| `400` validación | `username` de menos de 3 caracteres, matrícula fuera del formato `1-28114`, contraseña de menos de 8 caracteres o sin número; nombre de estado procesal de menos de 3 caracteres; un `dayType` incoherente con el plazo; una `position` más allá del final del ciclo; mandar `lawyerId` **y** `lawyer` juntos; `PATCH` sin ningún campo |
-| `400` validación, Sprint 2 | DNI con puntos o de menos de 7 dígitos; SAC que no tiene 8 dígitos; causa penal sin calificaciones o con una calificación sin `offenseDate`; amparo o administrativo sin `subjectMatter`, o con más de 800 caracteres; un rol procesal que el fuero no admite; un `clientId` o un `responsibleLawyerId` inexistente o dado de baja; un acto sin estado, con los dos (`proceduralStateId` y `customState`), con un estado terminal o de otro fuero, o con `actDate` futura; un acto administrativo sin `notificationDate` en un estado que abre plazo |
+| `400` validación | `username` de menos de 3 caracteres, matrícula fuera del formato `1-28114`, contraseña de menos de 8 caracteres o sin número; nombre de estado procesal de menos de 3 caracteres; un `dayType` incoherente con el plazo; mandar `lawyerId` **y** `lawyer` juntos; `PATCH` sin ningún campo |
+| `400` validación, Sprint 2 | DNI con puntos o de menos de 7 dígitos; SAC que no tiene 8 dígitos (omitirlo no es un error); una calificación sin `offenseDate`, repetida o dada de baja; un interno del instructor de más de 20 caracteres; amparo o administrativo sin `subjectMatter`, o con más de 800 caracteres; un rol procesal que el fuero no admite; un `clientId` o un `responsibleLawyerId` inexistente o dado de baja; un acto sin estado, con los dos (`proceduralStateId` y `customState`), con un estado terminal o de otro fuero, o con `actDate` futura; un acto con `customState: "Iniciada"`; un acto administrativo sin `notificationDate` en un estado que abre plazo |
 | `400` paginación | `?page=0`, `?limit=500`, `?limit=abc` |
 | `400` ruta | `GET /users/abc`, `GET /cases/abc`, `DELETE /procedural-states/abc` |
 | `400` query | `?role=NOPE`, `?jurisdiction=NOPE`, `/cases?openDeadline=si`, `/cases?proceduralStateId=4&customState=x`, `/cases?withoutProceduralActs=true&proceduralStateId=4`; `deadline-preview` sin `proceduralStateId` o sin `actDate` |
 | `401` credenciales | `POST /auth/login` con contraseña incorrecta, o con un usuario dado de baja → `INVALID_CREDENTIALS` |
 | `401` sesión | sin header `Authorization`, token revocado por un logout, o token vencido con `expireIssuedTokens()` → `UNAUTHENTICATED` |
 | `401` renovación | `POST /auth/refresh` con la sesión ya revocada (`db.sessions.clear()`) → `UNAUTHENTICATED` |
-| `403` | `mrios` o `gestion` en cualquier endpoint de `/users`, o escribiendo abogados, estados o calificaciones; `fvazquez` o `mrios` en `POST /clients`; `gestion` o `supervision` registrando un acto o pidiendo `deadline-preview` |
+| `403` | `mrios` o `gestion` en cualquier endpoint de `/users`, o escribiendo abogados, estados o calificaciones; `fvazquez` o `mrios` en `POST /clients`; cualquiera que no sea el abogado responsable registrando un acto o pidiendo `deadline-preview`: `gestion`, `supervision`, o `mrios` y `fvazquez` sobre la causa 7, que lleva `mferreyra` |
 | `404` | `GET /users/999`, `GET /cases/999`; también los que existen pero están dados de baja: `GET /users/22`, `GET /clients/8`, `GET /legal-qualifications/9` |
-| `409` | crear un usuario con `username: "fvazquez"` o con un email ya usado; vincular un abogado que ya tiene cuenta; crear un abogado con `1-28114`; dar de baja el usuario 3, 4 o 5; dar de baja un abogado con cuenta o con causas (del 1 al 8); crear un estado procesal o una calificación con un nombre que ya existe; registrar un cliente con el DNI `34812905`; registrar una causa con el SAC `13284571` |
+| `409` | crear un usuario con `username: "fvazquez"` o con un email ya usado; vincular un abogado que ya tiene cuenta; crear un abogado con `1-28114`; dar de baja el usuario 3, 4 o 5; dar de baja un abogado con cuenta o con causas (del 1 al 8); crear un estado procesal o una calificación con un nombre que ya existe, o un estado que se llame "Iniciada"; registrar un cliente con el DNI `34812905`; registrar una causa con el SAC `13284571` |
 | `422` | crear un usuario `LAWYER` sin ficha profesional, o uno sin rol `LAWYER` **con** ficha; dar de baja o degradar el usuario 1; contraseña actual incorrecta en `PATCH /auth/password`; cambiar de fuero un estado que alguna causa registra (`PATCH /procedural-states/4` con `jurisdiction`) → `PROCEDURAL_STATE_IN_USE`; registrar un acto en la causa 9, 10 o 21 → `CASE_IN_TERMINAL_STATE` |
 | `500` / red | `configureMocks({ forceFailure: 500 })` / `configureMocks({ forceFailure: 'network' })` |
 
@@ -378,6 +392,14 @@ de servir en el acto.
 - Dar de baja un estado procesal con causas respondía
   `409 PROCEDURAL_STATE_HAS_DEPENDENCIES`. La baja procede y las causas
   conservan el estado (D-06); el código se retiró.
+- Registrar una causa sin SAC, o una penal sin calificaciones legales,
+  respondía `400`. Desde la revisión del 05/10/2026 los dos son opcionales
+  (D-33).
+
+**Lo que ahora es un error**, y antes no:
+
+- Registrar un acto, o pedir `deadline-preview`, sobre una causa ajena responde
+  `403` aunque el usuario tenga el rol `LAWYER` o sea administrador (D-30).
 
 ---
 
@@ -472,9 +494,9 @@ este mock, no del backend.
 
 - **Orden de validación**: 401 → 403 → 400 de ruta → 400 de cuerpo → 404 →
   409 → 422. El contrato no fija un orden; el mock necesita uno para ser
-  previsible. La excepción son los dos endpoints de actos procesales: validar
-  el cuerpo necesita el fuero de la causa, así que ahí el `404` de la causa va
-  antes que el `400` del cuerpo.
+  previsible. La excepción son los dos endpoints de actos procesales, donde
+  todo depende de la causa: va primero el `404` de la causa, después el `403`
+  de quien no es su abogado responsable, y recién después el `400` del cuerpo.
 - **`totalPages` de una colección vacía es `0`**, no `1`.
 - **Un `PATCH` sin ningún campo devuelve `400`**, porque el contrato dice que
   hay que mandar al menos uno pero no indica qué error corresponde.
@@ -512,11 +534,18 @@ este mock, no del backend.
 
 - **Largo del nombre de un estado procesal**: 3 a 80 caracteres. Lo escribe
   una persona (RN4), así que sólo se exige un largo razonable.
-- **Unicidad del nombre de un estado**: por fuero, y cuenta también los dados
-  de baja. La de una calificación es "entre las vigentes", como dice el
-  contrato: el nombre de una dada de baja se puede volver a usar.
+- **Unicidad del nombre de un estado**: por fuero y **entre los vigentes**,
+  como el índice de la base (`schema.prisma`): el nombre de un estado dado de
+  baja se puede volver a usar. Lo mismo vale para una calificación, como dice
+  el contrato.
+- **"Iniciada" no se guarda como un estado.** El contrato dice que es un estado
+  de sistema por fuero; el mock lo resuelve sin registro: una causa sin actos
+  está en él. Por eso no hay un id de "Iniciada" con el que probar el `404` de
+  `GET /procedural-states/{stateId}`. El nombre sí está reservado, sin
+  distinguir mayúsculas, tanto al registrar como al renombrar un estado.
 - **Cambio de fuero de un estado**: mandar el mismo fuero que ya tiene no es
-  un traslado. Al trasladarse sin `position`, va al final del fuero de destino.
+  un traslado. Como se lista por orden de registro, el estado trasladado queda
+  en el lugar que le toca por su id entre los del fuero de destino.
 
 **Clientes y causas**
 
@@ -528,12 +557,18 @@ este mock, no del backend.
   `34812905`.
 - **La búsqueda de causas** mira el SAC, la carátula y el nombre del cliente
   en los dos órdenes ("gómez, ariel" y "ariel gómez"), sin distinguir tildes.
+  Una causa sin SAC se encuentra por lo demás.
+- **`legalQualifications` vacío** en una causa penal equivale a no mandarlo:
+  la causa se registra sin calificaciones.
+- **Orden de `GET /cases` a igual vencimiento**: por `id`. El contrato ordena
+  por `currentState.dueDate` y, las que no tienen, por `id`; no dice cómo
+  desempatar dos con el mismo vencimiento.
 - **Filtros booleanos de `/cases`**: `openDeadline=false` y
   `withoutProceduralActs=false` equivalen a no mandarlos. Por eso
   `withoutProceduralActs=false` junto con `proceduralStateId` no es un error:
   la exclusión rige cuando vale `true`.
-- **Una causa en estado terminal no tiene plazo abierto**, aunque el estado
-  terminal tuviera un plazo cargado.
+- **Una causa en estado terminal no tiene vencimiento** (`dueDate` en
+  `null`), aunque el estado terminal tuviera un plazo cargado.
 - **A igual fecha de acto, manda el que se registró después.** El contrato
   dice "el acto con la fecha de acto más reciente" y no desempata.
 
@@ -541,6 +576,11 @@ este mock, no del backend.
 
 - **Un `customState` que coincide con un estado vigente del fuero es un
   `400`**: el contrato pide mandar el `proceduralStateId` en ese caso.
+- **Un `customState` que diga "Iniciada" también es un `400`**: el estado
+  inicial no puede ser destino de un acto (D-34), tampoco escrito a mano.
+- **Quién es "el abogado responsable"**: el usuario cuya ficha (`lawyerId`) es
+  la del responsable de la causa, tenga los roles que tenga. Un usuario sin
+  ficha nunca lo es.
 - **Errores de `deadline-preview`**: como `400 INVALID_REQUEST` con el detalle
   por parámetro, que es el formato que el contrato usa para la query.
 - **`deadline-preview` sobre una causa en estado terminal** responde igual: el
@@ -557,15 +597,19 @@ este mock, no del backend.
   acepta `lawyerId` (vincular uno existente) o `lawyer` (crear uno nuevo),
   nunca los dos. Con `lawyer`, si el alta del usuario falla, el abogado no se
   crea: el mock valida todo antes de escribir cualquier cosa.
-- **Las posiciones de los estados procesales se renumeran solas.** Insertar,
-  mover, trasladar o dar de baja deja el ciclo del fuero en 1..n sin huecos.
-- **La causa nace sin estado procesal** (D-09): `POST /cases` no crea ningún
-  acto y devuelve `currentState` y `nextDeadline` en `null`. Por eso el alta
-  no depende de que el fuero tenga estados cargados.
+- **Los estados procesales no tienen posición** (D-31): se listan por fuero y,
+  dentro de cada uno, por orden de registro (`id` ascendente). No hay nada que
+  renumerar al insertar, trasladar o dar de baja.
+- **La causa nace en el estado inicial, "Iniciada"** (D-34): `POST /cases` no
+  crea ningún acto y devuelve `currentState` con `initial: true` y sin
+  vencimiento. Por eso el alta no depende de que el fuero tenga estados
+  cargados. `currentState` nunca es `null`.
 - **El primer acto puede llevar la causa a cualquier estado no terminal del
-  fuero**, no sólo al de posición 1.
+  fuero**, o a uno escrito a mano.
 - **Un acto de fecha anterior al último** queda asentado pero no retrocede el
-  estado de la causa ni reemplaza su plazo abierto (D-14).
+  estado de la causa ni reemplaza su vencimiento (D-14).
+- **El teléfono y el interno del instructor van separados** (D-33):
+  `instructorPhone` y `instructorExtension`.
 - **Un identificador inexistente en el cuerpo** (`clientId`,
   `responsibleLawyerId`, una calificación, un estado) es un
   `400 VALIDATION_ERROR` sobre ese campo, no un `404` (D-22).
@@ -594,8 +638,8 @@ try {
 Eso hace que el mock sirva para probar el manejo de errores de verdad: los
 `409` se distinguen con `e.is(...)`, y los `400 VALIDATION_ERROR` traen
 `details` campo por campo para pintar el formulario. En el alta de causa, los
-problemas de las calificaciones —falta una, falta su fecha del hecho, está
-repetida— llegan todos bajo la clave `legalQualifications`.
+problemas de las calificaciones —falta su fecha del hecho, está repetida, fue
+dada de baja— llegan todos bajo la clave `legalQualifications`.
 
 Los códigos viven en `@/shared/api/contract.ts` —no acá— porque son contrato de
 producción; este mock los reexporta.

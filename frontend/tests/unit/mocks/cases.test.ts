@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { db, type Case } from '@/shared/mocks'
+import { db, type Case, type CurrentState } from '@/shared/mocks'
 import { call, dataOf, errorOf, usePrototypeToday } from './helpers'
 
 interface Paginated {
@@ -25,6 +25,18 @@ const CRIMINAL_BODY = {
     responsibleLawyerId: 3,
 }
 
+/** El estado de toda causa recién registrada (D-34): sin acto que la haya llevado ahí y sin vencimiento. */
+const INITIAL_STATE: CurrentState = {
+    proceduralStateId: null,
+    name: 'Iniciada',
+    custom: false,
+    initial: true,
+    proceduralActId: null,
+    dueDate: null,
+    businessDaysRemaining: null,
+    manuallyAdjusted: false,
+}
+
 const AMPARO_BODY = {
     sacNumber: '14200316',
     jurisdiction: 'AMPARO',
@@ -48,7 +60,7 @@ describe('mock · /cases', () => {
             for (const who of ['fvazquez', 'mrios', 'gestion']) {
                 const response = list({}, who)
                 expect(response.status).toBe(200)
-                expect((response.body as Paginated).pagination.totalItems).toBe(22)
+                expect((response.body as Paginated).pagination.totalItems).toBe(23)
             }
         })
 
@@ -57,28 +69,29 @@ describe('mock · /cases', () => {
             const { data, pagination } = response.body as Paginated
 
             expect(data).toHaveLength(20)
-            expect(pagination).toEqual({ page: 1, limit: 20, totalItems: 22, totalPages: 2 })
+            expect(pagination).toEqual({ page: 1, limit: 20, totalItems: 23, totalPages: 2 })
         })
 
-        it('ordena por urgencia: vencidas primero, y al final las que no tienen plazo, por SAC', () => {
+        it('ordena por urgencia: vencidas primero, y al final las que no tienen vencimiento, por id (D-35)', () => {
             const { data } = list().body as Paginated
-            const open = data.filter((c) => c.nextDeadline !== null)
-            const closed = data.filter((c) => c.nextDeadline === null)
+            const withDue = data.filter((c) => c.currentState.dueDate !== null)
+            const withoutDue = data.filter((c) => c.currentState.dueDate === null)
 
-            // Las de plazo abierto van todas antes que las demás.
-            expect(data.slice(0, open.length)).toEqual(open)
-            const dueDates = open.map((c) => c.nextDeadline!.dueDate)
+            // Las que tienen vencimiento van todas antes que las demás.
+            expect(data.slice(0, withDue.length)).toEqual(withDue)
+            const dueDates = withDue.map((c) => c.currentState.dueDate!)
             expect(dueDates).toEqual([...dueDates].sort())
-            expect(open[0].nextDeadline!.businessDaysRemaining).toBeLessThan(0)
+            expect(withDue[0].currentState.businessDaysRemaining).toBeLessThan(0)
 
-            const closedSacs = closed.map((c) => c.sacNumber)
-            expect(closedSacs).toEqual([...closedSacs].sort())
+            // Ya no se ordena por SAC, que puede faltar.
+            const ids = withoutDue.map((c) => c.id)
+            expect(ids).toEqual([...ids].sort((a, b) => a - b))
         })
 
         it('filtra por fuero, por responsable y por cliente', () => {
             const criminal = list({ jurisdiction: 'CRIMINAL' }).body as Paginated
             expect(criminal.data.every((c) => c.jurisdiction === 'CRIMINAL')).toBe(true)
-            expect(criminal.data).toHaveLength(10)
+            expect(criminal.data).toHaveLength(11)
 
             const ofRios = list({ responsibleLawyerId: '3' }).body as Paginated
             expect(ofRios.data.map((c) => c.id).sort()).toEqual([1, 17, 9].sort())
@@ -110,15 +123,15 @@ describe('mock · /cases', () => {
                 expect(sacs(list({ customState: 'con acusación, pero con oposición' }))).toEqual(['13077215'])
             })
 
-            it('"Sin acto procesal" trae las causas que todavía no tienen estado', () => {
+            it('"Iniciada" trae las causas que siguen en el estado inicial (D-34)', () => {
                 const response = list({ withoutProceduralActs: 'true' })
                 const { data } = response.body as Paginated
 
-                expect(data.map((c) => c.id).sort((a, b) => a - b)).toEqual([7, 11, 22])
-                expect(data.every((c) => c.currentState === null && c.nextDeadline === null)).toBe(true)
+                expect(data.map((c) => c.id).sort((a, b) => a - b)).toEqual([7, 11, 22, 23])
+                expect(data.every((c) => c.currentState.initial && c.currentState.dueDate === null)).toBe(true)
             })
 
-            it('"Sin acto procesal" se combina con el fuero', () => {
+            it('"Iniciada" se combina con el fuero', () => {
                 expect(sacs(list({ withoutProceduralActs: 'true', jurisdiction: 'AMPARO' }))).toEqual(['13619027'])
             })
 
@@ -136,11 +149,11 @@ describe('mock · /cases', () => {
             })
         })
 
-        it('"Solo con plazo por vencer" deja las de plazo abierto, vencidas incluidas', () => {
+        it('"Solo con plazo por vencer" deja las que tienen vencimiento, vencidas incluidas', () => {
             const { data } = list({ openDeadline: 'true' }).body as Paginated
 
-            expect(data.every((c) => c.nextDeadline !== null)).toBe(true)
-            expect(data.some((c) => c.nextDeadline!.businessDaysRemaining < 0)).toBe(true)
+            expect(data.every((c) => c.currentState.dueDate !== null)).toBe(true)
+            expect(data.some((c) => c.currentState.businessDaysRemaining! < 0)).toBe(true)
             expect(data).toHaveLength(14)
         })
 
@@ -160,7 +173,9 @@ describe('mock · /cases', () => {
             expect(response.body).toEqual({ data: ['Con acusación, pero con oposición'] })
         })
 
-        it('no incluye "Sin acto procesal" y respeta el fuero', () => {
+        it('no incluye "Iniciada" y respeta el fuero', () => {
+            expect(dataOf<string[]>(call('GET', '/cases/custom-states', { as: 'mrios' }))).not.toContain('Iniciada')
+
             const amparo = call('GET', '/cases/custom-states', { as: 'mrios', query: { jurisdiction: 'AMPARO' } })
 
             expect(dataOf<string[]>(amparo)).toEqual([])
@@ -197,20 +212,31 @@ describe('mock · /cases', () => {
                     prescriptionExpiresOn: '2029-02-27',
                 },
             ])
+            // El vencimiento viaja adentro del estado actual: lo abrió el acto 3 (D-35).
             expect(c.currentState).toEqual({
                 proceduralStateId: 4,
                 name: 'Oposición al requerimiento de elevación',
                 custom: false,
+                initial: false,
+                proceduralActId: 3,
+                dueDate: '2026-09-16',
+                businessDaysRemaining: 1,
+                manuallyAdjusted: false,
             })
-            expect(c.nextDeadline).toMatchObject({ dueDate: '2026-09-16', businessDaysRemaining: 1, manuallyAdjusted: false })
+            expect(c).not.toHaveProperty('nextDeadline')
             expect(c).not.toHaveProperty('prescriptionStartsOn')
         })
 
-        it('una causa sin actos no tiene estado ni plazo', () => {
+        it('el teléfono y el interno del instructor vienen separados (D-33)', () => {
+            const c = dataOf<Case>(call('GET', '/cases/1', { as: 'gestion' }))
+
+            expect(c).toMatchObject({ instructorPhone: '0351 448-1200', instructorExtension: '214' })
+        })
+
+        it('una causa sin actos está en el estado inicial, "Iniciada", y sin vencimiento', () => {
             const c = dataOf<Case>(call('GET', '/cases/7', { as: 'gestion' }))
 
-            expect(c.currentState).toBeNull()
-            expect(c.nextDeadline).toBeNull()
+            expect(c.currentState).toEqual(INITIAL_STATE)
             // Dos calificaciones, cada una con su fecha del hecho y su vencimiento.
             expect(c.legalQualifications.map((q) => q.prescriptionExpiresOn)).toEqual(['2032-08-30', '2028-09-02'])
         })
@@ -226,19 +252,34 @@ describe('mock · /cases', () => {
         it('un estado escrito a mano viene sin id y marcado', () => {
             const c = dataOf<Case>(call('GET', '/cases/8', { as: 'gestion' }))
 
-            expect(c.currentState).toEqual({
+            expect(c.currentState).toMatchObject({
                 proceduralStateId: null,
                 name: 'Con acusación, pero con oposición',
                 custom: true,
+                initial: false,
+                businessDaysRemaining: 4,
+                manuallyAdjusted: true,
             })
-            expect(c.nextDeadline).toMatchObject({ businessDaysRemaining: 4, manuallyAdjusted: true })
         })
 
-        it('una causa en estado terminal no tiene plazo abierto', () => {
+        it('una causa en estado terminal no tiene vencimiento', () => {
             const c = dataOf<Case>(call('GET', '/cases/9', { as: 'gestion' }))
 
-            expect(c.currentState?.name).toBe('Archivada')
-            expect(c.nextDeadline).toBeNull()
+            expect(c.currentState).toMatchObject({
+                name: 'Archivada',
+                initial: false,
+                dueDate: null,
+                businessDaysRemaining: null,
+            })
+            expect(c.currentState.proceduralActId).not.toBeNull()
+        })
+
+        it('una causa puede no tener SAC ni calificaciones legales (D-33)', () => {
+            const c = dataOf<Case>(call('GET', '/cases/23', { as: 'gestion' }))
+
+            expect(c.sacNumber).toBeNull()
+            expect(c.jurisdiction).toBe('CRIMINAL')
+            expect(c.legalQualifications).toEqual([])
         })
 
         it('sigue mostrando una calificación dada de baja', () => {
@@ -258,13 +299,12 @@ describe('mock · /cases', () => {
             expect(call('POST', '/cases', { body: CRIMINAL_BODY }).status).toBe(401)
         })
 
-        it('la causa nace sin estado procesal y sin plazo abierto (D-09)', () => {
+        it('la causa nace en el estado inicial, "Iniciada", y sin vencimiento (D-34)', () => {
             const response = call('POST', '/cases', { as: 'gestion', body: CRIMINAL_BODY })
             const c = dataOf<Case>(response)
 
             expect(response.status).toBe(201)
-            expect(c.currentState).toBeNull()
-            expect(c.nextDeadline).toBeNull()
+            expect(c.currentState).toEqual(INITIAL_STATE)
             expect(c.startDate).toBe('2026-09-15')
             expect(c.counterparty).toBeNull()
             expect(c.subjectMatter).toBeNull()
@@ -332,7 +372,48 @@ describe('mock · /cases', () => {
             ).toHaveProperty('legalQualifications', 'No puede repetirse una calificación legal.')
             expect(withQualifications([{ legalQualificationId: 9, offenseDate: '2026-08-20' }]))
                 .toHaveProperty('legalQualifications')
-            expect(withQualifications([])).toHaveProperty('legalQualifications')
+        })
+
+        it('una causa penal se puede registrar sin calificaciones legales (D-33)', () => {
+            const without: Record<string, unknown> = { ...CRIMINAL_BODY }
+            delete without.legalQualifications
+
+            const omitted = call('POST', '/cases', { as: 'gestion', body: without })
+            expect(omitted.status).toBe(201)
+            expect(dataOf<Case>(omitted).legalQualifications).toEqual([])
+
+            const empty = call('POST', '/cases', {
+                as: 'gestion',
+                body: { ...CRIMINAL_BODY, sacNumber: '14200317', legalQualifications: [] },
+            })
+            expect(empty.status).toBe(201)
+            expect(dataOf<Case>(empty).legalQualifications).toEqual([])
+        })
+
+        it('el SAC es opcional, y dos causas sin SAC no chocan entre sí (D-33)', () => {
+            const without: Record<string, unknown> = { ...CRIMINAL_BODY }
+            delete without.sacNumber
+
+            const first = call('POST', '/cases', { as: 'gestion', body: without })
+            const second = call('POST', '/cases', { as: 'gestion', body: without })
+
+            expect(first.status).toBe(201)
+            expect(dataOf<Case>(first).sacNumber).toBeNull()
+            expect(second.status).toBe(201)
+        })
+
+        it('guarda el interno del instructor aparte del teléfono, hasta 20 caracteres (D-33)', () => {
+            const response = call('POST', '/cases', {
+                as: 'gestion',
+                body: { ...CRIMINAL_BODY, instructorName: 'Dr. Pablo Carranza', instructorPhone: '0351 448-1200', instructorExtension: '261' },
+            })
+            expect(dataOf<Case>(response)).toMatchObject({ instructorPhone: '0351 448-1200', instructorExtension: '261' })
+
+            const long = call('POST', '/cases', {
+                as: 'gestion',
+                body: { ...CRIMINAL_BODY, sacNumber: '14200317', instructorExtension: '1'.repeat(21) },
+            })
+            expect(errorOf(long).details).toEqual({ instructorExtension: 'Puede tener hasta 20 caracteres.' })
         })
 
         it('el objeto del reclamo es obligatorio fuera del penal y tiene hasta 800 caracteres (D-27)', () => {

@@ -27,13 +27,19 @@ const criminalStates = () => db.proceduralStates.filter((s) => s.jurisdiction ==
 
 describe('ProceduralStatesPage', () => {
     describe('listado', () => {
-        it('arranca en el fuero Penal con su ciclo en orden', async () => {
+        it('arranca en el fuero Penal con sus estados, en el orden en que se registraron', async () => {
             renderPage()
 
             expect(await screen.findByRole('cell', { name: 'Designación de abogado defensor' })).toBeInTheDocument()
             expect(screen.getByText('Ciclo de vida del fuero Penal')).toBeInTheDocument()
             expect(screen.getByRole('tab', { name: 'Penal' })).toHaveAttribute('aria-selected', 'true')
-            expect(screen.getAllByRole('row')).toHaveLength(criminalStates().length + 1)
+
+            const rows = screen.getAllByRole('row').slice(1)
+            expect(rows.map((row) => within(row).getAllByRole('cell')[0].textContent)).toEqual(
+                criminalStates().map((s) => s.name),
+            )
+            // El estado inicial "Iniciada" es de sistema: no se lista (V3 D-34).
+            expect(screen.queryByRole('cell', { name: 'Iniciada' })).not.toBeInTheDocument()
         })
 
         it('cambiar de pestaña muestra el ciclo de otro fuero', async () => {
@@ -84,7 +90,7 @@ describe('ProceduralStatesPage', () => {
     })
 
     describe('alta', () => {
-        it('registra el estado al final del ciclo y lo avisa', async () => {
+        it('registra el estado, lo avisa y lo suma al final del listado', async () => {
             const { user } = renderPage()
             const dialog = await openCreate(user)
 
@@ -92,9 +98,8 @@ describe('ProceduralStatesPage', () => {
             await user.type(within(dialog).getByLabelText(/^días/i), '5')
             await user.click(within(dialog).getByRole('button', { name: 'Registrar estado' }))
 
-            const last = criminalStates().length
             expect(
-                await screen.findByText(`Estado "Queja" agregado al fuero Penal, en la posición ${last}.`),
+                await screen.findByText('Estado "Queja" agregado al ciclo de vida del fuero Penal.'),
             ).toBeInTheDocument()
             expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
             expect(db.proceduralStates.find((s) => s.name === 'Queja')).toMatchObject({
@@ -102,20 +107,40 @@ describe('ProceduralStatesPage', () => {
                 timeLimitDays: 5,
                 dayType: 'BUSINESS',
             })
+            // Se listan por orden de registro: el nuevo queda último (V3 D-31).
+            await screen.findByRole('cell', { name: 'Queja' })
+            const names = screen.getAllByRole('row').slice(1).map((row) => within(row).getAllByRole('cell')[0].textContent)
+            expect(names.at(-1)).toBe('Queja')
         })
 
-        it('registra el estado en el lugar elegido', async () => {
+        it('no ofrece elegir el lugar del estado ni manda una posición', async () => {
+            let sent: unknown
+            server.use(
+                http.post('*/procedural-states', async ({ request }) => {
+                    sent = await request.json()
+                    return HttpResponse.json(
+                        { data: { id: 99, name: 'Queja', jurisdiction: 'CRIMINAL', timeLimitDays: 5, dayType: 'BUSINESS', terminal: false, active: true } },
+                        { status: 201 },
+                    )
+                }),
+            )
             const { user } = renderPage()
             const dialog = await openCreate(user)
 
+            expect(within(dialog).queryByLabelText(/dónde va este estado/i)).not.toBeInTheDocument()
+
             await user.type(within(dialog).getByLabelText(/^nombre del estado/i), 'Queja')
-            await user.selectOptions(within(dialog).getByLabelText(/dónde va este estado/i), 'Al inicio del ciclo')
             await user.type(within(dialog).getByLabelText(/^días/i), '5')
             await user.click(within(dialog).getByRole('button', { name: 'Registrar estado' }))
 
-            expect(
-                await screen.findByText('Estado "Queja" agregado al fuero Penal, en la posición 1.'),
-            ).toBeInTheDocument()
+            await screen.findByText(/Estado "Queja" agregado/)
+            expect(sent).toEqual({
+                name: 'Queja',
+                jurisdiction: 'CRIMINAL',
+                timeLimitDays: 5,
+                dayType: 'BUSINESS',
+                terminal: false,
+            })
         })
 
         it('con plazo 0 esconde el tipo de día y lo guarda como sin plazo', async () => {
@@ -205,10 +230,11 @@ describe('ProceduralStatesPage', () => {
             expect(
                 await screen.findByText('Estado "Cédula de notificación electrónica" actualizado.'),
             ).toBeInTheDocument()
-            // No se tocó la posición: el estado sigue en su lugar.
+            // Sólo cambió el nombre: el plazo quedó como estaba.
             expect(db.proceduralStates.find((s) => s.id === 2)).toMatchObject({
                 name: 'Cédula de notificación electrónica',
-                position: 2,
+                timeLimitDays: 3,
+                dayType: 'BUSINESS',
             })
         })
 
@@ -262,7 +288,7 @@ describe('ProceduralStatesPage', () => {
             expect(await screen.findByText(`Estado "${name}" eliminado del fuero Penal.`)).toBeInTheDocument()
             await waitFor(() => expect(screen.queryByRole('cell', { name })).not.toBeInTheDocument())
             expect(db.proceduralStates.find((s) => s.id === 4)?.active).toBe(false)
-            expect(toCase(db.cases[0]).currentState?.name).toBe(name)
+            expect(toCase(db.cases[0]).currentState.name).toBe(name)
         })
 
         it('si el servidor rechaza la baja, avisa el error y no lo elimina', async () => {

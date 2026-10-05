@@ -13,10 +13,11 @@
  * `limit` por defecto de 20, los usuarios, los estados procesales, los
  * clientes y las causas dan dos páginas.
  *
- * Los campos `activeCases` de las semillas van en `0`: el valor que devuelve
- * la API se calcula al serializar, contando las causas de la base (ver
- * `db.ts`). Así no hay un número escrito a mano que pueda quedar distinto de
- * las causas que de verdad existen.
+ * `activeCases` no se escribe acá: el valor que devuelve la API se calcula al
+ * serializar, contando las causas de la base (ver `db.ts`). Así no hay un
+ * número escrito a mano que pueda quedar distinto de las causas que de verdad
+ * existen. Los abogados lo llevan en `0` porque su tipo lo exige; los estados,
+ * las calificaciones y los clientes directamente no lo guardan.
  */
 
 import type {
@@ -161,16 +162,27 @@ export const USERS: readonly StoredUser[] = [
 /* Estados procesales                                                  */
 /* ------------------------------------------------------------------ */
 
+/** Cómo guarda la base un estado procesal: sin `activeCases`, que se calcula. */
+export type StoredProceduralState = Omit<ProceduralState, 'activeCases'>;
+
 /**
- * 24 estados repartidos en los tres fueros del estudio: el ciclo de vida
- * completo, tal como lo muestra el prototipo. Con `limit=20` dan dos páginas.
+ * La denominación del estado inicial, el de toda causa recién registrada
+ * (V3 D-34). Es un estado de sistema, uno por fuero: **no está en esta
+ * tabla**, no se lista, no se modifica ni se da de baja, y ningún acto puede
+ * llevar una causa a él. Su nombre queda reservado en los tres fueros.
+ */
+export const INITIAL_STATE_NAME = 'Iniciada';
+
+/**
+ * 24 estados repartidos en los tres fueros del estudio, tal como los muestra
+ * el prototipo. Con `limit=20` dan dos páginas.
  *
  * Los nombres van en castellano y como texto libre: es el vocabulario con el
  * que el estudio los escribe en el expediente, y en un ABM los carga una
  * persona (RN4).
  *
- * `position` es la numeración que el prototipo muestra al costado de cada
- * estado, y arranca en 1 **dentro de cada fuero**.
+ * No tienen posición (V3 D-31): se listan por fuero y, dentro de cada uno, en
+ * el orden en que se registraron, que es el de sus ids.
  *
  * "Archivada" aparece en los tres fueros (ids 9, 17 y 24): por eso la
  * unicidad es por **nombre + fuero** y no por nombre solo.
@@ -183,52 +195,49 @@ const STATE = (
     id: number,
     name: string,
     jurisdiction: Jurisdiction,
-    position: number,
     timeLimitDays: number,
     dayType: ProceduralState['dayType'],
     terminal = false,
-): ProceduralState => ({
+): StoredProceduralState => ({
     id,
     name,
     jurisdiction,
-    position,
     timeLimitDays,
     dayType,
     terminal,
-    activeCases: 0,
     active: true,
 });
 
-export const PROCEDURAL_STATES: readonly ProceduralState[] = [
+export const PROCEDURAL_STATES: readonly StoredProceduralState[] = [
     // ── Penal ──
-    STATE(1, 'Designación de abogado defensor', 'CRIMINAL', 1, 0, 'NONE'),
-    STATE(2, 'Cédula de notificación', 'CRIMINAL', 2, 3, 'BUSINESS'),
-    STATE(3, 'Requerimiento de elevación a juicio', 'CRIMINAL', 3, 0, 'NONE'),
-    STATE(4, 'Oposición al requerimiento de elevación', 'CRIMINAL', 4, 5, 'BUSINESS'),
-    STATE(5, 'Citación a juicio', 'CRIMINAL', 5, 3, 'BUSINESS'),
-    STATE(6, 'Ofrecimiento de prueba', 'CRIMINAL', 6, 5, 'BUSINESS'),
-    STATE(7, 'Recurso de apelación', 'CRIMINAL', 7, 3, 'BUSINESS'),
-    STATE(8, 'Recurso de casación', 'CRIMINAL', 8, 15, 'BUSINESS'),
-    STATE(9, 'Archivada', 'CRIMINAL', 9, 0, 'NONE', true),
-    STATE(10, 'Prescripta', 'CRIMINAL', 10, 0, 'NONE', true),
+    STATE(1, 'Designación de abogado defensor', 'CRIMINAL', 0, 'NONE'),
+    STATE(2, 'Cédula de notificación', 'CRIMINAL', 3, 'BUSINESS'),
+    STATE(3, 'Requerimiento de elevación a juicio', 'CRIMINAL', 0, 'NONE'),
+    STATE(4, 'Oposición al requerimiento de elevación', 'CRIMINAL', 5, 'BUSINESS'),
+    STATE(5, 'Citación a juicio', 'CRIMINAL', 3, 'BUSINESS'),
+    STATE(6, 'Ofrecimiento de prueba', 'CRIMINAL', 5, 'BUSINESS'),
+    STATE(7, 'Recurso de apelación', 'CRIMINAL', 3, 'BUSINESS'),
+    STATE(8, 'Recurso de casación', 'CRIMINAL', 15, 'BUSINESS'),
+    STATE(9, 'Archivada', 'CRIMINAL', 0, 'NONE', true),
+    STATE(10, 'Prescripta', 'CRIMINAL', 0, 'NONE', true),
 
     // ── Administrativo ──
-    STATE(11, 'Notificación de imputación en sumario', 'ADMINISTRATIVE', 1, 10, 'BUSINESS'),
-    STATE(12, 'Presentación de descargo', 'ADMINISTRATIVE', 2, 10, 'BUSINESS'),
-    STATE(13, 'Levantamiento de medida cautelar', 'ADMINISTRATIVE', 3, 5, 'BUSINESS'),
-    STATE(14, 'Alegato', 'ADMINISTRATIVE', 4, 6, 'BUSINESS'),
-    STATE(15, 'Recurso de reconsideración', 'ADMINISTRATIVE', 5, 10, 'BUSINESS'),
-    STATE(16, 'Demanda contencioso administrativa', 'ADMINISTRATIVE', 6, 30, 'CONSECUTIVE'),
-    STATE(17, 'Archivada', 'ADMINISTRATIVE', 7, 0, 'NONE', true),
+    STATE(11, 'Notificación de imputación en sumario', 'ADMINISTRATIVE', 10, 'BUSINESS'),
+    STATE(12, 'Presentación de descargo', 'ADMINISTRATIVE', 10, 'BUSINESS'),
+    STATE(13, 'Levantamiento de medida cautelar', 'ADMINISTRATIVE', 5, 'BUSINESS'),
+    STATE(14, 'Alegato', 'ADMINISTRATIVE', 6, 'BUSINESS'),
+    STATE(15, 'Recurso de reconsideración', 'ADMINISTRATIVE', 10, 'BUSINESS'),
+    STATE(16, 'Demanda contencioso administrativa', 'ADMINISTRATIVE', 30, 'CONSECUTIVE'),
+    STATE(17, 'Archivada', 'ADMINISTRATIVE', 0, 'NONE', true),
 
     // ── Amparo ──
-    STATE(18, 'Interposición de demanda de amparo', 'AMPARO', 1, 0, 'NONE'),
-    STATE(19, 'Traslado a la demandada', 'AMPARO', 2, 3, 'BUSINESS'),
-    STATE(20, 'Decreto de prueba', 'AMPARO', 3, 3, 'BUSINESS'),
-    STATE(21, 'Aporto la prueba', 'AMPARO', 4, 5, 'BUSINESS'),
-    STATE(22, 'Pase a fallo', 'AMPARO', 5, 0, 'NONE'),
-    STATE(23, 'Apelación de sentencia de amparo', 'AMPARO', 6, 3, 'BUSINESS'),
-    STATE(24, 'Archivada', 'AMPARO', 7, 0, 'NONE', true),
+    STATE(18, 'Interposición de demanda de amparo', 'AMPARO', 0, 'NONE'),
+    STATE(19, 'Traslado a la demandada', 'AMPARO', 3, 'BUSINESS'),
+    STATE(20, 'Decreto de prueba', 'AMPARO', 3, 'BUSINESS'),
+    STATE(21, 'Aporto la prueba', 'AMPARO', 5, 'BUSINESS'),
+    STATE(22, 'Pase a fallo', 'AMPARO', 0, 'NONE'),
+    STATE(23, 'Apelación de sentencia de amparo', 'AMPARO', 3, 'BUSINESS'),
+    STATE(24, 'Archivada', 'AMPARO', 0, 'NONE', true),
 ];
 
 /* ------------------------------------------------------------------ */
@@ -352,49 +361,58 @@ export interface ActSeed {
 /** Una causa de semilla, con los actos que la llevaron a su estado actual. */
 export interface CaseSeed {
     id: number;
-    sacNumber: string;
+    /** 8 dígitos, o `null` si la causa se registró sin SAC (D-33). */
+    sacNumber: string | null;
     jurisdiction: Jurisdiction;
     caption: string;
     court: string | null;
     instructorName: string | null;
+    /** Sólo el teléfono: el interno va en `instructorExtension`. */
     instructorPhone: string | null;
+    instructorExtension: string | null;
     clientId: number;
     proceduralRole: ProceduralRole;
     responsibleLawyerId: number;
     startDate: SeedDate;
-    /** Sólo en el fuero penal: cada calificación con la fecha de su hecho. */
+    /** Sólo en el fuero penal, y ahí opcional (D-33): cada una con la fecha de su hecho. */
     qualifications?: { legalQualificationId: number; offenseDate: string }[];
     /** Sólo fuera del fuero penal. */
     counterparty?: string;
     /** Sólo fuera del fuero penal, y ahí obligatorio (D-27). */
     subjectMatter?: string;
-    /** En orden cronológico. Vacío = causa "Sin acto procesal" (D-09). */
+    /** En orden cronológico. Vacío = la causa sigue en el estado inicial, "Iniciada" (D-34). */
     acts: ActSeed[];
 }
 
 const POLICE_COURT = 'Tribunal de Conducta Policial y Penitenciario';
 const POLICE_INSTRUCTOR = 'Crio. Insp. Raúl Bazán';
-const POLICE_PHONE = '0351 428-6000 int. 3120';
+const POLICE_PHONE = '0351 428-6000';
+const POLICE_EXTENSION = '3120';
 
 /**
- * 22 causas: las seis del prototipo y dieciséis más, elegidas para que cada
+ * 23 causas: las seis del prototipo y diecisiete más, elegidas para que cada
  * regla del contrato tenga un caso con el que probarla.
  *
  * | Causa | Para qué está |
  * | --- | --- |
- * | 1 a 6 | Las del prototipo: a un día hábil, vencida hace dos, a tres días, sin plazo abierto, a diez días, vence hoy |
- * | 7, 11, 22 | **Sin acto procesal** (`currentState` en `null`), una por fuero. La 7 tiene dos calificaciones con hechos de fechas distintas |
+ * | 1 a 6 | Las del prototipo: a un día hábil, vencida hace dos, a tres días, sin vencimiento, a diez días, vence hoy |
+ * | 7, 11, 22 | En el estado inicial, **"Iniciada"** (`currentState.initial`), una por fuero. La 7 tiene dos calificaciones con hechos de fechas distintas |
  * | 8 | Estado **escrito a mano**, con el vencimiento ajustado manualmente |
  * | 9, 10, 21 | En estado **terminal** (Archivada, Prescripta): no son causas activas y no admiten actos |
- * | 12 | En un estado que no abre plazo: sin plazo abierto |
+ * | 12 | En un estado que no abre plazo: sin vencimiento |
  * | 13 | Registra una calificación **dada de baja** (la 9), que sigue mostrando |
  * | 14 | Plazo lejano, a quince días hábiles |
  * | 15 | Plazo en días **corridos** |
  * | 16 | Estado de la tabla con el vencimiento ajustado a mano |
  * | 17 | Segunda causa del mismo cliente (GÓMEZ), vencida hace una semana |
  * | 18, 20 | Los roles `DEFENDANT` y `PRIVATE_PROSECUTOR` |
+ * | 23 | Penal **sin SAC y sin calificaciones legales** (D-33), todavía "Iniciada" |
  *
  * Los abogados 9 y 10 no tienen causas, y los clientes 18 y 24 tampoco.
+ *
+ * Quién lleva cada causa importa para probar los actos: sólo los registra el
+ * abogado responsable (D-30). `mrios` (abogada 3) lleva la 1, la 9 y la 17;
+ * `fvazquez` (abogado 1), la 4, la 6 y la 20.
  *
  * Los estados 4, 14 y 21 tienen una causa cada uno (la 1, la 2 y la 3): son
  * los que el prototipo muestra con "Hay N causas en este estado".
@@ -407,7 +425,8 @@ export const CASE_SEEDS: readonly CaseSeed[] = [
         caption: 'GÓMEZ, Ariel Fernando p.s.a. Robo calificado',
         court: 'Juzgado de Control N° 3 · Córdoba',
         instructorName: 'Dra. Verónica Ledesma',
-        instructorPhone: '0351 448-1200 int. 214',
+        instructorPhone: '0351 448-1200',
+        instructorExtension: '214',
         clientId: 1,
         proceduralRole: 'DEFENSE',
         responsibleLawyerId: 3,
@@ -427,6 +446,7 @@ export const CASE_SEEDS: readonly CaseSeed[] = [
         court: POLICE_COURT,
         instructorName: POLICE_INSTRUCTOR,
         instructorPhone: POLICE_PHONE,
+        instructorExtension: POLICE_EXTENSION,
         clientId: 2,
         proceduralRole: 'DEFENSE',
         responsibleLawyerId: 4,
@@ -446,7 +466,8 @@ export const CASE_SEEDS: readonly CaseSeed[] = [
         caption: 'LUDUEÑA, Silvia c/ Provincia de Córdoba — Amparo',
         court: 'Juzgado Civil y Comercial 21ª Nom.',
         instructorName: 'Dr. Martín Sosa',
-        instructorPhone: '0351 448-1600 int. 402',
+        instructorPhone: '0351 448-1600',
+        instructorExtension: '402',
         clientId: 3,
         proceduralRole: 'PLAINTIFF',
         responsibleLawyerId: 5,
@@ -467,7 +488,8 @@ export const CASE_SEEDS: readonly CaseSeed[] = [
         caption: 'ACOSTA, Jonathan E. p.s.a. Infracción Ley 23.737',
         court: 'Fiscalía de Instrucción Distrito 2 Turno 4',
         instructorName: 'Fisc. Adj. Paula Rinaldi',
-        instructorPhone: '0351 448-1150 int. 118',
+        instructorPhone: '0351 448-1150',
+        instructorExtension: '118',
         clientId: 4,
         proceduralRole: 'DEFENSE',
         responsibleLawyerId: 1,
@@ -486,6 +508,7 @@ export const CASE_SEEDS: readonly CaseSeed[] = [
         court: POLICE_COURT,
         instructorName: POLICE_INSTRUCTOR,
         instructorPhone: POLICE_PHONE,
+        instructorExtension: POLICE_EXTENSION,
         clientId: 5,
         proceduralRole: 'APPELLANT',
         responsibleLawyerId: 2,
@@ -505,7 +528,8 @@ export const CASE_SEEDS: readonly CaseSeed[] = [
         caption: 'MOYANO, Daniela c/ APROSS — Amparo de salud',
         court: 'Juzgado Civil y Comercial 37ª Nom.',
         instructorName: 'Dra. Inés Ferrero',
-        instructorPhone: '0351 448-1600 int. 517',
+        instructorPhone: '0351 448-1600',
+        instructorExtension: '517',
         clientId: 6,
         proceduralRole: 'PLAINTIFF',
         responsibleLawyerId: 1,
@@ -525,7 +549,8 @@ export const CASE_SEEDS: readonly CaseSeed[] = [
         caption: 'BENÍTEZ, Rodrigo E. p.s.a. Lesiones graves y Amenazas coactivas',
         court: 'Fiscalía de Instrucción Distrito 1 Turno 2',
         instructorName: 'Fisc. Diego Albornoz',
-        instructorPhone: '0351 448-1100 int. 305',
+        instructorPhone: '0351 448-1100',
+        instructorExtension: '305',
         clientId: 7,
         proceduralRole: 'DEFENSE',
         responsibleLawyerId: 6,
@@ -543,7 +568,8 @@ export const CASE_SEEDS: readonly CaseSeed[] = [
         caption: 'AGÜERO, Luciana B. p.s.a. Abuso de armas',
         court: 'Juzgado de Control N° 7 · Córdoba',
         instructorName: 'Dr. Pablo Carranza',
-        instructorPhone: '0351 448-1200 int. 261',
+        instructorPhone: '0351 448-1200',
+        instructorExtension: '261',
         clientId: 9,
         proceduralRole: 'DEFENSE',
         responsibleLawyerId: 7,
@@ -567,6 +593,7 @@ export const CASE_SEEDS: readonly CaseSeed[] = [
         court: 'Juzgado de Control N° 2 · Córdoba',
         instructorName: null,
         instructorPhone: null,
+        instructorExtension: null,
         clientId: 10,
         proceduralRole: 'DEFENSE',
         responsibleLawyerId: 3,
@@ -585,6 +612,7 @@ export const CASE_SEEDS: readonly CaseSeed[] = [
         court: 'Fiscalía de Instrucción Distrito 3 Turno 1',
         instructorName: null,
         instructorPhone: null,
+        instructorExtension: null,
         clientId: 13,
         proceduralRole: 'DEFENSE',
         responsibleLawyerId: 2,
@@ -603,6 +631,7 @@ export const CASE_SEEDS: readonly CaseSeed[] = [
         court: POLICE_COURT,
         instructorName: null,
         instructorPhone: null,
+        instructorExtension: null,
         clientId: 11,
         proceduralRole: 'DEFENSE',
         responsibleLawyerId: 4,
@@ -618,7 +647,8 @@ export const CASE_SEEDS: readonly CaseSeed[] = [
         caption: 'DOMÍNGUEZ, Paola A. c/ APROSS — Amparo',
         court: 'Juzgado Civil y Comercial 9ª Nom.',
         instructorName: 'Dra. Carla Monje',
-        instructorPhone: '0351 448-1600 int. 233',
+        instructorPhone: '0351 448-1600',
+        instructorExtension: '233',
         clientId: 12,
         proceduralRole: 'PLAINTIFF',
         responsibleLawyerId: 5,
@@ -638,7 +668,8 @@ export const CASE_SEEDS: readonly CaseSeed[] = [
         caption: 'FUNES, Claudia N. p.s.a. Encubrimiento y Amenazas coactivas',
         court: 'Cámara en lo Criminal y Correccional 5ª Nom.',
         instructorName: 'Dr. Hernán Paredes',
-        instructorPhone: '0351 448-1300 int. 142',
+        instructorPhone: '0351 448-1300',
+        instructorExtension: '142',
         clientId: 14,
         proceduralRole: 'DEFENSE',
         responsibleLawyerId: 6,
@@ -660,6 +691,7 @@ export const CASE_SEEDS: readonly CaseSeed[] = [
         court: 'Tribunal Superior de Justicia · Sala Penal',
         instructorName: null,
         instructorPhone: null,
+        instructorExtension: null,
         clientId: 15,
         proceduralRole: 'DEFENSE',
         responsibleLawyerId: 7,
@@ -677,7 +709,8 @@ export const CASE_SEEDS: readonly CaseSeed[] = [
         caption: 'HERRERA, Sandra V. — Servicio Penitenciario · Demanda contencioso administrativa',
         court: 'Cámara Contencioso Administrativa 1ª Nom.',
         instructorName: 'Dr. Luis Zamora',
-        instructorPhone: '0351 448-1700 int. 88',
+        instructorPhone: '0351 448-1700',
+        instructorExtension: '88',
         clientId: 16,
         proceduralRole: 'APPELLANT',
         responsibleLawyerId: 8,
@@ -697,7 +730,8 @@ export const CASE_SEEDS: readonly CaseSeed[] = [
         caption: 'IBÁÑEZ, Cristian D. c/ Municipalidad de Córdoba — Amparo por mora',
         court: 'Juzgado Civil y Comercial 14ª Nom.',
         instructorName: 'Dr. Andrés Villagra',
-        instructorPhone: '0351 448-1600 int. 371',
+        instructorPhone: '0351 448-1600',
+        instructorExtension: '371',
         clientId: 17,
         proceduralRole: 'PLAINTIFF',
         responsibleLawyerId: 8,
@@ -721,7 +755,8 @@ export const CASE_SEEDS: readonly CaseSeed[] = [
         caption: 'GÓMEZ, Ariel Fernando p.s.a. Amenazas coactivas',
         court: 'Cámara en lo Criminal y Correccional 2ª Nom.',
         instructorName: 'Dra. Verónica Ledesma',
-        instructorPhone: '0351 448-1200 int. 214',
+        instructorPhone: '0351 448-1200',
+        instructorExtension: '214',
         clientId: 1,
         proceduralRole: 'DEFENSE',
         responsibleLawyerId: 3,
@@ -740,6 +775,7 @@ export const CASE_SEEDS: readonly CaseSeed[] = [
         court: 'Juzgado Civil y Comercial 30ª Nom.',
         instructorName: null,
         instructorPhone: null,
+        instructorExtension: null,
         clientId: 22,
         proceduralRole: 'DEFENDANT',
         responsibleLawyerId: 5,
@@ -759,6 +795,7 @@ export const CASE_SEEDS: readonly CaseSeed[] = [
         court: POLICE_COURT,
         instructorName: POLICE_INSTRUCTOR,
         instructorPhone: POLICE_PHONE,
+        instructorExtension: POLICE_EXTENSION,
         clientId: 19,
         proceduralRole: 'DEFENSE',
         responsibleLawyerId: 2,
@@ -776,7 +813,8 @@ export const CASE_SEEDS: readonly CaseSeed[] = [
         caption: 'N.N. p.s.a. Lesiones graves — querellante MALDONADO, Érica',
         court: 'Fiscalía de Instrucción Distrito 4 Turno 3',
         instructorName: 'Fisc. Marina Ochoa',
-        instructorPhone: '0351 448-1180 int. 207',
+        instructorPhone: '0351 448-1180',
+        instructorExtension: '207',
         clientId: 20,
         proceduralRole: 'PRIVATE_PROSECUTOR',
         responsibleLawyerId: 1,
@@ -795,6 +833,7 @@ export const CASE_SEEDS: readonly CaseSeed[] = [
         court: POLICE_COURT,
         instructorName: null,
         instructorPhone: null,
+        instructorExtension: null,
         clientId: 21,
         proceduralRole: 'DEFENSE',
         responsibleLawyerId: 4,
@@ -813,12 +852,29 @@ export const CASE_SEEDS: readonly CaseSeed[] = [
         court: null,
         instructorName: null,
         instructorPhone: null,
+        instructorExtension: null,
         clientId: 23,
         proceduralRole: 'PLAINTIFF',
         responsibleLawyerId: 7,
         startDate: AGO(2),
         counterparty: 'APROSS',
         subjectMatter: 'Se ordene a APROSS la cobertura de la prótesis indicada, denegada por nota del área de auditoría.',
+        acts: [],
+    },
+    {
+        id: 23,
+        // Todavía no tiene SAC ni calificación legal: los dos son opcionales (D-33).
+        sacNumber: null,
+        jurisdiction: 'CRIMINAL',
+        caption: 'LEIVA, Gustavo A. — Actuaciones preliminares',
+        court: null,
+        instructorName: null,
+        instructorPhone: null,
+        instructorExtension: null,
+        clientId: 19,
+        proceduralRole: 'DEFENSE',
+        responsibleLawyerId: 6,
+        startDate: AGO(0),
         acts: [],
     },
 ];

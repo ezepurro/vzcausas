@@ -14,7 +14,8 @@ export interface ProceduralStatesTableProps {
 }
 
 /**
- * El ciclo de vida del fuero, en orden.
+ * Los estados procesales de un fuero, en el orden en que llegan del backend:
+ * el de registro. No tienen posición ni número (V3 D-31).
  *
  * No hay columna de fuero: la lengüeta de arriba ya dice cuál es, y repetirlo
  * en cada fila es ruido.
@@ -23,16 +24,6 @@ export function ProceduralStatesTable({
     rows, onEdit, onDelete, empty,
 }: ProceduralStatesTableProps) {
     const columns: Column<ProceduralState>[] = [
-        {
-            id: 'position',
-            header: '#',
-            // La posición real del contrato, no un número de fila: es el lugar
-            // que ocupa el estado en el ciclo y por eso se puede cambiar.
-            cell: (r) => r.position,
-            mono: true,
-            width: '1%',
-            nowrap: true,
-        },
         { id: 'name', header: 'Estado procesal', cell: (r) => r.name },
         {
             id: 'limit',

@@ -4,17 +4,13 @@ import type { ProceduralStateFormValues } from '@/features/legal-params/types/pr
 /**
  * De los `details` de un 400 a los errores del formulario.
  *
- * El servidor nombra los campos del CONTRATO y el formulario tiene los suyos:
- * `position` es un número allá y un select acá. Además puede mandar claves que
- * no son campos —`body` cuando el PATCH viene vacío—, que no tienen dónde
- * pintarse y se descartan.
- *
- * Sin esta traducción, un error de posición se perdía en silencio: la pantalla
- * casteaba `details` y guardaba una clave que ningún campo lee.
+ * El servidor nombra los campos del CONTRATO, y puede mandar claves que no son
+ * campos del formulario —`body` cuando el PATCH viene vacío, `jurisdiction`,
+ * que acá no se edita—. Esas no tienen dónde pintarse y se descartan, para que
+ * la pantalla sepa que el error no quedó a la vista y lo avise de otro modo.
  */
 const FIELD_BY_SERVER_NAME: Record<string, keyof ProceduralStateFormValues> = {
     name: 'name',
-    position: 'positionChoice',
     timeLimitDays: 'timeLimitDays',
     dayType: 'dayType',
     terminal: 'terminal',

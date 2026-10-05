@@ -8,7 +8,6 @@ const STATE: ProceduralState = {
     id: 2,
     name: 'Cédula de notificación',
     jurisdiction: 'CRIMINAL',
-    position: 2,
     timeLimitDays: 3,
     dayType: 'BUSINESS',
     terminal: false,

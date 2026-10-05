@@ -4,6 +4,7 @@ import type {
     CreateProceduralStateBody,
     ProceduralState,
     ProceduralStatesParams,
+    SavedProceduralState,
     UpdateProceduralStateBody,
 } from '@/features/legal-params/types/proceduralState';
 
@@ -30,18 +31,19 @@ export async function listProceduralStates(
 
 export async function createProceduralState(
     body: CreateProceduralStateBody,
-): Promise<ProceduralState> {
+): Promise<SavedProceduralState> {
     // `response.data` es el cuerpo HTTP; el `.data` de adentro es el envoltorio
     // del contrato. El doble `data` termina acá: para afuera sale el recurso pelado.
-    const response = await http.post<ApiItem<ProceduralState>>(BASE, body);
+    // Viene sin `activeCases`, que es sólo de los `GET` (V3 D-32).
+    const response = await http.post<ApiItem<SavedProceduralState>>(BASE, body);
     return response.data.data;
 }
 
 export async function updateProceduralState(
     id: number,
     body: UpdateProceduralStateBody,
-): Promise<ProceduralState> {
-    const response = await http.patch<ApiItem<ProceduralState>>(`${BASE}/${id}`, body);
+): Promise<SavedProceduralState> {
+    const response = await http.patch<ApiItem<SavedProceduralState>>(`${BASE}/${id}`, body);
     return response.data.data;
 }
 

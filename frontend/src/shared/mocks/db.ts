@@ -14,8 +14,11 @@
  * que es lo que pide el contrato (§3.4).
  *
  * Tampoco se guarda nada que salga de contar: `activeCases`, el estado actual
- * de una causa y su plazo abierto se calculan en cada lectura a partir de los
+ * de una causa y su vencimiento se calculan en cada lectura a partir de los
  * actos. No hay un número que pueda quedar distinto de los datos.
+ *
+ * El estado inicial "Iniciada" tampoco se guarda (V3 D-34): una causa sin
+ * actos está en él, y deja de estarlo con el primero.
  *
  * La única copia deliberada es el **plazo de un acto**: los días y el tipo de
  * día de la tabla se copian al acto cuando se registra, porque cambiar el
@@ -29,11 +32,11 @@ import type {
     CaseLegalQualification,
     CaseState,
     Client,
+    CurrentState,
     EmbeddedLawyer,
     Jurisdiction,
     Lawyer,
     LegalQualification,
-    NextDeadline,
     ProceduralAct,
     ProceduralRole,
     ProceduralState,
@@ -52,6 +55,7 @@ import {
     CLIENTS,
     CREDENTIALS,
     DEFAULT_PASSWORD,
+    INITIAL_STATE_NAME,
     LAWYERS,
     LEGAL_QUALIFICATIONS,
     PROCEDURAL_STATES,
@@ -61,6 +65,7 @@ import {
     type SeedDate,
     type StoredClient,
     type StoredLegalQualification,
+    type StoredProceduralState,
     type StoredUser,
 } from './fixtures';
 
@@ -77,13 +82,15 @@ export interface StoredCaseQualification {
 /** Cómo guarda la base una causa: con ids, sin nada embebido ni calculado. */
 export interface StoredCase {
     id: number;
-    sacNumber: string;
+    /** `null` si la causa se registró sin SAC (D-33). */
+    sacNumber: string | null;
     caption: string;
     court: string | null;
     jurisdiction: Jurisdiction;
     proceduralRole: ProceduralRole;
     instructorName: string | null;
     instructorPhone: string | null;
+    instructorExtension: string | null;
     counterparty: string | null;
     subjectMatter: string | null;
     clientId: number;
@@ -116,7 +123,8 @@ export interface MockDb {
     /** Guardan `lawyerId`; el objeto `lawyer` se arma al serializar. */
     users: StoredUser[];
     lawyers: Lawyer[];
-    proceduralStates: ProceduralState[];
+    /** Sin el estado inicial "Iniciada", que es de sistema y no se guarda. */
+    proceduralStates: StoredProceduralState[];
     legalQualifications: StoredLegalQualification[];
     clients: StoredClient[];
     cases: StoredCase[];
@@ -258,6 +266,7 @@ function initialState(): MockDb {
             proceduralRole: seed.proceduralRole,
             instructorName: seed.instructorName,
             instructorPhone: seed.instructorPhone,
+            instructorExtension: seed.instructorExtension,
             counterparty: seed.counterparty ?? null,
             subjectMatter: seed.subjectMatter ?? null,
             clientId: seed.clientId,
@@ -268,8 +277,8 @@ function initialState(): MockDb {
         };
         cases.push(stored);
 
-        // Los actos los registró quien lleva la causa: sólo el abogado lo
-        // hace (D-13), y la cuenta sale de su ficha.
+        // Los actos los registró quien lleva la causa: sólo el abogado
+        // responsable lo hace (D-30), y la cuenta sale de su ficha.
         const registeredBy = users.find((u) => u.lawyerId === seed.responsibleLawyerId);
         if (!registeredBy) {
             throw new Error(`[mock] El abogado ${seed.responsibleLawyerId} de la causa ${seed.id} no tiene usuario.`);
@@ -319,7 +328,7 @@ export function resetMockDb(): void {
 }
 
 /* ------------------------------------------------------------------ */
-/* Causas: estado actual, plazo abierto y causa activa                 */
+/* Causas: estado actual, vencimiento y causa activa                   */
 /* ------------------------------------------------------------------ */
 
 /** Los actos de una causa, del más viejo al más nuevo. */
@@ -332,10 +341,11 @@ export function actsOf(caseId: number): StoredAct[] {
 
 /**
  * El acto que define el estado de la causa: el de **fecha de acto más
- * reciente** (V3 D-14). `undefined` si la causa todavía no tiene actos.
+ * reciente** (V3 D-14). `undefined` si la causa todavía no tiene actos: está
+ * en el estado inicial.
  *
  * Por eso cargar un acto viejo —al completar la historia de una causa— no
- * retrocede el estado ni reemplaza el plazo abierto.
+ * retrocede el estado ni reemplaza el vencimiento vigente.
  */
 export function latestActOf(caseId: number): StoredAct | undefined {
     return actsOf(caseId).at(-1);
@@ -361,7 +371,7 @@ export function isInTerminalState(caseId: number): boolean {
 
 /**
  * Causa activa (§4): no fue dada de baja y su estado actual no es terminal.
- * Una causa sin actos y una en un estado escrito a mano son activas.
+ * Una causa en el estado inicial y una en un estado escrito a mano son activas.
  */
 export function isActiveCase(stored: StoredCase): boolean {
     return stored.active && !isInTerminalState(stored.id);
@@ -422,10 +432,14 @@ export function toLawyer(stored: Lawyer): Lawyer {
 }
 
 /**
- * El estado procesal con las causas activas que están hoy en él. Un estado
- * terminal devuelve siempre `0`: una causa en estado terminal no es activa.
+ * El estado procesal como lo devuelve un `GET`: con las causas activas que
+ * están hoy en él. Un estado terminal devuelve siempre `0`: una causa en
+ * estado terminal no es activa.
+ *
+ * `POST` y `PATCH` no pasan por acá: devuelven el estado sin `activeCases`
+ * (V3 D-32).
  */
-export function toProceduralState(stored: ProceduralState): ProceduralState {
+export function toProceduralState(stored: StoredProceduralState): ProceduralState {
     return {
         ...stored,
         activeCases: activeCases().filter(
@@ -434,7 +448,10 @@ export function toProceduralState(stored: ProceduralState): ProceduralState {
     };
 }
 
-/** La calificación legal con las causas activas que la registran. */
+/**
+ * La calificación legal como la devuelve un `GET`: con las causas activas que
+ * la registran. `POST` y `PATCH` la devuelven sin `activeCases` (V3 D-32).
+ */
 export function toLegalQualification(stored: StoredLegalQualification): LegalQualification {
     return {
         ...stored,
@@ -492,17 +509,38 @@ function embedQualification(stored: StoredCaseQualification): CaseLegalQualifica
     };
 }
 
-/** El plazo abierto de la causa: el del acto que define su estado, si abrió uno. */
-function nextDeadlineOf(caseId: number): NextDeadline | null {
+/**
+ * El estado actual de la causa, con su vencimiento (V3 D-34 y D-35).
+ *
+ * Sin actos, la causa está en el estado inicial: "Iniciada", sin acto que la
+ * haya llevado ahí y sin vencimiento. Con actos, el estado y el vencimiento
+ * son los del acto de fecha más reciente.
+ */
+function currentStateOf(caseId: number): CurrentState {
     const act = latestActOf(caseId);
-    // Un plazo vencido sigue abierto hasta que otro acto mueva la causa. Lo
-    // que no tiene plazo es una causa en estado terminal.
-    if (!act?.deadline || isInTerminalState(caseId)) return null;
+    if (!act) {
+        return {
+            proceduralStateId: null,
+            name: INITIAL_STATE_NAME,
+            custom: false,
+            initial: true,
+            proceduralActId: null,
+            dueDate: null,
+            businessDaysRemaining: null,
+            manuallyAdjusted: false,
+        };
+    }
+
+    // Un plazo vencido sigue vigente hasta que otro acto mueva la causa. Lo
+    // que no tiene vencimiento es una causa en estado terminal.
+    const deadline = isInTerminalState(caseId) ? null : act.deadline;
     return {
+        ...stateOfAct(act),
+        initial: false,
         proceduralActId: act.id,
-        dueDate: act.deadline.dueDate,
-        businessDaysRemaining: businessDaysUntil(act.deadline.dueDate),
-        manuallyAdjusted: act.deadline.manuallyAdjusted,
+        dueDate: deadline?.dueDate ?? null,
+        businessDaysRemaining: deadline ? businessDaysUntil(deadline.dueDate) : null,
+        manuallyAdjusted: deadline?.manuallyAdjusted ?? false,
     };
 }
 
@@ -512,7 +550,6 @@ export function toCase(stored: StoredCase): Case {
     if (!lawyer) {
         throw new Error(`[mock] La causa ${stored.id} apunta al abogado ${stored.responsibleLawyerId}, que no existe.`);
     }
-    const latest = latestActOf(stored.id);
 
     return {
         id: stored.id,
@@ -523,15 +560,14 @@ export function toCase(stored: StoredCase): Case {
         proceduralRole: stored.proceduralRole,
         instructorName: stored.instructorName,
         instructorPhone: stored.instructorPhone,
+        instructorExtension: stored.instructorExtension,
         counterparty: stored.counterparty,
         subjectMatter: stored.subjectMatter,
         client: embedClient(stored.clientId),
         responsibleLawyer: lawyer,
         legalQualifications: stored.qualifications.map(embedQualification),
         startDate: stored.startDate,
-        // Sin actos, la causa todavía no tiene estado: "Sin acto procesal" (D-09).
-        currentState: latest ? stateOfAct(latest) : null,
-        nextDeadline: nextDeadlineOf(stored.id),
+        currentState: currentStateOf(stored.id),
         active: stored.active,
     };
 }

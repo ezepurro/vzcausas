@@ -15,20 +15,19 @@ test.describe('Estados y plazos', () => {
     })
 
     test('crear, modificar y eliminar un estado procesal', async ({ page }) => {
-        // Crear, en el fuero Amparo, al inicio del ciclo.
+        // Crear, en el fuero Amparo. No se elige un lugar: los estados no tienen orden.
         await page.getByRole('tab', { name: 'Amparo' }).click()
         await expect(page.getByText('Ciclo de vida del fuero Amparo')).toBeVisible()
 
         await page.getByRole('button', { name: 'Registrar estado' }).click()
         const dialog = page.getByRole('dialog')
         await dialog.getByLabel(/^Nombre del estado/).fill('Informe del artículo 8')
-        await dialog.getByLabel(/Dónde va este estado/).selectOption({ label: 'Al inicio del ciclo' })
         await dialog.getByLabel(/^Días/).fill('5')
         await dialog.getByLabel(/Se cuentan en días/).selectOption({ label: 'Corridos' })
         await dialog.getByRole('button', { name: 'Registrar estado' }).click()
 
         await expect(
-            page.getByText('Estado "Informe del artículo 8" agregado al fuero Amparo, en la posición 1.'),
+            page.getByText('Estado "Informe del artículo 8" agregado al ciclo de vida del fuero Amparo.'),
         ).toBeVisible()
         const created = rowOf(page, 'Informe del artículo 8')
         await expect(created).toBeVisible()
@@ -54,7 +53,7 @@ test.describe('Estados y plazos', () => {
     })
 
     /* La baja procede aunque haya causas en el estado (V3 D-06): el modal lo
-       avisa y el estado sale del ciclo. */
+       avisa y el estado sale del listado. */
     test('un estado con causas asociadas también se puede eliminar', async ({ page }) => {
         const name = 'Oposición al requerimiento de elevación'
 

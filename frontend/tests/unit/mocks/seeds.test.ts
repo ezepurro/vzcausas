@@ -12,6 +12,7 @@ import {
     CASE_SEEDS,
     CLIENTS,
     db,
+    INITIAL_STATE_NAME,
     isActiveCase,
     LAWYERS,
     LEGAL_QUALIFICATIONS,
@@ -42,9 +43,13 @@ describe('semillas del mock', () => {
             expect(unique(CASE_SEEDS.map((c) => c.id))).toBe(true)
         })
 
-        it('el SAC tiene 8 dígitos y no se repite', () => {
-            for (const c of CASE_SEEDS) expect(c.sacNumber).toMatch(/^\d{8}$/)
-            expect(unique(CASE_SEEDS.map((c) => c.sacNumber))).toBe(true)
+        it('el SAC, cuando está, tiene 8 dígitos y no se repite', () => {
+            // Es opcional (D-33): la causa 23 no lo tiene.
+            const sacs = CASE_SEEDS.map((c) => c.sacNumber).filter((sac): sac is string => sac !== null)
+
+            for (const sac of sacs) expect(sac).toMatch(/^\d{8}$/)
+            expect(unique(sacs)).toBe(true)
+            expect(sacs.length).toBeLessThan(CASE_SEEDS.length)
         })
 
         it('el DNI tiene 7 u 8 dígitos sin puntos y no se repite entre los vigentes', () => {
@@ -57,13 +62,17 @@ describe('semillas del mock', () => {
             expect(unique(names)).toBe(true)
         })
 
-        it('las posiciones de cada fuero van de 1 a n, sin huecos', () => {
-            for (const jurisdiction of ['CRIMINAL', 'ADMINISTRATIVE', 'AMPARO'] as const) {
-                const positions = PROCEDURAL_STATES.filter((s) => s.jurisdiction === jurisdiction)
-                    .map((s) => s.position)
-                    .sort((a, b) => a - b)
-                expect(positions).toEqual(positions.map((_, i) => i + 1))
+        it('los estados no llevan posición ni causas activas escritas a mano (D-31)', () => {
+            for (const state of PROCEDURAL_STATES) {
+                expect(state).not.toHaveProperty('position')
+                expect(state).not.toHaveProperty('activeCases')
             }
+        })
+
+        it('"Iniciada" no está en la tabla: es el estado inicial, de sistema (D-34)', () => {
+            const names = PROCEDURAL_STATES.map((s) => s.name.toLowerCase())
+
+            expect(names).not.toContain(INITIAL_STATE_NAME.toLowerCase())
         })
     })
 
@@ -76,7 +85,8 @@ describe('semillas del mock', () => {
         })
 
         it('el abogado responsable tiene una cuenta con rol LAWYER', () => {
-            // Sólo el abogado registra actos (D-13): sin cuenta no podría haberlos cargado.
+            // Sólo el abogado responsable registra los actos de su causa (D-30):
+            // sin cuenta nadie podría cargarlos.
             for (const c of CASE_SEEDS) {
                 const user = USERS.find((u) => u.lawyerId === c.responsibleLawyerId && u.active)
                 expect(user?.roles, `cuenta del abogado de la causa ${c.id}`).toContain('LAWYER')
@@ -90,11 +100,10 @@ describe('semillas del mock', () => {
             }
         })
 
-        it('sólo las causas penales tienen calificaciones, y tienen al menos una', () => {
+        it('sólo las causas penales tienen calificaciones, y pueden no tener ninguna (D-33)', () => {
             for (const c of CASE_SEEDS) {
                 const count = c.qualifications?.length ?? 0
                 if (c.jurisdiction === 'CRIMINAL') {
-                    expect(count, `calificaciones de la causa ${c.id}`).toBeGreaterThan(0)
                     for (const q of c.qualifications ?? []) {
                         expect(LEGAL_QUALIFICATIONS.some((x) => x.id === q.legalQualificationId)).toBe(true)
                         expect(q.offenseDate).toMatch(/^\d{4}-\d{2}-\d{2}$/)
@@ -179,16 +188,16 @@ describe('semillas del mock', () => {
 
         it('las causas activas suman lo mismo contadas por abogado, por cliente y por estado', () => {
             const active = db.cases.filter(isActiveCase)
-            const withState = active.filter((c) => toCase(c).currentState?.proceduralStateId != null)
+            const withState = active.filter((c) => toCase(c).currentState.proceduralStateId !== null)
 
             const byLawyer = db.lawyers.map(toLawyer).reduce((n, l) => n + l.activeCases, 0)
             const byClient = db.clients.map(toClient).reduce((n, c) => n + c.activeCases, 0)
             const byState = db.proceduralStates.map(toProceduralState).reduce((n, s) => n + s.activeCases, 0)
 
-            expect(active).toHaveLength(19)
+            expect(active).toHaveLength(20)
             expect(byLawyer).toBe(active.length)
             expect(byClient).toBe(active.length)
-            // Las causas sin acto y las de estado escrito a mano no están en ningún estado de la tabla.
+            // Las causas en "Iniciada" y las de estado escrito a mano no están en ningún estado de la tabla.
             expect(byState).toBe(withState.length)
         })
 
@@ -215,18 +224,18 @@ describe('semillas del mock', () => {
 
         it('las seis causas del prototipo muestran los vencimientos del prototipo', () => {
             const remaining = (id: number) =>
-                toCase(db.cases.find((c) => c.id === id)!).nextDeadline?.businessDaysRemaining ?? null
+                toCase(db.cases.find((c) => c.id === id)!).currentState.businessDaysRemaining
 
             expect(remaining(1)).toBe(1) // En 1 día hábil
             expect(remaining(2)).toBe(-2) // Vencido hace 2 días
             expect(remaining(3)).toBe(3) // En 3 días hábiles
-            expect(remaining(4)).toBeNull() // Sin plazo abierto
+            expect(remaining(4)).toBeNull() // Sin vencimiento
             expect(remaining(5)).toBe(10) // En 10 días hábiles
             expect(remaining(6)).toBe(0) // Vence hoy
         })
 
         it('las fechas de las causas del prototipo son las del prototipo', () => {
-            const dueDate = (id: number) => toCase(db.cases.find((c) => c.id === id)!).nextDeadline?.dueDate
+            const dueDate = (id: number) => toCase(db.cases.find((c) => c.id === id)!).currentState.dueDate
 
             expect(dueDate(1)).toBe('2026-09-16')
             expect(dueDate(2)).toBe('2026-09-11')

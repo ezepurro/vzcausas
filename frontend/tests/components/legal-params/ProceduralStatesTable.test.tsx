@@ -9,7 +9,6 @@ function state(overrides: Partial<ProceduralState>): ProceduralState {
         id: 1,
         name: 'Estado',
         jurisdiction: 'CRIMINAL',
-        position: 1,
         timeLimitDays: 3,
         dayType: 'BUSINESS',
         terminal: false,
@@ -20,10 +19,10 @@ function state(overrides: Partial<ProceduralState>): ProceduralState {
 }
 
 const ROWS = [
-    state({ id: 1, name: 'Designación de abogado defensor', position: 1, timeLimitDays: 0, dayType: 'NONE' }),
-    state({ id: 2, name: 'Cédula de notificación', position: 2, timeLimitDays: 3, dayType: 'BUSINESS' }),
-    state({ id: 16, name: 'Demanda contencioso administrativa', position: 3, timeLimitDays: 30, dayType: 'CONSECUTIVE' }),
-    state({ id: 9, name: 'Archivada', position: 4, timeLimitDays: 0, dayType: 'NONE', terminal: true }),
+    state({ id: 1, name: 'Designación de abogado defensor', timeLimitDays: 0, dayType: 'NONE' }),
+    state({ id: 2, name: 'Cédula de notificación', timeLimitDays: 3, dayType: 'BUSINESS', activeCases: 4 }),
+    state({ id: 16, name: 'Demanda contencioso administrativa', timeLimitDays: 30, dayType: 'CONSECUTIVE' }),
+    state({ id: 9, name: 'Archivada', timeLimitDays: 0, dayType: 'NONE', terminal: true }),
 ]
 
 function renderTable(rows = ROWS) {
@@ -38,19 +37,30 @@ function rowOf(name: string) {
 }
 
 describe('ProceduralStatesTable', () => {
-    it('muestra una fila por estado con su posición', () => {
+    it('muestra una fila por estado, en el orden en que llegan y sin numerar (V3 D-31)', () => {
         renderTable()
 
-        expect(screen.getAllByRole('row')).toHaveLength(ROWS.length + 1)
-        expect(within(rowOf('Cédula de notificación')).getAllByRole('cell')[0]).toHaveTextContent('2')
+        const rows = screen.getAllByRole('row')
+        expect(rows).toHaveLength(ROWS.length + 1)
+        // La primera celda es el nombre: ya no hay columna de posición.
+        expect(rows.slice(1).map((row) => within(row).getAllByRole('cell')[0].textContent)).toEqual(
+            ROWS.map((r) => r.name),
+        )
+        expect(screen.queryByRole('columnheader', { name: '#' })).not.toBeInTheDocument()
+    })
+
+    it('muestra las causas activas que hay en cada estado', () => {
+        renderTable()
+
+        expect(within(rowOf('Cédula de notificación')).getAllByRole('cell')[4]).toHaveTextContent('4')
     })
 
     it('un estado sin plazo muestra una raya en vez de 0', () => {
         renderTable()
 
         const cells = within(rowOf('Designación de abogado defensor')).getAllByRole('cell')
-        expect(cells[2]).toHaveTextContent('—')
-        expect(cells[3]).toHaveTextContent('Sin plazo')
+        expect(cells[1]).toHaveTextContent('—')
+        expect(cells[2]).toHaveTextContent('Sin plazo')
     })
 
     it('muestra el tipo de día en castellano', () => {

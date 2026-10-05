@@ -31,6 +31,8 @@ import {
     type Role,
     type Session,
     type User,
+    type WrittenLegalQualification,
+    type WrittenProceduralState,
 } from './contract';
 
 /** Una respuesta HTTP del mock. `body` es `null` en los 204. */
@@ -54,8 +56,9 @@ export const NO_CONTENT: MockResponse<null> = response(204, null);
  * Los mensajes que el contrato repite endpoint por endpoint.
  *
  * El contrato conserva **dos redacciones del 401**: la de `/auth/*` menciona
- * el token y la del resto no. El 403 es una sola redacción que nombra el rol
- * que falta: `ADMINISTRATOR`, `SECRETARY` o `LAWYER` (§4, permisos por perfil).
+ * el token y la del resto no. El 403 nombra el rol que falta, `ADMINISTRATOR`
+ * o `SECRETARY` (§4, permisos por perfil); el de los actos procesales es otro,
+ * porque ahí no falta un rol sino ser el abogado responsable de la causa.
  */
 export const ERRORS = {
     /* ---- 400 ---- */
@@ -123,8 +126,11 @@ export const ERRORS = {
     forbidden: forbiddenFor('ADMINISTRATOR'),
     /** Alta de cliente (D-05). */
     forbiddenSecretary: forbiddenFor('SECRETARY'),
-    /** Registro de un acto procesal y su previsualización (D-13). */
-    forbiddenLawyer: forbiddenFor('LAWYER'),
+    /** Registro de un acto procesal y su previsualización (D-30). */
+    forbiddenNotResponsible: errorBody(
+        'FORBIDDEN',
+        'Solo el abogado responsable de la causa puede registrar actos procesales.',
+    ),
 
     /* ---- 404 ---- */
     userNotFound: errorBody('USER_NOT_FOUND', 'No se encontró el usuario solicitado.'),
@@ -308,7 +314,6 @@ const EXAMPLE_STATE: ProceduralState = {
     id: 4,
     name: 'Oposición al requerimiento de elevación',
     jurisdiction: 'CRIMINAL',
-    position: 4,
     timeLimitDays: 5,
     dayType: 'BUSINESS',
     terminal: false,
@@ -321,7 +326,6 @@ const EXAMPLE_TERMINAL_STATE: ProceduralState = {
     id: 9,
     name: 'Archivada',
     jurisdiction: 'CRIMINAL',
-    position: 9,
     timeLimitDays: 0,
     dayType: 'NONE',
     terminal: true,
@@ -329,19 +333,18 @@ const EXAMPLE_TERMINAL_STATE: ProceduralState = {
     active: true,
 };
 
-const EXAMPLE_CREATED_STATE: ProceduralState = {
+/** Lo que devuelve el alta: sin `activeCases`, que es sólo de los `GET` (D-32). */
+const EXAMPLE_CREATED_STATE: WrittenProceduralState = {
     id: 25,
     name: 'Vista al fiscal',
     jurisdiction: 'CRIMINAL',
-    position: 5,
     timeLimitDays: 5,
     dayType: 'BUSINESS',
     terminal: false,
-    activeCases: 0,
     active: true,
 };
 
-const EXAMPLE_UPDATED_STATE: ProceduralState = {
+const EXAMPLE_UPDATED_STATE: WrittenProceduralState = {
     ...EXAMPLE_CREATED_STATE,
     timeLimitDays: 20,
 };
@@ -354,11 +357,18 @@ const EXAMPLE_QUALIFICATION: LegalQualification = {
     active: true,
 };
 
-const EXAMPLE_CREATED_QUALIFICATION: LegalQualification = {
+/** Lo que devuelve el alta: sin `activeCases` (D-32). */
+const EXAMPLE_CREATED_QUALIFICATION: WrittenLegalQualification = {
     id: 10,
     name: 'Estafa — art. 172 CP',
     prescriptionMonths: 72,
-    activeCases: 0,
+    active: true,
+};
+
+const EXAMPLE_UPDATED_QUALIFICATION: WrittenLegalQualification = {
+    id: 1,
+    name: 'Robo calificado — art. 167 inc. 2 CP',
+    prescriptionMonths: 120,
     active: true,
 };
 
@@ -386,7 +396,7 @@ const EXAMPLE_CREATED_CLIENT: Client = {
     active: true,
 };
 
-/** Causa penal con plazo abierto: el ejemplo del contrato. */
+/** Causa penal con vencimiento: el ejemplo del contrato. */
 const EXAMPLE_CASE: Case = {
     id: 1,
     sacNumber: '13284571',
@@ -395,7 +405,8 @@ const EXAMPLE_CASE: Case = {
     jurisdiction: 'CRIMINAL',
     proceduralRole: 'DEFENSE',
     instructorName: 'Dra. Verónica Ledesma',
-    instructorPhone: '0351 448-1200 int. 214',
+    instructorPhone: '0351 448-1200',
+    instructorExtension: '214',
     counterparty: null,
     subjectMatter: null,
     client: {
@@ -419,12 +430,12 @@ const EXAMPLE_CASE: Case = {
         },
     ],
     startDate: '2021-03-12',
+    // El vencimiento es parte del estado actual: lo abrió el acto que la llevó a él (D-35).
     currentState: {
         proceduralStateId: 4,
         name: 'Oposición al requerimiento de elevación',
         custom: false,
-    },
-    nextDeadline: {
+        initial: false,
         proceduralActId: 3,
         dueDate: '2026-09-16',
         businessDaysRemaining: 1,
@@ -434,16 +445,24 @@ const EXAMPLE_CASE: Case = {
 };
 
 /**
- * Causa recién registrada: sin estado procesal ni plazo abierto. Es lo que
- * devuelve siempre el `POST /cases` (V3 D-09).
+ * Causa recién registrada: en el estado inicial, "Iniciada", y sin
+ * vencimiento. Es lo que devuelve siempre el `POST /cases` (V3 D-34).
  */
 const EXAMPLE_CREATED_CASE: Case = {
     ...EXAMPLE_CASE,
-    id: 23,
+    id: 24,
     sacNumber: '14200315',
     startDate: '2026-09-29',
-    currentState: null,
-    nextDeadline: null,
+    currentState: {
+        proceduralStateId: null,
+        name: 'Iniciada',
+        custom: false,
+        initial: true,
+        proceduralActId: null,
+        dueDate: null,
+        businessDaysRemaining: null,
+        manuallyAdjusted: false,
+    },
 };
 
 const EXAMPLE_ACT: ProceduralAct = {
@@ -750,7 +769,7 @@ export const RESPONSES = {
 
     /** `PATCH /legal-qualifications/{qualificationId}` */
     updateLegalQualification: {
-        ok: response(200, itemBody({ ...EXAMPLE_QUALIFICATION, prescriptionMonths: 120 })),
+        ok: response(200, itemBody(EXAMPLE_UPDATED_QUALIFICATION)),
         validation: response(
             400,
             errorBody('VALIDATION_ERROR', 'Los datos enviados no son válidos.', {
@@ -804,14 +823,13 @@ export const RESPONSES = {
         notFound: response(404, ERRORS.clientNotFound),
     },
 
-    /** `POST /cases` — cualquier usuario autenticado. La causa nace sin estado. */
+    /** `POST /cases` — cualquier usuario autenticado. La causa nace en "Iniciada". */
     createCase: {
         created: response(201, itemBody(EXAMPLE_CREATED_CASE)),
         validation: response(
             400,
             errorBody('VALIDATION_ERROR', 'Los datos enviados no son válidos.', {
                 sacNumber: 'Debe contener exactamente 8 dígitos.',
-                legalQualifications: 'Las causas penales requieren al menos una calificación legal.',
                 proceduralRole: 'El rol procesal no corresponde al fuero.',
             }),
         ),
@@ -821,7 +839,7 @@ export const RESPONSES = {
 
     /** `GET /cases` */
     listCases: {
-        ok: response(200, listBody<Case>([EXAMPLE_CASE], buildPagination(22, 1, 20))),
+        ok: response(200, listBody<Case>([EXAMPLE_CASE], buildPagination(23, 1, 20))),
         invalidFilter: response(
             400,
             errorBody('INVALID_REQUEST', 'Parámetros de query inválidos.', {
@@ -849,7 +867,7 @@ export const RESPONSES = {
         notFound: response(404, ERRORS.caseNotFound),
     },
 
-    /** `POST /cases/{caseId}/procedural-acts` — sólo `LAWYER` (D-13). */
+    /** `POST /cases/{caseId}/procedural-acts` — sólo el abogado responsable de la causa (D-30). */
     createProceduralAct: {
         created: response(201, itemBody(EXAMPLE_ACT)),
         validation: response(
@@ -861,12 +879,12 @@ export const RESPONSES = {
         ),
         invalidId: response(400, ERRORS.invalidCaseId),
         unauthenticated: response(401, ERRORS.unauthenticated),
-        forbidden: response(403, ERRORS.forbiddenLawyer),
+        forbidden: response(403, ERRORS.forbiddenNotResponsible),
         notFound: response(404, ERRORS.caseNotFound),
         terminalState: response(422, ERRORS.caseInTerminalState),
     },
 
-    /** `GET /cases/{caseId}/procedural-acts/deadline-preview` — sólo `LAWYER`. */
+    /** `GET /cases/{caseId}/procedural-acts/deadline-preview` — sólo el abogado responsable. */
     deadlinePreview: {
         ok: response(200, itemBody(EXAMPLE_PREVIEW)),
         /** Estado que no abre plazo: `dueDate` y `businessDaysRemaining` en `null`. */
@@ -879,7 +897,7 @@ export const RESPONSES = {
             }),
         ),
         unauthenticated: response(401, ERRORS.unauthenticated),
-        forbidden: response(403, ERRORS.forbiddenLawyer),
+        forbidden: response(403, ERRORS.forbiddenNotResponsible),
         notFound: response(404, ERRORS.caseNotFound),
     },
 

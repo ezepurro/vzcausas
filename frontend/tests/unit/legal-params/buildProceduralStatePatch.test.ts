@@ -8,32 +8,20 @@ import type {
     ProceduralStateFormValues,
 } from '@/features/legal-params/types/proceduralState'
 
-function state(id: number, name: string, position: number): ProceduralState {
-    return {
-        id,
-        name,
-        jurisdiction: 'CRIMINAL',
-        position,
-        timeLimitDays: 3,
-        dayType: 'BUSINESS',
-        terminal: false,
-        activeCases: 0,
-        active: true,
-    }
+const ORIGINAL: ProceduralState = {
+    id: 20,
+    name: 'Cédula',
+    jurisdiction: 'CRIMINAL',
+    timeLimitDays: 3,
+    dayType: 'BUSINESS',
+    terminal: false,
+    activeCases: 0,
+    active: true,
 }
 
-const A = state(10, 'Designación', 1)
-const B = state(20, 'Cédula', 2)
-const C = state(30, 'Citación', 3)
-
-/** Se edita B: los hermanos son los demás, sin B. */
-const ORIGINAL = B
-const SIBLINGS = [A, C]
-
-/** Los valores que precarga el formulario al abrir la edición de B. */
+/** Los valores que precarga el formulario al abrir la edición. */
 const UNCHANGED: ProceduralStateFormValues = {
     name: 'Cédula',
-    positionChoice: 'AFTER:10',
     timeLimitDays: '3',
     dayType: 'BUSINESS',
     terminal: false,
@@ -41,70 +29,38 @@ const UNCHANGED: ProceduralStateFormValues = {
 
 describe('buildProceduralStatePatch', () => {
     it('sin cambios devuelve un parche vacío', () => {
-        const patch = buildProceduralStatePatch(ORIGINAL, UNCHANGED, SIBLINGS, false)
+        const patch = buildProceduralStatePatch(ORIGINAL, UNCHANGED)
         expect(patch).toEqual({})
         expect(isEmptyPatch(patch)).toBe(true)
     })
 
     it('agregar espacios al nombre no cuenta como cambio', () => {
-        expect(
-            buildProceduralStatePatch(ORIGINAL, { ...UNCHANGED, name: '  Cédula ' }, SIBLINGS, false),
-        ).toEqual({})
+        expect(buildProceduralStatePatch(ORIGINAL, { ...UNCHANGED, name: '  Cédula ' })).toEqual({})
     })
 
     it('manda sólo el nombre si sólo cambió el nombre', () => {
-        expect(
-            buildProceduralStatePatch(ORIGINAL, { ...UNCHANGED, name: 'Cédula nueva' }, SIBLINGS, false),
-        ).toEqual({ name: 'Cédula nueva' })
+        expect(buildProceduralStatePatch(ORIGINAL, { ...UNCHANGED, name: 'Cédula nueva' })).toEqual({
+            name: 'Cédula nueva',
+        })
     })
 
     it('convierte el plazo a número', () => {
-        expect(
-            buildProceduralStatePatch(ORIGINAL, { ...UNCHANGED, timeLimitDays: '10' }, SIBLINGS, false),
-        ).toEqual({ timeLimitDays: 10 })
+        expect(buildProceduralStatePatch(ORIGINAL, { ...UNCHANGED, timeLimitDays: '10' })).toEqual({
+            timeLimitDays: 10,
+        })
     })
 
     it('manda el tipo de día y el cierre si cambiaron', () => {
         expect(
-            buildProceduralStatePatch(
-                ORIGINAL,
-                { ...UNCHANGED, dayType: 'CONSECUTIVE', terminal: true },
-                SIBLINGS,
-                false,
-            ),
+            buildProceduralStatePatch(ORIGINAL, { ...UNCHANGED, dayType: 'CONSECUTIVE', terminal: true }),
         ).toEqual({ dayType: 'CONSECUTIVE', terminal: true })
     })
 
-    it('si no se tocó el select de posición, no manda posición aunque el valor difiera', () => {
-        expect(
-            buildProceduralStatePatch(ORIGINAL, { ...UNCHANGED, positionChoice: 'FIRST' }, SIBLINGS, false),
-        ).toEqual({})
-    })
+    it('nunca manda el fuero ni una posición: los estados no tienen orden (V3 D-31)', () => {
+        const patch = buildProceduralStatePatch(ORIGINAL, { ...UNCHANGED, name: 'Otro nombre' })
 
-    it('mover al inicio manda la posición 1', () => {
-        expect(
-            buildProceduralStatePatch(ORIGINAL, { ...UNCHANGED, positionChoice: 'FIRST' }, SIBLINGS, true),
-        ).toEqual({ position: 1 })
-    })
-
-    it('mover al final manda la última posición', () => {
-        expect(
-            buildProceduralStatePatch(ORIGINAL, { ...UNCHANGED, positionChoice: 'LAST' }, SIBLINGS, true),
-        ).toEqual({ position: 3 })
-    })
-
-    it('tocar el select y dejarlo en el mismo lugar no manda posición', () => {
-        expect(buildProceduralStatePatch(ORIGINAL, UNCHANGED, SIBLINGS, true)).toEqual({})
-    })
-
-    it('nunca manda el fuero', () => {
-        const patch = buildProceduralStatePatch(
-            ORIGINAL,
-            { ...UNCHANGED, name: 'Otro nombre' },
-            SIBLINGS,
-            true,
-        )
         expect(patch).not.toHaveProperty('jurisdiction')
+        expect(patch).not.toHaveProperty('position')
     })
 })
 

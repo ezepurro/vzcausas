@@ -1,6 +1,6 @@
 /**
  * Servidor falso: implementa los endpoints de `API_CONTRACT_V3.md` (con la
- * revisión del 01/10/2026) sobre la base en memoria de `db.ts`.
+ * revisión del 05/10/2026) sobre la base en memoria de `db.ts`.
  *
  * Es una función pura respecto del transporte (`resolveRequest`): recibe un
  * pedido ya normalizado y devuelve `{ status, body }`. No sabe de axios ni de
@@ -23,10 +23,11 @@
  * El contrato no fija ese orden; es una decisión del mock para que el
  * comportamiento sea previsible.
  *
- * La excepción son los dos endpoints de actos procesales: validar el cuerpo
- * necesita el fuero de la causa (qué estados admite, si corre desde la
- * notificación), así que ahí el `404` de la causa va antes que el `400` del
- * cuerpo.
+ * La excepción son los dos endpoints de actos procesales. Ahí todo depende de
+ * la causa: quién puede registrar (su abogado responsable) y qué admite el
+ * cuerpo (los estados de su fuero, si el plazo corre desde la notificación).
+ * Por eso el `404` de la causa va primero, después el `403` y recién después
+ * el `400` del cuerpo.
  *
  * ## Quién puede qué
  *
@@ -34,6 +35,11 @@
  * a cualquier usuario autenticado, salvo `/users`; escribir pide el rol de
  * cada recurso (`requireRole`). Un usuario con varios roles pasa si el pedido
  * está entre ellos.
+ *
+ * Los actos procesales no se rigen por un rol: los registra **el abogado
+ * responsable de la causa** y nadie más, ni otro abogado ni el administrador
+ * (V3 D-30). Se compara la ficha del usuario con el responsable de la causa
+ * (`isResponsibleLawyer`).
  *
  * ## Bajas
  *
@@ -61,7 +67,6 @@ import {
     type Jurisdiction,
     type Lawyer,
     type ProceduralRole,
-    type ProceduralState,
     type Role,
     permissionsFor,
     type RefreshedSession,
@@ -93,10 +98,12 @@ import {
 } from './db';
 import {
     EXPIRES_IN,
+    INITIAL_STATE_NAME,
     PROTECTED_ADMIN_USER,
     USERS_WITH_DEPENDENCIES,
     type StoredClient,
     type StoredLegalQualification,
+    type StoredProceduralState,
     type StoredUser,
 } from './fixtures';
 import {
@@ -181,8 +188,8 @@ function requireUser(request: MockRequest): AuthResult {
 
 /**
  * Exige sesión válida **y** un rol. Un usuario con varios roles pasa si el
- * pedido está entre ellos: `fvazquez` es `ADMINISTRATOR` y `LAWYER`, así que
- * administra y además registra actos.
+ * pedido está entre ellos: `sledesma` es `SECRETARY` y `LAWYER`, así que
+ * registra clientes aunque además ejerza.
  */
 function requireRole(request: MockRequest, role: Role): AuthResult {
     const auth = requireUser(request);
@@ -191,6 +198,15 @@ function requireRole(request: MockRequest, role: Role): AuthResult {
         return { ok: false, response: fail(403, forbiddenFor(role)) };
     }
     return auth;
+}
+
+/**
+ * `true` si el usuario es el abogado responsable de la causa (V3 D-30): su
+ * ficha (`lawyerId`) es la del responsable. No alcanza con un rol: otro
+ * abogado, un administrador o alguien sin ficha no pasan.
+ */
+function isResponsibleLawyer(user: StoredUser, stored: StoredCase): boolean {
+    return user.lawyerId !== null && user.lawyerId === stored.responsibleLawyerId;
 }
 
 /** La administración: usuarios, y escribir abogados, estados y calificaciones. */
@@ -873,33 +889,23 @@ const deleteLawyer: Handler = ({ request, params }) => {
  * La unicidad es por **nombre + fuero**, no por nombre solo: dos fueros
  * pueden tener un estado que se llame igual (una "Apelación" penal y una
  * administrativa son dos cosas distintas con dos plazos distintos).
+ *
+ * Es entre los vigentes, como el índice de la base
+ * (`procedural_states_jurisdiction_name_active_key`): el nombre de un estado
+ * dado de baja se puede volver a usar.
+ *
+ * "Iniciada" está reservada en los tres fueros: es el estado inicial, que es
+ * de sistema y no figura en la tabla (V3 D-34).
  */
 function stateNameTaken(name: string, jurisdiction: Jurisdiction, exceptId?: number): boolean {
+    if (name.toLowerCase() === INITIAL_STATE_NAME.toLowerCase()) return true;
     return db.proceduralStates.some(
         (s) =>
+            s.active &&
             s.id !== exceptId &&
             s.jurisdiction === jurisdiction &&
             s.name.toLowerCase() === name.toLowerCase(),
     );
-}
-
-/** Los estados activos de un fuero, en orden de ciclo de vida. */
-function statesOf(jurisdiction: Jurisdiction, exceptId?: number): ProceduralState[] {
-    return db.proceduralStates
-        .filter((s) => s.active && s.jurisdiction === jurisdiction && s.id !== exceptId)
-        .sort((a, b) => a.position - b.position);
-}
-
-/**
- * Renumera las posiciones de un fuero para que queden 1..n sin huecos.
- *
- * Se llama después de insertar, de mover y de dar de baja: el contrato dice
- * que el backend renumera y que el cliente no manda esa renumeración.
- */
-function renumber(jurisdiction: Jurisdiction): void {
-    statesOf(jurisdiction).forEach((state, index) => {
-        state.position = index + 1;
-    });
 }
 
 /** El `dayType` tiene que ser coherente con el plazo. */
@@ -932,11 +938,6 @@ const createProceduralState: Handler = ({ request }) => {
         details.dayType = 'Debe ser BUSINESS, CONSECUTIVE o NONE.';
     }
 
-    const position = body.position === undefined ? undefined : readCount(body.position, 9999);
-    if (body.position !== undefined && (position === undefined || position < 1)) {
-        details.position = 'Debe ser un número entero mayor o igual a 1.';
-    }
-
     if (body.terminal !== undefined && typeof body.terminal !== 'boolean') {
         details.terminal = 'Debe ser verdadero o falso.';
     }
@@ -954,43 +955,26 @@ const createProceduralState: Handler = ({ request }) => {
         });
     }
 
-    /* La posición va de 1 a la cantidad de estados del fuero más uno: así no
-       quedan huecos en la secuencia (V3 §7.2). */
-    const siblings = statesOf(jurisdiction);
-    if (position !== undefined && position > siblings.length + 1) {
-        return validationError({
-            position: `Debe ser un número entero entre 1 y ${siblings.length + 1}.`,
-        });
-    }
-
     if (stateNameTaken(name, jurisdiction)) {
         return fail(409, ERRORS.proceduralStateNameTaken);
     }
 
-    /* Insertar corre un lugar a los que vienen después. Sin posición, va al
-       final del ciclo. */
-    const target = position ?? siblings.length + 1;
-
-    const state: ProceduralState = {
+    /* Los estados no tienen posición (V3 D-31): el nuevo queda al final del
+       listado de su fuero porque se lista por orden de registro. */
+    const state: StoredProceduralState = {
         id: db.nextProceduralStateId,
         name,
         jurisdiction,
-        position: target,
         timeLimitDays: days,
         dayType,
         terminal: body.terminal === true,
-        activeCases: 0,
         active: true,
     };
     db.nextProceduralStateId += 1;
-
-    for (const sibling of siblings) {
-        if (sibling.position >= target) sibling.position += 1;
-    }
     db.proceduralStates.push(state);
-    renumber(jurisdiction);
 
-    return created(itemBody(toProceduralState(state)));
+    // Sin `activeCases`: es un dato de consulta, sólo de los `GET` (V3 D-32).
+    return created(itemBody({ ...state }));
 };
 
 /* Leer los estados está abierto a cualquier perfil (V3 D-03): consultar
@@ -1013,10 +997,11 @@ const listProceduralStates: Handler = ({ request }) => {
         .filter((s) => (search === '' ? true : contains(s.name, search)))
         .filter((s) => (jurisdiction === null || jurisdiction === '' ? true : s.jurisdiction === jurisdiction))
         /* El contrato fija el orden: por fuero y, dentro de cada uno, por
-           posición. La pantalla muestra el ciclo de vida en orden. */
+           orden de registro (`id` ascendente). El estado inicial "Iniciada" no
+           está en la base, así que no hay nada que excluir. */
         .sort((a, b) =>
             a.jurisdiction === b.jurisdiction
-                ? a.position - b.position
+                ? a.id - b.id
                 : JURISDICTIONS.indexOf(a.jurisdiction) - JURISDICTIONS.indexOf(b.jurisdiction),
         )
         .map(toProceduralState);
@@ -1047,11 +1032,10 @@ const updateProceduralState: Handler = ({ request, params }) => {
     const body = asObject(request.body);
     const hasName = body.name !== undefined;
     const hasJurisdiction = body.jurisdiction !== undefined;
-    const hasPosition = body.position !== undefined;
     const hasTimeLimit = body.timeLimitDays !== undefined;
     const hasDayType = body.dayType !== undefined;
     const hasTerminal = body.terminal !== undefined;
-    if (!hasName && !hasJurisdiction && !hasPosition && !hasTimeLimit && !hasDayType && !hasTerminal) {
+    if (!hasName && !hasJurisdiction && !hasTimeLimit && !hasDayType && !hasTerminal) {
         return validationError({ body: 'Debe enviarse al menos un campo para modificar.' });
     }
 
@@ -1071,10 +1055,6 @@ const updateProceduralState: Handler = ({ request, params }) => {
     }
     if (hasDayType && !isDayType(body.dayType)) {
         details.dayType = 'Debe ser BUSINESS, CONSECUTIVE o NONE.';
-    }
-    const position = hasPosition ? readCount(body.position, 9999) : undefined;
-    if (hasPosition && (position === undefined || position < 1)) {
-        details.position = 'Debe ser un número entero mayor o igual a 1.';
     }
     if (hasTerminal && typeof body.terminal !== 'boolean') {
         details.terminal = 'Debe ser verdadero o falso.';
@@ -1102,14 +1082,6 @@ const updateProceduralState: Handler = ({ request, params }) => {
     const destination = hasJurisdiction ? (body.jurisdiction as Jurisdiction) : origin;
     const moving = destination !== origin;
 
-    // Las posiciones válidas son las del fuero donde el estado va a QUEDAR.
-    const siblings = statesOf(destination, stateId);
-    if (hasPosition && (position as number) > siblings.length + 1) {
-        return validationError({
-            position: `Debe ser un número entero entre 1 y ${siblings.length + 1}.`,
-        });
-    }
-
     const nextName = hasName ? name : state.name;
     if ((hasName || moving) && stateNameTaken(nextName, destination, stateId)) {
         return fail(409, ERRORS.proceduralStateNameTaken);
@@ -1126,24 +1098,11 @@ const updateProceduralState: Handler = ({ request, params }) => {
     state.timeLimitDays = nextDays;
     state.dayType = nextDayType;
     if (hasTerminal) state.terminal = body.terminal as boolean;
+    // Sin posiciones que acomodar: el estado se lista en su fuero nuevo por su id.
     state.jurisdiction = destination;
 
-    /* Mover un estado reordena el ciclo: se lo saca de su lugar, se lo mete
-       en el nuevo y se renumera todo el fuero. Al trasladarse sin posición,
-       va al final del ciclo del fuero de destino. */
-    if (hasPosition || moving) {
-        const target = hasPosition ? (position as number) : siblings.length + 1;
-        siblings.splice(target - 1, 0, state);
-        siblings.forEach((s, index) => {
-            s.position = index + 1;
-        });
-        // El fuero de origen cierra el hueco que dejó.
-        if (moving) renumber(origin);
-    } else {
-        renumber(state.jurisdiction);
-    }
-
-    return ok(itemBody(toProceduralState(state)));
+    // Sin `activeCases`, igual que el alta (V3 D-32).
+    return ok(itemBody({ ...state }));
 };
 
 const deleteProceduralState: Handler = ({ request, params }) => {
@@ -1161,8 +1120,6 @@ const deleteProceduralState: Handler = ({ request, params }) => {
        de baja. Lo único que cambia es que ningún acto puede volver a llevar
        una causa a él. */
     state.active = false;
-    // Los que quedan se renumeran: el ciclo no puede tener huecos.
-    renumber(state.jurisdiction);
 
     return NO_CONTENT;
 };
@@ -1275,7 +1232,8 @@ const createLegalQualification: Handler = ({ request }) => {
     db.nextLegalQualificationId += 1;
     db.legalQualifications.push(qualification);
 
-    return created(itemBody(toLegalQualification(qualification)));
+    // Sin `activeCases`: es un dato de consulta, sólo de los `GET` (V3 D-32).
+    return created(itemBody({ ...qualification }));
 };
 
 const listLegalQualifications: Handler = ({ request }) => {
@@ -1344,7 +1302,8 @@ const updateLegalQualification: Handler = ({ request, params }) => {
        meses de acá cada vez que se serializa. */
     if (months !== undefined) qualification.prescriptionMonths = months;
 
-    return ok(itemBody(toLegalQualification(qualification)));
+    // Sin `activeCases`, igual que el alta (V3 D-32).
+    return ok(itemBody({ ...qualification }));
 };
 
 const deleteLegalQualification: Handler = ({ request, params }) => {
@@ -1469,13 +1428,14 @@ const getClient: Handler = ({ request, params }) => {
 /* /cases                                                              */
 /* ------------------------------------------------------------------ */
 
-/** Número de SAC: exactamente 8 dígitos (V3 D-16). */
+/** Número de SAC: exactamente 8 dígitos (V3 D-16). Es opcional (D-33). */
 const RE_SAC = /^\d{8}$/;
 
 const CAPTION_MAX = 255;
 const COURT_MAX = 255;
 const INSTRUCTOR_NAME_MAX = 150;
 const INSTRUCTOR_PHONE_MAX = 50;
+const INSTRUCTOR_EXTENSION_MAX = 20;
 const COUNTERPARTY_MAX = 255;
 const SUBJECT_MATTER_MAX = 800;
 
@@ -1494,13 +1454,16 @@ type QualificationsResult =
     | { ok: false; message: string };
 
 /**
- * Las calificaciones de una causa penal: al menos una, sin repetir, todas
- * vigentes y cada una con la fecha de su hecho (V3 D-28). Devuelve el primer
- * problema que encuentra, porque todos se informan sobre el mismo campo.
+ * Las calificaciones de una causa penal. Son opcionales (V3 D-33): sin el
+ * campo, o con la lista vacía, la causa se registra sin calificaciones y no
+ * computa prescripción. Si vienen, van sin repetir, todas vigentes y cada una
+ * con la fecha de su hecho (D-28). Devuelve el primer problema que encuentra,
+ * porque todos se informan sobre el mismo campo.
  */
 function readCaseQualifications(value: unknown, today: string): QualificationsResult {
-    if (!Array.isArray(value) || value.length === 0) {
-        return { ok: false, message: 'Las causas penales requieren al menos una calificación legal.' };
+    if (value === undefined || value === null) return { ok: true, value: [] };
+    if (!Array.isArray(value)) {
+        return { ok: false, message: 'Debe ser una lista de calificaciones legales.' };
     }
 
     const result: StoredCaseQualification[] = [];
@@ -1539,8 +1502,11 @@ const createCase: Handler = ({ request }) => {
     const today = todayIso();
     const details: Record<string, string> = {};
 
-    const sacNumber = asText(body.sacNumber);
-    if (!RE_SAC.test(sacNumber)) details.sacNumber = 'Debe contener exactamente 8 dígitos.';
+    // El SAC es opcional (D-33); si viene, son 8 dígitos.
+    const sacNumber = optionalText(body.sacNumber);
+    if (sacNumber !== null && !RE_SAC.test(sacNumber)) {
+        details.sacNumber = 'Debe contener exactamente 8 dígitos.';
+    }
 
     const caption = asText(body.caption);
     if (caption === '') details.caption = 'La carátula es obligatoria.';
@@ -1559,6 +1525,10 @@ const createCase: Handler = ({ request }) => {
     const instructorPhone = optionalText(body.instructorPhone);
     if (instructorPhone !== null && instructorPhone.length > INSTRUCTOR_PHONE_MAX) {
         details.instructorPhone = `Puede tener hasta ${INSTRUCTOR_PHONE_MAX} caracteres.`;
+    }
+    const instructorExtension = optionalText(body.instructorExtension);
+    if (instructorExtension !== null && instructorExtension.length > INSTRUCTOR_EXTENSION_MAX) {
+        details.instructorExtension = `Puede tener hasta ${INSTRUCTOR_EXTENSION_MAX} caracteres.`;
     }
 
     /* Un cliente, un abogado o una calificación que no existe o está dado de
@@ -1623,8 +1593,11 @@ const createCase: Handler = ({ request }) => {
 
     if (Object.keys(details).length > 0) return validationError(details);
 
-    // El SAC identifica la causa en todo el sistema (RN2).
-    if (db.cases.some((c) => c.sacNumber === sacNumber)) return fail(409, ERRORS.caseSacTaken);
+    /* Si se informa, el SAC identifica la causa en todo el sistema (RN2),
+       incluidas las dadas de baja. Dos causas sin SAC no chocan entre sí. */
+    if (sacNumber !== null && db.cases.some((c) => c.sacNumber === sacNumber)) {
+        return fail(409, ERRORS.caseSacTaken);
+    }
 
     const stored: StoredCase = {
         id: db.nextCaseId,
@@ -1635,6 +1608,7 @@ const createCase: Handler = ({ request }) => {
         proceduralRole: body.proceduralRole as ProceduralRole,
         instructorName,
         instructorPhone,
+        instructorExtension,
         counterparty,
         subjectMatter,
         clientId: clientId as number,
@@ -1646,8 +1620,8 @@ const createCase: Handler = ({ request }) => {
     db.nextCaseId += 1;
     db.cases.push(stored);
 
-    /* No se crea ningún acto: la causa nace sin estado procesal ("Sin acto
-       procesal") y sin plazo abierto. El estado lo fija el primer acto (D-09). */
+    /* No se crea ningún acto: la causa nace en el estado inicial, "Iniciada",
+       y sin vencimiento. El estado de la tabla lo fija el primer acto (D-34). */
     return created(itemBody(toCase(stored)));
 };
 
@@ -1707,6 +1681,7 @@ const listCases: Handler = ({ request }) => {
         .filter((c) => (clientId.ok && clientId.value !== undefined ? c.clientId === clientId.value : true))
         .filter((c) => {
             const latest = latestActOf(c.id);
+            // Sin actos, la causa sigue en el estado inicial, "Iniciada" (D-34).
             if (byWithoutActs) return latest === undefined;
             if (byStateId) return latest?.proceduralStateId === stateId.value;
             if (byCustomState) {
@@ -1715,29 +1690,28 @@ const listCases: Handler = ({ request }) => {
             return true;
         })
         .map(toCase)
-        .filter((c) => (onlyOpen ? c.nextDeadline !== null : true))
+        // "Solo con plazo por vencer": las que tienen vencimiento, vencidas incluidas.
+        .filter((c) => (onlyOpen ? c.currentState.dueDate !== null : true))
         .filter((c) =>
             search === ''
                 ? true
-                : contains(c.sacNumber, search) ||
+                : (c.sacNumber !== null && contains(c.sacNumber, search)) ||
                   contains(c.caption, search) ||
                   // En los dos órdenes: "gómez, ariel" y "ariel gómez".
                   contains(`${c.client.lastName}, ${c.client.firstName}`, search) ||
                   contains(`${c.client.firstName} ${c.client.lastName}`, search),
         )
-        /* Por urgencia (D-25): primero las causas con plazo abierto, por
-           vencimiento ascendente —las vencidas quedan arriba—, y después las
-           que no tienen plazo, por SAC. */
+        /* Por urgencia (D-25 y D-35): primero las causas con vencimiento, por
+           `currentState.dueDate` ascendente —las vencidas quedan arriba—, y
+           después las que no tienen, por `id`. Ya no se desempata por SAC,
+           que puede faltar. */
         .sort((a, b) => {
-            if (a.nextDeadline && b.nextDeadline) {
-                return (
-                    a.nextDeadline.dueDate.localeCompare(b.nextDeadline.dueDate) ||
-                    a.sacNumber.localeCompare(b.sacNumber)
-                );
-            }
-            if (a.nextDeadline) return -1;
-            if (b.nextDeadline) return 1;
-            return a.sacNumber.localeCompare(b.sacNumber);
+            const dueA = a.currentState.dueDate;
+            const dueB = b.currentState.dueDate;
+            if (dueA !== null && dueB !== null) return dueA.localeCompare(dueB) || a.id - b.id;
+            if (dueA !== null) return -1;
+            if (dueB !== null) return 1;
+            return a.id - b.id;
         });
 
     return ok(paginate(filtered, page.page, page.limit));
@@ -1747,8 +1721,8 @@ const listCases: Handler = ({ request }) => {
  * Los estados escritos a mano que tienen hoy las causas activas: el grupo
  * "Escritos a mano en causas" del filtro de estado.
  *
- * "Sin acto procesal" no sale de acá: no es un estado escrito a mano sino la
- * ausencia de estado, y el filtro lo ofrece como opción fija (V3 D-29).
+ * "Iniciada" no sale de acá: no es un estado escrito a mano sino el estado
+ * inicial de la causa, y el filtro lo ofrece como opción fija (V3 D-29, D-34).
  *
  * Es la única colección sin paginar: una lista corta de textos en `data`.
  */
@@ -1846,8 +1820,7 @@ function actDateErrors(input: {
 }
 
 const createProceduralAct: Handler = ({ request, params }) => {
-    // Sólo el abogado registra actos (V3 D-13).
-    const auth = requireRole(request, 'LAWYER');
+    const auth = requireUser(request);
     if (!auth.ok) return auth.response;
 
     const caseId = readRouteId(params, 'caseId');
@@ -1855,6 +1828,9 @@ const createProceduralAct: Handler = ({ request, params }) => {
 
     const stored = db.cases.find((c) => c.id === caseId && c.active);
     if (!stored) return fail(404, ERRORS.caseNotFound);
+
+    // Sólo el abogado responsable de la causa registra sus actos (V3 D-30).
+    if (!isResponsibleLawyer(auth.user, stored)) return fail(403, ERRORS.forbiddenNotResponsible);
 
     const body = asObject(request.body);
     const details: Record<string, string> = {};
@@ -1875,6 +1851,9 @@ const createProceduralAct: Handler = ({ request, params }) => {
         details.proceduralStateId = 'Debe indicarse el estado procesal al que pasa la causa.';
     } else if (customState.length > CUSTOM_STATE_MAX) {
         details.customState = `Puede tener hasta ${CUSTOM_STATE_MAX} caracteres.`;
+    } else if (customState.toLowerCase() === INITIAL_STATE_NAME.toLowerCase()) {
+        // El estado inicial no puede ser destino de un acto (D-34).
+        details.customState = `"${INITIAL_STATE_NAME}" es el estado inicial y no puede ser destino de un acto.`;
     } else if (
         db.proceduralStates.some(
             (s) =>
@@ -1943,8 +1922,9 @@ const createProceduralAct: Handler = ({ request, params }) => {
     db.proceduralActs.push(act);
 
     /* El acto se aplica al registrarse, sin confirmación (D-13). No hay nada
-       que escribir en la causa: su estado y su plazo abierto salen del acto de
-       fecha más reciente, así que un acto viejo no la hace retroceder (D-14). */
+       que escribir en la causa: su estado y su vencimiento salen del acto de
+       fecha más reciente, así que un acto viejo no la hace retroceder (D-14).
+       Si era el primero, la causa deja el estado inicial (D-34). */
     return created(itemBody(toProceduralAct(act)));
 };
 
@@ -1957,7 +1937,7 @@ const createProceduralAct: Handler = ({ request, params }) => {
  * ajuste manual tampoco pasa por acá.
  */
 const previewDeadline: Handler = ({ request, params }) => {
-    const auth = requireRole(request, 'LAWYER');
+    const auth = requireUser(request);
     if (!auth.ok) return auth.response;
 
     const caseId = readRouteId(params, 'caseId');
@@ -1965,6 +1945,9 @@ const previewDeadline: Handler = ({ request, params }) => {
 
     const stored = db.cases.find((c) => c.id === caseId && c.active);
     if (!stored) return fail(404, ERRORS.caseNotFound);
+
+    // Igual que el registro al que sirve: sólo el abogado responsable (D-30).
+    if (!isResponsibleLawyer(auth.user, stored)) return fail(403, ERRORS.forbiddenNotResponsible);
 
     const { query } = request;
     const details: Record<string, string> = {};

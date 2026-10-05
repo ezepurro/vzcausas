@@ -22,14 +22,10 @@ describe('toFormErrors', () => {
         })
     })
 
-    it('traduce position al select positionChoice', () => {
-        expect(toFormErrors({ position: 'Posición fuera de rango' })).toEqual({
-            positionChoice: 'Posición fuera de rango',
-        })
-    })
-
     it('descarta las claves que no son campos del formulario', () => {
-        expect(toFormErrors({ body: 'Hay que mandar al menos un campo.', jurisdiction: 'x' })).toEqual({})
+        expect(
+            toFormErrors({ body: 'Hay que mandar al menos un campo.', jurisdiction: 'x', position: 'y' }),
+        ).toEqual({})
     })
 })
 

@@ -22,6 +22,10 @@ interface Paginated<T> {
 
 const getCase = (id: number) => dataOf<Case>(call('GET', `/cases/${id}`, { as: 'gestion' }))
 
+/** Los estados vigentes de un fuero, tal como los devuelve el listado. */
+const statesOf = (jurisdiction: string) =>
+    (call('GET', '/procedural-states', { as: 'gestion', query: { jurisdiction, limit: '100' } }).body as Paginated<ProceduralState>).data
+
 describe('mock · permisos por perfil (V3 §4)', () => {
     usePrototypeToday()
 
@@ -121,13 +125,14 @@ describe('mock · /legal-qualifications', () => {
         })
 
         expect(response.status).toBe(201)
+        // Sin `activeCases`: es un dato de consulta, sólo de los `GET` (D-32).
         expect(dataOf<LegalQualification>(response)).toEqual({
             id: 10,
             name: 'Estafa — art. 172 CP',
             prescriptionMonths: 72,
-            activeCases: 0,
             active: true,
         })
+        expect(dataOf<LegalQualification>(call('GET', '/legal-qualifications/10', { as: 'gestion' })).activeCases).toBe(0)
     })
 
     it('valida el nombre y los meses', () => {
@@ -162,6 +167,12 @@ describe('mock · /legal-qualifications', () => {
         const response = call('PATCH', '/legal-qualifications/1', { as: 'fvazquez', body: { prescriptionMonths: 120 } })
 
         expect(response.status).toBe(200)
+        expect(dataOf<LegalQualification>(response)).toEqual({
+            id: 1,
+            name: 'Robo calificado — art. 167 inc. 2 CP',
+            prescriptionMonths: 120,
+            active: true,
+        })
         expect(getCase(1).legalQualifications[0]).toMatchObject({
             prescriptionMonths: 120,
             prescriptionExpiresOn: '2031-02-27',
@@ -293,7 +304,7 @@ describe('mock · lo que V3 cambió en abogados y estados procesales', () => {
         const { data } = call('GET', '/lawyers', { as: 'gestion' }).body as Paginated<Lawyer>
         const byId = Object.fromEntries(data.map((l) => [l.id, l.activeCases]))
 
-        expect(byId).toEqual({ 1: 3, 2: 2, 3: 2, 4: 2, 5: 3, 6: 2, 7: 3, 8: 2, 9: 0, 10: 0 })
+        expect(byId).toEqual({ 1: 3, 2: 2, 3: 2, 4: 2, 5: 3, 6: 3, 7: 3, 8: 2, 9: 0, 10: 0 })
     })
 
     it('un abogado con causas no se puede dar de baja; uno sin causas ni cuenta, sí', () => {
@@ -322,32 +333,35 @@ describe('mock · lo que V3 cambió en abogados y estados procesales', () => {
 
         expect(response.status).toBe(204)
         expect(call('GET', '/procedural-states/4', { as: 'gestion' }).status).toBe(404)
-        expect(getCase(1).currentState).toEqual({
+        expect(getCase(1).currentState).toMatchObject({
             proceduralStateId: 4,
             name: 'Oposición al requerimiento de elevación',
             custom: false,
         })
-        // Las posiciones del fuero se renumeran sin huecos.
-        const { data } = call('GET', '/procedural-states', {
-            as: 'gestion',
-            query: { jurisdiction: 'CRIMINAL', limit: '100' },
-        }).body as Paginated<ProceduralState>
-        expect(data.map((s) => s.position)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9])
+        expect(statesOf('CRIMINAL').map((s) => s.id)).toEqual([1, 2, 3, 5, 6, 7, 8, 9, 10])
     })
 
-    it('un estado que ninguna causa registra puede cambiar de fuero, y va al final del destino', () => {
+    it('el nombre de un estado dado de baja se puede volver a usar en su fuero', () => {
+        // Es único entre los vigentes, como el índice de la base.
+        call('DELETE', '/procedural-states/7', { as: 'fvazquez' })
+
+        const response = call('POST', '/procedural-states', {
+            as: 'fvazquez',
+            body: { name: 'Recurso de apelación', jurisdiction: 'CRIMINAL', timeLimitDays: 3, dayType: 'BUSINESS' },
+        })
+
+        expect(response.status).toBe(201)
+    })
+
+    it('un estado que ninguna causa registra puede cambiar de fuero', () => {
         // "Recurso de apelación" (7) no lo registra ninguna causa.
         const response = call('PATCH', '/procedural-states/7', { as: 'fvazquez', body: { jurisdiction: 'AMPARO' } })
-        const moved = dataOf<ProceduralState>(response)
 
         expect(response.status).toBe(200)
-        expect(moved).toMatchObject({ jurisdiction: 'AMPARO', position: 8 })
-
-        const criminal = db.proceduralStates
-            .filter((s) => s.active && s.jurisdiction === 'CRIMINAL')
-            .map((s) => s.position)
-            .sort((a, b) => a - b)
-        expect(criminal).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9])
+        expect(dataOf<ProceduralState>(response)).toMatchObject({ id: 7, jurisdiction: 'AMPARO' })
+        // No hay posiciones que acomodar: cada fuero lista los suyos por orden de registro.
+        expect(statesOf('CRIMINAL').map((s) => s.id)).toEqual([1, 2, 3, 4, 5, 6, 8, 9, 10])
+        expect(statesOf('AMPARO').map((s) => s.id)).toEqual([7, 18, 19, 20, 21, 22, 23, 24])
     })
 
     it('un estado que alguna causa registra no puede cambiar de fuero (D-07)', () => {
@@ -364,7 +378,7 @@ describe('mock · lo que V3 cambió en abogados y estados procesales', () => {
         const response = call('PATCH', '/procedural-states/4', { as: 'fvazquez', body: { jurisdiction: 'CRIMINAL' } })
 
         expect(response.status).toBe(200)
-        expect(dataOf<ProceduralState>(response).position).toBe(4)
+        expect(dataOf<ProceduralState>(response).jurisdiction).toBe('CRIMINAL')
     })
 
     it('al cambiar de fuero, el nombre no puede chocar con uno del destino', () => {
@@ -376,18 +390,56 @@ describe('mock · lo que V3 cambió en abogados y estados procesales', () => {
         expect(response.status).toBe(409)
     })
 
-    it('la posición de un alta va de 1 a la cantidad de estados del fuero más uno', () => {
-        const tooFar = call('POST', '/procedural-states', {
+    it('los estados no tienen posición: se listan por orden de registro (D-31)', () => {
+        const response = call('POST', '/procedural-states', {
             as: 'fvazquez',
-            body: { name: 'Queja', jurisdiction: 'AMPARO', position: 9 },
+            body: { name: 'Queja', jurisdiction: 'AMPARO' },
         })
-        expect(tooFar.status).toBe(400)
-        expect(errorOf(tooFar).details).toEqual({ position: 'Debe ser un número entero entre 1 y 8.' })
 
-        const last = call('POST', '/procedural-states', {
-            as: 'fvazquez',
-            body: { name: 'Queja', jurisdiction: 'AMPARO', position: 8 },
+        expect(response.status).toBe(201)
+        // Ni `position` ni `activeCases`, que es sólo de los `GET` (D-32).
+        expect(dataOf<ProceduralState>(response)).toEqual({
+            id: 25,
+            name: 'Queja',
+            jurisdiction: 'AMPARO',
+            timeLimitDays: 0,
+            dayType: 'NONE',
+            terminal: false,
+            active: true,
         })
-        expect(last.status).toBe(201)
+
+        const amparo = statesOf('AMPARO')
+        expect(amparo.at(-1)?.name).toBe('Queja')
+        expect(amparo.every((s) => !('position' in s))).toBe(true)
+        expect(amparo.every((s) => typeof s.activeCases === 'number')).toBe(true)
+    })
+
+    it('modificar un estado tampoco devuelve activeCases (D-32)', () => {
+        const response = call('PATCH', '/procedural-states/4', { as: 'fvazquez', body: { timeLimitDays: 6 } })
+
+        expect(response.status).toBe(200)
+        expect(dataOf<ProceduralState>(response)).toEqual({
+            id: 4,
+            name: 'Oposición al requerimiento de elevación',
+            jurisdiction: 'CRIMINAL',
+            timeLimitDays: 6,
+            dayType: 'BUSINESS',
+            terminal: false,
+            active: true,
+        })
+        expect(dataOf<ProceduralState>(call('GET', '/procedural-states/4', { as: 'gestion' })).activeCases).toBe(1)
+    })
+
+    it('"Iniciada" es el estado inicial: no se lista y su nombre está reservado (D-34)', () => {
+        for (const jurisdiction of ['CRIMINAL', 'ADMINISTRATIVE', 'AMPARO'] as const) {
+            expect(statesOf(jurisdiction).map((s) => s.name)).not.toContain('Iniciada')
+
+            const created = call('POST', '/procedural-states', { as: 'fvazquez', body: { name: 'iniciada', jurisdiction } })
+            expect(created.status).toBe(409)
+            expect(errorOf(created).code).toBe('PROCEDURAL_STATE_ALREADY_EXISTS')
+        }
+
+        const renamed = call('PATCH', '/procedural-states/2', { as: 'fvazquez', body: { name: 'Iniciada' } })
+        expect(renamed.status).toBe(409)
     })
 })

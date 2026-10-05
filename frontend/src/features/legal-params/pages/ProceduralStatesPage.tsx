@@ -3,14 +3,12 @@ import { isApiError } from '@/shared/api/ApiError';
 import { useToast } from '@/app/providers/ToastContext';
 import { Button, Icon, PageHeader, Pagination, Panel, SearchInput, Tabs } from '@/shared/components/ui';
 import { useProceduralStates } from '@/features/legal-params/api/useProceduralStates';
-import { useProceduralStateCycle } from '@/features/legal-params/api/useProceduralStateCycle';
 import { useCreateProceduralState } from '@/features/legal-params/api/useCreateProceduralState';
 import { useUpdateProceduralState } from '@/features/legal-params/api/useUpdateProceduralState';
 import { useDeleteProceduralState } from '@/features/legal-params/api/useDeleteProceduralState';
 import {
     JURISDICTION_LABELS,
     JURISDICTIONS,
-    POSITION_LAST,
     type Jurisdiction,
     type ProceduralState,
     type ProceduralStateFormValues,
@@ -24,11 +22,6 @@ import {
     buildProceduralStatePatch,
     isEmptyPatch,
 } from '@/features/legal-params/utils/buildProceduralStatePatch';
-import {
-    buildPositionOptions,
-    currentPositionChoice,
-    siblingsOf,
-} from '@/features/legal-params/utils/positionOptions';
 import { hasNoFieldErrors, toFormErrors } from '@/features/legal-params/utils/toFormErrors';
 import { ProceduralStatesTable } from '@/features/legal-params/components/ProceduralStatesTable';
 import { ProceduralStateFormModal } from '@/features/legal-params/components/ProceduralStateFormModal';
@@ -39,8 +32,8 @@ const LIMIT = 20;
 /**
  * Las lengüetas son los fueros, sin "Todos".
  *
- * El ciclo de vida es por fuero: mezclarlos pondría tres veces la posición 1 en
- * la misma tabla y el orden dejaría de querer decir algo.
+ * Los estados son por fuero: mezclarlos pondría tres veces "Archivada" en la
+ * misma tabla, sin que se sepa cuál es de cuál.
  */
 const JURISDICTION_TABS = JURISDICTIONS.map((j) => ({ id: j, label: JURISDICTION_LABELS[j] }));
 
@@ -56,7 +49,6 @@ type Modal =
 
 const EMPTY_FORM: ProceduralStateFormValues = {
     name: '',
-    positionChoice: POSITION_LAST,
     timeLimitDays: '',
     dayType: 'BUSINESS',
     terminal: false,
@@ -74,10 +66,6 @@ export function ProceduralStatesPage() {
     const [modal, setModal] = useState<Modal>(null);
     const [values, setValues] = useState<ProceduralStateFormValues>(EMPTY_FORM);
     const [errors, setErrors] = useState<ProceduralStateErrors>({});
-    /* Si el usuario no tocó el select de posición, la edición no manda
-       `position`: mover el estado tiene que ser algo que se pidió, no el efecto
-       secundario de haber abierto el modal para corregir un nombre. */
-    const [positionTouched, setPositionTouched] = useState(false);
 
     const query = useProceduralStates({
         page,
@@ -86,12 +74,7 @@ export function ProceduralStatesPage() {
         jurisdiction,
     });
 
-    /* El select de posición necesita el ciclo entero del fuero, no la página
-       que se ve: está paginada y filtrada por el buscador. */
     const formOpen = modal?.kind === 'create' || modal?.kind === 'edit';
-    const cycleQuery = useProceduralStateCycle(jurisdiction);
-    const cycle = cycleQuery.data?.data ?? [];
-    const siblings = siblingsOf(cycle, modal?.kind === 'edit' ? modal.state.id : undefined);
 
     const create = useCreateProceduralState();
     const update = useUpdateProceduralState();
@@ -120,23 +103,17 @@ export function ProceduralStatesPage() {
     function openCreate() {
         setValues(EMPTY_FORM);
         setErrors({});
-        setPositionTouched(false);
         setModal({ kind: 'create' });
     }
 
     function openEdit(state: ProceduralState) {
         setValues({
             name: state.name,
-            // El lugar actual se nombra por el estado anterior, no por el
-            // número: si alguien reordena el ciclo mientras el modal está
-            // abierto, "después de X" sigue queriendo decir lo mismo.
-            positionChoice: currentPositionChoice(state, siblingsOf(cycle, state.id)),
             timeLimitDays: String(state.timeLimitDays),
             dayType: state.dayType,
             terminal: state.terminal,
         });
         setErrors({});
-        setPositionTouched(false);
         setModal({ kind: 'edit', state });
     }
 
@@ -153,7 +130,6 @@ export function ProceduralStatesPage() {
      * acomoda solo cuando el plazo cruza el 0 (y el campo se esconde).
      */
     function changeValue(k: string, v: string | boolean) {
-        if (k === 'positionChoice') setPositionTouched(true);
         setValues((current) => {
             const next = { ...current, [k]: v };
             if (k === 'timeLimitDays') {
@@ -183,8 +159,8 @@ export function ProceduralStatesPage() {
         }
 
         if (error.isValidation) {
-            // Los nombres del contrato no son los del formulario: `position` es
-            // un número allá y un select acá.
+            // Sólo los campos que el formulario muestra: el resto no tiene
+            // dónde pintarse.
             const fieldErrors = toFormErrors(error.details);
             if (!hasNoFieldErrors(fieldErrors)) {
                 setErrors(fieldErrors);
@@ -200,16 +176,16 @@ export function ProceduralStatesPage() {
     /* ---------------- alta y edición ---------------- */
 
     function submitForm() {
-        const found = validateProceduralState(values, siblings);
+        const found = validateProceduralState(values);
         setErrors(found);
         if (Object.keys(found).length > 0) return;
 
         if (modal?.kind === 'create') {
-            create.mutate(toCreateProceduralStateBody(values, jurisdiction, siblings), {
+            create.mutate(toCreateProceduralStateBody(values, jurisdiction), {
                 onSuccess: (state) => {
                     toast(
                         'success',
-                        `Estado "${state.name}" agregado al fuero ${JURISDICTION_LABELS[state.jurisdiction]}, en la posición ${state.position}.`,
+                        `Estado "${state.name}" agregado al ciclo de vida del fuero ${JURISDICTION_LABELS[state.jurisdiction]}.`,
                     );
                     closeModal();
                 },
@@ -219,7 +195,7 @@ export function ProceduralStatesPage() {
         }
 
         if (modal?.kind === 'edit') {
-            const patch = buildProceduralStatePatch(modal.state, values, siblings, positionTouched);
+            const patch = buildProceduralStatePatch(modal.state, values);
 
             // El contrato responde 400 a un PATCH vacío, así que si no cambió
             // nada ni se manda: se cierra y listo.
@@ -274,7 +250,7 @@ export function ProceduralStatesPage() {
             <PageHeader
                 eyebrow="Administración"
                 title="Estados y plazos"
-                sub="Administración de términos y etapas. Esta sección rige el cálculo de vencimientos. El ciclo de vida de cada fuero se compone de estados procesales secuenciales, donde se define el orden, el plazo otorgado y la modalidad de los días (hábiles o corridos)."
+                sub="Administración de términos y etapas. Esta sección rige el cálculo de vencimientos. El ciclo de vida de cada fuero se compone de estados procesales, y cada uno define el plazo otorgado y la modalidad de los días (hábiles o corridos)."
             />
 
             <Tabs
@@ -285,7 +261,7 @@ export function ProceduralStatesPage() {
 
             <Panel
                 title={`Ciclo de vida del fuero ${jurisdictionLabel}`}
-                sub="Los estados se listan en el orden en que recorre la causa. El primer estado es el que abre la causa, y el último es el que la cierra."
+                sub={`Estados procesales del fuero ${jurisdictionLabel}. Cada uno lleva su plazo.`}
                 actions={
                     <>
                         <SearchInput
@@ -353,7 +329,6 @@ export function ProceduralStatesPage() {
                     }
                     values={values}
                     errors={errors}
-                    positionOptions={buildPositionOptions(siblings)}
                     saving={saving}
                     onChange={changeValue}
                     onConfirm={submitForm}

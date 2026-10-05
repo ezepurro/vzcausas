@@ -8,17 +8,10 @@ import {
 
 const VALUES: ProceduralStateFormModalProps['values'] = {
     name: '',
-    positionChoice: 'LAST',
     timeLimitDays: '',
     dayType: 'BUSINESS',
     terminal: false,
 }
-
-const POSITION_OPTIONS = [
-    { value: 'FIRST', label: 'Al inicio del ciclo' },
-    { value: 'AFTER:1', label: 'Después de «Designación»' },
-    { value: 'LAST', label: 'Al final del ciclo' },
-]
 
 function renderModal(props: Partial<ProceduralStateFormModalProps> = {}) {
     const handlers = { onChange: vi.fn(), onConfirm: vi.fn(), onCancel: vi.fn() }
@@ -28,7 +21,6 @@ function renderModal(props: Partial<ProceduralStateFormModalProps> = {}) {
             sub="Ciclo de vida del fuero Penal"
             values={VALUES}
             errors={{}}
-            positionOptions={POSITION_OPTIONS}
             saving={false}
             {...handlers}
             {...props}
@@ -52,12 +44,11 @@ describe('ProceduralStateFormModal', () => {
         expect(screen.getByRole('button', { name: 'Guardar cambios' })).toBeInTheDocument()
     })
 
-    it('ofrece las posiciones que arma la pantalla', () => {
+    it('no pregunta dónde va el estado: los estados no tienen orden (V3 D-31)', () => {
         renderModal()
 
-        const select = screen.getByLabelText(/dónde va este estado/i)
-        const options = Array.from(select.querySelectorAll('option')).map((o) => o.textContent)
-        expect(options).toEqual(['Al inicio del ciclo', 'Después de «Designación»', 'Al final del ciclo'])
+        expect(screen.queryByLabelText(/dónde va este estado/i)).not.toBeInTheDocument()
+        expect(screen.queryByText('Lugar en el ciclo de vida')).not.toBeInTheDocument()
     })
 
     it('con plazo mayor a 0 pregunta cómo se cuentan los días', () => {
@@ -76,11 +67,11 @@ describe('ProceduralStateFormModal', () => {
         const { user, onChange } = renderModal()
 
         await user.type(screen.getByLabelText(/^nombre del estado/i), 'O')
-        await user.selectOptions(screen.getByLabelText(/dónde va este estado/i), 'FIRST')
+        await user.selectOptions(screen.getByLabelText(/se cuentan en días/i), 'CONSECUTIVE')
         await user.click(screen.getByRole('checkbox', { name: /cierra el ciclo/i }))
 
         expect(onChange).toHaveBeenCalledWith('name', 'O')
-        expect(onChange).toHaveBeenCalledWith('positionChoice', 'FIRST')
+        expect(onChange).toHaveBeenCalledWith('dayType', 'CONSECUTIVE')
         expect(onChange).toHaveBeenCalledWith('terminal', true)
     })
 
