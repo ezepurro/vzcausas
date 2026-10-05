@@ -63,7 +63,7 @@ export class PrismaRefreshTokenStore implements RefreshTokenStore {
       this.clock.now().getTime() + this.ttlSeconds * 1000,
     );
 
-    await this.prisma.client.refreshToken.create({
+    await this.prisma.db.refreshToken.create({
       data: {
         tokenHash: digest(token),
         userId: params.userId,
@@ -82,7 +82,7 @@ export class PrismaRefreshTokenStore implements RefreshTokenStore {
   }
 
   async find(token: string): Promise<StoredRefresh | null> {
-    const row = await this.prisma.client.refreshToken.findUnique({
+    const row = await this.prisma.db.refreshToken.findUnique({
       where: { tokenHash: digest(token) },
     });
 
@@ -128,7 +128,7 @@ export class PrismaRefreshTokenStore implements RefreshTokenStore {
   private async markRevoked(
     where: { tokenHash: string } | { familyId: string } | { userId: number },
   ): Promise<void> {
-    await this.prisma.client.refreshToken.updateMany({
+    await this.prisma.db.refreshToken.updateMany({
       where: { ...where, revokedAt: null },
       data: { revokedAt: this.clock.now() },
     });

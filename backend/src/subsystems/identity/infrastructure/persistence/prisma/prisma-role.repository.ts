@@ -14,7 +14,7 @@ export class PrismaRoleRepository implements RoleRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async findByIds(ids: readonly number[]): Promise<Role[]> {
-    const rows = await this.prisma.client.role.findMany({
+    const rows = await this.prisma.db.role.findMany({
       where: { id: { in: [...ids] } },
       include: ROLE_INCLUDE,
     });
@@ -22,7 +22,7 @@ export class PrismaRoleRepository implements RoleRepository {
   }
 
   async findByNames(names: readonly string[]): Promise<Role[]> {
-    const rows = await this.prisma.client.role.findMany({
+    const rows = await this.prisma.db.role.findMany({
       where: { name: { in: [...names] } },
       include: ROLE_INCLUDE,
     });

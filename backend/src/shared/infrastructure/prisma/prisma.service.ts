@@ -37,7 +37,7 @@ export class PrismaService
    * The Proxy that `PrismaClient`'s constructor returns, which is what
    * actually carries the model delegates (`user`, `role`, ...). Getters
    * invoked through that Proxy receive the bare target as `this`, so
-   * `client` cannot just return `this` — it would hand out an object
+   * `db` cannot just return `this` — it would hand out an object
    * where `.user` is `undefined`.
    */
   private readonly root: PrismaTransactionalClient;
@@ -67,7 +67,7 @@ export class PrismaService
    * outside the open transaction, and that write will **not** roll
    * back with the rest.
    */
-  get client(): PrismaTransactionalClient {
+  get db(): PrismaTransactionalClient {
     return this.transaction.getStore() ?? this.root;
   }
 

@@ -10,7 +10,6 @@ export class ProceduralStateHttpMapper {
       id: state.id,
       name: state.name,
       jurisdiction: state.jurisdiction.code,
-      position: state.position,
       timeLimitDays: state.timeLimitDays,
       // The column is nullable, but the contract never sends null:
       // a state without a day type opens no time limit.

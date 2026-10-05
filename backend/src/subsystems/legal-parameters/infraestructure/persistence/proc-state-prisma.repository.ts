@@ -26,8 +26,8 @@ export class ProceduralStatePrismaRepository implements ProceduralStateRepositor
         include: { jurisdiction: true },
         skip: (page - 1) * limit,
         take: limit,
-        // Contract §3.4: by jurisdiction, then by position within it.
-        orderBy: [{ jurisdiction: { name: 'asc' } }, { position: 'asc' }, { stateId: 'asc' }],
+        // No order among states (D-31): by jurisdiction, then by id.
+        orderBy: [{ jurisdiction: { name: 'asc' } }, { stateId: 'asc' }],
       }),
       this.prisma.proceduralState.count({ where }),
     ]);
