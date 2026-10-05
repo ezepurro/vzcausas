@@ -94,7 +94,6 @@ const PROCEDURAL_STATES = [
   // Criminal
   {
     jurisdiction: 'CRIMINAL',
-    position: 1,
     name: 'Designación de abogado defensor',
     timeLimitDays: 3,
     dayType: 'BUSINESS',
@@ -102,7 +101,6 @@ const PROCEDURAL_STATES = [
   },
   {
     jurisdiction: 'CRIMINAL',
-    position: 2,
     name: 'Declaración del imputado',
     timeLimitDays: 5,
     dayType: 'BUSINESS',
@@ -110,7 +108,6 @@ const PROCEDURAL_STATES = [
   },
   {
     jurisdiction: 'CRIMINAL',
-    position: 3,
     name: 'Requerimiento de citación a juicio',
     timeLimitDays: 10,
     dayType: 'BUSINESS',
@@ -118,7 +115,6 @@ const PROCEDURAL_STATES = [
   },
   {
     jurisdiction: 'CRIMINAL',
-    position: 4,
     name: 'Oposición al requerimiento de elevación',
     timeLimitDays: 5,
     dayType: 'BUSINESS',
@@ -126,7 +122,6 @@ const PROCEDURAL_STATES = [
   },
   {
     jurisdiction: 'CRIMINAL',
-    position: 5,
     name: 'Sentencia definitiva',
     timeLimitDays: 0,
     dayType: 'NONE',
@@ -135,7 +130,6 @@ const PROCEDURAL_STATES = [
   // Administrative
   {
     jurisdiction: 'ADMINISTRATIVE',
-    position: 1,
     name: 'Notificación de imputación en sumario',
     timeLimitDays: 10,
     dayType: 'BUSINESS',
@@ -143,7 +137,6 @@ const PROCEDURAL_STATES = [
   },
   {
     jurisdiction: 'ADMINISTRATIVE',
-    position: 2,
     name: 'Presentación de descargo',
     timeLimitDays: 10,
     dayType: 'BUSINESS',
@@ -151,7 +144,6 @@ const PROCEDURAL_STATES = [
   },
   {
     jurisdiction: 'ADMINISTRATIVE',
-    position: 3,
     name: 'Apertura a prueba',
     timeLimitDays: 20,
     dayType: 'BUSINESS',
@@ -159,17 +151,15 @@ const PROCEDURAL_STATES = [
   },
   {
     jurisdiction: 'ADMINISTRATIVE',
-    position: 4,
     name: 'Presentación de alegato',
     timeLimitDays: 5,
     dayType: 'BUSINESS',
     terminal: false,
   },
-  { jurisdiction: 'ADMINISTRATIVE', position: 5, name: 'Archivada', timeLimitDays: 0, dayType: 'NONE', terminal: true },
+  { jurisdiction: 'ADMINISTRATIVE', name: 'Archivada', timeLimitDays: 0, dayType: 'NONE', terminal: true },
   // Amparo (constitutional relief)
   {
     jurisdiction: 'AMPARO',
-    position: 1,
     name: 'Interposición de la acción',
     timeLimitDays: 0,
     dayType: 'NONE',
@@ -177,7 +167,6 @@ const PROCEDURAL_STATES = [
   },
   {
     jurisdiction: 'AMPARO',
-    position: 2,
     name: 'Pedido de informe',
     timeLimitDays: 5,
     dayType: 'BUSINESS',
@@ -185,7 +174,6 @@ const PROCEDURAL_STATES = [
   },
   {
     jurisdiction: 'AMPARO',
-    position: 3,
     name: 'Contestación del informe',
     timeLimitDays: 5,
     dayType: 'BUSINESS',
@@ -193,13 +181,12 @@ const PROCEDURAL_STATES = [
   },
   {
     jurisdiction: 'AMPARO',
-    position: 4,
     name: 'Recurso de apelación',
     timeLimitDays: 3,
     dayType: 'BUSINESS',
     terminal: false,
   },
-  { jurisdiction: 'AMPARO', position: 5, name: 'Sentencia firme', timeLimitDays: 0, dayType: 'NONE', terminal: true },
+  { jurisdiction: 'AMPARO', name: 'Sentencia firme', timeLimitDays: 0, dayType: 'NONE', terminal: true },
 ] as const;
 
 /**
@@ -441,11 +428,16 @@ async function main(): Promise<void> {
       });
       const data = { ...state, jurisdictionId: jurisdiction.jurisdictionId };
 
-      await prisma.proceduralState.upsert({
-        where: { name: state.name },
-        update: data,
-        create: data,
+      // `name` is unique per jurisdiction among active states only (a
+      // partial index Prisma does not model), so upsert cannot key on it.
+      const existing = await prisma.proceduralState.findFirst({
+        where: { jurisdictionId: data.jurisdictionId, name: state.name, isActive: true },
       });
+      if (existing) {
+        await prisma.proceduralState.update({ where: { stateId: existing.stateId }, data });
+      } else {
+        await prisma.proceduralState.create({ data });
+      }
     }
 
     // Development only: a database holding accounts with a known

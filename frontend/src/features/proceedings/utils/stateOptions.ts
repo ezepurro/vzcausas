@@ -7,14 +7,16 @@ import type { ComboboxOption } from '@/shared/components/forms'
 import { DAY_TYPE_LABELS, type ProceduralState } from '@/features/legal-params'
 
 /**
- * Los estados a los que puede pasar la causa: vigentes, **no terminales** (un
- * acto no puede llevar a "Archivada" ni a "Prescripta", V3 D-15) y en el orden
- * del ciclo de vida. Cada opción dice en el segundo renglón qué plazo abre.
+ * Los estados a los que puede pasar la causa: vigentes y **no terminales** (un
+ * acto no puede llevar a "Archivada" ni a "Prescripta", V3 D-15). Cada opción
+ * dice en el segundo renglón qué plazo abre.
+ *
+ * Se respeta el orden en que llegan: los estados ya no tienen posición y el
+ * backend los lista en el orden en que se registraron (V3 D-31).
  */
 export function stateOptions(states: ProceduralState[]): ComboboxOption[] {
     return states
         .filter((s) => s.active && !s.terminal)
-        .sort((a, b) => a.position - b.position)
         .map((s) => ({
             value: String(s.id),
             label: s.name,

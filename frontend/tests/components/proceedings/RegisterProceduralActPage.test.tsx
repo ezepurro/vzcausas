@@ -8,8 +8,9 @@ import { renderWithProviders } from '../../setup/render'
 import { usePrototypeToday } from '../../unit/mocks/helpers'
 
 /**
- * Las causas semilla que usa: la 1 (penal, GÓMEZ), la 2 (administrativa) y la
- * 9 (archivada). El día está fijo en el del prototipo, martes 15/09/2026: una
+ * Las causas semilla que usa: la 1 (penal, GÓMEZ) y la 9 (archivada), de
+ * `mrios`, y la 2 (administrativa), de `iperalta`. Sólo el abogado
+ * responsable registra actos (V3 D-30). El día está fijo en el del prototipo, martes 15/09/2026: una
  * cédula de 3 días hábiles registrada hoy vence el viernes 18/09/2026.
  */
 function renderPage(caseId: string | number, as = 'mrios') {
@@ -84,7 +85,7 @@ describe('RegisterProceduralActPage', () => {
     })
 
     it('en el administrativo, el plazo espera la fecha de notificación', async () => {
-        const { user } = renderPage(2)
+        const { user } = renderPage(2, 'iperalta')
 
         await user.click(await screen.findByRole('combobox'))
         await user.click(screen.getByRole('option', { name: /Presentación de descargo/ }))
@@ -155,18 +156,40 @@ describe('RegisterProceduralActPage', () => {
         expect(screen.queryByText('Detalle de la causa')).not.toBeInTheDocument()
     })
 
-    it('a quien no es abogado, el servidor le responde 403 y se muestra', async () => {
-        const { user } = renderPage(1, 'gestion')
+    it.each([
+        ['otro abogado', 'iperalta'],
+        ['el administrador', 'fvazquez'],
+        ['la secretaría', 'gestion'],
+    ])('a %s le avisa quién es el responsable, sin formulario', async (_, username) => {
+        const { user } = renderPage(1, username)
+
+        expect(await screen.findByText('Sólo el abogado responsable registra actos procesales')).toBeInTheDocument()
+        expect(screen.getByText(/^El responsable de esta causa es .*Malena Ríos\.$/)).toBeInTheDocument()
+        expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: 'Volver a la causa' }))
+        expect(await screen.findByText('Detalle de la causa')).toBeInTheDocument()
+    })
+
+    it('un error del servidor sin campos se muestra en un aviso', async () => {
+        server.use(
+            http.post('*/cases/:caseId/procedural-acts', () =>
+                HttpResponse.json(
+                    errorBody('FORBIDDEN', 'Solo el abogado responsable de la causa puede registrar actos procesales.'),
+                    { status: 403 },
+                ),
+            ),
+        )
+        const { user } = renderPage(1)
 
         await user.click(await screen.findByRole('combobox'))
         await user.click(screen.getByRole('option', { name: /Cédula de notificación/ }))
-
-        expect(await screen.findByText('Se requiere el rol LAWYER para realizar esta operación.')).toBeInTheDocument()
-
         await user.click(screen.getByRole('button', { name: 'Registrar acto' }))
 
         await waitFor(() =>
-            expect(screen.getByRole('alert')).toHaveTextContent('Se requiere el rol LAWYER para realizar esta operación.'),
+            expect(screen.getByRole('alert')).toHaveTextContent(
+                'Solo el abogado responsable de la causa puede registrar actos procesales.',
+            ),
         )
         expect(screen.queryByText('Detalle de la causa')).not.toBeInTheDocument()
     })

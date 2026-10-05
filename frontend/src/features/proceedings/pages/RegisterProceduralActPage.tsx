@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router'
+import { useCurrentUser } from '@/app/providers/AuthContext'
 import { useToast } from '@/app/providers/ToastContext'
 import { isApiError } from '@/shared/api/ApiError'
 import { Breadcrumbs, Button, Panel, type BreadcrumbItem } from '@/shared/components/ui'
@@ -27,14 +28,18 @@ import {
 } from '@/features/proceedings/schemas/proceduralAct.schema'
 import type { ProceduralActFormValues } from '@/features/proceedings/types/proceduralAct'
 import { previewRequest } from '@/features/proceedings/utils/deadlinePreview'
+import { isResponsibleLawyer } from '@/features/proceedings/utils/responsibleLawyer'
 import { opensTerm, resolveSelectedState } from '@/features/proceedings/utils/resolveState'
 import { filterStateOptions, stateOptions } from '@/features/proceedings/utils/stateOptions'
 import { isInTerminalState } from '@/features/proceedings/utils/terminalState'
 import { toCreateProceduralActBody } from '@/features/proceedings/utils/toCreateProceduralActBody'
 import { toFormErrors } from '@/features/proceedings/utils/toFormErrors'
 
-/** El ciclo completo del fuero en una sola página, como pide el contrato (V3 §3.4). */
+/** Todos los estados del fuero en una sola página, como pide el contrato (V3 §3.4). */
 const STATES_LIMIT = 100
+
+/** Las migas cuando la causa no tiene SAC, que es opcional (V3 D-33). */
+const NO_SAC_LABEL = 'Sin SAC'
 
 /**
  * Registrar acto procesal (HU26), en `/causas/:caseId/acto`.
@@ -44,9 +49,9 @@ const STATES_LIMIT = 100
  * cargada se monta el formulario, así los estados se piden una sola vez y del
  * fuero correcto.
  *
- * Lo registra sólo el abogado (V3 D-13). Cómo esconderle la pantalla a quien
- * no tiene el rol está pendiente de definir con el equipo: mientras tanto, el
- * backend responde `403` y la pantalla muestra su mensaje.
+ * Lo registra sólo el abogado responsable de la causa (V3 D-30). A
+ * cualquier otro usuario la pantalla le muestra un aviso en lugar del
+ * formulario; el `403` del backend queda como respaldo.
  */
 export function RegisterProceduralActPage() {
     const { caseId: param } = useParams()
@@ -58,7 +63,7 @@ export function RegisterProceduralActPage() {
     const c = caseQuery.data
     const crumbs: BreadcrumbItem[] = [
         { label: 'Causas', onClick: () => navigate('/causas') },
-        ...(c ? [{ label: c.sacNumber, onClick: () => navigate(`/causas/${c.id}`) }] : []),
+        ...(c ? [{ label: c.sacNumber ?? NO_SAC_LABEL, onClick: () => navigate(`/causas/${c.id}`) }] : []),
         { label: 'Registrar acto procesal' },
     ]
 
@@ -90,6 +95,7 @@ export function RegisterProceduralActPage() {
 function RegisterProceduralAct({ case: c }: { case: Case }) {
     const navigate = useNavigate()
     const toast = useToast()
+    const { lawyer } = useCurrentUser()
     const { jurisdiction } = c
 
     const [values, setValues] = useState<ProceduralActFormValues>(() => ({
@@ -183,7 +189,15 @@ function RegisterProceduralAct({ case: c }: { case: Case }) {
     /* ---------------- pantalla ---------------- */
 
     let content: ReactNode
-    if (statesQuery.isPending) {
+    if (!isResponsibleLawyer(c, lawyer?.id ?? null)) {
+        content = (
+            <Empty
+                title="Sólo el abogado responsable registra actos procesales"
+                text={`El responsable de esta causa es ${c.responsibleLawyer.fullName}.`}
+                action={<Button variant="secondary" size="md" onClick={backToCase}>Volver a la causa</Button>}
+            />
+        )
+    } else if (statesQuery.isPending) {
         content = <Empty title="Cargando estados procesales…" />
     } else if (statesQuery.isError) {
         content = (

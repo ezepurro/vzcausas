@@ -8,17 +8,17 @@ import {
 import { STATES } from './states'
 
 describe('stateOptions', () => {
-    it('ofrece sólo los vigentes y no terminales, en el orden del ciclo', () => {
+    it('ofrece sólo los vigentes y no terminales, en el orden en que llegan', () => {
         expect(stateOptions(STATES).map((o) => o.label)).toEqual([
-            'Cédula de notificación',
-            'Requerimiento de elevación a juicio',
             'Oposición al requerimiento',
+            'Cédula de notificación',
             'Recurso de apelación',
+            'Requerimiento de elevación a juicio',
         ])
     })
 
     it('cada opción lleva el id como texto y el plazo en el segundo renglón', () => {
-        expect(stateOptions(STATES)[0]).toEqual({
+        expect(stateOptions(STATES)[1]).toEqual({
             value: '2',
             label: 'Cédula de notificación',
             description: '3 días hábiles',
@@ -35,7 +35,7 @@ describe('filterStateOptions', () => {
 
     it('filtra sin distinguir mayúsculas ni tildes', () => {
         expect(filterStateOptions(options, 'CEDULA').map((o) => o.value)).toEqual(['2'])
-        expect(filterStateOptions(options, 'requerimiento').map((o) => o.value)).toEqual(['3', '12'])
+        expect(filterStateOptions(options, 'requerimiento').map((o) => o.value)).toEqual(['12', '3'])
     })
 })
 
