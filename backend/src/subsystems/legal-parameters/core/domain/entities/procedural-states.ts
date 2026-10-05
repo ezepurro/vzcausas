@@ -5,7 +5,6 @@ import { ValidationError } from '@shared/domain/domain-error';
 export interface ProceduralStateProps {
   id: number;
   name: string;
-  position: number;
   timeLimitDays: number;
   dayType: DayType | null;
   terminal: boolean;
@@ -44,10 +43,6 @@ export class ProceduralState {
 
   get name(): string {
     return this.props.name;
-  }
-
-  get position(): number {
-    return this.props.position;
   }
 
   get timeLimitDays(): number {

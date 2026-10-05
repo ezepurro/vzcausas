@@ -14,7 +14,6 @@ function aProceduralState(overrides: Partial<ProceduralStateProps> = {}): Proced
   return ProceduralState.hydrate({
     id: 1,
     name: 'Citación a juicio',
-    position: 1,
     timeLimitDays: 5,
     dayType: DayType.BUSINESS,
     terminal: false,

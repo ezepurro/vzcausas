@@ -14,7 +14,6 @@ export class ProceduralStateMapper {
     return ProceduralState.hydrate({
       id: row.stateId,
       name: row.name,
-      position: row.position,
       timeLimitDays: row.timeLimitDays,
       dayType: row.dayType as DayType | null,
       terminal: row.terminal,

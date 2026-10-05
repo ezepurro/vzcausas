@@ -14,7 +14,7 @@ export class PrismaLawyerRepository implements LawyerRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async nextId(): Promise<number> {
-    const [{ nextval }] = await this.prisma.client.$queryRaw<
+    const [{ nextval }] = await this.prisma.db.$queryRaw<
       [{ nextval: bigint }]
     >`SELECT nextval(pg_get_serial_sequence('lawyers', 'id'))`;
     return Number(nextval);
@@ -23,7 +23,7 @@ export class PrismaLawyerRepository implements LawyerRepository {
   async existsByRegistrationNumber(
     registrationNumber: RegistrationNumber,
   ): Promise<boolean> {
-    const row = await this.prisma.client.lawyer.findUnique({
+    const row = await this.prisma.db.lawyer.findUnique({
       where: { registrationNumber: registrationNumber.toString() },
       select: { id: true },
     });
@@ -31,7 +31,7 @@ export class PrismaLawyerRepository implements LawyerRepository {
   }
 
   async create(lawyer: Lawyer): Promise<void> {
-    await this.prisma.client.lawyer.create({
+    await this.prisma.db.lawyer.create({
       data: {
         id: lawyer.id,
         fullName: lawyer.fullName,
@@ -42,12 +42,12 @@ export class PrismaLawyerRepository implements LawyerRepository {
   }
 
   async findById(id: number): Promise<Lawyer | null> {
-    const row = await this.prisma.client.lawyer.findUnique({ where: { id } });
+    const row = await this.prisma.db.lawyer.findUnique({ where: { id } });
     return row ? LawyerPrismaMapper.toDomain(row) : null;
   }
 
   async findByIds(ids: readonly number[]): Promise<Lawyer[]> {
-    const rows = await this.prisma.client.lawyer.findMany({
+    const rows = await this.prisma.db.lawyer.findMany({
       where: { id: { in: [...ids] } },
     });
     return rows.map(LawyerPrismaMapper.toDomain);
@@ -60,7 +60,7 @@ export class PrismaLawyerRepository implements LawyerRepository {
    * the kind of drift that shows up as a phantom empty last page.
    *
    * This is the one place that goes through `this.prisma` rather than
-   * `this.prisma.client`: it opens its own read transaction, which the
+   * `this.prisma.db`: it opens its own read transaction, which the
    * transactional client deliberately cannot do. Safe because listing
    * is never called from inside a write transaction — if that ever
    * changes, this has to become two plain awaits.
@@ -93,13 +93,13 @@ export class PrismaLawyerRepository implements LawyerRepository {
     };
 
     const [rows, totalItems] = await this.prisma.$transaction([
-      this.prisma.client.lawyer.findMany({
+      this.prisma.db.lawyer.findMany({
         where,
         orderBy: { id: "desc" },
         skip: (criteria.page - 1) * criteria.limit,
         take: criteria.limit,
       }),
-      this.prisma.client.lawyer.count({ where }),
+      this.prisma.db.lawyer.count({ where }),
     ]);
 
     return { items: rows.map(LawyerPrismaMapper.toDomain), totalItems };

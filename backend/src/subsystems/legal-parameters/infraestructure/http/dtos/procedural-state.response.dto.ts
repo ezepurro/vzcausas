@@ -6,7 +6,6 @@ export class ProceduralStateResponseDto {
   id!: number;
   name!: string;
   jurisdiction!: JurisdictionCode;
-  position!: number;
   timeLimitDays!: number;
   dayType!: DayType;
   terminal!: boolean;
