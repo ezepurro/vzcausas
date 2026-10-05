@@ -2953,7 +2953,7 @@ El recurso causa posee la siguiente estructura:
 | `jurisdiction`         | `Jurisdiction`                |  No  | Fuero. Define el ciclo de vida y la tabla de plazos aplicable                                 |
 | `proceduralRole`       | `ProceduralRole`              |  No  | Rol procesal del cliente                                                                      |
 | `instructorName`       | String \| `null`              |  Sí  | Instructor de la causa: quien lleva la instrucción en el tribunal o la dependencia            |
-| `instructorPhone`      | String \| `null`              |  Sí  | Teléfono del instructor. Texto libre: `0351 448-1200`                                          |
+| `tribunalPhone`      | String \| `null`              |  Sí  | Teléfono del instructor. Texto libre: `0351 448-1200`                                          |
 | `instructorExtension`  | String \| `null`              |  Sí  | Número de interno del instructor. Texto libre: `214`                                           |
 | `counterparty`         | String \| `null`              |  Sí  | Contraparte u organismo. Solo en `ADMINISTRATIVE` y `AMPARO`; en `CRIMINAL` vale `null`       |
 | `subjectMatter`        | String \| `null`              |  Sí  | Objeto del reclamo (`ADMINISTRATIVE`) u objeto del amparo (`AMPARO`): el motivo por el que se inicia la causa, redactado por el abogado. En `CRIMINAL` vale `null` |
@@ -3054,7 +3054,7 @@ Causa penal:
 	"caption": "GÓMEZ, Ariel Fernando p.s.a. Robo calificado",
 	"court": "Juzgado de Control N° 3 · Córdoba",
 	"instructorName": "Dra. Verónica Ledesma",
-	"instructorPhone": "0351 448-1200",
+	"tribunalPhone": "0351 448-1200",
 	"instructorExtension": "214",
 	"clientId": 1,
 	"proceduralRole": "DEFENSE",
@@ -3078,7 +3078,7 @@ Amparo:
 	"caption": "MOYANO, Daniela c/ APROSS — Amparo de salud",
 	"court": "Juzgado Civil y Comercial 37ª Nom.",
 	"instructorName": "Dra. Inés Ferrero",
-	"instructorPhone": "0351 448-1600",
+	"tribunalPhone": "0351 448-1600",
 	"instructorExtension": "517",
 	"clientId": 6,
 	"proceduralRole": "PLAINTIFF",
@@ -3096,7 +3096,7 @@ Amparo:
 | `caption`               | String           |     Sí      | Hasta 255 caracteres                                                                              |
 | `court`                 | String           |     No      | Hasta 255 caracteres                                                                              |
 | `instructorName`        | String           |     No      | Hasta 150 caracteres                                                                              |
-| `instructorPhone`       | String           |     No      | Hasta 50 caracteres                                                                               |
+| `tribunalPhone`       | String           |     No      | Hasta 50 caracteres                                                                               |
 | `instructorExtension`   | String           |     No      | Número de interno. Hasta 20 caracteres                                                            |
 | `clientId`              | Integer          |     Sí      | Cliente vigente                                                                                   |
 | `proceduralRole`        | `ProceduralRole` |     Sí      | Debe corresponder al fuero (ver [`ProceduralRole`](#proceduralrole-nuevo))                        |
@@ -3156,7 +3156,7 @@ tienen campo en esta versión.
 		"jurisdiction": "CRIMINAL",
 		"proceduralRole": "DEFENSE",
 		"instructorName": "Dra. Verónica Ledesma",
-		"instructorPhone": "0351 448-1200",
+		"tribunalPhone": "0351 448-1200",
 		"instructorExtension": "214",
 		"counterparty": null,
 		"subjectMatter": null,
@@ -3342,7 +3342,7 @@ causas de ese fuero que todavía están en el estado inicial.
 			"jurisdiction": "ADMINISTRATIVE",
 			"proceduralRole": "DEFENSE",
 			"instructorName": "Crio. Insp. Raúl Bazán",
-			"instructorPhone": "0351 428-6000",
+			"tribunalPhone": "0351 428-6000",
 			"instructorExtension": "3120",
 			"counterparty": null,
 			"subjectMatter": "Descargo frente a la imputación de falta grave por abandono de servicio y pedido de sobreseimiento.",
@@ -3382,7 +3382,7 @@ causas de ese fuero que todavía están en el estado inicial.
 			"jurisdiction": "CRIMINAL",
 			"proceduralRole": "DEFENSE",
 			"instructorName": "Dra. Verónica Ledesma",
-			"instructorPhone": "0351 448-1200",
+			"tribunalPhone": "0351 448-1200",
 			"instructorExtension": "214",
 			"counterparty": null,
 			"subjectMatter": null,
@@ -3601,7 +3601,7 @@ el Sprint 3.
 		"jurisdiction": "CRIMINAL",
 		"proceduralRole": "DEFENSE",
 		"instructorName": "Dra. Verónica Ledesma",
-		"instructorPhone": "0351 448-1200",
+		"tribunalPhone": "0351 448-1200",
 		"instructorExtension": "214",
 		"counterparty": null,
 		"subjectMatter": null,
@@ -4500,7 +4500,7 @@ procesales, calificaciones legales, causas y actos procesales.
 | `activeCases` de estados procesales y calificaciones legales | En todas las respuestas | Solo en las respuestas de `GET`; no aparece en `POST` ni en `PATCH` | D-32 |
 | `sacNumber` | Obligatorio | Opcional; si se envía, único | D-33 |
 | `legalQualifications` en causas penales | Obligatorio, al menos una | Opcional | D-33 |
-| `instructorPhone` | Teléfono e interno en un único texto | Solo el teléfono; el interno pasa a `instructorExtension`, opcional | D-33 |
+| `tribunalPhone` | Teléfono e interno en un único texto | Solo el teléfono; el interno pasa a `instructorExtension`, opcional | D-33 |
 | Estado de una causa nueva | `currentState` en `null` ("Sin acto procesal") | Estado inicial "Iniciada": un estado de sistema por fuero, que no aparece en la línea de tiempo. `currentState` deja de ser anulable y suma `initial` | D-34 |
 | Filtro `withoutProceduralActs` | Causas con `currentState` en `null` | Causas en el estado inicial | D-34 |
 | `nextDeadline` | Objeto aparte en la causa | **Retirado.** El vencimiento pasa a `currentState`: `proceduralActId`, `dueDate`, `businessDaysRemaining` y `manuallyAdjusted` | D-35 |
@@ -4540,7 +4540,7 @@ antes o durante la implementación.
 | D-21 | `activeCases` deja de valer `0` y se unifica la definición de causa activa | Ver §4 |
 | D-22 | Un identificador inexistente en el cuerpo (`clientId`, `responsibleLawyerId`, `legalQualifications[].legalQualificationId`, `proceduralStateId`) responde `400 VALIDATION_ERROR` sobre ese campo | Es un dato del formulario a corregir, no una regla de negocio. Evita agregar un código de error por cada referencia |
 | D-23 | Todos los mensajes de error (`message` y `details`) están en castellano, en todos los endpoints | Pedido del equipo. Unifica la redacción de V2 con la de los endpoints nuevos. Ver §5.2 y el impacto en [§8.4](#84-impacto-sobre-lo-ya-implementado) |
-| D-24 | Nombres nuevos: `LegalQualification`, `prescriptionMonths`, `lastName`, `firstName`, `dni`, `clientSince`, `caption`, `court`, `instructorName`, `instructorPhone`, `counterparty`, `subjectMatter`, `offenseDate`, `customState`, `notificationDate`, `dueDate`, `ProceduralRole` | Hay que incorporarlos a `TRADUCCION_DOMINIO.md`. `offenseDate` es la "fecha del hecho": el hecho imputado bajo esa calificación. `caption` y no `CaseCover` porque el glosario ya reserva `CaseCover` para el documento imprimible de HU24; `dni` conserva la sigla como `SacNumber` |
+| D-24 | Nombres nuevos: `LegalQualification`, `prescriptionMonths`, `lastName`, `firstName`, `dni`, `clientSince`, `caption`, `court`, `instructorName`, `tribunalPhone`, `counterparty`, `subjectMatter`, `offenseDate`, `customState`, `notificationDate`, `dueDate`, `ProceduralRole` | Hay que incorporarlos a `TRADUCCION_DOMINIO.md`. `offenseDate` es la "fecha del hecho": el hecho imputado bajo esa calificación. `caption` y no `CaseCover` porque el glosario ya reserva `CaseCover` para el documento imprimible de HU24; `dni` conserva la sigla como `SacNumber` |
 | D-25 | El listado de causas se ordena por urgencia, y `openDeadline=true` incluye las vencidas | Es el orden que usan el tablero y la pantalla de vencimientos del prototipo, y una causa vencida es la que más atención requiere |
 | D-26 | `GET /cases` acepta `clientId` | HU9 pide consultar los clientes "con sus causas asociadas"; el prototipo solo muestra la cantidad, pero el filtro evita un endpoint anidado |
 | D-27 | Las causas `ADMINISTRATIVE` y `AMPARO` registran `subjectMatter` (objeto del reclamo u objeto del amparo), obligatorio en esos fueros, de hasta 800 caracteres, y `null` en `CRIMINAL` | Pedido del equipo, ya incorporado al prototipo: es donde el abogado escribe qué se reclama y por qué. Un único campo para ambos fueros; el rótulo ("Objeto del reclamo" u "Objeto del amparo") lo pone el cliente según el fuero. El largo es el del prototipo (800). La obligatoriedad es decisión del equipo: el prototipo no lo exige para habilitar "Registrar causa" |
