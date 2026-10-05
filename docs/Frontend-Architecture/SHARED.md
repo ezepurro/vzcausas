@@ -56,20 +56,26 @@ necesita algo de ahí, es un archivo nuevo, no algo que haya que buscar. `lib/`
 dejó de estarlo: tiene `dates.ts` e `initials.ts`.
 
 `mocks/` implementa `docs/Api-Contract/API_CONTRACT_V3.md` (con su revisión
-del 01/10/2026) sobre **MSW**, que intercepta la red de verdad (los pedidos se
-ven en la pestaña Network). Se enciende con `await startMocks()` de
+del 05/10/2026, §7.8) sobre **MSW**, que intercepta la red de verdad (los
+pedidos se ven en la pestaña Network). Se enciende con `await startMocks()` de
 `@/shared/mocks/browser`. Están **todos los endpoints del contrato**, incluidos
 los del Sprint 2: calificaciones legales, clientes, causas, registro de acto
 procesal y `deadline-preview`. Lo que conviene saber antes de usarlo:
 
 - **Quién puede qué** sale de la tabla de permisos del contrato (V3 §4): leer
   está abierto a cualquier usuario autenticado, salvo `/users`; registrar un
-  cliente pide `SECRETARY`, registrar un acto pide `LAWYER`, y el resto de las
-  escrituras, `ADMINISTRATOR`. Un abogado (`mrios`) ya **no** recibe `403` al
-  leer abogados o estados procesales.
+  cliente pide `SECRETARY`, y el resto de las escrituras de administración,
+  `ADMINISTRATOR`. Un abogado (`mrios`) ya **no** recibe `403` al leer abogados
+  o estados procesales.
+- **Los actos procesales no se rigen por un rol** (V3 D-30): los registra sólo
+  el abogado responsable de la causa. Con cualquier otro usuario, abogado o
+  administrador, el mock responde `403`.
 - **Nada se escribe a mano si se puede contar.** `activeCases`, el estado
-  actual de una causa y su plazo abierto se calculan en cada lectura a partir
-  de las causas y los actos de la base.
+  actual de una causa y su vencimiento se calculan en cada lectura a partir de
+  las causas y los actos de la base. Una causa sin actos está en el estado
+  inicial, "Iniciada", que tampoco se guarda (V3 D-34).
+- **El mock sigue también al esquema de la base** (`backend/prisma/schema.prisma`)
+  en lo que el contrato no detalla: largos, datos opcionales y unicidad.
 - **Los vencimientos de las semillas son relativos a hoy.** Los actos
   recientes se ubican "N días hábiles atrás", así el listado muestra una causa
   que vence hoy, otra vencida hace dos días y otra a tres días, igual que el
@@ -149,6 +155,7 @@ import { ApiError, isApiError } from '@/shared/api/ApiError';
 | `RESPONSES` / `ERRORS` | Const | `mocks/responses.ts` | Fixtures por endpoint y código |
 | `resetMockDb` | Función | `mocks/db.ts` | Vuelve los datos del mock al estado inicial (y recalcula las fechas relativas a hoy) |
 | `toCase` / `toClient` / `toLawyer` … | Funciones | `mocks/db.ts` | El recurso del contrato a partir de lo guardado, con lo embebido y lo calculado |
+| `INITIAL_STATE_NAME` | Const | `mocks/fixtures.ts` | "Iniciada": el nombre del estado inicial de toda causa, para un test que lo afirme |
 | `addBusinessDays` / `businessDaysUntil` / `computeDueDate` | Funciones | `mocks/calendar.ts` | El cómputo de plazos del contrato (V3 §4), para armar expectativas en un test |
 
 ---
@@ -185,6 +192,8 @@ import { ApiError, isApiError } from '@/shared/api/ApiError';
 | Iconos | `Icon name="..."` | Sólo los nombres de `ICONS` |
 | Estado vacío de tabla | `DataTable empty={...}` con clases `.vz-empty` | **No hay componente**, ver Observaciones |
 | Avisos / toasts | `useToast()` de `@/app/providers/ToastContext` | **Vive fuera de shared** |
+| Deshabilitar un botón que es de un solo perfil | `useCan('clients.create')` de `@/app/access/useCan` | **Vive fuera de shared.** Nunca `roles.includes(...)` en un componente |
+| Marcar un campo como opcional | `Field` sin `required` | No hay marca de "(opcional)": el asterisco señala lo obligatorio |
 | Cache y fetching | `queryClient` ya configurado en `QueryProvider` | No crear otro `QueryClient` |
 | Llamar al backend | `http` | Nunca `fetch` ni `axios` directo |
 | Trabajar sin backend levantado | `await startMocks()` de `@/shared/mocks/browser` | `VITE_USE_MOCKS=true`; ver `mocks/README.md` |
@@ -412,7 +421,7 @@ de dónde sale el dato. Es la prescripción de cada calificación en el "Resumen
 del alta" ("8 años desde el 27/02/2021" bajo "Robo calificado"). Para una
 aclaración **debajo del valor**, el `value` puede traer un
 `<span className="vz-details__note">`: es el "El estado lo fija el primer acto
-procesal" bajo "Sin acto procesal".
+procesal" bajo el estado inicial de la causa, "Iniciada".
 
 ```tsx
 <Panel title="Cliente">
@@ -851,6 +860,8 @@ tienen barrel).
 | `useAuth()` / `useCurrentUser()` | `@/app/providers/AuthContext.ts` | La sesión: `session`, `signIn`, `signOut(motivo)`, `leftOnPurpose`. `useCurrentUser()` es el atajo para las pantallas que viven detrás de la guarda, donde siempre hay alguien adentro |
 | `AuthProvider` | `@/app/providers/AuthProvider.tsx` | Monta la sesión y le enchufa a `http` cómo renovar y qué hacer al quedar afuera |
 | `QueryProvider` | `@/app/providers/QueryProvider.tsx` | Monta `queryClient` + devtools |
+| `ROUTE_ACCESS` / `canAccess` / `useCanAccess` | `@/app/access/access.ts`, `useCanAccess.ts` | Quién ve cada sección: de ahí leen el rail y `RequireAccess` |
+| `ACTION_ACCESS` / `can` / `useCan` | `@/app/access/access.ts`, `useCan.ts` | Quién opera una acción de una pantalla que ven todos: "Registrar cliente" es sólo de la Secretaría |
 | `AppLayout` / `AuthLayout` / `NotFoundLayout` | `@/app/layouts/` | Marco con sesión, sin sesión y para las rutas desconocidas |
 | `RequireSession` / `RedirectIfSession` | `@/app/router/` | Las guardas: sin sesión al login, con sesión fuera del login |
 | `router` | `@/app/router/index.tsx` | Rutas; las pantallas nuevas se registran acá |

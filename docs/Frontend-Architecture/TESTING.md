@@ -9,14 +9,17 @@ Si tenés una duda del tipo "¿este test dónde va?", saltá a
 [Dónde pongo este test](#6-dónde-pongo-este-test).
 
 > **Estado actual:** todo instalado y funcionando. Están escritos los tests de
-> `auth`, `lawyers`, `legal-params`, `users`, el acceso por perfil, las guardas
-> del router, el `AppLayout`, el `Modal`, el `Field` y el `DetailList` de
-> `shared`, el **servidor falso** (`unit/mocks/`) y, del Sprint 2, lo que ya
-> existe de `cases` y `proceedings`: **565 de Vitest** en 53 archivos y **17 de
-> Playwright** en 5. Los números son de la última corrida; los de hoy te los
-> dice `npm test`. Los demás componentes de `shared` que se agregaron para el
-> Sprint 2 (`Breadcrumbs`, `Combobox`, `SegmentedControl`, etc.) todavía no
-> tienen test, y `clients` tampoco.
+> `auth`, `lawyers`, `legal-params`, `users`, el acceso por perfil (por ruta y
+> por acción), las guardas del router, el `AppLayout`, el `Modal`, el `Field` y
+> el `DetailList` de `shared`, el **servidor falso** (`unit/mocks/`) y, del
+> Sprint 2, lo que ya existe de `cases` y `proceedings`, más los de `clients`,
+> que se escribieron antes que la feature: **609 de Vitest pasando** en 57
+> archivos y **17 de Playwright** en 5. A eso se suman los que esperan a que se
+> programe Clientes: 37 de Vitest en 2 archivos y 3 de Playwright en 1 (ver
+> [§3.1](#31-el-detalle-por-feature)). Los números son de la última corrida;
+> los de hoy te los dice `npm test`. Los demás componentes de `shared` que se
+> agregaron para el Sprint 2 (`Breadcrumbs`, `Combobox`, `SegmentedControl`,
+> etc.) todavía no tienen test.
 > Primera vez en tu máquina: `npm install` y `npx playwright install chromium`,
 > que descarga el navegador de los E2E. Ese segundo paso hay que repetirlo cada
 > vez que se actualiza Playwright (ver [§9](#9-problemas-comunes)).
@@ -120,10 +123,11 @@ frontend/
 │   │   └── render.tsx                    renderWithProviders()
 │   │
 │   ├── unit/                             Vitest · schemas/ y utils/
-│   │   ├── app/                          la tabla de acceso por perfil
+│   │   ├── app/                          las tablas de acceso: por ruta y por acción
 │   │   ├── mocks/                        el servidor falso de src/shared/mocks
 │   │   ├── auth/
 │   │   ├── cases/
+│   │   ├── clients/
 │   │   ├── lawyers/
 │   │   ├── legal-params/
 │   │   └── users/
@@ -133,6 +137,7 @@ frontend/
 │   │   ├── shared/                       componentes de src/shared/
 │   │   ├── auth/
 │   │   ├── cases/
+│   │   ├── clients/
 │   │   ├── lawyers/
 │   │   ├── legal-params/
 │   │   ├── proceedings/
@@ -142,6 +147,7 @@ frontend/
 │       ├── fixtures/                     helpers compartidos (loginAs, etc.)
 │       ├── access.spec.ts
 │       ├── auth.spec.ts
+│       ├── clients.spec.ts
 │       ├── lawyers.spec.ts
 │       ├── legal-params.spec.ts
 │       └── users.spec.ts
@@ -160,8 +166,8 @@ Las features que todavía no tienen código (`dashboard`, `deadlines`,
 `proceedings` tienen test de lo que ya existe —esquemas, utilidades y
 componentes—, salvo las piezas que se listan en [§3.1](#31-el-detalle-por-feature);
 les faltan los de las páginas, que todavía no están programadas. `clients`
-tiene esquema, utilidades y componentes, pero todavía no tests. La carpeta se
-crea cuando alguien empieza a programar la feature (ver
+tiene los tests completos, escritos antes que su página. La carpeta se crea
+cuando alguien empieza a trabajar la feature (ver
 [sección 7](#7-cuando-arrancás-una-feature-nueva)). `home` sí tiene código y
 tampoco tiene carpeta: su `HomePage` es presentación pura, ver
 [§3.2](#32-lo-que-no-se-testea-a-propósito).
@@ -174,7 +180,8 @@ Esto es lo que hay que testear **hoy**, según el código que existe:
 tests/
 ├── unit/
 │   ├── app/
-│   │   └── access.test.ts                  ROUTE_ACCESS y canAccess
+│   │   ├── access.test.ts                  ROUTE_ACCESS y canAccess
+│   │   └── actionAccess.test.ts            ACTION_ACCESS y can: quién opera cada acción
 │   ├── mocks/
 │   │   ├── helpers.ts                      call(), dataOf(), errorOf() y usePrototypeToday()
 │   │   ├── calendar.test.ts                días hábiles, corridos y businessDaysRemaining
@@ -192,6 +199,10 @@ tests/
 │   │   ├── caseForm.test.ts                emptyCaseForm y changeJurisdiction
 │   │   ├── prescription.test.ts            nearestQualification, prescriptionProgress, estimatedExpiry
 │   │   └── stateFilter.test.ts             el filtro de estado y el rótulo "Sin acto procesal"
+│   ├── clients/
+│   │   ├── client.schema.test.ts           obligatorios, DNI de 7 u 8 dígitos, correo, largos
+│   │   ├── clientFormat.test.ts            apellido primero, DNI con puntos, normalizeDni
+│   │   └── toCreateClientBody.test.ts      el cuerpo del alta (pasa cuando exista la función)
 │   ├── lawyers/
 │   │   ├── lawyer.schema.test.ts
 │   │   └── toCreateLawyerBody.test.ts
@@ -200,7 +211,6 @@ tests/
 │   │   ├── buildProceduralStatePatch.test.ts
 │   │   ├── toCreateProceduralStateBody.test.ts
 │   │   ├── toFormErrors.test.ts
-│   │   ├── positionOptions.test.ts
 │   │   └── dayTypeTone.test.ts
 │   └── users/
 │       ├── user.schema.test.ts
@@ -228,6 +238,10 @@ tests/
 │   │   ├── LegalQualificationPicker.test.tsx   la fecha del hecho de cada calificación
 │   │   ├── CaseSummaryAside.test.tsx       "Sin acto procesal" y la prescripción por calificación
 │   │   └── CasesTable.test.tsx             CasesTable y CaseHeader, con y sin estado procesal
+│   ├── clients/
+│   │   ├── ClientsTable.test.tsx           columnas, raya en lo que falta, "Sin causas"
+│   │   ├── ClientFormModal.test.tsx        campos, obligatorios, errores por campo
+│   │   └── ClientsPage.test.tsx            listado, búsqueda, perfiles y alta (pasa cuando exista la página)
 │   ├── proceedings/
 │   │   └── ProceduralActForm.test.tsx      campos por fuero; sin la nota de RN13
 │   ├── lawyers/
@@ -250,17 +264,31 @@ tests/
     │   └── auth.ts                         loginAs('admin'), goTo(page, 'Usuarios')
     ├── access.spec.ts                      qué secciones ve cada perfil en el menú
     ├── auth.spec.ts                        login, logout, cambio de contraseña, sesión vencida
+    ├── clients.spec.ts                     registrar un cliente y buscarlo (pasa cuando exista la página)
     ├── lawyers.spec.ts                     crear abogado y verlo en la tabla
     ├── legal-params.spec.ts                crear, editar y borrar estado procesal
     └── users.spec.ts                       crear, editar y borrar usuario
 ```
 
+**Los tests de `clients` se escribieron antes que la feature**, desde los
+criterios de aceptación de HU-8 y HU-9 (ver [§7](#7-cuando-arrancás-una-feature-nueva)).
+Los que prueban código que todavía no existe —`ClientsPage`,
+`toCreateClientBody` y el E2E— fallan hasta que se programe; por eso viajan en
+la rama de la feature y no sueltos.
+
+**Los tests de `cases` y `proceedings` siguen la revisión del 01/10/2026 del
+contrato**, igual que el código que prueban: todavía afirman "Sin acto
+procesal" y `nextDeadline`. Se actualizan cuando esos módulos se lleven a la
+revisión del 05/10 (el detalle está en `frontend/CLAUDE.md`, "Revisiones del
+contrato"). Los del servidor falso (`unit/mocks/`) y los de `legal-params` ya
+siguen la del 05/10.
+
 **Lo que existe y todavía no tiene test.** De `cases`: `suggestedCaption`,
 `deadlineStatus`, `CaseFilters`, `PrescriptionBar` y `ClientCard`. De
 `proceedings`: el esquema del acto, `stateOptions`, `dueDateText` y
 `DeadlinePreviewAside`. De `legal-params`: lo de calificaciones legales
-(esquema, `prescription`, tabla y modales). De `clients`: todo. Se escriben
-junto con sus páginas, que es cuando la feature tiene que llegar al
+(esquema, `prescription`, tabla y modales). Se escriben junto con sus páginas,
+que es cuando la feature tiene que llegar al
 [mínimo](#mínimo-por-feature).
 
 ### 3.2 Lo que no se testea (a propósito)
@@ -429,7 +457,13 @@ de páginas usan `as: 'fvazquez'`.
 | Escribir abogados, estados y calificaciones | `fvazquez` | `403` |
 | Registrar un cliente | `gestion` | `403` |
 | Registrar una causa | Cualquiera con sesión | — |
-| Registrar un acto procesal y previsualizar su vencimiento | `fvazquez`, `mrios` | `403` |
+| Registrar un acto procesal y previsualizar su vencimiento | El abogado responsable de **esa** causa | `403` |
+
+**Los actos no dependen del rol sino de la causa** (V3 D-30): sólo los registra
+su abogado responsable. `mrios` lleva las causas 1 y 17; `fvazquez`, la 4, la 6
+y la 20; `mferreyra`, la 7. Con otro usuario —aunque sea abogado o
+administrador— el mock responde `403`. Antes de escribir un test de actos,
+mirá quién lleva la causa (`responsibleLawyerId` en `CASE_SEEDS`).
 
 Por eso entrar como `mrios` **ya no sirve para probar el estado de error de un
 listado**: desde V3 un abogado lee abogados y estados sin problema. Hoy ese
@@ -498,14 +532,14 @@ que podés confiar en los datos de `@/shared/mocks` (`USERS`, `LAWYERS`,
 `CLIENTS`, `CASE_SEEDS`, `CREDENTIALS`…).
 
 Lo que **no** conviene escribir a mano en un test son los valores que el mock
-calcula: `activeCases`, el estado actual de una causa, su plazo abierto. Para
+calcula: `activeCases`, el estado actual de una causa, su vencimiento. Para
 eso están `toCase`, `toLawyer`, `toClient` y compañía, que devuelven el recurso
 tal como lo devuelve la API:
 
 ```ts
 import { db, toCase } from '@/shared/mocks'
 
-const gomez = toCase(db.cases[0])   // la causa 13284571, con su estado y su plazo
+const gomez = toCase(db.cases[0])   // la causa 13284571, con su estado y su vencimiento
 ```
 
 #### Tests que dependen del día
@@ -616,11 +650,11 @@ import { call, dataOf, errorOf, usePrototypeToday } from './helpers'
 describe('mock · POST /cases', () => {
     usePrototypeToday()
 
-    it('la causa nace sin estado procesal (D-09)', () => {
+    it('la causa nace en el estado inicial, "Iniciada" (D-34)', () => {
         const response = call('POST', '/cases', { as: 'gestion', body: CRIMINAL_BODY })
 
         expect(response.status).toBe(201)
-        expect(dataOf<Case>(response).currentState).toBeNull()
+        expect(dataOf<Case>(response).currentState).toMatchObject({ name: 'Iniciada', initial: true })
     })
 
     it('un SAC ya registrado responde 409', () => {
@@ -677,17 +711,39 @@ el problema.
 
 ## 7. Cuando arrancás una feature nueva
 
-Cuando empieces a programar, por ejemplo, `clients`:
+Cuando empieces a programar una feature:
 
-1. Creá `tests/unit/clients/` y `tests/components/clients/`.
-2. Por cada archivo de `schemas/` y `utils/` → un `.test.ts` en `unit/clients/`.
+1. Creá `tests/unit/<feature>/` y `tests/components/<feature>/`.
+2. Por cada archivo de `schemas/` y `utils/` → un `.test.ts` en `unit/<feature>/`.
 3. Por cada form, modal, tabla o página → un `.test.tsx` en
-   `components/clients/`.
-4. Si la feature tiene un flujo importante de punta a punta → `e2e/clients.spec.ts`.
+   `components/<feature>/`.
+4. Si la feature tiene un flujo importante de punta a punta → `e2e/<feature>.spec.ts`.
 5. Si la feature usa endpoints nuevos, primero tienen que estar en los mocks
    (`src/shared/mocks`). Sin handler, el test falla a propósito (ver abajo).
    Los del Sprint 2 ya están; un endpoint que se agregue lleva su test en
    `tests/unit/mocks/`.
+6. Si la pantalla tiene una acción que opera un solo perfil, su permiso va en
+   `ACTION_ACCESS` y su caso en `tests/unit/app/actionAccess.test.ts`.
+
+### Los tests primero
+
+Se puede —y conviene— escribir los tests **antes** que la feature, a partir de
+los criterios de aceptación de la historia: después se programa hasta que
+pasen. Así se hizo con `clients` (HU-8 y HU-9). Cada test dice en un comentario
+qué criterio cubre (`/* CA-8.4 */`), así se ve de un vistazo si quedó alguno
+sin cubrir.
+
+Dos cosas a tener en cuenta:
+
+- **Un test que importa un archivo que todavía no existe no compila**, y un
+  test que no compila rompe `npm run build` y `npm test` (ver
+  [§3](#3-mapa-de-carpetas)). Mientras la feature no esté, esos tests viven en
+  la rama de la feature: no se suben solos a `develop`.
+- **Los tests fijan nombres y textos.** Si el test busca el botón "Registrar
+  cliente", el aviso "Cliente GÓMEZ, Ariel Fernando registrado." o importa
+  `@/features/clients/pages/ClientsPage`, el código tiene que llamarse así.
+  Los textos salen del prototipo; si al programar hace falta otro, se cambia
+  en el test y en la pantalla juntos.
 
 ### Mínimo por feature
 
@@ -754,6 +810,11 @@ Desde V3 leer abogados, estados, calificaciones, clientes y causas está abierto
 a cualquier perfil: el mock ya no responde `403`. Forzá el error con
 `server.use(...)`.
 
+**"Registro un acto en un test y el mock responde `403`"**
+El usuario no es el abogado responsable de esa causa. Desde la revisión del
+05/10/2026 no alcanza con tener el rol `LAWYER`: ver la tabla de
+[qué responde el mock a cada perfil](#52-un-test-de-components).
+
 **"`getByText` no encuentra el mensaje de error"**
 Si el mensaje aparece después de una respuesta de la API, usá `findByText`
 (que espera) en vez de `getByText` (que no espera).
@@ -789,8 +850,10 @@ Casi siempre es un `waitForTimeout` o un selector por clase CSS. Usá
 - `frontend/src/shared/mocks/README.md`: los mocks, los fixtures y cómo
   disparar cada error.
 - `docs/Api-Contract/API_CONTRACT_V3.md`: lo que la API tiene que responder, y
-  lo que implementan hoy los mocks (con su revisión del 01/10/2026, §7.7).
+  lo que implementan hoy los mocks (con su revisión del 05/10/2026, §7.8).
   `API_CONTRACT_V2.md` queda como registro del Sprint 1.
+- `frontend/CLAUDE.md`: qué parte del código ya sigue esa revisión y qué
+  falta, en "Revisiones del contrato".
 - [Vitest](https://vitest.dev) ·
   [Testing Library](https://testing-library.com/docs/react-testing-library/intro) ·
   [MSW](https://mswjs.io) ·

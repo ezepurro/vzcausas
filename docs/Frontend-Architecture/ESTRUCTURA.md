@@ -43,7 +43,7 @@ frontend/
 └── src/
     ├── app/              el armado de la aplicación
     │   ├── router/       las rutas y sus guardas
-    │   ├── access/       quién puede ver cada sección (ROUTE_ACCESS)
+    │   ├── access/       quién ve cada sección y quién opera cada acción
     │   ├── layouts/      los marcos de pantalla (con menú, sin menú)
     │   └── providers/    lo que envuelve a toda la app (sesión, datos, avisos)
     ├── features/         un módulo por área funcional del sistema
@@ -108,11 +108,20 @@ lógica de negocio.**
   entró; y `RequireAccess` muestra `ForbiddenPage` ("Sin acceso") si el perfil
   no puede ver la sección, aunque haya escrito la URL a mano. Las secciones del
   rail que todavía no tienen pantalla caen en la ruta comodín.
-- **`access/`**: la única tabla de quién ve qué, `ROUTE_ACCESS` en `access.ts`,
-  con `canAccess(roles, ruta)`. De ahí leen el rail, para esconder los ítems, y
-  `RequireAccess`, para frenar la URL. Una sección que no está declarada queda
-  denegada para todos. Para esconder un botón suelto dentro de una pantalla está
-  `useCanAccess(ruta)`, así la regla no se repite en cada componente.
+- **`access/`**: el único lugar donde se dice quién puede qué. `access.ts`
+  tiene dos tablas:
+  - `ROUTE_ACCESS`, **quién ve cada sección**, con `canAccess(roles, ruta)`. De
+    ahí leen el rail, para esconder los ítems, y `RequireAccess`, para frenar
+    la URL. Una sección que no está declarada queda denegada para todos. Desde
+    un componente se consulta con `useCanAccess(ruta)`.
+  - `ACTION_ACCESS`, **quién opera cada acción**, con `can(roles, acción)`. Es
+    para la pantalla que ven todos pero tiene un botón de un solo perfil:
+    "Registrar cliente" es sólo de la Secretaría. Desde un componente se
+    consulta con `useCan('clients.create')`.
+
+  Así la regla no se repite en cada componente. Lo que no depende del perfil
+  sino del dato —sólo el abogado responsable de una causa registra sus actos—
+  no va en ninguna de las dos tablas: lo resuelve la pantalla de esa causa.
 - **`layouts/`**: los marcos de pantalla. `AppLayout` —rail, barra superior y
   contenido— para el sistema ya logueado; `AuthLayout` para el login, que hoy no
   dibuja nada porque esa pantalla arma su propia composición; y `NotFoundLayout`
@@ -154,7 +163,7 @@ el registro de actos consumen sus datos. Si no hace falta, no se crea.
 | `users/` | Alta, baja, consulta y permisos de los usuarios del sistema |
 | `clients/` | Los clientes del estudio |
 | `lawyers/` | Los abogados del staff |
-| `legal-params/` | Datos maestros del dominio: fueros, estados procesales y sus plazos |
+| `legal-params/` | Datos maestros del dominio: fueros, estados procesales con sus plazos, y calificaciones legales |
 | `cases/` | Causas y amparos: alta, consulta, detalle, línea de tiempo, carátula y expediente |
 | `proceedings/` | Actos procesales y actos interruptivos de cada causa |
 | `deadlines/` | Vencimientos, prescripción y alertas |
@@ -164,8 +173,13 @@ el registro de actos consumen sus datos. Si no hace falta, no se crea.
 De los once, hoy tienen código `auth/`, `home/`, `users/`, `lawyers/` y
 `legal-params/`, y del Sprint 2 están empezados `clients/`, `cases/` y
 `proceedings/`: tienen tipos, validaciones, utilidades y componentes, pero
-todavía no `api/` ni `pages/`. Los demás están creados con sus seis carpetas
-vacías, para que el día que arranquen no haya que discutir dónde van.
+todavía no `api/` ni `pages/`. `clients/` ya tiene además sus tests, escritos
+antes que la página. Los demás están creados con sus seis carpetas vacías,
+para que el día que arranquen no haya que discutir dónde van.
+
+No todos siguen la misma revisión del contrato: `cases/` y `proceedings/`
+todavía están en la del 01/10/2026. Qué falta ajustar en cada uno está en
+`frontend/CLAUDE.md`, "Revisiones del contrato".
 
 ### `src/shared/` — lo reutilizable
 
@@ -234,9 +248,14 @@ Hoy tiene `envelopes.ts`, con los envoltorios que el contrato pone alrededor de
 toda respuesta exitosa: `ApiItem`, `ApiList`, `Pagination` y `PaginatedQuery`.
 La capa `api/` de cada módulo los desenvuelve y entrega los datos pelados, así
 el envoltorio no se propaga a las pantallas. La fuente es el contrato de
-`docs/Api-Contract/`: lo implementado hasta hoy sigue `API_CONTRACT_V2.md`
-(Sprint 1), y lo del Sprint 2 —clientes, causas, actos procesales y
-calificaciones legales— sale de `API_CONTRACT_V3.md`.
+`docs/Api-Contract/`: `API_CONTRACT_V3.md`, que es autocontenido —trae lo del
+Sprint 1 que sigue vigente y lo del Sprint 2: clientes, causas, actos
+procesales y calificaciones legales— y cuya última revisión es del 05/10/2026
+(§7.8). `API_CONTRACT_V2.md` queda como registro del Sprint 1.
+
+La otra fuente de verdad es el prototipo (`docs/prototypes/`): de ahí salen las
+pantallas y sus textos. Cuando el contrato y el prototipo no coinciden, se
+acuerda con el equipo antes de tocar cualquiera de los dos.
 
 ### `src/styles/` — los estilos
 
@@ -317,7 +336,8 @@ equivocado.
 | El envoltorio de una respuesta del backend | `api-contract/` |
 | Algo de tu módulo que otro módulo va a necesitar | el `index.ts` del módulo |
 | Un test de cualquiera de estas cosas | `tests/`, ver `TESTING.md` |
-| Una ruta nueva | `app/router/`, y quién la ve en `app/access/access.ts` |
+| Una ruta nueva | `app/router/`, y quién la ve en `ROUTE_ACCESS` (`app/access/access.ts`) |
+| Un botón que es de un solo perfil, en una pantalla que ven todos | Su acción en `ACTION_ACCESS` (`app/access/access.ts`), y `useCan(...)` en la pantalla |
 | Un color o un espaciado nuevo | `styles/` |
 
 ---
@@ -333,11 +353,14 @@ equivocado.
    está.
 6. Declarala en `ROUTE_ACCESS` (`app/access/access.ts`) con los perfiles que la
    ven. Si falta, la sección queda denegada para todos, administrador incluido,
-   y no aparece en el menú.
+   y no aparece en el menú. Si la pantalla tiene una acción que opera un solo
+   perfil, declarala en `ACTION_ACCESS`, en el mismo archivo.
 7. Si otro módulo va a necesitar algo de éste, publicá **eso solo** en un
    `index.ts` en la raíz del módulo (ver la regla 1 de §5).
 8. Creá sus carpetas en `tests/unit/` y `tests/components/`, como explica
-   `TESTING.md` §7.
+   `TESTING.md` §7. Los tests se pueden escribir antes que la feature, desde
+   los criterios de aceptación de la historia: en ese caso este paso va
+   primero.
 
 Si mientras lo hacés necesitás un componente que ya existe en otro módulo, no lo
 copies: mudalo a `shared/components/` y que los dos lo usen de ahí.
@@ -364,7 +387,7 @@ Equivalencias, para no traducir distinto cada vez:
 | `deadlines` | plazos, vencimientos y prescripción |
 | `lawyers` | abogados |
 | `clients` | clientes |
-| `legal-params` | fueros, estados procesales y tabla de plazos |
+| `legal-params` | fueros, estados procesales, tabla de plazos y calificaciones legales |
 | `documents` | documentos de causa y modelos formales |
 
 ---
