@@ -40,11 +40,11 @@ export function LawyersPage() {
     const [values, setValues] = useState<LawyerFormValues>(EMPTY_FORM)
     const [errors, setErrors] = useState<LawyerFormErrors>({})
 
-    const debounceSearch = useDebouncedValue(search.trim())
+    const debouncedSearch = useDebouncedValue(search.trim())
     const query = useLawyers({
         page,
         limit: LIMIT,
-        search: debounceSearch === '' ? undefined : debounceSearch,
+        search: debouncedSearch === '' ? undefined : debouncedSearch,
     })
     const create = useCreateLawyer()
 

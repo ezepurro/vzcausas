@@ -35,7 +35,7 @@ export function ClientsPage() {
     //PAGINACION Y BUSQUEDA
     const [page, setPage] = useState(1)
     const [search, setSearch] = useState('')
-    const debounceSearch = useDebouncedValue(search.trim())
+    const debouncedSearch = useDebouncedValue(search.trim())
     const [modal, setModal] = useState<Modal>(null)
     const [values, setValues] = useState<ClientFormValues>(EMPTY_FORM)
     const [errors, setErrors] = useState<ClientFormErrors>({})
@@ -43,7 +43,7 @@ export function ClientsPage() {
     const query = useClients({
         page,
         limit:LIMIT,
-        search: debounceSearch === '' ? undefined : debounceSearch,
+        search: debouncedSearch === '' ? undefined : debouncedSearch,
     })
     const create = useCreateClient()
     const rows = query.data?.data ?? []

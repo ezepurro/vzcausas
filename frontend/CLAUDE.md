@@ -128,6 +128,7 @@ parecido:
 | "Fecha del hecho" de cada calificación elegida | Ya está: un campo de fecha por fila en `LegalQualificationPicker` |
 | "Objeto del reclamo" / "Objeto del amparo" con contador `0 / 800` | Ya está en `CaseForm`: `Textarea` dentro de `Field` con `hint` |
 | "Solo con plazo por vencer" | `Button pressed={…}` |
+| Buscador del listado de causas (y de cualquier listado) | `SearchInput` + `useDebouncedValue` de `@/shared/hooks/useDebouncedValue` |
 | Formulario de página con panel al costado | `.vz-split` + `.vz-split__aside` |
 | Chip de vencimiento y de estado | `Pill` (`danger` vencido/hoy, `warn` ≤ 5 días, `dot="hollow"` sin plazo) |
 | Mostrar una fecha del contrato | `formatDate` de `@/shared/lib/dates` |
@@ -596,6 +597,11 @@ No llama al servidor directo.
 - **La paginación y los filtros viven en la página** y se pasan al hook como
   parámetros; `DataTable` no pagina ni filtra. Al cambiar un filtro se vuelve a
   la página 1.
+- **El texto del buscador va con demora.** El `SearchInput` muestra `search`
+  al instante, y al hook se le pasa
+  `const debouncedSearch = useDebouncedValue(search.trim())` (de
+  `@/shared/hooks/useDebouncedValue`): si no, sale un pedido por tecla. Los
+  selects, las pestañas y el paginado no llevan demora. Ver `ClientsPage`.
 - **Un solo estado por modo.** Por ejemplo, "qué modal está abierto y con qué
   registro" es un estado, no dos booleanos que se pueden contradecir.
 - **Errores del servidor** (siempre llegan como `ApiError`):
