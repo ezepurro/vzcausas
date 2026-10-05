@@ -30,7 +30,7 @@ import { ROLE_LABELS, roleChecks, rolesFromValues } from '@/features/users/utils
 import { UsersTable } from '@/features/users/components/UsersTable'
 import { UserFormModal } from '@/features/users/components/UserFormModal'
 import { DeleteUserModal } from '@/features/users/components/DeleteUserModal'
-
+import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue'
 const LIMIT = 20
 
 /** El "sin filtro" del select de perfil. Cadena vacía, que es lo que no viaja. */
@@ -70,6 +70,7 @@ export function UsersPage() {
        pagina ni filtra, y los parámetros tienen que estar en la clave de caché. */
     const [page, setPage] = useState(1)
     const [search, setSearch] = useState('')
+    const debouncedSearch = useDebouncedValue(search.trim())
     const [role, setRole] = useState<Role | typeof ALL_ROLES>(ALL_ROLES)
     const [modal, setModal] = useState<Modal>(null)
     const [values, setValues] = useState<UserFormValues>(EMPTY_FORM)
@@ -78,7 +79,7 @@ export function UsersPage() {
     const query = useUsers({
         page,
         limit: LIMIT,
-        search: search.trim() === '' ? undefined : search.trim(),
+        search: debouncedSearch === '' ? undefined : debouncedSearch,
         role: role === ALL_ROLES ? undefined : role,
     })
 

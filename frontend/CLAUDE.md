@@ -70,7 +70,7 @@ de calificaciones legales.
 
 | HU | Pantalla | Módulo | Ruta | Estado |
 |---|---|---|---|---|
-| 8, 9 | Clientes: listado y alta | `clients/` | `/clientes` | Nueva |
+| 8, 9 | Clientes: listado y alta | `clients/` | `/clientes` | **Hecha** |
 | — | Calificaciones legales: listado, alta, modificación y baja | `legal-params/` | `/calificaciones-legales` | Nueva |
 | 20 | Causas: listado con filtros | `cases/` | `/causas` | Nueva |
 | 18 | Registrar causa | `cases/` | `/causas/nueva` | Nueva |
@@ -102,7 +102,7 @@ Varios módulos necesitan datos de otros. Cada dueño publica **sólo eso** en s
 | Módulo | Publica | Lo usa |
 |---|---|---|
 | `lawyers` | `useLawyers` (ya existe) | Registrar causa: "Abogado responsable" |
-| `clients` | `useClients`, el formateo del nombre y del DNI, y el modal de alta | Registrar causa: select de cliente y "Registrar cliente nuevo" |
+| `clients` | `useClients`, `useCreateClient`, el formateo del nombre y del DNI, y el modal de alta (ya publicados) | Registrar causa: select de cliente y "Registrar cliente nuevo" |
 | `legal-params` | `useLegalQualifications`, el formateo de la prescripción, el modal de alta, y `useProceduralStates` | Registrar causa (calificaciones) y Registrar acto (estados del fuero) |
 | `cases` | `useCase`, las claves de caché, el encabezado de la causa y la barra de prescripción | Registrar acto: el acto muestra la causa y, al registrarse, invalida sus claves porque la causa cambia de estado |
 
@@ -143,7 +143,7 @@ Por módulo ya están los **tipos**, los **schemas**, las **utilidades** y los
 
 | Módulo | Componentes | Utilidades |
 |---|---|---|
-| `clients` | `ClientsTable`, `ClientFormModal` | `formatClientName`, `formatDni`, `normalizeDni` |
+| `clients` | `ClientsTable`, `ClientFormModal` | `formatClientName`, `formatDni`, `normalizeDni`, `toCreateClientBody` |
 | `legal-params` | `LegalQualificationsTable`, `LegalQualificationFormModal`, `DeleteLegalQualificationModal` | `formatPrescription`, `toPrescriptionMonths`, `splitPrescription`, `shortQualificationName` |
 | `cases` | `CasesTable`, `CaseFilters`, `CaseForm`, `LegalQualificationPicker`, `CaseSummaryAside`, `CaseHeader`, `PrescriptionBar`, `ClientCard` | `deadlineStatus`, `prescriptionProgress`, `nearestQualification`, `estimatedExpiry`, `suggestedCaption`, `stateFilterParams` (y `WITHOUT_ACTS`), `changeJurisdiction`, `emptyCaseForm`, `caseStateLabel` |
 | `proceedings` | `ProceduralActForm`, `DeadlinePreviewAside` | `stateOptions`, `filterStateOptions`, `findStateByName`, `termText`, `dueDateDetail`, `dueDateTone` |
@@ -171,19 +171,23 @@ También están hechos:
   los tests del servidor falso.
 - **Los permisos por acción**: `ACTION_ACCESS`, `can` y `useCan`, en
   `src/app/access/` (ver [Acceso por perfil](#acceso-por-perfil)).
-- **Los tests de `clients`**, escritos desde los criterios de aceptación de
-  HU-8 y HU-9 antes de programar la feature (ver `TESTING.md` §7).
+- **El módulo `clients` completo** (HU-8 y HU-9): `toCreateClientBody`, el
+  `api/` (`clients.api`, `clients.keys`, `useClients`, `useCreateClient`),
+  `ClientsPage`, la ruta `/clientes` y los dos hooks publicados en su
+  `index.ts`. Sus tests se escribieron desde los criterios de aceptación antes
+  de programar la feature (ver `TESTING.md` §7) y pasan todos, los E2E
+  incluidos. Sirve de modelo para los módulos que faltan, junto con `lawyers`.
 
-**Falta**, en este orden: llevar `cases`, `proceedings` y calificaciones al
-05/10; `api/` (funciones, claves y hooks) de cada módulo; las funciones de
-formulario a cuerpo (`toCreate…Body`); las `pages/`; las rutas y el acceso;
-sumar los hooks a cada `index.ts`; y los tests que faltan (`TESTING.md` §3.1
-lista qué piezas existen sin test).
+**Falta**, en este orden y para `legal-params` (calificaciones), `cases` y
+`proceedings`: llevarlos al 05/10; su `api/` (funciones, claves y hooks); las
+funciones de formulario a cuerpo (`toCreate…Body`); las `pages/`; las rutas y
+el acceso; sumar los hooks a cada `index.ts`; y los tests que faltan
+(`TESTING.md` §3.1 lista qué piezas existen sin test).
 
 **Lo que tiene que armar cada página**, porque los componentes son
 presentacionales y lo reciben hecho:
 
-- **Clientes.** El botón "Registrar cliente" va deshabilitado para quien no es
+- **Clientes** (hecha: así quedó `ClientsPage`). El botón "Registrar cliente" va deshabilitado para quien no es
   Secretaría: `useCan('clients.create')`. El DNI se acepta con o sin puntos y
   viaja sin puntos (`normalizeDni`); un teléfono o un correo vacío no viaja. Un
   DNI repetido (`409 CLIENT_DNI_ALREADY_EXISTS`) se muestra en el campo DNI. Al
