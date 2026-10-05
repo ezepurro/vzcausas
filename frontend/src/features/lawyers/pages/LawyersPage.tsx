@@ -16,7 +16,7 @@ import { validateLawyer, isValid, type LawyerFormErrors } from '@/features/lawye
 import { toCreateLawyerBody } from '@/features/lawyers/utils/toCreateLawyerBody'
 import { LawyersTable } from '@/features/lawyers/components/LawyersTable'
 import { LawyerFormModal } from '@/features/lawyers/components/LawyerFormModal'
-
+import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue'
 const LIMIT = 20
 
 /**
@@ -40,10 +40,11 @@ export function LawyersPage() {
     const [values, setValues] = useState<LawyerFormValues>(EMPTY_FORM)
     const [errors, setErrors] = useState<LawyerFormErrors>({})
 
+    const debouncedSearch = useDebouncedValue(search.trim())
     const query = useLawyers({
         page,
         limit: LIMIT,
-        search: search.trim() === '' ? undefined : search.trim(),
+        search: debouncedSearch === '' ? undefined : debouncedSearch,
     })
     const create = useCreateLawyer()
 

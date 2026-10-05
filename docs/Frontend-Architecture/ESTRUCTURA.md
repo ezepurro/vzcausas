@@ -64,7 +64,7 @@ frontend/
     │   │   ├── ui/       botones, inputs, tablas, modales
     │   │   ├── forms/    piezas para armar formularios
     │   │   └── feedback/ avisos, carteles de error, estados vacíos (hoy vacía)
-    │   ├── hooks/        hooks reutilizables (hoy vacía)
+    │   ├── hooks/        hooks reutilizables: búsqueda con demora
     │   ├── lib/          utilidades sueltas: fechas, iniciales
     │   ├── mocks/        datos y servidor simulado para desarrollar sin backend
     │   └── types/        tipos que usan varios módulos (hoy vacía)
@@ -200,7 +200,8 @@ Una tabla de causas o un formulario de cliente, en cambio, son del módulo.
   vacía. Hoy está vacía: los avisos son `useToast()`, que vive en
   `app/providers/`, y los estados vacíos se escriben con las clases `.vz-empty`.
 - **`hooks/`**: hooks reutilizables, por ejemplo uno de búsqueda con demora o uno que
-  guarda algo en el navegador. Hoy está vacía.
+  guarda algo en el navegador. Hoy tiene `useDebouncedValue.ts`, el de la
+  búsqueda con demora de los listados.
 - **`lib/`**: funciones sueltas sin estado. Hoy tiene `dates.ts` (el último
   ingreso, las fechas sin hora del contrato y la fecha de hoy) e `initials.ts`
   (las iniciales de los avatares).

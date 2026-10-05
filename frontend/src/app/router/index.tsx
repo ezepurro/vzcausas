@@ -10,6 +10,7 @@ import { ProceduralStatesPage } from '@/features/legal-params/pages/ProceduralSt
 import { UsersPage } from '@/features/users/pages/UsersPage'
 import { LawyersPage } from '@/features/lawyers/pages/LawyersPage'
 import { RequireAccess } from '@/app/router/RequireAccess'
+import { ClientsPage } from '@/features/clients/pages/ClientsPage'
 
 export const router = createBrowserRouter([
     {
@@ -34,6 +35,7 @@ export const router = createBrowserRouter([
                         element: <RequireAccess />,
                         children: [
                             { path: 'inicio', element: <HomePage /> },
+                            { path: 'clientes', element: <ClientsPage />},
                             { path: 'estados-y-plazos', element: <ProceduralStatesPage /> },
                             { path: 'usuarios', element: <UsersPage /> },
                             { path: 'abogados', element: <LawyersPage /> },

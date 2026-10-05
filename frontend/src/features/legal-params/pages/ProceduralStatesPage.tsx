@@ -26,7 +26,7 @@ import { hasNoFieldErrors, toFormErrors } from '@/features/legal-params/utils/to
 import { ProceduralStatesTable } from '@/features/legal-params/components/ProceduralStatesTable';
 import { ProceduralStateFormModal } from '@/features/legal-params/components/ProceduralStateFormModal';
 import { DeleteProceduralStateModal } from '@/features/legal-params/components/DeleteProceduralStateModal';
-
+import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue'
 const LIMIT = 20;
 
 /**
@@ -61,6 +61,8 @@ export function ProceduralStatesPage() {
        pagina ni filtra, y los parámetros tienen que estar en la clave de caché. */
     const [page, setPage] = useState(1);
     const [search, setSearch] = useState('');
+    const debouncedSearch = useDebouncedValue(search.trim())
+
     const [jurisdiction, setJurisdiction] = useState<Jurisdiction>(JURISDICTIONS[0]);
 
     const [modal, setModal] = useState<Modal>(null);
@@ -70,7 +72,7 @@ export function ProceduralStatesPage() {
     const query = useProceduralStates({
         page,
         limit: LIMIT,
-        search: search.trim() === '' ? undefined : search.trim(),
+        search: debouncedSearch === '' ? undefined : debouncedSearch,
         jurisdiction,
     });
 

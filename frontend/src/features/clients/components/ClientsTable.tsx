@@ -13,8 +13,6 @@ export interface ClientsTableProps {
  * Tabla de clientes. Presentacional: no ordena, no filtra, no pagina. El
  * orden alfabético por apellido lo resuelve el backend.
  *
- * Las columnas son las del prototipo. Sin columna de acciones: modificar y dar
- * de baja un cliente (HU10 y HU11) son del Sprint 4.
  */
 export function ClientsTable({ rows, empty }: ClientsTableProps) {
     const columns: Column<Client>[] = [

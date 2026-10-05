@@ -18,8 +18,7 @@ export interface ClientFormModalProps {
 }
 
 /**
- * Alta de cliente (HU8). Por ahora sólo alta: modificar es HU10, del Sprint 4.
- *
+ * Alta de cliente 
  * No valida ni guarda: recibe los errores ya calculados y avisa con
  * `onConfirm`. La decisión la toma quien lo abre, que puede ser la pantalla
  * Clientes o el alta de causa.

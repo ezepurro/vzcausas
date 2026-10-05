@@ -35,7 +35,7 @@ shared/
 │   ├── ui/                   18 componentes + index.ts
 │   ├── forms/                Field.tsx, Combobox.tsx, SegmentedControl.tsx, FormModal.tsx + index.ts
 │   └── feedback/             VACÍA (sólo .gitkeep)
-├── hooks/                    VACÍA (sólo .gitkeep)
+├── hooks/                    useDebouncedValue.ts (búsqueda con demora)
 ├── lib/                      dates.ts (fechas para mostrar), initials.ts (iniciales de avatar)
 ├── mocks/                    la API del contrato, simulada (ver su README)
 │   ├── contract.ts           tipos del contrato
@@ -51,9 +51,10 @@ shared/
 └── types/                    VACÍA (sólo .gitkeep)
 ```
 
-`hooks/`, `types/` y `components/feedback/` siguen vacías. Si una feature
-necesita algo de ahí, es un archivo nuevo, no algo que haya que buscar. `lib/`
-dejó de estarlo: tiene `dates.ts` e `initials.ts`.
+`types/` y `components/feedback/` siguen vacías. Si una feature necesita algo
+de ahí, es un archivo nuevo, no algo que haya que buscar. `lib/` dejó de
+estarlo: tiene `dates.ts` e `initials.ts`. `hooks/` también: tiene
+`useDebouncedValue.ts` (ver [Hooks](#hooks)).
 
 `mocks/` implementa `docs/Api-Contract/API_CONTRACT_V3.md` (con su revisión
 del 05/10/2026, §7.8) sobre **MSW**, que intercepta la red de verdad (los
@@ -102,8 +103,8 @@ import { ApiError, isApiError } from '@/shared/api/ApiError';
 
 - `components/ui/index.ts` y `components/forms/index.ts` son los barrels reales;
   `components/index.ts` sólo hace `export * from './ui'` y `'./forms'`.
-- **`api/` y `lib/` no tienen barrel**: se importan archivo por archivo
-  (`@/shared/lib/dates`).
+- **`api/`, `lib/` y `hooks/` no tienen barrel**: se importan archivo por
+  archivo (`@/shared/lib/dates`, `@/shared/hooks/useDebouncedValue`).
 - El código existente (`AppLayout`, `UsersPage`, `LawyersPage`…) importa desde
   `@/shared/components/ui`. Seguir ese patrón.
 
@@ -174,6 +175,7 @@ import { ApiError, isApiError } from '@/shared/api/ApiError';
 | Agrupar campos | `FormSection` | Dentro de `.vz-form-grid` |
 | Filtros sobre una tabla | `Panel actions={...}` | Se renderiza en `.vz-filters` |
 | Paginar una tabla | `Pagination` | Va en `Panel footer={...}` |
+| Buscador de un listado | `SearchInput` + `useDebouncedValue` de `@/shared/hooks/useDebouncedValue` | El input muestra el texto al instante; a la consulta va el valor demorado, así no sale un pedido por tecla |
 | Mostrar un último ingreso | `formatLastLogin` de `@/shared/lib/dates` | Para que la fecha no se formatee distinto en cada feature |
 | Mostrar una fecha sin hora (`startDate`, `dueDate`) | `formatDate` de `@/shared/lib/dates` | **Nunca** `new Date('2026-09-15')`: la corre un día |
 | Valor por defecto de un campo de fecha | `todayIsoDate()` de `@/shared/lib/dates` | No `toISOString()`, que después de las 21 ya dice mañana |
@@ -348,7 +350,8 @@ Genérico en `T extends string`. No guarda estado.
 
 **Path:** `components/ui/SearchInput.tsx`
 **Props:** las de un `<input>` (`InputHTMLAttributes`). No tiene interfaz propia ni
-props extra; renderiza icono + `<input type="search">`. No debounce, no busca.
+props extra; renderiza icono + `<input type="search">`. No debounce, no busca:
+la demora la pone la página con [`useDebouncedValue`](#usedebouncedvalue).
 
 ### Modal
 
@@ -639,6 +642,39 @@ más de cuatro opciones o textos largos, `Select`.
 
 ---
 
+## Hooks
+
+### useDebouncedValue
+
+**Path:** `hooks/useDebouncedValue.ts`
+**Firma:** `useDebouncedValue<T>(value: T, delay = 200): T`
+
+Devuelve `value`, pero recién cuando lleva `delay` milisegundos sin cambiar.
+Es para el buscador de un listado: como la búsqueda va en la clave de caché,
+sin demora sale un pedido por cada tecla.
+
+```tsx
+const [search, setSearch] = useState('')
+const debouncedSearch = useDebouncedValue(search.trim())
+
+const query = useClients({
+    page,
+    limit: LIMIT,
+    search: debouncedSearch === '' ? undefined : debouncedSearch,
+})
+
+<SearchInput value={search} onChange={(e) => changeSearch(e.target.value)} />
+```
+
+- El input usa `search`, así muestra cada letra al instante; a la consulta va
+  `debouncedSearch`. La variable se llama así en todas las páginas.
+- Sólo para texto que se tipea. Un select, una pestaña o el paginado no llevan
+  demora: tienen que responder al toque.
+- Lo usan Clientes, Abogados, Usuarios y Estados y plazos. Su test está en
+  `tests/components/shared/useDebouncedValue.test.ts`.
+
+---
+
 ## API
 
 ### http
@@ -838,8 +874,8 @@ Tipos: `AppShellProps`, `RailGroup`, `RailItem`, `AvatarProps`,
 `SegmentedControlProps`, `FieldSpec`, `FormModalProps`, `FieldType`,
 `FormValues`.
 
-`api/` y `lib/` son públicos también, pero se importan por ruta directa (no
-tienen barrel).
+`api/`, `lib/` y `hooks/` son públicos también, pero se importan por ruta
+directa (no tienen barrel).
 
 ### Interno / no exportado
 
@@ -928,9 +964,9 @@ Puramente informativo; nada de esto está resuelto ni debe corregirse al paso.
    más `e.code` para ramificar y `e.details` para marcar campos.
 8. **Avisos al usuario:** `useToast()` de `@/app/providers/ToastContext`, no un
    componente propio.
-9. **Antes de crear algo en `shared/hooks`, `lib` o `types`:** `hooks/` y
-   `types/` están vacías a propósito, y `lib/` tiene dos archivos (`dates.ts`,
-   `initials.ts`). Si algo lo usa una sola feature, va en
+9. **Antes de crear algo en `shared/hooks`, `lib` o `types`:** `types/` está
+   vacía a propósito, `hooks/` tiene un archivo (`useDebouncedValue.ts`) y
+   `lib/` tiene dos (`dates.ts`, `initials.ts`). Si algo lo usa una sola feature, va en
    `src/features/<feature>/`; sólo sube a `shared` cuando lo compartan dos o
    más. La excepción son los controles genéricos que no saben nada del dominio
    (`Combobox`, `SegmentedControl`): van a `shared` desde el primer uso, igual
