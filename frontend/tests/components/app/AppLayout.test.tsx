@@ -12,7 +12,7 @@ const ROUTES = {
 }
 
 const DAILY_WORK = ['Inicio', 'Causas', 'Vencimientos', 'Clientes', 'Modelos']
-const ADMINISTRATION = ['Usuarios', 'Abogados', 'Estados y plazos', 'Reportes']
+const ADMINISTRATION = ['Usuarios', 'Abogados', 'Estados y plazos', 'Calificaciones legales', 'Reportes']
 
 /** El menú lateral, tal como lo encuentra un lector de pantalla. */
 function rail() {

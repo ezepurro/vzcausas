@@ -29,10 +29,11 @@ describe('canAccess', () => {
         expect(canAccess(['ADMINISTRATOR'], '/usuarios')).toBe(true)
         expect(canAccess(['ADMINISTRATOR'], '/abogados')).toBe(true)
         expect(canAccess(['ADMINISTRATOR'], '/estados-y-plazos')).toBe(true)
+        expect(canAccess(['ADMINISTRATOR'], '/calificaciones-legales')).toBe(true)
     })
 
     it('abogado y secretaría no entran a administración', () => {
-        for (const route of ['/usuarios', '/abogados', '/estados-y-plazos']) {
+        for (const route of ['/usuarios', '/abogados', '/estados-y-plazos', '/calificaciones-legales']) {
             expect(canAccess(['LAWYER'], route)).toBe(false)
             expect(canAccess(['SECRETARY'], route)).toBe(false)
         }

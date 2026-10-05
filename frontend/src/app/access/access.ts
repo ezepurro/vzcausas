@@ -13,6 +13,7 @@ export const ROUTE_ACCESS: Record<string, readonly Role[]> = {
     '/usuarios': ADMIN,
     '/abogados': ADMIN,
     '/estados-y-plazos': ADMIN,
+    '/calificaciones-legales': ADMIN,
     '/reportes': ADMIN,   // ← a definir con el equipo
 }
 export function matchRoute(pathname: string): string | undefined {
