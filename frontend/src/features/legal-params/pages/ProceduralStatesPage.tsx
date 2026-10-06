@@ -26,14 +26,10 @@ import { hasNoFieldErrors, toFormErrors } from '@/features/legal-params/utils/to
 import { ProceduralStatesTable } from '@/features/legal-params/components/ProceduralStatesTable';
 import { ProceduralStateFormModal } from '@/features/legal-params/components/ProceduralStateFormModal';
 import { DeleteProceduralStateModal } from '@/features/legal-params/components/DeleteProceduralStateModal';
-<<<<<<< HEAD
+import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue';
 
 /** La pestaña de un fuero pide todos sus estados de una vez (§3.4). */
 const LIMIT = 100;
-=======
-import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue'
-const LIMIT = 20;
->>>>>>> 7e4e0a1f7294604777c46c11566ee8dfd4276421
 
 /**
  * Las lengüetas son los fueros, sin "Todos".

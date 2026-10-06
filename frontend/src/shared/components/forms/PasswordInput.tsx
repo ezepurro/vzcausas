@@ -31,7 +31,7 @@ export function PasswordInput({ disabled, ...rest }: PasswordInputProps) {
         disabled={disabled}
         onClick={() => setVisible((v) => !v)}
       >
-        <Icon name={visible ? 'eyeOff' : 'eye'} size={18} />
+        <Icon name={visible ? 'eye' : 'eyeOff'} size={18} />
         <span className="vz-sr-only">{label}</span>
       </button>
     </div>
