@@ -15,11 +15,17 @@ export interface LegalQualification {
     name: string;
     /** Plazo de prescripción en meses enteros. El "6 años y 6 meses" lo arma el front. */
     prescriptionMonths: number;
-    /** Causas activas que la registran. Calculado, sólo lectura. */
+    /** Causas activas que la registran. Calculado, sólo lectura; sólo en los `GET`. */
     activeCases: number;
     /** Vale siempre `true`: una calificación dada de baja deja de listarse. */
     active: boolean;
 }
+
+/**
+ * Lo que devuelven el alta y la modificación: sin `activeCases`, que es un
+ * dato de consulta y viaja sólo en los `GET` (V3 D-32).
+ */
+export type CreatedLegalQualification = Omit<LegalQualification, 'activeCases'>;
 
 export interface CreateLegalQualificationBody {
     name: string;

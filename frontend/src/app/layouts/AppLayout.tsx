@@ -52,6 +52,7 @@ const GROUPS: RailGroup[] = [
             { id: '/usuarios', label: 'Usuarios', icon: 'users' },
             { id: '/abogados', label: 'Abogados', icon: 'lawyers' },
             { id: '/estados-y-plazos', label: 'Estados y plazos', icon: 'timeLimits' },
+            { id: '/calificaciones-legales', label: 'Calificaciones legales', icon: 'qualifications' },
             { id: '/reportes', label: 'Reportes', icon: 'reports' },
         ],
     },

@@ -66,3 +66,28 @@ test.describe('Estados y plazos', () => {
         await expect(rowOf(page, name)).toBeHidden()
     })
 })
+
+test.describe('Calificaciones legales', () => {
+    test.beforeEach(async ({ page }) => {
+        await loginAs(page, 'admin')
+        await goTo(page, 'Calificaciones legales')
+        await expect(page).toHaveURL(/\/calificaciones-legales$/)
+        await expect(page.getByRole('cell', { name: 'Abuso de armas — art. 104 CP' })).toBeVisible()
+    })
+
+    test('registrar una calificación y encontrarla con el buscador', async ({ page }) => {
+        await page.getByRole('button', { name: 'Registrar calificación' }).click()
+        const dialog = page.getByRole('dialog')
+        await dialog.getByLabel(/^Nombre de la calificación legal/).fill('Estafa — art. 172 CP')
+        await dialog.getByLabel(/^Años/).fill('6')
+        await dialog.getByLabel(/^Meses/).selectOption('6')
+        await dialog.getByRole('button', { name: 'Registrar calificación' }).click()
+
+        await expect(page.getByText('Calificación registrada · prescripción 6 años y 6 meses.')).toBeVisible()
+        await expect(dialog).toBeHidden()
+
+        await page.getByRole('searchbox', { name: 'Buscar calificación' }).fill('art. 172')
+        await expect(rowOf(page, 'Estafa — art. 172 CP')).toBeVisible()
+        await expect(page.getByRole('cell', { name: 'Abuso de armas — art. 104 CP' })).toBeHidden()
+    })
+})

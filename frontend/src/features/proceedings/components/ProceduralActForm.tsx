@@ -116,7 +116,7 @@ export function ProceduralActForm({
                         error={errors.notificationDate}
                         note={
                             administrative
-                                ? 'RN6: en el fuero administrativo el plazo corre desde la notificación.'
+                                ? 'En el fuero administrativo el plazo corre desde la notificación.'
                                 : 'Sólo en el fuero administrativo.'
                         }
                     >
