@@ -1,0 +1,14 @@
+description: Calificación legal tal como la devuelven las respuestas de `GET`.
+allOf:
+  - $ref: ./LegalQualification.yaml
+  - type: object
+    required:
+      - activeCases
+    properties:
+      activeCases:
+        type: integer
+        minimum: 0
+        readOnly: true
+        description: Causas activas que la registran. Calculado, sólo lectura.
+        examples:
+          - 3

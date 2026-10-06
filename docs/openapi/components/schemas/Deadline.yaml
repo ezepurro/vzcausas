@@ -1,0 +1,46 @@
+type: object
+description: |
+  Plazo que abre un acto procesal. Los valores de la tabla se **copian** al
+  acto: si luego se modifica el plazo del estado procesal, este vencimiento no
+  cambia.
+required:
+  - timeLimitDays
+  - dayType
+  - countsFrom
+  - computedDueDate
+  - dueDate
+  - manuallyAdjusted
+properties:
+  timeLimitDays:
+    type: integer
+    minimum: 0
+    description: Días del plazo según la tabla del fuero al momento del registro. `0` si no abre plazo.
+    examples:
+      - 5
+  dayType:
+    $ref: ./DayType.yaml
+  countsFrom:
+    type: string
+    format: date
+    description: Fecha desde la que corre el plazo, `notificationDate` en `ADMINISTRATIVE` y `actDate` en los demás.
+    examples:
+      - '2026-09-09'
+  computedDueDate:
+    type:
+      - string
+      - 'null'
+    format: date
+    description: Vencimiento que resulta de la tabla. `null` si el estado no abre plazo.
+    examples:
+      - '2026-09-16'
+  dueDate:
+    type: string
+    format: date
+    description: Vencimiento vigente, el calculado o, si se ajustó, el manual.
+    examples:
+      - '2026-09-16'
+  manuallyAdjusted:
+    type: boolean
+    description: '`true` si `dueDate` se cargó a mano.'
+    examples:
+      - false

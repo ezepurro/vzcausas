@@ -1,0 +1,7 @@
+summary: Identificador de causa inválido
+value:
+  error:
+    code: INVALID_PATH_PARAMETER
+    message: El identificador de la causa no es válido.
+    details:
+      caseId: Debe ser un número entero válido.

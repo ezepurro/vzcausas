@@ -1,0 +1,21 @@
+type: string
+description: |
+  Posición que ocupa el cliente en la causa. Cada fuero admite un subconjunto
+  de valores; el backend rechaza con `400` un rol que no corresponda al fuero
+  de la causa.
+
+  | Código               | Rótulo                 | Fueros en que aplica         |
+  | -------------------- | ---------------------- | ---------------------------- |
+  | `DEFENSE`            | Defensa                | `CRIMINAL`, `ADMINISTRATIVE` |
+  | `PRIVATE_PROSECUTOR` | Querellante particular | `CRIMINAL`                   |
+  | `APPELLANT`          | Recurrente             | `ADMINISTRATIVE`             |
+  | `PLAINTIFF`          | Actora                 | `AMPARO`                     |
+  | `DEFENDANT`          | Demandada              | `AMPARO`                     |
+
+  No confundir con `Role`, que es el perfil de seguridad del usuario.
+enum:
+  - DEFENSE
+  - PRIVATE_PROSECUTOR
+  - APPELLANT
+  - PLAINTIFF
+  - DEFENDANT

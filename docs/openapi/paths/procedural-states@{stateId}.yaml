@@ -1,0 +1,173 @@
+parameters:
+  - $ref: ../components/parameters/StateIdParam.yaml
+
+get:
+  tags:
+    - Procedural States
+  operationId: getProceduralState
+  summary: Consultar estado procesal
+  description: |
+    Obtiene la información de un estado procesal específico. Con el
+    identificador del estado inicial "Iniciada" responde `404`.
+
+    **Rol requerido:** cualquier usuario autenticado.
+  responses:
+    '200':
+      description: Estado procesal solicitado.
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - data
+            properties:
+              data:
+                $ref: ../components/schemas/ProceduralStateWithActiveCases.yaml
+          example:
+            data:
+              id: 12
+              name: Oposición al requerimiento de elevación
+              jurisdiction: CRIMINAL
+              timeLimitDays: 5
+              dayType: BUSINESS
+              terminal: false
+              activeCases: 7
+              active: true
+    '400':
+      description: Identificador inválido.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          examples:
+            invalidStateId:
+              $ref: ../components/examples/InvalidStateIdError.yaml
+    '401':
+      $ref: ../components/responses/Unauthorized.yaml
+    '404':
+      $ref: ../components/responses/ProceduralStateNotFound.yaml
+
+patch:
+  tags:
+    - Procedural States
+  operationId: updateProceduralState
+  summary: Modificar estado procesal
+  description: |
+    Modifica parcialmente un estado procesal (HU17). El fuero no es
+    modificable. La respuesta no incluye `activeCases`.
+
+    Renombrar un estado actualiza la denominación en todas las causas que lo
+    tienen. Modificar `timeLimitDays` o `dayType` **no recalcula los
+    vencimientos ya registrados**.
+
+    **Rol requerido:** `ADMINISTRATOR`.
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: ../components/schemas/ProceduralStateUpdate.yaml
+        example:
+          name: Oposición al requerimiento de elevación a juicio
+          timeLimitDays: 6
+          dayType: BUSINESS
+          terminal: false
+  responses:
+    '200':
+      description: Estado procesal modificado.
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - data
+            properties:
+              data:
+                $ref: ../components/schemas/ProceduralState.yaml
+          example:
+            data:
+              id: 12
+              name: Oposición al requerimiento de elevación a juicio
+              jurisdiction: CRIMINAL
+              timeLimitDays: 6
+              dayType: BUSINESS
+              terminal: false
+              active: true
+    '400':
+      description: Datos o identificador inválidos.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          examples:
+            incoherentDayType:
+              summary: Tipo de día incoherente con el plazo
+              value:
+                error:
+                  code: VALIDATION_ERROR
+                  message: Los datos enviados no son válidos.
+                  details:
+                    dayType: Debe ser NONE cuando el plazo es 0.
+            jurisdictionNotModifiable:
+              summary: Intento de modificar el fuero
+              value:
+                error:
+                  code: VALIDATION_ERROR
+                  message: Los datos enviados no son válidos.
+                  details:
+                    jurisdiction: El fuero de un estado procesal no se puede modificar.
+            invalidStateId:
+              $ref: ../components/examples/InvalidStateIdError.yaml
+    '401':
+      $ref: ../components/responses/Unauthorized.yaml
+    '403':
+      $ref: ../components/responses/ForbiddenAdministrator.yaml
+    '404':
+      $ref: ../components/responses/ProceduralStateNotFound.yaml
+    '409':
+      description: Ya existe un estado con esa denominación en el fuero.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          example:
+            error:
+              code: PROCEDURAL_STATE_ALREADY_EXISTS
+              message: Ya existe un estado procesal con esa denominación en el fuero.
+              details: null
+
+delete:
+  tags:
+    - Procedural States
+  operationId: deleteProceduralState
+  summary: Dar de baja estado procesal
+  description: |
+    Da de baja un estado procesal (HU46).
+
+    **La baja es lógica, pero el cliente no la percibe.** El estado no
+    aparece en ningún listado, no puede elegirse como destino de un acto y
+    `GET /procedural-states/{stateId}` responde `404`.
+
+    **La baja procede aunque haya causas en ese estado.** Esas causas lo
+    conservan como estado actual hasta que un acto las lleve a otro, y sus
+    vencimientos no se alteran.
+
+    **Rol requerido:** `ADMINISTRATOR`.
+  responses:
+    '204':
+      description: Estado procesal dado de baja. La respuesta no contiene cuerpo.
+    '400':
+      description: Identificador inválido.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          examples:
+            invalidStateId:
+              $ref: ../components/examples/InvalidStateIdError.yaml
+    '401':
+      $ref: ../components/responses/Unauthorized.yaml
+    '403':
+      $ref: ../components/responses/ForbiddenAdministrator.yaml
+    '404':
+      $ref: ../components/responses/ProceduralStateNotFound.yaml

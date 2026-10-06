@@ -23,6 +23,7 @@ export
         backend-restart backend-logs backend-shell backend-build \
         migrate-deploy migrate-dev migrate-create seed test-int \
         frontend-restart frontend-logs frontend-shell frontend-build \
+        openapi-build \
         shell-db
 
 help: ## Shows this list of commands
@@ -107,6 +108,13 @@ frontend-shell: ## Opens a shell inside the frontend container
 
 frontend-build: ## Rebuilds the frontend image and recreates it with fresh node_modules
 	$(DC_DEV) up -d --build -V frontend
+
+# ---- OpenAPI Scoped -------------------------------------------------------
+
+# Swagger UI (openapi-docs) lee el bundle en cada recarga: alcanza con
+# regenerarlo y refrescar http://localhost:8081.
+openapi-build: ## Validates docs/openapi and regenerates build/openapi.yaml
+	$(DC_DEV) up --build openapi-build
 
 # ---- Database Scoped ------------------------------------------------------
 

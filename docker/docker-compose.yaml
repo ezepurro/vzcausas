@@ -157,30 +157,41 @@ services:
     # (src/generated está en .gitignore) y seed.ts lo importa.
     command: sh -c "npx prisma generate && npx prisma migrate deploy && npx prisma db seed"
 
-  # openapi-build:
-  #   build:
-  #     context: ../tooling/openapi
-  #     dockerfile: Dockerfile
-  #   container_name: causas-openapi-build
-  #   restart: 'no'
-  #   networks:
-  #     - causas-network
-  #   volumes:
-  #     - ../docs/openapi:/docs/openapi:ro
-  #     - ../build:/build
+  # Valida docs/openapi (Redocly + Spectral), arma el bundle en
+  # build/openapi.yaml y termina. Para regenerarlo: make openapi-build.
+  openapi-build:
+    build:
+      context: ../tooling/openapi
+      dockerfile: Dockerfile
+    container_name: causas-openapi-build
+    restart: 'no'
+    networks:
+      - causas-network
+    volumes:
+      - ../docs/openapi:/docs/openapi:ro
+      - ../build:/build
 
-  # openapi-docs:
-  #   image: nginx:alpine
-  #   container_name: causas-openapi-docs
-  #   ports:
-  #     - '8081:80'
-  #   networks:
-  #     - causas-network
-  #   depends_on:
-  #     openapi-build:
-  #       condition: service_completed_successfully
-  #   volumes:
-  #     - ../build:/usr/share/nginx/html:ro
+  # Swagger UI sobre el bundle. "Try it out" le pega a localhost:3000, así
+  # que http://localhost:8081 tiene que estar en CORS_ALLOWED_ORIGINS.
+  openapi-docs:
+    image: swaggerapi/swagger-ui
+    container_name: causas-openapi-docs
+    restart: unless-stopped
+    environment:
+      SWAGGER_JSON: /spec/openapi.yaml
+      # Manda la cookie del refresh en las peticiones, para que
+      # POST /auth/refresh funcione desde la UI.
+      WITH_CREDENTIALS: 'true'
+      PERSIST_AUTHORIZATION: 'true'
+    ports:
+      - '8081:8080'
+    networks:
+      - causas-network
+    depends_on:
+      openapi-build:
+        condition: service_completed_successfully
+    volumes:
+      - ../build:/spec:ro
 
 networks:
   causas-network:

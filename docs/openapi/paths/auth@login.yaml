@@ -1,0 +1,77 @@
+post:
+  tags:
+    - Auth
+  operationId: login
+  summary: Iniciar sesión
+  description: |
+    Inicia una sesión utilizando las credenciales del usuario.
+
+    Además del cuerpo, la respuesta emite la cookie `refresh_token`. El objeto
+    `user` posee la misma estructura que devuelve `/users`; su `lastLoginAt`
+    corresponde al acceso **anterior** al que se está realizando, para que el
+    usuario pueda advertir un ingreso que no efectuó.
+  security: []
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: ../components/schemas/LoginRequest.yaml
+  responses:
+    '200':
+      description: Sesión iniciada.
+      headers:
+        Set-Cookie:
+          $ref: ../components/headers/SetRefreshTokenCookie.yaml
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - data
+            properties:
+              data:
+                $ref: ../components/schemas/Session.yaml
+          example:
+            data:
+              accessToken: eyJhbGciOi...
+              tokenType: Bearer
+              expiresIn: 900
+              user:
+                id: 1
+                username: fvazquez
+                fullName: Fernando G. Vázquez
+                email: fvazquez@vazquezzarate.com
+                roles:
+                  - ADMINISTRATOR
+                  - LAWYER
+                lawyer:
+                  id: 1
+                  fullName: Dr. Fernando G. Vázquez
+                  registrationNumber: 1-28114
+                lastLoginAt: '2026-09-19T08:12:00-03:00'
+                active: true
+    '400':
+      description: Datos inválidos.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          example:
+            error:
+              code: VALIDATION_ERROR
+              message: Los datos enviados no son válidos.
+              details:
+                username: El nombre de usuario es obligatorio.
+                password: La contraseña es obligatoria.
+    '401':
+      description: Credenciales incorrectas.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          example:
+            error:
+              code: INVALID_CREDENTIALS
+              message: Las credenciales proporcionadas no son válidas.
+              details: null

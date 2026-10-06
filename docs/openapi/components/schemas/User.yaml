@@ -1,0 +1,65 @@
+type: object
+description: |
+  Usuario del sistema. La contraseña no se devuelve en ninguna respuesta, ni
+  en texto plano ni cifrada.
+required:
+  - id
+  - username
+  - fullName
+  - email
+  - roles
+  - lawyer
+  - lastLoginAt
+  - active
+properties:
+  id:
+    type: integer
+    description: Identificador único.
+    examples:
+      - 15
+  username:
+    type: string
+    description: Nombre de usuario. Único.
+    examples:
+      - iperalta
+  fullName:
+    type: string
+    description: Nombre y apellido en un único campo.
+    examples:
+      - Ignacio Peralta
+  email:
+    type: string
+    format: email
+    description: Correo electrónico. Único.
+    examples:
+      - iperalta@vazquezzarate.com
+  roles:
+    type: array
+    description: Al menos un rol.
+    minItems: 1
+    uniqueItems: true
+    items:
+      $ref: ./Role.yaml
+    examples:
+      - - LAWYER
+  lawyer:
+    description: Ficha profesional vinculada. `null` si el usuario no posee vínculo.
+    oneOf:
+      - $ref: ./LawyerSummary.yaml
+      - type: 'null'
+  lastLoginAt:
+    type:
+      - string
+      - 'null'
+    format: date-time
+    description: |
+      Último ingreso registrado. `null` si el usuario nunca inició sesión. En
+      la respuesta de `POST /auth/login` corresponde al acceso **anterior** al
+      que se está realizando.
+    examples:
+      - '2026-09-19T18:20:00-03:00'
+  active:
+    type: boolean
+    description: Estado de alta. Vale siempre `true`; ver `DELETE /users/{userId}`.
+    examples:
+      - true

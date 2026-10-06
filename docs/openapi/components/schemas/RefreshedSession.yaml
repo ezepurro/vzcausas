@@ -1,0 +1,26 @@
+type: object
+description: |
+  Sesión renovada con `POST /auth/refresh`. El refresh rotado se emite en la
+  cookie `refresh_token`.
+required:
+  - accessToken
+  - tokenType
+  - expiresIn
+  - user
+properties:
+  accessToken:
+    type: string
+    description: Token de acceso (JWT) para el encabezado `Authorization`.
+    examples:
+      - eyJhbGciOi...
+  tokenType:
+    type: string
+    enum:
+      - Bearer
+  expiresIn:
+    type: integer
+    description: Vigencia del token de acceso, en segundos.
+    examples:
+      - 900
+  user:
+    $ref: ./SessionUser.yaml

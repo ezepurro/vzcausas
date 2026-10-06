@@ -1,0 +1,12 @@
+description: |
+  El estado procesal no existe, fue dado de baja o es el estado inicial
+  "Iniciada", que no forma parte del recurso.
+content:
+  application/json:
+    schema:
+      $ref: ../schemas/Error.yaml
+    example:
+      error:
+        code: PROCEDURAL_STATE_NOT_FOUND
+        message: No se encontró el estado procesal solicitado.
+        details: null

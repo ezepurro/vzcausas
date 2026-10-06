@@ -1,0 +1,91 @@
+parameters:
+  - $ref: ../components/parameters/CaseIdParam.yaml
+
+get:
+  tags:
+    - Procedural Acts
+  operationId: previewProceduralActDeadline
+  summary: Previsualizar el vencimiento de un acto
+  description: |
+    Calcula el vencimiento que tendría un acto procesal, **sin registrarlo**.
+    Alimenta el panel "Cómputo del plazo" del formulario de HU26, para que el
+    cálculo viva solo en el backend.
+
+    No aplica a estados escritos a mano, que no tienen plazo de tabla, ni al
+    ajuste manual del vencimiento.
+
+    Si el estado no abre plazo, `dueDate` y `businessDaysRemaining` valen
+    `null` y el cliente muestra "Este acto no dispara un plazo de
+    presentación".
+
+    **Rol requerido:** abogado responsable de la causa, igual que el registro
+    del acto.
+  parameters:
+    - name: proceduralStateId
+      in: query
+      required: true
+      description: Mismas restricciones que en el registro del acto.
+      schema:
+        type: integer
+        minimum: 1
+      example: 12
+    - name: actDate
+      in: query
+      required: true
+      description: Mismas restricciones que en el registro del acto.
+      schema:
+        type: string
+        format: date
+      example: '2026-09-15'
+    - name: notificationDate
+      in: query
+      required: false
+      description: |
+        Solo en `ADMINISTRATIVE`; obligatoria si el estado abre plazo (RN6).
+        Mismas restricciones que en el registro del acto.
+      schema:
+        type: string
+        format: date
+  responses:
+    '200':
+      description: Vencimiento calculado.
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - data
+            properties:
+              data:
+                $ref: ../components/schemas/DeadlinePreview.yaml
+          example:
+            data:
+              proceduralStateId: 12
+              timeLimitDays: 5
+              dayType: BUSINESS
+              countsFrom: '2026-09-15'
+              dueDate: '2026-09-22'
+              businessDaysRemaining: 5
+    '400':
+      description: Parámetros inválidos.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          examples:
+            missingNotificationDate:
+              summary: Falta la fecha de notificación (RN6)
+              value:
+                error:
+                  code: INVALID_REQUEST
+                  message: Parámetros de query inválidos.
+                  details:
+                    notificationDate: Es obligatoria en el fuero administrativo cuando el estado abre plazo (RN6).
+            invalidCaseId:
+              $ref: ../components/examples/InvalidCaseIdError.yaml
+    '401':
+      $ref: ../components/responses/Unauthorized.yaml
+    '403':
+      $ref: ../components/responses/ForbiddenResponsibleLawyer.yaml
+    '404':
+      $ref: ../components/responses/CaseNotFound.yaml

@@ -1,0 +1,16 @@
+type: string
+description: |
+  Forma de cómputo de los días de un plazo.
+
+  | Código        | Rótulo    |
+  | ------------- | --------- |
+  | `BUSINESS`    | Hábiles   |
+  | `CONSECUTIVE` | Corridos  |
+  | `NONE`        | Sin plazo |
+
+  `NONE` corresponde a los estados procesales que no abren plazo
+  (`timeLimitDays` igual a `0`).
+enum:
+  - BUSINESS
+  - CONSECUTIVE
+  - NONE

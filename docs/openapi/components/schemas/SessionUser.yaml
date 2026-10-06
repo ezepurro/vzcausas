@@ -1,0 +1,45 @@
+type: object
+description: |
+  Proyección reducida del usuario que devuelve `POST /auth/refresh`. Solo
+  incluye los campos que pueden variar entre sesión y sesión y que inciden en
+  la autorización. Los datos estables (`fullName`, `email`, `active`,
+  `lawyer`) el cliente los conserva de `POST /auth/login`.
+required:
+  - id
+  - username
+  - roles
+  - lawyerId
+  - permissions
+properties:
+  id:
+    type: integer
+    examples:
+      - 1
+  username:
+    type: string
+    examples:
+      - fvazquez
+  roles:
+    type: array
+    minItems: 1
+    uniqueItems: true
+    items:
+      $ref: ./Role.yaml
+    examples:
+      - - ADMINISTRATOR
+        - LAWYER
+  lawyerId:
+    type:
+      - integer
+      - 'null'
+    description: Ficha de abogado vinculada. `null` si el usuario no posee vínculo.
+    examples:
+      - 10
+  permissions:
+    type: array
+    items:
+      type: string
+    examples:
+      - - user:manage
+        - case:read
+        - case:change-status

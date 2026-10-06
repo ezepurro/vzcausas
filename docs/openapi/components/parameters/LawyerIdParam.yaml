@@ -1,0 +1,8 @@
+name: lawyerId
+in: path
+required: true
+description: Identificador único del abogado.
+schema:
+  type: integer
+  minimum: 1
+example: 4

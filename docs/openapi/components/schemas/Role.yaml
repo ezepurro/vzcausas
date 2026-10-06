@@ -1,0 +1,16 @@
+type: string
+description: |
+  Perfil de seguridad del usuario. Un usuario puede poseer más de un rol.
+  El backend envía y recibe el código; el rótulo lo resuelve el cliente.
+
+  | Código          | Rótulo        |
+  | --------------- | ------------- |
+  | `ADMINISTRATOR` | Administrador |
+  | `LAWYER`        | Abogado       |
+  | `SECRETARY`     | Secretaría    |
+
+  No confundir con `ProceduralRole`, que es la posición del cliente en la causa.
+enum:
+  - ADMINISTRATOR
+  - LAWYER
+  - SECRETARY

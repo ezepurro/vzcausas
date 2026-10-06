@@ -1,0 +1,59 @@
+type: object
+description: Acto procesal registrado sobre una causa.
+required:
+  - id
+  - caseId
+  - resultingState
+  - actDate
+  - notificationDate
+  - notes
+  - deadline
+  - registeredBy
+  - registeredAt
+properties:
+  id:
+    type: integer
+    description: Identificador único.
+    examples:
+      - 31
+  caseId:
+    type: integer
+    description: Causa a la que pertenece.
+    examples:
+      - 1
+  resultingState:
+    $ref: ./ResultingState.yaml
+  actDate:
+    type: string
+    format: date
+    description: Fecha del acto.
+    examples:
+      - '2026-09-09'
+  notificationDate:
+    type:
+      - string
+      - 'null'
+    format: date
+    description: Fecha de notificación. Solo en el fuero `ADMINISTRATIVE` (RN6).
+    examples:
+      - null
+  notes:
+    type:
+      - string
+      - 'null'
+    description: Observaciones, situaciones que el estado no alcanza a expresar.
+    examples:
+      - Con acusación, pero con oposición.
+  deadline:
+    description: Plazo que abre el acto. `null` si no abre ninguno.
+    oneOf:
+      - $ref: ./Deadline.yaml
+      - type: 'null'
+  registeredBy:
+    $ref: ./UserSummary.yaml
+  registeredAt:
+    type: string
+    format: date-time
+    description: Fecha y hora del registro.
+    examples:
+      - '2026-09-09T11:42:00-03:00'

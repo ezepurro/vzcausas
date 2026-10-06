@@ -1,0 +1,10 @@
+description: La calificación legal no existe o fue dada de baja.
+content:
+  application/json:
+    schema:
+      $ref: ../schemas/Error.yaml
+    example:
+      error:
+        code: LEGAL_QUALIFICATION_NOT_FOUND
+        message: No se encontró la calificación legal solicitada.
+        details: null

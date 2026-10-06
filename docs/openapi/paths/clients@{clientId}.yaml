@@ -1,0 +1,48 @@
+parameters:
+  - $ref: ../components/parameters/ClientIdParam.yaml
+
+get:
+  tags:
+    - Clients
+  operationId: getClient
+  summary: Consultar cliente
+  description: |
+    Obtiene la información de un cliente específico.
+
+    **Rol requerido:** cualquier usuario autenticado.
+  responses:
+    '200':
+      description: Cliente solicitado.
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - data
+            properties:
+              data:
+                $ref: ../components/schemas/Client.yaml
+          example:
+            data:
+              id: 1
+              lastName: GÓMEZ
+              firstName: Ariel Fernando
+              dni: '34812905'
+              phone: 351 415-2288
+              email: afgomez@gmail.com
+              clientSince: '2021-03-12'
+              activeCases: 1
+              active: true
+    '400':
+      description: Identificador inválido.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          examples:
+            invalidClientId:
+              $ref: ../components/examples/InvalidClientIdError.yaml
+    '401':
+      $ref: ../components/responses/Unauthorized.yaml
+    '404':
+      $ref: ../components/responses/ClientNotFound.yaml

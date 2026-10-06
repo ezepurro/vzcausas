@@ -1,0 +1,74 @@
+type: object
+description: |
+  Estado procesal actual de la causa, con el vencimiento del acto que la llevó
+  a él. **Nunca es `null`**: toda causa nace en el estado inicial de su fuero,
+  **"Iniciada"**, y permanece en él hasta que se registra el primer acto
+  procesal.
+
+  Un plazo vencido sigue abierto hasta que un acto posterior lleve la causa a
+  otro estado. Una causa con `dueDate` en `null` es una de las "causas para
+  impulsar".
+required:
+  - proceduralStateId
+  - name
+  - custom
+  - initial
+  - proceduralActId
+  - dueDate
+  - businessDaysRemaining
+  - manuallyAdjusted
+properties:
+  proceduralStateId:
+    type:
+      - integer
+      - 'null'
+    description: Estado de la tabla del fuero. `null` si es el estado inicial o un estado escrito a mano.
+    examples:
+      - 12
+  name:
+    type: string
+    description: Denominación a mostrar. "Iniciada" en el estado inicial.
+    examples:
+      - Oposición al requerimiento de elevación
+  custom:
+    type: boolean
+    description: '`true` si es un estado escrito a mano para esta causa.'
+    examples:
+      - false
+  initial:
+    type: boolean
+    description: '`true` si es el estado inicial.'
+    examples:
+      - false
+  proceduralActId:
+    type:
+      - integer
+      - 'null'
+    description: Acto procesal que llevó la causa a este estado. `null` en el estado inicial.
+    examples:
+      - 31
+  dueDate:
+    type:
+      - string
+      - 'null'
+    format: date
+    description: |
+      Vencimiento vigente del plazo que abrió ese acto. `null` si no abrió
+      plazo o si es el estado inicial.
+    examples:
+      - '2026-09-16'
+  businessDaysRemaining:
+    type:
+      - integer
+      - 'null'
+    description: |
+      Días hábiles desde hoy (excluido) hasta `dueDate` (incluido). `0` vence
+      hoy; negativo, ya vencido. `null` si `dueDate` es `null`. Se calcula en
+      cada respuesta contra la fecha del día en Córdoba.
+    examples:
+      - 1
+  manuallyAdjusted:
+    type: boolean
+    description: '`true` si el vencimiento se ajustó a mano al registrar el acto.'
+    examples:
+      - false

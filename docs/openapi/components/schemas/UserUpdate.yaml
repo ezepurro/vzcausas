@@ -1,0 +1,45 @@
+type: object
+description: |
+  Todos los campos son opcionales, aunque debe enviarse al menos uno.
+
+  Este endpoint no modifica la contraseña: el cambio se realiza mediante
+  `PATCH /auth/password`. El campo `roles` reemplaza el conjunto completo;
+  para conservar los roles existentes debe omitirse, no enviarse parcialmente.
+additionalProperties: false
+minProperties: 1
+properties:
+  username:
+    type: string
+    description: Mismas restricciones que en el alta.
+    pattern: '^[A-Za-z0-9._-]{3,30}$'
+    examples:
+      - iperalta
+  fullName:
+    type: string
+    minLength: 1
+    examples:
+      - Ignacio Peralta
+  email:
+    type: string
+    format: email
+    description: Mismas restricciones que en el alta.
+    examples:
+      - iperalta@vazquezzarate.com
+  roles:
+    type: array
+    description: Reemplaza el conjunto completo de roles.
+    minItems: 1
+    uniqueItems: true
+    items:
+      $ref: ./Role.yaml
+    examples:
+      - - LAWYER
+        - ADMINISTRATOR
+  lawyerId:
+    type:
+      - integer
+      - 'null'
+    minimum: 1
+    description: '`null` desvincula la ficha profesional.'
+    examples:
+      - 4

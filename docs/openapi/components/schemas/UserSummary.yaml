@@ -1,0 +1,14 @@
+type: object
+description: Referencia reducida a un usuario.
+required:
+  - id
+  - fullName
+properties:
+  id:
+    type: integer
+    examples:
+      - 3
+  fullName:
+    type: string
+    examples:
+      - Malena Ríos

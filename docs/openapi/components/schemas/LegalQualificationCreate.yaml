@@ -1,0 +1,18 @@
+type: object
+additionalProperties: false
+required:
+  - name
+  - prescriptionMonths
+properties:
+  name:
+    type: string
+    minLength: 1
+    maxLength: 255
+    description: Única entre las vigentes, sin distinguir mayúsculas.
+    examples:
+      - Hurto simple — art. 162 CP
+  prescriptionMonths:
+    type: integer
+    minimum: 1
+    examples:
+      - 24
