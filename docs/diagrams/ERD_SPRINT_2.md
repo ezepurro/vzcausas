@@ -9,6 +9,13 @@ opcionales, estado inicial "Iniciada" por fuero y vencimiento dentro de
 
 > **Estado:** `schema.prisma` actualizado. **Falta la migración** (incluido el
 > SQL manual de abajo) y adaptar el código y el seed que usan `position`.
+>
+> **Cambio del 06/10/2026:** la tabla intermedia `case_legal_qualifications`
+> pasa a llamarse `offenses` (hechos de la causa, modelo `Offense`) y suma la
+> columna `prescription_date`. Falta la migración de ese cambio: debe
+> renombrar la tabla (y su clave primaria, índice y claves foráneas) en lugar
+> de borrarla y crearla, y completar `prescription_date` de las filas que ya
+> existan.
 
 ```mermaid
 ---
@@ -129,10 +136,11 @@ erDiagram
         timestamptz created_at
         timestamptz updated_at
     }
-    case_legal_qualifications {
+    offenses {
         int case_id PK, FK
         int legal_qualification_id PK, FK
-        date offense_date
+        date offense_date "fecha del hecho"
+        date prescription_date "offense_date + meses de la calificacion"
     }
     procedural_acts {
         int id PK
@@ -170,8 +178,8 @@ erDiagram
     procedural_states |o--o{ cases : "estado actual"
     cases }o--o| procedural_acts : "acto vigente"
 
-    cases ||--o{ case_legal_qualifications : ""
-    legal_qualifications ||--o{ case_legal_qualifications : ""
+    cases ||--o{ offenses : "hechos"
+    legal_qualifications ||--o{ offenses : ""
 
     cases ||--o{ procedural_acts : "linea de tiempo"
     procedural_states |o--o{ procedural_acts : "estado resultante"
@@ -203,6 +211,7 @@ las expresa:
 ## Reglas que quedan en el dominio
 
 - Solo el abogado responsable de la causa (`users.lawyer_id = cases.responsible_lawyer_id`) registra actos y usa `deadline-preview`. Ni siquiera el administrador.
+- `offenses.prescription_date` es `offense_date` más `prescription_months` de la calificación legal, y no se recalcula si esos meses cambian después. La calcula el caso de uso Registrar Causa antes de guardar el hecho; si el mes de llegada es más corto, cae en su último día.
 - El estado de un acto pertenece al fuero de la causa, está vigente, no es terminal ni es el inicial.
 - `custom_state` no coincide con el nombre de un estado vigente del fuero.
 - El rol procesal corresponde al fuero de la causa.
