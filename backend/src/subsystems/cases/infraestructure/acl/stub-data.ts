@@ -1,20 +1,11 @@
 import { ClientRef } from '../../core/domain/ports/client-lookup.port';
-import { JurisdictionRef } from '../../core/domain/ports/jurisdiction-lookup.port';
 import { LegalQualificationRef } from '../../core/domain/ports/legal-qualification-lookup.port';
-import { JurisdictionCode } from '../../core/domain/value-objects/jurisdiction-code';
 
 /**
  * Fixed data behind the stub adapters, while the subsystems that own it do
  * not exist yet. `cases` has foreign keys to these rows: a real insert only
- * works if the database holds rows with the same ids.
+ * works if the database holds clients and legal qualifications with the same ids.
  */
-
-// TODO: replaced by `legal-parameters` (jurisdictions and their initial state).
-export const STUB_JURISDICTIONS: JurisdictionRef[] = [
-  { id: 1, code: JurisdictionCode.CRIMINAL, initialStateId: 1 },
-  { id: 2, code: JurisdictionCode.ADMINISTRATIVE, initialStateId: 2 },
-  { id: 3, code: JurisdictionCode.AMPARO, initialStateId: 3 },
-];
 
 // TODO: replaced by `people` (clients).
 export const STUB_CLIENTS: ClientRef[] = [

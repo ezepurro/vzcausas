@@ -6,7 +6,7 @@ import { Amparo } from '../../core/domain/entities/amparo';
 import { Case } from '../../core/domain/entities/cases';
 import { CriminalCase } from '../../core/domain/entities/criminal';
 import { CaseRepository } from '../../core/domain/ports/case.repository';
-import { CaseProceduralState } from '../../core/domain/value-objects/case-procedural-state';
+import { ProceduralStateRef } from '../../core/domain/ports/proc-state-lookup.port';
 import { CasePrismaMapper } from './case-prisma.mapper';
 
 @Injectable()
@@ -72,15 +72,15 @@ export class CasePrismaRepository implements CaseRepository {
     return row ? CasePrismaMapper.toDomain(row) : null;
   }
 
-  async findCurrentState(caseId: number): Promise<CaseProceduralState> {
+  async findCurrentState(caseId: number): Promise<ProceduralStateRef> {
     const row = await this.prisma.db.case.findUniqueOrThrow({
       where: { id: caseId },
-      select: { currentState: { select: { stateId: true, name: true, isInitial: true } } },
+      select: { currentState: { select: { stateId: true, name: true, isInitial: true, jurisdictionId: true } } },
     });
     const state = row.currentState;
     if (!state) {
       throw new Error(`The case ${caseId} has no procedural state.`);
     }
-    return { id: state.stateId, name: state.name, isInitial: state.isInitial };
+    return { id: state.stateId, name: state.name, isInitial: state.isInitial, jurisdictionId: state.jurisdictionId };
   }
 }

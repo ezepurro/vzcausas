@@ -7,8 +7,8 @@ import { CaseFactory } from '../../domain/factories/case.factory';
 import { CASE_REPOSITORY, CaseRepository } from '../../domain/ports/case.repository';
 import { CLIENT_LOOKUP, ClientLookupPort } from '../../domain/ports/client-lookup.port';
 import { CURRENT_DATE, CurrentDatePort } from '../../domain/ports/current-date.port';
-import { JURISDICTION_LOOKUP, JurisdictionLookupPort } from '../../domain/ports/jurisdiction-lookup.port';
 import { LAWYER_LOOKUP, LawyerLookupPort } from '../../domain/ports/lawyer-lookup.port';
+import { PROC_STATE_LOOKUP, ProcStateLookupPort } from '../../domain/ports/proc-state-lookup.port';
 import {
   LEGAL_QUALIFICATION_LOOKUP,
   LegalQualificationLookupPort,
@@ -24,7 +24,7 @@ export class RegisterCase {
     @Inject(CASE_REPOSITORY) private readonly cases: CaseRepository,
     @Inject(CLIENT_LOOKUP) private readonly clients: ClientLookupPort,
     @Inject(LAWYER_LOOKUP) private readonly lawyers: LawyerLookupPort,
-    @Inject(JURISDICTION_LOOKUP) private readonly jurisdictions: JurisdictionLookupPort,
+    @Inject(PROC_STATE_LOOKUP) private readonly procStates: ProcStateLookupPort,
     @Inject(LEGAL_QUALIFICATION_LOOKUP) private readonly qualifications: LegalQualificationLookupPort,
     @Inject(CURRENT_DATE) private readonly currentDate: CurrentDatePort,
     @Inject(CLOCK) private readonly clock: ClockPort,
@@ -34,8 +34,8 @@ export class RegisterCase {
     const today = this.currentDate.today();
     const requested = command.legalQualifications ?? [];
 
-    const [jurisdiction, client, responsibleLawyer, foundQualifications] = await Promise.all([
-      this.jurisdictions.findActiveByCode(command.jurisdiction),
+    const [initialState, client, responsibleLawyer, foundQualifications] = await Promise.all([
+      this.procStates.findInitialByJurisdiction(command.jurisdiction),
       this.clients.findActiveById(command.clientId),
       this.lawyers.findActiveById(command.responsibleLawyerId),
       this.qualifications.findActiveByIds(requested.map((item) => item.legalQualificationId)),
@@ -54,15 +54,16 @@ export class RegisterCase {
     if (requested.some((item) => !knownIds.has(item.legalQualificationId))) {
       referenceErrors.legalQualifications = 'Alguna calificación legal no existe o está dada de baja.';
     }
-    if (!jurisdiction) {
-      referenceErrors.jurisdiction = 'No existe un fuero con ese código.';
+    if (!initialState) {
+      referenceErrors.jurisdiction = 'No existe un fuero con estado inicial.';
       throw new ValidationError('VALIDATION_ERROR', INVALID_DATA_MESSAGE, referenceErrors);
     }
 
     const newCase = CaseFactory.create(
       {
         id: await this.cases.nextId(),
-        jurisdiction,
+        jurisdictionCode: command.jurisdiction,
+        initialState,
         sacNumber: command.sacNumber,
         caption: command.caption,
         court: command.court,

@@ -6,6 +6,8 @@ import { PrismaService } from '@shared/infrastructure/prisma/prisma.service';
 import { Prisma } from '../../../../generated/prisma/client';
 import { ProcStateFilter } from '@subsystems/legal-parameters/core/application/common/get-proc-states.interfaces';
 import { ProceduralStateMapper } from './proc-state.mapper';
+import { JurisdictionCode } from '@subsystems/legal-parameters/core/domain/value-objects/jurisdiction-code';
+import { INITIAL_STATE_NAME } from '@subsystems/legal-parameters/core/domain/entities/procedural-states';
 
 @Injectable()
 export class ProceduralStatePrismaRepository implements ProceduralStateRepository {
@@ -39,6 +41,19 @@ export class ProceduralStatePrismaRepository implements ProceduralStateRepositor
       limit,
       totalPages: Math.ceil(total / limit),
     };
+  }
+
+  async findInitialByJurisdiction(jurisdiction: JurisdictionCode): Promise<ProceduralState | null> {
+    const row = await this.prisma.proceduralState.findFirst({
+      where: {
+        isInitial: true,
+        isActive: true,
+        name: { equals: INITIAL_STATE_NAME, mode: 'insensitive' },
+        jurisdiction: { name: jurisdiction, isActive: true },
+      },
+      include: { jurisdiction: true },
+    });
+    return row ? ProceduralStateMapper.toDomain(row) : null;
   }
 
   async findAndCountAll(): Promise<ProceduralState[]> {

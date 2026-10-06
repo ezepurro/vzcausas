@@ -4,14 +4,16 @@ import { Amparo } from '../entities/amparo';
 import { Case, CaseProps } from '../entities/cases';
 import { CriminalCase } from '../entities/criminal';
 import { Offense } from '../entities/offense';
-import { JurisdictionRef } from '../ports/jurisdiction-lookup.port';
 import { LegalQualificationRef } from '../ports/legal-qualification-lookup.port';
+import { ProceduralStateRef } from '../ports/proc-state-lookup.port';
 import { JurisdictionCode } from '../value-objects/jurisdiction-code';
 import { isRoleAllowedIn, ProceduralRole } from '../value-objects/procedural-role';
 
 export interface NewCaseInput {
   id: number;
-  jurisdiction: JurisdictionRef;
+  jurisdictionCode: JurisdictionCode;
+  // The initial state of the jurisdiction, found by the caller. The case takes its jurisdiction from it.
+  initialState: ProceduralStateRef;
   sacNumber?: string | null;
   caption: string;
   court?: string | null;
@@ -57,7 +59,7 @@ function isValidDate(date: Date | undefined): date is Date {
 export class CaseFactory {
   static create(input: NewCaseInput, referenceErrors: Errors = {}): Case {
     const errors: Errors = { ...referenceErrors };
-    const isCriminal = input.jurisdiction.code === JurisdictionCode.CRIMINAL;
+    const isCriminal = input.jurisdictionCode === JurisdictionCode.CRIMINAL;
 
     const sacNumber = clean(input.sacNumber);
     const caption = clean(input.caption);
@@ -82,7 +84,7 @@ export class CaseFactory {
     CaseFactory.checkLength(errors, 'counterparty', counterparty, 255);
     CaseFactory.checkLength(errors, 'subjectMatter', subjectMatter, 800);
 
-    if (!isRoleAllowedIn(input.proceduralRole, input.jurisdiction.code)) {
+    if (!isRoleAllowedIn(input.proceduralRole, input.jurisdictionCode)) {
       errors.proceduralRole = 'El rol procesal no corresponde al fuero.';
     }
 
@@ -119,14 +121,14 @@ export class CaseFactory {
       sacNumber,
       caption: caption as string,
       court,
-      jurisdictionId: input.jurisdiction.id,
+      jurisdictionId: input.initialState.jurisdictionId,
       proceduralRole: input.proceduralRole,
       instructor: { name: instructorName, phone: instructorPhone, extension: instructorExtension },
       clientId: input.clientId,
       responsibleLawyerId: input.responsibleLawyerId,
       startDate: input.startDate,
       // Every case starts in the "Iniciada" state of its jurisdiction.
-      currentStateId: input.jurisdiction.initialStateId,
+      currentStateId: input.initialState.id,
       currentCustomState: null,
       currentProceduralActId: null,
       proceduralActs: [],
@@ -136,7 +138,7 @@ export class CaseFactory {
       updatedAt: input.now,
     };
 
-    switch (input.jurisdiction.code) {
+    switch (input.jurisdictionCode) {
       case JurisdictionCode.CRIMINAL:
         return CriminalCase.hydrate({ ...props, offenses });
       case JurisdictionCode.ADMINISTRATIVE:
