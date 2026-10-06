@@ -5,8 +5,9 @@ import { formatPrescription } from '@/features/legal-params/utils/prescription';
 
 export interface LegalQualificationsTableProps {
     rows: LegalQualification[];
-    onEdit: (qualification: LegalQualification) => void;
-    onDelete: (qualification: LegalQualification) => void;
+    /** Sin `onEdit` ni `onDelete`, la tabla no tiene columna de acciones. */
+    onEdit?: (qualification: LegalQualification) => void;
+    onDelete?: (qualification: LegalQualification) => void;
     empty?: ReactNode;
 }
 
@@ -17,6 +18,9 @@ export interface LegalQualificationsTableProps {
  * Las columnas son las del prototipo. La prescripción va en dos renglones: el
  * plazo como lo lee el estudio y, abajo, los meses tal como se guardan, para
  * que no haya dudas con los plazos de medio año.
+ *
+ * "Modificar" y "Eliminar" aparecen sólo si la pantalla pasa su callback: la
+ * consulta (sin modificar ni dar de baja) muestra la tabla sin acciones.
  */
 export function LegalQualificationsTable({
     rows, onEdit, onDelete, empty,
@@ -48,18 +52,21 @@ export function LegalQualificationsTable({
             ),
             nowrap: true,
         },
-        {
+    ];
+
+    if (onEdit || onDelete) {
+        columns.push({
             id: 'actions',
             header: '',
             actions: true,
             cell: (q) => (
                 <>
-                    <Button variant="ghost" size="sm" onClick={() => onEdit(q)}>Modificar</Button>
-                    <Button variant="ghost-danger" size="sm" onClick={() => onDelete(q)}>Eliminar</Button>
+                    {onEdit && <Button variant="ghost" size="sm" onClick={() => onEdit(q)}>Modificar</Button>}
+                    {onDelete && <Button variant="ghost-danger" size="sm" onClick={() => onDelete(q)}>Eliminar</Button>}
                 </>
             ),
-        },
-    ];
+        });
+    }
 
     return (
         <DataTable

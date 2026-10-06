@@ -5,9 +5,10 @@
  * que pasa, y el plazo sale de la tabla del fuero (RN5). El primer acto es
  * además el que le da a la causa su primer estado (V3 D-09).
  *
- * Sólo el abogado registra actos, y el acto se aplica a la causa en el
- * momento: no hay actos pendientes ni confirmación posterior (V3 D-13), así
- * que el recurso no tiene un estado propio.
+ * Sólo el abogado responsable de la causa registra actos (V3 D-30), y el
+ * acto se aplica a la causa en el momento: no hay actos pendientes ni
+ * confirmación posterior (V3 D-13), así que el recurso no tiene un estado
+ * propio.
  *
  * En este sprint sólo existe el registro (HU26) y su previsualización;
  * consultar, modificar y anular actos son de sprints posteriores.
@@ -29,12 +30,18 @@ export interface ActDeadline {
     manuallyAdjusted: boolean
 }
 
+/**
+ * El estado al que pasó la causa con el acto. Es sólo una parte del
+ * `currentState` de la causa: no trae el vencimiento, que va en `deadline`, y
+ * nunca es el estado inicial "Iniciada" (V3 §3.8).
+ */
+export type ResultingState = Pick<CaseState, 'proceduralStateId' | 'name' | 'custom'>
+
 /** El recurso tal como viene adentro de `data`. */
 export interface ProceduralAct {
     id: number
     caseId: number
-    /** El estado al que pasó la causa. A diferencia del de la causa, nunca es `null`. */
-    resultingState: CaseState
+    resultingState: ResultingState
     actDate: string
     /** Sólo en el fuero administrativo (RN6). */
     notificationDate: string | null

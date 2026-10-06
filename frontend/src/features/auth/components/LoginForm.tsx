@@ -1,6 +1,6 @@
 import type { FormEvent } from 'react'
 import { Button, Icon } from '@/shared/components/ui'
-import { Field, TextInput } from '@/shared/components/forms'
+import { Field, PasswordInput, TextInput } from '@/shared/components/forms'
 import type { LoginFormValues } from '@/features/auth/types/credentials'
 import type { LoginErrors } from '@/features/auth/schemas/login.schema'
 
@@ -56,9 +56,8 @@ export function LoginForm({
                 </Field>
 
                 <Field label="Contraseña" error={errors.password} htmlFor="login-password">
-                    <TextInput
+                    <PasswordInput
                         id="login-password"
-                        type="password"
                         autoComplete="current-password"
                         placeholder=""
                         disabled={submitting}

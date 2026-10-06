@@ -10,10 +10,13 @@
  *   "Registrar calificación nueva";
  * - el registro de un acto ofrece los estados procesales del fuero de la causa.
  *
- * Cuando exista `useLegalQualifications`, se publica acá también.
+ * El alta de causa usa `useLegalQualifications` para su selector y
+ * `useCreateLegalQualification` para "Registrar calificación nueva".
  */
 
 export { useProceduralStates } from './api/useProceduralStates';
+export { useLegalQualifications } from './api/useLegalQualifications';
+export { useCreateLegalQualification } from './api/useCreateLegalQualification';
 export { LegalQualificationFormModal } from './components/LegalQualificationFormModal';
 export {
     validateLegalQualification,
@@ -35,6 +38,7 @@ export {
     type ProceduralState,
 } from './types/proceduralState';
 export type {
+    CreatedLegalQualification,
     LegalQualification,
     LegalQualificationFormValues,
 } from './types/legalQualification';

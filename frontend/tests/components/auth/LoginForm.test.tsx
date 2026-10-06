@@ -32,6 +32,16 @@ describe('LoginForm', () => {
         expect(screen.getByRole('button', { name: 'Ingresar' })).toBeEnabled()
     })
 
+    it('el ojo muestra y oculta la contraseña', async () => {
+        const { user } = renderForm({ values: { username: 'fvazquez', password: 'password1' } })
+
+        await user.click(screen.getByRole('button', { name: 'Mostrar contraseña' }))
+        expect(screen.getByLabelText('Contraseña')).toHaveAttribute('type', 'text')
+
+        await user.click(screen.getByRole('button', { name: 'Ocultar contraseña' }))
+        expect(screen.getByLabelText('Contraseña')).toHaveAttribute('type', 'password')
+    })
+
     it('avisa cada tecla con el campo que cambió', async () => {
         const { user, onChange } = renderForm()
 

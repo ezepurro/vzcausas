@@ -9,7 +9,7 @@ import { goTo, loginAs, type UserKey } from './fixtures/auth'
  * `fixtures/auth.ts`). Esa parte la cubre `tests/components/app/RequireAccess.test.tsx`.
  */
 
-const ADMINISTRATION = ['Usuarios', 'Abogados', 'Estados y plazos', 'Reportes']
+const ADMINISTRATION = ['Usuarios', 'Abogados', 'Estados y plazos', 'Calificaciones legales', 'Reportes']
 
 function rail(page: Page) {
     return page.getByRole('navigation', { name: 'Navegación principal' })
