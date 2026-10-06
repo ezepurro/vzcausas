@@ -2,12 +2,17 @@ import { DayType } from './day-types';
 import { Jurisdiction } from './jurisdiction';
 import { ValidationError } from '@shared/domain/domain-error';
 
+/** Name of the system state where every case starts. */
+export const INITIAL_STATE_NAME = 'Iniciada';
+
 export interface ProceduralStateProps {
   id: number;
   name: string;
   timeLimitDays: number;
   dayType: DayType | null;
   terminal: boolean;
+  // System state "Iniciada": one per jurisdiction, where every new case starts.
+  isInitial: boolean;
   isActive: boolean;
   jurisdiction: Jurisdiction;
   createdAt: Date | null;
@@ -55,6 +60,10 @@ export class ProceduralState {
 
   get terminal(): boolean {
     return this.props.terminal;
+  }
+
+  get isInitial(): boolean {
+    return this.props.isInitial;
   }
 
   get isActive(): boolean {

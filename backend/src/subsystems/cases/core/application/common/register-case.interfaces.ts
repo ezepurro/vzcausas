@@ -2,7 +2,7 @@ import { Case } from '../../domain/entities/cases';
 import { Offense } from '../../domain/entities/offense';
 import { ClientRef } from '../../domain/ports/client-lookup.port';
 import { LawyerRef } from '../../domain/ports/lawyer-lookup.port';
-import { CaseProceduralState } from '../../domain/value-objects/case-procedural-state';
+import { ProceduralStateRef } from '../../domain/ports/proc-state-lookup.port';
 import { JurisdictionCode } from '../../domain/value-objects/jurisdiction-code';
 import { ProceduralRole } from '../../domain/value-objects/procedural-role';
 
@@ -37,5 +37,5 @@ export interface RegisterCaseResult {
   // The offenses of the case: empty unless it is a criminal case.
   offenses: Offense[];
   // The procedural state the stored case is in, read from the database.
-  currentState: CaseProceduralState;
+  currentState: ProceduralStateRef;
 }

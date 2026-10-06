@@ -1,5 +1,5 @@
 import { Case } from '../entities/cases';
-import { CaseProceduralState } from '../value-objects/case-procedural-state';
+import { ProceduralStateRef } from './proc-state-lookup.port';
 
 /** DI token for {@link CaseRepository}. Symbol-as-token, same as `people`. */
 export const CASE_REPOSITORY = Symbol('CASE_REPOSITORY');
@@ -19,5 +19,5 @@ export interface CaseRepository {
   findById(id: number): Promise<Case | null>;
 
   /** Reads the procedural state the stored case is currently in. */
-  findCurrentState(caseId: number): Promise<CaseProceduralState>;
+  findCurrentState(caseId: number): Promise<ProceduralStateRef>;
 }

@@ -17,6 +17,7 @@ export class ProceduralStateMapper {
       timeLimitDays: row.timeLimitDays,
       dayType: row.dayType as DayType | null,
       terminal: row.terminal,
+      isInitial: row.isInitial,
       isActive: row.isActive,
       jurisdiction: JurisdictionMapper.toDomain(row.jurisdiction),
       createdAt: row.createdAt,
