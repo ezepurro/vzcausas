@@ -29,7 +29,8 @@ export interface NewCaseInput {
   // The existing legal qualifications among the requested ones.
   legalQualificationRefs: LegalQualificationRef[];
   responsibleLawyerId: number;
-  startDate: Date;
+  // Required when there is a SAC number, not allowed when there is none (CA-18.2).
+  startDate?: Date | null;
   createdByUserId: number;
   // Civil date of the study today, and the instant of creation.
   today: Date;
@@ -104,9 +105,14 @@ export class CaseFactory {
       }
     }
 
-    if (!isValidDate(input.startDate)) {
+    const startDate = input.startDate ?? undefined;
+    if (sacNumber !== null && startDate === undefined) {
+      errors.startDate = 'Es obligatoria cuando se informa el número de SAC.';
+    } else if (sacNumber === null && startDate !== undefined) {
+      errors.startDate = 'No se informa si la causa no tiene número de SAC.';
+    } else if (startDate !== undefined && !isValidDate(startDate)) {
       errors.startDate = 'Debe ser una fecha válida (AAAA-MM-DD).';
-    } else if (input.startDate > input.today) {
+    } else if (startDate !== undefined && startDate > input.today) {
       errors.startDate = 'No puede ser posterior a la fecha de hoy.';
     }
 
@@ -126,7 +132,8 @@ export class CaseFactory {
       instructor: { name: instructorName, phone: instructorPhone, extension: instructorExtension },
       clientId: input.clientId,
       responsibleLawyerId: input.responsibleLawyerId,
-      startDate: input.startDate,
+      // `cases.start_date` cannot be empty: a case without SAC gets today's date.
+      startDate: startDate ?? input.today,
       // Every case starts in the "Iniciada" state of its jurisdiction.
       currentStateId: input.initialState.id,
       currentCustomState: null,

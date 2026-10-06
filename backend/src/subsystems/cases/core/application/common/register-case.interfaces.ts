@@ -27,6 +27,7 @@ export interface RegisterCaseCommand {
   proceduralRole: ProceduralRole;
   legalQualifications?: RegisterCaseQualificationInput[];
   responsibleLawyerId: number;
+  // Required with a SAC number, not allowed without one (CA-18.2).
   startDate?: Date;
 }
 

@@ -30,7 +30,14 @@ export class CasePrismaRepository implements CaseRepository {
     const hasCounterparty = newCase instanceof AdministrativeCase || newCase instanceof Amparo;
     const offenses = newCase instanceof CriminalCase ? newCase.offenses : [];
 
-    // One nested create: the case and its qualifications are saved together or not at all.
+    // One nested create: the case and its offenses are saved together or not at all.
+    // The use case calculates the prescription of every offense before saving.
+    for (const offense of offenses) {
+      if (offense.prescriptionExpiresOn === null) {
+        throw new Error(`The offense of the qualification ${offense.legalQualificationId} has no prescription date.`);
+      }
+    }
+
     await this.prisma.db.case.create({
       data: {
         id: newCase.id,
@@ -54,10 +61,11 @@ export class CasePrismaRepository implements CaseRepository {
         createdByUserId: newCase.createdByUserId,
         createdAt: newCase.createdAt,
         updatedAt: newCase.updatedAt,
-        legalQualifications: {
+        offenses: {
           create: offenses.map((offense) => ({
             legalQualificationId: offense.legalQualificationId,
             offenseDate: offense.offenseDate,
+            prescriptionDate: offense.prescriptionExpiresOn as Date,
           })),
         },
       },
@@ -67,7 +75,7 @@ export class CasePrismaRepository implements CaseRepository {
   async findById(id: number): Promise<Case | null> {
     const row = await this.prisma.db.case.findUnique({
       where: { id },
-      include: { jurisdiction: true, legalQualifications: { include: { legalQualification: true } } },
+      include: { jurisdiction: true, offenses: { include: { legalQualification: true } } },
     });
     return row ? CasePrismaMapper.toDomain(row) : null;
   }

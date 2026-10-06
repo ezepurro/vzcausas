@@ -77,7 +77,7 @@ export class RegisterCase {
         legalQualifications: requested,
         legalQualificationRefs: foundQualifications,
         responsibleLawyerId: command.responsibleLawyerId,
-        startDate: command.startDate ?? today,
+        startDate: command.startDate,
         createdByUserId: command.createdByUserId,
         today,
         now: this.clock.now(),

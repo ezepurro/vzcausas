@@ -6,9 +6,7 @@ import { RegisterCase } from './core/application/use-cases/register-case.use-cas
 import { CASE_REPOSITORY } from './core/domain/ports/case.repository';
 import { CLIENT_LOOKUP } from './core/domain/ports/client-lookup.port';
 import { CURRENT_DATE } from './core/domain/ports/current-date.port';
-import { LAWYER_LOOKUP } from './core/domain/ports/lawyer-lookup.port';
 import { LEGAL_QUALIFICATION_LOOKUP } from './core/domain/ports/legal-qualification-lookup.port';
-import { PeopleLawyerLookupAdapter } from './infraestructure/acl/people-lawyer-lookup.adapter';
 import { StubClientLookupAdapter } from './infraestructure/acl/stub-client-lookup.adapter';
 import { StubLegalQualificationLookupAdapter } from './infraestructure/acl/stub-legal-qualification-lookup.adapter';
 import { SystemCurrentDateAdapter } from './infraestructure/acl/system-current-date.adapter';
@@ -18,10 +16,11 @@ import { CasePrismaRepository } from './infraestructure/persistence/case-prisma.
 /**
  * Composition root of `cases`.
  *
- * The client and legal qualification lookups are stubs while `people` (clients)
- * and the qualifications catalog do not expose use cases for them. The lawyer
- * comes from `people`; the initial procedural state comes from `legal-parameters`,
- * whose module provides the adapter of `PROC_STATE_LOOKUP`. Swap each binding for its real adapter then.
+ * `cases` only receives adapters for its ports. `people` provides the lawyer
+ * lookup and `legal-parameters` the procedural state lookup: their modules are
+ * imported just to get those exported tokens. The client and legal qualification
+ * lookups are stubs while those subsystems have nothing to offer; swap each
+ * binding for its real adapter then.
  */
 @Module({
   imports: [PeopleModule, LegalParametersModule, SharedModule],
@@ -29,7 +28,6 @@ import { CasePrismaRepository } from './infraestructure/persistence/case-prisma.
   providers: [
     RegisterCase,
     { provide: CASE_REPOSITORY, useClass: CasePrismaRepository },
-    { provide: LAWYER_LOOKUP, useClass: PeopleLawyerLookupAdapter },
     { provide: CLIENT_LOOKUP, useClass: StubClientLookupAdapter },
     { provide: LEGAL_QUALIFICATION_LOOKUP, useClass: StubLegalQualificationLookupAdapter },
     { provide: CURRENT_DATE, useClass: SystemCurrentDateAdapter },

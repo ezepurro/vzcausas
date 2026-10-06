@@ -1,8 +1,8 @@
 import {
   Case as PrismaCase,
-  CaseLegalQualification as PrismaCaseLegalQualification,
   Jurisdiction as PrismaJurisdiction,
   LegalQualification as PrismaLegalQualification,
+  Offense as PrismaOffense,
 } from '../../../../generated/prisma/client';
 import { AdministrativeCase } from '../../core/domain/entities/administrative';
 import { Amparo } from '../../core/domain/entities/amparo';
@@ -12,11 +12,11 @@ import { Offense } from '../../core/domain/entities/offense';
 import { JurisdictionCode } from '../../core/domain/value-objects/jurisdiction-code';
 import { ProceduralRole } from '../../core/domain/value-objects/procedural-role';
 
-export type OffenseRow = PrismaCaseLegalQualification & { legalQualification: PrismaLegalQualification };
+export type OffenseRow = PrismaOffense & { legalQualification: PrismaLegalQualification };
 
 export type CaseRow = PrismaCase & {
   jurisdiction: PrismaJurisdiction;
-  legalQualifications: OffenseRow[];
+  offenses: OffenseRow[];
 };
 
 export class CasePrismaMapper {
@@ -53,7 +53,7 @@ export class CasePrismaMapper {
       case JurisdictionCode.AMPARO:
         return Amparo.hydrate({ ...props, counterparty: row.counterparty, subjectMatter: row.subjectMatter ?? '' });
       default:
-        return CriminalCase.hydrate({ ...props, offenses: row.legalQualifications.map(CasePrismaMapper.toOffense) });
+        return CriminalCase.hydrate({ ...props, offenses: row.offenses.map(CasePrismaMapper.toOffense) });
     }
   }
 
@@ -65,8 +65,7 @@ export class CasePrismaMapper {
         prescriptionMonths: row.legalQualification.prescriptionMonths,
       },
       offenseDate: row.offenseDate,
-      // The table has no column for it yet.
-      prescriptionExpiresOn: null,
+      prescriptionExpiresOn: row.prescriptionDate,
     });
   }
 }
