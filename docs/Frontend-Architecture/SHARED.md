@@ -697,10 +697,11 @@ sesión se puede salvar, se salva sola.
 ### contract
 
 **Path:** `api/contract.ts` — la forma de los errores según el contrato.
-Exporta `ERROR_CODES` / `ErrorCode` (los 29 códigos: el catálogo de V3 §5.3,
-con los ocho que sumó el Sprint 2 —`CASE_NOT_FOUND`, `CASE_SAC_ALREADY_EXISTS`,
-`CLIENT_DNI_ALREADY_EXISTS`, `CASE_IN_TERMINAL_STATE`, `PROCEDURAL_STATE_IN_USE`,
-etc.— y sin `PROCEDURAL_STATE_HAS_DEPENDENCIES`, que el contrato retiró),
+Exporta `ERROR_CODES` / `ErrorCode` (los 28 códigos: el catálogo de V3 §5.3,
+con los siete que sumó el Sprint 2 —`CASE_NOT_FOUND`, `CASE_SAC_ALREADY_EXISTS`,
+`CLIENT_DNI_ALREADY_EXISTS`, `CASE_IN_TERMINAL_STATE`, etc.— y sin
+`PROCEDURAL_STATE_HAS_DEPENDENCIES` ni `PROCEDURAL_STATE_IN_USE`, que el
+contrato retiró),
 `isErrorCode()`, `ErrorBody` y `LoginErrorBody`.
 Vive en `api/` y no en `mocks/` porque es contrato de producción; los mocks
 lo reexportan desde acá.

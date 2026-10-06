@@ -1952,17 +1952,15 @@ Todos los campos son opcionales, aunque debe enviarse al menos uno.
 | Campo           | Tipo           | Descripción                                                                |
 | --------------- | -------------- | -------------------------------------------------------------------------- |
 | `name`          | String         | Única dentro del fuero                                                     |
-| `jurisdiction`  | `Jurisdiction` | Traslada el estado a otro fuero. Ver la restricción más abajo              |
 | `timeLimitDays` | Integer        | Mayor o igual a `0`                                                        |
 | `dayType`       | `DayType`      | Debe ser coherente con `timeLimitDays`                                     |
 | `terminal`      | Boolean        | -                                                                          |
 
-**Cambio de fuero.** El formulario de modificación del prototipo ofrece el
-selector "Fuero al que pertenece", por lo que V3 admite `jurisdiction` en el
-`PATCH` (V2 no lo admitía). Para no dejar causas de un fuero apuntando a un
-estado de otro, el traslado solo procede si **ninguna causa registra el
-estado**, ni como estado actual ni en sus actos procesales; en caso contrario
-se responde `422 PROCEDURAL_STATE_IN_USE`.
+**El fuero no es modificable.** Un estado procesal no puede cambiar de fuero:
+para trasladarlo debe darse de baja y registrarse en el fuero que corresponda.
+Si el cuerpo incluye `jurisdiction`, aunque sea con el valor que ya tiene, se
+responde `400 VALIDATION_ERROR` sobre ese campo (ver
+[D-36](#81-decisiones-tomadas), que revierte a D-07).
 
 **Correspondencia con el formulario.** La opción "—" del
 selector de tipo de día corresponde a `dayType: "NONE"`.
@@ -1997,6 +1995,18 @@ se consulta con `GET`.
 		"message": "Los datos enviados no son válidos.",
 		"details": {
 			"dayType": "Debe ser NONE cuando el plazo es 0."
+		}
+	}
+}
+```
+
+```json
+{
+	"error": {
+		"code": "VALIDATION_ERROR",
+		"message": "Los datos enviados no son válidos.",
+		"details": {
+			"jurisdiction": "El fuero de un estado procesal no se puede modificar."
 		}
 	}
 }
@@ -2050,18 +2060,6 @@ se consulta con `GET`.
 }
 ```
 
-**`422 Unprocessable Content`**
-
-```json
-{
-	"error": {
-		"code": "PROCEDURAL_STATE_IN_USE",
-		"message": "El estado procesal está registrado en causas y no puede cambiar de fuero.",
-		"details": null
-	}
-}
-```
-
 ---
 
 #### `DELETE /procedural-states/{stateId}`
@@ -2108,6 +2106,7 @@ La respuesta no contiene cuerpo.
 	}
 }
 ```
+
 
 **`401 Unauthorized`**
 
@@ -4383,7 +4382,6 @@ respuesta.
 | `USER_HAS_DEPENDENCIES`                  | 409  | El usuario posee recursos asociados                                |
 | `LAWYER_HAS_DEPENDENCIES`                | 409  | El abogado posee causas o un usuario vinculado                     |
 | `INVALID_CURRENT_PASSWORD`               | 422  | La contraseña actual no coincide                                   |
-| `PROCEDURAL_STATE_IN_USE`                | 422  | Traslado de fuero de un estado que registran causas                |
 | `CASE_IN_TERMINAL_STATE`                 | 422  | Acto procesal sobre una causa en estado terminal                   |
 | `BUSINESS_RULE_VIOLATION`                | 422  | Violación de una regla de negocio                                  |
 | `INTERNAL_SERVER_ERROR`                  | 500  | Error interno inesperado                                           |
@@ -4436,7 +4434,6 @@ equipo.
 | `GET /procedural-states`, `GET /procedural-states/{stateId}` | `ADMINISTRATOR` | Cualquier usuario autenticado | HU16 (consultar estados y plazos) es de los tres perfiles, y el registro de actos necesita los estados del fuero |
 | `POST /clients` | - | `SECRETARY` | Tabla de [permisos por perfil](#permisos-por-perfil): administrar clientes es solo de la Secretaría |
 | `POST /cases/{caseId}/procedural-acts` y `deadline-preview` | - | Abogado responsable de la causa | Solo el abogado responsable registra actos procesales ([§7.8](#78-revisión-de-v3-del-05102026)) |
-| `PATCH /procedural-states/{stateId}` | `jurisdiction` no modificable | Modificable si ninguna causa registra el estado | El formulario del prototipo ofrece el selector de fuero |
 | `DELETE /procedural-states/{stateId}` | `409` si el estado tenía causas | La baja procede; las causas conservan el estado | Nota del prototipo al eliminar un estado en uso |
 | `POST /procedural-states` | `position` mayor o igual a `1` | Sin `position`: retirado en la [revisión del 05/10/2026](#78-revisión-de-v3-del-05102026) | Los estados no tienen orden |
 | `activeCases` en `/lawyers` y `/procedural-states` | Valía `0` fijo | Calculado | El módulo de causas existe desde esta versión |
@@ -4451,8 +4448,8 @@ equipo.
 
 **Incorporados:** `LEGAL_QUALIFICATION_NOT_FOUND`, `CLIENT_NOT_FOUND`,
 `CASE_NOT_FOUND`, `LEGAL_QUALIFICATION_ALREADY_EXISTS`,
-`CLIENT_DNI_ALREADY_EXISTS`, `CASE_SAC_ALREADY_EXISTS`,
-`PROCEDURAL_STATE_IN_USE` y `CASE_IN_TERMINAL_STATE`.
+`CLIENT_DNI_ALREADY_EXISTS`, `CASE_SAC_ALREADY_EXISTS` y
+`CASE_IN_TERMINAL_STATE`.
 
 **Retirado:** `PROCEDURAL_STATE_HAS_DEPENDENCIES`, porque la baja de un estado
 procesal ya no se rechaza por tener causas.
@@ -4505,6 +4502,7 @@ procesales, calificaciones legales, causas y actos procesales.
 | Filtro `withoutProceduralActs` | Causas con `currentState` en `null` | Causas en el estado inicial | D-34 |
 | `nextDeadline` | Objeto aparte en la causa | **Retirado.** El vencimiento pasa a `currentState`: `proceduralActId`, `dueDate`, `businessDaysRemaining` y `manuallyAdjusted` | D-35 |
 | Orden de `GET /cases` | Por `nextDeadline.dueDate`, luego `sacNumber` | Por `currentState.dueDate`, luego `id` | D-35 |
+| `jurisdiction` en `PATCH /procedural-states/{stateId}` | Modificable si ninguna causa registra el estado (`422 PROCEDURAL_STATE_IN_USE`) | **No modificable**, como en V2: `400 VALIDATION_ERROR`. Se retira `PROCEDURAL_STATE_IN_USE` | D-36 |
 
 ---
 
@@ -4523,7 +4521,7 @@ antes o durante la implementación.
 | D-04 | La escritura de estados procesales y calificaciones legales requiere `ADMINISTRATOR` | El prototipo deshabilita esas acciones para los demás perfiles, aunque HU17, HU45 y HU46 digan "Como abogado". Manda el prototipo |
 | D-05 | El alta de cliente requiere `SECRETARY` | Tabla de [permisos por perfil](#permisos-por-perfil): administrar clientes (HU8 a HU11) es solo de la Secretaría. Reemplaza el criterio del prototipo, que lo restringía al Administrador |
 | D-06 | La baja de un estado procesal procede aunque haya causas en él, y se retira `PROCEDURAL_STATE_HAS_DEPENDENCIES` | Nota del prototipo: las causas "conservan el estado que ya tienen registrado". Lo mismo para la baja de calificaciones legales |
-| D-07 | `PATCH /procedural-states` admite `jurisdiction`, solo si ninguna causa registra el estado | El prototipo muestra el selector de fuero al modificar. La restricción evita que causas de un fuero apunten a un estado de otro |
+| D-07 | ~~`PATCH /procedural-states` admite `jurisdiction`, solo si ninguna causa registra el estado~~. **Revertida por D-36** | El prototipo muestra el selector de fuero al modificar. La restricción evita que causas de un fuero apunten a un estado de otro |
 | D-08 | Cambiar el plazo de un estado **no** recalcula vencimientos; cambiar la prescripción de una calificación **sí** recalcula la de sus causas | Las dos notas del prototipo dicen exactamente eso. Por eso el acto copia los valores del plazo y la causa calcula la prescripción en cada lectura |
 | D-09 | **Reemplazada por D-34.** Toda causa nacía **sin estado procesal** (`currentState` en `null`, "Sin acto procesal") y sin plazo abierto; el estado lo fija el primer acto. El alta no es un movimiento del ciclo de vida, y se retira `JURISDICTION_WITHOUT_PROCEDURAL_STATES` | Prototipo actualizado: "El estado lo fija el primer acto procesal" en el resumen del alta, y "Todavía no hay actos procesales" en el detalle. El prototipo lo define como un estado de sistema que no pertenece al ciclo parametrizado de ningún fuero; por eso se modela como ausencia de estado y no como un registro de la tabla. Reemplaza al criterio anterior, que derivaba el estado de posición `1` |
 | D-10 | El acto procesal se registra como estado resultante, fechas y observaciones, sin un "nombre de acto" aparte | El formulario de HU26 solo pide el estado ("El acto procesal es el que mueve la causa: elegí el estado al que la lleva") ([C-10](#82-puntos-a-verificar)) |
@@ -4552,6 +4550,7 @@ antes o durante la implementación.
 | D-33 | `sacNumber`, `legalQualifications` (en `CRIMINAL`), `instructorName` e `instructorExtension` son opcionales. El interno del instructor se separa del teléfono en `instructorExtension` | Decisión del equipo (05/10/2026). RN2 queda condicionada: el SAC identifica la causa cuando se conoce ([C-20](#82-puntos-a-verificar)) |
 | D-34 | Toda causa nace en el **estado inicial "Iniciada"**, un estado de sistema por fuero: no forma parte de `/procedural-states`, no se modifica ni se da de baja, no es destino de un acto y no se muestra en la línea de tiempo. `currentState` deja de ser anulable y suma `initial` | Decisión del equipo (05/10/2026). Reemplaza a D-09. El nombre es neutral para los tres fueros y describe un estado, no una ausencia |
 | D-35 | Se retira `nextDeadline`: el vencimiento es parte del estado actual y viaja en `currentState` | Decisión del equipo (05/10/2026): el vencimiento lo abre el acto que llevó la causa a su estado actual |
+| D-36 | El fuero de un estado procesal no es modificable: `PATCH /procedural-states/{stateId}` rechaza `jurisdiction` con `400 VALIDATION_ERROR`, y se retira `PROCEDURAL_STATE_IN_USE`. Revierte D-07 | Decisión del equipo. Un estado figura en la historia de las causas aunque ninguna esté hoy en él, así que el traslado casi nunca procedía y la pantalla no podía anticiparlo. Para trasladarlo: baja y alta en el otro fuero, como en V2 |
 
 ### 8.2 Puntos a verificar
 
