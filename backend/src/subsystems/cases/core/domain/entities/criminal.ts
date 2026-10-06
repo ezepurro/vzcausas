@@ -1,13 +1,13 @@
-import { CaseLegalQualification } from '../value-objects/case-legal-qualification';
 import { JurisdictionCode } from '../value-objects/jurisdiction-code';
 import { Case, CaseProps } from './cases';
+import { Offense } from './offense';
 
 export interface CriminalCaseProps extends CaseProps {
   // May be empty (D-33): the case then has no prescription to compute.
-  legalQualifications: CaseLegalQualification[];
+  offenses: Offense[];
 }
 
-/** Criminal case. Has legal qualifications and no counterparty. */
+/** Criminal case. Has offenses and no counterparty. */
 export class CriminalCase extends Case {
   private constructor(private readonly criminalProps: CriminalCaseProps) {
     super(criminalProps);
@@ -22,7 +22,7 @@ export class CriminalCase extends Case {
     return JurisdictionCode.CRIMINAL;
   }
 
-  get legalQualifications(): CaseLegalQualification[] {
-    return this.criminalProps.legalQualifications;
+  get offenses(): Offense[] {
+    return this.criminalProps.offenses;
   }
 }

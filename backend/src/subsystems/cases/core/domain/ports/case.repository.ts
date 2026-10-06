@@ -1,4 +1,5 @@
 import { Case } from '../entities/cases';
+import { CaseProceduralState } from '../value-objects/case-procedural-state';
 
 /** DI token for {@link CaseRepository}. Symbol-as-token, same as `people`. */
 export const CASE_REPOSITORY = Symbol('CASE_REPOSITORY');
@@ -11,9 +12,12 @@ export interface CaseRepository {
   /** `true` if the SAC number is already used by any case, including inactive ones (RN2). */
   existsBySacNumber(sacNumber: string): Promise<boolean>;
 
-  /** Inserts a new case together with its legal qualifications. */
+  /** Inserts a new case together with its offenses. */
   save(newCase: Case): Promise<void>;
 
   /** Loads a case by primary key. Returns `null` if none. */
   findById(id: number): Promise<Case | null>;
+
+  /** Reads the procedural state the stored case is currently in. */
+  findCurrentState(caseId: number): Promise<CaseProceduralState>;
 }
