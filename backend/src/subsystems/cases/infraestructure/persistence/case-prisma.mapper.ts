@@ -65,6 +65,8 @@ export class CasePrismaMapper {
         prescriptionMonths: row.legalQualification.prescriptionMonths,
       },
       offenseDate: row.offenseDate,
+      // The table has no column for it yet.
+      prescriptionExpiresOn: null,
     });
   }
 }

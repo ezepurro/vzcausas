@@ -23,7 +23,7 @@ export class LegalQualificationResponseDto {
   prescriptionMonths!: number;
   offenseDate!: Date;
   prescriptionStartsOn!: Date;
-  prescriptionExpiresOn!: Date;
+  prescriptionExpiresOn!: Date | null;
 }
 
 export class CurrentStateResponseDto {

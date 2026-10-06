@@ -3,12 +3,14 @@ import { LegalQualificationRef } from '../ports/legal-qualification-lookup.port'
 export interface OffenseProps {
   legalQualification: LegalQualificationRef;
   offenseDate: Date;
+  // Null until `calculatePrescription()` runs.
+  prescriptionExpiresOn: Date | null;
 }
 
 /**
  * Offense (hecho): a legal qualification assigned to a criminal case. It has
- * its own offense date, and its prescription is calculated from that date and
- * from the prescription months of the legal qualification it is based on.
+ * its own offense date, and its prescription date is calculated from that date
+ * and from the prescription months of the legal qualification it is based on.
  */
 export class Offense {
   private constructor(private readonly props: OffenseProps) {}
@@ -38,12 +40,17 @@ export class Offense {
     return this.props.offenseDate;
   }
 
-  /** Start of the prescription plus its months. A shorter month ends on its last day. */
-  get prescriptionExpiresOn(): Date {
+  /** The prescription date, or `null` if it was not calculated yet. */
+  get prescriptionExpiresOn(): Date | null {
+    return this.props.prescriptionExpiresOn;
+  }
+
+  /** Calculates the prescription date (start plus months) and keeps it. A shorter month ends on its last day. */
+  calculatePrescription(): void {
     const start = this.prescriptionStartsOn;
     const year = start.getUTCFullYear();
     const month = start.getUTCMonth() + this.prescriptionMonths;
     const lastDayOfMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
-    return new Date(Date.UTC(year, month, Math.min(start.getUTCDate(), lastDayOfMonth)));
+    this.props.prescriptionExpiresOn = new Date(Date.UTC(year, month, Math.min(start.getUTCDate(), lastDayOfMonth)));
   }
 }
