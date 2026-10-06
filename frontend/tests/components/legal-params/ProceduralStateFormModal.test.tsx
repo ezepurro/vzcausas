@@ -51,6 +51,17 @@ describe('ProceduralStateFormModal', () => {
         expect(screen.queryByText('Lugar en el ciclo de vida')).not.toBeInTheDocument()
     })
 
+    it('no ofrece cambiar el fuero, ni en el alta ni en la edición (V3 D-36)', () => {
+        renderModal({ mode: 'edit' })
+        expect(screen.queryByLabelText(/fuero/i)).not.toBeInTheDocument()
+    })
+
+    it('al editar un estado en uso avisa que no se recalculan los vencimientos', () => {
+        renderModal({ mode: 'edit', inUse: true })
+
+        expect(screen.getByText(/no recalcula los vencimientos ya registrados/i)).toBeInTheDocument()
+    })
+
     it('con plazo mayor a 0 pregunta cómo se cuentan los días', () => {
         renderModal({ values: { ...VALUES, timeLimitDays: '5' } })
 

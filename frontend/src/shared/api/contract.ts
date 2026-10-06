@@ -52,7 +52,6 @@ export const ERROR_CODES = [
     'LAWYER_HAS_DEPENDENCIES',
     // 422 — regla de negocio
     'INVALID_CURRENT_PASSWORD',
-    'PROCEDURAL_STATE_IN_USE',
     'CASE_IN_TERMINAL_STATE',
     'BUSINESS_RULE_VIOLATION',
     // 500

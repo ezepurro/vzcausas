@@ -381,11 +381,6 @@ function activeCases(): StoredCase[] {
     return db.cases.filter(isActiveCase);
 }
 
-/** `true` si alguna causa registra el estado, como estado actual o en su historia. */
-export function stateIsRegistered(stateId: number): boolean {
-    return db.proceduralActs.some((a) => a.proceduralStateId === stateId);
-}
-
 /* ------------------------------------------------------------------ */
 /* Serialización                                                       */
 /* ------------------------------------------------------------------ */

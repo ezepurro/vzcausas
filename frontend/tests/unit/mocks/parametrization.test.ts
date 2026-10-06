@@ -353,41 +353,24 @@ describe('mock · lo que V3 cambió en abogados y estados procesales', () => {
         expect(response.status).toBe(201)
     })
 
-    it('un estado que ninguna causa registra puede cambiar de fuero', () => {
-        // "Recurso de apelación" (7) no lo registra ninguna causa.
+    it('el fuero de un estado no se puede modificar (D-36)', () => {
+        // Ni uno que ninguna causa registra, como "Recurso de apelación" (7).
         const response = call('PATCH', '/procedural-states/7', { as: 'fvazquez', body: { jurisdiction: 'AMPARO' } })
 
-        expect(response.status).toBe(200)
-        expect(dataOf<ProceduralState>(response)).toMatchObject({ id: 7, jurisdiction: 'AMPARO' })
-        // No hay posiciones que acomodar: cada fuero lista los suyos por orden de registro.
-        expect(statesOf('CRIMINAL').map((s) => s.id)).toEqual([1, 2, 3, 4, 5, 6, 8, 9, 10])
-        expect(statesOf('AMPARO').map((s) => s.id)).toEqual([7, 18, 19, 20, 21, 22, 23, 24])
+        expect(response.status).toBe(400)
+        expect(errorOf(response).code).toBe('VALIDATION_ERROR')
+        expect(errorOf(response).details).toHaveProperty('jurisdiction')
+        expect(db.proceduralStates.find((s) => s.id === 7)?.jurisdiction).toBe('CRIMINAL')
     })
 
-    it('un estado que alguna causa registra no puede cambiar de fuero (D-07)', () => {
-        const current = call('PATCH', '/procedural-states/4', { as: 'fvazquez', body: { jurisdiction: 'AMPARO' } })
-        expect(current.status).toBe(422)
-        expect(errorOf(current).code).toBe('PROCEDURAL_STATE_IN_USE')
+    it('mandar el fuero que ya tiene también se rechaza', () => {
+        const response = call('PATCH', '/procedural-states/4', {
+            as: 'fvazquez',
+            body: { name: 'Oposición', jurisdiction: 'CRIMINAL' },
+        })
 
-        // Tampoco uno que sólo figura en la historia de una causa.
-        const historic = call('PATCH', '/procedural-states/1', { as: 'fvazquez', body: { jurisdiction: 'AMPARO' } })
-        expect(historic.status).toBe(422)
-    })
-
-    it('mandar el mismo fuero que ya tiene no es un traslado', () => {
-        const response = call('PATCH', '/procedural-states/4', { as: 'fvazquez', body: { jurisdiction: 'CRIMINAL' } })
-
-        expect(response.status).toBe(200)
-        expect(dataOf<ProceduralState>(response).jurisdiction).toBe('CRIMINAL')
-    })
-
-    it('al cambiar de fuero, el nombre no puede chocar con uno del destino', () => {
-        call('POST', '/procedural-states', { as: 'fvazquez', body: { name: 'Pase a fallo', jurisdiction: 'CRIMINAL' } })
-        const created = db.proceduralStates.find((s) => s.name === 'Pase a fallo' && s.jurisdiction === 'CRIMINAL')!
-
-        const response = call('PATCH', `/procedural-states/${created.id}`, { as: 'fvazquez', body: { jurisdiction: 'AMPARO' } })
-
-        expect(response.status).toBe(409)
+        expect(response.status).toBe(400)
+        expect(db.proceduralStates.find((s) => s.id === 4)?.name).toBe('Oposición al requerimiento de elevación')
     })
 
     it('los estados no tienen posición: se listan por orden de registro (D-31)', () => {

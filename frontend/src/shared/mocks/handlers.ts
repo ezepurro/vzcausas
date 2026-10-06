@@ -82,7 +82,6 @@ import {
     latestActOf,
     revokeToken,
     revokeUserSessions,
-    stateIsRegistered,
     toCase,
     toClient,
     toLawyer,
@@ -1045,8 +1044,10 @@ const updateProceduralState: Handler = ({ request, params }) => {
         details.name = `Debe tener entre ${NAME_MIN} y ${NAME_MAX} caracteres.`;
     }
 
-    if (hasJurisdiction && !isJurisdiction(body.jurisdiction)) {
-        details.jurisdiction = 'No existe un fuero procesal con ese nombre.';
+    /* El fuero no es modificable (V3 D-36): se rechaza aunque venga con el
+       valor que ya tiene. Para trasladar un estado, baja y alta. */
+    if (hasJurisdiction) {
+        details.jurisdiction = 'El fuero de un estado procesal no se puede modificar.';
     }
 
     const timeLimitDays = hasTimeLimit ? readCount(body.timeLimitDays, 9999) : undefined;
@@ -1076,30 +1077,15 @@ const updateProceduralState: Handler = ({ request, params }) => {
         });
     }
 
-    /* Cambio de fuero (V3 D-07). Mandar el mismo fuero que ya tiene no es un
-       traslado: el formulario lo envía siempre que viaja el campo. */
-    const origin = state.jurisdiction;
-    const destination = hasJurisdiction ? (body.jurisdiction as Jurisdiction) : origin;
-    const moving = destination !== origin;
-
     const nextName = hasName ? name : state.name;
-    if ((hasName || moving) && stateNameTaken(nextName, destination, stateId)) {
+    if (hasName && stateNameTaken(nextName, state.jurisdiction, stateId)) {
         return fail(409, ERRORS.proceduralStateNameTaken);
-    }
-
-    /* El traslado sólo procede si ninguna causa registra el estado, ni como
-       estado actual ni en sus actos: si no, quedarían causas de un fuero
-       apuntando a un estado de otro. */
-    if (moving && stateIsRegistered(stateId)) {
-        return fail(422, ERRORS.proceduralStateInUse);
     }
 
     state.name = nextName;
     state.timeLimitDays = nextDays;
     state.dayType = nextDayType;
     if (hasTerminal) state.terminal = body.terminal as boolean;
-    // Sin posiciones que acomodar: el estado se lista en su fuero nuevo por su id.
-    state.jurisdiction = destination;
 
     // Sin `activeCases`, igual que el alta (V3 D-32).
     return ok(itemBody({ ...state }));

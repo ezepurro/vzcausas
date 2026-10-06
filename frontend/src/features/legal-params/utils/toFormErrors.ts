@@ -6,7 +6,7 @@ import type { ProceduralStateFormValues } from '@/features/legal-params/types/pr
  *
  * El servidor nombra los campos del CONTRATO, y puede mandar claves que no son
  * campos del formulario —`body` cuando el PATCH viene vacío, `jurisdiction`,
- * que acá no se edita—. Esas no tienen dónde pintarse y se descartan, para que
+ * que no se edita—. Esas no tienen dónde pintarse y se descartan, para que
  * la pantalla sepa que el error no quedó a la vista y lo avise de otro modo.
  */
 const FIELD_BY_SERVER_NAME: Record<string, keyof ProceduralStateFormValues> = {

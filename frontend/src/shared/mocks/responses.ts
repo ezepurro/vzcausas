@@ -197,10 +197,6 @@ export const ERRORS = {
         'INVALID_CURRENT_PASSWORD',
         'La contraseña actual es incorrecta.',
     ),
-    proceduralStateInUse: errorBody(
-        'PROCEDURAL_STATE_IN_USE',
-        'El estado procesal está registrado en causas y no puede cambiar de fuero.',
-    ),
     caseInTerminalState: errorBody(
         'CASE_IN_TERMINAL_STATE',
         'La causa se encuentra en un estado terminal y no admite actos procesales.',
@@ -718,8 +714,13 @@ export const RESPONSES = {
         forbidden: response(403, ERRORS.forbidden),
         notFound: response(404, ERRORS.proceduralStateNotFound),
         conflict: response(409, ERRORS.proceduralStateNameTaken),
-        /** Cambio de fuero de un estado que alguna causa registra (D-07). */
-        inUse: response(422, ERRORS.proceduralStateInUse),
+        /** El fuero no es modificable (D-36). */
+        jurisdiction: response(
+            400,
+            errorBody('VALIDATION_ERROR', 'Los datos enviados no son válidos.', {
+                jurisdiction: 'El fuero de un estado procesal no se puede modificar.',
+            }),
+        ),
     },
 
     /**

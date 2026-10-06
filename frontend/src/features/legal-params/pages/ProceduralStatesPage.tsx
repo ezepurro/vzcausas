@@ -27,7 +27,8 @@ import { ProceduralStatesTable } from '@/features/legal-params/components/Proced
 import { ProceduralStateFormModal } from '@/features/legal-params/components/ProceduralStateFormModal';
 import { DeleteProceduralStateModal } from '@/features/legal-params/components/DeleteProceduralStateModal';
 
-const LIMIT = 20;
+/** La pestaña de un fuero pide todos sus estados de una vez (§3.4). */
+const LIMIT = 100;
 
 /**
  * Las lengüetas son los fueros, sin "Todos".
@@ -330,6 +331,7 @@ export function ProceduralStatesPage() {
                     values={values}
                     errors={errors}
                     saving={saving}
+                    inUse={modal.kind === 'edit' && modal.state.activeCases > 0}
                     onChange={changeValue}
                     onConfirm={submitForm}
                     onCancel={closeModal}

@@ -374,12 +374,11 @@ export interface CreateProceduralStateRequest {
 /**
  * Edición de estado procesal. Al menos un campo.
  *
- * `jurisdiction` traslada el estado a otro fuero, y sólo procede si ninguna
- * causa lo registra (V3 D-07): si no, `422 PROCEDURAL_STATE_IN_USE`.
+ * Sin `jurisdiction`: un estado no cambia de fuero (V3 D-36). Si viaja, el
+ * backend responde `400 VALIDATION_ERROR` sobre ese campo.
  */
 export interface UpdateProceduralStateRequest {
     name?: string;
-    jurisdiction?: Jurisdiction;
     timeLimitDays?: number;
     dayType?: DayType;
     terminal?: boolean;

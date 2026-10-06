@@ -13,6 +13,8 @@ export interface ProceduralStateFormModalProps {
     errors: ProceduralStateErrors;
     /** true mientras la mutación está en vuelo: bloquea el confirmar */
     saving: boolean;
+    /** En la edición: hay causas activas en el estado. */
+    inUse?: boolean;
     onChange: (k: string, v: string | boolean) => void;
     onConfirm: () => void;
     onCancel: () => void;
@@ -30,14 +32,14 @@ const DAY_TYPE_OPTIONS: SelectOption[] = SELECTABLE_DAY_TYPES.map((dayType) => (
  * No valida ni guarda: recibe los errores ya calculados y avisa con
  * `onConfirm`. La decisión la toma la pantalla.
  *
- * El fuero no es un campo. En el alta lo fija la lengüeta y en la edición el
- * contrato no deja cambiarlo, así que va en el `sub` como contexto.
+ * El fuero no es un campo. En el alta lo fija la lengüeta y en la edición no
+ * se puede cambiar (V3 D-36), así que va en el `sub` como contexto.
  *
- * Tampoco hay un lugar que elegir dentro del fuero: los estados no tienen
- * orden (V3 D-31).
+ * No hay un lugar que elegir dentro del fuero: los estados no tienen orden
+ * (V3 D-31).
  */
 export function ProceduralStateFormModal({
-    mode, sub, values, errors, saving, onChange, onConfirm, onCancel,
+    mode, sub, values, errors, saving, inUse = false, onChange, onConfirm, onCancel,
 }: ProceduralStateFormModalProps) {
     const fields: FieldSpec[] = [
         {
@@ -81,7 +83,13 @@ export function ProceduralStateFormModal({
         <FormModal
             title={mode === 'create' ? 'Registrar estado procesal' : 'Modificar estado procesal'}
             sub={sub}
-            note="Definí el plazo para este estado. El sistema lo utilizará para calcular automáticamente la fecha de vencimiento en tu agenda de trabajo."
+            note={
+                // Cambiar el plazo no recalcula lo ya registrado (§3.4): quien
+                // edita un estado en uso tiene que saberlo antes de guardar.
+                mode === 'edit' && inUse
+                    ? 'Hay causas en este estado. Cambiar el plazo no recalcula los vencimientos ya registrados: rige para los actos que se registren de ahora en adelante.'
+                    : 'Definí el plazo para este estado. El sistema lo utilizará para calcular automáticamente la fecha de vencimiento en tu agenda de trabajo.'
+            }
             fields={fields}
             values={values}
             onChange={onChange}

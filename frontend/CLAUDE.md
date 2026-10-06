@@ -329,7 +329,7 @@ en la columna de la derecha, cómo quedó el front.
 |---|---|
 | `GET /lawyers` y `GET /procedural-states` se abren a cualquier usuario autenticado | Otros módulos ya pueden pedir esos datos. Las pantallas siguen siendo sólo de `ADMINISTRATOR` en `ROUTE_ACCESS`. **A definir:** el prototipo del 05/10 muestra Abogados, Estados y plazos y Calificaciones legales a los tres perfiles, en modo consulta |
 | `DELETE /procedural-states` ya no responde `409` por tener causas: la baja procede y las causas conservan el estado (D-06) | **Hecho.** `DeleteProceduralStateModal` avisa "Hay N causas en este estado…", como el prototipo |
-| `PATCH /procedural-states` acepta `jurisdiction`, si ninguna causa registra el estado; si no, `422 PROCEDURAL_STATE_IN_USE` (D-07) | **Pendiente.** El formulario todavía no ofrece el selector "Fuero al que pertenece", y `UpdateProceduralStateBody` no tiene el campo |
+| `PATCH /procedural-states` no acepta `jurisdiction`: el fuero de un estado no se modifica (D-36, revierte D-07). Se retira `PROCEDURAL_STATE_IN_USE` | **Hecho.** El formulario no ofrece el fuero y `UpdateProceduralStateBody` no tiene el campo; el mock responde `400` si viaja |
 | Los estados procesales no tienen `position` (D-31) | **Hecho.** Se sacaron la columna `#`, el selector "¿Dónde va este estado?", `positionOptions.ts` y `useProceduralStateCycle.ts`. El aviso del alta dice "Estado … agregado al ciclo de vida del fuero …" |
 | `POST` y `PATCH /procedural-states` devuelven el estado sin `activeCases` (D-32) | **Hecho.** `SavedProceduralState` en `types/proceduralState.ts`; las mutaciones invalidan el listado |
 | `activeCases` de abogados y estados deja de valer `0` | Nada que tocar: las tablas ya lo muestran |

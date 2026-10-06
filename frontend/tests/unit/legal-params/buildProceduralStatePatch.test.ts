@@ -56,7 +56,7 @@ describe('buildProceduralStatePatch', () => {
         ).toEqual({ dayType: 'CONSECUTIVE', terminal: true })
     })
 
-    it('nunca manda el fuero ni una posición: los estados no tienen orden (V3 D-31)', () => {
+    it('nunca manda el fuero (V3 D-36) ni una posición (V3 D-31)', () => {
         const patch = buildProceduralStatePatch(ORIGINAL, { ...UNCHANGED, name: 'Otro nombre' })
 
         expect(patch).not.toHaveProperty('jurisdiction')

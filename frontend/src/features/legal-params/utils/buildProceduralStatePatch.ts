@@ -12,8 +12,8 @@ import type {
  * cuenta como cambio. Si no cambió nada devuelve `{}` y la pantalla no manda
  * nada: el contrato responde 400 a un PATCH vacío.
  *
- * `jurisdiction` no aparece: el contrato prohíbe cambiar un estado de fuero y
- * el backend rechaza el campo aunque venga con el valor que ya tenía.
+ * `jurisdiction` no aparece: un estado no cambia de fuero (V3 D-36) y el
+ * backend rechaza el campo aunque venga con el valor que ya tenía.
  */
 export function buildProceduralStatePatch(
     original: ProceduralState,

@@ -80,14 +80,10 @@ export interface CreateProceduralStateBody {
 /**
  * Sin `activeCases`: las causas activas las calcula el backend.
  *
- * Tampoco lleva `jurisdiction`, aunque V3 ya lo admite en el `PATCH` si
- * ninguna causa registra el estado (D-07): el formulario todavía no ofrece el
- * selector "Fuero al que pertenece". Cuando se agregue, entra acá junto con el
- * `422 PROCEDURAL_STATE_IN_USE`.
+ * Tampoco lleva `jurisdiction`: un estado no cambia de fuero (V3 D-36). El
+ * backend rechaza el campo con `400` aunque venga con el valor que ya tenía.
  *
- * Tampoco lleva `active`. El contrato lo admite para reactivar una baja, pero
- * desde el cliente eliminar es eliminar: la pantalla no ofrece deshacerlo, así
- * que el tipo no deja mandarlo por error.
+ * No lleva `active`: el contrato no ofrece forma de reactivar una baja.
  */
 export type UpdateProceduralStateBody = Partial<
     Pick<ProceduralState, 'name' | 'timeLimitDays' | 'dayType' | 'terminal'>
@@ -98,7 +94,7 @@ export type UpdateProceduralStateBody = Partial<
  * `FormValues` de `FormModal`, y nunca `undefined`.
  *
  * `jurisdiction` no está: en el alta la fija la lengüeta activa y en la edición
- * el contrato no deja cambiarla. No es un campo, es contexto.
+ * no se puede cambiar (V3 D-36). No es un campo, es contexto.
  */
 export type ProceduralStateFormValues = {
     name: string;
@@ -117,6 +113,4 @@ export interface ProceduralStatesParams {
      * "Archivada" aparecería tres veces, una por cada fuero.
      */
     jurisdiction: Jurisdiction;
-    /** El contrato asume `true` si no viaja. */
-    active?: boolean;
 }

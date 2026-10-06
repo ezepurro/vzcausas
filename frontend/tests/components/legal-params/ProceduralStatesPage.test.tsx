@@ -42,6 +42,25 @@ describe('ProceduralStatesPage', () => {
             expect(screen.queryByRole('cell', { name: 'Iniciada' })).not.toBeInTheDocument()
         })
 
+        it('pide todos los estados del fuero con limit=100 (§3.4)', async () => {
+            let query: URLSearchParams | undefined
+            server.use(
+                http.get('*/procedural-states', ({ request }) => {
+                    query = new URL(request.url).searchParams
+                    return HttpResponse.json({
+                        data: [],
+                        pagination: { page: 1, limit: 100, totalItems: 0, totalPages: 0 },
+                    })
+                }),
+            )
+            renderPage()
+
+            await screen.findByText('Sin estados procesales')
+            expect(query?.get('limit')).toBe('100')
+            expect(query?.get('jurisdiction')).toBe('CRIMINAL')
+            expect(query?.has('active')).toBe(false)
+        })
+
         it('cambiar de pestaña muestra el ciclo de otro fuero', async () => {
             const { user } = renderPage()
             await screen.findByRole('cell', { name: 'Cédula de notificación' })
@@ -254,6 +273,42 @@ describe('ProceduralStatesPage', () => {
 
             expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
             expect(patched).toBe(false)
+        })
+
+        it('al editar un estado en uso avisa que no se recalculan los vencimientos', async () => {
+            const { user } = renderPage()
+            const name = 'Oposición al requerimiento de elevación'
+            await screen.findByRole('cell', { name })
+
+            await user.click(within(rowOf(name)).getByRole('button', { name: 'Modificar' }))
+
+            expect(screen.getByRole('dialog')).toHaveTextContent(/no recalcula los vencimientos ya registrados/i)
+        })
+
+        it('no ofrece cambiar el fuero ni lo manda (V3 D-36)', async () => {
+            let sent: unknown
+            server.use(
+                http.patch('*/procedural-states/:id', async ({ request }) => {
+                    sent = await request.json()
+                    return HttpResponse.json({
+                        data: { id: 2, name: 'Cédula', jurisdiction: 'CRIMINAL', timeLimitDays: 3, dayType: 'BUSINESS', terminal: false, active: true },
+                    })
+                }),
+            )
+            const { user } = renderPage()
+            await screen.findByRole('cell', { name: 'Cédula de notificación' })
+
+            await user.click(within(rowOf('Cédula de notificación')).getByRole('button', { name: 'Modificar' }))
+            const dialog = screen.getByRole('dialog')
+            expect(within(dialog).queryByLabelText(/fuero/i)).not.toBeInTheDocument()
+
+            const name = within(dialog).getByLabelText(/^nombre del estado/i)
+            await user.clear(name)
+            await user.type(name, 'Cédula')
+            await user.click(within(dialog).getByRole('button', { name: 'Guardar cambios' }))
+
+            await screen.findByText('Estado "Cédula" actualizado.')
+            expect(sent).toEqual({ name: 'Cédula' })
         })
     })
 

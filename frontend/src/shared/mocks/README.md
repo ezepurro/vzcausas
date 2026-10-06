@@ -382,7 +382,7 @@ de servir en el acto.
 | `403` | `mrios` o `gestion` en cualquier endpoint de `/users`, o escribiendo abogados, estados o calificaciones; `fvazquez` o `mrios` en `POST /clients`; cualquiera que no sea el abogado responsable registrando un acto o pidiendo `deadline-preview`: `gestion`, `supervision`, o `mrios` y `fvazquez` sobre la causa 7, que lleva `mferreyra` |
 | `404` | `GET /users/999`, `GET /cases/999`; también los que existen pero están dados de baja: `GET /users/22`, `GET /clients/8`, `GET /legal-qualifications/9` |
 | `409` | crear un usuario con `username: "fvazquez"` o con un email ya usado; vincular un abogado que ya tiene cuenta; crear un abogado con `1-28114`; dar de baja el usuario 3, 4 o 5; dar de baja un abogado con cuenta o con causas (del 1 al 8); crear un estado procesal o una calificación con un nombre que ya existe, o un estado que se llame "Iniciada"; registrar un cliente con el DNI `34812905`; registrar una causa con el SAC `13284571` |
-| `422` | crear un usuario `LAWYER` sin ficha profesional, o uno sin rol `LAWYER` **con** ficha; dar de baja o degradar el usuario 1; contraseña actual incorrecta en `PATCH /auth/password`; cambiar de fuero un estado que alguna causa registra (`PATCH /procedural-states/4` con `jurisdiction`) → `PROCEDURAL_STATE_IN_USE`; registrar un acto en la causa 9, 10 o 21 → `CASE_IN_TERMINAL_STATE` |
+| `422` | crear un usuario `LAWYER` sin ficha profesional, o uno sin rol `LAWYER` **con** ficha; dar de baja o degradar el usuario 1; contraseña actual incorrecta en `PATCH /auth/password`; registrar un acto en la causa 9, 10 o 21 → `CASE_IN_TERMINAL_STATE` |
 | `500` / red | `configureMocks({ forceFailure: 500 })` / `configureMocks({ forceFailure: 'network' })` |
 
 **Lo que ya no es un error**, y antes sí:
@@ -543,9 +543,9 @@ este mock, no del backend.
   está en él. Por eso no hay un id de "Iniciada" con el que probar el `404` de
   `GET /procedural-states/{stateId}`. El nombre sí está reservado, sin
   distinguir mayúsculas, tanto al registrar como al renombrar un estado.
-- **Cambio de fuero de un estado**: mandar el mismo fuero que ya tiene no es
-  un traslado. Como se lista por orden de registro, el estado trasladado queda
-  en el lugar que le toca por su id entre los del fuero de destino.
+- **El fuero de un estado no se modifica** (D-36): un `PATCH` con
+  `jurisdiction` es un `400` sobre ese campo, aunque traiga el fuero que ya
+  tiene.
 
 **Clientes y causas**
 
@@ -599,7 +599,7 @@ este mock, no del backend.
   crea: el mock valida todo antes de escribir cualquier cosa.
 - **Los estados procesales no tienen posición** (D-31): se listan por fuero y,
   dentro de cada uno, por orden de registro (`id` ascendente). No hay nada que
-  renumerar al insertar, trasladar o dar de baja.
+  renumerar al insertar o dar de baja.
 - **La causa nace en el estado inicial, "Iniciada"** (D-34): `POST /cases` no
   crea ningún acto y devuelve `currentState` con `initial: true` y sin
   vencimiento. Por eso el alta no depende de que el fuero tenga estados
