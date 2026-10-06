@@ -89,6 +89,15 @@ export class RegisterCase {
       throw new CaseSacAlreadyExistsError();
     }
 
+    // Every offense is saved with its prescription date: calculate the ones still pending.
+    if (newCase instanceof CriminalCase) {
+      for (const offense of newCase.offenses) {
+        if (offense.prescriptionExpiresOn === null) {
+          offense.calculatePrescription();
+        }
+      }
+    }
+
     await this.cases.save(newCase);
     const currentState = await this.cases.findCurrentState(newCase.id);
 
