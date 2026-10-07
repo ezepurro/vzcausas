@@ -81,3 +81,37 @@ export class ClientDniAlreadyExistsError extends ConflictError {
     );
   }
 }
+
+/**
+ * Emitted by `GET /clients/{clientId}` when no current client matches.
+ *
+ * A logically deleted client gets this too, not a payload with
+ * `active: false`: through this endpoint a client that was given up
+ * must be indistinguishable from one that never existed, the same
+ * rule {@link LawyerNotFoundError} applies.
+ */
+export class ClientNotFoundError extends NotFoundError {
+  constructor() {
+    // Sin `details`: el contrato (§3.6) muestra `null` para este error.
+    // Devolver el id pedido no agrega nada —el cliente ya lo sabe, lo
+    // acaba de enviar— y lo repite en el cuerpo de la respuesta, que es
+    // justo lo que CT-6 evita para un dato personal.
+    super("CLIENT_NOT_FOUND", "No se encontró el cliente solicitado.");
+  }
+}
+
+/**
+ * Emitted when the `clientId` path parameter is not a positive
+ * integer. Mirrors {@link InvalidLawyerIdError} so both resources
+ * reject a malformed id with the contract's `INVALID_PATH_PARAMETER`
+ * rather than a generic 400.
+ */
+export class InvalidClientIdError extends ValidationError {
+  constructor() {
+    super(
+      "INVALID_PATH_PARAMETER",
+      "El identificador del cliente no es válido.",
+      { clientId: "Debe ser un número entero válido." },
+    );
+  }
+}

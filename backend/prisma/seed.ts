@@ -56,6 +56,17 @@ const PERMISSIONS = [
 ] as const;
 
 /**
+ * Reading is open to the whole firm.
+ *
+ * The contract's per-resource matrix puts `/clients` and `/lawyers`
+ * reads at "cualquier usuario autenticado", and RN11 says why: the
+ * whole firm sees everything, the difference between profiles is what
+ * they may **operate**, not what they may **see**. CA-9.3 restates it
+ * for clients.
+ */
+const ANY_AUTHENTICATED = ['client:read', 'lawyer:read'];
+
+/**
  * Permissions reserved for `SECRETARY`, and **withheld from
  * `ADMINISTRATOR`**.
  *
@@ -66,23 +77,23 @@ const PERMISSIONS = [
  * every permission in the catalogue and the criterion would fail
  * silently — the endpoint would answer 201 to the wrong role.
  */
-const SECRETARY_ONLY = ['client:create', 'client:read'];
+const SECRETARY_ONLY = ['client:create'];
 
 /**
- * Administrative operations on users and lawyers require the
- * `ADMINISTRATOR` role per the contract (§3.2 and §3.3), so it holds
- * all of those. Clients are the exception: they belong to
- * `SECRETARY`.
+ * The contract's permission matrix, in three lines.
  *
- * `LAWYER` carries no administrative permissions until the cases and
- * documents subsystems exist.
+ * `ADMINISTRATOR` administers users and lawyers (§3.2, §3.3) and so
+ * holds everything except what belongs to the Secretary. The other
+ * two carry the open reads, which is what lets a Lawyer consult the
+ * client and lawyer listings — before HU-9 this list was empty and
+ * both endpoints answered 403 to them, against the matrix.
  */
 const ROLE_PERMISSIONS: Record<string, readonly string[]> = {
   ADMINISTRATOR: PERMISSIONS.map((p) => p.name).filter(
     (name) => !SECRETARY_ONLY.includes(name),
   ),
-  LAWYER: [],
-  SECRETARY: SECRETARY_ONLY,
+  LAWYER: ANY_AUTHENTICATED,
+  SECRETARY: [...ANY_AUTHENTICATED, ...SECRETARY_ONLY],
 };
 
 const connectionString = process.env.DATABASE_URL;

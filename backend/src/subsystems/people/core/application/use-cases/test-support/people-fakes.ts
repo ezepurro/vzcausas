@@ -1,6 +1,10 @@
 import { ClockPort } from "@shared/domain/clock.port";
 import { Client } from "../../../domain/entities/client.entity";
-import { ClientRepository } from "../../../domain/ports/client.repository";
+import {
+  ClientPage,
+  ClientRepository,
+  ClientSearchCriteria,
+} from "../../../domain/ports/client.repository";
 import { Dni } from "../../../domain/value-objects/dni.vo";
 import { Lawyer } from "../../../domain/entities/lawyer.entity";
 import {
@@ -97,6 +101,45 @@ export class FakeClientRepository implements ClientRepository {
 
   async create(client: Client): Promise<void> {
     this.byId.set(client.id, client);
+  }
+
+  async findActiveById(id: number): Promise<Client | null> {
+    const client = this.byId.get(id);
+    return client !== undefined && client.isActive() ? client : null;
+  }
+
+  /**
+   * Mirrors what `PrismaClientRepository.search` does in SQL: current
+   * clients only, ordered by surname and then given names,
+   * case-insensitive match on surname, given names or document, then
+   * the page slice. Kept faithful on purpose — a fake that ordered or
+   * filtered differently would let a spec pass against behaviour
+   * production does not have.
+   */
+  async search(criteria: ClientSearchCriteria): Promise<ClientPage> {
+    const needle = criteria.search?.toLowerCase();
+
+    const matches = [...this.byId.values()]
+      .filter((client) => client.isActive())
+      .filter(
+        (client) =>
+          needle === undefined ||
+          client.lastName.toLowerCase().includes(needle) ||
+          client.firstName.toLowerCase().includes(needle) ||
+          client.dni.toString().includes(needle),
+      )
+      .sort(
+        (a, b) =>
+          a.lastName.localeCompare(b.lastName) ||
+          a.firstName.localeCompare(b.firstName),
+      );
+
+    const offset = (criteria.page - 1) * criteria.limit;
+
+    return {
+      items: matches.slice(offset, offset + criteria.limit),
+      totalItems: matches.length,
+    };
   }
 }
 

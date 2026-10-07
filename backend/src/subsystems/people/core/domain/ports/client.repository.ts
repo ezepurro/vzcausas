@@ -27,4 +27,33 @@ export interface ClientRepository {
 
   /** Inserts a freshly created client. */
   create(client: Client): Promise<void>;
+
+  /**
+   * One page of clients for `GET /clients` (§3.6), ordered by surname
+   * and then by given names — the order the contract fixes and the
+   * `@@index([lastName, firstName])` supports.
+   *
+   * Only current clients are returned: a logically deleted one does
+   * not appear in any listing (RN12).
+   */
+  search(criteria: ClientSearchCriteria): Promise<ClientPage>;
+
+  /**
+   * Loads a current client by id. Returns `null` for one that does
+   * not exist **and** for one that was logically deleted: through this
+   * endpoint the two are indistinguishable, so both answer 404.
+   */
+  findActiveById(id: number): Promise<Client | null>;
 }
+
+/**
+ * `search` matches a free-text fragment against surname, given names
+ * and document, as the contract specifies.
+ */
+export type ClientSearchCriteria = {
+  page: number;
+  limit: number;
+  search?: string;
+};
+
+export type ClientPage = { items: Client[]; totalItems: number };

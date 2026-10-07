@@ -1,7 +1,11 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "@shared/infrastructure/prisma/prisma.service";
 import { Client } from "../../../core/domain/entities/client.entity";
-import { ClientRepository } from "../../../core/domain/ports/client.repository";
+import {
+  ClientPage,
+  ClientRepository,
+  ClientSearchCriteria,
+} from "../../../core/domain/ports/client.repository";
 import { Dni } from "../../../core/domain/value-objects/dni.vo";
 import { ClientPrismaMapper } from "./client-prisma.mapper";
 
@@ -53,5 +57,66 @@ export class PrismaClientRepository implements ClientRepository {
         active: client.isActive(),
       },
     });
+  }
+
+  async findActiveById(id: number): Promise<Client | null> {
+    const row = await this.prisma.db.client.findFirst({
+      where: { id, active: true },
+    });
+    return row ? ClientPrismaMapper.toDomain(row) : null;
+  }
+
+  /**
+   * Page and count run inside one `$transaction` so both observe the
+   * same snapshot. Issued separately, a concurrent insert between them
+   * could report a total that disagrees with the page — the kind of
+   * drift that surfaces as a phantom empty last page.
+   *
+   * This is the one place that goes through `this.prisma` rather than
+   * `this.prisma.db`: it opens its own read transaction, which the
+   * transactional client deliberately cannot do. Safe because listing
+   * is never called from inside a write transaction.
+   *
+   * `mode: "insensitive"` is what makes the search case-insensitive;
+   * Postgres `LIKE` is not by default, so without it "gomez" would
+   * miss "GÓMEZ". It does not fold accents, which is a known limit.
+   */
+  async search(criteria: ClientSearchCriteria): Promise<ClientPage> {
+    const where = {
+      active: true,
+      ...(criteria.search
+        ? {
+            OR: [
+              {
+                lastName: {
+                  contains: criteria.search,
+                  mode: "insensitive" as const,
+                },
+              },
+              {
+                firstName: {
+                  contains: criteria.search,
+                  mode: "insensitive" as const,
+                },
+              },
+              { dni: { contains: criteria.search } },
+            ],
+          }
+        : {}),
+    };
+
+    const [rows, totalItems] = await this.prisma.$transaction([
+      this.prisma.db.client.findMany({
+        where,
+        // El contrato fija este orden, y el indice
+        // @@index([lastName, firstName]) lo sostiene.
+        orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+        skip: (criteria.page - 1) * criteria.limit,
+        take: criteria.limit,
+      }),
+      this.prisma.db.client.count({ where }),
+    ]);
+
+    return { items: rows.map(ClientPrismaMapper.toDomain), totalItems };
   }
 }
