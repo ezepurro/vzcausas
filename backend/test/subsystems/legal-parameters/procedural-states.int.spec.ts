@@ -3,7 +3,8 @@ import request from 'supertest';
 
 import { startTestApp, stopTestApp, getPrisma } from '../../shared/harness/test-app';
 import { expectError, expectPaginated } from '../../shared/contract/envelopes';
-import { createProceduralState } from '../../shared/factories/procedural-state.factory';
+import { loginAs } from '../../shared/auth/login-as';
+import { createInitialState, createProceduralState } from '../../shared/factories/procedural-state.factory';
 
 const URL = '/api/v1/procedural-states';
 
@@ -11,7 +12,6 @@ interface ProceduralStateBody {
   id: number;
   name: string;
   jurisdiction: string;
-  position: number;
   timeLimitDays: number;
   dayType: string;
   terminal: boolean;
@@ -19,12 +19,12 @@ interface ProceduralStateBody {
   active: boolean;
 }
 
-/*
- * Pendiente: 401 sin token y 403 sin rol ADMINISTRATOR (API_CONTRACT_V2 §3.4).
- * Se agregan cuando `identity` exponga el JwtAuthGuard y el endpoint quede protegido.
- */
 describe('GET /api/v1/procedural-states', () => {
   let app: INestApplication;
+  // Consultar estados está abierto a cualquier usuario autenticado: sin
+  // permisos en el token alcanza. Se usa un abogado para que quede claro
+  // que no hace falta ser administrador.
+  const reader = () => loginAs({ roles: ['LAWYER'] });
 
   beforeAll(async () => {
     app = await startTestApp();
@@ -35,9 +35,17 @@ describe('GET /api/v1/procedural-states', () => {
   });
 
   beforeEach(async () => {
-    await getPrisma().proceduralState.deleteMany(); // hija: referencia a jurisdictions
-    await getPrisma().jurisdiction.deleteMany(); // padre
+    const prisma = getPrisma();
+    // Causas y actos referencian estados y fueros con `Restrict`: van
+    // primero por si un spec vecino los dejó.
+    await prisma.offense.deleteMany();
+    await prisma.proceduralAct.deleteMany();
+    await prisma.case.deleteMany();
+    await prisma.proceduralState.deleteMany(); // hija: referencia a jurisdictions
+    await prisma.jurisdiction.deleteMany(); // padre
   });
+
+  const get = (query = '') => request(app.getHttpServer()).get(`${URL}${query}`).set(reader());
 
   // ── Contrato ──────────────────────────────────────────────────────
 
@@ -45,13 +53,12 @@ describe('GET /api/v1/procedural-states', () => {
     const saved = await createProceduralState({
       jurisdiction: 'CRIMINAL',
       name: 'Oposición al requerimiento de elevación',
-      position: 4,
       timeLimitDays: 5,
       dayType: 'BUSINESS',
       terminal: false,
     });
 
-    const res = await request(app.getHttpServer()).get(URL);
+    const res = await get();
 
     const data = expectPaginated<ProceduralStateBody>(res, { page: 1, limit: 20, totalItems: 1, totalPages: 1 });
     expect(data).toEqual([
@@ -59,7 +66,6 @@ describe('GET /api/v1/procedural-states', () => {
         id: saved.stateId,
         name: 'Oposición al requerimiento de elevación',
         jurisdiction: 'CRIMINAL',
-        position: 4,
         timeLimitDays: 5,
         dayType: 'BUSINESS',
         terminal: false,
@@ -70,19 +76,27 @@ describe('GET /api/v1/procedural-states', () => {
   });
 
   it('devuelve una colección vacía cuando no hay estados cargados', async () => {
-    const res = await request(app.getHttpServer()).get(URL);
+    const res = await get();
 
     const data = expectPaginated(res, { totalItems: 0, totalPages: 0 });
     expect(data).toEqual([]);
   });
 
-  it('informa como NONE un estado sin tipo de día en la base', async () => {
-    await createProceduralState({ timeLimitDays: 0, dayType: null, terminal: true });
+  it('informa un estado sin plazo con 0 días y tipo NONE', async () => {
+    await createProceduralState({ name: 'Archivada', timeLimitDays: 0, terminal: true });
 
-    const res = await request(app.getHttpServer()).get(URL);
+    const res = await get();
 
     const [state] = expectPaginated<ProceduralStateBody>(res);
-    expect(state.dayType).toBe('NONE');
+    expect(state).toMatchObject({ timeLimitDays: 0, dayType: 'NONE', terminal: true });
+  });
+
+  // ── Autenticación ─────────────────────────────────────────────────
+
+  it('responde 401 sin token', async () => {
+    const res = await request(app.getHttpServer()).get(URL);
+
+    expectError(res, 401, 'UNAUTHENTICATED');
   });
 
   // ── Comunicación con la base ──────────────────────────────────────
@@ -91,7 +105,7 @@ describe('GET /api/v1/procedural-states', () => {
     const criminal = await createProceduralState({ jurisdiction: 'CRIMINAL' });
     const amparo = await createProceduralState({ jurisdiction: 'AMPARO' });
 
-    const res = await request(app.getHttpServer()).get(URL);
+    const res = await get();
 
     const data = expectPaginated<ProceduralStateBody>(res, { totalItems: 2 });
     const byId = new Map(data.map((s) => [s.id, s]));
@@ -100,11 +114,11 @@ describe('GET /api/v1/procedural-states', () => {
   });
 
   it('pagina contra la base', async () => {
-    await createProceduralState({ position: 1 });
-    await createProceduralState({ position: 2 });
-    const third = await createProceduralState({ position: 3 });
+    await createProceduralState();
+    await createProceduralState();
+    const third = await createProceduralState();
 
-    const res = await request(app.getHttpServer()).get(`${URL}?page=2&limit=2`);
+    const res = await get('?page=2&limit=2');
 
     const data = expectPaginated<ProceduralStateBody>(res, { page: 2, limit: 2, totalItems: 3, totalPages: 2 });
     expect(data.map((s) => s.id)).toEqual([third.stateId]);
@@ -114,7 +128,7 @@ describe('GET /api/v1/procedural-states', () => {
     const criminal = await createProceduralState({ jurisdiction: 'CRIMINAL' });
     await createProceduralState({ jurisdiction: 'ADMINISTRATIVE' });
 
-    const res = await request(app.getHttpServer()).get(`${URL}?jurisdiction=${jurisdiction}`);
+    const res = await get(`?jurisdiction=${jurisdiction}`);
 
     const data = expectPaginated<ProceduralStateBody>(res, { totalItems: 1 });
     expect(data.map((s) => s.id)).toEqual([criminal.stateId]);
@@ -124,7 +138,7 @@ describe('GET /api/v1/procedural-states', () => {
     const match = await createProceduralState({ name: 'Notificación de OFICIO' });
     await createProceduralState({ name: 'Archivada' });
 
-    const res = await request(app.getHttpServer()).get(`${URL}?search=ofic`);
+    const res = await get('?search=ofic');
 
     const data = expectPaginated<ProceduralStateBody>(res, { totalItems: 1 });
     expect(data.map((s) => s.id)).toEqual([match.stateId]);
@@ -134,37 +148,50 @@ describe('GET /api/v1/procedural-states', () => {
     const active = await createProceduralState();
     await createProceduralState({ isActive: false });
 
-    const res = await request(app.getHttpServer()).get(URL);
+    const res = await get();
 
     const data = expectPaginated<ProceduralStateBody>(res, { totalItems: 1 });
     expect(data.map((s) => s.id)).toEqual([active.stateId]);
   });
 
-  it('ordena por fuero y, dentro de cada fuero, por posición', async () => {
-    const criminal2 = await createProceduralState({ jurisdiction: 'CRIMINAL', position: 2 });
-    const administrative1 = await createProceduralState({ jurisdiction: 'ADMINISTRATIVE', position: 1 });
-    const criminal1 = await createProceduralState({ jurisdiction: 'CRIMINAL', position: 1 });
+  // El contrato: "El estado inicial 'Iniciada' no forma parte del listado".
+  it('no lista el estado inicial "Iniciada"', async () => {
+    await createInitialState('CRIMINAL');
+    const regular = await createProceduralState({ jurisdiction: 'CRIMINAL' });
 
-    const res = await request(app.getHttpServer()).get(URL);
+    const res = await get();
+
+    const data = expectPaginated<ProceduralStateBody>(res, { totalItems: 1 });
+    expect(data.map((s) => s.id)).toEqual([regular.stateId]);
+  });
+
+  // Los estados no tienen posición: se listan por fuero y, dentro de cada
+  // fuero, en el orden en que se registraron (`id` ascendente).
+  it('ordena por fuero y, dentro de cada fuero, por orden de registro', async () => {
+    const criminalFirst = await createProceduralState({ jurisdiction: 'CRIMINAL' });
+    const administrative = await createProceduralState({ jurisdiction: 'ADMINISTRATIVE' });
+    const criminalSecond = await createProceduralState({ jurisdiction: 'CRIMINAL' });
+
+    const res = await get();
 
     const data = expectPaginated<ProceduralStateBody>(res);
-    expect(data.map((s) => s.id)).toEqual([administrative1.stateId, criminal1.stateId, criminal2.stateId]);
+    expect(data.map((s) => s.id)).toEqual([administrative.stateId, criminalFirst.stateId, criminalSecond.stateId]);
   });
 
   // ── Errores ───────────────────────────────────────────────────────
-  // El contrato pide INVALID_REQUEST / INVALID_PAGINATION con `details`
-  // por campo. Hoy el ValidationPipe global produce VALIDATION_ERROR con
-  // claves `error_N`; cambiarlo afecta a todos los módulos (decisión del
-  // equipo pendiente).
+  // El contrato pide INVALID_REQUEST / INVALID_PAGINATION. Hoy el
+  // ValidationPipe global responde VALIDATION_ERROR, con `details`
+  // indexado por campo; cambiar el code afecta a todos los módulos
+  // (decisión del equipo pendiente).
 
   it.each([
-    ['fuero inexistente', '?jurisdiction=FOO'],
-    ['página menor a 1', '?page=0'],
-    ['límite mayor a 100', '?limit=101'],
-    ['parámetro desconocido', '?foo=1'],
-  ])('responde 400 ante %s', async (_case, query) => {
-    const res = await request(app.getHttpServer()).get(`${URL}${query}`);
+    ['fuero inexistente', '?jurisdiction=FOO', 'jurisdiction'],
+    ['página menor a 1', '?page=0', 'page'],
+    ['límite mayor a 100', '?limit=101', 'limit'],
+    ['parámetro desconocido', '?foo=1', 'foo'],
+  ])('responde 400 ante %s', async (_case, query, field) => {
+    const res = await get(query);
 
-    expectError(res, 400, 'VALIDATION_ERROR', ['error_0']);
+    expectError(res, 400, 'VALIDATION_ERROR', [field]);
   });
 });

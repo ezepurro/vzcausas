@@ -27,25 +27,30 @@ export async function createJurisdiction(
 export interface ProceduralStateOverrides {
   jurisdiction: JurisdictionCode;
   name: string;
-  position: number;
   timeLimitDays: number;
-  dayType: DayTypeCode | null;
+  dayType: DayTypeCode;
   terminal: boolean;
   isActive: boolean;
 }
 
-// `procedural_states.name` es única a nivel global: el contador evita choques.
+// `procedural_states.name` es única por fuero entre los vigentes: el contador evita choques.
 let sequence = 0;
 
+/**
+ * Por defecto, un estado que abre 5 días hábiles. Si se fija solo
+ * `timeLimitDays: 0`, el tipo de día pasa a `NONE`: la base exige la
+ * coherencia (`ck_procedural_states_day_type_matches_time_limit`).
+ */
 export async function createProceduralState(overrides: Partial<ProceduralStateOverrides> = {}) {
   const jurisdiction = await createJurisdiction(overrides.jurisdiction ?? 'CRIMINAL');
   sequence += 1;
+  const timeLimitDays = overrides.timeLimitDays ?? 5;
 
   return getPrisma().proceduralState.create({
     data: {
       name: overrides.name ?? `${faker.lorem.words(3)} ${sequence}`,
-      timeLimitDays: overrides.timeLimitDays ?? 5,
-      dayType: overrides.dayType ?? 'BUSINESS',
+      timeLimitDays,
+      dayType: overrides.dayType ?? (timeLimitDays === 0 ? 'NONE' : 'BUSINESS'),
       terminal: overrides.terminal ?? false,
       isActive: overrides.isActive ?? true,
       jurisdictionId: jurisdiction.jurisdictionId,
