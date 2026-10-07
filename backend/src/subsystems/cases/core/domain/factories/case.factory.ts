@@ -181,7 +181,9 @@ export class CaseFactory {
       const legalQualification = input.legalQualificationRefs.find((ref) => ref.id === item.legalQualificationId);
       // An unknown qualification is already reported by the caller.
       if (legalQualification) {
-        result.push(Offense.hydrate({ legalQualification, offenseDate: item.offenseDate, prescriptionExpiresOn: null }));
+        result.push(
+          Offense.hydrate({ legalQualification, offenseDate: item.offenseDate, prescriptionExpiresOn: null }),
+        );
       }
     }
 
