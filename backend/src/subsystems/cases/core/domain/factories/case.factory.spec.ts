@@ -92,7 +92,7 @@ describe('CaseFactory', () => {
         aNewCaseInput({
           court: 'Juzgado de Control N° 3',
           instructorName: 'Dra. Verónica Ledesma',
-          instructorPhone: '0351 448-1200',
+          tribunalPhone: '0351 448-1200',
           instructorExtension: '214',
         }),
       );
@@ -105,7 +105,7 @@ describe('CaseFactory', () => {
 
     it('quita los espacios de los textos y trata el texto en blanco como ausente', () => {
       const newCase = CaseFactory.create(
-        aNewCaseInput({ caption: '  GÓMEZ p.s.a. Robo  ', court: '   ', instructorName: '', instructorPhone: '  ' }),
+        aNewCaseInput({ caption: '  GÓMEZ p.s.a. Robo  ', court: '   ', instructorName: '', tribunalPhone: '  ' }),
       );
 
       expect(newCase.caption).toBe('GÓMEZ p.s.a. Robo');
@@ -210,7 +210,7 @@ describe('CaseFactory', () => {
             caption: 'a'.repeat(255),
             court: 'a'.repeat(255),
             instructorName: 'a'.repeat(150),
-            instructorPhone: '1'.repeat(50),
+            tribunalPhone: '1'.repeat(50),
             instructorExtension: '1'.repeat(20),
           }),
         ),
@@ -224,7 +224,7 @@ describe('CaseFactory', () => {
             caption: 'a'.repeat(256),
             court: 'a'.repeat(256),
             instructorName: 'a'.repeat(151),
-            instructorPhone: '1'.repeat(51),
+            tribunalPhone: '1'.repeat(51),
             instructorExtension: '1'.repeat(21),
           }),
         ),
@@ -234,7 +234,7 @@ describe('CaseFactory', () => {
         caption: 'Debe tener como máximo 255 caracteres.',
         court: 'Debe tener como máximo 255 caracteres.',
         instructorName: 'Debe tener como máximo 150 caracteres.',
-        instructorPhone: 'Debe tener como máximo 50 caracteres.',
+        tribunalPhone: 'Debe tener como máximo 50 caracteres.',
         instructorExtension: 'Debe tener como máximo 20 caracteres.',
       });
     });

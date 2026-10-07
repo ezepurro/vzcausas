@@ -66,7 +66,7 @@ export class RegisterCase {
         caption: command.caption,
         court: command.court,
         instructorName: command.instructorName,
-        instructorPhone: command.instructorPhone,
+        tribunalPhone: command.tribunalPhone,
         instructorExtension: command.instructorExtension,
         counterparty: command.counterparty,
         subjectMatter: command.subjectMatter,

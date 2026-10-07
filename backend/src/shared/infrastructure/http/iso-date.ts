@@ -39,3 +39,14 @@ export function toIsoWithOffset(date: Date, timeZone: string): string {
 
   return `${get("year")}-${get("month")}-${get("day")}T${get("hour")}:${get("minute")}:${get("second")}${offset}`;
 }
+
+/**
+ * Serializes a civil date (a `date` column, read as midnight UTC) as
+ * `YYYY-MM-DD`, the `format: date` of the API contract.
+ *
+ * Only for civil dates. An instant must go through {@link toIsoWithOffset},
+ * because cutting its ISO string would give the UTC day, not the study's.
+ */
+export function toIsoDate(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}

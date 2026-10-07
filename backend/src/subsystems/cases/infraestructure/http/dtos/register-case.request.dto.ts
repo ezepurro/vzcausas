@@ -40,7 +40,7 @@ export class RegisterCaseRequestDto {
 
   @IsOptional()
   @IsString()
-  instructorPhone?: string | null;
+  tribunalPhone?: string | null;
 
   @IsOptional()
   @IsString()

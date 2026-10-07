@@ -1,6 +1,7 @@
 import { JurisdictionCode } from '../../../core/domain/value-objects/jurisdiction-code';
 import { ProceduralRole } from '../../../core/domain/value-objects/procedural-role';
 
+/** Dates go out as `YYYY-MM-DD` strings, as the contract defines them. */
 export class ClientResponseDto {
   id!: number;
   lastName!: string;
@@ -8,7 +9,7 @@ export class ClientResponseDto {
   dni!: string;
   phone!: string | null;
   email!: string | null;
-  clientSince!: Date;
+  clientSince!: string;
 }
 
 export class ResponsibleLawyerResponseDto {
@@ -21,9 +22,9 @@ export class LegalQualificationResponseDto {
   id!: number;
   name!: string;
   prescriptionMonths!: number;
-  offenseDate!: Date;
-  prescriptionStartsOn!: Date;
-  prescriptionExpiresOn!: Date | null;
+  offenseDate!: string;
+  prescriptionStartsOn!: string;
+  prescriptionExpiresOn!: string | null;
 }
 
 export class CurrentStateResponseDto {
@@ -32,7 +33,7 @@ export class CurrentStateResponseDto {
   custom!: boolean;
   initial!: boolean;
   proceduralActId!: number | null;
-  dueDate!: Date | null;
+  dueDate!: string | null;
   businessDaysRemaining!: number | null;
   manuallyAdjusted!: boolean;
 }
@@ -46,14 +47,14 @@ export class CaseResponseDto {
   jurisdiction!: JurisdictionCode;
   proceduralRole!: ProceduralRole;
   instructorName!: string | null;
-  instructorPhone!: string | null;
+  tribunalPhone!: string | null;
   instructorExtension!: string | null;
   counterparty!: string | null;
   subjectMatter!: string | null;
   client!: ClientResponseDto;
   responsibleLawyer!: ResponsibleLawyerResponseDto;
   legalQualifications!: LegalQualificationResponseDto[];
-  startDate!: Date;
+  startDate!: string;
   currentState!: CurrentStateResponseDto;
   active!: boolean;
 }

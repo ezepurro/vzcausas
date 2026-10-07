@@ -18,7 +18,7 @@ export interface NewCaseInput {
   caption: string;
   court?: string | null;
   instructorName?: string | null;
-  instructorPhone?: string | null;
+  tribunalPhone?: string | null;
   instructorExtension?: string | null;
   counterparty?: string | null;
   subjectMatter?: string | null;
@@ -66,7 +66,7 @@ export class CaseFactory {
     const caption = clean(input.caption);
     const court = clean(input.court);
     const instructorName = clean(input.instructorName);
-    const instructorPhone = clean(input.instructorPhone);
+    const tribunalPhone = clean(input.tribunalPhone);
     const instructorExtension = clean(input.instructorExtension);
     const counterparty = clean(input.counterparty);
     const subjectMatter = clean(input.subjectMatter);
@@ -80,7 +80,7 @@ export class CaseFactory {
     CaseFactory.checkLength(errors, 'caption', caption, 255);
     CaseFactory.checkLength(errors, 'court', court, 255);
     CaseFactory.checkLength(errors, 'instructorName', instructorName, 150);
-    CaseFactory.checkLength(errors, 'instructorPhone', instructorPhone, 50);
+    CaseFactory.checkLength(errors, 'tribunalPhone', tribunalPhone, 50);
     CaseFactory.checkLength(errors, 'instructorExtension', instructorExtension, 20);
     CaseFactory.checkLength(errors, 'counterparty', counterparty, 255);
     CaseFactory.checkLength(errors, 'subjectMatter', subjectMatter, 800);
@@ -129,7 +129,7 @@ export class CaseFactory {
       court,
       jurisdictionId: input.initialState.jurisdictionId,
       proceduralRole: input.proceduralRole,
-      instructor: { name: instructorName, phone: instructorPhone, extension: instructorExtension },
+      instructor: { name: instructorName, phone: tribunalPhone, extension: instructorExtension },
       clientId: input.clientId,
       responsibleLawyerId: input.responsibleLawyerId,
       // `cases.start_date` cannot be empty: a case without SAC gets today's date.

@@ -19,7 +19,7 @@ export interface RegisterCaseCommand {
   caption: string;
   court?: string | null;
   instructorName?: string | null;
-  instructorPhone?: string | null;
+  tribunalPhone?: string | null;
   instructorExtension?: string | null;
   counterparty?: string | null;
   subjectMatter?: string | null;

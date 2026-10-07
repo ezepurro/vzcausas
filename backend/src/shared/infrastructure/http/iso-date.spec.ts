@@ -1,4 +1,4 @@
-import { toIsoWithOffset } from "./iso-date";
+import { toIsoDate, toIsoWithOffset } from "./iso-date";
 
 const CORDOBA = "America/Argentina/Cordoba";
 
@@ -27,5 +27,15 @@ describe("toIsoWithOffset", () => {
     expect(toIsoWithOffset(new Date("2026-09-19T11:12:00Z"), "UTC")).toBe(
       "2026-09-19T11:12:00+00:00",
     );
+  });
+});
+
+describe("toIsoDate", () => {
+  it("renders a civil date as YYYY-MM-DD", () => {
+    expect(toIsoDate(new Date("2021-03-12T00:00:00.000Z"))).toBe("2021-03-12");
+  });
+
+  it("keeps the last day of the month", () => {
+    expect(toIsoDate(new Date("2029-02-28T00:00:00.000Z"))).toBe("2029-02-28");
   });
 });

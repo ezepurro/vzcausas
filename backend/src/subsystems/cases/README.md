@@ -153,7 +153,6 @@ Dado el modal de alta de calificación legal abierto desde Registrar Causa con d
 - **CA-18.2, fecha de inicio sin SAC:** `cases.start_date` es `NOT NULL`, así que una causa sin SAC no puede quedar sin fecha de inicio: se guarda con la fecha de hoy. Para que de verdad quede vacía, la columna tiene que admitir nulos. Además, el API Contract §3.7 dice que `startDate` es opcional y vale hoy por defecto; con este criterio el frontend tiene que enviarla cuando informa el SAC y no enviarla cuando no hay SAC.
 - **Mocks:** cliente y calificación legal usan datos fijos hasta que `people` (clientes) y el catálogo de calificaciones expongan su propio adaptador.
 - **Rol procesal:** el API usa los códigos en castellano del dominio (`DEFENSA`, `QUERELLANTE_PARTICULAR`, `RECURRENTE`, `ACTORA`, `DEMANDADA`), aunque el contrato todavía dice inglés.
-- **Fechas en la respuesta:** salen como fecha y hora ISO completas (`2021-03-12T00:00:00.000Z`), no `YYYY-MM-DD`.
 - **Errores de formato:** un tipo mal formado (por ejemplo, un `clientId` que no es número) lo rechaza el `ValidationPipe` global con `error_N`, no con el mapa por campo. Las reglas de negocio de arriba sí salen por campo.
 - **Nombre de la fecha de prescripción:** en el dominio es `prescriptionExpiresOn` (nombre del contrato); en la base, `prescription_date`.
 

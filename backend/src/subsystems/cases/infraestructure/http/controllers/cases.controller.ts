@@ -1,6 +1,7 @@
 import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import { AuthenticatedUser } from '@shared/domain/authenticated-user';
 import { CurrentUser } from '@shared/infrastructure/http/current-user.decorator';
+import { toIsoDate } from '@shared/infrastructure/http/iso-date';
 import { RegisterCaseResult } from '../../../core/application/common/register-case.interfaces';
 import { RegisterCase } from '../../../core/application/use-cases/register-case.use-case';
 import { AdministrativeCase } from '../../../core/domain/entities/administrative';
@@ -39,21 +40,21 @@ export class CasesController {
       jurisdiction: newCase.jurisdictionCode,
       proceduralRole: newCase.proceduralRole,
       instructorName: newCase.instructor.name,
-      instructorPhone: newCase.instructor.phone,
+      tribunalPhone: newCase.instructor.phone,
       instructorExtension: newCase.instructor.extension,
       counterparty: hasCounterparty ? newCase.counterparty : null,
       subjectMatter: hasCounterparty ? newCase.subjectMatter : null,
-      client,
+      client: { ...client, clientSince: toIsoDate(client.clientSince) },
       responsibleLawyer,
       legalQualifications: result.offenses.map((offense) => ({
         id: offense.legalQualificationId,
         name: offense.legalQualificationName,
         prescriptionMonths: offense.prescriptionMonths,
-        offenseDate: offense.offenseDate,
-        prescriptionStartsOn: offense.prescriptionStartsOn,
-        prescriptionExpiresOn: offense.prescriptionExpiresOn,
+        offenseDate: toIsoDate(offense.offenseDate),
+        prescriptionStartsOn: toIsoDate(offense.prescriptionStartsOn),
+        prescriptionExpiresOn: offense.prescriptionExpiresOn && toIsoDate(offense.prescriptionExpiresOn),
       })),
-      startDate: newCase.startDate,
+      startDate: toIsoDate(newCase.startDate),
       // The fields that come from a procedural act stay empty: a new case has none yet.
       currentState: {
         proceduralStateId: currentState.isInitial ? null : currentState.id,

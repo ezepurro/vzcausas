@@ -21,8 +21,6 @@ const URL = '/api/v1/cases';
  *    (`stub-data.ts`): no conocen las filas que crea este spec en la base, así que
  *    el alta responde 400 VALIDATION_ERROR sobre `clientId` / `legalQualifications`.
  *    Pasan cuando esos puertos tengan su adaptador real.
- *  - La respuesta todavía usa fechas ISO completas (el contrato pide `YYYY-MM-DD`)
- *    y `instructorPhone` (el contrato pide `tribunalPhone`).
  */
 describe('POST /api/v1/cases', () => {
   let app: INestApplication;
@@ -191,6 +189,45 @@ describe('POST /api/v1/cases', () => {
     const res = await request(app.getHttpServer()).post(URL).set(actor).send(body);
 
     expectError(res, 400, 'VALIDATION_ERROR', ['clientId', 'responsibleLawyerId', 'legalQualifications']);
+    expect(await getPrisma().case.count()).toBe(0);
+    expect(await getPrisma().offense.count()).toBe(0);
+  });
+
+  // Un dato dado de baja (active = false) cuenta como inexistente (RN12, CA-18.9):
+  // 400 VALIDATION_ERROR solo sobre su campo y nada guardado.
+  it('rechaza un abogado responsable dado de baja', async () => {
+    const inactiveLawyer = await createLawyer({ active: false });
+    const body = aCaseBody({ clientId, responsibleLawyerId: inactiveLawyer.id });
+
+    const res = await request(app.getHttpServer()).post(URL).set(actor).send(body);
+
+    expectError(res, 400, 'VALIDATION_ERROR', ['responsibleLawyerId']);
+    expect(Object.keys(res.body.error.details)).toEqual(['responsibleLawyerId']);
+    expect(await getPrisma().case.count()).toBe(0);
+  });
+
+  it('rechaza un cliente dado de baja', async () => {
+    const inactiveClient = await createClient({ active: false });
+    const body = aCaseBody({ clientId: inactiveClient.id, responsibleLawyerId: lawyerId });
+
+    const res = await request(app.getHttpServer()).post(URL).set(actor).send(body);
+
+    expectError(res, 400, 'VALIDATION_ERROR', ['clientId']);
+    expect(Object.keys(res.body.error.details)).toEqual(['clientId']);
+    expect(await getPrisma().case.count()).toBe(0);
+  });
+
+  it('rechaza una calificación legal dada de baja', async () => {
+    const inactiveQualification = await createLegalQualification({ active: false });
+    const body = aCaseBody(
+      { clientId, responsibleLawyerId: lawyerId },
+      { legalQualifications: [{ legalQualificationId: inactiveQualification.id, offenseDate: '2021-02-27' }] },
+    );
+
+    const res = await request(app.getHttpServer()).post(URL).set(actor).send(body);
+
+    expectError(res, 400, 'VALIDATION_ERROR', ['legalQualifications']);
+    expect(Object.keys(res.body.error.details)).toEqual(['legalQualifications']);
     expect(await getPrisma().case.count()).toBe(0);
     expect(await getPrisma().offense.count()).toBe(0);
   });

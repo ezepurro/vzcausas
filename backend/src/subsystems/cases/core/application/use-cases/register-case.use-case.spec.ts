@@ -110,7 +110,7 @@ describe('RegisterCase', () => {
           createdByUserId: 8,
           court: 'Juzgado de Control N° 3',
           instructorName: 'Dra. Verónica Ledesma',
-          instructorPhone: '0351 448-1200',
+          tribunalPhone: '0351 448-1200',
           instructorExtension: '214',
         }),
       );
