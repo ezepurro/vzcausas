@@ -12,10 +12,24 @@ export const CLOCK = Symbol("CLOCK");
  * clock and verify time-sensitive behavior (token expiry, deadline
  * calculations) without waiting real time.
  *
- * `today()` (midnight in the study's timezone) is intentionally not
- * exposed yet; it will be added when the first `deadlines` use case
- * requires it. See D-15.
+ * `today()` was deferred under D-15 until a use case needed it.
+ * HU-8 is that use case: a client's `clientSince` is a civil date in
+ * the study's calendar, not an instant.
  */
 export interface ClockPort {
   now(): Date;
+
+  /**
+   * Today's civil date in the study's timezone, at midnight UTC.
+   *
+   * The distinction from {@link ClockPort.now} matters around the
+   * edges of the day: at 22:00 in Córdoba it is already tomorrow in
+   * UTC, so a date derived from `now()` would file the client under
+   * the wrong day. The same reason the `Client` model forbids
+   * `CURRENT_DATE`, which runs in the database server's timezone.
+   *
+   * Returned at midnight UTC so it round-trips through Postgres'
+   * `date` column unchanged, whatever the driver's timezone.
+   */
+  today(): Date;
 }

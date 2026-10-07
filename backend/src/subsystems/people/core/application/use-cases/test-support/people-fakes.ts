@@ -1,3 +1,7 @@
+import { ClockPort } from "@shared/domain/clock.port";
+import { Client } from "../../../domain/entities/client.entity";
+import { ClientRepository } from "../../../domain/ports/client.repository";
+import { Dni } from "../../../domain/value-objects/dni.vo";
 import { Lawyer } from "../../../domain/entities/lawyer.entity";
 import {
   LawyerPage,
@@ -66,5 +70,55 @@ export class FakeLawyerRepository implements LawyerRepository {
       items: matches.slice(offset, offset + criteria.limit),
       totalItems: matches.length,
     };
+  }
+}
+
+/**
+ * In-memory {@link ClientRepository} for `people`'s use-case specs.
+ *
+ * `existsActiveByDni` filters by `isActive()` on purpose, mirroring
+ * the partial unique index rather than a plain one: a spec that
+ * passed against a stricter fake would hide the behaviour CA-8.4
+ * actually asks for.
+ */
+export class FakeClientRepository implements ClientRepository {
+  private nextIdValue = 1;
+  readonly byId = new Map<number, Client>();
+
+  async nextId(): Promise<number> {
+    return this.nextIdValue++;
+  }
+
+  async existsActiveByDni(dni: Dni): Promise<boolean> {
+    return [...this.byId.values()].some(
+      (client) => client.isActive() && client.dni.equals(dni),
+    );
+  }
+
+  async create(client: Client): Promise<void> {
+    this.byId.set(client.id, client);
+  }
+}
+
+/**
+ * Clock frozen at a fixed civil date, so specs can assert the exact
+ * `clientSince` the use case writes instead of comparing against a
+ * moving `new Date()`.
+ */
+export class FakeClock implements ClockPort {
+  constructor(private readonly fixed = new Date("2026-10-07T12:00:00Z")) {}
+
+  now(): Date {
+    return this.fixed;
+  }
+
+  today(): Date {
+    return new Date(
+      Date.UTC(
+        this.fixed.getUTCFullYear(),
+        this.fixed.getUTCMonth(),
+        this.fixed.getUTCDate(),
+      ),
+    );
   }
 }

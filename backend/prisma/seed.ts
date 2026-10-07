@@ -51,18 +51,38 @@ const PERMISSIONS = [
   { name: 'lawyer:read', description: 'Consultar abogados.' },
   { name: 'lawyer:update', description: 'Modificar abogados.' },
   { name: 'lawyer:delete', description: 'Dar de baja abogados.' },
+  { name: 'client:create', description: 'Registrar clientes.' },
+  { name: 'client:read', description: 'Consultar clientes.' },
 ] as const;
 
 /**
- * Every administrative operation requires the `ADMINISTRATOR` role per
- * the contract (§3.2 and §3.3), so today it holds all the permissions.
- * `LAWYER` and `SECRETARY` carry no administrative permissions until
- * the cases and documents subsystems exist.
+ * Permissions reserved for `SECRETARY`, and **withheld from
+ * `ADMINISTRATOR`**.
+ *
+ * CA-8.9 is explicit: an Administrator or a Lawyer attempting to
+ * register a client must be denied, because administering clients
+ * belongs to the Secretary alone (contract §3.6, decision D-05).
+ * Without this exclusion the rule below would hand Administrator
+ * every permission in the catalogue and the criterion would fail
+ * silently — the endpoint would answer 201 to the wrong role.
+ */
+const SECRETARY_ONLY = ['client:create', 'client:read'];
+
+/**
+ * Administrative operations on users and lawyers require the
+ * `ADMINISTRATOR` role per the contract (§3.2 and §3.3), so it holds
+ * all of those. Clients are the exception: they belong to
+ * `SECRETARY`.
+ *
+ * `LAWYER` carries no administrative permissions until the cases and
+ * documents subsystems exist.
  */
 const ROLE_PERMISSIONS: Record<string, readonly string[]> = {
-  ADMINISTRATOR: PERMISSIONS.map((p) => p.name),
+  ADMINISTRATOR: PERMISSIONS.map((p) => p.name).filter(
+    (name) => !SECRETARY_ONLY.includes(name),
+  ),
   LAWYER: [],
-  SECRETARY: [],
+  SECRETARY: SECRETARY_ONLY,
 };
 
 const connectionString = process.env.DATABASE_URL;

@@ -58,3 +58,26 @@ export class InvalidLawyerIdError extends ValidationError {
     );
   }
 }
+
+/**
+ * Emitted by `RegisterClient` (HU-8) when the DNI already belongs to
+ * a **current** client (CA-8.4).
+ *
+ * Scoped to current clients on purpose: the database's unique index
+ * is partial (`clients_dni_active_key ... WHERE active`), so a client
+ * who was logically deleted frees their document. The same person can
+ * be registered again once HU-11 exists, which a plain unique index
+ * would make impossible.
+ *
+ * `details.field` lets the frontend mark the document input rather
+ * than showing a form-level message.
+ */
+export class ClientDniAlreadyExistsError extends ConflictError {
+  constructor() {
+    super(
+      "CLIENT_DNI_ALREADY_EXISTS",
+      "Ya existe un cliente registrado con ese DNI.",
+      { field: "dni" },
+    );
+  }
+}

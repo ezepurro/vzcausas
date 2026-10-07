@@ -151,6 +151,13 @@ class FakeClock implements ClockPort {
   set(d: Date): void {
     this.current = d;
   }
+  /** Las sesiones no miran la fecha civil; existe para cumplir el puerto. */
+  today(): Date {
+    const d = this.current;
+    return new Date(
+      Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()),
+    );
+  }
 }
 
 async function makeUser(
