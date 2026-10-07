@@ -2,18 +2,14 @@ import { Module } from '@nestjs/common';
 import { SharedModule } from '@shared/shared.module';
 import { LegalParametersModule } from '@subsystems/legal-parameters/legal-parameters.module';
 import { PeopleModule } from '@subsystems/people/people.module';
-import { ListCasesUseCase } from './core/application/use-cases/list-cases.use-case';
 import { RegisterCase } from './core/application/use-cases/register-case.use-case';
-import { CASE_QUERY } from './core/domain/ports/case-query.port';
 import { CASE_REPOSITORY } from './core/domain/ports/case.repository';
 import { CLIENT_LOOKUP } from './core/domain/ports/client-lookup.port';
 import { LEGAL_QUALIFICATION_LOOKUP } from './core/domain/ports/legal-qualification-lookup.port';
-import { StubClientLookupAdapter } from './infraestructure/acl/stub-client-lookup.adapter';
-import { StubLegalQualificationLookupAdapter } from './infraestructure/acl/stub-legal-qualification-lookup.adapter';
-import { CasesController } from './infraestructure/http/controllers/cases.controller';
-import { CasePrismaRepository } from './infraestructure/persistence/case-prisma.repository';
-import { CaseController } from './infrastructure/http/controllers/case.controller';
-import { PrismaCaseQueryAdapter } from './infrastructure/persistence/prisma/prisma-case-query.adapter';
+import { StubClientLookupAdapter } from './infrastructure/acl/stub-client-lookup.adapter';
+import { StubLegalQualificationLookupAdapter } from './infrastructure/acl/stub-legal-qualification-lookup.adapter';
+import { CasesController } from './infrastructure/http/controllers/cases.controller';
+import { CasePrismaRepository } from './infrastructure/persistence/case-prisma.repository';
 
 /**
  * Composition root of `cases`.
@@ -37,12 +33,10 @@ import { PrismaCaseQueryAdapter } from './infrastructure/persistence/prisma/pris
  */
 @Module({
   imports: [PeopleModule, LegalParametersModule, SharedModule],
-  controllers: [CasesController, CaseController],
+  controllers: [CasesController],
   providers: [
     RegisterCase,
-    ListCasesUseCase,
     { provide: CASE_REPOSITORY, useClass: CasePrismaRepository },
-    { provide: CASE_QUERY, useClass: PrismaCaseQueryAdapter },
     { provide: CLIENT_LOOKUP, useClass: StubClientLookupAdapter },
     { provide: LEGAL_QUALIFICATION_LOOKUP, useClass: StubLegalQualificationLookupAdapter },
   ],
