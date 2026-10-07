@@ -1,23 +1,16 @@
-import { ClockPort } from "@shared/domain/clock.port";
-import { Role } from "../../domain/entities/role.entity";
-import { User } from "../../domain/entities/user.entity";
-import { SessionExpiredError } from "../../domain/errors/identity.errors";
-import { PasswordHasher } from "../../domain/ports/password-hasher.port";
-import {
-  RefreshTokenStore,
-  StoredRefresh,
-} from "../../domain/ports/refresh-token-store.port";
-import { RoleRepository } from "../../domain/ports/role.repository";
-import {
-  AccessTokenClaims,
-  IssuedAccessToken,
-  TokenIssuer,
-} from "../../domain/ports/token-issuer.port";
-import { UserRepository } from "../../domain/ports/user.repository";
-import { Email } from "../../domain/value-objects/email.vo";
-import { Permission } from "../../domain/value-objects/permission.vo";
-import { Username } from "../../domain/value-objects/username.vo";
-import { RefreshSessionUseCase } from "./refresh-session.use-case";
+import { ClockPort } from '@shared/domain/clock.port';
+import { Role } from '../../domain/entities/role.entity';
+import { User } from '../../domain/entities/user.entity';
+import { SessionExpiredError } from '../../domain/errors/identity.errors';
+import { PasswordHasher } from '../../domain/ports/password-hasher.port';
+import { RefreshTokenStore, StoredRefresh } from '../../domain/ports/refresh-token-store.port';
+import { RoleRepository } from '../../domain/ports/role.repository';
+import { AccessTokenClaims, IssuedAccessToken, TokenIssuer } from '../../domain/ports/token-issuer.port';
+import { UserRepository } from '../../domain/ports/user.repository';
+import { Email } from '../../domain/value-objects/email.vo';
+import { Permission } from '../../domain/value-objects/permission.vo';
+import { Username } from '../../domain/value-objects/username.vo';
+import { RefreshSessionUseCase } from './refresh-session.use-case';
 
 class FakeUserRepository implements UserRepository {
   private byUsername = new Map<string, User>();
@@ -43,25 +36,25 @@ class FakeUserRepository implements UserRepository {
   // pretend to work: a spec that starts needing one should implement
   // it deliberately instead of inheriting a silent stub.
   async nextId(): Promise<number> {
-    throw new Error("not used in these specs");
+    throw new Error('not used in these specs');
   }
   async existsByUsername(): Promise<boolean> {
-    throw new Error("not used in these specs");
+    throw new Error('not used in these specs');
   }
   async existsByEmail(): Promise<boolean> {
-    throw new Error("not used in these specs");
+    throw new Error('not used in these specs');
   }
   async create(): Promise<void> {
-    throw new Error("not used in these specs");
+    throw new Error('not used in these specs');
   }
   async countActiveByRoleName(): Promise<number> {
-    throw new Error("not used in these specs");
+    throw new Error('not used in these specs');
   }
   async search(): Promise<never> {
-    throw new Error("not used in these specs");
+    throw new Error('not used in these specs');
   }
   async existsActiveByLawyerId(): Promise<boolean> {
-    throw new Error("not used in these specs");
+    throw new Error('not used in these specs');
   }
 }
 
@@ -91,7 +84,7 @@ class FakeTokenIssuer implements TokenIssuer {
     return { token: `access-for-${claims.sub}`, expiresIn: 900 };
   }
   async verify(): Promise<AccessTokenClaims> {
-    throw new Error("not used in this test");
+    throw new Error('not used in this test');
   }
 }
 
@@ -110,16 +103,13 @@ class FakeRefreshStore implements RefreshTokenStore {
     this.records.push(record);
   }
 
-  async issue(params: {
-    userId: number;
-    familyId: string | null;
-  }): Promise<StoredRefresh> {
+  async issue(params: { userId: number; familyId: string | null }): Promise<StoredRefresh> {
     this.counter += 1;
     const record: StoredRefresh = {
       token: `refresh-new-${this.counter}`,
       userId: params.userId,
       familyId: params.familyId ?? `fam-${this.counter}`,
-      expiresAt: new Date("2026-09-29T10:00:00Z"),
+      expiresAt: new Date('2026-09-29T10:00:00Z'),
       revokedAt: null,
     };
     this.records.push(record);
@@ -133,7 +123,7 @@ class FakeRefreshStore implements RefreshTokenStore {
   async revoke(token: string): Promise<void> {
     const r = this.records.find((r) => r.token === token);
     if (r && r.revokedAt === null) {
-      r.revokedAt = new Date("2026-09-22T10:00:00Z");
+      r.revokedAt = new Date('2026-09-22T10:00:00Z');
     }
   }
 
@@ -141,7 +131,7 @@ class FakeRefreshStore implements RefreshTokenStore {
     this.revokeFamilyCalls.push(familyId);
     for (const r of this.records) {
       if (r.familyId === familyId && r.revokedAt === null) {
-        r.revokedAt = new Date("2026-09-22T10:00:00Z");
+        r.revokedAt = new Date('2026-09-22T10:00:00Z');
       }
     }
   }
@@ -155,17 +145,10 @@ class FakeClock implements ClockPort {
     return this.current;
   }
   today(): Date {
-    return new Date(this.current.toISOString().slice(0, 10) + "T00:00:00.000Z");
+    return new Date(this.current.toISOString().slice(0, 10) + 'T00:00:00.000Z');
   }
   set(d: Date): void {
     this.current = d;
-  }
-  /** Las sesiones no miran la fecha civil; existe para cumplir el puerto. */
-  today(): Date {
-    const d = this.current;
-    return new Date(
-      Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()),
-    );
   }
 }
 
@@ -181,10 +164,10 @@ async function makeUser(
   return User.create(
     {
       id: overrides.id ?? 1,
-      username: Username.create(overrides.username ?? "fvazquez"),
-      plainPassword: "password-123",
-      fullName: "Fernando Vázquez",
-      email: Email.create("fvazquez@vazquezzarate.com"),
+      username: Username.create(overrides.username ?? 'fvazquez'),
+      plainPassword: 'password-123',
+      fullName: 'Fernando Vázquez',
+      email: Email.create('fvazquez@vazquezzarate.com'),
       roleIds: overrides.roleIds ?? [1],
       lawyerId: overrides.lawyerId ?? null,
       active: overrides.active,
@@ -193,25 +176,19 @@ async function makeUser(
   );
 }
 
-describe("RefreshSessionUseCase", () => {
+describe('RefreshSessionUseCase', () => {
   const roleAdmin = Role.hydrate({
     id: 1,
-    name: "ADMINISTRATOR",
-    permissions: [
-      Permission.create("user:manage"),
-      Permission.create("case:read"),
-    ],
+    name: 'ADMINISTRATOR',
+    permissions: [Permission.create('user:manage'), Permission.create('case:read')],
   });
   const roleLawyer = Role.hydrate({
     id: 2,
-    name: "LAWYER",
-    permissions: [
-      Permission.create("case:read"),
-      Permission.create("case:change-status"),
-    ],
+    name: 'LAWYER',
+    permissions: [Permission.create('case:read'), Permission.create('case:change-status')],
   });
 
-  const now = new Date("2026-09-22T10:00:00Z");
+  const now = new Date('2026-09-22T10:00:00Z');
 
   const build = (roles: Role[] = [roleAdmin]) => {
     const users = new FakeUserRepository();
@@ -219,152 +196,123 @@ describe("RefreshSessionUseCase", () => {
     const tokenIssuer = new FakeTokenIssuer();
     const refreshStore = new FakeRefreshStore();
     const clock = new FakeClock(now);
-    const useCase = new RefreshSessionUseCase(
-      refreshStore,
-      users,
-      rolesRepo,
-      tokenIssuer,
-      clock,
-    );
+    const useCase = new RefreshSessionUseCase(refreshStore, users, rolesRepo, tokenIssuer, clock);
     return { users, rolesRepo, tokenIssuer, refreshStore, clock, useCase };
   };
 
-  const seedLiveRefresh = (
-    refreshStore: FakeRefreshStore,
-    overrides: Partial<StoredRefresh> = {},
-  ): StoredRefresh => {
+  const seedLiveRefresh = (refreshStore: FakeRefreshStore, overrides: Partial<StoredRefresh> = {}): StoredRefresh => {
     const record: StoredRefresh = {
-      token: overrides.token ?? "refresh-old",
+      token: overrides.token ?? 'refresh-old',
       userId: overrides.userId ?? 1,
-      familyId: overrides.familyId ?? "fam-1",
-      expiresAt: overrides.expiresAt ?? new Date("2026-09-28T10:00:00Z"),
+      familyId: overrides.familyId ?? 'fam-1',
+      expiresAt: overrides.expiresAt ?? new Date('2026-09-28T10:00:00Z'),
       revokedAt: overrides.revokedAt === undefined ? null : overrides.revokedAt,
     };
     refreshStore.seed(record);
     return record;
   };
 
-  it("rotates the refresh, issues a new access, keeps the family, does not touch lastLoginAt", async () => {
+  it('rotates the refresh, issues a new access, keeps the family, does not touch lastLoginAt', async () => {
     const { users, useCase, refreshStore, tokenIssuer } = build();
     const user = await makeUser({ roleIds: [1] });
     users.seed(user);
     const lastLoginBefore = user.lastLoginAt;
     seedLiveRefresh(refreshStore);
 
-    const result = await useCase.execute({ refreshToken: "refresh-old" });
+    const result = await useCase.execute({ refreshToken: 'refresh-old' });
 
-    expect(result.accessToken).toBe("access-for-1");
+    expect(result.accessToken).toBe('access-for-1');
     expect(result.expiresIn).toBe(900);
-    expect(result.refreshToken).not.toBe("refresh-old");
+    expect(result.refreshToken).not.toBe('refresh-old');
     expect(result.user).toEqual({
       id: 1,
-      username: "fvazquez",
-      roleNames: ["ADMINISTRATOR"],
+      username: 'fvazquez',
+      roleNames: ['ADMINISTRATOR'],
       lawyerId: null,
-      permissions: ["user:manage", "case:read"],
+      permissions: ['user:manage', 'case:read'],
     });
 
     // Family preserved on rotation.
-    const newRecord = refreshStore.records.find(
-      (r) => r.token === result.refreshToken,
-    );
-    expect(newRecord?.familyId).toBe("fam-1");
+    const newRecord = refreshStore.records.find((r) => r.token === result.refreshToken);
+    expect(newRecord?.familyId).toBe('fam-1');
 
     // Old record ended up revoked.
-    const oldRecord = refreshStore.records.find(
-      (r) => r.token === "refresh-old",
-    );
+    const oldRecord = refreshStore.records.find((r) => r.token === 'refresh-old');
     expect(oldRecord?.revokedAt).not.toBeNull();
 
     // Access claims are correct.
     expect(tokenIssuer.issued[0]).toEqual({
       sub: 1,
-      roles: ["ADMINISTRATOR"],
+      roles: ['ADMINISTRATOR'],
       lawyerId: null,
-      permissions: ["user:manage", "case:read"],
+      permissions: ['user:manage', 'case:read'],
     });
 
     // lastLoginAt untouched (D-26).
     expect(user.lastLoginAt).toBe(lastLoginBefore);
   });
 
-  it("unions and dedups permissions across multiple roles", async () => {
+  it('unions and dedups permissions across multiple roles', async () => {
     const { users, useCase, refreshStore } = build([roleAdmin, roleLawyer]);
     users.seed(await makeUser({ roleIds: [1, 2], lawyerId: 10 }));
     seedLiveRefresh(refreshStore);
 
-    const result = await useCase.execute({ refreshToken: "refresh-old" });
+    const result = await useCase.execute({ refreshToken: 'refresh-old' });
 
-    expect(result.user.roleNames).toEqual(["ADMINISTRATOR", "LAWYER"]);
-    expect(result.user.permissions).toEqual([
-      "user:manage",
-      "case:read",
-      "case:change-status",
-    ]);
+    expect(result.user.roleNames).toEqual(['ADMINISTRATOR', 'LAWYER']);
+    expect(result.user.permissions).toEqual(['user:manage', 'case:read', 'case:change-status']);
     expect(result.user.lawyerId).toBe(10);
   });
 
-  it("throws SessionExpiredError when the token is unknown", async () => {
+  it('throws SessionExpiredError when the token is unknown', async () => {
     const { useCase } = build();
 
-    await expect(
-      useCase.execute({ refreshToken: "does-not-exist" }),
-    ).rejects.toBeInstanceOf(SessionExpiredError);
+    await expect(useCase.execute({ refreshToken: 'does-not-exist' })).rejects.toBeInstanceOf(SessionExpiredError);
   });
 
-  it("throws SessionExpiredError and revokes the whole family on reuse", async () => {
+  it('throws SessionExpiredError and revokes the whole family on reuse', async () => {
     const { useCase, refreshStore, users } = build();
     users.seed(await makeUser());
     seedLiveRefresh(refreshStore, {
-      revokedAt: new Date("2026-09-21T10:00:00Z"),
+      revokedAt: new Date('2026-09-21T10:00:00Z'),
     });
 
-    await expect(
-      useCase.execute({ refreshToken: "refresh-old" }),
-    ).rejects.toBeInstanceOf(SessionExpiredError);
-    expect(refreshStore.revokeFamilyCalls).toEqual(["fam-1"]);
+    await expect(useCase.execute({ refreshToken: 'refresh-old' })).rejects.toBeInstanceOf(SessionExpiredError);
+    expect(refreshStore.revokeFamilyCalls).toEqual(['fam-1']);
   });
 
-  it("throws SessionExpiredError on natural expiration without touching the family", async () => {
+  it('throws SessionExpiredError on natural expiration without touching the family', async () => {
     const { useCase, refreshStore, users } = build();
     users.seed(await makeUser());
     seedLiveRefresh(refreshStore, {
-      expiresAt: new Date("2026-09-22T09:59:59Z"),
+      expiresAt: new Date('2026-09-22T09:59:59Z'),
     });
 
-    await expect(
-      useCase.execute({ refreshToken: "refresh-old" }),
-    ).rejects.toBeInstanceOf(SessionExpiredError);
+    await expect(useCase.execute({ refreshToken: 'refresh-old' })).rejects.toBeInstanceOf(SessionExpiredError);
     expect(refreshStore.revokeFamilyCalls).toEqual([]);
   });
 
-  it("throws SessionExpiredError when the user was deleted after the login", async () => {
+  it('throws SessionExpiredError when the user was deleted after the login', async () => {
     const { useCase, refreshStore } = build();
     // No user seeded.
     seedLiveRefresh(refreshStore);
 
-    await expect(
-      useCase.execute({ refreshToken: "refresh-old" }),
-    ).rejects.toBeInstanceOf(SessionExpiredError);
+    await expect(useCase.execute({ refreshToken: 'refresh-old' })).rejects.toBeInstanceOf(SessionExpiredError);
   });
 
-  it("throws SessionExpiredError when the user is inactive", async () => {
+  it('throws SessionExpiredError when the user is inactive', async () => {
     const { useCase, refreshStore, users } = build();
     users.seed(await makeUser({ active: false }));
     seedLiveRefresh(refreshStore);
 
-    await expect(
-      useCase.execute({ refreshToken: "refresh-old" }),
-    ).rejects.toBeInstanceOf(SessionExpiredError);
+    await expect(useCase.execute({ refreshToken: 'refresh-old' })).rejects.toBeInstanceOf(SessionExpiredError);
   });
 
-  it("fails hard (non-401) when a role id does not resolve", async () => {
+  it('fails hard (non-401) when a role id does not resolve', async () => {
     const { useCase, refreshStore, users } = build([roleAdmin]);
     users.seed(await makeUser({ roleIds: [1, 999] }));
     seedLiveRefresh(refreshStore);
 
-    await expect(
-      useCase.execute({ refreshToken: "refresh-old" }),
-    ).rejects.not.toBeInstanceOf(SessionExpiredError);
+    await expect(useCase.execute({ refreshToken: 'refresh-old' })).rejects.not.toBeInstanceOf(SessionExpiredError);
   });
 });
