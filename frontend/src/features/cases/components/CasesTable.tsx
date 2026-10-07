@@ -5,6 +5,7 @@ import { JURISDICTION_LABELS } from '@/features/legal-params'
 import type { Case } from '@/features/cases/types/case'
 import { caseStateLabel } from '@/features/cases/utils/caseState'
 import { deadlineStatus } from '@/features/cases/utils/deadlineStatus'
+import { sacLabel } from '@/features/cases/utils/sac'
 
 export interface CasesTableProps {
     rows: Case[]
@@ -18,13 +19,14 @@ export interface CasesTableProps {
  * El orden por urgencia —plazos abiertos primero, vencidos arriba— lo resuelve
  * el backend (V3 D-25).
  *
- * Las columnas son las del prototipo. Una causa que todavía no tiene actos
- * procesales viene sin estado (`currentState` en `null`, V3 D-09): la columna
- * muestra "Sin acto procesal", y el vencimiento, "Sin plazo abierto".
+ * Las columnas son las del prototipo. Una causa recién registrada está en el
+ * estado inicial, "Iniciada", y sin vencimiento (V3 D-34): la columna del plazo
+ * muestra "Sin plazo abierto". Una causa sin SAC se muestra como "Sin SAC"
+ * (D-33).
  */
 export function CasesTable({ rows, onOpen, empty }: CasesTableProps) {
     const columns: Column<Case>[] = [
-        { id: 'sac', header: 'N° SAC', cell: (c) => c.sacNumber, mono: true, nowrap: true },
+        { id: 'sac', header: 'N° SAC', cell: (c) => sacLabel(c.sacNumber), mono: true, nowrap: true },
         {
             id: 'caption',
             header: 'Carátula',
@@ -58,13 +60,13 @@ export function CasesTable({ rows, onOpen, empty }: CasesTableProps) {
             id: 'deadline',
             header: 'Próximo vencimiento',
             cell: (c) => {
-                const status = deadlineStatus(c.nextDeadline)
+                const status = deadlineStatus(c.currentState)
                 return (
                     <>
                         <Pill tone={status.tone} dot={status.dot}>{status.label}</Pill>
-                        {c.nextDeadline && (
+                        {c.currentState.dueDate && (
                             <div className="vz-table__secondary vz-mono">
-                                {formatDate(c.nextDeadline.dueDate)}
+                                {formatDate(c.currentState.dueDate)}
                             </div>
                         )}
                     </>

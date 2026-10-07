@@ -1420,7 +1420,7 @@ const RE_SAC = /^\d{8}$/;
 const CAPTION_MAX = 255;
 const COURT_MAX = 255;
 const INSTRUCTOR_NAME_MAX = 150;
-const INSTRUCTOR_PHONE_MAX = 50;
+const TRIBUNAL_PHONE_MAX = 50;
 const INSTRUCTOR_EXTENSION_MAX = 20;
 const COUNTERPARTY_MAX = 255;
 const SUBJECT_MATTER_MAX = 800;
@@ -1508,9 +1508,9 @@ const createCase: Handler = ({ request }) => {
     if (instructorName !== null && instructorName.length > INSTRUCTOR_NAME_MAX) {
         details.instructorName = `Puede tener hasta ${INSTRUCTOR_NAME_MAX} caracteres.`;
     }
-    const instructorPhone = optionalText(body.instructorPhone);
-    if (instructorPhone !== null && instructorPhone.length > INSTRUCTOR_PHONE_MAX) {
-        details.instructorPhone = `Puede tener hasta ${INSTRUCTOR_PHONE_MAX} caracteres.`;
+    const tribunalPhone = optionalText(body.tribunalPhone);
+    if (tribunalPhone !== null && tribunalPhone.length > TRIBUNAL_PHONE_MAX) {
+        details.tribunalPhone = `Puede tener hasta ${TRIBUNAL_PHONE_MAX} caracteres.`;
     }
     const instructorExtension = optionalText(body.instructorExtension);
     if (instructorExtension !== null && instructorExtension.length > INSTRUCTOR_EXTENSION_MAX) {
@@ -1593,7 +1593,7 @@ const createCase: Handler = ({ request }) => {
         jurisdiction: body.jurisdiction as Jurisdiction,
         proceduralRole: body.proceduralRole as ProceduralRole,
         instructorName,
-        instructorPhone,
+        tribunalPhone,
         instructorExtension,
         counterparty,
         subjectMatter,

@@ -230,7 +230,7 @@ describe('mock · /cases', () => {
         it('el teléfono y el interno del instructor vienen separados (D-33)', () => {
             const c = dataOf<Case>(call('GET', '/cases/1', { as: 'gestion' }))
 
-            expect(c).toMatchObject({ instructorPhone: '0351 448-1200', instructorExtension: '214' })
+            expect(c).toMatchObject({ tribunalPhone: '0351 448-1200', instructorExtension: '214' })
         })
 
         it('una causa sin actos está en el estado inicial, "Iniciada", y sin vencimiento', () => {
@@ -405,9 +405,9 @@ describe('mock · /cases', () => {
         it('guarda el interno del instructor aparte del teléfono, hasta 20 caracteres (D-33)', () => {
             const response = call('POST', '/cases', {
                 as: 'gestion',
-                body: { ...CRIMINAL_BODY, instructorName: 'Dr. Pablo Carranza', instructorPhone: '0351 448-1200', instructorExtension: '261' },
+                body: { ...CRIMINAL_BODY, instructorName: 'Dr. Pablo Carranza', tribunalPhone: '0351 448-1200', instructorExtension: '261' },
             })
-            expect(dataOf<Case>(response)).toMatchObject({ instructorPhone: '0351 448-1200', instructorExtension: '261' })
+            expect(dataOf<Case>(response)).toMatchObject({ tribunalPhone: '0351 448-1200', instructorExtension: '261' })
 
             const long = call('POST', '/cases', {
                 as: 'gestion',

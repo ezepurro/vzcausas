@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router'
 import {
     AppShell,
+    Button,
+    Icon,
     IconButton,
     Logo,
     RailUser,
@@ -58,6 +60,9 @@ const GROUPS: RailGroup[] = [
     },
 ]
 
+/** La sección de la que cuelga el alta: de ella hereda el permiso. */
+const CASES = '/causas'
+
 export function AppLayout() {
     const navigate = useNavigate()
     const { pathname } = useLocation()
@@ -91,6 +96,24 @@ export function AppLayout() {
             active={active}
             onNavigate={(route) => navigate(route)}
             brand={<Logo />}
+            railAction={
+                /* "Nueva causa" bajo el logo, como el prototipo: registrar una
+                   causa la puede hacer cualquier perfil (RN11), así que el
+                   botón sigue el mismo permiso que la sección de la que
+                   cuelga. Con el rail colapsado queda sólo el ícono, y el
+                   nombre lo da el `title`. */
+                canAccess(user.roles, CASES) && (
+                    <Button
+                        block
+                        size="md"
+                        icon={<Icon name="plus" />}
+                        title="Nueva causa"
+                        onClick={() => navigate(`${CASES}/nueva`)}
+                    >
+                        <span className="vz-rail__action-label">Nueva causa</span>
+                    </Button>
+                )
+            }
             topBar={
                 <>
                     <SearchInput placeholder="Buscar por carátula, SAC o cliente" aria-label="Buscar" />

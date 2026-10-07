@@ -65,9 +65,22 @@ describe('prescripción de una causa', () => {
     })
 
     describe('estimatedExpiry', () => {
+        /* CA-18.6: la fecha del hecho más los meses de prescripción de esa
+           calificación. */
         it('el vencimiento estimado corre desde la fecha del hecho', () => {
             expect(estimatedExpiry('2021-02-27', 96)).toBe('2029-02-27')
             expect(estimatedExpiry('2025-11-14', 78)).toBe('2032-05-14')
+            expect(estimatedExpiry('2026-09-02', 24)).toBe('2028-09-02')
+        })
+
+        /* CA-18.6: la fecha de inicio de la causa no interviene. La función no
+           la recibe: se computa con la fecha del hecho y los meses, nada más. */
+        it('sólo depende de la fecha del hecho y de los meses de la calificación', () => {
+            expect(estimatedExpiry).toHaveLength(2)
+            // Dos calificaciones de la misma causa, con hechos de fechas
+            // distintas, vencen en fechas distintas.
+            expect(estimatedExpiry('2026-08-30', 72)).toBe('2032-08-30')
+            expect(estimatedExpiry('2026-09-02', 24)).toBe('2028-09-02')
         })
 
         it('sin fecha del hecho todavía no hay vencimiento', () => {

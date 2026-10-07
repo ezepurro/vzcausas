@@ -15,6 +15,20 @@ describe('can', () => {
         expect(can(['LAWYER'], 'clients.create')).toBe(false)
     })
 
+    /* Registrar una calificación legal es sólo del Administrador (V3 D-04). Se
+       opera desde la pantalla de calificaciones y desde el alta de causa. */
+    it('registrar una calificación legal es sólo del Administrador', () => {
+        expect(can(['ADMINISTRATOR'], 'legalQualifications.create')).toBe(true)
+        expect(can(['SECRETARY'], 'legalQualifications.create')).toBe(false)
+        expect(can(['LAWYER'], 'legalQualifications.create')).toBe(false)
+    })
+
+    /* Registrar una causa la hace cualquier perfil (RN11, V3 §3.7): no es un
+       permiso por rol, así que no está declarada acá. */
+    it('registrar una causa no es una acción de un solo perfil', () => {
+        expect(Object.keys(ACTION_ACCESS)).not.toContain('cases.create')
+    })
+
     it('con varios roles alcanza con que uno habilite la acción', () => {
         expect(can(['SECRETARY', 'LAWYER'], 'clients.create')).toBe(true)
         // Lo habitual en el estudio, administrador y abogado a la vez, no alcanza.

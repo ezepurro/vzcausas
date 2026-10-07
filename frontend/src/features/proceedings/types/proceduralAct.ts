@@ -14,7 +14,7 @@
  * consultar, modificar y anular actos son de sprints posteriores.
  */
 
-import type { CaseState } from '@/features/cases'
+import type { ResultingState } from '@/features/cases'
 import type { DayType } from '@/features/legal-params'
 
 /** El plazo que abre el acto. Los valores de la tabla se copian al registrarlo. */
@@ -31,11 +31,12 @@ export interface ActDeadline {
 }
 
 /**
- * El estado al que pasó la causa con el acto. Es sólo una parte del
- * `currentState` de la causa: no trae el vencimiento, que va en `deadline`, y
- * nunca es el estado inicial "Iniciada" (V3 §3.8).
+ * El estado al que pasó la causa con el acto. Lo define `cases`, que es el
+ * dueño del recurso: es sólo una parte del `currentState` de la causa —no trae
+ * el vencimiento, que va en `deadline`— y nunca es el estado inicial
+ * "Iniciada" (V3 §3.8). Se reexporta porque es parte de la forma de un acto.
  */
-export type ResultingState = Pick<CaseState, 'proceduralStateId' | 'name' | 'custom'>
+export type { ResultingState }
 
 /** El recurso tal como viene adentro de `data`. */
 export interface ProceduralAct {

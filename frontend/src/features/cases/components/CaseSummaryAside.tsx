@@ -1,6 +1,6 @@
 import { Button, DetailList, Panel, type DetailItem } from '@/shared/components/ui'
 import { formatDate } from '@/shared/lib/dates'
-import { NO_PROCEDURAL_ACT_LABEL } from '@/features/cases/utils/caseState'
+import { INITIAL_STATE_LABEL } from '@/features/cases/utils/caseState'
 
 /** Una calificación elegida, con su vencimiento estimado. */
 export interface SummaryPrescription {
@@ -60,7 +60,7 @@ export function CaseSummaryAside({
         label: 'Estado inicial',
         value: (
             <>
-                {NO_PROCEDURAL_ACT_LABEL}
+                {INITIAL_STATE_LABEL}
                 <span className="vz-details__note">El estado lo fija el primer acto procesal</span>
             </>
         ),

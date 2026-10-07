@@ -8,7 +8,9 @@ import type { ComboboxOption } from '@/shared/components/forms'
 import { formatDate, todayIsoDate } from '@/shared/lib/dates'
 import {
     CaseHeader,
+    isResponsibleLawyer,
     nearestQualification,
+    NO_SAC_LABEL,
     PrescriptionBar,
     useCase,
     type Case,
@@ -28,7 +30,6 @@ import {
 } from '@/features/proceedings/schemas/proceduralAct.schema'
 import type { ProceduralActFormValues } from '@/features/proceedings/types/proceduralAct'
 import { previewRequest } from '@/features/proceedings/utils/deadlinePreview'
-import { isResponsibleLawyer } from '@/features/proceedings/utils/responsibleLawyer'
 import { opensTerm, resolveSelectedState } from '@/features/proceedings/utils/resolveState'
 import { filterStateOptions, stateOptions } from '@/features/proceedings/utils/stateOptions'
 import { isInTerminalState } from '@/features/proceedings/utils/terminalState'
@@ -37,9 +38,6 @@ import { toFormErrors } from '@/features/proceedings/utils/toFormErrors'
 
 /** Todos los estados del fuero en una sola página, como pide el contrato (V3 §3.4). */
 const STATES_LIMIT = 100
-
-/** Las migas cuando la causa no tiene SAC, que es opcional (V3 D-33). */
-const NO_SAC_LABEL = 'Sin SAC'
 
 /**
  * Registrar acto procesal (HU26), en `/causas/:caseId/acto`.
@@ -210,7 +208,7 @@ function RegisterProceduralAct({ case: c }: { case: Case }) {
         content = (
             <Empty
                 title="La causa no admite actos procesales"
-                text={`Está en un estado terminal (${c.currentState?.name}).`}
+                text={`Está en un estado terminal (${c.currentState.name}).`}
                 action={<Button variant="secondary" size="md" onClick={backToCase}>Volver a la causa</Button>}
             />
         )

@@ -39,7 +39,7 @@ const JURISDICTION_OPTIONS: SelectOption[] = [
  * cuando hay algo que limpiar.
  *
  * Al cambiar el fuero, la pantalla decide si el estado elegido se conserva:
- * uno del fuero anterior no, "Sin acto procesal" sí.
+ * uno del fuero anterior no, "Iniciada" sí.
  */
 export function CaseFilters({
     jurisdiction, responsibleLawyerId, state, openDeadline, lawyerOptions, stateOptions,

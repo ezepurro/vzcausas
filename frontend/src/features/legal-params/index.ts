@@ -42,3 +42,5 @@ export type {
     LegalQualification,
     LegalQualificationFormValues,
 } from './types/legalQualification';
+export { toCreateLegalQualificationBody } from './utils/toCreateLegalQualificationBody';
+

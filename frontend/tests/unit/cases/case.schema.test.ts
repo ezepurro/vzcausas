@@ -2,6 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { isValid, SUBJECT_MATTER_MAX, validateCase } from '@/features/cases/schemas/case.schema'
 import type { CaseFormValues } from '@/features/cases/types/case'
 
+/**
+ * La validación del alta de causa (HU-18), antes de mandar nada al servidor.
+ * Cada test dice qué criterio de aceptación cubre.
+ */
+
 /** Un alta penal completa y válida, para ir rompiéndola de a un campo. */
 const CRIMINAL: CaseFormValues = {
     sacNumber: '14200315',
@@ -9,7 +14,8 @@ const CRIMINAL: CaseFormValues = {
     caption: 'RUIZ, Elvira T. p.s.a. Hurto simple',
     court: '',
     instructorName: '',
-    instructorPhone: '',
+    tribunalPhone: '',
+    instructorExtension: '',
     clientId: '24',
     proceduralRole: 'DEFENSE',
     legalQualifications: [{ legalQualificationId: 6, offenseDate: '2026-08-20' }],
@@ -38,41 +44,112 @@ describe('validateCase', () => {
         vi.useRealTimers()
     })
 
+    /* CA-18.1 */
     it('acepta un alta penal y un amparo completos', () => {
         expect(isValid(validateCase(CRIMINAL))).toBe(true)
         expect(isValid(validateCase(AMPARO))).toBe(true)
     })
 
-    it('pide el SAC de 8 dígitos, la carátula, el cliente y el responsable', () => {
-        const errors = validateCase({ ...CRIMINAL, sacNumber: '123', caption: ' ', clientId: '', responsibleLawyerId: '' })
+    /* CA-18.1 y CA-18.8 */
+    it('pide la carátula, el cliente y el abogado responsable', () => {
+        const errors = validateCase({ ...CRIMINAL, caption: ' ', clientId: '', responsibleLawyerId: '' })
 
         expect(errors).toMatchObject({
-            sacNumber: 'El SAC tiene 8 dígitos.',
             caption: 'La carátula es obligatoria.',
             clientId: 'Elegí el cliente de la causa.',
             responsibleLawyerId: 'Elegí el abogado responsable.',
         })
-        expect(validateCase({ ...CRIMINAL, sacNumber: '' }).sacNumber).toBe('El número de SAC es obligatorio.')
     })
 
+    describe('número de SAC (CA-18.2)', () => {
+        it('es opcional: sin SAC el alta procede igual (D-33)', () => {
+            const errors = validateCase({ ...CRIMINAL, sacNumber: '' })
+
+            expect(errors.sacNumber).toBeUndefined()
+            expect(isValid(errors)).toBe(true)
+        })
+
+        it('en blanco tampoco es un SAC cargado', () => {
+            expect(validateCase({ ...CRIMINAL, sacNumber: '   ' }).sacNumber).toBeUndefined()
+        })
+
+        it('si se informa, son exactamente 8 dígitos', () => {
+            expect(validateCase({ ...CRIMINAL, sacNumber: '123' }).sacNumber).toBe('El SAC tiene 8 dígitos.')
+            expect(validateCase({ ...CRIMINAL, sacNumber: '132845712' }).sacNumber).toBe('El SAC tiene 8 dígitos.')
+            expect(validateCase({ ...CRIMINAL, sacNumber: '1328457a' }).sacNumber).toBe('El SAC tiene 8 dígitos.')
+            expect(validateCase({ ...CRIMINAL, sacNumber: '13284571' }).sacNumber).toBeUndefined()
+        })
+
+        /* Que no esté repetido lo resuelve el backend: es un 409 que la
+           pantalla pinta en este mismo campo. */
+    })
+
+    /* CA-18.3 */
     it('rechaza un rol procesal que el fuero no admite', () => {
-        expect(validateCase({ ...CRIMINAL, proceduralRole: 'PLAINTIFF' }).proceduralRole).toBeDefined()
+        expect(validateCase({ ...CRIMINAL, proceduralRole: 'PLAINTIFF' }).proceduralRole).toBe(
+            'Ese rol procesal no corresponde al fuero.',
+        )
+        expect(validateCase({ ...AMPARO, proceduralRole: 'APPELLANT' }).proceduralRole).toBeDefined()
     })
 
+    /* CA-18.3: la tabla de roles por fuero del contrato (V3 §2). */
+    it.each([
+        ['CRIMINAL', 'DEFENSE'],
+        ['CRIMINAL', 'PRIVATE_PROSECUTOR'],
+        ['ADMINISTRATIVE', 'DEFENSE'],
+        ['ADMINISTRATIVE', 'APPELLANT'],
+        ['AMPARO', 'PLAINTIFF'],
+        ['AMPARO', 'DEFENDANT'],
+    ] as const)('en %s acepta el rol %s', (jurisdiction, proceduralRole) => {
+        const base = jurisdiction === 'CRIMINAL' ? CRIMINAL : { ...AMPARO, jurisdiction }
+        expect(validateCase({ ...base, jurisdiction, proceduralRole }).proceduralRole).toBeUndefined()
+    })
+
+    /* CA-18.9 */
     it('la fecha de inicio no puede ser posterior a hoy', () => {
-        expect(validateCase({ ...CRIMINAL, startDate: '2026-09-16' }).startDate).toBeDefined()
+        expect(validateCase({ ...CRIMINAL, startDate: '2026-09-16' }).startDate).toBe(
+            'La fecha de inicio no puede ser posterior a hoy.',
+        )
         expect(validateCase({ ...CRIMINAL, startDate: '2026-09-15' }).startDate).toBeUndefined()
     })
 
+    /* CA-18.9: vacía no es un error, porque el backend toma la fecha del día. */
+    it('la fecha de inicio vacía no se marca', () => {
+        expect(validateCase({ ...CRIMINAL, startDate: '' }).startDate).toBeUndefined()
+    })
+
+    it('el instructor, su teléfono y su interno son opcionales, con tope de largo', () => {
+        expect(isValid(validateCase({ ...CRIMINAL, instructorName: '', tribunalPhone: '', instructorExtension: '' }))).toBe(true)
+
+        expect(validateCase({ ...CRIMINAL, instructorName: 'a'.repeat(151) }).instructorName).toBe(
+            'Puede tener hasta 150 caracteres.',
+        )
+        expect(validateCase({ ...CRIMINAL, tribunalPhone: 'a'.repeat(51) }).tribunalPhone).toBe(
+            'Puede tener hasta 50 caracteres.',
+        )
+        expect(validateCase({ ...CRIMINAL, instructorExtension: 'a'.repeat(21) }).instructorExtension).toBe(
+            'Puede tener hasta 20 caracteres.',
+        )
+        expect(validateCase({ ...CRIMINAL, instructorExtension: 'a'.repeat(20) }).instructorExtension).toBeUndefined()
+    })
+
+    it('la carátula y el tribunal tienen tope de 255', () => {
+        expect(validateCase({ ...CRIMINAL, caption: 'a'.repeat(256) }).caption).toBe('Puede tener hasta 255 caracteres.')
+        expect(validateCase({ ...CRIMINAL, court: 'a'.repeat(256) }).court).toBe('Puede tener hasta 255 caracteres.')
+    })
+
     describe('fuero penal', () => {
-        it('necesita al menos una calificación legal', () => {
+        /* CA-18.5: una causa penal puede registrarse sin calificaciones (D-33). */
+        it('las calificaciones legales son opcionales', () => {
             const errors = validateCase({ ...CRIMINAL, legalQualifications: [] })
 
-            expect(errors.legalQualifications).toBe('Una causa penal necesita al menos una calificación legal.')
+            expect(errors.legalQualifications).toBeUndefined()
             expect(errors.offenseDates).toBeUndefined()
+            expect(isValid(errors)).toBe(true)
         })
 
-        it('la fecha del hecho es obligatoria en cada calificación (D-28)', () => {
+        /* CA-18.5 */
+        it('la fecha del hecho es obligatoria en cada calificación elegida (D-28)', () => {
             const errors = validateCase({
                 ...CRIMINAL,
                 legalQualifications: [
@@ -86,6 +163,7 @@ describe('validateCase', () => {
             expect(errors.legalQualifications).toBe('Revisá la fecha del hecho de cada calificación.')
         })
 
+        /* CA-18.5 */
         it('la fecha del hecho no puede ser futura ni inexistente', () => {
             const errors = validateCase({
                 ...CRIMINAL,
@@ -102,12 +180,15 @@ describe('validateCase', () => {
             })
         })
 
-        it('no pide el objeto del reclamo', () => {
+        /* CA-18.4 */
+        it('no pide la contraparte ni el objeto del reclamo', () => {
             expect(validateCase(CRIMINAL).subjectMatter).toBeUndefined()
+            expect(validateCase(CRIMINAL).counterparty).toBeUndefined()
         })
     })
 
     describe('fueros administrativo y de amparo', () => {
+        /* CA-18.4 */
         it('el objeto es obligatorio, con el nombre que le da cada fuero (D-27)', () => {
             expect(validateCase({ ...AMPARO, subjectMatter: '  ' }).subjectMatter).toBe('El objeto del amparo es obligatorio.')
             expect(
@@ -121,13 +202,17 @@ describe('validateCase', () => {
             expect(validateCase({ ...AMPARO, subjectMatter: 'a'.repeat(801) }).subjectMatter).toBe('Puede tener hasta 800 caracteres.')
         })
 
+        /* CA-18.4 */
         it('no pide calificaciones legales', () => {
             expect(validateCase(AMPARO).legalQualifications).toBeUndefined()
         })
 
+        /* CA-18.4: la contraparte u organismo se carga, pero no es obligatoria. */
         it('la contraparte es opcional, con tope de largo', () => {
             expect(validateCase({ ...AMPARO, counterparty: '' }).counterparty).toBeUndefined()
-            expect(validateCase({ ...AMPARO, counterparty: 'a'.repeat(256) }).counterparty).toBeDefined()
+            expect(validateCase({ ...AMPARO, counterparty: 'a'.repeat(256) }).counterparty).toBe(
+                'Puede tener hasta 255 caracteres.',
+            )
         })
     })
 })
