@@ -3,7 +3,6 @@ import { Case } from '../domain/entities/cases';
 import { CriminalCase } from '../domain/entities/criminal';
 import { CaseRepository } from '../domain/ports/case.repository';
 import { ClientLookupPort, ClientRef } from '../domain/ports/client-lookup.port';
-import { CurrentDatePort } from '../domain/ports/current-date.port';
 import { LawyerLookupPort, LawyerRef } from '../domain/ports/lawyer-lookup.port';
 import { LegalQualificationLookupPort, LegalQualificationRef } from '../domain/ports/legal-qualification-lookup.port';
 import { ProcStateLookupPort, ProceduralStateRef } from '../domain/ports/proc-state-lookup.port';
@@ -102,18 +101,17 @@ export class FakeLegalQualificationLookup implements LegalQualificationLookupPor
   }
 }
 
-export class FakeCurrentDate implements CurrentDatePort {
-  constructor(private readonly date: Date) {}
-
-  today(): Date {
-    return this.date;
-  }
-}
-
 export class FakeClock implements ClockPort {
-  constructor(private readonly instant: Date) {}
+  constructor(
+    private readonly instant: Date,
+    private readonly date: Date,
+  ) {}
 
   now(): Date {
     return this.instant;
+  }
+
+  today(): Date {
+    return this.date;
   }
 }

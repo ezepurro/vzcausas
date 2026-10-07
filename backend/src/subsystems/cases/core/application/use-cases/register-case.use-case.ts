@@ -6,7 +6,6 @@ import { CriminalCase } from '../../domain/entities/criminal';
 import { CaseFactory } from '../../domain/factories/case.factory';
 import { CASE_REPOSITORY, CaseRepository } from '../../domain/ports/case.repository';
 import { CLIENT_LOOKUP, ClientLookupPort } from '../../domain/ports/client-lookup.port';
-import { CURRENT_DATE, CurrentDatePort } from '../../domain/ports/current-date.port';
 import { LAWYER_LOOKUP, LawyerLookupPort } from '../../domain/ports/lawyer-lookup.port';
 import { PROC_STATE_LOOKUP, ProcStateLookupPort } from '../../domain/ports/proc-state-lookup.port';
 import {
@@ -26,12 +25,11 @@ export class RegisterCase {
     @Inject(LAWYER_LOOKUP) private readonly lawyers: LawyerLookupPort,
     @Inject(PROC_STATE_LOOKUP) private readonly procStates: ProcStateLookupPort,
     @Inject(LEGAL_QUALIFICATION_LOOKUP) private readonly qualifications: LegalQualificationLookupPort,
-    @Inject(CURRENT_DATE) private readonly currentDate: CurrentDatePort,
     @Inject(CLOCK) private readonly clock: ClockPort,
   ) {}
 
   async execute(command: RegisterCaseCommand): Promise<RegisterCaseResult> {
-    const today = this.currentDate.today();
+    const today = this.clock.today();
     const requested = command.legalQualifications ?? [];
 
     const [initialState, client, responsibleLawyer, foundQualifications] = await Promise.all([

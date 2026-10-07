@@ -5,11 +5,9 @@ import { PeopleModule } from '@subsystems/people/people.module';
 import { RegisterCase } from './core/application/use-cases/register-case.use-case';
 import { CASE_REPOSITORY } from './core/domain/ports/case.repository';
 import { CLIENT_LOOKUP } from './core/domain/ports/client-lookup.port';
-import { CURRENT_DATE } from './core/domain/ports/current-date.port';
 import { LEGAL_QUALIFICATION_LOOKUP } from './core/domain/ports/legal-qualification-lookup.port';
 import { StubClientLookupAdapter } from './infraestructure/acl/stub-client-lookup.adapter';
 import { StubLegalQualificationLookupAdapter } from './infraestructure/acl/stub-legal-qualification-lookup.adapter';
-import { SystemCurrentDateAdapter } from './infraestructure/acl/system-current-date.adapter';
 import { CasesController } from './infraestructure/http/controllers/cases.controller';
 import { CasePrismaRepository } from './infraestructure/persistence/case-prisma.repository';
 
@@ -30,7 +28,6 @@ import { CasePrismaRepository } from './infraestructure/persistence/case-prisma.
     { provide: CASE_REPOSITORY, useClass: CasePrismaRepository },
     { provide: CLIENT_LOOKUP, useClass: StubClientLookupAdapter },
     { provide: LEGAL_QUALIFICATION_LOOKUP, useClass: StubLegalQualificationLookupAdapter },
-    { provide: CURRENT_DATE, useClass: SystemCurrentDateAdapter },
   ],
 })
 export class CasesModule {}

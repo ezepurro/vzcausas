@@ -32,7 +32,7 @@ cases/
 └── infraestructure/
     ├── http/                         controlador, DTOs de entrada y de respuesta
     ├── persistence/                  repositorio y mapper de Prisma
-    └── acl/                          adaptadores propios de `cases` (reloj y mocks)
+    └── acl/                          adaptadores propios de `cases` (mocks)
 ```
 
 ### Entidades
@@ -54,8 +54,7 @@ cases/
 | `PROC_STATE_LOOKUP` | estado inicial «Iniciada» de un fuero | `ProcStateLookupAdapter` (`legal-parameters`) | real |
 | `CLIENT_LOOKUP` | cliente vigente por id | `StubClientLookupAdapter` (`cases`) | **mock** |
 | `LEGAL_QUALIFICATION_LOOKUP` | calificaciones legales vigentes por id | `StubLegalQualificationLookupAdapter` (`cases`) | **mock** |
-| `CURRENT_DATE` | la fecha de hoy en Córdoba | `SystemCurrentDateAdapter` (`APP_TIMEZONE`) | real |
-| `CLOCK` (shared) | el instante actual | `SystemClockAdapter` | real |
+| `CLOCK` (shared) | el instante actual y la fecha de hoy en Córdoba (`now()`, `today()`) | `CordobaClockAdapter` (`APP_TIMEZONE`) | real |
 
 `CasesModule` importa `PeopleModule` y `LegalParametersModule` únicamente para recibir esos tokens exportados. Los datos de los mocks están en `infraestructure/acl/stub-data.ts`; como `cases` tiene claves foráneas, un alta real necesita filas con esos mismos ids.
 
@@ -63,7 +62,7 @@ cases/
 
 `RegisterCase.execute(command)` recibe el comando ya traducido por el controlador y sigue estos pasos:
 
-1. Toma la fecha de hoy (`CURRENT_DATE`).
+1. Toma la fecha de hoy y el instante actual (`CLOCK`).
 2. Consulta, sin guardar nada, el estado inicial del fuero, el cliente, el abogado responsable y las calificaciones pedidas.
 3. Arma los **errores de referencia**: un cliente, un abogado o una calificación inexistente o dada de baja se informa sobre su campo (`clientId`, `responsibleLawyerId`, `legalQualifications`). Si el fuero no tiene estado inicial, informa `jurisdiction` y corta.
 4. `CaseFactory.create` valida todas las reglas del alta, suma los errores de referencia y, si hay alguno, lanza **un único** `ValidationError` (`400 VALIDATION_ERROR`) con `details` por campo. Si no hay errores, arma la causa del fuero que corresponde, con el `jurisdictionId` y el `currentStateId` del estado inicial.

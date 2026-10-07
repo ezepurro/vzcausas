@@ -148,6 +148,9 @@ class FakeClock implements ClockPort {
   now(): Date {
     return this.current;
   }
+  today(): Date {
+    return new Date(this.current.toISOString().slice(0, 10) + "T00:00:00.000Z");
+  }
   set(d: Date): void {
     this.current = d;
   }

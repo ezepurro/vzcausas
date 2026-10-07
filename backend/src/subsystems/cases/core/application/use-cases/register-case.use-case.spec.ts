@@ -9,7 +9,6 @@ import {
   FakeCaseRepository,
   FakeClientLookup,
   FakeClock,
-  FakeCurrentDate,
   FakeLawyerLookup,
   FakeLegalQualificationLookup,
   FakeProcStateLookup,
@@ -50,8 +49,7 @@ describe('RegisterCase', () => {
       lawyers,
       procStates,
       qualifications,
-      new FakeCurrentDate(TODAY),
-      new FakeClock(NOW),
+      new FakeClock(NOW, TODAY),
     );
     return { useCase, cases };
   }
