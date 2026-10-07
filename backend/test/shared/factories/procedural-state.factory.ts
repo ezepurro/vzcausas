@@ -44,11 +44,35 @@ export async function createProceduralState(overrides: Partial<ProceduralStateOv
   return getPrisma().proceduralState.create({
     data: {
       name: overrides.name ?? `${faker.lorem.words(3)} ${sequence}`,
-      position: overrides.position ?? 1,
       timeLimitDays: overrides.timeLimitDays ?? 5,
-      dayType: overrides.dayType === undefined ? 'BUSINESS' : overrides.dayType,
+      dayType: overrides.dayType ?? 'BUSINESS',
       terminal: overrides.terminal ?? false,
       isActive: overrides.isActive ?? true,
+      jurisdictionId: jurisdiction.jurisdictionId,
+    },
+  });
+}
+
+/**
+ * PERSISTE el estado inicial «Iniciada» de un fuero (con su fuero) si no
+ * existe. Es el estado en el que nace toda causa. Idempotente: el seed ya lo
+ * crea, pero otros specs borran los estados, así que quien lo necesita lo
+ * asegura en su `beforeEach`.
+ */
+export async function createInitialState(code: JurisdictionCode = 'CRIMINAL') {
+  const jurisdiction = await createJurisdiction(code);
+  const existing = await getPrisma().proceduralState.findFirst({
+    where: { jurisdictionId: jurisdiction.jurisdictionId, isInitial: true },
+  });
+  if (existing) return existing;
+
+  return getPrisma().proceduralState.create({
+    data: {
+      name: 'Iniciada',
+      timeLimitDays: 0,
+      dayType: 'NONE',
+      terminal: false,
+      isInitial: true,
       jurisdictionId: jurisdiction.jurisdictionId,
     },
   });

@@ -17,6 +17,7 @@ function aProceduralState(overrides: Partial<ProceduralStateProps> = {}): Proced
     timeLimitDays: 5,
     dayType: DayType.BUSINESS,
     terminal: false,
+    isInitial: false,
     isActive: true,
     jurisdiction: aJurisdiction(),
     createdAt: new Date('2026-09-27T00:00:00Z'),
@@ -36,6 +37,7 @@ describe('ViewProceduralStates', () => {
     repository = {
       save: jest.fn(),
       findAll: jest.fn(),
+      findInitialByJurisdiction: jest.fn(),
       findPaginated: jest.fn().mockResolvedValue(aPage([])),
     };
     useCase = new ViewProceduralStates(repository);
