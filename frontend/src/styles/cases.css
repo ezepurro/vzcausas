@@ -149,3 +149,10 @@
 .vz-summary__caption-action { margin: 8px 0 16px; }
 /* Separa un bloque del anterior dentro del panel ("Para poder registrar"). */
 .vz-summary__block { margin-top: 18px; }
+
+/* Por ahora el detalle tiene un solo panel bajo el encabezado: la tarjeta del
+   cliente. Los que la acompañan en el prototipo —"Ciclo de vida de la causa"
+   (HU27) y "Documentación" (HU39)— son de otro sprint. Hasta que lleguen, la
+   tarjeta conserva el ancho que va a tener en la columna lateral en vez de
+   estirarse a todo el ancho de la página. */
+.vz-case-detail__panels { max-width: 440px; margin-top: 16px; }

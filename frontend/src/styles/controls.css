@@ -356,3 +356,41 @@
 .vz-field-row { display: flex; gap: 8px; align-items: center; }
 .vz-field-row > .vz-select,
 .vz-field-row > .vz-input { flex: 1; min-width: 0; }
+
+/* En un formulario de página —Registrar causa, Registrar acto procesal— el
+   separador de sección es una banda que cruza el panel entero, como en el
+   prototipo: parte el formulario en bloques en lugar de dejarlo como una lista
+   larga de campos. Va acotado a `.vz-panel__body`, que es lo que envuelve a un
+   formulario de página; en un modal `FormModal` usa `.vz-form-grid` suelto y
+   el separador sigue siendo el renglón fino. */
+.vz-panel__body > .vz-form-sep {
+  margin: 0 -18px;
+  padding: 13px 18px;
+  background: var(--vz-sunken);
+  border-top: 1px solid var(--vz-border);
+  border-bottom: 1px solid var(--vz-border);
+}
+/* La primera banda es el borde de arriba del panel. */
+.vz-panel__body > .vz-form-sep:first-child { margin-top: -18px; border-top: 0; }
+.vz-panel__body > .vz-form-sep .vz-form-sep__label {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--vz-ink);
+}
+.vz-panel__body > .vz-form-sep .vz-form-sep__rule { display: none; }
+
+/* Una fila de tres campos dentro de un formulario de página, con las
+   proporciones del prototipo: el instructor de la causa, su teléfono y su
+   interno. Con dos columnas el tercero caía solo y dejaba un hueco. */
+.vz-form-grid > .vz-form-row3 {
+  grid-column: span 2;
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1.2fr) minmax(0, .7fr);
+  gap: 16px 14px;
+  align-items: start;
+}
+@media (max-width: 640px) {
+  .vz-form-grid > .vz-form-row3 { grid-template-columns: minmax(0, 1fr); }
+}

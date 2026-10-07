@@ -94,7 +94,9 @@ function CaseDetail({ case: c }: { case: Case }) {
                 <CasePrescription case={c} />
             </CaseHeader>
 
-            <ClientCard client={c.client} />
+            <div className="vz-case-detail__panels">
+                <ClientCard client={c.client} />
+            </div>
         </>
     )
 }

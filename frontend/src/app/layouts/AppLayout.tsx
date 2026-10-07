@@ -106,7 +106,7 @@ export function AppLayout() {
                     <Button
                         block
                         size="md"
-                        icon={<Icon name="plus" />}
+                        icon={<Icon name="plus" size={15} />}
                         title="Nueva causa"
                         onClick={() => navigate(`${CASES}/nueva`)}
                     >

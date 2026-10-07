@@ -41,12 +41,29 @@
   text-transform: uppercase;
 }
 
-/* acción destacada bajo el logo.
-   El botón recorta: con el rail colapsado (64px) la etiqueta se esconde
-   en lugar de derramarse sobre el fondo oscuro. */
-.vz-rail__action { padding: 0 12px 4px; }
-.vz-rail__action .vz-btn { overflow: hidden; }
+/* Acción destacada bajo el logo: "Nueva causa".
+   Las medidas son las del prototipo —38px de alto y 13px de texto—, un poco
+   más grandes que un `md` suelto, porque es la única acción primaria del rail
+   y tiene que leerse como un bloque y no como un ítem más del menú.
+   El botón recorta: con el rail colapsado (64px) la etiqueta se esconde en
+   lugar de derramarse sobre el fondo oscuro. */
+.vz-rail__action { padding: 0 10px 4px; }
+.vz-rail__action .vz-btn {
+  height: 38px;
+  padding: 0 12px;
+  font-size: 13px;
+  overflow: hidden;
+}
+/* El `+` del prototipo es de trazo grueso: con el 1.7 que usa el resto de los
+   íconos se pierde sobre el verde lleno. */
+.vz-rail__action .vz-btn svg { stroke-width: 2.2; }
 .vz-rail__action-label { display: var(--vz-rail-label); white-space: nowrap; }
+
+/* Con el rail colapsado (el mismo corte que `--vz-rail-w` en tokens.css) el
+   botón queda cuadrado, con el ícono centrado. */
+@media (max-width: 1023px) {
+  .vz-rail__action .vz-btn { padding: 0; }
+}
 
 .vz-rail__nav { flex: 1; display: flex; flex-direction: column; padding: 0 12px; overflow-y: auto; }
 .vz-rail__section { display: flex; flex-direction: column; gap: 2px; }

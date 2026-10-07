@@ -173,42 +173,46 @@ export function CaseForm({
                         />
                     </Field>
 
-                    <Field label="Instructor de la causa" width="half" htmlFor="case-instructor"
-                        error={errors.instructorName}
-                        note="Quien lleva la instrucción en el tribunal o la dependencia.">
-                        <TextInput
-                            id="case-instructor"
-                            placeholder="Apellido y nombre del instructor"
-                            value={values.instructorName}
-                            onChange={(e) => onChange('instructorName', e.target.value)}
-                        />
-                    </Field>
+                    {/* El instructor, su teléfono y su interno van en una fila,
+                        como en el prototipo. El teléfono y el interno son dos
+                        campos distintos (V3 D-33). */}
+                    <div className="vz-form-row3">
+                        <Field label="Instructor de la causa" htmlFor="case-instructor"
+                            error={errors.instructorName}
+                            note="Quien lleva la instrucción en el tribunal o la dependencia.">
+                            <TextInput
+                                id="case-instructor"
+                                placeholder="Apellido y nombre del instructor"
+                                value={values.instructorName}
+                                onChange={(e) => onChange('instructorName', e.target.value)}
+                            />
+                        </Field>
 
-                    {/* El teléfono y el interno van separados (V3 D-33). */}
-                    <Field label="Teléfono" width="half" htmlFor="case-tribunal-phone"
-                        error={errors.tribunalPhone}>
-                        <TextInput
-                            id="case-tribunal-phone"
-                            type="tel"
-                            mono
-                            placeholder="0351 448-1200"
-                            value={values.tribunalPhone}
-                            onChange={(e) => onChange('tribunalPhone', e.target.value)}
-                        />
-                    </Field>
+                        <Field label="Teléfono" htmlFor="case-tribunal-phone"
+                            error={errors.tribunalPhone}>
+                            <TextInput
+                                id="case-tribunal-phone"
+                                type="tel"
+                                mono
+                                placeholder="0351 448-1200"
+                                value={values.tribunalPhone}
+                                onChange={(e) => onChange('tribunalPhone', e.target.value)}
+                            />
+                        </Field>
 
-                    <Field label="Interno" width="half" htmlFor="case-instructor-extension"
-                        error={errors.instructorExtension}>
-                        <TextInput
-                            id="case-instructor-extension"
-                            mono
-                            inputMode="numeric"
-                            maxLength={20}
-                            placeholder="214"
-                            value={values.instructorExtension}
-                            onChange={(e) => onChange('instructorExtension', e.target.value)}
-                        />
-                    </Field>
+                        <Field label="Interno" htmlFor="case-instructor-extension"
+                            error={errors.instructorExtension}>
+                            <TextInput
+                                id="case-instructor-extension"
+                                mono
+                                inputMode="numeric"
+                                maxLength={20}
+                                placeholder="214"
+                                value={values.instructorExtension}
+                                onChange={(e) => onChange('instructorExtension', e.target.value)}
+                            />
+                        </Field>
+                    </div>
 
                     <FormSection label="Cliente y rol procesal" />
 
