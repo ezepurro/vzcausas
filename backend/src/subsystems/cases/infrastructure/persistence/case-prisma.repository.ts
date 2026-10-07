@@ -6,7 +6,13 @@ import { Amparo } from '../../core/domain/entities/amparo';
 import { Case } from '../../core/domain/entities/cases';
 import { CriminalCase } from '../../core/domain/entities/criminal';
 import { CaseRepository } from '../../core/domain/ports/case.repository';
+<<<<<<< HEAD
 import { ProceduralStateRef } from '../../core/domain/ports/legal-parameters-lookup.port';
+=======
+import { ProceduralAct } from '../../core/domain/entities/procedural-act';
+import { DayType } from '../../core/domain/value-objects/day-type';
+import { ProceduralStateRef } from '../../core/domain/ports/proc-state-lookup.port';
+>>>>>>> 178097f (feat(back): register proc act - entities & usecase created)
 import { CasePrismaMapper } from './case-prisma.mapper';
 
 @Injectable()
@@ -83,12 +89,43 @@ export class CasePrismaRepository implements CaseRepository {
   async findCurrentState(caseId: number): Promise<ProceduralStateRef> {
     const row = await this.prisma.db.case.findUniqueOrThrow({
       where: { id: caseId },
-      select: { currentState: { select: { stateId: true, name: true, isInitial: true, jurisdictionId: true } } },
+      select: {
+        currentState: {
+          select: {
+            stateId: true,
+            name: true,
+            isInitial: true,
+            jurisdictionId: true,
+            terminal: true,
+            isActive: true,
+            timeLimitDays: true,
+            dayType: true,
+          },
+        },
+      },
     });
     const state = row.currentState;
     if (!state) {
       throw new Error(`The case ${caseId} has no procedural state.`);
     }
-    return { id: state.stateId, name: state.name, isInitial: state.isInitial, jurisdictionId: state.jurisdictionId };
+    return {
+      id: state.stateId,
+      name: state.name,
+      isInitial: state.isInitial,
+      jurisdictionId: state.jurisdictionId,
+      terminal: state.terminal,
+      isActive: state.isActive,
+      timeLimitDays: state.timeLimitDays,
+      dayType: state.dayType as DayType,
+    };
+  }
+
+  // TODO(HU26, infrastructure step): the next two methods and the load of the current act in `findById`.
+  async nextProceduralActId(): Promise<number> {
+    throw new Error('Not implemented yet.');
+  }
+
+  async saveProceduralAct(_updatedCase: Case, _act: ProceduralAct): Promise<void> {
+    throw new Error('Not implemented yet.');
   }
 }

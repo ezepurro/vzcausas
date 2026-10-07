@@ -18,6 +18,10 @@ export class Amparo extends Case {
     return new Amparo(props);
   }
 
+  resolveCountsFrom(actDate: Date, notificationDate: Date | null, _stateOpensTerm: boolean): Date {
+    return this.countsFromActDate(actDate, notificationDate);
+  }
+
   get jurisdictionCode(): JurisdictionCode {
     return JurisdictionCode.AMPARO;
   }

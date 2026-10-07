@@ -18,6 +18,10 @@ export class CriminalCase extends Case {
     return new CriminalCase(props);
   }
 
+  resolveCountsFrom(actDate: Date, notificationDate: Date | null, _stateOpensTerm: boolean): Date {
+    return this.countsFromActDate(actDate, notificationDate);
+  }
+
   get jurisdictionCode(): JurisdictionCode {
     return JurisdictionCode.CRIMINAL;
   }
