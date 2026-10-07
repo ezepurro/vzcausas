@@ -132,6 +132,66 @@ describe('CasesTable', () => {
 
         expect(screen.getByText('Ninguna causa coincide con los filtros.')).toBeInTheDocument()
     })
+
+    /* Lo que sigue es de HU-20 (Consultar Causas). */
+
+    /** La causa del prototipo, con otro vencimiento. */
+    const withDeadline = (
+        id: number,
+        sacNumber: string,
+        dueDate: string | null,
+        businessDaysRemaining: number | null,
+    ): Case => ({ ...WITH_STATE, id, sacNumber, currentState: { ...STATE, dueDate, businessDaysRemaining } })
+
+    /* CA-20.1: el orden por urgencia lo resuelve el backend. Si la tabla
+       reordenara, mezclaría las páginas. Estas tres no están ordenadas por SAC,
+       por id ni por vencimiento, en ningún sentido. */
+    it('muestra las causas en el orden en que las recibe, sin reordenarlas', () => {
+        const rows = [
+            withDeadline(2, '50000002', null, null),
+            withDeadline(3, '10000003', '2026-09-18', 3),
+            withDeadline(1, '90000001', '2026-09-11', -2),
+        ]
+        render(<CasesTable rows={rows} onOpen={vi.fn()} />)
+
+        const sacs = screen.getAllByRole('row').slice(1).map((row) => within(row).getAllByRole('cell')[0].textContent)
+        expect(sacs).toEqual(['50000002', '10000003', '90000001'])
+    })
+
+    /* CA-20.5: los días hábiles que restan, con la fecha del vencimiento. */
+    it.each([
+        [-2, '2026-09-11', 'Vencido hace 2 días', '11/09/2026'],
+        [0, '2026-09-15', 'Vence hoy', '15/09/2026'],
+        [3, '2026-09-18', 'En 3 días hábiles', '18/09/2026'],
+        [10, '2026-09-29', 'En 10 días hábiles', '29/09/2026'],
+    ])('con %i días hábiles restantes informa "%s" y la fecha', (days, dueDate, label, date) => {
+        render(<CasesTable rows={[withDeadline(1, '13284571', dueDate, days)]} onOpen={vi.fn()} />)
+
+        const row = screen.getAllByRole('row')[1]
+        expect(within(row).getByText(label)).toBeInTheDocument()
+        expect(within(row).getByText(date)).toBeInTheDocument()
+    })
+
+    /* CA-20.5: una vencida, una que vence hoy y una próxima no se ven igual. */
+    it.each([
+        ['una vencida', -2, 'Vencido hace 2 días', 'danger'],
+        ['una que vence hoy', 0, 'Vence hoy', 'danger'],
+        ['una que vence en los próximos días', 3, 'En 3 días hábiles', 'warn'],
+        ['una que vence más adelante', 10, 'En 10 días hábiles', 'neutral'],
+    ])('distingue %s por el color del chip', (_, days, label, tone) => {
+        render(<CasesTable rows={[withDeadline(1, '13284571', '2026-09-15', days)]} onOpen={vi.fn()} />)
+
+        expect(screen.getByText(label)).toHaveClass(`vz-pill--${tone}`)
+    })
+
+    /* CA-20.5: sin vencimiento no hay fecha que informar. */
+    it('una causa sin vencimiento no muestra ninguna fecha', () => {
+        render(<CasesTable rows={[withDeadline(1, '13284571', null, null)]} onOpen={vi.fn()} />)
+
+        const row = screen.getAllByRole('row')[1]
+        expect(within(row).getByText('Sin plazo abierto')).toBeInTheDocument()
+        expect(within(row).queryByText(/\d{2}\/\d{2}\/\d{4}/)).not.toBeInTheDocument()
+    })
 })
 
 describe('CaseHeader', () => {
