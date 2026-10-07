@@ -4,6 +4,7 @@ import { ValidationError } from '@shared/domain/domain-error';
 import { Case } from '../../domain/entities/cases';
 import { CaseNotFoundError } from '../../domain/errors/case.errors';
 import { CASE_REPOSITORY, CaseRepository } from '../../domain/ports/case.repository';
+import { LAWYER_LOOKUP, LawyerLookupPort } from '../../domain/ports/lawyer-lookup.port';
 import { DEADLINE_CALCULATOR, DeadlineCalculatorPort } from '../../domain/ports/deadline-calculator.port';
 import {
   PROC_STATE_LOOKUP,
@@ -40,6 +41,7 @@ export class RegisterProceduralAct {
   constructor(
     @Inject(CASE_REPOSITORY) private readonly cases: CaseRepository,
     @Inject(PROC_STATE_LOOKUP) private readonly procStates: ProcStateLookupPort,
+    @Inject(LAWYER_LOOKUP) private readonly lawyers: LawyerLookupPort,
     @Inject(DEADLINE_CALCULATOR) private readonly calculator: DeadlineCalculatorPort,
     @Inject(CLOCK) private readonly clock: ClockPort,
   ) {}
@@ -50,6 +52,12 @@ export class RegisterProceduralAct {
       throw new CaseNotFoundError();
     }
     targetCase.assertCanRegisterActs(command.actor);
+
+    // The actor is the lawyer in charge, so the record exists: a missing one is broken data, not a user error.
+    const registeredBy = await this.lawyers.findActiveById(command.actor.lawyerId!);
+    if (!registeredBy) {
+      throw new Error(`The lawyer ${command.actor.lawyerId} in charge of the case ${targetCase.id} is not active.`);
+    }
 
     // The state the case is in may be inactive by now: it is read as it is.
     const currentState =
@@ -81,7 +89,7 @@ export class RegisterProceduralAct {
     });
 
     await this.cases.saveProceduralAct(targetCase, act);
-    return { act, becameCurrent };
+    return { act, becameCurrent, resultingStateName: (target.state?.name ?? target.customState)!, registeredBy };
   }
 
   /**

@@ -1,4 +1,10 @@
-import { BusinessRuleError, ConflictError, ForbiddenActionError, NotFoundError } from '@shared/domain/domain-error';
+import {
+  BusinessRuleError,
+  ConflictError,
+  ForbiddenActionError,
+  NotFoundError,
+  ValidationError,
+} from '@shared/domain/domain-error';
 
 /** Emitted when the SAC number is already used by another case (RN2, 409). */
 export class CaseSacAlreadyExistsError extends ConflictError {
@@ -25,5 +31,14 @@ export class NotResponsibleLawyerError extends ForbiddenActionError {
 export class CaseInTerminalStateError extends BusinessRuleError {
   constructor() {
     super('CASE_IN_TERMINAL_STATE', 'La causa se encuentra en un estado terminal y no admite actos procesales.');
+  }
+}
+
+/** Emitted when the `caseId` path parameter is not a positive integer (400). */
+export class InvalidCaseIdError extends ValidationError {
+  constructor() {
+    super('INVALID_PATH_PARAMETER', 'El identificador de la causa no es válido.', {
+      caseId: 'Debe ser un número entero válido.',
+    });
   }
 }
