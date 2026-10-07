@@ -271,14 +271,15 @@ model LegalQualification {
   // parcial `legal_qualifications_name_active_key` sobre `lower(name)`,
   // creado a mano.
   name               String   @db.VarChar(255)
-  // CHECK manual: >= 1. La prescripción no se guarda: se calcula al
-  // leer, para que cambiar los meses recalcule la de todas las causas.
+  // CHECK manual: >= 1. Cada hecho (`Offense`) guarda su fecha de
+  // prescripción, calculada al registrar la causa con los meses vigentes
+  // en ese momento: cambiar los meses después no la recalcula.
   prescriptionMonths Int      @map("prescription_months")
   active             Boolean  @default(true)
   createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  cases CaseLegalQualification[]
+  offenses Offense[]
 
   @@map("legal_qualifications")
 }
@@ -333,7 +334,7 @@ model Case {
   currentProceduralAct ProceduralAct?   @relation("CaseCurrentAct", fields: [currentProceduralActId], references: [id], onDelete: Restrict)
 
   proceduralActs      ProceduralAct[]          @relation("CaseProceduralActs")
-  legalQualifications CaseLegalQualification[]
+  offenses            Offense[]
 
   @@index([jurisdictionId])
   @@index([clientId])
@@ -342,21 +343,25 @@ model Case {
   @@map("cases")
 }
 
-// Calificaciones legales de una causa. La PK compuesta impide repetir
-// una calificación en la misma causa. Puede no haber ninguna, incluso
-// en CRIMINAL (D-33); que solo CRIMINAL las tenga se valida en el
-// dominio.
-model CaseLegalQualification {
+// Hechos de una causa: cada calificación legal asignada a la causa, con
+// su fecha del hecho y su fecha de prescripción. La PK compuesta impide
+// repetir una calificación en la misma causa. Puede no haber ninguno,
+// incluso en CRIMINAL (D-33); que solo CRIMINAL los tenga se valida en
+// el dominio.
+model Offense {
   caseId               Int      @map("case_id")
   legalQualificationId Int      @map("legal_qualification_id")
   offenseDate          DateTime @map("offense_date") @db.Date
+  // offense_date + prescription_months de la calificación. La calcula
+  // el caso de uso Registrar Causa antes de guardar.
+  prescriptionDate     DateTime @map("prescription_date") @db.Date
 
   case               Case               @relation(fields: [caseId], references: [id], onDelete: Restrict)
   legalQualification LegalQualification @relation(fields: [legalQualificationId], references: [id], onDelete: Restrict)
 
   @@id([caseId, legalQualificationId])
   @@index([legalQualificationId])
-  @@map("case_legal_qualifications")
+  @@map("offenses")
 }
 
 // El acto procesal es la línea de tiempo de la causa: no hay tabla de
