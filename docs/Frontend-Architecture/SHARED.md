@@ -126,7 +126,7 @@ import { ApiError, isApiError } from '@/shared/api/ApiError';
 | `IconButton` | Component | `components/ui/IconButton.tsx` | Acción sólo icono (40px) |
 | `Icon` / `ICONS` | Component + const | `components/ui/Icon.tsx` | Set de iconos SVG |
 | `Pill` | Component | `components/ui/Pill.tsx` | Estado / semáforo de plazos |
-| `SearchInput` | Component | `components/ui/SearchInput.tsx` | Buscador: topbar y filtros de un panel |
+| `SearchInput` | Component | `components/ui/SearchInput.tsx` | Buscador de un listado, en los filtros de su panel |
 | `Modal` | Component | `components/ui/Modal.tsx` | Diálogo genérico |
 | `Avatar` | Component | `components/ui/Avatar.tsx` | Iniciales de una persona en una tabla |
 | `Breadcrumbs` | Component | `components/ui/Breadcrumbs.tsx` | Migas: "Causas / 13284571 / Registrar acto" |
@@ -192,7 +192,7 @@ import { ApiError, isApiError } from '@/shared/api/ApiError';
 | Elegir de una lista o escribir otra cosa | `Combobox` | La pantalla filtra las opciones |
 | Campo de contraseña que se pueda ver | `PasswordInput` | Dentro de un `Field`, igual que `TextInput` |
 | Elegir una entre 2 a 4 opciones cortas | `SegmentedControl` | Más opciones, `Select` |
-| Buscador | `SearchInput` | En la topbar o en `Panel actions` (ahí toma 280px de mínimo) |
+| Buscador | `SearchInput` | En `Panel actions` (ahí toma 280px de mínimo). La topbar no lleva buscador: el general quedó postergado |
 | Iconos | `Icon name="..."` | Sólo los nombres de `ICONS` |
 | Estado vacío de tabla | `DataTable empty={...}` con clases `.vz-empty` | **No hay componente**, ver Observaciones |
 | Avisos / toasts | `useToast()` de `@/app/providers/ToastContext` | **Vive fuera de shared** |

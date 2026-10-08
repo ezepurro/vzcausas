@@ -62,11 +62,11 @@ export function CasesPage() {
          /* ---------------- las opciones de los desplegables ---------------- */
         const lawyersQuery = useLawyers({ page: 1, limit: OPTIONS_LIMIT })
         const criminalStates = useProceduralStates({ jurisdiction: 'CRIMINAL', page: 1, limit: OPTIONS_LIMIT })
-        const amparoSates = useProceduralStates({ jurisdiction: 'AMPARO', page: 1, limit: OPTIONS_LIMIT })
+        const amparoStates = useProceduralStates({ jurisdiction: 'AMPARO', page: 1, limit: OPTIONS_LIMIT })
         const administrativeStates = useProceduralStates({ jurisdiction: 'ADMINISTRATIVE', page: 1, limit: OPTIONS_LIMIT })
         const statesByJurisdiction: Record<Jurisdiction, ProceduralState[]> = {
             CRIMINAL: criminalStates.data?.data ?? [],
-            AMPARO: amparoSates.data?.data ?? [],
+            AMPARO: amparoStates.data?.data ?? [],
             ADMINISTRATIVE: administrativeStates.data?.data ?? [],
         }       
         const customStates = useCaseCustomStates(jurisdiction === '' ? undefined : jurisdiction).data ?? []

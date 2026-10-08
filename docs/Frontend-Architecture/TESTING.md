@@ -10,16 +10,14 @@ Si tenés una duda del tipo "¿este test dónde va?", saltá a
 
 > **Estado actual:** todo instalado y funcionando. Están escritos los tests de
 > `auth`, `lawyers`, `legal-params`, `users`, el acceso por perfil (por ruta y
-> por acción), las guardas del router, el `AppLayout`, el `Modal`, el `Field` y
-> el `DetailList` de `shared`, el **servidor falso** (`unit/mocks/`) y, del
-> Sprint 2, lo que ya existe de `cases` y `proceedings`, más los de `clients`,
-> que se escribieron antes que la feature: **609 de Vitest pasando** en 57
-> archivos y **17 de Playwright** en 5. A eso se suman los que esperan a que se
-> programe Clientes: 37 de Vitest en 2 archivos y 3 de Playwright en 1 (ver
-> [§3.1](#31-el-detalle-por-feature)). Los números son de la última corrida;
-> los de hoy te los dice `npm test`. Los demás componentes de `shared` que se
-> agregaron para el Sprint 2 (`Breadcrumbs`, `Combobox`, `SegmentedControl`,
-> etc.) todavía no tienen test.
+> por acción), las guardas del router, el `AppLayout`, el **servidor falso**
+> (`unit/mocks/`), algunas piezas de `shared` (`Modal`, `Field`, `DetailList`,
+> `PasswordInput` y `useDebouncedValue`) y los tres módulos del Sprint 2:
+> `clients`, `cases` y `proceedings`, con sus páginas. Al 08/10/2026 son **1004
+> de Vitest pasando** en 87 archivos y **24 de Playwright** en 7. Los números
+> son de esa corrida; los de hoy te los dice `npm test`. Los demás componentes
+> de `shared` que se agregaron para el Sprint 2 (`Breadcrumbs`, `Combobox`,
+> `SegmentedControl`, etc.) todavía no tienen test.
 > Primera vez en tu máquina: `npm install` y `npx playwright install chromium`,
 > que descarga el navegador de los E2E. Ese segundo paso hay que repetirlo cada
 > vez que se actualiza Playwright (ver [§9](#9-problemas-comunes)).
@@ -130,6 +128,7 @@ frontend/
 │   │   ├── clients/
 │   │   ├── lawyers/
 │   │   ├── legal-params/
+│   │   ├── proceedings/
 │   │   └── users/
 │   │
 │   ├── components/                       Vitest + RTL + MSW
@@ -147,6 +146,7 @@ frontend/
 │       ├── fixtures/                     helpers compartidos (loginAs, etc.)
 │       ├── access.spec.ts
 │       ├── auth.spec.ts
+│       ├── cases.spec.ts
 │       ├── clients.spec.ts
 │       ├── lawyers.spec.ts
 │       ├── legal-params.spec.ts
@@ -162,15 +162,13 @@ está referenciado desde `tsconfig.json`, así que **un test que no compila
 rompe el build**.
 
 Las features que todavía no tienen código (`dashboard`, `deadlines`,
-`documents`) **no tienen carpeta en `tests/`**. De las del Sprint 2, `cases` y
-`proceedings` tienen test de lo que ya existe —esquemas, utilidades y
-componentes—, salvo las piezas que se listan en [§3.1](#31-el-detalle-por-feature);
-les faltan los de las páginas, que todavía no están programadas. `clients`
-tiene los tests completos, escritos antes que su página. La carpeta se crea
-cuando alguien empieza a trabajar la feature (ver
-[sección 7](#7-cuando-arrancás-una-feature-nueva)). `home` sí tiene código y
-tampoco tiene carpeta: su `HomePage` es presentación pura, ver
-[§3.2](#32-lo-que-no-se-testea-a-propósito).
+`documents`) **no tienen carpeta en `tests/`**. Las del Sprint 2 —`clients`,
+`cases` y `proceedings`— tienen los tests de sus esquemas, utilidades,
+componentes y páginas, salvo las piezas que se listan en
+[§3.1](#31-el-detalle-por-feature). La carpeta se crea cuando alguien empieza a
+trabajar la feature (ver [sección 7](#7-cuando-arrancás-una-feature-nueva)).
+`home` sí tiene código y tampoco tiene carpeta: su `HomePage` es presentación
+pura, ver [§3.2](#32-lo-que-no-se-testea-a-propósito).
 
 ### 3.1 El detalle por feature
 
@@ -197,12 +195,17 @@ tests/
 │   ├── cases/
 │   │   ├── case.schema.test.ts             fecha del hecho y objeto del reclamo obligatorios
 │   │   ├── caseForm.test.ts                emptyCaseForm y changeJurisdiction
+│   │   ├── caseState.test.ts               el nombre del estado lo manda el backend ("Iniciada")
+│   │   ├── deadlineStatus.test.ts          el chip del vencimiento: vencida, hoy, próximos días, sin plazo
 │   │   ├── prescription.test.ts            nearestQualification, prescriptionProgress, estimatedExpiry
-│   │   └── stateFilter.test.ts             el filtro de estado y el rótulo "Sin acto procesal"
+│   │   ├── responsibleLawyer.test.ts       isResponsibleLawyer: quién registra los actos de una causa
+│   │   ├── stateFilter.test.ts             el filtro de estado: una sola de sus tres clases por vez
+│   │   ├── suggestedCaption.test.ts        la carátula sugerida del alta
+│   │   └── toCreateCaseBody.test.ts        el cuerpo del alta de causa
 │   ├── clients/
 │   │   ├── client.schema.test.ts           obligatorios, DNI de 7 u 8 dígitos, correo, largos
 │   │   ├── clientFormat.test.ts            apellido primero, DNI con puntos, normalizeDni
-│   │   └── toCreateClientBody.test.ts      el cuerpo del alta (pasa cuando exista la función)
+│   │   └── toCreateClientBody.test.ts      el cuerpo del alta
 │   ├── lawyers/
 │   │   ├── lawyer.schema.test.ts
 │   │   └── toCreateLawyerBody.test.ts
@@ -211,7 +214,22 @@ tests/
 │   │   ├── buildProceduralStatePatch.test.ts
 │   │   ├── toCreateProceduralStateBody.test.ts
 │   │   ├── toFormErrors.test.ts
-│   │   └── dayTypeTone.test.ts
+│   │   ├── dayTypeTone.test.ts
+│   │   ├── legalQualification.schema.test.ts
+│   │   ├── prescription.test.ts            formatPrescription, toPrescriptionMonths, splitPrescription
+│   │   ├── toCreateLegalQualificationBody.test.ts
+│   │   └── toLegalQualificationFormErrors.test.ts
+│   ├── proceedings/
+│   │   ├── states.ts                       un ciclo penal chico, compartido por estos tests
+│   │   ├── values.ts                       el formulario del acto recién abierto
+│   │   ├── proceduralAct.schema.test.ts    validateProceduralAct
+│   │   ├── stateOptions.test.ts            los estados que se ofrecen como destino de un acto
+│   │   ├── resolveState.test.ts            lo elegido o lo escrito → estado de la tabla o escrito a mano
+│   │   ├── terminalState.test.ts           isInTerminalState
+│   │   ├── deadlinePreview.test.ts         cuándo se pide el cómputo del vencimiento
+│   │   ├── dueDateText.test.ts             los textos del vencimiento
+│   │   ├── toCreateProceduralActBody.test.ts
+│   │   └── toFormErrors.test.ts
 │   └── users/
 │       ├── user.schema.test.ts
 │       ├── toCreateUserBody.test.ts
@@ -227,7 +245,9 @@ tests/
 │   │   └── AppLayout.test.tsx              el rail muestra sólo lo que el perfil puede abrir
 │   ├── shared/
 │   │   ├── Modal.test.tsx                  Escape, foco atrapado, click en el fondo, fondo sin scroll
-│   │   └── Field.test.tsx                  Field (nota, error, hint) y DetailList (raya, note)
+│   │   ├── Field.test.tsx                  Field (nota, error, hint) y DetailList (raya, note)
+│   │   ├── PasswordInput.test.tsx          el ojo que muestra y oculta la contraseña
+│   │   └── useDebouncedValue.test.ts       la demora del buscador
 │   ├── auth/
 │   │   ├── LoginForm.test.tsx
 │   │   ├── LoginPage.test.tsx
@@ -236,14 +256,20 @@ tests/
 │   ├── cases/
 │   │   ├── CaseForm.test.tsx               lo que pide cada fuero, el objeto y su contador
 │   │   ├── LegalQualificationPicker.test.tsx   la fecha del hecho de cada calificación
-│   │   ├── CaseSummaryAside.test.tsx       "Sin acto procesal" y la prescripción por calificación
-│   │   └── CasesTable.test.tsx             CasesTable y CaseHeader, con y sin estado procesal
+│   │   ├── CaseSummaryAside.test.tsx       el estado inicial "Iniciada" y la prescripción por calificación
+│   │   ├── CasesTable.test.tsx             CasesTable (orden, vencimiento, "Sin SAC") y CaseHeader
+│   │   ├── CaseFilters.test.tsx            los cuatro filtros del listado y "Limpiar filtros"
+│   │   ├── CasesPage.test.tsx              listado por urgencia, búsqueda, filtros, perfiles (HU-20)
+│   │   ├── RegisterCasePage.test.tsx       el alta de causa (HU-18)
+│   │   └── CaseDetailPage.test.tsx         el detalle de causa (HU-22)
 │   ├── clients/
 │   │   ├── ClientsTable.test.tsx           columnas, raya en lo que falta, "Sin causas"
 │   │   ├── ClientFormModal.test.tsx        campos, obligatorios, errores por campo
-│   │   └── ClientsPage.test.tsx            listado, búsqueda, perfiles y alta (pasa cuando exista la página)
+│   │   └── ClientsPage.test.tsx            listado, búsqueda, perfiles y alta
 │   ├── proceedings/
-│   │   └── ProceduralActForm.test.tsx      campos por fuero; sin la nota de RN13
+│   │   ├── ProceduralActForm.test.tsx      campos por fuero; sin la nota de RN13
+│   │   ├── DeadlinePreviewAside.test.tsx   el panel "Cómputo del plazo"
+│   │   └── RegisterProceduralActPage.test.tsx   registrar un acto (HU-26)
 │   ├── lawyers/
 │   │   ├── LawyerFormModal.test.tsx
 │   │   ├── LawyersTable.test.tsx
@@ -252,7 +278,10 @@ tests/
 │   │   ├── ProceduralStateFormModal.test.tsx
 │   │   ├── DeleteProceduralStateModal.test.tsx
 │   │   ├── ProceduralStatesTable.test.tsx
-│   │   └── ProceduralStatesPage.test.tsx
+│   │   ├── ProceduralStatesPage.test.tsx
+│   │   ├── LegalQualificationFormModal.test.tsx
+│   │   ├── LegalQualificationsTable.test.tsx
+│   │   └── LegalQualificationsPage.test.tsx    consulta y alta de calificaciones legales
 │   └── users/
 │       ├── UserFormModal.test.tsx
 │       ├── DeleteUserModal.test.tsx
@@ -264,32 +293,29 @@ tests/
     │   └── auth.ts                         loginAs('admin'), goTo(page, 'Usuarios')
     ├── access.spec.ts                      qué secciones ve cada perfil en el menú
     ├── auth.spec.ts                        login, logout, cambio de contraseña, sesión vencida
-    ├── clients.spec.ts                     registrar un cliente y buscarlo (pasa cuando exista la página)
+    ├── cases.spec.ts                       consultar causas: filtrar, buscar y abrir un detalle
+    ├── clients.spec.ts                     registrar un cliente y buscarlo
     ├── lawyers.spec.ts                     crear abogado y verlo en la tabla
-    ├── legal-params.spec.ts                crear, editar y borrar estado procesal
+    ├── legal-params.spec.ts                crear, editar y borrar estado procesal; registrar una calificación
     └── users.spec.ts                       crear, editar y borrar usuario
 ```
 
-**Los tests de `clients` se escribieron antes que la feature**, desde los
-criterios de aceptación de HU-8 y HU-9 (ver [§7](#7-cuando-arrancás-una-feature-nueva)).
-Los que prueban código que todavía no existe —`ClientsPage`,
-`toCreateClientBody` y el E2E— fallan hasta que se programe; por eso viajan en
-la rama de la feature y no sueltos.
+**Los tests de `clients` (HU-8 y HU-9) y los del listado de causas (HU-20) se
+escribieron antes que la feature**, desde los criterios de aceptación de cada
+historia (ver [§7](#7-cuando-arrancás-una-feature-nueva)). Mientras la página
+no existía, los que la importaban fallaban; por eso viajaron en la rama de la
+feature y no sueltos. Hoy pasan todos.
 
-**Los tests de `cases` y `proceedings` siguen la revisión del 01/10/2026 del
-contrato**, igual que el código que prueban: todavía afirman "Sin acto
-procesal" y `nextDeadline`. Se actualizan cuando esos módulos se lleven a la
-revisión del 05/10 (el detalle está en `frontend/CLAUDE.md`, "Revisiones del
-contrato"). Los del servidor falso (`unit/mocks/`) y los de `legal-params` ya
-siguen la del 05/10.
+**Todos los tests siguen la revisión del 05/10/2026 del contrato**, igual que
+el código que prueban (el detalle está en `frontend/CLAUDE.md`, "Revisiones del
+contrato").
 
-**Lo que existe y todavía no tiene test.** De `cases`: `suggestedCaption`,
-`deadlineStatus`, `CaseFilters`, `PrescriptionBar` y `ClientCard`. De
-`proceedings`: el esquema del acto, `stateOptions`, `dueDateText` y
-`DeadlinePreviewAside`. De `legal-params`: lo de calificaciones legales
-(esquema, `prescription`, tabla y modales). Se escriben junto con sus páginas,
-que es cuando la feature tiene que llegar al
-[mínimo](#mínimo-por-feature).
+**Lo que existe y todavía no tiene test propio.** De `cases`: `PrescriptionBar`
+y `ClientCard`, que sólo se prueban a través de `CaseDetailPage`, y `sacLabel`,
+a través de las tablas y los encabezados. De `legal-params`:
+`DeleteLegalQualificationModal`, que todavía no usa ninguna pantalla. Y los
+componentes de `shared` del Sprint 2 (`Breadcrumbs`, `Combobox`,
+`SegmentedControl`, `Meter`, `Avatar`).
 
 ### 3.2 Lo que no se testea (a propósito)
 
@@ -631,6 +657,17 @@ manda al login. Por eso:
 La ventaja es que **cada test arranca con los datos semilla**: lo que crea un
 test no lo ve el siguiente.
 
+#### En un E2E el día es el de hoy
+
+En `components/` se puede fijar el reloj (ver
+[Tests que dependen del día](#tests-que-dependen-del-día)); en un E2E no: la
+aplicación corre en el navegador con la fecha real, y los vencimientos de las
+causas semilla se mueven con ella. Por eso un E2E sólo afirma lo que vale
+cualquier día —cuántas causas hay, cuáles tienen vencimiento, cuáles siguen en
+"Iniciada"— y deja los textos exactos ("Vence hoy", "En 3 días hábiles") y el
+orden exacto para los tests de `components/`. Así está hecho
+`tests/e2e/cases.spec.ts`.
+
 #### Un test que documenta un bug
 
 Si un E2E encuentra un bug que no se arregla en ese momento, no se borra ni se
@@ -729,9 +766,15 @@ Cuando empieces a programar una feature:
 
 Se puede —y conviene— escribir los tests **antes** que la feature, a partir de
 los criterios de aceptación de la historia: después se programa hasta que
-pasen. Así se hizo con `clients` (HU-8 y HU-9). Cada test dice en un comentario
-qué criterio cubre (`/* CA-8.4 */`), así se ve de un vistazo si quedó alguno
-sin cubrir.
+pasen. Así se hizo con `clients` (HU-8 y HU-9) y con el listado de causas
+(HU-20). Cada test dice en un comentario qué criterio cubre (`/* CA-8.4 */`),
+así se ve de un vistazo si quedó alguno sin cubrir.
+
+Antes de escribirlos conviene armar la lista de casos con el criterio que cubre
+cada uno, y revisar al final que ningún criterio haya quedado sin test. Un test
+que no sale de un criterio —el estado de carga y el de error que pide el
+[mínimo](#mínimo-por-feature), un botón que está en el prototipo, algo que
+quedó fuera de alcance— también va, con un comentario que diga de dónde sale.
 
 Dos cosas a tener en cuenta:
 
@@ -852,8 +895,8 @@ Casi siempre es un `waitForTimeout` o un selector por clase CSS. Usá
 - `docs/Api-Contract/API_CONTRACT_V3.md`: lo que la API tiene que responder, y
   lo que implementan hoy los mocks (con su revisión del 05/10/2026, §7.8).
   `API_CONTRACT_V2.md` queda como registro del Sprint 1.
-- `frontend/CLAUDE.md`: qué parte del código ya sigue esa revisión y qué
-  falta, en "Revisiones del contrato".
+- `frontend/CLAUDE.md`: cómo quedó aplicada esa revisión en el código, en
+  "Revisiones del contrato".
 - [Vitest](https://vitest.dev) ·
   [Testing Library](https://testing-library.com/docs/react-testing-library/intro) ·
   [MSW](https://mswjs.io) ·
