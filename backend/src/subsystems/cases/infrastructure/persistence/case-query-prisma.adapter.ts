@@ -136,7 +136,7 @@ export class CaseQueryPrismaAdapter implements CaseQueryPort {
  *
  * `businessDaysRemaining` stays `null` here on purpose: it is computed per
  * response against today's date in Córdoba, and persistence has no business
- * reading a clock. The use case fills it from `dueDate` and `CurrentDatePort`.
+ * reading a clock. The use case fills it from `dueDate` and `ClockPort.today()`.
  */
 function toListItem(row: CaseRow): CaseListItem {
   const act = row.currentProceduralAct;
