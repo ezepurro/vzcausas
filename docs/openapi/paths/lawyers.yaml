@@ -1,0 +1,132 @@
+post:
+  tags:
+    - Lawyers
+  operationId: createLawyer
+  summary: Registrar abogado
+  description: |
+    Registra un nuevo abogado.
+
+    **Rol requerido:** `ADMINISTRATOR`.
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: ../components/schemas/LawyerCreate.yaml
+        example:
+          fullName: Dr. Ignacio Peralta
+          registrationNumber: 1-35207
+  responses:
+    '201':
+      description: Abogado registrado.
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - data
+            properties:
+              data:
+                $ref: ../components/schemas/Lawyer.yaml
+          example:
+            data:
+              id: 4
+              fullName: Dr. Ignacio Peralta
+              registrationNumber: 1-35207
+              activeCases: 0
+              active: true
+    '400':
+      description: Datos inválidos.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          example:
+            error:
+              code: VALIDATION_ERROR
+              message: Los datos enviados no son válidos.
+              details:
+                registrationNumber: El formato de la matrícula no es válido.
+    '401':
+      $ref: ../components/responses/Unauthorized.yaml
+    '403':
+      $ref: ../components/responses/ForbiddenAdministrator.yaml
+    '409':
+      description: Matrícula ya registrada.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          example:
+            error:
+              code: LAWYER_REGISTRATION_ALREADY_EXISTS
+              message: La matrícula del abogado ya se encuentra registrada.
+              details: null
+    '422':
+      description: Violación de una regla de negocio.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          example:
+            error:
+              code: BUSINESS_RULE_VIOLATION
+              message: No se puede registrar el abogado debido a una regla de negocio.
+              details: null
+
+get:
+  tags:
+    - Lawyers
+  operationId: listLawyers
+  summary: Consultar abogados
+  description: |
+    Obtiene una lista paginada de abogados (HU13).
+
+    **Rol requerido:** cualquier usuario autenticado.
+  parameters:
+    - $ref: ../components/parameters/PageParam.yaml
+    - $ref: ../components/parameters/LimitParam.yaml
+    - name: search
+      in: query
+      required: false
+      description: Filtra por `fullName` y por `registrationNumber`.
+      schema:
+        type: string
+  responses:
+    '200':
+      description: Página de abogados.
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - data
+              - pagination
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: ../components/schemas/Lawyer.yaml
+              pagination:
+                $ref: ../components/schemas/Pagination.yaml
+          example:
+            data:
+              - id: 1
+                fullName: Dr. Fernando G. Vázquez
+                registrationNumber: 1-28114
+                activeCases: 14
+                active: true
+              - id: 4
+                fullName: Dr. Ignacio Peralta
+                registrationNumber: 1-35207
+                activeCases: 16
+                active: true
+            pagination:
+              page: 1
+              limit: 20
+              totalItems: 7
+              totalPages: 1
+    '400':
+      $ref: ../components/responses/InvalidPagination.yaml
+    '401':
+      $ref: ../components/responses/Unauthorized.yaml

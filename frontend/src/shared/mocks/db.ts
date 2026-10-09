@@ -89,7 +89,7 @@ export interface StoredCase {
     jurisdiction: Jurisdiction;
     proceduralRole: ProceduralRole;
     instructorName: string | null;
-    instructorPhone: string | null;
+    tribunalPhone: string | null;
     instructorExtension: string | null;
     counterparty: string | null;
     subjectMatter: string | null;
@@ -265,7 +265,7 @@ function initialState(): MockDb {
             jurisdiction: seed.jurisdiction,
             proceduralRole: seed.proceduralRole,
             instructorName: seed.instructorName,
-            instructorPhone: seed.instructorPhone,
+            tribunalPhone: seed.tribunalPhone,
             instructorExtension: seed.instructorExtension,
             counterparty: seed.counterparty ?? null,
             subjectMatter: seed.subjectMatter ?? null,
@@ -554,7 +554,7 @@ export function toCase(stored: StoredCase): Case {
         jurisdiction: stored.jurisdiction,
         proceduralRole: stored.proceduralRole,
         instructorName: stored.instructorName,
-        instructorPhone: stored.instructorPhone,
+        tribunalPhone: stored.tribunalPhone,
         instructorExtension: stored.instructorExtension,
         counterparty: stored.counterparty,
         subjectMatter: stored.subjectMatter,

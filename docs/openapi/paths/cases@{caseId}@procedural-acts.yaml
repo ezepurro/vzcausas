@@ -1,0 +1,160 @@
+parameters:
+  - $ref: ../components/parameters/CaseIdParam.yaml
+
+post:
+  tags:
+    - Procedural Acts
+  operationId: createProceduralAct
+  summary: Registrar acto procesal
+  description: |
+    Registra un acto procesal sobre la causa (HU26). El acto se aplica en el
+    momento, sin confirmación posterior.
+
+    **Efecto sobre la causa**
+
+    - La causa pasa al estado del acto (`currentState`) y su vencimiento pasa
+      a ser el que abre el acto (`currentState.dueDate`). Si el acto no abre
+      plazo, la causa queda sin vencimiento.
+    - **Primer acto.** En una causa en el estado inicial, el acto la hace
+      entrar al ciclo de vida del fuero (`currentState.initial` pasa a
+      `false`). Puede llevarla a cualquier estado no terminal del fuero o a un
+      estado escrito a mano.
+    - La causa toma el estado del acto **con la fecha de acto más reciente**.
+      Un acto con fecha anterior al último registrado queda asentado pero no
+      retrocede el estado actual ni reemplaza el vencimiento vigente.
+
+    Los estados terminales ("Archivada", "Prescripta") no pueden ser destino
+    de un acto.
+
+    **Rol requerido:** abogado responsable de la causa. El `lawyerId` del
+    usuario autenticado debe ser igual a `responsibleLawyer.id` de la causa.
+    Ningún otro usuario puede registrar actos, aunque tenga el rol `LAWYER` o
+    `ADMINISTRATOR`.
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: ../components/schemas/ProceduralActCreate.yaml
+        examples:
+          tableState:
+            summary: Pasando a un estado de la tabla del fuero
+            value:
+              proceduralStateId: 12
+              actDate: '2026-09-09'
+              notes: Con acusación, pero con oposición.
+          administrative:
+            summary: Fuero administrativo, el plazo corre desde la notificación (RN6)
+            value:
+              proceduralStateId: 5
+              actDate: '2026-09-12'
+              notificationDate: '2026-09-15'
+          customState:
+            summary: Estado escrito a mano, con vencimiento ajustado manualmente
+            value:
+              customState: Pedido de informes al Registro Nacional de Reincidencia
+              actDate: '2026-09-15'
+              manualDueDate: '2026-09-25'
+  responses:
+    '201':
+      description: Acto procesal registrado y aplicado a la causa.
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - data
+            properties:
+              data:
+                $ref: ../components/schemas/ProceduralAct.yaml
+          examples:
+            tableState:
+              summary: Estado de la tabla, vencimiento calculado
+              value:
+                data:
+                  id: 31
+                  caseId: 1
+                  resultingState:
+                    proceduralStateId: 12
+                    name: Oposición al requerimiento de elevación
+                    custom: false
+                  actDate: '2026-09-09'
+                  notificationDate: null
+                  notes: Con acusación, pero con oposición.
+                  deadline:
+                    timeLimitDays: 5
+                    dayType: BUSINESS
+                    countsFrom: '2026-09-09'
+                    computedDueDate: '2026-09-16'
+                    dueDate: '2026-09-16'
+                    manuallyAdjusted: false
+                  registeredBy:
+                    id: 3
+                    fullName: Malena Ríos
+                  registeredAt: '2026-09-09T11:42:00-03:00'
+            customState:
+              summary: Estado escrito a mano, vencimiento manual
+              value:
+                data:
+                  id: 32
+                  caseId: 4
+                  resultingState:
+                    proceduralStateId: null
+                    name: Pedido de informes al Registro Nacional de Reincidencia
+                    custom: true
+                  actDate: '2026-09-15'
+                  notificationDate: null
+                  notes: null
+                  deadline:
+                    timeLimitDays: 0
+                    dayType: NONE
+                    countsFrom: '2026-09-15'
+                    computedDueDate: null
+                    dueDate: '2026-09-25'
+                    manuallyAdjusted: true
+                  registeredBy:
+                    id: 1
+                    fullName: Fernando G. Vázquez
+                  registeredAt: '2026-09-15T10:05:00-03:00'
+    '400':
+      description: Datos o identificador inválidos.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          examples:
+            missingNotificationDate:
+              summary: Falta la fecha de notificación (RN6)
+              value:
+                error:
+                  code: VALIDATION_ERROR
+                  message: Los datos enviados no son válidos.
+                  details:
+                    notificationDate: Es obligatoria en el fuero administrativo cuando el estado abre plazo (RN6).
+            invalidState:
+              summary: Estado de otro fuero o terminal
+              value:
+                error:
+                  code: VALIDATION_ERROR
+                  message: Los datos enviados no son válidos.
+                  details:
+                    proceduralStateId: El estado procesal no pertenece al fuero de la causa o es terminal.
+            invalidCaseId:
+              $ref: ../components/examples/InvalidCaseIdError.yaml
+    '401':
+      $ref: ../components/responses/Unauthorized.yaml
+    '403':
+      $ref: ../components/responses/ForbiddenResponsibleLawyer.yaml
+    '404':
+      $ref: ../components/responses/CaseNotFound.yaml
+    '422':
+      description: La causa está en un estado terminal.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          example:
+            error:
+              code: CASE_IN_TERMINAL_STATE
+              message: La causa se encuentra en un estado terminal y no admite actos procesales.
+              details: null

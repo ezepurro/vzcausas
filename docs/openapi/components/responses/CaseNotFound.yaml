@@ -1,0 +1,10 @@
+description: La causa no existe.
+content:
+  application/json:
+    schema:
+      $ref: ../schemas/Error.yaml
+    example:
+      error:
+        code: CASE_NOT_FOUND
+        message: No se encontró la causa solicitada.
+        details: null

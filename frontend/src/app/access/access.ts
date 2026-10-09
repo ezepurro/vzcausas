@@ -32,12 +32,15 @@ export function canAccess(roles: readonly Role[], pathname: string): boolean {
  * todos, pero que sólo opera un perfil. Sale de la tabla de permisos por
  * perfil del contrato (V3 §4).
  */
-export type Action = 'clients.create'
+export type Action = 'clients.create' | 'legalQualifications.create'
 
 export const ACTION_ACCESS: Record<Action, readonly Role[]> = {
     // Administrar clientes es sólo de la Secretaría (V3 D-05).
     'clients.create': SECRETARY,
+    // Administrar calificaciones legales es sólo del Administrador (V3 D-04).
+    'legalQualifications.create': ADMIN,
 }
+
 
 /** ¿Algún rol del usuario habilita esta acción? */
 export function can(roles: readonly Role[], action: Action): boolean {

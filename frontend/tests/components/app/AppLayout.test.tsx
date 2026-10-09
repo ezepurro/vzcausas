@@ -8,6 +8,7 @@ const ROUTES = {
         { path: '/inicio', element: <p>Pantalla de inicio</p> },
         { path: '/usuarios', element: <p>Pantalla de usuarios</p> },
         { path: '/usuarios/:userId', element: <p>Detalle de usuario</p> },
+        { path: '/causas/nueva', element: <p>Pantalla de registrar causa</p> },
     ],
 }
 
@@ -84,6 +85,40 @@ describe('AppLayout', () => {
 
             expect(screen.getByText('Pantalla de usuarios')).toBeInTheDocument()
             expect(railItem('Usuarios')).toHaveAttribute('aria-current', 'page')
+        })
+    })
+
+    /* "Nueva causa" bajo el logo, como el prototipo. Registrar una causa la
+       puede hacer cualquier perfil (RN11), así que lo ven los tres. */
+    describe('"Nueva causa"', () => {
+        it.each([
+            ['el administrador', 'supervision'],
+            ['un abogado', 'mrios'],
+            ['una persona de secretaría', 'gestion'],
+        ])('%s lo ve en el rail, habilitado', (_, username) => {
+            renderWithProviders(<AppLayout />, { ...ROUTES, as: username, route: '/inicio' })
+
+            expect(railItem('Nueva causa')).toBeEnabled()
+        })
+
+        it('lleva al alta de causa', async () => {
+            const { user } = renderWithProviders(<AppLayout />, {
+                ...ROUTES,
+                as: 'gestion',
+                route: '/inicio',
+            })
+
+            await user.click(railItem('Nueva causa')!)
+
+            expect(screen.getByText('Pantalla de registrar causa')).toBeInTheDocument()
+        })
+
+        /* Con el rail colapsado queda sólo el ícono, así que el nombre lo tiene
+           que dar el `title`. */
+        it('se nombra también con el título, para cuando el rail está colapsado', () => {
+            renderWithProviders(<AppLayout />, { ...ROUTES, as: 'gestion', route: '/inicio' })
+
+            expect(railItem('Nueva causa')).toHaveAttribute('title', 'Nueva causa')
         })
     })
 })

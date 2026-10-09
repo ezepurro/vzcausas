@@ -401,7 +401,7 @@ const EXAMPLE_CASE: Case = {
     jurisdiction: 'CRIMINAL',
     proceduralRole: 'DEFENSE',
     instructorName: 'Dra. Verónica Ledesma',
-    instructorPhone: '0351 448-1200',
+    tribunalPhone: '0351 448-1200',
     instructorExtension: '214',
     counterparty: null,
     subjectMatter: null,

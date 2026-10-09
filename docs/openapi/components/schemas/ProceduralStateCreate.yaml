@@ -1,0 +1,33 @@
+type: object
+description: |
+  `dayType` debe ser `NONE` si `timeLimitDays` es `0`, y distinto de `NONE` si
+  es mayor a `0`. La opción "Sin plazo" del formulario corresponde a
+  `dayType: NONE` con `timeLimitDays: 0`.
+additionalProperties: false
+required:
+  - name
+  - jurisdiction
+properties:
+  name:
+    type: string
+    minLength: 1
+    description: Única dentro del fuero. "Iniciada" está reservada.
+    examples:
+      - Oposición al requerimiento de elevación
+  jurisdiction:
+    $ref: ./Jurisdiction.yaml
+  timeLimitDays:
+    type: integer
+    minimum: 0
+    default: 0
+    examples:
+      - 5
+  dayType:
+    allOf:
+      - $ref: ./DayType.yaml
+    default: NONE
+  terminal:
+    type: boolean
+    default: false
+    examples:
+      - false

@@ -52,6 +52,16 @@
   color: var(--vz-muted);
 }
 .vz-case-head__state-value { margin-top: 3px; font-size: 15px; font-weight: 700; }
+/* El vencimiento vigente va bajo el estado: es parte de él (V3 D-35). */
+.vz-case-head__state .vz-pill { margin-top: 7px; }
+/* La nota de quién registra los actos, junto al botón deshabilitado (D-30). */
+.vz-case-head__note {
+  margin: 0;
+  max-width: 240px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--vz-faint);
+}
 
 /* ─────────── barra de prescripción ─────────── */
 .vz-presc { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--vz-border); }
@@ -139,3 +149,10 @@
 .vz-summary__caption-action { margin: 8px 0 16px; }
 /* Separa un bloque del anterior dentro del panel ("Para poder registrar"). */
 .vz-summary__block { margin-top: 18px; }
+
+/* Por ahora el detalle tiene un solo panel bajo el encabezado: la tarjeta del
+   cliente. Los que la acompañan en el prototipo —"Ciclo de vida de la causa"
+   (HU27) y "Documentación" (HU39)— son de otro sprint. Hasta que lleguen, la
+   tarjeta conserva el ancho que va a tener en la columna lateral en vez de
+   estirarse a todo el ancho de la página. */
+.vz-case-detail__panels { max-width: 440px; margin-top: 16px; }

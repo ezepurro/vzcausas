@@ -1,0 +1,67 @@
+post:
+  tags:
+    - Auth
+  operationId: refreshSession
+  summary: Renovar el token de acceso
+  description: |
+    Renueva el token de acceso a partir del refresh token de la cookie
+    `refresh_token` emitida en `POST /auth/login`. No recibe cuerpo ni
+    encabezado `Authorization`: el access token puede estar vencido.
+
+    En cada uso el refresh se **rota**: se emite uno nuevo y el anterior queda
+    revocado. Si se recibe un refresh ya revocado, se considera indicio de
+    robo y se revoca la familia completa de tokens del usuario.
+
+    El objeto `user` es una proyección reducida (`SessionUser`). `lastLoginAt`
+    no se devuelve porque pertenece al inicio de sesión, no a la renovación.
+  security:
+    - refreshTokenCookie: []
+  responses:
+    '200':
+      description: Token renovado. La cookie trae el refresh rotado.
+      headers:
+        Set-Cookie:
+          $ref: ../components/headers/SetRefreshTokenCookie.yaml
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - data
+            properties:
+              data:
+                $ref: ../components/schemas/RefreshedSession.yaml
+          example:
+            data:
+              accessToken: eyJhbGciOi...
+              tokenType: Bearer
+              expiresIn: 900
+              user:
+                id: 1
+                username: fvazquez
+                roles:
+                  - ADMINISTRATOR
+                  - LAWYER
+                lawyerId: 10
+                permissions:
+                  - user:manage
+                  - case:read
+                  - case:change-status
+    '401':
+      description: |
+        Sesión expirada o inválida. Cubre, de manera deliberadamente opaca,
+        todos los caminos de falla: cookie ausente, token inexistente,
+        revocado o expirado, o usuario dado de baja luego del último login.
+        El cliente debe redirigir al login.
+      headers:
+        Set-Cookie:
+          $ref: ../components/headers/ClearRefreshTokenCookie.yaml
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          example:
+            error:
+              code: UNAUTHENTICATED
+              message: La sesión expiró o no es válida.
+              details: null

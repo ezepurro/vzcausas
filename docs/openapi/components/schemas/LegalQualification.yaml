@@ -1,0 +1,38 @@
+type: object
+description: |
+  Calificación legal: encuadre jurídico del hecho imputado. Determina el plazo
+  de prescripción de la acción. Es la forma que devuelven `POST` y `PATCH`;
+  las respuestas de `GET` suman `activeCases`
+  (ver `LegalQualificationWithActiveCases`).
+required:
+  - id
+  - name
+  - prescriptionMonths
+  - active
+properties:
+  id:
+    type: integer
+    description: Identificador único.
+    examples:
+      - 1
+  name:
+    type: string
+    description: |
+      Denominación, incluida la norma. Única entre las vigentes. La carátula
+      sugerida usa solo la parte anterior al guión largo; ese corte lo hace el
+      cliente.
+    examples:
+      - Robo calificado — art. 167 inc. 2 CP
+  prescriptionMonths:
+    type: integer
+    minimum: 1
+    description: |
+      Plazo de prescripción de la acción, en meses. La conversión a años y
+      meses la resuelve el cliente.
+    examples:
+      - 96
+  active:
+    type: boolean
+    description: Estado de alta. Vale siempre `true`; ver `DELETE /legal-qualifications/{qualificationId}`.
+    examples:
+      - true

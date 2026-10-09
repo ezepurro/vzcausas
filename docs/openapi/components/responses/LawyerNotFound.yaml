@@ -1,0 +1,10 @@
+description: El abogado no existe o fue dado de baja.
+content:
+  application/json:
+    schema:
+      $ref: ../schemas/Error.yaml
+    example:
+      error:
+        code: LAWYER_NOT_FOUND
+        message: No se encontró el abogado solicitado.
+        details: null

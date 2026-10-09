@@ -1,18 +1,19 @@
 /**
- * El estado procesal de una causa, como se muestra.
+ * El rótulo del estado procesal de una causa.
  *
- * Una causa nace sin estado: `currentState` viene en `null` hasta que se
- * registra su primer acto procesal (V3 D-09). El contrato deja el rótulo del
- * lado del front, y como aparece en la tabla, en el encabezado, en el resumen
- * del alta y en el filtro, se define una sola vez acá.
+ * `currentState` nunca es `null` (V3 D-34): una causa recién registrada está en
+ * el estado inicial de su fuero, "Iniciada". El nombre lo manda siempre el
+ * backend, así que acá no se pone ningún rótulo propio.
  */
 
-import type { CaseState } from '@/features/cases/types/case'
+import type { CurrentState } from '@/features/cases/types/case'
 
-/** El rótulo del estado de sistema que tiene una causa sin actos. */
-export const NO_PROCEDURAL_ACT_LABEL = 'Sin acto procesal'
+/**
+ * Cómo llama el backend al estado inicial. Lo usa el resumen del alta, que
+ * tiene que mostrarlo antes de que la causa exista.
+ */
+export const INITIAL_STATE_LABEL = 'Iniciada'
 
-/** El nombre del estado actual, o "Sin acto procesal" si todavía no tiene. */
-export function caseStateLabel(state: CaseState | null): string {
-    return state === null ? NO_PROCEDURAL_ACT_LABEL : state.name
+export function caseStateLabel(state: CurrentState): string {
+    return state.name
 }

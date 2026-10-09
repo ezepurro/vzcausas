@@ -1,0 +1,47 @@
+get:
+  tags:
+    - Cases
+  operationId: listCustomStates
+  summary: Consultar estados escritos a mano
+  description: |
+    Obtiene los estados escritos a mano que tienen actualmente las causas
+    activas, sin repetir y en orden alfabético. Alimenta el grupo "Escritos a
+    mano en causas" del filtro de estado de `GET /cases`.
+
+    "Iniciada" **no** forma parte de esta lista: es el estado inicial y el
+    filtro lo ofrece como opción fija del grupo "Causas nuevas".
+
+    La respuesta **no está paginada**.
+
+    **Rol requerido:** cualquier usuario autenticado.
+  parameters:
+    - $ref: ../components/parameters/JurisdictionQueryParam.yaml
+  responses:
+    '200':
+      description: Lista de estados escritos a mano.
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - data
+            properties:
+              data:
+                type: array
+                uniqueItems: true
+                items:
+                  type: string
+          example:
+            data:
+              - Con acusación, pero con oposición
+    '400':
+      description: Fuero inexistente.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          examples:
+            invalidJurisdiction:
+              $ref: ../components/examples/InvalidJurisdictionError.yaml
+    '401':
+      $ref: ../components/responses/Unauthorized.yaml

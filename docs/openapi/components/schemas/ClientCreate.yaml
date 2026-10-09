@@ -1,0 +1,35 @@
+type: object
+additionalProperties: false
+required:
+  - lastName
+  - firstName
+  - dni
+properties:
+  lastName:
+    type: string
+    minLength: 1
+    maxLength: 100
+    examples:
+      - BENÍTEZ
+  firstName:
+    type: string
+    minLength: 1
+    maxLength: 100
+    examples:
+      - Rodrigo E.
+  dni:
+    type: string
+    description: Entre 7 y 8 dígitos, sin puntos. Único entre los clientes vigentes.
+    pattern: '^[0-9]{7,8}$'
+    examples:
+      - '31556208'
+  phone:
+    type: string
+    maxLength: 50
+    examples:
+      - 351 401-5573
+  email:
+    type: string
+    format: email
+    examples:
+      - rbenitez@gmail.com

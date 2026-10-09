@@ -1,0 +1,160 @@
+post:
+  tags:
+    - Procedural States
+  operationId: createProceduralState
+  summary: Registrar estado procesal
+  description: |
+    Registra un nuevo estado procesal (HU45). La respuesta no incluye
+    `activeCases`.
+
+    **Rol requerido:** `ADMINISTRATOR`.
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: ../components/schemas/ProceduralStateCreate.yaml
+        examples:
+          withDeadline:
+            summary: Estado que abre plazo
+            value:
+              name: Oposición al requerimiento de elevación
+              jurisdiction: CRIMINAL
+              timeLimitDays: 5
+              dayType: BUSINESS
+              terminal: false
+          withoutDeadline:
+            summary: Estado terminal sin plazo
+            value:
+              name: Archivada
+              jurisdiction: ADMINISTRATIVE
+              timeLimitDays: 0
+              dayType: NONE
+              terminal: true
+  responses:
+    '201':
+      description: Estado procesal registrado.
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - data
+            properties:
+              data:
+                $ref: ../components/schemas/ProceduralState.yaml
+          example:
+            data:
+              id: 12
+              name: Oposición al requerimiento de elevación
+              jurisdiction: CRIMINAL
+              timeLimitDays: 5
+              dayType: BUSINESS
+              terminal: false
+              active: true
+    '400':
+      description: Datos inválidos.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          example:
+            error:
+              code: VALIDATION_ERROR
+              message: Los datos enviados no son válidos.
+              details:
+                dayType: Debe indicarse el tipo de día cuando el plazo es mayor a 0.
+    '401':
+      $ref: ../components/responses/Unauthorized.yaml
+    '403':
+      $ref: ../components/responses/ForbiddenAdministrator.yaml
+    '409':
+      description: Ya existe un estado con esa denominación en el fuero, o la denominación es "Iniciada".
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          example:
+            error:
+              code: PROCEDURAL_STATE_ALREADY_EXISTS
+              message: Ya existe un estado procesal con esa denominación en el fuero.
+              details: null
+
+get:
+  tags:
+    - Procedural States
+  operationId: listProceduralStates
+  summary: Consultar estados procesales
+  description: |
+    Obtiene una lista paginada de los estados procesales, ordenada por
+    `jurisdiction` y, dentro de cada fuero, por orden de registro (`id`
+    ascendente). El estado inicial "Iniciada" no forma parte del listado.
+
+    La pestaña de un fuero en "Estados y plazos" y el selector de estado del
+    registro de acto procesal piden todos los estados del fuero con
+    `limit=100`.
+
+    **Rol requerido:** cualquier usuario autenticado.
+  parameters:
+    - $ref: ../components/parameters/PageParam.yaml
+    - $ref: ../components/parameters/LimitParam.yaml
+    - name: search
+      in: query
+      required: false
+      description: Filtra por `name`.
+      schema:
+        type: string
+    - $ref: ../components/parameters/JurisdictionQueryParam.yaml
+  responses:
+    '200':
+      description: Página de estados procesales.
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - data
+              - pagination
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: ../components/schemas/ProceduralStateWithActiveCases.yaml
+              pagination:
+                $ref: ../components/schemas/Pagination.yaml
+          example:
+            data:
+              - id: 1
+                name: Notificación de imputación en sumario
+                jurisdiction: ADMINISTRATIVE
+                timeLimitDays: 10
+                dayType: BUSINESS
+                terminal: false
+                activeCases: 7
+                active: true
+              - id: 7
+                name: Archivada
+                jurisdiction: ADMINISTRATIVE
+                timeLimitDays: 0
+                dayType: NONE
+                terminal: true
+                activeCases: 0
+                active: true
+            pagination:
+              page: 1
+              limit: 100
+              totalItems: 7
+              totalPages: 1
+    '400':
+      description: Paginación inválida o fuero inexistente.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          examples:
+            invalidJurisdiction:
+              $ref: ../components/examples/InvalidJurisdictionError.yaml
+            invalidPagination:
+              $ref: ../components/examples/InvalidPaginationError.yaml
+    '401':
+      $ref: ../components/responses/Unauthorized.yaml

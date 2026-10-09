@@ -1,0 +1,72 @@
+type: object
+description: |
+  Cliente del estudio. Apellido y nombres viajan en campos separados; la forma
+  `GÓMEZ, Ariel Fernando` la compone el cliente.
+required:
+  - id
+  - lastName
+  - firstName
+  - dni
+  - phone
+  - email
+  - clientSince
+  - activeCases
+  - active
+properties:
+  id:
+    type: integer
+    description: Identificador único.
+    examples:
+      - 1
+  lastName:
+    type: string
+    description: Apellido.
+    examples:
+      - GÓMEZ
+  firstName:
+    type: string
+    description: Nombres.
+    examples:
+      - Ariel Fernando
+  dni:
+    type: string
+    description: |
+      Número de DNI, solo dígitos. Único entre los clientes vigentes. El
+      formato con puntos es de presentación y lo aplica el cliente.
+    pattern: '^[0-9]{7,8}$'
+    examples:
+      - '34812905'
+  phone:
+    type:
+      - string
+      - 'null'
+    description: Teléfono de contacto. Texto libre.
+    examples:
+      - 351 415-2288
+  email:
+    type:
+      - string
+      - 'null'
+    format: email
+    description: Correo electrónico.
+    examples:
+      - afgomez@gmail.com
+  clientSince:
+    type: string
+    format: date
+    readOnly: true
+    description: Fecha de alta del cliente en el estudio. La asigna el backend.
+    examples:
+      - '2021-03-12'
+  activeCases:
+    type: integer
+    minimum: 0
+    readOnly: true
+    description: Causas activas en las que es cliente. Calculado, sólo lectura.
+    examples:
+      - 1
+  active:
+    type: boolean
+    description: Estado de alta. Vale siempre `true`.
+    examples:
+      - true

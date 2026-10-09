@@ -130,8 +130,10 @@ export function CaseForm({
                 <div className="vz-panel__body vz-form-grid">
                     <FormSection label="Identificación" />
 
-                    <Field label="N° de SAC" required width="half" htmlFor="case-sac" error={errors.sacNumber}
-                        note="Identifica la causa de forma única.">
+                    {/* El SAC es opcional (V3 D-33): la causa puede iniciarse antes de
+                        que el Poder Judicial se lo asigne. */}
+                    <Field label="N° de SAC" width="half" htmlFor="case-sac" error={errors.sacNumber}
+                        note="Opcional. Si se conoce, identifica la causa de forma única.">
                         <TextInput
                             id="case-sac"
                             mono
@@ -171,28 +173,46 @@ export function CaseForm({
                         />
                     </Field>
 
-                    <Field label="Instructor de la causa" width="half" htmlFor="case-instructor"
-                        error={errors.instructorName}
-                        note="Quien lleva la instrucción en el tribunal o la dependencia.">
-                        <TextInput
-                            id="case-instructor"
-                            placeholder="Apellido y nombre del instructor"
-                            value={values.instructorName}
-                            onChange={(e) => onChange('instructorName', e.target.value)}
-                        />
-                    </Field>
+                    {/* El instructor, su teléfono y su interno van en una fila,
+                        como en el prototipo. El teléfono y el interno son dos
+                        campos distintos (V3 D-33). */}
+                    <div className="vz-form-row3">
+                        <Field label="Instructor de la causa" htmlFor="case-instructor"
+                            error={errors.instructorName}
+                            note="Quien lleva la instrucción en el tribunal o la dependencia.">
+                            <TextInput
+                                id="case-instructor"
+                                placeholder="Apellido y nombre del instructor"
+                                value={values.instructorName}
+                                onChange={(e) => onChange('instructorName', e.target.value)}
+                            />
+                        </Field>
 
-                    <Field label="Interno (teléfono)" width="half" htmlFor="case-instructor-phone"
-                        error={errors.instructorPhone}>
-                        <TextInput
-                            id="case-instructor-phone"
-                            type="tel"
-                            mono
-                            placeholder="0351 448-1200 int. 214"
-                            value={values.instructorPhone}
-                            onChange={(e) => onChange('instructorPhone', e.target.value)}
-                        />
-                    </Field>
+                        <Field label="Teléfono" htmlFor="case-tribunal-phone"
+                            error={errors.tribunalPhone}>
+                            <TextInput
+                                id="case-tribunal-phone"
+                                type="tel"
+                                mono
+                                placeholder="0351 448-1200"
+                                value={values.tribunalPhone}
+                                onChange={(e) => onChange('tribunalPhone', e.target.value)}
+                            />
+                        </Field>
+
+                        <Field label="Interno" htmlFor="case-instructor-extension"
+                            error={errors.instructorExtension}>
+                            <TextInput
+                                id="case-instructor-extension"
+                                mono
+                                inputMode="numeric"
+                                maxLength={20}
+                                placeholder="214"
+                                value={values.instructorExtension}
+                                onChange={(e) => onChange('instructorExtension', e.target.value)}
+                            />
+                        </Field>
+                    </div>
 
                     <FormSection label="Cliente y rol procesal" />
 
@@ -228,9 +248,10 @@ export function CaseForm({
                     </Field>
 
                     {values.jurisdiction === 'CRIMINAL' ? (
+                        /* Son opcionales (V3 D-33): una causa penal puede registrarse
+                           sin ninguna, y entonces no computa prescripción. */
                         <Field
                             label="Calificaciones legales"
-                            required
                             htmlFor="case-qualifications"
                             error={errors.legalQualifications}
                             note="Si en la causa concurren varios delitos, agregá una calificación por cada uno: cada una tiene su propio plazo de prescripción, que corre desde la fecha del hecho."

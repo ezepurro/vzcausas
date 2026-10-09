@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { screen, waitFor } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import { http, HttpResponse } from 'msw'
 import { errorBody } from '@/shared/mocks'
 import { server } from '@/shared/mocks/server'
+import { CaseDetailPage } from '@/features/cases/pages/CaseDetailPage'
 import { RegisterProceduralActPage } from '@/features/proceedings/pages/RegisterProceduralActPage'
 import { renderWithProviders } from '../../setup/render'
 import { usePrototypeToday } from '../../unit/mocks/helpers'
@@ -192,5 +193,38 @@ describe('RegisterProceduralActPage', () => {
             ),
         )
         expect(screen.queryByText('Detalle de la causa')).not.toBeInTheDocument()
+    })
+
+    /* CA-22.5 (HU-22): el acto se aplica a la causa en el momento (V3 D-13), y
+       la mutación invalida las claves de la causa. Por eso el detalle, al que se
+       vuelve después de guardar, ya muestra el estado y el plazo nuevos. Se
+       monta el detalle de verdad, no un cartel: es lo que el criterio pide. */
+    it('al volver al detalle, el estado y el vencimiento son los que dejó el acto', async () => {
+        const { user } = renderWithProviders(<RegisterProceduralActPage />, {
+            as: 'mrios',
+            route: '/causas/1/acto',
+            path: '/causas/:caseId/acto',
+            routes: [{ path: '/causas/:caseId', element: <CaseDetailPage /> }],
+        })
+
+        // La causa 1 está en "Oposición al requerimiento de elevación", a un día hábil.
+        await user.click(await screen.findByRole('combobox'))
+        await user.click(screen.getByRole('option', { name: /Cédula de notificación/ }))
+        await user.click(screen.getByRole('button', { name: 'Registrar acto' }))
+
+        /* El encabezado se vuelve a montar cuando llega la causa de nuevo, así
+           que se lo busca otra vez: una referencia vieja queda desconectada
+           (TESTING.md §9). */
+        await screen.findByRole('region', { name: 'Causa 13284571' })
+        await waitFor(() =>
+            expect(screen.getByRole('region', { name: 'Causa 13284571' })).toHaveTextContent(
+                'Cédula de notificación',
+            ),
+        )
+
+        const header = screen.getByRole('region', { name: 'Causa 13284571' })
+        expect(header).not.toHaveTextContent('Oposición al requerimiento de elevación')
+        // El plazo que abrió el acto: vence el viernes 18/09, a 3 días hábiles.
+        expect(within(header).getByText('En 3 días hábiles')).toBeInTheDocument()
     })
 })

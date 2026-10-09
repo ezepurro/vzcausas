@@ -1,0 +1,14 @@
+post:
+  tags:
+    - Auth
+  operationId: logout
+  summary: Cerrar sesión
+  description: |
+    Finaliza la sesión del usuario autenticado. El token queda revocado.
+
+    **Rol requerido:** cualquier usuario autenticado.
+  responses:
+    '204':
+      description: Sesión cerrada. La respuesta no contiene cuerpo.
+    '401':
+      $ref: ../components/responses/Unauthorized.yaml

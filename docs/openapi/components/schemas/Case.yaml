@@ -1,0 +1,120 @@
+type: object
+description: |
+  Causa. Es el mismo recurso en el listado, en el detalle y en la respuesta
+  del alta.
+
+  **Prescripción:** solo se computa en el fuero `CRIMINAL`. Cada calificación
+  computa la suya desde la fecha del hecho (`offenseDate`); `startDate` no
+  interviene. Si hay varias, el cliente muestra la que prescribe primero (la
+  de menor `prescriptionExpiresOn`).
+required:
+  - id
+  - sacNumber
+  - caption
+  - court
+  - jurisdiction
+  - proceduralRole
+  - instructorName
+  - tribunalPhone
+  - instructorExtension
+  - counterparty
+  - subjectMatter
+  - client
+  - responsibleLawyer
+  - legalQualifications
+  - startDate
+  - currentState
+  - active
+properties:
+  id:
+    type: integer
+    description: Identificador único interno.
+    examples:
+      - 1
+  sacNumber:
+    type:
+      - string
+      - 'null'
+    pattern: '^[0-9]{8}$'
+    description: Número de SAC, 8 dígitos. Opcional; si se informa, es único en todo el sistema (RN2).
+    examples:
+      - '13284571'
+  caption:
+    type: string
+    description: Carátula.
+    examples:
+      - GÓMEZ, Ariel Fernando p.s.a. Robo calificado
+  court:
+    type:
+      - string
+      - 'null'
+    description: Tribunal o dependencia.
+    examples:
+      - Juzgado de Control N° 3 · Córdoba
+  jurisdiction:
+    $ref: ./Jurisdiction.yaml
+  proceduralRole:
+    $ref: ./ProceduralRole.yaml
+  instructorName:
+    type:
+      - string
+      - 'null'
+    description: Instructor de la causa, quien lleva la instrucción en el tribunal o la dependencia.
+    examples:
+      - Dra. Verónica Ledesma
+  tribunalPhone:
+    type:
+      - string
+      - 'null'
+    description: Teléfono del instructor. Texto libre.
+    examples:
+      - 0351 448-1200
+  instructorExtension:
+    type:
+      - string
+      - 'null'
+    description: Número de interno del instructor. Texto libre.
+    examples:
+      - '214'
+  counterparty:
+    type:
+      - string
+      - 'null'
+    description: Contraparte u organismo. Solo en `ADMINISTRATIVE` y `AMPARO`; en `CRIMINAL` vale `null`.
+    examples:
+      - null
+  subjectMatter:
+    type:
+      - string
+      - 'null'
+    description: |
+      Objeto del reclamo (`ADMINISTRATIVE`) u objeto del amparo (`AMPARO`).
+      En `CRIMINAL` vale `null`.
+    examples:
+      - null
+  client:
+    $ref: ./ClientSummary.yaml
+  responsibleLawyer:
+    $ref: ./LawyerSummary.yaml
+  legalQualifications:
+    type: array
+    description: |
+      Calificaciones legales, cada una con su fecha del hecho y su
+      prescripción. Opcional en `CRIMINAL`; vacío en los demás fueros. Una
+      calificación dada de baja sigue apareciendo en las causas que la
+      registran.
+    items:
+      $ref: ./CaseLegalQualification.yaml
+  startDate:
+    type: string
+    format: date
+    description: Fecha de inicio de la causa. No interviene en el cómputo de la prescripción.
+    examples:
+      - '2021-03-12'
+  currentState:
+    $ref: ./CurrentState.yaml
+  active:
+    type: boolean
+    description: Estado de alta. Vale siempre `true` en esta versión.
+    examples:
+      - true

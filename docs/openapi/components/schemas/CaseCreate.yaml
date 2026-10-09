@@ -1,0 +1,99 @@
+type: object
+description: |
+  Algunas reglas dependen del fuero (`jurisdiction`):
+
+  | Campo                 | `CRIMINAL`  | `ADMINISTRATIVE` | `AMPARO`    |
+  | --------------------- | ----------- | ---------------- | ----------- |
+  | `legalQualifications` | Opcional    | No se envía      | No se envía |
+  | `counterparty`        | No se envía | Opcional         | Opcional    |
+  | `subjectMatter`       | No se envía | Obligatorio      | Obligatorio |
+  | `proceduralRole`      | `DEFENSE`, `PRIVATE_PROSECUTOR` | `DEFENSE`, `APPELLANT` | `PLAINTIFF`, `DEFENDANT` |
+
+  Un identificador de cliente, abogado o calificación que no existe o está
+  dado de baja se informa como `400 VALIDATION_ERROR` sobre el campo
+  correspondiente. Los errores de una calificación se informan sobre
+  `legalQualifications`.
+additionalProperties: false
+required:
+  - jurisdiction
+  - caption
+  - clientId
+  - proceduralRole
+  - responsibleLawyerId
+properties:
+  sacNumber:
+    type: string
+    pattern: '^[0-9]{8}$'
+    description: Exactamente 8 dígitos. Si se envía, único en todo el sistema.
+    examples:
+      - '13284571'
+  jurisdiction:
+    $ref: ./Jurisdiction.yaml
+  caption:
+    type: string
+    minLength: 1
+    maxLength: 255
+    description: Carátula final. La carátula sugerida la arma el cliente.
+    examples:
+      - GÓMEZ, Ariel Fernando p.s.a. Robo calificado
+  court:
+    type: string
+    maxLength: 255
+    examples:
+      - Juzgado de Control N° 3 · Córdoba
+  instructorName:
+    type: string
+    maxLength: 150
+    examples:
+      - Dra. Verónica Ledesma
+  tribunalPhone:
+    type: string
+    maxLength: 50
+    examples:
+      - 0351 448-1200
+  instructorExtension:
+    type: string
+    maxLength: 20
+    description: Número de interno.
+    examples:
+      - '214'
+  clientId:
+    type: integer
+    minimum: 1
+    description: Cliente vigente.
+    examples:
+      - 1
+  proceduralRole:
+    $ref: ./ProceduralRole.yaml
+  legalQualifications:
+    type: array
+    description: |
+      Solo en `CRIMINAL`, opcional. Si se envía, sin calificaciones repetidas.
+      No se envía en los demás fueros.
+    items:
+      $ref: ./CaseLegalQualificationInput.yaml
+  counterparty:
+    type: string
+    maxLength: 255
+    description: Solo en `ADMINISTRATIVE` y `AMPARO`; no se envía en `CRIMINAL`.
+    examples:
+      - APROSS
+  subjectMatter:
+    type: string
+    minLength: 1
+    maxLength: 800
+    description: Obligatorio en `ADMINISTRATIVE` y `AMPARO`, no vacío. No se envía en `CRIMINAL`.
+    examples:
+      - Que se ordene a APROSS la cobertura integral del tratamiento de rehabilitación prescripto a la actora.
+  responsibleLawyerId:
+    type: integer
+    minimum: 1
+    description: Abogado vigente (RN3).
+    examples:
+      - 3
+  startDate:
+    type: string
+    format: date
+    description: Por defecto, la fecha del día. No puede ser posterior a hoy.
+    examples:
+      - '2021-03-12'

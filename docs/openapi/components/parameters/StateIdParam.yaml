@@ -1,0 +1,8 @@
+name: stateId
+in: path
+required: true
+description: Identificador único del estado procesal.
+schema:
+  type: integer
+  minimum: 1
+example: 12

@@ -31,6 +31,7 @@ const CAPTION_MAX = 255
 const COURT_MAX = 255
 const INSTRUCTOR_MAX = 150
 const PHONE_MAX = 50
+const EXTENSION_MAX = 20
 const COUNTERPARTY_MAX = 255
 
 /** El largo del objeto del reclamo o del amparo (V3 D-27). Lo usa también el contador del campo. */
@@ -41,12 +42,14 @@ export function validateCase(values: CaseFormValues): CaseFormErrors {
     const criminal = values.jurisdiction === 'CRIMINAL'
     const today = todayIsoDate()
 
+    /* El SAC es opcional (D-33). Si se informa, son 8 dígitos; que además no
+    esté repetido lo resuelve el backend, con un 409 que la pantalla pinta en
+    este mismo campo. */
     const sac = values.sacNumber.trim()
-    if (!sac) {
-        errors.sacNumber = 'El número de SAC es obligatorio.'
-    } else if (!SAC_PATTERN.test(sac)) {
+    if (sac && !SAC_PATTERN.test(sac)) {
         errors.sacNumber = 'El SAC tiene 8 dígitos.'
     }
+
 
     const caption = values.caption.trim()
     if (!caption) {
@@ -61,9 +64,13 @@ export function validateCase(values: CaseFormValues): CaseFormErrors {
     if (values.instructorName.trim().length > INSTRUCTOR_MAX) {
         errors.instructorName = `Puede tener hasta ${INSTRUCTOR_MAX} caracteres.`
     }
-    if (values.instructorPhone.trim().length > PHONE_MAX) {
-        errors.instructorPhone = `Puede tener hasta ${PHONE_MAX} caracteres.`
+    if (values.tribunalPhone.trim().length > PHONE_MAX) {
+        errors.tribunalPhone = `Puede tener hasta ${PHONE_MAX} caracteres.`
     }
+    if (values.instructorExtension.trim().length > EXTENSION_MAX) {
+        errors.instructorExtension = `Puede tener hasta ${EXTENSION_MAX} caracteres.`
+    }
+
 
     if (!values.clientId) {
         errors.clientId = 'Elegí el cliente de la causa.'
@@ -75,28 +82,23 @@ export function validateCase(values: CaseFormValues): CaseFormErrors {
         errors.proceduralRole = 'Ese rol procesal no corresponde al fuero.'
     }
 
-    if (criminal) {
-        if (values.legalQualifications.length === 0) {
-            errors.legalQualifications = 'Una causa penal necesita al menos una calificación legal.'
-        } else {
-            /* La fecha del hecho es obligatoria en cada calificación (V3 D-28):
-               sin ella no hay desde cuándo computar la prescripción. El
-               prototipo deja registrar sin cargarla; el contrato no. */
-            const offenseDates: Record<number, string> = {}
-            for (const q of values.legalQualifications) {
-                if (!q.offenseDate) {
-                    offenseDates[q.legalQualificationId] = 'Cargá la fecha del hecho.'
-                } else if (!parseDateOnly(q.offenseDate)) {
-                    offenseDates[q.legalQualificationId] = 'La fecha del hecho no es válida.'
-                } else if (q.offenseDate > today) {
-                    // Las dos son `YYYY-MM-DD`, así que se comparan como texto.
-                    offenseDates[q.legalQualificationId] = 'No puede ser posterior a hoy.'
-                }
+        if (criminal) {
+        /* Las calificaciones son opcionales (D-33), pero la fecha del hecho es obligatoria en cada una de las elegidas (D-28): sin ella no hay desde
+           cuándo computar la prescripción. */
+        const offenseDates: Record<number, string> = {}
+        for (const q of values.legalQualifications) {
+            if (!q.offenseDate) {
+                offenseDates[q.legalQualificationId] = 'Cargá la fecha del hecho.'
+            } else if (!parseDateOnly(q.offenseDate)) {
+                offenseDates[q.legalQualificationId] = 'La fecha del hecho no es válida.'
+            } else if (q.offenseDate > today) {
+                // Las dos son `YYYY-MM-DD`, así que se comparan como texto.
+                offenseDates[q.legalQualificationId] = 'No puede ser posterior a hoy.'
             }
-            if (Object.keys(offenseDates).length > 0) {
-                errors.offenseDates = offenseDates
-                errors.legalQualifications = 'Revisá la fecha del hecho de cada calificación.'
-            }
+        }
+        if (Object.keys(offenseDates).length > 0) {
+            errors.offenseDates = offenseDates
+            errors.legalQualifications = 'Revisá la fecha del hecho de cada calificación.'
         }
     } else {
         if (values.counterparty.trim().length > COUNTERPARTY_MAX) {

@@ -18,8 +18,9 @@ const CUSTOM_PREFIX = 'custom:'
 export const ALL_STATES = ''
 
 /**
- * "Sin acto procesal": las causas que todavía no tienen estado. Es un valor
- * fijo del grupo "Causas nuevas": no depende del fuero ni viene de la API.
+ * "Iniciada": las causas que están en el estado inicial de su fuero, porque
+ * todavía no tienen actos procesales (V3 D-34). Es un valor fijo del grupo
+ * "Causas nuevas": no depende del fuero ni viene de la API.
  */
 export const WITHOUT_ACTS = 'without-acts'
 

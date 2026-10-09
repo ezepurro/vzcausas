@@ -1,0 +1,20 @@
+type: object
+description: |
+  Todos los campos son opcionales, aunque debe enviarse al menos uno.
+  Modificar `prescriptionMonths` **recalcula la prescripción** de las causas
+  que registran la calificación.
+additionalProperties: false
+minProperties: 1
+properties:
+  name:
+    type: string
+    minLength: 1
+    maxLength: 255
+    description: Mismas restricciones que en el alta.
+    examples:
+      - Robo calificado — art. 167 inc. 2 CP
+  prescriptionMonths:
+    type: integer
+    minimum: 1
+    examples:
+      - 96

@@ -1,0 +1,8 @@
+summary: Paginación inválida
+value:
+  error:
+    code: INVALID_PAGINATION
+    message: Los parámetros de paginación no son válidos.
+    details:
+      page: Debe ser un número entero mayor o igual a 1.
+      limit: Debe ser un número entero entre 1 y 100.

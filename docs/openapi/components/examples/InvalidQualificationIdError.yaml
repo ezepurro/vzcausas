@@ -1,0 +1,7 @@
+summary: Identificador de calificación legal inválido
+value:
+  error:
+    code: INVALID_PATH_PARAMETER
+    message: El identificador de la calificación legal no es válido.
+    details:
+      qualificationId: Debe ser un número entero válido.

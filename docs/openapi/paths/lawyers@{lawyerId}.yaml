@@ -1,0 +1,184 @@
+parameters:
+  - $ref: ../components/parameters/LawyerIdParam.yaml
+
+get:
+  tags:
+    - Lawyers
+  operationId: getLawyer
+  summary: Consultar abogado
+  description: |
+    Obtiene la información de un abogado específico (HU13).
+
+    **Rol requerido:** cualquier usuario autenticado.
+  responses:
+    '200':
+      description: Abogado solicitado.
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - data
+            properties:
+              data:
+                $ref: ../components/schemas/Lawyer.yaml
+          example:
+            data:
+              id: 4
+              fullName: Dr. Ignacio Peralta
+              registrationNumber: 1-35207
+              activeCases: 16
+              active: true
+    '400':
+      description: Identificador inválido.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          examples:
+            invalidLawyerId:
+              $ref: ../components/examples/InvalidLawyerIdError.yaml
+    '401':
+      $ref: ../components/responses/Unauthorized.yaml
+    '404':
+      $ref: ../components/responses/LawyerNotFound.yaml
+
+patch:
+  tags:
+    - Lawyers
+  operationId: updateLawyer
+  summary: Modificar abogado
+  description: |
+    Modifica parcialmente la información de un abogado. Corresponde a HU14
+    (Sprint 3); se mantiene porque ya figuraba en V2.
+
+    **Rol requerido:** `ADMINISTRATOR`.
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: ../components/schemas/LawyerUpdate.yaml
+        example:
+          fullName: Dr. Ignacio Peralta
+          registrationNumber: 1-35207
+  responses:
+    '200':
+      description: Abogado modificado.
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - data
+            properties:
+              data:
+                $ref: ../components/schemas/Lawyer.yaml
+          example:
+            data:
+              id: 4
+              fullName: Dr. Ignacio Peralta
+              registrationNumber: 1-35207
+              activeCases: 16
+              active: true
+    '400':
+      description: Datos o identificador inválidos.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          examples:
+            validationError:
+              summary: Datos inválidos
+              value:
+                error:
+                  code: VALIDATION_ERROR
+                  message: Los datos enviados no son válidos.
+                  details:
+                    registrationNumber: El formato de la matrícula no es válido.
+            invalidLawyerId:
+              $ref: ../components/examples/InvalidLawyerIdError.yaml
+    '401':
+      $ref: ../components/responses/Unauthorized.yaml
+    '403':
+      $ref: ../components/responses/ForbiddenAdministrator.yaml
+    '404':
+      $ref: ../components/responses/LawyerNotFound.yaml
+    '409':
+      description: Matrícula ya registrada.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          example:
+            error:
+              code: LAWYER_REGISTRATION_ALREADY_EXISTS
+              message: La matrícula del abogado ya se encuentra registrada.
+              details: null
+    '422':
+      description: Violación de una regla de negocio.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          example:
+            error:
+              code: BUSINESS_RULE_VIOLATION
+              message: No se puede modificar el abogado debido a una regla de negocio.
+              details: null
+
+delete:
+  tags:
+    - Lawyers
+  operationId: deleteLawyer
+  summary: Dar de baja abogado
+  description: |
+    Da de baja un abogado. Corresponde a HU15 (Sprint 4); se mantiene porque
+    ya figuraba en V2.
+
+    **La baja es lógica, pero el cliente no la percibe.** El abogado deja de
+    existir para la API: no aparece en ningún listado, no puede vincularse a
+    un usuario ni asignarse como responsable de una causa, y
+    `GET /lawyers/{lawyerId}` responde `404`.
+
+    **Rol requerido:** `ADMINISTRATOR`.
+  responses:
+    '204':
+      description: Abogado dado de baja. La respuesta no contiene cuerpo.
+    '400':
+      description: Identificador inválido.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          examples:
+            invalidLawyerId:
+              $ref: ../components/examples/InvalidLawyerIdError.yaml
+    '401':
+      $ref: ../components/responses/Unauthorized.yaml
+    '403':
+      $ref: ../components/responses/ForbiddenAdministrator.yaml
+    '404':
+      $ref: ../components/responses/LawyerNotFound.yaml
+    '409':
+      description: El abogado posee causas o un usuario vinculado.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          example:
+            error:
+              code: LAWYER_HAS_DEPENDENCIES
+              message: No se puede dar de baja el abogado porque posee recursos asociados.
+              details: null
+    '422':
+      description: Violación de una regla de negocio.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          example:
+            error:
+              code: BUSINESS_RULE_VIOLATION
+              message: No se puede dar de baja el abogado debido a una regla de negocio.
+              details: null

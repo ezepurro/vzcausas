@@ -1,0 +1,32 @@
+type: object
+description: |
+  Todos los campos son opcionales, aunque debe enviarse al menos uno.
+
+  **El fuero no es modificable.** Si el cuerpo incluye `jurisdiction`, aunque
+  sea con el valor que ya tiene, se responde `400 VALIDATION_ERROR` sobre ese
+  campo. Para trasladar un estado debe darse de baja y registrarse en el fuero
+  que corresponda.
+
+  `dayType` debe ser coherente con `timeLimitDays`. Modificar el plazo **no
+  recalcula los vencimientos ya registrados**: rige para los actos que se
+  registren de ahí en adelante.
+additionalProperties: false
+minProperties: 1
+properties:
+  name:
+    type: string
+    minLength: 1
+    description: Única dentro del fuero.
+    examples:
+      - Oposición al requerimiento de elevación a juicio
+  timeLimitDays:
+    type: integer
+    minimum: 0
+    examples:
+      - 6
+  dayType:
+    $ref: ./DayType.yaml
+  terminal:
+    type: boolean
+    examples:
+      - false

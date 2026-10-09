@@ -40,8 +40,78 @@ function renderForm(values: CaseFormValues = emptyCaseForm(), props: Partial<Cas
 const amparo = (extra: Partial<CaseFormValues> = {}) => ({ ...changeJurisdiction(emptyCaseForm(), 'AMPARO'), ...extra })
 const administrative = () => changeJurisdiction(emptyCaseForm(), 'ADMINISTRATIVE')
 
+/**
+ * El texto de la etiqueta de un campo: el asterisco marca los obligatorios. Se
+ * busca sólo entre los `<label>`, porque los títulos de `FormSection` ("Cliente
+ * y rol procesal") también empiezan con el mismo texto.
+ */
+const labelOf = (pattern: RegExp) => screen.getByText(pattern, { selector: 'label' }).textContent ?? ''
+
 describe('CaseForm', () => {
+    /* CA-18.1: lo que la causa necesita siempre lleva asterisco. */
+    it('marca como obligatorios la carátula, el fuero, el cliente y el responsable', () => {
+        renderForm()
+
+        expect(labelOf(/^Carátula/)).toContain('*')
+        expect(labelOf(/^Fuero/)).toContain('*')
+        expect(labelOf(/^Cliente/)).toContain('*')
+        expect(labelOf(/^Abogado responsable/)).toContain('*')
+    })
+
+    describe('número de SAC (CA-18.2)', () => {
+        it('no es obligatorio: la causa puede iniciarse antes de que se lo asignen', () => {
+            renderForm()
+
+            expect(labelOf(/^N° de SAC/)).not.toContain('*')
+        })
+
+        it('acepta hasta 8 dígitos y avisa lo que se escribe', () => {
+            const { onChange } = renderForm()
+            const field = screen.getByLabelText(/^N° de SAC/)
+
+            expect(field).toHaveAttribute('maxlength', '8')
+
+            fireEvent.change(field, { target: { value: '13284571' } })
+            expect(onChange).toHaveBeenCalledWith('sacNumber', '13284571')
+        })
+
+        /* El 409 del backend se pinta acá mismo, no en un aviso suelto. */
+        it('muestra el error del SAC en su campo', () => {
+            renderForm(undefined, { errors: { sacNumber: 'Ya existe una causa registrada con ese número de SAC.' } })
+
+            expect(screen.getByText('Ya existe una causa registrada con ese número de SAC.')).toBeInTheDocument()
+        })
+    })
+
+    describe('instructor de la causa', () => {
+        /* El teléfono y el interno van en campos separados (V3 D-33). */
+        it('el teléfono y el interno son dos campos distintos', () => {
+            const { onChange } = renderForm()
+
+            fireEvent.change(screen.getByLabelText(/^Teléfono/), { target: { value: '0351 448-1200' } })
+            expect(onChange).toHaveBeenCalledWith('tribunalPhone', '0351 448-1200')
+
+            fireEvent.change(screen.getByLabelText(/^Interno/), { target: { value: '214' } })
+            expect(onChange).toHaveBeenCalledWith('instructorExtension', '214')
+        })
+
+        it('los tres son opcionales', () => {
+            renderForm()
+
+            expect(labelOf(/^Instructor de la causa/)).not.toContain('*')
+            expect(labelOf(/^Teléfono/)).not.toContain('*')
+            expect(labelOf(/^Interno/)).not.toContain('*')
+        })
+
+        it('el interno tiene tope de 20 caracteres', () => {
+            renderForm()
+
+            expect(screen.getByLabelText(/^Interno/)).toHaveAttribute('maxlength', '20')
+        })
+    })
+
     describe('fuero penal', () => {
+        /* CA-18.4 */
         it('pide las calificaciones legales y no la contraparte ni el objeto', () => {
             renderForm()
 
@@ -50,6 +120,14 @@ describe('CaseForm', () => {
             expect(screen.queryByLabelText(/^Objeto del/)).not.toBeInTheDocument()
         })
 
+        /* CA-18.5: una causa penal puede registrarse sin calificaciones (D-33). */
+        it('las calificaciones legales no son obligatorias', () => {
+            renderForm()
+
+            expect(labelOf(/^Calificaciones legales/)).not.toContain('*')
+        })
+
+        /* CA-18.5 */
         it('cada calificación elegida pide la fecha del hecho, y avisa al cargarla', () => {
             const { onOffenseDateChange } = renderForm(undefined, { selectedQualifications: [ROBBERY] })
 
@@ -60,6 +138,7 @@ describe('CaseForm', () => {
             expect(onOffenseDateChange).toHaveBeenCalledWith(1, '2021-02-27')
         })
 
+        /* CA-18.5 */
         it('muestra el error del grupo y el de la fecha que falta', () => {
             renderForm(undefined, {
                 selectedQualifications: [ROBBERY],
@@ -73,6 +152,7 @@ describe('CaseForm', () => {
             expect(screen.getByText('Cargá la fecha del hecho.')).toBeInTheDocument()
         })
 
+        /* CA-18.3 */
         it('ofrece los roles del fuero penal', () => {
             renderForm()
 
@@ -81,6 +161,7 @@ describe('CaseForm', () => {
     })
 
     describe('fueros administrativo y de amparo', () => {
+        /* CA-18.4 */
         it('pide la contraparte y el objeto, y no las calificaciones', () => {
             renderForm(amparo())
 
@@ -89,6 +170,7 @@ describe('CaseForm', () => {
             expect(screen.queryByLabelText(/^Calificaciones legales/)).not.toBeInTheDocument()
         })
 
+        /* CA-18.3 y CA-18.4 */
         it('el objeto se llama distinto en cada fuero', () => {
             renderForm(administrative())
 
@@ -96,6 +178,14 @@ describe('CaseForm', () => {
             expect(screen.getAllByRole('radio').map((r) => r.textContent)).toEqual(['Defensa', 'Recurrente'])
         })
 
+        /* CA-18.3 */
+        it('ofrece los roles del fuero de amparo', () => {
+            renderForm(amparo())
+
+            expect(screen.getAllByRole('radio').map((r) => r.textContent)).toEqual(['Actora', 'Demandada'])
+        })
+
+        /* CA-18.4: el objeto es obligatorio. */
         it('el objeto es obligatorio, tiene tope de 800 y muestra cuánto va escrito', () => {
             renderForm(amparo({ subjectMatter: 'Se ordene la cobertura.' }))
             const field = screen.getByLabelText(/^Objeto del amparo/)
@@ -103,8 +193,14 @@ describe('CaseForm', () => {
             expect(field).toHaveAttribute('maxlength', '800')
             expect(field).toHaveValue('Se ordene la cobertura.')
             expect(screen.getByText('23 / 800')).toBeInTheDocument()
-            // El asterisco de obligatorio va en la etiqueta.
-            expect(screen.getByText(/^Objeto del amparo/).textContent).toContain('*')
+            expect(labelOf(/^Objeto del amparo/)).toContain('*')
+        })
+
+        /* CA-18.4: la contraparte se carga, pero no es obligatoria. */
+        it('la contraparte no es obligatoria', () => {
+            renderForm(amparo())
+
+            expect(labelOf(/^Contraparte u organismo/)).not.toContain('*')
         })
 
         it('escribir el objeto avisa a la pantalla', () => {
@@ -122,6 +218,7 @@ describe('CaseForm', () => {
         })
     })
 
+    /* CA-18.3 y CA-18.4: cambiar el fuero arrastra el rol y los campos propios. */
     it('cambiar el fuero avisa aparte, porque arrastra otros campos', async () => {
         const { user, onJurisdictionChange, onChange } = renderForm()
 
@@ -129,6 +226,28 @@ describe('CaseForm', () => {
 
         expect(onJurisdictionChange).toHaveBeenCalledWith('AMPARO')
         expect(onChange).not.toHaveBeenCalled()
+    })
+
+    /* CA-18.9 */
+    it('la fecha de inicio llega propuesta y no es obligatoria', () => {
+        const values = emptyCaseForm()
+        renderForm(values)
+
+        expect(screen.getByLabelText(/^Fecha de inicio/)).toHaveValue(values.startDate)
+        expect(labelOf(/^Fecha de inicio/)).not.toContain('*')
+    })
+
+    /* CA-18.10: los errores del servidor se muestran sobre el campo. */
+    it('muestra en su campo el error del cliente y el del responsable', () => {
+        renderForm(undefined, {
+            errors: {
+                clientId: 'No existe un cliente vigente con ese identificador.',
+                responsibleLawyerId: 'No existe un abogado vigente con ese identificador.',
+            },
+        })
+
+        expect(screen.getByText('No existe un cliente vigente con ese identificador.')).toBeInTheDocument()
+        expect(screen.getByText('No existe un abogado vigente con ese identificador.')).toBeInTheDocument()
     })
 
     it('"Registrar cliente nuevo" se deshabilita para quien no es de la Secretaría', () => {
@@ -139,7 +258,7 @@ describe('CaseForm', () => {
         expect(button).toHaveAttribute('title', 'Sólo la Secretaría puede registrar clientes.')
     })
 
-    it('enviar el formulario confirma, y mientras guarda bloquea el botón', async () => {
+    it('enviar el formulario confirma', async () => {
         const { user, onConfirm } = renderForm()
 
         await user.click(screen.getByRole('button', { name: 'Registrar causa' }))
@@ -151,5 +270,22 @@ describe('CaseForm', () => {
         renderForm(undefined, { saving: true })
 
         expect(screen.getByRole('button', { name: 'Registrar causa' })).toBeDisabled()
+    })
+
+    it('cancelar avisa a la pantalla', async () => {
+        const { user, onCancel } = renderForm()
+
+        await user.click(screen.getByRole('button', { name: 'Cancelar' }))
+
+        expect(onCancel).toHaveBeenCalledTimes(1)
+    })
+
+    /* Fuera de alcance: la carpeta en Drive y los modelos son HU-39 y HU-40
+       (V3 §8.3). El prototipo las muestra; no se dibujan ni deshabilitadas. */
+    it('no ofrece crear la carpeta en Drive ni copiar los modelos', () => {
+        renderForm()
+
+        expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
+        expect(screen.queryByText(/Drive/)).not.toBeInTheDocument()
     })
 })

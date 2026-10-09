@@ -1,6 +1,6 @@
 /**
  * Causa: las formas sacadas del contrato (V3 §3.7, con la revisión del
- * 01/10/2026).
+ * 05/10/2026).
  *
  * Escrito a partir del contrato, no copiado de `shared/mocks`.
  */
@@ -73,55 +73,68 @@ export interface CaseLegalQualification {
     prescriptionExpiresOn: string
 }
 
-/** El estado procesal de una causa, o el resultante de un acto. */
-export interface CaseState {
-    /** `null` si el estado fue escrito a mano en un acto. */
+/**
+ * El estado al que un acto procesal llevó la causa. Es sólo la denominación:
+ * el vencimiento del acto va aparte, en su propia respuesta (V3 §3.8).
+ */
+export interface ResultingState {
+    /** `null` si el estado fue escrito a mano en el acto. */
     proceduralStateId: number | null
     name: string
     /** `true` si es un estado escrito a mano para esta causa. */
     custom: boolean
 }
 
-/** El plazo abierto de la causa. */
-export interface NextDeadline {
-    proceduralActId: number
-    /** `YYYY-MM-DD` */
-    dueDate: string
-    /** Días hábiles hasta `dueDate`: `0` vence hoy, negativo ya vencido. */
-    businessDaysRemaining: number
+/**
+ * El estado actual de la causa, con el vencimiento que abrió el acto que la
+ * llevó hasta él (V3 D-35: ya no existe `nextDeadline`).
+ *
+ * **Nunca es `null`** (D-34): una causa recién registrada está en el estado
+ * inicial de su fuero, "Iniciada", con `initial` en `true` y sin vencimiento.
+ */
+export interface CurrentState extends ResultingState {
+    /** `true` si es el estado inicial del fuero. */
+    initial: boolean
+    /** El acto que la llevó a este estado. `null` en el estado inicial. */
+    proceduralActId: number | null
+    /** `YYYY-MM-DD`, o `null` si no hay plazo abierto: es una causa "para impulsar". */
+    dueDate: string | null
+    /** Días hábiles hasta `dueDate`: `0` vence hoy, negativo ya vencido. `null` sin plazo. */
+    businessDaysRemaining: number | null
+    /** `true` si el vencimiento se ajustó a mano al registrar el acto. */
     manuallyAdjusted: boolean
 }
 
 /** El recurso tal como viene adentro de `data`. El listado y el detalle devuelven lo mismo. */
 export interface Case {
     id: number
-    /** 8 dígitos. Identifica la causa (RN2). No modificable. */
-    sacNumber: string
+    /**
+     * 8 dígitos. Si se informa, identifica la causa en todo el sistema (RN2).
+     * `null` mientras el Poder Judicial no lo haya asignado (D-33).
+     */
+    sacNumber: string | null
     /** Carátula. */
     caption: string
     court: string | null
     jurisdiction: Jurisdiction
     proceduralRole: ProceduralRole
     instructorName: string | null
-    instructorPhone: string | null
+    /** Sólo el teléfono del instructor: el interno va en `instructorExtension`. */
+    tribunalPhone: string | null
+    /** Número de interno del instructor (D-33). */
+    instructorExtension: string | null
     /** Contraparte u organismo. `null` en el fuero penal. */
     counterparty: string | null
     /** Objeto del reclamo o del amparo (D-27). `null` en el fuero penal. */
     subjectMatter: string | null
     client: CaseClient
     responsibleLawyer: CaseLawyer
-    /** Al menos una en el penal; vacío en los demás fueros. */
+    /** Opcional en el penal (D-33); vacío en los demás fueros. */
     legalQualifications: CaseLegalQualification[]
     /** `YYYY-MM-DD`. No interviene en la prescripción: esa corre desde la fecha del hecho. */
     startDate: string
-    /**
-     * `null` mientras la causa no tenga actos procesales: nace sin estado y lo
-     * fija su primer acto (D-09). Se muestra como "Sin acto procesal"; ver
-     * `utils/caseState`.
-     */
-    currentState: CaseState | null
-    /** `null` si la causa no tiene plazo abierto: es una causa "para impulsar". */
-    nextDeadline: NextDeadline | null
+    /** Nunca `null`: la causa nace en "Iniciada" (D-34). Ver `utils/caseState`. */
+    currentState: CurrentState
     active: boolean
 }
 
@@ -133,17 +146,20 @@ export interface CaseQualificationBody {
 }
 
 /**
- * Cuerpo del `POST /cases`. `legalQualifications` va sólo en el penal;
- * `counterparty` y `subjectMatter`, sólo en los otros dos fueros. Mandar
- * cualquiera donde no corresponde es un `400`.
+ * Cuerpo del `POST /cases`. `legalQualifications` va sólo en el penal, y ahí es
+ * opcional (D-33); `counterparty` y `subjectMatter`, sólo en los otros dos
+ * fueros. Mandar cualquiera donde no corresponde es un `400`.
  */
 export interface CreateCaseBody {
-    sacNumber: string
+    /** Opcional (D-33). Si se manda, 8 dígitos y único en todo el sistema. */
+    sacNumber?: string
     jurisdiction: Jurisdiction
     caption: string
     court?: string
     instructorName?: string
-    instructorPhone?: string
+    tribunalPhone?: string
+    /** El interno del instructor, hasta 20 caracteres. */
+    instructorExtension?: string
     clientId: number
     proceduralRole: ProceduralRole
     legalQualifications?: CaseQualificationBody[]
@@ -173,7 +189,8 @@ export type CaseFormValues = {
     caption: string
     court: string
     instructorName: string
-    instructorPhone: string
+    tribunalPhone: string
+    instructorExtension: string
     /** Id como texto: sale de un select. `''` = sin elegir. */
     clientId: string
     proceduralRole: ProceduralRole
@@ -198,8 +215,8 @@ export interface CaseListParams extends PaginatedQuery {
     /** Excluyente con `proceduralStateId` y `withoutProceduralActs`. */
     customState?: string
     /**
-     * `true`: sólo las causas "Sin acto procesal" (D-29). Excluyente con
-     * `proceduralStateId` y `customState`.
+     * `true`: sólo las causas en el estado inicial, "Iniciada" (D-29 y D-34).
+     * Excluyente con `proceduralStateId` y `customState`.
      */
     withoutProceduralActs?: boolean
     clientId?: number

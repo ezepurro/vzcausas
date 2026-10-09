@@ -1,0 +1,52 @@
+type: object
+description: |
+  Estado procesal de la tabla de un fuero. Es la forma que devuelven `POST` y
+  `PATCH`; las respuestas de `GET` suman `activeCases`
+  (ver `ProceduralStateWithActiveCases`).
+
+  Los estados no tienen posición ni orden dentro del fuero: se listan en el
+  orden en que se registraron.
+
+  El estado inicial **"Iniciada"** de cada fuero es un estado de sistema y no
+  forma parte de este recurso.
+required:
+  - id
+  - name
+  - jurisdiction
+  - timeLimitDays
+  - dayType
+  - terminal
+  - active
+properties:
+  id:
+    type: integer
+    description: Identificador único.
+    examples:
+      - 12
+  name:
+    type: string
+    description: |
+      Denominación del estado, en castellano. Texto libre. Única dentro del
+      fuero. "Iniciada" está reservada.
+    examples:
+      - Oposición al requerimiento de elevación
+  jurisdiction:
+    $ref: ./Jurisdiction.yaml
+  timeLimitDays:
+    type: integer
+    minimum: 0
+    description: Días que abre el estado. `0` indica que no abre plazo.
+    examples:
+      - 5
+  dayType:
+    $ref: ./DayType.yaml
+  terminal:
+    type: boolean
+    description: Indica si el estado cierra el ciclo de vida de la causa.
+    examples:
+      - false
+  active:
+    type: boolean
+    description: Estado de alta. Vale siempre `true`; ver `DELETE /procedural-states/{stateId}`.
+    examples:
+      - true

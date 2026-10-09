@@ -752,7 +752,7 @@ rechaza y el abogado debe revisarlo.
 | Instructor                           | nombre, telefono, interno                                                  | `cases.instructor_name`, `instructor_phone`, `instructor_extension`                          |
 | CausaConContraparte                  | contraparte, objetoDeLaCausa                                               | `cases.counterparty`, `subject_matter`                                                       |
 | CausaPenal / Administrativa / Amparo | tipo de subclase                                                           | `cases.jurisdiction_id` (tabla única)                                                        |
-| CalificacionDeCausa                  | causa, calificacion, fechaHecho                                            | `case_legal_qualifications.*`                                                                |
+| CalificacionDeCausa (hecho, `Offense`) | causa, calificacion, fechaHecho, fechaPrescripcion                       | `offenses.case_id`, `legal_qualification_id`, `offense_date`, `prescription_date`            |
 | Actuacion / ActoProcesal             | id, fechaActo, notas, fechaRegistro                                        | `procedural_acts.id`, `act_date`, `notes`, `registered_at`                                   |
 | ActoProcesal                         | estadoResultante / estadoPersonalizado                                     | `procedural_acts.procedural_state_id` / `custom_state`                                       |
 | ActoProcesal                         | fechaNotificacion                                                          | `procedural_acts.notification_date`                                                          |

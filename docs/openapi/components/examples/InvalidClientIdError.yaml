@@ -1,0 +1,7 @@
+summary: Identificador de cliente inválido
+value:
+  error:
+    code: INVALID_PATH_PARAMETER
+    message: El identificador del cliente no es válido.
+    details:
+      clientId: Debe ser un número entero válido.

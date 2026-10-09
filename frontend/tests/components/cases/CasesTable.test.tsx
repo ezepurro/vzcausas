@@ -3,7 +3,31 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { CasesTable } from '@/features/cases/components/CasesTable'
 import { CaseHeader } from '@/features/cases/components/CaseHeader'
-import type { Case } from '@/features/cases/types/case'
+import type { Case, CurrentState } from '@/features/cases/types/case'
+
+/** El estado actual con su vencimiento: el plazo es parte del estado (V3 D-35). */
+const STATE: CurrentState = {
+    proceduralStateId: 4,
+    name: 'Oposición al requerimiento de elevación',
+    custom: false,
+    initial: false,
+    proceduralActId: 3,
+    dueDate: '2026-09-16',
+    businessDaysRemaining: 1,
+    manuallyAdjusted: false,
+}
+
+/** El estado inicial de una causa recién registrada (V3 D-34). */
+const INITIAL: CurrentState = {
+    proceduralStateId: null,
+    name: 'Iniciada',
+    custom: false,
+    initial: true,
+    proceduralActId: null,
+    dueDate: null,
+    businessDaysRemaining: null,
+    manuallyAdjusted: false,
+}
 
 /** La causa del prototipo, con estado y plazo abierto. */
 const WITH_STATE: Case = {
@@ -14,7 +38,8 @@ const WITH_STATE: Case = {
     jurisdiction: 'CRIMINAL',
     proceduralRole: 'DEFENSE',
     instructorName: 'Dra. Verónica Ledesma',
-    instructorPhone: '0351 448-1200 int. 214',
+    tribunalPhone: '0351 448-1200',
+    instructorExtension: '214',
     counterparty: null,
     subjectMatter: null,
     client: {
@@ -38,19 +63,25 @@ const WITH_STATE: Case = {
         },
     ],
     startDate: '2021-03-12',
-    currentState: { proceduralStateId: 4, name: 'Oposición al requerimiento de elevación', custom: false },
-    nextDeadline: { proceduralActId: 3, dueDate: '2026-09-16', businessDaysRemaining: 1, manuallyAdjusted: false },
+    currentState: STATE,
     active: true,
 }
 
-/** Una causa recién registrada: sin estado procesal ni plazo (V3 D-09). */
+/** Una causa recién registrada: en "Iniciada" y sin plazo (V3 D-34). */
 const WITHOUT_ACTS: Case = {
     ...WITH_STATE,
     id: 7,
     sacNumber: '14118903',
     caption: 'BENÍTEZ, Rodrigo E. p.s.a. Lesiones graves',
-    currentState: null,
-    nextDeadline: null,
+    currentState: INITIAL,
+}
+
+/** Una causa a la que el Poder Judicial todavía no le asignó el SAC (D-33). */
+const WITHOUT_SAC: Case = {
+    ...WITHOUT_ACTS,
+    id: 23,
+    sacNumber: null,
+    caption: 'LEIVA, Gustavo A. — Actuaciones preliminares',
 }
 
 describe('CasesTable', () => {
@@ -71,12 +102,20 @@ describe('CasesTable', () => {
         expect(within(row).getByText('Penal')).toBeInTheDocument()
     })
 
-    it('una causa sin actos se muestra "Sin acto procesal" y sin plazo abierto', () => {
+    /* CA-18.7: la causa nace en "Iniciada" y sin vencimiento. */
+    it('una causa recién registrada se muestra "Iniciada" y sin plazo abierto', () => {
         render(<CasesTable rows={[WITHOUT_ACTS]} onOpen={vi.fn()} />)
 
         const row = screen.getAllByRole('row')[1]
-        expect(within(row).getByText('Sin acto procesal')).toBeInTheDocument()
+        expect(within(row).getByText('Iniciada')).toBeInTheDocument()
         expect(within(row).getByText('Sin plazo abierto')).toBeInTheDocument()
+    })
+
+    /* CA-18.2: el SAC es opcional, así que la tabla tiene que poder no tenerlo. */
+    it('una causa sin SAC se muestra como "Sin SAC"', () => {
+        render(<CasesTable rows={[WITHOUT_SAC]} onOpen={vi.fn()} />)
+
+        expect(within(screen.getAllByRole('row')[1]).getByText('Sin SAC')).toBeInTheDocument()
     })
 
     it('"Ver detalle" avisa qué causa abrir', async () => {
@@ -96,27 +135,75 @@ describe('CasesTable', () => {
 })
 
 describe('CaseHeader', () => {
-    it('muestra el SAC, la carátula y el estado procesal actual', () => {
+    /* CA-22.1 */
+    it('muestra la carátula, el SAC, el fuero, el tribunal, el rol y el responsable', () => {
         render(<CaseHeader case={WITH_STATE} />)
 
         const header = screen.getByRole('region', { name: 'Causa 13284571' })
         expect(within(header).getByRole('heading', { level: 1 })).toHaveTextContent(WITH_STATE.caption)
+        expect(header).toHaveTextContent('SAC 13284571')
+        expect(header).toHaveTextContent('Juzgado de Control N° 3 · Córdoba')
+        expect(header).toHaveTextContent('Fuero Penal')
+        expect(header).toHaveTextContent('Rol Defensa')
+        expect(header).toHaveTextContent('Responsable Dra. Malena Ríos')
+    })
+
+    /* CA-22.1: el estado procesal actual y el vencimiento vigente. */
+    it('muestra el estado procesal actual con su vencimiento', () => {
+        render(<CaseHeader case={WITH_STATE} />)
+
+        const header = screen.getByRole('region', { name: 'Causa 13284571' })
         expect(header).toHaveTextContent('Estado procesal actual')
         expect(header).toHaveTextContent('Oposición al requerimiento de elevación')
-        expect(header).toHaveTextContent('Rol Defensa')
+        expect(within(header).getByText('En 1 día hábil')).toBeInTheDocument()
     })
 
-    it('una causa sin actos muestra "Sin acto procesal"', () => {
+    /* CA-22.1: el chip arma su texto con `businessDaysRemaining`. */
+    it.each([
+        [-2, 'Vencido hace 2 días'],
+        [0, 'Vence hoy'],
+        [1, 'En 1 día hábil'],
+        [10, 'En 10 días hábiles'],
+    ])('con %i días hábiles restantes dice "%s"', (businessDaysRemaining, label) => {
+        render(
+            <CaseHeader case={{ ...WITH_STATE, currentState: { ...STATE, businessDaysRemaining } }} />,
+        )
+
+        expect(screen.getByText(label)).toBeInTheDocument()
+    })
+
+    /* CA-22.4: una causa sin actos está en "Iniciada" y no tiene vencimiento. */
+    it('una causa recién registrada muestra "Iniciada" y "Sin plazo abierto"', () => {
         render(<CaseHeader case={WITHOUT_ACTS} />)
 
-        expect(screen.getByRole('region', { name: 'Causa 14118903' })).toHaveTextContent('Sin acto procesal')
+        const header = screen.getByRole('region', { name: 'Causa 14118903' })
+        expect(header).toHaveTextContent('Iniciada')
+        expect(within(header).getByText('Sin plazo abierto')).toBeInTheDocument()
     })
 
-    it('el instructor se muestra sólo si la pantalla lo pide', () => {
+    /* CA-18.2 y CA-22.1 */
+    it('una causa sin SAC se muestra como "Sin SAC"', () => {
+        render(<CaseHeader case={WITHOUT_SAC} />)
+
+        const header = screen.getByRole('region', { name: 'Causa sin SAC' })
+        expect(header).toHaveTextContent('Sin SAC')
+    })
+
+    /* El instructor lleva tres datos, en campos separados (V3 D-33). */
+    it('el instructor, su teléfono y su interno se muestran sólo si la pantalla lo pide', () => {
         const { rerender } = render(<CaseHeader case={WITH_STATE} />)
         expect(screen.queryByText('Dra. Verónica Ledesma')).not.toBeInTheDocument()
 
         rerender(<CaseHeader case={WITH_STATE} showInstructor />)
-        expect(screen.getByText('Dra. Verónica Ledesma')).toBeInTheDocument()
+        const header = screen.getByRole('region', { name: 'Causa 13284571' })
+        expect(header).toHaveTextContent('Instructor Dra. Verónica Ledesma')
+        expect(header).toHaveTextContent('Teléfono 0351 448-1200')
+        expect(header).toHaveTextContent('Interno 214')
+    })
+
+    it('las acciones que le pasa la pantalla van en el encabezado', () => {
+        render(<CaseHeader case={WITH_STATE} actions={<button type="button">Registrar acto procesal</button>} />)
+
+        expect(screen.getByRole('button', { name: 'Registrar acto procesal' })).toBeInTheDocument()
     })
 })

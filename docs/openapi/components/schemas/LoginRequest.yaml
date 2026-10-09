@@ -1,0 +1,17 @@
+type: object
+additionalProperties: false
+required:
+  - username
+  - password
+properties:
+  username:
+    type: string
+    minLength: 1
+    examples:
+      - fvazquez
+  password:
+    type: string
+    format: password
+    minLength: 1
+    examples:
+      - password

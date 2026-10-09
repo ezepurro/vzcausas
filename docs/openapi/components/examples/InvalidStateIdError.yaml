@@ -1,0 +1,7 @@
+summary: Identificador de estado procesal inválido
+value:
+  error:
+    code: INVALID_PATH_PARAMETER
+    message: El identificador del estado procesal no es válido.
+    details:
+      stateId: Debe ser un número entero válido.

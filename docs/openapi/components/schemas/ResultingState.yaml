@@ -1,0 +1,25 @@
+type: object
+description: |
+  Estado al que pasa la causa con el acto. Mismo significado que en
+  `CurrentState`. Nunca es el estado inicial.
+required:
+  - proceduralStateId
+  - name
+  - custom
+properties:
+  proceduralStateId:
+    type:
+      - integer
+      - 'null'
+    description: Estado de la tabla del fuero. `null` si es un estado escrito a mano.
+    examples:
+      - 12
+  name:
+    type: string
+    examples:
+      - Oposición al requerimiento de elevación
+  custom:
+    type: boolean
+    description: '`true` si es un estado escrito a mano.'
+    examples:
+      - false

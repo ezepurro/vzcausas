@@ -1,0 +1,17 @@
+type: object
+additionalProperties: false
+required:
+  - fullName
+  - registrationNumber
+properties:
+  fullName:
+    type: string
+    minLength: 1
+    examples:
+      - Dr. Ignacio Peralta
+  registrationNumber:
+    type: string
+    description: Formato `1-28114`. Única.
+    pattern: '^[0-9]+-[0-9]+$'
+    examples:
+      - 1-35207

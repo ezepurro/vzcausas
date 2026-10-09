@@ -1,13 +1,15 @@
 /**
- * El chip de "Próximo vencimiento" de una causa, a partir de `nextDeadline`.
+ * El chip del vencimiento de una causa: la columna "Próximo vencimiento" del
+ * listado y el del encabezado del detalle.
  *
- * El backend manda `businessDaysRemaining` ya calculado contra la fecha del día
- * en Córdoba (V3 §4); acá sólo se traduce a texto y a tono, con los mismos
- * cortes que el prototipo.
+ * El vencimiento es parte del estado actual (V3 D-35): ya no existe
+ * `nextDeadline`. El backend manda `businessDaysRemaining` ya calculado contra
+ * la fecha del día en Córdoba (V3 §4); acá sólo se traduce a texto y a tono,
+ * con los mismos cortes que el prototipo.
  */
 
 import type { PillTone } from '@/shared/components/ui'
-import type { NextDeadline } from '@/features/cases/types/case'
+import type { CurrentState } from '@/features/cases/types/case'
 
 /** Hasta cuántos días hábiles un plazo se muestra "por vencer". */
 const SOON_DAYS = 5
@@ -19,13 +21,16 @@ export interface DeadlineStatus {
     dot: true | 'hollow'
 }
 
-export function deadlineStatus(deadline: NextDeadline | null): DeadlineStatus {
-    // Sin plazo abierto: es una causa "para impulsar", no una urgencia.
-    if (deadline === null) {
+export function deadlineStatus(
+    state: Pick<CurrentState, 'dueDate' | 'businessDaysRemaining'>,
+): DeadlineStatus {
+    // Sin plazo abierto: es una causa "para impulsar", no una urgencia. Es
+    // también el caso de una causa recién registrada, en "Iniciada".
+    if (state.dueDate === null || state.businessDaysRemaining === null) {
         return { label: 'Sin plazo abierto', tone: 'neutral', dot: 'hollow' }
     }
 
-    const days = deadline.businessDaysRemaining
+    const days = state.businessDaysRemaining
 
     if (days < 0) {
         const n = Math.abs(days)

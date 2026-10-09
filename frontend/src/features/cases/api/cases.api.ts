@@ -1,6 +1,6 @@
 import { http } from '@/shared/api/http'
 import type { ApiItem } from '@/api-contract/envelopes'
-import type { Case } from '@/features/cases/types/case'
+import type { Case, CreateCaseBody } from '@/features/cases/types/case'
 
 /**
  * Todo lo que habla con el servidor, una función por endpoint.
@@ -17,5 +17,10 @@ const BASE = '/cases'
 
 export async function getCase(id: number): Promise<Case> {
     const response = await http.get<ApiItem<Case>>(`${BASE}/${id}`)
+    return response.data.data
+}
+
+export async function createCase(body: CreateCaseBody): Promise<Case> {
+    const response = await http.post<ApiItem<Case>>(BASE, body)
     return response.data.data
 }

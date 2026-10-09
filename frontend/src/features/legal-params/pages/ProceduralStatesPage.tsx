@@ -26,6 +26,7 @@ import { hasNoFieldErrors, toFormErrors } from '@/features/legal-params/utils/to
 import { ProceduralStatesTable } from '@/features/legal-params/components/ProceduralStatesTable';
 import { ProceduralStateFormModal } from '@/features/legal-params/components/ProceduralStateFormModal';
 import { DeleteProceduralStateModal } from '@/features/legal-params/components/DeleteProceduralStateModal';
+import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue';
 
 /** La pestaña de un fuero pide todos sus estados de una vez (§3.4). */
 const LIMIT = 100;

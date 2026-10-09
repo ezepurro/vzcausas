@@ -609,7 +609,7 @@ este mock, no del backend.
 - **Un acto de fecha anterior al último** queda asentado pero no retrocede el
   estado de la causa ni reemplaza su vencimiento (D-14).
 - **El teléfono y el interno del instructor van separados** (D-33):
-  `instructorPhone` y `instructorExtension`.
+  `tribunalPhone` y `instructorExtension`.
 - **Un identificador inexistente en el cuerpo** (`clientId`,
   `responsibleLawyerId`, una calificación, un estado) es un
   `400 VALIDATION_ERROR` sobre ese campo, no un `404` (D-22).

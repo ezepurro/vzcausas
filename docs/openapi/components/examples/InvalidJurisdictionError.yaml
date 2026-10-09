@@ -1,0 +1,7 @@
+summary: Fuero inexistente
+value:
+  error:
+    code: INVALID_REQUEST
+    message: Parámetros de query inválidos.
+    details:
+      jurisdiction: No existe un fuero procesal con ese nombre.

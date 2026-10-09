@@ -34,7 +34,7 @@ Variables que trae `docker/.env.example`:
 | `JWT_ACCESS_SECRET`, `JWT_ACCESS_TTL`, `JWT_REFRESH_TTL` | Firma y vencimiento de los tokens de sesión. |
 | `BCRYPT_COST` | Costo de hashing de contraseñas. |
 | `COOKIE_REFRESH_*`, `COOKIE_SECURE` | Atributos de la cookie `httpOnly` que guarda el refresh token. |
-| `CORS_ALLOWED_ORIGINS` | Orígenes permitidos a llamar la API (el del frontend, por defecto). |
+| `CORS_ALLOWED_ORIGINS` | Orígenes permitidos a llamar la API, separados por coma: el frontend (`:5173`) y Swagger UI (`:8081`). Si tu `docker/.env` es anterior a Swagger, agregá `http://localhost:8081` a mano — ver §3. |
 | `APP_TIMEZONE` | Zona horaria del estudio: rige el cálculo de plazos y el formato de fechas de la API. |
 | `DEV_SEED_USERNAME` / `DEV_SEED_PASSWORD` | Credenciales del **usuario administrador que el backend crea solo** al arrancar en desarrollo. `DEV_SEED_PASSWORD` es además la contraseña de los usuarios de prueba que crea el seed. Sin estas variables el backend no crea al administrador — ver §4. |
 | `VITE_USE_MOCKS` | `true` por defecto: el frontend responde con datos simulados (MSW) en vez de llamar al backend real. Ver §4. |
@@ -57,6 +57,7 @@ Con eso quedan arriba:
 | Backend   | http://localhost:3000/api/v1 | NestJS, hot-reload                  |
 | Frontend  | http://localhost:5173   | Vite, hot-reload                    |
 | Adminer   | http://localhost:8080   | Cliente web para la DB — credenciales abajo |
+| Swagger UI | http://localhost:8081  | Documentación de la API, con "Try it out" — ver abajo |
 | Postgres  | localhost:5432          | Credenciales en `docker/.env`   |
 
 ### Entrar a Adminer
@@ -72,6 +73,31 @@ En `http://localhost:8080`, con los valores por defecto de `docker/.env.example`
 | Base de datos | `causas-dev` (`POSTGRES_DB`) |
 
 Si conectás con un cliente en el host (DBeaver, psql, TablePlus, etc.) en cambio usá `localhost:5432` con esas mismas credenciales — el puerto está publicado en el `docker-compose.yaml`.
+
+### Documentación de la API (Swagger)
+
+Swagger UI queda en **`http://localhost:8081`**. No confundir con Adminer, que usa el `8080`: dentro del contenedor Swagger también escucha en el `8080`, pero el compose lo publica en el `8081` del host (`8081:8080`).
+
+Lo levantan dos servicios del compose:
+
+| Servicio | Qué hace |
+|---|---|
+| `openapi-build` | Valida el spec modular de [`docs/openapi/`](docs/openapi/) (Redocly + Spectral), arma el bundle en `build/openapi.yaml` y termina. Imagen de `tooling/openapi/`. |
+| `openapi-docs` | Swagger UI (`swaggerapi/swagger-ui`) sirviendo ese bundle. Arranca solo si `openapi-build` terminó bien. |
+
+Si el spec tiene errores, `openapi-build` falla y Swagger no arranca: mirá `docker logs causas-openapi-build`.
+
+**Probar endpoints ("Try it out").** Las peticiones van al backend real en `http://localhost:3000/api/v1` (los mocks del frontend no aplican acá):
+
+1. Ejecutá `POST /auth/login` con un usuario del backend real — ver §4 (por ejemplo `admin` / `admin123`).
+2. Copiá el `accessToken` de la respuesta, tocá **Authorize** y pegalo en `bearerAuth`.
+3. El token queda guardado al recargar la página. La cookie del refresh también viaja, así que `POST /auth/refresh` funciona desde la UI.
+
+Para que el navegador deje pasar esas peticiones, `CORS_ALLOWED_ORIGINS` tiene que incluir `http://localhost:8081` (ya viene en `docker/.env.example`). Si cambiás esa variable, reiniciá el backend con `make backend-restart`.
+
+**Después de editar el spec**, regeneralo con `make openapi-build` y recargá la página: no hace falta reiniciar `openapi-docs`.
+
+El build deja además `build/index.html`, una versión de solo lectura (Redoc) con el spec embebido. Se abre con doble clic, sin servidor, y sirve para leer el contrato o compartirlo con quien no va a probar endpoints. `build/` está en el `.gitignore`: se regenera, no se commitea.
 
 Verificar que todo esté sano:
 
@@ -118,6 +144,7 @@ Comandos más usados:
 | `make migrate-create name=<nombre>` | Crea una migración sin aplicarla (`--create-only`) |
 | `make migrate-deploy` | Aplica migraciones pendientes sin prompts |
 | `make seed` | Corre el seed: roles, permisos, jurisdicciones, estados procesales y, en desarrollo, abogados y usuarios de prueba (idempotente — se puede correr de nuevo sin romper nada) |
+| `make openapi-build` | Valida `docs/openapi/` y regenera el bundle que muestra Swagger UI (`http://localhost:8081`) |
 | `make shell-db` | Abre `psql` contra la DB del contenedor |
 
 Después de bajar una rama con migraciones o seed nuevos de otra persona alcanza con `make dev-up`: el servicio `migrate` los aplica al levantar. Con los contenedores ya arriba, `make migrate-deploy` / `make seed` los aplican sin reiniciar nada.
@@ -135,7 +162,8 @@ Además de esta guía de setup, `docs/` tiene la documentación de arquitectura 
 
 | Carpeta / archivo | Contenido |
 |---|---|
-| [`docs/Api-Contract/API_CONTRACT_V2.md`](docs/Api-Contract/API_CONTRACT_V2.md) | Contrato de la API: endpoints, request/response, códigos de error. |
+| [`docs/Api-Contract/API_CONTRACT_V3.md`](docs/Api-Contract/API_CONTRACT_V3.md) | Contrato de la API (Sprint 2): endpoints, request/response, códigos de error y decisiones. `API_CONTRACT_V2.md` queda como registro del Sprint 1. |
+| [`docs/openapi/`](docs/openapi/) | El contrato V3 en OpenAPI 3.1, modular: `openapi.yaml` (raíz), `paths/` (un archivo por ruta) y `components/` (schemas, enums, respuestas, parámetros). Es lo que muestra Swagger UI — ver §3. |
 | [`docs/Backend-Architecture/ARQUITECTURA_BACKEND_V1.md`](docs/Backend-Architecture/ARQUITECTURA_BACKEND_V1.md) | Arquitectura hexagonal del backend, subsistemas y convenciones. |
 | [`docs/Backend-Architecture/MODULO_AUTH.md`](docs/Backend-Architecture/MODULO_AUTH.md) / [`IMPLEMENTACION_AUTH.md`](docs/Backend-Architecture/IMPLEMENTACION_AUTH.md) | Diseño e historial de decisiones del módulo de autenticación (incluye el detalle de todas las variables de entorno). |
 | [`docs/Backend-Architecture/USO_PRISMA.md`](docs/Backend-Architecture/USO_PRISMA.md) | Convenciones para trabajar con Prisma en este proyecto. |

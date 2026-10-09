@@ -58,3 +58,60 @@ export class InvalidLawyerIdError extends ValidationError {
     );
   }
 }
+
+/**
+ * Emitted by `RegisterClient` (HU-8) when the DNI already belongs to
+ * a **current** client (CA-8.4).
+ *
+ * Scoped to current clients on purpose: the database's unique index
+ * is partial (`clients_dni_active_key ... WHERE active`), so a client
+ * who was logically deleted frees their document. The same person can
+ * be registered again once HU-11 exists, which a plain unique index
+ * would make impossible.
+ *
+ * `details.field` lets the frontend mark the document input rather
+ * than showing a form-level message.
+ */
+export class ClientDniAlreadyExistsError extends ConflictError {
+  constructor() {
+    super(
+      "CLIENT_DNI_ALREADY_EXISTS",
+      "Ya existe un cliente registrado con ese DNI.",
+      { field: "dni" },
+    );
+  }
+}
+
+/**
+ * Emitted by `GET /clients/{clientId}` when no current client matches.
+ *
+ * A logically deleted client gets this too, not a payload with
+ * `active: false`: through this endpoint a client that was given up
+ * must be indistinguishable from one that never existed, the same
+ * rule {@link LawyerNotFoundError} applies.
+ */
+export class ClientNotFoundError extends NotFoundError {
+  constructor() {
+    // Sin `details`: el contrato (§3.6) muestra `null` para este error.
+    // Devolver el id pedido no agrega nada —el cliente ya lo sabe, lo
+    // acaba de enviar— y lo repite en el cuerpo de la respuesta, que es
+    // justo lo que CT-6 evita para un dato personal.
+    super("CLIENT_NOT_FOUND", "No se encontró el cliente solicitado.");
+  }
+}
+
+/**
+ * Emitted when the `clientId` path parameter is not a positive
+ * integer. Mirrors {@link InvalidLawyerIdError} so both resources
+ * reject a malformed id with the contract's `INVALID_PATH_PARAMETER`
+ * rather than a generic 400.
+ */
+export class InvalidClientIdError extends ValidationError {
+  constructor() {
+    super(
+      "INVALID_PATH_PARAMETER",
+      "El identificador del cliente no es válido.",
+      { clientId: "Debe ser un número entero válido." },
+    );
+  }
+}

@@ -142,10 +142,18 @@ export class DomainErrorFilter implements ExceptionFilter {
     const message = this.messageForHttpStatus(exception.getStatus());
     let details: Record<string, unknown> | null = null;
 
-    if (typeof body === "object" && body !== null && "message" in body) {
-      const raw = (body as { message: unknown }).message;
-      if (Array.isArray(raw)) {
-        details = keyByField(raw);
+    if (typeof body === "object" && body !== null) {
+      // El `ValidationPipe` ya entrega `details` indexado por campo
+      // (ver `toFieldKeyedBadRequest` en app.setup.ts), que es la
+      // fuente correcta: el nombre lo trae `error.property`, no hay
+      // nada que deducir.
+      const supplied = (body as { details?: unknown }).details;
+      if (isPlainRecord(supplied)) {
+        details = supplied;
+      } else if (Array.isArray((body as { message?: unknown }).message)) {
+        // Camino de respaldo para cualquier `BadRequestException` que
+        // no venga de ese pipe y traiga la lista plana de siempre.
+        details = keyByField((body as { message: unknown[] }).message);
       }
     }
 
@@ -210,4 +218,9 @@ function keyByField(messages: readonly unknown[]): Record<string, unknown> {
   return Object.fromEntries(
     [...byField].map(([field, texts]) => [field, texts.join(" ")]),
   );
+}
+
+/** `true` for a plain object usable as the `details` map. */
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

@@ -1,0 +1,66 @@
+type: object
+description: |
+  Debe enviarse `proceduralStateId` o `customState`, nunca ambos. Si el texto
+  de `customState` coincide con un estado de la tabla, el cliente debe enviar
+  el `proceduralStateId` de ese estado.
+
+  **Cómputo del vencimiento**
+
+  1. Se toma el plazo de la tabla (`timeLimitDays` y `dayType`) del estado
+     elegido. Un estado escrito a mano no tiene plazo.
+  2. El plazo corre desde `notificationDate` en `ADMINISTRATIVE` y desde
+     `actDate` en los demás fueros.
+  3. En días `BUSINESS` se suman días hábiles a partir del día siguiente; en
+     `CONSECUTIVE`, días corridos.
+  4. Si se envía `manualDueDate`, ese es el vencimiento vigente y
+     `manuallyAdjusted` vale `true`; el calculado se conserva en
+     `computedDueDate`.
+  5. Si el estado no abre plazo y no se envía `manualDueDate`, `deadline`
+     vale `null`.
+additionalProperties: false
+required:
+  - actDate
+properties:
+  proceduralStateId:
+    type: integer
+    minimum: 1
+    description: |
+      Estado vigente del fuero de la causa y **no terminal**. Excluyente con
+      `customState`.
+    examples:
+      - 12
+  customState:
+    type: string
+    minLength: 1
+    maxLength: 255
+    description: |
+      Estado escrito a mano, que queda guardado solo en esta causa. No puede
+      coincidir con el nombre de un estado vigente del fuero. Excluyente con
+      `proceduralStateId`.
+    examples:
+      - Pedido de informes al Registro Nacional de Reincidencia
+  actDate:
+    type: string
+    format: date
+    description: No puede ser posterior a hoy.
+    examples:
+      - '2026-09-09'
+  notificationDate:
+    type: string
+    format: date
+    description: |
+      Solo en `ADMINISTRATIVE`. Obligatoria si el estado elegido abre plazo
+      (RN6). Entre `actDate` y hoy.
+    examples:
+      - '2026-09-15'
+  manualDueDate:
+    type: string
+    format: date
+    description: Ajuste manual del vencimiento. No anterior a la fecha desde la que corre el plazo.
+    examples:
+      - '2026-09-25'
+  notes:
+    type: string
+    maxLength: 2000
+    examples:
+      - Con acusación, pero con oposición.

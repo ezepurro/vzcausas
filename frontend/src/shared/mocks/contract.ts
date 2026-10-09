@@ -244,7 +244,7 @@ export interface Case {
     proceduralRole: ProceduralRole;
     instructorName: string | null;
     /** Sólo el teléfono: el interno va aparte. */
-    instructorPhone: string | null;
+    tribunalPhone: string | null;
     /** Número de interno del instructor (D-33). */
     instructorExtension: string | null;
     /** `null` en el fuero penal. */
@@ -422,7 +422,7 @@ export interface CreateCaseRequest {
     caption: string;
     court?: string;
     instructorName?: string;
-    instructorPhone?: string;
+    tribunalPhone?: string;
     instructorExtension?: string;
     clientId: number;
     proceduralRole: ProceduralRole;
