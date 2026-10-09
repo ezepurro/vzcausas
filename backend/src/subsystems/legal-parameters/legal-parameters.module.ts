@@ -4,7 +4,6 @@ import { PROC_STATE_LOOKUP } from '@subsystems/cases/core/domain/ports/proc-stat
 import { ViewProceduralStates } from './core/application/use-cases/view-procedural-states.use-case';
 import { ProceduralStateRepository } from './core/domain/ports/procedural-states.repository';
 import { ProcStateLookupAdapter } from './infrastructure/acl/proc-state-lookup.adapter';
-import { ProceduralStateInMemoryRepository } from './infrastructure/persistence/proc-state-in-memo.repository';
 import { ProceduralStatePrismaRepository } from './infrastructure/persistence/proc-state-prisma.repository';
 
 @Module({

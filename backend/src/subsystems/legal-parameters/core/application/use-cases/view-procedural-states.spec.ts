@@ -34,11 +34,17 @@ describe('ViewProceduralStates', () => {
   let useCase: ViewProceduralStates;
 
   beforeEach(() => {
+    // A mock, not the fake: these specs assert *how* `findPaginated` is
+    // called. The other methods are never used here but the type needs them.
     repository = {
-      save: jest.fn(),
-      findAll: jest.fn(),
-      findInitialByJurisdiction: jest.fn(),
       findPaginated: jest.fn().mockResolvedValue(aPage([])),
+      findById: jest.fn(),
+      existsByName: jest.fn(),
+      findInitialByJurisdiction: jest.fn(),
+      findJurisdictionByCode: jest.fn(),
+      nextId: jest.fn(),
+      create: jest.fn(),
+      save: jest.fn(),
     };
     useCase = new ViewProceduralStates(repository);
   });
@@ -62,31 +68,19 @@ describe('ViewProceduralStates', () => {
   it('trims the search term', async () => {
     await useCase.getAll({ page: 1, limit: 20, search: '  cit  ' });
 
-    expect(repository.findPaginated).toHaveBeenCalledWith(
-      { jurisdiction: undefined, search: 'cit' },
-      1,
-      20,
-    );
+    expect(repository.findPaginated).toHaveBeenCalledWith({ jurisdiction: undefined, search: 'cit' }, 1, 20);
   });
 
   it.each(['', '   '])('treats a blank search (%p) as no filter', async (search) => {
     await useCase.getAll({ page: 1, limit: 20, search });
 
-    expect(repository.findPaginated).toHaveBeenCalledWith(
-      { jurisdiction: undefined, search: undefined },
-      1,
-      20,
-    );
+    expect(repository.findPaginated).toHaveBeenCalledWith({ jurisdiction: undefined, search: undefined }, 1, 20);
   });
 
   it('sends an empty filter when no filters are given', async () => {
     await useCase.getAll({ page: 1, limit: 20 });
 
-    expect(repository.findPaginated).toHaveBeenCalledWith(
-      { jurisdiction: undefined, search: undefined },
-      1,
-      20,
-    );
+    expect(repository.findPaginated).toHaveBeenCalledWith({ jurisdiction: undefined, search: undefined }, 1, 20);
   });
 
   it('returns the repository page, keeping each state with its jurisdiction', async () => {
