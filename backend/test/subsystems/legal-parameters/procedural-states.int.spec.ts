@@ -11,7 +11,7 @@ import {
   createJurisdiction,
   createProceduralState,
 } from '../../shared/factories/procedural-state.factory';
-import { createCase, createProceduralAct } from '../../shared/factories/case.factory';
+import { createCase } from '../../shared/factories/case.factory';
 import { createClient } from '../../shared/factories/client.factory';
 import { createLawyer } from '../../shared/factories/lawyer.factory';
 import { createUser } from '../../shared/factories/user.factory';
@@ -81,6 +81,51 @@ async function currentStateOfCase(clientId: number) {
   const res = await request(app.getHttpServer()).get(`/api/v1/cases?clientId=${clientId}`).set(reader());
   expect(res.status).toBe(200);
   return res.body.data[0].currentState as { proceduralStateId: number; name: string; dueDate: string | null };
+}
+
+// Helpers locales, a propósito: `case.factory.ts` es de `cases` y solo crea
+// causas en el estado inicial. Para verificar qué les pasa a las causas
+// cuando se modifica o se da de baja un estado (CA-17.2, CA-17.3, CA-46.3,
+// CA-46.4), la causa se crea con esa factory y se la lleva al estado con
+// Prisma. Si `cases` agrega estas opciones a su factory, reemplazarlos.
+
+/** PERSISTE una causa penal y la deja en `stateId`. */
+async function createCaseInState(owner: Awaited<ReturnType<typeof aCaseOwner>>, stateId: number) {
+  const kase = await createCase(owner);
+  return getPrisma().case.update({ where: { id: kase.id }, data: { currentStateId: stateId } });
+}
+
+/**
+ * PERSISTE un acto procesal que llevó la causa a `stateId` y lo deja como su
+ * acto vigente, con un vencimiento ya calculado (`dueDate`, `YYYY-MM-DD`).
+ * Los valores del plazo se guardan tal cual: lo que se verifica es que nada
+ * los recalcule después.
+ */
+async function registerAct(
+  owner: Awaited<ReturnType<typeof aCaseOwner>>,
+  caseId: number,
+  stateId: number,
+  dueDate: string,
+) {
+  const actDate = new Date('2026-09-01T00:00:00.000Z');
+  const act = await getPrisma().proceduralAct.create({
+    data: {
+      caseId,
+      proceduralStateId: stateId,
+      actDate,
+      deadlineTimeLimitDays: 5,
+      deadlineDayType: 'BUSINESS',
+      deadlineCountsFrom: actDate,
+      deadlineComputedDueDate: new Date(`${dueDate}T00:00:00.000Z`),
+      registeredByUserId: owner.createdByUserId,
+      registeredByLawyerId: owner.lawyerId,
+    },
+  });
+  await getPrisma().case.update({
+    where: { id: caseId },
+    data: { currentProceduralActId: act.id, currentStateId: stateId },
+  });
+  return act;
 }
 
 describe('GET /api/v1/procedural-states', () => {
@@ -522,7 +567,7 @@ describe('PATCH /api/v1/procedural-states/:stateId', () => {
   it('el nombre nuevo se refleja en las causas que tienen el estado', async () => {
     const owner = await aCaseOwner();
     const saved = await createProceduralState({ name: 'Citación' });
-    await createCase({ ...owner, currentStateId: saved.stateId });
+    await createCaseInState(owner, saved.stateId);
 
     await patch(saved.stateId, { name: 'Citación a juicio' }).expect(200);
 
@@ -538,14 +583,7 @@ describe('PATCH /api/v1/procedural-states/:stateId', () => {
     const owner = await aCaseOwner();
     const saved = await createProceduralState({ timeLimitDays: 5, dayType: 'BUSINESS' });
     const kase = await createCase(owner);
-    const act = await createProceduralAct({
-      caseId: kase.id,
-      proceduralStateId: saved.stateId,
-      registeredByUserId: owner.createdByUserId,
-      registeredByLawyerId: owner.lawyerId,
-      deadlineTimeLimitDays: 5,
-      deadlineComputedDueDate: '2026-09-08',
-    });
+    const act = await registerAct(owner, kase.id, saved.stateId, '2026-09-08');
 
     await patch(saved.stateId, { timeLimitDays: 20, dayType: 'CONSECUTIVE' }).expect(200);
 
@@ -742,13 +780,7 @@ describe('DELETE /api/v1/procedural-states/:stateId', () => {
     const owner = await aCaseOwner();
     const saved = await createProceduralState({ name: 'Citación a juicio' });
     const kase = await createCase(owner);
-    await createProceduralAct({
-      caseId: kase.id,
-      proceduralStateId: saved.stateId,
-      registeredByUserId: owner.createdByUserId,
-      registeredByLawyerId: owner.lawyerId,
-      deadlineComputedDueDate: '2026-09-08',
-    });
+    await registerAct(owner, kase.id, saved.stateId, '2026-09-08');
 
     expectNoContent(await del(saved.stateId));
 
@@ -794,47 +826,26 @@ describe('DELETE /api/v1/procedural-states/:stateId', () => {
 
 /**
  * `activeCases` lo calcula `cases` (contrato §4, "Causa activa"): causas no
- * dadas de baja cuyo estado actual no es terminal. Se prueba contra la base
- * porque la regla vive en la consulta SQL.
+ * dadas de baja cuyo estado actual no es terminal. Hasta que `cases` exporte
+ * el conteo, `legal-parameters` usa `StubActiveCasesCounterAdapter`, que
+ * responde 0. Cuando esté, reemplazar estos pendientes por tests contra la
+ * base: la regla vive en la consulta SQL de `cases`.
  */
 describe('activeCases de /api/v1/procedural-states', () => {
-  it('cuenta solo las causas activas en cada estado, en el listado y en la consulta por id', async () => {
-    const owner = await aCaseOwner();
-    const open = await createProceduralState({ name: 'Citación a juicio' });
-    const terminal = await createProceduralState({ name: 'Archivada', timeLimitDays: 0, terminal: true });
-    const empty = await createProceduralState({ name: 'Sin causas' });
+  it('hoy responde 0 en el listado y en la consulta por id (stub hasta que cases provea el conteo)', async () => {
+    const saved = await createProceduralState();
 
-    await createCase({ ...owner, currentStateId: open.stateId }); // cuenta
-    await createCase({ ...owner, currentStateId: open.stateId }); // cuenta
-    await createCase({ ...owner, currentStateId: open.stateId, active: false }); // dada de baja: no
-    await createCase({ ...owner, currentStateId: terminal.stateId }); // estado terminal: no
-    await createCase({ ...owner, currentCustomState: 'Escrito a mano' }); // no suma a ningún estado
-    await createCase(owner); // "Iniciada": no forma parte del recurso
-
-    const list = await request(app.getHttpServer()).get(`${URL}?limit=100`).set(reader());
-    const counts = Object.fromEntries(expectPaginated<ProceduralStateBody>(list).map((s) => [s.name, s.activeCases]));
-    expect(counts).toEqual({ 'Citación a juicio': 2, Archivada: 0, 'Sin causas': 0 });
-
-    for (const [state, expected] of [
-      [open, 2],
-      [terminal, 0],
-      [empty, 0],
-    ] as const) {
-      const res = await request(app.getHttpServer()).get(`${URL}/${state.stateId}`).set(reader());
-      expect(expectData<ProceduralStateBody>(res, 200).activeCases).toBe(expected);
-    }
+    const list = await request(app.getHttpServer()).get(URL).set(reader());
+    expect(expectPaginated<ProceduralStateBody>(list).map((s) => s.activeCases)).toEqual([0]);
+    const one = await request(app.getHttpServer()).get(`${URL}/${saved.stateId}`).set(reader());
+    expect(expectData<ProceduralStateBody>(one, 200).activeCases).toBe(0);
   });
 
-  it('cuenta las causas de un estado aunque se lo haya renombrado', async () => {
-    const owner = await aCaseOwner();
-    const saved = await createProceduralState({ name: 'Citación' });
-    await createCase({ ...owner, currentStateId: saved.stateId });
-    await request(app.getHttpServer()).patch(`${URL}/${saved.stateId}`).set(writer()).send({ name: 'Citación a juicio' }).expect(200);
-
-    const res = await request(app.getHttpServer()).get(`${URL}/${saved.stateId}`).set(reader());
-
-    expect(expectData<ProceduralStateBody>(res, 200).activeCases).toBe(1);
-  });
+  it.todo(
+    'cuenta las causas activas de cada estado, en el listado y por id: no cuenta las dadas de baja, ' +
+      'ni las de un estado terminal (que da siempre 0), ni las de estado escrito a mano, ni las de "Iniciada"',
+  );
+  it.todo('cuenta las causas de un estado aunque se lo haya renombrado');
 });
 
 /**

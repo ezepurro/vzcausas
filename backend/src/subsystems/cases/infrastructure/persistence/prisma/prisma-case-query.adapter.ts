@@ -89,40 +89,6 @@ export class PrismaCaseQueryAdapter implements CaseQueryPort {
 
     return { items: rows.map(toListItem), totalItems };
   }
-
-  /**
-   * One `GROUP BY current_state_id` for every id at once, so the
-   * procedural-states listing (up to 100 states) costs a single query
-   * instead of one per state.
-   */
-  async countActiveByProceduralStates(
-    stateIds: readonly number[],
-  ): Promise<ReadonlyMap<number, number>> {
-    if (stateIds.length === 0) {
-      return new Map();
-    }
-
-    const groups = await this.prisma.db.case.groupBy({
-      by: ["currentStateId"],
-      where: {
-        active: true,
-        currentStateId: { in: [...stateIds] },
-        // A case in a terminal state is not active (contract §4).
-        currentState: { terminal: false },
-      },
-      _count: { _all: true },
-    });
-
-    const counts = new Map<number, number>();
-    for (const group of groups) {
-      // Never null here: the `in` filter above excludes cases on a
-      // hand-written state, whose `currentStateId` is null.
-      if (group.currentStateId !== null) {
-        counts.set(group.currentStateId, group._count._all);
-      }
-    }
-    return counts;
-  }
 }
 
 function toListItem(row: CaseRow): CaseListItem {

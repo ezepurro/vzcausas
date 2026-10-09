@@ -28,15 +28,4 @@ export type CasePage = { items: CaseListItem[]; totalItems: number };
  */
 export interface CaseQueryPort {
   search(criteria: CaseSearchCriteria): Promise<CasePage>;
-
-  /**
-   * Active cases currently sitting in each of these procedural states,
-   * keyed by state id. Ids with no active case are absent from the map.
-   *
-   * "Active" follows the contract's definition (§4, *Causa activa*): not
-   * deactivated, and its current state is not terminal. Hence a terminal
-   * state always counts 0, and a case on a hand-written state counts for
-   * no procedural state at all.
-   */
-  countActiveByProceduralStates(stateIds: readonly number[]): Promise<ReadonlyMap<number, number>>;
 }
