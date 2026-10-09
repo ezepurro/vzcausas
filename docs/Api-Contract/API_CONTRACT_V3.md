@@ -14,7 +14,11 @@ decisiones tomadas al redactarlo, junto con los puntos a verificar, en la
 Cuando una historia de usuario y el prototipo no coinciden, este contrato sigue
 al prototipo y lo deja asentado en la sección 8.
 
-**Última revisión: 05/10/2026**, por decisiones del equipo: solo el abogado
+**Última revisión: 09/10/2026**: los códigos de `ProceduralRole` pasan a
+castellano. El detalle está en la
+[sección 7.9](#79-revisión-de-v3-del-09102026).
+
+**Revisión anterior: 05/10/2026**, por decisiones del equipo: solo el abogado
 responsable registra actos, los estados procesales dejan de tener posición, la
 causa nace en el estado inicial "Iniciada", el vencimiento pasa a
 `currentState` y varios datos de la causa pasan a ser opcionales. El detalle
@@ -154,13 +158,15 @@ Posición que ocupa el cliente en la causa. Cada fuero admite un subconjunto de
 valores; el backend rechaza con `400` un rol que no corresponda al fuero de la
 causa.
 
-| Código               | Rótulo                 | Fueros en que aplica           |
-| -------------------- | ---------------------- | ------------------------------ |
-| `DEFENSE`            | Defensa                | `CRIMINAL`, `ADMINISTRATIVE`   |
-| `PRIVATE_PROSECUTOR` | Querellante particular | `CRIMINAL`                     |
-| `APPELLANT`          | Recurrente             | `ADMINISTRATIVE`               |
-| `PLAINTIFF`          | Actora                 | `AMPARO`                       |
-| `DEFENDANT`          | Demandada              | `AMPARO`                       |
+Los códigos van en castellano, igual que el vocabulario del estudio (D-37).
+
+| Código                   | Rótulo                 | Fueros en que aplica           |
+| ------------------------ | ---------------------- | ------------------------------ |
+| `DEFENSA`                | Defensa                | `CRIMINAL`, `ADMINISTRATIVE`   |
+| `QUERELLANTE_PARTICULAR` | Querellante particular | `CRIMINAL`                     |
+| `RECURRENTE`             | Recurrente             | `ADMINISTRATIVE`               |
+| `ACTORA`                 | Actora                 | `AMPARO`                       |
+| `DEMANDADA`              | Demandada              | `AMPARO`                       |
 
 No confundir con `Role`, que es el perfil de seguridad del usuario.
 
@@ -3056,7 +3062,7 @@ Causa penal:
 	"tribunalPhone": "0351 448-1200",
 	"instructorExtension": "214",
 	"clientId": 1,
-	"proceduralRole": "DEFENSE",
+	"proceduralRole": "DEFENSA",
 	"legalQualifications": [
 		{
 			"legalQualificationId": 1,
@@ -3080,7 +3086,7 @@ Amparo:
 	"tribunalPhone": "0351 448-1600",
 	"instructorExtension": "517",
 	"clientId": 6,
-	"proceduralRole": "PLAINTIFF",
+	"proceduralRole": "ACTORA",
 	"counterparty": "APROSS",
 	"subjectMatter": "Que se ordene a APROSS la cobertura integral del tratamiento de rehabilitación prescripto a la actora.",
 	"responsibleLawyerId": 1,
@@ -3153,7 +3159,7 @@ tienen campo en esta versión.
 		"caption": "GÓMEZ, Ariel Fernando p.s.a. Robo calificado",
 		"court": "Juzgado de Control N° 3 · Córdoba",
 		"jurisdiction": "CRIMINAL",
-		"proceduralRole": "DEFENSE",
+		"proceduralRole": "DEFENSA",
 		"instructorName": "Dra. Verónica Ledesma",
 		"tribunalPhone": "0351 448-1200",
 		"instructorExtension": "214",
@@ -3339,7 +3345,7 @@ causas de ese fuero que todavía están en el estado inicial.
 			"caption": "PEREYRA, Marcos D. — Sumario administrativo",
 			"court": "Tribunal de Conducta Policial y Penitenciario",
 			"jurisdiction": "ADMINISTRATIVE",
-			"proceduralRole": "DEFENSE",
+			"proceduralRole": "DEFENSA",
 			"instructorName": "Crio. Insp. Raúl Bazán",
 			"tribunalPhone": "0351 428-6000",
 			"instructorExtension": "3120",
@@ -3379,7 +3385,7 @@ causas de ese fuero que todavía están en el estado inicial.
 			"caption": "GÓMEZ, Ariel Fernando p.s.a. Robo calificado",
 			"court": "Juzgado de Control N° 3 · Córdoba",
 			"jurisdiction": "CRIMINAL",
-			"proceduralRole": "DEFENSE",
+			"proceduralRole": "DEFENSA",
 			"instructorName": "Dra. Verónica Ledesma",
 			"tribunalPhone": "0351 448-1200",
 			"instructorExtension": "214",
@@ -3598,7 +3604,7 @@ el Sprint 3.
 		"caption": "GÓMEZ, Ariel Fernando p.s.a. Robo calificado",
 		"court": "Juzgado de Control N° 3 · Córdoba",
 		"jurisdiction": "CRIMINAL",
-		"proceduralRole": "DEFENSE",
+		"proceduralRole": "DEFENSA",
 		"instructorName": "Dra. Verónica Ledesma",
 		"tribunalPhone": "0351 448-1200",
 		"instructorExtension": "214",
@@ -4504,6 +4510,20 @@ procesales, calificaciones legales, causas y actos procesales.
 | Orden de `GET /cases` | Por `nextDeadline.dueDate`, luego `sacNumber` | Por `currentState.dueDate`, luego `id` | D-35 |
 | `jurisdiction` en `PATCH /procedural-states/{stateId}` | Modificable si ninguna causa registra el estado (`422 PROCEDURAL_STATE_IN_USE`) | **No modificable**, como en V2: `400 VALIDATION_ERROR`. Se retira `PROCEDURAL_STATE_IN_USE` | D-36 |
 
+### 7.9 Revisión de V3 del 09/10/2026
+
+Cambio acordado por el equipo sobre el propio V3. Afecta a causas: al campo
+`proceduralRole` del cuerpo de `POST /cases` y de toda respuesta que devuelve
+una causa.
+
+| Qué | Antes | Ahora | Decisión |
+| --- | --- | --- | --- |
+| Códigos de `ProceduralRole` | En inglés: `DEFENSE`, `PRIVATE_PROSECUTOR`, `APPELLANT`, `PLAINTIFF`, `DEFENDANT` | En castellano: `DEFENSA`, `QUERELLANTE_PARTICULAR`, `RECURRENTE`, `ACTORA`, `DEMANDADA`. Los rótulos y los fueros en que aplica cada uno no cambian | D-37 |
+
+El teléfono del tribunal y el número de interno siguen como quedaron en la
+revisión del 05/10/2026 (D-33): viajan en dos campos separados y opcionales,
+`tribunalPhone` e `instructorExtension`.
+
 ---
 
 ## 8. Observaciones
@@ -4551,6 +4571,7 @@ antes o durante la implementación.
 | D-34 | Toda causa nace en el **estado inicial "Iniciada"**, un estado de sistema por fuero: no forma parte de `/procedural-states`, no se modifica ni se da de baja, no es destino de un acto y no se muestra en la línea de tiempo. `currentState` deja de ser anulable y suma `initial` | Decisión del equipo (05/10/2026). Reemplaza a D-09. El nombre es neutral para los tres fueros y describe un estado, no una ausencia |
 | D-35 | Se retira `nextDeadline`: el vencimiento es parte del estado actual y viaja en `currentState` | Decisión del equipo (05/10/2026): el vencimiento lo abre el acto que llevó la causa a su estado actual |
 | D-36 | El fuero de un estado procesal no es modificable: `PATCH /procedural-states/{stateId}` rechaza `jurisdiction` con `400 VALIDATION_ERROR`, y se retira `PROCEDURAL_STATE_IN_USE`. Revierte D-07 | Decisión del equipo. Un estado figura en la historia de las causas aunque ninguna esté hoy en él, así que el traslado casi nunca procedía y la pantalla no podía anticiparlo. Para trasladarlo: baja y alta en el otro fuero, como en V2 |
+| D-37 | Los códigos de `ProceduralRole` van en castellano: `DEFENSA`, `QUERELLANTE_PARTICULAR`, `RECURRENTE`, `ACTORA` y `DEMANDADA`. Reemplazan a `DEFENSE`, `PRIVATE_PROSECUTOR`, `APPELLANT`, `PLAINTIFF` y `DEFENDANT` | Decisión del equipo (09/10/2026): son los valores que ya usan el backend y la base de datos |
 
 ### 8.2 Puntos a verificar
 

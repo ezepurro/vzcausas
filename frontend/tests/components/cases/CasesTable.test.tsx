@@ -36,7 +36,7 @@ const WITH_STATE: Case = {
     caption: 'GÓMEZ, Ariel Fernando p.s.a. Robo calificado',
     court: 'Juzgado de Control N° 3 · Córdoba',
     jurisdiction: 'CRIMINAL',
-    proceduralRole: 'DEFENSE',
+    proceduralRole: 'DEFENSA',
     instructorName: 'Dra. Verónica Ledesma',
     tribunalPhone: '0351 448-1200',
     instructorExtension: '214',

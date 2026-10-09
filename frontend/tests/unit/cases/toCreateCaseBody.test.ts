@@ -20,7 +20,7 @@ const CRIMINAL: CaseFormValues = {
     tribunalPhone: '0351 448-1200',
     instructorExtension: '214',
     clientId: '1',
-    proceduralRole: 'DEFENSE',
+    proceduralRole: 'DEFENSA',
     legalQualifications: [{ legalQualificationId: 1, offenseDate: '2021-02-27' }],
     responsibleLawyerId: '3',
     startDate: '2021-03-12',
@@ -44,7 +44,7 @@ describe('toCreateCaseBody', () => {
             tribunalPhone: '0351 448-1200',
             instructorExtension: '214',
             clientId: 1,
-            proceduralRole: 'DEFENSE',
+            proceduralRole: 'DEFENSA',
             legalQualifications: [{ legalQualificationId: 1, offenseDate: '2021-02-27' }],
             responsibleLawyerId: 3,
             startDate: '2021-03-12',
@@ -136,7 +136,7 @@ describe('toCreateCaseBody', () => {
         it('arma el cuerpo con la contraparte y el objeto', () => {
             expect(toCreateCaseBody(AMPARO)).toMatchObject({
                 jurisdiction: 'AMPARO',
-                proceduralRole: 'PLAINTIFF',
+                proceduralRole: 'ACTORA',
                 counterparty: 'APROSS',
                 subjectMatter: 'Se ordene a APROSS la cobertura integral del tratamiento.',
             })

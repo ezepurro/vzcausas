@@ -642,7 +642,7 @@ más de cuatro opciones o textos largos, `Select`.
 ```tsx
 <SegmentedControl
   aria-label="Rol procesal del cliente"
-  options={[{ value: 'DEFENSE', label: 'Defensa' }, { value: 'PRIVATE_PROSECUTOR', label: 'Querellante particular' }]}
+  options={[{ value: 'DEFENSA', label: 'Defensa' }, { value: 'QUERELLANTE_PARTICULAR', label: 'Querellante particular' }]}
   value={role}
   onChange={setRole}
 />

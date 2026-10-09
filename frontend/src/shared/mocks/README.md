@@ -188,7 +188,7 @@ aprobó.
 | 15 | Plazo en días **corridos** |
 | 16 | Estado de la tabla con el vencimiento ajustado a mano |
 | 17 | Segunda causa del mismo cliente (GÓMEZ), vencida hace una semana |
-| 18, 20 | Los roles `DEFENDANT` y `PRIVATE_PROSECUTOR` |
+| 18, 20 | Los roles `DEMANDADA` y `QUERELLANTE_PARTICULAR` |
 | 23 | Penal **sin SAC y sin calificaciones legales** (D-33), todavía "Iniciada" |
 
 Los clientes `JUÁREZ` (18) y `RUIZ` (24) no tienen causas.

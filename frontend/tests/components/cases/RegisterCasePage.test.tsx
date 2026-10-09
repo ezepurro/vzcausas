@@ -104,7 +104,7 @@ describe('RegisterCasePage', () => {
                 jurisdiction: 'CRIMINAL',
                 caption: 'GÓMEZ, Ariel Fernando p.s.a. Robo calificado',
                 clientId: 1,
-                proceduralRole: 'DEFENSE',
+                proceduralRole: 'DEFENSA',
                 responsibleLawyerId: 3,
                 qualifications: [{ legalQualificationId: 1, offenseDate: '2021-02-27' }],
             })
@@ -127,7 +127,7 @@ describe('RegisterCasePage', () => {
             expect(await screen.findByText('Detalle de la causa')).toBeInTheDocument()
             expect(created()).toMatchObject({
                 jurisdiction: 'AMPARO',
-                proceduralRole: 'PLAINTIFF',
+                proceduralRole: 'ACTORA',
                 counterparty: 'APROSS',
                 subjectMatter: 'Se ordene la cobertura integral del tratamiento.',
                 qualifications: [],

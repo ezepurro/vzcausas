@@ -20,7 +20,7 @@ const CRIMINAL_BODY = {
     caption: 'RUIZ, Elvira T. p.s.a. Hurto simple',
     court: 'Juzgado de Control N° 4 · Córdoba',
     clientId: 24,
-    proceduralRole: 'DEFENSE',
+    proceduralRole: 'DEFENSA',
     legalQualifications: [{ legalQualificationId: 6, offenseDate: '2026-08-20' }],
     responsibleLawyerId: 3,
 }
@@ -42,7 +42,7 @@ const AMPARO_BODY = {
     jurisdiction: 'AMPARO',
     caption: 'JUÁREZ, Mónica E. c/ PAMI — Amparo de salud',
     clientId: 18,
-    proceduralRole: 'PLAINTIFF',
+    proceduralRole: 'ACTORA',
     counterparty: 'PAMI',
     subjectMatter: 'Se ordene a PAMI la cobertura de la internación domiciliaria.',
     responsibleLawyerId: 5,
@@ -454,7 +454,7 @@ describe('mock · /cases', () => {
         it('valida el SAC, la carátula, el rol procesal y la fecha de inicio', () => {
             const response = call('POST', '/cases', {
                 as: 'gestion',
-                body: { ...CRIMINAL_BODY, sacNumber: '123', caption: ' ', proceduralRole: 'PLAINTIFF', startDate: '2026-09-16' },
+                body: { ...CRIMINAL_BODY, sacNumber: '123', caption: ' ', proceduralRole: 'ACTORA', startDate: '2026-09-16' },
             })
 
             expect(response.status).toBe(400)

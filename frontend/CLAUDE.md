@@ -20,7 +20,7 @@ sprint en curso**. El resto ya está documentado: no lo repito, leelo.
    el Sprint 2. Es autocontenido: trae lo del Sprint 1 que sigue vigente y lo
    nuevo. `API_CONTRACT_V2.md` queda como registro del Sprint 1. Si un documento
    y el contrato no coinciden, manda el contrato. **Última revisión:
-   05/10/2026** (V3 §7.8): ver [Revisiones del contrato](#revisiones-del-contrato).
+   09/10/2026** (V3 §7.9): ver [Revisiones del contrato](#revisiones-del-contrato).
    La otra fuente de verdad es el prototipo (`docs/prototypes/`): de ahí salen
    las pantallas y sus textos. Lo que el prototipo muestra y el contrato deja
    fuera del sprint (V3 §8.3) no se programa.
@@ -366,6 +366,12 @@ en la columna de la derecha, cómo quedó el front.
 Si el contrato vuelve a cambiar, **no se toca de una**: primero se listan los
 cambios y se acuerdan, después se aplican al contrato, a los mocks, a los tipos
 y a este archivo.
+
+#### Revisión del 09/10/2026 (V3 §7.9)
+
+| Cambio del contrato | Dónde quedó |
+|---|---|
+| Los códigos de `ProceduralRole` van en castellano: `DEFENSA`, `QUERELLANTE_PARTICULAR`, `RECURRENTE`, `ACTORA`, `DEMANDADA` (D-37) | **Hecho** en `cases/types/case.ts`, en los mocks (`contract.ts`, `fixtures.ts`, `responses.ts`) y en los tests. Los rótulos de pantalla no cambian |
 
 #### Revisión del 05/10/2026 (V3 §7.8)
 
