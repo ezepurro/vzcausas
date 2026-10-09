@@ -2,129 +2,107 @@ import { toIsoDate } from '@shared/infrastructure/http/iso-date';
 import { RegisterCaseResult } from '../../../core/application/common/register-case.interfaces';
 import { AdministrativeCase } from '../../../core/domain/entities/administrative';
 import { Amparo } from '../../../core/domain/entities/amparo';
-import { Case } from '../../../core/domain/entities/cases';
-import { Offense } from '../../../core/domain/entities/offense';
-import { ClientRef } from '../../../core/domain/ports/client-lookup.port';
-import { LawyerRef } from '../../../core/domain/ports/lawyer-lookup.port';
+import { CaseListItem } from '../../../core/domain/ports/case-query.port';
 import { CaseResponseDto } from '../dtos/case.response.dto';
-
-/**
- * The current state of a case as the response needs it (contract §3.7).
- *
- * It is not `ProceduralStateRef`: that type exists for the write path —
- * "what `cases` needs to know about a procedural state to put a case in
- * it" — and carries only `id`, `name`, `isInitial` and `jurisdictionId`.
- * The response needs four more things it cannot supply: whether the state
- * is hand-written, the act that set it, that act's due date, and whether
- * the due date was adjusted by hand.
- *
- * `custom` and `proceduralStateId` are mutually exclusive by the schema's
- * CHECK (`num_nonnulls(current_state_id, current_custom_state) = 1`), so a
- * hand-written state arrives with `proceduralStateId` at `null`.
- */
-export type CaseCurrentStateView = {
-  proceduralStateId: number | null;
-  name: string;
-  custom: boolean;
-  initial: boolean;
-  proceduralActId: number | null;
-  dueDate: Date | null;
-  /** Computed per response against today's date in Córdoba. `null` when there is no due date. */
-  businessDaysRemaining: number | null;
-  manuallyAdjusted: boolean;
-};
-
-/**
- * Shape shared by every use case that hands back a case to render
- * (`RegisterCase`, `GetCase`, `ListCases`).
- *
- * The contract requires the listing and the detail to return the *same*
- * resource as the registration (§3.7: "Devuelve el mismo recurso que el
- * listado"). Having one input type, and one mapper over it, is what keeps
- * that true: if each endpoint built its own response, they would drift and
- * every one of them would still look correct in isolation.
- *
- * The client, the lawyer and the qualification names come from other
- * subsystems, resolved through this subsystem's lookup ports — the `Case`
- * aggregate holds only their identifiers.
- */
-export type CaseView = {
-  case: Case;
-  client: ClientRef;
-  responsibleLawyer: LawyerRef;
-  /** Empty unless the case is criminal. */
-  offenses: Offense[];
-  currentState: CaseCurrentStateView;
-};
 
 /**
  * Builds the case resource of the API contract (§3.7).
  *
- * Extracted from `CasesController`, where it was a private method: the
- * listing (HU20) and the detail (HU22) have to produce the byte-identical
- * shape, so the mapping cannot live inside the endpoint that happened to
- * need it first.
+ * One function over one type: `toResponse` takes a {@link CaseListItem} and
+ * every endpoint goes through it — the listing (HU20), the detail (HU22) and
+ * the registration (HU18). The contract requires the three to return the
+ * same resource, and that is the only reason this class exists outside
+ * `CasesController`, where it started as a private method.
+ *
+ * `toResponse` holds **no** domain types. That is what lets the listing feed
+ * it a flat row projected by one SQL query: an `instanceof` check here would
+ * force every reader to rebuild the aggregate first, and a page of 20 cases
+ * would cost about a hundred queries.
  */
 export class CaseHttpMapper {
-  static toResponse(view: CaseView): CaseResponseDto {
-    const { case: theCase, client, responsibleLawyer, currentState } = view;
-    const hasCounterparty = theCase instanceof AdministrativeCase || theCase instanceof Amparo;
-
+  static toResponse(item: CaseListItem): CaseResponseDto {
     return {
-      id: theCase.id,
-      sacNumber: theCase.sacNumber,
-      caption: theCase.caption,
-      court: theCase.court,
-      jurisdiction: theCase.jurisdictionCode,
-      proceduralRole: theCase.proceduralRole,
-      instructorName: theCase.instructor.name,
-      tribunalPhone: theCase.instructor.phone,
-      instructorExtension: theCase.instructor.extension,
-      counterparty: hasCounterparty ? theCase.counterparty : null,
-      subjectMatter: hasCounterparty ? theCase.subjectMatter : null,
-      client: { ...client, clientSince: toIsoDate(client.clientSince) },
-      responsibleLawyer,
-      legalQualifications: view.offenses.map((offense) => ({
-        id: offense.legalQualificationId,
-        name: offense.legalQualificationName,
-        prescriptionMonths: offense.prescriptionMonths,
-        offenseDate: toIsoDate(offense.offenseDate),
-        prescriptionStartsOn: toIsoDate(offense.prescriptionStartsOn),
-        prescriptionExpiresOn: offense.prescriptionExpiresOn && toIsoDate(offense.prescriptionExpiresOn),
+      id: item.id,
+      sacNumber: item.sacNumber,
+      caption: item.caption,
+      court: item.court,
+      jurisdiction: item.jurisdiction,
+      proceduralRole: item.proceduralRole,
+      instructorName: item.instructorName,
+      tribunalPhone: item.tribunalPhone,
+      instructorExtension: item.instructorExtension,
+      counterparty: item.counterparty,
+      subjectMatter: item.subjectMatter,
+      client: { ...item.client, clientSince: toIsoDate(item.client.clientSince) },
+      responsibleLawyer: item.responsibleLawyer,
+      legalQualifications: item.legalQualifications.map((qualification) => ({
+        id: qualification.id,
+        name: qualification.name,
+        prescriptionMonths: qualification.prescriptionMonths,
+        offenseDate: toIsoDate(qualification.offenseDate),
+        prescriptionStartsOn: toIsoDate(qualification.prescriptionStartsOn),
+        prescriptionExpiresOn:
+          qualification.prescriptionExpiresOn && toIsoDate(qualification.prescriptionExpiresOn),
       })),
-      startDate: toIsoDate(theCase.startDate),
+      startDate: toIsoDate(item.startDate),
       currentState: {
-        proceduralStateId: currentState.proceduralStateId,
-        name: currentState.name,
-        custom: currentState.custom,
-        initial: currentState.initial,
-        proceduralActId: currentState.proceduralActId,
-        dueDate: currentState.dueDate && toIsoDate(currentState.dueDate),
-        businessDaysRemaining: currentState.businessDaysRemaining,
-        manuallyAdjusted: currentState.manuallyAdjusted,
+        proceduralStateId: item.currentState.proceduralStateId,
+        name: item.currentState.name,
+        custom: item.currentState.custom,
+        initial: item.currentState.initial,
+        proceduralActId: item.currentState.proceduralActId,
+        dueDate: item.currentState.dueDate && toIsoDate(item.currentState.dueDate),
+        businessDaysRemaining: item.currentState.businessDaysRemaining,
+        manuallyAdjusted: item.currentState.manuallyAdjusted,
       },
-      active: theCase.active,
+      active: item.active,
     };
   }
 
   /**
-   * Response for `POST /cases` (HU18).
+   * Response for `POST /cases` (HU18): projects the aggregate the use case
+   * just built into a {@link CaseListItem}, then maps it.
    *
-   * A freshly registered case is always in the initial state of its
-   * jurisdiction, and the initial state is not set by any act: it opens no
-   * deadline and is never hand-written. That is why the four act-derived
-   * fields are empty here rather than read from anywhere — it is a property
-   * of registration, not a gap. Keeping it in this method, instead of in
-   * `toResponse`, is what stops the listing from inheriting the same nulls.
+   * This is the only place that holds a `Case`, so it is the only place that
+   * asks what kind of case it is. `counterparty` and `subjectMatter` exist
+   * only on `ADMINISTRATIVE` and `AMPARO`; in `CRIMINAL` the contract wants
+   * `null`.
+   *
+   * The four act-derived fields of `currentState` are empty here, and that is
+   * a property of registration rather than a gap: a fresh case is in the
+   * initial state of its jurisdiction, no act set it, so it opens no deadline
+   * and is never hand-written. `proceduralStateId` goes out as `null` even
+   * though `cases.current_state_id` points at the real "Iniciada" row —
+   * mapping that id through would send the frontend looking for a state that
+   * `/procedural-states` does not list.
    */
   static fromRegisterResult(result: RegisterCaseResult): CaseResponseDto {
-    const { currentState } = result;
+    const { newCase, currentState } = result;
+    const hasCounterparty = newCase instanceof AdministrativeCase || newCase instanceof Amparo;
 
     return CaseHttpMapper.toResponse({
-      case: result.newCase,
+      id: newCase.id,
+      sacNumber: newCase.sacNumber,
+      caption: newCase.caption,
+      court: newCase.court,
+      jurisdiction: newCase.jurisdictionCode,
+      proceduralRole: newCase.proceduralRole,
+      instructorName: newCase.instructor.name,
+      tribunalPhone: newCase.instructor.phone,
+      instructorExtension: newCase.instructor.extension,
+      counterparty: hasCounterparty ? newCase.counterparty : null,
+      subjectMatter: hasCounterparty ? newCase.subjectMatter : null,
       client: result.client,
       responsibleLawyer: result.responsibleLawyer,
-      offenses: result.offenses,
+      legalQualifications: result.offenses.map((offense) => ({
+        id: offense.legalQualificationId,
+        name: offense.legalQualificationName,
+        prescriptionMonths: offense.prescriptionMonths,
+        offenseDate: offense.offenseDate,
+        prescriptionStartsOn: offense.prescriptionStartsOn,
+        prescriptionExpiresOn: offense.prescriptionExpiresOn,
+      })),
+      startDate: newCase.startDate,
       currentState: {
         proceduralStateId: currentState.isInitial ? null : currentState.id,
         name: currentState.name,
@@ -135,6 +113,7 @@ export class CaseHttpMapper {
         businessDaysRemaining: null,
         manuallyAdjusted: false,
       },
+      active: newCase.active,
     });
   }
 }

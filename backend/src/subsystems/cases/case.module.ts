@@ -3,11 +3,13 @@ import { SharedModule } from '@shared/shared.module';
 import { LegalParametersModule } from '@subsystems/legal-parameters/legal-parameters.module';
 import { PeopleModule } from '@subsystems/people/people.module';
 import { RegisterCase } from './core/application/use-cases/register-case.use-case';
+import { CASE_QUERY } from './core/domain/ports/case-query.port';
 import { CASE_REPOSITORY } from './core/domain/ports/case.repository';
 import { LEGAL_QUALIFICATION_LOOKUP } from './core/domain/ports/legal-qualification-lookup.port';
 import { StubLegalQualificationLookupAdapter } from './infrastructure/acl/stub-legal-qualification-lookup.adapter';
 import { CasesController } from './infrastructure/http/controllers/cases.controller';
 import { CasePrismaRepository } from './infrastructure/persistence/case-prisma.repository';
+import { CaseQueryPrismaAdapter } from './infrastructure/persistence/case-query-prisma.adapter';
 
 /**
  * Composition root of `cases`.
@@ -44,6 +46,9 @@ import { CasePrismaRepository } from './infrastructure/persistence/case-prisma.r
   providers: [
     RegisterCase,
     { provide: CASE_REPOSITORY, useClass: CasePrismaRepository },
+    // Read side (HU20, HU22): projects to a read model instead of rebuilding
+    // the aggregate. See the class for why the ordering needs raw SQL.
+    { provide: CASE_QUERY, useClass: CaseQueryPrismaAdapter },
     // CLIENT_LOOKUP and LAWYER_LOOKUP arrive implemented from `PeopleModule`.
     { provide: LEGAL_QUALIFICATION_LOOKUP, useClass: StubLegalQualificationLookupAdapter },
   ],

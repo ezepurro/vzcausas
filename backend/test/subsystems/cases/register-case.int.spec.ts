@@ -16,11 +16,18 @@ const URL = '/api/v1/cases';
 /*
  * HU18 Registrar Causa. Contrato: openapi `paths/cases.yaml` (POST /cases).
  *
- * Fallan hoy, a propósito:
- *  - Los puertos de cliente y de calificación legal son stubs con ids fijos
- *    (`stub-data.ts`): no conocen las filas que crea este spec en la base, así que
- *    el alta responde 400 VALIDATION_ERROR sobre `clientId` / `legalQualifications`.
- *    Pasan cuando esos puertos tengan su adaptador real.
+ * Fallan hoy 2 de 8, a propósito, y por un solo motivo: el puerto de
+ * calificación legal sigue siendo un stub con ids y nombres fijos
+ * (`stub-data.ts:33`). No conoce las filas que crea este spec, así que el nombre
+ * que devuelve no coincide con el de la factory; y no tiene campo `active`, así
+ * que una calificación dada de baja no se rechaza y el alta responde 201 donde
+ * el contrato pide 400. Pasan cuando exista el catálogo
+ * `/legal-qualifications`, que hoy no tiene repositorio ni caso de uso en
+ * `legal-parameters`.
+ *
+ * El puerto de cliente ya tiene su adaptador real
+ * (`people/infrastructure/acl/cases-client-lookup.adapter.ts`), así que los
+ * tests que dependían de él pasan.
  */
 describe('POST /api/v1/cases', () => {
   let app: INestApplication;
