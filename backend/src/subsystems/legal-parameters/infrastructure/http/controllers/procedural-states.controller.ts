@@ -1,4 +1,5 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Query } from '@nestjs/common';
+import { RequirePermissions } from '@shared/infrastructure/http/require-permissions.decorator';
 import { ViewProceduralStates } from '@subsystems/legal-parameters/core/application/use-cases/view-procedural-states.use-case';
 import { GetProceduralState } from '@subsystems/legal-parameters/core/application/use-cases/get-procedural-state.use-case';
 import { RegisterProceduralState } from '@subsystems/legal-parameters/core/application/use-cases/register-procedural-state.use-case';
@@ -20,6 +21,13 @@ import { ProceduralStateHttpMapper } from '../mappers/procedural-state-http.mapp
  *
  * Every single-resource response is wrapped in the contract's `{ data }`
  * envelope; the listing returns `{ data, pagination }`.
+ *
+ * Authorization: `JwtAuthGuard` and `PermissionsGuard` are global
+ * (`AppModule`), so every route already requires a session. Writing
+ * (HU45, HU17, HU46) is ADMINISTRATOR-only and declares its permission
+ * with `@RequirePermissions`; ADMINISTRATOR receives them through
+ * `ROLE_PERMISSIONS` in `prisma/seed.ts`. The `GET`s carry no decorator:
+ * reading is open to any authenticated user (contract §3.4, D-03).
  */
 @Controller({ path: 'procedural-states', version: ['1'] })
 export class ProceduralStatesController {
@@ -32,6 +40,7 @@ export class ProceduralStatesController {
   ) {}
 
   /** HU45. */
+  @RequirePermissions('procedural-state:create')
   @Post()
   @HttpCode(HttpStatus.CREATED)
   async register(@Body() dto: RegisterProceduralStateRequestDto): Promise<{ data: ProceduralStateResponseDto }> {
@@ -56,6 +65,7 @@ export class ProceduralStatesController {
   }
 
   /** HU17. */
+  @RequirePermissions('procedural-state:update')
   @Patch(':stateId')
   async update(
     @Param('stateId') stateIdParam: string,
@@ -68,6 +78,7 @@ export class ProceduralStatesController {
   }
 
   /** HU46. Logical deletion; answers 204 with no body. */
+  @RequirePermissions('procedural-state:delete')
   @Delete(':stateId')
   @HttpCode(HttpStatus.NO_CONTENT)
   async deactivate(@Param('stateId') stateIdParam: string): Promise<void> {

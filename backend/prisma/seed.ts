@@ -53,6 +53,11 @@ const PERMISSIONS = [
   { name: 'lawyer:delete', description: 'Dar de baja abogados.' },
   { name: 'client:create', description: 'Registrar clientes.' },
   { name: 'client:read', description: 'Consultar clientes.' },
+  // Writing only (HU45, HU17, HU46). Reading procedural states is open to
+  // any authenticated user (contract §3.4), so it needs no permission.
+  { name: 'procedural-state:create', description: 'Registrar estados procesales.' },
+  { name: 'procedural-state:update', description: 'Modificar estados procesales.' },
+  { name: 'procedural-state:delete', description: 'Dar de baja estados procesales.' },
 ] as const;
 
 /**
