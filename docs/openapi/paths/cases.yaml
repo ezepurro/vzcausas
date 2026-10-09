@@ -36,7 +36,7 @@ post:
               tribunalPhone: 0351 448-1200
               instructorExtension: '214'
               clientId: 1
-              proceduralRole: DEFENSE
+              proceduralRole: DEFENSA
               legalQualifications:
                 - legalQualificationId: 1
                   offenseDate: '2021-02-27'
@@ -53,7 +53,7 @@ post:
               tribunalPhone: 0351 448-1600
               instructorExtension: '517'
               clientId: 6
-              proceduralRole: PLAINTIFF
+              proceduralRole: ACTORA
               counterparty: APROSS
               subjectMatter: Que se ordene a APROSS la cobertura integral del tratamiento de rehabilitación prescripto a la actora.
               responsibleLawyerId: 1
@@ -77,7 +77,7 @@ post:
               caption: GÓMEZ, Ariel Fernando p.s.a. Robo calificado
               court: Juzgado de Control N° 3 · Córdoba
               jurisdiction: CRIMINAL
-              proceduralRole: DEFENSE
+              proceduralRole: DEFENSA
               instructorName: Dra. Verónica Ledesma
               tribunalPhone: 0351 448-1200
               instructorExtension: '214'
@@ -277,7 +277,7 @@ get:
                 caption: PEREYRA, Marcos D. — Sumario administrativo
                 court: Tribunal de Conducta Policial y Penitenciario
                 jurisdiction: ADMINISTRATIVE
-                proceduralRole: DEFENSE
+                proceduralRole: DEFENSA
                 instructorName: Crio. Insp. Raúl Bazán
                 tribunalPhone: 0351 428-6000
                 instructorExtension: '3120'
@@ -312,7 +312,7 @@ get:
                 caption: GÓMEZ, Ariel Fernando p.s.a. Robo calificado
                 court: Juzgado de Control N° 3 · Córdoba
                 jurisdiction: CRIMINAL
-                proceduralRole: DEFENSE
+                proceduralRole: DEFENSA
                 instructorName: Dra. Verónica Ledesma
                 tribunalPhone: 0351 448-1200
                 instructorExtension: '214'

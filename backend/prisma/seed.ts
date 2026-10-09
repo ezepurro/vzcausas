@@ -53,6 +53,13 @@ const PERMISSIONS = [
   { name: 'lawyer:delete', description: 'Dar de baja abogados.' },
   { name: 'client:create', description: 'Registrar clientes.' },
   { name: 'client:read', description: 'Consultar clientes.' },
+  { name: 'qualification:create', description: 'Registrar calificaciones legales.' },
+  { name: 'qualification:read', description: 'Consultar calificaciones legales.' },
+  // Writing only (HU45, HU17, HU46). Reading procedural states is open to
+  // any authenticated user (contract §3.4), so it needs no permission.
+  { name: 'procedural-state:create', description: 'Registrar estados procesales.' },
+  { name: 'procedural-state:update', description: 'Modificar estados procesales.' },
+  { name: 'procedural-state:delete', description: 'Dar de baja estados procesales.' },
 ] as const;
 
 /**
@@ -63,8 +70,14 @@ const PERMISSIONS = [
  * whole firm sees everything, the difference between profiles is what
  * they may **operate**, not what they may **see**. CA-9.3 restates it
  * for clients.
+ *
+ * `/legal-qualifications` joins them by §3.5 and D-03, and for a
+ * second reason of its own: the case registration form, which any
+ * profile operates, offers the qualification selector (CA-47.1,
+ * CA-47.10). A Lawyer who could not read the catalogue could not
+ * register a criminal case at all.
  */
-const ANY_AUTHENTICATED = ['client:read', 'lawyer:read'];
+const ANY_AUTHENTICATED = ['client:read', 'lawyer:read', 'qualification:read'];
 
 /**
  * Permissions reserved for `SECRETARY`, and **withheld from
@@ -87,6 +100,12 @@ const SECRETARY_ONLY = ['client:create'];
  * two carry the open reads, which is what lets a Lawyer consult the
  * client and lawyer listings — before HU-9 this list was empty and
  * both endpoints answered 403 to them, against the matrix.
+ *
+ * `qualification:create` needs no entry of its own: the general rule
+ * hands it to `ADMINISTRATOR` and withholds it from the other two,
+ * which is exactly CA-48.9 — writing the legal parameters is the
+ * Administrator's alone, because the whole firm's prescription terms
+ * rest on them.
  */
 const ROLE_PERMISSIONS: Record<string, readonly string[]> = {
   ADMINISTRATOR: PERMISSIONS.map((p) => p.name).filter(

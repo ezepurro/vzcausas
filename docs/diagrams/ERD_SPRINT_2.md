@@ -119,7 +119,7 @@ erDiagram
         varchar caption
         varchar court "null"
         int jurisdiction_id FK
-        procedural_role procedural_role "codigo en ingles"
+        procedural_role procedural_role "codigo en castellano"
         varchar instructor_name "null"
         varchar instructor_phone "null"
         varchar instructor_extension "null"
@@ -228,15 +228,15 @@ las expresa:
 
 ## Enumerado `procedural_role`
 
-Los valores se guardan y viajan por la API en inglés (convención de `TRADUCCION_DOMINIO.md`). El rótulo en español lo resuelve el frontend:
+Los valores se guardan y viajan por la API en castellano (API Contract V3 §7.9, D-37): son la excepción a la convención de códigos en inglés de `TRADUCCION_DOMINIO.md`. El rótulo de pantalla lo resuelve el frontend:
 
-| Código               | Rótulo (frontend)      | Fueros                       |
-| -------------------- | ---------------------- | ---------------------------- |
-| `DEFENSE`            | Defensa                | `CRIMINAL`, `ADMINISTRATIVE` |
-| `PRIVATE_PROSECUTOR` | Querellante particular | `CRIMINAL`                   |
-| `APPELLANT`          | Recurrente             | `ADMINISTRATIVE`             |
-| `PLAINTIFF`          | Actora                 | `AMPARO`                     |
-| `DEFENDANT`          | Demandada              | `AMPARO`                     |
+| Código                   | Rótulo (frontend)      | Fueros                       |
+| ------------------------ | ---------------------- | ---------------------------- |
+| `DEFENSA`                | Defensa                | `CRIMINAL`, `ADMINISTRATIVE` |
+| `QUERELLANTE_PARTICULAR` | Querellante particular | `CRIMINAL`                   |
+| `RECURRENTE`             | Recurrente             | `ADMINISTRATIVE`             |
+| `ACTORA`                 | Actora                 | `AMPARO`                     |
+| `DEMANDADA`              | Demandada              | `AMPARO`                     |
 
 ## Correspondencia con el API Contract
 

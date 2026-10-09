@@ -2,16 +2,14 @@ import { CaseSacAlreadyExistsError } from '../../domain/errors/case.errors';
 import { AdministrativeCase } from '../../domain/entities/administrative';
 import { Amparo } from '../../domain/entities/amparo';
 import { CriminalCase } from '../../domain/entities/criminal';
-import { ProceduralStateRef } from '../../domain/ports/proc-state-lookup.port';
+import { ProceduralStateRef } from '../../domain/ports/legal-parameters-lookup.port';
 import { JurisdictionCode } from '../../domain/value-objects/jurisdiction-code';
 import { ProceduralRole } from '../../domain/value-objects/procedural-role';
 import {
   FakeCaseRepository,
-  FakeClientLookup,
   FakeClock,
-  FakeLawyerLookup,
-  FakeLegalQualificationLookup,
-  FakeProcStateLookup,
+  FakeLegalParametersLookup,
+  FakePeopleLookup,
 } from '../../test-support/case-fakes';
 import {
   aRegisterCaseCommand,
@@ -39,18 +37,9 @@ describe('RegisterCase', () => {
       delete initialStates[options.withoutInitialState];
     }
     const cases = new FakeCaseRepository(Object.values(INITIAL_STATES));
-    const clients = new FakeClientLookup([CLIENT]);
-    const lawyers = new FakeLawyerLookup([LAWYER]);
-    const procStates = new FakeProcStateLookup(initialStates);
-    const qualifications = new FakeLegalQualificationLookup([ROBBERY, HOMICIDE]);
-    const useCase = new RegisterCase(
-      cases,
-      clients,
-      lawyers,
-      procStates,
-      qualifications,
-      new FakeClock(NOW, TODAY),
-    );
+    const people = new FakePeopleLookup([LAWYER], [CLIENT]);
+    const legalParameters = new FakeLegalParametersLookup(initialStates, [ROBBERY, HOMICIDE]);
+    const useCase = new RegisterCase(cases, people, legalParameters, new FakeClock(NOW, TODAY));
     return { useCase, cases };
   }
 

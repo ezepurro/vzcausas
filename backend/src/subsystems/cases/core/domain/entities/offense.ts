@@ -1,4 +1,4 @@
-import { LegalQualificationRef } from '../ports/legal-qualification-lookup.port';
+import { LegalQualificationRef } from '../ports/legal-parameters-lookup.port';
 
 export interface OffenseProps {
   legalQualification: LegalQualificationRef;
