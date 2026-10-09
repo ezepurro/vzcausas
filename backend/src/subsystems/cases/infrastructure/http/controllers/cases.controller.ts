@@ -1,9 +1,11 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Query } from '@nestjs/common';
 import { AuthenticatedUser } from '@shared/domain/authenticated-user';
 import { CurrentUser } from '@shared/infrastructure/http/current-user.decorator';
 import { PaginatedResponse, paginate, toPageRequest } from '@shared/infrastructure/http/pagination';
+import { GetCase } from '../../../core/application/use-cases/get-case.use-case';
 import { ListCases } from '../../../core/application/use-cases/list-cases.use-case';
 import { RegisterCase } from '../../../core/application/use-cases/register-case.use-case';
+import { InvalidCaseIdError } from '../../../core/domain/errors/case.errors';
 import { CaseResponseDto } from '../dtos/case.response.dto';
 import { ListCasesQueryDto } from '../dtos/list-cases.query.dto';
 import { RegisterCaseRequestDto } from '../dtos/register-case.request.dto';
@@ -23,6 +25,7 @@ export class CasesController {
   constructor(
     private readonly registerCase: RegisterCase,
     private readonly listCases: ListCases,
+    private readonly getCase: GetCase,
   ) {}
 
   /**
@@ -39,6 +42,24 @@ export class CasesController {
     return paginate(page.items.map(CaseHttpMapper.toResponse), page.totalItems, toPageRequest(query));
   }
 
+  /**
+   * `GET /cases/{caseId}` (HU22). Devuelve **el mismo recurso que el listado**.
+   *
+   * Declarado después de `@Get()`: Nest resuelve las rutas en orden de
+   * declaración, así que una ruta con parámetro puesta antes se comería a la
+   * literal. Cuando se agregue `@Get('custom-states')` (HU20) tiene que ir
+   * **arriba** de este método, por el mismo motivo.
+   *
+   * El `caseId` llega como `string` y lo parsea el método de abajo en lugar de
+   * dejárselo al pipe: así el error lleva el `INVALID_PATH_PARAMETER` del
+   * contrato y no el `VALIDATION_ERROR` genérico.
+   */
+  @Get(':caseId')
+  async getById(@Param('caseId') caseIdParam: string): Promise<{ data: CaseResponseDto }> {
+    const item = await this.getCase.execute({ id: parseCaseId(caseIdParam) });
+    return { data: CaseHttpMapper.toResponse(item) };
+  }
+
   @Post()
   @HttpCode(HttpStatus.CREATED)
   async register(
@@ -48,4 +69,12 @@ export class CasesController {
     const result = await this.registerCase.execute({ ...dto, createdByUserId: actor.userId });
     return { data: CaseHttpMapper.fromRegisterResult(result) };
   }
+}
+
+function parseCaseId(raw: string): number {
+  const caseId = Number(raw);
+  if (!Number.isInteger(caseId) || caseId <= 0) {
+    throw new InvalidCaseIdError();
+  }
+  return caseId;
 }

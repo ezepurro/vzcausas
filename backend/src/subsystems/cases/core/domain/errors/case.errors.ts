@@ -1,4 +1,4 @@
-import { ConflictError, ValidationError } from '@shared/domain/domain-error';
+import { ConflictError, NotFoundError, ValidationError } from '@shared/domain/domain-error';
 
 /** Emitted when the SAC number is already used by another case (RN2, 409). */
 export class CaseSacAlreadyExistsError extends ConflictError {
@@ -23,5 +23,34 @@ export class CaseSacAlreadyExistsError extends ConflictError {
 export class ExclusiveCaseStateFilterError extends ValidationError {
   constructor(details: Record<string, string>) {
     super('INVALID_REQUEST', 'Parámetros de query inválidos.', details);
+  }
+}
+
+/**
+ * Emitted by `GET /cases/{caseId}` (HU22) when no case matches.
+ *
+ * Also the answer for a case that exists but was given de baja: through this
+ * endpoint the two must be indistinguishable (§4, Bajas — *"para el cliente,
+ * un registro dado de baja no existe"*).
+ */
+export class CaseNotFoundError extends NotFoundError {
+  constructor() {
+    super('CASE_NOT_FOUND', 'No se encontró la causa solicitada.');
+  }
+}
+
+/**
+ * Emitted when the `caseId` path parameter is not a positive integer.
+ *
+ * Syntactic rather than semantic, but modeled as a domain error so the
+ * response carries the contract's `INVALID_PATH_PARAMETER` instead of the
+ * pipe's generic `VALIDATION_ERROR` — the same reason `InvalidUserIdError`
+ * and `InvalidPaginationError` exist.
+ */
+export class InvalidCaseIdError extends ValidationError {
+  constructor() {
+    super('INVALID_PATH_PARAMETER', 'El identificador de la causa no es válido.', {
+      caseId: 'Debe ser un número entero válido.',
+    });
   }
 }
