@@ -170,16 +170,16 @@ el registro de actos consumen sus datos. Si no hace falta, no se crea.
 | `documents/` | Documentos de cada causa y los modelos formales del estudio |
 | `dashboard/` | El tablero de control accionable y los reportes |
 
-De los once, hoy tienen código `auth/`, `home/`, `users/`, `lawyers/` y
-`legal-params/`, y del Sprint 2 están empezados `clients/`, `cases/` y
-`proceedings/`: tienen tipos, validaciones, utilidades y componentes, pero
-todavía no `api/` ni `pages/`. `clients/` ya tiene además sus tests, escritos
-antes que la página. Los demás están creados con sus seis carpetas vacías,
-para que el día que arranquen no haya que discutir dónde van.
+De los once, hoy tienen código ocho: `auth/`, `home/`, `users/`, `lawyers/` y
+`legal-params/`, y los tres del Sprint 2 —`clients/`, `cases/` y
+`proceedings/`—, que ya tienen su `api/`, sus páginas y sus tests. Los de
+`clients/` y los del listado de causas se escribieron antes que la página. Los
+otros tres (`deadlines/`, `documents/` y `dashboard/`) están creados con sus
+seis carpetas vacías, para que el día que arranquen no haya que discutir dónde
+van.
 
-No todos siguen la misma revisión del contrato: `cases/` y `proceedings/`
-todavía están en la del 01/10/2026. Qué falta ajustar en cada uno está en
-`frontend/CLAUDE.md`, "Revisiones del contrato".
+Todos siguen la revisión del 05/10/2026 del contrato. Cómo quedó aplicada está
+en `frontend/CLAUDE.md`, "Revisiones del contrato".
 
 ### `src/shared/` — lo reutilizable
 

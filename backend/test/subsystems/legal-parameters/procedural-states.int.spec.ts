@@ -76,11 +76,26 @@ async function aCaseOwner() {
   return { clientId: client.id, responsibleLawyerId: lawyer.id, createdByUserId: user.id, lawyerId: lawyer.id };
 }
 
-/** `currentState` de una causa tal como lo devuelve `GET /cases`. */
+/**
+ * Estado actual de la causa del cliente, leído de la base: id y nombre del
+ * estado (por la FK, así que un renombrado se ve) y el vencimiento vigente,
+ * `COALESCE(manual, calculado)`, como fecha civil.
+ *
+ * Se lee de la base porque `cases` hoy no expone una consulta de causas.
+ * Cuando exista, conviene volver a verificarlo por la API.
+ */
 async function currentStateOfCase(clientId: number) {
-  const res = await request(app.getHttpServer()).get(`/api/v1/cases?clientId=${clientId}`).set(reader());
-  expect(res.status).toBe(200);
-  return res.body.data[0].currentState as { proceduralStateId: number; name: string; dueDate: string | null };
+  const kase = await getPrisma().case.findFirstOrThrow({
+    where: { clientId },
+    include: { currentState: true, currentProceduralAct: true },
+  });
+  const act = kase.currentProceduralAct;
+  const due = act?.deadlineManualDueDate ?? act?.deadlineComputedDueDate ?? null;
+  return {
+    proceduralStateId: kase.currentStateId,
+    name: kase.currentState?.name ?? null,
+    dueDate: due === null ? null : due.toISOString().slice(0, 10),
+  };
 }
 
 // Helpers locales, a propósito: `case.factory.ts` es de `cases` y solo crea

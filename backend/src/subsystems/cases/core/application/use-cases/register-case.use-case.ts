@@ -5,13 +5,8 @@ import { CaseSacAlreadyExistsError } from '../../domain/errors/case.errors';
 import { CriminalCase } from '../../domain/entities/criminal';
 import { CaseFactory } from '../../domain/factories/case.factory';
 import { CASE_REPOSITORY, CaseRepository } from '../../domain/ports/case.repository';
-import { CLIENT_LOOKUP, ClientLookupPort } from '../../domain/ports/client-lookup.port';
-import { LAWYER_LOOKUP, LawyerLookupPort } from '../../domain/ports/lawyer-lookup.port';
-import { PROC_STATE_LOOKUP, ProcStateLookupPort } from '../../domain/ports/proc-state-lookup.port';
-import {
-  LEGAL_QUALIFICATION_LOOKUP,
-  LegalQualificationLookupPort,
-} from '../../domain/ports/legal-qualification-lookup.port';
+import { LEGAL_PARAMETERS_LOOKUP, LegalParametersLookupPort } from '../../domain/ports/legal-parameters-lookup.port';
+import { PEOPLE_LOOKUP, PeopleLookupPort } from '../../domain/ports/people-lookup.port';
 import { RegisterCaseCommand, RegisterCaseResult } from '../common/register-case.interfaces';
 
 const INVALID_DATA_MESSAGE = 'Los datos enviados no son válidos.';
@@ -21,10 +16,8 @@ const INVALID_DATA_MESSAGE = 'Los datos enviados no son válidos.';
 export class RegisterCase {
   constructor(
     @Inject(CASE_REPOSITORY) private readonly cases: CaseRepository,
-    @Inject(CLIENT_LOOKUP) private readonly clients: ClientLookupPort,
-    @Inject(LAWYER_LOOKUP) private readonly lawyers: LawyerLookupPort,
-    @Inject(PROC_STATE_LOOKUP) private readonly procStates: ProcStateLookupPort,
-    @Inject(LEGAL_QUALIFICATION_LOOKUP) private readonly qualifications: LegalQualificationLookupPort,
+    @Inject(PEOPLE_LOOKUP) private readonly people: PeopleLookupPort,
+    @Inject(LEGAL_PARAMETERS_LOOKUP) private readonly legalParameters: LegalParametersLookupPort,
     @Inject(CLOCK) private readonly clock: ClockPort,
   ) {}
 
@@ -33,10 +26,10 @@ export class RegisterCase {
     const requested = command.legalQualifications ?? [];
 
     const [initialState, client, responsibleLawyer, foundQualifications] = await Promise.all([
-      this.procStates.findInitialByJurisdiction(command.jurisdiction),
-      this.clients.findActiveById(command.clientId),
-      this.lawyers.findActiveById(command.responsibleLawyerId),
-      this.qualifications.findActiveByIds(requested.map((item) => item.legalQualificationId)),
+      this.legalParameters.findInitialProcStateByJurisdiction(command.jurisdiction),
+      this.people.findActiveClientById(command.clientId),
+      this.people.findActiveLawyerById(command.responsibleLawyerId),
+      this.legalParameters.findActiveQualificationsByIds(requested.map((item) => item.legalQualificationId)),
     ]);
 
     // Unknown ids are data of the form that the user has to fix, so they

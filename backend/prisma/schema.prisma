@@ -191,11 +191,11 @@ enum DayType {
   @@map("day_type")
 }
 
-// Rol procesal del cliente en la causa. Los códigos van en inglés; el
-// rótulo en castellano lo resuelve el frontend. Valores por fuero:
-//   CRIMINAL:       DEFENSE, PRIVATE_PROSECUTOR
-//   ADMINISTRATIVE: DEFENSE, APPELLANT
-//   AMPARO:         PLAINTIFF, DEFENDANT
+// Rol procesal del cliente en la causa. Los códigos van en castellano; el
+// rótulo de pantalla lo resuelve el frontend. Valores por fuero:
+//   CRIMINAL:       DEFENSA, QUERELLANTE_PARTICULAR
+//   ADMINISTRATIVE: DEFENSA, RECURRENTE
+//   AMPARO:         ACTORA, DEMANDADA
 // La correspondencia con el fuero se valida en el dominio.
 enum ProceduralRole {
   DEFENSA

@@ -15,6 +15,7 @@ import { RequireAccess } from '@/app/router/RequireAccess'
 import { ClientsPage } from '@/features/clients/pages/ClientsPage'
 import { RegisterCasePage } from '@/features/cases/pages/RegisterCasePage'
 import { CaseDetailPage } from '@/features/cases/pages/CaseDetailPage'
+import { CasesPage } from '@/features/cases/pages/CasesPage'
 
 
 export const router = createBrowserRouter([
@@ -45,6 +46,7 @@ export const router = createBrowserRouter([
                             { path: 'calificaciones-legales', element: <LegalQualificationsPage /> },
                             { path: 'usuarios', element: <UsersPage /> },
                             { path: 'abogados', element: <LawyersPage /> },
+                            { path : 'causas', element: <CasesPage />},
                             { path: 'causas/nueva', element: <RegisterCasePage /> },
                             { path: 'causas/:caseId', element: <CaseDetailPage /> },
                             { path: 'causas/:caseId/acto', element: <RegisterProceduralActPage /> },

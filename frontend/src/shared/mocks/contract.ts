@@ -55,19 +55,19 @@ export type DayType = (typeof DAY_TYPES)[number];
  * seguridad del usuario.
  */
 export const PROCEDURAL_ROLES = [
-    'DEFENSE',
-    'PRIVATE_PROSECUTOR',
-    'APPELLANT',
-    'PLAINTIFF',
-    'DEFENDANT',
+    'DEFENSA',
+    'QUERELLANTE_PARTICULAR',
+    'RECURRENTE',
+    'ACTORA',
+    'DEMANDADA',
 ] as const;
 export type ProceduralRole = (typeof PROCEDURAL_ROLES)[number];
 
 /** Qué roles admite cada fuero. Uno que no corresponde es un `400`. */
 export const PROCEDURAL_ROLES_BY_JURISDICTION: Record<Jurisdiction, readonly ProceduralRole[]> = {
-    CRIMINAL: ['DEFENSE', 'PRIVATE_PROSECUTOR'],
-    ADMINISTRATIVE: ['DEFENSE', 'APPELLANT'],
-    AMPARO: ['PLAINTIFF', 'DEFENDANT'],
+    CRIMINAL: ['DEFENSA', 'QUERELLANTE_PARTICULAR'],
+    ADMINISTRATIVE: ['DEFENSA', 'RECURRENTE'],
+    AMPARO: ['ACTORA', 'DEMANDADA'],
 };
 
 /**

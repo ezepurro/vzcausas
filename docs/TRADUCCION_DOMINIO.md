@@ -8,7 +8,7 @@ Cuando este glosario y `API_CONTRACT_V2.md` no coincidan, **manda el contrato**:
 
 De ahí sale la segunda regla: **un concepto que viaja por la API se nombra igual en el dominio y en el contrato**. Tener `Term` en el código y `timeLimitDays` en el JSON obliga a traducir mentalmente en cada lectura, que es exactamente lo que un glosario existe para evitar.
 
-Los códigos van en inglés; los rótulos que lee el usuario, en castellano. Las dos excepciones son términos sin equivalente real: `Amparo` y `SacNumber`.
+Los códigos van en inglés; los rótulos que lee el usuario, en castellano. Las dos excepciones son términos sin equivalente real: `Amparo` y `SacNumber`. Una tercera, por decisión del equipo (API Contract V3, D-37): los **valores** de `ProceduralRole` van en castellano (`DEFENSA`, `QUERELLANTE_PARTICULAR`, `RECURRENTE`, `ACTORA`, `DEMANDADA`); el nombre del enumerado sigue en inglés.
 
 ---
 

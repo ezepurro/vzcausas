@@ -17,7 +17,7 @@ const CRIMINAL: CaseFormValues = {
     tribunalPhone: '',
     instructorExtension: '',
     clientId: '24',
-    proceduralRole: 'DEFENSE',
+    proceduralRole: 'DEFENSA',
     legalQualifications: [{ legalQualificationId: 6, offenseDate: '2026-08-20' }],
     counterparty: '',
     subjectMatter: '',
@@ -28,7 +28,7 @@ const CRIMINAL: CaseFormValues = {
 const AMPARO: CaseFormValues = {
     ...CRIMINAL,
     jurisdiction: 'AMPARO',
-    proceduralRole: 'PLAINTIFF',
+    proceduralRole: 'ACTORA',
     legalQualifications: [],
     counterparty: 'PAMI',
     subjectMatter: 'Se ordene a PAMI la cobertura de la internación domiciliaria.',
@@ -86,20 +86,20 @@ describe('validateCase', () => {
 
     /* CA-18.3 */
     it('rechaza un rol procesal que el fuero no admite', () => {
-        expect(validateCase({ ...CRIMINAL, proceduralRole: 'PLAINTIFF' }).proceduralRole).toBe(
+        expect(validateCase({ ...CRIMINAL, proceduralRole: 'ACTORA' }).proceduralRole).toBe(
             'Ese rol procesal no corresponde al fuero.',
         )
-        expect(validateCase({ ...AMPARO, proceduralRole: 'APPELLANT' }).proceduralRole).toBeDefined()
+        expect(validateCase({ ...AMPARO, proceduralRole: 'RECURRENTE' }).proceduralRole).toBeDefined()
     })
 
     /* CA-18.3: la tabla de roles por fuero del contrato (V3 §2). */
     it.each([
-        ['CRIMINAL', 'DEFENSE'],
-        ['CRIMINAL', 'PRIVATE_PROSECUTOR'],
-        ['ADMINISTRATIVE', 'DEFENSE'],
-        ['ADMINISTRATIVE', 'APPELLANT'],
-        ['AMPARO', 'PLAINTIFF'],
-        ['AMPARO', 'DEFENDANT'],
+        ['CRIMINAL', 'DEFENSA'],
+        ['CRIMINAL', 'QUERELLANTE_PARTICULAR'],
+        ['ADMINISTRATIVE', 'DEFENSA'],
+        ['ADMINISTRATIVE', 'RECURRENTE'],
+        ['AMPARO', 'ACTORA'],
+        ['AMPARO', 'DEMANDADA'],
     ] as const)('en %s acepta el rol %s', (jurisdiction, proceduralRole) => {
         const base = jurisdiction === 'CRIMINAL' ? CRIMINAL : { ...AMPARO, jurisdiction }
         expect(validateCase({ ...base, jurisdiction, proceduralRole }).proceduralRole).toBeUndefined()
@@ -192,7 +192,7 @@ describe('validateCase', () => {
         it('el objeto es obligatorio, con el nombre que le da cada fuero (D-27)', () => {
             expect(validateCase({ ...AMPARO, subjectMatter: '  ' }).subjectMatter).toBe('El objeto del amparo es obligatorio.')
             expect(
-                validateCase({ ...AMPARO, jurisdiction: 'ADMINISTRATIVE', proceduralRole: 'DEFENSE', subjectMatter: '' }).subjectMatter,
+                validateCase({ ...AMPARO, jurisdiction: 'ADMINISTRATIVE', proceduralRole: 'DEFENSA', subjectMatter: '' }).subjectMatter,
             ).toBe('El objeto del reclamo es obligatorio.')
         })
 

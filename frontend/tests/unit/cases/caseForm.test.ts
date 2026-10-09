@@ -9,7 +9,7 @@ describe('formulario de alta de causa', () => {
             const values = emptyCaseForm()
 
             expect(values.jurisdiction).toBe('CRIMINAL')
-            expect(values.proceduralRole).toBe('DEFENSE')
+            expect(values.proceduralRole).toBe('DEFENSA')
             expect(values.legalQualifications).toEqual([])
             expect(values.subjectMatter).toBe('')
         })
@@ -52,7 +52,7 @@ describe('formulario de alta de causa', () => {
             const amparo = changeJurisdiction(criminal, 'AMPARO')
 
             expect(amparo.legalQualifications).toEqual([])
-            expect(amparo.proceduralRole).toBe('PLAINTIFF')
+            expect(amparo.proceduralRole).toBe('ACTORA')
         })
 
         /* CA-18.4 */
@@ -70,14 +70,14 @@ describe('formulario de alta de causa', () => {
 
             expect(administrative.counterparty).toBe('APROSS')
             expect(administrative.subjectMatter).toBe('Cobertura.')
-            expect(administrative.proceduralRole).toBe('DEFENSE')
+            expect(administrative.proceduralRole).toBe('DEFENSA')
         })
 
         /* CA-18.3: el rol vuelve al primero válido del fuero nuevo (V3 §2). */
         it.each([
-            ['CRIMINAL', 'DEFENSE'],
-            ['ADMINISTRATIVE', 'DEFENSE'],
-            ['AMPARO', 'PLAINTIFF'],
+            ['CRIMINAL', 'DEFENSA'],
+            ['ADMINISTRATIVE', 'DEFENSA'],
+            ['AMPARO', 'ACTORA'],
         ] as const)('en %s el rol pasa a %s', (jurisdiction, role) => {
             expect(changeJurisdiction(emptyCaseForm(), jurisdiction).proceduralRole).toBe(role)
         })

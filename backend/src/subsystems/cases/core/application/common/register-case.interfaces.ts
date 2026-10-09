@@ -1,8 +1,7 @@
 import { Case } from '../../domain/entities/cases';
 import { Offense } from '../../domain/entities/offense';
-import { ClientRef } from '../../domain/ports/client-lookup.port';
-import { LawyerRef } from '../../domain/ports/lawyer-lookup.port';
-import { ProceduralStateRef } from '../../domain/ports/proc-state-lookup.port';
+import { ClientRef, LawyerRef } from '../../domain/ports/people-lookup.port';
+import { ProceduralStateRef } from '../../domain/ports/legal-parameters-lookup.port';
 import { JurisdictionCode } from '../../domain/value-objects/jurisdiction-code';
 import { ProceduralRole } from '../../domain/value-objects/procedural-role';
 
