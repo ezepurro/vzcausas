@@ -1,16 +1,18 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { CLOCK, ClockPort } from '@shared/domain/clock.port';
 import { ValidationError } from '@shared/domain/domain-error';
+import { TRANSACTION_MANAGER, TransactionManagerPort } from '@shared/domain/transaction-manager.port';
 import { Case } from '../../domain/entities/cases';
 import { CaseNotFoundError } from '../../domain/errors/case.errors';
 import { CASE_REPOSITORY, CaseRepository } from '../../domain/ports/case.repository';
-import { LAWYER_LOOKUP, LawyerLookupPort } from '../../domain/ports/lawyer-lookup.port';
+import { PROCEDURAL_ACT_REPOSITORY, ProceduralActRepository } from '../../domain/ports/procedural-act.repository';
+import { PEOPLE_LOOKUP, PeopleLookupPort } from '../../domain/ports/people-lookup.port';
 import { DEADLINE_CALCULATOR, DeadlineCalculatorPort } from '../../domain/ports/deadline-calculator.port';
 import {
-  PROC_STATE_LOOKUP,
-  ProcStateLookupPort,
+  LEGAL_PARAMETERS_LOOKUP,
+  LegalParametersLookupPort,
   ProceduralStateRef,
-} from '../../domain/ports/proc-state-lookup.port';
+} from '../../domain/ports/legal-parameters-lookup.port';
 import { DayType } from '../../domain/value-objects/day-type';
 import { Deadline } from '../../domain/value-objects/deadline';
 import {
@@ -40,10 +42,12 @@ interface TargetState {
 export class RegisterProceduralAct {
   constructor(
     @Inject(CASE_REPOSITORY) private readonly cases: CaseRepository,
-    @Inject(PROC_STATE_LOOKUP) private readonly procStates: ProcStateLookupPort,
-    @Inject(LAWYER_LOOKUP) private readonly lawyers: LawyerLookupPort,
+    @Inject(PROCEDURAL_ACT_REPOSITORY) private readonly acts: ProceduralActRepository,
+    @Inject(LEGAL_PARAMETERS_LOOKUP) private readonly legalParameters: LegalParametersLookupPort,
+    @Inject(PEOPLE_LOOKUP) private readonly people: PeopleLookupPort,
     @Inject(DEADLINE_CALCULATOR) private readonly calculator: DeadlineCalculatorPort,
     @Inject(CLOCK) private readonly clock: ClockPort,
+    @Inject(TRANSACTION_MANAGER) private readonly transactions: TransactionManagerPort,
   ) {}
 
   async execute(command: RegisterProceduralActCommand): Promise<RegisterProceduralActResult> {
@@ -54,14 +58,16 @@ export class RegisterProceduralAct {
     targetCase.assertCanRegisterActs(command.actor);
 
     // The actor is the lawyer in charge, so the record exists: a missing one is broken data, not a user error.
-    const registeredBy = await this.lawyers.findActiveById(command.actor.lawyerId!);
+    const registeredBy = await this.people.findActiveLawyerById(command.actor.lawyerId!);
     if (!registeredBy) {
       throw new Error(`The lawyer ${command.actor.lawyerId} in charge of the case ${targetCase.id} is not active.`);
     }
 
     // The state the case is in may be inactive by now: it is read as it is.
     const currentState =
-      targetCase.currentStateId === null ? null : await this.procStates.findById(targetCase.currentStateId);
+      targetCase.currentStateId === null
+        ? null
+        : await this.legalParameters.findProcStateById(targetCase.currentStateId);
     const currentStateIsTerminal = currentState?.terminal ?? false;
     targetCase.assertAcceptsActs(currentStateIsTerminal);
 
@@ -75,7 +81,7 @@ export class RegisterProceduralAct {
     const deadline = await this.buildDeadline(targetCase, target, command);
 
     const { act, becameCurrent } = targetCase.registerProceduralAct({
-      id: await this.cases.nextProceduralActId(),
+      id: await this.acts.nextId(),
       proceduralStateId: target.proceduralStateId,
       customState: target.customState,
       actDate: command.actDate,
@@ -88,7 +94,14 @@ export class RegisterProceduralAct {
       now: this.clock.now(),
     });
 
-    await this.cases.saveProceduralAct(targetCase, act);
+    // Every read and check is done: the writes go together or not at all. The act first, because the case points to it.
+    await this.transactions.runInTransaction(async () => {
+      await this.acts.save(act);
+      // An act older than the current one is on record, but the case does not move (CA-26.10).
+      if (becameCurrent) {
+        await this.cases.saveCurrentAct(targetCase);
+      }
+    });
     return { act, becameCurrent, resultingStateName: (target.state?.name ?? target.customState)!, registeredBy };
   }
 
@@ -109,7 +122,7 @@ export class RegisterProceduralAct {
     }
 
     if (proceduralStateId !== null) {
-      const state = await this.procStates.findById(proceduralStateId);
+      const state = await this.legalParameters.findProcStateById(proceduralStateId);
       if (!state || !state.isActive) {
         return fail('proceduralStateId', 'No existe un estado procesal vigente con ese identificador.');
       }
@@ -120,7 +133,7 @@ export class RegisterProceduralAct {
     }
 
     // A hand-written state is kept only in this case: it cannot repeat one of the table (CA-26.7).
-    if (await this.procStates.existsActiveByName(targetCase.jurisdictionId, customState!)) {
+    if (await this.legalParameters.existsProcStateActiveByName(targetCase.jurisdictionId, customState!)) {
       return fail('customState', 'Coincide con un estado de la tabla del fuero: elegilo de la lista.');
     }
     return { proceduralStateId: null, customState, state: null };

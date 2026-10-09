@@ -6,13 +6,8 @@ import { Amparo } from '../../core/domain/entities/amparo';
 import { Case } from '../../core/domain/entities/cases';
 import { CriminalCase } from '../../core/domain/entities/criminal';
 import { CaseRepository } from '../../core/domain/ports/case.repository';
-<<<<<<< HEAD
 import { ProceduralStateRef } from '../../core/domain/ports/legal-parameters-lookup.port';
-=======
-import { ProceduralAct } from '../../core/domain/entities/procedural-act';
 import { DayType } from '../../core/domain/value-objects/day-type';
-import { ProceduralStateRef } from '../../core/domain/ports/proc-state-lookup.port';
->>>>>>> 178097f (feat(back): register proc act - entities & usecase created)
 import { CasePrismaMapper } from './case-prisma.mapper';
 
 @Injectable()
@@ -81,7 +76,11 @@ export class CasePrismaRepository implements CaseRepository {
   async findById(id: number): Promise<Case | null> {
     const row = await this.prisma.db.case.findUnique({
       where: { id },
-      include: { jurisdiction: true, offenses: { include: { legalQualification: true } } },
+      include: {
+        jurisdiction: true,
+        offenses: { include: { legalQualification: true } },
+        currentProceduralAct: true,
+      },
     });
     return row ? CasePrismaMapper.toDomain(row) : null;
   }
@@ -120,12 +119,16 @@ export class CasePrismaRepository implements CaseRepository {
     };
   }
 
-  // TODO(HU26, infrastructure step): the next two methods and the load of the current act in `findById`.
-  async nextProceduralActId(): Promise<number> {
-    throw new Error('Not implemented yet.');
-  }
-
-  async saveProceduralAct(_updatedCase: Case, _act: ProceduralAct): Promise<void> {
-    throw new Error('Not implemented yet.');
+  async saveCurrentAct(updatedCase: Case): Promise<void> {
+    // One UPDATE, so the state and the custom state change together and keep the CHECK that exactly one is set.
+    await this.prisma.db.case.update({
+      where: { id: updatedCase.id },
+      data: {
+        currentStateId: updatedCase.currentStateId,
+        currentCustomState: updatedCase.currentCustomState,
+        currentProceduralActId: updatedCase.currentProceduralActId,
+        updatedAt: updatedCase.updatedAt,
+      },
+    });
   }
 }

@@ -1,6 +1,6 @@
 import { AuthenticatedUser } from '@shared/domain/authenticated-user';
 import { ProceduralAct } from '../../domain/entities/procedural-act';
-import { LawyerRef } from '../../domain/ports/lawyer-lookup.port';
+import { LawyerRef } from '../../domain/ports/people-lookup.port';
 
 /** What the user asks for when registering a procedural act (HU26). */
 export interface RegisterProceduralActCommand {

@@ -1,10 +1,5 @@
 import { Case } from '../entities/cases';
-<<<<<<< HEAD
 import { ProceduralStateRef } from './legal-parameters-lookup.port';
-=======
-import { ProceduralAct } from '../entities/procedural-act';
-import { ProceduralStateRef } from './proc-state-lookup.port';
->>>>>>> 178097f (feat(back): register proc act - entities & usecase created)
 
 /** DI token for {@link CaseRepository}. Symbol-as-token, same as `people`. */
 export const CASE_REPOSITORY = Symbol('CASE_REPOSITORY');
@@ -26,13 +21,10 @@ export interface CaseRepository {
   /** Reads the procedural state the stored case is currently in. */
   findCurrentState(caseId: number): Promise<ProceduralStateRef>;
 
-  /** Reserves the next primary key of a procedural act. */
-  nextProceduralActId(): Promise<number>;
-
   /**
-   * Saves a new act and, in the same atomic operation, the changes the act
-   * made to the case: its current state, its current act and `updatedAt`.
-   * If the act did not become the current one, only the act is saved.
+   * Saves what a procedural act changed in the case: its current state, its
+   * current act and `updatedAt`. The act itself is saved by the
+   * {@link ProceduralActRepository}.
    */
-  saveProceduralAct(updatedCase: Case, act: ProceduralAct): Promise<void>;
+  saveCurrentAct(updatedCase: Case): Promise<void>;
 }

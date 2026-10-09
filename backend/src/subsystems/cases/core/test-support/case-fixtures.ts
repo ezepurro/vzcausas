@@ -1,16 +1,9 @@
 import { ValidationError } from '@shared/domain/domain-error';
 import { RegisterCaseCommand } from '../application/common/register-case.interfaces';
 import { NewCaseInput } from '../domain/factories/case.factory';
-<<<<<<< HEAD
 import { ClientRef, LawyerRef } from '../domain/ports/people-lookup.port';
 import { LegalQualificationRef, ProceduralStateRef } from '../domain/ports/legal-parameters-lookup.port';
-=======
-import { ClientRef } from '../domain/ports/client-lookup.port';
-import { LawyerRef } from '../domain/ports/lawyer-lookup.port';
-import { LegalQualificationRef } from '../domain/ports/legal-qualification-lookup.port';
-import { ProceduralStateRef } from '../domain/ports/proc-state-lookup.port';
 import { DayType } from '../domain/value-objects/day-type';
->>>>>>> 178097f (feat(back): register proc act - entities & usecase created)
 import { JurisdictionCode } from '../domain/value-objects/jurisdiction-code';
 import { ProceduralRole } from '../domain/value-objects/procedural-role';
 

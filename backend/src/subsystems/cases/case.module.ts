@@ -5,11 +5,13 @@ import { PeopleModule } from '@subsystems/people/people.module';
 import { RegisterCase } from './core/application/use-cases/register-case.use-case';
 import { RegisterProceduralAct } from './core/application/use-cases/register-procedural-act.use-case';
 import { CASE_REPOSITORY } from './core/domain/ports/case.repository';
+import { PROCEDURAL_ACT_REPOSITORY } from './core/domain/ports/procedural-act.repository';
 import { DEADLINE_CALCULATOR } from './core/domain/ports/deadline-calculator.port';
 import { BusinessDaysDeadlineCalculatorAdapter } from './infrastructure/acl/business-days-deadline-calculator.adapter';
 import { CasesController } from './infrastructure/http/controllers/cases.controller';
 import { ProceduralActHttpMapper } from './infrastructure/http/mappers/procedural-act-http.mapper';
 import { CasePrismaRepository } from './infrastructure/persistence/case-prisma.repository';
+import { ProceduralActPrismaRepository } from './infrastructure/persistence/procedural-act-prisma.repository';
 
 /**
  * Composition root of `cases`.
@@ -33,6 +35,7 @@ import { CasePrismaRepository } from './infrastructure/persistence/case-prisma.r
     ProceduralActHttpMapper,
     { provide: DEADLINE_CALCULATOR, useClass: BusinessDaysDeadlineCalculatorAdapter },
     { provide: CASE_REPOSITORY, useClass: CasePrismaRepository },
+    { provide: PROCEDURAL_ACT_REPOSITORY, useClass: ProceduralActPrismaRepository },
   ],
 })
 export class CasesModule {}

@@ -9,6 +9,10 @@ export interface ProceduralStateRepository {
   findPaginated(filter: ProcStateFilter, page: number, limit: number): Promise<PaginatedResult<ProceduralState>>;
   /** The initial state ("Iniciada") of an active jurisdiction, or `null` if there is none. */
   findInitialByJurisdiction(jurisdiction: JurisdictionCode): Promise<ProceduralState | null>;
+  /** A state by id, active or not, with its jurisdiction, or `null` if there is none. */
+  findById(id: number): Promise<ProceduralState | null>;
+  /** `true` if the jurisdiction has an active state with that name, ignoring case. */
+  existsActiveByName(jurisdictionId: number, name: string): Promise<boolean>;
 }
 
 export const ProceduralStateRepository = Symbol('ProceduralStateRepository');

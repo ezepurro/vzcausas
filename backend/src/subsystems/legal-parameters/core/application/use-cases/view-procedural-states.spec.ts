@@ -38,6 +38,8 @@ describe('ViewProceduralStates', () => {
       save: jest.fn(),
       findAll: jest.fn(),
       findInitialByJurisdiction: jest.fn(),
+      findById: jest.fn(),
+      existsActiveByName: jest.fn(),
       findPaginated: jest.fn().mockResolvedValue(aPage([])),
     };
     useCase = new ViewProceduralStates(repository);

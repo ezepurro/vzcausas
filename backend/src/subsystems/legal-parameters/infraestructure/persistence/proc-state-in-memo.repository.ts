@@ -26,6 +26,19 @@ export class ProceduralStateInMemoryRepository implements ProceduralStateReposit
     );
   }
 
+  async findById(id: number): Promise<ProceduralState | null> {
+    return this.procStates.find((state) => state.id === id) ?? null;
+  }
+
+  async existsActiveByName(jurisdictionId: number, name: string): Promise<boolean> {
+    return this.procStates.some(
+      (state) =>
+        state.isActive &&
+        state.jurisdiction.id === jurisdictionId &&
+        state.name.toLowerCase() === name.toLowerCase(),
+    );
+  }
+
   async findPaginated(filter: ProcStateFilter, page: number, limit: number): Promise<PaginatedResult<ProceduralState>> {
     const search = filter.search?.toLowerCase();
     const matches = this.procStates.filter(

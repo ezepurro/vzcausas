@@ -56,6 +56,22 @@ export class ProceduralStatePrismaRepository implements ProceduralStateRepositor
     return row ? ProceduralStateMapper.toDomain(row) : null;
   }
 
+  async findById(id: number): Promise<ProceduralState | null> {
+    const row = await this.prisma.proceduralState.findUnique({
+      where: { stateId: id },
+      include: { jurisdiction: true },
+    });
+    return row ? ProceduralStateMapper.toDomain(row) : null;
+  }
+
+  async existsActiveByName(jurisdictionId: number, name: string): Promise<boolean> {
+    const row = await this.prisma.proceduralState.findFirst({
+      where: { jurisdictionId, isActive: true, name: { equals: name, mode: 'insensitive' } },
+      select: { stateId: true },
+    });
+    return row !== null;
+  }
+
   async findAndCountAll(): Promise<ProceduralState[]> {
     throw new Error('Method not implemented.');
   }
