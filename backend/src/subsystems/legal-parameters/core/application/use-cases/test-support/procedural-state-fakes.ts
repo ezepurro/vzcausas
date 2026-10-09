@@ -1,5 +1,9 @@
 import { Jurisdiction } from '@subsystems/legal-parameters/core/domain/entities/jurisdiction';
-import { ProceduralState } from '@subsystems/legal-parameters/core/domain/entities/procedural-states';
+import {
+  INITIAL_STATE_NAME,
+  ProceduralState,
+  ProceduralStateProps,
+} from '@subsystems/legal-parameters/core/domain/entities/procedural-states';
 import {
   ProceduralStateRepository,
   ProcStateFilter,
@@ -34,6 +38,38 @@ export const FAKE_JURISDICTIONS: Readonly<Record<JurisdictionCode, Jurisdiction>
 };
 
 /**
+ * A valid, active, non-initial state of the CRIMINAL jurisdiction. Built
+ * with `hydrate` so specs can also set up states the API could never create
+ * (deactivated ones, or "Iniciada").
+ */
+export function aProceduralState(overrides: Partial<ProceduralStateProps> = {}): ProceduralState {
+  return ProceduralState.hydrate({
+    id: 1,
+    name: 'Citación a juicio',
+    timeLimitDays: 5,
+    dayType: DayType.BUSINESS,
+    terminal: false,
+    isInitial: false,
+    isActive: true,
+    jurisdiction: FAKE_JURISDICTIONS[JurisdictionCode.CRIMINAL],
+    createdAt: new Date('2026-09-27T00:00:00Z'),
+    ...overrides,
+  });
+}
+
+/** The system state "Iniciada" of a jurisdiction, as the seed creates it. */
+export function anInitialState(id: number, code: JurisdictionCode = JurisdictionCode.CRIMINAL): ProceduralState {
+  return aProceduralState({
+    id,
+    name: INITIAL_STATE_NAME,
+    timeLimitDays: 0,
+    dayType: DayType.NONE,
+    isInitial: true,
+    jurisdiction: FAKE_JURISDICTIONS[code],
+  });
+}
+
+/**
  * In-memory fake of {@link ProceduralStateRepository} for the use-case specs
  * (no NestJS, no database). Mirrors what the Prisma adapter does in SQL —
  * active states only, "Iniciada" excluded, case-insensitive names — on
@@ -48,6 +84,20 @@ export class FakeProceduralStateRepository implements ProceduralStateRepository 
   public readonly created = new Array<ProceduralState>();
   public readonly saved = new Array<ProceduralState>();
   private nextIdValue = 1;
+
+  /**
+   * Arranges the data a spec starts from. Unlike {@link create}, it does not
+   * record into `created`, so a spec only sees what the use case wrote.
+   *
+   * Moves {@link nextId} past the seeded ids, as if they had come from the
+   * sequence: otherwise a later `create` would collide with them.
+   */
+  seed(...procStates: ProceduralState[]): void {
+    for (const procState of procStates) {
+      this.byId.set(procState.id, procState);
+      this.nextIdValue = Math.max(this.nextIdValue, procState.id + 1);
+    }
+  }
 
   async findPaginated(filter: ProcStateFilter, page: number, limit: number): Promise<PaginatedResult<ProceduralState>> {
     const search = filter.search?.toLowerCase();
