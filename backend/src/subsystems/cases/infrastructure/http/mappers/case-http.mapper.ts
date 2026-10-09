@@ -4,8 +4,7 @@ import { AdministrativeCase } from '../../../core/domain/entities/administrative
 import { Amparo } from '../../../core/domain/entities/amparo';
 import { Case } from '../../../core/domain/entities/cases';
 import { Offense } from '../../../core/domain/entities/offense';
-import { ClientRef } from '../../../core/domain/ports/client-lookup.port';
-import { LawyerRef } from '../../../core/domain/ports/lawyer-lookup.port';
+import { ClientRef, LawyerRef } from '../../../core/domain/ports/people-lookup.port';
 import { CaseResponseDto } from '../dtos/case.response.dto';
 
 /**

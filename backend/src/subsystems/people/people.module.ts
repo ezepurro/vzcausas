@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { SharedModule } from '@shared/shared.module';
-import { LAWYER_LOOKUP } from '@subsystems/cases/core/domain/ports/lawyer-lookup.port';
+import { PEOPLE_LOOKUP } from '@subsystems/cases/core/domain/ports/people-lookup.port';
 import { FindClientUseCase } from './core/application/use-cases/find-client.use-case';
 import { FindLawyerUseCase } from './core/application/use-cases/find-lawyer.use-case';
 import { FindLawyersUseCase } from './core/application/use-cases/find-lawyers.use-case';
@@ -10,7 +10,7 @@ import { RegisterClientUseCase } from './core/application/use-cases/register-cli
 import { RegisterLawyerUseCase } from './core/application/use-cases/register-lawyer.use-case';
 import { CLIENT_REPOSITORY } from './core/domain/ports/client.repository';
 import { LAWYER_REPOSITORY } from './core/domain/ports/lawyer.repository';
-import { CasesLawyerLookupAdapter } from './infrastructure/acl/cases-lawyer-lookup.adapter';
+import { CasesPeopleLookupAdapter } from './infrastructure/acl/cases-people-lookup.adapter';
 import { ClientController } from './infrastructure/http/controllers/client.controller';
 import { LawyerController } from './infrastructure/http/controllers/lawyer.controller';
 import { PrismaClientRepository } from './infrastructure/persistence/prisma/prisma-client.repository';
@@ -18,8 +18,9 @@ import { PrismaLawyerRepository } from './infrastructure/persistence/prisma/pris
 
 /**
  * Composition root of `people`. `exports` is the subsystem's public
- * surface: only the lawyer use cases leave this module, so `identity`
- * can resolve a `lawyerId` through its anti-corruption adapter.
+ * surface: the lawyer use cases, so `identity` can resolve a `lawyerId`
+ * through its anti-corruption adapter, and the `PEOPLE_LOOKUP` adapter
+ * that `cases` uses to find lawyers and clients.
  * Everything else — the repositories, the entities, the registration
  * use cases — stays private (§6.3).
  *
@@ -39,9 +40,9 @@ import { PrismaLawyerRepository } from './infrastructure/persistence/prisma/pris
     FindClientUseCase,
     { provide: LAWYER_REPOSITORY, useClass: PrismaLawyerRepository },
     { provide: CLIENT_REPOSITORY, useClass: PrismaClientRepository },
-    // Adapter of the port that `cases` defines to ask for lawyers.
-    { provide: LAWYER_LOOKUP, useClass: CasesLawyerLookupAdapter },
+    // Adapter of the port that `cases` defines to ask for lawyers and clients.
+    { provide: PEOPLE_LOOKUP, useClass: CasesPeopleLookupAdapter },
   ],
-  exports: [FindLawyerUseCase, FindLawyersUseCase, RegisterLawyerUseCase, LAWYER_LOOKUP],
+  exports: [FindLawyerUseCase, FindLawyersUseCase, RegisterLawyerUseCase, PEOPLE_LOOKUP],
 })
 export class PeopleModule {}

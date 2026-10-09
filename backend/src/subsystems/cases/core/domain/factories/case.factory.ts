@@ -4,8 +4,7 @@ import { Amparo } from '../entities/amparo';
 import { Case, CaseProps } from '../entities/cases';
 import { CriminalCase } from '../entities/criminal';
 import { Offense } from '../entities/offense';
-import { LegalQualificationRef } from '../ports/legal-qualification-lookup.port';
-import { ProceduralStateRef } from '../ports/proc-state-lookup.port';
+import { LegalQualificationRef, ProceduralStateRef } from '../ports/legal-parameters-lookup.port';
 import { JurisdictionCode } from '../value-objects/jurisdiction-code';
 import { isRoleAllowedIn, ProceduralRole } from '../value-objects/procedural-role';
 

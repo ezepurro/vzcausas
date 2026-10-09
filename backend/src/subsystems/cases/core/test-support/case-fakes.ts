@@ -2,10 +2,12 @@ import { ClockPort } from '@shared/domain/clock.port';
 import { Case } from '../domain/entities/cases';
 import { CriminalCase } from '../domain/entities/criminal';
 import { CaseRepository } from '../domain/ports/case.repository';
-import { ClientLookupPort, ClientRef } from '../domain/ports/client-lookup.port';
-import { LawyerLookupPort, LawyerRef } from '../domain/ports/lawyer-lookup.port';
-import { LegalQualificationLookupPort, LegalQualificationRef } from '../domain/ports/legal-qualification-lookup.port';
-import { ProcStateLookupPort, ProceduralStateRef } from '../domain/ports/proc-state-lookup.port';
+import {
+  LegalParametersLookupPort,
+  LegalQualificationRef,
+  ProceduralStateRef,
+} from '../domain/ports/legal-parameters-lookup.port';
+import { ClientRef, LawyerRef, PeopleLookupPort } from '../domain/ports/people-lookup.port';
 import { JurisdictionCode } from '../domain/value-objects/jurisdiction-code';
 
 /**
@@ -65,38 +67,41 @@ export class FakeCaseRepository implements CaseRepository {
   }
 }
 
-/** Initial states by jurisdiction. A jurisdiction without an entry has no initial state. */
-export class FakeProcStateLookup implements ProcStateLookupPort {
-  constructor(private readonly initialStates: Partial<Record<JurisdictionCode, ProceduralStateRef>>) {}
+/**
+ * In-memory {@link PeopleLookupPort}. A lawyer or client that is not in the
+ * lists does not exist or was deactivated.
+ */
+export class FakePeopleLookup implements PeopleLookupPort {
+  constructor(
+    private readonly activeLawyers: LawyerRef[],
+    private readonly activeClients: ClientRef[],
+  ) {}
 
-  async findInitialByJurisdiction(jurisdiction: JurisdictionCode): Promise<ProceduralStateRef | null> {
-    return this.initialStates[jurisdiction] ?? null;
+  async findActiveLawyerById(id: number): Promise<LawyerRef | null> {
+    return this.activeLawyers.find((lawyer) => lawyer.id === id) ?? null;
   }
-}
 
-/** Active clients. One that is not in the list does not exist or was deactivated. */
-export class FakeClientLookup implements ClientLookupPort {
-  constructor(private readonly activeClients: ClientRef[]) {}
-
-  async findActiveById(id: number): Promise<ClientRef | null> {
+  async findActiveClientById(id: number): Promise<ClientRef | null> {
     return this.activeClients.find((client) => client.id === id) ?? null;
   }
 }
 
-/** Active lawyers. One that is not in the list does not exist or was deactivated. */
-export class FakeLawyerLookup implements LawyerLookupPort {
-  constructor(private readonly activeLawyers: LawyerRef[]) {}
+/**
+ * In-memory {@link LegalParametersLookupPort}. A jurisdiction without an entry
+ * in `initialStates` has no initial state; qualifications that are not in the
+ * list are left out of the answer.
+ */
+export class FakeLegalParametersLookup implements LegalParametersLookupPort {
+  constructor(
+    private readonly initialStates: Partial<Record<JurisdictionCode, ProceduralStateRef>>,
+    private readonly activeQualifications: LegalQualificationRef[],
+  ) {}
 
-  async findActiveById(id: number): Promise<LawyerRef | null> {
-    return this.activeLawyers.find((lawyer) => lawyer.id === id) ?? null;
+  async findInitialProcStateByJurisdiction(jurisdiction: JurisdictionCode): Promise<ProceduralStateRef | null> {
+    return this.initialStates[jurisdiction] ?? null;
   }
-}
 
-/** Active legal qualifications. Ids that are not in the list are left out of the answer. */
-export class FakeLegalQualificationLookup implements LegalQualificationLookupPort {
-  constructor(private readonly activeQualifications: LegalQualificationRef[]) {}
-
-  async findActiveByIds(ids: number[]): Promise<LegalQualificationRef[]> {
+  async findActiveQualificationsByIds(ids: number[]): Promise<LegalQualificationRef[]> {
     return this.activeQualifications.filter((qualification) => ids.includes(qualification.id));
   }
 }

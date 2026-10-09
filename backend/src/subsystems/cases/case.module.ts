@@ -4,10 +4,6 @@ import { LegalParametersModule } from '@subsystems/legal-parameters/legal-parame
 import { PeopleModule } from '@subsystems/people/people.module';
 import { RegisterCase } from './core/application/use-cases/register-case.use-case';
 import { CASE_REPOSITORY } from './core/domain/ports/case.repository';
-import { CLIENT_LOOKUP } from './core/domain/ports/client-lookup.port';
-import { LEGAL_QUALIFICATION_LOOKUP } from './core/domain/ports/legal-qualification-lookup.port';
-import { StubClientLookupAdapter } from './infrastructure/acl/stub-client-lookup.adapter';
-import { StubLegalQualificationLookupAdapter } from './infrastructure/acl/stub-legal-qualification-lookup.adapter';
 import { CasesController } from './infrastructure/http/controllers/cases.controller';
 import { CasePrismaRepository } from './infrastructure/persistence/case-prisma.repository';
 
@@ -15,11 +11,10 @@ import { CasePrismaRepository } from './infrastructure/persistence/case-prisma.r
  * Composition root of `cases`.
  *
  * **Escritura** (HU-18): `cases` only receives adapters for its ports.
- * `people` provides the lawyer lookup and `legal-parameters` the
- * procedural state lookup: their modules are imported just to get those
- * exported tokens. The client and legal qualification lookups are stubs
- * while those subsystems have nothing to offer; swap each binding for
- * its real adapter then.
+ * `people` provides `PEOPLE_LOOKUP` (lawyers and clients) and
+ * `legal-parameters` provides `LEGAL_PARAMETERS_LOOKUP` (initial procedural
+ * state and legal qualifications): their modules are imported just to get
+ * those exported tokens.
  *
  * **Lectura** (HU-9, CA-9.4): `GET /cases` filtrado por cliente, con su
  * estado procesal y su vencimiento. Va por un puerto aparte
@@ -37,8 +32,6 @@ import { CasePrismaRepository } from './infrastructure/persistence/case-prisma.r
   providers: [
     RegisterCase,
     { provide: CASE_REPOSITORY, useClass: CasePrismaRepository },
-    { provide: CLIENT_LOOKUP, useClass: StubClientLookupAdapter },
-    { provide: LEGAL_QUALIFICATION_LOOKUP, useClass: StubLegalQualificationLookupAdapter },
   ],
 })
 export class CasesModule {}

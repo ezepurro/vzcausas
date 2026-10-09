@@ -6,7 +6,7 @@ import { Amparo } from '../../core/domain/entities/amparo';
 import { Case } from '../../core/domain/entities/cases';
 import { CriminalCase } from '../../core/domain/entities/criminal';
 import { CaseRepository } from '../../core/domain/ports/case.repository';
-import { ProceduralStateRef } from '../../core/domain/ports/proc-state-lookup.port';
+import { ProceduralStateRef } from '../../core/domain/ports/legal-parameters-lookup.port';
 import { CasePrismaMapper } from './case-prisma.mapper';
 
 @Injectable()
