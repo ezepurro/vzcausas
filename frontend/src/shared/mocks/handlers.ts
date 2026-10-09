@@ -1529,8 +1529,15 @@ const createCase: Handler = ({ request }) => {
         details.responsibleLawyerId = 'No existe un abogado vigente con ese identificador.';
     }
 
+    /* La fecha de inicio va con el SAC (CA-18.2): obligatoria si se informa, y
+       sin él no se manda. Sin SAC se guarda la del día, como el backend, que
+       todavía no admite la columna vacía. */
     let startDate = today;
-    if (isPresent(body.startDate)) {
+    if (sacNumber !== null && !isPresent(body.startDate)) {
+        details.startDate = 'Es obligatoria cuando se informa el número de SAC.';
+    } else if (sacNumber === null && isPresent(body.startDate)) {
+        details.startDate = 'No se informa si la causa no tiene número de SAC.';
+    } else if (isPresent(body.startDate)) {
         if (!isIsoDate(body.startDate)) details.startDate = MSG_NOT_DATE;
         else if (body.startDate > today) details.startDate = 'No puede ser posterior a hoy.';
         else startDate = body.startDate;

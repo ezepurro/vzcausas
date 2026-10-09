@@ -77,8 +77,8 @@ export function formatDate(isoDate: string | null): string {
 /**
  * La fecha de hoy como la manda y la recibe el contrato, `YYYY-MM-DD`.
  *
- * Es el valor por defecto de los `<input type="date">` de la fecha de inicio
- * de una causa y de la fecha de un acto. Mismo cuidado que en `formatDate`:
+ * Es el valor por defecto del `<input type="date">` de la fecha de un acto, y
+ * el tope de las fechas que no pueden ser futuras. Mismo cuidado que en `formatDate`:
  * `toISOString()` devuelve la fecha en UTC, y después de las 21:00 en Córdoba
  * ya diría mañana.
  */

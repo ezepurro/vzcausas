@@ -10,6 +10,7 @@ const ROBBERY = { id: 1, name: 'Robo calificado — art. 167 inc. 2 CP', prescri
 function renderForm(values: CaseFormValues = emptyCaseForm(), props: Partial<CaseFormProps> = {}) {
     const handlers = {
         onChange: vi.fn(),
+        onSacNumberChange: vi.fn(),
         onJurisdictionChange: vi.fn(),
         onAddQualification: vi.fn(),
         onRemoveQualification: vi.fn(),
@@ -65,14 +66,16 @@ describe('CaseForm', () => {
             expect(labelOf(/^N° de SAC/)).not.toContain('*')
         })
 
+        /* Va aparte del resto porque arrastra la fecha de inicio. */
         it('acepta hasta 8 dígitos y avisa lo que se escribe', () => {
-            const { onChange } = renderForm()
+            const { onChange, onSacNumberChange } = renderForm()
             const field = screen.getByLabelText(/^N° de SAC/)
 
             expect(field).toHaveAttribute('maxlength', '8')
 
             fireEvent.change(field, { target: { value: '13284571' } })
-            expect(onChange).toHaveBeenCalledWith('sacNumber', '13284571')
+            expect(onSacNumberChange).toHaveBeenCalledWith('13284571')
+            expect(onChange).not.toHaveBeenCalled()
         })
 
         /* El 409 del backend se pinta acá mismo, no en un aviso suelto. */
@@ -228,13 +231,29 @@ describe('CaseForm', () => {
         expect(onChange).not.toHaveBeenCalled()
     })
 
-    /* CA-18.9 */
-    it('la fecha de inicio llega propuesta y no es obligatoria', () => {
-        const values = emptyCaseForm()
-        renderForm(values)
+    /* CA-18.2: la fecha de inicio va con el SAC. */
+    describe('fecha de inicio (CA-18.2)', () => {
+        it('sin SAC está deshabilitada, vacía y no es obligatoria', () => {
+            renderForm()
+            const field = screen.getByLabelText(/^Fecha de inicio/)
 
-        expect(screen.getByLabelText(/^Fecha de inicio/)).toHaveValue(values.startDate)
-        expect(labelOf(/^Fecha de inicio/)).not.toContain('*')
+            expect(field).toBeDisabled()
+            expect(field).toHaveValue('')
+            expect(labelOf(/^Fecha de inicio/)).not.toContain('*')
+            expect(screen.getByText('Se carga junto con el N° de SAC.')).toBeInTheDocument()
+        })
+
+        it('con SAC se habilita y es obligatoria', () => {
+            const { onChange } = renderForm({ ...emptyCaseForm(), sacNumber: '13284571' })
+            const field = screen.getByLabelText(/^Fecha de inicio/)
+
+            expect(field).toBeEnabled()
+            expect(labelOf(/^Fecha de inicio/)).toContain('*')
+            expect(screen.queryByText('Se carga junto con el N° de SAC.')).not.toBeInTheDocument()
+
+            fireEvent.change(field, { target: { value: '2021-03-12' } })
+            expect(onChange).toHaveBeenCalledWith('startDate', '2021-03-12')
+        })
     })
 
     /* CA-18.10: los errores del servidor se muestran sobre el campo. */

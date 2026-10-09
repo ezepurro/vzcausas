@@ -2,14 +2,16 @@
  * Transformaciones del formulario de alta de causa.
  */
 
-import { todayIsoDate } from '@/shared/lib/dates'
 import type { Jurisdiction } from '@/features/legal-params'
 import {
     PROCEDURAL_ROLES_BY_JURISDICTION,
     type CaseFormValues,
 } from '@/features/cases/types/case'
 
-/** El alta arranca en el fuero penal, como el prototipo, con la fecha de hoy. */
+/**
+ * El alta arranca en el fuero penal, como el prototipo, sin SAC y, por eso,
+ * sin fecha de inicio (CA-18.2).
+ */
 export function emptyCaseForm(): CaseFormValues {
     return {
         sacNumber: '',
@@ -25,7 +27,7 @@ export function emptyCaseForm(): CaseFormValues {
         counterparty: '',
         subjectMatter: '',
         responsibleLawyerId: '',
-        startDate: todayIsoDate(),
+        startDate: '',
     }
 }
 
@@ -50,5 +52,18 @@ export function changeJurisdiction(values: CaseFormValues, jurisdiction: Jurisdi
         legalQualifications: criminal ? values.legalQualifications : [],
         counterparty: criminal ? '' : values.counterparty,
         subjectMatter: criminal ? '' : values.subjectMatter,
+    }
+}
+
+/**
+ * La fecha de inicio va con el SAC (CA-18.2): con SAC es obligatoria y sin SAC
+ * no se carga. Borrar el SAC se lleva la fecha, si no quedaría una que no
+ * puede viajar. Con SAC no se propone ninguna: la tiene que cargar el usuario.
+ */
+export function changeSacNumber(values: CaseFormValues, sacNumber: string): CaseFormValues {
+    return {
+        ...values,
+        sacNumber,
+        startDate: sacNumber.trim() ? values.startDate : '',
     }
 }

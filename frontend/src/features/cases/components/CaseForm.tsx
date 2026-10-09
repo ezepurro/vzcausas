@@ -30,8 +30,13 @@ import {
 export interface CaseFormProps {
     values: CaseFormValues
     errors: CaseFormErrors
-    /** Cada campo, salvo el fuero y las calificaciones. */
+    /** Cada campo, salvo el SAC, el fuero y las calificaciones. */
     onChange: <K extends keyof CaseFormValues>(key: K, value: CaseFormValues[K]) => void
+    /**
+     * El SAC va aparte porque arrastra la fecha de inicio: la pantalla aplica
+     * `changeSacNumber` de `utils/caseForm`.
+     */
+    onSacNumberChange: (sacNumber: string) => void
     /**
      * El fuero va aparte porque arrastra otros campos: la pantalla aplica
      * `changeJurisdiction` de `utils/caseForm`.
@@ -101,11 +106,12 @@ const SUBJECT_MATTER_TEXT: Record<Exclude<Jurisdiction, 'CRIMINAL'>, { label: st
  * del Sprint 3 (V3 §8.3).
  */
 export function CaseForm({
-    values, errors, onChange, onJurisdictionChange, clientOptions, lawyerOptions,
+    values, errors, onChange, onSacNumberChange, onJurisdictionChange, clientOptions, lawyerOptions,
     selectedQualifications, qualificationOptions, onAddQualification, onRemoveQualification,
     onOffenseDateChange, onNewClient, onNewQualification, canCreateClient, canCreateQualification,
     saving, onConfirm, onCancel,
 }: CaseFormProps) {
+    const hasSac = values.sacNumber.trim() !== ''
     const roleOptions: SelectOption[] = PROCEDURAL_ROLES_BY_JURISDICTION[values.jurisdiction].map(
         (role) => ({ value: role, label: PROCEDURAL_ROLE_LABELS[role] }),
     )
@@ -141,7 +147,7 @@ export function CaseForm({
                             maxLength={8}
                             placeholder="8 dígitos"
                             value={values.sacNumber}
-                            onChange={(e) => onChange('sacNumber', e.target.value)}
+                            onChange={(e) => onSacNumberChange(e.target.value)}
                         />
                     </Field>
 
@@ -312,11 +318,15 @@ export function CaseForm({
                         />
                     </Field>
 
-                    <Field label="Fecha de inicio" width="half" htmlFor="case-start" error={errors.startDate}>
+                    {/* Va con el SAC (CA-18.2): obligatoria si lo hay, y sin él no se carga. */}
+                    <Field label="Fecha de inicio" required={hasSac} width="half" htmlFor="case-start"
+                        error={errors.startDate}
+                        note={hasSac ? undefined : 'Se carga junto con el N° de SAC.'}>
                         <TextInput
                             id="case-start"
                             type="date"
                             mono
+                            disabled={!hasSac}
                             value={values.startDate}
                             onChange={(e) => onChange('startDate', e.target.value)}
                         />

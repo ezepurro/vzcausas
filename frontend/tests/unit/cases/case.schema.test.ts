@@ -63,14 +63,14 @@ describe('validateCase', () => {
 
     describe('número de SAC (CA-18.2)', () => {
         it('es opcional: sin SAC el alta procede igual (D-33)', () => {
-            const errors = validateCase({ ...CRIMINAL, sacNumber: '' })
+            const errors = validateCase({ ...CRIMINAL, sacNumber: '', startDate: '' })
 
             expect(errors.sacNumber).toBeUndefined()
             expect(isValid(errors)).toBe(true)
         })
 
         it('en blanco tampoco es un SAC cargado', () => {
-            expect(validateCase({ ...CRIMINAL, sacNumber: '   ' }).sacNumber).toBeUndefined()
+            expect(validateCase({ ...CRIMINAL, sacNumber: '   ', startDate: '' }).sacNumber).toBeUndefined()
         })
 
         it('si se informa, son exactamente 8 dígitos', () => {
@@ -105,7 +105,7 @@ describe('validateCase', () => {
         expect(validateCase({ ...base, jurisdiction, proceduralRole }).proceduralRole).toBeUndefined()
     })
 
-    /* CA-18.9 */
+    /* CA-18.2 */
     it('la fecha de inicio no puede ser posterior a hoy', () => {
         expect(validateCase({ ...CRIMINAL, startDate: '2026-09-16' }).startDate).toBe(
             'La fecha de inicio no puede ser posterior a hoy.',
@@ -113,9 +113,29 @@ describe('validateCase', () => {
         expect(validateCase({ ...CRIMINAL, startDate: '2026-09-15' }).startDate).toBeUndefined()
     })
 
-    /* CA-18.9: vacía no es un error, porque el backend toma la fecha del día. */
-    it('la fecha de inicio vacía no se marca', () => {
-        expect(validateCase({ ...CRIMINAL, startDate: '' }).startDate).toBeUndefined()
+    /* CA-18.2: la fecha de inicio va con el SAC. */
+    describe('fecha de inicio y SAC (CA-18.2)', () => {
+        it('con SAC es obligatoria', () => {
+            expect(validateCase({ ...CRIMINAL, startDate: '' }).startDate).toBe(
+                'Cargá la fecha de inicio: es obligatoria con N° de SAC.',
+            )
+        })
+
+        it('sin SAC, vacía no se marca', () => {
+            expect(validateCase({ ...CRIMINAL, sacNumber: '', startDate: '' }).startDate).toBeUndefined()
+        })
+
+        it('sin SAC no se carga', () => {
+            expect(validateCase({ ...CRIMINAL, sacNumber: '', startDate: '2026-09-01' }).startDate).toBe(
+                'Sin N° de SAC no se carga la fecha de inicio.',
+            )
+        })
+
+        it('con SAC, tiene que ser una fecha que exista', () => {
+            expect(validateCase({ ...CRIMINAL, startDate: '2026-02-31' }).startDate).toBe(
+                'La fecha de inicio no es válida.',
+            )
+        })
     })
 
     it('el instructor, su teléfono y su interno son opcionales, con tope de largo', () => {
