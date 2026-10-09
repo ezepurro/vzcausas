@@ -23,6 +23,10 @@ class SpyCaseQuery implements CaseQueryPort {
   async findById(): Promise<CaseListItem | null> {
     return null;
   }
+
+  async listCustomStates(): Promise<string[]> {
+    return [];
+  }
 }
 
 function anItem(dueDate: Date | null): CaseListItem {

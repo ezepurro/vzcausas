@@ -127,8 +127,6 @@ export type CasePage = { items: CaseListItem[]; totalItems: number };
  * is what stops the write repository from growing read concerns, and it is
  * the design the module already states (`case.module.ts`).
  *
- * The frontier is additive: `listCustomStates` for
- * `GET /cases/custom-states` lands with that endpoint.
  */
 export interface CaseQueryPort {
   /**
@@ -151,4 +149,29 @@ export interface CaseQueryPort {
    * because they are part of its history (§4, Bajas).
    */
   findById(id: number): Promise<CaseListItem | null>;
+
+  /**
+   * The hand-written states that **active** cases currently hold, without
+   * repeats and in alphabetical order (`GET /cases/custom-states`).
+   *
+   * Feeds the "Escritos a mano en causas" group of the listing's state filter.
+   * It needs its own endpoint because those texts live in no table: a lawyer
+   * typed them when registering an act, and they cannot be derived from one
+   * page of the listing.
+   *
+   * **"Iniciada" is never in this list.** It is the initial state, not a
+   * hand-written one, and the filter offers it separately as
+   * `withoutProceduralActs`. That falls out of the data rather than needing a
+   * rule: a case in the initial state holds `current_state_id`, not
+   * `current_custom_state`.
+   *
+   * **On "active case".** The definition is "not given de baja **and** its
+   * current procedural state is not terminal" (§4). The second half is vacuous
+   * here: a hand-written state has no row in `procedural_states`, so it has no
+   * `terminal` flag, and the contract settles it — a hand-written state is not
+   * terminal. The schema's CHECK guarantees a case holds either a state id or
+   * a custom text, never both, so every case this returns is non-terminal by
+   * construction. Only `active` has to be filtered.
+   */
+  listCustomStates(jurisdiction?: JurisdictionCode): Promise<string[]>;
 }

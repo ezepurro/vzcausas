@@ -129,6 +129,26 @@ export class CaseQueryPrismaAdapter implements CaseQueryPort {
 
     return row ? toListItem(row) : null;
   }
+
+  async listCustomStates(jurisdiction?: JurisdictionCode): Promise<string[]> {
+    // `distinct` + `orderBy` en vez de agrupar: la lista es corta por
+    // naturaleza —son los textos que los abogados escribieron a mano— y así
+    // el orden alfabético lo hace la base, con su collation.
+    const rows = await this.prisma.db.case.findMany({
+      where: {
+        active: true,
+        currentCustomState: { not: null },
+        ...(jurisdiction ? { jurisdiction: { name: jurisdiction } } : {}),
+      },
+      select: { currentCustomState: true },
+      distinct: ['currentCustomState'],
+      orderBy: { currentCustomState: 'asc' },
+    });
+
+    return rows
+      .map((row) => row.currentCustomState)
+      .filter((state): state is string => state !== null);
+  }
 }
 
 /**

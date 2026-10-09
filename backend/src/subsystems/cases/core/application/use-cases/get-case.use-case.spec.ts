@@ -23,6 +23,10 @@ class StubCaseQuery implements CaseQueryPort {
     this.askedFor = id;
     return this.item;
   }
+
+  async listCustomStates(): Promise<string[]> {
+    return [];
+  }
 }
 
 function anItem(dueDate: Date | null): CaseListItem {

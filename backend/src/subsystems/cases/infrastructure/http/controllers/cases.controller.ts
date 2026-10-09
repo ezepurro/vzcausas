@@ -4,6 +4,7 @@ import { CurrentUser } from '@shared/infrastructure/http/current-user.decorator'
 import { PaginatedResponse, paginate, toPageRequest } from '@shared/infrastructure/http/pagination';
 import { GetCase } from '../../../core/application/use-cases/get-case.use-case';
 import { ListCases } from '../../../core/application/use-cases/list-cases.use-case';
+import { ListCustomStates } from '../../../core/application/use-cases/list-custom-states.use-case';
 import { RegisterCase } from '../../../core/application/use-cases/register-case.use-case';
 import { InvalidCaseIdError } from '../../../core/domain/errors/case.errors';
 import { CaseResponseDto } from '../dtos/case.response.dto';
@@ -26,6 +27,7 @@ export class CasesController {
     private readonly registerCase: RegisterCase,
     private readonly listCases: ListCases,
     private readonly getCase: GetCase,
+    private readonly listCustomStates: ListCustomStates,
   ) {}
 
   /**
@@ -40,6 +42,23 @@ export class CasesController {
   async list(@Query() query: ListCasesQueryDto): Promise<PaginatedResponse<CaseResponseDto>> {
     const page = await this.listCases.execute(CaseHttpMapper.toSearchCriteria(query));
     return paginate(page.items.map(CaseHttpMapper.toResponse), page.totalItems, toPageRequest(query));
+  }
+
+  /**
+   * `GET /cases/custom-states` (HU20, CA-20.4): los estados escritos a mano que
+   * tienen hoy las causas activas, sin repetir y en orden alfabético.
+   *
+   * **Va declarado ARRIBA de `@Get(':caseId')`, y no es cosmético.** Nest
+   * resuelve las rutas en orden de declaración: si estuviera abajo, el
+   * parámetro se comería la ruta literal y `/cases/custom-states` respondería
+   * `400 INVALID_PATH_PARAMETER` con `caseId: "custom-states"`. El índice del
+   * contrato las lista en este mismo orden (§1, líneas 104 y 105).
+   *
+   * La respuesta no está paginada: es una lista corta de textos.
+   */
+  @Get('custom-states')
+  async customStates(@Query('jurisdiction') jurisdiction?: string): Promise<{ data: string[] }> {
+    return { data: await this.listCustomStates.execute({ jurisdiction }) };
   }
 
   /**

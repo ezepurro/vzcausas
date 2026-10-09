@@ -27,6 +27,27 @@ export class ExclusiveCaseStateFilterError extends ValidationError {
 }
 
 /**
+ * Emitted by `GET /cases/custom-states` when the `jurisdiction` filter names
+ * no jurisdiction.
+ *
+ * The contract answers this with `INVALID_REQUEST` and the offending parameter
+ * in `details` (§3.7), not with an empty list: a caller that typed "PENAL"
+ * instead of "CRIMINAL" deserves to be told, and an empty list would read as
+ * "no case in that jurisdiction has a hand-written state".
+ *
+ * Checked in the application layer rather than with `@IsEnum` on the DTO, for
+ * the same reason `ListUsers` checks its `role` filter there: the pipe would
+ * raise the generic `VALIDATION_ERROR` and the contract asks for this code.
+ */
+export class InvalidJurisdictionFilterError extends ValidationError {
+  constructor() {
+    super('INVALID_REQUEST', 'Parámetros de query inválidos.', {
+      jurisdiction: 'No existe un fuero procesal con ese nombre.',
+    });
+  }
+}
+
+/**
  * Emitted by `GET /cases/{caseId}` (HU22) when no case matches.
  *
  * Also the answer for a case that exists but was given de baja: through this
