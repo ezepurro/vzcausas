@@ -12,6 +12,15 @@ import { JurisdictionCode } from '@subsystems/legal-parameters/core/domain/value
 import { INITIAL_STATE_NAME } from '@subsystems/legal-parameters/core/domain/entities/procedural-states';
 import { Jurisdiction } from '@subsystems/legal-parameters/core/domain/entities/jurisdiction';
 import { JurisdictionMapper } from './jurisdiction.mapper';
+import { ProceduralStateAlreadyExistsError } from '@subsystems/legal-parameters/core/domain/errors/procedural-state.errors';
+
+/**
+ * Partial unique index (migration `add_indexes_constraints_sprint2`):
+ * `(jurisdiction_id, lower(name)) WHERE is_active`. Its violation is the
+ * only `P2002` that means "duplicate name"; any other one is a bug and must
+ * surface as such.
+ */
+const ACTIVE_NAME_UNIQUE_INDEX = 'procedural_states_jurisdiction_name_active_key';
 
 @Injectable()
 export class ProceduralStatePrismaRepository implements ProceduralStateRepository {
@@ -64,20 +73,27 @@ export class ProceduralStatePrismaRepository implements ProceduralStateRepositor
    * letting the database pick another one would leave the entity holding an
    * id that matches no row. `createdAt`/`updatedAt` are left to their
    * database defaults.
+   *
+   * @throws {ProceduralStateAlreadyExistsError} if another active state of
+   *   the jurisdiction took the name in the meantime (see {@link translateUniqueViolation}).
    */
   async create(procState: ProceduralState): Promise<void> {
-    await this.prisma.proceduralState.create({
-      data: {
-        stateId: procState.id,
-        name: procState.name,
-        timeLimitDays: procState.timeLimitDays,
-        dayType: procState.dayType ?? DayType.NONE,
-        terminal: procState.terminal,
-        isInitial: procState.isInitial,
-        isActive: procState.isActive,
-        jurisdictionId: procState.jurisdiction.id,
-      },
-    });
+    try {
+      await this.prisma.proceduralState.create({
+        data: {
+          stateId: procState.id,
+          name: procState.name,
+          timeLimitDays: procState.timeLimitDays,
+          dayType: procState.dayType ?? DayType.NONE,
+          terminal: procState.terminal,
+          isInitial: procState.isInitial,
+          isActive: procState.isActive,
+          jurisdictionId: procState.jurisdiction.id,
+        },
+      });
+    } catch (error) {
+      this.translateUniqueViolation(error);
+    }
   }
 
   /**
@@ -85,18 +101,54 @@ export class ProceduralStatePrismaRepository implements ProceduralStateRepositor
    * and `isInitial` are left out on purpose: they are fixed, and not sending
    * them makes it impossible for a bug to move a state to another
    * jurisdiction. `updatedAt` is set by Prisma (`@updatedAt`).
+   *
+   * @throws {ProceduralStateAlreadyExistsError} if a rename collides with a
+   *   name taken in the meantime (see {@link translateUniqueViolation}).
    */
   async save(procState: ProceduralState): Promise<void> {
-    await this.prisma.proceduralState.update({
-      where: { stateId: procState.id },
-      data: {
-        name: procState.name,
-        timeLimitDays: procState.timeLimitDays,
-        dayType: procState.dayType ?? DayType.NONE,
-        terminal: procState.terminal,
-        isActive: procState.isActive,
-      },
-    });
+    try {
+      await this.prisma.proceduralState.update({
+        where: { stateId: procState.id },
+        data: {
+          name: procState.name,
+          timeLimitDays: procState.timeLimitDays,
+          dayType: procState.dayType ?? DayType.NONE,
+          terminal: procState.terminal,
+          isActive: procState.isActive,
+        },
+      });
+    } catch (error) {
+      this.translateUniqueViolation(error);
+    }
+  }
+
+  /**
+   * The use cases check `existsByName` before writing, but two concurrent
+   * requests can both pass that check; the partial unique index stops the
+   * second one. Without this, that request would end in a 500 instead of
+   * the contract's 409.
+   *
+   * With the `PrismaPg` driver adapter, the violated index arrives in
+   * `meta.driverAdapterError.cause.constraint.index`. Any other error,
+   * including a `P2002` on a different constraint, is rethrown untouched.
+   */
+  private translateUniqueViolation(error: unknown): never {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002' &&
+      this.violatedIndex(error) === ACTIVE_NAME_UNIQUE_INDEX
+    ) {
+      throw new ProceduralStateAlreadyExistsError();
+    }
+    throw error;
+  }
+
+  /** Name of the index behind a `P2002`, or `undefined` if Prisma did not report it. */
+  private violatedIndex(error: Prisma.PrismaClientKnownRequestError): string | undefined {
+    const meta = error.meta as
+      | { driverAdapterError?: { cause?: { constraint?: { index?: string } } } }
+      | undefined;
+    return meta?.driverAdapterError?.cause?.constraint?.index;
   }
 
   async findPaginated(filter: ProcStateFilter, page: number, limit: number): Promise<PaginatedResult<ProceduralState>> {

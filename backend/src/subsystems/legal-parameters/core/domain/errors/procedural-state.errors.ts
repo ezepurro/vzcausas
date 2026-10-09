@@ -80,6 +80,25 @@ export class ProceduralStateJurisdictionEditError extends ValidationError {
 }
 
 /**
+ * Emitted by `RegisterProceduralState` (HU45) when the jurisdiction code is
+ * valid for the contract but there is no active jurisdiction with it in the
+ * catalogue. The DTO already rejects codes outside `JurisdictionCode`, so
+ * this only fires if the catalogue and the enum drift apart (e.g. a
+ * jurisdiction deactivated in the database).
+ *
+ * Same field message as the contract's `InvalidJurisdictionError`, but with
+ * `VALIDATION_ERROR`: here the jurisdiction travels in the body, not in the
+ * query string.
+ */
+export class ProceduralStateJurisdictionNotFoundError extends ValidationError {
+  constructor() {
+    super('VALIDATION_ERROR', 'Los datos enviados no son válidos.', {
+      jurisdiction: 'No existe un fuero procesal con ese nombre.',
+    });
+  }
+}
+
+/**
  * Emitted when the `stateId` path parameter is not a positive integer.
  * Syntactic, not semantic, but modeled as a domain error (not a bare Nest
  * exception) so the response carries the exact code the contract requires
