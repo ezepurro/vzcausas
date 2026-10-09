@@ -5,6 +5,7 @@ import { Jurisdiction } from '../../domain/entities/jurisdiction';
 import { DayType } from '../../domain/entities/day-types';
 import { JurisdictionCode } from '../../domain/value-objects/jurisdiction-code';
 import { PaginatedResult } from '../../../../../common/pagination/paginated-result';
+import { FakeActiveCasesCounter } from './test-support/procedural-state-fakes';
 
 function aJurisdiction(code: JurisdictionCode = JurisdictionCode.CRIMINAL): Jurisdiction {
   return Jurisdiction.hydrate({ id: 1, code, dayTypeDefault: DayType.BUSINESS, isActive: true });
@@ -46,7 +47,7 @@ describe('ViewProceduralStates', () => {
       create: jest.fn(),
       save: jest.fn(),
     };
-    useCase = new ViewProceduralStates(repository);
+    useCase = new ViewProceduralStates(repository, new FakeActiveCasesCounter());
   });
 
   it('forwards page and limit to the repository unchanged', async () => {
@@ -92,8 +93,8 @@ describe('ViewProceduralStates', () => {
 
     const result = await useCase.getAll({ page: 1, limit: 20 });
 
-    expect(result).toBe(page);
-    expect(result.items.map((s) => s.jurisdiction.code)).toEqual([
+    expect(result.items.map((view) => view.procState)).toEqual(page.items);
+    expect(result.items.map((view) => view.procState.jurisdiction.code)).toEqual([
       JurisdictionCode.CRIMINAL,
       JurisdictionCode.ADMINISTRATIVE,
     ]);

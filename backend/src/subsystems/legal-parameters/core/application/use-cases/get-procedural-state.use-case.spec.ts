@@ -1,21 +1,30 @@
 import { ProceduralStateNotFoundError } from '../../domain/errors/procedural-state.errors';
 import { GetProceduralState } from './get-procedural-state.use-case';
-import { aProceduralState, anInitialState, FakeProceduralStateRepository } from './test-support/procedural-state-fakes';
+import {
+  aProceduralState,
+  anInitialState,
+  FakeActiveCasesCounter,
+  FakeProceduralStateRepository,
+} from './test-support/procedural-state-fakes';
 
 describe('GetProceduralState', () => {
   let repository: FakeProceduralStateRepository;
+  let counter: FakeActiveCasesCounter;
   let useCase: GetProceduralState;
 
   beforeEach(() => {
     repository = new FakeProceduralStateRepository();
-    useCase = new GetProceduralState(repository);
+    counter = new FakeActiveCasesCounter();
+    useCase = new GetProceduralState(repository, counter);
   });
 
   it('returns the state with that id', async () => {
     const procState = aProceduralState({ id: 7 });
     repository.seed(procState);
 
-    await expect(useCase.execute({ id: 7 })).resolves.toBe(procState);
+    const result = await useCase.execute({ id: 7 });
+
+    expect(result.procState).toBe(procState);
   });
 
   it('throws ProceduralStateNotFoundError when no state has that id', async () => {

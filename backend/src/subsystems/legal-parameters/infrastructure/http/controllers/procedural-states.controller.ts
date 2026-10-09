@@ -60,8 +60,8 @@ export class ProceduralStatesController {
 
   @Get(':stateId')
   async getById(@Param('stateId') stateIdParam: string): Promise<{ data: ProceduralStateWithActiveCasesResponseDto }> {
-    const procState = await this.getProceduralState.execute({ id: this.parseStateId(stateIdParam) });
-    return { data: ProceduralStateHttpMapper.toResponseWithActiveCases(procState) };
+    const view = await this.getProceduralState.execute({ id: this.parseStateId(stateIdParam) });
+    return { data: ProceduralStateHttpMapper.toResponseWithActiveCases(view) };
   }
 
   /** HU17. */

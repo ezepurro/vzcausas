@@ -33,6 +33,12 @@ class FakeCaseQuery implements CaseQueryPort {
       totalItems: matches.length,
     };
   }
+
+  // `ListCasesUseCase` never counts: failing loudly beats a silent
+  // empty answer if it ever starts to.
+  async countActiveByProceduralStates(): Promise<ReadonlyMap<number, number>> {
+    throw new Error("FakeCaseQuery: countActiveByProceduralStates is not used by ListCasesUseCase.");
+  }
 }
 
 function aCase(overrides: Partial<CaseListItem> = {}): CaseListItem {

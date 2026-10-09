@@ -3,6 +3,7 @@ import { DayType } from '@subsystems/legal-parameters/core/domain/entities/day-t
 import { ProceduralStateJurisdictionEditError } from '@subsystems/legal-parameters/core/domain/errors/procedural-state.errors';
 import { RegisterProceduralStateCommand } from '@subsystems/legal-parameters/core/application/use-cases/register-procedural-state.use-case';
 import { UpdateProceduralStateCommand } from '@subsystems/legal-parameters/core/application/use-cases/update-procedural-state.use-case';
+import { ProceduralStateWithActiveCases } from '@subsystems/legal-parameters/core/application/read-models/procedural-state-with-active-cases';
 import { PaginatedResult } from '../../../../../common/pagination/paginated-result';
 import {
   ProceduralStateResponseDto,
@@ -78,18 +79,17 @@ export class ProceduralStateHttpMapper {
     };
   }
 
-  /** Shape of the `GET`s: adds `activeCases`. */
-  static toResponseWithActiveCases(state: ProceduralState): ProceduralStateWithActiveCasesResponseDto {
+  /** Shape of the `GET`s: adds `activeCases`, computed by `cases`. */
+  static toResponseWithActiveCases(view: ProceduralStateWithActiveCases): ProceduralStateWithActiveCasesResponseDto {
     return {
-      ...ProceduralStateHttpMapper.toResponse(state),
-      // Depends on the `cases` subsystem, which does not exist yet (contract §3.4).
-      activeCases: 0,
+      ...ProceduralStateHttpMapper.toResponse(view.procState),
+      activeCases: view.activeCases,
     };
   }
 
-  static toListResponse(result: PaginatedResult<ProceduralState>): ProceduralStatesListResponseDto {
+  static toListResponse(result: PaginatedResult<ProceduralStateWithActiveCases>): ProceduralStatesListResponseDto {
     return {
-      data: result.items.map((state) => ProceduralStateHttpMapper.toResponseWithActiveCases(state)),
+      data: result.items.map((view) => ProceduralStateHttpMapper.toResponseWithActiveCases(view)),
       pagination: {
         page: result.page,
         limit: result.limit,

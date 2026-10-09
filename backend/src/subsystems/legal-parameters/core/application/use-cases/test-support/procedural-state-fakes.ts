@@ -9,6 +9,7 @@ import {
   ProcStateFilter,
 } from '@subsystems/legal-parameters/core/domain/ports/procedural-states.repository';
 import { DayType } from '@subsystems/legal-parameters/core/domain/entities/day-types';
+import { ActiveCasesCounterPort } from '@subsystems/legal-parameters/core/domain/ports/active-cases-counter.port';
 import { JurisdictionCode } from '@subsystems/legal-parameters/core/domain/value-objects/jurisdiction-code';
 import { PaginatedResult } from '../../../../../../common/pagination/paginated-result';
 
@@ -36,6 +37,24 @@ export const FAKE_JURISDICTIONS: Readonly<Record<JurisdictionCode, Jurisdiction>
     isActive: true,
   }),
 };
+
+/**
+ * In-memory fake of {@link ActiveCasesCounterPort}. A spec sets the counts
+ * it wants in `counts`; `calls` records every request so a spec can assert
+ * the counts were asked for in one call.
+ *
+ * Honours the port's promise like the real adapter does: every requested
+ * id comes back, with `0` when it has no count set.
+ */
+export class FakeActiveCasesCounter implements ActiveCasesCounterPort {
+  public readonly counts = new Map<number, number>();
+  public readonly calls = new Array<readonly number[]>();
+
+  async countByStates(stateIds: readonly number[]): Promise<ReadonlyMap<number, number>> {
+    this.calls.push(stateIds);
+    return new Map(stateIds.map((id) => [id, this.counts.get(id) ?? 0]));
+  }
+}
 
 /**
  * A valid, active, non-initial state of the CRIMINAL jurisdiction. Built
