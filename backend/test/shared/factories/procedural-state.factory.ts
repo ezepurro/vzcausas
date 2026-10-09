@@ -4,6 +4,8 @@ import { getPrisma } from '../harness/test-app';
 /**
  * Factory de fueros y estados procesales.
  *
+ * - `aProceduralStateBody()`  → arma el CUERPO de `POST /procedural-states`
+ *                               (no toca la base).
  * - `createJurisdiction()`    → PERSISTE un fuero (upsert por código).
  * - `createProceduralState()` → PERSISTE un estado procesal válido.
  *
@@ -12,6 +14,30 @@ import { getPrisma } from '../harness/test-app';
  */
 export type JurisdictionCode = 'CRIMINAL' | 'ADMINISTRATIVE' | 'AMPARO';
 export type DayTypeCode = 'BUSINESS' | 'CONSECUTIVE' | 'NONE';
+
+export interface ProceduralStateBody {
+  name: string;
+  jurisdiction: JurisdictionCode;
+  timeLimitDays?: number;
+  dayType?: DayTypeCode;
+  terminal?: boolean;
+}
+
+/**
+ * Por defecto, un estado penal que abre 5 días hábiles, con todos los
+ * campos explícitos. El test fija con `overrides` lo que le importa; para
+ * probar los valores por defecto del contrato, armar el cuerpo a mano.
+ */
+export function aProceduralStateBody(overrides: Partial<ProceduralStateBody> = {}): ProceduralStateBody {
+  return {
+    name: 'Oposición al requerimiento de elevación',
+    jurisdiction: 'CRIMINAL',
+    timeLimitDays: 5,
+    dayType: 'BUSINESS',
+    terminal: false,
+    ...overrides,
+  };
+}
 
 export async function createJurisdiction(
   code: JurisdictionCode = 'CRIMINAL',
