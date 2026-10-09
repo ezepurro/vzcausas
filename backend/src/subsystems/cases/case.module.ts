@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { SharedModule } from '@shared/shared.module';
 import { LegalParametersModule } from '@subsystems/legal-parameters/legal-parameters.module';
 import { PeopleModule } from '@subsystems/people/people.module';
+import { ListCases } from './core/application/use-cases/list-cases.use-case';
 import { RegisterCase } from './core/application/use-cases/register-case.use-case';
 import { CASE_QUERY } from './core/domain/ports/case-query.port';
 import { CASE_REPOSITORY } from './core/domain/ports/case.repository';
@@ -45,6 +46,7 @@ import { CaseQueryPrismaAdapter } from './infrastructure/persistence/case-query-
   controllers: [CasesController],
   providers: [
     RegisterCase,
+    ListCases,
     { provide: CASE_REPOSITORY, useClass: CasePrismaRepository },
     // Read side (HU20, HU22): projects to a read model instead of rebuilding
     // the aggregate. See the class for why the ordering needs raw SQL.

@@ -1,9 +1,55 @@
 import { toIsoDate } from '@shared/infrastructure/http/iso-date';
+import { toPageRequest } from '@shared/infrastructure/http/pagination';
 import { RegisterCaseResult } from '../../../core/application/common/register-case.interfaces';
 import { AdministrativeCase } from '../../../core/domain/entities/administrative';
 import { Amparo } from '../../../core/domain/entities/amparo';
-import { CaseListItem } from '../../../core/domain/ports/case-query.port';
+import { ExclusiveCaseStateFilterError } from '../../../core/domain/errors/case.errors';
+import {
+  CaseListItem,
+  CaseSearchCriteria,
+  CaseStateFilter,
+} from '../../../core/domain/ports/case-query.port';
 import { CaseResponseDto } from '../dtos/case.response.dto';
+import { ListCasesQueryDto } from '../dtos/list-cases.query.dto';
+
+/**
+ * Collapses the three mutually exclusive state parameters into the single
+ * value the port takes, or fails if more than one arrived.
+ *
+ * This is the one place that sees all three at once, which is why the check
+ * lives here rather than in the DTO: `class-validator` cannot express "at most
+ * one of these three" without a custom decorator, and the use case should not
+ * receive a shape that can still be contradictory.
+ *
+ * The two `details` below reproduce the contract's own examples (§3.7).
+ */
+function toStateFilter(query: ListCasesQueryDto): CaseStateFilter | undefined {
+  const present = [
+    query.proceduralStateId !== undefined && 'proceduralStateId',
+    query.customState !== undefined && 'customState',
+    query.withoutProceduralActs !== undefined && 'withoutProceduralActs',
+  ].filter((name): name is string => name !== false);
+
+  if (present.length > 1) {
+    throw new ExclusiveCaseStateFilterError(
+      present.includes('withoutProceduralActs')
+        ? { withoutProceduralActs: 'No puede combinarse con proceduralStateId ni con customState.' }
+        : { customState: 'No puede combinarse con proceduralStateId.' },
+    );
+  }
+
+  if (query.proceduralStateId !== undefined) {
+    return { kind: 'proceduralState', proceduralStateId: query.proceduralStateId };
+  }
+  if (query.customState !== undefined) {
+    return { kind: 'custom', customState: query.customState };
+  }
+  // Only `true` narrows the listing; `?withoutProceduralActs=false` is no filter.
+  if (query.withoutProceduralActs === true) {
+    return { kind: 'withoutProceduralActs' };
+  }
+  return undefined;
+}
 
 /**
  * Builds the case resource of the API contract (§3.7).
@@ -20,6 +66,24 @@ import { CaseResponseDto } from '../dtos/case.response.dto';
  * would cost about a hundred queries.
  */
 export class CaseHttpMapper {
+  /**
+   * Query parameters of `GET /cases` into the criteria the read port takes.
+   *
+   * An empty `search` does not travel: `?search=` means "no filter", not "match
+   * the empty string".
+   */
+  static toSearchCriteria(query: ListCasesQueryDto): CaseSearchCriteria {
+    return {
+      ...toPageRequest(query),
+      search: query.search?.trim() || undefined,
+      jurisdiction: query.jurisdiction,
+      responsibleLawyerId: query.responsibleLawyerId,
+      clientId: query.clientId,
+      openDeadline: query.openDeadline,
+      state: toStateFilter(query),
+    };
+  }
+
   static toResponse(item: CaseListItem): CaseResponseDto {
     return {
       id: item.id,

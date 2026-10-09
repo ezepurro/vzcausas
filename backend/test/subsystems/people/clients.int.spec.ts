@@ -204,13 +204,18 @@ describe('GET /api/v1/clients', () => {
   // ── Errores ───────────────────────────────────────────────────────
 
   // CA-9.6
+  //
+  // El código es `INVALID_PAGINATION`, no el `VALIDATION_ERROR` genérico: el
+  // contrato le da una entrada propia en el catálogo de §5.3, y los cuatro
+  // listados paginados la comparten (`app.setup.ts`, `toFieldKeyedBadRequest`).
+  // `details` nombra los dos parámetros, como el ejemplo del contrato.
   it.each([
     ['page', { page: 0 }],
     ['limit', { limit: 500 }],
-  ])('rechaza %s fuera de rango nombrando el parámetro', async (campo, query) => {
+  ])('rechaza %s fuera de rango con INVALID_PAGINATION', async (_campo, query) => {
     const res = await request(app.getHttpServer()).get(URL).query(query).set(reader());
 
-    expectError(res, 400, 'VALIDATION_ERROR', [campo]);
+    expectError(res, 400, 'INVALID_PAGINATION', ['page', 'limit']);
   });
 
   it('exige autenticación', async () => {
