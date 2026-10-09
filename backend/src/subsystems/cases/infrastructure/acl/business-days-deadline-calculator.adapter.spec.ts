@@ -69,4 +69,45 @@ describe('BusinessDaysDeadlineCalculatorAdapter', () => {
 
     expect(countsFrom).toEqual(day('2026-10-05'));
   });
+
+  describe('días hábiles que restan hasta un vencimiento', () => {
+    it('es cero si vence hoy', async () => {
+      expect(await calculator.businessDaysUntil(day('2026-10-06'), day('2026-10-06'))).toBe(0);
+    });
+
+    it('cuenta desde mañana (hoy excluido) hasta el vencimiento (incluido)', async () => {
+      expect(await calculator.businessDaysUntil(day('2026-10-06'), day('2026-10-07'))).toBe(1);
+      expect(await calculator.businessDaysUntil(day('2026-10-06'), day('2026-10-13'))).toBe(5);
+    });
+
+    it('saltea los fines de semana', async () => {
+      expect(await calculator.businessDaysUntil(day('2026-10-09'), day('2026-10-12'))).toBe(1);
+    });
+
+    it('un vencimiento en fin de semana cuenta solo los días hábiles previos', async () => {
+      expect(await calculator.businessDaysUntil(day('2026-10-06'), day('2026-10-10'))).toBe(3);
+    });
+
+    it('es negativo si el plazo ya venció', async () => {
+      expect(await calculator.businessDaysUntil(day('2026-10-06'), day('2026-10-05'))).toBe(-1);
+      expect(await calculator.businessDaysUntil(day('2026-10-06'), day('2026-09-29'))).toBe(-5);
+    });
+
+    it('un vencimiento de un viernes visto el lunes siguiente hace un día hábil que venció', async () => {
+      expect(await calculator.businessDaysUntil(day('2026-10-12'), day('2026-10-09'))).toBe(-1);
+    });
+
+    it('cuenta lo mismo hacia adelante que lo que cuenta hacia atrás, con el signo cambiado', async () => {
+      const forward = await calculator.businessDaysUntil(day('2026-10-01'), day('2026-10-20'));
+      const backward = await calculator.businessDaysUntil(day('2026-10-20'), day('2026-10-01'));
+
+      expect(backward).toBe(-forward);
+    });
+
+    it('coincide con el cómputo del vencimiento: el plazo de N días hábiles deja N días por delante', async () => {
+      const dueDate = await calculator.computeDueDate(day('2026-10-05'), 8, DayType.BUSINESS);
+
+      expect(await calculator.businessDaysUntil(day('2026-10-05'), dueDate)).toBe(8);
+    });
+  });
 });

@@ -172,4 +172,44 @@ describe('ProceduralAct', () => {
 
     expect(act.actDate).toEqual(day('2030-01-01'));
   });
+
+  describe('validateDates', () => {
+    it('no informa nada si las fechas cumplen las reglas', () => {
+      expect(ProceduralAct.validateDates({ actDate: day('2026-10-05'), today: TODAY })).toEqual({});
+      expect(
+        ProceduralAct.validateDates({ actDate: day('2026-10-05'), notificationDate: TODAY, today: TODAY }),
+      ).toEqual({});
+    });
+
+    it('informa la fecha del acto futura o inválida (CA-26.11)', () => {
+      expect(ProceduralAct.validateDates({ actDate: day('2026-10-07'), today: TODAY })).toEqual({
+        actDate: 'No puede ser posterior a la fecha de hoy.',
+      });
+      expect(ProceduralAct.validateDates({ actDate: new Date('x'), today: TODAY })).toEqual({
+        actDate: 'Debe ser una fecha válida (AAAA-MM-DD).',
+      });
+    });
+
+    it('informa la notificación anterior al acto, posterior a hoy o inválida', () => {
+      const expected = { notificationDate: 'Debe estar entre la fecha del acto y hoy.' };
+
+      expect(
+        ProceduralAct.validateDates({ actDate: day('2026-10-05'), notificationDate: day('2026-10-04'), today: TODAY }),
+      ).toEqual(expected);
+      expect(
+        ProceduralAct.validateDates({ actDate: day('2026-10-05'), notificationDate: day('2026-10-07'), today: TODAY }),
+      ).toEqual(expected);
+      expect(
+        ProceduralAct.validateDates({ actDate: day('2026-10-05'), notificationDate: new Date('x'), today: TODAY }),
+      ).toEqual(expected);
+    });
+
+    it('es lo mismo que valida el alta del acto', async () => {
+      const dates = { actDate: day('2026-10-05'), notificationDate: day('2026-10-04'), today: TODAY };
+
+      const details = await validationDetailsOf(() => ProceduralAct.create(anActInput(dates)));
+
+      expect(details).toEqual(ProceduralAct.validateDates(dates));
+    });
+  });
 });

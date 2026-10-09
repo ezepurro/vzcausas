@@ -152,10 +152,19 @@ export class FakeTransactionManager implements TransactionManagerPort {
 /** Calculator that records its calls and answers a fixed number of days after the start date. */
 export class FakeDeadlineCalculator implements DeadlineCalculatorPort {
   readonly calls: { countsFrom: Date; days: number; dayType: DayType }[] = [];
+  /** What `businessDaysUntil` answers, so a spec does not depend on the calendar. */
+  businessDaysRemaining = 3;
+  /** Every pair of dates `businessDaysUntil` was asked about. */
+  readonly businessDaysCalls: { from: Date; to: Date }[] = [];
 
   async computeDueDate(countsFrom: Date, days: number, dayType: DayType): Promise<Date> {
     this.calls.push({ countsFrom, days, dayType });
     return new Date(countsFrom.getTime() + days * 24 * 60 * 60 * 1000);
+  }
+
+  async businessDaysUntil(from: Date, to: Date): Promise<number> {
+    this.businessDaysCalls.push({ from, to });
+    return this.businessDaysRemaining;
   }
 }
 

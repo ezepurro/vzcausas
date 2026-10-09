@@ -2,7 +2,9 @@ import { Inject, Injectable } from '@nestjs/common';
 import { CLOCK, ClockPort } from '@shared/domain/clock.port';
 import { ValidationError } from '@shared/domain/domain-error';
 import { TRANSACTION_MANAGER, TransactionManagerPort } from '@shared/domain/transaction-manager.port';
+import { AuthenticatedUser } from '@shared/domain/authenticated-user';
 import { Case } from '../../domain/entities/cases';
+import { ProceduralAct } from '../../domain/entities/procedural-act';
 import { CaseNotFoundError } from '../../domain/errors/case.errors';
 import { CASE_REPOSITORY, CaseRepository } from '../../domain/ports/case.repository';
 import { PROCEDURAL_ACT_REPOSITORY, ProceduralActRepository } from '../../domain/ports/procedural-act.repository';
@@ -16,6 +18,8 @@ import {
 import { DayType } from '../../domain/value-objects/day-type';
 import { Deadline } from '../../domain/value-objects/deadline';
 import {
+  DeadlinePreviewResult,
+  PreviewProceduralActDeadlineQuery,
   RegisterProceduralActCommand,
   RegisterProceduralActResult,
 } from '../common/register-procedural-act.interfaces';
@@ -51,11 +55,7 @@ export class RegisterProceduralAct {
   ) {}
 
   async execute(command: RegisterProceduralActCommand): Promise<RegisterProceduralActResult> {
-    const targetCase = await this.cases.findById(command.caseId);
-    if (!targetCase) {
-      throw new CaseNotFoundError();
-    }
-    targetCase.assertCanRegisterActs(command.actor);
+    const targetCase = await this.loadCaseForActor(command.caseId, command.actor);
 
     // The actor is the lawyer in charge, so the record exists: a missing one is broken data, not a user error.
     const registeredBy = await this.people.findActiveLawyerById(command.actor.lawyerId!);
@@ -103,6 +103,64 @@ export class RegisterProceduralAct {
       }
     });
     return { act, becameCurrent, resultingStateName: (target.state?.name ?? target.customState)!, registeredBy };
+  }
+
+  /**
+   * The deadline an act would open, without registering anything (API contract §3.8). It
+   * serves the "Cómputo del plazo" panel of the form, so what the user sees is
+   * what is saved: it goes through the same checks and the same calculation as
+   * {@link execute}. A hand-written state and a manual due date have nothing to preview.
+   *
+   * Unlike the registration, it answers even if the case is closed (that is the
+   * registration's 422), and its data errors are the contract's `INVALID_REQUEST`.
+   * @throws ValidationError `INVALID_REQUEST`
+   */
+  async previewDeadline(query: PreviewProceduralActDeadlineQuery): Promise<DeadlinePreviewResult> {
+    const targetCase = await this.loadCaseForActor(query.caseId, query.actor);
+
+    try {
+      const dateErrors = ProceduralAct.validateDates({
+        actDate: query.actDate,
+        notificationDate: query.notificationDate,
+        today: this.clock.today(),
+      });
+      if (Object.keys(dateErrors).length > 0) {
+        throw new ValidationError('VALIDATION_ERROR', INVALID_DATA_MESSAGE, dateErrors);
+      }
+      if (query.proceduralStateId == null) {
+        throw new ValidationError('VALIDATION_ERROR', INVALID_DATA_MESSAGE, { proceduralStateId: 'Es obligatorio.' });
+      }
+
+      const command: RegisterProceduralActCommand = { ...query, customState: null };
+      const target = await this.resolveTargetState(targetCase, command);
+      const deadline = await this.buildDeadline(targetCase, target, command);
+
+      return {
+        proceduralStateId: query.proceduralStateId,
+        timeLimitDays: deadline.timeLimitDays,
+        dayType: deadline.dayType,
+        countsFrom: deadline.countsFrom,
+        dueDate: deadline.dueDate,
+        businessDaysRemaining:
+          deadline.dueDate === null ? null : await this.calculator.businessDaysUntil(this.clock.today(), deadline.dueDate),
+      };
+    } catch (error) {
+      // The contract reports the problems of a query with its own code.
+      if (error instanceof ValidationError && error.code === 'VALIDATION_ERROR') {
+        throw new ValidationError('INVALID_REQUEST', 'Parámetros de query inválidos.', error.details);
+      }
+      throw error;
+    }
+  }
+
+  /** The case, if it exists (404) and the user is the lawyer in charge of it (403). */
+  private async loadCaseForActor(caseId: number, actor: AuthenticatedUser): Promise<Case> {
+    const targetCase = await this.cases.findById(caseId);
+    if (!targetCase) {
+      throw new CaseNotFoundError();
+    }
+    targetCase.assertCanRegisterActs(actor);
+    return targetCase;
   }
 
   /**

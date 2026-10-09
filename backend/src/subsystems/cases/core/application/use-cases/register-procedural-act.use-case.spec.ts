@@ -1,3 +1,4 @@
+import { ValidationError } from '@shared/domain/domain-error';
 import { ProceduralStateRef } from '../../domain/ports/legal-parameters-lookup.port';
 import { Case } from '../../domain/entities/cases';
 import {
@@ -38,7 +39,10 @@ import {
   validationDetailsOf,
   WITHOUT_TERM,
 } from '../../test-support/case-fixtures';
-import { RegisterProceduralActCommand } from '../common/register-procedural-act.interfaces';
+import {
+  PreviewProceduralActDeadlineQuery,
+  RegisterProceduralActCommand,
+} from '../common/register-procedural-act.interfaces';
 import { RegisterProceduralAct } from './register-procedural-act.use-case';
 
 /**
@@ -655,6 +659,209 @@ describe('RegisterProceduralAct', () => {
 
       // The act was written first (the case points to it); the real transaction rolls it back.
       expect(acts.saved).toHaveLength(1);
+    });
+  });
+
+  describe('previsualización del vencimiento', () => {
+    const query = (overrides: Partial<PreviewProceduralActDeadlineQuery> = {}): PreviewProceduralActDeadlineQuery => ({
+      caseId: 1,
+      actor: anActor(),
+      proceduralStateId: OPPOSITION.id,
+      actDate: day('2026-10-05'),
+      ...overrides,
+    });
+
+    /** The details of a preview that must fail with the contract's own code. */
+    async function invalidRequestOf(work: () => Promise<unknown>) {
+      const error: unknown = await work().catch((caught: unknown) => caught);
+      expect(error).toBeInstanceOf(ValidationError);
+      expect((error as ValidationError).code).toBe('INVALID_REQUEST');
+      expect((error as ValidationError).message).toBe('Parámetros de query inválidos.');
+      return (error as ValidationError).details;
+    }
+
+    it('calcula el vencimiento con los días y el tipo de día de la tabla, sin registrar nada', async () => {
+      const { useCase, acts, cases, transactions, calculator, existing } = build();
+
+      const preview = await useCase.previewDeadline(query());
+
+      expect(preview).toEqual({
+        proceduralStateId: OPPOSITION.id,
+        timeLimitDays: 5,
+        dayType: DayType.BUSINESS,
+        countsFrom: day('2026-10-05'),
+        dueDate: day('2026-10-10'),
+        businessDaysRemaining: 3,
+      });
+      expect(calculator.calls).toEqual([{ countsFrom: day('2026-10-05'), days: 5, dayType: DayType.BUSINESS }]);
+      expect(acts.saved).toEqual([]);
+      expect(cases.currentActUpdates).toEqual([]);
+      expect(transactions.calls).toBe(0);
+      expect(existing.currentProceduralActId).toBeNull();
+      expect(existing.currentStateId).toBe(INITIAL_STATES.CRIMINAL.id);
+    });
+
+    it('los días hábiles que restan se cuentan desde hoy hasta el vencimiento', async () => {
+      const { useCase, calculator } = build();
+      calculator.businessDaysRemaining = -2;
+
+      const preview = await useCase.previewDeadline(query());
+
+      expect(calculator.businessDaysCalls).toEqual([{ from: TODAY, to: day('2026-10-10') }]);
+      expect(preview.businessDaysRemaining).toBe(-2);
+    });
+
+    it('da el mismo vencimiento que el registro con los mismos datos', async () => {
+      const { useCase } = build();
+      const preview = await useCase.previewDeadline(query({ proceduralStateId: SUMMONS.id }));
+      const other = build();
+
+      const { act } = await other.useCase.execute(command({ proceduralStateId: SUMMONS.id }));
+
+      expect(preview.dueDate).toEqual(act.deadline.dueDate);
+      expect(preview.countsFrom).toEqual(act.deadline.countsFrom);
+      expect(preview.timeLimitDays).toBe(act.deadline.timeLimitDays);
+      expect(preview.dayType).toBe(act.deadline.dayType);
+    });
+
+    it('un estado que no abre plazo no tiene vencimiento ni días que restan', async () => {
+      const { useCase, calculator } = build();
+
+      const preview = await useCase.previewDeadline(query({ proceduralStateId: WITHOUT_TERM.id }));
+
+      expect(preview).toEqual({
+        proceduralStateId: WITHOUT_TERM.id,
+        timeLimitDays: 0,
+        dayType: DayType.NONE,
+        countsFrom: day('2026-10-05'),
+        dueDate: null,
+        businessDaysRemaining: null,
+      });
+      expect(calculator.calls).toEqual([]);
+      expect(calculator.businessDaysCalls).toEqual([]);
+    });
+
+    describe('fuero administrativo (RN6)', () => {
+      const administrative = () => build({ existing: anAdministrativeCase() });
+      const administrativeQuery = (overrides: Partial<PreviewProceduralActDeadlineQuery> = {}) =>
+        query({ proceduralStateId: ADMINISTRATIVE_STATE.id, actDate: day('2026-10-02'), ...overrides });
+
+      it('el plazo corre desde la notificación y no desde la fecha del acto', async () => {
+        const { useCase, calculator } = administrative();
+
+        const preview = await useCase.previewDeadline(administrativeQuery({ notificationDate: day('2026-10-05') }));
+
+        expect(preview.countsFrom).toEqual(day('2026-10-05'));
+        expect(calculator.calls).toEqual([{ countsFrom: day('2026-10-05'), days: 10, dayType: DayType.BUSINESS }]);
+      });
+
+      it('exige la notificación si el estado abre plazo', async () => {
+        const { useCase } = administrative();
+
+        const details = await invalidRequestOf(() => useCase.previewDeadline(administrativeQuery()));
+
+        expect(details).toEqual({
+          notificationDate: 'Es obligatoria en el fuero administrativo cuando el estado abre plazo (RN6).',
+        });
+      });
+
+      it('en los otros fueros no se informa la notificación', async () => {
+        const { useCase } = build();
+
+        const details = await invalidRequestOf(() =>
+          useCase.previewDeadline(query({ notificationDate: day('2026-10-05') })),
+        );
+
+        expect(details).toEqual({ notificationDate: 'Solo se informa en el fuero administrativo.' });
+      });
+    });
+
+    describe('las mismas restricciones que el registro, con el código de la query', () => {
+      it.each([
+        ['un estado terminal', ARCHIVED.id],
+        ['el estado inicial', INITIAL_STATES.CRIMINAL.id],
+        ['un estado de otro fuero', ADMINISTRATIVE_STATE.id],
+      ])('rechaza %s', async (_name, proceduralStateId) => {
+        const { useCase } = build();
+
+        const details = await invalidRequestOf(() => useCase.previewDeadline(query({ proceduralStateId })));
+
+        expect(details).toEqual({
+          proceduralStateId: 'El estado procesal no pertenece al fuero de la causa o es terminal.',
+        });
+      });
+
+      it('rechaza un estado dado de baja o inexistente', async () => {
+        const { useCase } = build();
+
+        const deactivated = await invalidRequestOf(() => useCase.previewDeadline(query({ proceduralStateId: DEACTIVATED.id })));
+        const missing = await invalidRequestOf(() => useCase.previewDeadline(query({ proceduralStateId: 999 })));
+
+        const expected = { proceduralStateId: 'No existe un estado procesal vigente con ese identificador.' };
+        expect(deactivated).toEqual(expected);
+        expect(missing).toEqual(expected);
+      });
+
+      it('el estado es obligatorio: no hay previsualización de un estado escrito a mano', async () => {
+        const { useCase } = build();
+
+        const details = await invalidRequestOf(() => useCase.previewDeadline(query({ proceduralStateId: null })));
+
+        expect(details).toEqual({ proceduralStateId: 'Es obligatorio.' });
+      });
+
+      it('rechaza una fecha del acto posterior a hoy (CA-26.11)', async () => {
+        const { useCase } = build();
+
+        const details = await invalidRequestOf(() => useCase.previewDeadline(query({ actDate: day('2026-10-07') })));
+
+        expect(details).toEqual({ actDate: 'No puede ser posterior a la fecha de hoy.' });
+      });
+
+      it('acepta un acto de hoy', async () => {
+        const { useCase } = build();
+
+        const preview = await useCase.previewDeadline(query({ actDate: TODAY }));
+
+        expect(preview.countsFrom).toEqual(TODAY);
+      });
+    });
+
+    describe('quién puede previsualizar', () => {
+      it('una causa que no existe responde causa no encontrada', async () => {
+        const { useCase } = build();
+
+        await expect(useCase.previewDeadline(query({ caseId: 999 }))).rejects.toBeInstanceOf(CaseNotFoundError);
+      });
+
+      it.each([
+        ['otro abogado', anActor({ lawyerId: 99 })],
+        ['un administrador que no es abogado', anActor({ roleNames: ['ADMINISTRATOR'] })],
+        ['un usuario sin ficha de abogado', anActor({ lawyerId: null })],
+      ])('se lo deniega a %s, igual que el registro (CA-26.2)', async (_name, actor) => {
+        const { useCase, calculator } = build();
+
+        await expect(useCase.previewDeadline(query({ actor }))).rejects.toBeInstanceOf(NotResponsibleLawyerError);
+        expect(calculator.calls).toEqual([]);
+      });
+
+      it('primero se controla la causa y el responsable, y recién después los datos', async () => {
+        const { useCase } = build();
+        const invalid = { proceduralStateId: 999, actDate: day('2026-12-01') };
+
+        await expect(useCase.previewDeadline(query({ caseId: 999, ...invalid }))).rejects.toBeInstanceOf(CaseNotFoundError);
+        await expect(
+          useCase.previewDeadline(query({ actor: anActor({ lawyerId: 99 }), ...invalid })),
+        ).rejects.toBeInstanceOf(NotResponsibleLawyerError);
+      });
+
+      it('sobre una causa en estado terminal responde igual: el 422 lo da el registro', async () => {
+        const { useCase } = build({ existing: aCaseInState({ currentStateId: ARCHIVED.id }) });
+
+        const preview = await useCase.previewDeadline(query());
+
+        expect(preview.dueDate).toEqual(day('2026-10-10'));
+      });
     });
   });
 });

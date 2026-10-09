@@ -1,4 +1,5 @@
 import { ConfigService } from '@nestjs/config';
+import { ValidationError } from '@shared/domain/domain-error';
 import { RegisterProceduralActResult } from '../../../core/application/common/register-procedural-act.interfaces';
 import { ProceduralAct } from '../../../core/domain/entities/procedural-act';
 import { DayType } from '../../../core/domain/value-objects/day-type';
@@ -155,6 +156,110 @@ describe('ProceduralActHttpMapper', () => {
       const response = mapper.toResponse(aResult({}, act));
 
       expect(response.registeredBy).toEqual({ id: 41, fullName: 'Dra. Malena Ríos' });
+    });
+  });
+
+  describe('de la query de la previsualización al pedido', () => {
+    const actor = anActor();
+
+    it('lee el estado como entero y las fechas sin hora', () => {
+      const query = mapper.toPreviewQuery(
+        8,
+        { proceduralStateId: '12', actDate: '2026-09-15', notificationDate: '2026-09-16' },
+        actor,
+      );
+
+      expect(query).toEqual({
+        caseId: 8,
+        actor,
+        proceduralStateId: 12,
+        actDate: day('2026-09-15'),
+        notificationDate: day('2026-09-16'),
+      });
+    });
+
+    it('la notificación es opcional', () => {
+      const query = mapper.toPreviewQuery(8, { proceduralStateId: '12', actDate: '2026-09-15' }, actor);
+
+      expect(query.notificationDate).toBeNull();
+    });
+
+    function detailsOf(query: Parameters<ProceduralActHttpMapper['toPreviewQuery']>[1]) {
+      try {
+        mapper.toPreviewQuery(8, query, actor);
+      } catch (error) {
+        expect(error).toBeInstanceOf(ValidationError);
+        expect((error as ValidationError).code).toBe('INVALID_REQUEST');
+        expect((error as ValidationError).message).toBe('Parámetros de query inválidos.');
+        return (error as ValidationError).details;
+      }
+      throw new Error('Expected a ValidationError, but nothing was thrown.');
+    }
+
+    it('el estado y la fecha del acto son obligatorios', () => {
+      expect(detailsOf({})).toEqual({ proceduralStateId: 'Es obligatorio.', actDate: 'Es obligatoria.' });
+    });
+
+    it.each(['abc', '1.5', '-3', '0', ''])('rechaza %j como identificador del estado', (proceduralStateId) => {
+      expect(detailsOf({ proceduralStateId, actDate: '2026-09-15' })).toEqual({
+        proceduralStateId: 'Debe ser un número entero válido.',
+      });
+    });
+
+    it.each(['15/09/2026', '2026-9-15', '2026-02-30', '2026-13-01', 'hoy', ''])(
+      'rechaza %j como fecha',
+      (value) => {
+        const expected = 'Debe ser una fecha válida (AAAA-MM-DD).';
+
+        expect(detailsOf({ proceduralStateId: '12', actDate: value })).toEqual({ actDate: expected });
+        expect(detailsOf({ proceduralStateId: '12', actDate: '2026-09-15', notificationDate: value })).toEqual({
+          notificationDate: expected,
+        });
+      },
+    );
+
+    it('informa todos los parámetros inválidos juntos', () => {
+      expect(detailsOf({ proceduralStateId: 'x', actDate: 'y', notificationDate: 'z' })).toEqual({
+        proceduralStateId: 'Debe ser un número entero válido.',
+        actDate: 'Debe ser una fecha válida (AAAA-MM-DD).',
+        notificationDate: 'Debe ser una fecha válida (AAAA-MM-DD).',
+      });
+    });
+  });
+
+  describe('del resultado de la previsualización a la respuesta', () => {
+    it('formatea las fechas sin hora y conserva los días que restan', () => {
+      const response = mapper.toPreviewResponse({
+        proceduralStateId: 12,
+        timeLimitDays: 5,
+        dayType: DayType.BUSINESS,
+        countsFrom: day('2026-09-15'),
+        dueDate: day('2026-09-22'),
+        businessDaysRemaining: 5,
+      });
+
+      expect(response).toEqual({
+        proceduralStateId: 12,
+        timeLimitDays: 5,
+        dayType: 'BUSINESS',
+        countsFrom: '2026-09-15',
+        dueDate: '2026-09-22',
+        businessDaysRemaining: 5,
+      });
+    });
+
+    it('un estado que no abre plazo sale sin vencimiento ni días que restan', () => {
+      const response = mapper.toPreviewResponse({
+        proceduralStateId: 23,
+        timeLimitDays: 0,
+        dayType: DayType.NONE,
+        countsFrom: day('2026-09-15'),
+        dueDate: null,
+        businessDaysRemaining: null,
+      });
+
+      expect(response.dueDate).toBeNull();
+      expect(response.businessDaysRemaining).toBeNull();
     });
   });
 });

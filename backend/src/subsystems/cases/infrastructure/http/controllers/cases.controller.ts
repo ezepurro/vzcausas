@@ -1,4 +1,4 @@
-import { Body, Controller, HttpCode, HttpStatus, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Query } from '@nestjs/common';
 import { AuthenticatedUser } from '@shared/domain/authenticated-user';
 import { CurrentUser } from '@shared/infrastructure/http/current-user.decorator';
 import { RegisterCase } from '../../../core/application/use-cases/register-case.use-case';
@@ -7,6 +7,8 @@ import { AdministrativeCase } from '../../../core/domain/entities/administrative
 import { Amparo } from '../../../core/domain/entities/amparo';
 import { InvalidCaseIdError } from '../../../core/domain/errors/case.errors';
 import { CaseResponseDto } from '../dtos/case.response.dto';
+import { DeadlinePreviewQueryDto } from '../dtos/deadline-preview.query.dto';
+import { DeadlinePreviewResponseDto } from '../dtos/deadline-preview.response.dto';
 import { ProceduralActResponseDto } from '../dtos/procedural-act.response.dto';
 import { RegisterCaseRequestDto } from '../dtos/register-case.request.dto';
 import { CaseHttpMapper } from '../mappers/case-http.mapper';
@@ -54,6 +56,23 @@ export class CasesController {
     const caseId = this.parseCaseId(caseIdParam);
     const result = await this.registerProceduralAct.execute(this.proceduralActMapper.toCommand(caseId, dto, actor));
     return { data: this.proceduralActMapper.toResponse(result) };
+  }
+
+  /**
+   * The deadline an act would open, without registering it. Same rule as the
+   * registration: only the lawyer in charge of the case.
+   */
+  @Get(':caseId/procedural-acts/deadline-preview')
+  async previewDeadline(
+    @Param('caseId') caseIdParam: string,
+    @Query() query: DeadlinePreviewQueryDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ): Promise<{ data: DeadlinePreviewResponseDto }> {
+    const caseId = this.parseCaseId(caseIdParam);
+    const result = await this.registerProceduralAct.previewDeadline(
+      this.proceduralActMapper.toPreviewQuery(caseId, query, actor),
+    );
+    return { data: this.proceduralActMapper.toPreviewResponse(result) };
   }
 
   private parseCaseId(raw: string): number {

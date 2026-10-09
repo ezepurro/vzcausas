@@ -15,4 +15,11 @@ export interface DeadlineCalculatorPort {
    * Only called for terms of at least one day.
    */
   computeDueDate(countsFrom: Date, days: number, dayType: DayType): Promise<Date>;
+
+  /**
+   * The business days between `from` (excluded) and `to` (included): `0` when
+   * they are the same day, negative when `to` is before `from` (a term that has
+   * already run out). API contract §4, `businessDaysRemaining`.
+   */
+  businessDaysUntil(from: Date, to: Date): Promise<number>;
 }

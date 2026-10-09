@@ -65,16 +65,7 @@ export class ProceduralAct {
     if (customState !== null && customState.length > CUSTOM_STATE_MAX) {
       errors.customState = `Debe tener hasta ${CUSTOM_STATE_MAX} caracteres.`;
     }
-    if (Number.isNaN(input.actDate.getTime())) {
-      errors.actDate = 'Debe ser una fecha válida (AAAA-MM-DD).';
-    } else if (input.actDate > input.today) {
-      errors.actDate = 'No puede ser posterior a la fecha de hoy.';
-    } else if (
-      notificationDate !== null &&
-      (Number.isNaN(notificationDate.getTime()) || notificationDate < input.actDate || notificationDate > input.today)
-    ) {
-      errors.notificationDate = 'Debe estar entre la fecha del acto y hoy.';
-    }
+    Object.assign(errors, ProceduralAct.validateDates({ ...input, notificationDate }));
     if (notes !== null && notes.length > NOTES_MAX) {
       errors.notes = `Debe tener hasta ${NOTES_MAX} caracteres.`;
     }
@@ -96,6 +87,28 @@ export class ProceduralAct {
       registeredByLawyerId: input.registeredByLawyerId,
       registeredAt: input.now,
     });
+  }
+
+  /**
+   * The rules of the dates of an act (CA-26.11, RN6), keyed by field; empty if
+   * they hold. Pure, so the deadline preview applies the very same rules
+   * without building an act.
+   */
+  static validateDates(input: { actDate: Date; notificationDate?: Date | null; today: Date }): Record<string, string> {
+    const errors: Record<string, string> = {};
+    const notificationDate = input.notificationDate ?? null;
+
+    if (Number.isNaN(input.actDate.getTime())) {
+      errors.actDate = 'Debe ser una fecha válida (AAAA-MM-DD).';
+    } else if (input.actDate > input.today) {
+      errors.actDate = 'No puede ser posterior a la fecha de hoy.';
+    } else if (
+      notificationDate !== null &&
+      (Number.isNaN(notificationDate.getTime()) || notificationDate < input.actDate || notificationDate > input.today)
+    ) {
+      errors.notificationDate = 'Debe estar entre la fecha del acto y hoy.';
+    }
+    return errors;
   }
 
   /** Rebuilds a {@link ProceduralAct} from persisted data, without validation. */
