@@ -1,22 +1,102 @@
 import { Injectable } from '@nestjs/common';
 import { ProceduralState } from '@subsystems/legal-parameters/core/domain/entities/procedural-states';
-import { ProceduralStateRepository } from '@subsystems/legal-parameters/core/domain/ports/procedural-states.repository';
+import {
+  ProceduralStateRepository,
+  ProcStateFilter,
+} from '@subsystems/legal-parameters/core/domain/ports/procedural-states.repository';
 import { PaginatedResult } from '../../../../common/pagination/paginated-result';
 import { PrismaService } from '@shared/infrastructure/prisma/prisma.service';
-import { Prisma } from '../../../../generated/prisma/client';
-import { ProcStateFilter } from '@subsystems/legal-parameters/core/domain/ports/procedural-states.repository';
+import { DayType, Prisma } from '../../../../generated/prisma/client';
 import { ProceduralStateMapper } from './proc-state.mapper';
 import { JurisdictionCode } from '@subsystems/legal-parameters/core/domain/value-objects/jurisdiction-code';
 import { INITIAL_STATE_NAME } from '@subsystems/legal-parameters/core/domain/entities/procedural-states';
+import { Jurisdiction } from '@subsystems/legal-parameters/core/domain/entities/jurisdiction';
+import { JurisdictionMapper } from './jurisdiction.mapper';
 
 @Injectable()
 export class ProceduralStatePrismaRepository implements ProceduralStateRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async save(procState: ProceduralState): Promise<void> {}
+  async findById(id: number): Promise<ProceduralState | null> {
+    const row = await this.prisma.proceduralState.findFirst({
+      where: {
+        stateId: id,
+        isActive: true,
+        isInitial: false,
+      },
+      include: { jurisdiction: true },
+    });
+    return row ? ProceduralStateMapper.toDomain(row) : null;
+  }
 
-  async findAll(): Promise<ProceduralState[]> {
-    throw new Error('Method not implemented.');
+  async existsByName(jurisdiction: JurisdictionCode, name: string, excludingId?: number): Promise<boolean> {
+    const row = await this.prisma.proceduralState.findFirst({
+      where: {
+        isActive: true,
+        name: { equals: name.trim(), mode: 'insensitive' },
+        jurisdiction: { name: jurisdiction, isActive: true },
+        // Only on PATCH: the state being renamed must not collide with itself.
+        ...(excludingId !== undefined && { stateId: { not: excludingId } }),
+      },
+      select: { stateId: true },
+    });
+    return row !== null;
+  }
+
+  async findJurisdictionByCode(code: JurisdictionCode): Promise<Jurisdiction | null> {
+    const row = await this.prisma.jurisdiction.findFirst({
+      where: {
+        name: code,
+        isActive: true,
+      },
+    });
+    return row ? JurisdictionMapper.toDomain(row) : null;
+  }
+
+  async nextId(): Promise<number> {
+    const [{ nextval }] = await this.prisma.db.$queryRaw<[{ nextval: bigint }]>`
+      SELECT nextval(pg_get_serial_sequence('procedural_states', 'state_id'))`;
+    return Number(nextval);
+  }
+
+  /**
+   * `stateId` goes explicitly: it was reserved with {@link nextId}, and
+   * letting the database pick another one would leave the entity holding an
+   * id that matches no row. `createdAt`/`updatedAt` are left to their
+   * database defaults.
+   */
+  async create(procState: ProceduralState): Promise<void> {
+    await this.prisma.proceduralState.create({
+      data: {
+        stateId: procState.id,
+        name: procState.name,
+        timeLimitDays: procState.timeLimitDays,
+        dayType: procState.dayType ?? DayType.NONE,
+        terminal: procState.terminal,
+        isInitial: procState.isInitial,
+        isActive: procState.isActive,
+        jurisdictionId: procState.jurisdiction.id,
+      },
+    });
+  }
+
+  /**
+   * Writes only the fields a state can change (HU17, HU46). `jurisdictionId`
+   * and `isInitial` are left out on purpose: they are fixed, and not sending
+   * them makes it impossible for a bug to move a state to another
+   * jurisdiction. `updatedAt` is set by Prisma (`@updatedAt`).
+   */
+  async save(procState: ProceduralState): Promise<void> {
+    await this.prisma.proceduralState.update({
+      where: { stateId: procState.id },
+      data: {
+        name: procState.name,
+        timeLimitDays: procState.timeLimitDays,
+        dayType: procState.dayType ?? DayType.NONE,
+        terminal: procState.terminal,
+        isActive: procState.isActive,
+      },
+    });
   }
 
   async findPaginated(filter: ProcStateFilter, page: number, limit: number): Promise<PaginatedResult<ProceduralState>> {
@@ -56,14 +136,12 @@ export class ProceduralStatePrismaRepository implements ProceduralStateRepositor
     return row ? ProceduralStateMapper.toDomain(row) : null;
   }
 
-  async findAndCountAll(): Promise<ProceduralState[]> {
-    throw new Error('Method not implemented.');
-  }
-
   private toWhere(filter: ProcStateFilter): Prisma.ProceduralStateWhereInput {
     return {
-      // Logical deletes are invisible to the client (contract §4).
+      // Logical deletes are invisible to the client (contract §4), and the
+      // system state "Iniciada" is not part of the listing.
       isActive: true,
+      isInitial: false,
       ...(filter.jurisdiction && {
         jurisdiction: { name: filter.jurisdiction },
       }),
