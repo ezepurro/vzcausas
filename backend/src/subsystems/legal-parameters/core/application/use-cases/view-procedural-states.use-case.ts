@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { ProceduralState } from '../../domain/entities/procedural-states';
-import { ProceduralStateRepository } from '../../domain/ports/procedural-states.repository';
-import { GetProcStatesInput, ProcStateFilter } from '../common/get-proc-states.interfaces';
+import { ProceduralStateRepository, ProcStateFilter } from '../../domain/ports/procedural-states.repository';
+import { GetProcStatesInput } from '../common/get-proc-states.interfaces';
 import { PaginatedResult } from '../../../../../common/pagination/paginated-result';
 
 @Injectable()

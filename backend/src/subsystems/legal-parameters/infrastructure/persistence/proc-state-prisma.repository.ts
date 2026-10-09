@@ -4,7 +4,7 @@ import { ProceduralStateRepository } from '@subsystems/legal-parameters/core/dom
 import { PaginatedResult } from '../../../../common/pagination/paginated-result';
 import { PrismaService } from '@shared/infrastructure/prisma/prisma.service';
 import { Prisma } from '../../../../generated/prisma/client';
-import { ProcStateFilter } from '@subsystems/legal-parameters/core/application/common/get-proc-states.interfaces';
+import { ProcStateFilter } from '@subsystems/legal-parameters/core/domain/ports/procedural-states.repository';
 import { ProceduralStateMapper } from './proc-state.mapper';
 import { JurisdictionCode } from '@subsystems/legal-parameters/core/domain/value-objects/jurisdiction-code';
 import { INITIAL_STATE_NAME } from '@subsystems/legal-parameters/core/domain/entities/procedural-states';

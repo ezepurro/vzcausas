@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ProceduralState } from '@subsystems/legal-parameters/core/domain/entities/procedural-states';
 import { ProceduralStateRepository } from '@subsystems/legal-parameters/core/domain/ports/procedural-states.repository';
-import { ProcStateFilter } from '@subsystems/legal-parameters/core/application/common/get-proc-states.interfaces';
+import { ProcStateFilter } from '@subsystems/legal-parameters/core/domain/ports/procedural-states.repository';
 import { JurisdictionCode } from '@subsystems/legal-parameters/core/domain/value-objects/jurisdiction-code';
 import { PaginatedResult } from '../../../../common/pagination/paginated-result';
 
