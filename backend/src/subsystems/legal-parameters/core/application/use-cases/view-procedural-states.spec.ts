@@ -32,6 +32,7 @@ function aPage(items: ProceduralState[]): PaginatedResult<ProceduralState> {
 
 describe('ViewProceduralStates', () => {
   let repository: jest.Mocked<ProceduralStateRepository>;
+  let counter: FakeActiveCasesCounter;
   let useCase: ViewProceduralStates;
 
   beforeEach(() => {
@@ -47,7 +48,63 @@ describe('ViewProceduralStates', () => {
       create: jest.fn(),
       save: jest.fn(),
     };
-    useCase = new ViewProceduralStates(repository, new FakeActiveCasesCounter());
+    counter = new FakeActiveCasesCounter();
+    useCase = new ViewProceduralStates(repository, counter);
+  });
+
+  describe('activeCases', () => {
+    it('pairs each state with its own count', async () => {
+      repository.findPaginated.mockResolvedValue(
+        aPage([aProceduralState({ id: 1 }), aProceduralState({ id: 2, name: 'Archivada' })]),
+      );
+      counter.counts.set(1, 7);
+      counter.counts.set(2, 3);
+
+      const result = await useCase.getAll({ page: 1, limit: 20 });
+
+      expect(result.items.map((view) => [view.procState.id, view.activeCases])).toEqual([
+        [1, 7],
+        [2, 3],
+      ]);
+    });
+
+    it('reports 0 for a state with no active cases', async () => {
+      repository.findPaginated.mockResolvedValue(aPage([aProceduralState({ id: 1 })]));
+
+      const result = await useCase.getAll({ page: 1, limit: 20 });
+
+      expect(result.items[0].activeCases).toBe(0);
+    });
+
+    it('asks for the counts of the whole page in a single call', async () => {
+      repository.findPaginated.mockResolvedValue(
+        aPage([aProceduralState({ id: 1 }), aProceduralState({ id: 2 }), aProceduralState({ id: 3 })]),
+      );
+
+      await useCase.getAll({ page: 1, limit: 20 });
+
+      expect(counter.calls).toEqual([[1, 2, 3]]);
+    });
+
+    it('does not call the counter for an empty page', async () => {
+      await useCase.getAll({ page: 1, limit: 20 });
+
+      expect(counter.calls).toEqual([]);
+    });
+
+    it('keeps the pagination of the repository page', async () => {
+      repository.findPaginated.mockResolvedValue({
+        items: [aProceduralState({ id: 1 })],
+        total: 41,
+        page: 3,
+        limit: 20,
+        totalPages: 3,
+      });
+
+      const result = await useCase.getAll({ page: 3, limit: 20 });
+
+      expect(result).toMatchObject({ total: 41, page: 3, limit: 20, totalPages: 3 });
+    });
   });
 
   it('forwards page and limit to the repository unchanged', async () => {

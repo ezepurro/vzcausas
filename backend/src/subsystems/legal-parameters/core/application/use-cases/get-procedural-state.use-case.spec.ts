@@ -27,6 +27,29 @@ describe('GetProceduralState', () => {
     expect(result.procState).toBe(procState);
   });
 
+  it('returns the active cases of the state', async () => {
+    repository.seed(aProceduralState({ id: 7 }));
+    counter.counts.set(7, 4);
+
+    const result = await useCase.execute({ id: 7 });
+
+    expect(result.activeCases).toBe(4);
+    expect(counter.calls).toEqual([[7]]);
+  });
+
+  it('reports 0 when no active case is in the state', async () => {
+    repository.seed(aProceduralState({ id: 7 }));
+
+    const result = await useCase.execute({ id: 7 });
+
+    expect(result.activeCases).toBe(0);
+  });
+
+  it('does not ask for counts when the state is not found', async () => {
+    await expect(useCase.execute({ id: 999 })).rejects.toBeInstanceOf(ProceduralStateNotFoundError);
+    expect(counter.calls).toEqual([]);
+  });
+
   it('throws ProceduralStateNotFoundError when no state has that id', async () => {
     await expect(useCase.execute({ id: 999 })).rejects.toBeInstanceOf(ProceduralStateNotFoundError);
   });
