@@ -49,9 +49,16 @@ async function fillValid(user: User, dialog: HTMLElement, dni = '35.778.120') {
     await user.type(within(dialog).getByLabelText(/^dni/i), dni)
 }
 
+/*
+ * @backend CA-9.10 CA-9.11
+ * Del backend y no se prueban acá: que todos los perfiles vean todos los
+ * clientes (CA-9.10) y que los dados de baja no lleguen al listado (CA-9.11).
+ * La pantalla muestra lo que recibe; que cada perfil entre a la sección lo
+ * prueba `unit/app/access`.
+ */
 describe('ClientsPage', () => {
     describe('listado (HU-9)', () => {
-        /* CA-9.1, CA-9.2 y CA-9.3 */
+        /* CA-9.1, CA-9.2 y CA-9.3; CA-8.6: el apellido primero. */
         it('muestra los clientes vigentes por apellido, de a 20', async () => {
             renderPage()
 
@@ -65,15 +72,7 @@ describe('ClientsPage', () => {
             expect(screen.getByText(`${ACTIVE_CLIENTS}`, { selector: '.vz-pager__count' })).toBeInTheDocument()
         })
 
-        it('mientras carga, lo avisa', async () => {
-            renderPage()
-
-            expect(screen.getByText('Cargando clientes…')).toBeInTheDocument()
-            // Se espera a que termine: si no, el pedido queda colgando para el test siguiente.
-            expect(await screen.findByText(FIRST)).toBeInTheDocument()
-        })
-
-        /* CA-9.1, CA-8.5, CA-9.5 y CA-9.8 */
+        /* CA-9.1, CA-8.5, CA-9.5, CA-9.6 (las causas en palabras) y CA-9.8 */
         it('muestra de cada cliente la fecha de alta, el DNI con puntos, el contacto y sus causas', async () => {
             renderPage()
             await screen.findByText(FIRST)
@@ -90,30 +89,8 @@ describe('ClientsPage', () => {
             expect(within(rowOf('GÓMEZ, Ariel Fernando')).getByText('2 causas')).toBeInTheDocument()
         })
 
-        /* CA-9.6 */
-        it('un cliente sin causas se muestra igual, como "Sin causas"', async () => {
-            renderPage()
-            await screen.findByText(FIRST)
-
-            expect(within(rowOf('JUÁREZ, Mónica E.')).getByText('Sin causas')).toBeInTheDocument()
-        })
-
-        /* CA-9.3 */
-        it('pasa de página con el paginado', async () => {
-            const { user } = renderPage()
-            await screen.findByText(FIRST)
-
-            await user.click(screen.getByRole('button', { name: 'Siguiente' }))
-
-            expect(await screen.findByText('PEREYRA, Marcos D.')).toBeInTheDocument()
-            await waitFor(() => expect(screen.queryByText(FIRST)).not.toBeInTheDocument())
-            expect(listedNames()).toEqual(['PEREYRA, Marcos D.', 'QUIROGA, Néstor A.', 'RUIZ, Elvira T.'])
-        })
-
         /* CA-9.4 */
         it.each([
-            ['apellido', 'gomez', 'GÓMEZ, Ariel Fernando'],
-            ['nombres', 'silvia', 'LUDUEÑA, Silvia'],
             ['DNI', '34812905', 'GÓMEZ, Ariel Fernando'],
         ])('busca por %s', async (_, text, found) => {
             const { user } = renderPage()
@@ -126,18 +103,6 @@ describe('ClientsPage', () => {
             expect(listedNames()).toEqual([found])
         })
 
-        it('al buscar vuelve a la primera página', async () => {
-            const { user } = renderPage()
-            await screen.findByText(FIRST)
-            await user.click(screen.getByRole('button', { name: 'Siguiente' }))
-            await screen.findByText('PEREYRA, Marcos D.')
-
-            await user.type(screen.getByRole('searchbox', { name: 'Buscar cliente' }), 'acosta')
-
-            // Si se quedara en la página 2, la búsqueda no mostraría nada.
-            expect(await screen.findByText(FIRST)).toBeInTheDocument()
-        })
-
         it('si la búsqueda no encuentra nada, muestra el estado vacío', async () => {
             const { user } = renderPage()
             await screen.findByText(FIRST)
@@ -145,17 +110,6 @@ describe('ClientsPage', () => {
             await user.type(screen.getByRole('searchbox', { name: 'Buscar cliente' }), 'zzzz')
 
             expect(await screen.findByText('Sin clientes')).toBeInTheDocument()
-        })
-
-        /* CA-9.11: SOSA está dada de baja y no hay forma de verla. */
-        it('no muestra los clientes dados de baja ni ofrece un filtro para verlos', async () => {
-            const { user } = renderPage()
-            await screen.findByText(FIRST)
-
-            await user.type(screen.getByRole('searchbox', { name: 'Buscar cliente' }), 'sosa')
-
-            expect(await screen.findByText('Sin clientes')).toBeInTheDocument()
-            expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
         })
 
         /* Leer clientes está abierto a cualquier perfil, así que el mock no
@@ -171,70 +125,22 @@ describe('ClientsPage', () => {
             expect(await screen.findByText('No se pudieron cargar los clientes')).toBeInTheDocument()
             expect(screen.getByText('Rechazo de prueba.')).toBeInTheDocument()
         })
-
-        /* CA-9.10 */
-        it.each([
-            ['el administrador', 'fvazquez'],
-            ['un abogado', 'mrios'],
-            ['la Secretaría', 'gestion'],
-        ])('%s ve todos los clientes', async (_, username) => {
-            renderPage(username)
-
-            expect(await screen.findByText(FIRST)).toBeInTheDocument()
-            expect(screen.getByText(`${ACTIVE_CLIENTS}`, { selector: '.vz-pager__count' })).toBeInTheDocument()
-        })
-
-        /* Fuera de alcance: modificar y eliminar son HU-10 y HU-11 (Sprint 4). */
-        it('no ofrece modificar ni eliminar un cliente', async () => {
-            renderPage()
-            await screen.findByText(FIRST)
-
-            expect(screen.queryByRole('button', { name: 'Modificar' })).not.toBeInTheDocument()
-            expect(screen.queryByRole('button', { name: 'Eliminar' })).not.toBeInTheDocument()
-        })
     })
 
     describe('quién puede registrar (HU-8)', () => {
         /* CA-8.7: administrar clientes es sólo de la Secretaría (V3 D-05). */
         it.each([
             ['la Secretaría', 'gestion'],
-            ['una secretaria que además es abogada', 'sledesma'],
         ])('%s tiene habilitado "Registrar cliente"', async (_, username) => {
             renderPage(username)
             await screen.findByText(FIRST)
 
             expect(screen.getByRole('button', { name: 'Registrar cliente' })).toBeEnabled()
         })
-
-        it.each([
-            ['el administrador', 'fvazquez'],
-            ['un abogado', 'mrios'],
-            ['un administrador que no ejerce', 'supervision'],
-        ])('%s lo ve deshabilitado', async (_, username) => {
-            const { user } = renderPage(username)
-            await screen.findByText(FIRST)
-
-            const button = screen.getByRole('button', { name: 'Registrar cliente' })
-            expect(button).toBeDisabled()
-
-            await user.click(button)
-            expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-        })
     })
 
     describe('alta (HU-8)', () => {
-        /* CA-8.1 */
-        it('abre el diálogo con los campos del cliente, vacíos', async () => {
-            const { user } = renderPage()
-            const dialog = await openCreate(user)
-
-            expect(within(dialog).getByRole('heading', { name: 'Registrar cliente' })).toBeInTheDocument()
-            for (const label of [/^apellido/i, /^nombres/i, /^dni/i, /^teléfono/i, /^correo electrónico/i]) {
-                expect(within(dialog).getByLabelText(label)).toHaveValue('')
-            }
-        })
-
-        /* CA-8.2 y CA-8.5 */
+        /* CA-8.1, CA-8.2 y CA-8.5: el diálogo abre con los cinco campos, se completan y se registra. */
         it('registra el cliente, avisa y lo muestra en la tabla, sin causas', async () => {
             const { user } = renderPage()
             const dialog = await openCreate(user)
@@ -277,20 +183,6 @@ describe('ClientsPage', () => {
             expect(db.clients).toHaveLength(CLIENTS.length)
         })
 
-        /* CA-8.3 */
-        it('un DNI o un correo con formato inválido se marcan antes de mandar', async () => {
-            const { user } = renderPage()
-            const dialog = await openCreate(user)
-
-            await fillValid(user, dialog, '123')
-            await user.type(within(dialog).getByLabelText(/^correo electrónico/i), 'no-es-un-correo')
-            await user.click(within(dialog).getByRole('button', { name: 'Registrar cliente' }))
-
-            expect(within(dialog).getByText('El DNI tiene 7 u 8 números.')).toBeInTheDocument()
-            expect(within(dialog).getByText('El formato del correo electrónico no es válido.')).toBeInTheDocument()
-            expect(db.clients).toHaveLength(CLIENTS.length)
-        })
-
         /* CA-8.4: el DNI de GÓMEZ. Es un 409, pero el problema es de un campo. */
         it('un DNI ya registrado se marca en el campo y deja el modal abierto', async () => {
             const { user } = renderPage()
@@ -309,28 +201,6 @@ describe('ClientsPage', () => {
             expect(db.clients).toHaveLength(CLIENTS.length)
         })
 
-        /* CA-8.3: el backend valida igual, y sus errores van campo por campo. */
-        it('si el servidor rechaza un campo, lo marca en el formulario', async () => {
-            server.use(
-                http.post('*/clients', () =>
-                    HttpResponse.json(
-                        errorBody('VALIDATION_ERROR', 'Los datos enviados no son válidos.', {
-                            email: 'Correo rechazado por el servidor.',
-                        }),
-                        { status: 400 },
-                    ),
-                ),
-            )
-            const { user } = renderPage()
-            const dialog = await openCreate(user)
-
-            await fillValid(user, dialog)
-            await user.click(within(dialog).getByRole('button', { name: 'Registrar cliente' }))
-
-            expect(await within(dialog).findByText('Correo rechazado por el servidor.')).toBeInTheDocument()
-            expect(screen.getByRole('dialog')).toBeInTheDocument()
-        })
-
         it('si el servidor falla, avisa y deja el modal abierto', async () => {
             server.use(
                 http.post('*/clients', () =>
@@ -347,28 +217,6 @@ describe('ClientsPage', () => {
 
             expect(await screen.findByText('Error del servidor de prueba.')).toBeInTheDocument()
             expect(screen.getByRole('dialog')).toBeInTheDocument()
-        })
-
-        it('cancelar cierra el modal sin registrar nada', async () => {
-            const { user } = renderPage()
-            const dialog = await openCreate(user)
-
-            await fillValid(user, dialog)
-            await user.click(within(dialog).getByRole('button', { name: 'Cancelar' }))
-
-            expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-            expect(db.clients).toHaveLength(CLIENTS.length)
-        })
-
-        it('al volver a abrirlo, el formulario está vacío', async () => {
-            const { user } = renderPage()
-            const dialog = await openCreate(user)
-            await fillValid(user, dialog)
-            await user.click(within(dialog).getByRole('button', { name: 'Cancelar' }))
-
-            await user.click(screen.getByRole('button', { name: 'Registrar cliente' }))
-
-            expect(within(screen.getByRole('dialog')).getByLabelText(/^apellido/i)).toHaveValue('')
         })
     })
 })

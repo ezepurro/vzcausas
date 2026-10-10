@@ -1,332 +1,272 @@
 # Tests del frontend — VZ Causas
 
-Este documento explica cómo se testea el frontend: con qué herramientas, qué se
-testea en cada nivel, dónde va cada archivo y cómo se escribe un test. Lo que
-acordamos en el equipo es que **cada uno testea sus propias features**, así que
-la idea es que todos lo hagamos de la misma forma.
+Este documento explica cómo se testea el frontend: con qué herramientas, **qué
+se testea y qué no**, cuántos tests tiene sentido escribir, dónde va cada
+archivo y cómo se escribe un test. Lo que acordamos en el equipo es que
+**cada uno testea sus propias features**, así que la idea es que todos lo
+hagamos de la misma forma.
 
 Si tenés una duda del tipo "¿este test dónde va?", saltá a
-[Dónde pongo este test](#6-dónde-pongo-este-test).
+[Dónde pongo este test](#9-dónde-pongo-este-test). Si la duda es "¿vale la pena
+este test?", andá a [Antes de escribir un test](#4-antes-de-escribir-un-test).
 
-> **Estado actual:** todo instalado y funcionando. Están escritos los tests de
-> `auth`, `lawyers`, `legal-params`, `users`, el acceso por perfil (por ruta y
-> por acción), las guardas del router, el `AppLayout`, el **servidor falso**
-> (`unit/mocks/`), algunas piezas de `shared` (`Modal`, `Field`, `DetailList`,
-> `PasswordInput` y `useDebouncedValue`) y los tres módulos del Sprint 2:
-> `clients`, `cases` y `proceedings`, con sus páginas. Al 08/10/2026 son **1004
-> de Vitest pasando** en 87 archivos y **24 de Playwright** en 7. Los números
-> son de esa corrida; los de hoy te los dice `npm test`. Los demás componentes
-> de `shared` que se agregaron para el Sprint 2 (`Breadcrumbs`, `Combobox`,
-> `SegmentedControl`, etc.) todavía no tienen test.
+> **Estado actual (09/10/2026):** **173 tests de Vitest** en 41 archivos (65 de
+> `unit/` en 22 y 108 de `components/` en 19) y **9 de Playwright** en 6, todos
+> en verde. Antes de esta revisión eran 1019 de Vitest y 24 de Playwright: se
+> sacaron los tests de piezas sueltas (tablas, modales, filtros), los de
+> funciones triviales y los duplicados entre capas, y se sumó el E2E que faltaba
+> de la transacción principal (registrar una causa y su primer acto). Un repaso
+> posterior sumó los casos de uso que habían quedado sin test (ver
+> [§6](#6-mapa-de-carpetas)). La cobertura de `src/` —sin el servidor falso—
+> quedó en ~88 % de líneas y ~80 % de ramas (antes 93 % y 89 %): es lo esperado y está bien, ver
+> [§1](#1-qué-buscamos-con-los-tests). Los números de hoy te los dice `npm test`.
 > Primera vez en tu máquina: `npm install` y `npx playwright install chromium`,
 > que descarga el navegador de los E2E. Ese segundo paso hay que repetirlo cada
-> vez que se actualiza Playwright (ver [§9](#9-problemas-comunes)).
+> vez que se actualiza Playwright (ver [§14](#14-problemas-comunes)).
 
 ---
 
-## 1. El stack de testing
+## 1. Qué buscamos con los tests
+
+Un test sirve si **nos avisa cuando algo que le importa a una persona se
+rompe** y, cuando falla, **nos dice dónde**. Más tests no es mejor: cada test
+es código que hay que leer, mantener y correr, y un test que repite a otro no
+da confianza extra, sólo un segundo lugar para arreglar cuando algo cambia.
+
+De la documentación de Testing Library, Playwright y Kent C. Dodds sacamos
+cuatro ideas, y son las que ordenan todo lo que sigue:
+
+1. **"Write tests. Not too many. Mostly integration."** La base es el chequeo
+   estático (TypeScript y lint), después las funciones puras, y el grueso son
+   los componentes probados con la API simulada. No hay un porcentaje mágico:
+   cada test es una inversión de tiempo que tiene que dar confianza a cambio.
+2. **Cuanto más se parece un test a cómo se usa el software, más confianza da.**
+   Se prueba lo que ve y hace una persona (leer, escribir, hacer click), nunca
+   la implementación (estado interno, props de un hijo, nombres de funciones).
+3. **Interceptar la red, no mockear el cliente.** Las llamadas salen de verdad
+   por axios y las atrapa MSW.
+4. **Pocos E2E, independientes entre sí, y sin probar lo que no es nuestro.**
+
+Y una quinta, propia de este proyecto: **el frontend no es el dueño de las
+reglas del negocio.** El backend ordena las causas por urgencia, calcula los
+vencimientos y las prescripciones, y decide qué es único. El front *muestra* lo
+que recibe y *valida lo que se escribe antes de mandarlo*. Un test que verifica
+que "las vencidas van primero" está probando el servidor falso, no la pantalla:
+si mañana el backend real ordena distinto, ese test sigue en verde.
+
+
+### Lo que dice la investigación (y por qué la suite es chica)
+
+- **La cobertura no mide si los tests sirven.** Inozemtseva y Holmes (ICSE
+  2014, premio al paper más influyente en 2024) encontraron que, descontado el
+  tamaño de la suite, la cobertura se relaciona poco con la cantidad de fallas
+  que detecta. Por eso **no hay meta de cobertura**: sirve para encontrar código
+  que nadie prueba, no para decidir cuántos tests escribir.
+- **Cada test es un costo.** Khorikov (*Unit Testing Principles, Practices, and
+  Patterns*) mide un test por cuatro cosas: si atrapa regresiones, si sobrevive
+  a un refactor, si es rápido y si es fácil de mantener. El código trivial
+  —mapeos de una línea, componentes que sólo pintan props— no vale un test
+  propio; la lógica de dominio va con test unitario; lo que coordina piezas (una
+  pantalla) va con test de integración.
+- **Se prueban casos de uso, no código** (Kent C. Dodds). Se listan los casos
+  de uso, se ordenan por importancia y se cubren: un E2E del camino feliz de
+  los críticos, tests de pantalla para sus variantes y errores, unitarios para
+  la lógica que lo merece.
+
+La consecuencia práctica: **un archivo de test por pantalla, no por pieza.** La
+tabla, el modal y el filtro de una pantalla se prueban a través de la pantalla.
+Si un cambio en el modal rompe algo que la persona ve, lo atrapa el test de la
+pantalla; si no lo ve, no hacía falta un test.
+
+---
+
+## 2. El stack de testing
 
 | Qué | Con qué | Para qué |
 |---|---|---|
+| Chequeo estático | **TypeScript** (`tsc -b`, dentro de `npm run build`) y **oxlint** (`npm run lint`) | Atrapa tipos mal puestos, tests que no compilan y tests mal escritos. No cuesta nada y corre siempre |
 | Runner de tests unitarios y de componentes | **Vitest** | Usa la misma config de Vite (alias `@`, TypeScript, JSX), no hay que configurar nada aparte |
 | Renderizar componentes | **React Testing Library** | Probar el componente como lo usa una persona: escribir, clickear, leer lo que aparece |
 | Simular el navegador en Node | **jsdom** | Que Vitest tenga `document`, `window`, etc. |
 | Interacciones realistas | **@testing-library/user-event** | Tipear y clickear como un usuario, no disparando eventos a mano |
 | Matchers de DOM | **@testing-library/jest-dom** | `toBeInTheDocument()`, `toBeDisabled()`, `toHaveValue()`… |
-| API simulada | **MSW** (ya instalado) | Los mismos handlers de `src/shared/mocks` que usamos para desarrollar |
+| API simulada | **MSW** | Los mismos handlers de `src/shared/mocks` que usamos para desarrollar |
 | Tests de punta a punta | **Playwright** | Flujos completos en un navegador real |
 
 ---
 
-## 2. Los tres niveles
-
-Hacemos tres tipos de test. Cada uno cubre algo distinto y tiene su costo.
+## 3. Las cuatro capas
 
 ```
             ▲  más lento, más frágil, prueba más cosas juntas
             │
    ┌────────┴────────┐
-   │      e2e/       │  Playwright · pocos · flujos críticos
+   │      e2e/       │  Playwright · camino feliz de lo crítico
    ├─────────────────┤
-   │   components/   │  Vitest + RTL + MSW · la mayoría
+   │   components/   │  Vitest + RTL + MSW · una por pantalla
    ├─────────────────┤
-   │      unit/      │  Vitest · funciones puras · todos los casos
+   │      unit/      │  Vitest · lógica de dominio · reglas en su límite
+   ├─────────────────┤
+   │    estática     │  tsc + oxlint · gratis, en todo momento
    └─────────────────┘
             │
             ▼  más rápido, más preciso para encontrar el error
 ```
 
-### 2.1 `unit/` — funciones puras
+### 3.0 Estática
 
-Lo que está en `schemas/` y `utils/` de cada feature: funciones que reciben
-datos y devuelven datos, sin React y sin red. Ejemplos: `validateLogin`,
-`toCreateLawyerBody`, `buildUserPatch`.
+`npm run build` corre `tsc -b`, y `tsconfig.test.json` incluye `tests/`: **un
+test que no compila rompe el build**. `npm run lint` corre oxlint, con reglas
+específicas para los tests (ver [§12](#12-lint-de-los-tests)).
+
+### 3.1 `unit/` — lógica de dominio
+
+Funciones puras con **reglas que importan** y que la pantalla no recorre
+entera: el cómputo de vencimientos, la prescripción, la tabla de acceso por
+perfil, las reglas de cada esquema (`schemas/`), cómo cambia el formulario al
+cambiar de fuero, la sesión guardada.
 
 - Son los tests más baratos: milisegundos cada uno.
-- Acá se prueban **todos los casos borde**: campos vacíos, espacios, valores
-  límite, combinaciones raras. Es el lugar para ser exhaustivo.
+- **Una regla, un test**, en su caso límite: el DNI acepta 7 y 8 dígitos y
+  rechaza 9; el plazo rechaza `-1` y `10000`. No hace falta probar diez valores
+  inválidos de la misma regla. Si son una tabla, `it.each` con pocas filas.
+- **No llevan test propio** los mapeos de una línea (`toCreate…Body`,
+  `toFormErrors`, formateadores, rótulos): los recorre el camino feliz de la
+  pantalla, y si arman mal el cuerpo, el servidor falso responde `400`.
 - No hace falta `render`, ni MSW, ni providers.
+- Acá va también el test de contrato ([§3.4](#34-el-test-de-contrato)).
 
-En este nivel van también los tests del **servidor falso**, en `unit/mocks/`.
-`resolveRequest` de `@/shared/mocks` es una función común —recibe un pedido y
-devuelve `{ status, body }`—, así que una regla del contrato se prueba sin
-levantar MSW ni renderizar nada (ver
-[§5.4](#54-un-test-del-servidor-falso)). Sirven para dos cosas: confirmar que
-el mock responde lo que dice el contrato, y que los datos semilla no tienen
-referencias rotas.
+### 3.2 `components/` — una pantalla con la API simulada
 
-### 2.2 `components/` — componentes con la API simulada
-
-Formularios, modales, tablas y páginas. Se renderiza el componente, se
-interactúa como lo haría una persona y se verifica lo que aparece en pantalla.
+El grueso. **Un archivo por pantalla** (página o ruta): se renderiza la página,
+se usa como lo haría una persona y se verifica lo que aparece.
 
 - Las llamadas a la API **salen de verdad** por axios y las atrapa MSW con los
   handlers de `src/shared/mocks`. No se mockea axios ni React Query a mano.
-- Se prueba lo que ve el usuario, no la implementación: nada de mirar el
-  estado interno ni las props de un hijo.
-- Para cada form o modal, **mínimo tres casos**: camino feliz, error de
-  validación y error del servidor.
+- Las piezas de la pantalla (su tabla, su modal de alta, sus filtros) **no
+  tienen archivo propio**: se prueban a través de la página.
+- **No se repiten acá las reglas que ya prueba `unit/`.** Si "el SAC tiene 8
+  dígitos" está en `case.schema.test.ts`, la pantalla sólo necesita mostrar que
+  *un* error de validación aparece en su campo. Ver
+  [§5](#5-un-dueño-por-cada-regla).
+- `components/shared/` sólo tiene lo que ninguna pantalla ejercita: el foco
+  atrapado del `Modal`, el teclado del `Combobox`, la demora de
+  `useDebouncedValue`. `components/app/` tiene las guardas del router.
 
-### 2.3 `e2e/` — flujos completos en el navegador
+### 3.3 `e2e/` — flujos completos en el navegador
 
-Playwright levanta la app y la maneja en un navegador real: router, cookies,
+Playwright levanta la app y la maneja en un navegador real: router, sesión,
 navegación entre pantallas, todo junto.
 
 - **Corren contra la app con los mocks encendidos** (`VITE_USE_MOCKS=true`),
-  no contra el backend real. Así son estables, no dependen de que el back ni la
-  base estén levantados, y los tests de uno no le cambian los datos al otro.
-- **Pocos:** entre 1 y 3 flujos por feature. Si un caso se puede probar en
-  `components/`, va ahí.
-- No son para casos borde. Son para confirmar que las piezas conectadas
-  funcionan: "me logueo, creo un abogado, aparece en la tabla".
+  no contra el backend real. Así son estables y no dependen de que el back ni
+  la base estén levantados.
+- **Uno por flujo crítico, sólo el camino feliz.** Hoy son 9: entrar, salir,
+  consultar causas, registrar una causa y su primer acto, y el alta de cada ABM
+  (clientes, abogados, estados, calificaciones, usuarios). Los errores y los
+  perfiles se prueban en `components/`.
+
+### 3.4 El test de contrato
+
+Toda la suite corre contra el servidor falso. Si el servidor falso se desvía
+del backend, **ningún otro test lo avisa**. Para eso está
+`tests/unit/contract/endpoints.test.ts`: compara cada `MÉTODO /ruta` que
+implementa el mock (`ROUTE_TABLE`) con las operaciones que declara la
+especificación OpenAPI en `docs/openapi/`.
+
+- Falla si el mock **inventa** un endpoint que el contrato no tiene, o si
+  **deja sin implementar** uno que el contrato sí tiene.
+- Lee `docs/openapi/` y no `build/openapi.yaml`, porque `build/` se genera y
+  está ignorado por git.
+- **No valida la forma de las respuestas** (los campos de cada JSON). Es la red
+  mínima, sin dependencias nuevas. Validar los cuerpos contra los esquemas de la
+  especificación es el siguiente paso natural; pide sumar un validador (por
+  ejemplo, Ajv) y por eso quedó afuera.
+
+Cuando se agrega un endpoint: primero va en `docs/openapi/`, después en el
+mock. Si falta alguno de los dos, este test lo marca.
 
 ---
 
-## 3. Mapa de carpetas
+## 4. Antes de escribir un test
 
-`tests/` vive en `frontend/`, al lado de `src/`. Adentro de cada nivel se
-**repiten los nombres de las features de `src/features/`**, así cada uno sabe
-cuál es su carpeta. Hay carpetas que no son una feature y siguen la misma
-idea: `app/` para lo de `src/app/` (`unit/app/` para la tabla de acceso,
-`components/app/` para las guardas del router y el `AppLayout`) y
-`components/shared/`, para los componentes de `src/shared/` que tienen
-comportamiento propio.
+Cuatro preguntas. Si la respuesta a alguna es "no", el test no va (o va en
+otro lado):
 
-```
-frontend/
-├── src/                                  el código, no se toca
-├── tests/
-│   ├── setup/                            configuración compartida
-│   │   ├── vitest.setup.ts               enciende MSW y limpia entre tests
-│   │   └── render.tsx                    renderWithProviders()
-│   │
-│   ├── unit/                             Vitest · schemas/ y utils/
-│   │   ├── app/                          las tablas de acceso: por ruta y por acción
-│   │   ├── mocks/                        el servidor falso de src/shared/mocks
-│   │   ├── auth/
-│   │   ├── cases/
-│   │   ├── clients/
-│   │   ├── lawyers/
-│   │   ├── legal-params/
-│   │   ├── proceedings/
-│   │   └── users/
-│   │
-│   ├── components/                       Vitest + RTL + MSW
-│   │   ├── app/                          guardas del router y AppLayout
-│   │   ├── shared/                       componentes de src/shared/
-│   │   ├── auth/
-│   │   ├── cases/
-│   │   ├── clients/
-│   │   ├── lawyers/
-│   │   ├── legal-params/
-│   │   ├── proceedings/
-│   │   └── users/
-│   │
-│   └── e2e/                              Playwright
-│       ├── fixtures/                     helpers compartidos (loginAs, etc.)
-│       ├── access.spec.ts
-│       ├── auth.spec.ts
-│       ├── cases.spec.ts
-│       ├── clients.spec.ts
-│       ├── lawyers.spec.ts
-│       ├── legal-params.spec.ts
-│       └── users.spec.ts
-│
-├── vitest.config.ts
-├── playwright.config.ts
-└── tsconfig.test.json                    los tests se chequean en `npm run build`
-```
+1. **¿Es un caso de uso o una regla que importa?** Algo que una persona hace o
+   nota (registrar, buscar, ver un error en su campo, no poder entrar), o una
+   regla de dominio (un plazo, una prescripción, quién puede qué). Si es un
+   detalle de cómo está armado el código, no.
+2. **¿La regla es del frontend y no la prueba ya su dueño?** Si es del backend
+   (el orden del listado, que algo sea único) se prueba sólo que la pantalla
+   *muestra* lo que recibe. Si ya la prueba otro nivel ([§5](#5-un-dueño-por-cada-regla)),
+   no se repite.
+3. **¿Seguiría pasando si cambia la implementación pero no lo que ve la
+   persona?** Si se rompe por renombrar una función, mover un estado o partir
+   un componente en dos, está probando la implementación: reescribilo.
+4. **Si falla, ¿el nombre del test dice qué se rompió?** Un test = un
+   comportamiento que la persona nota.
 
-Los tests tienen el mismo chequeo de tipos que el código: `tsconfig.test.json`
-está referenciado desde `tsconfig.json`, así que **un test que no compila
-rompe el build**.
+### Cuántos tests lleva cada pieza
 
-Las features que todavía no tienen código (`dashboard`, `deadlines`,
-`documents`) **no tienen carpeta en `tests/`**. Las del Sprint 2 —`clients`,
-`cases` y `proceedings`— tienen los tests de sus esquemas, utilidades,
-componentes y páginas, salvo las piezas que se listan en
-[§3.1](#31-el-detalle-por-feature). La carpeta se crea cuando alguien empieza a
-trabajar la feature (ver [sección 7](#7-cuando-arrancás-una-feature-nueva)).
-`home` sí tiene código y tampoco tiene carpeta: su `HomePage` es presentación
-pura, ver [§3.2](#32-lo-que-no-se-testea-a-propósito).
+Es un techo, no una cuota. Si te pasás, probablemente estás repitiendo:
 
-### 3.1 El detalle por feature
+| Pieza | Tests | Qué cubren |
+|---|---|---|
+| Esquema (`schemas/`) | 1 por regla no obvia, en su límite | Formato, rango, reglas cruzadas entre campos. No cada valor inválido, ni "es obligatorio" (lo prueba la pantalla con el envío vacío) |
+| Función de dominio (`utils/` con lógica) | 1 por rama que importa | Cortes (vence hoy, en 5 días, en 6), cálculos, combinaciones |
+| Mapeo, formateador, rótulo | 0 | Los cubre la pantalla |
+| Tabla, modal, filtro o panel de una pantalla | 0 propios | Se prueban en el test de la pantalla |
+| Pantalla de ABM | 6 a 10 | Lista cargada, vacío o búsqueda sin resultados, error de carga, alta feliz, envío vacío (el error en su campo), conflicto del servidor (409) en su campo, error general, edición, baja, el permiso que la habilita |
+| Pantalla de una transacción (alta de causa, registro de acto) | 8 a 12 | Cada variante del camino feliz, la validación que cambia según lo elegido, errores del servidor, quién puede operarla |
+| Componente de `shared/` | sólo lo que ninguna pantalla recorre | Teclado, foco, tiempos |
+| Flujo E2E | 1 por flujo crítico | El camino feliz |
+| Un bug que se arregló | 1 | El caso que lo reproducía, en el nivel más bajo que lo muestre |
 
-Esto es lo que hay que testear **hoy**, según el código que existe:
+**Señales de alarma:** un archivo de test para una tabla o un modal; una
+pantalla con más de 12 tests; el mismo caso en `unit/` y en `components/`; diez
+filas de `it.each` para la misma regla; un test que afirma el orden o un valor
+que *calcula el mock*; un test que se rompe al partir un componente sin cambiar
+la pantalla.
 
-```
-tests/
-├── unit/
-│   ├── app/
-│   │   ├── access.test.ts                  ROUTE_ACCESS y canAccess
-│   │   └── actionAccess.test.ts            ACTION_ACCESS y can: quién opera cada acción
-│   ├── mocks/
-│   │   ├── helpers.ts                      call(), dataOf(), errorOf() y usePrototypeToday()
-│   │   ├── calendar.test.ts                días hábiles, corridos y businessDaysRemaining
-│   │   ├── seeds.test.ts                   coherencia de los datos semilla
-│   │   ├── cases.test.ts                   /cases: alta, listado, filtros, detalle
-│   │   ├── proceduralActs.test.ts          registro de acto y deadline-preview
-│   │   └── parametrization.test.ts         permisos por perfil, calificaciones, clientes, estados
-│   ├── auth/
-│   │   ├── login.schema.test.ts
-│   │   ├── changePassword.schema.test.ts
-│   │   ├── profileLabel.test.ts
-│   │   └── sessionStorage.test.ts
-│   ├── cases/
-│   │   ├── case.schema.test.ts             fecha del hecho y objeto del reclamo obligatorios
-│   │   ├── caseForm.test.ts                emptyCaseForm y changeJurisdiction
-│   │   ├── caseState.test.ts               el nombre del estado lo manda el backend ("Iniciada")
-│   │   ├── deadlineStatus.test.ts          el chip del vencimiento: vencida, hoy, próximos días, sin plazo
-│   │   ├── prescription.test.ts            nearestQualification, prescriptionProgress, estimatedExpiry
-│   │   ├── responsibleLawyer.test.ts       isResponsibleLawyer: quién registra los actos de una causa
-│   │   ├── stateFilter.test.ts             el filtro de estado: una sola de sus tres clases por vez
-│   │   ├── suggestedCaption.test.ts        la carátula sugerida del alta
-│   │   └── toCreateCaseBody.test.ts        el cuerpo del alta de causa
-│   ├── clients/
-│   │   ├── client.schema.test.ts           obligatorios, DNI de 7 u 8 dígitos, correo, largos
-│   │   ├── clientFormat.test.ts            apellido primero, DNI con puntos, normalizeDni
-│   │   └── toCreateClientBody.test.ts      el cuerpo del alta
-│   ├── lawyers/
-│   │   ├── lawyer.schema.test.ts
-│   │   └── toCreateLawyerBody.test.ts
-│   ├── legal-params/
-│   │   ├── proceduralState.schema.test.ts
-│   │   ├── buildProceduralStatePatch.test.ts
-│   │   ├── toCreateProceduralStateBody.test.ts
-│   │   ├── toFormErrors.test.ts
-│   │   ├── dayTypeTone.test.ts
-│   │   ├── legalQualification.schema.test.ts
-│   │   ├── prescription.test.ts            formatPrescription, toPrescriptionMonths, splitPrescription
-│   │   ├── toCreateLegalQualificationBody.test.ts
-│   │   └── toLegalQualificationFormErrors.test.ts
-│   ├── proceedings/
-│   │   ├── states.ts                       un ciclo penal chico, compartido por estos tests
-│   │   ├── values.ts                       el formulario del acto recién abierto
-│   │   ├── proceduralAct.schema.test.ts    validateProceduralAct
-│   │   ├── stateOptions.test.ts            los estados que se ofrecen como destino de un acto
-│   │   ├── resolveState.test.ts            lo elegido o lo escrito → estado de la tabla o escrito a mano
-│   │   ├── terminalState.test.ts           isInTerminalState
-│   │   ├── deadlinePreview.test.ts         cuándo se pide el cómputo del vencimiento
-│   │   ├── dueDateText.test.ts             los textos del vencimiento
-│   │   ├── toCreateProceduralActBody.test.ts
-│   │   └── toFormErrors.test.ts
-│   └── users/
-│       ├── user.schema.test.ts
-│       ├── toCreateUserBody.test.ts
-│       ├── buildUserPatch.test.ts
-│       ├── lawyerLink.test.ts
-│       └── roles.test.ts
-│
-├── components/
-│   ├── app/
-│   │   ├── RequireSession.test.tsx         sin sesión → redirige al login
-│   │   ├── RedirectIfSession.test.tsx      con sesión → no deja ver el login
-│   │   ├── RequireAccess.test.tsx          sin permiso → "Sin acceso"
-│   │   └── AppLayout.test.tsx              el rail muestra sólo lo que el perfil puede abrir
-│   ├── shared/
-│   │   ├── Modal.test.tsx                  Escape, foco atrapado, click en el fondo, fondo sin scroll
-│   │   ├── Field.test.tsx                  Field (nota, error, hint) y DetailList (raya, note)
-│   │   ├── PasswordInput.test.tsx          el ojo que muestra y oculta la contraseña
-│   │   └── useDebouncedValue.test.ts       la demora del buscador
-│   ├── auth/
-│   │   ├── LoginForm.test.tsx
-│   │   ├── LoginPage.test.tsx
-│   │   ├── ChangePasswordModal.test.tsx
-│   │   └── tokenRenewal.test.tsx           renovación del token y sesión vencida
-│   ├── cases/
-│   │   ├── CaseForm.test.tsx               lo que pide cada fuero, el objeto y su contador
-│   │   ├── LegalQualificationPicker.test.tsx   la fecha del hecho de cada calificación
-│   │   ├── CaseSummaryAside.test.tsx       el estado inicial "Iniciada" y la prescripción por calificación
-│   │   ├── CasesTable.test.tsx             CasesTable (orden, vencimiento, "Sin SAC") y CaseHeader
-│   │   ├── CaseFilters.test.tsx            los cuatro filtros del listado y "Limpiar filtros"
-│   │   ├── CasesPage.test.tsx              listado por urgencia, búsqueda, filtros, perfiles (HU-20)
-│   │   ├── RegisterCasePage.test.tsx       el alta de causa (HU-18)
-│   │   └── CaseDetailPage.test.tsx         el detalle de causa (HU-22)
-│   ├── clients/
-│   │   ├── ClientsTable.test.tsx           columnas, raya en lo que falta, "Sin causas"
-│   │   ├── ClientFormModal.test.tsx        campos, obligatorios, errores por campo
-│   │   └── ClientsPage.test.tsx            listado, búsqueda, perfiles y alta
-│   ├── proceedings/
-│   │   ├── ProceduralActForm.test.tsx      campos por fuero; sin la nota de RN13
-│   │   ├── DeadlinePreviewAside.test.tsx   el panel "Cómputo del plazo"
-│   │   └── RegisterProceduralActPage.test.tsx   registrar un acto (HU-26)
-│   ├── lawyers/
-│   │   ├── LawyerFormModal.test.tsx
-│   │   ├── LawyersTable.test.tsx
-│   │   └── LawyersPage.test.tsx
-│   ├── legal-params/
-│   │   ├── ProceduralStateFormModal.test.tsx
-│   │   ├── DeleteProceduralStateModal.test.tsx
-│   │   ├── ProceduralStatesTable.test.tsx
-│   │   ├── ProceduralStatesPage.test.tsx
-│   │   ├── LegalQualificationFormModal.test.tsx
-│   │   ├── LegalQualificationsTable.test.tsx
-│   │   └── LegalQualificationsPage.test.tsx    consulta y alta de calificaciones legales
-│   └── users/
-│       ├── UserFormModal.test.tsx
-│       ├── DeleteUserModal.test.tsx
-│       ├── UsersTable.test.tsx
-│       └── UsersPage.test.tsx
-│
-└── e2e/
-    ├── fixtures/
-    │   └── auth.ts                         loginAs('admin'), goTo(page, 'Usuarios')
-    ├── access.spec.ts                      qué secciones ve cada perfil en el menú
-    ├── auth.spec.ts                        login, logout, cambio de contraseña, sesión vencida
-    ├── cases.spec.ts                       consultar causas: filtrar, buscar y abrir un detalle
-    ├── clients.spec.ts                     registrar un cliente y buscarlo
-    ├── lawyers.spec.ts                     crear abogado y verlo en la tabla
-    ├── legal-params.spec.ts                crear, editar y borrar estado procesal; registrar una calificación
-    └── users.spec.ts                       crear, editar y borrar usuario
-```
+---
 
-**Los tests de `clients` (HU-8 y HU-9) y los del listado de causas (HU-20) se
-escribieron antes que la feature**, desde los criterios de aceptación de cada
-historia (ver [§7](#7-cuando-arrancás-una-feature-nueva)). Mientras la página
-no existía, los que la importaban fallaban; por eso viajaron en la rama de la
-feature y no sueltos. Hoy pasan todos.
+## 5. Un dueño por cada regla
 
-**Todos los tests siguen la revisión del 05/10/2026 del contrato**, igual que
-el código que prueban (el detalle está en `frontend/CLAUDE.md`, "Revisiones del
-contrato").
+Cada regla se prueba **en un solo lugar**. En los demás niveles, a lo sumo se
+prueba que la pieza está conectada.
 
-**Lo que existe y todavía no tiene test propio.** De `cases`: `PrescriptionBar`
-y `ClientCard`, que sólo se prueban a través de `CaseDetailPage`, y `sacLabel`,
-a través de las tablas y los encabezados. De `legal-params`:
-`DeleteLegalQualificationModal`, que todavía no usa ninguna pantalla. Y los
-componentes de `shared` del Sprint 2 (`Breadcrumbs`, `Combobox`,
-`SegmentedControl`, `Meter`, `Avatar`).
+| Regla | Dueño | En las pantallas sólo se prueba… |
+|---|---|---|
+| Formato, rango y reglas cruzadas de un campo (SAC, DNI, matrícula, fecha no futura, plazo y tipo de día) | `unit/<feature>/*.schema` | que *un* error aparece en su campo (el envío vacío) |
+| Cómo se arma el cuerpo que se manda a la API | **nadie aparte** | el camino feliz de la pantalla: si el cuerpo está mal, el mock responde `400` |
+| Cómo cambia el formulario al elegir otra cosa (`changeJurisdiction`, `changeSacNumber`) | `unit/cases/caseForm` | que la pantalla muestra los campos del fuero elegido |
+| Vencimientos, prescripción, cómputo del plazo de un acto | `unit/cases/deadlineStatus`, `unit/cases/prescription`, `unit/proceedings/deadlinePreview` | que se muestra el valor |
+| Orden del listado, unicidad, qué ve cada perfil | **Backend** | que se muestra lo que llega, y que un `409` va a su campo |
+| Respuesta `400`, `409` o `500` del servidor | la pantalla | un test de cada una por formulario |
+| Quién entra a cada sección y quién opera cada acción | `unit/app/access` y `unit/app/actionAccess` | un perfil habilitado y uno no, en la guarda o la pantalla |
+| Sesión guardada y renovación del token | `unit/auth/sessionStorage` y `components/auth/tokenRenewal` | nada |
+| Que el mock sea el contrato | `unit/contract/endpoints` | nada |
+| Foco del `Modal`, teclado del `Combobox` | `components/shared/` | nada |
+| Cómo se presenta un dato (una raya, "Sin SAC", el chip de vencimiento) | la pantalla que lo muestra | — |
 
-### 3.2 Lo que no se testea (a propósito)
+### Lo que no se testea (a propósito)
 
 | Qué | Por qué |
 |---|---|
-| `api/` (hooks y llamadas a axios) | Ya quedan cubiertos por los tests de `components/`, que pasan por MSW |
+| Un porcentaje de cobertura | La cobertura no dice si los tests atrapan fallas ([§1](#1-qué-buscamos-con-los-tests)); se mira sólo para encontrar código que nadie prueba |
+| Tablas, modales, filtros y paneles por separado | Se prueban a través de su pantalla; un test propio sólo repite y se rompe al refactorizar |
+| Mapeos, formateadores y rótulos (`toCreate…Body`, `toFormErrors`, `formatDni`, `profileLabel`) | Los recorre el camino feliz de la pantalla |
+| Cada valor inválido de una regla | Alcanza con el límite: un valor de cada lado |
+| El servidor falso y sus datos semilla | Es andamiaje de desarrollo. La verdad es el backend y el contrato; el contrato lo cubre `unit/contract` |
+| El orden, filtro o cálculo que hace el backend | El front sólo lo muestra |
+| Que la pantalla **no** ofrezca algo fuera de alcance (Drive, modificar, dar de baja) | Se revisa en el PR; el test se rompe el día que llega el sprint siguiente |
+| `api/` (hooks y llamadas a axios) | Quedan cubiertos por los tests de pantalla, que pasan por MSW |
 | `types/` y `*.keys.ts` | Son tipos y constantes, no tienen lógica |
-| `LoginAside`, layouts, `HomePage` | Presentación pura, hoy no tienen lógica que valga la pena testear |
+| `LoginAside`, layouts, `HomePage`, textos y estilos | Presentación pura; la recorren los E2E |
 
-Si alguno de estos empieza a tener lógica (un hook que transforma datos, un
-layout que decide qué mostrar según el rol), pasa a tener test.
+Si alguno de los últimos empieza a tener lógica (un hook que transforma datos,
+un layout que decide qué mostrar según el rol), pasa a tener test.
 
 **La excepción a lo de `api/`** es `tests/components/auth/tokenRenewal.test.tsx`.
 Lo que prueba ahí no es la llamada de una feature sino el interceptor de
@@ -337,13 +277,110 @@ casualidad, así que tiene test propio.
 
 ---
 
-## 4. Convenciones
+## 6. Mapa de carpetas
 
-### 4.1 Nombres de archivo
+`tests/` vive en `frontend/`, al lado de `src/`. Adentro de cada nivel se
+**repiten los nombres de las features de `src/features/`**, así cada uno sabe
+cuál es su carpeta. Hay carpetas que no son una feature y siguen la misma
+idea: `app/` para lo de `src/app/` (`unit/app/` para la tabla de acceso,
+`components/app/` para las guardas del router y el `AppLayout`),
+`components/shared/` para el comportamiento de `src/shared/` que ninguna
+pantalla recorre, y `unit/contract/` para el test de contrato.
+
+```
+frontend/
+├── src/                                  el código, no se toca
+├── scripts/
+│   └── ca-matrix.mjs                     genera la matriz de criterios (ver §10)
+├── tests/
+│   ├── setup/                            configuración compartida
+│   │   ├── vitest.setup.ts               enciende MSW y limpia entre tests
+│   │   ├── render.tsx                    renderWithProviders() y signInAs()
+│   │   └── clock.ts                      usePrototypeToday(): fija el día del prototipo
+│   │
+│   ├── unit/                             Vitest · lógica de dominio y esquemas
+│   │   ├── app/                          las tablas de acceso: por ruta y por acción
+│   │   ├── contract/                     el mock ⟷ la especificación OpenAPI
+│   │   ├── auth/
+│   │   ├── cases/
+│   │   ├── clients/
+│   │   ├── lawyers/
+│   │   ├── legal-params/
+│   │   ├── proceedings/
+│   │   └── users/
+│   │
+│   ├── components/                       Vitest + RTL + MSW · un archivo por pantalla
+│   │   ├── app/                          guardas del router y AppLayout
+│   │   ├── shared/                       foco, teclado y tiempos de src/shared/
+│   │   ├── auth/
+│   │   ├── cases/
+│   │   ├── clients/
+│   │   ├── lawyers/
+│   │   ├── legal-params/
+│   │   ├── proceedings/
+│   │   └── users/
+│   │
+│   └── e2e/                              Playwright
+│       ├── fixtures/                     helpers compartidos (loginAs, etc.)
+│       └── <feature>.spec.ts
+│
+├── vitest.config.ts
+├── playwright.config.ts
+└── tsconfig.test.json                    los tests se chequean en `npm run build`
+```
+
+Las features que todavía no tienen código (`dashboard`, `deadlines`,
+`documents`) **no tienen carpeta en `tests/`**. La carpeta se crea cuando
+alguien empieza a trabajar la feature (ver [sección 11](#11-cuando-arrancás-una-feature-nueva)).
+`home` sí tiene código y tampoco tiene carpeta: su `HomePage` es presentación
+pura.
+
+### Cuántos tests hay en cada módulo
+
+Tests que corren al 09/10/2026 (un `it.each` cuenta una vez por fila):
+
+| Módulo | `unit/` | `components/` | `e2e/` |
+|---|---:|---:|---:|
+| `app` (acceso, guardas, layout) | 5 | 7 | — |
+| `auth` | 4 | 12 | 2 |
+| `cases` | 22 | 27 | 2 |
+| `clients` | 5 | 10 | 1 |
+| `lawyers` | 3 | 7 | 1 |
+| `legal-params` | 8 | 17 | 2 |
+| `proceedings` | 7 | 11 | — |
+| `users` | 8 | 13 | 1 |
+| `shared` | — | 4 | — |
+| `contract` | 3 | — | — |
+| **Total** | **65** | **108** | **9** |
+
+El registro de actos (`proceedings`) tiene su E2E dentro de `cases.spec.ts`,
+porque el flujo arranca en el alta de la causa.
+
+Cada pantalla tiene un archivo: `CasesPage`, `CaseDetailPage`,
+`RegisterCasePage`, `RegisterProceduralActPage`, `ClientsPage`, `LawyersPage`,
+`ProceduralStatesPage`, `LegalQualificationsPage`, `UsersPage` y `LoginPage`,
+más `ChangePasswordModal`, que se abre desde cualquier pantalla. Las piezas que
+usan (tablas, modales, filtros, paneles) no tienen archivo propio, a propósito.
+
+**Repaso del 09/10/2026.** Después del recorte se cruzó lo que hace cada pantalla
+con lo que prueban los tests y se sumaron los casos de uso que no tenían ninguno:
+registrar una calificación desde el alta de causa (CA-48.8), registrar un acto
+con un estado escrito a mano y con el vencimiento ajustado a mano, el aviso sin
+red, el buscador de Usuarios, Abogados y Estados, el filtro por perfil, la ficha
+ya vinculada a otro usuario, y en Causas el cambio de fuero con un estado elegido
+y "Limpiar filtros". Quedan sin test propio, a propósito: el plazo 0 que oculta
+el tipo de día, la edición sin cambios, el error al eliminar un estado, el click
+en el fondo del modal y la página 404.
+
+---
+
+## 7. Convenciones
+
+### 7.1 Nombres de archivo
 
 | Nivel | Termina en | Ejemplo |
 |---|---|---|
-| `unit/` y `components/` | `.test.ts` / `.test.tsx` | `LoginForm.test.tsx` |
+| `unit/` y `components/` | `.test.ts` / `.test.tsx` | `LoginPage.test.tsx` |
 | `e2e/` | `.spec.ts` | `auth.spec.ts` |
 
 La diferencia no es de estilo: **Vitest agarra sólo los `.test.*` y Playwright
@@ -353,7 +390,7 @@ va a intentar correr y va a fallar.
 El nombre del test repite el nombre del archivo que prueba:
 `buildUserPatch.ts` → `buildUserPatch.test.ts`.
 
-### 4.2 Idioma
+### 7.2 Idioma
 
 Igual que el resto del código: **nombres en inglés, textos en castellano**. Las
 descripciones de `describe` / `it` van en castellano, porque es lo que se lee
@@ -366,7 +403,7 @@ describe('validateLogin', () => {
 })
 ```
 
-### 4.3 Imports
+### 7.3 Imports
 
 Siempre con el alias `@`, igual que en `src/`. Nunca `../../../src/...`.
 
@@ -374,7 +411,7 @@ Siempre con el alias `@`, igual que en `src/`. Nunca `../../../src/...`.
 import { validateLogin } from '@/features/auth/schemas/login.schema'
 ```
 
-### 4.4 Cómo buscar elementos en pantalla
+### 7.4 Cómo buscar elementos en pantalla
 
 En orden de preferencia (es el orden que recomienda Testing Library):
 
@@ -387,41 +424,55 @@ En orden de preferencia (es el orden que recomienda Testing Library):
 Si no podés encontrar un elemento por su rol o su label, muchas veces es señal
 de que al componente le falta accesibilidad (un `<label>` o un `aria-label`).
 
+Y unas pocas reglas más de Testing Library que evitan tests frágiles:
+
+- **Escribir con `user.type`**, no con `fireEvent.change`: simula el tecleo de
+  verdad.
+- **Esperar con `findBy*`**, no con `waitFor(() => getBy*)`. Un `waitFor` lleva
+  *una* aserción adentro, nunca una acción ni un callback vacío.
+- **`getBy*` para lo que tiene que estar, `queryBy*` sólo para comprobar que
+  no está** (`expect(queryByText(…)).not.toBeInTheDocument()`).
+- **Matchers de `jest-dom`**: `toBeDisabled()`, no `expect(button.disabled).toBe(true)`.
+- **No uses `container.querySelector`** ni clases CSS para buscar: si hace
+  falta, el componente necesita un rol o una etiqueta.
+- **No envuelvas en `act`** lo que ya viene envuelto (`render`, `user.*`), ni
+  lo uses para silenciar una advertencia.
+
 ---
 
-## 5. Cómo se escribe cada tipo de test
+## 8. Cómo se escribe cada tipo de test
 
 > Los ejemplos están simplificados. Para ver casos completos, mirá los tests
 > que ya existen: `tests/components/users/UsersPage.test.tsx` es el más
 > completo (listado, alta, edición y baja).
 
-### 5.1 Un test de `unit/`
+### 8.1 Un test de `unit/`
 
 ```ts
-// tests/unit/auth/login.schema.test.ts
-import { describe, it, expect } from 'vitest'
-import { validateLogin } from '@/features/auth/schemas/login.schema'
+// tests/unit/cases/deadlineStatus.test.ts
+import { describe, expect, it } from 'vitest'
+import { deadlineStatus } from '@/features/cases/utils/deadlineStatus'
 
-describe('validateLogin', () => {
-    it('no devuelve errores si los dos campos están completos', () => {
-        expect(validateLogin({ username: 'admin', password: 'secreta' })).toEqual({})
+const dueIn = (days: number) => ({ dueDate: '2026-09-15', businessDaysRemaining: days })
+
+describe('deadlineStatus', () => {
+    /* CA-20.5: los cortes que ve la persona en el listado. */
+    it('con 0 días hábiles dice "Vence hoy", en rojo', () => {
+        expect(deadlineStatus(dueIn(0))).toEqual({ label: 'Vence hoy', tone: 'danger', dot: true })
     })
 
-    it('marca el usuario si sólo tiene espacios', () => {
-        expect(validateLogin({ username: '   ', password: 'secreta' })).toEqual({
-            username: 'El nombre de usuario es obligatorio.',
-        })
-    })
-
-    it('acepta una contraseña que es sólo un espacio', () => {
-        expect(validateLogin({ username: 'admin', password: ' ' })).toEqual({})
+    it.each([
+        [5, 'En 5 días hábiles'],   // el último que se destaca
+    ])('con %i días hábiles dice "%s", en bronce', (days, label) => {
+        expect(deadlineStatus(dueIn(days))).toEqual({ label, tone: 'warn', dot: true })
     })
 })
 ```
 
-Entrada → salida. Nada más.
+Entrada → salida. Nada más. Se prueban **los cortes** (0, 5, 6), no cada día:
+el 2 y el 3 caen en la misma rama que el 5.
 
-### 5.2 Un test de `components/`
+### 8.2 Un test de `components/`
 
 ```tsx
 // tests/components/auth/LoginPage.test.tsx
@@ -498,12 +549,14 @@ atajo sólo funciona en `/users`. Para el resto, el error se fuerza con
 y conviene responder un `403` y no un `500`: las consultas reintentan los `5xx`
 y el test tardaría segundos en ver el error.
 
-#### Componentes presentacionales
+#### Las piezas de una pantalla
 
-Los modales y tablas que sólo reciben props y avisan con callbacks
-(`LawyerFormModal`, `UsersTable`, `LoginForm`…) no necesitan providers: se
-renderizan con `render` a secas y funciones espía (`vi.fn()`). Lo que hace la
-pantalla con esos avisos se prueba en el test de la página.
+Los modales, tablas y filtros que sólo reciben props y avisan con callbacks
+(`LawyerFormModal`, `UsersTable`, `CaseFilters`…) **no tienen test propio**:
+se prueban a través de la página que los usa, que es como los ve la persona.
+Un test de la pieza con `render` y `vi.fn()` afirma que "se llamó a
+`onChange` con tal clave", que es un detalle de implementación: se rompe al
+reorganizar el componente aunque la pantalla siga andando igual.
 
 #### Cuando la pantalla muestra datos viejos mientras carga
 
@@ -596,18 +649,14 @@ afterEach(() => {
 Con el reloj fijo, las seis causas del prototipo tienen exactamente sus
 vencimientos del prototipo (16/09, 11/09, 18/09…). `toFake: ['Date']` importa:
 si se falsean también los temporizadores, `findByText` y `waitFor` se quedan
-esperando para siempre. En `tests/unit/mocks/helpers.ts` está hecho como
-`usePrototypeToday()`.
+esperando para siempre. En `tests/setup/clock.ts` está hecho como
+`usePrototypeToday()`: importalo en vez de copiar el bloque.
 
 Lo mismo vale para una validación que compara contra hoy (`validateCase`,
 `validateProceduralAct`): sin fijar el día, "no puede ser posterior a hoy" se
 prueba con una fecha que algún día deja de ser futura.
 
-Los componentes que **reciben** el dato ya calculado (`CasesTable` con su
-`businessDaysRemaining`, `PrescriptionBar` con su prop `today`) no necesitan
-nada de esto: se les pasa el valor y listo.
-
-### 5.3 Un test de `e2e/`
+### 8.3 Un test de `e2e/`
 
 ```ts
 // tests/e2e/lawyers.spec.ts
@@ -676,91 +725,80 @@ La suite queda en verde, y el día que se arregle, Playwright avisa que el test
 "pasó inesperadamente" para que se saque la marca. Hoy no hay ningún test
 marcado así.
 
-### 5.4 Un test del servidor falso
-
-```ts
-// tests/unit/mocks/cases.test.ts
-import { describe, expect, it } from 'vitest'
-import type { Case } from '@/shared/mocks'
-import { call, dataOf, errorOf, usePrototypeToday } from './helpers'
-
-describe('mock · POST /cases', () => {
-    usePrototypeToday()
-
-    it('la causa nace en el estado inicial, "Iniciada" (D-34)', () => {
-        const response = call('POST', '/cases', { as: 'gestion', body: CRIMINAL_BODY })
-
-        expect(response.status).toBe(201)
-        expect(dataOf<Case>(response).currentState).toMatchObject({ name: 'Iniciada', initial: true })
-    })
-
-    it('un SAC ya registrado responde 409', () => {
-        const response = call('POST', '/cases', { as: 'gestion', body: { ...CRIMINAL_BODY, sacNumber: '13284571' } })
-
-        expect(errorOf(response).code).toBe('CASE_SAC_ALREADY_EXISTS')
-    })
-})
-```
-
-Sin `render`, sin MSW y sin esperar nada: `call` arma el pedido y llama a
-`resolveRequest`. Los helpers están en `tests/unit/mocks/helpers.ts`:
-
-| Helper | Qué hace |
-|---|---|
-| `call(method, path, { as, body, query })` | Hace el pedido como ese usuario de los fixtures. Sin `as`, va sin token (para el `401`) |
-| `dataOf<T>(response)` | El `data` de una respuesta exitosa |
-| `errorOf(response)` | El `error` de una fallida: `code`, `message`, `details` |
-| `usePrototypeToday()` | Fija el día en el 15/09/2026 y rearma la base, en cada test del `describe` |
-
-**Cuándo se escribe uno de estos.** Cada vez que se agrega o se cambia un
-endpoint del mock: un test por regla del contrato (qué valida, qué devuelve,
-quién puede). Y cuando se agregan datos semilla, `seeds.test.ts` ya revisa
-solo que no haya referencias rotas —una causa con un cliente que no existe, un
-acto con un estado de otro fuero—; si la semilla nueva trae una regla nueva,
-se suma ahí.
-
-No reemplazan a los tests de `components/`: prueban que el mock cumple el
-contrato, no que la pantalla lo use bien.
-
 ---
 
-## 6. Dónde pongo este test
+## 9. Dónde pongo este test
 
 | Quiero probar… | Va en | Herramienta |
 |---|---|---|
 | Una validación de `schemas/` | `tests/unit/<feature>/` | Vitest |
-| Una función de `utils/` | `tests/unit/<feature>/` | Vitest |
-| Que un form muestre los errores | `tests/components/<feature>/` | Vitest + RTL |
+| Una función de `utils/` con lógica de dominio (plazos, prescripción, acceso) | `tests/unit/<feature>/` | Vitest |
+| Un mapeo o un formateador | ningún test propio: lo recorre la pantalla | — |
+| Que un form muestre el error de un campo | `tests/components/<feature>/` | Vitest + RTL |
 | Que un modal llame a la API y cierre | `tests/components/<feature>/` | Vitest + RTL + MSW |
 | Que una página muestre la lista, el vacío o el error | `tests/components/<feature>/` | Vitest + RTL + MSW |
 | Que una ruta protegida redirija | `tests/components/app/` | Vitest + RTL |
-| El comportamiento propio de un componente de `shared/` | `tests/components/shared/` | Vitest + RTL |
-| Que el mock responda lo que dice el contrato | `tests/unit/mocks/` | Vitest (`resolveRequest`, sin MSW) |
-| Que los datos semilla sean coherentes entre sí | `tests/unit/mocks/seeds.test.ts` | Vitest |
+| Una tabla, un modal o un filtro de una pantalla | el test de **esa pantalla** | Vitest + RTL + MSW |
+| Teclado, foco o tiempos de un componente de `shared/` que ninguna pantalla recorre | `tests/components/shared/` | Vitest + RTL |
+| Que el mock no invente ni olvide endpoints del contrato | `tests/unit/contract/` | Vitest |
 | Un flujo que pasa por varias pantallas | `tests/e2e/<feature>.spec.ts` | Playwright |
 | Algo que se repite en muchos E2E (login) | `tests/e2e/fixtures/` | Playwright |
+| Fijar el día del prototipo | `tests/setup/clock.ts` (`usePrototypeToday()`) | Vitest |
 
-**Regla práctica:** si lo podés probar en un nivel más abajo, probalo ahí. Un
-caso borde de validación en E2E es lento y, cuando falla, no te dice dónde está
-el problema.
+**Regla práctica:** la regla de dominio va en `unit/`, el caso de uso en la
+pantalla y sólo el camino feliz del flujo crítico en E2E. Un caso borde en E2E
+es lento y, cuando falla, no dice dónde está el problema. Y si la regla ya
+tiene dueño ([§5](#5-un-dueño-por-cada-regla)), no la repitas en otro nivel.
 
 ---
 
-## 7. Cuando arrancás una feature nueva
+## 10. Trazabilidad con los criterios de aceptación
 
-Cuando empieces a programar una feature:
+Cada test que sale de un criterio de aceptación lo dice en un comentario
+(`/* CA-8.4 */`). El script `ca-matrix` junta esos comentarios y arma la
+matriz **criterio → tests**:
+
+```bash
+npm run ca-matrix        # regenera docs/Frontend-Architecture/MATRIZ_CA.md
+```
+
+La matriz sirve para dos cosas: ver de un vistazo qué criterio no tiene ningún
+test, y saber qué se rompe si se toca una pantalla. Se regenera cada vez que se
+agrega o se borra un test con criterio; el archivo está versionado, así que el
+cambio se ve en el PR.
+
+Dos convenciones:
+
+- **Un criterio que prueba el backend** (el orden de los estados, un plazo, una
+  unicidad) no se repite en el front. Se deja marcado en el encabezado del
+  archivo del test con `@backend CA-x.y`, y la matriz lo muestra como "dueño:
+  backend". Hoy hay uno: CA-9.11.
+- **Borrar un test no puede dejar un criterio huérfano.** Si el test que se va
+  era el único que citaba un CA, o se mueve el comentario al test que queda, o
+  se justifica con `@backend`.
+
+---
+
+## 11. Cuando arrancás una feature nueva
 
 1. Creá `tests/unit/<feature>/` y `tests/components/<feature>/`.
-2. Por cada archivo de `schemas/` y `utils/` → un `.test.ts` en `unit/<feature>/`.
-3. Por cada form, modal, tabla o página → un `.test.tsx` en
-   `components/<feature>/`.
-4. Si la feature tiene un flujo importante de punta a punta → `e2e/<feature>.spec.ts`.
-5. Si la feature usa endpoints nuevos, primero tienen que estar en los mocks
-   (`src/shared/mocks`). Sin handler, el test falla a propósito (ver abajo).
-   Los del Sprint 2 ya están; un endpoint que se agregue lleva su test en
-   `tests/unit/mocks/`.
+2. Por cada esquema de `schemas/` con reglas no obvias → un `.test.ts` en
+   `unit/<feature>/`, un test por regla en su límite. Una función de `utils/`
+   lleva test si tiene lógica de dominio (plazos, cálculos, permisos); un mapeo
+   o un formateador no ([§4](#4-antes-de-escribir-un-test)).
+3. Por cada **pantalla** (página o ruta) → un `.test.tsx` en
+   `components/<feature>/` con los casos de la tabla de la
+   [§4](#4-antes-de-escribir-un-test). Sus tablas, modales y filtros no llevan
+   archivo propio.
+4. Si la feature agrega un flujo crítico → un E2E de su camino feliz en
+   `e2e/<feature>.spec.ts`.
+5. Si la feature usa endpoints nuevos, primero tienen que estar en el contrato
+   (`docs/openapi`) **y** en los mocks (`src/shared/mocks`). El test de
+   contrato falla si uno de los dos queda sin el otro. Sin handler, el test de
+   pantalla también falla a propósito.
 6. Si la pantalla tiene una acción que opera un solo perfil, su permiso va en
    `ACTION_ACCESS` y su caso en `tests/unit/app/actionAccess.test.ts`.
+7. Tras agregar los tests, `npm run ca-matrix` para actualizar la matriz.
 
 ### Los tests primero
 
@@ -771,43 +809,70 @@ pasen. Así se hizo con `clients` (HU-8 y HU-9) y con el listado de causas
 así se ve de un vistazo si quedó alguno sin cubrir.
 
 Antes de escribirlos conviene armar la lista de casos con el criterio que cubre
-cada uno, y revisar al final que ningún criterio haya quedado sin test. Un test
-que no sale de un criterio —el estado de carga y el de error que pide el
-[mínimo](#mínimo-por-feature), un botón que está en el prototipo, algo que
-quedó fuera de alcance— también va, con un comentario que diga de dónde sale.
+cada uno, quitar los que ya tienen dueño en otra capa ([§5](#5-un-dueño-por-cada-regla)),
+y revisar al final que ningún criterio haya quedado sin test. Un test que no
+sale de un criterio —el estado de carga y el de error que pide el
+[mínimo](#mínimo-por-feature), un botón que está en el prototipo— también va,
+con un comentario que diga de dónde sale.
 
 Dos cosas a tener en cuenta:
 
 - **Un test que importa un archivo que todavía no existe no compila**, y un
   test que no compila rompe `npm run build` y `npm test` (ver
-  [§3](#3-mapa-de-carpetas)). Mientras la feature no esté, esos tests viven en
+  [§6](#6-mapa-de-carpetas)). Mientras la feature no esté, esos tests viven en
   la rama de la feature: no se suben solos a `develop`.
 - **Los tests fijan nombres y textos.** Si el test busca el botón "Registrar
-  cliente", el aviso "Cliente GÓMEZ, Ariel Fernando registrado." o importa
-  `@/features/clients/pages/ClientsPage`, el código tiene que llamarse así.
-  Los textos salen del prototipo; si al programar hace falta otro, se cambia
-  en el test y en la pantalla juntos.
+  cliente" o importa `@/features/clients/pages/ClientsPage`, el código tiene
+  que llamarse así. Los textos salen del prototipo; si al programar hace falta
+  otro, se cambia en el test y en la pantalla juntos.
 
 ### Mínimo por feature
 
 Antes de abrir el PR de una feature, tiene que tener:
 
-- [ ] Un test por cada función de `schemas/` y `utils/`, con sus casos borde.
-- [ ] Cada form o modal con: camino feliz, error de validación y error del
-      servidor.
-- [ ] Cada página con: la lista cargada, el estado vacío y el estado de error.
-- [ ] Entre 1 y 3 flujos E2E, si la feature tiene un flujo que atraviesa
-      varias pantallas.
-- [ ] `npm test` en verde.
+- [ ] Un test por cada regla de dominio (esquema o `utils/` con lógica), en su
+      límite.
+- [ ] Cada pantalla con: la lista cargada, el vacío y el error de carga; y en
+      cada alta o edición, el camino feliz, un error de validación **mostrado en
+      su campo** y el error del servidor.
+- [ ] Un E2E del camino feliz, si la feature agrega un flujo crítico.
+- [ ] `npm test`, `npm run lint` y `npm run build` en verde.
+
+El mínimo es un piso y la tabla de la [§4](#4-antes-de-escribir-un-test) es
+el techo: entre los dos está lo que vale la pena.
 
 ---
 
-## 8. Comandos
+## 12. Lint de los tests
+
+`oxlint` corre también sobre `tests/` con reglas propias (plugin `vitest`, en
+`frontend/.oxlintrc.json`). Las que cortan el PR:
+
+| Regla | Qué evita |
+|---|---|
+| `vitest/expect-expect` | Un test sin ninguna aserción (`expect`, o `expect*` de un helper) |
+| `vitest/no-focused-tests` | Un `it.only` olvidado, que deja al resto sin correr |
+| `vitest/no-disabled-tests` | Un `it.skip` que nadie vuelve a mirar |
+| `vitest/no-identical-title` | Dos tests con el mismo nombre en el mismo `describe` |
+| `vitest/valid-expect` | Un `expect(x)` sin matcher, que nunca falla |
+
+Y avisa (sin cortar) `valid-title` y `no-commented-out-tests`: un test
+comentado es un test borrado sin decirlo.
+
+```bash
+npm run lint
+```
+
+---
+
+## 13. Comandos
 
 | Comando | Qué hace | Cuándo |
 |---|---|---|
 | `npm test` | Corre `unit/` y `components/` una vez | Antes de cada commit |
 | `npm run test:watch` | Lo mismo, pero se re-ejecuta al guardar | Mientras programás |
+| `npm run lint` | `oxlint` sobre `src/` y `tests/` | Antes de cada commit |
+| `npm run ca-matrix` | Regenera `MATRIZ_CA.md` | Al agregar o quitar tests con criterio |
 | `npm run test:e2e` | Corre Playwright: levanta la app con mocks en el puerto 5199 | Antes de abrir un PR |
 | `npm run test:e2e:ui` | Playwright con interfaz visual, paso a paso | Para depurar un E2E |
 
@@ -815,13 +880,20 @@ Para correr un solo archivo o una sola feature:
 
 ```bash
 npm test -- tests/unit/users
-npm test -- LoginForm
+npm test -- LoginPage
 npx playwright test tests/e2e/auth.spec.ts
 ```
 
+Para ver la cobertura hay que tener `@vitest/coverage-v8` (no está en las
+dependencias del proyecto: se instala a mano, con `npm i -D` o `--no-save`).
+Se mira **por archivo de `src/`**, excluyendo `src/shared/mocks`, y sólo para
+encontrar código con lógica que ningún test recorre. **No hay meta de
+cobertura** ([§1](#1-qué-buscamos-con-los-tests)): hoy ronda el 88 % de líneas y
+lo que queda afuera es, sobre todo, presentación que recorren los E2E.
+
 ---
 
-## 9. Problemas comunes
+## 14. Problemas comunes
 
 **"El test falla con `[MSW] Cannot bypass a request when using the "error" strategy`"**
 El componente llamó a un endpoint que no tiene handler en los mocks. En los
@@ -856,7 +928,7 @@ a cualquier perfil: el mock ya no responde `403`. Forzá el error con
 **"Registro un acto en un test y el mock responde `403`"**
 El usuario no es el abogado responsable de esa causa. Desde la revisión del
 05/10/2026 no alcanza con tener el rol `LAWYER`: ver la tabla de
-[qué responde el mock a cada perfil](#52-un-test-de-components).
+[qué responde el mock a cada perfil](#82-un-test-de-components).
 
 **"`getByText` no encuentra el mensaje de error"**
 Si el mensaje aparece después de una respuesta de la API, usá `findByText`
@@ -886,18 +958,26 @@ Casi siempre es un `waitForTimeout` o un selector por clase CSS. Usá
 
 ---
 
-## 10. Referencias
+## 15. Referencias
 
 - `docs/Frontend-Architecture/ESTRUCTURA.md`: la estructura de `src/`, que
   `tests/` copia.
+- `docs/Frontend-Architecture/MATRIZ_CA.md`: criterio de aceptación → tests
+  (generada con `npm run ca-matrix`).
 - `frontend/src/shared/mocks/README.md`: los mocks, los fixtures y cómo
   disparar cada error.
+- `docs/openapi/`: el contrato de la API que verifica el test de
+  `tests/unit/contract/`.
 - `docs/Api-Contract/API_CONTRACT_V3.md`: lo que la API tiene que responder, y
   lo que implementan hoy los mocks (con su revisión del 05/10/2026, §7.8).
   `API_CONTRACT_V2.md` queda como registro del Sprint 1.
 - `frontend/CLAUDE.md`: cómo quedó aplicada esa revisión en el código, en
   "Revisiones del contrato".
-- [Vitest](https://vitest.dev) ·
+- Las ideas de fondo: [Testing Trophy](https://kentcdodds.com/blog/the-testing-trophy-and-testing-classifications) ·
+  [Write tests. Not too many. Mostly integration.](https://kentcdodds.com/blog/write-tests) ·
+  [Common mistakes with React Testing Library](https://kentcdodds.com/blog/common-mistakes-with-react-testing-library) ·
+  [Guiding principles de Testing Library](https://testing-library.com/docs/guiding-principles)
+- Herramientas: [Vitest](https://vitest.dev) ·
   [Testing Library](https://testing-library.com/docs/react-testing-library/intro) ·
   [MSW](https://mswjs.io) ·
-  [Playwright](https://playwright.dev)
+  [Playwright (buenas prácticas)](https://playwright.dev/docs/best-practices)

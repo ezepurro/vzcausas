@@ -163,14 +163,14 @@ los cinco módulos y sus tests. El detalle de cada cambio está en
 También están hechos:
 
 - **Los mocks de todos los endpoints de V3** (ver [Los mocks](#los-mocks)) y
-  los tests del servidor falso.
+  el test de contrato que los compara con `docs/openapi`.
 - **Los permisos por acción**: `ACTION_ACCESS`, `can` y `useCan`, en
   `src/app/access/` (ver [Acceso por perfil](#acceso-por-perfil)).
 - **El módulo `clients` completo** (HU-8 y HU-9): `toCreateClientBody`, el
   `api/` (`clients.api`, `clients.keys`, `useClients`, `useCreateClient`),
   `ClientsPage`, la ruta `/clientes` y los dos hooks publicados en su
   `index.ts`. Sus tests se escribieron desde los criterios de aceptación antes
-  de programar la feature (ver `TESTING.md` §7) y pasan todos, los E2E
+  de programar la feature (ver `TESTING.md` §11) y pasan todos, los E2E
   incluidos. Sirve de modelo para un módulo nuevo, junto con `lawyers`.
 - **El módulo `cases` completo** (HU-18, HU-20 y HU-22): `toCreateCaseBody`, el
   `api/` (`cases.api`, `cases.keys`, `useCase`, `useCases`,
@@ -185,8 +185,8 @@ También están hechos:
 
 **Falta:** la modificación y la baja de calificaciones legales, que el contrato
 ya define y `LegalQualificationsPage` deja para otra historia, y lo que está
-"a definir con el equipo" más arriba. Las piezas que existen sin test propio
-están en `TESTING.md` §3.1.
+"a definir con el equipo" más arriba. Qué piezas no llevan test propio, y por
+qué, está en `TESTING.md` §5, "Lo que no se testea".
 
 **Lo que tiene que armar cada página**, porque los componentes son
 presentacionales y lo reciben hecho:
@@ -442,10 +442,10 @@ saber:
   tampoco se guarda: una causa está en ese estado mientras no tenga actos.
 - **El detalle está en el README de los mocks**: cómo disparar cada error
   (qué usuario, qué causa, qué dato) y las decisiones que el mock tomó donde
-  el contrato no dice nada. Cada regla tiene además su test en
-  `tests/unit/mocks/`.
+  el contrato no dice nada. Que el mock no invente ni olvide endpoints lo revisa
+  `tests/unit/contract/endpoints.test.ts` contra `docs/openapi`.
 - **Si falta un endpoint**, se agrega en `src/shared/mocks/handlers.ts`
-  (handler y su entrada en `ROUTES`), con su test en `tests/unit/mocks/`.
+  (handler y su entrada en `ROUTES`), y el contrato en `docs/openapi` (el test de `tests/unit/contract/` falla si divergen).
   Sin handler, la pantalla falla contra el mock y sus tests también
   (`onUnhandledRequest: 'error'`).
 - **El mock sigue además al esquema de la base** (`backend/prisma/schema.prisma`)
@@ -727,5 +727,5 @@ puede usar.
 8. Página, ruta, ítem del menú si falta, la ruta en `ROUTE_ACCESS` y sus
    acciones en `ACTION_ACCESS`.
 9. Lo que otro módulo necesite, en el `index.ts`.
-10. Tests según `TESTING.md` §7.
+10. Tests según `TESTING.md` §11.
 11. Lint y build.

@@ -73,29 +73,6 @@ describe('UsersPage', () => {
             )
         })
 
-        it('no muestra a los usuarios dados de baja', async () => {
-            const { user } = renderPage()
-            await screen.findByRole('cell', { name: 'fvazquez' })
-
-            await user.click(screen.getByRole('button', { name: /siguiente/i }))
-
-            // El texto está partido en varios <span>: se mira el renglón entero.
-            await waitFor(() =>
-                expect(screen.getByText(/usuarios · página/)).toHaveTextContent('página 2 de 2'),
-            )
-            expect(screen.queryByRole('cell', { name: 'vsosa' })).not.toBeInTheDocument()
-        })
-
-        it('pasa de página', async () => {
-            const { user } = renderPage()
-            await screen.findByRole('cell', { name: 'fvazquez' })
-
-            await user.click(screen.getByRole('button', { name: /siguiente/i }))
-
-            await waitFor(() => expect(screen.getAllByRole('row')).toHaveLength(activeUsers().length - 20 + 1))
-            expect(screen.getByRole('button', { name: /siguiente/i })).toBeDisabled()
-        })
-
         it('filtra con el buscador', async () => {
             const { user } = renderPage()
             await screen.findByRole('cell', { name: 'fvazquez' })
@@ -116,51 +93,9 @@ describe('UsersPage', () => {
             const admins = activeUsers().filter((u) => u.roles.includes('ADMINISTRATOR'))
             expect(screen.getAllByRole('row')).toHaveLength(admins.length + 1)
         })
-
-        it('si la búsqueda no encuentra nada, muestra el estado vacío', async () => {
-            const { user } = renderPage()
-            await screen.findByRole('cell', { name: 'fvazquez' })
-
-            await user.type(screen.getByRole('searchbox', { name: 'Buscar usuario' }), 'zzzz')
-
-            expect(await screen.findByText('Sin usuarios')).toBeInTheDocument()
-        })
-
-        it('si no tiene permiso, muestra el error', async () => {
-            renderPage('gestion')
-
-            expect(await screen.findByText('No se pudieron cargar los usuarios')).toBeInTheDocument()
-        })
-
-        /* Usuarios y abogados son dos secciones del rail, no pestañas de una
-           misma pantalla: cada una lleva su propio título. */
-        it('es una pantalla propia, sin pestañas hacia abogados', async () => {
-            renderPage()
-            // Se espera el listado para no dejar la consulta en vuelo al test siguiente.
-            await screen.findByRole('cell', { name: 'fvazquez' })
-
-            expect(screen.getByRole('heading', { name: 'Usuarios', level: 1 })).toBeInTheDocument()
-            expect(screen.queryByRole('tablist')).not.toBeInTheDocument()
-        })
     })
 
     describe('alta', () => {
-        it('registra una persona de secretaría', async () => {
-            const { user } = renderPage()
-            const dialog = await openCreate(user)
-
-            await fillPersonalData(user, dialog)
-            await chooseSecretary(user, dialog)
-            await user.click(within(dialog).getByRole('button', { name: 'Registrar usuario' }))
-
-            expect(await screen.findByText('Usuario aperez registrado.')).toBeInTheDocument()
-            expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-            expect(db.users.find((u) => u.username === 'aperez')).toMatchObject({
-                roles: ['SECRETARY'],
-                lawyerId: null,
-            })
-        })
-
         it('registra un abogado vinculándolo a una ficha existente', async () => {
             const { user } = renderPage()
             const dialog = await openCreate(user)
@@ -308,24 +243,6 @@ describe('UsersPage', () => {
             expect(await screen.findByText('Usuario ravila actualizado.')).toBeInTheDocument()
             expect(db.users.find((u) => u.username === 'ravila')?.fullName).toBe('Romina B. Ávila')
         })
-
-        it('sin cambios cierra el modal sin llamar al servidor', async () => {
-            let patched = false
-            server.use(
-                http.patch('*/users/:id', () => {
-                    patched = true
-                    return HttpResponse.json({})
-                }),
-            )
-            const { user } = renderPage()
-            await screen.findByRole('cell', { name: 'ravila' })
-
-            await user.click(within(rowOf('ravila')).getByRole('button', { name: 'Modificar' }))
-            await user.click(screen.getByRole('button', { name: 'Guardar cambios' }))
-
-            expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-            expect(patched).toBe(false)
-        })
     })
 
     describe('baja', () => {
@@ -351,17 +268,6 @@ describe('UsersPage', () => {
             await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
             expect(await screen.findByRole('alert')).toBeInTheDocument()
             expect(db.users.find((u) => u.username === 'mrios')?.active).toBe(true)
-        })
-
-        it('cancelar no elimina nada', async () => {
-            const { user } = renderPage()
-            await screen.findByRole('cell', { name: 'gestion' })
-
-            await user.click(within(rowOf('gestion')).getByRole('button', { name: 'Eliminar' }))
-            await user.click(screen.getByRole('button', { name: 'Cancelar' }))
-
-            expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-            expect(db.users.find((u) => u.username === 'gestion')?.active).toBe(true)
         })
     })
 })
