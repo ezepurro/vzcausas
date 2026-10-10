@@ -393,13 +393,17 @@ describe('GET /api/v1/legal-qualifications', () => {
     expect(data.map((q) => q.name)).toEqual(['C — art. 3 CP']);
   });
 
+  // El código es propio, `INVALID_PAGINATION`, como pide el contrato (§5.3), y
+  // lo comparten los cuatro listados del backend: lo resuelve el
+  // `exceptionFactory` global cuando todo lo que falla es paginación
+  // (`app.setup.ts`). `details` nombra los dos parámetros.
   it.each([
     ['page', { page: 0 }],
     ['limit', { limit: 500 }],
-  ])('rechaza %s fuera de rango nombrando el parámetro', async (campo, query) => {
+  ])('rechaza %s fuera de rango con INVALID_PAGINATION', async (_campo, query) => {
     const res = await request(app.getHttpServer()).get(URL).query(query).set(reader());
 
-    expectError(res, 400, 'VALIDATION_ERROR', [campo]);
+    expectError(res, 400, 'INVALID_PAGINATION', ['page', 'limit']);
   });
 
   // ── Acceso (CA-47.1, CA-47.11) ────────────────────────────────────

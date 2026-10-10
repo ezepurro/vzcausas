@@ -278,20 +278,33 @@ describe('GET /api/v1/procedural-states', () => {
   });
 
   // ── Errores ───────────────────────────────────────────────────────
-  // El contrato pide INVALID_REQUEST / INVALID_PAGINATION. Hoy el
-  // ValidationPipe global responde VALIDATION_ERROR, con `details`
-  // indexado por campo; cambiar el code afecta a todos los módulos
-  // (decisión del equipo pendiente).
+  //
+  // La paginación tiene su propio código, `INVALID_PAGINATION`, como pide el
+  // contrato (§5.3). Lo resuelve el `exceptionFactory` global cuando **todo**
+  // lo que falla es paginación (`app.setup.ts`), así que vale para los cuatro
+  // listados del backend. Era la "decisión del equipo pendiente" que estaba
+  // anotada acá; se tomó el 08/10/2026.
+  //
+  // El resto sigue siendo el `VALIDATION_ERROR` genérico del ValidationPipe,
+  // con `details` indexado por campo.
 
   it.each([
     ['fuero inexistente', '?jurisdiction=FOO', 'jurisdiction'],
-    ['página menor a 1', '?page=0', 'page'],
-    ['límite mayor a 100', '?limit=101', 'limit'],
     ['parámetro desconocido', '?foo=1', 'foo'],
-  ])('responde 400 ante %s', async (_case, query, field) => {
+  ])('responde 400 VALIDATION_ERROR ante %s', async (_case, query, field) => {
     const res = await get(query);
 
     expectError(res, 400, 'VALIDATION_ERROR', [field]);
+  });
+
+  // `details` nombra los dos parámetros, como el ejemplo del contrato.
+  it.each([
+    ['página menor a 1', '?page=0'],
+    ['límite mayor a 100', '?limit=101'],
+  ])('responde 400 INVALID_PAGINATION ante %s', async (_case, query) => {
+    const res = await get(query);
+
+    expectError(res, 400, 'INVALID_PAGINATION', ['page', 'limit']);
   });
 });
 
