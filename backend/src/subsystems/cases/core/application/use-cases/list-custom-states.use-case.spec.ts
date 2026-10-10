@@ -6,12 +6,15 @@ import {
   CaseSearchCriteria,
 } from '../../domain/ports/case-query.port';
 import { JurisdictionCode } from '../../domain/value-objects/jurisdiction-code';
+import { CaseQueryCountsUnused } from '../../test-support/case-fakes';
 import { ListCustomStates } from './list-custom-states.use-case';
 
-class SpyCaseQuery implements CaseQueryPort {
+class SpyCaseQuery extends CaseQueryCountsUnused implements CaseQueryPort {
   askedFor: JurisdictionCode | undefined | 'nunca' = 'nunca';
 
-  constructor(private readonly states: string[] = []) {}
+  constructor(private readonly states: string[] = []) {
+    super();
+  }
 
   async search(_criteria: CaseSearchCriteria): Promise<CasePage> {
     return { items: [], totalItems: 0 };

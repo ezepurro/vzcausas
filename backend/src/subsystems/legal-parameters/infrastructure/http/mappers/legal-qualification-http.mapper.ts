@@ -1,3 +1,4 @@
+import { LegalQualificationWithActiveCases } from '@subsystems/legal-parameters/core/application/read-models/legal-qualification-with-active-cases';
 import { LegalQualification } from '@subsystems/legal-parameters/core/domain/entities/legal-qualification';
 import { PaginatedResult } from '../../../../../common/pagination/paginated-result';
 import {
@@ -21,38 +22,33 @@ export class LegalQualificationHttpMapper {
   }
 
   /**
-   * Shape of the `GET` responses.
+   * Shape of the `GET` responses, with the real `activeCases` (CA-47.8).
    *
-   * **`activeCases` is hardcoded to 0 and CA-47.8 is therefore not
-   * met.** The criterion asks for the active cases that register this
-   * qualification, which means crossing `offenses` and `cases` — both
-   * of the `cases` subsystem — and, worse, deciding what an active
-   * case *is*: `cases.active` is the logical delete (RN12), not
-   * "archivada"; the nearest thing to archivada is
-   * `procedural_states.terminal`, unreachable through
-   * `current_custom_state`; and prescription is per offence, so one
-   * `offenses.prescription_date` may be past and another not.
+   * It used to be hardcoded to `0`, because counting means crossing
+   * `offenses` and `cases` and, before that, deciding what an active case
+   * *is* — and deciding it here would have planted that definition inside
+   * `legal-parameters`, where the day `cases` defined it differently the
+   * count would have lied without anyone noticing.
    *
-   * Deciding that here would plant the definition of an active case
-   * inside `legal-parameters`, and the day `cases` defines it
-   * differently this count would lie without anyone noticing. The
-   * proper shape is a port that `CasesModule` exports, the way it
-   * already exports `PROC_STATE_LOOKUP`. The other three resources
-   * (clients, lawyers, procedural states) return 0 for the same
-   * reason — see T-01 in `IMPLEMENTACION_PEOPLE.md`.
+   * That is now settled the right way round: `cases` owns the definition (§4)
+   * and counts, `legal-parameters` asks through `ActiveCasesCounterPort`, and
+   * the number arrives already counted in
+   * {@link LegalQualificationWithActiveCases}. Two answers the old note left
+   * open: a case in a hand-written state **is** active and counts here, and
+   * prescription does not enter the predicate at all.
    */
-  static toResponse(qualification: LegalQualification): LegalQualificationResponseDto {
+  static toResponse(counted: LegalQualificationWithActiveCases): LegalQualificationResponseDto {
     return {
-      ...LegalQualificationHttpMapper.toRegisteredResponse(qualification),
-      activeCases: 0,
+      ...LegalQualificationHttpMapper.toRegisteredResponse(counted.qualification),
+      activeCases: counted.activeCases,
     };
   }
 
   static toListResponse(
-    result: PaginatedResult<LegalQualification>,
+    result: PaginatedResult<LegalQualificationWithActiveCases>,
   ): LegalQualificationsListResponseDto {
     return {
-      data: result.items.map((q) => LegalQualificationHttpMapper.toResponse(q)),
+      data: result.items.map((item) => LegalQualificationHttpMapper.toResponse(item)),
       pagination: {
         page: result.page,
         limit: result.limit,

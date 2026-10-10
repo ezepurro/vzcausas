@@ -7,6 +7,9 @@ import { expectData, expectError, expectPaginated } from '../../shared/contract/
 import { loginAs, TestRole } from '../../shared/auth/login-as';
 import { createUser } from '../../shared/factories/user.factory';
 import { createLegalQualification } from '../../shared/factories/legal-qualification.factory';
+import { createCase } from '../../shared/factories/case.factory';
+import { createClient } from '../../shared/factories/client.factory';
+import { createLawyer } from '../../shared/factories/lawyer.factory';
 
 const URL = '/api/v1/legal-qualifications';
 
@@ -503,5 +506,112 @@ describe('GET /api/v1/legal-qualifications/{qualificationId}', () => {
     const saved = await createLegalQualification();
 
     await request(app.getHttpServer()).get(`${URL}/${saved.id}`).expect(401);
+  });
+});
+
+/**
+ * `activeCases` de calificaciones legales (CA-47.8).
+ *
+ * Lo cuenta `cases`, dueño de la definición de causa activa (§4), y llega por
+ * `ActiveCasesCounterPort.countByQualifications`, que implementa
+ * `cases/infrastructure/acl/legal-parameters-active-cases-counter.adapter.ts`.
+ * Hasta el 10/10/2026 el mapper devolvía `0` fijo y CA-47.8 quedaba incumplido
+ * (TL-01 de `IMPLEMENTACION_CALIFICACIONES.md`).
+ *
+ * Lo que se verifica acá es el **cableado**: que el número cruce el borde y
+ * llegue al JSON. La semántica está probada contra la base en el `describe` de
+ * `countActiveByLegalQualification` de
+ * `test/subsystems/cases/case-query.int.spec.ts`.
+ */
+describe('activeCases de /api/v1/legal-qualifications', () => {
+  let app: INestApplication;
+  const reader = () => loginAs({ permissions: ['qualification:read'] });
+
+  beforeAll(async () => {
+    app = await startTestApp();
+  });
+
+  afterAll(async () => {
+    await stopTestApp();
+  });
+
+  beforeEach(async () => {
+    await getPrisma().offense.deleteMany();
+    await getPrisma().case.updateMany({ data: { currentProceduralActId: null } });
+    await getPrisma().proceduralAct.deleteMany();
+    await getPrisma().case.deleteMany();
+    await getPrisma().client.deleteMany();
+    await getPrisma().lawyer.deleteMany();
+    await getPrisma().legalQualification.deleteMany();
+  });
+
+  /** Una causa penal que registra `qualificationIds` como sus hechos. */
+  async function aCaseWith(qualificationIds: number[]) {
+    const client = await createClient();
+    const lawyer = await createLawyer();
+    const user = await createUser();
+    const kase = await createCase({
+      clientId: client.id,
+      responsibleLawyerId: lawyer.id,
+      createdByUserId: user.id,
+    });
+    await getPrisma().offense.createMany({
+      data: qualificationIds.map((legalQualificationId) => ({
+        caseId: kase.id,
+        legalQualificationId,
+        offenseDate: new Date('2021-03-12T00:00:00.000Z'),
+        prescriptionDate: new Date('2029-03-12T00:00:00.000Z'),
+      })),
+    });
+    return kase;
+  }
+
+  it('el listado y el detalle devuelven el conteo real', async () => {
+    const robo = await createLegalQualification();
+    const lesiones = await createLegalQualification();
+    // Una causa suma a las dos calificaciones que registra; la segunda causa
+    // suma sólo a `robo`.
+    await aCaseWith([robo.id, lesiones.id]);
+    await aCaseWith([robo.id]);
+
+    const list = await request(app.getHttpServer()).get(URL).set(reader());
+    const byId = new Map(
+      expectPaginated<QualificationBody>(list).map((q) => [q.id, q.activeCases]),
+    );
+    expect(byId.get(robo.id)).toBe(2);
+    expect(byId.get(lesiones.id)).toBe(1);
+
+    const one = await request(app.getHttpServer()).get(`${URL}/${robo.id}`).set(reader());
+    expect(expectData<QualificationBody>(one, 200).activeCases).toBe(2);
+  });
+
+  it('una calificación sin causas devuelve 0', async () => {
+    const sinCausas = await createLegalQualification();
+
+    const one = await request(app.getHttpServer()).get(`${URL}/${sinCausas.id}`).set(reader());
+
+    expect(expectData<QualificationBody>(one, 200).activeCases).toBe(0);
+  });
+
+  it('no cuenta la causa dada de baja', async () => {
+    const qualification = await createLegalQualification();
+    await aCaseWith([qualification.id]);
+    const baja = await aCaseWith([qualification.id]);
+    await getPrisma().case.update({ where: { id: baja.id }, data: { active: false } });
+
+    const one = await request(app.getHttpServer()).get(`${URL}/${qualification.id}`).set(reader());
+
+    expect(expectData<QualificationBody>(one, 200).activeCases).toBe(1);
+  });
+
+  /** CA-48.7: el alta no informa el conteo, porque no toca ninguna causa. */
+  it('el POST sigue sin incluir activeCases', async () => {
+    const res = await request(app.getHttpServer())
+      .post(URL)
+      .set(loginAs({ permissions: ['qualification:create'] }))
+      .send({ name: 'Figura nueva — art. 1 CP', prescriptionMonths: 12 });
+
+    expect(res.status).toBe(201);
+    expect(res.body.data).not.toHaveProperty('activeCases');
   });
 });

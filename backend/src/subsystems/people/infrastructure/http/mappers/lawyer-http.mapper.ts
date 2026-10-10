@@ -5,13 +5,13 @@ import { LawyerResponseDto } from "../dtos/lawyer.response.dto";
 import { RegisterLawyerRequestDto } from "../dtos/register-lawyer.request.dto";
 
 /**
- * `activeCases` counts the cases where this lawyer is the responsible
- * one. That lives in the `cases` subsystem, which is out of scope, so
- * the contract (§3.3) fixes the value at `0` until it exists — the
- * field is in the payload from day one so the resource's shape never
- * has to change.
+ * A lawyer who has just been registered is responsible for no case yet, so
+ * the `0` of the `POST` response is a fact, not a placeholder. It is spelled
+ * out as a constant so it reads differently from the counted value that the
+ * `GET`s pass in: the old constant here answered **every** response, which
+ * made `GET /lawyers` look right while being wrong.
  */
-const ACTIVE_CASES_UNTIL_CASES_SUBSYSTEM_EXISTS = 0;
+const ACTIVE_CASES_ON_A_FRESH_LAWYER = 0;
 
 export class LawyerHttpMapper {
   static toRegisterCommand(
@@ -23,14 +23,24 @@ export class LawyerHttpMapper {
     };
   }
 
-  static toResponse(lawyer: Lawyer): LawyerResponseDto {
+  /**
+   * `activeCases` is a parameter, not a constant: the caller is the one who
+   * knows. `GET /lawyers` passes the count that `cases` returned;
+   * {@link toRegisteredResponse} passes the definitional zero.
+   */
+  static toResponse(lawyer: Lawyer, activeCases: number): LawyerResponseDto {
     const dto = new LawyerResponseDto();
     dto.id = lawyer.id;
     dto.fullName = lawyer.fullName;
     dto.registrationNumber = lawyer.registrationNumber.toString();
-    dto.activeCases = ACTIVE_CASES_UNTIL_CASES_SUBSYSTEM_EXISTS;
+    dto.activeCases = activeCases;
     dto.active = lawyer.isActive();
     return dto;
+  }
+
+  /** Response of `POST /lawyers`: a brand new lawyer has no cases yet. */
+  static toRegisteredResponse(lawyer: Lawyer): LawyerResponseDto {
+    return this.toResponse(lawyer, ACTIVE_CASES_ON_A_FRESH_LAWYER);
   }
 
   /**
@@ -45,7 +55,7 @@ export class LawyerHttpMapper {
     dto.id = view.id;
     dto.fullName = view.fullName;
     dto.registrationNumber = view.registrationNumber;
-    dto.activeCases = ACTIVE_CASES_UNTIL_CASES_SUBSYSTEM_EXISTS;
+    dto.activeCases = view.activeCases;
     dto.active = view.active;
     return dto;
   }

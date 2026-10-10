@@ -7,13 +7,16 @@ import {
 } from '../../domain/ports/case-query.port';
 import { JurisdictionCode } from '../../domain/value-objects/jurisdiction-code';
 import { ProceduralRole } from '../../domain/value-objects/procedural-role';
+import { CaseQueryCountsUnused } from '../../test-support/case-fakes';
 import { CLIENT, LAWYER, day } from '../../test-support/case-fixtures';
 import { GetCase } from './get-case.use-case';
 
-class StubCaseQuery implements CaseQueryPort {
+class StubCaseQuery extends CaseQueryCountsUnused implements CaseQueryPort {
   askedFor: number | null = null;
 
-  constructor(private readonly item: CaseListItem | null) {}
+  constructor(private readonly item: CaseListItem | null) {
+    super();
+  }
 
   async search(_criteria: CaseSearchCriteria): Promise<CasePage> {
     return { items: [], totalItems: 0 };

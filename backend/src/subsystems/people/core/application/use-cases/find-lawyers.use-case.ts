@@ -8,14 +8,24 @@ import { LawyerView } from "./find-lawyer.use-case";
 export type FindLawyersQuery = { ids: readonly number[] };
 
 /**
+ * What the batch lookup answers: {@link LawyerView} **without**
+ * `activeCases`.
+ *
+ * The only caller is `identity`, resolving the lawyer behind a page of users,
+ * and it has no `activeCases` to render. Returning the full `LawyerView` would
+ * force a count per page that nobody reads — and unlike the single-id case,
+ * here it is not one extra `GROUP BY` but one over a whole page.
+ */
+export type LawyerSummaryView = Omit<LawyerView, 'activeCases'>;
+
+/**
  * Batch sibling of {@link FindLawyerUseCase}, exported by
  * `PeopleModule` so `identity` can resolve the lawyers of a whole
  * page of users in one round trip rather than one query per row.
  *
- * Returns the same flat {@link LawyerView} the single-id use case
- * does — never the entity (§6.3) — and omits ids that do not
- * resolve. Whether a missing lawyer is an error is the caller's
- * question, not ours.
+ * Returns a flat {@link LawyerSummaryView} — never the entity (§6.3) — and
+ * omits ids that do not resolve. Whether a missing lawyer is an error is the
+ * caller's question, not ours.
  */
 @Injectable()
 export class FindLawyersUseCase {
@@ -23,7 +33,7 @@ export class FindLawyersUseCase {
     @Inject(LAWYER_REPOSITORY) private readonly lawyers: LawyerRepository,
   ) {}
 
-  async execute(query: FindLawyersQuery): Promise<LawyerView[]> {
+  async execute(query: FindLawyersQuery): Promise<LawyerSummaryView[]> {
     // An empty request must not reach the database: `IN ()` is either
     // a syntax error or a full scan depending on the driver, and the
     // answer is knowable without asking.

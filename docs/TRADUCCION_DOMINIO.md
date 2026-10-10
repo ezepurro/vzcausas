@@ -93,7 +93,7 @@ Los nombres que viajan en los payloads. Un módulo los escribe igual en sus tipo
 | Posición en el ciclo     | `position`           | `ProceduralState`                  |
 | Días del plazo           | `timeLimitDays`      | `ProceduralState`                  |
 | Estado terminal          | `terminal`           | `ProceduralState`. Cierra el ciclo de vida |
-| Causas activas           | `activeCases`        | `Lawyer`, `ProceduralState`. Calculado, sólo lectura |
+| Causas activas           | `activeCases`        | `Lawyer`, `Client`, `ProceduralState`, `LegalQualification`. Calculado, sólo lectura |
 
 ## 5. Alta y baja
 

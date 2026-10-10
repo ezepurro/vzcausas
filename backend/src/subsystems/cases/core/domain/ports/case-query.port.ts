@@ -173,4 +173,72 @@ export interface CaseQueryPort {
    * construction. Only `active` has to be filtered.
    */
   listCustomStates(jurisdiction?: JurisdictionCode): Promise<string[]>;
+
+  /**
+   * Active cases per procedural state id, for the `activeCases` that
+   * `GET /procedural-states` and `GET /procedural-states/{stateId}` show
+   * (§8.4).
+   *
+   * **Why a batch and not one id.** The listing is paginated, so one call per
+   * row is an N+1: twenty queries for a page of twenty states. The four counts
+   * here each take an array and answer with one `GROUP BY`.
+   *
+   * **Why the four live in `cases`.** "Active case" is this subsystem's rule
+   * (§4), not the caller's. Counted in four subsystems it would drift in four
+   * subsystems.
+   *
+   * **The predicate is not the same for the four, and this is the one that
+   * differs.** A case is active when it was not given de baja and its current
+   * state is not terminal. This count adds a third condition that the other
+   * three must **not** have — the initial state does not count:
+   *
+   * |                                | not de baja | state not terminal | not initial |
+   * | ------------------------------ | ----------- | ------------------ | ----------- |
+   * | `countActiveByProceduralState` | yes         | yes                | **yes**     |
+   * | the other three                | yes         | yes                | **no**      |
+   *
+   * "Iniciada" is not part of `GET /procedural-states` at all, so an
+   * `activeCases` for it has nowhere to show. But a freshly registered case
+   * **does** count for its lawyer, its client and its qualifications: giving
+   * the three the `is_initial` clause is the easy bug, and it hides exactly
+   * the cases a new study has most of.
+   *
+   * A case in a hand-written state counts for no procedural state at all: it
+   * holds `current_custom_state` and no `current_state_id`, so it belongs to
+   * no row of the table. It still counts for its lawyer, client and
+   * qualifications, because a hand-written state is not terminal (§4).
+   *
+   * **Every requested id comes back**, with `0` when it has no active case, so
+   * no caller has to remember the default.
+   */
+  countActiveByProceduralState(stateIds: readonly number[]): Promise<ReadonlyMap<number, number>>;
+
+  /**
+   * Active cases per legal qualification id, for `GET /legal-qualifications`
+   * (§8.4). Same contract as {@link countActiveByProceduralState} except the
+   * initial state counts — see its table.
+   *
+   * A case counts for **each** of its qualifications, and a qualification
+   * given de baja still counts the cases that hold it: its own `active` is
+   * irrelevant here, because the case keeps showing it as part of its history
+   * (RN12).
+   */
+  countActiveByLegalQualification(qualificationIds: readonly number[]): Promise<ReadonlyMap<number, number>>;
+
+  /**
+   * Active cases per responsible lawyer id, for `GET /lawyers` (§8.4). Same
+   * contract as {@link countActiveByProceduralState} except the initial state
+   * counts — see its table.
+   *
+   * This is the count of RN3's "carga de trabajo": every case has exactly one
+   * responsible lawyer, so the counts partition the active cases.
+   */
+  countActiveByResponsibleLawyer(lawyerIds: readonly number[]): Promise<ReadonlyMap<number, number>>;
+
+  /**
+   * Active cases per client id, for `GET /clients` (§8.4). Same contract as
+   * {@link countActiveByProceduralState} except the initial state counts —
+   * see its table.
+   */
+  countActiveByClient(clientIds: readonly number[]): Promise<ReadonlyMap<number, number>>;
 }

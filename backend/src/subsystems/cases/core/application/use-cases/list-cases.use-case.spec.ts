@@ -6,14 +6,17 @@ import {
 } from '../../domain/ports/case-query.port';
 import { JurisdictionCode } from '../../domain/value-objects/jurisdiction-code';
 import { ProceduralRole } from '../../domain/value-objects/procedural-role';
+import { CaseQueryCountsUnused } from '../../test-support/case-fakes';
 import { CLIENT, LAWYER, day } from '../../test-support/case-fixtures';
 import { ListCases } from './list-cases.use-case';
 
 /** Records the criteria it was asked for, so the spec can assert what travelled. */
-class SpyCaseQuery implements CaseQueryPort {
+class SpyCaseQuery extends CaseQueryCountsUnused implements CaseQueryPort {
   lastCriteria: CaseSearchCriteria | null = null;
 
-  constructor(private readonly page: CasePage = { items: [], totalItems: 0 }) {}
+  constructor(private readonly page: CasePage = { items: [], totalItems: 0 }) {
+    super();
+  }
 
   async search(criteria: CaseSearchCriteria): Promise<CasePage> {
     this.lastCriteria = criteria;

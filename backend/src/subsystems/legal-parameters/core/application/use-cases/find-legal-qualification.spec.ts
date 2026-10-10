@@ -2,6 +2,7 @@ import { LegalQualification } from '../../domain/entities/legal-qualification';
 import { LegalQualificationNotFoundError } from '../../domain/errors/legal-parameters.errors';
 import { LegalQualificationRepository } from '../../domain/ports/legal-qualification.repository';
 import { FindLegalQualification } from './find-legal-qualification.use-case';
+import { FakeActiveCasesCounter } from './test-support/procedural-state-fakes';
 
 function aQualification(): LegalQualification {
   return LegalQualification.hydrate({
@@ -15,6 +16,7 @@ function aQualification(): LegalQualification {
 
 describe('FindLegalQualification', () => {
   let repository: jest.Mocked<LegalQualificationRepository>;
+  let counter: FakeActiveCasesCounter;
   let useCase: FindLegalQualification;
 
   beforeEach(() => {
@@ -25,7 +27,25 @@ describe('FindLegalQualification', () => {
       findPaginated: jest.fn(),
       findActiveById: jest.fn().mockResolvedValue(null),
     };
-    useCase = new FindLegalQualification(repository);
+    counter = new FakeActiveCasesCounter();
+    useCase = new FindLegalQualification(repository, counter);
+  });
+
+  // CA-47.8
+  it('devuelve las causas activas de la calificación, pedidas en una sola llamada', async () => {
+    repository.findActiveById.mockResolvedValue(aQualification());
+    counter.counts.set(7, 5);
+
+    const result = await useCase.execute({ id: 7 });
+
+    expect(result.activeCases).toBe(5);
+    expect(counter.calls).toEqual([[7]]);
+  });
+
+  it('devuelve 0 cuando la calificación no tiene causas activas', async () => {
+    repository.findActiveById.mockResolvedValue(aQualification());
+
+    expect((await useCase.execute({ id: 7 })).activeCases).toBe(0);
   });
 
   // CA-47.7

@@ -1,11 +1,12 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { LegalQualification } from '../../domain/entities/legal-qualification';
 import { LegalQualificationNotFoundError } from '../../domain/errors/legal-parameters.errors';
+import { ActiveCasesCounterPort } from '../../domain/ports/active-cases-counter.port';
 import { LegalQualificationRepository } from '../../domain/ports/legal-qualification.repository';
+import { LegalQualificationWithActiveCases } from '../read-models/legal-qualification-with-active-cases';
 
 export type FindLegalQualificationQuery = { id: number };
 
-export type FindLegalQualificationResult = { qualification: LegalQualification };
+export type FindLegalQualificationResult = LegalQualificationWithActiveCases;
 
 /**
  * HU-47 — consults one legal qualification (CA-47.7).
@@ -21,6 +22,8 @@ export class FindLegalQualification {
   constructor(
     @Inject(LegalQualificationRepository)
     private readonly qualifications: LegalQualificationRepository,
+    @Inject(ActiveCasesCounterPort)
+    private readonly activeCasesCounter: ActiveCasesCounterPort,
   ) {}
 
   async execute(query: FindLegalQualificationQuery): Promise<FindLegalQualificationResult> {
@@ -30,6 +33,7 @@ export class FindLegalQualification {
       throw new LegalQualificationNotFoundError();
     }
 
-    return { qualification };
+    const counts = await this.activeCasesCounter.countByQualifications([qualification.id]);
+    return { qualification, activeCases: counts.get(qualification.id) ?? 0 };
   }
 }

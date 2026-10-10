@@ -1,5 +1,6 @@
 import { ClockPort } from "@shared/domain/clock.port";
 import { Client } from "../../../domain/entities/client.entity";
+import { ActiveCasesCounterPort } from "../../../domain/ports/active-cases-counter.port";
 import {
   ClientPage,
   ClientRepository,
@@ -140,6 +141,42 @@ export class FakeClientRepository implements ClientRepository {
       items: matches.slice(offset, offset + criteria.limit),
       totalItems: matches.length,
     };
+  }
+}
+
+/**
+ * In-memory {@link ActiveCasesCounterPort}. A spec sets the counts it wants in
+ * `counts`; `calls` records every request, so a spec can assert the whole page
+ * was asked for in **one** call and not one per row — the N+1 that the port's
+ * batch shape exists to prevent.
+ *
+ * Honours the port's promise like the real adapter does: every requested id
+ * comes back, with `0` when it has no count set.
+ */
+export class FakeActiveCasesCounter implements ActiveCasesCounterPort {
+  readonly counts = new Map<number, number>();
+  readonly calls = new Array<readonly number[]>();
+
+  async countByResponsibleLawyer(
+    lawyerIds: readonly number[],
+  ): Promise<ReadonlyMap<number, number>> {
+    return this.record(lawyerIds);
+  }
+
+  async countByClient(
+    clientIds: readonly number[],
+  ): Promise<ReadonlyMap<number, number>> {
+    return this.record(clientIds);
+  }
+
+  /**
+   * Lawyers and clients share `counts` and `calls`: no spec exercises both at
+   * once, and one set of books makes an accidental crossover visible instead
+   * of silently plausible.
+   */
+  private record(ids: readonly number[]): ReadonlyMap<number, number> {
+    this.calls.push(ids);
+    return new Map(ids.map((id) => [id, this.counts.get(id) ?? 0]));
   }
 }
 

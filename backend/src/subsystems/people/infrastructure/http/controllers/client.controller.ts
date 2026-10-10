@@ -51,7 +51,7 @@ export class ClientController {
     const result = await this.registerClient.execute(
       ClientHttpMapper.toRegisterCommand(dto),
     );
-    return { data: ClientHttpMapper.toResponse(result.client) };
+    return { data: ClientHttpMapper.toRegisteredResponse(result.client) };
   }
 
   /**
@@ -74,7 +74,9 @@ export class ClientController {
     });
 
     return paginate(
-      result.clients.map((client) => ClientHttpMapper.toResponse(client)),
+      result.clients.map((counted) =>
+        ClientHttpMapper.toResponse(counted.client, counted.activeCases),
+      ),
       result.totalItems,
       page,
     );
@@ -88,7 +90,9 @@ export class ClientController {
     const result = await this.findClient.execute({
       id: this.parseClientId(clientIdParam),
     });
-    return { data: ClientHttpMapper.toResponse(result.client) };
+    return {
+      data: ClientHttpMapper.toResponse(result.client, result.activeCases),
+    };
   }
 
   private parseClientId(raw: string): number {

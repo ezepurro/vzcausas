@@ -1,6 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { Client } from "../../domain/entities/client.entity";
 import { ClientNotFoundError } from "../../domain/errors/people.errors";
+import { ActiveCasesCounterPort } from "../../domain/ports/active-cases-counter.port";
 import {
   CLIENT_REPOSITORY,
   ClientRepository,
@@ -8,7 +9,7 @@ import {
 
 export type FindClientQuery = { id: number };
 
-export type FindClientResult = { client: Client };
+export type FindClientResult = { client: Client; activeCases: number };
 
 /**
  * `GET /clients/{clientId}` (§3.6, HU-9).
@@ -27,6 +28,8 @@ export type FindClientResult = { client: Client };
 export class FindClientUseCase {
   constructor(
     @Inject(CLIENT_REPOSITORY) private readonly clients: ClientRepository,
+    @Inject(ActiveCasesCounterPort)
+    private readonly activeCasesCounter: ActiveCasesCounterPort,
   ) {}
 
   async execute(query: FindClientQuery): Promise<FindClientResult> {
@@ -35,6 +38,7 @@ export class FindClientUseCase {
       throw new ClientNotFoundError();
     }
 
-    return { client };
+    const counts = await this.activeCasesCounter.countByClient([client.id]);
+    return { client, activeCases: counts.get(client.id) ?? 0 };
   }
 }

@@ -149,6 +149,135 @@ export class CaseQueryPrismaAdapter implements CaseQueryPort {
       .map((row) => row.currentCustomState)
       .filter((state): state is string => state !== null);
   }
+
+  async countActiveByProceduralState(stateIds: readonly number[]): Promise<ReadonlyMap<number, number>> {
+    if (stateIds.length === 0) {
+      return new Map();
+    }
+
+    // Deliberately **not** {@link ACTIVE_CASE}: this is the one count that also
+    // excludes the initial state. And `currentStateId: { in }` already
+    // guarantees the relation exists, so that constant's `OR` — which is there
+    // to keep hand-written states alive — would be dead weight here. A case in
+    // a hand-written state belongs to no row of `procedural_states`, so it is
+    // left out by the `in` itself, with no clause of its own.
+    const rows = await this.prisma.db.case.groupBy({
+      by: ['currentStateId'],
+      where: {
+        active: true,
+        currentStateId: { in: [...stateIds] },
+        currentState: { terminal: false, isInitial: false },
+      },
+      _count: { _all: true },
+    });
+
+    return fill(
+      stateIds,
+      rows.map((row): [number | null, number] => [row.currentStateId, row._count._all]),
+    );
+  }
+
+  async countActiveByLegalQualification(qualificationIds: readonly number[]): Promise<ReadonlyMap<number, number>> {
+    if (qualificationIds.length === 0) {
+      return new Map();
+    }
+
+    // Groups `offenses`, not `cases`: a case counts for **each** of its
+    // qualifications, so grouping the cases would lose all but one. The
+    // composite primary key `(case_id, legal_qualification_id)`
+    // (`schema.prisma:362`) means one row per pair, so counting rows is
+    // counting cases and nothing double-counts.
+    //
+    // Nothing filters the qualification's own `active`: one given de baja keeps
+    // counting the cases that hold it, because the case keeps showing it as
+    // part of its history (RN12). What `active` forbids is picking it for a new
+    // case, which is a concern of the write path.
+    const rows = await this.prisma.db.offense.groupBy({
+      by: ['legalQualificationId'],
+      where: {
+        legalQualificationId: { in: [...qualificationIds] },
+        case: ACTIVE_CASE,
+      },
+      _count: { _all: true },
+    });
+
+    return fill(
+      qualificationIds,
+      rows.map((row): [number, number] => [row.legalQualificationId, row._count._all]),
+    );
+  }
+
+  async countActiveByResponsibleLawyer(lawyerIds: readonly number[]): Promise<ReadonlyMap<number, number>> {
+    if (lawyerIds.length === 0) {
+      return new Map();
+    }
+
+    const rows = await this.prisma.db.case.groupBy({
+      by: ['responsibleLawyerId'],
+      where: { ...ACTIVE_CASE, responsibleLawyerId: { in: [...lawyerIds] } },
+      _count: { _all: true },
+    });
+
+    return fill(
+      lawyerIds,
+      rows.map((row): [number, number] => [row.responsibleLawyerId, row._count._all]),
+    );
+  }
+
+  async countActiveByClient(clientIds: readonly number[]): Promise<ReadonlyMap<number, number>> {
+    if (clientIds.length === 0) {
+      return new Map();
+    }
+
+    const rows = await this.prisma.db.case.groupBy({
+      by: ['clientId'],
+      where: { ...ACTIVE_CASE, clientId: { in: [...clientIds] } },
+      _count: { _all: true },
+    });
+
+    return fill(
+      clientIds,
+      rows.map((row): [number, number] => [row.clientId, row._count._all]),
+    );
+  }
+}
+
+/**
+ * "Active case" as §4 defines it, for the three counts that do not care which
+ * procedural state the case is in: not given de baja, and its current state is
+ * not terminal.
+ *
+ * **The `OR` is the part that is easy to get wrong.** A case in a hand-written
+ * state holds `current_custom_state` and **no** `current_state_id`, so
+ * `currentState: { terminal: false }` on its own does not match it: a relation
+ * filter on an absent to-one relation fails, and the case drops out of every
+ * count without a trace. It is active — the contract settles that a
+ * hand-written state is not terminal — so it has to count for its lawyer, its
+ * client and its qualifications.
+ *
+ * The initial state is **not** excluded here, on purpose: a freshly registered
+ * case counts for those three. Only `countActiveByProceduralState` excludes it,
+ * and it writes its own `where` for that reason.
+ */
+const ACTIVE_CASE = {
+  active: true,
+  OR: [{ currentStateId: null }, { currentState: { terminal: false } }],
+} as const satisfies Prisma.CaseWhereInput;
+
+/**
+ * Turns the rows of a `GROUP BY` into the map the four counts promise: **every
+ * requested id present**, with `0` when the database returned no row for it.
+ *
+ * The promise is what frees all four callers from remembering the default, and
+ * a `GROUP BY` cannot keep it on its own: it only yields the ids that have at
+ * least one row.
+ */
+function fill(
+  ids: readonly number[],
+  counted: readonly [number | null, number][],
+): ReadonlyMap<number, number> {
+  const byId = new Map(counted.filter((pair): pair is [number, number] => pair[0] !== null));
+  return new Map(ids.map((id) => [id, byId.get(id) ?? 0]));
 }
 
 /**

@@ -4635,8 +4635,18 @@ historias. No tienen endpoint ni campo en esta versión.
 - **Estados procesales.** Hoy solo existe `GET /procedural-states`; faltan
   `GET` por identificador, `POST`, `PATCH` y `DELETE` (HU17, HU45, HU46), con
   la unicidad por fuero de C-08.
-- **`activeCases`.** Los endpoints de abogados y estados procesales deben
-  dejar de devolver `0` cuando exista el módulo de causas.
+- **`activeCases`.** ~~Los endpoints de abogados y estados procesales deben
+  dejar de devolver `0` cuando exista el módulo de causas.~~ **Hecho el
+  10/10/2026, y para los cuatro recursos:** abogados, clientes, estados
+  procesales y calificaciones legales devuelven el conteo real. Lo calcula el
+  subsistema de causas, que es el dueño de la definición de causa activa
+  ([§4](#4-información-general)), y lo provee a los otros por puertos de
+  conteo por lote. **Atención a la asimetría, porque el predicado no es uno
+  solo:** para el `activeCases` de un **estado procesal** el estado inicial no
+  cuenta — "Iniciada" no forma parte de `GET /procedural-states`, así que no
+  tendría dónde mostrarse —, pero una causa recién registrada **sí** cuenta
+  para su abogado, su cliente y sus calificaciones. El `POST` y el `PATCH`
+  siguen sin el campo (D-32).
 - **Esquema.** Nuevas tablas para clientes, calificaciones legales, causas, la
   relación causa–calificación y actos procesales.
 - **Glosario.** Incorporar a `TRADUCCION_DOMINIO.md` los nombres de D-24.
