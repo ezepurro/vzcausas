@@ -1,7 +1,11 @@
 import { DayType } from '@subsystems/legal-parameters/core/domain/entities/day-types';
 import { JurisdictionCode } from '@subsystems/legal-parameters/core/domain/value-objects/jurisdiction-code';
 import { PaginationResponseDto } from '../../../../../common/pagination/paginated-response.dto';
-/** Procedural state resource (API_CONTRACT_V2 §3.4). */
+
+/**
+ * Procedural state as `POST` and `PATCH` return it (contract V3 §3.4,
+ * schema `ProceduralState`): without `activeCases`.
+ */
 export class ProceduralStateResponseDto {
   id!: number;
   name!: string;
@@ -9,12 +13,19 @@ export class ProceduralStateResponseDto {
   timeLimitDays!: number;
   dayType!: DayType;
   terminal!: boolean;
-  activeCases!: number;
   active!: boolean;
+}
+
+/**
+ * Procedural state as the `GET`s return it (schema
+ * `ProceduralStateWithActiveCases`): the same fields plus `activeCases`.
+ */
+export class ProceduralStateWithActiveCasesResponseDto extends ProceduralStateResponseDto {
+  activeCases!: number;
 }
 
 /** Body of `GET /procedural-states`. */
 export class ProceduralStatesListResponseDto {
-  data!: ProceduralStateResponseDto[];
+  data!: ProceduralStateWithActiveCasesResponseDto[];
   pagination!: PaginationResponseDto;
 }

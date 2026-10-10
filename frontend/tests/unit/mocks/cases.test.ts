@@ -23,6 +23,8 @@ const CRIMINAL_BODY = {
     proceduralRole: 'DEFENSA',
     legalQualifications: [{ legalQualificationId: 6, offenseDate: '2026-08-20' }],
     responsibleLawyerId: 3,
+    // Con SAC, la fecha de inicio es obligatoria (CA-18.2).
+    startDate: '2026-09-15',
 }
 
 /** El estado de toda causa recién registrada (D-34): sin acto que la haya llevado ahí y sin vencimiento. */
@@ -46,6 +48,7 @@ const AMPARO_BODY = {
     counterparty: 'PAMI',
     subjectMatter: 'Se ordene a PAMI la cobertura de la internación domiciliaria.',
     responsibleLawyerId: 5,
+    startDate: '2026-09-15',
 }
 
 describe('mock · /cases', () => {
@@ -393,6 +396,7 @@ describe('mock · /cases', () => {
         it('el SAC es opcional, y dos causas sin SAC no chocan entre sí (D-33)', () => {
             const without: Record<string, unknown> = { ...CRIMINAL_BODY }
             delete without.sacNumber
+            delete without.startDate
 
             const first = call('POST', '/cases', { as: 'gestion', body: without })
             const second = call('POST', '/cases', { as: 'gestion', body: without })
@@ -400,6 +404,42 @@ describe('mock · /cases', () => {
             expect(first.status).toBe(201)
             expect(dataOf<Case>(first).sacNumber).toBeNull()
             expect(second.status).toBe(201)
+        })
+
+        describe('la fecha de inicio va con el SAC (CA-18.2)', () => {
+            it('con SAC es obligatoria', () => {
+                const body: Record<string, unknown> = { ...CRIMINAL_BODY }
+                delete body.startDate
+
+                const response = call('POST', '/cases', { as: 'gestion', body })
+
+                expect(response.status).toBe(400)
+                expect(errorOf(response).details).toEqual({
+                    startDate: 'Es obligatoria cuando se informa el número de SAC.',
+                })
+            })
+
+            it('sin SAC no se informa', () => {
+                const body: Record<string, unknown> = { ...CRIMINAL_BODY }
+                delete body.sacNumber
+
+                const response = call('POST', '/cases', { as: 'gestion', body })
+
+                expect(response.status).toBe(400)
+                expect(errorOf(response).details).toEqual({
+                    startDate: 'No se informa si la causa no tiene número de SAC.',
+                })
+            })
+
+            it('con SAC guarda la que recibe', () => {
+                const response = call('POST', '/cases', {
+                    as: 'gestion',
+                    body: { ...CRIMINAL_BODY, startDate: '2021-03-12' },
+                })
+
+                expect(response.status).toBe(201)
+                expect(dataOf<Case>(response).startDate).toBe('2021-03-12')
+            })
         })
 
         it('guarda el interno del instructor aparte del teléfono, hasta 20 caracteres (D-33)', () => {

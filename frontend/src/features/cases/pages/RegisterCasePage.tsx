@@ -41,7 +41,7 @@ import {
 import type { SelectedQualification } from '@/features/cases/components/LegalQualificationPicker'
 import { isValid, validateCase, type CaseFormErrors } from '@/features/cases/schemas/case.schema'
 import type { CaseFormValues } from '@/features/cases/types/case'
-import { changeJurisdiction, emptyCaseForm } from '@/features/cases/utils/caseForm'
+import { changeJurisdiction, changeSacNumber, emptyCaseForm } from '@/features/cases/utils/caseForm'
 import { INITIAL_STATE_LABEL } from '@/features/cases/utils/caseState'
 import { estimatedExpiry } from '@/features/cases/utils/prescription'
 import { suggestedCaption } from '@/features/cases/utils/suggestedCaption'
@@ -235,6 +235,9 @@ export function RegisterCasePage() {
                     values={values}
                     errors={errors}
                     onChange={changeValue}
+                    onSacNumberChange={(sacNumber) =>
+                        setValues((current) => changeSacNumber(current, sacNumber))
+                    }
                     onJurisdictionChange={(jurisdiction) =>
                         setValues((current) => changeJurisdiction(current, jurisdiction))
                     }
@@ -290,7 +293,8 @@ export function RegisterCasePage() {
 /**
  * "Para poder registrar": los rótulos cambian según el caso, como en el
  * prototipo. El SAC es opcional, y las calificaciones también (D-33); lo que no
- * se puede es elegir una y no cargarle la fecha del hecho.
+ * se puede es elegir una y no cargarle la fecha del hecho, ni informar el SAC
+ * sin la fecha de inicio (CA-18.2).
  */
 function buildChecklist(
     values: CaseFormValues,
@@ -303,6 +307,7 @@ function buildChecklist(
 
     const items: ChecklistItem[] = [
         { label: sac ? 'N° de SAC válido y no repetido' : 'N° de SAC: opcional', done: sacValid },
+        ...(sac ? [{ label: 'Fecha de inicio cargada', done: values.startDate !== '' }] : []),
         { label: 'Cliente seleccionado', done: values.clientId !== '' },
         {
             label: criminal

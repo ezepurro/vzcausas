@@ -97,9 +97,19 @@ describe('toCreateCaseBody', () => {
         expect(body).not.toHaveProperty('instructorExtension')
     })
 
-    /* CA-18.9: vacía no viaja, y el backend toma la fecha del día. */
-    it('la fecha de inicio vacía no viaja', () => {
-        expect(toCreateCaseBody({ ...CRIMINAL, startDate: '' })).not.toHaveProperty('startDate')
+    /* CA-18.2: la fecha de inicio va con el SAC. */
+    describe('fecha de inicio (CA-18.2)', () => {
+        it('con SAC viaja', () => {
+            expect(toCreateCaseBody(CRIMINAL).startDate).toBe('2021-03-12')
+        })
+
+        it('vacía no viaja', () => {
+            expect(toCreateCaseBody({ ...CRIMINAL, startDate: '' })).not.toHaveProperty('startDate')
+        })
+
+        it('sin SAC no viaja, aunque haya quedado una cargada', () => {
+            expect(toCreateCaseBody({ ...CRIMINAL, sacNumber: '' })).not.toHaveProperty('startDate')
+        })
     })
 
     describe('fuero penal (CA-18.4 y CA-18.5)', () => {

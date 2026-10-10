@@ -167,7 +167,7 @@ export interface CreateCaseBody {
     /** Obligatorio fuera del penal, hasta 800 caracteres. */
     subjectMatter?: string
     responsibleLawyerId: number
-    /** Por defecto, hoy. No puede ser posterior a hoy. */
+    /** Obligatoria si va `sacNumber`; sin SAC no se manda (CA-18.2). No puede ser posterior a hoy. */
     startDate?: string
 }
 
