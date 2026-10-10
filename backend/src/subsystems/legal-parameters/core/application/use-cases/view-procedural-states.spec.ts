@@ -39,6 +39,7 @@ describe('ViewProceduralStates', () => {
     // A mock, not the fake: these specs assert *how* `findPaginated` is
     // called. The other methods are never used here but the type needs them.
     repository = {
+      existsActiveByName: jest.fn(),
       findPaginated: jest.fn().mockResolvedValue(aPage([])),
       findById: jest.fn(),
       existsByName: jest.fn(),

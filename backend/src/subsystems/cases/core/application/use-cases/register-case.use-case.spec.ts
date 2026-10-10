@@ -519,6 +519,7 @@ describe('RegisterCase', () => {
       const { newCase } = await useCase.execute(aRegisterCaseCommand({ sacNumber: undefined, startDate: undefined }));
 
       expect(newCase.sacNumber).toBeNull();
+      expect(newCase.startDate).toBeNull();
       expect(cases.saved).toHaveLength(1);
     });
 

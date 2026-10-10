@@ -1,3 +1,4 @@
+import { DayType } from '../value-objects/day-type';
 import { JurisdictionCode } from '../value-objects/jurisdiction-code';
 
 /** DI token for {@link LegalParametersLookupPort}. */
@@ -10,6 +11,13 @@ export interface ProceduralStateRef {
   // System state "Iniciada": where every new case of the jurisdiction starts.
   isInitial: boolean;
   jurisdictionId: number;
+  // Final state: closes the case. It is not offered as the target of an act.
+  terminal: boolean;
+  // Active states can be chosen for a new act; one that was deactivated can still be the state of an old case.
+  isActive: boolean;
+  // The term the state opens. `0` days and `NONE` if it opens none.
+  timeLimitDays: number;
+  dayType: DayType;
 }
 
 /** What `cases` needs to know about a legal qualification. */
@@ -27,6 +35,15 @@ export interface LegalQualificationRef {
 export interface LegalParametersLookupPort {
   /** The initial state ("Iniciada") of an active jurisdiction, or `null` if there is none. */
   findInitialProcStateByJurisdiction(jurisdiction: JurisdictionCode): Promise<ProceduralStateRef | null>;
+
+  /** A procedural state of any jurisdiction by id, active or not, or `null` if there is none. */
+  findProcStateById(id: number): Promise<ProceduralStateRef | null>;
+
+  /**
+   * `true` if the jurisdiction has an active procedural state with that name,
+   * ignoring case (the initial state included). A hand-written state may not take such a name.
+   */
+  existsProcStateActiveByName(jurisdictionId: number, name: string): Promise<boolean>;
 
   /** The active legal qualifications among the given ids. Missing or inactive ids are omitted. */
   findActiveQualificationsByIds(ids: number[]): Promise<LegalQualificationRef[]>;

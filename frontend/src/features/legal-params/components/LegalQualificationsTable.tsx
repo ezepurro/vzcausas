@@ -29,6 +29,7 @@ export function LegalQualificationsTable({
         {
             id: 'name',
             header: 'Calificación legal',
+            primary: true,
             cell: (q) => <span className="vz-table__primary">{q.name}</span>,
         },
         {

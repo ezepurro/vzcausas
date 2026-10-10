@@ -15,9 +15,16 @@ export interface CaseRepository {
   /** Inserts a new case together with its offenses. */
   save(newCase: Case): Promise<void>;
 
-  /** Loads a case by primary key. Returns `null` if none. */
+  /** Loads a case by primary key, with its current procedural act (not the whole history). Returns `null` if none. */
   findById(id: number): Promise<Case | null>;
 
   /** Reads the procedural state the stored case is currently in. */
   findCurrentState(caseId: number): Promise<ProceduralStateRef>;
+
+  /**
+   * Saves what a procedural act changed in the case: its current state, its
+   * current act and `updatedAt`. The act itself is saved by the
+   * {@link ProceduralActRepository}.
+   */
+  saveCurrentAct(updatedCase: Case): Promise<void>;
 }

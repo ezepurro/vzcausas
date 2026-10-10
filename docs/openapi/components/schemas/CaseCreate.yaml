@@ -94,6 +94,8 @@ properties:
   startDate:
     type: string
     format: date
-    description: Por defecto, la fecha del día. No puede ser posterior a hoy.
+    description: |
+      Obligatoria si se informa `sacNumber`; sin SAC no se informa y la causa
+      queda con `startDate` en `null` (D-38). No puede ser posterior a hoy.
     examples:
       - '2021-03-12'

@@ -253,6 +253,14 @@ describe('GET /api/v1/clients/{clientId}', () => {
   });
 
   beforeEach(async () => {
+    // Mismo orden completo que el `beforeEach` de arriba: los hechos y los
+    // actos procesales referencian la causa con `Restrict`, y la causa apunta
+    // a su acto vigente. Borrar sólo `case` alcanzaba mientras ninguna suite
+    // vecina dejaba actos; ahora `register-procedural-act.int.spec.ts` los
+    // deja, y sin esto el spec falla según el orden de las suites.
+    await getPrisma().offense.deleteMany();
+    await getPrisma().case.updateMany({ data: { currentProceduralActId: null } });
+    await getPrisma().proceduralAct.deleteMany();
     await getPrisma().case.deleteMany();
     await getPrisma().client.deleteMany();
   });
@@ -421,7 +429,13 @@ describe('activeCases de clientes y abogados', () => {
       createdByUserId: userId,
     });
     await getPrisma().case.update({ where: { id: baja.id }, data: { active: false } });
-    const terminal = await createProceduralState({ name: 'Archivada', terminal: true });
+    // Sin fijarle el nombre, a propósito. Este spec **no** borra los estados
+    // procesales en su `beforeEach`, así que los 18 que siembra el seed siguen
+    // ahí, y uno se llama "Archivada": fijar ese nombre choca con
+    // `procedural_states_jurisdiction_name_active_key`. La factory genera un
+    // nombre con contador justo para esto (`procedural-state.factory.ts:62`).
+    // Lo único que el test necesita es que el estado sea terminal.
+    const terminal = await createProceduralState({ terminal: true });
     await getPrisma().case.update({
       where: { id: archivada.id },
       data: { currentStateId: terminal.stateId },

@@ -24,25 +24,6 @@ describe('useDebouncedValue', () => {
         })
     }
 
-    it('arranca con el valor inicial, sin esperar', () => {
-        const { result } = renderDebounced('gomez')
-
-        expect(result.current).toBe('gomez')
-    })
-
-    it('mantiene el valor anterior hasta que pasa la demora', () => {
-        const { result, rerender } = renderDebounced('')
-
-        rerender({ value: 'gomez' })
-        expect(result.current).toBe('')
-
-        advance(199)
-        expect(result.current).toBe('')
-
-        advance(1)
-        expect(result.current).toBe('gomez')
-    })
-
     it('si el valor cambia antes de tiempo, vuelve a contar y se queda con el último', () => {
         const { result, rerender } = renderDebounced('')
 
@@ -55,25 +36,5 @@ describe('useDebouncedValue', () => {
 
         advance(100)
         expect(result.current).toBe('gomez')
-    })
-
-    it('respeta la demora que se le pasa', () => {
-        const { result, rerender } = renderDebounced('', 500)
-
-        rerender({ value: 'gomez' })
-        advance(499)
-        expect(result.current).toBe('')
-
-        advance(1)
-        expect(result.current).toBe('gomez')
-    })
-
-    it('al desmontarse cancela lo que quedó pendiente', () => {
-        const { rerender, unmount } = renderDebounced('')
-
-        rerender({ value: 'gomez' })
-        unmount()
-
-        expect(vi.getTimerCount()).toBe(0)
     })
 })

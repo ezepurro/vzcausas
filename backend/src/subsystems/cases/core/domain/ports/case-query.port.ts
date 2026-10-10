@@ -78,7 +78,13 @@ export type CaseListItem = {
   responsibleLawyer: LawyerRef;
   /** Empty unless the case is criminal. A deactivated qualification still shows (RN12). */
   legalQualifications: CaseQualificationView[];
-  startDate: Date;
+  /**
+   * `null` mientras la causa no tiene SAC (D-38): la fecha de inicio es la de
+   * la causa en sede judicial y sin SAC no existe. Hasta el 10/10/2026 la
+   * columna era `NOT NULL` y se guardaba la fecha del día, un dato inventado
+   * que el detalle mostraba como real.
+   */
+  startDate: Date | null;
   currentState: CaseCurrentStateView;
   /** Always `true` in this version: a case given de baja is not returned. */
   active: boolean;

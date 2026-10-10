@@ -92,6 +92,9 @@ migrate-create: ## Create Prisma migration inside the backend container (dev)
 seed: ## Runs Prisma seed inside the backend container (dev)
 	$(DC_DEV) exec backend npx prisma db seed
 
+test-unit: ## Runs backend integration tests inside the backend container (dev)
+	$(DC_DEV) exec backend npm run test
+
 test-int: ## Runs backend integration tests inside the backend container (dev)
 	$(DC_DEV) exec backend npm run test:int
 

@@ -38,6 +38,14 @@ describe('POST /api/v1/cases', () => {
   beforeEach(async () => {
     const prisma = getPrisma();
     await prisma.offense.deleteMany(); // hijas de cases
+    // La causa apunta a su acto vigente con `Restrict`: hay que soltar la FK
+    // antes de borrar los actos, o el DELETE viola
+    // `cases_current_procedural_act_id_fkey`. Sin esta línea el spec falla
+    // **según el orden en que Jest corra las suites** —intermitente— y sólo
+    // cuando una suite vecina dejó una causa con acto vigente, que es lo que
+    // hace `register-procedural-act.int.spec.ts`. Mismo orden que
+    // `case-query.int.spec.ts:53`.
+    await prisma.case.updateMany({ data: { currentProceduralActId: null } });
     await prisma.proceduralAct.deleteMany();
     await prisma.case.deleteMany();
     await prisma.user.deleteMany(); // referencia a lawyers
@@ -228,6 +236,24 @@ describe('POST /api/v1/cases', () => {
     expect(Object.keys(res.body.error.details)).toEqual(['legalQualifications']);
     expect(await getPrisma().case.count()).toBe(0);
     expect(await getPrisma().offense.count()).toBe(0);
+  });
+
+  it('registra una causa sin SAC y sin fecha de inicio: la fecha queda en null', async () => {
+    // Case.yaml: `startDate` viaja siempre, y vale null mientras la causa no tiene SAC.
+    const body = aCaseBody({ clientId, responsibleLawyerId: lawyerId });
+    expect(body).not.toHaveProperty('sacNumber');
+    expect(body).not.toHaveProperty('startDate');
+
+    const res = await request(app.getHttpServer()).post(URL).set(actor).send(body);
+
+    const data = expectData<{ id: number }>(res, 201);
+    expect(data).toMatchObject({ sacNumber: null, startDate: null, active: true });
+    expect(data).toHaveProperty('startDate', null);
+
+    // Base: la columna admite NULL; no se guarda una fecha inventada.
+    const row = await getPrisma().case.findUniqueOrThrow({ where: { id: data.id } });
+    expect(row.sacNumber).toBeNull();
+    expect(row.startDate).toBeNull();
   });
 
   it('rechaza un número de SAC ya registrado y no guarda otra causa', async () => {

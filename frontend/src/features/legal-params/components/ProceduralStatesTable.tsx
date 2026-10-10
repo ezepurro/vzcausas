@@ -24,7 +24,7 @@ export function ProceduralStatesTable({
     rows, onEdit, onDelete, empty,
 }: ProceduralStatesTableProps) {
     const columns: Column<ProceduralState>[] = [
-        { id: 'name', header: 'Estado procesal', cell: (r) => r.name },
+        { id: 'name', header: 'Estado procesal', cell: (r) => r.name, primary: true },
         {
             id: 'limit',
             header: 'Días',

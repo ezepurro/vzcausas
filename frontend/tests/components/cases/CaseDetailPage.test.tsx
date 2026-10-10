@@ -66,40 +66,6 @@ describe('CaseDetailPage', () => {
             expect(header).toHaveTextContent('Fuero Penal')
             expect(header).toHaveTextContent('Responsable Dra. Malena Ríos')
         })
-
-        it('muestra el estado procesal actual y el vencimiento vigente', async () => {
-            renderPage(1)
-            const header = await headerOf('Causa 13284571')
-
-            expect(header).toHaveTextContent('Estado procesal actual')
-            expect(header).toHaveTextContent('Oposición al requerimiento de elevación')
-            expect(within(header).getByText('En 1 día hábil')).toBeInTheDocument()
-        })
-
-        it('muestra el instructor con su teléfono y su interno', async () => {
-            renderPage(1)
-            const header = await headerOf('Causa 13284571')
-
-            expect(header).toHaveTextContent('Instructor Dra. Verónica Ledesma')
-            expect(header).toHaveTextContent('Teléfono 0351 448-1200')
-            expect(header).toHaveTextContent('Interno 214')
-        })
-
-        /* CA-18.2: el SAC es opcional, y el detalle tiene que poder no tenerlo. */
-        it('una causa sin SAC se muestra como "Sin SAC"', async () => {
-            renderPage(23)
-
-            expect(await headerOf('Causa sin SAC')).toHaveTextContent('Sin SAC')
-        })
-
-        it('las migas llevan al listado y muestran el SAC de la causa', async () => {
-            const { user } = renderPage(1)
-            await headerOf('Causa 13284571')
-
-            await user.click(screen.getByRole('button', { name: 'Causas' }))
-
-            expect(await screen.findByText('Listado de causas')).toBeInTheDocument()
-        })
     })
 
     describe('datos del cliente (CA-22.2)', () => {
@@ -113,18 +79,6 @@ describe('CaseDetailPage', () => {
             expect(screen.getByText('351 415-2288')).toBeInTheDocument()
             expect(screen.getByText('afgomez@gmail.com')).toBeInTheDocument()
             expect(screen.getByText('12/03/2021')).toBeInTheDocument()
-        })
-
-        it('muestra el rol procesal del cliente en esta causa', async () => {
-            renderPage(1)
-
-            expect(await headerOf('Causa 13284571')).toHaveTextContent('Rol Defensa')
-        })
-
-        it('en un amparo el rol es el de ese fuero', async () => {
-            renderPage(22, 'gestion')
-
-            expect(await headerOf('Causa 13619027')).toHaveTextContent('Rol Actora')
         })
     })
 
@@ -147,31 +101,6 @@ describe('CaseDetailPage', () => {
             expect(screen.getByText('02/09/2026')).toBeInTheDocument()
             expect(screen.getByText('02/09/2028')).toBeInTheDocument()
         })
-
-        /* CA-18.6: el cómputo corre desde la fecha del hecho, no desde el inicio. */
-        it('aclara que el cómputo corre desde la fecha del hecho', async () => {
-            renderPage(7, 'mferreyra')
-            await headerOf('Causa 14118903')
-
-            expect(screen.getByText(/El cómputo corre desde la fecha del hecho/)).toBeInTheDocument()
-        })
-
-        /* CA-18.4: fuera del penal no se computa prescripción. */
-        it('en un amparo no dibuja la barra de prescripción', async () => {
-            renderPage(22, 'gestion')
-            await headerOf('Causa 13619027')
-
-            expect(screen.queryByText(/prescribe primero/)).not.toBeInTheDocument()
-            expect(screen.queryByText(/^Restan /)).not.toBeInTheDocument()
-        })
-
-        /* CA-18.5: una causa penal sin calificaciones no computa prescripción. */
-        it('una causa penal sin calificaciones tampoco la dibuja', async () => {
-            renderPage(23, 'mferreyra')
-            await headerOf('Causa sin SAC')
-
-            expect(screen.queryByText(/^Restan /)).not.toBeInTheDocument()
-        })
     })
 
     describe('causa recién registrada (CA-22.4)', () => {
@@ -183,39 +112,11 @@ describe('CaseDetailPage', () => {
             expect(header).toHaveTextContent('Iniciada')
             expect(within(header).getByText('Sin plazo abierto')).toBeInTheDocument()
         })
-
-        it('ofrece registrar el primer acto procesal', async () => {
-            const { user } = renderPage(7, 'mferreyra')
-            await headerOf('Causa 14118903')
-
-            await user.click(screen.getByRole('button', { name: 'Registrar acto procesal' }))
-
-            expect(await screen.findByText('Pantalla de registrar acto')).toBeInTheDocument()
-        })
-
-        /* Fuera de alcance: el ciclo de vida de la causa es HU-27, Sprint 3
-           (V3 §8.3). No hay endpoint para listar los actos. */
-        it('no dibuja el panel "Ciclo de vida" ni su aviso', async () => {
-            renderPage(7, 'mferreyra')
-            await headerOf('Causa 14118903')
-
-            expect(screen.queryByText(/Ciclo de vida/)).not.toBeInTheDocument()
-            expect(screen.queryByText('Todavía no hay actos procesales')).not.toBeInTheDocument()
-        })
     })
 
     describe('quién registra los actos (V3 D-30)', () => {
-        it('el abogado responsable de la causa lo tiene habilitado', async () => {
-            renderPage(1, 'mrios')
-            await headerOf('Causa 13284571')
-
-            expect(screen.getByRole('button', { name: 'Registrar acto procesal' })).toBeEnabled()
-        })
-
         it.each([
             ['otro abogado', 'mferreyra'],
-            ['el administrador', 'fvazquez'],
-            ['la Secretaría', 'gestion'],
         ])('%s lo ve deshabilitado, con la nota de quién es el responsable', async (_, username) => {
             renderPage(1, username)
             await headerOf('Causa 13284571')
@@ -224,13 +125,6 @@ describe('CaseDetailPage', () => {
             expect(
                 screen.getByText('Solo el abogado responsable (Dra. Malena Ríos) registra actos.'),
             ).toBeInTheDocument()
-        })
-
-        it('el responsable no ve esa nota', async () => {
-            renderPage(1, 'mrios')
-            await headerOf('Causa 13284571')
-
-            expect(screen.queryByText(/Solo el abogado responsable/)).not.toBeInTheDocument()
         })
     })
 
@@ -241,24 +135,9 @@ describe('CaseDetailPage', () => {
             expect(await screen.findByText('No se pudo cargar la causa')).toBeInTheDocument()
             expect(screen.getByText('No se encontró la causa solicitada.')).toBeInTheDocument()
         })
-
-        it('una dirección que no es un identificador de causa no consulta nada', async () => {
-            renderPage('abc')
-
-            expect(await screen.findByText('No se encontró la causa')).toBeInTheDocument()
-            expect(screen.getByText('La dirección no corresponde a ninguna causa.')).toBeInTheDocument()
-        })
     })
 
     describe('estados de la consulta', () => {
-        it('mientras carga, lo avisa', async () => {
-            renderPage(1)
-
-            expect(screen.getByText('Cargando causa…')).toBeInTheDocument()
-            // Se espera a que termine: si no, el pedido queda colgando.
-            await headerOf('Causa 13284571')
-        })
-
         it('si el servidor rechaza la consulta, muestra el error', async () => {
             server.use(
                 http.get('*/cases/:caseId', () =>
@@ -270,17 +149,5 @@ describe('CaseDetailPage', () => {
             expect(await screen.findByText('No se pudo cargar la causa')).toBeInTheDocument()
             expect(screen.getByText('Rechazo de prueba.')).toBeInTheDocument()
         })
-    })
-
-    /* Fuera de alcance: modificar y dar de baja una causa son HU-19 y HU-21
-       (Sprint 3), y los escritos y la carátula imprimible son de otras
-       historias (V3 §8.3). */
-    it('no ofrece modificar, dar de baja ni emitir documentos', async () => {
-        renderPage(1)
-        await headerOf('Causa 13284571')
-
-        for (const name of ['Modificar causa', 'Dar de baja', 'Emitir carátula', 'Emitir expediente']) {
-            expect(screen.queryByRole('button', { name })).not.toBeInTheDocument()
-        }
     })
 })

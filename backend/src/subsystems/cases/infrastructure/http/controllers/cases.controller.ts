@@ -6,11 +6,17 @@ import { GetCase } from '../../../core/application/use-cases/get-case.use-case';
 import { ListCases } from '../../../core/application/use-cases/list-cases.use-case';
 import { ListCustomStates } from '../../../core/application/use-cases/list-custom-states.use-case';
 import { RegisterCase } from '../../../core/application/use-cases/register-case.use-case';
+import { RegisterProceduralAct } from '../../../core/application/use-cases/register-procedural-act.use-case';
 import { InvalidCaseIdError } from '../../../core/domain/errors/case.errors';
 import { CaseResponseDto } from '../dtos/case.response.dto';
+import { DeadlinePreviewQueryDto } from '../dtos/deadline-preview.query.dto';
+import { DeadlinePreviewResponseDto } from '../dtos/deadline-preview.response.dto';
 import { ListCasesQueryDto } from '../dtos/list-cases.query.dto';
+import { ProceduralActResponseDto } from '../dtos/procedural-act.response.dto';
 import { RegisterCaseRequestDto } from '../dtos/register-case.request.dto';
 import { CaseHttpMapper } from '../mappers/case-http.mapper';
+import { RegisterProceduralActRequestDto } from '../dtos/register-procedural-act.request.dto';
+import { ProceduralActHttpMapper } from '../mappers/procedural-act-http.mapper';
 
 /**
  * HTTP entry point for `/cases` (API contract §3.7). Any authenticated user
@@ -28,6 +34,8 @@ export class CasesController {
     private readonly listCases: ListCases,
     private readonly getCase: GetCase,
     private readonly listCustomStates: ListCustomStates,
+    private readonly registerProceduralAct: RegisterProceduralAct,
+    private readonly proceduralActMapper: ProceduralActHttpMapper,
   ) {}
 
   /**
@@ -64,18 +72,21 @@ export class CasesController {
   /**
    * `GET /cases/{caseId}` (HU22). Devuelve **el mismo recurso que el listado**.
    *
-   * Declarado después de `@Get()`: Nest resuelve las rutas en orden de
-   * declaración, así que una ruta con parámetro puesta antes se comería a la
-   * literal. Cuando se agregue `@Get('custom-states')` (HU20) tiene que ir
-   * **arriba** de este método, por el mismo motivo.
+   * Declarado después de `@Get('custom-states')`: Nest resuelve las rutas en
+   * orden de declaración, así que una ruta con parámetro puesta antes se
+   * comería a la literal.
    *
-   * El `caseId` llega como `string` y lo parsea el método de abajo en lugar de
+   * No choca con `@Get(':caseId/procedural-acts/deadline-preview')` (HU26, más
+   * abajo): `:caseId` matchea **un** segmento, y esa ruta tiene tres, así que
+   * el orden entre las dos no importa.
+   *
+   * El `caseId` llega como `string` y lo parsea `parseCaseId` en lugar de
    * dejárselo al pipe: así el error lleva el `INVALID_PATH_PARAMETER` del
    * contrato y no el `VALIDATION_ERROR` genérico.
    */
   @Get(':caseId')
   async getById(@Param('caseId') caseIdParam: string): Promise<{ data: CaseResponseDto }> {
-    const item = await this.getCase.execute({ id: parseCaseId(caseIdParam) });
+    const item = await this.getCase.execute({ id: this.parseCaseId(caseIdParam) });
     return { data: CaseHttpMapper.toResponse(item) };
   }
 
@@ -88,12 +99,45 @@ export class CasesController {
     const result = await this.registerCase.execute({ ...dto, createdByUserId: actor.userId });
     return { data: CaseHttpMapper.fromRegisterResult(result) };
   }
-}
 
-function parseCaseId(raw: string): number {
-  const caseId = Number(raw);
-  if (!Number.isInteger(caseId) || caseId <= 0) {
-    throw new InvalidCaseIdError();
+  /**
+   * HU26. Only the lawyer in charge of the case may register its acts (D-30):
+   * the domain checks it, so no permission is declared here either.
+   */
+  @Post(':caseId/procedural-acts')
+  @HttpCode(HttpStatus.CREATED)
+  async registerAct(
+    @Param('caseId') caseIdParam: string,
+    @Body() dto: RegisterProceduralActRequestDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ): Promise<{ data: ProceduralActResponseDto }> {
+    const caseId = this.parseCaseId(caseIdParam);
+    const result = await this.registerProceduralAct.execute(this.proceduralActMapper.toCommand(caseId, dto, actor));
+    return { data: this.proceduralActMapper.toResponse(result) };
   }
-  return caseId;
+
+  /**
+   * The deadline an act would open, without registering it. Same rule as the
+   * registration: only the lawyer in charge of the case.
+   */
+  @Get(':caseId/procedural-acts/deadline-preview')
+  async previewDeadline(
+    @Param('caseId') caseIdParam: string,
+    @Query() query: DeadlinePreviewQueryDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ): Promise<{ data: DeadlinePreviewResponseDto }> {
+    const caseId = this.parseCaseId(caseIdParam);
+    const result = await this.registerProceduralAct.previewDeadline(
+      this.proceduralActMapper.toPreviewQuery(caseId, query, actor),
+    );
+    return { data: this.proceduralActMapper.toPreviewResponse(result) };
+  }
+
+  private parseCaseId(raw: string): number {
+    const caseId = Number(raw);
+    if (!Number.isInteger(caseId) || caseId <= 0) {
+      throw new InvalidCaseIdError();
+    }
+    return caseId;
+  }
 }

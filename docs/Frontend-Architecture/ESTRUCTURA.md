@@ -359,7 +359,7 @@ equivocado.
 7. Si otro módulo va a necesitar algo de éste, publicá **eso solo** en un
    `index.ts` en la raíz del módulo (ver la regla 1 de §5).
 8. Creá sus carpetas en `tests/unit/` y `tests/components/`, como explica
-   `TESTING.md` §7. Los tests se pueden escribir antes que la feature, desde
+   `TESTING.md` §11. Los tests se pueden escribir antes que la feature, desde
    los criterios de aceptación de la historia: en ese caso este paso va
    primero.
 

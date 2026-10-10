@@ -131,8 +131,8 @@ export class CaseFactory {
       instructor: { name: instructorName, phone: tribunalPhone, extension: instructorExtension },
       clientId: input.clientId,
       responsibleLawyerId: input.responsibleLawyerId,
-      // `cases.start_date` cannot be empty: a case without SAC gets today's date.
-      startDate: startDate ?? input.today,
+      // Without a SAC number the case has not started in court yet: there is no date to invent.
+      startDate: startDate ?? null,
       // Every case starts in the "Iniciada" state of its jurisdiction.
       currentStateId: input.initialState.id,
       currentCustomState: null,

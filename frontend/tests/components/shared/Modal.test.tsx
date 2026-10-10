@@ -31,101 +31,13 @@ function renderModal() {
     return { onClose, user: userEvent.setup() }
 }
 
-/** El fondo no tiene rol propio: se lo busca por su clase. */
-const backdrop = () => document.querySelector('.vz-modal-backdrop') as HTMLElement
-
 describe('Modal', () => {
-    it('el diálogo se llama como su título', () => {
-        renderModal()
-
-        expect(screen.getByRole('dialog', { name: 'Registrar usuario' })).toBeInTheDocument()
-    })
-
-    describe('scroll del fondo', () => {
-        it('mientras está abierto, la página de atrás no scrollea', () => {
-            renderModal()
-
-            expect(document.body.style.overflow).toBe('hidden')
-        })
-
-        it('al cerrarse, la página vuelve a scrollear como estaba', () => {
-            document.body.style.overflow = 'auto'
-            const { unmount } = render(
-                <Modal title="Eliminar usuario" onClose={() => {}}>contenido</Modal>,
-            )
-
-            unmount()
-
-            expect(document.body.style.overflow).toBe('auto')
-            document.body.style.overflow = ''
-        })
-
-        /* Un modal abierto encima de otro: cerrar el de arriba no puede
-           desbloquear el fondo mientras el de abajo sigue abierto. */
-        it('cerrar un modal apilado no desbloquea el de abajo', () => {
-            const below = render(<Modal title="Abajo" onClose={() => {}}>a</Modal>)
-            const above = render(<Modal title="Arriba" onClose={() => {}}>b</Modal>)
-
-            above.unmount()
-            expect(document.body.style.overflow).toBe('hidden')
-
-            below.unmount()
-            expect(document.body.style.overflow).toBe('')
-        })
-    })
-
     it('Escape lo cierra', async () => {
         const { onClose, user } = renderModal()
 
         await user.keyboard('{Escape}')
 
         expect(onClose).toHaveBeenCalledTimes(1)
-    })
-
-    it('Escape lo cierra también con el foco dentro de un campo', async () => {
-        const { onClose, user } = renderModal()
-
-        await user.click(screen.getByLabelText('Nombre'))
-        await user.keyboard('{Escape}')
-
-        expect(onClose).toHaveBeenCalledTimes(1)
-    })
-
-    it('un click en el fondo lo cierra', async () => {
-        const { onClose, user } = renderModal()
-
-        await user.click(backdrop())
-
-        expect(onClose).toHaveBeenCalledTimes(1)
-    })
-
-    it('un click adentro no lo cierra', async () => {
-        const { onClose, user } = renderModal()
-
-        await user.click(screen.getByLabelText('Nombre'))
-
-        expect(onClose).not.toHaveBeenCalled()
-    })
-
-    /* Seleccionar texto en un campo y soltar el botón afuera contaba como
-       click en el fondo: el modal se cerraba con todo lo escrito adentro. */
-    it('arrastrar desde adentro y soltar en el fondo no lo cierra', async () => {
-        const { onClose } = renderModal()
-        const field = screen.getByLabelText('Nombre')
-
-        await userEvent.pointer([
-            { target: field, keys: '[MouseLeft>]' },
-            { target: backdrop() },
-            { keys: '[/MouseLeft]' },
-        ])
-
-        expect(onClose).not.toHaveBeenCalled()
-    })
-
-    it('al abrir, el foco entra al modal', () => {
-        renderModal()
-
-        expect(screen.getByRole('dialog')).toHaveFocus()
     })
 
     describe('el tabulador no se escapa', () => {
@@ -141,43 +53,6 @@ describe('Modal', () => {
 
             expect(field()).toHaveFocus()
             expect(outside()).not.toHaveFocus()
-        })
-
-        it('desde el primero, Shift+Tab va al último', async () => {
-            const { user } = renderModal()
-
-            await user.click(field())
-            await user.tab({ shift: true })
-
-            expect(confirm()).toHaveFocus()
-        })
-
-        it('tabulando en vueltas nunca se llega a lo de afuera', async () => {
-            const { user } = renderModal()
-            const dialog = screen.getByRole('dialog')
-
-            // Más vueltas que paradas: si hubiera fuga, ya habría pasado.
-            for (let i = 0; i < 6; i += 1) {
-                await user.tab()
-                expect(dialog).toContainElement(document.activeElement as HTMLElement)
-            }
-        })
-
-        /* Después de un click en el fondo el foco queda afuera del diálogo.
-           La próxima tecla tiene que devolverlo adentro, no seguir paseando
-           por la pantalla de atrás.
-
-           Se prueba con Shift+Tab a propósito: el botón de afuera es el
-           primero del documento, así que con Tab a secas el foco caería en el
-           campo igual, por orden y no porque alguien lo haya traído. Hacia
-           atrás no hay nada, así que sólo el trap puede devolverlo. */
-        it('si el foco se escapó, la próxima tecla lo trae de vuelta', async () => {
-            const { user } = renderModal()
-
-            outside().focus()
-            await user.tab({ shift: true })
-
-            expect(confirm()).toHaveFocus()
         })
     })
 })

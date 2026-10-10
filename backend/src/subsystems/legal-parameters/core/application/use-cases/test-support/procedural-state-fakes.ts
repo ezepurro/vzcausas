@@ -160,6 +160,15 @@ export class FakeProceduralStateRepository implements ProceduralStateRepository 
         proc.id !== excludingId,
     );
   }
+
+  /** By jurisdiction id, active states only, "Iniciada" included: what the Prisma query does. */
+  async existsActiveByName(jurisdictionId: number, name: string): Promise<boolean> {
+    return [...this.byId.values()].some(
+      (proc) =>
+        proc.isActive && proc.jurisdiction.id === jurisdictionId && proc.name.toLowerCase() === name.toLowerCase(),
+    );
+  }
+
   async findInitialByJurisdiction(jurisdiction: JurisdictionCode): Promise<ProceduralState | null> {
     const initial = [...this.byId.values()].find(
       (procState) => procState.isInitial && procState.jurisdiction.code === jurisdiction,

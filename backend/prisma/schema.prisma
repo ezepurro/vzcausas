@@ -306,7 +306,10 @@ model Case {
   subjectMatter       String?        @map("subject_matter") @db.VarChar(800)
   clientId            Int            @map("client_id")
   responsibleLawyerId Int            @map("responsible_lawyer_id")
-  startDate           DateTime       @map("start_date") @db.Date
+  // Fecha de inicio de la causa en sede judicial. NULL mientras no tiene SAC
+  // (D-33): obligatoria con SAC y sin SAC no se informa, así que no hay un
+  // valor que inventar para esa causa.
+  startDate           DateTime?      @map("start_date") @db.Date
 
   // Estado actual: siempre hay uno. Al alta, el estado inicial
   // "Iniciada" del fuero. CHECK manual de exclusión mutua:

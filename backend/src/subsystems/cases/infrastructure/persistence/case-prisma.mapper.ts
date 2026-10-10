@@ -3,12 +3,14 @@ import {
   Jurisdiction as PrismaJurisdiction,
   LegalQualification as PrismaLegalQualification,
   Offense as PrismaOffense,
+  ProceduralAct as PrismaProceduralAct,
 } from '../../../../generated/prisma/client';
 import { AdministrativeCase } from '../../core/domain/entities/administrative';
 import { Amparo } from '../../core/domain/entities/amparo';
 import { Case, CaseProps } from '../../core/domain/entities/cases';
 import { CriminalCase } from '../../core/domain/entities/criminal';
 import { Offense } from '../../core/domain/entities/offense';
+import { ProceduralActPrismaMapper } from './procedural-act-prisma.mapper';
 import { JurisdictionCode } from '../../core/domain/value-objects/jurisdiction-code';
 import { ProceduralRole } from '../../core/domain/value-objects/procedural-role';
 
@@ -17,6 +19,8 @@ export type OffenseRow = PrismaOffense & { legalQualification: PrismaLegalQualif
 export type CaseRow = PrismaCase & {
   jurisdiction: PrismaJurisdiction;
   offenses: OffenseRow[];
+  // The act that led the case to its current state; the rest of the timeline is not loaded.
+  currentProceduralAct: PrismaProceduralAct | null;
 };
 
 export class CasePrismaMapper {
@@ -35,8 +39,8 @@ export class CasePrismaMapper {
       currentStateId: row.currentStateId,
       currentCustomState: row.currentCustomState,
       currentProceduralActId: row.currentProceduralActId,
-      // The timeline is not loaded here: registering a case never needs it.
-      proceduralActs: [],
+      // Only the current act is loaded: registering an act needs it to tell whether the new one is older.
+      proceduralActs: row.currentProceduralAct ? [ProceduralActPrismaMapper.toDomain(row.currentProceduralAct)] : [],
       active: row.active,
       createdByUserId: row.createdByUserId,
       createdAt: row.createdAt,

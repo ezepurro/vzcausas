@@ -46,20 +46,42 @@ export interface CreateCaseOverrides {
   createdByUserId: number;
   sacNumber?: string | null;
   caption?: string;
+  /** Fuero de la causa. Por defecto, penal. */
+  jurisdiction?: 'CRIMINAL' | 'ADMINISTRATIVE';
+  /**
+   * Estado en el que está la causa. Por defecto, el inicial de su fuero. Con un
+   * estado terminal queda cerrada; para un estado escrito a mano usar
+   * `currentCustomState`.
+   */
+  currentStateId?: number;
+  currentCustomState?: string;
 }
 
+/**
+ * PERSISTE una causa. Sin overrides, una causa penal en el estado inicial
+ * ("Iniciada"). Una causa administrativa lleva el objeto del reclamo, que ese
+ * fuero exige. Un acto vigente no se pasa acá: se crea con `createProceduralAct`,
+ * que además lo deja apuntado desde la causa.
+ */
 export async function createCase(overrides: CreateCaseOverrides) {
-  const initialState = await createInitialState('CRIMINAL');
+  const jurisdiction = overrides.jurisdiction ?? 'CRIMINAL';
+  const initialState = await createInitialState(jurisdiction);
+  const isAdministrative = jurisdiction === 'ADMINISTRATIVE';
+  const inCustomState = overrides.currentCustomState !== undefined;
+
   return getPrisma().case.create({
     data: {
       sacNumber: overrides.sacNumber ?? null,
       caption: overrides.caption ?? 'CAUSA PREVIA',
       jurisdictionId: initialState.jurisdictionId,
-      proceduralRole: 'DEFENSA',
+      proceduralRole: isAdministrative ? 'RECURRENTE' : 'DEFENSA',
+      subjectMatter: isAdministrative ? 'Se impugna la resolución que deniega la cobertura.' : null,
       clientId: overrides.clientId,
       responsibleLawyerId: overrides.responsibleLawyerId,
       startDate: new Date('2021-03-12T00:00:00.000Z'),
-      currentStateId: initialState.stateId,
+      // Exactamente uno de los dos (CHECK de la base).
+      currentStateId: inCustomState ? null : (overrides.currentStateId ?? initialState.stateId),
+      currentCustomState: overrides.currentCustomState ?? null,
       createdByUserId: overrides.createdByUserId,
     },
   });

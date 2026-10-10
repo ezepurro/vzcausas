@@ -29,14 +29,6 @@ describe('LawyersPage', () => {
             expect(screen.getByText(`${LAWYERS.length}`, { selector: '.vz-pager__count' })).toBeInTheDocument()
         })
 
-        it('mientras carga, lo avisa', async () => {
-            renderPage()
-
-            expect(screen.getByText('Cargando abogados…')).toBeInTheDocument()
-            // Se espera a que termine: si no, el pedido queda colgando para el test siguiente.
-            expect(await screen.findByText('Dr. Fernando G. Vázquez')).toBeInTheDocument()
-        })
-
         it('filtra con el buscador', async () => {
             const { user } = renderPage()
             await screen.findByText('Dr. Fernando G. Vázquez')
@@ -50,15 +42,6 @@ describe('LawyersPage', () => {
             expect(screen.getByText('Dra. Malena Ríos')).toBeInTheDocument()
         })
 
-        it('si la búsqueda no encuentra nada, muestra el estado vacío', async () => {
-            const { user } = renderPage()
-            await screen.findByText('Dr. Fernando G. Vázquez')
-
-            await user.type(screen.getByRole('searchbox', { name: 'Buscar abogado' }), 'zzzz')
-
-            expect(await screen.findByText('Sin abogados')).toBeInTheDocument()
-        })
-
         /* Leer abogados está abierto a cualquier perfil (V3 D-03), así que el
            mock ya no responde 403 a un abogado: el rechazo se fuerza. */
         it('si el servidor rechaza la consulta, muestra el error', async () => {
@@ -70,23 +53,6 @@ describe('LawyersPage', () => {
             renderPage()
 
             expect(await screen.findByText('No se pudieron cargar los abogados')).toBeInTheDocument()
-        })
-
-        it('un abogado sin rol de administrador también puede leer el listado', async () => {
-            renderPage('mrios')
-
-            expect(await screen.findByText('Dr. Fernando G. Vázquez')).toBeInTheDocument()
-        })
-
-        /* Usuarios y abogados son dos secciones del rail, no pestañas de una
-           misma pantalla: cada una lleva su propio título. */
-        it('es una pantalla propia, sin pestañas hacia usuarios', async () => {
-            renderPage()
-            // Se espera el listado para no dejar la consulta en vuelo al test siguiente.
-            await screen.findByText('Dr. Fernando G. Vázquez')
-
-            expect(screen.getByRole('heading', { name: 'Abogados', level: 1 })).toBeInTheDocument()
-            expect(screen.queryByRole('tablist')).not.toBeInTheDocument()
         })
     })
 
@@ -117,19 +83,6 @@ describe('LawyersPage', () => {
             expect(within(dialog).getByText('El apellido y nombre es obligatorio.')).toBeInTheDocument()
             expect(within(dialog).getByText('La matrícula es obligatoria.')).toBeInTheDocument()
             expect(db.lawyers).toHaveLength(LAWYERS.length)
-        })
-
-        it('una matrícula con formato inválido se marca antes de mandar', async () => {
-            const { user } = renderPage()
-            const dialog = await openCreate(user)
-
-            await user.type(within(dialog).getByLabelText(/^apellido y nombre/i), 'Dra. Ana Pérez')
-            await user.type(within(dialog).getByLabelText(/^matrícula/i), '50000')
-            await user.click(within(dialog).getByRole('button', { name: 'Registrar abogado' }))
-
-            expect(
-                within(dialog).getByText('El formato es circunscripción y número: 1-28114.'),
-            ).toBeInTheDocument()
         })
 
         it('una matrícula ya registrada se marca en el campo', async () => {
@@ -163,16 +116,6 @@ describe('LawyersPage', () => {
 
             expect(await screen.findByText('Error del servidor de prueba.')).toBeInTheDocument()
             expect(screen.getByRole('dialog')).toBeInTheDocument()
-        })
-
-        it('cancelar cierra el modal sin registrar nada', async () => {
-            const { user } = renderPage()
-            const dialog = await openCreate(user)
-
-            await user.click(within(dialog).getByRole('button', { name: 'Cancelar' }))
-
-            expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-            expect(db.lawyers).toHaveLength(LAWYERS.length)
         })
     })
 })

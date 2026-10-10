@@ -142,3 +142,6 @@
   .vz-login { grid-template-columns: minmax(0, 1fr); }
   .vz-login__aside { display: none; }
 }
+@media (max-width: 720px) {
+  .vz-login__panel { padding: 32px 20px; }
+}

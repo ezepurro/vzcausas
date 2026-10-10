@@ -108,7 +108,11 @@ export class CaseHttpMapper {
         prescriptionExpiresOn:
           qualification.prescriptionExpiresOn && toIsoDate(qualification.prescriptionExpiresOn),
       })),
-      startDate: toIsoDate(item.startDate),
+      // `null` mientras la causa no tiene SAC (D-38): la fecha de inicio es la
+      // de la causa en sede judicial, y sin SAC no existe. Antes la columna era
+      // `NOT NULL` y se guardaba la del día, un dato inventado que el detalle
+      // mostraba como real.
+      startDate: item.startDate && toIsoDate(item.startDate),
       currentState: {
         proceduralStateId: item.currentState.proceduralStateId,
         name: item.currentState.name,

@@ -54,7 +54,8 @@ export class CaseResponseDto {
   client!: ClientResponseDto;
   responsibleLawyer!: ResponsibleLawyerResponseDto;
   legalQualifications!: LegalQualificationResponseDto[];
-  startDate!: string;
+  // `null` while the case has no SAC number.
+  startDate!: string | null;
   currentState!: CurrentStateResponseDto;
   active!: boolean;
 }

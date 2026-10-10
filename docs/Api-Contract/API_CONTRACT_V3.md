@@ -2965,7 +2965,7 @@ El recurso causa posee la siguiente estructura:
 | `client`               | Object                        |  No  | Cliente de la causa. Ver estructura más abajo                                                 |
 | `responsibleLawyer`    | Object                        |  No  | Abogado responsable (RN3): `id`, `fullName`, `registrationNumber`                             |
 | `legalQualifications`  | Object[]                      |  No  | Calificaciones legales, cada una con su fecha del hecho y su prescripción. Opcional en `CRIMINAL`; vacío en los demás |
-| `startDate`            | String (fecha ISO 8601)       |  No  | Fecha de inicio de la causa. No interviene en el cómputo de la prescripción                   |
+| `startDate`            | String (fecha ISO 8601) \| `null` |  Sí  | Fecha de inicio de la causa en sede judicial. `null` mientras no tiene SAC (D-38). No interviene en el cómputo de la prescripción |
 | `currentState`         | Object                        |  No  | Estado procesal actual, con el vencimiento del acto que llevó la causa a él. Ver estructura más abajo |
 | `active`               | Boolean                       |  No  | Estado de alta. Vale siempre `true` en esta versión                                           |
 
@@ -3109,7 +3109,7 @@ Amparo:
 | `counterparty`          | String           |     No      | Hasta 255 caracteres. Solo en `ADMINISTRATIVE` y `AMPARO`; no se envía en `CRIMINAL`              |
 | `subjectMatter`         | String           | Condicional | Obligatorio en `ADMINISTRATIVE` y `AMPARO`, no vacío, hasta 800 caracteres. No se envía en `CRIMINAL` |
 | `responsibleLawyerId`   | Integer          |     Sí      | Abogado vigente (RN3)                                                                             |
-| `startDate`             | String (fecha)   |     No      | Por defecto, la fecha del día. No puede ser posterior a hoy                                       |
+| `startDate`             | String (fecha)   | Condicional | Obligatoria si se informa `sacNumber`; sin SAC no se informa y la causa queda con `startDate` en `null` (D-38). No puede ser posterior a hoy |
 
 **`legalQualifications[]`** (cuerpo de la petición)
 
@@ -4524,6 +4524,12 @@ El teléfono del tribunal y el número de interno siguen como quedaron en la
 revisión del 05/10/2026 (D-33): viajan en dos campos separados y opcionales,
 `tribunalPhone` e `instructorExtension`.
 
+### 7.10 Revisión de V3 del 10/10/2026
+
+| Qué | Antes | Ahora | Decisión |
+| --- | --- | --- | --- |
+| `startDate` de la causa | Siempre una fecha: sin SAC se guardaba la del día | `String \| null`: vale `null` mientras la causa no tiene SAC. En `POST /cases` se mantiene que con SAC es obligatoria y sin SAC no se informa | D-38 |
+
 ---
 
 ## 8. Observaciones
@@ -4572,6 +4578,7 @@ antes o durante la implementación.
 | D-35 | Se retira `nextDeadline`: el vencimiento es parte del estado actual y viaja en `currentState` | Decisión del equipo (05/10/2026): el vencimiento lo abre el acto que llevó la causa a su estado actual |
 | D-36 | El fuero de un estado procesal no es modificable: `PATCH /procedural-states/{stateId}` rechaza `jurisdiction` con `400 VALIDATION_ERROR`, y se retira `PROCEDURAL_STATE_IN_USE`. Revierte D-07 | Decisión del equipo. Un estado figura en la historia de las causas aunque ninguna esté hoy en él, así que el traslado casi nunca procedía y la pantalla no podía anticiparlo. Para trasladarlo: baja y alta en el otro fuero, como en V2 |
 | D-37 | Los códigos de `ProceduralRole` van en castellano: `DEFENSA`, `QUERELLANTE_PARTICULAR`, `RECURRENTE`, `ACTORA` y `DEMANDADA`. Reemplazan a `DEFENSE`, `PRIVATE_PROSECUTOR`, `APPELLANT`, `PLAINTIFF` y `DEFENDANT` | Decisión del equipo (09/10/2026): son los valores que ya usan el backend y la base de datos |
+| D-38 | `startDate` de la causa es anulable: vale `null` mientras la causa no tiene SAC. La regla de entrada no cambia (con SAC es obligatoria, sin SAC no se informa); cambia lo que se guarda | Decisión del equipo (10/10/2026). La fecha de inicio es la de la causa en sede judicial y sin SAC no existe; como la columna era `NOT NULL`, se guardaba la fecha del día, un dato inventado que el detalle de la causa mostraba como real. Ver [C-20](#82-puntos-a-verificar) |
 
 ### 8.2 Puntos a verificar
 

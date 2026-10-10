@@ -26,6 +26,16 @@ const ACTIVE_NAME_UNIQUE_INDEX = 'procedural_states_jurisdiction_name_active_key
 export class ProceduralStatePrismaRepository implements ProceduralStateRepository {
   constructor(private readonly prisma: PrismaService) {}
 
+  async existsActiveByName(jurisdictionId: number, name: string): Promise<boolean> {
+    // Same rule as the partial unique index of the table: per jurisdiction,
+    // among the active states, ignoring case. The initial state counts too.
+    const row = await this.prisma.proceduralState.findFirst({
+      where: { jurisdictionId, isActive: true, name: { equals: name, mode: 'insensitive' } },
+      select: { stateId: true },
+    });
+    return row !== null;
+  }
+
   async findById(id: number): Promise<ProceduralState | null> {
     const row = await this.prisma.proceduralState.findFirst({
       where: {
@@ -145,9 +155,7 @@ export class ProceduralStatePrismaRepository implements ProceduralStateRepositor
 
   /** Name of the index behind a `P2002`, or `undefined` if Prisma did not report it. */
   private violatedIndex(error: Prisma.PrismaClientKnownRequestError): string | undefined {
-    const meta = error.meta as
-      | { driverAdapterError?: { cause?: { constraint?: { index?: string } } } }
-      | undefined;
+    const meta = error.meta as { driverAdapterError?: { cause?: { constraint?: { index?: string } } } } | undefined;
     return meta?.driverAdapterError?.cause?.constraint?.index;
   }
 

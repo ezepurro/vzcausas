@@ -8,13 +8,19 @@ import { GetCase } from './core/application/use-cases/get-case.use-case';
 import { ListCases } from './core/application/use-cases/list-cases.use-case';
 import { ListCustomStates } from './core/application/use-cases/list-custom-states.use-case';
 import { RegisterCase } from './core/application/use-cases/register-case.use-case';
+import { RegisterProceduralAct } from './core/application/use-cases/register-procedural-act.use-case';
 import { CASE_QUERY } from './core/domain/ports/case-query.port';
 import { CASE_REPOSITORY } from './core/domain/ports/case.repository';
+import { DEADLINE_CALCULATOR } from './core/domain/ports/deadline-calculator.port';
+import { PROCEDURAL_ACT_REPOSITORY } from './core/domain/ports/procedural-act.repository';
+import { BusinessDaysDeadlineCalculatorAdapter } from './infrastructure/acl/business-days-deadline-calculator.adapter';
 import { LegalParametersActiveCasesCounterAdapter } from './infrastructure/acl/legal-parameters-active-cases-counter.adapter';
 import { PeopleActiveCasesCounterAdapter } from './infrastructure/acl/people-active-cases-counter.adapter';
 import { CasesController } from './infrastructure/http/controllers/cases.controller';
+import { ProceduralActHttpMapper } from './infrastructure/http/mappers/procedural-act-http.mapper';
 import { CasePrismaRepository } from './infrastructure/persistence/case-prisma.repository';
 import { CaseQueryPrismaAdapter } from './infrastructure/persistence/case-query-prisma.adapter';
+import { ProceduralActPrismaRepository } from './infrastructure/persistence/procedural-act-prisma.repository';
 
 /**
  * Composition root of `cases`.
@@ -49,7 +55,17 @@ import { CaseQueryPrismaAdapter } from './infrastructure/persistence/case-query-
  * dependencia es mutua y real: `cases` le pide el estado inicial del fuero y
  * las calificaciones legales para registrar una causa, y él le pide el conteo
  * de causas activas. Sin `forwardRef` de los dos lados, uno de los dos módulos
- * se evalúa como `undefined` y Nest no puede resolver el grafo.
+ * se evalúa como `undefined` y Nest no puede resolver el grafo. Lo mismo con
+ * `PeopleModule`, por el `activeCases` de abogados y clientes.
+ *
+ * **Actos procesales** (HU-26): `POST /cases/:caseId/procedural-acts`. El
+ * cómputo de plazos va por `DEADLINE_CALCULATOR`, hoy un adaptador
+ * provisorio de lunes a viernes (P-02); `deadlines` lo reemplazará.
+ *
+ * El acto es lo que mueve el estado de la causa, así que es también lo que
+ * mueve los cuatro conteos de `activeCases`: `saveCurrentAct` escribe
+ * `current_state_id` y `current_custom_state` en un solo `UPDATE` y mantiene
+ * el CHECK de exclusión mutua del que dependen los conteos.
  */
 @Module({
   imports: [forwardRef(() => PeopleModule), forwardRef(() => LegalParametersModule), SharedModule],
@@ -59,8 +75,12 @@ import { CaseQueryPrismaAdapter } from './infrastructure/persistence/case-query-
     ListCases,
     GetCase,
     ListCustomStates,
+    RegisterProceduralAct,
+    ProceduralActHttpMapper,
     { provide: CASE_REPOSITORY, useClass: CasePrismaRepository },
     { provide: CASE_QUERY, useClass: CaseQueryPrismaAdapter },
+    { provide: PROCEDURAL_ACT_REPOSITORY, useClass: ProceduralActPrismaRepository },
+    { provide: DEADLINE_CALCULATOR, useClass: BusinessDaysDeadlineCalculatorAdapter },
     // Adapters of the ports that other subsystems define to ask `cases` for
     // the number of active cases. The two tokens happen to share a name in
     // their own subsystems, which is why one is imported aliased here.

@@ -4,6 +4,8 @@ import {
   LegalQualificationRef,
   ProceduralStateRef,
 } from '@subsystems/cases/core/domain/ports/legal-parameters-lookup.port';
+import { DayType as CasesDayType } from '@subsystems/cases/core/domain/value-objects/day-type';
+import { ProceduralState } from '../../core/domain/entities/procedural-states';
 import { LegalQualificationRepository } from '../../core/domain/ports/legal-qualification.repository';
 import { ProceduralStateRepository } from '../../core/domain/ports/procedural-states.repository';
 import { JurisdictionCode } from '../../core/domain/value-objects/jurisdiction-code';
@@ -25,10 +27,16 @@ export class CasesLegalParametersLookupAdapter implements LegalParametersLookupP
 
   async findInitialProcStateByJurisdiction(jurisdiction: JurisdictionCode): Promise<ProceduralStateRef | null> {
     const state = await this.procStateRepo.findInitialByJurisdiction(jurisdiction);
-    if (!state) {
-      return null;
-    }
-    return { id: state.id, name: state.name, isInitial: state.isInitial, jurisdictionId: state.jurisdiction.id };
+    return state ? this.toStateRef(state) : null;
+  }
+
+  async findProcStateById(id: number): Promise<ProceduralStateRef | null> {
+    const state = await this.procStateRepo.findById(id);
+    return state ? this.toStateRef(state) : null;
+  }
+
+  async existsProcStateActiveByName(jurisdictionId: number, name: string): Promise<boolean> {
+    return this.procStateRepo.existsActiveByName(jurisdictionId, name);
   }
 
   async findActiveQualificationsByIds(ids: number[]): Promise<LegalQualificationRef[]> {
@@ -40,5 +48,21 @@ export class CasesLegalParametersLookupAdapter implements LegalParametersLookupP
         ? [{ id: qualification.id, name: qualification.name, prescriptionMonths: qualification.prescriptionMonths }]
         : [],
     );
+  }
+
+  private toStateRef(state: ProceduralState): ProceduralStateRef {
+    // A state without a term has no day type; one without its own day type counts as its jurisdiction does.
+    const dayType =
+      state.timeLimitDays === 0 ? CasesDayType.NONE : ((state.dayType ?? state.jurisdiction.dayTypeDefault) as string);
+    return {
+      id: state.id,
+      name: state.name,
+      isInitial: state.isInitial,
+      jurisdictionId: state.jurisdiction.id,
+      terminal: state.terminal,
+      isActive: state.isActive,
+      timeLimitDays: state.timeLimitDays,
+      dayType: dayType as CasesDayType,
+    };
   }
 }

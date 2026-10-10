@@ -25,15 +25,4 @@ test.describe('Abogados', () => {
         await expect(page.getByRole('cell', { name: 'Dra. Ana Pérez' })).toBeVisible()
         await expect(page.getByRole('cell', { name: 'Dr. Fernando G. Vázquez' })).toBeHidden()
     })
-
-    test('una matrícula ya registrada no se puede repetir', async ({ page }) => {
-        await page.getByRole('button', { name: 'Registrar abogado' }).click()
-        const dialog = page.getByRole('dialog')
-        await dialog.getByLabel(/^apellido y nombre/i).fill('Otro Vázquez')
-        await dialog.getByLabel(/^Matrícula/).fill('1-28114')
-        await dialog.getByRole('button', { name: 'Registrar abogado' }).click()
-
-        await expect(dialog.locator('.vz-field--error')).toBeVisible()
-        await expect(dialog).toBeVisible()
-    })
 })

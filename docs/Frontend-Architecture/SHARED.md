@@ -223,8 +223,14 @@ import { ApiError, isApiError } from '@/shared/api/ApiError';
 **Notas:** no sabe de rutas; la traducción ruta↔ítem la hace
 `@/app/layouts/AppLayout.tsx`, que ya lo monta con los 9 ítems del sistema.
 **Una pantalla nueva no necesita tocar AppShell**: se agrega la ruta al router y,
-si falta, el ítem en `AppLayout`. El texto de `railAction` debe ir envuelto en
-`<span className="vz-rail__action-label">` para que se oculte con el rail colapsado.
+si falta, el ítem en `AppLayout`.
+
+**Pantallas angostas:** debajo de 1024px el rail no ocupa lugar. Queda fuera de
+la pantalla y se abre encima de la página con el botón de menú que AppShell
+pone en la barra superior; se cierra con su botón, tocando el fondo, con Escape
+o al elegir cualquier cosa del rail. AppShell guarda ese estado y el CSS
+(`shell.css`) decide si el rail está fijo o es deslizable: quien lo monta no
+tiene que hacer nada.
 
 ### PageHeader
 
@@ -255,7 +261,14 @@ natural de `DataTable`.
 `minWidth?` (default 960), `empty?`.
 **`Column<T>`:** `id`, `header`, `cell(row) => ReactNode`, `mono?` (tipografía
 monoespaciada: SAC, fechas, importes), `nowrap?`, `actions?` (alinea a la derecha),
-`width?`.
+`width?`, `primary?`, `hideWhenNarrow?`.
+
+**Pantallas angostas:** la tabla se adapta sola, pero cada pantalla le dice qué
+importa. Debajo de 1180px suelta `minWidth` y esconde las columnas marcadas
+`hideWhenNarrow` (lo prescindible: fuero, responsable, último acceso). Debajo
+de 720px cada fila es una tarjeta: la columna `primary` —la que identifica a la
+fila— va arriba a todo el ancho, las acciones abajo, y el resto de a dos con el
+nombre de su columna encima. **Toda tabla nueva marca su columna `primary`.**
 
 ```tsx
 <DataTable
@@ -840,9 +853,18 @@ variables. `cases.css` y `login.css` son de un área del sistema, no de
 - **Tipografía:** `--vz-font` Figtree, `--vz-font-mono` Roboto Mono
 - **Layout/densidad:** `--vz-rail-w` 248px, `--vz-main-pad`, `--vz-row`, `--vz-cell-y`
 
-**Breakpoints reales:** 1180px (`.vz-split` pasa a una columna y el panel
-lateral va abajo), 1023px (rail colapsa a 64px y se ocultan las etiquetas vía
-`--vz-rail-label`) y 640px (la grilla de formulario pasa a una columna).
+**Breakpoints reales**, los del prototipo. No se agregan otros:
+
+| Corte | Qué cambia |
+|---|---|
+| 1180px | `.vz-split` pasa a una columna y el panel lateral va abajo. Las tablas sueltan su ancho mínimo y esconden las columnas `hideWhenNarrow` |
+| 1023px | El rail sale de la pantalla y se abre con el botón de la barra superior |
+| 860px | El login queda en una columna; `.vz-form-row3`, en dos |
+| 720px | Teléfono: `.vz-form-grid` en una columna, tablas como tarjetas, filtros de a dos, modal casi a pantalla completa, menos aire (`--vz-main-pad`, `--vz-panel-pad`) y el desplegable nativo en los `select` |
+
+Una pantalla nueva armada con los componentes y las clases de `shared` ya es
+responsive. Si necesita CSS propio, usa estos cortes y prueba a 375px que nada
+se salga de la pantalla.
 
 **Regla del proyecto:** no hardcodear colores, siempre `var(--vz-*)`.
 

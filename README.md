@@ -112,7 +112,13 @@ El login es `POST /auth/login` con `{ "username": "...", "password": "..." }`. Q
 - **Con mocks (`VITE_USE_MOCKS=true`, el default)**: el frontend no llama al backend real, así que el usuario `DEV_SEED_USERNAME`/`DEV_SEED_PASSWORD` sembrado en la base **no sirve para entrar por la UI**. Los usuarios válidos son los que trae el mock (`fvazquez` / `password1` como administrador, y varios más) — ver el detalle completo en [`frontend/src/shared/mocks/README.md`](frontend/src/shared/mocks/README.md#usuarios-de-prueba).
 - **Contra el backend real (`VITE_USE_MOCKS=false`)**, o pegándole directo a `http://localhost:3000/api/v1/auth/login`, en una base recién levantada existen:
   - El administrador que crea `DevSeedService`: por defecto `admin` / `admin123` (`DEV_SEED_USERNAME` / `DEV_SEED_PASSWORD` en `docker/.env`).
-  - Los 10 usuarios de prueba que crea el seed (`f.vazquez`, `l.zarate`, `c.pereyra`, …), con distintos roles (`ADMINISTRATOR`, `LAWYER`, `SECRETARY`) y la contraseña de `DEV_SEED_PASSWORD`. La lista completa está en `DEV_USERS` de [`backend/prisma/seed.ts`](backend/prisma/seed.ts).
+  - Los 12 usuarios de prueba que crea el seed (`f.vazquez`, `l.zarate`, `c.pereyra`, …), con distintos roles (`ADMINISTRATOR`, `LAWYER`, `SECRETARY`) y la contraseña de `DEV_SEED_PASSWORD`. La lista completa está en `DEV_USERS` de [`backend/prisma/seed.ts`](backend/prisma/seed.ts).
+  - Dos cuentas cortas de demostración, con contraseña propia:
+
+    | Usuario | Contraseña | Rol | Para qué |
+    |---|---|---|---|
+    | `abogado` | `abogado123` | `LAWYER` | Es el abogado responsable de las tres causas de ejemplo: puede registrar actos y previsualizar su vencimiento. |
+    | `secret` | `secret123` | `SECRETARY` | Registra clientes y causas. Sin ficha de abogado, no puede registrar actos. |
 
 Estos usuarios solo se siembran con `NODE_ENV=development` — nunca en otro entorno, aunque las variables estén seteadas.
 
@@ -151,7 +157,7 @@ Después de bajar una rama con migraciones o seed nuevos de otra persona alcanza
 
 ## 6. Notas
 
-- El seed (`backend/prisma/seed.ts`, automático al levantar o a mano con `make seed`) carga los datos de referencia (**roles, permisos, jurisdicciones y estados procesales**) y, solo en desarrollo, 10 abogados y 10 usuarios de prueba. El **usuario administrador** de desarrollo (`admin`) es un seed aparte, automático: lo crea el propio backend al arrancar (`DevSeedService`), y depende de que el catálogo de roles ya exista — ver §3 y §4.
+- El seed (`backend/prisma/seed.ts`, automático al levantar o a mano con `make seed`) carga los datos de referencia (**roles, permisos, jurisdicciones y estados procesales**) y, solo en desarrollo, 11 abogados, 12 usuarios de prueba, 5 clientes, 3 calificaciones legales de ejemplo y 3 causas (una por fuero, con 2 actos procesales cada una, a cargo de `abogado`; identificadas por los SAC `90000001` a `90000003`). Las causas de ejemplo se crean una sola vez: si ya existen, la seed no las toca. El **usuario administrador** de desarrollo (`admin`) es un seed aparte, automático: lo crea el propio backend al arrancar (`DevSeedService`), y depende de que el catálogo de roles ya exista — ver §3 y §4.
 - Después de un `make dev-down-v` (que borra los volúmenes) la base queda vacía; el siguiente `make dev-up` vuelve a migrar y sembrar todo solo.
 - El código de `backend/` y `frontend/` está montado por bind mount, así que los cambios se reflejan sin rebuildear la imagen. Solo hace falta `make backend-build` / `make frontend-build` (o `dev-build`) cuando cambian dependencias (`package.json`) o el `Dockerfile`. Usá esos comandos y no un `docker compose build` suelto: `node_modules` vive en un volumen anónimo que compose reutiliza al recrear el contenedor, y los `make *-build` lo renuevan (`-V`) para que las dependencias nuevas lleguen al contenedor.
 - Este setup es solo de desarrollo local; no hay todavía imágenes ni compose de producción.

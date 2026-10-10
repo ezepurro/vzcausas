@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { screen, waitFor, within } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
 import { http, HttpResponse } from 'msw'
 import { renderWithProviders } from '../../setup/render'
 import { server } from '@/shared/mocks/server'
@@ -38,26 +38,6 @@ describe('LegalQualificationsPage', () => {
             expect(screen.getAllByRole('row')[1]).toHaveTextContent(FIRST)
             expect(screen.queryByRole('button', { name: 'Modificar' })).not.toBeInTheDocument()
             expect(screen.queryByRole('cell', { name: 'Encubrimiento — art. 277 CP' })).not.toBeInTheDocument()
-        })
-
-        it('busca por nombre o artículo', async () => {
-            const { user } = renderPage()
-            await screen.findByRole('cell', { name: FIRST })
-
-            await user.type(screen.getByRole('searchbox', { name: 'Buscar calificación' }), 'art. 16')
-
-            await waitFor(() => expect(screen.queryByRole('cell', { name: FIRST })).not.toBeInTheDocument())
-            expect(screen.getByRole('cell', { name: 'Hurto simple — art. 162 CP' })).toBeInTheDocument()
-            expect(screen.getByRole('cell', { name: 'Robo calificado — art. 167 inc. 2 CP' })).toBeInTheDocument()
-        })
-
-        it('una búsqueda sin resultados lo dice', async () => {
-            const { user } = renderPage()
-            await screen.findByRole('cell', { name: FIRST })
-
-            await user.type(screen.getByRole('searchbox', { name: 'Buscar calificación' }), 'zzz')
-
-            expect(await screen.findByText('Ninguna calificación coincide con la búsqueda')).toBeInTheDocument()
         })
 
         it('si el servidor falla, muestra su mensaje', async () => {

@@ -7,6 +7,7 @@ import { Case } from '../../core/domain/entities/cases';
 import { CriminalCase } from '../../core/domain/entities/criminal';
 import { CaseRepository } from '../../core/domain/ports/case.repository';
 import { ProceduralStateRef } from '../../core/domain/ports/legal-parameters-lookup.port';
+import { DayType } from '../../core/domain/value-objects/day-type';
 import { CasePrismaMapper } from './case-prisma.mapper';
 
 @Injectable()
@@ -75,7 +76,11 @@ export class CasePrismaRepository implements CaseRepository {
   async findById(id: number): Promise<Case | null> {
     const row = await this.prisma.db.case.findUnique({
       where: { id },
-      include: { jurisdiction: true, offenses: { include: { legalQualification: true } } },
+      include: {
+        jurisdiction: true,
+        offenses: { include: { legalQualification: true } },
+        currentProceduralAct: true,
+      },
     });
     return row ? CasePrismaMapper.toDomain(row) : null;
   }
@@ -83,12 +88,47 @@ export class CasePrismaRepository implements CaseRepository {
   async findCurrentState(caseId: number): Promise<ProceduralStateRef> {
     const row = await this.prisma.db.case.findUniqueOrThrow({
       where: { id: caseId },
-      select: { currentState: { select: { stateId: true, name: true, isInitial: true, jurisdictionId: true } } },
+      select: {
+        currentState: {
+          select: {
+            stateId: true,
+            name: true,
+            isInitial: true,
+            jurisdictionId: true,
+            terminal: true,
+            isActive: true,
+            timeLimitDays: true,
+            dayType: true,
+          },
+        },
+      },
     });
     const state = row.currentState;
     if (!state) {
       throw new Error(`The case ${caseId} has no procedural state.`);
     }
-    return { id: state.stateId, name: state.name, isInitial: state.isInitial, jurisdictionId: state.jurisdictionId };
+    return {
+      id: state.stateId,
+      name: state.name,
+      isInitial: state.isInitial,
+      jurisdictionId: state.jurisdictionId,
+      terminal: state.terminal,
+      isActive: state.isActive,
+      timeLimitDays: state.timeLimitDays,
+      dayType: state.dayType as DayType,
+    };
+  }
+
+  async saveCurrentAct(updatedCase: Case): Promise<void> {
+    // One UPDATE, so the state and the custom state change together and keep the CHECK that exactly one is set.
+    await this.prisma.db.case.update({
+      where: { id: updatedCase.id },
+      data: {
+        currentStateId: updatedCase.currentStateId,
+        currentCustomState: updatedCase.currentCustomState,
+        currentProceduralActId: updatedCase.currentProceduralActId,
+        updatedAt: updatedCase.updatedAt,
+      },
+    });
   }
 }
