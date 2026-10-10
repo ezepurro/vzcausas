@@ -24,6 +24,8 @@ export const ICONS = {
   download: 'M12 4v12M7 11l5 5 5-5M4 20h16',
   back: 'M15 18l-6-6 6-6',
   forward: 'M9 18l6-6-6-6',
+  menu: 'M4 7h16M4 12h16M4 17h16',
+  close: 'M6 6l12 12M18 6L6 18',
 } as const;
 
 export type IconName = keyof typeof ICONS;

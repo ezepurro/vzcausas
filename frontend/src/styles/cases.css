@@ -156,3 +156,19 @@
    tarjeta conserva el ancho que va a tener en la columna lateral en vez de
    estirarse a todo el ancho de la página. */
 .vz-case-detail__panels { max-width: 440px; margin-top: 16px; }
+
+/* ─────────── teléfono ─────────── */
+@media (max-width: 720px) {
+  .vz-case-head { padding: 16px 14px; }
+  .vz-case-head__top { gap: 14px; }
+  .vz-case-head__main,
+  .vz-case-head__side { flex: 1 1 100%; min-width: 0; }
+  .vz-case-head__title { font-size: 19px; }
+  .vz-case-head__note { max-width: none; }
+
+  /* La fecha del hecho baja a su renglón, con "Quitar" al lado. */
+  .vz-picker__main { flex: 1 1 100%; min-width: 0; }
+  .vz-picker__date { flex: 1 1 140px; }
+
+  .vz-due__date { font-size: 20px; }
+}

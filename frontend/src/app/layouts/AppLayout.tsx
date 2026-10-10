@@ -99,8 +99,7 @@ export function AppLayout() {
                 /* "Nueva causa" bajo el logo, como el prototipo: registrar una
                    causa la puede hacer cualquier perfil (RN11), así que el
                    botón sigue el mismo permiso que la sección de la que
-                   cuelga. Con el rail colapsado queda sólo el ícono, y el
-                   nombre lo da el `title`. */
+                   cuelga. */
                 canAccess(user.roles, CASES) && (
                     <Button
                         block

@@ -20,6 +20,7 @@ export function ClientsTable({ rows, empty }: ClientsTableProps) {
             id: 'name',
             header: 'Cliente',
             width: '30%',
+            primary: true,
             cell: (c) => {
                 const name = formatClientName(c)
                 return (

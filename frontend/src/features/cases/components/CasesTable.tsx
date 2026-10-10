@@ -31,6 +31,7 @@ export function CasesTable({ rows, onOpen, empty }: CasesTableProps) {
             id: 'caption',
             header: 'Carátula',
             width: '32%',
+            primary: true,
             cell: (c) => (
                 <>
                     <div className="vz-table__primary">{c.caption}</div>
@@ -43,6 +44,7 @@ export function CasesTable({ rows, onOpen, empty }: CasesTableProps) {
             header: 'Fuero',
             cell: (c) => JURISDICTION_LABELS[c.jurisdiction],
             nowrap: true,
+            hideWhenNarrow: true,
         },
         {
             id: 'state',
@@ -55,6 +57,7 @@ export function CasesTable({ rows, onOpen, empty }: CasesTableProps) {
             header: 'Responsable',
             cell: (c) => c.responsibleLawyer.fullName,
             nowrap: true,
+            hideWhenNarrow: true,
         },
         {
             id: 'deadline',

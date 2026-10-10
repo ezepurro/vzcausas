@@ -54,6 +54,10 @@ sprint en curso**. El resto ya está documentado: no lo repito, leelo.
   `docs/TRADUCCION_DOMINIO.md`.
 - **Imports siempre con el alias `@`**, nunca con `../../..` para salir del
   módulo.
+- **Toda pantalla es responsive** (RNF). Armada con los componentes y las
+  clases de `shared` ya lo es: no fijes anchos en píxeles ni agregues cortes
+  propios. Los cortes y qué hace cada uno están en `SHARED.md`, "Breakpoints
+  reales"; una tabla nueva marca su columna `primary`.
 
 ## Stack instalado
 

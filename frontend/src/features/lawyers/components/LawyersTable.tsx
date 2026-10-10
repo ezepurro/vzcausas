@@ -32,6 +32,7 @@ export function LawyersTable({ rows, maxActiveCases, empty }: LawyersTableProps)
             id: 'fullName',
             header: 'Apellido y Nombre',
             width: '42%',
+            primary: true,
             cell: (l) => <span className="vz-table__primary">{l.fullName}</span>,
         },
         {
