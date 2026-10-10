@@ -4,18 +4,18 @@ description: |
   de valores; el backend rechaza con `400` un rol que no corresponda al fuero
   de la causa.
 
-  | Código               | Rótulo                 | Fueros en que aplica         |
-  | -------------------- | ---------------------- | ---------------------------- |
-  | `DEFENSE`            | Defensa                | `CRIMINAL`, `ADMINISTRATIVE` |
-  | `PRIVATE_PROSECUTOR` | Querellante particular | `CRIMINAL`                   |
-  | `APPELLANT`          | Recurrente             | `ADMINISTRATIVE`             |
-  | `PLAINTIFF`          | Actora                 | `AMPARO`                     |
-  | `DEFENDANT`          | Demandada              | `AMPARO`                     |
+  | Código                   | Rótulo                 | Fueros en que aplica         |
+  | ------------------------ | ---------------------- | ---------------------------- |
+  | `DEFENSA`                | Defensa                | `CRIMINAL`, `ADMINISTRATIVE` |
+  | `QUERELLANTE_PARTICULAR` | Querellante particular | `CRIMINAL`                   |
+  | `RECURRENTE`             | Recurrente             | `ADMINISTRATIVE`             |
+  | `ACTORA`                 | Actora                 | `AMPARO`                     |
+  | `DEMANDADA`              | Demandada              | `AMPARO`                     |
 
   No confundir con `Role`, que es el perfil de seguridad del usuario.
 enum:
-  - DEFENSE
-  - PRIVATE_PROSECUTOR
-  - APPELLANT
-  - PLAINTIFF
-  - DEFENDANT
+  - DEFENSA
+  - QUERELLANTE_PARTICULAR
+  - RECURRENTE
+  - ACTORA
+  - DEMANDADA

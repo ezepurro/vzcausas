@@ -6,8 +6,3 @@ export interface GetProcStatesInput {
   page: number;
   limit: number;
 }
-
-export interface ProcStateFilter {
-  jurisdiction?: JurisdictionCode;
-  search?: string;
-}

@@ -1,5 +1,5 @@
 import { Case } from '../entities/cases';
-import { ProceduralStateRef } from './proc-state-lookup.port';
+import { ProceduralStateRef } from './legal-parameters-lookup.port';
 
 /** DI token for {@link CaseRepository}. Symbol-as-token, same as `people`. */
 export const CASE_REPOSITORY = Symbol('CASE_REPOSITORY');

@@ -7,7 +7,6 @@ import {
     IconButton,
     Logo,
     RailUser,
-    SearchInput,
     type RailGroup,
 } from '@/shared/components/ui'
 import { useCurrentUser } from '@/app/providers/AuthContext'
@@ -115,12 +114,9 @@ export function AppLayout() {
                 )
             }
             topBar={
-                <>
-                    <SearchInput placeholder="Buscar por carátula, SAC o cliente" aria-label="Buscar" />
                     <div className="vz-topbar__right">
                         <IconButton name="notifications" label="Notificaciones" />
                     </div>
-                </>
             }
             railFooter={
                 <RailUser

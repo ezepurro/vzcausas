@@ -8,8 +8,6 @@ import { ListCustomStates } from './core/application/use-cases/list-custom-state
 import { RegisterCase } from './core/application/use-cases/register-case.use-case';
 import { CASE_QUERY } from './core/domain/ports/case-query.port';
 import { CASE_REPOSITORY } from './core/domain/ports/case.repository';
-import { LEGAL_QUALIFICATION_LOOKUP } from './core/domain/ports/legal-qualification-lookup.port';
-import { StubLegalQualificationLookupAdapter } from './infrastructure/acl/stub-legal-qualification-lookup.adapter';
 import { CasesController } from './infrastructure/http/controllers/cases.controller';
 import { CasePrismaRepository } from './infrastructure/persistence/case-prisma.repository';
 import { CaseQueryPrismaAdapter } from './infrastructure/persistence/case-query-prisma.adapter';
@@ -17,31 +15,24 @@ import { CaseQueryPrismaAdapter } from './infrastructure/persistence/case-query-
 /**
  * Composition root of `cases`.
  *
- * **Escritura** (HU-18): `cases` only receives adapters for its ports.
- * `people` provides the lawyer **and client** lookups and
- * `legal-parameters` the procedural state lookup: their modules are
- * imported just to get those exported tokens.
+ * **Escritura** (HU18): `cases` only receives adapters for its ports.
+ * `people` provides `PEOPLE_LOOKUP` (lawyers and clients) and
+ * `legal-parameters` provides `LEGAL_PARAMETERS_LOOKUP` (initial procedural
+ * state and legal qualifications): their modules are imported just to get
+ * those exported tokens. There are no stubs left.
  *
- * `LEGAL_QUALIFICATION_LOOKUP` is still a stub, and it is the last one:
- * the `legal_qualifications` table exists (`schema.prisma:268`) but no
- * subsystem owns it — `legal-parameters` has no repository, use case or
- * controller for it, even though the contract defines five endpoints
- * under `/legal-qualifications` (§1). Until someone builds that module,
- * a case's qualifications render from `stub-data.ts:33`: two hardcoded
- * rows, ids 1 and 2. That makes CA-22.3 (the prescription card) show
- * wrong names for any real qualification, and it is why
- * `register-case.int.spec.ts` stays red on the qualification name.
- * Swap this binding for the real adapter as soon as the module lands.
+ * **Lectura** (HU20, HU22): `GET /cases`, `GET /cases/{caseId}` y
+ * `GET /cases/custom-states`. Van por un puerto aparte, `CASE_QUERY`, que
+ * proyecta a un modelo de lectura (`CaseListItem`) en vez de reconstruir el
+ * agregado: el recurso junta datos de cinco tablas que la entidad `Case` no
+ * tiene, y resolverlos de a uno por causa sería un N+1 de unas cien consultas
+ * por página. El orden por urgencia necesita SQL crudo porque el `orderBy` de
+ * Prisma no sabe expresar un `COALESCE` de dos columnas; el motivo está en
+ * `CaseQueryPrismaAdapter`.
  *
- * **Lectura** (HU-9, CA-9.4): `GET /cases` filtrado por cliente, con su
- * estado procesal y su vencimiento. Va por un puerto aparte
- * (`CASE_QUERY`) y proyecta a un modelo de lectura en vez de
- * reconstruir el agregado — ver `case-list-item.ts`.
- *
- * Nota: los dos controladores conviven sobre `/cases` (uno el `POST`,
- * otro el `GET`). Las carpetas `infraestructure` e `infrastructure`
- * coexisten por una diferencia de grafía entre ramas; conviene
- * unificarlas en una sola.
+ * Los tres endpoints de lectura y el `POST` comparten `CaseHttpMapper`: el
+ * contrato exige que devuelvan el mismo recurso (§3.7), y un solo mapeo es lo
+ * que lo vuelve estructural en vez de disciplina.
  */
 @Module({
   imports: [PeopleModule, LegalParametersModule, SharedModule],
@@ -52,11 +43,7 @@ import { CaseQueryPrismaAdapter } from './infrastructure/persistence/case-query-
     GetCase,
     ListCustomStates,
     { provide: CASE_REPOSITORY, useClass: CasePrismaRepository },
-    // Read side (HU20, HU22): projects to a read model instead of rebuilding
-    // the aggregate. See the class for why the ordering needs raw SQL.
     { provide: CASE_QUERY, useClass: CaseQueryPrismaAdapter },
-    // CLIENT_LOOKUP and LAWYER_LOOKUP arrive implemented from `PeopleModule`.
-    { provide: LEGAL_QUALIFICATION_LOOKUP, useClass: StubLegalQualificationLookupAdapter },
   ],
 })
 export class CasesModule {}

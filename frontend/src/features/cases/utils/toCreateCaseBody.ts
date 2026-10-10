@@ -31,9 +31,9 @@ export function toCreateCaseBody(values: CaseFormValues): CreateCaseBody {
     const instructorExtension = values.instructorExtension.trim()
     if (instructorExtension) body.instructorExtension = instructorExtension
 
-    // Sin fecha de inicio el backend toma la del día (CA-18.9).
+    // La fecha de inicio va con el SAC (CA-18.2): sin SAC no viaja.
     const startDate = values.startDate.trim()
-    if (startDate) body.startDate = startDate
+    if (sacNumber && startDate) body.startDate = startDate
 
     if (values.jurisdiction === 'CRIMINAL') {
         /* Las calificaciones son opcionales (D-33): sin ninguna, el campo no

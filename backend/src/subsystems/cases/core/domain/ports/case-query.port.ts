@@ -1,5 +1,4 @@
-import { ClientRef } from './client-lookup.port';
-import { LawyerRef } from './lawyer-lookup.port';
+import { ClientRef, LawyerRef } from './people-lookup.port';
 import { JurisdictionCode } from '../value-objects/jurisdiction-code';
 import { ProceduralRole } from '../value-objects/procedural-role';
 

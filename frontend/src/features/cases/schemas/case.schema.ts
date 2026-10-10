@@ -120,7 +120,17 @@ export function validateCase(values: CaseFormValues): CaseFormErrors {
         errors.responsibleLawyerId = 'Elegí el abogado responsable.'
     }
 
-    if (values.startDate && values.startDate > today) {
+    /* La fecha de inicio va con el SAC (CA-18.2): obligatoria si se informa, y
+       sin él no se carga. El formulario ya la vacía al borrar el SAC; esto
+       cubre el caso en que igual quedó una. */
+    const startDate = values.startDate.trim()
+    if (sac && !startDate) {
+        errors.startDate = 'Cargá la fecha de inicio: es obligatoria con N° de SAC.'
+    } else if (!sac && startDate) {
+        errors.startDate = 'Sin N° de SAC no se carga la fecha de inicio.'
+    } else if (startDate && !parseDateOnly(startDate)) {
+        errors.startDate = 'La fecha de inicio no es válida.'
+    } else if (startDate && startDate > today) {
         errors.startDate = 'La fecha de inicio no puede ser posterior a hoy.'
     }
 

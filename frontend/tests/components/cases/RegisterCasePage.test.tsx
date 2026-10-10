@@ -57,6 +57,12 @@ async function fillMinimum(user: User, caption = 'GÓMEZ, Ariel Fernando p.s.a. 
     await user.type(screen.getByLabelText(/^Carátula/), caption)
 }
 
+/** El SAC y, como lo exige (CA-18.2), la fecha de inicio. */
+async function fillSac(user: User, sacNumber: string, startDate = '2021-03-12') {
+    await user.type(screen.getByLabelText(/^N° de SAC/), sacNumber)
+    await user.type(screen.getByLabelText(/^Fecha de inicio/), startDate)
+}
+
 const submit = (user: User) => user.click(screen.getByRole('button', { name: 'Registrar causa' }))
 
 /** La causa que el alta agregó a la base del mock. */
@@ -87,7 +93,7 @@ describe('RegisterCasePage', () => {
             const { user } = renderPage()
             await fillMinimum(user)
 
-            await user.type(screen.getByLabelText(/^N° de SAC/), '14200315')
+            await fillSac(user, '14200315')
             await user.selectOptions(screen.getByLabelText(/^Calificaciones legales/), ROBBERY)
             const offenseDate = screen.getByLabelText(/^Fecha del hecho de Robo calificado/)
             await user.clear(offenseDate)
@@ -104,9 +110,10 @@ describe('RegisterCasePage', () => {
                 jurisdiction: 'CRIMINAL',
                 caption: 'GÓMEZ, Ariel Fernando p.s.a. Robo calificado',
                 clientId: 1,
-                proceduralRole: 'DEFENSE',
+                proceduralRole: 'DEFENSA',
                 responsibleLawyerId: 3,
                 qualifications: [{ legalQualificationId: 1, offenseDate: '2021-02-27' }],
+                startDate: '2021-03-12',
             })
         })
 
@@ -127,7 +134,7 @@ describe('RegisterCasePage', () => {
             expect(await screen.findByText('Detalle de la causa')).toBeInTheDocument()
             expect(created()).toMatchObject({
                 jurisdiction: 'AMPARO',
-                proceduralRole: 'PLAINTIFF',
+                proceduralRole: 'ACTORA',
                 counterparty: 'APROSS',
                 subjectMatter: 'Se ordene la cobertura integral del tratamiento.',
                 qualifications: [],
@@ -176,7 +183,7 @@ describe('RegisterCasePage', () => {
         it('un SAC ya registrado se marca en su campo y no pierde lo cargado', async () => {
             const { user } = renderPage()
             await fillMinimum(user)
-            await user.type(screen.getByLabelText(/^N° de SAC/), '13284571')
+            await fillSac(user, '13284571')
 
             await submit(user)
 
@@ -326,9 +333,7 @@ describe('RegisterCasePage', () => {
             await user.clear(offenseDate)
             await user.type(offenseDate, '2021-02-27')
 
-            const startDate = screen.getByLabelText(/^Fecha de inicio/)
-            await user.clear(startDate)
-            await user.type(startDate, '2024-06-01')
+            await fillSac(user, '14200315', '2024-06-01')
 
             expect(screen.getByText('Robo calificado').closest('.vz-details__row')).toHaveTextContent('27/02/2029')
         })
@@ -368,31 +373,70 @@ describe('RegisterCasePage', () => {
         expect(created()).toBeUndefined()
     })
 
-    describe('fecha de inicio (CA-18.9)', () => {
-        it('llega propuesta con la fecha del día', async () => {
+    /* CA-18.2: la fecha de inicio va con el SAC. */
+    describe('fecha de inicio (CA-18.2)', () => {
+        it('sin SAC está deshabilitada y vacía', async () => {
             renderPage()
             await waitForOptions()
 
-            expect(screen.getByLabelText(/^Fecha de inicio/)).toHaveValue(TODAY)
+            const startDate = screen.getByLabelText(/^Fecha de inicio/)
+            expect(startDate).toBeDisabled()
+            expect(startDate).toHaveValue('')
         })
 
-        it('si se borra, el backend toma la fecha del día', async () => {
+        it('sin SAC el alta no la manda', async () => {
+            // Se mira lo que sale sin reemplazar al mock: el alta tiene que terminar bien.
+            const requests: Record<string, unknown>[] = []
+            const capture = async ({ request }: { request: Request }) => {
+                if (request.method === 'POST' && new URL(request.url).pathname.endsWith('/cases')) {
+                    requests.push(await request.clone().json())
+                }
+            }
+            server.events.on('request:start', capture)
+            try {
+                const { user } = renderPage()
+                await fillMinimum(user)
+
+                await submit(user)
+
+                expect(await screen.findByText(NO_SAC_TOAST)).toBeInTheDocument()
+                expect(requests).toHaveLength(1)
+                expect(requests[0]).not.toHaveProperty('startDate')
+            } finally {
+                server.events.removeListener('request:start', capture)
+            }
+        })
+
+        it('con SAC es obligatoria, y el resumen lo pide', async () => {
             const { user } = renderPage()
             await fillMinimum(user)
-            await user.clear(screen.getByLabelText(/^Fecha de inicio/))
+            await user.type(screen.getByLabelText(/^N° de SAC/), '14200315')
+
+            expect(screen.getByLabelText(/^Fecha de inicio/)).toBeEnabled()
+            expect(screen.getByText('Fecha de inicio cargada')).toBeInTheDocument()
 
             await submit(user)
 
-            expect(await screen.findByText(NO_SAC_TOAST)).toBeInTheDocument()
-            expect(created()?.startDate).toBe(TODAY)
+            expect(screen.getByText('Cargá la fecha de inicio: es obligatoria con N° de SAC.')).toBeInTheDocument()
+            expect(created()).toBeUndefined()
+        })
+
+        it('borrar el SAC se lleva la fecha cargada', async () => {
+            const { user } = renderPage()
+            await waitForOptions()
+            await fillSac(user, '14200315')
+
+            await user.clear(screen.getByLabelText(/^N° de SAC/))
+
+            const startDate = screen.getByLabelText(/^Fecha de inicio/)
+            expect(startDate).toBeDisabled()
+            expect(startDate).toHaveValue('')
         })
 
         it('no puede ser posterior a hoy', async () => {
             const { user } = renderPage()
             await fillMinimum(user)
-            const startDate = screen.getByLabelText(/^Fecha de inicio/)
-            await user.clear(startDate)
-            await user.type(startDate, '2026-09-16')
+            await fillSac(user, '14200315', '2026-09-16')
 
             await submit(user)
 

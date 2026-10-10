@@ -17,7 +17,7 @@ const CRIMINAL: CaseFormValues = {
     tribunalPhone: '',
     instructorExtension: '',
     clientId: '24',
-    proceduralRole: 'DEFENSE',
+    proceduralRole: 'DEFENSA',
     legalQualifications: [{ legalQualificationId: 6, offenseDate: '2026-08-20' }],
     counterparty: '',
     subjectMatter: '',
@@ -28,7 +28,7 @@ const CRIMINAL: CaseFormValues = {
 const AMPARO: CaseFormValues = {
     ...CRIMINAL,
     jurisdiction: 'AMPARO',
-    proceduralRole: 'PLAINTIFF',
+    proceduralRole: 'ACTORA',
     legalQualifications: [],
     counterparty: 'PAMI',
     subjectMatter: 'Se ordene a PAMI la cobertura de la internación domiciliaria.',
@@ -63,14 +63,14 @@ describe('validateCase', () => {
 
     describe('número de SAC (CA-18.2)', () => {
         it('es opcional: sin SAC el alta procede igual (D-33)', () => {
-            const errors = validateCase({ ...CRIMINAL, sacNumber: '' })
+            const errors = validateCase({ ...CRIMINAL, sacNumber: '', startDate: '' })
 
             expect(errors.sacNumber).toBeUndefined()
             expect(isValid(errors)).toBe(true)
         })
 
         it('en blanco tampoco es un SAC cargado', () => {
-            expect(validateCase({ ...CRIMINAL, sacNumber: '   ' }).sacNumber).toBeUndefined()
+            expect(validateCase({ ...CRIMINAL, sacNumber: '   ', startDate: '' }).sacNumber).toBeUndefined()
         })
 
         it('si se informa, son exactamente 8 dígitos', () => {
@@ -86,26 +86,26 @@ describe('validateCase', () => {
 
     /* CA-18.3 */
     it('rechaza un rol procesal que el fuero no admite', () => {
-        expect(validateCase({ ...CRIMINAL, proceduralRole: 'PLAINTIFF' }).proceduralRole).toBe(
+        expect(validateCase({ ...CRIMINAL, proceduralRole: 'ACTORA' }).proceduralRole).toBe(
             'Ese rol procesal no corresponde al fuero.',
         )
-        expect(validateCase({ ...AMPARO, proceduralRole: 'APPELLANT' }).proceduralRole).toBeDefined()
+        expect(validateCase({ ...AMPARO, proceduralRole: 'RECURRENTE' }).proceduralRole).toBeDefined()
     })
 
     /* CA-18.3: la tabla de roles por fuero del contrato (V3 §2). */
     it.each([
-        ['CRIMINAL', 'DEFENSE'],
-        ['CRIMINAL', 'PRIVATE_PROSECUTOR'],
-        ['ADMINISTRATIVE', 'DEFENSE'],
-        ['ADMINISTRATIVE', 'APPELLANT'],
-        ['AMPARO', 'PLAINTIFF'],
-        ['AMPARO', 'DEFENDANT'],
+        ['CRIMINAL', 'DEFENSA'],
+        ['CRIMINAL', 'QUERELLANTE_PARTICULAR'],
+        ['ADMINISTRATIVE', 'DEFENSA'],
+        ['ADMINISTRATIVE', 'RECURRENTE'],
+        ['AMPARO', 'ACTORA'],
+        ['AMPARO', 'DEMANDADA'],
     ] as const)('en %s acepta el rol %s', (jurisdiction, proceduralRole) => {
         const base = jurisdiction === 'CRIMINAL' ? CRIMINAL : { ...AMPARO, jurisdiction }
         expect(validateCase({ ...base, jurisdiction, proceduralRole }).proceduralRole).toBeUndefined()
     })
 
-    /* CA-18.9 */
+    /* CA-18.2 */
     it('la fecha de inicio no puede ser posterior a hoy', () => {
         expect(validateCase({ ...CRIMINAL, startDate: '2026-09-16' }).startDate).toBe(
             'La fecha de inicio no puede ser posterior a hoy.',
@@ -113,9 +113,29 @@ describe('validateCase', () => {
         expect(validateCase({ ...CRIMINAL, startDate: '2026-09-15' }).startDate).toBeUndefined()
     })
 
-    /* CA-18.9: vacía no es un error, porque el backend toma la fecha del día. */
-    it('la fecha de inicio vacía no se marca', () => {
-        expect(validateCase({ ...CRIMINAL, startDate: '' }).startDate).toBeUndefined()
+    /* CA-18.2: la fecha de inicio va con el SAC. */
+    describe('fecha de inicio y SAC (CA-18.2)', () => {
+        it('con SAC es obligatoria', () => {
+            expect(validateCase({ ...CRIMINAL, startDate: '' }).startDate).toBe(
+                'Cargá la fecha de inicio: es obligatoria con N° de SAC.',
+            )
+        })
+
+        it('sin SAC, vacía no se marca', () => {
+            expect(validateCase({ ...CRIMINAL, sacNumber: '', startDate: '' }).startDate).toBeUndefined()
+        })
+
+        it('sin SAC no se carga', () => {
+            expect(validateCase({ ...CRIMINAL, sacNumber: '', startDate: '2026-09-01' }).startDate).toBe(
+                'Sin N° de SAC no se carga la fecha de inicio.',
+            )
+        })
+
+        it('con SAC, tiene que ser una fecha que exista', () => {
+            expect(validateCase({ ...CRIMINAL, startDate: '2026-02-31' }).startDate).toBe(
+                'La fecha de inicio no es válida.',
+            )
+        })
     })
 
     it('el instructor, su teléfono y su interno son opcionales, con tope de largo', () => {
@@ -192,7 +212,7 @@ describe('validateCase', () => {
         it('el objeto es obligatorio, con el nombre que le da cada fuero (D-27)', () => {
             expect(validateCase({ ...AMPARO, subjectMatter: '  ' }).subjectMatter).toBe('El objeto del amparo es obligatorio.')
             expect(
-                validateCase({ ...AMPARO, jurisdiction: 'ADMINISTRATIVE', proceduralRole: 'DEFENSE', subjectMatter: '' }).subjectMatter,
+                validateCase({ ...AMPARO, jurisdiction: 'ADMINISTRATIVE', proceduralRole: 'DEFENSA', subjectMatter: '' }).subjectMatter,
             ).toBe('El objeto del reclamo es obligatorio.')
         })
 

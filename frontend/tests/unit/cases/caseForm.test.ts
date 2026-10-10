@@ -1,6 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { changeJurisdiction, emptyCaseForm } from '@/features/cases/utils/caseForm'
-import { todayIsoDate } from '@/shared/lib/dates'
+import { describe, expect, it } from 'vitest'
+import { changeJurisdiction, changeSacNumber, emptyCaseForm } from '@/features/cases/utils/caseForm'
 import type { CaseFormValues } from '@/features/cases/types/case'
 
 describe('formulario de alta de causa', () => {
@@ -9,7 +8,7 @@ describe('formulario de alta de causa', () => {
             const values = emptyCaseForm()
 
             expect(values.jurisdiction).toBe('CRIMINAL')
-            expect(values.proceduralRole).toBe('DEFENSE')
+            expect(values.proceduralRole).toBe('DEFENSA')
             expect(values.legalQualifications).toEqual([])
             expect(values.subjectMatter).toBe('')
         })
@@ -25,20 +24,32 @@ describe('formulario de alta de causa', () => {
             expect(values.counterparty).toBe('')
         })
 
-        /* CA-18.9: si no se informa, se toma la fecha del día. */
-        describe('fecha de inicio', () => {
-            beforeEach(() => {
-                vi.useFakeTimers({ toFake: ['Date'] })
-                vi.setSystemTime(new Date(2026, 8, 15, 12, 0, 0))
-            })
-            afterEach(() => {
-                vi.useRealTimers()
-            })
+        /* CA-18.2: sin SAC no se carga la fecha de inicio. */
+        it('arranca sin fecha de inicio', () => {
+            expect(emptyCaseForm().startDate).toBe('')
+        })
+    })
 
-            it('propone la fecha del día', () => {
-                expect(emptyCaseForm().startDate).toBe('2026-09-15')
-                expect(emptyCaseForm().startDate).toBe(todayIsoDate())
-            })
+    /* CA-18.2: la fecha de inicio va con el SAC. */
+    describe('changeSacNumber', () => {
+        const withSac: CaseFormValues = { ...emptyCaseForm(), sacNumber: '13284571', startDate: '2021-03-12' }
+
+        it('al borrar el SAC se lleva la fecha de inicio', () => {
+            expect(changeSacNumber(withSac, '')).toMatchObject({ sacNumber: '', startDate: '' })
+            expect(changeSacNumber(withSac, '   ').startDate).toBe('')
+        })
+
+        it('mientras quede un SAC, la fecha se conserva', () => {
+            expect(changeSacNumber(withSac, '1328457')).toMatchObject({ sacNumber: '1328457', startDate: '2021-03-12' })
+        })
+
+        it('al escribir un SAC no propone ninguna fecha', () => {
+            expect(changeSacNumber(emptyCaseForm(), '1').startDate).toBe('')
+        })
+
+        it('no toca los demás campos', () => {
+            const values: CaseFormValues = { ...withSac, caption: 'Carátula', clientId: '24' }
+            expect(changeSacNumber(values, '')).toEqual({ ...values, sacNumber: '', startDate: '' })
         })
     })
 
@@ -52,7 +63,7 @@ describe('formulario de alta de causa', () => {
             const amparo = changeJurisdiction(criminal, 'AMPARO')
 
             expect(amparo.legalQualifications).toEqual([])
-            expect(amparo.proceduralRole).toBe('PLAINTIFF')
+            expect(amparo.proceduralRole).toBe('ACTORA')
         })
 
         /* CA-18.4 */
@@ -70,14 +81,14 @@ describe('formulario de alta de causa', () => {
 
             expect(administrative.counterparty).toBe('APROSS')
             expect(administrative.subjectMatter).toBe('Cobertura.')
-            expect(administrative.proceduralRole).toBe('DEFENSE')
+            expect(administrative.proceduralRole).toBe('DEFENSA')
         })
 
         /* CA-18.3: el rol vuelve al primero válido del fuero nuevo (V3 §2). */
         it.each([
-            ['CRIMINAL', 'DEFENSE'],
-            ['ADMINISTRATIVE', 'DEFENSE'],
-            ['AMPARO', 'PLAINTIFF'],
+            ['CRIMINAL', 'DEFENSA'],
+            ['ADMINISTRATIVE', 'DEFENSA'],
+            ['AMPARO', 'ACTORA'],
         ] as const)('en %s el rol pasa a %s', (jurisdiction, role) => {
             expect(changeJurisdiction(emptyCaseForm(), jurisdiction).proceduralRole).toBe(role)
         })

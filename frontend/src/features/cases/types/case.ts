@@ -14,20 +14,20 @@ import type { Jurisdiction } from '@/features/legal-params'
  * perfil de seguridad del usuario.
  */
 export const PROCEDURAL_ROLES = [
-    'DEFENSE',
-    'PRIVATE_PROSECUTOR',
-    'APPELLANT',
-    'PLAINTIFF',
-    'DEFENDANT',
+    'DEFENSA',
+    'QUERELLANTE_PARTICULAR',
+    'RECURRENTE',
+    'ACTORA',
+    'DEMANDADA',
 ] as const
 export type ProceduralRole = (typeof PROCEDURAL_ROLES)[number]
 
 export const PROCEDURAL_ROLE_LABELS: Record<ProceduralRole, string> = {
-    DEFENSE: 'Defensa',
-    PRIVATE_PROSECUTOR: 'Querellante particular',
-    APPELLANT: 'Recurrente',
-    PLAINTIFF: 'Actora',
-    DEFENDANT: 'Demandada',
+    DEFENSA: 'Defensa',
+    QUERELLANTE_PARTICULAR: 'Querellante particular',
+    RECURRENTE: 'Recurrente',
+    ACTORA: 'Actora',
+    DEMANDADA: 'Demandada',
 }
 
 /**
@@ -36,9 +36,9 @@ export const PROCEDURAL_ROLE_LABELS: Record<ProceduralRole, string> = {
  * que no corresponda.
  */
 export const PROCEDURAL_ROLES_BY_JURISDICTION: Record<Jurisdiction, readonly ProceduralRole[]> = {
-    CRIMINAL: ['DEFENSE', 'PRIVATE_PROSECUTOR'],
-    ADMINISTRATIVE: ['DEFENSE', 'APPELLANT'],
-    AMPARO: ['PLAINTIFF', 'DEFENDANT'],
+    CRIMINAL: ['DEFENSA', 'QUERELLANTE_PARTICULAR'],
+    ADMINISTRATIVE: ['DEFENSA', 'RECURRENTE'],
+    AMPARO: ['ACTORA', 'DEMANDADA'],
 }
 
 /** El cliente tal como viene embebido en la causa: sin `activeCases` ni `active`. */
@@ -167,7 +167,7 @@ export interface CreateCaseBody {
     /** Obligatorio fuera del penal, hasta 800 caracteres. */
     subjectMatter?: string
     responsibleLawyerId: number
-    /** Por defecto, hoy. No puede ser posterior a hoy. */
+    /** Obligatoria si va `sacNumber`; sin SAC no se manda (CA-18.2). No puede ser posterior a hoy. */
     startDate?: string
 }
 

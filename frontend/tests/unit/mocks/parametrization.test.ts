@@ -202,7 +202,7 @@ describe('mock · /legal-qualifications', () => {
                 jurisdiction: 'CRIMINAL',
                 caption: 'RUIZ, Elvira T. p.s.a. Robo calificado',
                 clientId: 24,
-                proceduralRole: 'DEFENSE',
+                proceduralRole: 'DEFENSA',
                 legalQualifications: [{ legalQualificationId: 1, offenseDate: '2026-08-20' }],
                 responsibleLawyerId: 3,
             },

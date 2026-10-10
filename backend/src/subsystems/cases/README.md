@@ -32,7 +32,7 @@ cases/
 └── infraestructure/
     ├── http/                         controlador, DTOs de entrada y de respuesta
     ├── persistence/                  repositorio y mapper de Prisma
-    └── acl/                          adaptadores propios de `cases` (mocks)
+    └── acl/                          adaptadores propios de `cases` (hoy, el reloj)
 ```
 
 ### Entidades
@@ -50,13 +50,11 @@ cases/
 | Puerto (token) | Qué pide | Adaptador | Estado |
 |---|---|---|---|
 | `CASE_REPOSITORY` | guardar y leer causas, SAC repetido, estado actual | `CasePrismaRepository` (`cases`) | real |
-| `LAWYER_LOOKUP` | abogado vigente por id | `CasesLawyerLookupAdapter` (`people`) | real |
-| `PROC_STATE_LOOKUP` | estado inicial «Iniciada» de un fuero | `ProcStateLookupAdapter` (`legal-parameters`) | real |
-| `CLIENT_LOOKUP` | cliente vigente por id | `StubClientLookupAdapter` (`cases`) | **mock** |
-| `LEGAL_QUALIFICATION_LOOKUP` | calificaciones legales vigentes por id | `StubLegalQualificationLookupAdapter` (`cases`) | **mock** |
+| `PEOPLE_LOOKUP` | abogado y cliente vigentes por id | `CasesPeopleLookupAdapter` (`people`) | real |
+| `LEGAL_PARAMETERS_LOOKUP` | estado inicial «Iniciada» de un fuero y calificaciones legales vigentes por id | `CasesLegalParametersLookupAdapter` (`legal-parameters`) | real |
 | `CLOCK` (shared) | el instante actual y la fecha de hoy en Córdoba (`now()`, `today()`) | `CordobaClockAdapter` (`APP_TIMEZONE`) | real |
 
-`CasesModule` importa `PeopleModule` y `LegalParametersModule` únicamente para recibir esos tokens exportados. Los datos de los mocks están en `infraestructure/acl/stub-data.ts`; como `cases` tiene claves foráneas, un alta real necesita filas con esos mismos ids.
+`CasesModule` importa `PeopleModule` y `LegalParametersModule` únicamente para recibir esos tokens exportados. Ningún puerto está mockeado: el cliente, el abogado, las calificaciones y el estado inicial se leen de la base real.
 
 ## Funcionamiento de Registrar Causa
 
@@ -151,7 +149,7 @@ Dado el modal de alta de calificación legal abierto desde Registrar Causa con d
 
 - **CA-18.1, «disponible para consultarse»:** el alta guarda la causa, pero `GET /cases` y `GET /cases/{id}` todavía no existen.
 - **CA-18.2, fecha de inicio sin SAC:** `cases.start_date` es `NOT NULL`, así que una causa sin SAC no puede quedar sin fecha de inicio: se guarda con la fecha de hoy. Para que de verdad quede vacía, la columna tiene que admitir nulos. Además, el API Contract §3.7 dice que `startDate` es opcional y vale hoy por defecto; con este criterio el frontend tiene que enviarla cuando informa el SAC y no enviarla cuando no hay SAC.
-- **Mocks:** cliente y calificación legal usan datos fijos hasta que `people` (clientes) y el catálogo de calificaciones expongan su propio adaptador.
+- **Un puerto por subsistema:** `PEOPLE_LOOKUP` y `LEGAL_PARAMETERS_LOOKUP` agrupan lo que `cases` pide a cada uno. El adaptador de calificaciones consulta una por una (una causa lleva pocas); si hiciera falta, se agrega un método por lote al repositorio de `legal-parameters`.
 - **Rol procesal:** el API usa los códigos en castellano del dominio (`DEFENSA`, `QUERELLANTE_PARTICULAR`, `RECURRENTE`, `ACTORA`, `DEMANDADA`), aunque el contrato todavía dice inglés.
 - **Errores de formato:** un tipo mal formado (por ejemplo, un `clientId` que no es número) lo rechaza el `ValidationPipe` global con `error_N`, no con el mapa por campo. Las reglas de negocio de arriba sí salen por campo.
 - **Nombre de la fecha de prescripción:** en el dominio es `prescriptionExpiresOn` (nombre del contrato); en la base, `prescription_date`.

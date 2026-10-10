@@ -20,7 +20,7 @@ const CRIMINAL: CaseFormValues = {
     tribunalPhone: '0351 448-1200',
     instructorExtension: '214',
     clientId: '1',
-    proceduralRole: 'DEFENSE',
+    proceduralRole: 'DEFENSA',
     legalQualifications: [{ legalQualificationId: 1, offenseDate: '2021-02-27' }],
     responsibleLawyerId: '3',
     startDate: '2021-03-12',
@@ -44,7 +44,7 @@ describe('toCreateCaseBody', () => {
             tribunalPhone: '0351 448-1200',
             instructorExtension: '214',
             clientId: 1,
-            proceduralRole: 'DEFENSE',
+            proceduralRole: 'DEFENSA',
             legalQualifications: [{ legalQualificationId: 1, offenseDate: '2021-02-27' }],
             responsibleLawyerId: 3,
             startDate: '2021-03-12',
@@ -97,9 +97,19 @@ describe('toCreateCaseBody', () => {
         expect(body).not.toHaveProperty('instructorExtension')
     })
 
-    /* CA-18.9: vacía no viaja, y el backend toma la fecha del día. */
-    it('la fecha de inicio vacía no viaja', () => {
-        expect(toCreateCaseBody({ ...CRIMINAL, startDate: '' })).not.toHaveProperty('startDate')
+    /* CA-18.2: la fecha de inicio va con el SAC. */
+    describe('fecha de inicio (CA-18.2)', () => {
+        it('con SAC viaja', () => {
+            expect(toCreateCaseBody(CRIMINAL).startDate).toBe('2021-03-12')
+        })
+
+        it('vacía no viaja', () => {
+            expect(toCreateCaseBody({ ...CRIMINAL, startDate: '' })).not.toHaveProperty('startDate')
+        })
+
+        it('sin SAC no viaja, aunque haya quedado una cargada', () => {
+            expect(toCreateCaseBody({ ...CRIMINAL, sacNumber: '' })).not.toHaveProperty('startDate')
+        })
     })
 
     describe('fuero penal (CA-18.4 y CA-18.5)', () => {
@@ -136,7 +146,7 @@ describe('toCreateCaseBody', () => {
         it('arma el cuerpo con la contraparte y el objeto', () => {
             expect(toCreateCaseBody(AMPARO)).toMatchObject({
                 jurisdiction: 'AMPARO',
-                proceduralRole: 'PLAINTIFF',
+                proceduralRole: 'ACTORA',
                 counterparty: 'APROSS',
                 subjectMatter: 'Se ordene a APROSS la cobertura integral del tratamiento.',
             })
