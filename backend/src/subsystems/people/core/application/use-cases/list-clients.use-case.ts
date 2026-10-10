@@ -1,5 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { Client } from "../../domain/entities/client.entity";
+import { ActiveCasesCounterPort } from "../../domain/ports/active-cases-counter.port";
 import {
   CLIENT_REPOSITORY,
   ClientRepository,
@@ -11,8 +12,14 @@ export type ListClientsQuery = {
   search?: string;
 };
 
+/** A client plus how many active cases he is the client of. */
+export type ClientWithActiveCases = {
+  client: Client;
+  activeCases: number;
+};
+
 export type ListClientsResult = {
-  clients: Client[];
+  clients: ClientWithActiveCases[];
   totalItems: number;
 };
 
@@ -32,6 +39,8 @@ export type ListClientsResult = {
 export class ListClientsUseCase {
   constructor(
     @Inject(CLIENT_REPOSITORY) private readonly clients: ClientRepository,
+    @Inject(ActiveCasesCounterPort)
+    private readonly activeCasesCounter: ActiveCasesCounterPort,
   ) {}
 
   async execute(query: ListClientsQuery): Promise<ListClientsResult> {
@@ -43,6 +52,19 @@ export class ListClientsUseCase {
       search: search && search.length > 0 ? search : undefined,
     });
 
-    return { clients: page.items, totalItems: page.totalItems };
+    const counts =
+      page.items.length > 0
+        ? await this.activeCasesCounter.countByClient(
+            page.items.map((client) => client.id),
+          )
+        : new Map<number, number>();
+
+    return {
+      clients: page.items.map((client) => ({
+        client,
+        activeCases: counts.get(client.id) ?? 0,
+      })),
+      totalItems: page.totalItems,
+    };
   }
 }

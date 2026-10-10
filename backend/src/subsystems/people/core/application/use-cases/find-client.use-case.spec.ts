@@ -2,12 +2,20 @@ import { Client } from "../../domain/entities/client.entity";
 import { ClientNotFoundError } from "../../domain/errors/people.errors";
 import { Dni } from "../../domain/value-objects/dni.vo";
 import { FindClientUseCase } from "./find-client.use-case";
-import { FakeClientRepository } from "./test-support/people-fakes";
+import {
+  FakeActiveCasesCounter,
+  FakeClientRepository,
+} from "./test-support/people-fakes";
 
 describe("FindClientUseCase", () => {
   function build() {
     const clients = new FakeClientRepository();
-    return { useCase: new FindClientUseCase(clients), clients };
+    const counter = new FakeActiveCasesCounter();
+    return {
+      useCase: new FindClientUseCase(clients, counter),
+      clients,
+      counter,
+    };
   }
 
   async function seed(
@@ -33,6 +41,24 @@ describe("FindClientUseCase", () => {
     const { client } = await useCase.execute({ id: 1 });
 
     expect(client).toBe(seeded);
+  });
+
+  it("returns how many active cases the client has, asked in one call", async () => {
+    const { useCase, clients, counter } = build();
+    await seed(clients);
+    counter.counts.set(1, 3);
+
+    const result = await useCase.execute({ id: 1 });
+
+    expect(result.activeCases).toBe(3);
+    expect(counter.calls).toEqual([[1]]);
+  });
+
+  it("reports 0 active cases when the client has none", async () => {
+    const { useCase, clients } = build();
+    await seed(clients);
+
+    expect((await useCase.execute({ id: 1 })).activeCases).toBe(0);
   });
 
   it("throws when no client matches", async () => {

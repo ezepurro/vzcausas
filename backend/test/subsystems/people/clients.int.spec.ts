@@ -4,6 +4,10 @@ import { getPrisma, startTestApp, stopTestApp } from '../../shared/harness/test-
 import { expectError, expectPaginated } from '../../shared/contract/envelopes';
 import * as bcrypt from 'bcryptjs';
 import { loginAs, TestRole } from '../../shared/auth/login-as';
+import { createCase } from '../../shared/factories/case.factory';
+import { createClient } from '../../shared/factories/client.factory';
+import { createLawyer } from '../../shared/factories/lawyer.factory';
+import { createProceduralState } from '../../shared/factories/procedural-state.factory';
 import { createUser } from '../../shared/factories/user.factory';
 
 const URL = '/api/v1/clients';
@@ -69,9 +73,21 @@ describe('GET /api/v1/clients', () => {
   });
 
   beforeEach(async () => {
-    // Las causas referencian clientes con `Restrict`, así que van
-    // primero. El seed no crea ni unas ni otros, pero un spec vecino
-    // podría dejarlas.
+    // Las causas referencian clientes con `Restrict`, así que van primero. El
+    // seed no crea ni unas ni otros, pero un spec vecino podría dejarlas.
+    //
+    // Y antes que las causas van sus hijas: los hechos y los actos procesales
+    // las referencian, también con `Restrict`. Borrar sólo `case` funcionaba
+    // mientras ningún spec vecino dejaba actos; desde que `cases` tiene specs
+    // que los crean, falla con
+    // `procedural_acts_case_id_fkey` según el orden en que Jest corra las
+    // suites — o sea, de forma intermitente. Mismo orden que
+    // `test/subsystems/cases/case-query.int.spec.ts:49`.
+    await getPrisma().offense.deleteMany();
+    // La causa apunta a su acto vigente: hay que soltar la FK antes de
+    // borrar los actos, o el DELETE la viola.
+    await getPrisma().case.updateMany({ data: { currentProceduralActId: null } });
+    await getPrisma().proceduralAct.deleteMany();
     await getPrisma().case.deleteMany();
     await getPrisma().client.deleteMany();
   });
@@ -204,13 +220,18 @@ describe('GET /api/v1/clients', () => {
   // ── Errores ───────────────────────────────────────────────────────
 
   // CA-9.6
+  //
+  // El código es `INVALID_PAGINATION`, no el `VALIDATION_ERROR` genérico: el
+  // contrato le da una entrada propia en el catálogo de §5.3, y los cuatro
+  // listados paginados la comparten (`app.setup.ts`, `toFieldKeyedBadRequest`).
+  // `details` nombra los dos parámetros, como el ejemplo del contrato.
   it.each([
     ['page', { page: 0 }],
     ['limit', { limit: 500 }],
-  ])('rechaza %s fuera de rango nombrando el parámetro', async (campo, query) => {
+  ])('rechaza %s fuera de rango con INVALID_PAGINATION', async (_campo, query) => {
     const res = await request(app.getHttpServer()).get(URL).query(query).set(reader());
 
-    expectError(res, 400, 'VALIDATION_ERROR', [campo]);
+    expectError(res, 400, 'INVALID_PAGINATION', ['page', 'limit']);
   });
 
   it('exige autenticación', async () => {
@@ -232,6 +253,14 @@ describe('GET /api/v1/clients/{clientId}', () => {
   });
 
   beforeEach(async () => {
+    // Mismo orden completo que el `beforeEach` de arriba: los hechos y los
+    // actos procesales referencian la causa con `Restrict`, y la causa apunta
+    // a su acto vigente. Borrar sólo `case` alcanzaba mientras ninguna suite
+    // vecina dejaba actos; ahora `register-procedural-act.int.spec.ts` los
+    // deja, y sin esto el spec falla según el orden de las suites.
+    await getPrisma().offense.deleteMany();
+    await getPrisma().case.updateMany({ data: { currentProceduralActId: null } });
+    await getPrisma().proceduralAct.deleteMany();
     await getPrisma().case.deleteMany();
     await getPrisma().client.deleteMany();
   });
@@ -286,5 +315,135 @@ describe('GET /api/v1/lawyers — la matriz, del otro lado', () => {
     const res = await request(app.getHttpServer()).get('/api/v1/lawyers').set(auth);
 
     expect(res.status).toBe(200);
+  });
+});
+
+/**
+ * `activeCases` de clientes y abogados (contrato §3.6 y §3.3, V3 §8.4).
+ *
+ * Lo cuenta `cases`, dueño de la definición de causa activa (§4), y llega por
+ * el `ActiveCasesCounterPort` que declara `people` e implementa
+ * `cases/infrastructure/acl/people-active-cases-counter.adapter.ts`. Hasta el
+ * 10/10/2026 los dos mappers devolvían una constante `0`.
+ *
+ * Lo que se verifica acá es el **cableado**: que el número cruce el borde
+ * entre subsistemas y llegue al JSON. La semántica del conteo está probada
+ * contra la base en el `describe` de `countActiveByResponsibleLawyer` y
+ * `countActiveByClient` de `test/subsystems/cases/case-query.int.spec.ts`.
+ */
+describe('activeCases de clientes y abogados', () => {
+  let app: INestApplication;
+  // Un solo token para los dos listados: `GET /clients` y `GET /lawyers`
+  // piden cualquier usuario autenticado, con su permiso de lectura.
+  const reader = () => loginAs({ permissions: ['client:read', 'lawyer:read'] });
+
+  beforeAll(async () => {
+    app = await startTestApp();
+  });
+
+  afterAll(async () => {
+    await stopTestApp();
+  });
+
+  beforeEach(async () => {
+    await getPrisma().offense.deleteMany();
+    await getPrisma().case.updateMany({ data: { currentProceduralActId: null } });
+    await getPrisma().proceduralAct.deleteMany();
+    await getPrisma().case.deleteMany();
+    await getPrisma().client.deleteMany();
+    await getPrisma().lawyer.deleteMany();
+  });
+
+  /** Cliente, abogado y usuario, más `n` causas que los tienen a los dos. */
+  async function withCases(n: number) {
+    const client = await createClient();
+    const lawyer = await createLawyer();
+    const user = await createUser();
+    for (let i = 0; i < n; i += 1) {
+      await createCase({
+        clientId: client.id,
+        responsibleLawyerId: lawyer.id,
+        createdByUserId: user.id,
+      });
+    }
+    return { clientId: client.id, lawyerId: lawyer.id, userId: user.id };
+  }
+
+  it('el listado y el detalle de un cliente devuelven el conteo real', async () => {
+    const { clientId } = await withCases(2);
+    const auth = reader();
+
+    const list = await request(app.getHttpServer()).get(URL).set(auth);
+    expect(expectPaginated<ClientBody>(list).map((c) => [c.id, c.activeCases])).toEqual([
+      [clientId, 2],
+    ]);
+
+    const one = await request(app.getHttpServer()).get(`${URL}/${clientId}`).set(auth);
+    expect(one.body.data.activeCases).toBe(2);
+  });
+
+  it('el listado de abogados devuelve el conteo real', async () => {
+    const { lawyerId } = await withCases(3);
+
+    const res = await request(app.getHttpServer()).get('/api/v1/lawyers').set(reader());
+
+    const found = expectPaginated<{ id: number; activeCases: number }>(res).find(
+      (l) => l.id === lawyerId,
+    );
+    expect(found?.activeCases).toBe(3);
+  });
+
+  it('un cliente y un abogado sin causas devuelven 0', async () => {
+    const client = await createClient();
+    await createLawyer();
+
+    const one = await request(app.getHttpServer()).get(`${URL}/${client.id}`).set(reader());
+
+    expect(one.body.data.activeCases).toBe(0);
+  });
+
+  /**
+   * La mitad de la asimetría del §4 que se ve desde este lado: `createCase`
+   * deja la causa en el estado inicial, y para su cliente y su abogado **sí**
+   * cuenta. Para el `activeCases` de un estado procesal no contaría.
+   */
+  it('la causa en el estado inicial cuenta para su cliente y su abogado', async () => {
+    const { clientId } = await withCases(1);
+
+    const one = await request(app.getHttpServer()).get(`${URL}/${clientId}`).set(reader());
+
+    expect(one.body.data.activeCases).toBe(1);
+  });
+
+  it('no cuenta la causa dada de baja ni la de un estado terminal', async () => {
+    const { clientId, lawyerId, userId } = await withCases(0);
+    const quedaActiva = await createCase({
+      clientId,
+      responsibleLawyerId: lawyerId,
+      createdByUserId: userId,
+    });
+    const baja = await createCase({ clientId, responsibleLawyerId: lawyerId, createdByUserId: userId });
+    const archivada = await createCase({
+      clientId,
+      responsibleLawyerId: lawyerId,
+      createdByUserId: userId,
+    });
+    await getPrisma().case.update({ where: { id: baja.id }, data: { active: false } });
+    // Sin fijarle el nombre, a propósito. Este spec **no** borra los estados
+    // procesales en su `beforeEach`, así que los 18 que siembra el seed siguen
+    // ahí, y uno se llama "Archivada": fijar ese nombre choca con
+    // `procedural_states_jurisdiction_name_active_key`. La factory genera un
+    // nombre con contador justo para esto (`procedural-state.factory.ts:62`).
+    // Lo único que el test necesita es que el estado sea terminal.
+    const terminal = await createProceduralState({ terminal: true });
+    await getPrisma().case.update({
+      where: { id: archivada.id },
+      data: { currentStateId: terminal.stateId },
+    });
+
+    const one = await request(app.getHttpServer()).get(`${URL}/${clientId}`).set(reader());
+
+    expect(quedaActiva.id).toBeDefined();
+    expect(one.body.data.activeCases).toBe(1);
   });
 });

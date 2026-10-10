@@ -4,7 +4,7 @@
 
 ## Regla de precedencia
 
-Cuando este glosario y `API_CONTRACT_V2.md` no coincidan, **manda el contrato**: es la superficie que backend y frontend comparten, y cambiarla cuesta una migración de los dos lados. Este documento se adapta al contrato, no al revés.
+Cuando este glosario y `API_CONTRACT_V3.md` no coincidan, **manda el contrato**: es la superficie que backend y frontend comparten, y cambiarla cuesta una migración de los dos lados. Este documento se adapta al contrato, no al revés.
 
 De ahí sale la segunda regla: **un concepto que viaja por la API se nombra igual en el dominio y en el contrato**. Tener `Term` en el código y `timeLimitDays` en el JSON obliga a traducir mentalmente en cada lectura, que es exactamente lo que un glosario existe para evitar.
 
@@ -93,7 +93,7 @@ Los nombres que viajan en los payloads. Un módulo los escribe igual en sus tipo
 | Posición en el ciclo     | `position`           | `ProceduralState`                  |
 | Días del plazo           | `timeLimitDays`      | `ProceduralState`                  |
 | Estado terminal          | `terminal`           | `ProceduralState`. Cierra el ciclo de vida |
-| Causas activas           | `activeCases`        | `Lawyer`, `ProceduralState`. Calculado, sólo lectura |
+| Causas activas           | `activeCases`        | `Lawyer`, `Client`, `ProceduralState`, `LegalQualification`. Calculado, sólo lectura |
 
 ## 5. Alta y baja
 
@@ -106,17 +106,3 @@ Los nombres que viajan en los payloads. Un módulo los escribe igual en sus tipo
 `DELETE` en la API **no borra**: establece `active` en `false`. El registro se conserva para no romper las referencias de las causas, y se reactiva con un `PATCH` que ponga `active` en `true`. Los listados devuelven sólo los activos salvo que se pida lo contrario con el parámetro `active`.
 
 ---
-
-## Inconsistencias conocidas
-
-Pendientes de resolver con el equipo. No corregir por cuenta propia: cambiarlas de un lado sin el otro empeora el problema.
-
-| Dónde | Dice | Debería decir | Estado |
-| --- | --- | --- | --- |
-| `frontend/src/features/users/` | `ADMINISTATOR`, `SECRETARIAT`, `role`, `abogadoId` | `ADMINISTRATOR`, `SECRETARY`, `roles`, `lawyerId` | **Pendiente.** Es lo único que queda del vocabulario anterior |
-
-`frontend/src/shared/mocks/` y `frontend/src/features/legal-params/` ya están migrados: los mocks implementan el contrato vigente de punta a punta, y el módulo de estados procesales habla `timeLimitDays: number` e incorporó `position`, `terminal`, `activeCases` y `active`.
-
-Al módulo de usuarios le falta además lo que el contrato incorporó y todavía no existe en el código: `fullName`, `email`, `lawyer` y `active`. Mientras no se migre, esa pantalla no funciona contra `VITE_USE_MOCKS=true`.
-
-`ARQUITECTURA_BACKEND_V1.md` ya fue corregido: `ProceduralState`, `ProceduralStatePort`, `TimeLimit`, `TimeLimitPort` y `DeadlineCalculatorPort`.

@@ -1,7 +1,10 @@
 import { Client } from "../../domain/entities/client.entity";
 import { Dni } from "../../domain/value-objects/dni.vo";
 import { ListClientsUseCase } from "./list-clients.use-case";
-import { FakeClientRepository } from "./test-support/people-fakes";
+import {
+  FakeActiveCasesCounter,
+  FakeClientRepository,
+} from "./test-support/people-fakes";
 
 describe("ListClientsUseCase", () => {
   const CLIENT_SINCE = new Date("2026-10-07T00:00:00Z");
@@ -9,7 +12,12 @@ describe("ListClientsUseCase", () => {
 
   function build() {
     const clients = new FakeClientRepository();
-    return { useCase: new ListClientsUseCase(clients), clients };
+    const counter = new FakeActiveCasesCounter();
+    return {
+      useCase: new ListClientsUseCase(clients, counter),
+      clients,
+      counter,
+    };
   }
 
   async function seed(
@@ -44,7 +52,7 @@ describe("ListClientsUseCase", () => {
 
       const result = await useCase.execute(page);
 
-      expect(result.clients.map((c) => c.lastName)).toEqual([
+      expect(result.clients.map((c) => c.client.lastName)).toEqual([
         "ACOSTA",
         "ZÁRATE",
       ]);
@@ -57,7 +65,7 @@ describe("ListClientsUseCase", () => {
 
       const result = await useCase.execute(page);
 
-      expect(result.clients.map((c) => c.firstName)).toEqual([
+      expect(result.clients.map((c) => c.client.firstName)).toEqual([
         "Ariel",
         "Zulema",
       ]);
@@ -75,7 +83,7 @@ describe("ListClientsUseCase", () => {
 
       const result = await useCase.execute(page);
 
-      expect(result.clients.map((c) => c.lastName)).toEqual(["ACTIVO"]);
+      expect(result.clients.map((c) => c.client.lastName)).toEqual(["ACTIVO"]);
       expect(result.totalItems).toBe(1);
     });
   });
@@ -94,7 +102,7 @@ describe("ListClientsUseCase", () => {
 
       const result = await useCase.execute({ ...page, search: "BENÍ" });
 
-      expect(result.clients.map((c) => c.lastName)).toEqual(["BENÍTEZ"]);
+      expect(result.clients.map((c) => c.client.lastName)).toEqual(["BENÍTEZ"]);
     });
 
     it("matches the given names too", async () => {
@@ -113,7 +121,7 @@ describe("ListClientsUseCase", () => {
 
       const result = await useCase.execute({ ...page, search: "29440117" });
 
-      expect(result.clients.map((c) => c.lastName)).toEqual(["BENÍTEZ"]);
+      expect(result.clients.map((c) => c.client.lastName)).toEqual(["BENÍTEZ"]);
     });
 
     it("ignores case", async () => {
@@ -158,7 +166,7 @@ describe("ListClientsUseCase", () => {
 
     const result = await useCase.execute({ page: 2, limit: 2 });
 
-    expect(result.clients.map((c) => c.lastName)).toEqual(["C"]);
+    expect(result.clients.map((c) => c.client.lastName)).toEqual(["C"]);
     // El total es el de la colección entera, no el de la página.
     expect(result.totalItems).toBe(3);
   });

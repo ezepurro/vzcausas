@@ -78,7 +78,7 @@ export class LegalQualificationsController {
     const result = await this.findQualification.execute({
       id: this.parseQualificationId(qualificationIdParam),
     });
-    return { data: LegalQualificationHttpMapper.toResponse(result.qualification) };
+    return { data: LegalQualificationHttpMapper.toResponse(result) };
   }
 
   private parseQualificationId(raw: string): number {

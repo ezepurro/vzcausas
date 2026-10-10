@@ -4,11 +4,10 @@ import { ClientResponseDto } from "../dtos/client.response.dto";
 import { RegisterClientRequestDto } from "../dtos/register-client.request.dto";
 
 /**
- * `activeCases` counts the cases this client is the client of. That
- * lives in the `cases` subsystem, and a client registered a moment
- * ago necessarily has none (CA-8.8, RN1). The field ships from day
- * one so the resource's shape never has to change; HU-9's listing is
- * what will need the real count.
+ * A client registered a moment ago is the client of no case (CA-8.8, RN1), so
+ * the `0` of the `POST` response is a fact. The `GET`s of HU-9 do need the
+ * real count, and they pass it in: until 10/10/2026 this constant answered
+ * **every** response, which made the listing look right while being wrong.
  */
 const ACTIVE_CASES_ON_A_FRESH_CLIENT = 0;
 
@@ -25,7 +24,12 @@ export class ClientHttpMapper {
     };
   }
 
-  static toResponse(client: Client): ClientResponseDto {
+  /**
+   * `activeCases` is a parameter, not a constant: the caller knows. The
+   * `GET`s pass the count that `cases` returned,
+   * {@link toRegisteredResponse} the definitional zero.
+   */
+  static toResponse(client: Client, activeCases: number): ClientResponseDto {
     const dto = new ClientResponseDto();
     dto.id = client.id;
     dto.lastName = client.lastName;
@@ -38,8 +42,13 @@ export class ClientHttpMapper {
     // it with a time would invite the reader to care about a timezone
     // that carries no meaning here.
     dto.clientSince = client.clientSince.toISOString().slice(0, 10);
-    dto.activeCases = ACTIVE_CASES_ON_A_FRESH_CLIENT;
+    dto.activeCases = activeCases;
     dto.active = client.isActive();
     return dto;
+  }
+
+  /** Response of `POST /clients`: a brand new client has no cases yet. */
+  static toRegisteredResponse(client: Client): ClientResponseDto {
+    return this.toResponse(client, ACTIVE_CASES_ON_A_FRESH_CLIENT);
   }
 }

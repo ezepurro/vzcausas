@@ -1,5 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { Lawyer } from "../../domain/entities/lawyer.entity";
+import { ActiveCasesCounterPort } from "../../domain/ports/active-cases-counter.port";
 import {
   LAWYER_REPOSITORY,
   LawyerRepository,
@@ -11,8 +12,18 @@ export type ListLawyersQuery = {
   search?: string;
 };
 
+/**
+ * A lawyer plus his workload. A read model, not an entity: `activeCases`
+ * belongs to `cases` and the `Lawyer` entity deliberately does not carry it
+ * (`lawyer.entity.ts:12`).
+ */
+export type LawyerWithActiveCases = {
+  lawyer: Lawyer;
+  activeCases: number;
+};
+
 export type ListLawyersResult = {
-  lawyers: Lawyer[];
+  lawyers: LawyerWithActiveCases[];
   totalItems: number;
 };
 
@@ -34,6 +45,8 @@ export type ListLawyersResult = {
 export class ListLawyersUseCase {
   constructor(
     @Inject(LAWYER_REPOSITORY) private readonly lawyers: LawyerRepository,
+    @Inject(ActiveCasesCounterPort)
+    private readonly activeCasesCounter: ActiveCasesCounterPort,
   ) {}
 
   async execute(query: ListLawyersQuery): Promise<ListLawyersResult> {
@@ -45,6 +58,21 @@ export class ListLawyersUseCase {
       search: search && search.length > 0 ? search : undefined,
     });
 
-    return { lawyers: page.items, totalItems: page.totalItems };
+    // The counts for the whole page in a single call, never one per lawyer.
+    // An empty page needs none: skip the trip to `cases`.
+    const counts =
+      page.items.length > 0
+        ? await this.activeCasesCounter.countByResponsibleLawyer(
+            page.items.map((lawyer) => lawyer.id),
+          )
+        : new Map<number, number>();
+
+    return {
+      lawyers: page.items.map((lawyer) => ({
+        lawyer,
+        activeCases: counts.get(lawyer.id) ?? 0,
+      })),
+      totalItems: page.totalItems,
+    };
   }
 }

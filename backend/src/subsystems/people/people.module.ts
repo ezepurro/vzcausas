@@ -1,5 +1,6 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { SharedModule } from '@shared/shared.module';
+import { CasesModule } from '@subsystems/cases/case.module';
 import { PEOPLE_LOOKUP } from '@subsystems/cases/core/domain/ports/people-lookup.port';
 import { FindClientUseCase } from './core/application/use-cases/find-client.use-case';
 import { FindLawyerUseCase } from './core/application/use-cases/find-lawyer.use-case';
@@ -28,7 +29,7 @@ import { PrismaLawyerRepository } from './infrastructure/persistence/prisma/pris
  * `RegisterClient` needs today's civil date for `clientSince`.
  */
 @Module({
-  imports: [SharedModule],
+  imports: [SharedModule, forwardRef(() => CasesModule)],
   controllers: [LawyerController, ClientController],
   providers: [
     RegisterLawyerUseCase,

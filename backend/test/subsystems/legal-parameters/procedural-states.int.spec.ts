@@ -278,20 +278,33 @@ describe('GET /api/v1/procedural-states', () => {
   });
 
   // ── Errores ───────────────────────────────────────────────────────
-  // El contrato pide INVALID_REQUEST / INVALID_PAGINATION. Hoy el
-  // ValidationPipe global responde VALIDATION_ERROR, con `details`
-  // indexado por campo; cambiar el code afecta a todos los módulos
-  // (decisión del equipo pendiente).
+  //
+  // La paginación tiene su propio código, `INVALID_PAGINATION`, como pide el
+  // contrato (§5.3). Lo resuelve el `exceptionFactory` global cuando **todo**
+  // lo que falla es paginación (`app.setup.ts`), así que vale para los cuatro
+  // listados del backend. Era la "decisión del equipo pendiente" que estaba
+  // anotada acá; se tomó el 08/10/2026.
+  //
+  // El resto sigue siendo el `VALIDATION_ERROR` genérico del ValidationPipe,
+  // con `details` indexado por campo.
 
   it.each([
     ['fuero inexistente', '?jurisdiction=FOO', 'jurisdiction'],
-    ['página menor a 1', '?page=0', 'page'],
-    ['límite mayor a 100', '?limit=101', 'limit'],
     ['parámetro desconocido', '?foo=1', 'foo'],
-  ])('responde 400 ante %s', async (_case, query, field) => {
+  ])('responde 400 VALIDATION_ERROR ante %s', async (_case, query, field) => {
     const res = await get(query);
 
     expectError(res, 400, 'VALIDATION_ERROR', [field]);
+  });
+
+  // `details` nombra los dos parámetros, como el ejemplo del contrato.
+  it.each([
+    ['página menor a 1', '?page=0'],
+    ['límite mayor a 100', '?limit=101'],
+  ])('responde 400 INVALID_PAGINATION ante %s', async (_case, query) => {
+    const res = await get(query);
+
+    expectError(res, 400, 'INVALID_PAGINATION', ['page', 'limit']);
   });
 });
 
@@ -840,27 +853,71 @@ describe('DELETE /api/v1/procedural-states/:stateId', () => {
 });
 
 /**
- * `activeCases` lo calcula `cases` (contrato §4, "Causa activa"): causas no
- * dadas de baja cuyo estado actual no es terminal. Hasta que `cases` exporte
- * el conteo, `legal-parameters` usa `StubActiveCasesCounterAdapter`, que
- * responde 0. Cuando esté, reemplazar estos pendientes por tests contra la
- * base: la regla vive en la consulta SQL de `cases`.
+ * `activeCases` lo cuenta `cases`, dueño de la definición de causa activa
+ * (§4). Llega por `ActiveCasesCounterPort`, que este subsistema declara y
+ * `cases` implementa en
+ * `cases/infrastructure/acl/legal-parameters-active-cases-counter.adapter.ts`.
+ * Ya no hay stub.
+ *
+ * Lo que se verifica acá es el **cableado**: que el número cruce el borde entre
+ * los dos subsistemas y llegue al JSON. La semántica del conteo —estado
+ * terminal, estado inicial, estado escrito a mano, causa dada de baja, estado
+ * renombrado— está probada contra la base en el `describe` de
+ * `countActiveByProceduralState` de `test/subsystems/cases/case-query.int.spec.ts`.
+ * Repetirla acá sería probar la misma regla dos veces por dos caminos, y
+ * cuando cambie habría que acordarse de los dos lugares.
  */
 describe('activeCases de /api/v1/procedural-states', () => {
-  it('hoy responde 0 en el listado y en la consulta por id (stub hasta que cases provea el conteo)', async () => {
-    const saved = await createProceduralState();
-
+  /** `activeCases` por id de estado, leído del listado. */
+  async function activeCasesInList() {
     const list = await request(app.getHttpServer()).get(URL).set(reader());
-    expect(expectPaginated<ProceduralStateBody>(list).map((s) => s.activeCases)).toEqual([0]);
-    const one = await request(app.getHttpServer()).get(`${URL}/${saved.stateId}`).set(reader());
-    expect(expectData<ProceduralStateBody>(one, 200).activeCases).toBe(0);
+    return new Map(expectPaginated<ProceduralStateBody>(list).map((state) => [state.id, state.activeCases]));
+  }
+
+  async function activeCasesById(stateId: number) {
+    const one = await request(app.getHttpServer()).get(`${URL}/${stateId}`).set(reader());
+    return expectData<ProceduralStateBody>(one, 200).activeCases;
+  }
+
+  it('cuenta las causas de cada estado, en el listado y en la consulta por id', async () => {
+    const owner = await aCaseOwner();
+    const conDos = await createProceduralState({ name: 'Alegato' });
+    const conUna = await createProceduralState({ name: 'Clausura' });
+    await createCaseInState(owner, conDos.stateId);
+    await createCaseInState(owner, conDos.stateId);
+    await createCaseInState(owner, conUna.stateId);
+
+    // El listado no incluye "Iniciada" (`proc-state-prisma.repository.ts:196`),
+    // así que el mapa completo son los dos estados creados acá.
+    expect(await activeCasesInList()).toEqual(
+      new Map([
+        [conDos.stateId, 2],
+        [conUna.stateId, 1],
+      ]),
+    );
+    expect(await activeCasesById(conDos.stateId)).toBe(2);
+    expect(await activeCasesById(conUna.stateId)).toBe(1);
   });
 
-  it.todo(
-    'cuenta las causas activas de cada estado, en el listado y por id: no cuenta las dadas de baja, ' +
-      'ni las de un estado terminal (que da siempre 0), ni las de estado escrito a mano, ni las de "Iniciada"',
-  );
-  it.todo('cuenta las causas de un estado aunque se lo haya renombrado');
+  it('un estado sin causas responde 0, y el campo viene igual', async () => {
+    const sinCausas = await createProceduralState();
+
+    expect(await activeCasesInList()).toEqual(new Map([[sinCausas.stateId, 0]]));
+    expect(await activeCasesById(sinCausas.stateId)).toBe(0);
+  });
+
+  it('la regla de causa activa cruza el borde: no cuenta la dada de baja, y un estado terminal da 0', async () => {
+    const owner = await aCaseOwner();
+    const estado = await createProceduralState({ name: 'Alegato' });
+    const terminal = await createProceduralState({ name: 'Archivada', terminal: true });
+    await createCaseInState(owner, estado.stateId);
+    const baja = await createCaseInState(owner, estado.stateId);
+    await getPrisma().case.update({ where: { id: baja.id }, data: { active: false } });
+    await createCaseInState(owner, terminal.stateId);
+
+    expect(await activeCasesById(estado.stateId)).toBe(1);
+    expect(await activeCasesById(terminal.stateId)).toBe(0);
+  });
 });
 
 /**

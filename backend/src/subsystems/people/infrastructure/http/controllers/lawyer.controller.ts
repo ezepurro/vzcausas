@@ -55,7 +55,7 @@ export class LawyerController {
     const result = await this.registerLawyer.execute(
       LawyerHttpMapper.toRegisterCommand(dto),
     );
-    return { data: LawyerHttpMapper.toResponse(result.lawyer) };
+    return { data: LawyerHttpMapper.toRegisteredResponse(result.lawyer) };
   }
 
   @RequirePermissions("lawyer:read")
@@ -72,7 +72,9 @@ export class LawyerController {
     });
 
     return paginate(
-      result.lawyers.map((lawyer) => LawyerHttpMapper.toResponse(lawyer)),
+      result.lawyers.map((counted) =>
+        LawyerHttpMapper.toResponse(counted.lawyer, counted.activeCases),
+      ),
       result.totalItems,
       page,
     );

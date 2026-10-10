@@ -54,6 +54,16 @@ export class FakeActiveCasesCounter implements ActiveCasesCounterPort {
     this.calls.push(stateIds);
     return new Map(stateIds.map((id) => [id, this.counts.get(id) ?? 0]));
   }
+
+  /**
+   * The count per legal qualification shares `counts` and `calls` with the one
+   * per procedural state: no spec exercises both at once, and one set of books
+   * makes an accidental crossover visible instead of silently plausible.
+   */
+  async countByQualifications(qualificationIds: readonly number[]): Promise<ReadonlyMap<number, number>> {
+    this.calls.push(qualificationIds);
+    return new Map(qualificationIds.map((id) => [id, this.counts.get(id) ?? 0]));
+  }
 }
 
 /**

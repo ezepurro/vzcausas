@@ -67,7 +67,7 @@ ni las tablas de causas para el conteo. Ver `CL-03` y `TL-01`.
 
 | Id | Deuda |
 | --- | --- |
-| **TL-01** | **CA-47.8 queda incumplido: `activeCases` está fijo en 0.** Es el cuarto recurso con el campo clavado (clientes, abogados, estados procesales) y el primero donde un criterio entero se dedica a la regla de conteo. Contarlo exige cruzar `legal_qualifications` → `offenses` → `cases`, y antes de eso exige **decidir qué es una causa activa**, que hoy no está decidido en ningún lado: `cases.active` es la baja lógica (RN12), no "archivada"; lo más parecido a archivada es `procedural_states.terminal`, al que no se llega cuando la causa está en un `current_custom_state`; y prescripta es **por hecho**, no por causa, porque la fecha vive en `offenses.prescription_date`. Resolverlo acá plantaría la definición de causa activa dentro de `legal-parameters`, y el día que `cases` la defina distinto el conteo mentiría en silencio — peor que el 0, porque un número calculado parece confiable. **El orden correcto es que `cases` la defina y la exponga por un puerto que `CasesModule` exporte**, como ya exporta `PROC_STATE_LOOKUP`; consumirlo después es un adaptador y un campo en el mapper, y sirve para los cuatro recursos. Ver T-01 de `people`. |
+| ~~**TL-01**~~ | ~~**CA-47.8 queda incumplido: `activeCases` está fijo en 0.**~~ **Cerrada el 10/10/2026: CA-47.8 cumplido.** El conteo es `ActiveCasesCounterPort.countByQualifications`, que implementa `cases/infrastructure/acl/legal-parameters-active-cases-counter.adapter.ts` sobre `CaseQueryPort.countActiveByLegalQualification` — agrupa `offenses` por `legal_qualification_id` con la causa filtrada por activa, así que una causa suma a **cada** una de sus calificaciones sin duplicar (PK compuesta, `schema.prisma:362`). `ViewLegalQualifications` y `FindLegalQualification` devuelven `LegalQualificationWithActiveCases` y el mapper lo lee. El `POST` sigue sin el campo (CA-48.7). Tres cosas que el análisis original dejó abiertas y ya tienen respuesta: la causa en `current_custom_state` **es activa** y cuenta; una calificación dada de baja **sigue contando** sus causas (RN12); y "prescripta" no entra en el predicado — la fecha es por hecho (`offenses.prescription_date`) y el avance lo calcula el cliente. Verificado en `test/subsystems/cases/case-query.int.spec.ts` y por la API en `legal-qualifications.int.spec.ts`, describe `activeCases de /api/v1/legal-qualifications`. |
 | TL-02 | **Dos convenciones de paginación conviven en el proyecto.** Acá se sigue la del subsistema (`src/common/pagination/`), que reporta `totalPages: 0` con la colección vacía; la compartida (`shared/infrastructure/http/pagination.ts`, que usa `/clients`) fuerza 1, con el argumento de que la paginación arranca en la página 1 y 0 páginas describe un rango al que ninguna petición válida llega. **Se verificó de punta a punta: `GET /legal-qualifications?search=zzzz` devuelve `totalPages: 0` y `GET /clients` devuelve 1 en el mismo caso.** Las dos son defendibles; que difieran entre recursos del mismo contrato, no. |
 | TL-03 | **`PATCH` y `DELETE` no existen.** Fuera de alcance por definición de las historias. El `DELETE` es además el que cierra QL-02, y el `PATCH` el que necesita QL-03 resuelto. |
 
@@ -78,6 +78,7 @@ ni las tablas de causas para el conteo. Ver `CL-03` y `TL-01`.
 | Fecha | Qué | Commit |
 | --- | --- | --- |
 | 2026-10-08 | **HU-48 y HU-47.** Entidad `LegalQualification`, puerto y repositorio Prisma, tres casos de uso, capa HTTP con permisos (L-02), seed con `qualification:*` (L-03). 14 archivos nuevos y dos ajenos tocados solo aditivamente. Sin migración (L-05). **37 tests unitarios y 39 de integración.** Verificado además de punta a punta contra el stack de docker con la base resembrada: alta, 409 por duplicado, 409 por diferencia de mayúsculas, 403 a Abogado y Secretaría, 200 a los tres perfiles en lectura, 401 sin token, orden alfabético, búsqueda por delito y por artículo, colección vacía sin error, 404 por id inexistente y por calificación dada de baja. **CA-47.8 sin cubrir**: ver TL-01. | — |
+| 2026-10-10 | **CA-47.8 cumplido.** `activeCases` sale del conteo real de `cases`, por `ActiveCasesCounterPort.countByQualifications`. Nuevo read model `LegalQualificationWithActiveCases`; los dos casos de uso de lectura lo devuelven y el mapper lo lee. El `POST` sigue sin el campo. 2 unitarios nuevos y 4 de integración por la API. Hecho desde `cases` (rama `feat/cases-query`), no por el dueño de este módulo: el conteo es de `cases` y conectarlo pedía tocar acá. | — |
 
 ### Estado de los criterios
 
@@ -92,14 +93,14 @@ ni las tablas de causas para el conteo. Ver `CL-03` y `TL-01`.
 | 48.7 Independencia de las causas | ✅ |
 | 48.8 Botón desde el alta de causa | Interfaz — ver CL-04 |
 | 48.9 Perfil no habilitado | ✅ |
-| 47.1 Listado de vigentes | ⚠️ todo salvo `activeCases` (TL-01) |
+| 47.1 Listado de vigentes | ✅ (desde 10/10/2026 incluye `activeCases`) |
 | 47.2 Plazo en años y meses | Interfaz |
 | 47.3 Orden alfabético | ✅ |
 | 47.4 Búsqueda por nombre o artículo | ✅ |
 | 47.5 Paginación | ✅ |
 | 47.6 Sin resultados | ✅ |
 | 47.7 Consulta individual | ✅ |
-| 47.8 Causas activas | ❌ **incumplido** — TL-01 |
+| 47.8 Causas activas | ✅ desde 10/10/2026 — TL-01 cerrada |
 | 47.9 Calificaciones dadas de baja | ✅ |
 | 47.10 Selector en el alta de causa | Interfaz, servido por el `GET` |
 | 47.11 Usuario no autenticado | ✅ |

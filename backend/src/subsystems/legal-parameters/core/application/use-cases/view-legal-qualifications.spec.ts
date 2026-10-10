@@ -2,6 +2,7 @@ import { LegalQualification } from '../../domain/entities/legal-qualification';
 import { LegalQualificationRepository } from '../../domain/ports/legal-qualification.repository';
 import { PaginatedResult } from '../../../../../common/pagination/paginated-result';
 import { ViewLegalQualifications } from './view-legal-qualifications.use-case';
+import { FakeActiveCasesCounter } from './test-support/procedural-state-fakes';
 
 function aQualification(id = 1, name = 'Hurto simple — art. 162 CP'): LegalQualification {
   return LegalQualification.hydrate({
@@ -19,6 +20,7 @@ function aPage(items: LegalQualification[]): PaginatedResult<LegalQualification>
 
 describe('ViewLegalQualifications', () => {
   let repository: jest.Mocked<LegalQualificationRepository>;
+  let counter: FakeActiveCasesCounter;
   let useCase: ViewLegalQualifications;
 
   beforeEach(() => {
@@ -29,7 +31,30 @@ describe('ViewLegalQualifications', () => {
       findActiveById: jest.fn(),
       findPaginated: jest.fn().mockResolvedValue(aPage([])),
     };
-    useCase = new ViewLegalQualifications(repository);
+    counter = new FakeActiveCasesCounter();
+    useCase = new ViewLegalQualifications(repository, counter);
+  });
+
+  describe('activeCases (CA-47.8)', () => {
+    it('pide los conteos de la página entera en una sola llamada', async () => {
+      repository.findPaginated.mockResolvedValue(aPage([aQualification(1), aQualification(2)]));
+      counter.counts.set(1, 4);
+
+      const result = await useCase.getAll({ page: 1, limit: 20 });
+
+      expect(result.items.map((item) => [item.qualification.id, item.activeCases])).toEqual([
+        [1, 4],
+        [2, 0],
+      ]);
+      // Una llamada con los dos ids, no una por calificación: es el N+1.
+      expect(counter.calls).toEqual([[1, 2]]);
+    });
+
+    it('no llama a `cases` cuando la página está vacía', async () => {
+      await useCase.getAll({ page: 1, limit: 20 });
+
+      expect(counter.calls).toEqual([]);
+    });
   });
 
   it('forwards page and limit to the repository unchanged', async () => {
@@ -61,11 +86,27 @@ describe('ViewLegalQualifications', () => {
     expect(result.total).toBe(0);
   });
 
-  it('returns the repository page as it comes', async () => {
-    const page = aPage([aQualification(1), aQualification(2, 'Abuso de armas — art. 104 CP')]);
+  /**
+   * Hasta el 10/10/2026 este test afirmaba `toBe(page)`: el caso de uso
+   * devolvía el objeto del repositorio sin tocarlo. Ya no puede, porque le
+   * adosa el `activeCases` a cada ítem (CA-47.8). Lo que sigue siendo cierto
+   * —y lo que importa— es que la metadata de paginación pasa sin tocarse y que
+   * las entidades viajan por referencia, no copiadas.
+   */
+  it('deja intacta la paginación del repositorio y no copia las entidades', async () => {
+    const first = aQualification(1);
+    const page = aPage([first, aQualification(2, 'Abuso de armas — art. 104 CP')]);
     repository.findPaginated.mockResolvedValue(page);
 
-    expect(await useCase.getAll({ page: 1, limit: 20 })).toBe(page);
+    const result = await useCase.getAll({ page: 1, limit: 20 });
+
+    expect(result.items[0].qualification).toBe(first);
+    expect({
+      total: result.total,
+      page: result.page,
+      limit: result.limit,
+      totalPages: result.totalPages,
+    }).toEqual({ total: 2, page: 1, limit: 20, totalPages: 1 });
   });
 
   /**
@@ -80,7 +121,7 @@ describe('ViewLegalQualifications', () => {
 
     const result = await useCase.getAll({ page: 1, limit: 20 });
 
-    expect(result.items.map((q) => q.name)).toEqual(['Abuso', 'Hurto']);
+    expect(result.items.map((item) => item.qualification.name)).toEqual(['Abuso', 'Hurto']);
   });
 
   it('propagates repository failures', async () => {
