@@ -127,7 +127,7 @@ erDiagram
         varchar subject_matter "null, max 800"
         int client_id FK
         int responsible_lawyer_id FK
-        date start_date
+        date start_date "null mientras no hay SAC"
         int current_state_id FK "null, xor custom"
         varchar current_custom_state "null, xor state"
         int current_procedural_act_id FK "null = estado inicial"
@@ -216,7 +216,7 @@ las expresa:
 - `custom_state` no coincide con el nombre de un estado vigente del fuero.
 - El rol procesal corresponde al fuero de la causa.
 - Si `current_procedural_act_id` no es nulo, el estado de la causa es el estado resultante de ese acto. Se actualiza en la misma transacción, y solo si `act_date` es mayor o igual al del acto vigente.
-- `client_since` y `start_date` se asignan con `ClockPort.today()` (Córdoba), nunca con `CURRENT_DATE` de la base.
+- `client_since` se asigna con `ClockPort.today()` (Córdoba), nunca con `CURRENT_DATE` de la base. `start_date` solo existe con SAC: la informa el usuario y, sin SAC, queda en `NULL` (D-38).
 
 ## Vencimiento del acto
 

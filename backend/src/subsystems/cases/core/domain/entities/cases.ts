@@ -45,7 +45,8 @@ export interface CaseProps {
   instructor: Instructor;
   clientId: number;
   responsibleLawyerId: number;
-  startDate: Date;
+  // Only a case with a SAC number has one: it is when it started in court.
+  startDate: Date | null;
   // Current state: exactly one of the two is set. A new case starts in the
   // initial state of its jurisdiction ("Iniciada").
   currentStateId: number | null;
@@ -199,7 +200,7 @@ export abstract class Case {
     return this.props.responsibleLawyerId;
   }
 
-  get startDate(): Date {
+  get startDate(): Date | null {
     return this.props.startDate;
   }
 

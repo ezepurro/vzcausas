@@ -165,10 +165,10 @@ describe('CaseFactory', () => {
       expect(details).toEqual({ startDate: 'No se informa si la causa no tiene número de SAC.' });
     });
 
-    it('sin SAC, la columna de la base no admite vacío: se guarda con la fecha de hoy', () => {
+    it('sin SAC, la fecha de inicio queda vacía: no se inventa una', () => {
       const newCase = CaseFactory.create(aNewCaseInput({ sacNumber: null, startDate: undefined }));
 
-      expect(newCase.startDate).toEqual(TODAY);
+      expect(newCase.startDate).toBeNull();
     });
 
     it('rechaza una fecha de inicio posterior a hoy', async () => {

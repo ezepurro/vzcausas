@@ -230,6 +230,24 @@ describe('POST /api/v1/cases', () => {
     expect(await getPrisma().offense.count()).toBe(0);
   });
 
+  it('registra una causa sin SAC y sin fecha de inicio: la fecha queda en null', async () => {
+    // Case.yaml: `startDate` viaja siempre, y vale null mientras la causa no tiene SAC.
+    const body = aCaseBody({ clientId, responsibleLawyerId: lawyerId });
+    expect(body).not.toHaveProperty('sacNumber');
+    expect(body).not.toHaveProperty('startDate');
+
+    const res = await request(app.getHttpServer()).post(URL).set(actor).send(body);
+
+    const data = expectData<{ id: number }>(res, 201);
+    expect(data).toMatchObject({ sacNumber: null, startDate: null, active: true });
+    expect(data).toHaveProperty('startDate', null);
+
+    // Base: la columna admite NULL; no se guarda una fecha inventada.
+    const row = await getPrisma().case.findUniqueOrThrow({ where: { id: data.id } });
+    expect(row.sacNumber).toBeNull();
+    expect(row.startDate).toBeNull();
+  });
+
   it('rechaza un número de SAC ya registrado y no guarda otra causa', async () => {
     await createCase({ clientId, responsibleLawyerId: lawyerId, createdByUserId: userId, sacNumber: '13284571' });
     const body = aCaseBody({ clientId, responsibleLawyerId: lawyerId }, { sacNumber: '13284571', startDate: '2021-03-12' });

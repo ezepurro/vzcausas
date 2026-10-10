@@ -91,7 +91,7 @@ export class CaseHttpMapper {
         prescriptionStartsOn: toIsoDate(offense.prescriptionStartsOn),
         prescriptionExpiresOn: offense.prescriptionExpiresOn && toIsoDate(offense.prescriptionExpiresOn),
       })),
-      startDate: toIsoDate(theCase.startDate),
+      startDate: theCase.startDate && toIsoDate(theCase.startDate),
       currentState: {
         proceduralStateId: currentState.proceduralStateId,
         name: currentState.name,
