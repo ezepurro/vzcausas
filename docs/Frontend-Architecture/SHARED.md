@@ -860,7 +860,7 @@ variables. `cases.css` y `login.css` son de un área del sistema, no de
 | 1180px | `.vz-split` pasa a una columna y el panel lateral va abajo. Las tablas sueltan su ancho mínimo y esconden las columnas `hideWhenNarrow` |
 | 1023px | El rail sale de la pantalla y se abre con el botón de la barra superior |
 | 860px | El login queda en una columna; `.vz-form-row3`, en dos |
-| 720px | Teléfono: `.vz-form-grid` en una columna, tablas como tarjetas, filtros de a dos, modal casi a pantalla completa, menos aire (`--vz-main-pad`, `--vz-panel-pad`) y el desplegable nativo en los `select` |
+| 720px | Teléfono: `.vz-form-grid` en una columna, tablas como tarjetas, filtros de a dos, modal casi a pantalla completa, menos aire (`--vz-main-pad`, `--vz-panel-pad`); en los `select` lo elegido va en un renglón y se pierde bajo la flecha si no entra |
 
 Una pantalla nueva armada con los componentes y las clases de `shared` ya es
 responsive. Si necesita CSS propio, usa estos cortes y prueba a 375px que nada

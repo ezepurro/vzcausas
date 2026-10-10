@@ -263,15 +263,38 @@
   }
 }
 
-/* En un teléfono vuelve el desplegable del sistema: es el que mejor se usa
-   con el dedo, y lo elegido se recorta solo cuando el campo es angosto en vez
-   de partirse en dos renglones. */
-@media (max-width: 720px) {
-  .vz-select {
-    appearance: none;
-    display: block;
-    padding-right: 34px;
-    background-image: var(--vz-select-arrow);
+/* En un teléfono los desplegables quedan angostos —los filtros van de a dos—
+   y lo elegido se partía en dos renglones. Acá va en uno solo y, si no entra,
+   se pierde por debajo de la flecha, que pasa a ocupar el borde derecho con un
+   degradé del color del campo. El texto elegido lo dibuja el navegador y no
+   hay selector que lo alcance, así que no se puede recortar con puntos
+   suspensivos. La lista no puede ser más ancha que la pantalla. */
+@supports (appearance: base-select) {
+  @media (max-width: 720px) {
+    .vz-select {
+      --vz-select-bg: var(--vz-surface);
+      position: relative;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+    .vz-select:disabled { --vz-select-bg: var(--vz-sunken); }
+    .vz-field--error .vz-select { --vz-select-bg: var(--vz-danger-bg); }
+
+    .vz-select::picker-icon {
+      position: absolute;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      display: flex;
+      align-items: center;
+      padding: 0 12px 0 22px;
+      background: linear-gradient(to right, transparent, var(--vz-select-bg) 14px);
+    }
+    /* Girada, la flecha arrastraría el degradé al otro lado. */
+    .vz-select:open::picker-icon { transform: none; }
+
+    .vz-select::picker(select) { max-width: calc(100vw - 28px); }
+    .vz-select option { white-space: normal; }
   }
 }
 
