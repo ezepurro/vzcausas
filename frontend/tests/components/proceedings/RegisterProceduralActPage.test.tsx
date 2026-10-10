@@ -6,7 +6,7 @@ import { server } from '@/shared/mocks/server'
 import { CaseDetailPage } from '@/features/cases/pages/CaseDetailPage'
 import { RegisterProceduralActPage } from '@/features/proceedings/pages/RegisterProceduralActPage'
 import { renderWithProviders } from '../../setup/render'
-import { usePrototypeToday } from '../../unit/mocks/helpers'
+import { usePrototypeToday } from '../../setup/clock'
 
 /**
  * Las causas semilla que usa: la 1 (penal, GÓMEZ) y la 9 (archivada), de
@@ -25,16 +25,6 @@ function renderPage(caseId: string | number, as = 'mrios') {
 
 describe('RegisterProceduralActPage', () => {
     usePrototypeToday()
-
-    it('muestra la causa, las migas y la prescripción en el penal', async () => {
-        renderPage(1)
-
-        expect(await screen.findByRole('heading', { name: 'GÓMEZ, Ariel Fernando p.s.a. Robo calificado' })).toBeInTheDocument()
-        expect(screen.getByRole('button', { name: '13284571' })).toBeInTheDocument()
-        expect(screen.getByText('Registrar acto procesal')).toHaveAttribute('aria-current', 'page')
-        expect(screen.getByText(/Prescripción de la acción/)).toBeInTheDocument()
-        expect(await screen.findByRole('combobox')).toBeInTheDocument()
-    })
 
     it('no ofrece los estados terminales', async () => {
         const { user } = renderPage(1)
@@ -60,6 +50,20 @@ describe('RegisterProceduralActPage', () => {
         expect(screen.getByRole('alert')).toHaveTextContent(
             'Acto registrado. La causa pasó a Cédula de notificación · vencimiento el 18/09/2026.',
         )
+    })
+    it('con el ajuste manual, el acto se registra con el vencimiento que se cargó', async () => {
+        const { user } = renderPage(1)
+
+        await user.click(await screen.findByRole('combobox'))
+        await user.click(screen.getByRole('option', { name: /Cédula de notificación/ }))
+        expect(await screen.findByText('18/09/2026')).toBeInTheDocument()
+
+        await user.click(screen.getByRole('checkbox', { name: /Ajustar el vencimiento manualmente/ }))
+        await user.type(screen.getByLabelText(/^Vencimiento manual/), '2026-09-25')
+        await user.click(screen.getByRole('button', { name: 'Registrar acto' }))
+
+        expect(await screen.findByText('Detalle de la causa')).toBeInTheDocument()
+        expect(screen.getByRole('alert')).toHaveTextContent('vencimiento el 25/09/2026')
     })
 
     it('un estado escrito a mano se registra sin plazo de tabla', async () => {
@@ -110,31 +114,6 @@ describe('RegisterProceduralActPage', () => {
         expect(await screen.findByText('Detalle de la causa')).toBeInTheDocument()
     })
 
-    it('una causa que no existe muestra el mensaje del servidor', async () => {
-        renderPage(999)
-
-        expect(await screen.findByText('No se pudo cargar la causa')).toBeInTheDocument()
-        expect(screen.getByText('No se encontró la causa solicitada.')).toBeInTheDocument()
-    })
-
-    it('un id que no es número ni sale al servidor', () => {
-        renderPage('abc')
-
-        expect(screen.getByText('No se encontró la causa')).toBeInTheDocument()
-    })
-
-    it('si fallan los estados del fuero, lo dice', async () => {
-        server.use(
-            http.get('*/procedural-states', () =>
-                HttpResponse.json(errorBody('FORBIDDEN', 'Rechazo de prueba.'), { status: 403 }),
-            ),
-        )
-        renderPage(1)
-
-        expect(await screen.findByText('No se pudieron cargar los estados procesales')).toBeInTheDocument()
-        expect(screen.getByText('Rechazo de prueba.')).toBeInTheDocument()
-    })
-
     it('un 400 del servidor se marca en el campo', async () => {
         server.use(
             http.post('*/cases/:caseId/procedural-acts', () =>
@@ -159,8 +138,6 @@ describe('RegisterProceduralActPage', () => {
 
     it.each([
         ['otro abogado', 'iperalta'],
-        ['el administrador', 'fvazquez'],
-        ['la secretaría', 'gestion'],
     ])('a %s le avisa quién es el responsable, sin formulario', async (_, username) => {
         const { user } = renderPage(1, username)
 

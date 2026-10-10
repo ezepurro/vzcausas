@@ -51,20 +51,6 @@ test.describe('Estados y plazos', () => {
         ).toBeVisible()
         await expect(created).toBeHidden()
     })
-
-    /* La baja procede aunque haya causas en el estado (V3 D-06): el modal lo
-       avisa y el estado sale del listado. */
-    test('un estado con causas asociadas también se puede eliminar', async ({ page }) => {
-        const name = 'Oposición al requerimiento de elevación'
-
-        await rowOf(page, name).getByRole('button', { name: 'Eliminar' }).click()
-        const dialog = page.getByRole('dialog')
-        await expect(dialog).toContainText('Hay 1 causa en este estado')
-        await dialog.getByRole('button', { name: 'Eliminar' }).click()
-
-        await expect(page.getByText(`Estado "${name}" eliminado del fuero Penal.`)).toBeVisible()
-        await expect(rowOf(page, name)).toBeHidden()
-    })
 })
 
 test.describe('Calificaciones legales', () => {

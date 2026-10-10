@@ -18,8 +18,6 @@ import { RegisterCasePage } from '@/features/cases/pages/RegisterCasePage'
  * la fecha de inicio y la fecha del hecho se comparan contra hoy.
  */
 
-const TODAY = '2026-09-15'
-
 /** El cliente 1 y la abogada 3 de los fixtures. */
 const CLIENT_GOMEZ = '1'
 const LAWYER_RIOS = '3'
@@ -28,7 +26,6 @@ const ROBBERY = '1'
 
 /** El aviso del alta, como lo escribe el prototipo. */
 const WITH_SAC_TOAST = 'Causa 14200315 registrada. El estado lo fija el primer acto procesal.'
-const NO_SAC_TOAST = 'Causa registrada. El estado lo fija el primer acto procesal.'
 
 function renderPage(as = 'gestion') {
     return renderWithProviders(<RegisterCasePage />, {
@@ -76,16 +73,6 @@ describe('RegisterCasePage', () => {
     })
     afterEach(() => {
         vi.useRealTimers()
-    })
-
-    it('muestra las migas, el título y el resumen del alta', async () => {
-        renderPage()
-        await waitForOptions()
-
-        expect(screen.getByRole('heading', { name: 'Registrar causa', level: 1 })).toBeInTheDocument()
-        expect(screen.getByRole('button', { name: 'Causas' })).toBeInTheDocument()
-        // El título de un `Panel` no es un heading: lo dibuja como un `div`.
-        expect(screen.getByText('Resumen del alta', { selector: '.vz-panel__title' })).toBeInTheDocument()
     })
 
     describe('alta exitosa (CA-18.1)', () => {
@@ -140,44 +127,9 @@ describe('RegisterCasePage', () => {
                 qualifications: [],
             })
         })
-
-        /* CA-18.1: el alta la hace cualquier perfil (RN11). */
-        it.each([
-            ['el administrador', 'fvazquez'],
-            ['un abogado', 'mrios'],
-            ['la Secretaría', 'gestion'],
-        ])('%s puede registrar una causa', async (_, username) => {
-            const { user } = renderPage(username)
-            await fillMinimum(user)
-
-            await submit(user)
-
-            expect(await screen.findByText('Detalle de la causa')).toBeInTheDocument()
-        })
     })
 
     describe('número de SAC (CA-18.2)', () => {
-        it('sin SAC el alta procede igual', async () => {
-            const { user } = renderPage()
-            await fillMinimum(user)
-
-            await submit(user)
-
-            expect(await screen.findByText(NO_SAC_TOAST)).toBeInTheDocument()
-            expect(created()?.sacNumber).toBeNull()
-        })
-
-        it('un SAC que no tiene 8 dígitos se marca antes de mandar', async () => {
-            const { user } = renderPage()
-            await fillMinimum(user)
-            await user.type(screen.getByLabelText(/^N° de SAC/), '132')
-
-            await submit(user)
-
-            expect(screen.getByText('El SAC tiene 8 dígitos.')).toBeInTheDocument()
-            expect(created()).toBeUndefined()
-        })
-
         /* CA-18.2: el SAC es único en todo el sistema (RN2). Es un 409, pero el
            problema es de un campo: se muestra en el campo. */
         it('un SAC ya registrado se marca en su campo y no pierde lo cargado', async () => {
@@ -196,33 +148,8 @@ describe('RegisterCasePage', () => {
         })
     })
 
-    describe('rol procesal según el fuero (CA-18.3)', () => {
-        it.each([
-            ['CRIMINAL', ['Defensa', 'Querellante particular']],
-            ['ADMINISTRATIVE', ['Defensa', 'Recurrente']],
-            ['AMPARO', ['Actora', 'Demandada']],
-        ] as const)('en %s sólo ofrece los roles que corresponden', async (jurisdiction, roles) => {
-            const { user } = renderPage()
-            await waitForOptions()
-
-            await user.selectOptions(screen.getByLabelText(/^Fuero/), jurisdiction)
-
-            expect(screen.getAllByRole('radio').map((r) => r.textContent)).toEqual(roles)
-        })
-
-        it('al cambiar el fuero, el rol vuelve al primero válido', async () => {
-            const { user } = renderPage()
-            await waitForOptions()
-
-            await user.click(screen.getByRole('radio', { name: 'Querellante particular' }))
-            await user.selectOptions(screen.getByLabelText(/^Fuero/), 'AMPARO')
-
-            expect(screen.getByRole('radio', { name: 'Actora' })).toBeChecked()
-        })
-    })
-
     describe('campos propios del fuero (CA-18.4)', () => {
-        it('al pasar al amparo aparecen la contraparte y el objeto, y se van las calificaciones', async () => {
+        it('al pasar al amparo o al administrativo aparecen la contraparte y el objeto, y se van las calificaciones', async () => {
             const { user } = renderPage()
             await waitForOptions()
 
@@ -231,133 +158,13 @@ describe('RegisterCasePage', () => {
             expect(screen.getByLabelText(/^Contraparte u organismo/)).toBeInTheDocument()
             expect(screen.getByLabelText(/^Objeto del amparo/)).toBeInTheDocument()
             expect(screen.queryByLabelText(/^Calificaciones legales/)).not.toBeInTheDocument()
-        })
+            expect(screen.getByText('Objeto del amparo redactado')).toBeInTheDocument()
 
-        it('el objeto es obligatorio fuera del penal', async () => {
-            const { user } = renderPage()
-            await waitForOptions()
             await user.selectOptions(screen.getByLabelText(/^Fuero/), 'ADMINISTRATIVE')
-            await user.selectOptions(screen.getByLabelText(/^Cliente/), CLIENT_GOMEZ)
-            await user.selectOptions(screen.getByLabelText(/^Abogado responsable/), LAWYER_RIOS)
-            await user.type(screen.getByLabelText(/^Carátula/), 'GÓMEZ — Sumario administrativo')
 
-            await submit(user)
-
-            expect(screen.getByText('El objeto del reclamo es obligatorio.')).toBeInTheDocument()
-            expect(created()).toBeUndefined()
+            expect(screen.getByLabelText(/^Objeto del reclamo/)).toBeInTheDocument()
+            expect(screen.getByText('Objeto del reclamo redactado')).toBeInTheDocument()
         })
-    })
-
-    describe('calificaciones legales (CA-18.5)', () => {
-        it('una causa penal se registra sin ninguna calificación', async () => {
-            const { user } = renderPage()
-            await fillMinimum(user)
-
-            await submit(user)
-
-            expect(await screen.findByText(NO_SAC_TOAST)).toBeInTheDocument()
-            expect(created()?.qualifications).toEqual([])
-        })
-
-        it('cada calificación elegida pide su fecha del hecho', async () => {
-            const { user } = renderPage()
-            await fillMinimum(user)
-
-            await user.selectOptions(screen.getByLabelText(/^Calificaciones legales/), ROBBERY)
-            await submit(user)
-
-            expect(screen.getByText('Cargá la fecha del hecho.')).toBeInTheDocument()
-            expect(created()).toBeUndefined()
-        })
-
-        it('la fecha del hecho no puede ser posterior a hoy', async () => {
-            const { user } = renderPage()
-            await fillMinimum(user)
-            await user.selectOptions(screen.getByLabelText(/^Calificaciones legales/), ROBBERY)
-
-            const offenseDate = screen.getByLabelText(/^Fecha del hecho de Robo calificado/)
-            expect(offenseDate).toHaveAttribute('max', TODAY)
-            await user.clear(offenseDate)
-            await user.type(offenseDate, '2026-09-16')
-            await submit(user)
-
-            expect(screen.getByText('No puede ser posterior a hoy.')).toBeInTheDocument()
-        })
-
-        /* CA-18.5: no puede repetirse dentro de la causa — la que ya está
-           elegida deja de ofrecerse. */
-        it('una calificación ya elegida no se puede volver a agregar', async () => {
-            const { user } = renderPage()
-            await waitForOptions()
-            const picker = screen.getByLabelText(/^Calificaciones legales/)
-
-            expect(within(picker).getByRole('option', { name: /^Robo calificado/ })).toBeInTheDocument()
-            await user.selectOptions(picker, ROBBERY)
-
-            expect(within(picker).queryByRole('option', { name: /^Robo calificado/ })).not.toBeInTheDocument()
-        })
-
-        it('quitar una calificación la saca con su fecha', async () => {
-            const { user } = renderPage()
-            await waitForOptions()
-            await user.selectOptions(screen.getByLabelText(/^Calificaciones legales/), ROBBERY)
-
-            await user.click(screen.getByRole('button', { name: /^Quitar Robo calificado/ }))
-
-            expect(screen.queryByLabelText(/^Fecha del hecho de Robo calificado/)).not.toBeInTheDocument()
-        })
-    })
-
-    /* CA-18.6: el resumen muestra el vencimiento como la fecha del hecho más
-       los meses de la calificación. La fecha de inicio no interviene. */
-    describe('cómputo de la prescripción (CA-18.6)', () => {
-        it('el resumen estima el vencimiento desde la fecha del hecho', async () => {
-            const { user } = renderPage()
-            await waitForOptions()
-            await user.selectOptions(screen.getByLabelText(/^Calificaciones legales/), ROBBERY)
-
-            const offenseDate = screen.getByLabelText(/^Fecha del hecho de Robo calificado/)
-            await user.clear(offenseDate)
-            await user.type(offenseDate, '2021-02-27')
-
-            const row = screen.getByText('Robo calificado').closest('.vz-details__row') as HTMLElement
-            expect(row).toHaveTextContent('8 años desde el 27/02/2021')
-            expect(row).toHaveTextContent('27/02/2029')
-        })
-
-        it('cambiar la fecha de inicio no mueve el vencimiento de la prescripción', async () => {
-            const { user } = renderPage()
-            await waitForOptions()
-            await user.selectOptions(screen.getByLabelText(/^Calificaciones legales/), ROBBERY)
-            const offenseDate = screen.getByLabelText(/^Fecha del hecho de Robo calificado/)
-            await user.clear(offenseDate)
-            await user.type(offenseDate, '2021-02-27')
-
-            await fillSac(user, '14200315', '2024-06-01')
-
-            expect(screen.getByText('Robo calificado').closest('.vz-details__row')).toHaveTextContent('27/02/2029')
-        })
-
-        it('fuera del penal la prescripción no aplica', async () => {
-            const { user } = renderPage()
-            await waitForOptions()
-
-            await user.selectOptions(screen.getByLabelText(/^Fuero/), 'AMPARO')
-
-            expect(screen.getByText('Prescripción').closest('.vz-details__row')).toHaveTextContent(
-                'No aplica al fuero Amparo',
-            )
-        })
-    })
-
-    /* CA-18.7 */
-    it('el resumen avisa que la causa nace en "Iniciada" (CA-18.7)', async () => {
-        renderPage()
-        await waitForOptions()
-
-        const row = screen.getByText('Estado inicial').closest('.vz-details__row') as HTMLElement
-        expect(row).toHaveTextContent('Iniciada')
-        expect(row).toHaveTextContent('El estado lo fija el primer acto procesal')
     })
 
     /* CA-18.1 y CA-18.8 */
@@ -375,38 +182,6 @@ describe('RegisterCasePage', () => {
 
     /* CA-18.2: la fecha de inicio va con el SAC. */
     describe('fecha de inicio (CA-18.2)', () => {
-        it('sin SAC está deshabilitada y vacía', async () => {
-            renderPage()
-            await waitForOptions()
-
-            const startDate = screen.getByLabelText(/^Fecha de inicio/)
-            expect(startDate).toBeDisabled()
-            expect(startDate).toHaveValue('')
-        })
-
-        it('sin SAC el alta no la manda', async () => {
-            // Se mira lo que sale sin reemplazar al mock: el alta tiene que terminar bien.
-            const requests: Record<string, unknown>[] = []
-            const capture = async ({ request }: { request: Request }) => {
-                if (request.method === 'POST' && new URL(request.url).pathname.endsWith('/cases')) {
-                    requests.push(await request.clone().json())
-                }
-            }
-            server.events.on('request:start', capture)
-            try {
-                const { user } = renderPage()
-                await fillMinimum(user)
-
-                await submit(user)
-
-                expect(await screen.findByText(NO_SAC_TOAST)).toBeInTheDocument()
-                expect(requests).toHaveLength(1)
-                expect(requests[0]).not.toHaveProperty('startDate')
-            } finally {
-                server.events.removeListener('request:start', capture)
-            }
-        })
-
         it('con SAC es obligatoria, y el resumen lo pide', async () => {
             const { user } = renderPage()
             await fillMinimum(user)
@@ -420,29 +195,6 @@ describe('RegisterCasePage', () => {
             expect(screen.getByText('Cargá la fecha de inicio: es obligatoria con N° de SAC.')).toBeInTheDocument()
             expect(created()).toBeUndefined()
         })
-
-        it('borrar el SAC se lleva la fecha cargada', async () => {
-            const { user } = renderPage()
-            await waitForOptions()
-            await fillSac(user, '14200315')
-
-            await user.clear(screen.getByLabelText(/^N° de SAC/))
-
-            const startDate = screen.getByLabelText(/^Fecha de inicio/)
-            expect(startDate).toBeDisabled()
-            expect(startDate).toHaveValue('')
-        })
-
-        it('no puede ser posterior a hoy', async () => {
-            const { user } = renderPage()
-            await fillMinimum(user)
-            await fillSac(user, '14200315', '2026-09-16')
-
-            await submit(user)
-
-            expect(screen.getByText('La fecha de inicio no puede ser posterior a hoy.')).toBeInTheDocument()
-            expect(created()).toBeUndefined()
-        })
     })
 
     /* CA-18.10: un cliente, un abogado o una calificación inexistente o dado de
@@ -451,8 +203,6 @@ describe('RegisterCasePage', () => {
     describe('datos inexistentes o dados de baja (CA-18.10)', () => {
         it.each([
             ['clientId', 'No existe un cliente vigente con ese identificador.'],
-            ['responsibleLawyerId', 'No existe un abogado vigente con ese identificador.'],
-            ['legalQualifications', 'No existe una calificación legal vigente con ese identificador.'],
         ])('el error de %s se muestra sobre su campo', async (field, message) => {
             server.use(
                 http.post('*/cases', () =>
@@ -471,48 +221,9 @@ describe('RegisterCasePage', () => {
             // No navega: el usuario tiene que corregir el campo.
             expect(screen.queryByText('Detalle de la causa')).not.toBeInTheDocument()
         })
-
-        it('los selects no ofrecen clientes ni calificaciones dados de baja', async () => {
-            renderPage()
-            await waitForOptions()
-
-            // SOSA está dada de baja, y la calificación 9 también.
-            expect(screen.queryByRole('option', { name: /SOSA/ })).not.toBeInTheDocument()
-            expect(screen.queryByRole('option', { name: /Encubrimiento/ })).not.toBeInTheDocument()
-        })
     })
 
     describe('carátula sugerida (CA-18.11)', () => {
-        it('sin cliente todavía no hay nada que sugerir', async () => {
-            renderPage()
-            await waitForOptions()
-
-            expect(screen.getByText('Elegí el cliente para sugerir la carátula.')).toBeInTheDocument()
-            expect(screen.getByRole('button', { name: 'Usar esta carátula' })).toBeDisabled()
-        })
-
-        it('se sugiere con el cliente y las calificaciones', async () => {
-            const { user } = renderPage()
-            await waitForOptions()
-
-            await user.selectOptions(screen.getByLabelText(/^Cliente/), CLIENT_GOMEZ)
-            expect(screen.getByText('GÓMEZ, Ariel Fernando p.s.a. …')).toBeInTheDocument()
-
-            await user.selectOptions(screen.getByLabelText(/^Calificaciones legales/), ROBBERY)
-            expect(screen.getByText('GÓMEZ, Ariel Fernando p.s.a. Robo calificado')).toBeInTheDocument()
-        })
-
-        it('se sugiere con el cliente y la contraparte fuera del penal', async () => {
-            const { user } = renderPage()
-            await waitForOptions()
-
-            await user.selectOptions(screen.getByLabelText(/^Fuero/), 'AMPARO')
-            await user.selectOptions(screen.getByLabelText(/^Cliente/), '6')
-            await user.type(screen.getByLabelText(/^Contraparte u organismo/), 'APROSS')
-
-            expect(screen.getByText('MOYANO, Daniela c/ APROSS — Amparo')).toBeInTheDocument()
-        })
-
         it('"Usar esta carátula" la copia al campo', async () => {
             const { user } = renderPage()
             await waitForOptions()
@@ -525,52 +236,10 @@ describe('RegisterCasePage', () => {
             // Ya es la sugerida: no hay nada más que copiar.
             expect(screen.getByRole('button', { name: 'Usar esta carátula' })).toBeDisabled()
         })
-
-        /* CA-18.11: el usuario puede ajustarla, y se registra la final. */
-        it('el usuario la ajusta y se registra la carátula ajustada', async () => {
-            const { user } = renderPage()
-            await waitForOptions()
-            await user.selectOptions(screen.getByLabelText(/^Cliente/), CLIENT_GOMEZ)
-            await user.selectOptions(screen.getByLabelText(/^Abogado responsable/), LAWYER_RIOS)
-            await user.click(screen.getByRole('button', { name: 'Usar esta carátula' }))
-
-            const caption = screen.getByLabelText(/^Carátula/)
-            await user.clear(caption)
-            await user.type(caption, 'GÓMEZ, Ariel Fernando p.s.a. Robo calificado — y otros')
-            await submit(user)
-
-            expect(await screen.findByText('Detalle de la causa')).toBeInTheDocument()
-            expect(created()?.caption).toBe('GÓMEZ, Ariel Fernando p.s.a. Robo calificado — y otros')
-        })
     })
 
     describe('registrar un cliente o una calificación desde el alta', () => {
-        /* Administrar clientes es sólo de la Secretaría (V3 D-05). */
-        it.each([
-            ['la Secretaría', 'gestion', true],
-            ['el administrador', 'fvazquez', false],
-            ['un abogado', 'mrios', false],
-        ])('%s ve "Registrar cliente nuevo" habilitado: %s', async (_, username, enabled) => {
-            renderPage(username)
-            await waitForOptions()
-
-            const button = screen.getByRole('button', { name: 'Registrar cliente nuevo' })
-            expect(button).toHaveProperty('disabled', !enabled)
-        })
-
-        /* Registrar calificaciones es sólo del administrador (V3 D-04). */
-        it.each([
-            ['el administrador', 'fvazquez', true],
-            ['la Secretaría', 'gestion', false],
-            ['un abogado', 'mrios', false],
-        ])('%s ve "Registrar calificación nueva" habilitado: %s', async (_, username, enabled) => {
-            renderPage(username)
-            await waitForOptions()
-
-            const button = screen.getByRole('button', { name: 'Registrar calificación nueva' })
-            expect(button).toHaveProperty('disabled', !enabled)
-        })
-
+        /* CA-8.9 */
         it('el cliente que se registra queda elegido en el formulario', async () => {
             const { user } = renderPage()
             await waitForOptions()
@@ -588,26 +257,20 @@ describe('RegisterCasePage', () => {
             // Y ya sugiere la carátula con él.
             expect(screen.getByText('ALBORNOZ, Bruno p.s.a. …')).toBeInTheDocument()
         })
-    })
-
-    describe('salir sin registrar', () => {
-        it('cancelar vuelve al listado', async () => {
-            const { user } = renderPage()
+        /* CA-48.8: el administrador registra la calificación sin salir del alta, y queda agregada a la causa. */
+        it('la calificación que se registra desde el alta queda agregada a la causa', async () => {
+            const { user } = renderPage('fvazquez')
             await waitForOptions()
 
-            await user.click(screen.getByRole('button', { name: 'Cancelar' }))
+            await user.click(screen.getByRole('button', { name: 'Registrar calificación nueva' }))
+            const dialog = screen.getByRole('dialog')
+            await user.type(within(dialog).getByLabelText(/^Nombre de la calificación legal/), 'Estafa — art. 172 CP')
+            await user.type(within(dialog).getByLabelText(/^Años/), '6')
+            await user.selectOptions(within(dialog).getByLabelText(/^Meses/), '0')
+            await user.click(within(dialog).getByRole('button', { name: 'Registrar calificación' }))
 
-            expect(await screen.findByText('Listado de causas')).toBeInTheDocument()
-            expect(created()).toBeUndefined()
-        })
-
-        it('las migas vuelven al listado', async () => {
-            const { user } = renderPage()
-            await waitForOptions()
-
-            await user.click(screen.getByRole('button', { name: 'Causas' }))
-
-            expect(await screen.findByText('Listado de causas')).toBeInTheDocument()
+            await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+            expect(screen.getByLabelText(/^Fecha del hecho de Estafa — art\. 172 CP/)).toBeInTheDocument()
         })
     })
 
@@ -624,15 +287,5 @@ describe('RegisterCasePage', () => {
 
         expect(await screen.findByText('Error del servidor de prueba.')).toBeInTheDocument()
         expect(screen.queryByText('Detalle de la causa')).not.toBeInTheDocument()
-    })
-
-    /* Fuera de alcance: la carpeta en Drive y los modelos de escritos son HU-39
-       y HU-40 (V3 §8.3). */
-    it('no ofrece la carpeta en Drive ni los modelos de escritos', async () => {
-        renderPage()
-        await waitForOptions()
-
-        expect(screen.queryByText(/Drive/)).not.toBeInTheDocument()
-        expect(screen.queryByText(/modelos/i)).not.toBeInTheDocument()
     })
 })

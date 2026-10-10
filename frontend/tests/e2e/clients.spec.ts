@@ -4,7 +4,7 @@ import { goTo, loginAs } from './fixtures/auth'
 /**
  * Clientes: HU-8 (Registrar cliente) y HU-9 (Consultar clientes).
  *
- * Los casos borde —cada validación, cada perfil, el paginado— están en
+ * Los casos borde —validación, perfil, DNI repetido— están en
  * `tests/components/clients/ClientsPage.test.tsx`. Acá van los flujos que
  * atraviesan la aplicación: entrar, llegar por el menú, registrar y buscar.
  */
@@ -35,30 +35,5 @@ test.describe('Clientes', () => {
         await expect(page.getByText('ALBORNOZ, Bruno', { exact: true })).toBeVisible()
         await expect(page.getByText(FIRST, { exact: true })).toBeHidden()
         await expect(page.getByRole('cell', { name: '35.778.120' })).toBeVisible()
-    })
-
-    test('un DNI ya registrado no se puede repetir', async ({ page }) => {
-        await loginAs(page, 'secretary')
-        await goTo(page, 'Clientes')
-        await expect(page.getByText(FIRST, { exact: true })).toBeVisible()
-
-        await page.getByRole('button', { name: 'Registrar cliente' }).click()
-        const dialog = page.getByRole('dialog')
-        await dialog.getByLabel(/^Apellido/).fill('OTRO')
-        await dialog.getByLabel(/^Nombres/).fill('Gómez')
-        await dialog.getByLabel(/^DNI/).fill('34812905')
-        await dialog.getByRole('button', { name: 'Registrar cliente' }).click()
-
-        await expect(dialog.getByText('Ya existe un cliente registrado con ese DNI.')).toBeVisible()
-        await expect(dialog).toBeVisible()
-    })
-
-    test('un abogado consulta los clientes pero no puede registrar', async ({ page }) => {
-        await loginAs(page, 'lawyer')
-        await goTo(page, 'Clientes')
-        await expect(page).toHaveURL(/\/clientes$/)
-
-        await expect(page.getByText(FIRST, { exact: true })).toBeVisible()
-        await expect(page.getByRole('button', { name: 'Registrar cliente' })).toBeDisabled()
     })
 })

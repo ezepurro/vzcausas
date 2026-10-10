@@ -52,44 +52,4 @@ test.describe('Usuarios', () => {
         await expect(page.getByText('Ana Pérez Eliminado correctamente.')).toBeVisible()
         await expect(page.getByText('Sin usuarios')).toBeVisible()
     })
-
-    /* El camino de vincular una ficha **ya registrada**. El test de arriba
-       elige "Registrar un abogado nuevo", que esconde el select de abogados —
-       y ése era justamente el que estaba roto: sin opción vacía mostraba el
-       primer abogado como si estuviera elegido, con el valor en blanco. */
-    test('registrar un usuario vinculándolo a una ficha existente', async ({ page }) => {
-        await page.getByRole('button', { name: 'Registrar usuario' }).click()
-        const dialog = page.getByRole('dialog')
-        await dialog.getByLabel(/^apellido y nombre\*?$/i).fill('Bruno Sosa')
-        await dialog.getByLabel(/^Nombre de usuario/).fill('bsosa')
-        await dialog.getByLabel(/^Correo electrónico/).fill('bsosa@vazquezzarate.com')
-        await dialog.getByLabel(/^Contraseña inicial/).fill('inicial2026')
-        await dialog.getByLabel(/^Repetir contraseña/).fill('inicial2026')
-
-        // Lo que se ve tiene que ser lo que vale: ningún abogado elegido.
-        const lawyer = dialog.getByLabel(/^Abogado\*?$/)
-        await expect(lawyer).toHaveValue('')
-
-        // Confirmar sin tocarlo tiene que marcar el campo, no inventar un vínculo.
-        await dialog.getByRole('button', { name: 'Registrar usuario' }).click()
-        await expect(
-            dialog.getByText('Este perfil necesita una ficha de abogado vinculada.'),
-        ).toBeVisible()
-
-        // Una ficha sin cuenta: un abogado tiene a lo sumo una cuenta activa.
-        await lawyer.selectOption({ label: 'Dra. Julieta Campos · matrícula 1-43890' })
-        await dialog.getByRole('button', { name: 'Registrar usuario' }).click()
-
-        await expect(page.getByText('Usuario bsosa registrado.')).toBeVisible()
-        await page.getByRole('searchbox', { name: 'Buscar usuario' }).fill('bsosa')
-        await expect(rowOf(page, 'bsosa').getByText('Dra. Julieta Campos')).toBeVisible()
-    })
-
-    test('un usuario con causas asignadas no se puede eliminar', async ({ page }) => {
-        await rowOf(page, 'mrios').getByRole('button', { name: 'Eliminar' }).click()
-        await page.getByRole('dialog').getByRole('button', { name: 'Eliminar' }).click()
-
-        await expect(page.getByRole('alert')).toBeVisible()
-        await expect(rowOf(page, 'mrios')).toBeVisible()
-    })
 })

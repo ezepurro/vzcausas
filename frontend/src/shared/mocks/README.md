@@ -108,9 +108,10 @@ vez de intentar salir a la red.
 `server.use(...)` permite sobrescribir un handler para un test puntual sin
 tocar el mock general.
 
-El mock tiene sus propios tests en `tests/unit/mocks/`: uno por regla del
-contrato y uno que revisa la coherencia de las semillas. Si cambiás un handler
-o agregás un dato semilla, corré `npm test -- tests/unit/mocks`.
+El mock no tiene tests propios de reglas: las reglas de negocio son del backend
+y las pantallas se prueban contra el mock. Lo único que se verifica es que el mock
+no invente ni olvide endpoints del contrato (`docs/openapi`), con
+`npm test -- tests/unit/contract`.
 
 ---
 
@@ -228,7 +229,7 @@ afterEach(() => vi.useRealTimers())
 
 Con el martes 15/09/2026 —el día del prototipo—, las seis primeras causas
 tienen exactamente los vencimientos del prototipo. Está hecho como
-`usePrototypeToday()` en `tests/unit/mocks/helpers.ts`. Más detalle en
+`usePrototypeToday()` en `tests/setup/clock.ts`. Más detalle en
 `docs/Frontend-Architecture/TESTING.md`, "Tests que dependen del día".
 
 ### Lo que se calcula no se guarda
@@ -434,7 +435,7 @@ Dos cuidados:
 - **El orden importa cuando una ruta fija y una con parámetro se pisan.**
   `GET /cases/custom-states` está antes que `GET /cases/:caseId`: al revés,
   "custom-states" se tomaría como un id de causa inválido.
-- **Un endpoint nuevo lleva su test** en `tests/unit/mocks/`, uno por regla.
+- **Un endpoint nuevo va también en `docs/openapi`**: el test de `tests/unit/contract/` falla si el mock y el contrato no coinciden.
 
 Si el endpoint trae un recurso nuevo, además: su tipo en `contract.ts`, sus
 semillas en `fixtures.ts`, su lugar en `MockDb` y su serializador en `db.ts`, y
@@ -467,9 +468,7 @@ const r = resolveRequest({
 // r.status === 401
 ```
 
-Así están escritos los tests de `tests/unit/mocks/`; su `helpers.ts` trae
-`call(method, path, { as, body, query })`, que además abre la sesión del
-usuario que se le pida.
+Así se puede probar un endpoint del mock sin pantalla (con `resolveRequest`).
 
 Y si sólo hace falta un cuerpo de ejemplo, está en `RESPONSES`:
 

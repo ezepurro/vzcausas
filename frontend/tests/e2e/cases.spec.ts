@@ -2,11 +2,12 @@ import { expect, test, type Page } from '@playwright/test'
 import { goTo, loginAs } from './fixtures/auth'
 
 /**
- * Causas: HU-20 (Consultar Causas). Cada flujo dice qué criterios de
- * aceptación recorre.
+ * Causas: HU-20 (Consultar Causas), HU-18 (Registrar causa) y el registro de
+ * actos. Un E2E por flujo crítico, sólo el camino feliz: cada flujo dice qué
+ * criterios de aceptación recorre.
  *
- * Los casos borde —cada filtro por separado, el orden exacto, los textos del
- * vencimiento, cada perfil— están en `tests/components/cases/CasesPage.test.tsx`,
+ * Los casos borde —filtros, errores, perfiles, vencimientos— están en los
+ * tests de pantalla de `tests/components/cases/` y `tests/components/proceedings/`,
  * con el reloj fijo en el día del prototipo. Acá el día es el de hoy, y los
  * vencimientos de las causas semilla se mueven con él: sólo se afirma lo que
  * vale cualquier día. Las 23 causas son siempre las mismas, 14 tienen
@@ -64,67 +65,31 @@ test.describe('Causas', () => {
         await expect(page.getByRole('region', { name: `Causa ${PROTOTYPE_SAC}` })).toBeVisible()
     })
 
-    /* CA-20.2, CA-20.6 y CA-20.7 */
-    test('la Secretaría busca por SAC y por carátula, y una búsqueda sin coincidencias lo informa', async ({ page }) => {
-        await loginAs(page, 'secretary')
+    /* CA-18.1, CA-22.4 y el registro del primer acto (HU-21): la transacción principal de punta a punta. */
+    test('una abogada registra una causa y su primer acto procesal', async ({ page }) => {
+        await loginAs(page, 'lawyer')
         await openCases(page)
 
-        const search = page.getByRole('searchbox', { name: 'Buscar causa' })
+        await page.getByRole('button', { name: 'Registrar causa' }).click()
+        await expect(page).toHaveURL(/\/causas\/nueva$/)
+        await page.getByLabel(/^Cliente/).selectOption('1')
+        await page.getByLabel(/^Abogado responsable/).selectOption('3')
+        await page.getByLabel(/^Carátula/).fill('GÓMEZ, Ariel Fernando p.s.a. Estafa')
+        await page.getByRole('button', { name: 'Registrar causa' }).click()
 
-        await search.fill('1328')
-        await expect(caseRows(page)).toHaveCount(1)
-        await expect(rowOf(page, PROTOTYPE_SAC)).toBeVisible()
+        // Nace en "Iniciada", sin vencimiento, y ofrece registrar el primer acto.
+        await expect(page).toHaveURL(/\/causas\/\d+$/)
+        await expect(page.getByText('Iniciada').first()).toBeVisible()
+        await page.getByRole('button', { name: 'Registrar acto procesal' }).click()
 
-        await search.fill('apross')
-        await expect(caseRows(page)).toHaveCount(3)
-        for (const row of await caseRows(page).all()) {
-            await expect(row).toContainText('APROSS')
-        }
+        await page.getByRole('combobox').click()
+        await page.getByRole('option', { name: /Cédula de notificación/ }).click()
+        await page.getByRole('button', { name: 'Registrar acto' }).click()
 
-        await search.fill('zzzz')
-        await expect(page.getByText('Ninguna causa coincide con los filtros.')).toBeVisible()
-        await expect(caseRows(page)).toHaveCount(0)
-
-        // Al borrar la búsqueda vuelve el listado completo.
-        await search.fill('')
-        await expect(caseRows(page)).toHaveCount(20)
-    })
-
-    /* CA-20.3 y CA-20.4 */
-    test('filtra por fuero, por cada clase de estado procesal y por plazo por vencer', async ({ page }) => {
-        await loginAs(page, 'admin')
-        await openCases(page)
-
-        const jurisdiction = page.getByRole('combobox', { name: 'Filtrar por fuero' })
-        const state = page.getByRole('combobox', { name: 'Filtrar por estado procesal' })
-
-        await jurisdiction.selectOption({ label: 'Amparo' })
-        await expect(caseRows(page)).toHaveCount(6)
-
-        // "Iniciada" se combina con el fuero…
-        await state.selectOption({ label: 'Iniciada' })
-        await expect(caseRows(page)).toHaveCount(1)
-        await expect(rowOf(page, '13619027')).toBeVisible()
-
-        // …y no depende de él: sin fuero, son las cuatro causas que siguen en el estado inicial.
-        await jurisdiction.selectOption({ label: 'Todos los fueros' })
-        await expect(caseRows(page)).toHaveCount(4)
-        for (const row of await caseRows(page).all()) {
-            await expect(row).toContainText('Iniciada')
-        }
-
-        // Un estado escrito a mano reemplaza a "Iniciada": se aplica una sola clase.
-        await state.selectOption({ label: 'Con acusación, pero con oposición' })
-        await expect(caseRows(page)).toHaveCount(1)
-        await expect(rowOf(page, '13077215')).toContainText('Con acusación, pero con oposición')
-
-        await page.getByRole('button', { name: 'Limpiar filtros' }).click()
-        await expect(caseRows(page)).toHaveCount(20)
-        await expect(page.getByRole('button', { name: 'Limpiar filtros' })).toBeHidden()
-
-        // Las 14 que tienen vencimiento, vencidas incluidas.
-        await page.getByRole('button', { name: 'Solo con plazo por vencer' }).click()
-        await expect(caseRows(page)).toHaveCount(14)
-        await expect(page.getByText('Sin plazo abierto')).toHaveCount(0)
+        // Vuelve al detalle con el estado que dejó el acto.
+        await expect(page).toHaveURL(/\/causas\/\d+$/)
+        await expect(
+            page.getByRole('alert').filter({ hasText: 'Acto registrado. La causa pasó a Cédula de notificación' }),
+        ).toBeVisible()
     })
 })
