@@ -477,7 +477,10 @@ describe('POST /api/v1/procedural-states', () => {
     expectError(res, 401, 'UNAUTHENTICATED');
   });
 
-  it.each<TestRole>(['LAWYER', 'SECRETARY'])('responde 403 a un %s y no registra nada', async (role) => {
+  // Un token sin `procedural-state:create`, sea cual sea el rol: prueba el
+  // guard. Desde la matriz del 2026-10-11 los tres perfiles tienen el
+  // permiso por seed (lo verifica el describe de login real, al final).
+  it.each<TestRole>(['LAWYER', 'SECRETARY'])('responde 403 a un %s sin el permiso y no registra nada', async (role) => {
     const res = await post(aProceduralStateBody(), loginAs({ roles: [role] }));
 
     expectError(res, 403, 'FORBIDDEN');
@@ -745,7 +748,7 @@ describe('PATCH /api/v1/procedural-states/:stateId', () => {
     expectError(res, 401, 'UNAUTHENTICATED');
   });
 
-  it.each<TestRole>(['LAWYER', 'SECRETARY'])('responde 403 a un %s y no modifica nada', async (role) => {
+  it.each<TestRole>(['LAWYER', 'SECRETARY'])('responde 403 a un %s sin el permiso y no modifica nada', async (role) => {
     const saved = await createProceduralState({ name: 'Citación' });
 
     const res = await patch(saved.stateId, { name: 'Otro nombre' }, loginAs({ roles: [role] }));
@@ -844,7 +847,7 @@ describe('DELETE /api/v1/procedural-states/:stateId', () => {
     expectError(await request(app.getHttpServer()).delete(`${URL}/${saved.stateId}`), 401, 'UNAUTHENTICATED');
   });
 
-  it.each<TestRole>(['LAWYER', 'SECRETARY'])('responde 403 a un %s y no da de baja', async (role) => {
+  it.each<TestRole>(['LAWYER', 'SECRETARY'])('responde 403 a un %s sin el permiso y no da de baja', async (role) => {
     const saved = await createProceduralState();
 
     expectError(await del(saved.stateId, loginAs({ roles: [role] })), 403, 'FORBIDDEN');
@@ -922,8 +925,12 @@ describe('activeCases de /api/v1/procedural-states', () => {
 
 /**
  * El resto del spec firma tokens a mano (`loginAs`). Estos tests se loguean
- * de verdad para probar la cadena completa: el seed le da los permisos al
- * Administrador, el login los pone en el token y el guard los exige.
+ * de verdad para probar la cadena completa: el seed le da los permisos a
+ * cada perfil, el login los pone en el token y el guard los exige.
+ *
+ * Desde la matriz del 2026-10-11 (§5.1) los tres perfiles administran
+ * estados procesales. Antes la escritura era solo del Administrador (D-04)
+ * y Abogado y Secretaría recibían 403.
  */
 describe('Permisos de /api/v1/procedural-states con login real', () => {
   const PASSWORD = 'password1';
@@ -943,25 +950,18 @@ describe('Permisos de /api/v1/procedural-states con login real', () => {
     await createJurisdiction('CRIMINAL');
   });
 
-  it('el Administrador registra, modifica y da de baja', async () => {
-    const admin = await loginWithRole('ADMINISTRATOR');
-    const server = request(app.getHttpServer());
+  it.each<TestRole>(['ADMINISTRATOR', 'LAWYER', 'SECRETARY'])(
+    'un %s consulta, registra, modifica y da de baja',
+    async (role) => {
+      const auth = await loginWithRole(role);
+      const server = () => request(app.getHttpServer());
 
-    const created = await server.post(URL).set(admin).send(aProceduralStateBody());
-    const { id } = expectData<SavedProceduralStateBody>(created, 201);
-    expectData(await request(app.getHttpServer()).patch(`${URL}/${id}`).set(admin).send({ terminal: true }), 200);
-    expectNoContent(await request(app.getHttpServer()).delete(`${URL}/${id}`).set(admin));
-  });
-
-  it.each<TestRole>(['LAWYER', 'SECRETARY'])('un %s consulta pero no escribe', async (role) => {
-    const auth = await loginWithRole(role);
-    const saved = await createProceduralState();
-    const server = () => request(app.getHttpServer());
-
-    expectPaginated(await server().get(URL).set(auth));
-    expectData(await server().get(`${URL}/${saved.stateId}`).set(auth), 200);
-    expectError(await server().post(URL).set(auth).send(aProceduralStateBody()), 403, 'FORBIDDEN');
-    expectError(await server().patch(`${URL}/${saved.stateId}`).set(auth).send({ terminal: true }), 403, 'FORBIDDEN');
-    expectError(await server().delete(`${URL}/${saved.stateId}`).set(auth), 403, 'FORBIDDEN');
-  });
+      const created = await server().post(URL).set(auth).send(aProceduralStateBody());
+      const { id } = expectData<SavedProceduralStateBody>(created, 201);
+      expectPaginated(await server().get(URL).set(auth));
+      expectData(await server().get(`${URL}/${id}`).set(auth), 200);
+      expectData(await server().patch(`${URL}/${id}`).set(auth).send({ terminal: true }), 200);
+      expectNoContent(await server().delete(`${URL}/${id}`).set(auth));
+    },
+  );
 });

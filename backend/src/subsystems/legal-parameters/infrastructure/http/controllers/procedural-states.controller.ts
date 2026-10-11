@@ -24,9 +24,10 @@ import { ProceduralStateHttpMapper } from '../mappers/procedural-state-http.mapp
  *
  * Authorization: `JwtAuthGuard` and `PermissionsGuard` are global
  * (`AppModule`), so every route already requires a session. Writing
- * (HU45, HU17, HU46) is ADMINISTRATOR-only and declares its permission
- * with `@RequirePermissions`; ADMINISTRATOR receives them through
- * `ROLE_PERMISSIONS` in `prisma/seed.ts`. The `GET`s carry no decorator:
+ * (HU45, HU17, HU46) declares its permission with `@RequirePermissions`;
+ * since the matriz de permisos of 2026-10-11 (§5.1) the three profiles
+ * receive them through `ROLE_PERMISSIONS` in `prisma/seed.ts` (it used to
+ * be ADMINISTRATOR-only, D-04). The `GET`s carry no decorator:
  * reading is open to any authenticated user (contract §3.4, D-03).
  */
 @Controller({ path: 'procedural-states', version: ['1'] })
