@@ -302,9 +302,10 @@ describe('GET /api/v1/legal-qualifications', () => {
         id: saved.id,
         name: 'Abuso de armas — art. 104 CP',
         prescriptionMonths: 78,
-        // CA-47.8 NO se cumple: el conteo real exige cruzar `offenses`
-        // y `cases`, y antes que eso exige que `cases` defina qué es
-        // una causa activa. Ver el comentario del mapper y T-01.
+        // Cero porque esta calificación no tiene causas, no porque el
+        // campo esté clavado: el conteo es real desde `57f6f92`, que
+        // abrió `ActiveCasesCounterPort`. Los conteos distintos de
+        // cero se verifican más abajo, al final del spec.
         activeCases: 0,
         active: true,
       },
