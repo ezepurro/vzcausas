@@ -180,6 +180,8 @@ describe('ClientsPage', () => {
             expect(within(dialog).getByText('El apellido es obligatorio.')).toBeInTheDocument()
             expect(within(dialog).getByText('Los nombres son obligatorios.')).toBeInTheDocument()
             expect(within(dialog).getByText('El DNI es obligatorio.')).toBeInTheDocument()
+            // `FormModal` lleva al primer campo con error.
+            expect(within(dialog).getByLabelText(/^apellido/i)).toHaveFocus()
             expect(db.clients).toHaveLength(CLIENTS.length)
         })
 
@@ -195,6 +197,8 @@ describe('ClientsPage', () => {
                 await within(dialog).findByText('Ya existe un cliente registrado con ese DNI.'),
             ).toBeInTheDocument()
             expect(within(dialog).getByLabelText(/^dni/i).closest('.vz-field')).toHaveClass('vz-field--error')
+            // También cuando el error llega del servidor.
+            await waitFor(() => expect(within(dialog).getByLabelText(/^dni/i)).toHaveFocus())
             expect(screen.getByRole('dialog')).toBeInTheDocument()
             // Lo que ya se cargó no se pierde.
             expect(within(dialog).getByLabelText(/^apellido/i)).toHaveValue('ALBORNOZ')

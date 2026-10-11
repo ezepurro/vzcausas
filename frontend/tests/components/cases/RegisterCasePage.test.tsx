@@ -143,6 +143,8 @@ describe('RegisterCasePage', () => {
                 await screen.findByText('Ya existe una causa registrada con ese número de SAC.'),
             ).toBeInTheDocument()
             expect(screen.getByLabelText(/^N° de SAC/).closest('.vz-field')).toHaveClass('vz-field--error')
+            // El error del servidor también lleva al campo.
+            await waitFor(() => expect(screen.getByLabelText(/^N° de SAC/)).toHaveFocus())
             expect(screen.getByLabelText(/^Carátula/)).toHaveValue('GÓMEZ, Ariel Fernando p.s.a. Robo calificado')
             expect(created()).toBeUndefined()
         })
@@ -177,6 +179,8 @@ describe('RegisterCasePage', () => {
         expect(screen.getByText('La carátula es obligatoria.')).toBeInTheDocument()
         expect(screen.getByText('Elegí el cliente de la causa.')).toBeInTheDocument()
         expect(screen.getByText('Elegí el abogado responsable.')).toBeInTheDocument()
+        // Lleva al primer campo con error: la carátula, porque el SAC vacío vale.
+        expect(screen.getByLabelText(/^Carátula/)).toHaveFocus()
         expect(created()).toBeUndefined()
     })
 

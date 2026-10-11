@@ -174,6 +174,7 @@ import { ApiError, isApiError } from '@/shared/api/ApiError';
 | Diálogo libre / confirmación con contenido propio | `Modal` | `FormModal` sin `fields` también sirve |
 | Campo dentro de un form propio | `Field` + `TextInput`/`Select`/`Textarea`/`Checkbox` | |
 | Agrupar campos | `FormSection` | Dentro de `.vz-form-grid` |
+| Llevar al primer campo con error al confirmar | `const focusErrors = useFocusFirstError(ref, errors)` de `@/shared/hooks/useFocusFirstError`, y `focusErrors()` al principio del `submit` | Centra el primer `.vz-field--error` del contenedor y le da foco, también si el error llega del servidor. `FormModal` ya lo hace solo |
 | Filtros sobre una tabla | `Panel actions={...}` | Se renderiza en `.vz-filters` |
 | Paginar una tabla | `Pagination` | Va en `Panel footer={...}` |
 | Buscador de un listado | `SearchInput` + `useDebouncedValue` de `@/shared/hooks/useDebouncedValue` | El input muestra el texto al instante; a la consulta va el valor demorado, así no sale un pedido por tecla |

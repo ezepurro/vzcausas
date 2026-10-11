@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { isApiError } from '@/shared/api/ApiError'
+import { useFocusFirstError } from '@/shared/hooks/useFocusFirstError'
 import { useAuth } from '@/app/providers/AuthContext'
 import { useLogin } from '@/features/auth/api/useLogin'
 import { validateLogin, type LoginErrors } from '@/features/auth/schemas/login.schema'
@@ -25,6 +26,9 @@ export function LoginPage() {
     const [values, setValues] = useState<LoginFormValues>(EMPTY_FORM)
     const [errors, setErrors] = useState<LoginErrors>({})
     const [banner, setBanner] = useState<string | null>(null)
+    const panelRef = useRef<HTMLDivElement>(null)
+    // En el celular el panel puede quedar corrido: al confirmar, al primer error.
+    const focusErrors = useFocusFirstError(panelRef, errors)
 
     const login = useLogin()
 
@@ -68,6 +72,7 @@ export function LoginPage() {
     }
 
     function submit() {
+        focusErrors()
         const found = validateLogin(values)
         setErrors(found)
         if (Object.keys(found).length > 0) return
@@ -88,7 +93,7 @@ export function LoginPage() {
     return (
         <div className="vz-login">
             <LoginAside />
-            <div className="vz-login__panel">
+            <div className="vz-login__panel" ref={panelRef}>
                 <LoginForm
                     values={values}
                     errors={errors}
