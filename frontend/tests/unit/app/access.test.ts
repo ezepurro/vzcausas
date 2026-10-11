@@ -20,6 +20,25 @@ describe('canAccess', () => {
         }
     })
 
+    /* Matriz de permisos del 11/10/2026 (V3 §4, D-39): consultar abogados y
+       administrar estados procesales y calificaciones legales es de los tres
+       perfiles. */
+    it('todos los perfiles entran a abogados, estados y plazos y calificaciones legales', () => {
+        for (const role of ROLES) {
+            for (const route of ['/abogados', '/estados-y-plazos', '/calificaciones-legales']) {
+                expect(canAccess([role], route)).toBe(true)
+            }
+        }
+    })
+
+    it('usuarios y reportes son sólo del Administrador', () => {
+        for (const route of ['/usuarios', '/reportes']) {
+            expect(canAccess(['ADMINISTRATOR'], route)).toBe(true)
+            expect(canAccess(['LAWYER'], route)).toBe(false)
+            expect(canAccess(['SECRETARY'], route)).toBe(false)
+        }
+    })
+
     /* Denegar por defecto: una pantalla nueva que nadie declaró no la ve
        nadie, y se nota enseguida. Al revés quedaría abierta sin aviso. */
     it('una ruta no declarada queda denegada, incluso para el administrador', () => {

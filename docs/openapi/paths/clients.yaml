@@ -7,7 +7,7 @@ post:
     Registra un nuevo cliente (HU8). `clientSince` lo asigna el backend con la
     fecha del día.
 
-    **Rol requerido:** `SECRETARY`.
+    **Rol requerido:** cualquier usuario autenticado.
   requestBody:
     required: true
     content:
@@ -58,8 +58,6 @@ post:
                 email: El formato del correo electrónico no es válido.
     '401':
       $ref: ../components/responses/Unauthorized.yaml
-    '403':
-      $ref: ../components/responses/ForbiddenSecretary.yaml
     '409':
       description: Ya existe un cliente vigente con ese DNI.
       content:

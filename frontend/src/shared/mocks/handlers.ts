@@ -177,7 +177,8 @@ function requireSession(request: MockRequest): AuthResult {
 /**
  * Sólo exige sesión válida, con el `401` del resto de la API (no el de
  * `/auth`). Es la guarda de todo lo que cualquier perfil puede hacer: las
- * lecturas y el alta de causa (RN11: todo el estudio ve todas las causas).
+ * lecturas (RN11: todo el estudio ve todas las causas), el alta de causa y de
+ * cliente, y escribir estados procesales y calificaciones legales (V3 D-39).
  */
 function requireUser(request: MockRequest): AuthResult {
     const user = userFromToken(request.token);
@@ -187,8 +188,8 @@ function requireUser(request: MockRequest): AuthResult {
 
 /**
  * Exige sesión válida **y** un rol. Un usuario con varios roles pasa si el
- * pedido está entre ellos: `sledesma` es `SECRETARY` y `LAWYER`, así que
- * registra clientes aunque además ejerza.
+ * pedido está entre ellos: `fvazquez` es `ADMINISTRATOR` y `LAWYER`, así que
+ * administra usuarios aunque además ejerza.
  */
 function requireRole(request: MockRequest, role: Role): AuthResult {
     const auth = requireUser(request);
@@ -208,7 +209,7 @@ function isResponsibleLawyer(user: StoredUser, stored: StoredCase): boolean {
     return user.lawyerId !== null && user.lawyerId === stored.responsibleLawyerId;
 }
 
-/** La administración: usuarios, y escribir abogados, estados y calificaciones. */
+/** La administración: usuarios, y escribir abogados (V3 D-39). */
 function requireAdmin(request: MockRequest): AuthResult {
     return requireRole(request, 'ADMINISTRATOR');
 }
@@ -913,7 +914,7 @@ function dayTypeMismatch(timeLimitDays: number, dayType: DayType): boolean {
 }
 
 const createProceduralState: Handler = ({ request }) => {
-    const auth = requireAdmin(request);
+    const auth = requireUser(request);
     if (!auth.ok) return auth.response;
 
     const body = asObject(request.body);
@@ -1022,7 +1023,7 @@ const getProceduralState: Handler = ({ request, params }) => {
 };
 
 const updateProceduralState: Handler = ({ request, params }) => {
-    const auth = requireAdmin(request);
+    const auth = requireUser(request);
     if (!auth.ok) return auth.response;
 
     const stateId = readRouteId(params, 'stateId');
@@ -1092,7 +1093,7 @@ const updateProceduralState: Handler = ({ request, params }) => {
 };
 
 const deleteProceduralState: Handler = ({ request, params }) => {
-    const auth = requireAdmin(request);
+    const auth = requireUser(request);
     if (!auth.ok) return auth.response;
 
     const stateId = readRouteId(params, 'stateId');
@@ -1194,7 +1195,7 @@ function readPrescriptionMonths(value: unknown): number | undefined {
 const MSG_PRESCRIPTION = 'Debe ser un número entero mayor o igual a 1.';
 
 const createLegalQualification: Handler = ({ request }) => {
-    const auth = requireAdmin(request);
+    const auth = requireUser(request);
     if (!auth.ok) return auth.response;
 
     const body = asObject(request.body);
@@ -1254,7 +1255,7 @@ const getLegalQualification: Handler = ({ request, params }) => {
 };
 
 const updateLegalQualification: Handler = ({ request, params }) => {
-    const auth = requireAdmin(request);
+    const auth = requireUser(request);
     if (!auth.ok) return auth.response;
 
     const id = readRouteId(params, 'qualificationId');
@@ -1293,7 +1294,7 @@ const updateLegalQualification: Handler = ({ request, params }) => {
 };
 
 const deleteLegalQualification: Handler = ({ request, params }) => {
-    const auth = requireAdmin(request);
+    const auth = requireUser(request);
     if (!auth.ok) return auth.response;
 
     const id = readRouteId(params, 'qualificationId');
@@ -1323,8 +1324,8 @@ function dniTaken(dni: string): boolean {
 }
 
 const createClient: Handler = ({ request }) => {
-    // Administrar clientes es sólo de la Secretaría (V3 D-05).
-    const auth = requireRole(request, 'SECRETARY');
+    // Administrar clientes es de los tres perfiles (V3 D-39).
+    const auth = requireUser(request);
     if (!auth.ok) return auth.response;
 
     const body = asObject(request.body);

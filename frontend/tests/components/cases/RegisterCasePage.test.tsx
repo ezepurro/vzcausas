@@ -239,6 +239,20 @@ describe('RegisterCasePage', () => {
     })
 
     describe('registrar un cliente o una calificación desde el alta', () => {
+        /* Matriz de permisos del 11/10/2026 (V3 §4, D-39): administrar clientes
+           y calificaciones legales es de los tres perfiles. */
+        it.each([
+            ['la Secretaría', 'gestion'],
+            ['un abogado', 'mrios'],
+            ['el Administrador', 'supervision'],
+        ])('%s tiene habilitados los dos botones de alta', async (_, username) => {
+            renderPage(username)
+            await waitForOptions()
+
+            expect(screen.getByRole('button', { name: 'Registrar cliente nuevo' })).toBeEnabled()
+            expect(screen.getByRole('button', { name: 'Registrar calificación nueva' })).toBeEnabled()
+        })
+
         /* CA-8.9 */
         it('el cliente que se registra queda elegido en el formulario', async () => {
             const { user } = renderPage()
@@ -257,9 +271,9 @@ describe('RegisterCasePage', () => {
             // Y ya sugiere la carátula con él.
             expect(screen.getByText('ALBORNOZ, Bruno p.s.a. …')).toBeInTheDocument()
         })
-        /* CA-48.8: el administrador registra la calificación sin salir del alta, y queda agregada a la causa. */
+        /* CA-48.8: la calificación se registra sin salir del alta, y queda agregada a la causa. */
         it('la calificación que se registra desde el alta queda agregada a la causa', async () => {
-            const { user } = renderPage('fvazquez')
+            const { user } = renderPage()
             await waitForOptions()
 
             await user.click(screen.getByRole('button', { name: 'Registrar calificación nueva' }))

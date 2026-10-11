@@ -116,8 +116,8 @@ lógica de negocio.**
     un componente se consulta con `useCanAccess(ruta)`.
   - `ACTION_ACCESS`, **quién opera cada acción**, con `can(roles, acción)`. Es
     para la pantalla que ven todos pero tiene un botón de un solo perfil:
-    "Registrar cliente" es sólo de la Secretaría. Desde un componente se
-    consulta con `useCan('clients.create')`.
+    "Registrar abogado" es sólo del Administrador. Desde un componente se
+    consulta con `useCan('lawyers.create')`.
 
   Así la regla no se repite en cada componente. Lo que no depende del perfil
   sino del dato —sólo el abogado responsable de una causa registra sus actos—

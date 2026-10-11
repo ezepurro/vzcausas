@@ -60,7 +60,7 @@ patch:
     tienen. Modificar `timeLimitDays` o `dayType` **no recalcula los
     vencimientos ya registrados**.
 
-    **Rol requerido:** `ADMINISTRATOR`.
+    **Rol requerido:** cualquier usuario autenticado.
   requestBody:
     required: true
     content:
@@ -120,8 +120,6 @@ patch:
               $ref: ../components/examples/InvalidStateIdError.yaml
     '401':
       $ref: ../components/responses/Unauthorized.yaml
-    '403':
-      $ref: ../components/responses/ForbiddenAdministrator.yaml
     '404':
       $ref: ../components/responses/ProceduralStateNotFound.yaml
     '409':
@@ -152,7 +150,7 @@ delete:
     conservan como estado actual hasta que un acto las lleve a otro, y sus
     vencimientos no se alteran.
 
-    **Rol requerido:** `ADMINISTRATOR`.
+    **Rol requerido:** cualquier usuario autenticado.
   responses:
     '204':
       description: Estado procesal dado de baja. La respuesta no contiene cuerpo.
@@ -167,7 +165,5 @@ delete:
               $ref: ../components/examples/InvalidStateIdError.yaml
     '401':
       $ref: ../components/responses/Unauthorized.yaml
-    '403':
-      $ref: ../components/responses/ForbiddenAdministrator.yaml
     '404':
       $ref: ../components/responses/ProceduralStateNotFound.yaml

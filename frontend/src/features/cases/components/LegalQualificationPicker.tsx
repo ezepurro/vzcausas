@@ -25,8 +25,6 @@ export interface LegalQualificationPickerProps {
     maxDate?: string
     /** "Registrar calificación nueva". Sin handler, el botón no se muestra. */
     onCreate?: () => void
-    /** Sólo `ADMINISTRATOR` registra calificaciones (V3 D-04): para el resto, deshabilitado. */
-    canCreate?: boolean
 }
 
 /**
@@ -44,7 +42,7 @@ export interface LegalQualificationPickerProps {
  */
 export function LegalQualificationPicker({
     id, selected, options, onAdd, onRemove, onOffenseDateChange, dateErrors = {}, maxDate,
-    onCreate, canCreate = true,
+    onCreate,
 }: LegalQualificationPickerProps) {
     return (
         <div className="vz-picker">
@@ -112,8 +110,6 @@ export function LegalQualificationPicker({
                     <Button
                         variant="secondary"
                         size="md"
-                        disabled={!canCreate}
-                        title={canCreate ? undefined : 'Sólo el Administrador puede registrar calificaciones.'}
                         onClick={onCreate}
                     >
                         Registrar calificación nueva

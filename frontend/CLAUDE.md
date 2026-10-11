@@ -20,7 +20,7 @@ sprint en curso**. El resto ya está documentado: no lo repito, leelo.
    el Sprint 2. Es autocontenido: trae lo del Sprint 1 que sigue vigente y lo
    nuevo. `API_CONTRACT_V2.md` queda como registro del Sprint 1. Si un documento
    y el contrato no coinciden, manda el contrato. **Última revisión:
-   09/10/2026** (V3 §7.9): ver [Revisiones del contrato](#revisiones-del-contrato).
+   11/10/2026** (V3 §7.11): ver [Revisiones del contrato](#revisiones-del-contrato).
    La otra fuente de verdad es el prototipo (`docs/prototypes/`): de ahí salen
    las pantallas y sus textos. Lo que el prototipo muestra y el contrato deja
    fuera del sprint (V3 §8.3) no se programa.
@@ -84,9 +84,10 @@ de calificaciones legales.
 | 17, 45, 46 | Estados procesales | `legal-params/` | `/estados-y-plazos` | **Hecha**, con los ajustes de V3 de más abajo |
 
 Las rutas de causas cuelgan de `/causas`, así que heredan su permiso en
-`ROUTE_ACCESS` (`/causas/12` → `/causas`). `/calificaciones-legales` ya está
-declarada, sólo para `ADMINISTRATOR`, y tiene su ítem en el grupo
-"Administración" del rail.
+`ROUTE_ACCESS` (`/causas/12` → `/causas`). `/abogados`, `/estados-y-plazos` y
+`/calificaciones-legales` están declaradas para los tres perfiles y tienen su
+ítem en el grupo "Administración" del rail; `/usuarios` y `/reportes`, sólo
+para `ADMINISTRATOR` (matriz de permisos del 11/10/2026, V3 §4).
 
 **La barra superior no tiene buscador.** El buscador general —uno solo para
 todas las pantallas— quedó postergado (decisión del 07/10/2026). Hasta que se
@@ -94,11 +95,11 @@ haga, cada listado lleva el suyo en su panel y busca sólo en ese listado; el de
 causas está en `CasesPage`. No se repone el de la barra porque el prototipo lo
 muestre.
 
-**A definir con el equipo:** el prototipo del 05/10 muestra Abogados, Estados y
-plazos y Calificaciones legales a los tres perfiles, en modo consulta, y deja
-sólo Usuarios y Reportes para el administrador. `ROUTE_ACCESS` todavía tiene
-`/abogados` y `/estados-y-plazos` sólo para `ADMINISTRATOR`. No lo cambies al
-paso: abrir esas pantallas pide además deshabilitar sus botones de escritura.
+**Quién ve y quién opera qué** lo fija la matriz de permisos del contrato
+(V3 §4, revisión del 11/10/2026). Abogados la ven los tres perfiles, pero
+"Registrar abogado" es sólo del Administrador; Estados y plazos y
+Calificaciones legales las ven y las operan los tres; registrar un cliente,
+también los tres. El detalle está en [Acceso por perfil](#acceso-por-perfil).
 
 **Navegación después de guardar** (prototipo actualizado): registrar una causa
 lleva a **su detalle** (`/causas/:caseId`), no al listado; registrar un acto
@@ -188,15 +189,14 @@ También están hechos:
   ruta.
 
 **Falta:** la modificación y la baja de calificaciones legales, que el contrato
-ya define y `LegalQualificationsPage` deja para otra historia, y lo que está
-"a definir con el equipo" más arriba. Qué piezas no llevan test propio, y por
-qué, está en `TESTING.md` §5, "Lo que no se testea".
+ya define y `LegalQualificationsPage` deja para otra historia. Qué piezas no
+llevan test propio, y por qué, está en `TESTING.md` §5, "Lo que no se testea".
 
 **Lo que tiene que armar cada página**, porque los componentes son
 presentacionales y lo reciben hecho:
 
-- **Clientes** (hecha: así quedó `ClientsPage`). El botón "Registrar cliente" va deshabilitado para quien no es
-  Secretaría: `useCan('clients.create')`. El DNI se acepta con o sin puntos y
+- **Clientes** (hecha: así quedó `ClientsPage`). El botón "Registrar cliente" está habilitado para
+  los tres perfiles (V3 D-39). El DNI se acepta con o sin puntos y
   viaja sin puntos (`normalizeDni`); un teléfono o un correo vacío no viaja. Un
   DNI repetido (`409 CLIENT_DNI_ALREADY_EXISTS`) se muestra en el campo DNI. Al
   registrar, el aviso es "Cliente GÓMEZ, Ariel Fernando registrado.". Sin
@@ -356,7 +356,7 @@ en la columna de la derecha, cómo quedó el front.
 
 | Cambio | En el front |
 |---|---|
-| `GET /lawyers` y `GET /procedural-states` se abren a cualquier usuario autenticado | Otros módulos ya pueden pedir esos datos. Las pantallas siguen siendo sólo de `ADMINISTRATOR` en `ROUTE_ACCESS`. **A definir:** el prototipo del 05/10 muestra Abogados, Estados y plazos y Calificaciones legales a los tres perfiles, en modo consulta |
+| `GET /lawyers` y `GET /procedural-states` se abren a cualquier usuario autenticado | Otros módulos ya pueden pedir esos datos. Desde la revisión del 11/10/2026 las pantallas también están abiertas a los tres perfiles en `ROUTE_ACCESS` |
 | `DELETE /procedural-states` ya no responde `409` por tener causas: la baja procede y las causas conservan el estado (D-06) | **Hecho.** `DeleteProceduralStateModal` avisa "Hay N causas en este estado…", como el prototipo |
 | `PATCH /procedural-states` no acepta `jurisdiction`: el fuero de un estado no se modifica (D-36, revierte D-07). Se retira `PROCEDURAL_STATE_IN_USE` | **Hecho.** El formulario no ofrece el fuero y `UpdateProceduralStateBody` no tiene el campo; el mock responde `400` si viaja |
 | Los estados procesales no tienen `position` (D-31) | **Hecho.** Se sacaron la columna `#`, el selector "¿Dónde va este estado?", `positionOptions.ts` y `useProceduralStateCycle.ts`. El aviso del alta dice "Estado … agregado al ciclo de vida del fuero …" |
@@ -370,6 +370,18 @@ en la columna de la derecha, cómo quedó el front.
 Si el contrato vuelve a cambiar, **no se toca de una**: primero se listan los
 cambios y se acuerdan, después se aplican al contrato, a los mocks, a los tipos
 y a este archivo.
+
+#### Revisión del 11/10/2026 (V3 §7.11)
+
+Nueva matriz de permisos del equipo (D-39, reemplaza a D-04 y D-05). **El
+contrato, los mocks, las pantallas y sus tests ya la siguen.**
+
+| Cambio del contrato | Dónde quedó |
+|---|---|
+| `POST /clients` pasa de `SECRETARY` a cualquier usuario autenticado | **Hecho** en el mock y en las pantallas: "Registrar cliente" (`ClientsPage`) y "Registrar cliente nuevo" (`CaseForm`) están habilitados para todos. Se retiró `clients.create` |
+| La escritura de `/procedural-states` pasa de `ADMINISTRATOR` a cualquier usuario autenticado | **Hecho** en el mock y en `ROUTE_ACCESS` (`/estados-y-plazos`) |
+| La escritura de `/legal-qualifications` pasa de `ADMINISTRATOR` a cualquier usuario autenticado | **Hecho** en el mock y en `ROUTE_ACCESS` (`/calificaciones-legales`). "Registrar calificación nueva" (`LegalQualificationPicker`) está habilitado para todos. Se retiró `legalQualifications.create` |
+| Consultar abogados es de los tres perfiles; registrar, modificar y dar de baja, solo del Administrador (no cambia el contrato) | **Hecho** abrir `/abogados` en `ROUTE_ACCESS` y declarar `lawyers.create`. "Registrar abogado" va deshabilitado para quien no es Administrador (`LawyersPage`) |
 
 #### Revisión del 09/10/2026 (V3 §7.9)
 
@@ -422,9 +434,10 @@ nueva ya tiene contra qué desarrollarse y contra qué testearse. Lo que hay que
 saber:
 
 - **Permisos**, según la tabla del contrato (V3 §4): leer está abierto a
-  cualquiera con sesión, salvo `/users`. Registrar un cliente pide `SECRETARY`
-  (`gestion`); escribir abogados, estados y calificaciones, `ADMINISTRATOR`
-  (`fvazquez`). Registrar una causa, cualquiera.
+  cualquiera con sesión, salvo `/users`. Leer y escribir `/users` y escribir
+  abogados pide `ADMINISTRATOR` (`fvazquez`, `supervision`). Registrar un
+  cliente o una causa, y escribir estados procesales y calificaciones legales,
+  lo hace cualquiera (D-39). Lo prueba `tests/unit/contract/permissions.test.ts`.
 - **Los actos no se rigen por un rol** (D-30): los registra, y previsualiza su
   vencimiento, sólo el abogado responsable de la causa. `mrios` lleva la 1 y la
   17; `fvazquez`, la 4, la 6 y la 20; `mferreyra`, la 7. Con cualquier otro
@@ -682,25 +695,34 @@ puede decir: una pantalla que ven todos, con un botón que es de un solo perfil.
 
 ```ts
 export const ACTION_ACCESS: Record<Action, readonly Role[]> = {
-    'clients.create': SECRETARY,              // V3 D-05
-    'legalQualifications.create': ADMIN,      // V3 D-04
+    'lawyers.create': ADMIN,      // V3 §4, matriz del 11/10/2026
 }
 ```
 
 ```tsx
-const canCreate = useCan('clients.create')   // de @/app/access/useCan
+const canCreate = useCan('lawyers.create')   // de @/app/access/useCan
 
-<Button disabled={!canCreate} onClick={openCreate}>Registrar cliente</Button>
+<Button
+    disabled={!canCreate}
+    title={canCreate ? undefined : 'Sólo el Administrador puede registrar abogados.'}
+    onClick={openCreate}
+>
+    Registrar abogado
+</Button>
 ```
 
 - El botón va **deshabilitado**, no escondido: es lo que hace el prototipo.
 - Una acción nueva se suma a `Action` y a `ACTION_ACCESS`, con el rol que fija
-  la tabla de permisos del contrato (V3 §4). Hoy hay dos: registrar un cliente
-  y registrar una calificación legal.
-- **No** escribas `roles.includes('SECRETARY')` en un componente: la regla
+  la tabla de permisos del contrato (V3 §4). Hoy hay una sola: registrar un
+  abogado. Registrar un cliente y registrar una calificación legal dejaron de
+  ser acciones restringidas con la matriz del 11/10/2026 (D-39), así que sus
+  botones no consultan nada.
+- **Una acción que pueden los tres perfiles no se declara**: el botón va
+  habilitado y listo. La tabla es sólo para lo que restringe.
+- **No** escribas `roles.includes('ADMINISTRATOR')` en un componente: la regla
   tiene que seguir viviendo en un solo lugar.
-- Con varios roles alcanza con que uno habilite: quien es Secretaría y abogada
-  a la vez puede registrar clientes.
+- Con varios roles alcanza con que uno habilite: quien es Administrador y
+  abogado a la vez puede registrar abogados.
 
 **Lo que no es un permiso por rol no va en ninguna de las dos tablas.**
 "Registrar acto procesal" depende de la causa: sólo su abogado responsable

@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
-import { useCan } from '@/app/access/useCan'
 import { useToast } from '@/app/providers/ToastContext'
 import { isApiError } from '@/shared/api/ApiError'
 import { Breadcrumbs, PageHeader } from '@/shared/components/ui'
@@ -74,8 +73,6 @@ type Modal = { kind: 'client' } | { kind: 'qualification' } | null
 export function RegisterCasePage() {
     const navigate = useNavigate()
     const toast = useToast()
-    const canCreateClient = useCan('clients.create')
-    const canCreateQualification = useCan('legalQualifications.create')
 
     const [values, setValues] = useState<CaseFormValues>(emptyCaseForm)
     const [errors, setErrors] = useState<CaseFormErrors>({})
@@ -250,8 +247,6 @@ export function RegisterCasePage() {
                     onOffenseDateChange={changeOffenseDate}
                     onNewClient={() => setModal({ kind: 'client' })}
                     onNewQualification={() => setModal({ kind: 'qualification' })}
-                    canCreateClient={canCreateClient}
-                    canCreateQualification={canCreateQualification}
                     saving={create.isPending}
                     onConfirm={submit}
                     onCancel={goToList}

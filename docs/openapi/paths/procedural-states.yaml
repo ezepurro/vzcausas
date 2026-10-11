@@ -7,7 +7,7 @@ post:
     Registra un nuevo estado procesal (HU45). La respuesta no incluye
     `activeCases`.
 
-    **Rol requerido:** `ADMINISTRATOR`.
+    **Rol requerido:** cualquier usuario autenticado.
   requestBody:
     required: true
     content:
@@ -66,8 +66,6 @@ post:
                 dayType: Debe indicarse el tipo de día cuando el plazo es mayor a 0.
     '401':
       $ref: ../components/responses/Unauthorized.yaml
-    '403':
-      $ref: ../components/responses/ForbiddenAdministrator.yaml
     '409':
       description: Ya existe un estado con esa denominación en el fuero, o la denominación es "Iniciada".
       content:

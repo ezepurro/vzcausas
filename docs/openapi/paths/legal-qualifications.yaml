@@ -7,7 +7,7 @@ post:
     Registra una nueva calificación legal. La respuesta no incluye
     `activeCases`.
 
-    **Rol requerido:** `ADMINISTRATOR`.
+    **Rol requerido:** cualquier usuario autenticado.
   requestBody:
     required: true
     content:
@@ -49,8 +49,6 @@ post:
                 prescriptionMonths: Debe ser un número entero mayor o igual a 1.
     '401':
       $ref: ../components/responses/Unauthorized.yaml
-    '403':
-      $ref: ../components/responses/ForbiddenAdministrator.yaml
     '409':
       description: Ya existe una calificación vigente con esa denominación.
       content:

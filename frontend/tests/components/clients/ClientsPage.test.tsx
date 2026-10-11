@@ -128,9 +128,12 @@ describe('ClientsPage', () => {
     })
 
     describe('quién puede registrar (HU-8)', () => {
-        /* CA-8.7: administrar clientes es sólo de la Secretaría (V3 D-05). */
+        /* Administrar clientes es de los tres perfiles (V3 §4, matriz del
+           11/10/2026, D-39). */
         it.each([
             ['la Secretaría', 'gestion'],
+            ['un abogado', 'mrios'],
+            ['el Administrador', 'supervision'],
         ])('%s tiene habilitado "Registrar cliente"', async (_, username) => {
             renderPage(username)
             await screen.findByText(FIRST)

@@ -14,7 +14,12 @@ decisiones tomadas al redactarlo, junto con los puntos a verificar, en la
 Cuando una historia de usuario y el prototipo no coinciden, este contrato sigue
 al prototipo y lo deja asentado en la sección 8.
 
-**Última revisión: 09/10/2026**: los códigos de `ProceduralRole` pasan a
+**Última revisión: 11/10/2026**, por la nueva matriz de permisos del equipo: el
+alta de clientes y la escritura de estados procesales y de calificaciones
+legales se abren a los tres perfiles. El detalle está en la
+[sección 7.11](#711-revisión-de-v3-del-11102026).
+
+**Revisión anterior: 09/10/2026**: los códigos de `ProceduralRole` pasan a
 castellano. El detalle está en la
 [sección 7.9](#79-revisión-de-v3-del-09102026).
 
@@ -90,17 +95,17 @@ se mantiene igual.
 | `GET`    | `/lawyers/{lawyerId}`                                 |      Sí       | Cualquier usuario autenticado | Consultar abogado                        | Modificado |
 | `PATCH`  | `/lawyers/{lawyerId}`                                 |      Sí       | `ADMINISTRATOR`               | Modificar abogado                        | -          |
 | `DELETE` | `/lawyers/{lawyerId}`                                 |      Sí       | `ADMINISTRATOR`               | Dar de baja abogado                      | -          |
-| `POST`   | `/procedural-states`                                  |      Sí       | `ADMINISTRATOR`               | Registrar estado procesal                | -          |
+| `POST`   | `/procedural-states`                                  |      Sí       | Cualquier usuario autenticado | Registrar estado procesal                | -          |
 | `GET`    | `/procedural-states`                                  |      Sí       | Cualquier usuario autenticado | Consultar estados procesales             | Modificado |
 | `GET`    | `/procedural-states/{stateId}`                        |      Sí       | Cualquier usuario autenticado | Consultar estado procesal                | Modificado |
-| `PATCH`  | `/procedural-states/{stateId}`                        |      Sí       | `ADMINISTRATOR`               | Modificar estado procesal                | Modificado |
-| `DELETE` | `/procedural-states/{stateId}`                        |      Sí       | `ADMINISTRATOR`               | Dar de baja estado procesal              | Modificado |
-| `POST`   | `/legal-qualifications`                               |      Sí       | `ADMINISTRATOR`               | Registrar calificación legal             | Nuevo      |
+| `PATCH`  | `/procedural-states/{stateId}`                        |      Sí       | Cualquier usuario autenticado | Modificar estado procesal                | Modificado |
+| `DELETE` | `/procedural-states/{stateId}`                        |      Sí       | Cualquier usuario autenticado | Dar de baja estado procesal              | Modificado |
+| `POST`   | `/legal-qualifications`                               |      Sí       | Cualquier usuario autenticado | Registrar calificación legal             | Nuevo      |
 | `GET`    | `/legal-qualifications`                               |      Sí       | Cualquier usuario autenticado | Consultar calificaciones legales         | Nuevo      |
 | `GET`    | `/legal-qualifications/{qualificationId}`             |      Sí       | Cualquier usuario autenticado | Consultar calificación legal             | Nuevo      |
-| `PATCH`  | `/legal-qualifications/{qualificationId}`             |      Sí       | `ADMINISTRATOR`               | Modificar calificación legal             | Nuevo      |
-| `DELETE` | `/legal-qualifications/{qualificationId}`             |      Sí       | `ADMINISTRATOR`               | Dar de baja calificación legal           | Nuevo      |
-| `POST`   | `/clients`                                            |      Sí       | `SECRETARY`                   | Registrar cliente                        | Nuevo      |
+| `PATCH`  | `/legal-qualifications/{qualificationId}`             |      Sí       | Cualquier usuario autenticado | Modificar calificación legal             | Nuevo      |
+| `DELETE` | `/legal-qualifications/{qualificationId}`             |      Sí       | Cualquier usuario autenticado | Dar de baja calificación legal           | Nuevo      |
+| `POST`   | `/clients`                                            |      Sí       | Cualquier usuario autenticado | Registrar cliente                        | Nuevo      |
 | `GET`    | `/clients`                                            |      Sí       | Cualquier usuario autenticado | Consultar clientes                       | Nuevo      |
 | `GET`    | `/clients/{clientId}`                                 |      Sí       | Cualquier usuario autenticado | Consultar cliente                        | Nuevo      |
 | `POST`   | `/cases`                                              |      Sí       | Cualquier usuario autenticado | Registrar causa                          | Nuevo      |
@@ -1594,15 +1599,12 @@ La respuesta no contiene cuerpo.
 ### 3.4 Estados procesales: /procedural-states
 
 **Autenticación requerida:** Sí.
-**Rol requerido:** la lectura (`GET`) está habilitada para cualquier usuario
-autenticado; la escritura (`POST`, `PATCH`, `DELETE`) requiere
-`ADMINISTRATOR`.
+**Rol requerido:** cualquier usuario autenticado, tanto para la lectura
+(`GET`) como para la escritura (`POST`, `PATCH`, `DELETE`).
 
-La lectura se abre porque la consulta de estados y plazos (HU16) corresponde a
-los tres perfiles, y el registro de un acto procesal (HU26) necesita los
-estados del fuero y sus plazos. La escritura (HU17, HU45 y HU46) queda en
-`ADMINISTRATOR`, según la tabla de [permisos por perfil](#permisos-por-perfil)
-(ver [D-04](#81-decisiones-tomadas)).
+Según la tabla de [permisos por perfil](#permisos-por-perfil), la
+administración de estados procesales (HU16, HU17, HU45 y HU46) corresponde a
+los tres perfiles (ver [D-39](#81-decisiones-tomadas), que reemplaza a D-04).
 
 El recurso estado procesal posee la siguiente estructura:
 
@@ -1654,7 +1656,7 @@ prototipo al modificar un estado en uso.
 
 Registra un nuevo estado procesal (HU45).
 
-**Rol requerido:** `ADMINISTRATOR`.
+**Rol requerido:** cualquier usuario autenticado.
 
 **Cuerpo de la petición**
 
@@ -1719,18 +1721,6 @@ con `timeLimitDays: 0`.
 	"error": {
 		"code": "UNAUTHENTICATED",
 		"message": "La autenticación es requerida.",
-		"details": null
-	}
-}
-```
-
-**`403 Forbidden`**
-
-```json
-{
-	"error": {
-		"code": "FORBIDDEN",
-		"message": "Se requiere el rol ADMINISTRATOR para realizar esta operación.",
 		"details": null
 	}
 }
@@ -1934,7 +1924,7 @@ Obtiene la información de un estado procesal específico.
 
 Modifica parcialmente un estado procesal (HU17).
 
-**Rol requerido:** `ADMINISTRATOR`.
+**Rol requerido:** cualquier usuario autenticado.
 
 **Parámetros de ruta**
 
@@ -2030,18 +2020,6 @@ se consulta con `GET`.
 }
 ```
 
-**`403 Forbidden`**
-
-```json
-{
-	"error": {
-		"code": "FORBIDDEN",
-		"message": "Se requiere el rol ADMINISTRATOR para realizar esta operación.",
-		"details": null
-	}
-}
-```
-
 **`404 Not Found`**
 
 ```json
@@ -2072,7 +2050,7 @@ se consulta con `GET`.
 
 Da de baja un estado procesal (HU46).
 
-**Rol requerido:** `ADMINISTRATOR`.
+**Rol requerido:** cualquier usuario autenticado.
 
 **La baja es lógica, pero el cliente no la percibe.** El backend establece
 `active` en `false` y conserva el registro; para el cliente el estado deja de
@@ -2126,18 +2104,6 @@ La respuesta no contiene cuerpo.
 }
 ```
 
-**`403 Forbidden`**
-
-```json
-{
-	"error": {
-		"code": "FORBIDDEN",
-		"message": "Se requiere el rol ADMINISTRATOR para realizar esta operación.",
-		"details": null
-	}
-}
-```
-
 **`404 Not Found`**
 
 ```json
@@ -2155,9 +2121,8 @@ La respuesta no contiene cuerpo.
 ### 3.5 Calificaciones legales: /legal-qualifications
 
 **Autenticación requerida:** Sí.
-**Rol requerido:** la lectura (`GET`) está habilitada para cualquier usuario
-autenticado; la escritura (`POST`, `PATCH`, `DELETE`) requiere
-`ADMINISTRATOR`.
+**Rol requerido:** cualquier usuario autenticado, tanto para la lectura
+(`GET`) como para la escritura (`POST`, `PATCH`, `DELETE`).
 
 La calificación legal es el encuadre jurídico del hecho imputado y **determina
 el plazo de prescripción de la acción** (glosario del Plan de Proyecto). Forma
@@ -2166,12 +2131,11 @@ Una causa penal puede registrar una o más, o ninguna (es opcional); si
 concurren varios delitos, registra una por cada uno, y cada una computa su propia prescripción desde la fecha del
 hecho que se carga junto con ella (ver [`/cases`](#37-causas-cases)).
 
-La lectura se abre porque el alta de causa, que opera cualquier perfil, ofrece
-el selector de calificaciones. La escritura queda en `ADMINISTRATOR`, tal como
-la restringe el prototipo, tanto desde la pantalla de Administración como desde
-el botón "Registrar calificación nueva" del alta de causa. La tabla de
-[permisos por perfil](#permisos-por-perfil) no la menciona; se le aplica el
-mismo criterio que a los estados procesales.
+Según la tabla de [permisos por perfil](#permisos-por-perfil), la
+administración de calificaciones legales (HU47 a HU50) corresponde a los tres
+perfiles, tanto desde la pantalla de Administración como desde el botón
+"Registrar calificación nueva" del alta de causa (ver
+[D-39](#81-decisiones-tomadas), que reemplaza a D-04).
 
 El recurso calificación legal posee la siguiente estructura:
 
@@ -2208,7 +2172,7 @@ un cálculo vivo sobre la causa, el vencimiento de un acto es un hecho registrad
 
 Registra una nueva calificación legal.
 
-**Rol requerido:** `ADMINISTRATOR`.
+**Rol requerido:** cualquier usuario autenticado.
 
 **Cuerpo de la petición**
 
@@ -2260,18 +2224,6 @@ Registra una nueva calificación legal.
 	"error": {
 		"code": "UNAUTHENTICATED",
 		"message": "La autenticación es requerida.",
-		"details": null
-	}
-}
-```
-
-**`403 Forbidden`**
-
-```json
-{
-	"error": {
-		"code": "FORBIDDEN",
-		"message": "Se requiere el rol ADMINISTRATOR para realizar esta operación.",
 		"details": null
 	}
 }
@@ -2444,7 +2396,7 @@ Obtiene una calificación legal específica.
 
 Modifica parcialmente una calificación legal.
 
-**Rol requerido:** `ADMINISTRATOR`.
+**Rol requerido:** cualquier usuario autenticado.
 
 **Parámetros de ruta**
 
@@ -2512,18 +2464,6 @@ se consulta con `GET`.
 }
 ```
 
-**`403 Forbidden`**
-
-```json
-{
-	"error": {
-		"code": "FORBIDDEN",
-		"message": "Se requiere el rol ADMINISTRATOR para realizar esta operación.",
-		"details": null
-	}
-}
-```
-
 **`404 Not Found`**
 
 ```json
@@ -2554,7 +2494,7 @@ se consulta con `GET`.
 
 Da de baja una calificación legal.
 
-**Rol requerido:** `ADMINISTRATOR`.
+**Rol requerido:** cualquier usuario autenticado.
 
 **La baja es lógica, pero el cliente no la percibe.** El backend establece
 `active` en `false` y conserva el registro; la calificación deja de aparecer en
@@ -2604,18 +2544,6 @@ La respuesta no contiene cuerpo.
 }
 ```
 
-**`403 Forbidden`**
-
-```json
-{
-	"error": {
-		"code": "FORBIDDEN",
-		"message": "Se requiere el rol ADMINISTRATOR para realizar esta operación.",
-		"details": null
-	}
-}
-```
-
 **`404 Not Found`**
 
 ```json
@@ -2633,13 +2561,14 @@ La respuesta no contiene cuerpo.
 ### 3.6 Clientes: /clients
 
 **Autenticación requerida:** Sí.
-**Rol requerido:** la lectura (`GET`) está habilitada para cualquier usuario
-autenticado; el alta (`POST`) requiere `SECRETARY`.
+**Rol requerido:** cualquier usuario autenticado, tanto para la lectura
+(`GET`) como para el alta (`POST`).
 
 Según la tabla de [permisos por perfil](#permisos-por-perfil), la
-administración de clientes (HU8 a HU11) corresponde solo a la Secretaría; la
-consulta (HU9), a los tres perfiles. El botón "Registrar cliente nuevo" del
-alta de causa queda, por lo tanto, habilitado solo para la Secretaría.
+administración de clientes (HU8 a HU11) corresponde a los tres perfiles. El
+botón "Registrar cliente nuevo" del alta de causa queda, por lo tanto,
+habilitado para cualquier usuario (ver [D-39](#81-decisiones-tomadas), que
+reemplaza a D-05).
 
 La modificación y la baja de clientes (HU10 y HU11) corresponden al Sprint 4 y
 no forman parte de esta versión.
@@ -2678,7 +2607,7 @@ registrar el cliente y no lo ofrece para editar.
 
 Registra un nuevo cliente (HU8).
 
-**Rol requerido:** `SECRETARY`.
+**Rol requerido:** cualquier usuario autenticado.
 
 **Cuerpo de la petición**
 
@@ -2742,18 +2671,6 @@ Registra un nuevo cliente (HU8).
 	"error": {
 		"code": "UNAUTHENTICATED",
 		"message": "La autenticación es requerida.",
-		"details": null
-	}
-}
-```
-
-**`403 Forbidden`**
-
-```json
-{
-	"error": {
-		"code": "FORBIDDEN",
-		"message": "Se requiere el rol SECRETARY para realizar esta operación.",
 		"details": null
 	}
 }
@@ -4130,8 +4047,8 @@ Authorization: Bearer <accessToken>
 Un endpoint indicado con un rol (`ADMINISTRATOR`, `LAWYER` o `SECRETARY`)
 requiere que el usuario autenticado lo posea. Un usuario con varios roles
 satisface el requisito si el rol exigido se encuentra entre ellos: por ejemplo,
-un usuario `ADMINISTRATOR` y `SECRETARY` puede administrar usuarios y registrar
-clientes. Si no lo posee, la respuesta es `403 FORBIDDEN`.
+un usuario `ADMINISTRATOR` y `SECRETARY` puede administrar usuarios y
+abogados. Si no lo posee, la respuesta es `403 FORBIDDEN`.
 
 Los **actos procesales** son la excepción: no alcanza con un rol. Solo los
 registra el abogado responsable de la causa, comparando el `lawyerId` del
@@ -4143,38 +4060,37 @@ Tabla de permisos acordada por el equipo. Es la fuente de los roles de cada
 endpoint; cubre también funcionalidades de sprints posteriores, para que los
 contratos siguientes la respeten.
 
-| Funcionalidad                                                                     | HU       | Admin. | Abogado | Secret. |
-| --------------------------------------------------------------------------------- | -------- | :----: | :-----: | :-----: |
-| Iniciar y cerrar sesión, cambiar contraseña                                       | 1 – 3    |   ✓    |    ✓    |    ✓    |
-| Administrar usuarios                                                              | 4 – 7    |   ✓    |    —    |    —    |
-| Administrar clientes                                                              | 8 – 11   |   —    |    —    |    ✓    |
-| Administrar abogados                                                              | 12 – 15  |   ✓    |    —    |    —    |
-| Consultar estados procesales y plazos                                             | 16       |   ✓    |    ✓    |    ✓    |
-| Modificar estados procesales                                                      | 17       |   ✓    |    —    |    —    |
-| Consultar clientes                                                                | 9        |   ✓    |    ✓    |    ✓    |
-| Consultar causas                                                                  | 20       |   ✓    |    ✓    |    ✓    |
-| Gestionar causas (alta, consulta, detalle, línea de tiempo, carátula, expediente, baja) | 18 – 25 | ✓ |    ✓    |    ✓    |
-| Consultar actos procesales                                                        | 27       |   ✓    |    ✓    |    ✓    |
-| Registrar, modificar y dar de baja actos procesales                               | 26, 28, 29 |  —   |    ✓    |    —    |
-| Registrar actos interruptivos                                                     | 31       |   —    |    ✓    |    —    |
-| Recibir avisos de vencimiento y alertas de prescripción                           | 30 – 33  |   —    |    ✓    |    —    |
-| Administrar modelos formales                                                      | 34 – 37  |   ✓    |    —    |    —    |
-| Consultar documentos de causa                                                     | 38       |   ✓    |    ✓    |    ✓    |
-| Crear carpeta y modelos en la nube                                                | 39 – 40  |   —    |    —    |    ✓    |
-| Tablero del abogado                                                               | 41       |   —    |    ✓    |    —    |
-| Tablero del administrador y reportes                                              | 42 – 44  |   ✓    |    —    |    —    |
-| Registrar y dar de baja estados procesales                                        | 45, 46   |   ✓    |    —    |    —    |
+| Funcionalidad                                                                           | HU             | Admin. | Abogado | Secret. |
+| --------------------------------------------------------------------------------------- | -------------- | :----: | :-----: | :-----: |
+| Iniciar y cerrar sesión, cambiar contraseña                                             | 1 – 3          |   ✓    |    ✓    |    ✓    |
+| Administrar usuarios                                                                    | 4 – 7          |   ✓    |    —    |    —    |
+| Administrar clientes                                                                    | 8 – 11         |   ✓    |    ✓    |    ✓    |
+| Consultar abogados                                                                      | 13             |   ✓    |    ✓    |    ✓    |
+| Registrar, modificar y dar de baja abogados                                             | 12, 14, 15     |   ✓    |    —    |    —    |
+| Administrar estados procesales                                                          | 16, 17, 45, 46 |   ✓    |    ✓    |    ✓    |
+| Gestionar causas (alta, consulta, detalle, línea de tiempo, carátula, expediente, baja) | 18 – 25        |   ✓    |    ✓    |    ✓    |
+| Consultar actos procesales                                                              | 27             |   ✓    |    ✓    |    ✓    |
+| Registrar, modificar y dar de baja actos procesales ¹                                   | 26, 28, 29     |   —    |    ✓    |    —    |
+| Registrar actos interruptivos ¹                                                         | 31             |   —    |    ✓    |    —    |
+| Recibir avisos de vencimiento y alertas de prescripción                                 | 30, 32, 33     |   ✓    |    ✓    |    —    |
+| Administrar modelos formales                                                            | 34 – 37        |   ✓    |    ✓    |    —    |
+| Consultar documentos de causa                                                           | 38             |   —    |    ✓    |    ✓    |
+| Crear carpeta y modelos en la nube                                                      | 39 – 40        |   ✓    |    ✓    |    ✓    |
+| Tablero del abogado                                                                     | 41             |   —    |    ✓    |    —    |
+| Tablero del administrador y reportes                                                    | 42 – 44        |   ✓    |    —    |    —    |
+| Administrar calificaciones legales                                                      | 47 – 50        |   ✓    |    ✓    |    ✓    |
 
-La tabla no menciona las calificaciones legales, que no tienen HU: siguen el
-mismo criterio que los estados procesales (lectura para todos, escritura para
-`ADMINISTRATOR`). La **consulta** de abogados se mantiene abierta a los tres
-perfiles porque el alta de causa, que opera cualquiera de ellos, necesita el
-listado para elegir al responsable; la **administración** (alta, modificación
-y baja) es solo del Administrador, como indica la tabla.
+¹ Lo realiza el abogado asignado a su propia causa: solo el propietario de la
+causa puede realizar estas acciones.
 
-**Actos procesales.** La fila "Registrar, modificar y dar de baja actos
-procesales" se restringe además a cada causa: solo el abogado responsable opera
-sus actos. Ningún otro abogado ni el `ADMINISTRATOR` puede hacerlo.
+La tabla es la matriz de permisos del 11/10/2026
+([§7.11](#711-revisión-de-v3-del-11102026)). La **consulta** de abogados está
+abierta a los tres perfiles; su **administración** (alta, modificación y baja)
+es solo del Administrador.
+
+**Actos procesales.** Las filas marcadas con ¹ se restringen además a cada
+causa: solo el abogado responsable opera sus actos. Ningún otro abogado ni el
+`ADMINISTRATOR` puede hacerlo sobre una causa ajena (D-30).
 
 #### Matriz por recurso
 
@@ -4183,9 +4099,9 @@ sus actos. Ningún otro abogado ni el `ADMINISTRATOR` puede hacerlo.
 | `/auth`                            | -                             | Cualquier usuario autenticado (`logout`, `password`)             |
 | `/users`                           | `ADMINISTRATOR`               | `ADMINISTRATOR`                                                  |
 | `/lawyers`                         | Cualquier usuario autenticado | `ADMINISTRATOR`                                                  |
-| `/procedural-states`               | Cualquier usuario autenticado | `ADMINISTRATOR`                                                  |
-| `/legal-qualifications`            | Cualquier usuario autenticado | `ADMINISTRATOR`                                                  |
-| `/clients`                         | Cualquier usuario autenticado | `SECRETARY`                                                      |
+| `/procedural-states`               | Cualquier usuario autenticado | Cualquier usuario autenticado                                    |
+| `/legal-qualifications`            | Cualquier usuario autenticado | Cualquier usuario autenticado                                    |
+| `/clients`                         | Cualquier usuario autenticado | Cualquier usuario autenticado                                    |
 | `/cases`                           | Cualquier usuario autenticado | Cualquier usuario autenticado                                    |
 | `/cases/{caseId}/procedural-acts`  | Abogado responsable de la causa (`deadline-preview`) | Abogado responsable de la causa             |
 
@@ -4438,7 +4354,7 @@ equipo.
 | --- | --- | --- | --- |
 | `GET /lawyers`, `GET /lawyers/{lawyerId}` | `ADMINISTRATOR` | Cualquier usuario autenticado | HU13 asigna la consulta a la Secretaría; el alta de causa necesita el listado de responsables |
 | `GET /procedural-states`, `GET /procedural-states/{stateId}` | `ADMINISTRATOR` | Cualquier usuario autenticado | HU16 (consultar estados y plazos) es de los tres perfiles, y el registro de actos necesita los estados del fuero |
-| `POST /clients` | - | `SECRETARY` | Tabla de [permisos por perfil](#permisos-por-perfil): administrar clientes es solo de la Secretaría |
+| `POST /clients` | - | Cualquier usuario autenticado | Tabla de [permisos por perfil](#permisos-por-perfil): administrar clientes es de los tres perfiles ([§7.11](#711-revisión-de-v3-del-11102026)) |
 | `POST /cases/{caseId}/procedural-acts` y `deadline-preview` | - | Abogado responsable de la causa | Solo el abogado responsable registra actos procesales ([§7.8](#78-revisión-de-v3-del-05102026)) |
 | `DELETE /procedural-states/{stateId}` | `409` si el estado tenía causas | La baja procede; las causas conservan el estado | Nota del prototipo al eliminar un estado en uso |
 | `POST /procedural-states` | `position` mayor o igual a `1` | Sin `position`: retirado en la [revisión del 05/10/2026](#78-revisión-de-v3-del-05102026) | Los estados no tienen orden |
@@ -4530,6 +4446,26 @@ revisión del 05/10/2026 (D-33): viajan en dos campos separados y opcionales,
 | --- | --- | --- | --- |
 | `startDate` de la causa | Siempre una fecha: sin SAC se guardaba la del día | `String \| null`: vale `null` mientras la causa no tiene SAC. En `POST /cases` se mantiene que con SAC es obligatoria y sin SAC no se informa | D-38 |
 
+### 7.11 Revisión de V3 del 11/10/2026
+
+El equipo reemplazó la matriz de [permisos por perfil](#permisos-por-perfil).
+Cambian los roles de siete endpoints; ninguno cambia su cuerpo ni su respuesta,
+salvo que dejan de responder `403 FORBIDDEN` por rol.
+
+| Qué | Antes | Ahora | Decisión |
+| --- | --- | --- | --- |
+| `POST /clients` | `SECRETARY` | Cualquier usuario autenticado | D-39 |
+| `POST`, `PATCH` y `DELETE /procedural-states` | `ADMINISTRATOR` | Cualquier usuario autenticado | D-39 |
+| `POST`, `PATCH` y `DELETE /legal-qualifications` | `ADMINISTRATOR` | Cualquier usuario autenticado | D-39 |
+
+No cambian: `/users` (solo `ADMINISTRATOR`), la escritura de `/lawyers` (solo
+`ADMINISTRATOR`), la lectura de todos los recursos y el registro de actos
+procesales (solo el abogado responsable de la causa, D-30).
+
+La matriz nueva también modifica filas de sprints posteriores (avisos y
+alertas, modelos formales, documentos de causa, carpeta y modelos en la nube),
+que no tienen endpoints en esta versión.
+
 ---
 
 ## 8. Observaciones
@@ -4544,8 +4480,8 @@ antes o durante la implementación.
 | D-01 | El alcance es HU 8, 9, 13, 17, 18, 20, 22, 26, 45 y 46, más el ABMC de calificaciones legales | Story Map actualizado del Seguimiento v1.1 (§4.1.2). La tabla del PDF es difícil de leer por la maquetación, así que la asignación se verificó sumando los puntos: esas diez historias suman exactamente los 112 SP declarados para el Sprint 2 |
 | D-02 | V3 es autocontenido y V2 queda sin modificar | Mismo criterio que V2 respecto de V1. `/auth` y `/users` se copian de V2 sin cambios. `PATCH` y `DELETE /lawyers` (HU14 y HU15, sprints 3 y 4) se mantienen porque ya figuraban en V2: quitarlos sería un cambio que nadie pidió |
 | D-03 | La lectura de `/lawyers`, `/procedural-states`, `/legal-qualifications`, `/clients` y `/cases` se abre a cualquier usuario autenticado | RN11; el banner del prototipo ("El perfil determina qué se puede operar, no qué se puede ver"); y los formularios de alta de causa y de acto necesitan esos listados. `/users` sigue en `ADMINISTRATOR` ([C-14](#82-puntos-a-verificar)) |
-| D-04 | La escritura de estados procesales y calificaciones legales requiere `ADMINISTRATOR` | El prototipo deshabilita esas acciones para los demás perfiles, aunque HU17, HU45 y HU46 digan "Como abogado". Manda el prototipo |
-| D-05 | El alta de cliente requiere `SECRETARY` | Tabla de [permisos por perfil](#permisos-por-perfil): administrar clientes (HU8 a HU11) es solo de la Secretaría. Reemplaza el criterio del prototipo, que lo restringía al Administrador |
+| D-04 | **Reemplazada por D-39.** La escritura de estados procesales y calificaciones legales requiere `ADMINISTRATOR` | El prototipo deshabilita esas acciones para los demás perfiles, aunque HU17, HU45 y HU46 digan "Como abogado". Manda el prototipo |
+| D-05 | **Reemplazada por D-39.** El alta de cliente requiere `SECRETARY` | Tabla de [permisos por perfil](#permisos-por-perfil): administrar clientes (HU8 a HU11) es solo de la Secretaría. Reemplaza el criterio del prototipo, que lo restringía al Administrador |
 | D-06 | La baja de un estado procesal procede aunque haya causas en él, y se retira `PROCEDURAL_STATE_HAS_DEPENDENCIES` | Nota del prototipo: las causas "conservan el estado que ya tienen registrado". Lo mismo para la baja de calificaciones legales |
 | D-07 | ~~`PATCH /procedural-states` admite `jurisdiction`, solo si ninguna causa registra el estado~~. **Revertida por D-36** | El prototipo muestra el selector de fuero al modificar. La restricción evita que causas de un fuero apunten a un estado de otro |
 | D-08 | Cambiar el plazo de un estado **no** recalcula vencimientos; cambiar la prescripción de una calificación **sí** recalcula la de sus causas | Las dos notas del prototipo dicen exactamente eso. Por eso el acto copia los valores del plazo y la causa calcula la prescripción en cada lectura |
@@ -4579,12 +4515,13 @@ antes o durante la implementación.
 | D-36 | El fuero de un estado procesal no es modificable: `PATCH /procedural-states/{stateId}` rechaza `jurisdiction` con `400 VALIDATION_ERROR`, y se retira `PROCEDURAL_STATE_IN_USE`. Revierte D-07 | Decisión del equipo. Un estado figura en la historia de las causas aunque ninguna esté hoy en él, así que el traslado casi nunca procedía y la pantalla no podía anticiparlo. Para trasladarlo: baja y alta en el otro fuero, como en V2 |
 | D-37 | Los códigos de `ProceduralRole` van en castellano: `DEFENSA`, `QUERELLANTE_PARTICULAR`, `RECURRENTE`, `ACTORA` y `DEMANDADA`. Reemplazan a `DEFENSE`, `PRIVATE_PROSECUTOR`, `APPELLANT`, `PLAINTIFF` y `DEFENDANT` | Decisión del equipo (09/10/2026): son los valores que ya usan el backend y la base de datos |
 | D-38 | `startDate` de la causa es anulable: vale `null` mientras la causa no tiene SAC. La regla de entrada no cambia (con SAC es obligatoria, sin SAC no se informa); cambia lo que se guarda | Decisión del equipo (10/10/2026). La fecha de inicio es la de la causa en sede judicial y sin SAC no existe; como la columna era `NOT NULL`, se guardaba la fecha del día, un dato inventado que el detalle de la causa mostraba como real. Ver [C-20](#82-puntos-a-verificar) |
+| D-39 | El alta de cliente y la escritura de estados procesales y de calificaciones legales se abren a cualquier usuario autenticado. Reemplaza a D-04 y D-05 | Matriz de [permisos por perfil](#permisos-por-perfil) del 11/10/2026, acordada por el equipo: administrar clientes, estados procesales y calificaciones legales corresponde a los tres perfiles |
 
 ### 8.2 Puntos a verificar
 
 | ID | Punto | Con quién |
 | --- | --- | --- |
-| C-01 | ~~Alta de cliente solo para `ADMINISTRATOR`~~. **Resuelto** con la tabla de [permisos por perfil](#permisos-por-perfil): el alta de cliente es de `SECRETARY` (D-05). La calificación legal sigue en `ADMINISTRATOR` | - |
+| C-01 | ~~Alta de cliente solo para `ADMINISTRATOR`~~. **Resuelto** con la tabla de [permisos por perfil](#permisos-por-perfil): el alta de cliente pasó a `SECRETARY` (D-05) y, desde el 11/10/2026, a cualquier usuario autenticado, igual que la calificación legal (D-39) | - |
 | C-02 | **Apellido y nombre separados** (observación de la Sprint Review del Sprint 1). El prototipo lo aplica en el listado y en la modificación de usuarios, pero no en el alta de usuario ni en abogados, que siguen con "Nombre y apellido". Este contrato solo lo aplica al cliente, que es nuevo; cambiar `/users` y `/lawyers` rompe el contrato del Sprint 1 y queda fuera del alcance. Conviene decidirlo antes de HU14 (Modificar Abogado, Sprint 3) | Equipo / PO |
 | C-03 | ~~Confirmación de actos pendientes~~. **Resuelto:** solo el abogado registra actos y el acto se aplica al registrarse; no hay actos pendientes ni flujo de confirmación (D-13) | - |
 | C-04 | **¿Cómo llega una causa a "Archivada"?** Los estados terminales no pueden ser destino de un acto, y ninguna historia del Sprint 2 archiva una causa. "Prescripta" llega con HU33 (Sprint 3); para "Archivada" no hay historia | PO |
@@ -4660,7 +4597,8 @@ historias. No tienen endpoint ni campo en esta versión.
 - **Mensajes en castellano.** Los errores de dominio, los mensajes fijos de
   `domain-error.filter.ts` y los de validación de los DTO (`class-validator`)
   deben devolver `message` y `details` en castellano (D-23).
-- **Guards de rol.** `POST /clients` pasa a `SECRETARY` y
+- **Guards de rol.** `POST /clients` y la escritura de `/procedural-states` y
+  de `/legal-qualifications` pasan a cualquier usuario autenticado (D-39), y
   `POST /cases/{caseId}/procedural-acts` y su `deadline-preview` pasan al
   abogado responsable de la causa (D-30), que no es un guard de rol sino una
   comprobación sobre la causa (ver [Permisos por perfil](#permisos-por-perfil)).
