@@ -1,4 +1,5 @@
-import type { ReactNode } from 'react';
+import { useRef, type MouseEvent, type ReactNode } from 'react';
+import { useFocusFirstError } from '../../hooks/useFocusFirstError';
 import { Button } from '../ui/Button';
 import { Modal } from '../ui/Modal';
 import { Field, TextInput, Select, Textarea, Checkbox, FormSection, type SelectOption } from './Field';
@@ -56,6 +57,18 @@ export function FormModal({
 }: FormModalProps) {
   const visible = fields.filter((c) => !c.when || c.when(values));
 
+  /* Al confirmar, al primer campo con error: el cuerpo del modal tiene su
+     propio scroll, y en uno largo (usuarios) el error puede quedar arriba. El
+     contenedor sale del botón porque `Modal` no expone su tarjeta. */
+  const card = useRef<HTMLElement | null>(null);
+  const focusErrors = useFocusFirstError(card, visible.map((c) => c.error ?? ''));
+
+  function confirm(event: MouseEvent<HTMLButtonElement>) {
+    card.current = event.currentTarget.closest('.vz-modal');
+    focusErrors();
+    onConfirm();
+  }
+
   return (
     <Modal
       title={title}
@@ -68,7 +81,7 @@ export function FormModal({
           <Button
             variant={tone === 'danger' ? 'danger' : 'primary'}
             disabled={okDisabled}
-            onClick={onConfirm}
+            onClick={confirm}
           >
             {okLabel}
           </Button>
@@ -92,7 +105,7 @@ export function FormModal({
 
             if (c.type === 'check') {
               return (
-                <div key={k} className={c.width === 'half' ? '' : 'vz-col-full'}>
+                <div key={k} className={`${c.width === 'half' ? '' : 'vz-col-full'} ${c.error ? 'vz-field--error' : ''}`}>
                   <Checkbox
                     label={c.label}
                     checked={Boolean(value)}

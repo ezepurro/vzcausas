@@ -26,11 +26,11 @@ import { ClientHttpMapper } from "../mappers/client-http.mapper";
 /**
  * HTTP entry point for `/clients` (API contract §3.6).
  *
- * Authorization splits the way the contract's permission matrix does:
- * **reading** a client is open to anyone on the staff (CA-9.3, RN11 —
- * there are no clients of restricted visibility), while **registering**
- * one belongs to the Secretary alone (CA-8.9). The two permissions are
- * seeded accordingly.
+ * Authorization: the three profiles read and register clients (matriz
+ * de permisos §5.1, 2026-10-11; RN11 — there are no clients of
+ * restricted visibility). Registering used to be the Secretary's alone
+ * (CA-8.9, D-05). Who holds `client:read` and `client:create` is decided
+ * in `prisma/seed.ts`, not here.
  *
  * Modifying and deleting clients are HU-10 and HU-11, Sprint 4.
  */

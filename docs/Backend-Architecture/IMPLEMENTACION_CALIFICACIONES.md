@@ -22,13 +22,21 @@ calificaciones. Archivos ajenos modificados: **dos, y solo agregando**:
 Nada de `cases` se tocó: ni el stub de calificaciones, ni `CasesModule`,
 ni las tablas de causas para el conteo. Ver `CL-03` y `TL-01`.
 
+**Al 2026-10-11 eso ya cambió, y desde el otro lado.** El autor de
+causas cerró `TL-01`, `CL-02` y `CL-03`: el conteo de causas activas es
+real, el stub desapareció y la paginación emite el código del contrato.
+Las entradas tachadas más abajo dicen cómo. Lo que sigue sin resolver
+son `QL-01` (acentos en la búsqueda), `QL-03`/`CL-01` (la contradicción
+sobre el recálculo de la prescripción), `TL-02` (dos paginadores) y
+`TL-03` (`PATCH` y `DELETE`).
+
 ---
 
 ## 1. Decisiones cerradas
 
 | Id | Decisión | Fecha |
 | --- | --- | --- |
-| L-01 | **Se siguen las convenciones del subsistema, no las propias.** Carpeta `infraestructure` (con la errata), paginador de `src/common/pagination/`, `PaginatedResult<T>`, el estilo de `getStatesQueryDto`. El criterio es que el subsistema se lea como uno solo: dos convenciones conviviendo en la misma carpeta cuesta más que la errata. | 2026-10-08 |
+| L-01 | **Se siguen las convenciones del subsistema, no las propias.** Carpeta `infraestructure` (con la errata), paginador de `src/common/pagination/`, `PaginatedResult<T>`, el estilo de `getStatesQueryDto`. El criterio es que el subsistema se lea como uno solo: dos convenciones conviviendo en la misma carpeta cuesta más que la errata. **La errata se corrigió después en `ef05b92`** y estos archivos se movieron con el resto a `infrastructure`; la decisión de seguir al subsistema es la que hizo que el renombre fuera un solo movimiento y no una reconciliación. | 2026-10-08 |
 | L-02 | **Excepción a L-01: el controlador declara permisos.** El de estados procesales no declara ninguno y cumple la matriz por omisión (C-06 de `people`). CA-48.9 exige una denegación real a Abogado y Secretaría, y eso solo lo produce `@RequirePermissions`. Es la única desviación. | 2026-10-08 |
 | L-03 | **`qualification:read` va a los tres roles; `qualification:create`, solo al Administrador.** Lo primero por §3.5 y D-03, y por una razón propia: el alta de causa, que opera cualquier perfil, ofrece el selector de calificaciones (CA-47.10). Un abogado sin esa lectura no podría registrar una causa penal. Lo segundo lo hereda la regla general del seed, sin entrada propia: `ADMINISTRATOR` se lleva todo lo que no está en `SECRETARY_ONLY`. | 2026-10-08 |
 | L-04 | **`name` no se parte en delito y artículo.** El prototipo los carga en un campo y el buscador filtra por cualquiera de los dos (CA-48.2, CA-47.4). Partirlos obligaría a que la búsqueda recorriera dos columnas para el mismo resultado. El corte de la carátula sugerida (`Hurto simple`) lo hace la interfaz. | 2026-10-08 |
@@ -57,8 +65,8 @@ ni las tablas de causas para el conteo. Ver `CL-03` y `TL-01`.
 | Id | Corrección |
 | --- | --- |
 | CL-01 | **El contrato y el schema se contradicen sobre el recálculo de la prescripción.** Ver QL-03. Uno de los dos textos está mal y el `PATCH` va a implementar el que lea quien lo escriba. |
-| CL-02 | **La paginación devuelve `VALIDATION_ERROR` donde el contrato dice `INVALID_PAGINATION`.** El contrato documenta ese código en seis endpoints; ninguno lo emite, porque el rechazo lo produce el `ValidationPipe` global y el filtro lo traduce por status. No es de estas historias —`/clients` y `/procedural-states` ya se comportaban así— pero está en el contrato sin implementación en ningún lado. **O se corrige el contrato o se corrige el filtro, una vez para todos.** |
-| CL-03 | **`StubLegalQualificationLookupAdapter` sigue en pie, y ahora sin razón de ser.** Era un stub porque no existía el catálogo; HU-48 lo creó. Reemplazarlo es un adaptador en `legal-parameters` exportado desde su módulo, igual que `PROC_STATE_LOOKUP`. No se hizo porque `CasesModule` declara el binding del stub en sus propios `providers` y un proveedor local gana sobre el importado: el adaptador quedaría inerte hasta que esa historia quite el binding. Es la causa de 2 de los 4 tests rojos de `POST /cases` (C-09 de `people`). **Para quien lleve `cases`.** |
+| ~~CL-02~~ | ~~**La paginación devuelve `VALIDATION_ERROR` donde el contrato dice `INVALID_PAGINATION`.**~~ **Resuelta.** Se corrigió el lado del código, no el contrato: el `exceptionFactory` de `app.setup.ts` devuelve `InvalidPaginationError` cuando **todo** lo que falló es paginación, y sigue devolviendo `VALIDATION_ERROR` si además falló un campo del recurso —un `?page=0&search=<300 caracteres>` no puede perder el segundo en el camino—. Se decide ahí porque es el único lugar que sabe qué campos fallaron. Vale para los cinco listados, que extienden `PaginationQueryDto`. El spec de integración de calificaciones ya lo verifica. |
+| ~~CL-03~~ | ~~**`StubLegalQualificationLookupAdapter` sigue en pie, y ahora sin razón de ser.**~~ **Resuelta.** El stub ya no existe: `legal-parameters` expone `CasesLegalParametersLookupAdapter` bajo `LEGAL_PARAMETERS_LOOKUP`, que es un solo token para los estados procesales y las calificaciones, y `CasesModule` lo recibe importado en vez de declarar un proveedor propio que lo tapara. La dependencia quedó mutua —`cases` pide calificaciones y estado inicial, `legal-parameters` pide el conteo— y las dos mitades llevan `forwardRef`. **Los 4 tests rojos de `POST /cases` están verdes**: eran este stub y el de clientes (C-08 y C-09 de `people`, también cerradas). |
 | CL-04 | **El documento de CA marca CA-48.8 para revisar y conviene borrarlo.** El botón "Registrar calificación nueva" del alta de causa es de interfaz: el backend ya lo habilita, porque el `POST` existe y la restricción por perfil que el criterio pide es exactamente CA-48.9. No hay nada que implementar aparte. |
 
 ---

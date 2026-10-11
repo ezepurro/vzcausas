@@ -30,8 +30,8 @@ const ROLES: TestRole[] = ['ADMINISTRATOR', 'LAWYER', 'SECRETARY'];
  *
  * No alcanza con `loginAs`: ese firma el token con los permisos que se
  * le pasen, así que prueba el guard pero no la matriz — diría que un
- * rol puede registrar aunque el seed no le haya dado nada, que es
- * justo lo que CA-48.9 niega. Acá la cadena va entera: seed →
+ * rol puede registrar aunque el seed no le haya dado nada. Acá la
+ * cadena va entera: seed →
  * `role_permissions` → login → claims → guard.
  */
 async function loginWithRole(app: INestApplication, role: TestRole) {
@@ -214,26 +214,16 @@ describe('POST /api/v1/legal-qualifications', () => {
     expect(res.status).toBe(201);
   });
 
-  // ── Acceso (CA-48.9) ──────────────────────────────────────────────
+  // ── Acceso ────────────────────────────────────────────────────────
 
   /**
-   * Con login real: lo que se verifica acá es el **seed**. La
-   * escritura de la parametrización jurídica es del Administrador
-   * solo, porque de ella depende la prescripción de todas las causas.
+   * Con login real: lo que se verifica acá es el **seed**. Desde la
+   * matriz del 2026-10-11 (§5.1) los tres perfiles administran
+   * calificaciones legales. Antes la escritura era solo del
+   * Administrador (CA-48.9, D-04) y los otros dos recibían 403.
    */
-  describe('escritura reservada al Administrador (CA-48.9)', () => {
-    it('el Administrador puede registrar', async () => {
-      const admin = await loginWithRole(app, 'ADMINISTRATOR');
-
-      const res = await request(app.getHttpServer())
-        .post(URL)
-        .set(admin)
-        .send({ name: 'Hurto simple — art. 162 CP', prescriptionMonths: 24 });
-
-      expect(res.status).toBe(201);
-    });
-
-    it.each<TestRole>(['LAWYER', 'SECRETARY'])('%s no puede registrar', async (role) => {
+  describe('escritura abierta a todos los perfiles', () => {
+    it.each(ROLES)('%s puede registrar', async (role) => {
       const auth = await loginWithRole(app, role);
 
       const res = await request(app.getHttpServer())
@@ -241,20 +231,7 @@ describe('POST /api/v1/legal-qualifications', () => {
         .set(auth)
         .send({ name: `Hurto simple ${role} — art. 162 CP`, prescriptionMonths: 24 });
 
-      expect(res.status).toBe(403);
-    });
-
-    /** Y no por haber fallado la validación: nada se persistió. */
-    it('el rechazo no registra nada', async () => {
-      const auth = await loginWithRole(app, 'LAWYER');
-
-      await request(app.getHttpServer())
-        .post(URL)
-        .set(auth)
-        .send({ name: 'Encubrimiento — art. 277 CP', prescriptionMonths: 36 })
-        .expect(403);
-
-      expect(await getPrisma().legalQualification.count()).toBe(0);
+      expect(res.status).toBe(201);
     });
   });
 
@@ -302,9 +279,10 @@ describe('GET /api/v1/legal-qualifications', () => {
         id: saved.id,
         name: 'Abuso de armas — art. 104 CP',
         prescriptionMonths: 78,
-        // CA-47.8 NO se cumple: el conteo real exige cruzar `offenses`
-        // y `cases`, y antes que eso exige que `cases` defina qué es
-        // una causa activa. Ver el comentario del mapper y T-01.
+        // Cero porque esta calificación no tiene causas, no porque el
+        // campo esté clavado: el conteo es real desde `57f6f92`, que
+        // abrió `ActiveCasesCounterPort`. Los conteos distintos de
+        // cero se verifican más abajo, al final del spec.
         activeCases: 0,
         active: true,
       },
