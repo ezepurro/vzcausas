@@ -21,6 +21,7 @@ export type UserRow = {
   lawyerId: number | null;
   lastLoginAt: Date | null;
   active: boolean;
+  deletedAt: Date | null;
   roles: { roleId: number }[];
 };
 
@@ -47,5 +48,6 @@ export function toDomainUser(row: UserRow): User {
     lawyerId: row.lawyerId,
     lastLoginAt: row.lastLoginAt,
     active: row.active,
+    deletedAt: row.deletedAt,
   });
 }

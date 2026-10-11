@@ -58,6 +58,7 @@ export class PrismaUserRepository implements UserRepository {
         lawyerId: user.lawyerId,
         lastLoginAt: user.lastLoginAt,
         active: user.isActive(),
+        deletedAt: user.deletedAt,
         roles: {
           deleteMany: {},
           create: user.roleIds.map((roleId) => ({ roleId })),

@@ -50,12 +50,17 @@ export class User {
     private _lawyerId: number | null,
     private _lastLoginAt: Date | null,
     private _active: boolean,
+    private _deletedAt: Date | null,
   ) {}
 
   /**
    * Rebuilds a {@link User} from persisted data. Skips creation-time
    * validation because the database is trusted to hold well-formed
    * records.
+   *
+   * `deletedAt` is required, not optional, on purpose: an optional field
+   * would let a mapper forget it and silently rebuild every deactivated
+   * user with no date — the very bug CA-7.1 was about.
    */
   static hydrate(props: {
     id: number;
@@ -67,6 +72,7 @@ export class User {
     lawyerId: number | null;
     lastLoginAt: Date | null;
     active: boolean;
+    deletedAt: Date | null;
   }): User {
     return new User(
       props.id,
@@ -78,6 +84,7 @@ export class User {
       props.lawyerId,
       props.lastLoginAt,
       props.active,
+      props.deletedAt,
     );
   }
 
@@ -162,6 +169,7 @@ export class User {
       props.lawyerId,
       null,
       props.active ?? true,
+      null,
     );
   }
 
@@ -252,17 +260,23 @@ export class User {
   }
 
   /**
-   * HU7 — logical deletion (RN12). The record is kept; only the
-   * vigency flag flips. There is deliberately no counterpart:
-   * *"No existe forma de consultarlo ni de reactivarlo desde la API"*
-   * (API contract §3.2, `DELETE /users/{userId}`).
+   * HU7 — logical deletion (RN12). The record is kept; the vigency
+   * flag flips and the moment is recorded (CA-7.1). There is
+   * deliberately no counterpart: *"No existe forma de consultarlo ni de
+   * reactivarlo desde la API"* (API contract §3.2,
+   * `DELETE /users/{userId}`).
+   *
+   * The instant comes from the caller and not from `new Date()`: the
+   * entity does not read the clock, so the use case can pass the
+   * system's `ClockPort` and a test can pass a fixed one.
    *
    * Whether an already-deactivated user may be deactivated again is
    * not this entity's call — the use case rejects that as "not
    * found", the same way {@link GetUserUseCase} does.
    */
-  deactivate(): void {
+  deactivate(at: Date): void {
     this._active = false;
+    this._deletedAt = at;
   }
 
   changeLawyerId(newLawyerId: number | null): void {
@@ -308,6 +322,11 @@ export class User {
 
   isActive(): boolean {
     return this._active;
+  }
+
+  /** When the user was deactivated (CA-7.1), or `null` while active. */
+  get deletedAt(): Date | null {
+    return this._deletedAt;
   }
 
   /**

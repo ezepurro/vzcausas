@@ -1,4 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
+import { CLOCK, ClockPort } from "@shared/domain/clock.port";
 import {
   LastAdministratorError,
   UserNotFoundError,
@@ -16,7 +17,8 @@ export type DeactivateUserCommand = { id: number };
 
 /**
  * HU7 — logically deletes a user (RN12). The record survives with
- * `active: false`; for the client the user simply ceases to exist.
+ * `active: false` and the moment of the deactivation in `deleted_at`
+ * (CA-7.1); for the client the user simply ceases to exist.
  *
  * Deactivating an already-deactivated user is rejected as "not
  * found", not as a no-op: per the API contract that user is already
@@ -44,6 +46,7 @@ export class DeactivateUserUseCase {
     @Inject(ROLE_REPOSITORY) private readonly roleRepository: RoleRepository,
     @Inject(REFRESH_TOKEN_STORE)
     private readonly refreshTokens: RefreshTokenStore,
+    @Inject(CLOCK) private readonly clock: ClockPort,
   ) {}
 
   async execute(command: DeactivateUserCommand): Promise<void> {
@@ -54,7 +57,7 @@ export class DeactivateUserUseCase {
 
     await this.assertNotLastAdministrator(user.roleIds);
 
-    user.deactivate();
+    user.deactivate(this.clock.now());
     await this.users.save(user);
     await this.refreshTokens.revokeAllForUser(user.id);
   }

@@ -44,10 +44,41 @@ describe("User", () => {
         lawyerId: null,
         lastLoginAt: null,
         active: true,
+        deletedAt: null,
       });
       expect(user.id).toBe(1);
       expect(user.isActive()).toBe(true);
       expect(user.lastLoginAt).toBeNull();
+    });
+
+    it("keeps the deactivation date it was given", () => {
+      const deletedAt = new Date("2026-10-01T09:00:00-03:00");
+      const user = User.hydrate({
+        id: 1,
+        username,
+        passwordHash: "anything",
+        fullName: "Fernando Vázquez",
+        email,
+        roleIds: [1],
+        lawyerId: null,
+        lastLoginAt: null,
+        active: false,
+        deletedAt,
+      });
+      expect(user.deletedAt).toEqual(deletedAt);
+    });
+  });
+
+  // CA-7.1
+  describe("deactivate", () => {
+    it("flips the vigency flag and records the instant it receives", async () => {
+      const user = await User.create(baseCreateProps, hasher);
+      const at = new Date("2026-10-11T15:30:00-03:00");
+
+      user.deactivate(at);
+
+      expect(user.isActive()).toBe(false);
+      expect(user.deletedAt).toEqual(at);
     });
   });
 

@@ -45,12 +45,18 @@ describe("DeactivateUserUseCase", () => {
     return user;
   }
 
+  const NOW = new Date("2026-10-11T15:30:00-03:00");
+  const clock = {
+    now: () => NOW,
+    today: () => new Date(Date.UTC(2026, 9, 11)),
+  };
+
   function build() {
     const users = new FakeUserRepository();
     const roles = new FakeRoleRepository();
     const refreshTokens = new FakeRefreshTokenStore();
     return {
-      useCase: new DeactivateUserUseCase(users, roles, refreshTokens),
+      useCase: new DeactivateUserUseCase(users, roles, refreshTokens, clock),
       users,
       refreshTokens,
     };
@@ -65,6 +71,29 @@ describe("DeactivateUserUseCase", () => {
     expect(user.isActive()).toBe(false);
     expect(users.saved).toHaveLength(1);
     expect(refreshTokens.revokedForUsers).toEqual([1]);
+  });
+
+  // CA-7.1
+  it("records when the user was deactivated, taken from the clock", async () => {
+    const { useCase, users } = build();
+    const user = await seedUser(users);
+    expect(user.deletedAt).toBeNull();
+
+    await useCase.execute({ id: 1 });
+
+    expect(user.deletedAt).toEqual(NOW);
+    expect(users.saved[0].deletedAt).toEqual(NOW);
+  });
+
+  it("leaves the date untouched when the deactivation is refused", async () => {
+    const { useCase, users } = build();
+    const admin = await seedUser(users, { id: 1, roleIds: [ADMIN] });
+
+    await expect(useCase.execute({ id: 1 })).rejects.toBeInstanceOf(
+      LastAdministratorError,
+    );
+
+    expect(admin.deletedAt).toBeNull();
   });
 
   it("throws UserNotFoundError when no user matches the id", async () => {
