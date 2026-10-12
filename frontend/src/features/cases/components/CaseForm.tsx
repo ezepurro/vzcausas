@@ -61,10 +61,6 @@ export interface CaseFormProps {
     onNewClient: () => void
     /** "Registrar calificación nueva". */
     onNewQualification: () => void
-    /** Sólo `SECRETARY` registra clientes (V3 D-05). */
-    canCreateClient: boolean
-    /** Sólo `ADMINISTRATOR` registra calificaciones (V3 D-04). */
-    canCreateQualification: boolean
     /** true mientras la mutación está en vuelo: bloquea el confirmar */
     saving: boolean
     onConfirm: () => void
@@ -108,7 +104,7 @@ const SUBJECT_MATTER_TEXT: Record<Exclude<Jurisdiction, 'CRIMINAL'>, { label: st
 export function CaseForm({
     values, errors, onChange, onSacNumberChange, onJurisdictionChange, clientOptions, lawyerOptions,
     selectedQualifications, qualificationOptions, onAddQualification, onRemoveQualification,
-    onOffenseDateChange, onNewClient, onNewQualification, canCreateClient, canCreateQualification,
+    onOffenseDateChange, onNewClient, onNewQualification,
     saving, onConfirm, onCancel,
 }: CaseFormProps) {
     const hasSac = values.sacNumber.trim() !== ''
@@ -233,8 +229,6 @@ export function CaseForm({
                             <Button
                                 variant="secondary"
                                 size="md"
-                                disabled={!canCreateClient}
-                                title={canCreateClient ? undefined : 'Sólo la Secretaría puede registrar clientes.'}
                                 onClick={onNewClient}
                             >
                                 Registrar cliente nuevo
@@ -272,7 +266,6 @@ export function CaseForm({
                                 dateErrors={errors.offenseDates}
                                 maxDate={todayIsoDate()}
                                 onCreate={onNewQualification}
-                                canCreate={canCreateQualification}
                             />
                         </Field>
                     ) : (

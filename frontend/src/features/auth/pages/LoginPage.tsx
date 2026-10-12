@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { isApiError } from '@/shared/api/ApiError'
+import { useFocusFirstError } from '@/shared/hooks/useFocusFirstError'
 import { useAuth } from '@/app/providers/AuthContext'
 import { useCountdown } from '@/shared/hooks/useCountdown'
 import { useLogin } from '@/features/auth/api/useLogin'
@@ -47,6 +48,10 @@ export function LoginPage() {
             setRetryAfterSeconds(null)
         }
     }
+
+    const panelRef = useRef<HTMLDivElement>(null)
+    // En el celular el panel puede quedar corrido: al confirmar, al primer error.
+    const focusErrors = useFocusFirstError(panelRef, errors)
 
     const login = useLogin()
 
@@ -111,6 +116,7 @@ export function LoginPage() {
         // realmente impide el pedido, no sólo la visual.
         if (lockedSecondsRemaining !== null) return
 
+        focusErrors()
         const found = validateLogin(values)
         setErrors(found)
         if (Object.keys(found).length > 0) return
@@ -131,7 +137,7 @@ export function LoginPage() {
     return (
         <div className="vz-login">
             <LoginAside />
-            <div className="vz-login__panel">
+            <div className="vz-login__panel" ref={panelRef}>
                 <LoginForm
                     values={values}
                     errors={errors}

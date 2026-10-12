@@ -63,56 +63,49 @@ const PERMISSIONS = [
 ] as const;
 
 /**
- * Reading is open to the whole firm.
+ * What the whole firm operates, Administrator included (matriz de
+ * permisos §5.1, revisión del 2026-10-11).
  *
- * The contract's per-resource matrix puts `/clients` and `/lawyers`
- * reads at "cualquier usuario autenticado", and RN11 says why: the
- * whole firm sees everything, the difference between profiles is what
- * they may **operate**, not what they may **see**. CA-9.3 restates it
- * for clients.
+ * Reading is open for the reason RN11 gives: the whole firm sees
+ * everything. Since that revision the three profiles also administer
+ * clients, procedural states and legal qualifications. Before it,
+ * registering clients was the Secretary's alone (D-05) and writing the
+ * legal parameters the Administrator's alone (D-04); both decisions are
+ * superseded.
  *
- * `/legal-qualifications` joins them by §3.5 and D-03, and for a
- * second reason of its own: the case registration form, which any
- * profile operates, offers the qualification selector (CA-47.1,
- * CA-47.10). A Lawyer who could not read the catalogue could not
- * register a criminal case at all.
+ * Listed one by one on purpose, rather than as "everything but the
+ * Administrator's": a permission added to the catalogue tomorrow goes to
+ * nobody but `ADMINISTRATOR` until someone decides otherwise. If this
+ * list is wrong, it fails closed.
+ *
+ * `qualification:update` and `qualification:delete` are absent because
+ * they do not exist yet: HU-49 and HU-50 have no endpoint.
  */
-const ANY_AUTHENTICATED = ['client:read', 'lawyer:read', 'qualification:read'];
+const STAFF = [
+  'client:read',
+  'client:create',
+  'lawyer:read',
+  'qualification:read',
+  'qualification:create',
+  'procedural-state:create',
+  'procedural-state:update',
+  'procedural-state:delete',
+];
 
 /**
- * Permissions reserved for `SECRETARY`, and **withheld from
- * `ADMINISTRATOR`**.
+ * The permission matrix, in three lines.
  *
- * CA-8.9 is explicit: an Administrator or a Lawyer attempting to
- * register a client must be denied, because administering clients
- * belongs to the Secretary alone (contract §3.6, decision D-05).
- * Without this exclusion the rule below would hand Administrator
- * every permission in the catalogue and the criterion would fail
- * silently — the endpoint would answer 201 to the wrong role.
- */
-const SECRETARY_ONLY = ['client:create'];
-
-/**
- * The contract's permission matrix, in three lines.
+ * `ADMINISTRATOR` holds the whole catalogue: on top of what everyone
+ * operates, it alone administers users and registers, modifies and
+ * deactivates lawyers (§5.1). The other two operate the same set.
  *
- * `ADMINISTRATOR` administers users and lawyers (§3.2, §3.3) and so
- * holds everything except what belongs to the Secretary. The other
- * two carry the open reads, which is what lets a Lawyer consult the
- * client and lawyer listings — before HU-9 this list was empty and
- * both endpoints answered 403 to them, against the matrix.
- *
- * `qualification:create` needs no entry of its own: the general rule
- * hands it to `ADMINISTRATOR` and withholds it from the other two,
- * which is exactly CA-48.9 — writing the legal parameters is the
- * Administrator's alone, because the whole firm's prescription terms
- * rest on them.
+ * Registering procedural acts is not here: it depends on being the
+ * case's responsible lawyer, not on a role, and the use case checks it.
  */
 const ROLE_PERMISSIONS: Record<string, readonly string[]> = {
-  ADMINISTRATOR: PERMISSIONS.map((p) => p.name).filter(
-    (name) => !SECRETARY_ONLY.includes(name),
-  ),
-  LAWYER: ANY_AUTHENTICATED,
-  SECRETARY: [...ANY_AUTHENTICATED, ...SECRETARY_ONLY],
+  ADMINISTRATOR: PERMISSIONS.map((p) => p.name),
+  LAWYER: STAFF,
+  SECRETARY: STAFF,
 };
 
 const connectionString = process.env.DATABASE_URL;

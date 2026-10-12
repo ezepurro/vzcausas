@@ -15,13 +15,6 @@ import {
   FakeUserRepository,
 } from "./test-support/identity-fakes";
 
-/** Fixed instant, so CA-7.1's timestamp is assertable. */
-const NOW = new Date("2026-10-11T12:00:00.000Z");
-const clock: ClockPort = {
-  now: () => NOW,
-  today: () => new Date("2026-10-11T00:00:00.000Z"),
-};
-
 describe("DeactivateUserUseCase", () => {
   const hasher = new FakeHasher();
   const ADMIN = FAKE_ROLE_IDS_BY_NAME.ADMINISTRATOR;
@@ -53,6 +46,13 @@ describe("DeactivateUserUseCase", () => {
     return user;
   }
 
+  /** Fixed instant, so CA-7.1's timestamp is assertable. */
+  const NOW = new Date("2026-10-11T15:30:00-03:00");
+  const clock: ClockPort = {
+    now: () => NOW,
+    today: () => new Date(Date.UTC(2026, 9, 11)),
+  };
+
   function build() {
     const users = new FakeUserRepository();
     const roles = new FakeRoleRepository();
@@ -75,20 +75,16 @@ describe("DeactivateUserUseCase", () => {
     expect(refreshTokens.revokedForUsers).toEqual([1]);
   });
 
-  it("records when the user was deactivated (CA-7.1)", async () => {
+  // CA-7.1
+  it("records when the user was deactivated, taken from the clock", async () => {
     const { useCase, users } = build();
     const user = await seedUser(users);
+    expect(user.deletedAt).toBeNull();
 
     await useCase.execute({ id: 1 });
 
     expect(user.deletedAt).toEqual(NOW);
-  });
-
-  it("leaves deletedAt null while the user is active", async () => {
-    const { users } = build();
-    const user = await seedUser(users);
-
-    expect(user.deletedAt).toBeNull();
+    expect(users.saved[0].deletedAt).toEqual(NOW);
   });
 
   it("does not stamp a date when the deactivation is refused", async () => {
@@ -100,6 +96,7 @@ describe("DeactivateUserUseCase", () => {
     await expect(useCase.execute({ id: 1 })).rejects.toBeInstanceOf(
       LastAdministratorError,
     );
+
     expect(admin.deletedAt).toBeNull();
   });
 

@@ -128,9 +128,12 @@ describe('ClientsPage', () => {
     })
 
     describe('quién puede registrar (HU-8)', () => {
-        /* CA-8.7: administrar clientes es sólo de la Secretaría (V3 D-05). */
+        /* Administrar clientes es de los tres perfiles (V3 §4, matriz del
+           11/10/2026, D-39). */
         it.each([
             ['la Secretaría', 'gestion'],
+            ['un abogado', 'mrios'],
+            ['el Administrador', 'supervision'],
         ])('%s tiene habilitado "Registrar cliente"', async (_, username) => {
             renderPage(username)
             await screen.findByText(FIRST)
@@ -180,6 +183,8 @@ describe('ClientsPage', () => {
             expect(within(dialog).getByText('El apellido es obligatorio.')).toBeInTheDocument()
             expect(within(dialog).getByText('Los nombres son obligatorios.')).toBeInTheDocument()
             expect(within(dialog).getByText('El DNI es obligatorio.')).toBeInTheDocument()
+            // `FormModal` lleva al primer campo con error.
+            expect(within(dialog).getByLabelText(/^apellido/i)).toHaveFocus()
             expect(db.clients).toHaveLength(CLIENTS.length)
         })
 
@@ -195,6 +200,8 @@ describe('ClientsPage', () => {
                 await within(dialog).findByText('Ya existe un cliente registrado con ese DNI.'),
             ).toBeInTheDocument()
             expect(within(dialog).getByLabelText(/^dni/i).closest('.vz-field')).toHaveClass('vz-field--error')
+            // También cuando el error llega del servidor.
+            await waitFor(() => expect(within(dialog).getByLabelText(/^dni/i)).toHaveFocus())
             expect(screen.getByRole('dialog')).toBeInTheDocument()
             // Lo que ya se cargó no se pierde.
             expect(within(dialog).getByLabelText(/^apellido/i)).toHaveValue('ALBORNOZ')

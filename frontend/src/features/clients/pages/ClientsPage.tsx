@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { isApiError } from '@/shared/api/ApiError'
-import { useCan } from '@/app/access/useCan'
 import { useToast } from '@/app/providers/ToastContext'
 import {
     Button,
@@ -30,7 +29,6 @@ const EMPTY_FORM: ClientFormValues = {
 }
 export function ClientsPage() {
     const toast = useToast()
-    const canCreate = useCan('clients.create')
 
     //PAGINACION Y BUSQUEDA
     const [page, setPage] = useState(1)
@@ -106,7 +104,6 @@ export function ClientsPage() {
                     <Button
                         icon={<Icon name="plus" />}
                         size="md"
-                        disabled={!canCreate}
                         onClick={openCreate}
                     >
                         Registrar cliente

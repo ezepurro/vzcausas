@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
-import { useCan } from '@/app/access/useCan'
 import { useToast } from '@/app/providers/ToastContext'
 import { isApiError } from '@/shared/api/ApiError'
 import { Breadcrumbs, PageHeader } from '@/shared/components/ui'
+import { useFocusFirstError } from '@/shared/hooks/useFocusFirstError'
 import type { SelectOption } from '@/shared/components/forms'
 import {
     ClientFormModal,
@@ -74,12 +74,15 @@ type Modal = { kind: 'client' } | { kind: 'qualification' } | null
 export function RegisterCasePage() {
     const navigate = useNavigate()
     const toast = useToast()
-    const canCreateClient = useCan('clients.create')
-    const canCreateQualification = useCan('legalQualifications.create')
 
     const [values, setValues] = useState<CaseFormValues>(emptyCaseForm)
     const [errors, setErrors] = useState<CaseFormErrors>({})
     const [modal, setModal] = useState<Modal>(null)
+    const formRef = useRef<HTMLDivElement>(null)
+
+    /* El que confirma está abajo, junto al botón: si hay errores, sean de
+       `validateCase` o del servidor, se lo lleva al primero. */
+    const focusErrors = useFocusFirstError(formRef, errors)
 
     const clientsQuery = useClients({ page: 1, limit: OPTIONS_LIMIT })
     const lawyersQuery = useLawyers({ page: 1, limit: OPTIONS_LIMIT })
@@ -204,6 +207,7 @@ export function RegisterCasePage() {
     }
 
     function submit() {
+        focusErrors()
         const found = validateCase(values)
         setErrors(found)
         if (!isValid(found)) return
@@ -230,7 +234,7 @@ export function RegisterCasePage() {
                 sub={`La causa nace en el estado ${INITIAL_STATE_LABEL}. El primer acto procesal que registre el abogado responsable la hace entrar al ciclo de vida del fuero.`}
             />
 
-            <div className="vz-split">
+            <div className="vz-split" ref={formRef}>
                 <CaseForm
                     values={values}
                     errors={errors}
@@ -250,8 +254,6 @@ export function RegisterCasePage() {
                     onOffenseDateChange={changeOffenseDate}
                     onNewClient={() => setModal({ kind: 'client' })}
                     onNewQualification={() => setModal({ kind: 'qualification' })}
-                    canCreateClient={canCreateClient}
-                    canCreateQualification={canCreateQualification}
                     saving={create.isPending}
                     onConfirm={submit}
                     onCancel={goToList}

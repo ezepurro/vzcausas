@@ -1,10 +1,11 @@
-import { useState, type ReactNode } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { useCurrentUser } from '@/app/providers/AuthContext'
 import { useToast } from '@/app/providers/ToastContext'
 import { isApiError } from '@/shared/api/ApiError'
 import { Breadcrumbs, Button, Panel, type BreadcrumbItem } from '@/shared/components/ui'
 import type { ComboboxOption } from '@/shared/components/forms'
+import { useFocusFirstError } from '@/shared/hooks/useFocusFirstError'
 import { formatDate, todayIsoDate } from '@/shared/lib/dates'
 import {
     CaseHeader,
@@ -106,6 +107,9 @@ function RegisterProceduralAct({ case: c }: { case: Case }) {
         manualDueDate: '',
     }))
     const [errors, setErrors] = useState<ProceduralActErrors>({})
+    const formRef = useRef<HTMLDivElement>(null)
+    // El vencimiento manual está en el panel lateral: el contenedor lo incluye.
+    const focusErrors = useFocusFirstError(formRef, errors)
 
     const statesQuery = useProceduralStates({ page: 1, limit: STATES_LIMIT, jurisdiction })
     const states = statesQuery.data?.data ?? []
@@ -170,6 +174,7 @@ function RegisterProceduralAct({ case: c }: { case: Case }) {
     /* ---------------- registro ---------------- */
 
     function submit() {
+        focusErrors()
         const found = validateProceduralAct(values, { jurisdiction, opensTerm: opensTerm(selected) })
         setErrors(found)
         if (!isValid(found)) return
@@ -214,7 +219,7 @@ function RegisterProceduralAct({ case: c }: { case: Case }) {
         )
     } else {
         content = (
-            <div className="vz-split">
+            <div className="vz-split" ref={formRef}>
                 <ProceduralActForm
                     values={values}
                     errors={errors}

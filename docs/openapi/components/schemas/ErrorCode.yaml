@@ -19,6 +19,7 @@ description: |
   | `LEGAL_QUALIFICATION_NOT_FOUND`      | 404  | Calificación legal inexistente                                            |
   | `CLIENT_NOT_FOUND`                   | 404  | Cliente inexistente                                                       |
   | `CASE_NOT_FOUND`                     | 404  | Causa inexistente                                                         |
+  | `PROCEDURAL_ACT_NOT_FOUND`           | 404  | Acto procesal inexistente o de otra causa                                 |
   | `RESOURCE_NOT_FOUND`                 | 404  | Ruta inexistente                                                          |
   | `USERNAME_ALREADY_EXISTS`            | 409  | Nombre de usuario ya registrado                                           |
   | `EMAIL_ALREADY_EXISTS`               | 409  | Correo electrónico ya registrado                                          |
@@ -50,6 +51,7 @@ enum:
   - LEGAL_QUALIFICATION_NOT_FOUND
   - CLIENT_NOT_FOUND
   - CASE_NOT_FOUND
+  - PROCEDURAL_ACT_NOT_FOUND
   - RESOURCE_NOT_FOUND
   - USERNAME_ALREADY_EXISTS
   - EMAIL_ALREADY_EXISTS

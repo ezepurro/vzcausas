@@ -174,6 +174,7 @@ import { ApiError, isApiError } from '@/shared/api/ApiError';
 | Diálogo libre / confirmación con contenido propio | `Modal` | `FormModal` sin `fields` también sirve |
 | Campo dentro de un form propio | `Field` + `TextInput`/`Select`/`Textarea`/`Checkbox` | |
 | Agrupar campos | `FormSection` | Dentro de `.vz-form-grid` |
+| Llevar al primer campo con error al confirmar | `const focusErrors = useFocusFirstError(ref, errors)` de `@/shared/hooks/useFocusFirstError`, y `focusErrors()` al principio del `submit` | Centra el primer `.vz-field--error` del contenedor y le da foco, también si el error llega del servidor. `FormModal` ya lo hace solo |
 | Filtros sobre una tabla | `Panel actions={...}` | Se renderiza en `.vz-filters` |
 | Paginar una tabla | `Pagination` | Va en `Panel footer={...}` |
 | Buscador de un listado | `SearchInput` + `useDebouncedValue` de `@/shared/hooks/useDebouncedValue` | El input muestra el texto al instante; a la consulta va el valor demorado, así no sale un pedido por tecla |
@@ -196,7 +197,7 @@ import { ApiError, isApiError } from '@/shared/api/ApiError';
 | Iconos | `Icon name="..."` | Sólo los nombres de `ICONS` |
 | Estado vacío de tabla | `DataTable empty={...}` con clases `.vz-empty` | **No hay componente**, ver Observaciones |
 | Avisos / toasts | `useToast()` de `@/app/providers/ToastContext` | **Vive fuera de shared** |
-| Deshabilitar un botón que es de un solo perfil | `useCan('clients.create')` de `@/app/access/useCan` | **Vive fuera de shared.** Nunca `roles.includes(...)` en un componente |
+| Deshabilitar un botón que es de un solo perfil | `useCan('lawyers.create')` de `@/app/access/useCan` | **Vive fuera de shared.** Nunca `roles.includes(...)` en un componente |
 | Marcar un campo como opcional | `Field` sin `required` | No hay marca de "(opcional)": el asterisco señala lo obligatorio |
 | Cache y fetching | `queryClient` ya configurado en `QueryProvider` | No crear otro `QueryClient` |
 | Llamar al backend | `http` | Nunca `fetch` ni `axios` directo |
@@ -928,7 +929,7 @@ directa (no tienen barrel).
 | `AuthProvider` | `@/app/providers/AuthProvider.tsx` | Monta la sesión y le enchufa a `http` cómo renovar y qué hacer al quedar afuera |
 | `QueryProvider` | `@/app/providers/QueryProvider.tsx` | Monta `queryClient` + devtools |
 | `ROUTE_ACCESS` / `canAccess` / `useCanAccess` | `@/app/access/access.ts`, `useCanAccess.ts` | Quién ve cada sección: de ahí leen el rail y `RequireAccess` |
-| `ACTION_ACCESS` / `can` / `useCan` | `@/app/access/access.ts`, `useCan.ts` | Quién opera una acción de una pantalla que ven todos: "Registrar cliente" es sólo de la Secretaría |
+| `ACTION_ACCESS` / `can` / `useCan` | `@/app/access/access.ts`, `useCan.ts` | Quién opera una acción de una pantalla que ven todos: "Registrar abogado" es sólo del Administrador |
 | `AppLayout` / `AuthLayout` / `NotFoundLayout` | `@/app/layouts/` | Marco con sesión, sin sesión y para las rutas desconocidas |
 | `RequireSession` / `RedirectIfSession` | `@/app/router/` | Las guardas: sin sesión al login, con sesión fuera del login |
 | `router` | `@/app/router/index.tsx` | Rutas; las pantallas nuevas se registran acá |

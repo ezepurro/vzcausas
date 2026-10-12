@@ -57,11 +57,11 @@ info:
     | `/auth`                           | -                                                     | Cualquier usuario autenticado (`logout`, `password`) |
     | `/users`                          | `ADMINISTRATOR`                                       | `ADMINISTRATOR`                                      |
     | `/lawyers`                        | Cualquier usuario autenticado                         | `ADMINISTRATOR`                                      |
-    | `/procedural-states`              | Cualquier usuario autenticado                         | `ADMINISTRATOR`                                      |
-    | `/legal-qualifications`           | Cualquier usuario autenticado                         | `ADMINISTRATOR`                                      |
-    | `/clients`                        | Cualquier usuario autenticado                         | `SECRETARY`                                          |
+    | `/procedural-states`              | Cualquier usuario autenticado                         | Cualquier usuario autenticado                        |
+    | `/legal-qualifications`           | Cualquier usuario autenticado                         | Cualquier usuario autenticado                        |
+    | `/clients`                        | Cualquier usuario autenticado                         | Cualquier usuario autenticado                        |
     | `/cases`                          | Cualquier usuario autenticado                         | Cualquier usuario autenticado                        |
-    | `/cases/{caseId}/procedural-acts` | Abogado responsable de la causa (`deadline-preview`) | Abogado responsable de la causa                      |
+    | `/cases/{caseId}/procedural-acts` | Cualquier usuario autenticado; `deadline-preview`, solo el abogado responsable | Abogado responsable de la causa |
 
     RN11: todo el estudio accede a todas las causas. La diferencia entre
     perfiles está en lo que pueden **operar**, no en lo que pueden **ver**.
@@ -160,19 +160,19 @@ tags:
       escritura para `ADMINISTRATOR`.
   - name: Procedural States
     description: |
-      Tabla de estados y plazos de cada fuero (RN4). Lectura para cualquier
-      usuario autenticado; escritura para `ADMINISTRATOR`. Cada fuero tiene
+      Tabla de estados y plazos de cada fuero (RN4). Lectura y escritura para
+      cualquier usuario autenticado. Cada fuero tiene
       además el estado de sistema "Iniciada", que no forma parte de este
       recurso.
   - name: Legal Qualifications
     description: |
       Encuadre jurídico del hecho imputado; determina el plazo de
-      prescripción de la acción. Lectura para cualquier usuario autenticado;
-      escritura para `ADMINISTRATOR`.
+      prescripción de la acción. Lectura y escritura para cualquier usuario
+      autenticado.
   - name: Clients
     description: |
-      Clientes del estudio. Lectura para cualquier usuario autenticado; alta
-      para `SECRETARY`. Modificación y baja (HU10 y HU11) llegan en el
+      Clientes del estudio. Lectura y alta para cualquier usuario
+      autenticado. Modificación y baja (HU10 y HU11) llegan en el
       Sprint 4.
   - name: Cases
     description: |
@@ -222,6 +222,8 @@ paths:
     $ref: paths/cases@{caseId}@procedural-acts.yaml
   /cases/{caseId}/procedural-acts/deadline-preview:
     $ref: paths/cases@{caseId}@procedural-acts@deadline-preview.yaml
+  /cases/{caseId}/procedural-acts/{actId}:
+    $ref: paths/cases@{caseId}@procedural-acts@{actId}.yaml
 
 components:
   securitySchemes:

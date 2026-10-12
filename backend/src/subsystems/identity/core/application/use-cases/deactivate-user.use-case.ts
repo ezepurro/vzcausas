@@ -17,7 +17,8 @@ export type DeactivateUserCommand = { id: number };
 
 /**
  * HU7 — logically deletes a user (RN12). The record survives with
- * `active: false`; for the client the user simply ceases to exist.
+ * `active: false` and the moment of the deactivation in `deleted_at`
+ * (CA-7.1); for the client the user simply ceases to exist.
  *
  * Deactivating an already-deactivated user is rejected as "not
  * found", not as a no-op: per the API contract that user is already

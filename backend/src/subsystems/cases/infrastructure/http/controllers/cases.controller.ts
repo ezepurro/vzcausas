@@ -3,15 +3,18 @@ import { AuthenticatedUser } from '@shared/domain/authenticated-user';
 import { CurrentUser } from '@shared/infrastructure/http/current-user.decorator';
 import { PaginatedResponse, paginate, toPageRequest } from '@shared/infrastructure/http/pagination';
 import { GetCase } from '../../../core/application/use-cases/get-case.use-case';
+import { GetProceduralAct } from '../../../core/application/use-cases/get-procedural-act.use-case';
 import { ListCases } from '../../../core/application/use-cases/list-cases.use-case';
 import { ListCustomStates } from '../../../core/application/use-cases/list-custom-states.use-case';
+import { ListProceduralActs } from '../../../core/application/use-cases/list-procedural-acts.use-case';
 import { RegisterCase } from '../../../core/application/use-cases/register-case.use-case';
 import { RegisterProceduralAct } from '../../../core/application/use-cases/register-procedural-act.use-case';
-import { InvalidCaseIdError } from '../../../core/domain/errors/case.errors';
+import { InvalidCaseIdError, InvalidProceduralActIdError } from '../../../core/domain/errors/case.errors';
 import { CaseResponseDto } from '../dtos/case.response.dto';
 import { DeadlinePreviewQueryDto } from '../dtos/deadline-preview.query.dto';
 import { DeadlinePreviewResponseDto } from '../dtos/deadline-preview.response.dto';
 import { ListCasesQueryDto } from '../dtos/list-cases.query.dto';
+import { ListProceduralActsQueryDto } from '../dtos/list-procedural-acts.query.dto';
 import { ProceduralActResponseDto } from '../dtos/procedural-act.response.dto';
 import { RegisterCaseRequestDto } from '../dtos/register-case.request.dto';
 import { CaseHttpMapper } from '../mappers/case-http.mapper';
@@ -35,6 +38,8 @@ export class CasesController {
     private readonly getCase: GetCase,
     private readonly listCustomStates: ListCustomStates,
     private readonly registerProceduralAct: RegisterProceduralAct,
+    private readonly listProceduralActs: ListProceduralActs,
+    private readonly getProceduralAct: GetProceduralAct,
     private readonly proceduralActMapper: ProceduralActHttpMapper,
   ) {}
 
@@ -133,11 +138,60 @@ export class CasesController {
     return { data: this.proceduralActMapper.toPreviewResponse(result) };
   }
 
+  /**
+   * `GET /cases/{caseId}/procedural-acts` (HU27): the timeline of the case,
+   * newest first. Any authenticated user, for any case (RN11): reading acts is
+   * not limited to the responsible lawyer, registering them is.
+   *
+   * Each act goes out through the same `toResponse` as the `POST`.
+   */
+  @Get(':caseId/procedural-acts')
+  async listActs(
+    @Param('caseId') caseIdParam: string,
+    @Query() query: ListProceduralActsQueryDto,
+  ): Promise<PaginatedResponse<ProceduralActResponseDto>> {
+    const pageRequest = toPageRequest(query);
+    const page = await this.listProceduralActs.execute({ caseId: this.parseCaseId(caseIdParam), ...pageRequest });
+    return paginate(
+      page.items.map((view) => this.proceduralActMapper.toResponse(view)),
+      page.totalItems,
+      pageRequest,
+    );
+  }
+
+  /**
+   * `GET /cases/{caseId}/procedural-acts/{actId}` (HU27, CA-27.8).
+   *
+   * **Declarado después de `deadline-preview`, y no es cosmético.** Las dos
+   * rutas tienen tres segmentos: si esta estuviera arriba, `:actId` se comería
+   * la literal y la previsualización respondería `400 INVALID_PATH_PARAMETER`
+   * con `actId: "deadline-preview"`.
+   */
+  @Get(':caseId/procedural-acts/:actId')
+  async getAct(
+    @Param('caseId') caseIdParam: string,
+    @Param('actId') actIdParam: string,
+  ): Promise<{ data: ProceduralActResponseDto }> {
+    const view = await this.getProceduralAct.execute({
+      caseId: this.parseCaseId(caseIdParam),
+      actId: this.parseActId(actIdParam),
+    });
+    return { data: this.proceduralActMapper.toResponse(view) };
+  }
+
   private parseCaseId(raw: string): number {
     const caseId = Number(raw);
     if (!Number.isInteger(caseId) || caseId <= 0) {
       throw new InvalidCaseIdError();
     }
     return caseId;
+  }
+
+  private parseActId(raw: string): number {
+    const actId = Number(raw);
+    if (!Number.isInteger(actId) || actId <= 0) {
+      throw new InvalidProceduralActIdError();
+    }
+    return actId;
   }
 }

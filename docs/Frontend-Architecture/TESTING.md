@@ -174,6 +174,11 @@ del backend, **ningún otro test lo avisa**. Para eso está
 implementa el mock (`ROUTE_TABLE`) con las operaciones que declara la
 especificación OpenAPI en `docs/openapi/`.
 
+A su lado está `tests/unit/contract/permissions.test.ts`, que cubre lo que el
+anterior no mira: **quién puede cada operación**. Con un usuario por perfil,
+recorre la matriz de permisos del contrato (V3 §4) y comprueba qué endpoints
+responden `403` y cuáles no.
+
 - Falla si el mock **inventa** un endpoint que el contrato no tiene, o si
   **deja sin implementar** uno que el contrato sí tiene.
 - Lee `docs/openapi/` y no `build/openapi.yaml`, porque `build/` se genera y
@@ -246,7 +251,7 @@ prueba que la pieza está conectada.
 | Respuesta `400`, `409` o `500` del servidor | la pantalla | un test de cada una por formulario |
 | Quién entra a cada sección y quién opera cada acción | `unit/app/access` y `unit/app/actionAccess` | un perfil habilitado y uno no, en la guarda o la pantalla |
 | Sesión guardada y renovación del token | `unit/auth/sessionStorage` y `components/auth/tokenRenewal` | nada |
-| Que el mock sea el contrato | `unit/contract/endpoints` | nada |
+| Que el mock sea el contrato | `unit/contract/endpoints` (qué endpoints hay) y `unit/contract/permissions` (quién puede cada uno) | nada |
 | Foco del `Modal`, teclado del `Combobox` | `components/shared/` | nada |
 | Cómo se presenta un dato (una raya, "Sin SAC", el chip de vencimiento) | la pantalla que lo muestra | — |
 
@@ -531,8 +536,9 @@ de páginas usan `as: 'fvazquez'`.
 |---|---|---|
 | Leer abogados, estados, calificaciones, clientes y causas | Cualquiera con sesión | — |
 | Leer y escribir `/users` | `fvazquez` | `403` |
-| Escribir abogados, estados y calificaciones | `fvazquez` | `403` |
-| Registrar un cliente | `gestion` | `403` |
+| Escribir abogados | `fvazquez` | `403` |
+| Escribir estados y calificaciones | Cualquiera con sesión | — |
+| Registrar un cliente | Cualquiera con sesión | — |
 | Registrar una causa | Cualquiera con sesión | — |
 | Registrar un acto procesal y previsualizar su vencimiento | El abogado responsable de **esa** causa | `403` |
 

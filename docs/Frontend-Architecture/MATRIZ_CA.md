@@ -15,7 +15,6 @@ que corresponde al servidor: el frontend muestra lo que recibe y no lo prueba.
 | CA-8.4 | `components/clients/ClientsPage.test.tsx` (componentes) |
 | CA-8.5 | `components/clients/ClientsPage.test.tsx` (componentes) |
 | CA-8.6 | `components/clients/ClientsPage.test.tsx` (componentes) |
-| CA-8.7 | `components/clients/ClientsPage.test.tsx` (componentes)<br>`unit/app/actionAccess.test.ts` (unit) |
 | CA-8.9 | `components/cases/RegisterCasePage.test.tsx` (componentes) |
 
 ## HU-9
@@ -79,4 +78,4 @@ que corresponde al servidor: el frontend muestra lo que recibe y no lo prueba.
 
 ---
 
-42 criterios citados · 1 sólo del backend.
+41 criterios citados · 1 sólo del backend.

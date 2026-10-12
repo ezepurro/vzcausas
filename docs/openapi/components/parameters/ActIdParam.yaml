@@ -1,0 +1,8 @@
+name: actId
+in: path
+required: true
+description: Identificador único del acto procesal.
+schema:
+  type: integer
+  minimum: 1
+example: 42

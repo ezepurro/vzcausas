@@ -1,7 +1,7 @@
 # Mocks — API simulada
 
-Implementación en memoria de `docs/Api-Contract/API_CONTRACT_V3.md`, con su
-revisión del 05/10/2026 (§7.8): los treinta y tres endpoints del contrato, con
+Implementación en memoria de `docs/Api-Contract/API_CONTRACT_V3.md`, con sus
+revisiones hasta la del 11/10/2026 (§7.11): los treinta y tres endpoints del contrato, con
 sus códigos de error, su paginación, sus filtros, sus permisos por perfil y sus
 bajas lógicas. Sirve para desarrollar pantallas sin backend levantado y para
 tener fixtures estables en los tests.
@@ -123,9 +123,9 @@ El login es `POST /auth/login` con `{ username, password }`.
 | --- | --- | --- | --- |
 | `fvazquez` | `password1` | `ADMINISTRATOR` + `LAWYER` | Administrar. Registra actos sólo en **sus** causas (la 4, la 6 y la 20): en las demás recibe `403`, aunque sea administrador. |
 | `mrios` | `abogado123` | `LAWYER` | Registrar actos en sus causas (la 1 y la 17; la 9 está archivada). Probar el `403` de la administración y el de una causa ajena. |
-| `gestion` | `secre123` | `SECRETARY` | Registrar clientes. Probar el `403` de los actos y el usuario sin ficha profesional (`lawyer: null`). |
+| `gestion` | `secre123` | `SECRETARY` | Probar el `403` de la administración (usuarios y escritura de abogados) y el de los actos, y el usuario sin ficha profesional (`lawyer: null`). |
 | `supervision` | `password1` | `ADMINISTRATOR` | Administrador que no ejerce: sin ficha, y recibe `403` al registrar un acto. |
-| `sledesma` | `password1` | `SECRETARY` + `LAWYER` | Registra clientes y, como lleva las causas 15 y 16, también sus actos. |
+| `sledesma` | `password1` | `SECRETARY` + `LAWYER` | Secretaria que además ejerce: como lleva las causas 15 y 16, registra sus actos. |
 | el resto | `password1` | varios | Ver `fixtures.ts`. |
 
 Sin `Authorization: Bearer <token>` válido todo endpoint protegido responde
@@ -140,13 +140,14 @@ varios roles pasa si el rol pedido está entre ellos.
 | --- | --- |
 | Leer abogados, estados procesales, calificaciones legales, clientes y causas | Cualquier usuario autenticado |
 | Leer y escribir `/users` | `ADMINISTRATOR` |
-| Escribir abogados, estados procesales y calificaciones legales | `ADMINISTRATOR` |
-| Registrar un cliente | `SECRETARY` |
+| Escribir abogados | `ADMINISTRATOR` |
+| Escribir estados procesales y calificaciones legales | Cualquier usuario autenticado |
+| Registrar un cliente | Cualquier usuario autenticado |
 | Registrar una causa | Cualquier usuario autenticado |
 | Registrar un acto procesal y previsualizar su vencimiento | El abogado responsable de la causa |
 
-El `403` nombra el rol que falta: "Se requiere el rol SECRETARY para realizar
-esta operación."
+El `403` nombra el rol que falta: "Se requiere el rol ADMINISTRATOR para
+realizar esta operación."
 
 **Los actos procesales no se rigen por un rol** (D-30). Los registra el abogado
 responsable de la causa y nadie más: ni otro abogado, ni el administrador. Se
@@ -285,17 +286,17 @@ Para tener el recurso como lo devuelve la API están los serializadores de
 | `GET` | `/lawyers/{lawyerId}` | 200, 400, 401, 404 |
 | `PATCH` | `/lawyers/{lawyerId}` | 200, 400, 401, 403, 404, 409 |
 | `DELETE` | `/lawyers/{lawyerId}` | 204, 400, 401, 403, 404, 409 |
-| `POST` | `/procedural-states` | 201, 400, 401, 403, 409 |
+| `POST` | `/procedural-states` | 201, 400, 401, 409 |
 | `GET` | `/procedural-states` | 200, 400, 401 |
 | `GET` | `/procedural-states/{stateId}` | 200, 400, 401, 404 |
-| `PATCH` | `/procedural-states/{stateId}` | 200, 400, 401, 403, 404, 409, 422 |
-| `DELETE` | `/procedural-states/{stateId}` | 204, 400, 401, 403, 404 |
-| `POST` | `/legal-qualifications` | 201, 400, 401, 403, 409 |
+| `PATCH` | `/procedural-states/{stateId}` | 200, 400, 401, 404, 409, 422 |
+| `DELETE` | `/procedural-states/{stateId}` | 204, 400, 401, 404 |
+| `POST` | `/legal-qualifications` | 201, 400, 401, 409 |
 | `GET` | `/legal-qualifications` | 200, 400, 401 |
 | `GET` | `/legal-qualifications/{qualificationId}` | 200, 400, 401, 404 |
-| `PATCH` | `/legal-qualifications/{qualificationId}` | 200, 400, 401, 403, 404, 409 |
-| `DELETE` | `/legal-qualifications/{qualificationId}` | 204, 400, 401, 403, 404 |
-| `POST` | `/clients` | 201, 400, 401, 403, 409 |
+| `PATCH` | `/legal-qualifications/{qualificationId}` | 200, 400, 401, 404, 409 |
+| `DELETE` | `/legal-qualifications/{qualificationId}` | 204, 400, 401, 404 |
+| `POST` | `/clients` | 201, 400, 401, 409 |
 | `GET` | `/clients` | 200, 400, 401 |
 | `GET` | `/clients/{clientId}` | 200, 400, 401, 404 |
 | `POST` | `/cases` | 201, 400, 401, 409 |
@@ -380,7 +381,7 @@ de servir en el acto.
 | `401` credenciales | `POST /auth/login` con contraseña incorrecta, o con un usuario dado de baja → `INVALID_CREDENTIALS` |
 | `401` sesión | sin header `Authorization`, token revocado por un logout, o token vencido con `expireIssuedTokens()` → `UNAUTHENTICATED` |
 | `401` renovación | `POST /auth/refresh` con la sesión ya revocada (`db.sessions.clear()`) → `UNAUTHENTICATED` |
-| `403` | `mrios` o `gestion` en cualquier endpoint de `/users`, o escribiendo abogados, estados o calificaciones; `fvazquez` o `mrios` en `POST /clients`; cualquiera que no sea el abogado responsable registrando un acto o pidiendo `deadline-preview`: `gestion`, `supervision`, o `mrios` y `fvazquez` sobre la causa 7, que lleva `mferreyra` |
+| `403` | `mrios` o `gestion` en cualquier endpoint de `/users`, o escribiendo abogados; cualquiera que no sea el abogado responsable registrando un acto o pidiendo `deadline-preview`: `gestion`, `supervision`, o `mrios` y `fvazquez` sobre la causa 7, que lleva `mferreyra` |
 | `404` | `GET /users/999`, `GET /cases/999`; también los que existen pero están dados de baja: `GET /users/22`, `GET /clients/8`, `GET /legal-qualifications/9` |
 | `409` | crear un usuario con `username: "fvazquez"` o con un email ya usado; vincular un abogado que ya tiene cuenta; crear un abogado con `1-28114`; dar de baja el usuario 3, 4 o 5; dar de baja un abogado con cuenta o con causas (del 1 al 8); crear un estado procesal o una calificación con un nombre que ya existe, o un estado que se llame "Iniciada"; registrar un cliente con el DNI `34812905`; registrar una causa con el SAC `13284571` |
 | `422` | crear un usuario `LAWYER` sin ficha profesional, o uno sin rol `LAWYER` **con** ficha; dar de baja o degradar el usuario 1; contraseña actual incorrecta en `PATCH /auth/password`; registrar un acto en la causa 9, 10 o 21 → `CASE_IN_TERMINAL_STATE` |
@@ -396,6 +397,9 @@ de servir en el acto.
 - Registrar una causa sin SAC, o una penal sin calificaciones legales,
   respondía `400`. Desde la revisión del 05/10/2026 los dos son opcionales
   (D-33).
+- Registrar un cliente sin ser `SECRETARY`, o escribir estados procesales o
+  calificaciones legales sin ser `ADMINISTRATOR`, respondía `403`. Desde la
+  revisión del 11/10/2026 lo hace cualquier usuario autenticado (D-39).
 
 **Lo que ahora es un error**, y antes no:
 

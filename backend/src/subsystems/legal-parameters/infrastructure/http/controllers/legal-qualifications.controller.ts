@@ -16,18 +16,13 @@ import { LegalQualificationHttpMapper } from '../mappers/legal-qualification-htt
 /**
  * HTTP entry point for `/legal-qualifications` (contract §3.5).
  *
- * Authorization splits the way §3.5 describes: **reading** is open to
- * any authenticated user, because the case registration form offers
- * the qualification selector to every profile (CA-47.1, CA-47.10,
- * D-03); **writing** belongs to the Administrator alone, since the
- * legal parameters are what the whole firm's prescription terms rest
- * on (CA-48.9).
- *
- * This is the one place where this subsystem departs from its
- * neighbour `/procedural-states`, whose controller declares no
- * permission at all and so satisfies the matrix by omission (C-06 in
- * `IMPLEMENTACION_PEOPLE.md`). CA-48.9 demands an actual denial, and
- * only `@RequirePermissions` produces one.
+ * Authorization: the three profiles read and register legal
+ * qualifications (matriz de permisos §5.1, 2026-10-11). Reading was
+ * always open, because the case registration form offers the selector
+ * to every profile (CA-47.1, CA-47.10); writing used to be the
+ * Administrator's alone (CA-48.9, D-04). Who holds each permission is
+ * decided in `prisma/seed.ts`, not here: the decorators stay so that a
+ * token without the permission is still refused.
  *
  * `PATCH` and `DELETE` are out of scope for Sprint 2 by the stories'
  * own definition; modifying `prescriptionMonths` also recalculates

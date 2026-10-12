@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { isApiError } from '@/shared/api/ApiError'
 import { useToast } from '@/app/providers/ToastContext'
+import { useCan } from '@/app/access/useCan'
 import {
     Button,
     Icon,
@@ -31,6 +32,7 @@ const EMPTY_FORM: LawyerFormValues = {
 }
 
 export function LawyersPage() {
+    const canCreate = useCan('lawyers.create')
     const toast = useToast()
 
     /* Paginado y búsqueda viven acá y se pasan al hook: van en la clave de caché. */
@@ -118,7 +120,13 @@ export function LawyersPage() {
                 title="Abogados"
                 sub="Desde esta sección podés administrar el equipo del estudio. Consultá el listado de abogados, sus matrículas y la cantidad de causas activas a su cargo."
                 actions={
-                    <Button icon={<Icon name="plus" />} size="md" onClick={openCreate}>
+                    <Button
+                        icon={<Icon name="plus" />}
+                        size="md"
+                        disabled={!canCreate}
+                        title={canCreate ? undefined : 'Sólo el Administrador puede registrar abogados.'}
+                        onClick={openCreate}
+                    >
                         Registrar abogado
                     </Button>
                 }

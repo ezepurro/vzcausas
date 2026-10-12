@@ -1,6 +1,88 @@
 parameters:
   - $ref: ../components/parameters/CaseIdParam.yaml
 
+get:
+  tags:
+    - Procedural Acts
+  operationId: listProceduralActs
+  summary: Consultar actos procesales
+  description: |
+    Obtiene una lista paginada de los actos procesales de la causa: su línea
+    de tiempo (HU27). Cada elemento es el mismo recurso que devuelve el
+    registro (`POST`).
+
+    Se ordenan del más reciente al más antiguo por `actDate`; con la misma
+    fecha, primero el último registrado. Cada acto conserva el plazo con que
+    se registró, aunque después cambie la tabla del fuero, y un estado dado de
+    baja después del acto sigue apareciendo con su nombre.
+
+    Una causa sin actos devuelve `data` vacío: no es un error.
+
+    **Rol requerido:** cualquier usuario autenticado, sobre cualquier causa
+    (RN11). No hace falta ser el abogado responsable.
+  parameters:
+    - $ref: ../components/parameters/PageParam.yaml
+    - $ref: ../components/parameters/LimitParam.yaml
+  responses:
+    '200':
+      description: Página de actos procesales de la causa.
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - data
+              - pagination
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: ../components/schemas/ProceduralAct.yaml
+              pagination:
+                $ref: ../components/schemas/Pagination.yaml
+          example:
+            data:
+              - id: 42
+                caseId: 1
+                resultingState:
+                  proceduralStateId: 12
+                  name: Oposición al requerimiento de elevación
+                  custom: false
+                actDate: '2026-09-15'
+                notificationDate: null
+                notes: Con acusación, pero con oposición.
+                deadline:
+                  timeLimitDays: 5
+                  dayType: BUSINESS
+                  countsFrom: '2026-09-15'
+                  computedDueDate: '2026-09-22'
+                  dueDate: '2026-09-22'
+                  manuallyAdjusted: false
+                registeredBy:
+                  id: 3
+                  fullName: Dra. Malena Ríos
+                registeredAt: '2026-09-15T11:42:00-03:00'
+            pagination:
+              page: 1
+              limit: 20
+              totalItems: 1
+              totalPages: 1
+    '400':
+      description: Paginación o identificador de causa inválidos.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          examples:
+            invalidPagination:
+              $ref: ../components/examples/InvalidPaginationError.yaml
+            invalidCaseId:
+              $ref: ../components/examples/InvalidCaseIdError.yaml
+    '401':
+      $ref: ../components/responses/Unauthorized.yaml
+    '404':
+      $ref: ../components/responses/CaseNotFound.yaml
+
 post:
   tags:
     - Procedural Acts

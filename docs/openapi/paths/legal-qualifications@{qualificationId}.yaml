@@ -53,7 +53,7 @@ patch:
     `prescriptionMonths` **recalcula la prescripción** de las causas que la
     registran. La respuesta no incluye `activeCases`.
 
-    **Rol requerido:** `ADMINISTRATOR`.
+    **Rol requerido:** cualquier usuario autenticado.
   requestBody:
     required: true
     content:
@@ -100,8 +100,6 @@ patch:
               $ref: ../components/examples/InvalidQualificationIdError.yaml
     '401':
       $ref: ../components/responses/Unauthorized.yaml
-    '403':
-      $ref: ../components/responses/ForbiddenAdministrator.yaml
     '404':
       $ref: ../components/responses/LegalQualificationNotFound.yaml
     '409':
@@ -132,7 +130,7 @@ delete:
     conservan: siguen mostrándola en su detalle y computando su prescripción
     con ella.
 
-    **Rol requerido:** `ADMINISTRATOR`.
+    **Rol requerido:** cualquier usuario autenticado.
   responses:
     '204':
       description: Calificación legal dada de baja. La respuesta no contiene cuerpo.
@@ -147,7 +145,5 @@ delete:
               $ref: ../components/examples/InvalidQualificationIdError.yaml
     '401':
       $ref: ../components/responses/Unauthorized.yaml
-    '403':
-      $ref: ../components/responses/ForbiddenAdministrator.yaml
     '404':
       $ref: ../components/responses/LegalQualificationNotFound.yaml

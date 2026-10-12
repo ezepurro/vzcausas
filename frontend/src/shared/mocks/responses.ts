@@ -124,10 +124,8 @@ export const ERRORS = {
     unauthenticated: errorBody('UNAUTHENTICATED', 'La autenticación es requerida.'),
 
     /* ---- 403 ---- */
-    /** Administración: usuarios, abogados, estados y calificaciones. */
+    /** Administración: usuarios, y escribir abogados. */
     forbidden: forbiddenFor('ADMINISTRATOR'),
-    /** Alta de cliente (D-05). */
-    forbiddenSecretary: forbiddenFor('SECRETARY'),
     /** Registro de un acto procesal y su previsualización (D-30). */
     forbiddenNotResponsible: errorBody(
         'FORBIDDEN',
@@ -687,7 +685,6 @@ export const RESPONSES = {
             }),
         ),
         unauthenticated: response(401, ERRORS.unauthenticated),
-        forbidden: response(403, ERRORS.forbidden),
         conflict: response(409, ERRORS.proceduralStateNameTaken),
     },
 
@@ -725,7 +722,6 @@ export const RESPONSES = {
         ),
         invalidId: response(400, ERRORS.invalidProceduralStateId),
         unauthenticated: response(401, ERRORS.unauthenticated),
-        forbidden: response(403, ERRORS.forbidden),
         notFound: response(404, ERRORS.proceduralStateNotFound),
         conflict: response(409, ERRORS.proceduralStateNameTaken),
         /** El fuero no es modificable (D-36). */
@@ -745,7 +741,6 @@ export const RESPONSES = {
         ok: NO_CONTENT,
         invalidId: response(400, ERRORS.invalidProceduralStateId),
         unauthenticated: response(401, ERRORS.unauthenticated),
-        forbidden: response(403, ERRORS.forbidden),
         notFound: response(404, ERRORS.proceduralStateNotFound),
     },
 
@@ -759,7 +754,6 @@ export const RESPONSES = {
             }),
         ),
         unauthenticated: response(401, ERRORS.unauthenticated),
-        forbidden: response(403, ERRORS.forbidden),
         conflict: response(409, ERRORS.legalQualificationNameTaken),
     },
 
@@ -793,7 +787,6 @@ export const RESPONSES = {
         ),
         invalidId: response(400, ERRORS.invalidLegalQualificationId),
         unauthenticated: response(401, ERRORS.unauthenticated),
-        forbidden: response(403, ERRORS.forbidden),
         notFound: response(404, ERRORS.legalQualificationNotFound),
         conflict: response(409, ERRORS.legalQualificationNameTaken),
     },
@@ -803,11 +796,10 @@ export const RESPONSES = {
         ok: NO_CONTENT,
         invalidId: response(400, ERRORS.invalidLegalQualificationId),
         unauthenticated: response(401, ERRORS.unauthenticated),
-        forbidden: response(403, ERRORS.forbidden),
         notFound: response(404, ERRORS.legalQualificationNotFound),
     },
 
-    /** `POST /clients` — sólo `SECRETARY` (D-05). */
+    /** `POST /clients` — cualquier usuario autenticado (D-39). */
     createClient: {
         created: response(201, itemBody(EXAMPLE_CREATED_CLIENT)),
         validation: response(
@@ -818,7 +810,6 @@ export const RESPONSES = {
             }),
         ),
         unauthenticated: response(401, ERRORS.unauthenticated),
-        forbidden: response(403, ERRORS.forbiddenSecretary),
         conflict: response(409, ERRORS.clientDniTaken),
     },
 

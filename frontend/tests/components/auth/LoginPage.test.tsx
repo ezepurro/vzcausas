@@ -57,6 +57,8 @@ describe('LoginPage', () => {
 
         expect(screen.getByText('El nombre de usuario es obligatorio.')).toBeInTheDocument()
         expect(screen.getByText('La contraseña es obligatoria.')).toBeInTheDocument()
+        // Lleva al primer campo con error.
+        expect(screen.getByLabelText('Usuario')).toHaveFocus()
         expect(readStoredSession()).toBeNull()
     })
 

@@ -95,3 +95,24 @@ export class InvalidCaseIdError extends ValidationError {
     });
   }
 }
+
+/**
+ * Emitted by `GET /cases/{caseId}/procedural-acts/{actId}` (HU27) when the
+ * case has no act with that id — **including an act that exists but belongs
+ * to another case**. Answering it would let a caller read any act through any
+ * case id, and the URL promises an act *of this case*.
+ */
+export class ProceduralActNotFoundError extends NotFoundError {
+  constructor() {
+    super('PROCEDURAL_ACT_NOT_FOUND', 'No se encontró el acto procesal solicitado.');
+  }
+}
+
+/** Emitted when the `actId` path parameter is not a positive integer (400). Same reason as {@link InvalidCaseIdError}. */
+export class InvalidProceduralActIdError extends ValidationError {
+  constructor() {
+    super('INVALID_PATH_PARAMETER', 'El identificador del acto procesal no es válido.', {
+      actId: 'Debe ser un número entero válido.',
+    });
+  }
+}

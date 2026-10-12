@@ -7,18 +7,11 @@ import { can } from '@/app/access/access'
  * permisos por perfil del contrato (V3 §4).
  */
 describe('can', () => {
-    /* CA-8.7: administrar clientes es sólo de la Secretaría (V3 D-05). */
-    it('registrar un cliente es sólo de la Secretaría', () => {
-        expect(can(['SECRETARY'], 'clients.create')).toBe(true)
-        expect(can(['ADMINISTRATOR'], 'clients.create')).toBe(false)
-        expect(can(['LAWYER'], 'clients.create')).toBe(false)
-    })
-
-    /* Registrar una calificación legal es sólo del Administrador (V3 D-04). Se
-       opera desde la pantalla de calificaciones y desde el alta de causa. */
-    it('registrar una calificación legal es sólo del Administrador', () => {
-        expect(can(['ADMINISTRATOR'], 'legalQualifications.create')).toBe(true)
-        expect(can(['SECRETARY'], 'legalQualifications.create')).toBe(false)
-        expect(can(['LAWYER'], 'legalQualifications.create')).toBe(false)
+    /* Registrar, modificar y dar de baja abogados es sólo del Administrador;
+       consultarlos, de los tres perfiles (V3 §4, matriz del 11/10/2026). */
+    it('registrar un abogado es sólo del Administrador', () => {
+        expect(can(['ADMINISTRATOR'], 'lawyers.create')).toBe(true)
+        expect(can(['SECRETARY'], 'lawyers.create')).toBe(false)
+        expect(can(['LAWYER'], 'lawyers.create')).toBe(false)
     })
 })

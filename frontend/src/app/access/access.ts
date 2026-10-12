@@ -3,7 +3,6 @@ import { ROLES, type Role } from '@/features/auth/types/session'
 
 const ADMIN: readonly Role[] = ['ADMINISTRATOR']
 const EVERYONE: readonly Role[] = ROLES
-const SECRETARY: readonly Role[] = ['SECRETARY']
 export const ROUTE_ACCESS: Record<string, readonly Role[]> = {
     '/inicio': EVERYONE,
     '/causas': EVERYONE,
@@ -11,10 +10,12 @@ export const ROUTE_ACCESS: Record<string, readonly Role[]> = {
     '/clientes': EVERYONE,
     '/modelos': EVERYONE,
     '/usuarios': ADMIN,
-    '/abogados': ADMIN,
-    '/estados-y-plazos': ADMIN,
-    '/calificaciones-legales': ADMIN,
-    '/reportes': ADMIN,   // ← a definir con el equipo
+    // Consultar abogados y administrar estados procesales y calificaciones
+    // legales es de los tres perfiles (V3 §4, matriz del 11/10/2026, D-39).
+    '/abogados': EVERYONE,
+    '/estados-y-plazos': EVERYONE,
+    '/calificaciones-legales': EVERYONE,
+    '/reportes': ADMIN,
 }
 export function matchRoute(pathname: string): string | undefined {
     return Object.keys(ROUTE_ACCESS).find(
@@ -32,13 +33,12 @@ export function canAccess(roles: readonly Role[], pathname: string): boolean {
  * todos, pero que sólo opera un perfil. Sale de la tabla de permisos por
  * perfil del contrato (V3 §4).
  */
-export type Action = 'clients.create' | 'legalQualifications.create'
+export type Action = 'lawyers.create'
 
 export const ACTION_ACCESS: Record<Action, readonly Role[]> = {
-    // Administrar clientes es sólo de la Secretaría (V3 D-05).
-    'clients.create': SECRETARY,
-    // Administrar calificaciones legales es sólo del Administrador (V3 D-04).
-    'legalQualifications.create': ADMIN,
+    // Registrar, modificar y dar de baja abogados es sólo del Administrador;
+    // la pantalla la ven los tres perfiles (V3 §4, matriz del 11/10/2026).
+    'lawyers.create': ADMIN,
 }
 
 

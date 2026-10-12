@@ -56,6 +56,27 @@ describe('LawyersPage', () => {
         })
     })
 
+    describe('quién puede registrar', () => {
+        /* Matriz de permisos del 11/10/2026 (V3 §4): consultar abogados es de
+           los tres perfiles; registrarlos, sólo del Administrador. */
+        it('el Administrador tiene habilitado "Registrar abogado"', async () => {
+            renderPage('supervision')
+            await screen.findByText(LAWYERS[0].fullName)
+
+            expect(screen.getByRole('button', { name: 'Registrar abogado' })).toBeEnabled()
+        })
+
+        it.each([
+            ['un abogado', 'mrios'],
+            ['la Secretaría', 'gestion'],
+        ])('%s ve el listado, con "Registrar abogado" deshabilitado', async (_, username) => {
+            renderPage(username)
+            await screen.findByText(LAWYERS[0].fullName)
+
+            expect(screen.getByRole('button', { name: 'Registrar abogado' })).toBeDisabled()
+        })
+    })
+
     describe('alta', () => {
         it('registra el abogado, avisa y lo muestra en la tabla', async () => {
             const { user } = renderPage()

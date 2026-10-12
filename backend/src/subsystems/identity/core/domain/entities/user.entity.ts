@@ -58,6 +58,10 @@ export class User {
    * Rebuilds a {@link User} from persisted data. Skips creation-time
    * validation because the database is trusted to hold well-formed
    * records.
+   *
+   * `deletedAt` is required, not optional, on purpose: an optional field
+   * would let a mapper forget it and silently rebuild every deactivated
+   * user with no date — the very bug CA-7.1 was about.
    */
   static hydrate(props: {
     id: number;
@@ -69,9 +73,7 @@ export class User {
     lawyerId: number | null;
     lastLoginAt: Date | null;
     active: boolean;
-    /** CA-7.1. Optional so existing callers keep compiling; a row
-     * deactivated before this column was written reads as `null`. */
-    deletedAt?: Date | null;
+    deletedAt: Date | null;
   }): User {
     return new User(
       props.id,
@@ -83,7 +85,7 @@ export class User {
       props.lawyerId,
       props.lastLoginAt,
       props.active,
-      props.deletedAt ?? null,
+      props.deletedAt,
     );
   }
 
@@ -275,20 +277,20 @@ export class User {
   }
 
   /**
-   * HU7 — logical deletion (RN12). The record is kept; only the
-   * vigency flag flips. There is deliberately no counterpart:
-   * *"No existe forma de consultarlo ni de reactivarlo desde la API"*
-   * (API contract §3.2, `DELETE /users/{userId}`).
+   * HU7 — logical deletion (RN12). The record is kept; the vigency
+   * flag flips and the moment is recorded (CA-7.1). There is
+   * deliberately no counterpart: *"No existe forma de consultarlo ni de
+   * reactivarlo desde la API"* (API contract §3.2,
+   * `DELETE /users/{userId}`).
    *
-   * Whether an already-deactivated user may be deactivated again is
-   * not this entity's call — the use case rejects that as "not
-   * found", the same way {@link GetUserUseCase} does.
-   *
-   * CA-7.1 asks for the moment of the deactivation to be recorded, so
    * `now` is a parameter rather than read from a clock in here: the
    * entity stays free of ambient time, exactly as
    * {@link User.registerLogin} does, and the use case passes the
    * instant from the injected `ClockPort`.
+   *
+   * Whether an already-deactivated user may be deactivated again is
+   * not this entity's call — the use case rejects that as "not
+   * found", the same way {@link GetUserUseCase} does.
    *
    * The timestamp is *not* what decides vigency — `active` is. Two
    * columns describing one fact can disagree, and when they do the

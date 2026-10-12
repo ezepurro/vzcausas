@@ -202,18 +202,19 @@ describe('GET /api/v1/clients', () => {
       expect(res.status).toBe(200);
     });
 
-    /** El alta sigue siendo solo de Secretaría (CA-8.9). */
-    it('solo Secretaría puede dar de alta', async () => {
-      const secretaria = await loginWithRole(app, 'SECRETARY');
-      const admin = await loginWithRole(app, 'ADMINISTRATOR');
-      const body = { lastName: 'TEST', firstName: 'Alta', dni: '26111222' };
+    /**
+     * Desde la matriz del 2026-10-11 (§5.1) los tres perfiles
+     * administran clientes. Antes el alta era solo de Secretaría
+     * (CA-8.9, D-05) y el Administrador recibía 403.
+     */
+    it.each(ROLES)('%s puede dar de alta', async (role) => {
+      const auth = await loginWithRole(app, role);
 
-      await request(app.getHttpServer()).post(URL).set(secretaria).send(body).expect(201);
       await request(app.getHttpServer())
         .post(URL)
-        .set(admin)
-        .send({ ...body, dni: '26111333' })
-        .expect(403);
+        .set(auth)
+        .send({ lastName: 'TEST', firstName: role, dni: '26111222' })
+        .expect(201);
     });
   });
 
