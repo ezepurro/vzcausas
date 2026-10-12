@@ -55,7 +55,7 @@ export class JwtAuthGuard implements CanActivate {
     if (token === null) {
       throw new UnauthorizedError(
         "UNAUTHENTICATED",
-        "Authentication is required.",
+        "La autenticación es requerida.",
       );
     }
 

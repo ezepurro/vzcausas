@@ -1,6 +1,7 @@
 import { ValidationError } from "@shared/domain/domain-error";
 import {
   InvalidCurrentPasswordError,
+  SamePasswordError,
   WeakPasswordError,
 } from "../errors/identity.errors";
 import { PasswordHasher } from "../ports/password-hasher.port";
@@ -50,6 +51,7 @@ export class User {
     private _lawyerId: number | null,
     private _lastLoginAt: Date | null,
     private _active: boolean,
+    private _deletedAt: Date | null,
   ) {}
 
   /**
@@ -67,6 +69,9 @@ export class User {
     lawyerId: number | null;
     lastLoginAt: Date | null;
     active: boolean;
+    /** CA-7.1. Optional so existing callers keep compiling; a row
+     * deactivated before this column was written reads as `null`. */
+    deletedAt?: Date | null;
   }): User {
     return new User(
       props.id,
@@ -78,6 +83,7 @@ export class User {
       props.lawyerId,
       props.lastLoginAt,
       props.active,
+      props.deletedAt ?? null,
     );
   }
 
@@ -162,6 +168,7 @@ export class User {
       props.lawyerId,
       null,
       props.active ?? true,
+      null,
     );
   }
 
@@ -179,6 +186,8 @@ export class User {
    *
    * @throws {InvalidCurrentPasswordError} if `currentPlain` does not
    *   match the stored hash.
+   * @throws {SamePasswordError} if `newPlain` is the current password
+   *   (CA-3.5).
    * @throws {WeakPasswordError} if `newPlain` fails the policy check.
    */
   async changePassword(
@@ -190,6 +199,20 @@ export class User {
     if (!ok) {
       throw new InvalidCurrentPasswordError();
     }
+
+    // CA-3.5. Compared against the stored hash rather than against
+    // `currentPlain`, so the rule also holds when the caller is wrong
+    // about what their current password is — and because a change
+    // that changes nothing is what the criterion refuses, regardless
+    // of how the request was phrased.
+    //
+    // The frontend checks this too, but that check is a courtesy: it
+    // lives in the browser and anything that talks to the API
+    // directly bypasses it.
+    if (await hasher.verify(newPlain, this._passwordHash)) {
+      throw new SamePasswordError();
+    }
+
     User.validatePasswordRules(newPlain);
     this._passwordHash = await hasher.hash(newPlain);
   }
@@ -260,9 +283,21 @@ export class User {
    * Whether an already-deactivated user may be deactivated again is
    * not this entity's call — the use case rejects that as "not
    * found", the same way {@link GetUserUseCase} does.
+   *
+   * CA-7.1 asks for the moment of the deactivation to be recorded, so
+   * `now` is a parameter rather than read from a clock in here: the
+   * entity stays free of ambient time, exactly as
+   * {@link User.registerLogin} does, and the use case passes the
+   * instant from the injected `ClockPort`.
+   *
+   * The timestamp is *not* what decides vigency — `active` is. Two
+   * columns describing one fact can disagree, and when they do the
+   * boolean is the one every query already filters on. `deletedAt`
+   * answers "when", never "whether".
    */
-  deactivate(): void {
+  deactivate(now: Date): void {
     this._active = false;
+    this._deletedAt = now;
   }
 
   changeLawyerId(newLawyerId: number | null): void {
@@ -280,6 +315,16 @@ export class User {
 
   get id(): number {
     return this._id;
+  }
+
+  /**
+   * When the user was deactivated, or `null` while they are active
+   * (CA-7.1). Internal to the server: the contract exposes no such
+   * field, because for the client a deactivated user does not exist
+   * at all (§4, "Bajas").
+   */
+  get deletedAt(): Date | null {
+    return this._deletedAt;
   }
 
   get username(): Username {

@@ -75,7 +75,7 @@ export class JwtTokenIssuerAdapter implements TokenIssuer {
       // leaks to the client.
       throw new UnauthorizedError(
         "UNAUTHENTICATED",
-        "Invalid or expired access token",
+        "La autenticación es requerida o el token proporcionado no es válido.",
       );
     }
 
@@ -86,10 +86,13 @@ export class JwtTokenIssuerAdapter implements TokenIssuer {
 /**
  * Defensive claims-shape validation (D-42). A JWT with a valid
  * signature may still carry claims from an older deployment — for
- * example a token minted before D-22 with `role: string` instead
- * of `roles: string[]`. Rather than pass garbage into the domain,
+ * example a token minted before `AccessTokenClaims` was narrowed to
+ * `{ sub, sid }`, which still carries `roles`/`lawyerId`/`permissions`
+ * and no `sid` at all. Rather than pass garbage into the domain,
  * reject with the same opaque error as an invalid signature via
- * {@link invalidClaims}.
+ * {@link invalidClaims}. A pre-existing session is not lost by this:
+ * the client's refresh cookie is still valid, so the very next
+ * `POST /auth/refresh` mints a fresh token in the new shape.
  */
 function assertClaims(raw: unknown): AccessTokenClaims {
   if (typeof raw !== "object" || raw === null) {
@@ -99,32 +102,14 @@ function assertClaims(raw: unknown): AccessTokenClaims {
   const r = raw as Record<string, unknown>;
 
   if (typeof r.sub !== "number") throw invalidClaims();
-  if (r.lawyerId !== null && typeof r.lawyerId !== "number") {
-    throw invalidClaims();
-  }
-
-  if (
-    !Array.isArray(r.roles) ||
-    !r.roles.every((x): x is string => typeof x === "string")
-  ) {
-    throw invalidClaims();
-  }
-
-  if (
-    !Array.isArray(r.permissions) ||
-    !r.permissions.every((x): x is string => typeof x === "string")
-  ) {
-    throw invalidClaims();
-  }
+  if (typeof r.sid !== "string" || r.sid.length === 0) throw invalidClaims();
 
   // Strip iat/exp and any other JWT-injected fields: the port
-  // contract exposes only these four. Consumers should not be
-  // able to peek at token metadata through this surface.
+  // contract exposes only these two. Consumers should not be able to
+  // peek at token metadata through this surface.
   return {
     sub: r.sub,
-    roles: r.roles,
-    lawyerId: r.lawyerId,
-    permissions: r.permissions,
+    sid: r.sid,
   };
 }
 
@@ -137,6 +122,6 @@ function assertClaims(raw: unknown): AccessTokenClaims {
 function invalidClaims(): UnauthorizedError {
   return new UnauthorizedError(
     "UNAUTHENTICATED",
-    "Invalid or expired access token.",
+    "La autenticación es requerida o el token proporcionado no es válido.",
   );
 }

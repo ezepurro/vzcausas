@@ -39,6 +39,8 @@ import {
 export interface MockResponse<T = unknown> {
     status: number;
     body: T;
+    /** Sólo para lo que el contrato pide como encabezado, ej. `Retry-After`. */
+    headers?: Record<string, string>;
 }
 
 function response<T>(status: number, body: T): MockResponse<T> {
@@ -108,11 +110,11 @@ export const ERRORS = {
     }),
 
     /* ---- 401 ---- */
-    /** Credenciales incorrectas. Sólo en el login. */
-    invalidCredentials: errorBody(
-        'INVALID_CREDENTIALS',
-        'Las credenciales proporcionadas no son válidas.',
-    ),
+    /**
+     * Credenciales incorrectas. Sólo en el login. El mismo mensaje exista o
+     * no exista el usuario: distinguirlos permitiría enumerar cuentas (D-41).
+     */
+    invalidCredentials: errorBody('INVALID_CREDENTIALS', 'Usuario o contraseña incorrectos.'),
     /** 401 de `/auth/logout` y `/auth/password`. */
     unauthenticatedAuth: errorBody(
         'UNAUTHENTICATED',
@@ -200,6 +202,18 @@ export const ERRORS = {
     caseInTerminalState: errorBody(
         'CASE_IN_TERMINAL_STATE',
         'La causa se encuentra en un estado terminal y no admite actos procesales.',
+    ),
+
+    /* ---- 429 ---- */
+    /**
+     * Bloqueo por 5 fallos consecutivos de login (`db.loginAttempts`, V3 §4).
+     * El mock no mide tiempo real, así que siempre devuelve el primer
+     * escalón (90 s) en vez de una escalera creciente como el backend.
+     */
+    tooManyLoginAttempts: errorBody(
+        'TOO_MANY_LOGIN_ATTEMPTS',
+        'Demasiados intentos fallidos. Esperá antes de volver a intentar.',
+        { retryAfterSeconds: 90 },
     ),
 
     /* ---- 500 ---- */

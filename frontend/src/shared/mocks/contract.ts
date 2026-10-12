@@ -552,7 +552,7 @@ export function listBody<T>(data: T[], pagination: Pagination): ListResponse<T> 
 export function errorBody(
     code: ErrorCode,
     message: string,
-    details: Record<string, string> | null = null,
+    details: Record<string, string> | { retryAfterSeconds: number } | null = null,
 ): ErrorBody {
     return { error: { code, message, details } };
 }

@@ -1,3 +1,4 @@
+import { ClockPort } from "@shared/domain/clock.port";
 import { User } from "../../domain/entities/user.entity";
 import {
   LastAdministratorError,
@@ -13,6 +14,13 @@ import {
   FakeRoleRepository,
   FakeUserRepository,
 } from "./test-support/identity-fakes";
+
+/** Fixed instant, so CA-7.1's timestamp is assertable. */
+const NOW = new Date("2026-10-11T12:00:00.000Z");
+const clock: ClockPort = {
+  now: () => NOW,
+  today: () => new Date("2026-10-11T00:00:00.000Z"),
+};
 
 describe("DeactivateUserUseCase", () => {
   const hasher = new FakeHasher();
@@ -50,7 +58,7 @@ describe("DeactivateUserUseCase", () => {
     const roles = new FakeRoleRepository();
     const refreshTokens = new FakeRefreshTokenStore();
     return {
-      useCase: new DeactivateUserUseCase(users, roles, refreshTokens),
+      useCase: new DeactivateUserUseCase(users, roles, refreshTokens, clock),
       users,
       refreshTokens,
     };
@@ -65,6 +73,34 @@ describe("DeactivateUserUseCase", () => {
     expect(user.isActive()).toBe(false);
     expect(users.saved).toHaveLength(1);
     expect(refreshTokens.revokedForUsers).toEqual([1]);
+  });
+
+  it("records when the user was deactivated (CA-7.1)", async () => {
+    const { useCase, users } = build();
+    const user = await seedUser(users);
+
+    await useCase.execute({ id: 1 });
+
+    expect(user.deletedAt).toEqual(NOW);
+  });
+
+  it("leaves deletedAt null while the user is active", async () => {
+    const { users } = build();
+    const user = await seedUser(users);
+
+    expect(user.deletedAt).toBeNull();
+  });
+
+  it("does not stamp a date when the deactivation is refused", async () => {
+    // The last-administrator check runs first, so a refused request
+    // must leave no trace of a baja that never happened.
+    const { useCase, users } = build();
+    const admin = await seedUser(users, { id: 1, roleIds: [ADMIN] });
+
+    await expect(useCase.execute({ id: 1 })).rejects.toBeInstanceOf(
+      LastAdministratorError,
+    );
+    expect(admin.deletedAt).toBeNull();
   });
 
   it("throws UserNotFoundError when no user matches the id", async () => {

@@ -58,6 +58,10 @@ export class PrismaUserRepository implements UserRepository {
         lawyerId: user.lawyerId,
         lastLoginAt: user.lastLoginAt,
         active: user.isActive(),
+        // CA-7.1. The column existed from the first migration and was
+        // never written: the entity now owns the value and this is
+        // what carries it to the row.
+        deletedAt: user.deletedAt,
         roles: {
           deleteMany: {},
           create: user.roleIds.map((roleId) => ({ roleId })),

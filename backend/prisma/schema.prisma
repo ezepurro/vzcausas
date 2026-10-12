@@ -88,6 +88,32 @@ model RefreshToken {
   @@map("refresh_tokens")
 }
 
+// Contador de intentos fallidos de login (Q-03). Una fila por clave
+// vigilada, no un registro de cada intento: lo único que la política
+// pregunta es "cuántos seguidos" y "hasta cuándo está bloqueado", y una
+// fila mutable contesta las dos con un solo upsert.
+//
+// `identifier` es la clave compuesta que arma el adaptador
+// (`u:<username>` o `u:<username>|ip:<ip>`), y NO una FK a `users`: se
+// cuenta también contra usuarios inexistentes. Es deliberado — D-18
+// responde lo mismo ante un usuario que no existe que ante una
+// contraseña mala para que no se puedan enumerar cuentas, y un bloqueo
+// que sólo existiera para usuarios reales devolvería esa distinción.
+//
+// No hay relación hacia `User` por el mismo motivo, así que esta tabla
+// no se borra en cascada: las filas se limpian por antigüedad.
+model LoginAttempt {
+  identifier          String    @id @db.VarChar(120)
+  consecutiveFailures Int       @default(0) @map("consecutive_failures")
+  lastFailedAt        DateTime  @map("last_failed_at") @db.Timestamptz(6)
+  lockedUntil         DateTime? @map("locked_until") @db.Timestamptz(6)
+
+  // Para la limpieza periódica de filas que ya no pesan en ninguna
+  // decisión; la lectura del login va siempre por la clave primaria.
+  @@index([lastFailedAt])
+  @@map("login_attempts")
+}
+
 model Role {
   id          Int      @id @default(autoincrement())
   name        String   @unique @db.VarChar(50)

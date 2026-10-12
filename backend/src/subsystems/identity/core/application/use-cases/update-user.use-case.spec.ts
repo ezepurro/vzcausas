@@ -218,7 +218,7 @@ describe("UpdateUserUseCase", () => {
     it("lets a deactivated user's lawyer be taken over", async () => {
       const { useCase, users } = build([4]);
       const previous = await seedUser(users, { roleIds: [2], lawyerId: 4 });
-      previous.deactivate();
+      previous.deactivate(new Date("2026-10-11T12:00:00Z"));
       await users.save(previous);
       await seedUser(users, {
         id: 2,

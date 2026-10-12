@@ -117,7 +117,7 @@ describe("JwtAuthGuard", () => {
   it("propagates the verifier's rejection unchanged", async () => {
     const failure = new UnauthorizedError(
       "UNAUTHENTICATED",
-      "Invalid or expired access token.",
+      "La autenticación es requerida o el token proporcionado no es válido.",
     );
     const { guard } = build(jest.fn().mockRejectedValue(failure));
     const { context } = contextFor(DummyController.prototype.protectedRoute, {

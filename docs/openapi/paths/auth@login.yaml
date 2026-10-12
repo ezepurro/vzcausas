@@ -10,6 +10,11 @@ post:
     `user` posee la misma estructura que devuelve `/users`; su `lastLoginAt`
     corresponde al acceso **anterior** al que se está realizando, para que el
     usuario pueda advertir un ingreso que no efectuó.
+
+    Cinco intentos fallidos consecutivos contra el mismo usuario bloquean la
+    cuenta con una espera creciente (ver la respuesta `429`). El endpoint
+    también tiene un límite de pedidos por dirección IP, más estricto que el
+    del resto de la API.
   security: []
   requestBody:
     required: true
@@ -65,7 +70,9 @@ post:
                 username: El nombre de usuario es obligatorio.
                 password: La contraseña es obligatoria.
     '401':
-      description: Credenciales incorrectas.
+      description: |
+        Credenciales incorrectas. El mismo mensaje exista o no exista el
+        usuario: distinguirlos permitiría enumerar cuentas.
       content:
         application/json:
           schema:
@@ -73,5 +80,35 @@ post:
           example:
             error:
               code: INVALID_CREDENTIALS
-              message: Las credenciales proporcionadas no son válidas.
+              message: Usuario o contraseña incorrectos.
               details: null
+    '429':
+      description: |
+        Dos motivos posibles, con el mismo HTTP pero distinto `code`: el
+        bloqueo progresivo por cuenta (`TOO_MANY_LOGIN_ATTEMPTS`), o el
+        límite de pedidos por IP, compartido con el resto de la API
+        (`TOO_MANY_REQUESTS`).
+      headers:
+        Retry-After:
+          $ref: ../components/headers/RetryAfter.yaml
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          examples:
+            accountLocked:
+              summary: Bloqueo por cuenta (5 fallos consecutivos)
+              value:
+                error:
+                  code: TOO_MANY_LOGIN_ATTEMPTS
+                  message: Demasiados intentos fallidos. Esperá antes de volver a intentar.
+                  details:
+                    retryAfterSeconds: 90
+            ipThrottled:
+              summary: Límite de pedidos por IP
+              value:
+                error:
+                  code: TOO_MANY_REQUESTS
+                  message: Demasiadas peticiones. Esperá un momento antes de reintentar.
+                  details:
+                    retryAfterSeconds: 42

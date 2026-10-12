@@ -50,6 +50,17 @@ export default defineConfig(({ mode }) => {
             env.VITE_BACKEND_URL ??
             'http://localhost:3000',
           changeOrigin: true,
+          /**
+           * Sin esto, el proxy reenvía cada pedido al backend sin
+           * decir de qué IP vino originalmente: para Express, todos
+           * los pedidos de todos los usuarios llegan "desde" este
+           * proxy. El backend usa la IP del cliente para el throttle
+           * por pedidos y para el bloqueo de login por cuenta+IP
+           * (`TRUST_PROXY`, `backend/.env.example`); sin `xfwd`, esos
+           * dos límites terminarían compartiéndose entre todo el
+           * mundo en vez de aplicarse por usuario.
+           */
+          xfwd: true,
         },
       },
     },

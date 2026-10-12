@@ -152,8 +152,8 @@ function created<T>(body: T): MockResponse<T> {
     return { status: 201, body };
 }
 
-function fail(status: number, body: unknown): MockResponse {
-    return { status, body };
+function fail(status: number, body: unknown, headers?: Record<string, string>): MockResponse {
+    return { status, body, headers };
 }
 
 /** `400 VALIDATION_ERROR` con el detalle campo → mensaje. */
@@ -363,6 +363,14 @@ function nowIso(): string {
 /* /auth                                                               */
 /* ------------------------------------------------------------------ */
 
+/** Fallos consecutivos que bloquean la cuenta (V3 §4, Límite de frecuencia). */
+const LOGIN_LOCKOUT_THRESHOLD = 5;
+/**
+ * El mock no mide tiempo real —no hay escalera creciente como en el
+ * backend—, así que siempre ofrece el primer escalón documentado.
+ */
+const LOGIN_LOCKOUT_RETRY_AFTER_SECONDS = 90;
+
 const login: Handler = ({ request }) => {
     const body = asObject(request.body);
     const username = asText(body.username);
@@ -373,12 +381,26 @@ const login: Handler = ({ request }) => {
     if (password === '') details.password = 'La contraseña es obligatoria.';
     if (Object.keys(details).length > 0) return validationError(details);
 
+    /* Cuenta igual contra un usuario que no existe (D-41/D-18): si sólo se
+       bloquearan cuentas reales, que el bloqueo aparezca o no delataría
+       cuáles son. La clave es el string tal cual se mandó, antes de buscarlo. */
+    const attempts = db.loginAttempts.get(username) ?? 0;
+    if (attempts >= LOGIN_LOCKOUT_THRESHOLD) {
+        return fail(429, ERRORS.tooManyLoginAttempts, {
+            'Retry-After': String(LOGIN_LOCKOUT_RETRY_AFTER_SECONDS),
+        });
+    }
+
     const user = db.users.find((u) => u.username === username);
     // Un usuario dado de baja no entra, y no se distingue de credenciales
     // incorrectas: decirle "existís pero estás inactivo" filtra información.
     if (!user || !user.active || db.passwords.get(user.username) !== password) {
+        db.loginAttempts.set(username, attempts + 1);
         return fail(401, ERRORS.invalidCredentials);
     }
+
+    // Credenciales correctas: el contador de esta cuenta se borra.
+    db.loginAttempts.delete(username);
 
     /* El contrato pide que `lastLoginAt` sea el acceso ANTERIOR, no este: es
        lo que le permite a la persona detectar un ingreso que no hizo. Se lee

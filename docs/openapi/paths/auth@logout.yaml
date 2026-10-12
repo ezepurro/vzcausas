@@ -4,7 +4,9 @@ post:
   operationId: logout
   summary: Cerrar sesión
   description: |
-    Finaliza la sesión del usuario autenticado. El token queda revocado.
+    Finaliza la sesión del usuario autenticado. Tanto el refresh como el
+    access token dejan de aceptarse desde la próxima petición. No afecta a
+    otras sesiones concurrentes del mismo usuario en otros dispositivos.
 
     **Rol requerido:** cualquier usuario autenticado.
   responses:
@@ -12,3 +14,5 @@ post:
       description: Sesión cerrada. La respuesta no contiene cuerpo.
     '401':
       $ref: ../components/responses/Unauthorized.yaml
+    '429':
+      $ref: ../components/responses/TooManyRequests.yaml

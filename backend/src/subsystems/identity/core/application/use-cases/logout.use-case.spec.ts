@@ -30,6 +30,7 @@ class FakeRefreshStore implements RefreshTokenStore {
       token: `refresh-${this.counter}`,
       userId: params.userId,
       familyId: params.familyId ?? `fam-${this.counter}`,
+      createdAt: new Date("2026-09-22T10:00:00Z"),
       expiresAt: new Date("2026-09-29T10:00:00Z"),
       revokedAt: null,
     };
@@ -61,6 +62,17 @@ class FakeRefreshStore implements RefreshTokenStore {
   async revokeAllForUser(userId: number): Promise<void> {
     this.revokeAllForUserCalls.push(userId);
   }
+
+  async findLatestInFamily(
+    familyId: string,
+  ): Promise<{ createdAt: Date; revokedAt: Date | null } | null> {
+    const inFamily = this.records.filter((r) => r.familyId === familyId);
+    if (inFamily.length === 0) return null;
+    // No `createdAt` on `StoredRefresh` to sort by in this fake; the
+    // seed order is good enough since no test here depends on it.
+    const latest = inFamily[inFamily.length - 1];
+    return { createdAt: new Date("2026-09-20T10:00:00Z"), revokedAt: latest.revokedAt };
+  }
 }
 
 const seedRefresh = (
@@ -71,6 +83,7 @@ const seedRefresh = (
     token: overrides.token ?? "refresh-current",
     userId: overrides.userId ?? 1,
     familyId: overrides.familyId ?? "fam-1",
+    createdAt: overrides.createdAt ?? new Date("2026-09-20T10:00:00Z"),
     expiresAt: overrides.expiresAt ?? new Date("2026-09-28T10:00:00Z"),
     revokedAt: overrides.revokedAt === undefined ? null : overrides.revokedAt,
   };

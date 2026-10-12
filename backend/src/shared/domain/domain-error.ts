@@ -52,3 +52,20 @@ export class ForbiddenActionError extends DomainError {}
 
 /** Business rule violation. Mapped to HTTP 422. */
 export class BusinessRuleError extends DomainError {}
+
+/**
+ * Caller is being rate limited and must wait. Mapped to HTTP 429.
+ *
+ * A domain error and not a bare Nest exception because the wait is a
+ * *policy* decision — the progressive lockout of `POST /auth/login`
+ * (Q-03) — and the response has to carry the contract's envelope with
+ * its own `code`, which an `HttpException` cannot express without the
+ * filter guessing.
+ *
+ * `details.retryAfterSeconds` is the one place the API puts something
+ * other than field-level messages in `details` (contract §5.2). It is
+ * duplicated there on purpose: the authoritative signal is the
+ * `Retry-After` header, but a browser cannot read a header that CORS
+ * does not expose, so the body is what the frontend actually consumes.
+ */
+export class TooManyRequestsError extends DomainError {}

@@ -10,6 +10,13 @@ export interface LoginFormProps {
     /** Error del formulario entero: credenciales, red, servidor. */
     banner: string | null
     submitting: boolean
+    /**
+     * Segundos que faltan para poder reintentar, tras un `429` (bloqueo de
+     * login o límite de pedidos). `null` o `0`: no hay bloqueo. El `banner`
+     * ya trae el motivo (`e.message`); esto sólo agrega la cuenta regresiva
+     * en el botón.
+     */
+    lockedSecondsRemaining?: number | null
     onChange: (field: keyof LoginFormValues, value: string) => void
     onSubmit: () => void
 }
@@ -19,7 +26,7 @@ export interface LoginFormProps {
  * servidor, sólo avisa. La pantalla decide.
  */
 export function LoginForm({
-    values, errors, banner, submitting, onChange, onSubmit,
+    values, errors, banner, submitting, lockedSecondsRemaining, onChange, onSubmit,
 }: LoginFormProps) {
     function handleSubmit(event: FormEvent<HTMLFormElement>) {
         // Es un <form> de verdad para que funcione el Enter y para que el
@@ -27,6 +34,8 @@ export function LoginForm({
         event.preventDefault()
         onSubmit()
     }
+
+    const locked = Boolean(lockedSecondsRemaining)
 
     return (
         <form className="vz-login__form" onSubmit={handleSubmit}>
@@ -68,8 +77,12 @@ export function LoginForm({
             </div>
 
             <div className="vz-login__actions">
-                <Button type="submit" block disabled={submitting}>
-                    {submitting ? 'Ingresando…' : 'Ingresar'}
+                <Button type="submit" block disabled={submitting || locked}>
+                    {submitting
+                        ? 'Ingresando…'
+                        : locked
+                            ? `Reintentar en ${lockedSecondsRemaining} s`
+                            : 'Ingresar'}
                 </Button>
             </div>
         </form>

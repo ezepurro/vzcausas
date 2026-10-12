@@ -185,7 +185,7 @@ async function resolver({ request }: { request: Request }) {
     if (result.status === 204 || result.body === null) {
         return new HttpResponse(null, { status: 204 });
     }
-    return HttpResponse.json(result.body, { status: result.status });
+    return HttpResponse.json(result.body, { status: result.status, headers: result.headers });
 }
 
 /* ------------------------------------------------------------------ */

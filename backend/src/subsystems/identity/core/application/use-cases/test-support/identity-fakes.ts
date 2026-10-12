@@ -230,6 +230,9 @@ export class FakeRefreshTokenStore implements RefreshTokenStore {
   async revokeAllForUser(userId: number): Promise<void> {
     this.revokedForUsers.push(userId);
   }
+  async findLatestInFamily(): Promise<null> {
+    return null;
+  }
 }
 
 /**

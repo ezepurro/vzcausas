@@ -261,11 +261,44 @@ efectuó.
 {
 	"error": {
 		"code": "INVALID_CREDENTIALS",
-		"message": "Las credenciales proporcionadas no son válidas.",
+		"message": "Usuario o contraseña incorrectos.",
 		"details": null
 	}
 }
 ```
+
+El mensaje es el mismo exista o no exista el usuario: distinguir "no existe"
+de "contraseña incorrecta" permitiría enumerar cuentas probando usuarios al
+azar.
+
+**`429 Too Many Requests`**
+
+Dos motivos posibles, con el mismo código HTTP pero distinto `code` (ver
+[Límite de frecuencia](#límite-de-frecuencia)). El bloqueo por cuenta:
+
+```json
+{
+	"error": {
+		"code": "TOO_MANY_LOGIN_ATTEMPTS",
+		"message": "Demasiados intentos fallidos. Esperá antes de volver a intentar.",
+		"details": { "retryAfterSeconds": 90 }
+	}
+}
+```
+
+O el límite de pedidos por IP:
+
+```json
+{
+	"error": {
+		"code": "TOO_MANY_REQUESTS",
+		"message": "Demasiadas peticiones. Esperá un momento antes de reintentar.",
+		"details": { "retryAfterSeconds": 42 }
+	}
+}
+```
+
+En ambos casos la respuesta trae el encabezado `Retry-After`.
 
 ---
 
@@ -287,7 +320,10 @@ No requiere parámetros de consulta.
 
 **`204 No Content`**
 
-La respuesta no contiene cuerpo. El token queda revocado.
+La respuesta no contiene cuerpo. La sesión queda cerrada: tanto el refresh
+como el `accessToken` dejan de aceptarse desde la próxima petición (ver
+[Sesión y revocación](#sesión-y-revocación)). No afecta a otras sesiones
+concurrentes del mismo usuario en otros dispositivos.
 
 **`401 Unauthorized`**
 
@@ -321,7 +357,7 @@ Permite al usuario autenticado modificar su propia contraseña.
 | Campo             | Tipo   | Requerido | Restricciones                                  |
 | ----------------- | ------ | :-------: | ---------------------------------------------- |
 | `currentPassword` | String |    Sí     | -                                              |
-| `newPassword`     | String |    Sí     | Mínimo 8 caracteres, con al menos un número    |
+| `newPassword`     | String |    Sí     | Mínimo 8 caracteres, con al menos un número, distinta de `currentPassword` |
 
 **Parámetros de consulta**
 
@@ -331,7 +367,9 @@ No requiere parámetros de consulta.
 
 **`204 No Content`**
 
-La respuesta no contiene cuerpo. La sesión permanece abierta.
+La respuesta no contiene cuerpo. La sesión que hizo el cambio permanece
+abierta; todas las demás sesiones del usuario, en cualquier otro dispositivo,
+se cierran (ver [Sesión y revocación](#sesión-y-revocación)).
 
 **`400 Bad Request`**
 
@@ -342,6 +380,20 @@ La respuesta no contiene cuerpo. La sesión permanece abierta.
 		"message": "Los datos enviados no son válidos.",
 		"details": {
 			"newPassword": "La contraseña no cumple con los requisitos establecidos."
+		}
+	}
+}
+```
+
+O, si la contraseña nueva es igual a la actual:
+
+```json
+{
+	"error": {
+		"code": "SAME_PASSWORD",
+		"message": "La contraseña nueva debe ser distinta de la actual.",
+		"details": {
+			"newPassword": "La contraseña nueva debe ser distinta de la actual."
 		}
 	}
 }
@@ -451,10 +503,29 @@ Set-Cookie: refresh_token=; HttpOnly; Secure; SameSite=Lax; Path=/api/v1/auth; M
 
 El mismo `401 UNAUTHENTICATED` cubre todos los caminos de falla, de
 manera deliberadamente opaca al cliente: cookie ausente, token
-inexistente en la base, token revocado (rotación previa o robo
-detectado), token expirado, o usuario dado de baja luego del último
-login. La reacción del cliente es la misma en todos los casos:
-redirigir al login.
+inexistente en la base, token revocado (rotación previa, robo
+detectado, cierre de sesión o cambio de contraseña en otro
+dispositivo), token expirado, sesión inactiva por más de 30 minutos
+(ver [Sesión y revocación](#sesión-y-revocación)), o usuario dado de
+baja luego del último login. La reacción del cliente es la misma en
+todos los casos: redirigir al login.
+
+**`429 Too Many Requests`**
+
+Comparte el límite estricto de `POST /auth/login` (ver [Límite de
+frecuencia](#límite-de-frecuencia)); el bloqueo por cuenta no aplica
+acá, porque no hay una cuenta que bloquear sin verificar primero la
+contraseña.
+
+```json
+{
+	"error": {
+		"code": "TOO_MANY_REQUESTS",
+		"message": "Demasiadas peticiones. Esperá un momento antes de reintentar.",
+		"details": { "retryAfterSeconds": 42 }
+	}
+}
+```
 
 ---
 
@@ -1003,9 +1074,10 @@ Da de baja un usuario.
 
 **La baja es lógica, pero el cliente no la percibe.** El backend establece
 `active` en `false` y conserva el registro; para el cliente el usuario deja de
-existir. No puede iniciar sesión, sus sesiones abiertas se cierran, no aparece
-en ningún listado y `GET /users/{userId}` responde `404`. No existe forma de
-consultarlo ni de reactivarlo desde la API.
+existir. No puede iniciar sesión, sus sesiones abiertas se cierran desde la
+próxima petición que haga (ver [Sesión y revocación](#sesión-y-revocación)),
+no aparece en ningún listado y `GET /users/{userId}` responde `404`. No existe
+forma de consultarlo ni de reactivarlo desde la API.
 
 **Parámetros de ruta**
 
@@ -4125,6 +4197,52 @@ Los endpoints protegidos requieren autenticación mediante un token Bearer:
 Authorization: Bearer <accessToken>
 ```
 
+### Sesión y revocación
+
+El `accessToken` vence a los 15 minutos; el cliente lo renueva con
+`POST /auth/refresh` usando la cookie de refresh (§3.1). Más allá de ese
+vencimiento natural, cuatro situaciones cortan una sesión **antes** de que el
+`accessToken` expire por sí solo, y lo hacen desde la **próxima petición**:
+
+- **Cierre de sesión** (`POST /auth/logout`).
+- **Baja del usuario** (`DELETE /users/{userId}`).
+- **Cambio de contraseña**, para toda sesión que no sea la que lo hizo. La
+  sesión que cambió la contraseña permanece abierta (§3.1).
+- **Inactividad prolongada**: una sesión sin renovarse por **30 minutos**
+  queda cerrada. El cómputo es aproximado, no al segundo — el cliente solo
+  sabe que se cortó cuando el siguiente `POST /auth/refresh` responde `401
+  UNAUTHENTICATED` en lugar de renovar.
+
+En los cuatro casos la reacción del cliente es la misma: el próximo pedido
+responde `401 UNAUTHENTICATED` (en un endpoint protegido) o
+`POST /auth/refresh` también responde `401 UNAUTHENTICATED` en lugar de
+renovar. El servidor no distingue el motivo en la respuesta — es la misma
+opacidad deliberada que ya rige en `POST /auth/login` (§3.1): el cliente no
+puede inferir si la sesión se cerró por inactividad, por una baja o porque se
+cerró sesión desde otro dispositivo. La reacción esperada del cliente es
+siempre la misma: redirigir al login.
+
+### Límite de frecuencia
+
+Dos mecanismos independientes, que cubren ataques distintos:
+
+- **Por dirección IP, en toda la API.** Un volumen alto de pedidos desde una
+  misma dirección responde `429 Too Many Requests`, código
+  `TOO_MANY_REQUESTS` (§5.3), sin importar el endpoint ni la cuenta a la que
+  apunten. `POST /auth/login` y `POST /auth/refresh` tienen, además, un
+  límite propio más estricto que el resto de la API.
+- **Por cuenta, solo en `POST /auth/login`.** Cinco intentos fallidos
+  consecutivos contra el mismo usuario bloquean esa cuenta con una espera
+  creciente (90 segundos, 5, 15, 30 y 60 minutos). Responde `429 Too Many
+  Requests`, código `TOO_MANY_LOGIN_ATTEMPTS`. El bloqueo no distingue un
+  usuario inexistente de uno real, por el mismo motivo que `INVALID_CREDENTIALS`
+  no lo hace (§3.1): de lo contrario, que una cuenta se bloquee o no revelaría
+  si existe.
+
+En ambos casos la respuesta trae el encabezado `Retry-After` (segundos a
+esperar) y el mismo valor en `details.retryAfterSeconds` — la única
+excepción a que `details` sea `null` fuera de un error de validación (§5.2).
+
 ### Autorización
 
 Un endpoint indicado con un rol (`ADMINISTRATOR`, `LAWYER` o `SECRETARY`)
@@ -4318,7 +4436,7 @@ estructura:
 | --------- | ---------------------------------------------------------------------------------------- |
 | `code`    | Código del catálogo. Es el valor que el cliente utiliza para discriminar el tipo de error |
 | `message` | Descripción legible del error, **en castellano** |
-| `details` | Objeto `campo → mensaje` en los errores de validación; `null` en el resto                |
+| `details` | Objeto `campo → mensaje` en los errores de validación; `{ "retryAfterSeconds": N }` en `TOO_MANY_LOGIN_ATTEMPTS` y `TOO_MANY_REQUESTS` (§4, [Límite de frecuencia](#límite-de-frecuencia)); `null` en el resto |
 
 El cliente discrimina los errores por `code` y nunca por el texto de
 `message`. Dos situaciones que la interfaz resuelve de manera distinta
@@ -4368,8 +4486,9 @@ respuesta.
 | `INVALID_PAGINATION`                     | 400  | Parámetros de paginación fuera de rango                            |
 | `INVALID_PATH_PARAMETER`                 | 400  | Identificador de la ruta inválido                                  |
 | `INVALID_REQUEST`                        | 400  | Parámetro de consulta con un valor inexistente o una combinación inválida |
+| `SAME_PASSWORD`                          | 400  | La contraseña nueva es igual a la actual. Exclusivo de `PATCH /auth/password` |
 | `INVALID_CREDENTIALS`                    | 401  | Credenciales incorrectas. Exclusivo de `/auth/login`               |
-| `UNAUTHENTICATED`                        | 401  | Token ausente, vencido o revocado                                  |
+| `UNAUTHENTICATED`                        | 401  | Token ausente, vencido, revocado o la sesión cerrada por inactividad |
 | `FORBIDDEN`                              | 403  | Usuario autenticado sin el rol requerido                           |
 | `USER_NOT_FOUND`                         | 404  | Usuario inexistente                                                |
 | `LAWYER_NOT_FOUND`                       | 404  | Abogado inexistente                                                |
@@ -4390,6 +4509,8 @@ respuesta.
 | `INVALID_CURRENT_PASSWORD`               | 422  | La contraseña actual no coincide                                   |
 | `CASE_IN_TERMINAL_STATE`                 | 422  | Acto procesal sobre una causa en estado terminal                   |
 | `BUSINESS_RULE_VIOLATION`                | 422  | Violación de una regla de negocio                                  |
+| `TOO_MANY_LOGIN_ATTEMPTS`                | 429  | Bloqueo progresivo por intentos fallidos. Exclusivo de `POST /auth/login` |
+| `TOO_MANY_REQUESTS`                      | 429  | Límite de pedidos por dirección IP superado                        |
 | `INTERNAL_SERVER_ERROR`                  | 500  | Error interno inesperado                                           |
 
 ---
@@ -4407,12 +4528,17 @@ respuesta.
 | `404`  | `Not Found`             | Recurso solicitado inexistente                          |
 | `409`  | `Conflict`              | Conflicto con el estado actual o unicidad de un recurso |
 | `422`  | `Unprocessable Content` | Violación de una regla de negocio                       |
+| `429`  | `Too Many Requests`     | Límite de frecuencia superado (ver §4)                  |
 | `500`  | `Internal Server Error` | Error interno inesperado                                |
 
 Los códigos `400` y `422` no son intercambiables: `400` indica que los datos
 enviados son inválidos y corresponde señalarlos en el formulario; `422` indica
 que los datos son válidos pero la operación no puede realizarse por una regla
 de negocio, y corresponde informarlo como aviso.
+
+El `429` trae siempre el encabezado `Retry-After` (segundos) y el mismo valor
+en `details.retryAfterSeconds`. Puede aparecer en cualquier endpoint, no solo
+en `/auth` — ver [Límite de frecuencia](#límite-de-frecuencia).
 
 ---
 
@@ -4530,6 +4656,22 @@ revisión del 05/10/2026 (D-33): viajan en dos campos separados y opcionales,
 | --- | --- | --- | --- |
 | `startDate` de la causa | Siempre una fecha: sin SAC se guardaba la del día | `String \| null`: vale `null` mientras la causa no tiene SAC. En `POST /cases` se mantiene que con SAC es obligatoria y sin SAC no se informa | D-38 |
 
+### 7.11 Revisión de V3 del 11/10/2026
+
+Cierra la deuda de seguridad de `/auth` que `IMPLEMENTACION_AUTH.md` (Q-03)
+dejaba anotada: *"¿Política de bloqueo por intentos fallidos y/o rate limit?
+Deuda aceptada hasta versión posterior."* Afecta solo a `/auth` y al catálogo
+de códigos de error; el resto del documento no cambió.
+
+| Qué | Antes | Ahora | Decisión |
+| --- | --- | --- | --- |
+| Intentos fallidos de login | Sin límite | Bloqueo progresivo por cuenta a los 5 fallos consecutivos, con espera creciente | D-39 |
+| Volumen de pedidos | Sin límite | `429 TOO_MANY_REQUESTS` por dirección IP, en toda la API; límite propio y más estricto en `/auth/login` y `/auth/refresh` | D-40 |
+| Mensaje de `INVALID_CREDENTIALS` | "Las credenciales proporcionadas no son válidas." | "Usuario o contraseña incorrectos." | D-41 |
+| Cierre de sesión al dar de baja, cerrar sesión o cambiar la contraseña | El `accessToken` seguía válido hasta vencer (máx. 15 min) | Se corta desde la próxima petición (ver [Sesión y revocación](#sesión-y-revocación)) | D-42 |
+| Inactividad de sesión | Una sesión vivía hasta 7 días sin usarse | Se cierra tras ~30 minutos sin renovarse | D-42 |
+| `PATCH /auth/password` con la misma contraseña | Se aceptaba | `400 SAME_PASSWORD` | D-43 |
+
 ---
 
 ## 8. Observaciones
@@ -4579,6 +4721,11 @@ antes o durante la implementación.
 | D-36 | El fuero de un estado procesal no es modificable: `PATCH /procedural-states/{stateId}` rechaza `jurisdiction` con `400 VALIDATION_ERROR`, y se retira `PROCEDURAL_STATE_IN_USE`. Revierte D-07 | Decisión del equipo. Un estado figura en la historia de las causas aunque ninguna esté hoy en él, así que el traslado casi nunca procedía y la pantalla no podía anticiparlo. Para trasladarlo: baja y alta en el otro fuero, como en V2 |
 | D-37 | Los códigos de `ProceduralRole` van en castellano: `DEFENSA`, `QUERELLANTE_PARTICULAR`, `RECURRENTE`, `ACTORA` y `DEMANDADA`. Reemplazan a `DEFENSE`, `PRIVATE_PROSECUTOR`, `APPELLANT`, `PLAINTIFF` y `DEFENDANT` | Decisión del equipo (09/10/2026): son los valores que ya usan el backend y la base de datos |
 | D-38 | `startDate` de la causa es anulable: vale `null` mientras la causa no tiene SAC. La regla de entrada no cambia (con SAC es obligatoria, sin SAC no se informa); cambia lo que se guarda | Decisión del equipo (10/10/2026). La fecha de inicio es la de la causa en sede judicial y sin SAC no existe; como la columna era `NOT NULL`, se guardaba la fecha del día, un dato inventado que el detalle de la causa mostraba como real. Ver [C-20](#82-puntos-a-verificar) |
+| D-39 | `POST /auth/login` bloquea una cuenta al quinto fallo consecutivo contra el mismo usuario, con espera creciente (90 s, 5, 15, 30 y 60 min). Cuenta igual contra un usuario que no existe, para no revelar qué cuentas son reales | Cierra Q-03 de `IMPLEMENTACION_AUTH.md`. El umbral y la escalera son configuración del servidor, no parte del contrato: lo único contractual es el código `TOO_MANY_LOGIN_ATTEMPTS` y que la respuesta trae `Retry-After` |
+| D-40 | Toda la API acepta un límite de pedidos por dirección IP (`429 TOO_MANY_REQUESTS`); `/auth/login` y `/auth/refresh` tienen además un límite propio, más estricto | Cierra Q-03. Es independiente del bloqueo de D-39: ese cuenta fallos contra una cuenta, este cuenta volumen desde una dirección, sin mirar a qué apunta |
+| D-41 | El mensaje de `INVALID_CREDENTIALS` pasa a "Usuario o contraseña incorrectos." | Pedido del equipo. Sigue siendo el mismo mensaje exista o no exista la cuenta: D-18 de `IMPLEMENTACION_AUTH.md` no cambia, solo el texto |
+| D-42 | El `accessToken` deja de aceptarse desde la próxima petición cuando el usuario cierra sesión, es dado de baja, cambia su contraseña (en las demás sesiones) o pasa 30 minutos sin renovar la suya. Antes, en los cuatro casos, seguía válido hasta vencer (máx. 15 min) | El servidor pasó a verificar la sesión contra la base en cada pedido en lugar de confiar solo en la firma del token. Ningún endpoint cambia de forma; cambia cuándo un `401 UNAUTHENTICATED` deja de ser "hay que renovar" para ser "hay que iniciar sesión de nuevo" |
+| D-43 | `PATCH /auth/password` rechaza una `newPassword` igual a `currentPassword` con `400 SAME_PASSWORD` | Pedido del equipo (CA-3.5 del seguimiento de HU1-3). Antes solo lo validaba el frontend; un cliente que hablara directo con la API podía dejar la contraseña sin cambios |
 
 ### 8.2 Puntos a verificar
 

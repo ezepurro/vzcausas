@@ -9,8 +9,9 @@ description: |
   | `INVALID_PAGINATION`                 | 400  | Parámetros de paginación fuera de rango                                   |
   | `INVALID_PATH_PARAMETER`             | 400  | Identificador de la ruta inválido                                         |
   | `INVALID_REQUEST`                    | 400  | Parámetro de consulta con un valor inexistente o una combinación inválida |
+  | `SAME_PASSWORD`                      | 400  | La contraseña nueva es igual a la actual. Exclusivo de `PATCH /auth/password` |
   | `INVALID_CREDENTIALS`                | 401  | Credenciales incorrectas. Exclusivo de `/auth/login`                      |
-  | `UNAUTHENTICATED`                    | 401  | Token ausente, vencido o revocado                                         |
+  | `UNAUTHENTICATED`                    | 401  | Token ausente, vencido, revocado o la sesión cerrada por inactividad      |
   | `FORBIDDEN`                          | 403  | Usuario autenticado sin el rol requerido                                  |
   | `USER_NOT_FOUND`                     | 404  | Usuario inexistente                                                       |
   | `LAWYER_NOT_FOUND`                   | 404  | Abogado inexistente                                                       |
@@ -31,12 +32,15 @@ description: |
   | `INVALID_CURRENT_PASSWORD`           | 422  | La contraseña actual no coincide                                          |
   | `CASE_IN_TERMINAL_STATE`             | 422  | Acto procesal sobre una causa en estado terminal                          |
   | `BUSINESS_RULE_VIOLATION`            | 422  | Violación de una regla de negocio                                         |
+  | `TOO_MANY_LOGIN_ATTEMPTS`            | 429  | Bloqueo progresivo por intentos fallidos. Exclusivo de `POST /auth/login` |
+  | `TOO_MANY_REQUESTS`                  | 429  | Límite de pedidos por dirección IP superado                               |
   | `INTERNAL_SERVER_ERROR`              | 500  | Error interno inesperado                                                  |
 enum:
   - VALIDATION_ERROR
   - INVALID_PAGINATION
   - INVALID_PATH_PARAMETER
   - INVALID_REQUEST
+  - SAME_PASSWORD
   - INVALID_CREDENTIALS
   - UNAUTHENTICATED
   - FORBIDDEN
@@ -59,4 +63,6 @@ enum:
   - INVALID_CURRENT_PASSWORD
   - CASE_IN_TERMINAL_STATE
   - BUSINESS_RULE_VIOLATION
+  - TOO_MANY_LOGIN_ATTEMPTS
+  - TOO_MANY_REQUESTS
   - INTERNAL_SERVER_ERROR

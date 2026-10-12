@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { isApiError } from '@/shared/api/ApiError'
 import { useAuth } from '@/app/providers/AuthContext'
+import { useCountdown } from '@/shared/hooks/useCountdown'
 import { useLogin } from '@/features/auth/api/useLogin'
 import { validateLogin, type LoginErrors } from '@/features/auth/schemas/login.schema'
 import type { LoginFormValues } from '@/features/auth/types/credentials'
@@ -25,6 +26,27 @@ export function LoginPage() {
     const [values, setValues] = useState<LoginFormValues>(EMPTY_FORM)
     const [errors, setErrors] = useState<LoginErrors>({})
     const [banner, setBanner] = useState<string | null>(null)
+    const [retryAfterSeconds, setRetryAfterSeconds] = useState<number | null>(null)
+    const lockedSecondsRemaining = useCountdown(retryAfterSeconds)
+
+    /*
+     * Cuando la cuenta pasa de "en curso" a "terminada", el aviso de bloqueo
+     * queda obsoleto —ya se puede reintentar— y seguir mostrando "esperá"
+     * sería engañoso. Derivado durante el render, no en un efecto: mismo
+     * motivo que en `useCountdown` (ver su comentario) y lo que evita volver
+     * a toparse con esa misma carrera acá — el aviso llegó a desaparecer
+     * antes de que el usuario llegara a verlo, en un render intermedio
+     * donde el efecto corría con el dato de la vuelta anterior.
+     */
+    const [wasLocked, setWasLocked] = useState(lockedSecondsRemaining !== null)
+    const isLocked = lockedSecondsRemaining !== null
+    if (isLocked !== wasLocked) {
+        setWasLocked(isLocked)
+        if (wasLocked && !isLocked) {
+            setBanner(null)
+            setRetryAfterSeconds(null)
+        }
+    }
 
     const login = useLogin()
 
@@ -32,8 +54,13 @@ export function LoginPage() {
         setValues((current) => ({ ...current, [field]: value }))
 
         // Al corregir, el error deja de tener sentido: el aviso se va apenas
-        // la persona empieza a escribir.
-        setBanner(null)
+        // la persona empieza a escribir. Excepto durante un bloqueo: ese
+        // aviso sigue siendo cierto se escriba lo que se escriba, y es la
+        // única explicación de por qué el botón está deshabilitado con una
+        // cuenta regresiva. Se levanta solo, cuando la cuenta llega a cero.
+        if (lockedSecondsRemaining === null) {
+            setBanner(null)
+        }
         setErrors((current) => (current[field] ? { ...current, [field]: undefined } : current))
     }
 
@@ -62,12 +89,28 @@ export function LoginPage() {
             return
         }
 
+        /* 429: bloqueo de login o límite de pedidos (V3 §4). El mensaje ya
+           explica el motivo; acá sólo arranca la cuenta regresiva del botón.
+           `retryAfterSeconds` puede venir `null` si el backend no mandó el
+           encabezado `Retry-After` —queda el aviso, sin cuenta regresiva. */
+        if (error.is('TOO_MANY_LOGIN_ATTEMPTS') || error.is('TOO_MANY_REQUESTS')) {
+            setBanner(error.message)
+            setRetryAfterSeconds(error.retryAfterSeconds)
+            return
+        }
+
         // Red, servidor caído, o cualquier otra cosa: el mensaje ya viene en
         // castellano.
         setBanner(error.message)
     }
 
     function submit() {
+        // El botón ya queda deshabilitado durante el bloqueo, pero eso no
+        // alcanza: con un <form> real, Enter en un campo de texto dispara el
+        // submit igual aunque el botón esté disabled. Esta es la guarda que
+        // realmente impide el pedido, no sólo la visual.
+        if (lockedSecondsRemaining !== null) return
+
         const found = validateLogin(values)
         setErrors(found)
         if (Object.keys(found).length > 0) return
@@ -94,6 +137,7 @@ export function LoginPage() {
                     errors={errors}
                     banner={banner}
                     submitting={login.isPending}
+                    lockedSecondsRemaining={lockedSecondsRemaining}
                     onChange={changeField}
                     onSubmit={submit}
                 />

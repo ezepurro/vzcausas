@@ -6,9 +6,12 @@ const PERMISSION_REGEX = /^[a-z][a-z0-9-]*:[a-z][a-z0-9-]*$/;
  * A single permission entry. Value object wrapping a validated
  * `namespace:action` string (for example `case:change-status`).
  *
- * The name is what gets serialized into the JWT `permissions[]` claim,
- * which is why identity and equality are defined by the string value
- * and not by any database id.
+ * The name is what the login/refresh HTTP responses expose under
+ * `permissions[]` (contract §3.1), which is why identity and equality
+ * are defined by the string value and not by any database id. It no
+ * longer travels inside the access token itself — see
+ * `AccessTokenClaims` for why — but the string is still the
+ * authoritative, stable identifier a client matches against.
  */
 export class Permission {
   private constructor(private readonly value: string) {}

@@ -36,9 +36,7 @@ const buildIssuer = (
 
 const CLAIMS: AccessTokenClaims = {
   sub: 1,
-  roles: ["ADMINISTRATOR", "LAWYER"],
-  lawyerId: 10,
-  permissions: ["user:manage", "case:read"],
+  sid: "fam-1234",
 };
 
 describe("JwtTokenIssuerAdapter", () => {
@@ -83,12 +81,29 @@ describe("JwtTokenIssuerAdapter", () => {
     // a string instead of a number).
     const jwt = new JwtService({});
     const badToken = await jwt.signAsync(
-      { sub: "not-a-number", roles: [], permissions: [] },
+      { sub: "not-a-number", sid: "fam-1" },
       { secret: SECRET_32B, algorithm: "HS256", expiresIn: 900 },
     );
 
     const issuer = buildIssuer();
     await expect(issuer.verify(badToken)).rejects.toBeInstanceOf(
+      UnauthorizedError,
+    );
+  });
+
+  it("rejects a pre-revocation token that has no sid at all", async () => {
+    // What a token minted before the claims were narrowed looks
+    // like: `roles`/`lawyerId`/`permissions` instead of `sid`. The
+    // whole point of trimming the shape is that these are no longer
+    // trusted for anything, so the adapter must not resurrect them.
+    const jwt = new JwtService({});
+    const oldShapeToken = await jwt.signAsync(
+      { sub: 1, roles: ["ADMINISTRATOR"], lawyerId: null, permissions: [] },
+      { secret: SECRET_32B, algorithm: "HS256", expiresIn: 900 },
+    );
+
+    const issuer = buildIssuer();
+    await expect(issuer.verify(oldShapeToken)).rejects.toBeInstanceOf(
       UnauthorizedError,
     );
   });

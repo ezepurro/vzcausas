@@ -141,6 +141,15 @@ export interface MockDb {
      * cerró, sólo caducó el acceso— y por eso todavía sirve para renovar.
      */
     expiredTokens: Set<string>;
+    /**
+     * Fallos de login consecutivos por `username`, para simular el bloqueo
+     * progresivo de V3 §4 (Límite de frecuencia). Se borra la entrada en un
+     * login exitoso; no hay escalera de espera como en el backend real, sólo
+     * el umbral de 5 que dispara `TOO_MANY_LOGIN_ATTEMPTS` — alcanza para
+     * probar la pantalla, y una escalera completa en un mock que no mide el
+     * tiempo sería simular lo que no se puede simular.
+     */
+    loginAttempts: Map<string, number>;
     nextUserId: number;
     nextLawyerId: number;
     nextProceduralStateId: number;
@@ -299,6 +308,7 @@ function initialState(): MockDb {
         passwords,
         sessions: new Map(),
         expiredTokens: new Set(),
+        loginAttempts: new Map(),
         nextUserId: Math.max(...USERS.map((u) => u.id)) + 1,
         nextLawyerId: Math.max(...LAWYERS.map((l) => l.id)) + 1,
         nextProceduralStateId: Math.max(...PROCEDURAL_STATES.map((s) => s.id)) + 1,

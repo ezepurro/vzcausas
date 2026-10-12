@@ -1,4 +1,5 @@
 import { Controller, Get, ServiceUnavailableException } from "@nestjs/common";
+import { SkipThrottle } from "@nestjs/throttler";
 import { Public } from "@shared/infrastructure/http/public.decorator";
 import { HealthService } from "./health.service";
 
@@ -13,8 +14,15 @@ import { HealthService } from "./health.service";
  *
  * The payload is deliberately thin (status, reachability, latency) so
  * being open costs nothing: it reveals no data and no configuration.
+ *
+ * `@SkipThrottle()` for the same reason it is `@Public()`: the compose
+ * healthcheck polls this every 10 seconds (every 1 second during the
+ * container's `start_period`), and the per-IP limiter would otherwise
+ * report the service unhealthy for reasons that have nothing to do
+ * with its health.
  */
 @Public()
+@SkipThrottle()
 @Controller("health")
 export class HealthController {
   constructor(private readonly health: HealthService) {}

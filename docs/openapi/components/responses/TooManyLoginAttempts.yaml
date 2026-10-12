@@ -1,0 +1,18 @@
+description: |
+  Bloqueo progresivo por intentos fallidos de login (§4, Límite de
+  frecuencia). Cinco fallos consecutivos contra el mismo usuario bloquean la
+  cuenta con una espera creciente. Cuenta igual contra un usuario que no
+  existe, para no revelar qué cuentas son reales.
+headers:
+  Retry-After:
+    $ref: ../headers/RetryAfter.yaml
+content:
+  application/json:
+    schema:
+      $ref: ../schemas/Error.yaml
+    example:
+      error:
+        code: TOO_MANY_LOGIN_ATTEMPTS
+        message: Demasiados intentos fallidos. Esperá antes de volver a intentar.
+        details:
+          retryAfterSeconds: 90

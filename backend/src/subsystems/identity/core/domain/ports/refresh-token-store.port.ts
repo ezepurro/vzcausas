@@ -14,6 +14,15 @@ export type StoredRefresh = {
   token: string;
   userId: number;
   familyId: string;
+  /**
+   * When this specific row was minted. Unlike `expiresAt` (fixed at
+   * issuance from `JWT_REFRESH_TTL`), this moves forward on every
+   * rotation — which is exactly what makes it usable as "last time
+   * this session proved it was still being used" for the inactivity
+   * check (CA-1.6, `RefreshSessionUseCase`,
+   * `RefreshTokenStore.findLatestInFamily`).
+   */
+  createdAt: Date;
   expiresAt: Date;
   revokedAt: Date | null;
 };
@@ -71,4 +80,28 @@ export interface RefreshTokenStore {
    * lockouts.
    */
   revokeAllForUser(userId: number): Promise<void>;
+
+  /**
+   * Reports the most recently issued token in a family: when it was
+   * created, and whether it is still live.
+   *
+   * This is what lets the access-token verifier answer, on every
+   * request and without the raw refresh value (the JWT's `sid` claim
+   * carries only the family id), two questions: is the session this
+   * access token belongs to still open — not logged out, not wiped by
+   * a password change, not killed by reuse detection (CA-2.3) — and
+   * how long has it sat without being renewed (CA-1.6). A family's
+   * newest row is exactly the session's last point of contact with
+   * the server: rotation stamps a fresh `createdAt` on every renewal
+   * and nothing else touches it.
+   *
+   * Returns `null` only when the family has never existed — which
+   * {@link AccessTokenVerifier} treats as "nothing this opaque to the
+   * caller" rather than panicking. A family that existed and was
+   * fully revoked still returns its newest row, with `revokedAt` set:
+   * this method reports state, the caller decides what it means.
+   */
+  findLatestInFamily(
+    familyId: string,
+  ): Promise<{ createdAt: Date; revokedAt: Date | null } | null>;
 }

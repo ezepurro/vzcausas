@@ -26,6 +26,7 @@ export const ERROR_CODES = [
     'INVALID_PAGINATION',
     'INVALID_PATH_PARAMETER',
     'INVALID_REQUEST',
+    'SAME_PASSWORD',
     // 401 — sin identidad
     'INVALID_CREDENTIALS',
     'UNAUTHENTICATED',
@@ -54,6 +55,9 @@ export const ERROR_CODES = [
     'INVALID_CURRENT_PASSWORD',
     'CASE_IN_TERMINAL_STATE',
     'BUSINESS_RULE_VIOLATION',
+    // 429 — límite de frecuencia
+    'TOO_MANY_LOGIN_ATTEMPTS',
+    'TOO_MANY_REQUESTS',
     // 500
     'INTERNAL_SERVER_ERROR',
 ] as const;
@@ -79,13 +83,15 @@ export function isErrorCode(value: unknown): value is ErrorCode {
  * ```
  *
  * `details` es un objeto campo → mensaje en los errores de validación y
- * `null` en el resto.
+ * `null` en el resto. Única excepción: `TOO_MANY_LOGIN_ATTEMPTS` y
+ * `TOO_MANY_REQUESTS` traen `{ retryAfterSeconds: number }` — no es un
+ * mensaje de campo, por eso el tipo lo separa en vez de forzarlo a string.
  */
 export interface ErrorBody {
     error: {
         code: ErrorCode;
         message: string;
-        details: Record<string, string> | null;
+        details: Record<string, string> | { retryAfterSeconds: number } | null;
     };
 }
 

@@ -97,6 +97,7 @@ class FakeRefreshStore implements RefreshTokenStore {
       token: `refresh-new-${this.counter}`,
       userId: params.userId,
       familyId: params.familyId ?? `fam-new-${this.counter}`,
+      createdAt: new Date("2026-09-22T10:00:00Z"),
       expiresAt: new Date("2026-09-29T10:00:00Z"),
       revokedAt: null,
     };
@@ -126,6 +127,15 @@ class FakeRefreshStore implements RefreshTokenStore {
         r.revokedAt = new Date("2026-09-22T10:00:00Z");
       }
     }
+  }
+
+  async findLatestInFamily(
+    familyId: string,
+  ): Promise<{ createdAt: Date; revokedAt: Date | null } | null> {
+    const inFamily = this.records.filter((r) => r.familyId === familyId);
+    if (inFamily.length === 0) return null;
+    const latest = inFamily[inFamily.length - 1];
+    return { createdAt: new Date("2026-09-20T10:00:00Z"), revokedAt: latest.revokedAt };
   }
 }
 
@@ -158,14 +168,15 @@ describe("ChangePasswordUseCase", () => {
     return { users, hasher, refreshStore, useCase };
   };
 
-  it("rotates the hash, wipes existing refresh tokens, and issues a fresh one for the caller", async () => {
+  it("rotates the hash, wipes other sessions, and issues a fresh one for the caller", async () => {
     const { users, refreshStore, hasher, useCase } = build();
     users.seed(await makeUser());
-    // A previous session of the same user that must be wiped.
+    // A concurrent session on another device, which must be wiped.
     refreshStore.seed({
-      token: "refresh-old",
+      token: "refresh-other-device",
       userId: 1,
-      familyId: "fam-old",
+      familyId: "fam-other-device",
+      createdAt: new Date("2026-09-20T10:00:00Z"),
       expiresAt: new Date("2026-09-28T10:00:00Z"),
       revokedAt: null,
     });
@@ -174,6 +185,7 @@ describe("ChangePasswordUseCase", () => {
       userId: 1,
       currentPassword: "password-123",
       newPassword: "new-password-1",
+      refreshToken: null,
     });
 
     // Hash rotated and persisted.
@@ -182,9 +194,9 @@ describe("ChangePasswordUseCase", () => {
     expect(await stored!.verifyPassword("password-123", hasher)).toBe(false);
     expect(users.saveCalls).toEqual([1]);
 
-    // Existing session wiped (D-38).
+    // The other session is gone.
     expect(refreshStore.revokeAllForUserCalls).toEqual([1]);
-    const wiped = refreshStore.records.find((r) => r.token === "refresh-old");
+    const wiped = refreshStore.records.find((r) => r.token === "refresh-other-device");
     expect(wiped?.revokedAt).not.toBeNull();
 
     // Fresh refresh returned for the caller (D-34).
@@ -199,6 +211,7 @@ describe("ChangePasswordUseCase", () => {
       token: "refresh-old",
       userId: 1,
       familyId: "fam-old",
+      createdAt: new Date("2026-09-20T10:00:00Z"),
       expiresAt: new Date("2026-09-28T10:00:00Z"),
       revokedAt: null,
     });
@@ -208,6 +221,7 @@ describe("ChangePasswordUseCase", () => {
         userId: 1,
         currentPassword: "wrong",
         newPassword: "new-password-1",
+        refreshToken: null,
       }),
     ).rejects.toBeInstanceOf(InvalidCurrentPasswordError);
 
@@ -235,6 +249,7 @@ describe("ChangePasswordUseCase", () => {
         userId: 1,
         currentPassword: "password-123",
         newPassword: "short1",
+        refreshToken: null,
       }),
     ).rejects.toBeInstanceOf(WeakPasswordError);
 
@@ -251,6 +266,7 @@ describe("ChangePasswordUseCase", () => {
         userId: 1,
         currentPassword: "password-123",
         newPassword: "onlyletters",
+        refreshToken: null,
       }),
     ).rejects.toBeInstanceOf(WeakPasswordError);
 
@@ -266,6 +282,7 @@ describe("ChangePasswordUseCase", () => {
       userId: 1,
       currentPassword: "password-123",
       newPassword: "new-password-1",
+      refreshToken: null,
     });
 
     // Order enforced by the use case: revokeAllForUser runs before issue.
@@ -279,13 +296,23 @@ describe("ChangePasswordUseCase", () => {
     expect(fresh?.revokedAt).toBeNull();
   });
 
-  it("starts a brand new family for the caller's rotated session", async () => {
+  /**
+   * This is the D-38 reversal. The old behaviour — asserted by the
+   * test this one replaces — was "always a brand new family". That
+   * broke once the access token started carrying the family id as
+   * `sid` (CA-2.3): the caller's token already in hand would point at
+   * a family that no longer exists, so their very next request would
+   * be rejected as "session closed" — the opposite of what
+   * "la sesión permanece abierta" (contract §3.1) promises.
+   */
+  it("continues the caller's own family rather than starting a new one", async () => {
     const { users, refreshStore, useCase } = build();
     users.seed(await makeUser());
     refreshStore.seed({
-      token: "refresh-old",
+      token: "refresh-caller",
       userId: 1,
-      familyId: "fam-old",
+      familyId: "fam-caller",
+      createdAt: new Date("2026-09-20T10:00:00Z"),
       expiresAt: new Date("2026-09-28T10:00:00Z"),
       revokedAt: null,
     });
@@ -294,14 +321,115 @@ describe("ChangePasswordUseCase", () => {
       userId: 1,
       currentPassword: "password-123",
       newPassword: "new-password-1",
+      refreshToken: "refresh-caller",
     });
 
     const fresh = refreshStore.records.find(
       (r) => r.token === result.refreshToken,
     );
-    // Not a continuation of any previous family.
-    expect(fresh?.familyId).not.toBe("fam-old");
+    expect(fresh?.familyId).toBe("fam-caller");
+    // And the old token value is dead, so a copy held by anyone else
+    // (e.g. captured via XSS) stops working.
+    const old = refreshStore.records.find((r) => r.token === "refresh-caller");
+    expect(old?.revokedAt).not.toBeNull();
+  });
+
+  it("starts a fresh family when no cookie was presented", async () => {
+    const { users, refreshStore, useCase } = build();
+    users.seed(await makeUser());
+
+    const result = await useCase.execute({
+      userId: 1,
+      currentPassword: "password-123",
+      newPassword: "new-password-1",
+      refreshToken: null,
+    });
+
+    const fresh = refreshStore.records.find(
+      (r) => r.token === result.refreshToken,
+    );
     expect(fresh?.familyId).toBe("fam-new-1");
+  });
+
+  it("falls back to a fresh family when the cookie belongs to someone else", async () => {
+    // Mirrors Logout's D-31: a mismatched cookie is not trusted with
+    // anything, including which family to preserve. There is no
+    // side-channel risk in falling back visibly here (unlike Logout,
+    // the response does not depend on which branch ran), so this just
+    // degrades to the "no cookie" behaviour.
+    const { users, refreshStore, useCase } = build();
+    users.seed(await makeUser({ id: 1 }));
+    refreshStore.seed({
+      token: "refresh-someone-else",
+      userId: 999,
+      familyId: "fam-someone-else",
+      createdAt: new Date("2026-09-20T10:00:00Z"),
+      expiresAt: new Date("2026-09-28T10:00:00Z"),
+      revokedAt: null,
+    });
+
+    const result = await useCase.execute({
+      userId: 1,
+      currentPassword: "password-123",
+      newPassword: "new-password-1",
+      refreshToken: "refresh-someone-else",
+    });
+
+    const fresh = refreshStore.records.find(
+      (r) => r.token === result.refreshToken,
+    );
+    expect(fresh?.familyId).not.toBe("fam-someone-else");
+
+    // And the other user's session is untouched — this caller cannot
+    // use a borrowed cookie to reach into it.
+    const other = refreshStore.records.find((r) => r.token === "refresh-someone-else");
+    expect(other?.revokedAt).toBeNull();
+  });
+
+  it("falls back to a fresh family when the presented token is unknown", async () => {
+    const { users, refreshStore, useCase } = build();
+    users.seed(await makeUser());
+
+    const result = await useCase.execute({
+      userId: 1,
+      currentPassword: "password-123",
+      newPassword: "new-password-1",
+      refreshToken: "never-issued",
+    });
+
+    const fresh = refreshStore.records.find(
+      (r) => r.token === result.refreshToken,
+    );
+    expect(fresh?.familyId).toBe("fam-new-1");
+  });
+
+  it("resolves the caller's family before the wipe, so D-36's ordering still holds", async () => {
+    // If the lookup ran after revokeAllForUser, the caller's own row
+    // would already be gone — `find` still returns a revoked row
+    // (ports document this everywhere), so the family id is readable
+    // regardless, but the order is pinned here as a regression guard.
+    const { users, refreshStore, useCase } = build();
+    users.seed(await makeUser());
+    refreshStore.seed({
+      token: "refresh-caller",
+      userId: 1,
+      familyId: "fam-caller",
+      createdAt: new Date("2026-09-20T10:00:00Z"),
+      expiresAt: new Date("2026-09-28T10:00:00Z"),
+      revokedAt: null,
+    });
+
+    const result = await useCase.execute({
+      userId: 1,
+      currentPassword: "password-123",
+      newPassword: "new-password-1",
+      refreshToken: "refresh-caller",
+    });
+
+    const fresh = refreshStore.records.find(
+      (r) => r.token === result.refreshToken,
+    );
+    expect(fresh?.familyId).toBe("fam-caller");
   });
 
   it("fails hard (non-domain-error) when findById returns null (D-37)", async () => {
@@ -312,6 +440,7 @@ describe("ChangePasswordUseCase", () => {
       userId: 1,
       currentPassword: "password-123",
       newPassword: "new-password-1",
+      refreshToken: null,
     });
 
     await expect(promise).rejects.not.toBeInstanceOf(

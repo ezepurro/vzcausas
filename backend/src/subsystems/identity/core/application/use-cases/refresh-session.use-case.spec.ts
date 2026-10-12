@@ -109,6 +109,10 @@ class FakeRefreshStore implements RefreshTokenStore {
       token: `refresh-new-${this.counter}`,
       userId: params.userId,
       familyId: params.familyId ?? `fam-${this.counter}`,
+      // Mirrors production (`issue` stamps `createdAt` from the
+      // clock): matches the fixed `now` every test in this file runs
+      // against, since nothing here advances the clock before issuing.
+      createdAt: new Date('2026-09-22T10:00:00Z'),
       expiresAt: new Date('2026-09-29T10:00:00Z'),
       revokedAt: null,
     };
@@ -137,6 +141,15 @@ class FakeRefreshStore implements RefreshTokenStore {
   }
 
   async revokeAllForUser(): Promise<void> {}
+
+  async findLatestInFamily(
+    familyId: string,
+  ): Promise<{ createdAt: Date; revokedAt: Date | null } | null> {
+    const inFamily = this.records.filter((r) => r.familyId === familyId);
+    if (inFamily.length === 0) return null;
+    const latest = inFamily[inFamily.length - 1];
+    return { createdAt: new Date('2026-09-20T10:00:00Z'), revokedAt: latest.revokedAt };
+  }
 }
 
 class FakeClock implements ClockPort {
@@ -189,6 +202,8 @@ describe('RefreshSessionUseCase', () => {
   });
 
   const now = new Date('2026-09-22T10:00:00Z');
+  /** Matches the 30-minute window `.env.example` recommends for CA-1.6. */
+  const INACTIVITY_SECONDS = 30 * 60;
 
   const build = (roles: Role[] = [roleAdmin]) => {
     const users = new FakeUserRepository();
@@ -196,7 +211,14 @@ describe('RefreshSessionUseCase', () => {
     const tokenIssuer = new FakeTokenIssuer();
     const refreshStore = new FakeRefreshStore();
     const clock = new FakeClock(now);
-    const useCase = new RefreshSessionUseCase(refreshStore, users, rolesRepo, tokenIssuer, clock);
+    const useCase = new RefreshSessionUseCase(
+      refreshStore,
+      users,
+      rolesRepo,
+      tokenIssuer,
+      clock,
+      INACTIVITY_SECONDS,
+    );
     return { users, rolesRepo, tokenIssuer, refreshStore, clock, useCase };
   };
 
@@ -205,6 +227,9 @@ describe('RefreshSessionUseCase', () => {
       token: overrides.token ?? 'refresh-old',
       userId: overrides.userId ?? 1,
       familyId: overrides.familyId ?? 'fam-1',
+      // Freshly rotated by default, well inside the inactivity window
+      // every test below runs against unless it says otherwise.
+      createdAt: overrides.createdAt ?? now,
       expiresAt: overrides.expiresAt ?? new Date('2026-09-28T10:00:00Z'),
       revokedAt: overrides.revokedAt === undefined ? null : overrides.revokedAt,
     };
@@ -240,12 +265,12 @@ describe('RefreshSessionUseCase', () => {
     const oldRecord = refreshStore.records.find((r) => r.token === 'refresh-old');
     expect(oldRecord?.revokedAt).not.toBeNull();
 
-    // Access claims are correct.
+    // The access token proves identity and session only (CA-6.2):
+    // `sid` is the (preserved) family id, nothing about roles or
+    // permissions travels in the JWT anymore.
     expect(tokenIssuer.issued[0]).toEqual({
       sub: 1,
-      roles: ['ADMINISTRATOR'],
-      lawyerId: null,
-      permissions: ['user:manage', 'case:read'],
+      sid: 'fam-1',
     });
 
     // lastLoginAt untouched (D-26).
@@ -314,5 +339,72 @@ describe('RefreshSessionUseCase', () => {
     seedLiveRefresh(refreshStore);
 
     await expect(useCase.execute({ refreshToken: 'refresh-old' })).rejects.not.toBeInstanceOf(SessionExpiredError);
+  });
+
+  /**
+   * CA-1.6. This is the half of the inactivity rule that keeps it
+   * from being undone on contact: without it, the frontend's
+   * automatic silent renewal would resurrect an idle session the
+   * instant `AccessTokenVerifierAdapter`'s mirror of this same check
+   * starts rejecting its access token.
+   */
+  describe('inactivity (CA-1.6)', () => {
+    it('rotates normally just inside the window', async () => {
+      const { useCase, refreshStore, users, clock } = build();
+      users.seed(await makeUser());
+      seedLiveRefresh(refreshStore, {
+        createdAt: new Date(now.getTime() - (INACTIVITY_SECONDS - 1) * 1000),
+      });
+      clock.set(now);
+
+      await expect(useCase.execute({ refreshToken: 'refresh-old' })).resolves.toMatchObject({
+        user: { id: 1 },
+      });
+    });
+
+    it('refuses just past the window', async () => {
+      const { useCase, refreshStore, users, clock } = build();
+      users.seed(await makeUser());
+      seedLiveRefresh(refreshStore, {
+        createdAt: new Date(now.getTime() - (INACTIVITY_SECONDS + 1) * 1000),
+      });
+      clock.set(now);
+
+      await expect(useCase.execute({ refreshToken: 'refresh-old' })).rejects.toBeInstanceOf(
+        SessionExpiredError,
+      );
+    });
+
+    it('leaves the family alone — idleness is not treated as theft', async () => {
+      const { useCase, refreshStore, users, clock } = build();
+      users.seed(await makeUser());
+      seedLiveRefresh(refreshStore, {
+        createdAt: new Date(now.getTime() - (INACTIVITY_SECONDS + 1) * 1000),
+      });
+      clock.set(now);
+
+      await expect(useCase.execute({ refreshToken: 'refresh-old' })).rejects.toBeInstanceOf(
+        SessionExpiredError,
+      );
+      expect(refreshStore.revokeFamilyCalls).toEqual([]);
+    });
+
+    it('does not rotate a stale refresh, even though it is otherwise unexpired and unrevoked', async () => {
+      // The regression this guards: `expiresAt` (7 days, D-04) is a
+      // much longer ceiling than inactivity (30 min). A token that
+      // passes the expiry check can still fail the inactivity one.
+      const { useCase, refreshStore, users, clock } = build();
+      users.seed(await makeUser());
+      seedLiveRefresh(refreshStore, {
+        createdAt: new Date(now.getTime() - (INACTIVITY_SECONDS + 1) * 1000),
+        expiresAt: new Date(now.getTime() + 6 * 24 * 60 * 60 * 1000),
+      });
+      clock.set(now);
+
+      await expect(useCase.execute({ refreshToken: 'refresh-old' })).rejects.toBeInstanceOf(
+        SessionExpiredError,
+      );
+      expect(refreshStore.records.some((r) => r.token !== 'refresh-old')).toBe(false);
+    });
   });
 });

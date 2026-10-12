@@ -38,7 +38,7 @@ export const CurrentUser = createParamDecorator(
     if (!request.user) {
       throw new UnauthorizedError(
         "UNAUTHENTICATED",
-        "Authentication is required",
+        "La autenticación es requerida.",
       );
     }
 

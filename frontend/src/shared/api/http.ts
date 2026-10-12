@@ -86,6 +86,19 @@ const FALLBACK_MESSAGES: Record<number, string> = {
     404: 'No encontramos lo que buscabas.',
     409: 'Ese registro ya existe o está siendo utilizado.',
     422: 'No se pudo completar la operación.',
+    429: 'Demasiadas peticiones. Esperá un momento antes de reintentar.',
+}
+
+/**
+ * El `429` siempre trae `Retry-After` en segundos (V3 §4, Límite de
+ * frecuencia). Headers HTTP son case-insensitive y axios ya los normaliza a
+ * minúscula, así que alcanza con un nombre.
+ */
+function parseRetryAfter(headers: unknown): number | null {
+    if (typeof headers !== 'object' || headers === null) return null
+    const raw = (headers as Record<string, unknown>)['retry-after']
+    const seconds = Number(raw)
+    return typeof raw !== 'undefined' && Number.isFinite(seconds) && seconds > 0 ? seconds : null
 }
 
 function fallbackMessage(status: number): string {
@@ -106,15 +119,16 @@ function toApiError(error: unknown): ApiError {
         return new ApiError(0, message);
     }
 
-    const {status, data} = error.response
+    const {status, data, headers} = error.response
     const parsed = parseErrorBody(data)
+    const retryAfterSeconds = parseRetryAfter(headers)
 
     if (parsed) {
-        return new ApiError(status, parsed.message, parsed.code, parsed.details)
+        return new ApiError(status, parsed.message, parsed.code, parsed.details, retryAfterSeconds)
     }
 
     // El backend respondió con un error, pero sin nada legible adentro.
-    return new ApiError(status, fallbackMessage(status))
+    return new ApiError(status, fallbackMessage(status), null, null, retryAfterSeconds)
 }
 export const http = axios.create({
     baseURL: import.meta.env.VITE_API_URL ?? '/api',

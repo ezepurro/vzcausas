@@ -1,0 +1,9 @@
+description: |
+  Segundos que el cliente debe esperar antes de reintentar. Acompaña a toda
+  respuesta `429 Too Many Requests`. El mismo valor viaja también en
+  `error.details.retryAfterSeconds`, para el caso en que el cliente no pueda
+  leer el encabezado.
+schema:
+  type: integer
+  minimum: 1
+example: 90

@@ -6,7 +6,7 @@ info:
   summary: Contrato de la API de VZ Causas para el Sprint 2.
   description: |
     Traducción a OpenAPI de `docs/Api-Contract/API_CONTRACT_V3.md` (última
-    revisión: 05/10/2026). Ante cualquier diferencia, el contrato en Markdown
+    revisión: 11/10/2026). Ante cualquier diferencia, el contrato en Markdown
     es la referencia; las decisiones (D-xx) y los puntos a verificar (C-xx)
     se documentan allí.
 
@@ -20,6 +20,25 @@ info:
 
     El token se obtiene con `POST /auth/login` y se renueva con
     `POST /auth/refresh`, que usa la cookie `HttpOnly` `refresh_token`.
+
+    ## Sesión y revocación
+
+    El `accessToken` vence a los 15 minutos. Además de ese vencimiento
+    natural, cuatro situaciones cierran la sesión desde la **próxima
+    petición**: cerrar sesión, dar de baja al usuario, cambiar la contraseña
+    (en las demás sesiones) y 30 minutos sin renovar. El servidor no
+    distingue el motivo en la respuesta — siempre `401 UNAUTHENTICATED` — y
+    la reacción esperada del cliente es siempre la misma: redirigir al
+    login.
+
+    ## Límite de frecuencia
+
+    Dos mecanismos independientes: un límite de pedidos por dirección IP en
+    toda la API (`429 TOO_MANY_REQUESTS`), más estricto en
+    `POST /auth/login` y `POST /auth/refresh`; y un bloqueo progresivo por
+    cuenta, exclusivo de `POST /auth/login`, a los 5 fallos consecutivos
+    (`429 TOO_MANY_LOGIN_ATTEMPTS`). Ambos traen el encabezado `Retry-After`
+    y el mismo valor en `details.retryAfterSeconds`.
 
     ## Autorización
 

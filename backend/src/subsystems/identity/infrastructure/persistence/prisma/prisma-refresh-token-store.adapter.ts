@@ -59,15 +59,19 @@ export class PrismaRefreshTokenStore implements RefreshTokenStore {
     // A null familyId opens a new lineage (fresh login); an existing
     // one continues it (rotation).
     const familyId = params.familyId ?? randomUUID();
-    const expiresAt = new Date(
-      this.clock.now().getTime() + this.ttlSeconds * 1000,
-    );
+    const now = this.clock.now();
+    const expiresAt = new Date(now.getTime() + this.ttlSeconds * 1000);
 
     await this.prisma.db.refreshToken.create({
       data: {
         tokenHash: digest(token),
         userId: params.userId,
         familyId,
+        // Set explicitly rather than left to the column's
+        // `@default(now())`: the inactivity check (CA-1.6) and
+        // `expiresAt` above both need to read the *same* clock, and
+        // only the injected `ClockPort` is swappable in tests.
+        createdAt: now,
         expiresAt,
       },
     });
@@ -76,6 +80,7 @@ export class PrismaRefreshTokenStore implements RefreshTokenStore {
       token,
       userId: params.userId,
       familyId,
+      createdAt: now,
       expiresAt,
       revokedAt: null,
     };
@@ -99,6 +104,7 @@ export class PrismaRefreshTokenStore implements RefreshTokenStore {
       token,
       userId: row.userId,
       familyId: row.familyId,
+      createdAt: row.createdAt,
       expiresAt: row.expiresAt,
       revokedAt: row.revokedAt,
     };
@@ -125,6 +131,24 @@ export class PrismaRefreshTokenStore implements RefreshTokenStore {
    * Logout and reuse detection both rely on that, since both revoke
    * sets that may already be partly revoked.
    */
+  async findLatestInFamily(
+    familyId: string,
+  ): Promise<{ createdAt: Date; revokedAt: Date | null } | null> {
+    // No digest involved: unlike `find`, the caller never has a raw
+    // token value here — only the family id, which travels in plain
+    // text as the access token's `sid` claim and was never secret.
+    const row = await this.prisma.db.refreshToken.findFirst({
+      where: { familyId },
+      orderBy: { createdAt: "desc" },
+    });
+
+    if (!row) {
+      return null;
+    }
+
+    return { createdAt: row.createdAt, revokedAt: row.revokedAt };
+  }
+
   private async markRevoked(
     where: { tokenHash: string } | { familyId: string } | { userId: number },
   ): Promise<void> {

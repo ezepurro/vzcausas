@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { screen } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import { http, HttpResponse } from 'msw'
 import { renderWithProviders } from '../../setup/render'
 import { server } from '@/shared/mocks/server'
@@ -100,4 +100,60 @@ describe('LoginPage', () => {
 
         expect(await screen.findByRole('alert')).toHaveTextContent(/error de red/i)
     })
+
+    /**
+     * Bloqueo de login (429, V3 §4). Con reloj real y un `retryAfterSeconds`
+     * de 1: mezclar `userEvent` (usa `setTimeout` por dentro) con timers
+     * falsos en un árbol con varios niveles de proveedores (query, toasts,
+     * sesión, router) resultó frágil —el conteo no avanzaba de forma
+     * confiable de una vuelta de render a la siguiente—, así que acá se
+     * espera de verdad un segundo en lugar de pelear con esa combinación.
+     * La cuenta regresiva en sí, tick por tick, ya está probada sin este
+     * ruido en `useCountdown.test.ts`.
+     */
+    it(
+        'ante un bloqueo de login, muestra la cuenta regresiva y se levanta sola al cumplirse',
+        async () => {
+            server.use(
+                http.post('*/auth/login', () =>
+                    HttpResponse.json(
+                        errorBody(
+                            'TOO_MANY_LOGIN_ATTEMPTS',
+                            'Demasiados intentos fallidos. Esperá antes de volver a intentar.',
+                            { retryAfterSeconds: 1 },
+                        ),
+                        { status: 429, headers: { 'Retry-After': '1' } },
+                    ),
+                ),
+            )
+            const { user } = renderWithProviders(<RedirectIfSession />, ROUTES)
+
+            await user.type(screen.getByLabelText('Usuario'), 'fvazquez')
+            await user.type(screen.getByLabelText('Contraseña'), 'password1')
+            await user.click(screen.getByRole('button', { name: 'Ingresar' }))
+
+            expect(await screen.findByRole('alert')).toHaveTextContent('Demasiados intentos fallidos')
+            expect(screen.getByRole('button', { name: 'Reintentar en 1 s' })).toBeDisabled()
+
+            /*
+             * Cumplido el segundo: el botón vuelve a "Ingresar" y el aviso,
+             * que ya no es cierto, se va solo con él — pero en dos renders
+             * separados (el segundo lo dispara un efecto que corre después
+             * de confirmar el primero). Las dos aserciones van adentro del
+             * mismo `waitFor`: si se separan, a veces gana la carrera el
+             * render intermedio donde el botón ya está habilitado pero el
+             * aviso todavía no se borró, y la segunda aserción falla sin que
+             * la aplicación esté haciendo nada mal.
+             */
+            await waitFor(
+                () => {
+                    expect(screen.getByRole('button', { name: 'Ingresar' })).toBeEnabled()
+                    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+                },
+                { timeout: 3000 },
+            )
+            expect(readStoredSession()).toBeNull()
+        },
+        5000,
+    )
 })
