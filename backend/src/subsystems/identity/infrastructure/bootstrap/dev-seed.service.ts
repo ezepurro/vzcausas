@@ -7,8 +7,12 @@ import {
 } from "@subsystems/identity/core/domain/ports/password-hasher.port";
 import { Username } from "@subsystems/identity/core/domain/value-objects/username.vo";
 
-/** Administrator, matching the role catalog written by the seed script. */
-const SEED_ROLE_NAME = "ADMINISTRATOR";
+/**
+ * Administrator and lawyer, matching the role catalog written by the seed
+ * script. Lawyer too, so the account linked to the seeded professional record
+ * can act as the lawyer in charge of a case.
+ */
+const SEED_ROLE_NAMES = ["ADMINISTRATOR", "LAWYER"];
 
 /**
  * Professional record for the seeded account.
@@ -83,13 +87,13 @@ export class DevSeedService implements OnModuleInit {
     // account that authenticates and then fails resolving its roles —
     // a 500 on login, which looks like a defect rather than a missing
     // setup step.
-    const role = await this.prisma.role.findUnique({
-      where: { name: SEED_ROLE_NAME },
+    const roles = await this.prisma.role.findMany({
+      where: { name: { in: SEED_ROLE_NAMES } },
     });
 
-    if (!role) {
+    if (roles.length !== SEED_ROLE_NAMES.length) {
       this.logger.warn(
-        `Role ${SEED_ROLE_NAME} is not in the database — skipping the development user. ` +
+        `Roles ${SEED_ROLE_NAMES.join(", ")} are not all in the database — skipping the development user. ` +
           "Run `npm run prisma:seed` to load the role catalog first.",
       );
       return;
@@ -121,14 +125,16 @@ export class DevSeedService implements OnModuleInit {
       },
     });
 
-    await this.prisma.userRole.upsert({
-      where: { userId_roleId: { userId: user.id, roleId: role.id } },
-      update: {},
-      create: { userId: user.id, roleId: role.id },
-    });
+    for (const role of roles) {
+      await this.prisma.userRole.upsert({
+        where: { userId_roleId: { userId: user.id, roleId: role.id } },
+        update: {},
+        create: { userId: user.id, roleId: role.id },
+      });
+    }
 
     this.logger.log(
-      `Seeded development user "${username}" (id ${user.id}, role ${SEED_ROLE_NAME}).`,
+      `Seeded development user "${username}" (id ${user.id}, roles ${SEED_ROLE_NAMES.join(", ")}).`,
     );
   }
 }
