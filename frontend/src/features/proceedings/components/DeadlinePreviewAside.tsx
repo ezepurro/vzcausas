@@ -1,6 +1,6 @@
 import { DetailList, Panel } from '@/shared/components/ui'
 import { Checkbox, Field, TextInput } from '@/shared/components/forms'
-import { formatDate } from '@/shared/lib/dates'
+import { formatDate, parseDateOnly } from '@/shared/lib/dates'
 import type { DeadlinePreview } from '@/features/proceedings/types/proceduralAct'
 import { dueDateDetail, dueDateTone } from '@/features/proceedings/utils/dueDateText'
 import { termText } from '@/features/proceedings/utils/stateOptions'
@@ -40,17 +40,28 @@ export interface DeadlinePreviewAsideProps {
  *
  * El ajuste manual está siempre disponible una vez elegido el estado: en un
  * estado escrito a mano es la única forma de que el acto tenga vencimiento.
+ * Con el ajuste cargado, el recuadro "Vence el" muestra la fecha manual, que
+ * es la que va a quedar vigente, y abajo la de la tabla, que el sistema
+ * conserva (CA-26.5).
+ *
+ * De la fecha manual no se muestran los días hábiles que faltan: los cuenta
+ * sólo el backend (V3 D-20) y `deadline-preview` no recibe una fecha manual.
+ * Contarlos acá daría otro número el día que el backend descuente feriados
+ * (P-02). Si el backend agrega ese dato, se muestra igual que el de la tabla.
  */
 export function DeadlinePreviewAside({
     state, manualDue, manualDueDate, manualDueDateError, onManualDueChange, onManualDueDateChange,
 }: DeadlinePreviewAsideProps) {
+    // Sólo una fecha completa y válida reemplaza a la de la tabla en el recuadro.
+    const manualDate = manualDue && parseDateOnly(manualDueDate) ? manualDueDate : null
+
     return (
         <Panel
             title="Cómputo del plazo"
             footer="El cómputo excluye sábados y domingos. La feria judicial y los feriados provinciales todavía no se descuentan."
         >
             <div className="vz-panel__body">
-                <PreviewBody state={state} />
+                <PreviewBody state={state} manualDate={manualDate} />
 
                 {state.kind !== 'empty' && (
                     <div className="vz-summary__block">
@@ -84,7 +95,7 @@ export function DeadlinePreviewAside({
     )
 }
 
-function PreviewBody({ state }: { state: DeadlinePreviewState }) {
+function PreviewBody({ state, manualDate }: { state: DeadlinePreviewState; manualDate: string | null }) {
     switch (state.kind) {
         case 'empty':
             return (
@@ -102,11 +113,15 @@ function PreviewBody({ state }: { state: DeadlinePreviewState }) {
                             { label: 'Nuevo estado procesal', value: state.stateName },
                         ]}
                     />
-                    <div className="vz-due vz-due--neutral">
-                        <div className="vz-due__label">Vence el</div>
-                        <div className="vz-due__date">—</div>
-                        <div className="vz-due__detail">Sin vencimiento, salvo que lo ajustes a mano.</div>
-                    </div>
+                    {manualDate ? (
+                        <ManualDueBox date={manualDate} tableNote="El estado escrito a mano no tiene plazo de tabla." />
+                    ) : (
+                        <div className="vz-due vz-due--neutral">
+                            <div className="vz-due__label">Vence el</div>
+                            <div className="vz-due__date">—</div>
+                            <div className="vz-due__detail">Sin vencimiento, salvo que lo ajustes a mano.</div>
+                        </div>
+                    )}
                 </>
             )
         case 'missing-base':
@@ -133,17 +148,45 @@ function PreviewBody({ state }: { state: DeadlinePreviewState }) {
                             { label: 'Nuevo estado procesal', value: state.stateName },
                         ]}
                     />
-                    <div className={`vz-due vz-due--${dueDateTone(preview.businessDaysRemaining)}`}>
-                        <div className="vz-due__label">Vence el</div>
-                        <div className="vz-due__date">{opensTerm ? formatDate(preview.dueDate) : '—'}</div>
-                        <div className="vz-due__detail">
-                            {opensTerm && preview.dueDate
-                                ? dueDateDetail(preview.dueDate, preview.businessDaysRemaining)
-                                : 'Este acto no dispara un plazo de presentación.'}
+                    {manualDate ? (
+                        <ManualDueBox
+                            date={manualDate}
+                            tableNote={
+                                opensTerm
+                                    ? `Según la tabla vencía el ${formatDate(preview.dueDate)}.`
+                                    : 'Según la tabla, este estado no abre plazo.'
+                            }
+                        />
+                    ) : (
+                        <div className={`vz-due vz-due--${dueDateTone(preview.businessDaysRemaining)}`}>
+                            <div className="vz-due__label">Vence el</div>
+                            <div className="vz-due__date">{opensTerm ? formatDate(preview.dueDate) : '—'}</div>
+                            <div className="vz-due__detail">
+                                {opensTerm && preview.dueDate
+                                    ? dueDateDetail(preview.dueDate, preview.businessDaysRemaining)
+                                    : 'Este acto no dispara un plazo de presentación.'}
+                            </div>
                         </div>
-                    </div>
+                    )}
                 </>
             )
         }
     }
+}
+
+/**
+ * El vencimiento ajustado a mano: la fecha y su día de la semana, sin los
+ * días hábiles que faltan (ver `DeadlinePreviewAside`). Va en tono neutro
+ * porque, sin esos días, no se sabe si está cerca o lejos.
+ */
+function ManualDueBox({ date, tableNote }: { date: string; tableNote: string }) {
+    return (
+        <div className="vz-due vz-due--neutral">
+            <div className="vz-due__label">Vence el · ajustado a mano</div>
+            <div className="vz-due__date">{formatDate(date)}</div>
+            <div className="vz-due__detail">{dueDateDetail(date, null)}</div>
+            <div className="vz-due__detail">{tableNote}</div>
+            <div className="vz-due__detail">Los días hábiles que faltan se ven en la causa, al registrar.</div>
+        </div>
+    )
 }

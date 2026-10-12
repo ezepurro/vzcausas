@@ -51,7 +51,8 @@ describe('RegisterProceduralActPage', () => {
             'Acto registrado. La causa pasó a Cédula de notificación · vencimiento el 18/09/2026.',
         )
     })
-    it('con el ajuste manual, el acto se registra con el vencimiento que se cargó', async () => {
+
+    it('con el ajuste manual, el recuadro muestra la fecha cargada y el acto se registra con ella', async () => {
         const { user } = renderPage(1)
 
         await user.click(await screen.findByRole('combobox'))
@@ -60,6 +61,14 @@ describe('RegisterProceduralActPage', () => {
 
         await user.click(screen.getByRole('checkbox', { name: /Ajustar el vencimiento manualmente/ }))
         await user.type(screen.getByLabelText(/^Vencimiento manual/), '2026-09-25')
+
+        // "Vence el" pasa a la fecha manual, con su día; la de la tabla queda abajo (CA-26.5).
+        // Los días hábiles que faltan no se muestran: los cuenta sólo el backend (D-20).
+        expect(screen.getByText('Vence el · ajustado a mano')).toBeInTheDocument()
+        expect(screen.getByText('viernes')).toBeInTheDocument()
+        expect(screen.getByText('Según la tabla vencía el 18/09/2026.')).toBeInTheDocument()
+        expect(screen.queryByText(/faltan \d/)).not.toBeInTheDocument()
+
         await user.click(screen.getByRole('button', { name: 'Registrar acto' }))
 
         expect(await screen.findByText('Detalle de la causa')).toBeInTheDocument()
