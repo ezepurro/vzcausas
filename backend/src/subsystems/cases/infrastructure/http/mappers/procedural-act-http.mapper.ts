@@ -7,8 +7,8 @@ import {
   DeadlinePreviewResult,
   PreviewProceduralActDeadlineQuery,
   RegisterProceduralActCommand,
-  RegisterProceduralActResult,
 } from '../../../core/application/common/register-procedural-act.interfaces';
+import { ProceduralActView } from '../../../core/domain/ports/procedural-act-query.port';
 import { Deadline } from '../../../core/domain/value-objects/deadline';
 import { DeadlinePreviewQueryDto } from '../dtos/deadline-preview.query.dto';
 import { DeadlinePreviewResponseDto } from '../dtos/deadline-preview.response.dto';
@@ -108,7 +108,12 @@ export class ProceduralActHttpMapper {
     };
   }
 
-  toResponse(result: RegisterProceduralActResult): ProceduralActResponseDto {
+  /**
+   * One act, for the `POST` that registers it and for the `GET`s that read it
+   * (HU27). Takes a {@link ProceduralActView}, which `RegisterProceduralActResult`
+   * satisfies too: one function for both, so the resource cannot drift.
+   */
+  toResponse(result: ProceduralActView): ProceduralActResponseDto {
     const { act } = result;
     return {
       id: act.id,

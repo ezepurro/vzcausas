@@ -5,13 +5,16 @@ import { LegalParametersModule } from '@subsystems/legal-parameters/legal-parame
 import { ActiveCasesCounterPort as PeopleActiveCasesCounterPort } from '@subsystems/people/core/domain/ports/active-cases-counter.port';
 import { PeopleModule } from '@subsystems/people/people.module';
 import { GetCase } from './core/application/use-cases/get-case.use-case';
+import { GetProceduralAct } from './core/application/use-cases/get-procedural-act.use-case';
 import { ListCases } from './core/application/use-cases/list-cases.use-case';
 import { ListCustomStates } from './core/application/use-cases/list-custom-states.use-case';
+import { ListProceduralActs } from './core/application/use-cases/list-procedural-acts.use-case';
 import { RegisterCase } from './core/application/use-cases/register-case.use-case';
 import { RegisterProceduralAct } from './core/application/use-cases/register-procedural-act.use-case';
 import { CASE_QUERY } from './core/domain/ports/case-query.port';
 import { CASE_REPOSITORY } from './core/domain/ports/case.repository';
 import { DEADLINE_CALCULATOR } from './core/domain/ports/deadline-calculator.port';
+import { PROCEDURAL_ACT_QUERY } from './core/domain/ports/procedural-act-query.port';
 import { PROCEDURAL_ACT_REPOSITORY } from './core/domain/ports/procedural-act.repository';
 import { BusinessDaysDeadlineCalculatorAdapter } from './infrastructure/acl/business-days-deadline-calculator.adapter';
 import { LegalParametersActiveCasesCounterAdapter } from './infrastructure/acl/legal-parameters-active-cases-counter.adapter';
@@ -21,6 +24,7 @@ import { ProceduralActHttpMapper } from './infrastructure/http/mappers/procedura
 import { CasePrismaRepository } from './infrastructure/persistence/case-prisma.repository';
 import { CaseQueryPrismaAdapter } from './infrastructure/persistence/case-query-prisma.adapter';
 import { ProceduralActPrismaRepository } from './infrastructure/persistence/procedural-act-prisma.repository';
+import { ProceduralActQueryPrismaAdapter } from './infrastructure/persistence/procedural-act-query-prisma.adapter';
 
 /**
  * Composition root of `cases`.
@@ -76,10 +80,14 @@ import { ProceduralActPrismaRepository } from './infrastructure/persistence/proc
     GetCase,
     ListCustomStates,
     RegisterProceduralAct,
+    // HU27: la consulta de actos procesales, por su propio puerto de lectura.
+    ListProceduralActs,
+    GetProceduralAct,
     ProceduralActHttpMapper,
     { provide: CASE_REPOSITORY, useClass: CasePrismaRepository },
     { provide: CASE_QUERY, useClass: CaseQueryPrismaAdapter },
     { provide: PROCEDURAL_ACT_REPOSITORY, useClass: ProceduralActPrismaRepository },
+    { provide: PROCEDURAL_ACT_QUERY, useClass: ProceduralActQueryPrismaAdapter },
     { provide: DEADLINE_CALCULATOR, useClass: BusinessDaysDeadlineCalculatorAdapter },
     // Adapters of the ports that other subsystems define to ask `cases` for
     // the number of active cases. The two tokens happen to share a name in

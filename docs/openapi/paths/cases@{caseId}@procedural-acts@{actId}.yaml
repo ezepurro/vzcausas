@@ -1,0 +1,86 @@
+parameters:
+  - $ref: ../components/parameters/CaseIdParam.yaml
+  - $ref: ../components/parameters/ActIdParam.yaml
+
+get:
+  tags:
+    - Procedural Acts
+  operationId: getProceduralAct
+  summary: Consultar acto procesal
+  description: |
+    Obtiene un acto procesal de la causa (HU27). Devuelve el mismo recurso que
+    el registro y que el listado.
+
+    La causa se verifica antes que el acto. Un acto que existe pero pertenece
+    a **otra causa** responde `404 PROCEDURAL_ACT_NOT_FOUND`: la ruta pide un
+    acto de esta causa.
+
+    **Rol requerido:** cualquier usuario autenticado.
+  responses:
+    '200':
+      description: Acto procesal solicitado.
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - data
+            properties:
+              data:
+                $ref: ../components/schemas/ProceduralAct.yaml
+          example:
+            data:
+              id: 42
+              caseId: 1
+              resultingState:
+                proceduralStateId: 12
+                name: Oposición al requerimiento de elevación
+                custom: false
+              actDate: '2026-09-15'
+              notificationDate: null
+              notes: Con acusación, pero con oposición.
+              deadline:
+                timeLimitDays: 5
+                dayType: BUSINESS
+                countsFrom: '2026-09-15'
+                computedDueDate: '2026-09-22'
+                dueDate: '2026-09-22'
+                manuallyAdjusted: false
+              registeredBy:
+                id: 3
+                fullName: Dra. Malena Ríos
+              registeredAt: '2026-09-15T11:42:00-03:00'
+    '400':
+      description: Identificador inválido.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          examples:
+            invalidCaseId:
+              $ref: ../components/examples/InvalidCaseIdError.yaml
+            invalidActId:
+              $ref: ../components/examples/InvalidActIdError.yaml
+    '401':
+      $ref: ../components/responses/Unauthorized.yaml
+    '404':
+      description: La causa no existe o fue dada de baja, o el acto no existe en esta causa.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          examples:
+            caseNotFound:
+              summary: Causa inexistente o dada de baja
+              value:
+                error:
+                  code: CASE_NOT_FOUND
+                  message: No se encontró la causa solicitada.
+                  details: null
+            actNotFound:
+              summary: Acto inexistente o de otra causa
+              value:
+                error:
+                  code: PROCEDURAL_ACT_NOT_FOUND
+                  message: No se encontró el acto procesal solicitado.
+                  details: null

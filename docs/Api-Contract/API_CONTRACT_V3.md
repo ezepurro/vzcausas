@@ -49,6 +49,7 @@ sprint:
 | 20  | Consultar Causas                    | `GET /cases`, `GET /cases/custom-states`                          |
 | 22  | Consultar detalle de Causa          | `GET /cases/{caseId}`                                             |
 | 26  | Registrar Acto Procesal             | `POST /cases/{caseId}/procedural-acts`, `GET /cases/{caseId}/procedural-acts/deadline-preview` |
+| 27  | Consultar Acto Procesal             | `GET /cases/{caseId}/procedural-acts`, `GET /cases/{caseId}/procedural-acts/{actId}` |
 | 45  | Registrar Estado procesal           | `POST /procedural-states`                                         |
 | 46  | Registrar baja de Estado procesal   | `DELETE /procedural-states/{stateId}`                             |
 | —   | ABMC de Calificaciones legales      | `/legal-qualifications`                                           |
@@ -114,6 +115,8 @@ se mantiene igual.
 | `GET`    | `/cases/{caseId}`                                     |      Sí       | Cualquier usuario autenticado | Consultar detalle de causa               | Nuevo      |
 | `POST`   | `/cases/{caseId}/procedural-acts`                     |      Sí       | Abogado responsable de la causa | Registrar acto procesal                  | Nuevo      |
 | `GET`    | `/cases/{caseId}/procedural-acts/deadline-preview`    |      Sí       | Abogado responsable de la causa | Previsualizar el vencimiento de un acto  | Nuevo      |
+| `GET`    | `/cases/{caseId}/procedural-acts`                     |      Sí       | Cualquier usuario autenticado | Consultar actos procesales               | Nuevo      |
+| `GET`    | `/cases/{caseId}/procedural-acts/{actId}`             |      Sí       | Cualquier usuario autenticado | Consultar acto procesal                  | Nuevo      |
 
 La columna **Rol** se deriva de la tabla de
 [permisos por perfil](#permisos-por-perfil) de la sección 4.
@@ -3611,8 +3614,8 @@ el Sprint 3.
 
 **Autenticación requerida:** Sí.
 **Rol requerido:** abogado responsable de la causa, para el registro y su
-previsualización. La consulta de actos (HU27, sprints posteriores) será para
-los tres perfiles.
+previsualización. La consulta de actos (HU27) es de cualquier usuario
+autenticado, sobre cualquier causa (RN11).
 
 El acto procesal es lo que **mueve la causa**: al registrarlo se elige el
 estado procesal al que pasa, y el plazo sale de la tabla del fuero (RN5). El
@@ -3620,10 +3623,10 @@ estado procesal al que pasa, y el plazo sale de la tabla del fuero (RN5). El
 entonces la causa está en "Iniciada". Solo el **abogado responsable de la
 causa** registra sus actos —ningún otro usuario, ni siquiera un
 `ADMINISTRATOR`— (ver [permisos por perfil](#permisos-por-perfil)), y el acto
-se aplica a la causa en el momento: no hay confirmación posterior. La
-consulta, la modificación y la anulación de actos (HU27, HU28 y HU29)
-corresponden a sprints posteriores; esta versión solo incorpora el registro
-(HU26) y su previsualización.
+se aplica a la causa en el momento: no hay confirmación posterior. Esta
+versión incorpora el registro (HU26), su previsualización y la consulta
+(HU27); la modificación y la anulación de actos (HU28 y HU29) corresponden a
+sprints posteriores.
 
 El recurso acto procesal posee la siguiente estructura:
 
@@ -4026,6 +4029,235 @@ el cliente muestra "Este acto no dispara un plazo de presentación".
 
 ---
 
+#### `GET /cases/{caseId}/procedural-acts`
+
+Obtiene una lista paginada de los actos procesales de una causa: su línea de
+tiempo (HU27).
+
+**Rol requerido:** cualquier usuario autenticado. No hace falta ser el abogado
+responsable: todo el estudio accede a todas las causas (RN11). Registrar,
+modificar y anular actos sigue siendo solo del abogado responsable.
+
+Cada elemento es **el mismo recurso acto procesal** que devuelve el `POST`
+(ver la estructura al comienzo de esta sección). Los actos se ordenan del más
+reciente al más antiguo por `actDate`; si dos actos tienen la misma fecha,
+primero el último registrado.
+
+El acto conserva el plazo con que se registró: si después se modifica el plazo
+de su estado procesal, `deadline` no cambia (ver §3.4). Un estado procesal dado
+de baja después del acto sigue apareciendo con su nombre en `resultingState`,
+porque forma parte de la historia de la causa (§4, Bajas).
+
+**Parámetros de ruta**
+
+| Parámetro | Tipo    | Descripción                    |
+| --------- | ------- | ------------------------------ |
+| `caseId`  | Integer | Identificador único de la causa |
+
+**Parámetros de consulta**
+
+| Parámetro | Tipo    | Requerido | Valor por defecto | Restricciones       | Descripción                             |
+| --------- | ------- | :-------: | ----------------- | ------------------- | --------------------------------------- |
+| `page`    | Integer |    No     | `1`               | Mayor o igual a `1` | Número de página                        |
+| `limit`   | Integer |    No     | `20`              | Entre `1` y `100`   | Cantidad máxima de elementos por página |
+
+Ejemplo:
+
+```http
+GET /api/v1/cases/1/procedural-acts?page=1&limit=20
+```
+
+**Respuestas**
+
+**`200 OK`**
+
+```json
+{
+	"data": [
+		{
+			"id": 42,
+			"caseId": 1,
+			"resultingState": {
+				"proceduralStateId": 12,
+				"name": "Oposición al requerimiento de elevación",
+				"custom": false
+			},
+			"actDate": "2026-09-15",
+			"notificationDate": null,
+			"notes": "Con acusación, pero con oposición.",
+			"deadline": {
+				"timeLimitDays": 5,
+				"dayType": "BUSINESS",
+				"countsFrom": "2026-09-15",
+				"computedDueDate": "2026-09-22",
+				"dueDate": "2026-09-22",
+				"manuallyAdjusted": false
+			},
+			"registeredBy": { "id": 3, "fullName": "Dra. Malena Ríos" },
+			"registeredAt": "2026-09-15T11:42:00-03:00"
+		}
+	],
+	"pagination": {
+		"page": 1,
+		"limit": 20,
+		"totalItems": 1,
+		"totalPages": 1
+	}
+}
+```
+
+Una causa sin actos devuelve `data` vacío: no es un error. La causa está en su
+estado inicial ("Iniciada").
+
+**`400 Bad Request`**
+
+```json
+{
+	"error": {
+		"code": "INVALID_PAGINATION",
+		"message": "Los parámetros de paginación no son válidos.",
+		"details": {
+			"page": "Debe ser un número entero mayor o igual a 1.",
+			"limit": "Debe ser un número entero entre 1 y 100."
+		}
+	}
+}
+```
+
+Un `caseId` que no es un entero responde `INVALID_PATH_PARAMETER`, igual que en
+`GET /cases/{caseId}`.
+
+**`401 Unauthorized`**
+
+```json
+{
+	"error": {
+		"code": "UNAUTHENTICATED",
+		"message": "La autenticación es requerida.",
+		"details": null
+	}
+}
+```
+
+**`404 Not Found`**
+
+Causa inexistente o dada de baja.
+
+```json
+{
+	"error": {
+		"code": "CASE_NOT_FOUND",
+		"message": "No se encontró la causa solicitada.",
+		"details": null
+	}
+}
+```
+
+---
+
+#### `GET /cases/{caseId}/procedural-acts/{actId}`
+
+Obtiene un acto procesal de una causa (HU27). Devuelve el mismo recurso que el
+`POST` y que el listado.
+
+**Rol requerido:** cualquier usuario autenticado.
+
+**Parámetros de ruta**
+
+| Parámetro | Tipo    | Descripción                          |
+| --------- | ------- | ------------------------------------ |
+| `caseId`  | Integer | Identificador único de la causa      |
+| `actId`   | Integer | Identificador único del acto procesal |
+
+La causa se verifica antes que el acto. Un acto que existe pero **pertenece a
+otra causa** responde `404 PROCEDURAL_ACT_NOT_FOUND`: la ruta pide un acto de
+esta causa.
+
+**Respuestas**
+
+**`200 OK`**
+
+```json
+{
+	"data": {
+		"id": 42,
+		"caseId": 1,
+		"resultingState": {
+			"proceduralStateId": 12,
+			"name": "Oposición al requerimiento de elevación",
+			"custom": false
+		},
+		"actDate": "2026-09-15",
+		"notificationDate": null,
+		"notes": "Con acusación, pero con oposición.",
+		"deadline": {
+			"timeLimitDays": 5,
+			"dayType": "BUSINESS",
+			"countsFrom": "2026-09-15",
+			"computedDueDate": "2026-09-22",
+			"dueDate": "2026-09-22",
+			"manuallyAdjusted": false
+		},
+		"registeredBy": { "id": 3, "fullName": "Dra. Malena Ríos" },
+		"registeredAt": "2026-09-15T11:42:00-03:00"
+	}
+}
+```
+
+**`400 Bad Request`**
+
+```json
+{
+	"error": {
+		"code": "INVALID_PATH_PARAMETER",
+		"message": "El identificador del acto procesal no es válido.",
+		"details": {
+			"actId": "Debe ser un número entero válido."
+		}
+	}
+}
+```
+
+**`401 Unauthorized`**
+
+```json
+{
+	"error": {
+		"code": "UNAUTHENTICATED",
+		"message": "La autenticación es requerida.",
+		"details": null
+	}
+}
+```
+
+**`404 Not Found`**
+
+Causa inexistente o dada de baja:
+
+```json
+{
+	"error": {
+		"code": "CASE_NOT_FOUND",
+		"message": "No se encontró la causa solicitada.",
+		"details": null
+	}
+}
+```
+
+Acto inexistente o de otra causa:
+
+```json
+{
+	"error": {
+		"code": "PROCEDURAL_ACT_NOT_FOUND",
+		"message": "No se encontró el acto procesal solicitado.",
+		"details": null
+	}
+}
+```
+
+---
+
 ## 4. Información general
 
 ### Base URL
@@ -4103,7 +4335,7 @@ causa: solo el abogado responsable opera sus actos. Ningún otro abogado ni el
 | `/legal-qualifications`            | Cualquier usuario autenticado | Cualquier usuario autenticado                                    |
 | `/clients`                         | Cualquier usuario autenticado | Cualquier usuario autenticado                                    |
 | `/cases`                           | Cualquier usuario autenticado | Cualquier usuario autenticado                                    |
-| `/cases/{caseId}/procedural-acts`  | Abogado responsable de la causa (`deadline-preview`) | Abogado responsable de la causa             |
+| `/cases/{caseId}/procedural-acts`  | Cualquier usuario autenticado; `deadline-preview`, solo el abogado responsable | Abogado responsable de la causa |
 
 RN11 establece que todo el estudio accede a todas las causas: la diferencia
 entre perfiles está en lo que pueden **operar**, no en lo que pueden **ver**.
@@ -4293,6 +4525,7 @@ respuesta.
 | `LEGAL_QUALIFICATION_NOT_FOUND`          | 404  | Calificación legal inexistente                                     |
 | `CLIENT_NOT_FOUND`                       | 404  | Cliente inexistente                                                |
 | `CASE_NOT_FOUND`                         | 404  | Causa inexistente                                                  |
+| `PROCEDURAL_ACT_NOT_FOUND`               | 404  | Acto procesal inexistente o de otra causa                          |
 | `RESOURCE_NOT_FOUND`                     | 404  | Ruta inexistente                                                   |
 | `USERNAME_ALREADY_EXISTS`                | 409  | Nombre de usuario ya registrado                                    |
 | `EMAIL_ALREADY_EXISTS`                   | 409  | Correo electrónico ya registrado                                   |

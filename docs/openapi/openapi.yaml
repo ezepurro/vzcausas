@@ -42,7 +42,7 @@ info:
     | `/legal-qualifications`           | Cualquier usuario autenticado                         | Cualquier usuario autenticado                        |
     | `/clients`                        | Cualquier usuario autenticado                         | Cualquier usuario autenticado                        |
     | `/cases`                          | Cualquier usuario autenticado                         | Cualquier usuario autenticado                        |
-    | `/cases/{caseId}/procedural-acts` | Abogado responsable de la causa (`deadline-preview`) | Abogado responsable de la causa                      |
+    | `/cases/{caseId}/procedural-acts` | Cualquier usuario autenticado; `deadline-preview`, solo el abogado responsable | Abogado responsable de la causa |
 
     RN11: todo el estudio accede a todas las causas. La diferencia entre
     perfiles está en lo que pueden **operar**, no en lo que pueden **ver**.
@@ -203,6 +203,8 @@ paths:
     $ref: paths/cases@{caseId}@procedural-acts.yaml
   /cases/{caseId}/procedural-acts/deadline-preview:
     $ref: paths/cases@{caseId}@procedural-acts@deadline-preview.yaml
+  /cases/{caseId}/procedural-acts/{actId}:
+    $ref: paths/cases@{caseId}@procedural-acts@{actId}.yaml
 
 components:
   securitySchemes:

@@ -1,0 +1,7 @@
+summary: Identificador de acto procesal inválido
+value:
+  error:
+    code: INVALID_PATH_PARAMETER
+    message: El identificador del acto procesal no es válido.
+    details:
+      actId: Debe ser un número entero válido.
