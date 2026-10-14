@@ -4,49 +4,58 @@ Contrato de la API para el **Sprint 3** (11/10/2026 – 23/10/2026). Reemplaza a
 `API_CONTRACT_V3.md`, que se conserva sin modificaciones como registro del
 Sprint 2.
 
+| Campo            | Valor                                                                 |
+| ---------------- | --------------------------------------------------------------------- |
+| Versión          | 4                                                                     |
+| Fecha            | 14/10/2026                                                            |
+| Sprint           | 3 (11/10/2026 – 23/10/2026)                                           |
+| Reemplaza a      | `API_CONTRACT_V3.md`                                                  |
+| Fuente de verdad | `docs/prototypes/VZ Causas - Prototipo.dc.html` (versión del 13/10/2026) |
+| Relacionado      | `docs/Backend-Architecture/ADR-003_GOOGLE_DRIVE.md`                   |
+
 El documento es **autocontenido**: incluye los endpoints de los Sprints 1 y 2
-que siguen vigentes y los que incorpora el Sprint 3. Las diferencias con V3 se
-resumen en la [sección 7](#7-cambios-respecto-de-la-versión-anterior); las
-decisiones tomadas al redactarlo y **las que el equipo todavía tiene que
-tomar**, en la [sección 8](#8-observaciones); y la
-[sección 9](#9-resumen-de-lo-que-se-hizo-y-por-qué) resume qué se hizo y por
-qué.
+que siguen vigentes y los que incorpora el Sprint 3. Las diferencias con V3
+están en la [sección 7](#7-cambios-respecto-de-la-versión-anterior), las
+decisiones de diseño y los puntos abiertos en la
+[sección 8](#8-observaciones), y un resumen por historia en la
+[sección 9](#9-resumen-por-historia).
 
-**Fuente de verdad:** el prototipo `docs/prototypes/VZ Causas - Prototipo.dc.html`,
-en su versión del 13/10/2026 (tarea VZ-150, "Prototipos Sprint 3"). Cuando una
-historia de usuario y el prototipo no coinciden, este contrato sigue al
-prototipo y lo deja asentado en la sección 8.
+Cuando una historia de usuario y el prototipo no coinciden, este contrato sigue
+al prototipo, salvo decisión explícita del equipo, y lo deja asentado en la
+sección 8.
 
-**Redacción: 13/10/2026.** Primera versión de V4. El historial de revisiones de
-V3 (del 01/10 al 11/10/2026) queda en `API_CONTRACT_V3.md`, §7.7 a §7.12; lo
-que esas revisiones dejaron vigente ya está incorporado en este documento.
+**Alcance del Sprint 3:** trece historias.
 
-**Alcance del Sprint 3**, según el sprint "VZ Sprint 3" del tablero de Jira y
-el Story Map actualizado del Seguimiento de Proyecto v1.2 (§4.1.2): once
-historias, 140 puntos.
+| HU  | Nombre                                           | Endpoints                                                                                             |
+| --- | ------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
+| 27  | Consultar Acto Procesal                          | `GET /cases/{caseId}/procedural-acts`, `GET /cases/{caseId}/procedural-acts/{actId}` (ya en V3)       |
+| 30  | Notificar Vencimientos Plazos                    | Proceso automático diario, sin endpoints                                                              |
+| 31  | Registrar Actos Interruptivos                    | `POST` y `GET /cases/{caseId}/interruptive-acts`                                                      |
+| 32  | Notificar Alerta de Prescripción                 | Proceso automático diario; `prescription` en la causa; `prescriptionAlerts` en los tableros           |
+| 33  | Registrar Causa/amparo como prescripta           | `POST /cases/{caseId}/prescription`                                                                   |
+| 34  | Registrar Modelo Formal                          | `POST /document-templates`                                                                            |
+| 35  | Consultar Modelo Formal                          | `GET /document-templates`, `GET /document-templates/{templateId}`, `GET /document-templates/{templateId}/file` |
+| 39  | Crear Carpeta en la Nube                         | `POST /cases` (`createFolder`), `POST /cases/{caseId}/folder`; acceso de los usuarios a la carpeta del estudio |
+| 40  | Crear Modelos en Carpeta de Causa                | `POST /cases` (`copyTemplates`), `POST /cases/{caseId}/folder`                                        |
+| 41  | Crear Tablero de Abogado                         | `GET /dashboards/lawyer`                                                                              |
+| 42  | Crear Tablero de administrador                   | `GET /dashboards/administrator`                                                                       |
+| 51  | Verificar vencimiento de plazo de presentación   | Proceso automático diario, sin endpoints                                                              |
+| 52  | Verificar plazo de prescripción                  | Proceso automático diario, sin endpoints; `prescription.alert` y `prescription.expired` en la causa   |
 
-| HU  | Nombre                                 | Endpoints                                                                                             |
-| --- | -------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| 27  | Consultar Acto Procesal                | `GET /cases/{caseId}/procedural-acts`, `GET /cases/{caseId}/procedural-acts/{actId}` (ya en V3)       |
-| 30  | Notificar Vencimientos Plazos          | `GET` y `PATCH /notification-settings`, `POST /notification-settings/test`, proceso automático diario |
-| 31  | Registrar Actos Interruptivos          | `POST` y `GET /cases/{caseId}/interruptive-acts`                                                      |
-| 32  | Notificar Alerta de Prescripción       | Proceso automático diario; `prescription` en la causa; `prescriptionAlerts` en los tableros           |
-| 33  | Registrar Causa/amparo como prescripta | `POST /cases/{caseId}/prescription`                                                                   |
-| 34  | Registrar Modelo Formal                | `POST /document-templates`                                                                            |
-| 35  | Consultar Modelo Formal                | `GET /document-templates`, `GET /document-templates/{templateId}`, `GET /document-templates/{templateId}/file` |
-| 39  | Crear Carpeta en la Nube               | `POST /cases` (`createFolder`), `POST /cases/{caseId}/folder`, `POST /cases/{caseId}/procedural-acts/{actId}/attachment` |
-| 40  | Crear Modelos en Carpeta de Causa      | `POST /cases` (`copyTemplates`), `POST /cases/{caseId}/folder`                                        |
-| 41  | Crear Tablero de Abogado               | `GET /dashboards/lawyer`                                                                              |
-| 42  | Crear Tablero de administrador         | `GET /dashboards/administrator`                                                                       |
+Además de las historias, esta versión incorpora cambios sobre lo ya
+implementado: datos nuevos en la causa, nombre y apellido separados en usuarios
+y abogados, estados terminales como destino de un acto procesal y el conteo de
+causas por estado procesal (ver [§7.2](#72-endpoints-modificados)).
 
-HU27 se adelantó: sus dos endpoints ya figuran en V3 y están implementados. En
-esta versión solo suman el campo `attachment` y se complementan con el listado
-de actos interruptivos, que la línea de tiempo del prototipo muestra junto a los
-actos procesales.
+HU27 ya figuraba en V3 y está implementada. En esta versión se complementa con
+el listado de actos interruptivos, que la línea de tiempo del prototipo muestra
+junto a los actos procesales.
 
-HU30 y HU32 son, sobre todo, trabajo de un **proceso automático** que no tiene
-endpoints: lo que este contrato fija de ellas es la configuración que el
-usuario puede tocar y los datos que ese proceso deja a la vista (ver
+HU51 y HU52 **verifican** —cada día, los plazos de presentación y la
+prescripción de las causas— y HU30 y HU32 **avisan** por correo lo que esa
+verificación encuentra. Las cuatro son trabajo de un **proceso automático** que
+no tiene endpoints: lo que este contrato fija de ellas es cómo trabaja ese
+proceso y los datos que deja a la vista (ver
 [Proceso automático diario](#proceso-automático-diario)).
 
 ## Tabla de contenidos
@@ -65,13 +74,12 @@ usuario puede tocar y los datos que ese proceso deja a la vista (ver
     - [3.9 Actos interruptivos: /cases/{caseId}/interruptive-acts](#39-actos-interruptivos-casescaseidinterruptive-acts)
     - [3.10 Modelos formales: /document-templates](#310-modelos-formales-document-templates)
     - [3.11 Tableros: /dashboards](#311-tableros-dashboards)
-    - [3.12 Avisos por correo: /notification-settings](#312-avisos-por-correo-notification-settings)
 - [4. Información general](#4-información-general)
 - [5. Convenciones de respuestas](#5-convenciones-de-respuestas)
 - [6. Códigos HTTP](#6-códigos-http)
 - [7. Cambios respecto de la versión anterior](#7-cambios-respecto-de-la-versión-anterior)
 - [8. Observaciones](#8-observaciones)
-- [9. Resumen de lo que se hizo y por qué](#9-resumen-de-lo-que-se-hizo-y-por-qué)
+- [9. Resumen por historia](#9-resumen-por-historia)
 
 ---
 
@@ -82,23 +90,23 @@ se mantiene igual.
 
 | Método   | Endpoint                                              | Autenticación | Rol                           | Descripción                              | v4         |
 | -------- | ----------------------------------------------------- | :-----------: | ----------------------------- | ---------------------------------------- | ---------- |
-| `POST`   | `/auth/login`                                         |      No       | -                             | Iniciar sesión                           | -          |
+| `POST`   | `/auth/login`                                         |      No       | -                             | Iniciar sesión                           | Modificado |
 | `POST`   | `/auth/refresh`                                       |      No       | -                             | Renovar el token de acceso               | -          |
 | `POST`   | `/auth/logout`                                        |      Sí       | Cualquier usuario autenticado | Cerrar sesión                            | -          |
 | `PATCH`  | `/auth/password`                                      |      Sí       | Cualquier usuario autenticado | Cambiar contraseña                       | -          |
-| `POST`   | `/users`                                              |      Sí       | `ADMINISTRATOR`               | Registrar usuario                        | -          |
-| `GET`    | `/users`                                              |      Sí       | `ADMINISTRATOR`               | Consultar usuarios                       | -          |
-| `GET`    | `/users/{userId}`                                     |      Sí       | `ADMINISTRATOR`               | Consultar usuario                        | -          |
-| `PATCH`  | `/users/{userId}`                                     |      Sí       | `ADMINISTRATOR`               | Modificar usuario                        | -          |
+| `POST`   | `/users`                                              |      Sí       | `ADMINISTRATOR`               | Registrar usuario                        | Modificado |
+| `GET`    | `/users`                                              |      Sí       | `ADMINISTRATOR`               | Consultar usuarios                       | Modificado |
+| `GET`    | `/users/{userId}`                                     |      Sí       | `ADMINISTRATOR`               | Consultar usuario                        | Modificado |
+| `PATCH`  | `/users/{userId}`                                     |      Sí       | `ADMINISTRATOR`               | Modificar usuario                        | Modificado |
 | `DELETE` | `/users/{userId}`                                     |      Sí       | `ADMINISTRATOR`               | Dar de baja usuario                      | -          |
-| `POST`   | `/lawyers`                                            |      Sí       | `ADMINISTRATOR`               | Registrar abogado                        | -          |
-| `GET`    | `/lawyers`                                            |      Sí       | Cualquier usuario autenticado | Consultar abogados                       | -          |
-| `GET`    | `/lawyers/{lawyerId}`                                 |      Sí       | Cualquier usuario autenticado | Consultar abogado                        | -          |
-| `PATCH`  | `/lawyers/{lawyerId}`                                 |      Sí       | `ADMINISTRATOR`               | Modificar abogado                        | -          |
+| `POST`   | `/lawyers`                                            |      Sí       | `ADMINISTRATOR`               | Registrar abogado                        | Modificado |
+| `GET`    | `/lawyers`                                            |      Sí       | Cualquier usuario autenticado | Consultar abogados                       | Modificado |
+| `GET`    | `/lawyers/{lawyerId}`                                 |      Sí       | Cualquier usuario autenticado | Consultar abogado                        | Modificado |
+| `PATCH`  | `/lawyers/{lawyerId}`                                 |      Sí       | `ADMINISTRATOR`               | Modificar abogado                        | Modificado |
 | `DELETE` | `/lawyers/{lawyerId}`                                 |      Sí       | `ADMINISTRATOR`               | Dar de baja abogado                      | -          |
 | `POST`   | `/procedural-states`                                  |      Sí       | Cualquier usuario autenticado | Registrar estado procesal                | -          |
-| `GET`    | `/procedural-states`                                  |      Sí       | Cualquier usuario autenticado | Consultar estados procesales             | -          |
-| `GET`    | `/procedural-states/{stateId}`                        |      Sí       | Cualquier usuario autenticado | Consultar estado procesal                | -          |
+| `GET`    | `/procedural-states`                                  |      Sí       | Cualquier usuario autenticado | Consultar estados procesales             | Modificado |
+| `GET`    | `/procedural-states/{stateId}`                        |      Sí       | Cualquier usuario autenticado | Consultar estado procesal                | Modificado |
 | `PATCH`  | `/procedural-states/{stateId}`                        |      Sí       | Cualquier usuario autenticado | Modificar estado procesal                | Modificado |
 | `DELETE` | `/procedural-states/{stateId}`                        |      Sí       | Cualquier usuario autenticado | Dar de baja estado procesal              | Modificado |
 | `POST`   | `/legal-qualifications`                               |      Sí       | Cualquier usuario autenticado | Registrar calificación legal             | -          |
@@ -119,7 +127,6 @@ se mantiene igual.
 | `GET`    | `/cases/{caseId}/procedural-acts/deadline-preview`    |      Sí       | Abogado responsable de la causa | Previsualizar el vencimiento de un acto | -         |
 | `GET`    | `/cases/{caseId}/procedural-acts`                     |      Sí       | Cualquier usuario autenticado | Consultar actos procesales               | Modificado |
 | `GET`    | `/cases/{caseId}/procedural-acts/{actId}`             |      Sí       | Cualquier usuario autenticado | Consultar acto procesal                  | Modificado |
-| `POST`   | `/cases/{caseId}/procedural-acts/{actId}/attachment`  |      Sí       | Abogado responsable de la causa | Adjuntar cédula o comprobante          | Nuevo      |
 | `POST`   | `/cases/{caseId}/interruptive-acts`                   |      Sí       | Abogado responsable de la causa | Registrar acto interruptivo            | Nuevo      |
 | `GET`    | `/cases/{caseId}/interruptive-acts`                   |      Sí       | Cualquier usuario autenticado | Consultar actos interruptivos            | Nuevo      |
 | `POST`   | `/document-templates`                                 |      Sí       | `ADMINISTRATOR` o `LAWYER`    | Registrar modelo formal                  | Nuevo      |
@@ -128,17 +135,18 @@ se mantiene igual.
 | `GET`    | `/document-templates/{templateId}/file`               |      Sí       | `ADMINISTRATOR` o `LAWYER`    | Descargar el archivo del modelo          | Nuevo      |
 | `GET`    | `/dashboards/lawyer`                                  |      Sí       | `LAWYER`                      | Tablero del abogado                      | Nuevo      |
 | `GET`    | `/dashboards/administrator`                           |      Sí       | `ADMINISTRATOR`               | Tablero del administrador                | Nuevo      |
-| `GET`    | `/notification-settings`                              |      Sí       | `ADMINISTRATOR` o `LAWYER`    | Consultar la configuración de avisos     | Nuevo      |
-| `PATCH`  | `/notification-settings`                              |      Sí       | `ADMINISTRATOR` o `LAWYER`    | Modificar la configuración de avisos     | Nuevo      |
-| `POST`   | `/notification-settings/test`                         |      Sí       | `ADMINISTRATOR` o `LAWYER`    | Enviar un correo de prueba               | Nuevo      |
 
 La columna **Rol** se deriva de la tabla de
 [permisos por perfil](#permisos-por-perfil) de la sección 4. "`ADMINISTRATOR` o
 `LAWYER`" significa que alcanza con poseer uno de los dos.
 
-Los endpoints marcados como **Modificado** no rompen a un cliente de V3: suman
-campos a la respuesta, campos opcionales al cuerpo o un caso de error nuevo. El
-detalle está en la [sección 7.2](#72-endpoints-modificados).
+La mayoría de los endpoints marcados como **Modificado** no rompen a un cliente
+de V3: suman campos a la respuesta, campos opcionales al cuerpo o un caso de
+error nuevo. **Dos cambios sí rompen**: el nombre y el
+apellido separados en `/auth/login`, `/users`, `/lawyers` y en toda referencia a
+un usuario o un abogado (D-68), y `caseCount` en lugar de `activeCases` en
+`/procedural-states` (D-70). El detalle está en la
+[sección 7.2](#72-endpoints-modificados).
 
 ---
 
@@ -197,20 +205,14 @@ Los códigos van en castellano, igual que el vocabulario del estudio (D-37).
 
 No confundir con `Role`, que es el perfil de seguridad del usuario.
 
-### `DocumentTemplateType` (nuevo)
+### `DeadlineKind` (nuevo)
 
-Tipo de un modelo formal. Son los cuatro valores que ofrece el prototipo.
+Origen de un vencimiento en los tableros.
 
-| Código                 | Rótulo                  |
-| ---------------------- | ----------------------- |
-| `ESCRITO_PRESENTACION` | Escrito de presentación |
-| `ESCRITO_FONDO`        | Escrito de fondo        |
-| `RECURSO`              | Recurso                 |
-| `OFICIO`               | Oficio                  |
-
-Los códigos van en castellano por el mismo criterio que `ProceduralRole`: son
-vocabulario del estudio sin traducción limpia
-(ver [D-57](#81-decisiones-tomadas)).
+| Código           | Rótulo                    | Significado                                                       |
+| ---------------- | ------------------------- | ----------------------------------------------------------------- |
+| `PROCEDURAL_ACT` | Plazo de presentación     | El plazo que abrió el acto procesal del estado actual de la causa |
+| `HARMFUL_ACT`    | Plazo para el amparo      | El plazo para presentar el amparo desde el acto lesivo            |
 
 ### `CaseFolderStatus` (nuevo)
 
@@ -262,12 +264,14 @@ No requiere parámetros de consulta.
 		"user": {
 			"id": 1,
 			"username": "fvazquez",
-			"fullName": "Fernando G. Vázquez",
+			"lastName": "Vázquez",
+			"firstName": "Fernando G.",
 			"email": "fvazquez@vazquezzarate.com",
 			"roles": ["ADMINISTRATOR", "LAWYER"],
 			"lawyer": {
 				"id": 1,
-				"fullName": "Dr. Fernando G. Vázquez",
+				"lastName": "Vázquez",
+				"firstName": "Fernando G.",
 				"registrationNumber": "1-28114"
 			},
 			"lastLoginAt": "2026-09-19T08:12:00-03:00",
@@ -532,7 +536,7 @@ Set-Cookie: refresh_token=<nuevo valor opaco>; HttpOnly; Secure; SameSite=Lax; P
 El objeto `user` en esta respuesta es una **proyección reducida**: solo
 incluye los campos que pueden variar entre sesión y sesión y que
 inciden en la autorización (`roles`, `lawyerId`, `permissions`).
-Los datos estables (`fullName`, `email`, `active`, `lawyer`) el cliente
+Los datos estables (`lastName`, `firstName`, `email`, `active`, `lawyer`) el cliente
 los conserva de `POST /auth/login`. `lastLoginAt` no se devuelve aquí
 porque semánticamente pertenece al inicio de sesión, no a la
 renovación.
@@ -594,12 +598,37 @@ El recurso usuario posee la siguiente estructura:
 | ------------- | --------------------- | :--: | ------------------------------------------------------------------------ |
 | `id`          | Integer               |  No  | Identificador único                                                      |
 | `username`    | String                |  No  | Nombre de usuario. Único                                                 |
-| `fullName`    | String                |  No  | Nombre y apellido en un único campo                                      |
+| `lastName`    | String                |  No  | Apellido. Nuevo en V4: reemplaza a `fullName`                            |
+| `firstName`   | String                |  No  | Nombres. Nuevo en V4: reemplaza a `fullName`                             |
 | `email`       | String                |  No  | Correo electrónico. Único                                                |
 | `roles`       | `Role[]`              |  No  | Al menos un rol                                                          |
 | `lawyer`      | Object \| `null`      |  Sí  | Ficha profesional vinculada. `null` si el usuario no posee vínculo       |
 | `lastLoginAt` | String (ISO 8601) \| `null` | Sí | Último ingreso registrado. `null` si el usuario nunca inició sesión |
 | `active`      | Boolean               |  No  | Estado de alta. Vale siempre `true`: ver `DELETE /users/{userId}`        |
+
+**Sobre `lastName` y `firstName`:** desde V4 el apellido y los nombres viajan
+en campos separados, igual que en el cliente. Reemplazan a `fullName` en las
+respuestas y en los cuerpos de `POST` y `PATCH`, y también en el objeto
+`lawyer` que el usuario lleva vinculado (D-68). Es un cambio que rompe la
+compatibilidad con V3.
+
+**Acceso a la carpeta del estudio en Drive** (nuevo en V4). El alta, la
+modificación y la baja de usuarios tienen un efecto fuera de la API: el sistema
+comparte la carpeta raíz `VZ Causas` con el `email` de cada usuario vigente que
+tenga el rol `LAWYER` o `SECRETARY`, y se la quita cuando deja de cumplirlo
+(ver [Carpeta de la causa](#carpeta-de-la-causa)):
+
+| Operación                   | Efecto sobre el acceso a Drive                                                 |
+| --------------------------- | ------------------------------------------------------------------------------ |
+| `POST /users`               | Si los roles incluyen `LAWYER` o `SECRETARY`, se comparte la carpeta con su correo |
+| `PATCH /users/{userId}`     | Si cambia el correo, el acceso pasa del anterior al nuevo. Si cambian los roles, se da o se quita según corresponda |
+| `DELETE /users/{userId}`    | Se quita el acceso                                                             |
+
+Ninguna de las tres operaciones cambia su cuerpo ni su respuesta, y **ninguna
+falla si Drive no responde**: el usuario se registra, se modifica o se da de
+baja igual, y el proceso diario vuelve a ajustar los accesos (D-83). El correo
+tiene que ser de una cuenta de Google para que el acceso funcione
+([C-23](#82-puntos-abiertos)).
 
 La contraseña no se devuelve en ninguna respuesta, ni en texto plano ni
 cifrada.
@@ -617,7 +646,8 @@ Vinculando un abogado ya registrado:
 ```json
 {
 	"username": "iperalta",
-	"fullName": "Ignacio Peralta",
+	"lastName": "Peralta",
+	"firstName": "Ignacio",
 	"email": "iperalta@vazquezzarate.com",
 	"password": "password1",
 	"roles": ["LAWYER"],
@@ -630,12 +660,14 @@ Registrando un abogado nuevo en la misma operación:
 ```json
 {
 	"username": "iperalta",
-	"fullName": "Ignacio Peralta",
+	"lastName": "Peralta",
+	"firstName": "Ignacio",
 	"email": "iperalta@vazquezzarate.com",
 	"password": "password1",
 	"roles": ["LAWYER"],
 	"lawyer": {
-		"fullName": "Dr. Ignacio Peralta",
+		"lastName": "Peralta",
+		"firstName": "Ignacio",
 		"registrationNumber": "1-35207"
 	}
 }
@@ -644,7 +676,8 @@ Registrando un abogado nuevo en la misma operación:
 | Campo      | Tipo           | Requerido   | Restricciones                                                                 |
 | ---------- | -------------- | :---------: | ----------------------------------------------------------------------------- |
 | `username` | String         |     Sí      | Entre 3 y 30 caracteres: letras, números, punto, guión y guión bajo. Único    |
-| `fullName` | String         |     Sí      | -                                                                             |
+| `lastName` | String         |     Sí      | Hasta 100 caracteres                                                          |
+| `firstName`| String         |     Sí      | Hasta 100 caracteres                                                          |
 | `email`    | String         |     Sí      | Formato de correo electrónico válido. Único                                   |
 | `password` | String         |     Sí      | Mínimo 8 caracteres, con al menos un número                                   |
 | `roles`    | `Role[]`       |     Sí      | Al menos un rol                                                               |
@@ -679,12 +712,14 @@ del alta.
 	"data": {
 		"id": 15,
 		"username": "iperalta",
-		"fullName": "Ignacio Peralta",
+		"lastName": "Peralta",
+		"firstName": "Ignacio",
 		"email": "iperalta@vazquezzarate.com",
 		"roles": ["LAWYER"],
 		"lawyer": {
 			"id": 4,
-			"fullName": "Dr. Ignacio Peralta",
+			"lastName": "Peralta",
+			"firstName": "Ignacio",
 			"registrationNumber": "1-35207"
 		},
 		"lastLoginAt": null,
@@ -787,7 +822,7 @@ Obtiene una lista paginada de usuarios.
 | --------- | ------- | :-------: | ----------------- | ------------------- | ---------------------------------------------- |
 | `page`    | Integer |    No     | `1`               | Mayor o igual a `1` | Número de página                               |
 | `limit`   | Integer |    No     | `20`              | Entre `1` y `100`   | Cantidad máxima de elementos por página        |
-| `search`  | String  |    No     | -                 | -                   | Filtra por `username` y por `fullName`         |
+| `search`  | String  |    No     | -                 | -                   | Filtra por `username`, `lastName` y `firstName` |
 | `role`    | String  |    No     | -                 | Rol válido          | Filtra por los usuarios que poseen ese rol     |
 
 Ejemplo:
@@ -806,12 +841,14 @@ GET /api/v1/users?page=1&limit=20&search=peralta&role=LAWYER
 		{
 			"id": 1,
 			"username": "fvazquez",
-			"fullName": "Fernando G. Vázquez",
+			"lastName": "Vázquez",
+			"firstName": "Fernando G.",
 			"email": "fvazquez@vazquezzarate.com",
 			"roles": ["ADMINISTRATOR", "LAWYER"],
 			"lawyer": {
 				"id": 1,
-				"fullName": "Dr. Fernando G. Vázquez",
+				"lastName": "Vázquez",
+				"firstName": "Fernando G.",
 				"registrationNumber": "1-28114"
 			},
 			"lastLoginAt": "2026-09-19T08:12:00-03:00",
@@ -820,7 +857,8 @@ GET /api/v1/users?page=1&limit=20&search=peralta&role=LAWYER
 		{
 			"id": 8,
 			"username": "gestion",
-			"fullName": "Gestión Estudio",
+			"lastName": "Estudio",
+			"firstName": "Gestión",
 			"email": "gestion@vazquezzarate.com",
 			"roles": ["SECRETARY"],
 			"lawyer": null,
@@ -909,12 +947,14 @@ Obtiene la información de un usuario específico.
 	"data": {
 		"id": 15,
 		"username": "iperalta",
-		"fullName": "Ignacio Peralta",
+		"lastName": "Peralta",
+		"firstName": "Ignacio",
 		"email": "iperalta@vazquezzarate.com",
 		"roles": ["LAWYER"],
 		"lawyer": {
 			"id": 4,
-			"fullName": "Dr. Ignacio Peralta",
+			"lastName": "Peralta",
+			"firstName": "Ignacio",
 			"registrationNumber": "1-35207"
 		},
 		"lastLoginAt": "2026-09-19T18:20:00-03:00",
@@ -992,7 +1032,8 @@ Todos los campos son opcionales, aunque debe enviarse al menos uno.
 ```json
 {
 	"username": "iperalta",
-	"fullName": "Ignacio Peralta",
+	"lastName": "Peralta",
+	"firstName": "Ignacio",
 	"email": "iperalta@vazquezzarate.com",
 	"roles": ["LAWYER", "ADMINISTRATOR"],
 	"lawyerId": 4
@@ -1002,7 +1043,8 @@ Todos los campos son opcionales, aunque debe enviarse al menos uno.
 | Campo      | Tipo               | Descripción                                                          |
 | ---------- | ------------------ | -------------------------------------------------------------------- |
 | `username` | String             | Mismas restricciones que en el alta                                  |
-| `fullName` | String             | -                                                                    |
+| `lastName` | String             | Mismas restricciones que en el alta                                  |
+| `firstName`| String             | Mismas restricciones que en el alta                                  |
 | `email`    | String             | Mismas restricciones que en el alta                                  |
 | `roles`    | `Role[]`           | Reemplaza el conjunto completo de roles                              |
 | `lawyerId` | Integer \| `null`  | `null` desvincula la ficha profesional                               |
@@ -1022,12 +1064,14 @@ existentes debe omitirse el campo, no enviarse parcialmente.
 	"data": {
 		"id": 15,
 		"username": "iperalta",
-		"fullName": "Ignacio Peralta",
+		"lastName": "Peralta",
+		"firstName": "Ignacio",
 		"email": "iperalta@vazquezzarate.com",
 		"roles": ["LAWYER", "ADMINISTRATOR"],
 		"lawyer": {
 			"id": 4,
-			"fullName": "Dr. Ignacio Peralta",
+			"lastName": "Peralta",
+			"firstName": "Ignacio",
 			"registrationNumber": "1-35207"
 		},
 		"lastLoginAt": "2026-09-19T18:20:00-03:00",
@@ -1226,10 +1270,14 @@ El recurso abogado posee la siguiente estructura:
 | Campo                | Tipo    | Nulo | Descripción                                                          |
 | -------------------- | ------- | :--: | -------------------------------------------------------------------- |
 | `id`                 | Integer |  No  | Identificador único                                                  |
-| `fullName`           | String  |  No  | Nombre y apellido en un único campo, incluyendo el tratamiento       |
+| `lastName`           | String  |  No  | Apellido. Nuevo en V4: reemplaza a `fullName`                        |
+| `firstName`          | String  |  No  | Nombres, sin el tratamiento ("Dr.", "Dra."). Nuevo en V4          |
 | `registrationNumber` | String  |  No  | Matrícula. Única                                                     |
 | `activeCases`        | Integer |  No  | Causas activas en las que es responsable. Calculado, sólo lectura    |
 | `active`             | Boolean |  No  | Estado de alta. Vale siempre `true`: ver `DELETE /lawyers/{lawyerId}` |
+
+**Sobre `lastName` y `firstName`:** reemplazan a `fullName` desde V4 (D-68). El tratamiento ("Dr.", "Dra.") deja de formar parte del nombre: lo pone
+el frontend (D-81).
 
 **Formato de la matrícula:** el vigente en el Colegio de Abogados de Córdoba,
 compuesto por circunscripción y número separados por guión: `1-28114`.
@@ -1250,14 +1298,16 @@ Registra un nuevo abogado en el sistema.
 
 ```json
 {
-	"fullName": "Dr. Ignacio Peralta",
+	"lastName": "Peralta",
+	"firstName": "Ignacio",
 	"registrationNumber": "1-35207"
 }
 ```
 
 | Campo                | Tipo   | Requerido | Restricciones                 |
 | -------------------- | ------ | :-------: | ----------------------------- |
-| `fullName`           | String |    Sí     | -                             |
+| `lastName`           | String |    Sí     | Hasta 100 caracteres          |
+| `firstName`          | String |    Sí     | Hasta 100 caracteres          |
 | `registrationNumber` | String |    Sí     | Formato `1-28114`. Única      |
 
 **Respuestas**
@@ -1268,7 +1318,8 @@ Registra un nuevo abogado en el sistema.
 {
 	"data": {
 		"id": 4,
-		"fullName": "Dr. Ignacio Peralta",
+		"lastName": "Peralta",
+		"firstName": "Ignacio",
 		"registrationNumber": "1-35207",
 		"activeCases": 0,
 		"active": true
@@ -1352,7 +1403,7 @@ Obtiene una lista paginada de abogados.
 | --------- | ------- | :-------: | ----------------- | ------------------- | -------------------------------------------------- |
 | `page`    | Integer |    No     | `1`               | Mayor o igual a `1` | Número de página                                   |
 | `limit`   | Integer |    No     | `20`              | Entre `1` y `100`   | Cantidad máxima de elementos por página            |
-| `search`  | String  |    No     | -                 | -                   | Filtra por `fullName` y por `registrationNumber`   |
+| `search`  | String  |    No     | -                 | -                   | Filtra por `lastName`, `firstName` y `registrationNumber` |
 
 Ejemplo:
 
@@ -1369,14 +1420,16 @@ GET /api/v1/lawyers?page=1&limit=20&search=peralta
 	"data": [
 		{
 			"id": 1,
-			"fullName": "Dr. Fernando G. Vázquez",
+			"lastName": "Vázquez",
+			"firstName": "Fernando G.",
 			"registrationNumber": "1-28114",
 			"activeCases": 14,
 			"active": true
 		},
 		{
 			"id": 4,
-			"fullName": "Dr. Ignacio Peralta",
+			"lastName": "Peralta",
+			"firstName": "Ignacio",
 			"registrationNumber": "1-35207",
 			"activeCases": 16,
 			"active": true
@@ -1440,7 +1493,8 @@ Obtiene la información de un abogado específico.
 {
 	"data": {
 		"id": 4,
-		"fullName": "Dr. Ignacio Peralta",
+		"lastName": "Peralta",
+		"firstName": "Ignacio",
 		"registrationNumber": "1-35207",
 		"activeCases": 16,
 		"active": true
@@ -1509,14 +1563,16 @@ Todos los campos son opcionales, aunque debe enviarse al menos uno.
 
 ```json
 {
-	"fullName": "Dr. Ignacio Peralta",
+	"lastName": "Peralta",
+	"firstName": "Ignacio",
 	"registrationNumber": "1-35207"
 }
 ```
 
 | Campo                | Tipo    | Descripción                                |
 | -------------------- | ------- | ------------------------------------------ |
-| `fullName`           | String  | -                                          |
+| `lastName`           | String  | -                                          |
+| `firstName`          | String  | -                                          |
 | `registrationNumber` | String  | Formato `1-28114`. Única                   |
 
 El campo `activeCases` no es modificable: lo calcula el backend.
@@ -1529,7 +1585,8 @@ El campo `activeCases` no es modificable: lo calcula el backend.
 {
 	"data": {
 		"id": 4,
-		"fullName": "Dr. Ignacio Peralta",
+		"lastName": "Peralta",
+		"firstName": "Ignacio",
 		"registrationNumber": "1-35207",
 		"activeCases": 16,
 		"active": true
@@ -1620,8 +1677,7 @@ Da de baja un abogado.
 **Rol requerido:** `ADMINISTRATOR`.
 
 > Sin cambios respecto de V2. Corresponde a HU15, planificada para el
-> Sprint 5. Ver la observación [C-17](#82-decisiones-a-tomar-y-puntos-a-verificar) sobre la
-> reasignación de causas que muestra el prototipo.
+> Sprint 5.
 
 **La baja es lógica, pero el cliente no la percibe.** El backend establece
 `active` en `false` y conserva el registro; para el cliente el abogado deja de
@@ -1737,7 +1793,7 @@ El recurso estado procesal posee la siguiente estructura:
 | `timeLimitDays` | Integer        |  No  | Días que abre el estado. `0` indica que no abre plazo                        |
 | `dayType`       | `DayType`      |  No  | Forma de cómputo de los días                                                 |
 | `terminal`      | Boolean        |  No  | Indica si el estado cierra el ciclo de vida de la causa                      |
-| `activeCases`   | Integer        |  No  | Causas activas que se encuentran en este estado. Calculado, sólo lectura. Solo en las respuestas de `GET` |
+| `caseCount`     | Integer        |  No  | Causas que se encuentran en este estado, activas o no (las dadas de baja no cuentan). Calculado, sólo lectura. Solo en las respuestas de `GET`. Nuevo en V4: reemplaza a `activeCases` |
 | `active`        | Boolean        |  No  | Estado de alta. Vale siempre `true`: ver `DELETE /procedural-states/{stateId}` |
 
 **Sobre `name`:** RN4 establece que los estados procesales dependen del fuero y
@@ -1749,8 +1805,8 @@ cerrado. La unicidad es **por fuero**: "Archivada" existe en los tres.
 **Sobre el orden:** los estados procesales no tienen posición ni orden dentro
 del fuero: se listan en el orden en que se registraron. Una causa nueva no
 entra a ningún estado de la tabla: nace en el estado inicial, y su primer acto
-puede llevarla a cualquier estado no terminal del fuero (ver
-[`POST /cases`](#post-cases)).
+puede llevarla a cualquier estado del fuero salvo "Prescripta" (ver
+[`POST /cases`](#post-cases) y D-69).
 
 **Estado inicial.** Cada fuero tiene además un estado de sistema, **"Iniciada"**,
 en el que nace toda causa. No forma parte de este recurso: no aparece en los
@@ -1768,14 +1824,18 @@ listado del fuero con `terminal` en `true`, como lo muestra la tabla "Estados y
 plazos" del prototipo, y sirve de filtro en el listado de causas. Lo crea el
 sistema, y está **protegido**: `PATCH` y `DELETE` sobre él responden
 `422 PROCEDURAL_STATE_PROTECTED`, porque renombrarlo o darlo de baja dejaría a
-HU33 sin estado de destino. Como todo estado terminal, no puede elegirse como
-destino de un acto. Su denominación está reservada en el fuero penal: registrar
+HU33 sin estado de destino. A diferencia de los demás estados terminales,
+**no puede elegirse como destino de un acto procesal**: a "Prescripta" se llega
+solo con su propio botón y formulario (D-69). Su denominación está reservada en el fuero penal: registrar
 otro estado llamado "Prescripta" responde `409 PROCEDURAL_STATE_ALREADY_EXISTS`
 (ver [D-53](#81-decisiones-tomadas)).
 
-**Sobre `activeCases`:** desde V3 se calcula según la
-definición de [causa activa](#causa-activa). En la tabla del prototipo es la
-columna "Causas". Es un dato de consulta: se devuelve **solo en las respuestas
+**Sobre `caseCount`:** cuenta las causas que hoy están en el estado, **activas
+o no**: también las que están en un estado terminal, como "Archivada" o
+"Prescripta". No cuenta las dadas de baja ni las que están en "Iniciada". En la
+tabla del prototipo es la columna "Causas". Reemplaza a `activeCases`, que solo
+contaba causas activas y por eso valía siempre `0` en los estados terminales
+(D-70). Es un dato de consulta: se devuelve **solo en las respuestas
 de `GET`**; las respuestas de `POST` y `PATCH` no lo incluyen.
 
 **Sobre el efecto de los cambios en las causas:** renombrar un estado actualiza
@@ -1917,7 +1977,7 @@ registro de acto procesal piden todos los estados del fuero con `limit=100`.
 			"timeLimitDays": 10,
 			"dayType": "BUSINESS",
 			"terminal": false,
-			"activeCases": 7,
+			"caseCount": 7,
 			"active": true
 		},
 		{
@@ -1927,7 +1987,7 @@ registro de acto procesal piden todos los estados del fuero con `limit=100`.
 			"timeLimitDays": 0,
 			"dayType": "NONE",
 			"terminal": true,
-			"activeCases": 0,
+			"caseCount": 17,
 			"active": true
 		}
 	],
@@ -1940,8 +2000,8 @@ registro de acto procesal piden todos los estados del fuero con `limit=100`.
 }
 ```
 
-Un estado terminal devuelve siempre `activeCases` en `0`, porque una causa en
-estado terminal no es una causa activa.
+`caseCount` cuenta también las causas en estados terminales: "Archivada" y
+"Prescripta" muestran cuántas causas cerraron así (D-70).
 
 **`400 Bad Request`**
 
@@ -2009,7 +2069,7 @@ Obtiene la información de un estado procesal específico.
 		"timeLimitDays": 5,
 		"dayType": "BUSINESS",
 		"terminal": false,
-		"activeCases": 7,
+		"caseCount": 7,
 		"active": true
 	}
 }
@@ -2096,7 +2156,7 @@ responde `400 VALIDATION_ERROR` sobre ese campo (ver
 **Correspondencia con el formulario.** La opción "—" del
 selector de tipo de día corresponde a `dayType: "NONE"`.
 
-El campo `activeCases` no es modificable y no se incluye en esta respuesta:
+El campo `caseCount` no es modificable y no se incluye en esta respuesta:
 se consulta con `GET`.
 
 **Respuestas**
@@ -2750,11 +2810,12 @@ El recurso cliente posee la siguiente estructura:
 | `activeCases` | Integer                      |  No  | Causas activas en las que es cliente. Calculado, sólo lectura            |
 | `active`      | Boolean                      |  No  | Estado de alta. Vale siempre `true`                                      |
 
-**Sobre `lastName` y `firstName`:** el cliente es la primera persona del
+**Sobre `lastName` y `firstName`:** el cliente fue la primera persona del
 sistema con apellido y nombres en campos separados, conforme a la observación
 de la Sprint Review del Sprint 1 y al formulario del prototipo. El backend los
 guarda tal como llegan; la forma `GÓMEZ, Ariel Fernando` que se ve en el
-listado y en la carátula sugerida la compone el cliente.
+listado y en la carátula sugerida la compone el cliente. Desde V4, usuarios y
+abogados siguen el mismo criterio (D-68).
 
 **Sobre `dni`:** viaja sin puntos (`34812905`). El formato `34.812.905` es de
 presentación y lo aplica el cliente. Se conserva la sigla, como `SacNumber`,
@@ -3048,8 +3109,18 @@ El recurso causa posee la siguiente estructura:
 | `instructorExtension`     | String \| `null`              |  Sí  | Número de interno del instructor. Texto libre: `214`                                          |
 | `counterparty`            | String \| `null`              |  Sí  | Contraparte u organismo. Solo en `ADMINISTRATIVE` y `AMPARO`; en `CRIMINAL` vale `null`       |
 | `subjectMatter`           | String \| `null`              |  Sí  | Objeto del reclamo (`ADMINISTRATIVE`) u objeto del amparo (`AMPARO`): el motivo por el que se inicia la causa, redactado por el abogado. En `CRIMINAL` vale `null` |
+| `clientDetained`          | Boolean \| `null`             |  Sí  | **Nuevo.** Si el cliente está preso. Solo en `CRIMINAL`; en los demás fueros vale `null` |
+| `injunctionGranted`       | Boolean \| `null`             |  Sí  | **Nuevo.** Si el juez hizo lugar a la medida cautelar. Solo en `AMPARO`; en los demás fueros vale `null` |
+| `harmfulActDate`          | String (fecha ISO 8601) \| `null` |  Sí  | **Nuevo.** Fecha del acto lesivo: el objeto del amparo (`subjectMatter`). Solo en `AMPARO`; `null` si no se informó o en los demás fueros |
+| `harmfulActRenews`        | Boolean \| `null`             |  Sí  | **Nuevo.** Si el acto lesivo se renueva. Solo en `AMPARO`; en los demás fueros vale `null` |
+| `harmfulActRenewalDays`   | Integer \| `null`             |  Sí  | **Nuevo.** Cada cuántos días corridos se renueva el acto lesivo. Solo si `harmfulActRenews` es `true`; si no, `null` |
+| `harmfulActTermDays`      | Integer \| `null`             |  Sí  | **Nuevo.** Plazo para presentar el amparo desde el acto lesivo, en días. Solo en `AMPARO` con `harmfulActDate` |
+| `harmfulActTermDayType`   | `DayType` \| `null`           |  Sí  | **Nuevo.** Cómo se cuentan esos días: `BUSINESS` o `CONSECUTIVE`. Solo en `AMPARO` con `harmfulActDate` |
+| `harmfulActDeadline`      | Object \| `null`              |  Sí  | **Nuevo.** Vencimiento para presentar el amparo, calculado. Ver estructura más abajo |
+| `administrativeRemedyExhaustedOn` | String (fecha ISO 8601) \| `null` | Sí | **Nuevo.** Fecha de agotamiento de la vía administrativa. Solo en `ADMINISTRATIVE`; `null` mientras no se agotó o en los demás fueros |
+| `courtFeePaid`            | Boolean                       |  No  | **Nuevo.** Si se pagó la tasa de justicia. En los tres fueros |
 | `client`                  | Object                        |  No  | Cliente de la causa. Ver estructura más abajo                                                 |
-| `responsibleLawyer`       | Object                        |  No  | Abogado responsable (RN3): `id`, `fullName`, `registrationNumber`                             |
+| `responsibleLawyer`       | Object                        |  No  | Abogado responsable (RN3): `id`, `lastName`, `firstName`, `registrationNumber`                             |
 | `legalQualifications`     | Object[]                      |  No  | Calificaciones legales, cada una con su fecha del hecho y su prescripción. Opcional en `CRIMINAL`; vacío en los demás |
 | `prescription`            | Object \| `null`              |  Sí  | **Nuevo.** Prescripción que rige la causa: la de la calificación que prescribe primero. `null` si la causa no computa prescripción. Calculado |
 | `prescriptionDeclaration` | Object \| `null`              |  Sí  | **Nuevo.** Constancia de que la causa fue marcada como prescripta (HU33). `null` mientras no lo fue |
@@ -3057,6 +3128,75 @@ El recurso causa posee la siguiente estructura:
 | `currentState`            | Object                        |  No  | Estado procesal actual, con el vencimiento del acto que llevó la causa a él. Ver estructura más abajo |
 | `folder`                  | Object \| `null`              |  Sí  | **Nuevo.** Carpeta de la causa en la nube (HU39, HU40). `null` si no se pidió crearla         |
 | `active`                  | Boolean                       |  No  | Estado de alta. Vale siempre `true` en esta versión                                           |
+
+**Datos propios de cada fuero** (nuevos)
+
+| Fuero            | Datos                                                                                     |
+| ---------------- | ----------------------------------------------------------------------------------------- |
+| `CRIMINAL`       | `clientDetained`: si el cliente está preso                                                |
+| `AMPARO`         | `injunctionGranted`: si el juez hizo lugar a la medida cautelar. `harmfulActDate`, `harmfulActRenews`, `harmfulActRenewalDays`, `harmfulActTermDays` y `harmfulActTermDayType`: fecha del acto lesivo, si se renueva y cada cuántos días, y el plazo para presentar el amparo. Con ellos el backend calcula `harmfulActDeadline` |
+| `ADMINISTRATIVE` | `administrativeRemedyExhaustedOn`: fecha de agotamiento de la vía administrativa           |
+| Los tres         | `courtFeePaid`: si se pagó la tasa de justicia                                            |
+
+Un dato que no corresponde al fuero de la causa vale `null` en la respuesta y no
+se envía en el alta. `courtFeePaid` es el dato que RN10 pedía y que el detalle
+del prototipo insinuaba con "Registrar pago de tasa" (D-67).
+
+Estos datos **no figuran en el prototipo**: el formulario de alta y el detalle
+de la causa tienen que sumarlos. En esta versión **se cargan solo al registrar
+la causa**; modificarlos llega con la modificación de causa (HU19). El único
+cálculo que el contrato hace con ellos es el vencimiento del acto lesivo
+(D-67, D-78).
+
+**`harmfulActDeadline`** (nuevo)
+
+En el amparo, la fecha del acto lesivo cumple una función parecida a la de la
+prescripción: desde ella corre el plazo para presentar el amparo, y vencido ese
+plazo ya no se puede presentar (D-78). `harmfulActDeadline` es ese vencimiento,
+calculado por el backend.
+
+| Campo                   | Tipo                    | Descripción                                                                                  |
+| ----------------------- | ----------------------- | -------------------------------------------------------------------------------------------- |
+| `actDate`               | String (fecha ISO 8601) | Fecha vigente del acto lesivo: `harmfulActDate` o, si el acto se renueva, la última renovación que no supera hoy |
+| `renewed`               | Boolean                 | `true` si `actDate` es una renovación y no la fecha cargada                                  |
+| `dueDate`               | String (fecha ISO 8601) | Vencimiento para presentar el amparo: `actDate` más `harmfulActTermDays`, contados según `harmfulActTermDayType` |
+| `businessDaysRemaining` | Integer                 | Días hábiles desde hoy hasta `dueDate`. `0`, vence hoy; negativo, vencido                     |
+
+- **Renovaciones.** Si `harmfulActRenews` es `true`, el acto se renueva cada
+  `harmfulActRenewalDays` días corridos contados desde `harmfulActDate`. El
+  backend toma la renovación más reciente que no supera hoy y calcula el
+  vencimiento desde ella. No se guarda historial de renovaciones ni hay que
+  registrar cada una: la fecha cargada no cambia.
+- **Cómputo del plazo.** En días `BUSINESS`, desde el día siguiente a `actDate`
+  y sin sábados ni domingos; en días `CONSECUTIVE`, días corridos. Las mismas
+  reglas que el vencimiento de un acto procesal (ver [Cómputo de días](#cómputo-de-días)).
+- **Cuándo vale `null`.** Fuera del fuero `AMPARO`; cuando no se cargó
+  `harmfulActDate`; y **en cuanto la causa sale del estado inicial**: el primer
+  acto procesal indica que el amparo ya se presentó, y el plazo deja de importar.
+  También en una causa que no está activa.
+- **Dónde se ve.** En el detalle de la causa, en los vencimientos de los
+  tableros (con `kind` en `HARMFUL_ACT`) y en los avisos por correo del proceso
+  diario (D-78).
+
+Ejemplo: un amparo todavía en "Iniciada", con un acto lesivo del 03/08/2026 que
+se renueva cada 30 días y un plazo de 15 días hábiles. Al 15/09/2026, la
+renovación vigente es la del 02/09/2026:
+
+```json
+{
+	"harmfulActDate": "2026-08-03",
+	"harmfulActRenews": true,
+	"harmfulActRenewalDays": 30,
+	"harmfulActTermDays": 15,
+	"harmfulActTermDayType": "BUSINESS",
+	"harmfulActDeadline": {
+		"actDate": "2026-09-02",
+		"renewed": true,
+		"dueDate": "2026-09-23",
+		"businessDaysRemaining": 6
+	}
+}
+```
 
 **`client`** reúne los datos que muestra la tarjeta "Cliente" del detalle:
 `id`, `lastName`, `firstName`, `dni`, `phone`, `email` y `clientSince`, con el
@@ -3107,8 +3247,8 @@ redondeado (ver [Prescripción](#prescripción) en la sección 4).
 Que el plazo esté cumplido (`expired` en `true`) **no cambia por sí solo el
 estado de la causa**: sigue activa y sigue apareciendo en las alertas hasta que
 alguien la marque como prescripta
-(ver [`POST /cases/{caseId}/prescription`](#post-casescaseidprescription) y
-[C-23](#82-decisiones-a-tomar-y-puntos-a-verificar)).
+(ver [`POST /cases/{caseId}/prescription`](#post-casescaseidprescription)). El
+proceso diario detecta el plazo cumplido y avisa (HU52, HU32).
 
 **`prescriptionDeclaration`** (nuevo)
 
@@ -3119,7 +3259,7 @@ Queda cargado cuando la causa se marca como prescripta; antes vale `null`.
 | `prescriptionDate` | String (fecha ISO 8601) | Fecha de la prescripción                                     |
 | `resolution`       | String                  | Resolución que la declara                                    |
 | `grounds`          | String \| `null`        | Fundamento. Opcional                                         |
-| `registeredBy`     | Object                  | Usuario que marcó la causa como prescripta: `id` y `fullName` |
+| `registeredBy`     | Object                  | Usuario que marcó la causa como prescripta: `id`, `lastName` y `firstName` |
 | `registeredAt`     | String (ISO 8601)       | Fecha y hora del registro                                    |
 
 **`currentState`**
@@ -3164,7 +3304,7 @@ registradas antes de esta versión.
 | ------------------ | ------------------ | ---------------------------------------------------------------------------------------------------- |
 | `status`           | `CaseFolderStatus` | `CREATED` si la carpeta existe; `PENDING` si se pidió y no pudo crearse                              |
 | `url`              | String \| `null`   | Enlace para abrir la carpeta ("Abrir carpeta en Drive"). `null` mientras está `PENDING`              |
-| `path`             | String             | Ubicación de la carpeta, como la muestra el resumen del alta: `/VZ Causas/2026/Penal/13284571 — GÓMEZ` |
+| `path`             | String             | Ubicación de la carpeta, por ejemplo `/VZ Causas/Ríos, Malena/Penal/GÓMEZ, Ariel Fernando p.s.a. Robo calificado` |
 | `templatesCopied`  | Integer            | Modelos formales copiados a la carpeta (HU40). `0` si no se pidió copiarlos                          |
 | `templatesPending` | Integer            | Modelos que se pidió copiar y todavía no se copiaron, porque falló la carpeta o alguna copia. `0` si no hay nada pendiente |
 
@@ -3214,6 +3354,7 @@ Causa penal:
 	"instructorExtension": "214",
 	"clientId": 1,
 	"proceduralRole": "DEFENSA",
+	"clientDetained": false,
 	"legalQualifications": [
 		{
 			"legalQualificationId": 1,
@@ -3222,6 +3363,7 @@ Causa penal:
 	],
 	"responsibleLawyerId": 3,
 	"startDate": "2021-03-12",
+	"courtFeePaid": false,
 	"createFolder": true,
 	"copyTemplates": true
 }
@@ -3242,8 +3384,15 @@ Amparo, sin carpeta:
 	"proceduralRole": "ACTORA",
 	"counterparty": "APROSS",
 	"subjectMatter": "Que se ordene a APROSS la cobertura integral del tratamiento de rehabilitación prescripto a la actora.",
+	"injunctionGranted": true,
+	"harmfulActDate": "2026-08-28",
+	"harmfulActRenews": true,
+	"harmfulActRenewalDays": 30,
+	"harmfulActTermDays": 15,
+	"harmfulActTermDayType": "BUSINESS",
 	"responsibleLawyerId": 1,
 	"startDate": "2026-09-08",
+	"courtFeePaid": true,
 	"createFolder": false
 }
 ```
@@ -3262,8 +3411,17 @@ Amparo, sin carpeta:
 | `legalQualifications`   | Object[]         |     No      | Opcional en `CRIMINAL`; si se envía, sin calificaciones repetidas. No se envía en los demás fueros. Ver estructura más abajo |
 | `counterparty`          | String           |     No      | Hasta 255 caracteres. Solo en `ADMINISTRATIVE` y `AMPARO`; no se envía en `CRIMINAL`              |
 | `subjectMatter`         | String           | Condicional | Obligatorio en `ADMINISTRATIVE` y `AMPARO`, no vacío, hasta 800 caracteres. No se envía en `CRIMINAL` |
+| `clientDetained`        | Boolean          |     No      | **Nuevo.** "Preso". Solo en `CRIMINAL`. Por defecto, `false`                                     |
+| `injunctionGranted`     | Boolean          |     No      | **Nuevo.** "El juez hizo lugar a la medida cautelar". Solo en `AMPARO`. Por defecto, `false`      |
+| `harmfulActDate`        | String (fecha)   |     No      | **Nuevo.** Fecha del acto lesivo. Solo en `AMPARO`. No puede ser posterior a hoy                  |
+| `harmfulActRenews`      | Boolean          |     No      | **Nuevo.** Si el acto lesivo se renueva. Solo en `AMPARO`. Por defecto, `false`                   |
+| `harmfulActRenewalDays` | Integer          | Condicional | **Nuevo.** Obligatorio si `harmfulActRenews` es `true`: días corridos, entero mayor o igual a `1`. No se envía en otro caso |
+| `harmfulActTermDays`    | Integer          | Condicional | **Nuevo.** Plazo para presentar el amparo. Obligatorio si se envía `harmfulActDate`: entero mayor o igual a `1`. Solo en `AMPARO` |
+| `harmfulActTermDayType` | `DayType`        | Condicional | **Nuevo.** Obligatorio si se envía `harmfulActDate`: `BUSINESS` o `CONSECUTIVE`. Solo en `AMPARO` |
+| `administrativeRemedyExhaustedOn` | String (fecha) | No    | **Nuevo.** Fecha de agotamiento de la vía administrativa. Solo en `ADMINISTRATIVE`. No puede ser posterior a hoy |
 | `responsibleLawyerId`   | Integer          |     Sí      | Abogado vigente (RN3)                                                                             |
 | `startDate`             | String (fecha)   | Condicional | Obligatoria si se informa `sacNumber`; sin SAC no se informa y la causa queda con `startDate` en `null` (D-38). No puede ser posterior a hoy |
+| `courtFeePaid`          | Boolean          |     No      | **Nuevo.** Si se pagó la tasa de justicia. En los tres fueros. Por defecto, `false`               |
 | `createFolder`          | Boolean          |     No      | **Nuevo.** Crear la carpeta de la causa en la nube (HU39). Por defecto, `true`                    |
 | `copyTemplates`         | Boolean          |     No      | **Nuevo.** Copiar a esa carpeta los modelos formales del fuero (HU40). Por defecto, igual a `createFolder`. No puede ser `true` si `createFolder` es `false` |
 
@@ -3321,7 +3479,7 @@ piden HU39 y HU40 ("que se cree automáticamente").
   `PENDING`, y la carpeta se reintenta con
   [`POST /cases/{caseId}/folder`](#post-casescaseidfolder). La causa es el dato
   que el estudio no puede perder; la carpeta es un complemento
-  (ver [D-62](#81-decisiones-tomadas)).
+  (ver [D-60](#81-decisiones-tomadas)).
 
 **Respuestas**
 
@@ -3341,6 +3499,16 @@ piden HU39 y HU40 ("que se cree automáticamente").
 		"instructorExtension": "214",
 		"counterparty": null,
 		"subjectMatter": null,
+		"clientDetained": false,
+		"injunctionGranted": null,
+		"harmfulActDate": null,
+		"harmfulActRenews": null,
+		"harmfulActRenewalDays": null,
+		"harmfulActTermDays": null,
+		"harmfulActTermDayType": null,
+		"harmfulActDeadline": null,
+		"administrativeRemedyExhaustedOn": null,
+		"courtFeePaid": false,
 		"client": {
 			"id": 1,
 			"lastName": "GÓMEZ",
@@ -3352,7 +3520,8 @@ piden HU39 y HU40 ("que se cree automáticamente").
 		},
 		"responsibleLawyer": {
 			"id": 3,
-			"fullName": "Dra. Malena Ríos",
+			"lastName": "Ríos",
+			"firstName": "Malena",
 			"registrationNumber": "1-36842"
 		},
 		"legalQualifications": [
@@ -3390,7 +3559,7 @@ piden HU39 y HU40 ("que se cree automáticamente").
 		"folder": {
 			"status": "CREATED",
 			"url": "https://drive.google.com/drive/folders/1Qw8zT3nKcVb5LhXy2RmPd7sUeJ4oAfG9",
-			"path": "/VZ Causas/2026/Penal/13284571 — GÓMEZ",
+			"path": "/VZ Causas/Ríos, Malena/Penal/GÓMEZ, Ariel Fernando p.s.a. Robo calificado",
 			"templatesCopied": 6,
 			"templatesPending": 0
 		},
@@ -3409,7 +3578,7 @@ Si el almacenamiento en la nube no respondió, la causa se registra igual y
 {
 	"status": "PENDING",
 	"url": null,
-	"path": "/VZ Causas/2026/Penal/13284571 — GÓMEZ",
+	"path": "/VZ Causas/Ríos, Malena/Penal/GÓMEZ, Ariel Fernando p.s.a. Robo calificado",
 	"templatesCopied": 0,
 	"templatesPending": 6
 }
@@ -3480,6 +3649,20 @@ Con `createFolder` en `false`, `folder` vale `null`.
 }
 ```
 
+```json
+{
+	"error": {
+		"code": "VALIDATION_ERROR",
+		"message": "Los datos enviados no son válidos.",
+		"details": {
+			"harmfulActRenewalDays": "Indicá cada cuántos días se renueva el acto lesivo.",
+			"harmfulActTermDays": "Indicá el plazo para presentar el amparo.",
+			"clientDetained": "Solo corresponde al fuero penal."
+		}
+	}
+}
+```
+
 **`401 Unauthorized`**
 
 ```json
@@ -3513,8 +3696,16 @@ Obtiene una lista paginada de las causas (HU20).
 **Rol requerido:** cualquier usuario autenticado.
 
 Los resultados se ordenan por urgencia: primero las causas con vencimiento,
-por `currentState.dueDate` ascendente (las vencidas quedan primeras), y luego
-las que no tienen vencimiento, por `id`.
+por la fecha de ese vencimiento ascendente (las vencidas quedan primeras), y
+luego las que no tienen vencimiento, por `id`.
+
+**Vencimiento de la causa.** Desde esta versión es el que tenga abierto, de
+cualquiera de los dos orígenes: el plazo del acto procesal del estado actual
+(`currentState.dueDate`) o, en un amparo todavía en "Iniciada", el del acto
+lesivo (`harmfulActDeadline.dueDate`). Nunca hay dos a la vez, porque el del
+acto lesivo solo existe en el estado inicial, que no abre plazo. Así un amparo
+cuyo plazo para presentarse está por vencer sube en el listado como cualquier
+otra causa urgente, y aparece con "Solo con plazo por vencer" (D-82).
 
 **Parámetros de consulta**
 
@@ -3529,7 +3720,7 @@ las que no tienen vencimiento, por `id`.
 | `customState`         | String  |    No     | -                 | Excluyente con `proceduralStateId` y `withoutProceduralActs` | Mismo filtro, grupo "Escritos a mano en causas". Coincidencia exacta sin distinguir mayúsculas |
 | `withoutProceduralActs` | Boolean |  No     | -                 | Excluyente con `proceduralStateId` y `customState` | Mismo filtro, grupo "Causas nuevas", opción "Iniciada". `true`: solo causas en el estado inicial (`currentState.initial` en `true`) |
 | `clientId`            | Integer |    No     | -                 | -                               | Causas de un cliente (HU9)                                                  |
-| `openDeadline`        | Boolean |    No     | -                 | -                               | `true`: solo causas con vencimiento (`currentState.dueDate` no nulo), incluidas las vencidas. Botón "Solo con plazo por vencer" |
+| `openDeadline`        | Boolean |    No     | -                 | -                               | `true`: solo causas con vencimiento abierto —del acto procesal o del acto lesivo—, incluidas las vencidas. Botón "Solo con plazo por vencer" |
 
 Ejemplo:
 
@@ -3575,6 +3766,16 @@ causas de ese fuero que todavía están en el estado inicial.
 			"instructorExtension": "3120",
 			"counterparty": null,
 			"subjectMatter": "Descargo frente a la imputación de falta grave por abandono de servicio y pedido de sobreseimiento.",
+			"clientDetained": null,
+			"injunctionGranted": null,
+			"harmfulActDate": null,
+			"harmfulActRenews": null,
+			"harmfulActRenewalDays": null,
+			"harmfulActTermDays": null,
+			"harmfulActTermDayType": null,
+			"harmfulActDeadline": null,
+			"administrativeRemedyExhaustedOn": null,
+			"courtFeePaid": true,
 			"client": {
 				"id": 2,
 				"lastName": "PEREYRA",
@@ -3586,7 +3787,8 @@ causas de ese fuero que todavía están en el estado inicial.
 			},
 			"responsibleLawyer": {
 				"id": 4,
-				"fullName": "Dr. Ignacio Peralta",
+				"lastName": "Peralta",
+				"firstName": "Ignacio",
 				"registrationNumber": "1-35207"
 			},
 			"legalQualifications": [],
@@ -3606,7 +3808,7 @@ causas de ese fuero que todavía están en el estado inicial.
 			"folder": {
 				"status": "CREATED",
 				"url": "https://drive.google.com/drive/folders/1Hn4bYc9WtEz6MqLs3XoKp2VrDu8JgFa5",
-				"path": "/VZ Causas/2026/Administrativo/12907344 — PEREYRA",
+				"path": "/VZ Causas/Peralta, Ignacio/Administrativo/PEREYRA, Marcos D. — Sumario administrativo",
 				"templatesCopied": 4,
 				"templatesPending": 0
 			},
@@ -3624,6 +3826,16 @@ causas de ese fuero que todavía están en el estado inicial.
 			"instructorExtension": "214",
 			"counterparty": null,
 			"subjectMatter": null,
+			"clientDetained": false,
+			"injunctionGranted": null,
+			"harmfulActDate": null,
+			"harmfulActRenews": null,
+			"harmfulActRenewalDays": null,
+			"harmfulActTermDays": null,
+			"harmfulActTermDayType": null,
+			"harmfulActDeadline": null,
+			"administrativeRemedyExhaustedOn": null,
+			"courtFeePaid": false,
 			"client": {
 				"id": 1,
 				"lastName": "GÓMEZ",
@@ -3635,7 +3847,8 @@ causas de ese fuero que todavía están en el estado inicial.
 			},
 			"responsibleLawyer": {
 				"id": 3,
-				"fullName": "Dra. Malena Ríos",
+				"lastName": "Ríos",
+				"firstName": "Malena",
 				"registrationNumber": "1-36842"
 			},
 			"legalQualifications": [
@@ -3673,7 +3886,7 @@ causas de ese fuero que todavía están en el estado inicial.
 			"folder": {
 				"status": "CREATED",
 				"url": "https://drive.google.com/drive/folders/1Qw8zT3nKcVb5LhXy2RmPd7sUeJ4oAfG9",
-				"path": "/VZ Causas/2026/Penal/13284571 — GÓMEZ",
+				"path": "/VZ Causas/Ríos, Malena/Penal/GÓMEZ, Ariel Fernando p.s.a. Robo calificado",
 				"templatesCopied": 6,
 				"templatesPending": 0
 			},
@@ -3855,7 +4068,7 @@ cerrados.
 La lista de documentos de la tarjeta "Documentación" (HU38) y las acciones
 "Modificar causa", "Dar de baja", "Emitir carátula", "Emitir expediente" y
 "Registrar pago de tasa" pertenecen a historias de sprints posteriores (ver
-[§8.3](#83-visto-en-el-prototipo-y-fuera-de-alcance)).
+[§8.3](#83-visto-en-el-prototipo-y-fuera-de-este-contrato)).
 
 El prototipo lleva al detalle después de registrar una causa y después de
 registrar un acto. En una causa recién registrada `currentState` es el estado
@@ -3887,6 +4100,16 @@ vencimiento nuevos en `currentState`.
 		"instructorExtension": "214",
 		"counterparty": null,
 		"subjectMatter": null,
+		"clientDetained": false,
+		"injunctionGranted": null,
+		"harmfulActDate": null,
+		"harmfulActRenews": null,
+		"harmfulActRenewalDays": null,
+		"harmfulActTermDays": null,
+		"harmfulActTermDayType": null,
+		"harmfulActDeadline": null,
+		"administrativeRemedyExhaustedOn": null,
+		"courtFeePaid": false,
 		"client": {
 			"id": 1,
 			"lastName": "GÓMEZ",
@@ -3898,7 +4121,8 @@ vencimiento nuevos en `currentState`.
 		},
 		"responsibleLawyer": {
 			"id": 3,
-			"fullName": "Dra. Malena Ríos",
+			"lastName": "Ríos",
+			"firstName": "Malena",
 			"registrationNumber": "1-36842"
 		},
 		"legalQualifications": [
@@ -3936,7 +4160,7 @@ vencimiento nuevos en `currentState`.
 		"folder": {
 			"status": "CREATED",
 			"url": "https://drive.google.com/drive/folders/1Qw8zT3nKcVb5LhXy2RmPd7sUeJ4oAfG9",
-			"path": "/VZ Causas/2026/Penal/13284571 — GÓMEZ",
+			"path": "/VZ Causas/Ríos, Malena/Penal/GÓMEZ, Ariel Fernando p.s.a. Robo calificado",
 			"templatesCopied": 6,
 			"templatesPending": 0
 		},
@@ -4005,11 +4229,10 @@ accesible en el historial."*
 
 HU33 pide que la causa se registre como prescripta **automáticamente** cuando
 vence el plazo. El prototipo resuelve otra cosa: una acción manual que exige la
-resolución que declara la prescripción. Este contrato sigue al prototipo; el
-proceso automático avisa (HU32) y deja `prescription.expired` en `true`, pero
-no cambia el estado de la causa. Es **la decisión más importante que queda
-abierta** en esta versión: ver
-[C-23](#82-decisiones-a-tomar-y-puntos-a-verificar).
+resolución que declara la prescripción. Este contrato sigue al prototipo
+(D-52): el proceso diario detecta el plazo cumplido (HU52), deja
+`prescription.expired` en `true` y avisa (HU32), pero **no cambia el estado de
+la causa**. La pasa a "Prescripta" una persona, con la resolución.
 
 **Parámetros de ruta**
 
@@ -4033,9 +4256,10 @@ abierta** en esta versión: ver
 | `resolution`       | String         |    Sí     | "Resolución que la declara". No vacía, hasta 255 caracteres |
 | `grounds`          | String         |    No     | "Fundamento (opcional)". Hasta 2000 caracteres     |
 
-No se exige que el plazo calculado esté cumplido (`prescription.expired`): la
-prescripción la declara el tribunal, y puede hacerlo aunque en el sistema falte
-una calificación o una fecha del hecho.
+La causa tiene que tener **al menos una calificación legal**: una causa penal
+sin calificación no puede prescribir (D-74). No se exige, en cambio, que el plazo
+calculado esté cumplido (`prescription.expired`): la prescripción la declara el
+tribunal.
 
 **Efecto sobre la causa**
 
@@ -4079,6 +4303,16 @@ de prescripción activa:
 		"instructorExtension": "118",
 		"counterparty": null,
 		"subjectMatter": null,
+		"clientDetained": false,
+		"injunctionGranted": null,
+		"harmfulActDate": null,
+		"harmfulActRenews": null,
+		"harmfulActRenewalDays": null,
+		"harmfulActTermDays": null,
+		"harmfulActTermDayType": null,
+		"harmfulActDeadline": null,
+		"administrativeRemedyExhaustedOn": null,
+		"courtFeePaid": false,
 		"client": {
 			"id": 4,
 			"lastName": "ACOSTA",
@@ -4090,7 +4324,8 @@ de prescripción activa:
 		},
 		"responsibleLawyer": {
 			"id": 1,
-			"fullName": "Dr. Fernando G. Vázquez",
+			"lastName": "Vázquez",
+			"firstName": "Fernando G.",
 			"registrationNumber": "1-28114"
 		},
 		"legalQualifications": [
@@ -4119,7 +4354,8 @@ de prescripción activa:
 			"grounds": "Transcurrió el plazo del art. 62 inc. 2 CP sin actos interruptivos.",
 			"registeredBy": {
 				"id": 1,
-				"fullName": "Fernando G. Vázquez"
+				"lastName": "Vázquez",
+				"firstName": "Fernando G."
 			},
 			"registeredAt": "2026-09-15T12:20:00-03:00"
 		},
@@ -4212,6 +4448,18 @@ La causa no es del fuero penal:
 }
 ```
 
+La causa penal no tiene calificaciones legales:
+
+```json
+{
+	"error": {
+		"code": "PRESCRIPTION_NOT_APPLICABLE",
+		"message": "La causa no tiene calificaciones legales: no puede prescribir.",
+		"details": null
+	}
+}
+```
+
 La causa ya está en un estado terminal, incluido "Prescripta":
 
 ```json
@@ -4237,7 +4485,7 @@ causa.
 El prototipo no tiene un botón para esto: existe porque el alta de causa **no
 falla** cuando el almacenamiento en la nube no responde, y hace falta una forma
 de completar lo que quedó pendiente (ver
-[Carpeta de la causa](#carpeta-de-la-causa) y [D-62](#81-decisiones-tomadas)).
+[Carpeta de la causa](#carpeta-de-la-causa) y [D-60](#81-decisiones-tomadas)).
 Cubre tres situaciones:
 
 | Situación de la causa                                         | Qué hace                                             |
@@ -4281,7 +4529,7 @@ Devuelve el objeto `folder` de la causa.
 	"data": {
 		"status": "CREATED",
 		"url": "https://drive.google.com/drive/folders/1Qw8zT3nKcVb5LhXy2RmPd7sUeJ4oAfG9",
-		"path": "/VZ Causas/2026/Penal/13284571 — GÓMEZ",
+		"path": "/VZ Causas/Ríos, Malena/Penal/GÓMEZ, Ariel Fernando p.s.a. Robo calificado",
 		"templatesCopied": 6,
 		"templatesPending": 0
 	}
@@ -4337,8 +4585,8 @@ operación puede repetirse.
 ### 3.8 Actos procesales: /cases/{caseId}/procedural-acts
 
 **Autenticación requerida:** Sí.
-**Rol requerido:** abogado responsable de la causa, para el registro, su
-previsualización y el adjunto. La consulta de actos (HU27) es de cualquier
+**Rol requerido:** abogado responsable de la causa, para el registro y su
+previsualización. La consulta de actos (HU27) es de cualquier
 usuario autenticado, sobre cualquier causa (RN11).
 
 El acto procesal es lo que **mueve la causa**: al registrarlo se elige el
@@ -4350,9 +4598,7 @@ causa** registra sus actos —ningún otro usuario, ni siquiera un
 se aplica a la causa en el momento: no hay confirmación posterior.
 
 El registro (HU26), su previsualización y la consulta (HU27) vienen de V3. Esta
-versión suma el **adjunto** de la cédula o comprobante, que se guarda en la
-carpeta de la causa. La modificación y la anulación de actos (HU28 y HU29)
-corresponden a sprints posteriores.
+versión suma que un acto pueda llevar la causa a un estado terminal.
 
 Los **actos interruptivos** (HU31) no son actos procesales: no mueven el estado
 de la causa ni abren plazos, y tienen su propio recurso
@@ -4369,8 +4615,7 @@ El recurso acto procesal posee la siguiente estructura:
 | `notificationDate` | String (fecha ISO 8601) \| `null` | Sí | Fecha de notificación. Solo en el fuero `ADMINISTRATIVE` (RN6)                  |
 | `notes`            | String \| `null`              |  Sí  | Observaciones: situaciones que el estado no alcanza a expresar                      |
 | `deadline`         | Object \| `null`              |  Sí  | Plazo que abre el acto. `null` si no abre ninguno. Ver estructura más abajo         |
-| `attachment`       | Object \| `null`              |  Sí  | **Nuevo.** Cédula o comprobante adjunto al acto. `null` si no tiene. Ver estructura más abajo |
-| `registeredBy`     | Object                        |  No  | Usuario (abogado) que registró el acto: `id` y `fullName`                           |
+| `registeredBy`     | Object                        |  No  | Usuario (abogado) que registró el acto: `id`, `lastName` y `firstName`                           |
 | `registeredAt`     | String (ISO 8601)             |  No  | Fecha y hora del registro                                                           |
 
 **`deadline`**
@@ -4388,18 +4633,6 @@ Los valores de la tabla se **copian** al acto: si luego se modifica el plazo
 del estado procesal, este vencimiento no cambia (ver §3.4). Quién ajustó a mano
 el vencimiento queda registrado en `registeredBy`, como pide la nota del
 prototipo.
-
-**`attachment`** (nuevo)
-
-| Campo        | Tipo              | Descripción                                             |
-| ------------ | ----------------- | ------------------------------------------------------- |
-| `fileName`   | String            | Nombre del archivo: `cedula-notificacion-13284571.pdf`  |
-| `url`        | String            | Enlace para abrir el archivo en la carpeta de la causa  |
-| `uploadedAt` | String (ISO 8601) | Fecha y hora en que se subió                            |
-
-Se carga con
-[`POST /cases/{caseId}/procedural-acts/{actId}/attachment`](#post-casescaseidprocedural-actsactidattachment),
-después de registrar el acto.
 
 **Estado escrito a mano.** Además de elegir un estado de la tabla, el
 formulario permite escribir un estado libre ("Estado escrito a mano: queda
@@ -4462,7 +4695,7 @@ Estado escrito a mano, con vencimiento ajustado manualmente:
 
 | Campo               | Tipo           | Requerido   | Restricciones                                                                                           |
 | ------------------- | -------------- | :---------: | ------------------------------------------------------------------------------------------------------- |
-| `proceduralStateId` | Integer        | Condicional | Estado vigente del fuero de la causa y **no terminal**. Excluyente con `customState`                    |
+| `proceduralStateId` | Integer        | Condicional | Estado vigente del fuero de la causa. Puede ser terminal, **salvo "Prescripta"**. Excluyente con `customState` |
 | `customState`       | String         | Condicional | Hasta 255 caracteres. No puede coincidir con el nombre de un estado vigente del fuero. Excluyente con `proceduralStateId` |
 | `actDate`           | String (fecha) |     Sí      | No puede ser posterior a hoy                                                                            |
 | `notificationDate`  | String (fecha) | Condicional | Solo en `ADMINISTRATIVE`. Obligatoria si el estado elegido abre plazo. Entre `actDate` y hoy            |
@@ -4474,8 +4707,13 @@ Debe enviarse `proceduralStateId` o `customState`, nunca ambos. Si el texto de
 `proceduralStateId` de ese estado: el combo del prototipo ya hace esa
 resolución.
 
-Los estados terminales ("Archivada", "Prescripta") no se ofrecen como destino
-de un acto: el combo del prototipo los excluye.
+**Estados terminales.** Desde esta versión un acto procesal **puede llevar la
+causa a un estado terminal**, como "Archivada": es la forma de cerrarla (D-69). La excepción es "Prescripta", que tiene su propio botón y su propio
+formulario ([`POST /cases/{caseId}/prescription`](#post-casescaseidprescription)).
+Un estado terminal no abre plazo, así que el acto no admite `manualDueDate`. La
+causa deja de ser activa y ya no admite actos nuevos
+(`422 CASE_IN_TERMINAL_STATE`). El combo del prototipo hoy excluye los estados
+terminales: tiene que ofrecerlos, salvo "Prescripta".
 
 **Cómputo del vencimiento**
 
@@ -4501,15 +4739,10 @@ de un acto: el combo del prototipo los excluye.
 - **Primer acto.** En una causa en el estado inicial, el acto la hace entrar al
   ciclo de vida del fuero: `currentState.initial` pasa a `false`. El primer
   acto no tiene restricciones propias: puede llevar la causa a cualquier estado
-  no terminal del fuero o a un estado escrito a mano.
+  del fuero salvo "Prescripta", terminal o no, o a un estado escrito a mano.
 - La causa toma el estado del acto **con la fecha de acto más reciente**. Si se carga un acto con fecha anterior al último registrado —por
   ejemplo, al completar la historia de una causa vieja—, el acto queda
   asentado pero no retrocede el estado actual ni reemplaza el vencimiento vigente.
-
-El adjunto de la cédula o comprobante ("Adjuntar cédula o comprobante") no
-viaja en este cuerpo: se sube después de registrar el acto, con
-[`POST /cases/{caseId}/procedural-acts/{actId}/attachment`](#post-casescaseidprocedural-actsactidattachment).
-El acto nace con `attachment` en `null`.
 
 **Respuestas**
 
@@ -4536,10 +4769,10 @@ El acto nace con `attachment` en `null`.
 			"dueDate": "2026-09-16",
 			"manuallyAdjusted": false
 		},
-		"attachment": null,
 		"registeredBy": {
 			"id": 3,
-			"fullName": "Malena Ríos"
+			"lastName": "Ríos",
+			"firstName": "Malena"
 		},
 		"registeredAt": "2026-09-09T11:42:00-03:00"
 	}
@@ -4569,10 +4802,10 @@ Con estado escrito a mano y vencimiento manual:
 			"dueDate": "2026-09-25",
 			"manuallyAdjusted": true
 		},
-		"attachment": null,
 		"registeredBy": {
 			"id": 1,
-			"fullName": "Fernando G. Vázquez"
+			"lastName": "Vázquez",
+			"firstName": "Fernando G."
 		},
 		"registeredAt": "2026-09-15T10:05:00-03:00"
 	}
@@ -4599,7 +4832,7 @@ Con estado escrito a mano y vencimiento manual:
 		"code": "VALIDATION_ERROR",
 		"message": "Los datos enviados no son válidos.",
 		"details": {
-			"proceduralStateId": "El estado procesal no pertenece al fuero de la causa o es terminal."
+			"proceduralStateId": "El estado procesal no pertenece al fuero de la causa o es el estado Prescripta."
 		}
 	}
 }
@@ -4839,8 +5072,11 @@ GET /api/v1/cases/1/procedural-acts?page=1&limit=20
 				"dueDate": "2026-09-22",
 				"manuallyAdjusted": false
 			},
-			"attachment": null,
-			"registeredBy": { "id": 3, "fullName": "Dra. Malena Ríos" },
+			"registeredBy": {
+				"id": 3,
+				"lastName": "Ríos",
+				"firstName": "Malena"
+			},
 			"registeredAt": "2026-09-15T11:42:00-03:00"
 		}
 	],
@@ -4945,8 +5181,11 @@ esta causa.
 			"dueDate": "2026-09-22",
 			"manuallyAdjusted": false
 		},
-		"attachment": null,
-		"registeredBy": { "id": 3, "fullName": "Dra. Malena Ríos" },
+		"registeredBy": {
+			"id": 3,
+			"lastName": "Ríos",
+			"firstName": "Malena"
+		},
 		"registeredAt": "2026-09-15T11:42:00-03:00"
 	}
 }
@@ -5006,185 +5245,6 @@ Acto inexistente o de otra causa:
 
 ---
 
-#### `POST /cases/{caseId}/procedural-acts/{actId}/attachment`
-
-Adjunta la cédula o el comprobante de un acto procesal y lo guarda en la
-carpeta de la causa. Nuevo en V4.
-
-**Rol requerido:** abogado responsable de la causa, igual que el registro del
-acto.
-
-Es el control "Adjuntar cédula o comprobante" del formulario de HU26 ("PDF ·
-máx. 10 MB. Se guarda en la carpeta de la causa en Drive"). V3 lo había dejado
-sin campo hasta que existiera la carpeta. Va en un endpoint aparte, y no en el
-cuerpo del registro, para no convertir `POST /cases/{caseId}/procedural-acts`
-—que ya está implementado y recibe JSON— en una petición con archivo: el
-cliente registra el acto y, si el usuario adjuntó algo, lo sube a continuación
-(ver [D-64](#81-decisiones-tomadas) y
-[C-33](#82-decisiones-a-tomar-y-puntos-a-verificar)).
-
-**Parámetros de ruta**
-
-| Parámetro | Tipo    | Descripción                          |
-| --------- | ------- | ------------------------------------ |
-| `caseId`  | Integer | Identificador único de la causa      |
-| `actId`   | Integer | Identificador único del acto procesal |
-
-**Cuerpo de la petición**
-
-`multipart/form-data` (ver [Formato de intercambio](#formato-de-intercambio)).
-
-| Campo  | Tipo    | Requerido | Restricciones                    |
-| ------ | ------- | :-------: | -------------------------------- |
-| `file` | Archivo |    Sí     | PDF (`.pdf`). Hasta 10 MB        |
-
-Un acto admite **un** adjunto. El archivo se guarda en la carpeta de la causa
-con el nombre con que se subió. RN9 no cambia: el original en papel se archiva
-igual en el expediente físico.
-
-**Respuestas**
-
-**`201 Created`**
-
-Devuelve el acto procesal, con `attachment` cargado.
-
-```json
-{
-	"data": {
-		"id": 31,
-		"caseId": 1,
-		"resultingState": {
-			"proceduralStateId": 12,
-			"name": "Oposición al requerimiento de elevación",
-			"custom": false
-		},
-		"actDate": "2026-09-09",
-		"notificationDate": null,
-		"notes": "Con acusación, pero con oposición.",
-		"deadline": {
-			"timeLimitDays": 5,
-			"dayType": "BUSINESS",
-			"countsFrom": "2026-09-09",
-			"computedDueDate": "2026-09-16",
-			"dueDate": "2026-09-16",
-			"manuallyAdjusted": false
-		},
-		"attachment": {
-			"fileName": "cedula-notificacion-13284571.pdf",
-			"url": "https://drive.google.com/file/d/1Zk7pWq3RtYs9NbVc5XmLh2JdGf8UoEa4/view",
-			"uploadedAt": "2026-09-09T11:43:00-03:00"
-		},
-		"registeredBy": {
-			"id": 3,
-			"fullName": "Malena Ríos"
-		},
-		"registeredAt": "2026-09-09T11:42:00-03:00"
-	}
-}
-```
-
-**`400 Bad Request`**
-
-```json
-{
-	"error": {
-		"code": "VALIDATION_ERROR",
-		"message": "Los datos enviados no son válidos.",
-		"details": {
-			"file": "El archivo tiene que ser un PDF."
-		}
-	}
-}
-```
-
-Los identificadores de la ruta que no son enteros responden
-`INVALID_PATH_PARAMETER`, igual que en `GET /cases/{caseId}/procedural-acts/{actId}`.
-
-**`401 Unauthorized`**
-
-```json
-{
-	"error": {
-		"code": "UNAUTHENTICATED",
-		"message": "La autenticación es requerida.",
-		"details": null
-	}
-}
-```
-
-**`403 Forbidden`**
-
-```json
-{
-	"error": {
-		"code": "FORBIDDEN",
-		"message": "Solo el abogado responsable de la causa puede registrar actos procesales.",
-		"details": null
-	}
-}
-```
-
-**`404 Not Found`**
-
-`CASE_NOT_FOUND` o `PROCEDURAL_ACT_NOT_FOUND`, con el mismo criterio que
-`GET /cases/{caseId}/procedural-acts/{actId}`.
-
-**`409 Conflict`**
-
-```json
-{
-	"error": {
-		"code": "PROCEDURAL_ACT_ATTACHMENT_ALREADY_EXISTS",
-		"message": "El acto procesal ya tiene un archivo adjunto.",
-		"details": null
-	}
-}
-```
-
-**`413 Content Too Large`**
-
-```json
-{
-	"error": {
-		"code": "FILE_TOO_LARGE",
-		"message": "El archivo supera el tamaño máximo de 10 MB.",
-		"details": null
-	}
-}
-```
-
-**`422 Unprocessable Content`**
-
-La causa no tiene carpeta, o la tiene pendiente (`folder` en `null` o
-`folder.status` en `PENDING`): no hay dónde guardar el archivo.
-
-```json
-{
-	"error": {
-		"code": "CASE_FOLDER_NOT_AVAILABLE",
-		"message": "La causa no tiene una carpeta en la nube donde guardar el archivo.",
-		"details": null
-	}
-}
-```
-
-**`502 Bad Gateway`**
-
-```json
-{
-	"error": {
-		"code": "DOCUMENT_STORAGE_UNAVAILABLE",
-		"message": "No se pudo acceder al almacenamiento en la nube. Intentá de nuevo en unos minutos.",
-		"details": null
-	}
-}
-```
-
-El acto ya está registrado: lo que falló es solo el adjunto, y la subida puede
-repetirse.
-
----
-
 ### 3.9 Actos interruptivos: /cases/{caseId}/interruptive-acts
 
 Nuevo en V4.
@@ -5219,13 +5279,13 @@ El recurso acto interruptivo posee la siguiente estructura:
 | `name`         | String                  |  No  | Denominación del acto: "Citación a juicio", "Indagatoria". Texto libre  |
 | `actDate`      | String (fecha ISO 8601) |  No  | Fecha del acto. Desde ella se reinicia la prescripción                  |
 | `notes`        | String \| `null`        |  Sí  | Observaciones: "Constancia, foja o referencia del expediente"           |
-| `registeredBy` | Object                  |  No  | Usuario (abogado) que lo registró: `id` y `fullName`                    |
+| `registeredBy` | Object                  |  No  | Usuario (abogado) que lo registró: `id`, `lastName` y `firstName`                    |
 | `registeredAt` | String (ISO 8601)       |  No  | Fecha y hora del registro                                               |
 
 **Sobre `name`:** el formulario del prototipo lo pide como texto libre, con el
 ejemplo "Citación a juicio, indagatoria, sentencia no firme". No hay un
 catálogo de actos interruptivos
-(ver [C-29](#82-decisiones-a-tomar-y-puntos-a-verificar)).
+(ver [D-49](#81-decisiones-tomadas)).
 
 **Efecto sobre la prescripción**
 
@@ -5295,7 +5355,8 @@ igual y va a regir para las que se le carguen después.
 		"notes": "Decreto de fs. 212.",
 		"registeredBy": {
 			"id": 3,
-			"fullName": "Malena Ríos"
+			"lastName": "Ríos",
+			"firstName": "Malena"
 		},
 		"registeredAt": "2026-09-15T10:30:00-03:00"
 	}
@@ -5437,7 +5498,8 @@ GET /api/v1/cases/1/interruptive-acts?page=1&limit=20
 			"notes": null,
 			"registeredBy": {
 				"id": 3,
-				"fullName": "Malena Ríos"
+				"lastName": "Ríos",
+				"firstName": "Malena"
 			},
 			"registeredAt": "2026-09-10T09:15:00-03:00"
 		}
@@ -5510,28 +5572,26 @@ el alta. Un usuario que solo es `SECRETARY` recibe `403 FORBIDDEN` en todos los
 endpoints de esta sección.
 
 Según la tabla de [permisos por perfil](#permisos-por-perfil), administrar
-modelos formales (HU34 a HU37) corresponde al Administrador y al Abogado. El
+modelos formales corresponde al Administrador y al Abogado. El
 prototipo lo confirma: la sección "Modelos" no aparece en el menú de la
 Secretaría. Es el primer recurso cuya **lectura** no está abierta a los tres
 perfiles (CA-35.8).
 
 Los modelos formales son los escritos tipo del estudio: plantillas `.docx` que
 "al registrar una causa … se copian a su carpeta en Drive" (HU40). Esta versión
-incorpora el alta (HU34) y la consulta con descarga (HU35). La modificación y
-la baja (HU36 y HU37) corresponden al Sprint 5.
+incorpora el alta (HU34) y la consulta con descarga (HU35).
 
 El recurso modelo formal posee la siguiente estructura:
 
 | Campo             | Tipo                   | Nulo | Descripción                                                                          |
 | ----------------- | ---------------------- | :--: | ------------------------------------------------------------------------------------ |
 | `id`              | Integer                |  No  | Identificador único                                                                  |
-| `name`            | String                 |  No  | Nombre del modelo: "Oposición al requerimiento de elevación a juicio"                |
+| `name`            | String                 |  No  | Nombre del modelo: "Oposición al requerimiento de elevación a juicio". Único         |
 | `jurisdictions`   | `Jurisdiction[]`       |  No  | Fueros a los que aplica. Al menos uno, sin repetir                                   |
-| `type`            | `DocumentTemplateType` |  No  | Tipo de escrito                                                                      |
 | `fileName`        | String                 |  No  | Nombre del archivo: `oposicion-elevacion.docx`                                       |
 | `copyToNewCases`  | Boolean                |  No  | Si se copia a la carpeta de las causas nuevas de sus fueros (HU40)                   |
 | `lastVersionAt`   | String (ISO 8601)      |  No  | Fecha y hora de la última versión del archivo ("Última versión")                     |
-| `lastVersionBy`   | Object                 |  No  | Usuario que cargó esa versión: `id` y `fullName`                                     |
+| `lastVersionBy`   | Object                 |  No  | Usuario que cargó esa versión: `id`, `lastName` y `firstName`                                     |
 | `usageCount`      | Integer                |  No  | Causas a cuya carpeta se copió el modelo ("31 usos"). Calculado, sólo lectura        |
 | `active`          | Boolean                |  No  | Estado de alta. Vale siempre `true` en esta versión                                  |
 
@@ -5541,15 +5601,20 @@ un fuero es **un solo modelo**, que aparece en la vista de cada uno de sus
 fueros y se copia a las causas nuevas de todos ellos
 (ver [D-55](#81-decisiones-tomadas)).
 
+**Sobre `name`:** no puede haber dos modelos con el mismo nombre, sin distinguir
+mayúsculas de minúsculas (D-71). El alta de un nombre repetido responde
+`409 DOCUMENT_TEMPLATE_ALREADY_EXISTS`.
+
 **Sobre `lastVersionAt` y `lastVersionBy`:** en esta versión coinciden con el
-alta, porque todavía no se puede reemplazar el archivo. Cuando HU36 lo permita,
-"reemplazar el archivo crea una versión nueva" y estos dos campos pasarán a
-reflejarla, sin cambiar la estructura.
+alta del modelo.
+
+**Sobre el tipo:** el prototipo muestra un tipo de escrito ("Escrito de fondo",
+"Recurso"…), pero el modelo formal no tiene tipo (D-56).
 
 **Sobre el archivo:** no viaja dentro del recurso. Se sube con el alta y se
 descarga con
 [`GET /document-templates/{templateId}/file`](#get-document-templatestemplateidfile).
-El backend lo guarda en la carpeta de modelos del estudio, en el mismo
+El backend lo guarda en `/VZ Causas/Modelos formales`, en el mismo
 almacenamiento en la nube que las carpetas de las causas.
 
 **Sobre las copias:** el modelo y sus copias son independientes. Lo que se copia
@@ -5582,10 +5647,6 @@ Content-Disposition: form-data; name="jurisdictions"
 
 CRIMINAL
 ------vz
-Content-Disposition: form-data; name="type"
-
-RECURSO
-------vz
 Content-Disposition: form-data; name="copyToNewCases"
 
 true
@@ -5599,9 +5660,8 @@ Content-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.doc
 
 | Campo            | Tipo                   | Requerido | Restricciones                                                                    |
 | ---------------- | ---------------------- | :-------: | -------------------------------------------------------------------------------- |
-| `name`           | String                 |    Sí     | "Nombre del modelo". No vacío, hasta 150 caracteres                              |
+| `name`           | String                 |    Sí     | "Nombre del modelo". No vacío, hasta 150 caracteres. Único entre los modelos     |
 | `jurisdictions`  | `Jurisdiction[]`       |    Sí     | "Fuero". Al menos uno, sin repetir. El campo se repite una vez por fuero         |
-| `type`           | `DocumentTemplateType` |    Sí     | "Tipo". Valor del enumerado                                                      |
 | `copyToNewCases` | Boolean                |    No     | "Copiar en las causas nuevas de los fueros elegidos". Por defecto, `true`        |
 | `file`           | Archivo                |    Sí     | "Archivo del modelo". Documento Word (`.docx`). Hasta 10 MB                      |
 
@@ -5630,13 +5690,13 @@ valores de `jurisdictions`.
 		"id": 4,
 		"name": "Recurso de casación",
 		"jurisdictions": ["CRIMINAL"],
-		"type": "RECURSO",
 		"fileName": "casacion.docx",
 		"copyToNewCases": true,
 		"lastVersionAt": "2026-09-15T16:05:00-03:00",
 		"lastVersionBy": {
 			"id": 6,
-			"fullName": "Matías Ferreyra"
+			"lastName": "Ferreyra",
+			"firstName": "Matías"
 		},
 		"usageCount": 0,
 		"active": true
@@ -5700,6 +5760,18 @@ El archivo no es un `.docx` (CA-34.3):
 }
 ```
 
+**`409 Conflict`**
+
+```json
+{
+	"error": {
+		"code": "DOCUMENT_TEMPLATE_ALREADY_EXISTS",
+		"message": "Ya existe un modelo formal con ese nombre.",
+		"details": null
+	}
+}
+```
+
 **`413 Content Too Large`**
 
 ```json
@@ -5754,7 +5826,7 @@ GET /api/v1/document-templates?page=1&limit=20&jurisdiction=CRIMINAL
 | ------------------------------------------------------------------- | ----------------------------------------------------------- |
 | Modelos → tarjetas por fuero ("6 modelos vigentes · Actualizado …") | Sin `jurisdiction`, con `limit=100`; el cliente agrupa por fuero y toma el `lastVersionAt` más reciente de cada uno |
 | Modelos → "Fuero Penal" (lista y "6 modelos")                       | `jurisdiction=CRIMINAL`; el total es `pagination.totalItems` (CA-35.4) |
-| Registrar causa → "6 modelos parametrizados para el fuero Penal"    | `jurisdiction=CRIMINAL&copyToNewCases=true&limit=1`; el número es `pagination.totalItems` |
+| Registrar causa → "6 modelos parametrizados para el fuero Penal"    | `jurisdiction=CRIMINAL&copyToNewCases=true&limit=1`; el número es `pagination.totalItems`. Solo para Administrador y Abogado: a la Secretaría el formulario le muestra la casilla sin el número (D-56) |
 
 Un modelo que aplica a varios fueros aparece en el resultado de cada uno de
 ellos, y una sola vez cuando no se filtra.
@@ -5770,13 +5842,13 @@ ellos, y una sola vez cuando no se filtra.
 			"id": 1,
 			"name": "Designación de abogado defensor",
 			"jurisdictions": ["CRIMINAL"],
-			"type": "ESCRITO_PRESENTACION",
 			"fileName": "designacion-defensor.docx",
 			"copyToNewCases": true,
 			"lastVersionAt": "2026-08-04T09:20:00-03:00",
 			"lastVersionBy": {
 				"id": 1,
-				"fullName": "Fernando G. Vázquez"
+				"lastName": "Vázquez",
+				"firstName": "Fernando G."
 			},
 			"usageCount": 31,
 			"active": true
@@ -5785,13 +5857,13 @@ ellos, y una sola vez cuando no se filtra.
 			"id": 2,
 			"name": "Oposición al requerimiento de elevación a juicio",
 			"jurisdictions": ["CRIMINAL"],
-			"type": "ESCRITO_FONDO",
 			"fileName": "oposicion-elevacion.docx",
 			"copyToNewCases": true,
 			"lastVersionAt": "2026-08-21T17:40:00-03:00",
 			"lastVersionBy": {
 				"id": 3,
-				"fullName": "Malena Ríos"
+				"lastName": "Ríos",
+				"firstName": "Malena"
 			},
 			"usageCount": 12,
 			"active": true
@@ -5884,13 +5956,13 @@ Obtiene la información de un modelo formal.
 		"id": 2,
 		"name": "Oposición al requerimiento de elevación a juicio",
 		"jurisdictions": ["CRIMINAL"],
-		"type": "ESCRITO_FONDO",
 		"fileName": "oposicion-elevacion.docx",
 		"copyToNewCases": true,
 		"lastVersionAt": "2026-08-21T17:40:00-03:00",
 		"lastVersionBy": {
 			"id": 3,
-			"fullName": "Malena Ríos"
+			"lastName": "Ríos",
+			"firstName": "Malena"
 		},
 		"usageCount": 12,
 		"active": true
@@ -6062,7 +6134,7 @@ Los dos son **modelos de lectura**: no hay un recurso "tablero" que se cree o
 se modifique. Cada endpoint devuelve, en una sola petición, todo lo que su
 pantalla necesita, ya calculado. Por eso sus listas **no están paginadas**: su
 tamaño está acotado por la cantidad de causas activas del estudio
-(ver [D-65](#81-decisiones-tomadas)). Se calculan en cada petición, así que
+(ver [D-62](#81-decisiones-tomadas)). Se calculan en cada petición, así que
 reflejan un acto procesal apenas se registra (CA-41.9).
 
 Solo cuentan las **causas activas** (ver [Causa activa](#causa-activa)): ni las
@@ -6080,18 +6152,22 @@ dadas de baja ni las que están en un estado terminal, como "Prescripta"
 | `dueSoon`     | Integer | "Próx. 5 días hábiles"                     | Causas cuyo plazo vence en los próximos 5 días hábiles (`businessDaysRemaining` entre `1` y `5`) |
 | `activeCases` | Integer | "Mis causas activas" / "Causas activas"    | Causas activas del alcance del tablero                                     |
 
-**`deadlines[]`** — un elemento por cada causa con un plazo abierto
-(`currentState.dueDate` no nulo), **ordenados por urgencia**: por `dueDate`
+**`deadlines[]`** — un elemento por cada vencimiento abierto: el plazo de un
+acto procesal (`currentState.dueDate` no nulo) o el del acto lesivo de un
+amparo (`harmfulActDeadline` no nulo). Una causa aparece una sola vez, porque el
+vencimiento del acto lesivo solo existe mientras la causa está en "Iniciada",
+que no abre plazo. **Ordenados por urgencia**: por `dueDate`
 ascendente, de modo que los vencidos quedan primeros.
 
 | Campo                   | Tipo                    | Descripción                                             |
 | ----------------------- | ----------------------- | ------------------------------------------------------- |
 | `caseId`                | Integer                 | Causa. Con él se abre su detalle                        |
+| `kind`                  | `DeadlineKind`          | **Nuevo.** `PROCEDURAL_ACT` o `HARMFUL_ACT`             |
 | `sacNumber`             | String \| `null`        | Número de SAC                                           |
 | `caption`               | String                  | Carátula                                                |
 | `jurisdiction`          | `Jurisdiction`          | Fuero                                                   |
 | `currentStateName`      | String                  | Estado procesal actual                                  |
-| `responsibleLawyer`     | Object                  | Abogado responsable: `id` y `fullName`                  |
+| `responsibleLawyer`     | Object                  | Abogado responsable: `id`, `lastName` y `firstName`                  |
 | `dueDate`               | String (fecha ISO 8601) | Vencimiento                                             |
 | `businessDaysRemaining` | Integer                 | Días hábiles hasta el vencimiento. `0`, hoy; negativo, vencido |
 
@@ -6109,7 +6185,7 @@ a `5`) y "Después" (más de `5`) y sus contadores.
 | `caseId`                 | Integer                 | Causa                                          |
 | `sacNumber`              | String \| `null`        | Número de SAC                                  |
 | `caption`                | String                  | Carátula                                       |
-| `responsibleLawyer`      | Object                  | Abogado responsable: `id` y `fullName`         |
+| `responsibleLawyer`      | Object                  | Abogado responsable: `id`, `lastName` y `firstName`         |
 | `legalQualificationName` | String                  | Calificación que prescribe primero             |
 | `startsOn`               | String (fecha ISO 8601) | Desde cuándo corre la prescripción             |
 | `expiresOn`              | String (fecha ISO 8601) | Cuándo prescribe                               |
@@ -6121,10 +6197,9 @@ la causa (§3.7). Si ninguna causa llegó al umbral, la lista viene vacía y el
 prototipo muestra "Ninguna causa superó el 70 % de su plazo de prescripción".
 
 **Sobre los días hábiles:** los indicadores y `businessDaysRemaining` usan el
-cómputo de la [sección 4](#cómputo-de-días), que hoy solo excluye sábados y
-domingos. CA-41.5 pide excluir también los días inhábiles del calendario
-judicial, y el calendario del prototipo los sombrea, pero ese calendario sigue
-sin definirse (ver [C-24](#82-decisiones-a-tomar-y-puntos-a-verificar)).
+cómputo de la [sección 4](#cómputo-de-días): solo sábados y domingos son días
+no hábiles (D-73). El calendario del tablero sombrea
+los fines de semana.
 
 ---
 
@@ -6136,10 +6211,9 @@ Obtiene el tablero del abogado: "Mi día" (HU41).
 autenticado (su `lawyerId`); no recibe parámetros y no permite ver el de otro
 abogado.
 
-El alcance son **las causas de las que ese abogado es responsable**. El
-prototipo no ofrece al abogado la vista de "todo el estudio": esa es la pestaña
-"Estudio", del administrador
-(ver [C-34](#82-decisiones-a-tomar-y-puntos-a-verificar), sobre CA-41.7).
+El alcance son **las causas de las que ese abogado es responsable**. El abogado
+ve solo su tablero; si además es `ADMINISTRATOR`, también ve la pestaña
+"Estudio" (D-63).
 
 **Parámetros de consulta**
 
@@ -6152,11 +6226,11 @@ No requiere parámetros de consulta.
 | Campo                | Tipo                    | Descripción                                                                       |
 | -------------------- | ----------------------- | --------------------------------------------------------------------------------- |
 | `date`               | String (fecha ISO 8601) | Fecha del día en Córdoba, contra la que se calculó todo ("Martes 15 de septiembre de 2026") |
-| `lawyer`             | Object                  | Abogado dueño del tablero: `id` y `fullName`                                      |
+| `lawyer`             | Object                  | Abogado dueño del tablero: `id`, `lastName` y `firstName`                                      |
 | `summary`            | Object                  | Indicadores sobre sus causas                                                      |
 | `deadlines`          | Object[]                | Sus plazos abiertos, por urgencia                                                 |
 | `prescriptionAlerts` | Object[]                | Sus causas con alerta de prescripción                                             |
-| `casesToAdvance`     | Object[]                | "Causas para impulsar": sus causas activas **sin plazo abierto**                  |
+| `casesToAdvance`     | Object[]                | "Causas para impulsar": sus causas activas **sin vencimiento abierto**            |
 
 **`casesToAdvance[]`** — "Sin plazo abierto: el impulso procesal depende del
 estudio, no del tribunal" (CA-41.4). Ordenadas por `daysSinceLastAct`
@@ -6179,7 +6253,8 @@ que todavía no tienen ninguno.
 		"date": "2026-09-15",
 		"lawyer": {
 			"id": 1,
-			"fullName": "Dr. Fernando G. Vázquez"
+			"lastName": "Vázquez",
+			"firstName": "Fernando G."
 		},
 		"summary": {
 			"dueToday": 1,
@@ -6190,13 +6265,15 @@ que todavía no tienen ninguno.
 		"deadlines": [
 			{
 				"caseId": 6,
+				"kind": "PROCEDURAL_ACT",
 				"sacNumber": "12774310",
 				"caption": "MOYANO, Daniela c/ APROSS — Amparo de salud",
 				"jurisdiction": "AMPARO",
 				"currentStateName": "Traslado a la demandada",
 				"responsibleLawyer": {
 					"id": 1,
-					"fullName": "Dr. Fernando G. Vázquez"
+					"lastName": "Vázquez",
+					"firstName": "Fernando G."
 				},
 				"dueDate": "2026-09-15",
 				"businessDaysRemaining": 0
@@ -6209,7 +6286,8 @@ que todavía no tienen ninguno.
 				"caption": "ACOSTA, Jonathan E. p.s.a. Infracción Ley 23.737",
 				"responsibleLawyer": {
 					"id": 1,
-					"fullName": "Dr. Fernando G. Vázquez"
+					"lastName": "Vázquez",
+					"firstName": "Fernando G."
 				},
 				"legalQualificationName": "Infracción Ley 23.737 — art. 5 inc. c",
 				"startsOn": "2022-01-19",
@@ -6299,7 +6377,7 @@ causas, y la suma de sus `activeCases` es igual a `summary.activeCases`.
 
 | Campo           | Tipo    | Descripción                                                                             |
 | --------------- | ------- | --------------------------------------------------------------------------------------- |
-| `lawyer`        | Object  | Abogado: `id` y `fullName`                                                              |
+| `lawyer`        | Object  | Abogado: `id`, `lastName` y `firstName`                                                              |
 | `activeCases`   | Integer | Causas activas de las que es responsable ("17 causas"). El mismo valor que en `/lawyers` |
 | `openDeadlines` | Object  | Sus plazos abiertos, por urgencia: `overdue`, `dueToday`, `dueSoon` y `later`            |
 
@@ -6310,7 +6388,7 @@ semana" o "Al día"— y los contadores de los grupos cuando se elige un abogado
 
 Los elementos se ordenan por urgencia: primero los abogados con más plazos
 vencidos, luego con más que vencen hoy, luego con más en los próximos 5 días
-hábiles; a igualdad, por `fullName`.
+hábiles; a igualdad, por `lastName` y `firstName`.
 
 ```json
 {
@@ -6330,39 +6408,45 @@ hábiles; a igualdad, por `fullName`.
 		"deadlines": [
 			{
 				"caseId": 2,
+				"kind": "PROCEDURAL_ACT",
 				"sacNumber": "12907344",
 				"caption": "PEREYRA, Marcos D. — Sumario administrativo",
 				"jurisdiction": "ADMINISTRATIVE",
 				"currentStateName": "Alegato",
 				"responsibleLawyer": {
 					"id": 4,
-					"fullName": "Dr. Ignacio Peralta"
+					"lastName": "Peralta",
+					"firstName": "Ignacio"
 				},
 				"dueDate": "2026-09-11",
 				"businessDaysRemaining": -2
 			},
 			{
 				"caseId": 6,
+				"kind": "PROCEDURAL_ACT",
 				"sacNumber": "12774310",
 				"caption": "MOYANO, Daniela c/ APROSS — Amparo de salud",
 				"jurisdiction": "AMPARO",
 				"currentStateName": "Traslado a la demandada",
 				"responsibleLawyer": {
 					"id": 1,
-					"fullName": "Dr. Fernando G. Vázquez"
+					"lastName": "Vázquez",
+					"firstName": "Fernando G."
 				},
 				"dueDate": "2026-09-15",
 				"businessDaysRemaining": 0
 			},
 			{
 				"caseId": 1,
+				"kind": "PROCEDURAL_ACT",
 				"sacNumber": "13284571",
 				"caption": "GÓMEZ, Ariel Fernando p.s.a. Robo calificado",
 				"jurisdiction": "CRIMINAL",
 				"currentStateName": "Oposición al requerimiento de elevación",
 				"responsibleLawyer": {
 					"id": 3,
-					"fullName": "Dra. Malena Ríos"
+					"lastName": "Ríos",
+					"firstName": "Malena"
 				},
 				"dueDate": "2026-09-16",
 				"businessDaysRemaining": 1
@@ -6375,7 +6459,8 @@ hábiles; a igualdad, por `fullName`.
 				"caption": "ACOSTA, Jonathan E. p.s.a. Infracción Ley 23.737",
 				"responsibleLawyer": {
 					"id": 1,
-					"fullName": "Dr. Fernando G. Vázquez"
+					"lastName": "Vázquez",
+					"firstName": "Fernando G."
 				},
 				"legalQualificationName": "Infracción Ley 23.737 — art. 5 inc. c",
 				"startsOn": "2022-01-19",
@@ -6386,19 +6471,46 @@ hábiles; a igualdad, por `fullName`.
 		],
 		"team": [
 			{
-				"lawyer": { "id": 4, "fullName": "Dr. Ignacio Peralta" },
+				"lawyer": {
+					"id": 4,
+					"lastName": "Peralta",
+					"firstName": "Ignacio"
+				},
 				"activeCases": 16,
-				"openDeadlines": { "overdue": 1, "dueToday": 0, "dueSoon": 0, "later": 0 }
+				"openDeadlines": {
+					"overdue": 1,
+					"dueToday": 0,
+					"dueSoon": 0,
+					"later": 0
+				}
 			},
 			{
-				"lawyer": { "id": 1, "fullName": "Dr. Fernando G. Vázquez" },
+				"lawyer": {
+					"id": 1,
+					"lastName": "Vázquez",
+					"firstName": "Fernando G."
+				},
 				"activeCases": 14,
-				"openDeadlines": { "overdue": 0, "dueToday": 1, "dueSoon": 0, "later": 0 }
+				"openDeadlines": {
+					"overdue": 0,
+					"dueToday": 1,
+					"dueSoon": 0,
+					"later": 0
+				}
 			},
 			{
-				"lawyer": { "id": 3, "fullName": "Dra. Malena Ríos" },
+				"lawyer": {
+					"id": 3,
+					"lastName": "Ríos",
+					"firstName": "Malena"
+				},
 				"activeCases": 17,
-				"openDeadlines": { "overdue": 0, "dueToday": 0, "dueSoon": 1, "later": 0 }
+				"openDeadlines": {
+					"overdue": 0,
+					"dueToday": 0,
+					"dueSoon": 1,
+					"later": 0
+				}
 			}
 		]
 	}
@@ -6427,279 +6539,6 @@ de los datos del prototipo, y `team`, tres de los siete abogados.
 	"error": {
 		"code": "FORBIDDEN",
 		"message": "Se requiere el rol ADMINISTRATOR para realizar esta operación.",
-		"details": null
-	}
-}
-```
-
----
-
-### 3.12 Avisos por correo: /notification-settings
-
-Nuevo en V4.
-
-**Autenticación requerida:** Sí.
-**Rol requerido:** `ADMINISTRATOR` o `LAWYER`, para la lectura y para la
-escritura. Un usuario que solo es `SECRETARY` recibe `403 FORBIDDEN`.
-
-La tabla de [permisos por perfil](#permisos-por-perfil) asigna los avisos de
-vencimiento y las alertas de prescripción (HU30, HU32 y HU33) al Administrador
-y al Abogado, y el prototipo no restringe el panel entre esos dos perfiles.
-Conviene confirmar si **modificar** la configuración no debería quedar solo en
-el Administrador (ver [C-26](#82-decisiones-a-tomar-y-puntos-a-verificar)).
-
-Los avisos los envía un **proceso automático** que corre una vez por día, sin
-intervención de nadie y sin endpoints (ver
-[Proceso automático diario](#proceso-automático-diario), en la sección 4). Lo
-que la API expone es su **configuración**: el panel "Aviso por correo" del
-prototipo, con la casilla del estudio, el preaviso, la hora de envío, la copia
-al abogado responsable y los botones "Enviar prueba" y "Pausar avisos".
-
-La configuración es **una sola para todo el estudio**: no hay una por usuario
-ni una por fuero. Por eso el recurso no tiene identificador ni alta ni baja:
-existe siempre, con los valores iniciales que se cargan al instalar el sistema.
-
-El recurso configuración de avisos posee la siguiente estructura:
-
-| Campo                   | Tipo           | Nulo | Descripción                                                                              |
-| ----------------------- | -------------- | :--: | ---------------------------------------------------------------------------------------- |
-| `enabled`               | Boolean        |  No  | `true`: avisos activos ("Activo"). `false`: avisos pausados ("Pausado")                  |
-| `mailbox`               | String         |  No  | "Casilla del estudio": el correo de gestión al que llegan los avisos                     |
-| `advanceBusinessDays`   | Integer        |  No  | "Preaviso": con cuántos días hábiles de anticipación se avisa un vencimiento. `1`, `2`, `3` o `5` |
-| `sendTime`              | String (`HH:mm`) |  No  | "Hora de envío": a qué hora corre el proceso diario, en la hora de Córdoba. `08:00`    |
-| `copyResponsibleLawyer` | Boolean        |  No  | "Copiar al abogado responsable": además del aviso a la casilla, uno al responsable de cada causa |
-
-Con estos datos el cliente arma el resumen del panel: "Cada día a las 08:00 se
-revisan los plazos y se avisa con 3 días hábiles de anticipación".
-
-**Sobre `enabled`:** en `false` el proceso diario no envía **ningún** correo, ni
-de vencimientos ni de prescripción. No afecta a los tableros ni a
-`prescription.alert`, que se siguen calculando.
-
-**Sobre `copyResponsibleLawyer`:** la ficha del abogado no tiene correo; la
-copia va al `email` del **usuario vinculado** a ese abogado. Si el abogado
-responsable no tiene un usuario vinculado, esa copia no se envía.
-
----
-
-#### `GET /notification-settings`
-
-Obtiene la configuración de avisos del estudio.
-
-**Rol requerido:** `ADMINISTRATOR` o `LAWYER`.
-
-**Parámetros de consulta**
-
-No requiere parámetros de consulta.
-
-**Respuestas**
-
-**`200 OK`**
-
-```json
-{
-	"data": {
-		"enabled": true,
-		"mailbox": "estudio@vazquezyzarate.com.ar",
-		"advanceBusinessDays": 3,
-		"sendTime": "08:00",
-		"copyResponsibleLawyer": true
-	}
-}
-```
-
-**`401 Unauthorized`**
-
-```json
-{
-	"error": {
-		"code": "UNAUTHENTICATED",
-		"message": "La autenticación es requerida.",
-		"details": null
-	}
-}
-```
-
-**`403 Forbidden`**
-
-```json
-{
-	"error": {
-		"code": "FORBIDDEN",
-		"message": "Se requiere el rol ADMINISTRATOR o LAWYER para realizar esta operación.",
-		"details": null
-	}
-}
-```
-
----
-
-#### `PATCH /notification-settings`
-
-Modifica parcialmente la configuración de avisos. También es el botón "Pausar
-avisos" / "Reactivar avisos", que envía solo `enabled`.
-
-**Rol requerido:** `ADMINISTRATOR` o `LAWYER`.
-
-**Cuerpo de la petición**
-
-Todos los campos son opcionales, aunque debe enviarse al menos uno.
-
-```json
-{
-	"mailbox": "gestion@vazquezyzarate.com.ar",
-	"advanceBusinessDays": 5,
-	"sendTime": "07:30",
-	"copyResponsibleLawyer": false
-}
-```
-
-Para pausar los avisos:
-
-```json
-{
-	"enabled": false
-}
-```
-
-| Campo                   | Tipo    | Restricciones                                             |
-| ----------------------- | ------- | --------------------------------------------------------- |
-| `enabled`               | Boolean | -                                                         |
-| `mailbox`               | String  | Formato de correo electrónico válido                      |
-| `advanceBusinessDays`   | Integer | `1`, `2`, `3` o `5`: las opciones del desplegable         |
-| `sendTime`              | String  | Hora de `00:00` a `23:59`, en formato `HH:mm`             |
-| `copyResponsibleLawyer` | Boolean | -                                                         |
-
-El cambio rige desde la próxima corrida del proceso diario. No reenvía avisos
-ya enviados.
-
-**Respuestas**
-
-**`200 OK`**
-
-Devuelve la configuración completa, ya actualizada.
-
-```json
-{
-	"data": {
-		"enabled": true,
-		"mailbox": "gestion@vazquezyzarate.com.ar",
-		"advanceBusinessDays": 5,
-		"sendTime": "07:30",
-		"copyResponsibleLawyer": false
-	}
-}
-```
-
-**`400 Bad Request`**
-
-```json
-{
-	"error": {
-		"code": "VALIDATION_ERROR",
-		"message": "Los datos enviados no son válidos.",
-		"details": {
-			"mailbox": "El formato del correo electrónico no es válido.",
-			"advanceBusinessDays": "Debe ser 1, 2, 3 o 5 días hábiles."
-		}
-	}
-}
-```
-
-**`401 Unauthorized`**
-
-```json
-{
-	"error": {
-		"code": "UNAUTHENTICATED",
-		"message": "La autenticación es requerida.",
-		"details": null
-	}
-}
-```
-
-**`403 Forbidden`**
-
-```json
-{
-	"error": {
-		"code": "FORBIDDEN",
-		"message": "Se requiere el rol ADMINISTRATOR o LAWYER para realizar esta operación.",
-		"details": null
-	}
-}
-```
-
----
-
-#### `POST /notification-settings/test`
-
-Envía un correo de prueba a la casilla del estudio. Es el botón "Enviar
-prueba".
-
-**Rol requerido:** `ADMINISTRATOR` o `LAWYER`.
-
-Sirve para comprobar que la casilla configurada recibe los avisos. El correo
-tiene la misma forma que el aviso diario y lleva los plazos **vencidos, que
-vencen hoy y que vencen en los próximos 5 días hábiles** de todo el estudio. Se
-envía solo a `mailbox`, nunca a los abogados responsables, y **se envía aunque
-los avisos estén pausados**. No cuenta como un aviso real: no impide que el
-proceso diario avise después esos mismos plazos.
-
-**Cuerpo de la petición**
-
-No requiere cuerpo.
-
-**Respuestas**
-
-**`200 OK`**
-
-```json
-{
-	"data": {
-		"sentTo": "estudio@vazquezyzarate.com.ar",
-		"deadlinesIncluded": 4,
-		"sentAt": "2026-09-15T10:42:00-03:00"
-	}
-}
-```
-
-Con estos datos el cliente arma el aviso del prototipo: "Correo de prueba
-enviado a estudio@vazquezyzarate.com.ar con los 4 vencimientos".
-
-**`401 Unauthorized`**
-
-```json
-{
-	"error": {
-		"code": "UNAUTHENTICATED",
-		"message": "La autenticación es requerida.",
-		"details": null
-	}
-}
-```
-
-**`403 Forbidden`**
-
-```json
-{
-	"error": {
-		"code": "FORBIDDEN",
-		"message": "Se requiere el rol ADMINISTRATOR o LAWYER para realizar esta operación.",
-		"details": null
-	}
-}
-```
-
-**`502 Bad Gateway`**
-
-El servicio de correo no aceptó el envío.
-
-```json
-{
-	"error": {
-		"code": "EMAIL_DELIVERY_FAILED",
-		"message": "No se pudo enviar el correo. Revisá la casilla configurada e intentá de nuevo.",
 		"details": null
 	}
 }
@@ -6821,8 +6660,7 @@ abierta a los tres perfiles; su **administración** (alta, modificación y baja)
 es solo del Administrador.
 
 Esta versión es la primera en la que la matriz **restringe la lectura** de algo:
-los modelos formales, los tableros y la configuración de avisos no están
-abiertos a los tres perfiles.
+los modelos formales y los tableros no están abiertos a los tres perfiles.
 
 **Actos procesales.** Las filas marcadas con ¹ se restringen además a cada
 causa: solo el abogado responsable opera sus actos. Ningún otro abogado ni el
@@ -6841,12 +6679,11 @@ causa: solo el abogado responsable opera sus actos. Ningún otro abogado ni el
 | `/cases`                           | Cualquier usuario autenticado | Cualquier usuario autenticado                                    |
 | `/cases/{caseId}/prescription`     | -                             | `ADMINISTRATOR` o `LAWYER`                                       |
 | `/cases/{caseId}/folder`           | -                             | Cualquier usuario autenticado                                    |
-| `/cases/{caseId}/procedural-acts`  | Cualquier usuario autenticado; `deadline-preview`, solo el abogado responsable | Abogado responsable de la causa, incluido el adjunto |
+| `/cases/{caseId}/procedural-acts`  | Cualquier usuario autenticado; `deadline-preview`, solo el abogado responsable | Abogado responsable de la causa |
 | `/cases/{caseId}/interruptive-acts` | Cualquier usuario autenticado | Abogado responsable de la causa                                 |
 | `/document-templates`              | `ADMINISTRATOR` o `LAWYER`    | `ADMINISTRATOR` o `LAWYER`                                       |
 | `/dashboards/lawyer`               | `LAWYER`                      | -                                                                |
 | `/dashboards/administrator`        | `ADMINISTRATOR`               | -                                                                |
-| `/notification-settings`           | `ADMINISTRATOR` o `LAWYER`    | `ADMINISTRATOR` o `LAWYER`                                       |
 
 RN11 establece que todo el estudio accede a todas las causas: la diferencia
 entre perfiles está en lo que pueden **operar**, no en lo que pueden **ver**.
@@ -6872,12 +6709,12 @@ fechas civiles del calendario judicial de Córdoba: no llevan hora ni
 desplazamiento, y "hoy" se interpreta en la zona horaria
 `America/Argentina/Cordoba`.
 
-**Excepciones al JSON.** Tres endpoints manejan archivos y no usan JSON en uno
+**Excepciones al JSON.** Dos endpoints manejan archivos y no usan JSON en uno
 de sus sentidos:
 
 | Operación                                                                                    | Qué cambia                                                                       |
 | -------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| `POST /document-templates` y `POST /cases/{caseId}/procedural-acts/{actId}/attachment`       | El **cuerpo** es `multipart/form-data`, con el archivo en el campo `file`. La respuesta es JSON |
+| `POST /document-templates`                                                                   | El **cuerpo** es `multipart/form-data`, con el archivo en el campo `file`. La respuesta es JSON |
 | `GET /document-templates/{templateId}/file`                                                  | La **respuesta** exitosa es el archivo, con su `Content-Type` y `Content-Disposition: attachment`. Los errores son JSON |
 
 En `multipart/form-data` cada campo viaja como texto: los booleanos, como `true`
@@ -6890,12 +6727,13 @@ es `413 FILE_TOO_LARGE`.
 Una causa es **activa** cuando no fue dada de baja y su estado procesal actual
 no es terminal (ni "Archivada" ni "Prescripta"). Es la definición que usa el
 prototipo ("causas activas, sin contar archivadas ni prescriptas") y la que
-aplican todos los campos `activeCases` del contrato:
+aplican todos los campos `activeCases` del contrato. El estado procesal no usa
+esta definición: su `caseCount` cuenta todas las causas que están en él,
+activas o no.
 
 | Recurso                  | `activeCases` cuenta las causas activas…          |
 | ------------------------ | ------------------------------------------------- |
 | Abogado                  | de las que es responsable                         |
-| Estado procesal          | que se encuentran en ese estado                   |
 | Calificación legal       | que la registran                                  |
 | Cliente                  | en las que es el cliente                          |
 
@@ -6914,18 +6752,18 @@ parte del listado de estados.
 - **`businessDaysRemaining`:** cantidad de días hábiles entre hoy (excluido) y
   el vencimiento (incluido). Vale `0` si vence hoy y es negativo si ya venció.
 
-En esta versión **no se excluyen feriados ni la feria judicial**: el calendario
-de días no hábiles sigue sin definir (P-02 de la arquitectura de backend, ver
-[C-05](#82-decisiones-a-tomar-y-puntos-a-verificar) y
-[C-24](#82-decisiones-a-tomar-y-puntos-a-verificar)). Cuando se incorpore,
-cambiarán los valores
-calculados, no la estructura del contrato.
+**Solo sábados y domingos son días no hábiles.** Feriados y feria judicial no se
+excluyen (D-73), lo que deja
+resuelto por ahora el pendiente P-02 de la arquitectura de backend. Si más
+adelante se incorporan, cambiarán los valores calculados, no la estructura del
+contrato.
 
 ### Prescripción
 
 Reúne las reglas que V3 tenía repartidas y las que suma esta versión.
 
-- **Solo el fuero `CRIMINAL`** computa prescripción. En los demás,
+- **Solo el fuero `CRIMINAL`** computa prescripción: los amparos no prescriben,
+  y una causa penal sin calificación legal tampoco (D-74). En los demás fueros,
   `legalQualifications` llega vacío y `prescription` vale `null`.
 - **Cada calificación legal computa la suya.** Su plazo es
   `prescriptionMonths`, y vence en `prescriptionStartsOn` más esos meses.
@@ -6948,15 +6786,37 @@ Reúne las reglas que V3 tenía repartidas y las que suma esta versión.
 
 ### Carpeta de la causa
 
-HU39 y HU40. El almacenamiento en la nube es Google Drive (RNF 6).
+HU39 y HU40. El almacenamiento en la nube es Google Drive (RNF 6), en la
+**cuenta de Gmail de gestión del estudio**, que es la dueña de todas las
+carpetas que crea el sistema.
 
-- **Cuándo se crea.** Al registrar la causa, si `createFolder` es `true`
-  (`POST /cases`), o después, con `POST /cases/{caseId}/folder`.
-- **Dónde.** En `/VZ Causas/{año}/{fuero}/{SAC} — {APELLIDO}`: el año es el del
-  alta de la causa en el sistema; el fuero, su rótulo en castellano ("Penal",
-  "Administrativo", "Amparo"); y el nombre, el número de SAC y el apellido del
-  cliente ("Se nombra con el SAC y el apellido del cliente"). Una causa sin SAC
-  usa `Sin SAC — {APELLIDO}`.
+- **Cómo actúa el backend.** Con una autorización que alguien del estudio
+  otorga **una sola vez**, iniciando sesión con la cuenta de gestión y aceptando
+  los permisos. El backend la guarda en su configuración y opera en nombre de
+  esa cuenta; nadie del equipo necesita su contraseña (D-84).
+- **Estructura.** `/VZ Causas/{abogado}/{fuero}/{carátula}` (D-61):
+
+  | Nivel      | Qué es                                                                                   | Ejemplo                                        |
+  | ---------- | ---------------------------------------------------------------------------------------- | ---------------------------------------------- |
+  | `abogado`  | El abogado responsable de la causa al crearse la carpeta, como `Apellido, Nombres`       | `Ríos, Malena`                                 |
+  | `fuero`    | El rótulo en castellano del fuero                                                        | `Penal`, `Administrativo`, `Amparo`            |
+  | `carátula` | La carátula de la causa (`caption`), tal como está registrada                            | `GÓMEZ, Ariel Fernando p.s.a. Robo calificado` |
+
+  Las carpetas del abogado y del fuero las crea el sistema la primera vez que
+  hacen falta. La carátula puede tener una barra ("c/ APROSS"): Drive lo
+  admite, y por eso `folder.path` es un dato para mostrar, no para separar en
+  partes.
+- **Modelos formales.** Viven en `/VZ Causas/Modelos formales`, fuera de las
+  carpetas de los abogados.
+- **Quién accede.** El sistema **comparte la carpeta raíz `VZ Causas`** con el
+  correo de cada usuario vigente que tenga el rol `LAWYER` o `SECRETARY`, como
+  editor; todo lo que hay adentro hereda ese acceso. Son los perfiles que
+  consultan documentos de causa según la matriz de permisos; un usuario que solo
+  es `ADMINISTRATOR` no recibe acceso. El acceso se da y se quita solo, con el
+  alta, la modificación y la baja de usuarios (ver
+  [§3.2](#32-gestión-de-usuarios-users)), y el proceso diario lo revisa (D-83).
+- **Cuándo se crea la carpeta.** Al registrar la causa, si `createFolder` es
+  `true` (`POST /cases`), o después, con `POST /cases/{caseId}/folder`.
 - **Qué modelos se copian.** Con `copyTemplates` en `true`, los modelos formales
   vigentes que incluyen el fuero de la causa en `jurisdictions` y tienen
   `copyToNewCases` en `true`. Se copia el archivo tal como está en ese momento;
@@ -6967,52 +6827,66 @@ HU39 y HU40. El almacenamiento en la nube es Google Drive (RNF 6).
   pero falló la copia de algún modelo, queda `CREATED` con `templatesPending`
   mayor a `0`. Es la mitigación que la arquitectura de backend ya había
   adoptado para este riesgo (R-03).
-- **La carpeta no se renombra ni se mueve** en esta versión. Si después cambia
-  el SAC o el cliente —cuando exista HU19—, `path` deja de coincidir con los
-  datos de la causa.
-- **Qué hay adentro.** Los modelos copiados y los adjuntos de los actos
-  procesales. El resto de la documentación la sube el estudio directamente a
-  Drive; listarla desde el sistema es HU38 (Sprint 4).
+- **La carpeta no se renombra ni se mueve** en esta versión.
+- **Qué hay adentro.** Los modelos copiados. El resto de la documentación la
+  suben los abogados y la secretaría directamente a Drive.
 
 ### Proceso automático diario
 
-HU30 y HU32 se resuelven con un proceso que corre **una vez por día**, a la
-hora de `sendTime` de la [configuración de avisos](#312-avisos-por-correo-notification-settings),
-en la hora de Córdoba. Es el "Proceso Automático" que la Definición del
-Producto lista como actor no humano. No tiene endpoints: nadie lo dispara desde
-la aplicación.
+HU51, HU52, HU30 y HU32 se resuelven con un proceso que corre **una vez por
+día**, en la hora de Córdoba. Es el "Proceso Automático" que la Definición del
+Producto lista como actor no humano. No tiene endpoints ni pantalla: nadie lo
+dispara ni lo configura desde la aplicación.
 
-| Aviso                        | HU  | Cuándo se envía                                                                                 |
-| ---------------------------- | --- | ----------------------------------------------------------------------------------------------- |
-| Preaviso de vencimiento      | 30  | El día en que al plazo abierto de una causa le faltan exactamente `advanceBusinessDays` días hábiles |
-| Vencimiento del día          | 30  | El día en que el plazo vence (`businessDaysRemaining` igual a `0`)                              |
-| Alerta de prescripción       | 32  | El día en que una causa penal alcanza el 70 % de su plazo de prescripción (`prescription.alert` pasa a `true`) |
+Cada corrida tiene dos pasos:
 
-- **A quién.** A la casilla del estudio (`mailbox`). Con
-  `copyResponsibleLawyer` en `true`, además al abogado responsable de cada
-  causa, solo con las suyas.
+| Paso        | HU  | Qué hace                                                                                                 |
+| ----------- | --- | -------------------------------------------------------------------------------------------------------- |
+| Verificar   | 51  | Recorre los vencimientos abiertos de las causas activas —los plazos de los actos procesales y los del acto lesivo de los amparos— y detecta los que entran en preaviso, los que vencen hoy y los vencidos |
+| Verificar   | 52  | Recorre la prescripción de las causas penales activas con calificación legal y detecta las que llegaron al 70 % y las que tienen el plazo cumplido |
+| Avisar      | 30  | Envía por correo lo que encontró HU51                                                                    |
+| Avisar      | 32  | Envía por correo lo que encontró HU52                                                                    |
+| Ajustar     | 39  | Revisa que la carpeta raíz de Drive esté compartida exactamente con los usuarios que corresponde, y corrige lo que haya quedado pendiente |
+
+La verificación **no guarda un estado calculado** en la causa: aplica las mismas
+reglas que la API usa en cada lectura (`currentState.businessDaysRemaining`,
+`harmfulActDeadline` y `prescription`), así que los tableros, el detalle y el
+correo siempre dicen lo mismo. Lo que el proceso sí registra es **qué avisó y
+cuándo**, para no repetir un aviso.
+
+| Aviso                        | HU      | Cuándo se envía                                                                                 |
+| ---------------------------- | ------- | ----------------------------------------------------------------------------------------------- |
+| Preaviso de vencimiento      | 51 → 30 | El día en que a un vencimiento abierto —de un acto procesal o del acto lesivo— le falta el preaviso configurado, en días hábiles |
+| Vencimiento del día          | 51 → 30 | El día en que ese vencimiento llega (`businessDaysRemaining` igual a `0`)                       |
+| Alerta de prescripción       | 52 → 32 | El día en que una causa penal alcanza el 70 % de su plazo de prescripción (`prescription.alert` pasa a `true`) |
+| Prescripción cumplida        | 52 → 32 | El día en que se cumple el plazo de prescripción (`prescription.expired` pasa a `true`), para que alguien la marque como prescripta |
+
+- **Configuración.** La casilla de gestión del estudio, los días de preaviso,
+  la hora de la corrida y si se copia al abogado responsable son
+  **configuración del servidor**, no datos de la API. Valores iniciales: preaviso
+  de 3 días hábiles, corrida a las 08:00 y copia al responsable (D-79).
+- **A quién.** A la casilla de gestión del estudio y, si está configurada la
+  copia, al abogado responsable de cada causa, solo con las suyas. La ficha del
+  abogado no tiene correo: la copia va al `email` del **usuario vinculado** a ese
+  abogado, y no se envía si no tiene uno.
 - **Un correo por día, no uno por causa.** Los avisos del día viajan juntos, en
   un único correo a la casilla, y en uno por abogado si corresponde la copia.
   Si no hay nada que avisar, no se envía correo.
-- **Una sola vez.** Cada aviso se envía una vez por plazo y por tipo. La alerta
-  de prescripción vuelve a enviarse si un acto interruptivo reinició el cómputo
-  y la causa llega otra vez al 70 %.
-- **Pausa.** Con `enabled` en `false` no se envía nada. Lo que no se envió
-  durante la pausa no se envía al reactivar.
+- **Una sola vez.** Cada aviso se envía una vez por vencimiento y por tipo. Una
+  renovación del acto lesivo abre un vencimiento nuevo, que se avisa de nuevo.
+  Los avisos de prescripción vuelven a enviarse si un acto interruptivo reinició
+  el cómputo y la causa llega otra vez al umbral.
 - **Solo causas activas.** Una causa dada de baja o en un estado terminal no
   genera avisos.
 - **El proceso no cambia el estado de ninguna causa.** En particular, no marca
-  causas como prescriptas
-  (ver [C-23](#82-decisiones-a-tomar-y-puntos-a-verificar)).
+  causas como prescriptas: eso lo hace una persona (HU33, D-52).
 
 El aviso "no reemplaza el control del abogado responsable": los tableros
 muestran lo mismo sin depender del correo.
 
-Dos cuestiones de este proceso siguen abiertas y condicionan el sprint: **cómo
-se garantiza que corra todos los días** en el hosting gratuito (R-01 de la
-arquitectura, [C-25](#82-decisiones-a-tomar-y-puntos-a-verificar)) y **el
-calendario de días inhábiles**, del que depende contar bien los días hábiles
-del preaviso ([C-24](#82-decisiones-a-tomar-y-puntos-a-verificar)).
+El proceso tiene que correr todos los días; cómo se garantiza depende del
+mecanismo de ejecución programada del despliegue (R-01 de la arquitectura de
+backend).
 
 ### Bajas
 
@@ -7165,21 +7039,19 @@ respuesta.
 | `LEGAL_QUALIFICATION_ALREADY_EXISTS`     | 409  | Denominación de calificación legal ya registrada                   |
 | `CLIENT_DNI_ALREADY_EXISTS`              | 409  | DNI ya registrado en un cliente vigente                            |
 | `CASE_SAC_ALREADY_EXISTS`                | 409  | Número de SAC ya registrado (RN2)                                  |
-| `PROCEDURAL_ACT_ATTACHMENT_ALREADY_EXISTS` | 409 | **Nuevo.** El acto procesal ya tiene un adjunto                   |
+| `DOCUMENT_TEMPLATE_ALREADY_EXISTS`       | 409  | **Nuevo.** Nombre de modelo formal ya registrado                   |
 | `USER_HAS_DEPENDENCIES`                  | 409  | El usuario posee recursos asociados                                |
 | `LAWYER_HAS_DEPENDENCIES`                | 409  | El abogado posee causas o un usuario vinculado                     |
 | `FILE_TOO_LARGE`                         | 413  | **Nuevo.** El archivo enviado supera los 10 MB                     |
 | `INVALID_CURRENT_PASSWORD`               | 422  | La contraseña actual no coincide                                   |
 | `CASE_IN_TERMINAL_STATE`                 | 422  | Acto procesal, acto interruptivo o marca de prescripción sobre una causa en estado terminal |
-| `PRESCRIPTION_NOT_APPLICABLE`            | 422  | **Nuevo.** Acto interruptivo o marca de prescripción sobre una causa que no es del fuero penal |
+| `PRESCRIPTION_NOT_APPLICABLE`            | 422  | **Nuevo.** Acto interruptivo o marca de prescripción sobre una causa que no es del fuero penal, o marca de prescripción sobre una causa sin calificaciones legales |
 | `PROCEDURAL_STATE_PROTECTED`             | 422  | **Nuevo.** Modificación o baja del estado de sistema "Prescripta"  |
-| `CASE_FOLDER_NOT_AVAILABLE`              | 422  | **Nuevo.** Adjunto sobre una causa sin carpeta en la nube          |
 | `BUSINESS_RULE_VIOLATION`                | 422  | Violación de una regla de negocio                                  |
 | `TOO_MANY_LOGIN_ATTEMPTS`                | 429  | Bloqueo progresivo por intentos fallidos. Exclusivo de `POST /auth/login` |
 | `TOO_MANY_REQUESTS`                      | 429  | Límite de pedidos por dirección IP superado                        |
 | `INTERNAL_SERVER_ERROR`                  | 500  | Error interno inesperado                                           |
 | `DOCUMENT_STORAGE_UNAVAILABLE`           | 502  | **Nuevo.** El almacenamiento en la nube (Google Drive) no respondió |
-| `EMAIL_DELIVERY_FAILED`                  | 502  | **Nuevo.** El servicio de correo no aceptó el envío. Exclusivo de `POST /notification-settings/test` |
 
 ---
 
@@ -7211,7 +7083,7 @@ en `details.retryAfterSeconds`. Puede aparecer en cualquier endpoint, no solo
 en `/auth` — ver [Límite de frecuencia](#límite-de-frecuencia).
 
 El `502` es nuevo en esta versión y distingue una falla **ajena al sistema** —el
-almacenamiento en la nube o el servicio de correo— de un error propio (`500`).
+almacenamiento en la nube— de un error propio (`500`).
 Para el cliente significa "no es un problema de los datos ni del sistema:
 reintentar más tarde". No todas las operaciones que usan esos servicios
 responden `502`: el alta de causa nunca lo hace, porque registra la causa y
@@ -7221,12 +7093,15 @@ deja la carpeta pendiente (ver [Carpeta de la causa](#carpeta-de-la-causa)).
 
 ## 7. Cambios respecto de la versión anterior
 
-Resumen de las diferencias con `API_CONTRACT_V3.md`, para la revisión del
-equipo. Todo lo que no figura acá se copió de V3 sin cambios.
+Resumen de las diferencias con `API_CONTRACT_V3.md`. Todo lo que no figura acá
+se copió de V3 sin cambios. Las revisiones que tuvo V3 (§7.7 a §7.12 de ese
+documento) ya están incorporadas.
 
-**Ningún cambio de esta versión rompe a un cliente de V3.** Los endpoints
-existentes solo suman campos a sus respuestas, campos opcionales a sus cuerpos
-o un caso de error nuevo.
+**Dos cambios rompen la compatibilidad con un cliente de V3:** el nombre y el
+apellido separados en usuarios, abogados y toda referencia a ellos (D-68), y
+`caseCount` en lugar de `activeCases` en los estados procesales (D-70). El resto
+suma campos a las respuestas, campos opcionales a los cuerpos o casos de error
+nuevos.
 
 ### 7.1 Endpoints incorporados
 
@@ -7236,47 +7111,48 @@ o un caso de error nuevo.
 | `GET /cases/{caseId}/interruptive-acts` | 31, 27 | La línea de tiempo del prototipo los muestra junto a los actos procesales |
 | `POST /cases/{caseId}/prescription` | 33 | Acción "Marcar prescripta" del detalle de causa |
 | `POST /cases/{caseId}/folder` | 39, 40 | Crear la carpeta de una causa que no la tiene o reintentar una pendiente |
-| `POST /cases/{caseId}/procedural-acts/{actId}/attachment` | 39 | "Adjuntar cédula o comprobante" del registro de acto, que V3 había diferido hasta tener la carpeta |
 | `POST /document-templates` | 34 | Alta de modelo formal, con su archivo |
 | `GET /document-templates`, `GET /document-templates/{templateId}` | 35 | Consulta de modelos formales |
-| `GET /document-templates/{templateId}/file` | 35 | Descarga del `.docx` (CA-35.6) |
+| `GET /document-templates/{templateId}/file` | 35 | Descarga del `.docx` |
 | `GET /dashboards/lawyer` | 41 | Tablero "Mi día" |
 | `GET /dashboards/administrator` | 42 | Tablero "Estudio" |
-| `GET` y `PATCH /notification-settings` | 30, 32 | Panel "Aviso por correo" |
-| `POST /notification-settings/test` | 30 | Botón "Enviar prueba" |
+
+HU30, HU32, HU51 y HU52 no agregan endpoints: son el
+[proceso automático diario](#proceso-automático-diario).
 
 ### 7.2 Endpoints modificados
 
-| Endpoint | V3 | V4 | Motivo |
-| --- | --- | --- | --- |
-| `POST /cases` | Sin campos de carpeta | Acepta `createFolder` y `copyTemplates`, opcionales y con `true` por defecto. La respuesta trae `folder` | HU39 y HU40: las dos casillas de "Asignación y documentación" |
-| `POST /cases`, `GET /cases`, `GET /cases/{caseId}` | Recurso causa de V3 | La causa suma `prescription`, `prescriptionDeclaration` y `folder` | HU32, HU33, HU39 |
-| `legalQualifications[].prescriptionStartsOn` de la causa | Igual a `offenseDate` | Fecha del acto interruptivo más reciente o, si no hay, `offenseDate` | HU31. V3 lo había anticipado (D-19): la estructura no cambia |
-| `currentState` de la causa | `proceduralActId` es `null` solo en el estado inicial | También es `null` en "Prescripta", al que no se llega por un acto | HU33 |
-| `POST`, `GET /cases/{caseId}/procedural-acts` y `GET …/{actId}` | Recurso acto de V3 | El acto suma `attachment`, que nace en `null` | Adjunto de la cédula |
-| `PATCH` y `DELETE /procedural-states/{stateId}` | Cualquier estado del listado | Sobre "Prescripta" responden `422 PROCEDURAL_STATE_PROTECTED` | "Prescripta" pasa a ser un estado de sistema del fuero penal, que `GET /procedural-states` lista siempre (D-53) |
+| Endpoint | V3 | V4 | ¿Rompe? | Decisión |
+| --- | --- | --- | :---: | --- |
+| `POST /auth/login`, `/users`, `/lawyers` (todos menos `DELETE`) | `fullName` | `lastName` y `firstName`, en las respuestas, en los cuerpos de `POST` y `PATCH` y en los filtros de búsqueda | **Sí** | D-68 |
+| Referencias a usuarios y abogados dentro de otros recursos (`lawyer` del usuario, `responsibleLawyer` y `registeredBy` de causas y actos, y los recursos nuevos) | `id` y `fullName` | `id`, `lastName` y `firstName` | **Sí** | D-68 |
+| `GET /procedural-states`, `GET /procedural-states/{stateId}` | `activeCases`: causas activas en el estado, `0` en los terminales | `caseCount`: todas las causas en el estado, activas o no | **Sí** | D-70 |
+| `POST`, `PATCH` y `DELETE /users` | Sin efectos fuera de la API | Dan y quitan el acceso a la carpeta del estudio en Drive; no cambian cuerpo ni respuesta | No | D-83 |
+| `PATCH` y `DELETE /procedural-states/{stateId}` | Cualquier estado del listado | Sobre "Prescripta" responden `422 PROCEDURAL_STATE_PROTECTED` | No | D-53 |
+| `POST /cases/{caseId}/procedural-acts` y `deadline-preview` | El estado de destino no puede ser terminal | Puede ser terminal, salvo "Prescripta" | No | D-69 |
+| `POST /cases` | Sin carpeta ni datos por fuero | Acepta `createFolder`, `copyTemplates`, los datos propios de cada fuero y `courtFeePaid`, todos opcionales | No | D-59, D-67 |
+| `POST /cases`, `GET /cases`, `GET /cases/{caseId}` | Recurso causa de V3 | Suma `prescription`, `prescriptionDeclaration`, `folder`, los datos por fuero, `harmfulActDeadline` y `courtFeePaid` | No | D-51, D-54, D-60, D-67, D-78 |
+| `GET /cases` | El orden por urgencia y `openDeadline` miran `currentState.dueDate` | Miran también `harmfulActDeadline.dueDate` | No | D-82 |
+| `legalQualifications[].prescriptionStartsOn` de la causa | Igual a `offenseDate` | Fecha del acto interruptivo más reciente o, si no hay, `offenseDate` | No | D-49 |
+| `currentState` de la causa | `proceduralActId` es `null` solo en el estado inicial | También es `null` en "Prescripta", al que no se llega por un acto | No | D-54 |
 
 ### 7.3 Enumerados incorporados
 
 | Enumerado | Motivo |
 | --- | --- |
-| `DocumentTemplateType` | Tipo de modelo formal: los cuatro valores del prototipo |
+| `DeadlineKind` | Origen de un vencimiento en los tableros: acto procesal o acto lesivo |
 | `CaseFolderStatus` | Situación de la carpeta de la causa: creada o pendiente |
-
-`ProceduralRole` deja de estar marcado como nuevo; sus valores no cambian.
 
 ### 7.4 Códigos de error y códigos HTTP
 
 **Códigos de error incorporados:** `DOCUMENT_TEMPLATE_NOT_FOUND`,
-`PROCEDURAL_ACT_ATTACHMENT_ALREADY_EXISTS`, `FILE_TOO_LARGE`,
-`PRESCRIPTION_NOT_APPLICABLE`, `PROCEDURAL_STATE_PROTECTED`,
-`CASE_FOLDER_NOT_AVAILABLE`, `DOCUMENT_STORAGE_UNAVAILABLE` y
-`EMAIL_DELIVERY_FAILED`.
+`DOCUMENT_TEMPLATE_ALREADY_EXISTS`, `FILE_TOO_LARGE`,
+`PRESCRIPTION_NOT_APPLICABLE`, `PROCEDURAL_STATE_PROTECTED` y
+`DOCUMENT_STORAGE_UNAVAILABLE`.
 
-**Códigos de error ampliados:** `CASE_IN_TERMINAL_STATE` ahora también lo
-responden el acto interruptivo y la marca de prescripción; `FORBIDDEN` cubre
-además al usuario que no es el abogado responsable al registrar un acto
-interruptivo o subir un adjunto.
+**Códigos de error ampliados:** `CASE_IN_TERMINAL_STATE` también lo responden
+el acto interruptivo y la marca de prescripción; `FORBIDDEN` cubre además al
+usuario que no es el abogado responsable al registrar un acto interruptivo.
 
 **Ningún código de error se retira.**
 
@@ -7285,57 +7161,41 @@ interruptivo o subir un adjunto.
 ### 7.5 Convenciones incorporadas
 
 - **Roles alternativos:** "`ADMINISTRATOR` o `LAWYER`" en un endpoint.
-- **Lectura restringida por perfil:** modelos formales, tableros y
-  configuración de avisos son los primeros recursos que la Secretaría no puede
-  leer.
-- **Archivos:** cuerpo `multipart/form-data` para subir y respuesta binaria
-  para descargar, con un máximo de 10 MB.
+- **Lectura restringida por perfil:** modelos formales y tableros son los
+  primeros recursos que la Secretaría no puede leer.
+- **Archivos:** cuerpo `multipart/form-data` para subir un modelo y respuesta
+  binaria para descargarlo, con un máximo de 10 MB.
+- **Nombre y apellido separados** en toda persona del sistema.
+- **Datos propios de cada fuero** en la causa, `null` en los demás fueros.
+- **Vencimiento del acto lesivo** del amparo, calculado mientras la causa está
+  en "Iniciada".
 - **Reglas de la prescripción** reunidas en la sección 4, con el umbral de
   alerta del 70 %.
-- **Carpeta de la causa:** convención de nombre y comportamiento ante fallas
-  del almacenamiento en la nube.
-- **Proceso automático diario:** qué avisa, cuándo y a quién.
+- **Días no hábiles:** solo sábados y domingos.
+- **Carpeta de la causa:** estructura, acceso de los usuarios y comportamiento
+  ante fallas del almacenamiento en la nube.
+- **Proceso automático diario:** qué verifica, qué avisa, cuándo y a quién.
 - **Modelos de lectura no paginados** para los tableros.
 
-### 7.6 Cuestiones de V3
-
-Qué pasó en esta versión con lo que V3 dejaba pendiente o diferido al Sprint 3.
+### 7.6 Lo que V3 dejaba para el Sprint 3
 
 | Cuestión de V3 | Situación en V4 |
 | --- | --- |
-| "Cuando el Sprint 3 incorpore los actos interruptivos (HU31), `prescriptionStartsOn` pasará a ser la fecha del último acto interruptivo" (§3.7) | **Hecho.** Sin cambios de estructura |
-| Carpeta de Drive y copia de modelos en el alta de causa (§8.3) | **Hecho:** `createFolder`, `copyTemplates` y `folder` |
-| "Adjuntar cédula o comprobante" (§8.3) | **Hecho,** con un endpoint aparte. Falta confirmar que entre en el sprint (C-33) |
-| Ciclo de vida de la causa y listado de actos en el detalle (§8.3) | **Hecho** en lo que toca a HU27 y HU31. La línea de tiempo como historia propia (HU23) sigue en el Sprint 4 |
-| "Registrar acto interruptivo" y "Marcar prescripta" (§8.3) | **Hecho** |
-| Tablero de inicio (§8.3) | **Hecho,** como dos tableros |
-| Modelos formales (§8.3) | **Hecho** el alta y la consulta. Modificación y baja, Sprint 5 |
-| Aviso "2 vencimientos hoy" y notificaciones del encabezado (§8.3) | **Abierto:** el prototipo no les da comportamiento (C-35) |
-| C-04, cómo llega una causa a un estado terminal | **Resuelto en parte:** a "Prescripta" se llega con `POST /cases/{caseId}/prescription`. "Archivada" sigue sin historia |
-| C-05, feriados y feria judicial | **Abierto, y ahora bloqueante** (C-24) |
-| C-10, nombre del acto distinto del estado | **Abierto.** HU27 entra en este sprint sin ese dato |
-| C-18, textos viejos del prototipo | **Resuelto** en el prototipo del 13/10/2026 |
-| C-22, causa penal sin calificación legal | **Abierto.** Su `prescription` vale `null` y no genera alertas |
-| "HU19 y HU21 corresponden al Sprint 3" (§3.7), "HU10 y HU11 … Sprint 4" (§3.6) | **Corregido** según Jira: HU19 y HU21 están en el Sprint 4; HU10 y HU11, en el 5 |
-
-### 7.7 Historial de V3
-
-Las seis revisiones que tuvo V3 entre el 01/10 y el 11/10/2026 (§7.7 a §7.12 de
-ese documento) no se repiten acá. Su resultado es el punto de partida de V4, y
-las decisiones que tomaron (D-28 a D-44) están en la
-[sección 8.1](#81-decisiones-tomadas) con el mismo identificador.
+| `prescriptionStartsOn` pasaría a ser la fecha del último acto interruptivo (§3.7) | Hecho, sin cambios de estructura |
+| Carpeta de Drive y copia de modelos en el alta de causa (§8.3) | Hecho: `createFolder`, `copyTemplates` y `folder` |
+| Ciclo de vida de la causa y listado de actos en el detalle (§8.3) | Hecho en lo que toca a HU27 y HU31 |
+| "Registrar acto interruptivo" y "Marcar prescripta" (§8.3) | Hecho |
+| Tablero de inicio (§8.3) | Hecho, como dos tableros |
+| Modelos formales (§8.3) | Hecho el alta y la consulta |
+| Sprints de HU10, HU11, HU19 y HU21 (§3.6, §3.7) | Corregidos según la planificación vigente |
 
 ---
 
 ## 8. Observaciones
 
-Decisiones tomadas al redactar este contrato, **decisiones que el equipo
-todavía tiene que tomar** y puntos que conviene verificar antes o durante la
-implementación.
-
-Las decisiones y los puntos de V3 conservan su identificador (D-01 a D-44 y
-C-01 a C-22), porque el texto heredado los cita. Los de esta versión continúan
-la numeración: D-45 en adelante y C-23 en adelante.
+Decisiones de diseño de este contrato y puntos que quedan abiertos. Las
+decisiones de V3 conservan su identificador (D-01 a D-44), porque el texto
+heredado las cita; las de esta versión continúan desde D-45.
 
 ### 8.1 Decisiones tomadas
 
@@ -7343,57 +7203,71 @@ la numeración: D-45 en adelante y C-23 en adelante.
 
 | ID | Decisión | Fundamento |
 | --- | --- | --- |
-| D-45 | El alcance es HU 27, 30, 31, 32, 33, 34, 35, 39, 40, 41 y 42 | Es lo que tiene asignado el sprint "VZ Sprint 3" en Jira, y coincide con el Story Map del Seguimiento v1.2 (§4.1.2): once historias, 140 SP. El texto "Sprint previsto" dentro de varias historias dice otra cosa (HU30 y HU39, "Sprint 2"; HU32, HU33, HU41 y HU42, "Sprint 4"): quedó de una planificación anterior. Se tomó el campo Sprint ([C-36](#82-decisiones-a-tomar-y-puntos-a-verificar)) |
-| D-46 | V4 es autocontenido, V3 queda sin modificar y las decisiones de V3 conservan su identificador | Mismo criterio que V3 respecto de V2. Mantener los identificadores evita romper las citas D-xx y C-xx del texto heredado |
-| D-47 | HU27 no agrega endpoints | Sus dos endpoints ya estaban en V3 y están implementados. Lo que le faltaba a la línea de tiempo del prototipo —los actos interruptivos y el pase a "Prescripta"— tiene su propia fuente; el cliente intercala las tres |
-| D-48 | El acto interruptivo es un recurso propio, anidado en la causa, y no un acto procesal con una marca | No mueve el estado ni abre un plazo, y su formulario pide otros datos (un nombre libre). El prototipo lo muestra como "No modifica el estado procesal". La arquitectura ya lo preveía como `InterruptiveAct` dentro del agregado `Case`, y el glosario ya tiene el término |
-| D-49 | Un acto interruptivo alcanza a todas las calificaciones de la causa, y rige el más reciente | El formulario no pide elegir una calificación y habla de "la prescripción de la acción". Tomar el más reciente permite cargar actos viejos sin retroceder el cómputo, igual que D-14 con los actos procesales ([C-29](#82-decisiones-a-tomar-y-puntos-a-verificar)) |
-| D-50 | Los actos interruptivos existen solo en `CRIMINAL` y los registra solo el abogado responsable. Fuera del fuero penal responden `422 PRESCRIPTION_NOT_APPLICABLE`, el mismo código que usa la marca de prescripción | El prototipo ofrece el botón solo en causas penales y avisa "Solo el abogado responsable de la causa … registra actos interruptivos"; la matriz de permisos dice lo mismo (HU31). Un solo código, porque la causa del rechazo es la misma: el fuero no computa prescripción |
-| D-51 | La causa suma `prescription`, calculada por el backend, con la alerta en un 70 % fijo | El backend necesita ese cálculo de todos modos, para el correo de HU32 y para los tableros; devolverlo deja un único lugar de cálculo, el mismo argumento que D-20. Reemplaza la parte de D-19 que dejaba al cliente elegir la calificación y calcular el porcentaje. El 70 % es el "aviso al 70 %" del prototipo |
-| D-52 | HU33 se contrata como una **acción manual**, con fecha y resolución, para `ADMINISTRATOR` o `LAWYER`. El proceso automático no cambia el estado de ninguna causa | Es lo que resuelve el prototipo: el modal "Marcar la causa como prescripta" pide "Resolución que la declara" y está habilitado a esos dos perfiles. La historia pide que sea automático; manda el prototipo. **Es la decisión más discutible de esta versión** ([C-23](#82-decisiones-a-tomar-y-puntos-a-verificar)) |
-| D-53 | "Prescripta" es un estado de sistema del fuero `CRIMINAL`: visible en `/procedural-states`, terminal y protegido contra modificación y baja | HU33 necesita un estado de destino que exista siempre. Hoy no existe: el *seed* del backend no lo carga (el terminal del fuero penal es "Sentencia definitiva"), y si fuera un estado común cualquier usuario podría renombrarlo o darlo de baja. Queda visible, a diferencia de "Iniciada", porque el prototipo lo lista y el filtro de causas lo usa |
-| D-54 | Marcar una causa como prescripta no crea un acto procesal, responde `200` con la causa y no tiene reversión | Un estado terminal no puede ser destino de un acto (D-15). Cambian varias partes de la causa a la vez, así que devolverla entera le ahorra al cliente una segunda petición. El prototipo no ofrece deshacerlo |
-| D-55 | Un modelo formal tiene `jurisdictions`, una lista de fueros | El alta del prototipo es de selección múltiple, con "Todos los fueros", y avisa "registrado para los fueros Penal y Amparo". Un modelo con varios fueros es un solo registro con un solo archivo; duplicarlo por fuero obligaría a mantener copias |
-| D-56 | `type` es obligatorio en el alta de modelo, aunque el modal de alta del prototipo no lo pide | CA-34.2 y CA-34.4 lo exigen, la lista del prototipo muestra el tipo de cada modelo y el modal de modificación lo tiene. Es el **único punto en que no se siguió al prototipo**: se leyó como una omisión del modal y no como una decisión de diseño ([C-30](#82-decisiones-a-tomar-y-puntos-a-verificar)) |
-| D-57 | Los códigos de `DocumentTemplateType` van en castellano | Mismo criterio que D-37: son vocabulario del estudio ("escrito de fondo", "oficio") sin traducción limpia. El glosario pide inglés por defecto, así que es una excepción a confirmar |
-| D-58 | Los modelos formales los leen y los registran `ADMINISTRATOR` o `LAWYER`. El alta es `multipart/form-data`, solo `.docx`, hasta 10 MB, y atómica | Matriz de permisos y CA-34.8 y CA-35.8; la sección no está en el menú de la Secretaría. Formato y atomicidad: CA-34.3 y CA-34.7. Los 10 MB son el máximo que el prototipo indica para el adjunto del acto; se adoptó el mismo para todo archivo |
-| D-59 | El listado de modelos está paginado y ordenado por nombre, con filtros `jurisdiction` y `copyToNewCases`. Las tarjetas por fuero las arma el cliente | CA-35.2 a CA-35.5. Evita un endpoint de resumen para un catálogo chico (13 modelos en el prototipo). `copyToNewCases` le da al alta de causa el "6 modelos parametrizados para el fuero Penal" |
-| D-60 | El archivo de un modelo se descarga a través de la API, no con un enlace directo a Drive | La Secretaría no puede consultar modelos; un enlace de Drive no respeta los perfiles del sistema |
-| D-61 | `createFolder` y `copyTemplates` son opcionales y valen `true` por defecto. Los nombres no mencionan a Drive | Las dos casillas del prototipo vienen tildadas, y las historias piden que la carpeta se cree "automáticamente". La arquitectura nombra por necesidad y no por tecnología (`CaseFolderPort`, no `GoogleDriveService`) |
-| D-62 | Una falla del almacenamiento en la nube **no aborta el alta de la causa**: queda `folder.status` en `PENDING` y se reintenta con `POST /cases/{caseId}/folder` | La causa es el dato que el estudio no puede perder. Es la mitigación que la arquitectura de backend ya adoptó para R-03 ("la causa se persiste marcada con carpeta pendiente, y existe una operación de reintento"). El mismo endpoint les da carpeta a las causas registradas antes de esta versión |
-| D-63 | La carpeta se ubica en `/VZ Causas/{año}/{fuero}/{SAC} — {APELLIDO}` y no se renombra | Es la ruta que muestra el resumen del alta del prototipo ("Se nombra con el SAC y el apellido del cliente"). Para la causa sin SAC se adoptó `Sin SAC — {APELLIDO}`, que el prototipo no define ([C-32](#82-decisiones-a-tomar-y-puntos-a-verificar)) |
-| D-64 | El adjunto del acto procesal se sube con un endpoint aparte, después de registrar el acto | Mantiene `POST /cases/{caseId}/procedural-acts` como está implementado, con cuerpo JSON. Si la subida falla, el acto —que es lo que mueve la causa y abre el plazo— ya quedó registrado |
-| D-65 | Hay un endpoint por tablero, que devuelve todo en una petición y sin paginar | Son modelos de lectura, lo que la arquitectura asigna al subsistema `reporting`. Componer la pantalla con varias llamadas a `/cases` no alcanzaba: los indicadores, la cartera por fuero y la carga del equipo son agregados. Las listas están acotadas por las causas activas (105 en el prototipo) |
-| D-66 | El tablero del abogado muestra solo sus causas, y "próximos" son 5 días hábiles | El prototipo del 13/10/2026 separa "Mi día" de "Estudio" y ya no le ofrece al abogado "Todo el estudio". CA-41.7 pide ese cambio de alcance; manda el prototipo ([C-34](#82-decisiones-a-tomar-y-puntos-a-verificar)). Los 5 días hábiles salen de CA-41.2 y del prototipo |
-| D-67 | La configuración de avisos es un recurso único del estudio, con los cinco datos del panel, para `ADMINISTRATOR` o `LAWYER` | El panel "Aviso por correo" tiene exactamente esos datos, y la casilla es una sola ("la casilla de gestión"). Los perfiles salen de la matriz (HU30, HU32, HU33) |
-| D-68 | El proceso diario no tiene endpoints. Envía un correo por día con todos los avisos, y la alerta de prescripción usa la misma casilla, la misma hora y la misma pausa | Nadie lo dispara desde la aplicación. "Enviar prueba" habla de un correo "con los N vencimientos", lo que sugiere un resumen y no un correo por causa. El prototipo no tiene una configuración aparte para la prescripción ([C-27](#82-decisiones-a-tomar-y-puntos-a-verificar), [C-28](#82-decisiones-a-tomar-y-puntos-a-verificar)) |
-| D-69 | Se incorporan `413` y `502` | `502` separa la falla de un servicio externo (Drive, correo) de un error propio: para el cliente es "reintentar", no "corregir los datos". `413`, porque el límite de tamaño lo aplica el servidor antes de validar el formulario |
-| D-70 | No se contrata el calendario de días inhábiles | Sigue sin historia y sin pantalla: el prototipo del 13/10/2026 ya no tiene dónde cargarlo. Agregar endpoints sería inventar una funcionalidad. Queda como la segunda decisión a tomar ([C-24](#82-decisiones-a-tomar-y-puntos-a-verificar)) |
-| D-71 | No se contrata la lista de documentos de la causa | El prototipo ya la muestra y hasta simula un `GET /cases/{id}/documents`, pero es HU38, del Sprint 4. Esta versión solo entrega el enlace a la carpeta (`folder.url`) |
+| D-45 | El alcance es HU 27, 30, 31, 32, 33, 34, 35, 39, 40, 41, 42, 51 y 52 | Sprint "VZ Sprint 3" de Jira y Story Map del Seguimiento v1.2 (§4.1.2), más HU51 y HU52, incorporadas al sprint por el equipo |
+| D-46 | V4 es autocontenido y V3 queda sin modificar | Mismo criterio que V3 respecto de V2 |
+| D-47 | HU27 no agrega endpoints | Sus dos endpoints ya estaban en V3 y están implementados. La línea de tiempo del prototipo se completa con los actos interruptivos y el pase a "Prescripta", que tienen su propia fuente; el cliente intercala las tres |
+| D-48 | El acto interruptivo es un recurso propio, anidado en la causa, y no un acto procesal con una marca | No mueve el estado ni abre un plazo, y su formulario pide otros datos. La arquitectura ya lo preveía como `InterruptiveAct` dentro del agregado `Case` |
+| D-49 | Un acto interruptivo alcanza a todas las calificaciones de la causa, rige el más reciente y su nombre es texto libre | El formulario no pide elegir una calificación y habla de "la prescripción de la acción". Tomar el más reciente permite cargar actos viejos sin retroceder el cómputo, igual que D-14 |
+| D-50 | Los actos interruptivos existen solo en `CRIMINAL` y los registra solo el abogado responsable. Fuera del fuero penal responden `422 PRESCRIPTION_NOT_APPLICABLE` | El prototipo ofrece el botón solo en causas penales y solo al responsable; la matriz de permisos dice lo mismo (HU31). Se usa el mismo código que la marca de prescripción porque el motivo del rechazo es el mismo |
+| D-51 | La causa incluye `prescription`, calculada por el backend, con la alerta en un 70 % fijo | El backend necesita ese cálculo para el correo y los tableros; devolverlo deja un único lugar de cálculo, como D-20. Reemplaza la parte de D-19 que dejaba al cliente elegir la calificación y calcular el porcentaje. El 70 % es el "aviso al 70 %" del prototipo |
+| D-52 | Marcar una causa como prescripta (HU33) es una acción manual, con fecha y resolución, para `ADMINISTRATOR` o `LAWYER`. El proceso automático detecta el plazo cumplido y avisa, pero no cambia el estado de ninguna causa | Es lo que define el prototipo. Evita que el sistema cierre una causa porque faltó cargar un acto interruptivo |
+| D-53 | "Prescripta" es un estado de sistema del fuero `CRIMINAL`: visible en `/procedural-states`, terminal y protegido contra modificación y baja | HU33 necesita un estado de destino que exista siempre. Queda visible, a diferencia de "Iniciada", porque el prototipo lo lista y el filtro de causas lo usa |
+| D-54 | Marcar una causa como prescripta no crea un acto procesal, responde `200` con la causa y no tiene reversión | "Prescripta" no es destino de un acto (D-69). Cambian varias partes de la causa a la vez, así que devolverla entera le ahorra al cliente una segunda petición |
+| D-55 | Un modelo formal tiene `jurisdictions`, una lista de fueros | El alta del prototipo es de selección múltiple, con "Todos los fueros". Un modelo con varios fueros es un solo registro con un solo archivo |
+| D-56 | Los modelos formales los leen y los registran `ADMINISTRATOR` o `LAWYER`. El alta es `multipart/form-data`, solo `.docx`, hasta 10 MB, y atómica. El modelo no tiene tipo | Matriz de permisos y CA-34.8 y CA-35.8; la sección no está en el menú de la Secretaría. Formato y atomicidad: CA-34.3 y CA-34.7. Los 10 MB son el máximo que el prototipo usa para adjuntos |
+| D-57 | El listado de modelos está paginado y ordenado por nombre, con filtros `jurisdiction` y `copyToNewCases`. Las tarjetas por fuero las arma el cliente | CA-35.2 a CA-35.5. Evita un endpoint de resumen para un catálogo chico |
+| D-58 | El archivo de un modelo se descarga a través de la API, no con un enlace directo a Drive | La Secretaría no puede consultar modelos; un enlace de Drive no respeta los perfiles del sistema |
+| D-59 | `createFolder` y `copyTemplates` son opcionales y valen `true` por defecto. Los nombres no mencionan a Drive | Las casillas del prototipo vienen tildadas, y las historias piden que la carpeta se cree "automáticamente". La arquitectura nombra por necesidad y no por tecnología |
+| D-60 | Una falla del almacenamiento en la nube no aborta el alta de la causa: queda `folder.status` en `PENDING` y se reintenta con `POST /cases/{caseId}/folder` | La causa es el dato que el estudio no puede perder. Es la mitigación de R-03 de la arquitectura de backend. El mismo endpoint les da carpeta a las causas registradas antes de esta versión |
+| D-61 | La carpeta se ubica en `/VZ Causas/{abogado}/{fuero}/` y se llama como la carátula de la causa. No se renombra ni se mueve | Definido por el equipo. La carátula ya reúne al cliente y la calificación o el objeto. Detalle en ADR-003 |
+| D-62 | Hay un endpoint por tablero, que devuelve todo en una petición y sin paginar | Son modelos de lectura, lo que la arquitectura asigna a `reporting`. Los indicadores, la cartera por fuero y la carga del equipo son agregados. Las listas están acotadas por las causas activas |
+| D-63 | El abogado ve solo el tablero de sus causas; si además es `ADMINISTRATOR`, ve también "Estudio". "Próximos" son 5 días hábiles | Definido por el equipo; CA-41.7 no aplica. Los 5 días hábiles salen de CA-41.2 y del prototipo |
+| D-64 | El proceso diario no tiene endpoints. Envía un correo por día con todos los avisos: preaviso y día del vencimiento, alerta de prescripción al 70 % y prescripción cumplida. No avisa los plazos ya vencidos | Nadie lo dispara desde la aplicación. Un resumen diario evita un correo por causa |
+| D-65 | Se incorporan `413` y `502` | `502` separa la falla de un servicio externo de un error propio: para el cliente es "reintentar", no "corregir los datos". `413`, porque el límite de tamaño lo aplica el servidor antes de validar el formulario |
+| D-66 | No se contrata la lista de documentos de la causa | El prototipo la muestra, pero no es una historia de este sprint. Esta versión entrega el enlace a la carpeta (`folder.url`) |
+| D-67 | La causa incluye `clientDetained` (penal), `injunctionGranted`, `harmfulActDate`, `harmfulActRenews`, `harmfulActRenewalDays`, `harmfulActTermDays` y `harmfulActTermDayType` (amparo), `administrativeRemedyExhaustedOn` (administrativo) y `courtFeePaid` (todos). Fuera de su fuero valen `null`; se cargan solo en el alta | Definidos por el equipo. `courtFeePaid` cubre RN10. Modificarlos llega con HU19 |
+| D-68 | Usuarios y abogados tienen `lastName` y `firstName` en lugar de `fullName`, también en toda referencia a ellos dentro de otros recursos | Definido por el equipo: toda persona del sistema tiene nombre y apellido separados, como el cliente desde V3 |
+| D-69 | Un acto procesal puede llevar la causa a cualquier estado del fuero, terminal o no, salvo "Prescripta". Una causa en estado terminal no admite actos nuevos. Reemplaza a D-15 | A "Archivada" se llega con un acto procesal; "Prescripta" tiene su propio botón (D-52) |
+| D-70 | El estado procesal informa `caseCount`, las causas que están en él, activas o no, en lugar de `activeCases` | La columna "Causas" tiene que mostrar también las archivadas y las prescriptas. Se cambió el nombre porque `activeCases` con otro significado confundiría; los demás recursos conservan su `activeCases` |
+| D-71 | El nombre de un modelo formal es único, sin distinguir mayúsculas | Definido por el equipo |
+| D-72 | HU51 y HU52 son la verificación diaria del proceso automático: detectan los vencimientos en preaviso, del día y vencidos (HU51) y las prescripciones al 70 % y cumplidas (HU52). No tienen endpoints ni pantalla | HU30 y HU32 envían por correo lo que esa verificación encuentra |
+| D-73 | Solo sábados y domingos son días no hábiles | Definido por el equipo. Resuelve por ahora P-02 de la arquitectura |
+| D-74 | Una causa penal sin calificación legal no prescribe: `prescription` vale `null` y `POST /cases/{caseId}/prescription` responde `422 PRESCRIPTION_NOT_APPLICABLE`. Los amparos no prescriben | Definido por el equipo |
+| D-75 | `GET /cases` incluye, sin filtro de estado, también las causas en estados terminales; excluye solo las dadas de baja | Es como está implementado |
+| D-76 | El nombre del acto procesal es el del estado que registra; no hay un campo aparte | Confirma D-10 |
+| D-77 | La nota de cada estado procesal ("El plazo no corre de oficio…") es un texto fijo del frontend, no un campo del recurso | Definido por el equipo |
+| D-78 | En el amparo se calcula `harmfulActDeadline`: la fecha vigente del acto lesivo —la cargada o, si se renueva, la última renovación que no supera hoy— más el plazo que carga el usuario. Se muestra en el detalle, en los tableros y en los avisos, solo mientras la causa está en "Iniciada" | Vencido ese plazo ya no se puede presentar el amparo. La renovación la calcula el sistema, sin historial. El primer acto procesal indica que el amparo ya se presentó |
+| D-79 | La casilla de gestión, los días de preaviso, la hora de la corrida y la copia al responsable son configuración del servidor, no de la API | La pantalla para configurarlos no es de este sprint. Valores iniciales: 3 días hábiles, 08:00, con copia |
+| D-80 | `clientDetained` aplica en toda causa penal, sea el cliente defensa o querellante | Definido por el equipo |
+| D-81 | El tratamiento de los abogados ("Dr.", "Dra.") lo pone el frontend | Definido por el equipo |
+| D-82 | En `GET /cases`, el orden por urgencia y el filtro `openDeadline` consideran el vencimiento abierto de la causa, sea del acto procesal o del acto lesivo. Modifica a D-25 | Un amparo con el plazo para presentarse por vencer tiene que verse como urgente en el listado, no solo en los tableros |
+| D-83 | El sistema comparte la carpeta raíz `VZ Causas` con los usuarios vigentes con rol `LAWYER` o `SECRETARY`, como editores, y les quita el acceso al dejar de serlo. Las operaciones de usuarios no fallan si Drive no responde; el proceso diario reconcilia | Compartir la raíz respeta RN11 (todos ven todas las causas). Los perfiles salen de la matriz (HU38). Detalle en ADR-003 |
+| D-84 | El backend opera con una autorización OAuth de la cuenta de Gmail de gestión del estudio, otorgada una vez, con el permiso `drive.file` | Con una cuenta de Gmail común no hay unidades compartidas y una cuenta de servicio no tiene espacio en Drive. Detalle en ADR-003 |
 
 #### Decisiones heredadas de V3
 
-Sin cambios de redacción. Las que esta versión modifica están indicadas en
-D-51 (sobre D-19) y en [§7.6](#76-cuestiones-de-v3).
+Sin cambios de redacción. Las que esta versión modifica: D-10 (confirmada por
+D-76), D-15 (reemplazada por D-69), D-19 (en parte, por D-51), D-21 (por D-70,
+para los estados procesales) y D-25 (por D-82).
 
 | ID | Decisión | Fundamento |
 | --- | --- | --- |
 | D-01 | El alcance es HU 8, 9, 13, 17, 18, 20, 22, 26, 45 y 46, más el ABMC de calificaciones legales | Story Map actualizado del Seguimiento v1.1 (§4.1.2). La tabla del PDF es difícil de leer por la maquetación, así que la asignación se verificó sumando los puntos: esas diez historias suman exactamente los 112 SP declarados para el Sprint 2 |
 | D-02 | V3 es autocontenido y V2 queda sin modificar | Mismo criterio que V2 respecto de V1. `/auth` y `/users` se copian de V2 sin cambios. `PATCH` y `DELETE /lawyers` (HU14 y HU15, sprints 3 y 4) se mantienen porque ya figuraban en V2: quitarlos sería un cambio que nadie pidió |
-| D-03 | La lectura de `/lawyers`, `/procedural-states`, `/legal-qualifications`, `/clients` y `/cases` se abre a cualquier usuario autenticado | RN11; el banner del prototipo ("El perfil determina qué se puede operar, no qué se puede ver"); y los formularios de alta de causa y de acto necesitan esos listados. `/users` sigue en `ADMINISTRATOR` ([C-14](#82-decisiones-a-tomar-y-puntos-a-verificar)) |
+| D-03 | La lectura de `/lawyers`, `/procedural-states`, `/legal-qualifications`, `/clients` y `/cases` se abre a cualquier usuario autenticado | RN11; el banner del prototipo ("El perfil determina qué se puede operar, no qué se puede ver"); y los formularios de alta de causa y de acto necesitan esos listados. `/users` sigue en `ADMINISTRATOR` ([C-14](#82-puntos-abiertos)) |
 | D-04 | **Reemplazada por D-39.** La escritura de estados procesales y calificaciones legales requiere `ADMINISTRATOR` | El prototipo deshabilita esas acciones para los demás perfiles, aunque HU17, HU45 y HU46 digan "Como abogado". Manda el prototipo |
 | D-05 | **Reemplazada por D-39.** El alta de cliente requiere `SECRETARY` | Tabla de [permisos por perfil](#permisos-por-perfil): administrar clientes (HU8 a HU11) es solo de la Secretaría. Reemplaza el criterio del prototipo, que lo restringía al Administrador |
 | D-06 | La baja de un estado procesal procede aunque haya causas en él, y se retira `PROCEDURAL_STATE_HAS_DEPENDENCIES` | Nota del prototipo: las causas "conservan el estado que ya tienen registrado". Lo mismo para la baja de calificaciones legales |
 | D-07 | ~~`PATCH /procedural-states` admite `jurisdiction`, solo si ninguna causa registra el estado~~. **Revertida por D-36** | El prototipo muestra el selector de fuero al modificar. La restricción evita que causas de un fuero apunten a un estado de otro |
 | D-08 | Cambiar el plazo de un estado **no** recalcula vencimientos; cambiar la prescripción de una calificación **sí** recalcula la de sus causas | Las dos notas del prototipo dicen exactamente eso. Por eso el acto copia los valores del plazo y la causa calcula la prescripción en cada lectura |
 | D-09 | **Reemplazada por D-34.** Toda causa nacía **sin estado procesal** (`currentState` en `null`, "Sin acto procesal") y sin plazo abierto; el estado lo fija el primer acto. El alta no es un movimiento del ciclo de vida, y se retira `JURISDICTION_WITHOUT_PROCEDURAL_STATES` | Prototipo actualizado: "El estado lo fija el primer acto procesal" en el resumen del alta, y "Todavía no hay actos procesales" en el detalle. El prototipo lo define como un estado de sistema que no pertenece al ciclo parametrizado de ningún fuero; por eso se modela como ausencia de estado y no como un registro de la tabla. Reemplaza al criterio anterior, que derivaba el estado de posición `1` |
-| D-10 | El acto procesal se registra como estado resultante, fechas y observaciones, sin un "nombre de acto" aparte | El formulario de HU26 solo pide el estado ("El acto procesal es el que mueve la causa: elegí el estado al que la lleva") ([C-10](#82-decisiones-a-tomar-y-puntos-a-verificar)) |
+| D-10 | El acto procesal se registra como estado resultante, fechas y observaciones, sin un "nombre de acto" aparte | El formulario de HU26 solo pide el estado ("El acto procesal es el que mueve la causa: elegí el estado al que la lleva") ([C-10](#82-puntos-abiertos)) |
 | D-11 | El "estado escrito a mano" se modela como `customState`, sin plazo salvo ajuste manual, con su endpoint de valores distintos para el filtro | Es la descripción libre que pide HU22. El prototipo lo muestra en el combo del acto y en el filtro del listado |
 | D-12 | En `ADMINISTRATIVE`, `notificationDate` es obligatoria si el estado abre plazo | RN6. El prototipo no habilita "Registrar acto" sin esa fecha, lo que resuelve el pendiente P-04 de la arquitectura: el acto no existe sin vencimiento calculable |
 | D-13 | **Reemplazada en parte por D-30.** Solo el rol `LAWYER` registra actos procesales, y el acto se aplica a la causa al registrarse, sin confirmación posterior. No existe un estado del acto | Tabla de [permisos por perfil](#permisos-por-perfil). Reemplaza el flujo de "pendiente de confirmación" del prototipo (RN13), que dejaba cargar actos a la Secretaría |
 | D-14 | El estado actual de la causa es el del acto con la fecha de acto más reciente | Permite cargar actos viejos sin retroceder la causa |
-| D-15 | Los estados terminales no pueden ser destino de un acto | El combo del prototipo los excluye ([C-04](#82-decisiones-a-tomar-y-puntos-a-verificar)) |
-| D-16 | El número de SAC tiene exactamente 8 dígitos y es único en todo el sistema. **Modificada por D-33:** es opcional | Validación del prototipo ("El SAC tiene 8 dígitos"). Resuelve provisoriamente el pendiente P-03 ([C-09](#82-decisiones-a-tomar-y-puntos-a-verificar)) |
+| D-15 | **Reemplazada por D-69.** Los estados terminales no pueden ser destino de un acto | El combo del prototipo los excluye ([C-04](#82-puntos-abiertos)) |
+| D-16 | El número de SAC tiene exactamente 8 dígitos y es único en todo el sistema. **Modificada por D-33:** es opcional | Validación del prototipo ("El SAC tiene 8 dígitos"). Resuelve provisoriamente el pendiente P-03 ([C-09](#82-puntos-abiertos)) |
 | D-17 | El DNI viaja sin puntos y es único entre los clientes vigentes | Separa el dato de su presentación. La unicidad entre vigentes permite volver a registrar a un cliente dado de baja cuando exista HU11 |
 | D-18 | `ProceduralRole` es un enumerado cerrado, con valores válidos por fuero | El prototipo lo trata como lista fija por fuero (`ROLES_FUERO`), no como parametría |
 | D-19 | La prescripción se expresa en meses enteros, solo aplica a `CRIMINAL` y se computa **por calificación, desde la fecha del hecho** (`offenseDate`): vence en `prescriptionStartsOn + meses`. `prescriptionStartsOn` vive en cada calificación y en este sprint es igual a `offenseDate` | Prototipo actualizado: cada calificación elegida pide su "Fecha del hecho" y el resumen calcula "8 años desde el …". Se devuelven los dos campos para que los actos interruptivos (HU31, Sprint 3) muevan `prescriptionStartsOn` sin cambiar la estructura. Reemplaza al criterio anterior, que computaba desde `startDate` |
@@ -7410,12 +7284,12 @@ D-51 (sobre D-19) y en [§7.6](#76-cuestiones-de-v3).
 | D-30 | Solo el **abogado responsable de la causa** registra actos procesales y usa `deadline-preview`. Se compara el `lawyerId` del usuario con `responsibleLawyer.id`; un usuario sin ficha de abogado no registra actos. El acto se sigue aplicando sin confirmación | Decisión del equipo (05/10/2026). Ningún otro abogado ni el `ADMINISTRATOR` opera los actos de una causa ajena |
 | D-31 | Los estados procesales no tienen posición ni orden: se registran y se listan en el orden en que llegan | Decisión del equipo (05/10/2026) |
 | D-32 | `activeCases` de estados procesales y calificaciones legales se devuelve solo en las respuestas de `GET` | Decisión del equipo (05/10/2026): es un dato calculado de consulta, no parte de lo que se registra. Se aplicó también a `PATCH`, que tampoco es una consulta |
-| D-33 | `sacNumber`, `legalQualifications` (en `CRIMINAL`), `instructorName` e `instructorExtension` son opcionales. El interno del instructor se separa del teléfono en `instructorExtension` | Decisión del equipo (05/10/2026). RN2 queda condicionada: el SAC identifica la causa cuando se conoce ([C-20](#82-decisiones-a-tomar-y-puntos-a-verificar)) |
+| D-33 | `sacNumber`, `legalQualifications` (en `CRIMINAL`), `instructorName` e `instructorExtension` son opcionales. El interno del instructor se separa del teléfono en `instructorExtension` | Decisión del equipo (05/10/2026). RN2 queda condicionada: el SAC identifica la causa cuando se conoce ([C-20](#82-puntos-abiertos)) |
 | D-34 | Toda causa nace en el **estado inicial "Iniciada"**, un estado de sistema por fuero: no forma parte de `/procedural-states`, no se modifica ni se da de baja, no es destino de un acto y no se muestra en la línea de tiempo. `currentState` deja de ser anulable y suma `initial` | Decisión del equipo (05/10/2026). Reemplaza a D-09. El nombre es neutral para los tres fueros y describe un estado, no una ausencia |
 | D-35 | Se retira `nextDeadline`: el vencimiento es parte del estado actual y viaja en `currentState` | Decisión del equipo (05/10/2026): el vencimiento lo abre el acto que llevó la causa a su estado actual |
 | D-36 | El fuero de un estado procesal no es modificable: `PATCH /procedural-states/{stateId}` rechaza `jurisdiction` con `400 VALIDATION_ERROR`, y se retira `PROCEDURAL_STATE_IN_USE`. Revierte D-07 | Decisión del equipo. Un estado figura en la historia de las causas aunque ninguna esté hoy en él, así que el traslado casi nunca procedía y la pantalla no podía anticiparlo. Para trasladarlo: baja y alta en el otro fuero, como en V2 |
 | D-37 | Los códigos de `ProceduralRole` van en castellano: `DEFENSA`, `QUERELLANTE_PARTICULAR`, `RECURRENTE`, `ACTORA` y `DEMANDADA`. Reemplazan a `DEFENSE`, `PRIVATE_PROSECUTOR`, `APPELLANT`, `PLAINTIFF` y `DEFENDANT` | Decisión del equipo (09/10/2026): son los valores que ya usan el backend y la base de datos |
-| D-38 | `startDate` de la causa es anulable: vale `null` mientras la causa no tiene SAC. La regla de entrada no cambia (con SAC es obligatoria, sin SAC no se informa); cambia lo que se guarda | Decisión del equipo (10/10/2026). La fecha de inicio es la de la causa en sede judicial y sin SAC no existe; como la columna era `NOT NULL`, se guardaba la fecha del día, un dato inventado que el detalle de la causa mostraba como real. Ver [C-20](#82-decisiones-a-tomar-y-puntos-a-verificar) |
+| D-38 | `startDate` de la causa es anulable: vale `null` mientras la causa no tiene SAC. La regla de entrada no cambia (con SAC es obligatoria, sin SAC no se informa); cambia lo que se guarda | Decisión del equipo (10/10/2026). La fecha de inicio es la de la causa en sede judicial y sin SAC no existe; como la columna era `NOT NULL`, se guardaba la fecha del día, un dato inventado que el detalle de la causa mostraba como real. Ver [C-20](#82-puntos-abiertos) |
 | D-39 | El alta de cliente y la escritura de estados procesales y de calificaciones legales se abren a cualquier usuario autenticado. Reemplaza a D-04 y D-05 | Matriz de [permisos por perfil](#permisos-por-perfil) del 11/10/2026, acordada por el equipo: administrar clientes, estados procesales y calificaciones legales corresponde a los tres perfiles |
 | D-40 | `POST /auth/login` bloquea una cuenta al quinto fallo consecutivo contra el mismo usuario, con espera creciente (90 s, 5, 15, 30 y 60 min). Cuenta igual contra un usuario que no existe, para no revelar qué cuentas son reales | Cierra Q-03 de `IMPLEMENTACION_AUTH.md`. El umbral y la escalera son configuración del servidor, no parte del contrato: lo único contractual es el código `TOO_MANY_LOGIN_ATTEMPTS` y que la respuesta trae `Retry-After` |
 | D-41 | Toda la API acepta un límite de pedidos por dirección IP (`429 TOO_MANY_REQUESTS`); `/auth/login` y `/auth/refresh` tienen además un límite propio, más estricto | Cierra Q-03. Es independiente del bloqueo de D-40: ese cuenta fallos contra una cuenta, este cuenta volumen desde una dirección, sin mirar a qué apunta |
@@ -7423,139 +7297,95 @@ D-51 (sobre D-19) y en [§7.6](#76-cuestiones-de-v3).
 | D-43 | El `accessToken` deja de aceptarse desde la próxima petición cuando el usuario cierra sesión, es dado de baja, cambia su contraseña (en las demás sesiones) o pasa 30 minutos sin renovar la suya. Antes, en los cuatro casos, seguía válido hasta vencer (máx. 15 min) | El servidor pasó a verificar la sesión contra la base en cada pedido en lugar de confiar solo en la firma del token. Ningún endpoint cambia de forma; cambia cuándo un `401 UNAUTHENTICATED` deja de ser "hay que renovar" para ser "hay que iniciar sesión de nuevo" |
 | D-44 | `PATCH /auth/password` rechaza una `newPassword` igual a `currentPassword` con `400 SAME_PASSWORD` | Pedido del equipo (CA-3.5 del seguimiento de HU1-3). Antes solo lo validaba el frontend; un cliente que hablara directo con la API podía dejar la contraseña sin cambios |
 
-### 8.2 Decisiones a tomar y puntos a verificar
+### 8.2 Puntos abiertos
 
-#### Decisiones que condicionan el Sprint 3
-
-Conviene resolverlas **antes de empezar a implementar** las historias que
-dependen de ellas. Para cada una se indica qué asume hoy el contrato, así el
-equipo puede avanzar si la decisión se demora.
-
-| ID | Decisión a tomar | Qué asume hoy el contrato | Con quién |
+| ID | Punto | Qué asume hoy el contrato | Con quién |
 | --- | --- | --- | --- |
-| C-23 | **HU33: ¿la causa pasa a "Prescripta" sola o la marca una persona?** La historia y la Definición del Producto ("el proceso automático … actualiza sus estados") dicen automático. El prototipo dice manual, con la resolución que la declara. No es un detalle: una causa cerrada por error sale de los tableros, deja de admitir actos y **no tiene reversión**; y alcanza con que falte cargar un acto interruptivo para que el sistema la dé por prescripta. Además, HU33 no tiene criterios de aceptación en Jira | Manual (D-52). El proceso diario avisa y deja `prescription.expired` en `true`, pero no toca el estado. Si se decide que sea automático, hay que definir además cómo se revierte | PO / cliente |
-| C-24 | **Calendario de días inhábiles** (P-02 de la arquitectura, C-05 de V3). CA-41.5 exige excluir "los días inhábiles del calendario judicial"; el calendario del tablero los sombrea; el preaviso de HU30 se mide en días hábiles; y el prototipo dice que "se cargan en Administración → Estados y plazos", donde ya no hay pantalla. Sin esto, cada semana con feriado da vencimientos y preavisos corridos un día. Hay que decidir si se carga a mano (y entonces falta una historia y una pantalla), si se toma de una fuente externa o si queda fuera del producto | Solo se excluyen sábados y domingos, como en V3. No hay endpoints de días inhábiles (D-70) | Cliente / PO |
-| C-25 | **Cómo se garantiza que el proceso diario corra** (R-01 de la arquitectura: "riesgo abierto sin resolver", severidad alta). El backend se despliega en la capa gratuita de Render, que suspende el proceso por inactividad: un temporizador interno no corre si el proceso está dormido, y ese día no sale el aviso. HU30 y HU32 son el motivo de ser del sistema. De la respuesta depende también si `sendTime` puede ser una hora cualquiera o solo algunas, y qué pasa con los avisos de un día en que el proceso no corrió | `sendTime` acepta cualquier hora y minuto. No se define recuperación de avisos perdidos | Equipo |
-| C-26 | **Dónde vive el panel "Aviso por correo" y quién puede cambiarlo.** En el prototipo del 13/10/2026 el panel está en la pantalla "Vencimientos", que **no tiene entrada en el menú**: quedó de la versión anterior y hoy no se puede llegar a ella. Hay que decidir en qué pantalla va. Y conviene decidir si cambiar la casilla del estudio o pausar todos los avisos no debería ser solo del Administrador | `ADMINISTRATOR` o `LAWYER` leen y modifican (D-67). El contrato no depende de en qué pantalla esté el panel | Equipo / PO |
+| C-23 | **Correos que no son de Google.** Si el correo de un abogado o de la secretaría no corresponde a una cuenta de Google, Drive no le puede dar acceso a la carpeta del estudio. ¿Se exige una cuenta de Google al registrar el usuario, o alcanza con avisarlo? | El acceso queda pendiente y el proceso diario lo reintenta; la API no lo muestra | Equipo |
+| C-13 | **Otros datos del abogado.** Viene de V3 | El recurso abogado solo cambia en el nombre (D-68) | Cliente |
+| C-20 | **SAC opcional y RN2.** Con el SAC opcional, nada impide registrar dos veces la misma causa sin SAC. Viene de V3 | Sin cambios | Cliente / PO |
 
-#### Puntos a verificar de V4
+Los demás puntos de V3 (C-01 a C-22) están resueltos, ya sea por las decisiones
+de esta versión o porque no corresponden a este sprint.
 
-Se pueden resolver durante el sprint. Ninguno impide empezar.
+### 8.3 Visto en el prototipo y fuera de este contrato
 
-| ID | Punto | Con quién |
-| --- | --- | --- |
-| C-27 | **Contenido y frecuencia del aviso de vencimiento.** El contrato asume un correo por día con todos los avisos (D-68), un preaviso y un aviso el día del vencimiento, y nada para los plazos ya vencidos. Confirmar si un plazo vencido y sin presentar debe seguir avisándose. La copia al responsable va al correo de su usuario vinculado; un abogado sin usuario no la recibe | PO / cliente |
-| C-28 | **Alerta de prescripción.** Confirmar el 70 % fijo, que se avise una sola vez al alcanzarlo, y si hace falta un segundo aviso cuando el plazo se cumple. Hoy HU32 no tiene criterios de aceptación en Jira | Cliente |
-| C-29 | **Alcance del acto interruptivo.** El contrato asume que reinicia la prescripción de todas las calificaciones de la causa (D-49). El Código Penal dice que la prescripción "corre, se suspende o se interrumpe separadamente para cada delito"; si el estudio necesita esa precisión, el formulario debería pedir a qué calificaciones alcanza. Confirmar también si los actos interruptivos son texto libre o un catálogo | Cliente |
-| C-30 | **Inconsistencias del prototipo en modelos formales.** (a) El modal de alta no pide el tipo, que la lista muestra (D-56). (b) El alta permite varios fueros, pero el modal de modificación tiene un solo fuero: definirlo antes de HU36. (c) El prototipo lista los modelos dados de baja y ofrece "Reactivar", lo que contradice a CA-35.7 y a la regla de bajas de la sección 4: definirlo antes de HU37 | Equipo |
-| C-31 | **La Secretaría y los modelos en el alta de causa.** El formulario muestra "6 modelos parametrizados para el fuero Penal" a todos los perfiles, pero la Secretaría no puede leer `/document-templates` (CA-35.8). Con el contrato actual, a ella se le muestra la casilla sin el número, y lo ve después del alta en `folder.templatesCopied` | Equipo / PO |
-| C-32 | **Google Drive.** Con qué cuenta o unidad compartida se crean las carpetas, quién queda con acceso a ellas y si `folder.url` debe verlo el Administrador, que según la matriz no consulta documentos de causa (HU38). Confirmar el nombre de la carpeta de una causa sin SAC (D-63) y qué pasa con la carpeta cuando después se carga el SAC (HU19) | Cliente / equipo |
-| C-33 | **Adjunto de la cédula.** V3 lo ubicó en HU39 y Sprint 3, pero no tiene historia ni criterios de aceptación propios. Confirmar que entra en este sprint; si no, el endpoint y el campo `attachment` pueden pasar al Sprint 4 junto con HU38 sin afectar al resto | PO |
-| C-34 | **CA-41.7 contra el prototipo.** El criterio pide que el abogado pueda cambiar el tablero a "todo el estudio"; el prototipo nuevo no lo ofrece (D-66). Corregir el criterio o el prototipo. CA-41.10 y la lista "fuera de alcance" de HU41 también quedaron de la planificación anterior: excluyen las alertas de prescripción, que el prototipo muestra en el tablero | PO |
-| C-35 | **Encabezado: "2 vencimientos hoy" y campana de notificaciones.** En el prototipo son texto fijo y un botón sin comportamiento. El número puede salir de `summary.dueToday` del tablero, pero la Secretaría no tiene tablero. Definir si la campana abre algo (un historial de avisos necesitaría su propio endpoint) | Equipo / PO |
-| C-36 | **Jira.** El texto "Sprint previsto" de HU30, HU32, HU33, HU39, HU41 y HU42 no coincide con el sprint asignado. Y HU30, HU31, HU32, HU33, HU39, HU40 y HU42 no tienen criterios de aceptación: solo HU34, HU35 y HU41 los tienen. La *Definition of Ready* del equipo los pide antes de tomar una historia | Equipo |
-| C-37 | **Causas en estado terminal y el listado.** Con HU33 van a existir causas en "Prescripta". V3 no dice si `GET /cases` las incluye cuando no se filtra por estado, y el pie del listado habla de "causas activas". Definirlo junto con HU21 (baja de causa) | Equipo |
-| C-38 | **Nombre de modelo repetido.** El contrato no exige que el nombre de un modelo sea único; dos modelos con el mismo nombre de archivo se copiarían a la misma carpeta | Equipo |
-| C-39 | **Columna "Causas" de los estados terminales.** La tabla "Estados y plazos" del prototipo muestra 61 causas en "Archivada" y 2 en "Prescripta", pero `activeCases` cuenta causas activas y una causa en un estado terminal no lo es: va a valer siempre `0`. Viene de V3, y HU33 lo vuelve visible | Equipo |
-| C-40 | **Estados del *seed* contra los del prototipo.** Las tablas de estados que carga el backend no son las del prototipo (por ejemplo, "Sentencia definitiva" como terminal del fuero penal, y ningún "Prescripta" ni "Archivada" en ese fuero). Hay que sumar "Prescripta" (D-53) y conviene alinear el resto con el estudio | Backend / cliente |
+Estos elementos del prototipo **no tienen endpoint ni campo** en esta versión:
 
-#### Puntos heredados de V3
+- En el detalle de causa: la lista de documentos de la carpeta, "Modificar
+  causa", "Dar de baja", "Emitir carátula", "Emitir expediente", "Registrar pago
+  de tasa" y "Modificar" o "Anular" un acto.
+- En "Registrar acto procesal": "Adjuntar cédula o comprobante".
+- En modelos: "Modificar", "Dar de baja" y "Reactivar".
+- En clientes: "Modificar" y "Eliminar". Los reportes.
+- En el encabezado: la campana de notificaciones, el panel de avisos y el aviso
+  "2 vencimientos hoy".
+- La pantalla "Vencimientos", que no tiene entrada en el menú: sus datos están
+  en los tableros.
+- "Olvidé mi contraseña".
 
-Sin cambios de redacción, salvo las notas marcadas "V4". Los que ya estaban
-resueltos se conservan para no romper las citas.
-
-| ID | Punto | Con quién |
-| --- | --- | --- |
-| C-01 | ~~Alta de cliente solo para `ADMINISTRATOR`~~. **Resuelto** con la tabla de [permisos por perfil](#permisos-por-perfil): el alta de cliente pasó a `SECRETARY` (D-05) y, desde el 11/10/2026, a cualquier usuario autenticado, igual que la calificación legal (D-39) | - |
-| C-02 | **Apellido y nombre separados** (observación de la Sprint Review del Sprint 1). El prototipo lo aplica en el listado y en la modificación de usuarios, pero no en el alta de usuario ni en abogados, que siguen con "Nombre y apellido". Este contrato solo lo aplica al cliente, que es nuevo; cambiar `/users` y `/lawyers` rompe el contrato del Sprint 1 y queda fuera del alcance. Conviene decidirlo antes de HU14 (Modificar Abogado, Sprint 4) | Equipo / PO |
-| C-03 | ~~Confirmación de actos pendientes~~. **Resuelto:** solo el abogado registra actos y el acto se aplica al registrarse; no hay actos pendientes ni flujo de confirmación (D-13) | - |
-| C-04 | **¿Cómo llega una causa a "Archivada"?** Los estados terminales no pueden ser destino de un acto, y ninguna historia del Sprint 2 archiva una causa. **V4:** a "Prescripta" se llega con `POST /cases/{caseId}/prescription` (D-52); para "Archivada" sigue sin haber historia | PO |
-| C-05 | **Feriados y feria judicial** (P-02). El cómputo solo excluye sábados y domingos. El prototipo remite a "Administración → Estados y plazos" para cargarlos y trae datos de ejemplo (`FERIADOS`), pero no hay pantalla ni historia. **V4:** pasa a condicionar el sprint, ver C-24. También conviene confirmar qué pasa cuando un plazo en días corridos vence en un día inhábil | Cliente |
-| C-06 | ~~Inicio del cómputo de la prescripción~~. **Resuelto** en lo principal: el prototipo incorporó la "fecha del hecho" por calificación y la prescripción corre desde ahí (D-19, D-28). **Sigue abierto** confirmar que no aplica a amparos, aunque el Plan de Proyecto hable de "prescripción de causa o amparo" | Cliente |
-| C-07 | **Nota por estado procesal.** La tabla de "Estados y plazos" muestra notas como "El plazo no corre de oficio (RN6): arranca desde la notificación" o "Requiere agotada la vía administrativa", pero los formularios no permiten cargarlas. No se agregó el campo: definir si es texto editable (y va al recurso) o fijo del frontend | Equipo |
-| C-08 | **Esquema de base de datos actual.** `ProceduralState.name` es `@unique` global en `schema.prisma`, pero el contrato (desde V2) y los datos del prototipo exigen unicidad **por fuero**: "Archivada" existe en los tres. Además `dayType` es anulable en el esquema y no en el contrato | Backend |
-| C-09 | **Formato del SAC** (P-03). Se tomaron los 8 dígitos del prototipo; falta la confirmación del cliente | Cliente |
-| C-10 | **Nombre del acto distinto del estado.** La línea de tiempo del prototipo muestra actos cuyo nombre no coincide con el estado al que llevan ("Cédula de notificación" → "Oposición al requerimiento de elevación"; "Clausura del sumario" → "Alegato"), pero el formulario de HU26 no pide ese nombre. Si HU23 o HU27 lo necesitan, conviene agregarlo ahora para no migrar actos ya cargados. **V4:** sigue abierto; HU27 entra en este sprint y la línea de tiempo del prototipo sigue mostrando "Por el acto: …" | Equipo / PO |
-| C-11 | **`clientSince` automático.** Para los clientes que ya tiene el estudio, la fecha de alta en el sistema no es la fecha real en que empezaron a ser clientes. Evaluar si debe poder cargarse | PO |
-| C-12 | **Validaciones de fechas** adoptadas sin fuente explícita: `startDate`, `offenseDate` y `actDate` no pueden ser futuras; no se exige que `offenseDate` sea anterior a `startDate`; `notificationDate` va entre la fecha del acto y hoy; el vencimiento manual no puede ser anterior a la fecha desde la que corre el plazo | Equipo |
-| C-13 | **Otros datos del abogado.** La Sprint Review dejó pendiente consultar al cliente qué otros datos registrar. El recurso abogado no cambia en esta versión | Cliente |
-| C-14 | **Lectura de `/users` para no administradores.** El prototipo muestra la sección en modo consulta a todos los perfiles, pero se mantuvo `ADMINISTRATOR` porque no es parte del sprint y expone correos y últimos accesos | PO |
-| C-15 | **Datos de suscripción del cliente.** Los datos de ejemplo del prototipo traen "fuerza" (Policía de la Provincia, Servicio Penitenciario, FPA, ETAC) y "suscripción", coherentes con la línea de negocio del Estudio Inicial, pero no aparecen en el formulario ni en la tabla. No se incluyeron | PO / cliente |
-| C-16 | **Pago de tasa.** El detalle de causa tiene "Registrar pago de tasa", RN10 lo exige y el Plan de Proyecto lo lista como requerimiento, pero no hay historia de usuario en el backlog | PO |
-| C-17 | **Baja de abogado con reasignación.** El prototipo propone "Eliminar y reasignar", eligiendo a quién pasan las causas; V2 rechaza la baja con `409`. Revisar al planificar HU15 (Sprint 5), junto con el pendiente P-05 | Equipo |
-| C-18 | **V4: resuelto** en el prototipo del 13/10/2026, que corrigió los dos textos. ~~Textos del prototipo que quedaron de la versión anterior.~~ El subtítulo de "Registrar causa" todavía dice "el sistema deriva el estado procesal inicial del fuero", y el pie de "Registrar acto" todavía muestra a la Secretaría la nota de RN13 ("el estado queda pendiente de confirmación"). Contradicen al resumen del alta y a D-13; conviene corregirlos en el prototipo para que no se copien a la pantalla | Equipo |
-| C-19 | **Primer estado de la causa.** El primer acto puede llevar la causa a cualquier estado no terminal del fuero, o a uno escrito a mano: el combo del prototipo no restringe. Confirmar que no debe limitarse a un estado en particular | PO |
-| C-20 | **SAC opcional y RN2.** RN2 dice que el SAC identifica la causa. Con el SAC opcional, nada impide registrar dos veces la misma causa sin SAC. Reformular RN2 con el cliente y decidir si el SAC podrá cargarse después (HU19) | Cliente / PO |
-| C-21 | **Abogado responsable dado de baja.** Con D-30, si el responsable se da de baja nadie puede registrar actos en sus causas, ni siquiera el `ADMINISTRATOR`, hasta que se reasignen (P-05, HU15) | Equipo / PO |
-| C-22 | **Causa penal sin calificación legal.** No computa prescripción, así que las alertas de prescripción (HU32, Sprint 3) no la alcanzan. **V4:** su `prescription` vale `null`. Evaluar si el tablero debe marcarla | PO |
-
-### 8.3 Visto en el prototipo y fuera de alcance
-
-Elementos que aparecen en las pantallas del Sprint 3 pero corresponden a otras
-historias o no tienen ninguna. No tienen endpoint ni campo en esta versión.
-
-| Elemento del prototipo | Pantalla | HU | Sprint |
-| --- | --- | --- | --- |
-| Lista de documentos de la carpeta ("Sincronizado con Drive", "Abrir") | Detalle de causa → Documentación | 38 | 4 |
-| "Modificar causa" y "Dar de baja" | Detalle de causa | 19, 21 | 4 |
-| "Emitir carátula" y "Emitir expediente" | Detalle de causa | 24, 25 | 4 |
-| "Modificar" y "Anular" un acto | Detalle de causa → Ciclo de vida | 28, 29 | 4, 5 |
-| "Por el acto: …": nombre del acto distinto del estado | Detalle de causa → Ciclo de vida | Sin HU ([C-10](#82-decisiones-a-tomar-y-puntos-a-verificar)) | - |
-| "Registrar pago de tasa" | Detalle de causa | Sin HU ([C-16](#82-decisiones-a-tomar-y-puntos-a-verificar)) | - |
-| "Las causas dadas de baja se consultan con el filtro de estado" | Causas | 21 | 4 |
-| "Modificar", "Dar de baja" y "Reactivar" un modelo | Modelos | 36, 37 | 5 |
-| "Modificar" y "Eliminar" cliente | Clientes | 10, 11 | 5 |
-| Reportes | Reportes | 43, 44 | 5 |
-| Días no hábiles sombreados en el calendario, y su carga | Inicio, Estados y plazos | Sin HU ([C-24](#82-decisiones-a-tomar-y-puntos-a-verificar)) | - |
-| "2 vencimientos hoy" y campana de notificaciones | Encabezado | Sin definir ([C-35](#82-decisiones-a-tomar-y-puntos-a-verificar)) | - |
-| Pantalla "Vencimientos", con su cambio "Mis causas" / "Todo el estudio" | Sin entrada en el menú | Sus datos están en los tableros ([C-26](#82-decisiones-a-tomar-y-puntos-a-verificar)) | - |
-| "Olvidé mi contraseña" | Login | Sin HU | - |
-
-Siguen en el contrato, aunque sus historias son de sprints posteriores, los
-endpoints que ya figuraban en V3: `PATCH` y `DELETE /lawyers/{lawyerId}` (HU14,
-Sprint 4; HU15, Sprint 5) y `PATCH` y `DELETE /legal-qualifications/{qualificationId}`
-(HU49 y HU50, Sprint 5). Quitarlos sería un cambio que nadie pidió (D-02).
+Siguen en el contrato, porque ya figuraban en V3, `PATCH` y
+`DELETE /lawyers/{lawyerId}` y `PATCH` y
+`DELETE /legal-qualifications/{qualificationId}` (D-02).
 
 ### 8.4 Impacto sobre lo ya implementado
 
-**Lo que no cambia.** Ningún endpoint implementado cambia de ruta, de cuerpo
-obligatorio ni de forma de respuesta. Un cliente escrito contra V3 sigue
-funcionando.
+**Lo que rompe.** Dos cambios obligan a tocar lo que ya funciona, en backend y
+frontend a la vez:
+
+- **Nombre y apellido separados** (D-68). `/auth/login`, `/users` y `/lawyers`
+  pasan de `fullName` a `lastName` y `firstName`, en las respuestas, en los
+  cuerpos y en los filtros de búsqueda; también el `lawyer` del usuario y todo
+  `responsibleLawyer` y `registeredBy`. En la base hay que migrar los nombres
+  existentes, que hoy están en un solo campo y, en los abogados, con el
+  tratamiento adelante.
+- **`caseCount` en los estados procesales** (D-70). Cambia el nombre del campo y
+  el conteo: deja de filtrar por causa activa.
 
 **Backend**
 
-- **Subsistemas nuevos.** Los que la arquitectura ya tenía previstos y todavía
-  no existen: `deadlines` (configuración de avisos, proceso diario, envío de
-  correo), `documents` (modelos formales, carpeta de la causa, adjuntos) y
-  `reporting` (tableros). Los actos interruptivos y la marca de prescripción
-  van en `cases`.
-- **Esquema.** Tablas nuevas para actos interruptivos, modelos formales con
-  sus fueros, carpeta de la causa, configuración de avisos y registro de avisos
-  enviados. Columnas nuevas para el adjunto del acto procesal y para la
-  constancia de prescripción de la causa. Es la tarea VZ-149.
-- **Estado "Prescripta".** Cargarlo en el fuero `CRIMINAL` como estado de
-  sistema, protegerlo en `PATCH` y `DELETE /procedural-states` y sumarlo al
-  *seed* (D-53, C-40).
-- **Cálculo de la prescripción.** `prescriptionStartsOn` deja de ser siempre
-  `offenseDate`: hay que tomar el acto interruptivo más reciente. El cálculo
-  nuevo de `prescription` lo usan la causa, los tableros y el proceso diario:
-  conviene que viva en un solo lugar.
-- **`POST /cases`.** Con `createFolder` en `true` por defecto, las pruebas de
-  integración existentes pasan a pedir la carpeta: necesitan un adaptador falso
-  de almacenamiento. El caso de uso no debe fallar si el adaptador falla (D-62).
-- **Integraciones.** Credenciales de Google Drive, servicio de correo y el
-  mecanismo que dispara el proceso diario (C-25, C-32).
+- **Subsistemas nuevos.** Los que la arquitectura ya tenía previstos:
+  `deadlines` (verificación diaria y envío de correo), `documents` (modelos
+  formales, carpeta de la causa y acceso a Drive, según ADR-003) y `reporting`
+  (tableros). Los actos interruptivos y la marca de prescripción van en `cases`.
+- **Esquema.** Tablas nuevas para actos interruptivos, modelos formales con sus
+  fueros, carpetas de Drive, carpeta de la causa, copias de modelos y registro de
+  avisos enviados. Columnas nuevas en la causa para los datos de D-67 y la
+  constancia de prescripción.
+- **Estado "Prescripta".** Crearlo como estado de sistema del fuero `CRIMINAL`
+  y protegerlo en `PATCH` y `DELETE /procedural-states` (D-53).
+- **Actos procesales.** Aceptar estados terminales como destino, salvo
+  "Prescripta" (D-69).
+- **Cálculos en un solo lugar.** La prescripción (con el acto interruptivo más
+  reciente), el vencimiento del acto lesivo y los días hábiles los usan la
+  causa, los tableros, el proceso diario y el orden y el filtro de `GET /cases`
+  (D-51, D-78, D-82).
+- **`POST /cases`.** Valida los datos por fuero. Con `createFolder` en `true` por
+  defecto, las pruebas de integración existentes pasan a pedir la carpeta:
+  necesitan un adaptador falso de almacenamiento. El caso de uso no debe fallar
+  si el adaptador falla (D-60).
+- **Usuarios.** El alta, la modificación y la baja de usuarios llaman a
+  `documents` para dar o quitar el acceso a Drive, sin fallar si no responde
+  (D-83).
+- **Integraciones y configuración.** La autorización OAuth de la cuenta de
+  gestión y los identificadores de Drive (ADR-003), el servicio de correo, la
+  configuración de los avisos (D-79) y el mecanismo que dispara el proceso
+  diario.
 - **Autorización.** Guards nuevos de "uno de dos roles" y de lectura
-  restringida. Los actos interruptivos y el adjunto reutilizan la comprobación
-  de abogado responsable de los actos procesales.
+  restringida. Los actos interruptivos reutilizan la comprobación de abogado
+  responsable de los actos procesales.
 
 **Frontend**
 
 - **Tipos y *mocks*.** `frontend/src/shared/api/contract.ts` y los *mocks* de
-  `shared/mocks` suman los campos nuevos de la causa y del acto, y los recursos
-  nuevos.
-- **Barra de prescripción.** Pasa a leer `prescription`; deja de elegir la
-  calificación y de calcular el porcentaje.
+  `shared/mocks` suman los campos y recursos nuevos, y cambian `fullName` y el
+  `activeCases` de los estados.
+- **Formularios.** El alta de causa suma los datos por fuero y la tasa, que no
+  están en el prototipo. El alta y la modificación de usuarios y abogados
+  separan nombre y apellido. El combo de "Registrar acto procesal" ofrece los
+  estados terminales, salvo "Prescripta". El alta de modelo no pide tipo.
+- **Barra de prescripción.** Lee `prescription`; deja de elegir la calificación
+  y de calcular el porcentaje.
 - **Archivos.** Son la primera subida `multipart/form-data` y la primera
   descarga binaria del proyecto: hay que revisar el cliente HTTP compartido,
   pensado hasta ahora para JSON.
@@ -7565,93 +7395,44 @@ funcionando.
 **Documentación**
 
 - **Glosario.** `TRADUCCION_DOMINIO.md` ya tiene `InterruptiveAct`,
-  `DocumentTemplate` y `Prescription`. Faltan `DocumentTemplateType`,
-  `CaseFolder`, `CaseFolderStatus`, `NotificationSettings`, `Dashboard` y los
-  campos `prescriptionDeclaration`, `elapsedPercentage`, `attachment`,
-  `mailbox`, `advanceBusinessDays`, `sendTime`, `copyToNewCases`,
-  `casesToAdvance` y `usageCount`.
+  `DocumentTemplate` y `Prescription`. Faltan `CaseFolder`, `CaseFolderStatus`,
+  `DeadlineKind`, `Dashboard` y los campos nuevos: `clientDetained`,
+  `injunctionGranted`, `harmfulActDate`, `harmfulActRenews`,
+  `harmfulActRenewalDays`, `harmfulActTermDays`, `harmfulActTermDayType`,
+  `harmfulActDeadline`, `administrativeRemedyExhaustedOn`, `courtFeePaid`,
+  `caseCount`, `prescriptionDeclaration`, `elapsedPercentage`,
+  `copyToNewCases`, `casesToAdvance` y `usageCount`.
 - **Referencias a V3.** El glosario, el `README`, la documentación de frontend
-  y el código citan `API_CONTRACT_V3.md` como contrato vigente. Cuando el
-  equipo apruebe V4 hay que apuntarlos a este documento.
-- **OpenAPI.** `docs/openapi` describe V3. No se actualizó en esta tarea.
-- **Jira.** Los criterios de aceptación que faltan (C-36).
+  y el código citan `API_CONTRACT_V3.md` como contrato vigente: hay que
+  apuntarlos a este documento.
+- **OpenAPI.** `docs/openapi` describe V3 y tiene que actualizarse.
+- **Arquitectura de backend.** §6.3 suma el puerto `StudioFolderAccessPort`
+  (`identity` → `documents`) y §7.6 reemplaza `GOOGLE_DRIVE_CREDENTIALS` por las
+  variables de ADR-003.
 
 ---
 
-## 9. Resumen de lo que se hizo y por qué
+## 9. Resumen por historia
 
-### 9.1 Qué se hizo
+| HU | Qué entra al contrato |
+| --- | --- |
+| 27 | Sin endpoints nuevos: los de V3. La línea de tiempo se completa con los actos interruptivos |
+| 30 | Avisos de vencimiento por correo, del proceso diario |
+| 31 | Alta y consulta de actos interruptivos, y su efecto sobre la prescripción |
+| 32 | Avisos de prescripción por correo, y las alertas en los tableros |
+| 33 | `POST /cases/{caseId}/prescription` y "Prescripta" como estado de sistema |
+| 34 | `POST /document-templates`, con archivo y nombre único |
+| 35 | Listado, consulta y descarga de modelos formales |
+| 39 | Carpeta de la causa en el alta, `POST /cases/{caseId}/folder` y acceso de los usuarios a la carpeta del estudio |
+| 40 | Copia de los modelos del fuero a la carpeta de la causa |
+| 41 | `GET /dashboards/lawyer` |
+| 42 | `GET /dashboards/administrator` |
+| 51 | Verificación diaria de los plazos de presentación y del acto lesivo |
+| 52 | Verificación diaria de la prescripción, y `prescription` en la causa |
 
-Se redactó el contrato de la API para el Sprint 3 como un documento nuevo,
-`API_CONTRACT_V4.md`, que contiene completo a V3 y le suma lo del sprint. V3 no
-se tocó.
+Además: datos nuevos en la causa (D-67, D-78), nombre y apellido separados
+(D-68), estados terminales como destino de un acto (D-69) y `caseCount` (D-70).
 
-| Paso | Qué se miró | Para qué |
-| --- | --- | --- |
-| 1 | Jira: el sprint "VZ Sprint 3" y el detalle de sus once historias | Fijar el alcance. Solo HU34, HU35 y HU41 tienen criterios de aceptación |
-| 2 | Seguimiento de Proyecto v1.2, Plan de Proyecto v1.3, Estudio Inicial v1.3 y Definición del Producto V2 | Confirmar el alcance con el Story Map, y tomar las reglas de negocio, los requerimientos no funcionales de correo y de Drive, y la matriz de permisos |
-| 3 | El prototipo del 13/10/2026, pantalla por pantalla y también su lógica | Es la fuente de verdad: de ahí salen los campos de cada formulario, los textos, las reglas y qué perfil ve cada cosa |
-| 4 | `API_CONTRACT_V3.md` completo | Mantener su estructura, su estilo y sus convenciones, y cumplir lo que había dejado anunciado para el Sprint 3 |
-| 5 | La arquitectura de backend, el glosario y el código | Usar los nombres ya acordados, respetar los riesgos ya analizados (R-01, R-03) y no romper lo implementado |
-
-### 9.2 Qué se contrató por historia, y por qué así
-
-| HU | Qué entra al contrato | Por qué de esta forma |
-| --- | --- | --- |
-| 27 | Nada nuevo: sus endpoints ya estaban en V3 | Se adelantó. La línea de tiempo se completa con los actos interruptivos |
-| 30 | Configuración de avisos (ver, modificar, pausar, probar) y la descripción del proceso diario | El envío no lo pide nadie desde la pantalla: lo único que la API puede exponer es su configuración |
-| 31 | Alta y consulta de actos interruptivos, y su efecto sobre la prescripción | Recurso aparte del acto procesal, porque no mueve la causa ni abre plazos |
-| 32 | `prescription` en la causa, con la alerta al 70 %, y las alertas en los tableros | Un solo cálculo, en el backend, que sirve al correo, a los tableros y al detalle |
-| 33 | Marcar la causa como prescripta, y "Prescripta" como estado de sistema | Se siguió al prototipo, que lo resuelve a mano. Es la decisión a revisar primero |
-| 34 | Alta de modelo formal con su archivo | Subida de archivo, atómica, como piden sus criterios de aceptación |
-| 35 | Listado, consulta y descarga de modelos | Paginado y filtrable por fuero; la descarga pasa por la API para respetar los perfiles |
-| 39 | Carpeta de la causa en el alta, reintento de carpeta y adjunto del acto | La falla de Drive no puede impedir registrar una causa |
-| 40 | Copia de los modelos del fuero a la carpeta | Va junto con la carpeta: sin carpeta no hay dónde copiar |
-| 41 | Tablero del abogado | Un endpoint que devuelve todo "Mi día" ya calculado |
-| 42 | Tablero del administrador | Ídem para "Estudio", con la carga del equipo |
-
-En números: **14 endpoints nuevos**, **8 modificados sin romper compatibilidad**,
-2 enumerados, 8 códigos de error y 2 códigos HTTP nuevos; 27 decisiones
-documentadas (D-45 a D-71) y 18 puntos abiertos (C-23 a C-40).
-
-### 9.3 Criterios que guiaron la redacción
-
-- **Manda el prototipo.** Donde una historia y el prototipo no coinciden, se
-  siguió al prototipo y se dejó asentado: HU33 (D-52), el alcance del tablero
-  del abogado (D-66) y los perfiles de cada pantalla. La única excepción es el
-  tipo de modelo (D-56), y está explicada.
-- **No romper lo implementado.** Todo cambio sobre un endpoint existente es
-  aditivo. Por eso el adjunto y el reintento de carpeta son endpoints aparte.
-- **No inventar funcionalidad.** Lo que el prototipo muestra pero no tiene
-  historia en el sprint —la lista de documentos, el calendario de días
-  inhábiles, la campana— quedó fuera, anotado en la sección 8.3.
-- **Un solo lugar de cálculo.** Prescripción, días hábiles e indicadores los
-  calcula el backend, para que el correo, los tableros y el detalle digan lo
-  mismo.
-- **Los servicios externos no deciden.** Drive y el correo pueden fallar: el
-  contrato dice qué pasa en cada caso y nunca deja un dato del estudio a medio
-  guardar.
-
-### 9.4 Qué no se hizo
-
-- No se modificó `API_CONTRACT_V3.md` ni ningún otro archivo del repositorio.
-- No se actualizó la especificación OpenAPI (`docs/openapi`), el glosario ni
-  los tipos del frontend: quedan como trabajo derivado (sección 8.4).
-- No se tocó Jira.
-- No se validó nada con el cliente: las decisiones que dependen de él están
-  marcadas en la sección 8.2.
-
-### 9.5 Por dónde empezar
-
-Las cuatro decisiones que condicionan el sprint, en orden:
-
-1. **C-23** — si la causa pasa a "Prescripta" sola o la marca una persona.
-2. **C-24** — el calendario de días inhábiles.
-3. **C-25** — cómo se garantiza que el proceso diario corra.
-4. **C-26** — en qué pantalla va el panel de avisos y quién lo modifica.
-
-Las historias que no dependen de ninguna de las cuatro y pueden empezar ya son
-HU31 (actos interruptivos), HU34 y HU35 (modelos formales), HU39 y HU40
-(carpeta y modelos) y HU41 y HU42 (tableros), con la salvedad de que los días
-hábiles de los tableros van a cambiar de valor —no de forma— cuando se resuelva
-C-24.
+En números: **10 endpoints nuevos** y **19 modificados**, de los cuales 11 cambian
+de forma incompatible con V3; 2 enumerados, 6 códigos de error y 2 códigos HTTP
+nuevos; 40 decisiones (D-45 a D-84) y 3 puntos abiertos.
