@@ -98,6 +98,11 @@ test-unit: ## Runs backend integration tests inside the backend container (dev)
 test-int: ## Runs backend integration tests inside the backend container (dev)
 	$(DC_DEV) exec backend npm run test:int
 
+reset-db:
+	$(DC_DEV) exec backend npx prisma migrate reset --force
+	$(DC_DEV) exec backend npx prisma db seed
+	$(DC_DEV) restart backend
+
 # ---- Frontend Scoped ------------------------------------------------------
 
 frontend-restart: ## Restarts only frontend (dev)
