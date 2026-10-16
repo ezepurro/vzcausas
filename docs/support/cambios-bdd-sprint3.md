@@ -25,8 +25,9 @@ indican claves foráneas, que se mantienen porque definen la estructura.
   `cases.folder_status`.
 - **La declaración de prescripción (HU33) va en la causa**, no en una tabla
   aparte: es 1 a 1, se carga una sola vez y no se revierte.
-- **El cómputo de la prescripción no se guarda**: se calcula en cada lectura
-  (ver [Prescripción](#prescripción)).
+- **La fecha de prescripción de cada hecho se guarda** en
+  `offenses.prescription_date` y se actualiza al registrar un acto
+  interruptivo (ver [Prescripción](#2-prescripción)).
 
 ---
 
@@ -82,25 +83,18 @@ Hay que separar dos cosas:
 una sola vez y no se revierte, así que se ahorra una tabla y un join. Son los
 cinco campos `prescription_*` de la tabla `cases`.
 
-**b) El cómputo no se guarda.** Son `startsOn`, `expiresOn`, la calificación que
-rige, el porcentaje transcurrido y la alerta:
+**b) La fecha de prescripción de cada hecho se guarda en `offenses`.**
+`offenses.prescription_date` se mantiene:
 
-- **Cambia aunque nadie toque la causa.** Si se modifican los meses de una
-  calificación, hay que recalcular todas las causas que la registran (D-08).
-- **Cambia con cada acto interruptivo** (y no cambia si se carga uno con fecha
-  anterior al último).
-- **`elapsedPercentage` y `alert` dependen del día de hoy**, así que se vuelven
-  viejos cada día aunque no cambie nada.
-- **Sale de varias filas.** Es el mínimo entre las calificaciones de la causa,
-  cada una con su fecha del hecho. Guardarlo en la causa es una copia que hay
-  que mantener sincronizada desde tres lugares: alta de causa, acto
-  interruptivo y modificación de calificación.
+- **Al registrar la causa** vale `offense_date` + `prescription_months` de la
+  calificación.
+- **Al registrar un acto interruptivo** que pasa a ser el más reciente de la
+  causa, se actualiza en todos sus hechos: fecha del acto + meses de la
+  calificación (RN8, D-49). Uno con fecha anterior al vigente no la cambia.
+- **Cambiar los meses de una calificación no la recalcula.**
 
-Calcularlo al leer es barato: pocas calificaciones por causa y un
-`MAX(act_date)` de actos interruptivos. Es lo que pide el contrato ("nada se
-guarda calculado"). Si más adelante los tableros necesitan filtrar por fecha de
-prescripción desde SQL, se puede agregar `prescription_expires_on` como caché.
-Eso es una optimización, no parte del modelo.
+Lo que depende del día de hoy (`elapsedPercentage`, `alert`, `expired`) y la
+calificación que rige (la de menor `prescription_date`) se calculan al leer.
 
 ---
 
@@ -112,7 +106,7 @@ Estructura de carpetas:
 VZ Causas                       MAIN
 ├── Modelos formales            TEMPLATES
 │   └── Penal / Administrativo / Amparo        JURISDICTION (lawyer_id null)
-└── Causas                      CASES
+└── Causas                      ROOT_CASES
     └── Ríos, Malena            LAWYER
         └── Penal               JURISDICTION (lawyer_id con valor)
             └── GÓMEZ, Ariel…   CASE
@@ -121,7 +115,7 @@ VZ Causas                       MAIN
 | Columna | Tipo | Nulo | Descripción |
 |---|---|:-:|---|
 | `cloud_folder_id` | `VARCHAR(128)` | No | **Clave primaria.** El id que le da el almacenamiento en la nube |
-| `kind` | `cloud_folder_kind` | No | `MAIN`, `TEMPLATES`, `CASES`, `LAWYER`, `JURISDICTION`, `CASE` |
+| `kind` | `cloud_folder_kind` | No | `MAIN`, `TEMPLATES`, `ROOT_CASES`, `LAWYER`, `JURISDICTION`, `CASE` |
 | `name` | `VARCHAR(255)` | No | Nombre de la carpeta |
 | `url` | `VARCHAR(512)` | No | Enlace para abrirla |
 | `parent_cloud_folder_id` | `VARCHAR(128)` → `cloud_folders` | Sí | Carpeta padre. `null` solo en `MAIN` |
@@ -133,7 +127,7 @@ VZ Causas                       MAIN
   tiene `lawyer_id` en `null` y su padre es `TEMPLATES`; la de causas tiene
   `lawyer_id` con valor y su padre es un `LAWYER`.
 - **`folder.path` de la API no se guarda:** se arma recorriendo los padres.
-- **`MAIN`, `TEMPLATES` y `CASES` pasan a la tabla.** Reemplazan las variables
+- **`MAIN`, `TEMPLATES` y `ROOT_CASES` pasan a la tabla.** Reemplazan las variables
   de entorno `GOOGLE_DRIVE_ROOT_FOLDER_ID` y `GOOGLE_DRIVE_TEMPLATES_FOLDER_ID`
   del ADR-003, que hay que actualizar.
 - **La causa apunta a su carpeta con `cases.cloud_folder_id`.** La carpeta no
@@ -160,7 +154,7 @@ apunta a cualquiera de las dos.
 
 | Enum | Valores |
 |---|---|
-| `cloud_folder_kind` | `MAIN`, `TEMPLATES`, `CASES`, `LAWYER`, `JURISDICTION`, `CASE` |
+| `cloud_folder_kind` | `MAIN`, `TEMPLATES`, `ROOT_CASES`, `LAWYER`, `JURISDICTION`, `CASE` |
 | `case_folder_status` | `CREATED`, `PENDING` |
 | `template_copy_status` | `COPIED`, `PENDING` |
 | `deadline_kind` | `PROCEDURAL_ACT`, `HARMFUL_ACT` |
@@ -183,9 +177,10 @@ apunta a cualquiera de las dos.
 - Se agrega `is_prescribed BOOLEAN`, no nula, por defecto `false`. Marca el
   estado de sistema "Prescripta".
 
-**`offenses`** (D-08, D-51)
+**`procedural_acts`**
 
-- Se quita `prescription_date`: se calcula al leer.
+- Se agrega `is_interruptive BOOLEAN`, no nula, por defecto `true`. Indica si
+  el acto interrumpe la prescripción: la mayoría lo hace, algunos no.
 
 **`cases`**
 
@@ -289,7 +284,7 @@ de Google).
 
 - **Estado "Prescripta"** en `CRIMINAL`: `time_limit_days = 0`, `day_type =
   NONE`, `terminal = true`, `is_prescribed = true`.
-- **Carpetas `MAIN`, `TEMPLATES` y `CASES`:** se cargan una vez, con el script
+- **Carpetas `MAIN`, `TEMPLATES` y `ROOT_CASES`:** se cargan una vez, con el script
   de autorización (`drive:authorize` en el ADR-003).
 - **Permisos nuevos** de actos interruptivos, prescripción, modelos formales y
   tableros.

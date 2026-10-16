@@ -20,7 +20,9 @@ generator client {
 model User {
   id           Int       @id @default(autoincrement())
   username     String    @unique @db.VarChar(50)
-  fullName     String    @map("full_name") @db.VarChar(255)
+  // Apellido y nombres separados (API Contract V4, D-68).
+  lastName     String    @map("last_name") @db.VarChar(100)
+  firstName    String    @map("first_name") @db.VarChar(100)
   email        String    @unique @db.VarChar(255)
   passwordHash String    @map("password_hash") @db.VarChar(255)
   lawyerId     Int?      @map("lawyer_id")
@@ -34,8 +36,15 @@ model User {
   roles         UserRole[]
 
   // Relaciones inversas hacia `cases` (no agregan columnas a `users`).
-  createdCases             Case[]          @relation("CaseCreatedBy")
-  registeredProceduralActs ProceduralAct[] @relation("ProceduralActRegisteredBy")
+  createdCases             Case[]            @relation("CaseCreatedBy")
+  registeredProceduralActs ProceduralAct[]   @relation("ProceduralActRegisteredBy")
+  interruptiveActs         InterruptiveAct[] @relation("InterruptiveActRegisteredBy")
+  // Causas que el usuario marcó como prescriptas (HU33).
+  casesMarkedAsPrescribed  Case[]            @relation("CasePrescriptionRegisteredBy")
+
+  // Relaciones inversas hacia `documents`.
+  documentTemplateVersions DocumentTemplate[]
+  folderAccess             UserFolderAccess?
 
   // Clave foránea hacia `people`. Se admite entre subsistemas (§4.4):
   // lo que no se admite es que `identity` escriba la tabla `lawyers`.
@@ -168,7 +177,10 @@ model RolePermission {
 
 model Lawyer {
   id                 Int      @id @default(autoincrement())
-  fullName           String   @map("full_name") @db.VarChar(255)
+  // Apellido y nombres separados, sin el tratamiento ("Dr.", "Dra."),
+  // que lo pone el frontend (D-68, D-81).
+  lastName           String   @map("last_name") @db.VarChar(100)
+  firstName          String   @map("first_name") @db.VarChar(100)
   // Matrícula del Colegio de Abogados de Córdoba: circunscripción y
   // número separados por guión (`1-28114`). El formato lo valida el
   // value object RegistrationNumber; acá solo se garantiza unicidad.
@@ -180,8 +192,12 @@ model Lawyer {
   users User[]
 
   // Relaciones inversas hacia `cases` (no agregan columnas a `lawyers`).
-  responsibleCases         Case[]          @relation("CaseResponsibleLawyer")
-  registeredProceduralActs ProceduralAct[] @relation("ProceduralActRegisteredByLawyer")
+  responsibleCases           Case[]            @relation("CaseResponsibleLawyer")
+  registeredProceduralActs   ProceduralAct[]   @relation("ProceduralActRegisteredByLawyer")
+  registeredInterruptiveActs InterruptiveAct[] @relation("InterruptiveActRegisteredByLawyer")
+
+  // Relación inversa hacia `documents`: carpetas del abogado en la nube.
+  cloudFolders CloudFolder[]
 
   @@map("lawyers")
 }
@@ -243,8 +259,10 @@ model Jurisdiction {
   dayTypeDefault DayType @map("day_type_default")
   isActive       Boolean @default(true) @map("is_active")
 
-  proceduralStates ProceduralState[]
-  cases            Case[]
+  proceduralStates  ProceduralState[]
+  cases             Case[]
+  cloudFolders      CloudFolder[]
+  documentTemplates DocumentTemplateJurisdiction[]
 
   @@map("jurisdictions")
 }
@@ -265,6 +283,12 @@ model Jurisdiction {
 // seed; la API no lo lista, no lo modifica ni lo da de baja, y no puede
 // ser destino de un acto (D-34).
 //
+// Estado "Prescripta": `is_prescribed = true` marca el segundo estado de
+// sistema, solo del fuero CRIMINAL. Es terminal, aparece en el listado,
+// está protegido contra modificación y baja, y no es destino de un acto:
+// la causa llega a él con "Marcar prescripta" (HU33, D-53, D-69). Lo
+// crea el seed.
+//
 // ATENCIÓN: Prisma no expresa estos índices ni los CHECK de coherencia
 // entre `time_limit_days` y `day_type`. Si una migración generada trae
 // un DROP de alguno, hay que quitarlo a mano.
@@ -275,6 +299,7 @@ model ProceduralState {
   dayType       DayType  @map("day_type")
   terminal      Boolean  @default(false)
   isInitial     Boolean  @default(false) @map("is_initial")
+  isPrescribed  Boolean  @default(false) @map("is_prescribed")
   isActive      Boolean  @default(true) @map("is_active")
   createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt     DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -298,8 +323,8 @@ model LegalQualification {
   // creado a mano.
   name               String   @db.VarChar(255)
   // CHECK manual: >= 1. Cada hecho (`Offense`) guarda su fecha de
-  // prescripción, calculada al registrar la causa con los meses vigentes
-  // en ese momento: cambiar los meses después no la recalcula.
+  // prescripción, calculada con los meses vigentes al registrar la causa
+  // o el acto interruptivo: cambiar los meses después no la recalcula.
   prescriptionMonths Int      @map("prescription_months")
   active             Boolean  @default(true)
   createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -337,13 +362,50 @@ model Case {
   // valor que inventar para esa causa.
   startDate           DateTime?      @map("start_date") @db.Date
 
+  // Datos propios de cada fuero (D-67). Fuera de su fuero valen NULL; la
+  // correspondencia con el fuero se valida en el dominio.
+  // CRIMINAL: si el cliente está preso.
+  clientDetained                  Boolean?  @map("client_detained")
+  // AMPARO: medida cautelar y acto lesivo. Con estos datos se calcula
+  // `harmfulActDeadline` al leer, mientras la causa está en "Iniciada"
+  // (D-78); no se guarda historial de renovaciones.
+  injunctionGranted               Boolean?  @map("injunction_granted")
+  harmfulActDate                  DateTime? @map("harmful_act_date") @db.Date
+  harmfulActRenews                Boolean?  @map("harmful_act_renews")
+  // Días corridos entre renovaciones. Solo si `harmful_act_renews`.
+  harmfulActRenewalDays           Int?      @map("harmful_act_renewal_days")
+  harmfulActTermDays              Int?      @map("harmful_act_term_days")
+  // BUSINESS o CONSECUTIVE; nunca NONE.
+  harmfulActTermDayType           DayType?  @map("harmful_act_term_day_type")
+  // ADMINISTRATIVE: fecha de agotamiento de la vía administrativa.
+  administrativeRemedyExhaustedOn DateTime? @map("administrative_remedy_exhausted_on") @db.Date
+  // Los tres fueros: tasa de justicia pagada (RN10).
+  courtFeePaid                    Boolean   @default(false) @map("court_fee_paid")
+
+  // Carpeta de la causa en la nube (HU39, HU40). `folder_status` NULL:
+  // no se pidió carpeta. PENDING: se pidió y falló, así que todavía no
+  // hay `cloud_folder_id` (D-60). CREATED: `cloud_folder_id` apunta a la
+  // carpeta de tipo CASE.
+  folderStatus  CaseFolderStatus? @map("folder_status")
+  cloudFolderId String?           @map("cloud_folder_id") @db.VarChar(128)
+
+  // Declaración de prescripción (HU33). NULL mientras la causa no fue
+  // marcada como prescripta; se carga una sola vez y no se revierte
+  // (D-52, D-54).
+  prescriptionDate               DateTime? @map("prescription_date") @db.Date
+  prescriptionResolution         String?   @map("prescription_resolution") @db.VarChar(255)
+  prescriptionGrounds            String?   @map("prescription_grounds") @db.VarChar(2000)
+  prescriptionRegisteredByUserId Int?      @map("prescription_registered_by_user_id")
+  prescriptionRegisteredAt       DateTime? @map("prescription_registered_at") @db.Timestamptz(6)
+
   // Estado actual: siempre hay uno. Al alta, el estado inicial
   // "Iniciada" del fuero. CHECK manual de exclusión mutua:
   //   num_nonnulls(current_state_id, current_custom_state) = 1
   currentStateId         Int?    @map("current_state_id")
   currentCustomState     String? @map("current_custom_state") @db.VarChar(255)
   // Acto que llevó la causa a su estado actual; de él sale el
-  // vencimiento. NULL mientras la causa está en el estado inicial. Lo
+  // vencimiento. NULL en el estado inicial y en "Prescripta", al que no
+  // se llega por un acto (D-54). Lo
   // actualiza la misma transacción que registra el acto, solo si su
   // `act_date` es mayor o igual a la del acto vigente.
   currentProceduralActId Int?    @unique @map("current_procedural_act_id")
@@ -355,15 +417,20 @@ model Case {
 
   // Todas `Restrict`: las bajas son lógicas (RN12) y un borrado físico
   // no debería ocurrir nunca.
-  jurisdiction         Jurisdiction     @relation(fields: [jurisdictionId], references: [jurisdictionId], onDelete: Restrict)
-  client               Client           @relation(fields: [clientId], references: [id], onDelete: Restrict)
-  responsibleLawyer    Lawyer           @relation("CaseResponsibleLawyer", fields: [responsibleLawyerId], references: [id], onDelete: Restrict)
-  createdBy            User             @relation("CaseCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
-  currentState         ProceduralState? @relation("CaseCurrentState", fields: [currentStateId], references: [stateId], onDelete: Restrict)
-  currentProceduralAct ProceduralAct?   @relation("CaseCurrentAct", fields: [currentProceduralActId], references: [id], onDelete: Restrict)
+  jurisdiction             Jurisdiction     @relation(fields: [jurisdictionId], references: [jurisdictionId], onDelete: Restrict)
+  client                   Client           @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  responsibleLawyer        Lawyer           @relation("CaseResponsibleLawyer", fields: [responsibleLawyerId], references: [id], onDelete: Restrict)
+  createdBy                User             @relation("CaseCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  currentState             ProceduralState? @relation("CaseCurrentState", fields: [currentStateId], references: [stateId], onDelete: Restrict)
+  currentProceduralAct     ProceduralAct?   @relation("CaseCurrentAct", fields: [currentProceduralActId], references: [id], onDelete: Restrict)
+  cloudFolder              CloudFolder?     @relation(fields: [cloudFolderId], references: [cloudFolderId], onDelete: Restrict)
+  prescriptionRegisteredBy User?            @relation("CasePrescriptionRegisteredBy", fields: [prescriptionRegisteredByUserId], references: [id], onDelete: Restrict)
 
-  proceduralActs      ProceduralAct[]          @relation("CaseProceduralActs")
-  offenses            Offense[]
+  proceduralActs    ProceduralAct[]        @relation("CaseProceduralActs")
+  offenses          Offense[]
+  interruptiveActs  InterruptiveAct[]
+  templateCopies    DocumentTemplateCopy[]
+  sentNotifications SentNotification[]
 
   @@index([jurisdictionId])
   @@index([clientId])
@@ -381,8 +448,11 @@ model Offense {
   caseId               Int      @map("case_id")
   legalQualificationId Int      @map("legal_qualification_id")
   offenseDate          DateTime @map("offense_date") @db.Date
-  // offense_date + prescription_months de la calificación. La calcula
-  // el caso de uso Registrar Causa antes de guardar.
+  // Fecha en que prescribe este hecho: inicio del cómputo + los
+  // prescription_months de la calificación. Al registrar la causa, el
+  // inicio es offense_date. Al registrar un acto interruptivo que pasa a
+  // ser el más reciente de la causa, se actualiza con su fecha como
+  // inicio (RN8, D-49); uno con fecha anterior al vigente no la cambia.
   prescriptionDate     DateTime @map("prescription_date") @db.Date
 
   case               Case               @relation(fields: [caseId], references: [id], onDelete: Restrict)
@@ -409,6 +479,9 @@ model ProceduralAct {
   // Solo ADMINISTRATIVE (RN6). CHECK manual: >= act_date.
   notificationDate DateTime? @map("notification_date") @db.Date
   notes            String?   @db.VarChar(2000)
+  // Si el acto interrumpe la prescripción. La mayoría lo hace, por eso
+  // vale `true` por defecto; el abogado lo desmarca en los que no.
+  isInterruptive   Boolean   @default(true) @map("is_interruptive")
 
   // Copia del plazo de la tabla al momento del registro: modificar el
   // estado procesal después no altera este vencimiento.
@@ -434,9 +507,237 @@ model ProceduralAct {
   registeredBy       User             @relation("ProceduralActRegisteredBy", fields: [registeredByUserId], references: [id], onDelete: Restrict)
   registeredByLawyer Lawyer           @relation("ProceduralActRegisteredByLawyer", fields: [registeredByLawyerId], references: [id], onDelete: Restrict)
 
+  // Avisos de vencimiento que el proceso diario envió por este acto.
+  sentNotifications SentNotification[]
+
   @@index([caseId, actDate(sort: Desc), id(sort: Desc)])
   @@index([proceduralStateId])
   @@map("procedural_acts")
+}
+
+// Acto interruptivo (HU31): reinicia el cómputo de la prescripción de
+// todas las calificaciones de la causa, desde su fecha (RN8, D-49). No
+// mueve el estado ni abre un plazo, por eso es un recurso propio y no un
+// acto procesal (D-48). Solo en CRIMINAL y solo lo registra el abogado
+// responsable (D-50); las dos reglas viven en el caso de uso.
+model InterruptiveAct {
+  id      Int      @id @default(autoincrement())
+  caseId  Int      @map("case_id")
+  // Texto libre: "Citación a juicio", "Indagatoria". No hay catálogo.
+  name    String   @db.VarChar(255)
+  actDate DateTime @map("act_date") @db.Date
+  notes   String?  @db.VarChar(2000)
+
+  registeredByUserId   Int      @map("registered_by_user_id")
+  // Copia del responsable al momento del registro, como en los actos
+  // procesales.
+  registeredByLawyerId Int      @map("registered_by_lawyer_id")
+  registeredAt         DateTime @default(now()) @map("registered_at") @db.Timestamptz(6)
+
+  case               Case   @relation(fields: [caseId], references: [id], onDelete: Restrict)
+  registeredBy       User   @relation("InterruptiveActRegisteredBy", fields: [registeredByUserId], references: [id], onDelete: Restrict)
+  registeredByLawyer Lawyer @relation("InterruptiveActRegisteredByLawyer", fields: [registeredByLawyerId], references: [id], onDelete: Restrict)
+
+  @@map("interruptive_acts")
+}
+
+// ─────────────────────────────────────────────────────────────
+// documents — Carpetas y modelos formales en la nube (HU34, HU35,
+// HU39, HU40; ADR-003)
+// ─────────────────────────────────────────────────────────────
+// La base no depende del proveedor de almacenamiento: nada se nombra por
+// la tecnología. Todo se referencia por el identificador que la nube le
+// da a cada carpeta o archivo, nunca por nombre ni por ruta.
+
+enum CloudFolderKind {
+  MAIN // VZ Causas, la raíz
+  TEMPLATES // Modelos formales
+  ROOT_CASES // Causas
+  LAWYER // Causas/{abogado}
+  JURISDICTION // Modelos formales/{fuero} o Causas/{abogado}/{fuero}
+  CASE // Causas/{abogado}/{fuero}/{carátula}
+
+  @@map("cloud_folder_kind")
+}
+
+enum CaseFolderStatus {
+  CREATED
+  PENDING
+
+  @@map("case_folder_status")
+}
+
+enum TemplateCopyStatus {
+  COPIED
+  PENDING
+
+  @@map("template_copy_status")
+}
+
+// Todas las carpetas que crea el sistema, en una sola tabla. La clave
+// primaria es el identificador de la carpeta en la nube.
+//
+//   VZ Causas                    MAIN
+//   ├── Modelos formales         TEMPLATES
+//   │   └── {fuero}              JURISDICTION (lawyer_id NULL)
+//   └── Causas                   ROOT_CASES
+//       └── {abogado}            LAWYER
+//           └── {fuero}          JURISDICTION (lawyer_id con valor)
+//               └── {carátula}   CASE
+//
+// Las dos carpetas de fuero se distinguen por `lawyer_id` y por su padre.
+// La ruta que muestra la API (`folder.path`) se arma recorriendo los
+// padres; no se guarda. Las carpetas no se renombran ni se mueven (D-61).
+model CloudFolder {
+  cloudFolderId       String          @id @map("cloud_folder_id") @db.VarChar(128)
+  kind                CloudFolderKind
+  name                String          @db.VarChar(255)
+  url                 String          @db.VarChar(512)
+  // NULL solo en MAIN.
+  parentCloudFolderId String?         @map("parent_cloud_folder_id") @db.VarChar(128)
+  // En LAWYER, en la JURISDICTION de causas y en CASE.
+  lawyerId            Int?            @map("lawyer_id")
+  // En JURISDICTION y en CASE.
+  jurisdictionId      Int?            @map("jurisdiction_id")
+  createdAt           DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  parent       CloudFolder?  @relation("CloudFolderTree", fields: [parentCloudFolderId], references: [cloudFolderId], onDelete: Restrict)
+  children     CloudFolder[] @relation("CloudFolderTree")
+  lawyer       Lawyer?       @relation(fields: [lawyerId], references: [id], onDelete: Restrict)
+  jurisdiction Jurisdiction? @relation(fields: [jurisdictionId], references: [jurisdictionId], onDelete: Restrict)
+
+  cases             Case[]
+  documentTemplates DocumentTemplate[]
+
+  @@map("cloud_folders")
+}
+
+// Modelo formal (HU34, HU35): un solo registro y un solo archivo aunque
+// aplique a varios fueros (D-55). Vive en la JURISDICTION de modelos de
+// su fuero o, si es de varios fueros, en TEMPLATES. Nombre único sin
+// distinguir mayúsculas (D-71), pendiente del SQL manual.
+model DocumentTemplate {
+  id                  Int      @id @default(autoincrement())
+  name                String   @db.VarChar(150)
+  fileName            String   @map("file_name") @db.VarChar(255)
+  cloudFileId         String   @map("cloud_file_id") @db.VarChar(128)
+  cloudFolderId       String   @map("cloud_folder_id") @db.VarChar(128)
+  // Si se copia a la carpeta de las causas nuevas de sus fueros (HU40).
+  copyToNewCases      Boolean  @default(true) @map("copy_to_new_cases")
+  lastVersionAt       DateTime @default(now()) @map("last_version_at") @db.Timestamptz(6)
+  lastVersionByUserId Int      @map("last_version_by_user_id")
+  active              Boolean  @default(true)
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  cloudFolder   CloudFolder @relation(fields: [cloudFolderId], references: [cloudFolderId], onDelete: Restrict)
+  lastVersionBy User        @relation(fields: [lastVersionByUserId], references: [id], onDelete: Restrict)
+
+  jurisdictions DocumentTemplateJurisdiction[]
+  copies        DocumentTemplateCopy[]
+
+  @@map("document_templates")
+}
+
+// Fueros a los que aplica cada modelo formal (D-55).
+model DocumentTemplateJurisdiction {
+  templateId     Int @map("template_id")
+  jurisdictionId Int @map("jurisdiction_id")
+
+  template     DocumentTemplate @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  jurisdiction Jurisdiction     @relation(fields: [jurisdictionId], references: [jurisdictionId], onDelete: Restrict)
+
+  @@id([templateId, jurisdictionId])
+  @@map("document_template_jurisdictions")
+}
+
+// Qué modelo se copió (o falta copiar) a la carpeta de qué causa (HU40).
+// La fila nace PENDING al pedir la copia, aunque la carpeta todavía no
+// exista, y pasa a COPIED con el identificador de la copia. De acá salen
+// `templatesCopied`, `templatesPending` y `usageCount`. La copia es
+// independiente del modelo: cambios posteriores no la tocan.
+model DocumentTemplateCopy {
+  caseId      Int                @map("case_id")
+  templateId  Int                @map("template_id")
+  status      TemplateCopyStatus
+  // NULL mientras está PENDING.
+  cloudFileId String?            @map("cloud_file_id") @db.VarChar(128)
+  copiedAt    DateTime?          @map("copied_at") @db.Timestamptz(6)
+
+  case     Case             @relation(fields: [caseId], references: [id], onDelete: Restrict)
+  template DocumentTemplate @relation(fields: [templateId], references: [id], onDelete: Restrict)
+
+  @@id([caseId, templateId])
+  @@map("document_template_copies")
+}
+
+// Acceso de cada usuario a la carpeta MAIN (D-83). Se comparte con los
+// usuarios vigentes con rol LAWYER o SECRETARY y se quita al dejar de
+// serlo. `granted` es lo que corresponde; `synced_at` NULL indica que la
+// nube todavía no lo refleja y el proceso diario lo reintenta (C-23).
+model UserFolderAccess {
+  userId            Int       @id @map("user_id")
+  email             String    @db.VarChar(255)
+  cloudPermissionId String?   @map("cloud_permission_id") @db.VarChar(128)
+  granted           Boolean
+  syncedAt          DateTime? @map("synced_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_folder_access")
+}
+
+// ─────────────────────────────────────────────────────────────
+// deadlines — Proceso automático diario (HU30, HU32, HU51, HU52)
+// ─────────────────────────────────────────────────────────────
+
+enum DeadlineKind {
+  PROCEDURAL_ACT
+  HARMFUL_ACT
+
+  @@map("deadline_kind")
+}
+
+enum NotificationKind {
+  DEADLINE_WARNING
+  DEADLINE_DUE_TODAY
+  PRESCRIPTION_ALERT
+  PRESCRIPTION_EXPIRED
+
+  @@map("notification_kind")
+}
+
+// Qué avisó el proceso diario y cuándo, para no repetir un aviso (D-64).
+// Un aviso se envía una vez por causa, tipo y fecha de referencia: una
+// renovación del acto lesivo o un acto interruptivo cambian esa fecha, y
+// entonces se vuelve a avisar.
+model SentNotification {
+  id              Int              @id @default(autoincrement())
+  caseId          Int              @map("case_id")
+  kind            NotificationKind
+  // Solo en los avisos de vencimiento.
+  deadlineKind    DeadlineKind?    @map("deadline_kind")
+  // Acto que abrió el plazo avisado, si es de un acto procesal.
+  proceduralActId Int?             @map("procedural_act_id")
+  // Vencimiento avisado, o fecha de prescripción avisada.
+  referenceDate   DateTime         @map("reference_date") @db.Date
+  sentAt          DateTime         @default(now()) @map("sent_at") @db.Timestamptz(6)
+
+  case          Case           @relation(fields: [caseId], references: [id], onDelete: Restrict)
+  proceduralAct ProceduralAct? @relation(fields: [proceduralActId], references: [id], onDelete: Restrict)
+
+  @@map("sent_notifications")
+}
+
+// Una corrida del proceso diario por fecha (hora de Córdoba), para que no
+// corra dos veces el mismo día.
+model DailyJobRun {
+  runDate    DateTime  @id @map("run_date") @db.Date
+  startedAt  DateTime  @map("started_at") @db.Timestamptz(6)
+  finishedAt DateTime? @map("finished_at") @db.Timestamptz(6)
+  error      String?
+
+  @@map("daily_job_runs")
 }
 
 // ─────────────────────────────────────────────────────────────
