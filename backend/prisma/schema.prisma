@@ -70,6 +70,7 @@ model User {
   lawyer Lawyer? @relation(fields: [lawyerId], references: [id], onDelete: Restrict)
 
   @@index([lawyerId])
+  @@index([lastName, firstName])
   @@map("users")
 }
 
@@ -199,6 +200,7 @@ model Lawyer {
   // Relación inversa hacia `documents`: carpetas del abogado en la nube.
   cloudFolders CloudFolder[]
 
+  @@index([lastName, firstName])
   @@map("lawyers")
 }
 
@@ -387,7 +389,8 @@ model Case {
   // hay `cloud_folder_id` (D-60). CREATED: `cloud_folder_id` apunta a la
   // carpeta de tipo CASE.
   folderStatus  CaseFolderStatus? @map("folder_status")
-  cloudFolderId String?           @map("cloud_folder_id") @db.VarChar(128)
+  // Única: cada carpeta CASE pertenece a una sola causa.
+  cloudFolderId String?           @unique @map("cloud_folder_id") @db.VarChar(128)
 
   // Declaración de prescripción (HU33). NULL mientras la causa no fue
   // marcada como prescripta; se carga una sola vez y no se revierte
@@ -538,6 +541,7 @@ model InterruptiveAct {
   registeredBy       User   @relation("InterruptiveActRegisteredBy", fields: [registeredByUserId], references: [id], onDelete: Restrict)
   registeredByLawyer Lawyer @relation("InterruptiveActRegisteredByLawyer", fields: [registeredByLawyerId], references: [id], onDelete: Restrict)
 
+  @@index([caseId, actDate(sort: Desc), id(sort: Desc)])
   @@map("interruptive_acts")
 }
 
@@ -606,9 +610,11 @@ model CloudFolder {
   lawyer       Lawyer?       @relation(fields: [lawyerId], references: [id], onDelete: Restrict)
   jurisdiction Jurisdiction? @relation(fields: [jurisdictionId], references: [jurisdictionId], onDelete: Restrict)
 
-  cases             Case[]
+  // Causa de la carpeta, solo en las de tipo CASE.
+  case              Case?
   documentTemplates DocumentTemplate[]
 
+  @@index([parentCloudFolderId])
   @@map("cloud_folders")
 }
 
@@ -620,7 +626,7 @@ model DocumentTemplate {
   id                  Int      @id @default(autoincrement())
   name                String   @db.VarChar(150)
   fileName            String   @map("file_name") @db.VarChar(255)
-  cloudFileId         String   @map("cloud_file_id") @db.VarChar(128)
+  cloudFileId         String   @unique @map("cloud_file_id") @db.VarChar(128)
   cloudFolderId       String   @map("cloud_folder_id") @db.VarChar(128)
   // Si se copia a la carpeta de las causas nuevas de sus fueros (HU40).
   copyToNewCases      Boolean  @default(true) @map("copy_to_new_cases")
@@ -648,6 +654,7 @@ model DocumentTemplateJurisdiction {
   jurisdiction Jurisdiction     @relation(fields: [jurisdictionId], references: [jurisdictionId], onDelete: Restrict)
 
   @@id([templateId, jurisdictionId])
+  @@index([jurisdictionId])
   @@map("document_template_jurisdictions")
 }
 
@@ -661,13 +668,14 @@ model DocumentTemplateCopy {
   templateId  Int                @map("template_id")
   status      TemplateCopyStatus
   // NULL mientras está PENDING.
-  cloudFileId String?            @map("cloud_file_id") @db.VarChar(128)
+  cloudFileId String?            @unique @map("cloud_file_id") @db.VarChar(128)
   copiedAt    DateTime?          @map("copied_at") @db.Timestamptz(6)
 
   case     Case             @relation(fields: [caseId], references: [id], onDelete: Restrict)
   template DocumentTemplate @relation(fields: [templateId], references: [id], onDelete: Restrict)
 
   @@id([caseId, templateId])
+  @@index([templateId])
   @@map("document_template_copies")
 }
 
@@ -726,6 +734,10 @@ model SentNotification {
   case          Case           @relation(fields: [caseId], references: [id], onDelete: Restrict)
   proceduralAct ProceduralAct? @relation(fields: [proceduralActId], references: [id], onDelete: Restrict)
 
+  // Un aviso una sola vez. El índice real es NULLS NOT DISTINCT (lo crea
+  // a mano `sprint3_manual_constraints`); se declara acá con su nombre
+  // para que Prisma no lo vea como deriva.
+  @@unique([caseId, kind, deadlineKind, referenceDate], map: "sent_notifications_once_key")
   @@map("sent_notifications")
 }
 
@@ -753,6 +765,14 @@ model DailyJobRun {
 //   procedural_states    (jurisdiction_id) WHERE is_initial
 //   legal_qualifications (lower(name)) WHERE active
 //   clients              (dni) WHERE active
+//   -- Sprint 3 (migración sprint3_manual_constraints)
+//   procedural_states    (jurisdiction_id) WHERE is_prescribed
+//   cloud_folders        (kind) WHERE kind IN ('MAIN', 'TEMPLATES', 'ROOT_CASES')
+//   cloud_folders        (lawyer_id) WHERE kind = 'LAWYER'
+//   cloud_folders        (lawyer_id, jurisdiction_id) WHERE kind = 'JURISDICTION' AND lawyer_id IS NOT NULL
+//   cloud_folders        (jurisdiction_id) WHERE kind = 'JURISDICTION' AND lawyer_id IS NULL
+//   document_templates   (lower(name)) WHERE active
+//   sent_notifications   (case_id, kind, deadline_kind, reference_date) NULLS NOT DISTINCT
 //
 // CHECK:
 //   procedural_states    time_limit_days >= 0
@@ -765,3 +785,18 @@ model DailyJobRun {
 //   procedural_acts      num_nonnulls(procedural_state_id, custom_state) = 1
 //   procedural_acts      notification_date IS NULL OR notification_date >= act_date
 //   procedural_acts      deadline_manual_due_date IS NULL OR deadline_manual_due_date >= deadline_counts_from
+//   -- Sprint 3 (migración sprint3_manual_constraints)
+//   procedural_states        ck_procedural_states_prescribed_is_terminal
+//   cases                    ck_cases_harmful_act_renewal_coherent
+//   cases                    ck_cases_harmful_act_renewal_days_positive
+//   cases                    ck_cases_harmful_act_term_complete
+//   cases                    ck_cases_harmful_act_term_days_positive
+//   cases                    ck_cases_harmful_act_term_day_type
+//   cases                    ck_cases_folder_created_has_cloud_folder
+//   cases                    ck_cases_prescription_declaration_complete
+//   cases                    ck_cases_prescription_grounds_need_declaration
+//   cloud_folders            ck_cloud_folders_shape_by_kind
+//   document_template_copies ck_document_template_copies_copied_has_file
+//   sent_notifications       ck_sent_notifications_deadline_kind_coherent
+//   sent_notifications       ck_sent_notifications_act_only_for_procedural_deadline
+//   daily_job_runs           ck_daily_job_runs_finished_after_started
