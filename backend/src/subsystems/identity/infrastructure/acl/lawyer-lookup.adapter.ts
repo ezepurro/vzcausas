@@ -49,13 +49,15 @@ export class PeopleLawyerLookupAdapter
    */
   async register(lawyer: NewLawyer): Promise<LawyerSummary> {
     const { lawyer: created } = await this.registerLawyer.execute({
-      fullName: lawyer.fullName,
+      lastName: lawyer.lastName,
+      firstName: lawyer.firstName,
       registrationNumber: lawyer.registrationNumber,
     });
 
     return {
       id: created.id,
-      fullName: created.fullName,
+      lastName: created.lastName,
+      firstName: created.firstName,
       registrationNumber: created.registrationNumber.toString(),
     };
   }
@@ -86,7 +88,8 @@ export class PeopleLawyerLookupAdapter
           lawyer.id,
           {
             id: lawyer.id,
-            fullName: lawyer.fullName,
+            lastName: lawyer.lastName,
+            firstName: lawyer.firstName,
             registrationNumber: lawyer.registrationNumber,
           },
         ]),

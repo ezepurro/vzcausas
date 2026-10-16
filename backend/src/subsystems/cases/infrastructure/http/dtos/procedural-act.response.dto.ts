@@ -18,7 +18,8 @@ export class ProceduralActDeadlineResponseDto {
 
 export class RegisteredByResponseDto {
   id!: number;
-  fullName!: string;
+  lastName!: string;
+  firstName!: string;
 }
 
 export class ProceduralActResponseDto {

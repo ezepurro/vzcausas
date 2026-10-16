@@ -14,7 +14,8 @@ export class ClientResponseDto {
 
 export class ResponsibleLawyerResponseDto {
   id!: number;
-  fullName!: string;
+  lastName!: string;
+  firstName!: string;
   registrationNumber!: string;
 }
 

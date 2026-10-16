@@ -3,6 +3,7 @@ import { Test, TestingModuleBuilder } from '@nestjs/testing';
 import { AppModule } from '../../../src/app.module';
 import { configureApp } from '../../../src/app.setup';
 import { PrismaService } from '../../../src/shared/infrastructure/prisma/prisma.service';
+import { useTestAccessTokenVerifier } from '../auth/test-access-token-verifier';
 
 let app: INestApplication | undefined;
 
@@ -14,11 +15,17 @@ let app: INestApplication | undefined;
  * @param customize opcional: permite reemplazar adaptadores EXTERNOS
  *        (correo, Google Drive…) por fakes con `overrideProvider`.
  *        La base de datos nunca se reemplaza: es real.
+ *
+ * El verificador de tokens se reemplaza siempre por uno que acepta los
+ * tokens de `loginAs` y delega el resto en el real (ver
+ * `test-access-token-verifier.ts`).
  */
 export async function startTestApp(
   customize: (builder: TestingModuleBuilder) => TestingModuleBuilder = (b) => b,
 ): Promise<INestApplication> {
-  const moduleRef = await customize(Test.createTestingModule({ imports: [AppModule] })).compile();
+  const moduleRef = await customize(
+    useTestAccessTokenVerifier(Test.createTestingModule({ imports: [AppModule] })),
+  ).compile();
 
   app = moduleRef.createNestApplication();
   configureApp(app);

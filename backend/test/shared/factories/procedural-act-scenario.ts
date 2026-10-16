@@ -93,7 +93,7 @@ export async function setUpProceduralActScenario() {
 
   // Quién es el abogado responsable, y otro que no lo es. La causa guarda quién
   // registró cada acto (FK a users) y el responsable (FK a lawyers).
-  const lawyer = await createLawyer({ fullName: 'Dra. Malena Ríos' });
+  const lawyer = await createLawyer({ lastName: 'Ríos', firstName: 'Malena' });
   const user = await createUser({ roles: ['LAWYER'], lawyerId: lawyer.id });
   const otherLawyer = await createLawyer();
   const otherUser = await createUser({ roles: ['LAWYER'], lawyerId: otherLawyer.id });

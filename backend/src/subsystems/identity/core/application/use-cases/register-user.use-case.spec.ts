@@ -21,7 +21,8 @@ describe("RegisterUserUseCase", () => {
   const hasher = new FakeHasher();
   const baseCommand = {
     username: "iperalta",
-    fullName: "Ignacio Peralta",
+    lastName: "Peralta",
+    firstName: "Ignacio",
     email: "iperalta@vazquezzarate.com",
     plainPassword: "password1",
     roles: ["SECRETARY"],
@@ -160,7 +161,7 @@ describe("RegisterUserUseCase", () => {
     const withNewLawyer = {
       ...baseCommand,
       roles: ["LAWYER"],
-      lawyer: { fullName: "Dr. Ignacio Peralta", registrationNumber: "1-35207" },
+      lawyer: { lastName: "Peralta", firstName: "Ignacio", registrationNumber: "1-35207" },
     };
 
     it("creates the lawyer and links the user to it", async () => {

@@ -45,7 +45,8 @@ export class FindLawyersUseCase {
 
     return lawyers.map((lawyer) => ({
       id: lawyer.id,
-      fullName: lawyer.fullName,
+      lastName: lawyer.lastName,
+      firstName: lawyer.firstName,
       registrationNumber: lawyer.registrationNumber.toString(),
       active: lawyer.isActive(),
     }));

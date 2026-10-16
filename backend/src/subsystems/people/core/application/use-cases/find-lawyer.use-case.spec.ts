@@ -24,7 +24,8 @@ describe("FindLawyerUseCase", () => {
     await lawyers.create(
       Lawyer.create({
         id: 4,
-        fullName: "Dr. Ignacio Peralta",
+        lastName: "Peralta",
+        firstName: "Ignacio",
         registrationNumber: RegistrationNumber.create("1-35207"),
         active,
       }),
@@ -40,7 +41,8 @@ describe("FindLawyerUseCase", () => {
 
     expect(result).toEqual({
       id: 4,
-      fullName: "Dr. Ignacio Peralta",
+      lastName: "Peralta",
+      firstName: "Ignacio",
       registrationNumber: "1-35207",
       activeCases: 7,
       active: true,

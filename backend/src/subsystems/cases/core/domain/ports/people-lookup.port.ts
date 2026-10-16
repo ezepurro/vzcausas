@@ -4,7 +4,8 @@ export const PEOPLE_LOOKUP = Symbol('PEOPLE_LOOKUP');
 /** What `cases` needs to know about a lawyer. */
 export interface LawyerRef {
   id: number;
-  fullName: string;
+  lastName: string;
+  firstName: string;
   registrationNumber: string;
 }
 

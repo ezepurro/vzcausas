@@ -40,7 +40,8 @@ describe("UpdateUserUseCase", () => {
         id: overrides.id ?? 1,
         username: Username.create(overrides.username ?? "iperalta"),
         plainPassword: "password1",
-        fullName: "Ignacio Peralta",
+        lastName: "Peralta",
+        firstName: "Ignacio",
         email: Email.create(overrides.email ?? "iperalta@vazquezzarate.com"),
         roleIds: overrides.roleIds ?? [3],
         lawyerId: overrides.lawyerId ?? null,
@@ -75,7 +76,7 @@ describe("UpdateUserUseCase", () => {
     const { useCase } = build();
 
     await expect(
-      useCase.execute({ id: 999, fullName: "New Name" }),
+      useCase.execute({ id: 999, lastName: "Nuevo" }),
     ).rejects.toBeInstanceOf(UserNotFoundError);
   });
 
@@ -83,9 +84,10 @@ describe("UpdateUserUseCase", () => {
     const { useCase, users } = build();
     await seedUser(users);
 
-    const result = await useCase.execute({ id: 1, fullName: "New Name" });
+    const result = await useCase.execute({ id: 1, lastName: "Nuevo" });
 
-    expect(result.user.fullName).toBe("New Name");
+    expect(result.user.lastName).toBe("Nuevo");
+    expect(result.user.firstName).toBe("Ignacio");
     expect(result.user.username.toString()).toBe("iperalta");
     expect(result.roles.map((r) => r.getName())).toEqual(["SECRETARY"]);
     expect(users.saved).toHaveLength(1);
@@ -170,7 +172,7 @@ describe("UpdateUserUseCase", () => {
     // had confirmed it at creation time, before today's stub existed.
     await seedUser(users, { roleIds: [2], lawyerId: 4 });
 
-    const result = await useCase.execute({ id: 1, fullName: "New Name" });
+    const result = await useCase.execute({ id: 1, lastName: "Nuevo" });
 
     expect(result.user.lawyerId).toBe(4);
   });

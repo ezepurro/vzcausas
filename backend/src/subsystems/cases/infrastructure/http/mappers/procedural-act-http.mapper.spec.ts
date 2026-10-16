@@ -87,7 +87,7 @@ describe('ProceduralActHttpMapper', () => {
           dueDate: '2026-10-07',
           manuallyAdjusted: false,
         },
-        registeredBy: { id: 5, fullName: LAWYER.fullName },
+        registeredBy: { id: 5, lastName: LAWYER.lastName, firstName: LAWYER.firstName },
         registeredAt: '2026-10-06T12:30:00-03:00',
       });
     });
@@ -155,7 +155,7 @@ describe('ProceduralActHttpMapper', () => {
 
       const response = mapper.toResponse(aResult({}, act));
 
-      expect(response.registeredBy).toEqual({ id: 41, fullName: 'Dra. Malena Ríos' });
+      expect(response.registeredBy).toEqual({ id: 41, lastName: 'Ríos', firstName: 'Malena' });
     });
   });
 

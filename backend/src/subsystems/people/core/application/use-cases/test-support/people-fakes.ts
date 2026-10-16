@@ -45,8 +45,8 @@ export class FakeLawyerRepository implements LawyerRepository {
 
   /**
    * Mirrors what `PrismaLawyerRepository.search` does in SQL: only
-   * active lawyers, newest first, case-insensitive match on full name
-   * or registration number, then the page slice. Kept faithful on
+   * active lawyers, newest first, case-insensitive match on last name,
+   * first names or registration number, then the page slice. Kept faithful on
    * purpose — a fake that filtered differently would let a spec pass
    * against behaviour production does not have.
    */
@@ -64,7 +64,8 @@ export class FakeLawyerRepository implements LawyerRepository {
       .filter(
         (lawyer) =>
           needle === undefined ||
-          lawyer.fullName.toLowerCase().includes(needle) ||
+          lawyer.lastName.toLowerCase().includes(needle) ||
+          lawyer.firstName.toLowerCase().includes(needle) ||
           lawyer.registrationNumber.toString().toLowerCase().includes(needle),
       )
       .sort((a, b) => b.id - a.id);

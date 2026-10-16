@@ -13,7 +13,7 @@ import { LawyerSummaryDto } from './user.response.dto';
  * The `user` block of the login response.
  *
  * `lawyerId` is a bare id, not the nested
- * `lawyer: { id, fullName, registrationNumber }` object the contract
+ * `lawyer: { id, lastName, firstName, registrationNumber }` object the contract
  * currently documents (D-52, C-09): the professional record lives in
  * the `/lawyers` resource, which does not exist yet. Adding the
  * nested object later is additive.
@@ -25,7 +25,8 @@ import { LawyerSummaryDto } from './user.response.dto';
 export type LoginUserResponseDto = {
   id: number;
   username: string;
-  fullName: string;
+  lastName: string;
+  firstName: string;
   email: string;
   roles: string[];
   lawyer: LawyerSummaryDto | null;

@@ -15,7 +15,7 @@ import { ProceduralActPrismaMapper } from './procedural-act-prisma.mapper';
  */
 const ACT_INCLUDE = {
   proceduralState: { select: { name: true } },
-  registeredByLawyer: { select: { fullName: true } },
+  registeredByLawyer: { select: { lastName: true, firstName: true } },
 } satisfies Prisma.ProceduralActInclude;
 
 type ActRow = Prisma.ProceduralActGetPayload<{ include: typeof ACT_INCLUDE }>;
@@ -79,6 +79,9 @@ function toView(row: ActRow): ProceduralActView {
   return {
     act: ProceduralActPrismaMapper.toDomain(row),
     resultingStateName,
-    registeredBy: { fullName: row.registeredByLawyer.fullName },
+    registeredBy: {
+      lastName: row.registeredByLawyer.lastName,
+      firstName: row.registeredByLawyer.firstName,
+    },
   };
 }

@@ -88,7 +88,7 @@ describe('POST /api/v1/cases/:caseId/procedural-acts', () => {
           manuallyAdjusted: false,
         },
         // El usuario es el que llama; el nombre sale de la ficha del abogado.
-        registeredBy: { id: s.user.id, fullName: 'Dra. Malena Ríos' },
+        registeredBy: { id: s.user.id, lastName: 'Ríos', firstName: 'Malena' },
         registeredAt: '2026-10-06T12:30:00-03:00',
       });
 

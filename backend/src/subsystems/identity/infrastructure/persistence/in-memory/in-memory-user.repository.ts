@@ -124,7 +124,8 @@ export class InMemoryUserRepository implements UserRepository {
         (user) =>
           needle === undefined ||
           user.username.toString().toLowerCase().includes(needle) ||
-          user.fullName.toLowerCase().includes(needle),
+          user.lastName.toLowerCase().includes(needle) ||
+          user.firstName.toLowerCase().includes(needle),
       )
       .filter(
         (user) =>

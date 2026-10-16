@@ -252,18 +252,18 @@ const PROCEDURAL_STATES = [
  * their normalized form.
  */
 const DEV_LAWYERS = [
-  { fullName: 'Fernando Vázquez', registrationNumber: '1-28114' },
-  { fullName: 'Lucía Zárate', registrationNumber: '1-30455' },
-  { fullName: 'Carla Pereyra', registrationNumber: '1-31002' },
-  { fullName: 'Diego Molina', registrationNumber: '2-18447' },
-  { fullName: 'Valeria Quiroga', registrationNumber: '2-20113' },
-  { fullName: 'Martín Ludueña', registrationNumber: '1-29876' },
-  { fullName: 'Sofía Bustos', registrationNumber: '1-33120' },
-  { fullName: 'Javier Ceballos', registrationNumber: '3-10455' },
-  { fullName: 'Noelia Ferreyra', registrationNumber: '2-21988' },
-  { fullName: 'Gonzalo Aguirre', registrationNumber: '1-34567' },
+  { lastName: 'Vázquez', firstName: 'Fernando', registrationNumber: '1-28114' },
+  { lastName: 'Zárate', firstName: 'Lucía', registrationNumber: '1-30455' },
+  { lastName: 'Pereyra', firstName: 'Carla', registrationNumber: '1-31002' },
+  { lastName: 'Molina', firstName: 'Diego', registrationNumber: '2-18447' },
+  { lastName: 'Quiroga', firstName: 'Valeria', registrationNumber: '2-20113' },
+  { lastName: 'Ludueña', firstName: 'Martín', registrationNumber: '1-29876' },
+  { lastName: 'Bustos', firstName: 'Sofía', registrationNumber: '1-33120' },
+  { lastName: 'Ceballos', firstName: 'Javier', registrationNumber: '3-10455' },
+  { lastName: 'Ferreyra', firstName: 'Noelia', registrationNumber: '2-21988' },
+  { lastName: 'Aguirre', firstName: 'Gonzalo', registrationNumber: '1-34567' },
   // The lawyer behind the `abogado` demo account: responsible for the demo cases.
-  { fullName: 'Abogado de Prueba', registrationNumber: '1-40001' },
+  { lastName: 'Prueba', firstName: 'Abogado', registrationNumber: '1-40001' },
 ] as const;
 
 /**
@@ -291,7 +291,8 @@ const DEV_LAWYERS = [
  */
 interface DevUser {
   username: string;
-  fullName: string;
+  lastName: string;
+  firstName: string;
   email: string;
   roles: readonly string[];
   registrationNumber?: string;
@@ -302,77 +303,88 @@ interface DevUser {
 const DEV_USERS: readonly DevUser[] = [
   {
     username: 'f.vazquez',
-    fullName: 'Fernando Vázquez',
+    lastName: 'Vázquez',
+    firstName: 'Fernando',
     email: 'f.vazquez@vzcausas.local',
     roles: ['ADMINISTRATOR', 'LAWYER'],
     registrationNumber: '1-28114',
   },
   {
     username: 'l.zarate',
-    fullName: 'Lucía Zárate',
+    lastName: 'Zárate',
+    firstName: 'Lucía',
     email: 'l.zarate@vzcausas.local',
     roles: ['ADMINISTRATOR', 'LAWYER'],
     registrationNumber: '1-30455',
   },
   {
     username: 'c.pereyra',
-    fullName: 'Carla Pereyra',
+    lastName: 'Pereyra',
+    firstName: 'Carla',
     email: 'c.pereyra@vzcausas.local',
     roles: ['LAWYER'],
     registrationNumber: '1-31002',
   },
   {
     username: 'd.molina',
-    fullName: 'Diego Molina',
+    lastName: 'Molina',
+    firstName: 'Diego',
     email: 'd.molina@vzcausas.local',
     roles: ['LAWYER'],
     registrationNumber: '2-18447',
   },
   {
     username: 'v.quiroga',
-    fullName: 'Valeria Quiroga',
+    lastName: 'Quiroga',
+    firstName: 'Valeria',
     email: 'v.quiroga@vzcausas.local',
     roles: ['LAWYER'],
     registrationNumber: '2-20113',
   },
   {
     username: 'm.luduena',
-    fullName: 'Martín Ludueña',
+    lastName: 'Ludueña',
+    firstName: 'Martín',
     email: 'm.luduena@vzcausas.local',
     roles: ['LAWYER'],
     registrationNumber: '1-29876',
   },
   {
     username: 's.bustos',
-    fullName: 'Sofía Bustos',
+    lastName: 'Bustos',
+    firstName: 'Sofía',
     email: 's.bustos@vzcausas.local',
     roles: ['LAWYER'],
     registrationNumber: '1-33120',
   },
   {
     username: 'j.ceballos',
-    fullName: 'Javier Ceballos',
+    lastName: 'Ceballos',
+    firstName: 'Javier',
     email: 'j.ceballos@vzcausas.local',
     roles: ['ADMINISTRATOR'],
     registrationNumber: '3-10455',
   },
   {
     username: 'n.ferreyra',
-    fullName: 'Noelia Ferreyra',
+    lastName: 'Ferreyra',
+    firstName: 'Noelia',
     email: 'n.ferreyra@vzcausas.local',
     roles: ['SECRETARY'],
     registrationNumber: '2-21988',
   },
   {
     username: 'g.aguirre',
-    fullName: 'Gonzalo Aguirre',
+    lastName: 'Aguirre',
+    firstName: 'Gonzalo',
     email: 'g.aguirre@vzcausas.local',
     roles: ['SECRETARY'],
     registrationNumber: '1-34567',
   },
   {
     username: 'abogado',
-    fullName: 'Abogado de Prueba',
+    lastName: 'Prueba',
+    firstName: 'Abogado',
     email: 'abogado@vzcausas.local',
     roles: ['LAWYER'],
     registrationNumber: '1-40001',
@@ -380,7 +392,8 @@ const DEV_USERS: readonly DevUser[] = [
   },
   {
     username: 'secret',
-    fullName: 'Secretaría de Prueba',
+    lastName: 'Prueba',
+    firstName: 'Secretaría',
     email: 'secret@vzcausas.local',
     roles: ['SECRETARY'],
     password: 'secret123',
@@ -403,7 +416,7 @@ async function seedDevPeople(prisma: PrismaClient): Promise<void> {
   for (const lawyer of DEV_LAWYERS) {
     const row = await prisma.lawyer.upsert({
       where: { registrationNumber: lawyer.registrationNumber },
-      update: { fullName: lawyer.fullName, active: true },
+      update: { lastName: lawyer.lastName, firstName: lawyer.firstName, active: true },
       create: lawyer,
     });
     lawyerIds.set(lawyer.registrationNumber, row.id);
@@ -430,8 +443,8 @@ async function seedDevPeople(prisma: PrismaClient): Promise<void> {
       where: { username: user.username },
       // The password is refreshed so that editing the variable takes
       // effect without wiping the volume.
-      update: { passwordHash, fullName: user.fullName, email: user.email, lawyerId, active: true, deletedAt: null },
-      create: { username: user.username, fullName: user.fullName, email: user.email, passwordHash, lawyerId },
+      update: { passwordHash, lastName: user.lastName, firstName: user.firstName, email: user.email, lawyerId, active: true, deletedAt: null },
+      create: { username: user.username, lastName: user.lastName, firstName: user.firstName, email: user.email, passwordHash, lawyerId },
     });
 
     const roles = await prisma.role.findMany({ where: { name: { in: [...user.roles] } } });

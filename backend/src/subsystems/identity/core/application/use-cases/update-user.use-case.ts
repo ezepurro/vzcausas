@@ -29,7 +29,8 @@ const ADMINISTRATOR_ROLE_NAME = "ADMINISTRATOR";
 export type UpdateUserCommand = {
   id: number;
   username?: string;
-  fullName?: string;
+  lastName?: string;
+  firstName?: string;
   email?: string;
   roles?: readonly string[];
   // Three-state, unlike the other fields: `undefined` = don't touch,
@@ -62,7 +63,8 @@ export class UpdateUserUseCase {
   async execute(command: UpdateUserCommand): Promise<UpdateUserResult> {
     if (
       command.username === undefined &&
-      command.fullName === undefined &&
+      command.lastName === undefined &&
+      command.firstName === undefined &&
       command.email === undefined &&
       command.roles === undefined &&
       command.lawyerId === undefined
@@ -96,8 +98,8 @@ export class UpdateUserUseCase {
       user.changeEmail(newEmail);
     }
 
-    if (command.fullName !== undefined) {
-      user.changeFullName(command.fullName);
+    if (command.lastName !== undefined || command.firstName !== undefined) {
+      user.rename({ lastName: command.lastName, firstName: command.firstName });
     }
 
     let finalRoles: Role[];

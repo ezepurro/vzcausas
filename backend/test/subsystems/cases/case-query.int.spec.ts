@@ -363,7 +363,8 @@ describe('CaseQueryPort (adaptador Prisma)', () => {
 
       expect(item?.client).toMatchObject({ id: clientId, lastName: 'GÓMEZ', firstName: 'Ariel Fernando' });
       expect(item?.responsibleLawyer).toMatchObject({ id: lawyerId });
-      expect(item?.responsibleLawyer.fullName).toEqual(expect.any(String));
+      expect(item?.responsibleLawyer.lastName).toEqual(expect.any(String));
+      expect(item?.responsibleLawyer.firstName).toEqual(expect.any(String));
       expect(item?.responsibleLawyer.registrationNumber).toEqual(expect.any(String));
     });
 

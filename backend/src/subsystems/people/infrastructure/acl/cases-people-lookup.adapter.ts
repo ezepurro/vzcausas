@@ -36,7 +36,8 @@ export class CasesPeopleLookupAdapter implements PeopleLookupPort {
     }
     return {
       id: lawyer.id,
-      fullName: lawyer.fullName,
+      lastName: lawyer.lastName,
+      firstName: lawyer.firstName,
       registrationNumber: lawyer.registrationNumber.toString(),
     };
   }

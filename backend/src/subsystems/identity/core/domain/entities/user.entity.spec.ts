@@ -27,7 +27,8 @@ describe("User", () => {
     id: 1,
     username,
     plainPassword: "password-123",
-    fullName: "Fernando Vázquez",
+    lastName: "Vázquez",
+    firstName: "Fernando",
     email,
     roleIds: [1],
     lawyerId: null,
@@ -39,7 +40,8 @@ describe("User", () => {
         id: 1,
         username,
         passwordHash: "anything",
-        fullName: "Fernando Vázquez",
+        lastName: "Vázquez",
+        firstName: "Fernando",
         email,
         roleIds: [1],
         lawyerId: null,
@@ -58,7 +60,8 @@ describe("User", () => {
         id: 1,
         username,
         passwordHash: "anything",
-        fullName: "Fernando Vázquez",
+        lastName: "Vázquez",
+        firstName: "Fernando",
         email,
         roleIds: [1],
         lawyerId: null,
@@ -131,10 +134,58 @@ describe("User", () => {
       ).rejects.toBeInstanceOf(ValidationError);
     });
 
-    it("rejects empty fullName", async () => {
+    it("rejects an empty lastName", async () => {
       await expect(
-        User.create({ ...baseCreateProps, fullName: "   " }, hasher),
-      ).rejects.toBeInstanceOf(ValidationError);
+        User.create({ ...baseCreateProps, lastName: "   " }, hasher),
+      ).rejects.toMatchObject({ details: { field: "lastName" } });
+    });
+
+    it("rejects empty firstName", async () => {
+      await expect(
+        User.create({ ...baseCreateProps, firstName: "   " }, hasher),
+      ).rejects.toMatchObject({ details: { field: "firstName" } });
+    });
+
+    it("trims last name and first names", async () => {
+      const user = await User.create(
+        { ...baseCreateProps, lastName: "  Vázquez ", firstName: " Fernando  " },
+        hasher,
+      );
+
+      expect(user.lastName).toBe("Vázquez");
+      expect(user.firstName).toBe("Fernando");
+    });
+  });
+
+  describe("rename", () => {
+    const build = () => User.create(baseCreateProps, hasher);
+
+    it("changes only the field provided", async () => {
+      const user = await build();
+
+      user.rename({ lastName: " Peralta " });
+
+      expect(user.lastName).toBe("Peralta");
+      expect(user.firstName).toBe("Fernando");
+    });
+
+    it("changes both fields together", async () => {
+      const user = await build();
+
+      user.rename({ lastName: "Peralta", firstName: "Ignacio" });
+
+      expect(user.lastName).toBe("Peralta");
+      expect(user.firstName).toBe("Ignacio");
+    });
+
+    it("rejects a blank field and leaves both untouched", async () => {
+      const user = await build();
+
+      expect(() => user.rename({ lastName: "Peralta", firstName: "  " })).toThrow(
+        ValidationError,
+      );
+      expect(user.lastName).toBe("Vázquez");
+      expect(user.firstName).toBe("Fernando");
     });
   });
 

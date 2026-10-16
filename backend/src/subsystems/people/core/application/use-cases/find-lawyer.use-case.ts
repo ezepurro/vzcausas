@@ -16,7 +16,8 @@ export type FindLawyerQuery = { id: number };
  */
 export type LawyerView = {
   id: number;
-  fullName: string;
+  lastName: string;
+  firstName: string;
   registrationNumber: string;
   /** Cases where this lawyer is the responsible one (RN3's workload, §3.3). */
   activeCases: number;
@@ -61,7 +62,8 @@ export class FindLawyerUseCase {
 
     return {
       id: lawyer.id,
-      fullName: lawyer.fullName,
+      lastName: lawyer.lastName,
+      firstName: lawyer.firstName,
       registrationNumber: lawyer.registrationNumber.toString(),
       activeCases: counts.get(lawyer.id) ?? 0,
       active: lawyer.isActive(),

@@ -93,7 +93,7 @@ describe('CaseHttpMapper.toResponse', () => {
         email: null,
         clientSince: '2021-03-12',
       },
-      responsibleLawyer: { id: 2, fullName: 'Dra. Malena Ríos', registrationNumber: '1-36842' },
+      responsibleLawyer: { id: 2, lastName: 'Ríos', firstName: 'Malena', registrationNumber: '1-36842' },
       legalQualifications: [
         {
           id: 1,

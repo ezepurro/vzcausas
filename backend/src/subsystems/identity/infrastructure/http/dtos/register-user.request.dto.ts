@@ -28,8 +28,14 @@ const ROLE_CODES = ["ADMINISTRATOR", "LAWYER", "SECRETARY"] as const;
  */
 export class NewLawyerDto {
   @IsString()
-  @IsNotEmpty()
-  fullName!: string;
+  @IsNotEmpty({ message: "El apellido es obligatorio." })
+  @MaxLength(100)
+  lastName!: string;
+
+  @IsString()
+  @IsNotEmpty({ message: "Los nombres son obligatorios." })
+  @MaxLength(100)
+  firstName!: string;
 
   @IsString()
   @Matches(/^\d+-\d+$/, {
@@ -79,8 +85,14 @@ export class RegisterUserRequestDto {
   username!: string;
 
   @IsString()
-  @IsNotEmpty()
-  fullName!: string;
+  @IsNotEmpty({ message: "El apellido es obligatorio." })
+  @MaxLength(100)
+  lastName!: string;
+
+  @IsString()
+  @IsNotEmpty({ message: "Los nombres son obligatorios." })
+  @MaxLength(100)
+  firstName!: string;
 
   @IsEmail()
   email!: string;

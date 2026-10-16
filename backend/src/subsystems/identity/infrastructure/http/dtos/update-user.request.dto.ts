@@ -43,8 +43,15 @@ export class UpdateUserRequestDto {
 
   @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  fullName?: string;
+  @IsNotEmpty({ message: "El apellido es obligatorio." })
+  @MaxLength(100)
+  lastName?: string;
+
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty({ message: "Los nombres son obligatorios." })
+  @MaxLength(100)
+  firstName?: string;
 
   @IsOptional()
   @IsEmail()

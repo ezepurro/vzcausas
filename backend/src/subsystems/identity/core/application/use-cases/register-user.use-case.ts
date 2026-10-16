@@ -37,7 +37,8 @@ const LAWYER_ROLE_NAME = "LAWYER";
 
 export type RegisterUserCommand = {
   username: string;
-  fullName: string;
+  lastName: string;
+  firstName: string;
   email: string;
   plainPassword: string;
   roles: readonly string[];
@@ -147,7 +148,8 @@ export class RegisterUserUseCase {
           id,
           username,
           plainPassword: command.plainPassword,
-          fullName: command.fullName,
+          lastName: command.lastName,
+          firstName: command.firstName,
           email,
           roleIds: resolvedRoles.map((role) => role.getId()),
           lawyerId: lawyer?.id ?? null,

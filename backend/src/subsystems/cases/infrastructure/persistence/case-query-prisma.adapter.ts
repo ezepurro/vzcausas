@@ -318,7 +318,8 @@ function toListItem(row: CaseRow): CaseListItem {
     },
     responsibleLawyer: {
       id: row.responsibleLawyer.id,
-      fullName: row.responsibleLawyer.fullName,
+      lastName: row.responsibleLawyer.lastName,
+      firstName: row.responsibleLawyer.firstName,
       registrationNumber: row.responsibleLawyer.registrationNumber,
     },
     legalQualifications: row.offenses.map((offense) => ({

@@ -52,7 +52,8 @@ export class PrismaUserRepository implements UserRepository {
       where: { id: user.id },
       data: {
         username: user.username.toString(),
-        fullName: user.fullName,
+        lastName: user.lastName,
+        firstName: user.firstName,
         email: user.email.toString(),
         passwordHash: user.hashForPersistence(),
         lawyerId: user.lawyerId,
@@ -104,7 +105,8 @@ export class PrismaUserRepository implements UserRepository {
       data: {
         id: user.id,
         username: user.username.toString(),
-        fullName: user.fullName,
+        lastName: user.lastName,
+        firstName: user.firstName,
         email: user.email.toString(),
         passwordHash: user.hashForPersistence(),
         lawyerId: user.lawyerId,
@@ -142,7 +144,13 @@ export class PrismaUserRepository implements UserRepository {
                 },
               },
               {
-                fullName: {
+                lastName: {
+                  contains: criteria.search,
+                  mode: "insensitive" as const,
+                },
+              },
+              {
+                firstName: {
                   contains: criteria.search,
                   mode: "insensitive" as const,
                 },

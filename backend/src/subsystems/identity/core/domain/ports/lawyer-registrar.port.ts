@@ -8,7 +8,8 @@ export const LAWYER_REGISTRAR = Symbol("LAWYER_REGISTRAR");
 
 /** The professional record `RegisterUser` asks `people` to create. */
 export type NewLawyer = {
-  fullName: string;
+  lastName: string;
+  firstName: string;
   registrationNumber: string;
 };
 

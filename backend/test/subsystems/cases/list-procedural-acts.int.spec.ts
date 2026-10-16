@@ -84,7 +84,7 @@ describe('GET /api/v1/cases/:caseId/procedural-acts', () => {
         name: 'Oposición al requerimiento de elevación',
         custom: false,
       },
-      registeredBy: { id: s.user.id, fullName: 'Dra. Malena Ríos' },
+      registeredBy: { id: s.user.id, lastName: 'Ríos', firstName: 'Malena' },
     });
   });
 

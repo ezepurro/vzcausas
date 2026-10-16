@@ -57,7 +57,8 @@ export type AuthenticateUserResult = {
   user: {
     id: number;
     username: string;
-    fullName: string;
+    lastName: string;
+    firstName: string;
     email: string;
     roleNames: string[];
     lawyer: LawyerSummary | null;
@@ -209,7 +210,8 @@ export class AuthenticateUserUseCase {
       user: {
         id: user.id,
         username: user.username.toString(),
-        fullName: user.fullName,
+        lastName: user.lastName,
+        firstName: user.firstName,
         email: user.email.toString(),
         roleNames,
         lawyer,

@@ -47,7 +47,7 @@ export const CLIENT: ClientRef = {
   clientSince: day('2021-03-12'),
 };
 
-export const LAWYER: LawyerRef = { id: 2, fullName: 'Dra. Malena Ríos', registrationNumber: '1-36842' };
+export const LAWYER: LawyerRef = { id: 2, lastName: 'Ríos', firstName: 'Malena', registrationNumber: '1-36842' };
 
 /** Input for the factory: a valid criminal case with SAC, no qualifications. Override what the spec needs. */
 export function aNewCaseInput(overrides: Partial<NewCaseInput> = {}): NewCaseInput {

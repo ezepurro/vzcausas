@@ -84,9 +84,10 @@ export function expectProceduralAct(data: unknown, expected: Record<string, unkn
   if (data.deadline !== null) expectDeadlineShape(data.deadline);
 
   // UserSummary.yaml
-  expectExactKeys(data.registeredBy, ['id', 'fullName']);
+  expectExactKeys(data.registeredBy, ['id', 'lastName', 'firstName']);
   expect(Number.isInteger(data.registeredBy.id)).toBe(true);
-  expect(typeof data.registeredBy.fullName).toBe('string');
+  expect(typeof data.registeredBy.lastName).toBe('string');
+  expect(typeof data.registeredBy.firstName).toBe('string');
 
   expect(data.registeredAt).toMatch(DATE_TIME_WITH_OFFSET);
 

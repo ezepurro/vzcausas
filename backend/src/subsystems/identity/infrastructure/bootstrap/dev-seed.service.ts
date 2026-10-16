@@ -27,7 +27,8 @@ const SEED_ROLE_NAME = "ADMINISTRATOR";
  * this path.
  */
 const SEED_LAWYER = {
-  fullName: "Development Administrator",
+  lastName: "Administrator",
+  firstName: "Development",
   registrationNumber: "0-00000",
 };
 
@@ -115,7 +116,8 @@ export class DevSeedService implements OnModuleInit {
       create: {
         username,
         passwordHash,
-        fullName: "Development Administrator",
+        lastName: SEED_LAWYER.lastName,
+        firstName: SEED_LAWYER.firstName,
         email: `${username}@vzcausas.local`,
         lawyerId: lawyer.id,
       },

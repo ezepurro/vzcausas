@@ -127,7 +127,11 @@ export class ProceduralActHttpMapper {
       notificationDate: act.notificationDate && toIsoDate(act.notificationDate),
       notes: act.notes,
       deadline: this.toDeadlineResponse(act.deadline),
-      registeredBy: { id: act.registeredByUserId, fullName: result.registeredBy.fullName },
+      registeredBy: {
+        id: act.registeredByUserId,
+        lastName: result.registeredBy.lastName,
+        firstName: result.registeredBy.firstName,
+      },
       registeredAt: toIsoWithOffset(act.registeredAt, this.timeZone),
     };
   }

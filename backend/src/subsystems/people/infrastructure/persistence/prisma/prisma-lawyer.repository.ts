@@ -34,7 +34,8 @@ export class PrismaLawyerRepository implements LawyerRepository {
     await this.prisma.db.lawyer.create({
       data: {
         id: lawyer.id,
-        fullName: lawyer.fullName,
+        lastName: lawyer.lastName,
+        firstName: lawyer.firstName,
         registrationNumber: lawyer.registrationNumber.toString(),
         active: lawyer.isActive(),
       },
@@ -76,7 +77,13 @@ export class PrismaLawyerRepository implements LawyerRepository {
         ? {
             OR: [
               {
-                fullName: {
+                lastName: {
+                  contains: criteria.search,
+                  mode: "insensitive" as const,
+                },
+              },
+              {
+                firstName: {
                   contains: criteria.search,
                   mode: "insensitive" as const,
                 },

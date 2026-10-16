@@ -16,7 +16,8 @@ import { Username } from "../../../core/domain/value-objects/username.vo";
 type UserRow = {
   id: number;
   username: string;
-  fullName: string;
+  lastName: string;
+  firstName: string;
   email: string;
   passwordHash: string;
   lawyerId: number | null;
@@ -32,7 +33,8 @@ export class UserPrismaMapper {
       id: row.id,
       username: Username.create(row.username),
       passwordHash: row.passwordHash,
-      fullName: row.fullName,
+      lastName: row.lastName,
+      firstName: row.firstName,
       email: Email.create(row.email),
       roleIds: row.roles.map((r) => r.roleId),
       lawyerId: row.lawyerId,

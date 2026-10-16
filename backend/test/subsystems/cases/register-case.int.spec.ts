@@ -111,7 +111,8 @@ describe('POST /api/v1/cases', () => {
       },
       responsibleLawyer: {
         id: lawyerId,
-        fullName: lawyer.fullName,
+        lastName: lawyer.lastName,
+        firstName: lawyer.firstName,
         registrationNumber: lawyer.registrationNumber,
       },
       legalQualifications: [

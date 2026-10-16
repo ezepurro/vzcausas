@@ -45,7 +45,8 @@ export class User {
     private readonly _id: number,
     private _username: Username,
     private _passwordHash: string,
-    private _fullName: string,
+    private _lastName: string,
+    private _firstName: string,
     private _email: Email,
     private _roleIds: readonly number[],
     private _lawyerId: number | null,
@@ -67,7 +68,8 @@ export class User {
     id: number;
     username: Username;
     passwordHash: string;
-    fullName: string;
+    lastName: string;
+    firstName: string;
     email: Email;
     roleIds: readonly number[];
     lawyerId: number | null;
@@ -79,7 +81,8 @@ export class User {
       props.id,
       props.username,
       props.passwordHash,
-      props.fullName,
+      props.lastName,
+      props.firstName,
       props.email,
       props.roleIds,
       props.lawyerId,
@@ -91,7 +94,7 @@ export class User {
 
   /**
    * Creates a fresh {@link User}. Validates structural invariants
-   * (positive integer ids, non-empty fullName, at least one role,
+   * (positive integer ids, non-empty last and first names, at least one role,
    * well-formed lawyerId, password policy) and hashes the plain
    * password before storing it.
    *
@@ -109,7 +112,8 @@ export class User {
       id: number;
       username: Username;
       plainPassword: string;
-      fullName: string;
+      lastName: string;
+      firstName: string;
       email: Email;
       roleIds: readonly number[];
       lawyerId: number | null;
@@ -124,12 +128,8 @@ export class User {
       );
     }
 
-    if (!props.fullName || props.fullName.trim().length === 0) {
-      throw new ValidationError(
-        "INVALID_USER",
-        "User must have a non-empty full name.",
-      );
-    }
+    const lastName = User.requireName(props.lastName, "lastName");
+    const firstName = User.requireName(props.firstName, "firstName");
 
     if (!Array.isArray(props.roleIds) || props.roleIds.length === 0) {
       throw new ValidationError(
@@ -164,7 +164,8 @@ export class User {
       props.id,
       props.username,
       hash,
-      props.fullName.trim(),
+      lastName,
+      firstName,
       props.email,
       props.roleIds,
       props.lawyerId,
@@ -244,14 +245,23 @@ export class User {
     this._username = newUsername;
   }
 
-  changeFullName(newFullName: string): void {
-    if (!newFullName || newFullName.trim().length === 0) {
-      throw new ValidationError(
-        "INVALID_USER",
-        "User must have a non-empty full name.",
-      );
-    }
-    this._fullName = newFullName.trim();
+  /**
+   * Last name and first names travel separately since API Contract V4
+   * (D-68), and `PATCH` accepts either one alone: an absent field keeps
+   * its current value. Both are validated before either is applied, so
+   * a rejected change leaves the user untouched.
+   */
+  rename(names: { lastName?: string; firstName?: string }): void {
+    const lastName =
+      names.lastName === undefined
+        ? this._lastName
+        : User.requireName(names.lastName, "lastName");
+    const firstName =
+      names.firstName === undefined
+        ? this._firstName
+        : User.requireName(names.firstName, "firstName");
+    this._lastName = lastName;
+    this._firstName = firstName;
   }
 
   changeEmail(newEmail: Email): void {
@@ -333,8 +343,12 @@ export class User {
     return this._username;
   }
 
-  get fullName(): string {
-    return this._fullName;
+  get lastName(): string {
+    return this._lastName;
+  }
+
+  get firstName(): string {
+    return this._firstName;
   }
 
   get email(): Email {
@@ -366,6 +380,27 @@ export class User {
    */
   hashForPersistence(): string {
     return this._passwordHash;
+  }
+
+  /**
+   * Trims a last name or first names and rejects it when blank, naming
+   * the offending field in the error details (same rule as `Client`).
+   */
+  private static requireName(
+    value: string,
+    field: "lastName" | "firstName",
+  ): string {
+    const trimmed = value?.trim() ?? "";
+    if (trimmed.length === 0) {
+      throw new ValidationError(
+        "INVALID_USER",
+        field === "lastName"
+          ? "User must have a non-empty last name."
+          : "User must have non-empty first names.",
+        { field },
+      );
+    }
+    return trimmed;
   }
 
   private static validatePasswordRules(plain: string): void {

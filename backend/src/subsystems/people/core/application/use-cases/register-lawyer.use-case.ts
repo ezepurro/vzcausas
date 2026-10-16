@@ -8,7 +8,8 @@ import {
 import { RegistrationNumber } from "../../domain/value-objects/registration-number.vo";
 
 export type RegisterLawyerCommand = {
-  fullName: string;
+  lastName: string;
+  firstName: string;
   registrationNumber: string;
 };
 
@@ -33,7 +34,8 @@ export class RegisterLawyerUseCase {
     const id = await this.lawyers.nextId();
     const lawyer = Lawyer.create({
       id,
-      fullName: command.fullName,
+      lastName: command.lastName,
+      firstName: command.firstName,
       registrationNumber,
     });
 

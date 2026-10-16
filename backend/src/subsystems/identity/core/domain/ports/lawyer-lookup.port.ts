@@ -14,7 +14,8 @@ export const LAWYER_LOOKUP = Symbol("LAWYER_LOOKUP");
  */
 export type LawyerSummary = {
   id: number;
-  fullName: string;
+  lastName: string;
+  firstName: string;
   registrationNumber: string;
 };
 

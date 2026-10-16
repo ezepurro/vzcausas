@@ -17,7 +17,8 @@ import { RegistrationNumber } from "../value-objects/registration-number.vo";
 export class Lawyer {
   private constructor(
     private readonly _id: number,
-    private _fullName: string,
+    private _lastName: string,
+    private _firstName: string,
     private readonly _registrationNumber: RegistrationNumber,
     private _active: boolean,
   ) {}
@@ -29,13 +30,15 @@ export class Lawyer {
    */
   static hydrate(props: {
     id: number;
-    fullName: string;
+    lastName: string;
+    firstName: string;
     registrationNumber: RegistrationNumber;
     active: boolean;
   }): Lawyer {
     return new Lawyer(
       props.id,
-      props.fullName,
+      props.lastName,
+      props.firstName,
       props.registrationNumber,
       props.active,
     );
@@ -44,12 +47,17 @@ export class Lawyer {
   /**
    * Creates a fresh {@link Lawyer} (HU12).
    *
+   * Last name and first names are separate since API Contract V4
+   * (D-68), without the "Dr."/"Dra." title, which the frontend adds
+   * (D-81).
+   *
    * @throws {ValidationError} if the id is not a positive integer or
-   *   the full name is empty.
+   *   the last name or first names are empty.
    */
   static create(props: {
     id: number;
-    fullName: string;
+    lastName: string;
+    firstName: string;
     registrationNumber: RegistrationNumber;
     active?: boolean;
   }): Lawyer {
@@ -60,16 +68,28 @@ export class Lawyer {
       );
     }
 
-    if (!props.fullName || props.fullName.trim().length === 0) {
+    const lastName = props.lastName?.trim() ?? "";
+    if (lastName.length === 0) {
       throw new ValidationError(
         "INVALID_LAWYER",
-        "Lawyer must have a non-empty full name.",
+        "Lawyer must have a non-empty last name.",
+        { field: "lastName" },
+      );
+    }
+
+    const firstName = props.firstName?.trim() ?? "";
+    if (firstName.length === 0) {
+      throw new ValidationError(
+        "INVALID_LAWYER",
+        "Lawyer must have non-empty first names.",
+        { field: "firstName" },
       );
     }
 
     return new Lawyer(
       props.id,
-      props.fullName.trim(),
+      lastName,
+      firstName,
       props.registrationNumber,
       props.active ?? true,
     );
@@ -84,8 +104,12 @@ export class Lawyer {
     return this._id;
   }
 
-  get fullName(): string {
-    return this._fullName;
+  get lastName(): string {
+    return this._lastName;
+  }
+
+  get firstName(): string {
+    return this._firstName;
   }
 
   get registrationNumber(): RegistrationNumber {
