@@ -1,6 +1,8 @@
 /**
- * Servidor falso: implementa los endpoints de `API_CONTRACT_V3.md` (con la
- * revisión del 05/10/2026) sobre la base en memoria de `db.ts`.
+ * Servidor falso: implementa los endpoints de `API_CONTRACT_V4.md` sobre la
+ * base en memoria de `db.ts`. Falta la consulta de actos procesales (HU27,
+ * `GET /cases/{caseId}/procedural-acts` y `…/{actId}`), que queda para cuando
+ * se cierre su historia.
  *
  * Es una función pura respecto del transporte (`resolveRequest`): recibe un
  * pedido ya normalizado y devuelve `{ status, body }`. No sabe de axios ni de
@@ -62,28 +64,46 @@ import {
     MIN_LIMIT,
     PROCEDURAL_ROLES_BY_JURISDICTION,
     ROLES,
+    type AdministratorDashboard,
+    type Case,
+    type DashboardCaseToAdvance,
+    type DashboardDeadline,
+    type DashboardPrescriptionAlert,
+    type DashboardSummary,
+    type DashboardTeamMember,
     type DayType,
     type DeadlinePreview,
+    type DeadlineKind,
     type Jurisdiction,
     type Lawyer,
+    type LawyerDashboard,
     type ProceduralRole,
     type Role,
     permissionsFor,
     type RefreshedSession,
     type Session,
 } from './contract';
-import { businessDaysUntil, computeDueDate, isIsoDate, todayIso } from './calendar';
+import { businessDaysUntil, calendarDaysBetween, computeDueDate, isIsoDate, todayIso } from './calendar';
 import {
     buildActDeadline,
+    buildFolder,
+    countTemplateCopies,
+    currentStateIdOf,
     db,
+    folderPath,
+    interruptiveActsOf,
     isActiveCase,
     isInTerminalState,
     issueToken,
     latestActOf,
     revokeToken,
     revokeUserSessions,
+    templatesForNewCases,
     toCase,
     toClient,
+    toDocumentTemplate,
+    toFolder,
+    toInterruptiveAct,
     toLawyer,
     toLegalQualification,
     toProceduralAct,
@@ -94,13 +114,17 @@ import {
     type StoredAct,
     type StoredCase,
     type StoredCaseQualification,
+    type StoredFolder,
 } from './db';
 import {
     EXPIRES_IN,
     INITIAL_STATE_NAME,
+    MAX_FILE_BYTES,
+    PRESCRIBED_STATE_ID,
     PROTECTED_ADMIN_USER,
     USERS_WITH_DEPENDENCIES,
     type StoredClient,
+    type StoredDocumentTemplate,
     type StoredLegalQualification,
     type StoredProceduralState,
     type StoredUser,
@@ -128,8 +152,30 @@ export interface MockRequest {
     query: URLSearchParams;
     /** Cuerpo JSON ya parseado, o `undefined` si no había. */
     body?: unknown;
+    /**
+     * Cuerpo `multipart/form-data` ya despegado (V4: modelos formales y
+     * adjuntos). `undefined` si el pedido no lo era.
+     */
+    form?: MockForm;
     /** Token del header `Authorization: Bearer <token>`, ya sin el prefijo. */
     token?: string;
+}
+
+/** Un archivo subido: lo que el servidor falso necesita saber de él. */
+export interface UploadedFile {
+    name: string;
+    /** En bytes. */
+    size: number;
+    type: string;
+}
+
+/**
+ * Un formulario `multipart/form-data`. Cada campo de texto puede repetirse
+ * —`jurisdictions` viaja una vez por fuero—, así que se guardan todos.
+ */
+export interface MockForm {
+    fields: Record<string, string[]>;
+    files: Record<string, UploadedFile>;
 }
 
 interface Context {
@@ -214,6 +260,20 @@ function requireAdmin(request: MockRequest): AuthResult {
     return requireRole(request, 'ADMINISTRATOR');
 }
 
+/**
+ * "`ADMINISTRATOR` o `LAWYER`": alcanza con uno de los dos (V4 §4). Es la
+ * guarda de los modelos formales, la configuración de avisos y la marca de
+ * prescripción; la Secretaría recibe `403`.
+ */
+function requireAdministratorOrLawyer(request: MockRequest): AuthResult {
+    const auth = requireUser(request);
+    if (!auth.ok) return auth;
+    if (!auth.user.roles.some((role) => role === 'ADMINISTRATOR' || role === 'LAWYER')) {
+        return { ok: false, response: fail(403, ERRORS.forbiddenAdministratorOrLawyer) };
+    }
+    return auth;
+}
+
 /* ------------------------------------------------------------------ */
 /* Validación                                                          */
 /* ------------------------------------------------------------------ */
@@ -232,6 +292,45 @@ const RE_USERNAME = /^[a-z0-9._-]{3,30}$/i;
 const RE_REGISTRATION = /^\d{1,2}-\d{5}$/;
 
 const RE_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+/** Largo máximo del apellido y de los nombres de una persona (V4 D-68). */
+const PERSON_NAME_MAX = 100;
+
+/**
+ * El apellido y los nombres de un usuario o un abogado (V4 D-68), con las
+ * mismas reglas que el cliente. `prefix` es para el abogado que viaja adentro
+ * del alta de usuario: sus errores van en `lawyer.lastName`. En un `PATCH`
+ * (`partial`) sólo se revisa lo que vino.
+ */
+function readPersonName(
+    body: Record<string, unknown>,
+    details: Record<string, string>,
+    options: { prefix?: string; partial?: boolean } = {},
+): { lastName: string; firstName: string; hasLastName: boolean; hasFirstName: boolean } {
+    const prefix = options.prefix ?? '';
+    const hasLastName = body.lastName !== undefined;
+    const hasFirstName = body.firstName !== undefined;
+    const lastName = asText(body.lastName);
+    const firstName = asText(body.firstName);
+
+    if (!options.partial || hasLastName) {
+        if (lastName === '') details[`${prefix}lastName`] = 'El apellido es obligatorio.';
+        else if (lastName.length > PERSON_NAME_MAX) details[`${prefix}lastName`] = `Puede tener hasta ${PERSON_NAME_MAX} caracteres.`;
+    }
+    if (!options.partial || hasFirstName) {
+        if (firstName === '') details[`${prefix}firstName`] = 'Los nombres son obligatorios.';
+        else if (firstName.length > PERSON_NAME_MAX) details[`${prefix}firstName`] = `Puede tener hasta ${PERSON_NAME_MAX} caracteres.`;
+    }
+    return { lastName, firstName, hasLastName, hasFirstName };
+}
+
+/** El usuario o el abogado buscado por apellido o nombres, en cualquier orden. */
+function matchesPerson(person: { lastName: string; firstName: string }, search: string): boolean {
+    return (
+        contains(`${person.lastName}, ${person.firstName}`, search) ||
+        contains(`${person.firstName} ${person.lastName}`, search)
+    );
+}
 
 /** Requisito del contrato: 8 caracteres o más, con al menos un número. */
 function isValidPassword(value: string): boolean {
@@ -530,7 +629,6 @@ const createUser: Handler = ({ request }) => {
 
     const body = asObject(request.body);
     const username = asText(body.username);
-    const fullName = asText(body.fullName);
     const email = asText(body.email);
     const password = typeof body.password === 'string' ? body.password : '';
     const roles = normalizeRoles(body.roles);
@@ -539,7 +637,7 @@ const createUser: Handler = ({ request }) => {
     if (!RE_USERNAME.test(username)) {
         details.username = 'El nombre de usuario no cumple con el formato requerido.';
     }
-    if (fullName === '') details.fullName = 'El nombre y apellido es obligatorio.';
+    const { lastName, firstName } = readPersonName(body, details);
     if (!RE_EMAIL.test(email)) details.email = 'El correo electrónico no es válido.';
     if (!isValidPassword(password)) {
         details.password = 'La contraseña no cumple con los requisitos establecidos.';
@@ -586,11 +684,10 @@ const createUser: Handler = ({ request }) => {
     let newLawyer: Lawyer | undefined;
     if (hasInlineLawyer) {
         const inline = asObject(body.lawyer);
-        const lawyerFullName = asText(inline.fullName);
         const registrationNumber = asText(inline.registrationNumber);
 
         const lawyerDetails: Record<string, string> = {};
-        if (lawyerFullName === '') lawyerDetails['lawyer.fullName'] = 'El nombre y apellido es obligatorio.';
+        const lawyerName = readPersonName(inline, lawyerDetails, { prefix: 'lawyer.' });
         if (!RE_REGISTRATION.test(registrationNumber)) {
             lawyerDetails['lawyer.registrationNumber'] = 'El formato de la matrícula no es válido.';
         }
@@ -600,7 +697,8 @@ const createUser: Handler = ({ request }) => {
 
         newLawyer = {
             id: db.nextLawyerId,
-            fullName: lawyerFullName,
+            lastName: lawyerName.lastName,
+            firstName: lawyerName.firstName,
             registrationNumber,
             activeCases: 0,
             active: true,
@@ -617,7 +715,8 @@ const createUser: Handler = ({ request }) => {
     const user: StoredUser = {
         id: db.nextUserId,
         username,
-        fullName,
+        lastName,
+        firstName,
         email,
         roles: validRoles,
         lawyerId,
@@ -647,7 +746,7 @@ const listUsers: Handler = ({ request }) => {
     /* Sólo los de alta. Un registro dado de baja no existe para el cliente. */
     const filtered = db.users
         .filter((u) => u.active)
-        .filter((u) => (search === '' ? true : contains(u.username, search) || contains(u.fullName, search)))
+        .filter((u) => (search === '' ? true : contains(u.username, search) || matchesPerson(u, search)))
         .filter((u) => (role === null || role === '' ? true : u.roles.includes(role as Role)))
         .sort((a, b) => a.id - b.id)
         .map(toUser);
@@ -680,24 +779,23 @@ const updateUser: Handler = ({ request, params }) => {
 
     const body = asObject(request.body);
     const hasUsername = body.username !== undefined;
-    const hasFullName = body.fullName !== undefined;
     const hasEmail = body.email !== undefined;
     const hasRoles = body.roles !== undefined;
     const hasLawyerId = body.lawyerId !== undefined;
+    const hasName = body.lastName !== undefined || body.firstName !== undefined;
 
-    if (!hasUsername && !hasFullName && !hasEmail && !hasRoles && !hasLawyerId) {
+    if (!hasUsername && !hasName && !hasEmail && !hasRoles && !hasLawyerId) {
         return validationError({ body: 'Debe enviarse al menos un campo para modificar.' });
     }
 
     const details: Record<string, string> = {};
     const username = asText(body.username);
-    const fullName = asText(body.fullName);
     const email = asText(body.email);
 
     if (hasUsername && !RE_USERNAME.test(username)) {
         details.username = 'El nombre de usuario no cumple con el formato requerido.';
     }
-    if (hasFullName && fullName === '') details.fullName = 'El nombre y apellido es obligatorio.';
+    const name = readPersonName(body, details, { partial: true });
     if (hasEmail && !RE_EMAIL.test(email)) details.email = 'El correo electrónico no es válido.';
 
     const roles = hasRoles ? normalizeRoles(body.roles) : undefined;
@@ -743,7 +841,8 @@ const updateUser: Handler = ({ request, params }) => {
         if (password !== undefined) db.passwords.set(username, password);
         user.username = username;
     }
-    if (hasFullName) user.fullName = fullName;
+    if (name.hasLastName) user.lastName = name.lastName;
+    if (name.hasFirstName) user.firstName = name.firstName;
     if (hasEmail) user.email = email;
     if (roles) user.roles = roles;
     if (hasLawyerId) user.lawyerId = nextLawyerId;
@@ -784,11 +883,10 @@ const createLawyer: Handler = ({ request }) => {
     if (!auth.ok) return auth.response;
 
     const body = asObject(request.body);
-    const fullName = asText(body.fullName);
     const registrationNumber = asText(body.registrationNumber);
 
     const details: Record<string, string> = {};
-    if (fullName === '') details.fullName = 'El nombre y apellido es obligatorio.';
+    const { lastName, firstName } = readPersonName(body, details);
     if (!RE_REGISTRATION.test(registrationNumber)) {
         details.registrationNumber = 'El formato de la matrícula no es válido.';
     }
@@ -798,7 +896,8 @@ const createLawyer: Handler = ({ request }) => {
 
     const lawyer: Lawyer = {
         id: db.nextLawyerId,
-        fullName,
+        lastName,
+        firstName,
         registrationNumber,
         activeCases: 0,
         active: true,
@@ -822,7 +921,7 @@ const listLawyers: Handler = ({ request }) => {
     const filtered = db.lawyers
         .filter((l) => l.active)
         .filter((l) =>
-            search === '' ? true : contains(l.fullName, search) || contains(l.registrationNumber, search),
+            search === '' ? true : matchesPerson(l, search) || contains(l.registrationNumber, search),
         )
         .sort((a, b) => a.id - b.id)
         .map(toLawyer);
@@ -851,17 +950,15 @@ const updateLawyer: Handler = ({ request, params }) => {
     if (lawyerId === undefined) return fail(400, ERRORS.invalidLawyerId);
 
     const body = asObject(request.body);
-    const hasFullName = body.fullName !== undefined;
+    const hasName = body.lastName !== undefined || body.firstName !== undefined;
     const hasRegistration = body.registrationNumber !== undefined;
-    if (!hasFullName && !hasRegistration) {
+    if (!hasName && !hasRegistration) {
         return validationError({ body: 'Debe enviarse al menos un campo para modificar.' });
     }
 
     const details: Record<string, string> = {};
-    const fullName = asText(body.fullName);
     const registrationNumber = asText(body.registrationNumber);
-
-    if (hasFullName && fullName === '') details.fullName = 'El nombre y apellido es obligatorio.';
+    const name = readPersonName(body, details, { partial: true });
     if (hasRegistration && !RE_REGISTRATION.test(registrationNumber)) {
         details.registrationNumber = 'El formato de la matrícula no es válido.';
     }
@@ -874,7 +971,8 @@ const updateLawyer: Handler = ({ request, params }) => {
         return fail(409, ERRORS.registrationTaken);
     }
 
-    if (hasFullName) lawyer.fullName = fullName;
+    if (name.hasLastName) lawyer.lastName = name.lastName;
+    if (name.hasFirstName) lawyer.firstName = name.firstName;
     if (hasRegistration) lawyer.registrationNumber = registrationNumber;
 
     return ok(itemBody(toLawyer(lawyer)));
@@ -1088,6 +1186,9 @@ const updateProceduralState: Handler = ({ request, params }) => {
     const state = db.proceduralStates.find((s) => s.id === stateId && s.active);
     if (!state) return fail(404, ERRORS.proceduralStateNotFound);
 
+    // "Prescripta" es de sistema: renombrarlo dejaría a HU33 sin destino (V4 D-53).
+    if (state.id === PRESCRIBED_STATE_ID) return fail(422, ERRORS.proceduralStateProtected);
+
     // La coherencia se chequea contra los valores que van a QUEDAR.
     const nextDays = timeLimitDays ?? state.timeLimitDays;
     const nextDayType = hasDayType ? (body.dayType as DayType) : state.dayType;
@@ -1123,6 +1224,8 @@ const deleteProceduralState: Handler = ({ request, params }) => {
 
     const state = db.proceduralStates.find((s) => s.id === stateId && s.active);
     if (!state) return fail(404, ERRORS.proceduralStateNotFound);
+
+    if (state.id === PRESCRIBED_STATE_ID) return fail(422, ERRORS.proceduralStateProtected);
 
     /* La baja procede aunque haya causas en el estado (V3 D-06): lo conservan
        y lo siguen mostrando, porque `toCase` lo busca también entre los dados
@@ -1553,9 +1656,8 @@ const createCase: Handler = ({ request }) => {
     }
 
     /* La fecha de inicio va con el SAC (CA-18.2): obligatoria si se informa, y
-       sin él no se manda. Sin SAC se guarda la del día, como el backend, que
-       todavía no admite la columna vacía. */
-    let startDate = today;
+       sin él no se manda. Sin SAC la causa queda sin fecha de inicio (D-38). */
+    let startDate: string | null = null;
     if (sacNumber !== null && !isPresent(body.startDate)) {
         details.startDate = 'Es obligatoria cuando se informa el número de SAC.';
     } else if (sacNumber === null && isPresent(body.startDate)) {
@@ -1607,6 +1709,18 @@ const createCase: Handler = ({ request }) => {
         }
     }
 
+    const fueroData = readJurisdictionData(body, details, today);
+    const courtFeePaid = body.courtFeePaid === undefined ? false : body.courtFeePaid;
+    if (typeof courtFeePaid !== 'boolean') details.courtFeePaid = MSG_NOT_BOOL_FIELD;
+
+    /* Las dos casillas de "Asignación y documentación" (V4 D-59): las dos
+       vienen tildadas, y la segunda no se puede sin la primera. */
+    const createFolder = body.createFolder === undefined ? true : body.createFolder;
+    const copyTemplates = body.copyTemplates === undefined ? createFolder : body.copyTemplates;
+    if (typeof createFolder !== 'boolean') details.createFolder = MSG_NOT_BOOL_FIELD;
+    if (typeof copyTemplates !== 'boolean') details.copyTemplates = MSG_NOT_BOOL_FIELD;
+    else if (copyTemplates && createFolder === false) details.copyTemplates = MSG_COPY_NEEDS_FOLDER;
+
     if (Object.keys(details).length > 0) return validationError(details);
 
     /* Si se informa, el SAC identifica la causa en todo el sistema (RN2),
@@ -1627,12 +1741,23 @@ const createCase: Handler = ({ request }) => {
         instructorExtension,
         counterparty,
         subjectMatter,
+        ...fueroData,
+        courtFeePaid: courtFeePaid as boolean,
         clientId: clientId as number,
         responsibleLawyerId: lawyerId as number,
         qualifications,
         startDate,
+        folder: null,
+        prescriptionDeclaration: null,
         active: true,
     };
+
+    /* La carpeta no condiciona el alta (V4 D-60): si el almacenamiento falla,
+       la causa se registra igual y la carpeta queda pendiente. */
+    if (createFolder) {
+        stored.folder = newFolder(stored, copyTemplates as boolean);
+    }
+
     db.nextCaseId += 1;
     db.cases.push(stored);
 
@@ -1640,6 +1765,128 @@ const createCase: Handler = ({ request }) => {
        y sin vencimiento. El estado de la tabla lo fija el primer acto (D-34). */
     return created(itemBody(toCase(stored)));
 };
+
+const MSG_NOT_BOOL_FIELD = 'Debe ser verdadero o falso.';
+const MSG_COPY_NEEDS_FOLDER = 'Para copiar los modelos primero hay que crear la carpeta de la causa.';
+const MSG_ONLY_AMPARO = 'Solo corresponde al fuero de amparo.';
+const MSG_ONLY_ADMINISTRATIVE = 'Solo corresponde al fuero administrativo.';
+
+/** Un entero mayor o igual a 1. `undefined` si no lo es. */
+function readPositiveInteger(value: unknown): number | undefined {
+    return typeof value === 'number' && Number.isInteger(value) && value >= 1 ? value : undefined;
+}
+
+/**
+ * Los datos propios de cada fuero en el alta de causa (V4 §3.7, D-67), todos
+ * opcionales. Un dato de otro fuero es un `400` sobre su campo, como
+ * `counterparty` en el penal. Devuelve lo que se guarda, con `null` en lo que
+ * no corresponde al fuero.
+ */
+function readJurisdictionData(body: Record<string, unknown>, details: Record<string, string>, today: string) {
+    const jurisdiction = isJurisdiction(body.jurisdiction) ? body.jurisdiction : null;
+    const criminal = jurisdiction === 'CRIMINAL';
+    const amparo = jurisdiction === 'AMPARO';
+    const administrative = jurisdiction === 'ADMINISTRATIVE';
+
+    const bool = (field: string, applies: boolean, wrongFuero: string): boolean | null => {
+        const value = body[field];
+        if (!applies) {
+            if (jurisdiction !== null && value !== undefined && value !== null) details[field] = wrongFuero;
+            return null;
+        }
+        if (value === undefined) return false;
+        if (typeof value !== 'boolean') details[field] = MSG_NOT_BOOL_FIELD;
+        return value === true;
+    };
+    const pastDate = (field: string, applies: boolean, wrongFuero: string): string | null => {
+        const value = body[field];
+        if (value === undefined || value === null || value === '') return null;
+        if (!applies) {
+            if (jurisdiction !== null) details[field] = wrongFuero;
+            return null;
+        }
+        if (!isIsoDate(value)) details[field] = MSG_NOT_DATE;
+        else if (value > today) details[field] = 'No puede ser posterior a hoy.';
+        else return value;
+        return null;
+    };
+
+    const clientDetained = bool('clientDetained', criminal, MSG_ONLY_CRIMINAL);
+    const injunctionGranted = bool('injunctionGranted', amparo, MSG_ONLY_AMPARO);
+    const administrativeRemedyExhaustedOn = pastDate('administrativeRemedyExhaustedOn', administrative, MSG_ONLY_ADMINISTRATIVE);
+
+    /* El acto lesivo del amparo (D-78): con su fecha van el plazo y cómo se
+       cuenta; si se renueva, cada cuántos días. */
+    const harmfulActDate = pastDate('harmfulActDate', amparo, MSG_ONLY_AMPARO);
+    const harmfulActRenews = bool('harmfulActRenews', amparo, MSG_ONLY_AMPARO);
+    let harmfulActRenewalDays: number | null = null;
+    let harmfulActTermDays: number | null = null;
+    let harmfulActTermDayType: DayType | null = null;
+
+    if (amparo) {
+        const hasDate = isPresent(body.harmfulActDate);
+        if (harmfulActRenews) {
+            harmfulActRenewalDays = readPositiveInteger(body.harmfulActRenewalDays) ?? null;
+            if (harmfulActRenewalDays === null) details.harmfulActRenewalDays = 'Indicá cada cuántos días se renueva el acto lesivo.';
+        } else if (isPresent(body.harmfulActRenewalDays)) {
+            details.harmfulActRenewalDays = 'Solo corresponde si el acto lesivo se renueva.';
+        }
+        if (hasDate) {
+            harmfulActTermDays = readPositiveInteger(body.harmfulActTermDays) ?? null;
+            if (harmfulActTermDays === null) details.harmfulActTermDays = 'Indicá el plazo para presentar el amparo.';
+            const dayType = body.harmfulActTermDayType;
+            if (dayType === 'BUSINESS' || dayType === 'CONSECUTIVE') harmfulActTermDayType = dayType;
+            else details.harmfulActTermDayType = 'Indicá si el plazo se cuenta en días hábiles o corridos.';
+        } else {
+            for (const field of ['harmfulActTermDays', 'harmfulActTermDayType'] as const) {
+                if (isPresent(body[field])) details[field] = 'Solo corresponde si se informa la fecha del acto lesivo.';
+            }
+        }
+    } else if (jurisdiction !== null) {
+        for (const field of ['harmfulActRenewalDays', 'harmfulActTermDays', 'harmfulActTermDayType'] as const) {
+            if (isPresent(body[field])) details[field] = MSG_ONLY_AMPARO;
+        }
+    }
+
+    return {
+        clientDetained,
+        injunctionGranted,
+        harmfulActDate,
+        harmfulActRenews,
+        harmfulActRenewalDays,
+        harmfulActTermDays,
+        harmfulActTermDayType,
+        administrativeRemedyExhaustedOn,
+    };
+}
+
+/**
+ * Intenta crear la carpeta de una causa (V4 §4, "Carpeta de la causa"). Si el
+ * almacenamiento responde, queda `CREATED` con los modelos del fuero copiados,
+ * y cada modelo suma un uso; si no, `PENDING`.
+ */
+function newFolder(stored: StoredCase, copyTemplates: boolean): StoredFolder {
+    // La carpeta va en la del abogado responsable al crearse (D-61).
+    const lawyer = db.lawyers.find((l) => l.id === stored.responsibleLawyerId) ?? { lastName: '', firstName: '' };
+    const folder = buildFolder({
+        caseId: stored.id,
+        path: folderPath({ lawyer, jurisdiction: stored.jurisdiction, caption: stored.caption }),
+        copyTemplates,
+        templates: templatesForNewCases(db.documentTemplates, stored.jurisdiction).length,
+        storageAvailable: !db.failures.documentStorage,
+    });
+    if (folder.status === 'CREATED' && copyTemplates) countTemplateCopies(stored.jurisdiction);
+    return folder;
+}
+
+/**
+ * El vencimiento abierto de una causa, de cualquiera de sus dos orígenes: el
+ * plazo del acto procesal del estado actual o, en un amparo todavía en
+ * "Iniciada", el del acto lesivo. Nunca hay dos a la vez (V4 D-82).
+ */
+function openDueDateOf(c: Case): string | null {
+    return c.currentState.dueDate ?? c.harmfulActDeadline?.dueDate ?? null;
+}
 
 const listCases: Handler = ({ request }) => {
     const auth = requireUser(request);
@@ -1697,17 +1944,19 @@ const listCases: Handler = ({ request }) => {
         .filter((c) => (clientId.ok && clientId.value !== undefined ? c.clientId === clientId.value : true))
         .filter((c) => {
             const latest = latestActOf(c.id);
+            const prescribed = c.prescriptionDeclaration !== null;
             // Sin actos, la causa sigue en el estado inicial, "Iniciada" (D-34).
-            if (byWithoutActs) return latest === undefined;
-            if (byStateId) return latest?.proceduralStateId === stateId.value;
+            if (byWithoutActs) return latest === undefined && !prescribed;
+            // Una causa marcada como prescripta se encuentra por "Prescripta" (V4 §3.7).
+            if (byStateId) return currentStateIdOf(c) === stateId.value;
             if (byCustomState) {
-                return latest?.customState?.toLowerCase() === customState.toLowerCase();
+                return !prescribed && latest?.customState?.toLowerCase() === customState.toLowerCase();
             }
             return true;
         })
         .map(toCase)
         // "Solo con plazo por vencer": las que tienen vencimiento, vencidas incluidas.
-        .filter((c) => (onlyOpen ? c.currentState.dueDate !== null : true))
+        .filter((c) => (onlyOpen ? openDueDateOf(c) !== null : true))
         .filter((c) =>
             search === ''
                 ? true
@@ -1717,13 +1966,13 @@ const listCases: Handler = ({ request }) => {
                   contains(`${c.client.lastName}, ${c.client.firstName}`, search) ||
                   contains(`${c.client.firstName} ${c.client.lastName}`, search),
         )
-        /* Por urgencia (D-25 y D-35): primero las causas con vencimiento, por
-           `currentState.dueDate` ascendente —las vencidas quedan arriba—, y
-           después las que no tienen, por `id`. Ya no se desempata por SAC,
-           que puede faltar. */
+        /* Por urgencia (D-25, D-82): primero las causas con vencimiento abierto,
+           del acto procesal o del acto lesivo, de la fecha más próxima a la más
+           lejana —las vencidas quedan arriba—, y después las que no tienen, por
+           `id`. */
         .sort((a, b) => {
-            const dueA = a.currentState.dueDate;
-            const dueB = b.currentState.dueDate;
+            const dueA = openDueDateOf(a);
+            const dueB = openDueDateOf(b);
             if (dueA !== null && dueB !== null) return dueA.localeCompare(dueB) || a.id - b.id;
             if (dueA !== null) return -1;
             if (dueB !== null) return 1;
@@ -1781,19 +2030,19 @@ const getCase: Handler = ({ request, params }) => {
 const CUSTOM_STATE_MAX = 255;
 const NOTES_MAX = 2000;
 
-const MSG_STATE_NOT_ALLOWED = 'El estado procesal no pertenece al fuero de la causa o es terminal.';
+const MSG_STATE_NOT_ALLOWED = 'El estado procesal no pertenece al fuero de la causa o es el estado Prescripta.';
 const MSG_NOTIFICATION_REQUIRED =
     'Es obligatoria en el fuero administrativo cuando el estado abre plazo (RN6).';
 
 /**
- * El estado de la tabla al que un acto puede llevar la causa: vigente, del
- * fuero de la causa y **no terminal** (V3 D-15). `undefined` si no sirve.
+ * El estado de la tabla al que un acto puede llevar la causa: vigente y del
+ * fuero de la causa. Desde V4 puede ser terminal —"Archivada" es la forma de
+ * cerrarla—, **salvo "Prescripta"**, que tiene su propio botón (D-69).
+ * `undefined` si no sirve.
  */
 function allowedTargetState(stateId: number | undefined, jurisdiction: Jurisdiction) {
-    if (stateId === undefined) return undefined;
-    return db.proceduralStates.find(
-        (s) => s.id === stateId && s.active && s.jurisdiction === jurisdiction && !s.terminal,
-    );
+    if (stateId === undefined || stateId === PRESCRIBED_STATE_ID) return undefined;
+    return db.proceduralStates.find((s) => s.id === stateId && s.active && s.jurisdiction === jurisdiction);
 }
 
 /**
@@ -1901,7 +2150,10 @@ const createProceduralAct: Handler = ({ request, params }) => {
     const notificationDate = isIsoDate(body.notificationDate) ? body.notificationDate : null;
 
     let manualDueDate: string | null = null;
-    if (isPresent(body.manualDueDate)) {
+    if (isPresent(body.manualDueDate) && state?.terminal) {
+        // Un estado terminal no abre plazo: no hay vencimiento que ajustar (D-69).
+        details.manualDueDate = 'Un estado terminal no abre plazo: no admite un vencimiento manual.';
+    } else if (isPresent(body.manualDueDate)) {
         const countsFrom =
             stored.jurisdiction === 'ADMINISTRATIVE' && notificationDate ? notificationDate : actDate;
         if (!isIsoDate(body.manualDueDate)) details.manualDueDate = MSG_NOT_DATE;
@@ -2006,6 +2258,553 @@ const previewDeadline: Handler = ({ request, params }) => {
 };
 
 /* ------------------------------------------------------------------ */
+/* Helpers de los recursos del Sprint 3 (V4)                           */
+/* ------------------------------------------------------------------ */
+
+const NAME_TEXT_MAX = 255;
+const MSG_NOT_DOCX = 'El archivo tiene que ser .docx.';
+
+/** El primer valor de un campo de texto del formulario, recortado. */
+function formText(request: MockRequest, name: string): string {
+    return (request.form?.fields[name]?.[0] ?? '').trim();
+}
+
+/** El archivo del campo `file`, si vino en un `multipart/form-data`. */
+function formFile(request: MockRequest) {
+    return request.form?.files.file;
+}
+
+/**
+ * La fecha de un cuerpo que no puede ser futura: la de un acto interruptivo,
+ * la de la prescripción. Devuelve el mensaje de error, o `undefined`.
+ */
+function pastDateError(value: unknown, required: string): string | undefined {
+    if (!isPresent(value)) return required;
+    if (!isIsoDate(value)) return MSG_NOT_DATE;
+    if (value > todayIso()) return 'No puede ser posterior a hoy.';
+    return undefined;
+}
+
+/** Un texto libre opcional con un máximo. */
+function maxLengthError(value: string | null, max: number): string | undefined {
+    return value !== null && value.length > max ? `Puede tener hasta ${max} caracteres.` : undefined;
+}
+
+/* ------------------------------------------------------------------ */
+/* /cases/{caseId}/prescription                                        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Marca una causa penal como prescripta (HU33). Es una acción manual, como la
+ * resuelve el prototipo (V4 D-52, C-23): la causa pasa a "Prescripta", se
+ * cierran sus plazos y deja de ser activa. No se revierte (D-54).
+ *
+ * No exige que el plazo calculado esté cumplido: la prescripción la declara el
+ * tribunal.
+ */
+const declarePrescription: Handler = ({ request, params }) => {
+    const auth = requireAdministratorOrLawyer(request);
+    if (!auth.ok) return auth.response;
+
+    const caseId = readRouteId(params, 'caseId');
+    if (caseId === undefined) return fail(400, ERRORS.invalidCaseId);
+
+    const body = asObject(request.body);
+    const details: Record<string, string> = {};
+    const dateError = pastDateError(body.prescriptionDate, 'La fecha de la prescripción es obligatoria.');
+    if (dateError) details.prescriptionDate = dateError;
+    const resolution = asText(body.resolution);
+    if (resolution === '') details.resolution = 'La resolución que declara la prescripción es obligatoria.';
+    else if (resolution.length > NAME_TEXT_MAX) details.resolution = `Puede tener hasta ${NAME_TEXT_MAX} caracteres.`;
+    const grounds = optionalText(body.grounds);
+    const groundsError = maxLengthError(grounds, NOTES_MAX);
+    if (groundsError) details.grounds = groundsError;
+    if (Object.keys(details).length > 0) return validationError(details);
+
+    const stored = db.cases.find((c) => c.id === caseId && c.active);
+    if (!stored) return fail(404, ERRORS.caseNotFound);
+
+    if (stored.jurisdiction !== 'CRIMINAL') return fail(422, ERRORS.prescriptionNotApplicable);
+    // Una causa penal sin calificación legal no prescribe (V4 D-74).
+    if (stored.qualifications.length === 0) return fail(422, ERRORS.prescriptionWithoutQualifications);
+    if (isInTerminalState(stored.id)) return fail(422, ERRORS.caseInTerminalStateOperation);
+
+    stored.prescriptionDeclaration = {
+        prescriptionDate: body.prescriptionDate as string,
+        resolution,
+        grounds,
+        registeredById: auth.user.id,
+        registeredAt: nowIso(),
+    };
+    // Devuelve la causa entera: cambian varias partes a la vez (D-54).
+    return ok(itemBody(toCase(stored)));
+};
+
+/* ------------------------------------------------------------------ */
+/* /cases/{caseId}/folder                                              */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Crea la carpeta de una causa que no la tiene, reintenta una pendiente o
+ * copia los modelos que faltaron (V4 §3.7). Es idempotente: sobre una carpeta
+ * completa no hace nada y responde `200` con ella.
+ *
+ * Con `db.failures.documentStorage` el almacenamiento "no responde": la
+ * carpeta queda `PENDING` y responde `502`.
+ */
+const createCaseFolder: Handler = ({ request, params }) => {
+    const auth = requireUser(request);
+    if (!auth.ok) return auth.response;
+
+    const caseId = readRouteId(params, 'caseId');
+    if (caseId === undefined) return fail(400, ERRORS.invalidCaseId);
+
+    const body = asObject(request.body);
+    if (body.copyTemplates !== undefined && typeof body.copyTemplates !== 'boolean') {
+        return validationError({ copyTemplates: MSG_NOT_BOOL_FIELD });
+    }
+    const copyTemplates = body.copyTemplates !== false;
+
+    const stored = db.cases.find((c) => c.id === caseId && c.active);
+    if (!stored) return fail(404, ERRORS.caseNotFound);
+
+    const folder = stored.folder;
+    if (folder === null || folder.status === 'PENDING') {
+        stored.folder = newFolder(stored, copyTemplates);
+        if (stored.folder.status === 'PENDING') return fail(502, ERRORS.documentStorageUnavailable);
+    } else if (folder.templatesPending > 0 && copyTemplates) {
+        if (db.failures.documentStorage) return fail(502, ERRORS.documentStorageUnavailable);
+        folder.templatesCopied += folder.templatesPending;
+        folder.templatesPending = 0;
+        folder.copyTemplates = true;
+    }
+
+    return ok(itemBody(toFolder(stored.folder as StoredFolder)));
+};
+
+/* ------------------------------------------------------------------ */
+/* /cases/{caseId}/interruptive-acts                                   */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Registra un acto interruptivo (HU31). Reinicia la prescripción de todas las
+ * calificaciones de la causa desde su fecha (D-49); no mueve el estado ni abre
+ * plazos (D-48). Lo registra sólo el abogado responsable, como los actos
+ * procesales, y por eso sigue su mismo orden: `404` de la causa, `403`, `400`
+ * del cuerpo y recién después los `422`.
+ */
+const createInterruptiveAct: Handler = ({ request, params }) => {
+    const auth = requireUser(request);
+    if (!auth.ok) return auth.response;
+
+    const caseId = readRouteId(params, 'caseId');
+    if (caseId === undefined) return fail(400, ERRORS.invalidCaseId);
+
+    const stored = db.cases.find((c) => c.id === caseId && c.active);
+    if (!stored) return fail(404, ERRORS.caseNotFound);
+    if (!isResponsibleLawyer(auth.user, stored)) {
+        return fail(403, ERRORS.forbiddenNotResponsibleInterruptive);
+    }
+
+    const body = asObject(request.body);
+    const details: Record<string, string> = {};
+    const name = asText(body.name);
+    if (name === '') details.name = 'El acto interruptivo es obligatorio.';
+    else if (name.length > NAME_TEXT_MAX) details.name = `Puede tener hasta ${NAME_TEXT_MAX} caracteres.`;
+    const dateError = pastDateError(body.actDate, 'La fecha del acto es obligatoria.');
+    if (dateError) details.actDate = dateError;
+    const notes = optionalText(body.notes);
+    const notesError = maxLengthError(notes, NOTES_MAX);
+    if (notesError) details.notes = notesError;
+    if (Object.keys(details).length > 0) return validationError(details);
+
+    // Sólo el penal computa prescripción (D-50).
+    if (stored.jurisdiction !== 'CRIMINAL') return fail(422, ERRORS.prescriptionNotApplicable);
+    if (isInTerminalState(stored.id)) return fail(422, ERRORS.caseInTerminalStateOperation);
+
+    const act = {
+        id: db.nextInterruptiveActId,
+        caseId: stored.id,
+        name,
+        actDate: body.actDate as string,
+        notes,
+        registeredById: auth.user.id,
+        registeredAt: nowIso(),
+    };
+    db.nextInterruptiveActId += 1;
+    db.interruptiveActs.push(act);
+
+    /* No se escribe nada en la causa: la prescripción se calcula en cada
+       lectura, así que un acto viejo no la hace retroceder (rige el más
+       reciente). */
+    return created(itemBody(toInterruptiveAct(act)));
+};
+
+/**
+ * Los actos interruptivos de una causa, del más reciente al más antiguo: el
+ * primero es el que rige (V4 §3.9). Una causa que no es penal devuelve la
+ * lista vacía, no un error.
+ */
+const listInterruptiveActs: Handler = ({ request, params }) => {
+    const auth = requireUser(request);
+    if (!auth.ok) return auth.response;
+
+    const caseId = readRouteId(params, 'caseId');
+    if (caseId === undefined) return fail(400, ERRORS.invalidCaseId);
+
+    const page = readPagination(request.query);
+    if (!page.ok) return page.response;
+
+    const stored = db.cases.find((c) => c.id === caseId && c.active);
+    if (!stored) return fail(404, ERRORS.caseNotFound);
+
+    return ok(paginate(interruptiveActsOf(stored.id).map(toInterruptiveAct), page.page, page.limit));
+};
+
+/* ------------------------------------------------------------------ */
+/* /document-templates                                                 */
+/* ------------------------------------------------------------------ */
+
+const TEMPLATE_NAME_MAX = 150;
+const DOCX_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+
+/** El nombre de un modelo es único, sin distinguir mayúsculas (V4 D-71). */
+function templateNameTaken(name: string): boolean {
+    return db.documentTemplates.some((t) => t.name.toLowerCase() === name.toLowerCase());
+}
+
+/** El modelo vigente con ese id, o `undefined`: uno dado de baja no existe (CA-35.7). */
+function findTemplate(id: number): StoredDocumentTemplate | undefined {
+    return db.documentTemplates.find((t) => t.id === id && t.active);
+}
+
+/**
+ * Registra un modelo formal con su archivo (HU34), en `multipart/form-data`.
+ * El alta es atómica (CA-34.7): con el almacenamiento caído no se escribe nada
+ * y responde `502`.
+ */
+const createDocumentTemplate: Handler = ({ request }) => {
+    const auth = requireAdministratorOrLawyer(request);
+    if (!auth.ok) return auth.response;
+
+    const file = formFile(request);
+    if (file && file.size > MAX_FILE_BYTES) return fail(413, ERRORS.fileTooLarge);
+
+    const details: Record<string, string> = {};
+
+    const name = formText(request, 'name');
+    if (name === '') details.name = 'El nombre del modelo es obligatorio.';
+    else if (name.length > TEMPLATE_NAME_MAX) details.name = `Puede tener hasta ${TEMPLATE_NAME_MAX} caracteres.`;
+
+    // Se repite una vez por fuero; "Todos los fueros" manda los tres (D-55).
+    const jurisdictions = (request.form?.fields.jurisdictions ?? []).map((j) => j.trim()).filter(Boolean);
+    if (jurisdictions.length === 0) details.jurisdictions = 'Elegí al menos un fuero.';
+    else if (!jurisdictions.every(isJurisdiction)) details.jurisdictions = 'No existe un fuero procesal con ese nombre.';
+    else if (new Set(jurisdictions).size !== jurisdictions.length) details.jurisdictions = 'No puede repetirse un fuero.';
+
+    const copyRaw = formText(request, 'copyToNewCases');
+    if (copyRaw !== '' && copyRaw !== 'true' && copyRaw !== 'false') details.copyToNewCases = MSG_NOT_BOOLEAN;
+
+    if (!file) details.file = 'El archivo del modelo es obligatorio.';
+    else if (!/\.docx$/i.test(file.name)) details.file = MSG_NOT_DOCX;
+
+    if (Object.keys(details).length > 0) return validationError(details);
+
+    if (templateNameTaken(name)) return fail(409, ERRORS.documentTemplateNameTaken);
+    if (db.failures.documentStorage) return fail(502, ERRORS.documentStorageUnavailable);
+
+    const template: StoredDocumentTemplate = {
+        id: db.nextDocumentTemplateId,
+        name,
+        jurisdictions: jurisdictions as Jurisdiction[],
+        fileName: (file as { name: string }).name,
+        copyToNewCases: copyRaw !== 'false',
+        // La última versión es el alta (V4 §3.10).
+        lastVersionAt: nowIso(),
+        lastVersionById: auth.user.id,
+        usageCount: 0,
+        active: true,
+    };
+    db.nextDocumentTemplateId += 1;
+    db.documentTemplates.push(template);
+
+    return created(itemBody(toDocumentTemplate(template)));
+};
+
+/**
+ * Los modelos vigentes, por nombre (CA-35.3). Un modelo de varios fueros sale
+ * en el filtro de cada uno, y una sola vez sin filtro.
+ */
+const listDocumentTemplates: Handler = ({ request }) => {
+    const auth = requireAdministratorOrLawyer(request);
+    if (!auth.ok) return auth.response;
+
+    const page = readPagination(request.query);
+    if (!page.ok) return page.response;
+
+    const jurisdiction = request.query.get('jurisdiction');
+    const hasJurisdiction = jurisdiction !== null && jurisdiction !== '';
+    if (hasJurisdiction && !isJurisdiction(jurisdiction)) return fail(400, ERRORS.invalidJurisdiction);
+
+    const copy = readQueryBoolean(request.query, 'copyToNewCases');
+    if (!copy.ok) return invalidQuery({ copyToNewCases: MSG_NOT_BOOLEAN });
+    const onlyCopied = copy.value === true;
+
+    const filtered = db.documentTemplates
+        .filter((t) => t.active)
+        .filter((t) => (hasJurisdiction ? t.jurisdictions.includes(jurisdiction as Jurisdiction) : true))
+        .filter((t) => (onlyCopied ? t.copyToNewCases : true))
+        .sort((a, b) => byText(a.name, b.name) || a.id - b.id)
+        .map(toDocumentTemplate);
+
+    return ok(paginate(filtered, page.page, page.limit));
+};
+
+const getDocumentTemplate: Handler = ({ request, params }) => {
+    const auth = requireAdministratorOrLawyer(request);
+    if (!auth.ok) return auth.response;
+
+    const id = readRouteId(params, 'templateId');
+    if (id === undefined) return fail(400, ERRORS.invalidDocumentTemplateId);
+
+    const template = findTemplate(id);
+    if (!template) return fail(404, ERRORS.documentTemplateNotFound);
+
+    return ok(itemBody(toDocumentTemplate(template)));
+};
+
+/**
+ * El `.docx` del modelo (CA-35.6). Es la única respuesta exitosa que no es
+ * JSON; el contenido es un texto de relleno, que alcanza para que el cliente
+ * reciba un archivo con su nombre y su tipo.
+ */
+const downloadDocumentTemplate: Handler = ({ request, params }) => {
+    const auth = requireAdministratorOrLawyer(request);
+    if (!auth.ok) return auth.response;
+
+    const id = readRouteId(params, 'templateId');
+    if (id === undefined) return fail(400, ERRORS.invalidDocumentTemplateId);
+
+    const template = findTemplate(id);
+    if (!template) return fail(404, ERRORS.documentTemplateNotFound);
+
+    if (db.failures.documentStorage) return fail(502, ERRORS.documentStorageUnavailable);
+
+    return {
+        status: 200,
+        body: null,
+        file: {
+            content: `Modelo formal del estudio: ${template.name}`,
+            contentType: DOCX_CONTENT_TYPE,
+            fileName: template.fileName,
+        },
+    };
+};
+
+/* ------------------------------------------------------------------ */
+/* /dashboards                                                         */
+/* ------------------------------------------------------------------ */
+
+/** Días hábiles que cuentan como "próximos" (V4 D-66, CA-41.2). */
+const DUE_SOON_BUSINESS_DAYS = 5;
+
+/** Las causas activas del alcance del tablero, ya serializadas (CA-41.6). */
+function activeCasesWhere(predicate: (stored: StoredCase) => boolean): Case[] {
+    return db.cases.filter(isActiveCase).filter(predicate).map(toCase);
+}
+
+const lawyerRef = (c: Case) => ({
+    id: c.responsibleLawyer.id,
+    lastName: c.responsibleLawyer.lastName,
+    firstName: c.responsibleLawyer.firstName,
+});
+
+/**
+ * El vencimiento abierto de la causa en un tablero: el del acto procesal del
+ * estado actual o, en un amparo en "Iniciada", el del acto lesivo. Una causa
+ * tiene a lo sumo uno (V4 §3.11).
+ */
+function openDeadlineOf(c: Case): { kind: DeadlineKind; dueDate: string; businessDaysRemaining: number } | null {
+    if (c.currentState.dueDate !== null && c.currentState.businessDaysRemaining !== null) {
+        return {
+            kind: 'PROCEDURAL_ACT',
+            dueDate: c.currentState.dueDate,
+            businessDaysRemaining: c.currentState.businessDaysRemaining,
+        };
+    }
+    if (c.harmfulActDeadline) {
+        return {
+            kind: 'HARMFUL_ACT',
+            dueDate: c.harmfulActDeadline.dueDate,
+            businessDaysRemaining: c.harmfulActDeadline.businessDaysRemaining,
+        };
+    }
+    return null;
+}
+
+function summaryOf(cases: Case[]): DashboardSummary {
+    const remaining = cases
+        .map((c) => openDeadlineOf(c)?.businessDaysRemaining)
+        .filter((n): n is number => n !== undefined);
+    return {
+        dueToday: remaining.filter((n) => n === 0).length,
+        overdue: remaining.filter((n) => n < 0).length,
+        dueSoon: remaining.filter((n) => n >= 1 && n <= DUE_SOON_BUSINESS_DAYS).length,
+        activeCases: cases.length,
+    };
+}
+
+/** Los plazos abiertos, por urgencia: los vencidos primero (V4 §3.11). */
+function deadlinesOf(cases: Case[]): DashboardDeadline[] {
+    return cases
+        .flatMap((c) => {
+            const deadline = openDeadlineOf(c);
+            if (!deadline) return [];
+            return [{
+                caseId: c.id,
+                kind: deadline.kind,
+                sacNumber: c.sacNumber,
+                caption: c.caption,
+                jurisdiction: c.jurisdiction,
+                currentStateName: c.currentState.name,
+                responsibleLawyer: lawyerRef(c),
+                dueDate: deadline.dueDate,
+                businessDaysRemaining: deadline.businessDaysRemaining,
+            }];
+        })
+        .sort((a, b) => a.dueDate.localeCompare(b.dueDate) || a.caseId - b.caseId);
+}
+
+/** Las causas con el 70 % o más de su prescripción, primero la que prescribe antes (HU32). */
+function prescriptionAlertsOf(cases: Case[]): DashboardPrescriptionAlert[] {
+    return cases
+        .filter((c) => c.prescription?.alert === true)
+        .sort((a, b) => (a.prescription?.expiresOn ?? '').localeCompare(b.prescription?.expiresOn ?? '') || a.id - b.id)
+        .map((c) => {
+            const p = c.prescription as NonNullable<Case['prescription']>;
+            return {
+                caseId: c.id,
+                sacNumber: c.sacNumber,
+                caption: c.caption,
+                responsibleLawyer: lawyerRef(c),
+                legalQualificationName: p.legalQualificationName,
+                startsOn: p.startsOn,
+                expiresOn: p.expiresOn,
+                elapsedPercentage: p.elapsedPercentage,
+                expired: p.expired,
+            };
+        });
+}
+
+/**
+ * "Causas para impulsar": activas y sin ningún vencimiento abierto, ni del
+ * acto procesal ni del acto lesivo (CA-41.4). Primero las
+ * que no tienen ninguna actuación y después las que llevan más tiempo sin
+ * movimiento. La última actuación es el acto procesal o interruptivo más
+ * reciente.
+ */
+function casesToAdvanceOf(cases: Case[]): DashboardCaseToAdvance[] {
+    const today = todayIso();
+    return cases
+        .filter((c) => openDeadlineOf(c) === null)
+        .map((c) => {
+            const dates = [latestActOf(c.id)?.actDate, interruptiveActsOf(c.id)[0]?.actDate]
+                .filter((d): d is string => typeof d === 'string')
+                .sort();
+            const lastActDate = dates.at(-1) ?? null;
+            return {
+                caseId: c.id,
+                sacNumber: c.sacNumber,
+                caption: c.caption,
+                jurisdiction: c.jurisdiction,
+                currentStateName: c.currentState.name,
+                lastActDate,
+                daysSinceLastAct: lastActDate === null ? null : calendarDaysBetween(lastActDate, today),
+            };
+        })
+        .sort((a, b) => {
+            if (a.daysSinceLastAct === null && b.daysSinceLastAct === null) return a.caseId - b.caseId;
+            if (a.daysSinceLastAct === null) return -1;
+            if (b.daysSinceLastAct === null) return 1;
+            return b.daysSinceLastAct - a.daysSinceLastAct || a.caseId - b.caseId;
+        });
+}
+
+/**
+ * "Mi día" (HU41): las causas de las que el usuario es responsable, por su
+ * ficha. No recibe parámetros y no deja ver el de otro abogado (V4 D-63).
+ */
+const lawyerDashboard: Handler = ({ request }) => {
+    const auth = requireRole(request, 'LAWYER');
+    if (!auth.ok) return auth.response;
+
+    const lawyer = db.lawyers.find((l) => l.id === auth.user.lawyerId);
+    if (!lawyer) return fail(403, forbiddenFor('LAWYER'));
+
+    const cases = activeCasesWhere((c) => c.responsibleLawyerId === lawyer.id);
+    const dashboard: LawyerDashboard = {
+        date: todayIso(),
+        lawyer: { id: lawyer.id, lastName: lawyer.lastName, firstName: lawyer.firstName },
+        summary: summaryOf(cases),
+        deadlines: deadlinesOf(cases),
+        prescriptionAlerts: prescriptionAlertsOf(cases),
+        casesToAdvance: casesToAdvanceOf(cases),
+    };
+    return ok(itemBody(dashboard));
+};
+
+/**
+ * "Estudio" (HU42): toda la cartera, con el responsable de cada plazo. Los
+ * filtros por abogado y por urgencia los aplica el cliente sobre `deadlines`.
+ */
+const administratorDashboard: Handler = ({ request }) => {
+    const auth = requireAdmin(request);
+    if (!auth.ok) return auth.response;
+
+    const cases = activeCasesWhere(() => true);
+    const deadlines = deadlinesOf(cases);
+
+    const team: DashboardTeamMember[] = db.lawyers
+        .filter((l) => l.active)
+        .map((lawyer) => {
+            const own = deadlines.filter((d) => d.responsibleLawyer.id === lawyer.id).map((d) => d.businessDaysRemaining);
+            return {
+                lawyer: { id: lawyer.id, lastName: lawyer.lastName, firstName: lawyer.firstName },
+                activeCases: cases.filter((c) => c.responsibleLawyer.id === lawyer.id).length,
+                openDeadlines: {
+                    overdue: own.filter((n) => n < 0).length,
+                    dueToday: own.filter((n) => n === 0).length,
+                    dueSoon: own.filter((n) => n >= 1 && n <= DUE_SOON_BUSINESS_DAYS).length,
+                    later: own.filter((n) => n > DUE_SOON_BUSINESS_DAYS).length,
+                },
+            };
+        })
+        // Por urgencia; a igualdad, por nombre.
+        .sort(
+            (a, b) =>
+                b.openDeadlines.overdue - a.openDeadlines.overdue ||
+                b.openDeadlines.dueToday - a.openDeadlines.dueToday ||
+                b.openDeadlines.dueSoon - a.openDeadlines.dueSoon ||
+                byText(a.lawyer.lastName, b.lawyer.lastName) ||
+                byText(a.lawyer.firstName, b.lawyer.firstName),
+        );
+
+    const dashboard: AdministratorDashboard = {
+        date: todayIso(),
+        summary: summaryOf(cases),
+        // Siempre los tres fueros, aunque alguno no tenga causas.
+        casesByJurisdiction: JURISDICTIONS.map((jurisdiction) => ({
+            jurisdiction,
+            activeCases: cases.filter((c) => c.jurisdiction === jurisdiction).length,
+        })),
+        deadlines,
+        prescriptionAlerts: prescriptionAlertsOf(cases),
+        team,
+    };
+    return ok(itemBody(dashboard));
+};
+
+/* ------------------------------------------------------------------ */
 /* Tabla de rutas                                                      */
 /* ------------------------------------------------------------------ */
 
@@ -2067,8 +2866,23 @@ const ROUTES: Route[] = [
     { method: 'GET', path: '/cases/custom-states', pattern: /^\/cases\/custom-states$/, handler: listCustomStates },
     { method: 'GET', path: '/cases/:caseId', pattern: /^\/cases\/(?<caseId>[^/]+)$/, handler: getCase },
 
+    { method: 'POST', path: '/cases/:caseId/prescription', pattern: /^\/cases\/(?<caseId>[^/]+)\/prescription$/, handler: declarePrescription },
+    { method: 'POST', path: '/cases/:caseId/folder', pattern: /^\/cases\/(?<caseId>[^/]+)\/folder$/, handler: createCaseFolder },
+
     { method: 'POST', path: '/cases/:caseId/procedural-acts', pattern: /^\/cases\/(?<caseId>[^/]+)\/procedural-acts$/, handler: createProceduralAct },
     { method: 'GET', path: '/cases/:caseId/procedural-acts/deadline-preview', pattern: /^\/cases\/(?<caseId>[^/]+)\/procedural-acts\/deadline-preview$/, handler: previewDeadline },
+
+    { method: 'POST', path: '/cases/:caseId/interruptive-acts', pattern: /^\/cases\/(?<caseId>[^/]+)\/interruptive-acts$/, handler: createInterruptiveAct },
+    { method: 'GET', path: '/cases/:caseId/interruptive-acts', pattern: /^\/cases\/(?<caseId>[^/]+)\/interruptive-acts$/, handler: listInterruptiveActs },
+
+    { method: 'POST', path: '/document-templates', pattern: /^\/document-templates$/, handler: createDocumentTemplate },
+    { method: 'GET', path: '/document-templates', pattern: /^\/document-templates$/, handler: listDocumentTemplates },
+    { method: 'GET', path: '/document-templates/:templateId', pattern: /^\/document-templates\/(?<templateId>[^/]+)$/, handler: getDocumentTemplate },
+    { method: 'GET', path: '/document-templates/:templateId/file', pattern: /^\/document-templates\/(?<templateId>[^/]+)\/file$/, handler: downloadDocumentTemplate },
+
+    { method: 'GET', path: '/dashboards/lawyer', pattern: /^\/dashboards\/lawyer$/, handler: lawyerDashboard },
+    { method: 'GET', path: '/dashboards/administrator', pattern: /^\/dashboards\/administrator$/, handler: administratorDashboard },
+
 ];
 
 /**

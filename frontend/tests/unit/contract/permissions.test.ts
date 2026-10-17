@@ -3,7 +3,7 @@ import { resolveRequest } from '@/shared/mocks'
 
 /**
  * Permisos del servidor falso, según la matriz por perfil del contrato
- * (V3 §4, revisión del 11/10/2026, D-39).
+ * (V4 §4: la del 11/10/2026, D-39, más lo que suma el Sprint 3).
  *
  * El mock valida en este orden: 401 → 403 → 400 → 404. Por eso alcanza con
  * mandar un cuerpo vacío o un id que no existe: si el perfil no puede, responde
@@ -56,6 +56,9 @@ const OPEN_TO_EVERYONE: readonly [Method, string][] = [
     ['POST', '/legal-qualifications'],
     ['PATCH', `/legal-qualifications/${MISSING}`],
     ['DELETE', `/legal-qualifications/${MISSING}`],
+    // V4: la carpeta de la causa (HU39, HU40) y consultar actos interruptivos (HU31).
+    ['POST', `/cases/${MISSING}/folder`],
+    ['GET', `/cases/${MISSING}/interruptive-acts`],
 ]
 
 /** Lo que sigue siendo sólo del Administrador. */
@@ -65,6 +68,23 @@ const ADMINISTRATOR_ONLY: readonly [Method, string][] = [
     ['POST', '/lawyers'],
     ['PATCH', `/lawyers/${MISSING}`],
     ['DELETE', `/lawyers/${MISSING}`],
+    // V4: el tablero "Estudio" (HU42).
+    ['GET', '/dashboards/administrator'],
+]
+
+/**
+ * "`ADMINISTRATOR` o `LAWYER`" (V4 §4): la primera lectura que la Secretaría
+ * no tiene. Modelos formales, avisos por correo y la marca de prescripción.
+ */
+const ADMINISTRATOR_OR_LAWYER: readonly [Method, string][] = [
+    ['POST', '/document-templates'],
+    ['GET', '/document-templates'],
+    ['GET', `/document-templates/${MISSING}`],
+    ['GET', `/document-templates/${MISSING}/file`],
+    ['GET', '/notification-settings'],
+    ['PATCH', '/notification-settings'],
+    ['POST', '/notification-settings/test'],
+    ['POST', `/cases/${MISSING}/prescription`],
 ]
 
 describe('permisos del servidor falso', () => {
@@ -81,6 +101,28 @@ describe('permisos del servidor falso', () => {
 
         it.each(['LAWYER', 'SECRETARY'] as const)('%s recibe 403', (profile) => {
             expect(statusFor(profile, method, path)).toBe(403)
+        })
+    })
+
+    describe.each(ADMINISTRATOR_OR_LAWYER)('%s %s es del Administrador o del Abogado', (method, path) => {
+        it.each(['ADMINISTRATOR', 'LAWYER'] as const)('%s no recibe 403', (profile) => {
+            expect(statusFor(profile, method, path)).not.toBe(403)
+        })
+
+        it('SECRETARY recibe 403', () => {
+            expect(statusFor('SECRETARY', method, path)).toBe(403)
+        })
+    })
+
+    /* "Mi día" es el tablero del abogado (V4 §3.11, HU41): un administrador
+       que no ejerce no lo tiene. */
+    describe('GET /dashboards/lawyer es sólo del Abogado', () => {
+        it('LAWYER no recibe 403', () => {
+            expect(statusFor('LAWYER', 'GET', '/dashboards/lawyer')).not.toBe(403)
+        })
+
+        it.each(['ADMINISTRATOR', 'SECRETARY'] as const)('%s recibe 403', (profile) => {
+            expect(statusFor(profile, 'GET', '/dashboards/lawyer')).toBe(403)
         })
     })
 })

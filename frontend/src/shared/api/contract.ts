@@ -1,5 +1,5 @@
 /**
- * Forma de los errores de la API, según `docs/Api-Contract/API_CONTRACT_V3.md`
+ * Forma de los errores de la API, según `docs/Api-Contract/API_CONTRACT_V4.md`
  * §5.2 y §5.3.
  *
  * Vive en `api/` y no en `mocks/` porque es contrato de producción: lo usa
@@ -8,7 +8,7 @@
  */
 
 /**
- * Códigos de error documentados (catálogo de V3 §5.3).
+ * Códigos de error documentados (catálogo de V4 §5.3).
  *
  * `PROCEDURAL_STATE_HAS_DEPENDENCIES` no está: V3 lo retiró, porque la baja de
  * un estado procesal ya no se rechaza por tener causas (D-06).
@@ -39,6 +39,8 @@ export const ERROR_CODES = [
     'LEGAL_QUALIFICATION_NOT_FOUND',
     'CLIENT_NOT_FOUND',
     'CASE_NOT_FOUND',
+    'PROCEDURAL_ACT_NOT_FOUND',
+    'DOCUMENT_TEMPLATE_NOT_FOUND',
     'RESOURCE_NOT_FOUND',
     // 409 — unicidad y dependencias
     'USERNAME_ALREADY_EXISTS',
@@ -49,17 +51,24 @@ export const ERROR_CODES = [
     'LEGAL_QUALIFICATION_ALREADY_EXISTS',
     'CLIENT_DNI_ALREADY_EXISTS',
     'CASE_SAC_ALREADY_EXISTS',
+    'DOCUMENT_TEMPLATE_ALREADY_EXISTS',
     'USER_HAS_DEPENDENCIES',
     'LAWYER_HAS_DEPENDENCIES',
+    // 413 — archivo más grande que el máximo admitido (V4)
+    'FILE_TOO_LARGE',
     // 422 — regla de negocio
     'INVALID_CURRENT_PASSWORD',
     'CASE_IN_TERMINAL_STATE',
+    'PRESCRIPTION_NOT_APPLICABLE',
+    'PROCEDURAL_STATE_PROTECTED',
     'BUSINESS_RULE_VIOLATION',
     // 429 — límite de frecuencia
     'TOO_MANY_LOGIN_ATTEMPTS',
     'TOO_MANY_REQUESTS',
     // 500
     'INTERNAL_SERVER_ERROR',
+    // 502 — el almacenamiento en la nube no respondió (V4)
+    'DOCUMENT_STORAGE_UNAVAILABLE',
 ] as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[number];
