@@ -68,15 +68,31 @@ export class CaseNotFoundError extends NotFoundError {
 
 /** Emitted when the user is not the lawyer in charge of the case (D-30, 403). */
 export class NotResponsibleLawyerError extends ForbiddenActionError {
-  constructor() {
-    super('FORBIDDEN', 'Solo el abogado responsable de la causa puede registrar actos procesales.');
+  /**
+   * The message names what was attempted: procedural acts by default (HU26),
+   * interruptive acts for HU31, whose contract words it its own way (V4 §3.9).
+   */
+  constructor(message = 'Solo el abogado responsable de la causa puede registrar actos procesales.') {
+    super('FORBIDDEN', message);
   }
 }
 
 /** Emitted when a procedural act is registered on a case in a terminal state (422). */
 export class CaseInTerminalStateError extends BusinessRuleError {
+  /** Same as {@link NotResponsibleLawyerError}: the default is HU26's wording, HU31 passes its own. */
+  constructor(message = 'La causa se encuentra en un estado terminal y no admite actos procesales.') {
+    super('CASE_IN_TERMINAL_STATE', message);
+  }
+}
+
+/**
+ * Emitted when an interruptive act is registered on a case outside the
+ * criminal jurisdiction (HU31, D-50, 422). Only `CRIMINAL` computes
+ * prescription, so there is nothing for the act to interrupt.
+ */
+export class PrescriptionNotApplicableError extends BusinessRuleError {
   constructor() {
-    super('CASE_IN_TERMINAL_STATE', 'La causa se encuentra en un estado terminal y no admite actos procesales.');
+    super('PRESCRIPTION_NOT_APPLICABLE', 'La prescripción solo aplica a las causas del fuero penal.');
   }
 }
 

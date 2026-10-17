@@ -1,0 +1,28 @@
+type: object
+description: |
+  Alta de un acto interruptivo. Alcanza a todas las calificaciones legales de
+  la causa: no se elige una. La causa puede no tener calificaciones cargadas.
+additionalProperties: false
+required:
+  - name
+  - actDate
+properties:
+  name:
+    type: string
+    minLength: 1
+    maxLength: 255
+    description: '"Acto interruptivo". No vacío.'
+    examples:
+      - Citación a juicio
+  actDate:
+    type: string
+    format: date
+    description: '"Fecha del acto". No puede ser posterior a hoy.'
+    examples:
+      - '2026-09-15'
+  notes:
+    type: string
+    maxLength: 2000
+    description: '"Observaciones".'
+    examples:
+      - Decreto de fs. 212.

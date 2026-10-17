@@ -1,0 +1,50 @@
+type: object
+description: |
+  Acto interruptivo de una causa penal (HU31). Reinicia el cómputo de la
+  prescripción desde su fecha. No es un acto procesal: no mueve el estado de
+  la causa ni abre un plazo.
+required:
+  - id
+  - caseId
+  - name
+  - actDate
+  - notes
+  - registeredBy
+  - registeredAt
+properties:
+  id:
+    type: integer
+    description: Identificador único.
+    examples:
+      - 7
+  caseId:
+    type: integer
+    description: Causa a la que pertenece.
+    examples:
+      - 1
+  name:
+    type: string
+    description: Denominación del acto. Texto libre, sin catálogo.
+    examples:
+      - Citación a juicio
+  actDate:
+    type: string
+    format: date
+    description: Fecha del acto. Desde ella se reinicia la prescripción.
+    examples:
+      - '2026-09-15'
+  notes:
+    type:
+      - string
+      - 'null'
+    description: Observaciones. Constancia, foja o referencia del expediente.
+    examples:
+      - Decreto de fs. 212.
+  registeredBy:
+    $ref: ./UserSummary.yaml
+  registeredAt:
+    type: string
+    format: date-time
+    description: Fecha y hora del registro.
+    examples:
+      - '2026-09-15T10:30:00-03:00'
