@@ -218,12 +218,14 @@ Origen de un vencimiento en los tableros.
 
 Situación de la carpeta de una causa en la nube.
 
-| Código    | Rótulo            | Significado                                                                    |
-| --------- | ----------------- | ------------------------------------------------------------------------------ |
-| `CREATED` | Carpeta creada    | La carpeta existe y se puede abrir                                             |
-| `PENDING` | Carpeta pendiente | Se pidió crearla, pero el almacenamiento en la nube falló. Se puede reintentar |
+| Código     | Rótulo             | Significado                                                                                  |
+| ---------- | ------------------ | -------------------------------------------------------------------------------------------- |
+| `PENDING`  | Carpeta pendiente  | La carpeta no está creada por elección del usuario (se registró la causa sin pedirla). Se puede crear después |
+| `CREATING` | Creando carpeta    | Se pidió crearla y se espera la respuesta del almacenamiento en la nube                      |
+| `CREATED`  | Carpeta creada     | La carpeta existe y se puede abrir                                                           |
+| `ERROR`    | Error en la carpeta | Se pidió crearla, pero el almacenamiento en la nube falló. Se reintenta solo y también se puede reintentar a mano |
 
-Una causa para la que no se pidió carpeta no tiene estado: su `folder` vale
+Una causa registrada antes de esta versión no tiene estado: su `folder` vale
 `null`.
 
 ---
@@ -3297,13 +3299,13 @@ prototipo.
 **`folder`** (nuevo)
 
 Carpeta de la causa en el almacenamiento en la nube del estudio (Google Drive).
-Vale `null` si al registrar la causa se pidió no crearla, y en las causas
-registradas antes de esta versión.
+Vale `null` en las causas registradas antes de esta versión. Si al registrar la
+causa se pidió no crearla, `status` es `PENDING`.
 
 | Campo              | Tipo               | Descripción                                                                                          |
 | ------------------ | ------------------ | ---------------------------------------------------------------------------------------------------- |
-| `status`           | `CaseFolderStatus` | `CREATED` si la carpeta existe; `PENDING` si se pidió y no pudo crearse                              |
-| `url`              | String \| `null`   | Enlace para abrir la carpeta ("Abrir carpeta en Drive"). `null` mientras está `PENDING`              |
+| `status`           | `CaseFolderStatus` | `CREATED` si la carpeta existe; `CREATING` si se está creando; `ERROR` si se pidió y no pudo crearse; `PENDING` si no se pidió |
+| `url`              | String \| `null`   | Enlace para abrir la carpeta ("Abrir carpeta en Drive"). `null` mientras `status` no es `CREATED`    |
 | `path`             | String             | Ubicación de la carpeta, por ejemplo `/VZ Causas/Ríos, Malena/Penal/GÓMEZ, Ariel Fernando p.s.a. Robo calificado` |
 | `templatesCopied`  | Integer            | Modelos formales copiados a la carpeta (HU40). `0` si no se pidió copiarlos                          |
 | `templatesPending` | Integer            | Modelos que se pidió copiar y todavía no se copiaron, porque falló la carpeta o alguna copia. `0` si no hay nada pendiente |
@@ -3476,7 +3478,7 @@ piden HU39 y HU40 ("que se cree automáticamente").
   prototipo: "carpeta creada en Drive con 6 modelos".
 - **La carpeta no condiciona el alta.** Si el almacenamiento en la nube falla,
   **la causa se registra igual**: la respuesta es `201`, con `folder.status` en
-  `PENDING`, y la carpeta se reintenta con
+  `ERROR`, y la carpeta se reintenta con
   [`POST /cases/{caseId}/folder`](#post-casescaseidfolder). La causa es el dato
   que el estudio no puede perder; la carpeta es un complemento
   (ver [D-60](#81-decisiones-tomadas)).
@@ -3572,11 +3574,11 @@ El valor de `elapsedPercentage` corresponde a una consulta realizada el martes
 15/09/2026, la fecha que usa el prototipo.
 
 Si el almacenamiento en la nube no respondió, la causa se registra igual y
-`folder` llega pendiente:
+`folder` llega con error:
 
 ```json
 {
-	"status": "PENDING",
+	"status": "ERROR",
 	"url": null,
 	"path": "/VZ Causas/Ríos, Malena/Penal/GÓMEZ, Ariel Fernando p.s.a. Robo calificado",
 	"templatesCopied": 0,
@@ -3584,7 +3586,8 @@ Si el almacenamiento en la nube no respondió, la causa se registra igual y
 }
 ```
 
-Con `createFolder` en `false`, `folder` vale `null`.
+Con `createFolder` en `false`, `folder.status` es `PENDING`, con `url` en
+`null` y `templatesCopied` y `templatesPending` en `0`.
 
 **`400 Bad Request`**
 
@@ -4476,8 +4479,8 @@ La causa ya está en un estado terminal, incluido "Prescripta":
 
 #### `POST /cases/{caseId}/folder`
 
-Crea la carpeta de una causa que no la tiene, o reintenta una que quedó
-pendiente (HU39, HU40). Nuevo en V4.
+Crea la carpeta de una causa que no la tiene, o reintenta una que falló
+(HU39, HU40). Nuevo en V4.
 
 **Rol requerido:** cualquier usuario autenticado, igual que el alta de la
 causa.
@@ -4486,12 +4489,14 @@ El prototipo no tiene un botón para esto: existe porque el alta de causa **no
 falla** cuando el almacenamiento en la nube no responde, y hace falta una forma
 de completar lo que quedó pendiente (ver
 [Carpeta de la causa](#carpeta-de-la-causa) y [D-60](#81-decisiones-tomadas)).
-Cubre tres situaciones:
+Cubre cinco situaciones:
 
 | Situación de la causa                                         | Qué hace                                             |
 | ------------------------------------------------------------- | ---------------------------------------------------- |
-| `folder` en `null`: se registró sin carpeta, o antes de V4    | Crea la carpeta                                      |
-| `folder.status` en `PENDING`                                  | Reintenta la creación                                |
+| `folder` en `null`: se registró antes de V4                   | Crea la carpeta                                      |
+| `folder.status` en `PENDING`: se registró sin carpeta         | Crea la carpeta                                      |
+| `folder.status` en `ERROR`                                    | Reintenta la creación                                |
+| `folder.status` en `CREATING`                                 | No hace nada: ya hay una creación en curso. Responde `200` con la carpeta tal como está |
 | `folder.status` en `CREATED` con `templatesPending` mayor a `0` | Copia los modelos que faltan, si `copyTemplates` es `true` |
 
 Es **idempotente**: sobre una causa que ya tiene su carpeta completa no hace
@@ -4567,7 +4572,7 @@ Un `caseId` que no es un entero responde `INVALID_PATH_PARAMETER`, igual que en
 
 **`502 Bad Gateway`**
 
-El almacenamiento en la nube volvió a fallar. La carpeta sigue `PENDING` y la
+El almacenamiento en la nube volvió a fallar. La carpeta queda en `ERROR` y la
 operación puede repetirse.
 
 ```json
@@ -6829,7 +6834,7 @@ carpetas que crea el sistema.
   `copyToNewCases` en `true`. Se copia el archivo tal como está en ese momento;
   cambios posteriores del modelo no tocan la copia.
 - **Si el almacenamiento falla.** La operación que pidió la carpeta **no
-  falla**: la causa se registra igual, con `folder.status` en `PENDING`, y la
+  falla**: la causa se registra igual, con `folder.status` en `ERROR`, y la
   carpeta se reintenta con `POST /cases/{caseId}/folder`. Si la carpeta se creó
   pero falló la copia de algún modelo, queda `CREATED` con `templatesPending`
   mayor a `0`. Es la mitigación que la arquitectura de backend ya había
@@ -7148,7 +7153,7 @@ HU30, HU32, HU51 y HU52 no agregan endpoints: son el
 | Enumerado | Motivo |
 | --- | --- |
 | `DeadlineKind` | Origen de un vencimiento en los tableros: acto procesal o acto lesivo |
-| `CaseFolderStatus` | Situación de la carpeta de la causa: creada o pendiente |
+| `CaseFolderStatus` | Situación de la carpeta de la causa: pendiente (no pedida), creándose, creada o con error |
 
 ### 7.4 Códigos de error y códigos HTTP
 
@@ -7225,7 +7230,7 @@ heredado las cita; las de esta versión continúan desde D-45.
 | D-57 | El listado de modelos está paginado y ordenado por nombre, con filtros `jurisdiction` y `copyToNewCases`. Las tarjetas por fuero las arma el cliente | CA-35.2 a CA-35.5. Evita un endpoint de resumen para un catálogo chico |
 | D-58 | El archivo de un modelo se descarga a través de la API, no con un enlace directo a Drive | La Secretaría no puede consultar modelos; un enlace de Drive no respeta los perfiles del sistema |
 | D-59 | `createFolder` y `copyTemplates` son opcionales y valen `true` por defecto. Los nombres no mencionan a Drive | Las casillas del prototipo vienen tildadas, y las historias piden que la carpeta se cree "automáticamente". La arquitectura nombra por necesidad y no por tecnología |
-| D-60 | Una falla del almacenamiento en la nube no aborta el alta de la causa: queda `folder.status` en `PENDING` y se reintenta con `POST /cases/{caseId}/folder` | La causa es el dato que el estudio no puede perder. Es la mitigación de R-03 de la arquitectura de backend. El mismo endpoint les da carpeta a las causas registradas antes de esta versión |
+| D-60 | Una falla del almacenamiento en la nube no aborta el alta de la causa: queda `folder.status` en `ERROR` y se reintenta con `POST /cases/{caseId}/folder` | La causa es el dato que el estudio no puede perder. Es la mitigación de R-03 de la arquitectura de backend. El mismo endpoint les da carpeta a las causas registradas antes de esta versión |
 | D-61 | La carpeta se ubica en `/VZ Causas/{abogado}/{fuero}/` y se llama como la carátula de la causa. No se renombra ni se mueve | Definido por el equipo. La carátula ya reúne al cliente y la calificación o el objeto. Detalle en ADR-003 |
 | D-62 | Hay un endpoint por tablero, que devuelve todo en una petición y sin paginar | Son modelos de lectura, lo que la arquitectura asigna a `reporting`. Los indicadores, la cartera por fuero y la carga del equipo son agregados. Las listas están acotadas por las causas activas |
 | D-63 | El abogado ve solo el tablero de sus causas; si además es `ADMINISTRATOR`, ve también "Estudio". "Próximos" son 5 días hábiles | Definido por el equipo; CA-41.7 no aplica. Los 5 días hábiles salen de CA-41.2 y del prototipo |
