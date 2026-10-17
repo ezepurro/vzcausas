@@ -25,7 +25,9 @@ const LAWYER_RIOS = '3'
 const ROBBERY = '1'
 
 /** El aviso del alta, como lo escribe el prototipo. */
-const WITH_SAC_TOAST = 'Causa 14200315 registrada. El estado lo fija el primer acto procesal.'
+// Desde V4 la carpeta se crea por defecto, con los 6 modelos del penal (CA-39.1, CA-40.2).
+const WITH_SAC_TOAST =
+    'Causa 14200315 registrada. El estado lo fija el primer acto procesal · carpeta creada en Drive con 6 modelos.'
 
 function renderPage(as = 'gestion') {
     return renderWithProviders(<RegisterCasePage />, {

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { screen, within } from '@testing-library/react'
 import { http, HttpResponse } from 'msw'
 import { renderWithProviders } from '../../setup/render'
+import { personNameIn } from '../../setup/names'
 import { server } from '@/shared/mocks/server'
 import { errorBody, resetMockDb } from '@/shared/mocks'
 import { CaseDetailPage } from '@/features/cases/pages/CaseDetailPage'
@@ -64,7 +65,8 @@ describe('CaseDetailPage', () => {
             expect(header).toHaveTextContent('SAC 13284571')
             expect(header).toHaveTextContent('Juzgado de Control N° 3 · Córdoba')
             expect(header).toHaveTextContent('Fuero Penal')
-            expect(header).toHaveTextContent('Responsable Dra. Malena Ríos')
+            // El tratamiento lo pone el frontend (V4 D-81): ver `personName`.
+            expect(header).toHaveTextContent(new RegExp(`Responsable ${personNameIn('Ríos', 'Malena')}`))
         })
     })
 
@@ -123,7 +125,7 @@ describe('CaseDetailPage', () => {
 
             expect(screen.getByRole('button', { name: 'Registrar acto procesal' })).toBeDisabled()
             expect(
-                screen.getByText('Solo el abogado responsable (Dra. Malena Ríos) registra actos.'),
+                screen.getByText(new RegExp(`^Solo el abogado responsable \\(${personNameIn('Ríos', 'Malena')}\\) registra actos\\.$`)),
             ).toBeInTheDocument()
         })
     })

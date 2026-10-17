@@ -56,9 +56,12 @@ const OPEN_TO_EVERYONE: readonly [Method, string][] = [
     ['POST', '/legal-qualifications'],
     ['PATCH', `/legal-qualifications/${MISSING}`],
     ['DELETE', `/legal-qualifications/${MISSING}`],
-    // V4: la carpeta de la causa (HU39, HU40) y consultar actos interruptivos (HU31).
+    // V4: la carpeta de la causa (HU39, HU40) y la línea de vida con sus listados (HU27, D-85).
     ['POST', `/cases/${MISSING}/folder`],
     ['GET', `/cases/${MISSING}/interruptive-acts`],
+    ['GET', `/cases/${MISSING}/procedural-acts`],
+    ['GET', `/cases/${MISSING}/procedural-acts/1`],
+    ['GET', `/cases/${MISSING}/timeline`],
 ]
 
 /** Lo que sigue siendo sólo del Administrador. */
@@ -74,16 +77,13 @@ const ADMINISTRATOR_ONLY: readonly [Method, string][] = [
 
 /**
  * "`ADMINISTRATOR` o `LAWYER`" (V4 §4): la primera lectura que la Secretaría
- * no tiene. Modelos formales, avisos por correo y la marca de prescripción.
+ * no tiene. Modelos formales y la marca de prescripción.
  */
 const ADMINISTRATOR_OR_LAWYER: readonly [Method, string][] = [
     ['POST', '/document-templates'],
     ['GET', '/document-templates'],
     ['GET', `/document-templates/${MISSING}`],
     ['GET', `/document-templates/${MISSING}/file`],
-    ['GET', '/notification-settings'],
-    ['PATCH', '/notification-settings'],
-    ['POST', '/notification-settings/test'],
     ['POST', `/cases/${MISSING}/prescription`],
 ]
 

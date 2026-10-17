@@ -88,6 +88,7 @@ export {
     type PrescriptionDeclaration,
     type Pagination,
     type ProceduralAct,
+    type TimelineEntry,
     type ProceduralRole,
     type ProceduralState,
     type ProceduralStatesQuery,

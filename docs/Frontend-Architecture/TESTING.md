@@ -301,7 +301,8 @@ frontend/
 │   ├── setup/                            configuración compartida
 │   │   ├── vitest.setup.ts               enciende MSW y limpia entre tests
 │   │   ├── render.tsx                    renderWithProviders() y signInAs()
-│   │   └── clock.ts                      usePrototypeToday(): fija el día del prototipo
+│   │   ├── clock.ts                      usePrototypeToday(): fija el día del prototipo
+│   │   └── names.ts                      personName(): el nombre de una persona en cualquiera de sus formas (V4 D-68, D-81)
 │   │
 │   ├── unit/                             Vitest · lógica de dominio y esquemas
 │   │   ├── app/                          las tablas de acceso: por ruta y por acción
@@ -750,6 +751,7 @@ marcado así.
 | Un flujo que pasa por varias pantallas | `tests/e2e/<feature>.spec.ts` | Playwright |
 | Algo que se repite en muchos E2E (login) | `tests/e2e/fixtures/` | Playwright |
 | Fijar el día del prototipo | `tests/setup/clock.ts` (`usePrototypeToday()`) | Vitest |
+| Buscar el nombre de un abogado o un usuario | `tests/setup/names.ts` (`personName()`, `personNameIn()`) | Vitest |
 
 **Regla práctica:** la regla de dominio va en `unit/`, el caso de uso en la
 pantalla y sólo el camino feliz del flujo crítico en E2E. Un caso borde en E2E
@@ -846,6 +848,104 @@ Antes de abrir el PR de una feature, tiene que tener:
 
 El mínimo es un piso y la tabla de la [§4](#4-antes-de-escribir-un-test) es
 el techo: entre los dos está lo que vale la pena.
+
+### Sprint 3: los tests que ya están escritos
+
+Los tests del Sprint 3 se escribieron antes que las pantallas y están en rojo
+hasta que se programe cada historia. Salen del contrato V4 (revisión del
+19/10/2026), del prototipo y de los criterios de Jira del 17/10/2026; cada uno
+dice qué `CA-x.y` cubre o, si no tiene criterio, de qué parte del contrato o
+del prototipo sale. Los mocks ya implementan todo V4
+(`src/shared/mocks/README.md`).
+
+| HU | Frontend | Tests |
+| --- | --- | --- |
+| 27 Línea de vida | Ezequiel Purro | `components/cases/CaseDetailPage.timeline.test.tsx` |
+| 31 Actos interruptivos | Ezequiel Purro | `components/cases/CaseDetailPage.interruptiveAct.test.tsx`, `unit/cases/interruptiveAct.schema.test.ts` |
+| 33 Marcar prescripta | Ezequiel Purro | `components/cases/CaseDetailPage.prescription.test.tsx`, `unit/cases/prescriptionDeclaration.schema.test.ts`, `unit/app/actionAccess.test.ts` |
+| 34 y 35 Modelos formales | Luciano Cipolla | `components/documents/DocumentTemplatesPage.test.tsx`, `unit/documents/documentTemplate.schema.test.ts` |
+| 39 y 40 Carpeta y modelos | Luciano Cipolla | `components/cases/RegisterCasePage.folder.test.tsx`, `components/cases/CaseDetailPage.folder.test.tsx` |
+| 41 Tablero del abogado | Facundo Fiorani | `components/home/HomePage.lawyer.test.tsx` |
+| 42 Tablero del administrador | Facundo Fiorani | `components/home/HomePage.administrator.test.tsx` |
+| 30, 32, 51 y 52 | Sólo backend | Sin tests de pantalla. Lo visible de HU-32 (alertas, barra de prescripción) se prueba en los tableros y en el detalle |
+
+El detalle de causa lleva un archivo por historia, y no uno por pantalla:
+suma cuatro historias de dos personas y en un solo archivo pasaría el techo de
+la [§4](#4-antes-de-escribir-un-test).
+
+**Los nombres que fijan los tests.** El código tiene que llamarse así:
+
+| Qué | Dónde |
+| --- | --- |
+| Página de modelos | `DocumentTemplatesPage` en `@/features/documents/pages/` |
+| Inicio con los tableros | `HomePage` de `@/features/home/pages/` |
+| Acto interruptivo | `validateInterruptiveAct` en `@/features/cases/schemas/interruptiveAct.schema`; `InterruptiveActFormValues` (`name`, `actDate`, `notes`) en `@/features/cases/types/interruptiveAct` |
+| Marca de prescripción | `validatePrescriptionDeclaration` en `@/features/cases/schemas/prescriptionDeclaration.schema`; `PrescriptionDeclarationFormValues` (`prescriptionDate`, `resolution`, `grounds`) en `@/features/cases/types/prescriptionDeclaration` |
+| Modelo formal | `validateDocumentTemplate` en `@/features/documents/schemas/documentTemplate.schema`; `DocumentTemplateFormValues` (`name`, `jurisdictions`, `copyToNewCases`, `file`) en `@/features/documents/types/documentTemplate` |
+| "Marcar prescripta" | `cases.declarePrescription` en `ACTION_ACCESS`: Administrador y Abogado |
+| Secciones | `/inicio` y `/modelos` sólo para Administrador y Abogado; la Secretaría entra directo a `/causas` (CA-41.13, CA-35.8) |
+
+**Lo que el equipo decidió** donde el contrato y el prototipo no alcanzan
+(19/10/2026). Si cambia, se cambian el test y la pantalla juntos:
+
+- **Nombres de personas** (V4 D-68, D-81): apellido y nombres van separados;
+  el formato en pantalla es libre y el "Dr."/"Dra." no es obligatorio, porque
+  no todos los abogados son doctores y un usuario puede no ser abogado. Los
+  tests buscan los nombres con `personName` / `personNameIn`
+  (`tests/setup/names.ts`), que aceptan "Nombres Apellido", con o sin
+  tratamiento, y "Apellido, Nombres". El subtítulo de "Modificar usuario" sí
+  es fijo: "Ávila, Romina · ravila".
+- **Formularios de usuario y de abogado**: campos "Apellido" y "Nombres", con
+  los mensajes "El apellido es obligatorio." y "Los nombres son
+  obligatorios.". En el alta de usuario con ficha de abogado nueva, la ficha
+  sólo pide la matrícula: el apellido y los nombres son los del usuario.
+- **Carpeta en el alta de causa**: las dos casillas vienen tildadas. Sin
+  carpeta, "Copiar los modelos" queda destildada, deshabilitada y con el
+  mensaje "Primero hay que crear la carpeta en Drive para poder copiar los
+  modelos." a la vista (CA-40.3). La ubicación que muestra el resumen es la
+  del contrato, `/VZ Causas/{Apellido, Nombres}/{Fuero}/{carátula}` (D-61),
+  no la del prototipo. Si Drive falla, la causa se registra igual y la
+  pantalla avisa que la carpeta no se creó; el texto lo elige la pantalla. La
+  Secretaría no ve cuántos modelos se copian, porque no consulta modelos
+  (CA-40.10).
+- **Carpeta en el detalle**: "Abrir carpeta en Drive" abre su enlace en otra
+  pestaña. Los estados se rotulan como `CaseFolderStatus`: "Carpeta
+  pendiente", "Creando carpeta", "Error en la carpeta". Cuando Drive falla el
+  estado es `ERROR`, aunque CA-39.4 diga "pendiente": manda el contrato. El
+  botón para crear o reintentar no está en el prototipo; su texto es libre y
+  el test acepta "Crear carpeta", "Crear la carpeta" o "Reintentar".
+- **Línea de vida**: cada movimiento es un `listitem` del panel "Ciclo de
+  vida de la causa". El acto interruptivo que rige lleva un texto con "rige";
+  un estado escrito a mano, "escrito a mano"; un vencimiento ajustado,
+  "ajustado a mano". Si no carga, el error se muestra dentro del panel.
+- **Tableros**: "Mi día" y "Estudio" son pestañas (`tab` con
+  `aria-selected`); quien es Administrador y Abogado ve las dos y arranca en
+  "Mi día". Sin datos: "Sin plazos abiertos", "Todas tus causas tienen un
+  plazo en curso." y "Ninguna causa superó el 70 % de su plazo de
+  prescripción.".
+- **Errores**: se muestra el `message` del contrato, por ejemplo "No se pudo
+  acceder al almacenamiento en la nube. Intentá de nuevo en unos minutos.".
+
+**Tests viejos que cambiaron con V4.** `UsersPage` y `LawyersPage` pasaron a
+apellido y nombres; `CaseDetailPage` y `RegisterProceduralActPage` buscan al
+responsable con `personName`; en `CasesPage` el amparo 13619027 tiene el
+vencimiento del acto lesivo (D-82); el aviso del alta de causa suma "·
+carpeta creada en Drive con 6 modelos"; `access`, `AppLayout` y
+`RedirectIfSession` sacan Inicio y Modelos a la Secretaría; `permissions`
+ya no tiene `/notification-settings` (D-79).
+
+Hoy casi toda la suite vieja falla por una sola razón: `auth` todavía espera
+`fullName` en la sesión (`features/auth/utils/sessionStorage.ts`) y la
+descarta. Cuando pase a `lastName` y `firstName`, vuelven a verde los tests
+que no dependen de otra cosa de V4. `endpoints.test.ts` sigue en rojo hasta
+que el swagger del sprint (VZ-177) sume prescripción, carpeta, modelos y
+tableros.
+
+**Lo que queda para el backend**, sin test de pantalla: CA-27.7, 27.10, 27.16
+y 27.17; CA-31.3 a 31.5, 31.7 y 31.12 a 31.14; CA-33.6 a 33.8 y 33.10 a
+33.15; CA-34.11; CA-35.3 y 35.7; CA-39.9 a 39.13 y 39.15; CA-40.5 a 40.9;
+CA-41.6, 41.9 y 41.11; CA-42.8; y HU-30, HU-32 (salvo lo visible), HU-51 y
+HU-52.
 
 ---
 

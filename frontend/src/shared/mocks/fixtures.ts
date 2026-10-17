@@ -478,11 +478,13 @@ const POLICE_EXTENSION = '3120';
  * | 10 | **Marcada como prescripta** (`prescriptionDeclaration`): está en "Prescripta" sin un acto que la lleve |
  * | 13 | Plazo de prescripción **cumplido** (`expired`) y sin marcar. Su acto interruptivo es anterior al hecho de una de sus calificaciones, que sigue corriendo desde el hecho |
  * | 1, 2, 3, 5, 6 | Con carpeta creada, con los modelos del fuero |
- * | 22 | Con la carpeta **pendiente**: para el reintento de `POST /cases/{caseId}/folder`. Amparo en "Iniciada" con un acto lesivo que se renueva: tiene **vencimiento del acto lesivo** (`harmfulActDeadline`) |
+ * | 22 | Con la carpeta **con error** (`ERROR`): para el reintento de `POST /cases/{caseId}/folder`. Amparo en "Iniciada" con un acto lesivo que se renueva: tiene **vencimiento del acto lesivo** (`harmfulActDeadline`) |
  * | 6 | Amparo con acto lesivo, pero ya con actos: el vencimiento del acto lesivo no se calcula |
  * | 3 | Amparo con la medida cautelar concedida |
  * | 15 | Administrativo con la vía administrativa agotada |
  * | 2, 6 | Con la tasa de justicia pagada |
+ * | 23 | Registrada sin pedir carpeta (`PENDING`): se crea con `POST /cases/{caseId}/folder` |
+ * | 11 | Con la carpeta **creándose** (`CREATING`): el `POST` no hace nada y responde `200` |
  * | el resto | Sin carpeta (`folder` en `null`): registradas antes de V4 |
  *
  * Los abogados 9 y 10 no tienen causas, y los clientes 18 y 24 tampoco.
@@ -733,6 +735,8 @@ export const CASE_SEEDS: readonly CaseSeed[] = [
         counterparty: 'Policía de la Provincia',
         subjectMatter: 'Defensa del agente en el sumario iniciado por presunta falta en el servicio.',
         acts: [],
+        // Se pidió la carpeta y el almacenamiento todavía no respondió.
+        folder: { status: 'CREATING' },
     },
     {
         id: 12,
@@ -963,8 +967,8 @@ export const CASE_SEEDS: readonly CaseSeed[] = [
            15 días hábiles para presentar el amparo (vence el 23/09/2026). */
         harmfulAct: { date: '2026-08-03', renewalDays: 30, termDays: 15, termDayType: 'BUSINESS' },
         acts: [],
-        // El almacenamiento en la nube no respondió al registrarla (V4 D-62).
-        folder: { status: 'PENDING' },
+        // El almacenamiento en la nube no respondió al registrarla (V4 D-60).
+        folder: { status: 'ERROR' },
     },
     {
         id: 23,
@@ -981,6 +985,8 @@ export const CASE_SEEDS: readonly CaseSeed[] = [
         responsibleLawyerId: 6,
         startDate: AGO(0),
         acts: [],
+        // Se registró sin pedir la carpeta (V4 §3.7: `createFolder` en `false`).
+        folder: { status: 'PENDING' },
     },
 ];
 

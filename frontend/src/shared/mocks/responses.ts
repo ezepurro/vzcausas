@@ -32,6 +32,7 @@ import {
     type Lawyer,
     type LegalQualification,
     type ProceduralAct,
+    type TimelineEntry,
     type ProceduralState,
     type Role,
     type Session,
@@ -555,9 +556,9 @@ const EXAMPLE_CASE: Case = {
     active: true,
 };
 
-/** La carpeta cuando el almacenamiento en la nube no respondió (V4 D-62). */
-const EXAMPLE_PENDING_FOLDER: CaseFolder = {
-    status: 'PENDING',
+/** La carpeta cuando el almacenamiento en la nube no respondió (V4 D-60). */
+const EXAMPLE_ERROR_FOLDER: CaseFolder = {
+    status: 'ERROR',
     url: null,
     path: '/VZ Causas/Ríos, Malena/Penal/GÓMEZ, Ariel Fernando p.s.a. Robo calificado',
     templatesCopied: 0,
@@ -1201,9 +1202,9 @@ export const RESPONSES = {
         invalidId: response(400, ERRORS.invalidCaseId),
         unauthenticated: response(401, ERRORS.unauthenticated),
         notFound: response(404, ERRORS.caseNotFound),
-        /** La carpeta sigue pendiente: `EXAMPLE_PENDING_FOLDER`. */
+        /** La carpeta queda en `ERROR`: `EXAMPLE_ERROR_FOLDER`. */
         storageUnavailable: response(502, ERRORS.documentStorageUnavailable),
-        pendingFolder: EXAMPLE_PENDING_FOLDER,
+        errorFolder: EXAMPLE_ERROR_FOLDER,
     },
 
     /** `POST /cases/{caseId}/interruptive-acts` — sólo el abogado responsable (V4 §3.9, HU31). */
@@ -1225,6 +1226,46 @@ export const RESPONSES = {
     },
 
     /** `GET /cases/{caseId}/interruptive-acts` — cualquier usuario autenticado. */
+    /** `GET /cases/{caseId}/procedural-acts` — cualquier usuario autenticado (V4 §3.8, HU27). */
+    listProceduralActs: {
+        ok: response(200, listBody<ProceduralAct>([EXAMPLE_ACT], buildPagination(1, 1, 20))),
+        empty: response(200, listBody<ProceduralAct>([], buildPagination(0, 1, 20))),
+        invalidPagination: response(400, ERRORS.invalidPagination),
+        invalidId: response(400, ERRORS.invalidCaseId),
+        unauthenticated: response(401, ERRORS.unauthenticated),
+        notFound: response(404, ERRORS.caseNotFound),
+    },
+
+    /** `GET /cases/{caseId}/procedural-acts/{actId}` — cualquier usuario autenticado (V4 §3.8, HU27). */
+    getProceduralAct: {
+        ok: response(200, itemBody(EXAMPLE_ACT)),
+        invalidId: response(400, ERRORS.invalidCaseId),
+        invalidActId: response(400, ERRORS.invalidActId),
+        unauthenticated: response(401, ERRORS.unauthenticated),
+        notFound: response(404, ERRORS.caseNotFound),
+        actNotFound: response(404, ERRORS.proceduralActNotFound),
+    },
+
+    /** `GET /cases/{caseId}/timeline` — cualquier usuario autenticado, sin paginar (V4 D-85, HU27). */
+    getCaseTimeline: {
+        ok: response(200, {
+            data: [
+                { type: 'PROCEDURAL_ACT', date: EXAMPLE_ACT.actDate, current: true, proceduralAct: EXAMPLE_ACT },
+                {
+                    type: 'INTERRUPTIVE_ACT',
+                    date: EXAMPLE_INTERRUPTIVE_ACT.actDate,
+                    governsPrescription: true,
+                    interruptiveAct: EXAMPLE_INTERRUPTIVE_ACT,
+                },
+            ] satisfies TimelineEntry[],
+        }),
+        empty: response(200, { data: [] as TimelineEntry[] }),
+        invalidId: response(400, ERRORS.invalidCaseId),
+        unauthenticated: response(401, ERRORS.unauthenticated),
+        notFound: response(404, ERRORS.caseNotFound),
+    },
+
+    /** `GET /cases/{caseId}/interruptive-acts` — cualquier usuario autenticado (V4 §3.9, HU27). */
     listInterruptiveActs: {
         ok: response(200, listBody<InterruptiveAct>([EXAMPLE_INTERRUPTIVE_ACT], buildPagination(1, 1, 20))),
         empty: response(200, listBody<InterruptiveAct>([], buildPagination(0, 1, 20))),

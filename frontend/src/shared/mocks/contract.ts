@@ -82,7 +82,8 @@ export type DeadlineKind = (typeof DEADLINE_KINDS)[number];
  * Situación de la carpeta de una causa en la nube (V4 §2). Una causa para la
  * que no se pidió carpeta no tiene estado: su `folder` vale `null`.
  */
-export const CASE_FOLDER_STATUSES = ['CREATED', 'PENDING'] as const;
+/** Revisión del 19/10/2026: `PENDING` es "no se pidió" y `ERROR`, "falló". */
+export const CASE_FOLDER_STATUSES = ['PENDING', 'CREATING', 'CREATED', 'ERROR'] as const;
 export type CaseFolderStatus = (typeof CASE_FOLDER_STATUSES)[number];
 
 /**
@@ -302,7 +303,7 @@ export interface PrescriptionDeclaration {
 /** La carpeta de la causa en la nube (V4 §3.7, HU39 y HU40). */
 export interface CaseFolder {
     status: CaseFolderStatus;
-    /** `null` mientras está `PENDING`. */
+    /** `null` mientras `status` no es `CREATED`. */
     url: string | null;
     /** `/VZ Causas/Ríos, Malena/Penal/GÓMEZ, Ariel Fernando p.s.a. Robo calificado` (D-61). */
     path: string;
@@ -418,6 +419,33 @@ export interface InterruptiveAct {
     registeredBy: PersonRef;
     registeredAt: string;
 }
+
+/**
+ * Una entrada de la línea de vida de la causa (HU27, D-85): el recurso tal
+ * como lo define su sección, con su `type` y su `date`.
+ */
+export type TimelineEntry =
+    | {
+          type: 'PROCEDURAL_ACT';
+          /** La `actDate` del acto. */
+          date: string;
+          /** El acto que llevó la causa a su estado actual: su plazo es el abierto. */
+          current: boolean;
+          proceduralAct: ProceduralAct;
+      }
+    | {
+          type: 'INTERRUPTIVE_ACT';
+          date: string;
+          /** El acto interruptivo más reciente, el que rige la prescripción. */
+          governsPrescription: boolean;
+          interruptiveAct: InterruptiveAct;
+      }
+    | {
+          type: 'PRESCRIPTION_DECLARATION';
+          /** La `prescriptionDate` de la declaración. */
+          date: string;
+          prescriptionDeclaration: PrescriptionDeclaration;
+      };
 
 /** Modelo formal (V4 §3.10, HU34 y HU35). */
 export interface DocumentTemplate {

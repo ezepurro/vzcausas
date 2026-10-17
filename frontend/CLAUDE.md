@@ -12,7 +12,8 @@ sprint en curso**. El resto ya está documentado: no lo repito, leelo.
    cliente HTTP y `ApiError`. Tiene la tabla "Si necesitás X, usá Y" y su propia
    guía para Claude al final.
 3. `frontend/src/shared/mocks/README.md` — **antes de escribir cualquier
-   llamada a la API**. El mock implementa V3 entero. Ahí están los usuarios de
+   llamada a la API**. El mock implementa V4 entero (Sprint 3, revisión del
+   19/10/2026), con los cambios que V4 hizo sobre lo del Sprint 1 y 2. Ahí están los usuarios de
    prueba y qué puede cada perfil, qué causa semilla sirve para probar cada
    regla, cómo disparar cada error y cómo agregar un endpoint. El resumen está
    en [Los mocks](#los-mocks), más abajo.
@@ -427,9 +428,13 @@ Por la actualización del prototipo. Está aplicada entera en `cases` y
 
 ### Los mocks
 
-**El mock implementa V3 entero**, con la revisión del 05/10/2026: los
-endpoints del Sprint 1 con sus cambios y los del Sprint 2 (calificaciones
-legales, clientes, causas, registro de acto y `deadline-preview`). Una pantalla
+**El mock implementa V4 entero** (`docs/Api-Contract/API_CONTRACT_V4.md`, con
+la revisión del 19/10/2026): lo del Sprint 1 y 2 con los cambios de V4
+(apellido y nombres separados, `caseCount` en los estados, datos por fuero de
+la causa) y lo del Sprint 3 (línea de vida, actos interruptivos, prescripción,
+carpeta, modelos formales y tableros). Los tests del Sprint 3 ya están escritos
+y en rojo: ver `TESTING.md` §11, "Sprint 3: los tests que ya están escritos". Lo que sigue
+en esta sección describe el mock de V3. Una pantalla
 nueva ya tiene contra qué desarrollarse y contra qué testearse. Lo que hay que
 saber:
 

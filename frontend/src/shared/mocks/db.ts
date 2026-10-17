@@ -30,6 +30,7 @@ import type {
     Case,
     CaseClient,
     CaseFolder,
+    CaseFolderStatus,
     CaseLegalQualification,
     CasePrescription,
     CaseState,
@@ -386,36 +387,25 @@ export function templatesForNewCases(
 }
 
 /**
- * La carpeta tal como queda después de intentar crearla. Si el almacenamiento
- * falla queda `PENDING`, con los modelos pendientes; si no, `CREATED` y con
- * los modelos copiados. No escribe nada: quien la llama decide si suma los
- * usos de los modelos (`countTemplateCopies`).
+ * La carpeta en cada estado (V4 §2, `CaseFolderStatus`): `CREATED` con los
+ * modelos copiados; `ERROR` (falló el almacenamiento) o `CREATING` (en curso),
+ * con los modelos pendientes; `PENDING` (no se pidió), sin enlace ni modelos.
+ * No escribe nada: quien la llama decide si suma los usos de los modelos
+ * (`countTemplateCopies`).
  */
 export function buildFolder(input: {
     caseId: number;
     path: string;
     copyTemplates: boolean;
     templates: number;
-    storageAvailable: boolean;
+    status: CaseFolderStatus;
 }): StoredFolder {
-    const wanted = input.copyTemplates ? input.templates : 0;
-    return input.storageAvailable
-        ? {
-              status: 'CREATED',
-              url: folderUrl(input.caseId),
-              path: input.path,
-              templatesCopied: wanted,
-              templatesPending: 0,
-              copyTemplates: input.copyTemplates,
-          }
-        : {
-              status: 'PENDING',
-              url: null,
-              path: input.path,
-              templatesCopied: 0,
-              templatesPending: wanted,
-              copyTemplates: input.copyTemplates,
-          };
+    const { status, path, copyTemplates } = input;
+    const wanted = copyTemplates && status !== 'PENDING' ? input.templates : 0;
+    if (status === 'CREATED') {
+        return { status, url: folderUrl(input.caseId), path, templatesCopied: wanted, templatesPending: 0, copyTemplates };
+    }
+    return { status, url: null, path, templatesCopied: 0, templatesPending: wanted, copyTemplates: status === 'PENDING' ? false : copyTemplates };
 }
 
 /** Suma un uso a cada modelo copiado a la carpeta de una causa. */
@@ -453,7 +443,7 @@ function initialState(): MockDb {
                   path: folderPath({ lawyer, jurisdiction: seed.jurisdiction, caption: seed.caption }),
                   copyTemplates: true,
                   templates: templatesForNewCases(documentTemplates, seed.jurisdiction).length,
-                  storageAvailable: seed.folder.status === 'CREATED',
+                  status: seed.folder.status,
               })
             : null;
 

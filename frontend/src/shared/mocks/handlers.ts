@@ -66,6 +66,7 @@ import {
     ROLES,
     type AdministratorDashboard,
     type Case,
+    type TimelineEntry,
     type DashboardCaseToAdvance,
     type DashboardDeadline,
     type DashboardPrescriptionAlert,
@@ -106,6 +107,7 @@ import {
     toInterruptiveAct,
     toLawyer,
     toLegalQualification,
+    actsOf,
     toProceduralAct,
     toProceduralState,
     toUser,
@@ -1753,10 +1755,9 @@ const createCase: Handler = ({ request }) => {
     };
 
     /* La carpeta no condiciona el alta (V4 D-60): si el almacenamiento falla,
-       la causa se registra igual y la carpeta queda pendiente. */
-    if (createFolder) {
-        stored.folder = newFolder(stored, copyTemplates as boolean);
-    }
+       la causa se registra igual y la carpeta queda en `ERROR`. Sin pedirla,
+       queda `PENDING`. */
+    stored.folder = createFolder ? newFolder(stored, copyTemplates as boolean) : newFolder(stored, false, 'PENDING');
 
     db.nextCaseId += 1;
     db.cases.push(stored);
@@ -1863,9 +1864,10 @@ function readJurisdictionData(body: Record<string, unknown>, details: Record<str
 /**
  * Intenta crear la carpeta de una causa (V4 §4, "Carpeta de la causa"). Si el
  * almacenamiento responde, queda `CREATED` con los modelos del fuero copiados,
- * y cada modelo suma un uso; si no, `PENDING`.
+ * y cada modelo suma un uso; si no, `ERROR`. Con `status` en `PENDING` no la
+ * crea: es la de una causa registrada sin pedirla.
  */
-function newFolder(stored: StoredCase, copyTemplates: boolean): StoredFolder {
+function newFolder(stored: StoredCase, copyTemplates: boolean, status?: 'PENDING'): StoredFolder {
     // La carpeta va en la del abogado responsable al crearse (D-61).
     const lawyer = db.lawyers.find((l) => l.id === stored.responsibleLawyerId) ?? { lastName: '', firstName: '' };
     const folder = buildFolder({
@@ -1873,7 +1875,7 @@ function newFolder(stored: StoredCase, copyTemplates: boolean): StoredFolder {
         path: folderPath({ lawyer, jurisdiction: stored.jurisdiction, caption: stored.caption }),
         copyTemplates,
         templates: templatesForNewCases(db.documentTemplates, stored.jurisdiction).length,
-        storageAvailable: !db.failures.documentStorage,
+        status: status ?? (db.failures.documentStorage ? 'ERROR' : 'CREATED'),
     });
     if (folder.status === 'CREATED' && copyTemplates) countTemplateCopies(stored.jurisdiction);
     return folder;
@@ -2345,12 +2347,14 @@ const declarePrescription: Handler = ({ request, params }) => {
 /* ------------------------------------------------------------------ */
 
 /**
- * Crea la carpeta de una causa que no la tiene, reintenta una pendiente o
+ * Crea la carpeta de una causa que no la tiene (`null` o `PENDING`), reintenta
+ * una con `ERROR` o
  * copia los modelos que faltaron (V4 §3.7). Es idempotente: sobre una carpeta
  * completa no hace nada y responde `200` con ella.
  *
  * Con `db.failures.documentStorage` el almacenamiento "no responde": la
- * carpeta queda `PENDING` y responde `502`.
+ * carpeta queda en `ERROR` y responde `502`. Sobre una carpeta `CREATING` no
+ * hace nada: responde `200` con ella tal como está.
  */
 const createCaseFolder: Handler = ({ request, params }) => {
     const auth = requireUser(request);
@@ -2369,10 +2373,10 @@ const createCaseFolder: Handler = ({ request, params }) => {
     if (!stored) return fail(404, ERRORS.caseNotFound);
 
     const folder = stored.folder;
-    if (folder === null || folder.status === 'PENDING') {
+    if (folder === null || folder.status === 'PENDING' || folder.status === 'ERROR') {
         stored.folder = newFolder(stored, copyTemplates);
-        if (stored.folder.status === 'PENDING') return fail(502, ERRORS.documentStorageUnavailable);
-    } else if (folder.templatesPending > 0 && copyTemplates) {
+        if (stored.folder.status === 'ERROR') return fail(502, ERRORS.documentStorageUnavailable);
+    } else if (folder.status === 'CREATED' && folder.templatesPending > 0 && copyTemplates) {
         if (db.failures.documentStorage) return fail(502, ERRORS.documentStorageUnavailable);
         folder.templatesCopied += folder.templatesPending;
         folder.templatesPending = 0;
@@ -2459,6 +2463,108 @@ const listInterruptiveActs: Handler = ({ request, params }) => {
     if (!stored) return fail(404, ERRORS.caseNotFound);
 
     return ok(paginate(interruptiveActsOf(stored.id).map(toInterruptiveAct), page.page, page.limit));
+};
+
+/* ------------------------------------------------------------------ */
+/* Consulta de actos y línea de vida (HU27)                            */
+/* ------------------------------------------------------------------ */
+
+/** Del más reciente al más antiguo por fecha; a igual fecha, el último registrado. */
+function byDateDesc(a: { date: string; registeredAt: string }, b: { date: string; registeredAt: string }): number {
+    return b.date.localeCompare(a.date) || b.registeredAt.localeCompare(a.registeredAt);
+}
+
+/** Los actos procesales de una causa, paginados y del más reciente al más antiguo (V4 §3.8). */
+const listProceduralActs: Handler = ({ request, params }) => {
+    const auth = requireUser(request);
+    if (!auth.ok) return auth.response;
+
+    const caseId = readRouteId(params, 'caseId');
+    if (caseId === undefined) return fail(400, ERRORS.invalidCaseId);
+
+    const page = readPagination(request.query);
+    if (!page.ok) return page.response;
+
+    const stored = db.cases.find((c) => c.id === caseId && c.active);
+    if (!stored) return fail(404, ERRORS.caseNotFound);
+
+    const acts = actsOf(stored.id)
+        .slice()
+        .sort((a, b) => b.actDate.localeCompare(a.actDate) || b.id - a.id)
+        .map(toProceduralAct);
+    return ok(paginate(acts, page.page, page.limit));
+};
+
+/** Un acto procesal de la causa. El de otra causa es `404`, como uno inexistente. */
+const getProceduralAct: Handler = ({ request, params }) => {
+    const auth = requireUser(request);
+    if (!auth.ok) return auth.response;
+
+    const caseId = readRouteId(params, 'caseId');
+    if (caseId === undefined) return fail(400, ERRORS.invalidCaseId);
+    const actId = readRouteId(params, 'actId');
+    if (actId === undefined) return fail(400, ERRORS.invalidActId);
+
+    const stored = db.cases.find((c) => c.id === caseId && c.active);
+    if (!stored) return fail(404, ERRORS.caseNotFound);
+
+    const act = db.proceduralActs.find((a) => a.id === actId && a.caseId === stored.id);
+    if (!act) return fail(404, ERRORS.proceduralActNotFound);
+    return ok(itemBody(toProceduralAct(act)));
+};
+
+/**
+ * La línea de vida de la causa (HU27, D-85): actos procesales, actos
+ * interruptivos y el pase a "Prescripta", intercalados y sin paginar. El acto
+ * `current` es el que define el estado actual; en una causa marcada como
+ * prescripta, ninguno.
+ */
+const getCaseTimeline: Handler = ({ request, params }) => {
+    const auth = requireUser(request);
+    if (!auth.ok) return auth.response;
+
+    const caseId = readRouteId(params, 'caseId');
+    if (caseId === undefined) return fail(400, ERRORS.invalidCaseId);
+
+    const stored = db.cases.find((c) => c.id === caseId && c.active);
+    if (!stored) return fail(404, ERRORS.caseNotFound);
+
+    const c = toCase(stored);
+    const currentActId = c.currentState.proceduralActId;
+    const interruptive = interruptiveActsOf(stored.id);
+
+    const entries: (TimelineEntry & { registeredAt: string })[] = [
+        ...actsOf(stored.id).map((act) => ({
+            type: 'PROCEDURAL_ACT' as const,
+            date: act.actDate,
+            current: act.id === currentActId,
+            proceduralAct: toProceduralAct(act),
+            registeredAt: act.registeredAt,
+        })),
+        ...interruptive.map((act, index) => ({
+            type: 'INTERRUPTIVE_ACT' as const,
+            date: act.actDate,
+            // La lista viene de la más reciente a la más antigua: rige la primera.
+            governsPrescription: index === 0,
+            interruptiveAct: toInterruptiveAct(act),
+            registeredAt: act.registeredAt,
+        })),
+        ...(c.prescriptionDeclaration
+            ? [{
+                  type: 'PRESCRIPTION_DECLARATION' as const,
+                  date: c.prescriptionDeclaration.prescriptionDate,
+                  prescriptionDeclaration: c.prescriptionDeclaration,
+                  registeredAt: c.prescriptionDeclaration.registeredAt,
+              }]
+            : []),
+    ];
+
+    const data: TimelineEntry[] = entries.sort(byDateDesc).map((entry) => {
+        const { registeredAt, ...rest } = entry;
+        void registeredAt;
+        return rest;
+    });
+    return ok({ data });
 };
 
 /* ------------------------------------------------------------------ */
@@ -2871,6 +2977,9 @@ const ROUTES: Route[] = [
 
     { method: 'POST', path: '/cases/:caseId/procedural-acts', pattern: /^\/cases\/(?<caseId>[^/]+)\/procedural-acts$/, handler: createProceduralAct },
     { method: 'GET', path: '/cases/:caseId/procedural-acts/deadline-preview', pattern: /^\/cases\/(?<caseId>[^/]+)\/procedural-acts\/deadline-preview$/, handler: previewDeadline },
+    { method: 'GET', path: '/cases/:caseId/procedural-acts', pattern: /^\/cases\/(?<caseId>[^/]+)\/procedural-acts$/, handler: listProceduralActs },
+    { method: 'GET', path: '/cases/:caseId/procedural-acts/:actId', pattern: /^\/cases\/(?<caseId>[^/]+)\/procedural-acts\/(?<actId>[^/]+)$/, handler: getProceduralAct },
+    { method: 'GET', path: '/cases/:caseId/timeline', pattern: /^\/cases\/(?<caseId>[^/]+)\/timeline$/, handler: getCaseTimeline },
 
     { method: 'POST', path: '/cases/:caseId/interruptive-acts', pattern: /^\/cases\/(?<caseId>[^/]+)\/interruptive-acts$/, handler: createInterruptiveAct },
     { method: 'GET', path: '/cases/:caseId/interruptive-acts', pattern: /^\/cases\/(?<caseId>[^/]+)\/interruptive-acts$/, handler: listInterruptiveActs },
