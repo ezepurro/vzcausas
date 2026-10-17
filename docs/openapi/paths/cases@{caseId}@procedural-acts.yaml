@@ -18,11 +18,9 @@ get:
 
     Una causa sin actos devuelve `data` vacío: no es un error.
 
-    **Para armar la línea de tiempo**, el cliente necesita todos los actos de
-    la causa: pedir `limit=100`, igual que en
-    `GET /cases/{caseId}/interruptive-acts`. Con la página por defecto (20),
-    los actos más antiguos quedan afuera y el intercalado por fecha con los
-    actos interruptivos sale incompleto, sin ningún error que lo delate.
+    **Para la línea de vida de la causa** no se usa este listado sino
+    `GET /cases/{caseId}/timeline`, que la devuelve completa, sin paginar y ya
+    intercalada con los actos interruptivos (D-85).
 
     **Rol requerido:** cualquier usuario autenticado, sobre cualquier causa
     (RN11). No hace falta ser el abogado responsable.

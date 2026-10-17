@@ -7,6 +7,7 @@ import {
   CaseQueryPort,
   CaseSearchCriteria,
 } from '../../core/domain/ports/case-query.port';
+import { addPrescriptionMonths, prescriptionStartsOn } from '../../core/domain/prescription';
 import { JurisdictionCode } from '../../core/domain/value-objects/jurisdiction-code';
 import { ProceduralRole } from '../../core/domain/value-objects/procedural-role';
 
@@ -18,6 +19,13 @@ const CASE_INCLUDE = {
   currentState: true,
   currentProceduralAct: true,
   offenses: { include: { legalQualification: true } },
+  // HU31: only the act that governs the prescription, the most recent by its
+  // date — not by when it was registered (CA-31.4). Same order as the index.
+  interruptiveActs: {
+    select: { actDate: true },
+    orderBy: [{ actDate: 'desc' }, { id: 'desc' }],
+    take: 1,
+  },
 } as const satisfies Prisma.CaseInclude;
 
 /**
@@ -293,6 +301,7 @@ function toListItem(row: CaseRow): CaseListItem {
   const custom = row.currentCustomState !== null;
   const initial = state?.isInitial === true;
   const dueDate = act ? (act.deadlineManualDueDate ?? act.deadlineComputedDueDate) : null;
+  const lastInterruptiveActDate = row.interruptiveActs[0]?.actDate ?? null;
 
   return {
     id: row.id,
@@ -322,15 +331,21 @@ function toListItem(row: CaseRow): CaseListItem {
       firstName: row.responsibleLawyer.firstName,
       registrationNumber: row.responsibleLawyer.registrationNumber,
     },
-    legalQualifications: row.offenses.map((offense) => ({
-      id: offense.legalQualification.id,
-      name: offense.legalQualification.name,
-      prescriptionMonths: offense.legalQualification.prescriptionMonths,
-      offenseDate: offense.offenseDate,
-      // Until interruptive acts exist (HU31), it is the offense date.
-      prescriptionStartsOn: offense.offenseDate,
-      prescriptionExpiresOn: offense.prescriptionDate,
-    })),
+    // HU31: both dates are computed on every read (V4, D-08), from the most
+    // recent interruptive act of the case. The `prescription_date` stored at
+    // registration is not read: it cannot know about acts registered later.
+    // Without interruptive acts the result is the same date it holds.
+    legalQualifications: row.offenses.map((offense) => {
+      const startsOn = prescriptionStartsOn(offense.offenseDate, lastInterruptiveActDate);
+      return {
+        id: offense.legalQualification.id,
+        name: offense.legalQualification.name,
+        prescriptionMonths: offense.legalQualification.prescriptionMonths,
+        offenseDate: offense.offenseDate,
+        prescriptionStartsOn: startsOn,
+        prescriptionExpiresOn: addPrescriptionMonths(startsOn, offense.legalQualification.prescriptionMonths),
+      };
+    }),
     startDate: row.startDate,
     // `proceduralStateId` is null for the initial state and for a hand-written
     // one, even though `cases.current_state_id` holds the real "Iniciada" row:

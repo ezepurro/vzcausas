@@ -28,6 +28,7 @@ import { createUser } from './user.factory';
 export async function resetProceduralActData(): Promise<void> {
   const prisma = getPrisma();
   await prisma.offense.deleteMany();
+  await prisma.interruptiveAct.deleteMany(); // HU31: referencia a causas, usuarios y abogados
   await prisma.case.updateMany({ data: { currentProceduralActId: null } });
   await prisma.proceduralAct.deleteMany();
   await prisma.case.deleteMany();

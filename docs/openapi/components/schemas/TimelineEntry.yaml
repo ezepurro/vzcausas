@@ -1,0 +1,64 @@
+description: |
+  Una entrada de la línea de vida de la causa (HU27, D-85). Cada una lleva el
+  recurso tal como lo define su propia sección del contrato.
+oneOf:
+  - type: object
+    title: Acto procesal
+    additionalProperties: false
+    required:
+      - type
+      - date
+      - current
+      - proceduralAct
+    properties:
+      type:
+        const: PROCEDURAL_ACT
+      date:
+        type: string
+        format: date
+        description: La `actDate` del acto.
+      current:
+        type: boolean
+        description: |
+          `true` en el acto que llevó la causa a su estado actual: su plazo es
+          el abierto. Los plazos de los demás actos están cerrados.
+      proceduralAct:
+        $ref: ./ProceduralAct.yaml
+  - type: object
+    title: Acto interruptivo
+    additionalProperties: false
+    required:
+      - type
+      - date
+      - governsPrescription
+      - interruptiveAct
+    properties:
+      type:
+        const: INTERRUPTIVE_ACT
+      date:
+        type: string
+        format: date
+        description: La `actDate` del acto.
+      governsPrescription:
+        type: boolean
+        description: |
+          `true` en el acto interruptivo de fecha más reciente, el que rige el
+          cómputo de la prescripción.
+      interruptiveAct:
+        $ref: ./InterruptiveAct.yaml
+  - type: object
+    title: Pase a prescripta
+    additionalProperties: false
+    required:
+      - type
+      - date
+      - prescriptionDeclaration
+    properties:
+      type:
+        const: PRESCRIPTION_DECLARATION
+      date:
+        type: string
+        format: date
+        description: La `prescriptionDate` de la declaración.
+      prescriptionDeclaration:
+        $ref: ./PrescriptionDeclaration.yaml

@@ -384,10 +384,15 @@ model Case {
   // Los tres fueros: tasa de justicia pagada (RN10).
   courtFeePaid                    Boolean   @default(false) @map("court_fee_paid")
 
-  // Carpeta de la causa en la nube (HU39, HU40). `folder_status` NULL:
-  // no se pidió carpeta. PENDING: se pidió y falló, así que todavía no
-  // hay `cloud_folder_id` (D-60). CREATED: `cloud_folder_id` apunta a la
-  // carpeta de tipo CASE.
+  // Carpeta de la causa en la nube (HU39, HU40). `folder_status` hace de
+  // compuerta: solo se pide la carpeta si se logra pasar a CREATING con una
+  // actualización atómica, así una causa nunca tiene dos pedidos en curso.
+  //   NULL      causa anterior al Sprint 3 o sin dato; se trata como PENDING.
+  //   PENDING   no creada por elección del usuario.
+  //   CREATING  se pidió y se espera la respuesta.
+  //   CREATED   `cloud_folder_id` apunta a la carpeta de tipo CASE.
+  //   ERROR     la creación falló; todavía no hay `cloud_folder_id` (D-60) y
+  //             se reintenta.
   folderStatus  CaseFolderStatus? @map("folder_status")
   // Única: cada carpeta CASE pertenece a una sola causa.
   cloudFolderId String?           @unique @map("cloud_folder_id") @db.VarChar(128)
@@ -567,6 +572,8 @@ enum CloudFolderKind {
 enum CaseFolderStatus {
   CREATED
   PENDING
+  CREATING
+  ERROR
 
   @@map("case_folder_status")
 }

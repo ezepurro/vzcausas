@@ -93,22 +93,26 @@ export abstract class Case {
    * Only the responsible lawyer of the case registers its acts (D-30): the
    * user must have the lawyer role and be the lawyer assigned to this case.
    * Not even an administrator may do it for a case that is not theirs.
+   *
+   * The same rule governs interruptive acts (HU31, D-50); `message` lets that
+   * story word the refusal as its contract does. Omitted, it is HU26's.
    * @throws NotResponsibleLawyerError
    */
-  assertCanRegisterActs(actor: AuthenticatedUser): void {
+  assertCanRegisterActs(actor: AuthenticatedUser, message?: string): void {
     const isLawyer = actor.roleNames.includes(LAWYER_ROLE);
     if (!isLawyer || actor.lawyerId === null || actor.lawyerId !== this.props.responsibleLawyerId) {
-      throw new NotResponsibleLawyerError();
+      throw new NotResponsibleLawyerError(message);
     }
   }
 
   /**
-   * A case in a terminal state is closed: it admits no more acts.
+   * A case in a terminal state is closed: it admits no more acts — procedural
+   * or interruptive (HU31). `message`, as in {@link assertCanRegisterActs}.
    * @throws CaseInTerminalStateError
    */
-  assertAcceptsActs(currentStateIsTerminal: boolean): void {
+  assertAcceptsActs(currentStateIsTerminal: boolean, message?: string): void {
     if (currentStateIsTerminal) {
-      throw new CaseInTerminalStateError();
+      throw new CaseInTerminalStateError(message);
     }
   }
 
