@@ -18,6 +18,12 @@ get:
 
     Una causa sin actos devuelve `data` vacío: no es un error.
 
+    **Para armar la línea de tiempo**, el cliente necesita todos los actos de
+    la causa: pedir `limit=100`, igual que en
+    `GET /cases/{caseId}/interruptive-acts`. Con la página por defecto (20),
+    los actos más antiguos quedan afuera y el intercalado por fecha con los
+    actos interruptivos sale incompleto, sin ningún error que lo delate.
+
     **Rol requerido:** cualquier usuario autenticado, sobre cualquier causa
     (RN11). No hace falta ser el abogado responsable.
   parameters:
@@ -60,7 +66,8 @@ get:
                   manuallyAdjusted: false
                 registeredBy:
                   id: 3
-                  fullName: Dra. Malena Ríos
+                  lastName: Ríos
+                  firstName: Malena
                 registeredAt: '2026-09-15T11:42:00-03:00'
             pagination:
               page: 1
@@ -172,7 +179,8 @@ post:
                     manuallyAdjusted: false
                   registeredBy:
                     id: 3
-                    fullName: Malena Ríos
+                    lastName: Ríos
+                    firstName: Malena
                   registeredAt: '2026-09-09T11:42:00-03:00'
             customState:
               summary: Estado escrito a mano, vencimiento manual
@@ -196,7 +204,8 @@ post:
                     manuallyAdjusted: true
                   registeredBy:
                     id: 1
-                    fullName: Fernando G. Vázquez
+                    lastName: Vázquez
+                    firstName: Fernando G.
                   registeredAt: '2026-09-15T10:05:00-03:00'
     '400':
       description: Datos o identificador inválidos.

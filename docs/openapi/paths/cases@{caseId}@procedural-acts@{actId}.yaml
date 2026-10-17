@@ -48,7 +48,8 @@ get:
                 manuallyAdjusted: false
               registeredBy:
                 id: 3
-                fullName: Dra. Malena Ríos
+                lastName: Ríos
+                firstName: Malena
               registeredAt: '2026-09-15T11:42:00-03:00'
     '400':
       description: Identificador inválido.

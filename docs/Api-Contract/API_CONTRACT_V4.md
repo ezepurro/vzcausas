@@ -5027,6 +5027,13 @@ de su estado procesal, `deadline` no cambia (ver §3.4). Un estado procesal dado
 de baja después del acto sigue apareciendo con su nombre en `resultingState`,
 porque forma parte de la historia de la causa (§4, Bajas).
 
+**Para armar la línea de tiempo** (ver el ciclo de vida en
+[`GET /cases/{caseId}`](#get-casescaseid)), el cliente necesita **todos** los
+actos de la causa: pedir `limit=100`, igual que en
+`GET /cases/{caseId}/interruptive-acts`. Con la página por defecto (20), los
+actos más antiguos quedan afuera y el intercalado por fecha con los actos
+interruptivos sale incompleto, sin ningún error que lo delate.
+
 **Parámetros de ruta**
 
 | Parámetro | Tipo    | Descripción                    |
