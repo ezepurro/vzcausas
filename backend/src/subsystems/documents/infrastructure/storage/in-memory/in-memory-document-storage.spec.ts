@@ -37,7 +37,7 @@ describe('InMemoryDocumentStorage', () => {
   });
 
   it('falla una sola vez cuando se le pide y vuelve a funcionar', async () => {
-    storage.failNextWith(new DocumentStorageUnavailableError('timeout'));
+    storage.failNextWith(new DocumentStorageUnavailableError('TRANSIENT', 'timeout'));
 
     await expect(storage.create({ parentId: 'root', name: 'X' })).rejects.toBeInstanceOf(
       DocumentStorageUnavailableError,

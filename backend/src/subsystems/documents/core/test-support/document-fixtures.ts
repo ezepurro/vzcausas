@@ -1,7 +1,9 @@
 import { ClockPort } from '@shared/domain/clock.port';
+import { CaseRegisteredEvent, CASE_REGISTERED } from '@subsystems/cases/core/domain/ports/events/case-registered.event';
 import { AssureSpaceCommand } from '../application/common/assure-space.interfaces';
 import { AssureSpace } from '../application/use-cases/assure-space.use-case';
 import { CloudFolderFactory } from '../domain/factories/cloud-folder.factory';
+import { FakeEventPublisher } from './fake-event-publisher';
 import { InMemoryCloudFolderRepository } from '../../infrastructure/persistence/in-memory/in-memory-cloud-folder.repository';
 import { InMemoryDocumentStorage } from '../../infrastructure/storage/in-memory/in-memory-document-storage';
 
@@ -31,11 +33,13 @@ export function aCommand(overrides: Partial<AssureSpaceCommand> = {}): AssureSpa
 export async function aSetUpStudio(): Promise<{
   folders: InMemoryCloudFolderRepository;
   storage: InMemoryDocumentStorage;
+  events: FakeEventPublisher;
   assureSpace: AssureSpace;
   rootCasesId: string;
 }> {
   const folders = new InMemoryCloudFolderRepository();
   const storage = new InMemoryDocumentStorage();
+  const events = new FakeEventPublisher();
 
   const main = storage.seed('account-root', 'VZ Causas');
   const rootCases = storage.seed(main.id, 'Causas');
@@ -65,7 +69,23 @@ export async function aSetUpStudio(): Promise<{
   return {
     folders,
     storage,
-    assureSpace: new AssureSpace(folders, storage, new FakeClock()),
+    events,
+    assureSpace: new AssureSpace(folders, storage, new FakeClock(), events),
     rootCasesId: rootCases.id,
+  };
+}
+
+export function aCaseRegisteredEvent(
+  overrides: Partial<CaseRegisteredEvent> = {},
+): CaseRegisteredEvent {
+  return {
+    type: CASE_REGISTERED,
+    eventId: 'evt-case-registered-1',
+    occurredAt: NOW.toISOString(),
+    caseId: 10,
+    caption: 'GÓMEZ, Ariel Fernando p.s.a. Robo calificado',
+    lawyer: { id: 3, lastName: 'Ríos', firstName: 'Malena' },
+    jurisdiction: { id: 1, label: 'Penal' },
+    ...overrides,
   };
 }

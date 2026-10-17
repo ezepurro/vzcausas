@@ -16,7 +16,7 @@ export interface CloudFolderData extends CloudFolderProps {
   kind: CloudFolderKind;
   lawyerId?: number | null;
   jurisdictionId?: number | null;
-  /** Mandatory for `CASE`: a case folder cannot exist without its case. */
+  /** Mandatory for `CASE`, with `lawyerId` and `jurisdictionId`: a case folder cannot exist without its case. */
   caseId?: number | null;
 }
 
@@ -56,7 +56,12 @@ export class CloudFolderFactory {
           lawyerId: data.lawyerId ?? null,
         });
       case 'CASE':
-        return new CaseFolder({ ...base, caseId: data.caseId as number });
+        return new CaseFolder({
+          ...base,
+          caseId: data.caseId as number,
+          lawyerId: data.lawyerId as number,
+          jurisdictionId: data.jurisdictionId as number,
+        });
       default:
         return CloudFolderFactory.unreachable(data.kind);
     }

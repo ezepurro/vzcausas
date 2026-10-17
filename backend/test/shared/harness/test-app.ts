@@ -1,4 +1,4 @@
-import { INestApplication } from '@nestjs/common';
+import { INestApplication, ModuleMetadata } from '@nestjs/common';
 import { Test, TestingModuleBuilder } from '@nestjs/testing';
 import { AppModule } from '../../../src/app.module';
 import { configureApp } from '../../../src/app.setup';
@@ -15,6 +15,8 @@ let app: INestApplication | undefined;
  * @param customize opcional: permite reemplazar adaptadores EXTERNOS
  *        (correo, Google Drive…) por fakes con `overrideProvider`.
  *        La base de datos nunca se reemplaza: es real.
+ * @param extraImports opcional: módulos que `AppModule` todavía no registra
+ *        (p. ej. `DocumentsModule`, hasta tener el adaptador real de Drive).
  *
  * El verificador de tokens se reemplaza siempre por uno que acepta los
  * tokens de `loginAs` y delega el resto en el real (ver
@@ -22,9 +24,12 @@ let app: INestApplication | undefined;
  */
 export async function startTestApp(
   customize: (builder: TestingModuleBuilder) => TestingModuleBuilder = (b) => b,
+  extraImports: ModuleMetadata['imports'] = [],
 ): Promise<INestApplication> {
   const moduleRef = await customize(
-    useTestAccessTokenVerifier(Test.createTestingModule({ imports: [AppModule] })),
+    useTestAccessTokenVerifier(
+      Test.createTestingModule({ imports: [AppModule, ...extraImports] }),
+    ),
   ).compile();
 
   app = moduleRef.createNestApplication();

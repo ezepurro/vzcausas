@@ -14,7 +14,9 @@ const INCLUDE_CASE_ID = { case: { select: { id: true } } } as const;
  *
  * It never writes `cases`: the link between a case and its folder
  * (`cases.cloud_folder_id`) belongs to that subsystem. Until `cases` sets it,
- * a `CASE` folder cannot be found by `FolderKey.forCase`.
+ * a `CASE` folder cannot be found by `FolderKey.forCase`: `cases` avoids a
+ * second request in that window with its `folder_status` gate (see
+ * `CaseRegisteredEvent`).
  */
 @Injectable()
 export class PrismaCloudFolderRepository implements CloudFolderRepository {

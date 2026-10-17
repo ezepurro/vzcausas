@@ -20,7 +20,7 @@ describe('InMemoryCloudFolderRepository', () => {
     const lawyer = CloudFolderFactory.create({ ...base, kind: 'LAWYER', cloudFolderId: 'l-3', name: 'Ríos', lawyerId: 3 });
     const jurisdiction = CloudFolderFactory.create({ ...base, kind: 'JURISDICTION', cloudFolderId: 'j-3-1', name: 'Penal', lawyerId: 3, jurisdictionId: 1 });
     const templates = CloudFolderFactory.create({ ...base, kind: 'JURISDICTION', cloudFolderId: 'j-t-1', name: 'Penal', jurisdictionId: 1 });
-    const caseFolder = CloudFolderFactory.create({ ...base, kind: 'CASE', cloudFolderId: 'c-10', name: 'GARCÍA', caseId: 10 });
+    const caseFolder = CloudFolderFactory.create({ ...base, kind: 'CASE', cloudFolderId: 'c-10', name: 'GARCÍA', lawyerId: 3, jurisdictionId: 1, caseId: 10 });
     const rootCases = CloudFolderFactory.create({ ...base, kind: 'ROOT_CASES', cloudFolderId: 'rc', name: 'Causas' });
     for (const folder of [lawyer, jurisdiction, templates, caseFolder, rootCases]) {
       await repo.save(folder);
