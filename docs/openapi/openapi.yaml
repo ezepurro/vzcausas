@@ -182,6 +182,11 @@ tags:
     description: |
       El acto procesal mueve la causa de estado y abre el plazo (RN5). Solo
       lo registra el abogado responsable de la causa.
+  - name: Interruptive Acts
+    description: |
+      El acto interruptivo reinicia la prescripción de una causa penal desde
+      su fecha (RN8). No mueve el estado ni abre plazos. Solo lo registra el
+      abogado responsable de la causa.
 
 paths:
   /auth/login:
@@ -224,6 +229,8 @@ paths:
     $ref: paths/cases@{caseId}@procedural-acts@deadline-preview.yaml
   /cases/{caseId}/procedural-acts/{actId}:
     $ref: paths/cases@{caseId}@procedural-acts@{actId}.yaml
+  /cases/{caseId}/interruptive-acts:
+    $ref: paths/cases@{caseId}@interruptive-acts.yaml
 
 components:
   securitySchemes:

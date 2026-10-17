@@ -1,0 +1,181 @@
+parameters:
+  - $ref: ../components/parameters/CaseIdParam.yaml
+
+get:
+  tags:
+    - Interruptive Acts
+  operationId: listInterruptiveActs
+  summary: Consultar actos interruptivos
+  description: |
+    Obtiene una lista paginada de los actos interruptivos de la causa (HU31).
+
+    Se ordenan del más reciente al más antiguo por `actDate`; con la misma
+    fecha, primero el último registrado. **El primero de la lista es el que
+    rige el cómputo de la prescripción.**
+
+    Una causa sin actos interruptivos —y toda causa que no es penal— devuelve
+    `data` vacío: no es un error.
+
+    **Para armar la línea de tiempo** junto con los actos procesales, pedir
+    `limit=100`: con la página por defecto, los actos más antiguos quedan
+    afuera del intercalado.
+
+    **Rol requerido:** cualquier usuario autenticado (RN11).
+  parameters:
+    - $ref: ../components/parameters/PageParam.yaml
+    - $ref: ../components/parameters/LimitParam.yaml
+  responses:
+    '200':
+      description: Página de actos interruptivos de la causa.
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - data
+              - pagination
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: ../components/schemas/InterruptiveAct.yaml
+              pagination:
+                $ref: ../components/schemas/Pagination.yaml
+          example:
+            data:
+              - id: 3
+                caseId: 1
+                name: Indagatoria
+                actDate: '2024-07-04'
+                notes: null
+                registeredBy:
+                  id: 3
+                  lastName: Ríos
+                  firstName: Malena
+                registeredAt: '2026-09-10T09:15:00-03:00'
+            pagination:
+              page: 1
+              limit: 20
+              totalItems: 1
+              totalPages: 1
+    '400':
+      description: Paginación o identificador de causa inválidos.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          examples:
+            invalidPagination:
+              $ref: ../components/examples/InvalidPaginationError.yaml
+            invalidCaseId:
+              $ref: ../components/examples/InvalidCaseIdError.yaml
+    '401':
+      $ref: ../components/responses/Unauthorized.yaml
+    '404':
+      $ref: ../components/responses/CaseNotFound.yaml
+
+post:
+  tags:
+    - Interruptive Acts
+  operationId: createInterruptiveAct
+  summary: Registrar acto interruptivo
+  description: |
+    Registra un acto interruptivo sobre una causa penal (HU31).
+
+    **Efecto sobre la prescripción**
+
+    - Alcanza a **todas las calificaciones legales de la causa**.
+    - El `prescriptionStartsOn` de cada calificación pasa a ser la `actDate`
+      del acto interruptivo **más reciente** de la causa, salvo que sea
+      anterior a su `offenseDate`. Su `prescriptionExpiresOn` se recalcula como
+      `prescriptionStartsOn` más `prescriptionMonths`.
+    - Un acto con fecha **anterior** a otro ya registrado queda asentado, pero
+      no cambia el cómputo: rige siempre el más reciente.
+    - `offenseDate` no cambia nunca, y el estado procesal y el vencimiento de
+      la causa (`currentState`) tampoco.
+
+    Nada se guarda como valor fijo: la prescripción se calcula en cada lectura
+    de la causa. Después del alta, el cliente vuelve a pedir
+    `GET /cases/{caseId}` para mostrarla recalculada.
+
+    **Rol requerido:** abogado responsable de la causa. Ningún otro usuario,
+    aunque tenga el rol `LAWYER` o `ADMINISTRATOR`.
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: ../components/schemas/InterruptiveActCreate.yaml
+        example:
+          name: Citación a juicio
+          actDate: '2026-09-15'
+          notes: Decreto de fs. 212.
+  responses:
+    '201':
+      description: Acto interruptivo registrado.
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - data
+            properties:
+              data:
+                $ref: ../components/schemas/InterruptiveAct.yaml
+          example:
+            data:
+              id: 7
+              caseId: 1
+              name: Citación a juicio
+              actDate: '2026-09-15'
+              notes: Decreto de fs. 212.
+              registeredBy:
+                id: 3
+                lastName: Ríos
+                firstName: Malena
+              registeredAt: '2026-09-15T10:30:00-03:00'
+    '400':
+      description: Datos o identificador de causa inválidos.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          examples:
+            validation:
+              summary: Datos inválidos
+              value:
+                error:
+                  code: VALIDATION_ERROR
+                  message: Los datos enviados no son válidos.
+                  details:
+                    name: El acto interruptivo es obligatorio.
+                    actDate: No puede ser posterior a hoy.
+            invalidCaseId:
+              $ref: ../components/examples/InvalidCaseIdError.yaml
+    '401':
+      $ref: ../components/responses/Unauthorized.yaml
+    '403':
+      $ref: ../components/responses/ForbiddenResponsibleLawyerInterruptive.yaml
+    '404':
+      $ref: ../components/responses/CaseNotFound.yaml
+    '422':
+      description: La causa no es penal, o está en un estado terminal.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          examples:
+            notCriminal:
+              summary: La causa no es del fuero penal
+              value:
+                error:
+                  code: PRESCRIPTION_NOT_APPLICABLE
+                  message: La prescripción solo aplica a las causas del fuero penal.
+                  details: null
+            terminalState:
+              summary: La causa está en un estado terminal ("Prescripta" u otro)
+              value:
+                error:
+                  code: CASE_IN_TERMINAL_STATE
+                  message: La causa se encuentra en un estado terminal y no admite esta operación.
+                  details: null

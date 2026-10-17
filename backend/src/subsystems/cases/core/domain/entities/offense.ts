@@ -1,4 +1,5 @@
 import { LegalQualificationRef } from '../ports/legal-parameters-lookup.port';
+import { addPrescriptionMonths } from '../prescription';
 
 export interface OffenseProps {
   legalQualification: LegalQualificationRef;
@@ -35,7 +36,11 @@ export class Offense {
     return this.props.offenseDate;
   }
 
-  /** Date from which the prescription counts. Until interruptive acts exist, it is the offense date. */
+  /**
+   * Date from which the prescription counts, **at registration**: a case that is
+   * being registered has no interruptive acts yet, so it is the offense date.
+   * Later acts move it on every read of the case (HU31, `prescription.ts`).
+   */
   get prescriptionStartsOn(): Date {
     return this.props.offenseDate;
   }
@@ -47,10 +52,6 @@ export class Offense {
 
   /** Calculates the prescription date (start plus months) and keeps it. A shorter month ends on its last day. */
   calculatePrescription(): void {
-    const start = this.prescriptionStartsOn;
-    const year = start.getUTCFullYear();
-    const month = start.getUTCMonth() + this.prescriptionMonths;
-    const lastDayOfMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
-    this.props.prescriptionExpiresOn = new Date(Date.UTC(year, month, Math.min(start.getUTCDate(), lastDayOfMonth)));
+    this.props.prescriptionExpiresOn = addPrescriptionMonths(this.prescriptionStartsOn, this.prescriptionMonths);
   }
 }
