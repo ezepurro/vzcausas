@@ -223,6 +223,8 @@ paths:
     $ref: paths/cases@custom-states.yaml
   /cases/{caseId}:
     $ref: paths/cases@{caseId}.yaml
+  /cases/{caseId}/timeline:
+    $ref: paths/cases@{caseId}@timeline.yaml
   /cases/{caseId}/procedural-acts:
     $ref: paths/cases@{caseId}@procedural-acts.yaml
   /cases/{caseId}/procedural-acts/deadline-preview:

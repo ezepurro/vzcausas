@@ -85,3 +85,11 @@ function toView(row: ActRow): ProceduralActView {
     },
   };
 }
+
+// Shared with `CaseTimelinePrismaAdapter` (HU27): the line of life reads the
+// acts exactly as this listing does, so an entry cannot differ from the act.
+export {
+  ACT_INCLUDE as PROCEDURAL_ACT_INCLUDE,
+  NEWEST_FIRST as PROCEDURAL_ACTS_NEWEST_FIRST,
+  toView as toProceduralActView,
+};

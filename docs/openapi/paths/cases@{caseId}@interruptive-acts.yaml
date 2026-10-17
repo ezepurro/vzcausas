@@ -16,9 +16,9 @@ get:
     Una causa sin actos interruptivos —y toda causa que no es penal— devuelve
     `data` vacío: no es un error.
 
-    **Para armar la línea de tiempo** junto con los actos procesales, pedir
-    `limit=100`: con la página por defecto, los actos más antiguos quedan
-    afuera del intercalado.
+    **Para la línea de vida de la causa** no se usa este listado sino
+    `GET /cases/{caseId}/timeline`, que la devuelve completa, sin paginar y ya
+    intercalada con los actos procesales (D-85).
 
     **Rol requerido:** cualquier usuario autenticado (RN11).
   parameters:

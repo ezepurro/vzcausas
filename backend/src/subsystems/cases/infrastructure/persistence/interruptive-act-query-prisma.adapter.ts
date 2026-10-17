@@ -59,3 +59,11 @@ function toView(row: ActRow): InterruptiveActView {
     },
   };
 }
+
+// Shared with `CaseTimelinePrismaAdapter` (HU27), for the same reason as the
+// procedural acts: one way of reading an interruptive act.
+export {
+  ACT_INCLUDE as INTERRUPTIVE_ACT_INCLUDE,
+  NEWEST_FIRST as INTERRUPTIVE_ACTS_NEWEST_FIRST,
+  toView as toInterruptiveActView,
+};

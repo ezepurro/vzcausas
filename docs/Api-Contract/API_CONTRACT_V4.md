@@ -28,9 +28,9 @@ sección 8.
 
 | HU  | Nombre                                           | Endpoints                                                                                             |
 | --- | ------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
-| 27  | Consultar Acto Procesal                          | `GET /cases/{caseId}/procedural-acts`, `GET /cases/{caseId}/procedural-acts/{actId}` (ya en V3)       |
+| 27  | Consultar Línea de Vida de la Causa              | `GET /cases/{caseId}/timeline`; además `GET /cases/{caseId}/procedural-acts`, `GET /cases/{caseId}/procedural-acts/{actId}` y `GET /cases/{caseId}/interruptive-acts` |
 | 30  | Notificar Vencimientos Plazos                    | Proceso automático diario, sin endpoints                                                              |
-| 31  | Registrar Actos Interruptivos                    | `POST` y `GET /cases/{caseId}/interruptive-acts`                                                      |
+| 31  | Registrar Actos Interruptivos                    | `POST /cases/{caseId}/interruptive-acts`                                                              |
 | 32  | Notificar Alerta de Prescripción                 | Proceso automático diario; `prescription` en la causa; `prescriptionAlerts` en los tableros           |
 | 33  | Registrar Causa/amparo como prescripta           | `POST /cases/{caseId}/prescription`                                                                   |
 | 34  | Registrar Modelo Formal                          | `POST /document-templates`                                                                            |
@@ -47,9 +47,15 @@ implementado: datos nuevos en la causa, nombre y apellido separados en usuarios
 y abogados, estados terminales como destino de un acto procesal y el conteo de
 causas por estado procesal (ver [§7.2](#72-endpoints-modificados)).
 
-HU27 ya figuraba en V3 y está implementada. En esta versión se complementa con
-el listado de actos interruptivos, que la línea de tiempo del prototipo muestra
-junto a los actos procesales.
+HU27 pasa a ser **Consultar Línea de Vida de la Causa** (revisión del
+19/10/2026, [D-85](#81-decisiones-tomadas)): reúne en una sola historia lo que
+antes eran la consulta de actos procesales y la de actos interruptivos, porque
+el usuario nunca los consulta por separado sino en la línea de vida de la causa.
+Esa línea de vida tiene endpoint propio,
+[`GET /cases/{caseId}/timeline`](#get-casescaseidtimeline), que devuelve los
+actos procesales, los actos interruptivos y el pase a "Prescripta" ya
+intercalados. Los listados de actos procesales y de actos interruptivos se
+mantienen, ahora también bajo HU27.
 
 HU51 y HU52 **verifican** —cada día, los plazos de presentación y la
 prescripción de las causas— y HU30 y HU32 **avisan** por correo lo que esa
@@ -129,6 +135,7 @@ se mantiene igual.
 | `GET`    | `/cases/{caseId}/procedural-acts/{actId}`             |      Sí       | Cualquier usuario autenticado | Consultar acto procesal                  | Modificado |
 | `POST`   | `/cases/{caseId}/interruptive-acts`                   |      Sí       | Abogado responsable de la causa | Registrar acto interruptivo            | Nuevo      |
 | `GET`    | `/cases/{caseId}/interruptive-acts`                   |      Sí       | Cualquier usuario autenticado | Consultar actos interruptivos            | Nuevo      |
+| `GET`    | `/cases/{caseId}/timeline`                            |      Sí       | Cualquier usuario autenticado | Consultar línea de vida de la causa      | Nuevo      |
 | `POST`   | `/document-templates`                                 |      Sí       | `ADMINISTRATOR` o `LAWYER`    | Registrar modelo formal                  | Nuevo      |
 | `GET`    | `/document-templates`                                 |      Sí       | `ADMINISTRATOR` o `LAWYER`    | Consultar modelos formales               | Nuevo      |
 | `GET`    | `/document-templates/{templateId}`                    |      Sí       | `ADMINISTRATOR` o `LAWYER`    | Consultar modelo formal                  | Nuevo      |
@@ -4051,19 +4058,11 @@ del cliente, el acceso a la carpeta (`folder.url`, botón "Abrir carpeta en
 Drive") y el **ciclo de vida**.
 
 **Ciclo de vida.** La línea de tiempo del prototipo ("Ciclo de vida de la
-causa") no tiene un endpoint propio. El cliente la arma intercalando por fecha
-tres fuentes:
-
-| Qué muestra                                             | De dónde sale                                                                                  |
-| ------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| Cada estado por el que pasó la causa, con su plazo      | [`GET /cases/{caseId}/procedural-acts`](#get-casescaseidprocedural-acts) (HU27)                |
-| Los actos interruptivos, con la marca "Acto interruptivo" | [`GET /cases/{caseId}/interruptive-acts`](#get-casescaseidinterruptive-acts) (HU31)          |
-| El pase a "Prescripta", si lo hubo                      | `prescriptionDeclaration` de la causa                                                          |
-
-El plazo que la línea de tiempo marca como **abierto** ("Plazo abierto · vence",
-"Vence hoy", "Plazo vencido el") es el del acto cuyo `id` coincide con
-`currentState.proceduralActId`; los plazos de los actos anteriores están
-cerrados.
+causa") sale de [`GET /cases/{caseId}/timeline`](#get-casescaseidtimeline)
+(HU27), que devuelve ya intercaladas y completas sus tres fuentes: los actos
+procesales, los actos interruptivos y el pase a "Prescripta". El cliente no
+intercala ni pagina. Hasta la revisión del 19/10/2026 las intercalaba el
+cliente ([D-85](#81-decisiones-tomadas), que reemplaza a D-47).
 
 La lista de documentos de la tarjeta "Documentación" (HU38) y las acciones
 "Modificar causa", "Dar de baja", "Emitir carátula", "Emitir expediente" y
@@ -4201,6 +4200,138 @@ interruptivo registrado el 04/07/2024").
 ```
 
 **`404 Not Found`**
+
+```json
+{
+	"error": {
+		"code": "CASE_NOT_FOUND",
+		"message": "No se encontró la causa solicitada.",
+		"details": null
+	}
+}
+```
+
+---
+
+#### `GET /cases/{caseId}/timeline`
+
+Obtiene la **línea de vida** de una causa (HU27): todo lo que le pasó, en un
+solo listado. Es la fuente del "Ciclo de vida de la causa" del detalle. Nuevo en
+la revisión del 19/10/2026 ([D-85](#81-decisiones-tomadas)).
+
+**Rol requerido:** cualquier usuario autenticado, sobre cualquier causa (RN11).
+No hace falta ser el abogado responsable.
+
+Cada entrada tiene un `type`, una `date` y **el recurso tal como lo define su
+propia sección**, sin cambios: el acto procesal de
+[§3.8](#38-actos-procesales-casescaseidprocedural-acts), el acto interruptivo
+de [§3.9](#39-actos-interruptivos-casescaseidinterruptive-acts) y el
+`prescriptionDeclaration` de la causa.
+
+| `type`                     | `date`                                 | Trae                       | Además                                                                                       |
+| -------------------------- | -------------------------------------- | -------------------------- | -------------------------------------------------------------------------------------------- |
+| `PROCEDURAL_ACT`           | `actDate` del acto                     | `proceduralAct`            | `current`: `true` en el acto que llevó la causa a su estado actual. **Su plazo es el abierto**; los de los demás actos están cerrados |
+| `INTERRUPTIVE_ACT`         | `actDate` del acto                     | `interruptiveAct`          | `governsPrescription`: `true` en el acto interruptivo más reciente, el que rige el cómputo de la prescripción |
+| `PRESCRIPTION_DECLARATION` | `prescriptionDate` de la declaración   | `prescriptionDeclaration`  | —                                                                                            |
+
+**Orden:** de la más reciente a la más antigua por `date`. Si dos entradas
+tienen la misma fecha, primero la última registrada (`registeredAt`).
+
+**Sin paginar, a propósito.** Es la segunda colección no paginada del
+contrato, junto a `GET /cases/custom-states`. Una línea de vida incompleta es
+incorrecta sin que nada lo delate: si se cortara en la página 1, los actos más
+antiguos —y el acto interruptivo que quizás rige la prescripción— quedarían
+afuera. La historia de una causa es acotada: pocas decenas de entradas.
+
+Qué **no** aparece:
+- El estado inicial ("Iniciada"): no lo originó ningún acto (ver `currentState`).
+- En las causas que no son penales, actos interruptivos y prescripción: no
+  aplican a esos fueros. Su línea de vida tiene solo actos procesales.
+- Un acto interruptivo con fecha anterior a otro **sí aparece**, en su lugar
+  cronológico y con `governsPrescription` en `false`: queda en la historia
+  aunque no rija el cómputo.
+
+**Parámetros de ruta**
+
+| Parámetro | Tipo    | Descripción                    |
+| --------- | ------- | ------------------------------ |
+| `caseId`  | Integer | Identificador único de la causa |
+
+**Respuestas**
+
+**`200 OK`**
+
+```json
+{
+	"data": [
+		{
+			"type": "PROCEDURAL_ACT",
+			"date": "2026-09-15",
+			"current": true,
+			"proceduralAct": {
+				"id": 42,
+				"caseId": 1,
+				"resultingState": {
+					"proceduralStateId": 12,
+					"name": "Oposición al requerimiento de elevación",
+					"custom": false
+				},
+				"actDate": "2026-09-15",
+				"notificationDate": null,
+				"notes": "Con acusación, pero con oposición.",
+				"deadline": {
+					"timeLimitDays": 5,
+					"dayType": "BUSINESS",
+					"countsFrom": "2026-09-15",
+					"computedDueDate": "2026-09-22",
+					"dueDate": "2026-09-22",
+					"manuallyAdjusted": false
+				},
+				"registeredBy": { "id": 3, "lastName": "Ríos", "firstName": "Malena" },
+				"registeredAt": "2026-09-15T11:42:00-03:00"
+			}
+		},
+		{
+			"type": "INTERRUPTIVE_ACT",
+			"date": "2024-07-04",
+			"governsPrescription": true,
+			"interruptiveAct": {
+				"id": 3,
+				"caseId": 1,
+				"name": "Indagatoria",
+				"actDate": "2024-07-04",
+				"notes": null,
+				"registeredBy": { "id": 3, "lastName": "Ríos", "firstName": "Malena" },
+				"registeredAt": "2026-09-10T09:15:00-03:00"
+			}
+		}
+	]
+}
+```
+
+Una causa sin actos devuelve `data` vacío: no es un error. La causa está en su
+estado inicial.
+
+**`400 Bad Request`**
+
+Un `caseId` que no es un entero responde `INVALID_PATH_PARAMETER`, igual que en
+`GET /cases/{caseId}`.
+
+**`401 Unauthorized`**
+
+```json
+{
+	"error": {
+		"code": "UNAUTHENTICATED",
+		"message": "La autenticación es requerida.",
+		"details": null
+	}
+}
+```
+
+**`404 Not Found`**
+
+Causa inexistente o dada de baja.
 
 ```json
 {
@@ -5027,12 +5158,9 @@ de su estado procesal, `deadline` no cambia (ver §3.4). Un estado procesal dado
 de baja después del acto sigue apareciendo con su nombre en `resultingState`,
 porque forma parte de la historia de la causa (§4, Bajas).
 
-**Para armar la línea de tiempo** (ver el ciclo de vida en
-[`GET /cases/{caseId}`](#get-casescaseid)), el cliente necesita **todos** los
-actos de la causa: pedir `limit=100`, igual que en
-`GET /cases/{caseId}/interruptive-acts`. Con la página por defecto (20), los
-actos más antiguos quedan afuera y el intercalado por fecha con los actos
-interruptivos sale incompleto, sin ningún error que lo delate.
+**Para la línea de vida de la causa** no se usa este listado sino
+[`GET /cases/{caseId}/timeline`](#get-casescaseidtimeline), que la devuelve
+completa, sin paginar y ya intercalada con los actos interruptivos (D-85).
 
 **Parámetros de ruta**
 
@@ -5468,8 +5596,9 @@ Los actos se ordenan del más reciente al más antiguo por `actDate`; si dos
 tienen la misma fecha, primero el último registrado. El primero de la lista es
 el que rige el cómputo de la prescripción.
 
-El cliente los intercala con los actos procesales para armar el ciclo de vida
-de la causa (ver [`GET /cases/{caseId}`](#get-casescaseid)).
+Este listado es parte de HU27 (D-85). Para la línea de vida de la causa no se
+usa este listado sino [`GET /cases/{caseId}/timeline`](#get-casescaseidtimeline),
+que ya los intercala con los actos procesales.
 
 **Parámetros de ruta**
 
@@ -6946,10 +7075,11 @@ siempre `true`, porque forma parte del modelo que el backend expone.
 Una colección sin resultados devuelve `data` vacío, `totalItems` en `0` y
 `totalPages` en `0`.
 
-Las colecciones no paginadas son dos casos acotados: `GET /cases/custom-states`,
-que devuelve una lista corta de textos en `data`, y las listas que vienen
-**dentro** de un tablero (`GET /dashboards/lawyer` y
-`GET /dashboards/administrator`), cuyo tamaño está limitado por la cantidad de
+Las colecciones no paginadas son tres casos acotados: `GET /cases/custom-states`,
+que devuelve una lista corta de textos en `data`; `GET /cases/{caseId}/timeline`,
+la línea de vida de una causa, que tiene que llegar completa para ser correcta
+(D-85); y las listas que vienen **dentro** de un tablero (`GET /dashboards/lawyer`
+y `GET /dashboards/administrator`), cuyo tamaño está limitado por la cantidad de
 causas activas del estudio.
 
 **GET — Archivo**
@@ -7212,7 +7342,8 @@ heredado las cita; las de esta versión continúan desde D-45.
 | --- | --- | --- |
 | D-45 | El alcance es HU 27, 30, 31, 32, 33, 34, 35, 39, 40, 41, 42, 51 y 52 | Sprint "VZ Sprint 3" de Jira y Story Map del Seguimiento v1.2 (§4.1.2), más HU51 y HU52, incorporadas al sprint por el equipo |
 | D-46 | V4 es autocontenido y V3 queda sin modificar | Mismo criterio que V3 respecto de V2 |
-| D-47 | HU27 no agrega endpoints | Sus dos endpoints ya estaban en V3 y están implementados. La línea de tiempo del prototipo se completa con los actos interruptivos y el pase a "Prescripta", que tienen su propia fuente; el cliente intercala las tres |
+| D-47 | ~~HU27 no agrega endpoints~~ **Reemplazada por D-85** | ~~Sus dos endpoints ya estaban en V3 y están implementados. La línea de tiempo del prototipo se completa con los actos interruptivos y el pase a "Prescripta", que tienen su propia fuente; el cliente intercala las tres~~ |
+| D-85 | HU27 pasa a ser "Consultar Línea de Vida de la Causa" y absorbe la consulta de actos interruptivos. La línea de vida tiene endpoint propio, `GET /cases/{caseId}/timeline`, sin paginar, con las tres fuentes ya intercaladas (revisión del 19/10/2026) | El usuario nunca consulta actos procesales o interruptivos por separado: los ve en la línea de vida. Intercalando en el cliente, la paginación de los dos listados dejaba la línea de vida incompleta sin ningún error si la causa tenía más actos que la página, y obligaba al cliente a recordar pedir `limit=100`. Los listados de actos procesales e interruptivos, y el `GET` de un acto procesal, se mantienen: ya están implementados, y el de un acto lo necesitan HU28 y HU29 para modificar o anular el acto elegido en la línea de vida |
 | D-48 | El acto interruptivo es un recurso propio, anidado en la causa, y no un acto procesal con una marca | No mueve el estado ni abre un plazo, y su formulario pide otros datos. La arquitectura ya lo preveía como `InterruptiveAct` dentro del agregado `Case` |
 | D-49 | Un acto interruptivo alcanza a todas las calificaciones de la causa, rige el más reciente y su nombre es texto libre | El formulario no pide elegir una calificación y habla de "la prescripción de la acción". Tomar el más reciente permite cargar actos viejos sin retroceder el cómputo, igual que D-14 |
 | D-50 | Los actos interruptivos existen solo en `CRIMINAL` y los registra solo el abogado responsable. Fuera del fuero penal responden `422 PRESCRIPTION_NOT_APPLICABLE` | El prototipo ofrece el botón solo en causas penales y solo al responsable; la matriz de permisos dice lo mismo (HU31). Se usa el mismo código que la marca de prescripción porque el motivo del rechazo es el mismo |
@@ -7423,9 +7554,9 @@ frontend a la vez:
 
 | HU | Qué entra al contrato |
 | --- | --- |
-| 27 | Sin endpoints nuevos: los de V3. La línea de tiempo se completa con los actos interruptivos |
+| 27 | Línea de vida de la causa: `GET /cases/{caseId}/timeline`, más los listados de actos procesales e interruptivos (D-85) |
 | 30 | Avisos de vencimiento por correo, del proceso diario |
-| 31 | Alta y consulta de actos interruptivos, y su efecto sobre la prescripción |
+| 31 | Alta de actos interruptivos y su efecto sobre la prescripción. La consulta pasó a HU27 (D-85) |
 | 32 | Avisos de prescripción por correo, y las alertas en los tableros |
 | 33 | `POST /cases/{caseId}/prescription` y "Prescripta" como estado de sistema |
 | 34 | `POST /document-templates`, con archivo y nombre único |

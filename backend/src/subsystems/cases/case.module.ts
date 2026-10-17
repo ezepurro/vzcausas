@@ -5,6 +5,7 @@ import { LegalParametersModule } from '@subsystems/legal-parameters/legal-parame
 import { ActiveCasesCounterPort as PeopleActiveCasesCounterPort } from '@subsystems/people/core/domain/ports/active-cases-counter.port';
 import { PeopleModule } from '@subsystems/people/people.module';
 import { GetCase } from './core/application/use-cases/get-case.use-case';
+import { GetCaseTimeline } from './core/application/use-cases/get-case-timeline.use-case';
 import { GetProceduralAct } from './core/application/use-cases/get-procedural-act.use-case';
 import { ListCases } from './core/application/use-cases/list-cases.use-case';
 import { ListCustomStates } from './core/application/use-cases/list-custom-states.use-case';
@@ -14,6 +15,7 @@ import { RegisterInterruptiveAct } from './core/application/use-cases/register-i
 import { RegisterCase } from './core/application/use-cases/register-case.use-case';
 import { RegisterProceduralAct } from './core/application/use-cases/register-procedural-act.use-case';
 import { CASE_QUERY } from './core/domain/ports/case-query.port';
+import { CASE_TIMELINE_QUERY } from './core/domain/ports/case-timeline-query.port';
 import { CASE_REPOSITORY } from './core/domain/ports/case.repository';
 import { DEADLINE_CALCULATOR } from './core/domain/ports/deadline-calculator.port';
 import { INTERRUPTIVE_ACT_QUERY } from './core/domain/ports/interruptive-act-query.port';
@@ -23,12 +25,15 @@ import { PROCEDURAL_ACT_REPOSITORY } from './core/domain/ports/procedural-act.re
 import { BusinessDaysDeadlineCalculatorAdapter } from './infrastructure/acl/business-days-deadline-calculator.adapter';
 import { LegalParametersActiveCasesCounterAdapter } from './infrastructure/acl/legal-parameters-active-cases-counter.adapter';
 import { PeopleActiveCasesCounterAdapter } from './infrastructure/acl/people-active-cases-counter.adapter';
+import { CaseTimelineController } from './infrastructure/http/controllers/case-timeline.controller';
 import { CasesController } from './infrastructure/http/controllers/cases.controller';
 import { InterruptiveActsController } from './infrastructure/http/controllers/interruptive-acts.controller';
 import { InterruptiveActHttpMapper } from './infrastructure/http/mappers/interruptive-act-http.mapper';
 import { ProceduralActHttpMapper } from './infrastructure/http/mappers/procedural-act-http.mapper';
+import { TimelineHttpMapper } from './infrastructure/http/mappers/timeline-http.mapper';
 import { CasePrismaRepository } from './infrastructure/persistence/case-prisma.repository';
 import { CaseQueryPrismaAdapter } from './infrastructure/persistence/case-query-prisma.adapter';
+import { CaseTimelinePrismaAdapter } from './infrastructure/persistence/case-timeline-prisma.adapter';
 import { InterruptiveActPrismaRepository } from './infrastructure/persistence/interruptive-act-prisma.repository';
 import { InterruptiveActQueryPrismaAdapter } from './infrastructure/persistence/interruptive-act-query-prisma.adapter';
 import { ProceduralActPrismaRepository } from './infrastructure/persistence/procedural-act-prisma.repository';
@@ -81,7 +86,7 @@ import { ProceduralActQueryPrismaAdapter } from './infrastructure/persistence/pr
  */
 @Module({
   imports: [forwardRef(() => PeopleModule), forwardRef(() => LegalParametersModule), SharedModule],
-  controllers: [CasesController, InterruptiveActsController],
+  controllers: [CasesController, InterruptiveActsController, CaseTimelineController],
   providers: [
     RegisterCase,
     ListCases,
@@ -103,6 +108,10 @@ import { ProceduralActQueryPrismaAdapter } from './infrastructure/persistence/pr
     InterruptiveActHttpMapper,
     { provide: INTERRUPTIVE_ACT_REPOSITORY, useClass: InterruptiveActPrismaRepository },
     { provide: INTERRUPTIVE_ACT_QUERY, useClass: InterruptiveActQueryPrismaAdapter },
+    // HU27: la línea de vida de la causa (D-85), con las tres fuentes intercaladas.
+    GetCaseTimeline,
+    TimelineHttpMapper,
+    { provide: CASE_TIMELINE_QUERY, useClass: CaseTimelinePrismaAdapter },
     { provide: DEADLINE_CALCULATOR, useClass: BusinessDaysDeadlineCalculatorAdapter },
     // Adapters of the ports that other subsystems define to ask `cases` for
     // the number of active cases. The two tokens happen to share a name in
