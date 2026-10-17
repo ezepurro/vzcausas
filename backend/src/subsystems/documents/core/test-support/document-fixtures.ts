@@ -1,0 +1,71 @@
+import { ClockPort } from '@shared/domain/clock.port';
+import { AssureSpaceCommand } from '../application/common/assure-space.interfaces';
+import { AssureSpace } from '../application/use-cases/assure-space.use-case';
+import { CloudFolderFactory } from '../domain/factories/cloud-folder.factory';
+import { InMemoryCloudFolderRepository } from '../../infrastructure/persistence/in-memory/in-memory-cloud-folder.repository';
+import { InMemoryDocumentStorage } from '../../infrastructure/storage/in-memory/in-memory-document-storage';
+
+export const NOW = new Date('2026-10-17T12:00:00.000Z');
+
+export class FakeClock implements ClockPort {
+  now(): Date {
+    return NOW;
+  }
+
+  today(): Date {
+    return new Date('2026-10-17T00:00:00.000Z');
+  }
+}
+
+export function aCommand(overrides: Partial<AssureSpaceCommand> = {}): AssureSpaceCommand {
+  return {
+    caseId: 10,
+    caseCaption: 'GÓMEZ, Ariel Fernando p.s.a. Robo calificado',
+    lawyer: { id: 3, folderLabel: 'Ríos, Malena' },
+    jurisdiction: { id: 1, folderLabel: 'Penal' },
+    ...overrides,
+  };
+}
+
+/** The study's configured structure: MAIN and ROOT_CASES in both the storage and the repository. */
+export async function aSetUpStudio(): Promise<{
+  folders: InMemoryCloudFolderRepository;
+  storage: InMemoryDocumentStorage;
+  assureSpace: AssureSpace;
+  rootCasesId: string;
+}> {
+  const folders = new InMemoryCloudFolderRepository();
+  const storage = new InMemoryDocumentStorage();
+
+  const main = storage.seed('account-root', 'VZ Causas');
+  const rootCases = storage.seed(main.id, 'Causas');
+  await folders.save(
+    CloudFolderFactory.create({
+      kind: 'MAIN',
+      cloudFolderId: main.id,
+      name: 'VZ Causas',
+      url: main.url,
+      parentCloudFolderId: null,
+      createdAt: NOW,
+    }),
+  );
+  await folders.save(
+    CloudFolderFactory.create({
+      kind: 'ROOT_CASES',
+      cloudFolderId: rootCases.id,
+      name: 'Causas',
+      url: rootCases.url,
+      parentCloudFolderId: main.id,
+      createdAt: NOW,
+    }),
+  );
+  folders.saveCount = 0;
+  storage.calls.length = 0;
+
+  return {
+    folders,
+    storage,
+    assureSpace: new AssureSpace(folders, storage, new FakeClock()),
+    rootCasesId: rootCases.id,
+  };
+}
