@@ -5,6 +5,8 @@ export interface AssureSpaceCommand {
   caseCaption: string;
   lawyer: { id: number; folderLabel: string };
   jurisdiction: { id: number; folderLabel: string };
+  /** `eventId` of the event that triggered this work; absent when invoked directly (e.g. a manual retry). */
+  causedByEventId?: string;
 }
 
 /** The case's cloud space. */

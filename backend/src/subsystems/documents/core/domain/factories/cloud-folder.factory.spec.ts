@@ -26,7 +26,7 @@ describe('CloudFolderFactory', () => {
       CloudFolderFactory.create({ ...base, kind: 'JURISDICTION', lawyerId: 3, jurisdictionId: 1 }),
     ).toBeInstanceOf(JurisdictionFolder);
     expect(
-      CloudFolderFactory.create({ ...base, kind: 'CASE', caseId: 10 }),
+      CloudFolderFactory.create({ ...base, kind: 'CASE', lawyerId: 3, jurisdictionId: 1, caseId: 10 }),
     ).toBeInstanceOf(CaseFolder);
   });
 
@@ -37,7 +37,7 @@ describe('CloudFolderFactory', () => {
       { ...base, kind: 'ROOT_CASES' },
       { ...base, kind: 'LAWYER', lawyerId: 3 },
       { ...base, kind: 'JURISDICTION', jurisdictionId: 1 },
-      { ...base, kind: 'CASE', caseId: 10 },
+      { ...base, kind: 'CASE', lawyerId: 3, jurisdictionId: 1, caseId: 10 },
     ];
     expect(inputs.map((i) => CloudFolderFactory.create(i).key.kind)).toEqual([...CLOUD_FOLDER_KINDS]);
   });
@@ -45,7 +45,7 @@ describe('CloudFolderFactory', () => {
   it('expone la clave natural de cada carpeta', () => {
     const lawyer = CloudFolderFactory.create({ ...base, kind: 'LAWYER', lawyerId: 3 });
     const templatesJurisdiction = CloudFolderFactory.create({ ...base, kind: 'JURISDICTION', jurisdictionId: 1 });
-    const caseFolder = CloudFolderFactory.create({ ...base, kind: 'CASE', caseId: 10 });
+    const caseFolder = CloudFolderFactory.create({ ...base, kind: 'CASE', lawyerId: 3, jurisdictionId: 1, caseId: 10 });
 
     expect(lawyer.key).toEqual({ kind: 'LAWYER', lawyerId: 3 });
     expect(templatesJurisdiction.key).toEqual({ kind: 'JURISDICTION', lawyerId: null, jurisdictionId: 1 });
@@ -58,7 +58,9 @@ describe('CloudFolderFactory', () => {
     ['ROOT_CASES sin padre', { ...base, kind: 'ROOT_CASES', parentCloudFolderId: null }],
     ['LAWYER sin abogado', { ...base, kind: 'LAWYER' }],
     ['JURISDICTION sin fuero', { ...base, kind: 'JURISDICTION', lawyerId: 3 }],
-    ['CASE sin causa', { ...base, kind: 'CASE' }],
+    ['CASE sin causa', { ...base, kind: 'CASE', lawyerId: 3, jurisdictionId: 1 }],
+    ['CASE sin abogado', { ...base, kind: 'CASE', jurisdictionId: 1, caseId: 10 }],
+    ['CASE sin fuero', { ...base, kind: 'CASE', lawyerId: 3, caseId: 10 }],
     ['sin id de proveedor', { ...base, kind: 'TEMPLATES', cloudFolderId: ' ' }],
     ['sin nombre', { ...base, kind: 'TEMPLATES', name: '' }],
   ])('rechaza %s', (_label, data) => {
@@ -67,7 +69,7 @@ describe('CloudFolderFactory', () => {
 
   it('rechaza una carpeta de causa sin causa', () => {
     expect(() =>
-      CloudFolderFactory.hydrate({ ...base, kind: 'CASE', caseId: null }),
+      CloudFolderFactory.hydrate({ ...base, kind: 'CASE', lawyerId: 3, jurisdictionId: 1, caseId: null }),
     ).toThrow(InvalidCloudFolderError);
   });
 });

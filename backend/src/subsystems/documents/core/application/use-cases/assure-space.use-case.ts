@@ -1,5 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { CLOCK, ClockPort } from '@shared/domain/clock.port';
+import { EventPublisher } from '@shared/infrastructure/events/event-publisher.port';
+import { createEventHeader } from '@shared/infrastructure/events/integration-event';
 import { CloudFolder } from '../../domain/entities/cloud-folder.entity';
 import { MainFolder } from '../../domain/entities/main-folder.entity';
 import {
@@ -15,9 +17,18 @@ import {
   DOCUMENT_STORAGE,
   DocumentStoragePort,
 } from '../../domain/ports/document-storage.port';
+import {
+  DOCUMENT_SPACE_ASSIGNED,
+  DocumentSpaceAssignedEvent,
+} from '../../domain/ports/events/document-space-assigned.event';
+import {
+  DOCUMENT_SPACE_CREATION_FAILED,
+  DocumentSpaceCreationFailedEvent,
+} from '../../domain/ports/events/document-space-creation-failed.event';
 import { FolderKey } from '../../domain/value-objects/folder-key.vo';
 import { FolderName } from '../../domain/value-objects/folder-name.vo';
 import { AssureSpaceCommand, AssureSpaceResult } from '../common/assure-space.interfaces';
+import { classifyFailure } from '../common/failure-reason';
 
 type ChainLevelData = Pick<CloudFolderData, 'kind' | 'lawyerId' | 'jurisdictionId' | 'caseId'>;
 
@@ -29,6 +40,17 @@ type ChainLevelData = Pick<CloudFolderData, 'kind' | 'lawyerId' | 'jurisdictionI
  * without touching the storage, and the lawyer and jurisdiction folders are
  * reused, so retrying after a failure never duplicates anything.
  *
+ * That holds as long as `cases` follows the protocol documented on
+ * `CaseRegisteredEvent`: it requests the folder only through the
+ * `folder_status` gate and links `cloud_folder_id` when it hears
+ * `DocumentSpaceAssigned`. Until the link exists, this use case cannot see a
+ * case's folder, so the gate is what prevents a second request.
+ *
+ * It announces the outcome itself, whoever invoked it (an event listener or,
+ * later, a manual retry): `DocumentSpaceAssigned` on success (also when the
+ * folder already existed) and `DocumentSpaceCreationFailed` on failure, which
+ * is then rethrown. That way `cases` hears about every attempt.
+ *
  * It does not open a transaction (the storage is an external port) and does
  * not link the folder to the case: that belongs to `cases`.
  */
@@ -38,6 +60,7 @@ export class AssureSpace {
     @Inject(CLOUD_FOLDER_REPOSITORY) private readonly folders: CloudFolderRepository,
     @Inject(DOCUMENT_STORAGE) private readonly storage: DocumentStoragePort,
     @Inject(CLOCK) private readonly clock: ClockPort,
+    private readonly events: EventPublisher,
   ) {}
 
   /**
@@ -46,6 +69,45 @@ export class AssureSpace {
    * @throws {InvalidCloudFolderError} if a name is empty once cleaned.
    */
   async execute(command: AssureSpaceCommand): Promise<AssureSpaceResult> {
+    let result: AssureSpaceResult;
+    try {
+      result = await this.assure(command);
+    } catch (error) {
+      await this.events.publish(this.failedEvent(command, error));
+      throw error;
+    }
+    await this.events.publish(this.assignedEvent(command, result));
+    return result;
+  }
+
+  private assignedEvent(
+    command: AssureSpaceCommand,
+    result: AssureSpaceResult,
+  ): DocumentSpaceAssignedEvent {
+    return {
+      ...createEventHeader(DOCUMENT_SPACE_ASSIGNED, this.clock.now()),
+      caseId: command.caseId,
+      cloudFolderId: result.cloudFolderId,
+      url: result.url,
+      path: result.path,
+      causedByEventId: command.causedByEventId,
+    };
+  }
+
+  private failedEvent(
+    command: AssureSpaceCommand,
+    error: unknown,
+  ): DocumentSpaceCreationFailedEvent {
+    return {
+      ...createEventHeader(DOCUMENT_SPACE_CREATION_FAILED, this.clock.now()),
+      caseId: command.caseId,
+      reason: classifyFailure(error),
+      detail: error instanceof Error ? error.message : 'Error desconocido.',
+      causedByEventId: command.causedByEventId,
+    };
+  }
+
+  private async assure(command: AssureSpaceCommand): Promise<AssureSpaceResult> {
     const existing = await this.folders.findByKey(FolderKey.forCase(command.caseId));
     if (existing) {
       return this.toResult(existing);
@@ -84,7 +146,12 @@ export class AssureSpace {
       jurisdiction,
       caseName,
       false,
-      { kind: 'CASE', caseId: command.caseId },
+      {
+        kind: 'CASE',
+        caseId: command.caseId,
+        lawyerId: command.lawyer.id,
+        jurisdictionId: command.jurisdiction.id,
+      },
     );
 
     return this.toResult(caseFolder);

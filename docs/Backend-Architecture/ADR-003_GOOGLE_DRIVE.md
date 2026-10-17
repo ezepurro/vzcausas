@@ -182,7 +182,7 @@ Tablas que escribe `documents` (§4.4 de la arquitectura):
 | Tabla                     | Qué guarda                                                                          |
 | ------------------------- | ----------------------------------------------------------------------------------- |
 | `drive_folders`           | Carpetas de estructura: raíz, modelos, abogado y fuero. Tipo, clave única e identificador de Drive |
-| `case_folders`            | Carpeta de cada causa: identificador de Drive, enlace, ruta informativa y estado (`CREATED`, `PENDING`) |
+| `case_folders`            | Carpeta de cada causa: identificador de Drive, enlace, ruta informativa y estado (`PENDING`, `CREATING`, `CREATED`, `ERROR`) |
 | `document_templates`      | Modelos formales, con el identificador del archivo en Drive                         |
 | `document_template_copies`| Qué modelo se copió a qué causa, y el identificador de la copia. Da `templatesCopied`, `templatesPending` y `usageCount` |
 

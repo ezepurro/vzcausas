@@ -406,6 +406,8 @@ Convenciones de archivo:
 
 No se utiliza, por el momento, publicación de eventos de dominio. El patrón suscriptor queda registrado como **evolución posible a evaluar**, no como parte de esta versión.
 
+> **Actualización (Sprint 3, HU39):** la integración `cases` → `documents` usa **eventos de integración** en memoria (`@nestjs/event-emitter`) detrás del puerto `EventPublisher` (`shared/infrastructure/events`). Cada evento lleva `type` versionado, `eventId` y `occurredAt`, solo datos primitivos, y su contrato vive en `core/domain/ports/events/` del subsistema que lo publica. Los eventos son best-effort (se pierden si el proceso cae) hasta que se agregue un outbox. El resto de la comunicación sigue siendo síncrona por puertos.
+
 ### 6.2 Mecanismo
 
 Cuatro piezas:

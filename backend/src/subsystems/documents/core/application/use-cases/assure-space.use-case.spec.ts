@@ -10,6 +10,15 @@ import { AssureSpace } from './assure-space.use-case';
 import { InMemoryCloudFolderRepository } from '../../../infrastructure/persistence/in-memory/in-memory-cloud-folder.repository';
 import { InMemoryDocumentStorage } from '../../../infrastructure/storage/in-memory/in-memory-document-storage';
 import { FakeClock, aCommand, aSetUpStudio } from '../../test-support/document-fixtures';
+import { FakeEventPublisher } from '../../test-support/fake-event-publisher';
+import {
+  DOCUMENT_SPACE_ASSIGNED,
+  DocumentSpaceAssignedEvent,
+} from '../../domain/ports/events/document-space-assigned.event';
+import {
+  DOCUMENT_SPACE_CREATION_FAILED,
+  DocumentSpaceCreationFailedEvent,
+} from '../../domain/ports/events/document-space-creation-failed.event';
 
 describe('AssureSpace', () => {
   it('crea la cadena abogado > fuero > causa bajo la carpeta raíz de causas (CA-39.1, CA-39.3)', async () => {
@@ -109,7 +118,7 @@ describe('AssureSpace', () => {
   it('falla si la carpeta raíz de causas no está configurada (CA-39.3)', async () => {
     const folders = new InMemoryCloudFolderRepository();
     const storage = new InMemoryDocumentStorage();
-    const assureSpace = new AssureSpace(folders, storage, new FakeClock());
+    const assureSpace = new AssureSpace(folders, storage, new FakeClock(), new FakeEventPublisher());
 
     await expect(assureSpace.execute(aCommand())).rejects.toBeInstanceOf(
       StudioRootNotConfiguredError,
@@ -119,7 +128,7 @@ describe('AssureSpace', () => {
 
   it('propaga la falla del storage sin guardar carpetas de más y permite reintentar (CA-39.5)', async () => {
     const { assureSpace, storage, folders } = await aSetUpStudio();
-    storage.failNextWith(new DocumentStorageUnavailableError('timeout'));
+    storage.failNextWith(new DocumentStorageUnavailableError('TRANSIENT', 'timeout'));
 
     await expect(assureSpace.execute(aCommand())).rejects.toBeInstanceOf(
       DocumentStorageUnavailableError,
@@ -138,7 +147,7 @@ describe('AssureSpace', () => {
     storage.findByReference = async (reference) => {
       calls += 1;
       if (calls === 2) {
-        throw new DocumentStorageUnavailableError('503');
+        throw new DocumentStorageUnavailableError('TRANSIENT', '503');
       }
       return original(reference);
     };
@@ -191,5 +200,86 @@ describe('AssureSpace', () => {
       InvalidCloudFolderError,
     );
     expect(storage.calls).toHaveLength(0);
+  });
+
+  describe('eventos', () => {
+    it('publica DocumentSpaceAssigned con los datos de la carpeta', async () => {
+      const { assureSpace, events } = await aSetUpStudio();
+
+      const result = await assureSpace.execute(aCommand({ causedByEventId: 'evt-1' }));
+
+      const [assigned] = events.ofType<DocumentSpaceAssignedEvent>(DOCUMENT_SPACE_ASSIGNED);
+      expect(events.published).toHaveLength(1);
+      expect(assigned).toMatchObject({
+        type: DOCUMENT_SPACE_ASSIGNED,
+        caseId: 10,
+        cloudFolderId: result.cloudFolderId,
+        url: result.url,
+        path: result.path,
+        causedByEventId: 'evt-1',
+        occurredAt: '2026-10-17T12:00:00.000Z',
+      });
+      expect(assigned.eventId).toBeTruthy();
+    });
+
+    it('también lo publica cuando la carpeta ya existía (repetición idempotente)', async () => {
+      const { assureSpace, events } = await aSetUpStudio();
+      const first = await assureSpace.execute(aCommand());
+
+      await assureSpace.execute(aCommand());
+
+      const assigned = events.ofType<DocumentSpaceAssignedEvent>(DOCUMENT_SPACE_ASSIGNED);
+      expect(assigned).toHaveLength(2);
+      expect(assigned[1].cloudFolderId).toBe(first.cloudFolderId);
+      expect(assigned[0].eventId).not.toBe(assigned[1].eventId);
+    });
+
+    it('publica DocumentSpaceCreationFailed y relanza el error, sin publicar Assigned', async () => {
+      const { assureSpace, storage, events } = await aSetUpStudio();
+      storage.failNextWith(new DocumentStorageUnavailableError('AUTHORIZATION', 'invalid_grant'));
+
+      await expect(
+        assureSpace.execute(aCommand({ causedByEventId: 'evt-2' })),
+      ).rejects.toBeInstanceOf(DocumentStorageUnavailableError);
+
+      expect(events.ofType(DOCUMENT_SPACE_ASSIGNED)).toHaveLength(0);
+      const [failed] = events.ofType<DocumentSpaceCreationFailedEvent>(
+        DOCUMENT_SPACE_CREATION_FAILED,
+      );
+      expect(failed).toMatchObject({ caseId: 10, reason: 'AUTHORIZATION', causedByEventId: 'evt-2' });
+      expect(failed.detail).toBeTruthy();
+    });
+
+    it('clasifica la falta de raíz como CONFIGURATION', async () => {
+      const events = new FakeEventPublisher();
+      const assureSpace = new AssureSpace(
+        new InMemoryCloudFolderRepository(),
+        new InMemoryDocumentStorage(),
+        new FakeClock(),
+        events,
+      );
+
+      await expect(assureSpace.execute(aCommand())).rejects.toBeInstanceOf(
+        StudioRootNotConfiguredError,
+      );
+
+      const [failed] = events.ofType<DocumentSpaceCreationFailedEvent>(
+        DOCUMENT_SPACE_CREATION_FAILED,
+      );
+      expect(failed.reason).toBe('CONFIGURATION');
+    });
+
+    it('clasifica una carátula inválida como INVALID_DATA', async () => {
+      const { assureSpace, events } = await aSetUpStudio();
+
+      await expect(assureSpace.execute(aCommand({ caseCaption: '///' }))).rejects.toBeInstanceOf(
+        InvalidCloudFolderError,
+      );
+
+      const [failed] = events.ofType<DocumentSpaceCreationFailedEvent>(
+        DOCUMENT_SPACE_CREATION_FAILED,
+      );
+      expect(failed.reason).toBe('INVALID_DATA');
+    });
   });
 });

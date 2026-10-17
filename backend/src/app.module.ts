@@ -1,11 +1,13 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { parseTtlToSeconds } from '@shared/config/parse-ttl';
 import { AppThrottlerGuard } from '@shared/infrastructure/http/guards/throttler.guard';
 import { JwtAuthGuard } from '@shared/infrastructure/http/guards/jwt-auth.guard';
 import { PermissionsGuard } from '@shared/infrastructure/http/guards/permissions.guard';
+import { EventsModule } from '@shared/infrastructure/events/events.module';
 import { SharedModule } from '@shared/shared.module';
 import { HealthModule } from '@subsystems/health/health.module';
 import { validateEnv } from './config/env.validation';
@@ -52,6 +54,9 @@ import { CasesModule } from './subsystems/cases/case.module';
       }),
       inject: [ConfigService],
     }),
+    // Integration events between subsystems (in-memory for now).
+    EventEmitterModule.forRoot(),
+    EventsModule,
     PrismaModule,
     SharedModule,
     HealthModule,

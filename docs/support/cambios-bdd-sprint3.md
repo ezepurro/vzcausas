@@ -19,10 +19,16 @@ indican claves foráneas, que se mantienen porque definen la estructura.
   clave primaria es el identificador que la carpeta tiene en la nube
   (`cloud_folder_id`).
 - **La carpeta de cada causa también es una carpeta en la nube** (tipo `CASE`).
-  Si su creación falla queda pendiente y todavía no tiene `cloud_folder_id`.
-  Como ese identificador es la clave primaria, una carpeta pendiente no puede
-  tener fila en `cloud_folders`: el estado `PENDING` / `CREATED` va en
-  `cases.folder_status`.
+  Mientras se crea o si su creación falla todavía no tiene `cloud_folder_id`.
+  Como ese identificador es la clave primaria, una carpeta que no existe no
+  puede tener fila en `cloud_folders`: el estado va en `cases.folder_status`
+  (`PENDING`, `CREATING`, `CREATED`, `ERROR`).
+- **`cases.folder_status` es la compuerta que evita carpetas duplicadas.** La
+  carpeta solo se pide si se logra pasar el estado a `CREATING` con una
+  actualización atómica; así una causa nunca tiene dos pedidos en curso. Al
+  recibir el resultado, `cases` guarda `cloud_folder_id` y pasa a `CREATED`, o
+  pasa a `ERROR` y se reintenta. Un `CREATING` que no recibe respuesta
+  (proceso caído) queda pendiente de resolver con un vencimiento o un outbox.
 - **La declaración de prescripción (HU33) va en la causa**, no en una tabla
   aparte: es 1 a 1, se carga una sola vez y no se revierte.
 - **La fecha de prescripción de cada hecho se guarda** en
@@ -61,8 +67,8 @@ indican claves foráneas, que se mantienen porque definen la estructura.
 | `current_state_id` | `INT` → `procedural_states` | Sí | S2 | Estado actual de la tabla |
 | `current_custom_state` | `VARCHAR(255)` | Sí | S2 | Estado escrito a mano |
 | `current_procedural_act_id` | `INT` → `procedural_acts` | Sí | S2 | Acto vigente. `null` en "Iniciada" y en "Prescripta" |
-| `folder_status` | `case_folder_status` | Sí | **S3** | `CREATED` / `PENDING`. `null` si no se pidió carpeta |
-| `cloud_folder_id` | `VARCHAR(128)` → `cloud_folders` | Sí | **S3** | Carpeta de la causa en la nube. `null` mientras está pendiente |
+| `folder_status` | `case_folder_status` | Sí | **S3** | `PENDING` (no creada por elección del usuario) / `CREATING` (pedida, esperando respuesta) / `CREATED` / `ERROR` (falló, se reintenta). `null`: causa anterior al Sprint 3 o sin dato, se trata como `PENDING` |
+| `cloud_folder_id` | `VARCHAR(128)` → `cloud_folders` | Sí | **S3** | Carpeta de la causa en la nube. `null` salvo en `CREATED` |
 | `prescription_date` | `DATE` | Sí | **S3** | Fecha de la prescripción declarada (HU33) |
 | `prescription_resolution` | `VARCHAR(255)` | Sí | **S3** | Resolución que la declara |
 | `prescription_grounds` | `VARCHAR(2000)` | Sí | **S3** | Fundamento, opcional |
@@ -155,7 +161,7 @@ apunta a cualquiera de las dos.
 | Enum | Valores |
 |---|---|
 | `cloud_folder_kind` | `MAIN`, `TEMPLATES`, `ROOT_CASES`, `LAWYER`, `JURISDICTION`, `CASE` |
-| `case_folder_status` | `CREATED`, `PENDING` |
+| `case_folder_status` | `CREATED`, `PENDING`, `CREATING`, `ERROR` |
 | `template_copy_status` | `COPIED`, `PENDING` |
 | `deadline_kind` | `PROCEDURAL_ACT`, `HARMFUL_ACT` |
 | `notification_kind` | `DEADLINE_WARNING`, `DEADLINE_DUE_TODAY`, `PRESCRIPTION_ALERT`, `PRESCRIPTION_EXPIRED` |

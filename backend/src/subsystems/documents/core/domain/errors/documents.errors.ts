@@ -4,6 +4,9 @@ import {
   ValidationError,
 } from '@shared/domain/domain-error';
 
+/** Why the storage could not be used: a passing problem, or credentials the provider refuses. */
+export type StorageFailureReason = 'TRANSIENT' | 'AUTHORIZATION';
+
 /**
  * The cloud storage could not be reached, rejected our credentials or
  * timed out (CA-39.5). It is a *complementary* failure (R-03): the caller
@@ -13,11 +16,14 @@ import {
  * the HTTP mapping (502) belongs to the controller step.
  */
 export class DocumentStorageUnavailableError extends DomainError {
-  constructor(reason?: string) {
+  constructor(
+    public readonly reason: StorageFailureReason = 'TRANSIENT',
+    detail?: string,
+  ) {
     super(
       'DOCUMENT_STORAGE_UNAVAILABLE',
       'El almacenamiento documental no está disponible.',
-      reason ? { reason } : null,
+      detail ? { reason, detail } : { reason },
     );
   }
 }
