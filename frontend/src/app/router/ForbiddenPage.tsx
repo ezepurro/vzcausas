@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router'
 import { Button, Icon, PageHeader, Panel } from '@/shared/components/ui'
+import { useHomeRoute } from '@/app/access/useHomeRoute'
 
 /**
  * Lo que se ve al entrar a una sección que el perfil no habilita.
@@ -11,6 +12,7 @@ import { Button, Icon, PageHeader, Panel } from '@/shared/components/ui'
  */
 export function ForbiddenPage() {
     const navigate = useNavigate()
+    const homeRoute = useHomeRoute()
 
     return (
         <>
@@ -24,7 +26,7 @@ export function ForbiddenPage() {
                     <div className="vz-empty__text">
                         Si creés que lo necesitás, pedíselo a un administrador del estudio.
                     </div>
-                    <Button icon={<Icon name="home" />} onClick={() => navigate('/inicio')}>
+                    <Button icon={<Icon name="home" />} onClick={() => navigate(homeRoute)}>
                         Ir al inicio
                     </Button>
                 </div>
