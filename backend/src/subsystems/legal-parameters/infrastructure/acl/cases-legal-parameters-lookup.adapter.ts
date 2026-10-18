@@ -60,6 +60,7 @@ export class CasesLegalParametersLookupAdapter implements LegalParametersLookupP
       isInitial: state.isInitial,
       jurisdictionId: state.jurisdiction.id,
       terminal: state.terminal,
+      isPrescribed: state.isPrescribed,
       isActive: state.isActive,
       timeLimitDays: state.timeLimitDays,
       dayType: dayType as CasesDayType,

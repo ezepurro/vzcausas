@@ -56,6 +56,7 @@ export interface ProceduralStateOverrides {
   timeLimitDays: number;
   dayType: DayTypeCode;
   terminal: boolean;
+  isPrescribed: boolean;
   isActive: boolean;
 }
 
@@ -78,6 +79,7 @@ export async function createProceduralState(overrides: Partial<ProceduralStateOv
       timeLimitDays,
       dayType: overrides.dayType ?? (timeLimitDays === 0 ? 'NONE' : 'BUSINESS'),
       terminal: overrides.terminal ?? false,
+      isPrescribed: overrides.isPrescribed ?? false,
       isActive: overrides.isActive ?? true,
       jurisdictionId: jurisdiction.jurisdictionId,
     },

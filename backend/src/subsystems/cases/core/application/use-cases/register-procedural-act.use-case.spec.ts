@@ -33,6 +33,7 @@ import {
   LAWYER,
   NOW,
   OPPOSITION,
+  PRESCRIBED,
   STATES_TABLE,
   SUMMONS,
   TODAY,
@@ -417,14 +418,47 @@ describe('RegisterProceduralAct', () => {
     });
   });
 
-  describe('estados que no se ofrecen como destino (CA-26.8)', () => {
-    it('rechaza un estado terminal', async () => {
+  describe('un acto puede cerrar la causa en un estado terminal (D-69)', () => {
+    it('lleva la causa a "Archivada": queda en el estado terminal y sin vencimiento', async () => {
+      const { useCase, existing, acts } = build();
+
+      const { act, becameCurrent } = await useCase.execute(command({ proceduralStateId: ARCHIVED.id }));
+
+      expect(becameCurrent).toBe(true);
+      expect(acts.saved).toEqual([act]);
+      expect(existing.currentStateId).toBe(ARCHIVED.id);
+      expect(act.deadline.dueDate).toBeNull();
+    });
+
+    it('cerrada la causa, ya no admite actos nuevos', async () => {
+      const { useCase } = build();
+      await useCase.execute(command({ proceduralStateId: ARCHIVED.id }));
+
+      await expect(useCase.execute(command({ actDate: day('2026-10-06') }))).rejects.toBeInstanceOf(
+        CaseInTerminalStateError,
+      );
+    });
+
+    it('un estado terminal no admite vencimiento manual', async () => {
       const { useCase, acts } = build();
 
-      const details = await validationDetailsOf(() => useCase.execute(command({ proceduralStateId: ARCHIVED.id })));
+      const details = await validationDetailsOf(() =>
+        useCase.execute(command({ proceduralStateId: ARCHIVED.id, manualDueDate: day('2026-10-20') })),
+      );
+
+      expect(details).toEqual({ manualDueDate: 'Un estado terminal cierra la causa y no admite vencimiento.' });
+      expect(acts.saved).toEqual([]);
+    });
+  });
+
+  describe('estados que no se ofrecen como destino (CA-26.8)', () => {
+    it('rechaza "Prescripta": tiene su propio formulario (HU33)', async () => {
+      const { useCase, acts } = build();
+
+      const details = await validationDetailsOf(() => useCase.execute(command({ proceduralStateId: PRESCRIBED.id })));
 
       expect(details).toEqual({
-        proceduralStateId: 'El estado procesal no pertenece al fuero de la causa o es terminal.',
+        proceduralStateId: 'El estado procesal no pertenece al fuero de la causa o es el estado Prescripta.',
       });
       expect(acts.saved).toEqual([]);
     });
@@ -447,7 +481,7 @@ describe('RegisterProceduralAct', () => {
       );
 
       expect(details).toEqual({
-        proceduralStateId: 'El estado procesal no pertenece al fuero de la causa o es terminal.',
+        proceduralStateId: 'El estado procesal no pertenece al fuero de la causa o es el estado Prescripta.',
       });
     });
 
@@ -778,7 +812,7 @@ describe('RegisterProceduralAct', () => {
 
     describe('las mismas restricciones que el registro, con el código de la query', () => {
       it.each([
-        ['un estado terminal', ARCHIVED.id],
+        ['el estado Prescripta', PRESCRIBED.id],
         ['el estado inicial', INITIAL_STATES.CRIMINAL.id],
         ['un estado de otro fuero', ADMINISTRATIVE_STATE.id],
       ])('rechaza %s', async (_name, proceduralStateId) => {
@@ -787,8 +821,16 @@ describe('RegisterProceduralAct', () => {
         const details = await invalidRequestOf(() => useCase.previewDeadline(query({ proceduralStateId })));
 
         expect(details).toEqual({
-          proceduralStateId: 'El estado procesal no pertenece al fuero de la causa o es terminal.',
+          proceduralStateId: 'El estado procesal no pertenece al fuero de la causa o es el estado Prescripta.',
         });
+      });
+
+      it('acepta un estado terminal: no abre plazo, no hay vencimiento', async () => {
+        const { useCase } = build();
+
+        const preview = await useCase.previewDeadline(query({ proceduralStateId: ARCHIVED.id }));
+
+        expect(preview).toMatchObject({ proceduralStateId: ARCHIVED.id, dueDate: null, businessDaysRemaining: null });
       });
 
       it('rechaza un estado dado de baja o inexistente', async () => {
