@@ -268,7 +268,7 @@ prueba que la pieza está conectada.
 | Que la pantalla **no** ofrezca algo fuera de alcance (Drive, modificar, dar de baja) | Se revisa en el PR; el test se rompe el día que llega el sprint siguiente |
 | `api/` (hooks y llamadas a axios) | Quedan cubiertos por los tests de pantalla, que pasan por MSW |
 | `types/` y `*.keys.ts` | Son tipos y constantes, no tienen lógica |
-| `LoginAside`, layouts, `HomePage`, textos y estilos | Presentación pura; la recorren los E2E |
+| `LoginAside`, layouts, textos y estilos | Presentación pura; la recorren los E2E |
 
 Si alguno de los últimos empieza a tener lógica (un hook que transforma datos,
 un layout que decide qué mostrar según el rol), pasa a tener test.
@@ -321,6 +321,8 @@ frontend/
 │   │   ├── auth/
 │   │   ├── cases/
 │   │   ├── clients/
+│   │   ├── dashboard/                    los tableros de Inicio (HomePage)
+│   │   ├── documents/
 │   │   ├── lawyers/
 │   │   ├── legal-params/
 │   │   ├── proceedings/
@@ -335,11 +337,12 @@ frontend/
 └── tsconfig.test.json                    los tests se chequean en `npm run build`
 ```
 
-Las features que todavía no tienen código (`dashboard`, `deadlines`,
-`documents`) **no tienen carpeta en `tests/`**. La carpeta se crea cuando
-alguien empieza a trabajar la feature (ver [sección 11](#11-cuando-arrancás-una-feature-nueva)).
-`home` sí tiene código y tampoco tiene carpeta: su `HomePage` es presentación
-pura.
+Una feature que todavía no se empezó (hoy, `deadlines`) **no tiene carpeta en
+`tests/`**. La carpeta se crea cuando alguien empieza a trabajar la feature
+(ver [sección 11](#11-cuando-arrancás-una-feature-nueva)): `dashboard` y
+`documents` la tienen desde que se escribieron los tests del Sprint 3. Inicio
+(`HomePage`) es la página de `dashboard`, así que sus tests van en
+`components/dashboard/`.
 
 ### Cuántos tests hay en cada módulo
 
@@ -865,8 +868,8 @@ del prototipo sale. Los mocks ya implementan todo V4
 | 33 Marcar prescripta | Ezequiel Purro | `components/cases/CaseDetailPage.prescription.test.tsx`, `unit/cases/prescriptionDeclaration.schema.test.ts`, `unit/app/actionAccess.test.ts` |
 | 34 y 35 Modelos formales | Luciano Cipolla | `components/documents/DocumentTemplatesPage.test.tsx`, `unit/documents/documentTemplate.schema.test.ts` |
 | 39 y 40 Carpeta y modelos | Luciano Cipolla | `components/cases/RegisterCasePage.folder.test.tsx`, `components/cases/CaseDetailPage.folder.test.tsx` |
-| 41 Tablero del abogado | Facundo Fiorani | `components/home/HomePage.lawyer.test.tsx` |
-| 42 Tablero del administrador | Facundo Fiorani | `components/home/HomePage.administrator.test.tsx` |
+| 41 Tablero del abogado | Facundo Fiorani | `components/dashboard/HomePage.lawyer.test.tsx` |
+| 42 Tablero del administrador | Facundo Fiorani | `components/dashboard/HomePage.administrator.test.tsx` |
 | 30, 32, 51 y 52 | Sólo backend | Sin tests de pantalla. Lo visible de HU-32 (alertas, barra de prescripción) se prueba en los tableros y en el detalle |
 
 El detalle de causa lleva un archivo por historia, y no uno por pantalla:
@@ -878,7 +881,7 @@ la [§4](#4-antes-de-escribir-un-test).
 | Qué | Dónde |
 | --- | --- |
 | Página de modelos | `DocumentTemplatesPage` en `@/features/documents/pages/` |
-| Inicio con los tableros | `HomePage` de `@/features/home/pages/` |
+| Inicio con los tableros | `HomePage` de `@/features/dashboard/pages/` (el módulo `home` se eliminó el 18/10/2026) |
 | Acto interruptivo | `validateInterruptiveAct` en `@/features/cases/schemas/interruptiveAct.schema`; `InterruptiveActFormValues` (`name`, `actDate`, `notes`) en `@/features/cases/types/interruptiveAct` |
 | Marca de prescripción | `validatePrescriptionDeclaration` en `@/features/cases/schemas/prescriptionDeclaration.schema`; `PrescriptionDeclarationFormValues` (`prescriptionDate`, `resolution`, `grounds`) en `@/features/cases/types/prescriptionDeclaration` |
 | Modelo formal | `validateDocumentTemplate` en `@/features/documents/schemas/documentTemplate.schema`; `DocumentTemplateFormValues` (`name`, `jurisdictions`, `copyToNewCases`, `file`) en `@/features/documents/types/documentTemplate` |
