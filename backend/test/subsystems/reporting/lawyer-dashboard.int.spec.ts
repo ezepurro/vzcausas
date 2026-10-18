@@ -8,6 +8,7 @@ import { expectData, expectError } from '../../shared/contract/envelopes';
 import { loginAs, TestRole } from '../../shared/auth/login-as';
 import { createCase } from '../../shared/factories/case.factory';
 import { createUser } from '../../shared/factories/user.factory';
+import { createLegalQualification } from '../../shared/factories/legal-qualification.factory';
 import {
   ProceduralActScenario,
   resetProceduralActData,
@@ -90,8 +91,77 @@ describe('GET /api/v1/dashboards/lawyer', () => {
       dueDate: '2026-10-06',
       businessDaysRemaining: 0,
     });
-    // CA-41.8 se delegó a HU-52: la lista existe y va vacía.
+    // Una causa sin calificaciones no computa prescripción.
     expect(body.prescriptionAlerts).toEqual([]);
+  });
+
+  // CA-41.8
+  describe('alertas de prescripción', () => {
+    /** Nombres propios: el contador del factory se reinicia en cada archivo y chocaría con otros specs. */
+    let qualificationSequence = 0;
+    const qualification = (prescriptionMonths: number) =>
+      createLegalQualification({ name: `HU41 calificación ${++qualificationSequence}`, prescriptionMonths });
+
+    /** Le carga a la causa un hecho del 6/10/2018 con esa calificación. */
+    const withOffense = async (caseId: number, qualificationId: number) =>
+      getPrisma().offense.create({
+        data: {
+          caseId,
+          legalQualificationId: qualificationId,
+          offenseDate: new Date('2018-10-06T00:00:00.000Z'),
+          prescriptionDate: new Date('2028-10-06T00:00:00.000Z'),
+        },
+      });
+
+    afterAll(async () => {
+      await resetProceduralActData();
+      await getPrisma().legalQualification.deleteMany({ where: { name: { startsWith: 'HU41 calificación' } } });
+    });
+
+    it('lista las causas penales con el 70 % o más, en la forma del contrato', async () => {
+      const tenYears = await qualification(120); // vence el 6/10/2028: 80 %
+      const twentyYears = await qualification(240); // 40 %: no
+      const near = await newCase({ caption: 'ACOSTA, Jonathan p.s.a. Infracción Ley 23.737' });
+      const far = await newCase();
+      await withOffense(near.id, tenYears.id);
+      await withOffense(far.id, twentyYears.id);
+
+      const { prescriptionAlerts } = await dashboard();
+
+      expect(prescriptionAlerts).toEqual([
+        {
+          caseId: near.id,
+          sacNumber: near.sacNumber,
+          caption: 'ACOSTA, Jonathan p.s.a. Infracción Ley 23.737',
+          responsibleLawyer: { id: s.lawyer.id, lastName: s.lawyer.lastName, firstName: s.lawyer.firstName },
+          legalQualificationName: tenYears.name,
+          startsOn: '2018-10-06',
+          expiresOn: '2028-10-06',
+          elapsedPercentage: 80,
+          expired: false,
+        },
+      ]);
+    });
+
+    it('un acto interruptivo registrado por la API la saca de las alertas', async () => {
+      await withOffense(s.caseRow.id, (await qualification(120)).id);
+      expect((await dashboard()).prescriptionAlerts).toHaveLength(1);
+
+      await server()
+        .post(`/api/v1/cases/${s.caseRow.id}/interruptive-acts`)
+        .set(s.responsible)
+        .send({ name: 'Indagatoria', actDate: '2026-09-06' })
+        .expect(201);
+
+      expect((await dashboard()).prescriptionAlerts).toEqual([]);
+    });
+
+    it('no incluye una causa prescripta: es terminal y ya no es activa', async () => {
+      const prescribed = await newCase({ currentStateId: s.states.prescribed.stateId });
+      await withOffense(prescribed.id, (await qualification(96)).id);
+
+      expect((await dashboard()).prescriptionAlerts).toEqual([]);
+    });
   });
 
   // CA-41.2, CA-41.9

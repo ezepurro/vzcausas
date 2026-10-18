@@ -1,3 +1,5 @@
+import { OffenseForPrescription } from '@subsystems/cases/core/domain/prescription';
+
 /** DI token for {@link LawyerDashboardQuery}. */
 export const LAWYER_DASHBOARD_QUERY = Symbol('LAWYER_DASHBOARD_QUERY');
 
@@ -20,6 +22,8 @@ export type DashboardCaseRow = {
   dueDate: Date | null;
   lastProceduralActDate: Date | null;
   lastInterruptiveActDate: Date | null;
+  /** Its offenses, for the prescription (criminal only; empty in the other jurisdictions). */
+  offenses: OffenseForPrescription[];
   responsibleLawyer: DashboardLawyerRef;
 };
 

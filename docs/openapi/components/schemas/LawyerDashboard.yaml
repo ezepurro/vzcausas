@@ -25,10 +25,10 @@ properties:
     type: array
     description: |
       Sus causas penales con el 70 % o más del plazo de prescripción
-      transcurrido. **Vacía hasta que HU52 calcule el resumen de
-      prescripción** (ex CA-41.8).
+      transcurrido (HU32), ordenadas por `expiresOn` ascendente: primero la
+      que prescribe antes. Vacía si ninguna llegó al umbral.
     items:
-      type: object
+      $ref: ./PrescriptionAlert.yaml
   casesToAdvance:
     type: array
     description: |

@@ -34,6 +34,7 @@ function aCase(overrides: Partial<DashboardCaseRow> = {}): DashboardCaseRow {
     dueDate: null,
     lastProceduralActDate: null,
     lastInterruptiveActDate: null,
+    offenses: [],
     responsibleLawyer: RIOS,
     ...overrides,
   };
@@ -147,11 +148,61 @@ describe('GetLawyerDashboard', () => {
     ]);
   });
 
-  // CA-41.8, delegado a HU-52
-  it('las alertas de prescripción van vacías hasta HU-52', async () => {
-    query.cases = [aCase({ dueDate: day('2026-10-08') })];
+  // CA-41.8
+  describe('alertas de prescripción', () => {
+    /** Un hecho de hace 10 años con una calificación de `months` meses: hoy es el 6/10/2026. */
+    const offense = (months: number, name = `Calificación de ${months} meses`, id = months) => ({
+      legalQualificationId: id,
+      legalQualificationName: name,
+      prescriptionMonths: months,
+      offenseDate: day('2018-10-06'),
+    });
 
-    expect((await useCase.execute({ actor: lawyerActor() })).prescriptionAlerts).toEqual([]);
+    it('lista las causas penales con el 70 % o más, la que prescribe antes primero', async () => {
+      query.cases = [
+        aCase({ offenses: [offense(120)] }), // vence el 6/10/2028: 80 %
+        aCase({ offenses: [offense(240)] }), // 40 %: no
+        aCase({ offenses: [offense(100)] }), // vence el 6/2/2027: 96 %
+      ];
+
+      const { prescriptionAlerts } = await useCase.execute({ actor: lawyerActor() });
+
+      expect(prescriptionAlerts.map((a) => [a.caseId, a.elapsedPercentage])).toEqual([
+        [3, 96],
+        [1, 80],
+      ]);
+      expect(prescriptionAlerts[0]).toEqual({
+        caseId: 3,
+        sacNumber: '10000003',
+        caption: 'Causa 3',
+        responsibleLawyer: RIOS,
+        legalQualificationName: 'Calificación de 100 meses',
+        startsOn: day('2018-10-06'),
+        expiresOn: day('2027-02-06'),
+        elapsedPercentage: 96,
+        expired: false,
+      });
+    });
+
+    it('resume la calificación que prescribe primero', async () => {
+      query.cases = [aCase({ offenses: [offense(240, 'Robo', 1), offense(96, 'Lesiones', 2)] })];
+
+      const [alert] = (await useCase.execute({ actor: lawyerActor() })).prescriptionAlerts;
+
+      expect(alert).toMatchObject({ legalQualificationName: 'Lesiones', elapsedPercentage: 100, expired: true });
+    });
+
+    it('un acto interruptivo reinicia el cómputo y la causa sale de las alertas', async () => {
+      query.cases = [aCase({ offenses: [offense(100)], lastInterruptiveActDate: day('2026-01-10') })];
+
+      expect((await useCase.execute({ actor: lawyerActor() })).prescriptionAlerts).toEqual([]);
+    });
+
+    it('no incluye las causas de otros fueros ni las penales sin calificación', async () => {
+      query.cases = [aCase({ jurisdiction: 'AMPARO', offenses: [offense(100)] }), aCase()];
+
+      expect((await useCase.execute({ actor: lawyerActor() })).prescriptionAlerts).toEqual([]);
+    });
   });
 
   // CA-41.11

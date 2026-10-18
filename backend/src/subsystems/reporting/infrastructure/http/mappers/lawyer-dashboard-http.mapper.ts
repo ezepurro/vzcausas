@@ -10,7 +10,11 @@ export class LawyerDashboardHttpMapper {
       lawyer: view.lawyer,
       summary: view.summary,
       deadlines: view.deadlines.map((deadline) => ({ ...deadline, dueDate: toIsoDate(deadline.dueDate) })),
-      prescriptionAlerts: view.prescriptionAlerts,
+      prescriptionAlerts: view.prescriptionAlerts.map((alert) => ({
+        ...alert,
+        startsOn: toIsoDate(alert.startsOn),
+        expiresOn: toIsoDate(alert.expiresOn),
+      })),
       casesToAdvance: view.casesToAdvance.map((item) => ({
         ...item,
         lastActDate: item.lastActDate && toIsoDate(item.lastActDate),

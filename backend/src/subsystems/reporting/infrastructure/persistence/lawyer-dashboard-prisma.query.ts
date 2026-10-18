@@ -23,7 +23,8 @@ const LAST_ACT = {
  * other `activeCases` of the contract counts.
  *
  * One query for all the cases, with the two last-act dates as `take: 1`
- * relations: the number of queries does not grow with the lawyer's cases.
+ * relations, and the offenses for the prescription: the number of queries does
+ * not grow with the lawyer's cases.
  */
 @Injectable()
 export class LawyerDashboardPrismaQuery implements LawyerDashboardQuery {
@@ -49,6 +50,12 @@ export class LawyerDashboardPrismaQuery implements LawyerDashboardQuery {
         currentProceduralAct: { select: { deadlineManualDueDate: true, deadlineComputedDueDate: true } },
         proceduralActs: LAST_ACT,
         interruptiveActs: LAST_ACT,
+        offenses: {
+          select: {
+            offenseDate: true,
+            legalQualification: { select: { id: true, name: true, prescriptionMonths: true } },
+          },
+        },
         responsibleLawyer: { select: { id: true, lastName: true, firstName: true } },
       },
       orderBy: { id: 'asc' },
@@ -68,6 +75,12 @@ export class LawyerDashboardPrismaQuery implements LawyerDashboardQuery {
         : null,
       lastProceduralActDate: row.proceduralActs[0]?.actDate ?? null,
       lastInterruptiveActDate: row.interruptiveActs[0]?.actDate ?? null,
+      offenses: row.offenses.map((offense) => ({
+        legalQualificationId: offense.legalQualification.id,
+        legalQualificationName: offense.legalQualification.name,
+        prescriptionMonths: offense.legalQualification.prescriptionMonths,
+        offenseDate: offense.offenseDate,
+      })),
       responsibleLawyer: row.responsibleLawyer,
     }));
   }

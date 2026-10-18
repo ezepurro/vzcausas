@@ -38,12 +38,23 @@ export class CaseToAdvanceResponseDto {
   daysSinceLastAct!: number | null;
 }
 
+export class PrescriptionAlertResponseDto {
+  caseId!: number;
+  sacNumber!: string | null;
+  caption!: string;
+  responsibleLawyer!: DashboardLawyerResponseDto;
+  legalQualificationName!: string;
+  startsOn!: string;
+  expiresOn!: string;
+  elapsedPercentage!: number;
+  expired!: boolean;
+}
+
 export class LawyerDashboardResponseDto {
   date!: string;
   lawyer!: DashboardLawyerResponseDto;
   summary!: DashboardSummaryResponseDto;
   deadlines!: DashboardDeadlineResponseDto[];
-  /** Empty until HU52 (ex CA-41.8). */
-  prescriptionAlerts!: never[];
+  prescriptionAlerts!: PrescriptionAlertResponseDto[];
   casesToAdvance!: CaseToAdvanceResponseDto[];
 }

@@ -1,0 +1,54 @@
+type: object
+description: |
+  Una causa penal con el 70 % o más de su plazo de prescripción transcurrido.
+  Los cuatro últimos campos significan lo mismo que en el resumen
+  `prescription` de la causa (V4 §3.7): son los de la calificación que
+  prescribe primero.
+required:
+  - caseId
+  - sacNumber
+  - caption
+  - responsibleLawyer
+  - legalQualificationName
+  - startsOn
+  - expiresOn
+  - elapsedPercentage
+  - expired
+properties:
+  caseId:
+    type: integer
+    example: 4
+  sacNumber:
+    type:
+      - string
+      - 'null'
+    example: '11845620'
+  caption:
+    type: string
+    example: ACOSTA, Jonathan E. p.s.a. Infracción Ley 23.737
+  responsibleLawyer:
+    $ref: ./UserSummary.yaml
+  legalQualificationName:
+    type: string
+    description: La calificación que prescribe primero.
+    example: Infracción Ley 23.737 — art. 5 inc. c
+  startsOn:
+    type: string
+    format: date
+    description: Desde cuándo corre la prescripción (el hecho o el último acto interruptivo).
+    example: '2022-01-19'
+  expiresOn:
+    type: string
+    format: date
+    description: Cuándo prescribe.
+    example: '2028-01-19'
+  elapsedPercentage:
+    type: integer
+    minimum: 0
+    maximum: 100
+    description: Porcentaje transcurrido, redondeado. El umbral del 70 % se evalúa sobre el valor exacto.
+    example: 78
+  expired:
+    type: boolean
+    description: '`true` si el plazo ya se cumplió. Sigue en la lista hasta que la causa se marque como prescripta.'
+    example: false
