@@ -3,6 +3,20 @@
  *
  * Pure functions over civil dates (midnight UTC), so the registration of a case
  * and the reading of one compute exactly the same thing.
+ *
+ * PENDIENTE HU-52 (delegado desde HU-41, CA-41.8 · 18/10/2026)
+ * ------------------------------------------------------------
+ * HU-52 tiene que calcular el resumen `prescription` de la causa (contrato V4
+ * §3.7): la calificación que prescribe primero, `elapsedPercentage`, `alert`
+ * (70 % o más del plazo transcurrido, evaluado sobre el valor exacto y no el
+ * redondeado) y `expired`. Las fechas de inicio y vencimiento ya existen:
+ * `prescriptionStartsOn` y `addPrescriptionMonths`, más abajo.
+ *
+ * **Ese cálculo también alimenta `prescriptionAlerts` del tablero del abogado**
+ * (`GET /dashboards/lawyer`, V4 §3.11) y del administrador (HU-42). El criterio
+ * de las alertas del tablero (ex CA-41.8) se pasó a HU-52 para que no se haga
+ * dos veces: al implementar HU-52, dejar el cálculo reutilizable por los dos
+ * tableros, no solo por el detalle de la causa.
  */
 
 /**
