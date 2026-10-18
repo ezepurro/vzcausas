@@ -69,6 +69,15 @@ export async function setUpProceduralActScenario() {
     dayType: 'NONE',
     terminal: true,
   });
+  // El estado de sistema de HU33: terminal, pero no es destino de un acto (D-69).
+  const prescribed = await createProceduralState({
+    jurisdiction: 'CRIMINAL',
+    name: 'Prescripta',
+    timeLimitDays: 0,
+    dayType: 'NONE',
+    terminal: true,
+    isPrescribed: true,
+  });
   const deactivated = await createProceduralState({
     jurisdiction: 'CRIMINAL',
     name: 'Estado dado de baja',
@@ -109,6 +118,7 @@ export async function setUpProceduralActScenario() {
       tenConsecutiveDays,
       withoutTerm,
       terminal,
+      prescribed,
       deactivated,
       administrativeInitial,
       administrative,

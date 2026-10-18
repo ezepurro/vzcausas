@@ -187,6 +187,11 @@ tags:
       El acto interruptivo reinicia la prescripción de una causa penal desde
       su fecha (RN8). No mueve el estado ni abre plazos. Solo lo registra el
       abogado responsable de la causa.
+  - name: Dashboards
+    description: |
+      La pantalla "Inicio": un tablero por rol, de solo lectura y calculado en
+      cada petición. El del abogado (HU41) muestra sus causas; el del
+      administrador (HU42), toda la cartera.
 
 paths:
   /auth/login:
@@ -231,6 +236,8 @@ paths:
     $ref: paths/cases@{caseId}@procedural-acts@deadline-preview.yaml
   /cases/{caseId}/procedural-acts/{actId}:
     $ref: paths/cases@{caseId}@procedural-acts@{actId}.yaml
+  /dashboards/lawyer:
+    $ref: paths/dashboards@lawyer.yaml
   /cases/{caseId}/interruptive-acts:
     $ref: paths/cases@{caseId}@interruptive-acts.yaml
 

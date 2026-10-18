@@ -1,0 +1,20 @@
+type: object
+description: Los cuatro indicadores de la franja superior del tablero (V4 §3.11).
+required:
+  - dueToday
+  - overdue
+  - dueSoon
+  - activeCases
+properties:
+  dueToday:
+    type: integer
+    description: '"Vencen hoy": plazos con `businessDaysRemaining` igual a 0.'
+  overdue:
+    type: integer
+    description: '"Vencidos": plazos abiertos con `businessDaysRemaining` negativo.'
+  dueSoon:
+    type: integer
+    description: '"Próx. 5 días hábiles": `businessDaysRemaining` entre 1 y 5.'
+  activeCases:
+    type: integer
+    description: Causas activas del alcance del tablero.

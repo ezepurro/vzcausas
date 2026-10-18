@@ -14,6 +14,8 @@ export interface ProceduralStateProps {
   terminal: boolean;
   // System state "Iniciada": one per jurisdiction, where every new case starts.
   isInitial: boolean;
+  // System state "Prescripta" (criminal, D-53): created by the system, never through HU45. Read-only here.
+  isPrescribed?: boolean;
   isActive: boolean;
   jurisdiction: Jurisdiction;
   createdAt: Date | null;
@@ -178,6 +180,10 @@ export class ProceduralState {
 
   get isInitial(): boolean {
     return this.props.isInitial;
+  }
+
+  get isPrescribed(): boolean {
+    return this.props.isPrescribed ?? false;
   }
 
   get isActive(): boolean {

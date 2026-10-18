@@ -373,9 +373,36 @@ describe('POST /api/v1/cases/:caseId/procedural-acts', () => {
 
   // ── Destinos que no se ofrecen ────────────────────────────────────
 
+  describe('un acto puede cerrar la causa en un estado terminal (D-69)', () => {
+    it('lleva la causa a "Archivada", sin vencimiento, y después no admite actos nuevos', async () => {
+      const res = await register({ proceduralStateId: s.states.terminal.stateId, actDate: '2026-10-05' });
+
+      expect(res.status).toBe(201);
+      expect(res.body.data.deadline).toBeNull();
+      const caseRow = await getPrisma().case.findUniqueOrThrow({ where: { id: s.caseRow.id } });
+      expect(caseRow.currentStateId).toBe(s.states.terminal.stateId);
+
+      const next = await register({ proceduralStateId: s.states.fiveBusinessDays.stateId, actDate: '2026-10-06' });
+      expectError(next, 422, 'CASE_IN_TERMINAL_STATE');
+    });
+
+    it('un estado terminal no admite vencimiento manual', async () => {
+      const before = await snapshot();
+
+      const res = await register({
+        proceduralStateId: s.states.terminal.stateId,
+        actDate: '2026-10-05',
+        manualDueDate: '2026-10-20',
+      });
+
+      expectError(res, 400, 'VALIDATION_ERROR', ['manualDueDate']);
+      expect(await snapshot()).toEqual(before);
+    });
+  });
+
   describe('estados que no se ofrecen como destino (CA-26.8)', () => {
     it.each([
-      ['un estado terminal', () => s.states.terminal.stateId],
+      ['el estado Prescripta', () => s.states.prescribed.stateId],
       ['el estado inicial', () => s.states.initial.stateId],
       ['un estado de otro fuero', () => s.states.administrative.stateId],
       ['un estado dado de baja', () => s.states.deactivated.stateId],
