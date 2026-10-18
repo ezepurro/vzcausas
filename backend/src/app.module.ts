@@ -14,6 +14,7 @@ import { IdentityModule } from './subsystems/identity/identity.module';
 import { PeopleModule } from './subsystems/people/people.module';
 import { LegalParametersModule } from './subsystems/legal-parameters/legal-parameters.module';
 import { CasesModule } from './subsystems/cases/case.module';
+import { ReportingModule } from './subsystems/reporting/reporting.module';
 
 /**
  * Root composition module: it imports the configuration module, Prisma,
@@ -59,6 +60,7 @@ import { CasesModule } from './subsystems/cases/case.module';
     IdentityModule,
     LegalParametersModule,
     CasesModule,
+    ReportingModule,
   ],
   controllers: [],
   providers: [

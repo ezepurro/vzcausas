@@ -14,7 +14,8 @@ import { findStateByName, stateOptions } from '@/features/proceedings/utils/stat
  * la tabla cuando el nombre coincide exacto (sin mayúsculas ni tildes): el
  * contrato pide mandar el `proceduralStateId` en ese caso (V3 §3.8).
  *
- * Sólo se consideran los estados que se ofrecen (vigentes y no terminales).
+ * Sólo se consideran los estados que se ofrecen: los vigentes, terminales
+ * incluidos, salvo "Prescripta" (V4 D-69).
  */
 export function resolveSelectedState(
     values: Pick<ProceduralActFormValues, 'stateText' | 'proceduralStateId'>,

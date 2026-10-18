@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { DataTable, Meter, type Column } from '@/shared/components/ui'
+import { formatPersonName } from '@/shared/lib/personName'
 import type { Lawyer } from '@/features/lawyers/types/lawyer'
 
 export interface LawyersTableProps {
@@ -29,11 +30,11 @@ export function LawyersTable({ rows, maxActiveCases, empty }: LawyersTableProps)
 
     const columns: Column<Lawyer>[] = [
         {
-            id: 'fullName',
+            id: 'name',
             header: 'Apellido y Nombre',
             width: '42%',
             primary: true,
-            cell: (l) => <span className="vz-table__primary">{l.fullName}</span>,
+            cell: (l) => <span className="vz-table__primary">{formatPersonName(l)}</span>,
         },
         {
             id: 'registrationNumber',
@@ -51,7 +52,7 @@ export function LawyersTable({ rows, maxActiveCases, empty }: LawyersTableProps)
                     {max > 0 && (
                         <div className="vz-load__bar">
                             <Meter
-                                label={`Carga de ${l.fullName}`}
+                                label={`Carga de ${formatPersonName(l)}`}
                                 value={l.activeCases}
                                 max={max}
                                 valueText={`${l.activeCases} de ${max} causas`}

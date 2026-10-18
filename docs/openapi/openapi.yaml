@@ -264,8 +264,10 @@ tags:
       y alta para `ADMINISTRATOR` o `LAWYER`.
   - name: Dashboards
     description: |
-      Tableros de la pantalla "Inicio" (HU41, HU42). Modelos de lectura, sin
-      paginar, calculados en cada petición. La Secretaría no tiene tablero.
+      La pantalla "Inicio": un tablero por rol, de solo lectura, sin paginar y
+      calculado en cada petición. El del abogado (HU41) muestra sus causas; el
+      del administrador (HU42), toda la cartera. La Secretaría no tiene
+      tablero.
 
 paths:
   /auth/login:

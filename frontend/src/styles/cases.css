@@ -155,7 +155,15 @@
    (HU27) y "Documentación" (HU39)— son de otro sprint. Hasta que lleguen, la
    tarjeta conserva el ancho que va a tener en la columna lateral en vez de
    estirarse a todo el ancho de la página. */
-.vz-case-detail__panels { max-width: 440px; margin-top: 16px; }
+/* Las tarjetas del detalle (Cliente, Datos del fuero): una al lado de la otra
+   mientras entren, una debajo de la otra en pantallas angostas. */
+.vz-case-detail__panels {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  gap: 16px;
+  max-width: 900px;
+  margin-top: 16px;
+}
 
 /* ─────────── teléfono ─────────── */
 @media (max-width: 720px) {

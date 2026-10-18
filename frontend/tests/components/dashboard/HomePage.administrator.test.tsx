@@ -6,7 +6,7 @@ import { usePrototypeToday } from '../../setup/clock'
 import { personNameIn } from '../../setup/names'
 import { server } from '@/shared/mocks/server'
 import { errorBody } from '@/shared/mocks'
-import { HomePage } from '@/features/home/pages/HomePage'
+import { HomePage } from '@/features/dashboard/pages/HomePage'
 
 /**
  * El tablero del administrador, "Estudio" (HU-42), en `/inicio`. Sale de
@@ -31,8 +31,13 @@ function renderPage(as = 'supervision') {
 
 type User = ReturnType<typeof renderPage>['user']
 
+/**
+ * Un indicador, dentro de la banda "Indicadores": "Vencidos" también es el
+ * filtro por urgencia y la leyenda de la carga del equipo.
+ */
 function tile(label: string): HTMLElement {
-    let el: HTMLElement | null = screen.getByText(label, { exact: true })
+    const band = screen.getByRole('region', { name: 'Indicadores' })
+    let el: HTMLElement | null = within(band).getByText(label, { exact: true })
     while (el && !/\d/.test((el.textContent ?? '').replace(label, ''))) el = el.parentElement
     if (!el) throw new Error(`No se encontró el indicador "${label}".`)
     return el
@@ -165,13 +170,15 @@ describe('HomePage · Estudio', () => {
 
     // TESTING.md §7
     it('si el tablero no carga, muestra el error', async () => {
+        // Un 403 y no un 500: los errores del servidor se reintentan
+        // (`queryClient`) y el aviso tardaría más de lo que espera `findBy`.
         server.use(
             http.get('*/dashboards/administrator', () =>
-                HttpResponse.json(errorBody('INTERNAL_SERVER_ERROR', 'Error del servidor de prueba.'), { status: 500 }),
+                HttpResponse.json(errorBody('FORBIDDEN', 'Rechazo de prueba.'), { status: 403 }),
             ),
         )
         renderPage()
 
-        expect(await screen.findByText('Error del servidor de prueba.')).toBeInTheDocument()
+        expect(await screen.findByText('Rechazo de prueba.')).toBeInTheDocument()
     })
 })

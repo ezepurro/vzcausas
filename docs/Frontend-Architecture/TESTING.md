@@ -10,9 +10,18 @@ Si tenés una duda del tipo "¿este test dónde va?", saltá a
 [Dónde pongo este test](#9-dónde-pongo-este-test). Si la duda es "¿vale la pena
 este test?", andá a [Antes de escribir un test](#4-antes-de-escribir-un-test).
 
-> **Estado actual (09/10/2026):** **173 tests de Vitest** en 41 archivos (65 de
-> `unit/` en 22 y 108 de `components/` en 19) y **9 de Playwright** en 6, todos
-> en verde. Antes de esta revisión eran 1019 de Vitest y 24 de Playwright: se
+> **Estado actual (18/10/2026):** **254 tests de Vitest** (76 de `unit/` y 178
+> de `components/`) y **9 de Playwright** en 6 archivos. Pasan 217 y fallan 37:
+> 34 son los del Sprint 3, escritos antes que sus pantallas (ver
+> [§11](#sprint-3-los-tests-que-ya-están-escritos)), 2 esperan un comportamiento
+> que V4 cambió y 1 es el de contrato. Además hay 4 archivos del Sprint 3 que no
+> cargan porque su código todavía no existe. El 18/10 se recortó lo que pasaba
+> el techo de la [§4](#4-antes-de-escribir-un-test): los permisos del servidor
+> falso (de 72 tests a 4, uno por grupo de la matriz), `DataTable` (de 5 a 1) y
+> las pantallas `RegisterCasePage`, `UsersPage` y `ClientsPage`.
+>
+> **Revisión del 09/10/2026:** 173 tests de Vitest y 9 de Playwright, todos en
+> verde. Antes de esa revisión eran 1019 de Vitest y 24 de Playwright: se
 > sacaron los tests de piezas sueltas (tablas, modales, filtros), los de
 > funciones triviales y los duplicados entre capas, y se sumó el E2E que faltaba
 > de la transacción principal (registrar una causa y su primer acto). Un repaso
@@ -268,7 +277,7 @@ prueba que la pieza está conectada.
 | Que la pantalla **no** ofrezca algo fuera de alcance (Drive, modificar, dar de baja) | Se revisa en el PR; el test se rompe el día que llega el sprint siguiente |
 | `api/` (hooks y llamadas a axios) | Quedan cubiertos por los tests de pantalla, que pasan por MSW |
 | `types/` y `*.keys.ts` | Son tipos y constantes, no tienen lógica |
-| `LoginAside`, layouts, `HomePage`, textos y estilos | Presentación pura; la recorren los E2E |
+| `LoginAside`, layouts, textos y estilos | Presentación pura; la recorren los E2E |
 
 Si alguno de los últimos empieza a tener lógica (un hook que transforma datos,
 un layout que decide qué mostrar según el rol), pasa a tener test.
@@ -321,6 +330,8 @@ frontend/
 │   │   ├── auth/
 │   │   ├── cases/
 │   │   ├── clients/
+│   │   ├── dashboard/                    los tableros de Inicio (HomePage)
+│   │   ├── documents/
 │   │   ├── lawyers/
 │   │   ├── legal-params/
 │   │   ├── proceedings/
@@ -335,29 +346,57 @@ frontend/
 └── tsconfig.test.json                    los tests se chequean en `npm run build`
 ```
 
-Las features que todavía no tienen código (`dashboard`, `deadlines`,
-`documents`) **no tienen carpeta en `tests/`**. La carpeta se crea cuando
-alguien empieza a trabajar la feature (ver [sección 11](#11-cuando-arrancás-una-feature-nueva)).
-`home` sí tiene código y tampoco tiene carpeta: su `HomePage` es presentación
-pura.
+Una feature que todavía no se empezó (hoy, `deadlines`) **no tiene carpeta en
+`tests/`**. La carpeta se crea cuando alguien empieza a trabajar la feature
+(ver [sección 11](#11-cuando-arrancás-una-feature-nueva)): `dashboard` y
+`documents` la tienen desde que se escribieron los tests del Sprint 3. Inicio
+(`HomePage`) es la página de `dashboard`, así que sus tests van en
+`components/dashboard/`.
 
 ### Cuántos tests hay en cada módulo
 
-Tests que corren al 09/10/2026 (un `it.each` cuenta una vez por fila):
+Tests que corren al 18/10/2026 (un `it.each` cuenta una vez por fila). Incluye
+los del Sprint 3 que todavía están en rojo; no incluye los 4 archivos que no
+cargan (`documents` y los esquemas de acto interruptivo y de marca de
+prescripción):
 
 | Módulo | `unit/` | `components/` | `e2e/` |
 |---|---:|---:|---:|
-| `app` (acceso, guardas, layout) | 5 | 7 | — |
-| `auth` | 4 | 12 | 2 |
-| `cases` | 22 | 27 | 2 |
+| `app` (acceso, guardas, layout) | 8 | 9 | — |
+| `auth` | 4 | 13 | 2 |
+| `cases` | 22 | 60 | 2 |
 | `clients` | 5 | 10 | 1 |
-| `lawyers` | 3 | 7 | 1 |
+| `dashboard` | — | 20 | — |
+| `lawyers` | 3 | 10 | 1 |
 | `legal-params` | 8 | 17 | 2 |
 | `proceedings` | 7 | 11 | — |
-| `users` | 8 | 13 | 1 |
-| `shared` | — | 4 | — |
-| `contract` | 3 | — | — |
-| **Total** | **65** | **108** | **9** |
+| `users` | 8 | 10 | 1 |
+| `shared` | 4 | 18 | — |
+| `contract` | 7 | — | — |
+| **Total** | **76** | **178** | **9** |
+
+De los 60 de `components/cases`, 34 son del detalle de causa (cinco archivos,
+uno por historia: ver [§11](#sprint-3-los-tests-que-ya-están-escritos)) y 17
+del alta (11 en `RegisterCasePage` y 6 en `RegisterCasePage.folder`).
+
+**Recorte del 18/10/2026.** Con los tests del Sprint 3 la suite había pasado a
+334. Se recortó lo que pasaba el techo de la [§4](#4-antes-de-escribir-un-test),
+sin perder cobertura de reglas:
+
+- `unit/contract/permissions`: de 72 a 4. Era una fila por endpoint y por
+  perfil; ahora es un test por grupo de la matriz (abierto a todos, sólo
+  Administrador, Administrador o Abogado, sólo Abogado), que compara el mapa
+  entero y en el diff dice qué endpoint y qué perfil no coinciden.
+- `components/shared/DataTable`: de 5 a 1. Es un solo comportamiento, la tabla
+  responsive.
+- `RegisterCasePage`: de 14 a 11. Sale "con SAC la fecha de inicio es
+  obligatoria", que es del esquema (`unit/cases/case.schema`), y los botones de
+  alta se prueban con un perfil, no con los tres: los tres pueden.
+- `UsersPage`: de 13 a 10. Salen el filtro por perfil (lo filtra el backend; la
+  conexión del filtro la prueba el buscador), el segundo `409` en su campo (la
+  ficha ya vinculada: el del nombre de usuario prueba lo mismo) y el error al
+  eliminar (como el de estados).
+- `ClientsPage`: de 12 a 10. "Registrar cliente" se prueba con un perfil.
 
 El registro de actos (`proceedings`) tiene su E2E dentro de `cases.spec.ts`,
 porque el flujo arranca en el alta de la causa.
@@ -865,8 +904,8 @@ del prototipo sale. Los mocks ya implementan todo V4
 | 33 Marcar prescripta | Ezequiel Purro | `components/cases/CaseDetailPage.prescription.test.tsx`, `unit/cases/prescriptionDeclaration.schema.test.ts`, `unit/app/actionAccess.test.ts` |
 | 34 y 35 Modelos formales | Luciano Cipolla | `components/documents/DocumentTemplatesPage.test.tsx`, `unit/documents/documentTemplate.schema.test.ts` |
 | 39 y 40 Carpeta y modelos | Luciano Cipolla | `components/cases/RegisterCasePage.folder.test.tsx`, `components/cases/CaseDetailPage.folder.test.tsx` |
-| 41 Tablero del abogado | Facundo Fiorani | `components/home/HomePage.lawyer.test.tsx` |
-| 42 Tablero del administrador | Facundo Fiorani | `components/home/HomePage.administrator.test.tsx` |
+| 41 Tablero del abogado | Facundo Fiorani | `components/dashboard/HomePage.lawyer.test.tsx` |
+| 42 Tablero del administrador | Facundo Fiorani | `components/dashboard/HomePage.administrator.test.tsx` |
 | 30, 32, 51 y 52 | Sólo backend | Sin tests de pantalla. Lo visible de HU-32 (alertas, barra de prescripción) se prueba en los tableros y en el detalle |
 
 El detalle de causa lleva un archivo por historia, y no uno por pantalla:
@@ -878,7 +917,7 @@ la [§4](#4-antes-de-escribir-un-test).
 | Qué | Dónde |
 | --- | --- |
 | Página de modelos | `DocumentTemplatesPage` en `@/features/documents/pages/` |
-| Inicio con los tableros | `HomePage` de `@/features/home/pages/` |
+| Inicio con los tableros | `HomePage` de `@/features/dashboard/pages/` (el módulo `home` se eliminó el 18/10/2026) |
 | Acto interruptivo | `validateInterruptiveAct` en `@/features/cases/schemas/interruptiveAct.schema`; `InterruptiveActFormValues` (`name`, `actDate`, `notes`) en `@/features/cases/types/interruptiveAct` |
 | Marca de prescripción | `validatePrescriptionDeclaration` en `@/features/cases/schemas/prescriptionDeclaration.schema`; `PrescriptionDeclarationFormValues` (`prescriptionDate`, `resolution`, `grounds`) en `@/features/cases/types/prescriptionDeclaration` |
 | Modelo formal | `validateDocumentTemplate` en `@/features/documents/schemas/documentTemplate.schema`; `DocumentTemplateFormValues` (`name`, `jurisdictions`, `copyToNewCases`, `file`) en `@/features/documents/types/documentTemplate` |
@@ -934,12 +973,15 @@ carpeta creada en Drive con 6 modelos"; `access`, `AppLayout` y
 `RedirectIfSession` sacan Inicio y Modelos a la Secretaría; `permissions`
 ya no tiene `/notification-settings` (D-79).
 
-Hoy casi toda la suite vieja falla por una sola razón: `auth` todavía espera
-`fullName` en la sesión (`features/auth/utils/sessionStorage.ts`) y la
-descarta. Cuando pase a `lastName` y `firstName`, vuelven a verde los tests
-que no dependen de otra cosa de V4. `endpoints.test.ts` sigue en rojo hasta
-que el swagger del sprint (VZ-177) sume prescripción, carpeta, modelos y
-tableros.
+Desde el 18/10/2026 el código de la app sigue V4 (`lastName` y `firstName`,
+`caseCount`, los datos por fuero de la causa) y la suite vieja volvió a verde.
+Quedan en rojo dos tests que esperan un comportamiento que V4 cambió y hay que
+decidir: `LegalQualificationsPage` espera la tabla "sin acciones", pero la
+modificación y la baja ya están hechas (HU-49, HU-50); y
+`RegisterProceduralActPage` espera que no se ofrezcan los estados terminales,
+pero V4 los permite salvo "Prescripta" (D-69). `endpoints.test.ts` sigue en
+rojo hasta que el swagger del sprint (VZ-177) sume prescripción, carpeta,
+modelos y tableros.
 
 **Lo que queda para el backend**, sin test de pantalla: CA-27.7, 27.10, 27.16
 y 27.17; CA-31.3 a 31.5, 31.7 y 31.12 a 31.14; CA-33.6 a 33.8 y 33.10 a

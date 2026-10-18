@@ -266,8 +266,12 @@ export class CaseQueryPrismaAdapter implements CaseQueryPort {
  * The initial state is **not** excluded here, on purpose: a freshly registered
  * case counts for those three. Only `countActiveByProceduralState` excludes it,
  * and it writes its own `where` for that reason.
+ *
+ * **Exported for `reporting`** (HU41, ADR-002): the dashboards read the
+ * database directly, but the definition of an active case is this subsystem's
+ * rule, so they reuse it instead of writing their own copy that could drift.
  */
-const ACTIVE_CASE = {
+export const ACTIVE_CASE = {
   active: true,
   OR: [{ currentStateId: null }, { currentState: { terminal: false } }],
 } as const satisfies Prisma.CaseWhereInput;
@@ -294,6 +298,16 @@ function fill(
  * `businessDaysRemaining` stays `null` here on purpose: it is computed per
  * response against today's date in Córdoba, and persistence has no business
  * reading a clock. The use case fills it from `dueDate` and `ClockPort.today()`.
+ *
+ * PENDIENTE `harmfulActDeadline` (contrato V4 §3.7, D-78; delegado desde HU-41,
+ * CA-41.6 · 18/10/2026)
+ * ---------------------------------------------------------------------------
+ * El vencimiento del acto lesivo de un amparo todavía no se calcula: la causa
+ * guarda sus datos (`harmful_act_*`) pero nadie arma `harmfulActDeadline`.
+ * Quien lo implemente acá tiene que sumarlo **también al tablero del abogado y
+ * al del administrador** (`reporting`, `GET /dashboards/*`): cada vencimiento
+ * del acto lesivo es un elemento de `deadlines` con `kind: HARMFUL_ACT` y cuenta
+ * en `summary`. Hoy los tableros listan solo `kind: PROCEDURAL_ACT`.
  */
 function toListItem(row: CaseRow): CaseListItem {
   const act = row.currentProceduralAct;

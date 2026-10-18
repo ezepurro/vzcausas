@@ -34,7 +34,10 @@ properties:
       $ref: ./DashboardDeadline.yaml
   prescriptionAlerts:
     type: array
-    description: Sus causas con alerta de prescripción, por `expiresOn` ascendente.
+    description: |
+      Sus causas penales con el 70 % o más del plazo de prescripción
+      transcurrido (HU32), por `expiresOn` ascendente: primero la que
+      prescribe antes. Vacía si ninguna llegó al umbral.
     items:
       $ref: ./PrescriptionAlert.yaml
   casesToAdvance:

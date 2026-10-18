@@ -12,7 +12,9 @@ export type Role = (typeof ROLES)[number]
  */
 export interface EmbeddedLawyer {
     id: number
-    fullName: string
+    /** Desde V4 el apellido y los nombres van separados (D-68). */
+    lastName: string
+    firstName: string
     registrationNumber: string
 }
 
@@ -20,7 +22,10 @@ export interface EmbeddedLawyer {
 export interface User {
     id: number
     username: string
-    fullName: string
+    /** Apellido. Desde V4 reemplaza a `fullName` (D-68). */
+    lastName: string
+    /** Nombres. */
+    firstName: string
     email: string
 
     /** Siempre arreglo, con al menos un rol, un Usuario puede tener mas de un unico Rol. */
@@ -38,7 +43,8 @@ export interface User {
 
 /** Los datos de un abogado que se registra junto con el usuario. */
 export interface NewLawyerBody {
-    fullName: string
+    lastName: string
+    firstName: string
     registrationNumber: string
 }
 
@@ -52,7 +58,8 @@ export interface NewLawyerBody {
  */
 export interface CreateUserBody {
     username: string
-    fullName: string
+    lastName: string
+    firstName: string
     email: string
     password: string
     roles: Role[]
@@ -70,7 +77,8 @@ export interface CreateUserBody {
  */
 export interface UpdateUserBody {
     username?: string
-    fullName?: string
+    lastName?: string
+    firstName?: string
     email?: string
     /** Reemplaza el conjunto **completo** de roles. */
     roles?: Role[]
@@ -100,7 +108,8 @@ export const LAWYER_MODES = {
  * `FormValues`, igual que en `legal-params`.
  */
 export type UserFormValues = {
-    fullName: string
+    lastName: string
+    firstName: string
     username: string
     email: string
     password: string
@@ -117,15 +126,13 @@ export type UserFormValues = {
     lawyerMode: string
     /** Id de la ficha a vincular, como string: sale de un select. */
     lawyerId: string
-    /** Nombre de la ficha nueva, cuando el modo es "registrar". */
-    lawyerFullName: string
     /** Matrícula de la ficha nueva, con el formato `1-28114`. */
     registrationNumber: string
 }
 
 /** Parámetros del listado `GET /users`. Van también en la clave de caché. */
 export interface UserListParams extends PaginatedQuery {
-    /** Filtra por `username` y por `fullName`. */
+    /** Filtra por `username`, `lastName` y `firstName`. */
     search?: string
     role?: Role
 }

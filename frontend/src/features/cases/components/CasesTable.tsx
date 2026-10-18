@@ -1,10 +1,12 @@
 import type { ReactNode } from 'react'
 import { Button, DataTable, Pill, type Column } from '@/shared/components/ui'
 import { formatDate } from '@/shared/lib/dates'
+import { formatPersonName } from '@/shared/lib/personName'
 import { JURISDICTION_LABELS } from '@/features/legal-params'
 import type { Case } from '@/features/cases/types/case'
 import { caseStateLabel } from '@/features/cases/utils/caseState'
 import { deadlineStatus } from '@/features/cases/utils/deadlineStatus'
+import { DEADLINE_KIND_LABELS, openDeadline } from '@/features/cases/utils/openDeadline'
 import { sacLabel } from '@/features/cases/utils/sac'
 
 export interface CasesTableProps {
@@ -17,7 +19,9 @@ export interface CasesTableProps {
 /**
  * Listado de causas (HU20). Presentacional: no ordena, no filtra, no pagina.
  * El orden por urgencia —plazos abiertos primero, vencidos arriba— lo resuelve
- * el backend (V3 D-25).
+ * el backend (V3 D-25), contando también el plazo del acto lesivo de los
+ * amparos (V4 D-82). Ese plazo se muestra en la misma columna, con la aclaración
+ * "Plazo para el amparo".
  *
  * Las columnas son las del prototipo. Una causa recién registrada está en el
  * estado inicial, "Iniciada", y sin vencimiento (V3 D-34): la columna del plazo
@@ -55,7 +59,7 @@ export function CasesTable({ rows, onOpen, empty }: CasesTableProps) {
         {
             id: 'responsible',
             header: 'Responsable',
-            cell: (c) => c.responsibleLawyer.fullName,
+            cell: (c) => formatPersonName(c.responsibleLawyer),
             nowrap: true,
             hideWhenNarrow: true,
         },
@@ -63,14 +67,18 @@ export function CasesTable({ rows, onOpen, empty }: CasesTableProps) {
             id: 'deadline',
             header: 'Próximo vencimiento',
             cell: (c) => {
-                const status = deadlineStatus(c.currentState)
+                const deadline = openDeadline(c)
+                const status = deadlineStatus(deadline)
                 return (
                     <>
                         <Pill tone={status.tone} dot={status.dot}>{status.label}</Pill>
-                        {c.currentState.dueDate && (
+                        {deadline.dueDate && (
                             <div className="vz-table__secondary vz-mono">
-                                {formatDate(c.currentState.dueDate)}
+                                {formatDate(deadline.dueDate)}
                             </div>
+                        )}
+                        {deadline.kind === 'HARMFUL_ACT' && (
+                            <div className="vz-table__secondary">{DEADLINE_KIND_LABELS.HARMFUL_ACT}</div>
                         )}
                     </>
                 )

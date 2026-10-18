@@ -18,12 +18,15 @@ export { useCreateCase } from './api/useCreateCase'
 export { casesKeys } from './api/cases.keys'
 export { CaseHeader } from './components/CaseHeader'
 export { PrescriptionBar } from './components/PrescriptionBar'
-export { nearestQualification } from './utils/prescription'
+export { nearestQualification, prescriptionNote } from './utils/prescription'
+export { openDeadline, DEADLINE_KIND_LABELS, type DeadlineKind, type OpenDeadline } from './utils/openDeadline'
 export { isResponsibleLawyer } from './utils/responsibleLawyer'
 export { NO_SAC_LABEL, sacLabel } from './utils/sac'
 export {
     PROCEDURAL_ROLE_LABELS,
     type Case,
+    type CaseLawyer,
+    type CasePrescription,
     type CurrentState,
     type ResultingState,
 } from './types/case'

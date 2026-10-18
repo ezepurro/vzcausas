@@ -6,7 +6,7 @@ import { usePrototypeToday } from '../../setup/clock'
 import { personNameIn } from '../../setup/names'
 import { server } from '@/shared/mocks/server'
 import { errorBody } from '@/shared/mocks'
-import { HomePage } from '@/features/home/pages/HomePage'
+import { HomePage } from '@/features/dashboard/pages/HomePage'
 
 /**
  * El tablero del abogado, "Mi día" (HU-41), en `/inicio`. Sale de
@@ -30,9 +30,14 @@ function renderPage(as: string) {
     })
 }
 
-/** Un indicador: el rótulo y su número, en el mismo recuadro. */
+/**
+ * Un indicador: el rótulo y su número, en el mismo recuadro. Se busca dentro
+ * de la banda "Indicadores" porque "Vencidos" también es el nombre de un
+ * grupo de plazos.
+ */
 function tile(label: string): HTMLElement {
-    let el: HTMLElement | null = screen.getByText(label, { exact: true })
+    const band = screen.getByRole('region', { name: 'Indicadores' })
+    let el: HTMLElement | null = within(band).getByText(label, { exact: true })
     while (el && !/\d/.test((el.textContent ?? '').replace(label, ''))) el = el.parentElement
     if (!el) throw new Error(`No se encontró el indicador "${label}".`)
     return el
@@ -47,11 +52,12 @@ describe('HomePage · Mi día', () => {
     it('saluda al abogado y muestra el día', async () => {
         renderPage('mrios')
 
+        // La fecha es la del tablero (`date`), así que llega con la respuesta.
         expect(
-            await screen.findByRole('heading', { name: new RegExp(`^Buen día, ${personNameIn('Ríos', 'Malena')}$`) }),
+            await screen.findByText('Martes 15 de septiembre de 2026 · tus causas pendientes y los plazos por vencer'),
         ).toBeInTheDocument()
         expect(
-            screen.getByText('Martes 15 de septiembre de 2026 · tus causas pendientes y los plazos por vencer'),
+            screen.getByRole('heading', { name: new RegExp(`^Buen día, ${personNameIn('Ríos', 'Malena')}$`) }),
         ).toBeInTheDocument()
     })
 
@@ -153,13 +159,15 @@ describe('HomePage · Mi día', () => {
 
     // TESTING.md §7
     it('si el tablero no carga, muestra el error', async () => {
+        // Un 403 y no un 500: los errores del servidor se reintentan
+        // (`queryClient`) y el aviso tardaría más de lo que espera `findBy`.
         server.use(
             http.get('*/dashboards/lawyer', () =>
-                HttpResponse.json(errorBody('INTERNAL_SERVER_ERROR', 'Error del servidor de prueba.'), { status: 500 }),
+                HttpResponse.json(errorBody('FORBIDDEN', 'Rechazo de prueba.'), { status: 403 }),
             ),
         )
         renderPage('mrios')
 
-        expect(await screen.findByText('Error del servidor de prueba.')).toBeInTheDocument()
+        expect(await screen.findByText('Rechazo de prueba.')).toBeInTheDocument()
     })
 })

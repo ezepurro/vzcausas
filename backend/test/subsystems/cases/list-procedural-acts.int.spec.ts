@@ -162,21 +162,10 @@ describe('GET /api/v1/cases/:caseId/procedural-acts', () => {
    * CA-27.8. Desde V4 un acto puede llevar la causa a un estado terminal (D-69).
    * La causa archivada no está dada de baja: sigue apareciendo, y su historial
    * también.
-   *
-   * El acto se crea con el factory y no por el `POST`: al 17/10/2026 el registro
-   * (HU26) todavía rechaza los destinos terminales, porque no se adaptó a D-69.
-   * Lo que este test verifica es la lectura, que no depende de eso.
    */
   it('muestra el acto que llevó la causa a un estado terminal, y la causa sigue consultable', async () => {
     await register({ proceduralStateId: s.states.fiveBusinessDays.stateId, actDate: '2026-10-01' });
-    const archived = await createProceduralAct({
-      caseId: s.caseRow.id,
-      registeredByUserId: s.user.id,
-      registeredByLawyerId: s.lawyer.id,
-      proceduralStateId: s.states.terminal.stateId,
-      actDate: '2026-10-05',
-      asCurrent: true,
-    });
+    const archived = await register({ proceduralStateId: s.states.terminal.stateId, actDate: '2026-10-05' });
 
     const data = expectPaginated<Record<string, any>>(await list(), { totalItems: 2 });
 

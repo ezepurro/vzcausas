@@ -41,7 +41,7 @@ properties:
   startsOn:
     type: string
     format: date
-    description: Desde cuándo corre la prescripción.
+    description: Desde cuándo corre la prescripción (el hecho o el último acto interruptivo).
     examples:
       - '2022-01-19'
   expiresOn:
@@ -54,11 +54,15 @@ properties:
     type: integer
     minimum: 0
     maximum: 100
-    description: Porcentaje transcurrido ("78 % transcurrido").
+    description: |
+      Porcentaje transcurrido ("78 % transcurrido"), redondeado. El umbral del
+      70 % se evalúa sobre el valor exacto.
     examples:
       - 78
   expired:
     type: boolean
-    description: '`true` si el plazo de prescripción ya se cumplió.'
+    description: |
+      `true` si el plazo de prescripción ya se cumplió. La causa sigue en la
+      lista hasta que se la marque como prescripta.
     examples:
       - false

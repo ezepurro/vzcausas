@@ -2,6 +2,7 @@ import { isApiError } from '@/shared/api/ApiError'
 import { useToast } from '@/app/providers/ToastContext'
 import { useAuth, useCurrentUser } from '@/app/providers/AuthContext'
 import { FormModal } from '@/shared/components/forms'
+import { formatPersonFullName } from '@/shared/lib/personName'
 import { useLogout } from '@/features/auth/api/useLogout'
 
 export interface LogoutConfirmModalProps {
@@ -49,7 +50,7 @@ export function LogoutConfirmModal({ onClose }: LogoutConfirmModalProps) {
     return (
         <FormModal
             title="Cerrar sesión"
-            sub={`${user.fullName} · ${user.username}`}
+            sub={`${formatPersonFullName(user)} · ${user.username}`}
             width="sm"
             note="¿Seguro que deseas cerrar la sesión?"
             values={{}}

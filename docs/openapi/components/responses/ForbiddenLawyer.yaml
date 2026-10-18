@@ -1,4 +1,4 @@
-description: El usuario autenticado no posee el rol `LAWYER`.
+description: El usuario autenticado no tiene el rol `LAWYER` o no tiene una ficha de abogado vinculada.
 content:
   application/json:
     schema:

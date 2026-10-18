@@ -17,6 +17,7 @@
  */
 
 import { setupWorker, type SetupWorker } from 'msw/browser';
+import { persistSessions } from './db';
 import { configureMocks, handlers, mockOptions, type MockOptions } from './msw-handlers';
 
 /** Reexportados acá para que el navegador tenga una sola puerta de entrada. */
@@ -44,6 +45,8 @@ export const worker: SetupWorker = setupWorker(...handlers);
  */
 export async function startMocks(changes: Partial<MockOptions> = {}): Promise<void> {
     configureMocks(changes);
+    // Si no, cada recarga de la página cierra la sesión: ver `persistSessions`.
+    persistSessions(localStorage);
     const { log } = mockOptions();
 
     await worker.start({

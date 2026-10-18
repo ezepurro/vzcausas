@@ -57,7 +57,8 @@ function isAuthUser(value: unknown): value is AuthUser {
     return (
         typeof user.id === 'number' &&
         typeof user.username === 'string' &&
-        typeof user.fullName === 'string' &&
+        typeof user.lastName === 'string' &&
+        typeof user.firstName === 'string' &&
         typeof user.email === 'string' &&
         Array.isArray(user.roles) &&
         user.roles.every(isRole) &&

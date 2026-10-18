@@ -13,7 +13,8 @@ get:
     el usuario además es `ADMINISTRATOR`, también ve la pestaña "Estudio"
     (`GET /dashboards/administrator`, D-63).
 
-    **Rol requerido:** `LAWYER`.
+    **Rol requerido:** `LAWYER`, con una ficha de abogado vinculada. Un
+    usuario con el rol pero sin `lawyerId` recibe `403`.
   responses:
     '200':
       description: Tablero del abogado, calculado para el martes 15/09/2026.

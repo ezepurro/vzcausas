@@ -5,6 +5,7 @@ import { isApiError } from '@/shared/api/ApiError'
 import { Breadcrumbs, PageHeader } from '@/shared/components/ui'
 import { useFocusFirstError } from '@/shared/hooks/useFocusFirstError'
 import type { SelectOption } from '@/shared/components/forms'
+import { formatPersonName } from '@/shared/lib/personName'
 import {
     ClientFormModal,
     formatClientName,
@@ -104,7 +105,7 @@ export function RegisterCasePage() {
 
     const lawyerOptions: SelectOption[] = lawyers.map((l) => ({
         value: String(l.id),
-        label: `${l.fullName} · matrícula ${l.registrationNumber}`,
+        label: `${formatPersonName(l)} · matrícula ${l.registrationNumber}`,
     }))
 
     /** Una calificación ya elegida deja de ofrecerse: no puede repetirse (D-28). */
