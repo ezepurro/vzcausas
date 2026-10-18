@@ -2,8 +2,11 @@
  * De los valores del formulario al cuerpo de `POST /cases`.
  *
  * Lo vacío no viaja, y lo que es de un fuero no viaja en otro: el contrato
- * responde `400` si llegan calificaciones en un amparo o una contraparte en el
- * penal (V3 §3.7).
+ * responde `400` si llegan calificaciones en un amparo, una contraparte en el
+ * penal o un dato propio de otro fuero (V4 §3.7, D-67).
+ *
+ * `createFolder` y `copyTemplates` no viajan: son de HU39 y HU40 (Sprint 3), y
+ * sin ellos el backend crea la carpeta con los modelos del fuero (D-59).
  */
 
 import type { CaseFormValues, CreateCaseBody } from '@/features/cases/types/case'
@@ -15,6 +18,8 @@ export function toCreateCaseBody(values: CaseFormValues): CreateCaseBody {
         clientId: Number(values.clientId),
         proceduralRole: values.proceduralRole,
         responsibleLawyerId: Number(values.responsibleLawyerId),
+        // La tasa es de los tres fueros (RN10); se manda siempre, aunque sea `false`.
+        courtFeePaid: values.courtFeePaid,
     }
 
     /* El SAC es opcional (D-33): la causa puede iniciarse antes de que el Poder
@@ -44,11 +49,33 @@ export function toCreateCaseBody(values: CaseFormValues): CreateCaseBody {
                 offenseDate: q.offenseDate,
             }))
         }
+        body.clientDetained = values.clientDetained
     } else {
         const counterparty = values.counterparty.trim()
         if (counterparty) body.counterparty = counterparty
         // El objeto es obligatorio fuera del penal (D-27): viaja siempre.
         body.subjectMatter = values.subjectMatter.trim()
+    }
+
+    if (values.jurisdiction === 'AMPARO') {
+        body.injunctionGranted = values.injunctionGranted
+        /* Sin fecha del acto lesivo no hay vencimiento que calcular: el plazo,
+           su tipo de día y la renovación sólo viajan con ella (V4 D-78). */
+        const harmfulActDate = values.harmfulActDate.trim()
+        if (harmfulActDate) {
+            body.harmfulActDate = harmfulActDate
+            body.harmfulActTermDays = Number(values.harmfulActTermDays.trim())
+            body.harmfulActTermDayType = values.harmfulActTermDayType
+            body.harmfulActRenews = values.harmfulActRenews
+            if (values.harmfulActRenews) {
+                body.harmfulActRenewalDays = Number(values.harmfulActRenewalDays.trim())
+            }
+        }
+    }
+
+    if (values.jurisdiction === 'ADMINISTRATIVE') {
+        const exhaustedOn = values.administrativeRemedyExhaustedOn.trim()
+        if (exhaustedOn) body.administrativeRemedyExhaustedOn = exhaustedOn
     }
 
     return body

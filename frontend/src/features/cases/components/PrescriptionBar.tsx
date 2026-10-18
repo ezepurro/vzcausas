@@ -1,14 +1,11 @@
-import { Meter } from '@/shared/components/ui'
+import { Meter, type MeterTone } from '@/shared/components/ui'
 import { formatDate } from '@/shared/lib/dates'
-import { prescriptionProgress } from '@/features/cases/utils/prescription'
+import type { CasePrescription } from '@/features/cases/types/case'
+import { remainingLabel } from '@/features/cases/utils/prescription'
 
 export interface PrescriptionBarProps {
-    /** La calificación que manda: la que vence primero (`nearestQualification`). */
-    qualificationName: string
-    /** `YYYY-MM-DD`: `prescriptionStartsOn` de esa calificación. Hoy, la fecha de su hecho. */
-    startsOn: string
-    /** `YYYY-MM-DD`: `prescriptionExpiresOn` de la calificación. */
-    expiresOn: string
+    /** La que rige la causa: `prescription`, ya resuelta por el backend (V4 D-51). */
+    prescription: CasePrescription
     /** Aclaración al pie: desde cuándo corre y, si hay varias, cuál calificación se muestra. */
     note?: string
     /** Para fijar el día en los tests; por defecto, hoy. */
@@ -18,33 +15,38 @@ export interface PrescriptionBarProps {
 /**
  * "Prescripción de la acción": cuánto del plazo ya pasó, cuánto falta, y las
  * fechas de inicio y de vencimiento. Va al pie del `CaseHeader`, y sólo en las
- * causas penales: fuera del penal la prescripción no aplica (V3 D-19), y es la
- * pantalla la que decide no dibujarla.
+ * causas penales con calificaciones: en las demás `prescription` vale `null`
+ * y es la pantalla la que decide no dibujarla.
  *
- * Cada calificación prescribe por su lado, desde la fecha de su hecho: la
- * barra muestra una sola, la que prescribe primero. La pantalla la elige con
- * `nearestQualification` y le pasa sus dos fechas.
+ * Desde V4 la calificación que prescribe primero, el porcentaje y la alerta del
+ * 70 % llegan calculados en `prescription` (D-51): la barra sólo los muestra.
+ * Del lado del front queda el rótulo "Restan 5 años 9 meses", que el contrato
+ * pide armar con `expiresOn`.
+ *
+ * Un plazo cumplido no cambia el estado de la causa (D-52): la barra dice
+ * "Plazo cumplido" y la causa sigue activa hasta que alguien la marque como
+ * prescripta.
  */
-export function PrescriptionBar({
-    qualificationName, startsOn, expiresOn, note, today,
-}: PrescriptionBarProps) {
-    const progress = prescriptionProgress(startsOn, expiresOn, today)
-    if (!progress) return null
+export function PrescriptionBar({ prescription, note, today }: PrescriptionBarProps) {
+    const { legalQualificationName, startsOn, expiresOn, elapsedPercentage, alert, expired } = prescription
+    const tone: MeterTone = expired ? 'danger' : alert ? 'warn' : 'primary'
 
     return (
         <div className="vz-presc">
             <div className="vz-presc__top">
                 <div className="vz-presc__title">
                     Prescripción de la acción{' '}
-                    <span className="vz-presc__qualification">· {qualificationName}</span>
+                    <span className="vz-presc__qualification">· {legalQualificationName}</span>
                 </div>
-                <div className="vz-presc__remaining">{progress.remaining}</div>
+                <div className="vz-presc__remaining">
+                    {expired ? 'Plazo cumplido' : remainingLabel(expiresOn, today)}
+                </div>
             </div>
             <Meter
                 label="Prescripción transcurrida"
-                value={progress.percent}
-                valueText={`${progress.percent} %`}
-                tone={progress.tone}
+                value={elapsedPercentage}
+                valueText={`${elapsedPercentage} %`}
+                tone={tone}
             />
             <div className="vz-presc__dates">
                 <span>{formatDate(startsOn)}</span>

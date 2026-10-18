@@ -12,7 +12,7 @@ const ORIGINAL: ProceduralState = {
     timeLimitDays: 3,
     dayType: 'BUSINESS',
     terminal: false,
-    activeCases: 0,
+    caseCount: 0,
     active: true,
 }
 

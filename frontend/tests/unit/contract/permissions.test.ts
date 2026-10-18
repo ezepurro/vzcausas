@@ -87,42 +87,52 @@ const ADMINISTRATOR_OR_LAWYER: readonly [Method, string][] = [
     ['POST', `/cases/${MISSING}/prescription`],
 ]
 
+/**
+ * Para cada endpoint del grupo y cada perfil, si el servidor le responde `403`.
+ * Se compara el mapa entero de una vez: si algo no coincide, el diff dice qué
+ * endpoint y qué perfil, y el grupo sigue siendo un solo test (TESTING.md §4).
+ */
+function forbiddenMap(endpoints: readonly [Method, string][]): Record<string, boolean> {
+    const map: Record<string, boolean> = {}
+    for (const [method, path] of endpoints) {
+        for (const profile of PROFILES) {
+            map[`${method} ${path} · ${profile}`] = statusFor(profile, method, path) === 403
+        }
+    }
+    return map
+}
+
+/** Lo que tendría que dar `forbiddenMap` si sólo `allowed` puede operar. */
+function expectedMap(endpoints: readonly [Method, string][], allowed: readonly Profile[]): Record<string, boolean> {
+    const map: Record<string, boolean> = {}
+    for (const [method, path] of endpoints) {
+        for (const profile of PROFILES) {
+            map[`${method} ${path} · ${profile}`] = !allowed.includes(profile)
+        }
+    }
+    return map
+}
+
+/* "Mi día" es el tablero del abogado (V4 §3.11, HU41): un administrador que
+   no ejerce no lo tiene. */
+const LAWYER_ONLY: readonly [Method, string][] = [['GET', '/dashboards/lawyer']]
+
 describe('permisos del servidor falso', () => {
-    describe.each(OPEN_TO_EVERYONE)('%s %s lo opera cualquier perfil', (method, path) => {
-        it.each(PROFILES)('%s no recibe 403', (profile) => {
-            expect(statusFor(profile, method, path)).not.toBe(403)
-        })
+    it('lo que la matriz abre a todos lo opera cualquier perfil', () => {
+        expect(forbiddenMap(OPEN_TO_EVERYONE)).toEqual(expectedMap(OPEN_TO_EVERYONE, PROFILES))
     })
 
-    describe.each(ADMINISTRATOR_ONLY)('%s %s es sólo del Administrador', (method, path) => {
-        it('ADMINISTRATOR no recibe 403', () => {
-            expect(statusFor('ADMINISTRATOR', method, path)).not.toBe(403)
-        })
-
-        it.each(['LAWYER', 'SECRETARY'] as const)('%s recibe 403', (profile) => {
-            expect(statusFor(profile, method, path)).toBe(403)
-        })
+    it('lo que es sólo del Administrador rechaza al Abogado y a la Secretaría', () => {
+        expect(forbiddenMap(ADMINISTRATOR_ONLY)).toEqual(expectedMap(ADMINISTRATOR_ONLY, ['ADMINISTRATOR']))
     })
 
-    describe.each(ADMINISTRATOR_OR_LAWYER)('%s %s es del Administrador o del Abogado', (method, path) => {
-        it.each(['ADMINISTRATOR', 'LAWYER'] as const)('%s no recibe 403', (profile) => {
-            expect(statusFor(profile, method, path)).not.toBe(403)
-        })
-
-        it('SECRETARY recibe 403', () => {
-            expect(statusFor('SECRETARY', method, path)).toBe(403)
-        })
+    it('lo que es del Administrador o del Abogado rechaza a la Secretaría', () => {
+        expect(forbiddenMap(ADMINISTRATOR_OR_LAWYER)).toEqual(
+            expectedMap(ADMINISTRATOR_OR_LAWYER, ['ADMINISTRATOR', 'LAWYER']),
+        )
     })
 
-    /* "Mi día" es el tablero del abogado (V4 §3.11, HU41): un administrador
-       que no ejerce no lo tiene. */
-    describe('GET /dashboards/lawyer es sólo del Abogado', () => {
-        it('LAWYER no recibe 403', () => {
-            expect(statusFor('LAWYER', 'GET', '/dashboards/lawyer')).not.toBe(403)
-        })
-
-        it.each(['ADMINISTRATOR', 'SECRETARY'] as const)('%s recibe 403', (profile) => {
-            expect(statusFor(profile, 'GET', '/dashboards/lawyer')).toBe(403)
-        })
+    it('el tablero "Mi día" es sólo del Abogado', () => {
+        expect(forbiddenMap(LAWYER_ONLY)).toEqual(expectedMap(LAWYER_ONLY, ['LAWYER']))
     })
 })

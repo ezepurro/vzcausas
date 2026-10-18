@@ -23,6 +23,16 @@ const CRIMINAL: CaseFormValues = {
     subjectMatter: '',
     responsibleLawyerId: '3',
     startDate: '2026-09-15',
+    // Datos propios de cada fuero y tasa (V4 D-67), con los valores por defecto del alta.
+    clientDetained: false,
+    injunctionGranted: false,
+    harmfulActDate: '',
+    harmfulActRenews: false,
+    harmfulActRenewalDays: '',
+    harmfulActTermDays: '',
+    harmfulActTermDayType: 'BUSINESS',
+    administrativeRemedyExhaustedOn: '',
+    courtFeePaid: false,
 }
 
 const AMPARO: CaseFormValues = {

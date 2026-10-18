@@ -368,13 +368,14 @@
 .vz-dash-member__top { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .vz-dash-member__who { flex: 1; min-width: 0; }
 .vz-dash-member__name {
+  display: block;
   font-size: 13.5px;
   font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.vz-dash-member__status { margin-top: 2px; font-size: 11.5px; font-weight: 600; }
+.vz-dash-member__status { display: block; margin-top: 2px; font-size: 11.5px; font-weight: 600; }
 .vz-dash-member__status--danger { color: var(--vz-danger); }
 .vz-dash-member__status--warn { color: var(--vz-warn); }
 .vz-dash-member__status--ok { color: var(--vz-primary-hi); }

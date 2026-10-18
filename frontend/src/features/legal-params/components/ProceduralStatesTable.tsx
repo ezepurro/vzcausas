@@ -5,6 +5,7 @@ import {
     type ProceduralState,
 } from '@/features/legal-params/types/proceduralState';
 import { dayTypeTone } from '@/features/legal-params/utils/dayTypeTone';
+import { isPrescribedState } from '@/features/legal-params/utils/systemStates';
 
 export interface ProceduralStatesTableProps {
     rows: ProceduralState[];
@@ -19,6 +20,12 @@ export interface ProceduralStatesTableProps {
  *
  * No hay columna de fuero: la lengüeta de arriba ya dice cuál es, y repetirlo
  * en cada fila es ruido.
+ *
+ * "Causas" cuenta todas las causas que están en el estado, activas o no
+ * (V4 D-70): por eso los terminales también muestran las suyas.
+ *
+ * "Prescripta" es un estado de sistema (V4 D-53): se lista, pero no se
+ * modifica ni se elimina, así que su fila no lleva acciones.
  */
 export function ProceduralStatesTable({
     rows, onEdit, onDelete, empty,
@@ -47,9 +54,9 @@ export function ProceduralStatesTable({
             nowrap: true,
         },
         {
-            id: 'activeCases',
+            id: 'caseCount',
             header: 'Causas',
-            cell: (r) => r.activeCases,
+            cell: (r) => r.caseCount,
             mono: true,
             nowrap: true,
         },
@@ -60,12 +67,15 @@ export function ProceduralStatesTable({
             // Las dos quedan calladas hasta que el cursor entra en la fila; la
             // destructiva se tiñe recién cuando se la apunta, así no grita en
             // cada renglón pero tampoco se confunde con la otra.
-            cell: (r) => (
-                <>
-                    <Button variant="ghost" size="sm" onClick={() => onEdit(r)}>Modificar</Button>
-                    <Button variant="ghost-danger" size="sm" onClick={() => onDelete(r)}>Eliminar</Button>
-                </>
-            ),
+            cell: (r) =>
+                isPrescribedState(r) ? (
+                    <Pill>Estado del sistema</Pill>
+                ) : (
+                    <>
+                        <Button variant="ghost" size="sm" onClick={() => onEdit(r)}>Modificar</Button>
+                        <Button variant="ghost-danger" size="sm" onClick={() => onDelete(r)}>Eliminar</Button>
+                    </>
+                ),
         },
     ];
 

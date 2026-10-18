@@ -545,6 +545,91 @@ export const db: MockDb = initialState();
  */
 export function resetMockDb(): void {
     Object.assign(db, initialState());
+    if (sessionStore) db.sessions = new PersistedSessions(sessionStore);
+}
+
+/* ------------------------------------------------------------------ */
+/* Sesiones que sobreviven a la recarga (sólo en el navegador)         */
+/* ------------------------------------------------------------------ */
+
+const SESSIONS_KEY = 'vz-mock-sessions';
+
+/** Dónde se guardan las sesiones, o `null` si no se guardan (tests). */
+let sessionStore: Storage | null = null;
+
+/**
+ * `sessions` que se copia al almacenamiento en cada cambio.
+ *
+ * La base vive en la memoria de la página: sin esto, cada recarga —un F5 o
+ * una recarga completa de Vite al guardar un archivo— borra los tokens
+ * emitidos, el front manda uno que el mock ya no conoce, la renovación
+ * también falla y la sesión se cierra.
+ */
+class PersistedSessions extends Map<string, number> {
+    private readonly store: Storage;
+
+    constructor(store: Storage, entries: [string, number][] = []) {
+        super(entries);
+        this.store = store;
+    }
+
+    override set(token: string, userId: number): this {
+        super.set(token, userId);
+        this.save();
+        return this;
+    }
+
+    override delete(token: string): boolean {
+        const deleted = super.delete(token);
+        this.save();
+        return deleted;
+    }
+
+    override clear(): void {
+        super.clear();
+        this.save();
+    }
+
+    private save(): void {
+        // `super(entries)` llama a `set` antes de que exista `store`.
+        if (!this.store) return;
+        try {
+            this.store.setItem(SESSIONS_KEY, JSON.stringify([...this.entries()]));
+        } catch {
+            // Sin almacenamiento la sesión dura lo que la página, como antes.
+        }
+    }
+}
+
+/**
+ * Guarda las sesiones en `store` y recupera las de la página anterior.
+ *
+ * La llama `startMocks()`. Los tests no: cada uno arranca con la base limpia.
+ * Usa el mismo almacenamiento que el front para su sesión (`localStorage`),
+ * así una pestaña nueva también la encuentra.
+ */
+export function persistSessions(store: Storage): void {
+    let entries: [string, number][] = [];
+    try {
+        const parsed: unknown = JSON.parse(store.getItem(SESSIONS_KEY) ?? '[]');
+        if (Array.isArray(parsed)) {
+            entries = parsed.filter(
+                (e): e is [string, number] =>
+                    Array.isArray(e) && typeof e[0] === 'string' && typeof e[1] === 'number',
+            );
+        }
+    } catch {
+        // Un valor roto se descarta: hay que volver a entrar, nada más.
+    }
+
+    sessionStore = store;
+    db.sessions = new PersistedSessions(store, entries);
+
+    // Que un token nuevo no repita el número de uno recuperado.
+    for (const [token] of entries) {
+        const n = Number(token.split('-').pop());
+        if (Number.isInteger(n) && n > db.issuedTokens) db.issuedTokens = n;
+    }
 }
 
 /* ------------------------------------------------------------------ */

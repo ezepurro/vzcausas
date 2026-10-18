@@ -18,6 +18,7 @@ import { toCreateLawyerBody } from '@/features/lawyers/utils/toCreateLawyerBody'
 import { LawyersTable } from '@/features/lawyers/components/LawyersTable'
 import { LawyerFormModal } from '@/features/lawyers/components/LawyerFormModal'
 import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue'
+import { formatPersonName } from '@/shared/lib/personName'
 const LIMIT = 20
 
 /**
@@ -27,7 +28,8 @@ const LIMIT = 20
 type Modal = { kind: 'create' } | null
 
 const EMPTY_FORM: LawyerFormValues = {
-    fullName: '',
+    lastName: '',
+    firstName: '',
     registrationNumber: '',
 }
 
@@ -103,7 +105,7 @@ export function LawyersPage() {
             onSuccess: (lawyer) => {
                 toast(
                     'success',
-                    `Abogado ${lawyer.fullName} registrado con matrícula ${lawyer.registrationNumber}.`,
+                    `Abogado ${formatPersonName(lawyer)} registrado con matrícula ${lawyer.registrationNumber}.`,
                 )
                 closeModal()
             },

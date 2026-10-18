@@ -2,17 +2,48 @@
  * La barra de prescripción de la causa: cuánto del plazo ya pasó y cuánto
  * falta.
  *
- * Cada calificación prescribe por su lado, **desde la fecha de su hecho** (V3
- * D-19). El vencimiento lo calcula el backend (`prescriptionExpiresOn`); el
- * contrato deja explícitamente del lado del front qué calificación mostrar, el
- * porcentaje transcurrido y el "Restan 5 años 9 meses" (V3 §3.7). Es
- * presentación, no una regla jurídica: la regla —desde cuándo corre y cuánto
- * dura— vive en el backend.
+ * Desde V4 la calificación que prescribe primero, el porcentaje y la alerta
+ * llegan resueltos en `prescription` de la causa (D-51), y la barra los lee de
+ * ahí. Del lado del front quedan el rótulo "Restan 5 años 9 meses"
+ * (`remainingLabel`), la nota del pie (`prescriptionNote`) y el vencimiento
+ * estimado del resumen del alta, antes de que la causa exista.
+ *
+ * `nearestQualification` y `prescriptionProgress` son del cálculo de V3: ya
+ * ninguna pantalla los usa, pero siguen acá porque los cubren sus tests.
  */
 
-import { parseDateOnly } from '@/shared/lib/dates'
+import { formatDate, parseDateOnly } from '@/shared/lib/dates'
 import type { MeterTone } from '@/shared/components/ui'
 import type { Case, CaseLegalQualification } from '@/features/cases/types/case'
+
+/**
+ * "Restan 5 años 9 meses", "Restan 20 días": lo que falta hasta `expiresOn`.
+ * Con el plazo ya cumplido, "Plazo cumplido".
+ */
+export function remainingLabel(expiresOn: string, today: Date = new Date()): string {
+    const end = parseDateOnly(expiresOn)
+    if (!end) return ''
+    const now = startOfDay(today)
+    return now >= end ? 'Plazo cumplido' : `Restan ${remainingText(now, end)}`
+}
+
+/**
+ * La nota al pie de la barra: desde cuándo corre el cómputo —el último acto
+ * interruptivo o la fecha del hecho (V4 D-49)— y, si la causa tiene varias
+ * calificaciones, cuál es la que se muestra.
+ */
+export function prescriptionNote(
+    c: Pick<Case, 'prescription' | 'legalQualifications'>,
+): string | undefined {
+    if (!c.prescription) return undefined
+    const { lastInterruptiveActDate, legalQualificationName } = c.prescription
+    const base = lastInterruptiveActDate
+        ? `Cómputo reiniciado por el acto interruptivo registrado el ${formatDate(lastInterruptiveActDate)}.`
+        : 'Sin actos interruptivos registrados: el cómputo corre desde la fecha del hecho.'
+    return c.legalQualifications.length > 1
+        ? `${base} Calificación que prescribe primero: ${legalQualificationName}.`
+        : base
+}
 
 /** Pasado este porcentaje la barra se pinta en bronce, como en el prototipo. */
 const WARN_PERCENT = 70

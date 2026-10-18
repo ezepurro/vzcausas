@@ -34,7 +34,7 @@ export async function createProceduralState(
 ): Promise<SavedProceduralState> {
     // `response.data` es el cuerpo HTTP; el `.data` de adentro es el envoltorio
     // del contrato. El doble `data` termina acá: para afuera sale el recurso pelado.
-    // Viene sin `activeCases`, que es sólo de los `GET` (V3 D-32).
+    // Viene sin `caseCount`, que es sólo de los `GET` (V3 D-32, V4 D-70).
     const response = await http.post<ApiItem<SavedProceduralState>>(BASE, body);
     return response.data.data;
 }
