@@ -187,6 +187,11 @@ tags:
       El acto interruptivo reinicia la prescripción de una causa penal desde
       su fecha (RN8). No mueve el estado ni abre plazos. Solo lo registra el
       abogado responsable de la causa.
+  - name: Document Templates
+    description: |
+      Modelos formales: los escritos tipo `.docx` del estudio, guardados en la
+      carpeta "Modelos formales" del almacenamiento en la nube. Solo para
+      `ADMINISTRATOR` y `LAWYER`; la secretaría no accede.
 
 paths:
   /auth/login:
@@ -233,6 +238,8 @@ paths:
     $ref: paths/cases@{caseId}@procedural-acts@{actId}.yaml
   /cases/{caseId}/interruptive-acts:
     $ref: paths/cases@{caseId}@interruptive-acts.yaml
+  /document-templates:
+    $ref: paths/document-templates.yaml
 
 components:
   securitySchemes:

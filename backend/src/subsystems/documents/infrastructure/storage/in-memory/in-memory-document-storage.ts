@@ -1,7 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import {
   DocumentStoragePort,
+  FileUpload,
   FolderReference,
+  StoredFile,
   StoredFolder,
 } from '../../../core/domain/ports/document-storage.port';
 
@@ -9,6 +11,14 @@ import {
 export interface InMemoryStoredFolder extends StoredFolder {
   parentId: string;
   name: string;
+}
+
+/** A file held by {@link InMemoryDocumentStorage}. */
+export interface InMemoryStoredFile extends StoredFile {
+  parentId: string;
+  name: string;
+  mimeType: string;
+  size: number;
 }
 
 /**
@@ -20,11 +30,15 @@ export interface InMemoryStoredFolder extends StoredFolder {
 @Injectable()
 export class InMemoryDocumentStorage implements DocumentStoragePort {
   private readonly stored: InMemoryStoredFolder[] = [];
+  private storedFiles: InMemoryStoredFile[] = [];
   private nextFailure: Error | null = null;
   private sequence = 0;
 
-  /** Every call received, in order. */
+  /** Every folder call received, in order. */
   readonly calls: Array<{ method: 'findByReference' | 'create'; reference: FolderReference }> = [];
+
+  /** Every file call received, in order: the uploaded name, or the deleted id. */
+  readonly fileCalls: Array<{ method: 'uploadFile'; name: string } | { method: 'deleteFile'; fileId: string }> = [];
 
   /** Makes the next call reject with `error` (once). */
   failNextWith(error: Error): void {
@@ -54,6 +68,34 @@ export class InMemoryDocumentStorage implements DocumentStoragePort {
     this.calls.push({ method: 'create', reference });
     this.failIfRequested();
     return this.add(reference.parentId, reference.name);
+  }
+
+  /** Files currently held. */
+  get files(): readonly InMemoryStoredFile[] {
+    return this.storedFiles;
+  }
+
+  async uploadFile(upload: FileUpload): Promise<StoredFile> {
+    this.fileCalls.push({ method: 'uploadFile', name: upload.name });
+    this.failIfRequested();
+    this.sequence += 1;
+    const id = `mem-file-${this.sequence}`;
+    const file: InMemoryStoredFile = {
+      id,
+      url: `https://storage.invalid/files/${id}`,
+      parentId: upload.parentId,
+      name: upload.name,
+      mimeType: upload.mimeType,
+      size: upload.content.length,
+    };
+    this.storedFiles.push(file);
+    return { id: file.id, url: file.url };
+  }
+
+  async deleteFile(fileId: string): Promise<void> {
+    this.fileCalls.push({ method: 'deleteFile', fileId });
+    this.failIfRequested();
+    this.storedFiles = this.storedFiles.filter((file) => file.id !== fileId);
   }
 
   private add(parentId: string, name: string): StoredFolder {

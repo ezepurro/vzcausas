@@ -30,13 +30,16 @@ description: |
   | `CASE_SAC_ALREADY_EXISTS`            | 409  | Número de SAC ya registrado (RN2)                                         |
   | `USER_HAS_DEPENDENCIES`              | 409  | El usuario posee recursos asociados                                       |
   | `LAWYER_HAS_DEPENDENCIES`            | 409  | El abogado posee causas o un usuario vinculado                            |
-  | `INVALID_CURRENT_PASSWORD`           | 422  | La contraseña actual no coincide                                          |
+  | `DOCUMENT_TEMPLATE_ALREADY_EXISTS`   | 409  | Nombre de modelo formal ya registrado, sin distinguir mayúsculas          |
+  | `FILE_TOO_LARGE`                     | 413  | El archivo supera el tamaño máximo (10 MB)                                |
+  | `INVALID_CURRENT_PASSWORD`         | 422  | La contraseña actual no coincide                                          |
   | `CASE_IN_TERMINAL_STATE`             | 422  | Acto procesal o interruptivo sobre una causa en estado terminal           |
   | `PRESCRIPTION_NOT_APPLICABLE`        | 422  | Acto interruptivo sobre una causa que no es del fuero penal               |
   | `BUSINESS_RULE_VIOLATION`            | 422  | Violación de una regla de negocio                                         |
   | `TOO_MANY_LOGIN_ATTEMPTS`            | 429  | Bloqueo progresivo por intentos fallidos. Exclusivo de `POST /auth/login` |
   | `TOO_MANY_REQUESTS`                  | 429  | Límite de pedidos por dirección IP superado                               |
   | `INTERNAL_SERVER_ERROR`              | 500  | Error interno inesperado                                                  |
+  | `DOCUMENT_STORAGE_UNAVAILABLE`       | 502  | El almacenamiento en la nube no respondió. Se puede reintentar            |
 enum:
   - VALIDATION_ERROR
   - INVALID_PAGINATION
@@ -63,6 +66,8 @@ enum:
   - CASE_SAC_ALREADY_EXISTS
   - USER_HAS_DEPENDENCIES
   - LAWYER_HAS_DEPENDENCIES
+  - DOCUMENT_TEMPLATE_ALREADY_EXISTS
+  - FILE_TOO_LARGE
   - INVALID_CURRENT_PASSWORD
   - CASE_IN_TERMINAL_STATE
   - PRESCRIPTION_NOT_APPLICABLE
@@ -70,3 +75,4 @@ enum:
   - TOO_MANY_LOGIN_ATTEMPTS
   - TOO_MANY_REQUESTS
   - INTERNAL_SERVER_ERROR
+  - DOCUMENT_STORAGE_UNAVAILABLE

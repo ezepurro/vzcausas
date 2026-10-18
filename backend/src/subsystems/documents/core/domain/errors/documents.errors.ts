@@ -1,4 +1,5 @@
 import {
+  BadGatewayError,
   ConflictError,
   DomainError,
   ValidationError,
@@ -12,18 +13,18 @@ export type StorageFailureReason = 'TRANSIENT' | 'AUTHORIZATION';
  * timed out (CA-39.5). It is a *complementary* failure (R-03): the caller
  * keeps working and leaves the case folder `PENDING`.
  *
- * Extends {@link DomainError} directly because no existing subtype fits;
- * the HTTP mapping (502) belongs to the controller step.
+ * Over HTTP it is a 502 with the contract's text (HU34, CA-34.7). `reason`
+ * and `detail` are for the log and for `DocumentSpaceCreationFailed`; they
+ * are not sent to the client, so `details` stays `null`.
  */
-export class DocumentStorageUnavailableError extends DomainError {
+export class DocumentStorageUnavailableError extends BadGatewayError {
   constructor(
     public readonly reason: StorageFailureReason = 'TRANSIENT',
-    detail?: string,
+    public readonly detail?: string,
   ) {
     super(
       'DOCUMENT_STORAGE_UNAVAILABLE',
-      'El almacenamiento documental no está disponible.',
-      detail ? { reason, detail } : { reason },
+      'No se pudo acceder al almacenamiento en la nube. Intentá de nuevo en unos minutos.',
     );
   }
 }
@@ -49,5 +50,12 @@ export class CloudFolderAlreadyExistsError extends ConflictError {
 export class InvalidCloudFolderError extends ValidationError {
   constructor(message: string, details: Record<string, unknown> | null = null) {
     super('INVALID_CLOUD_FOLDER', message, details);
+  }
+}
+
+/** An active formal template already has that name, ignoring case (CA-34.9, D-71). */
+export class DocumentTemplateAlreadyExistsError extends ConflictError {
+  constructor() {
+    super('DOCUMENT_TEMPLATE_ALREADY_EXISTS', 'Ya existe un modelo formal con ese nombre.');
   }
 }

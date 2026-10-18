@@ -1,0 +1,130 @@
+post:
+  tags:
+    - Document Templates
+  operationId: createDocumentTemplate
+  summary: Registrar modelo formal
+  description: |
+    Registra un modelo formal con su archivo (HU34).
+
+    El archivo se guarda en la carpeta "Modelos formales" del almacenamiento en
+    la nube. **El alta es atómica** (CA-34.7): si el archivo no se puede
+    guardar, el modelo no se registra y la respuesta es `502`. Nunca queda un
+    modelo sin su archivo.
+
+    Con `copyToNewCases` en `true`, el modelo se copia a la carpeta de cada
+    causa que se registre después en alguno de sus fueros (HU40). Las causas
+    que ya existen no lo reciben.
+
+    **Rol requerido:** `ADMINISTRATOR` o `LAWYER`.
+  requestBody:
+    required: true
+    content:
+      multipart/form-data:
+        schema:
+          $ref: ../components/schemas/DocumentTemplateCreate.yaml
+        encoding:
+          jurisdictions:
+            style: form
+            explode: true
+          file:
+            contentType: application/vnd.openxmlformats-officedocument.wordprocessingml.document
+  responses:
+    '201':
+      description: Modelo registrado.
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - data
+            properties:
+              data:
+                $ref: ../components/schemas/DocumentTemplate.yaml
+          example:
+            data:
+              id: 4
+              name: Recurso de casación
+              jurisdictions:
+                - CRIMINAL
+              fileName: casacion.docx
+              copyToNewCases: true
+              lastVersionAt: '2026-09-15T16:05:00-03:00'
+              lastVersionBy:
+                id: 6
+                lastName: Ferreyra
+                firstName: Matías
+              usageCount: 0
+              active: true
+    '400':
+      description: Falta un campo obligatorio, o el archivo no es `.docx`.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          examples:
+            missingFields:
+              summary: Faltan el nombre, el fuero y el archivo (CA-34.4)
+              value:
+                error:
+                  code: VALIDATION_ERROR
+                  message: Los datos enviados no son válidos.
+                  details:
+                    name: El nombre del modelo es obligatorio.
+                    jurisdictions: Elegí al menos un fuero.
+                    file: El archivo del modelo es obligatorio.
+            notDocx:
+              summary: El archivo no es un .docx (CA-34.3)
+              value:
+                error:
+                  code: VALIDATION_ERROR
+                  message: Los datos enviados no son válidos.
+                  details:
+                    file: El archivo tiene que ser .docx.
+    '401':
+      $ref: ../components/responses/Unauthorized.yaml
+    '403':
+      description: El usuario no tiene el rol `ADMINISTRATOR` ni `LAWYER`.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          example:
+            error:
+              code: FORBIDDEN
+              message: Se requiere el rol ADMINISTRATOR o LAWYER para realizar esta operación.
+              details: null
+    '409':
+      description: Ya existe un modelo con ese nombre, sin distinguir mayúsculas (CA-34.9).
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          example:
+            error:
+              code: DOCUMENT_TEMPLATE_ALREADY_EXISTS
+              message: Ya existe un modelo formal con ese nombre.
+              details: null
+    '413':
+      description: El archivo supera los 10 MB (CA-34.10).
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          example:
+            error:
+              code: FILE_TOO_LARGE
+              message: El archivo supera el tamaño máximo de 10 MB.
+              details: null
+    '502':
+      description: |
+        El almacenamiento en la nube no respondió, o su carpeta "Modelos
+        formales" no está configurada. El modelo no se registró (CA-34.7).
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          example:
+            error:
+              code: DOCUMENT_STORAGE_UNAVAILABLE
+              message: No se pudo acceder al almacenamiento en la nube. Intentá de nuevo en unos minutos.
+              details: null

@@ -1,0 +1,31 @@
+type: object
+description: |
+  Cuerpo `multipart/form-data` del alta de un modelo formal (HU34). Si faltan
+  varios campos obligatorios, el `400` los informa todos juntos.
+required:
+  - name
+  - jurisdictions
+  - file
+properties:
+  name:
+    type: string
+    maxLength: 150
+    description: '"Nombre del modelo". Único entre los modelos, sin distinguir mayúsculas.'
+    example: Recurso de casación
+  jurisdictions:
+    type: array
+    minItems: 1
+    uniqueItems: true
+    description: |
+      "Fuero". El campo se repite una vez por fuero; para "Todos los fueros",
+      se envían los tres.
+    items:
+      $ref: ./Jurisdiction.yaml
+  copyToNewCases:
+    type: boolean
+    default: true
+    description: '"Copiar en las causas nuevas de los fueros elegidos". Las causas que ya existen no lo reciben.'
+  file:
+    type: string
+    format: binary
+    description: '"Archivo del modelo". Documento Word (`.docx`), hasta 10 MB.'
