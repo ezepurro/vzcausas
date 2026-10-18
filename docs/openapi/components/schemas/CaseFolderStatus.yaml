@@ -1,0 +1,17 @@
+type: string
+description: |
+  Situación de la carpeta de una causa en la nube.
+
+  | Código     | Rótulo              | Significado                                                                                  |
+  | ---------- | ------------------- | -------------------------------------------------------------------------------------------- |
+  | `PENDING`  | Carpeta pendiente   | No está creada por elección del usuario (se registró la causa sin pedirla). Se puede crear después |
+  | `CREATING` | Creando carpeta     | Se pidió crearla y se espera la respuesta del almacenamiento en la nube                      |
+  | `CREATED`  | Carpeta creada      | La carpeta existe y se puede abrir                                                           |
+  | `ERROR`    | Error en la carpeta | Se pidió crearla, pero el almacenamiento en la nube falló. Se reintenta solo y también se puede reintentar a mano |
+
+  Una causa registrada antes de V4 no tiene estado: su `folder` vale `null`.
+enum:
+  - PENDING
+  - CREATING
+  - CREATED
+  - ERROR

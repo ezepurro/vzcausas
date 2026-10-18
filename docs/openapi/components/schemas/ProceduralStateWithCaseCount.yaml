@@ -1,0 +1,19 @@
+description: Estado procesal tal como lo devuelven las respuestas de `GET`.
+allOf:
+  - $ref: ./ProceduralState.yaml
+  - type: object
+    required:
+      - caseCount
+    properties:
+      caseCount:
+        type: integer
+        minimum: 0
+        readOnly: true
+        description: |
+          Causas que se encuentran hoy en este estado, **activas o no**:
+          también las de los estados terminales, como "Archivada" o
+          "Prescripta". No cuenta las dadas de baja ni las que están en
+          "Iniciada". Calculado, sólo lectura. Reemplaza a `activeCases`
+          desde V4 (D-70).
+        examples:
+          - 7

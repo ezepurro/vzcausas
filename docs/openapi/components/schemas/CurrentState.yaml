@@ -8,6 +8,11 @@ description: |
   Un plazo vencido sigue abierto hasta que un acto posterior lleve la causa a
   otro estado. Una causa con `dueDate` en `null` es una de las "causas para
   impulsar".
+
+  Una causa marcada como prescripta (HU33) está en el estado de sistema
+  "Prescripta", con `proceduralActId`, `dueDate` y `businessDaysRemaining` en
+  `null`: a ese estado no se llega por un acto procesal y se cierran los
+  plazos abiertos.
 required:
   - proceduralStateId
   - name
@@ -44,7 +49,9 @@ properties:
     type:
       - integer
       - 'null'
-    description: Acto procesal que llevó la causa a este estado. `null` en el estado inicial.
+    description: |
+      Acto procesal que llevó la causa a este estado. `null` en el estado
+      inicial y en "Prescripta", al que no se llega por un acto (D-54).
     examples:
       - 31
   dueDate:
@@ -54,7 +61,7 @@ properties:
     format: date
     description: |
       Vencimiento vigente del plazo que abrió ese acto. `null` si no abrió
-      plazo o si es el estado inicial.
+      plazo, si es el estado inicial o si la causa está prescripta.
     examples:
       - '2026-09-16'
   businessDaysRemaining:

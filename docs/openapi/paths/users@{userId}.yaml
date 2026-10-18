@@ -26,13 +26,15 @@ get:
             data:
               id: 15
               username: iperalta
-              fullName: Ignacio Peralta
+              lastName: Peralta
+              firstName: Ignacio
               email: iperalta@vazquezzarate.com
               roles:
                 - LAWYER
               lawyer:
                 id: 4
-                fullName: Dr. Ignacio Peralta
+                lastName: Peralta
+                firstName: Ignacio
                 registrationNumber: 1-35207
               lastLoginAt: '2026-09-19T18:20:00-03:00'
               active: true
@@ -61,6 +63,11 @@ patch:
     Modifica parcialmente la información de un usuario. No modifica la
     contraseña (ver `PATCH /auth/password`).
 
+    **Acceso a la carpeta del estudio en Drive** (D-83). Si cambia el correo,
+    el acceso pasa del anterior al nuevo; si cambian los roles, se da o se
+    quita según incluyan `LAWYER` o `SECRETARY`. La modificación **no falla
+    si Drive no responde**: el proceso diario vuelve a ajustar los accesos.
+
     **Rol requerido:** `ADMINISTRATOR`.
   requestBody:
     required: true
@@ -70,7 +77,8 @@ patch:
           $ref: ../components/schemas/UserUpdate.yaml
         example:
           username: iperalta
-          fullName: Ignacio Peralta
+          lastName: Peralta
+          firstName: Ignacio
           email: iperalta@vazquezzarate.com
           roles:
             - LAWYER
@@ -92,14 +100,16 @@ patch:
             data:
               id: 15
               username: iperalta
-              fullName: Ignacio Peralta
+              lastName: Peralta
+              firstName: Ignacio
               email: iperalta@vazquezzarate.com
               roles:
                 - LAWYER
                 - ADMINISTRATOR
               lawyer:
                 id: 4
-                fullName: Dr. Ignacio Peralta
+                lastName: Peralta
+                firstName: Ignacio
                 registrationNumber: 1-35207
               lastLoginAt: '2026-09-19T18:20:00-03:00'
               active: true
@@ -171,6 +181,10 @@ delete:
     existir para la API: no puede iniciar sesión, sus sesiones abiertas se
     cierran, no aparece en ningún listado y `GET /users/{userId}` responde
     `404`. No existe forma de consultarlo ni de reactivarlo desde la API.
+
+    **Acceso a la carpeta del estudio en Drive** (D-83). Se le quita el
+    acceso. La baja **no falla si Drive no responde**: el proceso diario
+    vuelve a ajustar los accesos.
 
     **Rol requerido:** `ADMINISTRATOR`.
   responses:

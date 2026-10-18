@@ -1,0 +1,40 @@
+type: object
+description: |
+  Alta de un modelo formal, en `multipart/form-data`. Cada campo viaja como
+  texto: los booleanos, como `true` o `false`; `jurisdictions` se repite una
+  vez por fuero. Para "Todos los fueros" se envían los tres valores.
+additionalProperties: false
+required:
+  - name
+  - jurisdictions
+  - file
+properties:
+  name:
+    type: string
+    minLength: 1
+    maxLength: 150
+    description: '"Nombre del modelo". No vacío. Único entre los modelos, sin distinguir mayúsculas.'
+    examples:
+      - Recurso de casación
+  jurisdictions:
+    type: array
+    description: '"Fuero". Al menos uno, sin repetir.'
+    minItems: 1
+    uniqueItems: true
+    items:
+      $ref: ./Jurisdiction.yaml
+    examples:
+      - - CRIMINAL
+  copyToNewCases:
+    type: boolean
+    default: true
+    description: '"Copiar en las causas nuevas de los fueros elegidos".'
+    examples:
+      - true
+  file:
+    type: string
+    format: binary
+    contentMediaType: application/vnd.openxmlformats-officedocument.wordprocessingml.document
+    description: |
+      "Archivo del modelo". Documento Word (`.docx`), hasta 10 MB. Un archivo
+      más grande responde `413 FILE_TOO_LARGE`.

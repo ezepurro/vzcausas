@@ -1,0 +1,60 @@
+type: object
+description: |
+  Un vencimiento abierto de un tablero: el plazo de un acto procesal
+  (`currentState.dueDate` no nulo) o el del acto lesivo de un amparo
+  (`harmfulActDeadline` no nulo). Una causa aparece una sola vez, porque el
+  vencimiento del acto lesivo solo existe mientras la causa está en
+  "Iniciada", que no abre plazo.
+
+  Con `businessDaysRemaining` el cliente arma los grupos "Vencidos", "Hoy",
+  "Esta semana" (de `1` a `5`) y "Después" (más de `5`).
+required:
+  - caseId
+  - kind
+  - sacNumber
+  - caption
+  - jurisdiction
+  - currentStateName
+  - responsibleLawyer
+  - dueDate
+  - businessDaysRemaining
+properties:
+  caseId:
+    type: integer
+    description: Causa. Con él se abre su detalle.
+    examples:
+      - 6
+  kind:
+    $ref: ./DeadlineKind.yaml
+  sacNumber:
+    type:
+      - string
+      - 'null'
+    description: Número de SAC.
+    examples:
+      - '12774310'
+  caption:
+    type: string
+    description: Carátula.
+    examples:
+      - MOYANO, Daniela c/ APROSS — Amparo de salud
+  jurisdiction:
+    $ref: ./Jurisdiction.yaml
+  currentStateName:
+    type: string
+    description: Estado procesal actual.
+    examples:
+      - Traslado a la demandada
+  responsibleLawyer:
+    $ref: ./LawyerReference.yaml
+  dueDate:
+    type: string
+    format: date
+    description: Vencimiento.
+    examples:
+      - '2026-09-15'
+  businessDaysRemaining:
+    type: integer
+    description: Días hábiles hasta el vencimiento. `0`, hoy; negativo, vencido.
+    examples:
+      - 0

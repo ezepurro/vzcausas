@@ -2,8 +2,8 @@ type: object
 description: |
   Proyección reducida del usuario que devuelve `POST /auth/refresh`. Solo
   incluye los campos que pueden variar entre sesión y sesión y que inciden en
-  la autorización. Los datos estables (`fullName`, `email`, `active`,
-  `lawyer`) el cliente los conserva de `POST /auth/login`.
+  la autorización. Los datos estables (`lastName`, `firstName`, `email`,
+  `active`, `lawyer`) el cliente los conserva de `POST /auth/login`.
 required:
   - id
   - username

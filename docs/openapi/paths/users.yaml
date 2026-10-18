@@ -6,6 +6,13 @@ post:
   description: |
     Registra un nuevo usuario. La contraseña se asigna en el alta.
 
+    **Acceso a la carpeta del estudio en Drive** (D-83). Si los roles
+    incluyen `LAWYER` o `SECRETARY`, el sistema comparte la carpeta raíz
+    `VZ Causas` con el `email` del usuario, como editor. No cambia el cuerpo
+    ni la respuesta, y el alta **no falla si Drive no responde**: el proceso
+    diario vuelve a ajustar los accesos. El correo tiene que ser de una
+    cuenta de Google para que el acceso funcione (C-23).
+
     **Rol requerido:** `ADMINISTRATOR`.
   requestBody:
     required: true
@@ -18,7 +25,8 @@ post:
             summary: Vinculando un abogado ya registrado
             value:
               username: iperalta
-              fullName: Ignacio Peralta
+              lastName: Peralta
+              firstName: Ignacio
               email: iperalta@vazquezzarate.com
               password: password1
               roles:
@@ -28,19 +36,22 @@ post:
             summary: Registrando un abogado nuevo en la misma operación
             value:
               username: iperalta
-              fullName: Ignacio Peralta
+              lastName: Peralta
+              firstName: Ignacio
               email: iperalta@vazquezzarate.com
               password: password1
               roles:
                 - LAWYER
               lawyer:
-                fullName: Dr. Ignacio Peralta
+                lastName: Peralta
+                firstName: Ignacio
                 registrationNumber: 1-35207
           withoutLawyer:
             summary: Usuario que no ejerce
             value:
               username: gestion
-              fullName: Gestión Estudio
+              lastName: Estudio
+              firstName: Gestión
               email: gestion@vazquezzarate.com
               password: password1
               roles:
@@ -61,13 +72,15 @@ post:
             data:
               id: 15
               username: iperalta
-              fullName: Ignacio Peralta
+              lastName: Peralta
+              firstName: Ignacio
               email: iperalta@vazquezzarate.com
               roles:
                 - LAWYER
               lawyer:
                 id: 4
-                fullName: Dr. Ignacio Peralta
+                lastName: Peralta
+                firstName: Ignacio
                 registrationNumber: 1-35207
               lastLoginAt: null
               active: true
@@ -142,7 +155,7 @@ get:
     - name: search
       in: query
       required: false
-      description: Filtra por `username` y por `fullName`.
+      description: Filtra por `username`, `lastName` y `firstName`.
       schema:
         type: string
     - name: role
@@ -172,20 +185,23 @@ get:
             data:
               - id: 1
                 username: fvazquez
-                fullName: Fernando G. Vázquez
+                lastName: Vázquez
+                firstName: Fernando G.
                 email: fvazquez@vazquezzarate.com
                 roles:
                   - ADMINISTRATOR
                   - LAWYER
                 lawyer:
                   id: 1
-                  fullName: Dr. Fernando G. Vázquez
+                  lastName: Vázquez
+                  firstName: Fernando G.
                   registrationNumber: 1-28114
                 lastLoginAt: '2026-09-19T08:12:00-03:00'
                 active: true
               - id: 8
                 username: gestion
-                fullName: Gestión Estudio
+                lastName: Estudio
+                firstName: Gestión
                 email: gestion@vazquezzarate.com
                 roles:
                   - SECRETARY

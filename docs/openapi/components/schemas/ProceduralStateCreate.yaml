@@ -11,7 +11,7 @@ properties:
   name:
     type: string
     minLength: 1
-    description: Única dentro del fuero. "Iniciada" está reservada.
+    description: Única dentro del fuero. "Iniciada" está reservada, y "Prescripta" en `CRIMINAL`.
     examples:
       - Oposición al requerimiento de elevación
   jurisdiction:

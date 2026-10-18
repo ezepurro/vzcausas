@@ -104,14 +104,18 @@ post:
       plazo, la causa queda sin vencimiento.
     - **Primer acto.** En una causa en el estado inicial, el acto la hace
       entrar al ciclo de vida del fuero (`currentState.initial` pasa a
-      `false`). Puede llevarla a cualquier estado no terminal del fuero o a un
-      estado escrito a mano.
+      `false`). Puede llevarla a cualquier estado del fuero salvo
+      "Prescripta", terminal o no, o a un estado escrito a mano.
     - La causa toma el estado del acto **con la fecha de acto más reciente**.
       Un acto con fecha anterior al último registrado queda asentado pero no
       retrocede el estado actual ni reemplaza el vencimiento vigente.
 
-    Los estados terminales ("Archivada", "Prescripta") no pueden ser destino
-    de un acto.
+    **Estados terminales** (D-69). Un acto puede llevar la causa a un estado
+    terminal, como "Archivada": es la forma de cerrarla. La excepción es
+    "Prescripta", que tiene su propio endpoint
+    (`POST /cases/{caseId}/prescription`). Un estado terminal no abre plazo,
+    así que el acto no admite `manualDueDate`. La causa deja de ser activa y
+    ya no admite actos nuevos (`422 CASE_IN_TERMINAL_STATE`).
 
     **Rol requerido:** abogado responsable de la causa. El `lawyerId` del
     usuario autenticado debe ser igual a `responsibleLawyer.id` de la causa.
@@ -221,13 +225,13 @@ post:
                   details:
                     notificationDate: Es obligatoria en el fuero administrativo cuando el estado abre plazo (RN6).
             invalidState:
-              summary: Estado de otro fuero o terminal
+              summary: Estado de otro fuero o "Prescripta"
               value:
                 error:
                   code: VALIDATION_ERROR
                   message: Los datos enviados no son válidos.
                   details:
-                    proceduralStateId: El estado procesal no pertenece al fuero de la causa o es terminal.
+                    proceduralStateId: El estado procesal no pertenece al fuero de la causa o es el estado Prescripta.
             invalidCaseId:
               $ref: ../components/examples/InvalidCaseIdError.yaml
     '401':

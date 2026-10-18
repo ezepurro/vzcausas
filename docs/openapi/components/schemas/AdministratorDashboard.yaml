@@ -1,0 +1,64 @@
+type: object
+description: |
+  Tablero del administrador, "Estudio" (HU42). El alcance son todas las
+  causas activas del estudio, con el responsable de cada una. Las listas no
+  están paginadas (D-62). El filtro por abogado y por urgencia los aplica el
+  cliente sobre `deadlines`.
+required:
+  - date
+  - summary
+  - casesByJurisdiction
+  - deadlines
+  - prescriptionAlerts
+  - team
+properties:
+  date:
+    type: string
+    format: date
+    description: Fecha del día en Córdoba, contra la que se calculó todo.
+    examples:
+      - '2026-09-15'
+  summary:
+    allOf:
+      - $ref: ./DashboardSummary.yaml
+    description: Indicadores sobre toda la cartera.
+  casesByJurisdiction:
+    type: array
+    description: |
+      "Cartera por fuero". Trae siempre los tres fueros, aunque alguno no
+      tenga causas; la suma de sus `activeCases` es igual a
+      `summary.activeCases`.
+    minItems: 3
+    maxItems: 3
+    items:
+      type: object
+      required:
+        - jurisdiction
+        - activeCases
+      properties:
+        jurisdiction:
+          $ref: ./Jurisdiction.yaml
+        activeCases:
+          type: integer
+          minimum: 0
+          examples:
+            - 63
+  deadlines:
+    type: array
+    description: '"Vencimientos del estudio": todos los plazos abiertos, por `dueDate` ascendente.'
+    items:
+      $ref: ./DashboardDeadline.yaml
+  prescriptionAlerts:
+    type: array
+    description: Causas con alerta de prescripción de todo el estudio, por `expiresOn` ascendente.
+    items:
+      $ref: ./PrescriptionAlert.yaml
+  team:
+    type: array
+    description: |
+      "Carga del equipo": un elemento por abogado vigente. Por urgencia:
+      primero los abogados con más plazos vencidos, luego con más que vencen
+      hoy, luego con más en los próximos 5 días hábiles; a igualdad, por
+      `lastName` y `firstName`.
+    items:
+      $ref: ./TeamMember.yaml

@@ -1,0 +1,50 @@
+type: object
+description: |
+  Carpeta de la causa en el almacenamiento en la nube del estudio (Google
+  Drive), HU39 y HU40. Se ubica en `/VZ Causas/{abogado}/{fuero}/{carátula}`
+  (D-61) y no se renombra ni se mueve.
+
+  Si el almacenamiento falla, la operación que pidió la carpeta no falla: la
+  carpeta queda en `ERROR` y se reintenta con `POST /cases/{caseId}/folder`.
+  Si la carpeta se creó pero falló la copia de algún modelo, queda `CREATED`
+  con `templatesPending` mayor a `0`.
+required:
+  - status
+  - url
+  - path
+  - templatesCopied
+  - templatesPending
+properties:
+  status:
+    $ref: ./CaseFolderStatus.yaml
+  url:
+    type:
+      - string
+      - 'null'
+    format: uri
+    description: |
+      Enlace para abrir la carpeta ("Abrir carpeta en Drive"). `null`
+      mientras `status` no es `CREATED`.
+    examples:
+      - https://drive.google.com/drive/folders/1Qw8zT3nKcVb5LhXy2RmPd7sUeJ4oAfG9
+  path:
+    type: string
+    description: |
+      Ubicación de la carpeta. Es un dato para mostrar, no para separar en
+      partes: la carátula puede contener una barra ("c/ APROSS").
+    examples:
+      - /VZ Causas/Ríos, Malena/Penal/GÓMEZ, Ariel Fernando p.s.a. Robo calificado
+  templatesCopied:
+    type: integer
+    minimum: 0
+    description: Modelos formales copiados a la carpeta (HU40). `0` si no se pidió copiarlos.
+    examples:
+      - 6
+  templatesPending:
+    type: integer
+    minimum: 0
+    description: |
+      Modelos que se pidió copiar y todavía no se copiaron, porque falló la
+      carpeta o alguna copia. `0` si no hay nada pendiente.
+    examples:
+      - 0

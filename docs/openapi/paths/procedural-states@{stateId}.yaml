@@ -22,7 +22,7 @@ get:
               - data
             properties:
               data:
-                $ref: ../components/schemas/ProceduralStateWithActiveCases.yaml
+                $ref: ../components/schemas/ProceduralStateWithCaseCount.yaml
           example:
             data:
               id: 12
@@ -31,7 +31,7 @@ get:
               timeLimitDays: 5
               dayType: BUSINESS
               terminal: false
-              activeCases: 7
+              caseCount: 7
               active: true
     '400':
       description: Identificador inválido.
@@ -54,7 +54,10 @@ patch:
   summary: Modificar estado procesal
   description: |
     Modifica parcialmente un estado procesal (HU17). El fuero no es
-    modificable. La respuesta no incluye `activeCases`.
+    modificable. La respuesta no incluye `caseCount`.
+
+    "Prescripta", el estado de sistema del fuero penal, está protegido:
+    responde `422 PROCEDURAL_STATE_PROTECTED` (D-53).
 
     Renombrar un estado actualiza la denominación en todas las causas que lo
     tienen. Modificar `timeLimitDays` o `dayType` **no recalcula los
@@ -133,6 +136,8 @@ patch:
               code: PROCEDURAL_STATE_ALREADY_EXISTS
               message: Ya existe un estado procesal con esa denominación en el fuero.
               details: null
+    '422':
+      $ref: ../components/responses/ProceduralStateProtected.yaml
 
 delete:
   tags:
@@ -149,6 +154,9 @@ delete:
     **La baja procede aunque haya causas en ese estado.** Esas causas lo
     conservan como estado actual hasta que un acto las lleve a otro, y sus
     vencimientos no se alteran.
+
+    "Prescripta", el estado de sistema del fuero penal, está protegido:
+    responde `422 PROCEDURAL_STATE_PROTECTED` (D-53).
 
     **Rol requerido:** cualquier usuario autenticado.
   responses:
@@ -167,3 +175,5 @@ delete:
       $ref: ../components/responses/Unauthorized.yaml
     '404':
       $ref: ../components/responses/ProceduralStateNotFound.yaml
+    '422':
+      $ref: ../components/responses/ProceduralStateProtected.yaml

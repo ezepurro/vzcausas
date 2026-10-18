@@ -1,0 +1,78 @@
+get:
+  tags:
+    - Dashboards
+  operationId: getLawyerDashboard
+  summary: Tablero del abogado
+  description: |
+    Obtiene el tablero del abogado: "Mi día" (HU41). Es un modelo de lectura,
+    calculado en cada petición: refleja un acto procesal apenas se registra
+    (CA-41.9). Solo cuentan las causas activas (CA-41.6).
+
+    El tablero es el del abogado vinculado al usuario autenticado (su
+    `lawyerId`): no recibe parámetros y no permite ver el de otro abogado. Si
+    el usuario además es `ADMINISTRATOR`, también ve la pestaña "Estudio"
+    (`GET /dashboards/administrator`, D-63).
+
+    **Rol requerido:** `LAWYER`.
+  responses:
+    '200':
+      description: Tablero del abogado, calculado para el martes 15/09/2026.
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - data
+            properties:
+              data:
+                $ref: ../components/schemas/LawyerDashboard.yaml
+          example:
+            data:
+              date: '2026-09-15'
+              lawyer:
+                id: 1
+                lastName: Vázquez
+                firstName: Fernando G.
+              summary:
+                dueToday: 1
+                overdue: 0
+                dueSoon: 0
+                activeCases: 14
+              deadlines:
+                - caseId: 6
+                  kind: PROCEDURAL_ACT
+                  sacNumber: '12774310'
+                  caption: MOYANO, Daniela c/ APROSS — Amparo de salud
+                  jurisdiction: AMPARO
+                  currentStateName: Traslado a la demandada
+                  responsibleLawyer:
+                    id: 1
+                    lastName: Vázquez
+                    firstName: Fernando G.
+                  dueDate: '2026-09-15'
+                  businessDaysRemaining: 0
+              prescriptionAlerts:
+                - caseId: 4
+                  sacNumber: '11845620'
+                  caption: ACOSTA, Jonathan E. p.s.a. Infracción Ley 23.737
+                  responsibleLawyer:
+                    id: 1
+                    lastName: Vázquez
+                    firstName: Fernando G.
+                  legalQualificationName: Infracción Ley 23.737 — art. 5 inc. c
+                  startsOn: '2022-01-19'
+                  expiresOn: '2028-01-19'
+                  elapsedPercentage: 78
+                  expired: false
+              casesToAdvance:
+                - caseId: 4
+                  sacNumber: '11845620'
+                  caption: ACOSTA, Jonathan E. p.s.a. Infracción Ley 23.737
+                  jurisdiction: CRIMINAL
+                  currentStateName: Cédula de notificación
+                  lastActDate: '2026-07-06'
+                  daysSinceLastAct: 71
+    '401':
+      $ref: ../components/responses/Unauthorized.yaml
+    '403':
+      $ref: ../components/responses/ForbiddenLawyer.yaml

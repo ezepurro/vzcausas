@@ -1,0 +1,10 @@
+type: object
+description: Cuerpo de `POST /cases/{caseId}/folder`. Puede omitirse.
+additionalProperties: false
+properties:
+  copyTemplates:
+    type: boolean
+    default: true
+    description: Copiar a la carpeta los modelos formales del fuero (HU40).
+    examples:
+      - true

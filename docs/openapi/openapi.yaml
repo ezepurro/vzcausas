@@ -2,13 +2,18 @@ openapi: 3.1.0
 
 info:
   title: VZ Causas API
-  version: 3.0.0
-  summary: Contrato de la API de VZ Causas para el Sprint 2.
+  version: 4.0.0
+  summary: Contrato de la API de VZ Causas para el Sprint 3.
   description: |
-    Traducción a OpenAPI de `docs/Api-Contract/API_CONTRACT_V3.md` (última
-    revisión: 11/10/2026). Ante cualquier diferencia, el contrato en Markdown
-    es la referencia; las decisiones (D-xx) y los puntos a verificar (C-xx)
-    se documentan allí.
+    Traducción a OpenAPI de `docs/api-contract/API_CONTRACT_V4.md` (versión del
+    14/10/2026, con la revisión del 19/10/2026 de HU27). Ante cualquier
+    diferencia, el contrato en Markdown es la referencia; las decisiones
+    (D-xx) y los puntos abiertos (C-xx) se documentan allí.
+
+    **Cambios que rompen la compatibilidad con V3:** el nombre y el apellido
+    separados (`lastName` y `firstName` en lugar de `fullName`) en usuarios,
+    abogados y toda referencia a ellos (D-68), y `caseCount` en lugar de
+    `activeCases` en los estados procesales (D-70).
 
     ## Autenticación
 
@@ -44,27 +49,37 @@ info:
 
     Un endpoint indicado con un rol (`ADMINISTRATOR`, `LAWYER` o `SECRETARY`)
     requiere que el usuario autenticado lo posea; un usuario con varios roles
-    lo satisface si el rol exigido está entre ellos. Si no lo posee, la
-    respuesta es `403 FORBIDDEN`. El rol requerido figura en la descripción de
-    cada operación.
+    lo satisface si el rol exigido está entre ellos. Cuando un endpoint
+    indica dos roles —"`ADMINISTRATOR` o `LAWYER`"— alcanza con poseer uno.
+    Si no lo posee, la respuesta es `403 FORBIDDEN`. El rol requerido figura
+    en la descripción de cada operación.
 
-    Los **actos procesales** son la excepción: solo los registra el **abogado
-    responsable de la causa**, comparando el `lawyerId` del usuario con el
-    responsable. Ningún otro usuario, ni siquiera un `ADMINISTRATOR`.
+    Los **actos procesales** y los **actos interruptivos** son la excepción:
+    solo los registra el **abogado responsable de la causa**, comparando el
+    `lawyerId` del usuario con el responsable. Ningún otro usuario, ni
+    siquiera un `ADMINISTRATOR`.
 
-    | Recurso                           | Lectura (`GET`)                                       | Escritura                                            |
-    | --------------------------------- | ----------------------------------------------------- | ---------------------------------------------------- |
-    | `/auth`                           | -                                                     | Cualquier usuario autenticado (`logout`, `password`) |
-    | `/users`                          | `ADMINISTRATOR`                                       | `ADMINISTRATOR`                                      |
-    | `/lawyers`                        | Cualquier usuario autenticado                         | `ADMINISTRATOR`                                      |
-    | `/procedural-states`              | Cualquier usuario autenticado                         | Cualquier usuario autenticado                        |
-    | `/legal-qualifications`           | Cualquier usuario autenticado                         | Cualquier usuario autenticado                        |
-    | `/clients`                        | Cualquier usuario autenticado                         | Cualquier usuario autenticado                        |
-    | `/cases`                          | Cualquier usuario autenticado                         | Cualquier usuario autenticado                        |
-    | `/cases/{caseId}/procedural-acts` | Cualquier usuario autenticado; `deadline-preview`, solo el abogado responsable | Abogado responsable de la causa |
+    | Recurso                             | Lectura (`GET`)                                       | Escritura                                            |
+    | ----------------------------------- | ----------------------------------------------------- | ---------------------------------------------------- |
+    | `/auth`                             | -                                                     | Cualquier usuario autenticado (`logout`, `password`) |
+    | `/users`                            | `ADMINISTRATOR`                                       | `ADMINISTRATOR`                                      |
+    | `/lawyers`                          | Cualquier usuario autenticado                         | `ADMINISTRATOR`                                      |
+    | `/procedural-states`                | Cualquier usuario autenticado                         | Cualquier usuario autenticado                        |
+    | `/legal-qualifications`             | Cualquier usuario autenticado                         | Cualquier usuario autenticado                        |
+    | `/clients`                          | Cualquier usuario autenticado                         | Cualquier usuario autenticado                        |
+    | `/cases`                            | Cualquier usuario autenticado                         | Cualquier usuario autenticado                        |
+    | `/cases/{caseId}/prescription`      | -                                                     | `ADMINISTRATOR` o `LAWYER`                           |
+    | `/cases/{caseId}/folder`            | -                                                     | Cualquier usuario autenticado                        |
+    | `/cases/{caseId}/procedural-acts`   | Cualquier usuario autenticado; `deadline-preview`, solo el abogado responsable | Abogado responsable de la causa |
+    | `/cases/{caseId}/interruptive-acts` | Cualquier usuario autenticado                         | Abogado responsable de la causa                      |
+    | `/document-templates`               | `ADMINISTRATOR` o `LAWYER`                            | `ADMINISTRATOR` o `LAWYER`                           |
+    | `/dashboards/lawyer`                | `LAWYER`                                              | -                                                    |
+    | `/dashboards/administrator`         | `ADMINISTRATOR`                                       | -                                                    |
 
     RN11: todo el estudio accede a todas las causas. La diferencia entre
     perfiles está en lo que pueden **operar**, no en lo que pueden **ver**.
+    Los modelos formales y los tableros son los primeros recursos cuya
+    lectura no está abierta a los tres perfiles.
 
     ## Formato de intercambio
 
@@ -77,6 +92,13 @@ info:
     calendario judicial de Córdoba y "hoy" se interpreta en la zona horaria
     `America/Argentina/Cordoba`.
 
+    **Excepciones al JSON.** `POST /document-templates` recibe el cuerpo en
+    `multipart/form-data`, con el archivo en el campo `file` (cada campo
+    viaja como texto; `jurisdictions` se repite una vez por valor).
+    `GET /document-templates/{templateId}/file` responde el archivo, con su
+    `Content-Type` y `Content-Disposition: attachment`; sus errores son JSON.
+    El tamaño máximo de un archivo es **10 MB** (`413 FILE_TOO_LARGE`).
+
     ## Respuestas
 
     Recurso individual:
@@ -86,8 +108,9 @@ info:
     ```
 
     Colección paginada (sin resultados: `data` vacío y `totalItems` y
-    `totalPages` en `0`). La única colección no paginada es
-    `GET /cases/custom-states`.
+    `totalPages` en `0`). No están paginadas `GET /cases/custom-states`,
+    `GET /cases/{caseId}/timeline` (D-85) y las listas que vienen dentro de
+    un tablero (D-62).
 
     ```json
     { "data": [], "pagination": { "page": 1, "limit": 20, "totalItems": 57, "totalPages": 3 } }
@@ -110,13 +133,20 @@ info:
     señalan en el formulario); `422`, datos válidos que una regla de negocio
     impide procesar (se informa como aviso).
 
+    `502 DOCUMENT_STORAGE_UNAVAILABLE` distingue una falla del
+    almacenamiento en la nube (Google Drive) de un error propio: para el
+    cliente es "reintentar más tarde". El alta de causa nunca lo responde:
+    registra la causa y deja la carpeta pendiente.
+
     ## Causa activa
 
     Una causa es **activa** cuando no fue dada de baja y su estado procesal
     actual no es terminal (ni "Archivada" ni "Prescripta"). Es la definición
-    que aplican todos los campos `activeCases`. Un estado escrito a mano no es
-    terminal, y una causa en el estado inicial "Iniciada" también es activa
-    (pero no cuenta para el `activeCases` de ningún estado procesal).
+    que aplican todos los campos `activeCases` (abogado, calificación legal y
+    cliente) y los tableros. Un estado escrito a mano no es terminal, y una
+    causa en el estado inicial "Iniciada" también es activa. El estado
+    procesal no usa esta definición: su `caseCount` cuenta todas las causas
+    que están en él, activas o no.
 
     ## Cómputo de días
 
@@ -126,7 +156,43 @@ info:
     - **`businessDaysRemaining`:** días hábiles entre hoy (excluido) y el
       vencimiento (incluido). `0` si vence hoy; negativo si ya venció.
 
-    En esta versión no se excluyen feriados ni la feria judicial (C-05).
+    Solo sábados y domingos son días no hábiles: feriados y feria judicial no
+    se excluyen (D-73).
+
+    ## Prescripción
+
+    - Solo el fuero `CRIMINAL` computa prescripción; una causa penal sin
+      calificación legal tampoco prescribe (D-74).
+    - Cada calificación computa la suya: vence en `prescriptionStartsOn` más
+      `prescriptionMonths`. `prescriptionStartsOn` es la fecha del acto
+      interruptivo más reciente o, si no hay, la fecha del hecho (RN8).
+    - La que rige la causa es la que prescribe primero, resumida en
+      `prescription`, con la alerta al **70 %** (fijo) y `expired` cuando el
+      plazo se cumplió. Nada se guarda calculado (D-08).
+    - Que el plazo esté cumplido no cambia el estado de la causa: la marca
+      como prescripta una persona, con `POST /cases/{caseId}/prescription`
+      (D-52).
+
+    ## Carpeta de la causa
+
+    El almacenamiento en la nube es Google Drive, en la cuenta de gestión del
+    estudio (D-84). Cada causa tiene su carpeta en
+    `/VZ Causas/{abogado}/{fuero}/{carátula}` (D-61), con los modelos
+    formales de su fuero que se copian a las causas nuevas. La carpeta raíz
+    `VZ Causas` se comparte, como editores, con los usuarios vigentes con rol
+    `LAWYER` o `SECRETARY` (D-83). Si Drive falla, la operación que pidió la
+    carpeta no falla (D-60).
+
+    ## Proceso automático diario
+
+    HU30, HU32, HU51 y HU52 no tienen endpoints: son un proceso que corre una
+    vez por día, en la hora de Córdoba. Verifica los vencimientos abiertos
+    (de actos procesales y del acto lesivo) y la prescripción de las causas
+    activas, y envía **un correo por día** con los avisos: preaviso y día del
+    vencimiento, alerta de prescripción al 70 % y prescripción cumplida
+    (D-64). También ajusta el acceso de los usuarios a la carpeta del
+    estudio. No guarda estados calculados ni cambia el estado de ninguna
+    causa. Su configuración es del servidor, no de la API (D-79).
 
     ## Bajas
 
@@ -152,7 +218,10 @@ tags:
   - name: Auth
     description: Inicio y cierre de sesión, renovación del token y cambio de contraseña.
   - name: Users
-    description: Gestión de usuarios del sistema. Solo `ADMINISTRATOR`.
+    description: |
+      Gestión de usuarios del sistema. Solo `ADMINISTRATOR`. El alta, la
+      modificación y la baja dan y quitan el acceso a la carpeta del estudio
+      en Drive (D-83).
   - name: Lawyers
     description: |
       Abogados del estudio. Lectura para cualquier usuario autenticado
@@ -161,9 +230,9 @@ tags:
   - name: Procedural States
     description: |
       Tabla de estados y plazos de cada fuero (RN4). Lectura y escritura para
-      cualquier usuario autenticado. Cada fuero tiene
-      además el estado de sistema "Iniciada", que no forma parte de este
-      recurso.
+      cualquier usuario autenticado. Cada fuero tiene además el estado de
+      sistema "Iniciada", que no forma parte de este recurso; el fuero penal
+      tiene también "Prescripta", que sí forma parte y está protegido (D-53).
   - name: Legal Qualifications
     description: |
       Encuadre jurídico del hecho imputado; determina el plazo de
@@ -173,11 +242,12 @@ tags:
     description: |
       Clientes del estudio. Lectura y alta para cualquier usuario
       autenticado. Modificación y baja (HU10 y HU11) llegan en el
-      Sprint 4.
+      Sprint 5.
   - name: Cases
     description: |
-      Causas del estudio. Lectura y alta para cualquier usuario autenticado.
-      Modificación y baja (HU19 y HU21) llegan en el Sprint 3.
+      Causas del estudio. Lectura, alta y carpeta en la nube para cualquier
+      usuario autenticado; marcarla como prescripta, para `ADMINISTRATOR` o
+      `LAWYER`. Modificación y baja (HU19 y HU21) llegan en el Sprint 4.
   - name: Procedural Acts
     description: |
       El acto procesal mueve la causa de estado y abre el plazo (RN5). Solo
@@ -187,6 +257,15 @@ tags:
       El acto interruptivo reinicia la prescripción de una causa penal desde
       su fecha (RN8). No mueve el estado ni abre plazos. Solo lo registra el
       abogado responsable de la causa.
+  - name: Document Templates
+    description: |
+      Modelos formales: los escritos tipo del estudio, plantillas `.docx` que
+      se copian a la carpeta de las causas nuevas (HU34, HU35, HU40). Lectura
+      y alta para `ADMINISTRATOR` o `LAWYER`.
+  - name: Dashboards
+    description: |
+      Tableros de la pantalla "Inicio" (HU41, HU42). Modelos de lectura, sin
+      paginar, calculados en cada petición. La Secretaría no tiene tablero.
 
 paths:
   /auth/login:
@@ -225,6 +304,10 @@ paths:
     $ref: paths/cases@{caseId}.yaml
   /cases/{caseId}/timeline:
     $ref: paths/cases@{caseId}@timeline.yaml
+  /cases/{caseId}/prescription:
+    $ref: paths/cases@{caseId}@prescription.yaml
+  /cases/{caseId}/folder:
+    $ref: paths/cases@{caseId}@folder.yaml
   /cases/{caseId}/procedural-acts:
     $ref: paths/cases@{caseId}@procedural-acts.yaml
   /cases/{caseId}/procedural-acts/deadline-preview:
@@ -233,6 +316,16 @@ paths:
     $ref: paths/cases@{caseId}@procedural-acts@{actId}.yaml
   /cases/{caseId}/interruptive-acts:
     $ref: paths/cases@{caseId}@interruptive-acts.yaml
+  /document-templates:
+    $ref: paths/document-templates.yaml
+  /document-templates/{templateId}:
+    $ref: paths/document-templates@{templateId}.yaml
+  /document-templates/{templateId}/file:
+    $ref: paths/document-templates@{templateId}@file.yaml
+  /dashboards/lawyer:
+    $ref: paths/dashboards@lawyer.yaml
+  /dashboards/administrator:
+    $ref: paths/dashboards@administrator.yaml
 
 components:
   securitySchemes:

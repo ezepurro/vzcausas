@@ -1,0 +1,46 @@
+type: object
+description: |
+  Vencimiento para presentar el amparo desde el acto lesivo, calculado por el
+  backend (D-78). Vencido ese plazo ya no se puede presentar el amparo.
+
+  - **Renovaciones.** Si `harmfulActRenews` es `true`, el acto se renueva cada
+    `harmfulActRenewalDays` días corridos contados desde `harmfulActDate`. Se
+    toma la renovación más reciente que no supera hoy y se calcula el
+    vencimiento desde ella. No hay historial de renovaciones.
+  - **Cómputo del plazo.** En días `BUSINESS`, desde el día siguiente a
+    `actDate` y sin sábados ni domingos; en días `CONSECUTIVE`, días corridos.
+  - **Dónde se ve.** En el detalle de la causa, en los vencimientos de los
+    tableros (con `kind` en `HARMFUL_ACT`) y en los avisos por correo del
+    proceso diario.
+required:
+  - actDate
+  - renewed
+  - dueDate
+  - businessDaysRemaining
+properties:
+  actDate:
+    type: string
+    format: date
+    description: |
+      Fecha vigente del acto lesivo: `harmfulActDate` o, si el acto se
+      renueva, la última renovación que no supera hoy.
+    examples:
+      - '2026-09-02'
+  renewed:
+    type: boolean
+    description: '`true` si `actDate` es una renovación y no la fecha cargada.'
+    examples:
+      - true
+  dueDate:
+    type: string
+    format: date
+    description: |
+      Vencimiento para presentar el amparo: `actDate` más `harmfulActTermDays`,
+      contados según `harmfulActTermDayType`.
+    examples:
+      - '2026-09-23'
+  businessDaysRemaining:
+    type: integer
+    description: Días hábiles desde hoy (excluido) hasta `dueDate` (incluido). `0`, vence hoy; negativo, vencido.
+    examples:
+      - 6

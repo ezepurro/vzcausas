@@ -12,7 +12,7 @@ description: |
   | `SAME_PASSWORD`                      | 400  | La contraseña nueva es igual a la actual. Exclusivo de `PATCH /auth/password` |
   | `INVALID_CREDENTIALS`                | 401  | Credenciales incorrectas. Exclusivo de `/auth/login`                      |
   | `UNAUTHENTICATED`                    | 401  | Token ausente, vencido, revocado o la sesión cerrada por inactividad      |
-  | `FORBIDDEN`                          | 403  | Usuario autenticado sin el rol requerido                                  |
+  | `FORBIDDEN`                          | 403  | Usuario autenticado sin el rol requerido, o que no es el abogado responsable de la causa |
   | `USER_NOT_FOUND`                     | 404  | Usuario inexistente                                                       |
   | `LAWYER_NOT_FOUND`                   | 404  | Abogado inexistente                                                       |
   | `PROCEDURAL_STATE_NOT_FOUND`         | 404  | Estado procesal inexistente                                               |
@@ -20,6 +20,7 @@ description: |
   | `CLIENT_NOT_FOUND`                   | 404  | Cliente inexistente                                                       |
   | `CASE_NOT_FOUND`                     | 404  | Causa inexistente                                                         |
   | `PROCEDURAL_ACT_NOT_FOUND`           | 404  | Acto procesal inexistente o de otra causa                                 |
+  | `DOCUMENT_TEMPLATE_NOT_FOUND`        | 404  | Modelo formal inexistente. Nuevo en V4                                    |
   | `RESOURCE_NOT_FOUND`                 | 404  | Ruta inexistente                                                          |
   | `USERNAME_ALREADY_EXISTS`            | 409  | Nombre de usuario ya registrado                                           |
   | `EMAIL_ALREADY_EXISTS`               | 409  | Correo electrónico ya registrado                                          |
@@ -28,15 +29,19 @@ description: |
   | `LEGAL_QUALIFICATION_ALREADY_EXISTS` | 409  | Denominación de calificación legal ya registrada                          |
   | `CLIENT_DNI_ALREADY_EXISTS`          | 409  | DNI ya registrado en un cliente vigente                                   |
   | `CASE_SAC_ALREADY_EXISTS`            | 409  | Número de SAC ya registrado (RN2)                                         |
+  | `DOCUMENT_TEMPLATE_ALREADY_EXISTS`   | 409  | Nombre de modelo formal ya registrado. Nuevo en V4                        |
   | `USER_HAS_DEPENDENCIES`              | 409  | El usuario posee recursos asociados                                       |
   | `LAWYER_HAS_DEPENDENCIES`            | 409  | El abogado posee causas o un usuario vinculado                            |
+  | `FILE_TOO_LARGE`                     | 413  | El archivo enviado supera los 10 MB. Nuevo en V4                          |
   | `INVALID_CURRENT_PASSWORD`           | 422  | La contraseña actual no coincide                                          |
-  | `CASE_IN_TERMINAL_STATE`             | 422  | Acto procesal o interruptivo sobre una causa en estado terminal           |
-  | `PRESCRIPTION_NOT_APPLICABLE`        | 422  | Acto interruptivo sobre una causa que no es del fuero penal               |
+  | `CASE_IN_TERMINAL_STATE`             | 422  | Acto procesal, acto interruptivo o marca de prescripción sobre una causa en estado terminal |
+  | `PRESCRIPTION_NOT_APPLICABLE`        | 422  | Acto interruptivo o marca de prescripción sobre una causa que no es del fuero penal, o marca de prescripción sobre una causa sin calificaciones legales |
+  | `PROCEDURAL_STATE_PROTECTED`         | 422  | Modificación o baja del estado de sistema "Prescripta". Nuevo en V4       |
   | `BUSINESS_RULE_VIOLATION`            | 422  | Violación de una regla de negocio                                         |
   | `TOO_MANY_LOGIN_ATTEMPTS`            | 429  | Bloqueo progresivo por intentos fallidos. Exclusivo de `POST /auth/login` |
   | `TOO_MANY_REQUESTS`                  | 429  | Límite de pedidos por dirección IP superado                               |
   | `INTERNAL_SERVER_ERROR`              | 500  | Error interno inesperado                                                  |
+  | `DOCUMENT_STORAGE_UNAVAILABLE`       | 502  | El almacenamiento en la nube (Google Drive) no respondió. Nuevo en V4     |
 enum:
   - VALIDATION_ERROR
   - INVALID_PAGINATION
@@ -53,6 +58,7 @@ enum:
   - CLIENT_NOT_FOUND
   - CASE_NOT_FOUND
   - PROCEDURAL_ACT_NOT_FOUND
+  - DOCUMENT_TEMPLATE_NOT_FOUND
   - RESOURCE_NOT_FOUND
   - USERNAME_ALREADY_EXISTS
   - EMAIL_ALREADY_EXISTS
@@ -61,12 +67,16 @@ enum:
   - LEGAL_QUALIFICATION_ALREADY_EXISTS
   - CLIENT_DNI_ALREADY_EXISTS
   - CASE_SAC_ALREADY_EXISTS
+  - DOCUMENT_TEMPLATE_ALREADY_EXISTS
   - USER_HAS_DEPENDENCIES
   - LAWYER_HAS_DEPENDENCIES
+  - FILE_TOO_LARGE
   - INVALID_CURRENT_PASSWORD
   - CASE_IN_TERMINAL_STATE
   - PRESCRIPTION_NOT_APPLICABLE
+  - PROCEDURAL_STATE_PROTECTED
   - BUSINESS_RULE_VIOLATION
   - TOO_MANY_LOGIN_ATTEMPTS
   - TOO_MANY_REQUESTS
   - INTERNAL_SERVER_ERROR
+  - DOCUMENT_STORAGE_UNAVAILABLE
