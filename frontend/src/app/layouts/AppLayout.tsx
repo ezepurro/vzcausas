@@ -43,7 +43,6 @@ const GROUPS: RailGroup[] = [
         items: [
             { id: '/inicio', label: 'Inicio', icon: 'home' },
             { id: '/causas', label: 'Causas', icon: 'cases' },
-            { id: '/vencimientos', label: 'Vencimientos', icon: 'deadlines' },
             { id: '/clientes', label: 'Clientes', icon: 'clients' },
             { id: '/modelos', label: 'Modelos', icon: 'templates' },
         ],

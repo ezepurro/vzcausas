@@ -25,6 +25,7 @@ import { toLegalQualificationFormErrors } from '@/features/legal-params/utils/to
 import { LegalQualificationsTable } from '@/features/legal-params/components/LegalQualificationsTable';
 import { LegalQualificationFormModal } from '@/features/legal-params/components/LegalQualificationFormModal';
 import { DeleteLegalQualificationModal } from '@/features/legal-params/components/DeleteLegalQualificationModal';
+import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue';
 
 const LIMIT = 20;
 
@@ -56,6 +57,7 @@ export function LegalQualificationsPage() {
        no pagina ni filtra, y los parámetros tienen que estar en la clave de caché. */
     const [page, setPage] = useState(1);
     const [search, setSearch] = useState('');
+    const debouncedSearch = useDebouncedValue(search.trim());
 
     const [modal, setModal] = useState<Modal>(null);
     const [values, setValues] = useState<LegalQualificationFormValues>(EMPTY_FORM);
@@ -64,7 +66,7 @@ export function LegalQualificationsPage() {
     const query = useLegalQualifications({
         page,
         limit: LIMIT,
-        search: search.trim() === '' ? undefined : search.trim(),
+        search: debouncedSearch === '' ? undefined : debouncedSearch,
     });
     const create = useCreateLegalQualification();
     const update = useUpdateLegalQualification();
@@ -219,6 +221,7 @@ export function LegalQualificationsPage() {
             />
 
             <Panel
+                title="Calificaciones legales"
                 actions={
                     <>
                         <SearchInput

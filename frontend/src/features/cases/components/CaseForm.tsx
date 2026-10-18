@@ -44,6 +44,17 @@ export interface CaseFormProps {
      * `changeJurisdiction` de `utils/caseForm`.
      */
     onJurisdictionChange: (jurisdiction: Jurisdiction) => void
+    /**
+     * "Crear la carpeta" va aparte porque arrastra "Copiar los modelos": la
+     * pantalla aplica `changeCreateFolder` de `utils/caseForm`.
+     */
+    onCreateFolderChange: (createFolder: boolean) => void
+    /**
+     * "6 modelos parametrizados para el fuero Penal.", bajo "Copiar los
+     * modelos". `null` para no mostrar el número: la Secretaría no consulta
+     * modelos (CA-40.10), o todavía no llegó.
+     */
+    templatesNote: string | null
     /** Los clientes, ya armados: `value` el id, `label` "GÓMEZ, Ariel Fernando · DNI …". */
     clientOptions: SelectOption[]
     /** Los abogados vigentes, ya armados. */
@@ -110,11 +121,13 @@ const SUBJECT_MATTER_TEXT: Record<Exclude<Jurisdiction, 'CRIMINAL'>, { label: st
  * (D-67), que el prototipo no tiene: "Preso" en el penal; la medida cautelar y
  * el acto lesivo en el amparo; el agotamiento de la vía en el administrativo.
  *
- * Las casillas de Drive y de modelos del prototipo no están: son HU39 y HU40,
- * del Sprint 3.
+ * Al final, las casillas de la carpeta en Drive (HU39) y de la copia de los
+ * modelos del fuero (HU40). La segunda no se puede tildar sin la primera
+ * (CA-40.3).
  */
 export function CaseForm({
-    values, errors, onChange, onSacNumberChange, onJurisdictionChange, clientOptions, lawyerOptions,
+    values, errors, onChange, onSacNumberChange, onJurisdictionChange, onCreateFolderChange,
+    templatesNote, clientOptions, lawyerOptions,
     selectedQualifications, qualificationOptions, onAddQualification, onRemoveQualification,
     onOffenseDateChange, onNewClient, onNewQualification,
     saving, onConfirm, onCancel,
@@ -375,6 +388,43 @@ export function CaseForm({
                             label="Tasa de justicia pagada"
                             checked={values.courtFeePaid}
                             onChange={(e) => onChange('courtFeePaid', e.target.checked)}
+                        />
+                    </div>
+
+                    {/* HU39 y HU40: vienen tildadas (D-59). Si Drive falla, la
+                        causa se registra igual y la carpeta se crea después (D-60). */}
+                    <div className="vz-field vz-col-full">
+                        <Checkbox
+                            label={
+                                <>
+                                    Crear la carpeta de la causa en Drive
+                                    <span className="vz-check__note">
+                                        Va en la carpeta del abogado responsable y se nombra con la carátula.
+                                    </span>
+                                </>
+                            }
+                            checked={values.createFolder}
+                            onChange={(e) => onCreateFolderChange(e.target.checked)}
+                        />
+                    </div>
+
+                    <div className="vz-field vz-col-full">
+                        <Checkbox
+                            label={
+                                <>
+                                    Copiar los modelos de escritos del fuero a esa carpeta
+                                    {!values.createFolder ? (
+                                        <span className="vz-check__note">
+                                            Primero hay que crear la carpeta en Drive para poder copiar los modelos.
+                                        </span>
+                                    ) : templatesNote && (
+                                        <span className="vz-check__note">{templatesNote}</span>
+                                    )}
+                                </>
+                            }
+                            checked={values.copyTemplates}
+                            disabled={!values.createFolder}
+                            onChange={(e) => onChange('copyTemplates', e.target.checked)}
                         />
                     </div>
                 </div>

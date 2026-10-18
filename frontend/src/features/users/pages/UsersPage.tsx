@@ -267,11 +267,6 @@ export function UsersPage() {
                 eyebrow="Administración"
                 title="Usuarios"
                 sub="Desde esta sección podés administrar los ingresos al sistema. Consultá el registro de usuarios, sus niveles de permiso y el historial de conexiones del estudio."
-                actions={
-                    <Button icon={<Icon name="plus" />} size="md" onClick={openCreate}>
-                        Registrar usuario
-                    </Button>
-                }
             />
 
             <Panel
@@ -290,6 +285,9 @@ export function UsersPage() {
                             value={role}
                             onChange={(e) => changeRole(e.target.value)}
                         />
+                        <Button icon={<Icon name="plus" />} size="md" onClick={openCreate}>
+                            Registrar usuario
+                        </Button>
                     </>
                 }
                 footer={
