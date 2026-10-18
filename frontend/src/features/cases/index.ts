@@ -10,7 +10,8 @@
  * su SAC igual —"Sin SAC" si no tiene— y se habilita con la misma regla: sólo
  * el abogado responsable (V3 D-30). Publica también `useCase` y las claves de
  * caché (`casesKeys`): el acto cambia el estado de la causa y tiene que
- * invalidarlas.
+ * invalidarlas. La forma del acto procesal (`ProceduralAct`) también vive
+ * acá, porque la línea de vida de la causa (HU27) la trae embebida.
  */
 
 export { useCase } from './api/useCase'
@@ -30,3 +31,4 @@ export {
     type CurrentState,
     type ResultingState,
 } from './types/case'
+export type { ActDeadline, ProceduralAct } from './types/proceduralAct'

@@ -149,8 +149,9 @@ describe('CaseDetailPage · línea de vida', () => {
         expect(within(panel).queryAllByRole('listitem')).toHaveLength(0)
     })
 
-    // TESTING.md §7: el estado de error de la consulta.
-    it('si la línea de vida no carga, lo informa en el panel', async () => {
+    // TESTING.md §7: el estado de error de la consulta. Un 500 se reintenta
+    // dos veces (queryClient), así que el error tarda unos 3 segundos en verse.
+    it('si la línea de vida no carga, lo informa en el panel', { timeout: 10_000 }, async () => {
         server.use(
             http.get('*/cases/:caseId/timeline', () =>
                 HttpResponse.json(errorBody('INTERNAL_SERVER_ERROR', 'Error del servidor de prueba.'), { status: 500 }),
@@ -159,6 +160,8 @@ describe('CaseDetailPage · línea de vida', () => {
         renderPage(1)
 
         const panel = await timeline()
-        expect(await within(panel).findByText('Error del servidor de prueba.')).toBeInTheDocument()
+        expect(
+            await within(panel).findByText('Error del servidor de prueba.', {}, { timeout: 5000 }),
+        ).toBeInTheDocument()
     })
 })

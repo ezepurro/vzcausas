@@ -44,7 +44,11 @@ export function homeRoute(roles: readonly Role[]): string {
  * todos, pero que sólo opera un perfil. Sale de la tabla de permisos por
  * perfil del contrato (V3 §4).
  */
-export type Action = 'lawyers.create' | 'dashboard.lawyer' | 'dashboard.administrator'
+export type Action =
+    | 'lawyers.create'
+    | 'dashboard.lawyer'
+    | 'dashboard.administrator'
+    | 'cases.declarePrescription'
 
 export const ACTION_ACCESS: Record<Action, readonly Role[]> = {
     // Registrar, modificar y dar de baja abogados es sólo del Administrador;
@@ -54,6 +58,9 @@ export const ACTION_ACCESS: Record<Action, readonly Role[]> = {
     // "Estudio" del Administrador. Quien tiene los dos roles ve las dos pestañas.
     'dashboard.lawyer': LAWYER,
     'dashboard.administrator': ADMIN,
+    // "Marcar prescripta" una causa penal: el Administrador y cualquier
+    // abogado, aunque no sea el responsable; la Secretaría no (V4 §4, D-52).
+    'cases.declarePrescription': ADMIN_AND_LAWYER,
 }
 
 
