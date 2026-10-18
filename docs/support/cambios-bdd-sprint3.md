@@ -247,6 +247,16 @@ columna `copy_templates`.
 
 **`sent_notifications`** (proceso diario: HU30, HU32, HU51, HU52)
 
+<!-- Ampliada el 18/10/2026: la primera versión tenía una sola fila por
+     (case_id, kind, reference_date), como si "avisar" fuera un hecho único
+     por causa. No lo es: el correo a la casilla y la copia a cada abogado
+     responsable son envíos independientes, y el que más importa de los dos
+     es la copia del abogado, no la casilla (que es más de auditoría). Si uno
+     falla y el otro sale, hace falta poder reintentar solo el que falló, el
+     mismo día, sin volver a mandar el que ya llegó. Por eso se agrega
+     `recipient_lawyer_id`: cada destinatario (la casilla, o un abogado) es
+     una fila propia. -->
+
 | Columna | Tipo | Nulo | Descripción |
 |---|---|:-:|---|
 | `id` | `SERIAL` | No | |
@@ -255,7 +265,14 @@ columna `copy_templates`.
 | `deadline_kind` | `deadline_kind` | Sí | Solo en los avisos de vencimiento |
 | `procedural_act_id` | `INT` → `procedural_acts` | Sí | Acto que abrió el plazo avisado |
 | `reference_date` | `DATE` | No | Vencimiento o fecha de prescripción avisada |
-| `sent_at` | `TIMESTAMPTZ` | No | |
+| `recipient_lawyer_id` | `INT` → `lawyers` | Sí | A quién le llegó este envío puntual. `NULL` = la casilla de gestión del estudio; con valor = la copia de ese abogado responsable |
+| `sent_at` | `TIMESTAMPTZ` | No | Se inserta la fila recién cuando este envío puntual confirma éxito — no antes |
+
+Una fila por **envío confirmado**, no por aviso detectado: un mismo
+`(case_id, kind, reference_date)` genera hasta dos filas candidatas (casilla y
+abogado), cada una independiente. La clave que evita re-avisar pasa a ser
+`(case_id, kind, reference_date, recipient_lawyer_id)`, no la de tres
+columnas que tenía la versión anterior de este documento.
 
 ### 4.4 Tablas opcionales
 
