@@ -961,7 +961,8 @@ la [§4](#4-antes-de-escribir-un-test).
   `aria-selected`); quien es Administrador y Abogado ve las dos y arranca en
   "Mi día". Sin datos: "Sin plazos abiertos", "Todas tus causas tienen un
   plazo en curso." y "Ninguna causa superó el 70 % de su plazo de
-  prescripción.".
+  prescripción.". En la línea de vencimientos cada plazo es un `listitem`;
+  la marca de "Hoy" es decorativa (`aria-hidden`) y no cuenta como ítem.
 - **Errores**: se muestra el `message` del contrato, por ejemplo "No se pudo
   acceder al almacenamiento en la nube. Intentá de nuevo en unos minutos.".
 

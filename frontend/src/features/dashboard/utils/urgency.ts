@@ -53,10 +53,10 @@ export function dueText(businessDaysRemaining: number): string {
     return `Vence en ${days(businessDaysRemaining)}`
 }
 
-/** El chip corto de cada plazo en la lista: "Hace 7 días", "Hoy", "En 3 días". */
+/** El chip corto de cada plazo en la lista: "Hace 7 días", "Vence hoy", "En 3 días". */
 export function shortDueText(businessDaysRemaining: number): string {
     if (businessDaysRemaining < 0) return `Hace ${days(-businessDaysRemaining)}`
-    if (businessDaysRemaining === 0) return 'Hoy'
+    if (businessDaysRemaining === 0) return 'Vence hoy'
     return `En ${days(businessDaysRemaining)}`
 }
 

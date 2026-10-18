@@ -130,39 +130,142 @@
   font-family: var(--vz-font-mono);
   font-weight: 600;
 }
-.vz-dash-deadlines {
+/* La línea de vencimientos del prototipo: fecha a la izquierda, una línea
+   vertical con un nodo por plazo y la tarjeta de la causa a la derecha. El
+   color del nodo dice la urgencia, con los tonos del calendario. */
+.vz-dash-line {
   list-style: none;
   margin: 0;
-  padding: 0;
+  padding: 14px 18px 18px;
   max-height: 40rem;
   overflow-y: auto;
   scrollbar-width: thin;
 }
-.vz-dash-deadlines > li + li { border-top: 1px solid var(--vz-border); }
-.vz-dash-deadline {
-  display: flex;
-  align-items: center;
-  gap: 14px;
+.vz-dash-line__item,
+.vz-dash-line__today {
+  display: grid;
+  grid-template-columns: 62px 24px minmax(0, 1fr);
+}
+.vz-dash-line__date { padding-top: 12px; }
+.vz-dash-line__date--repeat { visibility: hidden; }
+.vz-dash-line__weekday {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--vz-muted);
+}
+.vz-dash-line__day {
+  display: block;
+  font-family: var(--vz-font-mono);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+.vz-dash-line__month { font-size: 11px; font-weight: 500; color: var(--vz-muted); }
+
+/* La línea vertical pasa por todas las filas; el nodo se apoya encima. */
+.vz-dash-line__rail { position: relative; }
+.vz-dash-line__rail::before {
+  content: '';
+  position: absolute;
+  left: 11px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--vz-border);
+}
+.vz-dash-line__node {
+  position: absolute;
+  left: 5px;
+  top: 18px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 3px solid var(--vz-node, #9DBF9D);
+  background: var(--vz-surface);
+}
+.vz-dash-line__item--overdue { --vz-node: var(--vz-danger-action); }
+.vz-dash-line__item--today { --vz-node: #E08A80; }
+.vz-dash-line__item--thisWeek { --vz-node: var(--vz-warn-mark); }
+.vz-dash-line__item--later { --vz-node: #9DBF9D; }
+
+.vz-dash-line__card {
+  display: block;
   width: 100%;
-  padding: 12px 18px;
-  border: none;
+  margin: 6px 0;
+  padding: 12px 14px;
+  border: 1px solid var(--vz-border);
+  border-radius: var(--vz-r);
   background: var(--vz-surface);
   color: inherit;
   font: inherit;
   text-align: left;
   cursor: pointer;
+  transition: border-color .12s, box-shadow .12s;
 }
-.vz-dash-deadline:hover { background: var(--vz-sunken); }
-.vz-dash-deadline__date {
-  flex: 0 0 auto;
-  font-family: var(--vz-font-mono);
+.vz-dash-line__card:hover { border-color: var(--vz-primary); box-shadow: 0 4px 14px rgba(12, 20, 6, .08); }
+.vz-dash-line__item--overdue .vz-dash-line__card { border-color: var(--vz-danger-bd); background: #FDF6F5; }
+.vz-dash-line__item--today .vz-dash-line__card { border-color: var(--vz-danger-bd); }
+.vz-dash-line__head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.vz-dash-line__head > .vz-pill { flex: 0 0 auto; font-family: var(--vz-font-mono); }
+.vz-dash-line__body { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.vz-dash-line__caption { font-size: 13.5px; font-weight: 700; line-height: 1.35; text-wrap: pretty; }
+.vz-dash-line__meta { font-size: 11.5px; color: var(--vz-muted); }
+.vz-dash-line__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+}
+.vz-dash-line__lawyer { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.vz-dash-line__lawyer .vz-avatar { width: 22px; height: 22px; flex-basis: 22px; font-size: 9px; }
+.vz-dash-line__lawyer-name {
+  font-size: 12px;
+  color: var(--vz-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.vz-dash-line__open {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   font-size: 12px;
   font-weight: 600;
-  color: var(--vz-muted);
+  color: var(--vz-primary-hi);
+  white-space: nowrap;
 }
-.vz-dash-deadline__body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-.vz-dash-deadline__caption { font-size: 13.5px; font-weight: 700; line-height: 1.35; text-wrap: pretty; }
-.vz-dash-deadline__meta { font-size: 11.5px; color: var(--vz-muted); }
+
+/* La marca de hoy: entre lo vencido y lo que viene, viendo todos. */
+.vz-dash-line__today { align-items: center; min-height: 40px; }
+.vz-dash-line__today-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--vz-primary-hi);
+}
+.vz-dash-line__today .vz-dash-line__rail { align-self: stretch; display: flex; align-items: center; justify-content: center; }
+.vz-dash-line__today-node {
+  position: relative;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--vz-primary);
+  box-shadow: 0 0 0 4px var(--vz-primary-soft);
+}
+.vz-dash-line__today-rule { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.vz-dash-line__today-bar { flex: 1; height: 2px; border-radius: 1px; background: var(--vz-primary); }
+.vz-dash-line__today-date {
+  font-family: var(--vz-font-mono);
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--vz-primary-hi);
+  white-space: nowrap;
+}
 
 /* ─────────── calendario mensual ─────────── */
 /* "Agenda de plazos": siete columnas de lunes a domingo, con los fines de
@@ -381,6 +484,13 @@
 .vz-dash-member__status--ok { color: var(--vz-primary-hi); }
 .vz-dash-member__load { flex: 0 0 auto; font-family: var(--vz-font-mono); font-size: 13px; font-weight: 700; }
 .vz-dash-member__unit { font-size: 11px; font-weight: 500; color: var(--vz-muted); }
+/* La barra de carga con los tonos suaves del prototipo: hasta 14 causas
+   normal, 15 y 16 alta, 17 o más sobrecarga (lo decide `loadTone`). */
+.vz-dash-member .vz-meter { height: 8px; border-radius: 4px; }
+.vz-dash-member .vz-meter__fill { border-radius: 3px; }
+.vz-dash-member .vz-meter--primary .vz-meter__fill { background: #9DBF9D; }
+.vz-dash-member .vz-meter--warn .vz-meter__fill { background: #D9C08E; }
+.vz-dash-member .vz-meter--danger .vz-meter__fill { background: #D29A92; }
 
 /* ─────────── disposición del tablero ─────────── */
 /* La banda arriba y, debajo, dos columnas: la ancha con los plazos y la

@@ -48,6 +48,7 @@ export function AdministratorDashboardView({ dashboard, onOpen }: AdministratorD
                 <div className="vz-dash__main">
                     <DeadlinesPanel
                         title={selected ? 'Vencimientos del responsable' : 'Vencimientos del estudio'}
+                        today={dashboard.date}
                         deadlines={deadlines}
                         urgency={urgency}
                         onUrgencyChange={setUrgency}

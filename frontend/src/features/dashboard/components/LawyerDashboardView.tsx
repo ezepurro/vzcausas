@@ -36,14 +36,17 @@ export function LawyerDashboardView({ dashboard, onOpen }: LawyerDashboardViewPr
             />
             <div className="vz-dash__row">
                 <div className="vz-dash__main">
+                    {/* Primero la agenda, como en el prototipo; la lista de plazos va
+                        debajo para que, con muchas causas, no la empuje fuera de vista. */}
+                    <DeadlineCalendar today={dashboard.date} deadlines={dashboard.deadlines} onOpen={onOpen} />
                     <DeadlinesPanel
                         title="Mis plazos abiertos"
+                        today={dashboard.date}
                         deadlines={dashboard.deadlines}
                         urgency={urgency}
                         onUrgencyChange={setUrgency}
                         onOpen={onOpen}
                     />
-                    <DeadlineCalendar today={dashboard.date} deadlines={dashboard.deadlines} onOpen={onOpen} />
                 </div>
                 <div className="vz-dash__side">
                     <PrescriptionAlertsPanel alerts={dashboard.prescriptionAlerts} onOpen={onOpen} />
