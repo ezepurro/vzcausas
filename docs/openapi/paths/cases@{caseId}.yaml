@@ -1,0 +1,83 @@
+parameters:
+  - $ref: ../components/parameters/CaseIdParam.yaml
+
+get:
+  tags:
+    - Cases
+  operationId: getCase
+  summary: Consultar detalle de causa
+  description: |
+    Obtiene el detalle de una causa (HU22). Devuelve el mismo recurso que el
+    listado: encabezado, barra de prescripción y tarjeta del cliente. El ciclo
+    de vida, la documentación y las acciones "Sobre la causa" pertenecen a
+    sprints posteriores.
+
+    **Rol requerido:** cualquier usuario autenticado.
+  responses:
+    '200':
+      description: Causa solicitada.
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - data
+            properties:
+              data:
+                $ref: ../components/schemas/Case.yaml
+          example:
+            data:
+              id: 1
+              sacNumber: '13284571'
+              caption: GÓMEZ, Ariel Fernando p.s.a. Robo calificado
+              court: Juzgado de Control N° 3 · Córdoba
+              jurisdiction: CRIMINAL
+              proceduralRole: DEFENSA
+              instructorName: Dra. Verónica Ledesma
+              tribunalPhone: 0351 448-1200
+              instructorExtension: '214'
+              counterparty: null
+              subjectMatter: null
+              client:
+                id: 1
+                lastName: GÓMEZ
+                firstName: Ariel Fernando
+                dni: '34812905'
+                phone: 351 415-2288
+                email: afgomez@gmail.com
+                clientSince: '2021-03-12'
+              responsibleLawyer:
+                id: 3
+                fullName: Dra. Malena Ríos
+                registrationNumber: 1-36842
+              legalQualifications:
+                - id: 1
+                  name: Robo calificado — art. 167 inc. 2 CP
+                  prescriptionMonths: 96
+                  offenseDate: '2021-02-27'
+                  prescriptionStartsOn: '2021-02-27'
+                  prescriptionExpiresOn: '2029-02-27'
+              startDate: '2021-03-12'
+              currentState:
+                proceduralStateId: 12
+                name: Oposición al requerimiento de elevación
+                custom: false
+                initial: false
+                proceduralActId: 31
+                dueDate: '2026-09-16'
+                businessDaysRemaining: 1
+                manuallyAdjusted: false
+              active: true
+    '400':
+      description: Identificador inválido.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          examples:
+            invalidCaseId:
+              $ref: ../components/examples/InvalidCaseIdError.yaml
+    '401':
+      $ref: ../components/responses/Unauthorized.yaml
+    '404':
+      $ref: ../components/responses/CaseNotFound.yaml

@@ -1,0 +1,8 @@
+name: clientId
+in: path
+required: true
+description: Identificador único del cliente.
+schema:
+  type: integer
+  minimum: 1
+example: 1

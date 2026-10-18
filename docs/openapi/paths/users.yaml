@@ -1,0 +1,220 @@
+post:
+  tags:
+    - Users
+  operationId: createUser
+  summary: Registrar usuario
+  description: |
+    Registra un nuevo usuario. La contraseña se asigna en el alta.
+
+    **Rol requerido:** `ADMINISTRATOR`.
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: ../components/schemas/UserCreate.yaml
+        examples:
+          existingLawyer:
+            summary: Vinculando un abogado ya registrado
+            value:
+              username: iperalta
+              fullName: Ignacio Peralta
+              email: iperalta@vazquezzarate.com
+              password: password1
+              roles:
+                - LAWYER
+              lawyerId: 4
+          newLawyer:
+            summary: Registrando un abogado nuevo en la misma operación
+            value:
+              username: iperalta
+              fullName: Ignacio Peralta
+              email: iperalta@vazquezzarate.com
+              password: password1
+              roles:
+                - LAWYER
+              lawyer:
+                fullName: Dr. Ignacio Peralta
+                registrationNumber: 1-35207
+          withoutLawyer:
+            summary: Usuario que no ejerce
+            value:
+              username: gestion
+              fullName: Gestión Estudio
+              email: gestion@vazquezzarate.com
+              password: password1
+              roles:
+                - SECRETARY
+  responses:
+    '201':
+      description: Usuario registrado.
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - data
+            properties:
+              data:
+                $ref: ../components/schemas/User.yaml
+          example:
+            data:
+              id: 15
+              username: iperalta
+              fullName: Ignacio Peralta
+              email: iperalta@vazquezzarate.com
+              roles:
+                - LAWYER
+              lawyer:
+                id: 4
+                fullName: Dr. Ignacio Peralta
+                registrationNumber: 1-35207
+              lastLoginAt: null
+              active: true
+    '400':
+      description: Datos inválidos.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          example:
+            error:
+              code: VALIDATION_ERROR
+              message: Los datos enviados no son válidos.
+              details:
+                username: El nombre de usuario no cumple con el formato requerido.
+    '401':
+      $ref: ../components/responses/Unauthorized.yaml
+    '403':
+      $ref: ../components/responses/ForbiddenAdministrator.yaml
+    '409':
+      description: Nombre de usuario, correo o matrícula ya registrados.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          examples:
+            usernameAlreadyExists:
+              summary: Nombre de usuario repetido
+              value:
+                error:
+                  code: USERNAME_ALREADY_EXISTS
+                  message: El nombre de usuario ya se encuentra registrado.
+                  details: null
+            emailAlreadyExists:
+              summary: Correo repetido
+              value:
+                error:
+                  code: EMAIL_ALREADY_EXISTS
+                  message: El correo electrónico ya se encuentra registrado.
+                  details: null
+            lawyerRegistrationAlreadyExists:
+              summary: Matrícula repetida
+              value:
+                error:
+                  code: LAWYER_REGISTRATION_ALREADY_EXISTS
+                  message: La matrícula del abogado ya se encuentra registrada.
+                  details: null
+    '422':
+      description: Violación de una regla de negocio.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          example:
+            error:
+              code: BUSINESS_RULE_VIOLATION
+              message: No se puede registrar el usuario debido a una regla de negocio.
+              details: null
+
+get:
+  tags:
+    - Users
+  operationId: listUsers
+  summary: Consultar usuarios
+  description: |
+    Obtiene una lista paginada de usuarios.
+
+    **Rol requerido:** `ADMINISTRATOR`.
+  parameters:
+    - $ref: ../components/parameters/PageParam.yaml
+    - $ref: ../components/parameters/LimitParam.yaml
+    - name: search
+      in: query
+      required: false
+      description: Filtra por `username` y por `fullName`.
+      schema:
+        type: string
+    - name: role
+      in: query
+      required: false
+      description: Filtra por los usuarios que poseen ese rol.
+      schema:
+        $ref: ../components/schemas/Role.yaml
+  responses:
+    '200':
+      description: Página de usuarios.
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - data
+              - pagination
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: ../components/schemas/User.yaml
+              pagination:
+                $ref: ../components/schemas/Pagination.yaml
+          example:
+            data:
+              - id: 1
+                username: fvazquez
+                fullName: Fernando G. Vázquez
+                email: fvazquez@vazquezzarate.com
+                roles:
+                  - ADMINISTRATOR
+                  - LAWYER
+                lawyer:
+                  id: 1
+                  fullName: Dr. Fernando G. Vázquez
+                  registrationNumber: 1-28114
+                lastLoginAt: '2026-09-19T08:12:00-03:00'
+                active: true
+              - id: 8
+                username: gestion
+                fullName: Gestión Estudio
+                email: gestion@vazquezzarate.com
+                roles:
+                  - SECRETARY
+                lawyer: null
+                lastLoginAt: '2026-09-19T07:58:00-03:00'
+                active: true
+            pagination:
+              page: 1
+              limit: 20
+              totalItems: 9
+              totalPages: 1
+    '400':
+      description: Paginación inválida o rol inexistente.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          examples:
+            invalidPagination:
+              $ref: ../components/examples/InvalidPaginationError.yaml
+            invalidRole:
+              summary: Rol inexistente
+              value:
+                error:
+                  code: INVALID_REQUEST
+                  message: Parámetros de query inválidos.
+                  details:
+                    role: No existe un rol con ese nombre.
+    '401':
+      $ref: ../components/responses/Unauthorized.yaml
+    '403':
+      $ref: ../components/responses/ForbiddenAdministrator.yaml

@@ -34,17 +34,31 @@ export class ApiError extends Error {
      */
     readonly details: Record<string, string> | null;
 
+    /**
+     * Segundos a esperar antes de reintentar, en los `429` (bloqueo de login
+     * o límite de pedidos por IP). Viene del encabezado `Retry-After`, no de
+     * `details`: el backend manda `retryAfterSeconds` como número dentro de
+     * `details` (V3 §5.2), pero `details` acá es `Record<string, string>` a
+     * propósito —son mensajes de campo para formularios— así que meter un
+     * número ahí habría obligado a todo el código que ya lo da por string a
+     * defenderse de un caso que no le corresponde. `null` en cualquier otra
+     * respuesta, o si el encabezado no vino.
+     */
+    readonly retryAfterSeconds: number | null;
+
     constructor(
         status: number,
         message: string,
         code: string | null = null,
         details: Record<string, string> | null = null,
+        retryAfterSeconds: number | null = null,
     ) {
         super(message);
         this.name = 'ApiError';
         this.status = status;
         this.code = code;
         this.details = details;
+        this.retryAfterSeconds = retryAfterSeconds;
     }
 
     /**

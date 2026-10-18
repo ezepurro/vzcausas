@@ -1,0 +1,384 @@
+post:
+  tags:
+    - Cases
+  operationId: createCase
+  summary: Registrar causa
+  description: |
+    Registra una nueva causa (HU18).
+
+    **Efectos del alta**
+
+    - La causa nace en el estado inicial de su fuero, "Iniciada"
+      (`currentState.initial` en `true`). El estado de la tabla lo fija el
+      primer acto procesal, así que el alta no depende de que el fuero tenga
+      estados cargados.
+    - El estado inicial no abre plazo: `currentState.dueDate` vale `null`
+      hasta que un acto procesal abra uno.
+    - El alta no es un movimiento del ciclo de vida: la línea de tiempo
+      empieza con el primer acto procesal.
+
+    **Rol requerido:** cualquier usuario autenticado.
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: ../components/schemas/CaseCreate.yaml
+        examples:
+          criminal:
+            summary: Causa penal
+            value:
+              sacNumber: '13284571'
+              jurisdiction: CRIMINAL
+              caption: GÓMEZ, Ariel Fernando p.s.a. Robo calificado
+              court: Juzgado de Control N° 3 · Córdoba
+              instructorName: Dra. Verónica Ledesma
+              tribunalPhone: 0351 448-1200
+              instructorExtension: '214'
+              clientId: 1
+              proceduralRole: DEFENSA
+              legalQualifications:
+                - legalQualificationId: 1
+                  offenseDate: '2021-02-27'
+              responsibleLawyerId: 3
+              startDate: '2021-03-12'
+          amparo:
+            summary: Amparo
+            value:
+              sacNumber: '12774310'
+              jurisdiction: AMPARO
+              caption: MOYANO, Daniela c/ APROSS — Amparo de salud
+              court: Juzgado Civil y Comercial 37ª Nom.
+              instructorName: Dra. Inés Ferrero
+              tribunalPhone: 0351 448-1600
+              instructorExtension: '517'
+              clientId: 6
+              proceduralRole: ACTORA
+              counterparty: APROSS
+              subjectMatter: Que se ordene a APROSS la cobertura integral del tratamiento de rehabilitación prescripto a la actora.
+              responsibleLawyerId: 1
+              startDate: '2026-09-08'
+  responses:
+    '201':
+      description: Causa registrada, en el estado inicial "Iniciada".
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - data
+            properties:
+              data:
+                $ref: ../components/schemas/Case.yaml
+          example:
+            data:
+              id: 1
+              sacNumber: '13284571'
+              caption: GÓMEZ, Ariel Fernando p.s.a. Robo calificado
+              court: Juzgado de Control N° 3 · Córdoba
+              jurisdiction: CRIMINAL
+              proceduralRole: DEFENSA
+              instructorName: Dra. Verónica Ledesma
+              tribunalPhone: 0351 448-1200
+              instructorExtension: '214'
+              counterparty: null
+              subjectMatter: null
+              client:
+                id: 1
+                lastName: GÓMEZ
+                firstName: Ariel Fernando
+                dni: '34812905'
+                phone: 351 415-2288
+                email: afgomez@gmail.com
+                clientSince: '2021-03-12'
+              responsibleLawyer:
+                id: 3
+                fullName: Dra. Malena Ríos
+                registrationNumber: 1-36842
+              legalQualifications:
+                - id: 1
+                  name: Robo calificado — art. 167 inc. 2 CP
+                  prescriptionMonths: 96
+                  offenseDate: '2021-02-27'
+                  prescriptionStartsOn: '2021-02-27'
+                  prescriptionExpiresOn: '2029-02-27'
+              startDate: '2021-03-12'
+              currentState:
+                proceduralStateId: null
+                name: Iniciada
+                custom: false
+                initial: true
+                proceduralActId: null
+                dueDate: null
+                businessDaysRemaining: null
+                manuallyAdjusted: false
+              active: true
+    '400':
+      description: |
+        Datos inválidos. Incluye los identificadores de cliente, abogado o
+        calificación inexistentes o dados de baja.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          examples:
+            sacAndRole:
+              summary: SAC mal formado y rol que no corresponde al fuero
+              value:
+                error:
+                  code: VALIDATION_ERROR
+                  message: Los datos enviados no son válidos.
+                  details:
+                    sacNumber: Debe contener exactamente 8 dígitos.
+                    proceduralRole: El rol procesal no corresponde al fuero.
+            missingOffenseDate:
+              summary: Calificación sin fecha del hecho
+              value:
+                error:
+                  code: VALIDATION_ERROR
+                  message: Los datos enviados no son válidos.
+                  details:
+                    legalQualifications: Cada calificación legal requiere la fecha del hecho.
+            missingSubjectMatter:
+              summary: Falta el objeto del reclamo o del amparo
+              value:
+                error:
+                  code: VALIDATION_ERROR
+                  message: Los datos enviados no son válidos.
+                  details:
+                    subjectMatter: Es obligatorio en los fueros administrativo y de amparo.
+            unknownLawyer:
+              summary: Abogado inexistente o dado de baja
+              value:
+                error:
+                  code: VALIDATION_ERROR
+                  message: Los datos enviados no son válidos.
+                  details:
+                    responsibleLawyerId: No existe un abogado vigente con ese identificador.
+    '401':
+      $ref: ../components/responses/Unauthorized.yaml
+    '409':
+      description: Número de SAC ya registrado (RN2).
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          example:
+            error:
+              code: CASE_SAC_ALREADY_EXISTS
+              message: Ya existe una causa registrada con ese número de SAC.
+              details: null
+
+get:
+  tags:
+    - Cases
+  operationId: listCases
+  summary: Consultar causas
+  description: |
+    Obtiene una lista paginada de las causas (HU20). El buscador del
+    encabezado de la aplicación usa este mismo endpoint con `search`.
+
+    **Orden:** por urgencia. Primero las causas con vencimiento, por
+    `currentState.dueDate` ascendente (las vencidas quedan primeras), y luego
+    las que no tienen vencimiento, por `id`.
+
+    **Filtro de estado procesal.** El desplegable tiene tres grupos y cada uno
+    viaja en un parámetro distinto; los tres son **excluyentes** entre sí:
+
+    | Grupo del desplegable                                 | Parámetro                    |
+    | ----------------------------------------------------- | ---------------------------- |
+    | "Fuero Penal", "Fuero Administrativo", "Fuero Amparo" | `proceduralStateId`          |
+    | "Causas nuevas" → "Iniciada"                          | `withoutProceduralActs=true` |
+    | "Escritos a mano en causas"                           | `customState`                |
+
+    Un filtro por un abogado o un estado inexistente no es un error: devuelve
+    una colección vacía.
+
+    **Rol requerido:** cualquier usuario autenticado.
+  parameters:
+    - $ref: ../components/parameters/PageParam.yaml
+    - $ref: ../components/parameters/LimitParam.yaml
+    - name: search
+      in: query
+      required: false
+      description: Filtra por `sacNumber`, por `caption` y por apellido y nombres del cliente.
+      schema:
+        type: string
+    - $ref: ../components/parameters/JurisdictionQueryParam.yaml
+    - name: responsibleLawyerId
+      in: query
+      required: false
+      description: Filtro "Todos los responsables".
+      schema:
+        type: integer
+    - name: proceduralStateId
+      in: query
+      required: false
+      description: |
+        Estado de la tabla. Excluyente con `customState` y
+        `withoutProceduralActs`.
+      schema:
+        type: integer
+    - name: customState
+      in: query
+      required: false
+      description: |
+        Estado escrito a mano. Coincidencia exacta sin distinguir mayúsculas.
+        Excluyente con `proceduralStateId` y `withoutProceduralActs`.
+      schema:
+        type: string
+    - name: withoutProceduralActs
+      in: query
+      required: false
+      description: |
+        `true`: solo causas en el estado inicial "Iniciada"
+        (`currentState.initial` en `true`). Combinado con `jurisdiction`
+        devuelve las de ese fuero. Excluyente con `proceduralStateId` y
+        `customState`.
+      schema:
+        type: boolean
+    - name: clientId
+      in: query
+      required: false
+      description: Causas de un cliente (HU9).
+      schema:
+        type: integer
+    - name: openDeadline
+      in: query
+      required: false
+      description: |
+        `true`: solo causas con vencimiento (`currentState.dueDate` no nulo),
+        incluidas las vencidas. Botón "Solo con plazo por vencer".
+      schema:
+        type: boolean
+  responses:
+    '200':
+      description: |
+        Página de causas. Los valores de `businessDaysRemaining` del ejemplo
+        corresponden a una consulta del martes 15/09/2026.
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - data
+              - pagination
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: ../components/schemas/Case.yaml
+              pagination:
+                $ref: ../components/schemas/Pagination.yaml
+          example:
+            data:
+              - id: 2
+                sacNumber: '12907344'
+                caption: PEREYRA, Marcos D. — Sumario administrativo
+                court: Tribunal de Conducta Policial y Penitenciario
+                jurisdiction: ADMINISTRATIVE
+                proceduralRole: DEFENSA
+                instructorName: Crio. Insp. Raúl Bazán
+                tribunalPhone: 0351 428-6000
+                instructorExtension: '3120'
+                counterparty: null
+                subjectMatter: Descargo frente a la imputación de falta grave por abandono de servicio y pedido de sobreseimiento.
+                client:
+                  id: 2
+                  lastName: PEREYRA
+                  firstName: Marcos D.
+                  dni: '29440117'
+                  phone: 351 622-9014
+                  email: mdpereyra@hotmail.com
+                  clientSince: '2026-05-18'
+                responsibleLawyer:
+                  id: 4
+                  fullName: Dr. Ignacio Peralta
+                  registrationNumber: 1-35207
+                legalQualifications: []
+                startDate: '2026-05-18'
+                currentState:
+                  proceduralStateId: 4
+                  name: Alegato
+                  custom: false
+                  initial: false
+                  proceduralActId: 18
+                  dueDate: '2026-09-11'
+                  businessDaysRemaining: -2
+                  manuallyAdjusted: false
+                active: true
+              - id: 1
+                sacNumber: '13284571'
+                caption: GÓMEZ, Ariel Fernando p.s.a. Robo calificado
+                court: Juzgado de Control N° 3 · Córdoba
+                jurisdiction: CRIMINAL
+                proceduralRole: DEFENSA
+                instructorName: Dra. Verónica Ledesma
+                tribunalPhone: 0351 448-1200
+                instructorExtension: '214'
+                counterparty: null
+                subjectMatter: null
+                client:
+                  id: 1
+                  lastName: GÓMEZ
+                  firstName: Ariel Fernando
+                  dni: '34812905'
+                  phone: 351 415-2288
+                  email: afgomez@gmail.com
+                  clientSince: '2021-03-12'
+                responsibleLawyer:
+                  id: 3
+                  fullName: Dra. Malena Ríos
+                  registrationNumber: 1-36842
+                legalQualifications:
+                  - id: 1
+                    name: Robo calificado — art. 167 inc. 2 CP
+                    prescriptionMonths: 96
+                    offenseDate: '2021-02-27'
+                    prescriptionStartsOn: '2021-02-27'
+                    prescriptionExpiresOn: '2029-02-27'
+                startDate: '2021-03-12'
+                currentState:
+                  proceduralStateId: 12
+                  name: Oposición al requerimiento de elevación
+                  custom: false
+                  initial: false
+                  proceduralActId: 31
+                  dueDate: '2026-09-16'
+                  businessDaysRemaining: 1
+                  manuallyAdjusted: false
+                active: true
+            pagination:
+              page: 1
+              limit: 20
+              totalItems: 6
+              totalPages: 1
+    '400':
+      description: Paginación inválida, fuero inexistente o filtros de estado combinados.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          examples:
+            customStateWithStateId:
+              summary: customState combinado con proceduralStateId
+              value:
+                error:
+                  code: INVALID_REQUEST
+                  message: Parámetros de query inválidos.
+                  details:
+                    customState: No puede combinarse con proceduralStateId.
+            withoutActsCombined:
+              summary: withoutProceduralActs combinado con otro filtro de estado
+              value:
+                error:
+                  code: INVALID_REQUEST
+                  message: Parámetros de query inválidos.
+                  details:
+                    withoutProceduralActs: No puede combinarse con proceduralStateId ni con customState.
+            invalidJurisdiction:
+              $ref: ../components/examples/InvalidJurisdictionError.yaml
+            invalidPagination:
+              $ref: ../components/examples/InvalidPaginationError.yaml
+    '401':
+      $ref: ../components/responses/Unauthorized.yaml

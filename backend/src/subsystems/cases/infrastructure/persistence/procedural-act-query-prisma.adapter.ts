@@ -1,0 +1,84 @@
+import { Injectable } from '@nestjs/common';
+import { PrismaService } from '@shared/infrastructure/prisma/prisma.service';
+import { Prisma } from '../../../../generated/prisma/client';
+import {
+  ProceduralActPage,
+  ProceduralActQueryPort,
+  ProceduralActView,
+} from '../../core/domain/ports/procedural-act-query.port';
+import { ProceduralActPrismaMapper } from './procedural-act-prisma.mapper';
+
+/**
+ * The two relations an act only holds as ids. Neither is filtered by
+ * `active`: a deactivated procedural state, or a lawyer given de baja, is part
+ * of the case's history and keeps showing in it (§4, Bajas).
+ */
+const ACT_INCLUDE = {
+  proceduralState: { select: { name: true } },
+  registeredByLawyer: { select: { fullName: true } },
+} satisfies Prisma.ProceduralActInclude;
+
+type ActRow = Prisma.ProceduralActGetPayload<{ include: typeof ACT_INCLUDE }>;
+
+/** Newest first; on the same date, the last registered first (CA-27.2). Matches the table's index. */
+const NEWEST_FIRST: Prisma.ProceduralActOrderByWithRelationInput[] = [{ actDate: 'desc' }, { id: 'desc' }];
+
+@Injectable()
+export class ProceduralActQueryPrismaAdapter implements ProceduralActQueryPort {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async caseExists(caseId: number): Promise<boolean> {
+    const row = await this.prisma.db.case.findFirst({
+      where: { id: caseId, active: true },
+      select: { id: true },
+    });
+    return row !== null;
+  }
+
+  /**
+   * Page and count run in one `$transaction` so both see the same snapshot;
+   * issued apart, an act registered between them could report a total that
+   * disagrees with the page.
+   */
+  async listByCase(caseId: number, page: number, limit: number): Promise<ProceduralActPage> {
+    const where = { caseId };
+    const [rows, totalItems] = await this.prisma.$transaction([
+      this.prisma.db.proceduralAct.findMany({
+        where,
+        include: ACT_INCLUDE,
+        orderBy: NEWEST_FIRST,
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.db.proceduralAct.count({ where }),
+    ]);
+    return { items: rows.map(toView), totalItems };
+  }
+
+  async findInCase(caseId: number, actId: number): Promise<ProceduralActView | null> {
+    // `caseId` in the filter, not checked afterwards: an act of another case
+    // must be as absent as one that does not exist.
+    const row = await this.prisma.db.proceduralAct.findFirst({
+      where: { id: actId, caseId },
+      include: ACT_INCLUDE,
+    });
+    return row ? toView(row) : null;
+  }
+}
+
+/**
+ * The name of the resulting state is the table's, or the hand-written text.
+ * The schema's CHECK guarantees exactly one of the two is set, so a row with
+ * neither is corrupt data, not a case to render.
+ */
+function toView(row: ActRow): ProceduralActView {
+  const resultingStateName = row.proceduralState?.name ?? row.customState;
+  if (resultingStateName === null) {
+    throw new Error(`Procedural act ${row.id} has neither a procedural state nor a custom state.`);
+  }
+  return {
+    act: ProceduralActPrismaMapper.toDomain(row),
+    resultingStateName,
+    registeredBy: { fullName: row.registeredByLawyer.fullName },
+  };
+}

@@ -2,10 +2,11 @@ import { useState } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router'
 import {
     AppShell,
+    Button,
+    Icon,
     IconButton,
     Logo,
     RailUser,
-    SearchInput,
     type RailGroup,
 } from '@/shared/components/ui'
 import { useCurrentUser } from '@/app/providers/AuthContext'
@@ -52,10 +53,14 @@ const GROUPS: RailGroup[] = [
             { id: '/usuarios', label: 'Usuarios', icon: 'users' },
             { id: '/abogados', label: 'Abogados', icon: 'lawyers' },
             { id: '/estados-y-plazos', label: 'Estados y plazos', icon: 'timeLimits' },
+            { id: '/calificaciones-legales', label: 'Calificaciones legales', icon: 'qualifications' },
             { id: '/reportes', label: 'Reportes', icon: 'reports' },
         ],
     },
 ]
+
+/** La sección de la que cuelga el alta: de ella hereda el permiso. */
+const CASES = '/causas'
 
 export function AppLayout() {
     const navigate = useNavigate()
@@ -90,13 +95,27 @@ export function AppLayout() {
             active={active}
             onNavigate={(route) => navigate(route)}
             brand={<Logo />}
+            railAction={
+                /* "Nueva causa" bajo el logo, como el prototipo: registrar una
+                   causa la puede hacer cualquier perfil (RN11), así que el
+                   botón sigue el mismo permiso que la sección de la que
+                   cuelga. */
+                canAccess(user.roles, CASES) && (
+                    <Button
+                        block
+                        size="md"
+                        icon={<Icon name="plus" size={15} />}
+                        title="Nueva causa"
+                        onClick={() => navigate(`${CASES}/nueva`)}
+                    >
+                        <span className="vz-rail__action-label">Nueva causa</span>
+                    </Button>
+                )
+            }
             topBar={
-                <>
-                    <SearchInput placeholder="Buscar por carátula, SAC o cliente" aria-label="Buscar" />
                     <div className="vz-topbar__right">
                         <IconButton name="notifications" label="Notificaciones" />
                     </div>
-                </>
             }
             railFooter={
                 <RailUser

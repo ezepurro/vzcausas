@@ -22,6 +22,7 @@ type UserRow = {
   lawyerId: number | null;
   lastLoginAt: Date | null;
   active: boolean;
+  deletedAt: Date | null;
   roles: { roleId: number }[];
 };
 
@@ -37,6 +38,7 @@ export class UserPrismaMapper {
       lawyerId: row.lawyerId,
       lastLoginAt: row.lastLoginAt,
       active: row.active,
+      deletedAt: row.deletedAt,
     });
   }
 }

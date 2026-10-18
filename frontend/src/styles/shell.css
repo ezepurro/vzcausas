@@ -16,6 +16,9 @@
   position: sticky;
   top: 0;
   height: 100vh;
+  /* En un teléfono 100vh incluye la barra del navegador y el pie del rail
+     quedaba tapado. */
+  height: 100dvh;
   overflow: hidden;
 }
 
@@ -25,7 +28,7 @@
   gap: 11px;
   padding: 0 var(--vz-rail-pad) 18px;
 }
-.vz-rail__wordmark { display: var(--vz-rail-label); min-width: 0; }
+.vz-rail__wordmark { min-width: 0; }
 .vz-rail__name {
   color: var(--vz-rail-fg-on);
   font-size: 15px;
@@ -41,19 +44,27 @@
   text-transform: uppercase;
 }
 
-/* acción destacada bajo el logo.
-   El botón recorta: con el rail colapsado (64px) la etiqueta se esconde
-   en lugar de derramarse sobre el fondo oscuro. */
-.vz-rail__action { padding: 0 12px 4px; }
-.vz-rail__action .vz-btn { overflow: hidden; }
-.vz-rail__action-label { display: var(--vz-rail-label); white-space: nowrap; }
+/* Acción destacada bajo el logo: "Nueva causa".
+   Las medidas son las del prototipo —38px de alto y 13px de texto—, un poco
+   más grandes que un `md` suelto, porque es la única acción primaria del rail
+   y tiene que leerse como un bloque y no como un ítem más del menú. */
+.vz-rail__action { padding: 0 10px 4px; }
+.vz-rail__action .vz-btn {
+  height: 38px;
+  padding: 0 12px;
+  font-size: 13px;
+  overflow: hidden;
+}
+/* El `+` del prototipo es de trazo grueso: con el 1.7 que usa el resto de los
+   íconos se pierde sobre el verde lleno. */
+.vz-rail__action .vz-btn svg { stroke-width: 2.2; }
+.vz-rail__action-label { white-space: nowrap; }
 
 .vz-rail__nav { flex: 1; display: flex; flex-direction: column; padding: 0 12px; overflow-y: auto; }
 .vz-rail__section { display: flex; flex-direction: column; gap: 2px; }
 .vz-rail__section + .vz-rail__section { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--vz-rail-div); }
 
 .vz-rail__group {
-  display: var(--vz-rail-label);
   padding: 14px 0 6px;
   color: var(--vz-rail-fg);
   font-size: 10px;
@@ -94,7 +105,6 @@
 .vz-rail__item.is-on::before { background: var(--vz-primary); }
 .vz-rail__item-label {
   flex: 1;
-  display: var(--vz-rail-label);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -117,7 +127,7 @@
   color: var(--vz-rail-fg-on);
   font-size: 11px; font-weight: 700;
 }
-.vz-rail__ident { min-width: 0; flex: 1; display: var(--vz-rail-label); }
+.vz-rail__ident { min-width: 0; flex: 1; }
 .vz-rail__ident-name {
   color: var(--vz-rail-fg-on);
   font-size: 12.5px;
@@ -127,7 +137,6 @@
 .vz-rail__ident-profile { color: var(--vz-rail-fg); font-size: 11px; }
 
 .vz-rail__iconbtn {
-  display: var(--vz-rail-label);
   padding: 6px;
   border: none;
   border-radius: var(--vz-r-sm);
@@ -143,9 +152,9 @@
 .vz-topbar {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px 12px;
   flex-wrap: wrap;
-  padding: 16px var(--vz-main-pad);
+  padding: 12px var(--vz-main-pad);
   background: var(--vz-surface);
   border-bottom: 1px solid var(--vz-border);
   position: sticky;
@@ -219,3 +228,113 @@
   text-wrap: pretty;
 }
 .vz-page-head__actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* ─────────── migas ─────────── */
+.vz-crumbs {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+  font-size: 13px;
+}
+.vz-crumbs__sep { color: var(--vz-border-strong); }
+.vz-crumbs__link {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--vz-primary);
+  font-size: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.vz-crumbs__link:hover { color: var(--vz-primary-hi); text-decoration: underline; }
+.vz-crumbs__step { color: var(--vz-muted); }
+.vz-crumbs__current { color: var(--vz-ink); font-weight: 600; }
+
+/* ─────────── formulario con panel al costado ─────────── */
+/* Registrar causa y Registrar acto procesal: el formulario a la izquierda y un
+   panel que se va completando a la derecha ("Resumen del alta", "Cómputo del
+   plazo"). El panel acompaña el scroll por debajo de la barra superior. En
+   pantallas angostas va abajo del formulario. */
+.vz-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(300px, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+.vz-split__aside { position: sticky; top: calc(var(--vz-topbar-h) + 16px); }
+
+@media (max-width: 1180px) {
+  .vz-split { grid-template-columns: minmax(0, 1fr); }
+  .vz-split__aside { position: static; }
+}
+
+/* ─────────── menú en pantallas angostas ─────────── */
+/* Debajo de 1024px el rail deja de ocupar una columna: queda fuera de la
+   pantalla y entra por la izquierda, encima de la página, cuando se toca el
+   botón de la barra superior. El estado —`.is-menu-open`— lo pone AppShell.
+   En una pantalla ancha nada de esto se ve. */
+.vz-scrim,
+.vz-rail__close,
+.vz-topbar__menu { display: none; }
+
+@media (max-width: 1023px) {
+  .vz-app { grid-template-columns: minmax(0, 1fr); }
+
+  .vz-rail {
+    position: fixed;
+    left: 0;
+    z-index: 60;
+    width: min(280px, 86vw);
+    transform: translateX(-104%);
+    /* Cerrado no se ve, pero sin esto el tabulador igual entraría a sus
+       botones. Se esconde recién cuando terminó de salir. */
+    visibility: hidden;
+    transition: transform .22s ease, visibility 0s .22s;
+  }
+  .vz-app.is-menu-open .vz-rail {
+    transform: none;
+    visibility: visible;
+    transition: transform .22s ease;
+  }
+
+  .vz-app.is-menu-open .vz-scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 55;
+    background: rgba(12, 20, 6, .46);
+  }
+
+  .vz-topbar__menu { display: flex; color: var(--vz-ink); }
+
+  .vz-rail__close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    right: 12px;
+    top: 16px;
+    width: 34px;
+    height: 34px;
+    border: none;
+    border-radius: var(--vz-r-sm);
+    background: none;
+    color: var(--vz-rail-fg);
+    cursor: pointer;
+  }
+  .vz-rail__close:hover { color: var(--vz-rail-fg-on); background: var(--vz-rail-on-bg); }
+}
+
+@media (max-width: 1023px) and (prefers-reduced-motion: reduce) {
+  .vz-rail,
+  .vz-app.is-menu-open .vz-rail { transition: none; }
+}
+
+/* ─────────── teléfono ─────────── */
+@media (max-width: 720px) {
+  .vz-page-head { gap: 12px; margin-bottom: 14px; }
+  .vz-page-head__title { font-size: 22px; }
+  .vz-crumbs { margin-bottom: 10px; }
+}

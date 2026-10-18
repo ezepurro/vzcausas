@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router'
 import { isApiError } from '@/shared/api/ApiError'
 import { useToast } from '@/app/providers/ToastContext'
 import {
@@ -9,7 +8,6 @@ import {
     Pagination,
     Panel,
     SearchInput,
-    Tabs,
 } from '@/shared/components/ui'
 import { Select, type SelectOption } from '@/shared/components/forms'
 import { useLawyers } from '@/features/lawyers'
@@ -32,7 +30,7 @@ import { ROLE_LABELS, roleChecks, rolesFromValues } from '@/features/users/utils
 import { UsersTable } from '@/features/users/components/UsersTable'
 import { UserFormModal } from '@/features/users/components/UserFormModal'
 import { DeleteUserModal } from '@/features/users/components/DeleteUserModal'
-
+import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue'
 const LIMIT = 20
 
 /** El "sin filtro" del select de perfil. Cadena vacía, que es lo que no viaja. */
@@ -41,18 +39,6 @@ const ALL_ROLES = ''
 const ROLE_FILTER: SelectOption[] = [
     { value: ALL_ROLES, label: 'Todos los perfiles' },
     ...ROLES.map((r) => ({ value: r, label: ROLE_LABELS[r] })),
-]
-
-/**
- * Usuarios y abogados son dos pantallas con dos rutas, pero el prototipo las
- * muestra como pestañas de una sola sección. Cada pestaña navega a su ruta:
- * así el rail y la pestaña llevan a la misma URL y un F5 no te cambia de lugar.
- */
-type AdminTab = '/usuarios' | '/abogados'
-
-const ADMIN_TABS: { id: AdminTab; label: string }[] = [
-    { id: '/usuarios', label: 'Usuarios' },
-    { id: '/abogados', label: 'Abogados' },
 ]
 
 /**
@@ -79,12 +65,12 @@ const EMPTY_FORM: UserFormValues = {
 
 export function UsersPage() {
     const toast = useToast()
-    const navigate = useNavigate()
 
     /* Filtros y paginado viven acá y se le pasan al hook: `DataTable` no
        pagina ni filtra, y los parámetros tienen que estar en la clave de caché. */
     const [page, setPage] = useState(1)
     const [search, setSearch] = useState('')
+    const debouncedSearch = useDebouncedValue(search.trim())
     const [role, setRole] = useState<Role | typeof ALL_ROLES>(ALL_ROLES)
     const [modal, setModal] = useState<Modal>(null)
     const [values, setValues] = useState<UserFormValues>(EMPTY_FORM)
@@ -93,7 +79,7 @@ export function UsersPage() {
     const query = useUsers({
         page,
         limit: LIMIT,
-        search: search.trim() === '' ? undefined : search.trim(),
+        search: debouncedSearch === '' ? undefined : debouncedSearch,
         role: role === ALL_ROLES ? undefined : role,
     })
 
@@ -278,7 +264,7 @@ export function UsersPage() {
         <>
             <PageHeader
                 eyebrow="Administración"
-                title="Usuarios y abogados"
+                title="Usuarios"
                 sub="Desde esta sección podés administrar los ingresos al sistema. Consultá el registro de usuarios, sus niveles de permiso y el historial de conexiones del estudio."
                 actions={
                     <Button icon={<Icon name="plus" />} size="md" onClick={openCreate}>
@@ -286,8 +272,6 @@ export function UsersPage() {
                     </Button>
                 }
             />
-
-            <Tabs tabs={ADMIN_TABS} active="/usuarios" onChange={(route) => navigate(route)} />
 
             <Panel
                 title="Usuarios"

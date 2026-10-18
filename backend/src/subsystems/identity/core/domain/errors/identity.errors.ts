@@ -2,6 +2,7 @@ import {
   BusinessRuleError,
   ConflictError,
   NotFoundError,
+  TooManyRequestsError,
   UnauthorizedError,
   ValidationError,
 } from "@shared/domain/domain-error";
@@ -10,10 +11,17 @@ import {
  * Emitted by `AuthenticateUser` when the supplied credentials cannot
  * be authenticated. Also raised when the user exists but is inactive,
  * so we do not leak account existence to callers (D-18, OWASP guidance).
+ *
+ * The wording is CA-1.2's, and it is deliberately about *both* fields:
+ * naming only one would undo D-18 in the copy after the code took
+ * care to preserve it. Every path that reaches here — unknown
+ * username, wrong password, deactivated account — produces this exact
+ * string, so the message is never the thing that tells an attacker
+ * which accounts exist.
  */
 export class InvalidCredentialsError extends UnauthorizedError {
   constructor() {
-    super("INVALID_CREDENTIALS", "Invalid credentials.");
+    super("INVALID_CREDENTIALS", "Usuario o contraseña incorrectos.");
   }
 }
 
@@ -24,7 +32,28 @@ export class InvalidCredentialsError extends UnauthorizedError {
  */
 export class InvalidCurrentPasswordError extends BusinessRuleError {
   constructor() {
-    super("INVALID_CURRENT_PASSWORD", "Current password is incorrect.");
+    super("INVALID_CURRENT_PASSWORD", "La contraseña actual es incorrecta.");
+  }
+}
+
+/**
+ * Emitted by {@link User.changePassword} when the proposed password
+ * is the one already in use (CA-3.5).
+ *
+ * A {@link ValidationError} (400) and not a business rule (422), for
+ * the same reason as {@link WeakPasswordError}: what the user has to
+ * do about it is fix the field, and `details.newPassword` is what
+ * lets the form mark it. §5.2 reserves 422 for requests that are
+ * well formed but refused by the domain, and "you typed your old
+ * password" is a problem with the input.
+ */
+export class SamePasswordError extends ValidationError {
+  constructor() {
+    super(
+      "SAME_PASSWORD",
+      "The new password must differ from the current one.",
+      { newPassword: "La contraseña nueva debe ser distinta de la actual." },
+    );
   }
 }
 
@@ -193,6 +222,31 @@ export class LastAdministratorError extends BusinessRuleError {
 }
 
 /**
+ * Emitted by `AuthenticateUser` when the progressive lockout of Q-03
+ * has closed the account for this caller.
+ *
+ * Its own code rather than the generic `TOO_MANY_REQUESTS` of the
+ * per-IP throttle, because §5.2 requires separate codes for situations
+ * the interface resolves differently: this one paints a countdown on
+ * the login form, the other one is a transient "slow down".
+ *
+ * It does **not** compromise the opacity of D-18. The counters are
+ * keyed on the submitted username whether or not it names a real user
+ * (see `LoginThrottle`), so a lock reveals only that *someone* has been
+ * failing against that string — which is exactly what the caller
+ * receiving this error just did.
+ */
+export class TooManyLoginAttemptsError extends TooManyRequestsError {
+  constructor(retryAfterSeconds: number) {
+    super(
+      "TOO_MANY_LOGIN_ATTEMPTS",
+      "Demasiados intentos fallidos. Esperá antes de volver a intentar.",
+      { retryAfterSeconds },
+    );
+  }
+}
+
+/**
  * Emitted by `RefreshSession` for every failure path (D-26): missing
  * or unknown refresh token, revoked token (reuse — the use case also
  * revokes the whole family before throwing, D-05/D-29), expired token,
@@ -203,7 +257,7 @@ export class LastAdministratorError extends BusinessRuleError {
  */
 export class SessionExpiredError extends UnauthorizedError {
   constructor() {
-    super("UNAUTHENTICATED", "Session expired or invalid.");
+    super("UNAUTHENTICATED", "La sesión expiró o no es válida.");
   }
 }
 

@@ -1,0 +1,121 @@
+post:
+  tags:
+    - Legal Qualifications
+  operationId: createLegalQualification
+  summary: Registrar calificación legal
+  description: |
+    Registra una nueva calificación legal. La respuesta no incluye
+    `activeCases`.
+
+    **Rol requerido:** cualquier usuario autenticado.
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: ../components/schemas/LegalQualificationCreate.yaml
+        example:
+          name: Hurto simple — art. 162 CP
+          prescriptionMonths: 24
+  responses:
+    '201':
+      description: Calificación legal registrada.
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - data
+            properties:
+              data:
+                $ref: ../components/schemas/LegalQualification.yaml
+          example:
+            data:
+              id: 6
+              name: Hurto simple — art. 162 CP
+              prescriptionMonths: 24
+              active: true
+    '400':
+      description: Datos inválidos.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          example:
+            error:
+              code: VALIDATION_ERROR
+              message: Los datos enviados no son válidos.
+              details:
+                prescriptionMonths: Debe ser un número entero mayor o igual a 1.
+    '401':
+      $ref: ../components/responses/Unauthorized.yaml
+    '409':
+      description: Ya existe una calificación vigente con esa denominación.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          example:
+            error:
+              code: LEGAL_QUALIFICATION_ALREADY_EXISTS
+              message: Ya existe una calificación legal con esa denominación.
+              details: null
+
+get:
+  tags:
+    - Legal Qualifications
+  operationId: listLegalQualifications
+  summary: Consultar calificaciones legales
+  description: |
+    Obtiene una lista paginada de las calificaciones legales vigentes,
+    ordenadas alfabéticamente por `name`.
+
+    **Rol requerido:** cualquier usuario autenticado.
+  parameters:
+    - $ref: ../components/parameters/PageParam.yaml
+    - $ref: ../components/parameters/LimitParam.yaml
+    - name: search
+      in: query
+      required: false
+      description: Filtra por `name`, lo que incluye el artículo.
+      schema:
+        type: string
+      example: art. 162
+  responses:
+    '200':
+      description: Página de calificaciones legales.
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - data
+              - pagination
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: ../components/schemas/LegalQualificationWithActiveCases.yaml
+              pagination:
+                $ref: ../components/schemas/Pagination.yaml
+          example:
+            data:
+              - id: 8
+                name: Abuso de armas — art. 104 CP
+                prescriptionMonths: 78
+                activeCases: 1
+                active: true
+              - id: 4
+                name: Amenazas coactivas — art. 149 bis CP
+                prescriptionMonths: 24
+                activeCases: 2
+                active: true
+            pagination:
+              page: 1
+              limit: 20
+              totalItems: 8
+              totalPages: 1
+    '400':
+      $ref: ../components/responses/InvalidPagination.yaml
+    '401':
+      $ref: ../components/responses/Unauthorized.yaml

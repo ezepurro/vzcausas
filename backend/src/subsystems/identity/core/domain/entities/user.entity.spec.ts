@@ -1,6 +1,7 @@
 import { ValidationError } from "@shared/domain/domain-error";
 import {
   InvalidCurrentPasswordError,
+  SamePasswordError,
   WeakPasswordError,
 } from "../errors/identity.errors";
 import { PasswordHasher } from "../ports/password-hasher.port";
@@ -44,10 +45,41 @@ describe("User", () => {
         lawyerId: null,
         lastLoginAt: null,
         active: true,
+        deletedAt: null,
       });
       expect(user.id).toBe(1);
       expect(user.isActive()).toBe(true);
       expect(user.lastLoginAt).toBeNull();
+    });
+
+    it("keeps the deactivation date it was given", () => {
+      const deletedAt = new Date("2026-10-01T09:00:00-03:00");
+      const user = User.hydrate({
+        id: 1,
+        username,
+        passwordHash: "anything",
+        fullName: "Fernando Vázquez",
+        email,
+        roleIds: [1],
+        lawyerId: null,
+        lastLoginAt: null,
+        active: false,
+        deletedAt,
+      });
+      expect(user.deletedAt).toEqual(deletedAt);
+    });
+  });
+
+  // CA-7.1
+  describe("deactivate", () => {
+    it("flips the vigency flag and records the instant it receives", async () => {
+      const user = await User.create(baseCreateProps, hasher);
+      const at = new Date("2026-10-11T15:30:00-03:00");
+
+      user.deactivate(at);
+
+      expect(user.isActive()).toBe(false);
+      expect(user.deletedAt).toEqual(at);
     });
   });
 
@@ -128,6 +160,35 @@ describe("User", () => {
       await expect(
         user.changePassword("password-123", "abcdefghij", hasher),
       ).rejects.toBeInstanceOf(WeakPasswordError);
+    });
+
+    it("rejects a new password equal to the current one (CA-3.5)", async () => {
+      const user = await build();
+      await expect(
+        user.changePassword("password-123", "password-123", hasher),
+      ).rejects.toBeInstanceOf(SamePasswordError);
+    });
+
+    it("marks the offending field, so the form can point at it", async () => {
+      const user = await build();
+      await expect(
+        user.changePassword("password-123", "password-123", hasher),
+      ).rejects.toMatchObject({
+        details: {
+          newPassword: "La contraseña nueva debe ser distinta de la actual.",
+        },
+      });
+    });
+
+    it("leaves the stored password untouched when it refuses", async () => {
+      // The check runs before the hash is replaced; getting the order
+      // wrong would reject the request and change the password anyway.
+      const user = await build();
+      await user
+        .changePassword("password-123", "password-123", hasher)
+        .catch(() => undefined);
+
+      expect(await user.verifyPassword("password-123", hasher)).toBe(true);
     });
   });
 

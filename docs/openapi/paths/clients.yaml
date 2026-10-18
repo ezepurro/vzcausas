@@ -1,0 +1,138 @@
+post:
+  tags:
+    - Clients
+  operationId: createClient
+  summary: Registrar cliente
+  description: |
+    Registra un nuevo cliente (HU8). `clientSince` lo asigna el backend con la
+    fecha del día.
+
+    **Rol requerido:** cualquier usuario autenticado.
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: ../components/schemas/ClientCreate.yaml
+        example:
+          lastName: BENÍTEZ
+          firstName: Rodrigo E.
+          dni: '31556208'
+          phone: 351 401-5573
+          email: rbenitez@gmail.com
+  responses:
+    '201':
+      description: Cliente registrado.
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - data
+            properties:
+              data:
+                $ref: ../components/schemas/Client.yaml
+          example:
+            data:
+              id: 7
+              lastName: BENÍTEZ
+              firstName: Rodrigo E.
+              dni: '31556208'
+              phone: 351 401-5573
+              email: rbenitez@gmail.com
+              clientSince: '2026-09-29'
+              activeCases: 0
+              active: true
+    '400':
+      description: Datos inválidos.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          example:
+            error:
+              code: VALIDATION_ERROR
+              message: Los datos enviados no son válidos.
+              details:
+                dni: Debe contener 7 u 8 dígitos, sin puntos.
+                email: El formato del correo electrónico no es válido.
+    '401':
+      $ref: ../components/responses/Unauthorized.yaml
+    '409':
+      description: Ya existe un cliente vigente con ese DNI.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          example:
+            error:
+              code: CLIENT_DNI_ALREADY_EXISTS
+              message: Ya existe un cliente registrado con ese DNI.
+              details: null
+
+get:
+  tags:
+    - Clients
+  operationId: listClients
+  summary: Consultar clientes
+  description: |
+    Obtiene una lista paginada de los clientes vigentes (HU9), ordenada por
+    `lastName` y luego por `firstName`. Las causas de un cliente se obtienen
+    con `GET /cases?clientId={clientId}`.
+
+    **Rol requerido:** cualquier usuario autenticado.
+  parameters:
+    - $ref: ../components/parameters/PageParam.yaml
+    - $ref: ../components/parameters/LimitParam.yaml
+    - name: search
+      in: query
+      required: false
+      description: Filtra por `lastName`, por `firstName` y por `dni`.
+      schema:
+        type: string
+  responses:
+    '200':
+      description: Página de clientes.
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - data
+              - pagination
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: ../components/schemas/Client.yaml
+              pagination:
+                $ref: ../components/schemas/Pagination.yaml
+          example:
+            data:
+              - id: 4
+                lastName: ACOSTA
+                firstName: Jonathan E.
+                dni: '38907221'
+                phone: 351 744-1160
+                email: null
+                clientSince: '2022-01-19'
+                activeCases: 1
+                active: true
+              - id: 1
+                lastName: GÓMEZ
+                firstName: Ariel Fernando
+                dni: '34812905'
+                phone: 351 415-2288
+                email: afgomez@gmail.com
+                clientSince: '2021-03-12'
+                activeCases: 1
+                active: true
+            pagination:
+              page: 1
+              limit: 20
+              totalItems: 7
+              totalPages: 1
+    '400':
+      $ref: ../components/responses/InvalidPagination.yaml
+    '401':
+      $ref: ../components/responses/Unauthorized.yaml

@@ -8,6 +8,9 @@ services:
     build:
       context: ../backend
       dockerfile: Dockerfile
+      target: development
+    # Nombre explícito para que migrate reutilice esta misma imagen.
+    image: vz-causas-backend
     container_name: causas-backend
     environment:
       <<: *database-url
@@ -31,13 +34,20 @@ services:
       - ../build:/build:ro
       - ../backend:/app
       - /app/node_modules
+      # dist en un volumen y no en el bind mount: escribir los ~400 archivos
+      # que emite tsc sobre el disco de Windows llevaba ~15 s por arranque;
+      # en el volumen, ~7. Además el .tsbuildinfo sobrevive entre arranques
+      # y la compilación incremental funciona.
+      - /app/dist
       # Testcontainers: permite que `make test-int` levante la base de test
       # desde dentro del contenedor usando el Docker del host.
       - /var/run/docker.sock:/var/run/docker.sock
-    command: sh -c "npx prisma generate && npm run start:dev"
+    # Sin prisma generate: migrate lo corre justo antes sobre el mismo mount.
+    # nest-cli.dev.json apaga deleteOutDir, que no puede borrar /app/dist
+    # porque es un punto de montaje (EBUSY).
+    command: npx nest start --watch --config nest-cli.dev.json
     # El contenedor está "up" desde que arranca el shell, pero Nest tarda
-    # bastante más en escuchar: prisma generate más la compilación de TS sobre
-    # el bind mount. Sin esto el frontend proxea contra un puerto cerrado y
+    # bastante más en escuchar: la compilación de TS sobre el bind mount. Sin esto el frontend proxea contra un puerto cerrado y
     # devuelve 502, que se lee como un error del backend en vez de como
     # "todavía no terminó de arrancar".
     healthcheck:
@@ -46,6 +56,9 @@ services:
       timeout: 5s
       retries: 12
       start_period: 90s
+      # Durante el start_period chequea cada 1 s en vez de cada 5 s, así no
+      # queda "unhealthy" varios segundos después de que Nest ya escucha.
+      start_interval: 1s
 
   postgres:
     container_name: causas-db
@@ -117,45 +130,68 @@ services:
       - /app/node_modules
 
   migrate:
-    build:
-      context: ../backend
-      dockerfile: Dockerfile
-      target: development
+    # Sin build propio: usa la imagen del backend. Construirla aparte era
+    # una segunda copia idéntica de ~1,3 GB y un build más en cada dev-build.
+    image: vz-causas-backend
+    pull_policy: never
     container_name: causas-migrate
     environment:
       <<: *database-url
+    # El seed lee DEV_SEED_PASSWORD y BCRYPT_COST; sin esto usa sus
+    # fallbacks y los usuarios de prueba quedan con otra contraseña.
+    env_file:
+      - ./.env
     restart: "no"
     networks:
       - causas-network
     depends_on:
       postgres:
         condition: service_healthy
-    command: sh -c "npx prisma migrate deploy && npx prisma db seed"
+    # Mismo bind mount que el backend: sin esto corre las migraciones y el
+    # seed congelados en la imagen, y una migración nueva no se aplica
+    # hasta rebuildear.
+    volumes:
+      - ../backend:/app
+      - /app/node_modules
+    # generate primero: el bind mount tapa el cliente generado en el build
+    # (src/generated está en .gitignore) y seed.ts lo importa.
+    command: sh -c "npx prisma generate && npx prisma migrate deploy && npx prisma db seed"
 
-  # openapi-build:
-  #   build:
-  #     context: ../tooling/openapi
-  #     dockerfile: Dockerfile
-  #   container_name: causas-openapi-build
-  #   restart: 'no'
-  #   networks:
-  #     - causas-network
-  #   volumes:
-  #     - ../docs/openapi:/docs/openapi:ro
-  #     - ../build:/build
+  # Valida docs/openapi (Redocly + Spectral), arma el bundle en
+  # build/openapi.yaml y termina. Para regenerarlo: make openapi-build.
+  openapi-build:
+    build:
+      context: ../tooling/openapi
+      dockerfile: Dockerfile
+    container_name: causas-openapi-build
+    restart: 'no'
+    networks:
+      - causas-network
+    volumes:
+      - ../docs/openapi:/docs/openapi:ro
+      - ../build:/build
 
-  # openapi-docs:
-  #   image: nginx:alpine
-  #   container_name: causas-openapi-docs
-  #   ports:
-  #     - '8081:80'
-  #   networks:
-  #     - causas-network
-  #   depends_on:
-  #     openapi-build:
-  #       condition: service_completed_successfully
-  #   volumes:
-  #     - ../build:/usr/share/nginx/html:ro
+  # Swagger UI sobre el bundle. "Try it out" le pega a localhost:3000, así
+  # que http://localhost:8081 tiene que estar en CORS_ALLOWED_ORIGINS.
+  openapi-docs:
+    image: swaggerapi/swagger-ui
+    container_name: causas-openapi-docs
+    restart: unless-stopped
+    environment:
+      SWAGGER_JSON: /spec/openapi.yaml
+      # Manda la cookie del refresh en las peticiones, para que
+      # POST /auth/refresh funcione desde la UI.
+      WITH_CREDENTIALS: 'true'
+      PERSIST_AUTHORIZATION: 'true'
+    ports:
+      - '8081:8080'
+    networks:
+      - causas-network
+    depends_on:
+      openapi-build:
+        condition: service_completed_successfully
+    volumes:
+      - ../build:/spec:ro
 
 networks:
   causas-network:

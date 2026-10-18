@@ -34,68 +34,70 @@ export const DAY_TYPE_LABELS: Record<DayType, string> = {
 /** Los que puede elegir el usuario: `NONE` lo pone el sistema, no se elige. */
 export const SELECTABLE_DAY_TYPES = ['BUSINESS', 'CONSECUTIVE'] as const;
 
-/** El recurso tal como viene adentro de `data`. */
+/**
+ * El recurso tal como viene adentro de `data` en un `GET`.
+ *
+ * No tiene posición: los estados no tienen orden dentro del fuero y el backend
+ * los lista en el orden en que se registraron (V3 D-31).
+ *
+ * El estado inicial "Iniciada", en el que nace toda causa, no es uno de estos:
+ * es de sistema, no se lista ni se administra, y su nombre está reservado
+ * (V3 D-34).
+ */
 export interface ProceduralState {
     id: number;
     name: string;
     jurisdiction: Jurisdiction;
-    /** Lugar dentro del ciclo de vida del fuero, desde 1. Lo renumera el backend. */
-    position: number;
     /** Días que abre el estado. `0` = no abre plazo. */
     timeLimitDays: number;
     dayType: DayType;
     /** Cierra el ciclo de vida de la causa. */
     terminal: boolean;
-    /** Calculado, sólo lectura. El contrato devuelve `0` hasta que exista el módulo de causas. */
+    /**
+     * Causas activas que están hoy en este estado. Calculado; `0` en un estado
+     * terminal. Viene sólo en las respuestas de `GET` (V3 D-32).
+     */
     activeCases: number;
     /** La baja es lógica: un estado inactivo no se borra, se deja de ofrecer. */
     active: boolean;
 }
 
+/**
+ * Lo que devuelven el `POST` y el `PATCH`: el estado sin `activeCases`, que es
+ * un dato de consulta (V3 D-32). Para verlo hay que volver a pedir el listado,
+ * que es lo que hacen las mutaciones al invalidarlo.
+ */
+export type SavedProceduralState = Omit<ProceduralState, 'activeCases'>;
+
 export interface CreateProceduralStateBody {
     name: string;
     jurisdiction: Jurisdiction;
-    /** Ausente = al final del ciclo. El backend corre a los que vienen después. */
-    position?: number;
     timeLimitDays: number;
     dayType: DayType;
     terminal: boolean;
 }
 
 /**
- * Sin `jurisdiction` y sin `activeCases`: el contrato dice que un estado no
- * puede cambiar de fuero y que las causas activas las calcula el backend.
+ * Sin `activeCases`: las causas activas las calcula el backend.
  *
- * Tampoco lleva `active`. El contrato lo admite para reactivar una baja, pero
- * desde el cliente eliminar es eliminar: la pantalla no ofrece deshacerlo, así
- * que el tipo no deja mandarlo por error.
+ * Tampoco lleva `jurisdiction`: un estado no cambia de fuero (V3 D-36). El
+ * backend rechaza el campo con `400` aunque venga con el valor que ya tenía.
+ *
+ * No lleva `active`: el contrato no ofrece forma de reactivar una baja.
  */
 export type UpdateProceduralStateBody = Partial<
-    Pick<ProceduralState, 'name' | 'position' | 'timeLimitDays' | 'dayType' | 'terminal'>
+    Pick<ProceduralState, 'name' | 'timeLimitDays' | 'dayType' | 'terminal'>
 >;
-
-/**
- * Dónde va el estado dentro del ciclo, tal como lo elige el usuario.
- *
- * El contrato habla de un número, pero un número no significa nada para quien
- * carga: lo que sabe es que el estado va al principio, al final, o detrás de
- * otro que puede nombrar. La traducción a `position` la hace `resolvePosition`.
- */
-export const POSITION_FIRST = 'FIRST';
-export const POSITION_LAST = 'LAST';
-export const POSITION_AFTER_PREFIX = 'AFTER:';
 
 /**
  * Los valores del formulario. Sólo `string` y `boolean`, que es lo que admite
  * `FormValues` de `FormModal`, y nunca `undefined`.
  *
  * `jurisdiction` no está: en el alta la fija la lengüeta activa y en la edición
- * el contrato no deja cambiarla. No es un campo, es contexto.
+ * no se puede cambiar (V3 D-36). No es un campo, es contexto.
  */
 export type ProceduralStateFormValues = {
     name: string;
-    /** `'FIRST'` | `'LAST'` | `` `AFTER:${id}` `` */
-    positionChoice: string;
     /** Entero como texto: es lo que devuelve un `input`. Se convierte al armar el cuerpo. */
     timeLimitDays: string;
     dayType: string;
@@ -107,10 +109,8 @@ export interface ProceduralStatesParams {
     limit: number;
     search?: string;
     /**
-     * No es opcional: la pantalla muestra el ciclo de vida de UN fuero. Sin
-     * filtro, "posición 3" aparecería tres veces y no querría decir nada.
+     * No es opcional: la pantalla muestra los estados de UN fuero. Sin filtro,
+     * "Archivada" aparecería tres veces, una por cada fuero.
      */
     jurisdiction: Jurisdiction;
-    /** El contrato asume `true` si no viaja. */
-    active?: boolean;
 }

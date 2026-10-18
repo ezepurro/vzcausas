@@ -7,8 +7,11 @@ import { Permission } from "../value-objects/permission.vo";
  * effectively immutable at runtime for the auth scope; write
  * operations belong to HU4 and beyond.
  *
- * A role is loaded during login so its permissions can be embedded
- * into the JWT `permissions[]` claim (D-06).
+ * A role is loaded on login, on refresh, and on every subsequent
+ * request (`AccessTokenVerifierAdapter`) so its permissions can be
+ * resolved fresh each time — not embedded into the access token, which
+ * would let a revoked role keep working until the token expired
+ * (CA-6.2).
  */
 export class Role {
   private constructor(
@@ -65,10 +68,7 @@ export class Role {
     return this._name;
   }
 
-  /**
-   * Returns the permission names as plain strings, ready to be placed
-   * into the JWT `permissions[]` claim.
-   */
+  /** Returns the permission names as plain strings. */
   getPermissions(): string[] {
     return this._permissions.map((p) => p.getName());
   }

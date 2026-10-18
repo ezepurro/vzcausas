@@ -1,0 +1,41 @@
+type: object
+description: |
+  Vencimiento que tendría un acto procesal, calculado sin registrarlo. Si el
+  estado no abre plazo, `dueDate` y `businessDaysRemaining` valen `null`.
+required:
+  - proceduralStateId
+  - timeLimitDays
+  - dayType
+  - countsFrom
+  - dueDate
+  - businessDaysRemaining
+properties:
+  proceduralStateId:
+    type: integer
+    examples:
+      - 12
+  timeLimitDays:
+    type: integer
+    minimum: 0
+    examples:
+      - 5
+  dayType:
+    $ref: ./DayType.yaml
+  countsFrom:
+    type: string
+    format: date
+    examples:
+      - '2026-09-15'
+  dueDate:
+    type:
+      - string
+      - 'null'
+    format: date
+    examples:
+      - '2026-09-22'
+  businessDaysRemaining:
+    type:
+      - integer
+      - 'null'
+    examples:
+      - 5

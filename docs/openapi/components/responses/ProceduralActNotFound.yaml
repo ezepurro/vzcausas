@@ -1,0 +1,10 @@
+description: El acto procesal no existe o pertenece a otra causa.
+content:
+  application/json:
+    schema:
+      $ref: ../schemas/Error.yaml
+    example:
+      error:
+        code: PROCEDURAL_ACT_NOT_FOUND
+        message: No se encontró el acto procesal solicitado.
+        details: null

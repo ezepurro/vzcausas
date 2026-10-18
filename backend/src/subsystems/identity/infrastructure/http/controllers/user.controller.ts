@@ -34,23 +34,13 @@ import { ListUsersQueryDto } from "../dtos/list-users.query.dto";
  * Every route declares its permission with `@RequirePermissions`.
  * There is no `@UseGuards` here on purpose: `JwtAuthGuard` and
  * `PermissionsGuard` are registered globally in `AppModule` (D-57,
- * D-65), so a route is authenticated by default and this decorator
- * only adds the authorization check on top.
+ * D-65, landed in P-13), so a route is authenticated by default and
+ * this decorator only adds the authorization check on top.
  *
- * ⚠️ NOT IN FORCE YET. That global registration is step P-13 of
- * IMPLEMENTACION_AUTH.md, still pending — `feat/auth` ships the
- * guards but composes no module. Until P-13 lands these decorators
- * are inert metadata and the endpoints answer unauthenticated. The
- * same is true of `AuthController`, which has been decorated since
- * P-12 for the same reason.
- *
- * ⚠️ The permission names below follow `prisma/seed.ts`
- * (`user:create`, `user:read`, …). `InMemoryRoleRepository` grants a
- * coarser set instead (`user:manage`), so whichever of the two is
- * bound to `ROLE_REPOSITORY` decides whether these checks pass. The
- * two vocabularies have to be reconciled at the final merge; picking
- * the seed's here is not a verdict, just the one that matches the
- * database the HU endpoints actually write to.
+ * The permission names below follow `prisma/seed.ts` (`user:create`,
+ * `user:read`, …), the catalogue `PrismaRoleRepository` reads — the
+ * in-memory repository these permissions were reconciled against was
+ * retired in P-15.
  */
 @Controller("users")
 export class UserController {

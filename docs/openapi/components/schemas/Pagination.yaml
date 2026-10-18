@@ -1,0 +1,35 @@
+type: object
+description: |
+  Metadatos de una colección paginada. Una colección sin resultados devuelve
+  `totalItems` y `totalPages` en `0`.
+required:
+  - page
+  - limit
+  - totalItems
+  - totalPages
+properties:
+  page:
+    type: integer
+    minimum: 1
+    description: Número de página devuelta.
+    examples:
+      - 1
+  limit:
+    type: integer
+    minimum: 1
+    maximum: 100
+    description: Cantidad máxima de elementos por página.
+    examples:
+      - 20
+  totalItems:
+    type: integer
+    minimum: 0
+    description: Cantidad total de elementos que cumplen los filtros.
+    examples:
+      - 57
+  totalPages:
+    type: integer
+    minimum: 0
+    description: Cantidad total de páginas.
+    examples:
+      - 3

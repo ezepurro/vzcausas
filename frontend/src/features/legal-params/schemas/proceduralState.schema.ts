@@ -1,9 +1,5 @@
 import {
     DAY_TYPES,
-    POSITION_AFTER_PREFIX,
-    POSITION_FIRST,
-    POSITION_LAST,
-    type ProceduralState,
     type ProceduralStateFormValues,
 } from '@/features/legal-params/types/proceduralState';
 
@@ -25,15 +21,8 @@ const RE_TIME_LIMIT = /^\d{1,4}$/;
  *
  * Es la PRIMERA barrera, no la única: el backend valida igual y devuelve sus
  * errores campo por campo en los 400.
- *
- * `siblings` son los estados del fuero contra los que se resuelve la posición
- * elegida: sin ellos no se puede saber si el "después de X" apunta a algo que
- * todavía existe.
  */
-export function validateProceduralState(
-    values: ProceduralStateFormValues,
-    siblings: ProceduralState[],
-): ProceduralStateErrors {
+export function validateProceduralState(values: ProceduralStateFormValues): ProceduralStateErrors {
     const errors: ProceduralStateErrors = {};
 
     const name = values.name.trim();
@@ -41,10 +30,6 @@ export function validateProceduralState(
         errors.name = 'El nombre del estado es obligatorio.';
     } else if (name.length < NAME_MIN || name.length > NAME_MAX) {
         errors.name = `Debe tener entre ${NAME_MIN} y ${NAME_MAX} caracteres.`;
-    }
-
-    if (!isValidPositionChoice(values.positionChoice, siblings)) {
-        errors.positionChoice = 'Elegí en qué lugar del ciclo va el estado.';
     }
 
     const timeLimit = values.timeLimitDays.trim();
@@ -70,13 +55,4 @@ export function validateProceduralState(
     }
 
     return errors;
-}
-
-/** `FIRST`, `LAST`, o un `AFTER:<id>` que apunte a un estado que sigue en el ciclo. */
-function isValidPositionChoice(choice: string, siblings: ProceduralState[]): boolean {
-    if (choice === POSITION_FIRST || choice === POSITION_LAST) return true;
-    if (!choice.startsWith(POSITION_AFTER_PREFIX)) return false;
-
-    const afterId = Number(choice.slice(POSITION_AFTER_PREFIX.length));
-    return siblings.some((state) => state.id === afterId);
 }

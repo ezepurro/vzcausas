@@ -1,0 +1,70 @@
+type: string
+description: |
+  Código del catálogo de errores. Es el valor que el cliente utiliza para
+  discriminar el tipo de error; nunca debe depender del texto de `message`.
+
+  | Código                               | HTTP | Situación                                                                 |
+  | ------------------------------------ | :--: | ------------------------------------------------------------------------- |
+  | `VALIDATION_ERROR`                   | 400  | Datos inválidos. Incluye `details` campo por campo                        |
+  | `INVALID_PAGINATION`                 | 400  | Parámetros de paginación fuera de rango                                   |
+  | `INVALID_PATH_PARAMETER`             | 400  | Identificador de la ruta inválido                                         |
+  | `INVALID_REQUEST`                    | 400  | Parámetro de consulta con un valor inexistente o una combinación inválida |
+  | `SAME_PASSWORD`                      | 400  | La contraseña nueva es igual a la actual. Exclusivo de `PATCH /auth/password` |
+  | `INVALID_CREDENTIALS`                | 401  | Credenciales incorrectas. Exclusivo de `/auth/login`                      |
+  | `UNAUTHENTICATED`                    | 401  | Token ausente, vencido, revocado o la sesión cerrada por inactividad      |
+  | `FORBIDDEN`                          | 403  | Usuario autenticado sin el rol requerido                                  |
+  | `USER_NOT_FOUND`                     | 404  | Usuario inexistente                                                       |
+  | `LAWYER_NOT_FOUND`                   | 404  | Abogado inexistente                                                       |
+  | `PROCEDURAL_STATE_NOT_FOUND`         | 404  | Estado procesal inexistente                                               |
+  | `LEGAL_QUALIFICATION_NOT_FOUND`      | 404  | Calificación legal inexistente                                            |
+  | `CLIENT_NOT_FOUND`                   | 404  | Cliente inexistente                                                       |
+  | `CASE_NOT_FOUND`                     | 404  | Causa inexistente                                                         |
+  | `PROCEDURAL_ACT_NOT_FOUND`           | 404  | Acto procesal inexistente o de otra causa                                 |
+  | `RESOURCE_NOT_FOUND`                 | 404  | Ruta inexistente                                                          |
+  | `USERNAME_ALREADY_EXISTS`            | 409  | Nombre de usuario ya registrado                                           |
+  | `EMAIL_ALREADY_EXISTS`               | 409  | Correo electrónico ya registrado                                          |
+  | `LAWYER_REGISTRATION_ALREADY_EXISTS` | 409  | Matrícula ya registrada                                                   |
+  | `PROCEDURAL_STATE_ALREADY_EXISTS`    | 409  | Denominación repetida dentro del mismo fuero                              |
+  | `LEGAL_QUALIFICATION_ALREADY_EXISTS` | 409  | Denominación de calificación legal ya registrada                          |
+  | `CLIENT_DNI_ALREADY_EXISTS`          | 409  | DNI ya registrado en un cliente vigente                                   |
+  | `CASE_SAC_ALREADY_EXISTS`            | 409  | Número de SAC ya registrado (RN2)                                         |
+  | `USER_HAS_DEPENDENCIES`              | 409  | El usuario posee recursos asociados                                       |
+  | `LAWYER_HAS_DEPENDENCIES`            | 409  | El abogado posee causas o un usuario vinculado                            |
+  | `INVALID_CURRENT_PASSWORD`           | 422  | La contraseña actual no coincide                                          |
+  | `CASE_IN_TERMINAL_STATE`             | 422  | Acto procesal sobre una causa en estado terminal                          |
+  | `BUSINESS_RULE_VIOLATION`            | 422  | Violación de una regla de negocio                                         |
+  | `TOO_MANY_LOGIN_ATTEMPTS`            | 429  | Bloqueo progresivo por intentos fallidos. Exclusivo de `POST /auth/login` |
+  | `TOO_MANY_REQUESTS`                  | 429  | Límite de pedidos por dirección IP superado                               |
+  | `INTERNAL_SERVER_ERROR`              | 500  | Error interno inesperado                                                  |
+enum:
+  - VALIDATION_ERROR
+  - INVALID_PAGINATION
+  - INVALID_PATH_PARAMETER
+  - INVALID_REQUEST
+  - SAME_PASSWORD
+  - INVALID_CREDENTIALS
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - USER_NOT_FOUND
+  - LAWYER_NOT_FOUND
+  - PROCEDURAL_STATE_NOT_FOUND
+  - LEGAL_QUALIFICATION_NOT_FOUND
+  - CLIENT_NOT_FOUND
+  - CASE_NOT_FOUND
+  - PROCEDURAL_ACT_NOT_FOUND
+  - RESOURCE_NOT_FOUND
+  - USERNAME_ALREADY_EXISTS
+  - EMAIL_ALREADY_EXISTS
+  - LAWYER_REGISTRATION_ALREADY_EXISTS
+  - PROCEDURAL_STATE_ALREADY_EXISTS
+  - LEGAL_QUALIFICATION_ALREADY_EXISTS
+  - CLIENT_DNI_ALREADY_EXISTS
+  - CASE_SAC_ALREADY_EXISTS
+  - USER_HAS_DEPENDENCIES
+  - LAWYER_HAS_DEPENDENCIES
+  - INVALID_CURRENT_PASSWORD
+  - CASE_IN_TERMINAL_STATE
+  - BUSINESS_RULE_VIOLATION
+  - TOO_MANY_LOGIN_ATTEMPTS
+  - TOO_MANY_REQUESTS
+  - INTERNAL_SERVER_ERROR

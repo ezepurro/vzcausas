@@ -1,0 +1,38 @@
+type: object
+description: |
+  Estructura común a todas las respuestas de error, sin excepción. Los textos
+  de `message` y de `details` están en castellano.
+required:
+  - error
+properties:
+  error:
+    type: object
+    required:
+      - code
+      - message
+      - details
+    properties:
+      code:
+        $ref: ./ErrorCode.yaml
+      message:
+        type: string
+        description: Descripción legible del error, en castellano.
+        examples:
+          - Los datos enviados no son válidos.
+      details:
+        type:
+          - object
+          - 'null'
+        description: |
+          Objeto `campo → mensaje` en los errores de validación; `null` en el
+          resto. Única excepción: `TOO_MANY_LOGIN_ATTEMPTS` y
+          `TOO_MANY_REQUESTS` devuelven `{ "retryAfterSeconds": N }`, con `N`
+          entero — no un mensaje de campo.
+        additionalProperties:
+          type:
+            - string
+            - integer
+        examples:
+          - username: Debe tener entre 3 y 30 caracteres.
+            email: El formato del correo electrónico no es válido.
+          - retryAfterSeconds: 90

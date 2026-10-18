@@ -1,0 +1,8 @@
+description: Parámetros de paginación fuera de rango.
+content:
+  application/json:
+    schema:
+      $ref: ../schemas/Error.yaml
+    examples:
+      invalidPagination:
+        $ref: ../examples/InvalidPaginationError.yaml

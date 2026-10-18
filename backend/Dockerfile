@@ -1,5 +1,3 @@
-ARG DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
-
 # ─────────────────────────────
 # 0. Base
 # ─────────────────────────────
@@ -17,13 +15,11 @@ ENV NODE_ENV=development
 
 RUN npm ci
 
-COPY . .
-
-# prisma.config needs a DATABASE_URL to load during build,
-#   this variable will be overridden by docker-compose at runtime
-ARG DATABASE_URL
-
-RUN npx prisma generate
+# Sin COPY del código ni prisma generate: en desarrollo docker-compose monta
+# ../backend sobre /app, así que de la imagen solo se usa node_modules. Copiar
+# el código solo servía para que cualquier cambio invalidara la caché del
+# build. El cliente de Prisma (src/generated) lo genera el servicio migrate al
+# levantar. Un stage de producción, si se agrega, sí necesita ambos pasos.
 
 EXPOSE 3000
 CMD ["npm", "run", "start:dev"]

@@ -1,4 +1,4 @@
-import { LawyerSummaryDto } from "./user.response.dto";
+import { LawyerSummaryDto } from './user.response.dto';
 
 /**
  * Response shapes for `/auth` (API v2 §3.1). Plain types rather than
@@ -12,16 +12,11 @@ import { LawyerSummaryDto } from "./user.response.dto";
 /**
  * The `user` block of the login response.
  *
- * Reuses {@link LawyerSummaryDto} from the user resource on purpose:
- * the contract states this `user` has the same structure `/users`
- * returns (§3.1), and sharing the type is what keeps that sentence
- * true instead of merely aspirational. Two independent declarations
- * is how they drifted apart the first time.
- *
- * It shipped as a bare `lawyerId` while `people` did not exist
- * (D-52, C-09) — the nested object was always the target, pending a
- * resource to resolve it from. HU-12 landed `/lawyers`, so the
- * divergence is closed.
+ * `lawyerId` is a bare id, not the nested
+ * `lawyer: { id, fullName, registrationNumber }` object the contract
+ * currently documents (D-52, C-09): the professional record lives in
+ * the `/lawyers` resource, which does not exist yet. Adding the
+ * nested object later is additive.
  *
  * `lastLoginAt` is the timestamp of the session *before* this one, so
  * the user can spot access they did not perform. `null` on first
@@ -40,7 +35,7 @@ export type LoginUserResponseDto = {
 
 export type LoginResponseDto = {
   accessToken: string;
-  tokenType: "Bearer";
+  tokenType: 'Bearer';
   expiresIn: number;
   user: LoginUserResponseDto;
 };
@@ -55,11 +50,6 @@ export type LoginResponseDto = {
  * {@link LoginUserResponseDto} and in the `/users` resource. It was
  * briefly `roleNames` here only, which meant the same data arrived
  * under two names depending on which endpoint answered.
- *
- * `lawyerId` stays a bare id here, unlike {@link LoginUserResponseDto}:
- * this projection mirrors the access token's claims, not the user
- * resource. The client already holds the professional record from
- * login and a refresh has no reason to re-send it.
  */
 export type RefreshUserResponseDto = {
   id: number;
@@ -71,7 +61,7 @@ export type RefreshUserResponseDto = {
 
 export type RefreshResponseDto = {
   accessToken: string;
-  tokenType: "Bearer";
+  tokenType: 'Bearer';
   expiresIn: number;
   user: RefreshUserResponseDto;
 };

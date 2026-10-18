@@ -1,0 +1,4 @@
+description: Invalida la cookie del refresh token en el cliente.
+schema:
+  type: string
+example: refresh_token=; HttpOnly; Secure; SameSite=Lax; Path=/api/v1/auth; Max-Age=0

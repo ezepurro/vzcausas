@@ -1,0 +1,18 @@
+type: object
+description: |
+  Todos los campos son opcionales, aunque debe enviarse al menos uno.
+  `activeCases` no es modificable: lo calcula el backend.
+additionalProperties: false
+minProperties: 1
+properties:
+  fullName:
+    type: string
+    minLength: 1
+    examples:
+      - Dr. Ignacio Peralta
+  registrationNumber:
+    type: string
+    description: Formato `1-28114`. Única.
+    pattern: '^[0-9]+-[0-9]+$'
+    examples:
+      - 1-35207

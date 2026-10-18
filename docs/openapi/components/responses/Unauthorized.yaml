@@ -1,0 +1,13 @@
+description: |
+  No autenticado. El token está ausente, vencido, revocado, o la sesión se
+  cerró por inactividad prolongada (ver §4, Sesión y revocación, en
+  `API_CONTRACT_V3.md`).
+content:
+  application/json:
+    schema:
+      $ref: ../schemas/Error.yaml
+    example:
+      error:
+        code: UNAUTHENTICATED
+        message: La autenticación es requerida.
+        details: null

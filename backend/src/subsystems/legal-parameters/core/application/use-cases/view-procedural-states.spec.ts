@@ -5,6 +5,7 @@ import { Jurisdiction } from '../../domain/entities/jurisdiction';
 import { DayType } from '../../domain/entities/day-types';
 import { JurisdictionCode } from '../../domain/value-objects/jurisdiction-code';
 import { PaginatedResult } from '../../../../../common/pagination/paginated-result';
+import { FakeActiveCasesCounter } from './test-support/procedural-state-fakes';
 
 function aJurisdiction(code: JurisdictionCode = JurisdictionCode.CRIMINAL): Jurisdiction {
   return Jurisdiction.hydrate({ id: 1, code, dayTypeDefault: DayType.BUSINESS, isActive: true });
@@ -14,10 +15,10 @@ function aProceduralState(overrides: Partial<ProceduralStateProps> = {}): Proced
   return ProceduralState.hydrate({
     id: 1,
     name: 'Citación a juicio',
-    position: 1,
     timeLimitDays: 5,
     dayType: DayType.BUSINESS,
     terminal: false,
+    isInitial: false,
     isActive: true,
     jurisdiction: aJurisdiction(),
     createdAt: new Date('2026-09-27T00:00:00Z'),
@@ -31,15 +32,80 @@ function aPage(items: ProceduralState[]): PaginatedResult<ProceduralState> {
 
 describe('ViewProceduralStates', () => {
   let repository: jest.Mocked<ProceduralStateRepository>;
+  let counter: FakeActiveCasesCounter;
   let useCase: ViewProceduralStates;
 
   beforeEach(() => {
+    // A mock, not the fake: these specs assert *how* `findPaginated` is
+    // called. The other methods are never used here but the type needs them.
     repository = {
-      save: jest.fn(),
-      findAll: jest.fn(),
+      existsActiveByName: jest.fn(),
       findPaginated: jest.fn().mockResolvedValue(aPage([])),
+      findById: jest.fn(),
+      existsByName: jest.fn(),
+      findInitialByJurisdiction: jest.fn(),
+      findJurisdictionByCode: jest.fn(),
+      nextId: jest.fn(),
+      create: jest.fn(),
+      save: jest.fn(),
     };
-    useCase = new ViewProceduralStates(repository);
+    counter = new FakeActiveCasesCounter();
+    useCase = new ViewProceduralStates(repository, counter);
+  });
+
+  describe('activeCases', () => {
+    it('pairs each state with its own count', async () => {
+      repository.findPaginated.mockResolvedValue(
+        aPage([aProceduralState({ id: 1 }), aProceduralState({ id: 2, name: 'Archivada' })]),
+      );
+      counter.counts.set(1, 7);
+      counter.counts.set(2, 3);
+
+      const result = await useCase.getAll({ page: 1, limit: 20 });
+
+      expect(result.items.map((view) => [view.procState.id, view.activeCases])).toEqual([
+        [1, 7],
+        [2, 3],
+      ]);
+    });
+
+    it('reports 0 for a state with no active cases', async () => {
+      repository.findPaginated.mockResolvedValue(aPage([aProceduralState({ id: 1 })]));
+
+      const result = await useCase.getAll({ page: 1, limit: 20 });
+
+      expect(result.items[0].activeCases).toBe(0);
+    });
+
+    it('asks for the counts of the whole page in a single call', async () => {
+      repository.findPaginated.mockResolvedValue(
+        aPage([aProceduralState({ id: 1 }), aProceduralState({ id: 2 }), aProceduralState({ id: 3 })]),
+      );
+
+      await useCase.getAll({ page: 1, limit: 20 });
+
+      expect(counter.calls).toEqual([[1, 2, 3]]);
+    });
+
+    it('does not call the counter for an empty page', async () => {
+      await useCase.getAll({ page: 1, limit: 20 });
+
+      expect(counter.calls).toEqual([]);
+    });
+
+    it('keeps the pagination of the repository page', async () => {
+      repository.findPaginated.mockResolvedValue({
+        items: [aProceduralState({ id: 1 })],
+        total: 41,
+        page: 3,
+        limit: 20,
+        totalPages: 3,
+      });
+
+      const result = await useCase.getAll({ page: 3, limit: 20 });
+
+      expect(result).toMatchObject({ total: 41, page: 3, limit: 20, totalPages: 3 });
+    });
   });
 
   it('forwards page and limit to the repository unchanged', async () => {
@@ -61,31 +127,19 @@ describe('ViewProceduralStates', () => {
   it('trims the search term', async () => {
     await useCase.getAll({ page: 1, limit: 20, search: '  cit  ' });
 
-    expect(repository.findPaginated).toHaveBeenCalledWith(
-      { jurisdiction: undefined, search: 'cit' },
-      1,
-      20,
-    );
+    expect(repository.findPaginated).toHaveBeenCalledWith({ jurisdiction: undefined, search: 'cit' }, 1, 20);
   });
 
   it.each(['', '   '])('treats a blank search (%p) as no filter', async (search) => {
     await useCase.getAll({ page: 1, limit: 20, search });
 
-    expect(repository.findPaginated).toHaveBeenCalledWith(
-      { jurisdiction: undefined, search: undefined },
-      1,
-      20,
-    );
+    expect(repository.findPaginated).toHaveBeenCalledWith({ jurisdiction: undefined, search: undefined }, 1, 20);
   });
 
   it('sends an empty filter when no filters are given', async () => {
     await useCase.getAll({ page: 1, limit: 20 });
 
-    expect(repository.findPaginated).toHaveBeenCalledWith(
-      { jurisdiction: undefined, search: undefined },
-      1,
-      20,
-    );
+    expect(repository.findPaginated).toHaveBeenCalledWith({ jurisdiction: undefined, search: undefined }, 1, 20);
   });
 
   it('returns the repository page, keeping each state with its jurisdiction', async () => {
@@ -97,8 +151,8 @@ describe('ViewProceduralStates', () => {
 
     const result = await useCase.getAll({ page: 1, limit: 20 });
 
-    expect(result).toBe(page);
-    expect(result.items.map((s) => s.jurisdiction.code)).toEqual([
+    expect(result.items.map((view) => view.procState)).toEqual(page.items);
+    expect(result.items.map((view) => view.procState.jurisdiction.code)).toEqual([
       JurisdictionCode.CRIMINAL,
       JurisdictionCode.ADMINISTRATIVE,
     ]);

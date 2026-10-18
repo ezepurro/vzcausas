@@ -112,7 +112,18 @@ export function Modal({ title, sub, width = 'md', footer, onClose, children }: M
       if (opener.current instanceof HTMLElement) opener.current.focus();
     };
   }, []);
+  /* Mientras el modal está abierto, la página de atrás no se mueve: la rueda
+  sólo scrollea el cuerpo del modal. Se guarda el valor anterior y no se
+  pisa con '' para que un modal abierto encima de otro no le desbloquee
+     el fondo al de abajo cuando se cierra. */
+  useEffect(() => {
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
 
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, []);
   /**
    * Cerrar al hacer click en el fondo, pero sólo si el gesto **empezó** ahí.
    *

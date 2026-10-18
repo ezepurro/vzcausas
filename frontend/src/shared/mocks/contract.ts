@@ -1,8 +1,9 @@
 /**
  * Tipos del contrato de API.
  *
- * Fuente: `docs/Api-Contract/API_CONTRACT_V2.md`. Este archivo es la
- * traducción literal del documento a TypeScript.
+ * Fuente: `docs/Api-Contract/API_CONTRACT_V3.md`, con la revisión del
+ * 05/10/2026 (§7.8). Este archivo es la traducción literal del documento a
+ * TypeScript.
  *
  * Los **mensajes** quedan en castellano porque son los que define el
  * contrato y los que ve el usuario; lo que está en inglés es el código.
@@ -48,6 +49,26 @@ export type Jurisdiction = (typeof JURISDICTIONS)[number];
  */
 export const DAY_TYPES = ['BUSINESS', 'CONSECUTIVE', 'NONE'] as const;
 export type DayType = (typeof DAY_TYPES)[number];
+
+/**
+ * Posición que ocupa el cliente en la causa (§2). No es el `Role` de
+ * seguridad del usuario.
+ */
+export const PROCEDURAL_ROLES = [
+    'DEFENSA',
+    'QUERELLANTE_PARTICULAR',
+    'RECURRENTE',
+    'ACTORA',
+    'DEMANDADA',
+] as const;
+export type ProceduralRole = (typeof PROCEDURAL_ROLES)[number];
+
+/** Qué roles admite cada fuero. Uno que no corresponde es un `400`. */
+export const PROCEDURAL_ROLES_BY_JURISDICTION: Record<Jurisdiction, readonly ProceduralRole[]> = {
+    CRIMINAL: ['DEFENSA', 'QUERELLANTE_PARTICULAR'],
+    ADMINISTRATIVE: ['DEFENSA', 'RECURRENTE'],
+    AMPARO: ['ACTORA', 'DEMANDADA'],
+};
 
 /**
  * Los códigos y las formas de error viven en `api/contract.ts`, que es
@@ -109,22 +130,174 @@ export interface Lawyer {
     active: boolean;
 }
 
-/** Estado procesal tal como lo devuelve `/procedural-states` (§3.4). */
+/**
+ * Estado procesal tal como lo devuelve un `GET` de `/procedural-states` (§3.4).
+ *
+ * No tiene posición: los estados no tienen orden dentro del fuero y se listan
+ * en el orden en que se registraron (D-31).
+ */
 export interface ProceduralState {
     id: number;
     /** Texto libre en castellano: lo carga el estudio (RN4). Único por fuero. */
     name: string;
     jurisdiction: Jurisdiction;
-    /** Lugar en el ciclo de vida del fuero, desde 1. Único por fuero. */
-    position: number;
     /** Días que abre el estado. `0` = no abre plazo. */
     timeLimitDays: number;
     dayType: DayType;
     /** Cierra el ciclo de vida de la causa (Archivada, Prescripta). */
     terminal: boolean;
-    /** Causas que están hoy en este estado. Calculado, sólo lectura. */
+    /** Causas que están hoy en este estado. Calculado; sólo en las respuestas de `GET`. */
     activeCases: number;
     active: boolean;
+}
+
+/**
+ * Lo que devuelven `POST` y `PATCH /procedural-states`: el estado sin
+ * `activeCases`, que es un dato de consulta (D-32).
+ */
+export type WrittenProceduralState = Omit<ProceduralState, 'activeCases'>;
+
+/** Calificación legal tal como la devuelve un `GET` de `/legal-qualifications` (§3.5). */
+export interface LegalQualification {
+    id: number;
+    /** Denominación con la norma: `Hurto simple — art. 162 CP`. Única entre las vigentes. */
+    name: string;
+    /** Plazo de prescripción de la acción, en meses enteros. */
+    prescriptionMonths: number;
+    /** Causas activas que la registran. Calculado; sólo en las respuestas de `GET`. */
+    activeCases: number;
+    active: boolean;
+}
+
+/** Lo que devuelven `POST` y `PATCH /legal-qualifications`: sin `activeCases` (D-32). */
+export type WrittenLegalQualification = Omit<LegalQualification, 'activeCases'>;
+
+/** Cliente tal como lo devuelve `/clients` (§3.6). */
+export interface Client {
+    id: number;
+    lastName: string;
+    firstName: string;
+    /** Sólo dígitos, sin puntos. Único entre los vigentes. */
+    dni: string;
+    phone: string | null;
+    email: string | null;
+    /** Fecha de alta en el estudio, `YYYY-MM-DD`. La asigna el backend. */
+    clientSince: string;
+    /** Causas activas en las que es cliente. Calculado, sólo lectura. */
+    activeCases: number;
+    active: boolean;
+}
+
+/** El cliente embebido en una causa: sin `activeCases` ni `active` (§3.7). */
+export type CaseClient = Omit<Client, 'activeCases' | 'active'>;
+
+/** Una calificación de la causa, con su fecha del hecho y su prescripción (§3.7). */
+export interface CaseLegalQualification {
+    id: number;
+    name: string;
+    prescriptionMonths: number;
+    /** Fecha del hecho imputado. La carga el usuario. */
+    offenseDate: string;
+    /** Desde cuándo se computa. Hoy es igual a `offenseDate` (D-19). */
+    prescriptionStartsOn: string;
+    /** `prescriptionStartsOn` más `prescriptionMonths`. */
+    prescriptionExpiresOn: string;
+}
+
+/**
+ * El estado al que un acto lleva la causa: el `resultingState` del acto
+ * (§3.8). Nunca es el estado inicial.
+ */
+export interface CaseState {
+    /** `null` si el estado fue escrito a mano (o, en la causa, si es el inicial). */
+    proceduralStateId: number | null;
+    name: string;
+    /** `true` si es un estado escrito a mano para esta causa. */
+    custom: boolean;
+}
+
+/**
+ * El estado procesal actual de una causa, con el vencimiento del acto que la
+ * llevó a él (§3.7). Nunca es `null`: toda causa nace en el estado inicial
+ * "Iniciada" (D-34), y el vencimiento viaja acá adentro (D-35).
+ */
+export interface CurrentState extends CaseState {
+    /** `true` si es el estado inicial, "Iniciada". */
+    initial: boolean;
+    /** El acto que llevó la causa a este estado. `null` en el estado inicial. */
+    proceduralActId: number | null;
+    /** `null` si el acto no abrió plazo o si es el estado inicial. */
+    dueDate: string | null;
+    /** `0` vence hoy; negativo, ya vencido. `null` si `dueDate` es `null`. */
+    businessDaysRemaining: number | null;
+    manuallyAdjusted: boolean;
+}
+
+/** Causa tal como la devuelve `/cases` (§3.7). */
+export interface Case {
+    id: number;
+    /** 8 dígitos. Opcional (D-33); si se informa, único en todo el sistema (RN2). */
+    sacNumber: string | null;
+    caption: string;
+    court: string | null;
+    jurisdiction: Jurisdiction;
+    proceduralRole: ProceduralRole;
+    instructorName: string | null;
+    /** Sólo el teléfono: el interno va aparte. */
+    tribunalPhone: string | null;
+    /** Número de interno del instructor (D-33). */
+    instructorExtension: string | null;
+    /** `null` en el fuero penal. */
+    counterparty: string | null;
+    /** Objeto del reclamo o del amparo. `null` en el fuero penal. */
+    subjectMatter: string | null;
+    client: CaseClient;
+    responsibleLawyer: EmbeddedLawyer;
+    /** Opcional en el penal (D-33); vacío en los demás fueros. */
+    legalQualifications: CaseLegalQualification[];
+    startDate: string;
+    currentState: CurrentState;
+    active: boolean;
+}
+
+/** El plazo que abre un acto. Los valores de la tabla se copian al registrarlo (§3.8). */
+export interface ActDeadline {
+    timeLimitDays: number;
+    dayType: DayType;
+    /** `notificationDate` en el fuero administrativo, `actDate` en los demás. */
+    countsFrom: string;
+    /** Lo que da la tabla. `null` si el estado no abre plazo. */
+    computedDueDate: string | null;
+    /** El vigente: el calculado o, si se ajustó, el manual. */
+    dueDate: string;
+    manuallyAdjusted: boolean;
+}
+
+/** Acto procesal tal como lo devuelve su registro (§3.8). */
+export interface ProceduralAct {
+    id: number;
+    caseId: number;
+    resultingState: CaseState;
+    actDate: string;
+    /** Sólo en el fuero administrativo (RN6). */
+    notificationDate: string | null;
+    notes: string | null;
+    /** `null` si el acto no abre plazo. */
+    deadline: ActDeadline | null;
+    registeredBy: { id: number; fullName: string };
+    registeredAt: string;
+}
+
+/** Respuesta de `GET /cases/{caseId}/procedural-acts/deadline-preview` (§3.8). */
+export interface DeadlinePreview {
+    proceduralStateId: number;
+    timeLimitDays: number;
+    dayType: DayType;
+    countsFrom: string;
+    /** `null` si el estado no abre plazo. */
+    dueDate: string | null;
+    /** `null` si el estado no abre plazo. */
+    businessDaysRemaining: number | null;
 }
 
 /* ------------------------------------------------------------------ */
@@ -193,8 +366,6 @@ export interface UpdateLawyerRequest {
 export interface CreateProceduralStateRequest {
     name: string;
     jurisdiction: Jurisdiction;
-    /** Por defecto, al final del ciclo. Insertar en el medio renumera. */
-    position?: number;
     timeLimitDays?: number;
     dayType?: DayType;
     terminal?: boolean;
@@ -203,15 +374,77 @@ export interface CreateProceduralStateRequest {
 /**
  * Edición de estado procesal. Al menos un campo.
  *
- * `jurisdiction` **no está**: un estado no puede cambiar de fuero. Para
- * trasladarlo hay que darlo de baja y registrarlo en el que corresponda.
+ * Sin `jurisdiction`: un estado no cambia de fuero (V3 D-36). Si viaja, el
+ * backend responde `400 VALIDATION_ERROR` sobre ese campo.
  */
 export interface UpdateProceduralStateRequest {
     name?: string;
-    position?: number;
     timeLimitDays?: number;
     dayType?: DayType;
     terminal?: boolean;
+}
+
+/** Alta de calificación legal (§3.5). */
+export interface CreateLegalQualificationRequest {
+    name: string;
+    prescriptionMonths: number;
+}
+
+/** Edición de calificación legal. Al menos un campo. */
+export type UpdateLegalQualificationRequest = Partial<CreateLegalQualificationRequest>;
+
+/** Alta de cliente (§3.6). Teléfono y correo son opcionales. */
+export interface CreateClientRequest {
+    lastName: string;
+    firstName: string;
+    dni: string;
+    phone?: string;
+    email?: string;
+}
+
+/** Una calificación en el alta de causa: cuál y cuándo fue el hecho (D-28). */
+export interface CaseQualificationRequest {
+    legalQualificationId: number;
+    offenseDate: string;
+}
+
+/**
+ * Alta de causa (§3.7).
+ *
+ * `legalQualifications` va sólo en el fuero penal, y ahí es opcional (D-33);
+ * `counterparty` y `subjectMatter`, sólo en los otros dos. Mandar cualquiera
+ * donde no corresponde es un `400`.
+ */
+export interface CreateCaseRequest {
+    /** Opcional (D-33). Si se envía, 8 dígitos y único. */
+    sacNumber?: string;
+    jurisdiction: Jurisdiction;
+    caption: string;
+    court?: string;
+    instructorName?: string;
+    tribunalPhone?: string;
+    instructorExtension?: string;
+    clientId: number;
+    proceduralRole: ProceduralRole;
+    legalQualifications?: CaseQualificationRequest[];
+    counterparty?: string;
+    subjectMatter?: string;
+    responsibleLawyerId: number;
+    /** Por defecto, hoy. */
+    startDate?: string;
+}
+
+/**
+ * Registro de un acto procesal (§3.8). `proceduralStateId` y `customState`
+ * son excluyentes: va uno de los dos.
+ */
+export interface CreateProceduralActRequest {
+    proceduralStateId?: number;
+    customState?: string;
+    actDate: string;
+    notificationDate?: string;
+    manualDueDate?: string;
+    notes?: string;
 }
 
 /* ------------------------------------------------------------------ */
@@ -238,6 +471,30 @@ export type LawyersQuery = PaginatedQuery;
 
 export interface ProceduralStatesQuery extends PaginatedQuery {
     jurisdiction?: Jurisdiction;
+}
+
+export type LegalQualificationsQuery = PaginatedQuery;
+
+export type ClientsQuery = PaginatedQuery;
+
+/**
+ * Filtros de `GET /cases` (§3.7). `proceduralStateId`, `customState` y
+ * `withoutProceduralActs` son excluyentes entre sí.
+ */
+export interface CasesQuery extends PaginatedQuery {
+    jurisdiction?: Jurisdiction;
+    responsibleLawyerId?: number;
+    proceduralStateId?: number;
+    customState?: string;
+    withoutProceduralActs?: boolean;
+    clientId?: number;
+    openDeadline?: boolean;
+}
+
+export interface DeadlinePreviewQuery {
+    proceduralStateId: number;
+    actDate: string;
+    notificationDate?: string;
 }
 
 /* ------------------------------------------------------------------ */
@@ -295,7 +552,7 @@ export function listBody<T>(data: T[], pagination: Pagination): ListResponse<T> 
 export function errorBody(
     code: ErrorCode,
     message: string,
-    details: Record<string, string> | null = null,
+    details: Record<string, string> | { retryAfterSeconds: number } | null = null,
 ): ErrorBody {
     return { error: { code, message, details } };
 }
@@ -352,9 +609,15 @@ export interface RefreshedSession {
  * respuesta sea la correcta, no para decidir nada.
  */
 const PERMISSIONS_BY_ROLE: Record<Role, string[]> = {
-    ADMINISTRATOR: ['user:manage', 'lawyer:manage', 'procedural-state:manage', 'case:read'],
+    ADMINISTRATOR: [
+        'user:manage',
+        'lawyer:manage',
+        'procedural-state:manage',
+        'legal-qualification:manage',
+        'case:read',
+    ],
     LAWYER: ['case:read', 'case:change-status'],
-    SECRETARY: ['case:read'],
+    SECRETARY: ['case:read', 'client:manage'],
 };
 
 /** Los permisos de un usuario, sin repetidos y en orden estable. */

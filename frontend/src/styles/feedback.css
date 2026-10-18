@@ -22,10 +22,22 @@
 .vz-dot--hollow { background: none; border: 1.5px solid currentColor; }
 
 /* ─────────── pestañas ─────────── */
-.vz-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--vz-border); margin-bottom: 18px; }
+/* Si no entran, la fila se desliza de costado en lugar de partirse. La línea
+   de abajo es una sombra y no un borde: con el scroll, la pestaña activa ya no
+   puede pisar el borde del contenedor. */
+.vz-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 18px;
+  box-shadow: inset 0 -1px 0 var(--vz-border);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.vz-tabs::-webkit-scrollbar { display: none; }
 .vz-tab {
+  flex: 0 0 auto;
   padding: 11px 16px;
-  margin-bottom: -1px;
+  white-space: nowrap;
   border: none;
   border-bottom: 2px solid transparent;
   background: none;
@@ -48,11 +60,13 @@
   padding: 24px;
   background: rgba(12, 20, 6, .42);
   backdrop-filter: blur(2px);
+  overscroll-behavior: contain;
 }
 .vz-modal {
   width: 100%;
   max-width: 560px;
   max-height: calc(100vh - 48px);
+  max-height: calc(100dvh - 48px);
   display: flex;
   flex-direction: column;
   background: var(--vz-surface);
@@ -66,7 +80,7 @@
 .vz-modal__head { padding: 20px 24px 16px; border-bottom: 1px solid var(--vz-border); }
 .vz-modal__title { font-size: 17px; }
 .vz-modal__sub { margin: 5px 0 0; font-size: 13px; color: var(--vz-muted); }
-.vz-modal__body { padding: 22px 24px; overflow-y: auto; }
+.vz-modal__body {padding: 22px 24px; overflow-y: auto; overscroll-behavior: contain;}
 .vz-modal__note {
   margin: 0 0 18px;
   padding: 12px 14px;
@@ -98,3 +112,49 @@
 }
 .vz-empty__title { font-size: 15px; font-weight: 700; color: var(--vz-ink); }
 .vz-empty__text { font-size: 13px; max-width: 380px; text-wrap: pretty; }
+
+/* ─────────── recuadro destacado ─────────── */
+/* Un dato que se propone o se resalta dentro de un panel: la carátula
+   sugerida del alta de causa. */
+.vz-callout {
+  padding: 12px 13px;
+  border: 1px solid var(--vz-border);
+  border-radius: var(--vz-r-sm);
+  background: var(--vz-sunken);
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.vz-callout--empty { font-weight: 400; color: var(--vz-faint); }
+
+/* ─────────── lista de requisitos ─────────── */
+/* "Para poder registrar": lo que falta en tinta, lo cumplido apagado y con
+   tilde. La marca no depende sólo del color. */
+.vz-checklist { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.vz-checklist__item { display: flex; gap: 8px; font-size: 13px; line-height: 1.35; color: var(--vz-ink); }
+.vz-checklist__mark { flex: 0 0 15px; font-weight: 700; color: var(--vz-border-strong); }
+.vz-checklist__item.is-done { color: var(--vz-muted); }
+.vz-checklist__item.is-done .vz-checklist__mark { color: var(--vz-primary); }
+
+/* Rótulo chico sobre un bloque dentro de un panel: "Carátula sugerida". */
+.vz-overline {
+  margin-bottom: 7px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: var(--vz-muted);
+}
+
+/* ─────────── teléfono ─────────── */
+@media (max-width: 720px) {
+  .vz-modal-backdrop { padding: 10px 8px; }
+  .vz-modal { max-height: calc(100vh - 20px); max-height: calc(100dvh - 20px); }
+  .vz-modal__head { padding: 16px 16px 14px; }
+  .vz-modal__body { padding: 16px; }
+  .vz-modal__foot { padding: 12px 16px; flex-wrap: wrap; }
+  .vz-modal__foot .vz-btn { flex: 1 1 auto; }
+
+  .vz-tab { padding: 10px 13px; }
+  .vz-empty { padding: 36px 16px; }
+}

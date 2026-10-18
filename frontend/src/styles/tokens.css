@@ -37,6 +37,9 @@
   --vz-warn: #7A5C1E;
   --vz-warn-bg: #FBF3E2;
   --vz-warn-bd: #EBDCB8;
+  /* relleno de barra "cerca del límite": el texto warn es muy oscuro para una
+     superficie grande y el fondo warn no se distingue del riel */
+  --vz-warn-mark: #A8894C;
   --vz-danger: #8E1F19;
   --vz-danger-bg: #FBEAE8;
   --vz-danger-bd: #F0CDC9;
@@ -65,18 +68,29 @@
   --vz-rail-w: 248px;
   --vz-rail-pad: 20px;
   --vz-main-pad: 28px;
-  --vz-rail-label: block;
+  /* alto de la barra superior: lo que queda pegado arriba la esquiva */
+  --vz-topbar-h: 65px;
+  /* aire de un panel: cabecera, cuerpo y pie */
+  --vz-panel-pad: 18px;
 
   /* ── tipografía ── */
   --vz-font: Figtree, system-ui, -apple-system, sans-serif;
   --vz-font-mono: 'Roboto Mono', ui-monospace, SFMono-Regular, monospace;
 }
 
+/* ── pantallas angostas ──
+   Los cortes son los del prototipo y son los únicos del proyecto:
+     1180px  la tabla suelta su ancho mínimo y esconde las columnas
+             prescindibles; el formulario con panel al costado se apila
+     1023px  el rail sale de la pantalla y se abre con el botón de la barra
+      860px  el login queda en una columna; las filas de tres campos, en dos
+      720px  teléfono: una columna, tablas como tarjetas, menos aire */
 @media (max-width: 1023px) {
+  :root { --vz-main-pad: 20px; }
+}
+@media (max-width: 720px) {
   :root {
-    --vz-rail-w: 64px;
-    --vz-rail-pad: 10px;
-    --vz-main-pad: 16px;
-    --vz-rail-label: none;
+    --vz-main-pad: 14px;
+    --vz-panel-pad: 14px;
   }
 }

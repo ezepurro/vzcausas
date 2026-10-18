@@ -8,6 +8,11 @@ export interface FieldProps {
   required?: boolean;
   /** aclaración bajo el campo */
   note?: ReactNode;
+  /**
+   * dato chico a la derecha de la etiqueta: el contador de caracteres de un
+   * texto largo (`120 / 800`). Lo calcula la pantalla
+   */
+  hint?: ReactNode;
   /** mensaje de error; lo decide la pantalla */
   error?: string;
   /** ocupa las dos columnas de .vz-form-grid */
@@ -18,14 +23,23 @@ export interface FieldProps {
 
 /** Envoltorio de campo: etiqueta, control, nota y error. */
 export function Field({
-  label, required, note, error, width = 'full', htmlFor, children,
+  label, required, note, hint, error, width = 'full', htmlFor, children,
 }: FieldProps) {
+  const labelNode = (
+    <label className="vz-label" htmlFor={htmlFor}>
+      {label}
+      {required && <span className="vz-label__req">*</span>}
+    </label>
+  );
+
   return (
     <div className={`vz-field ${error ? 'vz-field--error' : ''} ${width === 'full' ? 'vz-col-full' : ''}`}>
-      <label className="vz-label" htmlFor={htmlFor}>
-        {label}
-        {required && <span className="vz-label__req">*</span>}
-      </label>
+      {hint === undefined ? labelNode : (
+        <div className="vz-label-row">
+          {labelNode}
+          <span className="vz-label__hint">{hint}</span>
+        </div>
+      )}
       {children}
       {note && !error && <div className="vz-note">{note}</div>}
       {error && <div className="vz-error">{error}</div>}
@@ -47,15 +61,35 @@ export function TextInput({ mono, className = '', ...rest }: InputHTMLAttributes
  */
 export type SelectOption = string | { value: string; label: string };
 
+/**
+ * Un grupo de opciones con título, que el select dibuja como `<optgroup>`.
+ * Es el filtro de estado procesal del listado de causas: los estados de cada
+ * fuero bajo su nombre, y aparte los "Escritos a mano en causas".
+ */
+export interface SelectOptionGroup {
+  group: string;
+  options: SelectOption[];
+}
+
+function renderOption(o: SelectOption) {
+  const { value, label } = typeof o === 'string' ? { value: o, label: o } : o;
+  return <option key={value} value={value}>{label}</option>;
+}
+
 export function Select({
   options, className = '', ...rest
-}: SelectHTMLAttributes<HTMLSelectElement> & { options: SelectOption[] }) {
+}: SelectHTMLAttributes<HTMLSelectElement> & { options: (SelectOption | SelectOptionGroup)[] }) {
   return (
     <select className={`vz-select ${className}`} {...rest}>
-      {options.map((o) => {
-        const { value, label } = typeof o === 'string' ? { value: o, label: o } : o;
-        return <option key={value} value={value}>{label}</option>;
-      })}
+      {options.map((o) =>
+        typeof o === 'object' && 'group' in o ? (
+          <optgroup key={`group-${o.group}`} label={o.group}>
+            {o.options.map(renderOption)}
+          </optgroup>
+        ) : (
+          renderOption(o)
+        ),
+      )}
     </select>
   );
 }

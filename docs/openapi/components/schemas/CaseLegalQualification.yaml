@@ -1,0 +1,48 @@
+type: object
+description: Calificación legal registrada en una causa, con su prescripción.
+required:
+  - id
+  - name
+  - prescriptionMonths
+  - offenseDate
+  - prescriptionStartsOn
+  - prescriptionExpiresOn
+properties:
+  id:
+    type: integer
+    description: Identificador de la calificación legal.
+    examples:
+      - 1
+  name:
+    type: string
+    description: Denominación vigente de la calificación.
+    examples:
+      - Robo calificado — art. 167 inc. 2 CP
+  prescriptionMonths:
+    type: integer
+    description: Plazo de prescripción vigente, en meses.
+    examples:
+      - 96
+  offenseDate:
+    type: string
+    format: date
+    description: Fecha del hecho imputado bajo esta calificación. La carga el usuario.
+    examples:
+      - '2021-02-27'
+  prescriptionStartsOn:
+    type: string
+    format: date
+    readOnly: true
+    description: |
+      Fecha desde la que se computa la prescripción. Calculado. En esta
+      versión es igual a `offenseDate`; con los actos interruptivos (HU31)
+      pasará a ser la fecha del último acto interruptivo.
+    examples:
+      - '2021-02-27'
+  prescriptionExpiresOn:
+    type: string
+    format: date
+    readOnly: true
+    description: '`prescriptionStartsOn` más `prescriptionMonths`. Calculado.'
+    examples:
+      - '2029-02-27'

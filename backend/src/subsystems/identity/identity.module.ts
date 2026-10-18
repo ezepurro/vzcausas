@@ -1,5 +1,7 @@
 import { Module } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { JwtModule } from "@nestjs/jwt";
+import { parseTtlToSeconds } from "@shared/config/parse-ttl";
 import { ACCESS_TOKEN_VERIFIER } from "@shared/domain/access-token-verifier.port";
 import { SharedModule } from "@shared/shared.module";
 import { PeopleModule } from "@subsystems/people/people.module";
@@ -14,6 +16,8 @@ import { RegisterUserUseCase } from "./core/application/use-cases/register-user.
 import { UpdateUserUseCase } from "./core/application/use-cases/update-user.use-case";
 import { LAWYER_LOOKUP } from "./core/domain/ports/lawyer-lookup.port";
 import { LAWYER_REGISTRAR } from "./core/domain/ports/lawyer-registrar.port";
+import { LOGIN_THROTTLE } from "./core/domain/ports/login-throttle.port";
+import { SESSION_INACTIVITY_SECONDS } from "./core/domain/ports/session-inactivity.port";
 import { PASSWORD_HASHER } from "./core/domain/ports/password-hasher.port";
 import { REFRESH_TOKEN_STORE } from "./core/domain/ports/refresh-token-store.port";
 import { ROLE_REPOSITORY } from "./core/domain/ports/role.repository";
@@ -28,6 +32,7 @@ import { AuthController } from "./infrastructure/http/controllers/auth.controlle
 import { UserController } from "./infrastructure/http/controllers/user.controller";
 import { AuthHttpMapper } from "./infrastructure/http/mappers/auth-http.mapper";
 import { RefreshCookieOptions } from "./infrastructure/http/refresh-cookie.options";
+import { PrismaLoginThrottle } from "./infrastructure/persistence/prisma/prisma-login-throttle.adapter";
 import { PrismaRefreshTokenStore } from "./infrastructure/persistence/prisma/prisma-refresh-token-store.adapter";
 import { PrismaRoleRepository } from "./infrastructure/persistence/prisma/prisma-role.repository";
 import { PrismaUserRepository } from "./infrastructure/persistence/prisma/prisma-user.repository";
@@ -72,6 +77,19 @@ import { PrismaUserRepository } from "./infrastructure/persistence/prisma/prisma
     { provide: USER_REPOSITORY, useClass: PrismaUserRepository },
     { provide: ROLE_REPOSITORY, useClass: PrismaRoleRepository },
     { provide: REFRESH_TOKEN_STORE, useClass: PrismaRefreshTokenStore },
+    { provide: LOGIN_THROTTLE, useClass: PrismaLoginThrottle },
+    // Parsed once here rather than by each consumer: both
+    // `AccessTokenVerifierAdapter` and `RefreshSessionUseCase` must
+    // enforce the exact same inactivity window (CA-1.6), and a single
+    // factory is what rules out them drifting apart. A malformed
+    // `SESSION_INACTIVITY_TTL` fails the bootstrap, same as
+    // `JWT_ACCESS_TTL`/`JWT_REFRESH_TTL`.
+    {
+      provide: SESSION_INACTIVITY_SECONDS,
+      useFactory: (config: ConfigService) =>
+        parseTtlToSeconds(config.getOrThrow<string>("SESSION_INACTIVITY_TTL")),
+      inject: [ConfigService],
+    },
     { provide: LAWYER_LOOKUP, useClass: PeopleLawyerLookupAdapter },
     // useExisting, no useClass: ambos puertos tienen que resolver al
     // MISMO adaptador. Con useClass Nest instancia uno por token.

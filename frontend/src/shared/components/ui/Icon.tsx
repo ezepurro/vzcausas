@@ -10,17 +10,22 @@ export const ICONS = {
   users: 'M16 20v-1a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v1M9.5 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7M19 8v6M22 11h-6',
   lawyers: 'M12 3 3 7l9 4 9-4zM3 12l9 4 9-4M3 17l9 4 9-4',
   timeLimits: 'M4 5h16M4 12h16M4 19h9M18 16v6M15 19h6',
+  qualifications: 'M12 3v18M8 21h8M5 7h14M5 7l-3 7a3 3 0 0 0 6 0zM19 7l-3 7a3 3 0 0 0 6 0z',
   reports: 'M4 20V10M10 20V4M16 20v-7M22 20H2',
   // ── acciones ──
   search: 'M18 18l-3.5-3.5M4 11a7 7 0 1 0 14 0 7 7 0 0 0-14 0z',
   notifications: 'M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0',
   password: 'M4 11h16v10H4zM8 11V7a4 4 0 0 1 8 0v4',
+  eye: 'M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
+  eyeOff: 'M3 3l18 18M10.6 5.1A10 10 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4.1M6.6 6.6C3.8 8.4 2 12 2 12s3.5 7 10 7a10 10 0 0 0 5.4-1.6M9.9 9.9a3 3 0 0 0 4.2 4.2',
   logout: 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9',
   plus: 'M12 5v14M5 12h14',
   alert: 'M12 8v4M12 16h.01M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z',
   download: 'M12 4v12M7 11l5 5 5-5M4 20h16',
   back: 'M15 18l-6-6 6-6',
   forward: 'M9 18l6-6-6-6',
+  menu: 'M4 7h16M4 12h16M4 17h16',
+  close: 'M6 6l12 12M18 6L6 18',
 } as const;
 
 export type IconName = keyof typeof ICONS;

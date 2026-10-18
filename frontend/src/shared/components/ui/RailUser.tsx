@@ -1,3 +1,4 @@
+import { initials as deriveInitials } from '@/shared/lib/initials';
 import { Icon } from './Icon';
 
 export interface RailUserProps {
@@ -8,9 +9,6 @@ export interface RailUserProps {
   onChangePassword: () => void;
   onLogout: () => void;
 }
-
-const deriveInitials = (name: string) =>
-  name.split(' ').filter(Boolean).slice(0, 2).map((p) => p[0]).join('').toUpperCase();
 
 /** Pie del rail: quién está adentro, cambiar contraseña y cerrar sesión. */
 export function RailUser({

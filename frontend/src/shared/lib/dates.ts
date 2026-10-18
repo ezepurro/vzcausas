@@ -5,7 +5,9 @@
  * a mostrar igual en usuarios, en causas y en plazos: si cada feature la
  * formatea a su manera, la aplicación habla con dos voces.
  *
- * Todo lo que entra es ISO 8601 con offset, que es lo que manda el contrato.
+ * El contrato manda dos formas: instantes ISO 8601 con offset (`lastLoginAt`)
+ * y fechas sin hora `YYYY-MM-DD` (`startDate`, `dueDate`, `clientSince`). Cada
+ * una tiene su función, porque se leen distinto.
  */
 
 const TIME = new Intl.DateTimeFormat('es-AR', { hour: '2-digit', minute: '2-digit' })
@@ -51,4 +53,58 @@ function daysAgo(date: Date): number {
     const start = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
     const MS_PER_DAY = 86_400_000
     return Math.round((start(new Date()) - start(date)) / MS_PER_DAY)
+}
+
+/** `YYYY-MM-DD`, con el mes y el día de dos cifras. */
+const DATE_ONLY = /^(\d{4})-(\d{2})-(\d{2})$/
+
+/**
+ * Una fecha sin hora del contrato, como la lee el estudio: `2026-09-15` →
+ * `15/09/2026`.
+ *
+ * No pasa por `new Date('2026-09-15')` a propósito: esa forma el navegador la
+ * interpreta como medianoche en UTC, que en Córdoba (UTC-3) es el 14 a las
+ * 21:00, y la pantalla mostraría un día antes. La fecha se arma con sus
+ * partes, en la zona del navegador, y así nunca se corre.
+ *
+ * `null` es legítimo: una causa sin plazo abierto, un dato opcional.
+ */
+export function formatDate(isoDate: string | null): string {
+    const date = parseDateOnly(isoDate)
+    return date ? DATE.format(date) : EMPTY
+}
+
+/**
+ * La fecha de hoy como la manda y la recibe el contrato, `YYYY-MM-DD`.
+ *
+ * Es el valor por defecto del `<input type="date">` de la fecha de un acto, y
+ * el tope de las fechas que no pueden ser futuras. Mismo cuidado que en `formatDate`:
+ * `toISOString()` devuelve la fecha en UTC, y después de las 21:00 en Córdoba
+ * ya diría mañana.
+ */
+export function todayIsoDate(): string {
+    const now = new Date()
+    const pad = (n: number) => String(n).padStart(2, '0')
+    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
+}
+
+/**
+ * `YYYY-MM-DD` a `Date` local (medianoche en la zona del navegador), o `null`
+ * si no es una fecha válida. Para hacer cuentas con fechas del contrato sin
+ * que se corran un día: nunca `new Date('2026-09-15')`.
+ *
+ * El `Date` se compara contra sus propias partes porque el constructor no
+ * rechaza nada: `new Date(2026, 1, 31)` es el 3 de marzo, y `2026-02-31` no
+ * tiene que tomarse como una fecha que existe.
+ */
+export function parseDateOnly(isoDate: string | null): Date | null {
+    const match = isoDate ? DATE_ONLY.exec(isoDate) : null
+    if (!match) return null
+
+    const [year, month, day] = [Number(match[1]), Number(match[2]), Number(match[3])]
+    const date = new Date(year, month - 1, day)
+    const exists =
+        date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day
+
+    return exists ? date : null
 }

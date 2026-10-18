@@ -2,7 +2,7 @@ import { MiddlewareConsumer, Module, NestModule } from "@nestjs/common";
 import { APP_FILTER } from "@nestjs/core";
 import { CLOCK } from "./domain/clock.port";
 import { TRANSACTION_MANAGER } from "./domain/transaction-manager.port";
-import { SystemClockAdapter } from "./infrastructure/clock/system-clock.adapter";
+import { CordobaClockAdapter } from "./infrastructure/clock/cordoba-clock.adapter";
 import { CorrelationMiddleware } from "./infrastructure/http/correlation-id.middleware";
 import { DomainErrorFilter } from "./infrastructure/http/domain-error.filter";
 import { PrismaTransactionManager } from "./infrastructure/prisma/prisma-transaction-manager";
@@ -11,7 +11,7 @@ import { PrismaTransactionManager } from "./infrastructure/prisma/prisma-transac
  * Shared kernel module. Wires cross-cutting concerns that every
  * subsystem depends on:
  *
- * - Binds the {@link CLOCK} token to {@link SystemClockAdapter} and
+ * - Binds the {@link CLOCK} token to {@link CordobaClockAdapter} and
  *   exports it so other modules can inject the clock.
  * - Registers {@link DomainErrorFilter} as the global exception filter
  *   via `APP_FILTER`. Doing it through DI (rather than
@@ -22,7 +22,7 @@ import { PrismaTransactionManager } from "./infrastructure/prisma/prisma-transac
  */
 @Module({
   providers: [
-    { provide: CLOCK, useClass: SystemClockAdapter },
+    { provide: CLOCK, useClass: CordobaClockAdapter },
     { provide: APP_FILTER, useClass: DomainErrorFilter },
     { provide: TRANSACTION_MANAGER, useClass: PrismaTransactionManager },
   ],

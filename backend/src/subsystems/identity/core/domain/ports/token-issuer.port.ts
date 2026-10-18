@@ -5,20 +5,29 @@
 export const TOKEN_ISSUER = Symbol("TOKEN_ISSUER");
 
 /**
- * Claims embedded in every access token (D-06, updated by D-22).
- * `sub` is the standard JWT subject claim; the rest are custom
- * claims consumed by `JwtAuthGuard` and `PermissionsGuard` so
- * authorization on each request does not need a database round-trip.
+ * Claims embedded in every access token (D-06, narrowed by the
+ * revocation work that closed CA-2.3/CA-6.2).
  *
- * `roles` is plural: API v2 supports multiple roles per user. See
- * glossary §7.4 in IMPLEMENTACION_AUTH.md for the intent of each
- * field in plain language.
+ * Until then this carried `roles`, `lawyerId` and `permissions` too,
+ * on the premise that authorization could be read off the token
+ * without touching the database (D-06's original justification,
+ * echoed in `MODULO_AUTH.md` §5 Nivel 1 — now corrected there). That
+ * premise is what made the token itself unrevocable in practice: a
+ * signed JWT cannot be told that the role it was minted with just
+ * changed. Authorization now comes from the database on every request
+ * ({@link AccessTokenVerifier}, which `JwtAuthGuard` calls), so the
+ * token's job shrinks to what a signature can actually prove —
+ * *this is user N, from session S* — and nothing it asserts about
+ * permissions can go stale.
+ *
+ * `sid` is the refresh token's `familyId` at the moment this access
+ * token was issued (D-05's rotation lineage). It is what lets the
+ * verifier ask "is the session behind this token still open" without
+ * the raw refresh value, which it never has.
  */
 export type AccessTokenClaims = {
   sub: number;
-  roles: string[];
-  lawyerId: number | null;
-  permissions: string[];
+  sid: string;
 };
 
 /**

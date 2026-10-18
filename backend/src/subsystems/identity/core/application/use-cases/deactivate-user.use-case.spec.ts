@@ -1,3 +1,4 @@
+import { ClockPort } from "@shared/domain/clock.port";
 import { User } from "../../domain/entities/user.entity";
 import {
   LastAdministratorError,
@@ -45,12 +46,19 @@ describe("DeactivateUserUseCase", () => {
     return user;
   }
 
+  /** Fixed instant, so CA-7.1's timestamp is assertable. */
+  const NOW = new Date("2026-10-11T15:30:00-03:00");
+  const clock: ClockPort = {
+    now: () => NOW,
+    today: () => new Date(Date.UTC(2026, 9, 11)),
+  };
+
   function build() {
     const users = new FakeUserRepository();
     const roles = new FakeRoleRepository();
     const refreshTokens = new FakeRefreshTokenStore();
     return {
-      useCase: new DeactivateUserUseCase(users, roles, refreshTokens),
+      useCase: new DeactivateUserUseCase(users, roles, refreshTokens, clock),
       users,
       refreshTokens,
     };
@@ -65,6 +73,31 @@ describe("DeactivateUserUseCase", () => {
     expect(user.isActive()).toBe(false);
     expect(users.saved).toHaveLength(1);
     expect(refreshTokens.revokedForUsers).toEqual([1]);
+  });
+
+  // CA-7.1
+  it("records when the user was deactivated, taken from the clock", async () => {
+    const { useCase, users } = build();
+    const user = await seedUser(users);
+    expect(user.deletedAt).toBeNull();
+
+    await useCase.execute({ id: 1 });
+
+    expect(user.deletedAt).toEqual(NOW);
+    expect(users.saved[0].deletedAt).toEqual(NOW);
+  });
+
+  it("does not stamp a date when the deactivation is refused", async () => {
+    // The last-administrator check runs first, so a refused request
+    // must leave no trace of a baja that never happened.
+    const { useCase, users } = build();
+    const admin = await seedUser(users, { id: 1, roleIds: [ADMIN] });
+
+    await expect(useCase.execute({ id: 1 })).rejects.toBeInstanceOf(
+      LastAdministratorError,
+    );
+
+    expect(admin.deletedAt).toBeNull();
   });
 
   it("throws UserNotFoundError when no user matches the id", async () => {

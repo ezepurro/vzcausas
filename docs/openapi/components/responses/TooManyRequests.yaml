@@ -1,0 +1,18 @@
+description: |
+  Límite de pedidos por dirección IP superado (§4, Límite de frecuencia).
+  Puede responderlo cualquier endpoint de la API, no solo `/auth`;
+  `POST /auth/login` y `POST /auth/refresh` tienen además un límite propio,
+  más estricto.
+headers:
+  Retry-After:
+    $ref: ../headers/RetryAfter.yaml
+content:
+  application/json:
+    schema:
+      $ref: ../schemas/Error.yaml
+    example:
+      error:
+        code: TOO_MANY_REQUESTS
+        message: Demasiadas peticiones. Esperá un momento antes de reintentar.
+        details:
+          retryAfterSeconds: 42

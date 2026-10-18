@@ -1,0 +1,241 @@
+openapi: 3.1.0
+
+info:
+  title: VZ Causas API
+  version: 3.0.0
+  summary: Contrato de la API de VZ Causas para el Sprint 2.
+  description: |
+    Traducción a OpenAPI de `docs/Api-Contract/API_CONTRACT_V3.md` (última
+    revisión: 11/10/2026). Ante cualquier diferencia, el contrato en Markdown
+    es la referencia; las decisiones (D-xx) y los puntos a verificar (C-xx)
+    se documentan allí.
+
+    ## Autenticación
+
+    Los endpoints protegidos requieren un token Bearer:
+
+    ```http
+    Authorization: Bearer <accessToken>
+    ```
+
+    El token se obtiene con `POST /auth/login` y se renueva con
+    `POST /auth/refresh`, que usa la cookie `HttpOnly` `refresh_token`.
+
+    ## Sesión y revocación
+
+    El `accessToken` vence a los 15 minutos. Además de ese vencimiento
+    natural, cuatro situaciones cierran la sesión desde la **próxima
+    petición**: cerrar sesión, dar de baja al usuario, cambiar la contraseña
+    (en las demás sesiones) y 30 minutos sin renovar. El servidor no
+    distingue el motivo en la respuesta — siempre `401 UNAUTHENTICATED` — y
+    la reacción esperada del cliente es siempre la misma: redirigir al
+    login.
+
+    ## Límite de frecuencia
+
+    Dos mecanismos independientes: un límite de pedidos por dirección IP en
+    toda la API (`429 TOO_MANY_REQUESTS`), más estricto en
+    `POST /auth/login` y `POST /auth/refresh`; y un bloqueo progresivo por
+    cuenta, exclusivo de `POST /auth/login`, a los 5 fallos consecutivos
+    (`429 TOO_MANY_LOGIN_ATTEMPTS`). Ambos traen el encabezado `Retry-After`
+    y el mismo valor en `details.retryAfterSeconds`.
+
+    ## Autorización
+
+    Un endpoint indicado con un rol (`ADMINISTRATOR`, `LAWYER` o `SECRETARY`)
+    requiere que el usuario autenticado lo posea; un usuario con varios roles
+    lo satisface si el rol exigido está entre ellos. Si no lo posee, la
+    respuesta es `403 FORBIDDEN`. El rol requerido figura en la descripción de
+    cada operación.
+
+    Los **actos procesales** son la excepción: solo los registra el **abogado
+    responsable de la causa**, comparando el `lawyerId` del usuario con el
+    responsable. Ningún otro usuario, ni siquiera un `ADMINISTRATOR`.
+
+    | Recurso                           | Lectura (`GET`)                                       | Escritura                                            |
+    | --------------------------------- | ----------------------------------------------------- | ---------------------------------------------------- |
+    | `/auth`                           | -                                                     | Cualquier usuario autenticado (`logout`, `password`) |
+    | `/users`                          | `ADMINISTRATOR`                                       | `ADMINISTRATOR`                                      |
+    | `/lawyers`                        | Cualquier usuario autenticado                         | `ADMINISTRATOR`                                      |
+    | `/procedural-states`              | Cualquier usuario autenticado                         | Cualquier usuario autenticado                        |
+    | `/legal-qualifications`           | Cualquier usuario autenticado                         | Cualquier usuario autenticado                        |
+    | `/clients`                        | Cualquier usuario autenticado                         | Cualquier usuario autenticado                        |
+    | `/cases`                          | Cualquier usuario autenticado                         | Cualquier usuario autenticado                        |
+    | `/cases/{caseId}/procedural-acts` | Cualquier usuario autenticado; `deadline-preview`, solo el abogado responsable | Abogado responsable de la causa |
+
+    RN11: todo el estudio accede a todas las causas. La diferencia entre
+    perfiles está en lo que pueden **operar**, no en lo que pueden **ver**.
+
+    ## Formato de intercambio
+
+    Todas las solicitudes y respuestas utilizan JSON. Las fechas y horas se
+    expresan en ISO 8601 con desplazamiento horario
+    (`2026-09-19T08:12:00-03:00`).
+
+    Las **fechas sin hora** (inicio de causa, fecha de acto, vencimientos,
+    prescripción) se expresan como `YYYY-MM-DD`. Son fechas civiles del
+    calendario judicial de Córdoba y "hoy" se interpreta en la zona horaria
+    `America/Argentina/Cordoba`.
+
+    ## Respuestas
+
+    Recurso individual:
+
+    ```json
+    { "data": {} }
+    ```
+
+    Colección paginada (sin resultados: `data` vacío y `totalItems` y
+    `totalPages` en `0`). La única colección no paginada es
+    `GET /cases/custom-states`.
+
+    ```json
+    { "data": [], "pagination": { "page": 1, "limit": 20, "totalItems": 57, "totalPages": 3 } }
+    ```
+
+    Error (todas las respuestas de error, sin excepción):
+
+    ```json
+    { "error": { "code": "ERROR_CODE", "message": "Descripción legible del error.", "details": null } }
+    ```
+
+    El cliente discrimina los errores por `code`, nunca por el texto de
+    `message`. Los textos de `message` y `details` están en castellano. El
+    catálogo completo está en el schema `ErrorCode`.
+
+    Cualquier operación puede responder
+    `500 INTERNAL_SERVER_ERROR` ante un error interno inesperado.
+
+    `400` y `422` no son intercambiables: `400` indica datos inválidos (se
+    señalan en el formulario); `422`, datos válidos que una regla de negocio
+    impide procesar (se informa como aviso).
+
+    ## Causa activa
+
+    Una causa es **activa** cuando no fue dada de baja y su estado procesal
+    actual no es terminal (ni "Archivada" ni "Prescripta"). Es la definición
+    que aplican todos los campos `activeCases`. Un estado escrito a mano no es
+    terminal, y una causa en el estado inicial "Iniciada" también es activa
+    (pero no cuenta para el `activeCases` de ningún estado procesal).
+
+    ## Cómputo de días
+
+    - **Días hábiles (`BUSINESS`):** de lunes a viernes. El plazo se cuenta a
+      partir del día siguiente a la fecha desde la que corre.
+    - **Días corridos (`CONSECUTIVE`):** todos los días del calendario.
+    - **`businessDaysRemaining`:** días hábiles entre hoy (excluido) y el
+      vencimiento (incluido). `0` si vence hoy; negativo si ya venció.
+
+    En esta versión no se excluyen feriados ni la feria judicial (C-05).
+
+    ## Bajas
+
+    Las bajas de usuarios, abogados, estados procesales y calificaciones
+    legales son **lógicas** (`active` en `false`, RN12), pero **para el
+    cliente un registro dado de baja no existe**: no aparece en listados y el
+    `GET` por identificador responde `404`. La excepción son las referencias
+    desde una causa, que siguen mostrando el estado o la calificación dados de
+    baja porque forman parte de su historia.
+  contact:
+    name: Equipo VZ Causas
+
+servers:
+  - url: http://localhost:3000/api/v1
+    description: Backend local (docker compose)
+  - url: /api/v1
+    description: Mismo origen que la documentación
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Auth
+    description: Inicio y cierre de sesión, renovación del token y cambio de contraseña.
+  - name: Users
+    description: Gestión de usuarios del sistema. Solo `ADMINISTRATOR`.
+  - name: Lawyers
+    description: |
+      Abogados del estudio. Lectura para cualquier usuario autenticado
+      (el alta de causa necesita el listado para elegir al responsable);
+      escritura para `ADMINISTRATOR`.
+  - name: Procedural States
+    description: |
+      Tabla de estados y plazos de cada fuero (RN4). Lectura y escritura para
+      cualquier usuario autenticado. Cada fuero tiene
+      además el estado de sistema "Iniciada", que no forma parte de este
+      recurso.
+  - name: Legal Qualifications
+    description: |
+      Encuadre jurídico del hecho imputado; determina el plazo de
+      prescripción de la acción. Lectura y escritura para cualquier usuario
+      autenticado.
+  - name: Clients
+    description: |
+      Clientes del estudio. Lectura y alta para cualquier usuario
+      autenticado. Modificación y baja (HU10 y HU11) llegan en el
+      Sprint 4.
+  - name: Cases
+    description: |
+      Causas del estudio. Lectura y alta para cualquier usuario autenticado.
+      Modificación y baja (HU19 y HU21) llegan en el Sprint 3.
+  - name: Procedural Acts
+    description: |
+      El acto procesal mueve la causa de estado y abre el plazo (RN5). Solo
+      lo registra el abogado responsable de la causa.
+
+paths:
+  /auth/login:
+    $ref: paths/auth@login.yaml
+  /auth/refresh:
+    $ref: paths/auth@refresh.yaml
+  /auth/logout:
+    $ref: paths/auth@logout.yaml
+  /auth/password:
+    $ref: paths/auth@password.yaml
+  /users:
+    $ref: paths/users.yaml
+  /users/{userId}:
+    $ref: paths/users@{userId}.yaml
+  /lawyers:
+    $ref: paths/lawyers.yaml
+  /lawyers/{lawyerId}:
+    $ref: paths/lawyers@{lawyerId}.yaml
+  /procedural-states:
+    $ref: paths/procedural-states.yaml
+  /procedural-states/{stateId}:
+    $ref: paths/procedural-states@{stateId}.yaml
+  /legal-qualifications:
+    $ref: paths/legal-qualifications.yaml
+  /legal-qualifications/{qualificationId}:
+    $ref: paths/legal-qualifications@{qualificationId}.yaml
+  /clients:
+    $ref: paths/clients.yaml
+  /clients/{clientId}:
+    $ref: paths/clients@{clientId}.yaml
+  /cases:
+    $ref: paths/cases.yaml
+  /cases/custom-states:
+    $ref: paths/cases@custom-states.yaml
+  /cases/{caseId}:
+    $ref: paths/cases@{caseId}.yaml
+  /cases/{caseId}/procedural-acts:
+    $ref: paths/cases@{caseId}@procedural-acts.yaml
+  /cases/{caseId}/procedural-acts/deadline-preview:
+    $ref: paths/cases@{caseId}@procedural-acts@deadline-preview.yaml
+  /cases/{caseId}/procedural-acts/{actId}:
+    $ref: paths/cases@{caseId}@procedural-acts@{actId}.yaml
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Token de acceso obtenido en `POST /auth/login` o `POST /auth/refresh`.
+    refreshTokenCookie:
+      type: apiKey
+      in: cookie
+      name: refresh_token
+      description: |
+        Refresh token opaco, emitido en una cookie `HttpOnly` restringida a
+        `Path=/api/v1/auth`. Solo lo usa `POST /auth/refresh`.

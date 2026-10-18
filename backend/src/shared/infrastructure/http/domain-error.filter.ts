@@ -13,9 +13,20 @@ import {
   DomainError,
   ForbiddenActionError,
   NotFoundError,
+  TooManyRequestsError,
   UnauthorizedError,
   ValidationError,
 } from "@shared/domain/domain-error";
+
+/**
+ * Seconds a rate-limited caller must wait, read off the one error that
+ * carries it. Emitted as `Retry-After`, which is the standard signal
+ * and the one a proxy or an HTTP client knows how to honour.
+ */
+function retryAfterSeconds(err: DomainError): number | null {
+  const value = err.details?.retryAfterSeconds;
+  return typeof value === "number" && value > 0 ? Math.ceil(value) : null;
+}
 
 /**
  * Uniform error envelope emitted by the API. Every HTTP error response
@@ -55,6 +66,12 @@ export class DomainErrorFilter implements ExceptionFilter {
 
     if (exception instanceof DomainError) {
       const status = this.statusForDomainError(exception);
+
+      const retryAfter = retryAfterSeconds(exception);
+      if (retryAfter !== null) {
+        res.setHeader("Retry-After", String(retryAfter));
+      }
+
       res
         .status(status)
         .json(
@@ -105,6 +122,8 @@ export class DomainErrorFilter implements ExceptionFilter {
     if (err instanceof ConflictError) return HttpStatus.CONFLICT;
     if (err instanceof BusinessRuleError)
       return HttpStatus.UNPROCESSABLE_ENTITY;
+    if (err instanceof TooManyRequestsError)
+      return HttpStatus.TOO_MANY_REQUESTS;
 
     this.logger.warn(`Unmapped DomainError subtype: ${err.constructor.name}`);
     return HttpStatus.INTERNAL_SERVER_ERROR;
@@ -126,6 +145,12 @@ export class DomainErrorFilter implements ExceptionFilter {
         return "CONFLICT";
       case HttpStatus.UNPROCESSABLE_ENTITY:
         return "BUSINESS_RULE_VIOLATION";
+      case HttpStatus.TOO_MANY_REQUESTS:
+        // Where `ThrottlerGuard`'s exception lands: it is a plain
+        // `HttpException`, so without this case the per-IP throttle
+        // would answer `HTTP_ERROR` — a code the contract does not
+        // define and the frontend cannot branch on.
+        return "TOO_MANY_REQUESTS";
       default:
         return "HTTP_ERROR";
     }
@@ -142,10 +167,18 @@ export class DomainErrorFilter implements ExceptionFilter {
     const message = this.messageForHttpStatus(exception.getStatus());
     let details: Record<string, unknown> | null = null;
 
-    if (typeof body === "object" && body !== null && "message" in body) {
-      const raw = (body as { message: unknown }).message;
-      if (Array.isArray(raw)) {
-        details = keyByField(raw);
+    if (typeof body === "object" && body !== null) {
+      // El `ValidationPipe` ya entrega `details` indexado por campo
+      // (ver `toFieldKeyedBadRequest` en app.setup.ts), que es la
+      // fuente correcta: el nombre lo trae `error.property`, no hay
+      // nada que deducir.
+      const supplied = (body as { details?: unknown }).details;
+      if (isPlainRecord(supplied)) {
+        details = supplied;
+      } else if (Array.isArray((body as { message?: unknown }).message)) {
+        // Camino de respaldo para cualquier `BadRequestException` que
+        // no venga de ese pipe y traiga la lista plana de siempre.
+        details = keyByField((body as { message: unknown[] }).message);
       }
     }
 
@@ -166,6 +199,8 @@ export class DomainErrorFilter implements ExceptionFilter {
         return "La operación entra en conflicto con el estado actual del recurso.";
       case HttpStatus.UNPROCESSABLE_ENTITY:
         return "No se puede realizar la operación debido a una regla de negocio.";
+      case HttpStatus.TOO_MANY_REQUESTS:
+        return "Demasiadas peticiones. Esperá un momento antes de reintentar.";
       default:
         return "No se pudo procesar la solicitud.";
     }
@@ -210,4 +245,9 @@ function keyByField(messages: readonly unknown[]): Record<string, unknown> {
   return Object.fromEntries(
     [...byField].map(([field, texts]) => [field, texts.join(" ")]),
   );
+}
+
+/** `true` for a plain object usable as the `details` map. */
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

@@ -42,7 +42,8 @@ frontend/
 ├── tests/                los tests; espeja los nombres de features/ (ver TESTING.md)
 └── src/
     ├── app/              el armado de la aplicación
-    │   ├── router/       las rutas y los permisos de acceso
+    │   ├── router/       las rutas y sus guardas
+    │   ├── access/       quién ve cada sección y quién opera cada acción
     │   ├── layouts/      los marcos de pantalla (con menú, sin menú)
     │   └── providers/    lo que envuelve a toda la app (sesión, datos, avisos)
     ├── features/         un módulo por área funcional del sistema
@@ -62,11 +63,11 @@ frontend/
     │   ├── components/   componentes sin dueño
     │   │   ├── ui/       botones, inputs, tablas, modales
     │   │   ├── forms/    piezas para armar formularios
-    │   │   └── feedback/ avisos, carteles de error, estados vacíos
-    │   ├── hooks/        hooks reutilizables
-    │   ├── lib/          utilidades sueltas (fechas, textos, clases CSS)
+    │   │   └── feedback/ avisos, carteles de error, estados vacíos (hoy vacía)
+    │   ├── hooks/        hooks reutilizables: búsqueda con demora
+    │   ├── lib/          utilidades sueltas: fechas, iniciales
     │   ├── mocks/        datos y servidor simulado para desarrollar sin backend
-    │   └── types/        tipos que usan varios módulos
+    │   └── types/        tipos que usan varios módulos (hoy vacía)
     ├── domain/           las reglas del negocio jurídico, sin React (hoy vacía)
     ├── api-contract/     cómo se habla con el backend (envoltorios y paginación)
     └── styles/           los tokens y la hoja de estilos
@@ -104,8 +105,23 @@ lógica de negocio.**
 - **`router/`**: el mapa de rutas (`index.tsx`). Qué URL muestra qué pantalla.
   También las guardas: `RequireSession` manda al login a quien no tiene sesión y
   se acuerda de dónde estaba; `RedirectIfSession` rebota a Inicio a quien ya
-  entró. Las secciones del rail que todavía no tienen pantalla caen en la ruta
-  comodín.
+  entró; y `RequireAccess` muestra `ForbiddenPage` ("Sin acceso") si el perfil
+  no puede ver la sección, aunque haya escrito la URL a mano. Las secciones del
+  rail que todavía no tienen pantalla caen en la ruta comodín.
+- **`access/`**: el único lugar donde se dice quién puede qué. `access.ts`
+  tiene dos tablas:
+  - `ROUTE_ACCESS`, **quién ve cada sección**, con `canAccess(roles, ruta)`. De
+    ahí leen el rail, para esconder los ítems, y `RequireAccess`, para frenar
+    la URL. Una sección que no está declarada queda denegada para todos. Desde
+    un componente se consulta con `useCanAccess(ruta)`.
+  - `ACTION_ACCESS`, **quién opera cada acción**, con `can(roles, acción)`. Es
+    para la pantalla que ven todos pero tiene un botón de un solo perfil:
+    "Registrar abogado" es sólo del Administrador. Desde un componente se
+    consulta con `useCan('lawyers.create')`.
+
+  Así la regla no se repite en cada componente. Lo que no depende del perfil
+  sino del dato —sólo el abogado responsable de una causa registra sus actos—
+  no va en ninguna de las dos tablas: lo resuelve la pantalla de esa causa.
 - **`layouts/`**: los marcos de pantalla. `AppLayout` —rail, barra superior y
   contenido— para el sistema ya logueado; `AuthLayout` para el login, que hoy no
   dibuja nada porque esa pantalla arma su propia composición; y `NotFoundLayout`
@@ -134,8 +150,9 @@ estructura tiene que ser predecible.
 
 **Hay un séptimo archivo, y es opcional: `index.ts` en la raíz del módulo.** Es
 la cara pública del módulo y sólo lo tiene el que necesita que otro lo use; ver
-la regla 1 en [§5](#5-las-tres-reglas-que-sostienen-todo). Hoy lo tiene
-`lawyers/` y nadie más. Si no hace falta, no se crea.
+la regla 1 en [§5](#5-las-tres-reglas-que-sostienen-todo). Hoy lo tienen
+`lawyers/`, `clients/`, `legal-params/` y `cases/`, porque el alta de causa y
+el registro de actos consumen sus datos. Si no hace falta, no se crea.
 
 **Los módulos y qué cubre cada uno:**
 
@@ -146,40 +163,58 @@ la regla 1 en [§5](#5-las-tres-reglas-que-sostienen-todo). Hoy lo tiene
 | `users/` | Alta, baja, consulta y permisos de los usuarios del sistema |
 | `clients/` | Los clientes del estudio |
 | `lawyers/` | Los abogados del staff |
-| `legal-params/` | Datos maestros del dominio: fueros, estados procesales y sus plazos |
+| `legal-params/` | Datos maestros del dominio: fueros, estados procesales con sus plazos, y calificaciones legales |
 | `cases/` | Causas y amparos: alta, consulta, detalle, línea de tiempo, carátula y expediente |
 | `proceedings/` | Actos procesales y actos interruptivos de cada causa |
 | `deadlines/` | Vencimientos, prescripción y alertas |
 | `documents/` | Documentos de cada causa y los modelos formales del estudio |
 | `dashboard/` | El tablero de control accionable y los reportes |
 
-De los once, hoy tienen código `auth/`, `home/`, `users/`, `lawyers/` y
-`legal-params/`. Los demás están creados con sus seis carpetas vacías, para que
-el día que arranquen no haya que discutir dónde van.
+De los once, hoy tienen código ocho: `auth/`, `home/`, `users/`, `lawyers/` y
+`legal-params/`, y los tres del Sprint 2 —`clients/`, `cases/` y
+`proceedings/`—, que ya tienen su `api/`, sus páginas y sus tests. Los de
+`clients/` y los del listado de causas se escribieron antes que la página. Los
+otros tres (`deadlines/`, `documents/` y `dashboard/`) están creados con sus
+seis carpetas vacías, para que el día que arranquen no haya que discutir dónde
+van.
+
+Todos siguen la revisión del 05/10/2026 del contrato. Cómo quedó aplicada está
+en `frontend/CLAUDE.md`, "Revisiones del contrato".
 
 ### `src/shared/` — lo reutilizable
 
 Lo que usa más de un módulo. La regla para que algo entre acá es simple: **si lo
 necesitan dos módulos distintos, va a `shared/`; si lo usa uno solo, se queda en su
-módulo.**
+módulo.** Hay una sola excepción: un **control genérico** —que no sabe nada del
+dominio, como un combobox o un grupo de botones para elegir— va a `shared/`
+aunque por ahora lo use una sola pantalla, igual que `Select` o `TextInput`.
+Una tabla de causas o un formulario de cliente, en cambio, son del módulo.
 
 - **`api/`**: el cliente HTTP (con la URL base, el token de sesión y el manejo de
   errores) y la configuración de TanStack Query.
 - **`components/ui/`**: los ladrillos visuales, sin nada de negocio adentro: botón,
-  input, select, tabla, modal, casilla, etiqueta.
-- **`components/forms/`**: piezas para armar formularios (un campo con su rótulo, su
-  error y su ayuda).
+  tabla, modal, panel, píldora, migas, barra de medida.
+- **`components/forms/`**: piezas para armar formularios: un campo con su rótulo,
+  su error y su ayuda, los controles (input, select, combobox…) y `FormModal`.
 - **`components/feedback/`**: avisos, mensajes de error, estados de carga y de lista
-  vacía.
+  vacía. Hoy está vacía: los avisos son `useToast()`, que vive en
+  `app/providers/`, y los estados vacíos se escriben con las clases `.vz-empty`.
 - **`hooks/`**: hooks reutilizables, por ejemplo uno de búsqueda con demora o uno que
-  guarda algo en el navegador. Hoy está vacía.
-- **`lib/`**: funciones sueltas sin estado: formatear fechas, armar clases de CSS,
-  formatear números. Hoy tiene `dates.ts`, que formatea el último ingreso.
+  guarda algo en el navegador. Hoy tiene `useDebouncedValue.ts`, el de la
+  búsqueda con demora de los listados.
+- **`lib/`**: funciones sueltas sin estado. Hoy tiene `dates.ts` (el último
+  ingreso, las fechas sin hora del contrato y la fecha de hoy) e `initials.ts`
+  (las iniciales de los avatares).
 - **`mocks/`**: datos de mentira y un servidor simulado, para poder desarrollar
   pantallas antes de que el backend esté listo.
-- **`types/`**: tipos que cruzan módulos, como el perfil del usuario. Hoy está
-  vacía: la forma de las respuestas paginadas no vive acá sino en
+- **`types/`**: tipos que cruzan módulos. Hoy está vacía. El perfil del
+  usuario (`Role`), que sería el candidato natural, vive en
+  `features/auth/types/session.ts`, y `features/users/types/user.ts` tiene su
+  propia copia. La forma de las respuestas paginadas tampoco vive acá sino en
   `api-contract/`, porque es contrato y no un tipo nuestro.
+
+`SHARED.md` tiene el detalle de cada componente y la tabla "Si necesitás X,
+usá Y": antes de crear un componente, buscalo ahí.
 
 ### `src/domain/` — las reglas del negocio
 
@@ -213,8 +248,15 @@ cada módulo invente su propia versión de lo mismo.
 Hoy tiene `envelopes.ts`, con los envoltorios que el contrato pone alrededor de
 toda respuesta exitosa: `ApiItem`, `ApiList`, `Pagination` y `PaginatedQuery`.
 La capa `api/` de cada módulo los desenvuelve y entrega los datos pelados, así
-el envoltorio no se propaga a las pantallas. La fuente es
-`docs/Api-Contract/API_CONTRACT_V2.md`.
+el envoltorio no se propaga a las pantallas. La fuente es el contrato de
+`docs/Api-Contract/`: `API_CONTRACT_V3.md`, que es autocontenido —trae lo del
+Sprint 1 que sigue vigente y lo del Sprint 2: clientes, causas, actos
+procesales y calificaciones legales— y cuya última revisión es del 05/10/2026
+(§7.8). `API_CONTRACT_V2.md` queda como registro del Sprint 1.
+
+La otra fuente de verdad es el prototipo (`docs/prototypes/`): de ahí salen las
+pantallas y sus textos. Cuando el contrato y el prototipo no coinciden, se
+acuerda con el equipo antes de tocar cualquiera de los dos.
 
 ### `src/styles/` — los estilos
 
@@ -259,10 +301,13 @@ Si se respetan estas tres, la estructura se mantiene sola con el tiempo:
    también. En ese caso el módulo dueño del dato publica un `index.ts` en su
    raíz con lo mínimo indispensable, y el otro importa **sólo eso**:
    `@/features/lawyers`, nunca `@/features/lawyers/api/...`. Lo que no está en
-   ese `index.ts` es asunto interno y puede cambiar sin avisar. Hoy pasa en un
-   solo lugar —`UsersPage` usa `useLawyers`— y la alternativa era que cada
-   módulo se escribiera su propio `GET /lawyers`, con el mismo endpoint
-   mantenido en cuatro lados.
+   ese `index.ts` es asunto interno y puede cambiar sin avisar. El primer caso
+   fue `UsersPage` usando `useLawyers`: la alternativa era que cada módulo se
+   escribiera su propio `GET /lawyers`, con el mismo endpoint mantenido en
+   cuatro lados. En el Sprint 2 `cases/` usa los de `clients/` y
+   `legal-params/`, y `proceedings/` los de `cases/` y `legal-params/`. Las
+   flechas van en un solo sentido; si aparece una al revés, algo está en el
+   módulo equivocado.
 2. **`shared/` no sabe que los módulos existen.** Es de una sola mano: los módulos usan
    `shared/`, nunca al revés. Un componente de `shared/ui` no puede saber qué es una
    causa.
@@ -280,18 +325,20 @@ equivocado.
 |---|---|
 | Una pantalla nueva | `features/<módulo>/pages/` |
 | Un componente que usa una sola pantalla | `features/<módulo>/components/` |
-| Un componente que ya va por el tercer módulo | `shared/components/ui/` |
+| Un componente que ya usa un segundo módulo | `shared/components/` (ver §4) |
+| Un control genérico, sin nada del dominio | `shared/components/forms/` |
 | La llamada a un endpoint | `features/<módulo>/api/` |
 | El manejo de errores del HTTP, igual para todos | `shared/api/` |
 | La validación de un formulario | `features/<módulo>/schemas/` |
 | El cálculo de un plazo o de la prescripción | `domain/` |
-| Formatear una fecha para mostrarla | `shared/lib/` |
+| Formatear una fecha para mostrarla | `shared/lib/dates.ts` |
 | El tipo de una causa | `features/cases/types/` |
-| El tipo del perfil del usuario, que usan varios | `shared/types/` |
+| Un tipo que usan varios módulos | `shared/types/` (hoy `Role` está en `features/auth/types/`, ver §4) |
 | El envoltorio de una respuesta del backend | `api-contract/` |
 | Algo de tu módulo que otro módulo va a necesitar | el `index.ts` del módulo |
 | Un test de cualquiera de estas cosas | `tests/`, ver `TESTING.md` |
-| Una ruta nueva | `app/router/` |
+| Una ruta nueva | `app/router/`, y quién la ve en `ROUTE_ACCESS` (`app/access/access.ts`) |
+| Un botón que es de un solo perfil, en una pantalla que ven todos | Su acción en `ACTION_ACCESS` (`app/access/access.ts`), y `useCan(...)` en la pantalla |
 | Un color o un espaciado nuevo | `styles/` |
 
 ---
@@ -302,12 +349,19 @@ equivocado.
 2. Definí los tipos en `types/` y las validaciones en `schemas/`.
 3. Escribí las llamadas al backend en `api/`, con sus hooks de TanStack Query.
 4. Armá la pantalla en `pages/` y lo que necesite en `components/`.
-5. Registrá la ruta en `app/router/`, con la guarda si corresponde, y el ítem en
-   el rail de `app/layouts/AppLayout.tsx` si la sección todavía no está.
-6. Si otro módulo va a necesitar algo de éste, publicá **eso solo** en un
+5. Registrá la ruta en `app/router/index.tsx`, **adentro** de `<RequireAccess />`,
+   y el ítem en el rail de `app/layouts/AppLayout.tsx` si la sección todavía no
+   está.
+6. Declarala en `ROUTE_ACCESS` (`app/access/access.ts`) con los perfiles que la
+   ven. Si falta, la sección queda denegada para todos, administrador incluido,
+   y no aparece en el menú. Si la pantalla tiene una acción que opera un solo
+   perfil, declarala en `ACTION_ACCESS`, en el mismo archivo.
+7. Si otro módulo va a necesitar algo de éste, publicá **eso solo** en un
    `index.ts` en la raíz del módulo (ver la regla 1 de §5).
-7. Creá sus carpetas en `tests/unit/` y `tests/components/`, como explica
-   `TESTING.md` §7.
+8. Creá sus carpetas en `tests/unit/` y `tests/components/`, como explica
+   `TESTING.md` §11. Los tests se pueden escribir antes que la feature, desde
+   los criterios de aceptación de la historia: en ese caso este paso va
+   primero.
 
 Si mientras lo hacés necesitás un componente que ya existe en otro módulo, no lo
 copies: mudalo a `shared/components/` y que los dos lo usen de ahí.
@@ -334,7 +388,7 @@ Equivalencias, para no traducir distinto cada vez:
 | `deadlines` | plazos, vencimientos y prescripción |
 | `lawyers` | abogados |
 | `clients` | clientes |
-| `legal-params` | fueros, estados procesales y tabla de plazos |
+| `legal-params` | fueros, estados procesales, tabla de plazos y calificaciones legales |
 | `documents` | documentos de causa y modelos formales |
 
 ---

@@ -1,0 +1,16 @@
+description: Estado procesal tal como lo devuelven las respuestas de `GET`.
+allOf:
+  - $ref: ./ProceduralState.yaml
+  - type: object
+    required:
+      - activeCases
+    properties:
+      activeCases:
+        type: integer
+        minimum: 0
+        readOnly: true
+        description: |
+          Causas activas que se encuentran en este estado. Calculado, sólo
+          lectura. Un estado terminal devuelve siempre `0`.
+        examples:
+          - 7

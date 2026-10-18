@@ -32,15 +32,16 @@ shared/
 │   └── queryClient.ts
 ├── components/
 │   ├── index.ts              barrel: reexporta ui + forms
-│   ├── ui/                   14 componentes + index.ts
-│   ├── forms/                Field.tsx, FormModal.tsx + index.ts
+│   ├── ui/                   18 componentes + index.ts
+│   ├── forms/                Field.tsx, Combobox.tsx, SegmentedControl.tsx, FormModal.tsx + index.ts
 │   └── feedback/             VACÍA (sólo .gitkeep)
-├── hooks/                    VACÍA (sólo .gitkeep)
-├── lib/                      dates.ts (formato del último ingreso)
+├── hooks/                    useDebouncedValue.ts (búsqueda con demora)
+├── lib/                      dates.ts (fechas para mostrar), initials.ts (iniciales de avatar)
 ├── mocks/                    la API del contrato, simulada (ver su README)
 │   ├── contract.ts           tipos del contrato
 │   ├── fixtures.ts           datos semilla
 │   ├── responses.ts          una respuesta por cada código documentado
+│   ├── calendar.ts           fechas sin hora y cómputo de días hábiles
 │   ├── db.ts                 base en memoria + resetMockDb()
 │   ├── handlers.ts           servidor falso: resolveRequest()
 │   ├── msw-handlers.ts       capa MSW (navegador y Node)
@@ -50,15 +51,41 @@ shared/
 └── types/                    VACÍA (sólo .gitkeep)
 ```
 
-`hooks/`, `types/` y `components/feedback/` siguen vacías. Si una feature
-necesita algo de ahí, es un archivo nuevo, no algo que haya que buscar. `lib/`
-dejó de estarlo: tiene `dates.ts`.
+`types/` y `components/feedback/` siguen vacías. Si una feature necesita algo
+de ahí, es un archivo nuevo, no algo que haya que buscar. `lib/` dejó de
+estarlo: tiene `dates.ts` e `initials.ts`. `hooks/` también: tiene
+`useDebouncedValue.ts` (ver [Hooks](#hooks)).
 
-`mocks/` implementa `docs/Api-Contract/API_CONTRACT_V2.md` sobre **MSW**, que
-intercepta la red de verdad (los pedidos se ven en la pestaña Network). Se
-enciende con `await startMocks()` de `@/shared/mocks/browser`. **Leer
-`mocks/README.md` antes de escribir una llamada a la API**: ahí están las
-divergencias del contrato y los huecos que el mock tuvo que completar.
+`mocks/` implementa `docs/Api-Contract/API_CONTRACT_V3.md` (con su revisión
+del 05/10/2026, §7.8) sobre **MSW**, que intercepta la red de verdad (los
+pedidos se ven en la pestaña Network). Se enciende con `await startMocks()` de
+`@/shared/mocks/browser`. Están **todos los endpoints del contrato**, incluidos
+los del Sprint 2: calificaciones legales, clientes, causas, registro de acto
+procesal y `deadline-preview`. Lo que conviene saber antes de usarlo:
+
+- **Quién puede qué** sale de la tabla de permisos del contrato (V3 §4): leer
+  está abierto a cualquier usuario autenticado, salvo `/users`; registrar un
+  cliente pide `SECRETARY`, y el resto de las escrituras de administración,
+  `ADMINISTRATOR`. Un abogado (`mrios`) ya **no** recibe `403` al leer abogados
+  o estados procesales.
+- **Los actos procesales no se rigen por un rol** (V3 D-30): los registra sólo
+  el abogado responsable de la causa. Con cualquier otro usuario, abogado o
+  administrador, el mock responde `403`.
+- **Nada se escribe a mano si se puede contar.** `activeCases`, el estado
+  actual de una causa y su vencimiento se calculan en cada lectura a partir de
+  las causas y los actos de la base. Una causa sin actos está en el estado
+  inicial, "Iniciada", que tampoco se guarda (V3 D-34).
+- **El mock sigue también al esquema de la base** (`backend/prisma/schema.prisma`)
+  en lo que el contrato no detalla: largos, datos opcionales y unicidad.
+- **Los vencimientos de las semillas son relativos a hoy.** Los actos
+  recientes se ubican "N días hábiles atrás", así el listado muestra una causa
+  que vence hoy, otra vencida hace dos días y otra a tres días, igual que el
+  prototipo, cualquier día que se abra. Un test que afirme algo sobre
+  vencimientos tiene que fijar el día (ver `TESTING.md`).
+- **El detalle está en `mocks/README.md`**: los usuarios de prueba, qué causa
+  semilla sirve para probar cada regla, cómo disparar cada error y las
+  decisiones que el mock tomó donde el contrato no dice nada. **Leerlo antes
+  de escribir una llamada a la API.**
 
 ## Cómo importar
 
@@ -76,8 +103,8 @@ import { ApiError, isApiError } from '@/shared/api/ApiError';
 
 - `components/ui/index.ts` y `components/forms/index.ts` son los barrels reales;
   `components/index.ts` sólo hace `export * from './ui'` y `'./forms'`.
-- **`api/` y `lib/` no tienen barrel**: se importan archivo por archivo
-  (`@/shared/lib/dates`).
+- **`api/`, `lib/` y `hooks/` no tienen barrel**: se importan archivo por
+  archivo (`@/shared/lib/dates`, `@/shared/hooks/useDebouncedValue`).
 - El código existente (`AppLayout`, `UsersPage`, `LawyersPage`…) importa desde
   `@/shared/components/ui`. Seguir ese patrón.
 
@@ -99,12 +126,19 @@ import { ApiError, isApiError } from '@/shared/api/ApiError';
 | `IconButton` | Component | `components/ui/IconButton.tsx` | Acción sólo icono (40px) |
 | `Icon` / `ICONS` | Component + const | `components/ui/Icon.tsx` | Set de iconos SVG |
 | `Pill` | Component | `components/ui/Pill.tsx` | Estado / semáforo de plazos |
-| `SearchInput` | Component | `components/ui/SearchInput.tsx` | Buscador de la topbar |
+| `SearchInput` | Component | `components/ui/SearchInput.tsx` | Buscador de un listado, en los filtros de su panel |
 | `Modal` | Component | `components/ui/Modal.tsx` | Diálogo genérico |
+| `Avatar` | Component | `components/ui/Avatar.tsx` | Iniciales de una persona en una tabla |
+| `Breadcrumbs` | Component | `components/ui/Breadcrumbs.tsx` | Migas: "Causas / 13284571 / Registrar acto" |
+| `DetailList` | Component | `components/ui/DetailList.tsx` | Pares etiqueta–valor de una ficha |
+| `Meter` | Component | `components/ui/Meter.tsx` | Barra de cuánto se ocupó: prescripción, carga |
 | `FormModal` | Component | `components/forms/FormModal.tsx` | Alta / edición / baja declarativa |
 | `Field` | Component | `components/forms/Field.tsx` | Label + control + nota + error |
 | `TextInput` `Select` `Textarea` `Checkbox` | Components | `components/forms/Field.tsx` | Controles sueltos |
 | `FormSection` | Component | `components/forms/Field.tsx` | Separador dentro del form |
+| `PasswordInput` | Component | `components/forms/PasswordInput.tsx` | Contraseña con un ojo para mostrarla u ocultarla |
+| `Combobox` | Component | `components/forms/Combobox.tsx` | Texto libre con lista para elegir |
+| `SegmentedControl` | Component | `components/forms/SegmentedControl.tsx` | Elegir una entre pocas opciones a la vista |
 | `http` | Axios instance | `api/http.ts` | Todas las llamadas al backend |
 | `ApiError` / `isApiError` | Class + guard | `api/ApiError.ts` | Errores normalizados: `status`, `code`, `details` |
 | `ERROR_CODES` / `ErrorCode` | Const + type | `api/contract.ts` | Códigos de error del contrato |
@@ -112,12 +146,19 @@ import { ApiError, isApiError } from '@/shared/api/ApiError';
 | `setRenewHandler` / `setUnauthenticatedHandler` | Funciones | `api/http.ts` | Los enchufa `AuthProvider`: cómo renovar y qué hacer al quedar afuera |
 | `TOKEN_KEY` | Const | `api/http.ts` | Clave del token en `localStorage`: `'vz.token'` |
 | `formatLastLogin` | Función | `lib/dates.ts` | `Hoy 08:12`, `Ayer 18:20` o `08/09/2026` |
+| `formatDate` | Función | `lib/dates.ts` | Fecha sin hora del contrato: `2026-09-15` → `15/09/2026` |
+| `todayIsoDate` | Función | `lib/dates.ts` | Hoy como `YYYY-MM-DD`, para los `<input type="date">` |
+| `parseDateOnly` | Función | `lib/dates.ts` | `YYYY-MM-DD` → `Date` local, para hacer cuentas sin que la fecha se corra |
+| `initials` | Función | `lib/initials.ts` | Iniciales de un nombre, para los avatares |
 | `startMocks` | Función | `mocks/browser.ts` | Enciende la API simulada (async) |
 | `configureMocks` | Función | `mocks/browser.ts` · `mocks/server.ts` | Demora, logs y passthrough del mock |
 | `server` | SetupServer | `mocks/server.ts` | Los mismos handlers para tests en Node |
 | `resolveRequest` | Función | `mocks/handlers.ts` | Servidor falso puro, sin MSW |
 | `RESPONSES` / `ERRORS` | Const | `mocks/responses.ts` | Fixtures por endpoint y código |
-| `resetMockDb` | Función | `mocks/db.ts` | Vuelve los datos del mock al estado inicial |
+| `resetMockDb` | Función | `mocks/db.ts` | Vuelve los datos del mock al estado inicial (y recalcula las fechas relativas a hoy) |
+| `toCase` / `toClient` / `toLawyer` … | Funciones | `mocks/db.ts` | El recurso del contrato a partir de lo guardado, con lo embebido y lo calculado |
+| `INITIAL_STATE_NAME` | Const | `mocks/fixtures.ts` | "Iniciada": el nombre del estado inicial de toda causa, para un test que lo afirme |
+| `addBusinessDays` / `businessDaysUntil` / `computeDueDate` | Funciones | `mocks/calendar.ts` | El cómputo de plazos del contrato (V3 §4), para armar expectativas en un test |
 
 ---
 
@@ -133,13 +174,31 @@ import { ApiError, isApiError } from '@/shared/api/ApiError';
 | Diálogo libre / confirmación con contenido propio | `Modal` | `FormModal` sin `fields` también sirve |
 | Campo dentro de un form propio | `Field` + `TextInput`/`Select`/`Textarea`/`Checkbox` | |
 | Agrupar campos | `FormSection` | Dentro de `.vz-form-grid` |
+| Llevar al primer campo con error al confirmar | `const focusErrors = useFocusFirstError(ref, errors)` de `@/shared/hooks/useFocusFirstError`, y `focusErrors()` al principio del `submit` | Centra el primer `.vz-field--error` del contenedor y le da foco, también si el error llega del servidor. `FormModal` ya lo hace solo |
 | Filtros sobre una tabla | `Panel actions={...}` | Se renderiza en `.vz-filters` |
 | Paginar una tabla | `Pagination` | Va en `Panel footer={...}` |
+| Buscador de un listado | `SearchInput` + `useDebouncedValue` de `@/shared/hooks/useDebouncedValue` | El input muestra el texto al instante; a la consulta va el valor demorado, así no sale un pedido por tecla |
 | Mostrar un último ingreso | `formatLastLogin` de `@/shared/lib/dates` | Para que la fecha no se formatee distinto en cada feature |
-| Buscador | `SearchInput` | Pensado para la topbar |
+| Mostrar una fecha sin hora (`startDate`, `dueDate`) | `formatDate` de `@/shared/lib/dates` | **Nunca** `new Date('2026-09-15')`: la corre un día |
+| Valor por defecto de un campo de fecha | `todayIsoDate()` de `@/shared/lib/dates` | No `toISOString()`, que después de las 21 ya dice mañana |
+| Primera columna de una persona en una tabla | `Avatar` + `.vz-table__ident` | Usuarios, clientes |
+| Ubicar al usuario en una pantalla interna | `Breadcrumbs` | Arriba del título, en lugar del `eyebrow` |
+| Ficha de datos (cliente, resumen, cómputo) | `Panel` + `.vz-panel__body` + `DetailList` | Un `null` se muestra como `—` |
+| Aclarar de dónde sale un dato de una ficha | `DetailList` con `note` | "8 años desde el 27/02/2021", debajo de la etiqueta |
+| Contador de caracteres de un texto largo | `Field` con `hint` | `hint="23 / 800"`, a la derecha de la etiqueta |
+| Barra de proporción | `Meter` | `tone`: warn = cerca del límite |
+| Formulario de página con panel al costado | `.vz-split` + `.vz-split__aside` | Registrar causa, Registrar acto |
+| Filtro con opciones agrupadas | `Select` con `{ group, options }` | Se dibuja como `<optgroup>` |
+| Botón que se prende y se apaga | `Button pressed={…}` | "Solo con plazo por vencer" |
+| Elegir de una lista o escribir otra cosa | `Combobox` | La pantalla filtra las opciones |
+| Campo de contraseña que se pueda ver | `PasswordInput` | Dentro de un `Field`, igual que `TextInput` |
+| Elegir una entre 2 a 4 opciones cortas | `SegmentedControl` | Más opciones, `Select` |
+| Buscador | `SearchInput` | En `Panel actions` (ahí toma 280px de mínimo). La topbar no lleva buscador: el general quedó postergado |
 | Iconos | `Icon name="..."` | Sólo los nombres de `ICONS` |
 | Estado vacío de tabla | `DataTable empty={...}` con clases `.vz-empty` | **No hay componente**, ver Observaciones |
 | Avisos / toasts | `useToast()` de `@/app/providers/ToastContext` | **Vive fuera de shared** |
+| Deshabilitar un botón que es de un solo perfil | `useCan('lawyers.create')` de `@/app/access/useCan` | **Vive fuera de shared.** Nunca `roles.includes(...)` en un componente |
+| Marcar un campo como opcional | `Field` sin `required` | No hay marca de "(opcional)": el asterisco señala lo obligatorio |
 | Cache y fetching | `queryClient` ya configurado en `QueryProvider` | No crear otro `QueryClient` |
 | Llamar al backend | `http` | Nunca `fetch` ni `axios` directo |
 | Trabajar sin backend levantado | `await startMocks()` de `@/shared/mocks/browser` | `VITE_USE_MOCKS=true`; ver `mocks/README.md` |
@@ -165,8 +224,14 @@ import { ApiError, isApiError } from '@/shared/api/ApiError';
 **Notas:** no sabe de rutas; la traducción ruta↔ítem la hace
 `@/app/layouts/AppLayout.tsx`, que ya lo monta con los 9 ítems del sistema.
 **Una pantalla nueva no necesita tocar AppShell**: se agrega la ruta al router y,
-si falta, el ítem en `AppLayout`. El texto de `railAction` debe ir envuelto en
-`<span className="vz-rail__action-label">` para que se oculte con el rail colapsado.
+si falta, el ítem en `AppLayout`.
+
+**Pantallas angostas:** debajo de 1024px el rail no ocupa lugar. Queda fuera de
+la pantalla y se abre encima de la página con el botón de menú que AppShell
+pone en la barra superior; se cierra con su botón, tocando el fondo, con Escape
+o al elegir cualquier cosa del rail. AppShell guarda ese estado y el CSS
+(`shell.css`) decide si el rail está fijo o es deslizable: quien lo monta no
+tiene que hacer nada.
 
 ### PageHeader
 
@@ -175,10 +240,10 @@ si falta, el ítem en `AppLayout`. El texto de `railAction` debe ir envuelto en
 
 ```tsx
 <PageHeader
-  eyebrow="Administración"
+  eyebrow="Trabajo diario"
   title="Clientes"
-  sub="Personas y empresas representadas por el estudio."
-  actions={<Button icon={<Icon name="plus" />}>Nuevo cliente</Button>}
+  sub="Un mismo cliente puede tener varias causas abiertas."
+  actions={<Button icon={<Icon name="plus" />} size="md">Registrar cliente</Button>}
 />
 ```
 
@@ -197,18 +262,25 @@ natural de `DataTable`.
 `minWidth?` (default 960), `empty?`.
 **`Column<T>`:** `id`, `header`, `cell(row) => ReactNode`, `mono?` (tipografía
 monoespaciada: SAC, fechas, importes), `nowrap?`, `actions?` (alinea a la derecha),
-`width?`.
+`width?`, `primary?`, `hideWhenNarrow?`.
+
+**Pantallas angostas:** la tabla se adapta sola, pero cada pantalla le dice qué
+importa. Debajo de 1180px suelta `minWidth` y esconde las columnas marcadas
+`hideWhenNarrow` (lo prescindible: fuero, responsable, último acceso). Debajo
+de 720px cada fila es una tarjeta: la columna `primary` —la que identifica a la
+fila— va arriba a todo el ancho, las acciones abajo, y el resto de a dos con el
+nombre de su columna encima. **Toda tabla nueva marca su columna `primary`.**
 
 ```tsx
 <DataTable
   columns={[
-    { id: 'name', header: 'Cliente', cell: (c) => c.name },
-    { id: 'dni', header: 'DNI', cell: (c) => c.dni, mono: true },
+    { id: 'name', header: 'Cliente', cell: (c) => `${c.lastName}, ${c.firstName}` },
+    { id: 'dni', header: 'DNI', cell: (c) => formatDni(c.dni), mono: true },
     { id: 'acc', header: '', actions: true,
-      cell: (c) => <Button variant="ghost" size="sm" onClick={() => edit(c)}>Editar</Button> },
+      cell: (c) => <Button variant="ghost" size="sm" onClick={() => edit(c)}>Modificar</Button> },
   ]}
   rows={clients}
-  rowKey={(c) => c.id}
+  rowKey={(c) => String(c.id)}
   empty={<div className="vz-empty"><div className="vz-empty__title">Sin clientes</div></div>}
 />
 ```
@@ -249,10 +321,16 @@ porque el castellano no siempre pluraliza así. Con `totalItems` en 0 muestra
 ### Button
 
 **Path:** `components/ui/Button.tsx` — extiende `ButtonHTMLAttributes`.
-**Props:** `variant?: 'primary' | 'secondary' | 'danger' | 'ghost'` (default `primary`),
-`size?: 'lg' | 'md' | 'sm'` (default `lg` = 40px), `block?`, `icon?: ReactNode`.
+**Props:** `variant?: 'primary' | 'secondary' | 'danger' | 'ghost' | 'ghost-danger'`
+(default `primary`; `ghost-danger` es el destructivo callado de las filas de una
+tabla, que sólo se pone rojo al apuntarlo),
+`size?: 'lg' | 'md' | 'sm'` (default `lg` = 40px), `block?`, `icon?: ReactNode`,
+`pressed?: boolean`.
 **Notas:** `type` por defecto es `"button"`; para enviar un `<form>` hay que pasar
-`type="submit"` explícito.
+`type="submit"` explícito. `pressed` lo convierte en un botón que se prende y se
+apaga ("Solo con plazo por vencer"): pone `aria-pressed` y lo pinta de verde
+mientras está prendido (en `secondary` y `ghost`). No cambia solo: avisa con
+`onClick` y la pantalla guarda el estado. Sin la prop, es un botón común.
 
 ### IconButton
 
@@ -265,8 +343,8 @@ y el `title`), más los atributos de `<button>`. Cuadrado de 40px.
 **Path:** `components/ui/Icon.tsx`
 **Props:** `name: IconName`, `size?` (default 17), `className?`.
 **Nombres disponibles:** `home`, `cases`, `deadlines`, `clients`, `templates`,
-`users`, `lawyers`, `timeLimits`, `reports`, `search`, `notifications`,
-`password`, `logout`, `plus`, `alert`, `download`, `back`, `forward`.
+`users`, `lawyers`, `timeLimits`, `qualifications`, `reports`, `search`, `notifications`,
+`password`, `eye`, `eyeOff`, `logout`, `plus`, `alert`, `download`, `back`, `forward`.
 **Notas:** el color sale de `currentColor`. Si falta un icono, se agrega un path a
 `ICONS` (viewBox 24×24, trazo 1.7) — no crear otro componente de icono.
 
@@ -288,7 +366,8 @@ Genérico en `T extends string`. No guarda estado.
 
 **Path:** `components/ui/SearchInput.tsx`
 **Props:** las de un `<input>` (`InputHTMLAttributes`). No tiene interfaz propia ni
-props extra; renderiza icono + `<input type="search">`. No debounce, no busca.
+props extra; renderiza icono + `<input type="search">`. No debounce, no busca:
+la demora la pone la página con [`useDebouncedValue`](#usedebouncedvalue).
 
 ### Modal
 
@@ -301,14 +380,102 @@ afuera cerraría el modal con todo lo escrito. **Atrapa el foco**: al abrir lo
 lleva a la tarjeta, el tabulador da vueltas adentro (en los dos sentidos) y al
 cerrar lo devuelve a donde estaba. Es `role="dialog"` con `aria-modal` y
 `aria-labelledby` apuntando al título. Lo que no tiene es portal: se renderiza
-donde se lo monte.
+donde se lo monte. Mientras está abierto, **bloquea el scroll de la página de
+atrás** (`body` en `overflow: hidden`) y lo devuelve como estaba al cerrarse,
+así que dos modales apilados no se desbloquean entre sí.
+
+### Avatar
+
+**Path:** `components/ui/Avatar.tsx`
+**Props:** `name`, `initials?` (si falta se derivan de `name` con `initials()` de
+`lib/initials`).
+**Notas:** es el círculo de la primera columna de las tablas de personas. Va
+junto al nombre dentro de `.vz-table__ident`. Es decorativo (`aria-hidden`):
+el nombre ya está escrito al lado. El avatar del rail es otro: lo dibuja
+`RailUser`.
+
+```tsx
+cell: (c) => (
+  <div className="vz-table__ident">
+    <Avatar name={c.fullName} />
+    <span className="vz-table__primary">{c.fullName}</span>
+  </div>
+)
+```
+
+### Breadcrumbs
+
+**Path:** `components/ui/Breadcrumbs.tsx`
+**Props:** `items: BreadcrumbItem[]`, con `BreadcrumbItem = { label, onClick? }`.
+**Notas:** van arriba del título en las pantallas que cuelgan de otra (Registrar
+causa, Detalle, Registrar acto). No sabe de rutas: cada paso avisa con `onClick`
+y la pantalla navega. El último es la pantalla actual: siempre se muestra como
+texto con `aria-current="page"`, aunque traiga `onClick`. Un paso sin `onClick`
+también queda como texto (el SAC en Registrar causa, por ejemplo).
+
+```tsx
+<Breadcrumbs
+  items={[
+    { label: 'Causas', onClick: () => navigate('/causas') },
+    { label: causa.sacNumber, onClick: () => navigate(`/causas/${causa.id}`) },
+    { label: 'Registrar acto procesal' },
+  ]}
+/>
+```
+
+### DetailList
+
+**Path:** `components/ui/DetailList.tsx`
+**Props:** `items: DetailItem[]`, con
+`DetailItem = { label, note?: ReactNode, value: ReactNode, mono? }`.
+**Notas:** un renglón por dato, etiqueta apagada a la izquierda y valor en
+negrita a la derecha. Es un `<dl>`: el lector de pantalla anuncia cada valor con
+su etiqueta. Un `value` en `null`, `undefined` o `''` se muestra como `—`; el
+`0` se muestra, porque es un dato. Los valores llegan formateados por la
+pantalla (`formatDate`, el DNI con puntos). Para una ficha, va adentro de un
+`Panel` con `.vz-panel__body`.
+
+`note` agrega un segundo renglón, chico y apagado, **debajo de la etiqueta**:
+de dónde sale el dato. Es la prescripción de cada calificación en el "Resumen
+del alta" ("8 años desde el 27/02/2021" bajo "Robo calificado"). Para una
+aclaración **debajo del valor**, el `value` puede traer un
+`<span className="vz-details__note">`: es el "El estado lo fija el primer acto
+procesal" bajo el estado inicial de la causa, "Iniciada".
+
+```tsx
+<Panel title="Cliente">
+  <div className="vz-panel__body">
+    <DetailList
+      items={[
+        { label: 'DNI', value: formatDni(client.dni), mono: true },
+        { label: 'Teléfono', value: client.phone },
+        { label: 'Cliente desde', value: formatDate(client.clientSince), mono: true },
+      ]}
+    />
+  </div>
+</Panel>
+```
+
+### Meter
+
+**Path:** `components/ui/Meter.tsx`
+**Props:** `value`, `max?` (default 100), `label` (obligatoria: qué mide, para
+el lector de pantalla), `valueText?` (cómo leer el valor: `'27 %'`),
+`tone?: 'primary' | 'warn' | 'danger'` (default `primary`).
+**Notas:** barra de cuánto de algo ya se ocupó: la prescripción transcurrida de
+una causa, la carga de causas de un abogado contra el máximo del estudio. Es
+`role="meter"`, no `progressbar`: no mide una tarea que termina. El valor se
+recorta a `0…max`, así una prescripción cumplida llena la barra sin
+desbordarla. El tono lo decide la pantalla (`warn` = cerca del límite, como el
+bronce del prototipo pasado el 70 %).
 
 ### Logo / RailUser
 
 - `Logo` — `components/ui/Logo.tsx`. Prop `markOnly?` para dejar sólo el monograma.
   Pensado para fondo oscuro (`--vz-rail`).
 - `RailUser` — `components/ui/RailUser.tsx`. Props `name`, `profile`, `initials?`
-  (si falta se derivan del nombre), `onChangePassword()`, `onLogout()`.
+  (si falta se derivan del nombre con `initials()` de `lib/initials`),
+  `onChangePassword()`, `onLogout()`.
   Va en `AppShell.railFooter`; ya está montado en `AppLayout`.
 
 ---
@@ -334,7 +501,24 @@ FormModal
 - Alta, edición o confirmación de baja en un diálogo → `FormModal`.
 - Formulario en la página (no en modal) → `Field` + controles sueltos dentro de un
   `<div className="vz-form-grid">`.
+- Formulario de página con un panel al costado que se va completando (Registrar
+  causa, Registrar acto procesal) → `.vz-split`: el formulario en un `Panel`
+  con `.vz-panel__body`, y el panel lateral en un `<aside className="vz-split__aside">`.
+  El lateral acompaña el scroll y, debajo de 1180px, pasa abajo del formulario.
 - Un control suelto (filtro sobre una tabla) → `TextInput` / `Select` sin `Field`.
+
+```tsx
+<div className="vz-split">
+  <Panel title="Datos del acto procesal" footer={botonera}>
+    <div className="vz-panel__body vz-form-grid">…campos…</div>
+  </Panel>
+  <aside className="vz-split__aside">
+    <Panel title="Cómputo del plazo">
+      <div className="vz-panel__body"><DetailList items={…} /></div>
+    </Panel>
+  </aside>
+</div>
+```
 
 ### FormModal
 
@@ -357,16 +541,18 @@ Fechas y números se manejan como string.
 
 ```tsx
 <FormModal
-  title="Nuevo cliente"
+  title="Registrar cliente"
   fields={[
-    { k: 'name', label: 'Nombre y apellido', required: true },
-    { k: 'type', label: 'Tipo', type: 'select', options: ['Persona', 'Empresa'], width: 'half' },
-    { k: 'cuit', label: 'CUIT', mono: true, width: 'half', when: (v) => v.type === 'Empresa' },
+    { k: 'lastName', label: 'Apellido', required: true, width: 'half', error: errors.lastName },
+    { k: 'firstName', label: 'Nombres', required: true, width: 'half', error: errors.firstName },
+    { k: 'dni', label: 'DNI', required: true, mono: true, width: 'half', placeholder: '00.000.000' },
+    { k: 'phone', label: 'Teléfono', mono: true, width: 'half' },
+    { k: 'email', label: 'Correo electrónico', width: 'half' },
   ]}
   values={values}
   onChange={(k, v) => setValues((s) => ({ ...s, [k]: v }))}
-  okLabel="Crear cliente"
-  okDisabled={!values.name}
+  okLabel="Registrar cliente"
+  okDisabled={saving}
   onConfirm={create}
   onCancel={close}
 />
@@ -379,18 +565,135 @@ es el modo "confirmar baja". El `children` se agrega debajo de los campos.
 ### Field y controles
 
 **Path:** `components/forms/Field.tsx`
-- `Field` — props `label`, `required?` (sólo el asterisco), `note?`, `error?`,
+- `Field` — props `label`, `required?` (sólo el asterisco), `note?`, `hint?`, `error?`,
   `width?: 'half' | 'full'` (default `full` = ocupa las 2 columnas), `htmlFor?`, `children`.
-  Con `error` oculta la `note` y pinta el control en rojo.
+  Con `error` oculta la `note` y pinta el control en rojo. `hint` es un dato
+  chico a la derecha de la etiqueta, en monoespaciada: el contador de un texto
+  largo (`hint="23 / 800"` en el objeto del reclamo). Lo calcula la pantalla;
+  `Field` sólo lo ubica. Sin `hint`, la etiqueta se dibuja como siempre.
 - `TextInput` — props de `<input>` + `mono?`.
 - `Select` — props de `<select>` + `options: SelectOption[]`, con
   `SelectOption = string | { value: string; label: string }`. Una cadena suelta
   es el caso en que el valor y la etiqueta son lo mismo; el par separa el código
   que viaja del texto que se lee —`CRIMINAL` en la API, "Penal" en pantalla—,
-  igual que `Tabs` separa `id` de `label`.
+  igual que `Tabs` separa `id` de `label`. `options` también acepta **grupos**,
+  `SelectOptionGroup = { group: string; options: SelectOption[] }`, que se
+  dibujan como `<optgroup>`: es el filtro de estado procesal de Causas, con los
+  estados de cada fuero y los "Escritos a mano en causas". Se pueden mezclar con
+  opciones sueltas (la de "Todos…" arriba). `FieldSpec.options` de `FormModal`
+  sigue sin grupos.
 - `Textarea` — props de `<textarea>`.
+- `PasswordInput` — `components/forms/PasswordInput.tsx`. Props de `TextInput`
+  salvo `type`: un ojo a la derecha muestra u oculta la contraseña. Ese estado
+  vive adentro del componente, porque no es un dato del formulario, y arranca
+  oculta. El nombre del botón ("Mostrar contraseña" / "Ocultar contraseña") es
+  texto oculto y no `aria-label`, para no chocar con la etiqueta "Contraseña"
+  del campo cuando un test la busca. Lo usa el login.
 - `Checkbox` — props de `<input>` + `label: ReactNode`. Se dibuja como tarjeta clicable.
 - `FormSection` — prop `label`. Separador de sección; ocupa las 2 columnas.
+
+```tsx
+<Select
+  aria-label="Filtrar por estado procesal"
+  options={[
+    { value: '', label: 'Todos los estados procesales' },
+    { group: 'Penal', options: penalStates },
+    { group: 'Escritos a mano en causas', options: customStates },
+  ]}
+  value={stateFilter}
+  onChange={(e) => changeState(e.target.value)}
+/>
+```
+
+### Combobox
+
+**Path:** `components/forms/Combobox.tsx`
+**Props:** `id?` (para el `htmlFor` de `Field`), `value` (el texto escrito),
+`onChange(text)`, `onSelect(option)`, `options: ComboboxOption[]`,
+`placeholder?`, `emptyText?`, `disabled?`, `mono?`.
+`ComboboxOption = { value, label, description? }`.
+**Notas:** campo de texto con lista que **también acepta lo que se escriba**
+aunque no esté en la lista: el "Estado procesal al que pasa la causa" del acto,
+que se elige de la tabla del fuero o se escribe a mano. Si sólo se puede elegir,
+va un `Select`.
+- **No filtra.** La pantalla recibe cada tecla en `onChange`, decide qué
+  opciones corresponden y las pasa en `options`. Elegir de la lista avisa con
+  `onSelect`. Si el texto final coincide con una opción es asunto de la pantalla
+  (el contrato pide mandar el `proceduralStateId` en ese caso).
+- Teclado del patrón combobox de ARIA: flechas recorren la lista (y la abren),
+  Enter elige, Escape cierra sin cerrar el modal de atrás. El foco se queda en
+  el campo; la opción marcada va en `aria-activedescendant`.
+- Muestra un tilde en la opción cuyo `label` coincide con el texto escrito.
+- Sin opciones, la lista sólo se abre si hay `emptyText`.
+- Usa `.vz-input`, así que adentro de un `Field` con `error` se pinta en rojo
+  igual que los demás controles.
+
+```tsx
+<Field label="Estado procesal al que pasa la causa" htmlFor="state" error={errors.state}>
+  <Combobox
+    id="state"
+    value={stateText}
+    onChange={setStateText}
+    onSelect={(o) => { setStateText(o.label); setStateId(o.value); }}
+    options={states.filter((s) => s.label.toLowerCase().includes(stateText.toLowerCase()))}
+    emptyText="Escribí el estado procesal."
+  />
+</Field>
+```
+
+### SegmentedControl
+
+**Path:** `components/forms/SegmentedControl.tsx`
+**Props:** `options: SelectOption[]`, `value`, `onChange(value)`, `aria-label?` o
+`aria-labelledby?`, `disabled?`.
+**Notas:** elegir una entre pocas opciones cortas, todas a la vista: el "Rol
+procesal del cliente" del alta de causa. Es un `radiogroup` de botones: el
+tabulador entra por la opción elegida (una sola parada) y las flechas cambian
+la elección. **Necesita nombre**: un grupo no se enlaza con `<label htmlFor>`,
+así que se pasa `aria-label` o el id de la etiqueta en `aria-labelledby`. Para
+más de cuatro opciones o textos largos, `Select`.
+
+```tsx
+<SegmentedControl
+  aria-label="Rol procesal del cliente"
+  options={[{ value: 'DEFENSA', label: 'Defensa' }, { value: 'QUERELLANTE_PARTICULAR', label: 'Querellante particular' }]}
+  value={role}
+  onChange={setRole}
+/>
+```
+
+---
+
+## Hooks
+
+### useDebouncedValue
+
+**Path:** `hooks/useDebouncedValue.ts`
+**Firma:** `useDebouncedValue<T>(value: T, delay = 200): T`
+
+Devuelve `value`, pero recién cuando lleva `delay` milisegundos sin cambiar.
+Es para el buscador de un listado: como la búsqueda va en la clave de caché,
+sin demora sale un pedido por cada tecla.
+
+```tsx
+const [search, setSearch] = useState('')
+const debouncedSearch = useDebouncedValue(search.trim())
+
+const query = useClients({
+    page,
+    limit: LIMIT,
+    search: debouncedSearch === '' ? undefined : debouncedSearch,
+})
+
+<SearchInput value={search} onChange={(e) => changeSearch(e.target.value)} />
+```
+
+- El input usa `search`, así muestra cada letra al instante; a la consulta va
+  `debouncedSearch`. La variable se llama así en todas las páginas.
+- Sólo para texto que se tipea. Un select, una pestaña o el paginado no llevan
+  demora: tienen que responder al toque.
+- Lo usan Clientes, Abogados, Usuarios y Estados y plazos. Su test está en
+  `tests/components/shared/useDebouncedValue.test.ts`.
 
 ---
 
@@ -452,7 +755,11 @@ sesión se puede salvar, se salva sola.
 ### contract
 
 **Path:** `api/contract.ts` — la forma de los errores según el contrato.
-Exporta `ERROR_CODES` / `ErrorCode` (los 22 códigos documentados),
+Exporta `ERROR_CODES` / `ErrorCode` (los 28 códigos: el catálogo de V3 §5.3,
+con los siete que sumó el Sprint 2 —`CASE_NOT_FOUND`, `CASE_SAC_ALREADY_EXISTS`,
+`CLIENT_DNI_ALREADY_EXISTS`, `CASE_IN_TERMINAL_STATE`, etc.— y sin
+`PROCEDURAL_STATE_HAS_DEPENDENCIES` ni `PROCEDURAL_STATE_IN_USE`, que el
+contrato retiró),
 `isErrorCode()`, `ErrorBody` y `LoginErrorBody`.
 Vive en `api/` y no en `mocks/` porque es contrato de producción; los mocks
 lo reexportan desde acá.
@@ -520,15 +827,17 @@ las clases `vz-*` existentes o agregando reglas al archivo que corresponda.
 | --- | --- |
 | `tokens.css` | Variables `--vz-*` (única fuente de color, radio, densidad) |
 | `base.css` | Reset, tipografía, `.vz-mono`, `.vz-eyebrow`, `.vz-muted`, `.vz-sr-only` |
-| `shell.css` | `.vz-app`, `.vz-rail*`, `.vz-topbar`, `.vz-search*`, `.vz-iconbtn`, `.vz-notice*`, `.vz-page-head*` |
-| `controls.css` | `.vz-btn*`, `.vz-field`, `.vz-input/select/textarea`, `.vz-check`, `.vz-form-grid`, `.vz-form-sep*` |
-| `table.css` | `.vz-panel*`, `.vz-table*`, `.vz-filters`, `.vz-pager*` |
-| `feedback.css` | `.vz-pill*`, `.vz-dot`, `.vz-tabs`, `.vz-modal*`, `.vz-empty*` |
+| `shell.css` | `.vz-app`, `.vz-rail*`, `.vz-topbar`, `.vz-search*`, `.vz-iconbtn`, `.vz-notice*`, `.vz-page-head*`, `.vz-crumbs*`, `.vz-split*` |
+| `controls.css` | `.vz-btn*` (y `.is-pressed`), `.vz-field`, `.vz-label*` (y `.vz-label-row`, `.vz-label__hint`), `.vz-input/select/textarea`, `.vz-check`, `.vz-form-grid`, `.vz-form-sep*`, `.vz-combobox*`, `.vz-segmented*`, `.vz-form-actions*`, `.vz-field-row` |
+| `table.css` | `.vz-panel*` (y `.vz-panel__body`), `.vz-table*`, `.vz-filters`, `.vz-pager*`, `.vz-avatar`, `.vz-details*` (y `.vz-details__note`), `.vz-meter*`, `.vz-load*` |
+| `feedback.css` | `.vz-pill*`, `.vz-dot`, `.vz-tabs`, `.vz-modal*`, `.vz-empty*`, `.vz-callout*`, `.vz-checklist*`, `.vz-overline` |
+| `cases.css` | `.vz-case-head*`, `.vz-presc*`, `.vz-picker*`, `.vz-due*`, `.vz-summary*`, `.vz-person-name`: lo propio de las pantallas de causas y actos |
 | `login.css` | `.vz-login*`: lo propio de la pantalla de login |
 
-`index.css` es el punto de entrada: importa la tipografía y después los siete
+`index.css` es el punto de entrada: importa la tipografía y después los ocho
 archivos, con `tokens.css` primero porque todo el resto depende de sus
-variables.
+variables. `cases.css` y `login.css` son de un área del sistema, no de
+`shared`: se usan sólo desde sus módulos.
 
 ### Tokens principales (`tokens.css`)
 
@@ -538,23 +847,42 @@ variables.
 - **Bordes:** `--vz-border` `#DDE2DC`, `--vz-border-strong` `#C3CBC1`
 - **Verde institucional:** `--vz-primary` `#406640`, `--vz-primary-hi`, `--vz-primary-soft`
 - **Semántica:** `--vz-ok`, `--vz-warn`, `--vz-danger` (cada uno con `-bg` y `-bd`),
-  `--vz-danger-action`, `--vz-danger-action-bd`
+  `--vz-danger-action`, `--vz-danger-action-bd`, `--vz-warn-mark` (el bronce de
+  relleno de una barra cerca del límite)
 - **Radios:** `--vz-r` 12px, `--vz-r-sm` 8px, `--vz-r-btn` / `--vz-r-pill` 999px
 - **Sombras:** `--vz-card-sh` (none), `--vz-pop-sh`
 - **Tipografía:** `--vz-font` Figtree, `--vz-font-mono` Roboto Mono
 - **Layout/densidad:** `--vz-rail-w` 248px, `--vz-main-pad`, `--vz-row`, `--vz-cell-y`
 
-**Breakpoints reales:** 1023px (rail colapsa a 64px y se ocultan las etiquetas vía
-`--vz-rail-label`) y 640px (la grilla de formulario pasa a una columna).
+**Breakpoints reales**, los del prototipo. No se agregan otros:
+
+| Corte | Qué cambia |
+|---|---|
+| 1180px | `.vz-split` pasa a una columna y el panel lateral va abajo. Las tablas sueltan su ancho mínimo y esconden las columnas `hideWhenNarrow` |
+| 1023px | El rail sale de la pantalla y se abre con el botón de la barra superior |
+| 860px | El login queda en una columna; `.vz-form-row3`, en dos |
+| 720px | Teléfono: `.vz-form-grid` en una columna, tablas como tarjetas, filtros de a dos, modal casi a pantalla completa, menos aire (`--vz-main-pad`, `--vz-panel-pad`); en los `select` lo elegido va en un renglón y se pierde bajo la flecha si no entra |
+
+Una pantalla nueva armada con los componentes y las clases de `shared` ya es
+responsive. Si necesita CSS propio, usa estos cortes y prueba a 375px que nada
+se salga de la pantalla.
 
 **Regla del proyecto:** no hardcodear colores, siempre `var(--vz-*)`.
 
 ### Clases útiles sin componente
 
 `.vz-empty` + `.vz-empty__title` + `.vz-empty__text` (estado vacío),
+`.vz-form-actions` + `.vz-form-actions__note` (botonera al pie de un formulario
+de página), `.vz-field-row` (un control con un botón al lado),
+`.vz-callout` (recuadro destacado: la carátula sugerida), `.vz-checklist`
+(lista de requisitos con tilde), `.vz-overline` (rótulo chico sobre un bloque),
+`.vz-load` (número con su barra en una celda),
 `.vz-notice` / `--danger` / `--warn` (aviso compacto de la topbar),
 `.vz-table__primary` / `.vz-table__secondary` (dos renglones en una celda),
-`.vz-mono`, `.vz-muted`, `.vz-faint`, `.vz-sr-only`.
+`.vz-table__ident` (avatar + nombre en una celda),
+`.vz-panel__body` (padding para un panel que envuelve un formulario o una ficha
+y no una tabla), `.vz-split` + `.vz-split__aside` (formulario de página con
+panel al costado), `.vz-mono`, `.vz-muted`, `.vz-faint`, `.vz-sr-only`.
 
 ---
 
@@ -562,18 +890,24 @@ variables.
 
 ### Pública (exportada por los barrels)
 
-`AppShell`, `Button`, `DataTable`, `Icon`, `ICONS`, `IconButton`, `Logo`, `Modal`,
-`PageHeader`, `Pagination`, `Panel`, `Pill`, `RailUser`, `SearchInput`, `Tabs`,
-`Field`, `TextInput`, `Select`, `Textarea`, `Checkbox`, `FormSection`, `FormModal`.
+`AppShell`, `Avatar`, `Breadcrumbs`, `Button`, `DataTable`, `DetailList`, `Icon`,
+`ICONS`, `IconButton`, `Logo`, `Meter`, `Modal`, `PageHeader`, `Pagination`,
+`Panel`, `Pill`, `RailUser`, `SearchInput`, `Tabs`, `Field`, `TextInput`,
+`Select`, `Textarea`, `Checkbox`, `FormSection`, `Combobox`, `SegmentedControl`,
+`FormModal`.
 
-Tipos: `AppShellProps`, `RailGroup`, `RailItem`, `ButtonProps`, `Column`,
-`DataTableProps`, `IconProps`, `IconName`, `IconButtonProps`, `ModalProps`,
+Tipos: `AppShellProps`, `RailGroup`, `RailItem`, `AvatarProps`,
+`BreadcrumbItem`, `BreadcrumbsProps`, `ButtonProps`, `Column`,
+`DataTableProps`, `DetailItem`, `DetailListProps`, `IconProps`, `IconName`,
+`IconButtonProps`, `MeterProps`, `MeterTone`, `ModalProps`,
 `PageHeaderProps`, `PaginationProps`, `PanelProps`, `PillProps`, `PillTone`,
-`RailUserProps`, `TabsProps`, `FieldProps`, `SelectOption`, `FieldSpec`,
-`FormModalProps`, `FieldType`, `FormValues`.
+`RailUserProps`, `TabsProps`, `FieldProps`, `SelectOption`,
+`SelectOptionGroup`, `ComboboxOption`, `ComboboxProps`,
+`SegmentedControlProps`, `FieldSpec`, `FormModalProps`, `FieldType`,
+`FormValues`.
 
-`api/` y `lib/` son públicos también, pero se importan por ruta directa (no
-tienen barrel).
+`api/`, `lib/` y `hooks/` son públicos también, pero se importan por ruta
+directa (no tienen barrel).
 
 ### Interno / no exportado
 
@@ -594,6 +928,8 @@ tienen barrel).
 | `useAuth()` / `useCurrentUser()` | `@/app/providers/AuthContext.ts` | La sesión: `session`, `signIn`, `signOut(motivo)`, `leftOnPurpose`. `useCurrentUser()` es el atajo para las pantallas que viven detrás de la guarda, donde siempre hay alguien adentro |
 | `AuthProvider` | `@/app/providers/AuthProvider.tsx` | Monta la sesión y le enchufa a `http` cómo renovar y qué hacer al quedar afuera |
 | `QueryProvider` | `@/app/providers/QueryProvider.tsx` | Monta `queryClient` + devtools |
+| `ROUTE_ACCESS` / `canAccess` / `useCanAccess` | `@/app/access/access.ts`, `useCanAccess.ts` | Quién ve cada sección: de ahí leen el rail y `RequireAccess` |
+| `ACTION_ACCESS` / `can` / `useCan` | `@/app/access/access.ts`, `useCan.ts` | Quién opera una acción de una pantalla que ven todos: "Registrar abogado" es sólo del Administrador |
 | `AppLayout` / `AuthLayout` / `NotFoundLayout` | `@/app/layouts/` | Marco con sesión, sin sesión y para las rutas desconocidas |
 | `RequireSession` / `RedirectIfSession` | `@/app/router/` | Las guardas: sin sesión al login, con sesión fuera del login |
 | `router` | `@/app/router/index.tsx` | Rutas; las pantallas nuevas se registran acá |
@@ -629,6 +965,9 @@ Puramente informativo; nada de esto está resuelto ni debe corregirse al paso.
   no lo importa nadie desde que las secciones sin pantalla caen en
   `NotFoundLayout`.
 - No se detectaron componentes duplicados ni solapados dentro de `shared`.
+- **`UsersTable` todavía dibuja su avatar a mano** (`<span className="vz-avatar">`
+  con su propia función `initials()`), de antes de que existiera `Avatar`. Al
+  tocar esa tabla, reemplazarlo por `<Avatar name={u.fullName} />`.
 
 ---
 
@@ -657,10 +996,13 @@ Puramente informativo; nada de esto está resuelto ni debe corregirse al paso.
    más `e.code` para ramificar y `e.details` para marcar campos.
 8. **Avisos al usuario:** `useToast()` de `@/app/providers/ToastContext`, no un
    componente propio.
-9. **Antes de crear algo en `shared/hooks`, `lib` o `types`:** `hooks/` y
-   `types/` están vacías a propósito, y `lib/` tiene un solo archivo. Si algo lo
-   usa una sola feature, va en `src/features/<feature>/`; sólo sube a `shared`
-   cuando lo compartan dos o más. (`mocks/` es la excepción: ya está poblada,
-   porque el contrato de API es uno solo para todas las features.)
+9. **Antes de crear algo en `shared/hooks`, `lib` o `types`:** `types/` está
+   vacía a propósito, `hooks/` tiene un archivo (`useDebouncedValue.ts`) y
+   `lib/` tiene dos (`dates.ts`, `initials.ts`). Si algo lo usa una sola feature, va en
+   `src/features/<feature>/`; sólo sube a `shared` cuando lo compartan dos o
+   más. La excepción son los controles genéricos que no saben nada del dominio
+   (`Combobox`, `SegmentedControl`): van a `shared` desde el primer uso, igual
+   que `Select`. (`mocks/` también es excepción: ya está poblada, porque el
+   contrato de API es uno solo para todas las features.)
 10. **Si un componente de `shared` casi sirve, extenderlo antes de duplicarlo** (una
     prop opcional nueva, una variante más), y actualizar este README con el cambio.

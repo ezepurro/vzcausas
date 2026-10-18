@@ -26,7 +26,7 @@ export class PrismaUserRepository implements UserRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async findByUsername(username: Username): Promise<User | null> {
-    const row = await this.prisma.client.user.findUnique({
+    const row = await this.prisma.db.user.findUnique({
       where: { username: username.toString() },
       include: USER_INCLUDE,
     });
@@ -34,7 +34,7 @@ export class PrismaUserRepository implements UserRepository {
   }
 
   async findById(id: number): Promise<User | null> {
-    const row = await this.prisma.client.user.findUnique({
+    const row = await this.prisma.db.user.findUnique({
       where: { id },
       include: USER_INCLUDE,
     });
@@ -48,7 +48,7 @@ export class PrismaUserRepository implements UserRepository {
    * handful of rows a user has.
    */
   async save(user: User): Promise<void> {
-    await this.prisma.client.user.update({
+    await this.prisma.db.user.update({
       where: { id: user.id },
       data: {
         username: user.username.toString(),
@@ -58,6 +58,10 @@ export class PrismaUserRepository implements UserRepository {
         lawyerId: user.lawyerId,
         lastLoginAt: user.lastLoginAt,
         active: user.isActive(),
+        // CA-7.1. The column existed from the first migration and was
+        // never written: the entity now owns the value and this is
+        // what carries it to the row.
+        deletedAt: user.deletedAt,
         roles: {
           deleteMany: {},
           create: user.roleIds.map((roleId) => ({ roleId })),
@@ -67,7 +71,7 @@ export class PrismaUserRepository implements UserRepository {
   }
 
   async nextId(): Promise<number> {
-    const [{ nextval }] = await this.prisma.client.$queryRaw<
+    const [{ nextval }] = await this.prisma.db.$queryRaw<
       [{ nextval: bigint }]
     >`SELECT nextval(pg_get_serial_sequence('users', 'id'))`;
     return Number(nextval);
@@ -77,7 +81,7 @@ export class PrismaUserRepository implements UserRepository {
     username: Username,
     excludingUserId?: number,
   ): Promise<boolean> {
-    const row = await this.prisma.client.user.findUnique({
+    const row = await this.prisma.db.user.findUnique({
       where: { username: username.toString() },
       select: { id: true },
     });
@@ -88,7 +92,7 @@ export class PrismaUserRepository implements UserRepository {
     email: Email,
     excludingUserId?: number,
   ): Promise<boolean> {
-    const row = await this.prisma.client.user.findUnique({
+    const row = await this.prisma.db.user.findUnique({
       where: { email: email.toString() },
       select: { id: true },
     });
@@ -96,7 +100,7 @@ export class PrismaUserRepository implements UserRepository {
   }
 
   async create(user: User): Promise<void> {
-    await this.prisma.client.user.create({
+    await this.prisma.db.user.create({
       data: {
         id: user.id,
         username: user.username.toString(),
@@ -152,14 +156,14 @@ export class PrismaUserRepository implements UserRepository {
     };
 
     const [rows, totalItems] = await this.prisma.$transaction([
-      this.prisma.client.user.findMany({
+      this.prisma.db.user.findMany({
         where,
         include: USER_INCLUDE,
         orderBy: { id: "desc" },
         skip: (criteria.page - 1) * criteria.limit,
         take: criteria.limit,
       }),
-      this.prisma.client.user.count({ where }),
+      this.prisma.db.user.count({ where }),
     ]);
 
     return { items: rows.map(UserPrismaMapper.toDomain), totalItems };
@@ -175,7 +179,7 @@ export class PrismaUserRepository implements UserRepository {
     lawyerId: number,
     excludingUserId?: number,
   ): Promise<boolean> {
-    const row = await this.prisma.client.user.findFirst({
+    const row = await this.prisma.db.user.findFirst({
       where: {
         lawyerId,
         active: true,
@@ -189,7 +193,7 @@ export class PrismaUserRepository implements UserRepository {
   }
 
   async countActiveByRoleName(roleName: string): Promise<number> {
-    return this.prisma.client.user.count({
+    return this.prisma.db.user.count({
       where: {
         active: true,
         roles: { some: { role: { name: roleName } } },

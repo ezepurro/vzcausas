@@ -16,9 +16,9 @@ export interface DeleteProceduralStateModalProps {
  * dice que `tone="danger"` + sin `fields` es el modo "confirmar baja" del
  * producto.
  *
- * Del lado del servidor la baja es lógica, pero eso es asunto del backend: acá
- * el estado se elimina y no hay forma de traerlo de vuelta desde la pantalla.
- * El texto no promete lo contrario.
+ * La baja procede aunque haya causas en el estado (V3 D-06): esas causas lo
+ * conservan y lo siguen mostrando hasta que un acto las lleve a otro. El texto
+ * lo dice, como el prototipo, para que quien elimina sepa qué pasa con ellas.
  *
  * `values` y `onChange` son obligatorios aunque no haya campos, así que van
  * vacíos.
@@ -26,13 +26,19 @@ export interface DeleteProceduralStateModalProps {
 export function DeleteProceduralStateModal({
     state, saving, onConfirm, onCancel,
 }: DeleteProceduralStateModalProps) {
+    const inUse = state.activeCases > 0;
+
     return (
         <FormModal
             title="Eliminar el estado"
             sub={`${state.name} · fuero ${JURISDICTION_LABELS[state.jurisdiction]}`}
             tone="danger"
             width="sm"
-            note="Esta acción es irreversible. El estado se eliminará del fuero, conservándose únicamente como registro histórico en las causas que ya lo hayan transitado. No es posible eliminarlo si existen causas activas asociadas."
+            note={
+                inUse
+                    ? `Hay ${state.activeCases === 1 ? '1 causa' : `${state.activeCases} causas`} en este estado. Al eliminarlo dejan de poder avanzar a él, pero conservan el estado que ya tienen registrado.`
+                    : 'Este estado no tiene causas asociadas.'
+            }
             values={{}}
             onChange={() => {}}
             okLabel="Eliminar"

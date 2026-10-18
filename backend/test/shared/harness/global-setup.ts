@@ -18,6 +18,49 @@ const TEST_ENV: Record<string, string> = {
   COOKIE_REFRESH_SAMESITE: 'Lax',
   COOKIE_SECURE: 'false',
   APP_TIMEZONE: 'America/Argentina/Cordoba',
+
+  /*
+   * Bloqueo progresivo (Q-03). Umbrales bajos y escalones cortos a
+   * propósito: un test que tenga que fallar 5 veces para ver el
+   * bloqueo paga 5 hashes de bcrypt, y uno que tenga que esperar 90
+   * segundos reales no es un test. Con umbral 3 y escalera 1s/2s, un
+   * spec de integración ejercita el bloqueo Y su liberación en
+   * milisegundos.
+   *
+   * Un spec que quiera otros valores los define antes de levantar su
+   * app: estas solo se aplican si no vienen ya definidas.
+   */
+  LOGIN_LOCK_THRESHOLD: '3',
+  LOGIN_LOCK_WINDOW: '15m',
+  LOGIN_LOCK_LADDER: '1s,2s',
+  LOGIN_LOCK_USER_THRESHOLD: '25',
+  LOGIN_LOCK_USER_WINDOW: '1h',
+  LOGIN_LOCK_USER_LADDER: '1s',
+
+  /*
+   * Generoso (igual al recomendado de producción) y NO corto como el
+   * bloqueo de arriba: a diferencia de LOGIN_LOCK_*, casi ningún test
+   * quiere ejercitar esto, y un valor corto por defecto haría que
+   * cualquier spec de integración algo lento (arranque, round-trips a
+   * la base) fallara al azar con un 401 de "sesión inactiva" que no
+   * tiene nada que ver con lo que ese test prueba. El spec que sí
+   * quiera probar CA-1.6 define su propio valor antes de levantar su
+   * app, igual que ya se documenta arriba para LOGIN_LOCK_*.
+   */
+  SESSION_INACTIVITY_TTL: '30m',
+
+  /*
+   * Per-IP throttle (Q-03). Deliberately generous, same reasoning as
+   * SESSION_INACTIVITY_TTL above: the suite's own request volume
+   * against a single shared app instance must never be mistaken for
+   * abuse. `supertest` also has no real socket IP the way a browser
+   * would, so every request in a run likely shares one bucket anyway
+   * — another reason these need headroom, not tightness.
+   */
+  THROTTLE_DEFAULT_LIMIT: '100000',
+  THROTTLE_DEFAULT_WINDOW: '1m',
+  THROTTLE_AUTH_LIMIT: '100000',
+  THROTTLE_AUTH_WINDOW: '1m',
 };
 
 /**

@@ -32,8 +32,12 @@ class FakeResponse {
   }
 }
 
-const fakeRequest = (cookies: Record<string, string> = {}): Request =>
-  ({ cookies }) as unknown as Request;
+const CALLER_IP = "203.0.113.5";
+
+const fakeRequest = (
+  cookies: Record<string, string> = {},
+  ip: string | undefined = CALLER_IP,
+): Request => ({ cookies, ip }) as unknown as Request;
 
 const configFor = (values: Record<string, unknown>) =>
   ({
@@ -137,6 +141,7 @@ describe("AuthController", () => {
 
       const body = await controller.login(
         { username: "fvazquez", password: "password-123" },
+        fakeRequest(),
         res as unknown as Response,
       );
 
@@ -165,6 +170,7 @@ describe("AuthController", () => {
 
       const body = await controller.login(
         { username: "fvazquez", password: "password-123" },
+        fakeRequest(),
         res as unknown as Response,
       );
 
@@ -176,6 +182,7 @@ describe("AuthController", () => {
 
       const body = await controller.login(
         { username: "fvazquez", password: "password-123" },
+        fakeRequest(),
         res as unknown as Response,
       );
 
@@ -191,6 +198,7 @@ describe("AuthController", () => {
 
       const body = await controller.login(
         { username: "fvazquez", password: "password-123" },
+        fakeRequest(),
         res as unknown as Response,
       );
 
@@ -280,12 +288,13 @@ describe("AuthController", () => {
   });
 
   describe("changePassword", () => {
-    it("forwards the actor's id and installs the replacement cookie (D-34)", async () => {
+    it("forwards the actor's id, the presented cookie, and installs the replacement cookie (D-34)", async () => {
       const { controller, res, changePasswordUseCase } = build();
 
       await controller.changePassword(
         ACTOR,
         { currentPassword: "password-123", newPassword: "new-password-1" },
+        fakeRequest({ [COOKIE_NAME]: "presented-token" }),
         res as unknown as Response,
       );
 
@@ -293,9 +302,25 @@ describe("AuthController", () => {
         userId: 1,
         currentPassword: "password-123",
         newPassword: "new-password-1",
+        refreshToken: "presented-token",
       });
       expect(res.cookieCalls).toHaveLength(1);
       expect(res.cookieCalls[0].value).toBe("post-change-refresh");
+    });
+
+    it("passes null when no cookie was presented", async () => {
+      const { controller, res, changePasswordUseCase } = build();
+
+      await controller.changePassword(
+        ACTOR,
+        { currentPassword: "password-123", newPassword: "new-password-1" },
+        fakeRequest(),
+        res as unknown as Response,
+      );
+
+      expect(changePasswordUseCase.execute).toHaveBeenCalledWith(
+        expect.objectContaining({ refreshToken: null }),
+      );
     });
   });
 });

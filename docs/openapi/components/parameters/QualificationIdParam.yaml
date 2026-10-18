@@ -1,0 +1,8 @@
+name: qualificationId
+in: path
+required: true
+description: Identificador único de la calificación legal.
+schema:
+  type: integer
+  minimum: 1
+example: 1

@@ -48,7 +48,7 @@ export class PermissionsGuard implements CanActivate {
       // rather than treat "no actor" as "no permissions needed".
       throw new UnauthorizedError(
         "UNAUTHENTICATED",
-        "Authentication is required.",
+        "La autenticación es requerida.",
       );
     }
 
@@ -63,7 +63,7 @@ export class PermissionsGuard implements CanActivate {
       // them. The specifics belong in the audit log (Q-04).
       throw new ForbiddenActionError(
         "FORBIDDEN",
-        "You do not have permission to perform this operation.",
+        "No tiene permisos para realizar esta operación.",
       );
     }
 

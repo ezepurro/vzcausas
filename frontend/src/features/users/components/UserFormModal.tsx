@@ -43,7 +43,7 @@ export function UserFormModal({
     const fields: FieldSpec[] = [
         {
             k: 'fullName',
-            label: 'Nombre y apellido',
+            label: 'Apellido y Nombre',
             width: 'half',
             required: true,
             error: errors.fullName,
@@ -54,7 +54,7 @@ export function UserFormModal({
             width: 'half',
             required: true,
             mono: true,
-            placeholder: 'napellido',
+            placeholder: 'usuario',
             error: errors.username,
         },
         {
@@ -62,7 +62,7 @@ export function UserFormModal({
             label: 'Correo electrónico',
             width: 'half',
             required: true,
-            placeholder: 'napellido@vazquezzarate.com',
+            placeholder: 'apellidoNombre@vazquezzarate.com',
             error: errors.email,
         },
         /* La contraseña sólo en el alta: cambiarla es `PATCH /auth/password`,
@@ -139,10 +139,10 @@ export function UserFormModal({
         },
         {
             k: 'lawyerFullName',
-            label: 'Nombre y apellido del abogado',
+            label: 'Apellido y Nombre del abogado',
             width: 'half',
             required: true,
-            placeholder: 'Dr. / Dra. Nombre Apellido',
+            placeholder: 'Dr. / Dra. Apellido Nombre',
             error: errors.lawyerFullName,
             when: creatingLawyer,
         },

@@ -141,7 +141,7 @@ describe("RegisterUserUseCase", () => {
     it("frees the lawyer once the account is deactivated", async () => {
       const { useCase, users } = build([4]);
       const first = await useCase.execute(asLawyer);
-      first.user.deactivate();
+      first.user.deactivate(new Date("2026-10-11T12:00:00Z"));
       await users.save(first.user);
 
       const second = await useCase.execute({

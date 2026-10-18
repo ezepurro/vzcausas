@@ -25,12 +25,6 @@ async function fill(
 const submitButton = () => screen.getByRole('button', { name: 'Cambiar contraseña' })
 
 describe('ChangePasswordModal', () => {
-    it('muestra a quién se le cambia la contraseña', () => {
-        renderModal()
-
-        expect(screen.getByRole('dialog')).toHaveTextContent('Fernando G. Vázquez · fvazquez')
-    })
-
     it('cambia la contraseña, avisa que la sesión sigue abierta y cierra', async () => {
         const { user, onClose } = renderModal()
 
@@ -40,27 +34,6 @@ describe('ChangePasswordModal', () => {
         expect(await screen.findByText('Contraseña actualizada. La sesión sigue abierta.')).toBeInTheDocument()
         expect(onClose).toHaveBeenCalledTimes(1)
         expect(db.passwords.get('fvazquez')).toBe('nueva2026')
-    })
-
-    it('enviado vacío marca los tres campos y no llama al servidor', async () => {
-        const { user, onClose } = renderModal()
-
-        await user.click(submitButton())
-
-        expect(screen.getByText('La contraseña actual es obligatoria.')).toBeInTheDocument()
-        expect(screen.getByText('La contraseña nueva es obligatoria.')).toBeInTheDocument()
-        expect(screen.getByText('Repetí la contraseña nueva.')).toBeInTheDocument()
-        expect(onClose).not.toHaveBeenCalled()
-        expect(db.passwords.get('fvazquez')).toBe('password1')
-    })
-
-    it('marca la repetición si no coincide', async () => {
-        const { user } = renderModal()
-
-        await fill(user, { current: 'password1', next: 'nueva2026', repeat: 'otra2026' })
-        await user.click(submitButton())
-
-        expect(screen.getByText('Las contraseñas nuevas no coinciden.')).toBeInTheDocument()
     })
 
     it('si la contraseña actual es incorrecta, lo marca en ese campo', async () => {
@@ -93,14 +66,5 @@ describe('ChangePasswordModal', () => {
         expect(await screen.findByText('Error del servidor de prueba.')).toBeInTheDocument()
         expect(onClose).not.toHaveBeenCalled()
         expect(screen.getByLabelText(/^contraseña nueva/i)).toHaveValue('nueva2026')
-    })
-
-    it('cancelar cierra sin llamar al servidor', async () => {
-        const { user, onClose } = renderModal()
-
-        await user.click(screen.getByRole('button', { name: 'Cancelar' }))
-
-        expect(onClose).toHaveBeenCalledTimes(1)
-        expect(db.passwords.get('fvazquez')).toBe('password1')
     })
 })

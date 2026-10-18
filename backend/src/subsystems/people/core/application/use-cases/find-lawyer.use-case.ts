@@ -1,4 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
+import { ActiveCasesCounterPort } from "../../domain/ports/active-cases-counter.port";
 import {
   LAWYER_REPOSITORY,
   LawyerRepository,
@@ -17,6 +18,8 @@ export type LawyerView = {
   id: number;
   fullName: string;
   registrationNumber: string;
+  /** Cases where this lawyer is the responsible one (RN3's workload, §3.3). */
+  activeCases: number;
   active: boolean;
 };
 
@@ -29,11 +32,21 @@ export type LawyerView = {
  * is a legitimate answer to a lookup, and the meaning of that answer
  * (a 422 when registering a user, say) belongs to whoever asked, not
  * here.
+ *
+ * **`activeCases` is counted here even for callers that do not need it**, and
+ * `identity`'s adapter is one of them: it resolves a `lawyerId` on login and
+ * throws the number away. The alternative is a second read path for the same
+ * resource, and this repo pays for a single one on purpose — the contract
+ * requires every lawyer response to have the same shape (§3.3). The cost is
+ * one `GROUP BY` on a primary key per lookup. If a login path ever shows up
+ * hot, that is the trade to revisit.
  */
 @Injectable()
 export class FindLawyerUseCase {
   constructor(
     @Inject(LAWYER_REPOSITORY) private readonly lawyers: LawyerRepository,
+    @Inject(ActiveCasesCounterPort)
+    private readonly activeCasesCounter: ActiveCasesCounterPort,
   ) {}
 
   async execute(query: FindLawyerQuery): Promise<LawyerView | null> {
@@ -42,10 +55,15 @@ export class FindLawyerUseCase {
       return null;
     }
 
+    const counts = await this.activeCasesCounter.countByResponsibleLawyer([
+      lawyer.id,
+    ]);
+
     return {
       id: lawyer.id,
       fullName: lawyer.fullName,
       registrationNumber: lawyer.registrationNumber.toString(),
+      activeCases: counts.get(lawyer.id) ?? 0,
       active: lawyer.isActive(),
     };
   }

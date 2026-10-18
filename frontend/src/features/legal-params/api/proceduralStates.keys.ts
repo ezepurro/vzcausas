@@ -11,10 +11,10 @@ import type { ProceduralStatesParams } from '@/features/legal-params/types/proce
  * páginas y todos los filtros de una sola vez, que es justo lo que hace falta
  * después de un alta o una baja.
  *
- * `details()` / `detail()` quedan reservadas: hoy no hay
- * `GET /procedural-states/{id}`, así que nadie las llena. Se dejan escritas
- * porque es la forma que fija el CLAUDE.md y porque la baja ya limpia esa
- * entrada, para que el día que exista el endpoint no haya que acordarse.
+ * `details()` / `detail()` quedan reservadas: el contrato define
+ * `GET /procedural-states/{id}`, pero hoy ninguna pantalla lo usa, así que
+ * nadie las llena. Se dejan escritas porque es la forma que fija el CLAUDE.md
+ * y porque la baja ya limpia esa entrada.
  */
 export const proceduralStateKeys = {
     all: ['procedural-states'] as const,

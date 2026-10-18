@@ -1,0 +1,149 @@
+parameters:
+  - $ref: ../components/parameters/QualificationIdParam.yaml
+
+get:
+  tags:
+    - Legal Qualifications
+  operationId: getLegalQualification
+  summary: Consultar calificación legal
+  description: |
+    Obtiene una calificación legal específica.
+
+    **Rol requerido:** cualquier usuario autenticado.
+  responses:
+    '200':
+      description: Calificación legal solicitada.
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - data
+            properties:
+              data:
+                $ref: ../components/schemas/LegalQualificationWithActiveCases.yaml
+          example:
+            data:
+              id: 1
+              name: Robo calificado — art. 167 inc. 2 CP
+              prescriptionMonths: 96
+              activeCases: 3
+              active: true
+    '400':
+      description: Identificador inválido.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          examples:
+            invalidQualificationId:
+              $ref: ../components/examples/InvalidQualificationIdError.yaml
+    '401':
+      $ref: ../components/responses/Unauthorized.yaml
+    '404':
+      $ref: ../components/responses/LegalQualificationNotFound.yaml
+
+patch:
+  tags:
+    - Legal Qualifications
+  operationId: updateLegalQualification
+  summary: Modificar calificación legal
+  description: |
+    Modifica parcialmente una calificación legal. Modificar
+    `prescriptionMonths` **recalcula la prescripción** de las causas que la
+    registran. La respuesta no incluye `activeCases`.
+
+    **Rol requerido:** cualquier usuario autenticado.
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: ../components/schemas/LegalQualificationUpdate.yaml
+        example:
+          name: Robo calificado — art. 167 inc. 2 CP
+          prescriptionMonths: 96
+  responses:
+    '200':
+      description: Calificación legal modificada.
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - data
+            properties:
+              data:
+                $ref: ../components/schemas/LegalQualification.yaml
+          example:
+            data:
+              id: 1
+              name: Robo calificado — art. 167 inc. 2 CP
+              prescriptionMonths: 96
+              active: true
+    '400':
+      description: Datos o identificador inválidos.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          examples:
+            validationError:
+              summary: Datos inválidos
+              value:
+                error:
+                  code: VALIDATION_ERROR
+                  message: Los datos enviados no son válidos.
+                  details:
+                    name: No puede estar vacío.
+            invalidQualificationId:
+              $ref: ../components/examples/InvalidQualificationIdError.yaml
+    '401':
+      $ref: ../components/responses/Unauthorized.yaml
+    '404':
+      $ref: ../components/responses/LegalQualificationNotFound.yaml
+    '409':
+      description: Ya existe una calificación vigente con esa denominación.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          example:
+            error:
+              code: LEGAL_QUALIFICATION_ALREADY_EXISTS
+              message: Ya existe una calificación legal con esa denominación.
+              details: null
+
+delete:
+  tags:
+    - Legal Qualifications
+  operationId: deleteLegalQualification
+  summary: Dar de baja calificación legal
+  description: |
+    Da de baja una calificación legal.
+
+    **La baja es lógica, pero el cliente no la percibe.** La calificación
+    deja de aparecer en el listado, deja de ofrecerse al registrar causas
+    nuevas y `GET /legal-qualifications/{qualificationId}` responde `404`.
+
+    **La baja procede aunque haya causas que la registren.** Esas causas la
+    conservan: siguen mostrándola en su detalle y computando su prescripción
+    con ella.
+
+    **Rol requerido:** cualquier usuario autenticado.
+  responses:
+    '204':
+      description: Calificación legal dada de baja. La respuesta no contiene cuerpo.
+    '400':
+      description: Identificador inválido.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          examples:
+            invalidQualificationId:
+              $ref: ../components/examples/InvalidQualificationIdError.yaml
+    '401':
+      $ref: ../components/responses/Unauthorized.yaml
+    '404':
+      $ref: ../components/responses/LegalQualificationNotFound.yaml

@@ -1,0 +1,204 @@
+parameters:
+  - $ref: ../components/parameters/UserIdParam.yaml
+
+get:
+  tags:
+    - Users
+  operationId: getUser
+  summary: Consultar usuario
+  description: |
+    Obtiene la información de un usuario específico.
+
+    **Rol requerido:** `ADMINISTRATOR`.
+  responses:
+    '200':
+      description: Usuario solicitado.
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - data
+            properties:
+              data:
+                $ref: ../components/schemas/User.yaml
+          example:
+            data:
+              id: 15
+              username: iperalta
+              fullName: Ignacio Peralta
+              email: iperalta@vazquezzarate.com
+              roles:
+                - LAWYER
+              lawyer:
+                id: 4
+                fullName: Dr. Ignacio Peralta
+                registrationNumber: 1-35207
+              lastLoginAt: '2026-09-19T18:20:00-03:00'
+              active: true
+    '400':
+      description: Identificador inválido.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          examples:
+            invalidUserId:
+              $ref: ../components/examples/InvalidUserIdError.yaml
+    '401':
+      $ref: ../components/responses/Unauthorized.yaml
+    '403':
+      $ref: ../components/responses/ForbiddenAdministrator.yaml
+    '404':
+      $ref: ../components/responses/UserNotFound.yaml
+
+patch:
+  tags:
+    - Users
+  operationId: updateUser
+  summary: Modificar usuario
+  description: |
+    Modifica parcialmente la información de un usuario. No modifica la
+    contraseña (ver `PATCH /auth/password`).
+
+    **Rol requerido:** `ADMINISTRATOR`.
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: ../components/schemas/UserUpdate.yaml
+        example:
+          username: iperalta
+          fullName: Ignacio Peralta
+          email: iperalta@vazquezzarate.com
+          roles:
+            - LAWYER
+            - ADMINISTRATOR
+          lawyerId: 4
+  responses:
+    '200':
+      description: Usuario modificado.
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - data
+            properties:
+              data:
+                $ref: ../components/schemas/User.yaml
+          example:
+            data:
+              id: 15
+              username: iperalta
+              fullName: Ignacio Peralta
+              email: iperalta@vazquezzarate.com
+              roles:
+                - LAWYER
+                - ADMINISTRATOR
+              lawyer:
+                id: 4
+                fullName: Dr. Ignacio Peralta
+                registrationNumber: 1-35207
+              lastLoginAt: '2026-09-19T18:20:00-03:00'
+              active: true
+    '400':
+      description: Datos o identificador inválidos.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          examples:
+            validationError:
+              summary: Datos inválidos
+              value:
+                error:
+                  code: VALIDATION_ERROR
+                  message: Los datos enviados no son válidos.
+                  details:
+                    username: El nombre de usuario no cumple con el formato requerido.
+            invalidUserId:
+              $ref: ../components/examples/InvalidUserIdError.yaml
+    '401':
+      $ref: ../components/responses/Unauthorized.yaml
+    '403':
+      $ref: ../components/responses/ForbiddenAdministrator.yaml
+    '404':
+      $ref: ../components/responses/UserNotFound.yaml
+    '409':
+      description: Nombre de usuario o correo ya registrados.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          examples:
+            usernameAlreadyExists:
+              summary: Nombre de usuario repetido
+              value:
+                error:
+                  code: USERNAME_ALREADY_EXISTS
+                  message: El nombre de usuario ya se encuentra registrado.
+                  details: null
+            emailAlreadyExists:
+              summary: Correo repetido
+              value:
+                error:
+                  code: EMAIL_ALREADY_EXISTS
+                  message: El correo electrónico ya se encuentra registrado.
+                  details: null
+    '422':
+      description: Violación de una regla de negocio.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          example:
+            error:
+              code: BUSINESS_RULE_VIOLATION
+              message: No se puede modificar el usuario debido a una regla de negocio.
+              details: null
+
+delete:
+  tags:
+    - Users
+  operationId: deleteUser
+  summary: Dar de baja usuario
+  description: |
+    Da de baja un usuario.
+
+    **La baja es lógica, pero el cliente no la percibe.** El usuario deja de
+    existir para la API: no puede iniciar sesión, sus sesiones abiertas se
+    cierran, no aparece en ningún listado y `GET /users/{userId}` responde
+    `404`. No existe forma de consultarlo ni de reactivarlo desde la API.
+
+    **Rol requerido:** `ADMINISTRATOR`.
+  responses:
+    '204':
+      description: Usuario dado de baja. La respuesta no contiene cuerpo.
+    '400':
+      description: Identificador inválido.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          examples:
+            invalidUserId:
+              $ref: ../components/examples/InvalidUserIdError.yaml
+    '401':
+      $ref: ../components/responses/Unauthorized.yaml
+    '403':
+      $ref: ../components/responses/ForbiddenAdministrator.yaml
+    '404':
+      $ref: ../components/responses/UserNotFound.yaml
+    '422':
+      description: Violación de una regla de negocio.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          example:
+            error:
+              code: BUSINESS_RULE_VIOLATION
+              message: No se puede dar de baja el usuario debido a una regla de negocio.
+              details: null

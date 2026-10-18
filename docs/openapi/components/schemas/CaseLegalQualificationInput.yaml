@@ -1,0 +1,22 @@
+type: object
+description: |
+  Calificación legal a registrar en una causa penal. La fecha del hecho es
+  obligatoria en cada calificación: sin ella no hay desde cuándo computar la
+  prescripción.
+additionalProperties: false
+required:
+  - legalQualificationId
+  - offenseDate
+properties:
+  legalQualificationId:
+    type: integer
+    minimum: 1
+    description: Calificación legal vigente. Sin repetir dentro de la causa.
+    examples:
+      - 1
+  offenseDate:
+    type: string
+    format: date
+    description: Fecha del hecho. No puede ser posterior a hoy.
+    examples:
+      - '2021-02-27'

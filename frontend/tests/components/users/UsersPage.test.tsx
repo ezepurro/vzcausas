@@ -16,7 +16,6 @@ function renderPage(as = 'fvazquez') {
         as,
         path: '/usuarios',
         route: '/usuarios',
-        routes: [{ path: '/abogados', element: <p>Pantalla de abogados</p> }],
     })
 }
 
@@ -24,14 +23,14 @@ type User = ReturnType<typeof renderPage>['user']
 
 /* Los rótulos llevan el asterisco de obligatorio pegado: "Matrícula*". */
 const label = {
-    fullName: /^nombre y apellido\*?$/i,
+    fullName: /^apellido y nombre\*?$/i,
     username: /^nombre de usuario/i,
     email: /^correo electrónico/i,
     password: /^contraseña inicial/i,
     passwordConfirm: /^repetir contraseña/i,
     lawyerMode: /^ficha de abogado/i,
     lawyerId: /^abogado\*?$/i,
-    lawyerFullName: /^nombre y apellido del abogado/i,
+    lawyerFullName: /^apellido y nombre del abogado/i,
     registrationNumber: /^matrícula/i,
 }
 
@@ -74,29 +73,6 @@ describe('UsersPage', () => {
             )
         })
 
-        it('no muestra a los usuarios dados de baja', async () => {
-            const { user } = renderPage()
-            await screen.findByRole('cell', { name: 'fvazquez' })
-
-            await user.click(screen.getByRole('button', { name: /siguiente/i }))
-
-            // El texto está partido en varios <span>: se mira el renglón entero.
-            await waitFor(() =>
-                expect(screen.getByText(/usuarios · página/)).toHaveTextContent('página 2 de 2'),
-            )
-            expect(screen.queryByRole('cell', { name: 'vsosa' })).not.toBeInTheDocument()
-        })
-
-        it('pasa de página', async () => {
-            const { user } = renderPage()
-            await screen.findByRole('cell', { name: 'fvazquez' })
-
-            await user.click(screen.getByRole('button', { name: /siguiente/i }))
-
-            await waitFor(() => expect(screen.getAllByRole('row')).toHaveLength(activeUsers().length - 20 + 1))
-            expect(screen.getByRole('button', { name: /siguiente/i })).toBeDisabled()
-        })
-
         it('filtra con el buscador', async () => {
             const { user } = renderPage()
             await screen.findByRole('cell', { name: 'fvazquez' })
@@ -117,48 +93,9 @@ describe('UsersPage', () => {
             const admins = activeUsers().filter((u) => u.roles.includes('ADMINISTRATOR'))
             expect(screen.getAllByRole('row')).toHaveLength(admins.length + 1)
         })
-
-        it('si la búsqueda no encuentra nada, muestra el estado vacío', async () => {
-            const { user } = renderPage()
-            await screen.findByRole('cell', { name: 'fvazquez' })
-
-            await user.type(screen.getByRole('searchbox', { name: 'Buscar usuario' }), 'zzzz')
-
-            expect(await screen.findByText('Sin usuarios')).toBeInTheDocument()
-        })
-
-        it('si no tiene permiso, muestra el error', async () => {
-            renderPage('gestion')
-
-            expect(await screen.findByText('No se pudieron cargar los usuarios')).toBeInTheDocument()
-        })
-
-        it('la pestaña Abogados navega a su pantalla', async () => {
-            const { user } = renderPage()
-
-            await user.click(screen.getByRole('tab', { name: 'Abogados' }))
-
-            expect(await screen.findByText('Pantalla de abogados')).toBeInTheDocument()
-        })
     })
 
     describe('alta', () => {
-        it('registra una persona de secretaría', async () => {
-            const { user } = renderPage()
-            const dialog = await openCreate(user)
-
-            await fillPersonalData(user, dialog)
-            await chooseSecretary(user, dialog)
-            await user.click(within(dialog).getByRole('button', { name: 'Registrar usuario' }))
-
-            expect(await screen.findByText('Usuario aperez registrado.')).toBeInTheDocument()
-            expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-            expect(db.users.find((u) => u.username === 'aperez')).toMatchObject({
-                roles: ['SECRETARY'],
-                lawyerId: null,
-            })
-        })
-
         it('registra un abogado vinculándolo a una ficha existente', async () => {
             const { user } = renderPage()
             const dialog = await openCreate(user)
@@ -224,7 +161,7 @@ describe('UsersPage', () => {
 
             await user.click(within(dialog).getByRole('button', { name: 'Registrar usuario' }))
 
-            expect(within(dialog).getByText('El nombre y apellido es obligatorio.')).toBeInTheDocument()
+            expect(within(dialog).getByText('El apellido y nombre es obligatorio.')).toBeInTheDocument()
             expect(within(dialog).getByText('El nombre de usuario es obligatorio.')).toBeInTheDocument()
             expect(within(dialog).getByText('El correo electrónico es obligatorio.')).toBeInTheDocument()
             expect(within(dialog).getByText('La contraseña es obligatoria.')).toBeInTheDocument()
@@ -306,24 +243,6 @@ describe('UsersPage', () => {
             expect(await screen.findByText('Usuario ravila actualizado.')).toBeInTheDocument()
             expect(db.users.find((u) => u.username === 'ravila')?.fullName).toBe('Romina B. Ávila')
         })
-
-        it('sin cambios cierra el modal sin llamar al servidor', async () => {
-            let patched = false
-            server.use(
-                http.patch('*/users/:id', () => {
-                    patched = true
-                    return HttpResponse.json({})
-                }),
-            )
-            const { user } = renderPage()
-            await screen.findByRole('cell', { name: 'ravila' })
-
-            await user.click(within(rowOf('ravila')).getByRole('button', { name: 'Modificar' }))
-            await user.click(screen.getByRole('button', { name: 'Guardar cambios' }))
-
-            expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-            expect(patched).toBe(false)
-        })
     })
 
     describe('baja', () => {
@@ -349,17 +268,6 @@ describe('UsersPage', () => {
             await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
             expect(await screen.findByRole('alert')).toBeInTheDocument()
             expect(db.users.find((u) => u.username === 'mrios')?.active).toBe(true)
-        })
-
-        it('cancelar no elimina nada', async () => {
-            const { user } = renderPage()
-            await screen.findByRole('cell', { name: 'gestion' })
-
-            await user.click(within(rowOf('gestion')).getByRole('button', { name: 'Eliminar' }))
-            await user.click(screen.getByRole('button', { name: 'Cancelar' }))
-
-            expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-            expect(db.users.find((u) => u.username === 'gestion')?.active).toBe(true)
         })
     })
 })

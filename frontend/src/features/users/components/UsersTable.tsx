@@ -21,8 +21,9 @@ export function UsersTable({ rows, onEdit, onDelete, empty }: UsersTableProps) {
     const columns: Column<User>[] = [
         {
             id: 'fullName',
-            header: 'Nombre',
+            header: 'Apellido y Nombre',
             width: '24%',
+            primary: true,
             cell: (u) => (
                 <div className="vz-table__ident">
                     <span className="vz-avatar" aria-hidden="true">{initials(u.fullName)}</span>
@@ -55,6 +56,7 @@ export function UsersTable({ rows, onEdit, onDelete, empty }: UsersTableProps) {
             cell: (u) => formatLastLogin(u.lastLoginAt),
             mono: true,
             nowrap: true,
+            hideWhenNarrow: true,
         },
         {
             id: 'actions',

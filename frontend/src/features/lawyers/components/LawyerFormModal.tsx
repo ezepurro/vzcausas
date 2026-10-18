@@ -25,10 +25,10 @@ export function LawyerFormModal({
     const fields: FieldSpec[] = [
         {
             k: 'fullName',
-            label: 'Nombre y apellido',
+            label: 'Apellido y Nombre',
             width: 'half',
             required: true,
-            placeholder: 'Dr. / Dra. Nombre Apellido',
+            placeholder: 'Dr. / Dra. Apellido Nombre',
             error: errors.fullName,
         },
         {

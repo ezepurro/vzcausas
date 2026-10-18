@@ -1,4 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
+import { CLOCK, ClockPort } from "@shared/domain/clock.port";
 import {
   LastAdministratorError,
   UserNotFoundError,
@@ -16,7 +17,8 @@ export type DeactivateUserCommand = { id: number };
 
 /**
  * HU7 — logically deletes a user (RN12). The record survives with
- * `active: false`; for the client the user simply ceases to exist.
+ * `active: false` and the moment of the deactivation in `deleted_at`
+ * (CA-7.1); for the client the user simply ceases to exist.
  *
  * Deactivating an already-deactivated user is rejected as "not
  * found", not as a no-op: per the API contract that user is already
@@ -24,18 +26,14 @@ export type DeactivateUserCommand = { id: number };
  * between "I just deleted it" and "it was already gone".
  *
  * Revoking the refresh tokens is part of the contract, not an extra:
- * *"No puede iniciar sesión, sus sesiones abiertas se cierran"*. The
- * access JWT is short-lived and stateless, so it is not revoked here
- * — it simply expires; killing the refresh family is what prevents
- * the session from being renewed.
- *
- * NOTE (CA-7.3) — the contract also asks that a deactivated user's
- * *next operation* be rejected, not merely their next renewal. That
- * cannot be enforced from here: it needs the authentication guard to
- * re-check `active` against the database on every request, and the
- * guard does not exist yet (HU-1..3). See the TODO in
- * `user.controller.ts`. Until then a deactivated user keeps whatever
- * access token they already hold until it expires.
+ * *"No puede iniciar sesión, sus sesiones abiertas se cierran"*. It is
+ * also what closes the gap `AccessTokenVerifierAdapter` cannot: that
+ * adapter rejects this user's access token on their *next request*
+ * because it re-reads `active` from the database every time (CA-7.3,
+ * CA-6.2), but the refresh token is what would otherwise let them mint
+ * a fresh access token and walk right back in. Revoking the family
+ * here is what makes the rejection permanent instead of a 15-minute
+ * delay.
  */
 @Injectable()
 export class DeactivateUserUseCase {
@@ -44,6 +42,7 @@ export class DeactivateUserUseCase {
     @Inject(ROLE_REPOSITORY) private readonly roleRepository: RoleRepository,
     @Inject(REFRESH_TOKEN_STORE)
     private readonly refreshTokens: RefreshTokenStore,
+    @Inject(CLOCK) private readonly clock: ClockPort,
   ) {}
 
   async execute(command: DeactivateUserCommand): Promise<void> {
@@ -54,7 +53,7 @@ export class DeactivateUserUseCase {
 
     await this.assertNotLastAdministrator(user.roleIds);
 
-    user.deactivate();
+    user.deactivate(this.clock.now());
     await this.users.save(user);
     await this.refreshTokens.revokeAllForUser(user.id);
   }

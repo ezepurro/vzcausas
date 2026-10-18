@@ -19,10 +19,11 @@ DC_DEV  := docker compose -f $(COMPOSE_BASE)  --env-file $(ENV_DEV)
 export
 
 .PHONY: help \
-        dev-up dev-build dev-down dev-down-v dev-logs ps clean \
+        dev-up dev-build dev-stop dev-down dev-down-v dev-logs ps clean \
         backend-restart backend-logs backend-shell backend-build \
-        migrate seed test-int \
+        migrate-deploy migrate-dev migrate-create seed test-int \
         frontend-restart frontend-logs frontend-shell frontend-build \
+        openapi-build \
         shell-db
 
 help: ## Shows this list of commands
@@ -39,10 +40,17 @@ help: ## Shows this list of commands
 dev-up: ## Starts all services in development mode (detached)
 	$(DC_DEV) up -d
 
-dev-build: ## Rebuilds images and starts development
-	$(DC_DEV) up -d --build
+# -V (--renew-anon-volumes): node_modules lives in an anonymous volume that
+# compose reuses when recreating a container, so without it the new image's
+# dependencies never reach the container. Also resets the dist volume (cold
+# first compile). Named volumes (the DB) are not affected.
+dev-build: ## Rebuilds images and starts development (fresh node_modules)
+	$(DC_DEV) up -d --build -V
 
-dev-down: ## Stops development containers
+dev-stop: ## Stops development containers
+	$(DC_DEV) stop
+
+dev-down: ## Deletes development containers
 	$(DC_DEV) down
 
 dev-down-v: ## Stops development and removes volumes (complete local DB reset)
@@ -68,8 +76,8 @@ backend-logs: ## Shows only the backend logs
 backend-shell: ## Opens a shell inside the backend container (dev)
 	$(DC_DEV) exec backend sh
 
-backend-build: ## Rebuild the backend image only
-	$(DC_DEV) build backend
+backend-build: ## Rebuilds the backend image and recreates it with fresh node_modules (also migrate, which shares the image)
+	$(DC_DEV) up -d --build -V backend migrate
 
 migrate-deploy: ## Runs pending Prisma migrations without prompts (dev)
 	$(DC_DEV) exec backend npm run prisma:migrate-deploy
@@ -77,12 +85,15 @@ migrate-deploy: ## Runs pending Prisma migrations without prompts (dev)
 migrate-dev: ## Runs Prisma migrations inside the backend container (dev)
 	$(DC_DEV) exec backend npm run prisma:migrate-dev
 	$(DC_DEV) exec backend npm run prisma:generate
-	
+
 migrate-create: ## Create Prisma migration inside the backend container (dev)
 	$(DC_DEV) exec backend npx prisma migrate dev --create-only --name $(name)
 
 seed: ## Runs Prisma seed inside the backend container (dev)
 	$(DC_DEV) exec backend npx prisma db seed
+
+test-unit: ## Runs backend integration tests inside the backend container (dev)
+	$(DC_DEV) exec backend npm run test
 
 test-int: ## Runs backend integration tests inside the backend container (dev)
 	$(DC_DEV) exec backend npm run test:int
@@ -98,8 +109,15 @@ frontend-logs: ## Shows only the frontend logs
 frontend-shell: ## Opens a shell inside the frontend container
 	$(DC_DEV) exec frontend sh
 
-frontend-build: ## Rebuild the frontend image only
-	$(DC_DEV) build frontend
+frontend-build: ## Rebuilds the frontend image and recreates it with fresh node_modules
+	$(DC_DEV) up -d --build -V frontend
+
+# ---- OpenAPI Scoped -------------------------------------------------------
+
+# Swagger UI (openapi-docs) lee el bundle en cada recarga: alcanza con
+# regenerarlo y refrescar http://localhost:8081.
+openapi-build: ## Validates docs/openapi and regenerates build/openapi.yaml
+	$(DC_DEV) up --build openapi-build
 
 # ---- Database Scoped ------------------------------------------------------
 

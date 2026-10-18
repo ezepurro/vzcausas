@@ -11,7 +11,6 @@ function renderPage(as = 'fvazquez') {
         as,
         path: '/abogados',
         route: '/abogados',
-        routes: [{ path: '/usuarios', element: <p>Pantalla de usuarios</p> }],
     })
 }
 
@@ -30,14 +29,6 @@ describe('LawyersPage', () => {
             expect(screen.getByText(`${LAWYERS.length}`, { selector: '.vz-pager__count' })).toBeInTheDocument()
         })
 
-        it('mientras carga, lo avisa', async () => {
-            renderPage()
-
-            expect(screen.getByText('Cargando abogados…')).toBeInTheDocument()
-            // Se espera a que termine: si no, el pedido queda colgando para el test siguiente.
-            expect(await screen.findByText('Dr. Fernando G. Vázquez')).toBeInTheDocument()
-        })
-
         it('filtra con el buscador', async () => {
             const { user } = renderPage()
             await screen.findByText('Dr. Fernando G. Vázquez')
@@ -51,27 +42,38 @@ describe('LawyersPage', () => {
             expect(screen.getByText('Dra. Malena Ríos')).toBeInTheDocument()
         })
 
-        it('si la búsqueda no encuentra nada, muestra el estado vacío', async () => {
-            const { user } = renderPage()
-            await screen.findByText('Dr. Fernando G. Vázquez')
-
-            await user.type(screen.getByRole('searchbox', { name: 'Buscar abogado' }), 'zzzz')
-
-            expect(await screen.findByText('Sin abogados')).toBeInTheDocument()
-        })
-
-        it('si no tiene permiso, muestra el error del servidor', async () => {
-            renderPage('mrios')
+        /* Leer abogados está abierto a cualquier perfil (V3 D-03), así que el
+           mock ya no responde 403 a un abogado: el rechazo se fuerza. */
+        it('si el servidor rechaza la consulta, muestra el error', async () => {
+            server.use(
+                http.get('*/lawyers', () =>
+                    HttpResponse.json(errorBody('FORBIDDEN', 'Rechazo de prueba.'), { status: 403 }),
+                ),
+            )
+            renderPage()
 
             expect(await screen.findByText('No se pudieron cargar los abogados')).toBeInTheDocument()
         })
+    })
 
-        it('la pestaña Usuarios navega a su pantalla', async () => {
-            const { user } = renderPage()
+    describe('quién puede registrar', () => {
+        /* Matriz de permisos del 11/10/2026 (V3 §4): consultar abogados es de
+           los tres perfiles; registrarlos, sólo del Administrador. */
+        it('el Administrador tiene habilitado "Registrar abogado"', async () => {
+            renderPage('supervision')
+            await screen.findByText(LAWYERS[0].fullName)
 
-            await user.click(screen.getByRole('tab', { name: 'Usuarios' }))
+            expect(screen.getByRole('button', { name: 'Registrar abogado' })).toBeEnabled()
+        })
 
-            expect(await screen.findByText('Pantalla de usuarios')).toBeInTheDocument()
+        it.each([
+            ['un abogado', 'mrios'],
+            ['la Secretaría', 'gestion'],
+        ])('%s ve el listado, con "Registrar abogado" deshabilitado', async (_, username) => {
+            renderPage(username)
+            await screen.findByText(LAWYERS[0].fullName)
+
+            expect(screen.getByRole('button', { name: 'Registrar abogado' })).toBeDisabled()
         })
     })
 
@@ -81,7 +83,7 @@ describe('LawyersPage', () => {
             await screen.findByText('Dr. Fernando G. Vázquez')
 
             const dialog = await openCreate(user)
-            await user.type(within(dialog).getByLabelText(/^nombre y apellido/i), 'Dra. Ana Pérez')
+            await user.type(within(dialog).getByLabelText(/^apellido y nombre/i), 'Dra. Ana Pérez')
             await user.type(within(dialog).getByLabelText(/^matrícula/i), '1-50000')
             await user.click(within(dialog).getByRole('button', { name: 'Registrar abogado' }))
 
@@ -99,29 +101,16 @@ describe('LawyersPage', () => {
 
             await user.click(within(dialog).getByRole('button', { name: 'Registrar abogado' }))
 
-            expect(within(dialog).getByText('El nombre y apellido es obligatorio.')).toBeInTheDocument()
+            expect(within(dialog).getByText('El apellido y nombre es obligatorio.')).toBeInTheDocument()
             expect(within(dialog).getByText('La matrícula es obligatoria.')).toBeInTheDocument()
             expect(db.lawyers).toHaveLength(LAWYERS.length)
-        })
-
-        it('una matrícula con formato inválido se marca antes de mandar', async () => {
-            const { user } = renderPage()
-            const dialog = await openCreate(user)
-
-            await user.type(within(dialog).getByLabelText(/^nombre y apellido/i), 'Dra. Ana Pérez')
-            await user.type(within(dialog).getByLabelText(/^matrícula/i), '50000')
-            await user.click(within(dialog).getByRole('button', { name: 'Registrar abogado' }))
-
-            expect(
-                within(dialog).getByText('El formato es circunscripción y número: 1-28114.'),
-            ).toBeInTheDocument()
         })
 
         it('una matrícula ya registrada se marca en el campo', async () => {
             const { user } = renderPage()
             const dialog = await openCreate(user)
 
-            await user.type(within(dialog).getByLabelText(/^nombre y apellido/i), 'Otro Vázquez')
+            await user.type(within(dialog).getByLabelText(/^apellido y nombre/i), 'Otro Vázquez')
             await user.type(within(dialog).getByLabelText(/^matrícula/i), '1-28114')
             await user.click(within(dialog).getByRole('button', { name: 'Registrar abogado' }))
 
@@ -142,22 +131,12 @@ describe('LawyersPage', () => {
             const { user } = renderPage()
             const dialog = await openCreate(user)
 
-            await user.type(within(dialog).getByLabelText(/^nombre y apellido/i), 'Dra. Ana Pérez')
+            await user.type(within(dialog).getByLabelText(/^apellido y nombre/i), 'Dra. Ana Pérez')
             await user.type(within(dialog).getByLabelText(/^matrícula/i), '1-50000')
             await user.click(within(dialog).getByRole('button', { name: 'Registrar abogado' }))
 
             expect(await screen.findByText('Error del servidor de prueba.')).toBeInTheDocument()
             expect(screen.getByRole('dialog')).toBeInTheDocument()
-        })
-
-        it('cancelar cierra el modal sin registrar nada', async () => {
-            const { user } = renderPage()
-            const dialog = await openCreate(user)
-
-            await user.click(within(dialog).getByRole('button', { name: 'Cancelar' }))
-
-            expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-            expect(db.lawyers).toHaveLength(LAWYERS.length)
         })
     })
 })

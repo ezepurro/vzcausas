@@ -33,6 +33,10 @@ model User {
   refreshTokens RefreshToken[]
   roles         UserRole[]
 
+  // Relaciones inversas hacia `cases` (no agregan columnas a `users`).
+  createdCases             Case[]          @relation("CaseCreatedBy")
+  registeredProceduralActs ProceduralAct[] @relation("ProceduralActRegisteredBy")
+
   // Clave foránea hacia `people`. Se admite entre subsistemas (§4.4):
   // lo que no se admite es que `identity` escriba la tabla `lawyers`.
   // `Restrict` y no `SetNull`: las bajas son lógicas (RN12), así que un
@@ -82,6 +86,32 @@ model RefreshToken {
   @@index([familyId])
   @@index([expiresAt])
   @@map("refresh_tokens")
+}
+
+// Contador de intentos fallidos de login (Q-03). Una fila por clave
+// vigilada, no un registro de cada intento: lo único que la política
+// pregunta es "cuántos seguidos" y "hasta cuándo está bloqueado", y una
+// fila mutable contesta las dos con un solo upsert.
+//
+// `identifier` es la clave compuesta que arma el adaptador
+// (`u:<username>` o `u:<username>|ip:<ip>`), y NO una FK a `users`: se
+// cuenta también contra usuarios inexistentes. Es deliberado — D-18
+// responde lo mismo ante un usuario que no existe que ante una
+// contraseña mala para que no se puedan enumerar cuentas, y un bloqueo
+// que sólo existiera para usuarios reales devolvería esa distinción.
+//
+// No hay relación hacia `User` por el mismo motivo, así que esta tabla
+// no se borra en cascada: las filas se limpian por antigüedad.
+model LoginAttempt {
+  identifier          String    @id @db.VarChar(120)
+  consecutiveFailures Int       @default(0) @map("consecutive_failures")
+  lastFailedAt        DateTime  @map("last_failed_at") @db.Timestamptz(6)
+  lockedUntil         DateTime? @map("locked_until") @db.Timestamptz(6)
+
+  // Para la limpieza periódica de filas que ya no pesan en ninguna
+  // decisión; la lectura del login va siempre por la clave primaria.
+  @@index([lastFailedAt])
+  @@map("login_attempts")
 }
 
 model Role {
@@ -149,7 +179,34 @@ model Lawyer {
 
   users User[]
 
+  // Relaciones inversas hacia `cases` (no agregan columnas a `lawyers`).
+  responsibleCases         Case[]          @relation("CaseResponsibleLawyer")
+  registeredProceduralActs ProceduralAct[] @relation("ProceduralActRegisteredByLawyer")
+
   @@map("lawyers")
+}
+
+model Client {
+  id          Int      @id @default(autoincrement())
+  lastName    String   @map("last_name") @db.VarChar(100)
+  firstName   String   @map("first_name") @db.VarChar(100)
+  // Solo dígitos, 7 u 8 (CHECK manual). Único entre los clientes
+  // VIGENTES: índice único parcial `clients_dni_active_key`, creado a
+  // mano (ver el bloque de SQL manual al final del archivo).
+  dni         String   @db.VarChar(8)
+  phone       String?  @db.VarChar(50)
+  email       String?  @db.VarChar(255)
+  // Fecha civil. La asigna la aplicación con `ClockPort.today()`
+  // (Córdoba), nunca `CURRENT_DATE`, que corre en la zona de la base.
+  clientSince DateTime @map("client_since") @db.Date
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  cases Case[]
+
+  @@index([lastName, firstName])
+  @@map("clients")
 }
 
 enum DayType {
@@ -158,6 +215,22 @@ enum DayType {
   CONSECUTIVE
 
   @@map("day_type")
+}
+
+// Rol procesal del cliente en la causa. Los códigos van en castellano; el
+// rótulo de pantalla lo resuelve el frontend. Valores por fuero:
+//   CRIMINAL:       DEFENSA, QUERELLANTE_PARTICULAR
+//   ADMINISTRATIVE: DEFENSA, RECURRENTE
+//   AMPARO:         ACTORA, DEMANDADA
+// La correspondencia con el fuero se valida en el dominio.
+enum ProceduralRole {
+  DEFENSA
+  QUERELLANTE_PARTICULAR
+  RECURRENTE
+  ACTORA
+  DEMANDADA
+
+  @@map("procedural_role")
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -171,23 +244,223 @@ model Jurisdiction {
   isActive       Boolean @default(true) @map("is_active")
 
   proceduralStates ProceduralState[]
+  cases            Case[]
 
   @@map("jurisdictions")
 }
 
+// Sin `position`: los estados no tienen orden y se listan por `state_id`
+// (API Contract V3, revisión del 05/10/2026, D-31).
+//
+// `name` es único POR FUERO y solo entre los VIGENTES, sin distinguir
+// mayúsculas. Lo impone un índice único parcial creado a mano:
+//
+//   CREATE UNIQUE INDEX "procedural_states_jurisdiction_name_active_key"
+//     ON "procedural_states" ("jurisdiction_id", lower("name"))
+//     WHERE "is_active" = true;
+//
+// Estado inicial: `is_initial = true` marca el estado de sistema
+// "Iniciada", uno por fuero (índice único parcial
+// `procedural_states_one_initial_per_jurisdiction_key`). Lo crea el
+// seed; la API no lo lista, no lo modifica ni lo da de baja, y no puede
+// ser destino de un acto (D-34).
+//
+// ATENCIÓN: Prisma no expresa estos índices ni los CHECK de coherencia
+// entre `time_limit_days` y `day_type`. Si una migración generada trae
+// un DROP de alguno, hay que quitarlo a mano.
 model ProceduralState {
   stateId       Int      @id @default(autoincrement()) @map("state_id")
-  name          String   @unique
-  position      Int      @default(1)
+  name          String
   timeLimitDays Int      @map("time_limit_days")
-  dayType       DayType? @map("day_type")
+  dayType       DayType  @map("day_type")
   terminal      Boolean  @default(false)
+  isInitial     Boolean  @default(false) @map("is_initial")
   isActive      Boolean  @default(true) @map("is_active")
   createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   jurisdictionId Int          @map("jurisdiction_id")
   jurisdiction   Jurisdiction @relation(fields: [jurisdictionId], references: [jurisdictionId], onDelete: Restrict)
 
+  // La causa y el acto referencian al estado, no copian su nombre:
+  // renombrarlo se propaga. `Restrict` porque la baja es lógica.
+  casesInState   Case[]          @relation("CaseCurrentState")
+  proceduralActs ProceduralAct[]
+
   @@index([jurisdictionId])
   @@map("procedural_states")
 }
+
+model LegalQualification {
+  id                 Int      @id @default(autoincrement())
+  // Única entre las VIGENTES, sin distinguir mayúsculas: índice único
+  // parcial `legal_qualifications_name_active_key` sobre `lower(name)`,
+  // creado a mano.
+  name               String   @db.VarChar(255)
+  // CHECK manual: >= 1. Cada hecho (`Offense`) guarda su fecha de
+  // prescripción, calculada al registrar la causa con los meses vigentes
+  // en ese momento: cambiar los meses después no la recalcula.
+  prescriptionMonths Int      @map("prescription_months")
+  active             Boolean  @default(true)
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  offenses Offense[]
+
+  @@map("legal_qualifications")
+}
+
+// ─────────────────────────────────────────────────────────────
+// cases — Gestión de Causas (EP-04, EP-05)
+// ─────────────────────────────────────────────────────────────
+
+model Case {
+  id                  Int            @id @default(autoincrement())
+  // Opcional (D-33). Si se informa, único en todo el sistema (RN2),
+  // incluidas las causas dadas de baja; Postgres admite varios NULL.
+  // CHECK manual: 8 dígitos.
+  sacNumber           String?        @unique @map("sac_number") @db.Char(8)
+  caption             String         @db.VarChar(255)
+  court               String?        @db.VarChar(255)
+  jurisdictionId      Int            @map("jurisdiction_id")
+  proceduralRole      ProceduralRole @map("procedural_role")
+  instructorName      String?        @map("instructor_name") @db.VarChar(150)
+  instructorPhone     String?        @map("instructor_phone") @db.VarChar(50)
+  instructorExtension String?        @map("instructor_extension") @db.VarChar(20)
+  // Solo ADMINISTRATIVE y AMPARO; NULL en CRIMINAL (dominio).
+  counterparty        String?        @db.VarChar(255)
+  subjectMatter       String?        @map("subject_matter") @db.VarChar(800)
+  clientId            Int            @map("client_id")
+  responsibleLawyerId Int            @map("responsible_lawyer_id")
+  // Fecha de inicio de la causa en sede judicial. NULL mientras no tiene SAC
+  // (D-33): obligatoria con SAC y sin SAC no se informa, así que no hay un
+  // valor que inventar para esa causa.
+  startDate           DateTime?      @map("start_date") @db.Date
+
+  // Estado actual: siempre hay uno. Al alta, el estado inicial
+  // "Iniciada" del fuero. CHECK manual de exclusión mutua:
+  //   num_nonnulls(current_state_id, current_custom_state) = 1
+  currentStateId         Int?    @map("current_state_id")
+  currentCustomState     String? @map("current_custom_state") @db.VarChar(255)
+  // Acto que llevó la causa a su estado actual; de él sale el
+  // vencimiento. NULL mientras la causa está en el estado inicial. Lo
+  // actualiza la misma transacción que registra el acto, solo si su
+  // `act_date` es mayor o igual a la del acto vigente.
+  currentProceduralActId Int?    @unique @map("current_procedural_act_id")
+
+  active          Boolean  @default(true)
+  createdByUserId Int      @map("created_by_user_id")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Todas `Restrict`: las bajas son lógicas (RN12) y un borrado físico
+  // no debería ocurrir nunca.
+  jurisdiction         Jurisdiction     @relation(fields: [jurisdictionId], references: [jurisdictionId], onDelete: Restrict)
+  client               Client           @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  responsibleLawyer    Lawyer           @relation("CaseResponsibleLawyer", fields: [responsibleLawyerId], references: [id], onDelete: Restrict)
+  createdBy            User             @relation("CaseCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  currentState         ProceduralState? @relation("CaseCurrentState", fields: [currentStateId], references: [stateId], onDelete: Restrict)
+  currentProceduralAct ProceduralAct?   @relation("CaseCurrentAct", fields: [currentProceduralActId], references: [id], onDelete: Restrict)
+
+  proceduralActs      ProceduralAct[]          @relation("CaseProceduralActs")
+  offenses            Offense[]
+
+  @@index([jurisdictionId])
+  @@index([clientId])
+  @@index([responsibleLawyerId])
+  @@index([currentStateId])
+  @@map("cases")
+}
+
+// Hechos de una causa: cada calificación legal asignada a la causa, con
+// su fecha del hecho y su fecha de prescripción. La PK compuesta impide
+// repetir una calificación en la misma causa. Puede no haber ninguno,
+// incluso en CRIMINAL (D-33); que solo CRIMINAL los tenga se valida en
+// el dominio.
+model Offense {
+  caseId               Int      @map("case_id")
+  legalQualificationId Int      @map("legal_qualification_id")
+  offenseDate          DateTime @map("offense_date") @db.Date
+  // offense_date + prescription_months de la calificación. La calcula
+  // el caso de uso Registrar Causa antes de guardar.
+  prescriptionDate     DateTime @map("prescription_date") @db.Date
+
+  case               Case               @relation(fields: [caseId], references: [id], onDelete: Restrict)
+  legalQualification LegalQualification @relation(fields: [legalQualificationId], references: [id], onDelete: Restrict)
+
+  @@id([caseId, legalQualificationId])
+  @@index([legalQualificationId])
+  @@map("offenses")
+}
+
+// El acto procesal es la línea de tiempo de la causa: no hay tabla de
+// historial aparte. Solo lo registra el abogado responsable de la causa
+// (D-30); esa regla vive en el caso de uso, no en la base.
+model ProceduralAct {
+  id     Int @id @default(autoincrement())
+  caseId Int @map("case_id")
+
+  // Estado de la tabla o estado escrito a mano. CHECK manual:
+  //   num_nonnulls(procedural_state_id, custom_state) = 1
+  proceduralStateId Int?    @map("procedural_state_id")
+  customState       String? @map("custom_state") @db.VarChar(255)
+
+  actDate          DateTime  @map("act_date") @db.Date
+  // Solo ADMINISTRATIVE (RN6). CHECK manual: >= act_date.
+  notificationDate DateTime? @map("notification_date") @db.Date
+  notes            String?   @db.VarChar(2000)
+
+  // Copia del plazo de la tabla al momento del registro: modificar el
+  // estado procesal después no altera este vencimiento.
+  deadlineTimeLimitDays   Int       @map("deadline_time_limit_days")
+  deadlineDayType         DayType   @map("deadline_day_type")
+  // notification_date en ADMINISTRATIVE; act_date en los demás fueros.
+  deadlineCountsFrom      DateTime  @map("deadline_counts_from") @db.Date
+  // Lo que resulta de la tabla. NULL si el estado no abre plazo.
+  deadlineComputedDueDate DateTime? @map("deadline_computed_due_date") @db.Date
+  // Ajuste manual del abogado. CHECK manual: >= deadline_counts_from.
+  // Vencimiento vigente = COALESCE(manual, computed), calculado al leer.
+  deadlineManualDueDate   DateTime? @map("deadline_manual_due_date") @db.Date
+
+  registeredByUserId   Int      @map("registered_by_user_id")
+  // Copia del responsable al momento del registro: si la causa cambia de
+  // responsable, el historial conserva quién lo era.
+  registeredByLawyerId Int      @map("registered_by_lawyer_id")
+  registeredAt         DateTime @default(now()) @map("registered_at") @db.Timestamptz(6)
+
+  case               Case             @relation("CaseProceduralActs", fields: [caseId], references: [id], onDelete: Restrict)
+  currentOfCase      Case?            @relation("CaseCurrentAct")
+  proceduralState    ProceduralState? @relation(fields: [proceduralStateId], references: [stateId], onDelete: Restrict)
+  registeredBy       User             @relation("ProceduralActRegisteredBy", fields: [registeredByUserId], references: [id], onDelete: Restrict)
+  registeredByLawyer Lawyer           @relation("ProceduralActRegisteredByLawyer", fields: [registeredByLawyerId], references: [id], onDelete: Restrict)
+
+  @@index([caseId, actDate(sort: Desc), id(sort: Desc)])
+  @@index([proceduralStateId])
+  @@map("procedural_acts")
+}
+
+// ─────────────────────────────────────────────────────────────
+// SQL manual — lo que Prisma no expresa
+// ─────────────────────────────────────────────────────────────
+// Va en una migración creada con `migrate dev --create-only`. Si una
+// migración generada después trae un DROP de cualquiera de estos
+// objetos, hay que quitarlo a mano.
+//
+// Índices únicos parciales:
+//   users                (lawyer_id) WHERE active AND lawyer_id IS NOT NULL   -- ya existe
+//   procedural_states    (jurisdiction_id, lower(name)) WHERE is_active
+//   procedural_states    (jurisdiction_id) WHERE is_initial
+//   legal_qualifications (lower(name)) WHERE active
+//   clients              (dni) WHERE active
+//
+// CHECK:
+//   procedural_states    time_limit_days >= 0
+//   procedural_states    (time_limit_days = 0) = (day_type = 'NONE')
+//   procedural_states    NOT is_initial OR (NOT terminal AND time_limit_days = 0 AND day_type = 'NONE')
+//   legal_qualifications prescription_months >= 1
+//   clients              dni ~ '^[0-9]{7,8}$'
+//   cases                sac_number IS NULL OR sac_number ~ '^[0-9]{8}$'
+//   cases                num_nonnulls(current_state_id, current_custom_state) = 1
+//   procedural_acts      num_nonnulls(procedural_state_id, custom_state) = 1
+//   procedural_acts      notification_date IS NULL OR notification_date >= act_date
+//   procedural_acts      deadline_manual_due_date IS NULL OR deadline_manual_due_date >= deadline_counts_from

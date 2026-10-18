@@ -5,6 +5,7 @@ import {
   REFRESH_TOKEN_STORE,
   RefreshTokenStore,
 } from "../../domain/ports/refresh-token-store.port";
+import { SESSION_INACTIVITY_SECONDS } from "../../domain/ports/session-inactivity.port";
 import {
   ROLE_REPOSITORY,
   RoleRepository,
@@ -63,10 +64,12 @@ export type RefreshSessionResult = {
  * a new refresh token in the same family (D-05, glossary §7.3).
  *
  * All failure paths collapse into {@link SessionExpiredError} (D-26):
- * token absent, unknown, revoked, expired, user gone, or user
- * inactive. Only reuse detection has a side-effect — the whole family
- * is revoked to shut down a suspected theft. Natural expiration does
- * *not* touch the family: the presented token is simply dead.
+ * token absent, unknown, revoked, expired, idle past
+ * `SESSION_INACTIVITY_TTL` (CA-1.6), user gone, or user inactive.
+ * Only reuse detection has a side-effect — the whole family is
+ * revoked to shut down a suspected theft. Natural expiration and
+ * inactivity do *not* touch the family: the presented token is simply
+ * dead, same as any session nobody kept alive.
  *
  * Rotation order is `issue` first, `revoke` second (D-27): if the
  * write of the new record succeeded and the revocation of the old one
@@ -81,6 +84,13 @@ export type RefreshSessionResult = {
  * the global filter maps it to an opaque 500 with the correlation id
  * in the log. It is deliberately not folded into the 401 path — a
  * partial permission set is worse than a hard failure.
+ *
+ * `roleNames` and `permissions` are still resolved here because the
+ * **response** needs them (§3.1's reduced `user` projection), but they
+ * no longer travel inside the minted access token — only `sub` and
+ * `sid` do. Authorization is read from the database on every request
+ * (`AccessTokenVerifierAdapter`), so nothing this use case computes
+ * about permissions can go stale inside a token.
  */
 @Injectable()
 export class RefreshSessionUseCase {
@@ -91,6 +101,8 @@ export class RefreshSessionUseCase {
     @Inject(ROLE_REPOSITORY) private readonly rolesRepo: RoleRepository,
     @Inject(TOKEN_ISSUER) private readonly tokenIssuer: TokenIssuer,
     @Inject(CLOCK) private readonly clock: ClockPort,
+    @Inject(SESSION_INACTIVITY_SECONDS)
+    private readonly inactivitySeconds: number,
   ) {}
 
   async execute(command: RefreshSessionCommand): Promise<RefreshSessionResult> {
@@ -116,6 +128,20 @@ export class RefreshSessionUseCase {
       // Natural expiration. The family is left alone: only the
       // presented token is dead. This is the ordinary end-of-life
       // for a session that outlived `JWT_REFRESH_TTL` (D-04).
+      throw new SessionExpiredError();
+    }
+
+    // CA-1.6. `stored.createdAt` is this exact row's mint time, and
+    // since it is the one live row of its family, that is also the
+    // family's last point of contact with the server — rotation only
+    // ever moves this forward. Without this check, the frontend's
+    // automatic silent renewal (triggered the moment an idle access
+    // token starts failing `AccessTokenVerifierAdapter`'s mirror of
+    // this same check) would resurrect the session on its very next
+    // request, and CA-1.6 would never actually fire. Family left
+    // alone here too: idleness is not theft.
+    const idleSeconds = (now.getTime() - stored.createdAt.getTime()) / 1000;
+    if (idleSeconds > this.inactivitySeconds) {
       throw new SessionExpiredError();
     }
 
@@ -161,9 +187,7 @@ export class RefreshSessionUseCase {
 
     const accessToken = await this.tokenIssuer.issue({
       sub: user.id,
-      roles: roleNames,
-      lawyerId: user.lawyerId,
-      permissions,
+      sid: newRefresh.familyId,
     });
 
     return {

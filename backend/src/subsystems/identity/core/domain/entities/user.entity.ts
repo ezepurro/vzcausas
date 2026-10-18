@@ -1,6 +1,7 @@
 import { ValidationError } from "@shared/domain/domain-error";
 import {
   InvalidCurrentPasswordError,
+  SamePasswordError,
   WeakPasswordError,
 } from "../errors/identity.errors";
 import { PasswordHasher } from "../ports/password-hasher.port";
@@ -50,12 +51,17 @@ export class User {
     private _lawyerId: number | null,
     private _lastLoginAt: Date | null,
     private _active: boolean,
+    private _deletedAt: Date | null,
   ) {}
 
   /**
    * Rebuilds a {@link User} from persisted data. Skips creation-time
    * validation because the database is trusted to hold well-formed
    * records.
+   *
+   * `deletedAt` is required, not optional, on purpose: an optional field
+   * would let a mapper forget it and silently rebuild every deactivated
+   * user with no date — the very bug CA-7.1 was about.
    */
   static hydrate(props: {
     id: number;
@@ -67,6 +73,7 @@ export class User {
     lawyerId: number | null;
     lastLoginAt: Date | null;
     active: boolean;
+    deletedAt: Date | null;
   }): User {
     return new User(
       props.id,
@@ -78,6 +85,7 @@ export class User {
       props.lawyerId,
       props.lastLoginAt,
       props.active,
+      props.deletedAt,
     );
   }
 
@@ -162,6 +170,7 @@ export class User {
       props.lawyerId,
       null,
       props.active ?? true,
+      null,
     );
   }
 
@@ -179,6 +188,8 @@ export class User {
    *
    * @throws {InvalidCurrentPasswordError} if `currentPlain` does not
    *   match the stored hash.
+   * @throws {SamePasswordError} if `newPlain` is the current password
+   *   (CA-3.5).
    * @throws {WeakPasswordError} if `newPlain` fails the policy check.
    */
   async changePassword(
@@ -190,6 +201,20 @@ export class User {
     if (!ok) {
       throw new InvalidCurrentPasswordError();
     }
+
+    // CA-3.5. Compared against the stored hash rather than against
+    // `currentPlain`, so the rule also holds when the caller is wrong
+    // about what their current password is — and because a change
+    // that changes nothing is what the criterion refuses, regardless
+    // of how the request was phrased.
+    //
+    // The frontend checks this too, but that check is a courtesy: it
+    // lives in the browser and anything that talks to the API
+    // directly bypasses it.
+    if (await hasher.verify(newPlain, this._passwordHash)) {
+      throw new SamePasswordError();
+    }
+
     User.validatePasswordRules(newPlain);
     this._passwordHash = await hasher.hash(newPlain);
   }
@@ -252,17 +277,29 @@ export class User {
   }
 
   /**
-   * HU7 — logical deletion (RN12). The record is kept; only the
-   * vigency flag flips. There is deliberately no counterpart:
-   * *"No existe forma de consultarlo ni de reactivarlo desde la API"*
-   * (API contract §3.2, `DELETE /users/{userId}`).
+   * HU7 — logical deletion (RN12). The record is kept; the vigency
+   * flag flips and the moment is recorded (CA-7.1). There is
+   * deliberately no counterpart: *"No existe forma de consultarlo ni de
+   * reactivarlo desde la API"* (API contract §3.2,
+   * `DELETE /users/{userId}`).
+   *
+   * `now` is a parameter rather than read from a clock in here: the
+   * entity stays free of ambient time, exactly as
+   * {@link User.registerLogin} does, and the use case passes the
+   * instant from the injected `ClockPort`.
    *
    * Whether an already-deactivated user may be deactivated again is
    * not this entity's call — the use case rejects that as "not
    * found", the same way {@link GetUserUseCase} does.
+   *
+   * The timestamp is *not* what decides vigency — `active` is. Two
+   * columns describing one fact can disagree, and when they do the
+   * boolean is the one every query already filters on. `deletedAt`
+   * answers "when", never "whether".
    */
-  deactivate(): void {
+  deactivate(now: Date): void {
     this._active = false;
+    this._deletedAt = now;
   }
 
   changeLawyerId(newLawyerId: number | null): void {
@@ -280,6 +317,16 @@ export class User {
 
   get id(): number {
     return this._id;
+  }
+
+  /**
+   * When the user was deactivated, or `null` while they are active
+   * (CA-7.1). Internal to the server: the contract exposes no such
+   * field, because for the client a deactivated user does not exist
+   * at all (§4, "Bajas").
+   */
+  get deletedAt(): Date | null {
+    return this._deletedAt;
   }
 
   get username(): Username {

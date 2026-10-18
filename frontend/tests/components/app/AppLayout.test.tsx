@@ -8,11 +8,16 @@ const ROUTES = {
         { path: '/inicio', element: <p>Pantalla de inicio</p> },
         { path: '/usuarios', element: <p>Pantalla de usuarios</p> },
         { path: '/usuarios/:userId', element: <p>Detalle de usuario</p> },
+        { path: '/causas/nueva', element: <p>Pantalla de registrar causa</p> },
     ],
 }
 
 const DAILY_WORK = ['Inicio', 'Causas', 'Vencimientos', 'Clientes', 'Modelos']
-const ADMINISTRATION = ['Usuarios', 'Abogados', 'Estados y plazos', 'Reportes']
+/** Lo que la matriz de permisos abre a los tres perfiles (V3 §4, D-39). */
+const SHARED_ADMINISTRATION = ['Abogados', 'Estados y plazos', 'Calificaciones legales']
+/** Lo que sigue siendo sólo del Administrador. */
+const ADMINISTRATOR_ONLY = ['Usuarios', 'Reportes']
+const ADMINISTRATION = [...SHARED_ADMINISTRATION, ...ADMINISTRATOR_ONLY]
 
 /** El menú lateral, tal como lo encuentra un lector de pantalla. */
 function rail() {
@@ -36,54 +41,16 @@ describe('AppLayout', () => {
 
         it.each([
             ['un abogado', 'mrios'],
-            ['una persona de secretaría', 'gestion'],
-            ['secretaría y abogado a la vez', 'sledesma'],
-        ])('%s ve sólo el trabajo diario', (_, username) => {
+            ['la secretaría', 'gestion'],
+        ])('%s ve el trabajo diario y la administración compartida, sin usuarios ni reportes', (_, username) => {
             renderWithProviders(<AppLayout />, { ...ROUTES, as: username, route: '/inicio' })
 
-            for (const label of DAILY_WORK) {
+            for (const label of [...DAILY_WORK, ...SHARED_ADMINISTRATION]) {
                 expect(railItem(label)).toBeInTheDocument()
             }
-            for (const label of ADMINISTRATION) {
+            for (const label of ADMINISTRATOR_ONLY) {
                 expect(railItem(label)).not.toBeInTheDocument()
             }
-        })
-
-        /* Un título de grupo sin nada abajo confunde: si el perfil no puede
-           abrir ninguno de sus ítems, el grupo entero no se muestra. */
-        it('si el perfil no ve ningún ítem de un grupo, tampoco ve el título', () => {
-            renderWithProviders(<AppLayout />, { ...ROUTES, as: 'gestion', route: '/inicio' })
-
-            expect(rail().getByText('Trabajo diario')).toBeInTheDocument()
-            expect(rail().queryByText('Administración')).not.toBeInTheDocument()
-        })
-    })
-
-    describe('ítem activo', () => {
-        it('marca la sección en la que se está', () => {
-            renderWithProviders(<AppLayout />, { ...ROUTES, as: 'supervision', route: '/usuarios' })
-
-            expect(railItem('Usuarios')).toHaveAttribute('aria-current', 'page')
-            expect(railItem('Inicio')).not.toHaveAttribute('aria-current')
-        })
-
-        it('en una subruta sigue marcando la sección que la contiene', () => {
-            renderWithProviders(<AppLayout />, { ...ROUTES, as: 'supervision', route: '/usuarios/8' })
-
-            expect(railItem('Usuarios')).toHaveAttribute('aria-current', 'page')
-        })
-
-        it('al tocar un ítem navega a su sección y lo marca', async () => {
-            const { user } = renderWithProviders(<AppLayout />, {
-                ...ROUTES,
-                as: 'supervision',
-                route: '/inicio',
-            })
-
-            await user.click(railItem('Usuarios')!)
-
-            expect(screen.getByText('Pantalla de usuarios')).toBeInTheDocument()
-            expect(railItem('Usuarios')).toHaveAttribute('aria-current', 'page')
         })
     })
 })

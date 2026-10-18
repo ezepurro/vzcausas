@@ -14,7 +14,7 @@
   justify-content: space-between;
   gap: 14px;
   flex-wrap: wrap;
-  padding: 14px 18px;
+  padding: 14px var(--vz-panel-pad);
   border-bottom: 1px solid var(--vz-border);
   background: var(--vz-sunken);
 }
@@ -22,7 +22,7 @@
 .vz-panel__sub { font-size: 12px; color: var(--vz-muted); margin-top: 2px; }
 
 .vz-panel__foot {
-  padding: 12px 18px;
+  padding: 12px var(--vz-panel-pad);
   border-top: 1px solid var(--vz-border);
   font-size: 12px;
   color: var(--vz-muted);
@@ -33,6 +33,8 @@
 
 .vz-table {
   width: 100%;
+  /* Lo fija cada tabla (`minWidth` de DataTable). */
+  min-width: var(--vz-table-min, 0);
   border-collapse: collapse;
   font-size: 13.5px;
 }
@@ -128,3 +130,152 @@
 
 /* Varios `Pill` en una misma celda: roles, etiquetas. Envuelven si no entran. */
 .vz-pills { display: flex; flex-wrap: wrap; gap: 5px; }
+
+/* Cuerpo con aire: un panel que envuelve un formulario o una ficha, y no una
+   tabla que va de borde a borde. */
+.vz-panel__body { padding: var(--vz-panel-pad); }
+
+/* ─────────── pares etiqueta–valor ─────────── */
+.vz-details { margin: 0; display: flex; flex-direction: column; }
+.vz-details__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--vz-border);
+  font-size: 13px;
+}
+.vz-details__row:first-child { padding-top: 0; }
+.vz-details__row:last-child { border-bottom: none; padding-bottom: 0; }
+.vz-details__label { color: var(--vz-muted); }
+/* Segundo renglón, apagado, debajo de la etiqueta o del valor. */
+.vz-details__note { display: block; margin-top: 2px; font-size: 11.5px; font-weight: 400; color: var(--vz-faint); }
+.vz-details__value {
+  margin: 0;
+  font-weight: 700;
+  color: var(--vz-ink);
+  text-align: right;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* ─────────── barra de medida ─────────── */
+.vz-meter {
+  height: 6px;
+  border: 1px solid var(--vz-border);
+  border-radius: 3px;
+  background: var(--vz-sunken);
+  overflow: hidden;
+}
+.vz-meter__fill { height: 100%; transition: width .2s ease; }
+.vz-meter--primary .vz-meter__fill { background: var(--vz-primary); }
+.vz-meter--warn .vz-meter__fill { background: var(--vz-warn-mark); }
+.vz-meter--danger .vz-meter__fill { background: var(--vz-danger-action); }
+
+/* Un número con su barra al lado, en una celda: la carga de causas de un
+   abogado. El número tiene ancho fijo para que las barras arranquen parejas. */
+.vz-load { display: flex; align-items: center; gap: 10px; }
+.vz-load__count { flex: 0 0 2.5ch; text-align: right; }
+.vz-load__bar { flex: 1; max-width: 160px; }
+
+/* ─────────── pantallas angostas ─────────── */
+
+/* Sin cursor no hay "entrar en la fila": las acciones se ven siempre. */
+@media (hover: none) {
+  .vz-table__actions .vz-btn { opacity: 1; }
+}
+
+/* La tabla ya no entra con su ancho mínimo: lo suelta, y las columnas que la
+   pantalla marcó como prescindibles (`hideWhenNarrow`) se van. Si aun así no
+   entra, scrollea dentro del panel. */
+@media (max-width: 1180px) {
+  .vz-table { min-width: 0; }
+  .vz-table .vz-table__hide-narrow { display: none; }
+}
+
+/* Mientras sigue siendo tabla, se aprieta para entrar sin scroll: menos aire
+   entre columnas, y el estado procesal puede partirse en dos renglones. */
+@media (min-width: 721px) and (max-width: 1180px) {
+  .vz-table th,
+  .vz-table td { padding-left: 10px; padding-right: 10px; }
+  .vz-table th:first-child,
+  .vz-table td:first-child { padding-left: 16px; }
+  .vz-table th:last-child,
+  .vz-table td:last-child { padding-right: 16px; }
+  .vz-table__cell--primary { min-width: 160px; }
+  .vz-table td { overflow-wrap: anywhere; }
+  .vz-table .vz-pill { white-space: normal; }
+}
+
+/* Teléfono: cada fila es una tarjeta. La cabecera se va y cada celda lleva
+   arriba el nombre de su columna, que DataTable deja en `data-label`. La
+   columna principal encabeza la tarjeta y las acciones la cierran, las dos a
+   todo el ancho; el resto se reparte de a dos. */
+@media (max-width: 720px) {
+  .vz-table,
+  .vz-table tbody { display: block; width: 100%; }
+  .vz-table thead { display: none; }
+
+  .vz-table tr {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px 16px;
+    padding: 14px var(--vz-panel-pad);
+    border-bottom: 1px solid var(--vz-border);
+  }
+  .vz-table tbody tr:last-child { border-bottom: none; }
+
+  .vz-table td {
+    display: block;
+    min-width: 0;
+    padding: 0;
+    border-bottom: none;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  /* Una celda sin dato no deja su rótulo colgado. */
+  .vz-table td:empty { display: none; }
+  .vz-table td::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 4px;
+    font-family: var(--vz-font);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    line-height: 1.2;
+    text-transform: uppercase;
+    color: var(--vz-faint);
+  }
+
+  .vz-table .vz-table__cell--primary,
+  .vz-table .vz-table__cell--actions { grid-column: 1 / -1; }
+  .vz-table .vz-table__cell--primary { order: -1; font-size: 14.5px; }
+  .vz-table .vz-table__cell--primary::before,
+  .vz-table .vz-table__cell--actions::before { display: none; }
+
+  /* Un estado procesal largo parte en dos renglones en vez de salirse. */
+  .vz-table .vz-pill { white-space: normal; }
+
+  /* Las acciones dejan de ser texto callado: son botones que se tocan. */
+  .vz-table__actions { justify-content: flex-start; flex-wrap: wrap; gap: 6px; }
+  .vz-table__actions .vz-btn {
+    flex: 1 1 auto;
+    height: 34px;
+    opacity: 1;
+    border-color: var(--vz-border-strong);
+    color: var(--vz-ink);
+  }
+  .vz-table__actions .vz-btn--ghost-danger { border-color: var(--vz-danger-action-bd); color: var(--vz-danger-action); }
+
+  /* Filtros: el buscador a todo el ancho y los desplegables de a dos. */
+  .vz-panel__head > .vz-filters { flex: 1 1 100%; gap: 8px; }
+  .vz-filters .vz-search { flex: 1 1 100%; min-width: 0; max-width: none; }
+  .vz-filters .vz-input,
+  .vz-filters .vz-select,
+  .vz-filters .vz-btn { flex: 1 1 calc(50% - 4px); min-width: 0; }
+  .vz-filters .vz-btn { padding: 0 10px; }
+
+  .vz-pager { justify-content: center; }
+}

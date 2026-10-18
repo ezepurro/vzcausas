@@ -37,7 +37,7 @@ export function validateUser(
     const errors: UserFormErrors = {}
 
     if (!values.fullName.trim()) {
-        errors.fullName = 'El nombre y apellido es obligatorio.'
+        errors.fullName = 'El apellido y nombre es obligatorio.'
     }
 
     const username = values.username.trim()
@@ -112,7 +112,7 @@ function validateLawyerLink(
     const errors: UserFormErrors = {}
 
     if (!values.lawyerFullName.trim()) {
-        errors.lawyerFullName = 'El nombre y apellido del abogado es obligatorio.'
+        errors.lawyerFullName = 'El apellido y nombre del abogado es obligatorio.'
     }
 
     const registrationNumber = values.registrationNumber.trim()

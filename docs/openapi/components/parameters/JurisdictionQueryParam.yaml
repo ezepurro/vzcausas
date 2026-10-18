@@ -1,0 +1,6 @@
+name: jurisdiction
+in: query
+required: false
+description: Filtra por fuero. Un valor inexistente responde `400 INVALID_REQUEST`.
+schema:
+  $ref: ../schemas/Jurisdiction.yaml

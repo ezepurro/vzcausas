@@ -1,0 +1,60 @@
+type: object
+description: |
+  **Vínculo con la ficha profesional.** `lawyerId` y `lawyer` son
+  **mutuamente excluyentes**: se envía uno de los dos, nunca ambos.
+
+  - Si `roles` incluye `LAWYER`, **debe enviarse uno de los dos**.
+  - Si `roles` no incluye `LAWYER`, no debe enviarse ninguno.
+
+  Cuando se envía `lawyer`, el registro del abogado y el del usuario se
+  realizan en una única transacción: si alguna de las dos operaciones falla,
+  ninguna se persiste.
+additionalProperties: false
+required:
+  - username
+  - fullName
+  - email
+  - password
+  - roles
+properties:
+  username:
+    type: string
+    description: Entre 3 y 30 caracteres; letras, números, punto, guión y guión bajo. Único.
+    pattern: '^[A-Za-z0-9._-]{3,30}$'
+    examples:
+      - iperalta
+  fullName:
+    type: string
+    minLength: 1
+    examples:
+      - Ignacio Peralta
+  email:
+    type: string
+    format: email
+    description: Único.
+    examples:
+      - iperalta@vazquezzarate.com
+  password:
+    type: string
+    format: password
+    description: Mínimo 8 caracteres, con al menos un número.
+    minLength: 8
+    pattern: '[0-9]'
+    examples:
+      - password1
+  roles:
+    type: array
+    minItems: 1
+    uniqueItems: true
+    items:
+      $ref: ./Role.yaml
+    examples:
+      - - LAWYER
+  lawyerId:
+    type: integer
+    minimum: 1
+    description: Identificador de un abogado ya registrado. Excluyente con `lawyer`.
+    examples:
+      - 4
+  lawyer:
+    $ref: ./LawyerCreate.yaml

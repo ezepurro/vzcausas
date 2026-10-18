@@ -22,7 +22,7 @@ export function DeleteUserModal({ user, saving, onConfirm, onCancel }: DeleteUse
             sub={`${user.fullName} · ${user.username}`}
             tone="danger"
             width="sm"
-            note="El usuario sera eliminado. Las causas donde figure como responsable hay que reasignarlas."
+            note="El usuario sera eliminado. Las causas donde figure como responsable deben reasignarse."
             values={{}}
             onChange={() => {}}
             okLabel="Eliminar"

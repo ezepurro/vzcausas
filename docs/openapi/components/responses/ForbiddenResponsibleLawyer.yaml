@@ -1,0 +1,12 @@
+description: |
+  El usuario autenticado no es el abogado responsable de la causa. Aplica
+  aunque tenga el rol `LAWYER` o `ADMINISTRATOR`.
+content:
+  application/json:
+    schema:
+      $ref: ../schemas/Error.yaml
+    example:
+      error:
+        code: FORBIDDEN
+        message: Solo el abogado responsable de la causa puede registrar actos procesales.
+        details: null

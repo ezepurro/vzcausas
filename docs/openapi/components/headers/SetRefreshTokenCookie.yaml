@@ -1,0 +1,8 @@
+description: |
+  Cookie del refresh token. El refresh viaja **solo** en esta cookie, nunca
+  en el cuerpo. El atributo `Path` la restringe a los endpoints de `/auth`.
+  En despliegues donde el frontend y la API no comparten origen, `SameSite`
+  pasa a `None` y exige `Secure`.
+schema:
+  type: string
+example: refresh_token=<valor opaco>; HttpOnly; Secure; SameSite=Lax; Path=/api/v1/auth; Expires=<7 días>

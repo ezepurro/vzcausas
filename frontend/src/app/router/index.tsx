@@ -7,9 +7,16 @@ import { RedirectIfSession } from '@/app/router/RedirectIfSession'
 import { LoginPage } from '@/features/auth/pages/LoginPage'
 import { HomePage } from '@/features/home/pages/HomePage'
 import { ProceduralStatesPage } from '@/features/legal-params/pages/ProceduralStatesPage'
+import { LegalQualificationsPage } from '@/features/legal-params/pages/LegalQualificationsPage'
 import { UsersPage } from '@/features/users/pages/UsersPage'
 import { LawyersPage } from '@/features/lawyers/pages/LawyersPage'
+import { RegisterProceduralActPage } from '@/features/proceedings/pages/RegisterProceduralActPage'
 import { RequireAccess } from '@/app/router/RequireAccess'
+import { ClientsPage } from '@/features/clients/pages/ClientsPage'
+import { RegisterCasePage } from '@/features/cases/pages/RegisterCasePage'
+import { CaseDetailPage } from '@/features/cases/pages/CaseDetailPage'
+import { CasesPage } from '@/features/cases/pages/CasesPage'
+
 
 export const router = createBrowserRouter([
     {
@@ -34,9 +41,16 @@ export const router = createBrowserRouter([
                         element: <RequireAccess />,
                         children: [
                             { path: 'inicio', element: <HomePage /> },
+                            { path: 'clientes', element: <ClientsPage />},
                             { path: 'estados-y-plazos', element: <ProceduralStatesPage /> },
+                            { path: 'calificaciones-legales', element: <LegalQualificationsPage /> },
                             { path: 'usuarios', element: <UsersPage /> },
                             { path: 'abogados', element: <LawyersPage /> },
+                            { path : 'causas', element: <CasesPage />},
+                            { path: 'causas/nueva', element: <RegisterCasePage /> },
+                            { path: 'causas/:caseId', element: <CaseDetailPage /> },
+                            { path: 'causas/:caseId/acto', element: <RegisterProceduralActPage /> },
+
                         ],
                     },
                 ],
