@@ -278,46 +278,48 @@ Resuelve R-01 (`ARQUITECTURA_BACKEND_V1.md:683`). Decidido con mmachuca el
   pase a ser solo informativo (para monitoreo), no un guard que bloquee
   corridas repetidas.
 
-## Envío de correo: Gmail API — OJO, hay una pregunta abierta sobre dónde vive el OAuth
+## Envío de correo: Gmail API — OAuth resuelto (N-10), lo construyo yo
 
-**Pendiente de confirmar con el compañero (QN-05 en la bitácora):** él
-mencionó que "lo de OAuth" lo va a hacer en `shared/`. Puede significar dos
-cosas muy distintas:
+**QN-05 resuelta con mmachuca el 18/10/2026.** Era la pregunta sobre qué
+significaba "lo de OAuth lo hago en `shared/`" que había dejado el
+compañero. Dos lecturas posibles:
 
-1. **Mecánica compartida, credenciales propias por subsistema** — una función
-   genérica tipo "dame `clientId`/`clientSecret`/`refreshToken` y te devuelvo
-   un cliente de `googleapis` autenticado", sin saber si es para Drive o para
-   Gmail. Es lo más consistente con la regla de admisión a `shared/`
-   (`ARQUITECTURA_BACKEND_V1.md:536`: "genuinamente transversal y libre de
-   reglas de negocio", mismo criterio que `PrismaService`). Si es esto,
-   **todo lo de abajo sigue igual** — solo cambia que no escribo a mano el
-   `new google.auth.OAuth2(...)`, se lo pido a la función compartida.
+1. Mecánica compartida, credenciales propias por subsistema (más consistente
+   con `ARQUITECTURA_BACKEND_V1.md:536`, mismo criterio que `PrismaService`).
 2. **Una sola autorización con los dos scopes juntos** (`drive.file` +
-   `gmail.send`, un solo refresh token para toda la app). Si es esto, **no
-   necesito mi propio proyecto de Google Cloud** — solo pedirle que incluya
-   `gmail.send` en lo que ya está armando, y consumir el cliente que él
-   expone. Esto reescribe `N-03` y el ADR.
+   `gmail.send`, un solo refresh token para toda la app).
 
-**No asumir ninguna de las dos. Preguntarle directo y actualizar esta sección
-y la bitácora con la respuesta antes de escribir el adaptador (paso 9 del
-plan).**
+**Se eligió la opción 2.** Y con un cambio más: **lo construyo yo (mmachuca),
+no el compañero.** El compañero no arrancó ni su mitad de detección
+(HU51/HU52) ni Drive, y acordó que lo que yo construya ahora, él lo acopla
+después. Esto reescribe `N-03` y `ADR-004_EMAIL_GMAIL_API.md` (ya aplicado).
 
-Lo que sigue abajo describe la opción 1 (cliente propio), que es la decisión
-tomada *hasta que se confirme lo contrario*:
+Resumen de lo que cambia respecto a la primera versión de esta sección:
 
-Ver `ADR-004_EMAIL_GMAIL_API.md` completo (corregido el 18/10/2026: no
-depende de Drive, que es de otro integrante y no existe en el código todavía).
-Resumen:
-
-- Cliente OAuth **propio** de `deadlines`, con el único scope `gmail.send`.
-  No reusa nada de Drive porque no hay nada de Drive construido.
-- Variables nuevas: `GMAIL_OAUTH_CLIENT_ID`, `GMAIL_OAUTH_CLIENT_SECRET`,
-  `GMAIL_OAUTH_REFRESH_TOKEN`, `MANAGEMENT_MAILBOX`. No existen todavía en
-  ningún `.env` — hay que agregarlas.
-- Script de puesta en marcha: `npm run gmail:authorize`, a crear.
-- Puerto: `EmailSenderPort` en `deadlines/core/domain/ports/`.
+- **No hay cliente OAuth propio de `deadlines`.** Hay un único cliente,
+  compartido, en `shared/infrastructure/google/` (diseño exacto — nombre de
+  clase, de módulo — a confirmar con mmachuca antes de escribirlo, paso 8bis
+  del plan).
+- Variables: `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`,
+  `GOOGLE_OAUTH_REFRESH_TOKEN` (mismos nombres que `ADR-003_GOOGLE_DRIVE.md`
+  ya preveía para Drive — ya no hace falta el prefijo `GMAIL_*` para evitar
+  pisarlas, porque son la misma variable) y `MANAGEMENT_MAILBOX` (esta sí
+  propia de `deadlines`, es el remitente). Ninguna existe todavía en ningún
+  `.env` — hay que agregarlas.
+- Script de puesta en marcha: **uno solo**, `npm run google:authorize`, pide
+  los dos scopes juntos. Reemplaza a los `drive:authorize` / `gmail:authorize`
+  separados que se habían planteado antes.
+- Puerto: `EmailSenderPort` en `deadlines/core/domain/ports/` — sin cambios,
+  sigue siendo lo único que `deadlines/core` conoce de esto.
 - Adaptador: `GmailApiEmailAdapter` en `deadlines/infrastructure/external/`,
-  con `googleapis` (dependencia nueva a instalar, todavía no está).
+  con `googleapis` (dependencia nueva a instalar, todavía no está). Consume
+  el cliente de `shared/infrastructure/google/` igual que cualquier adaptador
+  de infraestructura consume `PrismaService` — no construye su propio
+  `OAuth2Client`.
+
+Ver `ADR-004_EMAIL_GMAIL_API.md` completo para el detalle y las consecuencias
+(un solo refresh token para Drive y Gmail: si se revoca, se caen los dos
+juntos — asumido y documentado, no es un olvido).
 
 ## A quién se manda (CA-30.4, CA-30.5, CA-32.4)
 
@@ -337,7 +339,8 @@ Resumen:
 ## Pendientes, en orden de bloqueo
 
 1. **Acordar con el compañero** la forma real de `UpcomingDeadlineNotice` y
-   `PrescriptionNotice` (la de arriba es una propuesta, no un acuerdo).
+   `PrescriptionNotice` (la de arriba se adoptó como hipótesis de trabajo el
+   18/10/2026 — N-11 — para no bloquearse, pero no es un acuerdo cerrado).
 2. **Acordar quién escribe el endpoint del disparo diario**, porque invoca
    las dos mitades, y qué pasa con `daily_job_runs` ahora que el disparo es
    varias veces por día (ver "Disparo diario" arriba).
@@ -346,5 +349,7 @@ Resumen:
    `docs/support/cambios-bdd-sprint3.md:248`) la prepara él cuando lleguemos
    a esa parte del plan — no generar el SQL todavía, esto es solo la
    decisión de forma.
-4. Crear mi propio proyecto de Google Cloud + cliente OAuth + script
-   `gmail:authorize`, scopeado solo a `gmail.send` (ADR-004).
+4. Crear el proyecto de Google Cloud + cliente OAuth único (`drive.file` +
+   `gmail.send`) + script `google:authorize` en `shared/infrastructure/google/`
+   (N-10, ADR-004 §2.1) — a cargo de mmachuca ahora; diseño exacto a
+   confirmar antes de escribirlo.
