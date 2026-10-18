@@ -1,0 +1,38 @@
+type: object
+description: '"Mi día", el tablero del abogado (HU41, V4 §3.11).'
+required:
+  - date
+  - lawyer
+  - summary
+  - deadlines
+  - prescriptionAlerts
+  - casesToAdvance
+properties:
+  date:
+    type: string
+    format: date
+    description: Fecha del día en Córdoba, contra la que se calculó todo.
+  lawyer:
+    $ref: ./UserSummary.yaml
+  summary:
+    $ref: ./DashboardSummary.yaml
+  deadlines:
+    type: array
+    description: Sus plazos abiertos, por urgencia (`dueDate` ascendente).
+    items:
+      $ref: ./DashboardDeadline.yaml
+  prescriptionAlerts:
+    type: array
+    description: |
+      Sus causas penales con el 70 % o más del plazo de prescripción
+      transcurrido. **Vacía hasta que HU52 calcule el resumen de
+      prescripción** (ex CA-41.8).
+    items:
+      type: object
+  casesToAdvance:
+    type: array
+    description: |
+      Sus causas activas sin vencimiento abierto. Primero las que no tienen
+      actos; después, las que llevan más tiempo sin movimiento.
+    items:
+      $ref: ./CaseToAdvance.yaml

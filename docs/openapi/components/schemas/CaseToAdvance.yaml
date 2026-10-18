@@ -1,0 +1,35 @@
+type: object
+description: '"Causas para impulsar": una causa activa sin vencimiento abierto.'
+required:
+  - caseId
+  - sacNumber
+  - caption
+  - jurisdiction
+  - currentStateName
+  - lastActDate
+  - daysSinceLastAct
+properties:
+  caseId:
+    type: integer
+  sacNumber:
+    type:
+      - string
+      - 'null'
+  caption:
+    type: string
+  jurisdiction:
+    $ref: ./Jurisdiction.yaml
+  currentStateName:
+    type: string
+    description: '"Iniciada" si la causa no tiene actos.'
+  lastActDate:
+    type:
+      - string
+      - 'null'
+    format: date
+    description: Fecha del acto procesal o interruptivo más reciente. `null` si no tiene ninguno.
+  daysSinceLastAct:
+    type:
+      - integer
+      - 'null'
+    description: Días corridos desde `lastActDate` hasta hoy. `null` si no tiene actos.

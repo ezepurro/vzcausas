@@ -1,0 +1,64 @@
+get:
+  tags:
+    - Dashboards
+  operationId: getLawyerDashboard
+  summary: Tablero del abogado
+  description: |
+    "Mi día" (HU41): los plazos, las causas para impulsar y los indicadores
+    de las causas de las que el usuario es responsable, calculados en una sola
+    petición contra la fecha del día en Córdoba. Las listas no se paginan.
+
+    Siempre es el tablero del propio usuario (su `lawyerId`): no recibe
+    parámetros. Solo cuentan las causas activas.
+
+    **Rol requerido:** `LAWYER`, con una ficha de abogado vinculada.
+  responses:
+    '200':
+      description: Tablero del abogado.
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - data
+            properties:
+              data:
+                $ref: ../components/schemas/LawyerDashboard.yaml
+          example:
+            data:
+              date: '2026-09-15'
+              lawyer:
+                id: 1
+                lastName: Vázquez
+                firstName: Fernando G.
+              summary:
+                dueToday: 1
+                overdue: 0
+                dueSoon: 0
+                activeCases: 14
+              deadlines:
+                - caseId: 6
+                  kind: PROCEDURAL_ACT
+                  sacNumber: '12774310'
+                  caption: MOYANO, Daniela c/ APROSS — Amparo de salud
+                  jurisdiction: AMPARO
+                  currentStateName: Traslado a la demandada
+                  responsibleLawyer:
+                    id: 1
+                    lastName: Vázquez
+                    firstName: Fernando G.
+                  dueDate: '2026-09-15'
+                  businessDaysRemaining: 0
+              prescriptionAlerts: []
+              casesToAdvance:
+                - caseId: 4
+                  sacNumber: '11845620'
+                  caption: ACOSTA, Jonathan E. p.s.a. Infracción Ley 23.737
+                  jurisdiction: CRIMINAL
+                  currentStateName: Cédula de notificación
+                  lastActDate: '2026-07-06'
+                  daysSinceLastAct: 71
+    '401':
+      $ref: ../components/responses/Unauthorized.yaml
+    '403':
+      $ref: ../components/responses/ForbiddenLawyer.yaml

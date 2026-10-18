@@ -1,0 +1,10 @@
+description: El usuario autenticado no tiene el rol `LAWYER` o no tiene una ficha de abogado vinculada.
+content:
+  application/json:
+    schema:
+      $ref: ../schemas/Error.yaml
+    example:
+      error:
+        code: FORBIDDEN
+        message: Se requiere el rol LAWYER para realizar esta operación.
+        details: null
