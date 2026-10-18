@@ -26,7 +26,8 @@ export interface DeleteProceduralStateModalProps {
 export function DeleteProceduralStateModal({
     state, saving, onConfirm, onCancel,
 }: DeleteProceduralStateModalProps) {
-    const inUse = state.activeCases > 0;
+    // Cuenta todas las causas del estado, activas o no (V4 D-70).
+    const inUse = state.caseCount > 0;
 
     return (
         <FormModal
@@ -36,7 +37,7 @@ export function DeleteProceduralStateModal({
             width="sm"
             note={
                 inUse
-                    ? `Hay ${state.activeCases === 1 ? '1 causa' : `${state.activeCases} causas`} en este estado. Al eliminarlo dejan de poder avanzar a él, pero conservan el estado que ya tienen registrado.`
+                    ? `Hay ${state.caseCount === 1 ? '1 causa' : `${state.caseCount} causas`} en este estado. Al eliminarlo dejan de poder avanzar a él, pero conservan el estado que ya tienen registrado.`
                     : 'Este estado no tiene causas asociadas.'
             }
             values={{}}

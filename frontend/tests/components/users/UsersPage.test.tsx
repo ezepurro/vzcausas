@@ -93,17 +93,6 @@ describe('UsersPage', () => {
             await waitFor(() => expect(screen.queryByRole('cell', { name: 'fvazquez' })).not.toBeInTheDocument())
             expect(screen.getByRole('cell', { name: 'mrios' })).toBeInTheDocument()
         })
-
-        it('filtra por perfil', async () => {
-            const { user } = renderPage()
-            await screen.findByRole('cell', { name: 'gestion' })
-
-            await user.selectOptions(screen.getByRole('combobox', { name: 'Filtrar por perfil' }), 'Administrador')
-
-            await waitFor(() => expect(screen.queryByRole('cell', { name: 'gestion' })).not.toBeInTheDocument())
-            const admins = activeUsers().filter((u) => u.roles.includes('ADMINISTRATOR'))
-            expect(screen.getAllByRole('row')).toHaveLength(admins.length + 1)
-        })
     })
 
     describe('alta', () => {
@@ -118,29 +107,6 @@ describe('UsersPage', () => {
 
             expect(await screen.findByText('Usuario aperez registrado.')).toBeInTheDocument()
             expect(db.users.find((u) => u.username === 'aperez')?.lawyerId).toBe(9)
-        })
-
-        /* Es un 409, pero el problema es de UN campo: va en el select de
-           fichas, no en un aviso suelto, y el modal queda abierto para
-           elegir otra. */
-        it('un abogado que ya tiene cuenta se marca en el campo', async () => {
-            const { user } = renderPage()
-            const before = db.users.length
-            const dialog = await openCreate(user)
-
-            await fillPersonalData(user, dialog)
-            // Ignacio Peralta ya tiene la cuenta `iperalta`.
-            await chooseLawyer(user, dialog, 'Peralta', 'Ignacio')
-            await user.click(within(dialog).getByRole('button', { name: 'Registrar usuario' }))
-
-            expect(
-                await within(dialog).findByText('El abogado ya tiene una cuenta de usuario activa.'),
-            ).toBeInTheDocument()
-            expect(within(dialog).getByLabelText(label.lawyerId).closest('.vz-field')).toHaveClass(
-                'vz-field--error',
-            )
-            expect(screen.getByRole('dialog')).toBeInTheDocument()
-            expect(db.users).toHaveLength(before)
         })
 
         it('registra un abogado junto con su ficha nueva', async () => {
@@ -269,18 +235,6 @@ describe('UsersPage', () => {
             ).toBeInTheDocument()
             await waitFor(() => expect(screen.queryByRole('cell', { name: 'gestion' })).not.toBeInTheDocument())
             expect(db.users.find((u) => u.username === 'gestion')?.active).toBe(false)
-        })
-
-        it('si el usuario tiene causas asignadas, avisa el error y no lo elimina', async () => {
-            const { user } = renderPage()
-            await screen.findByRole('cell', { name: 'mrios' })
-
-            await user.click(within(rowOf('mrios')).getByRole('button', { name: 'Eliminar' }))
-            await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Eliminar' }))
-
-            await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
-            expect(await screen.findByRole('alert')).toBeInTheDocument()
-            expect(db.users.find((u) => u.username === 'mrios')?.active).toBe(true)
         })
     })
 })

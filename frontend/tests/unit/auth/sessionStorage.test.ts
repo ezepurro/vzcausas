@@ -9,10 +9,11 @@ import type { AuthUser, RefreshedSession, Session } from '@/features/auth/types/
 const USER: AuthUser = {
     id: 1,
     username: 'fvazquez',
-    fullName: 'Fernando G. Vázquez',
+    lastName: 'Vázquez',
+    firstName: 'Fernando G.',
     email: 'fvazquez@vazquezzarate.com',
     roles: ['ADMINISTRATOR', 'LAWYER'],
-    lawyer: { id: 1, fullName: 'Dr. Fernando G. Vázquez', registrationNumber: '1-28114' },
+    lawyer: { id: 1, lastName: 'Vázquez', firstName: 'Fernando G.', registrationNumber: '1-28114' },
     lastLoginAt: '2026-09-19T08:12:00-03:00',
     active: true,
 }

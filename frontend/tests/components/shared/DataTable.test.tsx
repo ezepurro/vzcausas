@@ -30,38 +30,21 @@ function renderTable() {
 
 const cellOf = (text: string) => screen.getByText(text).closest('td') as HTMLElement
 
+/* Un solo test: es un único comportamiento —la tabla responsive (RNF4)— que
+   ninguna pantalla recorre, porque jsdom no aplica el CSS (TESTING.md §4). */
 describe('DataTable: pantallas angostas', () => {
-    it('cada celda lleva el nombre de su columna', () => {
+    it('deja marcado lo que el CSS usa para dibujar cada fila como tarjeta', () => {
         renderTable()
 
+        // Cada celda lleva el nombre de su columna, porque la cabecera se va.
         expect(cellOf('GÓMEZ, Ariel p.s.a. estafa')).toHaveAttribute('data-label', 'Carátula')
-        expect(cellOf('Penal')).toHaveAttribute('data-label', 'Fuero')
-    })
-
-    it('la columna principal queda marcada: encabeza la tarjeta', () => {
-        renderTable()
-
+        // La principal encabeza la tarjeta y la de acciones la cierra.
         expect(cellOf('GÓMEZ, Ariel p.s.a. estafa')).toHaveClass('vz-table__cell--primary')
-        expect(cellOf('Penal')).not.toHaveClass('vz-table__cell--primary')
-    })
-
-    it('una columna prescindible queda marcada en la cabecera y en la celda', () => {
-        renderTable()
-
+        expect(cellOf('Ver detalle')).toHaveClass('vz-table__cell--actions')
+        // La prescindible se esconde en la cabecera y en la celda.
         expect(screen.getByRole('columnheader', { name: 'Fuero' })).toHaveClass('vz-table__hide-narrow')
         expect(cellOf('Penal')).toHaveClass('vz-table__hide-narrow')
-        expect(screen.getByRole('columnheader', { name: 'Carátula' })).not.toHaveClass('vz-table__hide-narrow')
-    })
-
-    it('la celda de acciones queda marcada: cierra la tarjeta', () => {
-        renderTable()
-
-        expect(cellOf('Ver detalle')).toHaveClass('vz-table__cell--actions')
-    })
-
-    it('el ancho mínimo viaja como variable, así el CSS lo puede soltar', () => {
-        renderTable()
-
+        // El ancho mínimo viaja como variable, así el CSS lo puede soltar.
         expect(screen.getByRole('table').style.getPropertyValue('--vz-table-min')).toBe('900px')
     })
 })

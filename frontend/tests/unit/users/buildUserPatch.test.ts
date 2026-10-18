@@ -5,17 +5,19 @@ import { LAWYER_MODES, type User, type UserFormValues } from '@/features/users/t
 const ORIGINAL: User = {
     id: 1,
     username: 'fvazquez',
-    fullName: 'Fernando G. Vázquez',
+    lastName: 'Vázquez',
+    firstName: 'Fernando G.',
     email: 'fvazquez@vazquezzarate.com',
     roles: ['ADMINISTRATOR', 'LAWYER'],
-    lawyer: { id: 1, fullName: 'Dr. Fernando G. Vázquez', registrationNumber: '1-28114' },
+    lawyer: { id: 1, lastName: 'Vázquez', firstName: 'Fernando G.', registrationNumber: '1-28114' },
     lastLoginAt: null,
     active: true,
 }
 
 /** Lo que precarga el formulario al abrir la edición de ORIGINAL. */
 const UNCHANGED: UserFormValues = {
-    fullName: 'Fernando G. Vázquez',
+    lastName: 'Vázquez',
+    firstName: 'Fernando G.',
     username: 'fvazquez',
     email: 'fvazquez@vazquezzarate.com',
     password: '',
@@ -25,7 +27,6 @@ const UNCHANGED: UserFormValues = {
     roleSecretary: false,
     lawyerMode: LAWYER_MODES.link,
     lawyerId: '1',
-    lawyerFullName: '',
     registrationNumber: '',
 }
 

@@ -3,7 +3,7 @@
  * El backend las vuelve a verificar: validar acá es para no gastar un viaje al
  * servidor y para decir qué campo está mal, no para reemplazarlo.
  *
- * Los límites son los del cuerpo de `POST /cases` (V3 §3.7).
+ * Los límites son los del cuerpo de `POST /cases` (V4 §3.7).
  */
 
 import { parseDateOnly, todayIsoDate } from '@/shared/lib/dates'
@@ -116,6 +116,20 @@ export function validateCase(values: CaseFormValues): CaseFormErrors {
         }
     }
 
+    if (values.jurisdiction === 'AMPARO') {
+        Object.assign(errors, validateHarmfulAct(values, today))
+    }
+
+    // Agotamiento de la vía administrativa: opcional y no futura (V4 D-67).
+    const exhaustedOn = values.administrativeRemedyExhaustedOn.trim()
+    if (values.jurisdiction === 'ADMINISTRATIVE' && exhaustedOn) {
+        if (!parseDateOnly(exhaustedOn)) {
+            errors.administrativeRemedyExhaustedOn = 'La fecha no es válida.'
+        } else if (exhaustedOn > today) {
+            errors.administrativeRemedyExhaustedOn = 'No puede ser posterior a hoy.'
+        }
+    }
+
     if (!values.responsibleLawyerId) {
         errors.responsibleLawyerId = 'Elegí el abogado responsable.'
     }
@@ -135,6 +149,39 @@ export function validateCase(values: CaseFormValues): CaseFormErrors {
     }
 
     return errors
+}
+
+/**
+ * El acto lesivo del amparo (V4 D-67, D-78). Todo es opcional, pero si se
+ * carga la fecha hacen falta el plazo para presentar el amparo y cómo se
+ * cuentan sus días; y si el acto se renueva, cada cuántos días.
+ */
+function validateHarmfulAct(values: CaseFormValues, today: string): CaseFormErrors {
+    const errors: CaseFormErrors = {}
+    const date = values.harmfulActDate.trim()
+    if (!date) return errors
+
+    if (!parseDateOnly(date)) {
+        errors.harmfulActDate = 'La fecha del acto lesivo no es válida.'
+    } else if (date > today) {
+        errors.harmfulActDate = 'No puede ser posterior a hoy.'
+    }
+
+    if (!isPositiveInteger(values.harmfulActTermDays)) {
+        errors.harmfulActTermDays = 'Indicá el plazo para presentar el amparo, en días.'
+    }
+
+    if (values.harmfulActRenews && !isPositiveInteger(values.harmfulActRenewalDays)) {
+        errors.harmfulActRenewalDays = 'Indicá cada cuántos días se renueva el acto lesivo.'
+    }
+
+    return errors
+}
+
+/** Un entero mayor o igual a 1, escrito como texto. */
+function isPositiveInteger(text: string): boolean {
+    const value = text.trim()
+    return /^\d+$/.test(value) && Number(value) >= 1
 }
 
 /** `true` si no hay ningún error. Evita repetir el `Object.keys` en la pantalla. */

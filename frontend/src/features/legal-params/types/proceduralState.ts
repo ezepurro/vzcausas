@@ -35,7 +35,10 @@ export const DAY_TYPE_LABELS: Record<DayType, string> = {
 export const SELECTABLE_DAY_TYPES = ['BUSINESS', 'CONSECUTIVE'] as const;
 
 /**
- * El recurso tal como viene adentro de `data` en un `GET`.
+ * El recurso tal como viene adentro de `data` en un `GET` (V4 §3.4).
+ *
+ * El fuero penal incluye además "Prescripta", un estado de sistema terminal y
+ * protegido (V4 D-53): ver `utils/systemStates`.
  *
  * No tiene posición: los estados no tienen orden dentro del fuero y el backend
  * los lista en el orden en que se registraron (V3 D-31).
@@ -54,20 +57,22 @@ export interface ProceduralState {
     /** Cierra el ciclo de vida de la causa. */
     terminal: boolean;
     /**
-     * Causas activas que están hoy en este estado. Calculado; `0` en un estado
-     * terminal. Viene sólo en las respuestas de `GET` (V3 D-32).
+     * Causas que están hoy en este estado, **activas o no**: también las que
+     * están en un estado terminal, como "Archivada" o "Prescripta". No cuenta
+     * las dadas de baja. Calculado; viene sólo en las respuestas de `GET`.
+     * Desde V4 reemplaza a `activeCases` (D-70).
      */
-    activeCases: number;
+    caseCount: number;
     /** La baja es lógica: un estado inactivo no se borra, se deja de ofrecer. */
     active: boolean;
 }
 
 /**
- * Lo que devuelven el `POST` y el `PATCH`: el estado sin `activeCases`, que es
- * un dato de consulta (V3 D-32). Para verlo hay que volver a pedir el listado,
- * que es lo que hacen las mutaciones al invalidarlo.
+ * Lo que devuelven el `POST` y el `PATCH`: el estado sin `caseCount`, que es
+ * un dato de consulta (V3 D-32, V4 D-70). Para verlo hay que volver a pedir el
+ * listado, que es lo que hacen las mutaciones al invalidarlo.
  */
-export type SavedProceduralState = Omit<ProceduralState, 'activeCases'>;
+export type SavedProceduralState = Omit<ProceduralState, 'caseCount'>;
 
 export interface CreateProceduralStateBody {
     name: string;
@@ -78,7 +83,7 @@ export interface CreateProceduralStateBody {
 }
 
 /**
- * Sin `activeCases`: las causas activas las calcula el backend.
+ * Sin `caseCount`: las causas las cuenta el backend.
  *
  * Tampoco lleva `jurisdiction`: un estado no cambia de fuero (V3 D-36). El
  * backend rechaza el campo con `400` aunque venga con el valor que ya tenía.

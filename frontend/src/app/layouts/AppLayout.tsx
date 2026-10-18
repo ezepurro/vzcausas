@@ -10,6 +10,7 @@ import {
     type RailGroup,
 } from '@/shared/components/ui'
 import { useCurrentUser } from '@/app/providers/AuthContext'
+import { formatPersonFullName } from '@/shared/lib/personName'
 import { profileLabel } from '@/features/auth/utils/profileLabel'
 import { ChangePasswordModal } from '@/features/auth/components/ChangePasswordModal'
 import { LogoutConfirmModal } from '@/features/auth/components/LogoutConfirmModal'
@@ -119,7 +120,7 @@ export function AppLayout() {
             }
             railFooter={
                 <RailUser
-                    name={user.fullName}
+                    name={formatPersonFullName(user)}
                     profile={profileLabel(user.roles)}
                     onChangePassword={() => setChangingPassword(true)}
                     onLogout={() => setConfirmingLogout(true)}

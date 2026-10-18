@@ -3,6 +3,7 @@ import { isApiError } from '@/shared/api/ApiError'
 import { useToast } from '@/app/providers/ToastContext'
 import { useCurrentUser } from '@/app/providers/AuthContext'
 import { FormModal, type FieldSpec } from '@/shared/components/forms'
+import { formatPersonFullName } from '@/shared/lib/personName'
 import { useChangePassword } from '@/features/auth/api/useChangePassword'
 import {
     validateChangePassword,
@@ -129,7 +130,7 @@ export function ChangePasswordModal({ onClose }: ChangePasswordModalProps) {
     return (
         <FormModal
             title="Cambiar contraseña"
-            sub={`${user.fullName} · ${user.username}`}
+            sub={`${formatPersonFullName(user)} · ${user.username}`}
             note="Mínimo 8 caracteres, con al menos un número"
             width="sm"
             fields={fields}

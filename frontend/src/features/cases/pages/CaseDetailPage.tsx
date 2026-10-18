@@ -3,12 +3,14 @@ import { useNavigate, useParams } from 'react-router'
 import { useCurrentUser } from '@/app/providers/AuthContext'
 import { isApiError } from '@/shared/api/ApiError'
 import { Breadcrumbs, Button, Icon, Panel, type BreadcrumbItem } from '@/shared/components/ui'
+import { formatPersonFullName } from '@/shared/lib/personName'
 import { useCase } from '@/features/cases/api/useCase'
 import { CaseHeader } from '@/features/cases/components/CaseHeader'
+import { CaseFacts } from '@/features/cases/components/CaseFacts'
 import { ClientCard } from '@/features/cases/components/ClientCard'
 import { PrescriptionBar } from '@/features/cases/components/PrescriptionBar'
 import type { Case } from '@/features/cases/types/case'
-import { nearestQualification } from '@/features/cases/utils/prescription'
+import { prescriptionNote } from '@/features/cases/utils/prescription'
 import { isResponsibleLawyer } from '@/features/cases/utils/responsibleLawyer'
 import { sacLabel } from '@/features/cases/utils/sac'
 
@@ -16,8 +18,9 @@ import { sacLabel } from '@/features/cases/utils/sac'
  * Detalle de causa (HU22), en `/causas/:caseId`.
  *
  * Muestra el encabezado con el estado actual y su vencimiento, la prescripción
- * de la calificación que prescribe primero y la tarjeta del cliente. Lo ve
- * cualquier perfil: todo el estudio accede a todas las causas (RN11).
+ * que rige la causa, la tarjeta del cliente y los datos propios del fuero
+ * (V4 D-67). Lo ve cualquier perfil: todo el estudio accede a todas las causas
+ * (RN11).
  *
  * El panel "Ciclo de vida de la causa" del prototipo no se dibuja: es HU27 del
  * Sprint 3 y no hay endpoint para listar los actos (V3 §8.3). Tampoco
@@ -85,7 +88,7 @@ function CaseDetail({ case: c }: { case: Case }) {
                         </Button>
                         {!canRegisterAct && (
                             <p className="vz-case-head__note">
-                                Solo el abogado responsable ({c.responsibleLawyer.fullName}) registra actos.
+                                Solo el abogado responsable ({formatPersonFullName(c.responsibleLawyer)}) registra actos.
                             </p>
                         )}
                     </>
@@ -96,33 +99,20 @@ function CaseDetail({ case: c }: { case: Case }) {
 
             <div className="vz-case-detail__panels">
                 <ClientCard client={c.client} />
+                <CaseFacts case={c} />
             </div>
         </>
     )
 }
 
 /**
- * La barra de prescripción al pie del encabezado: sólo en el fuero penal, y de
- * la calificación que prescribe primero (D-19). Una causa penal sin
- * calificaciones no computa prescripción (D-33), así que no dibuja nada.
+ * La barra de prescripción al pie del encabezado, con la que rige la causa
+ * (V4 D-51). Fuera del penal, o en una causa penal sin calificaciones,
+ * `prescription` vale `null` y no se dibuja nada (D-74).
  */
 function CasePrescription({ case: c }: { case: Case }) {
-    if (c.jurisdiction !== 'CRIMINAL') return null
-    const nearest = nearestQualification(c)
-    if (!nearest) return null
-
-    const note = c.legalQualifications.length > 1
-        ? `El cómputo corre desde la fecha del hecho. Calificación que prescribe primero: ${nearest.name}.`
-        : 'El cómputo corre desde la fecha del hecho.'
-
-    return (
-        <PrescriptionBar
-            qualificationName={nearest.name}
-            startsOn={nearest.prescriptionStartsOn}
-            expiresOn={nearest.prescriptionExpiresOn}
-            note={note}
-        />
-    )
+    if (!c.prescription) return null
+    return <PrescriptionBar prescription={c.prescription} note={prescriptionNote(c)} />
 }
 
 /** Cargando, error o causa inexistente, dentro de un panel. */

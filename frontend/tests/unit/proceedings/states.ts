@@ -7,7 +7,7 @@ function state(overrides: Partial<ProceduralState> & Pick<ProceduralState, 'id' 
         timeLimitDays: 5,
         dayType: 'BUSINESS',
         terminal: false,
-        activeCases: 0,
+        caseCount: 0,
         active: true,
         ...overrides,
     }

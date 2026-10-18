@@ -26,8 +26,11 @@ export function buildUserPatch(
     const username = values.username.trim()
     if (username !== original.username) patch.username = username
 
-    const fullName = values.fullName.trim()
-    if (fullName !== original.fullName) patch.fullName = fullName
+    const lastName = values.lastName.trim()
+    if (lastName !== original.lastName) patch.lastName = lastName
+
+    const firstName = values.firstName.trim()
+    if (firstName !== original.firstName) patch.firstName = firstName
 
     const email = values.email.trim()
     if (email !== original.email) patch.email = email

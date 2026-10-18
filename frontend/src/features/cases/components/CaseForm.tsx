@@ -1,6 +1,7 @@
 import type { FormEvent } from 'react'
 import { Button, Panel } from '@/shared/components/ui'
 import {
+    Checkbox,
     Field,
     FormSection,
     SegmentedControl,
@@ -11,6 +12,7 @@ import {
 } from '@/shared/components/forms'
 import { todayIsoDate } from '@/shared/lib/dates'
 import {
+    DAY_TYPE_LABELS,
     JURISDICTION_LABELS,
     JURISDICTIONS,
     type Jurisdiction,
@@ -72,6 +74,12 @@ const JURISDICTION_OPTIONS: SelectOption[] = JURISDICTIONS.map((j) => ({
     label: JURISDICTION_LABELS[j],
 }))
 
+/** Cómo se cuentan los días del plazo del acto lesivo: hábiles o corridos (V4 D-67). */
+const TERM_DAY_TYPE_OPTIONS: SelectOption[] = (['BUSINESS', 'CONSECUTIVE'] as const).map((d) => ({
+    value: d,
+    label: DAY_TYPE_LABELS[d],
+}))
+
 /**
  * El campo es el mismo en los dos fueros (`subjectMatter`, V3 D-27); lo que
  * cambia es cómo lo llama el estudio y el ejemplo que orienta al que carga.
@@ -98,8 +106,12 @@ const SUBJECT_MATTER_TEXT: Record<Exclude<Jurisdiction, 'CRIMINAL'>, { label: st
  * en el penal pide calificaciones legales, cada una con la fecha de su hecho;
  * en los otros dos, la contraparte y el objeto del reclamo o del amparo.
  *
+ * Desde V4 pide además los datos propios de cada fuero y la tasa de justicia
+ * (D-67), que el prototipo no tiene: "Preso" en el penal; la medida cautelar y
+ * el acto lesivo en el amparo; el agotamiento de la vía en el administrativo.
+ *
  * Las casillas de Drive y de modelos del prototipo no están: son HU39 y HU40,
- * del Sprint 3 (V3 §8.3).
+ * del Sprint 3.
  */
 export function CaseForm({
     values, errors, onChange, onSacNumberChange, onJurisdictionChange, clientOptions, lawyerOptions,
@@ -247,7 +259,7 @@ export function CaseForm({
                         />
                     </Field>
 
-                    {values.jurisdiction === 'CRIMINAL' ? (
+                    {values.jurisdiction === 'CRIMINAL' && (
                         /* Son opcionales (V3 D-33): una causa penal puede registrarse
                            sin ninguna, y entonces no computa prescripción. */
                         <Field
@@ -268,7 +280,20 @@ export function CaseForm({
                                 onCreate={onNewQualification}
                             />
                         </Field>
-                    ) : (
+                    )}
+
+                    {values.jurisdiction === 'CRIMINAL' && (
+                        /* Aplica sea el cliente defensa o querellante (V4 D-80). */
+                        <div className="vz-field vz-col-full">
+                            <Checkbox
+                                label="Preso: el cliente está detenido."
+                                checked={values.clientDetained}
+                                onChange={(e) => onChange('clientDetained', e.target.checked)}
+                            />
+                        </div>
+                    )}
+
+                    {values.jurisdiction !== 'CRIMINAL' && (
                         <>
                             <Field label="Contraparte u organismo" htmlFor="case-counterparty" error={errors.counterparty}>
                                 <TextInput
@@ -299,6 +324,25 @@ export function CaseForm({
                         </>
                     )}
 
+                    {values.jurisdiction === 'ADMINISTRATIVE' && (
+                        <Field label="Agotamiento de la vía administrativa" width="half"
+                            htmlFor="case-remedy-exhausted" error={errors.administrativeRemedyExhaustedOn}
+                            note="Opcional. Dejalo vacío mientras la vía no se agotó.">
+                            <TextInput
+                                id="case-remedy-exhausted"
+                                type="date"
+                                mono
+                                max={todayIsoDate()}
+                                value={values.administrativeRemedyExhaustedOn}
+                                onChange={(e) => onChange('administrativeRemedyExhaustedOn', e.target.value)}
+                            />
+                        </Field>
+                    )}
+
+                    {values.jurisdiction === 'AMPARO' && (
+                        <HarmfulActFields values={values} errors={errors} onChange={onChange} />
+                    )}
+
                     <FormSection label="Asignación" />
 
                     <Field label="Abogado responsable" required width="half" htmlFor="case-lawyer"
@@ -324,8 +368,103 @@ export function CaseForm({
                             onChange={(e) => onChange('startDate', e.target.value)}
                         />
                     </Field>
+
+                    {/* RN10: en los tres fueros (V4 D-67). */}
+                    <div className="vz-field vz-col-full">
+                        <Checkbox
+                            label="Tasa de justicia pagada"
+                            checked={values.courtFeePaid}
+                            onChange={(e) => onChange('courtFeePaid', e.target.checked)}
+                        />
+                    </div>
                 </div>
             </Panel>
         </form>
+    )
+}
+
+/**
+ * Los datos del amparo (V4 D-67): la medida cautelar y el acto lesivo. Con la
+ * fecha del acto lesivo el backend calcula hasta cuándo se puede presentar el
+ * amparo (D-78), por eso el plazo y su tipo de día sólo se piden con ella; y la
+ * renovación, sólo si el acto se renueva.
+ */
+function HarmfulActFields({
+    values, errors, onChange,
+}: Pick<CaseFormProps, 'values' | 'errors' | 'onChange'>) {
+    const hasDate = values.harmfulActDate.trim() !== ''
+
+    return (
+        <>
+            <div className="vz-field vz-col-full">
+                <Checkbox
+                    label="El juez hizo lugar a la medida cautelar."
+                    checked={values.injunctionGranted}
+                    onChange={(e) => onChange('injunctionGranted', e.target.checked)}
+                />
+            </div>
+
+            <Field label="Fecha del acto lesivo" width="half" htmlFor="case-harmful-act-date"
+                error={errors.harmfulActDate}
+                note="Opcional. Desde ella corre el plazo para presentar el amparo.">
+                <TextInput
+                    id="case-harmful-act-date"
+                    type="date"
+                    mono
+                    max={todayIsoDate()}
+                    value={values.harmfulActDate}
+                    onChange={(e) => onChange('harmfulActDate', e.target.value)}
+                />
+            </Field>
+
+            {hasDate && (
+                <>
+                    <Field label="Plazo para presentar el amparo" required width="half"
+                        htmlFor="case-harmful-act-term" error={errors.harmfulActTermDays}>
+                        <div className="vz-field-row">
+                            <TextInput
+                                id="case-harmful-act-term"
+                                mono
+                                inputMode="numeric"
+                                placeholder="Días"
+                                value={values.harmfulActTermDays}
+                                onChange={(e) => onChange('harmfulActTermDays', e.target.value)}
+                            />
+                            <Select
+                                aria-label="Tipo de día del plazo"
+                                options={TERM_DAY_TYPE_OPTIONS}
+                                value={values.harmfulActTermDayType}
+                                onChange={(e) =>
+                                    onChange('harmfulActTermDayType', e.target.value as CaseFormValues['harmfulActTermDayType'])
+                                }
+                            />
+                        </div>
+                    </Field>
+
+                    <div className="vz-field vz-col-full">
+                        <Checkbox
+                            label="El acto lesivo se renueva."
+                            checked={values.harmfulActRenews}
+                            onChange={(e) => onChange('harmfulActRenews', e.target.checked)}
+                        />
+                    </div>
+
+                    {values.harmfulActRenews && (
+                        <Field label="Se renueva cada" required width="half"
+                            htmlFor="case-harmful-act-renewal" error={errors.harmfulActRenewalDays}
+                            note="En días corridos, contados desde la fecha del acto lesivo.">
+                            <TextInput
+                                id="case-harmful-act-renewal"
+                                mono
+                                inputMode="numeric"
+                                placeholder="Días"
+                                value={values.harmfulActRenewalDays}
+                                onChange={(e) => onChange('harmfulActRenewalDays', e.target.value)}
+                            />
+                        </Field>
+                    )}
+                </>
+            )}
+        </>
     )
 }

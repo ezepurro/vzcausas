@@ -31,6 +31,7 @@ import { UsersTable } from '@/features/users/components/UsersTable'
 import { UserFormModal } from '@/features/users/components/UserFormModal'
 import { DeleteUserModal } from '@/features/users/components/DeleteUserModal'
 import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue'
+import { formatPersonName } from '@/shared/lib/personName'
 const LIMIT = 20
 
 /** El "sin filtro" del select de perfil. Cadena vacía, que es lo que no viaja. */
@@ -51,7 +52,8 @@ type Modal =
     | null
 
 const EMPTY_FORM: UserFormValues = {
-    fullName: '',
+    lastName: '',
+    firstName: '',
     username: '',
     email: '',
     password: '',
@@ -59,7 +61,6 @@ const EMPTY_FORM: UserFormValues = {
     ...roleChecks(['LAWYER']),
     lawyerMode: LAWYER_MODES.link,
     lawyerId: '',
-    lawyerFullName: '',
     registrationNumber: '',
 }
 
@@ -125,7 +126,8 @@ export function UsersPage() {
 
     function openEdit(user: User) {
         setValues({
-            fullName: user.fullName,
+            lastName: user.lastName,
+            firstName: user.firstName,
             username: user.username,
             email: user.email,
             password: '',
@@ -133,7 +135,6 @@ export function UsersPage() {
             ...roleChecks(user.roles),
             lawyerMode: LAWYER_MODES.link,
             lawyerId: user.lawyer ? String(user.lawyer.id) : '',
-            lawyerFullName: '',
             registrationNumber: '',
         })
         setErrors({})
@@ -243,7 +244,7 @@ export function UsersPage() {
         remove.mutate(user.id, {
             onSuccess: () => {
                 // `info` y no `success`: salió bien, pero no es un logro.
-                toast('info', `${user.fullName} Eliminado correctamente.`)
+                toast('info', `${formatPersonName(user)} Eliminado correctamente.`)
                 closeModal()
                 // Si era la única fila de la página, no dejar al usuario en
                 // una página que ya no existe.
@@ -338,7 +339,7 @@ export function UsersPage() {
                     roles={nextRoles}
                     sub={
                         modal.kind === 'edit'
-                            ? `${modal.user.fullName} · ${modal.user.username}`
+                            ? `${formatPersonName(modal.user)} · ${modal.user.username}`
                             : ""
                     }
                     values={values}

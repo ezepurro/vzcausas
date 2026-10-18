@@ -23,13 +23,22 @@ export function LawyerFormModal({
     values, errors, saving, onChange, onConfirm, onCancel,
 }: LawyerFormModalProps) {
     const fields: FieldSpec[] = [
+        /* Apellido y nombres por separado (V4, D-68), sin el tratamiento:
+           "Dr." o "Dra." lo pone el front (D-81). */
         {
-            k: 'fullName',
-            label: 'Apellido y Nombre',
+            k: 'lastName',
+            label: 'Apellido',
             width: 'half',
             required: true,
-            placeholder: 'Dr. / Dra. Apellido Nombre',
-            error: errors.fullName,
+            error: errors.lastName,
+        },
+        {
+            k: 'firstName',
+            label: 'Nombres',
+            width: 'half',
+            required: true,
+            note: 'Sin "Dr." ni "Dra.".',
+            error: errors.firstName,
         },
         {
             k: 'registrationNumber',

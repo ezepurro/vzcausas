@@ -28,6 +28,36 @@ export function emptyCaseForm(): CaseFormValues {
         subjectMatter: '',
         responsibleLawyerId: '',
         startDate: '',
+        ...emptyJurisdictionData(),
+        courtFeePaid: false,
+    }
+}
+
+/**
+ * Los datos propios de cada fuero (V4 D-67), vacíos. Los booleanos arrancan en
+ * `false`, que es el valor por defecto del contrato; el plazo del acto lesivo
+ * se cuenta por defecto en días hábiles.
+ */
+function emptyJurisdictionData(): Pick<
+    CaseFormValues,
+    | 'clientDetained'
+    | 'injunctionGranted'
+    | 'harmfulActDate'
+    | 'harmfulActRenews'
+    | 'harmfulActRenewalDays'
+    | 'harmfulActTermDays'
+    | 'harmfulActTermDayType'
+    | 'administrativeRemedyExhaustedOn'
+> {
+    return {
+        clientDetained: false,
+        injunctionGranted: false,
+        harmfulActDate: '',
+        harmfulActRenews: false,
+        harmfulActRenewalDays: '',
+        harmfulActTermDays: '',
+        harmfulActTermDayType: 'BUSINESS',
+        administrativeRemedyExhaustedOn: '',
     }
 }
 
@@ -42,6 +72,8 @@ export function emptyCaseForm(): CaseFormValues {
  * - La contraparte y el objeto del reclamo son al revés: no van en el penal.
  *   Entre administrativo y amparo se conservan, porque el campo es el mismo y
  *   sólo cambia su rótulo.
+ * - Los datos propios de cada fuero (V4 D-67) se vacían: un dato de otro fuero
+ *   no viaja. La tasa de justicia es de los tres y se conserva.
  */
 export function changeJurisdiction(values: CaseFormValues, jurisdiction: Jurisdiction): CaseFormValues {
     const criminal = jurisdiction === 'CRIMINAL'
@@ -52,6 +84,7 @@ export function changeJurisdiction(values: CaseFormValues, jurisdiction: Jurisdi
         legalQualifications: criminal ? values.legalQualifications : [],
         counterparty: criminal ? '' : values.counterparty,
         subjectMatter: criminal ? '' : values.subjectMatter,
+        ...(jurisdiction === values.jurisdiction ? {} : emptyJurisdictionData()),
     }
 }
 

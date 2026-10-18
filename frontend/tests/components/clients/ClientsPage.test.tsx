@@ -130,10 +130,10 @@ describe('ClientsPage', () => {
     describe('quién puede registrar (HU-8)', () => {
         /* Administrar clientes es de los tres perfiles (V3 §4, matriz del
            11/10/2026, D-39). */
+        /* Los tres perfiles pueden: alcanza con el de menos permisos
+           (TESTING.md §5, "un perfil habilitado"). */
         it.each([
             ['la Secretaría', 'gestion'],
-            ['un abogado', 'mrios'],
-            ['el Administrador', 'supervision'],
         ])('%s tiene habilitado "Registrar cliente"', async (_, username) => {
             renderPage(username)
             await screen.findByText(FIRST)

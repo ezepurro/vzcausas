@@ -49,7 +49,8 @@ export interface ProceduralAct {
     notes: string | null
     /** `null` si el acto no abre plazo. */
     deadline: ActDeadline | null
-    registeredBy: { id: number; fullName: string }
+    /** Apellido y nombres separados desde V4 (D-68). */
+    registeredBy: { id: number; lastName: string; firstName: string }
     /** Fecha y hora del registro, ISO 8601. */
     registeredAt: string
 }

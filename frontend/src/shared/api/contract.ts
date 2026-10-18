@@ -10,6 +10,10 @@
 /**
  * Códigos de error documentados (catálogo de V4 §5.3).
  *
+ * V4 suma seis (§7.4): los de modelos formales, el del tamaño del archivo, el
+ * de la prescripción que no aplica, el del estado protegido "Prescripta" y el
+ * del almacenamiento en la nube. Ninguno se retira.
+ *
  * `PROCEDURAL_STATE_HAS_DEPENDENCIES` no está: V3 lo retiró, porque la baja de
  * un estado procesal ya no se rechaza por tener causas (D-06).
  * `LAWYER_ALREADY_LINKED` no figura en el catálogo pero el backend lo emite al
@@ -54,7 +58,7 @@ export const ERROR_CODES = [
     'DOCUMENT_TEMPLATE_ALREADY_EXISTS',
     'USER_HAS_DEPENDENCIES',
     'LAWYER_HAS_DEPENDENCIES',
-    // 413 — archivo más grande que el máximo admitido (V4)
+    // 413 — archivo demasiado grande
     'FILE_TOO_LARGE',
     // 422 — regla de negocio
     'INVALID_CURRENT_PASSWORD',
@@ -67,7 +71,7 @@ export const ERROR_CODES = [
     'TOO_MANY_REQUESTS',
     // 500
     'INTERNAL_SERVER_ERROR',
-    // 502 — el almacenamiento en la nube no respondió (V4)
+    // 502 — el almacenamiento en la nube no respondió
     'DOCUMENT_STORAGE_UNAVAILABLE',
 ] as const;
 

@@ -410,6 +410,10 @@ guardó al iniciar sesión y sólo actualiza los roles.
    frontend tiene que resolver.
 2. **El vencimiento.** El mock no mide el tiempo. Se provoca a mano.
 
+En el navegador, las sesiones se guardan en `localStorage` (`vz-mock-sessions`,
+ver `persistSessions` en `db.ts`), así una recarga de la página no cierra la
+sesión. Los tests no las guardan: cada uno arranca con la base limpia.
+
 **Cómo probar la renovación**, desde la consola del navegador con la sesión
 abierta:
 

@@ -1,4 +1,5 @@
 import { FormModal } from '@/shared/components/forms'
+import { formatPersonName } from '@/shared/lib/personName'
 import type { User } from '@/features/users/types/user'
 
 export interface DeleteUserModalProps {
@@ -19,7 +20,7 @@ export function DeleteUserModal({ user, saving, onConfirm, onCancel }: DeleteUse
     return (
         <FormModal
             title="Eliminar usuario"
-            sub={`${user.fullName} · ${user.username}`}
+            sub={`${formatPersonName(user)} · ${user.username}`}
             tone="danger"
             width="sm"
             note="El usuario sera eliminado. Las causas donde figure como responsable deben reasignarse."
