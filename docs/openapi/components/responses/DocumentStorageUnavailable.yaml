@@ -1,0 +1,10 @@
+description: El almacenamiento en la nube no respondió. Se puede reintentar en unos minutos.
+content:
+  application/json:
+    schema:
+      $ref: ../schemas/Error.yaml
+    example:
+      error:
+        code: DOCUMENT_STORAGE_UNAVAILABLE
+        message: No se pudo acceder al almacenamiento en la nube. Intentá de nuevo en unos minutos.
+        details: null

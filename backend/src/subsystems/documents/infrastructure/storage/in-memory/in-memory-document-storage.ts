@@ -19,6 +19,7 @@ export interface InMemoryStoredFile extends StoredFile {
   name: string;
   mimeType: string;
   size: number;
+  content: Buffer;
 }
 
 /**
@@ -37,8 +38,10 @@ export class InMemoryDocumentStorage implements DocumentStoragePort {
   /** Every folder call received, in order. */
   readonly calls: Array<{ method: 'findByReference' | 'create'; reference: FolderReference }> = [];
 
-  /** Every file call received, in order: the uploaded name, or the deleted id. */
-  readonly fileCalls: Array<{ method: 'uploadFile'; name: string } | { method: 'deleteFile'; fileId: string }> = [];
+  /** Every file call received, in order: the uploaded name, or the id deleted or downloaded. */
+  readonly fileCalls: Array<
+    { method: 'uploadFile'; name: string } | { method: 'deleteFile' | 'downloadFile'; fileId: string }
+  > = [];
 
   /** Makes the next call reject with `error` (once). */
   failNextWith(error: Error): void {
@@ -87,6 +90,7 @@ export class InMemoryDocumentStorage implements DocumentStoragePort {
       name: upload.name,
       mimeType: upload.mimeType,
       size: upload.content.length,
+      content: Buffer.from(upload.content),
     };
     this.storedFiles.push(file);
     return { id: file.id, url: file.url };
@@ -96,6 +100,17 @@ export class InMemoryDocumentStorage implements DocumentStoragePort {
     this.fileCalls.push({ method: 'deleteFile', fileId });
     this.failIfRequested();
     this.storedFiles = this.storedFiles.filter((file) => file.id !== fileId);
+  }
+
+  /** Like a drive asked for a file that is gone, a missing id fails: it is not an empty file. */
+  async downloadFile(fileId: string): Promise<Buffer> {
+    this.fileCalls.push({ method: 'downloadFile', fileId });
+    this.failIfRequested();
+    const file = this.storedFiles.find((stored) => stored.id === fileId);
+    if (!file) {
+      throw new Error(`The file ${fileId} is not in the storage.`);
+    }
+    return Buffer.from(file.content);
   }
 
   private add(parentId: string, name: string): StoredFolder {

@@ -1,46 +1,16 @@
 import { AuthenticatedUser } from '@shared/domain/authenticated-user';
 import { ForbiddenActionError, ValidationError } from '@shared/domain/domain-error';
-import { DOCX_MIME_TYPE, DocumentTemplate } from '../../domain/entities/document-template.entity';
+import { DOCX_MIME_TYPE } from '../../domain/entities/document-template.entity';
 import {
   DocumentStorageUnavailableError,
   DocumentTemplateAlreadyExistsError,
 } from '../../domain/errors/documents.errors';
 import { CloudFolderFactory } from '../../domain/factories/cloud-folder.factory';
-import {
-  DocumentTemplateRepository,
-  DocumentTemplateView,
-  TemplateFileLocation,
-} from '../../domain/ports/document-template.repository';
 import { FakeClock, NOW } from '../../test-support/document-fixtures';
+import { FakeDocumentTemplateRepository } from '../../test-support/fake-document-template.repository';
 import { InMemoryCloudFolderRepository } from '../../../infrastructure/persistence/in-memory/in-memory-cloud-folder.repository';
 import { InMemoryDocumentStorage } from '../../../infrastructure/storage/in-memory/in-memory-document-storage';
 import { RegisterDocumentTemplate, RegisterDocumentTemplateCommand } from './register-document-template.use-case';
-
-class FakeDocumentTemplateRepository implements DocumentTemplateRepository {
-  readonly saved: Array<{ template: DocumentTemplate; file: TemplateFileLocation }> = [];
-  existingNames: string[] = [];
-  failOnSaveWith: Error | null = null;
-
-  async existsByName(name: string): Promise<boolean> {
-    return this.existingNames.some((existing) => existing.toLowerCase() === name.toLowerCase());
-  }
-
-  async save(template: DocumentTemplate, file: TemplateFileLocation): Promise<DocumentTemplateView> {
-    if (this.failOnSaveWith) throw this.failOnSaveWith;
-    this.saved.push({ template, file });
-    return {
-      id: this.saved.length,
-      name: template.name,
-      jurisdictions: [...template.jurisdictions],
-      fileName: template.fileName,
-      copyToNewCases: template.copyToNewCases,
-      lastVersionAt: template.lastVersionAt,
-      lastVersionBy: { id: template.lastVersionByUserId, lastName: 'Ferreyra', firstName: 'Matías' },
-      usageCount: 0,
-      active: true,
-    };
-  }
-}
 
 const actor = (roleNames: string[] = ['LAWYER']): AuthenticatedUser => ({
   userId: 6,
@@ -130,7 +100,7 @@ describe('RegisterDocumentTemplate', () => {
 
   // CA-34.9
   it('un nombre repetido, aunque cambien las mayúsculas, da 409 antes de subir el archivo', async () => {
-    templates.existingNames = ['RECURSO DE CASACIÓN'];
+    templates.add({ name: 'RECURSO DE CASACIÓN' });
 
     await expect(useCase.execute(command())).rejects.toBeInstanceOf(DocumentTemplateAlreadyExistsError);
     expect(storage.fileCalls).toEqual([]);

@@ -23,8 +23,35 @@ export interface DocumentTemplateView {
   active: boolean;
 }
 
+/** Filters and page of `GET /document-templates` (HU35). */
+export interface DocumentTemplateSearch {
+  /** Only the templates that apply to it; a template of several jurisdictions matches each one (CA-35.2). */
+  jurisdiction?: TemplateJurisdiction;
+  copyToNewCases?: boolean;
+  page: number;
+  limit: number;
+}
+
+/** Where the file of a template is, to download it (CA-35.6). */
+export interface TemplateFile {
+  fileName: string;
+  cloudFileId: string;
+}
+
 /** Persistence of the formal templates (`document_templates` and its jurisdictions). */
 export interface DocumentTemplateRepository {
+  /**
+   * One page of the **active** templates, alphabetical by name (CA-35.1,
+   * CA-35.3), and how many match in total (CA-35.4).
+   */
+  findPage(search: DocumentTemplateSearch): Promise<{ items: DocumentTemplateView[]; totalItems: number }>;
+
+  /** The active template with that id; `null` if it does not exist or was given de baja. */
+  findById(id: number): Promise<DocumentTemplateView | null>;
+
+  /** The file of the active template with that id; `null` like {@link findById}. */
+  findFileById(id: number): Promise<TemplateFile | null>;
+
   /** Whether an active template already has this name, ignoring case (D-71). */
   existsByName(name: string): Promise<boolean>;
 

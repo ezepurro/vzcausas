@@ -1,0 +1,10 @@
+description: El usuario no tiene el rol `ADMINISTRATOR` ni `LAWYER` (la secretaría no accede a los modelos).
+content:
+  application/json:
+    schema:
+      $ref: ../schemas/Error.yaml
+    example:
+      error:
+        code: FORBIDDEN
+        message: Se requiere el rol ADMINISTRATOR o LAWYER para realizar esta operación.
+        details: null

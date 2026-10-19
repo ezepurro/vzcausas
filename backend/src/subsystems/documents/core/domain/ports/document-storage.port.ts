@@ -54,4 +54,7 @@ export interface DocumentStoragePort {
 
   /** Deletes a file. Used to undo an upload whose registration then failed (CA-34.7). */
   deleteFile(fileId: string): Promise<void>;
+
+  /** The current content of a file: its last version (HU35, CA-35.6). */
+  downloadFile(fileId: string): Promise<Buffer>;
 }

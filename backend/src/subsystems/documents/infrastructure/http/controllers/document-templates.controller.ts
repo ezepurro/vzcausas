@@ -1,9 +1,27 @@
-import { Body, Controller, HttpCode, HttpStatus, Post, UploadedFile, UseInterceptors } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Post,
+  Query,
+  StreamableFile,
+  UploadedFile,
+  UseInterceptors,
+} from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { AuthenticatedUser } from '@shared/domain/authenticated-user';
 import { CurrentUser } from '@shared/infrastructure/http/current-user.decorator';
+import { PaginatedResponse, paginate, toPageRequest } from '@shared/infrastructure/http/pagination';
+import { DownloadDocumentTemplate } from '../../../core/application/use-cases/download-document-template.use-case';
+import { GetDocumentTemplate } from '../../../core/application/use-cases/get-document-template.use-case';
+import { ListDocumentTemplates } from '../../../core/application/use-cases/list-document-templates.use-case';
 import { RegisterDocumentTemplate } from '../../../core/application/use-cases/register-document-template.use-case';
+import { InvalidTemplateIdError } from '../../../core/domain/errors/documents.errors';
 import { DocumentTemplateResponseDto } from '../dtos/document-template.response.dto';
+import { ListDocumentTemplatesQueryDto } from '../dtos/list-document-templates.query.dto';
 import { RegisterDocumentTemplateRequestDto } from '../dtos/register-document-template.request.dto';
 import { DocumentTemplateHttpMapper } from '../mappers/document-template-http.mapper';
 
@@ -21,13 +39,16 @@ const MAX_FILE_BYTES = 10 * 1024 * 1024;
  * HTTP entry point for `/document-templates` (contract V4 §3.10).
  *
  * No permission is declared: the resource is for administrators and lawyers,
- * a rule on roles that the use case checks (CA-34.8), as `cases` does with the
- * responsible lawyer.
+ * reading included (CA-34.8, CA-35.7), a rule on roles that the use cases
+ * check, as `cases` does with the responsible lawyer.
  */
 @Controller({ path: 'document-templates', version: ['1'] })
 export class DocumentTemplatesController {
   constructor(
     private readonly registerDocumentTemplate: RegisterDocumentTemplate,
+    private readonly listDocumentTemplates: ListDocumentTemplates,
+    private readonly getDocumentTemplate: GetDocumentTemplate,
+    private readonly downloadDocumentTemplate: DownloadDocumentTemplate,
     private readonly mapper: DocumentTemplateHttpMapper,
   ) {}
 
@@ -54,4 +75,72 @@ export class DocumentTemplatesController {
     });
     return { data: this.mapper.toResponse(view) };
   }
+
+  /** HU35: the active templates, alphabetical, optionally of one jurisdiction. */
+  @Get()
+  async list(
+    @Query() query: ListDocumentTemplatesQueryDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ): Promise<PaginatedResponse<DocumentTemplateResponseDto>> {
+    const pageRequest = toPageRequest(query);
+    const page = await this.listDocumentTemplates.execute({
+      actor,
+      jurisdiction: query.jurisdiction,
+      copyToNewCases: query.copyToNewCases,
+      ...pageRequest,
+    });
+    return paginate(
+      page.items.map((view) => this.mapper.toResponse(view)),
+      page.totalItems,
+      pageRequest,
+    );
+  }
+
+  /** HU35: one template. */
+  @Get(':templateId')
+  async get(
+    @Param('templateId') templateIdParam: string,
+    @CurrentUser() actor: AuthenticatedUser,
+  ): Promise<{ data: DocumentTemplateResponseDto }> {
+    const view = await this.getDocumentTemplate.execute({ actor, templateId: this.parseTemplateId(templateIdParam) });
+    return { data: this.mapper.toResponse(view) };
+  }
+
+  /**
+   * HU35: the template's `.docx` (CA-35.6). The one success response of the
+   * contract that is not JSON; its errors still are.
+   */
+  @Get(':templateId/file')
+  async download(
+    @Param('templateId') templateIdParam: string,
+    @CurrentUser() actor: AuthenticatedUser,
+  ): Promise<StreamableFile> {
+    const file = await this.downloadDocumentTemplate.execute({
+      actor,
+      templateId: this.parseTemplateId(templateIdParam),
+    });
+    return new StreamableFile(file.content, {
+      type: file.mimeType,
+      length: file.content.length,
+      disposition: contentDisposition(file.fileName),
+    });
+  }
+
+  private parseTemplateId(raw: string): number {
+    const templateId = Number(raw);
+    if (!Number.isInteger(templateId) || templateId <= 0) {
+      throw new InvalidTemplateIdError();
+    }
+    return templateId;
+  }
+}
+
+/**
+ * `attachment` with the file's name. `filename` carries an ASCII fallback and
+ * `filename*` the real name in UTF-8 (RFC 6266), so "designación.docx" keeps
+ * its accent in every browser.
+ */
+function contentDisposition(fileName: string): string {
+  const fallback = fileName.normalize('NFD').replace(/[^\x20-\x7e]/g, '').replace(/["\\]/g, '');
+  return `attachment; filename="${fallback}"; filename*=UTF-8''${encodeURIComponent(fileName)}`;
 }

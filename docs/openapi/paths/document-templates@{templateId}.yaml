@@ -1,0 +1,40 @@
+parameters:
+  - $ref: ../components/parameters/TemplateIdParam.yaml
+
+get:
+  tags:
+    - Document Templates
+  operationId: getDocumentTemplate
+  summary: Consultar un modelo formal
+  description: |
+    Obtiene la información de un modelo formal vigente (HU35). Uno dado de baja
+    responde `404`.
+
+    **Rol requerido:** `ADMINISTRATOR` o `LAWYER`.
+  responses:
+    '200':
+      description: El modelo formal.
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - data
+            properties:
+              data:
+                $ref: ../components/schemas/DocumentTemplate.yaml
+    '400':
+      description: Identificador inválido.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          examples:
+            invalidTemplateId:
+              $ref: ../components/examples/InvalidTemplateIdError.yaml
+    '401':
+      $ref: ../components/responses/Unauthorized.yaml
+    '403':
+      $ref: ../components/responses/ForbiddenTemplates.yaml
+    '404':
+      $ref: ../components/responses/DocumentTemplateNotFound.yaml

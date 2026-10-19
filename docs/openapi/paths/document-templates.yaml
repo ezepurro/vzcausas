@@ -1,3 +1,88 @@
+get:
+  tags:
+    - Document Templates
+  operationId: listDocumentTemplates
+  summary: Consultar modelos formales
+  description: |
+    Lista paginada de los modelos formales vigentes (HU35), en orden
+    alfabético por `name`, sin distinguir acentos ni mayúsculas (CA-35.3).
+
+    Un modelo de varios fueros aparece en el resultado de cada uno, y una sola
+    vez sin filtro (CA-35.2). Un fuero sin modelos devuelve `data` vacío y
+    `totalItems` en `0`: no es un error (CA-35.5).
+
+    **Cómo lo usa la pantalla "Modelos":**
+    - las tarjetas por fuero (CA-35.9): sin `jurisdiction` y con `limit=100`;
+      el cliente agrupa por fuero y toma el `lastVersionAt` más reciente;
+    - la lista de un fuero y su total (CA-35.4): `jurisdiction=CRIMINAL`, con
+      `pagination.totalItems`;
+    - "N modelos para el fuero" del alta de causa:
+      `jurisdiction=CRIMINAL&copyToNewCases=true&limit=1`.
+
+    **Rol requerido:** `ADMINISTRATOR` o `LAWYER`.
+  parameters:
+    - $ref: ../components/parameters/PageParam.yaml
+    - $ref: ../components/parameters/LimitParam.yaml
+    - $ref: ../components/parameters/JurisdictionQueryParam.yaml
+    - name: copyToNewCases
+      in: query
+      required: false
+      description: '`true`: solo los que se copian a las causas nuevas.'
+      schema:
+        type: boolean
+  responses:
+    '200':
+      description: Página de modelos formales.
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - data
+              - pagination
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: ../components/schemas/DocumentTemplate.yaml
+              pagination:
+                $ref: ../components/schemas/Pagination.yaml
+          example:
+            data:
+              - id: 1
+                name: Designación de abogado defensor
+                jurisdictions:
+                  - CRIMINAL
+                fileName: designacion-defensor.docx
+                copyToNewCases: true
+                lastVersionAt: '2026-08-04T09:20:00-03:00'
+                lastVersionBy:
+                  id: 1
+                  lastName: Vázquez
+                  firstName: Fernando G.
+                usageCount: 31
+                active: true
+            pagination:
+              page: 1
+              limit: 20
+              totalItems: 1
+              totalPages: 1
+    '400':
+      description: Fuero inexistente o paginación inválida.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          examples:
+            invalidJurisdiction:
+              $ref: ../components/examples/InvalidJurisdictionError.yaml
+            invalidPagination:
+              $ref: ../components/examples/InvalidPaginationError.yaml
+    '401':
+      $ref: ../components/responses/Unauthorized.yaml
+    '403':
+      $ref: ../components/responses/ForbiddenTemplates.yaml
+
 post:
   tags:
     - Document Templates
@@ -83,16 +168,7 @@ post:
     '401':
       $ref: ../components/responses/Unauthorized.yaml
     '403':
-      description: El usuario no tiene el rol `ADMINISTRATOR` ni `LAWYER`.
-      content:
-        application/json:
-          schema:
-            $ref: ../components/schemas/Error.yaml
-          example:
-            error:
-              code: FORBIDDEN
-              message: Se requiere el rol ADMINISTRATOR o LAWYER para realizar esta operación.
-              details: null
+      $ref: ../components/responses/ForbiddenTemplates.yaml
     '409':
       description: Ya existe un modelo con ese nombre, sin distinguir mayúsculas (CA-34.9).
       content:

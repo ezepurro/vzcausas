@@ -1,7 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { AuthenticatedUser } from '@shared/domain/authenticated-user';
 import { CLOCK, ClockPort } from '@shared/domain/clock.port';
-import { ForbiddenActionError } from '@shared/domain/domain-error';
 import { DocumentTemplate, TemplateFileInput } from '../../domain/entities/document-template.entity';
 import {
   DocumentStorageUnavailableError,
@@ -15,9 +14,7 @@ import {
   DocumentTemplateView,
 } from '../../domain/ports/document-template.repository';
 import { FolderKey } from '../../domain/value-objects/folder-key.vo';
-
-/** Profiles that manage formal templates (matrix §5.1, CA-34.8). */
-const ALLOWED_ROLES = ['ADMINISTRATOR', 'LAWYER'];
+import { assertCanManageTemplates } from '../common/assert-can-manage-templates';
 
 export interface RegisterDocumentTemplateCommand {
   actor: AuthenticatedUser;
@@ -59,12 +56,7 @@ export class RegisterDocumentTemplate {
    */
   async execute(command: RegisterDocumentTemplateCommand): Promise<DocumentTemplateView> {
     const { actor, file } = command;
-    if (!actor.roleNames.some((role) => ALLOWED_ROLES.includes(role))) {
-      throw new ForbiddenActionError(
-        'FORBIDDEN',
-        'Se requiere el rol ADMINISTRATOR o LAWYER para realizar esta operación.',
-      );
-    }
+    assertCanManageTemplates(actor);
 
     const template = DocumentTemplate.create({
       name: command.name,

@@ -2,6 +2,7 @@ import {
   BadGatewayError,
   ConflictError,
   DomainError,
+  NotFoundError,
   ValidationError,
 } from '@shared/domain/domain-error';
 
@@ -57,5 +58,34 @@ export class InvalidCloudFolderError extends ValidationError {
 export class DocumentTemplateAlreadyExistsError extends ConflictError {
   constructor() {
     super('DOCUMENT_TEMPLATE_ALREADY_EXISTS', 'Ya existe un modelo formal con ese nombre.');
+  }
+}
+
+/** No active formal template has that id (V4 §3.10). A template given de baja does not exist for the client. */
+export class DocumentTemplateNotFoundError extends NotFoundError {
+  constructor() {
+    super('DOCUMENT_TEMPLATE_NOT_FOUND', 'No se encontró el modelo formal solicitado.');
+  }
+}
+
+/** `templateId` in the path is not a positive integer. */
+export class InvalidTemplateIdError extends ValidationError {
+  constructor() {
+    super('INVALID_PATH_PARAMETER', 'El identificador del modelo formal no es válido.', {
+      templateId: 'Debe ser un número entero válido.',
+    });
+  }
+}
+
+/**
+ * The `jurisdiction` filter of `GET /document-templates` names no jurisdiction.
+ * The contract answers it with `INVALID_REQUEST`, not with an empty list: an
+ * empty list would read as "no templates in that jurisdiction" (CA-35.5).
+ */
+export class InvalidTemplateJurisdictionFilterError extends ValidationError {
+  constructor() {
+    super('INVALID_REQUEST', 'Parámetros de query inválidos.', {
+      jurisdiction: 'No existe un fuero procesal con ese nombre.',
+    });
   }
 }

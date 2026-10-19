@@ -240,6 +240,10 @@ paths:
     $ref: paths/cases@{caseId}@interruptive-acts.yaml
   /document-templates:
     $ref: paths/document-templates.yaml
+  /document-templates/{templateId}:
+    $ref: paths/document-templates@{templateId}.yaml
+  /document-templates/{templateId}/file:
+    $ref: paths/document-templates@{templateId}@file.yaml
 
 components:
   securitySchemes:
