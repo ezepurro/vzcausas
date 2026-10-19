@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { Button, Panel, Pill } from '@/shared/components/ui'
-import { formatDate } from '@/shared/lib/dates'
+import { formatDate, formatDateTime } from '@/shared/lib/dates'
 import { formatPersonFullName } from '@/shared/lib/personName'
 import type {
     TimelineEntry,
@@ -8,7 +8,7 @@ import type {
     TimelinePrescriptionEntry,
     TimelineProceduralActEntry,
 } from '@/features/cases/types/timeline'
-import { actDeadlineBadge } from '@/features/cases/utils/timeline'
+import { actDeadlineBadge, actTermText, closedDeadlineText } from '@/features/cases/utils/timeline'
 
 export interface CaseTimelineProps {
     /** Las entradas tal como las manda el backend, de la más reciente a la más antigua. */
@@ -90,14 +90,22 @@ function TimelineItem({ entry }: { entry: TimelineEntry }) {
 
 /**
  * Un acto procesal: el estado al que llevó la causa. El nombre del acto es el
- * del estado (D-76), así que no hay un renglón "Por el acto". Sólo el acto
- * vigente muestra su plazo: los de los demás están cerrados.
+ * del estado (D-76), así que no hay un renglón "Por el acto".
+ *
+ * Todo acto que abrió plazo lo muestra, con el que se registró (CA-27.3,
+ * CA-27.7). Sólo el del acto vigente está abierto, con el chip; los de los
+ * demás se muestran cerrados (CA-27.4). Si el vencimiento se ajustó a mano,
+ * se muestra también el que daba la tabla (CA-27.6).
  */
 function ProceduralActItem({ entry }: { entry: TimelineProceduralActEntry }) {
     const act = entry.proceduralAct
-    const deadline = entry.current ? act.deadline : null
-    const badge = deadline ? actDeadlineBadge(deadline.dueDate) : null
+    const deadline = act.deadline
+    const badge = deadline && entry.current ? actDeadlineBadge(deadline.dueDate) : null
     const modifier = badge ? (badge.urgent ? 'overdue' : 'open') : null
+    const byTable =
+        deadline?.manuallyAdjusted && deadline.computedDueDate
+            ? ` · por tabla: ${formatDate(deadline.computedDueDate)}`
+            : ''
 
     return (
         <Item title={act.resultingState.name} date={act.actDate} modifier={modifier}>
@@ -108,16 +116,23 @@ function ProceduralActItem({ entry }: { entry: TimelineProceduralActEntry }) {
                     {act.notificationDate && `Notificado el ${formatDate(act.notificationDate)}.`}
                 </div>
             )}
-            {badge && deadline && (
+            {deadline && (
                 <div className="vz-timeline__tags">
-                    <Pill tone={badge.tone}>{badge.label}</Pill>
+                    {deadline.timeLimitDays > 0 && (
+                        <span className="vz-timeline__term">{actTermText(deadline)}</span>
+                    )}
+                    {badge ? (
+                        <Pill tone={badge.tone}>{badge.label}</Pill>
+                    ) : (
+                        <span className="vz-timeline__term">{closedDeadlineText(deadline.dueDate)}</span>
+                    )}
                     {deadline.manuallyAdjusted && (
-                        <span className="vz-timeline__tag-note">Vencimiento ajustado a mano</span>
+                        <span className="vz-timeline__tag-note">Vencimiento ajustado a mano{byTable}</span>
                     )}
                 </div>
             )}
             <Notes text={act.notes} />
-            <RegisteredBy person={act.registeredBy} />
+            <RegisteredBy person={act.registeredBy} at={act.registeredAt} />
         </Item>
     )
 }
@@ -135,7 +150,7 @@ function InterruptiveActItem({ entry }: { entry: TimelineInterruptiveActEntry })
                 )}
             </div>
             <Notes text={act.notes} />
-            <RegisteredBy person={act.registeredBy} />
+            <RegisteredBy person={act.registeredBy} at={act.registeredAt} />
         </Item>
     )
 }
@@ -150,7 +165,7 @@ function PrescriptionItem({ entry }: { entry: TimelinePrescriptionEntry }) {
                 <Pill tone="danger">Causa prescripta</Pill>
             </div>
             <Notes text={d.grounds} />
-            <RegisteredBy person={d.registeredBy} />
+            <RegisteredBy person={d.registeredBy} at={d.registeredAt} />
         </Item>
     )
 }
@@ -176,6 +191,11 @@ function Notes({ text }: { text: string | null }) {
     return text ? <div className="vz-timeline__notes">{text}</div> : null
 }
 
-function RegisteredBy({ person }: { person: { lastName: string; firstName: string } }) {
-    return <div className="vz-timeline__by">Registrado por {formatPersonFullName(person)}</div>
+/** Quién lo registró y cuándo: "Registrado por Malena Ríos el 09/09/2026 a las 11:42". */
+function RegisteredBy({ person, at }: { person: { lastName: string; firstName: string }; at: string }) {
+    return (
+        <div className="vz-timeline__by">
+            Registrado por {formatPersonFullName(person)} el {formatDateTime(at)}
+        </div>
+    )
 }

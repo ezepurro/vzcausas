@@ -23,6 +23,7 @@ import { CaseDetailPage } from '@/features/cases/pages/CaseDetailPage'
  * | 2 | Administrativa: actos con fecha de notificación (RN6) y el plazo vigente vencido |
  * | 8 | Estado escrito a mano, con el vencimiento ajustado a mano |
  * | 10 | Marcada como prescripta |
+ * | 16 | Amparo con el vencimiento ajustado a mano sobre un estado de la tabla |
  * | 22 | Amparo en "Iniciada": sin movimientos |
  */
 
@@ -72,8 +73,11 @@ describe('CaseDetailPage · línea de vida', () => {
 
         const [current] = await entries()
         expect(current).toHaveTextContent('Abre el plazo de 5 días hábiles para oponerse.')
+        expect(current).toHaveTextContent('Plazo de 5 días hábiles')
         expect(current).toHaveTextContent('16/09/2026')
         expect(current).toHaveTextContent(new RegExp(personNameIn('Ríos', 'Malena')))
+        // La fecha y la hora del registro.
+        expect(current).toHaveTextContent(/el \d{2}\/\d{2}\/\d{4} a las \d{2}:\d{2}/)
     })
 
     // CA-27.4: sólo el plazo del acto vigente está abierto.
@@ -84,6 +88,8 @@ describe('CaseDetailPage · línea de vida', () => {
         // Los dos últimos actos vencieron el 11/09; abierto, y vencido, sólo el vigente.
         expect(items[0]).toHaveTextContent('Plazo vencido el 11/09/2026')
         expect(items[1]).not.toHaveTextContent(/Plazo vencido el|Plazo abierto|Vence hoy/)
+        // Los anteriores muestran su plazo, cerrado.
+        expect(items[1]).toHaveTextContent(/Plazo cerrado · vencía \d{2}\/\d{2}\/\d{4}/)
         const panel = await timeline()
         expect(within(panel).getAllByText(/Plazo vencido el|Plazo abierto · vence|Vence hoy ·/)).toHaveLength(1)
     })
@@ -105,6 +111,14 @@ describe('CaseDetailPage · línea de vida', () => {
         expect(current).toHaveTextContent(/escrito a mano/i)
         expect(current).toHaveTextContent('21/09/2026')
         expect(current).toHaveTextContent(/ajustad[oa] a mano/i)
+    })
+
+    // CA-27.6: el vencimiento vigente, que se ajustó, y el que daba la tabla.
+    it('un vencimiento ajustado a mano muestra también el que daba la tabla', async () => {
+        renderPage(16)
+
+        const [current] = await entries()
+        expect(current).toHaveTextContent(/Vencimiento ajustado a mano · por tabla: \d{2}\/\d{2}\/\d{4}/)
     })
 
     // CA-27.11: identifica el acto interruptivo que rige; uno anterior aparece igual.

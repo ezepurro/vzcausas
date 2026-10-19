@@ -230,6 +230,7 @@
 .vz-timeline__sub { margin-top: 4px; font-size: 12.5px; line-height: 1.45; color: var(--vz-muted); }
 .vz-timeline__tags { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin-top: 8px; }
 .vz-timeline__tag-note { font-size: 12px; font-weight: 600; color: var(--vz-warn); }
+.vz-timeline__term { font-size: 12px; color: var(--vz-muted); }
 .vz-timeline__notes { margin-top: 7px; font-size: 12.5px; line-height: 1.5; color: var(--vz-muted); }
 .vz-timeline__by { margin-top: 5px; font-size: 12px; color: var(--vz-faint); }
 .vz-timeline__empty { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: 6px 0; }
