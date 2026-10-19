@@ -149,21 +149,110 @@
 .vz-summary__caption-action { margin: 8px 0 16px; }
 /* Separa un bloque del anterior dentro del panel ("Para poder registrar"). */
 .vz-summary__block { margin-top: 18px; }
-
-/* Por ahora el detalle tiene un solo panel bajo el encabezado: la tarjeta del
-   cliente. Los que la acompañan en el prototipo —"Ciclo de vida de la causa"
-   (HU27) y "Documentación" (HU39)— son de otro sprint. Hasta que lleguen, la
-   tarjeta conserva el ancho que va a tener en la columna lateral en vez de
-   estirarse a todo el ancho de la página. */
-/* Las tarjetas del detalle (Cliente, Datos del fuero): una al lado de la otra
-   mientras entren, una debajo de la otra en pantallas angostas. */
-.vz-case-detail__panels {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
-  gap: 16px;
-  max-width: 900px;
-  margin-top: 16px;
+/* "Carpeta en Drive": la ubicación puede ser larga y no tiene dónde cortar. */
+.vz-summary__folder {
+  padding: 10px 0;
+  border-top: 1px solid var(--vz-border);
+  font-size: 13px;
 }
+.vz-summary__folder-label { margin-bottom: 4px; color: var(--vz-muted); }
+.vz-summary__folder-path {
+  font-family: var(--vz-font-mono);
+  font-size: 12px;
+  word-break: break-all;
+  color: var(--vz-ink);
+}
+
+/* Aclaración bajo el texto de una casilla del alta (carpeta y modelos). */
+.vz-check__note { display: block; margin-top: 2px; font-size: 12px; color: var(--vz-faint); }
+.vz-check:has(input:disabled) { cursor: not-allowed; color: var(--vz-muted); }
+
+/* ─────────── acciones sobre la causa ─────────── */
+/* "Sobre la causa", al pie del encabezado: acto interruptivo y marcar
+   prescripta, sólo en el penal (HU31, HU33). */
+.vz-case-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 15px;
+  border-top: 1px solid var(--vz-border);
+}
+.vz-case-actions__label {
+  margin-right: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--vz-muted);
+}
+
+/* ─────────── cuerpo del detalle ─────────── */
+/* La línea de vida a la izquierda y, al costado, las tarjetas de la causa
+   (Cliente, Datos del fuero). En pantallas angostas van una debajo de la otra. */
+.vz-case-detail {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(300px, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+.vz-case-detail__aside { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+
+@media (max-width: 1180px) {
+  .vz-case-detail { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ─────────── línea de vida de la causa ─────────── */
+/* Cada movimiento cuelga de una línea vertical, con un punto cuyo color dice
+   qué es: plazo abierto (bronce), vencido o de hoy (rojo), acto interruptivo
+   (bronce), pase a prescripta (rojo). */
+.vz-timeline { margin: 0; padding: 0; list-style: none; }
+.vz-timeline__item {
+  position: relative;
+  margin-left: 4px;
+  padding: 0 0 22px 24px;
+  border-left: 1px solid var(--vz-border);
+}
+.vz-timeline__item:last-child { padding-bottom: 0; border-left-color: transparent; }
+.vz-timeline__item::before {
+  content: '';
+  position: absolute;
+  left: -5.5px;
+  top: 4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--vz-surface);
+  border: 2px solid var(--vz-border-strong);
+}
+.vz-timeline__item--open::before,
+.vz-timeline__item--interruptive::before { border-color: var(--vz-warn-mark); }
+.vz-timeline__item--overdue::before,
+.vz-timeline__item--prescribed::before { border-color: var(--vz-danger-action); }
+.vz-timeline__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.vz-timeline__title { font-size: 14px; font-weight: 600; line-height: 1.35; }
+.vz-timeline__date {
+  font-family: var(--vz-font-mono);
+  font-size: 12px;
+  color: var(--vz-faint);
+  white-space: nowrap;
+}
+.vz-timeline__sub { margin-top: 4px; font-size: 12.5px; line-height: 1.45; color: var(--vz-muted); }
+.vz-timeline__tags { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin-top: 8px; }
+.vz-timeline__tag-note { font-size: 12px; font-weight: 600; color: var(--vz-warn); }
+.vz-timeline__term { font-size: 12px; color: var(--vz-muted); }
+.vz-timeline__notes { margin-top: 7px; font-size: 12.5px; line-height: 1.5; color: var(--vz-muted); }
+.vz-timeline__by { margin-top: 5px; font-size: 12px; color: var(--vz-faint); }
+.vz-timeline__empty { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: 6px 0; }
+.vz-timeline__empty-title { font-size: 14px; font-weight: 600; }
+.vz-timeline__empty-text { margin: 0; max-width: 520px; font-size: 13px; line-height: 1.5; color: var(--vz-muted); }
 
 /* ─────────── teléfono ─────────── */
 @media (max-width: 720px) {

@@ -35,6 +35,10 @@ export interface CaseSummaryAsideProps {
     jurisdictionLabel: string
     /** "Para poder registrar": lo que falta y lo que ya está. */
     checklist: ChecklistItem[]
+    /** false si se destildó "Crear la carpeta de la causa en Drive". */
+    createFolder: boolean
+    /** Dónde va a quedar la carpeta (`folderPathPreview`), o `null` si todavía faltan datos. */
+    folderPath: string | null
 }
 
 /**
@@ -50,11 +54,12 @@ export interface CaseSummaryAsideProps {
  * acto (V3 D-09). Tampoco muestra un vencimiento de plazo, porque el alta no
  * abre ninguno.
  *
- * La "Carpeta en Drive" del prototipo no está: es HU39, del Sprint 3.
+ * "Carpeta en Drive" (HU39) muestra la ubicación del contrato (D-61), no la
+ * del prototipo: el abogado, el fuero y la carátula.
  */
 export function CaseSummaryAside({
     suggestedCaption, onUseCaption, captionIsSuggested,
-    prescriptions, jurisdictionLabel, checklist,
+    prescriptions, jurisdictionLabel, checklist, createFolder, folderPath,
 }: CaseSummaryAsideProps) {
     const initialState: DetailItem = {
         label: 'Estado inicial',
@@ -105,6 +110,15 @@ export function CaseSummaryAside({
                 </div>
 
                 <DetailList items={[initialState, ...prescriptionItems]} />
+
+                <div className="vz-summary__folder">
+                    <div className="vz-summary__folder-label">Carpeta en Drive</div>
+                    <div className="vz-summary__folder-path">
+                        {!createFolder
+                            ? 'No se creará carpeta'
+                            : folderPath ?? 'Se arma con el abogado responsable y la carátula.'}
+                    </div>
+                </div>
 
                 <div className="vz-overline vz-summary__block">Para poder registrar</div>
                 <ul className="vz-checklist">

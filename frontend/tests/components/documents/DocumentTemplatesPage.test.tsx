@@ -146,14 +146,16 @@ describe('DocumentTemplatesPage', () => {
 
         // TESTING.md §7
         it('si el listado no carga, muestra el error', async () => {
+            // Un 403 y no un 500: los errores del servidor se reintentan
+            // (`queryClient`) y el aviso tardaría más de lo que espera `findBy`.
             server.use(
                 http.get('*/document-templates', () =>
-                    HttpResponse.json(errorBody('INTERNAL_SERVER_ERROR', 'Error del servidor de prueba.'), { status: 500 }),
+                    HttpResponse.json(errorBody('FORBIDDEN', 'Rechazo de prueba.'), { status: 403 }),
                 ),
             )
             renderPage()
 
-            expect(await screen.findByText('Error del servidor de prueba.')).toBeInTheDocument()
+            expect(await screen.findByText('Rechazo de prueba.')).toBeInTheDocument()
         })
     })
 
@@ -186,6 +188,8 @@ describe('DocumentTemplatesPage', () => {
             const dialog = await openCreate(user)
 
             await fillCreate(user, dialog, 'Poder general')
+            // "Fuero" es un desplegable de selección múltiple (prototipo): primero se abre.
+            await user.click(within(dialog).getByRole('button', { name: /^fuero/i }))
             await user.click(within(dialog).getByRole('checkbox', { name: 'Amparo' }))
             await user.click(within(dialog).getByRole('button', { name: 'Registrar modelo' }))
 

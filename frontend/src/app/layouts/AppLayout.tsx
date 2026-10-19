@@ -30,9 +30,10 @@ import { canAccess, matchRoute } from '@/app/access/access'
  * ítem es su ruta, así no hace falta una tabla aparte para traducir de ítem
  * a URL.
  *
- * Están TODAS las secciones del sistema, no sólo las del sprint: se navega
- * la aplicación entera desde el primer día. Las que todavía no tienen
- * pantalla caen en la ruta de "no encontrada" del router.
+ * Están todas las secciones del menú del prototipo, no sólo las del sprint:
+ * se navega la aplicación entera desde el primer día. Las que todavía no
+ * tienen pantalla caen en la ruta de "no encontrada" del router.
+ * "Vencimientos" no está: el prototipo la sacó del menú.
  *
  * Las rutas y las etiquetas quedan en castellano a propósito: son parte del
  * producto, que es en castellano. Lo que está en inglés es el código.
@@ -43,9 +44,9 @@ const GROUPS: RailGroup[] = [
         items: [
             { id: '/inicio', label: 'Inicio', icon: 'home' },
             { id: '/causas', label: 'Causas', icon: 'cases' },
-            { id: '/vencimientos', label: 'Vencimientos', icon: 'deadlines' },
             { id: '/clientes', label: 'Clientes', icon: 'clients' },
             { id: '/modelos', label: 'Modelos', icon: 'templates' },
+            { id: '/herramientas', label: 'Herramientas', icon: 'tools' },
         ],
     },
     {

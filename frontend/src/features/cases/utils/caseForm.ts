@@ -30,6 +30,9 @@ export function emptyCaseForm(): CaseFormValues {
         startDate: '',
         ...emptyJurisdictionData(),
         courtFeePaid: false,
+        // Las dos casillas de la carpeta vienen tildadas, como el prototipo (D-59).
+        createFolder: true,
+        copyTemplates: true,
     }
 }
 
@@ -98,5 +101,19 @@ export function changeSacNumber(values: CaseFormValues, sacNumber: string): Case
         ...values,
         sacNumber,
         startDate: sacNumber.trim() ? values.startDate : '',
+    }
+}
+
+/**
+ * Sin carpeta no hay dónde copiar los modelos (CA-40.3): destildar "Crear la
+ * carpeta" destilda también "Copiar los modelos", y el contrato respondería
+ * `400` si viajara así. Volver a tildarla no la vuelve a tildar: que lo
+ * decida el usuario.
+ */
+export function changeCreateFolder(values: CaseFormValues, createFolder: boolean): CaseFormValues {
+    return {
+        ...values,
+        createFolder,
+        copyTemplates: createFolder ? values.copyTemplates : false,
     }
 }

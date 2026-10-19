@@ -17,8 +17,8 @@ sprint en curso**. El resto ya está documentado: no lo repito, leelo.
    prueba y qué puede cada perfil, qué causa semilla sirve para probar cada
    regla, cómo disparar cada error y cómo agregar un endpoint. El resumen está
    en [Los mocks](#los-mocks), más abajo.
-4. `docs/Api-Contract/API_CONTRACT_V3.md` — la fuente de verdad del backend para
-   el Sprint 2. Es autocontenido: trae lo del Sprint 1 que sigue vigente y lo
+4. `docs/Api-Contract/API_CONTRACT_V4.md` — la fuente de verdad del backend para
+   el Sprint 3. Es autocontenido: trae lo del Sprint 1 que sigue vigente y lo
    nuevo. `API_CONTRACT_V2.md` queda como registro del Sprint 1. Si un documento
    y el contrato no coinciden, manda el contrato. **Última revisión:
    11/10/2026** (V3 §7.11): ver [Revisiones del contrato](#revisiones-del-contrato).
@@ -41,7 +41,8 @@ sprint en curso**. El resto ya está documentado: no lo repito, leelo.
   prototipo muestra pero es de otra historia (lista de documentos de la causa,
   modificar y dar de baja una causa, emitir carátula y expediente, adjuntos,
   modificar o anular un acto, modificar y dar de baja modelos, campana de
-  notificaciones, pantalla "Vencimientos", etc.). No se dibuja ni deshabilitado:
+  notificaciones, pantalla "Vencimientos", etc.). No se dibuja ni deshabilitado
+  (por eso "Vencimientos" tampoco está en el rail: el prototipo lo sacó del menú):
   no existe hasta su sprint.
 - **No traigas código de otros proyectos** (componentes, estilos, hooks). Este
   proyecto tiene su propio sistema de diseño en `shared/` y `styles/`.
@@ -78,13 +79,13 @@ Alcance según V4 (D-45): HU 27, 30, 31, 32, 33, 34, 35, 39, 40, 41, 42, 51 y
 
 | HU | Qué | Módulo | Estado en el front |
 |---|---|---|---|
-| 27 | Línea de vida de la causa: actos procesales, actos interruptivos y pase a "Prescripta", intercalados por fecha | `cases/`, `proceedings/` | Pendiente. Para no perder actos, pedir `GET /cases/{caseId}/procedural-acts` con `limit=100` |
-| 31 | Registrar y consultar actos interruptivos (solo penal, solo el abogado responsable) | `proceedings/` | Pendiente |
-| 32 | Barra de prescripción con la alerta del 70 % y alertas en los tableros | `cases/`, `dashboard/` | **Hecha** la barra: lee `prescription`. Faltan los tableros |
-| 33 | "Marcar prescripta" (`POST /cases/{caseId}/prescription`) | `cases/` | Pendiente |
+| 27 | Línea de vida de la causa: actos procesales, actos interruptivos y pase a "Prescripta", intercalados por fecha | `cases/` | **Hecha.** Panel "Ciclo de vida de la causa" (`CaseTimeline`) del detalle, con `GET /cases/{caseId}/timeline` (D-85): sin paginar y ya intercalada; el front no ordena. `casesKeys.timeline(id)` cuelga de `detail(id)`, así que registrar un acto la refresca |
+| 31 | Registrar actos interruptivos (solo penal, solo el abogado responsable). La consulta es la línea de vida | `cases/` | **Hecha.** Modal en el detalle (`InterruptiveActModal`), fila "Sobre la causa". A quien no es el responsable el botón le avisa con un toast, como el prototipo |
+| 32 | Barra de prescripción con la alerta del 70 % y alertas en los tableros | `cases/`, `dashboard/` | **Hecha**: la barra lee `prescription` y los dos tableros muestran "Alertas de prescripción" |
+| 33 | "Marcar prescripta" (`POST /cases/{caseId}/prescription`) | `cases/` | **Hecha.** Modal en el detalle (`PrescriptionDeclarationModal`), con `cases.declarePrescription` en `ACTION_ACCESS`: la Secretaría no ve el botón. En una causa ya prescripta no se ofrecen ni éste ni el acto interruptivo |
 | 34, 35 | Modelos formales: alta con archivo, listado, detalle y descarga | `documents/` | Pendiente |
 | 39, 40 | Carpeta de la causa en Drive y copia de modelos (`createFolder`, `copyTemplates`, `POST /cases/{caseId}/folder`) | `cases/`, `documents/` | Pendiente. El alta todavía no manda las casillas: el backend crea la carpeta por defecto (D-59) |
-| 41, 42 | Tableros "Mi día" y "Estudio" | `dashboard/` | Pendiente |
+| 41, 42 | Tableros "Mi día" y "Estudio" | `dashboard/` | **Hecha.** `HomePage` en `/inicio`. "Mi día": la agenda del mes primero y, debajo, "Mis plazos abiertos"; "Estudio": "Vencimientos del estudio" y "Carga del equipo". Los plazos se muestran como la línea de vencimientos del prototipo (`DeadlinesPanel`) |
 | 30, 51, 52 | Avisos por correo y verificación diaria | — | Sin trabajo de front: es un proceso del servidor |
 
 Lo que V4 cambió en lo ya hecho de los Sprints 1 y 2 **ya está aplicado en el
@@ -142,7 +143,7 @@ Varios módulos necesitan datos de otros. Cada dueño publica **sólo eso** en s
 | `lawyers` | `useLawyers` (ya existe) | Registrar causa: "Abogado responsable" |
 | `clients` | `useClients`, `useCreateClient`, el formateo del nombre y del DNI, y el modal de alta (ya publicados) | Registrar causa: select de cliente y "Registrar cliente nuevo" |
 | `legal-params` | `useLegalQualifications`, el formateo de la prescripción, el modal de alta, y `useProceduralStates` | Registrar causa (calificaciones) y Registrar acto (estados del fuero) |
-| `cases` | `useCase`, las claves de caché, el encabezado de la causa y la barra de prescripción | Registrar acto: el acto muestra la causa y, al registrarse, invalida sus claves porque la causa cambia de estado |
+| `cases` | `useCase`, las claves de caché, el encabezado de la causa, la barra de prescripción y la forma del acto procesal (`ProceduralAct`, `ActDeadline`), que la línea de vida trae embebida | Registrar acto: el acto muestra la causa y, al registrarse, invalida sus claves porque la causa cambia de estado |
 
 Las dependencias van en una sola dirección: `proceedings → cases → clients,
 legal-params, lawyers`. Si aparece una flecha para el otro lado, algo está en

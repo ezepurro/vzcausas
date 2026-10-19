@@ -10,50 +10,25 @@
  * confirmación posterior (V3 D-13), así que el recurso no tiene un estado
  * propio.
  *
- * En este sprint sólo existe el registro (HU26) y su previsualización;
- * consultar, modificar y anular actos son de sprints posteriores.
+ * Este módulo tiene el registro (HU26) y su previsualización. La consulta
+ * es la línea de vida de la causa (HU27), en `cases`; modificar y anular
+ * actos son de sprints posteriores.
  */
 
-import type { ResultingState } from '@/features/cases'
+import type { ActDeadline, ProceduralAct, ResultingState } from '@/features/cases'
 import type { DayType } from '@/features/legal-params'
 
-/** El plazo que abre el acto. Los valores de la tabla se copian al registrarlo. */
-export interface ActDeadline {
-    timeLimitDays: number
-    dayType: DayType
-    /** `notificationDate` en el fuero administrativo, `actDate` en los demás. */
-    countsFrom: string
-    /** Lo que da la tabla. `null` si el estado no abre plazo. */
-    computedDueDate: string | null
-    /** El vigente: el calculado o, si se ajustó, el manual. */
-    dueDate: string
-    manuallyAdjusted: boolean
-}
-
 /**
- * El estado al que pasó la causa con el acto. Lo define `cases`, que es el
- * dueño del recurso: es sólo una parte del `currentState` de la causa —no trae
+ * El estado al que pasó la causa con el acto, el plazo que abre y el acto
+ * mismo. Los define `cases`, porque la línea de vida de la causa (HU27) trae
+ * el acto embebido y las dependencias van `proceedings → cases`. Se
+ * reexportan porque son la forma de un acto.
+ *
+ * `ResultingState` es sólo una parte del `currentState` de la causa —no trae
  * el vencimiento, que va en `deadline`— y nunca es el estado inicial
- * "Iniciada" (V3 §3.8). Se reexporta porque es parte de la forma de un acto.
+ * "Iniciada" (V3 §3.8).
  */
-export type { ResultingState }
-
-/** El recurso tal como viene adentro de `data`. */
-export interface ProceduralAct {
-    id: number
-    caseId: number
-    resultingState: ResultingState
-    actDate: string
-    /** Sólo en el fuero administrativo (RN6). */
-    notificationDate: string | null
-    notes: string | null
-    /** `null` si el acto no abre plazo. */
-    deadline: ActDeadline | null
-    /** Apellido y nombres separados desde V4 (D-68). */
-    registeredBy: { id: number; lastName: string; firstName: string }
-    /** Fecha y hora del registro, ISO 8601. */
-    registeredAt: string
-}
+export type { ActDeadline, ProceduralAct, ResultingState }
 
 /**
  * Cuerpo del `POST /cases/{caseId}/procedural-acts`. `proceduralStateId` y

@@ -13,7 +13,7 @@ const ROUTES = {
     ],
 }
 
-const DAILY_WORK = ['Inicio', 'Causas', 'Vencimientos', 'Clientes', 'Modelos']
+const DAILY_WORK = ['Inicio', 'Causas', 'Clientes', 'Modelos']
 /** Lo que la Secretaría no tiene: el tablero (CA-41.13) y los modelos formales (CA-35.8). */
 const NOT_FOR_SECRETARY = ['Inicio', 'Modelos']
 /** Lo que la matriz de permisos abre a los tres perfiles (V3 §4, D-39). */

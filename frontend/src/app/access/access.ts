@@ -8,9 +8,10 @@ const EVERYONE: readonly Role[] = ROLES
 export const ROUTE_ACCESS: Record<string, readonly Role[]> = {
     '/inicio': ADMIN_AND_LAWYER,  // cada tablero de Inicio es de un rol (V4 §3.11)
     '/causas': EVERYONE,
-    '/vencimientos': EVERYONE,
     '/clientes': EVERYONE,
-    '/modelos': EVERYONE,
+    '/modelos': ADMIN_AND_LAWYER, // la Secretaría no ve ni registra modelos
+    // Accesos directos a sitios externos: no pide nada al servidor (ver features/tools/CAMBIOS.md).
+    '/herramientas': EVERYONE,
     '/usuarios': ADMIN,
     // Consultar abogados y administrar estados procesales y calificaciones
     // legales es de los tres perfiles (V3 §4, matriz del 11/10/2026, D-39).
@@ -44,7 +45,11 @@ export function homeRoute(roles: readonly Role[]): string {
  * todos, pero que sólo opera un perfil. Sale de la tabla de permisos por
  * perfil del contrato (V3 §4).
  */
-export type Action = 'lawyers.create' | 'dashboard.lawyer' | 'dashboard.administrator'
+export type Action =
+    | 'lawyers.create'
+    | 'dashboard.lawyer'
+    | 'dashboard.administrator'
+    | 'cases.declarePrescription'
 
 export const ACTION_ACCESS: Record<Action, readonly Role[]> = {
     // Registrar, modificar y dar de baja abogados es sólo del Administrador;
@@ -54,6 +59,9 @@ export const ACTION_ACCESS: Record<Action, readonly Role[]> = {
     // "Estudio" del Administrador. Quien tiene los dos roles ve las dos pestañas.
     'dashboard.lawyer': LAWYER,
     'dashboard.administrator': ADMIN,
+    // "Marcar prescripta" una causa penal: el Administrador y cualquier
+    // abogado, aunque no sea el responsable; la Secretaría no (V4 §4, D-52).
+    'cases.declarePrescription': ADMIN_AND_LAWYER,
 }
 
 
