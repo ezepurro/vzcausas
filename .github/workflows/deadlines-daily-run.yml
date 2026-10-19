@@ -1,0 +1,33 @@
+# Dispara el proceso diario de HU30/HU32 (N-04, R-01 opción c).
+# Pega varias veces por día a propósito, no una sola: el envío es
+# idempotente por destinatario (sent_notifications), así que una
+# invocación de más solo reintenta lo que falta.
+#
+# Requiere dos secretos del repo (Settings > Secrets and variables >
+# Actions), nunca commiteados:
+#   DEADLINES_API_URL        URL pública del backend (sin / final)
+#   INTERNAL_TRIGGER_SECRET  mismo valor que la variable de entorno
+#                             INTERNAL_TRIGGER_SECRET del servidor
+name: Deadlines daily run
+
+on:
+  # `schedule` queda comentado a propósito: el proyecto todavía no está
+  # desplegado, así que no hay DEADLINES_API_URL real a quien pegarle.
+  # Con el cron activo y sin servidor, esto fallaría cada 3 horas y
+  # GitHub termina mandando avisos de "workflow falló" sin que
+  # signifique nada. Descomentar cuando haya un despliegue real y los
+  # dos secretos (ver arriba) estén cargados.
+  # schedule:
+  #   - cron: "0 */3 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Disparar el digest diario
+        run: |
+          curl --fail-with-body --silent --show-error \
+            --request POST \
+            --header "X-Internal-Trigger-Secret: ${{ secrets.INTERNAL_TRIGGER_SECRET }}" \
+            "${{ secrets.DEADLINES_API_URL }}/internal/deadlines/daily-run"

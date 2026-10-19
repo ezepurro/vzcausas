@@ -2657,3 +2657,287 @@ System.Management.Automation.RemoteException
 - Nada de esto verifica que la solución tenga **sentido de negocio**. Eso lo revisás vos leyendo `git diff HEAD`.
 
 ---
+
+## Turno cerrado 18/10/2026 21:20:52
+
+Sin cambios en el working tree respecto de HEAD.
+
+## Turno cerrado 18/10/2026 21:24:48
+
+### Cambios respecto de HEAD
+
+```
+M	.claude/audit/2026-10-18.md
+M	.claude/audit/verificacion-2026-10-18.md
+M	backend/package.json
+```
+
+### Verificado automáticamente
+
+- Compilación: **omitida**, no se tocó `backend/src/`.
+
+### NO verificado — revisar a mano
+
+- Tests unitarios: **no se corrieron** en este hook. Correlos con `npm test` en `backend/`.
+- Tests de integración: no se corrieron. `npm run test:int` (levanta PostgreSQL en contenedor, no toca tu base de desarrollo).
+- Nada de esto verifica que la solución tenga **sentido de negocio**. Eso lo revisás vos leyendo `git diff HEAD`.
+
+---
+
+## Turno cerrado 18/10/2026 21:28:44
+
+### Cambios respecto de HEAD
+
+```
+M	.claude/audit/2026-10-18.md
+M	.claude/audit/verificacion-2026-10-18.md
+M	backend/tsconfig.json
+```
+
+### Verificado automáticamente
+
+- Compilación: **omitida**, no se tocó `backend/src/`.
+
+### NO verificado — revisar a mano
+
+- Tests unitarios: **no se corrieron** en este hook. Correlos con `npm test` en `backend/`.
+- Tests de integración: no se corrieron. `npm run test:int` (levanta PostgreSQL en contenedor, no toca tu base de desarrollo).
+- Nada de esto verifica que la solución tenga **sentido de negocio**. Eso lo revisás vos leyendo `git diff HEAD`.
+
+---
+
+## Turno cerrado 18/10/2026 21:32:46
+
+### Cambios respecto de HEAD
+
+```
+M	.claude/audit/2026-10-18.md
+M	.claude/audit/verificacion-2026-10-18.md
+M	backend/tsconfig.json
+M	docs/Backend-Architecture/IMPLEMENTACION_NOTIFICACIONES.md
+?? backend/src/subsystems/deadlines/infrastructure/persistence/prisma-sent-notification.repository.ts
+```
+
+### Verificado automáticamente
+
+- Compilación (`tsc --noEmit`): **OK**
+- Tests unitarios (`npm test`): **OK** — Tests:       865 passed, 865 total
+
+### NO verificado — revisar a mano
+
+- Tests de integración: no se corrieron. `npm run test:int` (levanta PostgreSQL en contenedor, no toca tu base de desarrollo).
+- Nada de esto verifica que la solución tenga **sentido de negocio**. Eso lo revisás vos leyendo `git diff HEAD`.
+
+---
+
+## Turno cerrado 18/10/2026 21:34:13
+
+### Cambios respecto de HEAD
+
+```
+M	.claude/audit/2026-10-18.md
+M	.claude/audit/verificacion-2026-10-18.md
+M	backend/tsconfig.json
+M	docs/Backend-Architecture/IMPLEMENTACION_NOTIFICACIONES.md
+?? backend/src/subsystems/deadlines/infrastructure/persistence/prisma-sent-notification.repository.ts
+```
+
+### Verificado automáticamente
+
+- Compilación (`tsc --noEmit`): **OK**
+- Tests unitarios (`npm test`): **OK** — Tests:       865 passed, 865 total
+
+### NO verificado — revisar a mano
+
+- Tests de integración: no se corrieron. `npm run test:int` (levanta PostgreSQL en contenedor, no toca tu base de desarrollo).
+- Nada de esto verifica que la solución tenga **sentido de negocio**. Eso lo revisás vos leyendo `git diff HEAD`.
+
+---
+
+## Turno cerrado 18/10/2026 21:39:30
+
+### Cambios respecto de HEAD
+
+```
+M	.claude/audit/2026-10-18.md
+M	.claude/audit/verificacion-2026-10-18.md
+M	backend/src/subsystems/deadlines/core/application/use-cases/send-daily-notification-digest.use-case.spec.ts
+M	backend/src/subsystems/deadlines/core/application/use-cases/send-daily-notification-digest.use-case.ts
+M	backend/src/subsystems/deadlines/core/application/use-cases/test-support/deadlines-fakes.ts
+M	backend/src/subsystems/deadlines/core/domain/ports/sent-notification.repository.ts
+M	backend/tsconfig.json
+M	docs/Backend-Architecture/IMPLEMENTACION_NOTIFICACIONES.md
+?? backend/src/subsystems/deadlines/infrastructure/persistence/prisma-sent-notification.repository.ts
+```
+
+### Verificado automáticamente
+
+- Compilación (`tsc --noEmit`): **OK**
+- Tests unitarios (`npm test`): **OK** — Tests:       866 passed, 866 total
+
+### NO verificado — revisar a mano
+
+- Tests de integración: no se corrieron. `npm run test:int` (levanta PostgreSQL en contenedor, no toca tu base de desarrollo).
+- Nada de esto verifica que la solución tenga **sentido de negocio**. Eso lo revisás vos leyendo `git diff HEAD`.
+
+---
+
+## Turno cerrado 18/10/2026 21:46:16
+
+### Cambios respecto de HEAD
+
+```
+M	.claude/audit/2026-10-18.md
+M	.claude/audit/verificacion-2026-10-18.md
+M	backend/src/subsystems/deadlines/core/application/use-cases/send-daily-notification-digest.use-case.spec.ts
+M	backend/src/subsystems/deadlines/core/application/use-cases/send-daily-notification-digest.use-case.ts
+M	backend/src/subsystems/deadlines/core/application/use-cases/test-support/deadlines-fakes.ts
+M	backend/src/subsystems/deadlines/core/domain/ports/sent-notification.repository.ts
+M	backend/src/subsystems/identity/core/application/use-cases/authenticate-user.use-case.spec.ts
+M	backend/src/subsystems/identity/core/application/use-cases/change-password.use-case.spec.ts
+M	backend/src/subsystems/identity/core/application/use-cases/refresh-session.use-case.spec.ts
+M	backend/src/subsystems/identity/core/application/use-cases/test-support/identity-fakes.ts
+M	backend/src/subsystems/identity/core/domain/ports/user.repository.ts
+M	backend/src/subsystems/identity/infrastructure/acl/access-token-verifier.adapter.spec.ts
+M	backend/src/subsystems/identity/infrastructure/persistence/in-memory/in-memory-user.repository.ts
+M	backend/src/subsystems/identity/infrastructure/persistence/prisma/prisma-user.repository.ts
+M	backend/tsconfig.json
+M	docs/Backend-Architecture/IMPLEMENTACION_NOTIFICACIONES.md
+?? backend/src/subsystems/deadlines/infrastructure/persistence/prisma-sent-notification.repository.ts
+?? backend/src/subsystems/identity/infrastructure/acl/deadlines-lawyer-contact-lookup.adapter.ts
+```
+
+### Verificado automáticamente
+
+- Compilación (`tsc --noEmit`): **OK**
+- Tests unitarios (`npm test`): **OK** — Tests:       866 passed, 866 total
+
+### NO verificado — revisar a mano
+
+- Tests de integración: no se corrieron. `npm run test:int` (levanta PostgreSQL en contenedor, no toca tu base de desarrollo).
+- Nada de esto verifica que la solución tenga **sentido de negocio**. Eso lo revisás vos leyendo `git diff HEAD`.
+
+---
+
+## Turno cerrado 18/10/2026 21:48:40
+
+### Cambios respecto de HEAD
+
+```
+M	.claude/audit/2026-10-18.md
+M	.claude/audit/verificacion-2026-10-18.md
+M	backend/src/subsystems/deadlines/core/application/use-cases/send-daily-notification-digest.use-case.spec.ts
+M	backend/src/subsystems/deadlines/core/application/use-cases/send-daily-notification-digest.use-case.ts
+M	backend/src/subsystems/deadlines/core/application/use-cases/test-support/deadlines-fakes.ts
+M	backend/src/subsystems/deadlines/core/domain/ports/sent-notification.repository.ts
+M	backend/src/subsystems/identity/core/application/use-cases/authenticate-user.use-case.spec.ts
+M	backend/src/subsystems/identity/core/application/use-cases/change-password.use-case.spec.ts
+M	backend/src/subsystems/identity/core/application/use-cases/refresh-session.use-case.spec.ts
+M	backend/src/subsystems/identity/core/application/use-cases/test-support/identity-fakes.ts
+M	backend/src/subsystems/identity/core/domain/ports/user.repository.ts
+M	backend/src/subsystems/identity/infrastructure/acl/access-token-verifier.adapter.spec.ts
+M	backend/src/subsystems/identity/infrastructure/persistence/in-memory/in-memory-user.repository.ts
+M	backend/src/subsystems/identity/infrastructure/persistence/prisma/prisma-user.repository.ts
+M	backend/tsconfig.json
+M	docs/Backend-Architecture/IMPLEMENTACION_NOTIFICACIONES.md
+?? backend/src/subsystems/deadlines/infrastructure/persistence/prisma-sent-notification.repository.ts
+?? backend/src/subsystems/identity/infrastructure/acl/deadlines-lawyer-contact-lookup.adapter.ts
+```
+
+### Verificado automáticamente
+
+- Compilación (`tsc --noEmit`): **OK**
+- Tests unitarios (`npm test`): **OK** — Tests:       866 passed, 866 total
+
+### NO verificado — revisar a mano
+
+- Tests de integración: no se corrieron. `npm run test:int` (levanta PostgreSQL en contenedor, no toca tu base de desarrollo).
+- Nada de esto verifica que la solución tenga **sentido de negocio**. Eso lo revisás vos leyendo `git diff HEAD`.
+
+---
+
+## Turno cerrado 18/10/2026 21:53:26
+
+### Cambios respecto de HEAD
+
+```
+M	.claude/audit/2026-10-18.md
+M	.claude/audit/verificacion-2026-10-18.md
+M	docs/Backend-Architecture/IMPLEMENTACION_NOTIFICACIONES.md
+```
+
+### Verificado automáticamente
+
+- Compilación: **omitida**, no se tocó `backend/src/`.
+
+### NO verificado — revisar a mano
+
+- Tests unitarios: **no se corrieron** en este hook. Correlos con `npm test` en `backend/`.
+- Tests de integración: no se corrieron. `npm run test:int` (levanta PostgreSQL en contenedor, no toca tu base de desarrollo).
+- Nada de esto verifica que la solución tenga **sentido de negocio**. Eso lo revisás vos leyendo `git diff HEAD`.
+
+---
+
+## Turno cerrado 18/10/2026 22:03:05
+
+### Cambios respecto de HEAD
+
+```
+M	.claude/audit/2026-10-18.md
+M	.claude/audit/verificacion-2026-10-18.md
+M	backend/.env.example
+M	docker/.env.example
+M	docs/Backend-Architecture/IMPLEMENTACION_NOTIFICACIONES.md
+?? .github/workflows/deadlines-daily-run.yml
+?? backend/src/subsystems/deadlines/core/domain/ports/deadline-detection.port.ts
+?? backend/src/subsystems/deadlines/core/domain/ports/prescription-detection.port.ts
+?? backend/src/subsystems/deadlines/infrastructure/http/internal/daily-run.controller.spec.ts
+?? backend/src/subsystems/deadlines/infrastructure/http/internal/daily-run.controller.ts
+?? backend/src/subsystems/deadlines/infrastructure/http/internal/internal-trigger.guard.spec.ts
+?? backend/src/subsystems/deadlines/infrastructure/http/internal/internal-trigger.guard.ts
+```
+
+### Verificado automáticamente
+
+- Compilación (`tsc --noEmit`): **OK**
+- Tests unitarios (`npm test`): **OK** — Tests:       872 passed, 872 total
+
+### NO verificado — revisar a mano
+
+- **Contrato de API**: la forma de la respuesta y el status HTTP no se verificaron contra `API_CONTRACT_V3.md`. Eso lo cubren los tests de integración: `npm run test:int`.
+- Tests de integración: no se corrieron. `npm run test:int` (levanta PostgreSQL en contenedor, no toca tu base de desarrollo).
+- Nada de esto verifica que la solución tenga **sentido de negocio**. Eso lo revisás vos leyendo `git diff HEAD`.
+
+---
+
+## Turno cerrado 18/10/2026 22:05:19
+
+### Cambios respecto de HEAD
+
+```
+M	.claude/audit/2026-10-18.md
+M	.claude/audit/verificacion-2026-10-18.md
+M	backend/.env.example
+M	docker/.env.example
+M	docs/Backend-Architecture/IMPLEMENTACION_NOTIFICACIONES.md
+?? .github/workflows/deadlines-daily-run.yml
+?? backend/src/subsystems/deadlines/core/domain/ports/deadline-detection.port.ts
+?? backend/src/subsystems/deadlines/core/domain/ports/prescription-detection.port.ts
+?? backend/src/subsystems/deadlines/infrastructure/http/internal/daily-run.controller.spec.ts
+?? backend/src/subsystems/deadlines/infrastructure/http/internal/daily-run.controller.ts
+?? backend/src/subsystems/deadlines/infrastructure/http/internal/internal-trigger.guard.spec.ts
+?? backend/src/subsystems/deadlines/infrastructure/http/internal/internal-trigger.guard.ts
+```
+
+### Verificado automáticamente
+
+- Compilación (`tsc --noEmit`): **OK**
+- Tests unitarios (`npm test`): **OK** — Tests:       872 passed, 872 total
+
+### NO verificado — revisar a mano
+
+- **Contrato de API**: la forma de la respuesta y el status HTTP no se verificaron contra `API_CONTRACT_V3.md`. Eso lo cubren los tests de integración: `npm run test:int`.
+- Tests de integración: no se corrieron. `npm run test:int` (levanta PostgreSQL en contenedor, no toca tu base de desarrollo).
+- Nada de esto verifica que la solución tenga **sentido de negocio**. Eso lo revisás vos leyendo `git diff HEAD`.
+
+---
