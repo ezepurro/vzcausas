@@ -72,19 +72,23 @@ describe('CaseDetailPage · acto interruptivo', () => {
         expect(db.interruptiveActs.some((a) => a.caseId === 1 && a.name === 'Citación a juicio')).toBe(true)
     })
 
-    // CA-31.6: no mueve la causa.
+    // CA-31.6: no mueve la causa. Se compara sólo el recuadro del estado actual:
+    // la barra de prescripción, en el mismo encabezado, sí cambia (CA-31.2).
     it('el estado procesal y el vencimiento de la causa no cambian', async () => {
         const { user } = renderPage(1)
         const dialog = await openForm(user)
         const header = screen.getByRole('region', { name: 'Causa 13284571' })
-        const before = header.textContent
+        const state = within(header).getByText('Estado procesal actual').parentElement as HTMLElement
+        const before = state.textContent
 
         await fill(user, dialog, 'Indagatoria')
         await user.click(within(dialog).getByRole('button', { name: OPEN }))
         await screen.findByText(/^Acto interruptivo registrado\./)
+        // La causa ya se volvió a pedir: la prescripción corre desde el acto nuevo.
+        await within(header).findByText('15/09/2034')
 
-        expect(header).toHaveTextContent('Oposición al requerimiento de elevación')
-        expect(header.textContent).toBe(before)
+        expect(state).toHaveTextContent('Oposición al requerimiento de elevación')
+        expect(state.textContent).toBe(before)
     })
 
     // CA-31.8
