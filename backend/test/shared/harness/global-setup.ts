@@ -61,6 +61,24 @@ const TEST_ENV: Record<string, string> = {
   THROTTLE_DEFAULT_WINDOW: '1m',
   THROTTLE_AUTH_LIMIT: '100000',
   THROTTLE_AUTH_WINDOW: '1m',
+
+  /*
+   * `DeadlinesModule` (HU30/HU32) solo se importa a `AppModule` si estas 5
+   * variables están presentes (`app.module.ts:37-55`) — sin ellas, la
+   * suite de integración arrancaría sin el endpoint
+   * `/internal/deadlines/daily-run` y `daily-run.int.spec.ts` no tendría
+   * nada que probar. Los valores son inventados: `GoogleOAuthClientService`
+   * (`shared/infrastructure/google/google-oauth-client.service.ts`) solo
+   * los guarda en memoria al construirse, sin pegarle a Google — y el spec
+   * de integración reemplaza `EMAIL_SENDER` por `InMemoryEmailSender`
+   * (`test/shared/fakes/email-sender.fake.ts`), así que `GmailApiEmailAdapter`
+   * nunca llega a usarlos de verdad.
+   */
+  GOOGLE_OAUTH_CLIENT_ID: 'test-client-id',
+  GOOGLE_OAUTH_CLIENT_SECRET: 'test-client-secret',
+  GOOGLE_OAUTH_REFRESH_TOKEN: 'test-refresh-token',
+  MANAGEMENT_MAILBOX: 'gestion@test.vzcausas.local',
+  INTERNAL_TRIGGER_SECRET: 'test-internal-trigger-secret',
 };
 
 /**

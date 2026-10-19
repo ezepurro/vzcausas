@@ -55,11 +55,17 @@ import { PrismaSentNotificationRepository } from "./infrastructure/persistence/p
         config.getOrThrow<string>("MANAGEMENT_MAILBOX"),
       inject: [ConfigService],
     },
-    // Hardcodeado al default que documenta el contrato ("3 días
-    // hábiles, 08:00, con copia" — API_CONTRACT_V4.md:7383), no leído
-    // de ninguna variable: QN-03 (dónde vive esta config de verdad)
-    // sigue sin resolver. Revisar cuando se resuelva.
-    { provide: COPY_TO_RESPONSIBLE_LAWYER, useValue: true },
+    // D-79: "configuración del servidor", default "con copia"
+    // (API_CONTRACT_V4.md:7383). Variable opcional a propósito —
+    // ver env.validation.ts, no está en REQUIRED_VARS: nadie que no
+    // use `deadlines` tiene por qué cargarla, y quien sí la usa
+    // mantiene el comportamiento de hoy si no la define.
+    {
+      provide: COPY_TO_RESPONSIBLE_LAWYER,
+      useFactory: (config: ConfigService) =>
+        config.get<string>("COPY_TO_RESPONSIBLE_LAWYER", "true") !== "false",
+      inject: [ConfigService],
+    },
 
     SendDailyNotificationDigestUseCase,
     InternalTriggerGuard,
