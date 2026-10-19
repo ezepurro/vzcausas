@@ -8,14 +8,24 @@ get:
   summary: Consultar detalle de causa
   description: |
     Obtiene el detalle de una causa (HU22). Devuelve el mismo recurso que el
-    listado: encabezado, barra de prescripción y tarjeta del cliente. El ciclo
-    de vida, la documentación y las acciones "Sobre la causa" pertenecen a
+    listado: encabezado, barra de prescripción (`prescription`), tarjeta del
+    cliente y acceso a la carpeta (`folder.url`, botón "Abrir carpeta en
+    Drive").
+
+    El **ciclo de vida** sale de `GET /cases/{caseId}/timeline` (HU27, D-85),
+    que devuelve ya intercaladas y completas sus tres fuentes. La lista de
+    documentos y las acciones "Modificar causa", "Dar de baja", "Emitir
+    carátula", "Emitir expediente" y "Registrar pago de tasa" pertenecen a
     sprints posteriores.
 
     **Rol requerido:** cualquier usuario autenticado.
   responses:
     '200':
-      description: Causa solicitada.
+      description: |
+        Causa solicitada. Es la causa del prototipo: el hecho es del
+        27/02/2021, pero el acto interruptivo del 04/07/2024 reinició el
+        cómputo, y por eso la prescripción corre desde esa fecha y vence el
+        04/07/2032.
       content:
         application/json:
           schema:
@@ -38,6 +48,16 @@ get:
               instructorExtension: '214'
               counterparty: null
               subjectMatter: null
+              clientDetained: false
+              injunctionGranted: null
+              harmfulActDate: null
+              harmfulActRenews: null
+              harmfulActRenewalDays: null
+              harmfulActTermDays: null
+              harmfulActTermDayType: null
+              harmfulActDeadline: null
+              administrativeRemedyExhaustedOn: null
+              courtFeePaid: false
               client:
                 id: 1
                 lastName: GÓMEZ
@@ -48,15 +68,26 @@ get:
                 clientSince: '2021-03-12'
               responsibleLawyer:
                 id: 3
-                fullName: Dra. Malena Ríos
+                lastName: Ríos
+                firstName: Malena
                 registrationNumber: 1-36842
               legalQualifications:
                 - id: 1
                   name: Robo calificado — art. 167 inc. 2 CP
                   prescriptionMonths: 96
                   offenseDate: '2021-02-27'
-                  prescriptionStartsOn: '2021-02-27'
-                  prescriptionExpiresOn: '2029-02-27'
+                  prescriptionStartsOn: '2024-07-04'
+                  prescriptionExpiresOn: '2032-07-04'
+              prescription:
+                legalQualificationId: 1
+                legalQualificationName: Robo calificado — art. 167 inc. 2 CP
+                startsOn: '2024-07-04'
+                expiresOn: '2032-07-04'
+                elapsedPercentage: 27
+                alert: false
+                expired: false
+                lastInterruptiveActDate: '2024-07-04'
+              prescriptionDeclaration: null
               startDate: '2021-03-12'
               currentState:
                 proceduralStateId: 12
@@ -67,6 +98,12 @@ get:
                 dueDate: '2026-09-16'
                 businessDaysRemaining: 1
                 manuallyAdjusted: false
+              folder:
+                status: CREATED
+                url: https://drive.google.com/drive/folders/1Qw8zT3nKcVb5LhXy2RmPd7sUeJ4oAfG9
+                path: /VZ Causas/Ríos, Malena/Penal/GÓMEZ, Ariel Fernando p.s.a. Robo calificado
+                templatesCopied: 6
+                templatesPending: 0
               active: true
     '400':
       description: Identificador inválido.

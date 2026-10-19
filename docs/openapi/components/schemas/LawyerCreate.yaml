@@ -1,14 +1,23 @@
 type: object
 additionalProperties: false
 required:
-  - fullName
+  - lastName
+  - firstName
   - registrationNumber
 properties:
-  fullName:
+  lastName:
     type: string
     minLength: 1
+    maxLength: 100
     examples:
-      - Dr. Ignacio Peralta
+      - Peralta
+  firstName:
+    type: string
+    minLength: 1
+    maxLength: 100
+    description: Sin el tratamiento ("Dr.", "Dra.").
+    examples:
+      - Ignacio
   registrationNumber:
     type: string
     description: Formato `1-28114`. Única.

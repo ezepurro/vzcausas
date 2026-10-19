@@ -25,7 +25,7 @@ export const TODAY = day('2026-10-06');
 export const NOW = new Date('2026-10-06T15:30:00.000Z');
 
 /** What the initial state has in common: not final, active and opening no term. */
-const NEUTRAL_STATE = { terminal: false, isActive: true, timeLimitDays: 0, dayType: DayType.NONE };
+const NEUTRAL_STATE = { terminal: false, isPrescribed: false, isActive: true, timeLimitDays: 0, dayType: DayType.NONE };
 
 /** The initial state ("Iniciada") of each jurisdiction, as `legal-parameters` would hand it out. */
 export const INITIAL_STATES: Record<JurisdictionCode, ProceduralStateRef> = {
@@ -111,6 +111,7 @@ export function aProceduralState(overrides: Partial<ProceduralStateRef> = {}): P
     isInitial: false,
     jurisdictionId: 1,
     terminal: false,
+    isPrescribed: false,
     isActive: true,
     timeLimitDays: 5,
     dayType: DayType.BUSINESS,
@@ -134,6 +135,15 @@ export const ARCHIVED = aProceduralState({
   dayType: DayType.NONE,
 });
 export const DEACTIVATED = aProceduralState({ id: 25, name: 'Estado dado de baja', isActive: false });
+/** The system state of HU33: terminal, but never the target of an act (D-69). */
+export const PRESCRIBED = aProceduralState({
+  id: 26,
+  name: 'Prescripta',
+  terminal: true,
+  isPrescribed: true,
+  timeLimitDays: 0,
+  dayType: DayType.NONE,
+});
 export const ADMINISTRATIVE_STATE = aProceduralState({ id: 31, name: 'Presentación de descargo', jurisdictionId: 2, timeLimitDays: 10 });
 
 /** The states of the table that the specs of the procedural acts share (besides the initial ones). */
@@ -143,6 +153,7 @@ export const STATES_TABLE: ProceduralStateRef[] = [
   WITHOUT_TERM,
   ARCHIVED,
   DEACTIVATED,
+  PRESCRIBED,
   ADMINISTRATIVE_STATE,
 ];
 

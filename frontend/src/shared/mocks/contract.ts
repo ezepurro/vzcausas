@@ -1,9 +1,9 @@
 /**
  * Tipos del contrato de API.
  *
- * Fuente: `docs/Api-Contract/API_CONTRACT_V3.md`, con la revisión del
- * 05/10/2026 (§7.8). Este archivo es la traducción literal del documento a
- * TypeScript.
+ * Fuente: `docs/Api-Contract/API_CONTRACT_V4.md` (14/10/2026), que contiene a
+ * V3 entero con los cambios del Sprint 3. Este archivo es la traducción literal
+ * del documento a TypeScript.
  *
  * Los **mensajes** quedan en castellano porque son los que define el
  * contrato y los que ve el usuario; lo que está en inglés es el código.
@@ -71,6 +71,22 @@ export const PROCEDURAL_ROLES_BY_JURISDICTION: Record<Jurisdiction, readonly Pro
 };
 
 /**
+ * Origen de un vencimiento en los tableros (V4 §2): el plazo que abrió el acto
+ * procesal del estado actual, o el plazo para presentar el amparo desde el
+ * acto lesivo (D-78).
+ */
+export const DEADLINE_KINDS = ['PROCEDURAL_ACT', 'HARMFUL_ACT'] as const;
+export type DeadlineKind = (typeof DEADLINE_KINDS)[number];
+
+/**
+ * Situación de la carpeta de una causa en la nube (V4 §2). Una causa para la
+ * que no se pidió carpeta no tiene estado: su `folder` vale `null`.
+ */
+/** Revisión del 19/10/2026: `PENDING` es "no se pidió" y `ERROR`, "falló". */
+export const CASE_FOLDER_STATUSES = ['PENDING', 'CREATING', 'CREATED', 'ERROR'] as const;
+export type CaseFolderStatus = (typeof CASE_FOLDER_STATUSES)[number];
+
+/**
  * Los códigos y las formas de error viven en `api/contract.ts`, que es
  * contrato de producción: lo usa `http.ts` para parsear. Se reexportan acá
  * para que el mock siga teniendo todo el contrato a mano.
@@ -90,15 +106,24 @@ export {
 /* ------------------------------------------------------------------ */
 
 /**
+ * Una persona referida desde otro recurso: quién registró un acto, quién marcó
+ * una causa como prescripta, quién cargó un modelo, el responsable de un plazo.
+ * Desde V4 el apellido y los nombres van separados (D-68).
+ */
+export interface PersonRef {
+    id: number;
+    lastName: string;
+    firstName: string;
+}
+
+/**
  * La ficha profesional embebida dentro de un usuario (§3.2).
  *
  * Son los tres campos que la pantalla necesita para dibujar la columna
  * "Abogado vinculado": el id para operar, el nombre para mostrar y la
  * matrícula porque desambigua dos homónimos. No es la ficha completa.
  */
-export interface EmbeddedLawyer {
-    id: number;
-    fullName: string;
+export interface EmbeddedLawyer extends PersonRef {
     registrationNumber: string;
 }
 
@@ -106,7 +131,9 @@ export interface EmbeddedLawyer {
 export interface User {
     id: number;
     username: string;
-    fullName: string;
+    /** Apellido y nombres separados desde V4 (D-68). */
+    lastName: string;
+    firstName: string;
     email: string;
     /** Siempre arreglo, también en el login. Al menos un rol. */
     roles: Role[];
@@ -121,8 +148,10 @@ export interface User {
 /** Abogado tal como lo devuelve `/lawyers` (§3.3). */
 export interface Lawyer {
     id: number;
-    /** Incluye el tratamiento: "Dr. Ignacio Peralta". */
-    fullName: string;
+    /** Apellido y nombres separados desde V4 (D-68). */
+    lastName: string;
+    /** Sin el tratamiento: "Dr." o "Dra." lo pone el frontend (D-81). */
+    firstName: string;
     /** Matrícula del Colegio de Abogados de Córdoba, formato `1-28114`. */
     registrationNumber: string;
     /** Causas activas donde es responsable. Calculado, sólo lectura. */
@@ -146,16 +175,20 @@ export interface ProceduralState {
     dayType: DayType;
     /** Cierra el ciclo de vida de la causa (Archivada, Prescripta). */
     terminal: boolean;
-    /** Causas que están hoy en este estado. Calculado; sólo en las respuestas de `GET`. */
-    activeCases: number;
+    /**
+     * Causas que están hoy en este estado, activas o no: también las archivadas
+     * y las prescriptas (V4 D-70). No cuenta las dadas de baja. Calculado; sólo
+     * en las respuestas de `GET`.
+     */
+    caseCount: number;
     active: boolean;
 }
 
 /**
  * Lo que devuelven `POST` y `PATCH /procedural-states`: el estado sin
- * `activeCases`, que es un dato de consulta (D-32).
+ * `caseCount`, que es un dato de consulta (D-32).
  */
-export type WrittenProceduralState = Omit<ProceduralState, 'activeCases'>;
+export type WrittenProceduralState = Omit<ProceduralState, 'caseCount'>;
 
 /** Calificación legal tal como la devuelve un `GET` de `/legal-qualifications` (§3.5). */
 export interface LegalQualification {
@@ -198,7 +231,10 @@ export interface CaseLegalQualification {
     prescriptionMonths: number;
     /** Fecha del hecho imputado. La carga el usuario. */
     offenseDate: string;
-    /** Desde cuándo se computa. Hoy es igual a `offenseDate` (D-19). */
+    /**
+     * Desde cuándo se computa: la fecha del acto interruptivo más reciente o,
+     * si no hay ninguno (o es anterior al hecho), `offenseDate` (V4 §3.9).
+     */
     prescriptionStartsOn: string;
     /** `prescriptionStartsOn` más `prescriptionMonths`. */
     prescriptionExpiresOn: string;
@@ -224,13 +260,69 @@ export interface CaseState {
 export interface CurrentState extends CaseState {
     /** `true` si es el estado inicial, "Iniciada". */
     initial: boolean;
-    /** El acto que llevó la causa a este estado. `null` en el estado inicial. */
+    /**
+     * El acto que llevó la causa a este estado. `null` en el estado inicial y
+     * en "Prescripta", al que no se llega por un acto (V4 D-54).
+     */
     proceduralActId: number | null;
     /** `null` si el acto no abrió plazo o si es el estado inicial. */
     dueDate: string | null;
     /** `0` vence hoy; negativo, ya vencido. `null` si `dueDate` es `null`. */
     businessDaysRemaining: number | null;
     manuallyAdjusted: boolean;
+}
+
+/**
+ * La prescripción que rige la causa: la de la calificación que prescribe
+ * primero, ya calculada por el backend (V4 §3.7, D-51).
+ */
+export interface CasePrescription {
+    legalQualificationId: number;
+    legalQualificationName: string;
+    startsOn: string;
+    expiresOn: string;
+    /** 0 a 100, redondeado al entero más cercano. */
+    elapsedPercentage: number;
+    /** `true` desde el 70 % transcurrido, evaluado sobre el valor exacto. */
+    alert: boolean;
+    /** `true` si hoy es igual o posterior a `expiresOn`. No cambia el estado. */
+    expired: boolean;
+    /** El acto interruptivo que reinició el cómputo. `null` si corre desde el hecho. */
+    lastInterruptiveActDate: string | null;
+}
+
+/** Constancia de que la causa fue marcada como prescripta (V4 §3.7, HU33). */
+export interface PrescriptionDeclaration {
+    prescriptionDate: string;
+    resolution: string;
+    grounds: string | null;
+    registeredBy: PersonRef;
+    registeredAt: string;
+}
+
+/** La carpeta de la causa en la nube (V4 §3.7, HU39 y HU40). */
+export interface CaseFolder {
+    status: CaseFolderStatus;
+    /** `null` mientras `status` no es `CREATED`. */
+    url: string | null;
+    /** `/VZ Causas/Ríos, Malena/Penal/GÓMEZ, Ariel Fernando p.s.a. Robo calificado` (D-61). */
+    path: string;
+    templatesCopied: number;
+    templatesPending: number;
+}
+
+/**
+ * El vencimiento para presentar el amparo desde el acto lesivo (V4 §3.7,
+ * D-78). Sólo existe en un amparo activo que todavía está en "Iniciada".
+ */
+export interface HarmfulActDeadline {
+    /** `harmfulActDate` o, si se renueva, la última renovación que no supera hoy. */
+    actDate: string;
+    /** `true` si `actDate` es una renovación y no la fecha cargada. */
+    renewed: boolean;
+    dueDate: string;
+    /** `0` vence hoy; negativo, vencido. */
+    businessDaysRemaining: number;
 }
 
 /** Causa tal como la devuelve `/cases` (§3.7). */
@@ -251,12 +343,37 @@ export interface Case {
     counterparty: string | null;
     /** Objeto del reclamo o del amparo. `null` en el fuero penal. */
     subjectMatter: string | null;
+    /** Si el cliente está preso. Sólo en el penal (V4 D-67, D-80). */
+    clientDetained: boolean | null;
+    /** Si se hizo lugar a la medida cautelar. Sólo en el amparo. */
+    injunctionGranted: boolean | null;
+    /** Fecha del acto lesivo. Sólo en el amparo, y opcional. */
+    harmfulActDate: string | null;
+    harmfulActRenews: boolean | null;
+    /** Cada cuántos días corridos se renueva. Sólo si `harmfulActRenews`. */
+    harmfulActRenewalDays: number | null;
+    /** Plazo para presentar el amparo. Sólo con `harmfulActDate`. */
+    harmfulActTermDays: number | null;
+    harmfulActTermDayType: DayType | null;
+    /** Calculado (D-78). */
+    harmfulActDeadline: HarmfulActDeadline | null;
+    /** Agotamiento de la vía administrativa. Sólo en el administrativo. */
+    administrativeRemedyExhaustedOn: string | null;
+    /** Tasa de justicia pagada (RN10). En los tres fueros. */
+    courtFeePaid: boolean;
     client: CaseClient;
     responsibleLawyer: EmbeddedLawyer;
     /** Opcional en el penal (D-33); vacío en los demás fueros. */
     legalQualifications: CaseLegalQualification[];
-    startDate: string;
+    /** `null` fuera del penal y en una causa penal sin calificaciones (V4). */
+    prescription: CasePrescription | null;
+    /** `null` mientras la causa no fue marcada como prescripta (V4). */
+    prescriptionDeclaration: PrescriptionDeclaration | null;
+    /** `null` mientras la causa no tiene SAC (D-38). */
+    startDate: string | null;
     currentState: CurrentState;
+    /** `null` si no se pidió crearla, o en las causas anteriores a V4. */
+    folder: CaseFolder | null;
     active: boolean;
 }
 
@@ -284,8 +401,138 @@ export interface ProceduralAct {
     notes: string | null;
     /** `null` si el acto no abre plazo. */
     deadline: ActDeadline | null;
-    registeredBy: { id: number; fullName: string };
+    registeredBy: PersonRef;
     registeredAt: string;
+}
+
+/**
+ * Acto interruptivo (V4 §3.9, HU31). Reinicia la prescripción de todas las
+ * calificaciones de la causa; no mueve el estado ni abre plazos (D-48, D-49).
+ */
+export interface InterruptiveAct {
+    id: number;
+    caseId: number;
+    /** Texto libre: "Citación a juicio", "Indagatoria". */
+    name: string;
+    actDate: string;
+    notes: string | null;
+    registeredBy: PersonRef;
+    registeredAt: string;
+}
+
+/**
+ * Una entrada de la línea de vida de la causa (HU27, D-85): el recurso tal
+ * como lo define su sección, con su `type` y su `date`.
+ */
+export type TimelineEntry =
+    | {
+          type: 'PROCEDURAL_ACT';
+          /** La `actDate` del acto. */
+          date: string;
+          /** El acto que llevó la causa a su estado actual: su plazo es el abierto. */
+          current: boolean;
+          proceduralAct: ProceduralAct;
+      }
+    | {
+          type: 'INTERRUPTIVE_ACT';
+          date: string;
+          /** El acto interruptivo más reciente, el que rige la prescripción. */
+          governsPrescription: boolean;
+          interruptiveAct: InterruptiveAct;
+      }
+    | {
+          type: 'PRESCRIPTION_DECLARATION';
+          /** La `prescriptionDate` de la declaración. */
+          date: string;
+          prescriptionDeclaration: PrescriptionDeclaration;
+      };
+
+/** Modelo formal (V4 §3.10, HU34 y HU35). */
+export interface DocumentTemplate {
+    id: number;
+    name: string;
+    /** Al menos uno, sin repetir (D-55). */
+    jurisdictions: Jurisdiction[];
+    fileName: string;
+    copyToNewCases: boolean;
+    lastVersionAt: string;
+    lastVersionBy: PersonRef;
+    /** Causas a cuya carpeta se copió. Calculado. */
+    usageCount: number;
+    active: boolean;
+}
+
+/** Los cuatro indicadores de un tablero (V4 §3.11). */
+export interface DashboardSummary {
+    dueToday: number;
+    overdue: number;
+    dueSoon: number;
+    activeCases: number;
+}
+
+/** Un plazo abierto de un tablero. */
+export interface DashboardDeadline {
+    caseId: number;
+    /** De dónde sale el vencimiento: el acto procesal o el acto lesivo (D-78). */
+    kind: DeadlineKind;
+    sacNumber: string | null;
+    caption: string;
+    jurisdiction: Jurisdiction;
+    currentStateName: string;
+    responsibleLawyer: PersonRef;
+    dueDate: string;
+    businessDaysRemaining: number;
+}
+
+/** Una causa penal con el 70 % o más de su prescripción transcurrida (HU32). */
+export interface DashboardPrescriptionAlert {
+    caseId: number;
+    sacNumber: string | null;
+    caption: string;
+    responsibleLawyer: PersonRef;
+    legalQualificationName: string;
+    startsOn: string;
+    expiresOn: string;
+    elapsedPercentage: number;
+    expired: boolean;
+}
+
+/** "Causas para impulsar": activas y sin ningún vencimiento abierto (CA-41.4). */
+export interface DashboardCaseToAdvance {
+    caseId: number;
+    sacNumber: string | null;
+    caption: string;
+    jurisdiction: Jurisdiction;
+    currentStateName: string;
+    lastActDate: string | null;
+    daysSinceLastAct: number | null;
+}
+
+/** `GET /dashboards/lawyer`: "Mi día" (HU41). */
+export interface LawyerDashboard {
+    date: string;
+    lawyer: PersonRef;
+    summary: DashboardSummary;
+    deadlines: DashboardDeadline[];
+    prescriptionAlerts: DashboardPrescriptionAlert[];
+    casesToAdvance: DashboardCaseToAdvance[];
+}
+
+/** Un abogado en "Carga del equipo". */
+export interface DashboardTeamMember {
+    lawyer: PersonRef;
+    activeCases: number;
+    openDeadlines: { overdue: number; dueToday: number; dueSoon: number; later: number };
+}
+
+/** `GET /dashboards/administrator`: "Estudio" (HU42). */
+export interface AdministratorDashboard {
+    date: string;
+    summary: DashboardSummary;
+    casesByJurisdiction: { jurisdiction: Jurisdiction; activeCases: number }[];
+    deadlines: DashboardDeadline[];
+    prescriptionAlerts: DashboardPrescriptionAlert[];
+    team: DashboardTeamMember[];
 }
 
 /** Respuesta de `GET /cases/{caseId}/procedural-acts/deadline-preview` (§3.8). */
@@ -323,7 +570,8 @@ export interface ChangePasswordRequest {
  */
 export interface CreateUserRequest {
     username: string;
-    fullName: string;
+    lastName: string;
+    firstName: string;
     email: string;
     password: string;
     roles: Role[];
@@ -344,21 +592,24 @@ export interface CreateUserRequest {
  */
 export interface UpdateUserRequest {
     username?: string;
-    fullName?: string;
+    lastName?: string;
+    firstName?: string;
     email?: string;
     roles?: Role[];
     lawyerId?: number | null;
 }
 
-/** Alta de abogado (§3.3). Dos campos y nada más. */
+/** Alta de abogado (§3.3). Sin el tratamiento en los nombres (D-81). */
 export interface CreateLawyerRequest {
-    fullName: string;
+    lastName: string;
+    firstName: string;
     registrationNumber: string;
 }
 
 /** Edición de abogado. Al menos un campo. `activeCases` no es modificable. */
 export interface UpdateLawyerRequest {
-    fullName?: string;
+    lastName?: string;
+    firstName?: string;
     registrationNumber?: string;
 }
 
@@ -429,9 +680,49 @@ export interface CreateCaseRequest {
     legalQualifications?: CaseQualificationRequest[];
     counterparty?: string;
     subjectMatter?: string;
+    /** Sólo en el penal. Por defecto, `false` (V4 D-67). */
+    clientDetained?: boolean;
+    /** Sólo en el amparo. Por defecto, `false`. */
+    injunctionGranted?: boolean;
+    /** Sólo en el amparo. No futura. */
+    harmfulActDate?: string;
+    harmfulActRenews?: boolean;
+    /** Obligatorio si `harmfulActRenews`. */
+    harmfulActRenewalDays?: number;
+    /** Obligatorio con `harmfulActDate`. */
+    harmfulActTermDays?: number;
+    /** Obligatorio con `harmfulActDate`: `BUSINESS` o `CONSECUTIVE`. */
+    harmfulActTermDayType?: DayType;
+    /** Sólo en el administrativo. No futura. */
+    administrativeRemedyExhaustedOn?: string;
+    /** En los tres fueros. Por defecto, `false`. */
+    courtFeePaid?: boolean;
     responsibleLawyerId: number;
-    /** Por defecto, hoy. */
+    /** Obligatoria con SAC; sin SAC no se informa (D-38). */
     startDate?: string;
+    /** Crear la carpeta de la causa en la nube (HU39). Por defecto, `true` (V4 D-59). */
+    createFolder?: boolean;
+    /** Copiar los modelos del fuero (HU40). Por defecto, igual a `createFolder`. */
+    copyTemplates?: boolean;
+}
+
+/** Marcar una causa como prescripta (V4 §3.7, HU33). */
+export interface DeclarePrescriptionRequest {
+    prescriptionDate: string;
+    resolution: string;
+    grounds?: string;
+}
+
+/** Crear o reintentar la carpeta de una causa (V4 §3.7). El cuerpo puede omitirse. */
+export interface CreateCaseFolderRequest {
+    copyTemplates?: boolean;
+}
+
+/** Registrar un acto interruptivo (V4 §3.9). */
+export interface CreateInterruptiveActRequest {
+    name: string;
+    actDate: string;
+    notes?: string;
 }
 
 /**
@@ -489,6 +780,12 @@ export interface CasesQuery extends PaginatedQuery {
     withoutProceduralActs?: boolean;
     clientId?: number;
     openDeadline?: boolean;
+}
+
+/** Filtros de `GET /document-templates` (V4 §3.10, D-59). */
+export interface DocumentTemplatesQuery extends Omit<PaginatedQuery, 'search'> {
+    jurisdiction?: Jurisdiction;
+    copyToNewCases?: boolean;
 }
 
 export interface DeadlinePreviewQuery {

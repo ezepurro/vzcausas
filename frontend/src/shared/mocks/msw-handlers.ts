@@ -17,7 +17,7 @@
 
 import { delay, http, passthrough, HttpResponse, type RequestHandler } from 'msw';
 import { BASE_PATH, errorBody } from './contract';
-import { resolveRequest, ROUTE_TABLE, type HttpMethod, type MockRequest } from './handlers';
+import { resolveRequest, ROUTE_TABLE, type HttpMethod, type MockForm, type MockRequest } from './handlers';
 
 /* ------------------------------------------------------------------ */
 /* Configuración                                                       */
@@ -126,6 +126,64 @@ function readToken(headers: Headers): string | undefined {
     return match ? match[1] : undefined;
 }
 
+/** Bytes → string de un carácter por byte, para poder cortar por posición. */
+function bytesToBinary(bytes: Uint8Array): string {
+    let out = '';
+    for (let i = 0; i < bytes.length; i += 0x8000) {
+        out += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+    }
+    return out;
+}
+
+/** Un trozo cortado de `bytesToBinary` → texto, leyéndolo como UTF-8. */
+function binaryToText(binary: string): string {
+    return new TextDecoder().decode(Uint8Array.from(binary, (c) => c.charCodeAt(0)));
+}
+
+/**
+ * Un cuerpo `multipart/form-data` (V4: modelos formales y adjuntos). De cada
+ * archivo se guarda el nombre, el tamaño y el tipo: el contenido no le
+ * importa al servidor falso.
+ *
+ * Se lee a mano y no con `request.formData()`: en los tests, el parser de Node
+ * no reconoce los `File` de jsdom y revienta. Así anda igual en el navegador y
+ * en Node.
+ */
+async function readForm(request: Request): Promise<MockForm> {
+    const form: MockForm = { fields: {}, files: {} };
+    const header = request.headers.get('Content-Type') ?? '';
+    const match = /boundary=(?:"([^"]+)"|([^;]+))/i.exec(header);
+    if (!match) return form;
+
+    const boundary = `--${(match[1] ?? match[2]).trim()}`;
+    const binary = bytesToBinary(new Uint8Array(await request.arrayBuffer()));
+
+    for (const rawPart of binary.split(boundary).slice(1)) {
+        if (rawPart.startsWith('--')) break; // el cierre del formulario
+        const part = rawPart.replace(/^\r\n/, '').replace(/\r\n$/, '');
+        const split = part.indexOf('\r\n\r\n');
+        if (split < 0) continue;
+
+        const headers = binaryToText(part.slice(0, split));
+        const content = part.slice(split + 4);
+        const name = /name="([^"]*)"/i.exec(headers)?.[1];
+        if (name === undefined) continue;
+
+        const fileName = /filename="([^"]*)"/i.exec(headers)?.[1];
+        if (fileName !== undefined) {
+            const type = /Content-Type:\s*([^\r\n]+)/i.exec(headers)?.[1]?.trim() ?? '';
+            form.files[name] = { name: fileName, size: content.length, type };
+        } else {
+            (form.fields[name] ??= []).push(binaryToText(content));
+        }
+    }
+    return form;
+}
+
+function isMultipart(request: Request): boolean {
+    return (request.headers.get('Content-Type') ?? '').toLowerCase().startsWith('multipart/form-data');
+}
+
 async function readBody(request: Request): Promise<unknown> {
     const text = await request.text();
     if (text.trim() === '') return undefined;
@@ -161,11 +219,13 @@ async function resolver({ request }: { request: Request }) {
         return HttpResponse.error();
     }
 
+    const multipart = isMultipart(request);
     const mockRequest: MockRequest = {
         method: request.method.toUpperCase() as HttpMethod,
         path,
         query: url.searchParams,
-        body: await readBody(request),
+        body: multipart ? undefined : await readBody(request),
+        form: multipart ? await readForm(request) : undefined,
         token: readToken(request.headers),
     };
 
@@ -182,6 +242,16 @@ async function resolver({ request }: { request: Request }) {
         console.info(`[mock] ${mockRequest.method} ${path}${query ? `?${query}` : ''} → ${result.status}`);
     }
 
+    if (result.file) {
+        // La única respuesta exitosa que no es JSON: el archivo (V4 §5.1).
+        return new HttpResponse(result.file.content, {
+            status: result.status,
+            headers: {
+                'Content-Type': result.file.contentType,
+                'Content-Disposition': `attachment; filename="${result.file.fileName}"`,
+            },
+        });
+    }
     if (result.status === 204 || result.body === null) {
         return new HttpResponse(null, { status: 204 });
     }

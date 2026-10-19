@@ -1,0 +1,280 @@
+/* Lo propio de Modelos formales. Como cases.css, es de un área del sistema y
+   no de shared. Los anchos salen del prototipo; `min(100%, …)` hace que en
+   un celular cada tarjeta ocupe la fila entera. */
+
+/* ─────────── grilla de tarjetas ─────────── */
+.vz-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+  gap: 16px;
+}
+
+/* ─────────── tarjeta de fuero ─────────── */
+.vz-jur-card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 20px;
+  padding: 28px;
+  text-align: left;
+  font: inherit;
+  color: var(--vz-ink);
+  background: var(--vz-surface);
+  border: 1px solid var(--vz-border);
+  border-radius: var(--vz-r);
+  box-shadow: var(--vz-card-sh);
+  cursor: pointer;
+  transition: border-color .12s, transform .12s;
+}
+.vz-jur-card:hover { border-color: var(--vz-primary); transform: translateY(-1px); }
+.vz-jur-card:focus-visible { outline: 2px solid var(--vz-primary); outline-offset: 2px; }
+.vz-jur-card__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--vz-muted);
+}
+.vz-jur-card__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: var(--vz-r);
+  background: var(--vz-primary-soft);
+  color: var(--vz-primary-hi);
+}
+.vz-jur-card__name { font-size: 20px; font-weight: 700; letter-spacing: -.01em; }
+.vz-jur-card__desc { margin-top: 6px; font-size: 13.5px; line-height: 1.5; color: var(--vz-muted); }
+.vz-jur-card__foot {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 6px 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--vz-border);
+  font-size: 12.5px;
+  color: var(--vz-muted);
+}
+.vz-jur-card__foot b { font-family: var(--vz-font-mono); font-weight: 600; color: var(--vz-ink); }
+.vz-jur-card__updated b { display: block; margin-top: 2px; font-weight: 500; }
+
+/* ─────────── barra de la vista de un fuero ─────────── */
+.vz-template-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.vz-template-bar__sep { font-size: 13px; color: var(--vz-faint); }
+.vz-template-bar__title { margin: 0; font-size: 15px; font-weight: 700; }
+.vz-template-bar__count { margin-left: auto; font-size: 12px; font-family: var(--vz-font-mono); color: var(--vz-muted); }
+
+/* ─────────── tarjeta de modelo ─────────── */
+.vz-template-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+  padding: 21px;
+  background: var(--vz-surface);
+  border: 1px solid var(--vz-border);
+  border-radius: var(--vz-r);
+  box-shadow: var(--vz-card-sh);
+}
+.vz-template-card__head { display: flex; align-items: flex-start; gap: 12px; }
+.vz-template-card__badge {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  flex: 0 0 42px;
+  height: 48px;
+  padding-bottom: 6px;
+  border: 1px solid var(--vz-border);
+  border-radius: var(--vz-r-sm);
+  background: var(--vz-sunken);
+  font-family: var(--vz-font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--vz-primary-hi);
+}
+.vz-template-card__title { flex: 1; min-width: 0; }
+.vz-template-card__name { margin: 0; font-size: 15.5px; font-weight: 700; line-height: 1.35; text-wrap: pretty; }
+.vz-template-card__file {
+  margin-top: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--vz-font-mono);
+  font-size: 11.75px;
+  color: var(--vz-faint);
+}
+.vz-template-card__tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.vz-template-card__meta {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 12px;
+  font-size: 12.25px;
+  color: var(--vz-muted);
+}
+.vz-template-card__meta b { font-family: var(--vz-font-mono); font-weight: 500; color: var(--vz-ink); }
+.vz-template-card__uses { font-family: var(--vz-font-mono); color: var(--vz-ink); }
+.vz-template-card__author { grid-column: 1 / -1; }
+.vz-template-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid var(--vz-border);
+}
+
+.vz-template-foot { margin: 16px 0 0; font-size: 12.5px; line-height: 1.5; color: var(--vz-muted); }
+
+/* ─────────── formulario de alta: "Fuero" (selección múltiple) ─────────── */
+.vz-multi { position: relative; }
+.vz-multi__trigger {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  height: 40px;
+  padding: 0 12px;
+  font: inherit;
+  font-size: 13.5px;
+  text-align: left;
+  color: var(--vz-ink);
+  background: var(--vz-surface);
+  border: 1px solid var(--vz-border);
+  border-radius: var(--vz-r-sm);
+  cursor: pointer;
+}
+.vz-multi__trigger:hover { border-color: var(--vz-border-strong); }
+.vz-multi__trigger.is-open { border-color: var(--vz-primary); box-shadow: 0 0 0 3px var(--vz-primary-soft); }
+.vz-multi__trigger.is-empty { color: var(--vz-faint); }
+.vz-field--error .vz-multi__trigger { border-color: var(--vz-danger-bd); background: var(--vz-danger-bg); }
+.vz-multi__value { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vz-multi__arrow { color: var(--vz-muted); transition: transform .12s; }
+.vz-multi__trigger.is-open .vz-multi__arrow { transform: rotate(180deg); }
+
+.vz-multi__panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 30;
+  overflow: hidden;
+  background: var(--vz-surface);
+  border: 1px solid var(--vz-border-strong);
+  border-radius: var(--vz-r);
+  box-shadow: var(--vz-pop-sh);
+}
+.vz-multi__option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--vz-ink);
+  border-bottom: 1px solid var(--vz-border);
+  cursor: pointer;
+}
+.vz-multi__option:hover { background: var(--vz-canvas); }
+.vz-multi__option.is-on { background: var(--vz-primary-soft); }
+.vz-multi__option--all, .vz-multi__option--all.is-on { font-weight: 700; background: var(--vz-sunken); }
+.vz-multi__option:has(input:focus-visible) { outline: 2px solid var(--vz-primary); outline-offset: -2px; }
+.vz-multi__box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 18px;
+  height: 18px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  color: #fff;
+  background: var(--vz-surface);
+  border: 1.5px solid var(--vz-border-strong);
+  border-radius: 4px;
+}
+.vz-multi__box.is-on, .vz-multi__box.is-mixed { background: var(--vz-primary); border-color: var(--vz-primary); }
+.vz-multi__foot {
+  display: flex;
+  justify-content: flex-end;
+  padding: 8px 10px;
+  background: var(--vz-sunken);
+}
+
+/* ─────────── formulario de alta: "Archivo del modelo" ─────────── */
+.vz-dropzone {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 112px;
+  padding: 14px 16px;
+  text-align: center;
+  background: var(--vz-sunken);
+  border: 1.5px dashed var(--vz-border-strong);
+  border-radius: var(--vz-r);
+  transition: background .12s, border-color .12s;
+}
+.vz-dropzone.has-file { min-height: 64px; }
+.vz-dropzone:hover, .vz-dropzone.is-dragging { border-color: var(--vz-primary); }
+.vz-dropzone.is-dragging { background: var(--vz-primary-soft); }
+.vz-dropzone:has(.vz-dropzone__input:focus-visible) { outline: 2px solid var(--vz-primary); outline-offset: 2px; }
+.vz-field--error .vz-dropzone { border-color: var(--vz-danger-bd); background: var(--vz-danger-bg); }
+/* El input de verdad, transparente y encima de todo: recibe el click. */
+.vz-dropzone__input {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+.vz-dropzone__icon { color: var(--vz-primary); }
+.vz-dropzone__title { font-size: 13.5px; font-weight: 600; color: var(--vz-ink); }
+.vz-dropzone__hint { font-size: 12px; color: var(--vz-muted); }
+.vz-dropzone__link { font-weight: 600; color: var(--vz-primary-hi); text-decoration: underline; }
+.vz-dropzone__file { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; }
+.vz-dropzone__badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 36px;
+  height: 36px;
+  font-family: var(--vz-font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--vz-primary-hi);
+  background: var(--vz-primary-soft);
+  border-radius: var(--vz-r-sm);
+}
+.vz-dropzone__info { flex: 1; min-width: 0; }
+.vz-dropzone__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--vz-font-mono);
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--vz-ink);
+}
+.vz-dropzone__meta { margin-top: 2px; font-size: 12px; color: var(--vz-muted); }
+.vz-dropzone__change {
+  flex: 0 0 auto;
+  padding: 6px 11px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--vz-ink);
+  background: var(--vz-surface);
+  border: 1px solid var(--vz-border-strong);
+  border-radius: var(--vz-r-btn);
+}

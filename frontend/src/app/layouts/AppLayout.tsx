@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Outlet, useLocation, useNavigate } from 'react-router'
+import { Link, Outlet, useLocation, useNavigate } from 'react-router'
 import {
     AppShell,
     Button,
@@ -10,10 +10,12 @@ import {
     type RailGroup,
 } from '@/shared/components/ui'
 import { useCurrentUser } from '@/app/providers/AuthContext'
+import { formatPersonFullName } from '@/shared/lib/personName'
 import { profileLabel } from '@/features/auth/utils/profileLabel'
 import { ChangePasswordModal } from '@/features/auth/components/ChangePasswordModal'
 import { LogoutConfirmModal } from '@/features/auth/components/LogoutConfirmModal'
 import { canAccess, matchRoute } from '@/app/access/access'
+import { useHomeRoute } from '@/app/access/useHomeRoute'
 
 /**
  * Marco de la aplicación con sesión iniciada: rail oscuro a la izquierda,
@@ -29,9 +31,10 @@ import { canAccess, matchRoute } from '@/app/access/access'
  * ítem es su ruta, así no hace falta una tabla aparte para traducir de ítem
  * a URL.
  *
- * Están TODAS las secciones del sistema, no sólo las del sprint: se navega
- * la aplicación entera desde el primer día. Las que todavía no tienen
- * pantalla caen en la ruta de "no encontrada" del router.
+ * Están todas las secciones del menú del prototipo, no sólo las del sprint:
+ * se navega la aplicación entera desde el primer día. Las que todavía no
+ * tienen pantalla caen en la ruta de "no encontrada" del router.
+ * "Vencimientos" no está: el prototipo la sacó del menú.
  *
  * Las rutas y las etiquetas quedan en castellano a propósito: son parte del
  * producto, que es en castellano. Lo que está en inglés es el código.
@@ -42,9 +45,9 @@ const GROUPS: RailGroup[] = [
         items: [
             { id: '/inicio', label: 'Inicio', icon: 'home' },
             { id: '/causas', label: 'Causas', icon: 'cases' },
-            { id: '/vencimientos', label: 'Vencimientos', icon: 'deadlines' },
             { id: '/clientes', label: 'Clientes', icon: 'clients' },
             { id: '/modelos', label: 'Modelos', icon: 'templates' },
+            { id: '/herramientas', label: 'Herramientas', icon: 'tools' },
         ],
     },
     {
@@ -70,6 +73,10 @@ export function AppLayout() {
        alguien adentro: el nombre y el perfil salen de ahí. */
     const user = useCurrentUser()
 
+    /* El logo lleva a la pantalla de entrada del perfil: Inicio o, para la
+       Secretaría, que no tiene tablero, Causas. */
+    const homeRoute = useHomeRoute()
+
     /* El rail muestra sólo lo que el perfil puede abrir, con la misma regla que
        aplica la guarda de rutas. Un grupo que se queda sin ítems no se muestra:
        un título sin nada abajo confunde más de lo que ayuda. */
@@ -94,7 +101,11 @@ export function AppLayout() {
             groups={groups}
             active={active}
             onNavigate={(route) => navigate(route)}
-            brand={<Logo />}
+            brand={
+                <Link to={homeRoute} className="vz-rail__brand" aria-label="Ir al inicio">
+                    <Logo />
+                </Link>
+            }
             railAction={
                 /* "Nueva causa" bajo el logo, como el prototipo: registrar una
                    causa la puede hacer cualquier perfil (RN11), así que el
@@ -119,7 +130,7 @@ export function AppLayout() {
             }
             railFooter={
                 <RailUser
-                    name={user.fullName}
+                    name={formatPersonFullName(user)}
                     profile={profileLabel(user.roles)}
                     onChangePassword={() => setChangingPassword(true)}
                     onLogout={() => setConfirmingLogout(true)}

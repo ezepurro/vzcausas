@@ -1,8 +1,12 @@
 type: object
-description: Abogado del estudio.
+description: |
+  Abogado del estudio. Apellido y nombres viajan por separado desde V4 (D-68);
+  el tratamiento ("Dr.", "Dra.") no forma parte del nombre: lo pone el
+  frontend (D-81).
 required:
   - id
-  - fullName
+  - lastName
+  - firstName
   - registrationNumber
   - activeCases
   - active
@@ -12,11 +16,16 @@ properties:
     description: Identificador único.
     examples:
       - 4
-  fullName:
+  lastName:
     type: string
-    description: Nombre y apellido en un único campo, incluyendo el tratamiento.
+    description: Apellido.
     examples:
-      - Dr. Ignacio Peralta
+      - Peralta
+  firstName:
+    type: string
+    description: Nombres, sin el tratamiento.
+    examples:
+      - Ignacio
   registrationNumber:
     type: string
     description: |

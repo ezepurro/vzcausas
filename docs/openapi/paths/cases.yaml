@@ -4,7 +4,8 @@ post:
   operationId: createCase
   summary: Registrar causa
   description: |
-    Registra una nueva causa (HU18).
+    Registra una nueva causa (HU18) y, si se pide, crea su carpeta en la nube
+    (HU39) y copia en ella los modelos del fuero (HU40).
 
     **Efectos del alta**
 
@@ -16,6 +17,17 @@ post:
       hasta que un acto procesal abra uno.
     - El alta no es un movimiento del ciclo de vida: la línea de tiempo
       empieza con el primer acto procesal.
+    - En una causa penal con calificaciones, `prescription` llega calculada
+      desde el alta, con `lastInterruptiveActDate` en `null`.
+    - **Carpeta en la nube.** Con `createFolder` en `true` (por defecto) el
+      backend crea la carpeta y devuelve su situación en `folder`. Con
+      `copyTemplates` en `true`, copia en ella los modelos formales vigentes
+      del fuero que tienen `copyToNewCases` en `true` e informa cuántos en
+      `folder.templatesCopied` ("carpeta creada en Drive con 6 modelos").
+    - **La carpeta no condiciona el alta** (D-60). Si el almacenamiento en la
+      nube falla, la causa se registra igual: la respuesta es `201` con
+      `folder.status` en `ERROR`, y la carpeta se reintenta con
+      `POST /cases/{caseId}/folder`. Este endpoint nunca responde `502`.
 
     **Rol requerido:** cualquier usuario autenticado.
   requestBody:
@@ -26,7 +38,7 @@ post:
           $ref: ../components/schemas/CaseCreate.yaml
         examples:
           criminal:
-            summary: Causa penal
+            summary: Causa penal, con carpeta y modelos
             value:
               sacNumber: '13284571'
               jurisdiction: CRIMINAL
@@ -37,13 +49,17 @@ post:
               instructorExtension: '214'
               clientId: 1
               proceduralRole: DEFENSA
+              clientDetained: false
               legalQualifications:
                 - legalQualificationId: 1
                   offenseDate: '2021-02-27'
               responsibleLawyerId: 3
               startDate: '2021-03-12'
+              courtFeePaid: false
+              createFolder: true
+              copyTemplates: true
           amparo:
-            summary: Amparo
+            summary: Amparo, sin carpeta
             value:
               sacNumber: '12774310'
               jurisdiction: AMPARO
@@ -56,11 +72,28 @@ post:
               proceduralRole: ACTORA
               counterparty: APROSS
               subjectMatter: Que se ordene a APROSS la cobertura integral del tratamiento de rehabilitación prescripto a la actora.
+              injunctionGranted: true
+              harmfulActDate: '2026-08-28'
+              harmfulActRenews: true
+              harmfulActRenewalDays: 30
+              harmfulActTermDays: 15
+              harmfulActTermDayType: BUSINESS
               responsibleLawyerId: 1
               startDate: '2026-09-08'
+              courtFeePaid: true
+              createFolder: false
   responses:
     '201':
-      description: Causa registrada, en el estado inicial "Iniciada".
+      description: |
+        Causa registrada, en el estado inicial "Iniciada". El valor de
+        `elapsedPercentage` del ejemplo corresponde a una consulta del martes
+        15/09/2026.
+
+        Si el almacenamiento en la nube no respondió, la causa se registra
+        igual y `folder` llega con `status` en `ERROR`, `url` en `null`,
+        `templatesCopied` en `0` y los modelos que faltan en
+        `templatesPending`. Con `createFolder` en `false`, `folder.status` es
+        `PENDING`, con `url` en `null` y los dos contadores en `0`.
       content:
         application/json:
           schema:
@@ -70,53 +103,156 @@ post:
             properties:
               data:
                 $ref: ../components/schemas/Case.yaml
-          example:
-            data:
-              id: 1
-              sacNumber: '13284571'
-              caption: GÓMEZ, Ariel Fernando p.s.a. Robo calificado
-              court: Juzgado de Control N° 3 · Córdoba
-              jurisdiction: CRIMINAL
-              proceduralRole: DEFENSA
-              instructorName: Dra. Verónica Ledesma
-              tribunalPhone: 0351 448-1200
-              instructorExtension: '214'
-              counterparty: null
-              subjectMatter: null
-              client:
-                id: 1
-                lastName: GÓMEZ
-                firstName: Ariel Fernando
-                dni: '34812905'
-                phone: 351 415-2288
-                email: afgomez@gmail.com
-                clientSince: '2021-03-12'
-              responsibleLawyer:
-                id: 3
-                fullName: Dra. Malena Ríos
-                registrationNumber: 1-36842
-              legalQualifications:
-                - id: 1
-                  name: Robo calificado — art. 167 inc. 2 CP
-                  prescriptionMonths: 96
-                  offenseDate: '2021-02-27'
-                  prescriptionStartsOn: '2021-02-27'
-                  prescriptionExpiresOn: '2029-02-27'
-              startDate: '2021-03-12'
-              currentState:
-                proceduralStateId: null
-                name: Iniciada
-                custom: false
-                initial: true
-                proceduralActId: null
-                dueDate: null
-                businessDaysRemaining: null
-                manuallyAdjusted: false
-              active: true
+          examples:
+            folderCreated:
+              summary: Carpeta creada con los modelos del fuero
+              value:
+                data:
+                  id: 1
+                  sacNumber: '13284571'
+                  caption: GÓMEZ, Ariel Fernando p.s.a. Robo calificado
+                  court: Juzgado de Control N° 3 · Córdoba
+                  jurisdiction: CRIMINAL
+                  proceduralRole: DEFENSA
+                  instructorName: Dra. Verónica Ledesma
+                  tribunalPhone: 0351 448-1200
+                  instructorExtension: '214'
+                  counterparty: null
+                  subjectMatter: null
+                  clientDetained: false
+                  injunctionGranted: null
+                  harmfulActDate: null
+                  harmfulActRenews: null
+                  harmfulActRenewalDays: null
+                  harmfulActTermDays: null
+                  harmfulActTermDayType: null
+                  harmfulActDeadline: null
+                  administrativeRemedyExhaustedOn: null
+                  courtFeePaid: false
+                  client:
+                    id: 1
+                    lastName: GÓMEZ
+                    firstName: Ariel Fernando
+                    dni: '34812905'
+                    phone: 351 415-2288
+                    email: afgomez@gmail.com
+                    clientSince: '2021-03-12'
+                  responsibleLawyer:
+                    id: 3
+                    lastName: Ríos
+                    firstName: Malena
+                    registrationNumber: 1-36842
+                  legalQualifications:
+                    - id: 1
+                      name: Robo calificado — art. 167 inc. 2 CP
+                      prescriptionMonths: 96
+                      offenseDate: '2021-02-27'
+                      prescriptionStartsOn: '2021-02-27'
+                      prescriptionExpiresOn: '2029-02-27'
+                  prescription:
+                    legalQualificationId: 1
+                    legalQualificationName: Robo calificado — art. 167 inc. 2 CP
+                    startsOn: '2021-02-27'
+                    expiresOn: '2029-02-27'
+                    elapsedPercentage: 69
+                    alert: false
+                    expired: false
+                    lastInterruptiveActDate: null
+                  prescriptionDeclaration: null
+                  startDate: '2021-03-12'
+                  currentState:
+                    proceduralStateId: null
+                    name: Iniciada
+                    custom: false
+                    initial: true
+                    proceduralActId: null
+                    dueDate: null
+                    businessDaysRemaining: null
+                    manuallyAdjusted: false
+                  folder:
+                    status: CREATED
+                    url: https://drive.google.com/drive/folders/1Qw8zT3nKcVb5LhXy2RmPd7sUeJ4oAfG9
+                    path: /VZ Causas/Ríos, Malena/Penal/GÓMEZ, Ariel Fernando p.s.a. Robo calificado
+                    templatesCopied: 6
+                    templatesPending: 0
+                  active: true
+            folderError:
+              summary: El almacenamiento en la nube no respondió (la causa se registra igual)
+              value:
+                data:
+                  id: 1
+                  sacNumber: '13284571'
+                  caption: GÓMEZ, Ariel Fernando p.s.a. Robo calificado
+                  court: Juzgado de Control N° 3 · Córdoba
+                  jurisdiction: CRIMINAL
+                  proceduralRole: DEFENSA
+                  instructorName: Dra. Verónica Ledesma
+                  tribunalPhone: 0351 448-1200
+                  instructorExtension: '214'
+                  counterparty: null
+                  subjectMatter: null
+                  clientDetained: false
+                  injunctionGranted: null
+                  harmfulActDate: null
+                  harmfulActRenews: null
+                  harmfulActRenewalDays: null
+                  harmfulActTermDays: null
+                  harmfulActTermDayType: null
+                  harmfulActDeadline: null
+                  administrativeRemedyExhaustedOn: null
+                  courtFeePaid: false
+                  client:
+                    id: 1
+                    lastName: GÓMEZ
+                    firstName: Ariel Fernando
+                    dni: '34812905'
+                    phone: 351 415-2288
+                    email: afgomez@gmail.com
+                    clientSince: '2021-03-12'
+                  responsibleLawyer:
+                    id: 3
+                    lastName: Ríos
+                    firstName: Malena
+                    registrationNumber: 1-36842
+                  legalQualifications:
+                    - id: 1
+                      name: Robo calificado — art. 167 inc. 2 CP
+                      prescriptionMonths: 96
+                      offenseDate: '2021-02-27'
+                      prescriptionStartsOn: '2021-02-27'
+                      prescriptionExpiresOn: '2029-02-27'
+                  prescription:
+                    legalQualificationId: 1
+                    legalQualificationName: Robo calificado — art. 167 inc. 2 CP
+                    startsOn: '2021-02-27'
+                    expiresOn: '2029-02-27'
+                    elapsedPercentage: 69
+                    alert: false
+                    expired: false
+                    lastInterruptiveActDate: null
+                  prescriptionDeclaration: null
+                  startDate: '2021-03-12'
+                  currentState:
+                    proceduralStateId: null
+                    name: Iniciada
+                    custom: false
+                    initial: true
+                    proceduralActId: null
+                    dueDate: null
+                    businessDaysRemaining: null
+                    manuallyAdjusted: false
+                  folder:
+                    status: ERROR
+                    url: null
+                    path: /VZ Causas/Ríos, Malena/Penal/GÓMEZ, Ariel Fernando p.s.a. Robo calificado
+                    templatesCopied: 0
+                    templatesPending: 6
+                  active: true
     '400':
       description: |
         Datos inválidos. Incluye los identificadores de cliente, abogado o
-        calificación inexistentes o dados de baja.
+        calificación inexistentes o dados de baja, los datos de otro fuero y
+        `copyTemplates` en `true` con `createFolder` en `false`.
       content:
         application/json:
           schema:
@@ -155,6 +291,24 @@ post:
                   message: Los datos enviados no son válidos.
                   details:
                     responsibleLawyerId: No existe un abogado vigente con ese identificador.
+            templatesWithoutFolder:
+              summary: Copiar modelos sin crear la carpeta
+              value:
+                error:
+                  code: VALIDATION_ERROR
+                  message: Los datos enviados no son válidos.
+                  details:
+                    copyTemplates: Para copiar los modelos primero hay que crear la carpeta de la causa.
+            jurisdictionData:
+              summary: Datos del acto lesivo incompletos y un dato de otro fuero
+              value:
+                error:
+                  code: VALIDATION_ERROR
+                  message: Los datos enviados no son válidos.
+                  details:
+                    harmfulActRenewalDays: Indicá cada cuántos días se renueva el acto lesivo.
+                    harmfulActTermDays: Indicá el plazo para presentar el amparo.
+                    clientDetained: Solo corresponde al fuero penal.
     '401':
       $ref: ../components/responses/Unauthorized.yaml
     '409':
@@ -176,11 +330,19 @@ get:
   summary: Consultar causas
   description: |
     Obtiene una lista paginada de las causas (HU20). El buscador del
-    encabezado de la aplicación usa este mismo endpoint con `search`.
+    encabezado de la aplicación usa este mismo endpoint con `search`. Sin
+    filtro de estado incluye también las causas en estados terminales;
+    excluye solo las dadas de baja (D-75).
 
-    **Orden:** por urgencia. Primero las causas con vencimiento, por
-    `currentState.dueDate` ascendente (las vencidas quedan primeras), y luego
-    las que no tienen vencimiento, por `id`.
+    **Orden:** por urgencia. Primero las causas con vencimiento, por la fecha
+    de ese vencimiento ascendente (las vencidas quedan primeras), y luego las
+    que no tienen vencimiento, por `id`.
+
+    **Vencimiento de la causa** (D-82). Es el que tenga abierto, de
+    cualquiera de los dos orígenes: el plazo del acto procesal del estado
+    actual (`currentState.dueDate`) o, en un amparo todavía en "Iniciada", el
+    del acto lesivo (`harmfulActDeadline.dueDate`). Nunca hay dos a la vez.
+    Lo usan el orden y el filtro `openDeadline`.
 
     **Filtro de estado procesal.** El desplegable tiene tres grupos y cada uno
     viaja en un parámetro distinto; los tres son **excluyentes** entre sí:
@@ -191,8 +353,12 @@ get:
     | "Causas nuevas" → "Iniciada"                          | `withoutProceduralActs=true` |
     | "Escritos a mano en causas"                           | `customState`                |
 
-    Un filtro por un abogado o un estado inexistente no es un error: devuelve
-    una colección vacía.
+    Una causa marcada como prescripta se encuentra con `proceduralStateId`
+    del estado "Prescripta". Un filtro por un abogado o un estado inexistente
+    no es un error: devuelve una colección vacía.
+
+    Las vistas de vencimientos y de alertas de prescripción del prototipo se
+    sirven desde `/dashboards`, no desde este listado.
 
     **Rol requerido:** cualquier usuario autenticado.
   parameters:
@@ -215,8 +381,8 @@ get:
       in: query
       required: false
       description: |
-        Estado de la tabla. Excluyente con `customState` y
-        `withoutProceduralActs`.
+        Estado de la tabla, incluido "Prescripta". Excluyente con
+        `customState` y `withoutProceduralActs`.
       schema:
         type: integer
     - name: customState
@@ -247,15 +413,17 @@ get:
       in: query
       required: false
       description: |
-        `true`: solo causas con vencimiento (`currentState.dueDate` no nulo),
-        incluidas las vencidas. Botón "Solo con plazo por vencer".
+        `true`: solo causas con vencimiento abierto —del acto procesal o del
+        acto lesivo (D-82)—, incluidas las vencidas. Botón "Solo con plazo
+        por vencer".
       schema:
         type: boolean
   responses:
     '200':
       description: |
-        Página de causas. Los valores de `businessDaysRemaining` del ejemplo
-        corresponden a una consulta del martes 15/09/2026.
+        Página de causas. Los valores de `businessDaysRemaining` y
+        `elapsedPercentage` del ejemplo corresponden a una consulta del
+        martes 15/09/2026.
       content:
         application/json:
           schema:
@@ -283,6 +451,16 @@ get:
                 instructorExtension: '3120'
                 counterparty: null
                 subjectMatter: Descargo frente a la imputación de falta grave por abandono de servicio y pedido de sobreseimiento.
+                clientDetained: null
+                injunctionGranted: null
+                harmfulActDate: null
+                harmfulActRenews: null
+                harmfulActRenewalDays: null
+                harmfulActTermDays: null
+                harmfulActTermDayType: null
+                harmfulActDeadline: null
+                administrativeRemedyExhaustedOn: null
+                courtFeePaid: true
                 client:
                   id: 2
                   lastName: PEREYRA
@@ -293,9 +471,12 @@ get:
                   clientSince: '2026-05-18'
                 responsibleLawyer:
                   id: 4
-                  fullName: Dr. Ignacio Peralta
+                  lastName: Peralta
+                  firstName: Ignacio
                   registrationNumber: 1-35207
                 legalQualifications: []
+                prescription: null
+                prescriptionDeclaration: null
                 startDate: '2026-05-18'
                 currentState:
                   proceduralStateId: 4
@@ -306,6 +487,12 @@ get:
                   dueDate: '2026-09-11'
                   businessDaysRemaining: -2
                   manuallyAdjusted: false
+                folder:
+                  status: CREATED
+                  url: https://drive.google.com/drive/folders/1Hn4bYc9WtEz6MqLs3XoKp2VrDu8JgFa5
+                  path: /VZ Causas/Peralta, Ignacio/Administrativo/PEREYRA, Marcos D. — Sumario administrativo
+                  templatesCopied: 4
+                  templatesPending: 0
                 active: true
               - id: 1
                 sacNumber: '13284571'
@@ -318,6 +505,16 @@ get:
                 instructorExtension: '214'
                 counterparty: null
                 subjectMatter: null
+                clientDetained: false
+                injunctionGranted: null
+                harmfulActDate: null
+                harmfulActRenews: null
+                harmfulActRenewalDays: null
+                harmfulActTermDays: null
+                harmfulActTermDayType: null
+                harmfulActDeadline: null
+                administrativeRemedyExhaustedOn: null
+                courtFeePaid: false
                 client:
                   id: 1
                   lastName: GÓMEZ
@@ -328,15 +525,26 @@ get:
                   clientSince: '2021-03-12'
                 responsibleLawyer:
                   id: 3
-                  fullName: Dra. Malena Ríos
+                  lastName: Ríos
+                  firstName: Malena
                   registrationNumber: 1-36842
                 legalQualifications:
                   - id: 1
                     name: Robo calificado — art. 167 inc. 2 CP
                     prescriptionMonths: 96
                     offenseDate: '2021-02-27'
-                    prescriptionStartsOn: '2021-02-27'
-                    prescriptionExpiresOn: '2029-02-27'
+                    prescriptionStartsOn: '2024-07-04'
+                    prescriptionExpiresOn: '2032-07-04'
+                prescription:
+                  legalQualificationId: 1
+                  legalQualificationName: Robo calificado — art. 167 inc. 2 CP
+                  startsOn: '2024-07-04'
+                  expiresOn: '2032-07-04'
+                  elapsedPercentage: 27
+                  alert: false
+                  expired: false
+                  lastInterruptiveActDate: '2024-07-04'
+                prescriptionDeclaration: null
                 startDate: '2021-03-12'
                 currentState:
                   proceduralStateId: 12
@@ -347,6 +555,12 @@ get:
                   dueDate: '2026-09-16'
                   businessDaysRemaining: 1
                   manuallyAdjusted: false
+                folder:
+                  status: CREATED
+                  url: https://drive.google.com/drive/folders/1Qw8zT3nKcVb5LhXy2RmPd7sUeJ4oAfG9
+                  path: /VZ Causas/Ríos, Malena/Penal/GÓMEZ, Ariel Fernando p.s.a. Robo calificado
+                  templatesCopied: 6
+                  templatesPending: 0
                 active: true
             pagination:
               page: 1

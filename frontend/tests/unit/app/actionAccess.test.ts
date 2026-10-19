@@ -14,4 +14,13 @@ describe('can', () => {
         expect(can(['SECRETARY'], 'lawyers.create')).toBe(false)
         expect(can(['LAWYER'], 'lawyers.create')).toBe(false)
     })
+
+    /* Marcar prescripta una causa penal es del Administrador y de cualquier
+       abogado, aunque no sea el responsable; la Secretaría no (CA-33.1,
+       CA-33.2, V4 §4). */
+    it('marcar una causa como prescripta es del Administrador y del Abogado', () => {
+        expect(can(['ADMINISTRATOR'], 'cases.declarePrescription')).toBe(true)
+        expect(can(['LAWYER'], 'cases.declarePrescription')).toBe(true)
+        expect(can(['SECRETARY'], 'cases.declarePrescription')).toBe(false)
+    })
 })

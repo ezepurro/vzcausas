@@ -21,6 +21,8 @@ const USERNAME_MIN = 3
 const USERNAME_MAX = 30
 const USERNAME_PATTERN = /^[a-zA-Z0-9._-]+$/
 const PASSWORD_MIN = 8
+/* Apellido y nombres, cada uno hasta 100 caracteres (V4 §3.2, D-68). */
+const NAME_MAX = 100
 
 /* Un punto, una arroba y algo después. No es la gramática completa del RFC a
    propósito: la validación de verdad la hace el backend, y un patrón más
@@ -36,8 +38,18 @@ export function validateUser(
 ): UserFormErrors {
     const errors: UserFormErrors = {}
 
-    if (!values.fullName.trim()) {
-        errors.fullName = 'El apellido y nombre es obligatorio.'
+    const lastName = values.lastName.trim()
+    if (!lastName) {
+        errors.lastName = 'El apellido es obligatorio.'
+    } else if (lastName.length > NAME_MAX) {
+        errors.lastName = `Puede tener hasta ${NAME_MAX} caracteres.`
+    }
+
+    const firstName = values.firstName.trim()
+    if (!firstName) {
+        errors.firstName = 'Los nombres son obligatorios.'
+    } else if (firstName.length > NAME_MAX) {
+        errors.firstName = `Puede tener hasta ${NAME_MAX} caracteres.`
     }
 
     const username = values.username.trim()
@@ -109,11 +121,9 @@ function validateLawyerLink(
             : { lawyerId: 'Este perfil necesita una ficha de abogado vinculada.' }
     }
 
+    /* La ficha nueva toma el apellido y los nombres del usuario, que ya se
+       validaron arriba: acá sólo falta la matrícula. */
     const errors: UserFormErrors = {}
-
-    if (!values.lawyerFullName.trim()) {
-        errors.lawyerFullName = 'El apellido y nombre del abogado es obligatorio.'
-    }
 
     const registrationNumber = values.registrationNumber.trim()
     if (!registrationNumber) {

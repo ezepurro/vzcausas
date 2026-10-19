@@ -41,12 +41,20 @@ export function UserFormModal({
         withLawyer() && creating && isCreatingLawyer(String(v.lawyerMode ?? ''))
 
     const fields: FieldSpec[] = [
+        /* Apellido y nombres en dos campos (V4, D-68), como en el cliente. */
         {
-            k: 'fullName',
-            label: 'Apellido y Nombre',
+            k: 'lastName',
+            label: 'Apellido',
             width: 'half',
             required: true,
-            error: errors.fullName,
+            error: errors.lastName,
+        },
+        {
+            k: 'firstName',
+            label: 'Nombres',
+            width: 'half',
+            required: true,
+            error: errors.firstName,
         },
         {
             k: 'username',
@@ -138,21 +146,15 @@ export function UserFormModal({
             when: (v) => withLawyer() && !creatingLawyer(v),
         },
         {
-            k: 'lawyerFullName',
-            label: 'Apellido y Nombre del abogado',
-            width: 'half',
-            required: true,
-            placeholder: 'Dr. / Dra. Apellido Nombre',
-            error: errors.lawyerFullName,
-            when: creatingLawyer,
-        },
-        {
             k: 'registrationNumber',
             label: 'Matrícula',
             width: 'half',
             required: true,
             mono: true,
             placeholder: '1-00000',
+            /* La ficha nueva lleva el apellido y los nombres del usuario: sólo
+               pide la matrícula (TESTING.md §11). */
+            note: 'La ficha lleva el apellido y los nombres del usuario.',
             error: errors.registrationNumber,
             when: creatingLawyer,
         },

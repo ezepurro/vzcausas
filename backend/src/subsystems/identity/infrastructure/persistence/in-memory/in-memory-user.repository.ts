@@ -155,6 +155,14 @@ export class InMemoryUserRepository implements UserRepository {
     );
   }
 
+  async findActiveByLawyerId(lawyerId: number): Promise<User | null> {
+    return (
+      [...this.byId.values()].find(
+        (user) => user.isActive() && user.lawyerId === lawyerId,
+      ) ?? null
+    );
+  }
+
   async countActiveByRoleName(roleName: string): Promise<number> {
     const role = ROLE_CATALOG.find((entry) => entry.name === roleName);
     if (role === undefined) return 0;

@@ -1,0 +1,50 @@
+type: object
+description: |
+  Un abogado vigente en la "Carga del equipo" del tablero del administrador,
+  tenga o no causas.
+required:
+  - lawyer
+  - activeCases
+  - openDeadlines
+properties:
+  lawyer:
+    $ref: ./LawyerReference.yaml
+  activeCases:
+    type: integer
+    minimum: 0
+    description: Causas activas de las que es responsable ("17 causas"). El mismo valor que en `/lawyers`.
+    examples:
+      - 16
+  openDeadlines:
+    type: object
+    description: |
+      Sus plazos abiertos, por urgencia. `overdue`, `dueToday` y `dueSoon` se
+      definen igual que en `summary`; `later` cuenta los que vencen en más de
+      5 días hábiles. Con ellos el cliente arma el rótulo del abogado ("Con
+      vencidos", "Vence hoy", "Atención esta semana" o "Al día").
+    required:
+      - overdue
+      - dueToday
+      - dueSoon
+      - later
+    properties:
+      overdue:
+        type: integer
+        minimum: 0
+        examples:
+          - 1
+      dueToday:
+        type: integer
+        minimum: 0
+        examples:
+          - 0
+      dueSoon:
+        type: integer
+        minimum: 0
+        examples:
+          - 0
+      later:
+        type: integer
+        minimum: 0
+        examples:
+          - 0

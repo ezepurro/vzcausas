@@ -1,19 +1,24 @@
 type: object
-description: Referencia reducida a un abogado.
+description: Referencia reducida a un abogado. Apellido y nombres van por separado desde V4.
 required:
   - id
-  - fullName
+  - lastName
+  - firstName
   - registrationNumber
 properties:
   id:
     type: integer
     examples:
       - 4
-  fullName:
+  lastName:
     type: string
-    description: Nombre y apellido en un único campo, incluyendo el tratamiento.
     examples:
-      - Dr. Ignacio Peralta
+      - Peralta
+  firstName:
+    type: string
+    description: Nombres, sin el tratamiento.
+    examples:
+      - Ignacio
   registrationNumber:
     type: string
     description: Matrícula, con el formato del Colegio de Abogados de Córdoba.

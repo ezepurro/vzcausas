@@ -15,7 +15,7 @@ export function HomePage() {
         <>
             <PageHeader
                 eyebrow="Trabajo diario"
-                title={`Hola, ${user.fullName}`}
+                title={`Hola, ${user.firstName}`}
                 sub="Desde el menú de la izquierda llegás a las causas, los vencimientos y la administración del estudio."
             />
             <Panel

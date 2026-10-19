@@ -165,7 +165,8 @@ export class RegisterProceduralAct {
 
   /**
    * Checks the state the user chose against the table of the jurisdiction of the case.
-   * A terminal state is not offered as a target, and neither is the initial one (CA-26.8, D-34).
+   * A terminal state is a valid target: it is how a case is closed, e.g. "Archivada" (D-69).
+   * The exceptions are "Prescripta", which has its own form (HU33), and the initial state (D-34).
    * @throws ValidationError
    */
   private async resolveTargetState(targetCase: Case, command: RegisterProceduralActCommand): Promise<TargetState> {
@@ -184,8 +185,8 @@ export class RegisterProceduralAct {
       if (!state || !state.isActive) {
         return fail('proceduralStateId', 'No existe un estado procesal vigente con ese identificador.');
       }
-      if (state.jurisdictionId !== targetCase.jurisdictionId || state.terminal || state.isInitial) {
-        return fail('proceduralStateId', 'El estado procesal no pertenece al fuero de la causa o es terminal.');
+      if (state.jurisdictionId !== targetCase.jurisdictionId || state.isPrescribed || state.isInitial) {
+        return fail('proceduralStateId', 'El estado procesal no pertenece al fuero de la causa o es el estado Prescripta.');
       }
       return { proceduralStateId, customState: null, state };
     }
@@ -200,7 +201,8 @@ export class RegisterProceduralAct {
   /**
    * Copies the term of the state into a new deadline and computes its due date
    * (RN5). A hand-written state opens no term: it only has a due date if the
-   * lawyer enters one by hand (CA-26.7).
+   * lawyer enters one by hand (CA-26.7). A terminal state closes the case, so
+   * it takes no due date at all, not even a manual one (D-69).
    * @throws ValidationError
    */
   private async buildDeadline(
@@ -208,6 +210,12 @@ export class RegisterProceduralAct {
     target: TargetState,
     command: RegisterProceduralActCommand,
   ): Promise<Deadline> {
+    if (target.state?.terminal && command.manualDueDate != null) {
+      throw new ValidationError('VALIDATION_ERROR', INVALID_DATA_MESSAGE, {
+        manualDueDate: 'Un estado terminal cierra la causa y no admite vencimiento.',
+      });
+    }
+
     const timeLimitDays = target.state?.timeLimitDays ?? 0;
     const dayType = target.state?.dayType ?? DayType.NONE;
 

@@ -159,6 +159,14 @@ export class FakeUserRepository implements UserRepository {
     );
   }
 
+  async findActiveByLawyerId(lawyerId: number): Promise<User | null> {
+    return (
+      [...this.byId.values()].find(
+        (user) => user.isActive() && user.lawyerId === lawyerId,
+      ) ?? null
+    );
+  }
+
   async countActiveByRoleName(roleName: string): Promise<number> {
     const roleId = FAKE_ROLE_IDS_BY_NAME[roleName];
     if (roleId === undefined) return 0;

@@ -1,40 +1,55 @@
 parameters:
-  - $ref: ../components/parameters/TemplateIdParam.yaml
+    - $ref: ../components/parameters/TemplateIdParam.yaml
 
 get:
-  tags:
-    - Document Templates
-  operationId: getDocumentTemplate
-  summary: Consultar un modelo formal
-  description: |
-    Obtiene la información de un modelo formal vigente (HU35). Uno dado de baja
-    responde `404`.
+    tags:
+        - Document Templates
+    operationId: getDocumentTemplate
+    summary: Consultar modelo formal
+    description: |
+        Obtiene la información de un modelo formal (HU35). El archivo se descarga
+        con `GET /document-templates/{templateId}/file`.
 
-    **Rol requerido:** `ADMINISTRATOR` o `LAWYER`.
-  responses:
-    '200':
-      description: El modelo formal.
-      content:
-        application/json:
-          schema:
-            type: object
-            required:
-              - data
-            properties:
-              data:
-                $ref: ../components/schemas/DocumentTemplate.yaml
-    '400':
-      description: Identificador inválido.
-      content:
-        application/json:
-          schema:
-            $ref: ../components/schemas/Error.yaml
-          examples:
-            invalidTemplateId:
-              $ref: ../components/examples/InvalidTemplateIdError.yaml
-    '401':
-      $ref: ../components/responses/Unauthorized.yaml
-    '403':
-      $ref: ../components/responses/ForbiddenTemplates.yaml
-    '404':
-      $ref: ../components/responses/DocumentTemplateNotFound.yaml
+        **Rol requerido:** `ADMINISTRATOR` o `LAWYER`.
+    responses:
+        "200":
+            description: Modelo formal solicitado.
+            content:
+                application/json:
+                    schema:
+                        type: object
+                        required:
+                            - data
+                        properties:
+                            data:
+                                $ref: ../components/schemas/DocumentTemplate.yaml
+                    example:
+                        data:
+                            id: 2
+                            name: Oposición al requerimiento de elevación a juicio
+                            jurisdictions:
+                                - CRIMINAL
+                            fileName: oposicion-elevacion.docx
+                            copyToNewCases: true
+                            lastVersionAt: "2026-08-21T17:40:00-03:00"
+                            lastVersionBy:
+                                id: 3
+                                lastName: Ríos
+                                firstName: Malena
+                            usageCount: 12
+                            active: true
+        "400":
+            description: Identificador inválido.
+            content:
+                application/json:
+                    schema:
+                        $ref: ../components/schemas/Error.yaml
+                    examples:
+                        invalidTemplateId:
+                            $ref: ../components/examples/InvalidTemplateIdError.yaml
+        "401":
+            $ref: ../components/responses/Unauthorized.yaml
+        "403":
+            $ref: ../components/responses/ForbiddenAdministratorOrLawyer.yaml
+        "404":
+            $ref: ../components/responses/DocumentTemplateNotFound.yaml

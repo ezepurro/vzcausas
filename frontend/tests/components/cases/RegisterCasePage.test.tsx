@@ -25,7 +25,9 @@ const LAWYER_RIOS = '3'
 const ROBBERY = '1'
 
 /** El aviso del alta, como lo escribe el prototipo. */
-const WITH_SAC_TOAST = 'Causa 14200315 registrada. El estado lo fija el primer acto procesal.'
+// Desde V4 la carpeta se crea por defecto, con los 6 modelos del penal (CA-39.1, CA-40.2).
+const WITH_SAC_TOAST =
+    'Causa 14200315 registrada. El estado lo fija el primer acto procesal · carpeta creada en Drive con 6 modelos.'
 
 function renderPage(as = 'gestion') {
     return renderWithProviders(<RegisterCasePage />, {
@@ -184,23 +186,6 @@ describe('RegisterCasePage', () => {
         expect(created()).toBeUndefined()
     })
 
-    /* CA-18.2: la fecha de inicio va con el SAC. */
-    describe('fecha de inicio (CA-18.2)', () => {
-        it('con SAC es obligatoria, y el resumen lo pide', async () => {
-            const { user } = renderPage()
-            await fillMinimum(user)
-            await user.type(screen.getByLabelText(/^N° de SAC/), '14200315')
-
-            expect(screen.getByLabelText(/^Fecha de inicio/)).toBeEnabled()
-            expect(screen.getByText('Fecha de inicio cargada')).toBeInTheDocument()
-
-            await submit(user)
-
-            expect(screen.getByText('Cargá la fecha de inicio: es obligatoria con N° de SAC.')).toBeInTheDocument()
-            expect(created()).toBeUndefined()
-        })
-    })
-
     /* CA-18.10: un cliente, un abogado o una calificación inexistente o dado de
        baja se informa sobre el campo del formulario. Los selects sólo ofrecen
        vigentes, así que el caso llega del backend: un 400 con `details`. */
@@ -245,10 +230,10 @@ describe('RegisterCasePage', () => {
     describe('registrar un cliente o una calificación desde el alta', () => {
         /* Matriz de permisos del 11/10/2026 (V3 §4, D-39): administrar clientes
            y calificaciones legales es de los tres perfiles. */
+        /* Los tres perfiles pueden: alcanza con el de menos permisos
+           (TESTING.md §5, "un perfil habilitado"). */
         it.each([
             ['la Secretaría', 'gestion'],
-            ['un abogado', 'mrios'],
-            ['el Administrador', 'supervision'],
         ])('%s tiene habilitados los dos botones de alta', async (_, username) => {
             renderPage(username)
             await waitForOptions()

@@ -1,0 +1,11 @@
+type: string
+description: |
+  Origen de un vencimiento en los tableros.
+
+  | Código           | Rótulo                | Significado                                                       |
+  | ---------------- | --------------------- | ----------------------------------------------------------------- |
+  | `PROCEDURAL_ACT` | Plazo de presentación | El plazo que abrió el acto procesal del estado actual de la causa |
+  | `HARMFUL_ACT`    | Plazo para el amparo  | El plazo para presentar el amparo desde el acto lesivo            |
+enum:
+  - PROCEDURAL_ACT
+  - HARMFUL_ACT

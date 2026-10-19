@@ -5,7 +5,8 @@ description: |
 required:
   - id
   - username
-  - fullName
+  - lastName
+  - firstName
   - email
   - roles
   - lawyer
@@ -22,11 +23,16 @@ properties:
     description: Nombre de usuario. Único.
     examples:
       - iperalta
-  fullName:
+  lastName:
     type: string
-    description: Nombre y apellido en un único campo.
+    description: Apellido. Reemplaza a `fullName` desde V4 (D-68).
     examples:
-      - Ignacio Peralta
+      - Peralta
+  firstName:
+    type: string
+    description: Nombres. Reemplaza a `fullName` desde V4 (D-68).
+    examples:
+      - Ignacio
   email:
     type: string
     format: email

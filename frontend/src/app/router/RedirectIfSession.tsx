@@ -1,8 +1,6 @@
 import { Navigate, Outlet, useLocation } from 'react-router'
 import { useAuth } from '@/app/providers/AuthContext'
-
-/** A dónde va quien entra sin haber pedido antes otra pantalla. */
-const DEFAULT_DESTINATION = '/inicio'
+import { homeRoute } from '@/app/access/access'
 
 /**
  * La guarda inversa: con la sesión abierta no hay nada que hacer en el login.
@@ -22,7 +20,9 @@ const DEFAULT_DESTINATION = '/inicio'
  * un efecto: se perdía la pantalla que la persona había pedido. Con un solo
  * navegante la carrera no puede existir.
  *
- * El `from` lo anota `RequireSession` al desviar a alguien sin sesión.
+ * El `from` lo anota `RequireSession` al desviar a alguien sin sesión. Quien
+ * entra sin haber pedido antes otra pantalla va a su pantalla de entrada
+ * (`homeRoute`): Inicio, o Causas si no tiene tablero.
  */
 export function RedirectIfSession() {
     const { session } = useAuth()
@@ -30,6 +30,6 @@ export function RedirectIfSession() {
 
     if (session === null) return <Outlet />
 
-    const from = (location.state as { from?: string } | null)?.from ?? DEFAULT_DESTINATION
+    const from = (location.state as { from?: string } | null)?.from ?? homeRoute(session.user.roles)
     return <Navigate to={from} replace />
 }

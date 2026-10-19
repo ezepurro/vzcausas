@@ -1,7 +1,8 @@
 type: object
 description: |
-  Constancia de que la causa fue marcada como prescripta (HU33). Mismos campos
-  que el `prescriptionDeclaration` de la causa (contrato V4 §3.7).
+  Constancia de que la causa fue marcada como prescripta (HU33). Queda cargada
+  con `POST /cases/{caseId}/prescription`; antes, el `prescriptionDeclaration`
+  de la causa vale `null`.
 required:
   - prescriptionDate
   - resolution
@@ -14,17 +15,19 @@ properties:
     format: date
     description: Fecha de la prescripción.
     examples:
-      - '2026-09-30'
+      - '2026-09-15'
   resolution:
     type: string
     description: Resolución que la declara.
     examples:
-      - Auto N° 123
+      - Sentencia N° 214 del Juzgado de Control N° 3
   grounds:
     type:
       - string
       - 'null'
     description: Fundamento. Opcional.
+    examples:
+      - Transcurrió el plazo del art. 62 inc. 2 CP sin actos interruptivos.
   registeredBy:
     $ref: ./UserSummary.yaml
   registeredAt:
@@ -32,4 +35,4 @@ properties:
     format: date-time
     description: Fecha y hora del registro.
     examples:
-      - '2026-09-30T15:00:00-03:00'
+      - '2026-09-15T12:20:00-03:00'

@@ -1,0 +1,194 @@
+parameters:
+  - $ref: ../components/parameters/CaseIdParam.yaml
+
+post:
+  tags:
+    - Cases
+  operationId: declareCasePrescription
+  summary: Marcar la causa como prescripta
+  description: |
+    Marca una causa penal como prescripta (HU33). Es la acción "Marcar
+    prescripta" del detalle, que el prototipo ofrece solo en el fuero penal.
+
+    Es una acción **manual**, con la resolución que declara la prescripción
+    (D-52). El proceso diario detecta el plazo cumplido (HU52), deja
+    `prescription.expired` en `true` y avisa (HU32), pero no cambia el estado
+    de ninguna causa.
+
+    La causa tiene que tener **al menos una calificación legal** (D-74). No se
+    exige que el plazo calculado esté cumplido: la prescripción la declara el
+    tribunal.
+
+    **Efecto sobre la causa**
+
+    - Pasa al estado de sistema **"Prescripta"** del fuero penal, con
+      `currentState.proceduralActId` en `null`: no la lleva un acto procesal
+      y no se crea ninguno (D-54).
+    - **Se cierran los plazos abiertos**: `currentState.dueDate` y
+      `businessDaysRemaining` pasan a `null`.
+    - "Prescripta" es terminal: la causa **deja de ser activa**, sale de los
+      tableros y de las alertas, deja de contar en los `activeCases` y no
+      admite actos procesales ni interruptivos nuevos.
+    - **No se da de baja**: `active` sigue en `true`, `GET /cases/{caseId}`
+      la sigue devolviendo y se la encuentra en el listado con el filtro de
+      estado.
+    - Los datos del formulario quedan en `prescriptionDeclaration`, con quién
+      la marcó y cuándo. `prescription` se sigue devolviendo como dato
+      histórico.
+
+    No existe una operación para revertirlo desde la API.
+
+    **Rol requerido:** `ADMINISTRATOR` o `LAWYER`. No hace falta ser el
+    abogado responsable de la causa.
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: ../components/schemas/PrescriptionDeclarationCreate.yaml
+        example:
+          prescriptionDate: '2026-09-15'
+          resolution: Sentencia N° 214 del Juzgado de Control N° 3
+          grounds: Transcurrió el plazo del art. 62 inc. 2 CP sin actos interruptivos.
+  responses:
+    '200':
+      description: |
+        Causa actualizada, con la misma estructura que `GET /cases/{caseId}`.
+        En el ejemplo, la causa del prototipo que tenía la alerta de
+        prescripción activa.
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - data
+            properties:
+              data:
+                $ref: ../components/schemas/Case.yaml
+          example:
+            data:
+              id: 4
+              sacNumber: '11845620'
+              caption: ACOSTA, Jonathan E. p.s.a. Infracción Ley 23.737
+              court: Fiscalía de Instrucción Distrito 2 Turno 4
+              jurisdiction: CRIMINAL
+              proceduralRole: DEFENSA
+              instructorName: Fisc. Adj. Paula Rinaldi
+              tribunalPhone: 0351 448-1150
+              instructorExtension: '118'
+              counterparty: null
+              subjectMatter: null
+              clientDetained: false
+              injunctionGranted: null
+              harmfulActDate: null
+              harmfulActRenews: null
+              harmfulActRenewalDays: null
+              harmfulActTermDays: null
+              harmfulActTermDayType: null
+              harmfulActDeadline: null
+              administrativeRemedyExhaustedOn: null
+              courtFeePaid: false
+              client:
+                id: 4
+                lastName: ACOSTA
+                firstName: Jonathan E.
+                dni: '38907221'
+                phone: 351 744-1160
+                email: null
+                clientSince: '2022-01-19'
+              responsibleLawyer:
+                id: 1
+                lastName: Vázquez
+                firstName: Fernando G.
+                registrationNumber: 1-28114
+              legalQualifications:
+                - id: 2
+                  name: Infracción Ley 23.737 — art. 5 inc. c
+                  prescriptionMonths: 72
+                  offenseDate: '2022-01-19'
+                  prescriptionStartsOn: '2022-01-19'
+                  prescriptionExpiresOn: '2028-01-19'
+              prescription:
+                legalQualificationId: 2
+                legalQualificationName: Infracción Ley 23.737 — art. 5 inc. c
+                startsOn: '2022-01-19'
+                expiresOn: '2028-01-19'
+                elapsedPercentage: 78
+                alert: true
+                expired: false
+                lastInterruptiveActDate: null
+              prescriptionDeclaration:
+                prescriptionDate: '2026-09-15'
+                resolution: Sentencia N° 214 del Juzgado de Control N° 3
+                grounds: Transcurrió el plazo del art. 62 inc. 2 CP sin actos interruptivos.
+                registeredBy:
+                  id: 1
+                  lastName: Vázquez
+                  firstName: Fernando G.
+                registeredAt: '2026-09-15T12:20:00-03:00'
+              startDate: '2022-01-19'
+              currentState:
+                proceduralStateId: 10
+                name: Prescripta
+                custom: false
+                initial: false
+                proceduralActId: null
+                dueDate: null
+                businessDaysRemaining: null
+                manuallyAdjusted: false
+              folder: null
+              active: true
+    '400':
+      description: Datos o identificador inválidos.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          examples:
+            validationError:
+              summary: Fecha futura y resolución vacía
+              value:
+                error:
+                  code: VALIDATION_ERROR
+                  message: Los datos enviados no son válidos.
+                  details:
+                    prescriptionDate: No puede ser posterior a hoy.
+                    resolution: La resolución que declara la prescripción es obligatoria.
+            invalidCaseId:
+              $ref: ../components/examples/InvalidCaseIdError.yaml
+    '401':
+      $ref: ../components/responses/Unauthorized.yaml
+    '403':
+      $ref: ../components/responses/ForbiddenAdministratorOrLawyer.yaml
+    '404':
+      $ref: ../components/responses/CaseNotFound.yaml
+    '422':
+      description: |
+        La causa no es penal, no tiene calificaciones legales, o ya está en un
+        estado terminal (incluido "Prescripta").
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          examples:
+            notCriminal:
+              summary: La causa no es del fuero penal
+              value:
+                error:
+                  code: PRESCRIPTION_NOT_APPLICABLE
+                  message: La prescripción solo aplica a las causas del fuero penal.
+                  details: null
+            withoutQualifications:
+              summary: La causa penal no tiene calificaciones legales
+              value:
+                error:
+                  code: PRESCRIPTION_NOT_APPLICABLE
+                  message: 'La causa no tiene calificaciones legales: no puede prescribir.'
+                  details: null
+            terminalState:
+              summary: La causa ya está en un estado terminal
+              value:
+                error:
+                  code: CASE_IN_TERMINAL_STATE
+                  message: La causa se encuentra en un estado terminal y no admite esta operación.
+                  details: null

@@ -5,6 +5,7 @@ import { isApiError } from '@/shared/api/ApiError'
 import { Breadcrumbs, PageHeader } from '@/shared/components/ui'
 import { useFocusFirstError } from '@/shared/hooks/useFocusFirstError'
 import type { SelectOption } from '@/shared/components/forms'
+import { formatPersonName } from '@/shared/lib/personName'
 import {
     ClientFormModal,
     formatClientName,
@@ -18,6 +19,8 @@ import {
     type ClientFormValues,
 } from '@/features/clients'
 import { useLawyers } from '@/features/lawyers'
+import { useDocumentTemplates } from '@/features/documents'
+import { useCanAccess } from '@/app/access/useCanAccess'
 import {
     formatPrescription,
     isValidLegalQualification,
@@ -41,7 +44,8 @@ import {
 import type { SelectedQualification } from '@/features/cases/components/LegalQualificationPicker'
 import { isValid, validateCase, type CaseFormErrors } from '@/features/cases/schemas/case.schema'
 import type { CaseFormValues } from '@/features/cases/types/case'
-import { changeJurisdiction, changeSacNumber, emptyCaseForm } from '@/features/cases/utils/caseForm'
+import { changeCreateFolder, changeJurisdiction, changeSacNumber, emptyCaseForm } from '@/features/cases/utils/caseForm'
+import { folderFailed, folderNoticeSuffix, folderPathPreview } from '@/features/cases/utils/caseFolder'
 import { INITIAL_STATE_LABEL } from '@/features/cases/utils/caseState'
 import { estimatedExpiry } from '@/features/cases/utils/prescription'
 import { suggestedCaption } from '@/features/cases/utils/suggestedCaption'
@@ -58,8 +62,9 @@ import { toCreateCaseBody } from '@/features/cases/utils/toCreateCaseBody'
  * y sin movimientos en su ciclo de vida (D-34): al guardar se va a su detalle,
  * que es donde se ve eso.
  *
- * Las casillas de Drive y de los escritos del prototipo son HU39 y HU40
- * (V3 §8.3): no existen hasta su sprint, ni deshabilitadas.
+ * Las casillas de la carpeta en Drive y de los modelos del fuero son HU39 y
+ * HU40. Cuántos modelos se copian lo ven el Administrador y el Abogado; la
+ * Secretaría no consulta modelos (CA-40.10) y no se le pide el número.
  */
 
 /** Los selects necesitan todo junto, no paginado: 100 es el tope del contrato. */
@@ -92,6 +97,20 @@ export function RegisterCasePage() {
     const lawyers = lawyersQuery.data?.data ?? []
     const qualifications = qualificationsQuery.data?.data ?? []
 
+    /* "6 modelos parametrizados para el fuero Penal": basta con el total, así
+       que se pide uno solo (V4 §3.10, "Cómo lo usa el prototipo"). */
+    const canSeeTemplates = useCanAccess('/modelos')
+    const templatesQuery = useDocumentTemplates(
+        { jurisdiction: values.jurisdiction, copyToNewCases: true, limit: 1 },
+        { enabled: canSeeTemplates },
+    )
+    const templatesCount = canSeeTemplates && !templatesQuery.isPlaceholderData
+        ? templatesQuery.data?.pagination.totalItems
+        : undefined
+    const templatesNote = templatesCount === undefined
+        ? null
+        : `${templatesCount} ${templatesCount === 1 ? 'modelo parametrizado' : 'modelos parametrizados'} para el fuero ${JURISDICTION_LABELS[values.jurisdiction]}.`
+
     const create = useCreateCase()
     const goToList = () => navigate('/causas')
 
@@ -104,7 +123,7 @@ export function RegisterCasePage() {
 
     const lawyerOptions: SelectOption[] = lawyers.map((l) => ({
         value: String(l.id),
-        label: `${l.fullName} · matrícula ${l.registrationNumber}`,
+        label: `${formatPersonName(l)} · matrícula ${l.registrationNumber}`,
     }))
 
     /** Una calificación ya elegida deja de ofrecerse: no puede repetirse (D-28). */
@@ -183,6 +202,13 @@ export function RegisterCasePage() {
 
     const checklist = buildChecklist(values, selectedQualifications)
 
+    const lawyer = lawyers.find((l) => String(l.id) === values.responsibleLawyerId) ?? null
+    const folderPath = folderPathPreview(
+        lawyer ? formatPersonName(lawyer) : null,
+        JURISDICTION_LABELS[values.jurisdiction],
+        values.caption,
+    )
+
     /* ---------------- errores del servidor ---------------- */
 
     /**
@@ -215,7 +241,15 @@ export function RegisterCasePage() {
         create.mutate(toCreateCaseBody(values), {
             onSuccess: (registered) => {
                 const sac = registered.sacNumber ? `${registered.sacNumber} ` : ''
-                toast('success', `Causa ${sac}registrada. El estado lo fija el primer acto procesal.`)
+                const message = `Causa ${sac}registrada. El estado lo fija el primer acto procesal`
+                if (folderFailed(registered.folder)) {
+                    /* La causa no se pierde (D-60): se registra igual y la
+                       carpeta se crea desde el detalle (CA-39.4). */
+                    toast('success', `${message}.`)
+                    toast('error', 'No se pudo crear la carpeta en Drive. Podés crearla desde el detalle de la causa.')
+                } else {
+                    toast('success', `${message}${folderNoticeSuffix(registered.folder)}.`)
+                }
                 navigate(`/causas/${registered.id}`)
             },
             onError: handleApiError,
@@ -245,6 +279,10 @@ export function RegisterCasePage() {
                     onJurisdictionChange={(jurisdiction) =>
                         setValues((current) => changeJurisdiction(current, jurisdiction))
                     }
+                    onCreateFolderChange={(createFolder) =>
+                        setValues((current) => changeCreateFolder(current, createFolder))
+                    }
+                    templatesNote={templatesNote}
                     clientOptions={clientOptions}
                     lawyerOptions={lawyerOptions}
                     selectedQualifications={selectedQualifications}
@@ -266,6 +304,8 @@ export function RegisterCasePage() {
                         prescriptions={prescriptions}
                         jurisdictionLabel={JURISDICTION_LABELS[values.jurisdiction]}
                         checklist={checklist}
+                        createFolder={values.createFolder}
+                        folderPath={folderPath}
                     />
                 </aside>
             </div>

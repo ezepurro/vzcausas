@@ -112,6 +112,18 @@ export function addMonths(iso: string, months: number): string {
 }
 
 /**
+ * Días corridos de `fromIso` a `toIso`: negativo si `toIso` es anterior. Es la
+ * cuenta del porcentaje de prescripción (V4 §4) y de los "71 días" sin
+ * movimiento de las causas para impulsar (§3.11).
+ */
+export function calendarDaysBetween(fromIso: string, toIso: string): number {
+    const from = mustParse(fromIso);
+    const to = mustParse(toIso);
+    const utc = (d: Date) => Date.UTC(d.getFullYear(), d.getMonth(), d.getDate());
+    return Math.round((utc(to) - utc(from)) / 86_400_000);
+}
+
+/**
  * Días hábiles entre hoy (excluido) y el vencimiento (incluido): `0` vence
  * hoy, negativo ya venció. Es el `businessDaysRemaining` del contrato.
  */

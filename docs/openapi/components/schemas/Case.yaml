@@ -1,12 +1,25 @@
 type: object
 description: |
-  Causa. Es el mismo recurso en el listado, en el detalle y en la respuesta
-  del alta.
+  Causa. Es el mismo recurso en el listado, en el detalle, en la respuesta del
+  alta y en la de `POST /cases/{caseId}/prescription`.
 
-  **Prescripción:** solo se computa en el fuero `CRIMINAL`. Cada calificación
-  computa la suya desde la fecha del hecho (`offenseDate`); `startDate` no
-  interviene. Si hay varias, el cliente muestra la que prescribe primero (la
-  de menor `prescriptionExpiresOn`).
+  **Datos propios de cada fuero** (D-67). Un dato que no corresponde al fuero
+  de la causa vale `null`. En esta versión se cargan solo en el alta;
+  modificarlos llega con HU19.
+
+  | Fuero            | Datos                                                                                     |
+  | ---------------- | ----------------------------------------------------------------------------------------- |
+  | `CRIMINAL`       | `clientDetained`                                                                          |
+  | `AMPARO`         | `injunctionGranted`, `harmfulActDate`, `harmfulActRenews`, `harmfulActRenewalDays`, `harmfulActTermDays`, `harmfulActTermDayType` y el calculado `harmfulActDeadline` |
+  | `ADMINISTRATIVE` | `administrativeRemedyExhaustedOn`                                                         |
+  | Los tres         | `courtFeePaid`                                                                            |
+
+  **Prescripción:** solo se computa en el fuero `CRIMINAL`, y una causa penal
+  sin calificación legal no prescribe (D-74). Cada calificación computa la
+  suya desde `prescriptionStartsOn`: la fecha del acto interruptivo más
+  reciente o, si no hay ninguno, la fecha del hecho (`offenseDate`). La que
+  rige la causa —la que prescribe primero— llega resuelta en `prescription`.
+  `startDate` no interviene.
 required:
   - id
   - sacNumber
@@ -19,11 +32,24 @@ required:
   - instructorExtension
   - counterparty
   - subjectMatter
+  - clientDetained
+  - injunctionGranted
+  - harmfulActDate
+  - harmfulActRenews
+  - harmfulActRenewalDays
+  - harmfulActTermDays
+  - harmfulActTermDayType
+  - harmfulActDeadline
+  - administrativeRemedyExhaustedOn
+  - courtFeePaid
   - client
   - responsibleLawyer
   - legalQualifications
+  - prescription
+  - prescriptionDeclaration
   - startDate
   - currentState
+  - folder
   - active
 properties:
   id:
@@ -92,6 +118,94 @@ properties:
       En `CRIMINAL` vale `null`.
     examples:
       - null
+  clientDetained:
+    type:
+      - boolean
+      - 'null'
+    description: Si el cliente está preso. Solo en `CRIMINAL`, sea defensa o querellante (D-80); en los demás fueros vale `null`.
+    examples:
+      - false
+  injunctionGranted:
+    type:
+      - boolean
+      - 'null'
+    description: Si el juez hizo lugar a la medida cautelar. Solo en `AMPARO`; en los demás fueros vale `null`.
+    examples:
+      - null
+  harmfulActDate:
+    type:
+      - string
+      - 'null'
+    format: date
+    description: |
+      Fecha del acto lesivo: el objeto del amparo (`subjectMatter`). Solo en
+      `AMPARO`; `null` si no se informó o en los demás fueros.
+    examples:
+      - null
+  harmfulActRenews:
+    type:
+      - boolean
+      - 'null'
+    description: Si el acto lesivo se renueva. Solo en `AMPARO`; en los demás fueros vale `null`.
+    examples:
+      - null
+  harmfulActRenewalDays:
+    type:
+      - integer
+      - 'null'
+    minimum: 1
+    description: |
+      Cada cuántos días corridos se renueva el acto lesivo. Solo si
+      `harmfulActRenews` es `true`; si no, `null`.
+    examples:
+      - null
+  harmfulActTermDays:
+    type:
+      - integer
+      - 'null'
+    minimum: 1
+    description: |
+      Plazo para presentar el amparo desde el acto lesivo, en días. Solo en
+      `AMPARO` con `harmfulActDate`; si no, `null`.
+    examples:
+      - null
+  harmfulActTermDayType:
+    type:
+      - string
+      - 'null'
+    enum:
+      - BUSINESS
+      - CONSECUTIVE
+      - null
+    description: |
+      Cómo se cuentan los días de `harmfulActTermDays` (ver `DayType`). Solo
+      en `AMPARO` con `harmfulActDate`; si no, `null`.
+    examples:
+      - null
+  harmfulActDeadline:
+    description: |
+      Vencimiento para presentar el amparo, calculado (D-78). `null` fuera del
+      fuero `AMPARO`, cuando no se cargó `harmfulActDate`, **en cuanto la
+      causa sale del estado inicial** (el primer acto procesal indica que el
+      amparo ya se presentó) y en una causa que no está activa.
+    oneOf:
+      - $ref: ./HarmfulActDeadline.yaml
+      - type: 'null'
+  administrativeRemedyExhaustedOn:
+    type:
+      - string
+      - 'null'
+    format: date
+    description: |
+      Fecha de agotamiento de la vía administrativa. Solo en
+      `ADMINISTRATIVE`; `null` mientras no se agotó o en los demás fueros.
+    examples:
+      - null
+  courtFeePaid:
+    type: boolean
+    description: Si se pagó la tasa de justicia (RN10). En los tres fueros.
+    examples:
+      - false
   client:
     $ref: ./ClientSummary.yaml
   responsibleLawyer:
@@ -105,6 +219,19 @@ properties:
       registran.
     items:
       $ref: ./CaseLegalQualification.yaml
+  prescription:
+    description: |
+      Prescripción que rige la causa (D-51). `null` en `ADMINISTRATIVE` y
+      `AMPARO` y en una causa penal sin calificaciones. En una causa
+      prescripta se sigue devolviendo como dato histórico.
+    oneOf:
+      - $ref: ./Prescription.yaml
+      - type: 'null'
+  prescriptionDeclaration:
+    description: Constancia de que la causa fue marcada como prescripta (HU33). `null` mientras no lo fue.
+    oneOf:
+      - $ref: ./PrescriptionDeclaration.yaml
+      - type: 'null'
   startDate:
     type:
       - string
@@ -118,8 +245,18 @@ properties:
       - '2021-03-12'
   currentState:
     $ref: ./CurrentState.yaml
+  folder:
+    description: |
+      Carpeta de la causa en la nube (HU39, HU40). `null` en las causas
+      registradas antes de V4; con `status` en `PENDING` si se registró sin
+      pedirla.
+    oneOf:
+      - $ref: ./CaseFolder.yaml
+      - type: 'null'
   active:
     type: boolean
-    description: Estado de alta. Vale siempre `true` en esta versión.
+    description: |
+      Estado de alta. Vale siempre `true` en esta versión, también en una
+      causa marcada como prescripta: no se da de baja.
     examples:
       - true

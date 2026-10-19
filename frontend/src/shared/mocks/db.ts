@@ -29,23 +29,33 @@ import type {
     ActDeadline,
     Case,
     CaseClient,
+    CaseFolder,
+    CaseFolderStatus,
     CaseLegalQualification,
+    CasePrescription,
     CaseState,
     Client,
     CurrentState,
+    DayType,
+    DocumentTemplate,
     EmbeddedLawyer,
+    HarmfulActDeadline,
+    InterruptiveAct,
     Jurisdiction,
     Lawyer,
     LegalQualification,
     ProceduralAct,
     ProceduralRole,
+    PersonRef,
     ProceduralState,
     User,
 } from './contract';
 import {
     addBusinessDays,
+    addCalendarDays,
     addMonths,
     businessDaysUntil,
+    calendarDaysBetween,
     computeDueDate,
     subtractBusinessDays,
     todayIso,
@@ -55,15 +65,19 @@ import {
     CLIENTS,
     CREDENTIALS,
     DEFAULT_PASSWORD,
+    DOCUMENT_TEMPLATES,
     INITIAL_STATE_NAME,
     LAWYERS,
     LEGAL_QUALIFICATIONS,
+    PRESCRIBED_STATE_ID,
     PROCEDURAL_STATES,
     TOKEN_PREFIX,
     USERS,
     type ActSeed,
+    type CaseSeed,
     type SeedDate,
     type StoredClient,
+    type StoredDocumentTemplate,
     type StoredLegalQualification,
     type StoredProceduralState,
     type StoredUser,
@@ -93,11 +107,66 @@ export interface StoredCase {
     instructorExtension: string | null;
     counterparty: string | null;
     subjectMatter: string | null;
+    /** Los datos propios de cada fuero (V4 D-67): `null` fuera de su fuero. */
+    clientDetained: boolean | null;
+    injunctionGranted: boolean | null;
+    harmfulActDate: string | null;
+    harmfulActRenews: boolean | null;
+    harmfulActRenewalDays: number | null;
+    harmfulActTermDays: number | null;
+    harmfulActTermDayType: DayType | null;
+    administrativeRemedyExhaustedOn: string | null;
+    courtFeePaid: boolean;
     clientId: number;
     responsibleLawyerId: number;
     qualifications: StoredCaseQualification[];
-    startDate: string;
+    /** `null` mientras la causa no tiene SAC (D-38). */
+    startDate: string | null;
+    /** `null` si no se pidió (V4 §3.7). */
+    folder: StoredFolder | null;
+    /** La marca de HU33. Con ella la causa está en "Prescripta" (D-54). */
+    prescriptionDeclaration: StoredPrescriptionDeclaration | null;
     active: boolean;
+}
+
+/**
+ * La carpeta de la causa, tal como se devuelve, más si se pidió copiar los
+ * modelos: lo necesita el reintento para saber qué le falta.
+ */
+export interface StoredFolder extends CaseFolder {
+    copyTemplates: boolean;
+}
+
+/** La marca de prescripción, con el id de quien la registró. */
+export interface StoredPrescriptionDeclaration {
+    prescriptionDate: string;
+    resolution: string;
+    grounds: string | null;
+    registeredById: number;
+    registeredAt: string;
+}
+
+/** Un acto interruptivo (V4 §3.9), con el id de quien lo registró. */
+export interface StoredInterruptiveAct {
+    id: number;
+    caseId: number;
+    name: string;
+    actDate: string;
+    notes: string | null;
+    registeredById: number;
+    registeredAt: string;
+}
+
+/**
+ * Servicios externos que se pueden "caer" a mano, para probar los `502` y la
+ * carpeta pendiente (V4 D-60, D-65). Vuelve a `false` con `resetMockDb()`.
+ *
+ * ```ts
+ * db.failures.documentStorage = true   // Drive no responde
+ * ```
+ */
+export interface MockFailures {
+    documentStorage: boolean;
 }
 
 /**
@@ -129,6 +198,9 @@ export interface MockDb {
     clients: StoredClient[];
     cases: StoredCase[];
     proceduralActs: StoredAct[];
+    interruptiveActs: StoredInterruptiveAct[];
+    documentTemplates: StoredDocumentTemplate[];
+    failures: MockFailures;
     /** `username` → contraseña en texto plano. Es un mock, no un backend. */
     passwords: Map<string, string>;
     /** Tokens vivos: `accessToken` → `userId`. El logout borra la entrada. */
@@ -157,6 +229,8 @@ export interface MockDb {
     nextClientId: number;
     nextCaseId: number;
     nextProceduralActId: number;
+    nextInterruptiveActId: number;
+    nextDocumentTemplateId: number;
     /** Sufijo incremental para que dos logins no devuelvan el mismo token. */
     issuedTokens: number;
 }
@@ -250,6 +324,97 @@ function seedAct(
     };
 }
 
+/**
+ * Los datos propios del fuero de una causa semilla (V4 D-67), con `null` en
+ * los que no le corresponden: es lo que devuelve la API.
+ */
+function jurisdictionData(seed: CaseSeed, today: string) {
+    const amparo = seed.jurisdiction === 'AMPARO';
+    const harmful = amparo ? seed.harmfulAct : undefined;
+    return {
+        clientDetained: seed.jurisdiction === 'CRIMINAL' ? (seed.clientDetained ?? false) : null,
+        injunctionGranted: amparo ? (seed.injunctionGranted ?? false) : null,
+        harmfulActDate: harmful?.date ?? null,
+        harmfulActRenews: amparo ? harmful?.renewalDays !== undefined : null,
+        harmfulActRenewalDays: harmful?.renewalDays ?? null,
+        harmfulActTermDays: harmful?.termDays ?? null,
+        harmfulActTermDayType: harmful?.termDayType ?? null,
+        administrativeRemedyExhaustedOn:
+            seed.jurisdiction === 'ADMINISTRATIVE' && seed.administrativeRemedyExhaustedOn
+                ? resolveSeedDate(seed.administrativeRemedyExhaustedOn, today)
+                : null,
+    };
+}
+
+/* ------------------------------------------------------------------ */
+/* Carpeta de la causa (V4 §4, "Carpeta de la causa")                  */
+/* ------------------------------------------------------------------ */
+
+const JURISDICTION_LABEL: Record<Jurisdiction, string> = {
+    CRIMINAL: 'Penal',
+    ADMINISTRATIVE: 'Administrativo',
+    AMPARO: 'Amparo',
+};
+
+/**
+ * Dónde queda la carpeta: `/VZ Causas/{abogado}/{fuero}/{carátula}` (V4
+ * D-61), con el abogado responsable como `Apellido, Nombres`, el rótulo del
+ * fuero y la carátula tal como está registrada.
+ */
+export function folderPath(input: {
+    lawyer: Pick<Lawyer, 'lastName' | 'firstName'>;
+    jurisdiction: Jurisdiction;
+    caption: string;
+}): string {
+    const lawyer = `${input.lawyer.lastName}, ${input.lawyer.firstName}`;
+    return `/VZ Causas/${lawyer}/${JURISDICTION_LABEL[input.jurisdiction]}/${input.caption}`;
+}
+
+/** El enlace falso de la carpeta en Drive. */
+export function folderUrl(caseId: number): string {
+    return `https://drive.google.com/drive/folders/vz-causa-${caseId}`;
+}
+
+/**
+ * Los modelos que se copian a una causa nueva del fuero: vigentes, que
+ * incluyen el fuero y con `copyToNewCases` en `true` (V4 §4).
+ */
+export function templatesForNewCases(
+    templates: readonly StoredDocumentTemplate[],
+    jurisdiction: Jurisdiction,
+): StoredDocumentTemplate[] {
+    return templates.filter((t) => t.active && t.copyToNewCases && t.jurisdictions.includes(jurisdiction));
+}
+
+/**
+ * La carpeta en cada estado (V4 §2, `CaseFolderStatus`): `CREATED` con los
+ * modelos copiados; `ERROR` (falló el almacenamiento) o `CREATING` (en curso),
+ * con los modelos pendientes; `PENDING` (no se pidió), sin enlace ni modelos.
+ * No escribe nada: quien la llama decide si suma los usos de los modelos
+ * (`countTemplateCopies`).
+ */
+export function buildFolder(input: {
+    caseId: number;
+    path: string;
+    copyTemplates: boolean;
+    templates: number;
+    status: CaseFolderStatus;
+}): StoredFolder {
+    const { status, path, copyTemplates } = input;
+    const wanted = copyTemplates && status !== 'PENDING' ? input.templates : 0;
+    if (status === 'CREATED') {
+        return { status, url: folderUrl(input.caseId), path, templatesCopied: wanted, templatesPending: 0, copyTemplates };
+    }
+    return { status, url: null, path, templatesCopied: 0, templatesPending: wanted, copyTemplates: status === 'PENDING' ? false : copyTemplates };
+}
+
+/** Suma un uso a cada modelo copiado a la carpeta de una causa. */
+export function countTemplateCopies(jurisdiction: Jurisdiction): void {
+    for (const template of templatesForNewCases(db.documentTemplates, jurisdiction)) {
+        template.usageCount += 1;
+    }
+}
+
 function initialState(): MockDb {
     const users = USERS.map((u) => ({ ...u, roles: [...u.roles] }));
     const passwords = new Map<string, string>();
@@ -262,10 +427,26 @@ function initialState(): MockDb {
        `resetMockDb()` después de hacerlo. */
     const today = todayIso();
 
+    const documentTemplates = DOCUMENT_TEMPLATES.map((t) => ({ ...t, jurisdictions: [...t.jurisdictions] }));
     const cases: StoredCase[] = [];
     const proceduralActs: StoredAct[] = [];
+    const interruptiveActs: StoredInterruptiveAct[] = [];
 
     for (const seed of CASE_SEEDS) {
+        const lawyer = LAWYERS.find((l) => l.id === seed.responsibleLawyerId);
+        if (!lawyer) throw new Error(`[mock] La causa ${seed.id} apunta al abogado ${seed.responsibleLawyerId}, que no existe.`);
+
+        // Los usos de los modelos ya cuentan estas copias: no se suman otra vez.
+        const folder = seed.folder
+            ? buildFolder({
+                  caseId: seed.id,
+                  path: folderPath({ lawyer, jurisdiction: seed.jurisdiction, caption: seed.caption }),
+                  copyTemplates: true,
+                  templates: templatesForNewCases(documentTemplates, seed.jurisdiction).length,
+                  status: seed.folder.status,
+              })
+            : null;
+
         const stored: StoredCase = {
             id: seed.id,
             sacNumber: seed.sacNumber,
@@ -278,10 +459,15 @@ function initialState(): MockDb {
             instructorExtension: seed.instructorExtension,
             counterparty: seed.counterparty ?? null,
             subjectMatter: seed.subjectMatter ?? null,
+            ...jurisdictionData(seed, today),
+            courtFeePaid: seed.courtFeePaid ?? false,
             clientId: seed.clientId,
             responsibleLawyerId: seed.responsibleLawyerId,
             qualifications: (seed.qualifications ?? []).map((q) => ({ ...q })),
-            startDate: resolveSeedDate(seed.startDate, today),
+            // Sin SAC no hay fecha de inicio en sede judicial (D-38).
+            startDate: seed.sacNumber === null ? null : resolveSeedDate(seed.startDate, today),
+            folder,
+            prescriptionDeclaration: null,
             active: true,
         };
         cases.push(stored);
@@ -295,6 +481,25 @@ function initialState(): MockDb {
         for (const act of seed.acts) {
             proceduralActs.push(seedAct(act, proceduralActs.length + 1, stored, registeredBy.id, today));
         }
+        for (const act of seed.interruptiveActs ?? []) {
+            const actDate = resolveSeedDate(act.on, today);
+            interruptiveActs.push({
+                id: interruptiveActs.length + 1,
+                caseId: stored.id,
+                name: act.name,
+                actDate,
+                notes: act.notes ?? null,
+                registeredById: registeredBy.id,
+                registeredAt: `${actDate}T10:00:00-03:00`,
+            });
+        }
+        if (seed.prescriptionDeclaration) {
+            stored.prescriptionDeclaration = {
+                ...seed.prescriptionDeclaration,
+                registeredById: registeredBy.id,
+                registeredAt: `${seed.prescriptionDeclaration.prescriptionDate}T10:00:00-03:00`,
+            };
+        }
     }
 
     return {
@@ -305,6 +510,9 @@ function initialState(): MockDb {
         clients: CLIENTS.map((c) => ({ ...c })),
         cases,
         proceduralActs,
+        interruptiveActs,
+        documentTemplates,
+        failures: { documentStorage: false },
         passwords,
         sessions: new Map(),
         expiredTokens: new Set(),
@@ -316,6 +524,8 @@ function initialState(): MockDb {
         nextClientId: Math.max(...CLIENTS.map((c) => c.id)) + 1,
         nextCaseId: Math.max(...CASE_SEEDS.map((c) => c.id)) + 1,
         nextProceduralActId: proceduralActs.length + 1,
+        nextInterruptiveActId: interruptiveActs.length + 1,
+        nextDocumentTemplateId: Math.max(...DOCUMENT_TEMPLATES.map((t) => t.id)) + 1,
         issuedTokens: 0,
     };
 }
@@ -335,6 +545,91 @@ export const db: MockDb = initialState();
  */
 export function resetMockDb(): void {
     Object.assign(db, initialState());
+    if (sessionStore) db.sessions = new PersistedSessions(sessionStore);
+}
+
+/* ------------------------------------------------------------------ */
+/* Sesiones que sobreviven a la recarga (sólo en el navegador)         */
+/* ------------------------------------------------------------------ */
+
+const SESSIONS_KEY = 'vz-mock-sessions';
+
+/** Dónde se guardan las sesiones, o `null` si no se guardan (tests). */
+let sessionStore: Storage | null = null;
+
+/**
+ * `sessions` que se copia al almacenamiento en cada cambio.
+ *
+ * La base vive en la memoria de la página: sin esto, cada recarga —un F5 o
+ * una recarga completa de Vite al guardar un archivo— borra los tokens
+ * emitidos, el front manda uno que el mock ya no conoce, la renovación
+ * también falla y la sesión se cierra.
+ */
+class PersistedSessions extends Map<string, number> {
+    private readonly store: Storage;
+
+    constructor(store: Storage, entries: [string, number][] = []) {
+        super(entries);
+        this.store = store;
+    }
+
+    override set(token: string, userId: number): this {
+        super.set(token, userId);
+        this.save();
+        return this;
+    }
+
+    override delete(token: string): boolean {
+        const deleted = super.delete(token);
+        this.save();
+        return deleted;
+    }
+
+    override clear(): void {
+        super.clear();
+        this.save();
+    }
+
+    private save(): void {
+        // `super(entries)` llama a `set` antes de que exista `store`.
+        if (!this.store) return;
+        try {
+            this.store.setItem(SESSIONS_KEY, JSON.stringify([...this.entries()]));
+        } catch {
+            // Sin almacenamiento la sesión dura lo que la página, como antes.
+        }
+    }
+}
+
+/**
+ * Guarda las sesiones en `store` y recupera las de la página anterior.
+ *
+ * La llama `startMocks()`. Los tests no: cada uno arranca con la base limpia.
+ * Usa el mismo almacenamiento que el front para su sesión (`localStorage`),
+ * así una pestaña nueva también la encuentra.
+ */
+export function persistSessions(store: Storage): void {
+    let entries: [string, number][] = [];
+    try {
+        const parsed: unknown = JSON.parse(store.getItem(SESSIONS_KEY) ?? '[]');
+        if (Array.isArray(parsed)) {
+            entries = parsed.filter(
+                (e): e is [string, number] =>
+                    Array.isArray(e) && typeof e[0] === 'string' && typeof e[1] === 'number',
+            );
+        }
+    } catch {
+        // Un valor roto se descarta: hay que volver a entrar, nada más.
+    }
+
+    sessionStore = store;
+    db.sessions = new PersistedSessions(store, entries);
+
+    // Que un token nuevo no repita el número de uno recuperado.
+    for (const [token] of entries) {
+        const n = Number(token.split('-').pop());
+        if (Number.isInteger(n) && n > db.issuedTokens) db.issuedTokens = n;
+    }
 }
 
 /* ------------------------------------------------------------------ */
@@ -372,11 +667,39 @@ export function stateOfAct(act: StoredAct): CaseState {
     return { proceduralStateId: act.proceduralStateId, name: state?.name ?? '', custom: false };
 }
 
-/** `true` si el estado actual de la causa cierra su ciclo de vida. */
+/**
+ * `true` si el estado actual de la causa cierra su ciclo de vida. Una causa
+ * marcada como prescripta está en "Prescripta" aunque ningún acto la haya
+ * llevado ahí (V4 D-54).
+ */
 export function isInTerminalState(caseId: number): boolean {
+    if (db.cases.find((c) => c.id === caseId)?.prescriptionDeclaration) return true;
     const act = latestActOf(caseId);
     if (!act || act.proceduralStateId === null) return false;
     return db.proceduralStates.find((s) => s.id === act.proceduralStateId)?.terminal === true;
+}
+
+/**
+ * El id del estado de la tabla en que está hoy la causa: el de su último acto,
+ * o "Prescripta" si fue marcada. `null` en "Iniciada" y en un estado escrito a
+ * mano. Es lo que compara el filtro `proceduralStateId` del listado.
+ */
+export function currentStateIdOf(stored: StoredCase): number | null {
+    if (stored.prescriptionDeclaration) return PRESCRIBED_STATE_ID;
+    return latestActOf(stored.id)?.proceduralStateId ?? null;
+}
+
+/** Los actos interruptivos de una causa, del más reciente al más antiguo (V4 §3.9). */
+export function interruptiveActsOf(caseId: number): StoredInterruptiveAct[] {
+    return db.interruptiveActs
+        .filter((a) => a.caseId === caseId)
+        // A igual fecha, primero el último registrado.
+        .sort((a, b) => b.actDate.localeCompare(a.actDate) || b.id - a.id);
+}
+
+/** La fecha del acto interruptivo que rige: el más reciente. `null` si no hay. */
+function latestInterruptiveActDate(caseId: number): string | null {
+    return interruptiveActsOf(caseId)[0]?.actDate ?? null;
 }
 
 /**
@@ -407,7 +730,8 @@ export function toUser(stored: StoredUser): User {
     return {
         id: stored.id,
         username: stored.username,
-        fullName: stored.fullName,
+        lastName: stored.lastName,
+        firstName: stored.firstName,
         email: stored.email,
         roles: [...stored.roles],
         lawyer: embedLawyer(stored.lawyerId),
@@ -423,7 +747,8 @@ function embedLawyer(lawyerId: number | null): EmbeddedLawyer | null {
     if (!lawyer) return null;
     return {
         id: lawyer.id,
-        fullName: lawyer.fullName,
+        lastName: lawyer.lastName,
+        firstName: lawyer.firstName,
         registrationNumber: lawyer.registrationNumber,
     };
 }
@@ -437,19 +762,17 @@ export function toLawyer(stored: Lawyer): Lawyer {
 }
 
 /**
- * El estado procesal como lo devuelve un `GET`: con las causas activas que
- * están hoy en él. Un estado terminal devuelve siempre `0`: una causa en
- * estado terminal no es activa.
+ * El estado procesal como lo devuelve un `GET`: con las causas que están hoy en
+ * él, **activas o no** (V4 D-70). "Archivada" y "Prescripta" cuentan las causas
+ * que cerraron así; las dadas de baja y las que siguen en "Iniciada" no cuentan.
  *
- * `POST` y `PATCH` no pasan por acá: devuelven el estado sin `activeCases`
+ * `POST` y `PATCH` no pasan por acá: devuelven el estado sin `caseCount`
  * (V3 D-32).
  */
 export function toProceduralState(stored: StoredProceduralState): ProceduralState {
     return {
         ...stored,
-        activeCases: activeCases().filter(
-            (c) => latestActOf(c.id)?.proceduralStateId === stored.id,
-        ).length,
+        caseCount: db.cases.filter((c) => c.active && currentStateIdOf(c) === stored.id).length,
     };
 }
 
@@ -494,16 +817,23 @@ function embedClient(clientId: number): CaseClient {
  *
  * El nombre y los meses salen de la tabla en cada lectura, también si la
  * calificación fue dada de baja: por eso cambiar `prescriptionMonths` recalcula
- * la prescripción de las causas que la registran (D-08). Hoy
- * `prescriptionStartsOn` es la fecha del hecho; cuando existan los actos
- * interruptivos (HU31) será la del último (D-19).
+ * la prescripción de las causas que la registran (D-08).
+ *
+ * Corre desde el acto interruptivo más reciente de la causa, que alcanza a
+ * todas sus calificaciones (V4 D-49), salvo que sea anterior al hecho de
+ * esta: ahí sigue corriendo desde el hecho (CA-31.5). La fecha del hecho no
+ * cambia nunca.
  */
-function embedQualification(stored: StoredCaseQualification): CaseLegalQualification {
+function embedQualification(
+    stored: StoredCaseQualification,
+    interruptedOn: string | null,
+): CaseLegalQualification {
     const qualification = db.legalQualifications.find((q) => q.id === stored.legalQualificationId);
     if (!qualification) {
         throw new Error(`[mock] La causa apunta a la calificación ${stored.legalQualificationId}, que no existe.`);
     }
-    const prescriptionStartsOn = stored.offenseDate;
+    const prescriptionStartsOn =
+        interruptedOn !== null && interruptedOn >= stored.offenseDate ? interruptedOn : stored.offenseDate;
     return {
         id: qualification.id,
         name: qualification.name,
@@ -514,6 +844,45 @@ function embedQualification(stored: StoredCaseQualification): CaseLegalQualifica
     };
 }
 
+/** El umbral fijo de la alerta de prescripción: el "aviso al 70 %" (V4 D-51). */
+const PRESCRIPTION_ALERT_RATIO = 0.7;
+
+/**
+ * La prescripción que rige la causa: la de la calificación que prescribe
+ * primero (V4 §3.7 y §4, "Prescripción"). `null` fuera del penal y en una
+ * causa penal sin calificaciones. En una causa prescripta se sigue
+ * devolviendo, como dato histórico.
+ */
+function prescriptionOf(
+    stored: StoredCase,
+    qualifications: CaseLegalQualification[],
+    interruptedOn: string | null,
+): CasePrescription | null {
+    if (stored.jurisdiction !== 'CRIMINAL' || qualifications.length === 0) return null;
+
+    const governing = [...qualifications].sort((a, b) =>
+        a.prescriptionExpiresOn.localeCompare(b.prescriptionExpiresOn),
+    )[0];
+    const today = todayIso();
+    const total = calendarDaysBetween(governing.prescriptionStartsOn, governing.prescriptionExpiresOn);
+    const elapsed = Math.min(Math.max(calendarDaysBetween(governing.prescriptionStartsOn, today), 0), total);
+    // El umbral se evalúa sobre el valor exacto, no sobre el redondeado.
+    const ratio = total > 0 ? elapsed / total : 1;
+
+    return {
+        legalQualificationId: governing.id,
+        legalQualificationName: governing.name,
+        startsOn: governing.prescriptionStartsOn,
+        expiresOn: governing.prescriptionExpiresOn,
+        elapsedPercentage: Math.round(ratio * 100),
+        alert: ratio >= PRESCRIPTION_ALERT_RATIO,
+        expired: today >= governing.prescriptionExpiresOn,
+        // Sólo si es el acto el que fija el inicio de la que rige.
+        lastInterruptiveActDate:
+            interruptedOn !== null && governing.prescriptionStartsOn === interruptedOn ? interruptedOn : null,
+    };
+}
+
 /**
  * El estado actual de la causa, con su vencimiento (V3 D-34 y D-35).
  *
@@ -521,7 +890,56 @@ function embedQualification(stored: StoredCaseQualification): CaseLegalQualifica
  * haya llevado ahí y sin vencimiento. Con actos, el estado y el vencimiento
  * son los del acto de fecha más reciente.
  */
+/**
+ * El vencimiento para presentar el amparo desde el acto lesivo (V4 §3.7,
+ * D-78). Sólo en un amparo activo con fecha del acto lesivo y **todavía en
+ * "Iniciada"**: el primer acto procesal indica que el amparo ya se presentó.
+ *
+ * Si el acto se renueva, rige la renovación más reciente que no supera hoy,
+ * cada `harmfulActRenewalDays` días corridos desde la fecha cargada. El plazo
+ * se cuenta como el de un acto procesal.
+ */
+function harmfulActDeadlineOf(stored: StoredCase): HarmfulActDeadline | null {
+    if (stored.jurisdiction !== 'AMPARO' || !stored.active) return null;
+    if (stored.harmfulActDate === null || stored.harmfulActTermDays === null) return null;
+    if (stored.harmfulActTermDayType === null) return null;
+    if (latestActOf(stored.id) || stored.prescriptionDeclaration) return null;
+
+    const today = todayIso();
+    let actDate = stored.harmfulActDate;
+    const every = stored.harmfulActRenews ? stored.harmfulActRenewalDays : null;
+    if (every !== null && every > 0 && today > stored.harmfulActDate) {
+        const renewals = Math.floor(calendarDaysBetween(stored.harmfulActDate, today) / every);
+        actDate = addCalendarDays(stored.harmfulActDate, renewals * every);
+    }
+
+    const dueDate = computeDueDate(actDate, stored.harmfulActTermDays, stored.harmfulActTermDayType);
+    if (dueDate === null) return null;
+    return {
+        actDate,
+        renewed: actDate !== stored.harmfulActDate,
+        dueDate,
+        businessDaysRemaining: businessDaysUntil(dueDate),
+    };
+}
+
 function currentStateOf(caseId: number): CurrentState {
+    /* Marcada como prescripta: "Prescripta", sin el acto que la llevó y con
+       los plazos cerrados (V4 D-54). */
+    if (db.cases.find((c) => c.id === caseId)?.prescriptionDeclaration) {
+        const prescribed = db.proceduralStates.find((s) => s.id === PRESCRIBED_STATE_ID);
+        return {
+            proceduralStateId: PRESCRIBED_STATE_ID,
+            name: prescribed?.name ?? 'Prescripta',
+            custom: false,
+            initial: false,
+            proceduralActId: null,
+            dueDate: null,
+            businessDaysRemaining: null,
+            manuallyAdjusted: false,
+        };
+    }
+
     const act = latestActOf(caseId);
     if (!act) {
         return {
@@ -556,6 +974,9 @@ export function toCase(stored: StoredCase): Case {
         throw new Error(`[mock] La causa ${stored.id} apunta al abogado ${stored.responsibleLawyerId}, que no existe.`);
     }
 
+    const interruptedOn = latestInterruptiveActDate(stored.id);
+    const legalQualifications = stored.qualifications.map((q) => embedQualification(q, interruptedOn));
+
     return {
         id: stored.id,
         sacNumber: stored.sacNumber,
@@ -568,18 +989,83 @@ export function toCase(stored: StoredCase): Case {
         instructorExtension: stored.instructorExtension,
         counterparty: stored.counterparty,
         subjectMatter: stored.subjectMatter,
+        clientDetained: stored.clientDetained,
+        injunctionGranted: stored.injunctionGranted,
+        harmfulActDate: stored.harmfulActDate,
+        harmfulActRenews: stored.harmfulActRenews,
+        harmfulActRenewalDays: stored.harmfulActRenewalDays,
+        harmfulActTermDays: stored.harmfulActTermDays,
+        harmfulActTermDayType: stored.harmfulActTermDayType,
+        harmfulActDeadline: harmfulActDeadlineOf(stored),
+        administrativeRemedyExhaustedOn: stored.administrativeRemedyExhaustedOn,
+        courtFeePaid: stored.courtFeePaid,
         client: embedClient(stored.clientId),
         responsibleLawyer: lawyer,
-        legalQualifications: stored.qualifications.map(embedQualification),
+        legalQualifications,
+        prescription: prescriptionOf(stored, legalQualifications, interruptedOn),
+        prescriptionDeclaration: stored.prescriptionDeclaration
+            ? {
+                  prescriptionDate: stored.prescriptionDeclaration.prescriptionDate,
+                  resolution: stored.prescriptionDeclaration.resolution,
+                  grounds: stored.prescriptionDeclaration.grounds,
+                  registeredBy: userRef(stored.prescriptionDeclaration.registeredById),
+                  registeredAt: stored.prescriptionDeclaration.registeredAt,
+              }
+            : null,
         startDate: stored.startDate,
         currentState: currentStateOf(stored.id),
+        folder: stored.folder ? toFolder(stored.folder) : null,
+        active: stored.active,
+    };
+}
+
+/** La carpeta como la devuelve la API, sin el dato interno del reintento. */
+export function toFolder(stored: StoredFolder): CaseFolder {
+    return {
+        status: stored.status,
+        url: stored.url,
+        path: stored.path,
+        templatesCopied: stored.templatesCopied,
+        templatesPending: stored.templatesPending,
+    };
+}
+
+/** `{ id, lastName, firstName }` de un usuario: quién registró o cargó algo (D-68). */
+export function userRef(userId: number): PersonRef {
+    const user = db.users.find((u) => u.id === userId);
+    return { id: userId, lastName: user?.lastName ?? '', firstName: user?.firstName ?? '' };
+}
+
+/** El acto interruptivo tal como lo devuelve la API (V4 §3.9). */
+export function toInterruptiveAct(stored: StoredInterruptiveAct): InterruptiveAct {
+    return {
+        id: stored.id,
+        caseId: stored.caseId,
+        name: stored.name,
+        actDate: stored.actDate,
+        notes: stored.notes,
+        registeredBy: userRef(stored.registeredById),
+        registeredAt: stored.registeredAt,
+    };
+}
+
+/** El modelo formal tal como lo devuelve la API (V4 §3.10). */
+export function toDocumentTemplate(stored: StoredDocumentTemplate): DocumentTemplate {
+    return {
+        id: stored.id,
+        name: stored.name,
+        jurisdictions: [...stored.jurisdictions],
+        fileName: stored.fileName,
+        copyToNewCases: stored.copyToNewCases,
+        lastVersionAt: stored.lastVersionAt,
+        lastVersionBy: userRef(stored.lastVersionById),
+        usageCount: stored.usageCount,
         active: stored.active,
     };
 }
 
 /** El acto procesal tal como lo devuelve su registro. */
 export function toProceduralAct(stored: StoredAct): ProceduralAct {
-    const author = db.users.find((u) => u.id === stored.registeredById);
     return {
         id: stored.id,
         caseId: stored.caseId,
@@ -588,7 +1074,7 @@ export function toProceduralAct(stored: StoredAct): ProceduralAct {
         notificationDate: stored.notificationDate,
         notes: stored.notes,
         deadline: stored.deadline ? { ...stored.deadline } : null,
-        registeredBy: { id: stored.registeredById, fullName: author?.fullName ?? '' },
+        registeredBy: userRef(stored.registeredById),
         registeredAt: stored.registeredAt,
     };
 }

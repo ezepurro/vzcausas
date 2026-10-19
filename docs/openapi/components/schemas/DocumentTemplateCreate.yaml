@@ -1,31 +1,40 @@
 type: object
 description: |
-  Cuerpo `multipart/form-data` del alta de un modelo formal (HU34). Si faltan
-  varios campos obligatorios, el `400` los informa todos juntos.
+    Alta de un modelo formal, en `multipart/form-data`. Cada campo viaja como
+    texto: los booleanos, como `true` o `false`; `jurisdictions` se repite una
+    vez por fuero. Para "Todos los fueros" se envían los tres valores.
+additionalProperties: false
 required:
-  - name
-  - jurisdictions
-  - file
+    - name
+    - jurisdictions
+    - file
 properties:
-  name:
-    type: string
-    maxLength: 150
-    description: '"Nombre del modelo". Único entre los modelos, sin distinguir mayúsculas.'
-    example: Recurso de casación
-  jurisdictions:
-    type: array
-    minItems: 1
-    uniqueItems: true
-    description: |
-      "Fuero". El campo se repite una vez por fuero; para "Todos los fueros",
-      se envían los tres.
-    items:
-      $ref: ./Jurisdiction.yaml
-  copyToNewCases:
-    type: boolean
-    default: true
-    description: '"Copiar en las causas nuevas de los fueros elegidos". Las causas que ya existen no lo reciben.'
-  file:
-    type: string
-    format: binary
-    description: '"Archivo del modelo". Documento Word (`.docx`), hasta 10 MB.'
+    name:
+        type: string
+        minLength: 1
+        maxLength: 150
+        description: '"Nombre del modelo". No vacío. Único entre los modelos, sin distinguir mayúsculas.'
+        examples:
+            - Recurso de casación
+    jurisdictions:
+        type: array
+        description: '"Fuero". Al menos uno, sin repetir.'
+        minItems: 1
+        uniqueItems: true
+        items:
+            $ref: ./Jurisdiction.yaml
+        examples:
+            - - CRIMINAL
+    copyToNewCases:
+        type: boolean
+        default: true
+        description: '"Copiar en las causas nuevas de los fueros elegidos".'
+        examples:
+            - true
+    file:
+        type: string
+        format: binary
+        contentMediaType: application/vnd.openxmlformats-officedocument.wordprocessingml.document
+        description: |
+            "Archivo del modelo". Documento Word (`.docx`), hasta 10 MB. Un archivo
+            más grande responde `413 FILE_TOO_LARGE`.

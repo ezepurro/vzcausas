@@ -4,17 +4,28 @@ import { useToast } from '@/app/providers/ToastContext';
 import { Button, Icon, PageHeader, Pagination, Panel, SearchInput } from '@/shared/components/ui';
 import { useLegalQualifications } from '@/features/legal-params/api/useLegalQualifications';
 import { useCreateLegalQualification } from '@/features/legal-params/api/useCreateLegalQualification';
-import type { LegalQualificationFormValues } from '@/features/legal-params/types/legalQualification';
+import { useUpdateLegalQualification } from '@/features/legal-params/api/useUpdateLegalQualification';
+import { useDeleteLegalQualification } from '@/features/legal-params/api/useDeleteLegalQualification';
+import type {
+    LegalQualification,
+    LegalQualificationFormValues,
+} from '@/features/legal-params/types/legalQualification';
 import {
     isValid,
     validateLegalQualification,
     type LegalQualificationErrors,
 } from '@/features/legal-params/schemas/legalQualification.schema';
-import { formatPrescription } from '@/features/legal-params/utils/prescription';
+import { formatPrescription, splitPrescription } from '@/features/legal-params/utils/prescription';
 import { toCreateLegalQualificationBody } from '@/features/legal-params/utils/toCreateLegalQualificationBody';
+import {
+    buildLegalQualificationPatch,
+    isEmptyLegalQualificationPatch,
+} from '@/features/legal-params/utils/buildLegalQualificationPatch';
 import { toLegalQualificationFormErrors } from '@/features/legal-params/utils/toLegalQualificationFormErrors';
 import { LegalQualificationsTable } from '@/features/legal-params/components/LegalQualificationsTable';
 import { LegalQualificationFormModal } from '@/features/legal-params/components/LegalQualificationFormModal';
+import { DeleteLegalQualificationModal } from '@/features/legal-params/components/DeleteLegalQualificationModal';
+import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue';
 
 const LIMIT = 20;
 
@@ -25,11 +36,26 @@ const EMPTY_FORM: LegalQualificationFormValues = {
 };
 
 /**
- * Calificaciones legales: consulta (el listado con el buscador) y alta
- * (HU-48), en `/calificaciones-legales`. Sólo la ve el administrador, que es
- * quien puede registrarlas (V3 D-04).
+ * "Modificar" y "Eliminar" en cada fila. Ocultos por pedido del equipo
+ * (18/10/2026): la modificación y la baja siguen programadas y se vuelven a
+ * mostrar poniendo esto en `true`.
+ */
+const SHOW_ROW_ACTIONS = false;
+
+/** Qué modal está abierto y con qué registro: UN estado. */
+type Modal =
+    | { kind: 'create' }
+    | { kind: 'edit'; qualification: LegalQualification }
+    | { kind: 'delete'; qualification: LegalQualification }
+    | null;
+
+/**
+ * Calificaciones legales: el ABMC completo (HU-47 a HU-50), en
+ * `/calificaciones-legales`. Lo ven y lo operan los tres perfiles (V3 D-39).
  *
- * Modificar y dar de baja son de otra historia: la tabla va sin acciones.
+ * Modificar el plazo recalcula la prescripción de las causas que la registran
+ * (V4 §3.5): el modal lo avisa. La baja procede aunque haya causas que la usen:
+ * esas causas la conservan.
  */
 export function LegalQualificationsPage() {
     const toast = useToast();
@@ -38,21 +64,25 @@ export function LegalQualificationsPage() {
        no pagina ni filtra, y los parámetros tienen que estar en la clave de caché. */
     const [page, setPage] = useState(1);
     const [search, setSearch] = useState('');
+    const debouncedSearch = useDebouncedValue(search.trim());
 
-    const [modalOpen, setModalOpen] = useState(false);
+    const [modal, setModal] = useState<Modal>(null);
     const [values, setValues] = useState<LegalQualificationFormValues>(EMPTY_FORM);
     const [errors, setErrors] = useState<LegalQualificationErrors>({});
 
     const query = useLegalQualifications({
         page,
         limit: LIMIT,
-        search: search.trim() === '' ? undefined : search.trim(),
+        search: debouncedSearch === '' ? undefined : debouncedSearch,
     });
     const create = useCreateLegalQualification();
+    const update = useUpdateLegalQualification();
+    const remove = useDeleteLegalQualification();
 
     const rows = query.data?.data ?? [];
     const pagination = query.data?.pagination;
     const searching = search.trim() !== '';
+    const saving = create.isPending || update.isPending || remove.isPending;
 
     /* ---------------- búsqueda ---------------- */
 
@@ -63,17 +93,29 @@ export function LegalQualificationsPage() {
         setPage(1);
     }
 
-    /* ---------------- alta ---------------- */
+    /* ---------------- modales ---------------- */
 
     function openCreate() {
         setValues(EMPTY_FORM);
         setErrors({});
-        setModalOpen(true);
+        setModal({ kind: 'create' });
+    }
+
+    function openEdit(qualification: LegalQualification) {
+        setValues({ name: qualification.name, ...splitPrescription(qualification.prescriptionMonths) });
+        setErrors({});
+        setModal({ kind: 'edit', qualification });
+    }
+
+    function closeModal() {
+        setModal(null);
     }
 
     function changeValue(k: string, v: string | boolean) {
         setValues((current) => ({ ...current, [k]: v }));
     }
+
+    /* ---------------- errores del servidor ---------------- */
 
     /**
      * Los errores llegan siempre como `ApiError`. Se ramifica por código y por
@@ -102,24 +144,80 @@ export function LegalQualificationsPage() {
         toast('error', error.message);
     }
 
+    /* ---------------- alta y modificación ---------------- */
+
     function submitForm() {
         const found = validateLegalQualification(values);
         setErrors(found);
         if (!isValid(found)) return;
 
-        create.mutate(toCreateLegalQualificationBody(values), {
-            onSuccess: (qualification) => {
-                toast(
-                    'success',
-                    `Calificación registrada · prescripción ${formatPrescription(qualification.prescriptionMonths)}.`,
-                );
-                setModalOpen(false);
+        if (modal?.kind === 'create') {
+            create.mutate(toCreateLegalQualificationBody(values), {
+                onSuccess: (qualification) => {
+                    toast(
+                        'success',
+                        `Calificación registrada · prescripción ${formatPrescription(qualification.prescriptionMonths)}.`,
+                    );
+                    closeModal();
+                },
+                onError: handleApiError,
+            });
+            return;
+        }
+
+        if (modal?.kind === 'edit') {
+            const patch = buildLegalQualificationPatch(modal.qualification, values);
+
+            // El contrato responde 400 a un PATCH vacío, así que si no cambió
+            // nada ni se manda: se cierra y listo.
+            if (isEmptyLegalQualificationPatch(patch)) {
+                closeModal();
+                return;
+            }
+
+            update.mutate(
+                { id: modal.qualification.id, body: patch },
+                {
+                    onSuccess: (qualification) => {
+                        toast(
+                            'success',
+                            `Calificación actualizada · prescripción ${formatPrescription(qualification.prescriptionMonths)}.`,
+                        );
+                        closeModal();
+                    },
+                    onError: handleApiError,
+                },
+            );
+        }
+    }
+
+    /* ---------------- baja ---------------- */
+
+    function confirmDelete() {
+        if (modal?.kind !== 'delete') return;
+        const { qualification } = modal;
+
+        remove.mutate(qualification.id, {
+            onSuccess: () => {
+                // `info` y no `success`: salió bien, pero no es un logro.
+                toast('info', `Calificación "${qualification.name}" eliminada.`);
+                closeModal();
+                // Si era la única fila de la página, no dejar al usuario en
+                // una página que ya no existe.
+                if (rows.length === 1 && page > 1) setPage(page - 1);
             },
-            onError: handleApiError,
+            onError: (error) => {
+                // Acá no hay campos que marcar: un rechazo de la baja es del
+                // registro entero. Tener causas no la impide (V4 §3.5).
+                if (isApiError(error)) toast('error', error.message);
+                closeModal();
+            },
         });
     }
 
     /* ---------------- pantalla ---------------- */
+
+    const formOpen = modal?.kind === 'create' || modal?.kind === 'edit';
 
     return (
         <>
@@ -130,6 +228,7 @@ export function LegalQualificationsPage() {
             />
 
             <Panel
+                title="Calificaciones legales"
                 actions={
                     <>
                         <SearchInput
@@ -169,6 +268,12 @@ export function LegalQualificationsPage() {
                 ) : (
                     <LegalQualificationsTable
                         rows={rows}
+                        onEdit={SHOW_ROW_ACTIONS ? openEdit : undefined}
+                        onDelete={
+                            SHOW_ROW_ACTIONS
+                                ? (qualification) => setModal({ kind: 'delete', qualification })
+                                : undefined
+                        }
                         empty={
                             <div className="vz-empty">
                                 <div className="vz-empty__title">
@@ -187,15 +292,25 @@ export function LegalQualificationsPage() {
                 )}
             </Panel>
 
-            {modalOpen && (
+            {formOpen && (
                 <LegalQualificationFormModal
-                    mode="create"
+                    mode={modal.kind}
                     values={values}
                     errors={errors}
-                    saving={create.isPending}
+                    activeCases={modal.kind === 'edit' ? modal.qualification.activeCases : 0}
+                    saving={saving}
                     onChange={changeValue}
                     onConfirm={submitForm}
-                    onCancel={() => setModalOpen(false)}
+                    onCancel={closeModal}
+                />
+            )}
+
+            {modal?.kind === 'delete' && (
+                <DeleteLegalQualificationModal
+                    qualification={modal.qualification}
+                    saving={saving}
+                    onConfirm={confirmDelete}
+                    onCancel={closeModal}
                 />
             )}
         </>

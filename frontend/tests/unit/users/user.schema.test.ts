@@ -4,7 +4,8 @@ import { LAWYER_MODES, type UserFormValues } from '@/features/users/types/user'
 
 /** Un alta válida de una persona de secretaría: no necesita ficha. */
 const SECRETARY: UserFormValues = {
-    fullName: 'Ana Pérez',
+    lastName: 'Pérez',
+    firstName: 'Ana',
     username: 'aperez',
     email: 'aperez@vazquezzarate.com',
     password: 'inicial2026',
@@ -14,7 +15,6 @@ const SECRETARY: UserFormValues = {
     roleSecretary: true,
     lawyerMode: LAWYER_MODES.link,
     lawyerId: '',
-    lawyerFullName: '',
     registrationNumber: '',
 }
 
@@ -65,10 +65,10 @@ describe('validateUser', () => {
             )
         })
 
-        it('con modo registrar, exige nombre y matrícula de la ficha nueva', () => {
+        it('con modo registrar, exige la matrícula de la ficha nueva', () => {
+            // El apellido y los nombres de la ficha son los del usuario (TESTING.md §11).
             const errors = validateUser({ ...SECRETARY, lawyerMode: LAWYER_MODES.create }, LAWYER)
             expect(errors).toEqual({
-                lawyerFullName: 'El apellido y nombre del abogado es obligatorio.',
                 registrationNumber: 'La matrícula es obligatoria.',
             })
         })

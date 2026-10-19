@@ -194,6 +194,7 @@ model Lawyer {
 
   // Relaciones inversas hacia `cases` (no agregan columnas a `lawyers`).
   responsibleCases           Case[]            @relation("CaseResponsibleLawyer")
+  receivedNotifications SentNotification[]
   registeredProceduralActs   ProceduralAct[]   @relation("ProceduralActRegisteredByLawyer")
   registeredInterruptiveActs InterruptiveAct[] @relation("InterruptiveActRegisteredByLawyer")
 
@@ -736,15 +737,17 @@ model SentNotification {
   proceduralActId Int?             @map("procedural_act_id")
   // Vencimiento avisado, o fecha de prescripción avisada.
   referenceDate   DateTime         @map("reference_date") @db.Date
+  recipientLawyerId Int? @map("recipient_lawyer_id")
   sentAt          DateTime         @default(now()) @map("sent_at") @db.Timestamptz(6)
 
   case          Case           @relation(fields: [caseId], references: [id], onDelete: Restrict)
   proceduralAct ProceduralAct? @relation(fields: [proceduralActId], references: [id], onDelete: Restrict)
+  recipientLawyer Lawyer? @relation(fields: [recipientLawyerId], references: [id], onDelete: Restrict)
 
   // Un aviso una sola vez. El índice real es NULLS NOT DISTINCT (lo crea
   // a mano `sprint3_manual_constraints`); se declara acá con su nombre
   // para que Prisma no lo vea como deriva.
-  @@unique([caseId, kind, deadlineKind, referenceDate], map: "sent_notifications_once_key")
+  @@unique([caseId, kind, deadlineKind, referenceDate, recipientLawyerId], map: "sent_notifications_once_key")
   @@map("sent_notifications")
 }
 
@@ -779,7 +782,7 @@ model DailyJobRun {
 //   cloud_folders        (lawyer_id, jurisdiction_id) WHERE kind = 'JURISDICTION' AND lawyer_id IS NOT NULL
 //   cloud_folders        (jurisdiction_id) WHERE kind = 'JURISDICTION' AND lawyer_id IS NULL
 //   document_templates   (lower(name)) WHERE active
-//   sent_notifications   (case_id, kind, deadline_kind, reference_date) NULLS NOT DISTINCT
+//   //   sent_notifications   (case_id, kind, deadline_kind, reference_date, recipient_lawyer_id) NULLS NOT DISTINCT
 //
 // CHECK:
 //   procedural_states    time_limit_days >= 0

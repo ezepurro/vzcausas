@@ -238,7 +238,7 @@ describe('GET /api/v1/cases/:caseId/procedural-acts/deadline-preview', () => {
     });
 
     it.each([
-      ['un estado terminal (CA-26.8)', () => s.states.terminal.stateId],
+      ['el estado Prescripta (D-69)', () => s.states.prescribed.stateId],
       ['el estado inicial', () => s.states.initial.stateId],
       ['un estado de otro fuero', () => s.states.administrative.stateId],
       ['un estado dado de baja', () => s.states.deactivated.stateId],

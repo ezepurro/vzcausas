@@ -18,6 +18,7 @@ import { toCreateLawyerBody } from '@/features/lawyers/utils/toCreateLawyerBody'
 import { LawyersTable } from '@/features/lawyers/components/LawyersTable'
 import { LawyerFormModal } from '@/features/lawyers/components/LawyerFormModal'
 import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue'
+import { formatPersonName } from '@/shared/lib/personName'
 const LIMIT = 20
 
 /**
@@ -27,7 +28,8 @@ const LIMIT = 20
 type Modal = { kind: 'create' } | null
 
 const EMPTY_FORM: LawyerFormValues = {
-    fullName: '',
+    lastName: '',
+    firstName: '',
     registrationNumber: '',
 }
 
@@ -103,7 +105,7 @@ export function LawyersPage() {
             onSuccess: (lawyer) => {
                 toast(
                     'success',
-                    `Abogado ${lawyer.fullName} registrado con matrícula ${lawyer.registrationNumber}.`,
+                    `Abogado ${formatPersonName(lawyer)} registrado con matrícula ${lawyer.registrationNumber}.`,
                 )
                 closeModal()
             },
@@ -119,28 +121,28 @@ export function LawyersPage() {
                 eyebrow="Administración"
                 title="Abogados"
                 sub="Desde esta sección podés administrar el equipo del estudio. Consultá el listado de abogados, sus matrículas y la cantidad de causas activas a su cargo."
-                actions={
-                    <Button
-                        icon={<Icon name="plus" />}
-                        size="md"
-                        disabled={!canCreate}
-                        title={canCreate ? undefined : 'Sólo el Administrador puede registrar abogados.'}
-                        onClick={openCreate}
-                    >
-                        Registrar abogado
-                    </Button>
-                }
             />
 
             <Panel
                 title="Abogados"
                 actions={
-                    <SearchInput
-                        placeholder="Buscar por apellido o matrícula"
-                        aria-label="Buscar abogado"
-                        value={search}
-                        onChange={(e) => changeSearch(e.target.value)}
-                    />
+                    <>
+                        <SearchInput
+                            placeholder="Buscar por apellido o matrícula"
+                            aria-label="Buscar abogado"
+                            value={search}
+                            onChange={(e) => changeSearch(e.target.value)}
+                        />
+                        <Button
+                            icon={<Icon name="plus" />}
+                            size="md"
+                            disabled={!canCreate}
+                            title={canCreate ? undefined : 'Sólo el Administrador puede registrar abogados.'}
+                            onClick={openCreate}
+                        >
+                            Registrar abogado
+                        </Button>
+                    </>
                 }
                 footer={
                     <Pagination

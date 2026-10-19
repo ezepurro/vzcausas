@@ -1,0 +1,74 @@
+type: object
+description: |
+  Prescripción que rige la causa: la de la calificación legal **que prescribe
+  primero** (la de menor `prescriptionExpiresOn`). Calculada por el backend en
+  cada lectura (D-51); nada se guarda calculado.
+
+  Que el plazo esté cumplido (`expired` en `true`) **no cambia por sí solo el
+  estado de la causa**: sigue activa y en las alertas hasta que alguien la
+  marque como prescripta con `POST /cases/{caseId}/prescription` (D-52).
+required:
+  - legalQualificationId
+  - legalQualificationName
+  - startsOn
+  - expiresOn
+  - elapsedPercentage
+  - alert
+  - expired
+  - lastInterruptiveActDate
+properties:
+  legalQualificationId:
+    type: integer
+    description: Calificación que prescribe primero.
+    examples:
+      - 1
+  legalQualificationName:
+    type: string
+    description: Su denominación.
+    examples:
+      - Robo calificado — art. 167 inc. 2 CP
+  startsOn:
+    type: string
+    format: date
+    description: Su `prescriptionStartsOn`.
+    examples:
+      - '2024-07-04'
+  expiresOn:
+    type: string
+    format: date
+    description: Su `prescriptionExpiresOn`.
+    examples:
+      - '2032-07-04'
+  elapsedPercentage:
+    type: integer
+    minimum: 0
+    maximum: 100
+    description: |
+      Porcentaje del plazo transcurrido: días corridos desde `startsOn` hasta
+      hoy, sobre los días corridos entre `startsOn` y `expiresOn`. Redondeado
+      al entero más cercano.
+    examples:
+      - 27
+  alert:
+    type: boolean
+    description: |
+      `true` si transcurrió el **70 %** o más del plazo: la causa está
+      "próxima a prescribir" (HU32). El umbral es fijo y se evalúa sobre el
+      valor exacto, no sobre el redondeado.
+    examples:
+      - false
+  expired:
+    type: boolean
+    description: '`true` si hoy es igual o posterior a `expiresOn`: el plazo de prescripción se cumplió.'
+    examples:
+      - false
+  lastInterruptiveActDate:
+    type:
+      - string
+      - 'null'
+    format: date
+    description: |
+      Fecha del acto interruptivo que reinició este cómputo. `null` si corre
+      desde la fecha del hecho.
+    examples:
+      - '2024-07-04'

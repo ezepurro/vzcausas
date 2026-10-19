@@ -1,10 +1,16 @@
 # Mocks — API simulada
 
-Implementación en memoria de `docs/Api-Contract/API_CONTRACT_V3.md`, con sus
-revisiones hasta la del 11/10/2026 (§7.11): los treinta y tres endpoints del contrato, con
-sus códigos de error, su paginación, sus filtros, sus permisos por perfil y sus
-bajas lógicas. Sirve para desarrollar pantallas sin backend levantado y para
-tener fixtures estables en los tests.
+Implementación en memoria de `docs/Api-Contract/API_CONTRACT_V4.md` (Sprint 3,
+con la revisión del 19/10/2026): los endpoints del contrato, con sus códigos de
+error, su paginación, sus filtros, sus permisos por perfil y sus bajas
+lógicas. Sirve para desarrollar pantallas sin backend levantado y para tener
+fixtures estables en los tests.
+
+**Está entero**, la línea de vida de HU27 incluida (`GET /cases/{caseId}/timeline`
+y los listados de actos, D-85): ver [Lo que suma el Sprint 3](#lo-que-suma-el-sprint-3-v4).
+Lo que V4 sacó del contrato tampoco está: los avisos por correo son
+configuración del servidor (D-79) y el adjunto de la cédula quedó fuera del
+sprint (§8.3).
 
 Está armado sobre **MSW** (`msw@2`), que intercepta el tráfico de red de
 verdad: un service worker en el navegador y la capa `http` de Node en los
@@ -145,6 +151,11 @@ varios roles pasa si el rol pedido está entre ellos.
 | Registrar un cliente | Cualquier usuario autenticado |
 | Registrar una causa | Cualquier usuario autenticado |
 | Registrar un acto procesal y previsualizar su vencimiento | El abogado responsable de la causa |
+| Leer la línea de vida y los actos de una causa; crear o reintentar su carpeta | Cualquier usuario autenticado |
+| Registrar un acto interruptivo | El abogado responsable de la causa |
+| Marcar una causa como prescripta; leer y registrar modelos formales | `ADMINISTRATOR` o `LAWYER` |
+| `GET /dashboards/lawyer` | `LAWYER` (su propio tablero) |
+| `GET /dashboards/administrator` | `ADMINISTRATOR` |
 
 El `403` nombra el rol que falta: "Se requiere el rol ADMINISTRATOR para
 realizar esta operación."
@@ -195,6 +206,45 @@ aprobó.
 
 Los clientes `JUÁREZ` (18) y `RUIZ` (24) no tienen causas.
 
+### Lo que suma el Sprint 3 (V4)
+
+| Dato | Para qué está |
+| --- | --- |
+| Causa 1 | Acto interruptivo del 04/07/2024 ("Indagatoria"): la prescripción corre desde ahí, 27 % el 15/09/2026 |
+| Causa 4 | Sin actos interruptivos y con el 78 %: **alerta de prescripción**. Sin carpeta, y la lleva `fvazquez` |
+| Causa 10 | **Marcada como prescripta** (`prescriptionDeclaration`): está en "Prescripta" (estado 10) sin un acto que la lleve |
+| Causa 13 | Prescripción **cumplida** (`expired`) y sin marcar. Su acto interruptivo reinicia una calificación y no la otra, cuyo hecho es posterior |
+| Causas 1, 2, 3, 5, 6 | Carpeta `CREATED`, con los modelos del fuero, en `/VZ Causas/{Apellido, Nombres}/{Fuero}/{carátula}` (D-61) |
+| Causa 11 | Carpeta `CREATING`: el `POST /cases/11/folder` no hace nada y responde `200` |
+| Causa 22 | Carpeta con `ERROR` (Drive falló al registrarla), con 2 modelos pendientes: para reintentar con `POST /cases/22/folder`. Es además el amparo con **vencimiento del acto lesivo** (23/09/2026, D-78) |
+| Causa 23 | Carpeta `PENDING`: se registró sin pedirla. Es también la penal sin calificaciones, que no se puede marcar prescripta (D-74) |
+| El resto | Sin carpeta (`folder` en `null`), como las registradas antes de V4 |
+| Modelos 1 a 12 | Los del prototipo: 6 penales, 4 administrativos y 2 de amparo, todos con `copyToNewCases` |
+| Modelo 13 | **Dado de baja**: no se lista, no se copia y responde `404` |
+| Datos por fuero (D-67) | La 4 con el cliente detenido; la 3 con la cautelar concedida; la 15 con la vía administrativa agotada; la 2 y la 6 con la tasa de justicia pagada |
+
+Con el reloj en el 15/09/2026, "Mi día" de `fvazquez` tiene dos plazos que
+vencen hoy (causas 6 y 20), la alerta de la causa 4 y la 4 como causa para
+impulsar (71 días); el de `mrios`, un vencido (la 17, hace 7 días hábiles) y
+uno a un día (la 1), sin alertas ni causas para impulsar. "Estudio" suma 20
+causas activas.
+
+**La línea de vida** (`GET /cases/{caseId}/timeline`) se arma en cada lectura
+con los actos procesales, los actos interruptivos y el pase a "Prescripta",
+de la más reciente a la más antigua. Sirven la 1 (dos actos, un acto
+interruptivo y el primer acto de 2021), la 2 (administrativa, con fechas de
+notificación), la 8 (estado escrito a mano con vencimiento ajustado), la 10
+(marcada como prescripta) y la 22 (sin movimientos).
+
+**Personas.** Usuarios y abogados traen `lastName` y `firstName` (D-68), sin
+"Dr." ni "Dra." (D-81): el tratamiento lo pone el frontend. En los tests,
+`personName` de `tests/setup/names.ts` acepta las formas posibles mientras el
+equipo no fije una.
+
+"Prescripta" es un **estado de sistema protegido** (V4 D-53): se lista, sirve
+de filtro (`GET /cases?proceduralStateId=10`) y no se modifica ni se da de
+baja. Una causa llega a él sólo con `POST /cases/{caseId}/prescription`.
+
 **Registros dados de baja a propósito.** `vsosa` (usuario 22), `SOSA` (cliente
 8) y la calificación 9 no tienen que aparecer en ningún listado ni responder a
 un `GET` por id. Están para probar justamente eso, y que un valor único choque
@@ -238,10 +288,12 @@ tienen exactamente los vencimientos del prototipo. Está hecho como
 La base guarda identificadores y actos; todo lo demás sale de contar en cada
 lectura:
 
-- **`activeCases`** de abogados, estados, calificaciones y clientes: las causas
+- **`activeCases`** de abogados, calificaciones y clientes: las causas
   activas (no dadas de baja y fuera de un estado terminal) que les
-  corresponden. Las semillas no lo guardan; se calcula al serializar. En
-  estados y calificaciones viene **sólo en los `GET`**: el `POST` y el `PATCH`
+  corresponden. Los estados procesales traen en cambio **`caseCount`**: todas
+  las causas no dadas de baja que están en el estado, terminales incluidas
+  (D-70). Las semillas no los guardan; se calculan al serializar. En estados y
+  calificaciones vienen **sólo en los `GET`**: el `POST` y el `PATCH`
   devuelven el recurso sin ese campo (D-32).
 - **El estado actual de una causa** es el del acto con la **fecha de acto más
   reciente** (D-14). Sin actos, el estado inicial: `name: "Iniciada"`,
@@ -305,6 +357,19 @@ Para tener el recurso como lo devuelve la API están los serializadores de
 | `GET` | `/cases/{caseId}` | 200, 400, 401, 404 |
 | `POST` | `/cases/{caseId}/procedural-acts` | 201, 400, 401, 403, 404, 422 |
 | `GET` | `/cases/{caseId}/procedural-acts/deadline-preview` | 200, 400, 401, 403, 404 |
+| `POST` | `/cases/{caseId}/prescription` | 200, 400, 401, 403, 404, 422 |
+| `POST` | `/cases/{caseId}/folder` | 200, 400, 401, 404, 502 |
+| `GET` | `/cases/{caseId}/procedural-acts` | 200, 400, 401, 404 |
+| `GET` | `/cases/{caseId}/procedural-acts/{actId}` | 200, 400, 401, 404 |
+| `GET` | `/cases/{caseId}/timeline` | 200, 400, 401, 404 |
+| `POST` | `/cases/{caseId}/interruptive-acts` | 201, 400, 401, 403, 404, 422 |
+| `GET` | `/cases/{caseId}/interruptive-acts` | 200, 400, 401, 404 |
+| `POST` | `/document-templates` | 201, 400, 401, 403, 409, 413, 502 |
+| `GET` | `/document-templates` | 200, 400, 401, 403 |
+| `GET` | `/document-templates/{templateId}` | 200, 400, 401, 403, 404 |
+| `GET` | `/document-templates/{templateId}/file` | 200 (archivo), 400, 401, 403, 404, 502 |
+| `GET` | `/dashboards/lawyer` | 200, 401, 403 |
+| `GET` | `/dashboards/administrator` | 200, 401, 403 |
 
 **Las bajas son lógicas, pero no se notan.** Los `DELETE` no borran: ponen
 `active` en `false`. Eso es asunto del servidor —para el cliente el registro
@@ -344,6 +409,10 @@ guardó al iniciar sesión y sólo actualiza los roles.
    token de acceso vencido como sustituto. No cambia nada de lo que el
    frontend tiene que resolver.
 2. **El vencimiento.** El mock no mide el tiempo. Se provoca a mano.
+
+En el navegador, las sesiones se guardan en `localStorage` (`vz-mock-sessions`,
+ver `persistSessions` en `db.ts`), así una recarga de la página no cierra la
+sesión. Los tests no las guardan: cada uno arranca con la base limpia.
 
 **Cómo probar la renovación**, desde la consola del navegador con la sesión
 abierta:
@@ -386,6 +455,26 @@ de servir en el acto.
 | `409` | crear un usuario con `username: "fvazquez"` o con un email ya usado; vincular un abogado que ya tiene cuenta; crear un abogado con `1-28114`; dar de baja el usuario 3, 4 o 5; dar de baja un abogado con cuenta o con causas (del 1 al 8); crear un estado procesal o una calificación con un nombre que ya existe, o un estado que se llame "Iniciada"; registrar un cliente con el DNI `34812905`; registrar una causa con el SAC `13284571` |
 | `422` | crear un usuario `LAWYER` sin ficha profesional, o uno sin rol `LAWYER` **con** ficha; dar de baja o degradar el usuario 1; contraseña actual incorrecta en `PATCH /auth/password`; registrar un acto en la causa 9, 10 o 21 → `CASE_IN_TERMINAL_STATE` |
 | `500` / red | `configureMocks({ forceFailure: 500 })` / `configureMocks({ forceFailure: 'network' })` |
+| `400`, Sprint 3 | un acto interruptivo sin nombre, con fecha futura o con observaciones de más de 2000 caracteres; marcar prescripta sin resolución o con fecha futura; un modelo sin nombre, sin fuero, sin archivo o con un archivo que no es `.docx`; `POST /cases` con `createFolder: false` y `copyTemplates: true`; un dato de otro fuero en el alta (`clientDetained` en un amparo, `harmfulActDate` en el penal…); un amparo con `harmfulActDate` sin `harmfulActTermDays` o sin `harmfulActTermDayType`, o con `harmfulActRenews` sin `harmfulActRenewalDays`; un usuario o un abogado sin `lastName` o sin `firstName` |
+| `403`, Sprint 3 | `gestion` en `/document-templates` o `POST /cases/{id}/prescription`; `supervision` o `gestion` en `/dashboards/lawyer`; `mrios` o `gestion` en `/dashboards/administrator`; cualquiera que no sea el responsable registrando un acto interruptivo (por ejemplo `fvazquez` sobre la causa 1) |
+| `404`, Sprint 3 | `GET /document-templates/13` (dado de baja) o `/999`; `GET /cases/1/procedural-acts/{actId}` con el id de un acto de otra causa → `PROCEDURAL_ACT_NOT_FOUND` |
+| `409`, Sprint 3 | un modelo con el nombre de otro, sin distinguir mayúsculas (`"recurso de casación"`) → `DOCUMENT_TEMPLATE_ALREADY_EXISTS` (D-71) |
+| `413` | un archivo de más de 10 MB (`MAX_FILE_BYTES`) |
+| `422`, Sprint 3 | acto interruptivo o marca de prescripción fuera del penal (causas 2, 3, 22…) → `PRESCRIPTION_NOT_APPLICABLE`; marcar prescripta la causa 23, penal sin calificaciones → `PRESCRIPTION_NOT_APPLICABLE` con "La causa no tiene calificaciones legales: no puede prescribir." (D-74); cualquiera de los dos sobre una causa terminal (9, 10, 21) → `CASE_IN_TERMINAL_STATE`; `PATCH` o `DELETE /procedural-states/10` → `PROCEDURAL_STATE_PROTECTED` |
+| `502` | `db.failures.documentStorage = true` (Drive caído: carpeta, alta y descarga de modelos). La carpeta queda en `ERROR`. Se vuelve a `false` con `resetMockDb()` |
+
+#### Subir y descargar archivos
+
+El alta de modelo viaja como `multipart/form-data`, con el
+archivo en el campo `file`. El cliente HTTP tiene `Content-Type:
+application/json` por defecto, y con ese encabezado axios convierte el
+`FormData` a JSON: hay que mandar `{ headers: { 'Content-Type':
+'multipart/form-data' } }`, y axios completa el `boundary`. La descarga de un
+modelo es la única respuesta que no es JSON: pedila con `responseType: 'blob'`.
+
+En los tests, Vitest 5 y jsdom 30 no se llevan bien con los archivos;
+`tests/setup/vitest.setup.ts` lo emparcha, y un `new File([...], 'modelo.docx')`
+funciona como en el navegador.
 
 **Lo que ya no es un error**, y antes sí:
 
@@ -405,6 +494,16 @@ de servir en el acto.
 
 - Registrar un acto, o pedir `deadline-preview`, sobre una causa ajena responde
   `403` aunque el usuario tenga el rol `LAWYER` o sea administrador (D-30).
+- Mandar `fullName` a `/users` o `/lawyers`: desde V4 son `lastName` y
+  `firstName` (D-68).
+
+**Lo que V4 cambió y antes era distinto:**
+
+- Un acto procesal puede llevar la causa a un estado terminal ("Archivada"),
+  salvo a "Prescripta", y sin `manualDueDate` (D-69).
+- Sin SAC, la causa queda con `startDate` en `null` (D-38).
+- `GET /cases` ordena y filtra "Solo con plazo por vencer" con el vencimiento
+  del acto procesal **o** el del acto lesivo del amparo (D-82).
 
 ---
 
@@ -590,6 +689,29 @@ este mock, no del backend.
   `422` lo da recién el registro.
 - **En el administrativo, un acto cuyo estado no abre plazo puede no traer
   notificación.** Si igual trae un vencimiento manual, cuenta desde el acto.
+
+**Sprint 3 (V4)**
+
+- **Orden del alta de modelo**: `403` → `413` → `400` del formulario → `409`
+  del nombre → `502`. El `413` va antes del formulario porque el servidor lo
+  aplica primero.
+- **Acto interruptivo y marca de prescripción**: los `422` (fuero, estado
+  terminal) van después del `400` del cuerpo. El acto interruptivo sigue el
+  orden de los actos procesales: `404` de la causa, `403`, `400`.
+- **Mensajes que el contrato no escribe**: "La fecha del acto es obligatoria.",
+  "La fecha de la prescripción es obligatoria.", "El apellido es
+  obligatorio.", "Los nombres son obligatorios." y los de los datos por fuero
+  ("Indicá el plazo para presentar el amparo.", "Solo corresponde al fuero de
+  amparo.", etc.).
+- **`copyToNewCases=false`** en el listado de modelos equivale a no mandarlo,
+  como los booleanos de `/cases`.
+- **La carpeta nunca queda `CREATING` en el mock**: crearla es instantáneo, o
+  sale `CREATED` o sale `ERROR`. `CREATING` sólo está en la semilla de la
+  causa 11, para probar la pantalla.
+- **Los usos de un modelo** (`usageCount`) suben en uno cada vez que se copia a
+  la carpeta de una causa nueva.
+- **El archivo de un modelo** es un texto de relleno con su nombre: lo que
+  importa es que llega como archivo, con su tipo y su nombre.
 
 ### Cosas que el contrato sí resolvió y conviene saber
 

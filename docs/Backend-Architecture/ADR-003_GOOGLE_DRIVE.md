@@ -53,12 +53,25 @@ y comparte la carpeta raíz con las cuentas de Google de los usuarios.**
 
 ### 2.1 Autorización
 
+> **Corregido 19/10/2026 (N-10, `IMPLEMENTACION_NOTIFICACIONES.md`).** Esta
+> sección describía originalmente un cliente OAuth propio de `documents`,
+> con su propio script de autorización. Esa parte quedó obsoleta: se
+> decidió **un único cliente OAuth compartido**, con los dos scopes
+> (`drive.file` + `gmail.send`) pedidos juntos en una sola autorización, un
+> solo refresh token para toda la app. Lo construyó mmachuca en
+> `shared/infrastructure/google/` para HU30/HU32 porque este subsistema
+> (`documents`) todavía no había arrancado. El detalle de cómo consumirlo
+> está en `GOOGLE_OAUTH_CLIENTE_COMPARTIDO.md` — leerlo antes de escribir
+> el adaptador de Drive. Lo que sigue de esta sección es la parte que
+> **no** cambió.
+
 - Un proyecto de Google Cloud del equipo, con la Drive API habilitada y una
   pantalla de consentimiento **externa** publicada **"In production"**. En
   *Testing* el refresh token vence a los 7 días y la integración se cortaría
   sola cada semana.
 - Un cliente OAuth de tipo **aplicación de escritorio**, usado solo por el
-  script de autorización (§2.6).
+  script de autorización compartido (`npm run google:authorize`, ver
+  `GOOGLE_OAUTH_CLIENTE_COMPARTIDO.md` §2) — no por uno propio de `documents`.
 - **Permiso: `https://www.googleapis.com/auth/drive.file`.** Es no sensible y
   alcanza para todo el Sprint 3: la app crea las carpetas, sube los modelos y
   hace las copias, y por lo tanto tiene acceso a todo eso.
@@ -188,37 +201,42 @@ Tablas que escribe `documents` (§4.4 de la arquitectura):
 
 ### 2.6 Puesta en marcha y configuración
 
-Un script de una sola vez, `npm run drive:authorize`, que **no es un endpoint**:
-
-1. Abre en el navegador la autorización de Google con el permiso `drive.file`,
-   `access_type=offline` y `prompt=consent`, para que Google entregue un
-   refresh token. Recibe la respuesta en una dirección local
-   (`http://127.0.0.1:{puerto}`), el mecanismo que Google admite para
-   aplicaciones de escritorio; el flujo de copiar y pegar el código
-   (*out-of-band*) ya no está soportado.
-2. Canjea el código por el refresh token.
-3. Crea `VZ Causas` y `VZ Causas/Modelos formales`.
-4. Imprime el refresh token y los identificadores, para cargarlos como
-   variables de entorno del servidor.
+> **Corregido 19/10/2026 (N-10).** No hay un script `drive:authorize`
+> propio: la autorización corre una sola vez para toda la app con
+> `npm run google:authorize` (`backend/scripts/google-authorize.ts`,
+> detallado en `GOOGLE_OAUTH_CLIENTE_COMPARTIDO.md` §2), y entrega
+> `GOOGLE_OAUTH_CLIENT_ID/SECRET/REFRESH_TOKEN` para **todo Google**, Drive
+> incluido — no hace falta correrlo de nuevo si `deadlines` ya lo hizo en
+> ese entorno. Lo que ese script **no hace** es crear `VZ Causas` ni
+> `VZ Causas/Modelos formales`: eso sigue siendo tarea de `documents`, a
+> resolver con una rutina propia (extender el script, o un comando de
+> arranque que use `CloudStoragePort` una vez el adaptador exista) que
+> imprima `GOOGLE_DRIVE_ROOT_FOLDER_ID`/`GOOGLE_DRIVE_TEMPLATES_FOLDER_ID`.
 
 Variables de entorno. Reemplazan a `GOOGLE_DRIVE_CREDENTIALS`, que §7.6 de la
 arquitectura había previsto para una cuenta de servicio:
 
 ```text
-GOOGLE_OAUTH_CLIENT_ID
-GOOGLE_OAUTH_CLIENT_SECRET
-GOOGLE_OAUTH_REFRESH_TOKEN          # secreto: nunca en el repositorio ni en los logs
-GOOGLE_DRIVE_ROOT_FOLDER_ID
+GOOGLE_OAUTH_CLIENT_ID              # compartido con `deadlines` — ver GOOGLE_OAUTH_CLIENTE_COMPARTIDO.md
+GOOGLE_OAUTH_CLIENT_SECRET           # ídem
+GOOGLE_OAUTH_REFRESH_TOKEN          # ídem, secreto: nunca en el repositorio ni en los logs
+GOOGLE_DRIVE_ROOT_FOLDER_ID          # propias de `documents`, pendientes (arriba)
 GOOGLE_DRIVE_TEMPLATES_FOLDER_ID
 ```
 
 Como el resto de la configuración (§7.6), la presencia se valida al arrancar y
 el formato, en el constructor del adaptador.
 
-**Entornos.** Desarrollo y pruebas usan **otro proyecto de Google Cloud y una
-cuenta de Gmail del equipo**, nunca la cuenta del estudio. Las pruebas
-automáticas usan `InMemoryCloudStorage`; la integración real se prueba a mano
-contra la cuenta del equipo.
+**Entornos.** Desarrollo y pruebas usan **otro proyecto de Google Cloud**
+(`vzcausas-dev`), nunca la cuenta del estudio ni su proyecto de producción.
+Dentro de ese proyecto de desarrollo, **cada integrante autoriza con su
+propia cuenta de Gmail de prueba** — mismo `GOOGLE_OAUTH_CLIENT_ID/SECRET`
+para todos (agregados como *test user* por quien administra el proyecto),
+pero cada uno con su propio `GOOGLE_OAUTH_REFRESH_TOKEN`, obtenido corriendo
+`npm run google:authorize` él mismo (detalle paso a paso en
+`GOOGLE_OAUTH_CLIENTE_COMPARTIDO.md` §2). Las pruebas automáticas usan
+`InMemoryCloudStorage`; la integración real se prueba a mano, cada uno
+contra su propia cuenta.
 
 ---
 

@@ -12,7 +12,8 @@ description: |
 additionalProperties: false
 required:
   - username
-  - fullName
+  - lastName
+  - firstName
   - email
   - password
   - roles
@@ -23,11 +24,18 @@ properties:
     pattern: '^[A-Za-z0-9._-]{3,30}$'
     examples:
       - iperalta
-  fullName:
+  lastName:
     type: string
     minLength: 1
+    maxLength: 100
     examples:
-      - Ignacio Peralta
+      - Peralta
+  firstName:
+    type: string
+    minLength: 1
+    maxLength: 100
+    examples:
+      - Ignacio
   email:
     type: string
     format: email

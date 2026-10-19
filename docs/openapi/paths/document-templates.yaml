@@ -1,206 +1,220 @@
-get:
-  tags:
-    - Document Templates
-  operationId: listDocumentTemplates
-  summary: Consultar modelos formales
-  description: |
-    Lista paginada de los modelos formales vigentes (HU35), en orden
-    alfabético por `name`, sin distinguir acentos ni mayúsculas (CA-35.3).
-
-    Un modelo de varios fueros aparece en el resultado de cada uno, y una sola
-    vez sin filtro (CA-35.2). Un fuero sin modelos devuelve `data` vacío y
-    `totalItems` en `0`: no es un error (CA-35.5).
-
-    **Cómo lo usa la pantalla "Modelos":**
-    - las tarjetas por fuero (CA-35.9): sin `jurisdiction` y con `limit=100`;
-      el cliente agrupa por fuero y toma el `lastVersionAt` más reciente;
-    - la lista de un fuero y su total (CA-35.4): `jurisdiction=CRIMINAL`, con
-      `pagination.totalItems`;
-    - "N modelos para el fuero" del alta de causa:
-      `jurisdiction=CRIMINAL&copyToNewCases=true&limit=1`.
-
-    **Rol requerido:** `ADMINISTRATOR` o `LAWYER`.
-  parameters:
-    - $ref: ../components/parameters/PageParam.yaml
-    - $ref: ../components/parameters/LimitParam.yaml
-    - $ref: ../components/parameters/JurisdictionQueryParam.yaml
-    - name: copyToNewCases
-      in: query
-      required: false
-      description: '`true`: solo los que se copian a las causas nuevas.'
-      schema:
-        type: boolean
-  responses:
-    '200':
-      description: Página de modelos formales.
-      content:
-        application/json:
-          schema:
-            type: object
-            required:
-              - data
-              - pagination
-            properties:
-              data:
-                type: array
-                items:
-                  $ref: ../components/schemas/DocumentTemplate.yaml
-              pagination:
-                $ref: ../components/schemas/Pagination.yaml
-          example:
-            data:
-              - id: 1
-                name: Designación de abogado defensor
-                jurisdictions:
-                  - CRIMINAL
-                fileName: designacion-defensor.docx
-                copyToNewCases: true
-                lastVersionAt: '2026-08-04T09:20:00-03:00'
-                lastVersionBy:
-                  id: 1
-                  lastName: Vázquez
-                  firstName: Fernando G.
-                usageCount: 31
-                active: true
-            pagination:
-              page: 1
-              limit: 20
-              totalItems: 1
-              totalPages: 1
-    '400':
-      description: Fuero inexistente o paginación inválida.
-      content:
-        application/json:
-          schema:
-            $ref: ../components/schemas/Error.yaml
-          examples:
-            invalidJurisdiction:
-              $ref: ../components/examples/InvalidJurisdictionError.yaml
-            invalidPagination:
-              $ref: ../components/examples/InvalidPaginationError.yaml
-    '401':
-      $ref: ../components/responses/Unauthorized.yaml
-    '403':
-      $ref: ../components/responses/ForbiddenTemplates.yaml
-
 post:
-  tags:
-    - Document Templates
-  operationId: createDocumentTemplate
-  summary: Registrar modelo formal
-  description: |
-    Registra un modelo formal con su archivo (HU34).
+    tags:
+        - Document Templates
+    operationId: createDocumentTemplate
+    summary: Registrar modelo formal
+    description: |
+        Registra un modelo formal con su archivo (HU34). El cuerpo es
+        `multipart/form-data`, porque lleva el archivo; la respuesta es JSON.
 
-    El archivo se guarda en la carpeta "Modelos formales" del almacenamiento en
-    la nube. **El alta es atómica** (CA-34.7): si el archivo no se puede
-    guardar, el modelo no se registra y la respuesta es `502`. Nunca queda un
-    modelo sin su archivo.
+        **Efectos del alta**
 
-    Con `copyToNewCases` en `true`, el modelo se copia a la carpeta de cada
-    causa que se registre después en alguno de sus fueros (HU40). Las causas
-    que ya existen no lo reciben.
+        - El modelo queda vigente y disponible en el listado (CA-34.1).
+        - `lastVersionBy` es el usuario autenticado y `lastVersionAt`, el momento
+          del alta (CA-34.6).
+        - Con `copyToNewCases` en `true`, el modelo se copia a la carpeta de
+          **cada causa que se registre después** en alguno de sus fueros. Las
+          causas ya existentes no lo reciben (CA-34.5).
+        - **El alta es atómica** (CA-34.7): si el archivo no puede guardarse en
+          el almacenamiento en la nube, el modelo no se registra y la respuesta
+          es `502 DOCUMENT_STORAGE_UNAVAILABLE`.
 
-    **Rol requerido:** `ADMINISTRATOR` o `LAWYER`.
-  requestBody:
-    required: true
-    content:
-      multipart/form-data:
-        schema:
-          $ref: ../components/schemas/DocumentTemplateCreate.yaml
-        encoding:
-          jurisdictions:
-            style: form
-            explode: true
-          file:
-            contentType: application/vnd.openxmlformats-officedocument.wordprocessingml.document
-  responses:
-    '201':
-      description: Modelo registrado.
-      content:
-        application/json:
+        **Rol requerido:** `ADMINISTRATOR` o `LAWYER`.
+    requestBody:
+        required: true
+        content:
+            multipart/form-data:
+                schema:
+                    $ref: ../components/schemas/DocumentTemplateCreate.yaml
+                encoding:
+                    jurisdictions:
+                        style: form
+                        explode: true
+                    file:
+                        contentType: application/vnd.openxmlformats-officedocument.wordprocessingml.document
+    responses:
+        "201":
+            description: Modelo formal registrado.
+            content:
+                application/json:
+                    schema:
+                        type: object
+                        required:
+                            - data
+                        properties:
+                            data:
+                                $ref: ../components/schemas/DocumentTemplate.yaml
+                    example:
+                        data:
+                            id: 4
+                            name: Recurso de casación
+                            jurisdictions:
+                                - CRIMINAL
+                            fileName: casacion.docx
+                            copyToNewCases: true
+                            lastVersionAt: "2026-09-15T16:05:00-03:00"
+                            lastVersionBy:
+                                id: 6
+                                lastName: Ferreyra
+                                firstName: Matías
+                            usageCount: 0
+                            active: true
+        "400":
+            description: Falta un campo obligatorio o el archivo no es un `.docx`.
+            content:
+                application/json:
+                    schema:
+                        $ref: ../components/schemas/Error.yaml
+                    examples:
+                        missingFields:
+                            summary: Faltan campos obligatorios (CA-34.4)
+                            value:
+                                error:
+                                    code: VALIDATION_ERROR
+                                    message: Los datos enviados no son válidos.
+                                    details:
+                                        name: El nombre del modelo es obligatorio.
+                                        jurisdictions: Elegí al menos un fuero.
+                                        file: El archivo del modelo es obligatorio.
+                        notDocx:
+                            summary: El archivo no es un .docx (CA-34.3)
+                            value:
+                                error:
+                                    code: VALIDATION_ERROR
+                                    message: Los datos enviados no son válidos.
+                                    details:
+                                        file: El archivo tiene que ser .docx.
+        "401":
+            $ref: ../components/responses/Unauthorized.yaml
+        "403":
+            $ref: ../components/responses/ForbiddenAdministratorOrLawyer.yaml
+        "409":
+            description: Ya existe un modelo formal con ese nombre (D-71).
+            content:
+                application/json:
+                    schema:
+                        $ref: ../components/schemas/Error.yaml
+                    example:
+                        error:
+                            code: DOCUMENT_TEMPLATE_ALREADY_EXISTS
+                            message: Ya existe un modelo formal con ese nombre.
+                            details: null
+        "413":
+            description: |
+                El archivo supera los 10 MB. El servidor aplica el límite antes de
+                validar el formulario (D-65).
+            content:
+                application/json:
+                    schema:
+                        $ref: ../components/schemas/Error.yaml
+                    example:
+                        error:
+                            code: FILE_TOO_LARGE
+                            message: El archivo supera el tamaño máximo de 10 MB.
+                            details: null
+        "502":
+            $ref: ../components/responses/DocumentStorageUnavailable.yaml
+
+get:
+    tags:
+        - Document Templates
+    operationId: listDocumentTemplates
+    summary: Consultar modelos formales
+    description: |
+        Obtiene una lista paginada de los modelos formales vigentes (HU35),
+        ordenada alfabéticamente por `name` (CA-35.3). Un modelo que aplica a
+        varios fueros aparece en el resultado de cada uno de ellos, y una sola
+        vez cuando no se filtra. Un fuero sin modelos devuelve `data` vacío: no
+        es un error (CA-35.5).
+
+        **Cómo lo usa el prototipo**
+
+        | Pantalla                                                         | Petición                                                    |
+        | ---------------------------------------------------------------- | ----------------------------------------------------------- |
+        | Modelos → tarjetas por fuero                                     | Sin `jurisdiction`, con `limit=100`; el cliente agrupa por fuero y toma el `lastVersionAt` más reciente de cada uno |
+        | Modelos → "Fuero Penal" (lista y "6 modelos")                    | `jurisdiction=CRIMINAL`; el total es `pagination.totalItems` (CA-35.4) |
+        | Registrar causa → "6 modelos parametrizados para el fuero Penal" | `jurisdiction=CRIMINAL&copyToNewCases=true&limit=1`; el número es `pagination.totalItems`. Solo para Administrador y Abogado |
+
+        **Rol requerido:** `ADMINISTRATOR` o `LAWYER`.
+    parameters:
+        - $ref: ../components/parameters/PageParam.yaml
+        - $ref: ../components/parameters/LimitParam.yaml
+        - name: jurisdiction
+          in: query
+          required: false
+          description: |
+              Solo los modelos que aplican a ese fuero. Sin el parámetro, los de
+              todos. Un valor inexistente responde `400 INVALID_REQUEST`.
           schema:
-            type: object
-            required:
-              - data
-            properties:
-              data:
-                $ref: ../components/schemas/DocumentTemplate.yaml
-          example:
-            data:
-              id: 4
-              name: Recurso de casación
-              jurisdictions:
-                - CRIMINAL
-              fileName: casacion.docx
-              copyToNewCases: true
-              lastVersionAt: '2026-09-15T16:05:00-03:00'
-              lastVersionBy:
-                id: 6
-                lastName: Ferreyra
-                firstName: Matías
-              usageCount: 0
-              active: true
-    '400':
-      description: Falta un campo obligatorio, o el archivo no es `.docx`.
-      content:
-        application/json:
+              $ref: ../components/schemas/Jurisdiction.yaml
+        - name: copyToNewCases
+          in: query
+          required: false
+          description: "`true`: solo los que se copian a las causas nuevas."
           schema:
-            $ref: ../components/schemas/Error.yaml
-          examples:
-            missingFields:
-              summary: Faltan el nombre, el fuero y el archivo (CA-34.4)
-              value:
-                error:
-                  code: VALIDATION_ERROR
-                  message: Los datos enviados no son válidos.
-                  details:
-                    name: El nombre del modelo es obligatorio.
-                    jurisdictions: Elegí al menos un fuero.
-                    file: El archivo del modelo es obligatorio.
-            notDocx:
-              summary: El archivo no es un .docx (CA-34.3)
-              value:
-                error:
-                  code: VALIDATION_ERROR
-                  message: Los datos enviados no son válidos.
-                  details:
-                    file: El archivo tiene que ser .docx.
-    '401':
-      $ref: ../components/responses/Unauthorized.yaml
-    '403':
-      $ref: ../components/responses/ForbiddenTemplates.yaml
-    '409':
-      description: Ya existe un modelo con ese nombre, sin distinguir mayúsculas (CA-34.9).
-      content:
-        application/json:
-          schema:
-            $ref: ../components/schemas/Error.yaml
-          example:
-            error:
-              code: DOCUMENT_TEMPLATE_ALREADY_EXISTS
-              message: Ya existe un modelo formal con ese nombre.
-              details: null
-    '413':
-      description: El archivo supera los 10 MB (CA-34.10).
-      content:
-        application/json:
-          schema:
-            $ref: ../components/schemas/Error.yaml
-          example:
-            error:
-              code: FILE_TOO_LARGE
-              message: El archivo supera el tamaño máximo de 10 MB.
-              details: null
-    '502':
-      description: |
-        El almacenamiento en la nube no respondió, o su carpeta "Modelos
-        formales" no está configurada. El modelo no se registró (CA-34.7).
-      content:
-        application/json:
-          schema:
-            $ref: ../components/schemas/Error.yaml
-          example:
-            error:
-              code: DOCUMENT_STORAGE_UNAVAILABLE
-              message: No se pudo acceder al almacenamiento en la nube. Intentá de nuevo en unos minutos.
-              details: null
+              type: boolean
+    responses:
+        "200":
+            description: Página de modelos formales.
+            content:
+                application/json:
+                    schema:
+                        type: object
+                        required:
+                            - data
+                            - pagination
+                        properties:
+                            data:
+                                type: array
+                                items:
+                                    $ref: ../components/schemas/DocumentTemplate.yaml
+                            pagination:
+                                $ref: ../components/schemas/Pagination.yaml
+                    example:
+                        data:
+                            - id: 1
+                              name: Designación de abogado defensor
+                              jurisdictions:
+                                  - CRIMINAL
+                              fileName: designacion-defensor.docx
+                              copyToNewCases: true
+                              lastVersionAt: "2026-08-04T09:20:00-03:00"
+                              lastVersionBy:
+                                  id: 1
+                                  lastName: Vázquez
+                                  firstName: Fernando G.
+                              usageCount: 31
+                              active: true
+                            - id: 2
+                              name: Oposición al requerimiento de elevación a juicio
+                              jurisdictions:
+                                  - CRIMINAL
+                              fileName: oposicion-elevacion.docx
+                              copyToNewCases: true
+                              lastVersionAt: "2026-08-21T17:40:00-03:00"
+                              lastVersionBy:
+                                  id: 3
+                                  lastName: Ríos
+                                  firstName: Malena
+                              usageCount: 12
+                              active: true
+                        pagination:
+                            page: 1
+                            limit: 20
+                            totalItems: 6
+                            totalPages: 1
+        "400":
+            description: Paginación inválida o fuero inexistente.
+            content:
+                application/json:
+                    schema:
+                        $ref: ../components/schemas/Error.yaml
+                    examples:
+                        invalidJurisdiction:
+                            $ref: ../components/examples/InvalidJurisdictionError.yaml
+                        invalidPagination:
+                            $ref: ../components/examples/InvalidPaginationError.yaml
+        "401":
+            $ref: ../components/responses/Unauthorized.yaml
+        "403":
+            $ref: ../components/responses/ForbiddenAdministratorOrLawyer.yaml

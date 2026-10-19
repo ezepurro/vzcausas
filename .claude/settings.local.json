@@ -1,0 +1,44 @@
+{
+  "permissions": {
+    "deny": [
+      "Bash(npx prisma migrate reset:*)",
+      "Bash(prisma migrate reset:*)",
+      "PowerShell(npx prisma migrate reset:*)",
+      "PowerShell(prisma migrate reset:*)"
+    ],
+    "ask": [
+      "Bash(git push:*)",
+      "Bash(git commit:*)",
+      "PowerShell(git push:*)",
+      "PowerShell(git commit:*)"
+    ],
+    "allow": ["Edit(.claude/**)", "Write(.claude/**)"]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PROJECT_DIR}/.claude/hooks/registrar-cambio.ps1\"",
+            "shell": "powershell",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PROJECT_DIR}/.claude/hooks/verificar.ps1\"",
+            "shell": "powershell",
+            "timeout": 240
+          }
+        ]
+      }
+    ]
+  }
+}

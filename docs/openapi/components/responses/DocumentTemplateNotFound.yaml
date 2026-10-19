@@ -1,10 +1,10 @@
 description: No existe un modelo formal vigente con ese identificador.
 content:
-  application/json:
-    schema:
-      $ref: ../schemas/Error.yaml
-    example:
-      error:
-        code: DOCUMENT_TEMPLATE_NOT_FOUND
-        message: No se encontró el modelo formal solicitado.
-        details: null
+    application/json:
+        schema:
+            $ref: ../schemas/Error.yaml
+        example:
+            error:
+                code: DOCUMENT_TEMPLATE_NOT_FOUND
+                message: No se encontró el modelo formal solicitado.
+                details: null

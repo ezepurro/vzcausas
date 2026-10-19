@@ -1,11 +1,11 @@
-import { createBrowserRouter, Navigate } from 'react-router'
+import { createBrowserRouter } from 'react-router'
 import { AppLayout } from '@/app/layouts/AppLayout'
 import { AuthLayout } from '@/app/layouts/AuthLayout'
 import { NotFoundLayout } from '@/app/layouts/NotFoundLayout'
 import { RequireSession } from '@/app/router/RequireSession'
 import { RedirectIfSession } from '@/app/router/RedirectIfSession'
 import { LoginPage } from '@/features/auth/pages/LoginPage'
-import { HomePage } from '@/features/home/pages/HomePage'
+import { HomePage } from '@/features/dashboard/pages/HomePage'
 import { ProceduralStatesPage } from '@/features/legal-params/pages/ProceduralStatesPage'
 import { LegalQualificationsPage } from '@/features/legal-params/pages/LegalQualificationsPage'
 import { UsersPage } from '@/features/users/pages/UsersPage'
@@ -16,7 +16,9 @@ import { ClientsPage } from '@/features/clients/pages/ClientsPage'
 import { RegisterCasePage } from '@/features/cases/pages/RegisterCasePage'
 import { CaseDetailPage } from '@/features/cases/pages/CaseDetailPage'
 import { CasesPage } from '@/features/cases/pages/CasesPage'
-
+import { DocumentTemplatesPage } from '@/features/documents/pages/DocumentTemplatesPage'
+import { HomeRedirect } from '@/app/router/HomeRedirect'
+import { ToolsPage } from '@/features/tools/pages/ToolsPage'
 
 export const router = createBrowserRouter([
     {
@@ -36,7 +38,7 @@ export const router = createBrowserRouter([
             {
                 element: <AppLayout />,
                 children: [
-                    { index: true, element: <Navigate to="/inicio" replace /> },
+                    { index: true, element: <HomeRedirect /> },
                     {
                         element: <RequireAccess />,
                         children: [
@@ -50,6 +52,9 @@ export const router = createBrowserRouter([
                             { path: 'causas/nueva', element: <RegisterCasePage /> },
                             { path: 'causas/:caseId', element: <CaseDetailPage /> },
                             { path: 'causas/:caseId/acto', element: <RegisterProceduralActPage /> },
+                            { path: 'herramientas', element: <ToolsPage /> },
+                            { path: 'modelos', element: <DocumentTemplatesPage /> },
+
 
                         ],
                     },

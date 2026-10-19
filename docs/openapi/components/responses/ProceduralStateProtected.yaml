@@ -1,0 +1,12 @@
+description: |
+  El estado es "Prescripta", el estado de sistema del fuero penal (D-53): no
+  puede modificarse ni darse de baja.
+content:
+  application/json:
+    schema:
+      $ref: ../schemas/Error.yaml
+    example:
+      error:
+        code: PROCEDURAL_STATE_PROTECTED
+        message: El estado Prescripta es un estado del sistema y no puede modificarse ni darse de baja.
+        details: null
