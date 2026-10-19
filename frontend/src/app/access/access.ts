@@ -11,6 +11,8 @@ export const ROUTE_ACCESS: Record<string, readonly Role[]> = {
     '/vencimientos': EVERYONE,
     '/clientes': EVERYONE,
     '/modelos': EVERYONE,
+    // Accesos directos a sitios externos: no pide nada al servidor (ver features/tools/CAMBIOS.md).
+    '/herramientas': EVERYONE,
     '/usuarios': ADMIN,
     // Consultar abogados y administrar estados procesales y calificaciones
     // legales es de los tres perfiles (V3 §4, matriz del 11/10/2026, D-39).
