@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Outlet, useLocation, useNavigate } from 'react-router'
+import { Link, Outlet, useLocation, useNavigate } from 'react-router'
 import {
     AppShell,
     Button,
@@ -15,6 +15,7 @@ import { profileLabel } from '@/features/auth/utils/profileLabel'
 import { ChangePasswordModal } from '@/features/auth/components/ChangePasswordModal'
 import { LogoutConfirmModal } from '@/features/auth/components/LogoutConfirmModal'
 import { canAccess, matchRoute } from '@/app/access/access'
+import { useHomeRoute } from '@/app/access/useHomeRoute'
 
 /**
  * Marco de la aplicación con sesión iniciada: rail oscuro a la izquierda,
@@ -72,6 +73,10 @@ export function AppLayout() {
        alguien adentro: el nombre y el perfil salen de ahí. */
     const user = useCurrentUser()
 
+    /* El logo lleva a la pantalla de entrada del perfil: Inicio o, para la
+       Secretaría, que no tiene tablero, Causas. */
+    const homeRoute = useHomeRoute()
+
     /* El rail muestra sólo lo que el perfil puede abrir, con la misma regla que
        aplica la guarda de rutas. Un grupo que se queda sin ítems no se muestra:
        un título sin nada abajo confunde más de lo que ayuda. */
@@ -96,7 +101,11 @@ export function AppLayout() {
             groups={groups}
             active={active}
             onNavigate={(route) => navigate(route)}
-            brand={<Logo />}
+            brand={
+                <Link to={homeRoute} className="vz-rail__brand" aria-label="Ir al inicio">
+                    <Logo />
+                </Link>
+            }
             railAction={
                 /* "Nueva causa" bajo el logo, como el prototipo: registrar una
                    causa la puede hacer cualquier perfil (RN11), así que el

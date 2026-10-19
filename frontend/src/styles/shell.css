@@ -22,6 +22,13 @@
   overflow: hidden;
 }
 
+/* El logo es un link a la pantalla de entrada: sin el estilo de link. */
+.vz-rail__brand {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+.vz-rail__brand:focus-visible { outline: 2px solid var(--vz-rail-fg-on); outline-offset: 2px; }
 .vz-rail__logo {
   display: flex;
   align-items: center;
