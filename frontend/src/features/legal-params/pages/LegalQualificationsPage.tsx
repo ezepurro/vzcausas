@@ -25,6 +25,7 @@ import { toLegalQualificationFormErrors } from '@/features/legal-params/utils/to
 import { LegalQualificationsTable } from '@/features/legal-params/components/LegalQualificationsTable';
 import { LegalQualificationFormModal } from '@/features/legal-params/components/LegalQualificationFormModal';
 import { DeleteLegalQualificationModal } from '@/features/legal-params/components/DeleteLegalQualificationModal';
+import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue';
 
 const LIMIT = 20;
 
@@ -33,6 +34,13 @@ const EMPTY_FORM: LegalQualificationFormValues = {
     years: '',
     months: '0',
 };
+
+/**
+ * "Modificar" y "Eliminar" en cada fila. Ocultos por pedido del equipo
+ * (18/10/2026): la modificación y la baja siguen programadas y se vuelven a
+ * mostrar poniendo esto en `true`.
+ */
+const SHOW_ROW_ACTIONS = false;
 
 /** Qué modal está abierto y con qué registro: UN estado. */
 type Modal =
@@ -56,6 +64,7 @@ export function LegalQualificationsPage() {
        no pagina ni filtra, y los parámetros tienen que estar en la clave de caché. */
     const [page, setPage] = useState(1);
     const [search, setSearch] = useState('');
+    const debouncedSearch = useDebouncedValue(search.trim());
 
     const [modal, setModal] = useState<Modal>(null);
     const [values, setValues] = useState<LegalQualificationFormValues>(EMPTY_FORM);
@@ -64,7 +73,7 @@ export function LegalQualificationsPage() {
     const query = useLegalQualifications({
         page,
         limit: LIMIT,
-        search: search.trim() === '' ? undefined : search.trim(),
+        search: debouncedSearch === '' ? undefined : debouncedSearch,
     });
     const create = useCreateLegalQualification();
     const update = useUpdateLegalQualification();
@@ -219,6 +228,7 @@ export function LegalQualificationsPage() {
             />
 
             <Panel
+                title="Calificaciones legales"
                 actions={
                     <>
                         <SearchInput
@@ -258,8 +268,12 @@ export function LegalQualificationsPage() {
                 ) : (
                     <LegalQualificationsTable
                         rows={rows}
-                        onEdit={openEdit}
-                        onDelete={(qualification) => setModal({ kind: 'delete', qualification })}
+                        onEdit={SHOW_ROW_ACTIONS ? openEdit : undefined}
+                        onDelete={
+                            SHOW_ROW_ACTIONS
+                                ? (qualification) => setModal({ kind: 'delete', qualification })
+                                : undefined
+                        }
                         empty={
                             <div className="vz-empty">
                                 <div className="vz-empty__title">

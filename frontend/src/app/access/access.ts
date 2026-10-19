@@ -9,7 +9,7 @@ export const ROUTE_ACCESS: Record<string, readonly Role[]> = {
     '/inicio': ADMIN_AND_LAWYER,  // cada tablero de Inicio es de un rol (V4 §3.11)
     '/causas': EVERYONE,
     '/clientes': EVERYONE,
-    '/modelos': EVERYONE,
+    '/modelos': ADMIN_AND_LAWYER, // la Secretaría no ve ni registra modelos
     // Accesos directos a sitios externos: no pide nada al servidor (ver features/tools/CAMBIOS.md).
     '/herramientas': EVERYONE,
     '/usuarios': ADMIN,

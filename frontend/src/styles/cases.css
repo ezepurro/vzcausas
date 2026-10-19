@@ -149,6 +149,23 @@
 .vz-summary__caption-action { margin: 8px 0 16px; }
 /* Separa un bloque del anterior dentro del panel ("Para poder registrar"). */
 .vz-summary__block { margin-top: 18px; }
+/* "Carpeta en Drive": la ubicación puede ser larga y no tiene dónde cortar. */
+.vz-summary__folder {
+  padding: 10px 0;
+  border-top: 1px solid var(--vz-border);
+  font-size: 13px;
+}
+.vz-summary__folder-label { margin-bottom: 4px; color: var(--vz-muted); }
+.vz-summary__folder-path {
+  font-family: var(--vz-font-mono);
+  font-size: 12px;
+  word-break: break-all;
+  color: var(--vz-ink);
+}
+
+/* Aclaración bajo el texto de una casilla del alta (carpeta y modelos). */
+.vz-check__note { display: block; margin-top: 2px; font-size: 12px; color: var(--vz-faint); }
+.vz-check:has(input:disabled) { cursor: not-allowed; color: var(--vz-muted); }
 
 /* ─────────── acciones sobre la causa ─────────── */
 /* "Sobre la causa", al pie del encabezado: acto interruptivo y marcar

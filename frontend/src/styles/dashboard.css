@@ -501,3 +501,26 @@
 .vz-dash__side { min-width: 0; display: flex; flex-direction: column; gap: 16px; }
 .vz-dash__main { flex: 2 1 34rem; }
 .vz-dash__side { flex: 1 1 20rem; }
+
+/* "Estudio": los vencimientos miden lo mismo que la columna de al lado
+   (alertas de prescripción + carga del equipo), y la lista corre adentro.
+   El panel sale del flujo para que no empuje la altura de la fila: la pone
+   la columna angosta. Sólo con las dos columnas lado a lado; apiladas, cada
+   una con su alto, como siempre. La consulta es al ancho de la fila (lo que
+   suman las dos columnas: 34rem + 20rem + el espacio), no de la ventana, y
+   no puede cambiar a la fila misma: por eso el estirado va en la columna. */
+.vz-dash__row--matched { container-type: inline-size; }
+@container (min-width: 55rem) {
+  .vz-dash__row--matched > .vz-dash__main {
+    align-self: stretch;
+    position: relative;
+    min-height: 24rem;
+  }
+  .vz-dash__row--matched > .vz-dash__main > .vz-panel {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .vz-dash__row--matched .vz-dash-line { flex: 1; min-height: 0; max-height: none; }
+}

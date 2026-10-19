@@ -16,6 +16,7 @@ import { ClientsPage } from '@/features/clients/pages/ClientsPage'
 import { RegisterCasePage } from '@/features/cases/pages/RegisterCasePage'
 import { CaseDetailPage } from '@/features/cases/pages/CaseDetailPage'
 import { CasesPage } from '@/features/cases/pages/CasesPage'
+import { DocumentTemplatesPage } from '@/features/documents/pages/DocumentTemplatesPage'
 import { HomeRedirect } from '@/app/router/HomeRedirect'
 import { ToolsPage } from '@/features/tools/pages/ToolsPage'
 
@@ -52,6 +53,8 @@ export const router = createBrowserRouter([
                             { path: 'causas/:caseId', element: <CaseDetailPage /> },
                             { path: 'causas/:caseId/acto', element: <RegisterProceduralActPage /> },
                             { path: 'herramientas', element: <ToolsPage /> },
+                            { path: 'modelos', element: <DocumentTemplatesPage /> },
+
 
                         ],
                     },

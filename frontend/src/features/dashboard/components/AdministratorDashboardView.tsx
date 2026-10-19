@@ -44,7 +44,7 @@ export function AdministratorDashboardView({ dashboard, onOpen }: AdministratorD
                 tiles={tiles}
                 aside={<PortfolioByJurisdiction items={dashboard.casesByJurisdiction} total={summary.activeCases} />}
             />
-            <div className="vz-dash__row">
+            <div className="vz-dash__row vz-dash__row--matched">
                 <div className="vz-dash__main">
                     <DeadlinesPanel
                         title={selected ? 'Vencimientos del responsable' : 'Vencimientos del estudio'}

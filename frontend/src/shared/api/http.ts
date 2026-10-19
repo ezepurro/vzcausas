@@ -107,6 +107,24 @@ function fallbackMessage(status: number): string {
     )
 }
 
+/**
+ * Con `responseType: 'blob'` (la descarga de un modelo formal, V4 §3.10)
+ * axios no convierte la respuesta, tampoco la de error: el JSON del error
+ * llega adentro de un Blob y `parseErrorBody` no lo puede leer. Se lee acá,
+ * antes de armar el `ApiError`, para que el error se vea como el de
+ * cualquier otro pedido (`code`, `message` y `details` del contrato).
+ */
+async function readBlobErrorBody(error: unknown): Promise<void> {
+    if (!axios.isAxiosError(error) || !error.response) return
+    const { data } = error.response
+    if (!(data instanceof Blob)) return
+    try {
+        error.response.data = JSON.parse(await data.text())
+    } catch {
+        // No era JSON: queda como estaba y toApiError usa el mensaje genérico.
+    }
+}
+
 function toApiError(error: unknown): ApiError {
     // Un error que no sea de axios, un bug nuestro
     if (!axios.isAxiosError(error)) {
@@ -198,6 +216,7 @@ const NON_RENEWABLE_PATHS = ['/auth/refresh', '/auth/logout']
 http.interceptors.response.use(
     response => response,
     async (error: unknown) => {
+        await readBlobErrorBody(error)
         const apiError = toApiError(error)
 
         /* Se compara el CÓDIGO y no el 401 pelado, porque hay dos errores

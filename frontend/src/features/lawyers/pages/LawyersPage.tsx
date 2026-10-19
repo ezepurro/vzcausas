@@ -121,28 +121,28 @@ export function LawyersPage() {
                 eyebrow="Administración"
                 title="Abogados"
                 sub="Desde esta sección podés administrar el equipo del estudio. Consultá el listado de abogados, sus matrículas y la cantidad de causas activas a su cargo."
-                actions={
-                    <Button
-                        icon={<Icon name="plus" />}
-                        size="md"
-                        disabled={!canCreate}
-                        title={canCreate ? undefined : 'Sólo el Administrador puede registrar abogados.'}
-                        onClick={openCreate}
-                    >
-                        Registrar abogado
-                    </Button>
-                }
             />
 
             <Panel
                 title="Abogados"
                 actions={
-                    <SearchInput
-                        placeholder="Buscar por apellido o matrícula"
-                        aria-label="Buscar abogado"
-                        value={search}
-                        onChange={(e) => changeSearch(e.target.value)}
-                    />
+                    <>
+                        <SearchInput
+                            placeholder="Buscar por apellido o matrícula"
+                            aria-label="Buscar abogado"
+                            value={search}
+                            onChange={(e) => changeSearch(e.target.value)}
+                        />
+                        <Button
+                            icon={<Icon name="plus" />}
+                            size="md"
+                            disabled={!canCreate}
+                            title={canCreate ? undefined : 'Sólo el Administrador puede registrar abogados.'}
+                            onClick={openCreate}
+                        >
+                            Registrar abogado
+                        </Button>
+                    </>
                 }
                 footer={
                     <Pagination

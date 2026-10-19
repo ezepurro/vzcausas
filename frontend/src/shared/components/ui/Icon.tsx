@@ -24,10 +24,14 @@ export const ICONS = {
   alert: 'M12 8v4M12 16h.01M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z',
   download: 'M12 4v12M7 11l5 5 5-5M4 20h16',
   external: 'M7 17 17 7M8 7h9v9',
+  upload: 'M12 16V4M7 9l5-5 5 5M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3',
+  chevronDown: 'M6 9l6 6 6-6',
   back: 'M15 18l-6-6 6-6',
   forward: 'M9 18l6-6-6-6',
   menu: 'M4 7h16M4 12h16M4 17h16',
   close: 'M6 6l12 12M18 6L6 18',
+  // ── contenido ──
+  folder: 'M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z',
 } as const;
 
 export type IconName = keyof typeof ICONS;

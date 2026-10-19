@@ -24,6 +24,16 @@ marca (filete de arriba y borde al pasar el mouse). El test
 
 ---
 
+## 2026-10-18 — Revisión del merge con la rama de modelos
+
+Al resolver el conflicto de `src/app/access/access.ts` se perdió
+`'/herramientas': EVERYONE` de `ROUTE_ACCESS`. Sin esa línea la sección
+desaparece del rail y la ruta da "Sin acceso" a todos. **Se repuso.** Lo demás
+del merge quedó bien: el ítem del rail, la ruta, los iconos `tools` y
+`external` junto con los de la otra rama, el módulo, los logos y `tools.css`.
+
+---
+
 ## 2026-10-18 — Sólo las herramientas del estudio, sin pestañas
 
 Pedido del equipo: quedan **sólo las 7 de la página vieja** y se ve el

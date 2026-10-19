@@ -158,12 +158,15 @@ export interface HarmfulActDeadline {
 }
 
 /** Situación de la carpeta de la causa en la nube (V4 §2). */
-export type CaseFolderStatus = 'CREATED' | 'PENDING'
+export type CaseFolderStatus = 'PENDING' | 'CREATING' | 'CREATED' | 'ERROR'
 
-/** Carpeta de la causa en la nube (HU39). `null` si no se pidió crearla. */
+/**
+ * Carpeta de la causa en la nube (HU39). `null` en las causas registradas
+ * antes de V4. Si en el alta se pidió no crearla, `status` es `PENDING`.
+ */
 export interface CaseFolder {
     status: CaseFolderStatus
-    /** `null` mientras está `PENDING`. */
+    /** `null` mientras `status` no es `CREATED`. */
     url: string | null
     path: string
     templatesCopied: number
@@ -282,6 +285,13 @@ export interface CreateCaseBody {
     administrativeRemedyExhaustedOn?: string
     /** En los tres fueros. Por defecto, `false`. */
     courtFeePaid?: boolean
+    /** "Crear la carpeta de la causa en Drive" (HU39). Por defecto, `true` (D-59). */
+    createFolder?: boolean
+    /**
+     * "Copiar los modelos de escritos del fuero a esa carpeta" (HU40). Por
+     * defecto, igual a `createFolder`. No puede ser `true` sin la carpeta (`400`).
+     */
+    copyTemplates?: boolean
 }
 
 /** Una calificación elegida en el formulario, con la fecha del hecho que se va cargando. */
@@ -332,6 +342,10 @@ export type CaseFormValues = {
     administrativeRemedyExhaustedOn: string
     /** "Tasa de justicia pagada". En los tres fueros. */
     courtFeePaid: boolean
+    /** "Crear la carpeta de la causa en Drive". Arranca tildada (D-59). */
+    createFolder: boolean
+    /** "Copiar los modelos…". Arranca tildada; sin carpeta queda en `false` (CA-40.3). */
+    copyTemplates: boolean
 }
 
 /** Parámetros del listado `GET /cases`. Van también en la clave de caché. */

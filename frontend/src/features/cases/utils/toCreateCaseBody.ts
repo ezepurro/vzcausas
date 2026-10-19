@@ -5,8 +5,9 @@
  * responde `400` si llegan calificaciones en un amparo, una contraparte en el
  * penal o un dato propio de otro fuero (V4 §3.7, D-67).
  *
- * `createFolder` y `copyTemplates` no viajan: son de HU39 y HU40 (Sprint 3), y
- * sin ellos el backend crea la carpeta con los modelos del fuero (D-59).
+ * `createFolder` y `copyTemplates` viajan siempre, aunque sean `false`: sin
+ * ellos el backend crearía la carpeta con los modelos (D-59), que no es lo
+ * que se eligió. Sin carpeta no se copian modelos (`400`, CA-40.3).
  */
 
 import type { CaseFormValues, CreateCaseBody } from '@/features/cases/types/case'
@@ -20,6 +21,8 @@ export function toCreateCaseBody(values: CaseFormValues): CreateCaseBody {
         responsibleLawyerId: Number(values.responsibleLawyerId),
         // La tasa es de los tres fueros (RN10); se manda siempre, aunque sea `false`.
         courtFeePaid: values.courtFeePaid,
+        createFolder: values.createFolder,
+        copyTemplates: values.createFolder && values.copyTemplates,
     }
 
     /* El SAC es opcional (D-33): la causa puede iniciarse antes de que el Poder
