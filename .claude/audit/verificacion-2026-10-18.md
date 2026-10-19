@@ -2489,3 +2489,171 @@ src/subsystems/reporting/infrastructure/persistence/lawyer-dashboard-prisma.quer
 - Nada de esto verifica que la solución tenga **sentido de negocio**. Eso lo revisás vos leyendo `git diff HEAD`.
 
 ---
+
+## Turno cerrado 18/10/2026 20:57:15
+
+### Cambios respecto de HEAD
+
+```
+M	.claude/audit/2026-10-18.md
+M	docs/Backend-Architecture/IMPLEMENTACION_NOTIFICACIONES.md
+?? backend/src/subsystems/deadlines/core/application/use-cases/send-daily-notification-digest.use-case.spec.ts
+?? backend/src/subsystems/deadlines/core/application/use-cases/send-daily-notification-digest.use-case.ts
+?? backend/src/subsystems/deadlines/core/application/use-cases/test-support/deadlines-fakes.ts
+```
+
+### Verificado automáticamente
+
+- Compilación (`tsc --noEmit`): **OK**
+- Tests unitarios (`npm test`): **FALLARON**
+
+```
+System.Management.Automation.RemoteException
+<--- Last few GCs --->
+System.Management.Automation.RemoteException
+[12244:00000236C9714000]    58734 ms: Scavenge 32.6 (35.5) -> 31.7 (34.5) MB, pooled: 1 MB, 0.75 / 0.00 ms  (average mu = 0.999, current mu = 0.998) task; 
+[12244:00000236C9714000]    73840 ms: Scavenge 32.6 (34.5) -> 31.7 (34.5) MB, pooled: 1 MB, 0.32 / 0.00 ms  (average mu = 0.999, current mu = 0.998) task; 
+System.Management.Automation.RemoteException
+FATAL ERROR: Zone Allocation failed - process out of memory
+----- Native stack trace -----
+System.Management.Automation.RemoteException
+System.Management.Automation.RemoteException
+<--- Last few GCs --->
+System.Management.Automation.RemoteException
+[12244:00000236C9714000]    58734 ms: Scavenge 32.6 (35.5) -> 31.7 (34.5) MB, pooled: 1 MB, 0.75 / 0.00 ms  (average mu = 0.999, current mu = 0.998) task; 
+[12244:00000236C9714000]    73840 ms: Scavenge 32.6 (34.5) -> 31.7 (34.5) MB, pooled: 1 MB, 0.32 / 0.00 ms  (average mu = 0.999, current mu = 0.998) task; 
+System.Management.Automation.RemoteException
+FATAL ERROR: Zone Allocation failed - process out of memory
+----- Native stack trace -----
+System.Management.Automation.RemoteException
+System.Management.Automation.RemoteException
+<--- Last few GCs --->
+System.Management.Automation.RemoteException
+[12244:00000236C9714000]    58734 ms: Scavenge 32.6 (35.5) -> 31.7 (34.5) MB, pooled: 1 MB, 0.75 / 0.00 ms  (average mu = 0.999, current mu = 0.998) task; 
+[12244:00000236C9714000]    73840 ms: Scavenge 32.6 (34.5) -> 31.7 (34.5) MB, pooled: 1 MB, 0.32 / 0.00 ms  (average mu = 0.999, current mu = 0.998) task; 
+System.Management.Automation.RemoteException
+FATAL ERROR: Zone Allocation failed - process out of memory
+----- Native stack trace -----
+System.Management.Automation.RemoteException
+ 1: 00007FF69A5EC44F 
+ 1: 00007FF69A5EC44F 
+ 2: 00007FF69B236217 
+ 2: 00007FF69B236217 
+ 3: 00007FF69ABAFC46 
+ 3: 00007FF69ABAFC46 
+ 4: 00007FF69A9DE41E 
+ 4: 00007FF69BBD4FF0 
+ 5: 00007FF69AA87B43 
+ 5: 00007FF69B9EEAC9 
+ 6: 00007FF69AA85A4A 
+ 6: 00007FF69AAA7E06 
+ 7: 00007FF69B1A9ECF 
+ 7: 00007FF69AA856FF 
+ 8: 00007FF69AA8752B 
+ 8: 00007FF69B1B2553 
+ 9: 00007FF69BA1684F 
+ 9: 00007FF69B1B462A 
+10: 00007FF69A53CD8E 
+10: 00007FF69AC36631 
+11: 00007FF69B28B1A6 
+11: 00007FF69AC3472F 
+12: 00007FF69C4EB0B3 
+12: 000002369FE775FA 
+13: 00007FFB4C5FE957 
+14: 00007FFB4D4E7C1C 
+```
+
+### NO verificado — revisar a mano
+
+- Tests de integración: no se corrieron. `npm run test:int` (levanta PostgreSQL en contenedor, no toca tu base de desarrollo).
+- Nada de esto verifica que la solución tenga **sentido de negocio**. Eso lo revisás vos leyendo `git diff HEAD`.
+
+---
+
+## Turno cerrado 18/10/2026 21:06:31
+
+### Cambios respecto de HEAD
+
+```
+M	.claude/audit/2026-10-18.md
+M	.claude/audit/verificacion-2026-10-18.md
+M	docs/Backend-Architecture/IMPLEMENTACION_NOTIFICACIONES.md
+?? backend/src/subsystems/deadlines/core/application/use-cases/send-daily-notification-digest.use-case.spec.ts
+?? backend/src/subsystems/deadlines/core/application/use-cases/send-daily-notification-digest.use-case.ts
+?? backend/src/subsystems/deadlines/core/application/use-cases/test-support/deadlines-fakes.ts
+```
+
+### Verificado automáticamente
+
+- Compilación (`tsc --noEmit`): **OK**
+- Tests unitarios (`npm test`): **FALLARON**
+
+```
+System.Management.Automation.RemoteException
+FATAL ERROR: Zone Allocation failed - process out of memory
+----- Native stack trace -----
+System.Management.Automation.RemoteException
+FATAL ERROR: Zone Allocation failed - process out of memory
+----- Native stack trace -----
+System.Management.Automation.RemoteException
+ 1: 00007FF7F7F6C44F 
+ 2: 00007FF7F8BB6217 
+ 3: 00007FF7F852FC46 
+ 4: 00007FF7F83CD35C 
+ 5: 00007FF7F835E031 
+ 6: 00007FF7F8407B43 
+ 7: 00007FF7F8405A4A 
+ 8: 00007FF7F8B29ECF 
+ 9: 00007FF7F840752B 
+10: 00007FF7F939684F 
+11: 00007FF7F7EBCD8E 
+12: 00007FF7F8C0B1A6 
+13: 00007FF7F9E6B0B3 
+14: 00007FFB4C5FE957 
+15: 00007FFB4D4E7C1C 
+ 1: 00007FF7F7F6C44F 
+ 2: 00007FF7F8BB6217 
+ 3: 00007FF7F852FC46 
+ 4: 00007FF7F8359E0B 
+ 5: 00007FF7F8359B41 
+ 6: 00007FF7F8354034 
+ 7: 00007FF7F835C0EE 
+ 8: 00007FF7F8390993 
+ 9: 00007FF7F8392955 
+10: 00007FF7F8391DFE 
+11: 00007FF7F83A5361 
+12: 00007FF7F837A1C5 
+13: 00007FF7F83958F2 
+14: 00007FF7F83A6FB6 
+15: 00007FF7F83A7DB7 
+16: 00007FF7F83BC18A 
+17: 00007FF7F8390DCB 
+18: 00007FF7F83909A2 
+19: 00007FF7F8392955 
+20: 00007FF7F8391DFE 
+21: 00007FF7F83A5361 
+22: 00007FF7F837A1C5 
+23: 00007FF7F83958F2 
+24: 00007FF7F83A6FB6 
+25: 00007FF7F83A7DB7 
+26: 00007FF7F83BC18A 
+27: 00007FF7F8390DCB 
+28: 00007FF7F8408F36 
+29: 00007FF7F8407C50 
+30: 00007FF7F8405A4A 
+31: 00007FF7F8B29ECF 
+32: 00007FF7F840752B 
+33: 00007FF7F939684F 
+34: 00007FF7F7EBCD8E 
+35: 00007FF7F8C0B1A6 
+36: 00007FF7F9E6B0B3 
+37: 00007FFB4C5FE957 
+38: 00007FFB4D4E7C1C 
+```
+
+### NO verificado — revisar a mano
+
+- Tests de integración: no se corrieron. `npm run test:int` (levanta PostgreSQL en contenedor, no toca tu base de desarrollo).
+- Nada de esto verifica que la solución tenga **sentido de negocio**. Eso lo revisás vos leyendo `git diff HEAD`.
+
+---
