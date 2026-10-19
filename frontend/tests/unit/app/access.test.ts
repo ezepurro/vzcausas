@@ -14,7 +14,7 @@ describe('canAccess', () => {
        Qué datos devuelve el servidor a cada perfil es del backend. */
     it('todos los perfiles entran al trabajo diario', () => {
         for (const role of ROLES) {
-            for (const route of ['/causas', '/vencimientos', '/clientes']) {
+            for (const route of ['/causas', '/clientes']) {
                 expect(canAccess([role], route)).toBe(true)
             }
         }

@@ -60,7 +60,18 @@
 .vz-rail__action .vz-btn svg { stroke-width: 2.2; }
 .vz-rail__action-label { white-space: nowrap; }
 
-.vz-rail__nav { flex: 1; display: flex; flex-direction: column; padding: 0 12px; overflow-y: auto; }
+/* Cuando el rail no entra en la altura de la ventana, el menú scrollea. La
+   barra es fina y oscura: la de Windows, clara y ancha, desentona sobre el
+   rail (en Mac no se ve, porque la del sistema se oculta sola). */
+.vz-rail__nav {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 0 12px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, .16) transparent;
+}
 .vz-rail__section { display: flex; flex-direction: column; gap: 2px; }
 .vz-rail__section + .vz-rail__section { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--vz-rail-div); }
 

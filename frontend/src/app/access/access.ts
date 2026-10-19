@@ -8,7 +8,6 @@ const EVERYONE: readonly Role[] = ROLES
 export const ROUTE_ACCESS: Record<string, readonly Role[]> = {
     '/inicio': ADMIN_AND_LAWYER,  // cada tablero de Inicio es de un rol (V4 §3.11)
     '/causas': EVERYONE,
-    '/vencimientos': EVERYONE,
     '/clientes': EVERYONE,
     '/modelos': EVERYONE,
     '/usuarios': ADMIN,
