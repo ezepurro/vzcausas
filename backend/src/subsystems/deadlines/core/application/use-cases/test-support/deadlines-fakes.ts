@@ -10,7 +10,7 @@ import {
 } from "../../../domain/ports/sent-notification.repository";
 
 function keyString(key: SentNotificationKey): string {
-  return `${key.caseId}:${key.kind}:${key.referenceDate}:${key.recipientLawyerId ?? "mailbox"}`;
+  return `${key.caseId}:${key.kind}:${key.deadlineKind ?? "none"}:${key.referenceDate}:${key.recipientLawyerId ?? "mailbox"}`;
 }
 
 /**
@@ -53,11 +53,7 @@ export class FakeSentNotificationRepository implements SentNotificationRepositor
   private readonly byKey = new Map<string, SentNotificationRecord>();
 
   seed(key: SentNotificationKey): void {
-    this.byKey.set(keyString(key), {
-      ...key,
-      deadlineKind: null,
-      proceduralActId: null,
-    });
+    this.byKey.set(keyString(key), { ...key, proceduralActId: null });
   }
 
   async existsFor(key: SentNotificationKey): Promise<boolean> {

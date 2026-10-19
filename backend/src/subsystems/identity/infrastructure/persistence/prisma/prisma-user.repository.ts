@@ -200,6 +200,14 @@ export class PrismaUserRepository implements UserRepository {
     return row !== null;
   }
 
+  async findActiveByLawyerId(lawyerId: number): Promise<User | null> {
+    const row = await this.prisma.db.user.findFirst({
+      where: { lawyerId, active: true },
+      include: USER_INCLUDE,
+    });
+    return row ? UserPrismaMapper.toDomain(row) : null;
+  }
+
   async countActiveByRoleName(roleName: string): Promise<number> {
     return this.prisma.db.user.count({
       where: {

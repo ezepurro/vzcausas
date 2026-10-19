@@ -95,6 +95,9 @@ class FakeUserRepository implements UserRepository {
   async existsActiveByLawyerId(): Promise<boolean> {
     throw new Error("not used in this spec");
   }
+  async findActiveByLawyerId(): Promise<User | null> {
+    throw new Error("not used in this spec");
+  }
 }
 
 /**

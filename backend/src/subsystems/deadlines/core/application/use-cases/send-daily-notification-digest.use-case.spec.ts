@@ -79,6 +79,7 @@ describe("SendDailyNotificationDigestUseCase", () => {
       await sentNotifications.existsFor({
         caseId: deadline.caseId,
         kind: deadline.kind,
+        deadlineKind: deadline.origin,
         referenceDate: deadline.dueDate,
         recipientLawyerId: null,
       }),
@@ -103,6 +104,7 @@ describe("SendDailyNotificationDigestUseCase", () => {
     sentNotifications.seed({
       caseId: notice.caseId,
       kind: notice.kind,
+      deadlineKind: notice.origin,
       referenceDate: notice.dueDate,
       recipientLawyerId: null,
     });
@@ -114,6 +116,50 @@ describe("SendDailyNotificationDigestUseCase", () => {
 
     expect(result.mailboxSent).toBe(false);
     expect(emailSender.sent).toHaveLength(0);
+  });
+
+  it("treats a PROCEDURAL_ACT and a HARMFUL_ACT deadline as different notices, even sharing case/kind/date", async () => {
+    // Regression for the gap in `sent_notifications_once_key`
+    // (`schema.prisma:750`) vs. the port's key: without `deadlineKind` in
+    // the key, recording the first of these would make `existsFor` think
+    // the second was already sent too.
+    const { useCase, emailSender, sentNotifications } = build(false);
+    const proceduralDeadline = deadlineNotice({
+      caseId: 99,
+      origin: "PROCEDURAL_ACT",
+      proceduralActId: 1,
+    });
+    const harmfulActDeadline = deadlineNotice({
+      caseId: 99,
+      origin: "HARMFUL_ACT",
+      proceduralActId: null,
+    });
+
+    const result = await useCase.execute({
+      deadlineNotices: [proceduralDeadline, harmfulActDeadline],
+      prescriptionNotices: [],
+    });
+
+    expect(result.mailboxSent).toBe(true);
+    expect(result.mailboxNoticeCount).toBe(2);
+    expect(
+      await sentNotifications.existsFor({
+        caseId: 99,
+        kind: proceduralDeadline.kind,
+        deadlineKind: "PROCEDURAL_ACT",
+        referenceDate: proceduralDeadline.dueDate,
+        recipientLawyerId: null,
+      }),
+    ).toBe(true);
+    expect(
+      await sentNotifications.existsFor({
+        caseId: 99,
+        kind: harmfulActDeadline.kind,
+        deadlineKind: "HARMFUL_ACT",
+        referenceDate: harmfulActDeadline.dueDate,
+        recipientLawyerId: null,
+      }),
+    ).toBe(true);
   });
 
   it("sends a copy to each responsible lawyer with only their own notices", async () => {

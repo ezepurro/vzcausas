@@ -91,6 +91,20 @@ export interface UserRepository {
   ): Promise<boolean>;
 
   /**
+   * Loads the **active** user linked to this lawyer, or `null` if none
+   * (either nobody is linked, or the linked account was deactivated).
+   *
+   * Added for `deadlines`' `LawyerContactLookupPort`
+   * (`identity/infrastructure/acl/deadlines-lawyer-contact-lookup.adapter.ts`,
+   * N-09): resolving "does this lawyer have a user with an email" is
+   * `deadlines`' job, not HU51/HU52's, and the account's email only
+   * lives here. A lawyer holds at most one active account at a time
+   * (same invariant {@link UserRepository.existsActiveByLawyerId}
+   * checks), so there is never more than one to choose between.
+   */
+  findActiveByLawyerId(lawyerId: number): Promise<User | null>;
+
+  /**
    * One page of users, newest-first, for `GET /users` (§3.2).
    *
    * Only active users are returned: a logically deleted one *"no

@@ -41,10 +41,15 @@ function referenceDateOf(notice: Notice): string {
   return isDeadlineNotice(notice) ? notice.dueDate : notice.referenceDate;
 }
 
+function deadlineKindOf(notice: Notice): 'PROCEDURAL_ACT' | 'HARMFUL_ACT' | null {
+  return isDeadlineNotice(notice) ? notice.origin : null;
+}
+
 function keyFor(notice: Notice, recipientLawyerId: number | null): SentNotificationKey {
   return {
     caseId: notice.caseId,
     kind: notice.kind as NotificationKind,
+    deadlineKind: deadlineKindOf(notice),
     referenceDate: referenceDateOf(notice),
     recipientLawyerId,
   };
@@ -54,10 +59,10 @@ function recordFor(
   notice: Notice,
   recipientLawyerId: number | null,
 ): SentNotificationRecord {
-  const key = keyFor(notice, recipientLawyerId);
-  return isDeadlineNotice(notice)
-    ? { ...key, deadlineKind: notice.origin, proceduralActId: notice.proceduralActId }
-    : { ...key, deadlineKind: null, proceduralActId: null };
+  return {
+    ...keyFor(notice, recipientLawyerId),
+    proceduralActId: isDeadlineNotice(notice) ? notice.proceduralActId : null,
+  };
 }
 
 /**

@@ -14,21 +14,31 @@ export const SENT_NOTIFICATION_REPOSITORY = Symbol('SENT_NOTIFICATION_REPOSITORY
  * that restarts prescription makes the case reach 70% again with another
  * `prescriptionExpiresOn` (CA-32.6). Without the date, the second time around
  * nobody would be notified.
+ *
+ * `deadlineKind` is part of the key too (corrected 18/10/2026, matching the
+ * real unique constraint, `sent_notifications_once_key` in
+ * `schema.prisma:750`) — not just extra metadata on the record. Without it, a
+ * case with two deadlines open at once (one `PROCEDURAL_ACT`, one
+ * `HARMFUL_ACT`) that happen to share the same `kind` and `referenceDate`
+ * would have the second one silently treated as "already sent" when it was
+ * never notified. `null` for prescription notices, which have no deadline
+ * kind at all.
  */
 export interface SentNotificationKey {
   caseId: number;
   kind: NotificationKind;
+  deadlineKind: 'PROCEDURAL_ACT' | 'HARMFUL_ACT' | null;
   referenceDate: string;
   recipientLawyerId: number | null;
 }
 
 /**
- * The row inserted once a send is confirmed. Extends the key with the extra
- * columns `cambios-bdd-sprint3.md:248` (N-08) defines for deadline notices —
- * `null` for prescription notices, which have no procedural act.
+ * The row inserted once a send is confirmed. Extends the key with the one
+ * extra column `cambios-bdd-sprint3.md:248` (N-08) defines that is not part
+ * of uniqueness — `null` for prescription notices, which have no procedural
+ * act.
  */
 export interface SentNotificationRecord extends SentNotificationKey {
-  deadlineKind: 'PROCEDURAL_ACT' | 'HARMFUL_ACT' | null;
   proceduralActId: number | null;
 }
 
