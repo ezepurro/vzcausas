@@ -2941,3 +2941,62 @@ M	docs/Backend-Architecture/IMPLEMENTACION_NOTIFICACIONES.md
 - Nada de esto verifica que la solución tenga **sentido de negocio**. Eso lo revisás vos leyendo `git diff HEAD`.
 
 ---
+
+## Turno cerrado 18/10/2026 22:06:01
+
+### Cambios respecto de HEAD
+
+```
+M	.claude/audit/2026-10-18.md
+M	.claude/audit/verificacion-2026-10-18.md
+M	backend/.env.example
+A	backend/src/subsystems/deadlines/core/domain/ports/deadline-detection.port.ts
+A	backend/src/subsystems/deadlines/core/domain/ports/prescription-detection.port.ts
+A	backend/src/subsystems/deadlines/infrastructure/http/internal/daily-run.controller.spec.ts
+A	backend/src/subsystems/deadlines/infrastructure/http/internal/daily-run.controller.ts
+A	backend/src/subsystems/deadlines/infrastructure/http/internal/internal-trigger.guard.spec.ts
+A	backend/src/subsystems/deadlines/infrastructure/http/internal/internal-trigger.guard.ts
+M	docker/.env.example
+M	docs/Backend-Architecture/IMPLEMENTACION_NOTIFICACIONES.md
+?? .github/workflows/deadlines-daily-run.yml
+```
+
+### Verificado automáticamente
+
+- Compilación (`tsc --noEmit`): **OK**
+- Tests unitarios (`npm test`): **OK** — Tests:       872 passed, 872 total
+
+### NO verificado — revisar a mano
+
+- **Contrato de API**: la forma de la respuesta y el status HTTP no se verificaron contra `API_CONTRACT_V3.md`. Eso lo cubren los tests de integración: `npm run test:int`.
+- Tests de integración: no se corrieron. `npm run test:int` (levanta PostgreSQL en contenedor, no toca tu base de desarrollo).
+- Nada de esto verifica que la solución tenga **sentido de negocio**. Eso lo revisás vos leyendo `git diff HEAD`.
+
+---
+
+## Turno cerrado 18/10/2026 22:12:08
+
+### Cambios respecto de HEAD
+
+```
+M	.claude/audit/2026-10-18.md
+M	.claude/audit/verificacion-2026-10-18.md
+M	backend/src/subsystems/deadlines/core/application/use-cases/send-daily-notification-digest.use-case.ts
+M	backend/src/subsystems/identity/identity.module.ts
+M	docs/Backend-Architecture/IMPLEMENTACION_NOTIFICACIONES.md
+?? backend/src/subsystems/deadlines/core/domain/ports/daily-digest-config.port.ts
+?? backend/src/subsystems/deadlines/deadlines.module.ts
+```
+
+### Verificado automáticamente
+
+- Compilación (`tsc --noEmit`): **OK**
+- Tests unitarios (`npm test`): **OK** — Tests:       872 passed, 872 total
+
+### NO verificado — revisar a mano
+
+- Se tocó un caso de uso y **ningún** `.spec.ts`. Un caso de uso sin su spec al lado está incompleto.
+- Tests de integración: no se corrieron. `npm run test:int` (levanta PostgreSQL en contenedor, no toca tu base de desarrollo).
+- Nada de esto verifica que la solución tenga **sentido de negocio**. Eso lo revisás vos leyendo `git diff HEAD`.
+
+---

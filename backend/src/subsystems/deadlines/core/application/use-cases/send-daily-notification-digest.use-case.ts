@@ -1,5 +1,9 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import {
+  TRANSACTION_MANAGER,
+  TransactionManagerPort,
+} from "@shared/domain/transaction-manager.port";
+import {
   NotificationKind,
   PrescriptionNotice,
   UpcomingDeadlineNotice,
@@ -19,6 +23,10 @@ import {
   SentNotificationRecord,
   SentNotificationRepository,
 } from "../../domain/ports/sent-notification.repository";
+import {
+  COPY_TO_RESPONSIBLE_LAWYER,
+  MANAGEMENT_MAILBOX,
+} from "../../domain/ports/daily-digest-config.port";
 
 type Notice = UpcomingDeadlineNotice | PrescriptionNotice;
 
@@ -94,14 +102,17 @@ export class SendDailyNotificationDigestUseCase {
     private readonly lawyerContacts: LawyerContactLookupPort,
     @Inject(SENT_NOTIFICATION_REPOSITORY)
     private readonly sentNotifications: SentNotificationRepository,
-    private readonly managementMailbox: string,
+    @Inject(MANAGEMENT_MAILBOX) private readonly managementMailbox: string,
     /**
      * D-79: config del servidor. De dónde sale exactamente (env var,
      * tabla) todavía no está resuelto — QN-03,
      * `IMPLEMENTACION_NOTIFICACIONES.md`. El caso de uso solo consume el
      * valor ya resuelto; no le importa el origen.
      */
+    @Inject(COPY_TO_RESPONSIBLE_LAWYER)
     private readonly copyToResponsibleLawyer: boolean,
+    @Inject(TRANSACTION_MANAGER)
+    private readonly transactions: TransactionManagerPort,
   ) {}
 
   async execute(
@@ -203,18 +214,23 @@ export class SendDailyNotificationDigestUseCase {
   }
 
   /**
-   * El envío ya se confirmó cuando esto se llama. Si el registro falla
-   * acá, el correo salió pero `sent_notifications` no lo sabe: la
-   * próxima corrida lo va a reintentar y reenviar duplicado. Se loguea
-   * como error de severidad alta en vez de ocultarlo — no hay forma de
-   * resolverlo sin un mecanismo de deduplicación en Gmail que no existe
-   * (riesgo conocido, no resuelto acá).
+   * El envío ya se confirmó cuando esto se llama. Todas las filas de
+   * este destinatario se registran dentro de una sola transacción
+   * (§7.5 de la arquitectura): o quedan todas, o ninguna — nunca un
+   * registro parcial de un lote que en realidad salió completo en un
+   * solo correo. No elimina el riesgo de fondo (el correo salió y la
+   * transacción entera falla igual, así que `sent_notifications` no se
+   * entera y la próxima corrida reenvía duplicado), solo lo acota: antes
+   * el riesgo era por notificación, ahora es por destinatario. Se
+   * loguea como error de severidad alta en vez de ocultarlo.
    */
   private async markSent(notices: Notice[], recipientLawyerId: number | null): Promise<void> {
     try {
-      for (const notice of notices) {
-        await this.sentNotifications.record(recordFor(notice, recipientLawyerId));
-      }
+      await this.transactions.runInTransaction(async () => {
+        for (const notice of notices) {
+          await this.sentNotifications.record(recordFor(notice, recipientLawyerId));
+        }
+      });
     } catch (error) {
       this.logger.error(
         `Aviso enviado (destinatario ${recipientLawyerId ?? "casilla"}) pero no se pudo registrar en sent_notifications — probable reenvío duplicado en la próxima corrida: ${this.describe(error)}`,

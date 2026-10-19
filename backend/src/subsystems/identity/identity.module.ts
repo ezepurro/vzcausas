@@ -24,6 +24,7 @@ import { ROLE_REPOSITORY } from "./core/domain/ports/role.repository";
 import { TOKEN_ISSUER } from "./core/domain/ports/token-issuer.port";
 import { USER_REPOSITORY } from "./core/domain/ports/user.repository";
 import { AccessTokenVerifierAdapter } from "./infrastructure/acl/access-token-verifier.adapter";
+import { DeadlinesLawyerContactLookupAdapter } from "./infrastructure/acl/deadlines-lawyer-contact-lookup.adapter";
 import { PeopleLawyerLookupAdapter } from "./infrastructure/acl/lawyer-lookup.adapter";
 import { DevSeedService } from "./infrastructure/bootstrap/dev-seed.service";
 import { BcryptPasswordHasherAdapter } from "./infrastructure/external/bcrypt-password-hasher.adapter";
@@ -120,6 +121,11 @@ import { PrismaUserRepository } from "./infrastructure/persistence/prisma/prisma
 
     // --- Development bootstrap (no-op outside development) ---
     DevSeedService,
+
+    // Exposes the adapter class itself, not a token binding — binding
+    // it to `LAWYER_CONTACT_LOOKUP` is `deadlines.module.ts`'s call to
+    // make (the port is the consumer's), not this module's.
+    DeadlinesLawyerContactLookupAdapter,
   ],
 
   /**
@@ -128,7 +134,12 @@ import { PrismaUserRepository } from "./infrastructure/persistence/prisma/prisma
    * to cross the module boundary. Exporting it is what makes
    * authentication effective for every route in the application, not
    * just for the ones this subsystem declares.
+   *
+   * `DeadlinesLawyerContactLookupAdapter` is exported for the same
+   * reason `PeopleLawyerLookupAdapter`'s role is reversed in
+   * `lawyer-lookup.adapter.ts`: `identity` is the provider here, not the
+   * consumer — `deadlines` needs it (N-09) to resolve a lawyer's email.
    */
-  exports: [ACCESS_TOKEN_VERIFIER],
+  exports: [ACCESS_TOKEN_VERIFIER, DeadlinesLawyerContactLookupAdapter],
 })
 export class IdentityModule {}

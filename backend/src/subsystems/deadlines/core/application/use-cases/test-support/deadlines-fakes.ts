@@ -1,3 +1,4 @@
+import { TransactionManagerPort } from "@shared/domain/transaction-manager.port";
 import { EmailMessage, EmailSenderPort } from "../../../domain/ports/email-sender.port";
 import {
   LawyerContact,
@@ -66,5 +67,15 @@ export class FakeSentNotificationRepository implements SentNotificationRepositor
 
   has(key: SentNotificationKey): boolean {
     return this.byKey.has(keyString(key));
+  }
+}
+
+/** Passthrough fake, same shape as `cases/core/test-support/case-fakes.ts`'s. */
+export class FakeTransactionManager implements TransactionManagerPort {
+  calls = 0;
+
+  async runInTransaction<T>(work: () => Promise<T>): Promise<T> {
+    this.calls++;
+    return work();
   }
 }

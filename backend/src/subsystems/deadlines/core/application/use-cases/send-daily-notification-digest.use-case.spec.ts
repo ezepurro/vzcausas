@@ -3,6 +3,7 @@ import {
   FakeEmailSender,
   FakeLawyerContactLookup,
   FakeSentNotificationRepository,
+  FakeTransactionManager,
 } from "./test-support/deadlines-fakes";
 import { JurisdictionCode } from "../../domain/value-objects/jurisdiction-code";
 import {
@@ -48,14 +49,16 @@ function build(copyToResponsibleLawyer = true) {
   const emailSender = new FakeEmailSender();
   const lawyerContacts = new FakeLawyerContactLookup();
   const sentNotifications = new FakeSentNotificationRepository();
+  const transactions = new FakeTransactionManager();
   const useCase = new SendDailyNotificationDigestUseCase(
     emailSender,
     lawyerContacts,
     sentNotifications,
     MAILBOX,
     copyToResponsibleLawyer,
+    transactions,
   );
-  return { useCase, emailSender, lawyerContacts, sentNotifications };
+  return { useCase, emailSender, lawyerContacts, sentNotifications, transactions };
 }
 
 describe("SendDailyNotificationDigestUseCase", () => {

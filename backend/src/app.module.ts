@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Logger, Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
@@ -15,6 +15,44 @@ import { PeopleModule } from './subsystems/people/people.module';
 import { LegalParametersModule } from './subsystems/legal-parameters/legal-parameters.module';
 import { CasesModule } from './subsystems/cases/case.module';
 import { ReportingModule } from './subsystems/reporting/reporting.module';
+import { DeadlinesModule } from './subsystems/deadlines/deadlines.module';
+
+/**
+ * `deadlines` (HU30/HU32) needs a Google OAuth client and two secrets
+ * — `GOOGLE_OAUTH_CLIENT_ID/SECRET/REFRESH_TOKEN`, `MANAGEMENT_MAILBOX`,
+ * `INTERNAL_TRIGGER_SECRET` — that most `.env` files do not have yet
+ * (`IMPLEMENTACION_NOTIFICACIONES.md`, paso 11). `env.validation.ts`
+ * cannot require them unconditionally: that would stop the whole app
+ * from booting for anyone without that setup, even when their work has
+ * nothing to do with HU30/HU32.
+ *
+ * So `DeadlinesModule` is imported only when its own configuration is
+ * present, checked directly against `process.env` because this runs
+ * at module-definition time, before `ConfigModule` exists. Without it:
+ * the app boots exactly as it did before this subsystem existed,
+ * `/internal/deadlines/*` is simply not there. With it: the subsystem
+ * is live. Nothing to flip by hand — it just follows whatever is
+ * already in `.env`.
+ */
+const DEADLINES_REQUIRED_VARS = [
+  'GOOGLE_OAUTH_CLIENT_ID',
+  'GOOGLE_OAUTH_CLIENT_SECRET',
+  'GOOGLE_OAUTH_REFRESH_TOKEN',
+  'MANAGEMENT_MAILBOX',
+  'INTERNAL_TRIGGER_SECRET',
+] as const;
+
+const missingDeadlinesVars = DEADLINES_REQUIRED_VARS.filter(
+  (name) => !process.env[name] || process.env[name]!.trim().length === 0,
+);
+
+if (missingDeadlinesVars.length > 0) {
+  Logger.warn(
+    `DeadlinesModule no se carga: faltan ${missingDeadlinesVars.join(', ')} en el entorno. ` +
+      'Normal fuera de un entorno configurado para HU30/HU32 — ver IMPLEMENTACION_NOTIFICACIONES.md, paso 11.',
+    'AppModule',
+  );
+}
 
 /**
  * Root composition module: it imports the configuration module, Prisma,
@@ -61,6 +99,7 @@ import { ReportingModule } from './subsystems/reporting/reporting.module';
     LegalParametersModule,
     CasesModule,
     ReportingModule,
+    ...(missingDeadlinesVars.length === 0 ? [DeadlinesModule] : []),
   ],
   controllers: [],
   providers: [
