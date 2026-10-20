@@ -13,6 +13,7 @@
  * cambió, la completa con `GET /lawyers/{lawyerId}`.
  */
 
+import { useEffect } from 'react'
 import { describe, expect, it } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
 import { http, HttpResponse } from 'msw'
@@ -20,7 +21,9 @@ import { server } from '@/shared/mocks/server'
 import { db } from '@/shared/mocks'
 import { useCurrentUser } from '@/app/providers/AuthContext'
 import { RequireSession } from '@/app/router/RequireSession'
-import { renderWithProviders, signInAs } from '../../setup/render'
+import { RequireAccess } from '@/app/router/RequireAccess'
+import { http as api } from '@/shared/api/http'
+import { renderWithProviders, signInAs, waitForSession } from '../../setup/render'
 
 /** Muestra lo que la sesión dice del usuario. */
 function Probe() {
@@ -131,5 +134,75 @@ describe('sesión al abrir la aplicación', () => {
         })
 
         expect(renewals).toBe(1)
+    })
+})
+
+describe('sesión después de un 403', () => {
+    /* Si a alguien le sacan un rol con la sesión abierta y sigue navegando
+       sin recargar, la primera pantalla que ya no puede ver vuelve con 403.
+       Ese rechazo es la señal: se traen los roles actuales y el rail y las
+       rutas se acomodan solos. El contrato usa el mismo `FORBIDDEN` para "no
+       tenés el rol" y para "no sos el abogado responsable" (D-30), así que a
+       veces se verifica de más: es un pedido, no un problema. */
+
+    function storedRoles(username: string, roles: ('ADMINISTRATOR' | 'LAWYER' | 'SECRETARY')[]) {
+        storedUser(username).roles = roles
+    }
+
+    it('un 403 trae los roles actuales sin recargar', async () => {
+        renderWithProviders(<Probe />, { as: 'fvazquez' })
+        await screen.findByText(/^Roles: ADMINISTRATOR, LAWYER ·/)
+
+        storedRoles('fvazquez', ['LAWYER'])
+        await expect(api.get('/users')).rejects.toMatchObject({ code: 'FORBIDDEN' })
+
+        expect(await screen.findByText(/^Roles: LAWYER ·/)).toBeInTheDocument()
+    })
+
+    it('la pantalla que ya no le corresponde pasa a "sin acceso"', async () => {
+        /** Una pantalla de administración que pide sus datos al montarse. */
+        function UsersScreen() {
+            useEffect(() => {
+                api.get('/users').catch(() => undefined)
+            }, [])
+            return <p>Pantalla de usuarios</p>
+        }
+
+        signInAs('fvazquez')
+        storedRoles('fvazquez', ['LAWYER'])
+        // Simula la sesión vieja: la app arrancó cuando todavía era administrador.
+        server.use(http.post('*/auth/refresh', () => HttpResponse.error(), { once: true }))
+
+        renderWithProviders(<RequireAccess />, {
+            route: '/usuarios',
+            children: [{ path: '/usuarios', element: <UsersScreen /> }],
+        })
+
+        expect(await screen.findByText('No tenés permiso para ver esta sección')).toBeInTheDocument()
+        expect(screen.queryByText('Pantalla de usuarios')).not.toBeInTheDocument()
+    })
+
+    it('varios 403 juntos verifican una sola vez', async () => {
+        renderWithProviders(<Probe />, { as: 'fvazquez' })
+        await waitForSession()
+        storedRoles('fvazquez', ['LAWYER'])
+
+        const renewals = await countingRenewals(async () => {
+            await Promise.allSettled([api.get('/users'), api.get('/users?page=2'), api.get('/users/3')])
+            await screen.findByText(/^Roles: LAWYER ·/)
+        })
+
+        expect(renewals).toBe(1)
+    })
+
+    it('un error que no es 403 no verifica nada', async () => {
+        renderWithProviders(<Probe />, { as: 'fvazquez' })
+        await waitForSession()
+
+        const renewals = await countingRenewals(async () => {
+            await expect(api.get('/users/9999')).rejects.toMatchObject({ code: 'USER_NOT_FOUND' })
+        })
+
+        expect(renewals).toBe(0)
     })
 })
