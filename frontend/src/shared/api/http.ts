@@ -199,6 +199,17 @@ function renewOnce(): Promise<boolean> {
     return renewalInFlight
 }
 
+/**
+ * Renueva ahora, sin esperar a que un pedido vuelva con el token vencido.
+ *
+ * Lo usa el proveedor de sesión para traer los roles actuales al abrir la
+ * aplicación. Pasa por la misma puerta que las renovaciones por `401`: si ya
+ * hay una en curso, se suma a esa en vez de lanzar otra.
+ */
+export function renewSessionNow(): Promise<boolean> {
+    return renewOnce()
+}
+
 /** Marca en el pedido para no reintentarlo más de una vez. */
 interface RetriableConfig extends InternalAxiosRequestConfig {
     vzRetried?: boolean

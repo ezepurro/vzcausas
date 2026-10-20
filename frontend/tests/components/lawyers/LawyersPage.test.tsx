@@ -28,7 +28,7 @@ async function fillLawyer(user: ReturnType<typeof renderPage>['user'], dialog: H
 }
 
 async function openCreate(user: ReturnType<typeof renderPage>['user']) {
-    await user.click(screen.getByRole('button', { name: 'Registrar abogado' }))
+    await user.click(await screen.findByRole('button', { name: 'Registrar abogado' }))
     return screen.getByRole('dialog')
 }
 

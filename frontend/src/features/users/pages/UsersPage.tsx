@@ -1,6 +1,9 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router'
 import { isApiError } from '@/shared/api/ApiError'
 import { useToast } from '@/app/providers/ToastContext'
+import { useAuth, useCurrentUser } from '@/app/providers/AuthContext'
+import { canAccess, homeRoute } from '@/app/access/access'
 import {
     Button,
     Icon,
@@ -67,6 +70,9 @@ const EMPTY_FORM: UserFormValues = {
 
 export function UsersPage() {
     const toast = useToast()
+    const navigate = useNavigate()
+    const currentUser = useCurrentUser()
+    const { updateCurrentUser } = useAuth()
 
     /* Filtros y paginado viven acá y se le pasan al hook: `DataTable` no
        pagina ni filtra, y los parámetros tienen que estar en la clave de caché. */
@@ -234,10 +240,24 @@ export function UsersPage() {
                 onSuccess: (user) => {
                     toast('success', `Usuario ${user.username} actualizado.`)
                     closeModal()
+                    if (user.id === currentUser.id) applyToOwnSession(user)
                 },
                 onError: handleApiError,
             },
         )
+    }
+
+    /**
+     * Quien se modificó a sí mismo ve el cambio en el momento: sus roles, su
+     * ficha y su nombre pasan a la sesión con lo que devolvió el `PATCH`. Si
+     * se sacó el perfil Administrador, esta pantalla ya no es suya y se va a
+     * su inicio, en vez de quedarse mirando "Sin acceso".
+     */
+    function applyToOwnSession(user: User) {
+        const updated = updateCurrentUser(user)
+        if (updated !== null && !canAccess(updated.user.roles, '/usuarios')) {
+            navigate(homeRoute(updated.user.roles), { replace: true })
+        }
     }
 
     /* ---------------- baja ---------------- */

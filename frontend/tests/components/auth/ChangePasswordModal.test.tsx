@@ -1,20 +1,21 @@
 import { describe, expect, it, vi } from 'vitest'
 import { screen } from '@testing-library/react'
 import { http, HttpResponse } from 'msw'
-import { renderWithProviders } from '../../setup/render'
+import { renderWithProviders, waitForSession } from '../../setup/render'
 import { server } from '@/shared/mocks/server'
 import { db, errorBody } from '@/shared/mocks'
 import { ChangePasswordModal } from '@/features/auth/components/ChangePasswordModal'
 
 /** El modal usa el usuario de la sesión: siempre se abre con alguien adentro. */
-function renderModal() {
+async function renderModal() {
     const onClose = vi.fn()
     const result = renderWithProviders(<ChangePasswordModal onClose={onClose} />, { as: 'fvazquez' })
+    await waitForSession()
     return { ...result, onClose }
 }
 
 async function fill(
-    user: ReturnType<typeof renderModal>['user'],
+    user: Awaited<ReturnType<typeof renderModal>>['user'],
     { current, next, repeat }: { current: string; next: string; repeat: string },
 ) {
     await user.type(screen.getByLabelText(/^contraseña actual/i), current)
@@ -26,7 +27,7 @@ const submitButton = () => screen.getByRole('button', { name: 'Cambiar contrase�
 
 describe('ChangePasswordModal', () => {
     it('cambia la contraseña, avisa que la sesión sigue abierta y cierra', async () => {
-        const { user, onClose } = renderModal()
+        const { user, onClose } = await renderModal()
 
         await fill(user, { current: 'password1', next: 'nueva2026', repeat: 'nueva2026' })
         await user.click(submitButton())
@@ -37,7 +38,7 @@ describe('ChangePasswordModal', () => {
     })
 
     it('si la contraseña actual es incorrecta, lo marca en ese campo', async () => {
-        const { user, onClose } = renderModal()
+        const { user, onClose } = await renderModal()
 
         await fill(user, { current: 'equivocada1', next: 'nueva2026', repeat: 'nueva2026' })
         await user.click(submitButton())
@@ -58,7 +59,7 @@ describe('ChangePasswordModal', () => {
                 }),
             ),
         )
-        const { user, onClose } = renderModal()
+        const { user, onClose } = await renderModal()
 
         await fill(user, { current: 'password1', next: 'nueva2026', repeat: 'nueva2026' })
         await user.click(submitButton())

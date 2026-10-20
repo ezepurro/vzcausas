@@ -1,16 +1,13 @@
 import { http } from '@/shared/api/http'
 import type { ApiItem } from '@/api-contract/envelopes'
-import type { RefreshedSession, Session } from '@/features/auth/types/session'
+import type { AuthLawyer, RefreshedSession, Session } from '@/features/auth/types/session'
 import type { ChangePasswordBody, LoginBody } from '@/features/auth/types/credentials'
 
 /**
  * Los endpoints de autenticación.
  *
- * Los tres primeros salen del contrato (§3.1). `refresh` todavía no está
- * publicado ahí: lo está implementando el equipo de backend y la forma de la
- * respuesta la confirmaron ellos. Cuando se agregue al contrato hay que
- * verificar que coincida —sobre todo el objeto `user`, que no tiene la misma
- * forma que el del login—.
+ * Salen del contrato (V4 §3.1). Ojo con `refresh`: su objeto `user` no tiene
+ * la misma forma que el del login.
  *
  * Lo que sigue sin existir: `GET /users/me` y la recuperación de contraseña.
  *
@@ -66,4 +63,24 @@ export async function changePassword(body: ChangePasswordBody): Promise<void> {
 export async function refreshSession(): Promise<RefreshedSession> {
     const response = await http.post<ApiItem<RefreshedSession>>(`${BASE}/refresh`)
     return response.data.data
+}
+
+/** Lo que trae `GET /lawyers/{lawyerId}` (V4 §3.3); la sesión usa una parte. */
+interface LawyerResource extends AuthLawyer {
+    activeCases: number
+    active: boolean
+}
+
+/**
+ * La ficha profesional del usuario de la sesión.
+ *
+ * La renovación trae sólo el `lawyerId`; cuando cambió, la ficha se completa
+ * con esto. Es `GET /lawyers/{lawyerId}`, abierto a cualquier usuario
+ * autenticado. Se pide acá y no con el hook de `lawyers` porque un módulo no
+ * importa de otro, y la sesión sólo necesita cuatro campos.
+ */
+export async function getSessionLawyer(lawyerId: number): Promise<AuthLawyer> {
+    const response = await http.get<ApiItem<LawyerResource>>(`/lawyers/${lawyerId}`)
+    const { id, lastName, firstName, registrationNumber } = response.data.data
+    return { id, lastName, firstName, registrationNumber }
 }

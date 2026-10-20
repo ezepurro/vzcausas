@@ -21,6 +21,7 @@
  */
 
 import { describe, expect, it } from 'vitest'
+import { screen } from '@testing-library/react'
 import { server } from '@/shared/mocks/server'
 import { db, expireIssuedTokens } from '@/shared/mocks'
 import { http, TOKEN_KEY } from '@/shared/api/http'
@@ -30,15 +31,20 @@ import { renderWithProviders } from '../../setup/render'
  * Monta los proveedores sólo para que `AuthProvider` registre sus handlers en
  * `http.ts`. Lo que se renderiza adentro no importa: los pedidos se disparan
  * a mano para no depender de qué pantalla pide qué.
+ *
+ * Espera a que se vea, porque al montarse `AuthProvider` ya renueva una vez
+ * para traer los roles del servidor (ver `sessionSync.test.tsx`). Estos tests
+ * miran lo que pasa después.
  */
-function mountSession(as = 'fvazquez') {
+async function mountSession(as = 'fvazquez') {
     renderWithProviders(<p>Sesión abierta</p>, { as })
+    await screen.findByText('Sesión abierta')
     return { token: () => localStorage.getItem(TOKEN_KEY) }
 }
 
 describe('renovación del token', () => {
     it('un token vencido se renueva solo y el pedido se reintenta', async () => {
-        const session = mountSession()
+        const session = await mountSession()
         const before = session.token()
 
         // El reloj del mock es manual: esto vence los tokens emitidos sin
@@ -53,7 +59,7 @@ describe('renovación del token', () => {
     })
 
     it('si la renovación tampoco se puede, cierra la sesión', async () => {
-        mountSession()
+        await mountSession()
 
         // Vencidos *y* revocados: es lo que hace el backend cuando da la
         // sesión por terminada. `userForRenewal` acepta un token vencido pero
@@ -73,6 +79,8 @@ describe('renovación del token', () => {
            Se cuenta con el bus de eventos de MSW y no pisando el handler con
            `server.use`, así lo que responde el mock sigue siendo lo mismo que
            en los otros tests. */
+        await mountSession()
+
         let renewals = 0
         const count = ({ request }: { request: Request }) => {
             if (request.url.includes('/auth/refresh')) renewals += 1
@@ -80,7 +88,6 @@ describe('renovación del token', () => {
         server.events.on('request:start', count)
 
         try {
-            mountSession()
             expireIssuedTokens()
 
             const responses = await Promise.all([
