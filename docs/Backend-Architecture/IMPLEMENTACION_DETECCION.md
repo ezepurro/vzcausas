@@ -41,6 +41,7 @@ suya; lo que haya que cambiarle se coordina con él.
 | V-15 | **HU51 completa, cadena del acto lesivo incluida (D-67, D-78, D-82).** Decidido con Matusan30. Lo que ya está en `develop` (regla, alta, lectura) se reusa, no se reescribe. | 20/10/2026 |
 | V-16 | **HU51 se hace en dos fases.** A: vencimientos de actos procesales (todas las reglas existen). B: acto lesivo en la detección, en `GET /cases` (D-82) y en los tableros. | 20/10/2026 |
 | V-17 | **`harmfulActOf` se exporta desde `list-cases.use-case.ts` (código de MateoCastro304) en vez de copiarse.** Su parámetro pasa a `HarmfulActFields` (solo los seis campos que lee); el comportamiento no cambia. Así la causa y la detección deciden igual cuándo un amparo tiene plazo. Aprobado por Matusan30 (opción a). | 20/10/2026 |
+| V-18 | **B4 y B5 no son de HU51.** El orden y el filtro de `GET /cases` (D-82) son de la consulta de causas (HU20), y los tableros (CA-41.6) de HU41/HU42. Decidido con Matusan30: no se implementan acá; se deja un comentario PENDIENTE en el código de cada uno. Mientras no se hagan, CA-51.9 queda cumplido para actos procesales y para el detalle de la causa, pero no para el listado ni los tableros en amparos. | 20/10/2026 |
 ---
 
 ## 2. Preguntas abiertas
@@ -116,8 +117,8 @@ Cada paso se commitea por separado (los commits los hace Matusan30).
 | B1 | Regla del vencimiento del acto lesivo (D-78) | Hecho en `develop` por MateoCastro304 (`HarmfulAct`) |
 | B2 | Alta con los datos por fuero (D-67) | Hecho en `develop` |
 | B3 | `harmfulActDeadline` en la lectura, solo en "Iniciada" | Hecho en `develop` (`withDeadlines`, `list-cases.use-case.ts`) |
-| B4 | Orden por urgencia y `openDeadline` de `GET /cases` con el acto lesivo (D-82) | Pendiente: decidir en memoria o en SQL |
-| B5 | Tableros del abogado y del administrador con `kind: HARMFUL_ACT` | Pendiente |
+| B4 | Orden por urgencia y `openDeadline` de `GET /cases` con el acto lesivo (D-82) | **Fuera de alcance (V-18):** es de `GET /cases` (HU20), no de HU51. Comentario dejado en `case-query-prisma.adapter.ts` (nota PENDIENTE de `toListItem`) para quien lo tome |
+| B5 | Tableros del abogado y del administrador con `kind: HARMFUL_ACT` | **Fuera de alcance (V-18):** es de HU41/HU42 (CA-41.6). Comentario dejado en `reporting/core/application/use-cases/dashboard-shared.ts` (`DashboardDeadlineView.kind`) con la forma de reusar la regla |
 | B6 | La detección suma el vencimiento del acto lesivo | Hecho. `OpenDeadlineQueryPort` suma `findActiveAmparosWithHarmfulAct` (amparos activos en "Iniciada" con fecha de acto lesivo); `ListOpenDeadlines` les calcula el vencimiento con `harmfulActOf` + `HarmfulAct.deadline`, lo mismo que usa `ListCases` para `harmfulActDeadline` (V-17). El puerto de `deadlines` no cambió. 6 tests de integración nuevos |
 
 ---
@@ -155,7 +156,7 @@ Cada paso se commitea por separado (los commits los hace Matusan30).
 | 51.6 No revisa archivadas, prescriptas ni dadas de baja | **Integración (A9)** | A5, A9 |
 | 51.7 No cambia nada de la causa | **Por construcción (A4) e integración (A9):** causa y acto iguales después del disparo | A4, A9 |
 | 51.8 Dos corridas el mismo día no duplican | **Integración (A9):** dos corridas el mismo día y tres días de la ventana, un solo preaviso | A9 |
-| 51.9 Coincide con la causa y los tableros | **Integración (A9, B6)** contra `GET /cases/{id}` (`currentState` y `harmfulActDeadline`) y el tablero del abogado para actos procesales. **Pendiente:** los tableros todavía no listan el acto lesivo (B5) y el orden de `GET /cases` no lo considera (B4) | A9, B4, B5, B6 |
+| 51.9 Coincide con la causa y los tableros | **Integración (A9, B6)** contra `GET /cases/{id}` (`currentState` y `harmfulActDeadline`) y el tablero del abogado para actos procesales. **Pendiente, fuera de HU51 (V-18):** los tableros todavía no listan el acto lesivo (B5, HU41/HU42) y el orden de `GET /cases` no lo considera (B4, HU20) | A9, B6 |
 
 ### Estado de los criterios — HU52
 
