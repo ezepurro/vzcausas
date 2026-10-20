@@ -675,3 +675,47 @@ M	frontend/tests/components/auth/sessionSync.test.tsx
 - Nada de esto verifica que la solución tenga **sentido de negocio**. Eso lo revisás vos leyendo `git diff HEAD`.
 
 ---
+
+## Turno cerrado 20/10/2026 18:11:17
+
+Sin cambios en el working tree respecto de HEAD.
+
+## Turno cerrado 20/10/2026 18:18:00
+
+### Cambios respecto de HEAD
+
+```
+M	.claude/audit/verificacion-2026-10-20.md
+```
+
+### Verificado automáticamente
+
+- Compilación: **omitida**, no se tocó `backend/src/`.
+
+### NO verificado — revisar a mano
+
+- Tests unitarios: **no se corrieron** en este hook. Correlos con `npm test` en `backend/`.
+- Tests de integración: no se corrieron. `npm run test:int` (levanta PostgreSQL en contenedor, no toca tu base de desarrollo).
+- Nada de esto verifica que la solución tenga **sentido de negocio**. Eso lo revisás vos leyendo `git diff HEAD`.
+
+---
+
+## Turno cerrado 20/10/2026 20:03:44
+
+### Cambios respecto de HEAD
+
+```
+M	.claude/audit/verificacion-2026-10-20.md
+```
+
+### Verificado automáticamente
+
+- Compilación: **omitida**, no se tocó `backend/src/`.
+
+### NO verificado — revisar a mano
+
+- Tests unitarios: **no se corrieron** en este hook. Correlos con `npm test` en `backend/`.
+- Tests de integración: no se corrieron. `npm run test:int` (levanta PostgreSQL en contenedor, no toca tu base de desarrollo).
+- Nada de esto verifica que la solución tenga **sentido de negocio**. Eso lo revisás vos leyendo `git diff HEAD`.
+
+---

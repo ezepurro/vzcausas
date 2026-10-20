@@ -1,6 +1,6 @@
 import { http } from '@/shared/api/http'
 import type { ApiItem } from '@/api-contract/envelopes'
-import type { Case, CreateCaseBody } from '@/features/cases/types/case'
+import type { Case, CaseFolder, CreateCaseBody } from '@/features/cases/types/case'
 import type {  ApiList } from '@/api-contract/envelopes'
 import type { CaseListParams } from '@/features/cases/types/case'
 import type { Jurisdiction } from '@/features/legal-params'
@@ -54,5 +54,15 @@ export async function getCaseTimeline(id: number): Promise<TimelineEntry[]> {
 /** Marca la causa como prescripta (HU33). Devuelve la causa ya cambiada (D-54). */
 export async function declarePrescription(id: number, body: DeclarePrescriptionBody): Promise<Case> {
     const response = await http.post<ApiItem<Case>>(`${BASE}/${id}/prescription`, body)
+    return response.data.data
+}
+
+/**
+ * Crea la carpeta de una causa que no la tiene, o la reintenta si falló
+ * (HU39, `POST /cases/{caseId}/folder`). Es idempotente: sobre una carpeta
+ * creada o en creación devuelve la que hay. Devuelve sólo el `folder`.
+ */
+export async function createCaseFolder(id: number, copyTemplates = true): Promise<CaseFolder> {
+    const response = await http.post<ApiItem<CaseFolder>>(`${BASE}/${id}/folder`, { copyTemplates })
     return response.data.data
 }

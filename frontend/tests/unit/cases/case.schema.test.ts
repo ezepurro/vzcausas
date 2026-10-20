@@ -33,6 +33,9 @@ const CRIMINAL: CaseFormValues = {
     harmfulActTermDayType: 'BUSINESS',
     administrativeRemedyExhaustedOn: '',
     courtFeePaid: false,
+    // Carpeta en Drive y modelos (HU-39, HU-40), con los valores por defecto del alta.
+    createFolder: true,
+    copyTemplates: true,
 }
 
 const AMPARO: CaseFormValues = {

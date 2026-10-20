@@ -35,3 +35,31 @@ export function folderNoticeSuffix(folder: CaseFolder | null): string {
 export function folderFailed(folder: CaseFolder | null): boolean {
     return folder?.status === 'ERROR'
 }
+
+/** La ruta de una carpeta partida para mostrarla: el nombre y dónde está. */
+export interface FolderLocation {
+    /** La carpeta de la causa: su carátula. */
+    name: string
+    /** Las carpetas que la contienen, sin la raíz: `['Ríos, Malena', 'Penal']`. */
+    parents: string[]
+}
+
+/**
+ * Parte `folder.path` (`/VZ Causas/{abogado}/{fuero}/{carátula}`, D-61) en el
+ * nombre de la carpeta y las que la contienen. La carátula puede tener barras
+ * ("PAZ, Ezequiel c/ APROSS"), así que todo lo que sigue al fuero es el
+ * nombre. Una ruta que no tenga esa forma se muestra entera como nombre.
+ */
+export function splitFolderPath(path: string): FolderLocation {
+    const [, , lawyer, jurisdiction, ...caption] = path.split('/')
+    const name = caption.join('/').trim()
+    if (!lawyer || !jurisdiction || !name) return { name: path, parents: [] }
+    return { name, parents: [lawyer, jurisdiction] }
+}
+
+/** "6 modelos copiados", "1 modelo copiado" o `null` si no se copió ninguno. */
+export function copiedTemplatesText(folder: CaseFolder): string | null {
+    const n = folder.templatesCopied
+    if (n === 0) return null
+    return n === 1 ? '1 modelo copiado' : `${n} modelos copiados`
+}

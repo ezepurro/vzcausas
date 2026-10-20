@@ -9,10 +9,12 @@ import { formatDate, todayIsoDate } from '@/shared/lib/dates'
 import { formatPersonFullName } from '@/shared/lib/personName'
 import { useCase } from '@/features/cases/api/useCase'
 import { useCaseTimeline } from '@/features/cases/api/useCaseTimeline'
+import { useCreateCaseFolder } from '@/features/cases/api/useCreateCaseFolder'
 import { useDeclarePrescription } from '@/features/cases/api/useDeclarePrescription'
 import { useRegisterInterruptiveAct } from '@/features/cases/api/useRegisterInterruptiveAct'
 import { CaseHeader } from '@/features/cases/components/CaseHeader'
 import { CaseFacts } from '@/features/cases/components/CaseFacts'
+import { CaseFolderCard } from '@/features/cases/components/CaseFolderCard'
 import { CaseDetailSkeleton } from '@/features/cases/components/CaseSkeletons'
 import { CaseTimeline } from '@/features/cases/components/CaseTimeline'
 import { ClientCard } from '@/features/cases/components/ClientCard'
@@ -50,6 +52,9 @@ import { toPrescriptionDeclarationFormErrors } from '@/features/cases/utils/toPr
  * interruptivo" (HU31) y "Marcar prescripta" (HU33). Lo demás que el
  * prototipo pone en esa fila (pago de tasa, carátula, expediente), "Modificar
  * causa" y "Dar de baja" son de otras historias (V4 §8.3) y no se dibujan.
+ *
+ * Al costado, la carpeta de la causa en Drive (HU39), con la que se crea o se
+ * reintenta si falta.
  */
 export function CaseDetailPage() {
     const { caseId: param } = useParams()
@@ -103,6 +108,7 @@ function CaseDetail({ case: c }: { case: Case }) {
     const timeline = useCaseTimeline(c.id)
     const registerInterruptive = useRegisterInterruptiveAct(c.id)
     const declarePrescription = useDeclarePrescription(c.id)
+    const createFolder = useCreateCaseFolder(c.id)
     const [modal, setModal] = useState<ModalState>(null)
 
     /* Sólo el abogado responsable registra los actos de esta causa, procesales
@@ -236,6 +242,16 @@ function CaseDetail({ case: c }: { case: Case }) {
                 <div className="vz-case-detail__aside">
                     <ClientCard client={c.client} />
                     <CaseFacts case={c} />
+                    <CaseFolderCard
+                        folder={c.folder}
+                        creating={createFolder.isPending}
+                        error={
+                            createFolder.isError
+                                ? isApiError(createFolder.error) ? createFolder.error.message : 'Ocurrió un error inesperado.'
+                                : null
+                        }
+                        onCreate={() => createFolder.mutate()}
+                    />
                 </div>
             </div>
 

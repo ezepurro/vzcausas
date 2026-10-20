@@ -124,11 +124,13 @@ describe('CasesPage', () => {
         })
 
         /* Sin criterio de aceptación: TESTING.md §7 pide el estado de error. Leer
-           causas está abierto a cualquier perfil, así que el rechazo se fuerza. */
+           causas está abierto a cualquier perfil, así que el rechazo se fuerza.
+           Con un 400 y no un 403: un 403 dispara la verificación de la sesión
+           (`setForbiddenHandler`), y un 5xx se reintenta. */
         it('si el servidor rechaza la consulta, muestra el error', async () => {
             server.use(
                 http.get('*/cases', () =>
-                    HttpResponse.json(errorBody('FORBIDDEN', 'Rechazo de prueba.'), { status: 403 }),
+                    HttpResponse.json(errorBody('INVALID_REQUEST', 'Rechazo de prueba.'), { status: 400 }),
                 ),
             )
             renderPage()

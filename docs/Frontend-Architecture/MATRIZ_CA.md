@@ -183,7 +183,7 @@ que corresponde al servidor: el frontend muestra lo que recibe y no lo prueba.
 | CA-41.3 | `components/dashboard/HomePage.lawyer.test.tsx` (componentes) |
 | CA-41.4 | `components/dashboard/HomePage.lawyer.test.tsx` (componentes) |
 | CA-41.5 | `components/dashboard/HomePage.lawyer.test.tsx` (componentes) |
-| CA-41.7 | `components/dashboard/HomePage.administrator.test.tsx` (componentes)<br>`components/dashboard/HomePage.lawyer.test.tsx` (componentes) |
+| CA-41.7 | `components/dashboard/HomePage.administrator.test.tsx` (componentes)<br>`components/dashboard/HomePage.lawyer.test.tsx` (componentes)<br>`components/dashboard/HomePage.roles.test.tsx` (componentes) |
 | CA-41.8 | `components/dashboard/HomePage.lawyer.test.tsx` (componentes) |
 | CA-41.10 | `unit/app/access.test.ts` (unit) |
 | CA-41.12 | `components/dashboard/HomePage.lawyer.test.tsx` (componentes) |

@@ -269,3 +269,61 @@
 
   .vz-due__date { font-size: 20px; }
 }
+
+/* ─────────── carpeta en Drive (detalle) ─────────── */
+.vz-case-folder { display: flex; flex-direction: column; gap: 12px; }
+.vz-case-folder__head { display: flex; align-items: center; gap: 12px; min-width: 0; }
+/* El ícono toma el tono del estado: verde creada, gris sin carpeta, rojo con error. */
+.vz-case-folder__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--vz-r-sm);
+  background: var(--vz-sunken);
+  color: var(--vz-muted);
+}
+.vz-case-folder--created .vz-case-folder__icon,
+.vz-case-folder--creating .vz-case-folder__icon { background: var(--vz-primary-soft); color: var(--vz-primary-hi); }
+.vz-case-folder--error .vz-case-folder__icon { background: var(--vz-danger-bg); color: var(--vz-danger); }
+.vz-case-folder__id { min-width: 0; }
+/* La carátula puede ser larga: corta entre palabras y a lo sumo en tres renglones. */
+.vz-case-folder__name {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--vz-ink);
+}
+.vz-case-folder__where { margin-top: 3px; font-size: 12.5px; color: var(--vz-muted); }
+.vz-case-folder__sep { margin: 0 6px; color: var(--vz-faint); }
+.vz-case-folder__status { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.vz-case-folder__meta { font-size: 12.5px; color: var(--vz-muted); }
+.vz-case-folder__meta + .vz-case-folder__meta::before { content: "·"; margin-right: 10px; color: var(--vz-faint); }
+.vz-case-folder__note { margin: 0; font-size: 13px; line-height: 1.45; color: var(--vz-muted); }
+.vz-case-folder__error {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--vz-danger-bd);
+  border-radius: var(--vz-r-sm);
+  background: var(--vz-danger-bg);
+  color: var(--vz-danger);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.vz-case-folder__error svg { flex: 0 0 auto; margin-top: 1px; }
+/* Mientras se crea, el punto del estado late. */
+.vz-case-folder--creating .vz-dot { animation: vz-folder-pulse 1.4s ease-in-out infinite; }
+@keyframes vz-folder-pulse { 50% { opacity: .25; } }
+@media (prefers-reduced-motion: reduce) {
+  .vz-case-folder--creating .vz-dot { animation: none; }
+}
