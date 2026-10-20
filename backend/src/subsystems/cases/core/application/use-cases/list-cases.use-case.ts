@@ -72,8 +72,25 @@ export function withDeadlines(item: CaseListItem, today: Date): CaseListItem {
   };
 }
 
-/** The harmful act of an amparo, or `null` outside it or while its date was not loaded. */
-function harmfulActOf(item: CaseListItem): HarmfulAct | null {
+/** The fields of a case that {@link harmfulActOf} reads. */
+export type HarmfulActFields = Pick<
+  CaseListItem,
+  | 'jurisdiction'
+  | 'harmfulActDate'
+  | 'harmfulActRenews'
+  | 'harmfulActRenewalDays'
+  | 'harmfulActTermDays'
+  | 'harmfulActTermDayType'
+>;
+
+/**
+ * The harmful act of an amparo, or `null` outside it or while its date was not loaded.
+ *
+ * Exported for the daily deadline check (HU51, `list-open-deadlines.use-case.ts`),
+ * so the case and the check decide the same way when an amparo has a term to
+ * file it (CA-51.9). It takes only the fields it reads, not a whole `CaseListItem`.
+ */
+export function harmfulActOf(item: HarmfulActFields): HarmfulAct | null {
   if (
     item.jurisdiction !== JurisdictionCode.AMPARO ||
     item.harmfulActDate === null ||

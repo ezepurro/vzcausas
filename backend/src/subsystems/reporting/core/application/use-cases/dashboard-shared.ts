@@ -8,7 +8,21 @@ export const DUE_SOON_MAX_BUSINESS_DAYS = 5;
 
 export type DashboardDeadlineView = {
   caseId: number;
-  /** Only procedural acts for now: the amparo's harmful act is pending `harmfulActDeadline` (CA-41.6). */
+  /**
+   * Only procedural acts for now: the amparo's harmful act is pending `harmfulActDeadline` (CA-41.6).
+   *
+   * PENDIENTE para quien tenga HU-41/HU-42 (dejado el 20/10/2026 desde HU-51):
+   * el contrato pide que los dos tableros listen también el vencimiento del
+   * acto lesivo, con `kind: 'HARMFUL_ACT'`, y que cuente en `summary`
+   * (V4 §3.7 "Dónde se ve", D-78). La verificación diaria (HU-51) **ya lo
+   * avisa por correo**, así que hasta que esto se haga el correo dice algo que
+   * el tablero no muestra (CA-51.9). Para no reescribir la regla:
+   * `harmfulActOf` (exportado de `cases/core/application/use-cases/list-cases.use-case.ts`)
+   * + `HarmfulAct.deadline(today)`, solo en un amparo que sigue en "Iniciada";
+   * es lo mismo que usan `ListCases` y `ListOpenDeadlines`. La consulta
+   * (`DashboardCaseRow`) tiene que traer los `harmfulAct*` y si el estado es
+   * el inicial. Ver `IMPLEMENTACION_DETECCION.md`, B5.
+   */
   kind: 'PROCEDURAL_ACT';
   sacNumber: string | null;
   caption: string;
