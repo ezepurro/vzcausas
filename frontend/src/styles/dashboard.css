@@ -140,6 +140,7 @@
   max-height: 40rem;
   overflow-y: auto;
   scrollbar-width: thin;
+  container-type: inline-size;
 }
 .vz-dash-line__item,
 .vz-dash-line__today {
@@ -237,6 +238,17 @@
   font-weight: 600;
   color: var(--vz-primary-hi);
   white-space: nowrap;
+}
+
+/* A todo el ancho ("Mi día", fila propia) la tarjeta va en un solo renglón:
+   carátula y estado, chip y "Ver causa". La consulta es al ancho de la lista,
+   así "Estudio", con la lista en la columna ancha, conserva las dos filas.
+   Va después de las reglas de la tarjeta para poder pisarlas. */
+@container (min-width: 60rem) {
+  .vz-dash-line__card { display: flex; align-items: center; gap: 16px; }
+  .vz-dash-line__head { flex: 1; min-width: 0; align-items: center; }
+  .vz-dash-line__foot { flex: 0 0 auto; margin-top: 0; }
+  .vz-dash-line__foot > span:empty { display: none; }
 }
 
 /* La marca de hoy: entre lo vencido y lo que viene, viendo todos. */
@@ -501,6 +513,32 @@
 .vz-dash__side { min-width: 0; display: flex; flex-direction: column; gap: 16px; }
 .vz-dash__main { flex: 2 1 34rem; }
 .vz-dash__side { flex: 1 1 20rem; }
+
+/* "Mi día": el alto de la fila lo pone la agenda. La columna angosta sale del
+   flujo para no empujarlo, y sus dos paneles se reparten ese alto: con pocas
+   filas se estiran por igual; con muchas, cada lista se desplaza adentro. El
+   mínimo deja ver siempre el título y una fila. Sólo con las dos columnas
+   lado a lado (el mismo corte que "Estudio"); apiladas, cada panel con su
+   alto, como siempre. */
+.vz-dash__row--filled { align-items: stretch; container-type: inline-size; }
+.vz-dash__side-fill { display: flex; flex-direction: column; gap: 16px; }
+@container (min-width: 55rem) {
+  .vz-dash__row--filled > .vz-dash__side { position: relative; }
+  .vz-dash__row--filled .vz-dash__side-fill { position: absolute; inset: 0; }
+  .vz-dash__row--filled .vz-dash__side-fill > .vz-panel {
+    flex: 1 1 auto;
+    min-height: 12rem;
+    display: flex;
+    flex-direction: column;
+  }
+  .vz-dash__row--filled .vz-dash__side-fill .vz-dash-rows {
+    flex: 1;
+    min-height: 0;
+    max-height: none;
+    overflow-y: auto;
+    scrollbar-width: thin;
+  }
+}
 
 /* "Estudio": los vencimientos miden lo mismo que la columna de al lado
    (alertas de prescripción + carga del equipo), y la lista corre adentro.

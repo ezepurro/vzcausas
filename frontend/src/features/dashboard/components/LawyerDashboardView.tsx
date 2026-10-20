@@ -34,25 +34,30 @@ export function LawyerDashboardView({ dashboard, onOpen }: LawyerDashboardViewPr
                 tiles={tiles}
                 aside={<FirstDeadline deadline={dashboard.deadlines[0]} onOpen={onOpen} />}
             />
-            <div className="vz-dash__row">
+            {/* Primero la agenda, como en el prototipo, con las dos listas cortas al
+                lado; la línea de plazos va en su propia fila, a todo el ancho, para
+                que no deje un hueco bajo la columna angosta. */}
+            <div className="vz-dash__row vz-dash__row--filled">
                 <div className="vz-dash__main">
-                    {/* Primero la agenda, como en el prototipo; la lista de plazos va
-                        debajo para que, con muchas causas, no la empuje fuera de vista. */}
                     <DeadlineCalendar today={dashboard.date} deadlines={dashboard.deadlines} onOpen={onOpen} />
-                    <DeadlinesPanel
-                        title="Mis plazos abiertos"
-                        today={dashboard.date}
-                        deadlines={dashboard.deadlines}
-                        urgency={urgency}
-                        onUrgencyChange={setUrgency}
-                        onOpen={onOpen}
-                    />
                 </div>
                 <div className="vz-dash__side">
-                    <PrescriptionAlertsPanel alerts={dashboard.prescriptionAlerts} onOpen={onOpen} />
-                    <CasesToAdvancePanel cases={dashboard.casesToAdvance} onOpen={onOpen} />
+                    {/* El alto de la fila lo pone la agenda: las dos listas se lo
+                        reparten y, si no entran, cada una se desplaza adentro. */}
+                    <div className="vz-dash__side-fill">
+                        <PrescriptionAlertsPanel alerts={dashboard.prescriptionAlerts} onOpen={onOpen} />
+                        <CasesToAdvancePanel cases={dashboard.casesToAdvance} onOpen={onOpen} />
+                    </div>
                 </div>
             </div>
+            <DeadlinesPanel
+                title="Mis plazos abiertos"
+                today={dashboard.date}
+                deadlines={dashboard.deadlines}
+                urgency={urgency}
+                onUrgencyChange={setUrgency}
+                onOpen={onOpen}
+            />
         </div>
     )
 }

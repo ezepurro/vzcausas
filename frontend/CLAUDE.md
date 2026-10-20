@@ -85,7 +85,7 @@ Alcance según V4 (D-45): HU 27, 30, 31, 32, 33, 34, 35, 39, 40, 41, 42, 51 y
 | 33 | "Marcar prescripta" (`POST /cases/{caseId}/prescription`) | `cases/` | **Hecha.** Modal en el detalle (`PrescriptionDeclarationModal`), con `cases.declarePrescription` en `ACTION_ACCESS`: la Secretaría no ve el botón. En una causa ya prescripta no se ofrecen ni éste ni el acto interruptivo |
 | 34, 35 | Modelos formales: alta con archivo, listado, detalle y descarga | `documents/` | Pendiente |
 | 39, 40 | Carpeta de la causa en Drive y copia de modelos (`createFolder`, `copyTemplates`, `POST /cases/{caseId}/folder`) | `cases/`, `documents/` | Pendiente. El alta todavía no manda las casillas: el backend crea la carpeta por defecto (D-59) |
-| 41, 42 | Tableros "Mi día" y "Estudio" | `dashboard/` | **Hecha.** `HomePage` en `/inicio`. "Mi día": la agenda del mes primero y, debajo, "Mis plazos abiertos"; "Estudio": "Vencimientos del estudio" y "Carga del equipo". Los plazos se muestran como la línea de vencimientos del prototipo (`DeadlinesPanel`) |
+| 41, 42 | Tableros "Mi día" y "Estudio" | `dashboard/` | **Hecha.** `HomePage` en `/inicio`. "Mi día": la agenda del mes con las dos listas cortas al lado y, debajo y a todo el ancho, "Mis plazos abiertos"; "Estudio": "Vencimientos del estudio" y "Carga del equipo". Los plazos se muestran como la línea de vencimientos del prototipo (`DeadlinesPanel`) |
 | 30, 51, 52 | Avisos por correo y verificación diaria | — | Sin trabajo de front: es un proceso del servidor |
 
 Lo que V4 cambió en lo ya hecho de los Sprints 1 y 2 **ya está aplicado en el
