@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { queryClient } from '@/shared/api/queryClient'
-import { renewSessionNow, setRenewHandler, setUnauthenticatedHandler } from '@/shared/api/http'
+import {
+    renewSessionNow,
+    setForbiddenHandler,
+    setRenewHandler,
+    setUnauthenticatedHandler,
+} from '@/shared/api/http'
 import { isApiError } from '@/shared/api/ApiError'
 import {
     clearStoredSession,
@@ -159,21 +164,45 @@ export function AuthProvider({ children }: Props) {
         return updated
     }, [])
 
+    /* La verificación que disparó un 403, mientras dura. */
+    const forbiddenSync = useRef<Promise<unknown> | null>(null)
+
     /**
-     * Un token vencido puede aparecer en cualquier pantalla, no sólo al
-     * entrar. Estos dos avisos le dicen al cliente HTTP qué hacer: primero
-     * intentar renovar y, si no se puede, cerrar la sesión. La guarda del
-     * router hace el resto: nadie se queda mirando errores que no puede
-     * resolver.
+     * Un `403` puede querer decir que a la persona le sacaron un rol con la
+     * sesión abierta: se traen los roles actuales, y el rail y las rutas se
+     * acomodan solos. Si una pantalla dispara varios pedidos y vuelven todos
+     * con `403`, se verifica una sola vez: los que llegan mientras tanto no
+     * lanzan otra.
+     *
+     * El contrato usa el mismo `FORBIDDEN` para "no tenés el rol" y para "no
+     * sos el abogado responsable" (D-30), así que a veces se verifica de más.
+     * Es un pedido, no un problema.
+     */
+    const syncAfterForbidden = useCallback(() => {
+        if (forbiddenSync.current !== null) return
+        forbiddenSync.current = syncSession().finally(() => {
+            forbiddenSync.current = null
+        })
+    }, [syncSession])
+
+    /**
+     * Un token vencido o un permiso que ya no se tiene pueden aparecer en
+     * cualquier pantalla, no sólo al entrar. Estos avisos le dicen al cliente
+     * HTTP qué hacer: ante un `401`, primero intentar renovar y, si no se
+     * puede, cerrar la sesión; ante un `403`, traer los roles actuales. La
+     * guarda del router hace el resto: nadie se queda mirando errores que no
+     * puede resolver.
      */
     useEffect(() => {
         setUnauthenticatedHandler(signOut)
         setRenewHandler(renew)
+        setForbiddenHandler(syncAfterForbidden)
         return () => {
             setUnauthenticatedHandler(null)
             setRenewHandler(null)
+            setForbiddenHandler(null)
         }
-    }, [signOut, renew])
+    }, [signOut, renew, syncAfterForbidden])
 
     /**
      * Al abrir la aplicación con una sesión guardada, sus roles pueden estar
