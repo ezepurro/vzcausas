@@ -1,0 +1,111 @@
+# Implementación de la detección diaria (HU51, HU52) — Bitácora
+
+Mismo formato que `IMPLEMENTACION_NOTIFICACIONES.md`, `IMPLEMENTACION_AUTH.md`
+e `IMPLEMENTACION_CALIFICACIONES.md`.
+
+Cubre **HU51** (Verificar vencimiento de plazo de presentación, VZ-176) y
+**HU52** (Verificar plazo de prescripción, VZ-175), épica EP-06, Sprint 3.
+
+Las dos historias son la mitad "Verificar" del subsistema `deadlines`. La
+otra mitad, "Avisar" (HU30, HU32), es de mmachuca y ya está hecha: ver
+`IMPLEMENTACION_NOTIFICACIONES.md`. Por eso los identificadores van con
+sufijo `V` (de "Verificar"): `V-xx` decisiones, `QV-xx` preguntas, `CV-xx`
+contradicciones, `TV-xx` deuda. Así no chocan con los `N-xx` de esa bitácora.
+
+**Regla de convivencia.** Lo que hizo mmachuca no se modifica sin preguntar
+antes: el digest, el adaptador de Gmail, `sent_notifications`, el controller
+del disparo diario, sus fakes y sus tests. Esta bitácora tampoco actualiza la
+suya; lo que haya que cambiarle se coordina con él.
+
+---
+
+## 1. Decisiones cerradas
+
+| Id | Decisión | Fecha |
+| --- | --- | --- |
+| V-01 | **Se empieza por HU52.** Todas sus reglas ya existen en `cases` y tienen tests (`summarizePrescription`, `cases/core/domain/prescription.ts:85`), y no tiene preguntas de negocio abiertas. HU51 depende del vencimiento del acto lesivo (D-78), que no está implementado ni decidido de quién es (QV-01). | 20/10/2026 |
+| V-02 | **Plazo cumplido → solo `PRESCRIPTION_EXPIRED`, nunca también la alerta.** La alerta del 70 % corresponde a los días entre el umbral y el vencimiento. Una causa que el sistema ve por primera vez ya prescripta recibe solo el aviso de cumplida. | 20/10/2026 |
+| V-03 | **La detección es de solo lectura.** No escribe en ninguna tabla, ni en `cases` ni en `daily_job_runs`. "Registrar qué se avisó" (CA-51.7, CA-52.7) lo hace el digest en `sent_notifications`, después de enviar. CA-52.5 se cumple por construcción: el caso de uso no tiene ningún puerto de escritura. | 20/10/2026 |
+| V-04 | **Las reglas se reusan de `cases`, no se reescriben.** El 70 %, la calificación que prescribe primero, el acto interruptivo más reciente, la causa activa (`ACTIVE_CASE`, `case-query-prisma.adapter.ts:274`) y los días hábiles son de `cases`. `deadlines` solo clasifica el resultado. Es lo que garantiza que la detección coincida con la causa y los tableros (D-72, CA-51.9). | 20/10/2026 |
+| V-05 | **El adaptador ACL vive en `cases/infrastructure/acl/`**, del lado del proveedor. Es la práctica del repo (`legal-parameters-active-cases-counter.adapter.ts:11`, `identity/infrastructure/acl/deadlines-lawyer-contact-lookup.adapter.ts`), aunque `ARQUITECTURA_BACKEND_V1.md` §6.2 lo ubique del lado del consumidor (CV-04). | 20/10/2026 |
+| V-06 | **El puerto de `deadlines` recibe `today` y devuelve fechas en ISO.** `today` lo elige la detección, así toda la corrida usa una sola fecha. La conversión a `YYYY-MM-DD` la hace el adaptador ACL con `toIsoDate`, porque `deadlines/core` no puede importar infraestructura y `PrescriptionNotice.referenceDate` ya es `string`. | 20/10/2026 |
+| V-07 | **`cases` expone un caso de uso (`ListActivePrescriptions`), no una consulta suelta.** Hay una regla que aplicar sobre los datos (la prescripción), y `ARQUITECTURA_BACKEND_V1.md` §6.3 pide que un subsistema exponga casos de uso. El precedente sin caso de uso (`legal-parameters-active-cases-counter.adapter.ts:20-24`) se justifica justamente porque allí no hay regla. | 20/10/2026 |
+| V-08 | **Consulta propia en `cases` (`CriminalPrescriptionQueryPort`)**, no un método más en `CaseQueryPort`, para no tocar el puerto y el adaptador de HU20/HU22. | 20/10/2026 |
+| V-09 | **Cambiar los meses de una calificación vuelve a enviar la alerta** si la causa sigue arriba del 70 %: cambia `expiresOn`, que es parte de la clave de `sent_notifications`. El contrato solo menciona el acto interruptivo (`API_CONTRACT_V4.md:7017-7019`), pero es información nueva y se acepta. | 20/10/2026 |
+| V-10 | **La primera corrida en producción manda junto todo lo que ya está en alerta.** Aceptado. | 20/10/2026 |
+| V-11 | **Fakes propios** en `deadlines/core/application/use-cases/test-support/detection-fakes.ts`, con su propio reloj falso. No se toca `deadlines-fakes.ts`, que es de mmachuca. | 20/10/2026 |
+| V-12 | **(HU51) Preaviso en ventana:** se detecta mientras faltan entre 1 y N días hábiles, no solo el día exacto. El digest manda una sola vez por la clave de `sent_notifications` (`schema.prisma:750`). Cubre el día sin corrida y el plazo abierto con menos de N días. | 20/10/2026 |
+| V-13 | **(HU51) Los vencidos se clasifican pero no se avisan** (D-64). La función de dominio los distingue, así CA-51.3 tiene test; se cuentan en el log, sin aviso. | 20/10/2026 |
+| V-14 | **(HU51) Días de preaviso en la variable `DEADLINE_WARNING_BUSINESS_DAYS`**, opcional, 3 por defecto (D-79), mismo criterio que `COPY_TO_RESPONSIBLE_LAWYER` en `deadlines.module.ts:63-67`. | 20/10/2026 |
+
+---
+
+## 2. Preguntas abiertas
+
+| Id | Pregunta |
+| --- | --- |
+| QV-01 | **(HU51) ¿De quién es el vencimiento del acto lesivo (D-78)?** No está calculado en ningún lado (`case-query-prisma.adapter.ts:302`). HU51 lo necesita (CA-51.5). Falta decidir si el cálculo nuevo es parte de HU51 y si sumarlo también a `GET /cases` y a los tableros es de esta HU o de otra. Regla completa en `API_CONTRACT_V4.md:3160-3208`. |
+| QV-02 | **¿Cuántas veces por día corre el disparo?** CA-51.1 y D-79 dicen una vez a las 08:00; N-04 de mmachuca dice cada 3 horas, para reintentar en el día. A la detección no le cambia nada (es de solo lectura). Argumento para charlar con mmachuca: el aviso de "vence hoy" solo existe ese día; si la única corrida falla, se pierde. Lo decide Matusan30 con mmachuca. |
+| QV-03 | **TN-03 de `IMPLEMENTACION_NOTIFICACIONES.md:84`:** borrar los puertos temporales `DEADLINE_DETECTION`/`PRESCRIPTION_DETECTION` e inyectar los casos de uso directo en el controller. Lo coordina Matusan30 con mmachuca. Mientras tanto, el token se ata al caso de uso real con `useExisting`, sin romper los tests de mmachuca. |
+
+---
+
+## 3. Contradicciones encontradas (documentadas, no corregidas)
+
+| Id | Contradicción |
+| --- | --- |
+| CV-01 | `.claude/CLAUDE.md:195-198` dice que el avance de la prescripción y la calificación que prescribe primero "los calcula el cliente". V4 D-51 (`API_CONTRACT_V4.md:7355`) dice que los calcula el backend, y `prescription.ts` ya lo hace. Manda V4. |
+| CV-02 | `.claude/rules/consultar-causas.md:146-147` dice que el calendario "incluye sábados, domingos y feriados". V4 §4 (`API_CONTRACT_V4.md:6896`) y CA-51.4: solo sábados y domingos son no hábiles. |
+| CV-03 | El comentario de `daily_job_runs` en `schema.prisma:754-755` ("para que no corra dos veces el mismo día") choca con N-04 (varias corridas por día). Es QN-02 de mmachuca, todavía abierta. |
+| CV-04 | `ARQUITECTURA_BACKEND_V1.md` §6.2 ubica el adaptador ACL en el consumidor; el repo lo ubica en el proveedor. Se sigue el repo (V-05). |
+| CV-05 | CA-51.9 no se puede verificar del todo hoy: `GET /cases` no devuelve `prescription` ni `harmfulActDeadline` (V4 §3.7), y los tableros solo listan `PROCEDURAL_ACT` (`get-lawyer-dashboard.use-case.ts:22`). |
+| CV-06 | `.claude/CLAUDE.md:69` dice "no está en V3"; debería decir V4. |
+
+---
+
+## 4. Deuda técnica
+
+| Id | Deuda |
+| --- | --- |
+| TV-01 | `useExisting` sobre el token temporal `PRESCRIPTION_DETECTION` es un puente hasta resolver QV-03, no el diseño final. |
+
+---
+
+## 5. Plan de implementación — HU52
+
+De adentro hacia afuera, mismo criterio que `EJEMPLO_CASO_DE_USO.md` §15.
+Cada paso se commitea por separado (los commits los hace Matusan30).
+
+| # | Archivo | Pregunta que responde | Estado |
+| --- | --- | --- | --- |
+| 1 | `deadlines/core/domain/prescription-notice-kind.ts` + spec | ¿Qué aviso corresponde hoy? (V-02) | Hecho |
+| 2 | `deadlines/core/domain/ports/prescription-status.port.ts` | ¿Qué necesita `deadlines` de `cases`? (V-06) | Hecho |
+| 3 | `deadlines/core/application/use-cases/detect-upcoming-prescriptions.use-case.ts` + spec + `test-support/detection-fakes.ts` | ¿En qué orden pasan las cosas? (V-03, V-11) | Hecho. La clase se llama `DetectUpcomingPrescriptionsUseCase`, con el sufijo que usa el resto de `deadlines` (`SendDailyNotificationDigestUseCase`) |
+| 4 | `cases/core/domain/ports/criminal-prescription-query.port.ts` + `cases/infrastructure/persistence/criminal-prescription-prisma.query.ts` | ¿Qué causas se revisan? (CA-52.1, CA-52.4, V-08) | Pendiente |
+| 5 | `cases/core/application/use-cases/list-active-prescriptions.use-case.ts` + spec | ¿Cómo se aplica la regla de `cases`? (CA-52.3, CA-52.6, CA-52.8, V-07) | Pendiente |
+| 6 | `cases/infrastructure/acl/deadlines-prescription-status.adapter.ts` | ¿Cómo se traduce al vocabulario de `deadlines`? (V-05, V-06) | Pendiente |
+| 7 | `case.module.ts` y `deadlines.module.ts` (cableado, a confirmar antes de tocar) | ¿Cómo se arma todo? (QV-03, TV-01) | Pendiente |
+| 8 | `test/subsystems/deadlines/detect-upcoming-prescriptions.int.spec.ts` | ¿Funciona contra la base real y coincide con el tablero? | Pendiente |
+
+---
+
+## 6. Registro de avance
+
+| Fecha | Qué | Commit |
+| --- | --- | --- |
+| 20/10/2026 | Plan armado y decisiones V-01 a V-14 cerradas con Matusan30. | — |
+| 20/10/2026 | Paso 1: `prescriptionNoticeKind` (función pura) y su spec. | — |
+| 20/10/2026 | Pasos 2 y 3: `PrescriptionStatusPort`, `DetectUpcomingPrescriptionsUseCase` (implementa el puerto temporal `PrescriptionDetectionPort`, TV-01), sus 8 tests con fakes propios (`detection-fakes.ts`). Todavía no está cableado: nada lo invoca hasta el paso 7. | — |
+
+### Estado de los criterios — HU52
+
+| CA | Estado | Dónde |
+| --- | --- | --- |
+| 52.1 Todos los días, penales activas con calificación | Pendiente | Pasos 4 y 8 |
+| 52.2 Detecta 70 % y plazo cumplido | **Unitario (pasos 1 y 3)**, falta integración | Pasos 1, 3 y 8 |
+| 52.3 Calificación que prescribe primero, desde el último acto interruptivo | Pendiente (la regla ya tiene tests en `prescription.spec.ts`) | Pasos 5 y 8 |
+| 52.4 Excluye administrativas, amparos, sin calificación, archivadas, prescriptas, dadas de baja | Pendiente | Pasos 4 y 8 |
+| 52.5 Nunca cambia el estado | **Por construcción (paso 3):** el caso de uso no tiene ningún puerto de escritura. Sin test que lo pruebe en la base: revisión manual | Paso 3 |
+| 52.6 Se vuelve a detectar tras un acto interruptivo | Pendiente | Pasos 5 y 8 |
+| 52.7 Registra para no avisar dos veces | Del digest (mmachuca); se verifica de punta a punta en el paso 8 | Paso 8 |
+| 52.8 Cambios de plazo o actos interruptivos se ven al día siguiente | Pendiente (no se guarda nada calculado, D-08) | Pasos 5 y 8 |
