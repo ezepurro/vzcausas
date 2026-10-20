@@ -33,3 +33,6 @@ docker-compose.override.yml
 
 #Prisma
 generated/
+
+#AI
+.claude/audit
