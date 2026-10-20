@@ -25,9 +25,10 @@ import {
     type User,
     type UserFormValues,
 } from '@/features/users/types/user'
-import { validateUser, type UserFormErrors } from '@/features/users/schemas/user.schema'
+import { isValid, validateUser, type UserFormErrors } from '@/features/users/schemas/user.schema'
 import { toCreateUserBody } from '@/features/users/utils/toCreateUserBody'
 import { buildUserPatch, hasChanges } from '@/features/users/utils/buildUserPatch'
+import { toFormErrors } from '@/features/users/utils/toFormErrors'
 import { lawyerOptionLabel } from '@/features/users/utils/lawyerLink'
 import { ROLE_LABELS, roleChecks, rolesFromValues } from '@/features/users/utils/roles'
 import { UsersTable } from '@/features/users/components/UsersTable'
@@ -184,9 +185,13 @@ export function UsersPage() {
             return
         }
 
-        if (error.isValidation && error.hasFieldErrors) {
-            setErrors(error.details as UserFormErrors)
-            return
+        if (error.isValidation) {
+            const fieldErrors = toFormErrors(error.details)
+            if (!isValid(fieldErrors)) {
+                setErrors(fieldErrors)
+                return
+            }
+            // Un 400 sin ningún campo que marcar no puede quedar mudo.
         }
 
         toast('error', error.message)

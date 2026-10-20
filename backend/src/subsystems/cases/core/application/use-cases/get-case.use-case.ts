@@ -2,7 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { CLOCK, ClockPort } from '@shared/domain/clock.port';
 import { CaseNotFoundError } from '../../domain/errors/case.errors';
 import { CASE_QUERY, CaseListItem, CaseQueryPort } from '../../domain/ports/case-query.port';
-import { withBusinessDays } from './list-cases.use-case';
+import { withDeadlines } from './list-cases.use-case';
 
 /**
  * `GET /cases/{caseId}` (HU22): the detail of one case.
@@ -13,7 +13,7 @@ import { withBusinessDays } from './list-cases.use-case';
  * documents and the "Sobre la causa" actions the prototype shows belong to
  * later sprints (§8.3) and have no field here.
  *
- * That is why it reuses `withBusinessDays` instead of computing the field
+ * That is why it reuses `withDeadlines` instead of computing the field
  * again: if the listing and the detail each filled it their own way, they
  * could drift while both kept looking correct on their own.
  *
@@ -35,6 +35,6 @@ export class GetCase {
       throw new CaseNotFoundError();
     }
 
-    return withBusinessDays(found, this.clock.today());
+    return withDeadlines(found, this.clock.today());
   }
 }

@@ -219,6 +219,7 @@ export function aCaseInState(options: { currentAct?: ProceduralAct; currentState
     clientId: CLIENT.id,
     responsibleLawyerId: LAWYER.id,
     startDate: day('2026-09-01'),
+    courtFeePaid: false,
     currentStateId: act ? act.proceduralStateId : (options.currentStateId ?? INITIAL_STATES.CRIMINAL.id),
     currentCustomState: act ? act.customState : null,
     currentProceduralActId: act ? act.id : null,
@@ -228,6 +229,7 @@ export function aCaseInState(options: { currentAct?: ProceduralAct; currentState
     createdAt: NOW,
     updatedAt: NOW,
     offenses: [],
+    clientDetained: false,
   });
 }
 

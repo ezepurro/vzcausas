@@ -34,6 +34,8 @@ import { isResponsibleLawyer } from '@/features/cases/utils/responsibleLawyer'
 import { sacLabel } from '@/features/cases/utils/sac'
 import { toCreateInterruptiveActBody } from '@/features/cases/utils/toCreateInterruptiveActBody'
 import { toDeclarePrescriptionBody } from '@/features/cases/utils/toDeclarePrescriptionBody'
+import { toInterruptiveActFormErrors } from '@/features/cases/utils/toInterruptiveActFormErrors'
+import { toPrescriptionDeclarationFormErrors } from '@/features/cases/utils/toPrescriptionDeclarationFormErrors'
 
 /**
  * Detalle de causa (HU22), en `/causas/:caseId`.
@@ -140,10 +142,16 @@ function CaseDetail({ case: c }: { case: Case }) {
        del servidor. */
     function handleApiError(error: unknown) {
         if (!isApiError(error)) throw error
-        if (error.isValidation && error.hasFieldErrors) {
-            const details = error.details ?? {}
-            setModal((m) => (m === null ? m : ({ ...m, errors: details } as ModalState)))
-            return
+        if (error.isValidation && modal !== null) {
+            // Sólo los campos que el modal abierto muestra.
+            const fieldErrors = modal.kind === 'interruptive'
+                ? toInterruptiveActFormErrors(error.details)
+                : toPrescriptionDeclarationFormErrors(error.details)
+            if (Object.keys(fieldErrors).length > 0) {
+                setModal((m) => (m === null ? m : ({ ...m, errors: fieldErrors } as ModalState)))
+                return
+            }
+            // Un 400 sin ningún campo que marcar no puede quedar mudo.
         }
         toast('error', error.message)
     }

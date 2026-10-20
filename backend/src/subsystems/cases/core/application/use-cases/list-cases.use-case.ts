@@ -1,6 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { CLOCK, ClockPort } from '@shared/domain/clock.port';
 import { businessDaysRemaining } from '../../domain/business-days';
+import { HarmfulAct } from '../../domain/value-objects/harmful-act';
+import { JurisdictionCode } from '../../domain/value-objects/jurisdiction-code';
 import {
   CASE_QUERY,
   CaseListItem,
@@ -41,27 +43,50 @@ export class ListCases {
     const today = this.clock.today();
 
     return {
-      items: found.items.map((item) => withBusinessDays(item, today)),
+      items: found.items.map((item) => withDeadlines(item, today)),
       totalItems: found.totalItems,
     };
   }
 }
 
 /**
- * Fills `businessDaysRemaining` against today. A case with no due date keeps
- * it `null`: there is no deadline to count towards.
+ * Fills the two fields that depend on today's date: `currentState.businessDaysRemaining`
+ * and `harmfulActDeadline`.
+ *
+ * A case with no due date keeps the first `null`: there is no deadline to count
+ * towards. The second exists only in an amparo that is still in the initial
+ * state and loaded the date of its harmful act (D-78): the first procedural
+ * act says the amparo was filed, and the term stops mattering.
  */
-export function withBusinessDays(item: CaseListItem, today: Date): CaseListItem {
+export function withDeadlines(item: CaseListItem, today: Date): CaseListItem {
   const { dueDate } = item.currentState;
-  if (dueDate === null) {
-    return item;
-  }
+  const harmfulAct = harmfulActOf(item);
 
   return {
     ...item,
-    currentState: {
-      ...item.currentState,
-      businessDaysRemaining: businessDaysRemaining(today, dueDate),
-    },
+    currentState:
+      dueDate === null
+        ? item.currentState
+        : { ...item.currentState, businessDaysRemaining: businessDaysRemaining(today, dueDate) },
+    harmfulActDeadline: harmfulAct && item.currentState.initial ? harmfulAct.deadline(today) : null,
   };
+}
+
+/** The harmful act of an amparo, or `null` outside it or while its date was not loaded. */
+function harmfulActOf(item: CaseListItem): HarmfulAct | null {
+  if (
+    item.jurisdiction !== JurisdictionCode.AMPARO ||
+    item.harmfulActDate === null ||
+    item.harmfulActTermDays === null ||
+    item.harmfulActTermDayType === null
+  ) {
+    return null;
+  }
+  return HarmfulAct.create({
+    date: item.harmfulActDate,
+    renews: item.harmfulActRenews ?? false,
+    renewalDays: item.harmfulActRenewalDays,
+    termDays: item.harmfulActTermDays,
+    termDayType: item.harmfulActTermDayType,
+  });
 }

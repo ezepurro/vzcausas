@@ -3313,7 +3313,7 @@ causa se pidió no crearla, `status` es `PENDING`.
 | ------------------ | ------------------ | ---------------------------------------------------------------------------------------------------- |
 | `status`           | `CaseFolderStatus` | `CREATED` si la carpeta existe; `CREATING` si se está creando; `ERROR` si se pidió y no pudo crearse; `PENDING` si no se pidió |
 | `url`              | String \| `null`   | Enlace para abrir la carpeta ("Abrir carpeta en Drive"). `null` mientras `status` no es `CREATED`    |
-| `path`             | String             | Ubicación de la carpeta, por ejemplo `/VZ Causas/Ríos, Malena/Penal/GÓMEZ, Ariel Fernando p.s.a. Robo calificado` |
+| `path`             | String \| `null`   | Ubicación de la carpeta, por ejemplo `/VZ Causas/Causas/Ríos, Malena/Penal/GÓMEZ, Ariel Fernando p.s.a. Robo calificado`. `null` mientras `status` no es `CREATED` |
 | `templatesCopied`  | Integer            | Modelos formales copiados a la carpeta (HU40). `0` si no se pidió copiarlos                          |
 | `templatesPending` | Integer            | Modelos que se pidió copiar y todavía no se copiaron, porque falló la carpeta o alguna copia. `0` si no hay nada pendiente |
 
@@ -3483,6 +3483,13 @@ piden HU39 y HU40 ("que se cree automáticamente").
   [§3.10](#310-modelos-formales-document-templates)) e informa cuántos en
   `folder.templatesCopied`. Con ese número el cliente arma el aviso del
   prototipo: "carpeta creada en Drive con 6 modelos".
+- **La respuesta espera a la carpeta, pero no para siempre.** La carpeta se crea
+  de forma asíncrona (ver `ADR-005_EVENTOS_DE_INTEGRACION.md` del backend). El alta
+  espera su resultado hasta un límite del servidor (por defecto 10 segundos): si
+  llega a tiempo, `folder` sale `CREATED` o `ERROR`, como en los ejemplos de
+  abajo; si no, sale `CREATING` con `url` y `path` en `null`, y la creación sigue
+  en segundo plano. El cliente ve el final con `GET /cases/{caseId}`. Una
+  respuesta `201` con `folder.status` en `CREATING` es válida y no es un error.
 - **La carpeta no condiciona el alta.** Si el almacenamiento en la nube falla,
   **la causa se registra igual**: la respuesta es `201`, con `folder.status` en
   `ERROR`, y la carpeta se reintenta con
@@ -3568,7 +3575,7 @@ piden HU39 y HU40 ("que se cree automáticamente").
 		"folder": {
 			"status": "CREATED",
 			"url": "https://drive.google.com/drive/folders/1Qw8zT3nKcVb5LhXy2RmPd7sUeJ4oAfG9",
-			"path": "/VZ Causas/Ríos, Malena/Penal/GÓMEZ, Ariel Fernando p.s.a. Robo calificado",
+			"path": "/VZ Causas/Causas/Ríos, Malena/Penal/GÓMEZ, Ariel Fernando p.s.a. Robo calificado",
 			"templatesCopied": 6,
 			"templatesPending": 0
 		},
@@ -3587,7 +3594,7 @@ Si el almacenamiento en la nube no respondió, la causa se registra igual y
 {
 	"status": "ERROR",
 	"url": null,
-	"path": "/VZ Causas/Ríos, Malena/Penal/GÓMEZ, Ariel Fernando p.s.a. Robo calificado",
+	"path": null,
 	"templatesCopied": 0,
 	"templatesPending": 6
 }
@@ -3818,7 +3825,7 @@ causas de ese fuero que todavía están en el estado inicial.
 			"folder": {
 				"status": "CREATED",
 				"url": "https://drive.google.com/drive/folders/1Hn4bYc9WtEz6MqLs3XoKp2VrDu8JgFa5",
-				"path": "/VZ Causas/Peralta, Ignacio/Administrativo/PEREYRA, Marcos D. — Sumario administrativo",
+				"path": "/VZ Causas/Causas/Peralta, Ignacio/Administrativo/PEREYRA, Marcos D. — Sumario administrativo",
 				"templatesCopied": 4,
 				"templatesPending": 0
 			},
@@ -3896,7 +3903,7 @@ causas de ese fuero que todavía están en el estado inicial.
 			"folder": {
 				"status": "CREATED",
 				"url": "https://drive.google.com/drive/folders/1Qw8zT3nKcVb5LhXy2RmPd7sUeJ4oAfG9",
-				"path": "/VZ Causas/Ríos, Malena/Penal/GÓMEZ, Ariel Fernando p.s.a. Robo calificado",
+				"path": "/VZ Causas/Causas/Ríos, Malena/Penal/GÓMEZ, Ariel Fernando p.s.a. Robo calificado",
 				"templatesCopied": 6,
 				"templatesPending": 0
 			},
@@ -4162,7 +4169,7 @@ vencimiento nuevos en `currentState`.
 		"folder": {
 			"status": "CREATED",
 			"url": "https://drive.google.com/drive/folders/1Qw8zT3nKcVb5LhXy2RmPd7sUeJ4oAfG9",
-			"path": "/VZ Causas/Ríos, Malena/Penal/GÓMEZ, Ariel Fernando p.s.a. Robo calificado",
+			"path": "/VZ Causas/Causas/Ríos, Malena/Penal/GÓMEZ, Ariel Fernando p.s.a. Robo calificado",
 			"templatesCopied": 6,
 			"templatesPending": 0
 		},
@@ -4630,6 +4637,11 @@ Cubre cinco situaciones:
 | `folder.status` en `CREATING`                                 | No hace nada: ya hay una creación en curso. Responde `200` con la carpeta tal como está |
 | `folder.status` en `CREATED` con `templatesPending` mayor a `0` | Copia los modelos que faltan, si `copyTemplates` es `true` |
 
+Espera el resultado igual que el alta, hasta el mismo límite del servidor: si la
+creación falla a tiempo responde `502`; si no termina a tiempo responde `200` con
+`folder.status` en `CREATING`, y el cliente ve el final con
+`GET /cases/{caseId}`.
+
 Es **idempotente**: sobre una causa que ya tiene su carpeta completa no hace
 nada y responde `200` con la carpeta tal como está. No duplica la carpeta ni
 vuelve a copiar un modelo que ya se copió.
@@ -4665,7 +4677,7 @@ Devuelve el objeto `folder` de la causa.
 	"data": {
 		"status": "CREATED",
 		"url": "https://drive.google.com/drive/folders/1Qw8zT3nKcVb5LhXy2RmPd7sUeJ4oAfG9",
-		"path": "/VZ Causas/Ríos, Malena/Penal/GÓMEZ, Ariel Fernando p.s.a. Robo calificado",
+		"path": "/VZ Causas/Causas/Ríos, Malena/Penal/GÓMEZ, Ariel Fernando p.s.a. Robo calificado",
 		"templatesCopied": 6,
 		"templatesPending": 0
 	}
@@ -6935,7 +6947,7 @@ carpetas que crea el sistema.
   otorga **una sola vez**, iniciando sesión con la cuenta de gestión y aceptando
   los permisos. El backend la guarda en su configuración y opera en nombre de
   esa cuenta; nadie del equipo necesita su contraseña (D-84).
-- **Estructura.** `/VZ Causas/{abogado}/{fuero}/{carátula}` (D-61):
+- **Estructura.** `/VZ Causas/Causas/{abogado}/{fuero}/{carátula}` (D-61). `Causas` es la carpeta raíz de causas del estudio (CA-39.3): ninguna carpeta de causa se crea fuera de ella:
 
   | Nivel      | Qué es                                                                                   | Ejemplo                                        |
   | ---------- | ---------------------------------------------------------------------------------------- | ---------------------------------------------- |
@@ -6944,11 +6956,15 @@ carpetas que crea el sistema.
   | `carátula` | La carátula de la causa (`caption`), tal como está registrada                            | `GÓMEZ, Ariel Fernando p.s.a. Robo calificado` |
 
   Las carpetas del abogado y del fuero las crea el sistema la primera vez que
-  hacen falta. La carátula puede tener una barra ("c/ APROSS"): Drive lo
-  admite, y por eso `folder.path` es un dato para mostrar, no para separar en
-  partes.
+  hacen falta. El nombre de la carpeta de la causa es **solo la carátula**: no
+  lleva el identificador interno ni el número de SAC, que puede no existir al
+  registrar la causa. Se le quitan los caracteres que la nube no admite
+  (`/ \ : * ? " < > |` y los de control), se juntan los espacios repetidos y se
+  corta en 255 caracteres, así que `GÓMEZ, Ariel c/ PÉREZ` queda como
+  `GÓMEZ, Ariel c PÉREZ`. Por eso `folder.path` es un dato para mostrar, no para
+  separar en partes. Dos causas con la misma carátula tienen carpetas distintas.
 - **Modelos formales.** Viven en `/VZ Causas/Modelos formales`, fuera de las
-  carpetas de los abogados.
+  carpetas de los abogados y de `Causas`.
 - **Quién accede.** El sistema **comparte la carpeta raíz `VZ Causas`** con el
   correo de cada usuario vigente que tenga el rol `LAWYER` o `SECRETARY`, como
   editor; todo lo que hay adentro hereda ese acceso. Son los perfiles que

@@ -124,30 +124,41 @@ ninguno devuelve tipos de la librería de Google.
 
 | Caso de uso (`documents`)   | Lo invoca                             | Drive API                                         |
 | --------------------------- | ------------------------------------- | ------------------------------------------------- |
-| `CreateCaseFolder`          | `cases`, por `CaseFolderPort`         | `files.create` (carpetas) y `files.copy` (modelos) |
+| `AssureSpace`               | `cases`, por el evento `CaseRegistered` (ver [ADR-005](ADR-005_EVENTOS_DE_INTEGRACION.md)) | `files.list` y `files.create` (carpetas); `files.delete` si hay que deshacer una |
+| `SetupCloudStorage`         | el comando `npm run documents:setup-storage` | `files.list`, `files.create` y `files.get` (`VZ Causas`, `Modelos formales`, `Causas`) |
 | `RegisterDocumentTemplate`  | controlador HTTP de `documents`       | `files.create` con el archivo, carga reanudable   |
 | `DownloadDocumentTemplate`  | controlador HTTP de `documents`       | `files.get` con `alt=media`, en *streaming*       |
 | `GrantStudioFolderAccess`   | `identity`, por `StudioFolderAccessPort` | `permissions.create` sobre la raíz             |
 | `RevokeStudioFolderAccess`  | `identity`, por `StudioFolderAccessPort` | `permissions.delete` sobre la raíz             |
 | `SyncStudioFolderAccess`    | `identity`, desde su disparador diario | `permissions.list`, y luego altas y bajas por diferencia |
 
-Puerto de salida propio de `documents`, que es lo único que conoce Google:
+Puerto de salida propio de `documents`, que es lo único que conoce Google
+(actualizado el 19/10/2026: es el puerto que hoy existe en el código, con cada
+método dicho como de carpeta o de archivo):
 
 ```ts
-// documents/core/domain/ports/cloud-storage.port.ts
-export interface CloudStoragePort {
-  createFolder(name: string, parentId: string): Promise<CloudFolder>;    // { id, webViewLink }
-  copyFile(fileId: string, parentId: string, name: string): Promise<CloudFile>;
-  uploadFile(name: string, parentId: string, content: Readable, mimeType: string): Promise<CloudFile>;
-  downloadFile(fileId: string): Promise<Readable>;
-  grantWriter(folderId: string, email: string): Promise<void>;
-  revokeAccess(folderId: string, email: string): Promise<void>;
-  listUserAccess(folderId: string): Promise<string[]>;                   // correos con acceso directo
+// documents/core/domain/ports/document-storage.port.ts
+export interface DocumentStoragePort {
+  findFolderByReference(ref: { parentId: string | null; name: string }): Promise<StoredFolder | null>;
+  createFolder(ref: { parentId: string | null; name: string }): Promise<StoredFolder>;  // { id, url }
+  getFolder(folderId: string): Promise<StoredFolder | null>;   // null si ya no existe
+  deleteFolder(folderId: string): Promise<void>;               // deshace una carpeta recién creada
+  uploadFile(upload: FileUpload): Promise<StoredFile>;
+  deleteFile(fileId: string): Promise<void>;
+  downloadFile(fileId: string): Promise<Buffer>;
 }
 ```
 
-Implementaciones: `GoogleDriveStorageAdapter` (producción, con `googleapis`) y
-`InMemoryCloudStorage` (pruebas).
+`parentId: null` es la raíz de la cuenta (solo la usa la carpeta `VZ Causas`).
+Quedan **pendientes** `copyFile` (copiar modelos, HU40) y los métodos de acceso
+(`grantWriter`, `revokeAccess`, `listUserAccess`) del diseño original, que se
+agregan cuando se implementen sus historias.
+
+Implementaciones: `GoogleDriveDocumentStorage` (producción, con `googleapis` y el
+cliente OAuth compartido) e `InMemoryDocumentStorage` (pruebas y desarrollo sin
+credenciales). `createDocumentStorage` elige una al arrancar: Drive si están las
+tres variables `GOOGLE_OAUTH_*`; si no, la de memoria con una advertencia, salvo
+en producción, donde la aplicación no arranca.
 
 **Sentido de las dependencias.** `identity` decide quién debe tener acceso y le
 pide a `documents` que lo aplique; `documents` nunca consulta usuarios. Así no
@@ -167,7 +178,7 @@ Puertos nuevos en el mapa de §6.3 de la arquitectura:
 
 - **Complementario, como dice R-03.** Ni el alta de una causa ni el alta, la
   modificación o la baja de un usuario fallan por Drive. La causa queda con la
-  carpeta `PENDING` y se reintenta con `POST /cases/{caseId}/folder`; el acceso
+  carpeta en `ERROR` y se reintenta con `POST /cases/{caseId}/folder`; el acceso
   de un usuario lo corrige la revisión diaria.
 - **Atómico donde el contrato lo exige.** El alta de un modelo formal (CA-34.7)
   sube el archivo primero y registra el modelo después: si la subida falla, no
@@ -182,11 +193,20 @@ Puertos nuevos en el mapa de §6.3 de la arquitectura:
   pendiente o responde `502`, y se registra un error de severidad alta: hay que
   repetir la autorización (§2.6). Ningún dato del estudio se pierde.
 - **Carpeta borrada a mano.** Si Drive responde `404` sobre una carpeta que la
-  base tiene registrada, se marca pendiente y el reintento la vuelve a crear.
+  base tiene registrada, el pedido falla con un error de configuración
+  (`CONFIGURATION`) en vez de recrearla en silencio: el identificador guardado ya
+  no sirve y alguien debe decidir qué hacer. `SetupCloudStorage` hace lo mismo
+  con la estructura base (`StorageStructureBrokenError`).
 - **Carreras.** Dos causas del mismo abogado y fuero creadas a la vez podrían
-  duplicar la carpeta intermedia. Se evita con una restricción de unicidad en la
-  base sobre la carpeta intermedia (abogado y fuero) y creando dentro de una
-  transacción: el que pierde reutiliza el identificador del que ganó.
+  duplicar la carpeta intermedia. Se evita en tres capas: un orden por clave en
+  memoria (`KeyedMutex`) que hace pasar de a una a las que piden la misma carpeta,
+  los índices únicos de `cloud_folders` como última defensa, y, si aun así una
+  pierde la carrera, se borra la carpeta repetida que había creado y se usa la
+  de la ganadora.
+- **Carpeta huérfana.** La carpeta se crea en la nube **antes** de guardar su fila
+  (la clave primaria es el identificador de Drive). Si la fila no se puede guardar,
+  la carpeta recién creada se borra (`deleteFolder`); si el proceso cae justo en
+  medio, queda una carpeta vacía sin vínculo, que es un riesgo aceptado.
 - **Carga de archivos.** Drive limita la carga simple y la multiparte a 5 MB, y
   el contrato admite modelos de hasta 10 MB: se usa la **carga reanudable**.
 
@@ -194,24 +214,30 @@ Tablas que escribe `documents` (§4.4 de la arquitectura):
 
 | Tabla                     | Qué guarda                                                                          |
 | ------------------------- | ----------------------------------------------------------------------------------- |
-| `drive_folders`           | Carpetas de estructura: raíz, modelos, abogado y fuero. Tipo, clave única e identificador de Drive |
-| `case_folders`            | Carpeta de cada causa: identificador de Drive, enlace, ruta informativa y estado (`CREATED`, `PENDING`) |
+| `cloud_folders`           | Todas las carpetas de la nube, en una sola tabla: raíz (`MAIN`), modelos (`TEMPLATES`), causas (`ROOT_CASES`), abogado, fuero y causa. Tipo, identificador de Drive (clave primaria), enlace y padre |
+| `cases` (`folder_status`, `cloud_folder_id`) | La causa guarda el estado de su carpeta (`PENDING`, `CREATING`, `CREATED`, `ERROR`) y el identificador de la carpeta de tipo `CASE`; la escribe `cases`, no `documents` |
 | `document_templates`      | Modelos formales, con el identificador del archivo en Drive                         |
 | `document_template_copies`| Qué modelo se copió a qué causa, y el identificador de la copia. Da `templatesCopied`, `templatesPending` y `usageCount` |
 
 ### 2.6 Puesta en marcha y configuración
 
-> **Corregido 19/10/2026 (N-10).** No hay un script `drive:authorize`
+> **Actualizado 19/10/2026 (N-10 y HU39).** No hay un script `drive:authorize`
 > propio: la autorización corre una sola vez para toda la app con
 > `npm run google:authorize` (`backend/scripts/google-authorize.ts`,
 > detallado en `GOOGLE_OAUTH_CLIENTE_COMPARTIDO.md` §2), y entrega
 > `GOOGLE_OAUTH_CLIENT_ID/SECRET/REFRESH_TOKEN` para **todo Google**, Drive
 > incluido — no hace falta correrlo de nuevo si `deadlines` ya lo hizo en
-> ese entorno. Lo que ese script **no hace** es crear `VZ Causas` ni
-> `VZ Causas/Modelos formales`: eso sigue siendo tarea de `documents`, a
-> resolver con una rutina propia (extender el script, o un comando de
-> arranque que use `CloudStoragePort` una vez el adaptador exista) que
-> imprima `GOOGLE_DRIVE_ROOT_FOLDER_ID`/`GOOGLE_DRIVE_TEMPLATES_FOLDER_ID`.
+> ese entorno.
+>
+> Ese script no crea la estructura de carpetas del estudio. De eso se encarga el
+> caso de uso `SetupCloudStorage`, que se ejecuta con
+> `npm run documents:setup-storage` y es idempotente: crea `VZ Causas`,
+> `VZ Causas/Modelos formales` y `VZ Causas/Causas`, y guarda las tres como filas
+> `MAIN`, `TEMPLATES` y `ROOT_CASES` de `cloud_folders`. **Ya no existen**
+> `GOOGLE_DRIVE_ROOT_FOLDER_ID` ni `GOOGLE_DRIVE_TEMPLATES_FOLDER_ID`: los
+> identificadores viven en la base. El comando se niega a correr si falta la
+> configuración de Google, para no guardar identificadores de un almacenamiento en
+> memoria.
 
 Variables de entorno. Reemplazan a `GOOGLE_DRIVE_CREDENTIALS`, que §7.6 de la
 arquitectura había previsto para una cuenta de servicio:
@@ -220,12 +246,18 @@ arquitectura había previsto para una cuenta de servicio:
 GOOGLE_OAUTH_CLIENT_ID              # compartido con `deadlines` — ver GOOGLE_OAUTH_CLIENTE_COMPARTIDO.md
 GOOGLE_OAUTH_CLIENT_SECRET           # ídem
 GOOGLE_OAUTH_REFRESH_TOKEN          # ídem, secreto: nunca en el repositorio ni en los logs
-GOOGLE_DRIVE_ROOT_FOLDER_ID          # propias de `documents`, pendientes (arriba)
-GOOGLE_DRIVE_TEMPLATES_FOLDER_ID
+DRIVE_REQUEST_TIMEOUT_MS            # opcional, por defecto 15000: tiempo máximo de cada llamada a Drive
+CASE_FOLDER_WAIT_MS                 # opcional, por defecto 10000: cuánto espera el alta de una causa a su carpeta
 ```
 
-Como el resto de la configuración (§7.6), la presencia se valida al arrancar y
-el formato, en el constructor del adaptador.
+Las dos últimas son opcionales: tienen valor por defecto en el código y no se
+exigen al arrancar. Como el resto de la configuración (§7.6), la presencia de las
+tres de Google se comprueba al arrancar y el formato, en el constructor del
+adaptador.
+
+**Importante con `drive.file`:** Drive solo muestra lo que creó **el mismo cliente
+OAuth**. El comando de estructura y el servidor deben usar el mismo
+`GOOGLE_OAUTH_CLIENT_ID`; con otro, la carpeta raíz parece no existir (`404`).
 
 **Entornos.** Desarrollo y pruebas usan **otro proyecto de Google Cloud**
 (`vzcausas-dev`), nunca la cuenta del estudio ni su proyecto de producción.
@@ -235,7 +267,7 @@ para todos (agregados como *test user* por quien administra el proyecto),
 pero cada uno con su propio `GOOGLE_OAUTH_REFRESH_TOKEN`, obtenido corriendo
 `npm run google:authorize` él mismo (detalle paso a paso en
 `GOOGLE_OAUTH_CLIENTE_COMPARTIDO.md` §2). Las pruebas automáticas usan
-`InMemoryCloudStorage`; la integración real se prueba a mano, cada uno
+`InMemoryDocumentStorage` (el arnés de integración la fuerza siempre, aunque el `.env` tenga credenciales); la integración real se prueba a mano, cada uno
 contra su propia cuenta.
 
 ---

@@ -144,9 +144,26 @@ const INITIAL_STATE = {
   isInitial: true,
 } as const;
 
+/**
+ * System "Prescripta" state of the criminal jurisdiction (contract V4
+ * §3.4, D-53): terminal, no time limit, protected against update and
+ * deletion. HU33 moves a case here, so it has to exist in every
+ * environment, like "Iniciada". The CHECK and the partial unique index
+ * of `sprint3_manual_constraints` require exactly this shape, and one
+ * per jurisdiction.
+ */
+const PRESCRIBED_STATE = {
+  name: 'Prescripta',
+  timeLimitDays: 0,
+  dayType: 'NONE',
+  terminal: true,
+  isPrescribed: true,
+} as const;
+
 const PROCEDURAL_STATES = [
   // Criminal
   { jurisdiction: 'CRIMINAL', ...INITIAL_STATE },
+  { jurisdiction: 'CRIMINAL', ...PRESCRIBED_STATE },
   {
     jurisdiction: 'CRIMINAL',
     name: 'Designación de abogado defensor',
@@ -502,8 +519,15 @@ interface DevCase {
   subjectMatter?: string;
   // Only CRIMINAL: qualifications with the date of the offense.
   offenses?: { qualification: string; offenseDate: string }[];
-  // Two acts per case, oldest first: the case ends up in the state of the last one.
-  acts: [DevAct, DevAct];
+  // Data of each jurisdiction (D-67). Left out, a datum takes the value the app gives it by default.
+  clientDetained?: boolean;
+  courtFeePaid?: boolean;
+  injunctionGranted?: boolean;
+  administrativeRemedyExhaustedOn?: string;
+  // AMPARO: the harmful act (D-78), as days before today. Its term is only open while the case is in "Iniciada".
+  harmfulAct?: { daysAgo: number; renewalDays?: number; termDays: number; termDayType: 'BUSINESS' | 'CONSECUTIVE' };
+  // Acts, oldest first: the case ends up in the state of the last one. None: it stays in "Iniciada".
+  acts: DevAct[];
 }
 
 /**
@@ -519,6 +543,8 @@ const DEV_CASES: readonly DevCase[] = [
     proceduralRole: 'DEFENSA',
     caption: 'GÓMEZ, Ariel Fernando p.s.a. Robo calificado',
     clientDni: '34812905',
+    clientDetained: true,
+    courtFeePaid: true,
     offenses: [
       { qualification: 'Robo calificado — art. 167 inc. 2 CP', offenseDate: '2021-02-27' },
       { qualification: 'Estafa — art. 172 CP', offenseDate: '2021-03-05' },
@@ -536,6 +562,7 @@ const DEV_CASES: readonly DevCase[] = [
     clientDni: '29440117',
     counterparty: 'Policía de la Provincia',
     subjectMatter: 'Descargo frente a la imputación de falta grave y pedido de sobreseimiento.',
+    administrativeRemedyExhaustedOn: '2026-08-10',
     acts: [
       { state: 'Notificación de imputación en sumario', daysAgo: 20 },
       { state: 'Presentación de descargo', daysAgo: 6 },
@@ -549,10 +576,26 @@ const DEV_CASES: readonly DevCase[] = [
     clientDni: '31256890',
     counterparty: 'APROSS',
     subjectMatter: 'Que se ordene la cobertura integral del tratamiento de rehabilitación prescripto.',
+    injunctionGranted: true,
+    // The case already left "Iniciada", so its term to file the amparo no longer counts (D-78).
+    harmfulAct: { daysAgo: 40, termDays: 15, termDayType: 'BUSINESS' },
     acts: [
       { state: 'Interposición de la acción', daysAgo: 12 },
       { state: 'Pedido de informe', daysAgo: 3 },
     ],
+  },
+  {
+    // Still in "Iniciada": its harmful act renews every 30 days, so `harmfulActDeadline` shows in the detail.
+    sacNumber: '90000004',
+    jurisdiction: 'AMPARO',
+    proceduralRole: 'ACTORA',
+    caption: 'LEDESMA, Verónica c/ Municipalidad — Amparo ambiental',
+    clientDni: '27654321',
+    counterparty: 'Municipalidad de Córdoba',
+    subjectMatter: 'Que se ordene el cese del vertido de efluentes en el predio lindero.',
+    injunctionGranted: false,
+    harmfulAct: { daysAgo: 45, renewalDays: 30, termDays: 15, termDayType: 'BUSINESS' },
+    acts: [],
   },
 ];
 
@@ -636,7 +679,11 @@ async function seedDevCases(prisma: PrismaClient): Promise<void> {
       where: { jurisdictionId: jurisdiction.jurisdictionId, isInitial: true, isActive: true },
     });
     const isAdministrative = devCase.jurisdiction === 'ADMINISTRATIVE';
-    const startDate = addDays(today, -devCase.acts[0].daysAgo - 30);
+    const isAmparo = devCase.jurisdiction === 'AMPARO';
+    const isCriminal = devCase.jurisdiction === 'CRIMINAL';
+    const harmfulAct = devCase.harmfulAct;
+    // The case started in court a month before its first act (or before its harmful act, if it has none).
+    const startDate = addDays(today, -(devCase.acts[0]?.daysAgo ?? harmfulAct?.daysAgo ?? 30) - 30);
 
     await prisma.$transaction(async (tx) => {
       const newCase = await tx.case.create({
@@ -650,6 +697,18 @@ async function seedDevCases(prisma: PrismaClient): Promise<void> {
           clientId: client.id,
           responsibleLawyerId: lawyer.id,
           startDate,
+          // Data of each jurisdiction (D-67): `NULL` outside its own, as the app stores it.
+          courtFeePaid: devCase.courtFeePaid ?? false,
+          clientDetained: isCriminal ? (devCase.clientDetained ?? false) : null,
+          injunctionGranted: isAmparo ? (devCase.injunctionGranted ?? false) : null,
+          harmfulActDate: harmfulAct ? addDays(today, -harmfulAct.daysAgo) : null,
+          harmfulActRenews: isAmparo ? harmfulAct?.renewalDays !== undefined : null,
+          harmfulActRenewalDays: harmfulAct?.renewalDays ?? null,
+          harmfulActTermDays: harmfulAct?.termDays ?? null,
+          harmfulActTermDayType: harmfulAct?.termDayType ?? null,
+          administrativeRemedyExhaustedOn: devCase.administrativeRemedyExhaustedOn
+            ? new Date(`${devCase.administrativeRemedyExhaustedOn}T00:00:00.000Z`)
+            : null,
           // A case is born in the initial state; the first act takes it out.
           currentStateId: initialState.stateId,
           // Registered by the secretary, as the app does.
@@ -672,7 +731,7 @@ async function seedDevCases(prisma: PrismaClient): Promise<void> {
         });
       }
 
-      let lastActId = 0;
+      let lastActId: number | null = null;
       let lastStateId = initialState.stateId;
       for (const act of devCase.acts) {
         const state = await tx.proceduralState.findFirstOrThrow({
@@ -714,7 +773,7 @@ async function seedDevCases(prisma: PrismaClient): Promise<void> {
 
   console.log(
     `Development cases: ${DEV_CLIENTS.length} clients, ${DEV_LEGAL_QUALIFICATIONS.length} legal qualifications, ` +
-      `${created} new cases of ${DEV_CASES.length} (each with 2 acts).`,
+      `${created} new cases of ${DEV_CASES.length} (the last one still in "Iniciada").`,
   );
 }
 

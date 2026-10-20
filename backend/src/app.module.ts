@@ -1,11 +1,13 @@
 import { Logger, Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { parseTtlToSeconds } from '@shared/config/parse-ttl';
 import { AppThrottlerGuard } from '@shared/infrastructure/http/guards/throttler.guard';
 import { JwtAuthGuard } from '@shared/infrastructure/http/guards/jwt-auth.guard';
 import { PermissionsGuard } from '@shared/infrastructure/http/guards/permissions.guard';
+import { EventsModule } from '@shared/infrastructure/events/events.module';
 import { SharedModule } from '@shared/shared.module';
 import { HealthModule } from '@subsystems/health/health.module';
 import { validateEnv } from './config/env.validation';
@@ -16,6 +18,7 @@ import { LegalParametersModule } from './subsystems/legal-parameters/legal-param
 import { CasesModule } from './subsystems/cases/case.module';
 import { ReportingModule } from './subsystems/reporting/reporting.module';
 import { DeadlinesModule } from './subsystems/deadlines/deadlines.module';
+import { DocumentsModule } from './subsystems/documents/documents.module';
 
 /**
  * `deadlines` (HU30/HU32) needs a Google OAuth client and two secrets
@@ -91,6 +94,9 @@ if (missingDeadlinesVars.length > 0) {
       }),
       inject: [ConfigService],
     }),
+    // Integration events between subsystems (in-memory for now).
+    EventEmitterModule.forRoot(),
+    EventsModule,
     PrismaModule,
     SharedModule,
     HealthModule,
@@ -99,6 +105,7 @@ if (missingDeadlinesVars.length > 0) {
     LegalParametersModule,
     CasesModule,
     ReportingModule,
+    DocumentsModule,
     ...(missingDeadlinesVars.length === 0 ? [DeadlinesModule] : []),
   ],
   controllers: [],

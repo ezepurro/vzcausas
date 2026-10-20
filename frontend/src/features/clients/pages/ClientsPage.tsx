@@ -14,6 +14,7 @@ import { useCreateClient } from '@/features/clients/api/useCreateClient'
 import type { ClientFormValues } from '@/features/clients/types/client'
 import { validateClient, isValid, type ClientFormErrors } from '@/features/clients/schemas/client.schema'
 import { toCreateClientBody } from '@/features/clients/utils/toCreateClientBody'
+import { toFormErrors } from '@/features/clients/utils/toFormErrors'
 import { formatClientName } from '@/features/clients/utils/clientFormat'
 import { ClientsTable } from '@/features/clients/components/ClientsTable'
 import { ClientFormModal } from '@/features/clients/components/ClientFormModal'
@@ -72,9 +73,13 @@ export function ClientsPage() {
             setErrors({dni: error.message})
             return
         }
-        if (error.isValidation && error.hasFieldErrors) {
-            setErrors(error.details as ClientFormErrors)
-            return
+        if (error.isValidation) {
+            const fieldErrors = toFormErrors(error.details)
+            if (!isValid(fieldErrors)) {
+                setErrors(fieldErrors)
+                return
+            }
+            // Un 400 sin ningún campo que marcar no puede quedar mudo.
         }
         toast('error', error.message)
     }

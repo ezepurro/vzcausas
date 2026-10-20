@@ -99,13 +99,21 @@ export class FakeCaseRepository implements CaseRepository {
 
 /**
  * In-memory {@link PeopleLookupPort}. A lawyer or client that is not in the
- * lists does not exist or was deactivated.
+ * active lists does not exist or was deactivated; `deactivatedLawyers` are the
+ * ones that exist but were given de baja.
  */
 export class FakePeopleLookup implements PeopleLookupPort {
   constructor(
     private readonly activeLawyers: LawyerRef[],
     private readonly activeClients: ClientRef[],
+    private readonly deactivatedLawyers: LawyerRef[] = [],
   ) {}
+
+  async findLawyerById(id: number): Promise<LawyerRef | null> {
+    return (
+      [...this.activeLawyers, ...this.deactivatedLawyers].find((lawyer) => lawyer.id === id) ?? null
+    );
+  }
 
   async findActiveLawyerById(id: number): Promise<LawyerRef | null> {
     return this.activeLawyers.find((lawyer) => lawyer.id === id) ?? null;

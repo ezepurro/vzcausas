@@ -69,3 +69,13 @@ export class BusinessRuleError extends DomainError {}
  * does not expose, so the body is what the frontend actually consumes.
  */
 export class TooManyRequestsError extends DomainError {}
+
+/**
+ * An external service the operation depends on did not answer, or refused
+ * us: the cloud storage of the documents, for now. Mapped to HTTP 502.
+ *
+ * The request was fine and may succeed if retried, which is why it is
+ * neither a 4xx nor the generic 500: the client tells the user to try again
+ * in a few minutes. What went wrong goes to the log, not to `details`.
+ */
+export class BadGatewayError extends DomainError {}

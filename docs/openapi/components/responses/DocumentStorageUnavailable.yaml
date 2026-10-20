@@ -1,13 +1,13 @@
 description: |
-  El almacenamiento en la nube (Google Drive) no respondió. Es una falla
-  ajena al sistema y a los datos enviados: la operación puede repetirse más
-  tarde (D-65).
+    El almacenamiento en la nube (Google Drive) no respondió. Es una falla
+    ajena al sistema y a los datos enviados: la operación puede repetirse más
+    tarde (D-65).
 content:
-  application/json:
-    schema:
-      $ref: ../schemas/Error.yaml
-    example:
-      error:
-        code: DOCUMENT_STORAGE_UNAVAILABLE
-        message: No se pudo acceder al almacenamiento en la nube. Intentá de nuevo en unos minutos.
-        details: null
+    application/json:
+        schema:
+            $ref: ../schemas/Error.yaml
+        example:
+            error:
+                code: DOCUMENT_STORAGE_UNAVAILABLE
+                message: No se pudo acceder al almacenamiento en la nube. Intentá de nuevo en unos minutos.
+                details: null

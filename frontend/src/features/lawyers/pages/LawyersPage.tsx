@@ -15,6 +15,7 @@ import { useCreateLawyer } from '@/features/lawyers/api/useCreateLawyer'
 import type { LawyerFormValues } from '@/features/lawyers/types/lawyer'
 import { validateLawyer, isValid, type LawyerFormErrors } from '@/features/lawyers/schemas/lawyer.schema'
 import { toCreateLawyerBody } from '@/features/lawyers/utils/toCreateLawyerBody'
+import { toFormErrors } from '@/features/lawyers/utils/toFormErrors'
 import { LawyersTable } from '@/features/lawyers/components/LawyersTable'
 import { LawyerFormModal } from '@/features/lawyers/components/LawyerFormModal'
 import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue'
@@ -86,9 +87,13 @@ export function LawyersPage() {
             return
         }
 
-        if (error.isValidation && error.hasFieldErrors) {
-            setErrors(error.details as LawyerFormErrors)
-            return
+        if (error.isValidation) {
+            const fieldErrors = toFormErrors(error.details)
+            if (!isValid(fieldErrors)) {
+                setErrors(fieldErrors)
+                return
+            }
+            // Un 400 sin ningún campo que marcar no puede quedar mudo.
         }
 
         toast('error', error.message)
