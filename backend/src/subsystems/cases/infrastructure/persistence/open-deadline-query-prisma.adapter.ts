@@ -3,8 +3,10 @@ import { PrismaService } from '@shared/infrastructure/prisma/prisma.service';
 import { Prisma } from '../../../../generated/prisma/client';
 import {
   OpenDeadlineQueryPort,
+  OpenHarmfulActRow,
   OpenProceduralDeadlineRow,
 } from '../../core/domain/ports/open-deadline-query.port';
+import { DayType } from '../../core/domain/value-objects/day-type';
 import { JurisdictionCode } from '../../core/domain/value-objects/jurisdiction-code';
 import { ACTIVE_CASE } from './case-query-prisma.adapter';
 
@@ -18,6 +20,20 @@ const OPEN_DEADLINE_SELECT = {
   currentProceduralAct: {
     select: { id: true, deadlineManualDueDate: true, deadlineComputedDueDate: true },
   },
+} as const satisfies Prisma.CaseSelect;
+
+/** Only what the harmful act's deadline and its notice need (D-67, D-78). */
+const HARMFUL_ACT_SELECT = {
+  id: true,
+  caption: true,
+  sacNumber: true,
+  responsibleLawyerId: true,
+  jurisdiction: { select: { name: true } },
+  harmfulActDate: true,
+  harmfulActRenews: true,
+  harmfulActRenewalDays: true,
+  harmfulActTermDays: true,
+  harmfulActTermDayType: true,
 } as const satisfies Prisma.CaseSelect;
 
 /**
@@ -69,5 +85,37 @@ export class OpenDeadlineQueryPrismaAdapter implements OpenDeadlineQueryPort {
         },
       ];
     });
+  }
+
+  /**
+   * The same {@link ACTIVE_CASE}, plus: an amparo, still in the initial state
+   * (no procedural act yet, D-78), with the date of its harmful act loaded.
+   * Whether it renews and how long its term is are read as they are; the
+   * deadline is computed by the use case, against today.
+   */
+  async findActiveAmparosWithHarmfulAct(): Promise<OpenHarmfulActRow[]> {
+    const rows = await this.prisma.db.case.findMany({
+      where: {
+        ...ACTIVE_CASE,
+        jurisdiction: { name: JurisdictionCode.AMPARO },
+        currentState: { is: { isInitial: true } },
+        harmfulActDate: { not: null },
+      },
+      select: HARMFUL_ACT_SELECT,
+      orderBy: { id: 'asc' },
+    });
+
+    return rows.map((row) => ({
+      caseId: row.id,
+      caption: row.caption,
+      sacNumber: row.sacNumber,
+      jurisdiction: row.jurisdiction.name as JurisdictionCode,
+      responsibleLawyerId: row.responsibleLawyerId,
+      harmfulActDate: row.harmfulActDate,
+      harmfulActRenews: row.harmfulActRenews,
+      harmfulActRenewalDays: row.harmfulActRenewalDays,
+      harmfulActTermDays: row.harmfulActTermDays,
+      harmfulActTermDayType: row.harmfulActTermDayType as DayType | null,
+    }));
   }
 }

@@ -5,6 +5,7 @@ import { getPrisma, startTestApp, stopTestApp } from '../../shared/harness/test-
 import { civil } from '../../shared/harness/fixed-clock';
 import { expectData } from '../../shared/contract/envelopes';
 import { createCase } from '../../shared/factories/case.factory';
+import { createProceduralState } from '../../shared/factories/procedural-state.factory';
 import {
   ProceduralActScenario,
   resetProceduralActData,
@@ -224,6 +225,109 @@ describe('HU51 — verificación diaria de los vencimientos de actos procesales'
       await prisma.case.update({ where: { id: deactivated.caseRow.id }, data: { active: false } });
 
       await expect(detect()).resolves.toEqual([]);
+    });
+  });
+
+  // ── El acto lesivo del amparo (fase B, B6) ───────────────────────────
+
+  // CA-51.2, CA-51.5, D-78
+  describe('el plazo para presentar el amparo', () => {
+    /**
+     * Un amparo del responsable del escenario, en "Iniciada", con su acto
+     * lesivo. Por defecto, del jueves 1/10 sin renovación y 5 días hábiles:
+     * vence el jueves 8/10, a 2 días hábiles del martes 6.
+     */
+    const newAmparo = (harmfulAct: Record<string, unknown> = {}) =>
+      newCase({
+        jurisdiction: 'AMPARO',
+        caption: 'MOYANO, Daniela c/ APROSS — Amparo de salud',
+        harmfulAct: { date: '2026-10-01', termDays: 5, termDayType: 'BUSINESS', ...harmfulAct },
+      });
+
+    it('detecta el vencimiento del acto lesivo de un amparo en "Iniciada", sin acto procesal', async () => {
+      const amparo = await newAmparo();
+
+      const notices = await detect();
+
+      expect(notices).toEqual([
+        {
+          caseId: amparo.id,
+          caption: 'MOYANO, Daniela c/ APROSS — Amparo de salud',
+          sacNumber: null,
+          jurisdiction: 'AMPARO',
+          responsibleLawyerId: s.lawyer.id,
+          kind: 'DEADLINE_WARNING',
+          origin: 'HARMFUL_ACT',
+          dueDate: '2026-10-08',
+          proceduralActId: null,
+        },
+      ]);
+    });
+
+    // CA-51.9: la misma fecha y los mismos días que `harmfulActDeadline` del detalle.
+    it('coincide con el harmfulActDeadline que muestra la causa', async () => {
+      const amparo = await newAmparo();
+
+      const [notice] = await detect();
+      const caseBody = await expectData<Body>(await server().get(`/api/v1/cases/${amparo.id}`).set(s.responsible), 200);
+
+      expect(caseBody.harmfulActDeadline).toMatchObject({ dueDate: notice.dueDate, businessDaysRemaining: 2 });
+    });
+
+    it('un amparo sin fecha del acto lesivo no tiene plazo que revisar', async () => {
+      await newCase({ jurisdiction: 'AMPARO' });
+
+      await expect(detect()).resolves.toEqual([]);
+    });
+
+    // CA-51.5 "solo mientras la causa está Iniciada": el primer acto dice que el amparo se presentó.
+    it('con el primer acto procesal deja de revisar el acto lesivo y pasa al plazo del acto', async () => {
+      const amparo = await newAmparo();
+      const amparoState = await createProceduralState({
+        jurisdiction: 'AMPARO',
+        name: 'Informe del art. 8',
+        timeLimitDays: 5,
+        dayType: 'BUSINESS',
+      });
+      expect((await detect()).map((n) => n.origin)).toEqual(['HARMFUL_ACT']);
+
+      const actId = await registerAct(amparo.id, { proceduralStateId: amparoState.stateId, manualDueDate: '2026-10-09' });
+
+      const notices = await detect();
+      expect(notices).toHaveLength(1);
+      expect(notices[0]).toMatchObject({ origin: 'PROCEDURAL_ACT', proceduralActId: actId, dueDate: '2026-10-09' });
+    });
+
+    // CA-51.6
+    it('no revisa un amparo dado de baja', async () => {
+      const amparo = await newAmparo();
+      await getPrisma().case.update({ where: { id: amparo.id }, data: { active: false } });
+
+      await expect(detect()).resolves.toEqual([]);
+    });
+
+    // CA-51.5 "si el acto lesivo se renueva, toma la renovación vigente", y CA-30.8:
+    // la renovación abre un vencimiento nuevo, que se avisa de nuevo.
+    it('cuando el acto lesivo se renueva avisa el vencimiento nuevo, contado desde la renovación', async () => {
+      // Acto del 8/9, se renueva cada 30 días, 3 días hábiles: el plazo del 8/9
+      // venció el 11/9; la renovación del 8/10 abre uno que vence el 13/10.
+      const amparo = await newAmparo({ date: '2026-09-08', renews: { everyDays: 30 }, termDays: 3 });
+
+      await dailyRun(); // martes 6/10: rige el plazo del 8/9, vencido → nada
+      expect(emailSender.sent).toHaveLength(0);
+
+      setToday('2026-10-08'); // se renueva: faltan 3 días hábiles al 13/10
+      const res = await dailyRun();
+
+      expect(res.body.mailboxNoticeCount).toBe(1);
+      const rows = await getPrisma().sentNotification.findMany({ where: { caseId: amparo.id, recipientLawyerId: null } });
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({
+        kind: 'DEADLINE_WARNING',
+        deadlineKind: 'HARMFUL_ACT',
+        proceduralActId: null,
+        referenceDate: civil('2026-10-13'),
+      });
     });
   });
 

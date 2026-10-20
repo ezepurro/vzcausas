@@ -2,17 +2,24 @@ import { DeadlinesOpenDeadlinesAdapter } from './deadlines-open-deadlines.adapte
 import { ListOpenDeadlines } from '../../core/application/use-cases/list-open-deadlines.use-case';
 import {
   OpenDeadlineQueryPort,
+  OpenHarmfulActRow,
   OpenProceduralDeadlineRow,
 } from '../../core/domain/ports/open-deadline-query.port';
+import { DayType } from '../../core/domain/value-objects/day-type';
 import { JurisdictionCode } from '../../core/domain/value-objects/jurisdiction-code';
 
 const day = (iso: string) => new Date(`${iso}T00:00:00.000Z`);
 
 class FakeOpenDeadlineQuery implements OpenDeadlineQueryPort {
   rows: OpenProceduralDeadlineRow[] = [];
+  amparos: OpenHarmfulActRow[] = [];
 
   async findActiveWithOpenDeadline(): Promise<OpenProceduralDeadlineRow[]> {
     return this.rows;
+  }
+
+  async findActiveAmparosWithHarmfulAct(): Promise<OpenHarmfulActRow[]> {
+    return this.amparos;
   }
 }
 
@@ -52,6 +59,35 @@ describe('DeadlinesOpenDeadlinesAdapter', () => {
         proceduralActId: 100,
       },
     ]);
+  });
+
+  it('traduce el vencimiento del acto lesivo con su origen y sin acto procesal', async () => {
+    const { adapter, query } = build();
+    query.amparos = [
+      {
+        caseId: 9,
+        caption: 'MOYANO, Daniela c/ APROSS — Amparo de salud',
+        sacNumber: null,
+        jurisdiction: JurisdictionCode.AMPARO,
+        responsibleLawyerId: 20,
+        harmfulActDate: day('2026-08-03'),
+        harmfulActRenews: true,
+        harmfulActRenewalDays: 30,
+        harmfulActTermDays: 15,
+        harmfulActTermDayType: DayType.BUSINESS,
+      },
+    ];
+
+    const [deadline] = await adapter.findOfActiveCases(day('2026-09-15'));
+
+    expect(deadline).toMatchObject({
+      caseId: 9,
+      jurisdiction: 'AMPARO',
+      origin: 'HARMFUL_ACT',
+      dueDate: '2026-09-23',
+      businessDaysRemaining: 6,
+      proceduralActId: null,
+    });
   });
 
   it('traduce los tres fueros', async () => {

@@ -40,6 +40,7 @@ suya; lo que haya que cambiarle se coordina con él.
 
 | V-15 | **HU51 completa, cadena del acto lesivo incluida (D-67, D-78, D-82).** Decidido con Matusan30. Lo que ya está en `develop` (regla, alta, lectura) se reusa, no se reescribe. | 20/10/2026 |
 | V-16 | **HU51 se hace en dos fases.** A: vencimientos de actos procesales (todas las reglas existen). B: acto lesivo en la detección, en `GET /cases` (D-82) y en los tableros. | 20/10/2026 |
+| V-17 | **`harmfulActOf` se exporta desde `list-cases.use-case.ts` (código de MateoCastro304) en vez de copiarse.** Su parámetro pasa a `HarmfulActFields` (solo los seis campos que lee); el comportamiento no cambia. Así la causa y la detección deciden igual cuándo un amparo tiene plazo. Aprobado por Matusan30 (opción a). | 20/10/2026 |
 ---
 
 ## 2. Preguntas abiertas
@@ -72,6 +73,7 @@ suya; lo que haya que cambiarle se coordina con él.
 | TV-01 | `useExisting` sobre el token temporal `PRESCRIPTION_DETECTION` es un puente hasta resolver QV-03, no el diseño final. |
 | TV-02 | **Aislamiento de los tests de integración:** `daily-run.int.spec.ts` no limpia `sent_notifications` al terminar, y cuatro limpiezas de `cases` no la borran antes que `cases`. Fallan o no según el orden de las suites. Lo arregla mmachuca. El spec de integración de HU52 (paso 8) tiene que limpiar lo que escribe al terminar. |
 | TV-03 | **Test inestable ajeno:** `case-folder-contract.int.spec.ts` › CA-39.6 falla a veces con la suite completa (`CREATING` en vez de `CREATED`) y pasa solo. Es del módulo de documentos (HU39); avisar a su autor. |
+| TV-04 | **La suite de integración en segundo plano se corta sola** cuando coincide con el hook `Stop` del harness (`.claude/hooks/verificar.ps1`), que corre `tsc` y `npm test` al cerrar cada turno: Jest termina sin error y sin resumen (código 127). Correrla en primer plano evita la superposición. Es del harness, no del código. |
 
 ---
 
@@ -116,7 +118,7 @@ Cada paso se commitea por separado (los commits los hace Matusan30).
 | B3 | `harmfulActDeadline` en la lectura, solo en "Iniciada" | Hecho en `develop` (`withDeadlines`, `list-cases.use-case.ts`) |
 | B4 | Orden por urgencia y `openDeadline` de `GET /cases` con el acto lesivo (D-82) | Pendiente: decidir en memoria o en SQL |
 | B5 | Tableros del abogado y del administrador con `kind: HARMFUL_ACT` | Pendiente |
-| B6 | La detección suma el vencimiento del acto lesivo | Pendiente |
+| B6 | La detección suma el vencimiento del acto lesivo | Hecho. `OpenDeadlineQueryPort` suma `findActiveAmparosWithHarmfulAct` (amparos activos en "Iniciada" con fecha de acto lesivo); `ListOpenDeadlines` les calcula el vencimiento con `harmfulActOf` + `HarmfulAct.deadline`, lo mismo que usa `ListCases` para `harmfulActDeadline` (V-17). El puerto de `deadlines` no cambió. 6 tests de integración nuevos |
 
 ---
 
@@ -139,19 +141,21 @@ Cada paso se commitea por separado (los commits los hace Matusan30).
 | 20/10/2026 | HU51, fase A, pasos A5 a A7: `OpenDeadlineQueryPort` + adaptador Prisma, `ListOpenDeadlines` y `DeadlinesOpenDeadlinesAdapter`, 6 tests. Sin registrar en `CasesModule` todavía (A8). | — |
 | 20/10/2026 | HU51, fase A, paso A8: cableado. **Desde acá el disparo diario manda también avisos reales de vencimiento** (preaviso y "vence hoy") donde `DeadlinesModule` se carga. | — |
 | 20/10/2026 | HU51, fase A, paso A9: `detect-upcoming-deadlines.int.spec.ts`, 10/10 en verde. **Fase A terminada.** | — |
+| 20/10/2026 | HU51, fase B, paso B6: la detección suma el vencimiento del acto lesivo. Unitarios: 102 suites / 1214 tests. Integración del spec de HU51: 16/16. **CA-51.5 cubierto.** | — |
+| 20/10/2026 | Integración completa después de B6, corrida en primer plano: 28/29 suites, 583/584 tests. Falla de nuevo `case-folder-contract.int.spec.ts`, ahora en otro test ("CREATED: tiene exactamente las cinco claves…"), con el mismo `CREATING` en vez de `CREATED`; solo pasa 17/17 (TV-03). Dos corridas en segundo plano se habían cortado a mitad de camino sin ningún test fallado (TV-04). | — |
 ### Estado de los criterios — HU51 (fase A: actos procesales)
 
 | CA | Estado | Dónde |
 | --- | --- | --- |
 | 51.1 Todos los días a una hora fija, sin que nadie lo active | **Sin verificar:** depende del disparo de GitHub Actions, comentado hasta que haya despliegue (QV-02) | — |
-| 51.2 Plazos de presentación de las causas activas y de los amparos | **Actos procesales: integración (A9)**, penal y administrativo. Amparos: fase B | A5, A9, B6 |
+| 51.2 Plazos de presentación de las causas activas y de los amparos | **Integración (A9, B6):** actos procesales de penal y administrativo, y el acto lesivo de los amparos | A5, A9, B6 |
 | 51.3 Detecta por vencer, vence hoy y vencidos | **Unitario (A1, A4) e integración (A9)** | A1, A4, A9 |
 | 51.4 Lunes a viernes; respeta el ajuste manual | **Unitario (A6) e integración (A9):** calculado, atrasado y adelantado a mano | A5, A6, A9 |
-| 51.5 Amparos: solo en "Iniciada", con la renovación vigente | Pendiente: fase B (B6) | B6 |
+| 51.5 Amparos: solo en "Iniciada", con la renovación vigente | **Unitario e integración (B6):** con el primer acto deja de revisarse; la renovación cuenta desde la vigente y se vuelve a avisar con la fecha nueva | B6 |
 | 51.6 No revisa archivadas, prescriptas ni dadas de baja | **Integración (A9)** | A5, A9 |
 | 51.7 No cambia nada de la causa | **Por construcción (A4) e integración (A9):** causa y acto iguales después del disparo | A4, A9 |
 | 51.8 Dos corridas el mismo día no duplican | **Integración (A9):** dos corridas el mismo día y tres días de la ventana, un solo preaviso | A9 |
-| 51.9 Coincide con la causa y los tableros | **Actos procesales: integración (A9)** contra `GET /cases/{id}` y el tablero del abogado. Amparos y tablero del administrador: fase B (B4, B5) | A9, B4, B5 |
+| 51.9 Coincide con la causa y los tableros | **Integración (A9, B6)** contra `GET /cases/{id}` (`currentState` y `harmfulActDeadline`) y el tablero del abogado para actos procesales. **Pendiente:** los tableros todavía no listan el acto lesivo (B5) y el orden de `GET /cases` no lo considera (B4) | A9, B4, B5, B6 |
 
 ### Estado de los criterios — HU52
 
