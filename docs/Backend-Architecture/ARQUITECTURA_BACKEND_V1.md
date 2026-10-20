@@ -25,6 +25,7 @@ Los demás documentos del mismo conjunto complementan esta arquitectura y deben 
 - [AUDITORIA_Y_TRAZABILIDAD.md](AUDITORIA_Y_TRAZABILIDAD.md) — especifica el mecanismo de auditoría, trazabilidad de actividad y registro de eventos relevantes del backend.
 - [MODULO_AUTH.md](MODULO_AUTH.md) — describe el módulo de autenticación y autorización, sus flujos de sesión y las decisiones de acceso del sistema.
 - [PENDIENTE_DEFINICION.md](PENDIENTE_DEFINICION.md) — registro de decisiones pendientes, inconsistencias documentadas y puntos que requieren validación con el cliente o el equipo.
+- [ADR-005_EVENTOS_DE_INTEGRACION.md](ADR-005_EVENTOS_DE_INTEGRACION.md) — por qué `cases` y `documents` se avisan con eventos (publish & subscribe) en vez de llamarse, cómo funciona y qué se responde mientras la carpeta se crea.
 - [EJEMPLO_CASO_DE_USO.md](EJEMPLO_CASO_DE_USO.md) — Flujo end-to-end de un caso de uso, como se comporta, como se integra y como se separan las responsablidades con esta arquitectura
     > La arquitectura backend establece el marco de solución; los documentos de apoyo expresan ejemplos de implementación, reglas de auditoría y el estado de decisiones abiertas.
 
@@ -405,6 +406,8 @@ Convenciones de archivo:
 **Toda comunicación entre subsistemas es síncrona, mediante puerto declarado por el consumidor e implementado por un adaptador anticorrupción**.
 
 No se utiliza, por el momento, publicación de eventos de dominio. El patrón suscriptor queda registrado como **evolución posible a evaluar**, no como parte de esta versión.
+
+> **Actualización (Sprint 3, HU39):** la integración `cases` → `documents` usa **eventos de integración** en memoria (`@nestjs/event-emitter`) detrás del puerto `EventPublisher` (`shared/infrastructure/events`). Cada evento lleva `type` versionado, `eventId` y `occurredAt`, solo datos primitivos, y su contrato vive en `core/domain/ports/events/` del subsistema que lo publica. Los eventos son best-effort (se pierden si el proceso cae) hasta que se agregue un outbox. El resto de la comunicación sigue siendo síncrona por puertos. Detalle y razones en [ADR-005](ADR-005_EVENTOS_DE_INTEGRACION.md).
 
 ### 6.2 Mecanismo
 

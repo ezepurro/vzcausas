@@ -3,6 +3,6 @@ in: path
 required: true
 description: Identificador único del modelo formal.
 schema:
-  type: integer
-  minimum: 1
+    type: integer
+    minimum: 1
 example: 2

@@ -8,6 +8,7 @@ import {
 } from "@nestjs/common";
 import { Request, Response } from "express";
 import {
+  BadGatewayError,
   BusinessRuleError,
   ConflictError,
   DomainError,
@@ -124,6 +125,7 @@ export class DomainErrorFilter implements ExceptionFilter {
       return HttpStatus.UNPROCESSABLE_ENTITY;
     if (err instanceof TooManyRequestsError)
       return HttpStatus.TOO_MANY_REQUESTS;
+    if (err instanceof BadGatewayError) return HttpStatus.BAD_GATEWAY;
 
     this.logger.warn(`Unmapped DomainError subtype: ${err.constructor.name}`);
     return HttpStatus.INTERNAL_SERVER_ERROR;
@@ -151,6 +153,10 @@ export class DomainErrorFilter implements ExceptionFilter {
         // would answer `HTTP_ERROR` — a code the contract does not
         // define and the frontend cannot branch on.
         return "TOO_MANY_REQUESTS";
+      case HttpStatus.PAYLOAD_TOO_LARGE:
+        // Where multer's file size limit lands (`POST /document-templates`):
+        // the only upload of the API, so the code is the contract's.
+        return "FILE_TOO_LARGE";
       default:
         return "HTTP_ERROR";
     }
@@ -201,6 +207,8 @@ export class DomainErrorFilter implements ExceptionFilter {
         return "No se puede realizar la operación debido a una regla de negocio.";
       case HttpStatus.TOO_MANY_REQUESTS:
         return "Demasiadas peticiones. Esperá un momento antes de reintentar.";
+      case HttpStatus.PAYLOAD_TOO_LARGE:
+        return "El archivo supera el tamaño máximo de 10 MB.";
       default:
         return "No se pudo procesar la solicitud.";
     }

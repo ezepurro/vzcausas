@@ -9,6 +9,28 @@ function isBusinessDay(date: Date): boolean {
   return weekday !== SATURDAY && weekday !== SUNDAY;
 }
 
+/** `date` plus `days` calendar days. Civil dates at midnight UTC, like a `date` column. */
+export function addConsecutiveDays(date: Date, days: number): Date {
+  return new Date(date.getTime() + days * MS_PER_DAY);
+}
+
+/**
+ * `date` plus `days` business days, counted from the day after and skipping
+ * Saturdays and Sundays. Same rule as {@link businessDaysRemaining}, and as
+ * incomplete: no holidays, no judicial recess (P-02).
+ */
+export function addBusinessDays(date: Date, days: number): Date {
+  let current = date;
+  let remaining = days;
+  while (remaining > 0) {
+    current = addConsecutiveDays(current, 1);
+    if (isBusinessDay(current)) {
+      remaining -= 1;
+    }
+  }
+  return current;
+}
+
 /**
  * Business days in the half-open interval `(from, to]`: the day after `from`
  * up to and including `to`. `from` equal to or after `to` gives `0`.

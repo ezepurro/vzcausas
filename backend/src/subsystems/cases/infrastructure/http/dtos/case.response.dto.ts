@@ -39,6 +39,24 @@ export class CurrentStateResponseDto {
   manuallyAdjusted!: boolean;
 }
 
+/** The cloud folder of a case (API contract §3.7, `folder`). */
+export class CaseFolderResponseDto {
+  status!: 'PENDING' | 'CREATING' | 'CREATED' | 'ERROR';
+  // `null` until the folder is `CREATED`.
+  url!: string | null;
+  path!: string | null;
+  templatesCopied!: number;
+  templatesPending!: number;
+}
+
+/** `harmfulActDeadline` (API contract §3.7, D-78): the term to file an amparo. */
+export class HarmfulActDeadlineResponseDto {
+  actDate!: string;
+  renewed!: boolean;
+  dueDate!: string;
+  businessDaysRemaining!: number;
+}
+
 /** The case resource of the API contract (§3.7). */
 export class CaseResponseDto {
   id!: number;
@@ -52,11 +70,24 @@ export class CaseResponseDto {
   instructorExtension!: string | null;
   counterparty!: string | null;
   subjectMatter!: string | null;
+  // Data of each jurisdiction (D-67): `null` outside its own.
+  clientDetained!: boolean | null;
+  injunctionGranted!: boolean | null;
+  harmfulActDate!: string | null;
+  harmfulActRenews!: boolean | null;
+  harmfulActRenewalDays!: number | null;
+  harmfulActTermDays!: number | null;
+  harmfulActTermDayType!: 'BUSINESS' | 'CONSECUTIVE' | null;
+  harmfulActDeadline!: HarmfulActDeadlineResponseDto | null;
+  administrativeRemedyExhaustedOn!: string | null;
+  courtFeePaid!: boolean;
   client!: ClientResponseDto;
   responsibleLawyer!: ResponsibleLawyerResponseDto;
   legalQualifications!: LegalQualificationResponseDto[];
   // `null` while the case has no SAC number.
   startDate!: string | null;
   currentState!: CurrentStateResponseDto;
+  // `null` in a case registered before the folders existed.
+  folder!: CaseFolderResponseDto | null;
   active!: boolean;
 }

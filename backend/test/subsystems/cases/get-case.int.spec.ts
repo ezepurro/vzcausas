@@ -9,6 +9,7 @@ import {
   createInitialState,
   createProceduralState,
 } from '../../shared/factories/procedural-state.factory';
+import { createCase } from '../../shared/factories/case.factory';
 import { createUser } from '../../shared/factories/user.factory';
 import { getPrisma, startTestApp, stopTestApp } from '../../shared/harness/test-app';
 
@@ -185,6 +186,91 @@ describe('GET /api/v1/cases/{caseId}', () => {
       name: 'Con acusación, pero con oposición',
       custom: true,
       initial: false,
+    });
+  });
+
+  // D-67 y D-78: los datos por fuero y el plazo del acto lesivo salen en el mismo recurso del listado y del detalle.
+  describe('datos propios de cada fuero y harmfulActDeadline', () => {
+    async function anAmparo(options: { leaveInitialState?: boolean } = {}) {
+      await createInitialState('AMPARO');
+      const created = await createCase({
+        clientId,
+        responsibleLawyerId: lawyerId,
+        createdByUserId: userId,
+        caption: 'MOYANO, Daniela c/ APROSS — Amparo de salud',
+        jurisdiction: 'AMPARO',
+        harmfulAct: { date: '2026-01-05', termDays: 30, termDayType: 'CONSECUTIVE' },
+      });
+      if (options.leaveInitialState) {
+        const state = await createProceduralState({ name: 'Pedido de informe' });
+        const act = await getPrisma().proceduralAct.create({
+          data: {
+            caseId: created.id,
+            proceduralStateId: state.stateId,
+            actDate: new Date('2026-09-01T00:00:00.000Z'),
+            deadlineTimeLimitDays: 5,
+            deadlineDayType: 'BUSINESS',
+            deadlineCountsFrom: new Date('2026-09-01T00:00:00.000Z'),
+            deadlineComputedDueDate: new Date('2026-09-08T00:00:00.000Z'),
+            registeredByUserId: userId,
+            registeredByLawyerId: lawyerId,
+          },
+        });
+        await getPrisma().case.update({
+          where: { id: created.id },
+          data: { currentStateId: state.stateId, currentProceduralActId: act.id },
+        });
+      }
+      return created;
+    }
+
+    it('un amparo en "Iniciada" muestra el acto lesivo y su plazo, igual en el detalle y en el listado', async () => {
+      const created = await anAmparo();
+
+      const detail = await request(app.getHttpServer()).get(`${URL}/${created.id}`).set(actor);
+      const list = await request(app.getHttpServer()).get(URL).set(actor);
+
+      const item = expectData<{ harmfulActDeadline: { businessDaysRemaining: number } }>(detail, 200);
+      expect(item).toMatchObject({
+        clientDetained: null,
+        injunctionGranted: false,
+        harmfulActDate: '2026-01-05',
+        harmfulActRenews: false,
+        harmfulActRenewalDays: null,
+        harmfulActTermDays: 30,
+        harmfulActTermDayType: 'CONSECUTIVE',
+        harmfulActDeadline: { actDate: '2026-01-05', renewed: false, dueDate: '2026-02-04' },
+        administrativeRemedyExhaustedOn: null,
+        courtFeePaid: false,
+      });
+      // Venció hace rato, y sigue abierto: negativo, no oculto.
+      expect(item.harmfulActDeadline.businessDaysRemaining).toBeLessThan(0);
+      expect(expectPaginated(list)[0]).toEqual(item);
+    });
+
+    it('en cuanto el amparo sale de "Iniciada" el plazo vale null, pero el acto lesivo cargado se conserva', async () => {
+      const created = await anAmparo({ leaveInitialState: true });
+
+      const res = await request(app.getHttpServer()).get(`${URL}/${created.id}`).set(actor);
+
+      expect(expectData(res, 200)).toMatchObject({
+        harmfulActDate: '2026-01-05',
+        harmfulActTermDays: 30,
+        harmfulActDeadline: null,
+      });
+    });
+
+    it('una causa penal anterior a D-67, con NULL en la base, sale con clientDetained en false', async () => {
+      const created = await aCase();
+
+      const res = await request(app.getHttpServer()).get(`${URL}/${created.id}`).set(actor);
+
+      expect(expectData(res, 200)).toMatchObject({
+        clientDetained: false,
+        injunctionGranted: null,
+        harmfulActDeadline: null,
+        courtFeePaid: false,
+      });
     });
   });
 

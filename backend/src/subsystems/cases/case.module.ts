@@ -1,4 +1,5 @@
 import { Module, forwardRef } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { SharedModule } from '@shared/shared.module';
 import { ActiveCasesCounterPort } from '@subsystems/legal-parameters/core/domain/ports/active-cases-counter.port';
 import { LegalParametersModule } from '@subsystems/legal-parameters/legal-parameters.module';
@@ -14,6 +15,9 @@ import { ListProceduralActs } from './core/application/use-cases/list-procedural
 import { RegisterInterruptiveAct } from './core/application/use-cases/register-interruptive-act.use-case';
 import { RegisterCase } from './core/application/use-cases/register-case.use-case';
 import { RegisterProceduralAct } from './core/application/use-cases/register-procedural-act.use-case';
+import { RequestCaseFolder } from './core/application/use-cases/request-case-folder.use-case';
+import { CASE_FOLDER_OUTCOMES, CASE_FOLDER_WAIT_MS } from './core/domain/ports/case-folder-outcome.port';
+import { CASE_FOLDER_STATE } from './core/domain/ports/case-folder-state.port';
 import { CASE_QUERY } from './core/domain/ports/case-query.port';
 import { CASE_TIMELINE_QUERY } from './core/domain/ports/case-timeline-query.port';
 import { CASE_REPOSITORY } from './core/domain/ports/case.repository';
@@ -25,12 +29,15 @@ import { PROCEDURAL_ACT_REPOSITORY } from './core/domain/ports/procedural-act.re
 import { BusinessDaysDeadlineCalculatorAdapter } from './infrastructure/acl/business-days-deadline-calculator.adapter';
 import { LegalParametersActiveCasesCounterAdapter } from './infrastructure/acl/legal-parameters-active-cases-counter.adapter';
 import { PeopleActiveCasesCounterAdapter } from './infrastructure/acl/people-active-cases-counter.adapter';
+import { CaseFolderOutcomeListener } from './infrastructure/acl/events/case-folder-outcome.listener';
+import { InMemoryCaseFolderOutcomes } from './infrastructure/events/in-memory-case-folder-outcomes';
 import { CaseTimelineController } from './infrastructure/http/controllers/case-timeline.controller';
 import { CasesController } from './infrastructure/http/controllers/cases.controller';
 import { InterruptiveActsController } from './infrastructure/http/controllers/interruptive-acts.controller';
 import { InterruptiveActHttpMapper } from './infrastructure/http/mappers/interruptive-act-http.mapper';
 import { ProceduralActHttpMapper } from './infrastructure/http/mappers/procedural-act-http.mapper';
 import { TimelineHttpMapper } from './infrastructure/http/mappers/timeline-http.mapper';
+import { CaseFolderStatePrismaAdapter } from './infrastructure/persistence/case-folder-state-prisma.adapter';
 import { CasePrismaRepository } from './infrastructure/persistence/case-prisma.repository';
 import { CaseQueryPrismaAdapter } from './infrastructure/persistence/case-query-prisma.adapter';
 import { CaseTimelinePrismaAdapter } from './infrastructure/persistence/case-timeline-prisma.adapter';
@@ -89,6 +96,21 @@ import { ProceduralActQueryPrismaAdapter } from './infrastructure/persistence/pr
   controllers: [CasesController, InterruptiveActsController, CaseTimelineController],
   providers: [
     RegisterCase,
+    // HU39: asks `documents` for the folder of a case and waits for the answer.
+    // Used by the registration and by `POST /cases/{caseId}/folder`.
+    RequestCaseFolder,
+    CaseFolderOutcomeListener,
+    { provide: CASE_FOLDER_STATE, useClass: CaseFolderStatePrismaAdapter },
+    { provide: CASE_FOLDER_OUTCOMES, useClass: InMemoryCaseFolderOutcomes },
+    {
+      // How long a request waits for the folder before answering `CREATING`.
+      provide: CASE_FOLDER_WAIT_MS,
+      useFactory: (config: ConfigService) => {
+        const configured = Number(config.get<string>('CASE_FOLDER_WAIT_MS'));
+        return Number.isFinite(configured) && configured > 0 ? configured : 10_000;
+      },
+      inject: [ConfigService],
+    },
     ListCases,
     GetCase,
     ListCustomStates,

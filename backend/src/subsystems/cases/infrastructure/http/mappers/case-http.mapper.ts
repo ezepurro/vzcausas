@@ -3,6 +3,7 @@ import { toPageRequest } from '@shared/infrastructure/http/pagination';
 import { RegisterCaseResult } from '../../../core/application/common/register-case.interfaces';
 import { AdministrativeCase } from '../../../core/domain/entities/administrative';
 import { Amparo } from '../../../core/domain/entities/amparo';
+import { CriminalCase } from '../../../core/domain/entities/criminal';
 import { ExclusiveCaseStateFilterError } from '../../../core/domain/errors/case.errors';
 import {
   CaseListItem,
@@ -97,6 +98,22 @@ export class CaseHttpMapper {
       instructorExtension: item.instructorExtension,
       counterparty: item.counterparty,
       subjectMatter: item.subjectMatter,
+      clientDetained: item.clientDetained,
+      injunctionGranted: item.injunctionGranted,
+      harmfulActDate: item.harmfulActDate && toIsoDate(item.harmfulActDate),
+      harmfulActRenews: item.harmfulActRenews,
+      harmfulActRenewalDays: item.harmfulActRenewalDays,
+      harmfulActTermDays: item.harmfulActTermDays,
+      harmfulActTermDayType: item.harmfulActTermDayType as 'BUSINESS' | 'CONSECUTIVE' | null,
+      harmfulActDeadline: item.harmfulActDeadline && {
+        actDate: toIsoDate(item.harmfulActDeadline.actDate),
+        renewed: item.harmfulActDeadline.renewed,
+        dueDate: toIsoDate(item.harmfulActDeadline.dueDate),
+        businessDaysRemaining: item.harmfulActDeadline.businessDaysRemaining,
+      },
+      administrativeRemedyExhaustedOn:
+        item.administrativeRemedyExhaustedOn && toIsoDate(item.administrativeRemedyExhaustedOn),
+      courtFeePaid: item.courtFeePaid,
       client: { ...item.client, clientSince: toIsoDate(item.client.clientSince) },
       responsibleLawyer: item.responsibleLawyer,
       legalQualifications: item.legalQualifications.map((qualification) => ({
@@ -123,6 +140,7 @@ export class CaseHttpMapper {
         businessDaysRemaining: item.currentState.businessDaysRemaining,
         manuallyAdjusted: item.currentState.manuallyAdjusted,
       },
+      folder: item.folder && { ...item.folder },
       active: item.active,
     };
   }
@@ -160,6 +178,18 @@ export class CaseHttpMapper {
       instructorExtension: newCase.instructor.extension,
       counterparty: hasCounterparty ? newCase.counterparty : null,
       subjectMatter: hasCounterparty ? newCase.subjectMatter : null,
+      // The data of each jurisdiction is `null` outside its own (D-67).
+      clientDetained: newCase instanceof CriminalCase ? newCase.clientDetained : null,
+      injunctionGranted: newCase instanceof Amparo ? newCase.injunctionGranted : null,
+      harmfulActDate: newCase instanceof Amparo ? newCase.harmfulActDate : null,
+      harmfulActRenews: newCase instanceof Amparo ? newCase.harmfulActRenews : null,
+      harmfulActRenewalDays: newCase instanceof Amparo ? newCase.harmfulActRenewalDays : null,
+      harmfulActTermDays: newCase instanceof Amparo ? newCase.harmfulActTermDays : null,
+      harmfulActTermDayType: newCase instanceof Amparo ? newCase.harmfulActTermDayType : null,
+      harmfulActDeadline: result.harmfulActDeadline,
+      administrativeRemedyExhaustedOn:
+        newCase instanceof AdministrativeCase ? newCase.administrativeRemedyExhaustedOn : null,
+      courtFeePaid: newCase.courtFeePaid,
       client: result.client,
       responsibleLawyer: result.responsibleLawyer,
       legalQualifications: result.offenses.map((offense) => ({
@@ -181,6 +211,7 @@ export class CaseHttpMapper {
         businessDaysRemaining: null,
         manuallyAdjusted: false,
       },
+      folder: result.folder,
       active: newCase.active,
     });
   }
