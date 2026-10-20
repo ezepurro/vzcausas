@@ -1,5 +1,9 @@
-import { InMemoryDocumentStorage } from '../../../src/subsystems/documents/infrastructure/storage/in-memory/in-memory-document-storage';
 import { getPrisma } from '../harness/test-app';
+
+/** Lo único que hace falta de un almacenamiento para sembrarle la estructura base. */
+export interface SeedableStorage {
+  seed(parentId: string | null, name: string): { id: string; url: string };
+}
 
 /**
  * Factory de la estructura de carpetas del estudio.
@@ -14,7 +18,7 @@ import { getPrisma } from '../harness/test-app';
  * Sin esta estructura, pedir la carpeta de una causa responde `ERROR`
  * (`StudioRootNotConfiguredError`).
  */
-export async function createCloudStructure(storage: InMemoryDocumentStorage) {
+export async function createCloudStructure(storage: SeedableStorage) {
   const prisma = getPrisma();
   const main = storage.seed(null, 'VZ Causas');
   const templates = storage.seed(main.id, 'Modelos formales');

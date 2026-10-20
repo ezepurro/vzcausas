@@ -171,3 +171,227 @@ M	docs/Backend-Architecture/ARQUITECTURA_BACKEND_V1.md
 - Nada de esto verifica que la solución tenga **sentido de negocio**. Eso lo revisás vos leyendo `git diff HEAD`.
 
 ---
+
+## Turno cerrado 20/10/2026 12:31:50
+
+### Cambios respecto de HEAD
+
+```
+M	backend/package-lock.json
+M	backend/package.json
+M	backend/src/subsystems/cases/core/application/use-cases/request-case-folder.use-case.spec.ts
+M	backend/src/subsystems/cases/core/application/use-cases/request-case-folder.use-case.ts
+M	backend/src/subsystems/cases/core/domain/errors/case.errors.ts
+M	backend/src/subsystems/cases/core/domain/ports/people-lookup.port.ts
+M	backend/src/subsystems/cases/core/test-support/case-fakes.ts
+M	backend/src/subsystems/documents/documents.module.ts
+M	backend/src/subsystems/documents/infrastructure/storage/document-storage.factory.spec.ts
+M	backend/src/subsystems/documents/infrastructure/storage/document-storage.factory.ts
+M	backend/src/subsystems/documents/infrastructure/storage/google-drive/google-drive-document-storage.adapter.ts
+M	backend/src/subsystems/people/infrastructure/acl/cases-people-lookup.adapter.ts
+M	backend/test/README.md
+M	backend/test/shared/factories/cloud-structure.factory.ts
+M	docs/Backend-Architecture/GOOGLE_OAUTH_CLIENTE_COMPARTIDO.md
+?? .claude/audit/2026-10-20.md
+?? backend/src/subsystems/documents/infrastructure/storage/document-storage.wiring.spec.ts
+?? backend/src/subsystems/people/infrastructure/acl/cases-people-lookup.adapter.spec.ts
+?? backend/test/shared/fakes/fake-google.ts
+?? backend/test/shared/harness/case-folder-scenario.ts
+?? backend/test/shared/harness/google-stack.ts
+?? backend/test/subsystems/cases/case-folder-contract.int.spec.ts
+?? backend/test/subsystems/documents/google-drive-case-folder.int.spec.ts
+?? backend/test/subsystems/documents/google-drive-templates.int.spec.ts
+?? backend/test/subsystems/documents/google-oauth-refresh.int.spec.ts
+```
+
+### Verificado automáticamente
+
+- Compilación (`tsc --noEmit`): **OK**
+- Tests unitarios (`npm test`): **OK** — Tests:       1099 passed, 1099 total
+
+### NO verificado — revisar a mano
+
+- Tests de integración: no se corrieron. `npm run test:int` (levanta PostgreSQL en contenedor, no toca tu base de desarrollo).
+- Nada de esto verifica que la solución tenga **sentido de negocio**. Eso lo revisás vos leyendo `git diff HEAD`.
+
+---
+
+## Turno cerrado 20/10/2026 12:33:18
+
+### Cambios respecto de HEAD
+
+```
+M	.claude/audit/verificacion-2026-10-20.md
+M	backend/package-lock.json
+M	backend/package.json
+M	backend/src/subsystems/cases/core/application/use-cases/request-case-folder.use-case.spec.ts
+M	backend/src/subsystems/cases/core/application/use-cases/request-case-folder.use-case.ts
+M	backend/src/subsystems/cases/core/domain/errors/case.errors.ts
+M	backend/src/subsystems/cases/core/domain/ports/people-lookup.port.ts
+M	backend/src/subsystems/cases/core/test-support/case-fakes.ts
+M	backend/src/subsystems/documents/documents.module.ts
+M	backend/src/subsystems/documents/infrastructure/storage/document-storage.factory.spec.ts
+M	backend/src/subsystems/documents/infrastructure/storage/document-storage.factory.ts
+M	backend/src/subsystems/documents/infrastructure/storage/google-drive/google-drive-document-storage.adapter.ts
+M	backend/src/subsystems/people/infrastructure/acl/cases-people-lookup.adapter.ts
+M	backend/test/README.md
+M	backend/test/shared/factories/cloud-structure.factory.ts
+M	docs/Backend-Architecture/GOOGLE_OAUTH_CLIENTE_COMPARTIDO.md
+?? .claude/audit/2026-10-20.md
+?? backend/src/subsystems/documents/infrastructure/storage/document-storage.wiring.spec.ts
+?? backend/src/subsystems/people/infrastructure/acl/cases-people-lookup.adapter.spec.ts
+?? backend/test/shared/fakes/fake-google.ts
+?? backend/test/shared/harness/case-folder-scenario.ts
+?? backend/test/shared/harness/google-stack.ts
+?? backend/test/subsystems/cases/case-folder-contract.int.spec.ts
+?? backend/test/subsystems/documents/google-drive-case-folder.int.spec.ts
+?? backend/test/subsystems/documents/google-drive-templates.int.spec.ts
+?? backend/test/subsystems/documents/google-oauth-refresh.int.spec.ts
+```
+
+### Verificado automáticamente
+
+- Compilación (`tsc --noEmit`): **OK**
+- Tests unitarios (`npm test`): **OK** — Tests:       1099 passed, 1099 total
+
+### NO verificado — revisar a mano
+
+- Tests de integración: no se corrieron. `npm run test:int` (levanta PostgreSQL en contenedor, no toca tu base de desarrollo).
+- Nada de esto verifica que la solución tenga **sentido de negocio**. Eso lo revisás vos leyendo `git diff HEAD`.
+
+---
+
+## Turno cerrado 20/10/2026 12:37:04
+
+### Cambios respecto de HEAD
+
+```
+M	.claude/audit/verificacion-2026-10-20.md
+M	backend/package-lock.json
+M	backend/package.json
+M	backend/src/subsystems/cases/core/application/use-cases/request-case-folder.use-case.spec.ts
+M	backend/src/subsystems/cases/core/application/use-cases/request-case-folder.use-case.ts
+M	backend/src/subsystems/cases/core/domain/errors/case.errors.ts
+M	backend/src/subsystems/cases/core/domain/ports/people-lookup.port.ts
+M	backend/src/subsystems/cases/core/test-support/case-fakes.ts
+M	backend/src/subsystems/documents/documents.module.ts
+M	backend/src/subsystems/documents/infrastructure/storage/document-storage.factory.spec.ts
+M	backend/src/subsystems/documents/infrastructure/storage/document-storage.factory.ts
+M	backend/src/subsystems/documents/infrastructure/storage/google-drive/google-drive-document-storage.adapter.ts
+M	backend/src/subsystems/people/infrastructure/acl/cases-people-lookup.adapter.ts
+M	backend/test/README.md
+M	backend/test/shared/factories/cloud-structure.factory.ts
+M	docs/Backend-Architecture/GOOGLE_OAUTH_CLIENTE_COMPARTIDO.md
+?? .claude/audit/2026-10-20.md
+?? backend/src/subsystems/documents/infrastructure/storage/document-storage.wiring.spec.ts
+?? backend/src/subsystems/people/infrastructure/acl/cases-people-lookup.adapter.spec.ts
+?? backend/test/shared/fakes/fake-google.ts
+?? backend/test/shared/harness/case-folder-scenario.ts
+?? backend/test/shared/harness/google-stack.ts
+?? backend/test/subsystems/cases/case-folder-contract.int.spec.ts
+?? backend/test/subsystems/documents/google-drive-case-folder.int.spec.ts
+?? backend/test/subsystems/documents/google-drive-templates.int.spec.ts
+?? backend/test/subsystems/documents/google-oauth-refresh.int.spec.ts
+```
+
+### Verificado automáticamente
+
+- Compilación (`tsc --noEmit`): **OK**
+- Tests unitarios (`npm test`): **OK** — Tests:       1099 passed, 1099 total
+
+### NO verificado — revisar a mano
+
+- Tests de integración: no se corrieron. `npm run test:int` (levanta PostgreSQL en contenedor, no toca tu base de desarrollo).
+- Nada de esto verifica que la solución tenga **sentido de negocio**. Eso lo revisás vos leyendo `git diff HEAD`.
+
+---
+
+## Turno cerrado 20/10/2026 12:45:14
+
+### Cambios respecto de HEAD
+
+```
+M	.claude/audit/verificacion-2026-10-20.md
+M	backend/package-lock.json
+M	backend/package.json
+M	backend/src/subsystems/cases/core/application/use-cases/request-case-folder.use-case.spec.ts
+M	backend/src/subsystems/cases/core/application/use-cases/request-case-folder.use-case.ts
+M	backend/src/subsystems/cases/core/domain/errors/case.errors.ts
+M	backend/src/subsystems/cases/core/domain/ports/people-lookup.port.ts
+M	backend/src/subsystems/cases/core/test-support/case-fakes.ts
+M	backend/src/subsystems/documents/documents.module.ts
+M	backend/src/subsystems/documents/infrastructure/storage/document-storage.factory.spec.ts
+M	backend/src/subsystems/documents/infrastructure/storage/document-storage.factory.ts
+M	backend/src/subsystems/documents/infrastructure/storage/google-drive/google-drive-document-storage.adapter.ts
+M	backend/src/subsystems/people/infrastructure/acl/cases-people-lookup.adapter.ts
+M	backend/test/README.md
+M	backend/test/shared/factories/cloud-structure.factory.ts
+M	docs/Backend-Architecture/GOOGLE_OAUTH_CLIENTE_COMPARTIDO.md
+?? .claude/audit/2026-10-20.md
+?? backend/src/subsystems/documents/infrastructure/storage/document-storage.wiring.spec.ts
+?? backend/src/subsystems/people/infrastructure/acl/cases-people-lookup.adapter.spec.ts
+?? backend/test/shared/fakes/fake-google.ts
+?? backend/test/shared/harness/case-folder-scenario.ts
+?? backend/test/shared/harness/google-stack.ts
+?? backend/test/subsystems/cases/case-folder-contract.int.spec.ts
+?? backend/test/subsystems/documents/google-drive-case-folder.int.spec.ts
+?? backend/test/subsystems/documents/google-drive-templates.int.spec.ts
+?? backend/test/subsystems/documents/google-oauth-refresh.int.spec.ts
+```
+
+### Verificado automáticamente
+
+- Compilación (`tsc --noEmit`): **OK**
+- Tests unitarios (`npm test`): **OK** — Tests:       1099 passed, 1099 total
+
+### NO verificado — revisar a mano
+
+- Tests de integración: no se corrieron. `npm run test:int` (levanta PostgreSQL en contenedor, no toca tu base de desarrollo).
+- Nada de esto verifica que la solución tenga **sentido de negocio**. Eso lo revisás vos leyendo `git diff HEAD`.
+
+---
+
+## Turno cerrado 20/10/2026 12:57:54
+
+### Cambios respecto de HEAD
+
+```
+M	.claude/audit/verificacion-2026-10-20.md
+M	backend/package-lock.json
+M	backend/package.json
+M	backend/src/subsystems/cases/core/application/use-cases/request-case-folder.use-case.spec.ts
+M	backend/src/subsystems/cases/core/application/use-cases/request-case-folder.use-case.ts
+M	backend/src/subsystems/cases/core/domain/errors/case.errors.ts
+M	backend/src/subsystems/cases/core/domain/ports/people-lookup.port.ts
+M	backend/src/subsystems/cases/core/test-support/case-fakes.ts
+M	backend/src/subsystems/documents/documents.module.ts
+M	backend/src/subsystems/documents/infrastructure/storage/document-storage.factory.spec.ts
+M	backend/src/subsystems/documents/infrastructure/storage/document-storage.factory.ts
+M	backend/src/subsystems/documents/infrastructure/storage/google-drive/google-drive-document-storage.adapter.ts
+M	backend/src/subsystems/people/infrastructure/acl/cases-people-lookup.adapter.ts
+M	backend/test/README.md
+M	backend/test/shared/factories/cloud-structure.factory.ts
+M	docs/Backend-Architecture/GOOGLE_OAUTH_CLIENTE_COMPARTIDO.md
+?? .claude/audit/2026-10-20.md
+?? backend/src/subsystems/documents/infrastructure/storage/document-storage.wiring.spec.ts
+?? backend/src/subsystems/people/infrastructure/acl/cases-people-lookup.adapter.spec.ts
+?? backend/test/shared/fakes/fake-google.ts
+?? backend/test/shared/harness/case-folder-scenario.ts
+?? backend/test/shared/harness/google-stack.ts
+?? backend/test/subsystems/cases/case-folder-contract.int.spec.ts
+?? backend/test/subsystems/documents/google-drive-case-folder.int.spec.ts
+?? backend/test/subsystems/documents/google-drive-templates.int.spec.ts
+?? backend/test/subsystems/documents/google-oauth-refresh.int.spec.ts
+```
+
+### Verificado automáticamente
+
+- Compilación (`tsc --noEmit`): **OK**
+- Tests unitarios (`npm test`): **OK** — Tests:       1099 passed, 1099 total
+
+### NO verificado — revisar a mano
+
+- Tests de integración: no se corrieron. `npm run test:int` (levanta PostgreSQL en contenedor, no toca tu base de desarrollo).
+- Nada de esto verifica que la solución tenga **sentido de negocio**. Eso lo revisás vos leyendo `git diff HEAD`.
+
+---

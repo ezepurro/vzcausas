@@ -1,7 +1,7 @@
 import { Logger } from '@nestjs/common';
 import { InMemoryCaseFolderOutcomes } from '../../../infrastructure/events/in-memory-case-folder-outcomes';
 import { CASE_REGISTERED, CaseRegisteredEvent } from '../../domain/ports/events/case-registered.event';
-import { CaseFolderLawyerUnavailableError, CaseNotFoundError } from '../../domain/errors/case.errors';
+import { CaseNotFoundError } from '../../domain/errors/case.errors';
 import { FakeCaseFolderState, FakeEventPublisher } from '../../test-support/case-folder-fakes';
 import { FakeCaseRepository, FakeClock, FakePeopleLookup } from '../../test-support/case-fakes';
 import { CLIENT, INITIAL_STATES, LAWYER, NOW, TODAY, aCase } from '../../test-support/case-fixtures';
@@ -23,11 +23,13 @@ function answerWith(
   };
 }
 
-function build(options: { waitMs?: number; lawyers?: (typeof LAWYER)[] } = {}) {
+function build(
+  options: { waitMs?: number; lawyers?: (typeof LAWYER)[]; deactivatedLawyers?: (typeof LAWYER)[] } = {},
+) {
   const registered = aCase();
   const cases = new FakeCaseRepository(Object.values(INITIAL_STATES));
   cases.add(registered);
-  const people = new FakePeopleLookup(options.lawyers ?? [LAWYER], [CLIENT]);
+  const people = new FakePeopleLookup(options.lawyers ?? [LAWYER], [CLIENT], options.deactivatedLawyers ?? []);
   const folderState = new FakeCaseFolderState();
   const outcomes = new InMemoryCaseFolderOutcomes();
   const events = new FakeEventPublisher();
@@ -169,12 +171,27 @@ describe('RequestCaseFolder', () => {
     expect(events.published).toHaveLength(0);
   });
 
-  it('falla si el abogado responsable ya no está vigente, antes de cerrar la compuerta', async () => {
+  it('si el abogado responsable fue dado de baja igual pide la carpeta, con su nombre (RN12)', async () => {
+    const { useCase, registered, folderState, outcomes, events } = build({
+      lawyers: [],
+      deactivatedLawyers: [LAWYER],
+    });
+    events.onPublish = answerWith('CREATED', folderState, outcomes);
+
+    const result = await useCase.execute({ caseId: registered.id });
+
+    expect(result.outcome).toBe('CREATED');
+    expect((events.published[0] as CaseRegisteredEvent).lawyer).toEqual({
+      id: LAWYER.id,
+      lastName: 'Ríos',
+      firstName: 'Malena',
+    });
+  });
+
+  it('si el abogado responsable no existe es una referencia rota: falla sin cerrar la compuerta', async () => {
     const { useCase, registered, folderState, events } = build({ lawyers: [] });
 
-    await expect(useCase.execute({ caseId: registered.id })).rejects.toBeInstanceOf(
-      CaseFolderLawyerUnavailableError,
-    );
+    await expect(useCase.execute({ caseId: registered.id })).rejects.toThrow(/does not exist/);
 
     expect(folderState.statusOf(registered.id)).toBe('PENDING');
     expect(events.published).toHaveLength(0);

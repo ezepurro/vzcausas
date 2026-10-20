@@ -1,6 +1,4 @@
 import { Module } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { ModuleRef } from '@nestjs/core';
 import { SharedModule } from '@shared/shared.module';
 import { AssureSpace } from './core/application/use-cases/assure-space.use-case';
 import { DownloadDocumentTemplate } from './core/application/use-cases/download-document-template.use-case';
@@ -9,14 +7,13 @@ import { ListDocumentTemplates } from './core/application/use-cases/list-documen
 import { RegisterDocumentTemplate } from './core/application/use-cases/register-document-template.use-case';
 import { SetupCloudStorage } from './core/application/use-cases/setup-cloud-storage.use-case';
 import { CLOUD_FOLDER_REPOSITORY } from './core/domain/ports/cloud-folder.repository';
-import { DOCUMENT_STORAGE } from './core/domain/ports/document-storage.port';
 import { DOCUMENT_TEMPLATE_REPOSITORY } from './core/domain/ports/document-template.repository';
 import { CaseRegisteredListener } from './infrastructure/acl/events/case-registered.listener';
 import { DocumentTemplatesController } from './infrastructure/http/controllers/document-templates.controller';
 import { DocumentTemplateHttpMapper } from './infrastructure/http/mappers/document-template-http.mapper';
 import { PrismaCloudFolderRepository } from './infrastructure/persistence/prisma/prisma-cloud-folder.repository';
 import { PrismaDocumentTemplateRepository } from './infrastructure/persistence/prisma/prisma-document-template.repository';
-import { createDocumentStorage } from './infrastructure/storage/document-storage.factory';
+import { DOCUMENT_STORAGE_PROVIDER } from './infrastructure/storage/document-storage.factory';
 
 /**
  * Composition root of `documents`. It talks to the rest of the system through
@@ -50,11 +47,7 @@ import { createDocumentStorage } from './infrastructure/storage/document-storage
     DocumentTemplateHttpMapper,
     { provide: CLOUD_FOLDER_REPOSITORY, useClass: PrismaCloudFolderRepository },
     { provide: DOCUMENT_TEMPLATE_REPOSITORY, useClass: PrismaDocumentTemplateRepository },
-    {
-      provide: DOCUMENT_STORAGE,
-      useFactory: createDocumentStorage,
-      inject: [ConfigService, ModuleRef],
-    },
+    DOCUMENT_STORAGE_PROVIDER,
   ],
 })
 export class DocumentsModule {}

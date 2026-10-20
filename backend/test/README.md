@@ -153,17 +153,31 @@ de un endpoint protegido prepara su actor en una línea (`asAdmin()`,
 
 ### 3.8 `shared/fakes/` — reemplazos de servicios externos
 
-Todavía no existe; se crea con el primer subsistema que hable con un servicio
-externo (correo, Google Drive). Cada fake **implementa el puerto** del dominio,
-guarda lo que recibió y puede simular una falla. Se inyecta con el parámetro de
-`startTestApp()`:
+Cada fake **implementa el puerto** del dominio, guarda lo que recibió y puede
+simular una falla. Se inyecta con el parámetro de `startTestApp()`:
 
 ```typescript
-app = await startTestApp((b) => b.overrideProvider(CASE_FOLDER).useValue(fakeDrive));
+app = await startTestApp((b) => b.overrideProvider(DOCUMENT_STORAGE).useValue(storage));
 ```
 
 Solo se reemplazan adaptadores de servicios **externos**. Repositorios y
 `PrismaService` nunca: la base es real.
+
+**El Google falso (`fakes/fake-google.ts`).** Para HU39 no se reemplaza el
+adaptador sino solo el transporte HTTP: `harness/google-stack.ts` arma el
+`GoogleOAuthClientService` y el `GoogleDriveDocumentStorage` **reales**, y le
+cambia el `transporter` por un `FakeGoogle`. Así se ejercitan `googleapis`,
+el canje del refresh token y los reintentos de verdad. El falso simula
+`oauth2.googleapis.com/token` y Drive v3 (`list`, `create`, `get`, `delete`)
+sobre un árbol en memoria, registra los pedidos (`requests`, `tokenRequests`,
+`driveRequests`) y permite inyectar fallas: `failNext({ status, reason,
+networkError, times })`, `revokeRefreshToken()`, `rotateClientSecret()`,
+`expireAccessTokens()`. Se enchufa con `SwitchableStorage`
+(`harness/case-folder-scenario.ts`), que permite cambiar de Google falso en
+cada test sin reiniciar la app. `gaxios` es devDependency solo para esto.
+
+No reemplaza una prueba contra Drive real (cuotas, multipart de 10 MB real):
+esa queda como verificación manual.
 
 ---
 

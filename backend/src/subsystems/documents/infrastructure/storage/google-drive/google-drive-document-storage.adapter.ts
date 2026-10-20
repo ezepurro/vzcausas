@@ -41,6 +41,13 @@ export class GoogleDriveDocumentStorage implements DocumentStoragePort {
   private readonly drive: DriveFilesClient;
   private readonly sleep: (ms: number) => Promise<void>;
   private readonly timeout: number;
+  /**
+   * Options for every call. `retry: false` turns off the retries `googleapis`
+   * adds by default (it sets `retry = true` on every request): `withDriveRetries`
+   * is the only one that retries, so a call is attempted exactly 3 times, with the
+   * waits of ADR-003 §2.5, and not 3 times by us times 4 by the library.
+   */
+  private readonly requestOptions: { timeout: number; retry: false };
 
   constructor(
     oauth: GoogleOAuthClientService,
@@ -54,6 +61,7 @@ export class GoogleDriveDocumentStorage implements DocumentStoragePort {
     this.sleep = sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
     const configured = Number(config.get<string>('DRIVE_REQUEST_TIMEOUT_MS'));
     this.timeout = Number.isFinite(configured) && configured > 0 ? configured : DEFAULT_TIMEOUT_MS;
+    this.requestOptions = { timeout: this.timeout, retry: false };
   }
 
   async findFolderByReference(reference: FolderReference): Promise<StoredFolder | null> {
@@ -67,7 +75,7 @@ export class GoogleDriveDocumentStorage implements DocumentStoragePort {
     const response = await this.call('findFolderByReference', () =>
       this.drive.files.list(
         { q: query, pageSize: 1, fields: `files(${FILE_FIELDS})`, spaces: 'drive' },
-        { timeout: this.timeout },
+        this.requestOptions,
       ),
     );
     const found = response.data.files?.[0];
@@ -87,7 +95,7 @@ export class GoogleDriveDocumentStorage implements DocumentStoragePort {
             },
             fields: FILE_FIELDS,
           },
-          { timeout: this.timeout },
+          this.requestOptions,
         ),
       'The parent folder no longer exists in the storage',
     );
@@ -102,7 +110,7 @@ export class GoogleDriveDocumentStorage implements DocumentStoragePort {
       const response = await this.call('getFolder', () =>
         this.drive.files.get(
           { fileId: folderId, fields: `${FILE_FIELDS}, trashed` },
-          { timeout: this.timeout },
+          this.requestOptions,
         ),
       );
       return response.data.trashed || !response.data.id ? null : toStoredFolder(response.data);
@@ -129,7 +137,7 @@ export class GoogleDriveDocumentStorage implements DocumentStoragePort {
             media: { mimeType: upload.mimeType, body: Readable.from(upload.content) },
             fields: FILE_FIELDS,
           },
-          { timeout: this.timeout },
+          this.requestOptions,
         ),
       'The destination folder no longer exists in the storage',
     );
@@ -149,7 +157,7 @@ export class GoogleDriveDocumentStorage implements DocumentStoragePort {
       () =>
         this.drive.files.get(
           { fileId, alt: 'media' },
-          { timeout: this.timeout, responseType: 'arraybuffer' },
+          { ...this.requestOptions, responseType: 'arraybuffer' },
         ),
       'The file no longer exists in the storage',
     );
@@ -160,7 +168,7 @@ export class GoogleDriveDocumentStorage implements DocumentStoragePort {
   private async deleteById(operation: string, id: string): Promise<void> {
     try {
       await this.call(operation, () =>
-        this.drive.files.delete({ fileId: id }, { timeout: this.timeout }),
+        this.drive.files.delete({ fileId: id }, this.requestOptions),
       );
     } catch (error) {
       if (!(error instanceof FolderNotFound)) {

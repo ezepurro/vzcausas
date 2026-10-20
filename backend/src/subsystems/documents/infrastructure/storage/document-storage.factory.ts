@@ -1,8 +1,7 @@
-import { Logger } from '@nestjs/common';
+import { FactoryProvider, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { ModuleRef } from '@nestjs/core';
 import { GoogleOAuthClientService } from '@shared/infrastructure/google/google-oauth-client.service';
-import { DocumentStoragePort } from '../../core/domain/ports/document-storage.port';
+import { DOCUMENT_STORAGE, DocumentStoragePort } from '../../core/domain/ports/document-storage.port';
 import { InMemoryDocumentStorage } from './in-memory/in-memory-document-storage';
 
 /** The three variables the shared Google client needs (`GOOGLE_OAUTH_CLIENT_ID/SECRET/REFRESH_TOKEN`). */
@@ -26,10 +25,16 @@ const logger = new Logger('DocumentStorage');
  * The choice is made here, when the container is built, and not when the module
  * file is loaded: by then `ConfigModule` has already read the `.env` file.
  * `googleapis` is large, so the Drive adapter is only loaded if it is used.
+ *
+ * `sharedOAuth` is the app's shared Google client, if some other subsystem
+ * registered it (`deadlines` does). It arrives as an optional dependency of the
+ * provider, so Nest does not call this until that client is fully built; looking
+ * it up by hand (`ModuleRef.get`) could return it half-built. When nobody
+ * registered it, one is made here from the same variables.
  */
 export async function createDocumentStorage(
   config: ConfigService,
-  moduleRef: ModuleRef,
+  sharedOAuth: GoogleOAuthClientService | undefined,
 ): Promise<DocumentStoragePort> {
   const missing = GOOGLE_OAUTH_VARS.filter((name) => isMissing(config.get<string>(name)));
 
@@ -38,7 +43,7 @@ export async function createDocumentStorage(
       './google-drive/google-drive-document-storage.adapter'
     );
     logger.log('Using Google Drive as the document storage.');
-    return new GoogleDriveDocumentStorage(sharedOAuthClient(config, moduleRef), config);
+    return new GoogleDriveDocumentStorage(sharedOAuth ?? new GoogleOAuthClientService(config), config);
   }
 
   if (config.get<string>('NODE_ENV') === 'production') {
@@ -60,14 +65,9 @@ function isMissing(value: string | undefined): boolean {
   return trimmed === '' || trimmed.includes('change-me');
 }
 
-/**
- * The app has one shared Google client. If another subsystem already registered
- * it, use that one; otherwise build the same class from the same variables.
- */
-function sharedOAuthClient(config: ConfigService, moduleRef: ModuleRef): GoogleOAuthClientService {
-  try {
-    return moduleRef.get(GoogleOAuthClientService, { strict: false });
-  } catch {
-    return new GoogleOAuthClientService(config);
-  }
-}
+/** How `DocumentsModule` registers `DOCUMENT_STORAGE`. Exported so a spec can build the very same provider. */
+export const DOCUMENT_STORAGE_PROVIDER: FactoryProvider = {
+  provide: DOCUMENT_STORAGE,
+  useFactory: createDocumentStorage,
+  inject: [ConfigService, { token: GoogleOAuthClientService, optional: true }],
+};

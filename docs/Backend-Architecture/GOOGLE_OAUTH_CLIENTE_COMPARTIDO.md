@@ -1,7 +1,8 @@
 # Cliente OAuth compartido de Google — guía de uso para `documents`
 
-Quién lo necesita: quien escriba `GoogleDriveStorageAdapter` (ADR-003,
-`CloudStoragePort`). Este documento es el "cómo lo uso", no el "por qué" —
+Quién lo necesita: quien toque `GoogleDriveDocumentStorage` (ADR-003, puerto
+`DocumentStoragePort`, ya implementado en
+`documents/infrastructure/storage/google-drive/`). Este documento es el "cómo lo uso", no el "por qué" —
 para el contexto completo de la decisión, ver N-10 en
 `IMPLEMENTACION_NOTIFICACIONES.md` y la nota corregida en
 `ADR-003_GOOGLE_DRIVE.md` §2.1/§2.6.
@@ -83,39 +84,29 @@ Mismo patrón que `GmailApiEmailAdapter`
 inyectás `GoogleOAuthClientService`, le pedís `getClient()`, y se lo pasás
 como `auth` al cliente de `googleapis` que corresponda.
 
+La forma real está en
+`documents/infrastructure/storage/google-drive/google-drive-document-storage.adapter.ts`
+(`GoogleDriveDocumentStorage implements DocumentStoragePort`):
+
 ```ts
-// documents/infrastructure/external/google-drive-storage.adapter.ts
-import { Injectable, Optional } from "@nestjs/common";
-import { drive_v3, google } from "googleapis";
-import { GoogleOAuthClientService } from "@shared/infrastructure/google/google-oauth-client.service";
-import { CloudStoragePort } from "../../core/domain/ports/cloud-storage.port";
-
-export type DriveFilesClient = Pick<drive_v3.Drive, "files" | "permissions">;
-
-@Injectable()
-export class GoogleDriveStorageAdapter implements CloudStoragePort {
-  private readonly drive: DriveFilesClient;
-
-  constructor(
-    oauth: GoogleOAuthClientService,
-    @Optional() driveClient?: DriveFilesClient, // inyectable opcional, para testear sin pegarle a Google
-  ) {
-    this.drive =
-      driveClient ?? google.drive({ version: "v3", auth: oauth.getClient() });
-  }
-
-  // createFolder, copyFile, uploadFile, downloadFile, grantWriter,
-  // revokeAccess, listUserAccess — ver la forma exacta del puerto en
-  // ADR-003_GOOGLE_DRIVE.md §2.4.
-}
+constructor(
+  oauth: GoogleOAuthClientService,
+  config: ConfigService,
+  @Optional() driveClient?: DriveClient, // para testear sin pegarle a Google
+  @Optional() sleep?: Sleep,             // para no esperar 1 s y 2 s en los tests
+)
 ```
 
-El segundo parámetro del constructor (`driveClient`) es opcional a
-propósito, igual que `gmailClient`/`sleep` en `GmailApiEmailAdapter`: en
-producción no se pasa (se construye con `google.drive(...)`), y en el test
-unitario del adaptador se pasa un fake con solo los métodos que tu código
-usa — así el test no toca la red ni el OAuth real. Mirá
+Los dos últimos parámetros son opcionales a propósito, igual que
+`gmailClient`/`sleep` en `GmailApiEmailAdapter`: en producción no se pasan
+(se construye con `google.drive(...)`), y en el test unitario del adaptador
+se pasa un fake con solo los métodos que el código usa. Mirá
 `gmail-api-email.adapter.spec.ts` como ejemplo del patrón.
+
+**Reintentos.** Cada llamada a Drive pasa `retry: false`: `googleapis-common`
+pone `retry = true` por defecto (`apirequest.js:264`) y `gaxios` reintentaría
+por su cuenta encima de los 3 intentos propios (1 s y 2 s de espera). Un solo
+dueño de los reintentos: el adaptador.
 
 **El `@Optional()` no es cosmético — sin él, Nest rompe al armar tu
 módulo.** `GmailApiEmailAdapter` lo tuvo así (sin `@Optional()`) hasta que
@@ -134,14 +125,9 @@ TypeScript.
 
 ## 4. Lo que el cliente compartido NO te da
 
-- **No crea la estructura de carpetas.** `VZ Causas` y
-  `VZ Causas/Modelos formales` (ADR-003 §2.2) son tuyas para crear, una
-  sola vez, guardando sus identificadores de Drive como
-  `GOOGLE_DRIVE_ROOT_FOLDER_ID`/`GOOGLE_DRIVE_TEMPLATES_FOLDER_ID`. Podés
-  extender `google-authorize.ts` con un paso que las cree y las imprima, o
-  escribir una rutina separada que use tu propio `CloudStoragePort` una vez
-  que exista — es una decisión de diseño tuya, no una restricción del
-  cliente compartido.
+- **No crea la estructura de carpetas.** `VZ Causas`, `Modelos formales` y
+  `Causas` las crea el caso de uso `SetupCloudStorage`, con
+  `npm run documents:setup-storage` (idempotente). Ver ADR-005.
 - **No reintenta nada.** `getClient()` solo arma el cliente autenticado; los
   reintentos ante error transitorio (`5xx`, `429`,
   `rateLimitExceeded`/`userRateLimitExceeded`, backoff exponencial, hasta 3
@@ -151,29 +137,46 @@ TypeScript.
 - **No valida el entorno por vos.** `env.validation.ts` no exige
   `GOOGLE_OAUTH_*` para todo el equipo, a propósito (no romper el arranque
   de quien no toca Drive ni Gmail) — ver el comentario de
-  `app.module.ts:20-36`. `documents.module.ts`, cuando exista, va a
-  necesitar el mismo patrón de import condicional que
-  `deadlines.module.ts:102` si querés que tu módulo tampoco rompa a nadie
-  sin la config cargada.
+  `app.module.ts:20-36`. `documents.module.ts` tampoco rompe sin la config:
+  ver §5.
 
 ---
 
-## 5. Wiring: tu módulo importa `GoogleOAuthModule` igual que `deadlines`
+## 5. Wiring: `documents` NO importa `GoogleOAuthModule`; lo inyecta como opcional
 
-`GoogleOAuthModule` es `@Global()`, pero eso solo lo hace visible **una vez
-que algo lo importa** — no se auto-registra. `deadlines.module.ts:41`
-(`imports: [SharedModule, IdentityModule, GoogleOAuthModule]`) es el
-ejemplo: tu `documents.module.ts` necesita el mismo import explícito.
+`deadlines.module.ts:41` importa `GoogleOAuthModule` porque solo se carga si
+hay credenciales. `documents` tiene que arrancar **sin** credenciales (con
+almacenamiento en memoria), y `GoogleOAuthClientService` usa `getOrThrow` en
+su constructor: importar el módulo siempre rompería el arranque de todos.
+
+Por eso `DOCUMENT_STORAGE_PROVIDER`
+(`documents/infrastructure/storage/document-storage.factory.ts`) declara:
+
+```ts
+inject: [ConfigService, { token: GoogleOAuthClientService, optional: true }]
+```
+
+Es inyección normal de Nest: si `deadlines` registró el cliente, Nest espera
+a que esté construido antes de llamar a la fábrica; si nadie lo registró,
+llega `undefined` y la fábrica arma uno propio (solo si las tres
+`GOOGLE_OAUTH_*` son reales). No se usa `ModuleRef.get`: puede devolver la
+instancia sin construir (reproducido en `document-storage.wiring.spec.ts`).
 
 ---
 
 ## 6. Testing
 
-Para pruebas unitarias del adaptador: fake del cliente de `googleapis`
-inyectado por constructor (§3). Para pruebas de integración: `ADR-003`
-§2.4 ya prevé `InMemoryCloudStorage` como el fake que reemplaza
-`CloudStoragePort` completo vía `overrideProvider` — mismo patrón que
-`test/shared/fakes/email-sender.fake.ts` (`InMemoryEmailSender`, el primero
-de esa carpeta, escrito para los tests de integración de `deadlines`):
-implementá el puerto, guardá lo que recibiste, y agregá un flag para
-simular una falla si tu CA lo pide.
+Tres niveles:
+
+1. **Unitario del adaptador**: fake del cliente de `googleapis` inyectado por
+   constructor (§3).
+2. **Integración sin Google**: `InMemoryDocumentStorage` reemplaza
+   `DOCUMENT_STORAGE` vía `overrideProvider` (es el valor por defecto de
+   `startTestApp`).
+3. **Integración con la pila real de Google y un Google falso**:
+   `test/shared/fakes/fake-google.ts` reemplaza solo el transporte HTTP
+   (`oauthClient.transporter`); corren `googleapis` y `OAuth2Client` reales,
+   con el canje del refresh token incluido. Ver `test/README.md` §3.8 y los
+   specs `google-oauth-refresh`, `google-drive-case-folder` y
+   `google-drive-templates`. No hay prueba automática contra Drive real: la
+   lista de verificación manual está en el plan de HU-39.

@@ -1,6 +1,5 @@
 import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { ModuleRef } from '@nestjs/core';
 import { GoogleOAuthClientService } from '@shared/infrastructure/google/google-oauth-client.service';
 import { createDocumentStorage } from './document-storage.factory';
 import { GoogleDriveDocumentStorage } from './google-drive/google-drive-document-storage.adapter';
@@ -22,15 +21,6 @@ function configOf(values: Record<string, string>): ConfigService {
   } as unknown as ConfigService;
 }
 
-function moduleRefWith(oauth?: GoogleOAuthClientService): ModuleRef {
-  return {
-    get: () => {
-      if (!oauth) throw new Error('not found');
-      return oauth;
-    },
-  } as unknown as ModuleRef;
-}
-
 describe('createDocumentStorage', () => {
   beforeEach(() => {
     jest.spyOn(Logger.prototype, 'log').mockImplementation();
@@ -42,7 +32,7 @@ describe('createDocumentStorage', () => {
   it('con las tres variables de Google usa Google Drive', async () => {
     const storage = await createDocumentStorage(
       configOf({ ...GOOGLE, NODE_ENV: 'development' }),
-      moduleRefWith(),
+      undefined,
     );
 
     expect(storage).toBeInstanceOf(GoogleDriveDocumentStorage);
@@ -51,14 +41,14 @@ describe('createDocumentStorage', () => {
   it('reutiliza el cliente de Google compartido si otro subsistema ya lo registró', async () => {
     const shared = { getClient: jest.fn().mockReturnValue({}) } as unknown as GoogleOAuthClientService;
 
-    const storage = await createDocumentStorage(configOf(GOOGLE), moduleRefWith(shared));
+    const storage = await createDocumentStorage(configOf(GOOGLE), shared);
 
     expect(storage).toBeInstanceOf(GoogleDriveDocumentStorage);
     expect(shared.getClient).toHaveBeenCalled();
   });
 
   it('sin Google y fuera de producción usa el almacenamiento en memoria y avisa', async () => {
-    const storage = await createDocumentStorage(configOf({ NODE_ENV: 'development' }), moduleRefWith());
+    const storage = await createDocumentStorage(configOf({ NODE_ENV: 'development' }), undefined);
 
     expect(storage).toBeInstanceOf(InMemoryDocumentStorage);
     expect(Logger.prototype.warn).toHaveBeenCalledWith(expect.stringContaining('EN MEMORIA'));
@@ -67,7 +57,7 @@ describe('createDocumentStorage', () => {
   it('con alguna variable de Google vacía también usa memoria y nombra la que falta', async () => {
     const storage = await createDocumentStorage(
       configOf({ ...GOOGLE, GOOGLE_OAUTH_REFRESH_TOKEN: '  ', NODE_ENV: 'test' }),
-      moduleRefWith(),
+      undefined,
     );
 
     expect(storage).toBeInstanceOf(InMemoryDocumentStorage);
@@ -78,14 +68,14 @@ describe('createDocumentStorage', () => {
 
   it('sin Google en producción no arranca', async () => {
     await expect(
-      createDocumentStorage(configOf({ NODE_ENV: 'production' }), moduleRefWith()),
+      createDocumentStorage(configOf({ NODE_ENV: 'production' }), undefined),
     ).rejects.toThrow(/producción/);
   });
 
   it('con Google configurado en producción usa Drive', async () => {
     const storage = await createDocumentStorage(
       configOf({ ...GOOGLE, NODE_ENV: 'production' }),
-      moduleRefWith(),
+      undefined,
     );
 
     expect(storage).toBeInstanceOf(GoogleDriveDocumentStorage);
@@ -99,7 +89,7 @@ describe('createDocumentStorage', () => {
         GOOGLE_OAUTH_REFRESH_TOKEN: 'change-me',
         NODE_ENV: 'development',
       }),
-      moduleRefWith(),
+      undefined,
     );
 
     expect(storage).toBeInstanceOf(InMemoryDocumentStorage);

@@ -2,7 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { CLOCK, ClockPort } from '@shared/domain/clock.port';
 import { EventPublisher } from '@shared/infrastructure/events/event-publisher.port';
 import { createEventHeader } from '@shared/infrastructure/events/integration-event';
-import { CaseNotFoundError, CaseFolderLawyerUnavailableError } from '../../domain/errors/case.errors';
+import { CaseNotFoundError } from '../../domain/errors/case.errors';
 import {
   CASE_FOLDER_OUTCOMES,
   CASE_FOLDER_WAIT_MS,
@@ -69,7 +69,6 @@ export class RequestCaseFolder {
 
   /**
    * @throws {CaseNotFoundError} if the case does not exist or was given de baja.
-   * @throws {CaseFolderLawyerUnavailableError} if the lawyer in charge is no longer active.
    */
   async execute(command: RequestCaseFolderCommand): Promise<RequestCaseFolderResult> {
     const { caseId } = command;
@@ -78,9 +77,12 @@ export class RequestCaseFolder {
     if (!found || !found.active) {
       throw new CaseNotFoundError();
     }
-    const lawyer = await this.people.findActiveLawyerById(found.responsibleLawyerId);
+    // The lawyer may have been deactivated since the case was registered: the case keeps
+    // showing them (RN12), so the folder is still named after them. Only a lawyer that
+    // does not exist at all would be a broken reference, which the foreign key rules out.
+    const lawyer = await this.people.findLawyerById(found.responsibleLawyerId);
     if (!lawyer) {
-      throw new CaseFolderLawyerUnavailableError();
+      throw new Error(`The lawyer ${found.responsibleLawyerId} of case ${caseId} does not exist.`);
     }
 
     if (!(await this.folderState.startCreating(caseId))) {

@@ -160,13 +160,3 @@ export class CaseFolderUnavailableError extends BadGatewayError {
     );
   }
 }
-
-/** The lawyer in charge of the case is no longer active, so its folder cannot be named after them (422). */
-export class CaseFolderLawyerUnavailableError extends BusinessRuleError {
-  constructor() {
-    super(
-      'CASE_FOLDER_LAWYER_UNAVAILABLE',
-      'No se puede crear la carpeta: el abogado responsable de la causa no está vigente.',
-    );
-  }
-}
