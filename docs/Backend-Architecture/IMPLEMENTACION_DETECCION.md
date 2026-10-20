@@ -101,9 +101,9 @@ Cada paso se commitea por separado (los commits los hace Matusan30).
 | A2 | `deadlines/core/domain/ports/open-deadlines.port.ts` | ¿Qué necesita `deadlines` de `cases`? Ya con `origin`, para no cambiarlo en la fase B | Hecho |
 | A3 | `deadlines/core/domain/ports/deadline-warning-config.port.ts` | Token de los días de preaviso (D-79, V-14) | Hecho |
 | A4 | `deadlines/core/application/use-cases/detect-upcoming-deadlines.use-case.ts` + spec, `FakeOpenDeadlines` en `detection-fakes.ts` | ¿En qué orden pasan las cosas? Los vencidos solo se cuentan en el log | Hecho |
-| A5 | `cases/core/domain/ports/open-deadline-query.port.ts` + adaptador Prisma | ¿Qué vencimientos están abiertos? (`ACTIVE_CASE`, `COALESCE(manual, computado)`, CA-51.4) | Pendiente |
-| A6 | `cases/core/application/use-cases/list-open-deadlines.use-case.ts` + spec | `businessDaysRemaining` con la regla de `cases` (CA-51.9) | Pendiente |
-| A7 | `cases/infrastructure/acl/deadlines-open-deadlines.adapter.ts` + spec | Traducción al vocabulario de `deadlines` | Pendiente |
+| A5 | `cases/core/domain/ports/open-deadline-query.port.ts` + `cases/infrastructure/persistence/open-deadline-query-prisma.adapter.ts` | ¿Qué vencimientos están abiertos? (`ACTIVE_CASE`, `COALESCE(manual, computado)`, CA-51.4) | Hecho. **Sin probar contra la base hasta A9** |
+| A6 | `cases/core/application/use-cases/list-open-deadlines.use-case.ts` + spec | `businessDaysRemaining` con la regla de `cases` (CA-51.9) | Hecho. 4 tests |
+| A7 | `cases/infrastructure/acl/deadlines-open-deadlines.adapter.ts` + spec | Traducción al vocabulario de `deadlines` | Hecho. 2 tests. El fuero se traduce con un mapa exhaustivo: los dos `JurisdictionCode` tienen los mismos valores pero son tipos distintos |
 | A8 | `case.module.ts`, `deadlines.module.ts`, `.env.example` | Cableado y variable `DEADLINE_WARNING_BUSINESS_DAYS` (a mostrar antes de tocar) | Pendiente |
 | A9 | `test/subsystems/deadlines/detect-upcoming-deadlines.int.spec.ts` | ¿Funciona contra la base y coincide con la causa y el tablero? | Pendiente |
 
@@ -136,6 +136,7 @@ Cada paso se commitea por separado (los commits los hace Matusan30).
 | 20/10/2026 | Rebase de `feature/deadline` sobre `origin/develop` (25 commits: documentos y Drive, tablero del administrador, datos por fuero y acto lesivo). Sin conflictos que resolver a mano. Después del rebase: `tsc` 0 errores, 98 suites / 1188 tests unitarios en verde. | — |
 | 20/10/2026 | Integración después del rebase: 27/28 suites, 567/568 tests. Falla `case-folder-contract.int.spec.ts` › "responde 200 para el perfil ADMINISTRATOR (CA-39.6)": espera `CREATED` y recibe `CREATING`. Solo pasa 17/17 dos veces seguidas: es de tiempos bajo carga (espera asíncrona de la carpeta, `CASE_FOLDER_WAIT_MS`), del módulo de documentos, no de la detección (TV-03). Los dos specs de `deadlines` pasan. | — |
 | 20/10/2026 | HU51, fase A, pasos A1 a A4: `deadlineNoticeKind`, `OpenDeadlinesPort`, `DEADLINE_WARNING_BUSINESS_DAYS` y `DetectUpcomingDeadlinesUseCase`, 14 tests. Sin cablear todavía. | — |
+| 20/10/2026 | HU51, fase A, pasos A5 a A7: `OpenDeadlineQueryPort` + adaptador Prisma, `ListOpenDeadlines` y `DeadlinesOpenDeadlinesAdapter`, 6 tests. Sin registrar en `CasesModule` todavía (A8). | — |
 ### Estado de los criterios — HU52
 
 | CA | Estado | Dónde |
