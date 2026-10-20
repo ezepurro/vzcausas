@@ -1,5 +1,9 @@
 import { ClockPort } from "@shared/domain/clock.port";
 import {
+  CaseOpenDeadline,
+  OpenDeadlinesPort,
+} from "../../../domain/ports/open-deadlines.port";
+import {
   CasePrescriptionStatus,
   PrescriptionStatusPort,
 } from "../../../domain/ports/prescription-status.port";
@@ -27,6 +31,21 @@ export class FakePrescriptionStatus implements PrescriptionStatusPort {
       throw this.failWith;
     }
     return this.statuses;
+  }
+}
+
+/** In-memory {@link OpenDeadlinesPort}, same contract as {@link FakePrescriptionStatus}. */
+export class FakeOpenDeadlines implements OpenDeadlinesPort {
+  deadlines: CaseOpenDeadline[] = [];
+  readonly calls: Date[] = [];
+  failWith: Error | null = null;
+
+  async findOfActiveCases(today: Date): Promise<CaseOpenDeadline[]> {
+    this.calls.push(today);
+    if (this.failWith) {
+      throw this.failWith;
+    }
+    return this.deadlines;
   }
 }
 

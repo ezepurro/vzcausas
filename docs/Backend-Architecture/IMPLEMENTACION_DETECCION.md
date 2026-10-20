@@ -38,13 +38,15 @@ suya; lo que haya que cambiarle se coordina con él.
 | V-13 | **(HU51) Los vencidos se clasifican pero no se avisan** (D-64). La función de dominio los distingue, así CA-51.3 tiene test; se cuentan en el log, sin aviso. | 20/10/2026 |
 | V-14 | **(HU51) Días de preaviso en la variable `DEADLINE_WARNING_BUSINESS_DAYS`**, opcional, 3 por defecto (D-79), mismo criterio que `COPY_TO_RESPONSIBLE_LAWYER` en `deadlines.module.ts:63-67`. | 20/10/2026 |
 
+| V-15 | **HU51 completa, cadena del acto lesivo incluida (D-67, D-78, D-82).** Decidido con Matusan30. Lo que ya está en `develop` (regla, alta, lectura) se reusa, no se reescribe. | 20/10/2026 |
+| V-16 | **HU51 se hace en dos fases.** A: vencimientos de actos procesales (todas las reglas existen). B: acto lesivo en la detección, en `GET /cases` (D-82) y en los tableros. | 20/10/2026 |
 ---
 
 ## 2. Preguntas abiertas
 
 | Id | Pregunta |
 | --- | --- |
-| QV-01 | **(HU51) ¿De quién es el vencimiento del acto lesivo (D-78)?** No está calculado en ningún lado (`case-query-prisma.adapter.ts:302`). HU51 lo necesita (CA-51.5). Falta decidir si el cálculo nuevo es parte de HU51 y si sumarlo también a `GET /cases` y a los tableros es de esta HU o de otra. Regla completa en `API_CONTRACT_V4.md:3160-3208`. |
+| QV-01 | ~~(HU51) ¿De quién es el vencimiento del acto lesivo (D-78)?~~ **Resuelta el 20/10/2026 (V-15):** la cadena completa es nuestra. Al rebasar sobre `develop` resultó que MateoCastro304 ya había hecho la regla (`cases/core/domain/value-objects/harmful-act.ts`), el alta con todos los datos de D-67 y la lectura con `harmfulActDeadline` (`0e446d3`). Queda: orden y filtro de `GET /cases` (D-82), los dos tableros con `HARMFUL_ACT` y la detección. |
 | QV-02 | **¿Cuántas veces por día corre el disparo?** CA-51.1 y D-79 dicen una vez a las 08:00; N-04 de mmachuca dice cada 3 horas, para reintentar en el día. A la detección no le cambia nada (es de solo lectura). Argumento para charlar con mmachuca: el aviso de "vence hoy" solo existe ese día; si la única corrida falla, se pierde. Lo decide Matusan30 con mmachuca. |
 | QV-03 | **TN-03 de `IMPLEMENTACION_NOTIFICACIONES.md:84`:** borrar los puertos temporales `DEADLINE_DETECTION`/`PRESCRIPTION_DETECTION` e inyectar los casos de uso directo en el controller. Lo coordina Matusan30 con mmachuca. Mientras tanto, el token se ata al caso de uso real con `useExisting`, sin romper los tests de mmachuca. |
 
@@ -69,6 +71,7 @@ suya; lo que haya que cambiarle se coordina con él.
 | --- | --- |
 | TV-01 | `useExisting` sobre el token temporal `PRESCRIPTION_DETECTION` es un puente hasta resolver QV-03, no el diseño final. |
 | TV-02 | **Aislamiento de los tests de integración:** `daily-run.int.spec.ts` no limpia `sent_notifications` al terminar, y cuatro limpiezas de `cases` no la borran antes que `cases`. Fallan o no según el orden de las suites. Lo arregla mmachuca. El spec de integración de HU52 (paso 8) tiene que limpiar lo que escribe al terminar. |
+| TV-03 | **Test inestable ajeno:** `case-folder-contract.int.spec.ts` › CA-39.6 falla a veces con la suite completa (`CREATING` en vez de `CREATED`) y pasa solo. Es del módulo de documentos (HU39); avisar a su autor. |
 
 ---
 
@@ -88,6 +91,33 @@ Cada paso se commitea por separado (los commits los hace Matusan30).
 | 7 | `case.module.ts` y `deadlines.module.ts` (cableado) | ¿Cómo se arma todo? (QV-03, TV-01) | Hecho, aprobado por Matusan30. `CasesModule` registra la consulta, el caso de uso y el adaptador contra `PRESCRIPTION_STATUS` y exporta solo ese token (mismo mecanismo que los contadores). `DeadlinesModule` importa `CasesModule`, registra `DetectUpcomingPrescriptionsUseCase` y ata `PRESCRIPTION_DETECTION` con `useExisting`. Los comentarios de mmachuca en `deadlines.module.ts` quedaron intactos aunque digan que la prescripción es un stub (opción a): se lo comenta Matusan30 |
 | 8 | `test/subsystems/deadlines/detect-upcoming-prescriptions.int.spec.ts` | ¿Funciona contra la base real y coincide con el tablero? | Hecho. 11 tests contra PostgreSQL real, con la detección real (no reemplaza `PRESCRIPTION_DETECTION`); solo el reloj fijo y el correo en memoria. Limpia `sent_notifications` antes que las causas y al terminar (TV-02) |
 
+## 5 bis. Plan de implementación — HU51
+
+### Fase A — vencimientos de actos procesales
+
+| # | Archivo | Pregunta que responde | Estado |
+| --- | --- | --- | --- |
+| A1 | `deadlines/core/domain/deadline-notice-kind.ts` + spec | ¿Qué es cada vencimiento hoy: preaviso, vence hoy, vencido? (CA-51.3, V-12, V-13) | Hecho |
+| A2 | `deadlines/core/domain/ports/open-deadlines.port.ts` | ¿Qué necesita `deadlines` de `cases`? Ya con `origin`, para no cambiarlo en la fase B | Hecho |
+| A3 | `deadlines/core/domain/ports/deadline-warning-config.port.ts` | Token de los días de preaviso (D-79, V-14) | Hecho |
+| A4 | `deadlines/core/application/use-cases/detect-upcoming-deadlines.use-case.ts` + spec, `FakeOpenDeadlines` en `detection-fakes.ts` | ¿En qué orden pasan las cosas? Los vencidos solo se cuentan en el log | Hecho |
+| A5 | `cases/core/domain/ports/open-deadline-query.port.ts` + adaptador Prisma | ¿Qué vencimientos están abiertos? (`ACTIVE_CASE`, `COALESCE(manual, computado)`, CA-51.4) | Pendiente |
+| A6 | `cases/core/application/use-cases/list-open-deadlines.use-case.ts` + spec | `businessDaysRemaining` con la regla de `cases` (CA-51.9) | Pendiente |
+| A7 | `cases/infrastructure/acl/deadlines-open-deadlines.adapter.ts` + spec | Traducción al vocabulario de `deadlines` | Pendiente |
+| A8 | `case.module.ts`, `deadlines.module.ts`, `.env.example` | Cableado y variable `DEADLINE_WARNING_BUSINESS_DAYS` (a mostrar antes de tocar) | Pendiente |
+| A9 | `test/subsystems/deadlines/detect-upcoming-deadlines.int.spec.ts` | ¿Funciona contra la base y coincide con la causa y el tablero? | Pendiente |
+
+### Fase B — acto lesivo
+
+| # | Qué | Estado |
+| --- | --- | --- |
+| B1 | Regla del vencimiento del acto lesivo (D-78) | Hecho en `develop` por MateoCastro304 (`HarmfulAct`) |
+| B2 | Alta con los datos por fuero (D-67) | Hecho en `develop` |
+| B3 | `harmfulActDeadline` en la lectura, solo en "Iniciada" | Hecho en `develop` (`withDeadlines`, `list-cases.use-case.ts`) |
+| B4 | Orden por urgencia y `openDeadline` de `GET /cases` con el acto lesivo (D-82) | Pendiente: decidir en memoria o en SQL |
+| B5 | Tableros del abogado y del administrador con `kind: HARMFUL_ACT` | Pendiente |
+| B6 | La detección suma el vencimiento del acto lesivo | Pendiente |
+
 ---
 
 ## 6. Registro de avance
@@ -103,6 +133,9 @@ Cada paso se commitea por separado (los commits los hace Matusan30).
 | 20/10/2026 | Suite de integración después del paso 7: 18/18 suites, 428/428 tests (los 35 de la referencia pasaron por orden de suites, no porque TV-02 esté resuelto). | — |
 | 20/10/2026 | Paso 8: `detect-upcoming-prescriptions.int.spec.ts`, 11/11 en verde. **HU52 completa** salvo lo marcado como sin verificar abajo (52.1 "todos los días", 52.8 cambio de meses). | — |
 
+| 20/10/2026 | Rebase de `feature/deadline` sobre `origin/develop` (25 commits: documentos y Drive, tablero del administrador, datos por fuero y acto lesivo). Sin conflictos que resolver a mano. Después del rebase: `tsc` 0 errores, 98 suites / 1188 tests unitarios en verde. | — |
+| 20/10/2026 | Integración después del rebase: 27/28 suites, 567/568 tests. Falla `case-folder-contract.int.spec.ts` › "responde 200 para el perfil ADMINISTRATOR (CA-39.6)": espera `CREATED` y recibe `CREATING`. Solo pasa 17/17 dos veces seguidas: es de tiempos bajo carga (espera asíncrona de la carpeta, `CASE_FOLDER_WAIT_MS`), del módulo de documentos, no de la detección (TV-03). Los dos specs de `deadlines` pasan. | — |
+| 20/10/2026 | HU51, fase A, pasos A1 a A4: `deadlineNoticeKind`, `OpenDeadlinesPort`, `DEADLINE_WARNING_BUSINESS_DAYS` y `DetectUpcomingDeadlinesUseCase`, 14 tests. Sin cablear todavía. | — |
 ### Estado de los criterios — HU52
 
 | CA | Estado | Dónde |
