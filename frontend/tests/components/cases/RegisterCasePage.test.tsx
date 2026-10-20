@@ -210,6 +210,31 @@ describe('RegisterCasePage', () => {
             // No navega: el usuario tiene que corregir el campo.
             expect(screen.queryByText('Detalle de la causa')).not.toBeInTheDocument()
         })
+
+        /* Un 400 cuyos campos el formulario no pinta —las casillas, o una clave
+           que el front no conoce— no puede quedar mudo: se avisa con el mensaje
+           del servidor. Es lo que respondía un backend que todavía no aceptaba
+           los datos de V4. */
+        it('un 400 sobre campos que el formulario no muestra avisa con el mensaje del servidor', async () => {
+            server.use(
+                http.post('*/cases', () =>
+                    HttpResponse.json(
+                        errorBody('VALIDATION_ERROR', 'Los datos enviados no son válidos.', {
+                            courtFeePaid: 'property courtFeePaid should not exist',
+                            createFolder: 'property createFolder should not exist',
+                        }),
+                        { status: 400 },
+                    ),
+                ),
+            )
+            const { user } = renderPage()
+            await fillMinimum(user)
+
+            await submit(user)
+
+            expect(await screen.findByText('Los datos enviados no son válidos.')).toBeInTheDocument()
+            expect(screen.queryByText('Detalle de la causa')).not.toBeInTheDocument()
+        })
     })
 
     describe('carátula sugerida (CA-18.11)', () => {

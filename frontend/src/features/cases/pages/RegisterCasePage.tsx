@@ -11,6 +11,7 @@ import {
     formatClientName,
     formatDni,
     isValidClient,
+    toClientFormErrors,
     toCreateClientBody,
     useClients,
     useCreateClient,
@@ -27,6 +28,7 @@ import {
     LegalQualificationFormModal,
     shortQualificationName,
     toCreateLegalQualificationBody,
+    toLegalQualificationFormErrors,
     useCreateLegalQualification,
     useLegalQualifications,
     validateLegalQualification,
@@ -50,6 +52,7 @@ import { INITIAL_STATE_LABEL } from '@/features/cases/utils/caseState'
 import { estimatedExpiry } from '@/features/cases/utils/prescription'
 import { suggestedCaption } from '@/features/cases/utils/suggestedCaption'
 import { toCreateCaseBody } from '@/features/cases/utils/toCreateCaseBody'
+import { toFormErrors } from '@/features/cases/utils/toFormErrors'
 
 /**
  * Registrar causa (HU18), en `/causas/nueva`.
@@ -224,9 +227,14 @@ export function RegisterCasePage() {
             setErrors({ sacNumber: error.message })
             return
         }
-        if (error.isValidation && error.hasFieldErrors) {
-            setErrors(error.details as CaseFormErrors)
-            return
+        if (error.isValidation) {
+            const fieldErrors = toFormErrors(error.details)
+            if (!isValid(fieldErrors)) {
+                setErrors(fieldErrors)
+                return
+            }
+            // Un 400 sin ningún campo que marcar —o con campos que el
+            // formulario no muestra— no puede quedar mudo.
         }
 
         toast('error', error.message)
@@ -398,9 +406,13 @@ function NewClient({ onDone, onCancel }: { onDone: (id: number) => void; onCance
                     setErrors({ dni: error.message })
                     return
                 }
-                if (error.isValidation && error.hasFieldErrors) {
-                    setErrors(error.details as ClientFormErrors)
-                    return
+                if (error.isValidation) {
+                    const fieldErrors = toClientFormErrors(error.details)
+                    if (!isValidClient(fieldErrors)) {
+                        setErrors(fieldErrors)
+                        return
+                    }
+                    // Un 400 sin ningún campo que marcar no puede quedar mudo.
                 }
                 toast('error', error.message)
             },
@@ -442,9 +454,15 @@ function NewQualification({ onDone, onCancel }: { onDone: (id: number) => void; 
             },
             onError: (error) => {
                 if (!isApiError(error)) throw error
-                if (error.isValidation && error.hasFieldErrors) {
-                    setErrors(error.details as LegalQualificationErrors)
-                    return
+                if (error.isValidation) {
+                    /* El servidor informa el plazo como `prescriptionMonths` y el
+                       formulario lo pide en años y meses: el mapa lo lleva a los años. */
+                    const fieldErrors = toLegalQualificationFormErrors(error.details)
+                    if (!isValidLegalQualification(fieldErrors)) {
+                        setErrors(fieldErrors)
+                        return
+                    }
+                    // Un 400 sin ningún campo que marcar no puede quedar mudo.
                 }
                 toast('error', error.message)
             },
