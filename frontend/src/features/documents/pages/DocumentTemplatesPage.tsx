@@ -13,6 +13,7 @@ import {
     type DocumentTemplateErrors,
 } from '@/features/documents/schemas/documentTemplate.schema'
 import { toCreateDocumentTemplateBody } from '@/features/documents/utils/toCreateDocumentTemplateBody'
+import { toFormErrors } from '@/features/documents/utils/toFormErrors'
 import { countLabel, jurisdictionsPhrase, summarizeByJurisdiction } from '@/features/documents/utils/templateFormat'
 import { JurisdictionCard } from '@/features/documents/components/JurisdictionCard'
 import { DocumentTemplateCard } from '@/features/documents/components/DocumentTemplateCard'
@@ -73,9 +74,13 @@ export function DocumentTemplatesPage() {
             setErrors({ file: error.message })
             return
         }
-        if (error.isValidation && error.hasFieldErrors) {
-            setErrors(error.details as DocumentTemplateErrors)
-            return
+        if (error.isValidation) {
+            const fieldErrors = toFormErrors(error.details)
+            if (!isValid(fieldErrors)) {
+                setErrors(fieldErrors)
+                return
+            }
+            // Un 400 sin ningún campo que marcar no puede quedar mudo.
         }
         // CA-34.7: Drive no responde (502). El modal queda abierto para reintentar.
         toast('error', error.message)

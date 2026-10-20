@@ -13,4 +13,5 @@ export type { Client, ClientFormValues, CreateClientBody } from './types/client'
 export { useClients } from './api/useClients'
 export { useCreateClient } from './api/useCreateClient'
 export { toCreateClientBody } from './utils/toCreateClientBody'
+export { toFormErrors as toClientFormErrors } from './utils/toFormErrors'
 

@@ -144,9 +144,26 @@ const INITIAL_STATE = {
   isInitial: true,
 } as const;
 
+/**
+ * System "Prescripta" state of the criminal jurisdiction (contract V4
+ * §3.4, D-53): terminal, no time limit, protected against update and
+ * deletion. HU33 moves a case here, so it has to exist in every
+ * environment, like "Iniciada". The CHECK and the partial unique index
+ * of `sprint3_manual_constraints` require exactly this shape, and one
+ * per jurisdiction.
+ */
+const PRESCRIBED_STATE = {
+  name: 'Prescripta',
+  timeLimitDays: 0,
+  dayType: 'NONE',
+  terminal: true,
+  isPrescribed: true,
+} as const;
+
 const PROCEDURAL_STATES = [
   // Criminal
   { jurisdiction: 'CRIMINAL', ...INITIAL_STATE },
+  { jurisdiction: 'CRIMINAL', ...PRESCRIBED_STATE },
   {
     jurisdiction: 'CRIMINAL',
     name: 'Designación de abogado defensor',
