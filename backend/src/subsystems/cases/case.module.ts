@@ -1,6 +1,7 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SharedModule } from '@shared/shared.module';
+import { OPEN_DEADLINES } from '@subsystems/deadlines/core/domain/ports/open-deadlines.port';
 import { PRESCRIPTION_STATUS } from '@subsystems/deadlines/core/domain/ports/prescription-status.port';
 import { ActiveCasesCounterPort } from '@subsystems/legal-parameters/core/domain/ports/active-cases-counter.port';
 import { LegalParametersModule } from '@subsystems/legal-parameters/legal-parameters.module';
@@ -13,6 +14,7 @@ import { ListCases } from './core/application/use-cases/list-cases.use-case';
 import { ListCustomStates } from './core/application/use-cases/list-custom-states.use-case';
 import { ListActivePrescriptions } from './core/application/use-cases/list-active-prescriptions.use-case';
 import { ListInterruptiveActs } from './core/application/use-cases/list-interruptive-acts.use-case';
+import { ListOpenDeadlines } from './core/application/use-cases/list-open-deadlines.use-case';
 import { ListProceduralActs } from './core/application/use-cases/list-procedural-acts.use-case';
 import { RegisterInterruptiveAct } from './core/application/use-cases/register-interruptive-act.use-case';
 import { RegisterCase } from './core/application/use-cases/register-case.use-case';
@@ -27,9 +29,11 @@ import { CRIMINAL_PRESCRIPTION_QUERY } from './core/domain/ports/criminal-prescr
 import { DEADLINE_CALCULATOR } from './core/domain/ports/deadline-calculator.port';
 import { INTERRUPTIVE_ACT_QUERY } from './core/domain/ports/interruptive-act-query.port';
 import { INTERRUPTIVE_ACT_REPOSITORY } from './core/domain/ports/interruptive-act.repository';
+import { OPEN_DEADLINE_QUERY } from './core/domain/ports/open-deadline-query.port';
 import { PROCEDURAL_ACT_QUERY } from './core/domain/ports/procedural-act-query.port';
 import { PROCEDURAL_ACT_REPOSITORY } from './core/domain/ports/procedural-act.repository';
 import { BusinessDaysDeadlineCalculatorAdapter } from './infrastructure/acl/business-days-deadline-calculator.adapter';
+import { DeadlinesOpenDeadlinesAdapter } from './infrastructure/acl/deadlines-open-deadlines.adapter';
 import { DeadlinesPrescriptionStatusAdapter } from './infrastructure/acl/deadlines-prescription-status.adapter';
 import { LegalParametersActiveCasesCounterAdapter } from './infrastructure/acl/legal-parameters-active-cases-counter.adapter';
 import { PeopleActiveCasesCounterAdapter } from './infrastructure/acl/people-active-cases-counter.adapter';
@@ -48,6 +52,7 @@ import { CaseTimelinePrismaAdapter } from './infrastructure/persistence/case-tim
 import { CriminalPrescriptionQueryPrismaAdapter } from './infrastructure/persistence/criminal-prescription-query-prisma.adapter';
 import { InterruptiveActPrismaRepository } from './infrastructure/persistence/interruptive-act-prisma.repository';
 import { InterruptiveActQueryPrismaAdapter } from './infrastructure/persistence/interruptive-act-query-prisma.adapter';
+import { OpenDeadlineQueryPrismaAdapter } from './infrastructure/persistence/open-deadline-query-prisma.adapter';
 import { ProceduralActPrismaRepository } from './infrastructure/persistence/procedural-act-prisma.repository';
 import { ProceduralActQueryPrismaAdapter } from './infrastructure/persistence/procedural-act-query-prisma.adapter';
 
@@ -152,7 +157,12 @@ import { ProceduralActQueryPrismaAdapter } from './infrastructure/persistence/pr
     ListActivePrescriptions,
     { provide: CRIMINAL_PRESCRIPTION_QUERY, useClass: CriminalPrescriptionQueryPrismaAdapter },
     { provide: PRESCRIPTION_STATUS, useClass: DeadlinesPrescriptionStatusAdapter },
+    // HU51: los vencimientos abiertos de las causas activas, para la
+    // verificación diaria de `deadlines` (V-04, V-05). Solo se exporta el token.
+    ListOpenDeadlines,
+    { provide: OPEN_DEADLINE_QUERY, useClass: OpenDeadlineQueryPrismaAdapter },
+    { provide: OPEN_DEADLINES, useClass: DeadlinesOpenDeadlinesAdapter },
   ],
-  exports: [ActiveCasesCounterPort, PeopleActiveCasesCounterPort, PRESCRIPTION_STATUS],
+  exports: [ActiveCasesCounterPort, PeopleActiveCasesCounterPort, PRESCRIPTION_STATUS, OPEN_DEADLINES],
 })
 export class CasesModule {}
