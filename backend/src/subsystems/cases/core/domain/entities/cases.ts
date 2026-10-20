@@ -47,6 +47,8 @@ export interface CaseProps {
   responsibleLawyerId: number;
   // Only a case with a SAC number has one: it is when it started in court.
   startDate: Date | null;
+  // Whether the court fee was paid (RN10, D-67). In the three jurisdictions.
+  courtFeePaid: boolean;
   // Current state: exactly one of the two is set. A new case starts in the
   // initial state of its jurisdiction ("Iniciada").
   currentStateId: number | null;
@@ -206,6 +208,10 @@ export abstract class Case {
 
   get startDate(): Date | null {
     return this.props.startDate;
+  }
+
+  get courtFeePaid(): boolean {
+    return this.props.courtFeePaid;
   }
 
   get currentStateId(): number | null {

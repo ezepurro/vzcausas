@@ -395,3 +395,54 @@ M	docs/Backend-Architecture/GOOGLE_OAUTH_CLIENTE_COMPARTIDO.md
 - Nada de esto verifica que la solución tenga **sentido de negocio**. Eso lo revisás vos leyendo `git diff HEAD`.
 
 ---
+
+## Turno cerrado 20/10/2026 13:36:26
+
+### Cambios respecto de HEAD
+
+```
+M	.claude/audit/2026-10-20.md
+M	backend/prisma/seed.ts
+M	backend/src/subsystems/cases/core/application/common/register-case.interfaces.ts
+M	backend/src/subsystems/cases/core/application/use-cases/get-case.use-case.spec.ts
+M	backend/src/subsystems/cases/core/application/use-cases/get-case.use-case.ts
+M	backend/src/subsystems/cases/core/application/use-cases/list-cases.use-case.spec.ts
+M	backend/src/subsystems/cases/core/application/use-cases/list-cases.use-case.ts
+M	backend/src/subsystems/cases/core/application/use-cases/register-case.use-case.spec.ts
+M	backend/src/subsystems/cases/core/application/use-cases/register-case.use-case.ts
+M	backend/src/subsystems/cases/core/domain/business-days.ts
+M	backend/src/subsystems/cases/core/domain/entities/administrative.ts
+M	backend/src/subsystems/cases/core/domain/entities/amparo.ts
+M	backend/src/subsystems/cases/core/domain/entities/cases.ts
+M	backend/src/subsystems/cases/core/domain/entities/criminal.ts
+M	backend/src/subsystems/cases/core/domain/factories/case.factory.spec.ts
+M	backend/src/subsystems/cases/core/domain/factories/case.factory.ts
+M	backend/src/subsystems/cases/core/domain/ports/case-query.port.ts
+M	backend/src/subsystems/cases/core/test-support/case-fixtures.ts
+M	backend/src/subsystems/cases/infrastructure/http/dtos/case.response.dto.ts
+M	backend/src/subsystems/cases/infrastructure/http/dtos/register-case.request.dto.ts
+M	backend/src/subsystems/cases/infrastructure/http/mappers/case-http.mapper.spec.ts
+M	backend/src/subsystems/cases/infrastructure/http/mappers/case-http.mapper.ts
+M	backend/src/subsystems/cases/infrastructure/persistence/case-prisma.mapper.ts
+M	backend/src/subsystems/cases/infrastructure/persistence/case-prisma.repository.ts
+M	backend/src/subsystems/cases/infrastructure/persistence/case-query-prisma.adapter.ts
+M	backend/test/shared/factories/case.factory.ts
+M	backend/test/subsystems/cases/get-case.int.spec.ts
+M	backend/test/subsystems/cases/list-cases.int.spec.ts
+M	backend/test/subsystems/cases/register-case.int.spec.ts
+?? backend/src/subsystems/cases/core/domain/value-objects/harmful-act.spec.ts
+?? backend/src/subsystems/cases/core/domain/value-objects/harmful-act.ts
+```
+
+### Verificado automáticamente
+
+- Compilación (`tsc --noEmit`): **OK**
+- Tests unitarios (`npm test`): **OK** — Tests:       1158 passed, 1158 total
+
+### NO verificado — revisar a mano
+
+- **Contrato de API**: la forma de la respuesta y el status HTTP no se verificaron contra `API_CONTRACT_V3.md`. Eso lo cubren los tests de integración: `npm run test:int`.
+- Tests de integración: no se corrieron. `npm run test:int` (levanta PostgreSQL en contenedor, no toca tu base de desarrollo).
+- Nada de esto verifica que la solución tenga **sentido de negocio**. Eso lo revisás vos leyendo `git diff HEAD`.
+
+---

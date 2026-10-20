@@ -5,6 +5,7 @@ import { AdministrativeCase } from '../../domain/entities/administrative';
 import { Amparo } from '../../domain/entities/amparo';
 import { CriminalCase } from '../../domain/entities/criminal';
 import { ProceduralStateRef } from '../../domain/ports/legal-parameters-lookup.port';
+import { DayType } from '../../domain/value-objects/day-type';
 import { JurisdictionCode } from '../../domain/value-objects/jurisdiction-code';
 import { ProceduralRole } from '../../domain/value-objects/procedural-role';
 import { FakeCaseFolderState, FakeEventPublisher } from '../../test-support/case-folder-fakes';
@@ -626,6 +627,94 @@ describe('RegisterCase', () => {
       await expect(useCase.execute(aRegisterCaseCommand())).rejects.toBe(failure);
     });
   });
+  describe('datos propios de cada fuero (D-67)', () => {
+    const acto = {
+      harmfulActDate: day('2026-08-03'),
+      harmfulActRenews: true,
+      harmfulActRenewalDays: 30,
+      harmfulActTermDays: 15,
+      harmfulActTermDayType: DayType.BUSINESS,
+    };
+
+    it('penal: guarda si el cliente está preso y la tasa de justicia', async () => {
+      const { useCase, cases } = build();
+
+      const { newCase } = await useCase.execute(aRegisterCaseCommand({ clientDetained: true, courtFeePaid: true }));
+
+      expect(newCase).toMatchObject({ clientDetained: true, courtFeePaid: true });
+      expect(cases.saved).toEqual([newCase]);
+    });
+
+    it('administrativo: guarda la fecha de agotamiento de la vía', async () => {
+      const { useCase } = build();
+
+      const { newCase } = await useCase.execute(
+        administrativeCommand({ administrativeRemedyExhaustedOn: day('2026-08-10') }),
+      );
+
+      expect(newCase).toMatchObject({ administrativeRemedyExhaustedOn: day('2026-08-10'), courtFeePaid: false });
+    });
+
+    it('amparo: guarda la medida cautelar y el acto lesivo, y devuelve su plazo calculado contra hoy', async () => {
+      const { useCase } = build();
+
+      const result = await useCase.execute(amparoCommand({ injunctionGranted: true, courtFeePaid: true, ...acto }));
+
+      expect(result.newCase).toMatchObject({
+        injunctionGranted: true,
+        harmfulActDate: day('2026-08-03'),
+        harmfulActRenews: true,
+        harmfulActRenewalDays: 30,
+        harmfulActTermDays: 15,
+        harmfulActTermDayType: DayType.BUSINESS,
+        courtFeePaid: true,
+      });
+      // Hoy en estos specs es 06/10/2026: pasaron 64 días, dos renovaciones (02/09 y 02/10).
+      expect(result.harmfulActDeadline).toMatchObject({ actDate: day('2026-10-02'), renewed: true });
+    });
+
+    it('un amparo sin acto lesivo no tiene plazo que devolver', async () => {
+      const { useCase } = build();
+
+      const result = await useCase.execute(amparoCommand());
+
+      expect(result.harmfulActDeadline).toBeNull();
+    });
+
+    it.each([
+      ['penal', () => aRegisterCaseCommand()],
+      ['administrativo', () => administrativeCommand()],
+    ])('en el fuero %s no hay plazo del acto lesivo', async (_fuero, command) => {
+      const { useCase } = build();
+
+      expect((await useCase.execute(command())).harmfulActDeadline).toBeNull();
+    });
+
+    it('un dato que no es del fuero se rechaza por campo y no guarda nada', async () => {
+      const { useCase, cases } = build();
+
+      const details = await validationDetailsOf(() => useCase.execute(administrativeCommand({ clientDetained: true })));
+
+      expect(details).toEqual({ clientDetained: 'Solo corresponde al fuero penal.' });
+      expect(cases.saved).toEqual([]);
+    });
+
+    it('los errores de los datos por fuero se suman a los de las referencias inexistentes', async () => {
+      const { useCase } = build();
+
+      const details = await validationDetailsOf(() =>
+        useCase.execute(
+          amparoCommand({ clientId: 999, harmfulActDate: day('2026-08-03'), harmfulActTermDayType: DayType.BUSINESS }),
+        ),
+      );
+
+      expect(details).toEqual({
+        clientId: 'No existe un cliente vigente con ese identificador.',
+        harmfulActTermDays: 'Indicá el plazo para presentar el amparo.',
+      });
+    });
+  });
+
   describe('carpeta en la nube (HU39)', () => {
     beforeEach(() => {
       jest.spyOn(Logger.prototype, 'error').mockImplementation();

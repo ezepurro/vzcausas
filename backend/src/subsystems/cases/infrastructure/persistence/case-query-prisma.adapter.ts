@@ -8,6 +8,7 @@ import {
   CaseSearchCriteria,
 } from '../../core/domain/ports/case-query.port';
 import { addPrescriptionMonths, prescriptionStartsOn } from '../../core/domain/prescription';
+import { DayType } from '../../core/domain/value-objects/day-type';
 import { JurisdictionCode } from '../../core/domain/value-objects/jurisdiction-code';
 import { ProceduralRole } from '../../core/domain/value-objects/procedural-role';
 import { CASE_FOLDER_INCLUDE, toCaseFolderView } from './case-folder-prisma.mapper';
@@ -302,15 +303,16 @@ function fill(
  * response against today's date in Córdoba, and persistence has no business
  * reading a clock. The use case fills it from `dueDate` and `ClockPort.today()`.
  *
- * PENDIENTE `harmfulActDeadline` (contrato V4 §3.7, D-78; delegado desde HU-41,
- * CA-41.6 · 18/10/2026)
- * ---------------------------------------------------------------------------
- * El vencimiento del acto lesivo de un amparo todavía no se calcula: la causa
- * guarda sus datos (`harmful_act_*`) pero nadie arma `harmfulActDeadline`.
- * Quien lo implemente acá tiene que sumarlo **también al tablero del abogado y
- * al del administrador** (`reporting`, `GET /dashboards/*`): cada vencimiento
- * del acto lesivo es un elemento de `deadlines` con `kind: HARMFUL_ACT` y cuenta
- * en `summary`. Hoy los tableros listan solo `kind: PROCEDURAL_ACT`.
+ * `harmfulActDeadline` (contrato V4 §3.7, D-78) tampoco se arma acá: como
+ * `businessDaysRemaining`, depende de la fecha de hoy y lo completa el caso de
+ * uso (`withDeadlines`, `list-cases.use-case.ts`).
+ *
+ * PENDIENTE (delegado desde HU-41, CA-41.6 · 18/10/2026): el detalle y el
+ * listado ya lo devuelven, pero **no** ordenan ni filtran por
+ * `harmfulActDeadline.dueDate` (D-82, `openDeadline`) y los tableros del abogado
+ * y del administrador (`reporting`, `GET /dashboards/*`) no lo cuentan: cada
+ * vencimiento del acto lesivo es un elemento de `deadlines` con
+ * `kind: HARMFUL_ACT` y cuenta en `summary`. Hoy listan solo `PROCEDURAL_ACT`.
  */
 function toListItem(row: CaseRow): CaseListItem {
   const act = row.currentProceduralAct;
@@ -319,13 +321,14 @@ function toListItem(row: CaseRow): CaseListItem {
   const initial = state?.isInitial === true;
   const dueDate = act ? (act.deadlineManualDueDate ?? act.deadlineComputedDueDate) : null;
   const lastInterruptiveActDate = row.interruptiveActs[0]?.actDate ?? null;
+  const jurisdiction = row.jurisdiction.name as JurisdictionCode;
 
   return {
     id: row.id,
     sacNumber: row.sacNumber,
     caption: row.caption,
     court: row.court,
-    jurisdiction: row.jurisdiction.name as JurisdictionCode,
+    jurisdiction,
     proceduralRole: row.proceduralRole as ProceduralRole,
     instructorName: row.instructorName,
     // The column is `instructor_phone`; the contract calls the field `tribunalPhone`.
@@ -333,6 +336,18 @@ function toListItem(row: CaseRow): CaseListItem {
     instructorExtension: row.instructorExtension,
     counterparty: row.counterparty,
     subjectMatter: row.subjectMatter,
+    // A case that predates D-67 has `NULL` in the data of its own jurisdiction: it reads as `false`.
+    clientDetained: jurisdiction === JurisdictionCode.CRIMINAL ? (row.clientDetained ?? false) : null,
+    injunctionGranted: jurisdiction === JurisdictionCode.AMPARO ? (row.injunctionGranted ?? false) : null,
+    harmfulActDate: row.harmfulActDate,
+    harmfulActRenews: jurisdiction === JurisdictionCode.AMPARO ? (row.harmfulActRenews ?? false) : null,
+    harmfulActRenewalDays: row.harmfulActRenewalDays,
+    harmfulActTermDays: row.harmfulActTermDays,
+    harmfulActTermDayType: row.harmfulActTermDayType as DayType | null,
+    // Depends on today's date: the use case fills it (`withDeadlines`).
+    harmfulActDeadline: null,
+    administrativeRemedyExhaustedOn: row.administrativeRemedyExhaustedOn,
+    courtFeePaid: row.courtFeePaid,
     client: {
       id: row.client.id,
       lastName: row.client.lastName,

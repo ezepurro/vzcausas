@@ -2,6 +2,7 @@ import { ValidationError } from '@shared/domain/domain-error';
 import { RegisterCaseResult } from '../../../core/application/common/register-case.interfaces';
 import { CaseFactory, NewCaseInput } from '../../../core/domain/factories/case.factory';
 import { CaseListItem } from '../../../core/domain/ports/case-query.port';
+import { DayType } from '../../../core/domain/value-objects/day-type';
 import { JurisdictionCode } from '../../../core/domain/value-objects/jurisdiction-code';
 import { ProceduralRole } from '../../../core/domain/value-objects/procedural-role';
 import {
@@ -39,6 +40,16 @@ function anItem(overrides: Partial<CaseListItem> = {}): CaseListItem {
     instructorExtension: '214',
     counterparty: null,
     subjectMatter: null,
+    clientDetained: false,
+    injunctionGranted: null,
+    harmfulActDate: null,
+    harmfulActRenews: null,
+    harmfulActRenewalDays: null,
+    harmfulActTermDays: null,
+    harmfulActTermDayType: null,
+    harmfulActDeadline: null,
+    administrativeRemedyExhaustedOn: null,
+    courtFeePaid: false,
     client: CLIENT,
     responsibleLawyer: LAWYER,
     legalQualifications: [
@@ -85,6 +96,16 @@ describe('CaseHttpMapper.toResponse', () => {
       instructorExtension: '214',
       counterparty: null,
       subjectMatter: null,
+      clientDetained: false,
+      injunctionGranted: null,
+      harmfulActDate: null,
+      harmfulActRenews: null,
+      harmfulActRenewalDays: null,
+      harmfulActTermDays: null,
+      harmfulActTermDayType: null,
+      harmfulActDeadline: null,
+      administrativeRemedyExhaustedOn: null,
+      courtFeePaid: false,
       client: {
         id: CLIENT.id,
         lastName: 'GÓMEZ',
@@ -159,17 +180,29 @@ describe('CaseHttpMapper.toResponse', () => {
     expect(response.legalQualifications[0].offenseDate).toBe('2021-02-27');
   });
 
-  it('no inventa ni pierde campos: exactamente los 18 del contrato (con la carpeta)', () => {
+  it('no inventa ni pierde campos: exactamente los 28 del contrato implementados', () => {
+    // Faltan a propósito `prescription` y `prescriptionDeclaration` (V4 §3.7): el cómputo
+    // de la prescripción de la causa y HU33 no están en este paso.
     expect(Object.keys(CaseHttpMapper.toResponse(anItem())).sort()).toEqual(
       [
         'active',
+        'administrativeRemedyExhaustedOn',
         'caption',
         'client',
+        'clientDetained',
         'counterparty',
         'court',
+        'courtFeePaid',
         'currentState',
         'folder',
+        'harmfulActDate',
+        'harmfulActDeadline',
+        'harmfulActRenewalDays',
+        'harmfulActRenews',
+        'harmfulActTermDayType',
+        'harmfulActTermDays',
         'id',
+        'injunctionGranted',
         'instructorExtension',
         'instructorName',
         'jurisdiction',
@@ -237,6 +270,7 @@ describe('CaseHttpMapper.fromRegisterResult', () => {
       responsibleLawyer: LAWYER,
       offenses: [],
       currentState: INITIAL_STATES[input.jurisdictionCode],
+      harmfulActDeadline: null,
       folder: { status: 'CREATING', url: null, path: null, templatesCopied: 0, templatesPending: 0 },
     };
   }
@@ -298,7 +332,98 @@ describe('CaseHttpMapper.fromRegisterResult', () => {
     });
   });
 
-  it('produce la misma forma que toResponse: las mismas 17 claves', () => {
+  describe('datos propios de cada fuero (D-67)', () => {
+    const harmfulAct = {
+      harmfulActDate: day('2026-08-03'),
+      harmfulActRenews: true,
+      harmfulActRenewalDays: 30,
+      harmfulActTermDays: 15,
+      harmfulActTermDayType: DayType.BUSINESS,
+    };
+
+    it('penal: sale clientDetained y los demás datos son null', () => {
+      const response = CaseHttpMapper.fromRegisterResult(aResult({ clientDetained: true, courtFeePaid: true }));
+
+      expect(response).toMatchObject({
+        clientDetained: true,
+        injunctionGranted: null,
+        harmfulActDate: null,
+        harmfulActRenews: null,
+        harmfulActRenewalDays: null,
+        harmfulActTermDays: null,
+        harmfulActTermDayType: null,
+        harmfulActDeadline: null,
+        administrativeRemedyExhaustedOn: null,
+        courtFeePaid: true,
+      });
+    });
+
+    it('amparo: salen la medida cautelar y el acto lesivo, con las fechas como YYYY-MM-DD', () => {
+      const result = aResult({
+        jurisdictionCode: JurisdictionCode.AMPARO,
+        proceduralRole: ProceduralRole.ACTORA,
+        subjectMatter: 'Que se ordene la cobertura integral del tratamiento.',
+        injunctionGranted: true,
+        ...harmfulAct,
+      });
+      const deadline = { actDate: day('2026-09-02'), renewed: true, dueDate: day('2026-09-23'), businessDaysRemaining: 6 };
+
+      const response = CaseHttpMapper.fromRegisterResult({ ...result, harmfulActDeadline: deadline });
+
+      expect(response).toMatchObject({
+        clientDetained: null,
+        injunctionGranted: true,
+        harmfulActDate: '2026-08-03',
+        harmfulActRenews: true,
+        harmfulActRenewalDays: 30,
+        harmfulActTermDays: 15,
+        harmfulActTermDayType: 'BUSINESS',
+        harmfulActDeadline: { actDate: '2026-09-02', renewed: true, dueDate: '2026-09-23', businessDaysRemaining: 6 },
+        administrativeRemedyExhaustedOn: null,
+        courtFeePaid: false,
+      });
+    });
+
+    it('amparo sin acto lesivo: injunctionGranted y harmfulActRenews salen false, el resto null', () => {
+      const response = CaseHttpMapper.fromRegisterResult(
+        aResult({
+          jurisdictionCode: JurisdictionCode.AMPARO,
+          proceduralRole: ProceduralRole.ACTORA,
+          subjectMatter: 'Que se ordene la cobertura integral del tratamiento.',
+        }),
+      );
+
+      expect(response).toMatchObject({
+        injunctionGranted: false,
+        harmfulActDate: null,
+        harmfulActRenews: false,
+        harmfulActRenewalDays: null,
+        harmfulActTermDays: null,
+        harmfulActTermDayType: null,
+        harmfulActDeadline: null,
+      });
+    });
+
+    it('administrativo: sale la fecha de agotamiento de la vía y el resto de los datos es null', () => {
+      const response = CaseHttpMapper.fromRegisterResult(
+        aResult({
+          jurisdictionCode: JurisdictionCode.ADMINISTRATIVE,
+          proceduralRole: ProceduralRole.RECURRENTE,
+          subjectMatter: 'Descargo frente a la imputación.',
+          administrativeRemedyExhaustedOn: day('2026-08-10'),
+        }),
+      );
+
+      expect(response).toMatchObject({
+        clientDetained: null,
+        injunctionGranted: null,
+        harmfulActDeadline: null,
+        administrativeRemedyExhaustedOn: '2026-08-10',
+      });
+    });
+  });
+
+  it('produce la misma forma que toResponse: las mismas 28 claves', () => {
     // Las tres respuestas del contrato son el mismo recurso. Si una ruta
     // agrega o pierde un campo, acá se ve.
     expect(Object.keys(CaseHttpMapper.fromRegisterResult(aResult())).sort()).toEqual(

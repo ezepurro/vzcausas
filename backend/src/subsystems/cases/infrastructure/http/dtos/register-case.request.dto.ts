@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import { IsArray, IsBoolean, IsDate, IsEnum, IsInt, IsOptional, IsString, ValidateNested } from 'class-validator';
+import { DayType } from '../../../core/domain/value-objects/day-type';
 import { JurisdictionCode } from '../../../core/domain/value-objects/jurisdiction-code';
 import { ProceduralRole } from '../../../core/domain/value-objects/procedural-role';
 
@@ -73,6 +74,46 @@ export class RegisterCaseRequestDto {
   @Type(() => Date)
   @IsDate()
   startDate?: Date;
+
+  // Data of each jurisdiction (D-67). Only the type is checked here; the domain
+  // checks which jurisdiction each one belongs to and the rules between them.
+  @IsOptional()
+  @IsBoolean()
+  clientDetained?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  injunctionGranted?: boolean;
+
+  @IsOptional()
+  @Type(() => Date)
+  @IsDate()
+  harmfulActDate?: Date;
+
+  @IsOptional()
+  @IsBoolean()
+  harmfulActRenews?: boolean;
+
+  @IsOptional()
+  @IsInt()
+  harmfulActRenewalDays?: number;
+
+  @IsOptional()
+  @IsInt()
+  harmfulActTermDays?: number;
+
+  @IsOptional()
+  @IsEnum(DayType)
+  harmfulActTermDayType?: DayType;
+
+  @IsOptional()
+  @Type(() => Date)
+  @IsDate()
+  administrativeRemedyExhaustedOn?: Date;
+
+  @IsOptional()
+  @IsBoolean()
+  courtFeePaid?: boolean;
 
   // Create the cloud folder of the case (HU39). Defaults to `true`.
   @IsOptional()

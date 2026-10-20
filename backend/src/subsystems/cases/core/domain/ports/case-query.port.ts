@@ -1,5 +1,6 @@
 import { CaseFolderView } from './case-folder-state.port';
 import { ClientRef, LawyerRef } from './people-lookup.port';
+import { DayType } from '../value-objects/day-type';
 import { JurisdictionCode } from '../value-objects/jurisdiction-code';
 import { ProceduralRole } from '../value-objects/procedural-role';
 
@@ -30,6 +31,14 @@ export type CaseCurrentStateView = {
   /** Computed per response against today in Córdoba. `null` when there is no due date. */
   businessDaysRemaining: number | null;
   manuallyAdjusted: boolean;
+};
+
+/** `harmfulActDeadline` of the contract (§3.7): the term to file an amparo, as of today. */
+export type CaseHarmfulActDeadlineView = {
+  actDate: Date;
+  renewed: boolean;
+  dueDate: Date;
+  businessDaysRemaining: number;
 };
 
 /** A legal qualification of a case, with its own offense and prescription dates. */
@@ -75,6 +84,21 @@ export type CaseListItem = {
   /** Only `ADMINISTRATIVE` and `AMPARO`; `null` in `CRIMINAL`. */
   counterparty: string | null;
   subjectMatter: string | null;
+  /** Data of each jurisdiction (D-67): `null` outside its own. */
+  clientDetained: boolean | null;
+  injunctionGranted: boolean | null;
+  harmfulActDate: Date | null;
+  harmfulActRenews: boolean | null;
+  harmfulActRenewalDays: number | null;
+  harmfulActTermDays: number | null;
+  harmfulActTermDayType: DayType | null;
+  /**
+   * The term to file the amparo (D-78). The read port leaves it `null`: it depends
+   * on today's date, like `businessDaysRemaining`, and the use case fills it.
+   */
+  harmfulActDeadline: CaseHarmfulActDeadlineView | null;
+  administrativeRemedyExhaustedOn: Date | null;
+  courtFeePaid: boolean;
   client: ClientRef;
   responsibleLawyer: LawyerRef;
   /** Empty unless the case is criminal. A deactivated qualification still shows (RN12). */

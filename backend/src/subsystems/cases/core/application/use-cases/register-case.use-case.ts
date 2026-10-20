@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { CLOCK, ClockPort } from '@shared/domain/clock.port';
 import { ValidationError } from '@shared/domain/domain-error';
 import { CaseSacAlreadyExistsError, CopyTemplatesWithoutFolderError } from '../../domain/errors/case.errors';
+import { Amparo } from '../../domain/entities/amparo';
 import { CriminalCase } from '../../domain/entities/criminal';
 import { CaseFactory } from '../../domain/factories/case.factory';
 import { CASE_FOLDER_STATE, CaseFolderStatePort, CaseFolderView } from '../../domain/ports/case-folder-state.port';
@@ -88,6 +89,15 @@ export class RegisterCase {
         legalQualificationRefs: foundQualifications,
         responsibleLawyerId: command.responsibleLawyerId,
         startDate: command.startDate,
+        clientDetained: command.clientDetained,
+        injunctionGranted: command.injunctionGranted,
+        harmfulActDate: command.harmfulActDate,
+        harmfulActRenews: command.harmfulActRenews,
+        harmfulActRenewalDays: command.harmfulActRenewalDays,
+        harmfulActTermDays: command.harmfulActTermDays,
+        harmfulActTermDayType: command.harmfulActTermDayType,
+        administrativeRemedyExhaustedOn: command.administrativeRemedyExhaustedOn,
+        courtFeePaid: command.courtFeePaid,
         createdByUserId: command.createdByUserId,
         today,
         now: this.clock.now(),
@@ -120,6 +130,8 @@ export class RegisterCase {
       responsibleLawyer: responsibleLawyer!,
       offenses: newCase instanceof CriminalCase ? newCase.offenses : [],
       currentState,
+      // A case that was just registered is in the initial state, so its term (if it has one) is open.
+      harmfulActDeadline: newCase instanceof Amparo ? (newCase.harmfulAct?.deadline(today) ?? null) : null,
       folder,
     };
   }

@@ -122,17 +122,28 @@ describe('GET /api/v1/cases', () => {
     const res = await request(app.getHttpServer()).get(URL).set(actor);
     const [item] = expectPaginated(res, { page: 1, limit: 20, totalItems: 1, totalPages: 1 });
 
-    // Las 18 claves del recurso, exactamente (§3.7). Si falta o sobra una, falla.
+    // Las 28 claves del recurso, exactamente (§3.7). Si falta o sobra una, falla.
+    // Faltan a propósito `prescription` y `prescriptionDeclaration`: no están en este paso.
     expect(Object.keys(item as object).sort()).toEqual(
       [
         'active',
+        'administrativeRemedyExhaustedOn',
         'caption',
         'client',
+        'clientDetained',
         'counterparty',
         'court',
+        'courtFeePaid',
         'currentState',
         'folder',
+        'harmfulActDate',
+        'harmfulActDeadline',
+        'harmfulActRenewalDays',
+        'harmfulActRenews',
+        'harmfulActTermDayType',
+        'harmfulActTermDays',
         'id',
+        'injunctionGranted',
         'instructorExtension',
         'instructorName',
         'jurisdiction',

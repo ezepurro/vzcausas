@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@shared/infrastructure/prisma/prisma.service';
-import { ProceduralRole as PrismaProceduralRole } from '../../../../generated/prisma/enums';
+import { DayType as PrismaDayType, ProceduralRole as PrismaProceduralRole } from '../../../../generated/prisma/enums';
 import { AdministrativeCase } from '../../core/domain/entities/administrative';
 import { Amparo } from '../../core/domain/entities/amparo';
 import { Case } from '../../core/domain/entities/cases';
@@ -55,6 +55,8 @@ export class CasePrismaRepository implements CaseRepository {
         clientId: newCase.clientId,
         responsibleLawyerId: newCase.responsibleLawyerId,
         startDate: newCase.startDate,
+        courtFeePaid: newCase.courtFeePaid,
+        ...CasePrismaRepository.jurisdictionData(newCase),
         currentStateId: newCase.currentStateId,
         currentCustomState: newCase.currentCustomState,
         currentProceduralActId: newCase.currentProceduralActId,
@@ -74,6 +76,25 @@ export class CasePrismaRepository implements CaseRepository {
         },
       },
     });
+  }
+
+  /**
+   * The data of each jurisdiction (D-67). Outside its own a datum is stored as
+   * `NULL`; the `ck_cases_harmful_act_*` constraints agree with how the factory builds them.
+   */
+  private static jurisdictionData(newCase: Case) {
+    return {
+      clientDetained: newCase instanceof CriminalCase ? newCase.clientDetained : null,
+      injunctionGranted: newCase instanceof Amparo ? newCase.injunctionGranted : null,
+      harmfulActDate: newCase instanceof Amparo ? newCase.harmfulActDate : null,
+      harmfulActRenews: newCase instanceof Amparo ? newCase.harmfulActRenews : null,
+      harmfulActRenewalDays: newCase instanceof Amparo ? newCase.harmfulActRenewalDays : null,
+      harmfulActTermDays: newCase instanceof Amparo ? newCase.harmfulActTermDays : null,
+      harmfulActTermDayType:
+        newCase instanceof Amparo ? (newCase.harmfulActTermDayType as PrismaDayType | null) : null,
+      administrativeRemedyExhaustedOn:
+        newCase instanceof AdministrativeCase ? newCase.administrativeRemedyExhaustedOn : null,
+    };
   }
 
   async findById(id: number): Promise<Case | null> {
