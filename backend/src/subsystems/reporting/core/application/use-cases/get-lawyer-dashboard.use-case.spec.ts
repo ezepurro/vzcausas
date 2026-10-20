@@ -1,19 +1,13 @@
 import { AuthenticatedUser } from '@shared/domain/authenticated-user';
 import { ClockPort } from '@shared/domain/clock.port';
 import { ForbiddenActionError } from '@shared/domain/domain-error';
-import {
-  DashboardCaseRow,
-  DashboardLawyerRef,
-  LawyerDashboardQuery,
-} from '../ports/lawyer-dashboard.query';
+import { aCase, day, FakeDashboardQuery, resetCaseIds, RIOS } from '../../test-support/dashboard-fakes';
 import { GetLawyerDashboard } from './get-lawyer-dashboard.use-case';
 
-const day = (iso: string) => new Date(`${iso}T00:00:00.000Z`);
 /** Martes 6/10/2026: el 13/10 cae a 5 días hábiles y el 14/10 a 6. */
 const TODAY = day('2026-10-06');
 const clock: ClockPort = { now: () => new Date('2026-10-06T15:30:00.000Z'), today: () => TODAY };
 
-const RIOS: DashboardLawyerRef = { id: 2, lastName: 'Ríos', firstName: 'Malena' };
 const lawyerActor = (overrides: Partial<AuthenticatedUser> = {}): AuthenticatedUser => ({
   userId: 5,
   roleNames: ['LAWYER'],
@@ -22,45 +16,12 @@ const lawyerActor = (overrides: Partial<AuthenticatedUser> = {}): AuthenticatedU
   ...overrides,
 });
 
-let nextId = 1;
-function aCase(overrides: Partial<DashboardCaseRow> = {}): DashboardCaseRow {
-  const id = nextId++;
-  return {
-    caseId: id,
-    sacNumber: `1000000${id}`,
-    caption: `Causa ${id}`,
-    jurisdiction: 'CRIMINAL',
-    currentStateName: 'Citación a juicio',
-    dueDate: null,
-    lastProceduralActDate: null,
-    lastInterruptiveActDate: null,
-    offenses: [],
-    responsibleLawyer: RIOS,
-    ...overrides,
-  };
-}
-
-class FakeDashboardQuery implements LawyerDashboardQuery {
-  cases: DashboardCaseRow[] = [];
-  lawyer: DashboardLawyerRef | null = RIOS;
-  askedFor: number[] = [];
-
-  async findLawyer(): Promise<DashboardLawyerRef | null> {
-    return this.lawyer;
-  }
-
-  async findActiveCasesOf(lawyerId: number): Promise<DashboardCaseRow[]> {
-    this.askedFor.push(lawyerId);
-    return this.cases;
-  }
-}
-
 describe('GetLawyerDashboard', () => {
   let query: FakeDashboardQuery;
   let useCase: GetLawyerDashboard;
 
   beforeEach(() => {
-    nextId = 1;
+    resetCaseIds();
     query = new FakeDashboardQuery();
     useCase = new GetLawyerDashboard(query, clock);
   });

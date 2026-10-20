@@ -28,9 +28,11 @@ export type DashboardCaseRow = {
 };
 
 /**
- * Read port of the lawyer's dashboard (HU41). `reporting` reads the database
- * directly (ADR-002); the port exists so the use case, where every number of
- * the dashboard is computed, can be tested without one.
+ * Read port of both dashboards, the lawyer's (HU41) and the administrator's
+ * (HU42): the same tables, scoped to one lawyer or to the whole firm.
+ * `reporting` reads the database directly (ADR-002); the port exists so the
+ * use cases, where every number of the dashboard is computed, can be tested
+ * without one.
  */
 export interface LawyerDashboardQuery {
   /** The lawyer the dashboard belongs to, given de baja or not; `null` only if the record is missing. */
@@ -38,4 +40,10 @@ export interface LawyerDashboardQuery {
 
   /** Every **active** case the lawyer is responsible for (§4, Causa activa). Not paginated (D-62). */
   findActiveCasesOf(lawyerId: number): Promise<DashboardCaseRow[]>;
+
+  /** HU42: every lawyer vigente (`active: true`), whether or not they have cases. */
+  findActiveLawyers(): Promise<DashboardLawyerRef[]>;
+
+  /** HU42: every **active** case of the firm (§4, Causa activa), no matter who is responsible. Not paginated (D-62). */
+  findAllActiveCases(): Promise<DashboardCaseRow[]>;
 }
