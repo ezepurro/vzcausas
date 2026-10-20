@@ -1,27 +1,46 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { CLOCK, ClockPort } from '@shared/domain/clock.port';
 import { ValidationError } from '@shared/domain/domain-error';
-import { CaseSacAlreadyExistsError } from '../../domain/errors/case.errors';
+import { CaseSacAlreadyExistsError, CopyTemplatesWithoutFolderError } from '../../domain/errors/case.errors';
 import { CriminalCase } from '../../domain/entities/criminal';
 import { CaseFactory } from '../../domain/factories/case.factory';
+import { CASE_FOLDER_STATE, CaseFolderStatePort, CaseFolderView } from '../../domain/ports/case-folder-state.port';
 import { CASE_REPOSITORY, CaseRepository } from '../../domain/ports/case.repository';
 import { LEGAL_PARAMETERS_LOOKUP, LegalParametersLookupPort } from '../../domain/ports/legal-parameters-lookup.port';
 import { PEOPLE_LOOKUP, PeopleLookupPort } from '../../domain/ports/people-lookup.port';
 import { RegisterCaseCommand, RegisterCaseResult } from '../common/register-case.interfaces';
+import { RequestCaseFolder } from './request-case-folder.use-case';
 
 const INVALID_DATA_MESSAGE = 'Los datos enviados no son válidos.';
 
-/** HU18: registers a new case in the initial state of its jurisdiction. */
+/**
+ * HU18: registers a new case in the initial state of its jurisdiction.
+ *
+ * The cloud folder (HU39) is not made here: once the case is saved, this asks
+ * {@link RequestCaseFolder}, the same use case the retry endpoint uses. The
+ * registration **never fails because of the folder** (CA-39.5): if the folder
+ * cannot be asked for, the case stays registered and the folder is left as it is.
+ */
 @Injectable()
 export class RegisterCase {
+  private readonly logger = new Logger(RegisterCase.name);
+
   constructor(
     @Inject(CASE_REPOSITORY) private readonly cases: CaseRepository,
     @Inject(PEOPLE_LOOKUP) private readonly people: PeopleLookupPort,
     @Inject(LEGAL_PARAMETERS_LOOKUP) private readonly legalParameters: LegalParametersLookupPort,
     @Inject(CLOCK) private readonly clock: ClockPort,
+    @Inject(CASE_FOLDER_STATE) private readonly folderState: CaseFolderStatePort,
+    private readonly requestCaseFolder: RequestCaseFolder,
   ) {}
 
   async execute(command: RegisterCaseCommand): Promise<RegisterCaseResult> {
+    const createFolder = command.createFolder ?? true;
+    const copyTemplates = command.copyTemplates ?? createFolder;
+    if (copyTemplates && !createFolder) {
+      throw new CopyTemplatesWithoutFolderError();
+    }
+
     const today = this.clock.today();
     const requested = command.legalQualifications ?? [];
 
@@ -91,6 +110,7 @@ export class RegisterCase {
 
     await this.cases.save(newCase);
     const currentState = await this.cases.findCurrentState(newCase.id);
+    const folder = createFolder ? await this.requestFolder(newCase.id) : await this.currentFolder(newCase.id);
 
     // The factory only returns when there were no reference errors, so the
     // client and the lawyer exist.
@@ -100,6 +120,25 @@ export class RegisterCase {
       responsibleLawyer: responsibleLawyer!,
       offenses: newCase instanceof CriminalCase ? newCase.offenses : [],
       currentState,
+      folder,
     };
+  }
+
+  private async requestFolder(caseId: number): Promise<CaseFolderView | null> {
+    try {
+      return (await this.requestCaseFolder.execute({ caseId })).folder;
+    } catch (error) {
+      this.logger.error(`The folder of case ${caseId} could not be requested: ${String(error)}`);
+      return this.currentFolder(caseId);
+    }
+  }
+
+  private async currentFolder(caseId: number): Promise<CaseFolderView | null> {
+    try {
+      return await this.folderState.find(caseId);
+    } catch (error) {
+      this.logger.error(`The folder of case ${caseId} could not be read: ${String(error)}`);
+      return null;
+    }
   }
 }

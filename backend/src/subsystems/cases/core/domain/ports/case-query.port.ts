@@ -1,3 +1,4 @@
+import { CaseFolderView } from './case-folder-state.port';
 import { ClientRef, LawyerRef } from './people-lookup.port';
 import { JurisdictionCode } from '../value-objects/jurisdiction-code';
 import { ProceduralRole } from '../value-objects/procedural-role';
@@ -86,6 +87,8 @@ export type CaseListItem = {
    */
   startDate: Date | null;
   currentState: CaseCurrentStateView;
+  /** The cloud folder (HU39); `null` for a case registered before the folders existed. */
+  folder: CaseFolderView | null;
   /** Always `true` in this version: a case given de baja is not returned. */
   active: boolean;
 };

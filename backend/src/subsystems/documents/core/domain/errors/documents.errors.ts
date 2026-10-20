@@ -6,8 +6,12 @@ import {
   ValidationError,
 } from '@shared/domain/domain-error';
 
-/** Why the storage could not be used: a passing problem, or credentials the provider refuses. */
-export type StorageFailureReason = 'TRANSIENT' | 'AUTHORIZATION';
+/**
+ * Why the storage could not be used: a passing problem (`TRANSIENT`), credentials
+ * the provider refuses (`AUTHORIZATION`), or something we configured that is no
+ * longer there, such as a folder deleted by hand (`CONFIGURATION`).
+ */
+export type StorageFailureReason = 'TRANSIENT' | 'AUTHORIZATION' | 'CONFIGURATION';
 
 /**
  * The cloud storage could not be reached, rejected our credentials or
@@ -26,6 +30,21 @@ export class DocumentStorageUnavailableError extends BadGatewayError {
     super(
       'DOCUMENT_STORAGE_UNAVAILABLE',
       'No se pudo acceder al almacenamiento en la nube. Intentá de nuevo en unos minutos.',
+    );
+  }
+}
+
+/**
+ * The study's folder structure is saved in the database but the folder is no
+ * longer in the cloud storage (deleted or trashed by hand). The saved id is
+ * useless now, so someone has to decide what to do instead of recreating it
+ * silently.
+ */
+export class StorageStructureBrokenError extends DomainError {
+  constructor(public readonly folderName: string) {
+    super(
+      'STORAGE_STRUCTURE_BROKEN',
+      `La carpeta "${folderName}" está registrada pero ya no existe en el almacenamiento en la nube.`,
     );
   }
 }

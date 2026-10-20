@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsArray, IsDate, IsEnum, IsInt, IsOptional, IsString, ValidateNested } from 'class-validator';
+import { IsArray, IsBoolean, IsDate, IsEnum, IsInt, IsOptional, IsString, ValidateNested } from 'class-validator';
 import { JurisdictionCode } from '../../../core/domain/value-objects/jurisdiction-code';
 import { ProceduralRole } from '../../../core/domain/value-objects/procedural-role';
 
@@ -73,4 +73,14 @@ export class RegisterCaseRequestDto {
   @Type(() => Date)
   @IsDate()
   startDate?: Date;
+
+  // Create the cloud folder of the case (HU39). Defaults to `true`.
+  @IsOptional()
+  @IsBoolean()
+  createFolder?: boolean;
+
+  // Copy the formal templates into the folder (HU40). Defaults to `createFolder`.
+  @IsOptional()
+  @IsBoolean()
+  copyTemplates?: boolean;
 }

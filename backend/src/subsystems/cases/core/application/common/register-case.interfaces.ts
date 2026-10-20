@@ -1,5 +1,6 @@
 import { Case } from '../../domain/entities/cases';
 import { Offense } from '../../domain/entities/offense';
+import { CaseFolderView } from '../../domain/ports/case-folder-state.port';
 import { ClientRef, LawyerRef } from '../../domain/ports/people-lookup.port';
 import { ProceduralStateRef } from '../../domain/ports/legal-parameters-lookup.port';
 import { JurisdictionCode } from '../../domain/value-objects/jurisdiction-code';
@@ -28,6 +29,11 @@ export interface RegisterCaseCommand {
   responsibleLawyerId: number;
   // Required with a SAC number, not allowed without one (CA-18.2).
   startDate?: Date;
+  // Create the cloud folder of the case (HU39). Defaults to `true`.
+  createFolder?: boolean;
+  // Copy the formal templates into that folder (HU40, not implemented yet).
+  // Defaults to `createFolder`; `true` without a folder is a validation error.
+  copyTemplates?: boolean;
 }
 
 export interface RegisterCaseResult {
@@ -38,4 +44,8 @@ export interface RegisterCaseResult {
   offenses: Offense[];
   // The procedural state the stored case is in, read from the database.
   currentState: ProceduralStateRef;
+  // The cloud folder as it stood when the registration answered (HU39): `CREATED`
+  // if it was ready in time, `CREATING` if still being made, `ERROR` if it failed,
+  // `PENDING` if none was asked for.
+  folder: CaseFolderView | null;
 }

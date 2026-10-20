@@ -59,6 +59,9 @@ export class CasePrismaRepository implements CaseRepository {
         currentCustomState: newCase.currentCustomState,
         currentProceduralActId: newCase.currentProceduralActId,
         active: newCase.active,
+        // The folder is asked for after the case is saved (`RequestCaseFolder`),
+        // which is what moves it to `CREATING`.
+        folderStatus: 'PENDING',
         createdByUserId: newCase.createdByUserId,
         createdAt: newCase.createdAt,
         updatedAt: newCase.updatedAt,

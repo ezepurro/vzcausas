@@ -20,7 +20,8 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:int": "jest --config test/jest-integration.config.ts",
-    "google:authorize": "ts-node scripts/google-authorize.ts"
+    "google:authorize": "ts-node scripts/google-authorize.ts",
+    "documents:setup-storage": "ts-node --transpile-only -r tsconfig-paths/register scripts/documents-setup-storage.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.0",

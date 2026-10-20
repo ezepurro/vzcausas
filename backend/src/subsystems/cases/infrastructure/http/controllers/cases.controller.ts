@@ -9,14 +9,20 @@ import { ListCustomStates } from '../../../core/application/use-cases/list-custo
 import { ListProceduralActs } from '../../../core/application/use-cases/list-procedural-acts.use-case';
 import { RegisterCase } from '../../../core/application/use-cases/register-case.use-case';
 import { RegisterProceduralAct } from '../../../core/application/use-cases/register-procedural-act.use-case';
-import { InvalidCaseIdError, InvalidProceduralActIdError } from '../../../core/domain/errors/case.errors';
-import { CaseResponseDto } from '../dtos/case.response.dto';
+import { RequestCaseFolder } from '../../../core/application/use-cases/request-case-folder.use-case';
+import {
+  CaseFolderUnavailableError,
+  InvalidCaseIdError,
+  InvalidProceduralActIdError,
+} from '../../../core/domain/errors/case.errors';
+import { CaseFolderResponseDto, CaseResponseDto } from '../dtos/case.response.dto';
 import { DeadlinePreviewQueryDto } from '../dtos/deadline-preview.query.dto';
 import { DeadlinePreviewResponseDto } from '../dtos/deadline-preview.response.dto';
 import { ListCasesQueryDto } from '../dtos/list-cases.query.dto';
 import { ListProceduralActsQueryDto } from '../dtos/list-procedural-acts.query.dto';
 import { ProceduralActResponseDto } from '../dtos/procedural-act.response.dto';
 import { RegisterCaseRequestDto } from '../dtos/register-case.request.dto';
+import { RequestCaseFolderRequestDto } from '../dtos/request-case-folder.request.dto';
 import { CaseHttpMapper } from '../mappers/case-http.mapper';
 import { RegisterProceduralActRequestDto } from '../dtos/register-procedural-act.request.dto';
 import { ProceduralActHttpMapper } from '../mappers/procedural-act-http.mapper';
@@ -34,6 +40,7 @@ import { ProceduralActHttpMapper } from '../mappers/procedural-act-http.mapper';
 export class CasesController {
   constructor(
     private readonly registerCase: RegisterCase,
+    private readonly requestCaseFolder: RequestCaseFolder,
     private readonly listCases: ListCases,
     private readonly getCase: GetCase,
     private readonly listCustomStates: ListCustomStates,
@@ -103,6 +110,30 @@ export class CasesController {
   ): Promise<{ data: CaseResponseDto }> {
     const result = await this.registerCase.execute({ ...dto, createdByUserId: actor.userId });
     return { data: CaseHttpMapper.fromRegisterResult(result) };
+  }
+
+  /**
+   * `POST /cases/{caseId}/folder` (HU39): creates the folder of a case that has
+   * none, or tries again after a failure. Idempotent: if the folder exists, or
+   * is already being created, nothing new is asked and `200` returns it as it is.
+   *
+   * It waits for the answer up to a limit (`CASE_FOLDER_WAIT_MS`): a folder that
+   * fails answers `502`; one still being created answers `200` with `CREATING`,
+   * and the client reads the end of it with `GET /cases/{caseId}`.
+   *
+   * `copyTemplates` is accepted for the contract but copies nothing yet (HU40).
+   */
+  @Post(':caseId/folder')
+  @HttpCode(HttpStatus.OK)
+  async createFolder(
+    @Param('caseId') caseIdParam: string,
+    @Body() _dto: RequestCaseFolderRequestDto,
+  ): Promise<{ data: CaseFolderResponseDto | null }> {
+    const result = await this.requestCaseFolder.execute({ caseId: this.parseCaseId(caseIdParam) });
+    if (result.outcome === 'ERROR') {
+      throw new CaseFolderUnavailableError();
+    }
+    return { data: result.folder && { ...result.folder } };
   }
 
   /**

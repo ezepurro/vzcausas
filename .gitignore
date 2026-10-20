@@ -33,6 +33,3 @@ docker-compose.override.yml
 
 #Prisma
 generated/
-
-# IAs
-claude

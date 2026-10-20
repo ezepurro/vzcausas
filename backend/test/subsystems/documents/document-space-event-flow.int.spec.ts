@@ -17,7 +17,6 @@ import {
   DocumentSpaceCreationFailedEvent,
 } from '../../../src/subsystems/documents/core/domain/ports/events/document-space-creation-failed.event';
 import { DocumentStorageUnavailableError } from '../../../src/subsystems/documents/core/domain/errors/documents.errors';
-import { DocumentsModule } from '../../../src/subsystems/documents/documents.module';
 import { InMemoryDocumentStorage } from '../../../src/subsystems/documents/infrastructure/storage/in-memory/in-memory-document-storage';
 import { createCase } from '../../shared/factories/case.factory';
 import { createClient } from '../../shared/factories/client.factory';
@@ -64,7 +63,7 @@ describe('documents · CaseRegistered → espacio documental', () => {
   };
 
   beforeAll(async () => {
-    app = await startTestApp(undefined, [DocumentsModule]);
+    app = await startTestApp();
     publisher = app.get(EventPublisher);
     emitter = app.get(EventEmitter2);
     storage = app.get(DOCUMENT_STORAGE);

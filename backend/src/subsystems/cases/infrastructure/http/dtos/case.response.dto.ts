@@ -39,6 +39,16 @@ export class CurrentStateResponseDto {
   manuallyAdjusted!: boolean;
 }
 
+/** The cloud folder of a case (API contract §3.7, `folder`). */
+export class CaseFolderResponseDto {
+  status!: 'PENDING' | 'CREATING' | 'CREATED' | 'ERROR';
+  // `null` until the folder is `CREATED`.
+  url!: string | null;
+  path!: string | null;
+  templatesCopied!: number;
+  templatesPending!: number;
+}
+
 /** The case resource of the API contract (§3.7). */
 export class CaseResponseDto {
   id!: number;
@@ -58,5 +68,7 @@ export class CaseResponseDto {
   // `null` while the case has no SAC number.
   startDate!: string | null;
   currentState!: CurrentStateResponseDto;
+  // `null` in a case registered before the folders existed.
+  folder!: CaseFolderResponseDto | null;
   active!: boolean;
 }

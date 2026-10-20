@@ -62,6 +62,7 @@ function anItem(overrides: Partial<CaseListItem> = {}): CaseListItem {
       businessDaysRemaining: 1,
       manuallyAdjusted: false,
     },
+    folder: null,
     active: true,
     ...overrides,
   };
@@ -115,8 +116,25 @@ describe('CaseHttpMapper.toResponse', () => {
         businessDaysRemaining: 1,
         manuallyAdjusted: false,
       },
+      folder: null,
       active: true,
     });
+  });
+
+  it('la carpeta de la causa sale tal como la lee la consulta', () => {
+    const folder = {
+      status: 'CREATED' as const,
+      url: 'https://drive.google.com/drive/folders/abc',
+      path: '/VZ Causas/Ríos, Malena/Penal/GÓMEZ',
+      templatesCopied: 0,
+      templatesPending: 0,
+    };
+
+    expect(CaseHttpMapper.toResponse(anItem({ folder })).folder).toEqual(folder);
+  });
+
+  it('una causa anterior a las carpetas sale con folder en null', () => {
+    expect(CaseHttpMapper.toResponse(anItem({ folder: null })).folder).toBeNull();
   });
 
   it('una fecha nula sale nula, no como string', () => {
@@ -141,7 +159,7 @@ describe('CaseHttpMapper.toResponse', () => {
     expect(response.legalQualifications[0].offenseDate).toBe('2021-02-27');
   });
 
-  it('no inventa ni pierde campos: exactamente los 17 del contrato', () => {
+  it('no inventa ni pierde campos: exactamente los 18 del contrato (con la carpeta)', () => {
     expect(Object.keys(CaseHttpMapper.toResponse(anItem())).sort()).toEqual(
       [
         'active',
@@ -150,6 +168,7 @@ describe('CaseHttpMapper.toResponse', () => {
         'counterparty',
         'court',
         'currentState',
+        'folder',
         'id',
         'instructorExtension',
         'instructorName',
@@ -218,6 +237,7 @@ describe('CaseHttpMapper.fromRegisterResult', () => {
       responsibleLawyer: LAWYER,
       offenses: [],
       currentState: INITIAL_STATES[input.jurisdictionCode],
+      folder: { status: 'CREATING', url: null, path: null, templatesCopied: 0, templatesPending: 0 },
     };
   }
 
@@ -235,6 +255,18 @@ describe('CaseHttpMapper.fromRegisterResult', () => {
       dueDate: null,
       businessDaysRemaining: null,
       manuallyAdjusted: false,
+    });
+  });
+
+  it('la respuesta del alta incluye la carpeta como quedó al responder', () => {
+    const response = CaseHttpMapper.fromRegisterResult(aResult());
+
+    expect(response.folder).toEqual({
+      status: 'CREATING',
+      url: null,
+      path: null,
+      templatesCopied: 0,
+      templatesPending: 0,
     });
   });
 

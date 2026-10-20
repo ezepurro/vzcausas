@@ -2,6 +2,8 @@ import { INestApplication, ModuleMetadata } from '@nestjs/common';
 import { Test, TestingModuleBuilder } from '@nestjs/testing';
 import { AppModule } from '../../../src/app.module';
 import { configureApp } from '../../../src/app.setup';
+import { DOCUMENT_STORAGE } from '../../../src/subsystems/documents/core/domain/ports/document-storage.port';
+import { InMemoryDocumentStorage } from '../../../src/subsystems/documents/infrastructure/storage/in-memory/in-memory-document-storage';
 import { PrismaService } from '../../../src/shared/infrastructure/prisma/prisma.service';
 import { useTestAccessTokenVerifier } from '../auth/test-access-token-verifier';
 
@@ -15,8 +17,11 @@ let app: INestApplication | undefined;
  * @param customize opcional: permite reemplazar adaptadores EXTERNOS
  *        (correo, Google Drive…) por fakes con `overrideProvider`.
  *        La base de datos nunca se reemplaza: es real.
- * @param extraImports opcional: módulos que `AppModule` todavía no registra
- *        (p. ej. `DocumentsModule`, hasta tener el adaptador real de Drive).
+ * @param extraImports opcional: módulos que `AppModule` no registra por sí solo.
+ *
+ * El almacenamiento documental es SIEMPRE el de memoria: nunca se le pega a
+ * Google Drive desde un test, aunque el `.env` de la máquina tenga las
+ * credenciales. Un spec puede reemplazarlo de nuevo en `customize`.
  *
  * El verificador de tokens se reemplaza siempre por uno que acepta los
  * tokens de `loginAs` y delega el resto en el real (ver
@@ -27,9 +32,14 @@ export async function startTestApp(
   extraImports: ModuleMetadata['imports'] = [],
 ): Promise<INestApplication> {
   const moduleRef = await customize(
+    // Never Google Drive in a test, even on a machine whose `.env` has the
+    // credentials: the storage is always the in-memory one unless the spec
+    // replaces it again in `customize`.
     useTestAccessTokenVerifier(
       Test.createTestingModule({ imports: [AppModule, ...extraImports] }),
-    ),
+    )
+      .overrideProvider(DOCUMENT_STORAGE)
+      .useClass(InMemoryDocumentStorage),
   ).compile();
 
   app = moduleRef.createNestApplication();

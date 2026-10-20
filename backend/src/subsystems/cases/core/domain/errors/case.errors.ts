@@ -1,4 +1,5 @@
 import {
+  BadGatewayError,
   BusinessRuleError,
   ConflictError,
   ForbiddenActionError,
@@ -130,5 +131,42 @@ export class InvalidProceduralActIdError extends ValidationError {
     super('INVALID_PATH_PARAMETER', 'El identificador del acto procesal no es válido.', {
       actId: 'Debe ser un número entero válido.',
     });
+  }
+}
+
+/**
+ * `copyTemplates` came as `true` with `createFolder` as `false` (400). The
+ * templates are copied into the case folder, so there is nothing to copy them
+ * into. Uses the contract's `VALIDATION_ERROR` and message (§3.7).
+ */
+export class CopyTemplatesWithoutFolderError extends ValidationError {
+  constructor() {
+    super('VALIDATION_ERROR', 'Los datos enviados no son válidos.', {
+      copyTemplates: 'Para copiar los modelos primero hay que crear la carpeta de la causa.',
+    });
+  }
+}
+
+/**
+ * The cloud folder of a case could not be created (502). It is only raised by
+ * `POST /cases/{caseId}/folder`: registering a case never fails because of its
+ * folder (CA-39.5). The reason goes to the log, not to the client.
+ */
+export class CaseFolderUnavailableError extends BadGatewayError {
+  constructor() {
+    super(
+      'DOCUMENT_STORAGE_UNAVAILABLE',
+      'No se pudo acceder al almacenamiento en la nube. Intentá de nuevo en unos minutos.',
+    );
+  }
+}
+
+/** The lawyer in charge of the case is no longer active, so its folder cannot be named after them (422). */
+export class CaseFolderLawyerUnavailableError extends BusinessRuleError {
+  constructor() {
+    super(
+      'CASE_FOLDER_LAWYER_UNAVAILABLE',
+      'No se puede crear la carpeta: el abogado responsable de la causa no está vigente.',
+    );
   }
 }

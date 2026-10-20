@@ -59,6 +59,7 @@ function anItem(dueDate: Date | null): CaseListItem {
       businessDaysRemaining: null,
       manuallyAdjusted: false,
     },
+    folder: null,
     active: true,
   };
 }

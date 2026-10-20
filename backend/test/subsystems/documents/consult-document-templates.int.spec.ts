@@ -4,7 +4,6 @@ import * as bcrypt from 'bcryptjs';
 
 import { DOCUMENT_STORAGE } from '../../../src/subsystems/documents/core/domain/ports/document-storage.port';
 import { DocumentStorageUnavailableError } from '../../../src/subsystems/documents/core/domain/errors/documents.errors';
-import { DocumentsModule } from '../../../src/subsystems/documents/documents.module';
 import { InMemoryDocumentStorage } from '../../../src/subsystems/documents/infrastructure/storage/in-memory/in-memory-document-storage';
 import { loginAs, TestRole } from '../../shared/auth/login-as';
 import { expectData, expectError, expectPaginated } from '../../shared/contract/envelopes';
@@ -66,7 +65,7 @@ describe('GET /api/v1/document-templates', () => {
   }
 
   beforeAll(async () => {
-    app = await startTestApp(undefined, [DocumentsModule]);
+    app = await startTestApp();
     storage = app.get(DOCUMENT_STORAGE);
   });
 

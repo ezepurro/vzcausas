@@ -26,7 +26,7 @@ describe('AssureSpace', () => {
 
     const result = await assureSpace.execute(aCommand());
 
-    const created = storage.calls.filter((c) => c.method === 'create').map((c) => c.reference.name);
+    const created = storage.calls.filter((c) => c.method === 'createFolder').map((c) => c.reference.name);
     expect(created).toEqual([
       'Ríos, Malena',
       'Penal',
@@ -73,7 +73,7 @@ describe('AssureSpace', () => {
 
     await assureSpace.execute(aCommand({ caseId: 11, caseCaption: 'RUIZ s/ amparo' }));
 
-    expect(storage.calls.filter((c) => c.method === 'create')).toHaveLength(1);
+    expect(storage.calls.filter((c) => c.method === 'createFolder')).toHaveLength(1);
     expect(storage.folders.filter((f) => f.name === 'Penal')).toHaveLength(1);
     expect(storage.folders.filter((f) => f.name === 'Ríos, Malena')).toHaveLength(1);
   });
@@ -141,10 +141,10 @@ describe('AssureSpace', () => {
 
   it('si falla a mitad de la cadena, el reintento conserva lo ya creado', async () => {
     const { assureSpace, storage } = await aSetUpStudio();
-    // First level: findByReference ok + create ok; fail on the jurisdiction lookup.
+    // First level: findFolderByReference ok + createFolder ok; fail on the jurisdiction lookup.
     let calls = 0;
-    const original = storage.findByReference.bind(storage);
-    storage.findByReference = async (reference) => {
+    const original = storage.findFolderByReference.bind(storage);
+    storage.findFolderByReference = async (reference) => {
       calls += 1;
       if (calls === 2) {
         throw new DocumentStorageUnavailableError('TRANSIENT', '503');
@@ -200,6 +200,102 @@ describe('AssureSpace', () => {
       InvalidCloudFolderError,
     );
     expect(storage.calls).toHaveLength(0);
+  });
+
+  describe('compensación y concurrencia', () => {
+    it('si no se puede guardar la fila de la causa, borra la carpeta recién creada y relanza el error', async () => {
+      const { assureSpace, storage, folders } = await aSetUpStudio();
+      const realSave = folders.save.bind(folders);
+      folders.save = async (folder) => {
+        if (folder.key.kind === 'CASE') {
+          throw new Error('db down');
+        }
+        return realSave(folder);
+      };
+
+      await expect(assureSpace.execute(aCommand())).rejects.toThrow('db down');
+
+      const caseFolder = storage.calls
+        .filter((c) => c.method === 'createFolder')
+        .map((c) => c.reference.name)
+        .at(-1);
+      expect(caseFolder).toBe('GÓMEZ, Ariel Fernando p.s.a. Robo calificado');
+      expect(storage.deletedFolderIds).toHaveLength(1);
+      expect(storage.folders.map((f) => f.name)).not.toContain(caseFolder);
+    });
+
+    it('si borrar la carpeta también falla, relanza el error del guardado y no el del borrado', async () => {
+      const { assureSpace, storage, folders } = await aSetUpStudio();
+      const realSave = folders.save.bind(folders);
+      folders.save = async (folder) => {
+        if (folder.key.kind === 'CASE') {
+          storage.failNextWith(new DocumentStorageUnavailableError('TRANSIENT', 'delete failed'));
+          throw new Error('db down');
+        }
+        return realSave(folder);
+      };
+
+      await expect(assureSpace.execute(aCommand())).rejects.toThrow('db down');
+    });
+
+    it('no borra una carpeta de abogado que adoptó, porque no la creó este pedido', async () => {
+      const { assureSpace, storage, folders, rootCasesId } = await aSetUpStudio();
+      const orphan = storage.seed(rootCasesId, 'Ríos, Malena');
+      const realSave = folders.save.bind(folders);
+      folders.save = async (folder) => {
+        if (folder.key.kind === 'JURISDICTION') {
+          throw new Error('db down');
+        }
+        return realSave(folder);
+      };
+
+      await expect(assureSpace.execute(aCommand())).rejects.toThrow('db down');
+
+      expect(storage.deletedFolderIds).not.toContain(orphan.id);
+      expect(storage.folders.map((f) => f.id)).toContain(orphan.id);
+    });
+
+    it('el pedido que pierde la carrera borra su carpeta duplicada y usa la ganadora', async () => {
+      const { assureSpace, storage, folders } = await aSetUpStudio();
+      const realSave = folders.save.bind(folders);
+      let raced = false;
+      folders.save = async (folder) => {
+        if (folder.key.kind === 'LAWYER' && !raced) {
+          raced = true;
+          await realSave(
+            CloudFolderFactory.create({
+              kind: 'LAWYER',
+              cloudFolderId: 'winner',
+              name: 'Ríos, Malena',
+              url: 'https://storage.invalid/winner',
+              parentCloudFolderId: folder.parentCloudFolderId,
+              lawyerId: 3,
+              createdAt: folder.createdAt,
+            }),
+          );
+          throw new CloudFolderAlreadyExistsError();
+        }
+        return realSave(folder);
+      };
+
+      await assureSpace.execute(aCommand());
+
+      expect(storage.deletedFolderIds).toHaveLength(1);
+      expect(folders.all().filter((f) => f.key.kind === 'LAWYER')).toHaveLength(1);
+    });
+
+    it('dos causas del mismo abogado y fuero pedidas a la vez comparten las carpetas intermedias', async () => {
+      const { assureSpace, storage } = await aSetUpStudio();
+
+      await Promise.all([
+        assureSpace.execute(aCommand({ caseId: 10, caseCaption: 'UNO' })),
+        assureSpace.execute(aCommand({ caseId: 11, caseCaption: 'DOS' })),
+      ]);
+
+      expect(storage.folders.filter((f) => f.name === 'Ríos, Malena')).toHaveLength(1);
+      expect(storage.folders.filter((f) => f.name === 'Penal')).toHaveLength(1);
+      expect(storage.deletedFolderIds).toHaveLength(0);
+    });
   });
 
   describe('eventos', () => {

@@ -9,7 +9,7 @@ import {
 
 /** A folder held by {@link InMemoryDocumentStorage}. */
 export interface InMemoryStoredFolder extends StoredFolder {
-  parentId: string;
+  parentId: string | null;
   name: string;
 }
 
@@ -36,7 +36,11 @@ export class InMemoryDocumentStorage implements DocumentStoragePort {
   private sequence = 0;
 
   /** Every folder call received, in order. */
-  readonly calls: Array<{ method: 'findByReference' | 'create'; reference: FolderReference }> = [];
+  readonly calls: Array<{ method: 'findFolderByReference' | 'createFolder'; reference: FolderReference }> = [];
+
+  /** Ids asked to `getFolder`, and ids deleted by `deleteFolder`, in order. */
+  readonly getFolderCalls: string[] = [];
+  readonly deletedFolderIds: string[] = [];
 
   /** Every file call received, in order: the uploaded name, or the id deleted or downloaded. */
   readonly fileCalls: Array<
@@ -49,8 +53,19 @@ export class InMemoryDocumentStorage implements DocumentStoragePort {
   }
 
   /** Registers a folder that already exists in the storage (e.g. the study's root). */
-  seed(parentId: string, name: string): StoredFolder {
+  seed(parentId: string | null, name: string): StoredFolder {
     return this.add(parentId, name);
+  }
+
+  /** Forgets every folder, file and call: back to an empty storage. */
+  reset(): void {
+    this.stored.length = 0;
+    this.storedFiles = [];
+    this.calls.length = 0;
+    this.fileCalls.length = 0;
+    this.getFolderCalls.length = 0;
+    this.deletedFolderIds.length = 0;
+    this.nextFailure = null;
   }
 
   /** Folders currently held. */
@@ -58,8 +73,8 @@ export class InMemoryDocumentStorage implements DocumentStoragePort {
     return this.stored;
   }
 
-  async findByReference(reference: FolderReference): Promise<StoredFolder | null> {
-    this.calls.push({ method: 'findByReference', reference });
+  async findFolderByReference(reference: FolderReference): Promise<StoredFolder | null> {
+    this.calls.push({ method: 'findFolderByReference', reference });
     this.failIfRequested();
     const found = this.stored.find(
       (folder) => folder.parentId === reference.parentId && folder.name === reference.name,
@@ -67,10 +82,38 @@ export class InMemoryDocumentStorage implements DocumentStoragePort {
     return found ? { id: found.id, url: found.url } : null;
   }
 
-  async create(reference: FolderReference): Promise<StoredFolder> {
-    this.calls.push({ method: 'create', reference });
+  async createFolder(reference: FolderReference): Promise<StoredFolder> {
+    this.calls.push({ method: 'createFolder', reference });
     this.failIfRequested();
     return this.add(reference.parentId, reference.name);
+  }
+
+  async getFolder(folderId: string): Promise<StoredFolder | null> {
+    this.getFolderCalls.push(folderId);
+    this.failIfRequested();
+    const found = this.stored.find((folder) => folder.id === folderId);
+    return found ? { id: found.id, url: found.url } : null;
+  }
+
+  /** Like a drive, deleting a folder also removes what is inside it. */
+  async deleteFolder(folderId: string): Promise<void> {
+    this.deletedFolderIds.push(folderId);
+    this.failIfRequested();
+    const doomed = new Set<string>([folderId]);
+    let grew = true;
+    while (grew) {
+      grew = false;
+      for (const folder of this.stored) {
+        if (folder.parentId !== null && doomed.has(folder.parentId) && !doomed.has(folder.id)) {
+          doomed.add(folder.id);
+          grew = true;
+        }
+      }
+    }
+    const kept = this.stored.filter((folder) => !doomed.has(folder.id));
+    this.stored.length = 0;
+    this.stored.push(...kept);
+    this.storedFiles = this.storedFiles.filter((file) => !doomed.has(file.parentId));
   }
 
   /** Files currently held. */
@@ -113,7 +156,7 @@ export class InMemoryDocumentStorage implements DocumentStoragePort {
     return Buffer.from(file.content);
   }
 
-  private add(parentId: string, name: string): StoredFolder {
+  private add(parentId: string | null, name: string): StoredFolder {
     this.sequence += 1;
     const id = `mem-folder-${this.sequence}`;
     const folder: InMemoryStoredFolder = {

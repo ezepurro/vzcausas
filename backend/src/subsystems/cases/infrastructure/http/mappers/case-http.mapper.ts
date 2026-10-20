@@ -123,6 +123,7 @@ export class CaseHttpMapper {
         businessDaysRemaining: item.currentState.businessDaysRemaining,
         manuallyAdjusted: item.currentState.manuallyAdjusted,
       },
+      folder: item.folder && { ...item.folder },
       active: item.active,
     };
   }
@@ -181,6 +182,7 @@ export class CaseHttpMapper {
         businessDaysRemaining: null,
         manuallyAdjusted: false,
       },
+      folder: result.folder,
       active: newCase.active,
     });
   }

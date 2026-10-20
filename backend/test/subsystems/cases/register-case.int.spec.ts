@@ -1,10 +1,13 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 
+import { DOCUMENT_STORAGE } from '../../../src/subsystems/documents/core/domain/ports/document-storage.port';
+import { InMemoryDocumentStorage } from '../../../src/subsystems/documents/infrastructure/storage/in-memory/in-memory-document-storage';
 import { startTestApp, stopTestApp, getPrisma } from '../../shared/harness/test-app';
 import { expectData, expectError } from '../../shared/contract/envelopes';
 import { loginAs } from '../../shared/auth/login-as';
 import { aCaseBody, createCase } from '../../shared/factories/case.factory';
+import { clearCloudFolders, createCloudStructure } from '../../shared/factories/cloud-structure.factory';
 import { createClient } from '../../shared/factories/client.factory';
 import { createLawyer } from '../../shared/factories/lawyer.factory';
 import { createLegalQualification } from '../../shared/factories/legal-qualification.factory';
@@ -26,12 +29,15 @@ describe('POST /api/v1/cases', () => {
   let userId: number;
   let lawyerId: number;
   let clientId: number;
+  let storage: InMemoryDocumentStorage;
 
   beforeAll(async () => {
     app = await startTestApp();
+    storage = app.get(DOCUMENT_STORAGE);
   });
 
   afterAll(async () => {
+    await clearCloudFolders();
     await stopTestApp();
   });
 
@@ -48,6 +54,9 @@ describe('POST /api/v1/cases', () => {
     await prisma.case.updateMany({ data: { currentProceduralActId: null } });
     await prisma.proceduralAct.deleteMany();
     await prisma.case.deleteMany();
+    await clearCloudFolders();
+    // HU39: la estructura base del estudio, sin la cual la carpeta de una causa no se puede crear.
+    await createCloudStructure(storage);
     await prisma.user.deleteMany(); // referencia a lawyers
     await prisma.lawyer.deleteMany();
     await prisma.client.deleteMany();
@@ -135,6 +144,14 @@ describe('POST /api/v1/cases', () => {
         dueDate: null,
         businessDaysRemaining: null,
         manuallyAdjusted: false,
+      },
+      // HU39: el almacenamiento en memoria responde enseguida, así que la carpeta llega creada.
+      folder: {
+        status: 'CREATED',
+        url: expect.stringMatching(/^https:\/\/storage\.invalid\/folders\//),
+        path: `/VZ Causas/Causas/${lawyer.lastName}, ${lawyer.firstName}/Penal/${body.caption}`,
+        templatesCopied: 0,
+        templatesPending: 0,
       },
       active: true,
     });

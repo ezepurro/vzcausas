@@ -122,7 +122,7 @@ describe('GET /api/v1/cases', () => {
     const res = await request(app.getHttpServer()).get(URL).set(actor);
     const [item] = expectPaginated(res, { page: 1, limit: 20, totalItems: 1, totalPages: 1 });
 
-    // Las 17 claves del recurso, exactamente (§3.7). Si falta o sobra una, falla.
+    // Las 18 claves del recurso, exactamente (§3.7). Si falta o sobra una, falla.
     expect(Object.keys(item as object).sort()).toEqual(
       [
         'active',
@@ -131,6 +131,7 @@ describe('GET /api/v1/cases', () => {
         'counterparty',
         'court',
         'currentState',
+        'folder',
         'id',
         'instructorExtension',
         'instructorName',
@@ -152,6 +153,8 @@ describe('GET /api/v1/cases', () => {
       legalQualifications: [],
       active: true,
       currentState: { name: 'Iniciada', initial: true, proceduralStateId: null, dueDate: null },
+      // Cargada con la factory, sin pasar por el alta: no tiene estado de carpeta.
+      folder: null,
     });
   });
 

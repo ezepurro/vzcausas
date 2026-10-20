@@ -9,9 +9,12 @@ export interface StoredFolder {
   url: string;
 }
 
-/** Where a folder lives: its name under a parent folder. */
+/**
+ * Where a folder lives: its name under a parent folder. `parentId` is `null`
+ * for the root of the storage account (only the study's `MAIN` folder is there).
+ */
 export interface FolderReference {
-  parentId: string;
+  parentId: string | null;
   name: string;
 }
 
@@ -41,13 +44,22 @@ export interface FileUpload {
  */
 export interface DocumentStoragePort {
   /** The folder with that name directly under that parent, or `null`. */
-  findByReference(reference: FolderReference): Promise<StoredFolder | null>;
+  findFolderByReference(reference: FolderReference): Promise<StoredFolder | null>;
 
   /**
    * Creates a folder under the parent. The folder is private to the study:
    * it is not shared by public link nor with outsiders (CA-39.8).
    */
-  create(reference: FolderReference): Promise<StoredFolder>;
+  createFolder(reference: FolderReference): Promise<StoredFolder>;
+
+  /** The folder with that provider id, or `null` if it no longer exists (deleted or trashed by hand). */
+  getFolder(folderId: string): Promise<StoredFolder | null>;
+
+  /**
+   * Deletes a folder with everything in it. Used to undo a folder whose row
+   * then could not be saved. A folder that is already gone is not an error.
+   */
+  deleteFolder(folderId: string): Promise<void>;
 
   /** Uploads a file into the folder (HU34). Like a real drive, a repeated name makes a second file. */
   uploadFile(upload: FileUpload): Promise<StoredFile>;

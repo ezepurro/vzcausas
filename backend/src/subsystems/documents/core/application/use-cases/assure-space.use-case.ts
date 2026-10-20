@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { CLOCK, ClockPort } from '@shared/domain/clock.port';
 import { EventPublisher } from '@shared/infrastructure/events/event-publisher.port';
 import { createEventHeader } from '@shared/infrastructure/events/integration-event';
@@ -25,10 +25,11 @@ import {
   DOCUMENT_SPACE_CREATION_FAILED,
   DocumentSpaceCreationFailedEvent,
 } from '../../domain/ports/events/document-space-creation-failed.event';
-import { FolderKey } from '../../domain/value-objects/folder-key.vo';
+import { FolderKey, folderKeyToString } from '../../domain/value-objects/folder-key.vo';
 import { FolderName } from '../../domain/value-objects/folder-name.vo';
 import { AssureSpaceCommand, AssureSpaceResult } from '../common/assure-space.interfaces';
 import { classifyFailure } from '../common/failure-reason';
+import { KeyedMutex } from '../common/keyed-mutex';
 
 type ChainLevelData = Pick<CloudFolderData, 'kind' | 'lawyerId' | 'jurisdictionId' | 'caseId'>;
 
@@ -51,11 +52,19 @@ type ChainLevelData = Pick<CloudFolderData, 'kind' | 'lawyerId' | 'jurisdictionI
  * folder already existed) and `DocumentSpaceCreationFailed` on failure, which
  * is then rethrown. That way `cases` hears about every attempt.
  *
+ * If a folder was just created in the storage and its row then cannot be
+ * saved, the new folder is deleted again so nothing is left behind (same
+ * pattern as `RegisterDocumentTemplate` with an uploaded file).
+ *
  * It does not open a transaction (the storage is an external port) and does
  * not link the folder to the case: that belongs to `cases`.
  */
 @Injectable()
 export class AssureSpace {
+  private readonly logger = new Logger(AssureSpace.name);
+  /** Orders concurrent requests for the same folder inside this process. */
+  private readonly locks = new KeyedMutex();
+
   constructor(
     @Inject(CLOUD_FOLDER_REPOSITORY) private readonly folders: CloudFolderRepository,
     @Inject(DOCUMENT_STORAGE) private readonly storage: DocumentStoragePort,
@@ -161,45 +170,65 @@ export class AssureSpace {
    * Returns the folder with that key, creating it under `parent` if needed.
    * `adoptOrphan` reuses a remote folder with the same name left behind by a
    * crash between creating it and saving it.
+   *
+   * Requests for the same key go one at a time in this process, so two cases of
+   * the same lawyer and jurisdiction do not both create the shared folder.
    */
-  private async ensureFolder(
+  private ensureFolder(
     key: FolderKey,
     parent: CloudFolder,
     name: FolderName,
     adoptOrphan: boolean,
     data: ChainLevelData,
   ): Promise<CloudFolder> {
-    const existing = await this.folders.findByKey(key);
-    if (existing) {
-      return existing;
-    }
-
-    const reference = { parentId: parent.cloudFolderId, name: name.toString() };
-    const stored =
-      (adoptOrphan ? await this.storage.findByReference(reference) : null) ??
-      (await this.storage.create(reference));
-
-    const folder = CloudFolderFactory.create({
-      ...data,
-      cloudFolderId: stored.id,
-      url: stored.url,
-      name: reference.name,
-      parentCloudFolderId: parent.cloudFolderId,
-      createdAt: this.clock.now(),
-    });
-
-    try {
-      await this.folders.save(folder);
-      return folder;
-    } catch (error) {
-      // A concurrent request saved the same key first: use the winner's folder.
-      if (error instanceof CloudFolderAlreadyExistsError) {
-        const winner = await this.folders.findByKey(key);
-        if (winner) {
-          return winner;
-        }
+    return this.locks.run(folderKeyToString(key), async () => {
+      const existing = await this.folders.findByKey(key);
+      if (existing) {
+        return existing;
       }
-      throw error;
+
+      const reference = { parentId: parent.cloudFolderId, name: name.toString() };
+      const adopted = adoptOrphan ? await this.storage.findFolderByReference(reference) : null;
+      const stored = adopted ?? (await this.storage.createFolder(reference));
+      // Only a folder created here may be deleted again; an adopted one was not ours to undo.
+      const createdHere = adopted === null;
+
+      const folder = CloudFolderFactory.create({
+        ...data,
+        cloudFolderId: stored.id,
+        url: stored.url,
+        name: reference.name,
+        parentCloudFolderId: parent.cloudFolderId,
+        createdAt: this.clock.now(),
+      });
+
+      try {
+        await this.folders.save(folder);
+        return folder;
+      } catch (error) {
+        if (createdHere) {
+          await this.discardCreatedFolder(stored.id);
+        }
+        // Another instance saved the same key first: use the winner's folder.
+        if (error instanceof CloudFolderAlreadyExistsError) {
+          const winner = await this.folders.findByKey(key);
+          if (winner) {
+            return winner;
+          }
+        }
+        throw error;
+      }
+    });
+  }
+
+  /** Best effort: if deleting also fails, the leftover folder is only logged, by its id. */
+  private async discardCreatedFolder(cloudFolderId: string): Promise<void> {
+    try {
+      await this.storage.deleteFolder(cloudFolderId);
+    } catch (error) {
+      this.logger.error(
+        `Could not delete the folder ${cloudFolderId} created for a row that was not saved: ${String(error)}`,
+      );
     }
   }
 

@@ -14,6 +14,11 @@ describe('classifyFailure', () => {
       new DocumentStorageUnavailableError('AUTHORIZATION'),
       'AUTHORIZATION',
     ],
+    [
+      'carpeta configurada que ya no existe en la nube',
+      new DocumentStorageUnavailableError('CONFIGURATION'),
+      'CONFIGURATION',
+    ],
     ['raíz de causas sin configurar', new StudioRootNotConfiguredError(), 'CONFIGURATION'],
     ['carpeta inválida', new InvalidCloudFolderError('x'), 'INVALID_DATA'],
     ['error de validación', new ValidationError('X', 'x'), 'INVALID_DATA'],
