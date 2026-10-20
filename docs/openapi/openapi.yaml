@@ -1,345 +1,345 @@
 openapi: 3.1.0
 
 info:
-  title: VZ Causas API
-  version: 4.0.0
-  summary: Contrato de la API de VZ Causas para el Sprint 3.
-  description: |
-    Traducción a OpenAPI de `docs/api-contract/API_CONTRACT_V4.md` (versión del
-    14/10/2026, con la revisión del 19/10/2026 de HU27). Ante cualquier
-    diferencia, el contrato en Markdown es la referencia; las decisiones
-    (D-xx) y los puntos abiertos (C-xx) se documentan allí.
+    title: VZ Causas API
+    version: 4.0.0
+    summary: Contrato de la API de VZ Causas para el Sprint 3.
+    description: |
+        Traducción a OpenAPI de `docs/api-contract/API_CONTRACT_V4.md` (versión del
+        14/10/2026, con la revisión del 19/10/2026 de HU27). Ante cualquier
+        diferencia, el contrato en Markdown es la referencia; las decisiones
+        (D-xx) y los puntos abiertos (C-xx) se documentan allí.
 
-    **Cambios que rompen la compatibilidad con V3:** el nombre y el apellido
-    separados (`lastName` y `firstName` en lugar de `fullName`) en usuarios,
-    abogados y toda referencia a ellos (D-68), y `caseCount` en lugar de
-    `activeCases` en los estados procesales (D-70).
+        **Cambios que rompen la compatibilidad con V3:** el nombre y el apellido
+        separados (`lastName` y `firstName` en lugar de `fullName`) en usuarios,
+        abogados y toda referencia a ellos (D-68), y `caseCount` en lugar de
+        `activeCases` en los estados procesales (D-70).
 
-    ## Autenticación
+        ## Autenticación
 
-    Los endpoints protegidos requieren un token Bearer:
+        Los endpoints protegidos requieren un token Bearer:
 
-    ```http
-    Authorization: Bearer <accessToken>
-    ```
+        ```http
+        Authorization: Bearer <accessToken>
+        ```
 
-    El token se obtiene con `POST /auth/login` y se renueva con
-    `POST /auth/refresh`, que usa la cookie `HttpOnly` `refresh_token`.
+        El token se obtiene con `POST /auth/login` y se renueva con
+        `POST /auth/refresh`, que usa la cookie `HttpOnly` `refresh_token`.
 
-    ## Sesión y revocación
+        ## Sesión y revocación
 
-    El `accessToken` vence a los 15 minutos. Además de ese vencimiento
-    natural, cuatro situaciones cierran la sesión desde la **próxima
-    petición**: cerrar sesión, dar de baja al usuario, cambiar la contraseña
-    (en las demás sesiones) y 30 minutos sin renovar. El servidor no
-    distingue el motivo en la respuesta — siempre `401 UNAUTHENTICATED` — y
-    la reacción esperada del cliente es siempre la misma: redirigir al
-    login.
+        El `accessToken` vence a los 15 minutos. Además de ese vencimiento
+        natural, cuatro situaciones cierran la sesión desde la **próxima
+        petición**: cerrar sesión, dar de baja al usuario, cambiar la contraseña
+        (en las demás sesiones) y 30 minutos sin renovar. El servidor no
+        distingue el motivo en la respuesta — siempre `401 UNAUTHENTICATED` — y
+        la reacción esperada del cliente es siempre la misma: redirigir al
+        login.
 
-    ## Límite de frecuencia
+        ## Límite de frecuencia
 
-    Dos mecanismos independientes: un límite de pedidos por dirección IP en
-    toda la API (`429 TOO_MANY_REQUESTS`), más estricto en
-    `POST /auth/login` y `POST /auth/refresh`; y un bloqueo progresivo por
-    cuenta, exclusivo de `POST /auth/login`, a los 5 fallos consecutivos
-    (`429 TOO_MANY_LOGIN_ATTEMPTS`). Ambos traen el encabezado `Retry-After`
-    y el mismo valor en `details.retryAfterSeconds`.
+        Dos mecanismos independientes: un límite de pedidos por dirección IP en
+        toda la API (`429 TOO_MANY_REQUESTS`), más estricto en
+        `POST /auth/login` y `POST /auth/refresh`; y un bloqueo progresivo por
+        cuenta, exclusivo de `POST /auth/login`, a los 5 fallos consecutivos
+        (`429 TOO_MANY_LOGIN_ATTEMPTS`). Ambos traen el encabezado `Retry-After`
+        y el mismo valor en `details.retryAfterSeconds`.
 
-    ## Autorización
+        ## Autorización
 
-    Un endpoint indicado con un rol (`ADMINISTRATOR`, `LAWYER` o `SECRETARY`)
-    requiere que el usuario autenticado lo posea; un usuario con varios roles
-    lo satisface si el rol exigido está entre ellos. Cuando un endpoint
-    indica dos roles —"`ADMINISTRATOR` o `LAWYER`"— alcanza con poseer uno.
-    Si no lo posee, la respuesta es `403 FORBIDDEN`. El rol requerido figura
-    en la descripción de cada operación.
+        Un endpoint indicado con un rol (`ADMINISTRATOR`, `LAWYER` o `SECRETARY`)
+        requiere que el usuario autenticado lo posea; un usuario con varios roles
+        lo satisface si el rol exigido está entre ellos. Cuando un endpoint
+        indica dos roles —"`ADMINISTRATOR` o `LAWYER`"— alcanza con poseer uno.
+        Si no lo posee, la respuesta es `403 FORBIDDEN`. El rol requerido figura
+        en la descripción de cada operación.
 
-    Los **actos procesales** y los **actos interruptivos** son la excepción:
-    solo los registra el **abogado responsable de la causa**, comparando el
-    `lawyerId` del usuario con el responsable. Ningún otro usuario, ni
-    siquiera un `ADMINISTRATOR`.
+        Los **actos procesales** y los **actos interruptivos** son la excepción:
+        solo los registra el **abogado responsable de la causa**, comparando el
+        `lawyerId` del usuario con el responsable. Ningún otro usuario, ni
+        siquiera un `ADMINISTRATOR`.
 
-    | Recurso                             | Lectura (`GET`)                                       | Escritura                                            |
-    | ----------------------------------- | ----------------------------------------------------- | ---------------------------------------------------- |
-    | `/auth`                             | -                                                     | Cualquier usuario autenticado (`logout`, `password`) |
-    | `/users`                            | `ADMINISTRATOR`                                       | `ADMINISTRATOR`                                      |
-    | `/lawyers`                          | Cualquier usuario autenticado                         | `ADMINISTRATOR`                                      |
-    | `/procedural-states`                | Cualquier usuario autenticado                         | Cualquier usuario autenticado                        |
-    | `/legal-qualifications`             | Cualquier usuario autenticado                         | Cualquier usuario autenticado                        |
-    | `/clients`                          | Cualquier usuario autenticado                         | Cualquier usuario autenticado                        |
-    | `/cases`                            | Cualquier usuario autenticado                         | Cualquier usuario autenticado                        |
-    | `/cases/{caseId}/prescription`      | -                                                     | `ADMINISTRATOR` o `LAWYER`                           |
-    | `/cases/{caseId}/folder`            | -                                                     | Cualquier usuario autenticado                        |
-    | `/cases/{caseId}/procedural-acts`   | Cualquier usuario autenticado; `deadline-preview`, solo el abogado responsable | Abogado responsable de la causa |
-    | `/cases/{caseId}/interruptive-acts` | Cualquier usuario autenticado                         | Abogado responsable de la causa                      |
-    | `/document-templates`               | `ADMINISTRATOR` o `LAWYER`                            | `ADMINISTRATOR` o `LAWYER`                           |
-    | `/dashboards/lawyer`                | `LAWYER`                                              | -                                                    |
-    | `/dashboards/administrator`         | `ADMINISTRATOR`                                       | -                                                    |
+        | Recurso                             | Lectura (`GET`)                                       | Escritura                                            |
+        | ----------------------------------- | ----------------------------------------------------- | ---------------------------------------------------- |
+        | `/auth`                             | -                                                     | Cualquier usuario autenticado (`logout`, `password`) |
+        | `/users`                            | `ADMINISTRATOR`                                       | `ADMINISTRATOR`                                      |
+        | `/lawyers`                          | Cualquier usuario autenticado                         | `ADMINISTRATOR`                                      |
+        | `/procedural-states`                | Cualquier usuario autenticado                         | Cualquier usuario autenticado                        |
+        | `/legal-qualifications`             | Cualquier usuario autenticado                         | Cualquier usuario autenticado                        |
+        | `/clients`                          | Cualquier usuario autenticado                         | Cualquier usuario autenticado                        |
+        | `/cases`                            | Cualquier usuario autenticado                         | Cualquier usuario autenticado                        |
+        | `/cases/{caseId}/prescription`      | -                                                     | `ADMINISTRATOR` o `LAWYER`                           |
+        | `/cases/{caseId}/folder`            | -                                                     | Cualquier usuario autenticado                        |
+        | `/cases/{caseId}/procedural-acts`   | Cualquier usuario autenticado; `deadline-preview`, solo el abogado responsable | Abogado responsable de la causa |
+        | `/cases/{caseId}/interruptive-acts` | Cualquier usuario autenticado                         | Abogado responsable de la causa                      |
+        | `/document-templates`               | `ADMINISTRATOR` o `LAWYER`                            | `ADMINISTRATOR` o `LAWYER`                           |
+        | `/dashboards/lawyer`                | `LAWYER`                                              | -                                                    |
+        | `/dashboards/administrator`         | `ADMINISTRATOR`                                       | -                                                    |
 
-    RN11: todo el estudio accede a todas las causas. La diferencia entre
-    perfiles está en lo que pueden **operar**, no en lo que pueden **ver**.
-    Los modelos formales y los tableros son los primeros recursos cuya
-    lectura no está abierta a los tres perfiles.
+        RN11: todo el estudio accede a todas las causas. La diferencia entre
+        perfiles está en lo que pueden **operar**, no en lo que pueden **ver**.
+        Los modelos formales y los tableros son los primeros recursos cuya
+        lectura no está abierta a los tres perfiles.
 
-    ## Formato de intercambio
+        ## Formato de intercambio
 
-    Todas las solicitudes y respuestas utilizan JSON. Las fechas y horas se
-    expresan en ISO 8601 con desplazamiento horario
-    (`2026-09-19T08:12:00-03:00`).
+        Todas las solicitudes y respuestas utilizan JSON. Las fechas y horas se
+        expresan en ISO 8601 con desplazamiento horario
+        (`2026-09-19T08:12:00-03:00`).
 
-    Las **fechas sin hora** (inicio de causa, fecha de acto, vencimientos,
-    prescripción) se expresan como `YYYY-MM-DD`. Son fechas civiles del
-    calendario judicial de Córdoba y "hoy" se interpreta en la zona horaria
-    `America/Argentina/Cordoba`.
+        Las **fechas sin hora** (inicio de causa, fecha de acto, vencimientos,
+        prescripción) se expresan como `YYYY-MM-DD`. Son fechas civiles del
+        calendario judicial de Córdoba y "hoy" se interpreta en la zona horaria
+        `America/Argentina/Cordoba`.
 
-    **Excepciones al JSON.** `POST /document-templates` recibe el cuerpo en
-    `multipart/form-data`, con el archivo en el campo `file` (cada campo
-    viaja como texto; `jurisdictions` se repite una vez por valor).
-    `GET /document-templates/{templateId}/file` responde el archivo, con su
-    `Content-Type` y `Content-Disposition: attachment`; sus errores son JSON.
-    El tamaño máximo de un archivo es **10 MB** (`413 FILE_TOO_LARGE`).
+        **Excepciones al JSON.** `POST /document-templates` recibe el cuerpo en
+        `multipart/form-data`, con el archivo en el campo `file` (cada campo
+        viaja como texto; `jurisdictions` se repite una vez por valor).
+        `GET /document-templates/{templateId}/file` responde el archivo, con su
+        `Content-Type` y `Content-Disposition: attachment`; sus errores son JSON.
+        El tamaño máximo de un archivo es **10 MB** (`413 FILE_TOO_LARGE`).
 
-    ## Respuestas
+        ## Respuestas
 
-    Recurso individual:
+        Recurso individual:
 
-    ```json
-    { "data": {} }
-    ```
+        ```json
+        { "data": {} }
+        ```
 
-    Colección paginada (sin resultados: `data` vacío y `totalItems` y
-    `totalPages` en `0`). No están paginadas `GET /cases/custom-states`,
-    `GET /cases/{caseId}/timeline` (D-85) y las listas que vienen dentro de
-    un tablero (D-62).
+        Colección paginada (sin resultados: `data` vacío y `totalItems` y
+        `totalPages` en `0`). No están paginadas `GET /cases/custom-states`,
+        `GET /cases/{caseId}/timeline` (D-85) y las listas que vienen dentro de
+        un tablero (D-62).
 
-    ```json
-    { "data": [], "pagination": { "page": 1, "limit": 20, "totalItems": 57, "totalPages": 3 } }
-    ```
+        ```json
+        { "data": [], "pagination": { "page": 1, "limit": 20, "totalItems": 57, "totalPages": 3 } }
+        ```
 
-    Error (todas las respuestas de error, sin excepción):
+        Error (todas las respuestas de error, sin excepción):
 
-    ```json
-    { "error": { "code": "ERROR_CODE", "message": "Descripción legible del error.", "details": null } }
-    ```
+        ```json
+        { "error": { "code": "ERROR_CODE", "message": "Descripción legible del error.", "details": null } }
+        ```
 
-    El cliente discrimina los errores por `code`, nunca por el texto de
-    `message`. Los textos de `message` y `details` están en castellano. El
-    catálogo completo está en el schema `ErrorCode`.
+        El cliente discrimina los errores por `code`, nunca por el texto de
+        `message`. Los textos de `message` y `details` están en castellano. El
+        catálogo completo está en el schema `ErrorCode`.
 
-    Cualquier operación puede responder
-    `500 INTERNAL_SERVER_ERROR` ante un error interno inesperado.
+        Cualquier operación puede responder
+        `500 INTERNAL_SERVER_ERROR` ante un error interno inesperado.
 
-    `400` y `422` no son intercambiables: `400` indica datos inválidos (se
-    señalan en el formulario); `422`, datos válidos que una regla de negocio
-    impide procesar (se informa como aviso).
+        `400` y `422` no son intercambiables: `400` indica datos inválidos (se
+        señalan en el formulario); `422`, datos válidos que una regla de negocio
+        impide procesar (se informa como aviso).
 
-    `502 DOCUMENT_STORAGE_UNAVAILABLE` distingue una falla del
-    almacenamiento en la nube (Google Drive) de un error propio: para el
-    cliente es "reintentar más tarde". El alta de causa nunca lo responde:
-    registra la causa y deja la carpeta pendiente.
+        `502 DOCUMENT_STORAGE_UNAVAILABLE` distingue una falla del
+        almacenamiento en la nube (Google Drive) de un error propio: para el
+        cliente es "reintentar más tarde". El alta de causa nunca lo responde:
+        registra la causa y deja la carpeta pendiente.
 
-    ## Causa activa
+        ## Causa activa
 
-    Una causa es **activa** cuando no fue dada de baja y su estado procesal
-    actual no es terminal (ni "Archivada" ni "Prescripta"). Es la definición
-    que aplican todos los campos `activeCases` (abogado, calificación legal y
-    cliente) y los tableros. Un estado escrito a mano no es terminal, y una
-    causa en el estado inicial "Iniciada" también es activa. El estado
-    procesal no usa esta definición: su `caseCount` cuenta todas las causas
-    que están en él, activas o no.
+        Una causa es **activa** cuando no fue dada de baja y su estado procesal
+        actual no es terminal (ni "Archivada" ni "Prescripta"). Es la definición
+        que aplican todos los campos `activeCases` (abogado, calificación legal y
+        cliente) y los tableros. Un estado escrito a mano no es terminal, y una
+        causa en el estado inicial "Iniciada" también es activa. El estado
+        procesal no usa esta definición: su `caseCount` cuenta todas las causas
+        que están en él, activas o no.
 
-    ## Cómputo de días
+        ## Cómputo de días
 
-    - **Días hábiles (`BUSINESS`):** de lunes a viernes. El plazo se cuenta a
-      partir del día siguiente a la fecha desde la que corre.
-    - **Días corridos (`CONSECUTIVE`):** todos los días del calendario.
-    - **`businessDaysRemaining`:** días hábiles entre hoy (excluido) y el
-      vencimiento (incluido). `0` si vence hoy; negativo si ya venció.
+        - **Días hábiles (`BUSINESS`):** de lunes a viernes. El plazo se cuenta a
+          partir del día siguiente a la fecha desde la que corre.
+        - **Días corridos (`CONSECUTIVE`):** todos los días del calendario.
+        - **`businessDaysRemaining`:** días hábiles entre hoy (excluido) y el
+          vencimiento (incluido). `0` si vence hoy; negativo si ya venció.
 
-    Solo sábados y domingos son días no hábiles: feriados y feria judicial no
-    se excluyen (D-73).
+        Solo sábados y domingos son días no hábiles: feriados y feria judicial no
+        se excluyen (D-73).
 
-    ## Prescripción
+        ## Prescripción
 
-    - Solo el fuero `CRIMINAL` computa prescripción; una causa penal sin
-      calificación legal tampoco prescribe (D-74).
-    - Cada calificación computa la suya: vence en `prescriptionStartsOn` más
-      `prescriptionMonths`. `prescriptionStartsOn` es la fecha del acto
-      interruptivo más reciente o, si no hay, la fecha del hecho (RN8).
-    - La que rige la causa es la que prescribe primero, resumida en
-      `prescription`, con la alerta al **70 %** (fijo) y `expired` cuando el
-      plazo se cumplió. Nada se guarda calculado (D-08).
-    - Que el plazo esté cumplido no cambia el estado de la causa: la marca
-      como prescripta una persona, con `POST /cases/{caseId}/prescription`
-      (D-52).
+        - Solo el fuero `CRIMINAL` computa prescripción; una causa penal sin
+          calificación legal tampoco prescribe (D-74).
+        - Cada calificación computa la suya: vence en `prescriptionStartsOn` más
+          `prescriptionMonths`. `prescriptionStartsOn` es la fecha del acto
+          interruptivo más reciente o, si no hay, la fecha del hecho (RN8).
+        - La que rige la causa es la que prescribe primero, resumida en
+          `prescription`, con la alerta al **70 %** (fijo) y `expired` cuando el
+          plazo se cumplió. Nada se guarda calculado (D-08).
+        - Que el plazo esté cumplido no cambia el estado de la causa: la marca
+          como prescripta una persona, con `POST /cases/{caseId}/prescription`
+          (D-52).
 
-    ## Carpeta de la causa
+        ## Carpeta de la causa
 
-    El almacenamiento en la nube es Google Drive, en la cuenta de gestión del
-    estudio (D-84). Cada causa tiene su carpeta en
-    `/VZ Causas/{abogado}/{fuero}/{carátula}` (D-61), con los modelos
-    formales de su fuero que se copian a las causas nuevas. La carpeta raíz
-    `VZ Causas` se comparte, como editores, con los usuarios vigentes con rol
-    `LAWYER` o `SECRETARY` (D-83). Si Drive falla, la operación que pidió la
-    carpeta no falla (D-60).
+        El almacenamiento en la nube es Google Drive, en la cuenta de gestión del
+        estudio (D-84). Cada causa tiene su carpeta en
+        `/VZ Causas/{abogado}/{fuero}/{carátula}` (D-61), con los modelos
+        formales de su fuero que se copian a las causas nuevas. La carpeta raíz
+        `VZ Causas` se comparte, como editores, con los usuarios vigentes con rol
+        `LAWYER` o `SECRETARY` (D-83). Si Drive falla, la operación que pidió la
+        carpeta no falla (D-60).
 
-    ## Proceso automático diario
+        ## Proceso automático diario
 
-    HU30, HU32, HU51 y HU52 no tienen endpoints: son un proceso que corre una
-    vez por día, en la hora de Córdoba. Verifica los vencimientos abiertos
-    (de actos procesales y del acto lesivo) y la prescripción de las causas
-    activas, y envía **un correo por día** con los avisos: preaviso y día del
-    vencimiento, alerta de prescripción al 70 % y prescripción cumplida
-    (D-64). También ajusta el acceso de los usuarios a la carpeta del
-    estudio. No guarda estados calculados ni cambia el estado de ninguna
-    causa. Su configuración es del servidor, no de la API (D-79).
+        HU30, HU32, HU51 y HU52 no tienen endpoints: son un proceso que corre una
+        vez por día, en la hora de Córdoba. Verifica los vencimientos abiertos
+        (de actos procesales y del acto lesivo) y la prescripción de las causas
+        activas, y envía **un correo por día** con los avisos: preaviso y día del
+        vencimiento, alerta de prescripción al 70 % y prescripción cumplida
+        (D-64). También ajusta el acceso de los usuarios a la carpeta del
+        estudio. No guarda estados calculados ni cambia el estado de ninguna
+        causa. Su configuración es del servidor, no de la API (D-79).
 
-    ## Bajas
+        ## Bajas
 
-    Las bajas de usuarios, abogados, estados procesales y calificaciones
-    legales son **lógicas** (`active` en `false`, RN12), pero **para el
-    cliente un registro dado de baja no existe**: no aparece en listados y el
-    `GET` por identificador responde `404`. La excepción son las referencias
-    desde una causa, que siguen mostrando el estado o la calificación dados de
-    baja porque forman parte de su historia.
-  contact:
-    name: Equipo VZ Causas
+        Las bajas de usuarios, abogados, estados procesales y calificaciones
+        legales son **lógicas** (`active` en `false`, RN12), pero **para el
+        cliente un registro dado de baja no existe**: no aparece en listados y el
+        `GET` por identificador responde `404`. La excepción son las referencias
+        desde una causa, que siguen mostrando el estado o la calificación dados de
+        baja porque forman parte de su historia.
+    contact:
+        name: Equipo VZ Causas
 
 servers:
-  - url: http://localhost:3000/api/v1
-    description: Backend local (docker compose)
-  - url: /api/v1
-    description: Mismo origen que la documentación
+    - url: http://localhost:3000/api/v1
+      description: Backend local (docker compose)
+    - url: /api/v1
+      description: Mismo origen que la documentación
 
 security:
-  - bearerAuth: []
+    - bearerAuth: []
 
 tags:
-  - name: Auth
-    description: Inicio y cierre de sesión, renovación del token y cambio de contraseña.
-  - name: Users
-    description: |
-      Gestión de usuarios del sistema. Solo `ADMINISTRATOR`. El alta, la
-      modificación y la baja dan y quitan el acceso a la carpeta del estudio
-      en Drive (D-83).
-  - name: Lawyers
-    description: |
-      Abogados del estudio. Lectura para cualquier usuario autenticado
-      (el alta de causa necesita el listado para elegir al responsable);
-      escritura para `ADMINISTRATOR`.
-  - name: Procedural States
-    description: |
-      Tabla de estados y plazos de cada fuero (RN4). Lectura y escritura para
-      cualquier usuario autenticado. Cada fuero tiene además el estado de
-      sistema "Iniciada", que no forma parte de este recurso; el fuero penal
-      tiene también "Prescripta", que sí forma parte y está protegido (D-53).
-  - name: Legal Qualifications
-    description: |
-      Encuadre jurídico del hecho imputado; determina el plazo de
-      prescripción de la acción. Lectura y escritura para cualquier usuario
-      autenticado.
-  - name: Clients
-    description: |
-      Clientes del estudio. Lectura y alta para cualquier usuario
-      autenticado. Modificación y baja (HU10 y HU11) llegan en el
-      Sprint 5.
-  - name: Cases
-    description: |
-      Causas del estudio. Lectura, alta y carpeta en la nube para cualquier
-      usuario autenticado; marcarla como prescripta, para `ADMINISTRATOR` o
-      `LAWYER`. Modificación y baja (HU19 y HU21) llegan en el Sprint 4.
-  - name: Procedural Acts
-    description: |
-      El acto procesal mueve la causa de estado y abre el plazo (RN5). Solo
-      lo registra el abogado responsable de la causa.
-  - name: Interruptive Acts
-    description: |
-      El acto interruptivo reinicia la prescripción de una causa penal desde
-      su fecha (RN8). No mueve el estado ni abre plazos. Solo lo registra el
-      abogado responsable de la causa.
-  - name: Document Templates
-    description: |
-      Modelos formales: los escritos tipo del estudio, plantillas `.docx` que
-      se copian a la carpeta de las causas nuevas (HU34, HU35, HU40). Lectura
-      y alta para `ADMINISTRATOR` o `LAWYER`.
-  - name: Dashboards
-    description: |
-      La pantalla "Inicio": un tablero por rol, de solo lectura, sin paginar y
-      calculado en cada petición. El del abogado (HU41) muestra sus causas; el
-      del administrador (HU42), toda la cartera. La Secretaría no tiene
-      tablero.
+    - name: Auth
+      description: Inicio y cierre de sesión, renovación del token y cambio de contraseña.
+    - name: Users
+      description: |
+          Gestión de usuarios del sistema. Solo `ADMINISTRATOR`. El alta, la
+          modificación y la baja dan y quitan el acceso a la carpeta del estudio
+          en Drive (D-83).
+    - name: Lawyers
+      description: |
+          Abogados del estudio. Lectura para cualquier usuario autenticado
+          (el alta de causa necesita el listado para elegir al responsable);
+          escritura para `ADMINISTRATOR`.
+    - name: Procedural States
+      description: |
+          Tabla de estados y plazos de cada fuero (RN4). Lectura y escritura para
+          cualquier usuario autenticado. Cada fuero tiene además el estado de
+          sistema "Iniciada", que no forma parte de este recurso; el fuero penal
+          tiene también "Prescripta", que sí forma parte y está protegido (D-53).
+    - name: Legal Qualifications
+      description: |
+          Encuadre jurídico del hecho imputado; determina el plazo de
+          prescripción de la acción. Lectura y escritura para cualquier usuario
+          autenticado.
+    - name: Clients
+      description: |
+          Clientes del estudio. Lectura y alta para cualquier usuario
+          autenticado. Modificación y baja (HU10 y HU11) llegan en el
+          Sprint 5.
+    - name: Cases
+      description: |
+          Causas del estudio. Lectura, alta y carpeta en la nube para cualquier
+          usuario autenticado; marcarla como prescripta, para `ADMINISTRATOR` o
+          `LAWYER`. Modificación y baja (HU19 y HU21) llegan en el Sprint 4.
+    - name: Procedural Acts
+      description: |
+          El acto procesal mueve la causa de estado y abre el plazo (RN5). Solo
+          lo registra el abogado responsable de la causa.
+    - name: Interruptive Acts
+      description: |
+          El acto interruptivo reinicia la prescripción de una causa penal desde
+          su fecha (RN8). No mueve el estado ni abre plazos. Solo lo registra el
+          abogado responsable de la causa.
+    - name: Document Templates
+      description: |
+          Modelos formales: los escritos tipo del estudio, plantillas `.docx` que
+          se copian a la carpeta de las causas nuevas (HU34, HU35, HU40). Lectura
+          y alta para `ADMINISTRATOR` o `LAWYER`.
+    - name: Dashboards
+      description: |
+          La pantalla "Inicio": un tablero por rol, de solo lectura, sin paginar y
+          calculado en cada petición. El del abogado (HU41) muestra sus causas; el
+          del administrador (HU42), toda la cartera. La Secretaría no tiene
+          tablero.
 
 paths:
-  /auth/login:
-    $ref: paths/auth@login.yaml
-  /auth/refresh:
-    $ref: paths/auth@refresh.yaml
-  /auth/logout:
-    $ref: paths/auth@logout.yaml
-  /auth/password:
-    $ref: paths/auth@password.yaml
-  /users:
-    $ref: paths/users.yaml
-  /users/{userId}:
-    $ref: paths/users@{userId}.yaml
-  /lawyers:
-    $ref: paths/lawyers.yaml
-  /lawyers/{lawyerId}:
-    $ref: paths/lawyers@{lawyerId}.yaml
-  /procedural-states:
-    $ref: paths/procedural-states.yaml
-  /procedural-states/{stateId}:
-    $ref: paths/procedural-states@{stateId}.yaml
-  /legal-qualifications:
-    $ref: paths/legal-qualifications.yaml
-  /legal-qualifications/{qualificationId}:
-    $ref: paths/legal-qualifications@{qualificationId}.yaml
-  /clients:
-    $ref: paths/clients.yaml
-  /clients/{clientId}:
-    $ref: paths/clients@{clientId}.yaml
-  /cases:
-    $ref: paths/cases.yaml
-  /cases/custom-states:
-    $ref: paths/cases@custom-states.yaml
-  /cases/{caseId}:
-    $ref: paths/cases@{caseId}.yaml
-  /cases/{caseId}/timeline:
-    $ref: paths/cases@{caseId}@timeline.yaml
-  /cases/{caseId}/prescription:
-    $ref: paths/cases@{caseId}@prescription.yaml
-  /cases/{caseId}/folder:
-    $ref: paths/cases@{caseId}@folder.yaml
-  /cases/{caseId}/procedural-acts:
-    $ref: paths/cases@{caseId}@procedural-acts.yaml
-  /cases/{caseId}/procedural-acts/deadline-preview:
-    $ref: paths/cases@{caseId}@procedural-acts@deadline-preview.yaml
-  /cases/{caseId}/procedural-acts/{actId}:
-    $ref: paths/cases@{caseId}@procedural-acts@{actId}.yaml
-  /cases/{caseId}/interruptive-acts:
-    $ref: paths/cases@{caseId}@interruptive-acts.yaml
-  /document-templates:
-    $ref: paths/document-templates.yaml
-  /document-templates/{templateId}:
-    $ref: paths/document-templates@{templateId}.yaml
-  /document-templates/{templateId}/file:
-    $ref: paths/document-templates@{templateId}@file.yaml
-  /dashboards/lawyer:
-    $ref: paths/dashboards@lawyer.yaml
-  /dashboards/administrator:
-    $ref: paths/dashboards@administrator.yaml
+    /auth/login:
+        $ref: paths/auth@login.yaml
+    /auth/refresh:
+        $ref: paths/auth@refresh.yaml
+    /auth/logout:
+        $ref: paths/auth@logout.yaml
+    /auth/password:
+        $ref: paths/auth@password.yaml
+    /users:
+        $ref: paths/users.yaml
+    /users/{userId}:
+        $ref: paths/users@{userId}.yaml
+    /lawyers:
+        $ref: paths/lawyers.yaml
+    /lawyers/{lawyerId}:
+        $ref: paths/lawyers@{lawyerId}.yaml
+    /procedural-states:
+        $ref: paths/procedural-states.yaml
+    /procedural-states/{stateId}:
+        $ref: paths/procedural-states@{stateId}.yaml
+    /legal-qualifications:
+        $ref: paths/legal-qualifications.yaml
+    /legal-qualifications/{qualificationId}:
+        $ref: paths/legal-qualifications@{qualificationId}.yaml
+    /clients:
+        $ref: paths/clients.yaml
+    /clients/{clientId}:
+        $ref: paths/clients@{clientId}.yaml
+    /cases:
+        $ref: paths/cases.yaml
+    /cases/custom-states:
+        $ref: paths/cases@custom-states.yaml
+    /cases/{caseId}:
+        $ref: paths/cases@{caseId}.yaml
+    /cases/{caseId}/timeline:
+        $ref: paths/cases@{caseId}@timeline.yaml
+    /cases/{caseId}/prescription:
+        $ref: paths/cases@{caseId}@prescription.yaml
+    /cases/{caseId}/folder:
+        $ref: paths/cases@{caseId}@folder.yaml
+    /cases/{caseId}/procedural-acts:
+        $ref: paths/cases@{caseId}@procedural-acts.yaml
+    /cases/{caseId}/procedural-acts/deadline-preview:
+        $ref: paths/cases@{caseId}@procedural-acts@deadline-preview.yaml
+    /cases/{caseId}/procedural-acts/{actId}:
+        $ref: paths/cases@{caseId}@procedural-acts@{actId}.yaml
+    /cases/{caseId}/interruptive-acts:
+        $ref: paths/cases@{caseId}@interruptive-acts.yaml
+    /document-templates:
+        $ref: paths/document-templates.yaml
+    /document-templates/{templateId}:
+        $ref: paths/document-templates@{templateId}.yaml
+    /document-templates/{templateId}/file:
+        $ref: paths/document-templates@{templateId}@file.yaml
+    /dashboards/lawyer:
+        $ref: paths/dashboards@lawyer.yaml
+    /dashboards/administrator:
+        $ref: paths/dashboards@administrator.yaml
 
 components:
-  securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-      description: Token de acceso obtenido en `POST /auth/login` o `POST /auth/refresh`.
-    refreshTokenCookie:
-      type: apiKey
-      in: cookie
-      name: refresh_token
-      description: |
-        Refresh token opaco, emitido en una cookie `HttpOnly` restringida a
-        `Path=/api/v1/auth`. Solo lo usa `POST /auth/refresh`.
+    securitySchemes:
+        bearerAuth:
+            type: http
+            scheme: bearer
+            bearerFormat: JWT
+            description: Token de acceso obtenido en `POST /auth/login` o `POST /auth/refresh`.
+        refreshTokenCookie:
+            type: apiKey
+            in: cookie
+            name: refresh_token
+            description: |
+                Refresh token opaco, emitido en una cookie `HttpOnly` restringida a
+                `Path=/api/v1/auth`. Solo lo usa `POST /auth/refresh`.

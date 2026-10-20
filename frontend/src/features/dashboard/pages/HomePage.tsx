@@ -25,6 +25,15 @@ const SUBTITLES: Record<Board, string> = {
 }
 
 /**
+ * El tablero que se muestra: "Estudio" sólo si se eligió y el usuario lo
+ * tiene; si no, "Mi día", con el que arranca quien tiene los dos (CA-41.7).
+ */
+function visibleBoard(chosen: Board | null, hasLawyerBoard: boolean, hasAdministratorBoard: boolean): Board {
+    if (chosen === 'administrator' && hasAdministratorBoard) return 'administrator'
+    return hasLawyerBoard ? 'lawyer' : 'administrator'
+}
+
+/**
  * Inicio: los tableros (HU-41, HU-42). El Abogado ve "Mi día"; el
  * Administrador, "Estudio"; quien es las dos cosas ve las dos pestañas y
  * arranca en "Mi día" (CA-41.7). La Secretaría no llega acá: entra directo a
@@ -37,7 +46,12 @@ export function HomePage() {
     const navigate = useNavigate()
     const hasLawyerBoard = useCan('dashboard.lawyer')
     const hasAdministratorBoard = useCan('dashboard.administrator')
-    const [board, setBoard] = useState<Board>(hasLawyerBoard ? 'lawyer' : 'administrator')
+    /* La pestaña que eligió la persona, y la que se muestra. No son la misma
+       porque los roles pueden cambiar con la pantalla abierta: si la elegida
+       es de un tablero que ya no tiene, se muestra el que sí. Si no, su
+       consulta quedaría deshabilitada y "Cargando el tablero…" para siempre. */
+    const [chosen, setBoard] = useState<Board | null>(null)
+    const board = visibleBoard(chosen, hasLawyerBoard, hasAdministratorBoard)
 
     // Sólo sale la consulta de la pestaña que se ve: a quien no tiene el rol
     // el backend le respondería 403.

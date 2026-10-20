@@ -6,6 +6,8 @@ export interface AdministrativeCaseProps extends CaseProps {
   counterparty: string | null;
   // Reason the case is started, written by the lawyer. Required here.
   subjectMatter: string;
+  // Date the administrative remedy was exhausted (D-67). Null while it was not. Only in this jurisdiction.
+  administrativeRemedyExhaustedOn: Date | null;
 }
 
 /** Administrative case. Has a counterparty and a subject matter. */
@@ -43,5 +45,9 @@ export class AdministrativeCase extends Case {
 
   get subjectMatter(): string {
     return this.administrativeProps.subjectMatter;
+  }
+
+  get administrativeRemedyExhaustedOn(): Date | null {
+    return this.administrativeProps.administrativeRemedyExhaustedOn;
   }
 }

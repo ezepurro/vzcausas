@@ -2,46 +2,22 @@ import { Inject, Injectable } from '@nestjs/common';
 import { AuthenticatedUser } from '@shared/domain/authenticated-user';
 import { CLOCK, ClockPort } from '@shared/domain/clock.port';
 import { ForbiddenActionError } from '@shared/domain/domain-error';
-import { businessDaysRemaining } from '@subsystems/cases/core/domain/business-days';
-import { summarizePrescription } from '@subsystems/cases/core/domain/prescription';
 import {
   DashboardCaseRow,
   DashboardLawyerRef,
   LAWYER_DASHBOARD_QUERY,
   LawyerDashboardQuery,
 } from '../ports/lawyer-dashboard.query';
+import {
+  countByUrgency,
+  DashboardDeadlineView,
+  PrescriptionAlertView,
+  toDeadline,
+  toPrescriptionAlerts,
+} from './dashboard-shared';
 
 const LAWYER_ROLE = 'LAWYER';
-const CRIMINAL = 'CRIMINAL';
 const DAY_MS = 24 * 60 * 60 * 1000;
-/** "Próx. 5 días hábiles" (V4 §3.11). */
-const DUE_SOON_MAX_BUSINESS_DAYS = 5;
-
-export type DashboardDeadlineView = {
-  caseId: number;
-  /** Only procedural acts for now: the amparo's harmful act is pending `harmfulActDeadline` (CA-41.6). */
-  kind: 'PROCEDURAL_ACT';
-  sacNumber: string | null;
-  caption: string;
-  jurisdiction: string;
-  currentStateName: string;
-  responsibleLawyer: DashboardLawyerRef;
-  dueDate: Date;
-  businessDaysRemaining: number;
-};
-
-/** A criminal case with 70 % or more of its prescription term elapsed (CA-41.8). */
-export type PrescriptionAlertView = {
-  caseId: number;
-  sacNumber: string | null;
-  caption: string;
-  responsibleLawyer: DashboardLawyerRef;
-  legalQualificationName: string;
-  startsOn: Date;
-  expiresOn: Date;
-  elapsedPercentage: number;
-  expired: boolean;
-};
 
 export type CaseToAdvanceView = {
   caseId: number;
@@ -110,62 +86,12 @@ export class GetLawyerDashboard {
     return {
       date: today,
       lawyer,
-      summary: {
-        dueToday: deadlines.filter((d) => d.businessDaysRemaining === 0).length,
-        overdue: deadlines.filter((d) => d.businessDaysRemaining < 0).length,
-        dueSoon: deadlines.filter(
-          (d) => d.businessDaysRemaining >= 1 && d.businessDaysRemaining <= DUE_SOON_MAX_BUSINESS_DAYS,
-        ).length,
-        activeCases: cases.length,
-      },
+      summary: { ...countByUrgency(deadlines), activeCases: cases.length },
       deadlines,
       prescriptionAlerts: toPrescriptionAlerts(cases, today),
       casesToAdvance,
     };
   }
-}
-
-function toDeadline(row: DashboardCaseRow & { dueDate: Date }, today: Date): DashboardDeadlineView {
-  return {
-    caseId: row.caseId,
-    kind: 'PROCEDURAL_ACT',
-    sacNumber: row.sacNumber,
-    caption: row.caption,
-    jurisdiction: row.jurisdiction,
-    currentStateName: row.currentStateName,
-    responsibleLawyer: row.responsibleLawyer,
-    dueDate: row.dueDate,
-    businessDaysRemaining: businessDaysRemaining(today, row.dueDate),
-  };
-}
-
-/**
- * CA-41.8: the criminal cases whose prescription is at 70 % or more, the one
- * that prescribes first on top. The rule is `cases`' summary, the same the
- * case detail and the daily check (HU52) are meant to use: an expired term stays
- * here until the case is marked "Prescripta", which makes it inactive.
- */
-function toPrescriptionAlerts(cases: DashboardCaseRow[], today: Date): PrescriptionAlertView[] {
-  return cases
-    .filter((row) => row.jurisdiction === CRIMINAL)
-    .flatMap((row) => {
-      const summary = summarizePrescription(row.offenses, row.lastInterruptiveActDate, today);
-      if (summary === null || !summary.alert) return [];
-      return [
-        {
-          caseId: row.caseId,
-          sacNumber: row.sacNumber,
-          caption: row.caption,
-          responsibleLawyer: row.responsibleLawyer,
-          legalQualificationName: summary.legalQualificationName,
-          startsOn: summary.startsOn,
-          expiresOn: summary.expiresOn,
-          elapsedPercentage: summary.elapsedPercentage,
-          expired: summary.expired,
-        },
-      ];
-    })
-    .sort((a, b) => a.expiresOn.getTime() - b.expiresOn.getTime() || a.caseId - b.caseId);
 }
 
 /** "Última actuación": the most recent act, procedural or interruptive. */

@@ -57,12 +57,24 @@ Si dos documentos se contradicen, decímelo en vez de elegir uno.
 
 ## Mi alcance de trabajo
 
+<!-- Actualizado 20/10/2026: se agrega HU42 al alcance de Sprint 3, que
+     seguía sin mencionarla. Mismo fallo que ya quedó registrado en
+     HARNESS-LOG.md 2026-10-18 ("el harness no siguió al sprint"): el alcance
+     no se actualiza solo entre tareas. -->
+
 Por cada sprint tengo asociadas tareas en Jira. Terminé Sprint 2 (Consultar
-Causas, Consultar detalle de causa). Ahora estoy en **Sprint 3**: HU30
-(Notificar fin de plazo de presentación) y HU32 (Notificar prescripción de
-causa). Las dos son Épica EP-06 y comparten el mismo proceso diario (D-72):
-HU51/HU52 detectan, HU30/HU32 avisan por correo. No tienen pantalla ni
-endpoints propios.
+Causas, Consultar detalle de causa). Estoy en **Sprint 3**:
+
+- HU30 (Notificar fin de plazo de presentación) y HU32 (Notificar prescripción
+  de causa). Las dos son Épica EP-06 y comparten el mismo proceso diario
+  (D-72): HU51/HU52 detectan, HU30/HU32 avisan por correo. No tienen pantalla
+  ni endpoints propios.
+- HU42 (Crear tablero de administrador), Épica EP-08. Endpoint
+  `GET /dashboards/administrator` (contrato V4 §3.11). Espeja HU41 (tablero
+  del abogado, `GET /dashboards/lawyer`), ya implementada en
+  `backend/src/subsystems/reporting/`: mismo módulo, mismo ADR-002
+  (`ARQUITECTURA_BACKEND_V1.md` §6.5) — lectura directa de la base, sin
+  puertos hacia otros subsistemas.
 
 ## Reglas que no se negocian
 

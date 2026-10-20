@@ -15,7 +15,8 @@
 
 import type { ReactElement } from 'react'
 import { QueryClientProvider } from '@tanstack/react-query'
-import { render } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
+import { expect } from 'vitest'
 import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, RouterProvider, type RouteObject } from 'react-router'
 import { queryClient } from '@/shared/api/queryClient'
@@ -95,4 +96,17 @@ export function renderWithProviders(ui: ReactElement, options: RenderOptions = {
     )
 
     return { ...result, user, router }
+}
+
+/**
+ * Espera a que `AuthProvider` termine de verificar la sesión guardada.
+ *
+ * Con sesión, lo primero que se ve es "Verificando la sesión…": al montarse,
+ * `AuthProvider` le pide al servidor los roles actuales (`POST /auth/refresh`)
+ * antes de mostrar la pantalla. Un test que consulte la pantalla con `getBy…`
+ * apenas renderiza tiene que esperar esto antes; los `findBy…` ya esperan
+ * solos.
+ */
+export async function waitForSession() {
+    await waitFor(() => expect(screen.queryByText('Verificando la sesión…')).not.toBeInTheDocument())
 }

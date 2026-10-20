@@ -72,7 +72,7 @@ describe('DocumentTemplatesPage', () => {
         it('muestra una tarjeta por fuero con sus modelos vigentes y la última actualización', async () => {
             renderPage()
 
-            expect(screen.getByRole('heading', { name: 'Modelos formales', level: 1 })).toBeInTheDocument()
+            expect(await screen.findByRole('heading', { name: 'Modelos formales', level: 1 })).toBeInTheDocument()
             const penal = await fueroCard('Penal')
             expect(penal).toHaveTextContent('6 modelos vigentes')
             expect(penal).toHaveTextContent('Actualizado 21/08/2026')

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { screen } from '@testing-library/react'
-import { renderWithProviders } from '../../setup/render'
+import { renderWithProviders, waitForSession } from '../../setup/render'
 import { RedirectIfSession } from '@/app/router/RedirectIfSession'
 
 const ROUTES = {
@@ -13,17 +13,19 @@ const ROUTES = {
 }
 
 describe('RedirectIfSession', () => {
-    it('con sesión no deja ver el login y manda a inicio', () => {
+    it('con sesión no deja ver el login y manda a inicio', async () => {
         renderWithProviders(<RedirectIfSession />, { ...ROUTES, as: 'mrios', route: '/login' })
+        await waitForSession()
 
         expect(screen.queryByText('Formulario de login')).not.toBeInTheDocument()
-        expect(screen.getByText('Pantalla de inicio')).toBeInTheDocument()
+        expect(await screen.findByText('Pantalla de inicio')).toBeInTheDocument()
     })
 
     /* CA-41.13: la Secretaría no tiene tablero y entra directamente a Causas. */
-    it('a la secretaría la manda a causas', () => {
+    it('a la secretaría la manda a causas', async () => {
         renderWithProviders(<RedirectIfSession />, { ...ROUTES, as: 'gestion', route: '/login' })
+        await waitForSession()
 
-        expect(screen.getByText('Pantalla de causas')).toBeInTheDocument()
+        expect(await screen.findByText('Pantalla de causas')).toBeInTheDocument()
     })
 })

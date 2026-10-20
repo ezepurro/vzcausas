@@ -42,6 +42,19 @@ export class CasesPeopleLookupAdapter implements PeopleLookupPort {
     };
   }
 
+  async findLawyerById(id: number): Promise<LawyerRef | null> {
+    const lawyer = await this.lawyers.findById(id);
+    if (!lawyer) {
+      return null;
+    }
+    return {
+      id: lawyer.id,
+      lastName: lawyer.lastName,
+      firstName: lawyer.firstName,
+      registrationNumber: lawyer.registrationNumber.toString(),
+    };
+  }
+
   async findActiveClientById(id: number): Promise<ClientRef | null> {
     // `findActiveById` already leaves out a deactivated client.
     const client = await this.clients.findActiveById(id);

@@ -84,8 +84,8 @@ export interface StoredSession {
  * **No es el mismo objeto que el `user` del login**, aunque el backend lo
  * llame igual: acá no vienen el apellido y los nombres, `email`, `lastLoginAt` ni `active`,
  * y el abogado es un número suelto en vez de la ficha entera. Es el
- * contenido del JWT, no el recurso usuario. Los roles sí vienen como
- * `roles`: son lo único que la sesión toma de acá al renovarse.
+ * contenido del JWT, no el recurso usuario. La sesión toma de acá los roles
+ * y la ficha (`writeRefreshedSession`).
  *
  * Por eso se declara aparte y con otro nombre: si se reusara `AuthUser`, una
  * renovación dejaría la sesión sin el nombre de la persona y el rail

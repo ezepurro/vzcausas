@@ -152,10 +152,17 @@ export function clearStoredSession(): void {
 /**
  * Guarda el token renovado sobre la sesión que ya estaba abierta.
  *
- * **Conserva el usuario del login a propósito.** Lo que devuelve la
- * renovación bajo el nombre `user` es el contenido del token —id, usuario,
- * roles, permisos— y no trae el nombre completo, el correo ni la ficha
- * profesional. Pisar el usuario guardado con eso dejaría el rail sin nombre.
+ * De la renovación se toma lo que puede cambiar entre sesión y sesión y que
+ * decide qué ve cada uno (V4 §3.1): los **roles** y la **ficha profesional**.
+ * El resto del usuario —apellido, nombres, correo— se conserva del login: la
+ * renovación no lo trae, y pisarlo dejaría el rail sin nombre.
+ *
+ * La ficha llega sólo como `lawyerId`:
+ * - si es la misma que la de la sesión, se conserva;
+ * - si es `null`, la sesión queda sin ficha;
+ * - si es otra, también queda sin ficha, y `AuthProvider` la completa con
+ *   `GET /lawyers/{lawyerId}`. Conservar la vieja daría por responsable de
+ *   sus causas a quien ya no lo es.
  *
  * Si el token renovado viniera de otra persona —lo que sólo podría pasar por
  * un error del backend— se descarta todo y se devuelve `null`: es preferible
@@ -170,10 +177,37 @@ export function writeRefreshedSession(
         return null
     }
 
+    const { lawyer } = current.user
+    const sameLawyer = lawyer !== null && lawyer.id === refreshed.user.lawyerId
+
     return writeStoredSession({
         accessToken: refreshed.accessToken,
         tokenType: refreshed.tokenType,
         expiresIn: refreshed.expiresIn,
-        user: { ...current.user, roles: refreshed.user.roles },
+        user: { ...current.user, roles: refreshed.user.roles, lawyer: sameLawyer ? lawyer : null },
     })
+}
+
+/**
+ * Reemplaza el usuario de la sesión abierta, sin tocar el token ni su
+ * vencimiento.
+ *
+ * Es para cuando se sabe algo nuevo del usuario sin haber renovado: la ficha
+ * que se completó después de una renovación, o lo que devolvió el
+ * `PATCH /users/{userId}` de quien se modificó a sí mismo.
+ */
+export function writeStoredUser(current: StoredSession, user: AuthUser): StoredSession {
+    const stored: StoredSession = { ...current, user }
+
+    try {
+        localStorage.setItem(
+            SESSION_KEY,
+            JSON.stringify({ user: stored.user, expiresAt: stored.expiresAt } satisfies StoredPayload),
+        )
+    } catch {
+        /* Como en `writeStoredSession`: si no se puede escribir, la sesión
+           sigue en memoria hasta la próxima recarga. */
+    }
+
+    return stored
 }

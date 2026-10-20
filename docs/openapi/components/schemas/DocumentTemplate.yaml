@@ -1,72 +1,72 @@
 type: object
 description: |
-  Modelo formal: escrito tipo del estudio, una plantilla `.docx` que se copia
-  a la carpeta de las causas nuevas de sus fueros (HU34, HU35, HU40). No
-  tiene tipo de escrito (D-56).
+    Modelo formal: escrito tipo del estudio, una plantilla `.docx` que se copia
+    a la carpeta de las causas nuevas de sus fueros (HU34, HU35, HU40). No
+    tiene tipo de escrito (D-56).
 
-  El archivo no viaja dentro del recurso: se sube con el alta y se descarga
-  con `GET /document-templates/{templateId}/file`. El backend lo guarda en
-  `/VZ Causas/Modelos formales`. El modelo y sus copias son independientes:
-  cada causa conserva la versión con la que se abrió.
+    El archivo no viaja dentro del recurso: se sube con el alta y se descarga
+    con `GET /document-templates/{templateId}/file`. El backend lo guarda en
+    `/VZ Causas/Modelos formales`. El modelo y sus copias son independientes:
+    cada causa conserva la versión con la que se abrió.
 required:
-  - id
-  - name
-  - jurisdictions
-  - fileName
-  - copyToNewCases
-  - lastVersionAt
-  - lastVersionBy
-  - usageCount
-  - active
+    - id
+    - name
+    - jurisdictions
+    - fileName
+    - copyToNewCases
+    - lastVersionAt
+    - lastVersionBy
+    - usageCount
+    - active
 properties:
-  id:
-    type: integer
-    description: Identificador único.
-    examples:
-      - 2
-  name:
-    type: string
-    description: Nombre del modelo. Único, sin distinguir mayúsculas (D-71).
-    examples:
-      - Oposición al requerimiento de elevación a juicio
-  jurisdictions:
-    type: array
-    description: |
-      Fueros a los que aplica (D-55). Un modelo de varios fueros es un solo
-      registro, que aparece en la vista de cada uno.
-    minItems: 1
-    uniqueItems: true
-    items:
-      $ref: ./Jurisdiction.yaml
-    examples:
-      - - CRIMINAL
-  fileName:
-    type: string
-    description: Nombre del archivo.
-    examples:
-      - oposicion-elevacion.docx
-  copyToNewCases:
-    type: boolean
-    description: Si se copia a la carpeta de las causas nuevas de sus fueros (HU40).
-    examples:
-      - true
-  lastVersionAt:
-    type: string
-    format: date-time
-    description: Fecha y hora de la última versión del archivo ("Última versión"). En esta versión coincide con el alta.
-    examples:
-      - '2026-08-21T17:40:00-03:00'
-  lastVersionBy:
-    $ref: ./UserSummary.yaml
-  usageCount:
-    type: integer
-    minimum: 0
-    readOnly: true
-    description: Causas a cuya carpeta se copió el modelo ("31 usos"). Calculado, sólo lectura.
-    examples:
-      - 12
-  active:
-    type: boolean
-    description: Estado de alta. Vale siempre `true` en esta versión.
-    examples:
-      - true
+    id:
+        type: integer
+        description: Identificador único.
+        examples:
+            - 2
+    name:
+        type: string
+        description: Nombre del modelo. Único, sin distinguir mayúsculas (D-71).
+        examples:
+            - Oposición al requerimiento de elevación a juicio
+    jurisdictions:
+        type: array
+        description: |
+            Fueros a los que aplica (D-55). Un modelo de varios fueros es un solo
+            registro, que aparece en la vista de cada uno.
+        minItems: 1
+        uniqueItems: true
+        items:
+            $ref: ./Jurisdiction.yaml
+        examples:
+            - - CRIMINAL
+    fileName:
+        type: string
+        description: Nombre del archivo.
+        examples:
+            - oposicion-elevacion.docx
+    copyToNewCases:
+        type: boolean
+        description: Si se copia a la carpeta de las causas nuevas de sus fueros (HU40).
+        examples:
+            - true
+    lastVersionAt:
+        type: string
+        format: date-time
+        description: Fecha y hora de la última versión del archivo ("Última versión"). En esta versión coincide con el alta.
+        examples:
+            - "2026-08-21T17:40:00-03:00"
+    lastVersionBy:
+        $ref: ./UserSummary.yaml
+    usageCount:
+        type: integer
+        minimum: 0
+        readOnly: true
+        description: Causas a cuya carpeta se copió el modelo ("31 usos"). Calculado, sólo lectura.
+        examples:
+            - 12
+    active:
+        type: boolean
+        description: Estado de alta. Vale siempre `true` en esta versión.
+        examples:
+            - true

@@ -5,6 +5,8 @@ import { Offense } from './offense';
 export interface CriminalCaseProps extends CaseProps {
   // May be empty (D-33): the case then has no prescription to compute.
   offenses: Offense[];
+  // Whether the client is in custody (D-67). Only in this jurisdiction.
+  clientDetained: boolean;
 }
 
 /** Criminal case. Has offenses and no counterparty. */
@@ -28,5 +30,9 @@ export class CriminalCase extends Case {
 
   get offenses(): Offense[] {
     return this.criminalProps.offenses;
+  }
+
+  get clientDetained(): boolean {
+    return this.criminalProps.clientDetained;
   }
 }

@@ -1,60 +1,60 @@
 parameters:
-  - $ref: ../components/parameters/TemplateIdParam.yaml
+    - $ref: ../components/parameters/TemplateIdParam.yaml
 
 get:
-  tags:
-    - Document Templates
-  operationId: downloadDocumentTemplateFile
-  summary: Descargar el archivo del modelo
-  description: |
-    Descarga el archivo `.docx` de un modelo formal, en su última versión
-    (CA-35.6). Es el botón "Descargar" de la lista.
+    tags:
+        - Document Templates
+    operationId: downloadDocumentTemplateFile
+    summary: Descargar el archivo del modelo
+    description: |
+        Descarga el archivo `.docx` de un modelo formal, en su última versión
+        (CA-35.6). Es el botón "Descargar" de la lista.
 
-    Es la única respuesta exitosa del contrato que **no es JSON** ni viaja en
-    un sobre `data`: el cuerpo es el archivo. Las respuestas de error sí son
-    JSON, con la estructura de siempre.
+        Es la única respuesta exitosa del contrato que **no es JSON** ni viaja en
+        un sobre `data`: el cuerpo es el archivo. Las respuestas de error sí son
+        JSON, con la estructura de siempre.
 
-    El archivo se sirve a través de la API y no con un enlace directo a Drive,
-    para respetar los perfiles del sistema (D-58). El endpoint exige el
-    encabezado `Authorization`, así que no sirve como destino directo de un
-    enlace: el cliente lo pide como cualquier otra petición y entrega el
-    archivo al usuario.
+        El archivo se sirve a través de la API y no con un enlace directo a Drive,
+        para respetar los perfiles del sistema (D-58). El endpoint exige el
+        encabezado `Authorization`, así que no sirve como destino directo de un
+        enlace: el cliente lo pide como cualquier otra petición y entrega el
+        archivo al usuario.
 
-    **Rol requerido:** `ADMINISTRATOR` o `LAWYER`.
-  responses:
-    '200':
-      description: Archivo del modelo.
-      headers:
-        Content-Disposition:
-          description: Indica la descarga y el nombre del archivo (`fileName` del modelo).
-          schema:
-            type: string
-          example: attachment; filename="oposicion-elevacion.docx"
-        Content-Length:
-          description: Tamaño del archivo, en bytes.
-          schema:
-            type: integer
-          example: 48211
-      content:
-        application/vnd.openxmlformats-officedocument.wordprocessingml.document:
-          schema:
-            type: string
-            format: binary
-            contentMediaType: application/vnd.openxmlformats-officedocument.wordprocessingml.document
-    '400':
-      description: Identificador inválido.
-      content:
-        application/json:
-          schema:
-            $ref: ../components/schemas/Error.yaml
-          examples:
-            invalidTemplateId:
-              $ref: ../components/examples/InvalidTemplateIdError.yaml
-    '401':
-      $ref: ../components/responses/Unauthorized.yaml
-    '403':
-      $ref: ../components/responses/ForbiddenAdministratorOrLawyer.yaml
-    '404':
-      $ref: ../components/responses/DocumentTemplateNotFound.yaml
-    '502':
-      $ref: ../components/responses/DocumentStorageUnavailable.yaml
+        **Rol requerido:** `ADMINISTRATOR` o `LAWYER`.
+    responses:
+        "200":
+            description: Archivo del modelo.
+            headers:
+                Content-Disposition:
+                    description: Indica la descarga y el nombre del archivo (`fileName` del modelo).
+                    schema:
+                        type: string
+                    example: attachment; filename="oposicion-elevacion.docx"
+                Content-Length:
+                    description: Tamaño del archivo, en bytes.
+                    schema:
+                        type: integer
+                    example: 48211
+            content:
+                application/vnd.openxmlformats-officedocument.wordprocessingml.document:
+                    schema:
+                        type: string
+                        format: binary
+                        contentMediaType: application/vnd.openxmlformats-officedocument.wordprocessingml.document
+        "400":
+            description: Identificador inválido.
+            content:
+                application/json:
+                    schema:
+                        $ref: ../components/schemas/Error.yaml
+                    examples:
+                        invalidTemplateId:
+                            $ref: ../components/examples/InvalidTemplateIdError.yaml
+        "401":
+            $ref: ../components/responses/Unauthorized.yaml
+        "403":
+            $ref: ../components/responses/ForbiddenAdministratorOrLawyer.yaml
+        "404":
+            $ref: ../components/responses/DocumentTemplateNotFound.yaml
+        "502":
+            $ref: ../components/responses/DocumentStorageUnavailable.yaml

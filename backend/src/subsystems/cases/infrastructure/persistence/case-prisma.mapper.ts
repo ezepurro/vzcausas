@@ -11,6 +11,7 @@ import { Case, CaseProps } from '../../core/domain/entities/cases';
 import { CriminalCase } from '../../core/domain/entities/criminal';
 import { Offense } from '../../core/domain/entities/offense';
 import { ProceduralActPrismaMapper } from './procedural-act-prisma.mapper';
+import { DayType } from '../../core/domain/value-objects/day-type';
 import { JurisdictionCode } from '../../core/domain/value-objects/jurisdiction-code';
 import { ProceduralRole } from '../../core/domain/value-objects/procedural-role';
 
@@ -36,6 +37,7 @@ export class CasePrismaMapper {
       clientId: row.clientId,
       responsibleLawyerId: row.responsibleLawyerId,
       startDate: row.startDate,
+      courtFeePaid: row.courtFeePaid,
       currentStateId: row.currentStateId,
       currentCustomState: row.currentCustomState,
       currentProceduralActId: row.currentProceduralActId,
@@ -53,11 +55,26 @@ export class CasePrismaMapper {
           ...props,
           counterparty: row.counterparty,
           subjectMatter: row.subjectMatter ?? '',
+          administrativeRemedyExhaustedOn: row.administrativeRemedyExhaustedOn,
         });
       case JurisdictionCode.AMPARO:
-        return Amparo.hydrate({ ...props, counterparty: row.counterparty, subjectMatter: row.subjectMatter ?? '' });
+        return Amparo.hydrate({
+          ...props,
+          counterparty: row.counterparty,
+          subjectMatter: row.subjectMatter ?? '',
+          injunctionGranted: row.injunctionGranted ?? false,
+          harmfulActDate: row.harmfulActDate,
+          harmfulActRenews: row.harmfulActRenews ?? false,
+          harmfulActRenewalDays: row.harmfulActRenewalDays,
+          harmfulActTermDays: row.harmfulActTermDays,
+          harmfulActTermDayType: row.harmfulActTermDayType as DayType | null,
+        });
       default:
-        return CriminalCase.hydrate({ ...props, offenses: row.offenses.map(CasePrismaMapper.toOffense) });
+        return CriminalCase.hydrate({
+          ...props,
+          offenses: row.offenses.map(CasePrismaMapper.toOffense),
+          clientDetained: row.clientDetained ?? false,
+        });
     }
   }
 
