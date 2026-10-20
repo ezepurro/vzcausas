@@ -132,6 +132,7 @@ import { ApiError, isApiError } from '@/shared/api/ApiError';
 | `Breadcrumbs` | Component | `components/ui/Breadcrumbs.tsx` | Migas: "Causas / 13284571 / Registrar acto" |
 | `DetailList` | Component | `components/ui/DetailList.tsx` | Pares etiqueta–valor de una ficha |
 | `Meter` | Component | `components/ui/Meter.tsx` | Barra de cuánto se ocupó: prescripción, carga |
+| `LoadingState` / `Skeleton` | Components | `components/ui/Skeleton.tsx` | Esqueleto de carga de una pantalla o un panel |
 | `FormModal` | Component | `components/forms/FormModal.tsx` | Alta / edición / baja declarativa |
 | `Field` | Component | `components/forms/Field.tsx` | Label + control + nota + error |
 | `TextInput` `Select` `Textarea` `Checkbox` | Components | `components/forms/Field.tsx` | Controles sueltos |
@@ -206,7 +207,10 @@ import { ApiError, isApiError } from '@/shared/api/ApiError';
 | Datos de prueba para un test | `RESPONSES` / `resolveRequest` de `@/shared/mocks` | No hace falta instalar el adapter |
 | Manejar errores de API | `isApiError(e)` + `e.is(codigo)` / getters | Nunca comparar `e.message` |
 | Marcar campos inválidos en un form | `e.details` / `e.fieldError('username')` | Sólo en los `400 VALIDATION_ERROR` |
-| Loaders / skeletons / alerts inline | **No existen** | Definirlos en la feature |
+| Tabla mientras carga por primera vez | `DataTable loading loadingLabel="Cargando causas…"` | Dibuja el esqueleto con las mismas columnas. Pasale `query.isPending` |
+| Tabla mientras trae otra página u otro filtro | `DataTable busy` | Se atenúa y deja las filas anteriores. Pasale `query.isPlaceholderData` |
+| Pantalla o panel mientras carga | `LoadingState` + `Skeleton` | El esqueleto de cada pantalla va en su módulo (`CaseSkeletons`, `DashboardSkeleton`…) |
+| Alerts inline | **No existen** | Definirlas en la feature |
 
 ---
 
@@ -259,7 +263,8 @@ natural de `DataTable`.
 
 **Path:** `components/ui/DataTable.tsx`
 **Props:** `columns: Column<T>[]`, `rows: T[]`, `rowKey(row) => string`,
-`minWidth?` (default 960), `empty?`.
+`minWidth?` (default 960), `empty?`, `loading?`, `loadingLabel?` (default
+`'Cargando…'`), `busy?`.
 **`Column<T>`:** `id`, `header`, `cell(row) => ReactNode`, `mono?` (tipografía
 monoespaciada: SAC, fechas, importes), `nowrap?`, `actions?` (alinea a la derecha),
 `width?`, `primary?`, `hideWhenNarrow?`.
@@ -288,6 +293,13 @@ nombre de su columna encima. **Toda tabla nueva marca su columna `primary`.**
 **Notas:** genérica en `T`. No ordena, no filtra, no pagina: eso lo resuelve la
 pantalla antes de pasar `rows`. Si no se pasa `empty`, con 0 filas dibuja la
 tabla vacía igual.
+
+**Carga:** con `loading` dibuja un esqueleto de seis filas con las mismas
+columnas (`primary`, `actions` y `hideWhenNarrow` incluidas), dentro de un
+`LoadingState` que anuncia `loadingLabel`. Con `busy` la tabla sigue mostrando
+sus filas y se atenúa, a los 200 ms, como el esqueleto. Las páginas de listado
+le pasan `loading={query.isPending}` y `busy={query.isPlaceholderData}` y
+dejan su propia rama sólo para el error.
 
 ### Pagination
 
@@ -468,6 +480,42 @@ una causa, la carga de causas de un abogado contra el máximo del estudio. Es
 recorta a `0…max`, así una prescripción cumplida llena la barra sin
 desbordarla. El tono lo decide la pantalla (`warn` = cerca del límite, como el
 bronce del prototipo pasado el 70 %).
+
+### LoadingState / Skeleton
+
+**Path:** `components/ui/Skeleton.tsx` · estilos en `styles/skeleton.css`
+**`Skeleton` props:** `width?`, `height?` (número en px o medida CSS),
+`shape?: 'line' | 'circle' | 'pill' | 'block'` (default `line`), `onDark?`
+(sobre la banda oscura de los tableros o la cabecera de una tabla).
+**`LoadingState` props:** `label` (obligatoria: lo que oye un lector de
+pantalla, `'Cargando causa…'`), `children` (el esqueleto), `delayMs?`
+(default 200), `className?`.
+
+```tsx
+if (query.isPending) return (
+  <LoadingState label="Cargando causa…">
+    <div className="vz-skel-card">
+      <Skeleton width="40%" height={14} />
+      <Skeleton width="80%" />
+    </div>
+  </LoadingState>
+)
+```
+
+**Notas:**
+
+- Todo `Skeleton` va dentro de un `LoadingState`. Es un `role="status"` con el
+  texto de carga escondido a la vista; el esqueleto queda `aria-hidden`.
+- **Espera 200 ms antes de verse**, así una respuesta rápida no lo hace
+  parpadear. Mientras espera ya ocupa su lugar, invisible, y la página no salta.
+- **No lleva texto.** Un título real adentro del esqueleto lo encontraría un
+  test con `findByText` antes de que lleguen los datos.
+- Clases para armarlo: `.vz-skel-card` (marco de tarjeta, `--roomy` para las
+  grandes), `.vz-skel-card__foot`, `.vz-skel-stack` (renglones apilados),
+  `.vz-skel-row` (piezas en fila, `--ruled` con filete) y `.vz-skel-grow`.
+  Si existe la clase de la pieza de verdad (`.vz-case-head`, `.vz-timeline`,
+  `.vz-dash-band`), usala: el esqueleto queda igual de grande.
+- Con `prefers-reduced-motion` el brillo se apaga.
 
 ### Logo / RailUser
 

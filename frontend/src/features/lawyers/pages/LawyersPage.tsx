@@ -159,11 +159,7 @@ export function LawyersPage() {
                     />
                 }
             >
-                {query.isPending ? (
-                    <div className="vz-empty">
-                        <div className="vz-empty__title">Cargando abogados…</div>
-                    </div>
-                ) : query.isError ? (
+                {query.isError ? (
                     <div className="vz-empty">
                         <div className="vz-empty__title">No se pudieron cargar los abogados</div>
                         <div className="vz-empty__text">
@@ -174,6 +170,8 @@ export function LawyersPage() {
                     </div>
                 ) : (
                     <LawyersTable
+                        loading={query.isPending}
+                        busy={query.isPlaceholderData}
                         rows={rows}
                         empty={
                             <div className="vz-empty">

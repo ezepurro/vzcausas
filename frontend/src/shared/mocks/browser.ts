@@ -18,7 +18,7 @@
 
 import { setupWorker, type SetupWorker } from 'msw/browser';
 import { persistSessions } from './db';
-import { configureMocks, handlers, mockOptions, type MockOptions } from './msw-handlers';
+import { configureMocks, handlers, latencyFromEnv, mockOptions, type MockOptions } from './msw-handlers';
 
 /** Reexportados acá para que el navegador tenga una sola puerta de entrada. */
 export { configureMocks, mockOptions, mocksEnabledByEnv, type MockOptions } from './msw-handlers';
@@ -44,7 +44,10 @@ export const worker: SetupWorker = setupWorker(...handlers);
  * producción.
  */
 export async function startMocks(changes: Partial<MockOptions> = {}): Promise<void> {
-    configureMocks(changes);
+    // La demora de `.env.local` (`VITE_MOCK_LATENCY`) gana sobre el default,
+    // y lo que se pase acá gana sobre las dos.
+    const envLatency = latencyFromEnv(import.meta.env.VITE_MOCK_LATENCY);
+    configureMocks({ ...(envLatency !== undefined && { latencyMs: envLatency }), ...changes });
     // Si no, cada recarga de la página cierra la sesión: ver `persistSessions`.
     persistSessions(localStorage);
     const { log } = mockOptions();

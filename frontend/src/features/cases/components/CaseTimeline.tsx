@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
-import { Button, Panel, Pill } from '@/shared/components/ui'
+import { Button, LoadingState, Panel, Pill } from '@/shared/components/ui'
+import { TimelineSkeleton } from '@/features/cases/components/CaseSkeletons'
 import { formatDate, formatDateTime } from '@/shared/lib/dates'
 import { formatPersonFullName } from '@/shared/lib/personName'
 import type {
@@ -32,7 +33,11 @@ export interface CaseTimelineProps {
 export function CaseTimeline({ entries, loading, error, canRegisterAct, onRegisterAct }: CaseTimelineProps) {
     let body: ReactNode
     if (loading) {
-        body = <div className="vz-empty"><div className="vz-empty__title">Cargando el ciclo de vida…</div></div>
+        body = (
+            <LoadingState label="Cargando el ciclo de vida…">
+                <TimelineSkeleton />
+            </LoadingState>
+        )
     } else if (error !== null) {
         body = (
             <div className="vz-empty">

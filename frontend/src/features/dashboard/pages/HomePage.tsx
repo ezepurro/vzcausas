@@ -9,6 +9,7 @@ import { useLawyerDashboard } from '@/features/dashboard/api/useLawyerDashboard'
 import { useAdministratorDashboard } from '@/features/dashboard/api/useAdministratorDashboard'
 import { LawyerDashboardView } from '@/features/dashboard/components/LawyerDashboardView'
 import { AdministratorDashboardView } from '@/features/dashboard/components/AdministratorDashboardView'
+import { DashboardSkeleton } from '@/features/dashboard/components/DashboardSkeleton'
 import { longDate } from '@/features/dashboard/utils/dashboardDate'
 
 type Board = 'lawyer' | 'administrator'
@@ -49,7 +50,7 @@ export function HomePage() {
     /* La pestaña que eligió la persona, y la que se muestra. No son la misma
        porque los roles pueden cambiar con la pantalla abierta: si la elegida
        es de un tablero que ya no tiene, se muestra el que sí. Si no, su
-       consulta quedaría deshabilitada y "Cargando el tablero…" para siempre. */
+       consulta quedaría deshabilitada y el esqueleto, para siempre. */
     const [chosen, setBoard] = useState<Board | null>(null)
     const board = visibleBoard(chosen, hasLawyerBoard, hasAdministratorBoard)
 
@@ -64,13 +65,7 @@ export function HomePage() {
     const openCase = (caseId: number) => navigate(`/causas/${caseId}`)
 
     function renderBoard() {
-        if (query.isPending) {
-            return (
-                <div className="vz-empty">
-                    <div className="vz-empty__title">Cargando el tablero…</div>
-                </div>
-            )
-        }
+        if (query.isPending) return <DashboardSkeleton board={board} />
         if (query.isError) {
             return (
                 <div className="vz-empty">

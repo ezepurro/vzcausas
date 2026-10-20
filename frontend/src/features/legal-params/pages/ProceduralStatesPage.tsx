@@ -301,11 +301,7 @@ export function ProceduralStatesPage() {
                     />
                 }
             >
-                {query.isPending ? (
-                    <div className="vz-empty">
-                        <div className="vz-empty__title">Cargando estados…</div>
-                    </div>
-                ) : query.isError ? (
+                {query.isError ? (
                     <div className="vz-empty">
                         <div className="vz-empty__title">No se pudieron cargar los estados</div>
                         <div className="vz-empty__text">
@@ -316,6 +312,8 @@ export function ProceduralStatesPage() {
                     </div>
                 ) : (
                     <ProceduralStatesTable
+                        loading={query.isPending}
+                        busy={query.isPlaceholderData}
                         rows={rows}
                         onEdit={openEdit}
                         onDelete={(state) => setModal({ kind: 'delete', state })}

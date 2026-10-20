@@ -1,6 +1,7 @@
-import { DetailList, Panel } from '@/shared/components/ui'
+import { DetailList, LoadingState, Panel } from '@/shared/components/ui'
 import { Checkbox, Field, TextInput } from '@/shared/components/forms'
 import { formatDate, parseDateOnly } from '@/shared/lib/dates'
+import { DeadlinePreviewSkeleton } from '@/features/proceedings/components/ProceduralActFormSkeleton'
 import type { DeadlinePreview } from '@/features/proceedings/types/proceduralAct'
 import { dueDateDetail, dueDateTone } from '@/features/proceedings/utils/dueDateText'
 import { termText } from '@/features/proceedings/utils/stateOptions'
@@ -145,7 +146,11 @@ function PreviewBody({ state, manualDate }: { state: DeadlinePreviewState; manua
                 </div>
             )
         case 'loading':
-            return <p className="vz-muted">Calculando el vencimiento…</p>
+            return (
+                <LoadingState label="Calculando el vencimiento…">
+                    <DeadlinePreviewSkeleton />
+                </LoadingState>
+            )
         case 'error':
             return <p className="vz-error">{state.message}</p>
         case 'ready': {

@@ -166,6 +166,19 @@ export function setUnauthenticatedHandler(handler: (() => void) | null): void {
 }
 
 /**
+ * Qué hacer cuando el servidor rechaza un pedido por falta de permiso (`403`).
+ *
+ * Lo registra el proveedor de sesión: puede ser que a la persona le hayan
+ * sacado un rol con la sesión abierta, y entonces hay que traer los roles
+ * actuales. Acá sólo se avisa; el pedido igual se rechaza.
+ */
+let onForbidden: (() => void) | null = null
+
+export function setForbiddenHandler(handler: (() => void) | null): void {
+    onForbidden = handler
+}
+
+/**
  * Cómo renovar el token de acceso. Devuelve `true` si lo consiguió.
  *
  * También lo registra el proveedor de sesión. Acá no se sabe qué endpoint
@@ -235,6 +248,11 @@ http.interceptors.response.use(
            sirve", pero `INVALID_CREDENTIALS` es "te equivocaste al entrar", y
            ese no tiene que disparar nada —si no, cada intento fallido de
            login intentaría renovar una sesión que no existe—. */
+        if (apiError.is('FORBIDDEN')) {
+            onForbidden?.()
+            return Promise.reject(apiError)
+        }
+
         if (!apiError.is('UNAUTHENTICATED')) {
             return Promise.reject(apiError)
         }

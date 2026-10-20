@@ -47,5 +47,8 @@ export type { RailUserProps } from './RailUser';
 
 export { SearchInput } from './SearchInput';
 
+export { LoadingState, Skeleton } from './Skeleton';
+export type { LoadingStateProps, SkeletonProps, SkeletonShape } from './Skeleton';
+
 export { Tabs } from './Tabs';
 export type { TabsProps } from './Tabs';

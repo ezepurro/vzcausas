@@ -13,6 +13,7 @@ import { useDeclarePrescription } from '@/features/cases/api/useDeclarePrescript
 import { useRegisterInterruptiveAct } from '@/features/cases/api/useRegisterInterruptiveAct'
 import { CaseHeader } from '@/features/cases/components/CaseHeader'
 import { CaseFacts } from '@/features/cases/components/CaseFacts'
+import { CaseDetailSkeleton } from '@/features/cases/components/CaseSkeletons'
 import { CaseTimeline } from '@/features/cases/components/CaseTimeline'
 import { ClientCard } from '@/features/cases/components/ClientCard'
 import { InterruptiveActModal } from '@/features/cases/components/InterruptiveActModal'
@@ -67,7 +68,7 @@ export function CaseDetailPage() {
     if (!validId) {
         body = <Empty title="No se encontró la causa" text="La dirección no corresponde a ninguna causa." />
     } else if (query.isPending) {
-        body = <Empty title="Cargando causa…" />
+        body = <CaseDetailSkeleton />
     } else if (query.isError) {
         body = (
             <Empty
@@ -274,7 +275,7 @@ function CasePrescription({ case: c }: { case: Case }) {
     return <PrescriptionBar prescription={c.prescription} note={prescriptionNote(c)} />
 }
 
-/** Cargando, error o causa inexistente, dentro de un panel. */
+/** Error o causa inexistente, dentro de un panel. */
 function Empty({ title, text }: { title: string; text?: string }) {
     return (
         <Panel>
