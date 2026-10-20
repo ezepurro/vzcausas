@@ -11,6 +11,10 @@ export interface UsersTableProps {
     onEdit: (user: User) => void
     onDelete: (user: User) => void
     empty?: ReactNode
+    /** Primera carga: la tabla dibuja su esqueleto. */
+    loading?: boolean
+    /** Trae otra página u otro filtro: la tabla se atenúa. */
+    busy?: boolean
 }
 
 /**
@@ -19,7 +23,7 @@ export interface UsersTableProps {
  * Las columnas son las del prototipo. La de "Abogado vinculado" puede
  * mostrarse vacía sin que sea un error: secretaría no tiene ficha.
  */
-export function UsersTable({ rows, onEdit, onDelete, empty }: UsersTableProps) {
+export function UsersTable({ rows, onEdit, onDelete, empty, loading, busy }: UsersTableProps) {
     const columns: Column<User>[] = [
         {
             id: 'name',
@@ -80,6 +84,9 @@ export function UsersTable({ rows, onEdit, onDelete, empty }: UsersTableProps) {
             rowKey={(u) => String(u.id)}
             minWidth={1040}
             empty={empty}
+            loading={loading}
+            loadingLabel="Cargando usuarios…"
+            busy={busy}
         />
     )
 }

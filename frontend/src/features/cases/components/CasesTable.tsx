@@ -14,6 +14,10 @@ export interface CasesTableProps {
     /** "Ver detalle": la pantalla navega. */
     onOpen: (c: Case) => void
     empty?: ReactNode
+    /** Primera carga: la tabla dibuja su esqueleto. */
+    loading?: boolean
+    /** Trae otra página u otro filtro: la tabla se atenúa. */
+    busy?: boolean
 }
 
 /**
@@ -28,7 +32,7 @@ export interface CasesTableProps {
  * muestra "Sin plazo abierto". Una causa sin SAC se muestra como "Sin SAC"
  * (D-33).
  */
-export function CasesTable({ rows, onOpen, empty }: CasesTableProps) {
+export function CasesTable({ rows, onOpen, empty, loading, busy }: CasesTableProps) {
     const columns: Column<Case>[] = [
         { id: 'sac', header: 'N° SAC', cell: (c) => sacLabel(c.sacNumber), mono: true, nowrap: true },
         {
@@ -102,6 +106,9 @@ export function CasesTable({ rows, onOpen, empty }: CasesTableProps) {
             rowKey={(c) => String(c.id)}
             minWidth={1100}
             empty={empty}
+            loading={loading}
+            loadingLabel="Cargando causas…"
+            busy={busy}
         />
     )
 }

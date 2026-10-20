@@ -17,6 +17,7 @@ import { toFormErrors } from '@/features/documents/utils/toFormErrors'
 import { countLabel, jurisdictionsPhrase, summarizeByJurisdiction } from '@/features/documents/utils/templateFormat'
 import { JurisdictionCard } from '@/features/documents/components/JurisdictionCard'
 import { DocumentTemplateCard } from '@/features/documents/components/DocumentTemplateCard'
+import { DocumentTemplatesSkeleton } from '@/features/documents/components/DocumentTemplatesSkeleton'
 import { DocumentTemplateFormModal } from '@/features/documents/components/DocumentTemplateFormModal'
 
 /**
@@ -112,13 +113,7 @@ export function DocumentTemplatesPage() {
 
     //ESTADOS DE LA CONSULTA
     function renderStatus() {
-        if (loading) {
-            return (
-                <div className="vz-empty">
-                    <div className="vz-empty__title">Cargando modelos…</div>
-                </div>
-            )
-        }
+        if (loading) return <DocumentTemplatesSkeleton view={jurisdiction ? 'templates' : 'jurisdictions'} />
         return (
             <div className="vz-empty">
                 <div className="vz-empty__title">No se pudieron cargar los modelos</div>

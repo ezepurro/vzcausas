@@ -325,11 +325,7 @@ export function UsersPage() {
                     />
                 }
             >
-                {query.isPending ? (
-                    <div className="vz-empty">
-                        <div className="vz-empty__title">Cargando usuarios…</div>
-                    </div>
-                ) : query.isError ? (
+                {query.isError ? (
                     <div className="vz-empty">
                         <div className="vz-empty__title">No se pudieron cargar los usuarios</div>
                         <div className="vz-empty__text">
@@ -340,6 +336,8 @@ export function UsersPage() {
                     </div>
                 ) : (
                     <UsersTable
+                        loading={query.isPending}
+                        busy={query.isPlaceholderData}
                         rows={rows}
                         onEdit={openEdit}
                         onDelete={(user) => setModal({ kind: 'delete', user })}

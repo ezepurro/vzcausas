@@ -12,6 +12,10 @@ export interface LawyersTableProps {
      */
     maxActiveCases?: number
     empty?: ReactNode
+    /** Primera carga: la tabla dibuja su esqueleto. */
+    loading?: boolean
+    /** Trae otra página u otro filtro: la tabla se atenúa. */
+    busy?: boolean
 }
 
 /**
@@ -25,7 +29,7 @@ export interface LawyersTableProps {
  *
  * Sin columna de acciones: modificar y dar de baja todavía no están en alcance.
  */
-export function LawyersTable({ rows, maxActiveCases, empty }: LawyersTableProps) {
+export function LawyersTable({ rows, maxActiveCases, empty, loading, busy }: LawyersTableProps) {
     const max = maxActiveCases ?? Math.max(0, ...rows.map((l) => l.activeCases))
 
     const columns: Column<Lawyer>[] = [
@@ -74,6 +78,9 @@ export function LawyersTable({ rows, maxActiveCases, empty }: LawyersTableProps)
             rowKey={(l) => String(l.id)}
             minWidth={720}
             empty={empty}
+            loading={loading}
+            loadingLabel="Cargando abogados…"
+            busy={busy}
         />
     )
 }

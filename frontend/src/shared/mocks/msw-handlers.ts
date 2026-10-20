@@ -27,8 +27,12 @@ export interface MockOptions {
     /**
      * Demora artificial de cada respuesta, en milisegundos. Sirve para ver
      * los estados de carga; 0 responde lo más rápido que pueda.
+     *
+     * Con `[min, max]` cada pedido tarda un valor al azar dentro del rango,
+     * como contra un servidor desplegado: así se ven respuestas que llegan
+     * desordenadas y estados de carga de duración variable.
      */
-    latencyMs: number;
+    latencyMs: number | readonly [min: number, max: number];
     /** Loguea cada pedido en la consola con método, ruta y código. */
     log: boolean;
     /**
@@ -68,6 +72,25 @@ const options: MockOptions = {
 export function configureMocks(changes: Partial<MockOptions>): MockOptions {
     Object.assign(options, changes);
     return { ...options };
+}
+
+/** La demora de un pedido: la fija o una al azar dentro del rango. */
+function pickLatency(latency: MockOptions['latencyMs']): number {
+    if (typeof latency === 'number') return latency;
+    const [min, max] = latency;
+    return Math.round(min + Math.random() * Math.max(0, max - min));
+}
+
+/**
+ * Lee la demora de `VITE_MOCK_LATENCY`: `"800"` es fija y `"400-1500"`, un
+ * rango. Devuelve `undefined` si no está o no se entiende, y ahí queda el
+ * default.
+ */
+export function latencyFromEnv(raw: string | undefined): MockOptions['latencyMs'] | undefined {
+    const match = /^\s*(\d+)\s*(?:-\s*(\d+)\s*)?$/.exec(raw ?? '');
+    if (!match) return undefined;
+    const min = Number(match[1]);
+    return match[2] === undefined ? min : [min, Math.max(min, Number(match[2]))];
 }
 
 /** La configuración actual, para un panel de debug o un test. */
@@ -210,7 +233,8 @@ async function resolver({ request }: { request: Request }) {
         return passthrough();
     }
 
-    if (options.latencyMs > 0) await delay(options.latencyMs);
+    const latency = pickLatency(options.latencyMs);
+    if (latency > 0) await delay(latency);
 
     if (options.forceFailure === 'network') {
         if (options.log) console.info(`[mock] ${request.method} ${path} → error de red forzado`);

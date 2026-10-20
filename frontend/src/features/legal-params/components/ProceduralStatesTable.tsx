@@ -12,6 +12,10 @@ export interface ProceduralStatesTableProps {
     onEdit: (state: ProceduralState) => void;
     onDelete: (state: ProceduralState) => void;
     empty?: ReactNode;
+    /** Primera carga: la tabla dibuja su esqueleto. */
+    loading?: boolean;
+    /** Trae otra página u otro filtro: la tabla se atenúa. */
+    busy?: boolean;
 }
 
 /**
@@ -28,7 +32,7 @@ export interface ProceduralStatesTableProps {
  * modifica ni se elimina, así que su fila no lleva acciones.
  */
 export function ProceduralStatesTable({
-    rows, onEdit, onDelete, empty,
+    rows, onEdit, onDelete, empty, loading, busy,
 }: ProceduralStatesTableProps) {
     const columns: Column<ProceduralState>[] = [
         { id: 'name', header: 'Estado procesal', cell: (r) => r.name, primary: true },
@@ -86,6 +90,9 @@ export function ProceduralStatesTable({
             rowKey={(r) => String(r.id)}
             minWidth={820}
             empty={empty}
+            loading={loading}
+            loadingLabel="Cargando estados…"
+            busy={busy}
         />
     );
 }

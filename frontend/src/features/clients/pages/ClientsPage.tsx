@@ -135,11 +135,7 @@ export function ClientsPage() {
                     />
                 }
             >
-                {query.isPending ? (
-                    <div className="vz-empty">
-                        <div className="vz-empty__title">Cargando clientes…</div>
-                    </div>
-                ) : query.isError ? (
+                {query.isError ? (
                     <div className="vz-empty">
                         <div className="vz-empty__title">No se pudieron cargar los clientes</div>
                         <div className="vz-empty__text">
@@ -150,6 +146,8 @@ export function ClientsPage() {
                     </div>
                 ) : (
                     <ClientsTable
+                        loading={query.isPending}
+                        busy={query.isPlaceholderData}
                         rows={rows}
                         empty={
                             <div className="vz-empty">

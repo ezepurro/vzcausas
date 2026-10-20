@@ -177,11 +177,7 @@ export function CasesPage() {
                     />
                 }
             >
-                {query.isPending ? (
-                    <div className="vz-empty">
-                        <div className="vz-empty__title">Cargando causas…</div>
-                    </div>
-                ) : query.isError ? (
+                {query.isError ? (
                     <div className="vz-empty">
                         <div className="vz-empty__title">No se pudieron cargar las causas</div>
                         <div className="vz-empty__text">
@@ -190,6 +186,8 @@ export function CasesPage() {
                     </div>
                 ) : (
                     <CasesTable
+                        loading={query.isPending}
+                        busy={query.isPlaceholderData}
                         rows={rows}
                         onOpen={(c) => navigate(`/causas/${c.id}`)}
                         empty={

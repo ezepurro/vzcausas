@@ -252,11 +252,7 @@ export function LegalQualificationsPage() {
                     />
                 }
             >
-                {query.isPending ? (
-                    <div className="vz-empty">
-                        <div className="vz-empty__title">Cargando calificaciones…</div>
-                    </div>
-                ) : query.isError ? (
+                {query.isError ? (
                     <div className="vz-empty">
                         <div className="vz-empty__title">No se pudieron cargar las calificaciones</div>
                         <div className="vz-empty__text">
@@ -267,6 +263,8 @@ export function LegalQualificationsPage() {
                     </div>
                 ) : (
                     <LegalQualificationsTable
+                        loading={query.isPending}
+                        busy={query.isPlaceholderData}
                         rows={rows}
                         onEdit={SHOW_ROW_ACTIONS ? openEdit : undefined}
                         onDelete={

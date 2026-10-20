@@ -72,7 +72,7 @@ await startMocks({ latencyMs: 0, log: false });
 
 | Opción | Default | Para qué |
 | --- | --- | --- |
-| `latencyMs` | `300` | Demora de cada respuesta. Sirve para ver los estados de carga; `0` responde lo más rápido que pueda. |
+| `latencyMs` | `300` | Demora de cada respuesta. Sirve para ver los estados de carga; `0` responde lo más rápido que pueda. Con `[min, max]` cada pedido tarda un valor al azar dentro del rango, como contra un servidor desplegado. En el navegador se puede fijar sin tocar código con `VITE_MOCK_LATENCY` en `.env.local`: `800` (fija) o `400-1500` (rango). Los tests usan `0`. |
 | `log` | `true` | Loguea `[mock] GET /cases?page=2 → 200` en la consola. |
 | `forceFailure` | `null` | `500` (o cualquier código) hace fallar todo; `'network'` simula backend caído (`ApiError.isNetworkError`); `null` es el comportamiento normal. |
 | `passthrough` | `[]` | Rutas que salen al backend real en vez de mockearse. Ver abajo. |

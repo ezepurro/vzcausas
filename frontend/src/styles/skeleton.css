@@ -1,0 +1,89 @@
+/* Esqueletos de carga: `Skeleton` y `LoadingState`. */
+
+/* Mientras `LoadingState` espera, el esqueleto ya ocupa su lugar pero no se
+   ve: así la página no salta cuando aparece. */
+.vz-loading.is-waiting .vz-loading__skeleton { visibility: hidden; }
+
+.vz-skel {
+  display: block;
+  width: 100%;
+  height: 12px;
+  border-radius: 4px;
+  background-color: var(--vz-sunken);
+  /* Un brillo que cruza de izquierda a derecha: dice "esto se está moviendo"
+     sin llamar más la atención que el contenido que viene. */
+  background-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    color-mix(in srgb, var(--vz-border) 70%, transparent) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  background-repeat: no-repeat;
+  animation: vz-skel-shimmer 1.4s ease-in-out infinite;
+}
+.vz-skel--circle { width: 28px; height: 28px; flex: 0 0 auto; border-radius: var(--vz-r-pill); }
+.vz-skel--pill { width: 88px; height: 22px; border-radius: var(--vz-r-pill); }
+.vz-skel--block { height: 100%; min-height: 64px; border-radius: var(--vz-r-sm); }
+
+@keyframes vz-skel-shimmer {
+  from { background-position: 150% 0; }
+  to { background-position: -50% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vz-skel { animation: none; background-image: none; }
+}
+
+/* Renglones apilados: el texto de una tarjeta o de un panel. */
+.vz-skel-stack { display: flex; flex-direction: column; gap: 9px; }
+/* Un renglón con varias piezas: avatar y nombre, chip y fecha. */
+.vz-skel-row { display: flex; align-items: center; gap: 10px; }
+/* Renglones de un listado, separados por un filete como los de verdad. */
+.vz-skel-row--ruled { padding: 6px 0 12px; border-bottom: 1px solid var(--vz-border); }
+.vz-skel-row--ruled:last-child { border-bottom: none; padding-bottom: 0; }
+
+/* El marco de una tarjeta en carga: superficie, borde y sombra de las
+   tarjetas de verdad, sin el hover ni el cursor de las que se pueden tocar. */
+.vz-skel-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+  padding: 21px;
+  background: var(--vz-surface);
+  border: 1px solid var(--vz-border);
+  border-radius: var(--vz-r);
+  box-shadow: var(--vz-card-sh);
+}
+/* Las tarjetas grandes, como las de fuero de Modelos. */
+.vz-skel-card--roomy { padding: 28px; gap: 20px; }
+/* La pieza de un renglón que se lleva el ancho que sobra. */
+.vz-skel-grow { flex: 1; min-width: 0; }
+/* El pie de una tarjeta, con su filete arriba. */
+.vz-skel-card__foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--vz-border);
+}
+
+/* Sobre fondo oscuro: la banda de los tableros, la cabecera de una tabla. */
+.vz-skel--on-dark {
+  background-color: rgb(255 255 255 / .12);
+  background-image: linear-gradient(90deg, transparent 0%, rgb(255 255 255 / .1) 50%, transparent 100%);
+}
+
+.vz-table--skeleton tbody tr:hover { background: none; }
+.vz-table--skeleton .vz-table__cell--actions .vz-skel { margin-left: auto; }
+@media (max-width: 720px) {
+  /* En la tarjeta del teléfono no hay rótulo de columna que mostrar. */
+  .vz-table--skeleton td::before { display: none; }
+}
+
+/* Una tabla que ya tiene filas y está trayendo otra página u otro filtro: se
+   atenúa en lugar de vaciarse. Espera lo mismo que el esqueleto para hacerlo,
+   así una respuesta rápida no la hace parpadear. Al volver no espera. */
+.vz-panel__scroll { transition: opacity .12s ease; }
+.vz-panel__scroll[aria-busy='true'] { opacity: .5; transition-delay: .2s; }

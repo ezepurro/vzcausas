@@ -7,6 +7,10 @@ import { formatClientName, formatDni } from '@/features/clients/utils/clientForm
 export interface ClientsTableProps {
     rows: Client[]
     empty?: ReactNode
+    /** Primera carga: la tabla dibuja su esqueleto. */
+    loading?: boolean
+    /** Trae otra página u otro filtro: la tabla se atenúa. */
+    busy?: boolean
 }
 
 /**
@@ -14,7 +18,7 @@ export interface ClientsTableProps {
  * orden alfabético por apellido lo resuelve el backend.
  *
  */
-export function ClientsTable({ rows, empty }: ClientsTableProps) {
+export function ClientsTable({ rows, empty, loading, busy }: ClientsTableProps) {
     const columns: Column<Client>[] = [
         {
             id: 'name',
@@ -57,6 +61,9 @@ export function ClientsTable({ rows, empty }: ClientsTableProps) {
             rowKey={(c) => String(c.id)}
             minWidth={880}
             empty={empty}
+            loading={loading}
+            loadingLabel="Cargando clientes…"
+            busy={busy}
         />
     )
 }

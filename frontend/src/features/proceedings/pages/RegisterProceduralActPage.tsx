@@ -3,13 +3,14 @@ import { useNavigate, useParams } from 'react-router'
 import { useCurrentUser } from '@/app/providers/AuthContext'
 import { useToast } from '@/app/providers/ToastContext'
 import { isApiError } from '@/shared/api/ApiError'
-import { Breadcrumbs, Button, Panel, type BreadcrumbItem } from '@/shared/components/ui'
+import { Breadcrumbs, Button, LoadingState, Panel, type BreadcrumbItem } from '@/shared/components/ui'
 import type { ComboboxOption } from '@/shared/components/forms'
 import { useFocusFirstError } from '@/shared/hooks/useFocusFirstError'
 import { formatDate, todayIsoDate } from '@/shared/lib/dates'
 import { formatPersonFullName } from '@/shared/lib/personName'
 import {
     CaseHeader,
+    CaseHeaderSkeleton,
     isResponsibleLawyer,
     NO_SAC_LABEL,
     PrescriptionBar,
@@ -25,6 +26,7 @@ import {
     type DeadlinePreviewState,
 } from '@/features/proceedings/components/DeadlinePreviewAside'
 import { ProceduralActForm } from '@/features/proceedings/components/ProceduralActForm'
+import { ProceduralActFormSkeleton } from '@/features/proceedings/components/ProceduralActFormSkeleton'
 import {
     isValid,
     validateProceduralAct,
@@ -71,7 +73,12 @@ export function RegisterProceduralActPage() {
     if (!validId) {
         body = <Empty title="No se encontró la causa" text="La dirección no corresponde a ninguna causa." />
     } else if (caseQuery.isPending) {
-        body = <Empty title="Cargando causa…" />
+        body = (
+            <LoadingState label="Cargando causa…">
+                <CaseHeaderSkeleton />
+                <ProceduralActFormSkeleton />
+            </LoadingState>
+        )
     } else if (caseQuery.isError) {
         body = (
             <Empty
@@ -207,7 +214,11 @@ function RegisterProceduralAct({ case: c }: { case: Case }) {
             />
         )
     } else if (statesQuery.isPending) {
-        content = <Empty title="Cargando estados procesales…" />
+        content = (
+            <LoadingState label="Cargando estados procesales…">
+                <ProceduralActFormSkeleton />
+            </LoadingState>
+        )
     } else if (statesQuery.isError) {
         content = (
             <Empty
@@ -273,7 +284,7 @@ function CasePrescription({ case: c }: { case: Case }) {
     return <PrescriptionBar prescription={c.prescription} note={prescriptionNote(c)} />
 }
 
-/** Cargando, error o un aviso que reemplaza al formulario, dentro de un panel. */
+/** Error o un aviso que reemplaza al formulario, dentro de un panel. */
 function Empty({ title, text, action }: { title: string; text?: string; action?: ReactNode }) {
     return (
         <Panel>
