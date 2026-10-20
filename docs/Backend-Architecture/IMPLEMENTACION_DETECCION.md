@@ -82,11 +82,11 @@ Cada paso se commitea por separado (los commits los hace Matusan30).
 | 1 | `deadlines/core/domain/prescription-notice-kind.ts` + spec | ¿Qué aviso corresponde hoy? (V-02) | Hecho |
 | 2 | `deadlines/core/domain/ports/prescription-status.port.ts` | ¿Qué necesita `deadlines` de `cases`? (V-06) | Hecho |
 | 3 | `deadlines/core/application/use-cases/detect-upcoming-prescriptions.use-case.ts` + spec + `test-support/detection-fakes.ts` | ¿En qué orden pasan las cosas? (V-03, V-11) | Hecho. La clase se llama `DetectUpcomingPrescriptionsUseCase`, con el sufijo que usa el resto de `deadlines` (`SendDailyNotificationDigestUseCase`) |
-| 4 | `cases/core/domain/ports/criminal-prescription-query.port.ts` + `cases/infrastructure/persistence/criminal-prescription-query-prisma.adapter.ts` | ¿Qué causas se revisan? (CA-52.1, CA-52.4, V-08) | Hecho. El adaptador se llama `*-query-prisma.adapter.ts`, como los demás de lectura de `cases` (`case-query-prisma.adapter.ts`), no `*-prisma.query.ts`, que es la convención de `reporting`. **Sin probar contra la base hasta el paso 8** |
+| 4 | `cases/core/domain/ports/criminal-prescription-query.port.ts` + `cases/infrastructure/persistence/criminal-prescription-query-prisma.adapter.ts` | ¿Qué causas se revisan? (CA-52.1, CA-52.4, V-08) | Hecho. El adaptador se llama `*-query-prisma.adapter.ts`, como los demás de lectura de `cases` (`case-query-prisma.adapter.ts`), no `*-prisma.query.ts`, que es la convención de `reporting`. Probado contra la base en el paso 8 |
 | 5 | `cases/core/application/use-cases/list-active-prescriptions.use-case.ts` + spec | ¿Cómo se aplica la regla de `cases`? (CA-52.3, CA-52.6, CA-52.8, V-07) | Hecho. 7 tests, con el fake de la consulta dentro del spec para no tocar `case-fakes.ts` |
 | 6 | `cases/infrastructure/acl/deadlines-prescription-status.adapter.ts` + spec | ¿Cómo se traduce al vocabulario de `deadlines`? (V-05, V-06) | Hecho. 2 tests con el caso de uso real y la consulta falsa |
 | 7 | `case.module.ts` y `deadlines.module.ts` (cableado) | ¿Cómo se arma todo? (QV-03, TV-01) | Hecho, aprobado por Matusan30. `CasesModule` registra la consulta, el caso de uso y el adaptador contra `PRESCRIPTION_STATUS` y exporta solo ese token (mismo mecanismo que los contadores). `DeadlinesModule` importa `CasesModule`, registra `DetectUpcomingPrescriptionsUseCase` y ata `PRESCRIPTION_DETECTION` con `useExisting`. Los comentarios de mmachuca en `deadlines.module.ts` quedaron intactos aunque digan que la prescripción es un stub (opción a): se lo comenta Matusan30 |
-| 8 | `test/subsystems/deadlines/detect-upcoming-prescriptions.int.spec.ts` | ¿Funciona contra la base real y coincide con el tablero? | Pendiente |
+| 8 | `test/subsystems/deadlines/detect-upcoming-prescriptions.int.spec.ts` | ¿Funciona contra la base real y coincide con el tablero? | Hecho. 11 tests contra PostgreSQL real, con la detección real (no reemplaza `PRESCRIPTION_DETECTION`); solo el reloj fijo y el correo en memoria. Limpia `sent_notifications` antes que las causas y al terminar (TV-02) |
 
 ---
 
@@ -100,16 +100,18 @@ Cada paso se commitea por separado (los commits los hace Matusan30).
 | 20/10/2026 | Pasos 4 y 5: `CriminalPrescriptionQueryPort` + `CriminalPrescriptionQueryPrismaAdapter` (reusa `ACTIVE_CASE`, filtra `CRIMINAL` y al menos una calificación) y `ListActivePrescriptions` (aplica `summarizePrescription` contra la fecha recibida), 7 tests. Sin registrar en `CasesModule` todavía (paso 7). | — |
 | 20/10/2026 | Paso 6: `DeadlinesPrescriptionStatusAdapter`. Paso 7: cableado en los dos módulos. **Desde acá el disparo diario manda avisos reales de prescripción** donde `DeadlinesModule` se carga. | — |
 | 20/10/2026 | Suite de integración de referencia (antes del paso 7): 3 suites de `cases` fallan (35 tests) porque `daily-run.int.spec.ts` deja filas en `sent_notifications` y `case-timeline`, `get-case`, `custom-states` y `procedural-act-scenario.ts` borran `cases` sin borrarlas antes (FK `sent_notifications_case_id_fkey`). Depende del orden de las suites. No es de la detección; Matusan30 se lo pasó a mmachuca (TV-02). | — |
+| 20/10/2026 | Suite de integración después del paso 7: 18/18 suites, 428/428 tests (los 35 de la referencia pasaron por orden de suites, no porque TV-02 esté resuelto). | — |
+| 20/10/2026 | Paso 8: `detect-upcoming-prescriptions.int.spec.ts`, 11/11 en verde. **HU52 completa** salvo lo marcado como sin verificar abajo (52.1 "todos los días", 52.8 cambio de meses). | — |
 
 ### Estado de los criterios — HU52
 
 | CA | Estado | Dónde |
 | --- | --- | --- |
-| 52.1 Todos los días, penales activas con calificación | Pendiente | Pasos 4 y 8 |
-| 52.2 Detecta 70 % y plazo cumplido | **Unitario (pasos 1 y 3)**, falta integración | Pasos 1, 3 y 8 |
-| 52.3 Calificación que prescribe primero, desde el último acto interruptivo | **Unitario (paso 5)**, falta integración | Pasos 5 y 8 |
-| 52.4 Excluye administrativas, amparos, sin calificación, archivadas, prescriptas, dadas de baja | Pendiente | Pasos 4 y 8 |
-| 52.5 Nunca cambia el estado | **Por construcción (paso 3):** el caso de uso no tiene ningún puerto de escritura. Sin test que lo pruebe en la base: revisión manual | Paso 3 |
-| 52.6 Se vuelve a detectar tras un acto interruptivo | **Unitario (paso 5)**: el acto reinicia el cómputo; el reenvío con la fecha nueva se prueba en el paso 8 | Pasos 5 y 8 |
-| 52.7 Registra para no avisar dos veces | Del digest (mmachuca); se verifica de punta a punta en el paso 8 | Paso 8 |
-| 52.8 Cambios de plazo o actos interruptivos se ven al día siguiente | Pendiente (no se guarda nada calculado, D-08) | Pasos 5 y 8 |
+| 52.1 Todos los días, penales activas con calificación | **Integración (paso 8)** para "penales activas con calificación". "Todos los días" depende del disparo de GitHub Actions, comentado hasta que haya despliegue (QV-02): **sin verificar** | Pasos 4 y 8 |
+| 52.2 Detecta 70 % y plazo cumplido | **Unitario (pasos 1 y 3) e integración (paso 8)**, incluido el borde "vence hoy" | Pasos 1, 3 y 8 |
+| 52.3 Calificación que prescribe primero, desde el último acto interruptivo | **Unitario (paso 5) e integración (paso 8)** | Pasos 5 y 8 |
+| 52.4 Excluye administrativas, amparos, sin calificación, archivadas, prescriptas, dadas de baja | **Integración (paso 8)**, más los casos que sí entran: estado escrito a mano y calificación dada de baja | Pasos 4 y 8 |
+| 52.5 Nunca cambia el estado | **Por construcción (paso 3) e integración (paso 8):** después del disparo diario, la causa con el plazo cumplido queda igual campo por campo | Pasos 3 y 8 |
+| 52.6 Se vuelve a detectar tras un acto interruptivo | **Unitario (paso 5) e integración (paso 8):** el acto registrado por la API saca de alerta, y una causa cumplida que se reinicia vuelve a avisarse con la fecha nueva | Pasos 5 y 8 |
+| 52.7 Registra para no avisar dos veces | **Integración (paso 8):** dos corridas el mismo día, un solo aviso por destinatario. El registro es del digest (mmachuca) | Paso 8 |
+| 52.8 Cambios de plazo o actos interruptivos se ven al día siguiente | **Acto interruptivo: integración (paso 8). Cambio de meses de una calificación: sin test** — se cumple porque nada se guarda calculado (D-08), pero no hay `PATCH /legal-qualifications` implementado para probarlo por la API. Revisión manual | Pasos 5 y 8 |
