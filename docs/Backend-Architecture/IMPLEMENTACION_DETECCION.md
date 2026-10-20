@@ -81,8 +81,8 @@ Cada paso se commitea por separado (los commits los hace Matusan30).
 | 1 | `deadlines/core/domain/prescription-notice-kind.ts` + spec | ¿Qué aviso corresponde hoy? (V-02) | Hecho |
 | 2 | `deadlines/core/domain/ports/prescription-status.port.ts` | ¿Qué necesita `deadlines` de `cases`? (V-06) | Hecho |
 | 3 | `deadlines/core/application/use-cases/detect-upcoming-prescriptions.use-case.ts` + spec + `test-support/detection-fakes.ts` | ¿En qué orden pasan las cosas? (V-03, V-11) | Hecho. La clase se llama `DetectUpcomingPrescriptionsUseCase`, con el sufijo que usa el resto de `deadlines` (`SendDailyNotificationDigestUseCase`) |
-| 4 | `cases/core/domain/ports/criminal-prescription-query.port.ts` + `cases/infrastructure/persistence/criminal-prescription-prisma.query.ts` | ¿Qué causas se revisan? (CA-52.1, CA-52.4, V-08) | Pendiente |
-| 5 | `cases/core/application/use-cases/list-active-prescriptions.use-case.ts` + spec | ¿Cómo se aplica la regla de `cases`? (CA-52.3, CA-52.6, CA-52.8, V-07) | Pendiente |
+| 4 | `cases/core/domain/ports/criminal-prescription-query.port.ts` + `cases/infrastructure/persistence/criminal-prescription-query-prisma.adapter.ts` | ¿Qué causas se revisan? (CA-52.1, CA-52.4, V-08) | Hecho. El adaptador se llama `*-query-prisma.adapter.ts`, como los demás de lectura de `cases` (`case-query-prisma.adapter.ts`), no `*-prisma.query.ts`, que es la convención de `reporting`. **Sin probar contra la base hasta el paso 8** |
+| 5 | `cases/core/application/use-cases/list-active-prescriptions.use-case.ts` + spec | ¿Cómo se aplica la regla de `cases`? (CA-52.3, CA-52.6, CA-52.8, V-07) | Hecho. 7 tests, con el fake de la consulta dentro del spec para no tocar `case-fakes.ts` |
 | 6 | `cases/infrastructure/acl/deadlines-prescription-status.adapter.ts` | ¿Cómo se traduce al vocabulario de `deadlines`? (V-05, V-06) | Pendiente |
 | 7 | `case.module.ts` y `deadlines.module.ts` (cableado, a confirmar antes de tocar) | ¿Cómo se arma todo? (QV-03, TV-01) | Pendiente |
 | 8 | `test/subsystems/deadlines/detect-upcoming-prescriptions.int.spec.ts` | ¿Funciona contra la base real y coincide con el tablero? | Pendiente |
@@ -96,6 +96,7 @@ Cada paso se commitea por separado (los commits los hace Matusan30).
 | 20/10/2026 | Plan armado y decisiones V-01 a V-14 cerradas con Matusan30. | — |
 | 20/10/2026 | Paso 1: `prescriptionNoticeKind` (función pura) y su spec. | — |
 | 20/10/2026 | Pasos 2 y 3: `PrescriptionStatusPort`, `DetectUpcomingPrescriptionsUseCase` (implementa el puerto temporal `PrescriptionDetectionPort`, TV-01), sus 8 tests con fakes propios (`detection-fakes.ts`). Todavía no está cableado: nada lo invoca hasta el paso 7. | — |
+| 20/10/2026 | Pasos 4 y 5: `CriminalPrescriptionQueryPort` + `CriminalPrescriptionQueryPrismaAdapter` (reusa `ACTIVE_CASE`, filtra `CRIMINAL` y al menos una calificación) y `ListActivePrescriptions` (aplica `summarizePrescription` contra la fecha recibida), 7 tests. Sin registrar en `CasesModule` todavía (paso 7). | — |
 
 ### Estado de los criterios — HU52
 
@@ -103,9 +104,9 @@ Cada paso se commitea por separado (los commits los hace Matusan30).
 | --- | --- | --- |
 | 52.1 Todos los días, penales activas con calificación | Pendiente | Pasos 4 y 8 |
 | 52.2 Detecta 70 % y plazo cumplido | **Unitario (pasos 1 y 3)**, falta integración | Pasos 1, 3 y 8 |
-| 52.3 Calificación que prescribe primero, desde el último acto interruptivo | Pendiente (la regla ya tiene tests en `prescription.spec.ts`) | Pasos 5 y 8 |
+| 52.3 Calificación que prescribe primero, desde el último acto interruptivo | **Unitario (paso 5)**, falta integración | Pasos 5 y 8 |
 | 52.4 Excluye administrativas, amparos, sin calificación, archivadas, prescriptas, dadas de baja | Pendiente | Pasos 4 y 8 |
 | 52.5 Nunca cambia el estado | **Por construcción (paso 3):** el caso de uso no tiene ningún puerto de escritura. Sin test que lo pruebe en la base: revisión manual | Paso 3 |
-| 52.6 Se vuelve a detectar tras un acto interruptivo | Pendiente | Pasos 5 y 8 |
+| 52.6 Se vuelve a detectar tras un acto interruptivo | **Unitario (paso 5)**: el acto reinicia el cómputo; el reenvío con la fecha nueva se prueba en el paso 8 | Pasos 5 y 8 |
 | 52.7 Registra para no avisar dos veces | Del digest (mmachuca); se verifica de punta a punta en el paso 8 | Paso 8 |
 | 52.8 Cambios de plazo o actos interruptivos se ven al día siguiente | Pendiente (no se guarda nada calculado, D-08) | Pasos 5 y 8 |
