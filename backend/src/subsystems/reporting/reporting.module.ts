@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { SharedModule } from '@shared/shared.module';
 import { LAWYER_DASHBOARD_QUERY } from './core/application/ports/lawyer-dashboard.query';
+import { GetAdministratorDashboard } from './core/application/use-cases/get-administrator-dashboard.use-case';
 import { GetLawyerDashboard } from './core/application/use-cases/get-lawyer-dashboard.use-case';
 import { DashboardsController } from './infrastructure/http/controllers/dashboards.controller';
 import { LawyerDashboardPrismaQuery } from './infrastructure/persistence/lawyer-dashboard-prisma.query';
@@ -24,6 +25,8 @@ import { LawyerDashboardPrismaQuery } from './infrastructure/persistence/lawyer-
   providers: [
     // HU41: el tablero del abogado, "Mi día".
     GetLawyerDashboard,
+    // HU42: el tablero del administrador, "Estudio". Mismo puerto que HU41.
+    GetAdministratorDashboard,
     { provide: LAWYER_DASHBOARD_QUERY, useClass: LawyerDashboardPrismaQuery },
   ],
 })
