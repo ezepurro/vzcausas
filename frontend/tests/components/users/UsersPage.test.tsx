@@ -6,6 +6,7 @@ import { personNameIn } from '../../setup/names'
 import { server } from '@/shared/mocks/server'
 import { db, errorBody } from '@/shared/mocks'
 import { UsersPage } from '@/features/users/pages/UsersPage'
+import { useCurrentUser } from '@/app/providers/AuthContext'
 
 /* Estos tests llenan el formulario de alta tecla por tecla y, con la suite
    entera corriendo en paralelo, alguno pasaba los 5 s por defecto y fallaba
@@ -219,6 +220,89 @@ describe('UsersPage', () => {
 
             expect(await screen.findByText('Usuario ravila actualizado.')).toBeInTheDocument()
             expect(db.users.find((u) => u.username === 'ravila')).toMatchObject({ lastName: 'Ávila', firstName: 'Romina B.' })
+        })
+    })
+
+    describe('modificarse a uno mismo', () => {
+        /* La sesión guarda los roles del login. Si quien está adentro se
+           modifica a sí mismo, la pantalla tiene que reflejarlo en el momento,
+           sin esperar a que venza el token ni a un F5. */
+
+        /** Muestra los roles de la sesión, al lado de la página. */
+        function SessionRoles() {
+            const current = useCurrentUser()
+            return <p>Sesión: {current.roles.join(', ')}</p>
+        }
+
+        function renderSelf(as = 'fvazquez') {
+            return renderWithProviders(
+                <>
+                    <UsersPage />
+                    <SessionRoles />
+                </>,
+                {
+                    as,
+                    path: '/usuarios',
+                    route: '/usuarios',
+                    routes: [
+                        {
+                            path: '/inicio',
+                            element: (
+                                <>
+                                    <p>Pantalla de inicio</p>
+                                    <SessionRoles />
+                                </>
+                            ),
+                        },
+                    ],
+                },
+            )
+        }
+
+        it('si se saca Abogado, la sesión toma los roles nuevos sin recargar', async () => {
+            const { user } = renderSelf()
+            await screen.findByRole('cell', { name: 'fvazquez' })
+            expect(screen.getByText('Sesión: ADMINISTRATOR, LAWYER')).toBeInTheDocument()
+
+            await user.click(within(rowOf('fvazquez')).getByRole('button', { name: 'Modificar' }))
+            const dialog = screen.getByRole('dialog')
+            await user.click(within(dialog).getByRole('checkbox', { name: /^abogado/i }))
+            await user.click(within(dialog).getByRole('button', { name: 'Guardar cambios' }))
+
+            expect(await screen.findByText('Sesión: ADMINISTRATOR')).toBeInTheDocument()
+        })
+
+        it('si se saca Administrador, deja Usuarios y va a su inicio', async () => {
+            /* `ozarate` y no `fvazquez`: el mock no deja que `fvazquez` pierda
+               el perfil, para que el estudio conserve siempre un
+               administrador (`PROTECTED_ADMIN_USER`). Está en la página 2: se
+               lo busca. */
+            const { user } = renderSelf('ozarate')
+            await screen.findByRole('cell', { name: 'fvazquez' })
+            await user.type(screen.getByRole('searchbox', { name: 'Buscar usuario' }), 'zárate')
+            await screen.findByRole('cell', { name: 'ozarate' })
+
+            await user.click(within(rowOf('ozarate')).getByRole('button', { name: 'Modificar' }))
+            const dialog = screen.getByRole('dialog')
+            await user.click(within(dialog).getByRole('checkbox', { name: /^administrador/i }))
+            await user.click(within(dialog).getByRole('button', { name: 'Guardar cambios' }))
+
+            expect(await screen.findByText('Pantalla de inicio')).toBeInTheDocument()
+            expect(screen.getByText('Sesión: LAWYER')).toBeInTheDocument()
+            expect(db.users.find((u) => u.username === 'ozarate')?.roles).toEqual(['LAWYER'])
+        })
+
+        it('modificar a otro usuario no toca la sesión', async () => {
+            const { user } = renderSelf()
+            await screen.findByRole('cell', { name: 'ravila' })
+
+            await user.click(within(rowOf('ravila')).getByRole('button', { name: 'Modificar' }))
+            const dialog = screen.getByRole('dialog')
+            await user.click(within(dialog).getByRole('checkbox', { name: /^administrador/i }))
+            await user.click(within(dialog).getByRole('button', { name: 'Guardar cambios' }))
+
+            expect(await screen.findByText('Usuario ravila actualizado.')).toBeInTheDocument()
+            expect(screen.getByText('Sesión: ADMINISTRATOR, LAWYER')).toBeInTheDocument()
         })
     })
 

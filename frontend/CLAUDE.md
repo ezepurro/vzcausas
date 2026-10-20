@@ -770,6 +770,15 @@ Registrar un acto procesal o un acto interruptivo depende de la causa: sólo su
 abogado responsable (D-30). Se resuelve en la pantalla con
 `isResponsibleLawyer`.
 
+**Los roles de la sesión se mantienen al día.** Se guardan en el login, pero
+`AuthProvider` los vuelve a pedir al abrir la aplicación (`POST /auth/refresh`,
+con "Verificando la sesión…" mientras tanto) y cada vez que renueva el token.
+Si la ficha profesional cambió, la completa con `GET /lawyers/{lawyerId}`.
+Quien se modifica a sí mismo en Usuarios ve el cambio en el momento
+(`updateCurrentUser`), y si pierde el acceso a la pantalla va a su inicio. En
+los tests, un `getBy…` justo después de renderizar con sesión tiene que
+esperar antes con `waitForSession()` de `tests/setup/render.tsx`.
+
 Todo esto es comodidad, no seguridad: quien autoriza es el backend (responde
 `403`). Lo que se deshabilita acá es para no ofrecerle a nadie algo que no
 puede usar.
