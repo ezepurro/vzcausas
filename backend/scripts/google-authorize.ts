@@ -1,6 +1,11 @@
 // backend/scripts/google-authorize.ts
 // Se corre UNA VEZ a mano para obtener el refresh token (ADR-004 §2.1).
 // No es parte de la app: no lo importa ningún módulo.
+//
+// A diferencia de la app completa, nada arranca `ConfigModule` acá — este
+// import carga `backend/.env` a mano para que CLIENT_ID/CLIENT_SECRET
+// lleguen al proceso al correr `npm run google:authorize` desde la terminal.
+import 'dotenv/config';
 import { google } from 'googleapis';
 import * as http from 'http';
 import { URL } from 'url';

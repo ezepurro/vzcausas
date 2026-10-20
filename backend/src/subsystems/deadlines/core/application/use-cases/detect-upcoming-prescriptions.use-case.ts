@@ -63,6 +63,7 @@ export class DetectUpcomingPrescriptionsUseCase implements PrescriptionDetection
           // the one the case shows (D-72).
           referenceDate: status.expiresOn,
           legalQualificationName: status.legalQualificationName,
+          daysRemaining: status.daysRemaining,
         },
       ];
     });

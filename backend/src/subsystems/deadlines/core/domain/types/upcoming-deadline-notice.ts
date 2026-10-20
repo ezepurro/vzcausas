@@ -35,6 +35,8 @@ export interface UpcomingDeadlineNotice {
   dueDate: string;
   /** The act that opened the deadline; `null` when `origin` is `HARMFUL_ACT`. */
   proceduralActId: number | null;
+  /** Business days from today to `dueDate`, as HU51 classified it. Copied, never recomputed (D-72). */
+  businessDaysRemaining: number;
 }
 
 /**
@@ -53,4 +55,10 @@ export interface PrescriptionNotice {
   referenceDate: string;
   /** So the email can say "por <calificación>", not just "prescribe" (CA-32.4). */
   legalQualificationName: string;
+  /**
+   * Calendar days from today to `referenceDate`. Copied, never recomputed
+   * (D-72) — deliberately **not** `elapsedPercentage`: CA-22.3 keeps that
+   * one out of anything the backend hands to a reader.
+   */
+  daysRemaining: number;
 }

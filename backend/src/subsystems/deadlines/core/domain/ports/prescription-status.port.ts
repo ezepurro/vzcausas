@@ -6,9 +6,12 @@ export const PRESCRIPTION_STATUS = Symbol('PRESCRIPTION_STATUS');
 /**
  * What the daily check (HU52) needs to know about one criminal case's
  * prescription: the two flags {@link prescriptionNoticeKind} reads, plus what
- * a `PrescriptionNotice` carries. Nothing more — no `startsOn`, no
- * percentage, no list of qualifications: `deadlines` declares the minimum it
- * needs, in its own terms (`puertos-acl.md`).
+ * a `PrescriptionNotice` carries. Close to the minimum `deadlines` needs, in
+ * its own terms (`puertos-acl.md`) — the one deliberate addition is
+ * `daysRemaining`, for the digest email (CA-30/32, content pendiente de
+ * revisión). Still no `startsOn` and no `elapsedPercentage`: CA-22.3 keeps
+ * that one out of anything the backend hands to a reader — the contract's
+ * `GET /cases/{caseId}` today, this port as well.
  */
 export interface CasePrescriptionStatus extends PrescriptionFlags {
   caseId: number;
@@ -23,6 +26,8 @@ export interface CasePrescriptionStatus extends PrescriptionFlags {
    * `deadlines/core` cannot import — the adapter translates (V-06).
    */
   expiresOn: string;
+  /** Calendar days from today to `expiresOn` (`cases`' `PrescriptionSummary.remainingDays`), never recomputed here. */
+  daysRemaining: number;
 }
 
 /**

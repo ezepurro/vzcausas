@@ -17,7 +17,7 @@ import { ListActivePrescriptions } from '../../core/application/use-cases/list-a
  * because here there is a rule to apply on top of the rows (V-07).
  *
  * **Only translates** (anti-corruption layer): from `cases`' summary, with
- * `Date`s, `startsOn` and the percentage, to the nine fields `deadlines` asked
+ * `Date`s, `startsOn` and the percentage, to the fields `deadlines` asked
  * for, with the expiry as `YYYY-MM-DD` (V-06). It decides nothing: which cases
  * get a notice is `deadlines`'.
  *
@@ -41,6 +41,7 @@ export class DeadlinesPrescriptionStatusAdapter implements PrescriptionStatusPor
       expiresOn: toIsoDate(view.prescription.expiresOn),
       alert: view.prescription.alert,
       expired: view.prescription.expired,
+      daysRemaining: view.prescription.remainingDays,
     }));
   }
 }

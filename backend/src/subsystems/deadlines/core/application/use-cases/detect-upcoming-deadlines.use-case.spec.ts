@@ -54,6 +54,7 @@ describe("DetectUpcomingDeadlinesUseCase", () => {
         origin: "PROCEDURAL_ACT",
         dueDate: "2026-10-09",
         proceduralActId: 100,
+        businessDaysRemaining: 3,
       },
     ]);
   });

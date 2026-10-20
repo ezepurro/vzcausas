@@ -253,31 +253,56 @@ export class SendDailyNotificationDigestUseCase {
 
   /**
    * N-06: un único mapper, reusado para la casilla y para cada abogado —
-   * mismo algoritmo, distinto input. Contenido y diseño del correo no
-   * están pinned por ningún CA leído hasta ahora: placeholder razonable,
-   * pendiente de revisión de contenido.
+   * mismo algoritmo, distinto input. Separa vencimientos de prescripciones
+   * en dos secciones porque son avisos de naturaleza distinta (CA-30 vs.
+   * CA-32), no porque haya dos algoritmos: cada sección usa la misma
+   * `renderSection`. Diseño visual (CSS, parecido al frontend) pendiente —
+   * esto todavía es placeholder de contenido, no de datos.
    */
   private render(to: string[], notices: Notice[]): EmailMessage {
-    const items = notices.map((notice) => `<li>${this.describeNotice(notice)}</li>`).join("");
+    const deadlineNotices = notices.filter(isDeadlineNotice);
+    const prescriptionNotices = notices.filter(
+      (notice): notice is PrescriptionNotice => !isDeadlineNotice(notice),
+    );
+
+    const html =
+      "<p>Avisos del día:</p>" +
+      this.renderSection("Vencimientos próximos", deadlineNotices, (n) => this.describeDeadline(n)) +
+      this.renderSection("Prescripciones", prescriptionNotices, (n) => this.describePrescription(n));
 
     return {
       to,
       subject: "Avisos de vencimientos y prescripciones — VZ Causas",
-      html: `<p>Avisos del día:</p><ul>${items}</ul>`,
+      html,
     };
   }
 
-  private describeNotice(notice: Notice): string {
-    const sac = notice.sacNumber ? ` (SAC ${notice.sacNumber})` : "";
-
-    if (isDeadlineNotice(notice)) {
-      const label = notice.kind === "DEADLINE_DUE_TODAY" ? "vence hoy" : "vence pronto";
-      return `${notice.caption}${sac} — ${label}: ${notice.dueDate}`;
+  private renderSection<T>(title: string, items: T[], describe: (item: T) => string): string {
+    if (items.length === 0) {
+      return "";
     }
+    const rows = items.map((item) => `<li>${describe(item)}</li>`).join("");
+    return `<h3>${title}</h3><ul>${rows}</ul>`;
+  }
 
-    const label =
-      notice.kind === "PRESCRIPTION_EXPIRED" ? "prescribe hoy" : "cerca de prescribir";
-    return `${notice.caption}${sac} — ${label} por ${notice.legalQualificationName}: ${notice.referenceDate}`;
+  private describeDeadline(notice: UpcomingDeadlineNotice): string {
+    const sac = notice.sacNumber ? ` (SAC ${notice.sacNumber})` : "";
+    const when =
+      notice.kind === "DEADLINE_DUE_TODAY" ? "vence hoy" : `vence en: ${this.plural(notice.businessDaysRemaining, "día hábil", "días hábiles")}`;
+    return `${notice.caption}${sac} — ${when} (${notice.dueDate})`;
+  }
+
+  private describePrescription(notice: PrescriptionNotice): string {
+    const sac = notice.sacNumber ? ` (SAC ${notice.sacNumber})` : "";
+    const when =
+      notice.kind === "PRESCRIPTION_EXPIRED"
+        ? "prescribe hoy"
+        : `cerca de prescribir, vence en: ${this.plural(notice.daysRemaining, "día", "días")}`;
+    return `${notice.caption}${sac} — ${when} por ${notice.legalQualificationName} (${notice.referenceDate})`;
+  }
+
+  private plural(count: number, singular: string, pluralForm: string): string {
+    return `${count} ${count === 1 ? singular : pluralForm}`;
   }
 
   private describe(err: unknown): string {

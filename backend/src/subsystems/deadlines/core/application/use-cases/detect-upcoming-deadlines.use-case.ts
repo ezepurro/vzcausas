@@ -68,6 +68,7 @@ export class DetectUpcomingDeadlinesUseCase implements DeadlineDetectionPort {
         // one the case shows (CA-51.9).
         dueDate: deadline.dueDate,
         proceduralActId: deadline.proceduralActId,
+        businessDaysRemaining: deadline.businessDaysRemaining,
       });
     }
 

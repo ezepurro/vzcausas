@@ -55,6 +55,7 @@ describe('DeadlinesPrescriptionStatusAdapter', () => {
         expiresOn: '2027-01-15',
         alert: true,
         expired: false,
+        daysRemaining: 320,
       },
     ]);
   });

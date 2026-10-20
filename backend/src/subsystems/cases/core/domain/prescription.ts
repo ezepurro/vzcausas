@@ -36,6 +36,8 @@ export interface PrescriptionSummary {
   alert: boolean;
   /** Today is on or after `expiresOn`. It does not change the state of the case. */
   expired: boolean;
+  /** Calendar days from today to `expiresOn`. `0` the day it is met, negative once it is overdue. */
+  remainingDays: number;
   /** The interruptive act this computation counts from; `null` if it counts from the offense. */
   lastInterruptiveActDate: Date | null;
 }
@@ -114,6 +116,7 @@ export function summarizePrescription(
     elapsedPercentage: Math.round(ratio * 100),
     alert: ratio >= PRESCRIPTION_ALERT_RATIO,
     expired: today >= expiresOn,
+    remainingDays: Math.round((expiresOn.getTime() - today.getTime()) / DAY_MS),
     // The act counts only if the computation really starts from it (CA-31.5).
     lastInterruptiveActDate: startsOn.getTime() === offense.offenseDate.getTime() ? null : startsOn,
   };

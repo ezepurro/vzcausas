@@ -15,6 +15,7 @@ function status(overrides: Partial<CasePrescriptionStatus> = {}): CasePrescripti
     expiresOn: "2027-01-15",
     alert: false,
     expired: false,
+    daysRemaining: 101,
     ...overrides,
   };
 }
@@ -49,6 +50,7 @@ describe("DetectUpcomingPrescriptionsUseCase", () => {
         kind: "PRESCRIPTION_ALERT",
         referenceDate: "2027-01-15",
         legalQualificationName: "Robo calificado",
+        daysRemaining: 101,
       },
     ]);
   });
