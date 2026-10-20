@@ -68,6 +68,7 @@ suya; lo que haya que cambiarle se coordina con él.
 | Id | Deuda |
 | --- | --- |
 | TV-01 | `useExisting` sobre el token temporal `PRESCRIPTION_DETECTION` es un puente hasta resolver QV-03, no el diseño final. |
+| TV-02 | **Aislamiento de los tests de integración:** `daily-run.int.spec.ts` no limpia `sent_notifications` al terminar, y cuatro limpiezas de `cases` no la borran antes que `cases`. Fallan o no según el orden de las suites. Lo arregla mmachuca. El spec de integración de HU52 (paso 8) tiene que limpiar lo que escribe al terminar. |
 
 ---
 
@@ -83,8 +84,8 @@ Cada paso se commitea por separado (los commits los hace Matusan30).
 | 3 | `deadlines/core/application/use-cases/detect-upcoming-prescriptions.use-case.ts` + spec + `test-support/detection-fakes.ts` | ¿En qué orden pasan las cosas? (V-03, V-11) | Hecho. La clase se llama `DetectUpcomingPrescriptionsUseCase`, con el sufijo que usa el resto de `deadlines` (`SendDailyNotificationDigestUseCase`) |
 | 4 | `cases/core/domain/ports/criminal-prescription-query.port.ts` + `cases/infrastructure/persistence/criminal-prescription-query-prisma.adapter.ts` | ¿Qué causas se revisan? (CA-52.1, CA-52.4, V-08) | Hecho. El adaptador se llama `*-query-prisma.adapter.ts`, como los demás de lectura de `cases` (`case-query-prisma.adapter.ts`), no `*-prisma.query.ts`, que es la convención de `reporting`. **Sin probar contra la base hasta el paso 8** |
 | 5 | `cases/core/application/use-cases/list-active-prescriptions.use-case.ts` + spec | ¿Cómo se aplica la regla de `cases`? (CA-52.3, CA-52.6, CA-52.8, V-07) | Hecho. 7 tests, con el fake de la consulta dentro del spec para no tocar `case-fakes.ts` |
-| 6 | `cases/infrastructure/acl/deadlines-prescription-status.adapter.ts` | ¿Cómo se traduce al vocabulario de `deadlines`? (V-05, V-06) | Pendiente |
-| 7 | `case.module.ts` y `deadlines.module.ts` (cableado, a confirmar antes de tocar) | ¿Cómo se arma todo? (QV-03, TV-01) | Pendiente |
+| 6 | `cases/infrastructure/acl/deadlines-prescription-status.adapter.ts` + spec | ¿Cómo se traduce al vocabulario de `deadlines`? (V-05, V-06) | Hecho. 2 tests con el caso de uso real y la consulta falsa |
+| 7 | `case.module.ts` y `deadlines.module.ts` (cableado) | ¿Cómo se arma todo? (QV-03, TV-01) | Hecho, aprobado por Matusan30. `CasesModule` registra la consulta, el caso de uso y el adaptador contra `PRESCRIPTION_STATUS` y exporta solo ese token (mismo mecanismo que los contadores). `DeadlinesModule` importa `CasesModule`, registra `DetectUpcomingPrescriptionsUseCase` y ata `PRESCRIPTION_DETECTION` con `useExisting`. Los comentarios de mmachuca en `deadlines.module.ts` quedaron intactos aunque digan que la prescripción es un stub (opción a): se lo comenta Matusan30 |
 | 8 | `test/subsystems/deadlines/detect-upcoming-prescriptions.int.spec.ts` | ¿Funciona contra la base real y coincide con el tablero? | Pendiente |
 
 ---
@@ -97,6 +98,8 @@ Cada paso se commitea por separado (los commits los hace Matusan30).
 | 20/10/2026 | Paso 1: `prescriptionNoticeKind` (función pura) y su spec. | — |
 | 20/10/2026 | Pasos 2 y 3: `PrescriptionStatusPort`, `DetectUpcomingPrescriptionsUseCase` (implementa el puerto temporal `PrescriptionDetectionPort`, TV-01), sus 8 tests con fakes propios (`detection-fakes.ts`). Todavía no está cableado: nada lo invoca hasta el paso 7. | — |
 | 20/10/2026 | Pasos 4 y 5: `CriminalPrescriptionQueryPort` + `CriminalPrescriptionQueryPrismaAdapter` (reusa `ACTIVE_CASE`, filtra `CRIMINAL` y al menos una calificación) y `ListActivePrescriptions` (aplica `summarizePrescription` contra la fecha recibida), 7 tests. Sin registrar en `CasesModule` todavía (paso 7). | — |
+| 20/10/2026 | Paso 6: `DeadlinesPrescriptionStatusAdapter`. Paso 7: cableado en los dos módulos. **Desde acá el disparo diario manda avisos reales de prescripción** donde `DeadlinesModule` se carga. | — |
+| 20/10/2026 | Suite de integración de referencia (antes del paso 7): 3 suites de `cases` fallan (35 tests) porque `daily-run.int.spec.ts` deja filas en `sent_notifications` y `case-timeline`, `get-case`, `custom-states` y `procedural-act-scenario.ts` borran `cases` sin borrarlas antes (FK `sent_notifications_case_id_fkey`). Depende del orden de las suites. No es de la detección; Matusan30 se lo pasó a mmachuca (TV-02). | — |
 
 ### Estado de los criterios — HU52
 

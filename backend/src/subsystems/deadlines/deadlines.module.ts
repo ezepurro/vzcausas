@@ -4,6 +4,8 @@ import { IdentityModule } from "@subsystems/identity/identity.module";
 import { GoogleOAuthModule } from "@shared/infrastructure/google/google-oauth.module";
 import { SharedModule } from "@shared/shared.module";
 import { DeadlinesLawyerContactLookupAdapter } from "@subsystems/identity/infrastructure/acl/deadlines-lawyer-contact-lookup.adapter";
+import { CasesModule } from "@subsystems/cases/case.module";
+import { DetectUpcomingPrescriptionsUseCase } from "./core/application/use-cases/detect-upcoming-prescriptions.use-case";
 import { SendDailyNotificationDigestUseCase } from "./core/application/use-cases/send-daily-notification-digest.use-case";
 import {
   COPY_TO_RESPONSIBLE_LAWYER,
@@ -38,7 +40,7 @@ import { PrismaSentNotificationRepository } from "./infrastructure/persistence/p
  *    exist and replace them.
  */
 @Module({
-  imports: [SharedModule, IdentityModule, GoogleOAuthModule],
+  imports: [SharedModule, IdentityModule, GoogleOAuthModule, CasesModule],
 
   controllers: [DailyRunController],
 
@@ -69,6 +71,7 @@ import { PrismaSentNotificationRepository } from "./infrastructure/persistence/p
 
     SendDailyNotificationDigestUseCase,
     InternalTriggerGuard,
+    DetectUpcomingPrescriptionsUseCase,
 
     // TN-03: sin implementación real. HU51/HU52 (detección) son de
     // otro integrante del equipo y no existen en código todavía — estos
@@ -76,7 +79,9 @@ import { PrismaSentNotificationRepository } from "./infrastructure/persistence/p
     // tanto. Lista vacía es la salida segura: nunca genera un aviso
     // falso, solo no manda nada hasta que esto se reemplace.
     { provide: DEADLINE_DETECTION, useValue: { execute: async () => [] } },
-    { provide: PRESCRIPTION_DETECTION, useValue: { execute: async () => [] } },
+    // HU52 ya existe: el token temporal apunta al caso de uso real (TV-01 de
+    // IMPLEMENTACION_DETECCION.md). Se va cuando se resuelva TN-03 (QV-03).
+    { provide: PRESCRIPTION_DETECTION, useExisting: DetectUpcomingPrescriptionsUseCase },
   ],
 
   exports: [],

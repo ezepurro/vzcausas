@@ -1,6 +1,7 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SharedModule } from '@shared/shared.module';
+import { PRESCRIPTION_STATUS } from '@subsystems/deadlines/core/domain/ports/prescription-status.port';
 import { ActiveCasesCounterPort } from '@subsystems/legal-parameters/core/domain/ports/active-cases-counter.port';
 import { LegalParametersModule } from '@subsystems/legal-parameters/legal-parameters.module';
 import { ActiveCasesCounterPort as PeopleActiveCasesCounterPort } from '@subsystems/people/core/domain/ports/active-cases-counter.port';
@@ -10,6 +11,7 @@ import { GetCaseTimeline } from './core/application/use-cases/get-case-timeline.
 import { GetProceduralAct } from './core/application/use-cases/get-procedural-act.use-case';
 import { ListCases } from './core/application/use-cases/list-cases.use-case';
 import { ListCustomStates } from './core/application/use-cases/list-custom-states.use-case';
+import { ListActivePrescriptions } from './core/application/use-cases/list-active-prescriptions.use-case';
 import { ListInterruptiveActs } from './core/application/use-cases/list-interruptive-acts.use-case';
 import { ListProceduralActs } from './core/application/use-cases/list-procedural-acts.use-case';
 import { RegisterInterruptiveAct } from './core/application/use-cases/register-interruptive-act.use-case';
@@ -21,12 +23,14 @@ import { CASE_FOLDER_STATE } from './core/domain/ports/case-folder-state.port';
 import { CASE_QUERY } from './core/domain/ports/case-query.port';
 import { CASE_TIMELINE_QUERY } from './core/domain/ports/case-timeline-query.port';
 import { CASE_REPOSITORY } from './core/domain/ports/case.repository';
+import { CRIMINAL_PRESCRIPTION_QUERY } from './core/domain/ports/criminal-prescription-query.port';
 import { DEADLINE_CALCULATOR } from './core/domain/ports/deadline-calculator.port';
 import { INTERRUPTIVE_ACT_QUERY } from './core/domain/ports/interruptive-act-query.port';
 import { INTERRUPTIVE_ACT_REPOSITORY } from './core/domain/ports/interruptive-act.repository';
 import { PROCEDURAL_ACT_QUERY } from './core/domain/ports/procedural-act-query.port';
 import { PROCEDURAL_ACT_REPOSITORY } from './core/domain/ports/procedural-act.repository';
 import { BusinessDaysDeadlineCalculatorAdapter } from './infrastructure/acl/business-days-deadline-calculator.adapter';
+import { DeadlinesPrescriptionStatusAdapter } from './infrastructure/acl/deadlines-prescription-status.adapter';
 import { LegalParametersActiveCasesCounterAdapter } from './infrastructure/acl/legal-parameters-active-cases-counter.adapter';
 import { PeopleActiveCasesCounterAdapter } from './infrastructure/acl/people-active-cases-counter.adapter';
 import { CaseFolderOutcomeListener } from './infrastructure/acl/events/case-folder-outcome.listener';
@@ -41,6 +45,7 @@ import { CaseFolderStatePrismaAdapter } from './infrastructure/persistence/case-
 import { CasePrismaRepository } from './infrastructure/persistence/case-prisma.repository';
 import { CaseQueryPrismaAdapter } from './infrastructure/persistence/case-query-prisma.adapter';
 import { CaseTimelinePrismaAdapter } from './infrastructure/persistence/case-timeline-prisma.adapter';
+import { CriminalPrescriptionQueryPrismaAdapter } from './infrastructure/persistence/criminal-prescription-query-prisma.adapter';
 import { InterruptiveActPrismaRepository } from './infrastructure/persistence/interruptive-act-prisma.repository';
 import { InterruptiveActQueryPrismaAdapter } from './infrastructure/persistence/interruptive-act-query-prisma.adapter';
 import { ProceduralActPrismaRepository } from './infrastructure/persistence/procedural-act-prisma.repository';
@@ -140,7 +145,14 @@ import { ProceduralActQueryPrismaAdapter } from './infrastructure/persistence/pr
     // their own subsystems, which is why one is imported aliased here.
     { provide: ActiveCasesCounterPort, useClass: LegalParametersActiveCasesCounterAdapter },
     { provide: PeopleActiveCasesCounterPort, useClass: PeopleActiveCasesCounterAdapter },
+    // HU52: la prescripción de las causas penales activas, para la verificación
+    // diaria de `deadlines`. El puerto es suyo; `cases` lo implementa porque la
+    // regla de la prescripción es de `cases` (V-04, V-05 de
+    // IMPLEMENTACION_DETECCION.md). Solo se exporta el token.
+    ListActivePrescriptions,
+    { provide: CRIMINAL_PRESCRIPTION_QUERY, useClass: CriminalPrescriptionQueryPrismaAdapter },
+    { provide: PRESCRIPTION_STATUS, useClass: DeadlinesPrescriptionStatusAdapter },
   ],
-  exports: [ActiveCasesCounterPort, PeopleActiveCasesCounterPort],
+  exports: [ActiveCasesCounterPort, PeopleActiveCasesCounterPort, PRESCRIPTION_STATUS],
 })
 export class CasesModule {}
