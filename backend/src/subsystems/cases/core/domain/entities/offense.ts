@@ -51,14 +51,24 @@ export class Offense {
     return this.props.prescriptionExpiresOn;
   }
 
+  /**
+   * The offense as plain data. Its prescription date has to be calculated by
+   * then: `CriminalCase` does it when the case is built, so an offense without
+   * it here is a broken invariant, not a value to pass on (V4 §3.7 defines
+   * `prescriptionExpiresOn` as non-null).
+   */
   toSnapshot(): OffenseSnapshot {
+    const prescriptionExpiresOn = this.prescriptionExpiresOn;
+    if (prescriptionExpiresOn === null) {
+      throw new Error(`The offense of the qualification ${this.legalQualificationId} has no prescription date.`);
+    }
     return {
       legalQualificationId: this.legalQualificationId,
       legalQualificationName: this.legalQualificationName,
       prescriptionMonths: this.prescriptionMonths,
       offenseDate: this.offenseDate,
       prescriptionStartsOn: this.prescriptionStartsOn,
-      prescriptionExpiresOn: this.prescriptionExpiresOn,
+      prescriptionExpiresOn,
     };
   }
 

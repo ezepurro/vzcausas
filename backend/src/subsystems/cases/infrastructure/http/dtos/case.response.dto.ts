@@ -26,7 +26,7 @@ export class LegalQualificationResponseDto {
   prescriptionMonths!: number;
   offenseDate!: string;
   prescriptionStartsOn!: string;
-  prescriptionExpiresOn!: string | null;
+  prescriptionExpiresOn!: string;
 }
 
 export class CurrentStateResponseDto {

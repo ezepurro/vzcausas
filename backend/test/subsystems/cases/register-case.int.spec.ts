@@ -542,18 +542,49 @@ describe('POST /api/v1/cases', () => {
       expect(res.body.error.details).toEqual({ caratula: 'No es un campo admitido.' });
     });
 
-    it('una calificación que no es un objeto se rechaza en castellano', async () => {
-      const body = { ...aCaseBody({ clientId, responsibleLawyerId: lawyerId }), legalQualifications: ['robo'] };
+    // V4 §3.7: "Los errores de una calificación se informan sobre `legalQualifications`",
+    // no sobre `legalQualifications.0.legalQualificationId`.
+    it.each([
+      ['no es un objeto', ['robo'], 'Cada calificación legal debe ser un objeto.'],
+      [
+        'tiene un identificador que no es entero',
+        [{ legalQualificationId: 'uno', offenseDate: '2021-02-27' }],
+        'Cada calificación legal requiere un identificador entero.',
+      ],
+      [
+        'tiene una fecha del hecho inválida',
+        [{ legalQualificationId: 1, offenseDate: 'no-es-fecha' }],
+        'La fecha del hecho debe ser una fecha válida (AAAA-MM-DD).',
+      ],
+      [
+        'trae un campo que el contrato no define',
+        [{ legalQualificationId: 1, offenseDate: '2021-02-27', fecha: '2021-02-27' }],
+        'Cada calificación legal solo admite legalQualificationId y offenseDate.',
+      ],
+    ])('una calificación que %s se informa sobre legalQualifications', async (_caso, legalQualifications, message) => {
+      const body = { ...aCaseBody({ clientId, responsibleLawyerId: lawyerId }), legalQualifications };
 
       const res = await request(app.getHttpServer()).post(URL).set(actor).send(body);
 
-      // Solo se fija el idioma. La clave no: hoy sale `legalQualifications.0` (la ruta
-      // que arma `flatten`, `app.setup.ts`), y el contrato pide informar los errores de
-      // una calificación sobre `legalQualifications` (V4 §3.7). Desvío pendiente de decidir,
-      // no un comportamiento a fijar.
-      expect(res.status).toBe(400);
-      expect(res.body.error.code).toBe('VALIDATION_ERROR');
-      expect(Object.values(res.body.error.details)).toEqual(['Cada calificación legal debe ser un objeto.']);
+      expectError(res, 400, 'VALIDATION_ERROR', ['legalQualifications']);
+      expect(res.body.error.details).toEqual({ legalQualifications: message });
+      expect(await getPrisma().case.count()).toBe(0);
+    });
+
+    it('una calificación sin fecha del hecho responde el texto del contrato', async () => {
+      const qualification = await createLegalQualification();
+      const body = aCaseBody(
+        { clientId, responsibleLawyerId: lawyerId },
+        { legalQualifications: [{ legalQualificationId: qualification.id }] },
+      );
+
+      const res = await request(app.getHttpServer()).post(URL).set(actor).send(body);
+
+      expectError(res, 400, 'VALIDATION_ERROR', ['legalQualifications']);
+      expect(res.body.error.details).toEqual({
+        legalQualifications: 'Cada calificación legal requiere la fecha del hecho.',
+      });
+      expect(await getPrisma().case.count()).toBe(0);
     });
   });
 

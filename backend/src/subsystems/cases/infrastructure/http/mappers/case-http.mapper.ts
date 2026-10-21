@@ -135,8 +135,7 @@ export class CaseHttpMapper {
         prescriptionMonths: qualification.prescriptionMonths,
         offenseDate: toIsoDate(qualification.offenseDate),
         prescriptionStartsOn: toIsoDate(qualification.prescriptionStartsOn),
-        prescriptionExpiresOn:
-          qualification.prescriptionExpiresOn && toIsoDate(qualification.prescriptionExpiresOn),
+        prescriptionExpiresOn: toIsoDate(qualification.prescriptionExpiresOn),
       })),
       prescription: item.prescription && {
         legalQualificationId: item.prescription.legalQualificationId,

@@ -15,6 +15,7 @@ import {
   NOW,
   OPPOSITION,
   PRESCRIBED,
+  ROBBERY,
   SUMMONS,
   TODAY,
   validationDetailsOf,
@@ -476,6 +477,16 @@ describe('Case', () => {
         harmfulActDate: null,
         administrativeRemedyExhaustedOn: null,
       });
+    });
+
+    it('los hechos de una causa penal salen con su fecha de prescripción, nunca nula', () => {
+      const snapshot = aCase({
+        legalQualifications: [{ legalQualificationId: ROBBERY.id, offenseDate: day('2021-02-27') }],
+        legalQualificationRefs: [ROBBERY],
+      }).toSnapshot();
+
+      expect(snapshot.offenses).toHaveLength(1);
+      expect(snapshot.offenses[0].prescriptionExpiresOn).toEqual(day('2029-02-27'));
     });
 
     it('una causa administrativa trae la contraparte, el objeto y la fecha de agotamiento de la vía', () => {

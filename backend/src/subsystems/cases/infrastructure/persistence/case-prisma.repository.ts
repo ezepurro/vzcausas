@@ -30,12 +30,8 @@ export class CasePrismaRepository implements CaseRepository {
     const data = newCase.toSnapshot();
 
     // One nested create: the case and its offenses are saved together or not at all.
-    // Every offense already carries its prescription date (`CriminalCase` calculates it).
-    for (const offense of data.offenses) {
-      if (offense.prescriptionExpiresOn === null) {
-        throw new Error(`The offense of the qualification ${offense.legalQualificationId} has no prescription date.`);
-      }
-    }
+    // Every offense already carries its prescription date (`CriminalCase` calculates
+    // it, and `Offense.toSnapshot` refuses one without it).
 
     await this.prisma.db.case.create({
       data: {
@@ -76,7 +72,7 @@ export class CasePrismaRepository implements CaseRepository {
           create: data.offenses.map((offense) => ({
             legalQualificationId: offense.legalQualificationId,
             offenseDate: offense.offenseDate,
-            prescriptionDate: offense.prescriptionExpiresOn as Date,
+            prescriptionDate: offense.prescriptionExpiresOn,
           })),
         },
       },

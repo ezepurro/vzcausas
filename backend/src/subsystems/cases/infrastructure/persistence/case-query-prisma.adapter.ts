@@ -311,9 +311,13 @@ function fill(
  * arman acá: como `businessDaysRemaining`, dependen de la fecha de hoy y los
  * completa el caso de uso (`withDeadlines`, `list-cases.use-case.ts`).
  *
- * PENDIENTE (delegado desde HU-41, CA-41.6 · 18/10/2026): el detalle y el
- * listado ya lo devuelven, pero **no** ordenan ni filtran por
- * `harmfulActDeadline.dueDate` (D-82, `openDeadline`) y los tableros del abogado
+ * PENDIENTE (delegado desde HU-41, CA-41.6 · 18/10/2026; ratificado con mmachuca
+ * el 21/10/2026 en `fix/cases-contract-v4`, sin implementar y sin test): el
+ * detalle y el listado ya lo devuelven, pero **no** ordenan ni filtran por
+ * `harmfulActDeadline.dueDate` (D-82, `API_CONTRACT_V4.md:3719-3725` y `:7402`;
+ * `openDeadline`). El orden lo resuelve el SQL de `search`, y ese vencimiento
+ * depende de hoy (renovaciones, días hábiles): resolverlo es decidir dónde vive
+ * esa regla, no solo una consulta. Los tableros del abogado
  * y del administrador (`reporting`, `GET /dashboards/*`) no lo cuentan: cada
  * vencimiento del acto lesivo es un elemento de `deadlines` con
  * `kind: HARMFUL_ACT` y cuenta en `summary`. Hoy listan solo `PROCEDURAL_ACT`.

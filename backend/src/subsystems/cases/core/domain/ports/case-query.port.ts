@@ -50,7 +50,8 @@ export type CaseQualificationView = {
   prescriptionMonths: number;
   offenseDate: Date;
   prescriptionStartsOn: Date;
-  prescriptionExpiresOn: Date | null;
+  /** Never `null` (V4 §3.7): computed on every read from `prescriptionStartsOn`. */
+  prescriptionExpiresOn: Date;
 };
 
 /**

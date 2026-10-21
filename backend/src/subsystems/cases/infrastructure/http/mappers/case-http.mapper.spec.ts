@@ -178,16 +178,6 @@ describe('CaseHttpMapper.toResponse', () => {
     expect(response.currentState.businessDaysRemaining).toBeNull();
   });
 
-  it('una prescripción sin calcular sale nula', () => {
-    const [qualification] = anItem().legalQualifications;
-    const response = mapper.toResponse(
-      anItem({ legalQualifications: [{ ...qualification, prescriptionExpiresOn: null }] }),
-    );
-
-    expect(response.legalQualifications[0].prescriptionExpiresOn).toBeNull();
-    // La fecha del hecho sigue saliendo: es dato cargado, no calculado.
-    expect(response.legalQualifications[0].offenseDate).toBe('2021-02-27');
-  });
 
   it('no inventa ni pierde campos: exactamente los 30 del contrato (V4 §3.7)', () => {
     expect(Object.keys(mapper.toResponse(anItem())).sort()).toEqual(

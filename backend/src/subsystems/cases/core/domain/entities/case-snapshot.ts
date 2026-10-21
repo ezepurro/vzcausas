@@ -10,7 +10,8 @@ export interface OffenseSnapshot {
   prescriptionMonths: number;
   offenseDate: Date;
   prescriptionStartsOn: Date;
-  prescriptionExpiresOn: Date | null;
+  /** Never `null`: a criminal case calculates it when it is built (`CriminalCase`). */
+  prescriptionExpiresOn: Date;
 }
 
 /**
