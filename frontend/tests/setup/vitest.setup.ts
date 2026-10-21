@@ -83,6 +83,8 @@ afterEach(() => {
     configureMocks({ ...TEST_MOCK_OPTIONS, passthrough: [] })
     queryClient.clear()
     localStorage.clear()
+    // Los borradores de formularios (`shared/lib/drafts.ts`) no pasan de un test a otro.
+    sessionStorage.clear()
 })
 
 afterAll(() => {

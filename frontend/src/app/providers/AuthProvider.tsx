@@ -7,6 +7,7 @@ import {
     setUnauthenticatedHandler,
 } from '@/shared/api/http'
 import { isApiError } from '@/shared/api/ApiError'
+import { clearDrafts } from '@/shared/lib/drafts'
 import {
     clearStoredSession,
     readStoredSession,
@@ -78,6 +79,12 @@ export function AuthProvider({ children }: Props) {
         setLeftOnPurpose(reason === 'user')
         clearStoredSession()
         setSession(null)
+
+        /* Los borradores de formularios se van sólo si la persona pidió salir.
+           A quien lo echó un token vencido se le conservan: vuelve a entrar y
+           recupera lo que estaba cargando. Cada uno lleva el id del usuario,
+           así que otro que entre en la misma pestaña no los ve. */
+        if (reason === 'user') clearDrafts()
 
         /* La caché entera pertenece a la sesión: lo que se trajo con un
            usuario no tiene por qué verlo el siguiente. Se limpia acá y no en
