@@ -1,11 +1,16 @@
 import { AuthenticatedUser } from '@shared/domain/authenticated-user';
 import { ValidationError } from '@shared/domain/domain-error';
-import { CaseInTerminalStateError, NotResponsibleLawyerError } from '../errors/case.errors';
+import {
+  CaseInTerminalStateError,
+  NotResponsibleLawyerError,
+  PrescriptionNotApplicableError,
+} from '../errors/case.errors';
 import { ProceduralStateRef } from '../ports/legal-parameters-lookup.port';
 import { DayType } from '../value-objects/day-type';
 import { Deadline } from '../value-objects/deadline';
 import { HarmfulActDeadline } from '../value-objects/harmful-act';
 import { Instructor } from '../value-objects/instructor';
+import { PrescriptionDeclaration, PrescriptionDeclarationInput } from '../value-objects/prescription-declaration.vo';
 import { JurisdictionCode } from '../value-objects/jurisdiction-code';
 import { ProceduralRole } from '../value-objects/procedural-role';
 import { CaseSnapshot } from './case-snapshot';
@@ -57,6 +62,18 @@ export interface RegisterProceduralActInput {
   deadline: Deadline;
   actor: AuthenticatedUser;
   // Civil date of the study today, and the instant of registration.
+  today: Date;
+  now: Date;
+}
+
+/** What marking a case as prescribed needs (HU33). */
+export interface DeclarePrescriptionInput {
+  // What the form sends; validated by {@link PrescriptionDeclaration}.
+  data: PrescriptionDeclarationInput;
+  // The "Prescripta" state of the jurisdiction of the case (D-53), or `null` if there is none.
+  prescribedState: ProceduralStateRef | null;
+  actor: AuthenticatedUser;
+  // Civil date of the study today, and the instant of the declaration.
   today: Date;
   now: Date;
 }
@@ -131,6 +148,22 @@ export abstract class Case {
     return null;
   }
 
+  /**
+   * Marks the case as prescribed (HU33). Only a criminal case prescribes
+   * (D-74, CA-33.9): every other jurisdiction refuses it here, and
+   * `CriminalCase` overrides it. Who asks for it is checked before, by
+   * {@link PrescriptionDeclaration.assertCanBeDeclaredBy}.
+   * @throws PrescriptionNotApplicableError
+   */
+  declarePrescription(_input: DeclarePrescriptionInput): void {
+    throw new PrescriptionNotApplicableError();
+  }
+
+  /** The declaration that the case prescribed. Only a criminal case can have one. */
+  get prescriptionDeclaration(): PrescriptionDeclaration | null {
+    return null;
+  }
+
   /** What every case has; the part of each jurisdiction is `null` or empty until a subclass fills it. */
   protected commonSnapshot(): CaseSnapshot {
     const props = this.props;
@@ -192,6 +225,19 @@ export abstract class Case {
     if (!isLawyer || actor.lawyerId === null || actor.lawyerId !== this.props.responsibleLawyerId) {
       throw new NotResponsibleLawyerError(message);
     }
+  }
+
+  /**
+   * Moves the case to a state that no act led it to, and that closes it:
+   * "Prescripta" (HU33, D-54). There is no current act, so no open deadline
+   * either (CA-33.4).
+   */
+  protected closeInState(stateId: number, now: Date): void {
+    this.props.currentStateId = stateId;
+    this.props.currentCustomState = null;
+    this.props.currentProceduralActId = null;
+    this.props.currentStateTerminal = true;
+    this.props.updatedAt = now;
   }
 
   /**

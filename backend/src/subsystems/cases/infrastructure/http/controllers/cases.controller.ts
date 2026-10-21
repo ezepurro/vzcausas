@@ -2,6 +2,7 @@ import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Query } from 
 import { AuthenticatedUser } from '@shared/domain/authenticated-user';
 import { CurrentUser } from '@shared/infrastructure/http/current-user.decorator';
 import { PaginatedResponse, paginate, toPageRequest } from '@shared/infrastructure/http/pagination';
+import { DeclarePrescription } from '../../../core/application/use-cases/declare-prescription.use-case';
 import { GetCase } from '../../../core/application/use-cases/get-case.use-case';
 import { GetProceduralAct } from '../../../core/application/use-cases/get-procedural-act.use-case';
 import { ListCases } from '../../../core/application/use-cases/list-cases.use-case';
@@ -17,6 +18,7 @@ import {
 } from '../../../core/domain/errors/case.errors';
 import { CaseFolderResponseDto, CaseResponseDto } from '../dtos/case.response.dto';
 import { DeadlinePreviewQueryDto } from '../dtos/deadline-preview.query.dto';
+import { DeclarePrescriptionRequestDto } from '../dtos/declare-prescription.request.dto';
 import { DeadlinePreviewResponseDto } from '../dtos/deadline-preview.response.dto';
 import { ListCasesQueryDto } from '../dtos/list-cases.query.dto';
 import { ListProceduralActsQueryDto } from '../dtos/list-procedural-acts.query.dto';
@@ -49,6 +51,7 @@ export class CasesController {
     private readonly getProceduralAct: GetProceduralAct,
     private readonly proceduralActMapper: ProceduralActHttpMapper,
     private readonly caseMapper: CaseHttpMapper,
+    private readonly declarePrescription: DeclarePrescription,
   ) {}
 
   /**
@@ -139,6 +142,26 @@ export class CasesController {
       throw new CaseFolderUnavailableError();
     }
     return { data: result.folder && { ...result.folder } };
+  }
+
+  /**
+   * `POST /cases/{caseId}/prescription` (HU33): marks a criminal case as
+   * prescribed. `200`, not `201`: nothing new is created — the case changes and
+   * goes back whole, as `GET /cases/{caseId}` shows it (D-54).
+   *
+   * No permission is declared: an administrator or any lawyer may do it
+   * (CA-33.1), and the domain refuses the secretariat with the contract's own
+   * `403` text, which the permissions guard could not give.
+   */
+  @Post(':caseId/prescription')
+  @HttpCode(HttpStatus.OK)
+  async markPrescribed(
+    @Param('caseId') caseIdParam: string,
+    @Body() dto: DeclarePrescriptionRequestDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ): Promise<{ data: CaseResponseDto }> {
+    const item = await this.declarePrescription.execute({ ...dto, caseId: this.parseCaseId(caseIdParam), actor });
+    return { data: this.caseMapper.toResponse(item) };
   }
 
   /**

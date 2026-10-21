@@ -236,6 +236,7 @@ export function aCaseInState(
     updatedAt: NOW,
     offenses: [],
     clientDetained: false,
+    prescriptionDeclaration: null,
   });
 }
 

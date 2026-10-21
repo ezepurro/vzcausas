@@ -177,6 +177,14 @@ export class FakeProceduralStateRepository implements ProceduralStateRepository 
     return initial ?? null;
   }
 
+  async findPrescribedByJurisdiction(jurisdiction: JurisdictionCode): Promise<ProceduralState | null> {
+    const prescribed = [...this.byId.values()].find(
+      (procState) => procState.isPrescribed && procState.isActive && procState.jurisdiction.code === jurisdiction,
+    );
+
+    return prescribed ?? null;
+  }
+
   /**
    * Looks in its own catalogue, not in the stored states: in the database
    * jurisdictions live in their own table, so the first state of a

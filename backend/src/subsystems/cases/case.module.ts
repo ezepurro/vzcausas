@@ -13,6 +13,7 @@ import { ListCustomStates } from './core/application/use-cases/list-custom-state
 import { ListInterruptiveActs } from './core/application/use-cases/list-interruptive-acts.use-case';
 import { ListProceduralActs } from './core/application/use-cases/list-procedural-acts.use-case';
 import { RegisterInterruptiveAct } from './core/application/use-cases/register-interruptive-act.use-case';
+import { DeclarePrescription } from './core/application/use-cases/declare-prescription.use-case';
 import { RegisterCase } from './core/application/use-cases/register-case.use-case';
 import { RegisterProceduralAct } from './core/application/use-cases/register-procedural-act.use-case';
 import { RequestCaseFolder } from './core/application/use-cases/request-case-folder.use-case';
@@ -120,6 +121,8 @@ import { ProceduralActQueryPrismaAdapter } from './infrastructure/persistence/pr
     ListCustomStates,
     // The case resource of the listing, the detail and the registration (§3.7).
     CaseHttpMapper,
+    // HU33: marks a criminal case as prescribed; answers with the detail (`GetCase`).
+    DeclarePrescription,
     RegisterProceduralAct,
     // HU27: la consulta de actos procesales, por su propio puerto de lectura.
     ListProceduralActs,

@@ -1,4 +1,4 @@
-import { CaseInTerminalStateError, NotResponsibleLawyerError } from '../errors/case.errors';
+import { CaseInTerminalStateError, NotResponsibleLawyerError, PrescriptionNotApplicableError } from '../errors/case.errors';
 import { DayType } from '../value-objects/day-type';
 import { Deadline } from '../value-objects/deadline';
 import {
@@ -22,7 +22,7 @@ import {
 } from '../../test-support/case-fixtures';
 import { JurisdictionCode } from '../value-objects/jurisdiction-code';
 import { ProceduralRole } from '../value-objects/procedural-role';
-import { Case, RegisterProceduralActInput, TargetStateChoice } from './cases';
+import { Case, DeclarePrescriptionInput, RegisterProceduralActInput, TargetStateChoice } from './cases';
 import { ProceduralAct } from './procedural-act';
 
 const LATER = new Date('2026-10-06T18:00:00.000Z');
@@ -524,6 +524,119 @@ describe('Case', () => {
       expect(anAdministrativeCase().harmfulActDeadline(TODAY)).toBeNull();
       // Sin la fecha del acto lesivo cargada, el amparo tampoco tiene plazo.
       expect(anAmparo().harmfulActDeadline(TODAY)).toBeNull();
+    });
+  });
+
+  // HU33, CA-33.4, CA-33.5, CA-33.8, CA-33.9, CA-33.10 and CA-33.12 (contract V4 §3.7).
+  describe('declarePrescription', () => {
+    const LATER_NOW = new Date('2026-10-06T19:00:00.000Z');
+    const aCriminalCaseWithOffense = () =>
+      aCase({
+        legalQualifications: [{ legalQualificationId: ROBBERY.id, offenseDate: day('2025-01-10') }],
+        legalQualificationRefs: [ROBBERY],
+      });
+    const aDeclaration = (overrides: Partial<DeclarePrescriptionInput> = {}): DeclarePrescriptionInput => ({
+      data: { prescriptionDate: day('2026-09-15'), resolution: 'Sentencia N° 214', grounds: null },
+      prescribedState: PRESCRIBED,
+      actor: anActor({ userId: 9, roleNames: ['ADMINISTRATOR'], lawyerId: null }),
+      today: TODAY,
+      now: LATER_NOW,
+      ...overrides,
+    });
+
+    it.each([
+      ['administrativa', () => anAdministrativeCase()],
+      [
+        'de amparo',
+        () =>
+          aCase({
+            jurisdictionCode: JurisdictionCode.AMPARO,
+            proceduralRole: ProceduralRole.ACTORA,
+            subjectMatter: 'Que se ordene la cobertura integral.',
+          }),
+      ],
+    ])('una causa %s no prescribe: PRESCRIPTION_NOT_APPLICABLE del fuero (CA-33.9)', (_fuero, build) => {
+      const attempt = () => build().declarePrescription(aDeclaration());
+
+      expect(attempt).toThrow(PrescriptionNotApplicableError);
+      expect(attempt).toThrow('La prescripción solo aplica a las causas del fuero penal.');
+    });
+
+    it('una causa penal sin calificaciones no prescribe (D-74, CA-33.9)', () => {
+      const attempt = () => aCase().declarePrescription(aDeclaration());
+
+      expect(attempt).toThrow(PrescriptionNotApplicableError);
+      expect(attempt).toThrow('La causa no tiene calificaciones legales: no puede prescribir.');
+    });
+
+    it('una causa cerrada no se marca: CASE_IN_TERMINAL_STATE de "esta operación" (CA-33.8)', () => {
+      const archived = aCaseInState({ currentStateId: ARCHIVED.id });
+
+      expect(() => archived.declarePrescription(aDeclaration())).toThrow(
+        'La causa se encuentra en un estado terminal y no admite esta operación.',
+      );
+      expect(archived.currentStateId).toBe(ARCHIVED.id);
+    });
+
+    it('pasa a "Prescripta" sin acto vigente, cerrada y con la declaración (CA-33.4, CA-33.5)', () => {
+      const prescribed = aCriminalCaseWithOffense();
+
+      prescribed.declarePrescription(aDeclaration());
+
+      expect(prescribed.currentStateId).toBe(PRESCRIBED.id);
+      expect(prescribed.currentCustomState).toBeNull();
+      expect(prescribed.currentProceduralActId).toBeNull();
+      expect(prescribed.updatedAt).toEqual(LATER_NOW);
+      expect(prescribed.prescriptionDeclaration).toMatchObject({
+        prescriptionDate: day('2026-09-15'),
+        resolution: 'Sentencia N° 214',
+        grounds: null,
+        registeredByUserId: 9,
+        registeredAt: LATER_NOW,
+      });
+      // The case is not given de baja: it stays and keeps its history (CA-33.7).
+      expect(prescribed.active).toBe(true);
+    });
+
+    it('una vez prescripta no admite actos ni otra marca, y no se deshace (CA-33.8, CA-33.12)', () => {
+      const prescribed = aCriminalCaseWithOffense();
+      prescribed.declarePrescription(aDeclaration());
+      const first = prescribed.prescriptionDeclaration;
+
+      expect(() => prescribed.assertAcceptsActs()).toThrow(CaseInTerminalStateError);
+      expect(() => prescribed.declarePrescription(aDeclaration({ data: { prescriptionDate: TODAY, resolution: 'Otra' } }))).toThrow(
+        CaseInTerminalStateError,
+      );
+      expect(prescribed.prescriptionDeclaration).toBe(first);
+    });
+
+    it('el negocio va antes que los datos: sin calificaciones da 422 aunque los datos sean inválidos', () => {
+      expect(() => aCase().declarePrescription(aDeclaration({ data: { resolution: '' } }))).toThrow(
+        PrescriptionNotApplicableError,
+      );
+    });
+
+    it('con datos inválidos no cambia nada de la causa (CA-33.3)', async () => {
+      const target = aCriminalCaseWithOffense();
+      const before = target.currentStateId;
+
+      expect(
+        await validationDetailsOf(() => target.declarePrescription(aDeclaration({ data: { resolution: ' ' } }))),
+      ).toEqual({
+        prescriptionDate: 'La fecha de la prescripción es obligatoria.',
+        resolution: 'La resolución que declara la prescripción es obligatoria.',
+      });
+      expect(target.currentStateId).toBe(before);
+      expect(target.prescriptionDeclaration).toBeNull();
+    });
+
+    it('sin el estado "Prescripta" del fuero penal es un dato roto, no un error del usuario', () => {
+      expect(() => aCriminalCaseWithOffense().declarePrescription(aDeclaration({ prescribedState: null }))).toThrow(
+        /no "Prescripta" state/,
+      );
+      expect(() =>
+        aCriminalCaseWithOffense().declarePrescription(aDeclaration({ prescribedState: ARCHIVED })),
+      ).toThrow(/no "Prescripta" state/);
     });
   });
 

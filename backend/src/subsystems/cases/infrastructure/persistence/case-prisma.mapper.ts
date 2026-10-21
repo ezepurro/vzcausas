@@ -14,6 +14,7 @@ import { Offense } from '../../core/domain/entities/offense';
 import { ProceduralActPrismaMapper } from './procedural-act-prisma.mapper';
 import { DayType } from '../../core/domain/value-objects/day-type';
 import { JurisdictionCode } from '../../core/domain/value-objects/jurisdiction-code';
+import { PrescriptionDeclaration } from '../../core/domain/value-objects/prescription-declaration.vo';
 import { ProceduralRole } from '../../core/domain/value-objects/procedural-role';
 
 export type OffenseRow = PrismaOffense & { legalQualification: PrismaLegalQualification };
@@ -28,6 +29,27 @@ export type CaseRow = PrismaCase & {
 };
 
 export class CasePrismaMapper {
+  /**
+   * The declaration of HU33 from its columns, or `null` while the case was not
+   * marked. HU33 writes them all at once and the `ck_cases_prescription_*` CHECKs
+   * keep them together, so a date without the rest is corrupt data.
+   */
+  private static toPrescriptionDeclaration(row: PrismaCase): PrescriptionDeclaration | null {
+    if (row.prescriptionDate === null) {
+      return null;
+    }
+    if (row.prescriptionResolution === null || row.prescriptionRegisteredByUserId === null || row.prescriptionRegisteredAt === null) {
+      throw new Error(`Case ${row.id} has a prescription date but an incomplete prescription declaration.`);
+    }
+    return PrescriptionDeclaration.hydrate({
+      prescriptionDate: row.prescriptionDate,
+      resolution: row.prescriptionResolution,
+      grounds: row.prescriptionGrounds,
+      registeredByUserId: row.prescriptionRegisteredByUserId,
+      registeredAt: row.prescriptionRegisteredAt,
+    });
+  }
+
   static toDomain(row: CaseRow): Case {
     const props: CaseProps = {
       id: row.id,
@@ -79,6 +101,7 @@ export class CasePrismaMapper {
           ...props,
           offenses: row.offenses.map(CasePrismaMapper.toOffense),
           clientDetained: row.clientDetained ?? false,
+          prescriptionDeclaration: CasePrismaMapper.toPrescriptionDeclaration(row),
         });
     }
   }

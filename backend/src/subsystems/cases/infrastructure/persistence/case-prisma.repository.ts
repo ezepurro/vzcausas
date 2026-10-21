@@ -140,4 +140,35 @@ export class CasePrismaRepository implements CaseRepository {
       },
     });
   }
+
+  /**
+   * HU33. One conditional `UPDATE`: the state, the empty current act and the
+   * five declaration columns change together, which keeps the
+   * `ck_cases_prescription_declaration_complete` CHECK and the exclusive
+   * state/custom-state CHECK. `prescriptionDate: null` in the `WHERE` makes
+   * the check and the write one step in the database, so of two simultaneous
+   * markings only one writes (D-54: the declaration is recorded once).
+   */
+  async saveDeclaredPrescription(prescribedCase: Case): Promise<boolean> {
+    const declaration = prescribedCase.prescriptionDeclaration;
+    if (declaration === null) {
+      throw new Error(`The case ${prescribedCase.id} has no prescription declaration to save.`);
+    }
+
+    const { count } = await this.prisma.db.case.updateMany({
+      where: { id: prescribedCase.id, prescriptionDate: null },
+      data: {
+        currentStateId: prescribedCase.currentStateId,
+        currentCustomState: prescribedCase.currentCustomState,
+        currentProceduralActId: prescribedCase.currentProceduralActId,
+        prescriptionDate: declaration.prescriptionDate,
+        prescriptionResolution: declaration.resolution,
+        prescriptionGrounds: declaration.grounds,
+        prescriptionRegisteredByUserId: declaration.registeredByUserId,
+        prescriptionRegisteredAt: declaration.registeredAt,
+        updatedAt: prescribedCase.updatedAt,
+      },
+    });
+    return count === 1;
+  }
 }

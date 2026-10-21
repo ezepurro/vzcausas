@@ -53,6 +53,8 @@ export interface ProceduralStateRepository {
 
   /** The initial state ("Iniciada") of an active jurisdiction, or `null` if there is none. */
   findInitialByJurisdiction(jurisdiction: JurisdictionCode): Promise<ProceduralState | null>;
+  /** The system state "Prescripta" of an active jurisdiction (D-53), or `null` if it has none: only `CRIMINAL` has one. */
+  findPrescribedByJurisdiction(jurisdiction: JurisdictionCode): Promise<ProceduralState | null>;
   /** `true` if the jurisdiction has an active state with that name, ignoring case. */
   existsActiveByName(jurisdictionId: number, name: string): Promise<boolean>;
 

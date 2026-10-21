@@ -44,6 +44,7 @@ describe('ViewProceduralStates', () => {
       findById: jest.fn(),
       existsByName: jest.fn(),
       findInitialByJurisdiction: jest.fn(),
+      findPrescribedByJurisdiction: jest.fn(),
       findJurisdictionByCode: jest.fn(),
       nextId: jest.fn(),
       create: jest.fn(),

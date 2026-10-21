@@ -45,11 +45,24 @@ export class FakeCaseRepository implements CaseRepository {
   /** When set, `saveCurrentAct` fails with it. */
   failOnSaveCurrentActWith: Error | null = null;
 
+  /** The cases `saveDeclaredPrescription` wrote, in order. */
+  readonly declaredPrescriptions: Case[] = [];
+  /** When `true`, `saveDeclaredPrescription` finds the case already marked: another marking won. */
+  prescriptionAlreadyDeclaredOnSave = false;
+
   constructor(private readonly states: ProceduralStateRef[]) {}
 
   /** Puts a case in the "database", as if it had been registered before. */
   add(existing: Case): void {
     this.saved.push(existing);
+  }
+
+  async saveDeclaredPrescription(prescribedCase: Case): Promise<boolean> {
+    if (this.prescriptionAlreadyDeclaredOnSave) {
+      return false;
+    }
+    this.declaredPrescriptions.push(prescribedCase);
+    return true;
   }
 
   async saveCurrentAct(updatedCase: Case): Promise<void> {
@@ -192,6 +205,11 @@ export class FakeLegalParametersLookup implements LegalParametersLookupPort {
 
   async findProcStateById(id: number): Promise<ProceduralStateRef | null> {
     return this.allStates().find((state) => state.id === id) ?? null;
+  }
+
+  async findPrescribedProcStateByJurisdiction(jurisdiction: JurisdictionCode): Promise<ProceduralStateRef | null> {
+    const jurisdictionId = this.initialStates[jurisdiction]?.jurisdictionId;
+    return this.states.find((state) => state.isPrescribed && state.jurisdictionId === jurisdictionId) ?? null;
   }
 
   async existsProcStateActiveByName(jurisdictionId: number, name: string): Promise<boolean> {
