@@ -26,6 +26,7 @@ function deadlineNotice(
     origin: "PROCEDURAL_ACT",
     dueDate: "2026-10-18",
     proceduralActId: 100,
+    businessDaysRemaining: 0,
     ...overrides,
   };
 }
@@ -41,6 +42,7 @@ function prescriptionNotice(
     kind: "PRESCRIPTION_ALERT",
     referenceDate: "2026-10-18",
     legalQualificationName: "Robo calificado",
+    daysRemaining: 45,
     ...overrides,
   };
 }

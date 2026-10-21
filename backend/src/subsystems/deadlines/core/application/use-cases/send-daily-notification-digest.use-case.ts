@@ -45,6 +45,50 @@ function isDeadlineNotice(notice: Notice): notice is UpcomingDeadlineNotice {
   return notice.kind === "DEADLINE_WARNING" || notice.kind === "DEADLINE_DUE_TODAY";
 }
 
+/** Calcado de `frontend/src/styles/tokens.css` — única fuente de verdad del color ahí; acá, una copia estática. */
+const BRAND = {
+  canvas: "#F6F7F4",
+  surface: "#FFFFFF",
+  border: "#DDE2DC",
+  rail: "#0C1406",
+  railFg: "#8B9984",
+  ink: "#0F172A",
+  muted: "#5A6560",
+  faint: "#68716C",
+  font: "'Figtree', -apple-system, system-ui, sans-serif",
+  fontMono: "'Roboto Mono', ui-monospace, SFMono-Regular, monospace",
+} as const;
+
+interface Tone {
+  color: string;
+  bg: string;
+  border: string;
+}
+
+/** Mismos cuatro tonos que `.vz-pill--*` (`feedback.css`). */
+const TONES: Record<"ok" | "warn" | "danger" | "neutral", Tone> = {
+  ok: { color: "#2F4D2F", bg: "#EEF3EC", border: "#D8E4D5" },
+  warn: { color: "#7A5C1E", bg: "#FBF3E2", border: "#EBDCB8" },
+  danger: { color: "#8E1F19", bg: "#FBEAE8", border: "#F0CDC9" },
+  neutral: { color: "#5A6560", bg: "#F1F3EF", border: "#DDE2DC" },
+};
+
+/** `YYYY-MM-DD` a `DD/MM/AAAA`, como `shared/lib/dates.ts#formatDate` del frontend. Solo reordena el string: sin `Date`, sin huso horario. */
+function formatIsoDate(isoDate: string): string {
+  const [year, month, day] = isoDate.split("-");
+  return `${day}/${month}/${year}`;
+}
+
+/** Los datos de una causa (carátula, SAC) son texto libre cargado por un abogado: sin esto, uno con `<`/`&` rompería el HTML del correo. */
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function referenceDateOf(notice: Notice): string {
   return isDeadlineNotice(notice) ? notice.dueDate : notice.referenceDate;
 }
@@ -253,31 +297,162 @@ export class SendDailyNotificationDigestUseCase {
 
   /**
    * N-06: un único mapper, reusado para la casilla y para cada abogado —
-   * mismo algoritmo, distinto input. Contenido y diseño del correo no
-   * están pinned por ningún CA leído hasta ahora: placeholder razonable,
-   * pendiente de revisión de contenido.
+   * mismo algoritmo, distinto input. Separa vencimientos de prescripciones
+   * en dos secciones porque son avisos de naturaleza distinta (CA-30 vs.
+   * CA-32), no porque haya dos algoritmos: las dos pasan por `renderSection`.
+   * Paleta, tipografía y pills calcados de `frontend/src/styles/tokens.css`,
+   * `feedback.css` (`.vz-pill`) y `features/cases/utils/deadlineStatus.ts` —
+   * mismos colores y mismo texto que ve un abogado en la app, a pedido de
+   * mmachuca (20/10/2026). Todo en estilos inline: un correo no tiene hoja de
+   * estilos propia, y es lo único que todos los clientes de correo soportan
+   * igual.
    */
   private render(to: string[], notices: Notice[]): EmailMessage {
-    const items = notices.map((notice) => `<li>${this.describeNotice(notice)}</li>`).join("");
+    const deadlineNotices = notices.filter(isDeadlineNotice);
+    const prescriptionNotices = notices.filter(
+      (notice): notice is PrescriptionNotice => !isDeadlineNotice(notice),
+    );
+
+    const body =
+      this.renderSection("Vencimientos próximos", deadlineNotices, (n) => this.renderDeadlineRow(n)) +
+      this.renderSection("Prescripciones", prescriptionNotices, (n) => this.renderPrescriptionRow(n));
 
     return {
       to,
       subject: "Avisos de vencimientos y prescripciones — VZ Causas",
-      html: `<p>Avisos del día:</p><ul>${items}</ul>`,
+      html: this.renderShell(body),
     };
   }
 
-  private describeNotice(notice: Notice): string {
-    const sac = notice.sacNumber ? ` (SAC ${notice.sacNumber})` : "";
+  /**
+   * De punta a punta (el color llega a los bordes del cliente de correo,
+   * sin margen gris alrededor de una tarjeta) — ajustado a pedido de
+   * mmachuca (21/10/2026) sobre la vista anterior, que dejaba ver el canvas
+   * a los costados. Cada fila de la tabla externa es una franja a
+   * `width:100%` con su color; el contenido de cada una se centra en una
+   * tabla interna de 620px — técnica estándar de correo para el sangrado.
+   * Sin `border-radius` en ningún lado: una franja de punta a punta no
+   * tiene esquina que redondear.
+   *
+   * Isotipo vectorial real, descartado: lo probamos embebido (`<svg>`) y
+   * Gmail lo saca del correo entero — no lo escala mal, directamente no lo
+   * muestra (confirmado contra Gmail real, 21/10/2026). Mostrar el logo de
+   * verdad necesita un `<img src="https://...">` a una imagen alojada en
+   * una URL pública, que no existe todavía (el frontend corre en
+   * `localhost`). Para no bloquear esto en infraestructura que se tira al
+   * desplegar la semana que viene, el monograma es texto: "VZ" en negrita
+   * dentro de una cajita (chico, al lado del wordmark) y el mismo texto
+   * grande con opacidad baja como marca de agua — sin SVG, sin imagen,
+   * garantizado en cualquier cliente de correo.
+   */
+  private renderShell(body: string): string {
+    return `<!DOCTYPE html>
+<html lang="es">
+  <body style="margin:0;padding:0;background:${BRAND.canvas};font-family:${BRAND.font};">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+      <tr>
+        <td style="background:${BRAND.rail};padding:36px 24px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:620px;margin:0 auto;">
+            <tr>
+              <td style="vertical-align:middle;">
+                <table role="presentation" cellpadding="0" cellspacing="0">
+                  <tr>
+                    <td width="46" height="46" align="center" valign="middle" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.22);border-radius:10px;font-size:15px;font-weight:800;color:#FFFFFF;letter-spacing:-.02em;">VZ</td>
+                    <td style="width:14px;">&nbsp;</td>
+                    <td style="vertical-align:middle;">
+                      <div style="font-size:19px;font-weight:800;color:#FFFFFF;letter-spacing:-.01em;">Vázquez &amp; Zárate</div>
+                      <div style="font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:${BRAND.railFg};margin-top:4px;">Staff de Abogados</div>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+              <td width="90" style="vertical-align:middle;text-align:right;">
+                <span style="font-size:64px;line-height:1;font-weight:800;color:rgba(255,255,255,.08);">VZ</span>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+      <tr>
+        <td style="background:${BRAND.surface};padding:28px 24px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:620px;margin:0 auto;">
+            <tr>
+              <td>
+                <p style="margin:0 0 18px;font-size:13px;color:${BRAND.muted};">Avisos del día:</p>
+                ${body}
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+      <tr>
+        <td style="background:${BRAND.canvas};padding:16px 24px;text-align:center;">
+          <span style="font-size:11px;color:${BRAND.faint};">Aviso automático de VZ Causas — no responder este correo.</span>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+  }
 
-    if (isDeadlineNotice(notice)) {
-      const label = notice.kind === "DEADLINE_DUE_TODAY" ? "vence hoy" : "vence pronto";
-      return `${notice.caption}${sac} — ${label}: ${notice.dueDate}`;
+  private renderSection<T>(title: string, items: T[], renderRow: (item: T) => string): string {
+    if (items.length === 0) {
+      return "";
     }
+    const rows = items.map(renderRow).join("");
+    return `<div style="margin:0 0 20px;">
+      <div style="font-size:14px;font-weight:700;color:${BRAND.ink};margin:0 0 10px;">${title}</div>
+      ${rows}
+    </div>`;
+  }
 
-    const label =
-      notice.kind === "PRESCRIPTION_EXPIRED" ? "prescribe hoy" : "cerca de prescribir";
-    return `${notice.caption}${sac} — ${label} por ${notice.legalQualificationName}: ${notice.referenceDate}`;
+  /** Mismos cortes y mismo texto que `deadlineStatus.ts` (sin OVERDUE: nunca llega hasta acá, D-64). */
+  private renderDeadlineRow(notice: UpcomingDeadlineNotice): string {
+    const { label, tone } =
+      notice.kind === "DEADLINE_DUE_TODAY"
+        ? { label: "Vence hoy", tone: TONES.danger }
+        : {
+            label: this.plural(notice.businessDaysRemaining, "En", "día hábil", "días hábiles"),
+            tone: notice.businessDaysRemaining <= 5 ? TONES.warn : TONES.neutral,
+          };
+
+    return this.renderRow(notice.caption, this.sacAndDate(notice.sacNumber, notice.dueDate), label, tone);
+  }
+
+  /** Mismo tono que `PrescriptionBar`: `expired` → danger, `alert` → warn. */
+  private renderPrescriptionRow(notice: PrescriptionNotice): string {
+    const { label, tone } =
+      notice.kind === "PRESCRIPTION_EXPIRED"
+        ? { label: "Prescribe hoy", tone: TONES.danger }
+        : { label: this.plural(notice.daysRemaining, "En", "día", "días"), tone: TONES.warn };
+
+    const meta = `${this.sacAndDate(notice.sacNumber, notice.referenceDate)} · ${escapeHtml(notice.legalQualificationName)}`;
+    return this.renderRow(notice.caption, meta, label, tone);
+  }
+
+  private renderRow(caption: string, meta: string, label: string, tone: Tone): string {
+    return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 10px;border:1px solid ${BRAND.border};border-radius:14px;background:${BRAND.surface};">
+      <tr>
+        <td style="padding:14px 16px;vertical-align:top;">
+          <div style="font-size:13.5px;font-weight:700;line-height:1.35;color:${BRAND.ink};">${escapeHtml(caption)}</div>
+          <div style="font-size:11.5px;color:${BRAND.muted};margin-top:3px;font-family:${BRAND.fontMono};">${meta}</div>
+        </td>
+        <td style="padding:12px 14px;vertical-align:middle;text-align:right;white-space:nowrap;">
+          <span style="display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600;border:1px solid ${tone.border};color:${tone.color};background:${tone.bg};">
+            <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${tone.color};margin-right:6px;"></span>${label}
+          </span>
+        </td>
+      </tr>
+    </table>`;
+  }
+
+  private sacAndDate(sacNumber: string | null, isoDate: string): string {
+    const sac = sacNumber ? `SAC ${escapeHtml(sacNumber)}` : "Sin SAC";
+    return `${sac} · ${formatIsoDate(isoDate)}`;
+  }
+
+  private plural(count: number, prefix: string, singular: string, pluralForm: string): string {
+    return `${prefix} ${count} ${count === 1 ? singular : pluralForm}`;
   }
 
   private describe(err: unknown): string {

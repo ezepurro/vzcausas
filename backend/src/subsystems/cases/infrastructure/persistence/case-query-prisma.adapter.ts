@@ -313,6 +313,16 @@ function fill(
  * y del administrador (`reporting`, `GET /dashboards/*`) no lo cuentan: cada
  * vencimiento del acto lesivo es un elemento de `deadlines` con
  * `kind: HARMFUL_ACT` y cuenta en `summary`. Hoy listan solo `PROCEDURAL_ACT`.
+ *
+ * Nota del 20/10/2026, desde HU-51 (no es de HU-51; es D-82 de `GET /cases` y
+ * CA-41.6 de los tableros): la verificación diaria ya avisa por correo el
+ * vencimiento del acto lesivo, así que mientras esto siga pendiente el correo
+ * avisa un amparo que el orden por urgencia y `openDeadline` no consideran
+ * (CA-51.9). El vencimiento no está guardado —depende de hoy y de las
+ * renovaciones—, así que el `ORDER BY` de `search` no lo puede leer de una
+ * columna: o se ordena en memoria con `harmfulActOf` + `HarmfulAct.deadline`
+ * (exportados para eso, ver `list-cases.use-case.ts`), o se reescribe la regla
+ * en SQL, y entonces son dos copias. Ver `IMPLEMENTACION_DETECCION.md`, B4.
  */
 function toListItem(row: CaseRow): CaseListItem {
   const act = row.currentProceduralAct;

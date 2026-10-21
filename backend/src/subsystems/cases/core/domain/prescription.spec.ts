@@ -91,6 +91,13 @@ describe('summarizePrescription', () => {
     expect(summarizePrescription([tenMonths()], null, day('2026-10-31'))).toMatchObject({ expired: false });
   });
 
+  it('remainingDays cuenta días calendario hasta el vencimiento, y es negativo una vez pasado', () => {
+    // Vence el 1/11/2026.
+    expect(summarizePrescription([tenMonths()], null, day('2026-10-06'))).toMatchObject({ remainingDays: 26 });
+    expect(summarizePrescription([tenMonths()], null, day('2026-11-01'))).toMatchObject({ remainingDays: 0 });
+    expect(summarizePrescription([tenMonths()], null, day('2026-11-03'))).toMatchObject({ remainingDays: -2 });
+  });
+
   it('un acto interruptivo reinicia el cómputo y la alerta desaparece', () => {
     const summary = summarizePrescription([tenMonths()], day('2026-09-01'), day('2026-10-06'));
 
