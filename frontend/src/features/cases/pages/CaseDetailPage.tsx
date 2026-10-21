@@ -243,7 +243,7 @@ function CaseDetail({ case: c }: { case: Case }) {
                     <ClientCard client={c.client} />
                     <CaseFacts case={c} />
                     <CaseFolderCard
-                        folder={c.folder}
+                        case={c}
                         creating={createFolder.isPending}
                         error={
                             createFolder.isError

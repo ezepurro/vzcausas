@@ -1,11 +1,12 @@
 import { Button, Icon, Panel, Pill, type PillTone } from '@/shared/components/ui'
-import type { CaseFolder, CaseFolderStatus } from '@/features/cases/types/case'
-import { copiedTemplatesText, splitFolderPath } from '@/features/cases/utils/caseFolder'
+import { formatPersonName } from '@/shared/lib/personName'
+import { JURISDICTION_LABELS } from '@/features/legal-params'
+import type { Case, CaseFolderStatus } from '@/features/cases/types/case'
+import { copiedTemplatesText } from '@/features/cases/utils/caseFolder'
 
 export interface CaseFolderCardProps {
-    /** `null` en las causas registradas antes de V4. */
-    folder: CaseFolder | null
-    /** Pidiendo la carpeta: el botón se deshabilita. */
+    case: Case
+    /** Pidiendo la carpeta al servidor: la tarjeta lo muestra y el botón se deshabilita. */
     creating: boolean
     /** El mensaje del último intento fallido, o `null`. */
     error: string | null
@@ -44,63 +45,84 @@ const VIEW: Record<FolderView, { label: string | null; tone: PillTone; note: str
     },
 }
 
+/** Lo que dice la tarjeta mientras espera la respuesta del pedido. */
+const REQUESTING = {
+    label: 'Creando carpeta…',
+    tone: 'primary' as PillTone,
+    note: 'Pidiendo la carpeta a Drive. Puede tardar unos segundos.',
+}
+
 /**
  * La tarjeta "Carpeta en Drive" del detalle de la causa (HU39, HU40).
  *
- * Arriba, la carpeta: su nombre (la carátula) y dónde está (abogado › fuero).
+ * Arriba, la carpeta: su nombre (la carátula) y dónde va (abogado › fuero).
+ * Salen de la causa y no de `folder.path`, que el contrato pide no separar en
+ * partes (y que el backend manda en `null` mientras no está creada). La ruta
+ * completa, si viene, queda en el `title`.
+ *
  * Debajo, en qué situación está y qué se puede hacer. Con la carpeta creada,
  * la abre en otra pestaña. Si no la tiene (`null` o `PENDING`) ofrece crearla,
  * y si falló, reintentarla: las dos van por `POST /cases/{caseId}/folder`, que
- * además copia los modelos que faltaban. Mientras se crea no hay nada que
- * hacer. Lo puede usar cualquier perfil, igual que el alta de la causa.
+ * además copia los modelos que faltaban. Mientras el pedido está en curso, y
+ * mientras el servidor la sigue creando (`CREATING`), lo muestra con una barra
+ * en movimiento. Lo puede usar cualquier perfil, igual que el alta de la causa.
  *
  * El botón no está en el prototipo (V4 §3.7).
  */
-export function CaseFolderCard({ folder, creating, error, onCreate }: CaseFolderCardProps) {
+export function CaseFolderCard({ case: c, creating, error, onCreate }: CaseFolderCardProps) {
+    const folder = c.folder
     const view: FolderView = folder?.status ?? 'NONE'
-    const { label, tone, note } = VIEW[view]
+    const { label, tone, note } = creating ? REQUESTING : VIEW[view]
+    const busy = creating || view === 'CREATING'
     const canCreate = view === 'NONE' || view === 'PENDING' || view === 'ERROR'
-    const location = folder ? splitFolderPath(folder.path) : null
     const created = folder?.status === 'CREATED' ? folder : null
     const copied = created ? copiedTemplatesText(created) : null
     const missing = created?.templatesPending ?? 0
+    const modifier = creating ? 'requesting' : view.toLowerCase()
+    // Mientras no existe se muestra dónde *va* a quedar, no como si ya estuviera.
+    const exists = created !== null && !creating
+    const whereLabel = exists ? null : busy ? 'Se está creando en' : 'Se va a crear en'
 
     return (
         <Panel title="Carpeta en Drive">
-            <div className={`vz-panel__body vz-case-folder vz-case-folder--${view.toLowerCase()}`}>
+            <div
+                className={`vz-panel__body vz-case-folder vz-case-folder--${modifier}${exists ? '' : ' vz-case-folder--draft'}`}
+                aria-busy={busy}
+            >
                 <div className="vz-case-folder__head">
                     <span className="vz-case-folder__icon">
-                        <Icon name={view === 'ERROR' ? 'alert' : 'folder'} size={20} />
+                        <Icon name={view === 'ERROR' && !creating ? 'alert' : 'folder'} size={20} />
                     </span>
                     <div className="vz-case-folder__id">
-                        <div className="vz-case-folder__name" title={folder?.path}>
-                            {location ? location.name : 'Sin carpeta en Drive'}
+                        <div className="vz-case-folder__name" title={folder?.path ?? undefined}>
+                            {c.caption}
                         </div>
-                        {location && location.parents.length > 0 && (
-                            <div className="vz-case-folder__where">
-                                {location.parents.map((p, i) => (
-                                    <span key={p}>
-                                        {i > 0 && <span className="vz-case-folder__sep" aria-hidden="true">›</span>}
-                                        {p}
-                                    </span>
-                                ))}
-                            </div>
-                        )}
+                        <div className="vz-case-folder__where">
+                            {whereLabel && <span className="vz-case-folder__where-label">{whereLabel} </span>}
+                            {formatPersonName(c.responsibleLawyer)}
+                            <span className="vz-case-folder__sep" aria-hidden="true">›</span>
+                            {JURISDICTION_LABELS[c.jurisdiction]}
+                        </div>
                     </div>
                 </div>
 
-                {label && (
-                    <div className="vz-case-folder__status">
-                        <Pill tone={tone} dot>{label}</Pill>
-                        {copied && <span className="vz-case-folder__meta">{copied}</span>}
-                        {missing > 0 && (
-                            <span className="vz-case-folder__meta">
-                                {missing === 1 ? '1 modelo sin copiar' : `${missing} modelos sin copiar`}
-                            </span>
-                        )}
-                    </div>
-                )}
-                {note && <p className="vz-case-folder__note">{note}</p>}
+                {busy && <div className="vz-case-folder__progress" aria-hidden="true" />}
+
+                {/* `role="status"`: un lector de pantalla anuncia el cambio sin mover el foco. */}
+                <div className="vz-case-folder__live" role="status">
+                    {label && (
+                        <div className="vz-case-folder__status">
+                            <Pill tone={tone} dot>{label}</Pill>
+                            {copied && <span className="vz-case-folder__meta">{copied}</span>}
+                            {missing > 0 && (
+                                <span className="vz-case-folder__meta">
+                                    {missing === 1 ? '1 modelo sin copiar' : `${missing} modelos sin copiar`}
+                                </span>
+                            )}
+                        </div>
+                    )}
+                    {note && <p className="vz-case-folder__note">{note}</p>}
+                </div>
 
                 {created?.url && (
                     <a
@@ -118,14 +140,18 @@ export function CaseFolderCard({ folder, creating, error, onCreate }: CaseFolder
                         size="sm"
                         block
                         variant={view === 'ERROR' ? 'secondary' : 'primary'}
-                        icon={<Icon name={view === 'ERROR' ? 'forward' : 'plus'} size={14} />}
+                        icon={
+                            creating
+                                ? <span className="vz-case-folder__spinner" aria-hidden="true" />
+                                : <Icon name={view === 'ERROR' ? 'forward' : 'plus'} size={14} />
+                        }
                         disabled={creating}
                         onClick={onCreate}
                     >
                         {view === 'ERROR' ? 'Reintentar' : 'Crear carpeta'}
                     </Button>
                 )}
-                {error && (
+                {error && !creating && (
                     <div className="vz-case-folder__error" role="alert">
                         <Icon name="alert" size={15} />
                         <span>{error}</span>

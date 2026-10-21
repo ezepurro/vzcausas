@@ -285,9 +285,20 @@
   background: var(--vz-sunken);
   color: var(--vz-muted);
 }
-.vz-case-folder--created .vz-case-folder__icon,
-.vz-case-folder--creating .vz-case-folder__icon { background: var(--vz-primary-soft); color: var(--vz-primary-hi); }
-.vz-case-folder--error .vz-case-folder__icon { background: var(--vz-danger-bg); color: var(--vz-danger); }
+.vz-case-folder--created .vz-case-folder__icon { background: var(--vz-primary-soft); color: var(--vz-primary-hi); }
+/* Mientras la carpeta no existe, el ícono es un lugar reservado: borde
+   punteado y sin relleno, con el color del estado. Así no se confunde con
+   una carpeta ya creada. */
+.vz-case-folder--draft .vz-case-folder__icon {
+  border: 1.5px dashed var(--vz-border-strong);
+  background: none;
+  color: var(--vz-faint);
+}
+.vz-case-folder--draft.vz-case-folder--creating .vz-case-folder__icon,
+.vz-case-folder--draft.vz-case-folder--requesting .vz-case-folder__icon { border-color: var(--vz-primary); color: var(--vz-primary); }
+.vz-case-folder--draft.vz-case-folder--error .vz-case-folder__icon { border-color: var(--vz-danger-bd); color: var(--vz-danger); }
+.vz-case-folder--draft .vz-case-folder__name { font-weight: 600; color: var(--vz-muted); }
+.vz-case-folder__where-label { color: var(--vz-faint); }
 .vz-case-folder__id { min-width: 0; }
 /* La carátula puede ser larga: corta entre palabras y a lo sumo en tres renglones. */
 .vz-case-folder__name {
@@ -321,9 +332,50 @@
   line-height: 1.4;
 }
 .vz-case-folder__error svg { flex: 0 0 auto; margin-top: 1px; }
-/* Mientras se crea, el punto del estado late. */
-.vz-case-folder--creating .vz-dot { animation: vz-folder-pulse 1.4s ease-in-out infinite; }
-@keyframes vz-folder-pulse { 50% { opacity: .25; } }
+.vz-case-folder__live { display: flex; flex-direction: column; gap: 12px; }
+.vz-case-folder__live:empty { display: none; }
+
+/* Mientras se pide o se crea: el ícono y el punto del estado laten, y una
+   barra recorre la tarjeta para que se vea que algo pasa de fondo. */
+.vz-case-folder--creating .vz-dot,
+.vz-case-folder--requesting .vz-dot,
+.vz-case-folder--requesting .vz-case-folder__icon { animation: vz-folder-pulse 1.4s ease-in-out infinite; }
+@keyframes vz-folder-pulse { 50% { opacity: .35; } }
+.vz-case-folder__progress {
+  position: relative;
+  height: 3px;
+  overflow: hidden;
+  border-radius: var(--vz-r-pill);
+  background: var(--vz-primary-soft);
+}
+.vz-case-folder__progress::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 40%;
+  border-radius: inherit;
+  background: var(--vz-primary);
+  animation: vz-folder-progress 1.2s ease-in-out infinite;
+}
+@keyframes vz-folder-progress {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(250%); }
+}
+/* El ícono del botón mientras espera: un aro que gira. */
+.vz-case-folder__spinner {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 13px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: vz-folder-spin .7s linear infinite;
+}
+@keyframes vz-folder-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) {
-  .vz-case-folder--creating .vz-dot { animation: none; }
+  .vz-case-folder--creating .vz-dot,
+  .vz-case-folder--requesting .vz-dot,
+  .vz-case-folder--requesting .vz-case-folder__icon,
+  .vz-case-folder__spinner { animation: none; }
+  .vz-case-folder__progress::before { animation: none; width: 100%; opacity: .5; }
 }
