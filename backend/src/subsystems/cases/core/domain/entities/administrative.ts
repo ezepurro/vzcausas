@@ -1,5 +1,6 @@
 import { ValidationError } from '@shared/domain/domain-error';
 import { JurisdictionCode } from '../value-objects/jurisdiction-code';
+import { CaseSnapshot } from './case-snapshot';
 import { Case, CaseProps } from './cases';
 
 export interface AdministrativeCaseProps extends CaseProps {
@@ -33,6 +34,15 @@ export class AdministrativeCase extends Case {
     }
     // A state without a term needs no notification; a manual due date counts from the act.
     return actDate;
+  }
+
+  toSnapshot(): CaseSnapshot {
+    return {
+      ...this.commonSnapshot(),
+      counterparty: this.administrativeProps.counterparty,
+      subjectMatter: this.administrativeProps.subjectMatter,
+      administrativeRemedyExhaustedOn: this.administrativeProps.administrativeRemedyExhaustedOn,
+    };
   }
 
   get jurisdictionCode(): JurisdictionCode {

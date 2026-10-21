@@ -1,5 +1,6 @@
 import { JurisdictionCode } from '../../../core/domain/value-objects/jurisdiction-code';
 import { ProceduralRole } from '../../../core/domain/value-objects/procedural-role';
+import { PrescriptionDeclarationResponseDto } from './timeline.response.dto';
 
 /** Dates go out as `YYYY-MM-DD` strings, as the contract defines them. */
 export class ClientResponseDto {
@@ -57,6 +58,22 @@ export class HarmfulActDeadlineResponseDto {
   businessDaysRemaining!: number;
 }
 
+/**
+ * `prescription` (API contract V4 §3.7): the one of the qualification that
+ * prescribes first, computed on every read.
+ */
+export class PrescriptionResponseDto {
+  legalQualificationId!: number;
+  legalQualificationName!: string;
+  startsOn!: string;
+  expiresOn!: string;
+  elapsedPercentage!: number;
+  alert!: boolean;
+  expired!: boolean;
+  // `null` when the computation counts from the offense date.
+  lastInterruptiveActDate!: string | null;
+}
+
 /** The case resource of the API contract (§3.7). */
 export class CaseResponseDto {
   id!: number;
@@ -84,6 +101,10 @@ export class CaseResponseDto {
   client!: ClientResponseDto;
   responsibleLawyer!: ResponsibleLawyerResponseDto;
   legalQualifications!: LegalQualificationResponseDto[];
+  // `null` outside `CRIMINAL` and in a criminal case without qualifications.
+  prescription!: PrescriptionResponseDto | null;
+  // `null` while the case was not marked as prescribed (HU33).
+  prescriptionDeclaration!: PrescriptionDeclarationResponseDto | null;
   // `null` while the case has no SAC number.
   startDate!: string | null;
   currentState!: CurrentStateResponseDto;

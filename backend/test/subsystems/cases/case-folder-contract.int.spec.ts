@@ -1,7 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 
-import { CASE_FOLDER_WAIT_MS } from '../../../src/subsystems/cases/core/domain/ports/case-folder-outcome.port';
+import { CASE_FOLDER_WAIT_MS } from '../../../src/subsystems/cases/infrastructure/events/in-memory-case-folder-outcomes';
 import { DocumentStorageUnavailableError } from '../../../src/subsystems/documents/core/domain/errors/documents.errors';
 import { DOCUMENT_STORAGE } from '../../../src/subsystems/documents/core/domain/ports/document-storage.port';
 import type { FolderReference } from '../../../src/subsystems/documents/core/domain/ports/document-storage.port';

@@ -7,17 +7,22 @@ import {
   anAct,
   anActor,
   anAdministrativeCase,
+  ADMINISTRATIVE_STATE,
+  ARCHIVED,
   day,
+  DEACTIVATED,
   INITIAL_STATES,
   NOW,
   OPPOSITION,
+  PRESCRIBED,
   SUMMONS,
   TODAY,
   validationDetailsOf,
 } from '../../test-support/case-fixtures';
 import { JurisdictionCode } from '../value-objects/jurisdiction-code';
 import { ProceduralRole } from '../value-objects/procedural-role';
-import { Case, RegisterProceduralActInput } from './cases';
+import { Case, RegisterProceduralActInput, TargetStateChoice } from './cases';
+import { ProceduralAct } from './procedural-act';
 
 const LATER = new Date('2026-10-06T18:00:00.000Z');
 
@@ -34,14 +39,12 @@ function aDeadline(countsFrom: string): Deadline {
 function anActInput(overrides: Partial<RegisterProceduralActInput> = {}): RegisterProceduralActInput {
   return {
     id: 7,
-    proceduralStateId: OPPOSITION.id,
-    customState: null,
+    target: { proceduralStateId: OPPOSITION.id, customState: null, state: OPPOSITION },
     actDate: day('2026-10-05'),
     notificationDate: null,
     notes: null,
     deadline: aDeadline('2026-10-05'),
     actor: anActor(),
-    currentStateIsTerminal: false,
     today: TODAY,
     now: LATER,
     ...overrides,
@@ -87,7 +90,7 @@ describe('Case', () => {
     it('no admite actos si está en un estado terminal', () => {
       const error = (() => {
         try {
-          aCase().assertAcceptsActs(true);
+          aCaseInState({ currentStateId: ARCHIVED.id }).assertAcceptsActs();
         } catch (caught) {
           return caught;
         }
@@ -98,7 +101,121 @@ describe('Case', () => {
     });
 
     it('admite actos si no está en un estado terminal', () => {
-      expect(() => aCase().assertAcceptsActs(false)).not.toThrow();
+      expect(() => aCase().assertAcceptsActs()).not.toThrow();
+    });
+
+    it('el rechazo puede llevar el mensaje de quien lo pide', () => {
+      expect(() => aCaseInState({ currentStateId: ARCHIVED.id }).assertAcceptsActs('Mensaje propio.')).toThrow(
+        'Mensaje propio.',
+      );
+    });
+  });
+
+  describe('estado al que lleva un acto (CA-26.7, CA-26.8, D-34, D-69)', () => {
+    const choice = (overrides: Partial<TargetStateChoice> = {}): TargetStateChoice => ({
+      proceduralStateId: OPPOSITION.id,
+      customState: null,
+      state: OPPOSITION,
+      customStateNamesTableState: false,
+      ...overrides,
+    });
+
+    it('acepta un estado vigente de la tabla del fuero', () => {
+      expect(aCase().resolveTargetState(choice())).toEqual({
+        proceduralStateId: OPPOSITION.id,
+        customState: null,
+        state: OPPOSITION,
+      });
+    });
+
+    it('acepta un estado terminal: así se cierra una causa', () => {
+      const target = aCase().resolveTargetState(choice({ proceduralStateId: ARCHIVED.id, state: ARCHIVED }));
+
+      expect(target.state).toBe(ARCHIVED);
+    });
+
+    it('acepta un estado escrito a mano que no repite uno de la tabla', () => {
+      const target = aCase().resolveTargetState(
+        choice({ proceduralStateId: null, state: null, customState: 'Pedido de informes' }),
+      );
+
+      expect(target).toEqual({ proceduralStateId: null, customState: 'Pedido de informes', state: null });
+    });
+
+    it.each([
+      ['ninguno de los dos', { proceduralStateId: null, state: null, customState: null }],
+      ['los dos', { customState: 'Pedido de informes' }],
+    ])('exige un estado de la tabla o uno escrito a mano, y no %s', async (_case, overrides) => {
+      const details = await validationDetailsOf(() => aCase().resolveTargetState(choice(overrides)));
+
+      expect(details).toEqual({
+        proceduralStateId: 'Indicá un estado procesal de la tabla o un estado escrito a mano, no ambos.',
+      });
+    });
+
+    it.each([
+      ['inexistente', { state: null }],
+      ['dado de baja', { proceduralStateId: DEACTIVATED.id, state: DEACTIVATED }],
+    ])('rechaza un estado %s', async (_case, overrides) => {
+      const details = await validationDetailsOf(() => aCase().resolveTargetState(choice(overrides)));
+
+      expect(details).toEqual({ proceduralStateId: 'No existe un estado procesal vigente con ese identificador.' });
+    });
+
+    it.each([
+      ['de otro fuero', ADMINISTRATIVE_STATE],
+      ['Prescripta, que tiene su propio formulario', PRESCRIBED],
+      ['el inicial, que no es destino de un acto', INITIAL_STATES.CRIMINAL],
+    ])('rechaza un estado %s', async (_case, state) => {
+      const details = await validationDetailsOf(() =>
+        aCase().resolveTargetState(choice({ proceduralStateId: state.id, state })),
+      );
+
+      expect(details).toEqual({
+        proceduralStateId: 'El estado procesal no pertenece al fuero de la causa o es el estado Prescripta.',
+      });
+    });
+
+    it('rechaza un estado escrito a mano que repite el nombre de uno de la tabla', async () => {
+      const details = await validationDetailsOf(() =>
+        aCase().resolveTargetState(
+          choice({ proceduralStateId: null, state: null, customState: 'Archivada', customStateNamesTableState: true }),
+        ),
+      );
+
+      expect(details).toEqual({ customState: 'Coincide con un estado de la tabla del fuero: elegilo de la lista.' });
+    });
+  });
+
+  describe('plazo que abre el estado (RN5, D-69)', () => {
+    const dates = (overrides: { manualDueDate?: Date | null } = {}) => ({
+      actDate: day('2026-10-05'),
+      notificationDate: null,
+      manualDueDate: null,
+      ...overrides,
+    });
+
+    it('toma los días y el tipo de día del estado, y cuenta desde la fecha del acto', () => {
+      const term = aCase().openTerm({ proceduralStateId: SUMMONS.id, customState: null, state: SUMMONS }, dates());
+
+      expect(term).toEqual({ timeLimitDays: 10, dayType: DayType.CONSECUTIVE, countsFrom: day('2026-10-05') });
+    });
+
+    it('un estado escrito a mano no abre plazo', () => {
+      const term = aCase().openTerm({ proceduralStateId: null, customState: 'Pedido de informes', state: null }, dates());
+
+      expect(term).toEqual({ timeLimitDays: 0, dayType: DayType.NONE, countsFrom: day('2026-10-05') });
+    });
+
+    it('un estado terminal no admite vencimiento manual', async () => {
+      const details = await validationDetailsOf(() =>
+        aCase().openTerm(
+          { proceduralStateId: ARCHIVED.id, customState: null, state: ARCHIVED },
+          dates({ manualDueDate: day('2026-10-20') }),
+        ),
+      );
+
+      expect(details).toEqual({ manualDueDate: 'Un estado terminal cierra la causa y no admite vencimiento.' });
     });
   });
 
@@ -181,7 +298,7 @@ describe('Case', () => {
       const targetCase = aCase();
 
       targetCase.registerProceduralAct(
-        anActInput({ proceduralStateId: null, customState: 'Pedido de informes al Registro' }),
+        anActInput({ target: { proceduralStateId: null, customState: 'Pedido de informes al Registro', state: null } }),
       );
 
       expect(targetCase.currentStateId).toBeNull();
@@ -267,11 +384,9 @@ describe('Case', () => {
       });
 
       it('no se registra sobre una causa en estado terminal', () => {
-        const targetCase = aCase();
+        const targetCase = aCaseInState({ currentStateId: ARCHIVED.id });
 
-        expect(() => targetCase.registerProceduralAct(anActInput({ currentStateIsTerminal: true }))).toThrow(
-          CaseInTerminalStateError,
-        );
+        expect(() => targetCase.registerProceduralAct(anActInput())).toThrow(CaseInTerminalStateError);
         expect(targetCase.proceduralActs).toEqual([]);
       });
 
@@ -289,12 +404,8 @@ describe('Case', () => {
       });
 
       it('el responsable se controla antes que el estado de la causa y que los datos', () => {
-        const targetCase = aCase();
-        const input = anActInput({
-          actor: anActor({ lawyerId: 99 }),
-          currentStateIsTerminal: true,
-          actDate: day('2026-12-01'),
-        });
+        const targetCase = aCaseInState({ currentStateId: ARCHIVED.id });
+        const input = anActInput({ actor: anActor({ lawyerId: 99 }), actDate: day('2026-12-01') });
 
         expect(() => targetCase.registerProceduralAct(input)).toThrow(NotResponsibleLawyerError);
       });
@@ -303,9 +414,113 @@ describe('Case', () => {
 
   it('cuando el acto vigente declarado no está cargado es un error de integridad, no del usuario', () => {
     const current = anAct({ id: 1 });
-    const targetCase = aCaseInState({ currentAct: current });
-    targetCase.proceduralActs.length = 0;
+    const targetCase = aCaseInState({ currentAct: current, currentActNotLoaded: true });
 
     expect(() => targetCase.registerProceduralAct(anActInput({ id: 2 }))).toThrow(/is not loaded/);
+  });
+
+  describe('la causa conoce si está cerrada', () => {
+    it('un acto que la lleva a un estado terminal la cierra, y ya no admite otro', () => {
+      const targetCase = aCase();
+
+      targetCase.registerProceduralAct(anActInput({ target: { proceduralStateId: ARCHIVED.id, customState: null, state: ARCHIVED } }));
+
+      expect(() => targetCase.assertAcceptsActs()).toThrow(CaseInTerminalStateError);
+    });
+
+    it('un acto más viejo que el vigente no cambia si está cerrada', () => {
+      const current = anAct({ id: 1, proceduralStateId: SUMMONS.id, actDate: day('2026-10-05') });
+      const targetCase = aCaseInState({ currentAct: current });
+
+      targetCase.registerProceduralAct(
+        anActInput({
+          id: 2,
+          actDate: day('2026-10-01'),
+          target: { proceduralStateId: ARCHIVED.id, customState: null, state: ARCHIVED },
+        }),
+      );
+
+      expect(() => targetCase.assertAcceptsActs()).not.toThrow();
+    });
+
+    it('un estado escrito a mano no la cierra: nunca es terminal', () => {
+      const targetCase = aCase();
+
+      targetCase.registerProceduralAct(
+        anActInput({ target: { proceduralStateId: null, customState: 'Pedido de informes', state: null } }),
+      );
+
+      expect(() => targetCase.assertAcceptsActs()).not.toThrow();
+    });
+  });
+
+  describe('como datos planos (toSnapshot)', () => {
+    const anAmparo = () =>
+      aCase({
+        jurisdictionCode: JurisdictionCode.AMPARO,
+        proceduralRole: ProceduralRole.ACTORA,
+        subjectMatter: 'Que se ordene la cobertura integral.',
+        counterparty: 'APROSS',
+        injunctionGranted: true,
+      });
+
+    it('una causa penal trae lo suyo y deja en null lo de los otros fueros', () => {
+      const snapshot = aCase({ clientDetained: true }).toSnapshot();
+
+      expect(snapshot).toMatchObject({
+        jurisdictionCode: JurisdictionCode.CRIMINAL,
+        clientDetained: true,
+        counterparty: null,
+        subjectMatter: null,
+        injunctionGranted: null,
+        harmfulActDate: null,
+        administrativeRemedyExhaustedOn: null,
+      });
+    });
+
+    it('una causa administrativa trae la contraparte, el objeto y la fecha de agotamiento de la vía', () => {
+      const snapshot = anAdministrativeCase({
+        counterparty: 'APROSS',
+        administrativeRemedyExhaustedOn: day('2026-08-10'),
+      }).toSnapshot();
+
+      expect(snapshot).toMatchObject({
+        jurisdictionCode: JurisdictionCode.ADMINISTRATIVE,
+        counterparty: 'APROSS',
+        subjectMatter: 'Se impugna la resolución que deniega la cobertura.',
+        administrativeRemedyExhaustedOn: day('2026-08-10'),
+        clientDetained: null,
+        injunctionGranted: null,
+        offenses: [],
+      });
+    });
+
+    it('un amparo trae la medida cautelar y deja en null lo de los otros fueros', () => {
+      const snapshot = anAmparo().toSnapshot();
+
+      expect(snapshot).toMatchObject({
+        jurisdictionCode: JurisdictionCode.AMPARO,
+        counterparty: 'APROSS',
+        injunctionGranted: true,
+        clientDetained: null,
+        administrativeRemedyExhaustedOn: null,
+        offenses: [],
+      });
+    });
+
+    it('el plazo para presentar el amparo es sólo del amparo', () => {
+      expect(aCase().harmfulActDeadline(TODAY)).toBeNull();
+      expect(anAdministrativeCase().harmfulActDeadline(TODAY)).toBeNull();
+      // Sin la fecha del acto lesivo cargada, el amparo tampoco tiene plazo.
+      expect(anAmparo().harmfulActDeadline(TODAY)).toBeNull();
+    });
+  });
+
+  it('los actos que expone son una copia: agregar uno sólo se hace registrándolo', () => {
+    const targetCase = aCase();
+
+    (targetCase.proceduralActs as ProceduralAct[]).push(anAct());
+
+    expect(targetCase.proceduralActs).toEqual([]);
   });
 });

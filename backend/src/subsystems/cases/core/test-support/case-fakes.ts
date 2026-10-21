@@ -2,7 +2,6 @@ import { ClockPort } from '@shared/domain/clock.port';
 import { TransactionManagerPort } from '@shared/domain/transaction-manager.port';
 import { Case } from '../domain/entities/cases';
 import { ProceduralAct } from '../domain/entities/procedural-act';
-import { CriminalCase } from '../domain/entities/criminal';
 import { DeadlineCalculatorPort } from '../domain/ports/deadline-calculator.port';
 import { CaseRepository } from '../domain/ports/case.repository';
 import { ProceduralActRepository } from '../domain/ports/procedural-act.repository';
@@ -77,9 +76,7 @@ export class FakeCaseRepository implements CaseRepository {
     if (this.failOnSaveWith) {
       throw this.failOnSaveWith;
     }
-    if (newCase instanceof CriminalCase) {
-      this.prescriptionsWhenSaved = newCase.offenses.map((offense) => offense.prescriptionExpiresOn);
-    }
+    this.prescriptionsWhenSaved = newCase.toSnapshot().offenses.map((offense) => offense.prescriptionExpiresOn);
     this.saved.push(newCase);
   }
 

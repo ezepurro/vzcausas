@@ -4,6 +4,6 @@ import { IsBoolean, IsOptional } from 'class-validator';
 export class RequestCaseFolderRequestDto {
   // Copy the formal templates into the folder (HU40, not implemented yet). Defaults to `true`.
   @IsOptional()
-  @IsBoolean()
+  @IsBoolean({ message: 'Debe ser true o false.' })
   copyTemplates?: boolean;
 }

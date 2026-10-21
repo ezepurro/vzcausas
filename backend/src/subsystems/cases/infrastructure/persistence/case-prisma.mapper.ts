@@ -4,6 +4,7 @@ import {
   LegalQualification as PrismaLegalQualification,
   Offense as PrismaOffense,
   ProceduralAct as PrismaProceduralAct,
+  ProceduralState as PrismaProceduralState,
 } from '../../../../generated/prisma/client';
 import { AdministrativeCase } from '../../core/domain/entities/administrative';
 import { Amparo } from '../../core/domain/entities/amparo';
@@ -20,6 +21,8 @@ export type OffenseRow = PrismaOffense & { legalQualification: PrismaLegalQualif
 export type CaseRow = PrismaCase & {
   jurisdiction: PrismaJurisdiction;
   offenses: OffenseRow[];
+  // The state the case is in; `null` for a hand-written state.
+  currentState: PrismaProceduralState | null;
   // The act that led the case to its current state; the rest of the timeline is not loaded.
   currentProceduralAct: PrismaProceduralAct | null;
 };
@@ -41,6 +44,8 @@ export class CasePrismaMapper {
       currentStateId: row.currentStateId,
       currentCustomState: row.currentCustomState,
       currentProceduralActId: row.currentProceduralActId,
+      // A hand-written state has no row in the table, and never closes the case.
+      currentStateTerminal: row.currentState?.terminal ?? false,
       // Only the current act is loaded: registering an act needs it to tell whether the new one is older.
       proceduralActs: row.currentProceduralAct ? [ProceduralActPrismaMapper.toDomain(row.currentProceduralAct)] : [],
       active: row.active,

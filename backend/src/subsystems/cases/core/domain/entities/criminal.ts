@@ -1,4 +1,5 @@
 import { JurisdictionCode } from '../value-objects/jurisdiction-code';
+import { CaseSnapshot } from './case-snapshot';
 import { Case, CaseProps } from './cases';
 import { Offense } from './offense';
 
@@ -9,10 +10,19 @@ export interface CriminalCaseProps extends CaseProps {
   clientDetained: boolean;
 }
 
-/** Criminal case. Has offenses and no counterparty. */
+/**
+ * Criminal case. Has offenses and no counterparty. Every offense carries its
+ * prescription date from the moment the case exists: the ones that still lack it
+ * (a case being registered) are calculated when the case is built.
+ */
 export class CriminalCase extends Case {
   private constructor(private readonly criminalProps: CriminalCaseProps) {
     super(criminalProps);
+    for (const offense of criminalProps.offenses) {
+      if (offense.prescriptionExpiresOn === null) {
+        offense.calculatePrescription();
+      }
+    }
   }
 
   /** Rebuilds a {@link CriminalCase} from persisted data, without validation. */
@@ -24,12 +34,21 @@ export class CriminalCase extends Case {
     return this.countsFromActDate(actDate, notificationDate);
   }
 
+  toSnapshot(): CaseSnapshot {
+    return {
+      ...this.commonSnapshot(),
+      clientDetained: this.criminalProps.clientDetained,
+      offenses: this.criminalProps.offenses.map((offense) => offense.toSnapshot()),
+    };
+  }
+
   get jurisdictionCode(): JurisdictionCode {
     return JurisdictionCode.CRIMINAL;
   }
 
-  get offenses(): Offense[] {
-    return this.criminalProps.offenses;
+  /** A copy: the offenses of a case are not edited from outside. */
+  get offenses(): readonly Offense[] {
+    return [...this.criminalProps.offenses];
   }
 
   get clientDetained(): boolean {

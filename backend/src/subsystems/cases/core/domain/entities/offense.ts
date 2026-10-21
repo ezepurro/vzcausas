@@ -1,5 +1,6 @@
 import { LegalQualificationRef } from '../ports/legal-parameters-lookup.port';
 import { addPrescriptionMonths } from '../prescription';
+import { OffenseSnapshot } from './case-snapshot';
 
 export interface OffenseProps {
   legalQualification: LegalQualificationRef;
@@ -48,6 +49,17 @@ export class Offense {
   /** The prescription date, or `null` if it was not calculated yet. */
   get prescriptionExpiresOn(): Date | null {
     return this.props.prescriptionExpiresOn;
+  }
+
+  toSnapshot(): OffenseSnapshot {
+    return {
+      legalQualificationId: this.legalQualificationId,
+      legalQualificationName: this.legalQualificationName,
+      prescriptionMonths: this.prescriptionMonths,
+      offenseDate: this.offenseDate,
+      prescriptionStartsOn: this.prescriptionStartsOn,
+      prescriptionExpiresOn: this.prescriptionExpiresOn,
+    };
   }
 
   /** Calculates the prescription date (start plus months) and keeps it. A shorter month ends on its last day. */

@@ -19,19 +19,19 @@ export const MAX_LIMIT = 100;
 export class PaginationQueryDto {
   @IsOptional()
   @Type(() => Number)
-  @IsInt()
-  @Min(1)
+  @IsInt({ message: 'Debe ser un número entero.' })
+  @Min(1, { message: 'Debe ser mayor o igual a 1.' })
   page?: number;
 
   @IsOptional()
   @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @Max(MAX_LIMIT)
+  @IsInt({ message: 'Debe ser un número entero.' })
+  @Min(1, { message: 'Debe ser mayor o igual a 1.' })
+  @Max(MAX_LIMIT, { message: `Debe ser como máximo ${MAX_LIMIT}.` })
   limit?: number;
 
   @IsOptional()
-  @IsString()
+  @IsString({ message: 'Debe ser un texto.' })
   search?: string;
 }
 

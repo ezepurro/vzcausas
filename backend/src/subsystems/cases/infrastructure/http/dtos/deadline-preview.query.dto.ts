@@ -11,14 +11,14 @@ import { IsOptional, IsString } from 'class-validator';
  */
 export class DeadlinePreviewQueryDto {
   @IsOptional()
-  @IsString()
+  @IsString({ message: 'Debe ser un texto.' })
   proceduralStateId?: string;
 
   @IsOptional()
-  @IsString()
+  @IsString({ message: 'Debe ser un texto.' })
   actDate?: string;
 
   @IsOptional()
-  @IsString()
+  @IsString({ message: 'Debe ser un texto.' })
   notificationDate?: string;
 }

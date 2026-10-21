@@ -1,3 +1,4 @@
+import { ConfigService } from '@nestjs/config';
 import { ValidationError } from '@shared/domain/domain-error';
 import { RegisterCaseResult } from '../../../core/application/common/register-case.interfaces';
 import { CaseFactory, NewCaseInput } from '../../../core/domain/factories/case.factory';
@@ -20,6 +21,9 @@ import { CaseHttpMapper } from './case-http.mapper';
 // Que los decoradores del DTO validen de verdad lo cubre el spec de integración,
 // que pasa por el ValidationPipe real.
 import type { ListCasesQueryDto } from '../dtos/list-cases.query.dto';
+
+const config = { getOrThrow: () => 'America/Argentina/Cordoba' } as unknown as ConfigService;
+const mapper = new CaseHttpMapper(config);
 
 /** El DTO como lo entrega el pipe: ya transformado. */
 function aQuery(overrides: Partial<ListCasesQueryDto> = {}): ListCasesQueryDto {
@@ -62,6 +66,9 @@ function anItem(overrides: Partial<CaseListItem> = {}): CaseListItem {
         prescriptionExpiresOn: day('2029-02-27'),
       },
     ],
+    lastInterruptiveActDate: null,
+    prescription: null,
+    prescriptionDeclaration: null,
     startDate: day('2021-03-12'),
     currentState: {
       proceduralStateId: 12,
@@ -82,7 +89,7 @@ function anItem(overrides: Partial<CaseListItem> = {}): CaseListItem {
 describe('CaseHttpMapper.toResponse', () => {
   it('mapea el recurso completo con las fechas como YYYY-MM-DD', () => {
     // Es el ejemplo del contrato §3.7, campo por campo.
-    expect(CaseHttpMapper.toResponse(anItem())).toEqual({
+    expect(mapper.toResponse(anItem())).toEqual({
       id: 1,
       sacNumber: '13284571',
       caption: 'GÓMEZ, Ariel Fernando p.s.a. Robo calificado',
@@ -126,6 +133,8 @@ describe('CaseHttpMapper.toResponse', () => {
           prescriptionExpiresOn: '2029-02-27',
         },
       ],
+      prescription: null,
+      prescriptionDeclaration: null,
       startDate: '2021-03-12',
       currentState: {
         proceduralStateId: 12,
@@ -151,15 +160,15 @@ describe('CaseHttpMapper.toResponse', () => {
       templatesPending: 0,
     };
 
-    expect(CaseHttpMapper.toResponse(anItem({ folder })).folder).toEqual(folder);
+    expect(mapper.toResponse(anItem({ folder })).folder).toEqual(folder);
   });
 
   it('una causa anterior a las carpetas sale con folder en null', () => {
-    expect(CaseHttpMapper.toResponse(anItem({ folder: null })).folder).toBeNull();
+    expect(mapper.toResponse(anItem({ folder: null })).folder).toBeNull();
   });
 
   it('una fecha nula sale nula, no como string', () => {
-    const response = CaseHttpMapper.toResponse(
+    const response = mapper.toResponse(
       anItem({
         currentState: { ...anItem().currentState, dueDate: null, businessDaysRemaining: null },
       }),
@@ -171,7 +180,7 @@ describe('CaseHttpMapper.toResponse', () => {
 
   it('una prescripción sin calcular sale nula', () => {
     const [qualification] = anItem().legalQualifications;
-    const response = CaseHttpMapper.toResponse(
+    const response = mapper.toResponse(
       anItem({ legalQualifications: [{ ...qualification, prescriptionExpiresOn: null }] }),
     );
 
@@ -180,10 +189,8 @@ describe('CaseHttpMapper.toResponse', () => {
     expect(response.legalQualifications[0].offenseDate).toBe('2021-02-27');
   });
 
-  it('no inventa ni pierde campos: exactamente los 28 del contrato implementados', () => {
-    // Faltan a propósito `prescription` y `prescriptionDeclaration` (V4 §3.7): el cómputo
-    // de la prescripción de la causa y HU33 no están en este paso.
-    expect(Object.keys(CaseHttpMapper.toResponse(anItem())).sort()).toEqual(
+  it('no inventa ni pierde campos: exactamente los 30 del contrato (V4 §3.7)', () => {
+    expect(Object.keys(mapper.toResponse(anItem())).sort()).toEqual(
       [
         'active',
         'administrativeRemedyExhaustedOn',
@@ -207,6 +214,8 @@ describe('CaseHttpMapper.toResponse', () => {
         'instructorName',
         'jurisdiction',
         'legalQualifications',
+        'prescription',
+        'prescriptionDeclaration',
         'proceduralRole',
         'responsibleLawyer',
         'sacNumber',
@@ -217,8 +226,77 @@ describe('CaseHttpMapper.toResponse', () => {
     );
   });
 
+  it('la prescripción que rige sale con sus fechas como YYYY-MM-DD (V4 §3.7)', () => {
+    const response = mapper.toResponse(
+      anItem({
+        prescription: {
+          legalQualificationId: 1,
+          legalQualificationName: 'Robo calificado — art. 167 inc. 2 CP',
+          startsOn: day('2024-07-04'),
+          expiresOn: day('2032-07-04'),
+          elapsedPercentage: 27,
+          alert: false,
+          expired: false,
+          lastInterruptiveActDate: day('2024-07-04'),
+        },
+      }),
+    );
+
+    expect(response.prescription).toEqual({
+      legalQualificationId: 1,
+      legalQualificationName: 'Robo calificado — art. 167 inc. 2 CP',
+      startsOn: '2024-07-04',
+      expiresOn: '2032-07-04',
+      elapsedPercentage: 27,
+      alert: false,
+      expired: false,
+      lastInterruptiveActDate: '2024-07-04',
+    });
+  });
+
+  it('una prescripción que corre desde el hecho manda lastInterruptiveActDate en null', () => {
+    const response = mapper.toResponse(
+      anItem({
+        prescription: {
+          legalQualificationId: 1,
+          legalQualificationName: 'Robo calificado — art. 167 inc. 2 CP',
+          startsOn: day('2021-02-27'),
+          expiresOn: day('2029-02-27'),
+          elapsedPercentage: 69,
+          alert: false,
+          expired: false,
+          lastInterruptiveActDate: null,
+        },
+      }),
+    );
+
+    expect(response.prescription?.lastInterruptiveActDate).toBeNull();
+  });
+
+  it('la declaración de prescripción sale con registeredAt en la hora de Córdoba', () => {
+    const response = mapper.toResponse(
+      anItem({
+        prescriptionDeclaration: {
+          prescriptionDate: day('2026-09-15'),
+          resolution: 'Sentencia N° 214 del Juzgado de Control N° 3',
+          grounds: null,
+          registeredBy: { id: 1, lastName: 'Vázquez', firstName: 'Fernando G.' },
+          registeredAt: new Date('2026-09-15T15:20:00.000Z'),
+        },
+      }),
+    );
+
+    expect(response.prescriptionDeclaration).toEqual({
+      prescriptionDate: '2026-09-15',
+      resolution: 'Sentencia N° 214 del Juzgado de Control N° 3',
+      grounds: null,
+      registeredBy: { id: 1, lastName: 'Vázquez', firstName: 'Fernando G.' },
+      registeredAt: '2026-09-15T12:20:00-03:00',
+    });
+  });
+
   it('un amparo lleva contraparte y objeto; una penal los lleva nulos', () => {
-    const amparo = CaseHttpMapper.toResponse(
+    const amparo = mapper.toResponse(
       anItem({
         jurisdiction: JurisdictionCode.AMPARO,
         proceduralRole: ProceduralRole.ACTORA,
@@ -235,14 +313,14 @@ describe('CaseHttpMapper.toResponse', () => {
       subjectMatter: 'Que se ordene la cobertura integral del tratamiento.',
       legalQualifications: [],
     });
-    expect(CaseHttpMapper.toResponse(anItem())).toMatchObject({
+    expect(mapper.toResponse(anItem())).toMatchObject({
       counterparty: null,
       subjectMatter: null,
     });
   });
 
   it('un estado escrito a mano manda el texto como nombre y el id en null', () => {
-    const response = CaseHttpMapper.toResponse(
+    const response = mapper.toResponse(
       anItem({
         currentState: {
           ...anItem().currentState,
@@ -265,18 +343,18 @@ describe('CaseHttpMapper.fromRegisterResult', () => {
   function aResult(overrides: Partial<NewCaseInput> = {}): RegisterCaseResult {
     const input = aNewCaseInput(overrides);
     return {
-      newCase: CaseFactory.create(input),
+      newCase: CaseFactory.create(input).toSnapshot(),
       client: CLIENT,
       responsibleLawyer: LAWYER,
-      offenses: [],
       currentState: INITIAL_STATES[input.jurisdictionCode],
       harmfulActDeadline: null,
+      prescription: null,
       folder: { status: 'CREATING', url: null, path: null, templatesCopied: 0, templatesPending: 0 },
     };
   }
 
   it('una causa recién registrada sale en el estado inicial, sin acto ni vencimiento', () => {
-    const response = CaseHttpMapper.fromRegisterResult(aResult());
+    const response = mapper.fromRegisterResult(aResult());
 
     expect(response.currentState).toEqual({
       // La columna guarda el id real de "Iniciada", pero el contrato pide null:
@@ -293,7 +371,7 @@ describe('CaseHttpMapper.fromRegisterResult', () => {
   });
 
   it('la respuesta del alta incluye la carpeta como quedó al responder', () => {
-    const response = CaseHttpMapper.fromRegisterResult(aResult());
+    const response = mapper.fromRegisterResult(aResult());
 
     expect(response.folder).toEqual({
       status: 'CREATING',
@@ -305,7 +383,7 @@ describe('CaseHttpMapper.fromRegisterResult', () => {
   });
 
   it('en el fuero penal la contraparte y el objeto salen nulos', () => {
-    const response = CaseHttpMapper.fromRegisterResult(aResult());
+    const response = mapper.fromRegisterResult(aResult());
 
     expect(response).toMatchObject({
       jurisdiction: 'CRIMINAL',
@@ -315,7 +393,7 @@ describe('CaseHttpMapper.fromRegisterResult', () => {
   });
 
   it('en un amparo salen los dos, que es la rama del instanceof', () => {
-    const response = CaseHttpMapper.fromRegisterResult(
+    const response = mapper.fromRegisterResult(
       aResult({
         jurisdictionCode: JurisdictionCode.AMPARO,
         proceduralRole: ProceduralRole.ACTORA,
@@ -342,7 +420,7 @@ describe('CaseHttpMapper.fromRegisterResult', () => {
     };
 
     it('penal: sale clientDetained y los demás datos son null', () => {
-      const response = CaseHttpMapper.fromRegisterResult(aResult({ clientDetained: true, courtFeePaid: true }));
+      const response = mapper.fromRegisterResult(aResult({ clientDetained: true, courtFeePaid: true }));
 
       expect(response).toMatchObject({
         clientDetained: true,
@@ -368,7 +446,7 @@ describe('CaseHttpMapper.fromRegisterResult', () => {
       });
       const deadline = { actDate: day('2026-09-02'), renewed: true, dueDate: day('2026-09-23'), businessDaysRemaining: 6 };
 
-      const response = CaseHttpMapper.fromRegisterResult({ ...result, harmfulActDeadline: deadline });
+      const response = mapper.fromRegisterResult({ ...result, harmfulActDeadline: deadline });
 
       expect(response).toMatchObject({
         clientDetained: null,
@@ -385,7 +463,7 @@ describe('CaseHttpMapper.fromRegisterResult', () => {
     });
 
     it('amparo sin acto lesivo: injunctionGranted y harmfulActRenews salen false, el resto null', () => {
-      const response = CaseHttpMapper.fromRegisterResult(
+      const response = mapper.fromRegisterResult(
         aResult({
           jurisdictionCode: JurisdictionCode.AMPARO,
           proceduralRole: ProceduralRole.ACTORA,
@@ -405,7 +483,7 @@ describe('CaseHttpMapper.fromRegisterResult', () => {
     });
 
     it('administrativo: sale la fecha de agotamiento de la vía y el resto de los datos es null', () => {
-      const response = CaseHttpMapper.fromRegisterResult(
+      const response = mapper.fromRegisterResult(
         aResult({
           jurisdictionCode: JurisdictionCode.ADMINISTRATIVE,
           proceduralRole: ProceduralRole.RECURRENTE,
@@ -423,11 +501,34 @@ describe('CaseHttpMapper.fromRegisterResult', () => {
     });
   });
 
-  it('produce la misma forma que toResponse: las mismas 28 claves', () => {
+  it('una causa recién registrada nunca tiene declaración de prescripción', () => {
+    expect(mapper.fromRegisterResult(aResult()).prescriptionDeclaration).toBeNull();
+  });
+
+  it('la prescripción calculada al registrar sale en el recurso', () => {
+    const prescription = {
+      legalQualificationId: 1,
+      legalQualificationName: 'Robo calificado — art. 167 inc. 2 CP',
+      startsOn: day('2021-02-27'),
+      expiresOn: day('2029-02-27'),
+      elapsedPercentage: 70,
+      alert: true,
+      expired: false,
+      lastInterruptiveActDate: null,
+    };
+
+    expect(mapper.fromRegisterResult({ ...aResult(), prescription }).prescription).toEqual({
+      ...prescription,
+      startsOn: '2021-02-27',
+      expiresOn: '2029-02-27',
+    });
+  });
+
+  it('produce la misma forma que toResponse: las mismas 30 claves', () => {
     // Las tres respuestas del contrato son el mismo recurso. Si una ruta
     // agrega o pierde un campo, acá se ve.
-    expect(Object.keys(CaseHttpMapper.fromRegisterResult(aResult())).sort()).toEqual(
-      Object.keys(CaseHttpMapper.toResponse(anItem())).sort(),
+    expect(Object.keys(mapper.fromRegisterResult(aResult())).sort()).toEqual(
+      Object.keys(mapper.toResponse(anItem())).sort(),
     );
   });
 });
@@ -443,6 +544,23 @@ describe('CaseHttpMapper.toSearchCriteria', () => {
   it('un search vacío no viaja como filtro', () => {
     expect(CaseHttpMapper.toSearchCriteria(aQuery({ search: '   ' })).search).toBeUndefined();
     expect(CaseHttpMapper.toSearchCriteria(aQuery({ search: ' gómez ' })).search).toBe('gómez');
+  });
+
+  it('normaliza el fuero y rechaza uno inexistente con INVALID_REQUEST (§5.3)', () => {
+    expect(CaseHttpMapper.toSearchCriteria(aQuery({ jurisdiction: ' criminal ' })).jurisdiction).toBe(
+      JurisdictionCode.CRIMINAL,
+    );
+    expect(CaseHttpMapper.toSearchCriteria(aQuery({ jurisdiction: '' })).jurisdiction).toBeUndefined();
+
+    try {
+      CaseHttpMapper.toSearchCriteria(aQuery({ jurisdiction: 'PENAL' }));
+      throw new Error('Se esperaba un error y no se lanzó ninguno.');
+    } catch (error) {
+      expect((error as ValidationError).code).toBe('INVALID_REQUEST');
+      expect((error as ValidationError).details).toEqual({
+        jurisdiction: 'No existe un fuero procesal con ese nombre.',
+      });
+    }
   });
 
   it('reenvía los filtros simples tal cual', () => {

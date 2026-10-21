@@ -206,8 +206,13 @@ export function anAct(overrides: Partial<ProceduralActProps> = {}): ProceduralAc
  * A criminal case that is already past the initial state: it is in the state of
  * its current act (or in `currentStateId`, if there is no act, for a case in a final state).
  */
-export function aCaseInState(options: { currentAct?: ProceduralAct; currentStateId?: number } = {}): Case {
+export function aCaseInState(
+  options: { currentAct?: ProceduralAct; currentStateId?: number; currentActNotLoaded?: boolean } = {},
+): Case {
   const act = options.currentAct;
+  const currentStateId = act ? act.proceduralStateId : (options.currentStateId ?? INITIAL_STATES.CRIMINAL.id);
+  // The table of the specs tells whether that state closes the case; a hand-written state never does.
+  const currentStateTerminal = STATES_TABLE.find((state) => state.id === currentStateId)?.terminal ?? false;
   return CriminalCase.hydrate({
     id: 1,
     sacNumber: '12345678',
@@ -220,10 +225,11 @@ export function aCaseInState(options: { currentAct?: ProceduralAct; currentState
     responsibleLawyerId: LAWYER.id,
     startDate: day('2026-09-01'),
     courtFeePaid: false,
-    currentStateId: act ? act.proceduralStateId : (options.currentStateId ?? INITIAL_STATES.CRIMINAL.id),
+    currentStateId,
     currentCustomState: act ? act.customState : null,
     currentProceduralActId: act ? act.id : null,
-    proceduralActs: act ? [act] : [],
+    currentStateTerminal,
+    proceduralActs: act && !options.currentActNotLoaded ? [act] : [],
     active: true,
     createdByUserId: 5,
     createdAt: NOW,

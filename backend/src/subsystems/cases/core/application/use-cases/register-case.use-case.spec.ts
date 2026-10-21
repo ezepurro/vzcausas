@@ -45,14 +45,13 @@ describe('RegisterCase', () => {
     const people = new FakePeopleLookup([LAWYER], [CLIENT]);
     const legalParameters = new FakeLegalParametersLookup(initialStates, [ROBBERY, HOMICIDE]);
     const folderState = new FakeCaseFolderState();
-    const outcomes = new InMemoryCaseFolderOutcomes();
+    const outcomes = new InMemoryCaseFolderOutcomes(options.waitMs ?? 1000);
     const events = new FakeEventPublisher();
     const requestCaseFolder = new RequestCaseFolder(
       cases,
       people,
       folderState,
       outcomes,
-      options.waitMs ?? 1000,
       new FakeClock(NOW, TODAY),
       events,
     );
@@ -96,10 +95,12 @@ describe('RegisterCase', () => {
 
       const result = await useCase.execute(aRegisterCaseCommand());
 
-      expect(result.newCase).toBeInstanceOf(CriminalCase);
+      expect(result.newCase.jurisdictionCode).toBe(JurisdictionCode.CRIMINAL);
       expect(result.newCase.id).toBe(1);
-      expect(cases.saved).toEqual([result.newCase]);
-      expect(await cases.findById(1)).toBe(result.newCase);
+      expect(cases.saved).toHaveLength(1);
+      expect(cases.saved[0]).toBeInstanceOf(CriminalCase);
+      expect(cases.saved[0].toSnapshot()).toEqual(result.newCase);
+      expect((await cases.findById(1))?.toSnapshot()).toEqual(result.newCase);
     });
 
     it('registra una causa administrativa', async () => {
@@ -107,8 +108,9 @@ describe('RegisterCase', () => {
 
       const result = await useCase.execute(administrativeCommand());
 
-      expect(result.newCase).toBeInstanceOf(AdministrativeCase);
+      expect(result.newCase.jurisdictionCode).toBe(JurisdictionCode.ADMINISTRATIVE);
       expect(cases.saved).toHaveLength(1);
+      expect(cases.saved[0]).toBeInstanceOf(AdministrativeCase);
     });
 
     it('registra un amparo', async () => {
@@ -116,8 +118,9 @@ describe('RegisterCase', () => {
 
       const result = await useCase.execute(amparoCommand());
 
-      expect(result.newCase).toBeInstanceOf(Amparo);
+      expect(result.newCase.jurisdictionCode).toBe(JurisdictionCode.AMPARO);
       expect(cases.saved).toHaveLength(1);
+      expect(cases.saved[0]).toBeInstanceOf(Amparo);
     });
 
     it('guarda los datos de la causa y quién la dio de alta', async () => {
@@ -160,8 +163,8 @@ describe('RegisterCase', () => {
       const administrative = await useCase.execute(administrativeCommand());
       const amparo = await useCase.execute(amparoCommand());
 
-      expect(administrative.offenses).toEqual([]);
-      expect(amparo.offenses).toEqual([]);
+      expect(administrative.newCase.offenses).toEqual([]);
+      expect(amparo.newCase.offenses).toEqual([]);
     });
 
     it('asigna un id distinto a cada causa', async () => {
@@ -225,13 +228,13 @@ describe('RegisterCase', () => {
     });
 
     it('no tiene acto procesal vigente, ni estado escrito a mano, ni movimientos', async () => {
-      const { useCase } = build();
+      const { useCase, cases } = build();
 
       const { newCase } = await useCase.execute(aRegisterCaseCommand());
 
       expect(newCase.currentProceduralActId).toBeNull();
       expect(newCase.currentCustomState).toBeNull();
-      expect(newCase.proceduralActs).toEqual([]);
+      expect(cases.saved[0].proceduralActs).toEqual([]);
     });
 
     it('un fuero sin estado inicial no admite causas: error sobre el fuero y nada guardado', async () => {
@@ -251,17 +254,19 @@ describe('RegisterCase', () => {
     it('calcula el vencimiento como fecha del hecho más los meses de la calificación', async () => {
       const { useCase } = build();
 
-      const { offenses } = await useCase.execute(
+      const { newCase } = await useCase.execute(
         aRegisterCaseCommand({ legalQualifications: [robberyOn('2021-02-27'), homicideOn('2022-05-01')] }),
       );
 
-      expect(offenses.map((offense) => offense.prescriptionExpiresOn)).toEqual([day('2029-02-27'), day('2037-05-01')]);
+      expect(newCase.offenses.map((offense) => offense.prescriptionExpiresOn)).toEqual([day('2029-02-27'), day('2037-05-01')]);
     });
 
     it('cada hecho conserva su calificación, su fecha y su prescripción', async () => {
       const { useCase } = build();
 
-      const { offenses } = await useCase.execute(aRegisterCaseCommand({ legalQualifications: [robberyOn('2021-02-27')] }));
+      const {
+        newCase: { offenses },
+      } = await useCase.execute(aRegisterCaseCommand({ legalQualifications: [robberyOn('2021-02-27')] }));
 
       expect(offenses).toHaveLength(1);
       expect(offenses[0].legalQualificationId).toBe(ROBBERY.id);
@@ -297,7 +302,7 @@ describe('RegisterCase', () => {
         }),
       );
 
-      expect(early.offenses[0].prescriptionExpiresOn).toEqual(late.offenses[0].prescriptionExpiresOn);
+      expect(early.newCase.offenses[0].prescriptionExpiresOn).toEqual(late.newCase.offenses[0].prescriptionExpiresOn);
     });
 
     it('una causa penal sin calificaciones se registra y no computa prescripción', async () => {
@@ -305,7 +310,7 @@ describe('RegisterCase', () => {
 
       const result = await useCase.execute(aRegisterCaseCommand({ legalQualifications: [] }));
 
-      expect(result.offenses).toEqual([]);
+      expect(result.newCase.offenses).toEqual([]);
       expect(cases.prescriptionsWhenSaved).toEqual([]);
       expect(cases.saved).toHaveLength(1);
     });
@@ -315,7 +320,46 @@ describe('RegisterCase', () => {
 
       const result = await useCase.execute(aRegisterCaseCommand({ legalQualifications: undefined }));
 
-      expect(result.offenses).toEqual([]);
+      expect(result.newCase.offenses).toEqual([]);
+    });
+  });
+
+  describe('prescription de la causa (V4 §3.7)', () => {
+    const robberyOn = (offenseDate: string) => ({ legalQualificationId: ROBBERY.id, offenseDate: day(offenseDate) });
+    const homicideOn = (offenseDate: string) => ({ legalQualificationId: HOMICIDE.id, offenseDate: day(offenseDate) });
+
+    it('resume la calificación que prescribe primero, calculada al día de hoy', async () => {
+      const { useCase } = build();
+
+      const result = await useCase.execute(
+        aRegisterCaseCommand({ legalQualifications: [homicideOn('2022-05-01'), robberyOn('2021-02-27')] }),
+      );
+
+      // Robo vence el 27/02/2029, antes que homicidio (01/05/2037). Al 06/10/2026
+      // transcurrieron 2047 de 2922 días: 70,05 %, la alerta ya está encendida.
+      expect(result.prescription).toEqual({
+        legalQualificationId: ROBBERY.id,
+        legalQualificationName: 'Robo calificado',
+        startsOn: day('2021-02-27'),
+        expiresOn: day('2029-02-27'),
+        elapsedPercentage: 70,
+        alert: true,
+        expired: false,
+        lastInterruptiveActDate: null,
+      });
+    });
+
+    it('una causa penal sin calificaciones no computa prescripción (D-74)', async () => {
+      const { useCase } = build();
+
+      expect((await useCase.execute(aRegisterCaseCommand({ legalQualifications: [] }))).prescription).toBeNull();
+    });
+
+    it('un amparo y una causa administrativa no computan prescripción', async () => {
+      const { useCase } = build();
+
+      expect((await useCase.execute(amparoCommand())).prescription).toBeNull();
+      expect((await useCase.execute(administrativeCommand())).prescription).toBeNull();
     });
   });
 
@@ -642,7 +686,7 @@ describe('RegisterCase', () => {
       const { newCase } = await useCase.execute(aRegisterCaseCommand({ clientDetained: true, courtFeePaid: true }));
 
       expect(newCase).toMatchObject({ clientDetained: true, courtFeePaid: true });
-      expect(cases.saved).toEqual([newCase]);
+      expect(cases.saved.map((saved) => saved.toSnapshot())).toEqual([newCase]);
     });
 
     it('administrativo: guarda la fecha de agotamiento de la vía', async () => {

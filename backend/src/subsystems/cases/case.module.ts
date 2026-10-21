@@ -16,7 +16,7 @@ import { RegisterInterruptiveAct } from './core/application/use-cases/register-i
 import { RegisterCase } from './core/application/use-cases/register-case.use-case';
 import { RegisterProceduralAct } from './core/application/use-cases/register-procedural-act.use-case';
 import { RequestCaseFolder } from './core/application/use-cases/request-case-folder.use-case';
-import { CASE_FOLDER_OUTCOMES, CASE_FOLDER_WAIT_MS } from './core/domain/ports/case-folder-outcome.port';
+import { CASE_FOLDER_OUTCOMES } from './core/domain/ports/case-folder-outcome.port';
 import { CASE_FOLDER_STATE } from './core/domain/ports/case-folder-state.port';
 import { CASE_QUERY } from './core/domain/ports/case-query.port';
 import { CASE_TIMELINE_QUERY } from './core/domain/ports/case-timeline-query.port';
@@ -30,10 +30,14 @@ import { BusinessDaysDeadlineCalculatorAdapter } from './infrastructure/acl/busi
 import { LegalParametersActiveCasesCounterAdapter } from './infrastructure/acl/legal-parameters-active-cases-counter.adapter';
 import { PeopleActiveCasesCounterAdapter } from './infrastructure/acl/people-active-cases-counter.adapter';
 import { CaseFolderOutcomeListener } from './infrastructure/acl/events/case-folder-outcome.listener';
-import { InMemoryCaseFolderOutcomes } from './infrastructure/events/in-memory-case-folder-outcomes';
+import {
+  CASE_FOLDER_WAIT_MS,
+  InMemoryCaseFolderOutcomes,
+} from './infrastructure/events/in-memory-case-folder-outcomes';
 import { CaseTimelineController } from './infrastructure/http/controllers/case-timeline.controller';
 import { CasesController } from './infrastructure/http/controllers/cases.controller';
 import { InterruptiveActsController } from './infrastructure/http/controllers/interruptive-acts.controller';
+import { CaseHttpMapper } from './infrastructure/http/mappers/case-http.mapper';
 import { InterruptiveActHttpMapper } from './infrastructure/http/mappers/interruptive-act-http.mapper';
 import { ProceduralActHttpMapper } from './infrastructure/http/mappers/procedural-act-http.mapper';
 import { TimelineHttpMapper } from './infrastructure/http/mappers/timeline-http.mapper';
@@ -114,6 +118,8 @@ import { ProceduralActQueryPrismaAdapter } from './infrastructure/persistence/pr
     ListCases,
     GetCase,
     ListCustomStates,
+    // The case resource of the listing, the detail and the registration (§3.7).
+    CaseHttpMapper,
     RegisterProceduralAct,
     // HU27: la consulta de actos procesales, por su propio puerto de lectura.
     ListProceduralActs,
@@ -124,7 +130,7 @@ import { ProceduralActQueryPrismaAdapter } from './infrastructure/persistence/pr
     { provide: PROCEDURAL_ACT_REPOSITORY, useClass: ProceduralActPrismaRepository },
     { provide: PROCEDURAL_ACT_QUERY, useClass: ProceduralActQueryPrismaAdapter },
     // HU31: actos interruptivos. Su efecto sobre la prescripción no se guarda:
-    // lo calcula `CaseQueryPrismaAdapter` en cada lectura de la causa.
+    // lo calculan `CaseQueryPrismaAdapter` y `withDeadlines` en cada lectura de la causa.
     RegisterInterruptiveAct,
     ListInterruptiveActs,
     InterruptiveActHttpMapper,

@@ -204,10 +204,17 @@ Preferí decirme "esto no lo verifiqué" antes que dar por cerrado algo sin prob
   que registra el acto. Consecuencia: un plazo vencido **sigue abierto**
   hasta que un acto posterior lleve la causa a otro estado. No lo cierres
   ni lo ocultes.
-- **Hay cosas que el backend sólo provee y el cliente calcula**: el avance
-  de la prescripción, cuál calificación prescribe primero, y la distinción
-  visual entre "vencida", "vence hoy" y "próximos días". Agregar el campo
-  ya calculado no es una mejora: es romper el contrato.
+- **Hay cosas que el backend sólo provee y el cliente calcula**: la
+  distinción visual entre "vencida", "vence hoy" y "próximos días" (sale de
+  `businessDaysRemaining`). Agregar un campo con esa categoría no es una
+  mejora: es romper el contrato.
+- **La prescripción, en cambio, desde V4 la resuelve el backend.** El recurso
+  causa trae `prescription`: la calificación que prescribe primero, el
+  porcentaje transcurrido, la alerta del 70 % y si el plazo se cumplió
+  (`API_CONTRACT_V4.md:3232-3254`, y `:3338-3340`: "el cliente ya no tiene que
+  calcularlos"). Se calcula en cada lectura con `summarizePrescription`
+  (`cases/core/domain/prescription.ts:85`), la misma función de los tableros.
+  En V3 era al revés; si un documento dice que el cliente la calcula, es de V3.
 - **La prescripción sólo se computa en el fuero `CRIMINAL`.** En los demás
   el prototipo informa "No aplica al fuero".
 - **El cómputo de días hábiles está incompleto a propósito**: no excluye

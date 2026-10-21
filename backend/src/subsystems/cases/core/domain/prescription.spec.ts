@@ -1,6 +1,48 @@
-import { addPrescriptionMonths, OffenseForPrescription, prescriptionStartsOn, summarizePrescription } from './prescription';
+import {
+  addPrescriptionMonths,
+  OffenseForPrescription,
+  Prescription,
+  prescribesIn,
+  prescriptionStartsOn,
+  summarizePrescription,
+} from './prescription';
+import { JurisdictionCode } from './value-objects/jurisdiction-code';
 
 const day = (iso: string) => new Date(`${iso}T00:00:00.000Z`);
+
+describe('prescribesIn', () => {
+  it('sólo prescribe el fuero penal', () => {
+    expect(prescribesIn(JurisdictionCode.CRIMINAL)).toBe(true);
+    expect(prescribesIn(JurisdictionCode.ADMINISTRATIVE)).toBe(false);
+    expect(prescribesIn(JurisdictionCode.AMPARO)).toBe(false);
+  });
+});
+
+describe('Prescription.of', () => {
+  const offense: OffenseForPrescription = {
+    legalQualificationId: 1,
+    legalQualificationName: 'Lesiones leves',
+    prescriptionMonths: 10,
+    offenseDate: day('2026-01-01'),
+  };
+
+  it('en el fuero penal es la que gobierna la causa', () => {
+    const prescription = Prescription.of(JurisdictionCode.CRIMINAL, [offense], null, day('2026-08-02'));
+
+    expect(prescription).toEqual(Prescription.governing([offense], null, day('2026-08-02')));
+    expect(prescription).toMatchObject({ legalQualificationId: 1, expiresOn: day('2026-11-01') });
+  });
+
+  it.each([JurisdictionCode.ADMINISTRATIVE, JurisdictionCode.AMPARO])('en el fuero %s no aplica', (jurisdiction) => {
+    expect(Prescription.of(jurisdiction, [offense], null, day('2026-08-02'))).toBeNull();
+  });
+
+  it('es el mismo cálculo que summarizePrescription', () => {
+    expect(summarizePrescription([offense], day('2026-03-01'), day('2026-08-02'))).toEqual(
+      Prescription.governing([offense], day('2026-03-01'), day('2026-08-02')),
+    );
+  });
+});
 
 describe('addPrescriptionMonths', () => {
   it('suma meses calendario', () => {

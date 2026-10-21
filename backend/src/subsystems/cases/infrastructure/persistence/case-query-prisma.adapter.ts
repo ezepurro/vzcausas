@@ -12,6 +12,7 @@ import { DayType } from '../../core/domain/value-objects/day-type';
 import { JurisdictionCode } from '../../core/domain/value-objects/jurisdiction-code';
 import { ProceduralRole } from '../../core/domain/value-objects/procedural-role';
 import { CASE_FOLDER_INCLUDE, toCaseFolderView } from './case-folder-prisma.mapper';
+import { PRESCRIPTION_DECLARATION_SELECT, toPrescriptionDeclarationView } from './prescription-declaration-prisma.mapper';
 
 /** What `findMany` has to bring for a row to be projected into a {@link CaseListItem}. */
 const CASE_INCLUDE = {
@@ -30,6 +31,9 @@ const CASE_INCLUDE = {
     orderBy: [{ actDate: 'desc' }, { id: 'desc' }],
     take: 1,
   },
+  // HU33: who marked the case as prescribed. The other declaration columns are
+  // scalars of `cases`, which an `include` already brings.
+  prescriptionRegisteredBy: PRESCRIPTION_DECLARATION_SELECT.prescriptionRegisteredBy,
 } as const satisfies Prisma.CaseInclude;
 
 /**
@@ -303,9 +307,9 @@ function fill(
  * response against today's date in Córdoba, and persistence has no business
  * reading a clock. The use case fills it from `dueDate` and `ClockPort.today()`.
  *
- * `harmfulActDeadline` (contrato V4 §3.7, D-78) tampoco se arma acá: como
- * `businessDaysRemaining`, depende de la fecha de hoy y lo completa el caso de
- * uso (`withDeadlines`, `list-cases.use-case.ts`).
+ * `harmfulActDeadline` (contrato V4 §3.7, D-78) y `prescription` tampoco se
+ * arman acá: como `businessDaysRemaining`, dependen de la fecha de hoy y los
+ * completa el caso de uso (`withDeadlines`, `list-cases.use-case.ts`).
  *
  * PENDIENTE (delegado desde HU-41, CA-41.6 · 18/10/2026): el detalle y el
  * listado ya lo devuelven, pero **no** ordenan ni filtran por
@@ -378,6 +382,10 @@ function toListItem(row: CaseRow): CaseListItem {
         prescriptionExpiresOn: addPrescriptionMonths(startsOn, offense.legalQualification.prescriptionMonths),
       };
     }),
+    lastInterruptiveActDate,
+    // Depends on today's date: the use case fills it (`withDeadlines`).
+    prescription: null,
+    prescriptionDeclaration: toPrescriptionDeclarationView(row.id, row),
     startDate: row.startDate,
     // `proceduralStateId` is null for the initial state and for a hand-written
     // one, even though `cases.current_state_id` holds the real "Iniciada" row:

@@ -615,7 +615,7 @@ describe('CaseFactory', () => {
       expect(newCase.offenses).toEqual([]);
     });
 
-    it('cada calificación se convierte en un hecho con su fecha, todavía sin prescripción calculada', () => {
+    it('cada calificación se convierte en un hecho con su fecha y su prescripción calculada', () => {
       const newCase = CaseFactory.create(
         aNewCaseInput({
           legalQualifications: [
@@ -630,9 +630,9 @@ describe('CaseFactory', () => {
       expect(newCase.offenses[0].legalQualificationId).toBe(ROBBERY.id);
       expect(newCase.offenses[0].offenseDate).toEqual(day('2021-02-27'));
       expect(newCase.offenses[0].prescriptionMonths).toBe(96);
-      expect(newCase.offenses[0].prescriptionExpiresOn).toBeNull();
+      expect(newCase.offenses[0].prescriptionExpiresOn).toEqual(day('2029-02-27'));
       expect(newCase.offenses[1].legalQualificationId).toBe(HOMICIDE.id);
-      expect(newCase.offenses[1].prescriptionExpiresOn).toBeNull();
+      expect(newCase.offenses[1].prescriptionExpiresOn).toEqual(day('2037-05-01'));
     });
 
     it('la fecha del hecho es obligatoria en cada calificación', async () => {

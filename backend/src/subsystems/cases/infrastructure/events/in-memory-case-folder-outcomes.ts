@@ -1,8 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import {
   CaseFolderOutcome,
   CaseFolderOutcomePort,
 } from '../../core/domain/ports/case-folder-outcome.port';
+
+/** DI token for the longest a request waits for the folder, in milliseconds. */
+export const CASE_FOLDER_WAIT_MS = Symbol('CASE_FOLDER_WAIT_MS');
 
 interface Waiter {
   resolve: (outcome: CaseFolderOutcome) => void;
@@ -18,7 +21,9 @@ interface Waiter {
 export class InMemoryCaseFolderOutcomes implements CaseFolderOutcomePort {
   private readonly waiting = new Map<number, Set<Waiter>>();
 
-  expect(caseId: number, timeoutMs: number): Promise<CaseFolderOutcome> {
+  constructor(@Inject(CASE_FOLDER_WAIT_MS) private readonly waitMs: number) {}
+
+  expect(caseId: number): Promise<CaseFolderOutcome> {
     return new Promise<CaseFolderOutcome>((resolve) => {
       // This executor runs right away, so the wait exists before `expect` returns.
       const waiter: Waiter = {
@@ -26,7 +31,7 @@ export class InMemoryCaseFolderOutcomes implements CaseFolderOutcomePort {
         timer: setTimeout(() => {
           this.forget(caseId, waiter);
           resolve('TIMEOUT');
-        }, timeoutMs),
+        }, this.waitMs),
       };
       const waiters = this.waiting.get(caseId) ?? new Set<Waiter>();
       waiters.add(waiter);

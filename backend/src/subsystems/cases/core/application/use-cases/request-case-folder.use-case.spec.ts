@@ -31,17 +31,9 @@ function build(
   cases.add(registered);
   const people = new FakePeopleLookup(options.lawyers ?? [LAWYER], [CLIENT], options.deactivatedLawyers ?? []);
   const folderState = new FakeCaseFolderState();
-  const outcomes = new InMemoryCaseFolderOutcomes();
+  const outcomes = new InMemoryCaseFolderOutcomes(options.waitMs ?? 1000);
   const events = new FakeEventPublisher();
-  const useCase = new RequestCaseFolder(
-    cases,
-    people,
-    folderState,
-    outcomes,
-    options.waitMs ?? 1000,
-    new FakeClock(NOW, TODAY),
-    events,
-  );
+  const useCase = new RequestCaseFolder(cases, people, folderState, outcomes, new FakeClock(NOW, TODAY), events);
   return { useCase, registered, folderState, outcomes, events, cases };
 }
 

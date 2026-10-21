@@ -1,7 +1,6 @@
 import { PaginationQueryDto } from '@shared/infrastructure/http/pagination';
 import { Transform, Type } from 'class-transformer';
-import { IsBoolean, IsEnum, IsInt, IsOptional, IsString, MaxLength } from 'class-validator';
-import { JurisdictionCode } from '../../../core/domain/value-objects/jurisdiction-code';
+import { IsBoolean, IsInt, IsOptional, IsString, MaxLength } from 'class-validator';
 
 /** Query strings carry `"true"` / `"false"`, not booleans. Absent stays absent. */
 const toBoolean = ({ value }: { value: unknown }): boolean | undefined =>
@@ -16,19 +15,17 @@ const toBoolean = ({ value }: { value: unknown }): boolean | undefined =>
  * to be integers: whether such a lawyer, client or state exists is **not**
  * this endpoint's problem. The contract is explicit that a filter by a
  * nonexistent one yields an empty collection, not a `404` or a `400`.
- * `jurisdiction` is the exception — it is a closed set, so a wrong value is a
- * malformed request.
+ * `jurisdiction` is the exception — it is a closed set, so a wrong value is
+ * `400 INVALID_REQUEST` (catalog §5.3). It arrives as a plain string and
+ * `CaseHttpMapper.toSearchCriteria` checks it (`toJurisdictionFilter`), the
+ * same as `GET /cases/custom-states`: `@IsEnum` here would answer the pipe's
+ * generic `VALIDATION_ERROR`.
  */
 export class ListCasesQueryDto extends PaginationQueryDto {
-  /** Accepts `?jurisdiction=criminal`: the value is normalised before validating. */
+  /** Accepts `?jurisdiction=criminal`; the mapper normalises and validates it. */
   @IsOptional()
-  @Transform(({ value }) => {
-    if (typeof value !== 'string') return value;
-    const normalized = value.trim().toUpperCase();
-    return normalized === '' ? undefined : normalized;
-  })
-  @IsEnum(JurisdictionCode, { message: 'No existe un fuero procesal con ese nombre.' })
-  jurisdiction?: JurisdictionCode;
+  @IsString({ message: 'Debe ser un texto.' })
+  jurisdiction?: string;
 
   @IsOptional()
   @Type(() => Number)

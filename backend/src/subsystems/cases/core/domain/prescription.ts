@@ -5,11 +5,14 @@
  * and the reading of one compute exactly the same thing.
  *
  * El resumen `prescription` de la causa (contrato V4 §3.7) es
- * {@link summarizePrescription}. Hoy lo usan las alertas del tablero del
- * abogado (HU-41, CA-41.8). Quien sume `prescription` al detalle de la causa,
- * el tablero del administrador (HU-42) o la verificación diaria (HU-52) tiene
- * que usar esta misma función, no volver a escribir la regla del 70 %.
+ * {@link summarizePrescription}. Lo usan el recurso causa —listado, detalle y
+ * alta (`withDeadlines` en `list-cases.use-case.ts`, `RegisterCase`)— y las
+ * alertas de los dos tableros (HU-41, HU-42, `dashboard-shared.ts`). La
+ * verificación diaria (HU-52) tiene que usar esta misma función, no volver a
+ * escribir la regla del 70 %.
  */
+
+import { JurisdictionCode } from './value-objects/jurisdiction-code';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -70,51 +73,98 @@ export function prescriptionStartsOn(offenseDate: Date, lastInterruptiveActDate:
   return lastInterruptiveActDate;
 }
 
+/** Only a criminal case prescribes: in the other jurisdictions the prototype says "No aplica al fuero". */
+export function prescribesIn(jurisdiction: JurisdictionCode): boolean {
+  return jurisdiction === JurisdictionCode.CRIMINAL;
+}
+
 /**
- * The prescription summary of a criminal case (V4 §3.7 and §4, Prescripción).
- *
- * Every qualification computes its own term from the same start, and the one
- * that **expires first** governs the case (ties: the lowest qualification id,
- * so the result does not depend on the order of the rows). The elapsed share is
- * calendar days from `startsOn` to today over calendar days from `startsOn` to
- * `expiresOn`, kept between 0 and 1.
- *
- * `null` when there is nothing to compute: a case without qualifications
- * (D-74). The caller decides the jurisdiction; only `CRIMINAL` prescribes.
+ * The prescription of a criminal case (V4 §3.7 and §4, Prescripción): the term
+ * of the qualification that expires first. It is the one rule of "which
+ * prescription does this case have": the listing, the detail, the registration
+ * and the dashboards all go through it.
+ */
+export class Prescription implements PrescriptionSummary {
+  private constructor(
+    readonly legalQualificationId: number,
+    readonly legalQualificationName: string,
+    readonly startsOn: Date,
+    readonly expiresOn: Date,
+    readonly elapsedPercentage: number,
+    readonly alert: boolean,
+    readonly expired: boolean,
+    readonly lastInterruptiveActDate: Date | null,
+  ) {}
+
+  /**
+   * The prescription that governs a case, whatever its jurisdiction: `null` where
+   * the jurisdiction does not prescribe ({@link prescribesIn}) or when there is
+   * nothing to compute. Callers do not repeat the `if` on the jurisdiction.
+   */
+  static of(
+    jurisdiction: JurisdictionCode,
+    offenses: readonly OffenseForPrescription[],
+    lastInterruptiveActDate: Date | null,
+    today: Date,
+  ): Prescription | null {
+    return prescribesIn(jurisdiction) ? Prescription.governing(offenses, lastInterruptiveActDate, today) : null;
+  }
+
+  /**
+   * Every qualification computes its own term from the same start, and the one
+   * that **expires first** governs the case (ties: the lowest qualification id,
+   * so the result does not depend on the order of the rows). The elapsed share is
+   * calendar days from `startsOn` to today over calendar days from `startsOn` to
+   * `expiresOn`, kept between 0 and 1.
+   *
+   * `null` when there is nothing to compute: a case without qualifications
+   * (D-74). The jurisdiction is not looked at here; see {@link Prescription.of}.
+   */
+  static governing(
+    offenses: readonly OffenseForPrescription[],
+    lastInterruptiveActDate: Date | null,
+    today: Date,
+  ): Prescription | null {
+    const terms = offenses.map((offense) => {
+      const startsOn = prescriptionStartsOn(offense.offenseDate, lastInterruptiveActDate);
+      return { offense, startsOn, expiresOn: addPrescriptionMonths(startsOn, offense.prescriptionMonths) };
+    });
+    if (terms.length === 0) {
+      return null;
+    }
+
+    const [first] = [...terms].sort(
+      (a, b) =>
+        a.expiresOn.getTime() - b.expiresOn.getTime() || a.offense.legalQualificationId - b.offense.legalQualificationId,
+    );
+    const { offense, startsOn, expiresOn } = first;
+
+    const totalDays = (expiresOn.getTime() - startsOn.getTime()) / DAY_MS;
+    const elapsedDays = (today.getTime() - startsOn.getTime()) / DAY_MS;
+    const ratio = totalDays <= 0 ? 1 : Math.min(1, Math.max(0, elapsedDays / totalDays));
+
+    return new Prescription(
+      offense.legalQualificationId,
+      offense.legalQualificationName,
+      startsOn,
+      expiresOn,
+      Math.round(ratio * 100),
+      ratio >= PRESCRIPTION_ALERT_RATIO,
+      today >= expiresOn,
+      // The act counts only if the computation really starts from it (CA-31.5).
+      startsOn.getTime() === offense.offenseDate.getTime() ? null : startsOn,
+    );
+  }
+}
+
+/**
+ * The prescription summary of a criminal case. Kept under the name the rest of
+ * the code (the dashboards, HU52) already uses; it is {@link Prescription.governing}.
  */
 export function summarizePrescription(
-  offenses: OffenseForPrescription[],
+  offenses: readonly OffenseForPrescription[],
   lastInterruptiveActDate: Date | null,
   today: Date,
 ): PrescriptionSummary | null {
-  const terms = offenses.map((offense) => {
-    const startsOn = prescriptionStartsOn(offense.offenseDate, lastInterruptiveActDate);
-    return { offense, startsOn, expiresOn: addPrescriptionMonths(startsOn, offense.prescriptionMonths) };
-  });
-  if (terms.length === 0) {
-    return null;
-  }
-
-  const [first] = [...terms].sort(
-    (a, b) =>
-      a.expiresOn.getTime() - b.expiresOn.getTime() ||
-      a.offense.legalQualificationId - b.offense.legalQualificationId,
-  );
-  const { offense, startsOn, expiresOn } = first;
-
-  const totalDays = (expiresOn.getTime() - startsOn.getTime()) / DAY_MS;
-  const elapsedDays = (today.getTime() - startsOn.getTime()) / DAY_MS;
-  const ratio = totalDays <= 0 ? 1 : Math.min(1, Math.max(0, elapsedDays / totalDays));
-
-  return {
-    legalQualificationId: offense.legalQualificationId,
-    legalQualificationName: offense.legalQualificationName,
-    startsOn,
-    expiresOn,
-    elapsedPercentage: Math.round(ratio * 100),
-    alert: ratio >= PRESCRIPTION_ALERT_RATIO,
-    expired: today >= expiresOn,
-    // The act counts only if the computation really starts from it (CA-31.5).
-    lastInterruptiveActDate: startsOn.getTime() === offense.offenseDate.getTime() ? null : startsOn,
-  };
+  return Prescription.governing(offenses, lastInterruptiveActDate, today);
 }

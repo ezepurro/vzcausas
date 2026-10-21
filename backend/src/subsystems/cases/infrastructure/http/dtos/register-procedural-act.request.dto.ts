@@ -11,29 +11,29 @@ import { IsDate, IsInt, IsOptional, IsString } from 'class-validator';
 export class RegisterProceduralActRequestDto {
   // A state of the table of the jurisdiction. Excludes `customState`.
   @IsOptional()
-  @IsInt()
+  @IsInt({ message: 'Debe ser un número entero.' })
   proceduralStateId?: number | null;
 
   // A hand-written state, kept only in this case. Excludes `proceduralStateId`.
   @IsOptional()
-  @IsString()
+  @IsString({ message: 'Debe ser un texto.' })
   customState?: string | null;
 
   @Type(() => Date)
-  @IsDate()
+  @IsDate({ message: 'Debe ser una fecha válida (AAAA-MM-DD).' })
   actDate!: Date;
 
   @IsOptional()
   @Type(() => Date)
-  @IsDate()
+  @IsDate({ message: 'Debe ser una fecha válida (AAAA-MM-DD).' })
   notificationDate?: Date | null;
 
   @IsOptional()
   @Type(() => Date)
-  @IsDate()
+  @IsDate({ message: 'Debe ser una fecha válida (AAAA-MM-DD).' })
   manualDueDate?: Date | null;
 
   @IsOptional()
-  @IsString()
+  @IsString({ message: 'Debe ser un texto.' })
   notes?: string | null;
 }

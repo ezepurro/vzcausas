@@ -48,6 +48,7 @@ export class CasesController {
     private readonly listProceduralActs: ListProceduralActs,
     private readonly getProceduralAct: GetProceduralAct,
     private readonly proceduralActMapper: ProceduralActHttpMapper,
+    private readonly caseMapper: CaseHttpMapper,
   ) {}
 
   /**
@@ -61,7 +62,11 @@ export class CasesController {
   @Get()
   async list(@Query() query: ListCasesQueryDto): Promise<PaginatedResponse<CaseResponseDto>> {
     const page = await this.listCases.execute(CaseHttpMapper.toSearchCriteria(query));
-    return paginate(page.items.map(CaseHttpMapper.toResponse), page.totalItems, toPageRequest(query));
+    return paginate(
+      page.items.map((item) => this.caseMapper.toResponse(item)),
+      page.totalItems,
+      toPageRequest(query),
+    );
   }
 
   /**
@@ -99,7 +104,7 @@ export class CasesController {
   @Get(':caseId')
   async getById(@Param('caseId') caseIdParam: string): Promise<{ data: CaseResponseDto }> {
     const item = await this.getCase.execute({ id: this.parseCaseId(caseIdParam) });
-    return { data: CaseHttpMapper.toResponse(item) };
+    return { data: this.caseMapper.toResponse(item) };
   }
 
   @Post()
@@ -109,7 +114,7 @@ export class CasesController {
     @CurrentUser() actor: AuthenticatedUser,
   ): Promise<{ data: CaseResponseDto }> {
     const result = await this.registerCase.execute({ ...dto, createdByUserId: actor.userId });
-    return { data: CaseHttpMapper.fromRegisterResult(result) };
+    return { data: this.caseMapper.fromRegisterResult(result) };
   }
 
   /**

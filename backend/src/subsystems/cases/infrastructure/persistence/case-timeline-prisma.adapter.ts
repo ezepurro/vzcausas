@@ -1,15 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@shared/infrastructure/prisma/prisma.service';
-import {
-  CaseTimelineQueryPort,
-  CaseTimelineSources,
-  PrescriptionDeclarationView,
-} from '../../core/domain/ports/case-timeline-query.port';
+import { CaseTimelineQueryPort, CaseTimelineSources } from '../../core/domain/ports/case-timeline-query.port';
 import {
   INTERRUPTIVE_ACT_INCLUDE,
   INTERRUPTIVE_ACTS_NEWEST_FIRST,
   toInterruptiveActView,
 } from './interruptive-act-query-prisma.adapter';
+import { PRESCRIPTION_DECLARATION_SELECT, toPrescriptionDeclarationView } from './prescription-declaration-prisma.mapper';
 import {
   PROCEDURAL_ACT_INCLUDE,
   PROCEDURAL_ACTS_NEWEST_FIRST,
@@ -19,11 +16,7 @@ import {
 /** What the line of life needs from the case row itself: its current act and its prescription declaration. */
 const CASE_SELECT = {
   currentProceduralActId: true,
-  prescriptionDate: true,
-  prescriptionResolution: true,
-  prescriptionGrounds: true,
-  prescriptionRegisteredAt: true,
-  prescriptionRegisteredBy: { select: { id: true, lastName: true, firstName: true } },
+  ...PRESCRIPTION_DECLARATION_SELECT,
 } as const;
 
 /**
@@ -66,36 +59,7 @@ export class CaseTimelinePrismaAdapter implements CaseTimelineQueryPort {
       currentProceduralActId: caseRow.currentProceduralActId,
       proceduralActs: proceduralRows.map(toProceduralActView),
       interruptiveActs: interruptiveRows.map(toInterruptiveActView),
-      prescriptionDeclaration: toDeclaration(caseId, caseRow),
+      prescriptionDeclaration: toPrescriptionDeclarationView(caseId, caseRow),
     };
   }
-}
-
-type CaseRow = {
-  prescriptionDate: Date | null;
-  prescriptionResolution: string | null;
-  prescriptionGrounds: string | null;
-  prescriptionRegisteredAt: Date | null;
-  prescriptionRegisteredBy: { id: number; lastName: string; firstName: string } | null;
-};
-
-/**
- * `null` while the case was not marked as prescribed. HU33 writes all of these
- * columns at once, so a date without the rest is corrupt data, not something to
- * render half-filled.
- */
-function toDeclaration(caseId: number, row: CaseRow): PrescriptionDeclarationView | null {
-  if (row.prescriptionDate === null) {
-    return null;
-  }
-  if (row.prescriptionResolution === null || row.prescriptionRegisteredAt === null || row.prescriptionRegisteredBy === null) {
-    throw new Error(`Case ${caseId} has a prescription date but an incomplete prescription declaration.`);
-  }
-  return {
-    prescriptionDate: row.prescriptionDate,
-    resolution: row.prescriptionResolution,
-    grounds: row.prescriptionGrounds,
-    registeredBy: row.prescriptionRegisteredBy,
-    registeredAt: row.prescriptionRegisteredAt,
-  };
 }

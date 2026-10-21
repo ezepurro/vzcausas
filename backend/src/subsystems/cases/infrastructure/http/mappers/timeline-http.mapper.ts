@@ -1,9 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { toIsoDate, toIsoWithOffset } from '@shared/infrastructure/http/iso-date';
+import { toIsoDate } from '@shared/infrastructure/http/iso-date';
 import { TimelineEntry } from '../../../core/application/use-cases/get-case-timeline.use-case';
 import { TimelineEntryResponseDto } from '../dtos/timeline.response.dto';
 import { InterruptiveActHttpMapper } from './interruptive-act-http.mapper';
+import { toPrescriptionDeclarationResponse } from './prescription-declaration-http.mapper';
 import { ProceduralActHttpMapper } from './procedural-act-http.mapper';
 
 /**
@@ -47,20 +48,12 @@ export class TimelineHttpMapper {
           governsPrescription: entry.governsPrescription,
           interruptiveAct: this.interruptiveActs.toResponse(entry.interruptiveAct),
         };
-      case 'PRESCRIPTION_DECLARATION': {
-        const declaration = entry.prescriptionDeclaration;
+      case 'PRESCRIPTION_DECLARATION':
         return {
           type: entry.type,
           date,
-          prescriptionDeclaration: {
-            prescriptionDate: toIsoDate(declaration.prescriptionDate),
-            resolution: declaration.resolution,
-            grounds: declaration.grounds,
-            registeredBy: declaration.registeredBy,
-            registeredAt: toIsoWithOffset(declaration.registeredAt, this.timeZone),
-          },
+          prescriptionDeclaration: toPrescriptionDeclarationResponse(entry.prescriptionDeclaration, this.timeZone),
         };
-      }
     }
   }
 }

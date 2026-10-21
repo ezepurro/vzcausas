@@ -1,4 +1,6 @@
+import { PrescriptionSummary } from '../prescription';
 import { CaseFolderView } from './case-folder-state.port';
+import { PrescriptionDeclarationView } from './case-timeline-query.port';
 import { ClientRef, LawyerRef } from './people-lookup.port';
 import { DayType } from '../value-objects/day-type';
 import { JurisdictionCode } from '../value-objects/jurisdiction-code';
@@ -103,6 +105,21 @@ export type CaseListItem = {
   responsibleLawyer: LawyerRef;
   /** Empty unless the case is criminal. A deactivated qualification still shows (RN12). */
   legalQualifications: CaseQualificationView[];
+  /**
+   * The date of the most recent interruptive act (HU31), the one the
+   * prescription counts from. Not part of the resource: it is what
+   * `summarizePrescription` needs to fill `prescription`.
+   */
+  lastInterruptiveActDate: Date | null;
+  /**
+   * The prescription that governs the case (contract V4 §3.7): the one of the
+   * qualification that prescribes first. The read port leaves it `null`: like
+   * `harmfulActDeadline`, it depends on today's date, and the use case fills it.
+   * It stays `null` outside `CRIMINAL` and in a criminal case without qualifications.
+   */
+  prescription: PrescriptionSummary | null;
+  /** The declaration that the case prescribed (HU33); `null` while it was not marked. */
+  prescriptionDeclaration: PrescriptionDeclarationView | null;
   /**
    * `null` mientras la causa no tiene SAC (D-38): la fecha de inicio es la de
    * la causa en sede judicial y sin SAC no existe. Hasta el 10/10/2026 la

@@ -39,7 +39,7 @@ forma ampliada. Si divergen, es un bug.
 |---|---|
 | **22.1** Encabezado | **Nada nuevo.** `caption`, `sacNumber`, `jurisdiction`, `court`, `responsibleLawyer`, `currentState` y su `dueDate` ya están en el recurso del listado. |
 | **22.2** Datos del cliente y su rol procesal | **Nada nuevo**, pero ojo con dónde está: `proceduralRole` va **a nivel de la causa**, no dentro de `client`. No busques `client.proceduralRole`: no existe. |
-| **22.3** Prescripción | **Casi nada, y esto es lo importante.** El backend devuelve `legalQualifications[]` con `prescriptionMonths`, `offenseDate`, `prescriptionStartsOn` y `prescriptionExpiresOn`. **El avance, el tiempo restante y la elección de la que prescribe primero los calcula el cliente** (V3 §3.7, textual). No computes porcentajes ni "restan 5 años 9 meses" ni agregues un campo con la calificación elegida. Además: la prescripción **solo se computa en el fuero `CRIMINAL`**; en los demás el prototipo informa "No aplica al fuero". |
+| **22.3** Prescripción | **Suyo desde V4** (era del cliente en V3). El backend devuelve `legalQualifications[]` con `prescriptionMonths`, `offenseDate`, `prescriptionStartsOn` y `prescriptionExpiresOn`, **y además `prescription`**: la calificación que prescribe primero, `startsOn`, `expiresOn`, `elapsedPercentage`, `alert` (70 % o más, sobre el valor exacto), `expired` y `lastInterruptiveActDate` (`API_CONTRACT_V4.md:3232-3254`; `:3338-3340`, "el cliente ya no tiene que calcularlos"). Lo calcula `summarizePrescription` (`cases/core/domain/prescription.ts:85`) en cada lectura, no se guarda. Lo que sigue siendo del cliente es el texto "Restan 5 años 9 meses", que arma con `expiresOn`. Además: la prescripción **solo se computa en el fuero `CRIMINAL`**; en los demás `prescription` vale `null` y el prototipo informa "No aplica al fuero". También `prescriptionDeclaration`, `null` hasta que la causa se marca como prescripta (HU33). |
 | **22.4** Causa recién registrada | **Nada nuevo.** `currentState.initial` en `true` y `dueDate` nulo. El "ofrece registrar el primer acto" es del frontend. |
 | **22.5** Actualización por acto procesal | **No es de esta HU.** Depende de `POST /cases/{caseId}/procedural-acts`, que no es mi alcance. El detalle solo tiene que leer `currentState` tal como quedó. |
 | **22.6** Causa inexistente | **Suyo.** `404` con `code: "CASE_NOT_FOUND"`. Y `400` con `INVALID_PATH_PARAMETER` si el `caseId` no es un entero válido. |
@@ -71,8 +71,8 @@ modificar calificaciones (HU19).
 
 <!-- Observación sobre la estimación, para mmachuca, no para el modelo:
      HU22 está estimada en 15 SP y HU20 en 10. Pero según el contrato el
-     detalle devuelve el mismo recurso que el listado, y CA-22.3 no es
-     trabajo de backend. Una vez hecha HU20, HU22 es casi gratis del lado
+     detalle devuelve el mismo recurso que el listado, y CA-22.3 no era
+     trabajo de backend en V3 (en V4 sí: `prescription`). Una vez hecha HU20, HU22 es casi gratis del lado
      del servidor. Lo más probable es que esos 15 SP incluyan el ciclo de
      vida y la documentación, que §8.3 deja fuera del sprint. Vale la pena
      chequearlo en la planificación antes de comprometer horas. -->

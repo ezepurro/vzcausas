@@ -93,6 +93,17 @@ function toFieldKeyedBadRequest(
   });
 }
 
+/**
+ * Mensajes que no salen de un decorador y por eso no se pueden escribir en
+ * castellano desde el DTO. `whitelistValidation` es el de un campo que el DTO
+ * no declara (`forbidNonWhitelisted`): `class-validator` lo arma en inglés
+ * ("property ordenar should not exist"). El `message` del contrato es para el
+ * usuario final (`.claude/rules/dominio.md`, "El idioma de los mensajes").
+ */
+const SPANISH_MESSAGES: Record<string, string> = {
+  whitelistValidation: "No es un campo admitido.",
+};
+
 function flatten(
   errors: readonly ValidationError[],
   prefix = "",
@@ -105,7 +116,9 @@ function flatten(
     if (error.constraints !== undefined) {
       // Varios mensajes sobre un mismo campo se unen, así una
       // contraseña que falla por largo y por dígito reporta ambos.
-      details[path] = Object.values(error.constraints).join(" ");
+      details[path] = Object.entries(error.constraints)
+        .map(([constraint, message]) => SPANISH_MESSAGES[constraint] ?? message)
+        .join(" ");
     }
 
     if (error.children !== undefined && error.children.length > 0) {

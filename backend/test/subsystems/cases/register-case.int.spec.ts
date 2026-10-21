@@ -3,6 +3,7 @@ import request from 'supertest';
 
 import { DOCUMENT_STORAGE } from '../../../src/subsystems/documents/core/domain/ports/document-storage.port';
 import { InMemoryDocumentStorage } from '../../../src/subsystems/documents/infrastructure/storage/in-memory/in-memory-document-storage';
+import { withFixedClock } from '../../shared/harness/fixed-clock';
 import { startTestApp, stopTestApp, getPrisma } from '../../shared/harness/test-app';
 import { expectData, expectError } from '../../shared/contract/envelopes';
 import { loginAs } from '../../shared/auth/login-as';
@@ -17,7 +18,10 @@ import { createUser } from '../../shared/factories/user.factory';
 const URL = '/api/v1/cases';
 
 /*
- * HU18 Registrar Causa. Contrato: openapi `paths/cases.yaml` (POST /cases).
+ * HU18 Registrar Causa. Contrato: API_CONTRACT_V4.md §3.7 (POST /cases).
+ *
+ * Con el reloj fijo (hoy es el 06/10/2026, `fixed-clock.ts`): `prescription`
+ * depende de la fecha de hoy y el test fija sus valores exactos.
  *
  * Cliente, abogado, calificación legal y estado inicial se leen de la base real a
  * través de los adaptadores de `people` y `legal-parameters`, así que estos tests
@@ -32,7 +36,7 @@ describe('POST /api/v1/cases', () => {
   let storage: InMemoryDocumentStorage;
 
   beforeAll(async () => {
-    app = await startTestApp();
+    app = await startTestApp(withFixedClock);
     storage = app.get(DOCUMENT_STORAGE);
   });
 
@@ -146,6 +150,20 @@ describe('POST /api/v1/cases', () => {
           prescriptionExpiresOn: '2029-02-27',
         },
       ],
+      // V4 §3.7: calculada desde el alta. Al 06/10/2026 transcurrieron 2047 de
+      // 2922 días (70,05 %): la alerta se evalúa sobre el valor exacto, y acá
+      // ya está encendida aunque el redondeado sea 70.
+      prescription: {
+        legalQualificationId: qualification.id,
+        legalQualificationName: qualification.name,
+        startsOn: '2021-02-27',
+        expiresOn: '2029-02-27',
+        elapsedPercentage: 70,
+        alert: true,
+        expired: false,
+        lastInterruptiveActDate: null,
+      },
+      prescriptionDeclaration: null,
       startDate: '2021-03-12',
       currentState: {
         proceduralStateId: null,
@@ -209,6 +227,9 @@ describe('POST /api/v1/cases', () => {
       counterparty: 'APROSS',
       subjectMatter: body.subjectMatter,
       legalQualifications: [],
+      // Los amparos no prescriben (V4 §4, Prescripción).
+      prescription: null,
+      prescriptionDeclaration: null,
       currentState: { name: 'Iniciada', initial: true },
     });
 
@@ -341,6 +362,8 @@ describe('POST /api/v1/cases', () => {
         harmfulActDeadline: null,
         administrativeRemedyExhaustedOn: '2026-08-10',
         courtFeePaid: true,
+        prescription: null,
+        prescriptionDeclaration: null,
       });
       const row = await getPrisma().case.findUniqueOrThrow({ where: { id: data.id } });
       expect(row.administrativeRemedyExhaustedOn).toEqual(new Date('2026-08-10T00:00:00.000Z'));
@@ -489,18 +512,48 @@ describe('POST /api/v1/cases', () => {
       expect(await getPrisma().case.count()).toBe(0);
     });
 
+    // El `message` y los `details` son para el usuario final: en castellano, nunca
+    // el texto por defecto de `class-validator` ("clientDetained must be a boolean value").
     it.each([
-      ['clientDetained', 'si'],
-      ['courtFeePaid', 'si'],
-      ['harmfulActTermDays', 'quince'],
-      ['harmfulActDate', 'no-es-fecha'],
-    ])('%s con un tipo inválido responde 400 sobre ese campo', async (field, value) => {
+      ['clientDetained', 'si', 'Debe ser true o false.'],
+      ['courtFeePaid', 'si', 'Debe ser true o false.'],
+      ['harmfulActTermDays', 'quince', 'Debe ser un número entero.'],
+      ['harmfulActDate', 'no-es-fecha', 'Debe ser una fecha válida (AAAA-MM-DD).'],
+      ['harmfulActTermDayType', 'HABILES', 'Debe ser BUSINESS o CONSECUTIVE.'],
+      ['proceduralRole', 'DEFENSOR', 'No es un rol procesal válido.'],
+      ['caption', 42, 'Debe ser un texto.'],
+    ])('%s con un tipo inválido responde 400 sobre ese campo, en castellano', async (field, value, message) => {
       const body = aCaseBody({ clientId, responsibleLawyerId: lawyerId }, { [field]: value });
 
       const res = await request(app.getHttpServer()).post(URL).set(actor).send(body);
 
       expectError(res, 400, 'VALIDATION_ERROR', [field]);
+      expect(res.body.error.message).toBe('Los datos enviados no son válidos.');
+      expect(res.body.error.details).toEqual({ [field]: message });
       expect(await getPrisma().case.count()).toBe(0);
+    });
+
+    it('un campo que el contrato no define se rechaza en castellano', async () => {
+      const body = { ...aCaseBody({ clientId, responsibleLawyerId: lawyerId }), caratula: 'GÓMEZ' };
+
+      const res = await request(app.getHttpServer()).post(URL).set(actor).send(body);
+
+      expectError(res, 400, 'VALIDATION_ERROR', ['caratula']);
+      expect(res.body.error.details).toEqual({ caratula: 'No es un campo admitido.' });
+    });
+
+    it('una calificación que no es un objeto se rechaza en castellano', async () => {
+      const body = { ...aCaseBody({ clientId, responsibleLawyerId: lawyerId }), legalQualifications: ['robo'] };
+
+      const res = await request(app.getHttpServer()).post(URL).set(actor).send(body);
+
+      // Solo se fija el idioma. La clave no: hoy sale `legalQualifications.0` (la ruta
+      // que arma `flatten`, `app.setup.ts`), y el contrato pide informar los errores de
+      // una calificación sobre `legalQualifications` (V4 §3.7). Desvío pendiente de decidir,
+      // no un comportamiento a fijar.
+      expect(res.status).toBe(400);
+      expect(res.body.error.code).toBe('VALIDATION_ERROR');
+      expect(Object.values(res.body.error.details)).toEqual(['Cada calificación legal debe ser un objeto.']);
     });
   });
 
@@ -510,6 +563,7 @@ describe('POST /api/v1/cases', () => {
       .send(aCaseBody({ clientId, responsibleLawyerId: lawyerId }));
 
     expectError(res, 401, 'UNAUTHENTICATED');
+    expect(res.body.error.message).toBe('La autenticación es requerida.');
     expect(await getPrisma().case.count()).toBe(0);
   });
 });

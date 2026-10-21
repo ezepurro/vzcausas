@@ -15,7 +15,7 @@ import { getPrisma, startTestApp, stopTestApp } from '../../shared/harness/test-
 const URL = '/api/v1/cases';
 
 /*
- * HU20 Consultar causas. Contrato: API_CONTRACT_V3.md §3.7 (GET /cases).
+ * HU20 Consultar causas. Contrato: API_CONTRACT_V4.md §3.7 (GET /cases).
  *
  * Complementa a `case-query.int.spec.ts`, que prueba el puerto de lectura
  * directo. Acá se prueba lo que sólo existe pasando por HTTP: el sobre
@@ -122,8 +122,7 @@ describe('GET /api/v1/cases', () => {
     const res = await request(app.getHttpServer()).get(URL).set(actor);
     const [item] = expectPaginated(res, { page: 1, limit: 20, totalItems: 1, totalPages: 1 });
 
-    // Las 28 claves del recurso, exactamente (§3.7). Si falta o sobra una, falla.
-    // Faltan a propósito `prescription` y `prescriptionDeclaration`: no están en este paso.
+    // Las 30 claves del recurso, exactamente (V4 §3.7). Si falta o sobra una, falla.
     expect(Object.keys(item as object).sort()).toEqual(
       [
         'active',
@@ -148,6 +147,8 @@ describe('GET /api/v1/cases', () => {
         'instructorName',
         'jurisdiction',
         'legalQualifications',
+        'prescription',
+        'prescriptionDeclaration',
         'proceduralRole',
         'responsibleLawyer',
         'sacNumber',
@@ -162,6 +163,9 @@ describe('GET /api/v1/cases', () => {
       client: { id: clientId, lastName: 'GÓMEZ' },
       responsibleLawyer: { id: lawyerId },
       legalQualifications: [],
+      // Una penal sin calificaciones no computa prescripción (D-74), y nadie la marcó como prescripta.
+      prescription: null,
+      prescriptionDeclaration: null,
       active: true,
       currentState: { name: 'Iniciada', initial: true, proceduralStateId: null, dueDate: null },
       // Cargada con la factory, sin pasar por el alta: no tiene estado de carpeta.
@@ -290,22 +294,42 @@ describe('GET /api/v1/cases', () => {
       expectError(res, 400, 'INVALID_PAGINATION', ['page', 'limit']);
     });
 
-    it('rechaza un fuero inexistente', async () => {
+    // Catálogo §5.3: un parámetro de consulta con un valor inexistente es INVALID_REQUEST,
+    // igual que en `GET /cases/custom-states`.
+    it('rechaza un fuero inexistente con INVALID_REQUEST', async () => {
       const res = await request(app.getHttpServer()).get(URL).query({ jurisdiction: 'PENAL' }).set(actor);
 
-      expectError(res, 400, 'VALIDATION_ERROR', ['jurisdiction']);
+      expectError(res, 400, 'INVALID_REQUEST', ['jurisdiction']);
+      expect(res.body.error).toEqual({
+        code: 'INVALID_REQUEST',
+        message: 'Parámetros de query inválidos.',
+        details: { jurisdiction: 'No existe un fuero procesal con ese nombre.' },
+      });
     });
 
-    it('rechaza un parámetro desconocido', async () => {
+    it('rechaza un parámetro desconocido, con el mensaje en castellano', async () => {
       const res = await request(app.getHttpServer()).get(URL).query({ ordenar: 'fecha' }).set(actor);
 
       expectError(res, 400, 'VALIDATION_ERROR', ['ordenar']);
+      expect(res.body.error).toEqual({
+        code: 'VALIDATION_ERROR',
+        message: 'Los datos enviados no son válidos.',
+        details: { ordenar: 'No es un campo admitido.' },
+      });
+    });
+
+    it('un filtro con un tipo inválido informa el campo en castellano', async () => {
+      const res = await request(app.getHttpServer()).get(URL).query({ responsibleLawyerId: 'tres' }).set(actor);
+
+      expectError(res, 400, 'VALIDATION_ERROR', ['responsibleLawyerId']);
+      expect(res.body.error.details).toEqual({ responsibleLawyerId: 'Debe ser un número entero.' });
     });
 
     it('responde 401 sin token', async () => {
       const res = await request(app.getHttpServer()).get(URL);
 
       expectError(res, 401, 'UNAUTHENTICATED');
+      expect(res.body.error.message).toBe('La autenticación es requerida.');
     });
   });
 });
