@@ -150,9 +150,12 @@ export interface DocumentStoragePort {
 ```
 
 `parentId: null` es la raíz de la cuenta (solo la usa la carpeta `VZ Causas`).
-Quedan **pendientes** `copyFile` (copiar modelos, HU40) y los métodos de acceso
-(`grantWriter`, `revokeAccess`, `listUserAccess`) del diseño original, que se
-agregan cuando se implementen sus historias.
+`copyFile({ fileId, parentId, name })` (HU40) copia un modelo a la carpeta de una
+causa dentro de Drive (`files.copy`), sin descargar ni subir el archivo: la copia
+es independiente del modelo y los cambios posteriores no la tocan (CA-40.6). Lo
+usa el caso de uso `CopyTemplatesToCaseFolder`. Quedan **pendientes** los métodos
+de acceso (`grantWriter`, `revokeAccess`, `listUserAccess`) del diseño original,
+que se agregan cuando se implementen sus historias.
 
 Implementaciones: `GoogleDriveDocumentStorage` (producción, con `googleapis` y el
 cliente OAuth compartido) e `InMemoryDocumentStorage` (pruebas y desarrollo sin

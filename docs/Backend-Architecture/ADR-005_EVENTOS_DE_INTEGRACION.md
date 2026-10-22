@@ -116,6 +116,22 @@ Los tres eventos de la carpeta:
 | `documents.document-space-assigned.v1` | `documents` | La carpeta existe (con su identificador y enlace) |
 | `documents.document-space-creation-failed.v1` | `documents` | No se pudo crear, con el motivo: transitorio, autorización, datos inválidos, configuración o interno |
 
+### Copia de modelos (HU40)
+
+La copia de los modelos del fuero a la carpeta **no la hace el alta de la causa**: el
+alta la *pide* y `documents` la ejecuta con su propio caso de uso
+(`CopyTemplatesToCaseFolder`), por los mismos eventos:
+
+| Evento | Lo publica | Significa |
+| --- | --- | --- |
+| `cases.case-registered.v1` con `copyTemplates` | `cases` | Además de la carpeta, copiar los modelos del fuero. `documents` registra las copias como pendientes aunque la carpeta falle |
+| `cases.case-templates-copy-requested.v1` | `cases` | Reintento sobre una carpeta que ya existe: copiar solo los modelos pendientes |
+| `documents.case-templates-copied.v1` | `documents` | Terminó un intento de copia, con cuántos se copiaron y cuántos quedan pendientes |
+
+Cuando el alta pidió los modelos, la espera acotada de §5 termina con
+`CaseTemplatesCopied` y no con la carpeta creada, para que `folder` informe cuántos se
+copiaron. Los contadores de `folder` salen de `document_template_copies`.
+
 ## 5. Qué se responde mientras la carpeta se crea
 
 El contrato de la API muestra la carpeta ya creada en la respuesta de `POST /cases`.

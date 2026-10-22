@@ -103,6 +103,8 @@ reset-db:
 	$(DC_DEV) exec backend npx prisma db seed
 	$(DC_DEV) restart backend
 
+setup-storage:
+	$(DC_DEV) exec backend npm run documents:setup-storage
 # ---- Frontend Scoped ------------------------------------------------------
 
 frontend-restart: ## Restarts only frontend (dev)
