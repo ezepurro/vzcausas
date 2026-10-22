@@ -61,6 +61,7 @@ describe('POST /api/v1/internal/deadlines/daily-run', () => {
   });
 
   afterAll(async () => {
+    await getPrisma().sentNotification.deleteMany(); // hija de cases: no dejarle filas a otro spec
     await stopTestApp();
   });
 
