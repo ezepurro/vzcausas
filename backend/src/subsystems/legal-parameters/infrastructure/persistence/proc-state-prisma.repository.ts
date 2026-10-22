@@ -183,6 +183,17 @@ export class ProceduralStatePrismaRepository implements ProceduralStateRepositor
     };
   }
 
+  async findPrescribedByJurisdiction(jurisdiction: JurisdictionCode): Promise<ProceduralState | null> {
+    // The flag, not the name: a partial unique index keeps one per jurisdiction
+    // (`procedural_states_one_prescribed_per_jurisdiction_key`). It is protected
+    // against a baja (CA-33.13), so `isActive` only guards against broken data.
+    const row = await this.prisma.proceduralState.findFirst({
+      where: { isPrescribed: true, isActive: true, jurisdiction: { name: jurisdiction, isActive: true } },
+      include: { jurisdiction: true },
+    });
+    return row ? ProceduralStateMapper.toDomain(row) : null;
+  }
+
   async findInitialByJurisdiction(jurisdiction: JurisdictionCode): Promise<ProceduralState | null> {
     const row = await this.prisma.proceduralState.findFirst({
       where: {

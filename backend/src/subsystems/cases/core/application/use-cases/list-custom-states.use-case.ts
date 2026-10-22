@@ -1,7 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { InvalidJurisdictionFilterError } from '../../domain/errors/case.errors';
+import { toJurisdictionFilter } from '../common/jurisdiction-filter';
 import { CASE_QUERY, CaseQueryPort } from '../../domain/ports/case-query.port';
-import { JurisdictionCode } from '../../domain/value-objects/jurisdiction-code';
 
 export type ListCustomStatesQuery = { jurisdiction?: string };
 
@@ -23,24 +22,6 @@ export class ListCustomStates {
   constructor(@Inject(CASE_QUERY) private readonly cases: CaseQueryPort) {}
 
   async execute(query: ListCustomStatesQuery = {}): Promise<string[]> {
-    return this.cases.listCustomStates(toJurisdiction(query.jurisdiction));
+    return this.cases.listCustomStates(toJurisdictionFilter(query.jurisdiction));
   }
-}
-
-function toJurisdiction(raw: string | undefined): JurisdictionCode | undefined {
-  if (raw === undefined) {
-    return undefined;
-  }
-
-  const normalized = raw.trim().toUpperCase();
-  if (normalized === '') {
-    return undefined;
-  }
-
-  const codes = Object.values(JurisdictionCode) as string[];
-  if (!codes.includes(normalized)) {
-    throw new InvalidJurisdictionFilterError();
-  }
-
-  return normalized as JurisdictionCode;
 }

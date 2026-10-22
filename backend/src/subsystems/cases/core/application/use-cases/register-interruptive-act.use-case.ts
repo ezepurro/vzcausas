@@ -6,7 +6,6 @@ import { CaseNotFoundError, PrescriptionNotApplicableError } from '../../domain/
 import { CASE_REPOSITORY, CaseRepository } from '../../domain/ports/case.repository';
 import { INTERRUPTIVE_ACT_REPOSITORY, InterruptiveActRepository } from '../../domain/ports/interruptive-act.repository';
 import { InterruptiveActView } from '../../domain/ports/interruptive-act-query.port';
-import { LEGAL_PARAMETERS_LOOKUP, LegalParametersLookupPort } from '../../domain/ports/legal-parameters-lookup.port';
 import { PEOPLE_LOOKUP, PeopleLookupPort } from '../../domain/ports/people-lookup.port';
 import { JurisdictionCode } from '../../domain/value-objects/jurisdiction-code';
 
@@ -41,7 +40,6 @@ export class RegisterInterruptiveAct {
   constructor(
     @Inject(CASE_REPOSITORY) private readonly cases: CaseRepository,
     @Inject(INTERRUPTIVE_ACT_REPOSITORY) private readonly acts: InterruptiveActRepository,
-    @Inject(LEGAL_PARAMETERS_LOOKUP) private readonly legalParameters: LegalParametersLookupPort,
     @Inject(PEOPLE_LOOKUP) private readonly people: PeopleLookupPort,
     @Inject(CLOCK) private readonly clock: ClockPort,
   ) {}
@@ -60,11 +58,7 @@ export class RegisterInterruptiveAct {
       throw new PrescriptionNotApplicableError();
     }
 
-    const currentState =
-      targetCase.currentStateId === null
-        ? null
-        : await this.legalParameters.findProcStateById(targetCase.currentStateId);
-    targetCase.assertAcceptsActs(currentState?.terminal ?? false, TERMINAL_STATE_MESSAGE);
+    targetCase.assertAcceptsActs(TERMINAL_STATE_MESSAGE);
 
     // The actor is the lawyer in charge, so the record exists: a missing one is broken data, not a user error.
     const registeredBy = await this.people.findActiveLawyerById(command.actor.lawyerId!);

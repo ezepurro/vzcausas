@@ -2,13 +2,12 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { CLOCK, ClockPort } from '@shared/domain/clock.port';
 import { ValidationError } from '@shared/domain/domain-error';
 import { CaseSacAlreadyExistsError, CopyTemplatesWithoutFolderError } from '../../domain/errors/case.errors';
-import { Amparo } from '../../domain/entities/amparo';
-import { CriminalCase } from '../../domain/entities/criminal';
 import { CaseFactory } from '../../domain/factories/case.factory';
 import { CASE_FOLDER_STATE, CaseFolderStatePort, CaseFolderView } from '../../domain/ports/case-folder-state.port';
 import { CASE_REPOSITORY, CaseRepository } from '../../domain/ports/case.repository';
 import { LEGAL_PARAMETERS_LOOKUP, LegalParametersLookupPort } from '../../domain/ports/legal-parameters-lookup.port';
 import { PEOPLE_LOOKUP, PeopleLookupPort } from '../../domain/ports/people-lookup.port';
+import { Prescription } from '../../domain/prescription';
 import { RegisterCaseCommand, RegisterCaseResult } from '../common/register-case.interfaces';
 import { RequestCaseFolder } from './request-case-folder.use-case';
 
@@ -109,29 +108,24 @@ export class RegisterCase {
       throw new CaseSacAlreadyExistsError();
     }
 
-    // Every offense is saved with its prescription date: calculate the ones still pending.
-    if (newCase instanceof CriminalCase) {
-      for (const offense of newCase.offenses) {
-        if (offense.prescriptionExpiresOn === null) {
-          offense.calculatePrescription();
-        }
-      }
-    }
-
     await this.cases.save(newCase);
     const currentState = await this.cases.findCurrentState(newCase.id);
     const folder = createFolder ? await this.requestFolder(newCase.id) : await this.currentFolder(newCase.id);
 
+    const snapshot = newCase.toSnapshot();
+
     // The factory only returns when there were no reference errors, so the
     // client and the lawyer exist.
     return {
-      newCase,
+      newCase: snapshot,
       client: client!,
       responsibleLawyer: responsibleLawyer!,
-      offenses: newCase instanceof CriminalCase ? newCase.offenses : [],
       currentState,
       // A case that was just registered is in the initial state, so its term (if it has one) is open.
-      harmfulActDeadline: newCase instanceof Amparo ? (newCase.harmfulAct?.deadline(today) ?? null) : null,
+      harmfulActDeadline: newCase.harmfulActDeadline(today),
+      // Same rule as the listing and the detail (`withDeadlines`). A case being
+      // registered has no interruptive acts, so it counts from each offense date.
+      prescription: Prescription.of(snapshot.jurisdictionCode, snapshot.offenses, null, today),
       folder,
     };
   }

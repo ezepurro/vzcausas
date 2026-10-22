@@ -10,13 +10,11 @@ import { InterruptiveActRepository } from '../../domain/ports/interruptive-act.r
 import {
   FakeCaseRepository,
   FakeClock,
-  FakeLegalParametersLookup,
   FakePeopleLookup,
 } from '../../test-support/case-fakes';
 import {
   ARCHIVED,
   CLIENT,
-  INITIAL_STATES,
   LAWYER,
   NOW,
   STATES_TABLE,
@@ -64,7 +62,6 @@ describe('RegisterInterruptiveAct', () => {
     useCase = new RegisterInterruptiveAct(
       cases,
       acts,
-      new FakeLegalParametersLookup(INITIAL_STATES, [], STATES_TABLE),
       new FakePeopleLookup([LAWYER], [CLIENT]),
       new FakeClock(NOW, TODAY),
     );

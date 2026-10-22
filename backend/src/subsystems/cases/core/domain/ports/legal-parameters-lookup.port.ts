@@ -38,6 +38,12 @@ export interface LegalParametersLookupPort {
   /** The initial state ("Iniciada") of an active jurisdiction, or `null` if there is none. */
   findInitialProcStateByJurisdiction(jurisdiction: JurisdictionCode): Promise<ProceduralStateRef | null>;
 
+  /**
+   * The "Prescripta" state of an active jurisdiction (D-53), or `null` if it has
+   * none. Only `CRIMINAL` has one; it is where HU33 moves a case.
+   */
+  findPrescribedProcStateByJurisdiction(jurisdiction: JurisdictionCode): Promise<ProceduralStateRef | null>;
+
   /** A procedural state of any jurisdiction by id, active or not, or `null` if there is none. */
   findProcStateById(id: number): Promise<ProceduralStateRef | null>;
 

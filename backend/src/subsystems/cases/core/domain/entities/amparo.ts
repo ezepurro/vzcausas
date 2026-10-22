@@ -1,6 +1,7 @@
 import { DayType } from '../value-objects/day-type';
-import { HarmfulAct } from '../value-objects/harmful-act';
+import { HarmfulAct, HarmfulActDeadline } from '../value-objects/harmful-act';
 import { JurisdictionCode } from '../value-objects/jurisdiction-code';
+import { CaseSnapshot } from './case-snapshot';
 import { Case, CaseProps } from './cases';
 
 export interface AmparoProps extends CaseProps {
@@ -32,6 +33,24 @@ export class Amparo extends Case {
 
   resolveCountsFrom(actDate: Date, notificationDate: Date | null, _stateOpensTerm: boolean): Date {
     return this.countsFromActDate(actDate, notificationDate);
+  }
+
+  toSnapshot(): CaseSnapshot {
+    return {
+      ...this.commonSnapshot(),
+      counterparty: this.amparoProps.counterparty,
+      subjectMatter: this.amparoProps.subjectMatter,
+      injunctionGranted: this.amparoProps.injunctionGranted,
+      harmfulActDate: this.amparoProps.harmfulActDate,
+      harmfulActRenews: this.amparoProps.harmfulActRenews,
+      harmfulActRenewalDays: this.amparoProps.harmfulActRenewalDays,
+      harmfulActTermDays: this.amparoProps.harmfulActTermDays,
+      harmfulActTermDayType: this.amparoProps.harmfulActTermDayType,
+    };
+  }
+
+  override harmfulActDeadline(today: Date): HarmfulActDeadline | null {
+    return this.harmfulAct?.deadline(today) ?? null;
   }
 
   get jurisdictionCode(): JurisdictionCode {

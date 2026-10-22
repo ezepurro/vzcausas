@@ -4,6 +4,7 @@ import {
   LegalQualification as PrismaLegalQualification,
   Offense as PrismaOffense,
   ProceduralAct as PrismaProceduralAct,
+  ProceduralState as PrismaProceduralState,
 } from '../../../../generated/prisma/client';
 import { AdministrativeCase } from '../../core/domain/entities/administrative';
 import { Amparo } from '../../core/domain/entities/amparo';
@@ -13,6 +14,7 @@ import { Offense } from '../../core/domain/entities/offense';
 import { ProceduralActPrismaMapper } from './procedural-act-prisma.mapper';
 import { DayType } from '../../core/domain/value-objects/day-type';
 import { JurisdictionCode } from '../../core/domain/value-objects/jurisdiction-code';
+import { PrescriptionDeclaration } from '../../core/domain/value-objects/prescription-declaration.vo';
 import { ProceduralRole } from '../../core/domain/value-objects/procedural-role';
 
 export type OffenseRow = PrismaOffense & { legalQualification: PrismaLegalQualification };
@@ -20,11 +22,34 @@ export type OffenseRow = PrismaOffense & { legalQualification: PrismaLegalQualif
 export type CaseRow = PrismaCase & {
   jurisdiction: PrismaJurisdiction;
   offenses: OffenseRow[];
+  // The state the case is in; `null` for a hand-written state.
+  currentState: PrismaProceduralState | null;
   // The act that led the case to its current state; the rest of the timeline is not loaded.
   currentProceduralAct: PrismaProceduralAct | null;
 };
 
 export class CasePrismaMapper {
+  /**
+   * The declaration of HU33 from its columns, or `null` while the case was not
+   * marked. HU33 writes them all at once and the `ck_cases_prescription_*` CHECKs
+   * keep them together, so a date without the rest is corrupt data.
+   */
+  private static toPrescriptionDeclaration(row: PrismaCase): PrescriptionDeclaration | null {
+    if (row.prescriptionDate === null) {
+      return null;
+    }
+    if (row.prescriptionResolution === null || row.prescriptionRegisteredByUserId === null || row.prescriptionRegisteredAt === null) {
+      throw new Error(`Case ${row.id} has a prescription date but an incomplete prescription declaration.`);
+    }
+    return PrescriptionDeclaration.hydrate({
+      prescriptionDate: row.prescriptionDate,
+      resolution: row.prescriptionResolution,
+      grounds: row.prescriptionGrounds,
+      registeredByUserId: row.prescriptionRegisteredByUserId,
+      registeredAt: row.prescriptionRegisteredAt,
+    });
+  }
+
   static toDomain(row: CaseRow): Case {
     const props: CaseProps = {
       id: row.id,
@@ -41,6 +66,8 @@ export class CasePrismaMapper {
       currentStateId: row.currentStateId,
       currentCustomState: row.currentCustomState,
       currentProceduralActId: row.currentProceduralActId,
+      // A hand-written state has no row in the table, and never closes the case.
+      currentStateTerminal: row.currentState?.terminal ?? false,
       // Only the current act is loaded: registering an act needs it to tell whether the new one is older.
       proceduralActs: row.currentProceduralAct ? [ProceduralActPrismaMapper.toDomain(row.currentProceduralAct)] : [],
       active: row.active,
@@ -74,6 +101,7 @@ export class CasePrismaMapper {
           ...props,
           offenses: row.offenses.map(CasePrismaMapper.toOffense),
           clientDetained: row.clientDetained ?? false,
+          prescriptionDeclaration: CasePrismaMapper.toPrescriptionDeclaration(row),
         });
     }
   }

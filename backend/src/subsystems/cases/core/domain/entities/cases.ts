@@ -1,29 +1,79 @@
 import { AuthenticatedUser } from '@shared/domain/authenticated-user';
 import { ValidationError } from '@shared/domain/domain-error';
-import { CaseInTerminalStateError, NotResponsibleLawyerError } from '../errors/case.errors';
+import {
+  CaseInTerminalStateError,
+  NotResponsibleLawyerError,
+  PrescriptionNotApplicableError,
+} from '../errors/case.errors';
+import { ProceduralStateRef } from '../ports/legal-parameters-lookup.port';
+import { DayType } from '../value-objects/day-type';
 import { Deadline } from '../value-objects/deadline';
+import { HarmfulActDeadline } from '../value-objects/harmful-act';
 import { Instructor } from '../value-objects/instructor';
+import { PrescriptionDeclaration, PrescriptionDeclarationInput } from '../value-objects/prescription-declaration.vo';
 import { JurisdictionCode } from '../value-objects/jurisdiction-code';
 import { ProceduralRole } from '../value-objects/procedural-role';
+import { CaseSnapshot } from './case-snapshot';
 import { ProceduralAct } from './procedural-act';
 
 /** Name of the role that may register procedural acts (together with being the responsible lawyer). */
 const LAWYER_ROLE = 'LAWYER';
 
-export interface RegisterProceduralActInput {
-  id: number;
-  // Exactly one of the two (the use case checked it against the table of the jurisdiction).
+const INVALID_DATA_MESSAGE = 'Los datos enviados no son válidos.';
+
+/** The state an act takes the case to: from the table, or hand-written. */
+export interface TargetState {
+  // Exactly one of the two.
   proceduralStateId: number | null;
   customState: string | null;
+  // The row of the table. `null` for a hand-written state, which opens no term.
+  state: ProceduralStateRef | null;
+}
+
+/**
+ * What the user chose, with what the use case found out about it. The aggregate
+ * decides whether it is a valid target ({@link Case.resolveTargetState}); the use
+ * case only looks the references up.
+ */
+export interface TargetStateChoice {
+  proceduralStateId: number | null;
+  customState: string | null;
+  // The row of `proceduralStateId`, or `null` if there is none.
+  state: ProceduralStateRef | null;
+  // Whether `customState` repeats the name of an active state of the table of the jurisdiction (CA-26.7).
+  customStateNamesTableState: boolean;
+}
+
+/** What a state tells about the deadline of an act, before the due date is computed. */
+export interface OpenedTerm {
+  timeLimitDays: number;
+  dayType: DayType;
+  countsFrom: Date;
+}
+
+export interface RegisterProceduralActInput {
+  id: number;
+  // Already validated by {@link Case.resolveTargetState}.
+  target: TargetState;
   actDate: Date;
   notificationDate: Date | null;
   notes: string | null;
-  // Already built from the table of the jurisdiction (or empty for a hand-written state).
+  // Already built from the term of the target state (or empty for a hand-written state).
   deadline: Deadline;
   actor: AuthenticatedUser;
-  // Whether the state the case is in now is terminal.
-  currentStateIsTerminal: boolean;
   // Civil date of the study today, and the instant of registration.
+  today: Date;
+  now: Date;
+}
+
+/** What marking a case as prescribed needs (HU33). */
+export interface DeclarePrescriptionInput {
+  // What the form sends; validated by {@link PrescriptionDeclaration}.
+  data: PrescriptionDeclarationInput;
+  // The "Prescripta" state of the jurisdiction of the case (D-53), or `null` if there is none.
+  prescribedState: ProceduralStateRef | null;
+  actor: AuthenticatedUser;
+  // Civil date of the study today, and the instant of the declaration.
   today: Date;
   now: Date;
 }
@@ -55,6 +105,8 @@ export interface CaseProps {
   currentCustomState: string | null;
   // Act that led to the current state. Null while in the initial state.
   currentProceduralActId: number | null;
+  // Whether the current state is terminal. A hand-written state never is.
+  currentStateTerminal: boolean;
   proceduralActs: ProceduralAct[];
   active: boolean;
   createdByUserId: number;
@@ -80,6 +132,74 @@ export abstract class Case {
    * @throws ValidationError if the notification date is missing or not allowed for the jurisdiction.
    */
   abstract resolveCountsFrom(actDate: Date, notificationDate: Date | null, stateOpensTerm: boolean): Date;
+
+  /**
+   * The case as plain data, with the part of its own jurisdiction filled in
+   * (see {@link CaseSnapshot}). Each subclass adds what it has on top of
+   * {@link commonSnapshot}.
+   */
+  abstract toSnapshot(): CaseSnapshot;
+
+  /**
+   * The term to file the amparo as of `today` (D-78). Only an amparo has one, and
+   * only while it has the date of the harmful act loaded.
+   */
+  harmfulActDeadline(_today: Date): HarmfulActDeadline | null {
+    return null;
+  }
+
+  /**
+   * Marks the case as prescribed (HU33). Only a criminal case prescribes
+   * (D-74, CA-33.9): every other jurisdiction refuses it here, and
+   * `CriminalCase` overrides it. Who asks for it is checked before, by
+   * {@link PrescriptionDeclaration.assertCanBeDeclaredBy}.
+   * @throws PrescriptionNotApplicableError
+   */
+  declarePrescription(_input: DeclarePrescriptionInput): void {
+    throw new PrescriptionNotApplicableError();
+  }
+
+  /** The declaration that the case prescribed. Only a criminal case can have one. */
+  get prescriptionDeclaration(): PrescriptionDeclaration | null {
+    return null;
+  }
+
+  /** What every case has; the part of each jurisdiction is `null` or empty until a subclass fills it. */
+  protected commonSnapshot(): CaseSnapshot {
+    const props = this.props;
+    return {
+      id: props.id,
+      sacNumber: props.sacNumber,
+      caption: props.caption,
+      court: props.court,
+      jurisdictionId: props.jurisdictionId,
+      jurisdictionCode: this.jurisdictionCode,
+      proceduralRole: props.proceduralRole,
+      instructor: { ...props.instructor },
+      clientId: props.clientId,
+      responsibleLawyerId: props.responsibleLawyerId,
+      startDate: props.startDate,
+      courtFeePaid: props.courtFeePaid,
+      currentStateId: props.currentStateId,
+      currentCustomState: props.currentCustomState,
+      currentProceduralActId: props.currentProceduralActId,
+      counterparty: null,
+      subjectMatter: null,
+      clientDetained: null,
+      offenses: [],
+      injunctionGranted: null,
+      harmfulActDate: null,
+      harmfulActRenews: null,
+      harmfulActRenewalDays: null,
+      harmfulActTermDays: null,
+      harmfulActTermDayType: null,
+      administrativeRemedyExhaustedOn: null,
+      active: props.active,
+      createdByUserId: props.createdByUserId,
+      createdAt: props.createdAt,
+      updatedAt: props.updatedAt,
+    };
+  }
 
   /** Counting from the act date; the notification date is only for ADMINISTRATIVE cases. */
   protected countsFromActDate(actDate: Date, notificationDate: Date | null): Date {
@@ -108,14 +228,82 @@ export abstract class Case {
   }
 
   /**
+   * Moves the case to a state that no act led it to, and that closes it:
+   * "Prescripta" (HU33, D-54). There is no current act, so no open deadline
+   * either (CA-33.4).
+   */
+  protected closeInState(stateId: number, now: Date): void {
+    this.props.currentStateId = stateId;
+    this.props.currentCustomState = null;
+    this.props.currentProceduralActId = null;
+    this.props.currentStateTerminal = true;
+    this.props.updatedAt = now;
+  }
+
+  /**
    * A case in a terminal state is closed: it admits no more acts — procedural
    * or interruptive (HU31). `message`, as in {@link assertCanRegisterActs}.
    * @throws CaseInTerminalStateError
    */
-  assertAcceptsActs(currentStateIsTerminal: boolean, message?: string): void {
-    if (currentStateIsTerminal) {
+  assertAcceptsActs(message?: string): void {
+    if (this.props.currentStateTerminal) {
       throw new CaseInTerminalStateError(message);
     }
+  }
+
+  /**
+   * Checks the state the user chose against the table of the jurisdiction of the case.
+   * A terminal state is a valid target: it is how a case is closed, e.g. "Archivada" (D-69).
+   * The exceptions are "Prescripta", which has its own form (HU33), and the initial state (D-34).
+   * @throws ValidationError
+   */
+  resolveTargetState(choice: TargetStateChoice): TargetState {
+    const { proceduralStateId, customState, state } = choice;
+    const fail = (field: string, message: string): never => {
+      throw new ValidationError('VALIDATION_ERROR', INVALID_DATA_MESSAGE, { [field]: message });
+    };
+
+    if ((proceduralStateId === null) === (customState === null)) {
+      return fail('proceduralStateId', 'Indicá un estado procesal de la tabla o un estado escrito a mano, no ambos.');
+    }
+
+    if (proceduralStateId !== null) {
+      if (!state || !state.isActive) {
+        return fail('proceduralStateId', 'No existe un estado procesal vigente con ese identificador.');
+      }
+      if (state.jurisdictionId !== this.props.jurisdictionId || state.isPrescribed || state.isInitial) {
+        return fail('proceduralStateId', 'El estado procesal no pertenece al fuero de la causa o es el estado Prescripta.');
+      }
+      return { proceduralStateId, customState: null, state };
+    }
+
+    // A hand-written state is kept only in this case: it cannot repeat one of the table (CA-26.7).
+    if (choice.customStateNamesTableState) {
+      return fail('customState', 'Coincide con un estado de la tabla del fuero: elegilo de la lista.');
+    }
+    return { proceduralStateId: null, customState, state: null };
+  }
+
+  /**
+   * What the target state says about the term of an act (RN5): its days, its day
+   * type and the date it counts from. A hand-written state opens no term: it only
+   * has a due date if the lawyer enters one by hand (CA-26.7). A terminal state
+   * closes the case, so it takes no due date at all, not even a manual one (D-69).
+   * @throws ValidationError
+   */
+  openTerm(
+    target: TargetState,
+    dates: { actDate: Date; notificationDate: Date | null; manualDueDate: Date | null },
+  ): OpenedTerm {
+    if (target.state?.terminal && dates.manualDueDate != null) {
+      throw new ValidationError('VALIDATION_ERROR', INVALID_DATA_MESSAGE, {
+        manualDueDate: 'Un estado terminal cierra la causa y no admite vencimiento.',
+      });
+    }
+    const timeLimitDays = target.state?.timeLimitDays ?? 0;
+    const dayType = target.state?.dayType ?? DayType.NONE;
+    const countsFrom = this.resolveCountsFrom(dates.actDate, dates.notificationDate, timeLimitDays > 0);
+    return { timeLimitDays, dayType, countsFrom };
   }
 
   /**
@@ -126,13 +314,13 @@ export abstract class Case {
    */
   registerProceduralAct(input: RegisterProceduralActInput): RegisterProceduralActOutcome {
     this.assertCanRegisterActs(input.actor);
-    this.assertAcceptsActs(input.currentStateIsTerminal);
+    this.assertAcceptsActs();
 
     const act = ProceduralAct.create({
       id: input.id,
       caseId: this.props.id,
-      proceduralStateId: input.proceduralStateId,
-      customState: input.customState,
+      proceduralStateId: input.target.proceduralStateId,
+      customState: input.target.customState,
       actDate: input.actDate,
       notificationDate: input.notificationDate,
       notes: input.notes,
@@ -152,6 +340,7 @@ export abstract class Case {
       this.props.currentStateId = act.proceduralStateId;
       this.props.currentCustomState = act.customState;
       this.props.currentProceduralActId = act.id;
+      this.props.currentStateTerminal = input.target.state?.terminal ?? false;
       this.props.updatedAt = input.now;
     }
     return { act, becameCurrent };
@@ -226,8 +415,9 @@ export abstract class Case {
     return this.props.currentProceduralActId;
   }
 
-  get proceduralActs(): ProceduralAct[] {
-    return this.props.proceduralActs;
+  /** A copy: the only way to add an act is {@link registerProceduralAct}. */
+  get proceduralActs(): readonly ProceduralAct[] {
+    return [...this.props.proceduralActs];
   }
 
   get active(): boolean {

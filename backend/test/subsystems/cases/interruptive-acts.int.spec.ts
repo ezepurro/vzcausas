@@ -125,12 +125,26 @@ describe('POST /api/v1/cases/:caseId/interruptive-acts', () => {
       prescriptionExpiresOn: '2029-02-27',
     });
 
+    expect((await detail()).prescription).toMatchObject({ startsOn: '2021-02-27', lastInterruptiveActDate: null });
+
     await register({ name: 'Indagatoria', actDate: '2024-07-04' }).expect(201);
 
-    expect(qualificationOf(await detail(), robo.id)).toMatchObject({
+    const body = await detail();
+    expect(qualificationOf(body, robo.id)).toMatchObject({
       offenseDate: '2021-02-27',
       prescriptionStartsOn: '2024-07-04',
       prescriptionExpiresOn: '2032-07-04',
+    });
+    // Es la causa del ejemplo del contrato (V4 §3.7). Al 06/10/2026: 824 de 2922 días, 28 %.
+    expect(body.prescription).toEqual({
+      legalQualificationId: robo.id,
+      legalQualificationName: robo.name,
+      startsOn: '2024-07-04',
+      expiresOn: '2032-07-04',
+      elapsedPercentage: 28,
+      alert: false,
+      expired: false,
+      lastInterruptiveActDate: '2024-07-04',
     });
   });
 
@@ -147,6 +161,18 @@ describe('POST /api/v1/cases/:caseId/interruptive-acts', () => {
       prescriptionStartsOn: '2024-07-04',
       prescriptionExpiresOn: '2026-07-04',
     });
+    // Rige la que prescribe primero. Al 06/10/2026 su plazo ya se cumplió: sigue
+    // mostrándose, con `expired`, hasta que alguien marque la causa (HU33).
+    expect(body.prescription).toEqual({
+      legalQualificationId: amenazas.id,
+      legalQualificationName: amenazas.name,
+      startsOn: '2024-07-04',
+      expiresOn: '2026-07-04',
+      elapsedPercentage: 100,
+      alert: true,
+      expired: true,
+      lastInterruptiveActDate: '2024-07-04',
+    });
   });
 
   // CA-31.4
@@ -157,7 +183,9 @@ describe('POST /api/v1/cases/:caseId/interruptive-acts', () => {
     // Registrado después, pero con fecha anterior.
     await register({ name: 'Citación a juicio', actDate: '2023-03-01' }).expect(201);
 
-    expect(qualificationOf(await detail(), robo.id).prescriptionStartsOn).toBe('2024-07-04');
+    const body = await detail();
+    expect(qualificationOf(body, robo.id).prescriptionStartsOn).toBe('2024-07-04');
+    expect(body.prescription).toMatchObject({ startsOn: '2024-07-04', lastInterruptiveActDate: '2024-07-04' });
   });
 
   // CA-31.5
@@ -174,6 +202,13 @@ describe('POST /api/v1/cases/:caseId/interruptive-acts', () => {
       prescriptionStartsOn: '2025-03-10',
       prescriptionExpiresOn: '2027-03-10',
     });
+    // Vence antes (10/03/2027) y corre desde su hecho, no desde el acto: no hay acto que lo reinicie.
+    expect(body.prescription).toMatchObject({
+      legalQualificationId: posterior.id,
+      startsOn: '2025-03-10',
+      expiresOn: '2027-03-10',
+      lastInterruptiveActDate: null,
+    });
   });
 
   /** El listado de causas usa la misma lectura: tiene que mostrar lo mismo que el detalle. */
@@ -187,6 +222,8 @@ describe('POST /api/v1/cases/:caseId/interruptive-acts', () => {
     const listed = listing.find((c) => c.id === s.caseRow.id)!;
 
     expect(qualificationOf(listed, robo.id).prescriptionStartsOn).toBe('2024-07-04');
+    expect(listed.prescription).toEqual((await detail()).prescription);
+    expect(listed.prescription).toMatchObject({ startsOn: '2024-07-04', lastInterruptiveActDate: '2024-07-04' });
   });
 
   // CA-31.6

@@ -80,6 +80,9 @@ export class NotResponsibleLawyerError extends ForbiddenActionError {
 
 /** Emitted when a procedural act is registered on a case in a terminal state (422). */
 export class CaseInTerminalStateError extends BusinessRuleError {
+  /** The wording of the contract for an operation that is not a procedural act (HU31, HU33). */
+  static readonly FOR_THIS_OPERATION = 'La causa se encuentra en un estado terminal y no admite esta operación.';
+
   /** Same as {@link NotResponsibleLawyerError}: the default is HU26's wording, HU31 passes its own. */
   constructor(message = 'La causa se encuentra en un estado terminal y no admite actos procesales.') {
     super('CASE_IN_TERMINAL_STATE', message);
@@ -92,8 +95,26 @@ export class CaseInTerminalStateError extends BusinessRuleError {
  * prescription, so there is nothing for the act to interrupt.
  */
 export class PrescriptionNotApplicableError extends BusinessRuleError {
+  /**
+   * The default is the jurisdiction refusal, shared by HU31 and HU33. HU33 passes
+   * {@link PrescriptionNotApplicableError.WITHOUT_QUALIFICATIONS} for a criminal
+   * case without legal qualifications, which cannot prescribe (D-74).
+   */
+  static readonly WITHOUT_QUALIFICATIONS = 'La causa no tiene calificaciones legales: no puede prescribir.';
+
+  constructor(message = 'La prescripción solo aplica a las causas del fuero penal.') {
+    super('PRESCRIPTION_NOT_APPLICABLE', message);
+  }
+}
+
+/**
+ * Emitted when someone who is neither an administrator nor a lawyer tries to
+ * mark a case as prescribed (HU33, CA-33.2, 403). Any lawyer may, not only the
+ * responsible one (CA-33.1), so this is not {@link NotResponsibleLawyerError}.
+ */
+export class CannotDeclarePrescriptionError extends ForbiddenActionError {
   constructor() {
-    super('PRESCRIPTION_NOT_APPLICABLE', 'La prescripción solo aplica a las causas del fuero penal.');
+    super('FORBIDDEN', 'Se requiere el rol ADMINISTRATOR o LAWYER para realizar esta operación.');
   }
 }
 

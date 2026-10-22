@@ -36,9 +36,9 @@ describe('CaseFolderOutcomeListener', () => {
 
   afterEach(() => jest.restoreAllMocks());
 
-  function build() {
+  function build(waitMs = 1000) {
     const folderState = new FakeCaseFolderState();
-    const outcomes = new InMemoryCaseFolderOutcomes();
+    const outcomes = new InMemoryCaseFolderOutcomes(waitMs);
     return { folderState, outcomes, listener: new CaseFolderOutcomeListener(folderState, outcomes) };
   }
 
@@ -56,7 +56,7 @@ describe('CaseFolderOutcomeListener', () => {
     const { listener, folderState, outcomes } = build();
     folderState.set(10, 'CREATING');
     const seenWhenWoken: Array<string | null> = [];
-    const waiting = outcomes.expect(10, 1000).then((outcome) => {
+    const waiting = outcomes.expect(10).then((outcome) => {
       seenWhenWoken.push(folderState.statusOf(10));
       return outcome;
     });
@@ -70,7 +70,7 @@ describe('CaseFolderOutcomeListener', () => {
   it('DocumentSpaceCreationFailed deja la causa en ERROR y despierta al pedido', async () => {
     const { listener, folderState, outcomes } = build();
     folderState.set(10, 'CREATING');
-    const waiting = outcomes.expect(10, 1000);
+    const waiting = outcomes.expect(10);
 
     await listener.handleFailed(failed());
 
@@ -111,9 +111,9 @@ describe('CaseFolderOutcomeListener', () => {
 
   it('si no se pudo guardar, no despierta al pedido con un resultado que no quedó escrito', async () => {
     jest.useFakeTimers();
-    const { listener, folderState, outcomes } = build();
+    const { listener, folderState, outcomes } = build(100);
     jest.spyOn(folderState, 'markCreated').mockRejectedValue(new Error('db down'));
-    const waiting = outcomes.expect(10, 100);
+    const waiting = outcomes.expect(10);
 
     await listener.handleAssigned(assigned());
     jest.advanceTimersByTime(100);

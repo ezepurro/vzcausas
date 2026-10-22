@@ -5,7 +5,6 @@ import { createEventHeader } from '@shared/infrastructure/events/integration-eve
 import { CaseNotFoundError } from '../../domain/errors/case.errors';
 import {
   CASE_FOLDER_OUTCOMES,
-  CASE_FOLDER_WAIT_MS,
   CaseFolderOutcome,
   CaseFolderOutcomePort,
 } from '../../domain/ports/case-folder-outcome.port';
@@ -62,7 +61,6 @@ export class RequestCaseFolder {
     @Inject(PEOPLE_LOOKUP) private readonly people: PeopleLookupPort,
     @Inject(CASE_FOLDER_STATE) private readonly folderState: CaseFolderStatePort,
     @Inject(CASE_FOLDER_OUTCOMES) private readonly outcomes: CaseFolderOutcomePort,
-    @Inject(CASE_FOLDER_WAIT_MS) private readonly waitMs: number,
     @Inject(CLOCK) private readonly clock: ClockPort,
     private readonly events: EventPublisher,
   ) {}
@@ -89,7 +87,7 @@ export class RequestCaseFolder {
       return { folder: await this.folderState.find(caseId), outcome: 'NOT_REQUESTED' };
     }
 
-    const waiting = this.outcomes.expect(caseId, this.waitMs);
+    const waiting = this.outcomes.expect(caseId);
     const event: CaseRegisteredEvent = {
       ...createEventHeader(CASE_REGISTERED, this.clock.now()),
       caseId,
@@ -112,7 +110,7 @@ export class RequestCaseFolder {
 
     const outcome = await waiting;
     if (outcome === 'TIMEOUT') {
-      this.logger.warn(`The folder of case ${caseId} is still being created after ${this.waitMs} ms (eventId=${event.eventId})`);
+      this.logger.warn(`The folder of case ${caseId} is still being created after the wait limit (eventId=${event.eventId})`);
     }
     return { folder: await this.folderState.find(caseId), outcome };
   }

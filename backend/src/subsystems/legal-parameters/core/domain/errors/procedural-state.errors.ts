@@ -1,4 +1,19 @@
-import { ConflictError, NotFoundError, ValidationError } from '@shared/domain/domain-error';
+import { BusinessRuleError, ConflictError, NotFoundError, ValidationError } from '@shared/domain/domain-error';
+
+/**
+ * Emitted when a `PATCH` or a `DELETE` reaches the system state "Prescripta"
+ * (D-53, HU33 CA-33.13, 422). Renaming it, changing its term or giving it de
+ * baja would leave HU33 without the state it moves a case to. The request is
+ * well formed: what the domain refuses is the resulting state, hence 422.
+ */
+export class ProceduralStateProtectedError extends BusinessRuleError {
+  constructor() {
+    super(
+      'PROCEDURAL_STATE_PROTECTED',
+      'El estado Prescripta es un estado del sistema y no puede modificarse ni darse de baja.',
+    );
+  }
+}
 
 /**
  * Emitted by `GetProceduralState`, `UpdateProceduralState` and

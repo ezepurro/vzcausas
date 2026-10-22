@@ -74,6 +74,17 @@ export interface CreateCaseOverrides {
    */
   currentStateId?: number;
   currentCustomState?: string;
+  /**
+   * Una causa ya marcada como prescripta (HU33), como la deja la marca: las cinco
+   * columnas juntas (CHECK de la base). Combinarlo con `currentStateId` del estado
+   * "Prescripta".
+   */
+  prescriptionDeclaration?: {
+    prescriptionDate: string;
+    resolution: string;
+    registeredByUserId: number;
+    registeredAt: Date;
+  };
 }
 
 /**
@@ -116,6 +127,12 @@ export async function createCase(overrides: CreateCaseOverrides) {
       currentStateId: inCustomState ? null : (overrides.currentStateId ?? initialState.stateId),
       currentCustomState: overrides.currentCustomState ?? null,
       createdByUserId: overrides.createdByUserId,
+      prescriptionDate: overrides.prescriptionDeclaration
+        ? new Date(`${overrides.prescriptionDeclaration.prescriptionDate}T00:00:00.000Z`)
+        : null,
+      prescriptionResolution: overrides.prescriptionDeclaration?.resolution ?? null,
+      prescriptionRegisteredByUserId: overrides.prescriptionDeclaration?.registeredByUserId ?? null,
+      prescriptionRegisteredAt: overrides.prescriptionDeclaration?.registeredAt ?? null,
     },
   });
 }

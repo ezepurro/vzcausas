@@ -164,6 +164,7 @@ export class CaseFactory {
       currentStateId: input.initialState.id,
       currentCustomState: null,
       currentProceduralActId: null,
+      currentStateTerminal: input.initialState.terminal,
       proceduralActs: [],
       active: true,
       createdByUserId: input.createdByUserId,
@@ -173,7 +174,13 @@ export class CaseFactory {
 
     switch (input.jurisdictionCode) {
       case JurisdictionCode.CRIMINAL:
-        return CriminalCase.hydrate({ ...props, offenses, clientDetained: input.clientDetained ?? false });
+        return CriminalCase.hydrate({
+          ...props,
+          offenses,
+          clientDetained: input.clientDetained ?? false,
+          // A case being registered was never marked as prescribed.
+          prescriptionDeclaration: null,
+        });
       case JurisdictionCode.ADMINISTRATIVE:
         return AdministrativeCase.hydrate({
           ...props,
