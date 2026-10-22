@@ -20,6 +20,10 @@ const INVALID_DATA_MESSAGE = 'Los datos enviados no son válidos.';
  * {@link RequestCaseFolder}, the same use case the retry endpoint uses. The
  * registration **never fails because of the folder** (CA-39.5): if the folder
  * cannot be asked for, the case stays registered and the folder is left as it is.
+ *
+ * Copying the templates into it (HU40) is not done here either: `copyTemplates`
+ * travels to {@link RequestCaseFolder}, which asks `documents` through the same
+ * event, and the folder this returns says how many were copied.
  */
 @Injectable()
 export class RegisterCase {
@@ -110,7 +114,9 @@ export class RegisterCase {
 
     await this.cases.save(newCase);
     const currentState = await this.cases.findCurrentState(newCase.id);
-    const folder = createFolder ? await this.requestFolder(newCase.id) : await this.currentFolder(newCase.id);
+    const folder = createFolder
+      ? await this.requestFolder(newCase.id, copyTemplates)
+      : await this.currentFolder(newCase.id);
 
     const snapshot = newCase.toSnapshot();
 
@@ -130,9 +136,9 @@ export class RegisterCase {
     };
   }
 
-  private async requestFolder(caseId: number): Promise<CaseFolderView | null> {
+  private async requestFolder(caseId: number, copyTemplates: boolean): Promise<CaseFolderView | null> {
     try {
-      return (await this.requestCaseFolder.execute({ caseId })).folder;
+      return (await this.requestCaseFolder.execute({ caseId, copyTemplates })).folder;
     } catch (error) {
       this.logger.error(`The folder of case ${caseId} could not be requested: ${String(error)}`);
       return this.currentFolder(caseId);

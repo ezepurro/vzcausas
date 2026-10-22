@@ -22,6 +22,13 @@ export class FakeCaseFolderState implements CaseFolderStatePort {
     this.statuses.set(caseId, status);
   }
 
+  private readonly templates = new Map<number, { copied: number; pending: number }>();
+
+  /** Sets how many templates the case has copied and pending, as `documents` would have left them. */
+  setTemplates(caseId: number, copied: number, pending: number): void {
+    this.templates.set(caseId, { copied, pending });
+  }
+
   statusOf(caseId: number): CaseFolderStatus | null {
     return this.statuses.has(caseId) ? (this.statuses.get(caseId) as CaseFolderStatus | null) : 'PENDING';
   }
@@ -61,8 +68,8 @@ export class FakeCaseFolderState implements CaseFolderStatePort {
       status,
       url: status === 'CREATED' ? `https://storage.invalid/folders/${cloudFolderId}` : null,
       path: status === 'CREATED' ? '/VZ Causas/Ríos, Malena/Penal/CAUSA' : null,
-      templatesCopied: 0,
-      templatesPending: 0,
+      templatesCopied: this.templates.get(caseId)?.copied ?? 0,
+      templatesPending: this.templates.get(caseId)?.pending ?? 0,
     };
   }
 }

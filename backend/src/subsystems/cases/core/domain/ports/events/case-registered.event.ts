@@ -39,4 +39,11 @@ export interface CaseRegisteredEvent extends IntegrationEvent {
     /** Display label, e.g. `Penal`. */
     readonly label: string;
   };
+  /**
+   * Also copy into the folder the formal templates of the jurisdiction (HU40).
+   * `documents` then runs `CopyTemplatesToCaseFolder` after creating the folder,
+   * and announces `CaseTemplatesCopied`. Added to `v1` as a required field: the
+   * only subscriber is `documents`, which ships in the same change.
+   */
+  readonly copyTemplates: boolean;
 }

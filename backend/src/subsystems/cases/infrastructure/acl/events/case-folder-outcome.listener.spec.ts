@@ -1,4 +1,8 @@
 import { Logger } from '@nestjs/common';
+import {
+  CASE_TEMPLATES_COPIED,
+  CaseTemplatesCopiedEvent,
+} from '@subsystems/documents/core/domain/ports/events/case-templates-copied.event';
 import { DOCUMENT_SPACE_ASSIGNED, DocumentSpaceAssignedEvent } from '@subsystems/documents/core/domain/ports/events/document-space-assigned.event';
 import {
   DOCUMENT_SPACE_CREATION_FAILED,
@@ -25,6 +29,16 @@ const failed = (caseId = 10): DocumentSpaceCreationFailedEvent => ({
   caseId,
   reason: 'TRANSIENT',
   detail: 'timeout',
+});
+
+const copied = (caseId = 10, copiedCount = 6, pending = 0): CaseTemplatesCopiedEvent => ({
+  type: CASE_TEMPLATES_COPIED,
+  eventId: 'evt-copied',
+  occurredAt: '2026-10-21T12:00:00.000Z',
+  caseId,
+  cloudFolderId: 'drive-folder-1',
+  copied: copiedCount,
+  pending,
 });
 
 describe('CaseFolderOutcomeListener', () => {
@@ -107,6 +121,62 @@ describe('CaseFolderOutcomeListener', () => {
     expect(Logger.prototype.error).toHaveBeenCalledWith(
       expect.stringContaining('eventId=evt-assigned, caseId=42'),
     );
+  });
+
+  describe('CaseTemplatesCopied (HU40)', () => {
+    it('despierta al pedido que espera los modelos, con la carpeta ya vinculada', async () => {
+      const { listener, folderState, outcomes } = build();
+      folderState.set(10, 'CREATING');
+      const seenWhenWoken: Array<string | null> = [];
+      const waiting = outcomes.expect(10, { untilTemplates: true }).then((outcome) => {
+        seenWhenWoken.push(folderState.statusOf(10));
+        return outcome;
+      });
+
+      await listener.handleTemplatesCopied(copied());
+
+      await expect(waiting).resolves.toBe('CREATED');
+      expect(seenWhenWoken).toEqual(['CREATED']);
+      expect(folderState.cloudFolderIdOf(10)).toBe('drive-folder-1');
+    });
+
+    it('la carpeta creada no despierta al que espera los modelos; la copia sí', async () => {
+      jest.useFakeTimers();
+      const { listener, folderState, outcomes } = build(100);
+      folderState.set(10, 'CREATING');
+      const waiting = outcomes.expect(10, { untilTemplates: true });
+
+      await listener.handleAssigned(assigned());
+      let settled = false;
+      void waiting.then(() => (settled = true));
+      await Promise.resolve();
+      expect(settled).toBe(false);
+
+      await listener.handleTemplatesCopied(copied());
+      await expect(waiting).resolves.toBe('CREATED');
+      jest.useRealTimers();
+    });
+
+    it('es idempotente: recibirlo dos veces deja lo mismo', async () => {
+      const { listener, folderState } = build();
+      folderState.set(10, 'CREATING');
+
+      await listener.handleTemplatesCopied(copied());
+      await listener.handleTemplatesCopied(copied());
+
+      expect(folderState.statusOf(10)).toBe('CREATED');
+    });
+
+    it('no deja escapar un error al guardar y lo registra con los ids', async () => {
+      const { listener, folderState } = build();
+      jest.spyOn(folderState, 'markCreated').mockRejectedValue(new Error('db down'));
+
+      await expect(listener.handleTemplatesCopied(copied(42))).resolves.toBeUndefined();
+
+      expect(Logger.prototype.error).toHaveBeenCalledWith(
+        expect.stringContaining('eventId=evt-copied, caseId=42'),
+      );
+    });
   });
 
   it('si no se pudo guardar, no despierta al pedido con un resultado que no quedó escrito', async () => {

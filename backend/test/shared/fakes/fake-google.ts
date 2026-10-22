@@ -251,6 +251,11 @@ export class FakeGoogle {
       return jsonError(401, 'authError', 'Invalid Credentials');
     }
 
+    const copyPath = /^\/drive\/v3\/files\/([^/]+)\/copy$/.exec(request.path);
+    if (copyPath && request.method === 'POST') {
+      return this.copy(copyPath[1], request.body as { name: string; parents?: string[] });
+    }
+
     const filesPath = /^\/(?:upload\/)?drive\/v3\/files(?:\/([^/]+))?$/.exec(request.path);
     if (!filesPath) {
       return jsonError(404, 'notFound', `Unknown route ${request.path}`);
@@ -310,6 +315,20 @@ export class FakeGoogle {
       return jsonError(404, 'notFound', `File not found: ${metadata.parents?.[0]}.`);
     }
     const node = this.addNode(metadata.name, mimeType, parent, content);
+    return json(200, { id: node.id, name: node.name, webViewLink: node.webViewLink });
+  }
+
+  /** `files.copy`: un nodo nuevo con los mismos bytes, independiente del original. */
+  private copy(id: string, body: { name: string; parents?: string[] }): Response {
+    const original = this.nodes.get(id);
+    if (!original) {
+      return jsonError(404, 'notFound', `File not found: ${id}.`);
+    }
+    const parent = this.resolveParent(body.parents?.[0]);
+    if (parent === 'missing') {
+      return jsonError(404, 'notFound', `File not found: ${body.parents?.[0]}.`);
+    }
+    const node = this.addNode(body.name, original.mimeType, parent, Buffer.from(original.content ?? Buffer.alloc(0)));
     return json(200, { id: node.id, name: node.name, webViewLink: node.webViewLink });
   }
 

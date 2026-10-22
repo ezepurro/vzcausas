@@ -6,6 +6,7 @@ import { Readable } from 'node:stream';
 import { DocumentStorageUnavailableError } from '../../../core/domain/errors/documents.errors';
 import {
   DocumentStoragePort,
+  FileCopy,
   FileUpload,
   FolderReference,
   StoredFile,
@@ -140,6 +141,23 @@ export class GoogleDriveDocumentStorage implements DocumentStoragePort {
           this.requestOptions,
         ),
       'The destination folder no longer exists in the storage',
+    );
+    if (!response.data.id) {
+      throw new DocumentStorageUnavailableError('TRANSIENT', 'Drive answered without a file id');
+    }
+    return toStoredFile(response.data);
+  }
+
+  /** `files.copy`: the copy happens inside Drive and is independent of the original (CA-40.6). */
+  async copyFile(copy: FileCopy): Promise<StoredFile> {
+    const response = await this.call(
+      'copyFile',
+      () =>
+        this.drive.files.copy(
+          { fileId: copy.fileId, requestBody: { name: copy.name, parents: [copy.parentId] }, fields: FILE_FIELDS },
+          this.requestOptions,
+        ),
+      'The file to copy or the destination folder no longer exists in the storage',
     );
     if (!response.data.id) {
       throw new DocumentStorageUnavailableError('TRANSIENT', 'Drive answered without a file id');

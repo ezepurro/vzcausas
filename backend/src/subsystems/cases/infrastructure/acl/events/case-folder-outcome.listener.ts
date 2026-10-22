@@ -1,6 +1,10 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import {
+  CASE_TEMPLATES_COPIED,
+  CaseTemplatesCopiedEvent,
+} from '@subsystems/documents/core/domain/ports/events/case-templates-copied.event';
+import {
   DOCUMENT_SPACE_ASSIGNED,
   DocumentSpaceAssignedEvent,
 } from '@subsystems/documents/core/domain/ports/events/document-space-assigned.event';
@@ -44,6 +48,28 @@ export class CaseFolderOutcomeListener {
     } catch (error) {
       this.logger.error(
         `Could not link the folder to the case (eventId=${event.eventId}, caseId=${event.caseId}): ${String(error)}`,
+      );
+    }
+  }
+
+  /**
+   * The copy of the templates ended (HU40). It links the folder again, which is
+   * harmless if `DocumentSpaceAssigned` already did: with no templates this event
+   * can arrive right behind that one, and the wait must not wake before the
+   * folder is stored. The copies themselves were written by `documents`; the case
+   * only reads them.
+   */
+  @OnEvent(CASE_TEMPLATES_COPIED, { async: true })
+  async handleTemplatesCopied(event: CaseTemplatesCopiedEvent): Promise<void> {
+    this.logger.log(
+      `Received ${event.type} (eventId=${event.eventId}, caseId=${event.caseId}, copied=${event.copied}, pending=${event.pending})`,
+    );
+    try {
+      await this.folderState.markCreated(event.caseId, event.cloudFolderId);
+      this.outcomes.notify(event.caseId, 'COPIED');
+    } catch (error) {
+      this.logger.error(
+        `Could not record the copy of the templates (eventId=${event.eventId}, caseId=${event.caseId}): ${String(error)}`,
       );
     }
   }

@@ -35,6 +35,14 @@ export interface FileUpload {
   content: Buffer;
 }
 
+/** A copy of a stored file: the file to copy and where the copy goes (HU40). */
+export interface FileCopy {
+  /** Provider id of the file to copy. */
+  fileId: string;
+  parentId: string;
+  name: string;
+}
+
 /**
  * Port towards the document storage provider (a cloud drive). The domain
  * knows nothing about which one: no provider types cross this boundary.
@@ -63,6 +71,12 @@ export interface DocumentStoragePort {
 
   /** Uploads a file into the folder (HU34). Like a real drive, a repeated name makes a second file. */
   uploadFile(upload: FileUpload): Promise<StoredFile>;
+
+  /**
+   * Copies a file as it is now into another folder, inside the provider (HU40).
+   * The copy is independent: later changes to the original do not reach it (CA-40.6).
+   */
+  copyFile(copy: FileCopy): Promise<StoredFile>;
 
   /** Deletes a file. Used to undo an upload whose registration then failed (CA-34.7). */
   deleteFile(fileId: string): Promise<void>;

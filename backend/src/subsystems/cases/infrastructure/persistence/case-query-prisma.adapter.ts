@@ -11,7 +11,7 @@ import { addPrescriptionMonths, prescriptionStartsOn } from '../../core/domain/p
 import { DayType } from '../../core/domain/value-objects/day-type';
 import { JurisdictionCode } from '../../core/domain/value-objects/jurisdiction-code';
 import { ProceduralRole } from '../../core/domain/value-objects/procedural-role';
-import { CASE_FOLDER_INCLUDE, toCaseFolderView } from './case-folder-prisma.mapper';
+import { CASE_FOLDER_INCLUDE, TEMPLATE_COPIES_SELECT, toCaseFolderView } from './case-folder-prisma.mapper';
 import { PRESCRIPTION_DECLARATION_SELECT, toPrescriptionDeclarationView } from './prescription-declaration-prisma.mapper';
 
 /** What `findMany` has to bring for a row to be projected into a {@link CaseListItem}. */
@@ -24,6 +24,8 @@ const CASE_INCLUDE = {
   offenses: { include: { legalQualification: true } },
   // HU39: the folder it points to and its ancestors, to show its link and path.
   cloudFolder: CASE_FOLDER_INCLUDE,
+  // HU40: how many templates were copied into it and how many are pending.
+  templateCopies: TEMPLATE_COPIES_SELECT,
   // HU31: only the act that governs the prescription, the most recent by its
   // date — not by when it was registered (CA-31.4). Same order as the index.
   interruptiveActs: {

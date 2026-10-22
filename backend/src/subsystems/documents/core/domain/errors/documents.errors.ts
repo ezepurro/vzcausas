@@ -73,6 +73,13 @@ export class InvalidCloudFolderError extends ValidationError {
   }
 }
 
+/** A template was already copied into the case's folder (CA-40.7): it is never copied twice. */
+export class TemplateCopyAlreadyDoneError extends ConflictError {
+  constructor() {
+    super('TEMPLATE_COPY_ALREADY_DONE', 'El modelo ya fue copiado a la carpeta de la causa.');
+  }
+}
+
 /** An active formal template already has that name, ignoring case (CA-34.9, D-71). */
 export class DocumentTemplateAlreadyExistsError extends ConflictError {
   constructor() {

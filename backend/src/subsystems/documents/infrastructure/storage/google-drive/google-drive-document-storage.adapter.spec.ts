@@ -21,8 +21,9 @@ const httpError = (status: number, reason?: string) => ({
   errors: reason ? [{ reason }] : undefined,
 });
 
-function build(overrides: Partial<Record<'list' | 'create' | 'get' | 'delete', jest.Mock>> = {}, values = {}) {
+function build(overrides: Partial<Record<'list' | 'create' | 'get' | 'delete' | 'copy', jest.Mock>> = {}, values = {}) {
   const files = {
+    copy: jest.fn().mockResolvedValue({ data: { id: 'copy-id', webViewLink: 'https://drive/copy-id' } }),
     list: jest.fn().mockResolvedValue({ data: { files: [] } }),
     create: jest.fn().mockResolvedValue({ data: { id: 'new-id', webViewLink: 'https://drive/new-id' } }),
     get: jest.fn().mockResolvedValue({ data: { id: 'f-1', webViewLink: 'https://drive/f-1', trashed: false } }),
@@ -224,6 +225,43 @@ describe('GoogleDriveDocumentStorage', () => {
       const first = create.mock.calls[0][0].media.body;
       const second = create.mock.calls[1][0].media.body;
       expect(second).not.toBe(first);
+    });
+  });
+
+  describe('copyFile (HU40)', () => {
+    it('copia dentro de Drive con files.copy, al destino y con el nombre indicados', async () => {
+      const copy = jest.fn().mockResolvedValue({ data: { id: 'copy-1', webViewLink: 'https://drive/copy-1' } });
+      const { storage, files } = build({ copy });
+
+      const stored = await storage.copyFile({ fileId: 'template-1', parentId: 'case-folder', name: 'modelo.docx' });
+
+      expect(stored).toEqual({ id: 'copy-1', url: 'https://drive/copy-1' });
+      expect(copy.mock.calls[0][0]).toMatchObject({
+        fileId: 'template-1',
+        requestBody: { name: 'modelo.docx', parents: ['case-folder'] },
+      });
+      // Nothing is downloaded or uploaded: the copy happens inside Drive.
+      expect(files.get).not.toHaveBeenCalled();
+      expect(files.create).not.toHaveBeenCalled();
+    });
+
+    it('si Drive no encuentra el archivo o la carpeta, falla como error de configuración', async () => {
+      const { storage } = build({ copy: jest.fn().mockRejectedValue(httpError(404)) });
+
+      await expect(storage.copyFile({ fileId: 'x', parentId: 'p', name: 'a.docx' })).rejects.toMatchObject({
+        reason: 'CONFIGURATION',
+      });
+    });
+
+    it('reintenta ante un error transitorio', async () => {
+      const copy = jest
+        .fn()
+        .mockRejectedValueOnce(httpError(503))
+        .mockResolvedValueOnce({ data: { id: 'ok', webViewLink: 'u' } });
+      const { storage } = build({ copy });
+
+      await expect(storage.copyFile({ fileId: 'x', parentId: 'p', name: 'a.docx' })).resolves.toEqual({ id: 'ok', url: 'u' });
+      expect(copy).toHaveBeenCalledTimes(2);
     });
   });
 

@@ -4,7 +4,7 @@ import {
   CaseFolderStatePort,
   CaseFolderView,
 } from '../../core/domain/ports/case-folder-state.port';
-import { CASE_FOLDER_INCLUDE, toCaseFolderView } from './case-folder-prisma.mapper';
+import { CASE_FOLDER_INCLUDE, TEMPLATE_COPIES_SELECT, toCaseFolderView } from './case-folder-prisma.mapper';
 
 /**
  * {@link CaseFolderStatePort} over the folder columns of `cases`
@@ -48,7 +48,7 @@ export class CaseFolderStatePrismaAdapter implements CaseFolderStatePort {
   async find(caseId: number): Promise<CaseFolderView | null> {
     const row = await this.prisma.db.case.findUnique({
       where: { id: caseId },
-      select: { folderStatus: true, cloudFolder: CASE_FOLDER_INCLUDE },
+      select: { folderStatus: true, cloudFolder: CASE_FOLDER_INCLUDE, templateCopies: TEMPLATE_COPIES_SELECT },
     });
     return row ? toCaseFolderView(row) : null;
   }

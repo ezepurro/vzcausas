@@ -2,6 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import {
   DocumentStoragePort,
+  FileCopy,
   FileUpload,
   FolderReference,
 } from '../../../src/subsystems/documents/core/domain/ports/document-storage.port';
@@ -109,6 +110,7 @@ export class SwitchableStorage implements DocumentStoragePort {
   getFolder = (folderId: string) => this.current.storage.getFolder(folderId);
   deleteFolder = (folderId: string) => this.current.storage.deleteFolder(folderId);
   uploadFile = (upload: FileUpload) => this.current.storage.uploadFile(upload);
+  copyFile = (copy: FileCopy) => this.current.storage.copyFile(copy);
   deleteFile = (fileId: string) => this.current.storage.deleteFile(fileId);
   downloadFile = (fileId: string) => this.current.storage.downloadFile(fileId);
 }

@@ -27,11 +27,22 @@ export const CASE_FOLDER_INCLUDE = {
   },
 } as const;
 
+/**
+ * The copies of templates of the case (HU40): enough to count how many were
+ * copied and how many are still pending. `cases` only reads
+ * `document_template_copies` here; `documents` owns and writes it (known ACL
+ * debt, same shortcut as `cloud_folders`).
+ */
+export const TEMPLATE_COPIES_SELECT = {
+  select: { status: true, template: { select: { active: true } } },
+} as const;
+
 type FolderNode = { name: string; parent?: FolderNode | null };
 
 export interface CaseFolderRow {
   folderStatus: PrismaCaseFolderStatus | null;
   cloudFolder: (FolderNode & { url: string }) | null;
+  templateCopies: Array<{ status: 'COPIED' | 'PENDING'; template: { active: boolean } }>;
 }
 
 /** `null` for a case registered before the folders existed (no status). */
@@ -44,8 +55,9 @@ export function toCaseFolderView(row: CaseFolderRow): CaseFolderView | null {
     status: row.folderStatus,
     url: folder?.url ?? null,
     path: folder ? folderPath(folder) : null,
-    templatesCopied: 0,
-    templatesPending: 0,
+    templatesCopied: row.templateCopies.filter((copy) => copy.status === 'COPIED').length,
+    // A pending copy of a template given de baja is never made, so it is not counted.
+    templatesPending: row.templateCopies.filter((copy) => copy.status === 'PENDING' && copy.template.active).length,
   };
 }
 

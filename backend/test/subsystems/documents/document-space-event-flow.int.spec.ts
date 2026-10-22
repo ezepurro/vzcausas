@@ -134,6 +134,7 @@ describe('documents · CaseRegistered → espacio documental', () => {
       caption,
       lawyer: { id: lawyerId, lastName: 'Ríos', firstName: 'Malena' },
       jurisdiction: { id: created.jurisdictionId, label: 'Penal' },
+      copyTemplates: false,
     };
   }
 

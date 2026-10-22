@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import {
   DocumentStoragePort,
+  FileCopy,
   FileUpload,
   FolderReference,
   StoredFile,
@@ -44,7 +45,7 @@ export class InMemoryDocumentStorage implements DocumentStoragePort {
 
   /** Every file call received, in order: the uploaded name, or the id deleted or downloaded. */
   readonly fileCalls: Array<
-    { method: 'uploadFile'; name: string } | { method: 'deleteFile' | 'downloadFile'; fileId: string }
+    { method: 'uploadFile'; name: string } | { method: 'deleteFile' | 'downloadFile' | 'copyFile'; fileId: string }
   > = [];
 
   /** Makes the next call reject with `error` (once). */
@@ -124,6 +125,10 @@ export class InMemoryDocumentStorage implements DocumentStoragePort {
   async uploadFile(upload: FileUpload): Promise<StoredFile> {
     this.fileCalls.push({ method: 'uploadFile', name: upload.name });
     this.failIfRequested();
+    return this.upload(upload);
+  }
+
+  private upload(upload: FileUpload): StoredFile {
     this.sequence += 1;
     const id = `mem-file-${this.sequence}`;
     const file: InMemoryStoredFile = {
@@ -137,6 +142,17 @@ export class InMemoryDocumentStorage implements DocumentStoragePort {
     };
     this.storedFiles.push(file);
     return { id: file.id, url: file.url };
+  }
+
+  /** The copy gets its own bytes, so changing the original afterwards does not reach it (CA-40.6). */
+  async copyFile(copy: FileCopy): Promise<StoredFile> {
+    this.fileCalls.push({ method: 'copyFile', fileId: copy.fileId });
+    this.failIfRequested();
+    const original = this.storedFiles.find((stored) => stored.id === copy.fileId);
+    if (!original) {
+      throw new Error(`The file ${copy.fileId} is not in the storage.`);
+    }
+    return this.upload({ parentId: copy.parentId, name: copy.name, mimeType: original.mimeType, content: original.content });
   }
 
   async deleteFile(fileId: string): Promise<void> {

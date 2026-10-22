@@ -20,9 +20,9 @@ export interface CaseFolderView {
   status: CaseFolderStatus;
   url: string | null;
   path: string | null;
-  /** Templates copied into the folder (HU40, not implemented yet: always 0). */
+  /** Templates copied into the folder (HU40). `0` if copying was not asked for. */
   templatesCopied: number;
-  /** Templates asked for and not copied yet (HU40, not implemented yet: always 0). */
+  /** Templates asked for and not copied yet, because the folder failed or some copy did (HU40). */
   templatesPending: number;
 }
 

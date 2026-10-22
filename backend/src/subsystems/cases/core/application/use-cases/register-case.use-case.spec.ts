@@ -29,6 +29,7 @@ import {
 } from '../../test-support/case-fixtures';
 import { RegisterCaseCommand } from '../common/register-case.interfaces';
 import { RegisterCase } from './register-case.use-case';
+import { CaseRegisteredEvent } from '../../domain/ports/events/case-registered.event';
 import { RequestCaseFolder } from './request-case-folder.use-case';
 
 /**
@@ -67,6 +68,7 @@ describe('RegisterCase', () => {
     events.onPublish = async ({ caseId }) => {
       await folderState.markCreated(caseId, 'drive-folder-1');
       outcomes.notify(caseId, 'CREATED');
+      outcomes.notify(caseId, 'COPIED');
     };
     return { useCase, cases, folderState, outcomes, events, requestCaseFolder };
   }
@@ -815,6 +817,32 @@ describe('RegisterCase', () => {
       await expect(
         useCase.execute(aRegisterCaseCommand({ createFolder: true, copyTemplates: false })),
       ).resolves.toBeDefined();
+    });
+
+    it.each([
+      { sent: undefined, requested: true }, // CA-40.1: viene marcada por defecto
+      { sent: true, requested: true },
+      { sent: false, requested: false }, // CA-40.4: desmarcada, carpeta vacía
+    ])('con copyTemplates=$sent pide a documents copyTemplates=$requested', async ({ sent, requested }) => {
+      const { useCase, events } = build();
+
+      await useCase.execute(aRegisterCaseCommand({ copyTemplates: sent }));
+
+      expect((events.published[0] as CaseRegisteredEvent).copyTemplates).toBe(requested);
+    });
+
+    it('devuelve en la carpeta los modelos que documents informó copiados (CA-40.2)', async () => {
+      const { useCase, events, folderState, outcomes } = build();
+      events.onPublish = async ({ caseId }) => {
+        await folderState.markCreated(caseId, 'drive-folder-1');
+        outcomes.notify(caseId, 'CREATED');
+        folderState.setTemplates(caseId, 6, 0);
+        outcomes.notify(caseId, 'COPIED');
+      };
+
+      const result = await useCase.execute(aRegisterCaseCommand());
+
+      expect(result.folder).toMatchObject({ status: 'CREATED', templatesCopied: 6, templatesPending: 0 });
     });
 
     it('si la carpeta tarda más que el límite, la causa se registra igual y la carpeta sale CREATING', async () => {

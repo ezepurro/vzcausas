@@ -129,15 +129,19 @@ export class CasesController {
    * fails answers `502`; one still being created answers `200` with `CREATING`,
    * and the client reads the end of it with `GET /cases/{caseId}`.
    *
-   * `copyTemplates` is accepted for the contract but copies nothing yet (HU40).
+   * `copyTemplates` (HU40, `true` if omitted) also copies the templates of the
+   * jurisdiction; on a `CREATED` folder with templates pending it copies only those.
    */
   @Post(':caseId/folder')
   @HttpCode(HttpStatus.OK)
   async createFolder(
     @Param('caseId') caseIdParam: string,
-    @Body() _dto: RequestCaseFolderRequestDto,
+    @Body() dto: RequestCaseFolderRequestDto,
   ): Promise<{ data: CaseFolderResponseDto | null }> {
-    const result = await this.requestCaseFolder.execute({ caseId: this.parseCaseId(caseIdParam) });
+    const result = await this.requestCaseFolder.execute({
+      caseId: this.parseCaseId(caseIdParam),
+      copyTemplates: dto?.copyTemplates,
+    });
     if (result.outcome === 'ERROR') {
       throw new CaseFolderUnavailableError();
     }

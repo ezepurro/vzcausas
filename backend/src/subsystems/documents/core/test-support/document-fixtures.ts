@@ -86,6 +86,7 @@ export function aCaseRegisteredEvent(
     caption: 'GÓMEZ, Ariel Fernando p.s.a. Robo calificado',
     lawyer: { id: 3, lastName: 'Ríos', firstName: 'Malena' },
     jurisdiction: { id: 1, label: 'Penal' },
+    copyTemplates: false,
     ...overrides,
   };
 }

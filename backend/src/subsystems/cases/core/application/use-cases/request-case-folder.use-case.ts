@@ -15,11 +15,20 @@ import {
 } from '../../domain/ports/case-folder-state.port';
 import { CASE_REPOSITORY, CaseRepository } from '../../domain/ports/case.repository';
 import { CASE_REGISTERED, CaseRegisteredEvent } from '../../domain/ports/events/case-registered.event';
+import {
+  CASE_TEMPLATES_COPY_REQUESTED,
+  CaseTemplatesCopyRequestedEvent,
+} from '../../domain/ports/events/case-templates-copy-requested.event';
 import { PEOPLE_LOOKUP, PeopleLookupPort } from '../../domain/ports/people-lookup.port';
 import { JURISDICTION_FOLDER_LABEL } from '../../domain/value-objects/jurisdiction-folder-label';
 
 export interface RequestCaseFolderCommand {
   caseId: number;
+  /**
+   * Also copy the formal templates of the jurisdiction into the folder (HU40).
+   * Defaults to `true`, like the contract's `copyTemplates` of the retry endpoint.
+   */
+  copyTemplates?: boolean;
 }
 
 export interface RequestCaseFolderResult {
@@ -48,6 +57,13 @@ export interface RequestCaseFolderResult {
  *    folder. No transaction is open here: the case was saved before.
  * 4. **Answer.** `CaseFolderOutcomeListener` stores the result in the case and
  *    wakes the wait; this use case then reads the folder as it ended up.
+ *
+ * **Templates (HU40).** This use case does not copy them: it only *asks*.
+ * `CaseRegistered.copyTemplates` tells `documents` to copy after creating the
+ * folder, and the wait then lasts until the copy ends so the folder it returns
+ * says how many were copied. When the folder already exists but some copy is
+ * pending (CA-40.7), the gate refuses a new folder request and this publishes
+ * `CaseTemplatesCopyRequested` instead; `documents` copies only what is missing.
  *
  * If the answer takes longer than the limit, the folder is returned as
  * `CREATING` and the creation goes on in the background.
@@ -83,11 +99,17 @@ export class RequestCaseFolder {
       throw new Error(`The lawyer ${found.responsibleLawyerId} of case ${caseId} does not exist.`);
     }
 
+    const copyTemplates = command.copyTemplates ?? true;
+
     if (!(await this.folderState.startCreating(caseId))) {
-      return { folder: await this.folderState.find(caseId), outcome: 'NOT_REQUESTED' };
+      const folder = await this.folderState.find(caseId);
+      if (copyTemplates && folder?.status === 'CREATED' && folder.templatesPending > 0) {
+        return this.retryTemplates(caseId, folder);
+      }
+      return { folder, outcome: 'NOT_REQUESTED' };
     }
 
-    const waiting = this.outcomes.expect(caseId);
+    const waiting = this.outcomes.expect(caseId, { untilTemplates: copyTemplates });
     const event: CaseRegisteredEvent = {
       ...createEventHeader(CASE_REGISTERED, this.clock.now()),
       caseId,
@@ -97,6 +119,7 @@ export class RequestCaseFolder {
         id: found.jurisdictionId,
         label: JURISDICTION_FOLDER_LABEL[found.jurisdictionCode],
       },
+      copyTemplates,
     };
 
     try {
@@ -111,6 +134,35 @@ export class RequestCaseFolder {
     const outcome = await waiting;
     if (outcome === 'TIMEOUT') {
       this.logger.warn(`The folder of case ${caseId} is still being created after the wait limit (eventId=${event.eventId})`);
+    }
+    return { folder: await this.folderState.find(caseId), outcome };
+  }
+
+  /**
+   * The folder exists and some templates are still pending: asks `documents`
+   * to copy those (CA-40.7) and waits for the copy to end. Registers the wait
+   * before publishing, like the folder request.
+   */
+  private async retryTemplates(caseId: number, current: CaseFolderView): Promise<RequestCaseFolderResult> {
+    const waiting = this.outcomes.expect(caseId, { untilTemplates: true });
+    const event: CaseTemplatesCopyRequestedEvent = {
+      ...createEventHeader(CASE_TEMPLATES_COPY_REQUESTED, this.clock.now()),
+      caseId,
+    };
+
+    try {
+      await this.events.publish(event);
+    } catch (error) {
+      // Nobody will answer: release the wait. The folder stays as it was, with its pending templates.
+      this.logger.error(`Could not publish ${event.type} (eventId=${event.eventId}, caseId=${caseId}): ${String(error)}`);
+      this.outcomes.notify(caseId, 'ERROR');
+      await waiting;
+      return { folder: current, outcome: 'ERROR' };
+    }
+
+    const outcome = await waiting;
+    if (outcome === 'TIMEOUT') {
+      this.logger.warn(`The templates of case ${caseId} are still being copied after the wait limit (eventId=${event.eventId})`);
     }
     return { folder: await this.folderState.find(caseId), outcome };
   }

@@ -36,6 +36,34 @@ describe('InMemoryDocumentStorage', () => {
     expect(a.id).not.toBe(b.id);
   });
 
+  describe('copyFile (HU40)', () => {
+    const upload = (content: string) =>
+      storage.uploadFile({ parentId: 'modelos', name: 'modelo.docx', mimeType: 'application/x', content: Buffer.from(content) });
+
+    it('copia el archivo a otra carpeta con el nombre pedido y otro id', async () => {
+      const original = await upload('v1');
+
+      const copy = await storage.copyFile({ fileId: original.id, parentId: 'causa', name: 'copia.docx' });
+
+      expect(copy.id).not.toBe(original.id);
+      expect(storage.files.find((f) => f.id === copy.id)).toMatchObject({ parentId: 'causa', name: 'copia.docx' });
+      expect((await storage.downloadFile(copy.id)).toString()).toBe('v1');
+    });
+
+    it('la copia no cambia si el original cambia después (CA-40.6)', async () => {
+      const original = await upload('v1');
+      const copy = await storage.copyFile({ fileId: original.id, parentId: 'causa', name: 'copia.docx' });
+
+      storage.files.find((f) => f.id === original.id)!.content.write('v2');
+
+      expect((await storage.downloadFile(copy.id)).toString()).toBe('v1');
+    });
+
+    it('falla si el archivo a copiar no existe', async () => {
+      await expect(storage.copyFile({ fileId: 'no-existe', parentId: 'causa', name: 'x.docx' })).rejects.toThrow();
+    });
+  });
+
   it('falla una sola vez cuando se le pide y vuelve a funcionar', async () => {
     storage.failNextWith(new DocumentStorageUnavailableError('TRANSIENT', 'timeout'));
 
