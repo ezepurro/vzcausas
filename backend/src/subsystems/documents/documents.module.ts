@@ -17,6 +17,7 @@ import { DocumentTemplateHttpMapper } from './infrastructure/http/mappers/docume
 import { PrismaCloudFolderRepository } from './infrastructure/persistence/prisma/prisma-cloud-folder.repository';
 import { PrismaDocumentTemplateRepository } from './infrastructure/persistence/prisma/prisma-document-template.repository';
 import { PrismaTemplateCopyRepository } from './infrastructure/persistence/prisma/prisma-template-copy.repository';
+import { StorageBootstrap } from './infrastructure/bootstrap/storage-bootstrap';
 import { DOCUMENT_STORAGE_PROVIDER } from './infrastructure/storage/document-storage.factory';
 
 /**
@@ -33,8 +34,10 @@ import { DOCUMENT_STORAGE_PROVIDER } from './infrastructure/storage/document-sto
  * Google Drive if the `GOOGLE_OAUTH_*` variables are set, the in-memory storage
  * if they are not (never in production, where the app refuses to start).
  *
- * `SetupCloudStorage` creates the study's base folders; the command
- * `npm run documents:setup-storage` runs it.
+ * `SetupCloudStorage` creates the study's base folders. `StorageBootstrap` runs
+ * it when the app starts, `AssureSpace` and `RegisterDocumentTemplate` when they
+ * find the structure missing, and the command `npm run documents:setup-storage`
+ * by hand.
  *
  * `SharedModule` provides the `CLOCK` token; `EventPublisher` is global.
  */
@@ -47,6 +50,7 @@ import { DOCUMENT_STORAGE_PROVIDER } from './infrastructure/storage/document-sto
     CopyTemplatesToCaseFolder,
     CaseRegisteredListener,
     CaseTemplatesCopyRequestedListener,
+    StorageBootstrap,
     RegisterDocumentTemplate,
     ListDocumentTemplates,
     GetDocumentTemplate,

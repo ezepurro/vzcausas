@@ -2,6 +2,7 @@ import { ClockPort } from '@shared/domain/clock.port';
 import { CaseRegisteredEvent, CASE_REGISTERED } from '@subsystems/cases/core/domain/ports/events/case-registered.event';
 import { AssureSpaceCommand } from '../application/common/assure-space.interfaces';
 import { AssureSpace } from '../application/use-cases/assure-space.use-case';
+import { SetupCloudStorage } from '../application/use-cases/setup-cloud-storage.use-case';
 import { CloudFolderFactory } from '../domain/factories/cloud-folder.factory';
 import { FakeEventPublisher } from './fake-event-publisher';
 import { InMemoryCloudFolderRepository } from '../../infrastructure/persistence/in-memory/in-memory-cloud-folder.repository';
@@ -70,7 +71,13 @@ export async function aSetUpStudio(): Promise<{
     folders,
     storage,
     events,
-    assureSpace: new AssureSpace(folders, storage, new FakeClock(), events),
+    assureSpace: new AssureSpace(
+      folders,
+      storage,
+      new FakeClock(),
+      events,
+      new SetupCloudStorage(folders, storage, new FakeClock()),
+    ),
     rootCasesId: rootCases.id,
   };
 }

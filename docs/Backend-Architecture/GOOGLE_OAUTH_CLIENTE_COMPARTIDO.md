@@ -126,8 +126,9 @@ TypeScript.
 ## 4. Lo que el cliente compartido NO te da
 
 - **No crea la estructura de carpetas.** `VZ Causas`, `Modelos formales` y
-  `Causas` las crea el caso de uso `SetupCloudStorage`, con
-  `npm run documents:setup-storage` (idempotente). Ver ADR-005.
+  `Causas` las crea el caso de uso `SetupCloudStorage` (idempotente): solo al
+  arrancar, cuando se registra una causa o un modelo y faltan, o a pedido con
+  `npm run documents:setup-storage`. Ver ADR-003 §2.6.
 - **No reintenta nada.** `getClient()` solo arma el cliente autenticado; los
   reintentos ante error transitorio (`5xx`, `429`,
   `rateLimitExceeded`/`userRateLimitExceeded`, backoff exponencial, hasta 3

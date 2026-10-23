@@ -30,12 +30,17 @@ import { FolderName } from '../../domain/value-objects/folder-name.vo';
 import { AssureSpaceCommand, AssureSpaceResult } from '../common/assure-space.interfaces';
 import { classifyFailure } from '../common/failure-reason';
 import { KeyedMutex } from '../common/keyed-mutex';
+import { SetupCloudStorage } from './setup-cloud-storage.use-case';
 
 type ChainLevelData = Pick<CloudFolderData, 'kind' | 'lawyerId' | 'jurisdictionId' | 'caseId'>;
 
 /**
  * Makes sure a case has its folder in the cloud (HU39): `Causas/{lawyer}/
  * {jurisdiction}/{caption}`, below the study's configured root (CA-39.3).
+ *
+ * If the study's root for cases is missing it is set up on the spot, see
+ * {@link SetupCloudStorage}; `StudioRootNotConfiguredError` is only for a setup
+ * that ends without it.
  *
  * Idempotent (CA-39.7): if the case already has a folder it is returned
  * without touching the storage, and the lawyer and jurisdiction folders are
@@ -70,10 +75,12 @@ export class AssureSpace {
     @Inject(DOCUMENT_STORAGE) private readonly storage: DocumentStoragePort,
     @Inject(CLOCK) private readonly clock: ClockPort,
     private readonly events: EventPublisher,
+    private readonly setup: SetupCloudStorage,
   ) {}
 
   /**
-   * @throws {StudioRootNotConfiguredError} if the root folder for cases is not set up.
+   * @throws {StudioRootNotConfiguredError} if the root folder for cases is still missing after the setup.
+   * @throws {StorageStructureBrokenError} if a saved base folder is gone from the cloud.
    * @throws {DocumentStorageUnavailableError} if the storage fails.
    * @throws {InvalidCloudFolderError} if a name is empty once cleaned.
    */
@@ -126,10 +133,7 @@ export class AssureSpace {
     const jurisdictionName = FolderName.of(command.jurisdiction.folderLabel);
     const caseName = FolderName.of(command.caseCaption);
 
-    const root = await this.folders.findByKey(FolderKey.rootCases());
-    if (!root) {
-      throw new StudioRootNotConfiguredError();
-    }
+    const root = await this.findOrSetUpRootCases();
 
     const lawyer = await this.ensureFolder(
       FolderKey.lawyer(command.lawyer.id),
@@ -164,6 +168,25 @@ export class AssureSpace {
     );
 
     return this.toResult(caseFolder);
+  }
+
+  /**
+   * The root for cases. If it is missing, the study's base structure is set up
+   * here (`SetupCloudStorage`, idempotent) instead of failing: the app creates or
+   * adopts "VZ Causas" by itself and the case gets its folder in this same request.
+   */
+  private async findOrSetUpRootCases(): Promise<CloudFolder> {
+    const root = await this.folders.findByKey(FolderKey.rootCases());
+    if (root) {
+      return root;
+    }
+    this.logger.warn('The root folder for cases is not set up: setting up the base structure.');
+    await this.setup.execute();
+    const created = await this.folders.findByKey(FolderKey.rootCases());
+    if (!created) {
+      throw new StudioRootNotConfiguredError();
+    }
+    return created;
   }
 
   /**

@@ -1,12 +1,15 @@
+import { Logger } from '@nestjs/common';
 import { CloudFolder } from '../../domain/entities/cloud-folder.entity';
 import {
   CloudFolderAlreadyExistsError,
   DocumentStorageUnavailableError,
   InvalidCloudFolderError,
+  StorageStructureBrokenError,
   StudioRootNotConfiguredError,
 } from '../../domain/errors/documents.errors';
 import { CloudFolderFactory } from '../../domain/factories/cloud-folder.factory';
 import { AssureSpace } from './assure-space.use-case';
+import { SetupCloudStorage } from './setup-cloud-storage.use-case';
 import { InMemoryCloudFolderRepository } from '../../../infrastructure/persistence/in-memory/in-memory-cloud-folder.repository';
 import { InMemoryDocumentStorage } from '../../../infrastructure/storage/in-memory/in-memory-document-storage';
 import { FakeClock, aCommand, aSetUpStudio } from '../../test-support/document-fixtures';
@@ -115,15 +118,97 @@ describe('AssureSpace', () => {
     );
   });
 
-  it('falla si la carpeta raíz de causas no está configurada (CA-39.3)', async () => {
-    const folders = new InMemoryCloudFolderRepository();
-    const storage = new InMemoryDocumentStorage();
-    const assureSpace = new AssureSpace(folders, storage, new FakeClock(), new FakeEventPublisher());
+  describe('sin la estructura base', () => {
+    function aBareStudio(setup?: Pick<SetupCloudStorage, 'execute'>) {
+      const folders = new InMemoryCloudFolderRepository();
+      const storage = new InMemoryDocumentStorage();
+      const events = new FakeEventPublisher();
+      const assureSpace = new AssureSpace(
+        folders,
+        storage,
+        new FakeClock(),
+        events,
+        (setup as SetupCloudStorage) ?? new SetupCloudStorage(folders, storage, new FakeClock()),
+      );
+      return { folders, storage, events, assureSpace };
+    }
 
-    await expect(assureSpace.execute(aCommand())).rejects.toBeInstanceOf(
-      StudioRootNotConfiguredError,
-    );
-    expect(storage.calls).toHaveLength(0);
+    beforeEach(() => {
+      jest.spyOn(Logger.prototype, 'warn').mockImplementation();
+      jest.spyOn(Logger.prototype, 'log').mockImplementation();
+    });
+
+    afterEach(() => jest.restoreAllMocks());
+
+    it('crea la estructura base y después la carpeta de la causa, en el mismo pedido (CA-39.3)', async () => {
+      const { assureSpace, folders, events } = aBareStudio();
+
+      const result = await assureSpace.execute(aCommand());
+
+      expect(folders.all().map((f) => f.key.kind)).toEqual([
+        'MAIN',
+        'TEMPLATES',
+        'ROOT_CASES',
+        'LAWYER',
+        'JURISDICTION',
+        'CASE',
+      ]);
+      expect(result.path).toBe('Causas/Ríos, Malena/Penal/GÓMEZ, Ariel Fernando p.s.a. Robo calificado');
+      expect(events.ofType(DOCUMENT_SPACE_ASSIGNED)).toHaveLength(1);
+    });
+
+    it('con la estructura completa no llama al setup', async () => {
+      const { assureSpace } = await aSetUpStudio();
+      const execute = jest.spyOn(SetupCloudStorage.prototype, 'execute');
+
+      await assureSpace.execute(aCommand());
+
+      expect(execute).not.toHaveBeenCalled();
+    });
+
+    it('falla con CONFIGURATION si después del setup la raíz de causas sigue sin estar (CA-39.3)', async () => {
+      const { assureSpace, events, storage } = aBareStudio({ execute: async () => [] });
+
+      await expect(assureSpace.execute(aCommand())).rejects.toBeInstanceOf(StudioRootNotConfiguredError);
+
+      expect(storage.calls).toHaveLength(0);
+      const [failed] = events.ofType<DocumentSpaceCreationFailedEvent>(DOCUMENT_SPACE_CREATION_FAILED);
+      expect(failed.reason).toBe('CONFIGURATION');
+    });
+
+    it('si el setup falla por Drive, publica DocumentSpaceCreationFailed con la razón y relanza (CA-39.5)', async () => {
+      const { assureSpace, storage, events, folders } = aBareStudio();
+      storage.failNextWith(new DocumentStorageUnavailableError('AUTHORIZATION', 'invalid_grant'));
+
+      await expect(assureSpace.execute(aCommand())).rejects.toBeInstanceOf(DocumentStorageUnavailableError);
+
+      expect(folders.all()).toEqual([]);
+      const [failed] = events.ofType<DocumentSpaceCreationFailedEvent>(DOCUMENT_SPACE_CREATION_FAILED);
+      expect(failed.reason).toBe('AUTHORIZATION');
+    });
+
+    it('una carpeta base guardada que ya no está en Drive no se recrea en silencio', async () => {
+      const { assureSpace, storage, folders } = aBareStudio();
+      const main = storage.seed(null, 'VZ Causas');
+      await folders.save(
+        CloudFolderFactory.create({
+          kind: 'MAIN',
+          cloudFolderId: main.id,
+          name: 'VZ Causas',
+          url: main.url,
+          parentCloudFolderId: null,
+          createdAt: new FakeClock().now(),
+        }),
+      );
+      await storage.deleteFolder(main.id);
+      const before = storage.folders.length;
+
+      await expect(assureSpace.execute(aCommand({ caseId: 11 }))).rejects.toBeInstanceOf(
+        StorageStructureBrokenError,
+      );
+
+      expect(storage.folders).toHaveLength(before);
+    });
   });
 
   it('propaga la falla del storage sin guardar carpetas de más y permite reintentar (CA-39.5)', async () => {
@@ -344,25 +429,6 @@ describe('AssureSpace', () => {
       );
       expect(failed).toMatchObject({ caseId: 10, reason: 'AUTHORIZATION', causedByEventId: 'evt-2' });
       expect(failed.detail).toBeTruthy();
-    });
-
-    it('clasifica la falta de raíz como CONFIGURATION', async () => {
-      const events = new FakeEventPublisher();
-      const assureSpace = new AssureSpace(
-        new InMemoryCloudFolderRepository(),
-        new InMemoryDocumentStorage(),
-        new FakeClock(),
-        events,
-      );
-
-      await expect(assureSpace.execute(aCommand())).rejects.toBeInstanceOf(
-        StudioRootNotConfiguredError,
-      );
-
-      const [failed] = events.ofType<DocumentSpaceCreationFailedEvent>(
-        DOCUMENT_SPACE_CREATION_FAILED,
-      );
-      expect(failed.reason).toBe('CONFIGURATION');
     });
 
     it('clasifica una carátula inválida como INVALID_DATA', async () => {

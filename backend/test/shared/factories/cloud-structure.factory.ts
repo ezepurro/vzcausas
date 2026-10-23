@@ -15,8 +15,8 @@ export interface SeedableStorage {
  *                              entorno real.
  * - `clearCloudFolders()`    → la borra, hijas antes que padres.
  *
- * Sin esta estructura, pedir la carpeta de una causa responde `ERROR`
- * (`StudioRootNotConfiguredError`).
+ * Sin esta estructura, pedir la carpeta de una causa la arma (`SetupCloudStorage`);
+ * los tests la siembran para controlar los ids y no pagar ese armado.
  */
 export async function createCloudStructure(storage: SeedableStorage) {
   const prisma = getPrisma();

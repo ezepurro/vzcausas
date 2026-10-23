@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { AuthenticatedUser } from '@shared/domain/authenticated-user';
 import { ForbiddenActionError, ValidationError } from '@shared/domain/domain-error';
 import { DOCX_MIME_TYPE } from '../../domain/entities/document-template.entity';
@@ -11,6 +12,7 @@ import { FakeDocumentTemplateRepository } from '../../test-support/fake-document
 import { InMemoryCloudFolderRepository } from '../../../infrastructure/persistence/in-memory/in-memory-cloud-folder.repository';
 import { InMemoryDocumentStorage } from '../../../infrastructure/storage/in-memory/in-memory-document-storage';
 import { RegisterDocumentTemplate, RegisterDocumentTemplateCommand } from './register-document-template.use-case';
+import { SetupCloudStorage } from './setup-cloud-storage.use-case';
 
 const actor = (roleNames: string[] = ['LAWYER']): AuthenticatedUser => ({
   userId: 6,
@@ -38,7 +40,13 @@ describe('RegisterDocumentTemplate', () => {
     templates = new FakeDocumentTemplateRepository();
     folders = new InMemoryCloudFolderRepository();
     storage = new InMemoryDocumentStorage();
-    useCase = new RegisterDocumentTemplate(templates, folders, storage, new FakeClock());
+    useCase = new RegisterDocumentTemplate(
+      templates,
+      folders,
+      storage,
+      new FakeClock(),
+      new SetupCloudStorage(folders, storage, new FakeClock()),
+    );
 
     // "Modelos formales", armada por el script de puesta en marcha (ADR-003).
     const main = storage.seed('account-root', 'VZ Causas');
@@ -130,11 +138,53 @@ describe('RegisterDocumentTemplate', () => {
     expect(deleteFile).toHaveBeenCalled();
   });
 
-  // CA-34.11
-  it('sin la carpeta "Modelos formales" configurada responde 502 y no sube nada', async () => {
-    useCase = new RegisterDocumentTemplate(templates, new InMemoryCloudFolderRepository(), storage, new FakeClock());
+  // CA-34.11 (cambiado el 22/10/2026: la estructura faltante se arma sola)
+  describe('sin la carpeta "Modelos formales" registrada', () => {
+    let bareFolders: InMemoryCloudFolderRepository;
+    let bareStorage: InMemoryDocumentStorage;
 
-    await expect(useCase.execute(command())).rejects.toBeInstanceOf(DocumentStorageUnavailableError);
-    expect(storage.fileCalls).toEqual([]);
+    beforeEach(() => {
+      jest.spyOn(Logger.prototype, 'warn').mockImplementation();
+      jest.spyOn(Logger.prototype, 'log').mockImplementation();
+      bareFolders = new InMemoryCloudFolderRepository();
+      bareStorage = new InMemoryDocumentStorage();
+      useCase = new RegisterDocumentTemplate(
+        templates,
+        bareFolders,
+        bareStorage,
+        new FakeClock(),
+        new SetupCloudStorage(bareFolders, bareStorage, new FakeClock()),
+      );
+    });
+
+    afterEach(() => jest.restoreAllMocks());
+
+    it('la crea y sube el modelo en la carpeta nueva', async () => {
+      await useCase.execute(command());
+
+      const created = bareStorage.folders.find((f) => f.name === 'Modelos formales')!;
+      expect(bareStorage.files).toEqual([expect.objectContaining({ parentId: created.id, name: 'casacion.docx' })]);
+      expect(templates.saved[0].file.cloudFolderId).toBe(created.id);
+    });
+
+    it('si Drive falla al armarla, responde 502 y no sube ni registra nada', async () => {
+      bareStorage.failNextWith(new DocumentStorageUnavailableError('TRANSIENT', 'timeout'));
+
+      await expect(useCase.execute(command())).rejects.toBeInstanceOf(DocumentStorageUnavailableError);
+      expect(bareStorage.fileCalls).toEqual([]);
+      expect(templates.saved).toEqual([]);
+    });
+
+    it('con la estructura completa no llama al setup', async () => {
+      const execute = jest.fn();
+      useCase = new RegisterDocumentTemplate(templates, folders, storage, new FakeClock(), {
+        execute,
+      } as unknown as SetupCloudStorage);
+
+      await useCase.execute(command());
+
+      expect(execute).not.toHaveBeenCalled();
+      expect(templates.saved).toHaveLength(1);
+    });
   });
 });

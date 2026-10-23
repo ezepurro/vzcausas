@@ -295,12 +295,16 @@ describe('Carpeta de la causa con la pila real de Google (HU39)', () => {
       expect(stack.fake.driveRequests).toHaveLength(3);
     });
 
-    it('sin la estructura base del estudio: ERROR de configuración y no se crea nada en Drive', async () => {
+    // CA-39.3, con el cambio del 22/10/2026: la estructura base faltante se crea en Drive.
+    it('sin la estructura base del estudio: la crea en Drive y la carpeta de la causa queda CREATED', async () => {
       await clearCloudFolders();
 
-      await expectErrorFolder('CONFIGURATION');
+      const res = await register();
 
-      expect(stack.fake.createRequests).toEqual([]);
+      expect(expectData<FolderBody>(res, 201).folder.status).toBe('CREATED');
+      expect(failures).toEqual([]);
+      const kinds = (await getPrisma().cloudFolder.findMany({ select: { kind: true } })).map((f) => f.kind).sort();
+      expect(kinds).toEqual(['CASE', 'JURISDICTION', 'LAWYER', 'MAIN', 'ROOT_CASES', 'TEMPLATES']);
     });
 
     it('se registra igual la causa y, cuando Google vuelve, POST /folder la deja CREATED (CA-39.6)', async () => {

@@ -7,6 +7,7 @@ import { DocumentStorageUnavailableError } from '../../../src/subsystems/documen
 import { InMemoryDocumentStorage } from '../../../src/subsystems/documents/infrastructure/storage/in-memory/in-memory-document-storage';
 import { loginAs, TestRole } from '../../shared/auth/login-as';
 import { expectData, expectError } from '../../shared/contract/envelopes';
+import { clearCloudFolders } from '../../shared/factories/cloud-structure.factory';
 import { createJurisdiction } from '../../shared/factories/procedural-state.factory';
 import { createUser } from '../../shared/factories/user.factory';
 import { getPrisma, startTestApp, stopTestApp } from '../../shared/harness/test-app';
@@ -61,9 +62,8 @@ describe('POST /api/v1/document-templates', () => {
     const prisma = getPrisma();
     await prisma.documentTemplateJurisdiction.deleteMany();
     await prisma.documentTemplate.deleteMany();
-    for (const kind of ['TEMPLATES', 'MAIN'] as const) {
-      await prisma.cloudFolder.deleteMany({ where: { kind } });
-    }
+    // También ROOT_CASES: registrar un modelo sin estructura arma las tres carpetas base.
+    await clearCloudFolders();
   }
 
   beforeAll(async () => {
@@ -207,9 +207,21 @@ describe('POST /api/v1/document-templates', () => {
     expect(await templatesInDb()).toEqual([]);
   });
 
-  // CA-34.11
-  it('sin la carpeta "Modelos formales" configurada responde 502 y no registra nada', async () => {
-    await getPrisma().cloudFolder.deleteMany({ where: { kind: 'TEMPLATES' } });
+  // CA-34.11, con el cambio del 22/10/2026: "Modelos formales" faltante se arma sola
+  it('sin la carpeta "Modelos formales" registrada, la arma, sube el modelo y responde 201', async () => {
+    await clearCloudFolders();
+
+    expectData(await register(), 201);
+
+    const kinds = (await getPrisma().cloudFolder.findMany({ select: { kind: true } })).map((f) => f.kind).sort();
+    expect(kinds).toEqual(['MAIN', 'ROOT_CASES', 'TEMPLATES']);
+    expect(await templatesInDb()).toHaveLength(1);
+  });
+
+  // CA-34.7 y CA-34.11
+  it('sin la carpeta "Modelos formales" y con Drive caído, responde 502 y no registra nada', async () => {
+    await clearCloudFolders();
+    storage.failNextWith(new DocumentStorageUnavailableError('TRANSIENT', 'timeout'));
 
     expectError(await register(), 502, 'DOCUMENT_STORAGE_UNAVAILABLE');
     expect(await templatesInDb()).toEqual([]);

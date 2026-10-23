@@ -103,6 +103,38 @@ describe('SetupCloudStorage', () => {
     expect(storage.folders).toHaveLength(0);
   });
 
+  it('dos ejecuciones simultáneas crean cada carpeta una sola vez', async () => {
+    const { setup, storage } = build();
+
+    const [first, second] = await Promise.all([setup.execute(), setup.execute()]);
+
+    expect(storage.folders).toHaveLength(3);
+    expect(storage.deletedFolderIds).toHaveLength(0);
+    expect(first.map((item) => item.outcome)).toEqual(['CREATED', 'CREATED', 'CREATED']);
+    expect(second.map((item) => item.outcome)).toEqual(['EXISTING', 'EXISTING', 'EXISTING']);
+  });
+
+  it('avisa con un WARN cuando crea la raíz, porque una carpeta manual no es visible con drive.file', async () => {
+    const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation();
+    const { setup } = build();
+
+    await setup.execute();
+
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0][0])).toContain('drive.file');
+  });
+
+  it('no avisa cuando adopta la raíz ni cuando ya estaba guardada', async () => {
+    const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation();
+    const { setup, storage } = build();
+    storage.seed(null, 'VZ Causas');
+
+    await setup.execute();
+    await setup.execute();
+
+    expect(warn).not.toHaveBeenCalled();
+  });
+
   it('propaga la falla del almacenamiento', async () => {
     const { setup, storage } = build();
     storage.failNextWith(new DocumentStorageUnavailableError('TRANSIENT', 'timeout'));

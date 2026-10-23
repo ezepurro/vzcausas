@@ -12,6 +12,7 @@ import {
 } from '../../domain/ports/cloud-folder.repository';
 import { DOCUMENT_STORAGE, DocumentStoragePort } from '../../domain/ports/document-storage.port';
 import { FolderKey } from '../../domain/value-objects/folder-key.vo';
+import { KeyedMutex } from '../common/keyed-mutex';
 
 /** How one folder of the structure was found or made. */
 export type SetupOutcome = 'CREATED' | 'ADOPTED' | 'EXISTING';
@@ -48,12 +49,21 @@ const STRUCTURE = [
  *
  * Idempotent: a folder that is already saved is only checked, one that exists
  * in the cloud but has no row is adopted, and only what is missing is created.
- * It is a use case (not a script) so a command runs it today and, later,
- * `AssureSpace` could run it by itself when it finds the structure missing.
+ * It is a use case (not a script) because three callers run it: the command
+ * `npm run documents:setup-storage`, `StorageBootstrap` when the app starts, and
+ * `AssureSpace` / `RegisterDocumentTemplate` when they find the structure missing.
+ * Runs in this process go one at a time (`KeyedMutex`); between instances the
+ * unique indexes of `cloud_folders` decide the winner.
+ *
+ * With the `drive.file` scope the app only sees folders it created itself
+ * (ADR-003 §2.6), so a "VZ Causas" folder made by hand is not adopted: a new one
+ * is created and a warning says so.
  */
 @Injectable()
 export class SetupCloudStorage {
   private readonly logger = new Logger(SetupCloudStorage.name);
+  /** Orders concurrent runs inside this process, so the folders are not created twice. */
+  private readonly locks = new KeyedMutex();
 
   constructor(
     @Inject(CLOUD_FOLDER_REPOSITORY) private readonly folders: CloudFolderRepository,
@@ -65,7 +75,11 @@ export class SetupCloudStorage {
    * @throws {StorageStructureBrokenError} if a saved folder is gone from the cloud.
    * @throws {DocumentStorageUnavailableError} if the storage fails.
    */
-  async execute(): Promise<SetupCloudStorageItem[]> {
+  execute(): Promise<SetupCloudStorageItem[]> {
+    return this.locks.run('setup', () => this.run());
+  }
+
+  private async run(): Promise<SetupCloudStorageItem[]> {
     const report: SetupCloudStorageItem[] = [];
     let main: CloudFolder | null = null;
 
@@ -123,6 +137,12 @@ export class SetupCloudStorage {
 
     const outcome: SetupOutcome = found ? 'ADOPTED' : 'CREATED';
     this.logger.log(`${outcome} ${step.kind} folder (cloudFolderId=${folder.cloudFolderId})`);
+    if (step.kind === 'MAIN' && outcome === 'CREATED') {
+      this.logger.warn(
+        'Se creó la carpeta raíz nueva. Con el permiso drive.file la app no ve carpetas hechas a mano: ' +
+          'si ya existía una "VZ Causas" creada manualmente, no se adoptó y quedó aparte (ADR-003 §2.6).',
+      );
+    }
     return { folder, report: this.item(step, folder, outcome) };
   }
 

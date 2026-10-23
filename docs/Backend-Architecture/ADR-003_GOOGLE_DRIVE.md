@@ -125,7 +125,7 @@ ninguno devuelve tipos de la librería de Google.
 | Caso de uso (`documents`)   | Lo invoca                             | Drive API                                         |
 | --------------------------- | ------------------------------------- | ------------------------------------------------- |
 | `AssureSpace`               | `cases`, por el evento `CaseRegistered` (ver [ADR-005](ADR-005_EVENTOS_DE_INTEGRACION.md)) | `files.list` y `files.create` (carpetas); `files.delete` si hay que deshacer una |
-| `SetupCloudStorage`         | el comando `npm run documents:setup-storage` | `files.list`, `files.create` y `files.get` (`VZ Causas`, `Modelos formales`, `Causas`) |
+| `SetupCloudStorage`         | `StorageBootstrap` al arrancar; `AssureSpace` y `RegisterDocumentTemplate` si falta la estructura; el comando `npm run documents:setup-storage` | `files.list`, `files.create` y `files.get` (`VZ Causas`, `Modelos formales`, `Causas`) |
 | `RegisterDocumentTemplate`  | controlador HTTP de `documents`       | `files.create` con el archivo, carga reanudable   |
 | `DownloadDocumentTemplate`  | controlador HTTP de `documents`       | `files.get` con `alt=media`, en *streaming*       |
 | `GrantStudioFolderAccess`   | `identity`, por `StudioFolderAccessPort` | `permissions.create` sobre la raíz             |
@@ -233,14 +233,32 @@ Tablas que escribe `documents` (§4.4 de la arquitectura):
 > ese entorno.
 >
 > Ese script no crea la estructura de carpetas del estudio. De eso se encarga el
-> caso de uso `SetupCloudStorage`, que se ejecuta con
-> `npm run documents:setup-storage` y es idempotente: crea `VZ Causas`,
+> caso de uso `SetupCloudStorage`, idempotente: crea `VZ Causas`,
 > `VZ Causas/Modelos formales` y `VZ Causas/Causas`, y guarda las tres como filas
 > `MAIN`, `TEMPLATES` y `ROOT_CASES` de `cloud_folders`. **Ya no existen**
 > `GOOGLE_DRIVE_ROOT_FOLDER_ID` ni `GOOGLE_DRIVE_TEMPLATES_FOLDER_ID`: los
-> identificadores viven en la base. El comando se niega a correr si falta la
-> configuración de Google, para no guardar identificadores de un almacenamiento en
-> memoria.
+> identificadores viven en la base.
+>
+> **Actualizado 22/10/2026 (`feature/autosetup`): ya no hace falta correrlo a
+> mano.** Lo ejecutan, en este orden de aparición: `StorageBootstrap` al
+> arrancar la app (no bloqueante: si Drive falla se registra el error y la app
+> levanta igual; se apaga con `DOCUMENTS_AUTO_SETUP=false` y no hace nada con el
+> almacenamiento en memoria); `AssureSpace` si al pedir la carpeta de una causa
+> falta `ROOT_CASES`; y `RegisterDocumentTemplate` si falta `TEMPLATES` (cambia
+> CA-34.11, que antes respondía 502). Las corridas simultáneas del mismo proceso
+> se ordenan con un `KeyedMutex`; entre instancias deciden los índices únicos de
+> `cloud_folders`. `npm run documents:setup-storage` queda como herramienta a
+> pedido; se niega a correr con el almacenamiento en memoria, para no guardar
+> identificadores de carpetas que no existen en ningún Drive.
+>
+> **Una carpeta creada a mano no se adopta.** Con `drive.file`, la app solo ve lo
+> que creó el mismo cliente OAuth: consultar por el identificador de una carpeta
+> manual responde `404`. Si el estudio ya tenía una carpeta `VZ Causas` hecha a
+> mano, la app crea otra, y `SetupCloudStorage` lo avisa con un `WARN` cuando crea
+> la raíz. La raíz la crea siempre la app. Adoptar carpetas manuales exigiría
+> ampliar el permiso (`drive`, restringido; ver §3 y §4.1), una decisión de este
+> ADR y no de la puesta en marcha. Una carpeta base ya registrada que se borró en
+> Drive sigue siendo un error (`STORAGE_STRUCTURE_BROKEN`, §2.5), no se recrea.
 
 Variables de entorno. Reemplazan a `GOOGLE_DRIVE_CREDENTIALS`, que §7.6 de la
 arquitectura había previsto para una cuenta de servicio:

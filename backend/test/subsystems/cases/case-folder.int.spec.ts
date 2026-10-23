@@ -150,14 +150,18 @@ describe('Carpeta de la causa en la nube (HU39)', () => {
       expect((await getPrisma().case.findUniqueOrThrow({ where: { id: data.id } })).folderStatus).toBe('ERROR');
     });
 
-    it('sin la estructura del estudio configurada, la causa se registra igual y la carpeta queda ERROR', async () => {
+    // CA-39.3, con el cambio del 22/10/2026: la estructura base faltante se arma sola.
+    it('sin la estructura del estudio configurada, la arma y la carpeta de la causa queda CREATED', async () => {
       await getPrisma().case.deleteMany();
       await clearCloudFolders();
 
       const res = await register();
 
-      const data = expectData<{ folder: { status: string } }>(res, 201);
-      expect(data.folder.status).toBe('ERROR');
+      const data = expectData<{ folder: { status: string; path: string } }>(res, 201);
+      expect(data.folder.status).toBe('CREATED');
+      expect(data.folder.path).toMatch(/^\/VZ Causas\/Causas\/Ríos, Malena\/Penal\//);
+      const kinds = (await getPrisma().cloudFolder.findMany({ select: { kind: true } })).map((f) => f.kind).sort();
+      expect(kinds).toEqual(['CASE', 'JURISDICTION', 'LAWYER', 'MAIN', 'ROOT_CASES', 'TEMPLATES']);
     });
 
     it('si la carpeta tarda más que el límite, responde 201 con CREATING y termina en segundo plano', async () => {
