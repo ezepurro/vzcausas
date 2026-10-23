@@ -388,6 +388,8 @@ export interface ActDeadline {
     /** El vigente: el calculado o, si se ajustó, el manual. */
     dueDate: string;
     manuallyAdjusted: boolean;
+    /** Días que da el vencimiento manual, según `dayType`. `null` sin ajuste o con `NONE` (D-86). */
+    manualTimeLimitDays: number | null;
 }
 
 /** Acto procesal tal como lo devuelve su registro (§3.8). */

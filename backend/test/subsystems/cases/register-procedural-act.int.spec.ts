@@ -86,6 +86,7 @@ describe('POST /api/v1/cases/:caseId/procedural-acts', () => {
           computedDueDate: '2026-10-12',
           dueDate: '2026-10-12',
           manuallyAdjusted: false,
+          manualTimeLimitDays: null,
         },
         // El usuario es el que llama; el nombre sale de la ficha del abogado.
         registeredBy: { id: s.user.id, lastName: 'Ríos', firstName: 'Malena' },
@@ -132,6 +133,7 @@ describe('POST /api/v1/cases/:caseId/procedural-acts', () => {
           computedDueDate: '2026-10-15',
           dueDate: '2026-10-15',
           manuallyAdjusted: false,
+          manualTimeLimitDays: null,
         },
       });
       const act = await getPrisma().proceduralAct.findUniqueOrThrow({ where: { id: data.id } });
@@ -260,6 +262,8 @@ describe('POST /api/v1/cases/:caseId/procedural-acts', () => {
           computedDueDate: '2026-10-12',
           dueDate: '2026-10-20',
           manuallyAdjusted: true,
+          // D-86: del lunes 5/10 al martes 20/10 hay 11 días hábiles (6-9, 12-16, 19-20).
+          manualTimeLimitDays: 11,
         },
         // Quién lo ajustó queda registrado en el acto.
         registeredBy: { id: s.user.id },
@@ -354,6 +358,8 @@ describe('POST /api/v1/cases/:caseId/procedural-acts', () => {
           computedDueDate: null,
           dueDate: '2026-10-25',
           manuallyAdjusted: true,
+          // D-86: sin plazo de tabla no hay unidad en la que contar.
+          manualTimeLimitDays: null,
         },
       });
     });

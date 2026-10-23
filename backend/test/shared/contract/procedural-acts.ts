@@ -36,6 +36,7 @@ export function expectDeadlineShape(deadline: unknown): void {
     'computedDueDate',
     'dueDate',
     'manuallyAdjusted',
+    'manualTimeLimitDays',
   ]);
   expect(Number.isInteger(deadline.timeLimitDays)).toBe(true);
   expect(deadline.timeLimitDays as number).toBeGreaterThanOrEqual(0);
@@ -44,6 +45,12 @@ export function expectDeadlineShape(deadline: unknown): void {
   expectCivilDateOrNull(deadline.computedDueDate);
   expectCivilDate(deadline.dueDate); // en `Deadline.yaml` el vencimiento vigente nunca es nulo
   expect(typeof deadline.manuallyAdjusted).toBe('boolean');
+  // D-86: entero no negativo si se ajustó a mano con plazo de tabla; `null` en otro caso.
+  if (deadline.manualTimeLimitDays !== null) {
+    expect(deadline.manuallyAdjusted).toBe(true);
+    expect(Number.isInteger(deadline.manualTimeLimitDays)).toBe(true);
+    expect(deadline.manualTimeLimitDays as number).toBeGreaterThanOrEqual(0);
+  }
 }
 
 /**

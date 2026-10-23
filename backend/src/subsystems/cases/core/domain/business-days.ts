@@ -14,6 +14,11 @@ export function addConsecutiveDays(date: Date, days: number): Date {
   return new Date(date.getTime() + days * MS_PER_DAY);
 }
 
+/** Calendar days from `from` to `to`, the inverse of {@link addConsecutiveDays}. `from` after `to` gives `0`. */
+export function countConsecutiveDays(from: Date, to: Date): number {
+  return Math.max(0, Math.round((to.getTime() - from.getTime()) / MS_PER_DAY));
+}
+
 /**
  * `date` plus `days` business days, counted from the day after and skipping
  * Saturdays and Sundays. Same rule as {@link businessDaysRemaining}, and as
@@ -39,8 +44,11 @@ export function addBusinessDays(date: Date, days: number): Date {
  * The ranges involved are deadlines — days or weeks, months at worst for an
  * overdue one — so the cost is irrelevant, and a legal computation that a
  * lawyer may have to audit is worth more readable than clever.
+ *
+ * Inverse of {@link addBusinessDays} when `to` is a business day. When it is
+ * not, `to` and the business day before it give the same count.
  */
-function countBusinessDays(from: Date, to: Date): number {
+export function countBusinessDays(from: Date, to: Date): number {
   let count = 0;
   for (let time = from.getTime() + MS_PER_DAY; time <= to.getTime(); time += MS_PER_DAY) {
     if (isBusinessDay(new Date(time))) {

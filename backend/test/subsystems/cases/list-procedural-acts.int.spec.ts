@@ -142,6 +142,8 @@ describe('GET /api/v1/cases/:caseId/procedural-acts', () => {
       computedDueDate: '2026-10-12',
       dueDate: '2026-10-20',
       manuallyAdjusted: true,
+      // D-86: el plazo que da la fecha manual, del lunes 5/10 al martes 20/10.
+      manualTimeLimitDays: 11,
     });
   });
 

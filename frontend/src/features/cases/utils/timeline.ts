@@ -15,9 +15,18 @@ import { formatDate, todayIsoDate } from '@/shared/lib/dates'
 import { DAY_TYPE_LABELS } from '@/features/legal-params'
 import type { ActDeadline } from '@/features/cases/types/proceduralAct'
 
-/** "Plazo de 5 días hábiles", con el que se registró el acto. */
-export function actTermText(deadline: Pick<ActDeadline, 'timeLimitDays' | 'dayType'>): string {
-    const n = deadline.timeLimitDays
+/**
+ * Los días del plazo del acto: los que da el vencimiento ajustado a mano o, si
+ * no se ajustó, los de la tabla con que se registró. Los del ajuste los cuenta
+ * el backend (V4 D-86): el front no cuenta días hábiles.
+ */
+export function actTermDays(deadline: Pick<ActDeadline, 'timeLimitDays' | 'manualTimeLimitDays'>): number {
+    return deadline.manualTimeLimitDays ?? deadline.timeLimitDays
+}
+
+/** "Plazo de 5 días hábiles". */
+export function actTermText(deadline: Pick<ActDeadline, 'timeLimitDays' | 'manualTimeLimitDays' | 'dayType'>): string {
+    const n = actTermDays(deadline)
     return `Plazo de ${n} ${n === 1 ? 'día' : 'días'} ${DAY_TYPE_LABELS[deadline.dayType].toLowerCase()}`
 }
 

@@ -148,6 +148,7 @@ export class ProceduralActHttpMapper {
       computedDueDate: deadline.computedDueDate && toIsoDate(deadline.computedDueDate),
       dueDate: deadline.dueDate && toIsoDate(deadline.dueDate),
       manuallyAdjusted: deadline.manuallyAdjusted,
+      manualTimeLimitDays: deadline.manualTimeLimitDays,
     };
   }
 }
