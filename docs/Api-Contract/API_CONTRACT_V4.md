@@ -4295,7 +4295,8 @@ Qué **no** aparece:
 					"countsFrom": "2026-09-15",
 					"computedDueDate": "2026-09-22",
 					"dueDate": "2026-09-22",
-					"manuallyAdjusted": false
+					"manuallyAdjusted": false,
+					"manualTimeLimitDays": null
 				},
 				"registeredBy": { "id": 3, "lastName": "Ríos", "firstName": "Malena" },
 				"registeredAt": "2026-09-15T11:42:00-03:00"
@@ -4776,9 +4777,26 @@ El recurso acto procesal posee la siguiente estructura:
 | `computedDueDate`  | String (fecha ISO 8601) \| `null` | Vencimiento que resulta de la tabla. `null` si el estado no abre plazo            |
 | `dueDate`          | String (fecha ISO 8601)       | Vencimiento vigente: el calculado o, si se ajustó, el manual                          |
 | `manuallyAdjusted` | Boolean                       | `true` si `dueDate` se cargó a mano                                                   |
+| `manualTimeLimitDays` | Integer \| `null`          | Días del plazo que resultan del vencimiento cargado a mano, contados según `dayType`. `null` si `manuallyAdjusted` es `false` o si `dayType` es `NONE` (D-86) |
 
 Los valores de la tabla se **copian** al acto: si luego se modifica el plazo
-del estado procesal, este vencimiento no cambia (ver §3.4). Quién ajustó a mano
+del estado procesal, este vencimiento no cambia (ver §3.4).
+
+**`manualTimeLimitDays`** (D-86). `timeLimitDays` es siempre el plazo de la
+tabla, así que no describe un vencimiento ajustado a mano. Para ese caso el
+backend informa cuántos días hay desde `countsFrom` (excluido) hasta `dueDate`
+(incluido), con la misma regla de [§4](#cómputo-de-días): días hábiles en
+`BUSINESS`, días corridos en `CONSECUTIVE`. El cliente muestra el plazo como
+`manualTimeLimitDays ?? timeLimitDays` y no lo calcula por su cuenta.
+
+- Un acto con `dayType` `NONE` (estado escrito a mano, o estado que no abre
+  plazo) no tiene unidad en la que contar: vale `null` aunque tenga vencimiento
+  manual.
+- Si la fecha manual cae en un día no hábil, cuenta igual que el día hábil
+  anterior: desde el viernes 23/10/2026, tanto el viernes 30/10 como el sábado
+  31/10 dan `5`.
+- Como el cómputo no excluye feriados ni feria judicial (D-73), un vencimiento
+  corrido a mano para salvar un feriado informa un día más que el plazo legal. Quién ajustó a mano
 el vencimiento queda registrado en `registeredBy`, como pide la nota del
 prototipo.
 
@@ -4874,7 +4892,8 @@ terminales: tiene que ofrecerlos, salvo "Prescripta".
    [§4](#cómputo-de-días).
 4. Si se envía `manualDueDate`, ese es el vencimiento vigente y
    `manuallyAdjusted` vale `true`; el calculado se conserva en
-   `computedDueDate`.
+   `computedDueDate`, y `manualTimeLimitDays` informa los días que da la
+   fecha manual (D-86).
 5. Si el estado no abre plazo y no se envía `manualDueDate`, `deadline` vale
    `null`.
 
@@ -4915,7 +4934,8 @@ terminales: tiene que ofrecerlos, salvo "Prescripta".
 			"countsFrom": "2026-09-09",
 			"computedDueDate": "2026-09-16",
 			"dueDate": "2026-09-16",
-			"manuallyAdjusted": false
+			"manuallyAdjusted": false,
+			"manualTimeLimitDays": null
 		},
 		"registeredBy": {
 			"id": 3,
@@ -4948,7 +4968,8 @@ Con estado escrito a mano y vencimiento manual:
 			"countsFrom": "2026-09-15",
 			"computedDueDate": null,
 			"dueDate": "2026-09-25",
-			"manuallyAdjusted": true
+			"manuallyAdjusted": true,
+			"manualTimeLimitDays": null
 		},
 		"registeredBy": {
 			"id": 1,
@@ -5222,7 +5243,8 @@ GET /api/v1/cases/1/procedural-acts?page=1&limit=20
 				"countsFrom": "2026-09-15",
 				"computedDueDate": "2026-09-22",
 				"dueDate": "2026-09-22",
-				"manuallyAdjusted": false
+				"manuallyAdjusted": false,
+				"manualTimeLimitDays": null
 			},
 			"registeredBy": {
 				"id": 3,
@@ -5331,7 +5353,8 @@ esta causa.
 			"countsFrom": "2026-09-15",
 			"computedDueDate": "2026-09-22",
 			"dueDate": "2026-09-22",
-			"manuallyAdjusted": false
+			"manuallyAdjusted": false,
+			"manualTimeLimitDays": null
 		},
 		"registeredBy": {
 			"id": 3,
@@ -7292,6 +7315,7 @@ HU30, HU32, HU51 y HU52 no agregan endpoints: son el
 | `POST /cases`, `GET /cases`, `GET /cases/{caseId}` | Recurso causa de V3 | Suma `prescription`, `prescriptionDeclaration`, `folder`, los datos por fuero, `harmfulActDeadline` y `courtFeePaid` | No | D-51, D-54, D-60, D-67, D-78 |
 | `GET /cases` | El orden por urgencia y `openDeadline` miran `currentState.dueDate` | Miran también `harmfulActDeadline.dueDate` | No | D-82 |
 | `legalQualifications[].prescriptionStartsOn` de la causa | Igual a `offenseDate` | Fecha del acto interruptivo más reciente o, si no hay, `offenseDate` | No | D-49 |
+| `deadline` de los actos procesales (`POST` y `GET /cases/{caseId}/procedural-acts`, `GET .../procedural-acts/{actId}`, `GET /cases/{caseId}/timeline`) | Sin el plazo del vencimiento manual | Suma `manualTimeLimitDays` | No | D-86 |
 | `currentState` de la causa | `proceduralActId` es `null` solo en el estado inicial | También es `null` en "Prescripta", al que no se llega por un acto | No | D-54 |
 
 ### 7.3 Enumerados incorporados
@@ -7402,6 +7426,7 @@ heredado las cita; las de esta versión continúan desde D-45.
 | D-82 | En `GET /cases`, el orden por urgencia y el filtro `openDeadline` consideran el vencimiento abierto de la causa, sea del acto procesal o del acto lesivo. Modifica a D-25 | Un amparo con el plazo para presentarse por vencer tiene que verse como urgente en el listado, no solo en los tableros |
 | D-83 | El sistema comparte la carpeta raíz `VZ Causas` con los usuarios vigentes con rol `LAWYER` o `SECRETARY`, como editores, y les quita el acceso al dejar de serlo. Las operaciones de usuarios no fallan si Drive no responde; el proceso diario reconcilia | Compartir la raíz respeta RN11 (todos ven todas las causas). Los perfiles salen de la matriz (HU38). Detalle en ADR-003 |
 | D-84 | El backend opera con una autorización OAuth de la cuenta de Gmail de gestión del estudio, otorgada una vez, con el permiso `drive.file` | Con una cuenta de Gmail común no hay unidades compartidas y una cuenta de servicio no tiene espacio en Drive. Detalle en ADR-003 |
+| D-86 | El `deadline` de un acto procesal suma `manualTimeLimitDays`: los días del plazo que resultan del vencimiento ajustado a mano, contados según `dayType` desde `countsFrom` (excluido) hasta `dueDate` (incluido). Vale `null` sin ajuste manual o con `dayType` `NONE`; una fecha manual en día no hábil cuenta como el hábil anterior (revisión del 23/10/2026) | `timeLimitDays` es el plazo de la tabla y la línea de vida lo mostraba junto a un vencimiento que no salía de él. El cliente no puede contar días hábiles sin replicar el cómputo del backend (D-20). Se calcula en cada lectura con datos ya guardados: no cambia el esquema. Mientras no se excluyan feriados (D-73), un vencimiento corrido por un feriado informa un día de más |
 
 #### Decisiones heredadas de V3
 

@@ -631,6 +631,7 @@ const EXAMPLE_ACT: ProceduralAct = {
         computedDueDate: '2026-09-16',
         dueDate: '2026-09-16',
         manuallyAdjusted: false,
+        manualTimeLimitDays: null,
     },
     registeredBy: { id: 3, lastName: 'Ríos', firstName: 'Malena' },
     registeredAt: '2026-09-09T11:42:00-03:00',

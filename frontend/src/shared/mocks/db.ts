@@ -281,7 +281,21 @@ export function buildActDeadline(input: {
         computedDueDate,
         dueDate,
         manuallyAdjusted: input.manualDueDate !== null,
+        manualTimeLimitDays: manualTimeLimitDays(countsFrom, input.manualDueDate, dayType),
     };
+}
+
+/**
+ * Los días del plazo que da el vencimiento manual (V4 D-86), contados según
+ * `dayType` desde `countsFrom` (excluido). `null` sin ajuste o sin tipo de día.
+ */
+function manualTimeLimitDays(countsFrom: string, manualDueDate: string | null, dayType: DayType): number | null {
+    if (manualDueDate === null) return null;
+    switch (dayType) {
+        case 'BUSINESS': return businessDaysUntil(manualDueDate, countsFrom);
+        case 'CONSECUTIVE': return calendarDaysBetween(countsFrom, manualDueDate);
+        case 'NONE': return null;
+    }
 }
 
 function seedAct(

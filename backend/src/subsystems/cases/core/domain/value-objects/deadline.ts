@@ -1,4 +1,5 @@
 import { ValidationError } from '@shared/domain/domain-error';
+import { countBusinessDays, countConsecutiveDays } from '../business-days';
 import { DayType } from './day-type';
 
 export interface DeadlineProps {
@@ -72,6 +73,31 @@ export class Deadline {
 
   get manuallyAdjusted(): boolean {
     return this.props.manualDueDate !== null;
+  }
+
+  /**
+   * Days of the term that the manual due date gives, counted from
+   * `countsFrom` (excluded) to the manual date (included) in the act's
+   * `dayType` (D-86). Business days follow the same incomplete rule as the
+   * rest of the system: weekends only, no holidays (P-02). A manual date on a
+   * non-business day counts like the business day before it.
+   *
+   * `null` if the due date was not adjusted by hand, or if the act has no
+   * table term (`NONE`): without one there is no unit to count in.
+   */
+  get manualTimeLimitDays(): number | null {
+    const { manualDueDate, countsFrom, dayType } = this.props;
+    if (manualDueDate === null) {
+      return null;
+    }
+    switch (dayType) {
+      case DayType.BUSINESS:
+        return countBusinessDays(countsFrom, manualDueDate);
+      case DayType.CONSECUTIVE:
+        return countConsecutiveDays(countsFrom, manualDueDate);
+      case DayType.NONE:
+        return null;
+    }
   }
 
   /** `true` if the state of the act opens a term in the table. */

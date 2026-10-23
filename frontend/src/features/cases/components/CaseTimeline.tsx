@@ -9,7 +9,7 @@ import type {
     TimelinePrescriptionEntry,
     TimelineProceduralActEntry,
 } from '@/features/cases/types/timeline'
-import { actDeadlineBadge, actTermText, closedDeadlineText } from '@/features/cases/utils/timeline'
+import { actDeadlineBadge, actTermDays, actTermText, closedDeadlineText } from '@/features/cases/utils/timeline'
 
 export interface CaseTimelineProps {
     /** Las entradas tal como las manda el backend, de la más reciente a la más antigua. */
@@ -100,8 +100,8 @@ function TimelineItem({ entry }: { entry: TimelineEntry }) {
  * Todo acto que abrió plazo lo muestra, con el que se registró (CA-27.3,
  * CA-27.7). Sólo el del acto vigente está abierto, con el chip; los de los
  * demás se muestran cerrados (CA-27.4). Si el vencimiento se ajustó a mano,
- * se marca como tal y no se muestra el plazo de la tabla: `timeLimitDays` ya
- * no describe el vencimiento vigente (CA-27.6).
+ * se marca como tal y el plazo es el que da esa fecha, no el de la tabla
+ * (CA-27.6, V4 D-86).
  */
 function ProceduralActItem({ entry }: { entry: TimelineProceduralActEntry }) {
     const act = entry.proceduralAct
@@ -120,7 +120,7 @@ function ProceduralActItem({ entry }: { entry: TimelineProceduralActEntry }) {
             )}
             {deadline && (
                 <div className="vz-timeline__tags">
-                    {deadline.timeLimitDays > 0 && !deadline.manuallyAdjusted && (
+                    {actTermDays(deadline) > 0 && (
                         <span className="vz-timeline__term">{actTermText(deadline)}</span>
                     )}
                     {badge ? (

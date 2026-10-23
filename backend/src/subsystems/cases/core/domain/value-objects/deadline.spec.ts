@@ -58,6 +58,56 @@ describe('Deadline', () => {
     });
   });
 
+  describe('días del plazo que da el vencimiento manual (D-86)', () => {
+    it('es null si el vencimiento no se ajustó a mano', () => {
+      expect(Deadline.create(aDeadlineProps()).manualTimeLimitDays).toBeNull();
+    });
+
+    it('en días hábiles, cuenta desde el día siguiente a countsFrom hasta la fecha manual, sin fines de semana', () => {
+      // Lunes 05/10 → martes 20/10: 6 al 9, 12 al 16, 19 y 20.
+      const deadline = Deadline.create(aDeadlineProps({ manualDueDate: day('2026-10-20') }));
+
+      expect(deadline.manualTimeLimitDays).toBe(11);
+    });
+
+    it('en días hábiles, una fecha manual en sábado cuenta igual que el viernes anterior', () => {
+      // Viernes 23/10, tabla de 3 días hábiles (28/10), ajustado al sábado 31/10.
+      const props = { timeLimitDays: 3, countsFrom: day('2026-10-23'), computedDueDate: day('2026-10-28') };
+
+      expect(Deadline.create(aDeadlineProps({ ...props, manualDueDate: day('2026-10-31') })).manualTimeLimitDays).toBe(5);
+      expect(Deadline.create(aDeadlineProps({ ...props, manualDueDate: day('2026-10-30') })).manualTimeLimitDays).toBe(5);
+    });
+
+    it('en días corridos, cuenta todos los días', () => {
+      const deadline = Deadline.create(
+        aDeadlineProps({
+          dayType: DayType.CONSECUTIVE,
+          computedDueDate: day('2026-10-10'),
+          manualDueDate: day('2026-10-20'),
+        }),
+      );
+
+      expect(deadline.manualTimeLimitDays).toBe(15);
+    });
+
+    it('es 0 si la fecha manual es el mismo día desde el que corre el plazo', () => {
+      expect(Deadline.create(aDeadlineProps({ manualDueDate: day('2026-10-05') })).manualTimeLimitDays).toBe(0);
+    });
+
+    it('es null sin plazo de tabla (NONE): no hay en qué unidad contar', () => {
+      const deadline = Deadline.create(
+        aDeadlineProps({
+          timeLimitDays: 0,
+          dayType: DayType.NONE,
+          computedDueDate: null,
+          manualDueDate: day('2026-10-20'),
+        }),
+      );
+
+      expect(deadline.manualTimeLimitDays).toBeNull();
+    });
+  });
+
   it('un estado con plazo abre plazo', () => {
     expect(Deadline.create(aDeadlineProps()).opensTerm()).toBe(true);
   });

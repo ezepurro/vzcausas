@@ -86,6 +86,7 @@ describe('ProceduralActHttpMapper', () => {
           computedDueDate: '2026-10-07',
           dueDate: '2026-10-07',
           manuallyAdjusted: false,
+          manualTimeLimitDays: null,
         },
         registeredBy: { id: 5, lastName: LAWYER.lastName, firstName: LAWYER.firstName },
         registeredAt: '2026-10-06T12:30:00-03:00',
@@ -116,6 +117,8 @@ describe('ProceduralActHttpMapper', () => {
         computedDueDate: '2026-10-07',
         dueDate: '2026-10-20',
         manuallyAdjusted: true,
+        // D-86: del miércoles 30/09 al martes 20/10 hay 14 días hábiles.
+        manualTimeLimitDays: 14,
       });
     });
 
@@ -131,6 +134,7 @@ describe('ProceduralActHttpMapper', () => {
         computedDueDate: null,
         dueDate: '2026-10-20',
         manuallyAdjusted: true,
+        manualTimeLimitDays: null,
       });
     });
 
