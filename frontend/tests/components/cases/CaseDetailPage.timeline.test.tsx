@@ -113,12 +113,16 @@ describe('CaseDetailPage · línea de vida', () => {
         expect(current).toHaveTextContent(/ajustad[oa] a mano/i)
     })
 
-    // CA-27.6: el vencimiento vigente, que se ajustó, y el que daba la tabla.
-    it('un vencimiento ajustado a mano muestra también el que daba la tabla', async () => {
+    // CA-27.6: el vencimiento ajustado a mano reemplaza al de la tabla, que no
+    // se muestra, ni como fecha ni como plazo en días.
+    it('un vencimiento ajustado a mano no muestra el plazo ni el vencimiento de la tabla', async () => {
         renderPage(16)
 
         const [current] = await entries()
-        expect(current).toHaveTextContent(/Vencimiento ajustado a mano · por tabla: \d{2}\/\d{2}\/\d{4}/)
+        expect(current).toHaveTextContent(/Plazo abierto · vence \d{2}\/\d{2}\/\d{4}/)
+        expect(current).toHaveTextContent('Vencimiento ajustado a mano')
+        expect(current).not.toHaveTextContent(/por tabla/i)
+        expect(current).not.toHaveTextContent(/Plazo de \d+ días?/)
     })
 
     // CA-27.11: identifica el acto interruptivo que rige; uno anterior aparece igual.

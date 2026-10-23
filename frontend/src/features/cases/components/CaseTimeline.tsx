@@ -100,17 +100,14 @@ function TimelineItem({ entry }: { entry: TimelineEntry }) {
  * Todo acto que abrió plazo lo muestra, con el que se registró (CA-27.3,
  * CA-27.7). Sólo el del acto vigente está abierto, con el chip; los de los
  * demás se muestran cerrados (CA-27.4). Si el vencimiento se ajustó a mano,
- * se muestra también el que daba la tabla (CA-27.6).
+ * se marca como tal y no se muestra el plazo de la tabla: `timeLimitDays` ya
+ * no describe el vencimiento vigente (CA-27.6).
  */
 function ProceduralActItem({ entry }: { entry: TimelineProceduralActEntry }) {
     const act = entry.proceduralAct
     const deadline = act.deadline
     const badge = deadline && entry.current ? actDeadlineBadge(deadline.dueDate) : null
     const modifier = badge ? (badge.urgent ? 'overdue' : 'open') : null
-    const byTable =
-        deadline?.manuallyAdjusted && deadline.computedDueDate
-            ? ` · por tabla: ${formatDate(deadline.computedDueDate)}`
-            : ''
 
     return (
         <Item title={act.resultingState.name} date={act.actDate} modifier={modifier}>
@@ -123,7 +120,7 @@ function ProceduralActItem({ entry }: { entry: TimelineProceduralActEntry }) {
             )}
             {deadline && (
                 <div className="vz-timeline__tags">
-                    {deadline.timeLimitDays > 0 && (
+                    {deadline.timeLimitDays > 0 && !deadline.manuallyAdjusted && (
                         <span className="vz-timeline__term">{actTermText(deadline)}</span>
                     )}
                     {badge ? (
@@ -132,7 +129,7 @@ function ProceduralActItem({ entry }: { entry: TimelineProceduralActEntry }) {
                         <span className="vz-timeline__term">{closedDeadlineText(deadline.dueDate)}</span>
                     )}
                     {deadline.manuallyAdjusted && (
-                        <span className="vz-timeline__tag-note">Vencimiento ajustado a mano{byTable}</span>
+                        <span className="vz-timeline__tag-note">Vencimiento ajustado a mano</span>
                     )}
                 </div>
             )}
