@@ -144,6 +144,7 @@ describe('HU51 — verificación diaria de los vencimientos de actos procesales'
           origin: 'PROCEDURAL_ACT',
           dueDate: '2026-10-09',
           proceduralActId: warning.actId,
+          businessDaysRemaining: 3,
         },
         {
           caseId: dueToday.caseRow.id,
@@ -155,6 +156,7 @@ describe('HU51 — verificación diaria de los vencimientos de actos procesales'
           origin: 'PROCEDURAL_ACT',
           dueDate: '2026-10-06',
           proceduralActId: dueToday.actId,
+          businessDaysRemaining: 0,
         },
       ]);
     });
@@ -260,6 +262,7 @@ describe('HU51 — verificación diaria de los vencimientos de actos procesales'
           origin: 'HARMFUL_ACT',
           dueDate: '2026-10-08',
           proceduralActId: null,
+          businessDaysRemaining: 2,
         },
       ]);
     });

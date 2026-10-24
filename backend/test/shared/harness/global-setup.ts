@@ -4,8 +4,15 @@ import { join } from 'node:path';
 import { setContainer } from './container-registry';
 
 /**
- * Variables de entorno de la suite. Se aplican solo si no vienen definidas,
- * para que la app arranque sin depender del `.env` de desarrollo.
+ * Variables de entorno de la suite. Se aplican siempre, pisando lo que
+ * hubiera en `process.env` al arrancar — justamente para que la app de test
+ * no dependa del `.env` de desarrollo. Antes eran `??=` (solo si no venían
+ * definidas), pero eso dejaba que una variable real del entorno del
+ * contenedor (`GOOGLE_OAUTH_*`, `MANAGEMENT_MAILBOX`,
+ * `INTERNAL_TRIGGER_SECRET`, cargadas en `docker/.env` para probar el
+ * digest a mano) se colara en la suite y rompiera la comparación de
+ * `InternalTriggerGuard` contra el secreto fijo que los specs mandan
+ * (corregido 23/10/2026, ver `IMPLEMENTACION_NOTIFICACIONES.md`).
  */
 const TEST_ENV: Record<string, string> = {
   NODE_ENV: 'test',
@@ -27,8 +34,10 @@ const TEST_ENV: Record<string, string> = {
    * spec de integración ejercita el bloqueo Y su liberación en
    * milisegundos.
    *
-   * Un spec que quiera otros valores los define antes de levantar su
-   * app: estas solo se aplican si no vienen ya definidas.
+   * Un spec que quiera otros valores puede asignarlos en su propio
+   * archivo, antes de levantar su app (`startTestApp`): esa asignación
+   * corre después que `globalSetup` y gana, sin depender de cómo se
+   * aplicaron los valores de acá.
    */
   LOGIN_LOCK_THRESHOLD: '3',
   LOGIN_LOCK_WINDOW: '15m',
@@ -92,7 +101,7 @@ export default async function globalSetup(): Promise<void> {
   setContainer(container);
 
   for (const [key, value] of Object.entries(TEST_ENV)) {
-    process.env[key] ??= value;
+    process.env[key] = value;
   }
   // Siempre se pisa: nunca se corre contra la base de desarrollo.
   process.env.DATABASE_URL = container.getConnectionUri();

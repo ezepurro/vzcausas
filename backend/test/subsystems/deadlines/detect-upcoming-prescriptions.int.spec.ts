@@ -162,6 +162,7 @@ describe('HU52 — verificación diaria de la prescripción', () => {
           kind: 'PRESCRIPTION_ALERT',
           referenceDate: '2028-10-06',
           legalQualificationName: tenYears.name,
+          daysRemaining: 731,
         },
         {
           caseId: met.id,
@@ -172,6 +173,7 @@ describe('HU52 — verificación diaria de la prescripción', () => {
           kind: 'PRESCRIPTION_EXPIRED',
           referenceDate: '2026-10-06',
           legalQualificationName: tenYears.name,
+          daysRemaining: 0,
         },
       ]);
     });
