@@ -18,7 +18,8 @@ export class LawyerHttpMapper {
     dto: RegisterLawyerRequestDto,
   ): RegisterLawyerCommand {
     return {
-      fullName: dto.fullName,
+      lastName: dto.lastName,
+      firstName: dto.firstName,
       registrationNumber: dto.registrationNumber,
     };
   }
@@ -31,7 +32,8 @@ export class LawyerHttpMapper {
   static toResponse(lawyer: Lawyer, activeCases: number): LawyerResponseDto {
     const dto = new LawyerResponseDto();
     dto.id = lawyer.id;
-    dto.fullName = lawyer.fullName;
+    dto.lastName = lawyer.lastName;
+    dto.firstName = lawyer.firstName;
     dto.registrationNumber = lawyer.registrationNumber.toString();
     dto.activeCases = activeCases;
     dto.active = lawyer.isActive();
@@ -53,7 +55,8 @@ export class LawyerHttpMapper {
   static fromView(view: LawyerView): LawyerResponseDto {
     const dto = new LawyerResponseDto();
     dto.id = view.id;
-    dto.fullName = view.fullName;
+    dto.lastName = view.lastName;
+    dto.firstName = view.firstName;
     dto.registrationNumber = view.registrationNumber;
     dto.activeCases = view.activeCases;
     dto.active = view.active;

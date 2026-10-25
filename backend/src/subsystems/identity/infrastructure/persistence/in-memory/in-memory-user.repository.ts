@@ -124,7 +124,8 @@ export class InMemoryUserRepository implements UserRepository {
         (user) =>
           needle === undefined ||
           user.username.toString().toLowerCase().includes(needle) ||
-          user.fullName.toLowerCase().includes(needle),
+          user.lastName.toLowerCase().includes(needle) ||
+          user.firstName.toLowerCase().includes(needle),
       )
       .filter(
         (user) =>
@@ -151,6 +152,14 @@ export class InMemoryUserRepository implements UserRepository {
         user.isActive() &&
         user.lawyerId === lawyerId &&
         user.id !== excludingUserId,
+    );
+  }
+
+  async findActiveByLawyerId(lawyerId: number): Promise<User | null> {
+    return (
+      [...this.byId.values()].find(
+        (user) => user.isActive() && user.lawyerId === lawyerId,
+      ) ?? null
     );
   }
 

@@ -2,6 +2,7 @@ import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Query } from 
 import { AuthenticatedUser } from '@shared/domain/authenticated-user';
 import { CurrentUser } from '@shared/infrastructure/http/current-user.decorator';
 import { PaginatedResponse, paginate, toPageRequest } from '@shared/infrastructure/http/pagination';
+import { DeclarePrescription } from '../../../core/application/use-cases/declare-prescription.use-case';
 import { GetCase } from '../../../core/application/use-cases/get-case.use-case';
 import { GetProceduralAct } from '../../../core/application/use-cases/get-procedural-act.use-case';
 import { ListCases } from '../../../core/application/use-cases/list-cases.use-case';
@@ -9,14 +10,21 @@ import { ListCustomStates } from '../../../core/application/use-cases/list-custo
 import { ListProceduralActs } from '../../../core/application/use-cases/list-procedural-acts.use-case';
 import { RegisterCase } from '../../../core/application/use-cases/register-case.use-case';
 import { RegisterProceduralAct } from '../../../core/application/use-cases/register-procedural-act.use-case';
-import { InvalidCaseIdError, InvalidProceduralActIdError } from '../../../core/domain/errors/case.errors';
-import { CaseResponseDto } from '../dtos/case.response.dto';
+import { RequestCaseFolder } from '../../../core/application/use-cases/request-case-folder.use-case';
+import {
+  CaseFolderUnavailableError,
+  InvalidCaseIdError,
+  InvalidProceduralActIdError,
+} from '../../../core/domain/errors/case.errors';
+import { CaseFolderResponseDto, CaseResponseDto } from '../dtos/case.response.dto';
 import { DeadlinePreviewQueryDto } from '../dtos/deadline-preview.query.dto';
+import { DeclarePrescriptionRequestDto } from '../dtos/declare-prescription.request.dto';
 import { DeadlinePreviewResponseDto } from '../dtos/deadline-preview.response.dto';
 import { ListCasesQueryDto } from '../dtos/list-cases.query.dto';
 import { ListProceduralActsQueryDto } from '../dtos/list-procedural-acts.query.dto';
 import { ProceduralActResponseDto } from '../dtos/procedural-act.response.dto';
 import { RegisterCaseRequestDto } from '../dtos/register-case.request.dto';
+import { RequestCaseFolderRequestDto } from '../dtos/request-case-folder.request.dto';
 import { CaseHttpMapper } from '../mappers/case-http.mapper';
 import { RegisterProceduralActRequestDto } from '../dtos/register-procedural-act.request.dto';
 import { ProceduralActHttpMapper } from '../mappers/procedural-act-http.mapper';
@@ -34,6 +42,7 @@ import { ProceduralActHttpMapper } from '../mappers/procedural-act-http.mapper';
 export class CasesController {
   constructor(
     private readonly registerCase: RegisterCase,
+    private readonly requestCaseFolder: RequestCaseFolder,
     private readonly listCases: ListCases,
     private readonly getCase: GetCase,
     private readonly listCustomStates: ListCustomStates,
@@ -41,6 +50,8 @@ export class CasesController {
     private readonly listProceduralActs: ListProceduralActs,
     private readonly getProceduralAct: GetProceduralAct,
     private readonly proceduralActMapper: ProceduralActHttpMapper,
+    private readonly caseMapper: CaseHttpMapper,
+    private readonly declarePrescription: DeclarePrescription,
   ) {}
 
   /**
@@ -54,7 +65,11 @@ export class CasesController {
   @Get()
   async list(@Query() query: ListCasesQueryDto): Promise<PaginatedResponse<CaseResponseDto>> {
     const page = await this.listCases.execute(CaseHttpMapper.toSearchCriteria(query));
-    return paginate(page.items.map(CaseHttpMapper.toResponse), page.totalItems, toPageRequest(query));
+    return paginate(
+      page.items.map((item) => this.caseMapper.toResponse(item)),
+      page.totalItems,
+      toPageRequest(query),
+    );
   }
 
   /**
@@ -92,7 +107,7 @@ export class CasesController {
   @Get(':caseId')
   async getById(@Param('caseId') caseIdParam: string): Promise<{ data: CaseResponseDto }> {
     const item = await this.getCase.execute({ id: this.parseCaseId(caseIdParam) });
-    return { data: CaseHttpMapper.toResponse(item) };
+    return { data: this.caseMapper.toResponse(item) };
   }
 
   @Post()
@@ -102,7 +117,55 @@ export class CasesController {
     @CurrentUser() actor: AuthenticatedUser,
   ): Promise<{ data: CaseResponseDto }> {
     const result = await this.registerCase.execute({ ...dto, createdByUserId: actor.userId });
-    return { data: CaseHttpMapper.fromRegisterResult(result) };
+    return { data: this.caseMapper.fromRegisterResult(result) };
+  }
+
+  /**
+   * `POST /cases/{caseId}/folder` (HU39): creates the folder of a case that has
+   * none, or tries again after a failure. Idempotent: if the folder exists, or
+   * is already being created, nothing new is asked and `200` returns it as it is.
+   *
+   * It waits for the answer up to a limit (`CASE_FOLDER_WAIT_MS`): a folder that
+   * fails answers `502`; one still being created answers `200` with `CREATING`,
+   * and the client reads the end of it with `GET /cases/{caseId}`.
+   *
+   * `copyTemplates` (HU40, `true` if omitted) also copies the templates of the
+   * jurisdiction; on a `CREATED` folder with templates pending it copies only those.
+   */
+  @Post(':caseId/folder')
+  @HttpCode(HttpStatus.OK)
+  async createFolder(
+    @Param('caseId') caseIdParam: string,
+    @Body() dto: RequestCaseFolderRequestDto,
+  ): Promise<{ data: CaseFolderResponseDto | null }> {
+    const result = await this.requestCaseFolder.execute({
+      caseId: this.parseCaseId(caseIdParam),
+      copyTemplates: dto?.copyTemplates,
+    });
+    if (result.outcome === 'ERROR') {
+      throw new CaseFolderUnavailableError();
+    }
+    return { data: result.folder && { ...result.folder } };
+  }
+
+  /**
+   * `POST /cases/{caseId}/prescription` (HU33): marks a criminal case as
+   * prescribed. `200`, not `201`: nothing new is created — the case changes and
+   * goes back whole, as `GET /cases/{caseId}` shows it (D-54).
+   *
+   * No permission is declared: an administrator or any lawyer may do it
+   * (CA-33.1), and the domain refuses the secretariat with the contract's own
+   * `403` text, which the permissions guard could not give.
+   */
+  @Post(':caseId/prescription')
+  @HttpCode(HttpStatus.OK)
+  async markPrescribed(
+    @Param('caseId') caseIdParam: string,
+    @Body() dto: DeclarePrescriptionRequestDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ): Promise<{ data: CaseResponseDto }> {
+    const item = await this.declarePrescription.execute({ ...dto, caseId: this.parseCaseId(caseIdParam), actor });
+    return { data: this.caseMapper.toResponse(item) };
   }
 
   /**

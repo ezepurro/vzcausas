@@ -1,5 +1,9 @@
 import { ValidationError } from '@shared/domain/domain-error';
-import { ProceduralStateAlreadyExistsError, ProceduralStateDayTypeError } from '../errors/procedural-state.errors';
+import {
+  ProceduralStateAlreadyExistsError,
+  ProceduralStateDayTypeError,
+  ProceduralStateProtectedError,
+} from '../errors/procedural-state.errors';
 import { JurisdictionCode } from '../value-objects/jurisdiction-code';
 import { DayType } from './day-types';
 import { Jurisdiction } from './jurisdiction';
@@ -154,6 +158,45 @@ describe('ProceduralState', () => {
 
       state.deactivate();
 
+      expect(state.isActive).toBe(false);
+    });
+  });
+  // HU33 CA-33.13, D-53: "Prescripta" is listed but no PATCH or DELETE may change it.
+  describe('el estado de sistema "Prescripta"', () => {
+    const prescribed = () =>
+      ProceduralState.hydrate({
+        ...validProps,
+        id: 10,
+        name: 'Prescripta',
+        timeLimitDays: 0,
+        dayType: DayType.NONE,
+        terminal: true,
+        isPrescribed: true,
+      });
+
+    it.each([
+      ['renombrarlo', (state: ProceduralState) => state.rename('Prescripción')],
+      ['cambiarle el plazo', (state: ProceduralState) => state.changeTimeLimit(5, DayType.BUSINESS)],
+      ['cambiarle si es terminal', (state: ProceduralState) => state.changeTerminal(false)],
+      ['darlo de baja', (state: ProceduralState) => state.deactivate()],
+    ])('no permite %s: PROCEDURAL_STATE_PROTECTED', (_operacion, change) => {
+      const state = prescribed();
+
+      expect(() => change(state)).toThrow(ProceduralStateProtectedError);
+      expect(() => change(prescribed())).toThrow(
+        'El estado Prescripta es un estado del sistema y no puede modificarse ni darse de baja.',
+      );
+      expect(state.name).toBe('Prescripta');
+      expect(state.isActive).toBe(true);
+    });
+
+    it('un estado común se sigue pudiendo modificar y dar de baja', () => {
+      const state = aState();
+
+      state.rename('Alegato');
+      state.deactivate();
+
+      expect(state.name).toBe('Alegato');
       expect(state.isActive).toBe(false);
     });
   });

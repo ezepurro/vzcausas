@@ -9,6 +9,10 @@ export interface LegalQualificationsTableProps {
     onEdit?: (qualification: LegalQualification) => void;
     onDelete?: (qualification: LegalQualification) => void;
     empty?: ReactNode;
+    /** Primera carga: la tabla dibuja su esqueleto. */
+    loading?: boolean;
+    /** Trae otra página u otro filtro: la tabla se atenúa. */
+    busy?: boolean;
 }
 
 /**
@@ -23,7 +27,7 @@ export interface LegalQualificationsTableProps {
  * consulta (sin modificar ni dar de baja) muestra la tabla sin acciones.
  */
 export function LegalQualificationsTable({
-    rows, onEdit, onDelete, empty,
+    rows, onEdit, onDelete, empty, loading, busy,
 }: LegalQualificationsTableProps) {
     const columns: Column<LegalQualification>[] = [
         {
@@ -76,6 +80,9 @@ export function LegalQualificationsTable({
             rowKey={(q) => String(q.id)}
             minWidth={760}
             empty={empty}
+            loading={loading}
+            loadingLabel="Cargando calificaciones…"
+            busy={busy}
         />
     );
 }

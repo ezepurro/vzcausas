@@ -186,7 +186,7 @@ export class InvalidUserIdError extends ValidationError {
 
 /**
  * Emitted by `UpdateUser` (HU6) when the request body has none of
- * `username`/`fullName`/`email`/`roles`/`lawyerId` set — the contract
+ * `username`/`lastName`/`firstName`/`email`/`roles`/`lawyerId` set — the contract
  * requires at least one (§3.2, `PATCH /users/{userId}`).
  */
 export class EmptyUpdateRequestError extends ValidationError {

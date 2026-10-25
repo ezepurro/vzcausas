@@ -34,7 +34,7 @@ describe('GetProceduralAct', () => {
   const view: ProceduralActView = {
     act: anAct({ id: 10, caseId: 1 }),
     resultingStateName: 'Citación a juicio',
-    registeredBy: { fullName: 'Dra. Malena Ríos' },
+    registeredBy: { lastName: 'Ríos', firstName: 'Malena' },
   };
 
   beforeEach(() => {

@@ -18,6 +18,10 @@ get:
 
     Una causa sin actos devuelve `data` vacío: no es un error.
 
+    **Para la línea de vida de la causa** no se usa este listado sino
+    `GET /cases/{caseId}/timeline`, que la devuelve completa, sin paginar y ya
+    intercalada con los actos interruptivos (D-85).
+
     **Rol requerido:** cualquier usuario autenticado, sobre cualquier causa
     (RN11). No hace falta ser el abogado responsable.
   parameters:
@@ -58,9 +62,11 @@ get:
                   computedDueDate: '2026-09-22'
                   dueDate: '2026-09-22'
                   manuallyAdjusted: false
+                  manualTimeLimitDays: null
                 registeredBy:
                   id: 3
-                  fullName: Dra. Malena Ríos
+                  lastName: Ríos
+                  firstName: Malena
                 registeredAt: '2026-09-15T11:42:00-03:00'
             pagination:
               page: 1
@@ -99,14 +105,18 @@ post:
       plazo, la causa queda sin vencimiento.
     - **Primer acto.** En una causa en el estado inicial, el acto la hace
       entrar al ciclo de vida del fuero (`currentState.initial` pasa a
-      `false`). Puede llevarla a cualquier estado no terminal del fuero o a un
-      estado escrito a mano.
+      `false`). Puede llevarla a cualquier estado del fuero salvo
+      "Prescripta", terminal o no, o a un estado escrito a mano.
     - La causa toma el estado del acto **con la fecha de acto más reciente**.
       Un acto con fecha anterior al último registrado queda asentado pero no
       retrocede el estado actual ni reemplaza el vencimiento vigente.
 
-    Los estados terminales ("Archivada", "Prescripta") no pueden ser destino
-    de un acto.
+    **Estados terminales** (D-69). Un acto puede llevar la causa a un estado
+    terminal, como "Archivada": es la forma de cerrarla. La excepción es
+    "Prescripta", que tiene su propio endpoint
+    (`POST /cases/{caseId}/prescription`). Un estado terminal no abre plazo,
+    así que el acto no admite `manualDueDate`. La causa deja de ser activa y
+    ya no admite actos nuevos (`422 CASE_IN_TERMINAL_STATE`).
 
     **Rol requerido:** abogado responsable de la causa. El `lawyerId` del
     usuario autenticado debe ser igual a `responsibleLawyer.id` de la causa.
@@ -170,9 +180,11 @@ post:
                     computedDueDate: '2026-09-16'
                     dueDate: '2026-09-16'
                     manuallyAdjusted: false
+                    manualTimeLimitDays: null
                   registeredBy:
                     id: 3
-                    fullName: Malena Ríos
+                    lastName: Ríos
+                    firstName: Malena
                   registeredAt: '2026-09-09T11:42:00-03:00'
             customState:
               summary: Estado escrito a mano, vencimiento manual
@@ -194,9 +206,11 @@ post:
                     computedDueDate: null
                     dueDate: '2026-09-25'
                     manuallyAdjusted: true
+                    manualTimeLimitDays: null
                   registeredBy:
                     id: 1
-                    fullName: Fernando G. Vázquez
+                    lastName: Vázquez
+                    firstName: Fernando G.
                   registeredAt: '2026-09-15T10:05:00-03:00'
     '400':
       description: Datos o identificador inválidos.
@@ -214,13 +228,13 @@ post:
                   details:
                     notificationDate: Es obligatoria en el fuero administrativo cuando el estado abre plazo (RN6).
             invalidState:
-              summary: Estado de otro fuero o terminal
+              summary: Estado de otro fuero o "Prescripta"
               value:
                 error:
                   code: VALIDATION_ERROR
                   message: Los datos enviados no son válidos.
                   details:
-                    proceduralStateId: El estado procesal no pertenece al fuero de la causa o es terminal.
+                    proceduralStateId: El estado procesal no pertenece al fuero de la causa o es el estado Prescripta.
             invalidCaseId:
               $ref: ../components/examples/InvalidCaseIdError.yaml
     '401':

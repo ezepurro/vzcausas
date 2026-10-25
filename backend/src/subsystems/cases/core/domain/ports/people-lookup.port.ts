@@ -4,7 +4,8 @@ export const PEOPLE_LOOKUP = Symbol('PEOPLE_LOOKUP');
 /** What `cases` needs to know about a lawyer. */
 export interface LawyerRef {
   id: number;
-  fullName: string;
+  lastName: string;
+  firstName: string;
   registrationNumber: string;
 }
 
@@ -26,6 +27,13 @@ export interface ClientRef {
 export interface PeopleLookupPort {
   /** The responsible lawyer (RN3), if it exists and is active; `null` otherwise. */
   findActiveLawyerById(id: number): Promise<LawyerRef | null>;
+
+  /**
+   * A lawyer in any state, active or deactivated, or `null` if it does not exist.
+   * For what a case that already exists keeps showing about its lawyer (RN12:
+   * a deactivated record stays part of the history of its cases).
+   */
+  findLawyerById(id: number): Promise<LawyerRef | null>;
 
   /** The client of the case, if it exists and is active; `null` otherwise. */
   findActiveClientById(id: number): Promise<ClientRef | null>;

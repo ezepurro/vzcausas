@@ -32,7 +32,8 @@ export class AuthHttpMapper {
       user: {
         id: result.user.id,
         username: result.user.username,
-        fullName: result.user.fullName,
+        lastName: result.user.lastName,
+        firstName: result.user.firstName,
         email: result.user.email,
         roles: [...result.user.roleNames],
         lawyer: result.user.lawyer,

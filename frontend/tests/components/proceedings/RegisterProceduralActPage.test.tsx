@@ -26,13 +26,14 @@ function renderPage(caseId: string | number, as = 'mrios') {
 describe('RegisterProceduralActPage', () => {
     usePrototypeToday()
 
-    it('no ofrece los estados terminales', async () => {
+    // V4 D-69: los estados terminales se ofrecen, avisando que cierran la causa.
+    it('ofrece los estados terminales, avisando que cierran la causa', async () => {
         const { user } = renderPage(1)
 
         await user.click(await screen.findByRole('combobox'))
 
         expect(screen.getByRole('option', { name: /Cédula de notificación/ })).toBeInTheDocument()
-        expect(screen.queryByRole('option', { name: /Archivada/ })).not.toBeInTheDocument()
+        expect(screen.getByRole('option', { name: /Archivada/ })).toHaveTextContent('Cierra la causa')
     })
 
     it('elegir un estado pide el vencimiento, y registrar vuelve al detalle', async () => {

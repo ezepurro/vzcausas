@@ -1,6 +1,9 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router'
 import { isApiError } from '@/shared/api/ApiError'
 import { useToast } from '@/app/providers/ToastContext'
+import { useAuth, useCurrentUser } from '@/app/providers/AuthContext'
+import { canAccess, homeRoute } from '@/app/access/access'
 import {
     Button,
     Icon,
@@ -22,15 +25,17 @@ import {
     type User,
     type UserFormValues,
 } from '@/features/users/types/user'
-import { validateUser, type UserFormErrors } from '@/features/users/schemas/user.schema'
+import { isValid, validateUser, type UserFormErrors } from '@/features/users/schemas/user.schema'
 import { toCreateUserBody } from '@/features/users/utils/toCreateUserBody'
 import { buildUserPatch, hasChanges } from '@/features/users/utils/buildUserPatch'
+import { toFormErrors } from '@/features/users/utils/toFormErrors'
 import { lawyerOptionLabel } from '@/features/users/utils/lawyerLink'
 import { ROLE_LABELS, roleChecks, rolesFromValues } from '@/features/users/utils/roles'
 import { UsersTable } from '@/features/users/components/UsersTable'
 import { UserFormModal } from '@/features/users/components/UserFormModal'
 import { DeleteUserModal } from '@/features/users/components/DeleteUserModal'
 import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue'
+import { formatPersonName } from '@/shared/lib/personName'
 const LIMIT = 20
 
 /** El "sin filtro" del select de perfil. Cadena vacía, que es lo que no viaja. */
@@ -51,7 +56,8 @@ type Modal =
     | null
 
 const EMPTY_FORM: UserFormValues = {
-    fullName: '',
+    lastName: '',
+    firstName: '',
     username: '',
     email: '',
     password: '',
@@ -59,12 +65,14 @@ const EMPTY_FORM: UserFormValues = {
     ...roleChecks(['LAWYER']),
     lawyerMode: LAWYER_MODES.link,
     lawyerId: '',
-    lawyerFullName: '',
     registrationNumber: '',
 }
 
 export function UsersPage() {
     const toast = useToast()
+    const navigate = useNavigate()
+    const currentUser = useCurrentUser()
+    const { updateCurrentUser } = useAuth()
 
     /* Filtros y paginado viven acá y se le pasan al hook: `DataTable` no
        pagina ni filtra, y los parámetros tienen que estar en la clave de caché. */
@@ -125,7 +133,8 @@ export function UsersPage() {
 
     function openEdit(user: User) {
         setValues({
-            fullName: user.fullName,
+            lastName: user.lastName,
+            firstName: user.firstName,
             username: user.username,
             email: user.email,
             password: '',
@@ -133,7 +142,6 @@ export function UsersPage() {
             ...roleChecks(user.roles),
             lawyerMode: LAWYER_MODES.link,
             lawyerId: user.lawyer ? String(user.lawyer.id) : '',
-            lawyerFullName: '',
             registrationNumber: '',
         })
         setErrors({})
@@ -177,9 +185,13 @@ export function UsersPage() {
             return
         }
 
-        if (error.isValidation && error.hasFieldErrors) {
-            setErrors(error.details as UserFormErrors)
-            return
+        if (error.isValidation) {
+            const fieldErrors = toFormErrors(error.details)
+            if (!isValid(fieldErrors)) {
+                setErrors(fieldErrors)
+                return
+            }
+            // Un 400 sin ningún campo que marcar no puede quedar mudo.
         }
 
         toast('error', error.message)
@@ -228,10 +240,24 @@ export function UsersPage() {
                 onSuccess: (user) => {
                     toast('success', `Usuario ${user.username} actualizado.`)
                     closeModal()
+                    if (user.id === currentUser.id) applyToOwnSession(user)
                 },
                 onError: handleApiError,
             },
         )
+    }
+
+    /**
+     * Quien se modificó a sí mismo ve el cambio en el momento: sus roles, su
+     * ficha y su nombre pasan a la sesión con lo que devolvió el `PATCH`. Si
+     * se sacó el perfil Administrador, esta pantalla ya no es suya y se va a
+     * su inicio, en vez de quedarse mirando "Sin acceso".
+     */
+    function applyToOwnSession(user: User) {
+        const updated = updateCurrentUser(user)
+        if (updated !== null && !canAccess(updated.user.roles, '/usuarios')) {
+            navigate(homeRoute(updated.user.roles), { replace: true })
+        }
     }
 
     /* ---------------- baja ---------------- */
@@ -243,7 +269,7 @@ export function UsersPage() {
         remove.mutate(user.id, {
             onSuccess: () => {
                 // `info` y no `success`: salió bien, pero no es un logro.
-                toast('info', `${user.fullName} Eliminado correctamente.`)
+                toast('info', `${formatPersonName(user)} Eliminado correctamente.`)
                 closeModal()
                 // Si era la única fila de la página, no dejar al usuario en
                 // una página que ya no existe.
@@ -266,11 +292,6 @@ export function UsersPage() {
                 eyebrow="Administración"
                 title="Usuarios"
                 sub="Desde esta sección podés administrar los ingresos al sistema. Consultá el registro de usuarios, sus niveles de permiso y el historial de conexiones del estudio."
-                actions={
-                    <Button icon={<Icon name="plus" />} size="md" onClick={openCreate}>
-                        Registrar usuario
-                    </Button>
-                }
             />
 
             <Panel
@@ -289,6 +310,9 @@ export function UsersPage() {
                             value={role}
                             onChange={(e) => changeRole(e.target.value)}
                         />
+                        <Button icon={<Icon name="plus" />} size="md" onClick={openCreate}>
+                            Registrar usuario
+                        </Button>
                     </>
                 }
                 footer={
@@ -301,11 +325,7 @@ export function UsersPage() {
                     />
                 }
             >
-                {query.isPending ? (
-                    <div className="vz-empty">
-                        <div className="vz-empty__title">Cargando usuarios…</div>
-                    </div>
-                ) : query.isError ? (
+                {query.isError ? (
                     <div className="vz-empty">
                         <div className="vz-empty__title">No se pudieron cargar los usuarios</div>
                         <div className="vz-empty__text">
@@ -316,6 +336,8 @@ export function UsersPage() {
                     </div>
                 ) : (
                     <UsersTable
+                        loading={query.isPending}
+                        busy={query.isPlaceholderData}
                         rows={rows}
                         onEdit={openEdit}
                         onDelete={(user) => setModal({ kind: 'delete', user })}
@@ -338,7 +360,7 @@ export function UsersPage() {
                     roles={nextRoles}
                     sub={
                         modal.kind === 'edit'
-                            ? `${modal.user.fullName} · ${modal.user.username}`
+                            ? `${formatPersonName(modal.user)} · ${modal.user.username}`
                             : ""
                     }
                     values={values}

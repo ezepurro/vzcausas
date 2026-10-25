@@ -25,6 +25,18 @@ export interface CaseBody {
   subjectMatter?: string;
   responsibleLawyerId: number;
   startDate?: string;
+  // Datos propios de cada fuero (D-67).
+  clientDetained?: boolean;
+  injunctionGranted?: boolean;
+  harmfulActDate?: string;
+  harmfulActRenews?: boolean;
+  harmfulActRenewalDays?: number;
+  harmfulActTermDays?: number;
+  harmfulActTermDayType?: string;
+  administrativeRemedyExhaustedOn?: string;
+  courtFeePaid?: boolean;
+  createFolder?: boolean;
+  copyTemplates?: boolean;
 }
 
 export function aCaseBody(
@@ -47,7 +59,14 @@ export interface CreateCaseOverrides {
   sacNumber?: string | null;
   caption?: string;
   /** Fuero de la causa. Por defecto, penal. */
-  jurisdiction?: 'CRIMINAL' | 'ADMINISTRATIVE';
+  jurisdiction?: 'CRIMINAL' | 'ADMINISTRATIVE' | 'AMPARO';
+  /** Acto lesivo de un amparo (D-67). Ignorado en los otros fueros. */
+  harmfulAct?: {
+    date: string;
+    renews?: { everyDays: number };
+    termDays: number;
+    termDayType: 'BUSINESS' | 'CONSECUTIVE';
+  };
   /**
    * Estado en el que está la causa. Por defecto, el inicial de su fuero. Con un
    * estado terminal queda cerrada; para un estado escrito a mano usar
@@ -55,6 +74,17 @@ export interface CreateCaseOverrides {
    */
   currentStateId?: number;
   currentCustomState?: string;
+  /**
+   * Una causa ya marcada como prescripta (HU33), como la deja la marca: las cinco
+   * columnas juntas (CHECK de la base). Combinarlo con `currentStateId` del estado
+   * "Prescripta".
+   */
+  prescriptionDeclaration?: {
+    prescriptionDate: string;
+    resolution: string;
+    registeredByUserId: number;
+    registeredAt: Date;
+  };
 }
 
 /**
@@ -67,6 +97,8 @@ export async function createCase(overrides: CreateCaseOverrides) {
   const jurisdiction = overrides.jurisdiction ?? 'CRIMINAL';
   const initialState = await createInitialState(jurisdiction);
   const isAdministrative = jurisdiction === 'ADMINISTRATIVE';
+  const isAmparo = jurisdiction === 'AMPARO';
+  const harmfulAct = isAmparo ? overrides.harmfulAct : undefined;
   const inCustomState = overrides.currentCustomState !== undefined;
 
   return getPrisma().case.create({
@@ -74,8 +106,20 @@ export async function createCase(overrides: CreateCaseOverrides) {
       sacNumber: overrides.sacNumber ?? null,
       caption: overrides.caption ?? 'CAUSA PREVIA',
       jurisdictionId: initialState.jurisdictionId,
-      proceduralRole: isAdministrative ? 'RECURRENTE' : 'DEFENSA',
-      subjectMatter: isAdministrative ? 'Se impugna la resolución que deniega la cobertura.' : null,
+      proceduralRole: isAdministrative ? 'RECURRENTE' : isAmparo ? 'ACTORA' : 'DEFENSA',
+      subjectMatter: isAdministrative
+        ? 'Se impugna la resolución que deniega la cobertura.'
+        : isAmparo
+          ? 'Que se ordene la cobertura integral del tratamiento.'
+          : null,
+      // Datos propios del fuero (D-67), como los deja el alta.
+      clientDetained: jurisdiction === 'CRIMINAL' ? false : null,
+      injunctionGranted: isAmparo ? false : null,
+      harmfulActRenews: isAmparo ? harmfulAct?.renews !== undefined : null,
+      harmfulActRenewalDays: harmfulAct?.renews?.everyDays ?? null,
+      harmfulActDate: harmfulAct ? new Date(`${harmfulAct.date}T00:00:00.000Z`) : null,
+      harmfulActTermDays: harmfulAct?.termDays ?? null,
+      harmfulActTermDayType: harmfulAct?.termDayType ?? null,
       clientId: overrides.clientId,
       responsibleLawyerId: overrides.responsibleLawyerId,
       startDate: new Date('2021-03-12T00:00:00.000Z'),
@@ -83,6 +127,12 @@ export async function createCase(overrides: CreateCaseOverrides) {
       currentStateId: inCustomState ? null : (overrides.currentStateId ?? initialState.stateId),
       currentCustomState: overrides.currentCustomState ?? null,
       createdByUserId: overrides.createdByUserId,
+      prescriptionDate: overrides.prescriptionDeclaration
+        ? new Date(`${overrides.prescriptionDeclaration.prescriptionDate}T00:00:00.000Z`)
+        : null,
+      prescriptionResolution: overrides.prescriptionDeclaration?.resolution ?? null,
+      prescriptionRegisteredByUserId: overrides.prescriptionDeclaration?.registeredByUserId ?? null,
+      prescriptionRegisteredAt: overrides.prescriptionDeclaration?.registeredAt ?? null,
     },
   });
 }

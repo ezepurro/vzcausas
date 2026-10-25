@@ -17,7 +17,7 @@ export type ProceduralActView = {
   act: ProceduralAct;
   /** The state of the table, or the hand-written text. A deactivated state still shows (§4, Bajas). */
   resultingStateName: string;
-  registeredBy: { fullName: string };
+  registeredBy: { lastName: string; firstName: string };
 };
 
 export type ProceduralActPage = { items: ProceduralActView[]; totalItems: number };

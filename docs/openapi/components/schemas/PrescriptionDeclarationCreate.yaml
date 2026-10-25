@@ -1,0 +1,29 @@
+type: object
+description: |
+  Formulario "Marcar prescripta" (HU33). La causa tiene que tener al menos una
+  calificación legal (D-74); no se exige que el plazo calculado esté cumplido:
+  la prescripción la declara el tribunal.
+additionalProperties: false
+required:
+  - prescriptionDate
+  - resolution
+properties:
+  prescriptionDate:
+    type: string
+    format: date
+    description: '"Fecha de la prescripción". No puede ser posterior a hoy.'
+    examples:
+      - '2026-09-15'
+  resolution:
+    type: string
+    minLength: 1
+    maxLength: 255
+    description: '"Resolución que la declara". No vacía.'
+    examples:
+      - Sentencia N° 214 del Juzgado de Control N° 3
+  grounds:
+    type: string
+    maxLength: 2000
+    description: '"Fundamento (opcional)".'
+    examples:
+      - Transcurrió el plazo del art. 62 inc. 2 CP sin actos interruptivos.

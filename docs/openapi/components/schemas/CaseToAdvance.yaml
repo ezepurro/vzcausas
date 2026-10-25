@@ -1,0 +1,56 @@
+type: object
+description: |
+  "Causa para impulsar": causa activa del abogado **sin vencimiento abierto**.
+  "Sin plazo abierto: el impulso procesal depende del estudio, no del
+  tribunal" (CA-41.4).
+required:
+  - caseId
+  - sacNumber
+  - caption
+  - jurisdiction
+  - currentStateName
+  - lastActDate
+  - daysSinceLastAct
+properties:
+  caseId:
+    type: integer
+    description: Causa.
+    examples:
+      - 4
+  sacNumber:
+    type:
+      - string
+      - 'null'
+    description: Número de SAC.
+    examples:
+      - '11845620'
+  caption:
+    type: string
+    description: Carátula.
+    examples:
+      - ACOSTA, Jonathan E. p.s.a. Infracción Ley 23.737
+  jurisdiction:
+    $ref: ./Jurisdiction.yaml
+  currentStateName:
+    type: string
+    description: Estado procesal actual. "Iniciada" si la causa no tiene actos.
+    examples:
+      - Cédula de notificación
+  lastActDate:
+    type:
+      - string
+      - 'null'
+    format: date
+    description: |
+      "Última actuación": fecha del acto procesal o interruptivo más
+      reciente. `null` si la causa no tiene ninguno.
+    examples:
+      - '2026-07-06'
+  daysSinceLastAct:
+    type:
+      - integer
+      - 'null'
+    minimum: 0
+    description: Días corridos desde `lastActDate` hasta hoy ("71 días"). `null` si `lastActDate` es `null`.
+    examples:
+      - 71

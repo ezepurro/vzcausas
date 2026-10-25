@@ -34,12 +34,12 @@ function specOperations(): string[] {
 
     for (const line of root.slice(start + 1)) {
         if (line && !line.startsWith(' ')) break // terminó el bloque `paths:`
-        const route = /^ {2}(\/\S*):\s*$/.exec(line)
+        const route = /^\s+(\/\S*):\s*$/.exec(line)
         if (route) {
             current = { path: route[1] }
             continue
         }
-        const ref = /^ {4}\$ref:\s*(\S+)\s*$/.exec(line)
+        const ref = /^\s+\$ref:\s*(\S+)\s*$/.exec(line)
         if (ref && current) {
             for (const entry of read(ref[1]).split(/\r?\n/)) {
                 const method = /^([a-z]+):\s*$/.exec(entry)

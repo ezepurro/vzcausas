@@ -1,14 +1,21 @@
 type: object
-description: Referencia reducida a un usuario.
+description: |
+  Referencia reducida a un usuario: el abogado que registró un acto procesal.
+  Apellido y nombres van por separado desde V4.
 required:
   - id
-  - fullName
+  - lastName
+  - firstName
 properties:
   id:
     type: integer
     examples:
       - 3
-  fullName:
+  lastName:
     type: string
     examples:
-      - Malena Ríos
+      - Ríos
+  firstName:
+    type: string
+    examples:
+      - Malena

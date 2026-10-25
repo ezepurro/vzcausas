@@ -84,7 +84,7 @@ describe('GET /api/v1/cases/:caseId/procedural-acts', () => {
         name: 'Oposición al requerimiento de elevación',
         custom: false,
       },
-      registeredBy: { id: s.user.id, fullName: 'Dra. Malena Ríos' },
+      registeredBy: { id: s.user.id, lastName: 'Ríos', firstName: 'Malena' },
     });
   });
 
@@ -142,6 +142,8 @@ describe('GET /api/v1/cases/:caseId/procedural-acts', () => {
       computedDueDate: '2026-10-12',
       dueDate: '2026-10-20',
       manuallyAdjusted: true,
+      // D-86: el plazo que da la fecha manual, del lunes 5/10 al martes 20/10.
+      manualTimeLimitDays: 11,
     });
   });
 
@@ -156,6 +158,27 @@ describe('GET /api/v1/cases/:caseId/procedural-acts', () => {
     const [act] = expectPaginated<Record<string, any>>(await list());
 
     expect(act.deadline).toMatchObject({ timeLimitDays: 5, dueDate: '2026-10-12' });
+  });
+
+  /**
+   * CA-27.8. Desde V4 un acto puede llevar la causa a un estado terminal (D-69).
+   * La causa archivada no está dada de baja: sigue apareciendo, y su historial
+   * también.
+   */
+  it('muestra el acto que llevó la causa a un estado terminal, y la causa sigue consultable', async () => {
+    await register({ proceduralStateId: s.states.fiveBusinessDays.stateId, actDate: '2026-10-01' });
+    const archived = await register({ proceduralStateId: s.states.terminal.stateId, actDate: '2026-10-05' });
+
+    const data = expectPaginated<Record<string, any>>(await list(), { totalItems: 2 });
+
+    expect(data[0].id).toBe(archived.id);
+    expect(data[0].resultingState).toEqual({
+      proceduralStateId: s.states.terminal.stateId,
+      name: 'Archivada',
+      custom: false,
+    });
+    const detail = await server().get(`/api/v1/cases/${s.caseRow.id}`).set(s.notResponsible);
+    expect(detail.status).toBe(200);
   });
 
   // CA-27.6

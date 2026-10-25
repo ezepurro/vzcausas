@@ -4,24 +4,28 @@
  */
 
 import type { ComboboxOption } from '@/shared/components/forms'
-import { DAY_TYPE_LABELS, type ProceduralState } from '@/features/legal-params'
+import { DAY_TYPE_LABELS, isPrescribedState, type ProceduralState } from '@/features/legal-params'
 
 /**
- * Los estados a los que puede pasar la causa: vigentes, **no terminales** (un
- * acto no puede llevar a "Archivada" ni a "Prescripta", V3 D-15) y en el orden
- * en que llegan del backend, que es el de registro: los estados no tienen
- * posición (V3 D-31). Cada opción dice en el segundo renglón qué plazo abre.
+ * Los estados a los que puede pasar la causa: vigentes y en el orden en que
+ * llegan del backend, que es el de registro: los estados no tienen posición
+ * (V3 D-31). Cada opción dice en el segundo renglón qué plazo abre.
+ *
+ * Desde V4 un acto **puede llevar la causa a un estado terminal**, como
+ * "Archivada": es la forma de cerrarla (D-69, reemplaza a D-15). La excepción
+ * es "Prescripta", que tiene su propio botón y no se ofrece acá. Un terminal lo
+ * dice en el segundo renglón, para que nadie cierre una causa sin querer.
  *
  * El estado inicial "Iniciada" no viene en la tabla, así que nunca se ofrece
  * como destino de un acto (V3 D-34).
  */
 export function stateOptions(states: ProceduralState[]): ComboboxOption[] {
     return states
-        .filter((s) => s.active && !s.terminal)
+        .filter((s) => s.active && !isPrescribedState(s))
         .map((s) => ({
             value: String(s.id),
             label: s.name,
-            description: termText(s),
+            description: s.terminal ? `${termText(s)} · Cierra la causa` : termText(s),
         }))
 }
 

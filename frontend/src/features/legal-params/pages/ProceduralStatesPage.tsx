@@ -162,6 +162,14 @@ export function ProceduralStatesPage() {
             return;
         }
 
+        // "Prescripta" es un estado de sistema (V4 D-53): la tabla no ofrece
+        // modificarlo, pero si llega el 422 se avisa y se cierra el modal.
+        if (error.is('PROCEDURAL_STATE_PROTECTED')) {
+            toast('error', error.message);
+            closeModal();
+            return;
+        }
+
         if (error.isValidation) {
             // Sólo los campos que el formulario muestra: el resto no tiene
             // dónde pintarse.
@@ -293,11 +301,7 @@ export function ProceduralStatesPage() {
                     />
                 }
             >
-                {query.isPending ? (
-                    <div className="vz-empty">
-                        <div className="vz-empty__title">Cargando estados…</div>
-                    </div>
-                ) : query.isError ? (
+                {query.isError ? (
                     <div className="vz-empty">
                         <div className="vz-empty__title">No se pudieron cargar los estados</div>
                         <div className="vz-empty__text">
@@ -308,6 +312,8 @@ export function ProceduralStatesPage() {
                     </div>
                 ) : (
                     <ProceduralStatesTable
+                        loading={query.isPending}
+                        busy={query.isPlaceholderData}
                         rows={rows}
                         onEdit={openEdit}
                         onDelete={(state) => setModal({ kind: 'delete', state })}
@@ -334,7 +340,7 @@ export function ProceduralStatesPage() {
                     values={values}
                     errors={errors}
                     saving={saving}
-                    inUse={modal.kind === 'edit' && modal.state.activeCases > 0}
+                    inUse={modal.kind === 'edit' && modal.state.caseCount > 0}
                     onChange={changeValue}
                     onConfirm={submitForm}
                     onCancel={closeModal}

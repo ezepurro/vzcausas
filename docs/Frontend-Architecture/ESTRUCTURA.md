@@ -48,7 +48,6 @@ frontend/
     │   └── providers/    lo que envuelve a toda la app (sesión, datos, avisos)
     ├── features/         un módulo por área funcional del sistema
     │   ├── auth/
-    │   ├── home/
     │   ├── users/
     │   ├── clients/
     │   ├── lawyers/
@@ -159,7 +158,6 @@ el registro de actos consumen sus datos. Si no hace falta, no se crea.
 | Módulo | Qué hace |
 |---|---|
 | `auth/` | Iniciar y cerrar sesión, renovar la sesión, cambiar contraseña |
-| `home/` | La pantalla de entrada, a la que se llega después del login (`/inicio`) |
 | `users/` | Alta, baja, consulta y permisos de los usuarios del sistema |
 | `clients/` | Los clientes del estudio |
 | `lawyers/` | Los abogados del staff |
@@ -168,15 +166,15 @@ el registro de actos consumen sus datos. Si no hace falta, no se crea.
 | `proceedings/` | Actos procesales y actos interruptivos de cada causa |
 | `deadlines/` | Vencimientos, prescripción y alertas |
 | `documents/` | Documentos de cada causa y los modelos formales del estudio |
-| `dashboard/` | El tablero de control accionable y los reportes |
+| `dashboard/` | El tablero de control accionable y los reportes. Su página es Inicio (`/inicio`), la pantalla de entrada después del login |
 
-De los once, hoy tienen código ocho: `auth/`, `home/`, `users/`, `lawyers/` y
-`legal-params/`, y los tres del Sprint 2 —`clients/`, `cases/` y
-`proceedings/`—, que ya tienen su `api/`, sus páginas y sus tests. Los de
-`clients/` y los del listado de causas se escribieron antes que la página. Los
-otros tres (`deadlines/`, `documents/` y `dashboard/`) están creados con sus
-seis carpetas vacías, para que el día que arranquen no haya que discutir dónde
-van.
+De los diez, hoy tienen código ocho: `auth/`, `users/`, `lawyers/` y
+`legal-params/`; los tres del Sprint 2 —`clients/`, `cases/` y
+`proceedings/`—, que ya tienen su `api/`, sus páginas y sus tests; y
+`dashboard/`, con los tableros de Inicio del Sprint 3. Los de `clients/`, los
+del listado de causas y los de los tableros se escribieron antes que la
+página. Los otros dos (`deadlines/` y `documents/`) están creados con sus seis
+carpetas vacías, para que el día que arranquen no haya que discutir dónde van.
 
 Todos siguen la revisión del 05/10/2026 del contrato. Cómo quedó aplicada está
 en `frontend/CLAUDE.md`, "Revisiones del contrato".
@@ -409,7 +407,8 @@ código y al revés:
 | EP-07 Documentación e integración cloud | `features/documents/` |
 | EP-08 Tablero de control y reportes | `features/dashboard/` |
 
-`features/home/` es el único módulo que no sale de una épica: es la pantalla de
-entrada, la que recibe apenas se inicia sesión y desde la que se navega al
-resto. Le guarda el lugar y la ruta al tablero de EP-08, que cuando se programe
-va a vivir en `dashboard/` y mostrarse ahí.
+La pantalla de entrada, la que recibe apenas se inicia sesión, es la página de
+`dashboard/`: los tableros de EP-08 ("Mi día" y "Estudio") son el Inicio
+(`/inicio`). Hasta el Sprint 2 existía `features/home/`, que le guardaba el
+lugar y la ruta; se eliminó al programar los tableros (18/10/2026), porque
+quedaba como una página que sólo le pasaba datos a `dashboard/`.

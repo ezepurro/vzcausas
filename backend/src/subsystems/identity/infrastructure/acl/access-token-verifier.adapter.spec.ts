@@ -46,7 +46,8 @@ async function makeUser(overrides: {
       id: overrides.id ?? 1,
       username: Username.create("fvazquez"),
       plainPassword: "password-123",
-      fullName: "Fernando Vázquez",
+      lastName: "Vázquez",
+      firstName: "Fernando",
       email: Email.create("fvazquez@vazquezzarate.com"),
       roleIds: overrides.roleIds ?? [1],
       lawyerId: overrides.lawyerId ?? null,
@@ -92,6 +93,9 @@ class FakeUserRepository implements UserRepository {
     throw new Error("not used in this spec");
   }
   async existsActiveByLawyerId(): Promise<boolean> {
+    throw new Error("not used in this spec");
+  }
+  async findActiveByLawyerId(): Promise<User | null> {
     throw new Error("not used in this spec");
   }
 }

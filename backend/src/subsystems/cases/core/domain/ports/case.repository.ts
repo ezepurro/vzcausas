@@ -27,4 +27,12 @@ export interface CaseRepository {
    * {@link ProceduralActRepository}.
    */
   saveCurrentAct(updatedCase: Case): Promise<void>;
+
+  /**
+   * Saves that the case was marked as prescribed (HU33): its new state, its
+   * empty current act and the declaration, in one write. Only a case that was
+   * not marked yet is written, so two simultaneous markings cannot both win.
+   * @returns `false` if the case was already marked (nothing written).
+   */
+  saveDeclaredPrescription(prescribedCase: Case): Promise<boolean>;
 }

@@ -44,6 +44,22 @@ export function formatLastLogin(iso: string | null): string {
 }
 
 /**
+ * Un instante ISO 8601 con offset, con la fecha y la hora: `09/09/2026 a las
+ * 11:42`. Es la forma de "cuándo se registró" algo (`registeredAt`).
+ *
+ * A diferencia de las fechas sin hora, acá sí se usa `new Date(iso)`: el
+ * instante trae su offset, y lo que importa es la hora local de quien lo lee.
+ */
+export function formatDateTime(iso: string | null): string {
+    if (!iso) return EMPTY
+
+    const date = new Date(iso)
+    if (Number.isNaN(date.getTime())) return EMPTY
+
+    return `${DATE.format(date)} a las ${TIME.format(date)}`
+}
+
+/**
  * Cuántos días calendario pasaron, no cuántas 24 horas.
  *
  * La diferencia importa: a las 00:30 de hoy, algo de las 23:50 de ayer pasó

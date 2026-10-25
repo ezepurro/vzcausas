@@ -71,6 +71,9 @@ class FakeUserRepository implements UserRepository {
   async existsActiveByLawyerId(): Promise<boolean> {
     throw new Error('not used in these specs');
   }
+  async findActiveByLawyerId(): Promise<User | null> {
+    throw new Error('not used in these specs');
+  }
 }
 
 class FakeRoleRepository implements RoleRepository {
@@ -93,7 +96,7 @@ class FakeLawyerLookup implements LawyerLookupPort {
     return new Map(
       lawyerIds
         .filter((id) => this.existingIds.includes(id))
-        .map((id) => [id, { id, fullName: `Lawyer ${id}`, registrationNumber: `1-${id}` }]),
+        .map((id) => [id, { id, lastName: `Lawyer ${id}`, firstName: 'Test', registrationNumber: `1-${id}` }]),
     );
   }
 }
@@ -256,7 +259,8 @@ async function makeUser(
       id: overrides.id ?? 1,
       username: Username.create(overrides.username ?? 'fvazquez'),
       plainPassword: overrides.password ?? 'password-123',
-      fullName: 'Fernando Vázquez',
+      lastName: 'Vázquez',
+      firstName: 'Fernando',
       email: Email.create('fvazquez@vazquezzarate.com'),
       roleIds: overrides.roleIds ?? [1],
       lawyerId: overrides.lawyerId ?? null,
@@ -392,7 +396,8 @@ describe('AuthenticateUserUseCase', () => {
 
     expect(result.user.lawyer).toEqual({
       id: 10,
-      fullName: 'Lawyer 10',
+      lastName: 'Lawyer 10',
+      firstName: 'Test',
       registrationNumber: '1-10',
     });
   });

@@ -51,6 +51,16 @@
 }
 .vz-btn--ghost-danger:disabled { opacity: .4; }
 
+/* Un enlace con aspecto de botón ("Abrir carpeta en Drive"): `a:hover`
+   (base.css) le pondría el verde de los enlaces y el subrayado, y pesa más
+   que la clase del botón. Al apuntarlo conserva el color de su variante. */
+a.vz-btn:hover { text-decoration: none; }
+a.vz-btn--primary:hover { color: #fff; }
+a.vz-btn--secondary:hover { color: var(--vz-ink); }
+a.vz-btn--danger:hover,
+a.vz-btn--ghost-danger:hover { color: var(--vz-danger-action); }
+a.vz-btn--ghost:hover { color: var(--vz-ink); }
+
 /* tamaños */
 .vz-btn--md { height: 34px; padding: 0 14px; font-size: 12.5px; }
 .vz-btn--sm { height: 28px; padding: 0 11px; font-size: 12px; }

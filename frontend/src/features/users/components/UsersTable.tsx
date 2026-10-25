@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react'
 import { Button, DataTable, Pill, type Column } from '@/shared/components/ui'
 import { formatLastLogin } from '@/shared/lib/dates'
+import { initials } from '@/shared/lib/initials'
+import { formatPersonName } from '@/shared/lib/personName'
 import type { User } from '@/features/users/types/user'
 import { roleLabel, roleTone } from '@/features/users/utils/roles'
 
@@ -9,6 +11,10 @@ export interface UsersTableProps {
     onEdit: (user: User) => void
     onDelete: (user: User) => void
     empty?: ReactNode
+    /** Primera carga: la tabla dibuja su esqueleto. */
+    loading?: boolean
+    /** Trae otra página u otro filtro: la tabla se atenúa. */
+    busy?: boolean
 }
 
 /**
@@ -17,17 +23,17 @@ export interface UsersTableProps {
  * Las columnas son las del prototipo. La de "Abogado vinculado" puede
  * mostrarse vacía sin que sea un error: secretaría no tiene ficha.
  */
-export function UsersTable({ rows, onEdit, onDelete, empty }: UsersTableProps) {
+export function UsersTable({ rows, onEdit, onDelete, empty, loading, busy }: UsersTableProps) {
     const columns: Column<User>[] = [
         {
-            id: 'fullName',
+            id: 'name',
             header: 'Apellido y Nombre',
             width: '24%',
             primary: true,
             cell: (u) => (
                 <div className="vz-table__ident">
-                    <span className="vz-avatar" aria-hidden="true">{initials(u.fullName)}</span>
-                    <span className="vz-table__primary">{u.fullName}</span>
+                    <span className="vz-avatar" aria-hidden="true">{initials(formatPersonName(u))}</span>
+                    <span className="vz-table__primary">{formatPersonName(u)}</span>
                 </div>
             ),
         },
@@ -48,7 +54,7 @@ export function UsersTable({ rows, onEdit, onDelete, empty }: UsersTableProps) {
         {
             id: 'lawyer',
             header: 'Abogado vinculado',
-            cell: (u) => u.lawyer?.fullName ?? '—',
+            cell: (u) => (u.lawyer ? formatPersonName(u.lawyer) : '—'),
         },
         {
             id: 'lastLoginAt',
@@ -78,17 +84,10 @@ export function UsersTable({ rows, onEdit, onDelete, empty }: UsersTableProps) {
             rowKey={(u) => String(u.id)}
             minWidth={1040}
             empty={empty}
+            loading={loading}
+            loadingLabel="Cargando usuarios…"
+            busy={busy}
         />
     )
 }
 
-/** Las dos primeras iniciales del nombre, para el avatar. */
-function initials(fullName: string): string {
-    return fullName
-        .split(' ')
-        .filter(Boolean)
-        .map((word) => word[0])
-        .slice(0, 2)
-        .join('')
-        .toUpperCase()
-}

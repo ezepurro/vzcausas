@@ -1,10 +1,14 @@
-import { CaseSacAlreadyExistsError } from '../../domain/errors/case.errors';
+import { Logger } from '@nestjs/common';
+import { InMemoryCaseFolderOutcomes } from '../../../infrastructure/events/in-memory-case-folder-outcomes';
+import { CaseSacAlreadyExistsError, CopyTemplatesWithoutFolderError } from '../../domain/errors/case.errors';
 import { AdministrativeCase } from '../../domain/entities/administrative';
 import { Amparo } from '../../domain/entities/amparo';
 import { CriminalCase } from '../../domain/entities/criminal';
 import { ProceduralStateRef } from '../../domain/ports/legal-parameters-lookup.port';
+import { DayType } from '../../domain/value-objects/day-type';
 import { JurisdictionCode } from '../../domain/value-objects/jurisdiction-code';
 import { ProceduralRole } from '../../domain/value-objects/procedural-role';
+import { FakeCaseFolderState, FakeEventPublisher } from '../../test-support/case-folder-fakes';
 import {
   FakeCaseRepository,
   FakeClock,
@@ -25,13 +29,15 @@ import {
 } from '../../test-support/case-fixtures';
 import { RegisterCaseCommand } from '../common/register-case.interfaces';
 import { RegisterCase } from './register-case.use-case';
+import { CaseRegisteredEvent } from '../../domain/ports/events/case-registered.event';
+import { RequestCaseFolder } from './request-case-folder.use-case';
 
 /**
  * Specs of the use case in isolation: every port is an in-memory fake, so
  * nothing touches a database, HTTP or another subsystem.
  */
 describe('RegisterCase', () => {
-  function build(options: { withoutInitialState?: JurisdictionCode } = {}) {
+  function build(options: { withoutInitialState?: JurisdictionCode; waitMs?: number } = {}) {
     const initialStates: Partial<Record<JurisdictionCode, ProceduralStateRef>> = { ...INITIAL_STATES };
     if (options.withoutInitialState) {
       delete initialStates[options.withoutInitialState];
@@ -39,8 +45,32 @@ describe('RegisterCase', () => {
     const cases = new FakeCaseRepository(Object.values(INITIAL_STATES));
     const people = new FakePeopleLookup([LAWYER], [CLIENT]);
     const legalParameters = new FakeLegalParametersLookup(initialStates, [ROBBERY, HOMICIDE]);
-    const useCase = new RegisterCase(cases, people, legalParameters, new FakeClock(NOW, TODAY));
-    return { useCase, cases };
+    const folderState = new FakeCaseFolderState();
+    const outcomes = new InMemoryCaseFolderOutcomes(options.waitMs ?? 1000);
+    const events = new FakeEventPublisher();
+    const requestCaseFolder = new RequestCaseFolder(
+      cases,
+      people,
+      folderState,
+      outcomes,
+      new FakeClock(NOW, TODAY),
+      events,
+    );
+    const useCase = new RegisterCase(
+      cases,
+      people,
+      legalParameters,
+      new FakeClock(NOW, TODAY),
+      folderState,
+      requestCaseFolder,
+    );
+    // By default `documents` answers right away with the folder created.
+    events.onPublish = async ({ caseId }) => {
+      await folderState.markCreated(caseId, 'drive-folder-1');
+      outcomes.notify(caseId, 'CREATED');
+      outcomes.notify(caseId, 'COPIED');
+    };
+    return { useCase, cases, folderState, outcomes, events, requestCaseFolder };
   }
 
   const administrativeCommand = (overrides: Partial<RegisterCaseCommand> = {}) =>
@@ -67,10 +97,12 @@ describe('RegisterCase', () => {
 
       const result = await useCase.execute(aRegisterCaseCommand());
 
-      expect(result.newCase).toBeInstanceOf(CriminalCase);
+      expect(result.newCase.jurisdictionCode).toBe(JurisdictionCode.CRIMINAL);
       expect(result.newCase.id).toBe(1);
-      expect(cases.saved).toEqual([result.newCase]);
-      expect(await cases.findById(1)).toBe(result.newCase);
+      expect(cases.saved).toHaveLength(1);
+      expect(cases.saved[0]).toBeInstanceOf(CriminalCase);
+      expect(cases.saved[0].toSnapshot()).toEqual(result.newCase);
+      expect((await cases.findById(1))?.toSnapshot()).toEqual(result.newCase);
     });
 
     it('registra una causa administrativa', async () => {
@@ -78,8 +110,9 @@ describe('RegisterCase', () => {
 
       const result = await useCase.execute(administrativeCommand());
 
-      expect(result.newCase).toBeInstanceOf(AdministrativeCase);
+      expect(result.newCase.jurisdictionCode).toBe(JurisdictionCode.ADMINISTRATIVE);
       expect(cases.saved).toHaveLength(1);
+      expect(cases.saved[0]).toBeInstanceOf(AdministrativeCase);
     });
 
     it('registra un amparo', async () => {
@@ -87,8 +120,9 @@ describe('RegisterCase', () => {
 
       const result = await useCase.execute(amparoCommand());
 
-      expect(result.newCase).toBeInstanceOf(Amparo);
+      expect(result.newCase.jurisdictionCode).toBe(JurisdictionCode.AMPARO);
       expect(cases.saved).toHaveLength(1);
+      expect(cases.saved[0]).toBeInstanceOf(Amparo);
     });
 
     it('guarda los datos de la causa y quién la dio de alta', async () => {
@@ -131,8 +165,8 @@ describe('RegisterCase', () => {
       const administrative = await useCase.execute(administrativeCommand());
       const amparo = await useCase.execute(amparoCommand());
 
-      expect(administrative.offenses).toEqual([]);
-      expect(amparo.offenses).toEqual([]);
+      expect(administrative.newCase.offenses).toEqual([]);
+      expect(amparo.newCase.offenses).toEqual([]);
     });
 
     it('asigna un id distinto a cada causa', async () => {
@@ -196,13 +230,13 @@ describe('RegisterCase', () => {
     });
 
     it('no tiene acto procesal vigente, ni estado escrito a mano, ni movimientos', async () => {
-      const { useCase } = build();
+      const { useCase, cases } = build();
 
       const { newCase } = await useCase.execute(aRegisterCaseCommand());
 
       expect(newCase.currentProceduralActId).toBeNull();
       expect(newCase.currentCustomState).toBeNull();
-      expect(newCase.proceduralActs).toEqual([]);
+      expect(cases.saved[0].proceduralActs).toEqual([]);
     });
 
     it('un fuero sin estado inicial no admite causas: error sobre el fuero y nada guardado', async () => {
@@ -222,17 +256,19 @@ describe('RegisterCase', () => {
     it('calcula el vencimiento como fecha del hecho más los meses de la calificación', async () => {
       const { useCase } = build();
 
-      const { offenses } = await useCase.execute(
+      const { newCase } = await useCase.execute(
         aRegisterCaseCommand({ legalQualifications: [robberyOn('2021-02-27'), homicideOn('2022-05-01')] }),
       );
 
-      expect(offenses.map((offense) => offense.prescriptionExpiresOn)).toEqual([day('2029-02-27'), day('2037-05-01')]);
+      expect(newCase.offenses.map((offense) => offense.prescriptionExpiresOn)).toEqual([day('2029-02-27'), day('2037-05-01')]);
     });
 
     it('cada hecho conserva su calificación, su fecha y su prescripción', async () => {
       const { useCase } = build();
 
-      const { offenses } = await useCase.execute(aRegisterCaseCommand({ legalQualifications: [robberyOn('2021-02-27')] }));
+      const {
+        newCase: { offenses },
+      } = await useCase.execute(aRegisterCaseCommand({ legalQualifications: [robberyOn('2021-02-27')] }));
 
       expect(offenses).toHaveLength(1);
       expect(offenses[0].legalQualificationId).toBe(ROBBERY.id);
@@ -268,7 +304,7 @@ describe('RegisterCase', () => {
         }),
       );
 
-      expect(early.offenses[0].prescriptionExpiresOn).toEqual(late.offenses[0].prescriptionExpiresOn);
+      expect(early.newCase.offenses[0].prescriptionExpiresOn).toEqual(late.newCase.offenses[0].prescriptionExpiresOn);
     });
 
     it('una causa penal sin calificaciones se registra y no computa prescripción', async () => {
@@ -276,7 +312,7 @@ describe('RegisterCase', () => {
 
       const result = await useCase.execute(aRegisterCaseCommand({ legalQualifications: [] }));
 
-      expect(result.offenses).toEqual([]);
+      expect(result.newCase.offenses).toEqual([]);
       expect(cases.prescriptionsWhenSaved).toEqual([]);
       expect(cases.saved).toHaveLength(1);
     });
@@ -286,7 +322,48 @@ describe('RegisterCase', () => {
 
       const result = await useCase.execute(aRegisterCaseCommand({ legalQualifications: undefined }));
 
-      expect(result.offenses).toEqual([]);
+      expect(result.newCase.offenses).toEqual([]);
+    });
+  });
+
+  describe('prescription de la causa (V4 §3.7)', () => {
+    const robberyOn = (offenseDate: string) => ({ legalQualificationId: ROBBERY.id, offenseDate: day(offenseDate) });
+    const homicideOn = (offenseDate: string) => ({ legalQualificationId: HOMICIDE.id, offenseDate: day(offenseDate) });
+
+    it('resume la calificación que prescribe primero, calculada al día de hoy', async () => {
+      const { useCase } = build();
+
+      const result = await useCase.execute(
+        aRegisterCaseCommand({ legalQualifications: [homicideOn('2022-05-01'), robberyOn('2021-02-27')] }),
+      );
+
+      // Robo vence el 27/02/2029, antes que homicidio (01/05/2037). Al 06/10/2026
+      // transcurrieron 2047 de 2922 días: 70,05 %, la alerta ya está encendida.
+      expect(result.prescription).toEqual({
+        legalQualificationId: ROBBERY.id,
+        legalQualificationName: 'Robo calificado',
+        startsOn: day('2021-02-27'),
+        expiresOn: day('2029-02-27'),
+        elapsedPercentage: 70,
+        alert: true,
+        expired: false,
+        // Del 06/10/2026 al 27/02/2029.
+        remainingDays: 875,
+        lastInterruptiveActDate: null,
+      });
+    });
+
+    it('una causa penal sin calificaciones no computa prescripción (D-74)', async () => {
+      const { useCase } = build();
+
+      expect((await useCase.execute(aRegisterCaseCommand({ legalQualifications: [] }))).prescription).toBeNull();
+    });
+
+    it('un amparo y una causa administrativa no computan prescripción', async () => {
+      const { useCase } = build();
+
+      expect((await useCase.execute(amparoCommand())).prescription).toBeNull();
+      expect((await useCase.execute(administrativeCommand())).prescription).toBeNull();
     });
   });
 
@@ -596,6 +673,219 @@ describe('RegisterCase', () => {
       cases.failOnSaveWith = failure;
 
       await expect(useCase.execute(aRegisterCaseCommand())).rejects.toBe(failure);
+    });
+  });
+  describe('datos propios de cada fuero (D-67)', () => {
+    const acto = {
+      harmfulActDate: day('2026-08-03'),
+      harmfulActRenews: true,
+      harmfulActRenewalDays: 30,
+      harmfulActTermDays: 15,
+      harmfulActTermDayType: DayType.BUSINESS,
+    };
+
+    it('penal: guarda si el cliente está preso y la tasa de justicia', async () => {
+      const { useCase, cases } = build();
+
+      const { newCase } = await useCase.execute(aRegisterCaseCommand({ clientDetained: true, courtFeePaid: true }));
+
+      expect(newCase).toMatchObject({ clientDetained: true, courtFeePaid: true });
+      expect(cases.saved.map((saved) => saved.toSnapshot())).toEqual([newCase]);
+    });
+
+    it('administrativo: guarda la fecha de agotamiento de la vía', async () => {
+      const { useCase } = build();
+
+      const { newCase } = await useCase.execute(
+        administrativeCommand({ administrativeRemedyExhaustedOn: day('2026-08-10') }),
+      );
+
+      expect(newCase).toMatchObject({ administrativeRemedyExhaustedOn: day('2026-08-10'), courtFeePaid: false });
+    });
+
+    it('amparo: guarda la medida cautelar y el acto lesivo, y devuelve su plazo calculado contra hoy', async () => {
+      const { useCase } = build();
+
+      const result = await useCase.execute(amparoCommand({ injunctionGranted: true, courtFeePaid: true, ...acto }));
+
+      expect(result.newCase).toMatchObject({
+        injunctionGranted: true,
+        harmfulActDate: day('2026-08-03'),
+        harmfulActRenews: true,
+        harmfulActRenewalDays: 30,
+        harmfulActTermDays: 15,
+        harmfulActTermDayType: DayType.BUSINESS,
+        courtFeePaid: true,
+      });
+      // Hoy en estos specs es 06/10/2026: pasaron 64 días, dos renovaciones (02/09 y 02/10).
+      expect(result.harmfulActDeadline).toMatchObject({ actDate: day('2026-10-02'), renewed: true });
+    });
+
+    it('un amparo sin acto lesivo no tiene plazo que devolver', async () => {
+      const { useCase } = build();
+
+      const result = await useCase.execute(amparoCommand());
+
+      expect(result.harmfulActDeadline).toBeNull();
+    });
+
+    it.each([
+      ['penal', () => aRegisterCaseCommand()],
+      ['administrativo', () => administrativeCommand()],
+    ])('en el fuero %s no hay plazo del acto lesivo', async (_fuero, command) => {
+      const { useCase } = build();
+
+      expect((await useCase.execute(command())).harmfulActDeadline).toBeNull();
+    });
+
+    it('un dato que no es del fuero se rechaza por campo y no guarda nada', async () => {
+      const { useCase, cases } = build();
+
+      const details = await validationDetailsOf(() => useCase.execute(administrativeCommand({ clientDetained: true })));
+
+      expect(details).toEqual({ clientDetained: 'Solo corresponde al fuero penal.' });
+      expect(cases.saved).toEqual([]);
+    });
+
+    it('los errores de los datos por fuero se suman a los de las referencias inexistentes', async () => {
+      const { useCase } = build();
+
+      const details = await validationDetailsOf(() =>
+        useCase.execute(
+          amparoCommand({ clientId: 999, harmfulActDate: day('2026-08-03'), harmfulActTermDayType: DayType.BUSINESS }),
+        ),
+      );
+
+      expect(details).toEqual({
+        clientId: 'No existe un cliente vigente con ese identificador.',
+        harmfulActTermDays: 'Indicá el plazo para presentar el amparo.',
+      });
+    });
+  });
+
+  describe('carpeta en la nube (HU39)', () => {
+    beforeEach(() => {
+      jest.spyOn(Logger.prototype, 'error').mockImplementation();
+      jest.spyOn(Logger.prototype, 'warn').mockImplementation();
+    });
+
+    afterEach(() => jest.restoreAllMocks());
+
+    it('por defecto pide la carpeta y devuelve el resultado en la respuesta', async () => {
+      const { useCase, events, folderState } = build();
+
+      const result = await useCase.execute(aRegisterCaseCommand());
+
+      expect(events.published).toHaveLength(1);
+      expect(result.folder).toMatchObject({ status: 'CREATED' });
+      expect(folderState.cloudFolderIdOf(result.newCase.id)).toBe('drive-folder-1');
+    });
+
+    it('con createFolder en false no pide nada y la carpeta queda PENDING', async () => {
+      const { useCase, events } = build();
+
+      const result = await useCase.execute(aRegisterCaseCommand({ createFolder: false }));
+
+      expect(events.published).toHaveLength(0);
+      expect(result.folder).toMatchObject({ status: 'PENDING', url: null, path: null });
+    });
+
+    it('copyTemplates en true sin crear la carpeta es un error de validación con el mensaje del contrato', async () => {
+      const { useCase, cases } = build();
+
+      const details = await validationDetailsOf(() =>
+        useCase.execute(aRegisterCaseCommand({ createFolder: false, copyTemplates: true })),
+      );
+
+      expect(details).toEqual({
+        copyTemplates: 'Para copiar los modelos primero hay que crear la carpeta de la causa.',
+      });
+      expect(cases.saved).toHaveLength(0);
+    });
+
+    it('copyTemplates en true lanza CopyTemplatesWithoutFolderError', async () => {
+      const { useCase } = build();
+
+      await expect(
+        useCase.execute(aRegisterCaseCommand({ createFolder: false, copyTemplates: true })),
+      ).rejects.toBeInstanceOf(CopyTemplatesWithoutFolderError);
+    });
+
+    it('copyTemplates en false con carpeta es válido', async () => {
+      const { useCase } = build();
+
+      await expect(
+        useCase.execute(aRegisterCaseCommand({ createFolder: true, copyTemplates: false })),
+      ).resolves.toBeDefined();
+    });
+
+    it.each([
+      { sent: undefined, requested: true }, // CA-40.1: viene marcada por defecto
+      { sent: true, requested: true },
+      { sent: false, requested: false }, // CA-40.4: desmarcada, carpeta vacía
+    ])('con copyTemplates=$sent pide a documents copyTemplates=$requested', async ({ sent, requested }) => {
+      const { useCase, events } = build();
+
+      await useCase.execute(aRegisterCaseCommand({ copyTemplates: sent }));
+
+      expect((events.published[0] as CaseRegisteredEvent).copyTemplates).toBe(requested);
+    });
+
+    it('devuelve en la carpeta los modelos que documents informó copiados (CA-40.2)', async () => {
+      const { useCase, events, folderState, outcomes } = build();
+      events.onPublish = async ({ caseId }) => {
+        await folderState.markCreated(caseId, 'drive-folder-1');
+        outcomes.notify(caseId, 'CREATED');
+        folderState.setTemplates(caseId, 6, 0);
+        outcomes.notify(caseId, 'COPIED');
+      };
+
+      const result = await useCase.execute(aRegisterCaseCommand());
+
+      expect(result.folder).toMatchObject({ status: 'CREATED', templatesCopied: 6, templatesPending: 0 });
+    });
+
+    it('si la carpeta tarda más que el límite, la causa se registra igual y la carpeta sale CREATING', async () => {
+      const { useCase, events, cases } = build({ waitMs: 10 });
+      events.onPublish = null; // `documents` does not answer in time.
+
+      const result = await useCase.execute(aRegisterCaseCommand());
+
+      expect(cases.saved).toHaveLength(1);
+      expect(result.folder?.status).toBe('CREATING');
+    });
+
+    it('si la carpeta falla, la causa se registra igual y la carpeta sale ERROR (CA-39.5)', async () => {
+      const { useCase, events, folderState, outcomes, cases } = build();
+      events.onPublish = async ({ caseId }) => {
+        await folderState.markFailed(caseId);
+        outcomes.notify(caseId, 'ERROR');
+      };
+
+      const result = await useCase.execute(aRegisterCaseCommand());
+
+      expect(cases.saved).toHaveLength(1);
+      expect(result.folder?.status).toBe('ERROR');
+    });
+
+    it('si pedir la carpeta explota, la causa se registra igual', async () => {
+      const { useCase, requestCaseFolder, cases } = build();
+      jest.spyOn(requestCaseFolder, 'execute').mockRejectedValue(new Error('boom'));
+
+      const result = await useCase.execute(aRegisterCaseCommand());
+
+      expect(cases.saved).toHaveLength(1);
+      expect(result.folder?.status).toBe('PENDING');
+    });
+
+    it('valida copyTemplates antes de guardar nada ni consultar otros subsistemas', async () => {
+      const { useCase, cases } = build();
+
+      await expect(
+        useCase.execute(aRegisterCaseCommand({ createFolder: false, copyTemplates: true })),
+      ).rejects.toBeDefined();
+
+      expect(cases.sacNumbersChecked).toEqual([]);
     });
   });
 });

@@ -1,0 +1,83 @@
+parameters:
+  - $ref: ../components/parameters/CaseIdParam.yaml
+
+post:
+  tags:
+    - Cases
+  operationId: createCaseFolder
+  summary: Crear o reintentar la carpeta de la causa
+  description: |
+    Crea la carpeta de una causa que no la tiene, o reintenta una que falló
+    (HU39, HU40). Existe porque el alta de causa **no falla** cuando el
+    almacenamiento en la nube no responde (D-60); el prototipo no tiene un
+    botón para esto.
+
+    | Situación de la causa                                           | Qué hace                                                  |
+    | --------------------------------------------------------------- | --------------------------------------------------------- |
+    | `folder` en `null`: se registró antes de V4                     | Crea la carpeta                                           |
+    | `folder.status` en `PENDING`: se registró sin carpeta           | Crea la carpeta                                           |
+    | `folder.status` en `ERROR`                                      | Reintenta la creación                                     |
+    | `folder.status` en `CREATING`                                   | Nada: ya hay una creación en curso. Responde `200` con la carpeta tal como está |
+    | `folder.status` en `CREATED` con `templatesPending` mayor a `0` | Copia los modelos que faltan, si `copyTemplates` es `true` |
+
+    Es **idempotente**: sobre una causa que ya tiene su carpeta completa no
+    hace nada y responde `200` con la carpeta tal como está. No duplica la
+    carpeta ni vuelve a copiar un modelo que ya se copió.
+
+    **Rol requerido:** cualquier usuario autenticado, igual que el alta de la
+    causa.
+  requestBody:
+    required: false
+    content:
+      application/json:
+        schema:
+          $ref: ../components/schemas/CaseFolderCreate.yaml
+        example:
+          copyTemplates: true
+  responses:
+    '200':
+      description: Carpeta de la causa (el objeto `folder`).
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - data
+            properties:
+              data:
+                $ref: ../components/schemas/CaseFolder.yaml
+          example:
+            data:
+              status: CREATED
+              url: https://drive.google.com/drive/folders/1Qw8zT3nKcVb5LhXy2RmPd7sUeJ4oAfG9
+              path: /VZ Causas/Ríos, Malena/Penal/GÓMEZ, Ariel Fernando p.s.a. Robo calificado
+              templatesCopied: 6
+              templatesPending: 0
+    '400':
+      description: |
+        Identificador inválido (`INVALID_PATH_PARAMETER`), o `copyTemplates`
+        no es booleano (`VALIDATION_ERROR`).
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          examples:
+            invalidCaseId:
+              $ref: ../components/examples/InvalidCaseIdError.yaml
+    '401':
+      $ref: ../components/responses/Unauthorized.yaml
+    '404':
+      $ref: ../components/responses/CaseNotFound.yaml
+    '502':
+      description: |
+        El almacenamiento en la nube volvió a fallar. La carpeta queda en
+        `ERROR` y la operación puede repetirse.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          example:
+            error:
+              code: DOCUMENT_STORAGE_UNAVAILABLE
+              message: No se pudo acceder al almacenamiento en la nube. Intentá de nuevo en unos minutos.
+              details: null

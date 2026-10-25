@@ -14,5 +14,8 @@ export const casesKeys = {
     list: (params: CaseListParams) => [...casesKeys.lists(), params] as const,
     details: () => [...casesKeys.all, 'detail'] as const,
     detail: (id: number) => [...casesKeys.details(), id] as const,
+    /* La línea de vida cuelga del detalle a propósito: lo que invalida la
+       causa (registrar un acto procesal o interruptivo) la invalida también. */
+    timeline: (id: number) => [...casesKeys.detail(id), 'timeline'] as const,
     customStates: (jurisdiction?: Jurisdiction) => [...casesKeys.lists(), 'custom-states', jurisdiction ?? 'all'] as const,
 }

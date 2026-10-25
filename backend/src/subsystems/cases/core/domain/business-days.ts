@@ -9,6 +9,33 @@ function isBusinessDay(date: Date): boolean {
   return weekday !== SATURDAY && weekday !== SUNDAY;
 }
 
+/** `date` plus `days` calendar days. Civil dates at midnight UTC, like a `date` column. */
+export function addConsecutiveDays(date: Date, days: number): Date {
+  return new Date(date.getTime() + days * MS_PER_DAY);
+}
+
+/** Calendar days from `from` to `to`, the inverse of {@link addConsecutiveDays}. `from` after `to` gives `0`. */
+export function countConsecutiveDays(from: Date, to: Date): number {
+  return Math.max(0, Math.round((to.getTime() - from.getTime()) / MS_PER_DAY));
+}
+
+/**
+ * `date` plus `days` business days, counted from the day after and skipping
+ * Saturdays and Sundays. Same rule as {@link businessDaysRemaining}, and as
+ * incomplete: no holidays, no judicial recess (P-02).
+ */
+export function addBusinessDays(date: Date, days: number): Date {
+  let current = date;
+  let remaining = days;
+  while (remaining > 0) {
+    current = addConsecutiveDays(current, 1);
+    if (isBusinessDay(current)) {
+      remaining -= 1;
+    }
+  }
+  return current;
+}
+
 /**
  * Business days in the half-open interval `(from, to]`: the day after `from`
  * up to and including `to`. `from` equal to or after `to` gives `0`.
@@ -17,8 +44,11 @@ function isBusinessDay(date: Date): boolean {
  * The ranges involved are deadlines — days or weeks, months at worst for an
  * overdue one — so the cost is irrelevant, and a legal computation that a
  * lawyer may have to audit is worth more readable than clever.
+ *
+ * Inverse of {@link addBusinessDays} when `to` is a business day. When it is
+ * not, `to` and the business day before it give the same count.
  */
-function countBusinessDays(from: Date, to: Date): number {
+export function countBusinessDays(from: Date, to: Date): number {
   let count = 0;
   for (let time = from.getTime() + MS_PER_DAY; time <= to.getTime(); time += MS_PER_DAY) {
     if (isBusinessDay(new Date(time))) {

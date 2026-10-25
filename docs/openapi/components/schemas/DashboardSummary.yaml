@@ -1,0 +1,35 @@
+type: object
+description: |
+  Los cuatro indicadores de la franja superior de un tablero. Solo cuentan
+  causas activas del alcance del tablero. Los días hábiles excluyen solo
+  sábados y domingos (D-73).
+required:
+  - dueToday
+  - overdue
+  - dueSoon
+  - activeCases
+properties:
+  dueToday:
+    type: integer
+    minimum: 0
+    description: '"Vencen hoy": causas cuyo plazo vence hoy (`businessDaysRemaining` igual a `0`).'
+    examples:
+      - 1
+  overdue:
+    type: integer
+    minimum: 0
+    description: '"Vencidos": causas con el plazo vencido y todavía abierto (`businessDaysRemaining` negativo).'
+    examples:
+      - 0
+  dueSoon:
+    type: integer
+    minimum: 0
+    description: '"Próx. 5 días hábiles": `businessDaysRemaining` entre `1` y `5`.'
+    examples:
+      - 0
+  activeCases:
+    type: integer
+    minimum: 0
+    description: '"Mis causas activas" / "Causas activas": causas activas del alcance del tablero.'
+    examples:
+      - 14

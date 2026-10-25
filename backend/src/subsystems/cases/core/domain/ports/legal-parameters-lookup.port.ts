@@ -11,8 +11,10 @@ export interface ProceduralStateRef {
   // System state "Iniciada": where every new case of the jurisdiction starts.
   isInitial: boolean;
   jurisdictionId: number;
-  // Final state: closes the case. It is not offered as the target of an act.
+  // Final state: closes the case. An act can take the case to it, unless it is "Prescripta" (D-69).
   terminal: boolean;
+  // System state "Prescripta" (criminal): reached only through its own form (HU33), never through an act (D-69).
+  isPrescribed: boolean;
   // Active states can be chosen for a new act; one that was deactivated can still be the state of an old case.
   isActive: boolean;
   // The term the state opens. `0` days and `NONE` if it opens none.
@@ -35,6 +37,12 @@ export interface LegalQualificationRef {
 export interface LegalParametersLookupPort {
   /** The initial state ("Iniciada") of an active jurisdiction, or `null` if there is none. */
   findInitialProcStateByJurisdiction(jurisdiction: JurisdictionCode): Promise<ProceduralStateRef | null>;
+
+  /**
+   * The "Prescripta" state of an active jurisdiction (D-53), or `null` if it has
+   * none. Only `CRIMINAL` has one; it is where HU33 moves a case.
+   */
+  findPrescribedProcStateByJurisdiction(jurisdiction: JurisdictionCode): Promise<ProceduralStateRef | null>;
 
   /** A procedural state of any jurisdiction by id, active or not, or `null` if there is none. */
   findProcStateById(id: number): Promise<ProceduralStateRef | null>;

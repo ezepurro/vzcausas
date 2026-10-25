@@ -36,7 +36,8 @@ export class UserHttpMapper {
   static toRegisterCommand(dto: RegisterUserRequestDto): RegisterUserCommand {
     return {
       username: dto.username,
-      fullName: dto.fullName,
+      lastName: dto.lastName,
+      firstName: dto.firstName,
       email: dto.email,
       plainPassword: dto.password,
       roles: dto.roles,
@@ -45,7 +46,8 @@ export class UserHttpMapper {
         dto.lawyer === undefined
           ? undefined
           : {
-              fullName: dto.lawyer.fullName,
+              lastName: dto.lawyer.lastName,
+              firstName: dto.lawyer.firstName,
               registrationNumber: dto.lawyer.registrationNumber,
             },
     };
@@ -63,7 +65,8 @@ export class UserHttpMapper {
     return {
       id: userId,
       username: dto.username,
-      fullName: dto.fullName,
+      lastName: dto.lastName,
+      firstName: dto.firstName,
       email: dto.email,
       roles: dto.roles,
       lawyerId: dto.lawyerId,
@@ -74,7 +77,8 @@ export class UserHttpMapper {
     const dto = new UserResponseDto();
     dto.id = result.user.id;
     dto.username = result.user.username.toString();
-    dto.fullName = result.user.fullName;
+    dto.lastName = result.user.lastName;
+    dto.firstName = result.user.firstName;
     dto.email = result.user.email.toString();
     dto.roles = result.roles.map((role: Role) => role.getName());
     // Resolved by the use case through `LawyerLookupPort`. This used

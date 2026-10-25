@@ -35,7 +35,7 @@ export type RefreshSessionCommand = {
  * Output of a successful refresh (D-26). The `user` projection is
  * deliberately reduced to the fields that can change between sessions
  * and affect authorization (`roleNames`, `lawyerId`, `permissions`);
- * the stable fields (`fullName`, `email`, `active`, `lawyer`) are
+ * the stable fields (`lastName`, `firstName`, `email`, `active`, `lawyer`) are
  * preserved by the client from the previous `POST /auth/login`
  * response. `lastLoginAt` is not returned here because it
  * semantically belongs to login, not to renewal.

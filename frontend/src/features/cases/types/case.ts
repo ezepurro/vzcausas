@@ -1,13 +1,18 @@
 /**
- * Causa: las formas sacadas del contrato (V3 §3.7, con la revisión del
- * 05/10/2026).
+ * Causa: las formas sacadas del contrato (V4 §3.7).
  *
  * Escrito a partir del contrato, no copiado de `shared/mocks`.
+ *
+ * V4 suma a la causa los datos propios de cada fuero y la tasa de justicia
+ * (D-67), el vencimiento del acto lesivo del amparo (D-78), la prescripción ya
+ * calculada (D-51), la constancia de prescripción (HU33) y la carpeta en la
+ * nube (HU39). Las personas embebidas traen apellido y nombres por separado
+ * (D-68).
  */
 
 import type { PaginatedQuery } from '@/api-contract/envelopes'
 import type { Client } from '@/features/clients'
-import type { Jurisdiction } from '@/features/legal-params'
+import type { DayType, Jurisdiction } from '@/features/legal-params'
 
 /**
  * Posición del cliente en la causa (V3 §2). No confundir con `Role`, que es el
@@ -47,10 +52,11 @@ export type CaseClient = Pick<
     'id' | 'lastName' | 'firstName' | 'dni' | 'phone' | 'email' | 'clientSince'
 >
 
-/** El abogado responsable embebido (RN3). */
+/** El abogado responsable embebido (RN3). Apellido y nombres separados (V4 D-68). */
 export interface CaseLawyer {
     id: number
-    fullName: string
+    lastName: string
+    firstName: string
     registrationNumber: string
 }
 
@@ -65,8 +71,8 @@ export interface CaseLegalQualification {
     /** Fecha del hecho imputado bajo esta calificación, `YYYY-MM-DD`. La carga el usuario. */
     offenseDate: string
     /**
-     * Desde cuándo se computa la prescripción, `YYYY-MM-DD`. Hoy es igual a
-     * `offenseDate`; con los actos interruptivos (HU31) será la fecha del último.
+     * Desde cuándo se computa la prescripción, `YYYY-MM-DD`: la fecha del acto
+     * interruptivo más reciente o, si no hay ninguno, `offenseDate` (V4 D-49).
      */
     prescriptionStartsOn: string
     /** `prescriptionStartsOn` más `prescriptionMonths`, `YYYY-MM-DD`. */
@@ -105,6 +111,68 @@ export interface CurrentState extends ResultingState {
     manuallyAdjusted: boolean
 }
 
+/**
+ * La prescripción que rige la causa: la de la calificación que prescribe
+ * primero, ya calculada por el backend (V4 D-51). `null` fuera del penal y en
+ * una causa penal sin calificaciones (D-74).
+ */
+export interface CasePrescription {
+    legalQualificationId: number
+    legalQualificationName: string
+    /** `YYYY-MM-DD`: su `prescriptionStartsOn`. */
+    startsOn: string
+    /** `YYYY-MM-DD`: su `prescriptionExpiresOn`. */
+    expiresOn: string
+    /** De `0` a `100`, redondeado. */
+    elapsedPercentage: number
+    /** `true` desde el 70 % del plazo: "próxima a prescribir". Lo evalúa el backend. */
+    alert: boolean
+    /** `true` si hoy es igual o posterior a `expiresOn`. No cambia el estado de la causa. */
+    expired: boolean
+    /** El acto interruptivo que reinició el cómputo, `YYYY-MM-DD`. `null` si corre desde el hecho. */
+    lastInterruptiveActDate: string | null
+}
+
+/** Constancia de que la causa fue marcada como prescripta (HU33). */
+export interface PrescriptionDeclaration {
+    prescriptionDate: string
+    resolution: string
+    grounds: string | null
+    registeredBy: { id: number; lastName: string; firstName: string }
+    registeredAt: string
+}
+
+/**
+ * El vencimiento para presentar el amparo desde el acto lesivo (V4 D-78). Solo
+ * en `AMPARO`, con fecha del acto lesivo y mientras la causa está en "Iniciada".
+ * Tiene `dueDate` y `businessDaysRemaining`, igual que el estado actual, así
+ * que se muestra con el mismo chip.
+ */
+export interface HarmfulActDeadline {
+    /** La fecha cargada o, si se renueva, la última renovación que no supera hoy. */
+    actDate: string
+    /** `true` si `actDate` es una renovación. */
+    renewed: boolean
+    dueDate: string
+    businessDaysRemaining: number
+}
+
+/** Situación de la carpeta de la causa en la nube (V4 §2). */
+export type CaseFolderStatus = 'PENDING' | 'CREATING' | 'CREATED' | 'ERROR'
+
+/**
+ * Carpeta de la causa en la nube (HU39). `null` en las causas registradas
+ * antes de V4. Si en el alta se pidió no crearla, `status` es `PENDING`.
+ */
+export interface CaseFolder {
+    status: CaseFolderStatus
+    /** `null` mientras `status` no es `CREATED`. */
+    url: string | null
+    path: string
+    templatesCopied: number
+    templatesPending: number
+}
+
 /** El recurso tal como viene adentro de `data`. El listado y el detalle devuelven lo mismo. */
 export interface Case {
     id: number
@@ -127,14 +195,43 @@ export interface Case {
     counterparty: string | null
     /** Objeto del reclamo o del amparo (D-27). `null` en el fuero penal. */
     subjectMatter: string | null
+    /** "Preso". Solo en `CRIMINAL`; `null` en los demás fueros (V4 D-67, D-80). */
+    clientDetained: boolean | null
+    /** Si el juez hizo lugar a la medida cautelar. Solo en `AMPARO`. */
+    injunctionGranted: boolean | null
+    /** Fecha del acto lesivo, `YYYY-MM-DD`. Solo en `AMPARO`; `null` si no se informó. */
+    harmfulActDate: string | null
+    /** Si el acto lesivo se renueva. Solo en `AMPARO`. */
+    harmfulActRenews: boolean | null
+    /** Cada cuántos días corridos se renueva. Solo si `harmfulActRenews`. */
+    harmfulActRenewalDays: number | null
+    /** Plazo para presentar el amparo desde el acto lesivo, en días. */
+    harmfulActTermDays: number | null
+    /** `BUSINESS` o `CONSECUTIVE`. */
+    harmfulActTermDayType: DayType | null
+    /** Calculado por el backend. Ver `HarmfulActDeadline`. */
+    harmfulActDeadline: HarmfulActDeadline | null
+    /** Agotamiento de la vía administrativa, `YYYY-MM-DD`. Solo en `ADMINISTRATIVE`. */
+    administrativeRemedyExhaustedOn: string | null
+    /** Si se pagó la tasa de justicia (RN10). En los tres fueros. */
+    courtFeePaid: boolean
     client: CaseClient
     responsibleLawyer: CaseLawyer
     /** Opcional en el penal (D-33); vacío en los demás fueros. */
     legalQualifications: CaseLegalQualification[]
-    /** `YYYY-MM-DD`. No interviene en la prescripción: esa corre desde la fecha del hecho. */
-    startDate: string
+    /** La que rige la causa, calculada por el backend (V4 D-51). */
+    prescription: CasePrescription | null
+    /** `null` mientras la causa no fue marcada como prescripta. */
+    prescriptionDeclaration: PrescriptionDeclaration | null
+    /**
+     * `YYYY-MM-DD`. `null` mientras la causa no tiene SAC (D-38). No interviene
+     * en la prescripción: esa corre desde la fecha del hecho.
+     */
+    startDate: string | null
     /** Nunca `null`: la causa nace en "Iniciada" (D-34). Ver `utils/caseState`. */
     currentState: CurrentState
+    /** `null` si no se pidió crearla, y en las causas registradas antes de V4. */
+    folder: CaseFolder | null
     active: boolean
 }
 
@@ -169,6 +266,32 @@ export interface CreateCaseBody {
     responsibleLawyerId: number
     /** Obligatoria si va `sacNumber`; sin SAC no se manda (CA-18.2). No puede ser posterior a hoy. */
     startDate?: string
+    /* Datos propios de cada fuero (V4 D-67). Un dato de otro fuero no se manda. */
+    /** Solo en `CRIMINAL`. Por defecto, `false`. */
+    clientDetained?: boolean
+    /** Solo en `AMPARO`. Por defecto, `false`. */
+    injunctionGranted?: boolean
+    /** Solo en `AMPARO`. No posterior a hoy. */
+    harmfulActDate?: string
+    /** Solo en `AMPARO`. Por defecto, `false`. */
+    harmfulActRenews?: boolean
+    /** Obligatorio si `harmfulActRenews` es `true`. Entero mayor o igual a 1. */
+    harmfulActRenewalDays?: number
+    /** Obligatorio si va `harmfulActDate`. Entero mayor o igual a 1. */
+    harmfulActTermDays?: number
+    /** Obligatorio si va `harmfulActDate`: `BUSINESS` o `CONSECUTIVE`. */
+    harmfulActTermDayType?: Exclude<DayType, 'NONE'>
+    /** Solo en `ADMINISTRATIVE`. No posterior a hoy. */
+    administrativeRemedyExhaustedOn?: string
+    /** En los tres fueros. Por defecto, `false`. */
+    courtFeePaid?: boolean
+    /** "Crear la carpeta de la causa en Drive" (HU39). Por defecto, `true` (D-59). */
+    createFolder?: boolean
+    /**
+     * "Copiar los modelos de escritos del fuero a esa carpeta" (HU40). Por
+     * defecto, igual a `createFolder`. No puede ser `true` sin la carpeta (`400`).
+     */
+    copyTemplates?: boolean
 }
 
 /** Una calificación elegida en el formulario, con la fecha del hecho que se va cargando. */
@@ -202,6 +325,27 @@ export type CaseFormValues = {
     /** Id como texto: sale de un select. `''` = sin elegir. */
     responsibleLawyerId: string
     startDate: string
+    /* Datos propios de cada fuero (V4 D-67): se cargan solo en el alta. */
+    /** "Preso". Solo en el penal. */
+    clientDetained: boolean
+    /** "El juez hizo lugar a la medida cautelar". Solo en el amparo. */
+    injunctionGranted: boolean
+    /** `YYYY-MM-DD` o `''`. Solo en el amparo. */
+    harmfulActDate: string
+    harmfulActRenews: boolean
+    /** Entero como texto: sale de un input. */
+    harmfulActRenewalDays: string
+    /** Entero como texto. */
+    harmfulActTermDays: string
+    harmfulActTermDayType: Exclude<DayType, 'NONE'>
+    /** `YYYY-MM-DD` o `''`. Solo en el administrativo. */
+    administrativeRemedyExhaustedOn: string
+    /** "Tasa de justicia pagada". En los tres fueros. */
+    courtFeePaid: boolean
+    /** "Crear la carpeta de la causa en Drive". Arranca tildada (D-59). */
+    createFolder: boolean
+    /** "Copiar los modelos…". Arranca tildada; sin carpeta queda en `false` (CA-40.3). */
+    copyTemplates: boolean
 }
 
 /** Parámetros del listado `GET /cases`. Van también en la clave de caché. */
@@ -220,6 +364,9 @@ export interface CaseListParams extends PaginatedQuery {
      */
     withoutProceduralActs?: boolean
     clientId?: number
-    /** `true`: sólo causas con plazo abierto, vencidas incluidas. */
+    /**
+     * `true`: sólo causas con vencimiento abierto, vencidas incluidas: el del
+     * acto procesal o, en un amparo en "Iniciada", el del acto lesivo (V4 D-82).
+     */
     openDeadline?: boolean
 }

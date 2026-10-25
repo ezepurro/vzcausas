@@ -519,6 +519,7 @@ describe('activeCases de /api/v1/legal-qualifications', () => {
     await getPrisma().proceduralAct.deleteMany();
     await getPrisma().case.deleteMany();
     await getPrisma().client.deleteMany();
+    await getPrisma().user.deleteMany(); // referencia a lawyers
     await getPrisma().lawyer.deleteMany();
     await getPrisma().legalQualification.deleteMany();
   });

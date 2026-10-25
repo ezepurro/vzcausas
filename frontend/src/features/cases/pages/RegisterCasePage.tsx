@@ -1,15 +1,18 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
+import { useCurrentUser } from '@/app/providers/AuthContext'
 import { useToast } from '@/app/providers/ToastContext'
 import { isApiError } from '@/shared/api/ApiError'
-import { Breadcrumbs, PageHeader } from '@/shared/components/ui'
+import { Breadcrumbs, Button, Modal, PageHeader } from '@/shared/components/ui'
 import { useFocusFirstError } from '@/shared/hooks/useFocusFirstError'
 import type { SelectOption } from '@/shared/components/forms'
+import { formatPersonName } from '@/shared/lib/personName'
 import {
     ClientFormModal,
     formatClientName,
     formatDni,
     isValidClient,
+    toClientFormErrors,
     toCreateClientBody,
     useClients,
     useCreateClient,
@@ -18,12 +21,15 @@ import {
     type ClientFormValues,
 } from '@/features/clients'
 import { useLawyers } from '@/features/lawyers'
+import { useDocumentTemplates } from '@/features/documents'
+import { useCanAccess } from '@/app/access/useCanAccess'
 import {
     formatPrescription,
     isValidLegalQualification,
     LegalQualificationFormModal,
     shortQualificationName,
     toCreateLegalQualificationBody,
+    toLegalQualificationFormErrors,
     useCreateLegalQualification,
     useLegalQualifications,
     validateLegalQualification,
@@ -38,14 +44,20 @@ import {
     type ChecklistItem,
     type SummaryPrescription,
 } from '@/features/cases/components/CaseSummaryAside'
-import type { SelectedQualification } from '@/features/cases/components/LegalQualificationPicker'
+import type {
+    AvailableQualification,
+    SelectedQualification,
+} from '@/features/cases/components/LegalQualificationPicker'
 import { isValid, validateCase, type CaseFormErrors } from '@/features/cases/schemas/case.schema'
 import type { CaseFormValues } from '@/features/cases/types/case'
-import { changeJurisdiction, changeSacNumber, emptyCaseForm } from '@/features/cases/utils/caseForm'
+import { changeCreateFolder, changeJurisdiction, changeSacNumber, emptyCaseForm } from '@/features/cases/utils/caseForm'
+import { clearCaseDraft, readCaseDraft, writeCaseDraft } from '@/features/cases/utils/caseDraft'
+import { folderFailed, folderNoticeSuffix, folderPathPreview } from '@/features/cases/utils/caseFolder'
 import { INITIAL_STATE_LABEL } from '@/features/cases/utils/caseState'
 import { estimatedExpiry } from '@/features/cases/utils/prescription'
 import { suggestedCaption } from '@/features/cases/utils/suggestedCaption'
 import { toCreateCaseBody } from '@/features/cases/utils/toCreateCaseBody'
+import { toFormErrors } from '@/features/cases/utils/toFormErrors'
 
 /**
  * Registrar causa (HU18), en `/causas/nueva`.
@@ -58,8 +70,13 @@ import { toCreateCaseBody } from '@/features/cases/utils/toCreateCaseBody'
  * y sin movimientos en su ciclo de vida (D-34): al guardar se va a su detalle,
  * que es donde se ve eso.
  *
- * Las casillas de Drive y de los escritos del prototipo son HU39 y HU40
- * (V3 §8.3): no existen hasta su sprint, ni deshabilitadas.
+ * Las casillas de la carpeta en Drive y de los modelos del fuero son HU39 y
+ * HU40. Cuántos modelos se copian lo ven el Administrador y el Abogado; la
+ * Secretaría no consulta modelos (CA-40.10) y no se le pide el número.
+ *
+ * Lo cargado se guarda como borrador mientras se escribe (`caseDraft`): quien
+ * se va a otra pantalla y vuelve elige si lo recupera. No sale del prototipo
+ * ni de HU18; ver `cases/CAMBIOS.md`.
  */
 
 /** Los selects necesitan todo junto, no paginado: 100 es el tope del contrato. */
@@ -69,16 +86,32 @@ const EMPTY_CLIENT: ClientFormValues = { lastName: '', firstName: '', dni: '', p
 const EMPTY_QUALIFICATION: LegalQualificationFormValues = { name: '', years: '', months: '0' }
 
 /** Qué modal está abierto: un solo estado, no dos booleanos que se contradicen. */
-type Modal = { kind: 'client' } | { kind: 'qualification' } | null
+type ModalState =
+    | { kind: 'draft'; draft: CaseFormValues }
+    | { kind: 'client' }
+    | { kind: 'qualification' }
+    | null
 
 export function RegisterCasePage() {
     const navigate = useNavigate()
     const toast = useToast()
+    const { id: userId } = useCurrentUser()
 
     const [values, setValues] = useState<CaseFormValues>(emptyCaseForm)
     const [errors, setErrors] = useState<CaseFormErrors>({})
-    const [modal, setModal] = useState<Modal>(null)
+    /* Si quedó un borrador, lo primero es preguntar qué hacer con él. */
+    const [modal, setModal] = useState<ModalState>(() => {
+        const draft = readCaseDraft(userId)
+        return draft ? { kind: 'draft', draft } : null
+    })
     const formRef = useRef<HTMLDivElement>(null)
+
+    /* Cada cambio queda en el borrador. Mientras se pregunta por uno no: el
+       formulario todavía vacío lo borraría antes de que se elija. */
+    const askingForDraft = modal?.kind === 'draft'
+    useEffect(() => {
+        if (!askingForDraft) writeCaseDraft(userId, values)
+    }, [askingForDraft, userId, values])
 
     /* El que confirma está abajo, junto al botón: si hay errores, sean de
        `validateCase` o del servidor, se lo lleva al primero. */
@@ -92,8 +125,27 @@ export function RegisterCasePage() {
     const lawyers = lawyersQuery.data?.data ?? []
     const qualifications = qualificationsQuery.data?.data ?? []
 
+    /* "6 modelos parametrizados para el fuero Penal": basta con el total, así
+       que se pide uno solo (V4 §3.10, "Cómo lo usa el prototipo"). */
+    const canSeeTemplates = useCanAccess('/modelos')
+    const templatesQuery = useDocumentTemplates(
+        { jurisdiction: values.jurisdiction, copyToNewCases: true, limit: 1 },
+        { enabled: canSeeTemplates },
+    )
+    const templatesCount = canSeeTemplates && !templatesQuery.isPlaceholderData
+        ? templatesQuery.data?.pagination.totalItems
+        : undefined
+    const templatesNote = templatesCount === undefined
+        ? null
+        : `${templatesCount} ${templatesCount === 1 ? 'modelo parametrizado' : 'modelos parametrizados'} para el fuero ${JURISDICTION_LABELS[values.jurisdiction]}.`
+
     const create = useCreateCase()
-    const goToList = () => navigate('/causas')
+
+    /** Cancelar o volver por la miga es "no la voy a cargar": se va el borrador. */
+    function goToList() {
+        clearCaseDraft(userId)
+        navigate('/causas')
+    }
 
     /* ---------------- opciones de los selects ---------------- */
 
@@ -104,7 +156,7 @@ export function RegisterCasePage() {
 
     const lawyerOptions: SelectOption[] = lawyers.map((l) => ({
         value: String(l.id),
-        label: `${l.fullName} · matrícula ${l.registrationNumber}`,
+        label: `${formatPersonName(l)} · matrícula ${l.registrationNumber}`,
     }))
 
     /** Una calificación ya elegida deja de ofrecerse: no puede repetirse (D-28). */
@@ -116,17 +168,29 @@ export function RegisterCasePage() {
             label: `${q.name} · ${formatPrescription(q.prescriptionMonths)}`,
         }))
 
+    /* Recién con el listado completo se puede decir que una calificación no
+       está: mientras carga, o mientras muestra el de antes, faltarían todas. */
+    const qualificationsLoaded = qualificationsQuery.isSuccess && !qualificationsQuery.isPlaceholderData
+
     /**
      * Las calificaciones elegidas, con su nombre y su plazo: se arma cruzando
      * lo que guarda el formulario con lo que devolvió el listado. Una recién
      * registrada aparece en cuanto llega el `GET` que invalidó su alta.
+     *
+     * Una elegida que el listado ya no trae se dio de baja (o venía en un
+     * borrador): queda como fila "dada de baja", para que se pueda quitar.
      */
     const selectedQualifications: SelectedQualification[] = values.legalQualifications
-        .map((chosenQ) => {
+        .map((chosenQ): SelectedQualification | null => {
             const q = qualifications.find((item) => item.id === chosenQ.legalQualificationId)
-            return q ? { id: q.id, name: q.name, prescriptionMonths: q.prescriptionMonths, offenseDate: chosenQ.offenseDate } : null
+            if (q) return { id: q.id, name: q.name, prescriptionMonths: q.prescriptionMonths, offenseDate: chosenQ.offenseDate }
+            if (qualificationsLoaded) return { id: chosenQ.legalQualificationId, unavailable: true, offenseDate: chosenQ.offenseDate }
+            return null
         })
         .filter((q): q is SelectedQualification => q !== null)
+    const availableQualifications = selectedQualifications.filter(
+        (q): q is AvailableQualification => !q.unavailable,
+    )
 
     /* ---------------- el formulario ---------------- */
 
@@ -166,14 +230,15 @@ export function RegisterCasePage() {
     const caption = suggestedCaption({
         jurisdiction: values.jurisdiction,
         clientName: client ? formatClientName(client) : null,
-        qualificationNames: selectedQualifications.map((q) => shortQualificationName(q.name)),
+        qualificationNames: availableQualifications.map((q) => shortQualificationName(q.name)),
         counterparty: values.counterparty,
     })
 
     /* Cada calificación computa su prescripción desde su fecha del hecho (D-19):
-       la de inicio de la causa no interviene. Fuera del penal, `null`. */
+       la de inicio de la causa no interviene. Fuera del penal, `null`. Una dada
+       de baja no tiene plazo que mostrar. */
     const prescriptions: SummaryPrescription[] | null = criminal
-        ? selectedQualifications.map((q) => ({
+        ? availableQualifications.map((q) => ({
             name: shortQualificationName(q.name),
             term: formatPrescription(q.prescriptionMonths),
             offenseDate: q.offenseDate,
@@ -182,6 +247,13 @@ export function RegisterCasePage() {
         : null
 
     const checklist = buildChecklist(values, selectedQualifications)
+
+    const lawyer = lawyers.find((l) => String(l.id) === values.responsibleLawyerId) ?? null
+    const folderPath = folderPathPreview(
+        lawyer ? formatPersonName(lawyer) : null,
+        JURISDICTION_LABELS[values.jurisdiction],
+        values.caption,
+    )
 
     /* ---------------- errores del servidor ---------------- */
 
@@ -198,9 +270,14 @@ export function RegisterCasePage() {
             setErrors({ sacNumber: error.message })
             return
         }
-        if (error.isValidation && error.hasFieldErrors) {
-            setErrors(error.details as CaseFormErrors)
-            return
+        if (error.isValidation) {
+            const fieldErrors = toFormErrors(error.details)
+            if (!isValid(fieldErrors)) {
+                setErrors(fieldErrors)
+                return
+            }
+            // Un 400 sin ningún campo que marcar —o con campos que el
+            // formulario no muestra— no puede quedar mudo.
         }
 
         toast('error', error.message)
@@ -209,13 +286,28 @@ export function RegisterCasePage() {
     function submit() {
         focusErrors()
         const found = validateCase(values)
+        /* Una dada de baja no tiene campo de fecha: si quedó sin ella, el
+           mensaje de `validateCase` pediría algo que no se puede cargar. Lo que
+           hay que hacer es quitarla, y lo mismo diría el backend (CA-18.10). */
+        if (selectedQualifications.some((q) => q.unavailable)) {
+            found.legalQualifications = 'Quitá la calificación dada de baja: ya no está vigente.'
+        }
         setErrors(found)
         if (!isValid(found)) return
 
         create.mutate(toCreateCaseBody(values), {
             onSuccess: (registered) => {
+                clearCaseDraft(userId)
                 const sac = registered.sacNumber ? `${registered.sacNumber} ` : ''
-                toast('success', `Causa ${sac}registrada. El estado lo fija el primer acto procesal.`)
+                const message = `Causa ${sac}registrada. El estado lo fija el primer acto procesal`
+                if (folderFailed(registered.folder)) {
+                    /* La causa no se pierde (D-60): se registra igual y la
+                       carpeta se crea desde el detalle (CA-39.4). */
+                    toast('success', `${message}.`)
+                    toast('error', 'No se pudo crear la carpeta en Drive. Podés crearla desde el detalle de la causa.')
+                } else {
+                    toast('success', `${message}${folderNoticeSuffix(registered.folder)}.`)
+                }
                 navigate(`/causas/${registered.id}`)
             },
             onError: handleApiError,
@@ -245,6 +337,10 @@ export function RegisterCasePage() {
                     onJurisdictionChange={(jurisdiction) =>
                         setValues((current) => changeJurisdiction(current, jurisdiction))
                     }
+                    onCreateFolderChange={(createFolder) =>
+                        setValues((current) => changeCreateFolder(current, createFolder))
+                    }
+                    templatesNote={templatesNote}
                     clientOptions={clientOptions}
                     lawyerOptions={lawyerOptions}
                     selectedQualifications={selectedQualifications}
@@ -266,10 +362,24 @@ export function RegisterCasePage() {
                         prescriptions={prescriptions}
                         jurisdictionLabel={JURISDICTION_LABELS[values.jurisdiction]}
                         checklist={checklist}
+                        createFolder={values.createFolder}
+                        folderPath={folderPath}
                     />
                 </aside>
             </div>
 
+            {modal?.kind === 'draft' && (
+                <RecoverDraft
+                    onRecover={() => {
+                        setValues(modal.draft)
+                        setModal(null)
+                    }}
+                    onDiscard={() => {
+                        clearCaseDraft(userId)
+                        setModal(null)
+                    }}
+                />
+            )}
             {modal?.kind === 'client' && (
                 <NewClient
                     onDone={(id) => {
@@ -335,6 +445,31 @@ function buildChecklist(
     return items
 }
 
+/**
+ * "¿Recuperar la causa?": se contesta con uno de los dos botones y con nada
+ * más. Por eso no es un `FormModal`, que cierra con Escape o con un click en
+ * el fondo llamando a `onCancel`: acá eso sería borrar el borrador sin querer.
+ * `onClose` no hace nada a propósito.
+ */
+function RecoverDraft({ onRecover, onDiscard }: { onRecover: () => void; onDiscard: () => void }) {
+    return (
+        <Modal
+            title="Tenés una causa sin terminar"
+            sub="Quedó cargada la última vez que saliste de esta pantalla sin registrarla."
+            width="sm"
+            onClose={() => {}}
+            footer={
+                <>
+                    <Button variant="secondary" onClick={onDiscard}>Empezar de nuevo</Button>
+                    <Button onClick={onRecover}>Recuperar</Button>
+                </>
+            }
+        >
+            <p>¿Querés recuperar lo que habías cargado?</p>
+        </Modal>
+    )
+}
+
 /** "Registrar cliente nuevo": el modal de `clients`, que ya trae su modo `fromCase`. */
 function NewClient({ onDone, onCancel }: { onDone: (id: number) => void; onCancel: () => void }) {
     const toast = useToast()
@@ -358,9 +493,13 @@ function NewClient({ onDone, onCancel }: { onDone: (id: number) => void; onCance
                     setErrors({ dni: error.message })
                     return
                 }
-                if (error.isValidation && error.hasFieldErrors) {
-                    setErrors(error.details as ClientFormErrors)
-                    return
+                if (error.isValidation) {
+                    const fieldErrors = toClientFormErrors(error.details)
+                    if (!isValidClient(fieldErrors)) {
+                        setErrors(fieldErrors)
+                        return
+                    }
+                    // Un 400 sin ningún campo que marcar no puede quedar mudo.
                 }
                 toast('error', error.message)
             },
@@ -402,9 +541,15 @@ function NewQualification({ onDone, onCancel }: { onDone: (id: number) => void; 
             },
             onError: (error) => {
                 if (!isApiError(error)) throw error
-                if (error.isValidation && error.hasFieldErrors) {
-                    setErrors(error.details as LegalQualificationErrors)
-                    return
+                if (error.isValidation) {
+                    /* El servidor informa el plazo como `prescriptionMonths` y el
+                       formulario lo pide en años y meses: el mapa lo lleva a los años. */
+                    const fieldErrors = toLegalQualificationFormErrors(error.details)
+                    if (!isValidLegalQualification(fieldErrors)) {
+                        setErrors(fieldErrors)
+                        return
+                    }
+                    // Un 400 sin ningún campo que marcar no puede quedar mudo.
                 }
                 toast('error', error.message)
             },

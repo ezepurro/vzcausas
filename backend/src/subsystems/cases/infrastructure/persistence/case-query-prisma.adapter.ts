@@ -7,8 +7,12 @@ import {
   CaseQueryPort,
   CaseSearchCriteria,
 } from '../../core/domain/ports/case-query.port';
+import { addPrescriptionMonths, prescriptionStartsOn } from '../../core/domain/prescription';
+import { DayType } from '../../core/domain/value-objects/day-type';
 import { JurisdictionCode } from '../../core/domain/value-objects/jurisdiction-code';
 import { ProceduralRole } from '../../core/domain/value-objects/procedural-role';
+import { CASE_FOLDER_INCLUDE, TEMPLATE_COPIES_SELECT, toCaseFolderView } from './case-folder-prisma.mapper';
+import { PRESCRIPTION_DECLARATION_SELECT, toPrescriptionDeclarationView } from './prescription-declaration-prisma.mapper';
 
 /** What `findMany` has to bring for a row to be projected into a {@link CaseListItem}. */
 const CASE_INCLUDE = {
@@ -18,6 +22,20 @@ const CASE_INCLUDE = {
   currentState: true,
   currentProceduralAct: true,
   offenses: { include: { legalQualification: true } },
+  // HU39: the folder it points to and its ancestors, to show its link and path.
+  cloudFolder: CASE_FOLDER_INCLUDE,
+  // HU40: how many templates were copied into it and how many are pending.
+  templateCopies: TEMPLATE_COPIES_SELECT,
+  // HU31: only the act that governs the prescription, the most recent by its
+  // date — not by when it was registered (CA-31.4). Same order as the index.
+  interruptiveActs: {
+    select: { actDate: true },
+    orderBy: [{ actDate: 'desc' }, { id: 'desc' }],
+    take: 1,
+  },
+  // HU33: who marked the case as prescribed. The other declaration columns are
+  // scalars of `cases`, which an `include` already brings.
+  prescriptionRegisteredBy: PRESCRIPTION_DECLARATION_SELECT.prescriptionRegisteredBy,
 } as const satisfies Prisma.CaseInclude;
 
 /**
@@ -258,8 +276,12 @@ export class CaseQueryPrismaAdapter implements CaseQueryPort {
  * The initial state is **not** excluded here, on purpose: a freshly registered
  * case counts for those three. Only `countActiveByProceduralState` excludes it,
  * and it writes its own `where` for that reason.
+ *
+ * **Exported for `reporting`** (HU41, ADR-002): the dashboards read the
+ * database directly, but the definition of an active case is this subsystem's
+ * rule, so they reuse it instead of writing their own copy that could drift.
  */
-const ACTIVE_CASE = {
+export const ACTIVE_CASE = {
   active: true,
   OR: [{ currentStateId: null }, { currentState: { terminal: false } }],
 } as const satisfies Prisma.CaseWhereInput;
@@ -286,6 +308,31 @@ function fill(
  * `businessDaysRemaining` stays `null` here on purpose: it is computed per
  * response against today's date in Córdoba, and persistence has no business
  * reading a clock. The use case fills it from `dueDate` and `ClockPort.today()`.
+ *
+ * `harmfulActDeadline` (contrato V4 §3.7, D-78) y `prescription` tampoco se
+ * arman acá: como `businessDaysRemaining`, dependen de la fecha de hoy y los
+ * completa el caso de uso (`withDeadlines`, `list-cases.use-case.ts`).
+ *
+ * PENDIENTE (delegado desde HU-41, CA-41.6 · 18/10/2026; ratificado con mmachuca
+ * el 21/10/2026 en `fix/cases-contract-v4`, sin implementar y sin test): el
+ * detalle y el listado ya lo devuelven, pero **no** ordenan ni filtran por
+ * `harmfulActDeadline.dueDate` (D-82, `API_CONTRACT_V4.md:3719-3725` y `:7402`;
+ * `openDeadline`). El orden lo resuelve el SQL de `search`, y ese vencimiento
+ * depende de hoy (renovaciones, días hábiles): resolverlo es decidir dónde vive
+ * esa regla, no solo una consulta. Los tableros del abogado
+ * y del administrador (`reporting`, `GET /dashboards/*`) no lo cuentan: cada
+ * vencimiento del acto lesivo es un elemento de `deadlines` con
+ * `kind: HARMFUL_ACT` y cuenta en `summary`. Hoy listan solo `PROCEDURAL_ACT`.
+ *
+ * Nota del 20/10/2026, desde HU-51 (no es de HU-51; es D-82 de `GET /cases` y
+ * CA-41.6 de los tableros): la verificación diaria ya avisa por correo el
+ * vencimiento del acto lesivo, así que mientras esto siga pendiente el correo
+ * avisa un amparo que el orden por urgencia y `openDeadline` no consideran
+ * (CA-51.9). El vencimiento no está guardado —depende de hoy y de las
+ * renovaciones—, así que el `ORDER BY` de `search` no lo puede leer de una
+ * columna: o se ordena en memoria con `harmfulActOf` + `HarmfulAct.deadline`
+ * (exportados para eso, ver `list-cases.use-case.ts`), o se reescribe la regla
+ * en SQL, y entonces son dos copias. Ver `IMPLEMENTACION_DETECCION.md`, B4.
  */
 function toListItem(row: CaseRow): CaseListItem {
   const act = row.currentProceduralAct;
@@ -293,13 +340,15 @@ function toListItem(row: CaseRow): CaseListItem {
   const custom = row.currentCustomState !== null;
   const initial = state?.isInitial === true;
   const dueDate = act ? (act.deadlineManualDueDate ?? act.deadlineComputedDueDate) : null;
+  const lastInterruptiveActDate = row.interruptiveActs[0]?.actDate ?? null;
+  const jurisdiction = row.jurisdiction.name as JurisdictionCode;
 
   return {
     id: row.id,
     sacNumber: row.sacNumber,
     caption: row.caption,
     court: row.court,
-    jurisdiction: row.jurisdiction.name as JurisdictionCode,
+    jurisdiction,
     proceduralRole: row.proceduralRole as ProceduralRole,
     instructorName: row.instructorName,
     // The column is `instructor_phone`; the contract calls the field `tribunalPhone`.
@@ -307,6 +356,18 @@ function toListItem(row: CaseRow): CaseListItem {
     instructorExtension: row.instructorExtension,
     counterparty: row.counterparty,
     subjectMatter: row.subjectMatter,
+    // A case that predates D-67 has `NULL` in the data of its own jurisdiction: it reads as `false`.
+    clientDetained: jurisdiction === JurisdictionCode.CRIMINAL ? (row.clientDetained ?? false) : null,
+    injunctionGranted: jurisdiction === JurisdictionCode.AMPARO ? (row.injunctionGranted ?? false) : null,
+    harmfulActDate: row.harmfulActDate,
+    harmfulActRenews: jurisdiction === JurisdictionCode.AMPARO ? (row.harmfulActRenews ?? false) : null,
+    harmfulActRenewalDays: row.harmfulActRenewalDays,
+    harmfulActTermDays: row.harmfulActTermDays,
+    harmfulActTermDayType: row.harmfulActTermDayType as DayType | null,
+    // Depends on today's date: the use case fills it (`withDeadlines`).
+    harmfulActDeadline: null,
+    administrativeRemedyExhaustedOn: row.administrativeRemedyExhaustedOn,
+    courtFeePaid: row.courtFeePaid,
     client: {
       id: row.client.id,
       lastName: row.client.lastName,
@@ -318,18 +379,29 @@ function toListItem(row: CaseRow): CaseListItem {
     },
     responsibleLawyer: {
       id: row.responsibleLawyer.id,
-      fullName: row.responsibleLawyer.fullName,
+      lastName: row.responsibleLawyer.lastName,
+      firstName: row.responsibleLawyer.firstName,
       registrationNumber: row.responsibleLawyer.registrationNumber,
     },
-    legalQualifications: row.offenses.map((offense) => ({
-      id: offense.legalQualification.id,
-      name: offense.legalQualification.name,
-      prescriptionMonths: offense.legalQualification.prescriptionMonths,
-      offenseDate: offense.offenseDate,
-      // Until interruptive acts exist (HU31), it is the offense date.
-      prescriptionStartsOn: offense.offenseDate,
-      prescriptionExpiresOn: offense.prescriptionDate,
-    })),
+    // HU31: both dates are computed on every read (V4, D-08), from the most
+    // recent interruptive act of the case. The `prescription_date` stored at
+    // registration is not read: it cannot know about acts registered later.
+    // Without interruptive acts the result is the same date it holds.
+    legalQualifications: row.offenses.map((offense) => {
+      const startsOn = prescriptionStartsOn(offense.offenseDate, lastInterruptiveActDate);
+      return {
+        id: offense.legalQualification.id,
+        name: offense.legalQualification.name,
+        prescriptionMonths: offense.legalQualification.prescriptionMonths,
+        offenseDate: offense.offenseDate,
+        prescriptionStartsOn: startsOn,
+        prescriptionExpiresOn: addPrescriptionMonths(startsOn, offense.legalQualification.prescriptionMonths),
+      };
+    }),
+    lastInterruptiveActDate,
+    // Depends on today's date: the use case fills it (`withDeadlines`).
+    prescription: null,
+    prescriptionDeclaration: toPrescriptionDeclarationView(row.id, row),
     startDate: row.startDate,
     // `proceduralStateId` is null for the initial state and for a hand-written
     // one, even though `cases.current_state_id` holds the real "Iniciada" row:
@@ -345,6 +417,7 @@ function toListItem(row: CaseRow): CaseListItem {
       businessDaysRemaining: null,
       manuallyAdjusted: act?.deadlineManualDueDate !== null && act?.deadlineManualDueDate !== undefined,
     },
+    folder: toCaseFolderView(row),
     active: row.active,
   };
 }

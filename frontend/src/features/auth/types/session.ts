@@ -16,10 +16,15 @@
 export const ROLES = ['ADMINISTRATOR', 'LAWYER', 'SECRETARY'] as const
 export type Role = (typeof ROLES)[number]
 
-/** Ficha profesional embebida en el usuario. `null` si no ejerce. */
+/**
+ * Ficha profesional embebida en el usuario. `null` si no ejerce.
+ *
+ * Desde V4 el apellido y los nombres van separados (D-68).
+ */
 export interface AuthLawyer {
     id: number
-    fullName: string
+    lastName: string
+    firstName: string
     registrationNumber: string
 }
 
@@ -31,7 +36,10 @@ export interface AuthLawyer {
 export interface AuthUser {
     id: number
     username: string
-    fullName: string
+    /** Apellido. Desde V4 reemplaza a `fullName` (D-68). */
+    lastName: string
+    /** Nombres. */
+    firstName: string
     email: string
     roles: Role[]
     lawyer: AuthLawyer | null
@@ -48,7 +56,7 @@ export interface AuthUser {
 export interface Session {
     accessToken: string
     tokenType: 'Bearer'
-    /** Segundos de vida del token. El contrato manda 3600. */
+    /** Segundos de vida del token. El contrato de V4 manda 900. */
     expiresIn: number
     user: AuthUser
 }
@@ -74,10 +82,10 @@ export interface StoredSession {
  * al renovarlo.
  *
  * **No es el mismo objeto que el `user` del login**, aunque el backend lo
- * llame igual: acá no vienen `fullName`, `email`, `lastLoginAt` ni `active`,
+ * llame igual: acá no vienen el apellido y los nombres, `email`, `lastLoginAt` ni `active`,
  * y el abogado es un número suelto en vez de la ficha entera. Es el
- * contenido del JWT, no el recurso usuario. Los roles sí vienen como
- * `roles`: son lo único que la sesión toma de acá al renovarse.
+ * contenido del JWT, no el recurso usuario. La sesión toma de acá los roles
+ * y la ficha (`writeRefreshedSession`).
  *
  * Por eso se declara aparte y con otro nombre: si se reusara `AuthUser`, una
  * renovación dejaría la sesión sin el nombre de la persona y el rail

@@ -1,4 +1,8 @@
+import { PrescriptionSummary } from '../prescription';
+import { CaseFolderView } from './case-folder-state.port';
+import { PrescriptionDeclarationView } from './case-timeline-query.port';
 import { ClientRef, LawyerRef } from './people-lookup.port';
+import { DayType } from '../value-objects/day-type';
 import { JurisdictionCode } from '../value-objects/jurisdiction-code';
 import { ProceduralRole } from '../value-objects/procedural-role';
 
@@ -31,6 +35,14 @@ export type CaseCurrentStateView = {
   manuallyAdjusted: boolean;
 };
 
+/** `harmfulActDeadline` of the contract (§3.7): the term to file an amparo, as of today. */
+export type CaseHarmfulActDeadlineView = {
+  actDate: Date;
+  renewed: boolean;
+  dueDate: Date;
+  businessDaysRemaining: number;
+};
+
 /** A legal qualification of a case, with its own offense and prescription dates. */
 export type CaseQualificationView = {
   id: number;
@@ -38,7 +50,8 @@ export type CaseQualificationView = {
   prescriptionMonths: number;
   offenseDate: Date;
   prescriptionStartsOn: Date;
-  prescriptionExpiresOn: Date | null;
+  /** Never `null` (V4 §3.7): computed on every read from `prescriptionStartsOn`. */
+  prescriptionExpiresOn: Date;
 };
 
 /**
@@ -74,10 +87,40 @@ export type CaseListItem = {
   /** Only `ADMINISTRATIVE` and `AMPARO`; `null` in `CRIMINAL`. */
   counterparty: string | null;
   subjectMatter: string | null;
+  /** Data of each jurisdiction (D-67): `null` outside its own. */
+  clientDetained: boolean | null;
+  injunctionGranted: boolean | null;
+  harmfulActDate: Date | null;
+  harmfulActRenews: boolean | null;
+  harmfulActRenewalDays: number | null;
+  harmfulActTermDays: number | null;
+  harmfulActTermDayType: DayType | null;
+  /**
+   * The term to file the amparo (D-78). The read port leaves it `null`: it depends
+   * on today's date, like `businessDaysRemaining`, and the use case fills it.
+   */
+  harmfulActDeadline: CaseHarmfulActDeadlineView | null;
+  administrativeRemedyExhaustedOn: Date | null;
+  courtFeePaid: boolean;
   client: ClientRef;
   responsibleLawyer: LawyerRef;
   /** Empty unless the case is criminal. A deactivated qualification still shows (RN12). */
   legalQualifications: CaseQualificationView[];
+  /**
+   * The date of the most recent interruptive act (HU31), the one the
+   * prescription counts from. Not part of the resource: it is what
+   * `summarizePrescription` needs to fill `prescription`.
+   */
+  lastInterruptiveActDate: Date | null;
+  /**
+   * The prescription that governs the case (contract V4 §3.7): the one of the
+   * qualification that prescribes first. The read port leaves it `null`: like
+   * `harmfulActDeadline`, it depends on today's date, and the use case fills it.
+   * It stays `null` outside `CRIMINAL` and in a criminal case without qualifications.
+   */
+  prescription: PrescriptionSummary | null;
+  /** The declaration that the case prescribed (HU33); `null` while it was not marked. */
+  prescriptionDeclaration: PrescriptionDeclarationView | null;
   /**
    * `null` mientras la causa no tiene SAC (D-38): la fecha de inicio es la de
    * la causa en sede judicial y sin SAC no existe. Hasta el 10/10/2026 la
@@ -86,6 +129,8 @@ export type CaseListItem = {
    */
   startDate: Date | null;
   currentState: CaseCurrentStateView;
+  /** The cloud folder (HU39); `null` for a case registered before the folders existed. */
+  folder: CaseFolderView | null;
   /** Always `true` in this version: a case given de baja is not returned. */
   active: boolean;
 };

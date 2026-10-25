@@ -21,7 +21,9 @@
  */
 
 import type {
+    CaseFolderStatus,
     Client,
+    DocumentTemplate,
     Jurisdiction,
     Lawyer,
     LegalQualification,
@@ -77,17 +79,17 @@ export const TOKEN_PREFIX = 'eyJhbGciOi';
  * son las únicas que se pueden dar de baja.
  */
 export const LAWYERS: readonly Lawyer[] = [
-    { id: 1, fullName: 'Dr. Fernando G. Vázquez', registrationNumber: '1-28114', activeCases: 0, active: true },
-    { id: 2, fullName: 'Dr. Oscar Zárate', registrationNumber: '1-28109', activeCases: 0, active: true },
-    { id: 3, fullName: 'Dra. Malena Ríos', registrationNumber: '1-36842', activeCases: 0, active: true },
-    { id: 4, fullName: 'Dr. Ignacio Peralta', registrationNumber: '1-35207', activeCases: 0, active: true },
-    { id: 5, fullName: 'Dra. Carolina Bustos', registrationNumber: '1-39510', activeCases: 0, active: true },
-    { id: 6, fullName: 'Dr. Matías Ferreyra', registrationNumber: '1-38226', activeCases: 0, active: true },
-    { id: 7, fullName: 'Dra. Lucía Ortega', registrationNumber: '1-41033', activeCases: 0, active: true },
-    { id: 8, fullName: 'Dra. Sofía Ledesma', registrationNumber: '1-42517', activeCases: 0, active: true },
+    { id: 1, lastName: 'Vázquez', firstName: 'Fernando G.', registrationNumber: '1-28114', activeCases: 0, active: true },
+    { id: 2, lastName: 'Zárate', firstName: 'Oscar', registrationNumber: '1-28109', activeCases: 0, active: true },
+    { id: 3, lastName: 'Ríos', firstName: 'Malena', registrationNumber: '1-36842', activeCases: 0, active: true },
+    { id: 4, lastName: 'Peralta', firstName: 'Ignacio', registrationNumber: '1-35207', activeCases: 0, active: true },
+    { id: 5, lastName: 'Bustos', firstName: 'Carolina', registrationNumber: '1-39510', activeCases: 0, active: true },
+    { id: 6, lastName: 'Ferreyra', firstName: 'Matías', registrationNumber: '1-38226', activeCases: 0, active: true },
+    { id: 7, lastName: 'Ortega', firstName: 'Lucía', registrationNumber: '1-41033', activeCases: 0, active: true },
+    { id: 8, lastName: 'Ledesma', firstName: 'Sofía', registrationNumber: '1-42517', activeCases: 0, active: true },
     // Sin cuenta de usuario: libres para vincular en un alta.
-    { id: 9, fullName: 'Dra. Julieta Campos', registrationNumber: '1-43890', activeCases: 0, active: true },
-    { id: 10, fullName: 'Dr. Tomás Aguirre', registrationNumber: '1-44102', activeCases: 0, active: true },
+    { id: 9, lastName: 'Campos', firstName: 'Julieta', registrationNumber: '1-43890', activeCases: 0, active: true },
+    { id: 10, lastName: 'Aguirre', firstName: 'Tomás', registrationNumber: '1-44102', activeCases: 0, active: true },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -106,7 +108,9 @@ export const LAWYERS: readonly Lawyer[] = [
 export interface StoredUser {
     id: number;
     username: string;
-    fullName: string;
+    /** Apellido y nombres separados desde V4 (D-68). */
+    lastName: string;
+    firstName: string;
     email: string;
     roles: Role[];
     lawyerId: number | null;
@@ -128,42 +132,42 @@ const MAIL = (user: string) => `${user}@vazquezzarate.com`;
  * casos que hay que saber formatear.
  */
 export const USERS: readonly StoredUser[] = [
-    { id: 1, username: 'fvazquez', fullName: 'Fernando G. Vázquez', email: MAIL('fvazquez'), roles: ['ADMINISTRATOR', 'LAWYER'], lawyerId: 1, lastLoginAt: '2026-09-19T08:12:00-03:00', active: true },
-    { id: 2, username: 'ozarate', fullName: 'Oscar Zárate', email: MAIL('ozarate'), roles: ['ADMINISTRATOR', 'LAWYER'], lawyerId: 2, lastLoginAt: '2026-09-19T09:40:00-03:00', active: true },
-    { id: 3, username: 'mrios', fullName: 'Malena Ríos', email: MAIL('mrios'), roles: ['LAWYER'], lawyerId: 3, lastLoginAt: '2026-09-19T08:55:00-03:00', active: true },
-    { id: 4, username: 'iperalta', fullName: 'Ignacio Peralta', email: MAIL('iperalta'), roles: ['LAWYER'], lawyerId: 4, lastLoginAt: '2026-09-18T18:20:00-03:00', active: true },
-    { id: 5, username: 'cbustos', fullName: 'Carolina Bustos', email: MAIL('cbustos'), roles: ['LAWYER'], lawyerId: 5, lastLoginAt: '2026-09-19T10:02:00-03:00', active: true },
-    { id: 6, username: 'mferreyra', fullName: 'Matías Ferreyra', email: MAIL('mferreyra'), roles: ['LAWYER'], lawyerId: 6, lastLoginAt: '2026-09-08T11:30:00-03:00', active: true },
-    { id: 7, username: 'lortega', fullName: 'Lucía Ortega', email: MAIL('lortega'), roles: ['LAWYER'], lawyerId: 7, lastLoginAt: '2026-09-19T11:15:00-03:00', active: true },
-    { id: 8, username: 'gestion', fullName: 'Gestión Estudio', email: MAIL('gestion'), roles: ['SECRETARY'], lawyerId: null, lastLoginAt: '2026-09-19T07:58:00-03:00', active: true },
-    { id: 9, username: 'ravila', fullName: 'Romina Ávila', email: MAIL('ravila'), roles: ['SECRETARY'], lawyerId: null, lastLoginAt: '2026-08-22T16:45:00-03:00', active: true },
+    { id: 1, username: 'fvazquez', lastName: 'Vázquez', firstName: 'Fernando G.', email: MAIL('fvazquez'), roles: ['ADMINISTRATOR', 'LAWYER'], lawyerId: 1, lastLoginAt: '2026-09-19T08:12:00-03:00', active: true },
+    { id: 2, username: 'ozarate', lastName: 'Zárate', firstName: 'Oscar', email: MAIL('ozarate'), roles: ['ADMINISTRATOR', 'LAWYER'], lawyerId: 2, lastLoginAt: '2026-09-19T09:40:00-03:00', active: true },
+    { id: 3, username: 'mrios', lastName: 'Ríos', firstName: 'Malena', email: MAIL('mrios'), roles: ['LAWYER'], lawyerId: 3, lastLoginAt: '2026-09-19T08:55:00-03:00', active: true },
+    { id: 4, username: 'iperalta', lastName: 'Peralta', firstName: 'Ignacio', email: MAIL('iperalta'), roles: ['LAWYER'], lawyerId: 4, lastLoginAt: '2026-09-18T18:20:00-03:00', active: true },
+    { id: 5, username: 'cbustos', lastName: 'Bustos', firstName: 'Carolina', email: MAIL('cbustos'), roles: ['LAWYER'], lawyerId: 5, lastLoginAt: '2026-09-19T10:02:00-03:00', active: true },
+    { id: 6, username: 'mferreyra', lastName: 'Ferreyra', firstName: 'Matías', email: MAIL('mferreyra'), roles: ['LAWYER'], lawyerId: 6, lastLoginAt: '2026-09-08T11:30:00-03:00', active: true },
+    { id: 7, username: 'lortega', lastName: 'Ortega', firstName: 'Lucía', email: MAIL('lortega'), roles: ['LAWYER'], lawyerId: 7, lastLoginAt: '2026-09-19T11:15:00-03:00', active: true },
+    { id: 8, username: 'gestion', lastName: 'Estudio', firstName: 'Gestión', email: MAIL('gestion'), roles: ['SECRETARY'], lawyerId: null, lastLoginAt: '2026-09-19T07:58:00-03:00', active: true },
+    { id: 9, username: 'ravila', lastName: 'Ávila', firstName: 'Romina', email: MAIL('ravila'), roles: ['SECRETARY'], lawyerId: null, lastLoginAt: '2026-08-22T16:45:00-03:00', active: true },
     // Relleno: secretaría y mesa de entradas, para llegar a dos páginas.
-    { id: 10, username: 'sledesma', fullName: 'Sofía Ledesma', email: MAIL('sledesma'), roles: ['SECRETARY', 'LAWYER'], lawyerId: 8, lastLoginAt: '2026-09-17T09:10:00-03:00', active: true },
-    { id: 11, username: 'rmoyano', fullName: 'Rocío Moyano', email: MAIL('rmoyano'), roles: ['SECRETARY'], lawyerId: null, lastLoginAt: '2026-09-16T14:22:00-03:00', active: true },
-    { id: 12, username: 'gsalinas', fullName: 'Gabriel Salinas', email: MAIL('gsalinas'), roles: ['SECRETARY'], lawyerId: null, lastLoginAt: '2026-09-15T08:40:00-03:00', active: true },
-    { id: 13, username: 'ynunez', fullName: 'Yamila Núñez', email: MAIL('ynunez'), roles: ['SECRETARY'], lawyerId: null, lastLoginAt: '2026-09-12T17:05:00-03:00', active: true },
-    { id: 14, username: 'ltoledo', fullName: 'Leandro Toledo', email: MAIL('ltoledo'), roles: ['SECRETARY'], lawyerId: null, lastLoginAt: '2026-09-11T10:18:00-03:00', active: true },
-    { id: 15, username: 'earroyo', fullName: 'Emilia Arroyo', email: MAIL('earroyo'), roles: ['SECRETARY'], lawyerId: null, lastLoginAt: '2026-09-10T12:33:00-03:00', active: true },
-    { id: 16, username: 'mesaentrada', fullName: 'Mesa de Entradas', email: MAIL('mesaentrada'), roles: ['SECRETARY'], lawyerId: null, lastLoginAt: '2026-09-19T07:30:00-03:00', active: true },
+    { id: 10, username: 'sledesma', lastName: 'Ledesma', firstName: 'Sofía', email: MAIL('sledesma'), roles: ['SECRETARY', 'LAWYER'], lawyerId: 8, lastLoginAt: '2026-09-17T09:10:00-03:00', active: true },
+    { id: 11, username: 'rmoyano', lastName: 'Moyano', firstName: 'Rocío', email: MAIL('rmoyano'), roles: ['SECRETARY'], lawyerId: null, lastLoginAt: '2026-09-16T14:22:00-03:00', active: true },
+    { id: 12, username: 'gsalinas', lastName: 'Salinas', firstName: 'Gabriel', email: MAIL('gsalinas'), roles: ['SECRETARY'], lawyerId: null, lastLoginAt: '2026-09-15T08:40:00-03:00', active: true },
+    { id: 13, username: 'ynunez', lastName: 'Núñez', firstName: 'Yamila', email: MAIL('ynunez'), roles: ['SECRETARY'], lawyerId: null, lastLoginAt: '2026-09-12T17:05:00-03:00', active: true },
+    { id: 14, username: 'ltoledo', lastName: 'Toledo', firstName: 'Leandro', email: MAIL('ltoledo'), roles: ['SECRETARY'], lawyerId: null, lastLoginAt: '2026-09-11T10:18:00-03:00', active: true },
+    { id: 15, username: 'earroyo', lastName: 'Arroyo', firstName: 'Emilia', email: MAIL('earroyo'), roles: ['SECRETARY'], lawyerId: null, lastLoginAt: '2026-09-10T12:33:00-03:00', active: true },
+    { id: 16, username: 'mesaentrada', lastName: 'de Entradas', firstName: 'Mesa', email: MAIL('mesaentrada'), roles: ['SECRETARY'], lawyerId: null, lastLoginAt: '2026-09-19T07:30:00-03:00', active: true },
     // Administrador que no ejerce: sin ficha. Es el caso que prueba que la
     // matrícula la pide `LAWYER` y no el rol administrativo.
-    { id: 17, username: 'supervision', fullName: 'Supervisión Estudio', email: MAIL('supervision'), roles: ['ADMINISTRATOR'], lawyerId: null, lastLoginAt: '2026-09-05T19:00:00-03:00', active: true },
-    { id: 18, username: 'pcabrera', fullName: 'Paula Cabrera', email: MAIL('pcabrera'), roles: ['SECRETARY'], lawyerId: null, lastLoginAt: '2026-08-29T09:55:00-03:00', active: true },
-    { id: 19, username: 'fluna', fullName: 'Federico Luna', email: MAIL('fluna'), roles: ['SECRETARY'], lawyerId: null, lastLoginAt: '2026-08-14T15:12:00-03:00', active: true },
-    { id: 20, username: 'cibarra', fullName: 'Camila Ibarra', email: MAIL('cibarra'), roles: ['SECRETARY'], lawyerId: null, lastLoginAt: null, active: true },
-    { id: 21, username: 'nvargas', fullName: 'Nicolás Vargas', email: MAIL('nvargas'), roles: ['SECRETARY'], lawyerId: null, lastLoginAt: null, active: true },
+    { id: 17, username: 'supervision', lastName: 'Estudio', firstName: 'Supervisión', email: MAIL('supervision'), roles: ['ADMINISTRATOR'], lawyerId: null, lastLoginAt: '2026-09-05T19:00:00-03:00', active: true },
+    { id: 18, username: 'pcabrera', lastName: 'Cabrera', firstName: 'Paula', email: MAIL('pcabrera'), roles: ['SECRETARY'], lawyerId: null, lastLoginAt: '2026-08-29T09:55:00-03:00', active: true },
+    { id: 19, username: 'fluna', lastName: 'Luna', firstName: 'Federico', email: MAIL('fluna'), roles: ['SECRETARY'], lawyerId: null, lastLoginAt: '2026-08-14T15:12:00-03:00', active: true },
+    { id: 20, username: 'cibarra', lastName: 'Ibarra', firstName: 'Camila', email: MAIL('cibarra'), roles: ['SECRETARY'], lawyerId: null, lastLoginAt: null, active: true },
+    { id: 21, username: 'nvargas', lastName: 'Vargas', firstName: 'Nicolás', email: MAIL('nvargas'), roles: ['SECRETARY'], lawyerId: null, lastLoginAt: null, active: true },
     // Dado de baja: NO tiene que aparecer en ningún listado ni responder a un
     // `GET` por id. Está acá justamente para probar que no se filtre, y para
     // el 409 de un username que choca contra un registro que no se ve.
-    { id: 22, username: 'vsosa', fullName: 'Verónica Sosa', email: MAIL('vsosa'), roles: ['SECRETARY'], lawyerId: null, lastLoginAt: '2026-06-30T10:00:00-03:00', active: false },
+    { id: 22, username: 'vsosa', lastName: 'Sosa', firstName: 'Verónica', email: MAIL('vsosa'), roles: ['SECRETARY'], lawyerId: null, lastLoginAt: '2026-06-30T10:00:00-03:00', active: false },
 ];
 
 /* ------------------------------------------------------------------ */
 /* Estados procesales                                                  */
 /* ------------------------------------------------------------------ */
 
-/** Cómo guarda la base un estado procesal: sin `activeCases`, que se calcula. */
-export type StoredProceduralState = Omit<ProceduralState, 'activeCases'>;
+/** Cómo guarda la base un estado procesal: sin `caseCount`, que se calcula. */
+export type StoredProceduralState = Omit<ProceduralState, 'caseCount'>;
 
 /**
  * La denominación del estado inicial, el de toda causa recién registrada
@@ -172,6 +176,15 @@ export type StoredProceduralState = Omit<ProceduralState, 'activeCases'>;
  * llevar una causa a él. Su nombre queda reservado en los tres fueros.
  */
 export const INITIAL_STATE_NAME = 'Iniciada';
+
+/**
+ * El estado "Prescripta" del fuero penal: estado de sistema, terminal y
+ * **protegido** (V4 D-53). A diferencia de "Iniciada", sí está en la tabla
+ * —se lista y sirve de filtro—, pero `PATCH` y `DELETE` sobre él responden
+ * `422 PROCEDURAL_STATE_PROTECTED`. Una causa llega a él sólo con
+ * `POST /cases/{caseId}/prescription`, nunca por un acto (D-54).
+ */
+export const PRESCRIBED_STATE_ID = 10;
 
 /**
  * 24 estados repartidos en los tres fueros del estudio, tal como los muestra
@@ -358,6 +371,38 @@ export interface ActSeed {
     notes?: string;
 }
 
+/** El acto lesivo de un amparo (V4 §3.7, D-78). */
+export interface HarmfulActSeed {
+    date: string;
+    /** Cada cuántos días corridos se renueva. Sin el campo, no se renueva. */
+    renewalDays?: number;
+    termDays: number;
+    termDayType: 'BUSINESS' | 'CONSECUTIVE';
+}
+
+/** Un acto interruptivo de semilla (V4 §3.9). Sólo en causas penales. */
+export interface InterruptiveActSeed {
+    name: string;
+    on: SeedDate;
+    notes?: string;
+}
+
+/**
+ * La carpeta de la causa en la nube (V4 §3.7). Los modelos copiados o
+ * pendientes se cuentan al armar la base, con los modelos del fuero que se
+ * copian a las causas nuevas.
+ */
+export interface FolderSeed {
+    status: CaseFolderStatus;
+}
+
+/** La marca de prescripción de la causa (V4 §3.7, HU33). */
+export interface PrescriptionSeed {
+    prescriptionDate: string;
+    resolution: string;
+    grounds: string | null;
+}
+
 /** Una causa de semilla, con los actos que la llevaron a su estado actual. */
 export interface CaseSeed {
     id: number;
@@ -380,8 +425,24 @@ export interface CaseSeed {
     counterparty?: string;
     /** Sólo fuera del fuero penal, y ahí obligatorio (D-27). */
     subjectMatter?: string;
+    /** Penal: si el cliente está preso. Sin el campo, `false` (V4 D-67). */
+    clientDetained?: boolean;
+    /** Amparo: si se hizo lugar a la medida cautelar. Sin el campo, `false`. */
+    injunctionGranted?: boolean;
+    /** Amparo: el acto lesivo y el plazo para presentar el amparo (D-78). */
+    harmfulAct?: HarmfulActSeed;
+    /** Administrativo: agotamiento de la vía administrativa. */
+    administrativeRemedyExhaustedOn?: SeedDate;
+    /** Tasa de justicia pagada. Sin el campo, `false`. */
+    courtFeePaid?: boolean;
     /** En orden cronológico. Vacío = la causa sigue en el estado inicial, "Iniciada" (D-34). */
     acts: ActSeed[];
+    /** Reinician la prescripción (V4 §3.9). Sólo en el penal. */
+    interruptiveActs?: InterruptiveActSeed[];
+    /** Sin el campo, la causa no tiene carpeta: `folder` en `null` (V4 §3.7). */
+    folder?: FolderSeed;
+    /** Marcada como prescripta: está en "Prescripta", sin acto que la lleve (D-54). */
+    prescriptionDeclaration?: PrescriptionSeed;
 }
 
 const POLICE_COURT = 'Tribunal de Conducta Policial y Penitenciario';
@@ -407,6 +468,24 @@ const POLICE_EXTENSION = '3120';
  * | 17 | Segunda causa del mismo cliente (GÓMEZ), vencida hace una semana |
  * | 18, 20 | Los roles `DEMANDADA` y `QUERELLANTE_PARTICULAR` |
  * | 23 | Penal **sin SAC y sin calificaciones legales** (D-33), todavía "Iniciada" |
+ *
+ * Lo que suma el Sprint 3 (V4):
+ *
+ * | Causa | Para qué está |
+ * | --- | --- |
+ * | 1 | Acto interruptivo del 04/07/2024: la prescripción corre desde ahí (27 % el 15/09/2026) |
+ * | 4 | Sin actos interruptivos y con el 78 % transcurrido: **alerta de prescripción**. Sin carpeta. El cliente está preso |
+ * | 10 | **Marcada como prescripta** (`prescriptionDeclaration`): está en "Prescripta" sin un acto que la lleve |
+ * | 13 | Plazo de prescripción **cumplido** (`expired`) y sin marcar. Su acto interruptivo es anterior al hecho de una de sus calificaciones, que sigue corriendo desde el hecho |
+ * | 1, 2, 3, 5, 6 | Con carpeta creada, con los modelos del fuero |
+ * | 22 | Con la carpeta **con error** (`ERROR`): para el reintento de `POST /cases/{caseId}/folder`. Amparo en "Iniciada" con un acto lesivo que se renueva: tiene **vencimiento del acto lesivo** (`harmfulActDeadline`) |
+ * | 6 | Amparo con acto lesivo, pero ya con actos: el vencimiento del acto lesivo no se calcula |
+ * | 3 | Amparo con la medida cautelar concedida |
+ * | 15 | Administrativo con la vía administrativa agotada |
+ * | 2, 6 | Con la tasa de justicia pagada |
+ * | 23 | Registrada sin pedir carpeta (`PENDING`): se crea con `POST /cases/{caseId}/folder` |
+ * | 11 | Con la carpeta **creándose** (`CREATING`): el `POST` no hace nada y responde `200` |
+ * | el resto | Sin carpeta (`folder` en `null`): registradas antes de V4 |
  *
  * Los abogados 9 y 10 no tienen causas, y los clientes 18 y 24 tampoco.
  *
@@ -437,6 +516,9 @@ export const CASE_SEEDS: readonly CaseSeed[] = [
             { state: 3, on: AGO(9), notes: 'Presentado por la Fiscalía.' },
             { state: 4, on: AGO(4), notes: 'Abre el plazo de 5 días hábiles para oponerse.' },
         ],
+        // El del prototipo: reinició la prescripción, que vence el 04/07/2032.
+        interruptiveActs: [{ name: 'Indagatoria', on: '2024-07-04' }],
+        folder: { status: 'CREATED' },
     },
     {
         id: 2,
@@ -453,11 +535,13 @@ export const CASE_SEEDS: readonly CaseSeed[] = [
         startDate: '2026-05-18',
         subjectMatter:
             'Descargo frente a la imputación de falta grave por abandono de servicio y pedido de sobreseimiento.',
+        courtFeePaid: true,
         acts: [
             { state: 11, on: '2026-05-18', notifiedOn: '2026-05-18', notes: 'Plazo computado desde la notificación (RN6).' },
             { state: 12, on: '2026-08-28', notifiedOn: '2026-08-28', notes: 'Presentado en término.' },
             { state: 14, on: AGO(9), notifiedOn: AGO(8), notes: 'Clausura del sumario: abre el plazo de alegato.' },
         ],
+        folder: { status: 'CREATED' },
     },
     {
         id: 3,
@@ -475,11 +559,13 @@ export const CASE_SEEDS: readonly CaseSeed[] = [
         counterparty: 'Provincia de Córdoba',
         subjectMatter:
             'Se ordene a la Provincia de Córdoba otorgar la prestación por discapacidad denegada por resolución ministerial.',
+        injunctionGranted: true,
         acts: [
             { state: 18, on: '2026-07-21', notes: 'Con pedido de medida cautelar.' },
             { state: 19, on: '2026-07-30', notes: 'Notificado.' },
             { state: 21, on: AGO(2), notes: 'Decreto de prueba: abre el plazo para aportar la prueba ordenada.' },
         ],
+        folder: { status: 'CREATED' },
     },
     {
         id: 4,
@@ -495,6 +581,7 @@ export const CASE_SEEDS: readonly CaseSeed[] = [
         responsibleLawyerId: 1,
         startDate: '2022-01-19',
         qualifications: [{ legalQualificationId: 2, offenseDate: '2022-01-19' }],
+        clientDetained: true,
         acts: [
             { state: 1, on: '2022-01-19', notes: 'El estudio asume la defensa técnica.' },
             { state: 3, on: '2026-07-06', notes: 'Última actuación registrada.' },
@@ -520,6 +607,7 @@ export const CASE_SEEDS: readonly CaseSeed[] = [
             { state: 11, on: '2026-06-02', notifiedOn: '2026-06-02' },
             { state: 15, on: AGO(1), notifiedOn: AGO(0), notes: 'Notificación de la resolución: abre 10 días hábiles.' },
         ],
+        folder: { status: 'CREATED' },
     },
     {
         id: 6,
@@ -537,10 +625,15 @@ export const CASE_SEEDS: readonly CaseSeed[] = [
         counterparty: 'APROSS',
         subjectMatter:
             'Se ordene a APROSS la cobertura integral del tratamiento de rehabilitación prescripto a la actora.',
+        // El del ejemplo del contrato. Como la causa ya tiene actos, el amparo
+        // ya se presentó y no hay vencimiento del acto lesivo (D-78).
+        harmfulAct: { date: '2026-08-28', renewalDays: 30, termDays: 15, termDayType: 'BUSINESS' },
+        courtFeePaid: true,
         acts: [
             { state: 18, on: AGO(5), notes: 'Amparo de salud contra APROSS.' },
             { state: 19, on: AGO(3), notes: 'Decreto de traslado.' },
         ],
+        folder: { status: 'CREATED' },
     },
     {
         id: 7,
@@ -618,10 +711,13 @@ export const CASE_SEEDS: readonly CaseSeed[] = [
         responsibleLawyerId: 2,
         startDate: '2018-04-11',
         qualifications: [{ legalQualificationId: 7, offenseDate: '2018-03-05' }],
-        acts: [
-            { state: 1, on: '2018-04-11' },
-            { state: 10, on: '2020-03-05', notes: 'Prescripción declarada.' },
-        ],
+        // A "Prescripta" no se llega por un acto: la causa se marcó (V4 D-54).
+        acts: [{ state: 1, on: '2018-04-11' }],
+        prescriptionDeclaration: {
+            prescriptionDate: '2020-03-05',
+            resolution: 'Auto N° 57 de la Fiscalía de Instrucción Distrito 3 Turno 1',
+            grounds: 'Transcurrió el plazo del art. 62 inc. 2 CP sin actos interruptivos.',
+        },
     },
     {
         id: 11,
@@ -639,6 +735,8 @@ export const CASE_SEEDS: readonly CaseSeed[] = [
         counterparty: 'Policía de la Provincia',
         subjectMatter: 'Defensa del agente en el sumario iniciado por presunta falta en el servicio.',
         acts: [],
+        // Se pidió la carpeta y el almacenamiento todavía no respondió.
+        folder: { status: 'CREATING' },
     },
     {
         id: 12,
@@ -682,6 +780,10 @@ export const CASE_SEEDS: readonly CaseSeed[] = [
             { state: 1, on: '2024-08-20' },
             { state: 5, on: AGO(1) },
         ],
+        /* Posterior al hecho del Encubrimiento (11/06/2024) y anterior al de las
+           Amenazas (02/07/2024): reinicia la primera y no la segunda, que sigue
+           corriendo desde su hecho (V4 §3.9) y ya prescribió el 02/07/2026. */
+        interruptiveActs: [{ name: 'Citación a indagatoria', on: '2024-06-20' }],
     },
     {
         id: 14,
@@ -718,6 +820,7 @@ export const CASE_SEEDS: readonly CaseSeed[] = [
         counterparty: 'Servicio Penitenciario de Córdoba',
         subjectMatter:
             'Se declare la nulidad de la resolución que rechazó el recurso jerárquico y se ordene el pago de los haberes retenidos.',
+        administrativeRemedyExhaustedOn: AGO(5),
         acts: [
             { state: 11, on: '2025-03-03', notifiedOn: '2025-03-03' },
             { state: 16, on: AGO(5), notifiedOn: AGO(4), notes: 'Agotada la vía administrativa.' },
@@ -859,7 +962,13 @@ export const CASE_SEEDS: readonly CaseSeed[] = [
         startDate: AGO(2),
         counterparty: 'APROSS',
         subjectMatter: 'Se ordene a APROSS la cobertura de la prótesis indicada, denegada por nota del área de auditoría.',
+        /* El del ejemplo del contrato: el acto lesivo del 03/08/2026 se renueva
+           cada 30 días, y el 15/09/2026 rige la renovación del 02/09/2026, con
+           15 días hábiles para presentar el amparo (vence el 23/09/2026). */
+        harmfulAct: { date: '2026-08-03', renewalDays: 30, termDays: 15, termDayType: 'BUSINESS' },
         acts: [],
+        // El almacenamiento en la nube no respondió al registrarla (V4 D-60).
+        folder: { status: 'ERROR' },
     },
     {
         id: 23,
@@ -876,8 +985,73 @@ export const CASE_SEEDS: readonly CaseSeed[] = [
         responsibleLawyerId: 6,
         startDate: AGO(0),
         acts: [],
+        // Se registró sin pedir la carpeta (V4 §3.7: `createFolder` en `false`).
+        folder: { status: 'PENDING' },
     },
 ];
+
+/* ------------------------------------------------------------------ */
+/* Modelos formales (V4 §3.10)                                         */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Cómo guarda la base un modelo formal: el autor es un id de usuario, y
+ * `usageCount` es el contador de copias, que crece cada vez que el modelo se
+ * copia a la carpeta de una causa nueva.
+ */
+export interface StoredDocumentTemplate extends Omit<DocumentTemplate, 'lastVersionBy'> {
+    lastVersionById: number;
+}
+
+const TEMPLATE = (
+    id: number,
+    name: string,
+    jurisdictions: Jurisdiction[],
+    fileName: string,
+    lastVersionAt: string,
+    lastVersionById: number,
+    usageCount: number,
+    active = true,
+): StoredDocumentTemplate => ({
+    id,
+    name,
+    jurisdictions,
+    fileName,
+    copyToNewCases: true,
+    lastVersionAt,
+    lastVersionById,
+    usageCount,
+    active,
+});
+
+/**
+ * Los trece modelos del prototipo, con sus fechas, autores y usos. Todos se
+ * copian a las causas nuevas de su fuero: con eso el alta de causa muestra los
+ * "6 modelos parametrizados para el fuero Penal" y "4" para el Administrativo.
+ *
+ * El 13 está **dado de baja**: no aparece en ningún listado, no responde a un
+ * `GET` por id y no se copia a las causas nuevas (CA-35.7). Por eso el Amparo
+ * tiene dos modelos vigentes y no tres.
+ */
+export const DOCUMENT_TEMPLATES: readonly StoredDocumentTemplate[] = [
+    TEMPLATE(1, 'Designación de abogado defensor', ['CRIMINAL'], 'designacion-defensor.docx', '2026-08-04T09:20:00-03:00', 1, 31),
+    TEMPLATE(2, 'Oposición al requerimiento de elevación a juicio', ['CRIMINAL'], 'oposicion-elevacion.docx', '2026-08-21T17:40:00-03:00', 3, 12),
+    TEMPLATE(3, 'Ofrecimiento de prueba', ['CRIMINAL'], 'ofrecimiento-prueba.docx', '2026-06-17T10:00:00-03:00', 3, 18),
+    TEMPLATE(4, 'Recurso de casación', ['CRIMINAL'], 'casacion.docx', '2026-05-02T10:00:00-03:00', 6, 4),
+    TEMPLATE(5, 'Solicitud de eximición de prisión', ['CRIMINAL'], 'eximicion.docx', '2026-03-11T10:00:00-03:00', 6, 9),
+    TEMPLATE(6, 'Pedido de sobreseimiento', ['CRIMINAL'], 'sobreseimiento.docx', '2026-07-29T10:00:00-03:00', 1, 7),
+    TEMPLATE(7, 'Descargo en sumario administrativo', ['ADMINISTRATIVE'], 'descargo-sumario.docx', '2026-09-08T10:00:00-03:00', 2, 24),
+    TEMPLATE(8, 'Recurso de reconsideración', ['ADMINISTRATIVE'], 'reconsideracion.docx', '2026-08-27T10:00:00-03:00', 4, 15),
+    TEMPLATE(9, 'Recurso jerárquico', ['ADMINISTRATIVE'], 'jerarquico.docx', '2026-07-14T10:00:00-03:00', 4, 6),
+    TEMPLATE(10, 'Alegato en sumario', ['ADMINISTRATIVE'], 'alegato-sumario.docx', '2026-05-19T10:00:00-03:00', 2, 11),
+    TEMPLATE(11, 'Demanda de amparo de salud', ['AMPARO'], 'amparo-salud.docx', '2026-09-09T10:00:00-03:00', 5, 13),
+    TEMPLATE(12, 'Pedido de medida cautelar', ['AMPARO'], 'medida-cautelar.docx', '2026-09-01T10:00:00-03:00', 5, 10),
+    // Dado de baja: no tiene que aparecer en ningún lado.
+    TEMPLATE(13, 'Amparo por mora de la administración', ['AMPARO'], 'amparo-mora.docx', '2026-04-12T10:00:00-03:00', 7, 3, false),
+];
+
+/** Tamaño máximo de un archivo subido: 10 MB (V4 §4, Formato de intercambio). */
+export const MAX_FILE_BYTES = 10 * 1024 * 1024;
 
 /* ------------------------------------------------------------------ */
 /* Reglas de negocio simuladas                                         */

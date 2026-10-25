@@ -25,8 +25,9 @@ properties:
     type: integer
     minimum: 1
     description: |
-      Estado vigente del fuero de la causa y **no terminal**. Excluyente con
-      `customState`.
+      Estado vigente del fuero de la causa. Puede ser terminal, **salvo
+      "Prescripta"** (D-69); un estado terminal no admite `manualDueDate`.
+      Excluyente con `customState`.
     examples:
       - 12
   customState:

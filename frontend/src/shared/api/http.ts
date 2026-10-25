@@ -107,6 +107,24 @@ function fallbackMessage(status: number): string {
     )
 }
 
+/**
+ * Con `responseType: 'blob'` (la descarga de un modelo formal, V4 §3.10)
+ * axios no convierte la respuesta, tampoco la de error: el JSON del error
+ * llega adentro de un Blob y `parseErrorBody` no lo puede leer. Se lee acá,
+ * antes de armar el `ApiError`, para que el error se vea como el de
+ * cualquier otro pedido (`code`, `message` y `details` del contrato).
+ */
+async function readBlobErrorBody(error: unknown): Promise<void> {
+    if (!axios.isAxiosError(error) || !error.response) return
+    const { data } = error.response
+    if (!(data instanceof Blob)) return
+    try {
+        error.response.data = JSON.parse(await data.text())
+    } catch {
+        // No era JSON: queda como estaba y toApiError usa el mensaje genérico.
+    }
+}
+
 function toApiError(error: unknown): ApiError {
     // Un error que no sea de axios, un bug nuestro
     if (!axios.isAxiosError(error)) {
@@ -148,6 +166,19 @@ export function setUnauthenticatedHandler(handler: (() => void) | null): void {
 }
 
 /**
+ * Qué hacer cuando el servidor rechaza un pedido por falta de permiso (`403`).
+ *
+ * Lo registra el proveedor de sesión: puede ser que a la persona le hayan
+ * sacado un rol con la sesión abierta, y entonces hay que traer los roles
+ * actuales. Acá sólo se avisa; el pedido igual se rechaza.
+ */
+let onForbidden: (() => void) | null = null
+
+export function setForbiddenHandler(handler: (() => void) | null): void {
+    onForbidden = handler
+}
+
+/**
  * Cómo renovar el token de acceso. Devuelve `true` si lo consiguió.
  *
  * También lo registra el proveedor de sesión. Acá no se sabe qué endpoint
@@ -181,6 +212,17 @@ function renewOnce(): Promise<boolean> {
     return renewalInFlight
 }
 
+/**
+ * Renueva ahora, sin esperar a que un pedido vuelva con el token vencido.
+ *
+ * Lo usa el proveedor de sesión para traer los roles actuales al abrir la
+ * aplicación. Pasa por la misma puerta que las renovaciones por `401`: si ya
+ * hay una en curso, se suma a esa en vez de lanzar otra.
+ */
+export function renewSessionNow(): Promise<boolean> {
+    return renewOnce()
+}
+
 /** Marca en el pedido para no reintentarlo más de una vez. */
 interface RetriableConfig extends InternalAxiosRequestConfig {
     vzRetried?: boolean
@@ -198,6 +240,7 @@ const NON_RENEWABLE_PATHS = ['/auth/refresh', '/auth/logout']
 http.interceptors.response.use(
     response => response,
     async (error: unknown) => {
+        await readBlobErrorBody(error)
         const apiError = toApiError(error)
 
         /* Se compara el CÓDIGO y no el 401 pelado, porque hay dos errores
@@ -205,6 +248,11 @@ http.interceptors.response.use(
            sirve", pero `INVALID_CREDENTIALS` es "te equivocaste al entrar", y
            ese no tiene que disparar nada —si no, cada intento fallido de
            login intentaría renovar una sesión que no existe—. */
+        if (apiError.is('FORBIDDEN')) {
+            onForbidden?.()
+            return Promise.reject(apiError)
+        }
+
         if (!apiError.is('UNAUTHENTICATED')) {
             return Promise.reject(apiError)
         }

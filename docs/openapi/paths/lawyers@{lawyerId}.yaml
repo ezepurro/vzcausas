@@ -25,7 +25,8 @@ get:
           example:
             data:
               id: 4
-              fullName: Dr. Ignacio Peralta
+              lastName: Peralta
+              firstName: Ignacio
               registrationNumber: 1-35207
               activeCases: 16
               active: true
@@ -50,7 +51,7 @@ patch:
   summary: Modificar abogado
   description: |
     Modifica parcialmente la información de un abogado. Corresponde a HU14
-    (Sprint 3); se mantiene porque ya figuraba en V2.
+    (Sprint 4); se mantiene porque ya figuraba en V2.
 
     **Rol requerido:** `ADMINISTRATOR`.
   requestBody:
@@ -60,7 +61,8 @@ patch:
         schema:
           $ref: ../components/schemas/LawyerUpdate.yaml
         example:
-          fullName: Dr. Ignacio Peralta
+          lastName: Peralta
+          firstName: Ignacio
           registrationNumber: 1-35207
   responses:
     '200':
@@ -77,7 +79,8 @@ patch:
           example:
             data:
               id: 4
-              fullName: Dr. Ignacio Peralta
+              lastName: Peralta
+              firstName: Ignacio
               registrationNumber: 1-35207
               activeCases: 16
               active: true
@@ -133,7 +136,7 @@ delete:
   operationId: deleteLawyer
   summary: Dar de baja abogado
   description: |
-    Da de baja un abogado. Corresponde a HU15 (Sprint 4); se mantiene porque
+    Da de baja un abogado. Corresponde a HU15 (Sprint 5); se mantiene porque
     ya figuraba en V2.
 
     **La baja es lógica, pero el cliente no la percibe.** El abogado deja de

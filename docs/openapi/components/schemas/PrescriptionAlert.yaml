@@ -1,0 +1,68 @@
+type: object
+description: |
+  Causa penal con `prescription.alert` en `true`: el **70 %** o más de su
+  plazo de prescripción transcurrido (HU32). Los cuatro últimos campos tienen
+  el mismo significado que en `prescription` de la causa.
+required:
+  - caseId
+  - sacNumber
+  - caption
+  - responsibleLawyer
+  - legalQualificationName
+  - startsOn
+  - expiresOn
+  - elapsedPercentage
+  - expired
+properties:
+  caseId:
+    type: integer
+    description: Causa.
+    examples:
+      - 4
+  sacNumber:
+    type:
+      - string
+      - 'null'
+    description: Número de SAC.
+    examples:
+      - '11845620'
+  caption:
+    type: string
+    description: Carátula.
+    examples:
+      - ACOSTA, Jonathan E. p.s.a. Infracción Ley 23.737
+  responsibleLawyer:
+    $ref: ./LawyerReference.yaml
+  legalQualificationName:
+    type: string
+    description: Calificación que prescribe primero.
+    examples:
+      - Infracción Ley 23.737 — art. 5 inc. c
+  startsOn:
+    type: string
+    format: date
+    description: Desde cuándo corre la prescripción (el hecho o el último acto interruptivo).
+    examples:
+      - '2022-01-19'
+  expiresOn:
+    type: string
+    format: date
+    description: Cuándo prescribe.
+    examples:
+      - '2028-01-19'
+  elapsedPercentage:
+    type: integer
+    minimum: 0
+    maximum: 100
+    description: |
+      Porcentaje transcurrido ("78 % transcurrido"), redondeado. El umbral del
+      70 % se evalúa sobre el valor exacto.
+    examples:
+      - 78
+  expired:
+    type: boolean
+    description: |
+      `true` si el plazo de prescripción ya se cumplió. La causa sigue en la
+      lista hasta que se la marque como prescripta.
+    examples:
+      - false

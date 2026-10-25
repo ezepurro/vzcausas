@@ -3,16 +3,18 @@ import { useNavigate, useParams } from 'react-router'
 import { useCurrentUser } from '@/app/providers/AuthContext'
 import { useToast } from '@/app/providers/ToastContext'
 import { isApiError } from '@/shared/api/ApiError'
-import { Breadcrumbs, Button, Panel, type BreadcrumbItem } from '@/shared/components/ui'
+import { Breadcrumbs, Button, LoadingState, Panel, type BreadcrumbItem } from '@/shared/components/ui'
 import type { ComboboxOption } from '@/shared/components/forms'
 import { useFocusFirstError } from '@/shared/hooks/useFocusFirstError'
 import { formatDate, todayIsoDate } from '@/shared/lib/dates'
+import { formatPersonFullName } from '@/shared/lib/personName'
 import {
     CaseHeader,
+    CaseHeaderSkeleton,
     isResponsibleLawyer,
-    nearestQualification,
     NO_SAC_LABEL,
     PrescriptionBar,
+    prescriptionNote,
     useCase,
     type Case,
 } from '@/features/cases'
@@ -24,6 +26,7 @@ import {
     type DeadlinePreviewState,
 } from '@/features/proceedings/components/DeadlinePreviewAside'
 import { ProceduralActForm } from '@/features/proceedings/components/ProceduralActForm'
+import { ProceduralActFormSkeleton } from '@/features/proceedings/components/ProceduralActFormSkeleton'
 import {
     isValid,
     validateProceduralAct,
@@ -70,7 +73,12 @@ export function RegisterProceduralActPage() {
     if (!validId) {
         body = <Empty title="No se encontró la causa" text="La dirección no corresponde a ninguna causa." />
     } else if (caseQuery.isPending) {
-        body = <Empty title="Cargando causa…" />
+        body = (
+            <LoadingState label="Cargando causa…">
+                <CaseHeaderSkeleton />
+                <ProceduralActFormSkeleton />
+            </LoadingState>
+        )
     } else if (caseQuery.isError) {
         body = (
             <Empty
@@ -175,14 +183,19 @@ function RegisterProceduralAct({ case: c }: { case: Case }) {
 
     function submit() {
         focusErrors()
-        const found = validateProceduralAct(values, { jurisdiction, opensTerm: opensTerm(selected) })
+        // Hacia un estado terminal no hay ajuste manual (V4 §3.8): si quedó
+        // tildado de un estado anterior, no se valida ni se manda.
+        const effective = selected?.terminal ? { ...values, manualDue: false } : values
+        const found = validateProceduralAct(effective, { jurisdiction, opensTerm: opensTerm(selected) })
         setErrors(found)
         if (!isValid(found)) return
 
-        register.mutate(toCreateProceduralActBody(values, selected, jurisdiction), {
+        register.mutate(toCreateProceduralActBody(effective, selected, jurisdiction), {
             onSuccess: (act) => {
                 const due = act.deadline ? ` · vencimiento el ${formatDate(act.deadline.dueDate)}` : ''
-                toast('success', `Acto registrado. La causa pasó a ${act.resultingState.name}${due}.`)
+                // Un estado terminal cierra la causa (V4 D-69): el aviso lo dice.
+                const closed = selected?.terminal ? ' La causa quedó cerrada.' : ''
+                toast('success', `Acto registrado. La causa pasó a ${act.resultingState.name}${due}.${closed}`)
                 backToCase()
             },
             onError: handleApiError,
@@ -196,12 +209,16 @@ function RegisterProceduralAct({ case: c }: { case: Case }) {
         content = (
             <Empty
                 title="Sólo el abogado responsable registra actos procesales"
-                text={`El responsable de esta causa es ${c.responsibleLawyer.fullName}.`}
+                text={`El responsable de esta causa es ${formatPersonFullName(c.responsibleLawyer)}.`}
                 action={<Button variant="secondary" size="md" onClick={backToCase}>Volver a la causa</Button>}
             />
         )
     } else if (statesQuery.isPending) {
-        content = <Empty title="Cargando estados procesales…" />
+        content = (
+            <LoadingState label="Cargando estados procesales…">
+                <ProceduralActFormSkeleton />
+            </LoadingState>
+        )
     } else if (statesQuery.isError) {
         content = (
             <Empty
@@ -239,6 +256,7 @@ function RegisterProceduralAct({ case: c }: { case: Case }) {
                         manualDue={values.manualDue}
                         manualDueDate={values.manualDueDate}
                         manualDueDateError={errors.manualDueDate}
+                        allowManualDue={!selected?.terminal}
                         onManualDueChange={(value) => changeValue('manualDue', value)}
                         onManualDueDateChange={(value) => changeValue('manualDueDate', value)}
                     />
@@ -258,29 +276,15 @@ function RegisterProceduralAct({ case: c }: { case: Case }) {
 }
 
 /**
- * La barra de prescripción al pie del encabezado: sólo en el fuero penal, y
- * de la calificación que prescribe primero (V3 D-19).
+ * La barra de prescripción al pie del encabezado, con la que rige la causa
+ * (V4 D-51). `null` fuera del penal o sin calificaciones (D-74).
  */
 function CasePrescription({ case: c }: { case: Case }) {
-    if (c.jurisdiction !== 'CRIMINAL') return null
-    const nearest = nearestQualification(c)
-    if (!nearest) return null
-
-    const note = c.legalQualifications.length > 1
-        ? `El cómputo corre desde la fecha del hecho. Calificación que prescribe primero: ${nearest.name}.`
-        : 'El cómputo corre desde la fecha del hecho.'
-
-    return (
-        <PrescriptionBar
-            qualificationName={nearest.name}
-            startsOn={nearest.prescriptionStartsOn}
-            expiresOn={nearest.prescriptionExpiresOn}
-            note={note}
-        />
-    )
+    if (!c.prescription) return null
+    return <PrescriptionBar prescription={c.prescription} note={prescriptionNote(c)} />
 }
 
-/** Cargando, error o un aviso que reemplaza al formulario, dentro de un panel. */
+/** Error o un aviso que reemplaza al formulario, dentro de un panel. */
 function Empty({ title, text, action }: { title: string; text?: string; action?: ReactNode }) {
     return (
         <Panel>

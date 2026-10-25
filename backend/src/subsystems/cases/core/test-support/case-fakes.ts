@@ -2,7 +2,6 @@ import { ClockPort } from '@shared/domain/clock.port';
 import { TransactionManagerPort } from '@shared/domain/transaction-manager.port';
 import { Case } from '../domain/entities/cases';
 import { ProceduralAct } from '../domain/entities/procedural-act';
-import { CriminalCase } from '../domain/entities/criminal';
 import { DeadlineCalculatorPort } from '../domain/ports/deadline-calculator.port';
 import { CaseRepository } from '../domain/ports/case.repository';
 import { ProceduralActRepository } from '../domain/ports/procedural-act.repository';
@@ -46,11 +45,24 @@ export class FakeCaseRepository implements CaseRepository {
   /** When set, `saveCurrentAct` fails with it. */
   failOnSaveCurrentActWith: Error | null = null;
 
+  /** The cases `saveDeclaredPrescription` wrote, in order. */
+  readonly declaredPrescriptions: Case[] = [];
+  /** When `true`, `saveDeclaredPrescription` finds the case already marked: another marking won. */
+  prescriptionAlreadyDeclaredOnSave = false;
+
   constructor(private readonly states: ProceduralStateRef[]) {}
 
   /** Puts a case in the "database", as if it had been registered before. */
   add(existing: Case): void {
     this.saved.push(existing);
+  }
+
+  async saveDeclaredPrescription(prescribedCase: Case): Promise<boolean> {
+    if (this.prescriptionAlreadyDeclaredOnSave) {
+      return false;
+    }
+    this.declaredPrescriptions.push(prescribedCase);
+    return true;
   }
 
   async saveCurrentAct(updatedCase: Case): Promise<void> {
@@ -77,9 +89,7 @@ export class FakeCaseRepository implements CaseRepository {
     if (this.failOnSaveWith) {
       throw this.failOnSaveWith;
     }
-    if (newCase instanceof CriminalCase) {
-      this.prescriptionsWhenSaved = newCase.offenses.map((offense) => offense.prescriptionExpiresOn);
-    }
+    this.prescriptionsWhenSaved = newCase.toSnapshot().offenses.map((offense) => offense.prescriptionExpiresOn);
     this.saved.push(newCase);
   }
 
@@ -99,13 +109,21 @@ export class FakeCaseRepository implements CaseRepository {
 
 /**
  * In-memory {@link PeopleLookupPort}. A lawyer or client that is not in the
- * lists does not exist or was deactivated.
+ * active lists does not exist or was deactivated; `deactivatedLawyers` are the
+ * ones that exist but were given de baja.
  */
 export class FakePeopleLookup implements PeopleLookupPort {
   constructor(
     private readonly activeLawyers: LawyerRef[],
     private readonly activeClients: ClientRef[],
+    private readonly deactivatedLawyers: LawyerRef[] = [],
   ) {}
+
+  async findLawyerById(id: number): Promise<LawyerRef | null> {
+    return (
+      [...this.activeLawyers, ...this.deactivatedLawyers].find((lawyer) => lawyer.id === id) ?? null
+    );
+  }
 
   async findActiveLawyerById(id: number): Promise<LawyerRef | null> {
     return this.activeLawyers.find((lawyer) => lawyer.id === id) ?? null;
@@ -187,6 +205,11 @@ export class FakeLegalParametersLookup implements LegalParametersLookupPort {
 
   async findProcStateById(id: number): Promise<ProceduralStateRef | null> {
     return this.allStates().find((state) => state.id === id) ?? null;
+  }
+
+  async findPrescribedProcStateByJurisdiction(jurisdiction: JurisdictionCode): Promise<ProceduralStateRef | null> {
+    const jurisdictionId = this.initialStates[jurisdiction]?.jurisdictionId;
+    return this.states.find((state) => state.isPrescribed && state.jurisdictionId === jurisdictionId) ?? null;
   }
 
   async existsProcStateActiveByName(jurisdictionId: number, name: string): Promise<boolean> {

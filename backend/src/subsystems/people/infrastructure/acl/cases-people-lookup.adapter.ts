@@ -36,7 +36,21 @@ export class CasesPeopleLookupAdapter implements PeopleLookupPort {
     }
     return {
       id: lawyer.id,
-      fullName: lawyer.fullName,
+      lastName: lawyer.lastName,
+      firstName: lawyer.firstName,
+      registrationNumber: lawyer.registrationNumber.toString(),
+    };
+  }
+
+  async findLawyerById(id: number): Promise<LawyerRef | null> {
+    const lawyer = await this.lawyers.findById(id);
+    if (!lawyer) {
+      return null;
+    }
+    return {
+      id: lawyer.id,
+      lastName: lawyer.lastName,
+      firstName: lawyer.firstName,
       registrationNumber: lawyer.registrationNumber.toString(),
     };
   }

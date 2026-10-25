@@ -29,6 +29,7 @@ import { CasesPage } from '@/features/cases/pages/CasesPage'
  * | 14002188 | 18/09, en 3 días | Amparo |
  * | 13077215 | 21/09, en 4 días | Estado escrito a mano |
  * | 13711859 | 23/09, en 6 días | Amparo |
+ * | 13619027 | 23/09, en 6 días | Amparo contra APROSS, "Iniciada": vence el acto lesivo (V4 D-82) |
  * | 13250674 | 24/09, en 7 días | |
  * | 13560902 | 29/09, en 10 días | |
  * | 13345092 | 06/10, en 15 días | |
@@ -38,24 +39,23 @@ import { CasesPage } from '@/features/cases/pages/CasesPage'
  * | 10556781 | — | Archivada. De Ríos |
  * | 10230417 | — | Prescripta |
  * | 14120566 | — | "Iniciada" |
- * | 13902244 | — | Amparo contra APROSS, sin plazo |
+ * | 13902244 | — | Amparo contra APROSS, sin plazo. Ya es de la página 2 |
  * | 12881406 | — | Archivada. Ya es de la página 2 |
- * | 13619027 | — | Amparo contra APROSS, "Iniciada" |
  * | Sin SAC | — | "Iniciada" |
  */
 
 const WITH_DEADLINE = [
     '12104893', '12907344', '12774310', '11990352', '13284571', '12660318', '13488127',
-    '14002188', '13077215', '13711859', '13250674', '13560902', '13345092', '12998740',
+    '14002188', '13077215', '13711859', '13619027', '13250674', '13560902', '13345092', '12998740',
 ]
 const WITHOUT_DEADLINE = [
-    '11845620', '14118903', '10556781', '10230417', '14120566', '13902244', '12881406', '13619027', 'Sin SAC',
+    '11845620', '14118903', '10556781', '10230417', '14120566', '13902244', '12881406', 'Sin SAC',
 ]
-const FIRST_PAGE = [...WITH_DEADLINE, ...WITHOUT_DEADLINE.slice(0, 6)]
+const FIRST_PAGE = [...WITH_DEADLINE, ...WITHOUT_DEADLINE].slice(0, 20)
 const TOTAL = WITH_DEADLINE.length + WITHOUT_DEADLINE.length
 
-/** Las del fuero de amparo: cuatro con vencimiento y dos sin. */
-const AMPARO = ['12774310', '13488127', '14002188', '13711859', '13902244', '13619027']
+/** Las del fuero de amparo: cinco con vencimiento —una, la del acto lesivo— y una sin. */
+const AMPARO = ['12774310', '13488127', '14002188', '13711859', '13619027', '13902244']
 
 const TABLE_STATE = 'Oposición al requerimiento de elevación'
 const EMPTY = 'Ninguna causa coincide con los filtros.'
@@ -124,11 +124,13 @@ describe('CasesPage', () => {
         })
 
         /* Sin criterio de aceptación: TESTING.md §7 pide el estado de error. Leer
-           causas está abierto a cualquier perfil, así que el rechazo se fuerza. */
+           causas está abierto a cualquier perfil, así que el rechazo se fuerza.
+           Con un 400 y no un 403: un 403 dispara la verificación de la sesión
+           (`setForbiddenHandler`), y un 5xx se reintenta. */
         it('si el servidor rechaza la consulta, muestra el error', async () => {
             server.use(
                 http.get('*/cases', () =>
-                    HttpResponse.json(errorBody('FORBIDDEN', 'Rechazo de prueba.'), { status: 403 }),
+                    HttpResponse.json(errorBody('INVALID_REQUEST', 'Rechazo de prueba.'), { status: 400 }),
                 ),
             )
             renderPage()
@@ -197,7 +199,7 @@ describe('CasesPage', () => {
             await screen.findByText(LOADED)
             await choose(user, jurisdictionSelect, 'Amparo')
             await user.click(openDeadlineButton())
-            await expectSacs(AMPARO.slice(0, 4))
+            await expectSacs(AMPARO.slice(0, 5))
 
             await user.click(screen.getByRole('button', { name: 'Limpiar filtros' }))
 

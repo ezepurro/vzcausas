@@ -144,9 +144,26 @@ const INITIAL_STATE = {
   isInitial: true,
 } as const;
 
+/**
+ * System "Prescripta" state of the criminal jurisdiction (contract V4
+ * §3.4, D-53): terminal, no time limit, protected against update and
+ * deletion. HU33 moves a case here, so it has to exist in every
+ * environment, like "Iniciada". The CHECK and the partial unique index
+ * of `sprint3_manual_constraints` require exactly this shape, and one
+ * per jurisdiction.
+ */
+const PRESCRIBED_STATE = {
+  name: 'Prescripta',
+  timeLimitDays: 0,
+  dayType: 'NONE',
+  terminal: true,
+  isPrescribed: true,
+} as const;
+
 const PROCEDURAL_STATES = [
   // Criminal
   { jurisdiction: 'CRIMINAL', ...INITIAL_STATE },
+  { jurisdiction: 'CRIMINAL', ...PRESCRIBED_STATE },
   {
     jurisdiction: 'CRIMINAL',
     name: 'Designación de abogado defensor',
@@ -252,18 +269,18 @@ const PROCEDURAL_STATES = [
  * their normalized form.
  */
 const DEV_LAWYERS = [
-  { fullName: 'Fernando Vázquez', registrationNumber: '1-28114' },
-  { fullName: 'Lucía Zárate', registrationNumber: '1-30455' },
-  { fullName: 'Carla Pereyra', registrationNumber: '1-31002' },
-  { fullName: 'Diego Molina', registrationNumber: '2-18447' },
-  { fullName: 'Valeria Quiroga', registrationNumber: '2-20113' },
-  { fullName: 'Martín Ludueña', registrationNumber: '1-29876' },
-  { fullName: 'Sofía Bustos', registrationNumber: '1-33120' },
-  { fullName: 'Javier Ceballos', registrationNumber: '3-10455' },
-  { fullName: 'Noelia Ferreyra', registrationNumber: '2-21988' },
-  { fullName: 'Gonzalo Aguirre', registrationNumber: '1-34567' },
+  { lastName: 'Vázquez', firstName: 'Fernando', registrationNumber: '1-28114' },
+  { lastName: 'Zárate', firstName: 'Lucía', registrationNumber: '1-30455' },
+  { lastName: 'Pereyra', firstName: 'Carla', registrationNumber: '1-31002' },
+  { lastName: 'Molina', firstName: 'Diego', registrationNumber: '2-18447' },
+  { lastName: 'Quiroga', firstName: 'Valeria', registrationNumber: '2-20113' },
+  { lastName: 'Ludueña', firstName: 'Martín', registrationNumber: '1-29876' },
+  { lastName: 'Bustos', firstName: 'Sofía', registrationNumber: '1-33120' },
+  { lastName: 'Ceballos', firstName: 'Javier', registrationNumber: '3-10455' },
+  { lastName: 'Ferreyra', firstName: 'Noelia', registrationNumber: '2-21988' },
+  { lastName: 'Aguirre', firstName: 'Gonzalo', registrationNumber: '1-34567' },
   // The lawyer behind the `abogado` demo account: responsible for the demo cases.
-  { fullName: 'Abogado de Prueba', registrationNumber: '1-40001' },
+  { lastName: 'Prueba', firstName: 'Abogado', registrationNumber: '1-40001' },
 ] as const;
 
 /**
@@ -291,7 +308,8 @@ const DEV_LAWYERS = [
  */
 interface DevUser {
   username: string;
-  fullName: string;
+  lastName: string;
+  firstName: string;
   email: string;
   roles: readonly string[];
   registrationNumber?: string;
@@ -302,77 +320,88 @@ interface DevUser {
 const DEV_USERS: readonly DevUser[] = [
   {
     username: 'f.vazquez',
-    fullName: 'Fernando Vázquez',
+    lastName: 'Vázquez',
+    firstName: 'Fernando',
     email: 'f.vazquez@vzcausas.local',
     roles: ['ADMINISTRATOR', 'LAWYER'],
     registrationNumber: '1-28114',
   },
   {
     username: 'l.zarate',
-    fullName: 'Lucía Zárate',
+    lastName: 'Zárate',
+    firstName: 'Lucía',
     email: 'l.zarate@vzcausas.local',
     roles: ['ADMINISTRATOR', 'LAWYER'],
     registrationNumber: '1-30455',
   },
   {
     username: 'c.pereyra',
-    fullName: 'Carla Pereyra',
+    lastName: 'Pereyra',
+    firstName: 'Carla',
     email: 'c.pereyra@vzcausas.local',
     roles: ['LAWYER'],
     registrationNumber: '1-31002',
   },
   {
     username: 'd.molina',
-    fullName: 'Diego Molina',
+    lastName: 'Molina',
+    firstName: 'Diego',
     email: 'd.molina@vzcausas.local',
     roles: ['LAWYER'],
     registrationNumber: '2-18447',
   },
   {
     username: 'v.quiroga',
-    fullName: 'Valeria Quiroga',
+    lastName: 'Quiroga',
+    firstName: 'Valeria',
     email: 'v.quiroga@vzcausas.local',
     roles: ['LAWYER'],
     registrationNumber: '2-20113',
   },
   {
     username: 'm.luduena',
-    fullName: 'Martín Ludueña',
+    lastName: 'Ludueña',
+    firstName: 'Martín',
     email: 'm.luduena@vzcausas.local',
     roles: ['LAWYER'],
     registrationNumber: '1-29876',
   },
   {
     username: 's.bustos',
-    fullName: 'Sofía Bustos',
+    lastName: 'Bustos',
+    firstName: 'Sofía',
     email: 's.bustos@vzcausas.local',
     roles: ['LAWYER'],
     registrationNumber: '1-33120',
   },
   {
     username: 'j.ceballos',
-    fullName: 'Javier Ceballos',
+    lastName: 'Ceballos',
+    firstName: 'Javier',
     email: 'j.ceballos@vzcausas.local',
     roles: ['ADMINISTRATOR'],
     registrationNumber: '3-10455',
   },
   {
     username: 'n.ferreyra',
-    fullName: 'Noelia Ferreyra',
+    lastName: 'Ferreyra',
+    firstName: 'Noelia',
     email: 'n.ferreyra@vzcausas.local',
     roles: ['SECRETARY'],
     registrationNumber: '2-21988',
   },
   {
     username: 'g.aguirre',
-    fullName: 'Gonzalo Aguirre',
+    lastName: 'Aguirre',
+    firstName: 'Gonzalo',
     email: 'g.aguirre@vzcausas.local',
     roles: ['SECRETARY'],
     registrationNumber: '1-34567',
   },
   {
     username: 'abogado',
-    fullName: 'Abogado de Prueba',
+    lastName: 'Prueba',
+    firstName: 'Abogado',
     email: 'abogado@vzcausas.local',
     roles: ['LAWYER'],
     registrationNumber: '1-40001',
@@ -380,7 +409,8 @@ const DEV_USERS: readonly DevUser[] = [
   },
   {
     username: 'secret',
-    fullName: 'Secretaría de Prueba',
+    lastName: 'Prueba',
+    firstName: 'Secretaría',
     email: 'secret@vzcausas.local',
     roles: ['SECRETARY'],
     password: 'secret123',
@@ -403,7 +433,7 @@ async function seedDevPeople(prisma: PrismaClient): Promise<void> {
   for (const lawyer of DEV_LAWYERS) {
     const row = await prisma.lawyer.upsert({
       where: { registrationNumber: lawyer.registrationNumber },
-      update: { fullName: lawyer.fullName, active: true },
+      update: { lastName: lawyer.lastName, firstName: lawyer.firstName, active: true },
       create: lawyer,
     });
     lawyerIds.set(lawyer.registrationNumber, row.id);
@@ -430,8 +460,8 @@ async function seedDevPeople(prisma: PrismaClient): Promise<void> {
       where: { username: user.username },
       // The password is refreshed so that editing the variable takes
       // effect without wiping the volume.
-      update: { passwordHash, fullName: user.fullName, email: user.email, lawyerId, active: true, deletedAt: null },
-      create: { username: user.username, fullName: user.fullName, email: user.email, passwordHash, lawyerId },
+      update: { passwordHash, lastName: user.lastName, firstName: user.firstName, email: user.email, lawyerId, active: true, deletedAt: null },
+      create: { username: user.username, lastName: user.lastName, firstName: user.firstName, email: user.email, passwordHash, lawyerId },
     });
 
     const roles = await prisma.role.findMany({ where: { name: { in: [...user.roles] } } });
@@ -489,8 +519,15 @@ interface DevCase {
   subjectMatter?: string;
   // Only CRIMINAL: qualifications with the date of the offense.
   offenses?: { qualification: string; offenseDate: string }[];
-  // Two acts per case, oldest first: the case ends up in the state of the last one.
-  acts: [DevAct, DevAct];
+  // Data of each jurisdiction (D-67). Left out, a datum takes the value the app gives it by default.
+  clientDetained?: boolean;
+  courtFeePaid?: boolean;
+  injunctionGranted?: boolean;
+  administrativeRemedyExhaustedOn?: string;
+  // AMPARO: the harmful act (D-78), as days before today. Its term is only open while the case is in "Iniciada".
+  harmfulAct?: { daysAgo: number; renewalDays?: number; termDays: number; termDayType: 'BUSINESS' | 'CONSECUTIVE' };
+  // Acts, oldest first: the case ends up in the state of the last one. None: it stays in "Iniciada".
+  acts: DevAct[];
 }
 
 /**
@@ -506,6 +543,8 @@ const DEV_CASES: readonly DevCase[] = [
     proceduralRole: 'DEFENSA',
     caption: 'GÓMEZ, Ariel Fernando p.s.a. Robo calificado',
     clientDni: '34812905',
+    clientDetained: true,
+    courtFeePaid: true,
     offenses: [
       { qualification: 'Robo calificado — art. 167 inc. 2 CP', offenseDate: '2021-02-27' },
       { qualification: 'Estafa — art. 172 CP', offenseDate: '2021-03-05' },
@@ -523,6 +562,7 @@ const DEV_CASES: readonly DevCase[] = [
     clientDni: '29440117',
     counterparty: 'Policía de la Provincia',
     subjectMatter: 'Descargo frente a la imputación de falta grave y pedido de sobreseimiento.',
+    administrativeRemedyExhaustedOn: '2026-08-10',
     acts: [
       { state: 'Notificación de imputación en sumario', daysAgo: 20 },
       { state: 'Presentación de descargo', daysAgo: 6 },
@@ -536,10 +576,26 @@ const DEV_CASES: readonly DevCase[] = [
     clientDni: '31256890',
     counterparty: 'APROSS',
     subjectMatter: 'Que se ordene la cobertura integral del tratamiento de rehabilitación prescripto.',
+    injunctionGranted: true,
+    // The case already left "Iniciada", so its term to file the amparo no longer counts (D-78).
+    harmfulAct: { daysAgo: 40, termDays: 15, termDayType: 'BUSINESS' },
     acts: [
       { state: 'Interposición de la acción', daysAgo: 12 },
       { state: 'Pedido de informe', daysAgo: 3 },
     ],
+  },
+  {
+    // Still in "Iniciada": its harmful act renews every 30 days, so `harmfulActDeadline` shows in the detail.
+    sacNumber: '90000004',
+    jurisdiction: 'AMPARO',
+    proceduralRole: 'ACTORA',
+    caption: 'LEDESMA, Verónica c/ Municipalidad — Amparo ambiental',
+    clientDni: '27654321',
+    counterparty: 'Municipalidad de Córdoba',
+    subjectMatter: 'Que se ordene el cese del vertido de efluentes en el predio lindero.',
+    injunctionGranted: false,
+    harmfulAct: { daysAgo: 45, renewalDays: 30, termDays: 15, termDayType: 'BUSINESS' },
+    acts: [],
   },
 ];
 
@@ -623,7 +679,11 @@ async function seedDevCases(prisma: PrismaClient): Promise<void> {
       where: { jurisdictionId: jurisdiction.jurisdictionId, isInitial: true, isActive: true },
     });
     const isAdministrative = devCase.jurisdiction === 'ADMINISTRATIVE';
-    const startDate = addDays(today, -devCase.acts[0].daysAgo - 30);
+    const isAmparo = devCase.jurisdiction === 'AMPARO';
+    const isCriminal = devCase.jurisdiction === 'CRIMINAL';
+    const harmfulAct = devCase.harmfulAct;
+    // The case started in court a month before its first act (or before its harmful act, if it has none).
+    const startDate = addDays(today, -(devCase.acts[0]?.daysAgo ?? harmfulAct?.daysAgo ?? 30) - 30);
 
     await prisma.$transaction(async (tx) => {
       const newCase = await tx.case.create({
@@ -637,6 +697,18 @@ async function seedDevCases(prisma: PrismaClient): Promise<void> {
           clientId: client.id,
           responsibleLawyerId: lawyer.id,
           startDate,
+          // Data of each jurisdiction (D-67): `NULL` outside its own, as the app stores it.
+          courtFeePaid: devCase.courtFeePaid ?? false,
+          clientDetained: isCriminal ? (devCase.clientDetained ?? false) : null,
+          injunctionGranted: isAmparo ? (devCase.injunctionGranted ?? false) : null,
+          harmfulActDate: harmfulAct ? addDays(today, -harmfulAct.daysAgo) : null,
+          harmfulActRenews: isAmparo ? harmfulAct?.renewalDays !== undefined : null,
+          harmfulActRenewalDays: harmfulAct?.renewalDays ?? null,
+          harmfulActTermDays: harmfulAct?.termDays ?? null,
+          harmfulActTermDayType: harmfulAct?.termDayType ?? null,
+          administrativeRemedyExhaustedOn: devCase.administrativeRemedyExhaustedOn
+            ? new Date(`${devCase.administrativeRemedyExhaustedOn}T00:00:00.000Z`)
+            : null,
           // A case is born in the initial state; the first act takes it out.
           currentStateId: initialState.stateId,
           // Registered by the secretary, as the app does.
@@ -659,7 +731,7 @@ async function seedDevCases(prisma: PrismaClient): Promise<void> {
         });
       }
 
-      let lastActId = 0;
+      let lastActId: number | null = null;
       let lastStateId = initialState.stateId;
       for (const act of devCase.acts) {
         const state = await tx.proceduralState.findFirstOrThrow({
@@ -701,8 +773,157 @@ async function seedDevCases(prisma: PrismaClient): Promise<void> {
 
   console.log(
     `Development cases: ${DEV_CLIENTS.length} clients, ${DEV_LEGAL_QUALIFICATIONS.length} legal qualifications, ` +
-      `${created} new cases of ${DEV_CASES.length} (each with 2 acts).`,
+      `${created} new cases of ${DEV_CASES.length} (the last one still in "Iniciada").`,
   );
+}
+
+// ─── Bootstrap: the first administrator outside development ──────────────────
+
+/**
+ * Environment variables describing the first administrator, keyed by
+ * the field each one fills (D-77).
+ */
+const BOOTSTRAP_ADMIN_VARS = {
+  username: 'BOOTSTRAP_ADMIN_USERNAME',
+  password: 'BOOTSTRAP_ADMIN_PASSWORD',
+  email: 'BOOTSTRAP_ADMIN_EMAIL',
+  lastName: 'BOOTSTRAP_ADMIN_LAST_NAME',
+  firstName: 'BOOTSTRAP_ADMIN_FIRST_NAME',
+  registrationNumber: 'BOOTSTRAP_ADMIN_REGISTRATION_NUMBER',
+} as const;
+
+/*
+ * Copies of the domain rules, because this script cannot import the
+ * domain: it resolves `@shared/*` aliases that ts-node does not. Keep
+ * them in step with their source:
+ *   - USERNAME_REGEX: username.vo.ts:3 (D-17, trimmed and lowercased first)
+ *   - EMAIL_REGEX: email.vo.ts:3 (trimmed and lowercased first)
+ *   - password policy: user.entity.ts `validatePasswordRules` (D-24)
+ */
+const USERNAME_REGEX = /^[a-z0-9._-]{3,30}$/;
+const EMAIL_REGEX = /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/;
+const MIN_PASSWORD_LENGTH = 8;
+const MAX_PASSWORD_BYTES = 72;
+const PASSWORD_DIGIT_REGEX = /\d/;
+
+/**
+ * Creates the first administrator from `BOOTSTRAP_ADMIN_*` (D-77).
+ *
+ * It exists because outside development nothing else can: the
+ * development accounts are gated by `NODE_ENV` (D-63), and `POST /users`
+ * needs an administrator to call it. Once this one exists, every other
+ * account goes through the API.
+ *
+ * Acts only when all six variables are set and no active administrator
+ * exists, so it runs once even if the variables stay behind. A partial
+ * set, or a value the domain would reject, fails the seed — and with it
+ * the deploy — instead of booting an application nobody can log into.
+ *
+ * Also writes the professional record (`lawyers`), which D-25 requires
+ * of an administrator: the same cross-subsystem exception as D-75,
+ * confined to bootstrap.
+ */
+async function bootstrapAdministrator(prisma: PrismaClient): Promise<void> {
+  const entries = Object.entries(BOOTSTRAP_ADMIN_VARS).map(
+    ([field, name]) => [field, process.env[name]?.trim() ?? ''] as const,
+  );
+  const missing = entries
+    .filter(([, value]) => value === '')
+    .map(([field]) => BOOTSTRAP_ADMIN_VARS[field as keyof typeof BOOTSTRAP_ADMIN_VARS]);
+
+  if (missing.length === entries.length) {
+    console.log('Administrator bootstrap: BOOTSTRAP_ADMIN_* not set, skipped.');
+    return;
+  }
+  if (missing.length > 0) {
+    throw new Error(
+      `Administrator bootstrap: set all BOOTSTRAP_ADMIN_* variables or none. Missing: ${missing.join(', ')}.`,
+    );
+  }
+
+  const values = Object.fromEntries(entries) as Record<keyof typeof BOOTSTRAP_ADMIN_VARS, string>;
+
+  const activeAdministrators = await prisma.user.count({
+    where: {
+      active: true,
+      deletedAt: null,
+      roles: { some: { role: { name: 'ADMINISTRATOR' } } },
+    },
+  });
+  if (activeAdministrators > 0) {
+    console.warn(
+      'Administrator bootstrap: an active administrator already exists, skipped. ' +
+        'Remove the BOOTSTRAP_ADMIN_* variables from the environment.',
+    );
+    return;
+  }
+
+  const username = values.username.toLowerCase();
+  const email = values.email.toLowerCase();
+  // The password is the one value that is not trimmed: the domain
+  // validates it as typed.
+  const password = process.env[BOOTSTRAP_ADMIN_VARS.password]!;
+
+  const errors: string[] = [];
+  if (!USERNAME_REGEX.test(username)) {
+    errors.push(`${BOOTSTRAP_ADMIN_VARS.username} must be 3–30 characters of [a-z0-9._-].`);
+  }
+  if (!EMAIL_REGEX.test(email)) {
+    errors.push(`${BOOTSTRAP_ADMIN_VARS.email} is not a valid email address.`);
+  }
+  if (
+    password.length < MIN_PASSWORD_LENGTH ||
+    !PASSWORD_DIGIT_REGEX.test(password) ||
+    Buffer.byteLength(password, 'utf8') > MAX_PASSWORD_BYTES
+  ) {
+    errors.push(
+      `${BOOTSTRAP_ADMIN_VARS.password} must be at least ${MIN_PASSWORD_LENGTH} characters, ` +
+        `contain a digit and not exceed ${MAX_PASSWORD_BYTES} bytes.`,
+    );
+  }
+  if (errors.length > 0) {
+    throw new Error(`Administrator bootstrap: ${errors.join(' ')}`);
+  }
+
+  const passwordHash = await bcrypt.hash(password, Number(process.env.BCRYPT_COST ?? 12));
+  const role = await prisma.role.findUniqueOrThrow({ where: { name: 'ADMINISTRATOR' } });
+
+  await prisma.$transaction(async (tx) => {
+    // An existing record is linked as it is, never edited or reactivated:
+    // a deactivated lawyer coming back is a decision for the API, not for
+    // a deploy.
+    const existing = await tx.lawyer.findUnique({
+      where: { registrationNumber: values.registrationNumber },
+    });
+    if (existing && !existing.active) {
+      throw new Error(
+        `Administrator bootstrap: the lawyer with registration number ${values.registrationNumber} is deactivated.`,
+      );
+    }
+    const lawyer =
+      existing ??
+      (await tx.lawyer.create({
+        data: {
+          lastName: values.lastName,
+          firstName: values.firstName,
+          registrationNumber: values.registrationNumber,
+        },
+      }));
+
+    const user = await tx.user.create({
+      data: {
+        username,
+        lastName: values.lastName,
+        firstName: values.firstName,
+        email,
+        passwordHash,
+        lawyerId: lawyer.id,
+      },
+    });
+    await tx.userRole.create({ data: { userId: user.id, roleId: role.id } });
+  });
+
+  console.log(`Administrator bootstrap: created "${username}" with the ADMINISTRATOR role.`);
 }
 
 /**
@@ -795,6 +1016,9 @@ async function main(): Promise<void> {
         await prisma.proceduralState.create({ data });
       }
     }
+
+    // After the catalog, which provides the ADMINISTRATOR role.
+    await bootstrapAdministrator(prisma);
 
     // Development only: a database holding accounts with a known
     // password is precisely what must never exist anywhere else. The

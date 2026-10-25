@@ -15,9 +15,11 @@ import { useCreateLawyer } from '@/features/lawyers/api/useCreateLawyer'
 import type { LawyerFormValues } from '@/features/lawyers/types/lawyer'
 import { validateLawyer, isValid, type LawyerFormErrors } from '@/features/lawyers/schemas/lawyer.schema'
 import { toCreateLawyerBody } from '@/features/lawyers/utils/toCreateLawyerBody'
+import { toFormErrors } from '@/features/lawyers/utils/toFormErrors'
 import { LawyersTable } from '@/features/lawyers/components/LawyersTable'
 import { LawyerFormModal } from '@/features/lawyers/components/LawyerFormModal'
 import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue'
+import { formatPersonName } from '@/shared/lib/personName'
 const LIMIT = 20
 
 /**
@@ -27,7 +29,8 @@ const LIMIT = 20
 type Modal = { kind: 'create' } | null
 
 const EMPTY_FORM: LawyerFormValues = {
-    fullName: '',
+    lastName: '',
+    firstName: '',
     registrationNumber: '',
 }
 
@@ -84,9 +87,13 @@ export function LawyersPage() {
             return
         }
 
-        if (error.isValidation && error.hasFieldErrors) {
-            setErrors(error.details as LawyerFormErrors)
-            return
+        if (error.isValidation) {
+            const fieldErrors = toFormErrors(error.details)
+            if (!isValid(fieldErrors)) {
+                setErrors(fieldErrors)
+                return
+            }
+            // Un 400 sin ningún campo que marcar no puede quedar mudo.
         }
 
         toast('error', error.message)
@@ -103,7 +110,7 @@ export function LawyersPage() {
             onSuccess: (lawyer) => {
                 toast(
                     'success',
-                    `Abogado ${lawyer.fullName} registrado con matrícula ${lawyer.registrationNumber}.`,
+                    `Abogado ${formatPersonName(lawyer)} registrado con matrícula ${lawyer.registrationNumber}.`,
                 )
                 closeModal()
             },
@@ -119,28 +126,28 @@ export function LawyersPage() {
                 eyebrow="Administración"
                 title="Abogados"
                 sub="Desde esta sección podés administrar el equipo del estudio. Consultá el listado de abogados, sus matrículas y la cantidad de causas activas a su cargo."
-                actions={
-                    <Button
-                        icon={<Icon name="plus" />}
-                        size="md"
-                        disabled={!canCreate}
-                        title={canCreate ? undefined : 'Sólo el Administrador puede registrar abogados.'}
-                        onClick={openCreate}
-                    >
-                        Registrar abogado
-                    </Button>
-                }
             />
 
             <Panel
                 title="Abogados"
                 actions={
-                    <SearchInput
-                        placeholder="Buscar por apellido o matrícula"
-                        aria-label="Buscar abogado"
-                        value={search}
-                        onChange={(e) => changeSearch(e.target.value)}
-                    />
+                    <>
+                        <SearchInput
+                            placeholder="Buscar por apellido o matrícula"
+                            aria-label="Buscar abogado"
+                            value={search}
+                            onChange={(e) => changeSearch(e.target.value)}
+                        />
+                        <Button
+                            icon={<Icon name="plus" />}
+                            size="md"
+                            disabled={!canCreate}
+                            title={canCreate ? undefined : 'Sólo el Administrador puede registrar abogados.'}
+                            onClick={openCreate}
+                        >
+                            Registrar abogado
+                        </Button>
+                    </>
                 }
                 footer={
                     <Pagination
@@ -152,11 +159,7 @@ export function LawyersPage() {
                     />
                 }
             >
-                {query.isPending ? (
-                    <div className="vz-empty">
-                        <div className="vz-empty__title">Cargando abogados…</div>
-                    </div>
-                ) : query.isError ? (
+                {query.isError ? (
                     <div className="vz-empty">
                         <div className="vz-empty__title">No se pudieron cargar los abogados</div>
                         <div className="vz-empty__text">
@@ -167,6 +170,8 @@ export function LawyersPage() {
                     </div>
                 ) : (
                     <LawyersTable
+                        loading={query.isPending}
+                        busy={query.isPlaceholderData}
                         rows={rows}
                         empty={
                             <div className="vz-empty">

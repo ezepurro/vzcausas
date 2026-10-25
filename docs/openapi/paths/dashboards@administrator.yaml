@@ -1,0 +1,131 @@
+get:
+  tags:
+    - Dashboards
+  operationId: getAdministratorDashboard
+  summary: Tablero del administrador
+  description: |
+    Obtiene el tablero del administrador: "Estudio" (HU42), con todas las
+    causas activas del estudio y el responsable de cada una. Es un modelo de
+    lectura, calculado en cada petición.
+
+    No recibe parámetros: el filtro por abogado ("Tocá un abogado para ver
+    solo sus vencimientos") y el filtro por urgencia los aplica el cliente
+    sobre `deadlines`, que trae el responsable de cada plazo.
+
+    **Rol requerido:** `ADMINISTRATOR`.
+  responses:
+    '200':
+      description: |
+        Tablero del administrador, calculado para el martes 15/09/2026. El
+        ejemplo está recortado: `deadlines` muestra tres de los cinco plazos
+        abiertos de los datos del prototipo, y `team`, tres de los siete
+        abogados.
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - data
+            properties:
+              data:
+                $ref: ../components/schemas/AdministratorDashboard.yaml
+          example:
+            data:
+              date: '2026-09-15'
+              summary:
+                dueToday: 1
+                overdue: 1
+                dueSoon: 2
+                activeCases: 105
+              casesByJurisdiction:
+                - jurisdiction: CRIMINAL
+                  activeCases: 63
+                - jurisdiction: ADMINISTRATIVE
+                  activeCases: 31
+                - jurisdiction: AMPARO
+                  activeCases: 11
+              deadlines:
+                - caseId: 2
+                  kind: PROCEDURAL_ACT
+                  sacNumber: '12907344'
+                  caption: PEREYRA, Marcos D. — Sumario administrativo
+                  jurisdiction: ADMINISTRATIVE
+                  currentStateName: Alegato
+                  responsibleLawyer:
+                    id: 4
+                    lastName: Peralta
+                    firstName: Ignacio
+                  dueDate: '2026-09-11'
+                  businessDaysRemaining: -2
+                - caseId: 6
+                  kind: PROCEDURAL_ACT
+                  sacNumber: '12774310'
+                  caption: MOYANO, Daniela c/ APROSS — Amparo de salud
+                  jurisdiction: AMPARO
+                  currentStateName: Traslado a la demandada
+                  responsibleLawyer:
+                    id: 1
+                    lastName: Vázquez
+                    firstName: Fernando G.
+                  dueDate: '2026-09-15'
+                  businessDaysRemaining: 0
+                - caseId: 1
+                  kind: PROCEDURAL_ACT
+                  sacNumber: '13284571'
+                  caption: GÓMEZ, Ariel Fernando p.s.a. Robo calificado
+                  jurisdiction: CRIMINAL
+                  currentStateName: Oposición al requerimiento de elevación
+                  responsibleLawyer:
+                    id: 3
+                    lastName: Ríos
+                    firstName: Malena
+                  dueDate: '2026-09-16'
+                  businessDaysRemaining: 1
+              prescriptionAlerts:
+                - caseId: 4
+                  sacNumber: '11845620'
+                  caption: ACOSTA, Jonathan E. p.s.a. Infracción Ley 23.737
+                  responsibleLawyer:
+                    id: 1
+                    lastName: Vázquez
+                    firstName: Fernando G.
+                  legalQualificationName: Infracción Ley 23.737 — art. 5 inc. c
+                  startsOn: '2022-01-19'
+                  expiresOn: '2028-01-19'
+                  elapsedPercentage: 78
+                  expired: false
+              team:
+                - lawyer:
+                    id: 4
+                    lastName: Peralta
+                    firstName: Ignacio
+                  activeCases: 16
+                  openDeadlines:
+                    overdue: 1
+                    dueToday: 0
+                    dueSoon: 0
+                    later: 0
+                - lawyer:
+                    id: 1
+                    lastName: Vázquez
+                    firstName: Fernando G.
+                  activeCases: 14
+                  openDeadlines:
+                    overdue: 0
+                    dueToday: 1
+                    dueSoon: 0
+                    later: 0
+                - lawyer:
+                    id: 3
+                    lastName: Ríos
+                    firstName: Malena
+                  activeCases: 17
+                  openDeadlines:
+                    overdue: 0
+                    dueToday: 0
+                    dueSoon: 1
+                    later: 0
+    '401':
+      $ref: ../components/responses/Unauthorized.yaml
+    '403':
+      $ref: ../components/responses/ForbiddenAdministrator.yaml

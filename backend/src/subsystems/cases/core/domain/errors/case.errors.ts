@@ -1,4 +1,5 @@
 import {
+  BadGatewayError,
   BusinessRuleError,
   ConflictError,
   ForbiddenActionError,
@@ -68,15 +69,52 @@ export class CaseNotFoundError extends NotFoundError {
 
 /** Emitted when the user is not the lawyer in charge of the case (D-30, 403). */
 export class NotResponsibleLawyerError extends ForbiddenActionError {
-  constructor() {
-    super('FORBIDDEN', 'Solo el abogado responsable de la causa puede registrar actos procesales.');
+  /**
+   * The message names what was attempted: procedural acts by default (HU26),
+   * interruptive acts for HU31, whose contract words it its own way (V4 §3.9).
+   */
+  constructor(message = 'Solo el abogado responsable de la causa puede registrar actos procesales.') {
+    super('FORBIDDEN', message);
   }
 }
 
 /** Emitted when a procedural act is registered on a case in a terminal state (422). */
 export class CaseInTerminalStateError extends BusinessRuleError {
+  /** The wording of the contract for an operation that is not a procedural act (HU31, HU33). */
+  static readonly FOR_THIS_OPERATION = 'La causa se encuentra en un estado terminal y no admite esta operación.';
+
+  /** Same as {@link NotResponsibleLawyerError}: the default is HU26's wording, HU31 passes its own. */
+  constructor(message = 'La causa se encuentra en un estado terminal y no admite actos procesales.') {
+    super('CASE_IN_TERMINAL_STATE', message);
+  }
+}
+
+/**
+ * Emitted when an interruptive act is registered on a case outside the
+ * criminal jurisdiction (HU31, D-50, 422). Only `CRIMINAL` computes
+ * prescription, so there is nothing for the act to interrupt.
+ */
+export class PrescriptionNotApplicableError extends BusinessRuleError {
+  /**
+   * The default is the jurisdiction refusal, shared by HU31 and HU33. HU33 passes
+   * {@link PrescriptionNotApplicableError.WITHOUT_QUALIFICATIONS} for a criminal
+   * case without legal qualifications, which cannot prescribe (D-74).
+   */
+  static readonly WITHOUT_QUALIFICATIONS = 'La causa no tiene calificaciones legales: no puede prescribir.';
+
+  constructor(message = 'La prescripción solo aplica a las causas del fuero penal.') {
+    super('PRESCRIPTION_NOT_APPLICABLE', message);
+  }
+}
+
+/**
+ * Emitted when someone who is neither an administrator nor a lawyer tries to
+ * mark a case as prescribed (HU33, CA-33.2, 403). Any lawyer may, not only the
+ * responsible one (CA-33.1), so this is not {@link NotResponsibleLawyerError}.
+ */
+export class CannotDeclarePrescriptionError extends ForbiddenActionError {
   constructor() {
-    super('CASE_IN_TERMINAL_STATE', 'La causa se encuentra en un estado terminal y no admite actos procesales.');
+    super('FORBIDDEN', 'Se requiere el rol ADMINISTRATOR o LAWYER para realizar esta operación.');
   }
 }
 
@@ -114,5 +152,32 @@ export class InvalidProceduralActIdError extends ValidationError {
     super('INVALID_PATH_PARAMETER', 'El identificador del acto procesal no es válido.', {
       actId: 'Debe ser un número entero válido.',
     });
+  }
+}
+
+/**
+ * `copyTemplates` came as `true` with `createFolder` as `false` (400). The
+ * templates are copied into the case folder, so there is nothing to copy them
+ * into. Uses the contract's `VALIDATION_ERROR` and message (§3.7).
+ */
+export class CopyTemplatesWithoutFolderError extends ValidationError {
+  constructor() {
+    super('VALIDATION_ERROR', 'Los datos enviados no son válidos.', {
+      copyTemplates: 'Para copiar los modelos primero hay que crear la carpeta de la causa.',
+    });
+  }
+}
+
+/**
+ * The cloud folder of a case could not be created (502). It is only raised by
+ * `POST /cases/{caseId}/folder`: registering a case never fails because of its
+ * folder (CA-39.5). The reason goes to the log, not to the client.
+ */
+export class CaseFolderUnavailableError extends BadGatewayError {
+  constructor() {
+    super(
+      'DOCUMENT_STORAGE_UNAVAILABLE',
+      'No se pudo acceder al almacenamiento en la nube. Intentá de nuevo en unos minutos.',
+    );
   }
 }

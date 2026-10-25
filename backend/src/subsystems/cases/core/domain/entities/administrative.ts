@@ -1,11 +1,14 @@
 import { ValidationError } from '@shared/domain/domain-error';
 import { JurisdictionCode } from '../value-objects/jurisdiction-code';
+import { CaseSnapshot } from './case-snapshot';
 import { Case, CaseProps } from './cases';
 
 export interface AdministrativeCaseProps extends CaseProps {
   counterparty: string | null;
   // Reason the case is started, written by the lawyer. Required here.
   subjectMatter: string;
+  // Date the administrative remedy was exhausted (D-67). Null while it was not. Only in this jurisdiction.
+  administrativeRemedyExhaustedOn: Date | null;
 }
 
 /** Administrative case. Has a counterparty and a subject matter. */
@@ -33,6 +36,15 @@ export class AdministrativeCase extends Case {
     return actDate;
   }
 
+  toSnapshot(): CaseSnapshot {
+    return {
+      ...this.commonSnapshot(),
+      counterparty: this.administrativeProps.counterparty,
+      subjectMatter: this.administrativeProps.subjectMatter,
+      administrativeRemedyExhaustedOn: this.administrativeProps.administrativeRemedyExhaustedOn,
+    };
+  }
+
   get jurisdictionCode(): JurisdictionCode {
     return JurisdictionCode.ADMINISTRATIVE;
   }
@@ -43,5 +55,9 @@ export class AdministrativeCase extends Case {
 
   get subjectMatter(): string {
     return this.administrativeProps.subjectMatter;
+  }
+
+  get administrativeRemedyExhaustedOn(): Date | null {
+    return this.administrativeProps.administrativeRemedyExhaustedOn;
   }
 }

@@ -11,7 +11,8 @@ import { RegistrationNumber } from "../../../core/domain/value-objects/registrat
  */
 type LawyerRow = {
   id: number;
-  fullName: string;
+  lastName: string;
+  firstName: string;
   registrationNumber: string;
   active: boolean;
 };
@@ -20,7 +21,8 @@ export class LawyerPrismaMapper {
   static toDomain(row: LawyerRow): Lawyer {
     return Lawyer.hydrate({
       id: row.id,
-      fullName: row.fullName,
+      lastName: row.lastName,
+      firstName: row.firstName,
       registrationNumber: RegistrationNumber.create(row.registrationNumber),
       active: row.active,
     });

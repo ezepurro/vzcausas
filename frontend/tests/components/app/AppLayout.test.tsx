@@ -1,18 +1,21 @@
 import { describe, expect, it } from 'vitest'
 import { screen, within } from '@testing-library/react'
-import { renderWithProviders } from '../../setup/render'
+import { renderWithProviders, waitForSession } from '../../setup/render'
 import { AppLayout } from '@/app/layouts/AppLayout'
 
 const ROUTES = {
     children: [
         { path: '/inicio', element: <p>Pantalla de inicio</p> },
+        { path: '/causas', element: <p>Pantalla de causas</p> },
         { path: '/usuarios', element: <p>Pantalla de usuarios</p> },
         { path: '/usuarios/:userId', element: <p>Detalle de usuario</p> },
         { path: '/causas/nueva', element: <p>Pantalla de registrar causa</p> },
     ],
 }
 
-const DAILY_WORK = ['Inicio', 'Causas', 'Vencimientos', 'Clientes', 'Modelos']
+const DAILY_WORK = ['Inicio', 'Causas', 'Clientes', 'Modelos']
+/** Lo que la Secretaría no tiene: el tablero (CA-41.13) y los modelos formales (CA-35.8). */
+const NOT_FOR_SECRETARY = ['Inicio', 'Modelos']
 /** Lo que la matriz de permisos abre a los tres perfiles (V3 §4, D-39). */
 const SHARED_ADMINISTRATION = ['Abogados', 'Estados y plazos', 'Calificaciones legales']
 /** Lo que sigue siendo sólo del Administrador. */
@@ -30,8 +33,9 @@ function railItem(label: string) {
 
 describe('AppLayout', () => {
     describe('menú según el perfil', () => {
-        it('el administrador ve el trabajo diario y la administración', () => {
+        it('el administrador ve el trabajo diario y la administración', async () => {
             renderWithProviders(<AppLayout />, { ...ROUTES, as: 'supervision', route: '/inicio' })
+            await waitForSession()
 
             for (const label of [...DAILY_WORK, ...ADMINISTRATION]) {
                 expect(railItem(label)).toBeInTheDocument()
@@ -39,16 +43,27 @@ describe('AppLayout', () => {
             expect(rail().getByText('Administración')).toBeInTheDocument()
         })
 
-        it.each([
-            ['un abogado', 'mrios'],
-            ['la secretaría', 'gestion'],
-        ])('%s ve el trabajo diario y la administración compartida, sin usuarios ni reportes', (_, username) => {
-            renderWithProviders(<AppLayout />, { ...ROUTES, as: username, route: '/inicio' })
+        it('un abogado ve el trabajo diario y la administración compartida, sin usuarios ni reportes', async () => {
+            renderWithProviders(<AppLayout />, { ...ROUTES, as: 'mrios', route: '/inicio' })
+            await waitForSession()
 
             for (const label of [...DAILY_WORK, ...SHARED_ADMINISTRATION]) {
                 expect(railItem(label)).toBeInTheDocument()
             }
             for (const label of ADMINISTRATOR_ONLY) {
+                expect(railItem(label)).not.toBeInTheDocument()
+            }
+        })
+
+        /* V4 §4: la Secretaría no tiene tablero ni modelos formales. */
+        it('la secretaría ve el trabajo diario sin inicio ni modelos, y la administración compartida', async () => {
+            renderWithProviders(<AppLayout />, { ...ROUTES, as: 'gestion', route: '/causas' })
+            await waitForSession()
+
+            for (const label of [...DAILY_WORK.filter((l) => !NOT_FOR_SECRETARY.includes(l)), ...SHARED_ADMINISTRATION]) {
+                expect(railItem(label)).toBeInTheDocument()
+            }
+            for (const label of [...NOT_FOR_SECRETARY, ...ADMINISTRATOR_ONLY]) {
                 expect(railItem(label)).not.toBeInTheDocument()
             }
         })

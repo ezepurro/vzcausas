@@ -5,7 +5,8 @@ import { FakeLawyerRepository } from "./test-support/people-fakes";
 
 describe("RegisterLawyerUseCase", () => {
   const baseCommand = {
-    fullName: "Dr. Ignacio Peralta",
+    lastName: "Peralta",
+    firstName: "Ignacio",
     registrationNumber: "1-35207",
   };
 
@@ -20,7 +21,8 @@ describe("RegisterLawyerUseCase", () => {
     const result = await useCase.execute(baseCommand);
 
     expect(result.lawyer.id).toBe(1);
-    expect(result.lawyer.fullName).toBe("Dr. Ignacio Peralta");
+    expect(result.lawyer.lastName).toBe("Peralta");
+    expect(result.lawyer.firstName).toBe("Ignacio");
     expect(result.lawyer.registrationNumber.toString()).toBe("1-35207");
     expect(result.lawyer.isActive()).toBe(true);
     expect(lawyers.byId.size).toBe(1);
@@ -31,7 +33,7 @@ describe("RegisterLawyerUseCase", () => {
     await useCase.execute(baseCommand);
 
     await expect(
-      useCase.execute({ ...baseCommand, fullName: "Otro Nombre" }),
+      useCase.execute({ ...baseCommand, lastName: "Otro", firstName: "Nombre" }),
     ).rejects.toBeInstanceOf(LawyerRegistrationAlreadyExistsError);
   });
 
@@ -43,23 +45,33 @@ describe("RegisterLawyerUseCase", () => {
     ).rejects.toBeInstanceOf(ValidationError);
   });
 
-  it("rejects an empty full name", async () => {
+  it("rejects an empty last name", async () => {
     const { useCase } = build();
 
     await expect(
-      useCase.execute({ ...baseCommand, fullName: "   " }),
-    ).rejects.toBeInstanceOf(ValidationError);
+      useCase.execute({ ...baseCommand, lastName: "   " }),
+    ).rejects.toMatchObject({ details: { field: "lastName" } });
+  });
+
+  it("rejects empty first names", async () => {
+    const { useCase } = build();
+
+    await expect(
+      useCase.execute({ ...baseCommand, firstName: "   " }),
+    ).rejects.toMatchObject({ details: { field: "firstName" } });
   });
 
   it("trims surrounding whitespace before storing", async () => {
     const { useCase } = build();
 
     const result = await useCase.execute({
-      fullName: "  Dra. Ana Gómez  ",
+      lastName: "  Gómez  ",
+      firstName: "  Ana  ",
       registrationNumber: "  2-12345  ",
     });
 
-    expect(result.lawyer.fullName).toBe("Dra. Ana Gómez");
+    expect(result.lawyer.lastName).toBe("Gómez");
+    expect(result.lawyer.firstName).toBe("Ana");
     expect(result.lawyer.registrationNumber.toString()).toBe("2-12345");
   });
 });

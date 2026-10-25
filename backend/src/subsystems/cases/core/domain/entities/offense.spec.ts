@@ -63,6 +63,24 @@ describe('Offense', () => {
     expect(offense.prescriptionExpiresOn).toEqual(day('2029-02-27'));
   });
 
+  it('no se puede pasar a datos planos sin la fecha de prescripción (V4 §3.7: no es nula)', () => {
+    expect(() => anOffense('2021-02-27', 96).toSnapshot()).toThrow('has no prescription date');
+  });
+
+  it('pasado a datos planos lleva la fecha de prescripción calculada', () => {
+    const offense = anOffense('2021-02-27', 96);
+    offense.calculatePrescription();
+
+    expect(offense.toSnapshot()).toEqual({
+      legalQualificationId: 1,
+      legalQualificationName: 'Robo calificado',
+      prescriptionMonths: 96,
+      offenseDate: day('2021-02-27'),
+      prescriptionStartsOn: day('2021-02-27'),
+      prescriptionExpiresOn: day('2029-02-27'),
+    });
+  });
+
   it('expone los datos de la calificación legal en la que se basa', () => {
     const offense = anOffense('2021-02-27', 96);
 

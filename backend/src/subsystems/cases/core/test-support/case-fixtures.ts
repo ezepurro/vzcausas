@@ -25,7 +25,7 @@ export const TODAY = day('2026-10-06');
 export const NOW = new Date('2026-10-06T15:30:00.000Z');
 
 /** What the initial state has in common: not final, active and opening no term. */
-const NEUTRAL_STATE = { terminal: false, isActive: true, timeLimitDays: 0, dayType: DayType.NONE };
+const NEUTRAL_STATE = { terminal: false, isPrescribed: false, isActive: true, timeLimitDays: 0, dayType: DayType.NONE };
 
 /** The initial state ("Iniciada") of each jurisdiction, as `legal-parameters` would hand it out. */
 export const INITIAL_STATES: Record<JurisdictionCode, ProceduralStateRef> = {
@@ -47,7 +47,7 @@ export const CLIENT: ClientRef = {
   clientSince: day('2021-03-12'),
 };
 
-export const LAWYER: LawyerRef = { id: 2, fullName: 'Dra. Malena Ríos', registrationNumber: '1-36842' };
+export const LAWYER: LawyerRef = { id: 2, lastName: 'Ríos', firstName: 'Malena', registrationNumber: '1-36842' };
 
 /** Input for the factory: a valid criminal case with SAC, no qualifications. Override what the spec needs. */
 export function aNewCaseInput(overrides: Partial<NewCaseInput> = {}): NewCaseInput {
@@ -111,6 +111,7 @@ export function aProceduralState(overrides: Partial<ProceduralStateRef> = {}): P
     isInitial: false,
     jurisdictionId: 1,
     terminal: false,
+    isPrescribed: false,
     isActive: true,
     timeLimitDays: 5,
     dayType: DayType.BUSINESS,
@@ -134,6 +135,15 @@ export const ARCHIVED = aProceduralState({
   dayType: DayType.NONE,
 });
 export const DEACTIVATED = aProceduralState({ id: 25, name: 'Estado dado de baja', isActive: false });
+/** The system state of HU33: terminal, but never the target of an act (D-69). */
+export const PRESCRIBED = aProceduralState({
+  id: 26,
+  name: 'Prescripta',
+  terminal: true,
+  isPrescribed: true,
+  timeLimitDays: 0,
+  dayType: DayType.NONE,
+});
 export const ADMINISTRATIVE_STATE = aProceduralState({ id: 31, name: 'Presentación de descargo', jurisdictionId: 2, timeLimitDays: 10 });
 
 /** The states of the table that the specs of the procedural acts share (besides the initial ones). */
@@ -143,6 +153,7 @@ export const STATES_TABLE: ProceduralStateRef[] = [
   WITHOUT_TERM,
   ARCHIVED,
   DEACTIVATED,
+  PRESCRIBED,
   ADMINISTRATIVE_STATE,
 ];
 
@@ -195,8 +206,13 @@ export function anAct(overrides: Partial<ProceduralActProps> = {}): ProceduralAc
  * A criminal case that is already past the initial state: it is in the state of
  * its current act (or in `currentStateId`, if there is no act, for a case in a final state).
  */
-export function aCaseInState(options: { currentAct?: ProceduralAct; currentStateId?: number } = {}): Case {
+export function aCaseInState(
+  options: { currentAct?: ProceduralAct; currentStateId?: number; currentActNotLoaded?: boolean } = {},
+): Case {
   const act = options.currentAct;
+  const currentStateId = act ? act.proceduralStateId : (options.currentStateId ?? INITIAL_STATES.CRIMINAL.id);
+  // The table of the specs tells whether that state closes the case; a hand-written state never does.
+  const currentStateTerminal = STATES_TABLE.find((state) => state.id === currentStateId)?.terminal ?? false;
   return CriminalCase.hydrate({
     id: 1,
     sacNumber: '12345678',
@@ -208,15 +224,19 @@ export function aCaseInState(options: { currentAct?: ProceduralAct; currentState
     clientId: CLIENT.id,
     responsibleLawyerId: LAWYER.id,
     startDate: day('2026-09-01'),
-    currentStateId: act ? act.proceduralStateId : (options.currentStateId ?? INITIAL_STATES.CRIMINAL.id),
+    courtFeePaid: false,
+    currentStateId,
     currentCustomState: act ? act.customState : null,
     currentProceduralActId: act ? act.id : null,
-    proceduralActs: act ? [act] : [],
+    currentStateTerminal,
+    proceduralActs: act && !options.currentActNotLoaded ? [act] : [],
     active: true,
     createdByUserId: 5,
     createdAt: NOW,
     updatedAt: NOW,
     offenses: [],
+    clientDetained: false,
+    prescriptionDeclaration: null,
   });
 }
 

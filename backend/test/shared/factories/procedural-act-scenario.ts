@@ -27,7 +27,9 @@ import { createUser } from './user.factory';
  */
 export async function resetProceduralActData(): Promise<void> {
   const prisma = getPrisma();
+  await prisma.sentNotification.deleteMany(); // referencia a causas; la deja `daily-run`
   await prisma.offense.deleteMany();
+  await prisma.interruptiveAct.deleteMany(); // HU31: referencia a causas, usuarios y abogados
   await prisma.case.updateMany({ data: { currentProceduralActId: null } });
   await prisma.proceduralAct.deleteMany();
   await prisma.case.deleteMany();
@@ -68,6 +70,15 @@ export async function setUpProceduralActScenario() {
     dayType: 'NONE',
     terminal: true,
   });
+  // El estado de sistema de HU33: terminal, pero no es destino de un acto (D-69).
+  const prescribed = await createProceduralState({
+    jurisdiction: 'CRIMINAL',
+    name: 'Prescripta',
+    timeLimitDays: 0,
+    dayType: 'NONE',
+    terminal: true,
+    isPrescribed: true,
+  });
   const deactivated = await createProceduralState({
     jurisdiction: 'CRIMINAL',
     name: 'Estado dado de baja',
@@ -93,7 +104,7 @@ export async function setUpProceduralActScenario() {
 
   // Quién es el abogado responsable, y otro que no lo es. La causa guarda quién
   // registró cada acto (FK a users) y el responsable (FK a lawyers).
-  const lawyer = await createLawyer({ fullName: 'Dra. Malena Ríos' });
+  const lawyer = await createLawyer({ lastName: 'Ríos', firstName: 'Malena' });
   const user = await createUser({ roles: ['LAWYER'], lawyerId: lawyer.id });
   const otherLawyer = await createLawyer();
   const otherUser = await createUser({ roles: ['LAWYER'], lawyerId: otherLawyer.id });
@@ -108,6 +119,7 @@ export async function setUpProceduralActScenario() {
       tenConsecutiveDays,
       withoutTerm,
       terminal,
+      prescribed,
       deactivated,
       administrativeInitial,
       administrative,

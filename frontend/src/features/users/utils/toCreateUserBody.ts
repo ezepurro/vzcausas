@@ -15,7 +15,8 @@ import { isCreatingLawyer, needsLawyer } from '@/features/users/utils/lawyerLink
 export function toCreateUserBody(values: UserFormValues, roles: Role[]): CreateUserBody {
     return {
         username: values.username.trim(),
-        fullName: values.fullName.trim(),
+        lastName: values.lastName.trim(),
+        firstName: values.firstName.trim(),
         email: values.email.trim(),
         /* La contraseña NO se recorta: un espacio al principio o al final es
            parte de la contraseña, no basura de tipeo. */
@@ -45,7 +46,10 @@ function lawyerPart(
     if (isCreatingLawyer(values.lawyerMode)) {
         return {
             lawyer: {
-                fullName: values.lawyerFullName.trim(),
+                /* La ficha nueva lleva el apellido y los nombres del usuario:
+                   es la misma persona y no se cargan dos veces (TESTING.md §11). */
+                lastName: values.lastName.trim(),
+                firstName: values.firstName.trim(),
                 registrationNumber: values.registrationNumber.trim(),
             },
         }

@@ -149,13 +149,110 @@
 .vz-summary__caption-action { margin: 8px 0 16px; }
 /* Separa un bloque del anterior dentro del panel ("Para poder registrar"). */
 .vz-summary__block { margin-top: 18px; }
+/* "Carpeta en Drive": la ubicación puede ser larga y no tiene dónde cortar. */
+.vz-summary__folder {
+  padding: 10px 0;
+  border-top: 1px solid var(--vz-border);
+  font-size: 13px;
+}
+.vz-summary__folder-label { margin-bottom: 4px; color: var(--vz-muted); }
+.vz-summary__folder-path {
+  font-family: var(--vz-font-mono);
+  font-size: 12px;
+  word-break: break-all;
+  color: var(--vz-ink);
+}
 
-/* Por ahora el detalle tiene un solo panel bajo el encabezado: la tarjeta del
-   cliente. Los que la acompañan en el prototipo —"Ciclo de vida de la causa"
-   (HU27) y "Documentación" (HU39)— son de otro sprint. Hasta que lleguen, la
-   tarjeta conserva el ancho que va a tener en la columna lateral en vez de
-   estirarse a todo el ancho de la página. */
-.vz-case-detail__panels { max-width: 440px; margin-top: 16px; }
+/* Aclaración bajo el texto de una casilla del alta (carpeta y modelos). */
+.vz-check__note { display: block; margin-top: 2px; font-size: 12px; color: var(--vz-faint); }
+.vz-check:has(input:disabled) { cursor: not-allowed; color: var(--vz-muted); }
+
+/* ─────────── acciones sobre la causa ─────────── */
+/* "Sobre la causa", al pie del encabezado: acto interruptivo y marcar
+   prescripta, sólo en el penal (HU31, HU33). */
+.vz-case-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 15px;
+  border-top: 1px solid var(--vz-border);
+}
+.vz-case-actions__label {
+  margin-right: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--vz-muted);
+}
+
+/* ─────────── cuerpo del detalle ─────────── */
+/* La línea de vida a la izquierda y, al costado, las tarjetas de la causa
+   (Cliente, Datos del fuero). En pantallas angostas van una debajo de la otra. */
+.vz-case-detail {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(300px, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+.vz-case-detail__aside { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+
+@media (max-width: 1180px) {
+  .vz-case-detail { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ─────────── línea de vida de la causa ─────────── */
+/* Cada movimiento cuelga de una línea vertical, con un punto cuyo color dice
+   qué es: plazo abierto (bronce), vencido o de hoy (rojo), acto interruptivo
+   (bronce), pase a prescripta (rojo). */
+.vz-timeline { margin: 0; padding: 0; list-style: none; }
+.vz-timeline__item {
+  position: relative;
+  margin-left: 4px;
+  padding: 0 0 22px 24px;
+  border-left: 1px solid var(--vz-border);
+}
+.vz-timeline__item:last-child { padding-bottom: 0; border-left-color: transparent; }
+.vz-timeline__item::before {
+  content: '';
+  position: absolute;
+  left: -5.5px;
+  top: 4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--vz-surface);
+  border: 2px solid var(--vz-border-strong);
+}
+.vz-timeline__item--open::before,
+.vz-timeline__item--interruptive::before { border-color: var(--vz-warn-mark); }
+.vz-timeline__item--overdue::before,
+.vz-timeline__item--prescribed::before { border-color: var(--vz-danger-action); }
+.vz-timeline__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.vz-timeline__title { font-size: 14px; font-weight: 600; line-height: 1.35; }
+.vz-timeline__date {
+  font-family: var(--vz-font-mono);
+  font-size: 12px;
+  color: var(--vz-faint);
+  white-space: nowrap;
+}
+.vz-timeline__sub { margin-top: 4px; font-size: 12.5px; line-height: 1.45; color: var(--vz-muted); }
+.vz-timeline__tags { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin-top: 8px; }
+.vz-timeline__tag-note { font-size: 12px; font-weight: 600; color: var(--vz-warn); }
+.vz-timeline__term { font-size: 12px; color: var(--vz-muted); }
+.vz-timeline__notes { margin-top: 7px; font-size: 12.5px; line-height: 1.5; color: var(--vz-muted); }
+.vz-timeline__by { margin-top: 5px; font-size: 12px; color: var(--vz-faint); }
+.vz-timeline__empty { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: 6px 0; }
+.vz-timeline__empty-title { font-size: 14px; font-weight: 600; }
+.vz-timeline__empty-text { margin: 0; max-width: 520px; font-size: 13px; line-height: 1.5; color: var(--vz-muted); }
 
 /* ─────────── teléfono ─────────── */
 @media (max-width: 720px) {
@@ -171,4 +268,114 @@
   .vz-picker__date { flex: 1 1 140px; }
 
   .vz-due__date { font-size: 20px; }
+}
+
+/* ─────────── carpeta en Drive (detalle) ─────────── */
+.vz-case-folder { display: flex; flex-direction: column; gap: 12px; }
+.vz-case-folder__head { display: flex; align-items: center; gap: 12px; min-width: 0; }
+/* El ícono toma el tono del estado: verde creada, gris sin carpeta, rojo con error. */
+.vz-case-folder__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--vz-r-sm);
+  background: var(--vz-sunken);
+  color: var(--vz-muted);
+}
+.vz-case-folder--created .vz-case-folder__icon { background: var(--vz-primary-soft); color: var(--vz-primary-hi); }
+/* Mientras la carpeta no existe, el ícono es un lugar reservado: borde
+   punteado y sin relleno, con el color del estado. Así no se confunde con
+   una carpeta ya creada. */
+.vz-case-folder--draft .vz-case-folder__icon {
+  border: 1.5px dashed var(--vz-border-strong);
+  background: none;
+  color: var(--vz-faint);
+}
+.vz-case-folder--draft.vz-case-folder--creating .vz-case-folder__icon,
+.vz-case-folder--draft.vz-case-folder--requesting .vz-case-folder__icon { border-color: var(--vz-primary); color: var(--vz-primary); }
+.vz-case-folder--draft.vz-case-folder--error .vz-case-folder__icon { border-color: var(--vz-danger-bd); color: var(--vz-danger); }
+.vz-case-folder--draft .vz-case-folder__name { font-weight: 600; color: var(--vz-muted); }
+.vz-case-folder__where-label { color: var(--vz-faint); }
+.vz-case-folder__id { min-width: 0; }
+/* La carátula puede ser larga: corta entre palabras y a lo sumo en tres renglones. */
+.vz-case-folder__name {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--vz-ink);
+}
+.vz-case-folder__where { margin-top: 3px; font-size: 12.5px; color: var(--vz-muted); }
+.vz-case-folder__sep { margin: 0 6px; color: var(--vz-faint); }
+.vz-case-folder__status { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.vz-case-folder__meta { font-size: 12.5px; color: var(--vz-muted); }
+.vz-case-folder__meta + .vz-case-folder__meta::before { content: "·"; margin-right: 10px; color: var(--vz-faint); }
+.vz-case-folder__note { margin: 0; font-size: 13px; line-height: 1.45; color: var(--vz-muted); }
+.vz-case-folder__error {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--vz-danger-bd);
+  border-radius: var(--vz-r-sm);
+  background: var(--vz-danger-bg);
+  color: var(--vz-danger);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.vz-case-folder__error svg { flex: 0 0 auto; margin-top: 1px; }
+.vz-case-folder__live { display: flex; flex-direction: column; gap: 12px; }
+.vz-case-folder__live:empty { display: none; }
+
+/* Mientras se pide o se crea: el ícono y el punto del estado laten, y una
+   barra recorre la tarjeta para que se vea que algo pasa de fondo. */
+.vz-case-folder--creating .vz-dot,
+.vz-case-folder--requesting .vz-dot,
+.vz-case-folder--requesting .vz-case-folder__icon { animation: vz-folder-pulse 1.4s ease-in-out infinite; }
+@keyframes vz-folder-pulse { 50% { opacity: .35; } }
+.vz-case-folder__progress {
+  position: relative;
+  height: 3px;
+  overflow: hidden;
+  border-radius: var(--vz-r-pill);
+  background: var(--vz-primary-soft);
+}
+.vz-case-folder__progress::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 40%;
+  border-radius: inherit;
+  background: var(--vz-primary);
+  animation: vz-folder-progress 1.2s ease-in-out infinite;
+}
+@keyframes vz-folder-progress {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(250%); }
+}
+/* El ícono del botón mientras espera: un aro que gira. */
+.vz-case-folder__spinner {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 13px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: vz-folder-spin .7s linear infinite;
+}
+@keyframes vz-folder-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .vz-case-folder--creating .vz-dot,
+  .vz-case-folder--requesting .vz-dot,
+  .vz-case-folder--requesting .vz-case-folder__icon,
+  .vz-case-folder__spinner { animation: none; }
+  .vz-case-folder__progress::before { animation: none; width: 100%; opacity: .5; }
 }

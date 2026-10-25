@@ -56,6 +56,9 @@ class FakeUserRepository implements UserRepository {
   async existsActiveByLawyerId(): Promise<boolean> {
     throw new Error('not used in these specs');
   }
+  async findActiveByLawyerId(): Promise<User | null> {
+    throw new Error('not used in these specs');
+  }
 }
 
 class FakeRoleRepository implements RoleRepository {
@@ -179,7 +182,8 @@ async function makeUser(
       id: overrides.id ?? 1,
       username: Username.create(overrides.username ?? 'fvazquez'),
       plainPassword: 'password-123',
-      fullName: 'Fernando Vázquez',
+      lastName: 'Vázquez',
+      firstName: 'Fernando',
       email: Email.create('fvazquez@vazquezzarate.com'),
       roleIds: overrides.roleIds ?? [1],
       lawyerId: overrides.lawyerId ?? null,

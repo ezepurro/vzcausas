@@ -965,3 +965,70 @@ describe('Permisos de /api/v1/procedural-states con login real', () => {
     },
   );
 });
+
+/*
+ * HU33 CA-33.13 y D-53: "Prescripta" es un estado de sistema del fuero penal.
+ * Aparece en el listado, pero `PATCH` y `DELETE` responden 422
+ * PROCEDURAL_STATE_PROTECTED, y no se puede registrar otro con su nombre.
+ * Escrito desde `.claude/plans/tests-hu33-registrar-prescripcion.md` (D5).
+ */
+describe('el estado de sistema "Prescripta" (HU33, CA-33.13)', () => {
+  const PROTECTED_MESSAGE = 'El estado Prescripta es un estado del sistema y no puede modificarse ni darse de baja.';
+
+  const aPrescribedState = () =>
+    createProceduralState({
+      jurisdiction: 'CRIMINAL',
+      name: 'Prescripta',
+      timeLimitDays: 0,
+      dayType: 'NONE',
+      terminal: true,
+      isPrescribed: true,
+    });
+
+  const stored = (stateId: number) => getPrisma().proceduralState.findUniqueOrThrow({ where: { stateId } });
+
+  it('PATCH responde 422 PROCEDURAL_STATE_PROTECTED y no cambia nada', async () => {
+    const prescribed = await aPrescribedState();
+
+    const res = await request(app.getHttpServer())
+      .patch(`${URL}/${prescribed.stateId}`)
+      .set(writer())
+      .send({ name: 'Prescripción', timeLimitDays: 5, dayType: 'BUSINESS' });
+
+    expectError(res, 422, 'PROCEDURAL_STATE_PROTECTED');
+    expect(res.body.error.message).toBe(PROTECTED_MESSAGE);
+    expect(await stored(prescribed.stateId)).toMatchObject({
+      name: 'Prescripta',
+      timeLimitDays: 0,
+      dayType: 'NONE',
+      terminal: true,
+      isActive: true,
+    });
+  });
+
+  it('DELETE responde 422 PROCEDURAL_STATE_PROTECTED y el estado sigue en el listado del fuero', async () => {
+    const prescribed = await aPrescribedState();
+
+    const res = await request(app.getHttpServer()).delete(`${URL}/${prescribed.stateId}`).set(writer());
+
+    expectError(res, 422, 'PROCEDURAL_STATE_PROTECTED');
+    expect(res.body.error.message).toBe(PROTECTED_MESSAGE);
+    expect((await stored(prescribed.stateId)).isActive).toBe(true);
+    const listed = expectPaginated<ProceduralStateBody>(
+      await request(app.getHttpServer()).get(URL).query({ jurisdiction: 'CRIMINAL' }).set(reader()),
+    );
+    expect(listed.map((state) => state.name)).toContain('Prescripta');
+  });
+
+  it('registrar otro "Prescripta" en el fuero penal responde 409 y no crea otro (D-53)', async () => {
+    await aPrescribedState();
+
+    const res = await request(app.getHttpServer())
+      .post(URL)
+      .set(writer())
+      .send(aProceduralStateBody({ name: 'Prescripta', timeLimitDays: 0, dayType: 'NONE', terminal: true }));
+
+    expectError(res, 409, 'PROCEDURAL_STATE_ALREADY_EXISTS');
+    expect(await getPrisma().proceduralState.count({ where: { name: 'Prescripta' } })).toBe(1);
+  });
+});

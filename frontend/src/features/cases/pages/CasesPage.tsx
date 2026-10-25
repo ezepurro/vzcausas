@@ -4,6 +4,7 @@ import { isApiError } from '@/shared/api/ApiError'
 import { Button, Icon, PageHeader, Pagination, Panel, SearchInput } from '@/shared/components/ui'
 import type { SelectOption, SelectOptionGroup } from '@/shared/components/forms'
 import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue'
+import { formatPersonName } from '@/shared/lib/personName'
 import { useLawyers } from '@/features/lawyers'
 import {
     JURISDICTION_LABELS,
@@ -72,7 +73,7 @@ export function CasesPage() {
         const customStates = useCaseCustomStates(jurisdiction === '' ? undefined : jurisdiction).data ?? []
         const lawyerOptions: SelectOption[] = (lawyersQuery.data?.data ?? []).map(lawyer => ({
             value: String(lawyer.id),
-            label: `${lawyer.fullName}`,
+            label: formatPersonName(lawyer),
     }))
         const shownJurisdictions: readonly Jurisdiction[] = jurisdiction === '' ? JURISDICTIONS : [jurisdiction]
         const stateOptions: SelectOptionGroup[] = [
@@ -176,11 +177,7 @@ export function CasesPage() {
                     />
                 }
             >
-                {query.isPending ? (
-                    <div className="vz-empty">
-                        <div className="vz-empty__title">Cargando causas…</div>
-                    </div>
-                ) : query.isError ? (
+                {query.isError ? (
                     <div className="vz-empty">
                         <div className="vz-empty__title">No se pudieron cargar las causas</div>
                         <div className="vz-empty__text">
@@ -189,6 +186,8 @@ export function CasesPage() {
                     </div>
                 ) : (
                     <CasesTable
+                        loading={query.isPending}
+                        busy={query.isPlaceholderData}
                         rows={rows}
                         onOpen={(c) => navigate(`/causas/${c.id}`)}
                         empty={

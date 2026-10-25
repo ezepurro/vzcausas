@@ -1,7 +1,8 @@
 /** Shape of the `lawyer` field embedded in a user response (§3.2). */
 export type LawyerSummaryDto = {
   id: number;
-  fullName: string;
+  lastName: string;
+  firstName: string;
   registrationNumber: string;
 };
 
@@ -13,7 +14,8 @@ export type LawyerSummaryDto = {
 export class UserResponseDto {
   id!: number;
   username!: string;
-  fullName!: string;
+  lastName!: string;
+  firstName!: string;
   email!: string;
   roles!: string[];
   lawyer!: LawyerSummaryDto | null;

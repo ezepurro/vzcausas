@@ -20,13 +20,19 @@ import {
     errorBody,
     itemBody,
     listBody,
+    type AdministratorDashboard,
     type Case,
+    type CaseFolder,
     type Client,
     type DeadlinePreview,
+    type DocumentTemplate,
     type ErrorBody,
+    type InterruptiveAct,
+    type LawyerDashboard,
     type Lawyer,
     type LegalQualification,
     type ProceduralAct,
+    type TimelineEntry,
     type ProceduralState,
     type Role,
     type Session,
@@ -41,6 +47,18 @@ export interface MockResponse<T = unknown> {
     body: T;
     /** Sólo para lo que el contrato pide como encabezado, ej. `Retry-After`. */
     headers?: Record<string, string>;
+    /**
+     * Una respuesta que no es JSON: el archivo de un modelo formal (V4 §5.1,
+     * "GET — Archivo"). Con `file`, `body` se ignora.
+     */
+    file?: MockFile;
+}
+
+/** Un archivo que viaja como respuesta, con su tipo y su nombre. */
+export interface MockFile {
+    content: string;
+    contentType: string;
+    fileName: string;
 }
 
 function response<T>(status: number, body: T): MockResponse<T> {
@@ -109,6 +127,17 @@ export const ERRORS = {
         jurisdiction: 'No existe un fuero procesal con ese nombre.',
     }),
 
+    invalidActId: errorBody(
+        'INVALID_PATH_PARAMETER',
+        'El identificador del acto procesal no es válido.',
+        { actId: 'Debe ser un número entero válido.' },
+    ),
+    invalidDocumentTemplateId: errorBody(
+        'INVALID_PATH_PARAMETER',
+        'El identificador del modelo formal no es válido.',
+        { templateId: 'Debe ser un número entero válido.' },
+    ),
+
     /* ---- 401 ---- */
     /**
      * Credenciales incorrectas. Sólo en el login. El mismo mensaje exista o
@@ -131,6 +160,16 @@ export const ERRORS = {
         'FORBIDDEN',
         'Solo el abogado responsable de la causa puede registrar actos procesales.',
     ),
+    /** Registro de un acto interruptivo (V4 §3.9). */
+    forbiddenNotResponsibleInterruptive: errorBody(
+        'FORBIDDEN',
+        'Solo el abogado responsable de la causa puede registrar actos interruptivos.',
+    ),
+    /** Modelos formales, configuración de avisos y marca de prescripción (V4 §4). */
+    forbiddenAdministratorOrLawyer: errorBody(
+        'FORBIDDEN',
+        'Se requiere el rol ADMINISTRATOR o LAWYER para realizar esta operación.',
+    ),
 
     /* ---- 404 ---- */
     userNotFound: errorBody('USER_NOT_FOUND', 'No se encontró el usuario solicitado.'),
@@ -145,6 +184,11 @@ export const ERRORS = {
     ),
     clientNotFound: errorBody('CLIENT_NOT_FOUND', 'No se encontró el cliente solicitado.'),
     caseNotFound: errorBody('CASE_NOT_FOUND', 'No se encontró la causa solicitada.'),
+    proceduralActNotFound: errorBody('PROCEDURAL_ACT_NOT_FOUND', 'No se encontró el acto procesal solicitado.'),
+    documentTemplateNotFound: errorBody(
+        'DOCUMENT_TEMPLATE_NOT_FOUND',
+        'No se encontró el modelo formal solicitado.',
+    ),
     resourceNotFound: errorBody('RESOURCE_NOT_FOUND', 'No se encontró el recurso solicitado.'),
 
     /* ---- 409 ---- */
@@ -191,6 +235,13 @@ export const ERRORS = {
         'CASE_SAC_ALREADY_EXISTS',
         'Ya existe una causa registrada con ese número de SAC.',
     ),
+    documentTemplateNameTaken: errorBody(
+        'DOCUMENT_TEMPLATE_ALREADY_EXISTS',
+        'Ya existe un modelo formal con ese nombre.',
+    ),
+
+    /* ---- 413 ---- */
+    fileTooLarge: errorBody('FILE_TOO_LARGE', 'El archivo supera el tamaño máximo de 10 MB.'),
 
     /* ---- 422 ---- */
     invalidCurrentPassword: errorBody(
@@ -200,6 +251,24 @@ export const ERRORS = {
     caseInTerminalState: errorBody(
         'CASE_IN_TERMINAL_STATE',
         'La causa se encuentra en un estado terminal y no admite actos procesales.',
+    ),
+    /** El mismo código, para el acto interruptivo y la marca de prescripción (V4 §7.4). */
+    caseInTerminalStateOperation: errorBody(
+        'CASE_IN_TERMINAL_STATE',
+        'La causa se encuentra en un estado terminal y no admite esta operación.',
+    ),
+    prescriptionNotApplicable: errorBody(
+        'PRESCRIPTION_NOT_APPLICABLE',
+        'La prescripción solo aplica a las causas del fuero penal.',
+    ),
+    proceduralStateProtected: errorBody(
+        'PROCEDURAL_STATE_PROTECTED',
+        'El estado Prescripta es un estado del sistema y no puede modificarse ni darse de baja.',
+    ),
+    /** Marcar prescripta una causa penal sin calificaciones (V4 D-74). */
+    prescriptionWithoutQualifications: errorBody(
+        'PRESCRIPTION_NOT_APPLICABLE',
+        'La causa no tiene calificaciones legales: no puede prescribir.',
     ),
 
     /* ---- 429 ---- */
@@ -216,6 +285,12 @@ export const ERRORS = {
 
     /* ---- 500 ---- */
     internalError: errorBody('INTERNAL_SERVER_ERROR', 'Ocurrió un error interno inesperado.'),
+
+    /* ---- 502 ---- */
+    documentStorageUnavailable: errorBody(
+        'DOCUMENT_STORAGE_UNAVAILABLE',
+        'No se pudo acceder al almacenamiento en la nube. Intentá de nuevo en unos minutos.',
+    ),
 } satisfies Record<string, ErrorBody>;
 
 /** `403 FORBIDDEN` con el rol que exige la operación. */
@@ -253,10 +328,10 @@ export function businessRuleViolation(operation: BusinessRuleOperation): ErrorBo
 const EXAMPLE_USER: User = {
     id: 4,
     username: 'iperalta',
-    fullName: 'Ignacio Peralta',
+    lastName: 'Peralta', firstName: 'Ignacio',
     email: 'iperalta@vazquezzarate.com',
     roles: ['LAWYER'],
-    lawyer: { id: 4, fullName: 'Dr. Ignacio Peralta', registrationNumber: '1-35207' },
+    lawyer: { id: 4, lastName: 'Peralta', firstName: 'Ignacio', registrationNumber: '1-35207' },
     lastLoginAt: '2026-09-18T18:20:00-03:00',
     active: true,
 };
@@ -264,10 +339,10 @@ const EXAMPLE_USER: User = {
 const EXAMPLE_ADMIN: User = {
     id: 1,
     username: 'fvazquez',
-    fullName: 'Fernando G. Vázquez',
+    lastName: 'Vázquez', firstName: 'Fernando G.',
     email: 'fvazquez@vazquezzarate.com',
     roles: ['ADMINISTRATOR', 'LAWYER'],
-    lawyer: { id: 1, fullName: 'Dr. Fernando G. Vázquez', registrationNumber: '1-28114' },
+    lawyer: { id: 1, lastName: 'Vázquez', firstName: 'Fernando G.', registrationNumber: '1-28114' },
     lastLoginAt: '2026-09-19T08:12:00-03:00',
     active: true,
 };
@@ -276,7 +351,7 @@ const EXAMPLE_ADMIN: User = {
 const EXAMPLE_SECRETARY: User = {
     id: 8,
     username: 'gestion',
-    fullName: 'Gestión Estudio',
+    lastName: 'Estudio', firstName: 'Gestión',
     email: 'gestion@vazquezzarate.com',
     roles: ['SECRETARY'],
     lawyer: null,
@@ -294,17 +369,17 @@ const EXAMPLE_SESSION: Session = {
 const EXAMPLE_CREATED_USER: User = {
     id: 23,
     username: 'jperez',
-    fullName: 'Juan Pérez',
+    lastName: 'Pérez', firstName: 'Juan',
     email: 'jperez@vazquezzarate.com',
     roles: ['LAWYER'],
-    lawyer: { id: 8, fullName: 'Dr. Juan Pérez', registrationNumber: '1-42088' },
+    lawyer: { id: 8, lastName: 'Pérez', firstName: 'Juan', registrationNumber: '1-42088' },
     lastLoginAt: null,
     active: true,
 };
 
 const EXAMPLE_LAWYER: Lawyer = {
     id: 4,
-    fullName: 'Dr. Ignacio Peralta',
+    lastName: 'Peralta', firstName: 'Ignacio',
     registrationNumber: '1-35207',
     activeCases: 2,
     active: true,
@@ -312,7 +387,7 @@ const EXAMPLE_LAWYER: Lawyer = {
 
 const EXAMPLE_CREATED_LAWYER: Lawyer = {
     id: 8,
-    fullName: 'Dr. Juan Pérez',
+    lastName: 'Pérez', firstName: 'Juan',
     registrationNumber: '1-42088',
     activeCases: 0,
     active: true,
@@ -325,7 +400,7 @@ const EXAMPLE_STATE: ProceduralState = {
     timeLimitDays: 5,
     dayType: 'BUSINESS',
     terminal: false,
-    activeCases: 1,
+    caseCount: 1,
     active: true,
 };
 
@@ -337,7 +412,7 @@ const EXAMPLE_TERMINAL_STATE: ProceduralState = {
     timeLimitDays: 0,
     dayType: 'NONE',
     terminal: true,
-    activeCases: 0,
+    caseCount: 0,
     active: true,
 };
 
@@ -417,6 +492,16 @@ const EXAMPLE_CASE: Case = {
     instructorExtension: '214',
     counterparty: null,
     subjectMatter: null,
+    clientDetained: false,
+    injunctionGranted: null,
+    harmfulActDate: null,
+    harmfulActRenews: null,
+    harmfulActRenewalDays: null,
+    harmfulActTermDays: null,
+    harmfulActTermDayType: null,
+    harmfulActDeadline: null,
+    administrativeRemedyExhaustedOn: null,
+    courtFeePaid: false,
     client: {
         id: 1,
         lastName: 'GÓMEZ',
@@ -426,17 +511,29 @@ const EXAMPLE_CASE: Case = {
         email: 'afgomez@gmail.com',
         clientSince: '2021-03-12',
     },
-    responsibleLawyer: { id: 3, fullName: 'Dra. Malena Ríos', registrationNumber: '1-36842' },
+    responsibleLawyer: { id: 3, lastName: 'Ríos', firstName: 'Malena', registrationNumber: '1-36842' },
     legalQualifications: [
         {
             id: 1,
             name: 'Robo calificado — art. 167 inc. 2 CP',
             prescriptionMonths: 96,
             offenseDate: '2021-02-27',
-            prescriptionStartsOn: '2021-02-27',
-            prescriptionExpiresOn: '2029-02-27',
+            // El acto interruptivo del 04/07/2024 reinició el cómputo (V4 §3.9).
+            prescriptionStartsOn: '2024-07-04',
+            prescriptionExpiresOn: '2032-07-04',
         },
     ],
+    prescription: {
+        legalQualificationId: 1,
+        legalQualificationName: 'Robo calificado — art. 167 inc. 2 CP',
+        startsOn: '2024-07-04',
+        expiresOn: '2032-07-04',
+        elapsedPercentage: 27,
+        alert: false,
+        expired: false,
+        lastInterruptiveActDate: '2024-07-04',
+    },
+    prescriptionDeclaration: null,
     startDate: '2021-03-12',
     // El vencimiento es parte del estado actual: lo abrió el acto que la llevó a él (D-35).
     currentState: {
@@ -449,7 +546,23 @@ const EXAMPLE_CASE: Case = {
         businessDaysRemaining: 1,
         manuallyAdjusted: false,
     },
+    folder: {
+        status: 'CREATED',
+        url: 'https://drive.google.com/drive/folders/vz-causa-1',
+        path: '/VZ Causas/Ríos, Malena/Penal/GÓMEZ, Ariel Fernando p.s.a. Robo calificado',
+        templatesCopied: 6,
+        templatesPending: 0,
+    },
     active: true,
+};
+
+/** La carpeta cuando el almacenamiento en la nube no respondió (V4 D-60). */
+const EXAMPLE_ERROR_FOLDER: CaseFolder = {
+    status: 'ERROR',
+    url: null,
+    path: '/VZ Causas/Ríos, Malena/Penal/GÓMEZ, Ariel Fernando p.s.a. Robo calificado',
+    templatesCopied: 0,
+    templatesPending: 6,
 };
 
 /**
@@ -461,6 +574,33 @@ const EXAMPLE_CREATED_CASE: Case = {
     id: 24,
     sacNumber: '14200315',
     startDate: '2026-09-29',
+    legalQualifications: [
+        {
+            id: 1,
+            name: 'Robo calificado — art. 167 inc. 2 CP',
+            prescriptionMonths: 96,
+            offenseDate: '2021-02-27',
+            prescriptionStartsOn: '2021-02-27',
+            prescriptionExpiresOn: '2029-02-27',
+        },
+    ],
+    prescription: {
+        legalQualificationId: 1,
+        legalQualificationName: 'Robo calificado — art. 167 inc. 2 CP',
+        startsOn: '2021-02-27',
+        expiresOn: '2029-02-27',
+        elapsedPercentage: 69,
+        alert: false,
+        expired: false,
+        lastInterruptiveActDate: null,
+    },
+    folder: {
+        status: 'CREATED',
+        url: 'https://drive.google.com/drive/folders/vz-causa-24',
+        path: '/VZ Causas/Ríos, Malena/Penal/GÓMEZ, Ariel Fernando p.s.a. Robo calificado',
+        templatesCopied: 6,
+        templatesPending: 0,
+    },
     currentState: {
         proceduralStateId: null,
         name: 'Iniciada',
@@ -491,10 +631,142 @@ const EXAMPLE_ACT: ProceduralAct = {
         computedDueDate: '2026-09-16',
         dueDate: '2026-09-16',
         manuallyAdjusted: false,
+        manualTimeLimitDays: null,
     },
-    registeredBy: { id: 3, fullName: 'Malena Ríos' },
+    registeredBy: { id: 3, lastName: 'Ríos', firstName: 'Malena' },
     registeredAt: '2026-09-09T11:42:00-03:00',
 };
+
+/** La causa del prototipo con la alerta activa, ya marcada como prescripta (V4 §3.7). */
+const EXAMPLE_PRESCRIBED_CASE: Case = {
+    ...EXAMPLE_CASE,
+    id: 4,
+    sacNumber: '11845620',
+    caption: 'ACOSTA, Jonathan E. p.s.a. Infracción Ley 23.737',
+    legalQualifications: [
+        {
+            id: 2,
+            name: 'Infracción Ley 23.737 — art. 5 inc. c',
+            prescriptionMonths: 72,
+            offenseDate: '2022-01-19',
+            prescriptionStartsOn: '2022-01-19',
+            prescriptionExpiresOn: '2028-01-19',
+        },
+    ],
+    prescription: {
+        legalQualificationId: 2,
+        legalQualificationName: 'Infracción Ley 23.737 — art. 5 inc. c',
+        startsOn: '2022-01-19',
+        expiresOn: '2028-01-19',
+        elapsedPercentage: 78,
+        alert: true,
+        expired: false,
+        lastInterruptiveActDate: null,
+    },
+    prescriptionDeclaration: {
+        prescriptionDate: '2026-09-15',
+        resolution: 'Sentencia N° 214 del Juzgado de Control N° 3',
+        grounds: 'Transcurrió el plazo del art. 62 inc. 2 CP sin actos interruptivos.',
+        registeredBy: { id: 1, lastName: 'Vázquez', firstName: 'Fernando G.' },
+        registeredAt: '2026-09-15T12:20:00-03:00',
+    },
+    currentState: {
+        proceduralStateId: 10,
+        name: 'Prescripta',
+        custom: false,
+        initial: false,
+        proceduralActId: null,
+        dueDate: null,
+        businessDaysRemaining: null,
+        manuallyAdjusted: false,
+    },
+    folder: null,
+};
+
+const EXAMPLE_INTERRUPTIVE_ACT: InterruptiveAct = {
+    id: 3,
+    caseId: 1,
+    name: 'Citación a juicio',
+    actDate: '2026-09-15',
+    notes: 'Decreto de fs. 212.',
+    registeredBy: { id: 3, lastName: 'Ríos', firstName: 'Malena' },
+    registeredAt: '2026-09-15T10:30:00-03:00',
+};
+
+const EXAMPLE_TEMPLATE: DocumentTemplate = {
+    id: 2,
+    name: 'Oposición al requerimiento de elevación a juicio',
+    jurisdictions: ['CRIMINAL'],
+    fileName: 'oposicion-elevacion.docx',
+    copyToNewCases: true,
+    lastVersionAt: '2026-08-21T17:40:00-03:00',
+    lastVersionBy: { id: 3, lastName: 'Ríos', firstName: 'Malena' },
+    usageCount: 12,
+    active: true,
+};
+
+const EXAMPLE_LAWYER_DASHBOARD: LawyerDashboard = {
+    date: '2026-09-15',
+    lawyer: { id: 1, lastName: 'Vázquez', firstName: 'Fernando G.' },
+    summary: { dueToday: 1, overdue: 0, dueSoon: 0, activeCases: 14 },
+    deadlines: [
+        {
+            caseId: 6,
+            kind: 'PROCEDURAL_ACT',
+            sacNumber: '12774310',
+            caption: 'MOYANO, Daniela c/ APROSS — Amparo de salud',
+            jurisdiction: 'AMPARO',
+            currentStateName: 'Traslado a la demandada',
+            responsibleLawyer: { id: 1, lastName: 'Vázquez', firstName: 'Fernando G.' },
+            dueDate: '2026-09-15',
+            businessDaysRemaining: 0,
+        },
+    ],
+    prescriptionAlerts: [
+        {
+            caseId: 4,
+            sacNumber: '11845620',
+            caption: 'ACOSTA, Jonathan E. p.s.a. Infracción Ley 23.737',
+            responsibleLawyer: { id: 1, lastName: 'Vázquez', firstName: 'Fernando G.' },
+            legalQualificationName: 'Infracción Ley 23.737 — art. 5 inc. c',
+            startsOn: '2022-01-19',
+            expiresOn: '2028-01-19',
+            elapsedPercentage: 78,
+            expired: false,
+        },
+    ],
+    casesToAdvance: [
+        {
+            caseId: 4,
+            sacNumber: '11845620',
+            caption: 'ACOSTA, Jonathan E. p.s.a. Infracción Ley 23.737',
+            jurisdiction: 'CRIMINAL',
+            currentStateName: 'Cédula de notificación',
+            lastActDate: '2026-07-06',
+            daysSinceLastAct: 71,
+        },
+    ],
+};
+
+const EXAMPLE_ADMINISTRATOR_DASHBOARD: AdministratorDashboard = {
+    date: '2026-09-15',
+    summary: { dueToday: 1, overdue: 1, dueSoon: 2, activeCases: 105 },
+    casesByJurisdiction: [
+        { jurisdiction: 'CRIMINAL', activeCases: 63 },
+        { jurisdiction: 'ADMINISTRATIVE', activeCases: 31 },
+        { jurisdiction: 'AMPARO', activeCases: 11 },
+    ],
+    deadlines: EXAMPLE_LAWYER_DASHBOARD.deadlines,
+    prescriptionAlerts: EXAMPLE_LAWYER_DASHBOARD.prescriptionAlerts,
+    team: [
+        {
+            lawyer: { id: 1, lastName: 'Vázquez', firstName: 'Fernando G.' },
+            activeCases: 14,
+            openDeadlines: { overdue: 0, dueToday: 1, dueSoon: 0, later: 0 },
+        },
+    ],
+};
+
 
 const EXAMPLE_PREVIEW: DeadlinePreview = {
     proceduralStateId: 4,
@@ -650,7 +922,7 @@ export const RESPONSES = {
 
     /** `PATCH /lawyers/{lawyerId}` */
     updateLawyer: {
-        ok: response(200, itemBody({ ...EXAMPLE_LAWYER, fullName: 'Dr. I. Peralta' })),
+        ok: response(200, itemBody({ ...EXAMPLE_LAWYER, lastName: 'Peralta', firstName: 'I.' })),
         validation: response(
             400,
             errorBody('VALIDATION_ERROR', 'Los datos enviados no son válidos.', {
@@ -905,6 +1177,161 @@ export const RESPONSES = {
         unauthenticated: response(401, ERRORS.unauthenticated),
         forbidden: response(403, ERRORS.forbiddenNotResponsible),
         notFound: response(404, ERRORS.caseNotFound),
+    },
+
+    /** `POST /cases/{caseId}/prescription` — `ADMINISTRATOR` o `LAWYER` (V4 §3.7, HU33). */
+    declarePrescription: {
+        ok: response(200, itemBody(EXAMPLE_PRESCRIBED_CASE)),
+        validation: response(
+            400,
+            errorBody('VALIDATION_ERROR', 'Los datos enviados no son válidos.', {
+                prescriptionDate: 'No puede ser posterior a hoy.',
+                resolution: 'La resolución que declara la prescripción es obligatoria.',
+            }),
+        ),
+        invalidId: response(400, ERRORS.invalidCaseId),
+        unauthenticated: response(401, ERRORS.unauthenticated),
+        forbidden: response(403, ERRORS.forbiddenAdministratorOrLawyer),
+        notFound: response(404, ERRORS.caseNotFound),
+        notApplicable: response(422, ERRORS.prescriptionNotApplicable),
+        terminalState: response(422, ERRORS.caseInTerminalStateOperation),
+    },
+
+    /** `POST /cases/{caseId}/folder` — cualquier usuario autenticado, idempotente (V4 §3.7). */
+    createCaseFolder: {
+        ok: response(200, itemBody(EXAMPLE_CASE.folder)),
+        invalidId: response(400, ERRORS.invalidCaseId),
+        unauthenticated: response(401, ERRORS.unauthenticated),
+        notFound: response(404, ERRORS.caseNotFound),
+        /** La carpeta queda en `ERROR`: `EXAMPLE_ERROR_FOLDER`. */
+        storageUnavailable: response(502, ERRORS.documentStorageUnavailable),
+        errorFolder: EXAMPLE_ERROR_FOLDER,
+    },
+
+    /** `POST /cases/{caseId}/interruptive-acts` — sólo el abogado responsable (V4 §3.9, HU31). */
+    createInterruptiveAct: {
+        created: response(201, itemBody(EXAMPLE_INTERRUPTIVE_ACT)),
+        validation: response(
+            400,
+            errorBody('VALIDATION_ERROR', 'Los datos enviados no son válidos.', {
+                name: 'El acto interruptivo es obligatorio.',
+                actDate: 'No puede ser posterior a hoy.',
+            }),
+        ),
+        invalidId: response(400, ERRORS.invalidCaseId),
+        unauthenticated: response(401, ERRORS.unauthenticated),
+        forbidden: response(403, ERRORS.forbiddenNotResponsibleInterruptive),
+        notFound: response(404, ERRORS.caseNotFound),
+        notApplicable: response(422, ERRORS.prescriptionNotApplicable),
+        terminalState: response(422, ERRORS.caseInTerminalStateOperation),
+    },
+
+    /** `GET /cases/{caseId}/interruptive-acts` — cualquier usuario autenticado. */
+    /** `GET /cases/{caseId}/procedural-acts` — cualquier usuario autenticado (V4 §3.8, HU27). */
+    listProceduralActs: {
+        ok: response(200, listBody<ProceduralAct>([EXAMPLE_ACT], buildPagination(1, 1, 20))),
+        empty: response(200, listBody<ProceduralAct>([], buildPagination(0, 1, 20))),
+        invalidPagination: response(400, ERRORS.invalidPagination),
+        invalidId: response(400, ERRORS.invalidCaseId),
+        unauthenticated: response(401, ERRORS.unauthenticated),
+        notFound: response(404, ERRORS.caseNotFound),
+    },
+
+    /** `GET /cases/{caseId}/procedural-acts/{actId}` — cualquier usuario autenticado (V4 §3.8, HU27). */
+    getProceduralAct: {
+        ok: response(200, itemBody(EXAMPLE_ACT)),
+        invalidId: response(400, ERRORS.invalidCaseId),
+        invalidActId: response(400, ERRORS.invalidActId),
+        unauthenticated: response(401, ERRORS.unauthenticated),
+        notFound: response(404, ERRORS.caseNotFound),
+        actNotFound: response(404, ERRORS.proceduralActNotFound),
+    },
+
+    /** `GET /cases/{caseId}/timeline` — cualquier usuario autenticado, sin paginar (V4 D-85, HU27). */
+    getCaseTimeline: {
+        ok: response(200, {
+            data: [
+                { type: 'PROCEDURAL_ACT', date: EXAMPLE_ACT.actDate, current: true, proceduralAct: EXAMPLE_ACT },
+                {
+                    type: 'INTERRUPTIVE_ACT',
+                    date: EXAMPLE_INTERRUPTIVE_ACT.actDate,
+                    governsPrescription: true,
+                    interruptiveAct: EXAMPLE_INTERRUPTIVE_ACT,
+                },
+            ] satisfies TimelineEntry[],
+        }),
+        empty: response(200, { data: [] as TimelineEntry[] }),
+        invalidId: response(400, ERRORS.invalidCaseId),
+        unauthenticated: response(401, ERRORS.unauthenticated),
+        notFound: response(404, ERRORS.caseNotFound),
+    },
+
+    /** `GET /cases/{caseId}/interruptive-acts` — cualquier usuario autenticado (V4 §3.9, HU27). */
+    listInterruptiveActs: {
+        ok: response(200, listBody<InterruptiveAct>([EXAMPLE_INTERRUPTIVE_ACT], buildPagination(1, 1, 20))),
+        empty: response(200, listBody<InterruptiveAct>([], buildPagination(0, 1, 20))),
+        invalidPagination: response(400, ERRORS.invalidPagination),
+        invalidId: response(400, ERRORS.invalidCaseId),
+        unauthenticated: response(401, ERRORS.unauthenticated),
+        notFound: response(404, ERRORS.caseNotFound),
+    },
+
+    /** `POST /document-templates` — `ADMINISTRATOR` o `LAWYER`, `multipart/form-data` (V4 §3.10, HU34). */
+    createDocumentTemplate: {
+        created: response(201, itemBody({ ...EXAMPLE_TEMPLATE, id: 14, usageCount: 0 })),
+        validation: response(
+            400,
+            errorBody('VALIDATION_ERROR', 'Los datos enviados no son válidos.', {
+                name: 'El nombre del modelo es obligatorio.',
+                jurisdictions: 'Elegí al menos un fuero.',
+                file: 'El archivo del modelo es obligatorio.',
+            }),
+        ),
+        invalidFile: response(
+            400,
+            errorBody('VALIDATION_ERROR', 'Los datos enviados no son válidos.', {
+                file: 'El archivo tiene que ser .docx.',
+            }),
+        ),
+        unauthenticated: response(401, ERRORS.unauthenticated),
+        forbidden: response(403, ERRORS.forbiddenAdministratorOrLawyer),
+        tooLarge: response(413, ERRORS.fileTooLarge),
+        storageUnavailable: response(502, ERRORS.documentStorageUnavailable),
+    },
+
+    /** `GET /document-templates` — `ADMINISTRATOR` o `LAWYER`, por nombre (HU35). */
+    listDocumentTemplates: {
+        ok: response(200, listBody<DocumentTemplate>([EXAMPLE_TEMPLATE], buildPagination(6, 1, 20))),
+        empty: response(200, listBody<DocumentTemplate>([], buildPagination(0, 1, 20))),
+        invalidJurisdiction: response(400, ERRORS.invalidJurisdiction),
+        invalidPagination: response(400, ERRORS.invalidPagination),
+        unauthenticated: response(401, ERRORS.unauthenticated),
+        forbidden: response(403, ERRORS.forbiddenAdministratorOrLawyer),
+    },
+
+    /** `GET /document-templates/{templateId}` y `…/file` — `ADMINISTRATOR` o `LAWYER`. */
+    getDocumentTemplate: {
+        ok: response(200, itemBody(EXAMPLE_TEMPLATE)),
+        invalidId: response(400, ERRORS.invalidDocumentTemplateId),
+        unauthenticated: response(401, ERRORS.unauthenticated),
+        forbidden: response(403, ERRORS.forbiddenAdministratorOrLawyer),
+        notFound: response(404, ERRORS.documentTemplateNotFound),
+        /** Sólo la descarga del archivo. */
+        storageUnavailable: response(502, ERRORS.documentStorageUnavailable),
+    },
+
+    /** `GET /dashboards/lawyer` — `LAWYER` (V4 §3.11, HU41). */
+    lawyerDashboard: {
+        ok: response(200, itemBody(EXAMPLE_LAWYER_DASHBOARD)),
+        unauthenticated: response(401, ERRORS.unauthenticated),
+        forbidden: response(403, forbiddenFor('LAWYER')),
+    },
+
+    /** `GET /dashboards/administrator` — `ADMINISTRATOR` (V4 §3.11, HU42). */
+    administratorDashboard: {
+        ok: response(200, itemBody(EXAMPLE_ADMINISTRATOR_DASHBOARD)),
+        unauthenticated: response(401, ERRORS.unauthenticated),
+        forbidden: response(403, forbiddenFor('ADMINISTRATOR')),
     },
 
     /** Respuestas generales (§5.2). */

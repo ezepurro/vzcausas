@@ -1,6 +1,7 @@
 import { AdministrativeCase } from '../entities/administrative';
 import { Amparo } from '../entities/amparo';
 import { CriminalCase } from '../entities/criminal';
+import { DayType } from '../value-objects/day-type';
 import { JurisdictionCode } from '../value-objects/jurisdiction-code';
 import { ProceduralRole } from '../value-objects/procedural-role';
 import {
@@ -367,6 +368,246 @@ describe('CaseFactory', () => {
     });
   });
 
+  describe('datos propios de cada fuero (D-67)', () => {
+    const acto = {
+      harmfulActDate: day('2026-08-03'),
+      harmfulActRenews: true,
+      harmfulActRenewalDays: 30,
+      harmfulActTermDays: 15,
+      harmfulActTermDayType: DayType.BUSINESS,
+    };
+
+    describe('tasa de justicia (RN10)', () => {
+      it.each([
+        ['penal', () => aNewCaseInput()],
+        ['administrativo', () => anAdministrativeInput()],
+        ['amparo', () => anAmparoInput()],
+      ])('en el fuero %s vale false si no se envía', (_fuero, input) => {
+        expect(CaseFactory.create(input()).courtFeePaid).toBe(false);
+      });
+
+      it.each([
+        ['penal', () => aNewCaseInput({ courtFeePaid: true })],
+        ['administrativo', () => anAdministrativeInput({ courtFeePaid: true })],
+        ['amparo', () => anAmparoInput({ courtFeePaid: true })],
+      ])('en el fuero %s guarda lo que se envía', (_fuero, input) => {
+        expect(CaseFactory.create(input()).courtFeePaid).toBe(true);
+      });
+    });
+
+    describe('preso (solo penal)', () => {
+      it('vale false si no se envía y guarda true si se envía', () => {
+        expect((CaseFactory.create(aNewCaseInput()) as CriminalCase).clientDetained).toBe(false);
+        expect((CaseFactory.create(aNewCaseInput({ clientDetained: true })) as CriminalCase).clientDetained).toBe(true);
+      });
+
+      it.each([
+        ['administrativo', () => anAdministrativeInput({ clientDetained: false })],
+        ['amparo', () => anAmparoInput({ clientDetained: true })],
+      ])('en el fuero %s no se envía, ni siquiera en false', async (_fuero, input) => {
+        const details = await validationDetailsOf(() => CaseFactory.create(input()));
+
+        expect(details).toEqual({ clientDetained: 'Solo corresponde al fuero penal.' });
+      });
+    });
+
+    describe('agotamiento de la vía administrativa (solo administrativo)', () => {
+      it('es opcional y guarda la fecha que se envía', () => {
+        const without = CaseFactory.create(anAdministrativeInput()) as AdministrativeCase;
+        const withDate = CaseFactory.create(
+          anAdministrativeInput({ administrativeRemedyExhaustedOn: day('2026-08-10') }),
+        ) as AdministrativeCase;
+
+        expect(without.administrativeRemedyExhaustedOn).toBeNull();
+        expect(withDate.administrativeRemedyExhaustedOn).toEqual(day('2026-08-10'));
+      });
+
+      it('puede ser la de hoy, no una posterior', async () => {
+        expect(() => CaseFactory.create(anAdministrativeInput({ administrativeRemedyExhaustedOn: TODAY }))).not.toThrow();
+
+        const details = await validationDetailsOf(() =>
+          CaseFactory.create(anAdministrativeInput({ administrativeRemedyExhaustedOn: day('2026-10-07') })),
+        );
+
+        expect(details).toEqual({ administrativeRemedyExhaustedOn: 'No puede ser posterior a la fecha de hoy.' });
+      });
+
+      it('una fecha mal formada se informa por campo', async () => {
+        const details = await validationDetailsOf(() =>
+          CaseFactory.create(anAdministrativeInput({ administrativeRemedyExhaustedOn: new Date('no-es-fecha') })),
+        );
+
+        expect(details).toEqual({ administrativeRemedyExhaustedOn: 'Debe ser una fecha válida (AAAA-MM-DD).' });
+      });
+
+      it.each([
+        ['penal', () => aNewCaseInput({ administrativeRemedyExhaustedOn: day('2026-08-10') })],
+        ['amparo', () => anAmparoInput({ administrativeRemedyExhaustedOn: day('2026-08-10') })],
+      ])('en el fuero %s no se envía', async (_fuero, input) => {
+        const details = await validationDetailsOf(() => CaseFactory.create(input()));
+
+        expect(details).toEqual({ administrativeRemedyExhaustedOn: 'Solo corresponde al fuero administrativo.' });
+      });
+    });
+
+    describe('medida cautelar y acto lesivo (solo amparo)', () => {
+      it('sin enviar nada: la medida cautelar y la renovación valen false y no hay acto lesivo', () => {
+        const amparo = CaseFactory.create(anAmparoInput()) as Amparo;
+
+        expect(amparo).toMatchObject({
+          injunctionGranted: false,
+          harmfulActDate: null,
+          harmfulActRenews: false,
+          harmfulActRenewalDays: null,
+          harmfulActTermDays: null,
+          harmfulActTermDayType: null,
+        });
+        expect(amparo.harmfulAct).toBeNull();
+      });
+
+      it('guarda la medida cautelar y el acto lesivo completo', () => {
+        const amparo = CaseFactory.create(anAmparoInput({ injunctionGranted: true, ...acto })) as Amparo;
+
+        expect(amparo).toMatchObject({
+          injunctionGranted: true,
+          harmfulActDate: day('2026-08-03'),
+          harmfulActRenews: true,
+          harmfulActRenewalDays: 30,
+          harmfulActTermDays: 15,
+          harmfulActTermDayType: DayType.BUSINESS,
+        });
+        expect(amparo.harmfulAct).not.toBeNull();
+      });
+
+      it('un acto lesivo que no se renueva no lleva días de renovación', () => {
+        const amparo = CaseFactory.create(
+          anAmparoInput({ ...acto, harmfulActRenews: false, harmfulActRenewalDays: undefined }),
+        ) as Amparo;
+
+        expect(amparo).toMatchObject({ harmfulActRenews: false, harmfulActRenewalDays: null });
+      });
+
+      it('el plazo puede contarse en días corridos', () => {
+        const amparo = CaseFactory.create(
+          anAmparoInput({ ...acto, harmfulActTermDayType: DayType.CONSECUTIVE }),
+        ) as Amparo;
+
+        expect(amparo.harmfulActTermDayType).toBe(DayType.CONSECUTIVE);
+      });
+
+      it('con la fecha del acto lesivo, el plazo y su forma de contarlo son obligatorios', async () => {
+        const details = await validationDetailsOf(() =>
+          CaseFactory.create(anAmparoInput({ harmfulActDate: day('2026-08-03') })),
+        );
+
+        expect(details).toEqual({
+          harmfulActTermDays: 'Indicá el plazo para presentar el amparo.',
+          harmfulActTermDayType: 'Indicá si el plazo se cuenta en días hábiles o corridos.',
+        });
+      });
+
+      it('sin la fecha del acto lesivo no se envían el plazo ni su forma de contarlo', async () => {
+        const details = await validationDetailsOf(() =>
+          CaseFactory.create(anAmparoInput({ harmfulActTermDays: 15, harmfulActTermDayType: DayType.BUSINESS })),
+        );
+
+        expect(details).toEqual({
+          harmfulActTermDays: 'Solo se informa junto con la fecha del acto lesivo.',
+          harmfulActTermDayType: 'Solo se informa junto con la fecha del acto lesivo.',
+        });
+      });
+
+      it('si el acto lesivo se renueva, los días de renovación son obligatorios', async () => {
+        const details = await validationDetailsOf(() =>
+          CaseFactory.create(anAmparoInput({ ...acto, harmfulActRenewalDays: undefined })),
+        );
+
+        expect(details).toEqual({ harmfulActRenewalDays: 'Indicá cada cuántos días se renueva el acto lesivo.' });
+      });
+
+      it('si no se renueva, no se envían los días de renovación', async () => {
+        const details = await validationDetailsOf(() =>
+          CaseFactory.create(anAmparoInput({ ...acto, harmfulActRenews: false })),
+        );
+
+        expect(details).toEqual({ harmfulActRenewalDays: 'Solo se informa si el acto lesivo se renueva.' });
+      });
+
+      it.each([0, -3, 1.5])('los días de renovación y el plazo son enteros mayores o iguales a 1 (%s)', async (days) => {
+        const details = await validationDetailsOf(() =>
+          CaseFactory.create(anAmparoInput({ ...acto, harmfulActRenewalDays: days, harmfulActTermDays: days })),
+        );
+
+        expect(details).toEqual({
+          harmfulActRenewalDays: 'Debe ser un número entero mayor o igual a 1.',
+          harmfulActTermDays: 'Debe ser un número entero mayor o igual a 1.',
+        });
+      });
+
+      it('NONE no es una forma válida de contar el plazo', async () => {
+        const details = await validationDetailsOf(() =>
+          CaseFactory.create(anAmparoInput({ ...acto, harmfulActTermDayType: DayType.NONE })),
+        );
+
+        expect(details).toEqual({ harmfulActTermDayType: 'Debe ser BUSINESS o CONSECUTIVE.' });
+      });
+
+      it('la fecha del acto lesivo puede ser la de hoy, no una posterior', async () => {
+        expect(() => CaseFactory.create(anAmparoInput({ ...acto, harmfulActDate: TODAY }))).not.toThrow();
+
+        const details = await validationDetailsOf(() =>
+          CaseFactory.create(anAmparoInput({ ...acto, harmfulActDate: day('2026-10-07') })),
+        );
+
+        expect(details).toEqual({ harmfulActDate: 'No puede ser posterior a la fecha de hoy.' });
+      });
+
+      it('una renovación sin la fecha del acto lesivo se guarda, pero no hay plazo que calcular', () => {
+        const amparo = CaseFactory.create(
+          anAmparoInput({ harmfulActRenews: true, harmfulActRenewalDays: 30 }),
+        ) as Amparo;
+
+        expect(amparo).toMatchObject({ harmfulActRenews: true, harmfulActRenewalDays: 30 });
+        expect(amparo.harmfulAct).toBeNull();
+      });
+
+      it.each([
+        ['penal', () => aNewCaseInput({ injunctionGranted: false, ...acto })],
+        ['administrativo', () => anAdministrativeInput({ injunctionGranted: false, ...acto })],
+      ])('en el fuero %s ninguno de estos datos se envía', async (_fuero, input) => {
+        const details = await validationDetailsOf(() => CaseFactory.create(input()));
+
+        expect(details).toEqual({
+          injunctionGranted: 'Solo corresponde al fuero de amparo.',
+          harmfulActDate: 'Solo corresponde al fuero de amparo.',
+          harmfulActRenews: 'Solo corresponde al fuero de amparo.',
+          harmfulActRenewalDays: 'Solo corresponde al fuero de amparo.',
+          harmfulActTermDays: 'Solo corresponde al fuero de amparo.',
+          harmfulActTermDayType: 'Solo corresponde al fuero de amparo.',
+        });
+      });
+    });
+
+    it('varios datos inválidos se informan juntos, uno por campo (el ejemplo del contrato)', async () => {
+      const details = await validationDetailsOf(() =>
+        CaseFactory.create(
+          anAmparoInput({
+            clientDetained: true,
+            harmfulActDate: day('2026-08-03'),
+            harmfulActRenews: true,
+            harmfulActTermDayType: DayType.BUSINESS,
+          }),
+        ),
+      );
+
+      expect(details).toEqual({
+        clientDetained: 'Solo corresponde al fuero penal.',
+        harmfulActRenewalDays: 'Indicá cada cuántos días se renueva el acto lesivo.',
+        harmfulActTermDays: 'Indicá el plazo para presentar el amparo.',
+      });
+    });
+  });
+
   describe('calificaciones legales de una causa penal (CA-18.5)', () => {
     it('una causa penal puede registrarse sin calificaciones', () => {
       const newCase = CaseFactory.create(aNewCaseInput()) as CriminalCase;
@@ -374,7 +615,7 @@ describe('CaseFactory', () => {
       expect(newCase.offenses).toEqual([]);
     });
 
-    it('cada calificación se convierte en un hecho con su fecha, todavía sin prescripción calculada', () => {
+    it('cada calificación se convierte en un hecho con su fecha y su prescripción calculada', () => {
       const newCase = CaseFactory.create(
         aNewCaseInput({
           legalQualifications: [
@@ -389,9 +630,9 @@ describe('CaseFactory', () => {
       expect(newCase.offenses[0].legalQualificationId).toBe(ROBBERY.id);
       expect(newCase.offenses[0].offenseDate).toEqual(day('2021-02-27'));
       expect(newCase.offenses[0].prescriptionMonths).toBe(96);
-      expect(newCase.offenses[0].prescriptionExpiresOn).toBeNull();
+      expect(newCase.offenses[0].prescriptionExpiresOn).toEqual(day('2029-02-27'));
       expect(newCase.offenses[1].legalQualificationId).toBe(HOMICIDE.id);
-      expect(newCase.offenses[1].prescriptionExpiresOn).toBeNull();
+      expect(newCase.offenses[1].prescriptionExpiresOn).toEqual(day('2037-05-01'));
     });
 
     it('la fecha del hecho es obligatoria en cada calificación', async () => {

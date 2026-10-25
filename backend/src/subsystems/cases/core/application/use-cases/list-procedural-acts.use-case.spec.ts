@@ -30,7 +30,7 @@ function aView(id: number): ProceduralActView {
   return {
     act: anAct({ id }),
     resultingStateName: 'Oposición al requerimiento de elevación',
-    registeredBy: { fullName: 'Dra. Malena Ríos' },
+    registeredBy: { lastName: 'Ríos', firstName: 'Malena' },
   };
 }
 

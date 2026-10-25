@@ -1,0 +1,238 @@
+/* Lo propio de "Herramientas": la franja de accesos rápidos y el catálogo de
+   tarjetas. Como dashboard.css, es de un área del sistema y no de shared.
+   Sin colores propios del tema: cada categoría toma tokens semánticos. El
+   único color de afuera es el de marca de cada sitio, que llega como dato. */
+
+/* ─────────── tono por categoría ─────────── */
+/* Lo que la herramienta no trae —logo, color de marca— lo toma del grupo:
+   las iniciales del sello y su fondo. Lo judicial en el verde del estudio;
+   los trámites y documentos en rojo, como el PDF. */
+.vz-tool--judicial   { --vz-tool-fg: var(--vz-primary); --vz-tool-bg: var(--vz-ok-bg);     --vz-tool-bd: var(--vz-ok-bd); }
+.vz-tool--documents  { --vz-tool-fg: var(--vz-danger);  --vz-tool-bg: var(--vz-danger-bg); --vz-tool-bd: var(--vz-danger-bd); }
+
+/* El color de marca (`brand` en el catálogo) llega como --vz-tool-brand; sin
+   él, se usa el del grupo. */
+.vz-tool, .vz-tools-quick { --vz-tool-accent: var(--vz-tool-brand, var(--vz-tool-fg)); }
+
+/* ─────────── franja de accesos rápidos ─────────── */
+/* El título arriba y las destacadas debajo, a todo el ancho: así entran en
+   una sola fila en lugar de dejar una sola tarjeta colgando. */
+.vz-tools-band {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 18px;
+  padding: 22px clamp(18px, 3vw, 28px);
+  border-radius: var(--vz-r);
+  background: var(--vz-rail);
+  color: var(--vz-rail-fg-on);
+}
+.vz-tools-band__intro { min-width: 0; }
+.vz-tools-band__eyebrow {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--vz-rail-fg);
+}
+.vz-tools-band__title {
+  margin-top: 6px;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -.015em;
+  line-height: 1.3;
+  text-wrap: balance;
+}
+.vz-tools-band__list {
+  min-width: 0;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
+  gap: 10px;
+}
+
+.vz-tools-quick {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 100%;
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 255, 255, .12);
+  border-radius: var(--vz-r);
+  background: rgba(255, 255, 255, .04);
+  color: var(--vz-rail-fg-on);
+  text-decoration: none;
+  transition: background .12s, border-color .12s, transform .12s;
+}
+.vz-tools-quick:hover {
+  background: rgba(255, 255, 255, .08);
+  border-color: rgba(255, 255, 255, .24);
+  transform: translateY(-1px);
+}
+.vz-tools-quick:focus-visible { outline: 2px solid var(--vz-rail-fg-on); outline-offset: 2px; }
+/* Sobre fondo oscuro el sello va lleno, sin borde, y el logo sobre blanco
+   para que se lea. Un filete del color de marca a la izquierda lo identifica. */
+.vz-tools-quick { border-left: 3px solid var(--vz-tool-accent); }
+.vz-tools-quick .vz-tool__seal { border-color: transparent; }
+.vz-tools-quick .vz-tool__seal--logo { background: var(--vz-surface); }
+.vz-tools-quick__body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.vz-tools-quick__name {
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.vz-tools-quick__host {
+  font-family: var(--vz-font-mono);
+  font-size: 11px;
+  color: var(--vz-rail-fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.vz-tools-quick__go { opacity: .6; transition: opacity .12s; }
+.vz-tools-quick:hover .vz-tools-quick__go { opacity: 1; }
+
+/* ─────────── catálogo ─────────── */
+.vz-tools-body {
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+  padding: var(--vz-panel-pad);
+}
+.vz-tools-body > .vz-empty { padding-block: 28px; }
+
+.vz-tools-section__head { margin-bottom: 12px; }
+.vz-tools-section__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 700;
+}
+.vz-tools-section__count {
+  min-width: 22px;
+  padding: 1px 7px;
+  border-radius: var(--vz-r-pill);
+  background: var(--vz-sunken);
+  color: var(--vz-muted);
+  font-family: var(--vz-font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+}
+.vz-tools-section__desc { margin: 3px 0 0; font-size: 12.5px; color: var(--vz-muted); }
+
+.vz-tools-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr));
+  gap: 12px;
+}
+
+/* ─────────── tarjeta ─────────── */
+.vz-tool {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 19px 16px 16px;
+  border: 1px solid var(--vz-border);
+  border-radius: var(--vz-r);
+  background: var(--vz-surface);
+  color: var(--vz-ink);
+  text-decoration: none;
+  overflow: hidden;
+  transition: border-color .12s, box-shadow .12s, transform .12s;
+}
+/* El filete de arriba, en el color de la marca: lo que distingue cada tarjeta
+   de un vistazo. Al pasar el mouse se engrosa. */
+.vz-tool::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: var(--vz-tool-accent);
+  transition: height .12s;
+}
+.vz-tool:hover {
+  border-color: var(--vz-tool-accent);
+  box-shadow: var(--vz-pop-sh);
+  transform: translateY(-2px);
+}
+.vz-tool:hover::before { height: 5px; }
+/* Los enlaces del sistema se subrayan y cambian de color al pasar el mouse
+   (base.css); una tarjeta entera, no. */
+.vz-tool:hover { color: var(--vz-ink); text-decoration: none; }
+.vz-tools-quick:hover { color: var(--vz-rail-fg-on); text-decoration: none; }
+.vz-tool:focus-visible { outline: 2px solid var(--vz-primary); outline-offset: 2px; }
+
+.vz-tool__head { display: flex; align-items: center; gap: 12px; }
+.vz-tool__seal {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--vz-tool-bd);
+  border-radius: var(--vz-r-sm);
+  background: var(--vz-tool-bg);
+  color: var(--vz-tool-fg);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: -.02em;
+}
+/* Con logo, el sello va en blanco y el logo entra entero, sin recortarse. */
+.vz-tool__seal--logo {
+  padding: 5px;
+  border-color: var(--vz-border);
+  background: var(--vz-surface);
+}
+.vz-tool__seal img { width: 100%; height: 100%; object-fit: contain; }
+.vz-tool__title { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.vz-tool__name { font-size: 14.5px; font-weight: 700; line-height: 1.3; }
+/* Un dominio largo se corta con puntos suspensivos: no parte la cabecera. */
+.vz-tool__host {
+  font-family: var(--vz-font-mono);
+  font-size: 11px;
+  color: var(--vz-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.vz-tool__go { color: var(--vz-faint); transition: color .12s, transform .12s; }
+.vz-tool:hover .vz-tool__go { color: var(--vz-ink); transform: translate(1px, -1px); }
+
+.vz-tool__desc {
+  flex: 1;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--vz-muted);
+  text-wrap: pretty;
+}
+.vz-tool__tags {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.vz-tool__tag {
+  padding: 2px 9px;
+  border-radius: var(--vz-r-pill);
+  background: var(--vz-sunken);
+  color: var(--vz-muted);
+  font-size: 11.5px;
+  font-weight: 500;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vz-tool, .vz-tools-quick { transition: none; }
+  .vz-tool:hover, .vz-tools-quick:hover { transform: none; }
+  .vz-tool::before { transition: none; }
+}

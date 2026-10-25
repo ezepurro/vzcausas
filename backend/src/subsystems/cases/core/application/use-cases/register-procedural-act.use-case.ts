@@ -3,19 +3,14 @@ import { CLOCK, ClockPort } from '@shared/domain/clock.port';
 import { ValidationError } from '@shared/domain/domain-error';
 import { TRANSACTION_MANAGER, TransactionManagerPort } from '@shared/domain/transaction-manager.port';
 import { AuthenticatedUser } from '@shared/domain/authenticated-user';
-import { Case } from '../../domain/entities/cases';
+import { Case, TargetState } from '../../domain/entities/cases';
 import { ProceduralAct } from '../../domain/entities/procedural-act';
 import { CaseNotFoundError } from '../../domain/errors/case.errors';
 import { CASE_REPOSITORY, CaseRepository } from '../../domain/ports/case.repository';
 import { PROCEDURAL_ACT_REPOSITORY, ProceduralActRepository } from '../../domain/ports/procedural-act.repository';
 import { PEOPLE_LOOKUP, PeopleLookupPort } from '../../domain/ports/people-lookup.port';
 import { DEADLINE_CALCULATOR, DeadlineCalculatorPort } from '../../domain/ports/deadline-calculator.port';
-import {
-  LEGAL_PARAMETERS_LOOKUP,
-  LegalParametersLookupPort,
-  ProceduralStateRef,
-} from '../../domain/ports/legal-parameters-lookup.port';
-import { DayType } from '../../domain/value-objects/day-type';
+import { LEGAL_PARAMETERS_LOOKUP, LegalParametersLookupPort } from '../../domain/ports/legal-parameters-lookup.port';
 import { Deadline } from '../../domain/value-objects/deadline';
 import {
   DeadlinePreviewResult,
@@ -25,14 +20,6 @@ import {
 } from '../common/register-procedural-act.interfaces';
 
 const INVALID_DATA_MESSAGE = 'Los datos enviados no son válidos.';
-
-/** The state an act takes the case to: from the table, or hand-written. */
-interface TargetState {
-  proceduralStateId: number | null;
-  customState: string | null;
-  // The row of the table. `null` for a hand-written state, which opens no term.
-  state: ProceduralStateRef | null;
-}
 
 /**
  * HU26: registers a procedural act, which moves the case to a state and opens
@@ -63,13 +50,9 @@ export class RegisterProceduralAct {
       throw new Error(`The lawyer ${command.actor.lawyerId} in charge of the case ${targetCase.id} is not active.`);
     }
 
-    // The state the case is in may be inactive by now: it is read as it is.
-    const currentState =
-      targetCase.currentStateId === null
-        ? null
-        : await this.legalParameters.findProcStateById(targetCase.currentStateId);
-    const currentStateIsTerminal = currentState?.terminal ?? false;
-    targetCase.assertAcceptsActs(currentStateIsTerminal);
+    // Checked here, before the data, to keep the order of the contract (422 before 400);
+    // `registerProceduralAct` guards the same invariant on its own.
+    targetCase.assertAcceptsActs();
 
     if (Number.isNaN(command.actDate.getTime())) {
       throw new ValidationError('VALIDATION_ERROR', INVALID_DATA_MESSAGE, {
@@ -82,14 +65,12 @@ export class RegisterProceduralAct {
 
     const { act, becameCurrent } = targetCase.registerProceduralAct({
       id: await this.acts.nextId(),
-      proceduralStateId: target.proceduralStateId,
-      customState: target.customState,
+      target,
       actDate: command.actDate,
       notificationDate: command.notificationDate ?? null,
       notes: command.notes ?? null,
       deadline,
       actor: command.actor,
-      currentStateIsTerminal,
       today: this.clock.today(),
       now: this.clock.now(),
     });
@@ -164,43 +145,31 @@ export class RegisterProceduralAct {
   }
 
   /**
-   * Checks the state the user chose against the table of the jurisdiction of the case.
-   * A terminal state is not offered as a target, and neither is the initial one (CA-26.8, D-34).
+   * Looks up what the user chose; whether it is a valid target is the rule of the
+   * case ({@link Case.resolveTargetState}).
    * @throws ValidationError
    */
   private async resolveTargetState(targetCase: Case, command: RegisterProceduralActCommand): Promise<TargetState> {
     const proceduralStateId = command.proceduralStateId ?? null;
     const customState = command.customState?.trim() || null;
-    const fail = (field: string, message: string): never => {
-      throw new ValidationError('VALIDATION_ERROR', INVALID_DATA_MESSAGE, { [field]: message });
-    };
 
-    if ((proceduralStateId === null) === (customState === null)) {
-      return fail('proceduralStateId', 'Indicá un estado procesal de la tabla o un estado escrito a mano, no ambos.');
-    }
+    // Only the lookup that the choice needs: if both or none were sent, the case rejects it.
+    const state =
+      proceduralStateId !== null && customState === null
+        ? await this.legalParameters.findProcStateById(proceduralStateId)
+        : null;
+    const customStateNamesTableState =
+      proceduralStateId === null && customState !== null
+        ? await this.legalParameters.existsProcStateActiveByName(targetCase.jurisdictionId, customState)
+        : false;
 
-    if (proceduralStateId !== null) {
-      const state = await this.legalParameters.findProcStateById(proceduralStateId);
-      if (!state || !state.isActive) {
-        return fail('proceduralStateId', 'No existe un estado procesal vigente con ese identificador.');
-      }
-      if (state.jurisdictionId !== targetCase.jurisdictionId || state.terminal || state.isInitial) {
-        return fail('proceduralStateId', 'El estado procesal no pertenece al fuero de la causa o es terminal.');
-      }
-      return { proceduralStateId, customState: null, state };
-    }
-
-    // A hand-written state is kept only in this case: it cannot repeat one of the table (CA-26.7).
-    if (await this.legalParameters.existsProcStateActiveByName(targetCase.jurisdictionId, customState!)) {
-      return fail('customState', 'Coincide con un estado de la tabla del fuero: elegilo de la lista.');
-    }
-    return { proceduralStateId: null, customState, state: null };
+    return targetCase.resolveTargetState({ proceduralStateId, customState, state, customStateNamesTableState });
   }
 
   /**
-   * Copies the term of the state into a new deadline and computes its due date
-   * (RN5). A hand-written state opens no term: it only has a due date if the
-   * lawyer enters one by hand (CA-26.7).
+   * Copies the term of the target state into a new deadline and computes its due
+   * date (RN5). What the state means for the term is the rule of the case
+   * ({@link Case.openTerm}); the calendar is the calculator's.
    * @throws ValidationError
    */
   private async buildDeadline(
@@ -208,23 +177,15 @@ export class RegisterProceduralAct {
     target: TargetState,
     command: RegisterProceduralActCommand,
   ): Promise<Deadline> {
-    const timeLimitDays = target.state?.timeLimitDays ?? 0;
-    const dayType = target.state?.dayType ?? DayType.NONE;
-
-    const countsFrom = targetCase.resolveCountsFrom(
-      command.actDate,
-      command.notificationDate ?? null,
-      timeLimitDays > 0,
-    );
+    const manualDueDate = command.manualDueDate ?? null;
+    const { timeLimitDays, dayType, countsFrom } = targetCase.openTerm(target, {
+      actDate: command.actDate,
+      notificationDate: command.notificationDate ?? null,
+      manualDueDate,
+    });
     const computedDueDate =
       timeLimitDays > 0 ? await this.calculator.computeDueDate(countsFrom, timeLimitDays, dayType) : null;
 
-    return Deadline.create({
-      timeLimitDays,
-      dayType,
-      countsFrom,
-      computedDueDate,
-      manualDueDate: command.manualDueDate ?? null,
-    });
+    return Deadline.create({ timeLimitDays, dayType, countsFrom, computedDueDate, manualDueDate });
   }
 }

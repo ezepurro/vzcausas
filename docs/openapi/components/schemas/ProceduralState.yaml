@@ -1,14 +1,22 @@
 type: object
 description: |
   Estado procesal de la tabla de un fuero. Es la forma que devuelven `POST` y
-  `PATCH`; las respuestas de `GET` suman `activeCases`
-  (ver `ProceduralStateWithActiveCases`).
+  `PATCH`; las respuestas de `GET` suman `caseCount`
+  (ver `ProceduralStateWithCaseCount`).
 
   Los estados no tienen posición ni orden dentro del fuero: se listan en el
   orden en que se registraron.
 
   El estado inicial **"Iniciada"** de cada fuero es un estado de sistema y no
   forma parte de este recurso.
+
+  **"Prescripta"** (D-53) es el segundo estado de sistema, solo del fuero
+  `CRIMINAL`: terminal, y a diferencia de "Iniciada" **sí forma parte de
+  este recurso** (aparece en el listado y sirve de filtro de causas). Lo crea
+  el sistema, está protegido contra modificación y baja
+  (`422 PROCEDURAL_STATE_PROTECTED`) y no puede elegirse como destino de un
+  acto procesal (D-69): a él se llega solo con
+  `POST /cases/{caseId}/prescription`.
 required:
   - id
   - name
@@ -27,7 +35,8 @@ properties:
     type: string
     description: |
       Denominación del estado, en castellano. Texto libre. Única dentro del
-      fuero. "Iniciada" está reservada.
+      fuero. "Iniciada" está reservada en todos los fueros, y "Prescripta"
+      en `CRIMINAL`.
     examples:
       - Oposición al requerimiento de elevación
   jurisdiction:

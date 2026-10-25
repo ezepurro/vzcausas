@@ -1,5 +1,6 @@
 import { useLocation, useNavigate } from 'react-router'
 import { Button, Icon, Logo } from '@/shared/components/ui'
+import { useHomeRoute } from '@/app/access/useHomeRoute'
 
 /**
  * Pantalla de "no encontrada": cualquier ruta que el router no conoce cae
@@ -16,6 +17,7 @@ import { Button, Icon, Logo } from '@/shared/components/ui'
 export function NotFoundLayout() {
     const navigate = useNavigate()
     const { pathname } = useLocation()
+    const homeRoute = useHomeRoute()
 
     return (
         <div
@@ -134,7 +136,7 @@ export function NotFoundLayout() {
                     </div>
 
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
-                        <Button icon={<Icon name="home" />} onClick={() => navigate('/inicio')}>
+                        <Button icon={<Icon name="home" />} onClick={() => navigate(homeRoute)}>
                             Ir al inicio
                         </Button>
                         <Button variant="secondary" icon={<Icon name="back" />} onClick={() => navigate(-1)}>

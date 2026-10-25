@@ -1,9 +1,11 @@
 import { http } from '@/shared/api/http'
 import type { ApiItem } from '@/api-contract/envelopes'
-import type { Case, CreateCaseBody } from '@/features/cases/types/case'
+import type { Case, CaseFolder, CreateCaseBody } from '@/features/cases/types/case'
 import type {  ApiList } from '@/api-contract/envelopes'
 import type { CaseListParams } from '@/features/cases/types/case'
 import type { Jurisdiction } from '@/features/legal-params'
+import type { DeclarePrescriptionBody } from '@/features/cases/types/prescriptionDeclaration'
+import type { TimelineEntry } from '@/features/cases/types/timeline'
 /**
  * Todo lo que habla con el servidor, una función por endpoint.
  *
@@ -11,8 +13,8 @@ import type { Jurisdiction } from '@/features/legal-params'
  * que un error llegue al `catch` convertido en `ApiError`. Acá se saca el
  * envoltorio del contrato: para afuera sale el recurso pelado.
  *
- * Por ahora sólo el detalle, que es lo que necesita Registrar acto procesal
- * (HU26). El listado y el alta se suman con sus pantallas.
+ * Los actos interruptivos, que son un recurso anidado, van en
+ * `interruptiveActs.api.ts`.
  */
 
 const BASE = '/cases'
@@ -37,5 +39,30 @@ export async function getCase(id: number): Promise<Case> {
 
 export async function createCase(body: CreateCaseBody): Promise<Case> {
     const response = await http.post<ApiItem<Case>>(BASE, body)
+    return response.data.data
+}
+
+/**
+ * La línea de vida de la causa (HU27, V4 D-85). Sin paginar, a propósito: una
+ * línea de vida cortada en la página 1 sería incorrecta sin que nada lo delate.
+ */
+export async function getCaseTimeline(id: number): Promise<TimelineEntry[]> {
+    const response = await http.get<ApiItem<TimelineEntry[]>>(`${BASE}/${id}/timeline`)
+    return response.data.data
+}
+
+/** Marca la causa como prescripta (HU33). Devuelve la causa ya cambiada (D-54). */
+export async function declarePrescription(id: number, body: DeclarePrescriptionBody): Promise<Case> {
+    const response = await http.post<ApiItem<Case>>(`${BASE}/${id}/prescription`, body)
+    return response.data.data
+}
+
+/**
+ * Crea la carpeta de una causa que no la tiene, o la reintenta si falló
+ * (HU39, `POST /cases/{caseId}/folder`). Es idempotente: sobre una carpeta
+ * creada o en creación devuelve la que hay. Devuelve sólo el `folder`.
+ */
+export async function createCaseFolder(id: number, copyTemplates = true): Promise<CaseFolder> {
+    const response = await http.post<ApiItem<CaseFolder>>(`${BASE}/${id}/folder`, { copyTemplates })
     return response.data.data
 }

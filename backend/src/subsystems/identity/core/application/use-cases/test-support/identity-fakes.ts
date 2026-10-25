@@ -114,7 +114,7 @@ export class FakeUserRepository implements UserRepository {
 
   /**
    * Mirrors what the Prisma adapter does in SQL: active users only,
-   * newest first, case-insensitive match on username or full name,
+   * newest first, case-insensitive match on username, last name or first names,
    * optional role filter, then the page slice. Kept faithful on
    * purpose — a fake that filtered differently would let specs pass
    * against behaviour production does not have.
@@ -128,7 +128,8 @@ export class FakeUserRepository implements UserRepository {
         (user) =>
           needle === undefined ||
           user.username.toString().toLowerCase().includes(needle) ||
-          user.fullName.toLowerCase().includes(needle),
+          user.lastName.toLowerCase().includes(needle) ||
+          user.firstName.toLowerCase().includes(needle),
       )
       .filter(
         (user) =>
@@ -155,6 +156,14 @@ export class FakeUserRepository implements UserRepository {
         user.isActive() &&
         user.lawyerId === lawyerId &&
         user.id !== excludingUserId,
+    );
+  }
+
+  async findActiveByLawyerId(lawyerId: number): Promise<User | null> {
+    return (
+      [...this.byId.values()].find(
+        (user) => user.isActive() && user.lawyerId === lawyerId,
+      ) ?? null
     );
   }
 
@@ -209,7 +218,7 @@ export class FakeLawyerLookup implements LawyerLookupPort {
         .filter((id) => this.existingIds.includes(id))
         .map((id) => [
           id,
-          { id, fullName: `Lawyer ${id}`, registrationNumber: `1-${id}` },
+          { id, lastName: `Lawyer ${id}`, firstName: 'Test', registrationNumber: `1-${id}` },
         ]),
     );
   }
@@ -258,7 +267,8 @@ export class FakeLawyerRegistrar implements LawyerRegistrarPort {
     this.registered.push(lawyer);
     return {
       id: this.nextId++,
-      fullName: lawyer.fullName,
+      lastName: lawyer.lastName,
+      firstName: lawyer.firstName,
       registrationNumber: lawyer.registrationNumber,
     };
   }

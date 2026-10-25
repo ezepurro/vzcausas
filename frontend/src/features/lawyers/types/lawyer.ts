@@ -12,7 +12,13 @@ import type { PaginatedQuery } from '@/api-contract/envelopes'
 /** El recurso tal como viene adentro de `data`. */
 export interface Lawyer {
     id: number
-    fullName: string
+    /** Apellido. Desde V4 reemplaza a `fullName` (D-68). */
+    lastName: string
+    /**
+     * Nombres, sin el tratamiento: "Dr." o "Dra." ya no son parte del nombre
+     * (D-81).
+     */
+    firstName: string
     /**
      * Matrícula del Colegio de Abogados de Córdoba: circunscripción y número
      * separados por guión, `1-28114`.
@@ -20,7 +26,7 @@ export interface Lawyer {
     registrationNumber: string
     /**
      * Causas activas de las que es responsable: las que no fueron dadas de
-     * baja y no están en un estado terminal (V3 §4). Calculado, sólo lectura.
+     * baja y no están en un estado terminal (V4 §4). Calculado, sólo lectura.
      */
     activeCases: number
     /** Estado de alta. La baja es lógica. */
@@ -29,7 +35,8 @@ export interface Lawyer {
 
 /** Cuerpo del `POST /lawyers`: sólo los dos campos que el estudio carga. */
 export interface CreateLawyerBody {
-    fullName: string
+    lastName: string
+    firstName: string
     registrationNumber: string
 }
 
@@ -38,18 +45,20 @@ export interface CreateLawyerBody {
  * `activeCases` no está porque no es modificable: lo calcula el backend.
  */
 export interface UpdateLawyerBody {
-    fullName?: string
+    lastName?: string
+    firstName?: string
     registrationNumber?: string
 }
 
 /** Los valores del formulario. Sólo `string`, como pide `FormValues`. */
 export type LawyerFormValues = {
-    fullName: string
+    lastName: string
+    firstName: string
     registrationNumber: string
 }
 
 /** Parámetros del listado `GET /lawyers`. */
 export interface LawyerListParams extends PaginatedQuery {
-    /** Filtra por `fullName` y por `registrationNumber`. */
+    /** Filtra por `lastName`, `firstName` y `registrationNumber`. */
     search?: string
 }

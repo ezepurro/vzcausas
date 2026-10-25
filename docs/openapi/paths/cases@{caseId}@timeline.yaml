@@ -1,0 +1,94 @@
+parameters:
+  - $ref: ../components/parameters/CaseIdParam.yaml
+
+get:
+  tags:
+    - Cases
+  operationId: getCaseTimeline
+  summary: Consultar línea de vida de la causa
+  description: |
+    Obtiene la línea de vida de la causa (HU27, D-85): sus actos procesales,
+    sus actos interruptivos y su pase a "Prescripta", en un solo listado. Es la
+    fuente del "Ciclo de vida de la causa" del detalle.
+
+    **Orden:** de la más reciente a la más antigua por `date`; con la misma
+    fecha, primero la última registrada.
+
+    **Sin paginar, a propósito.** Una línea de vida incompleta es incorrecta
+    sin que nada lo delate. La historia de una causa es acotada.
+
+    No aparece el estado inicial ("Iniciada"): no lo originó ningún acto. En
+    las causas que no son penales solo hay actos procesales: los actos
+    interruptivos y la prescripción no aplican a esos fueros.
+
+    **Rol requerido:** cualquier usuario autenticado, sobre cualquier causa
+    (RN11).
+  responses:
+    '200':
+      description: Línea de vida de la causa.
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - data
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: ../components/schemas/TimelineEntry.yaml
+          example:
+            data:
+              - type: PROCEDURAL_ACT
+                date: '2026-09-15'
+                current: true
+                proceduralAct:
+                  id: 42
+                  caseId: 1
+                  resultingState:
+                    proceduralStateId: 12
+                    name: Oposición al requerimiento de elevación
+                    custom: false
+                  actDate: '2026-09-15'
+                  notificationDate: null
+                  notes: Con acusación, pero con oposición.
+                  deadline:
+                    timeLimitDays: 5
+                    dayType: BUSINESS
+                    countsFrom: '2026-09-15'
+                    computedDueDate: '2026-09-22'
+                    dueDate: '2026-09-22'
+                    manuallyAdjusted: false
+                    manualTimeLimitDays: null
+                  registeredBy:
+                    id: 3
+                    lastName: Ríos
+                    firstName: Malena
+                  registeredAt: '2026-09-15T11:42:00-03:00'
+              - type: INTERRUPTIVE_ACT
+                date: '2024-07-04'
+                governsPrescription: true
+                interruptiveAct:
+                  id: 3
+                  caseId: 1
+                  name: Indagatoria
+                  actDate: '2024-07-04'
+                  notes: null
+                  registeredBy:
+                    id: 3
+                    lastName: Ríos
+                    firstName: Malena
+                  registeredAt: '2026-09-10T09:15:00-03:00'
+    '400':
+      description: Identificador de causa inválido.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          examples:
+            invalidCaseId:
+              $ref: ../components/examples/InvalidCaseIdError.yaml
+    '401':
+      $ref: ../components/responses/Unauthorized.yaml
+    '404':
+      $ref: ../components/responses/CaseNotFound.yaml

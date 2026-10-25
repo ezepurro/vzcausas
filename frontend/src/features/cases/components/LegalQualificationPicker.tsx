@@ -3,8 +3,23 @@ import { Select, TextInput, type SelectOption } from '@/shared/components/forms'
 import { formatPrescription, type LegalQualification } from '@/features/legal-params'
 
 /** Una calificación ya elegida, con la fecha del hecho que se va cargando. */
-export type SelectedQualification = Pick<LegalQualification, 'id' | 'name' | 'prescriptionMonths'> & {
+export type SelectedQualification = AvailableQualification | UnavailableQualification
+
+export type AvailableQualification = Pick<LegalQualification, 'id' | 'name' | 'prescriptionMonths'> & {
+    unavailable?: false
     /** `YYYY-MM-DD`, o `''` mientras no se cargó. */
+    offenseDate: string
+}
+
+/**
+ * Una elegida que ya no está entre las vigentes: se dio de baja mientras se
+ * cargaba la causa, o venía en un borrador. No hay nombre ni plazo que
+ * mostrar, pero la fila se dibuja igual: es la única forma de poder quitarla.
+ * Si se registra con ella, el backend la rechaza sobre el campo (CA-18.10).
+ */
+export type UnavailableQualification = {
+    id: number
+    unavailable: true
     offenseDate: string
 }
 
@@ -49,6 +64,27 @@ export function LegalQualificationPicker({
             {selected.length > 0 && (
                 <div className="vz-picker__list">
                     {selected.map((q) => {
+                        if (q.unavailable) {
+                            return (
+                                <div key={q.id} className="vz-picker__item">
+                                    <div className="vz-picker__main">
+                                        <div className="vz-picker__name">Calificación dada de baja</div>
+                                        <div className="vz-picker__term">
+                                            Ya no está vigente: quitala para poder registrar la causa.
+                                        </div>
+                                    </div>
+                                    <Button
+                                        variant="ghost-danger"
+                                        size="sm"
+                                        aria-label="Quitar calificación dada de baja"
+                                        onClick={() => onRemove(q.id)}
+                                    >
+                                        Quitar
+                                    </Button>
+                                </div>
+                            )
+                        }
+
                         const dateId = `${id}-offense-${q.id}`
                         const dateError = dateErrors[q.id]
 

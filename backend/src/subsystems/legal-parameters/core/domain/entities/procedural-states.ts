@@ -1,7 +1,11 @@
 import { DayType } from './day-types';
 import { Jurisdiction } from './jurisdiction';
 import { ValidationError } from '@shared/domain/domain-error';
-import { ProceduralStateAlreadyExistsError, ProceduralStateDayTypeError } from '../errors/procedural-state.errors';
+import {
+  ProceduralStateAlreadyExistsError,
+  ProceduralStateDayTypeError,
+  ProceduralStateProtectedError,
+} from '../errors/procedural-state.errors';
 
 /** Name of the system state where every case starts. */
 export const INITIAL_STATE_NAME = 'Iniciada';
@@ -14,6 +18,8 @@ export interface ProceduralStateProps {
   terminal: boolean;
   // System state "Iniciada": one per jurisdiction, where every new case starts.
   isInitial: boolean;
+  // System state "Prescripta" (criminal, D-53): created by the system, never through HU45. Read-only here.
+  isPrescribed?: boolean;
   isActive: boolean;
   jurisdiction: Jurisdiction;
   createdAt: Date | null;
@@ -72,6 +78,7 @@ export class ProceduralState {
    * @throws {ProceduralStateAlreadyExistsError} if the name is "Iniciada".
    */
   rename(newName: string): void {
+    this.assertNotProtected();
     ProceduralState.validateName(newName);
     this.props.name = newName.trim();
   }
@@ -89,6 +96,7 @@ export class ProceduralState {
    * @throws {ProceduralStateDayTypeError} if `dayType` is incoherent with it.
    */
   changeTimeLimit(timeLimitDays: number, dayType: DayType | null): void {
+    this.assertNotProtected();
     ProceduralState.validateTimeLimit(timeLimitDays, dayType);
     this.props.timeLimitDays = timeLimitDays;
     this.props.dayType = dayType;
@@ -99,6 +107,7 @@ export class ProceduralState {
    * check, but it is still a method so every change goes through the entity.
    */
   changeTerminal(terminal: boolean): void {
+    this.assertNotProtected();
     this.props.terminal = terminal;
   }
 
@@ -111,7 +120,21 @@ export class ProceduralState {
    * this entity's call — the use case rejects it as "not found".
    */
   deactivate(): void {
+    this.assertNotProtected();
     this.props.isActive = false;
+  }
+
+  /**
+   * "Prescripta" is a system state (D-53): it is listed, but it cannot be
+   * renamed, retimed, reclassified or given de baja (HU33 CA-33.13). Every
+   * method that changes the state goes through here, so `PATCH` and `DELETE`
+   * refuse it without the use cases having to know about it.
+   * @throws {ProceduralStateProtectedError}
+   */
+  private assertNotProtected(): void {
+    if (this.isPrescribed) {
+      throw new ProceduralStateProtectedError();
+    }
   }
 
   /**
@@ -178,6 +201,10 @@ export class ProceduralState {
 
   get isInitial(): boolean {
     return this.props.isInitial;
+  }
+
+  get isPrescribed(): boolean {
+    return this.props.isPrescribed ?? false;
   }
 
   get isActive(): boolean {

@@ -2,12 +2,26 @@ type: object
 description: |
   Algunas reglas dependen del fuero (`jurisdiction`):
 
-  | Campo                 | `CRIMINAL`                          | `ADMINISTRATIVE`        | `AMPARO`              |
-  | --------------------- | ----------------------------------- | ----------------------- | --------------------- |
-  | `legalQualifications` | Opcional                            | No se envía             | No se envía           |
-  | `counterparty`        | No se envía                         | Opcional                | Opcional              |
-  | `subjectMatter`       | No se envía                         | Obligatorio             | Obligatorio           |
-  | `proceduralRole`      | `DEFENSA`, `QUERELLANTE_PARTICULAR` | `DEFENSA`, `RECURRENTE` | `ACTORA`, `DEMANDADA` |
+  | Campo                             | `CRIMINAL`                          | `ADMINISTRATIVE`        | `AMPARO`              |
+  | --------------------------------- | ----------------------------------- | ----------------------- | --------------------- |
+  | `legalQualifications`             | Opcional                            | No se envía             | No se envía           |
+  | `counterparty`                    | No se envía                         | Opcional                | Opcional              |
+  | `subjectMatter`                   | No se envía                         | Obligatorio             | Obligatorio           |
+  | `proceduralRole`                  | `DEFENSA`, `QUERELLANTE_PARTICULAR` | `DEFENSA`, `RECURRENTE` | `ACTORA`, `DEMANDADA` |
+  | `clientDetained`                  | Opcional                            | No se envía             | No se envía           |
+  | `injunctionGranted`, `harmfulAct*` | No se envía                        | No se envía             | Opcional (ver abajo)  |
+  | `administrativeRemedyExhaustedOn` | No se envía                         | Opcional                | No se envía           |
+  | `courtFeePaid`                    | Opcional                            | Opcional                | Opcional              |
+
+  **Acto lesivo (amparo).** `harmfulActTermDays` y `harmfulActTermDayType`
+  son obligatorios si se envía `harmfulActDate`. `harmfulActRenewalDays` es
+  obligatorio si `harmfulActRenews` es `true`, y no se envía en otro caso.
+
+  **Carpeta en la nube.** `createFolder` y `copyTemplates` son las casillas
+  "Crear la carpeta de la causa en Drive" y "Copiar los modelos de escritos
+  del fuero a esa carpeta". `copyTemplates` no puede ser `true` si
+  `createFolder` es `false` (`400` sobre `copyTemplates`). Un cliente que no
+  envía ninguno de los dos obtiene la carpeta con los modelos (D-59).
 
   Un identificador de cliente, abogado o calificación que no existe o está
   dado de baja se informa como `400 VALIDATION_ERROR` sobre el campo
@@ -85,6 +99,64 @@ properties:
     description: Obligatorio en `ADMINISTRATIVE` y `AMPARO`, no vacío. No se envía en `CRIMINAL`.
     examples:
       - Que se ordene a APROSS la cobertura integral del tratamiento de rehabilitación prescripto a la actora.
+  clientDetained:
+    type: boolean
+    default: false
+    description: '"Preso". Solo en `CRIMINAL`.'
+    examples:
+      - false
+  injunctionGranted:
+    type: boolean
+    default: false
+    description: '"El juez hizo lugar a la medida cautelar". Solo en `AMPARO`.'
+    examples:
+      - true
+  harmfulActDate:
+    type: string
+    format: date
+    description: Fecha del acto lesivo. Solo en `AMPARO`. No puede ser posterior a hoy.
+    examples:
+      - '2026-08-28'
+  harmfulActRenews:
+    type: boolean
+    default: false
+    description: Si el acto lesivo se renueva. Solo en `AMPARO`.
+    examples:
+      - true
+  harmfulActRenewalDays:
+    type: integer
+    minimum: 1
+    description: |
+      Cada cuántos días corridos se renueva el acto lesivo. Obligatorio si
+      `harmfulActRenews` es `true`; no se envía en otro caso.
+    examples:
+      - 30
+  harmfulActTermDays:
+    type: integer
+    minimum: 1
+    description: |
+      Plazo para presentar el amparo desde el acto lesivo. Solo en `AMPARO`;
+      obligatorio si se envía `harmfulActDate`.
+    examples:
+      - 15
+  harmfulActTermDayType:
+    type: string
+    enum:
+      - BUSINESS
+      - CONSECUTIVE
+    description: |
+      Cómo se cuentan los días de `harmfulActTermDays` (ver `DayType`). Solo
+      en `AMPARO`; obligatorio si se envía `harmfulActDate`.
+    examples:
+      - BUSINESS
+  administrativeRemedyExhaustedOn:
+    type: string
+    format: date
+    description: |
+      Fecha de agotamiento de la vía administrativa. Solo en
+      `ADMINISTRATIVE`. No puede ser posterior a hoy.
+    examples:
+      - '2026-04-30'
   responsibleLawyerId:
     type: integer
     minimum: 1
@@ -99,3 +171,23 @@ properties:
       queda con `startDate` en `null` (D-38). No puede ser posterior a hoy.
     examples:
       - '2021-03-12'
+  courtFeePaid:
+    type: boolean
+    default: false
+    description: Si se pagó la tasa de justicia. En los tres fueros.
+    examples:
+      - false
+  createFolder:
+    type: boolean
+    default: true
+    description: Crear la carpeta de la causa en la nube (HU39).
+    examples:
+      - true
+  copyTemplates:
+    type: boolean
+    description: |
+      Copiar a esa carpeta los modelos formales del fuero (HU40). Por
+      defecto, igual a `createFolder`. No puede ser `true` si `createFolder`
+      es `false`.
+    examples:
+      - true

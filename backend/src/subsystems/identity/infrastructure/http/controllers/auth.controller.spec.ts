@@ -62,12 +62,14 @@ const LOGIN_RESULT: AuthenticateUserResult = {
   user: {
     id: 1,
     username: "fvazquez",
-    fullName: "Fernando Vázquez",
+    lastName: "Vázquez",
+    firstName: "Fernando",
     email: "fvazquez@vazquezzarate.com",
     roleNames: ["ADMINISTRATOR", "LAWYER"],
     lawyer: {
       id: 10,
-      fullName: "Dr. Fernando G. Vázquez",
+      lastName: "Vázquez",
+      firstName: "Fernando G.",
       registrationNumber: "1-28114",
     },
     previousLoginAt: new Date("2026-09-19T11:12:00Z"),
@@ -154,7 +156,8 @@ describe("AuthController", () => {
       // returns (§3.1). Was a bare id until `/lawyers` existed (D-52).
       expect(body.data.user.lawyer).toEqual({
         id: 10,
-        fullName: "Dr. Fernando G. Vázquez",
+        lastName: "Vázquez",
+        firstName: "Fernando G.",
         registrationNumber: "1-28114",
       });
 

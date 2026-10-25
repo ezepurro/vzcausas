@@ -1,8 +1,10 @@
 # CLAUDE.md — Frontend de VZ Causas
 
 Sistema de gestión para un estudio jurídico. Este archivo dice **cómo se trabaja
-adentro de un módulo** (`src/features/<módulo>/`) y **qué se programa en el
-sprint en curso**. El resto ya está documentado: no lo repito, leelo.
+adentro de un módulo** (`src/features/<módulo>/`), **qué está hecho y qué falta
+en el sprint en curso**. El resto ya está documentado: no lo repito, leelo.
+
+Estado al **20/10/2026** (Sprint 3, rama `develop`).
 
 ## Antes de escribir código, leé
 
@@ -12,33 +14,41 @@ sprint en curso**. El resto ya está documentado: no lo repito, leelo.
    cliente HTTP y `ApiError`. Tiene la tabla "Si necesitás X, usá Y" y su propia
    guía para Claude al final.
 3. `frontend/src/shared/mocks/README.md` — **antes de escribir cualquier
-   llamada a la API**. El mock implementa V3 entero. Ahí están los usuarios de
-   prueba y qué puede cada perfil, qué causa semilla sirve para probar cada
-   regla, cómo disparar cada error y cómo agregar un endpoint. El resumen está
-   en [Los mocks](#los-mocks), más abajo.
-4. `docs/Api-Contract/API_CONTRACT_V3.md` — la fuente de verdad del backend para
-   el Sprint 2. Es autocontenido: trae lo del Sprint 1 que sigue vigente y lo
-   nuevo. `API_CONTRACT_V2.md` queda como registro del Sprint 1. Si un documento
-   y el contrato no coinciden, manda el contrato. **Última revisión:
-   11/10/2026** (V3 §7.11): ver [Revisiones del contrato](#revisiones-del-contrato).
+   llamada a la API**. El mock implementa V4 entero (revisión del 19/10/2026).
+   Ahí están los usuarios de prueba y qué puede cada perfil, qué causa semilla
+   sirve para probar cada regla, cómo disparar cada error y cómo agregar un
+   endpoint. El resumen está en [Los mocks](#los-mocks), más abajo.
+4. `docs/Api-Contract/API_CONTRACT_V4.md` — la fuente de verdad del backend.
+   Es autocontenido: trae lo de los Sprints 1 y 2 que sigue vigente y lo nuevo
+   del Sprint 3. **Última revisión: 19/10/2026.** `API_CONTRACT_V3.md` (Sprint 2)
+   y `API_CONTRACT_V2.md` (Sprint 1) quedan como registro: ninguno es referencia
+   vigente. Si un documento y el contrato no coinciden, manda el contrato.
    La otra fuente de verdad es el prototipo (`docs/prototypes/`): de ahí salen
    las pantallas y sus textos. Lo que el prototipo muestra y el contrato deja
-   fuera del sprint (V3 §8.3) no se programa.
+   fuera del sprint (V4 §8.3) no se programa.
 5. `docs/Frontend-Architecture/TESTING.md` — dónde va cada test y qué mínimo
-   tiene que tener una feature.
+   tiene que tener una feature. La §11 lista los tests del Sprint 3 y los
+   nombres que fijan.
+6. `docs/Frontend-Architecture/MATRIZ_CA.md` — qué test cubre cada criterio de
+   aceptación. Se genera con `npm run ca-matrix`: no se edita a mano.
 
 ## Reglas que no se negocian
 
 - **No inventes endpoints.** Si lo que te piden necesita un endpoint que no está
-  en el contrato, frená y preguntá. V3 cubre `auth`, `users`, `lawyers`,
-  `procedural-states`, `legal-qualifications`, `clients`, `cases` y
-  `cases/{caseId}/procedural-acts`, y nada más.
-- **No programes lo que el contrato deja afuera del sprint.** V3 §8.3 lista lo
-  que el prototipo muestra pero es de otra historia (ciclo de vida, documentación,
-  Drive, adjuntos, modificar y dar de baja una causa, etc.). No se dibuja ni
-  deshabilitado: no existe hasta su sprint. En particular, **no hay endpoint
-  para listar los actos de una causa** (HU27, Sprint 3): el panel "Ciclo de
-  vida" del detalle no se hace, ni su aviso "Todavía no hay actos procesales".
+  en el contrato, frená y preguntá. V4 cubre `auth`, `users`, `lawyers`,
+  `procedural-states`, `legal-qualifications`, `clients`, `cases` (con
+  `timeline`, `prescription` y `folder`), `cases/{caseId}/procedural-acts`,
+  `cases/{caseId}/interruptive-acts`, `document-templates` y `dashboards`, y
+  nada más. Los avisos por correo (HU30, HU32, HU51, HU52) son un proceso del
+  servidor: **no tienen endpoint ni pantalla**. "Herramientas" (HU53) no usa
+  ninguno: su catálogo es fijo y vive en el front.
+- **No programes lo que el contrato deja afuera.** V4 §8.3 lista lo que el
+  prototipo muestra pero es de otra historia (lista de documentos de la causa,
+  modificar y dar de baja una causa, emitir carátula y expediente, adjuntos,
+  modificar o anular un acto, modificar y dar de baja modelos, campana de
+  notificaciones, pantalla "Vencimientos", etc.). No se dibuja ni deshabilitado:
+  no existe hasta su sprint. (Hoy hay dos excepciones en el rail que violan
+  esta regla: ver [Problemas conocidos](#problemas-conocidos).)
 - **No traigas código de otros proyectos** (componentes, estilos, hooks). Este
   proyecto tiene su propio sistema de diseño en `shared/` y `styles/`.
 - **No mezcles patrones.** Si ya existe una forma de hacer algo, seguila.
@@ -63,31 +73,55 @@ sprint en curso**. El resto ya está documentado: no lo repito, leelo.
 
 React 19 + TypeScript + Vite · React Router · TanStack Query · axios (sólo a
 través de `http`) · MSW (sólo para los mocks) · CSS global con clases `vz-*` y
-tokens `var(--vz-*)` · lint con **oxlint**.
+tokens `var(--vz-*)` · lint con **oxlint** · Vitest + Testing Library ·
+Playwright para los E2E.
 
 ---
 
-## Sprint 2 — qué se programa y dónde
+## Sprint 3 — qué está hecho y dónde
 
-Alcance según V3 (D-01): HU 8, 9, 13, 17, 18, 20, 22, 26, 45 y 46, más el ABMC
-de calificaciones legales.
+Alcance según V4 (D-45): HU 27, 30, 31, 32, 33, 34, 35, 39, 40, 41, 42, 51 y
+52. El resumen por historia está en V4 §9. HU53 (Herramientas) está en el
+sprint de Jira pero no en el contrato: no pide nada al servidor.
 
-| HU | Pantalla | Módulo | Ruta | Estado |
+| HU | Qué | Módulo | Frontend | Estado en el front |
 |---|---|---|---|---|
-| 8, 9 | Clientes: listado y alta | `clients/` | `/clientes` | **Hecha** |
-| — | Calificaciones legales: listado, alta, modificación y baja | `legal-params/` | `/calificaciones-legales` | **Hechos** el listado y el alta. La modificación y la baja no están: la página las deja para otra historia |
-| 20 | Causas: listado con búsqueda y filtros | `cases/` | `/causas` | **Hecha** |
-| 18 | Registrar causa | `cases/` | `/causas/nueva` | **Hecha** |
-| 22 | Detalle de causa: encabezado, prescripción y tarjeta del cliente | `cases/` | `/causas/:caseId` | **Hecha** |
-| 26 | Registrar acto procesal | `proceedings/` | `/causas/:caseId/acto` | **Hecha** |
-| 13 | Consultar abogado | `lawyers/` | `/abogados` | **Hecha.** `activeCases` es real y la tabla lleva la barra de carga con `Meter` |
-| 17, 45, 46 | Estados procesales | `legal-params/` | `/estados-y-plazos` | **Hecha**, con los ajustes de V3 de más abajo |
+| 27 | Línea de vida de la causa: actos procesales, actos interruptivos y pase a "Prescripta", intercalados por fecha | `cases/` | Ezequiel Purro | **Hecha.** Panel "Ciclo de vida de la causa" (`CaseTimeline`) del detalle, con `GET /cases/{caseId}/timeline` (D-85): sin paginar y ya intercalada; el front no ordena. `casesKeys.timeline(id)` cuelga de `detail(id)`, así que registrar un acto la refresca |
+| 31 | Registrar actos interruptivos (solo penal, solo el abogado responsable). La consulta es la línea de vida | `cases/` | Ezequiel Purro | **Hecha.** Modal en el detalle (`InterruptiveActModal`, `useRegisterInterruptiveAct`), fila "Sobre la causa". A quien no es el responsable el botón le avisa con un toast, como el prototipo |
+| 32 | Barra de prescripción con la alerta del 70 % y alertas en los tableros | `cases/`, `dashboard/` | — | **Hecha**: la barra lee `prescription` y los dos tableros muestran "Alertas de prescripción" (`PrescriptionAlertsPanel`). Los correos son del backend |
+| 33 | "Marcar prescripta" (`POST /cases/{caseId}/prescription`) | `cases/` | Ezequiel Purro | **Hecha.** Modal en el detalle (`PrescriptionDeclarationModal`, `useDeclarePrescription`), con `cases.declarePrescription` en `ACTION_ACCESS`: la Secretaría no ve el botón. En una causa ya prescripta no se ofrecen ni éste ni el acto interruptivo |
+| 34, 35 | Modelos formales: alta con archivo, listado por fuero y descarga | `documents/` | Luciano Cipolla | **Hecha.** `DocumentTemplatesPage` en `/modelos`: una tarjeta por fuero (`JurisdictionCard`), los modelos del fuero elegido (`DocumentTemplateCard`), el alta (`DocumentTemplateFormModal` con `FileDropzone` y `JurisdictionPicker`) y la descarga (`useDownloadDocumentTemplate`). Sólo Administrador y Abogado |
+| 39, 40 | Carpeta de la causa en Drive y copia de modelos | `cases/` | Luciano Cipolla | **A medias.** El alta ya está: las casillas "Crear carpeta" y "Copiar modelos" (`CaseForm`), la ruta prevista y la cantidad de modelos del fuero en el resumen (`CaseSummaryAside`, `folderPathPreview`), y `createFolder`/`copyTemplates` viajan siempre en `toCreateCaseBody`. El aviso del alta suma la carpeta (`folderNoticeSuffix`, `folderFailed`). **Falta el detalle**: abrir la carpeta, crearla y reintentar (`POST /cases/{caseId}/folder`). Sus tests (`CaseDetailPage.folder.test.tsx`) están en rojo |
+| 41, 42 | Tableros "Mi día" y "Estudio" | `dashboard/` | Facundo Fiorani | **Hecha.** `HomePage` de `dashboard/` en `/inicio`. "Mi día": "Lo primero de hoy", la agenda del mes con las dos listas cortas al lado y, debajo y a todo el ancho, "Mis plazos abiertos"; "Estudio": cartera por fuero, "Vencimientos del estudio", alertas y "Carga del equipo". Los plazos se muestran como la línea de vencimientos del prototipo (`DeadlinesPanel`). Los tableros llevan `staleTime: 0` (CA-41.9): se vuelven a pedir cada vez que se entra a Inicio, así que las mutaciones no los invalidan. Los ajustes que no salen del prototipo están en `dashboard/CAMBIOS.md` |
+| 53 | Herramientas: accesos directos a sitios externos | `tools/` | — | **Hecha.** `ToolsPage` en `/herramientas`, para los tres perfiles. El catálogo está en `tools/utils/catalog.ts`; cómo sumar una herramienta y los cambios, en `tools/CAMBIOS.md` |
+| 30, 51, 52 | Avisos por correo y verificación diaria | — | Sólo backend | Sin trabajo de front: es un proceso del servidor |
+
+---
+
+## Lo que ya está hecho de los Sprints 1 y 2
+
+Queda como referencia de cómo está armado cada módulo. Lo que V4 cambió sobre
+esto ya está aplicado en la app, en los mocks y en los tests (ver
+[Cambios de V4 sobre lo que ya estaba hecho](#cambios-de-v4-sobre-lo-que-ya-estaba-hecho)).
+
+| HU | Pantalla | Módulo | Ruta |
+|---|---|---|---|
+| — | Iniciar sesión | `auth/` | `/login` |
+| — | Usuarios: ABM | `users/` | `/usuarios` |
+| 8, 9 | Clientes: listado y alta | `clients/` | `/clientes` |
+| 47 a 50 | Calificaciones legales: listado, alta, modificación y baja | `legal-params/` | `/calificaciones-legales` |
+| 17, 45, 46 | Estados procesales | `legal-params/` | `/estados-y-plazos` |
+| 13 | Consultar abogado, con la barra de carga (`Meter`) | `lawyers/` | `/abogados` |
+| 20 | Causas: listado con búsqueda y filtros | `cases/` | `/causas` |
+| 18 | Registrar causa | `cases/` | `/causas/nueva` |
+| 22 | Detalle de causa: encabezado, prescripción, datos por fuero y tarjeta del cliente | `cases/` | `/causas/:caseId` |
+| 26 | Registrar acto procesal | `proceedings/` | `/causas/:caseId/acto` |
 
 Las rutas de causas cuelgan de `/causas`, así que heredan su permiso en
-`ROUTE_ACCESS` (`/causas/12` → `/causas`). `/abogados`, `/estados-y-plazos` y
-`/calificaciones-legales` están declaradas para los tres perfiles y tienen su
-ítem en el grupo "Administración" del rail; `/usuarios` y `/reportes`, sólo
-para `ADMINISTRATOR` (matriz de permisos del 11/10/2026, V3 §4).
+`ROUTE_ACCESS` (`/causas/12` → `/causas`). El rail tiene dos grupos:
+**"Trabajo diario"** (Inicio, Causas, Clientes, Modelos, Herramientas) y
+**"Administración"** (Usuarios, Abogados, Estados y plazos, Calificaciones
+legales, Reportes). Quién ve cada uno está en [Acceso por perfil](#acceso-por-perfil).
 
 **La barra superior no tiene buscador.** El buscador general —uno solo para
 todas las pantallas— quedó postergado (decisión del 07/10/2026). Hasta que se
@@ -95,36 +129,56 @@ haga, cada listado lleva el suyo en su panel y busca sólo en ese listado; el de
 causas está en `CasesPage`. No se repone el de la barra porque el prototipo lo
 muestre.
 
-**Quién ve y quién opera qué** lo fija la matriz de permisos del contrato
-(V3 §4, revisión del 11/10/2026). Abogados la ven los tres perfiles, pero
-"Registrar abogado" es sólo del Administrador; Estados y plazos y
-Calificaciones legales las ven y las operan los tres; registrar un cliente,
-también los tres. El detalle está en [Acceso por perfil](#acceso-por-perfil).
-
 **Navegación después de guardar** (prototipo actualizado): registrar una causa
 lleva a **su detalle** (`/causas/:caseId`), no al listado; registrar un acto
-vuelve al detalle de la causa, que ya muestra el estado y el plazo nuevos.
+vuelve al detalle de la causa, que ya muestra el estado y el plazo nuevos. El
+logo del rail lleva a la pantalla de entrada del usuario (`homeRoute`).
 
-### Qué va en el `index.ts` de cada módulo
+### Qué publica el `index.ts` de cada módulo
 
 Varios módulos necesitan datos de otros. Cada dueño publica **sólo eso** en su
 `index.ts` (regla 1 de `ESTRUCTURA.md` §5), y nadie entra a sus carpetas:
 
 | Módulo | Publica | Lo usa |
 |---|---|---|
-| `lawyers` | `useLawyers` (ya existe) | Registrar causa: "Abogado responsable" |
-| `clients` | `useClients`, `useCreateClient`, el formateo del nombre y del DNI, y el modal de alta (ya publicados) | Registrar causa: select de cliente y "Registrar cliente nuevo" |
-| `legal-params` | `useLegalQualifications`, el formateo de la prescripción, el modal de alta, y `useProceduralStates` | Registrar causa (calificaciones) y Registrar acto (estados del fuero) |
-| `cases` | `useCase`, las claves de caché, el encabezado de la causa y la barra de prescripción | Registrar acto: el acto muestra la causa y, al registrarse, invalida sus claves porque la causa cambia de estado |
+| `lawyers` | `useLawyers`, `Lawyer` | Registrar causa ("Abogado responsable"), el listado de causas, Usuarios (la ficha del abogado) |
+| `clients` | `useClients`, `useCreateClient`, `ClientFormModal`, `validateClient`, `formatClientName`, `formatDni`, `normalizeDni`, `toCreateClientBody` | Registrar causa: select de cliente y "Registrar cliente nuevo" |
+| `legal-params` | `useLegalQualifications`, `useCreateLegalQualification`, `LegalQualificationFormModal`, `useProceduralStates`, `isPrescribedState`, el formateo de la prescripción, los rótulos de fueros y tipos de día | Registrar causa, Registrar acto, Modelos (los fueros) y los tableros |
+| `documents` | `useDocumentTemplates`, `DocumentTemplate` | Registrar causa: cuántos modelos del fuero se van a copiar (CA-40.10) |
+| `cases` | `useCase`, `useCreateCase`, `casesKeys`, `CaseHeader`, `PrescriptionBar`, `nearestQualification`, `prescriptionNote`, `openDeadline`, `isResponsibleLawyer`, `sacLabel`, los rótulos y los tipos de la causa y del acto procesal (`ProceduralAct`, `ActDeadline`) | Registrar acto (muestra la causa y, al registrarse, invalida sus claves) y los tableros |
 
-Las dependencias van en una sola dirección: `proceedings → cases → clients,
-legal-params, lawyers`. Si aparece una flecha para el otro lado, algo está en
-el módulo equivocado.
+`proceedings`, `dashboard`, `tools`, `users` y `auth` no publican nada: nadie
+los consume. Las dependencias van en una sola dirección:
 
-### Componentes de `shared` para este sprint
+```
+proceedings → cases → clients, legal-params, lawyers, documents
+dashboard   → cases, legal-params
+documents   → legal-params
+users       → lawyers
+```
 
-Ya están hechos y documentados en `SHARED.md`. Usalos antes de escribir nada
-parecido:
+Si aparece una flecha para el otro lado, algo está en el módulo equivocado.
+
+### Qué hay en cada módulo
+
+| Módulo | Páginas | Componentes | Utilidades |
+|---|---|---|---|
+| `clients` | `ClientsPage` | `ClientsTable`, `ClientFormModal` | `clientFormat` (`formatClientName`, `formatDni`, `normalizeDni`), `toCreateClientBody` |
+| `legal-params` | `ProceduralStatesPage`, `LegalQualificationsPage` | `ProceduralStatesTable`, `ProceduralStateFormModal`, `DeleteProceduralStateModal`, `LegalQualificationsTable`, `LegalQualificationFormModal`, `DeleteLegalQualificationModal` | `prescription` (`formatPrescription`, `toPrescriptionMonths`, `splitPrescription`, `shortQualificationName`), `systemStates`, `dayTypeTone`, los `build…Patch` y `toCreate…Body`, `toFormErrors` |
+| `cases` | `CasesPage`, `RegisterCasePage`, `CaseDetailPage` | `CasesTable`, `CaseFilters`, `CaseForm`, `LegalQualificationPicker`, `CaseSummaryAside`, `CaseHeader`, `CaseFacts`, `PrescriptionBar`, `ClientCard`, `CaseTimeline`, `InterruptiveActModal`, `PrescriptionDeclarationModal` | `deadlineStatus`, `openDeadline`, `prescription`, `caseState`, `stateFilter`, `sac`, `suggestedCaption`, `responsibleLawyer`, `caseForm`, `caseFolder`, `timeline`, `toCreateCaseBody`, `toCreateInterruptiveActBody`, `toDeclarePrescriptionBody` |
+| `proceedings` | `RegisterProceduralActPage` | `ProceduralActForm`, `DeadlinePreviewAside` | `stateOptions`, `resolveState`, `terminalState`, `deadlinePreview`, `dueDateText`, `toCreateProceduralActBody`, `toFormErrors` |
+| `lawyers` | `LawyersPage` | `LawyersTable`, `LawyerFormModal` | `toCreateLawyerBody` |
+| `users` | `UsersPage` | `UsersTable`, `UserFormModal`, `DeleteUserModal` | `buildUserPatch`, `toCreateUserBody`, `roles`, `lawyerLink` |
+| `documents` | `DocumentTemplatesPage` | `JurisdictionCard`, `DocumentTemplateCard`, `DocumentTemplateFormModal`, `FileDropzone`, `JurisdictionPicker` | `templateFormat`, `toCreateDocumentTemplateBody` |
+| `dashboard` | `HomePage` | `LawyerDashboardView`, `AdministratorDashboardView`, `SummaryBand`, `FirstDeadline`, `DeadlinesPanel`, `DeadlineCalendar`, `CasesToAdvancePanel`, `PrescriptionAlertsPanel`, `PortfolioByJurisdiction`, `TeamLoadPanel` | `dashboardDate`, `urgency` |
+| `tools` | `ToolsPage` | `ToolSection`, `ToolCard`, `ToolSeal`, `QuickAccessBand` | `catalog`, `filterTools`, `brandStyle` |
+
+Qué piezas no llevan test propio, y por qué, está en `TESTING.md` §5, "Lo que
+no se testea".
+
+### Componentes de `shared` que ya se usan
+
+Están documentados en `SHARED.md`. Usalos antes de escribir nada parecido:
 
 | Para | Usar |
 |---|---|
@@ -136,67 +190,24 @@ parecido:
 | "Estado procesal al que pasa la causa" (elegir o escribir) | `Combobox` |
 | "Rol procesal del cliente" | `SegmentedControl` |
 | Filtro de estado con grupos por fuero, "Causas nuevas" y "Escritos a mano" | `Select` con `{ group, options }` |
-| "Fecha del hecho" de cada calificación elegida | Ya está: un campo de fecha por fila en `LegalQualificationPicker` |
-| "Objeto del reclamo" / "Objeto del amparo" con contador `0 / 800` | Ya está en `CaseForm`: `Textarea` dentro de `Field` con `hint` |
+| "Objeto del reclamo" / "Objeto del amparo" con contador `0 / 800` | `Textarea` dentro de `Field` con `hint` (ya está en `CaseForm`) |
 | "Solo con plazo por vencer" | `Button pressed={…}` |
-| Buscador del listado de causas (y de cualquier listado) | `SearchInput` + `useDebouncedValue` de `@/shared/hooks/useDebouncedValue` |
+| Buscador de un listado | `SearchInput` + `useDebouncedValue` de `@/shared/hooks/useDebouncedValue` |
 | Formulario de página con panel al costado | `.vz-split` + `.vz-split__aside` |
 | Chip de vencimiento y de estado | `Pill` (`danger` vencido/hoy, `warn` ≤ 5 días, `dot="hollow"` sin plazo) |
 | Mostrar una fecha del contrato | `formatDate` de `@/shared/lib/dates` |
 | Valor por defecto de un campo de fecha | `todayIsoDate()` de `@/shared/lib/dates` |
+| Nombre de una persona | `formatPersonName` / `formatPersonFullName` de `@/shared/lib/personName` |
 
 Los componentes propios de cada pantalla (la tabla de causas, el selector de
 calificaciones del alta, el panel "Cómputo del plazo") van en su módulo.
 
-### Lo que ya está hecho y lo que falta
+### Lo que tiene que armar cada página
 
-Por módulo ya están los **tipos**, los **schemas**, las **utilidades** y los
-**componentes** presentacionales, con su `index.ts`:
+Los componentes son presentacionales y lo reciben hecho:
 
-| Módulo | Componentes | Utilidades |
-|---|---|---|
-| `clients` | `ClientsTable`, `ClientFormModal` | `formatClientName`, `formatDni`, `normalizeDni`, `toCreateClientBody` |
-| `legal-params` | `LegalQualificationsTable`, `LegalQualificationFormModal`, `DeleteLegalQualificationModal` | `formatPrescription`, `toPrescriptionMonths`, `splitPrescription`, `shortQualificationName` |
-| `cases` | `CasesTable`, `CaseFilters`, `CaseForm`, `LegalQualificationPicker`, `CaseSummaryAside`, `CaseHeader`, `PrescriptionBar`, `ClientCard` | `deadlineStatus`, `prescriptionProgress`, `nearestQualification`, `estimatedExpiry`, `suggestedCaption`, `stateFilterParams` (y `WITHOUT_ACTS`), `changeJurisdiction`, `emptyCaseForm`, `caseStateLabel` |
-| `proceedings` | `ProceduralActForm`, `DeadlinePreviewAside` | `stateOptions`, `filterStateOptions`, `findStateByName`, `termText`, `dueDateDetail`, `dueDateTone` |
-| `lawyers` | `LawyersTable` con la barra de carga (`Meter`) | — |
-
-**Todo sigue la revisión del 05/10/2026 del contrato** (V3 §7.8): los mocks,
-los cinco módulos y sus tests. El detalle de cada cambio está en
-[Revisiones del contrato](#revisiones-del-contrato).
-
-También están hechos:
-
-- **Los mocks de todos los endpoints de V3** (ver [Los mocks](#los-mocks)) y
-  el test de contrato que los compara con `docs/openapi`.
-- **Los permisos por acción**: `ACTION_ACCESS`, `can` y `useCan`, en
-  `src/app/access/` (ver [Acceso por perfil](#acceso-por-perfil)).
-- **El módulo `clients` completo** (HU-8 y HU-9): `toCreateClientBody`, el
-  `api/` (`clients.api`, `clients.keys`, `useClients`, `useCreateClient`),
-  `ClientsPage`, la ruta `/clientes` y los dos hooks publicados en su
-  `index.ts`. Sus tests se escribieron desde los criterios de aceptación antes
-  de programar la feature (ver `TESTING.md` §11) y pasan todos, los E2E
-  incluidos. Sirve de modelo para un módulo nuevo, junto con `lawyers`.
-- **El módulo `cases` completo** (HU-18, HU-20 y HU-22): `toCreateCaseBody`, el
-  `api/` (`cases.api`, `cases.keys`, `useCase`, `useCases`,
-  `useCaseCustomStates`, `useCreateCase`) y las tres páginas con sus rutas:
-  `CasesPage`, `RegisterCasePage` y `CaseDetailPage`. Los tests del listado
-  (HU-20) también se escribieron antes que la página, desde sus criterios.
-- **Registrar acto procesal** (HU-26): `RegisterProceduralActPage`, en
-  `proceedings/`, con su `api/` (`useRegisterProceduralAct`,
-  `useDeadlinePreview`) y su ruta.
-- **Calificaciones legales**, listado y alta: `LegalQualificationsPage` y su
-  ruta.
-
-**Falta:** la modificación y la baja de calificaciones legales, que el contrato
-ya define y `LegalQualificationsPage` deja para otra historia. Qué piezas no
-llevan test propio, y por qué, está en `TESTING.md` §5, "Lo que no se testea".
-
-**Lo que tiene que armar cada página**, porque los componentes son
-presentacionales y lo reciben hecho:
-
-- **Clientes** (hecha: así quedó `ClientsPage`). El botón "Registrar cliente" está habilitado para
-  los tres perfiles (V3 D-39). El DNI se acepta con o sin puntos y
+- **Clientes** (así quedó `ClientsPage`). El botón "Registrar cliente" está
+  habilitado para los tres perfiles (D-39). El DNI se acepta con o sin puntos y
   viaja sin puntos (`normalizeDni`); un teléfono o un correo vacío no viaja. Un
   DNI repetido (`409 CLIENT_DNI_ALREADY_EXISTS`) se muestra en el campo DNI. Al
   registrar, el aviso es "Cliente GÓMEZ, Ariel Fernando registrado.". Sin
@@ -211,7 +222,12 @@ presentacionales y lo reciben hecho:
   - *Resumen:* cada renglón de `prescriptions` lleva el nombre corto
     (`shortQualificationName`), el plazo (`formatPrescription`), la fecha del
     hecho y `estimatedExpiry(offenseDate, meses)`. El estado inicial que
-    muestra es "Iniciada".
+    muestra es "Iniciada". Abajo, la carpeta en Drive: dónde va a quedar
+    (`folderPathPreview`) o que no se va a crear.
+  - *Carpeta y modelos* (HU39, HU40): "Crear carpeta" viene marcada; "Copiar
+    modelos" también, y se deshabilita si se desmarca la carpeta
+    (`changeCreateFolder`). La cantidad de modelos del fuero sale de
+    `useDocumentTemplates`.
   - *"Para poder registrar":* cliente, carátula y responsable; el SAC es
     opcional, pero si se carga tiene que tener 8 dígitos y no estar repetido;
     en el penal, la fecha del hecho de cada calificación elegida; fuera del
@@ -222,8 +238,10 @@ presentacionales y lo reciben hecho:
   - *Cuerpo del alta:* `sacNumber` sólo si se cargó; `legalQualifications`
     sólo en el penal y sólo si se eligió alguna; `counterparty` y
     `subjectMatter` sólo en los otros dos fueros; el teléfono del instructor en
-    `tribunalPhone` y el interno, aparte, en `instructorExtension`.
-- **Causas (listado)** (hecha: así quedó `CasesPage`).
+    `tribunalPhone` y el interno, aparte, en `instructorExtension`; los datos
+    del fuero (D-67) sólo los del fuero elegido; `createFolder` y
+    `copyTemplates` siempre, aunque sean `false`.
+- **Causas (listado)** (así quedó `CasesPage`).
   - *Qué pide:* las causas con `useCases`; los abogados con `useLawyers`; los
     estados con `useProceduralStates`, una vez por fuero, porque ese hook trae
     los de un fuero por vez; y los estados escritos a mano con
@@ -248,24 +266,32 @@ presentacionales y lo reciben hecho:
   - *La clave de los estados escritos a mano* (`casesKeys.customStates`) cuelga
     de `casesKeys.lists()` a propósito: registrar un acto invalida los
     listados, y con eso el filtro vuelve a pedir sus opciones.
-- **Detalle de causa.** La barra de prescripción muestra
-  `nearestQualification(causa)` con su `prescriptionStartsOn` y su
-  `prescriptionExpiresOn`, y en `note` dice que el cómputo corre desde la fecha
-  del hecho y, si hay varias calificaciones, cuál es la que prescribe primero.
-  El instructor lleva dos datos, "Teléfono" e "Interno". "Registrar acto
-  procesal" va habilitado sólo para el abogado responsable de la causa; a los
-  demás se les muestra deshabilitado, con la nota "Solo el abogado responsable
-  (Dra. Malena Ríos) registra actos.".
+- **Detalle de causa.** La barra de prescripción lee `prescription` de la causa
+  y arma la nota con `prescriptionNote`. El instructor lleva dos datos,
+  "Teléfono" e "Interno"; los datos del fuero van en `CaseFacts`. Debajo, la
+  línea de vida (`CaseTimeline`). "Registrar acto procesal" va deshabilitado
+  para quien no es el abogado responsable, con la nota "Solo el abogado
+  responsable (…) registra actos.". La fila "Sobre la causa" ("Registrar acto
+  interruptivo" y "Marcar prescripta") aparece sólo en una causa penal que
+  todavía no fue marcada prescripta (`showCaseActions`); "Marcar prescripta",
+  además, sólo para el Administrador y los abogados. Lo demás (sin
+  calificaciones, causa archivada) lo rechaza el backend con su `422`.
 
-### Reglas del dominio que aparecen en este sprint
+### Reglas del dominio
 
-Son las del contrato con su revisión del 05/10/2026, que el código ya sigue
-(ver [Revisiones del contrato](#revisiones-del-contrato)).
+Son las de V4. Lo que V4 cambió respecto de V3 está marcado con su decisión.
 
 - **Personas: apellido primero y orden alfabético por apellido** (observación
-  de la Sprint Review 1). El cliente trae `lastName` y `firstName` separados; se
-  muestra `GÓMEZ, Ariel Fernando`. El orden lo resuelve el backend: la tabla no
-  ordena, y ordenar la página en el front mezclaría las páginas.
+  de la Sprint Review 1). **Toda** persona trae `lastName` y `firstName`
+  separados (V4 D-68): usuarios, abogados, la sesión, y las referencias
+  `lawyer`, `responsibleLawyer` y `registeredBy`. No existe más `fullName`. Se
+  muestra con `formatPersonName` (`Ríos, Malena`) en tablas y selects, y con
+  `formatPersonFullName` (`Malena Ríos`) dentro de una frase, los dos de
+  `@/shared/lib/personName`. El cliente sigue con su propio formato,
+  `formatClientName` (`GÓMEZ, Ariel Fernando`). El tratamiento "Dr."/"Dra." no
+  es parte del nombre (D-81) y hoy no se muestra. El orden lo resuelve el
+  backend: la tabla no ordena, y ordenar la página en el front mezclaría las
+  páginas.
 - **Fechas sin hora** (`startDate`, `offenseDate`, `dueDate`, `clientSince`) viajan como
   `YYYY-MM-DD`. Nunca `new Date('2026-09-15')`: lo toma en UTC y en Córdoba
   muestra el día anterior. Para eso están `formatDate` y `todayIsoDate`.
@@ -276,30 +302,45 @@ Son las del contrato con su revisión del 05/10/2026, que el código ya sigue
 - **Los estados procesales no tienen posición ni orden** (D-31). El backend los
   lista por fuero y, dentro de cada uno, en el orden en que se registraron. No
   hay columna `#` ni selector de ubicación, y ninguna pantalla los reordena.
-- **`activeCases` de estados y calificaciones viene sólo en los `GET`** (D-32).
-  El `POST` y el `PATCH` devuelven el recurso sin ese campo, así que lo que
-  devuelve una mutación no sirve para pintar la columna "Causas": se invalida
-  el listado y se vuelve a pedir.
+- **Los estados procesales traen `caseCount`, no `activeCases`** (V4 D-70):
+  cuenta todas las causas que están en el estado, activas o no, así que los
+  terminales también muestran las suyas. Abogados, clientes y calificaciones
+  conservan su `activeCases`.
+- **`caseCount` de estados y `activeCases` de calificaciones vienen sólo en los
+  `GET`** (D-32). El `POST` y el `PATCH` devuelven el recurso sin ese campo, así
+  que lo que devuelve una mutación no sirve para pintar la columna "Causas": se
+  invalida el listado y se vuelve a pedir.
+- **"Prescripta" es un estado de sistema del fuero penal** (V4 D-53): aparece
+  en el listado de estados y en el filtro de causas, pero no se modifica ni se
+  da de baja (`422 PROCEDURAL_STATE_PROTECTED`) y no es destino de un acto. Se
+  reconoce con `isPrescribedState` (publicado por `legal-params`); la tabla le
+  muestra "Estado del sistema" en lugar de las acciones. Una causa llega a él
+  sólo con "Marcar prescripta".
 - **La causa nace en el estado inicial, "Iniciada"** (D-34). `currentState`
   **nunca es `null`**: en una causa recién registrada trae `name: "Iniciada"`,
   `initial: true` y `proceduralStateId: null`. El nombre lo manda el backend;
   el front no pone ningún rótulo propio. "Iniciada" es un estado de sistema:
   no está en la tabla de estados, no se administra, no se ofrece como destino
-  de un acto y no aparece en la línea de tiempo. El resumen del alta muestra
+  de un acto y no aparece en la línea de vida. El resumen del alta muestra
   "Iniciada · El estado lo fija el primer acto procesal".
-- **El vencimiento es parte del estado actual** (D-35). Ya no existe
+- **El vencimiento es parte del estado actual** (D-35). No existe
   `nextDeadline`: `currentState` trae `proceduralActId`, `dueDate`,
   `businessDaysRemaining` y `manuallyAdjusted`. Con `dueDate` en `null` la
   causa no tiene vencimiento: es el chip "Sin plazo abierto" del prototipo.
+- **El vencimiento abierto puede ser del acto lesivo** (V4 D-78, D-82). En un
+  amparo en "Iniciada" con fecha de acto lesivo, `harmfulActDeadline` trae el
+  plazo para presentarlo. Nunca coincide con el de `currentState`. El listado,
+  el encabezado y los tableros leen el que haya con `openDeadline(c)` y lo
+  aclaran con "Plazo para el amparo".
 - **`businessDaysRemaining`** arma el texto del chip: negativo = "Vencido hace
   N días", `0` = "Vence hoy", positivo = "En N días hábiles".
 - **El vencimiento de un acto no se calcula en el front.** Se pide a
   `GET /cases/{caseId}/procedural-acts/deadline-preview` mientras se completa el
   formulario, así lo que se ve es lo que se guarda (D-20).
-- **El enumerado nuevo** (`ProceduralRole`) viaja como código; el rótulo lo
-  pone el front. Depende del fuero (tabla en V3 §2): al cambiar el fuero, el
-  rol vuelve al primero válido. `ProceduralActStatus` **no existe**: el
-  contrato lo retiró (D-13).
+- **El enumerado `ProceduralRole`** viaja como código en castellano (`DEFENSA`,
+  `QUERELLANTE_PARTICULAR`, `RECURRENTE`, `ACTORA`, `DEMANDADA`, D-37); el
+  rótulo lo pone el front. Depende del fuero: al cambiar el fuero, el rol
+  vuelve al primero válido. `ProceduralActStatus` **no existe** (D-13).
 - **Filtro de estado del listado:** tres clases de opciones, cada una con su
   parámetro, excluyentes entre sí. Estado de la tabla → `proceduralStateId`;
   grupo "Causas nuevas", opción "Iniciada" → `withoutProceduralActs=true`
@@ -308,163 +349,144 @@ Son las del contrato con su revisión del 05/10/2026, que el código ya sigue
 - **El SAC es opcional** (D-33). Si se carga, son 8 dígitos y es único
   (`409 CASE_SAC_ALREADY_EXISTS`, que se muestra en el campo). `sacNumber`
   puede venir en `null`: el prototipo lo muestra como "Sin SAC", y el listado
-  ya no se desempata por SAC sino por `id`.
+  se desempata por `id`.
 - **Calificaciones legales opcionales** (D-33): una causa penal puede no tener
   ninguna; en ese caso no computa prescripción. Fuera del penal no se mandan.
 - **Fecha del hecho** (D-19, D-28): cada calificación **elegida** lleva su
   `offenseDate`, obligatoria y no futura. El cuerpo del alta manda
-  `legalQualifications: [{ legalQualificationId, offenseDate }]`; ya no existe
-  `legalQualificationIds`.
+  `legalQualifications: [{ legalQualificationId, offenseDate }]`.
 - **Prescripción:** sólo en el fuero penal y **por calificación**: cada
   elemento de `legalQualifications[]` trae `offenseDate`,
-  `prescriptionStartsOn` y `prescriptionExpiresOn`. La causa no tiene
-  `prescriptionStartsOn`, y `startDate` no interviene. La barra muestra **la
-  calificación que prescribe primero** (menor `prescriptionExpiresOn`), con la
-  nota "Calificación que prescribe primero: …"; el porcentaje y el "Restan 5
-  años 9 meses" se calculan con las dos fechas de esa calificación. En el
-  resumen del alta, cada calificación muestra "8 años desde el 27/02/2021" y su
-  vencimiento estimado. Fuera del penal, "No aplica al fuero".
+  `prescriptionStartsOn` y `prescriptionExpiresOn`. `prescriptionStartsOn` es
+  la fecha del acto interruptivo más reciente o, si no hay, `offenseDate`
+  (V4 D-49), y `startDate` no interviene. **La barra no calcula nada** (D-51):
+  lee `prescription` de la causa, que trae la calificación que prescribe
+  primero, `elapsedPercentage`, `alert` (70 %, fijo) y `expired`. Del lado del
+  front quedan el "Restan 5 años 9 meses" (`remainingLabel`, con `expiresOn`) y
+  la nota (`prescriptionNote`). Un plazo cumplido no cambia el estado (D-52):
+  la barra dice "Plazo cumplido". `prescription` vale `null` fuera del penal y
+  en una causa penal sin calificaciones (D-74): ahí la barra no se dibuja.
+- **Actos interruptivos** (HU31): sólo en el penal, sólo el abogado
+  responsable y nunca en una causa cerrada. Reinician la prescripción de todas
+  las calificaciones; rige el de fecha más reciente. No mueven el estado ni el
+  vencimiento de la causa.
+- **Marcar prescripta** (HU33, D-52, D-74): manual, con fecha (no futura) y
+  resolución; el fundamento es opcional. Sólo causas penales con
+  calificaciones. No se deshace.
+- **Datos propios de cada fuero y tasa** (V4 D-67): "Preso" en el penal
+  (`clientDetained`); medida cautelar y acto lesivo en el amparo
+  (`injunctionGranted`, `harmfulActDate`, `harmfulActRenews`,
+  `harmfulActRenewalDays`, `harmfulActTermDays`, `harmfulActTermDayType`);
+  agotamiento de la vía en el administrativo
+  (`administrativeRemedyExhaustedOn`); y `courtFeePaid` en los tres. No están
+  en el prototipo: los suma el alta (`CaseForm`) y los muestra el detalle
+  (`CaseFacts`). Un dato de otro fuero no se manda y en la respuesta vale
+  `null`. Se cargan sólo en el alta: modificarlos es HU19.
+- **`startDate` es anulable** (D-38): `null` mientras la causa no tiene SAC.
 - **Objeto del reclamo / del amparo** (`subjectMatter`, D-27): sólo en
   `ADMINISTRATIVE` y `AMPARO`, **obligatorio** y de hasta 800 caracteres, con
   contador. El rótulo y el placeholder cambian con el fuero. En el penal no se
-  manda. También entra en "Para poder registrar".
+  manda.
 - **Instructor de la causa** (D-33): `instructorName`, `tribunalPhone` (sólo
   el teléfono, hasta 50 caracteres) e `instructorExtension` (el interno, hasta
-  20), los tres opcionales. En el formulario van en una fila: "Instructor de la
-  causa", "Teléfono" e "Interno".
+  20), los tres opcionales.
 - **Estado del acto:** se manda `proceduralStateId` **o** `customState`, nunca
-  los dos. Si lo escrito coincide con un estado de la tabla, se manda el id. Los
-  estados terminales no se ofrecen, y "Iniciada" tampoco. El **primer acto** de
-  una causa puede llevarla a cualquier estado no terminal del fuero, o a uno
-  escrito a mano.
+  los dos. Si lo escrito coincide con un estado de la tabla, se manda el id.
+  **Los estados terminales sí se ofrecen** (V4 D-69), con la aclaración
+  "Cierra la causa": es la forma de archivarla. "Prescripta" no se ofrece, y
+  "Iniciada" tampoco. Hacia un terminal no hay ajuste manual del vencimiento.
+  Una causa en estado terminal no admite actos nuevos
+  (`422 CASE_IN_TERMINAL_STATE`).
 - **Fuero administrativo:** el plazo corre desde `notificationDate`, que es
   obligatoria si el estado abre plazo (RN6).
-- **Sólo el abogado responsable de la causa registra sus actos** (D-30). No es
-  un rol: ni otro abogado ni el administrador pueden. Se compara la ficha del
-  usuario con el responsable de la causa
-  (`useCurrentUser().lawyer?.id === causa.responsibleLawyer.id`); el backend
-  responde `403` a quien no lo es, también en `deadline-preview`. El acto se
-  aplica a la causa al registrarse: no hay actos pendientes ni confirmación
-  (D-13). A quien no es el responsable el prototipo le muestra el botón
-  deshabilitado y la nota "Solo el abogado responsable de la causa (…) registra
-  sus actos procesales.".
+- **Sólo el abogado responsable de la causa registra sus actos** (D-30),
+  procesales e interruptivos. No es un rol: ni otro abogado ni el
+  administrador pueden. Se decide con `isResponsibleLawyer` (publicado por
+  `cases`), que compara la ficha del usuario con el responsable de la causa; el
+  backend responde `403` a quien no lo es, también en `deadline-preview`. El
+  acto se aplica a la causa al registrarse: no hay actos pendientes ni
+  confirmación (D-13).
+- **Carpeta de la causa** (V4 D-59 a D-61, D-83): la crea el backend en
+  `/VZ Causas/{Apellido, Nombres}/{Fuero}/{carátula}`. Si Drive falla, la
+  causa se registra igual y `folder.status` queda en `ERROR` (D-60). `folder`
+  vale `null` en las causas registradas antes de V4.
 
-### Cambios de V3 sobre lo que ya está hecho
+### Cambios de V4 sobre lo que ya estaba hecho
 
-Lo que V3 cambió en los recursos del Sprint 1. El mock ya los implementa todos;
-en la columna de la derecha, cómo quedó el front.
+Lo que V4 cambió en los recursos de los Sprints 1 y 2 (V4 §7.2). **Está
+aplicado en la app, en los mocks y en los tests.** Lo que cambió V3 sobre el
+Sprint 1 quedó registrado en `API_CONTRACT_V3.md` §7 y ya no es referencia.
 
 | Cambio | En el front |
 |---|---|
-| `GET /lawyers` y `GET /procedural-states` se abren a cualquier usuario autenticado | Otros módulos ya pueden pedir esos datos. Desde la revisión del 11/10/2026 las pantallas también están abiertas a los tres perfiles en `ROUTE_ACCESS` |
-| `DELETE /procedural-states` ya no responde `409` por tener causas: la baja procede y las causas conservan el estado (D-06) | **Hecho.** `DeleteProceduralStateModal` avisa "Hay N causas en este estado…", como el prototipo |
-| `PATCH /procedural-states` no acepta `jurisdiction`: el fuero de un estado no se modifica (D-36, revierte D-07). Se retira `PROCEDURAL_STATE_IN_USE` | **Hecho.** El formulario no ofrece el fuero y `UpdateProceduralStateBody` no tiene el campo; el mock responde `400` si viaja |
-| Los estados procesales no tienen `position` (D-31) | **Hecho.** Se sacaron la columna `#`, el selector "¿Dónde va este estado?", `positionOptions.ts` y `useProceduralStateCycle.ts`. El aviso del alta dice "Estado … agregado al ciclo de vida del fuero …" |
-| `POST` y `PATCH /procedural-states` devuelven el estado sin `activeCases` (D-32) | **Hecho.** `SavedProceduralState` en `types/proceduralState.ts`; las mutaciones invalidan el listado |
-| `activeCases` de abogados y estados deja de valer `0` | Nada que tocar: las tablas ya lo muestran |
-| Códigos de error nuevos y `PROCEDURAL_STATE_HAS_DEPENDENCIES` retirado (V3 §7.4) | **Hecho.** `ERROR_CODES` de `src/shared/api/contract.ts` tiene los 29 del catálogo, así que `e.is(...)` ya los acepta. `JURISDICTION_WITHOUT_PROCEDURAL_STATES` no está: el contrato lo retiró. La revisión del 05/10 no agregó códigos |
-| `message` y `details` en castellano en todos los endpoints (V3 §5.2, D-23) | Se muestra `e.message` como en el Sprint 1 y no se escriben mensajes propios |
-
-### Revisiones del contrato
+| `lastName` y `firstName` en lugar de `fullName` en usuarios, abogados, la sesión y toda referencia a ellos (D-68) | Tipos, formularios (dos campos, hasta 100 caracteres), parches, tablas y textos. `formatPersonName` y `formatPersonFullName` en `shared/lib/personName.ts`. Una sesión guardada con la forma V3 se descarta |
+| `caseCount` en lugar de `activeCases` en los estados procesales (D-70) | El tipo, la columna "Causas", la baja y la edición |
+| "Prescripta" es un estado de sistema protegido (D-53) | `isPrescribedState` en `legal-params/utils/systemStates.ts`; la tabla no ofrece acciones y la página maneja el `422 PROCEDURAL_STATE_PROTECTED` |
+| Un acto puede llevar la causa a un estado terminal, salvo "Prescripta" (D-69) | `stateOptions`, `DeadlinePreviewAside` (`allowManualDue`) y `toCreateProceduralActBody` |
+| La causa suma los datos por fuero y `courtFeePaid` (D-67) | El alta (`CaseForm`, `validateCase`, `toCreateCaseBody`) y el detalle (`CaseFacts`) |
+| `harmfulActDeadline` cuenta como vencimiento abierto (D-78, D-82) | `openDeadline` en el listado, el encabezado y los tableros |
+| `prescription` calculada por el backend (D-51) | `PrescriptionBar` recibe `prescription`; `prescriptionNote` arma la nota |
+| `prescriptionDeclaration` en la causa | El modal "Marcar prescripta" y el pase en la línea de vida (HU33) |
+| `folder` en la causa; `POST /cases` acepta `createFolder` y `copyTemplates` | El alta los manda y su aviso suma la carpeta. El detalle todavía no la muestra (HU39, pendiente) |
+| Códigos de error nuevos (V4 §7.4) | `ERROR_CODES` de `src/shared/api/contract.ts` suma `DOCUMENT_TEMPLATE_NOT_FOUND`, `DOCUMENT_TEMPLATE_ALREADY_EXISTS`, `FILE_TOO_LARGE`, `PRESCRIPTION_NOT_APPLICABLE`, `PROCEDURAL_STATE_PROTECTED`, `DOCUMENT_STORAGE_UNAVAILABLE` y `PROCEDURAL_ACT_NOT_FOUND` |
+| Modificación y baja de calificaciones legales (pendiente del Sprint 2) | `LegalQualificationsPage`, con `useUpdateLegalQualification`, `useDeleteLegalQualification` y `buildLegalQualificationPatch` |
 
 Si el contrato vuelve a cambiar, **no se toca de una**: primero se listan los
 cambios y se acuerdan, después se aplican al contrato, a los mocks, a los tipos
 y a este archivo.
 
-#### Revisión del 11/10/2026 (V3 §7.11)
-
-Nueva matriz de permisos del equipo (D-39, reemplaza a D-04 y D-05). **El
-contrato, los mocks, las pantallas y sus tests ya la siguen.**
-
-| Cambio del contrato | Dónde quedó |
-|---|---|
-| `POST /clients` pasa de `SECRETARY` a cualquier usuario autenticado | **Hecho** en el mock y en las pantallas: "Registrar cliente" (`ClientsPage`) y "Registrar cliente nuevo" (`CaseForm`) están habilitados para todos. Se retiró `clients.create` |
-| La escritura de `/procedural-states` pasa de `ADMINISTRATOR` a cualquier usuario autenticado | **Hecho** en el mock y en `ROUTE_ACCESS` (`/estados-y-plazos`) |
-| La escritura de `/legal-qualifications` pasa de `ADMINISTRATOR` a cualquier usuario autenticado | **Hecho** en el mock y en `ROUTE_ACCESS` (`/calificaciones-legales`). "Registrar calificación nueva" (`LegalQualificationPicker`) está habilitado para todos. Se retiró `legalQualifications.create` |
-| Consultar abogados es de los tres perfiles; registrar, modificar y dar de baja, solo del Administrador (no cambia el contrato) | **Hecho** abrir `/abogados` en `ROUTE_ACCESS` y declarar `lawyers.create`. "Registrar abogado" va deshabilitado para quien no es Administrador (`LawyersPage`) |
-
-#### Revisión del 09/10/2026 (V3 §7.9)
-
-| Cambio del contrato | Dónde quedó |
-|---|---|
-| Los códigos de `ProceduralRole` van en castellano: `DEFENSA`, `QUERELLANTE_PARTICULAR`, `RECURRENTE`, `ACTORA`, `DEMANDADA` (D-37) | **Hecho** en `cases/types/case.ts`, en los mocks (`contract.ts`, `fixtures.ts`, `responses.ts`) y en los tests. Los rótulos de pantalla no cambian |
-
-#### Revisión del 05/10/2026 (V3 §7.8)
-
-Decisiones del equipo sobre el propio V3. **El mock las implementa todas, y el
-front también:**
-
-| Cambio del contrato | Dónde quedó |
-|---|---|
-| Los estados procesales no tienen `position` (D-31) | **Hecho** en `legal-params` y en `proceedings/utils/stateOptions.ts`, que respeta el orden en que llegan |
-| `activeCases` sólo en los `GET` de estados y calificaciones (D-32) | **Hecho.** `SavedProceduralState` y `CreatedLegalQualification` son los tipos de lo que devuelven `POST` y `PATCH` |
-| Sólo el abogado responsable registra actos (D-30) | **Hecho.** `isResponsibleLawyer` (`cases/utils/responsibleLawyer.ts`) lo decide en el detalle de la causa y en `RegisterProceduralActPage`. No es un permiso por rol, así que no va en `ACTION_ACCESS` |
-| La causa nace en "Iniciada": `currentState` no es anulable y suma `initial` (D-34) | **Hecho.** `CurrentState` en `cases/types/case.ts`; `caseStateLabel` devuelve el nombre que manda el backend |
-| El filtro "Sin acto procesal" pasa a llamarse "Iniciada" (D-34) | **Hecho.** `CasesPage` arma la opción con `INITIAL_STATE_LABEL`. Quedan tres comentarios que todavía dicen "Sin acto procesal": el encabezado de `cases/utils/stateFilter.ts`, la prop `stateOptions` de `CaseFilters` y uno de `CaseSummaryAside` |
-| Se retira `nextDeadline`: el vencimiento va en `currentState` (D-35) | **Hecho.** `deadlineStatus` lee `dueDate` y `businessDaysRemaining` del estado actual |
-| `sacNumber` opcional y anulable (D-33) | **Hecho.** `validateCase` sólo lo revisa si se cargó, y `sacLabel` (`cases/utils/sac.ts`) muestra "Sin SAC" |
-| `legalQualifications` opcional en el penal (D-33) | **Hecho.** `validateCase` sólo exige la fecha del hecho de las que se eligieron |
-| El interno del instructor va aparte del teléfono (D-33) | **Hecho.** `tribunalPhone` e `instructorExtension`, con sus dos campos en `CaseForm`. El teléfono se llama `tribunalPhone` en el contrato; antes figuraba como `instructorPhone` |
-| El resultado de un acto (`resultingState`) lleva sólo `proceduralStateId`, `name` y `custom` | **Hecho.** `ResultingState` es el del acto y `CurrentState`, que lo extiende, el de la causa |
-
-Los tests de `cases` y `proceedings` ya siguen esta revisión, igual que el
-código que prueban.
-
-#### Revisión del 01/10/2026 (V3 §7.7)
-
-Por la actualización del prototipo. Está aplicada entera en `cases` y
-`proceedings`; parte de lo que fijó ya fue reemplazado por la revisión del
-05/10, y se indica:
-
-| Cambio del contrato | Dónde quedó |
-|---|---|
-| La causa nace sin estado: `currentState` puede venir en `null` (D-09) | **Reemplazado por D-34**: la causa nace en "Iniciada" |
-| Filtro "Sin acto procesal" → `withoutProceduralActs=true` (D-29) | `CaseListParams` y `stateFilterParams`, con el valor `WITHOUT_ACTS`. El parámetro sigue; la opción ahora se llama "Iniciada" |
-| `legalQualifications: [{ legalQualificationId, offenseDate }]`, con la fecha del hecho obligatoria (D-19, D-28) | `CreateCaseBody`, `CaseFormValues`, `validateCase` (que además devuelve `offenseDates`, el error de cada fila) y `LegalQualificationPicker`. Vigente; lo que pasó a ser opcional es tener calificaciones (D-33) |
-| La prescripción es por calificación: `offenseDate`, `prescriptionStartsOn`, `prescriptionExpiresOn`. La causa ya no tiene `prescriptionStartsOn` | `CaseLegalQualification`; `estimatedExpiry` cuenta desde la fecha del hecho. Vigente |
-| `subjectMatter` obligatorio fuera del penal, hasta 800 (D-27) | `Case`, `CreateCaseBody`, `validateCase` (`SUBJECT_MATTER_MAX`) y `CaseForm`, con su contador. Vigente |
-| No existe `ProceduralActStatus` ni el flujo de confirmación (D-13) | Se sacó de `proceedings/types` y `ProceduralActForm` ya no muestra la nota de RN13. Vigente; quién registra cambió con D-30 |
-
 ### Los mocks
 
-**El mock implementa V3 entero**, con la revisión del 05/10/2026: los
-endpoints del Sprint 1 con sus cambios y los del Sprint 2 (calificaciones
-legales, clientes, causas, registro de acto y `deadline-preview`). Una pantalla
-nueva ya tiene contra qué desarrollarse y contra qué testearse. Lo que hay que
-saber:
+**El mock implementa V4 entero** (`docs/Api-Contract/API_CONTRACT_V4.md`, con
+la revisión del 19/10/2026), con MSW: lo de los Sprints 1 y 2 con los cambios
+de V4 y lo del Sprint 3 (línea de vida, actos interruptivos, prescripción,
+carpeta, modelos formales y tableros). Lo que hay que saber:
 
-- **Permisos**, según la tabla del contrato (V3 §4): leer está abierto a
-  cualquiera con sesión, salvo `/users`. Leer y escribir `/users` y escribir
-  abogados pide `ADMINISTRATOR` (`fvazquez`, `supervision`). Registrar un
-  cliente o una causa, y escribir estados procesales y calificaciones legales,
-  lo hace cualquiera (D-39). Lo prueba `tests/unit/contract/permissions.test.ts`.
+- **Usuarios de prueba:** `fvazquez` (Administrador y Abogado), `mrios`
+  (Abogado), `gestion` (Secretaría), `supervision` (Administrador sin ficha) y
+  `sledesma` (Secretaría y Abogado). Las contraseñas están en el README.
+- **Permisos**, según la tabla del contrato (V4 §4): leer está abierto a
+  cualquiera con sesión, salvo `/users`, los modelos y los tableros. `/users` y
+  escribir abogados piden `ADMINISTRATOR`. Registrar un cliente o una causa,
+  escribir estados procesales y calificaciones legales, y crear o reintentar
+  la carpeta, lo hace cualquiera. Los modelos y "Marcar prescripta" son de
+  `ADMINISTRATOR` o `LAWYER`; `GET /dashboards/lawyer`, de `LAWYER`, y
+  `GET /dashboards/administrator`, de `ADMINISTRATOR`. Lo prueba
+  `tests/unit/contract/permissions.test.ts`.
 - **Los actos no se rigen por un rol** (D-30): los registra, y previsualiza su
   vencimiento, sólo el abogado responsable de la causa. `mrios` lleva la 1 y la
-  17; `fvazquez`, la 4, la 6 y la 20; `mferreyra`, la 7. Con cualquier otro
-  usuario el mock responde `403`, aunque sea abogado o administrador.
+  17; `fvazquez`, la 4, la 6 y la 20; `mferreyra`, la 7; `sledesma`, la 15 y la
+  16. Con cualquier otro usuario el mock responde `403`, aunque sea abogado o
+  administrador.
 - **Datos semilla:** 23 causas, 23 clientes vigentes, 8 calificaciones
-  vigentes. Las causas 1 a 6 son las del prototipo; el resto cubre cada regla:
-  en el estado inicial "Iniciada" (7, 11, 22 y 23), sin SAC ni calificaciones
-  (23), estado escrito a mano (8), en estado terminal (9, 10 y 21), con una
-  calificación dada de baja (13), con el vencimiento ajustado a mano (8 y 16).
-  La tabla completa está en el comentario de `CASE_SEEDS`, en `fixtures.ts`.
+  vigentes, 12 modelos vigentes y uno dado de baja. Las causas 1 a 6 son las
+  del prototipo; el resto cubre cada regla: en "Iniciada" (7, 11, 22 y 23), sin
+  SAC ni calificaciones (23), estado escrito a mano (8), en estado terminal (9,
+  10 y 21), con una calificación dada de baja (13), con el vencimiento ajustado
+  a mano (8 y 16). Del Sprint 3: alerta de prescripción (4), marcada
+  prescripta (10), prescripción cumplida sin marcar (13), carpeta creada (1, 2,
+  3, 5 y 6), creándose (11), con error (22) y pendiente (23). La tabla completa
+  está en el README y en el comentario de `CASE_SEEDS`, en `fixtures.ts`.
 - **Los vencimientos son relativos a hoy.** Los actos recientes de las
   semillas se ubican "N días hábiles atrás", así el listado se ve como el
   prototipo cualquier día. Un test que afirme algo sobre vencimientos o sobre
-  "hoy" tiene que fijar el día: `TESTING.md`, "Tests que dependen del día".
-- **Lo calculado no se guarda.** `activeCases`, el estado actual de una causa
-  y su vencimiento salen de los actos en cada lectura. Registrar un acto no
-  "actualiza la causa": la próxima lectura ya la devuelve cambiada, y por eso
-  la mutación del acto tiene que invalidar las claves de la causa. "Iniciada"
-  tampoco se guarda: una causa está en ese estado mientras no tenga actos.
+  "hoy" tiene que fijar el día (`usePrototypeToday()` de
+  `tests/setup/clock.ts`): `TESTING.md`, "Tests que dependen del día".
+- **Lo calculado no se guarda.** `activeCases`, `caseCount`, el estado actual
+  de una causa, su vencimiento, su prescripción y su línea de vida salen de los
+  actos en cada lectura. Registrar un acto no "actualiza la causa": la próxima
+  lectura ya la devuelve cambiada, y por eso la mutación del acto tiene que
+  invalidar las claves de la causa. "Iniciada" tampoco se guarda: una causa
+  está en ese estado mientras no tenga actos.
 - **El detalle está en el README de los mocks**: cómo disparar cada error
-  (qué usuario, qué causa, qué dato) y las decisiones que el mock tomó donde
-  el contrato no dice nada. Que el mock no invente ni olvide endpoints lo revisa
-  `tests/unit/contract/endpoints.test.ts` contra `docs/openapi`.
+  (qué usuario, qué causa, qué dato), cómo subir y descargar archivos, y las
+  decisiones que el mock tomó donde el contrato no dice nada. Que el mock no
+  invente ni olvide endpoints lo revisa `tests/unit/contract/endpoints.test.ts`
+  contra `docs/openapi`.
 - **Si falta un endpoint**, se agrega en `src/shared/mocks/handlers.ts`
-  (handler y su entrada en `ROUTES`), y el contrato en `docs/openapi` (el test de `tests/unit/contract/` falla si divergen).
-  Sin handler, la pantalla falla contra el mock y sus tests también
-  (`onUnhandledRequest: 'error'`).
+  (handler y su entrada en `ROUTES`), y el contrato en `docs/openapi` (el test
+  de `tests/unit/contract/` falla si divergen). Sin handler, la pantalla falla
+  contra el mock y sus tests también (`onUnhandledRequest: 'error'`).
 - **El mock sigue además al esquema de la base** (`backend/prisma/schema.prisma`)
   donde el contrato no entra en detalle: por ejemplo, el nombre de un estado
   procesal es único entre los vigentes, así que el de uno dado de baja se
@@ -490,8 +512,8 @@ features/users/
 El ejemplo es `users` porque tiene el ABM completo. En otro módulo, **creá sólo
 los hooks de los endpoints que existan y que la pantalla use**: `lawyers`, por
 ejemplo, tiene `useLawyers` y `useCreateLawyer`, y no tiene hooks de
-modificación ni de baja porque esas historias son de otro sprint. `clients`, en
-este sprint, tiene alta y consulta, y nada más.
+modificación ni de baja porque esas historias son de otro sprint. `clients`
+tiene alta y consulta, y nada más.
 
 Dependencias permitidas dentro del módulo, en una sola dirección:
 
@@ -504,6 +526,10 @@ types  →  (nada)
 Hacia afuera: el módulo puede usar `shared/`, `domain/` y el `index.ts` de otro
 módulo. **Nunca importa las carpetas internas de otro módulo ni
 `@/shared/mocks`.**
+
+Si un módulo tiene cambios que no salen del prototipo ni del contrato (pedidos
+del equipo, ajustes de diseño), van en un `CAMBIOS.md` en su raíz, como los de
+`dashboard/` y `tools/`.
 
 ### `types/` — las formas de los datos
 
@@ -547,7 +573,9 @@ detail(id)→ ['users', 'detail', id]
 
 Los listados son paginados y filtrables: **los parámetros van en la clave**, si
 no, dos páginas distintas pisan la misma entrada de caché. Nadie escribe una
-clave a mano fuera de este archivo.
+clave a mano fuera de este archivo. Lo que depende de un recurso cuelga de su
+`detail(id)` (como `casesKeys.timeline(id)`), así invalidar el detalle lo
+refresca también.
 
 **Un hook por archivo**, y el archivo se llama igual que el hook
 (`useUsers.ts` exporta `useUsers`).
@@ -565,13 +593,13 @@ clave a mano fuera de este archivo.
 
 Invalidá `lists()` y no `list(p)`: una alta o una baja cambia todas las
 páginas, no sólo la que está en pantalla. Si la escritura cambia **otro**
-recurso —registrar un acto cambia la causa—, invalidá también las claves de
-ese recurso, que su módulo publica en el `index.ts`.
+recurso —registrar un acto cambia la causa—, invalidá también
+las claves de ese recurso, que su módulo publica en el `index.ts`.
 
 En estados procesales y calificaciones legales, lo que devuelven el `POST` y el
-`PATCH` **no trae `activeCases`** (V3 D-32): no lo uses para sembrar ni para
-reemplazar `detail(id)`. Alcanza con invalidar `lists()`, y el dato llega con
-el próximo `GET`.
+`PATCH` **no trae `caseCount` ni `activeCases`** (D-32): no lo uses para
+sembrar ni para reemplazar `detail(id)`. Alcanza con invalidar `lists()`, y el
+dato llega con el próximo `GET`.
 
 Si hay baja **en lote**, usá `Promise.allSettled` y devolvé `{ deleted, failed }`:
 una baja puede fallar sola (`409` si tiene dependencias, `422` si viola una
@@ -592,7 +620,8 @@ puras** que reciben los valores del formulario y devuelven un error por campo:
 cambia el interior del archivo y no dónde está.
 
 Las restricciones salen de la tabla del cuerpo de cada endpoint en el contrato
-(largos, formatos: SAC de 8 dígitos, DNI de 7 u 8, matrícula `1-28114`).
+(largos, formatos: SAC de 8 dígitos, DNI de 7 u 8, matrícula `1-28114`,
+modelos `.docx` de hasta 10 MB).
 
 Es la primera barrera, no la única: el backend también valida y devuelve sus
 errores campo por campo en los `400` (ver `pages/`).
@@ -610,10 +639,9 @@ Funciones puras, sin React y sin HTTP:
   código → rótulo, o estado → tono de `Pill`.
 
 **Las reglas jurídicas no van acá.** Cómputo de plazos, prescripción, actos
-interruptivos, estados por fuero: todo eso va en `src/domain/`, sin React. En
-este sprint casi todo lo calcula el backend (vencimientos, `businessDaysRemaining`,
-`prescriptionExpiresOn`); lo que quede del lado del front, como el porcentaje
-de prescripción transcurrida, es presentación.
+interruptivos, estados por fuero: todo eso va en `src/domain/`, sin React. Hoy
+casi todo lo calcula el backend (vencimientos, `businessDaysRemaining`,
+`prescription`); lo que queda del lado del front es presentación.
 
 ### `components/` — piezas del módulo
 
@@ -651,8 +679,9 @@ No llama al servidor directo.
     `isBusinessRule`, `isNotFound`…). **Nunca compares `e.message`.**
   - para marcar campos, `e.fieldError('campo')` en los `400`. Un conflicto que
     es de un campo (usuario repetido, matrícula repetida, SAC repetido, DNI
-    repetido) se muestra **en ese campo**, no en un aviso suelto.
-  - para mostrar, `e.message`: el backend lo manda en castellano (V3 D-23).
+    repetido, nombre de modelo repetido) se muestra **en ese campo**, no en un
+    aviso suelto.
+  - para mostrar, `e.message`: el backend lo manda en castellano (D-23).
     No escribas mensajes de error genéricos propios.
 - **Avisos:** `useToast()` de `@/app/providers/ToastContext`.
   `success` para lo que se creó o se guardó, `info` para una baja (salió bien,
@@ -666,11 +695,13 @@ No llama al servidor directo.
 
 1. Registrar las páginas en `src/app/router/index.tsx`, **adentro** de
    `<RequireAccess />`.
-2. Si falta, agregar el ítem en `src/app/layouts/AppLayout.tsx`.
+2. Si falta, agregar el ítem en `src/app/layouts/AppLayout.tsx`, en el grupo
+   que corresponda ("Trabajo diario" o "Administración").
 3. **Declarar la ruta en `ROUTE_ACCESS`** (`src/app/access/access.ts`) con los
    roles que la ven, tal como los fija el contrato para sus endpoints. Si la
    pantalla tiene una acción que opera un solo perfil, declararla en
-   `ACTION_ACCESS`, en el mismo archivo.
+   `ACTION_ACCESS`, en el mismo archivo. Ojo al resolver un merge de ese
+   archivo: ya se perdió una ruta así (ver `tools/CAMBIOS.md`).
 4. Si el mock no tiene el endpoint, agregarlo en `src/shared/mocks/`.
 5. Si otro módulo necesita algo de éste, publicarlo en su `index.ts`.
 
@@ -683,21 +714,31 @@ fuente de quién puede qué.
 ítems y los grupos que quedan vacíos) y `RequireAccess` (muestra "Sin acceso"
 si alguien escribe la URL a mano).
 
+| Ruta | Perfiles |
+|---|---|
+| `/inicio`, `/modelos` | Administrador y Abogado |
+| `/causas`, `/clientes`, `/herramientas`, `/abogados`, `/estados-y-plazos`, `/calificaciones-legales` | Los tres |
+| `/usuarios`, `/reportes` | Administrador |
+
 - **Lo que no está declarado queda denegado para todos**, administrador
   incluido. Si una pantalla nueva no aparece en el menú, casi seguro falta
   acá.
 - Las subrutas heredan el permiso de su sección: `/causas/8/acto` → `/causas`.
 - Para preguntar por una ruta desde un componente, `useCanAccess(ruta)` de
   `@/app/access/useCanAccess`.
+- **La pantalla de entrada** la decide `homeRoute(roles)`: `/inicio` si el
+  usuario tiene algún tablero; si no (la Secretaría), `/causas` (CA-41.13).
+  La usan todos los lugares que mandan "al inicio", logo incluido.
 
 **`ACTION_ACCESS`: quién opera cada acción.** Es para lo que `ROUTE_ACCESS` no
-puede decir: una pantalla que ven todos, con un botón que es de un solo perfil.
+puede decir: una pantalla que ven varios perfiles, con algo que es de uno solo.
 
-```ts
-export const ACTION_ACCESS: Record<Action, readonly Role[]> = {
-    'lawyers.create': ADMIN,      // V3 §4, matriz del 11/10/2026
-}
-```
+| Acción | Perfiles | Dónde |
+|---|---|---|
+| `lawyers.create` | Administrador | "Registrar abogado" en `LawyersPage` |
+| `dashboard.lawyer` | Abogado | Pestaña "Mi día" de `/inicio` |
+| `dashboard.administrator` | Administrador | Pestaña "Estudio" de `/inicio` |
+| `cases.declarePrescription` | Administrador y Abogado | "Marcar prescripta" en el detalle de causa |
 
 ```tsx
 const canCreate = useCan('lawyers.create')   // de @/app/access/useCan
@@ -711,35 +752,79 @@ const canCreate = useCan('lawyers.create')   // de @/app/access/useCan
 </Button>
 ```
 
-- El botón va **deshabilitado**, no escondido: es lo que hace el prototipo.
+- Por defecto el botón va **deshabilitado**, no escondido: es lo que hace el
+  prototipo. Donde el prototipo lo esconde ("Marcar prescripta" para la
+  Secretaría), se esconde.
 - Una acción nueva se suma a `Action` y a `ACTION_ACCESS`, con el rol que fija
-  la tabla de permisos del contrato (V3 §4). Hoy hay una sola: registrar un
-  abogado. Registrar un cliente y registrar una calificación legal dejaron de
-  ser acciones restringidas con la matriz del 11/10/2026 (D-39), así que sus
-  botones no consultan nada.
+  la tabla de permisos del contrato (V4 §4).
 - **Una acción que pueden los tres perfiles no se declara**: el botón va
-  habilitado y listo. La tabla es sólo para lo que restringe.
+  habilitado y listo. La tabla es sólo para lo que restringe. Registrar un
+  cliente, una causa o una calificación legal no consulta nada (D-39).
 - **No** escribas `roles.includes('ADMINISTRATOR')` en un componente: la regla
   tiene que seguir viviendo en un solo lugar.
 - Con varios roles alcanza con que uno habilite: quien es Administrador y
-  abogado a la vez puede registrar abogados.
+  abogado a la vez ve los dos tableros y puede registrar abogados.
 
 **Lo que no es un permiso por rol no va en ninguna de las dos tablas.**
-"Registrar acto procesal" depende de la causa: sólo su abogado responsable
-(D-30). Se resuelve en la pantalla, comparando la ficha del usuario con el
-responsable de esa causa.
+Registrar un acto procesal o un acto interruptivo depende de la causa: sólo su
+abogado responsable (D-30). Se resuelve en la pantalla con
+`isResponsibleLawyer`.
+
+**Los roles de la sesión se mantienen al día.** Se guardan en el login, pero
+`AuthProvider` los vuelve a pedir al abrir la aplicación (`POST /auth/refresh`,
+con "Verificando la sesión…" mientras tanto) y cada vez que renueva el token.
+Si la ficha profesional cambió, la completa con `GET /lawyers/{lawyerId}`.
+Quien se modifica a sí mismo en Usuarios ve el cambio en el momento
+(`updateCurrentUser`), y si pierde el acceso a la pantalla va a su inicio. En
+los tests, un `getBy…` justo después de renderizar con sesión tiene que
+esperar antes con `waitForSession()` de `tests/setup/render.tsx`.
 
 Todo esto es comodidad, no seguridad: quien autoriza es el backend (responde
 `403`). Lo que se deshabilita acá es para no ofrecerle a nadie algo que no
 puede usar.
 
+---
+
 ## Verificar
 
-- `npm run lint` (oxlint) y `npm run build` desde `frontend/`. El build también
-  chequea los tipos de los tests.
-- `npm test` y, antes de un PR, `npm run test:e2e` (ver `TESTING.md`).
-- Para desarrollar sin backend: `VITE_USE_MOCKS=true` en `.env.local`. Los
-  usuarios de prueba y sus contraseñas están en el README de los mocks.
+Desde `frontend/`:
+
+| Qué | Comando |
+|---|---|
+| Lint | `npm run lint` (oxlint) |
+| Tipos de la app | `npx tsc -p tsconfig.app.json --noEmit` |
+| Build (también chequea los tipos de los tests) | `npm run build` |
+| Tests unitarios y de componentes | `npm test` |
+| E2E, antes de un PR | `npm run test:e2e` (ver `TESTING.md`) |
+| Matriz de criterios → tests | `npm run ca-matrix` (regenera `MATRIZ_CA.md`) |
+
+Para desarrollar sin backend: `VITE_USE_MOCKS=true` en `.env.local`. Los
+usuarios de prueba y sus contraseñas están en el README de los mocks.
+
+## Problemas conocidos
+
+Al 20/10/2026. No se arreglan al paso: cada uno es de su dueño.
+
+1. **`npm run build` falla.** `tsc -b` marca que al objeto de
+   `tests/unit/cases/case.schema.test.ts:11` le faltan `createFolder` y
+   `copyTemplates`, que se sumaron a `CaseFormValues` con HU39. La app compila
+   (`tsc -p tsconfig.app.json` pasa); lo que no compila es el test.
+2. **`npm test`: 280 pasan y 7 fallan.**
+   - Los 6 de `tests/components/cases/CaseDetailPage.folder.test.tsx`: la
+     carpeta en el detalle (HU39) todavía no está programada.
+   - `tests/components/proceedings/RegisterProceduralActPage.test.tsx`, "no
+     ofrece los estados terminales": quedó de V3. Desde D-69 los terminales sí
+     se ofrecen; el test es el que está mal, no la pantalla.
+3. **El módulo `home/` volvió.** `src/features/home/pages/HomePage.tsx` es la
+   pantalla provisoria de antes de los tableros. `TESTING.md` dice que se
+   eliminó el 18/10/2026 y el router usa el `HomePage` de `dashboard/`: es
+   código muerto. También existe `src/features/deadlines/`, vacío.
+4. **El rail dibuja dos cosas que el contrato deja afuera** (V4 §8.3): el ítem
+   "Reportes" (`/reportes`), que no tiene ruta y da la página de no
+   encontrado, y la campana de "Notificaciones" de la barra superior
+   (`AppLayout.tsx`).
+5. **Lint:** un warning, `react(only-export-components)` en
+   `src/shared/components/ui/Icon.tsx:2`.
 
 ## Checklist de un módulo
 
@@ -753,5 +838,5 @@ puede usar.
 8. Página, ruta, ítem del menú si falta, la ruta en `ROUTE_ACCESS` y sus
    acciones en `ACTION_ACCESS`.
 9. Lo que otro módulo necesite, en el `index.ts`.
-10. Tests según `TESTING.md` §11.
+10. Tests según `TESTING.md` §11, y `npm run ca-matrix`.
 11. Lint y build.

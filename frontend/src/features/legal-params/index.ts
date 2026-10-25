@@ -15,6 +15,7 @@
  */
 
 export { useProceduralStates } from './api/useProceduralStates';
+export { isPrescribedState, PRESCRIBED_STATE_NAME } from './utils/systemStates';
 export { useLegalQualifications } from './api/useLegalQualifications';
 export { useCreateLegalQualification } from './api/useCreateLegalQualification';
 export { LegalQualificationFormModal } from './components/LegalQualificationFormModal';
@@ -43,4 +44,5 @@ export type {
     LegalQualificationFormValues,
 } from './types/legalQualification';
 export { toCreateLegalQualificationBody } from './utils/toCreateLegalQualificationBody';
+export { toLegalQualificationFormErrors } from './utils/toLegalQualificationFormErrors';
 

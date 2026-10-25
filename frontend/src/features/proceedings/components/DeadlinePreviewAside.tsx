@@ -1,6 +1,7 @@
-import { DetailList, Panel } from '@/shared/components/ui'
+import { DetailList, LoadingState, Panel } from '@/shared/components/ui'
 import { Checkbox, Field, TextInput } from '@/shared/components/forms'
 import { formatDate, parseDateOnly } from '@/shared/lib/dates'
+import { DeadlinePreviewSkeleton } from '@/features/proceedings/components/ProceduralActFormSkeleton'
 import type { DeadlinePreview } from '@/features/proceedings/types/proceduralAct'
 import { dueDateDetail, dueDateTone } from '@/features/proceedings/utils/dueDateText'
 import { termText } from '@/features/proceedings/utils/stateOptions'
@@ -26,6 +27,11 @@ export interface DeadlinePreviewAsideProps {
     manualDue: boolean
     manualDueDate: string
     manualDueDateError?: string
+    /**
+     * `false` si el estado elegido es terminal: no abre plazo y el contrato no
+     * admite ajustarlo a mano (V4 §3.8). Por defecto, `true`.
+     */
+    allowManualDue?: boolean
     onManualDueChange: (value: boolean) => void
     onManualDueDateChange: (value: string) => void
 }
@@ -50,10 +56,11 @@ export interface DeadlinePreviewAsideProps {
  * (P-02). Si el backend agrega ese dato, se muestra igual que el de la tabla.
  */
 export function DeadlinePreviewAside({
-    state, manualDue, manualDueDate, manualDueDateError, onManualDueChange, onManualDueDateChange,
+    state, manualDue, manualDueDate, manualDueDateError, allowManualDue = true,
+    onManualDueChange, onManualDueDateChange,
 }: DeadlinePreviewAsideProps) {
     // Sólo una fecha completa y válida reemplaza a la de la tabla en el recuadro.
-    const manualDate = manualDue && parseDateOnly(manualDueDate) ? manualDueDate : null
+    const manualDate = allowManualDue && manualDue && parseDateOnly(manualDueDate) ? manualDueDate : null
 
     return (
         <Panel
@@ -63,7 +70,13 @@ export function DeadlinePreviewAside({
             <div className="vz-panel__body">
                 <PreviewBody state={state} manualDate={manualDate} />
 
-                {state.kind !== 'empty' && (
+                {state.kind !== 'empty' && !allowManualDue && (
+                    <div className="vz-summary__block vz-note">
+                        El estado elegido cierra la causa: no abre plazo y no admite actos nuevos.
+                    </div>
+                )}
+
+                {state.kind !== 'empty' && allowManualDue && (
                     <div className="vz-summary__block">
                         <Checkbox
                             label="Ajustar el vencimiento manualmente. Queda registrado quién lo modificó."
@@ -133,7 +146,11 @@ function PreviewBody({ state, manualDate }: { state: DeadlinePreviewState; manua
                 </div>
             )
         case 'loading':
-            return <p className="vz-muted">Calculando el vencimiento…</p>
+            return (
+                <LoadingState label="Calculando el vencimiento…">
+                    <DeadlinePreviewSkeleton />
+                </LoadingState>
+            )
         case 'error':
             return <p className="vz-error">{state.message}</p>
         case 'ready': {

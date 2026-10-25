@@ -11,6 +11,7 @@
  * (para mostrar u ocultar los campos).
  */
 
+import { formatPersonName } from '@/shared/lib/personName'
 import { LAWYER_MODES, type EmbeddedLawyer, type Role } from '@/features/users/types/user'
 
 /** `true` si un usuario con alguno de esos roles necesita ficha profesional. */
@@ -28,5 +29,5 @@ export function isCreatingLawyer(mode: string): boolean {
  * juntos, porque dos profesionales pueden llamarse parecido.
  */
 export function lawyerOptionLabel(lawyer: EmbeddedLawyer): string {
-    return `${lawyer.fullName} · matrícula ${lawyer.registrationNumber}`
+    return `${formatPersonName(lawyer)} · matrícula ${lawyer.registrationNumber}`
 }

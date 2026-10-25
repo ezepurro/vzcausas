@@ -1,0 +1,50 @@
+type: object
+description: |
+  Tablero del abogado, "Mi día" (HU41). El alcance son las causas activas de
+  las que el abogado es responsable. Las listas no están paginadas (D-62) y
+  pueden venir vacías: no es un error (CA-41.8).
+required:
+  - date
+  - lawyer
+  - summary
+  - deadlines
+  - prescriptionAlerts
+  - casesToAdvance
+properties:
+  date:
+    type: string
+    format: date
+    description: Fecha del día en Córdoba, contra la que se calculó todo.
+    examples:
+      - '2026-09-15'
+  lawyer:
+    allOf:
+      - $ref: ./LawyerReference.yaml
+    description: Abogado dueño del tablero.
+  summary:
+    allOf:
+      - $ref: ./DashboardSummary.yaml
+    description: Indicadores sobre sus causas.
+  deadlines:
+    type: array
+    description: |
+      Sus plazos abiertos, por urgencia: por `dueDate` ascendente, de modo que
+      los vencidos quedan primeros. El primero es "Lo primero de hoy".
+    items:
+      $ref: ./DashboardDeadline.yaml
+  prescriptionAlerts:
+    type: array
+    description: |
+      Sus causas penales con el 70 % o más del plazo de prescripción
+      transcurrido (HU32), por `expiresOn` ascendente: primero la que
+      prescribe antes. Vacía si ninguna llegó al umbral.
+    items:
+      $ref: ./PrescriptionAlert.yaml
+  casesToAdvance:
+    type: array
+    description: |
+      "Causas para impulsar": sus causas activas sin vencimiento abierto,
+      por `daysSinceLastAct` descendente; al principio, las que todavía no
+      tienen ningún acto.
+    items:
+      $ref: ./CaseToAdvance.yaml

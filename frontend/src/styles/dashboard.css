@@ -1,0 +1,564 @@
+/* Lo propio de los tableros de Inicio, "Mi día" y "Estudio". Como cases.css,
+   es de un área del sistema y no de shared. */
+
+/* ─────────── banda de indicadores ─────────── */
+/* La franja oscura de arriba: los cuatro números y, en "Mi día", "Lo primero
+   de hoy" a la derecha. Envuelve sola en pantallas angostas. */
+.vz-dash-band {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px 40px;
+  padding: 24px clamp(18px, 3vw, 30px);
+  border-radius: var(--vz-r);
+  background: var(--vz-rail);
+  color: var(--vz-rail-fg-on);
+  box-shadow: var(--vz-card-sh);
+}
+.vz-dash-band__tiles {
+  flex: 3 1 32rem;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px 0;
+}
+.vz-dash-band__aside {
+  flex: 1 1 16rem;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 10px;
+}
+
+.vz-dash-tile {
+  flex: 1 1 0;
+  min-width: 8rem;
+  padding: 0 22px;
+  border-left: 1px solid rgba(255, 255, 255, .12);
+}
+.vz-dash-tile:first-child { padding-left: 0; border-left: none; }
+.vz-dash-tile__label {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  line-height: 1.3;
+  color: var(--vz-rail-fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.vz-dash-tile__value {
+  margin-top: 10px;
+  font-family: var(--vz-font-mono);
+  font-size: clamp(32px, 4vw, 44px);
+  font-weight: 700;
+  letter-spacing: -.04em;
+  line-height: 1;
+}
+/* Los tonos claros del prototipo para la banda oscura: los de --vz-danger y
+   --vz-warn son para fondo claro y acá no se leen. */
+.vz-dash-tile__value--danger { color: #F4B4AC; }
+.vz-dash-tile__value--warn { color: #E9CF94; }
+.vz-dash-tile__note {
+  margin-top: 6px;
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--vz-rail-fg);
+}
+
+/* ─────────── lo primero de hoy ─────────── */
+/* El plazo más urgente, a la derecha de la banda. Toda la tarjeta es un botón
+   que abre la causa. */
+.vz-dash-first__title {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--vz-rail-fg);
+}
+.vz-dash-first {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid rgba(255, 255, 255, .12);
+  border-radius: var(--vz-r);
+  background: rgba(255, 255, 255, .04);
+  color: var(--vz-rail-fg-on);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background .12s, border-color .12s;
+}
+.vz-dash-first:hover { background: rgba(255, 255, 255, .08); border-color: rgba(255, 255, 255, .24); }
+.vz-dash-first__body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.vz-dash-first__when {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--vz-font-mono);
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.vz-dash-first__when::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+/* Mismos tonos claros que los números: vencido u hoy, esta semana, después. */
+.vz-dash-first__when--danger { color: #F4B4AC; }
+.vz-dash-first__when--warn { color: #E9CF94; }
+.vz-dash-first__when--ok { color: #B9D3B4; }
+.vz-dash-first__date { font-weight: 500; color: var(--vz-rail-fg); }
+.vz-dash-first__caption { font-size: 15px; font-weight: 700; line-height: 1.35; text-wrap: pretty; }
+.vz-dash-first__state { font-size: 12px; line-height: 1.4; color: var(--vz-rail-fg); }
+.vz-dash-first__arrow { flex: 0 0 auto; opacity: .75; }
+.vz-dash-first__empty-title { font-size: 14px; font-weight: 600; }
+.vz-dash-first__empty-text { font-size: 12px; line-height: 1.45; color: var(--vz-rail-fg); }
+
+/* ─────────── plazos abiertos ─────────── */
+/* "Mis plazos abiertos" y "Vencimientos del estudio": el filtro por urgencia
+   con sus contadores y la lista, que ya viene ordenada por el backend. */
+.vz-dash-count {
+  margin-left: 6px;
+  font-family: var(--vz-font-mono);
+  font-weight: 600;
+}
+/* La línea de vencimientos del prototipo: fecha a la izquierda, una línea
+   vertical con un nodo por plazo y la tarjeta de la causa a la derecha. El
+   color del nodo dice la urgencia, con los tonos del calendario. */
+.vz-dash-line {
+  list-style: none;
+  margin: 0;
+  padding: 14px 18px 18px;
+  max-height: 40rem;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  container-type: inline-size;
+}
+.vz-dash-line__item,
+.vz-dash-line__today {
+  display: grid;
+  grid-template-columns: 62px 24px minmax(0, 1fr);
+}
+.vz-dash-line__date { padding-top: 12px; }
+.vz-dash-line__date--repeat { visibility: hidden; }
+.vz-dash-line__weekday {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--vz-muted);
+}
+.vz-dash-line__day {
+  display: block;
+  font-family: var(--vz-font-mono);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+.vz-dash-line__month { font-size: 11px; font-weight: 500; color: var(--vz-muted); }
+
+/* La línea vertical pasa por todas las filas; el nodo se apoya encima. */
+.vz-dash-line__rail { position: relative; }
+.vz-dash-line__rail::before {
+  content: '';
+  position: absolute;
+  left: 11px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--vz-border);
+}
+.vz-dash-line__node {
+  position: absolute;
+  left: 5px;
+  top: 18px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 3px solid var(--vz-node, #9DBF9D);
+  background: var(--vz-surface);
+}
+.vz-dash-line__item--overdue { --vz-node: var(--vz-danger-action); }
+.vz-dash-line__item--today { --vz-node: #E08A80; }
+.vz-dash-line__item--thisWeek { --vz-node: var(--vz-warn-mark); }
+.vz-dash-line__item--later { --vz-node: #9DBF9D; }
+
+.vz-dash-line__card {
+  display: block;
+  width: 100%;
+  margin: 6px 0;
+  padding: 12px 14px;
+  border: 1px solid var(--vz-border);
+  border-radius: var(--vz-r);
+  background: var(--vz-surface);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .12s, box-shadow .12s;
+}
+.vz-dash-line__card:hover { border-color: var(--vz-primary); box-shadow: 0 4px 14px rgba(12, 20, 6, .08); }
+.vz-dash-line__item--overdue .vz-dash-line__card { border-color: var(--vz-danger-bd); background: #FDF6F5; }
+.vz-dash-line__item--today .vz-dash-line__card { border-color: var(--vz-danger-bd); }
+.vz-dash-line__head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.vz-dash-line__head > .vz-pill { flex: 0 0 auto; font-family: var(--vz-font-mono); }
+.vz-dash-line__body { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.vz-dash-line__caption { font-size: 13.5px; font-weight: 700; line-height: 1.35; text-wrap: pretty; }
+.vz-dash-line__meta { font-size: 11.5px; color: var(--vz-muted); }
+.vz-dash-line__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+}
+.vz-dash-line__lawyer { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.vz-dash-line__lawyer .vz-avatar { width: 22px; height: 22px; flex-basis: 22px; font-size: 9px; }
+.vz-dash-line__lawyer-name {
+  font-size: 12px;
+  color: var(--vz-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.vz-dash-line__open {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--vz-primary-hi);
+  white-space: nowrap;
+}
+
+/* A todo el ancho ("Mi día", fila propia) la tarjeta va en un solo renglón:
+   carátula y estado, chip y "Ver causa". La consulta es al ancho de la lista,
+   así "Estudio", con la lista en la columna ancha, conserva las dos filas.
+   Va después de las reglas de la tarjeta para poder pisarlas. */
+@container (min-width: 60rem) {
+  .vz-dash-line__card { display: flex; align-items: center; gap: 16px; }
+  .vz-dash-line__head { flex: 1; min-width: 0; align-items: center; }
+  .vz-dash-line__foot { flex: 0 0 auto; margin-top: 0; }
+  .vz-dash-line__foot > span:empty { display: none; }
+}
+
+/* La marca de hoy: entre lo vencido y lo que viene, viendo todos. */
+.vz-dash-line__today { align-items: center; min-height: 40px; }
+.vz-dash-line__today-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--vz-primary-hi);
+}
+.vz-dash-line__today .vz-dash-line__rail { align-self: stretch; display: flex; align-items: center; justify-content: center; }
+.vz-dash-line__today-node {
+  position: relative;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--vz-primary);
+  box-shadow: 0 0 0 4px var(--vz-primary-soft);
+}
+.vz-dash-line__today-rule { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.vz-dash-line__today-bar { flex: 1; height: 2px; border-radius: 1px; background: var(--vz-primary); }
+.vz-dash-line__today-date {
+  font-family: var(--vz-font-mono);
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--vz-primary-hi);
+  white-space: nowrap;
+}
+
+/* ─────────── calendario mensual ─────────── */
+/* "Agenda de plazos": siete columnas de lunes a domingo, con los fines de
+   semana sombreados (D-73) y hasta dos plazos por día. */
+.vz-dash-cal__weekdays,
+.vz-dash-cal__grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+.vz-dash-cal__weekdays {
+  border-bottom: 1px solid var(--vz-border);
+  background: var(--vz-sunken);
+}
+.vz-dash-cal__weekday {
+  padding: 8px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--vz-muted);
+}
+.vz-dash-cal__day {
+  min-width: 0;
+  min-height: 6rem;
+  padding: 6px 7px;
+  border-right: 1px solid var(--vz-border);
+  border-bottom: 1px solid var(--vz-border);
+  background: var(--vz-surface);
+}
+.vz-dash-cal__day:nth-child(7n) { border-right: none; }
+.vz-dash-cal__day--weekend { background: var(--vz-sunken); }
+.vz-dash-cal__day--outside { opacity: .45; }
+.vz-dash-cal__day--today { background: var(--vz-primary-soft); }
+.vz-dash-cal__num {
+  font-family: var(--vz-font-mono);
+  font-size: 12px;
+  font-weight: 500;
+}
+.vz-dash-cal__day--today .vz-dash-cal__num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 5px;
+  border-radius: var(--vz-r-pill);
+  background: var(--vz-primary);
+  color: #fff;
+  font-weight: 700;
+}
+.vz-dash-cal__items { display: flex; flex-direction: column; gap: 3px; margin-top: 5px; min-width: 0; }
+.vz-dash-cal__item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+  padding: 2px 4px;
+  border: none;
+  border-radius: var(--vz-r-sm);
+  background: transparent;
+  color: var(--vz-ink);
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.35;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.vz-dash-cal__item:hover { background: var(--vz-sunken); }
+.vz-dash-cal__item > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.vz-dash-cal__dot { width: 7px; height: 7px; flex: 0 0 7px; border-radius: 50%; }
+.vz-dash-cal__dot--overdue { background: var(--vz-danger-action); }
+.vz-dash-cal__dot--today { background: #E08A80; }
+.vz-dash-cal__dot--thisWeek { background: var(--vz-warn-mark); }
+.vz-dash-cal__dot--later { background: #9DBF9D; }
+.vz-dash-cal__more { padding-left: 2px; font-size: 10.5px; font-weight: 600; color: var(--vz-muted); }
+
+/* ─────────── causas para impulsar y alertas ─────────── */
+/* Las dos listas de la columna derecha de "Mi día" (las alertas también
+   están en "Estudio"). Una fila por causa, separadas por una línea. */
+.vz-dash-rows { list-style: none; margin: 0; padding: 0; }
+.vz-dash-rows > li + li { border-top: 1px solid var(--vz-border); }
+.vz-dash-rows--scroll { max-height: 26rem; overflow-y: auto; scrollbar-width: thin; }
+
+.vz-dash-advance {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 18px;
+}
+.vz-dash-advance__since { flex: 0 0 4rem; text-align: center; }
+.vz-dash-advance__days {
+  display: block;
+  font-family: var(--vz-font-mono);
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -.03em;
+}
+.vz-dash-advance__unit {
+  display: block;
+  margin-top: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--vz-muted);
+}
+.vz-dash-advance__body { flex: 1; min-width: 11rem; }
+.vz-dash-advance__caption { font-size: 13.5px; font-weight: 600; line-height: 1.35; }
+.vz-dash-advance__meta { margin-top: 3px; font-size: 11.5px; color: var(--vz-muted); }
+.vz-dash-advance__meta time { font-family: var(--vz-font-mono); }
+
+.vz-dash-alert {
+  display: block;
+  width: 100%;
+  padding: 15px 18px;
+  border: none;
+  background: var(--vz-surface);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.vz-dash-alert:hover { background: var(--vz-sunken); }
+.vz-dash-alert__head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.vz-dash-alert__caption { min-width: 0; font-size: 13.5px; font-weight: 700; line-height: 1.35; }
+.vz-dash-alert__expires {
+  flex: 0 0 auto;
+  font-family: var(--vz-font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--vz-warn);
+  white-space: nowrap;
+}
+.vz-dash-alert__meta { margin: 3px 0 10px; font-size: 11.5px; color: var(--vz-muted); }
+.vz-dash-alert__foot {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 7px;
+  font-family: var(--vz-font-mono);
+  font-size: 10.5px;
+  color: var(--vz-muted);
+}
+
+/* ─────────── cartera por fuero ─────────── */
+/* A la derecha de la banda en "Estudio": una barra partida por fuero y la
+   leyenda con cuántas causas activas tiene cada uno. */
+.vz-dash-portfolio__head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--vz-rail-fg);
+}
+.vz-dash-portfolio__total { font-family: var(--vz-font-mono); letter-spacing: 0; }
+.vz-dash-portfolio__bar { display: flex; gap: 2px; height: 12px; border-radius: 6px; overflow: hidden; }
+.vz-dash-portfolio__legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12px; }
+.vz-dash-portfolio__item { display: flex; align-items: center; gap: 7px; }
+.vz-dash-portfolio__count { font-family: var(--vz-font-mono); font-weight: 500; color: var(--vz-rail-fg); }
+.vz-dash-portfolio__swatch { width: 9px; height: 9px; flex: 0 0 9px; border-radius: 2px; }
+/* Los colores de cada fuero en el prototipo, en el orden del contrato. */
+.vz-dash-fuero--CRIMINAL { background: #7FB27F; }
+.vz-dash-fuero--ADMINISTRATIVE { background: #C9D8C2; }
+.vz-dash-fuero--AMPARO { background: #C9A35E; }
+
+/* ─────────── carga del equipo ─────────── */
+/* Una tarjeta por abogado; tocarla filtra los vencimientos del estudio. */
+.vz-dash-team {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 14rem), 1fr));
+  gap: 10px;
+  max-height: 26rem;
+  padding: 14px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+.vz-dash-member {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--vz-border);
+  border-radius: var(--vz-r);
+  background: var(--vz-surface);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.vz-dash-member:hover { border-color: var(--vz-primary); }
+.vz-dash-member[aria-pressed='true'] {
+  border-color: var(--vz-primary);
+  background: var(--vz-primary-soft);
+  box-shadow: 0 0 0 2px var(--vz-primary-soft);
+}
+.vz-dash-member__top { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.vz-dash-member__who { flex: 1; min-width: 0; }
+.vz-dash-member__name {
+  display: block;
+  font-size: 13.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.vz-dash-member__status { display: block; margin-top: 2px; font-size: 11.5px; font-weight: 600; }
+.vz-dash-member__status--danger { color: var(--vz-danger); }
+.vz-dash-member__status--warn { color: var(--vz-warn); }
+.vz-dash-member__status--ok { color: var(--vz-primary-hi); }
+.vz-dash-member__load { flex: 0 0 auto; font-family: var(--vz-font-mono); font-size: 13px; font-weight: 700; }
+.vz-dash-member__unit { font-size: 11px; font-weight: 500; color: var(--vz-muted); }
+/* La barra de carga con los tonos suaves del prototipo: hasta 14 causas
+   normal, 15 y 16 alta, 17 o más sobrecarga (lo decide `loadTone`). */
+.vz-dash-member .vz-meter { height: 8px; border-radius: 4px; }
+.vz-dash-member .vz-meter__fill { border-radius: 3px; }
+.vz-dash-member .vz-meter--primary .vz-meter__fill { background: #9DBF9D; }
+.vz-dash-member .vz-meter--warn .vz-meter__fill { background: #D9C08E; }
+.vz-dash-member .vz-meter--danger .vz-meter__fill { background: #D29A92; }
+
+/* ─────────── disposición del tablero ─────────── */
+/* La banda arriba y, debajo, dos columnas: la ancha con los plazos y la
+   angosta con las listas. En pantallas angostas la angosta baja sola. */
+.vz-dash { display: flex; flex-direction: column; gap: 18px; }
+.vz-dash__row { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 16px; }
+.vz-dash__main,
+.vz-dash__side { min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+.vz-dash__main { flex: 2 1 34rem; }
+.vz-dash__side { flex: 1 1 20rem; }
+
+/* "Mi día": el alto de la fila lo pone la agenda. La columna angosta sale del
+   flujo para no empujarlo, y sus dos paneles se reparten ese alto: con pocas
+   filas se estiran por igual; con muchas, cada lista se desplaza adentro. El
+   mínimo deja ver siempre el título y una fila. Sólo con las dos columnas
+   lado a lado (el mismo corte que "Estudio"); apiladas, cada panel con su
+   alto, como siempre. */
+.vz-dash__row--filled { align-items: stretch; container-type: inline-size; }
+.vz-dash__side-fill { display: flex; flex-direction: column; gap: 16px; }
+@container (min-width: 55rem) {
+  .vz-dash__row--filled > .vz-dash__side { position: relative; }
+  .vz-dash__row--filled .vz-dash__side-fill { position: absolute; inset: 0; }
+  .vz-dash__row--filled .vz-dash__side-fill > .vz-panel {
+    flex: 1 1 auto;
+    min-height: 12rem;
+    display: flex;
+    flex-direction: column;
+  }
+  .vz-dash__row--filled .vz-dash__side-fill .vz-dash-rows {
+    flex: 1;
+    min-height: 0;
+    max-height: none;
+    overflow-y: auto;
+    scrollbar-width: thin;
+  }
+}
+
+/* "Estudio": los vencimientos miden lo mismo que la columna de al lado
+   (alertas de prescripción + carga del equipo), y la lista corre adentro.
+   El panel sale del flujo para que no empuje la altura de la fila: la pone
+   la columna angosta. Sólo con las dos columnas lado a lado; apiladas, cada
+   una con su alto, como siempre. La consulta es al ancho de la fila (lo que
+   suman las dos columnas: 34rem + 20rem + el espacio), no de la ventana, y
+   no puede cambiar a la fila misma: por eso el estirado va en la columna. */
+.vz-dash__row--matched { container-type: inline-size; }
+@container (min-width: 55rem) {
+  .vz-dash__row--matched > .vz-dash__main {
+    align-self: stretch;
+    position: relative;
+    min-height: 24rem;
+  }
+  .vz-dash__row--matched > .vz-dash__main > .vz-panel {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .vz-dash__row--matched .vz-dash-line { flex: 1; min-height: 0; max-height: none; }
+}

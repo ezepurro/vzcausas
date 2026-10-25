@@ -12,7 +12,8 @@ import type {
  * Recorta los textos y deja afuera lo que no corresponde mandar:
  * - `proceduralStateId` **o** `customState`, nunca los dos (V3 §3.8);
  * - `notificationDate` sólo en el fuero administrativo (RN6);
- * - `manualDueDate` sólo si se tildó el ajuste manual;
+ * - `manualDueDate` sólo si se tildó el ajuste manual, y nunca hacia un estado
+ *   terminal: no abre plazo y el contrato no admite el ajuste (V4 §3.8);
  * - `notes` vacías no viajan.
  *
  * `selected` es el estado de la tabla que resolvió `resolveSelectedState`;
@@ -30,7 +31,7 @@ export function toCreateProceduralActBody(
     if (jurisdiction === 'ADMINISTRATIVE' && values.notificationDate) {
         body.notificationDate = values.notificationDate
     }
-    if (values.manualDue && values.manualDueDate) {
+    if (values.manualDue && values.manualDueDate && !selected?.terminal) {
         body.manualDueDate = values.manualDueDate
     }
     const notes = values.notes.trim()

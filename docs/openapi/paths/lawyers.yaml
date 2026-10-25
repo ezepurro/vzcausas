@@ -14,7 +14,8 @@ post:
         schema:
           $ref: ../components/schemas/LawyerCreate.yaml
         example:
-          fullName: Dr. Ignacio Peralta
+          lastName: Peralta
+          firstName: Ignacio
           registrationNumber: 1-35207
   responses:
     '201':
@@ -31,7 +32,8 @@ post:
           example:
             data:
               id: 4
-              fullName: Dr. Ignacio Peralta
+              lastName: Peralta
+              firstName: Ignacio
               registrationNumber: 1-35207
               activeCases: 0
               active: true
@@ -89,7 +91,7 @@ get:
     - name: search
       in: query
       required: false
-      description: Filtra por `fullName` y por `registrationNumber`.
+      description: Filtra por `lastName`, `firstName` y `registrationNumber`.
       schema:
         type: string
   responses:
@@ -112,12 +114,14 @@ get:
           example:
             data:
               - id: 1
-                fullName: Dr. Fernando G. Vázquez
+                lastName: Vázquez
+                firstName: Fernando G.
                 registrationNumber: 1-28114
                 activeCases: 14
                 active: true
               - id: 4
-                fullName: Dr. Ignacio Peralta
+                lastName: Peralta
+                firstName: Ignacio
                 registrationNumber: 1-35207
                 activeCases: 16
                 active: true

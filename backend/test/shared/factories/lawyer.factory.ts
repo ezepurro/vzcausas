@@ -8,7 +8,8 @@ import { getPrisma } from '../harness/test-app';
  *                      (formato `circunscripción-número`, ej. `1-28114`).
  */
 export interface CreateLawyerOverrides {
-  fullName?: string;
+  lastName?: string;
+  firstName?: string;
   registrationNumber?: string;
   active?: boolean;
 }
@@ -19,7 +20,8 @@ export async function createLawyer(overrides: CreateLawyerOverrides = {}) {
   sequence += 1;
   return getPrisma().lawyer.create({
     data: {
-      fullName: overrides.fullName ?? faker.person.fullName(),
+      lastName: overrides.lastName ?? faker.person.lastName(),
+      firstName: overrides.firstName ?? faker.person.firstName(),
       registrationNumber: overrides.registrationNumber ?? `1-${10000 + sequence}`,
       active: overrides.active ?? true,
     },

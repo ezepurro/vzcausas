@@ -1,27 +1,50 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { CLOCK, ClockPort } from '@shared/domain/clock.port';
 import { ValidationError } from '@shared/domain/domain-error';
-import { CaseSacAlreadyExistsError } from '../../domain/errors/case.errors';
-import { CriminalCase } from '../../domain/entities/criminal';
+import { CaseSacAlreadyExistsError, CopyTemplatesWithoutFolderError } from '../../domain/errors/case.errors';
 import { CaseFactory } from '../../domain/factories/case.factory';
+import { CASE_FOLDER_STATE, CaseFolderStatePort, CaseFolderView } from '../../domain/ports/case-folder-state.port';
 import { CASE_REPOSITORY, CaseRepository } from '../../domain/ports/case.repository';
 import { LEGAL_PARAMETERS_LOOKUP, LegalParametersLookupPort } from '../../domain/ports/legal-parameters-lookup.port';
 import { PEOPLE_LOOKUP, PeopleLookupPort } from '../../domain/ports/people-lookup.port';
+import { Prescription } from '../../domain/prescription';
 import { RegisterCaseCommand, RegisterCaseResult } from '../common/register-case.interfaces';
+import { RequestCaseFolder } from './request-case-folder.use-case';
 
 const INVALID_DATA_MESSAGE = 'Los datos enviados no son válidos.';
 
-/** HU18: registers a new case in the initial state of its jurisdiction. */
+/**
+ * HU18: registers a new case in the initial state of its jurisdiction.
+ *
+ * The cloud folder (HU39) is not made here: once the case is saved, this asks
+ * {@link RequestCaseFolder}, the same use case the retry endpoint uses. The
+ * registration **never fails because of the folder** (CA-39.5): if the folder
+ * cannot be asked for, the case stays registered and the folder is left as it is.
+ *
+ * Copying the templates into it (HU40) is not done here either: `copyTemplates`
+ * travels to {@link RequestCaseFolder}, which asks `documents` through the same
+ * event, and the folder this returns says how many were copied.
+ */
 @Injectable()
 export class RegisterCase {
+  private readonly logger = new Logger(RegisterCase.name);
+
   constructor(
     @Inject(CASE_REPOSITORY) private readonly cases: CaseRepository,
     @Inject(PEOPLE_LOOKUP) private readonly people: PeopleLookupPort,
     @Inject(LEGAL_PARAMETERS_LOOKUP) private readonly legalParameters: LegalParametersLookupPort,
     @Inject(CLOCK) private readonly clock: ClockPort,
+    @Inject(CASE_FOLDER_STATE) private readonly folderState: CaseFolderStatePort,
+    private readonly requestCaseFolder: RequestCaseFolder,
   ) {}
 
   async execute(command: RegisterCaseCommand): Promise<RegisterCaseResult> {
+    const createFolder = command.createFolder ?? true;
+    const copyTemplates = command.copyTemplates ?? createFolder;
+    if (copyTemplates && !createFolder) {
+      throw new CopyTemplatesWithoutFolderError();
+    }
+
     const today = this.clock.today();
     const requested = command.legalQualifications ?? [];
 
@@ -69,6 +92,15 @@ export class RegisterCase {
         legalQualificationRefs: foundQualifications,
         responsibleLawyerId: command.responsibleLawyerId,
         startDate: command.startDate,
+        clientDetained: command.clientDetained,
+        injunctionGranted: command.injunctionGranted,
+        harmfulActDate: command.harmfulActDate,
+        harmfulActRenews: command.harmfulActRenews,
+        harmfulActRenewalDays: command.harmfulActRenewalDays,
+        harmfulActTermDays: command.harmfulActTermDays,
+        harmfulActTermDayType: command.harmfulActTermDayType,
+        administrativeRemedyExhaustedOn: command.administrativeRemedyExhaustedOn,
+        courtFeePaid: command.courtFeePaid,
         createdByUserId: command.createdByUserId,
         today,
         now: this.clock.now(),
@@ -80,26 +112,45 @@ export class RegisterCase {
       throw new CaseSacAlreadyExistsError();
     }
 
-    // Every offense is saved with its prescription date: calculate the ones still pending.
-    if (newCase instanceof CriminalCase) {
-      for (const offense of newCase.offenses) {
-        if (offense.prescriptionExpiresOn === null) {
-          offense.calculatePrescription();
-        }
-      }
-    }
-
     await this.cases.save(newCase);
     const currentState = await this.cases.findCurrentState(newCase.id);
+    const folder = createFolder
+      ? await this.requestFolder(newCase.id, copyTemplates)
+      : await this.currentFolder(newCase.id);
+
+    const snapshot = newCase.toSnapshot();
 
     // The factory only returns when there were no reference errors, so the
     // client and the lawyer exist.
     return {
-      newCase,
+      newCase: snapshot,
       client: client!,
       responsibleLawyer: responsibleLawyer!,
-      offenses: newCase instanceof CriminalCase ? newCase.offenses : [],
       currentState,
+      // A case that was just registered is in the initial state, so its term (if it has one) is open.
+      harmfulActDeadline: newCase.harmfulActDeadline(today),
+      // Same rule as the listing and the detail (`withDeadlines`). A case being
+      // registered has no interruptive acts, so it counts from each offense date.
+      prescription: Prescription.of(snapshot.jurisdictionCode, snapshot.offenses, null, today),
+      folder,
     };
+  }
+
+  private async requestFolder(caseId: number, copyTemplates: boolean): Promise<CaseFolderView | null> {
+    try {
+      return (await this.requestCaseFolder.execute({ caseId, copyTemplates })).folder;
+    } catch (error) {
+      this.logger.error(`The folder of case ${caseId} could not be requested: ${String(error)}`);
+      return this.currentFolder(caseId);
+    }
+  }
+
+  private async currentFolder(caseId: number): Promise<CaseFolderView | null> {
+    try {
+      return await this.folderState.find(caseId);
+    } catch (error) {
+      this.logger.error(`The folder of case ${caseId} could not be read: ${String(error)}`);
+      return null;
+    }
   }
 }

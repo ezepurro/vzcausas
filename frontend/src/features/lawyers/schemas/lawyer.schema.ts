@@ -13,15 +13,28 @@ export type LawyerFormErrors = Partial<Record<keyof LawyerFormValues, string>>
    circunscripción: una expresión de más rechaza matrículas legítimas. */
 const REGISTRATION_PATTERN = /^\d{1,2}-\d{5}$/
 
+/* Apellido y nombres, cada uno hasta 100 caracteres (V4 §3.3, D-68). */
+const NAME_MAX = 100
+
 /**
- * El alta y la edición validan lo mismo: son los dos únicos campos que el
+ * El alta y la edición validan lo mismo: son los tres únicos campos que el
  * estudio carga. Por eso no recibe contexto de modo.
  */
 export function validateLawyer(values: LawyerFormValues): LawyerFormErrors {
     const errors: LawyerFormErrors = {}
 
-    if (!values.fullName.trim()) {
-        errors.fullName = 'El apellido y nombre es obligatorio.'
+    const lastName = values.lastName.trim()
+    if (!lastName) {
+        errors.lastName = 'El apellido es obligatorio.'
+    } else if (lastName.length > NAME_MAX) {
+        errors.lastName = `Puede tener hasta ${NAME_MAX} caracteres.`
+    }
+
+    const firstName = values.firstName.trim()
+    if (!firstName) {
+        errors.firstName = 'Los nombres son obligatorios.'
+    } else if (firstName.length > NAME_MAX) {
+        errors.firstName = `Puede tener hasta ${NAME_MAX} caracteres.`
     }
 
     const registrationNumber = values.registrationNumber.trim()

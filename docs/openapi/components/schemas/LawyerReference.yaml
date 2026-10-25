@@ -1,0 +1,19 @@
+type: object
+description: Referencia mínima a un abogado, sin la matrícula. La usan los tableros.
+required:
+  - id
+  - lastName
+  - firstName
+properties:
+  id:
+    type: integer
+    examples:
+      - 1
+  lastName:
+    type: string
+    examples:
+      - Vázquez
+  firstName:
+    type: string
+    examples:
+      - Fernando G.

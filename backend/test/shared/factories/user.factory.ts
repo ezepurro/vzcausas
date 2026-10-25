@@ -14,7 +14,8 @@ import { getPrisma } from '../harness/test-app';
  */
 export interface UserBody {
   username: string;
-  fullName: string;
+  lastName: string;
+  firstName: string;
   email: string;
   password: string;
   roles: string[];
@@ -38,7 +39,8 @@ function aUsername(): string {
 export function aUserBody(overrides: Partial<UserBody> = {}): UserBody {
   return {
     username: aUsername(),
-    fullName: faker.person.fullName(),
+    lastName: faker.person.lastName(),
+    firstName: faker.person.firstName(),
     email: faker.internet.email().toLowerCase(),
     password: 'password1',
     roles: ['SECRETARY'],
@@ -48,7 +50,8 @@ export function aUserBody(overrides: Partial<UserBody> = {}): UserBody {
 
 export interface CreateUserOverrides {
   username?: string;
-  fullName?: string;
+  lastName?: string;
+  firstName?: string;
   email?: string;
   passwordHash?: string;
   active?: boolean;
@@ -87,7 +90,8 @@ export async function createUser(overrides: CreateUserOverrides = {}) {
   return prisma.user.create({
     data: {
       username: overrides.username ?? aUsername(),
-      fullName: overrides.fullName ?? faker.person.fullName(),
+      lastName: overrides.lastName ?? faker.person.lastName(),
+      firstName: overrides.firstName ?? faker.person.firstName(),
       email: overrides.email ?? faker.internet.email().toLowerCase(),
       // Valor fijo que NO es un hash bcrypt válido: alcanza para los tests que
       // no prueban el login. Para probar el login, pasar un hash real.

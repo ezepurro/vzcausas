@@ -14,7 +14,7 @@ describe('canAccess', () => {
        Qué datos devuelve el servidor a cada perfil es del backend. */
     it('todos los perfiles entran al trabajo diario', () => {
         for (const role of ROLES) {
-            for (const route of ['/inicio', '/causas', '/vencimientos', '/clientes', '/modelos']) {
+            for (const route of ['/causas', '/clientes']) {
                 expect(canAccess([role], route)).toBe(true)
             }
         }
@@ -28,6 +28,17 @@ describe('canAccess', () => {
             for (const route of ['/abogados', '/estados-y-plazos', '/calificaciones-legales']) {
                 expect(canAccess([role], route)).toBe(true)
             }
+        }
+    })
+
+    /* El tablero (CA-41.10, CA-41.13, CA-42.9) y los modelos formales
+       (CA-34.8, CA-35.8) no son de la Secretaría: entra directo a Causas y
+       "Modelos" no aparece en su menú (V4 §4). */
+    it('inicio y modelos son del Administrador y del Abogado, no de la Secretaría', () => {
+        for (const route of ['/inicio', '/modelos']) {
+            expect(canAccess(['ADMINISTRATOR'], route)).toBe(true)
+            expect(canAccess(['LAWYER'], route)).toBe(true)
+            expect(canAccess(['SECRETARY'], route)).toBe(false)
         }
     })
 

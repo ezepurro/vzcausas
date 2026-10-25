@@ -44,6 +44,21 @@ export interface AuthValue {
      * que la sesión pasa a nulo.
      */
     leftOnPurpose: boolean
+    /**
+     * Trae del servidor los roles y la ficha actuales del usuario y los pone
+     * en la sesión (`POST /auth/refresh`). Devuelve la sesión que quedó, o
+     * `null` si el servidor ya no la reconoce: en ese caso la cierra.
+     *
+     * Corre sola al abrir la aplicación. Sin red, se sigue con la sesión
+     * guardada: el backend igual autoriza cada pedido con los roles reales.
+     */
+    syncSession: () => Promise<StoredSession | null>
+    /**
+     * Reemplaza el usuario de la sesión con lo que se sabe de él, sin ir al
+     * servidor. Es para quien se modifica a sí mismo: el `PATCH` ya devolvió
+     * el usuario actualizado. `lastLoginAt` se conserva el del login.
+     */
+    updateCurrentUser: (user: Omit<AuthUser, 'lastLoginAt'>) => StoredSession | null
 }
 
 export const AuthContext = createContext<AuthValue | null>(null)

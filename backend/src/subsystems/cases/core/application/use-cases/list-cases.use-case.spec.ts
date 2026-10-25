@@ -45,9 +45,22 @@ function anItem(dueDate: Date | null): CaseListItem {
     instructorExtension: null,
     counterparty: null,
     subjectMatter: null,
+    clientDetained: false,
+    injunctionGranted: null,
+    harmfulActDate: null,
+    harmfulActRenews: null,
+    harmfulActRenewalDays: null,
+    harmfulActTermDays: null,
+    harmfulActTermDayType: null,
+    harmfulActDeadline: null,
+    administrativeRemedyExhaustedOn: null,
+    courtFeePaid: false,
     client: CLIENT,
     responsibleLawyer: LAWYER,
     legalQualifications: [],
+    lastInterruptiveActDate: null,
+    prescription: null,
+    prescriptionDeclaration: null,
     startDate: day('2026-09-01'),
     currentState: {
       proceduralStateId: 4,
@@ -60,6 +73,7 @@ function anItem(dueDate: Date | null): CaseListItem {
       businessDaysRemaining: null,
       manuallyAdjusted: false,
     },
+    folder: null,
     active: true,
   };
 }
@@ -130,5 +144,74 @@ describe('ListCases', () => {
     await useCase.execute(criteria);
 
     expect(query.lastCriteria).toEqual(criteria);
+  });
+});
+
+describe('ListCases: prescription (V4 §3.7)', () => {
+  const robo = {
+    id: 1,
+    name: 'Robo calificado — art. 167 inc. 2 CP',
+    prescriptionMonths: 96,
+    offenseDate: day('2021-02-27'),
+    prescriptionStartsOn: day('2024-07-04'),
+    prescriptionExpiresOn: day('2032-07-04'),
+  };
+
+  async function listOne(item: CaseListItem) {
+    const useCase = new ListCases(new SpyCaseQuery({ items: [item], totalItems: 1 }), clockOn('2026-09-15'));
+    return (await useCase.execute(page)).items[0];
+  }
+
+  it('calcula la prescripción que rige una causa penal, reiniciada por el acto interruptivo', async () => {
+    // Es la causa del ejemplo del contrato (GET /cases/{caseId}): consultada el 15/09/2026, 27 %.
+    const item = await listOne({
+      ...anItem(null),
+      legalQualifications: [robo],
+      lastInterruptiveActDate: day('2024-07-04'),
+    });
+
+    expect(item.prescription).toEqual({
+      legalQualificationId: 1,
+      legalQualificationName: 'Robo calificado — art. 167 inc. 2 CP',
+      startsOn: day('2024-07-04'),
+      expiresOn: day('2032-07-04'),
+      elapsedPercentage: 27,
+      alert: false,
+      expired: false,
+      // Del 15/09/2026 al 04/07/2032.
+      remainingDays: 2119,
+      lastInterruptiveActDate: day('2024-07-04'),
+    });
+  });
+
+  it('una causa penal sin calificaciones no computa prescripción (D-74)', async () => {
+    expect((await listOne(anItem(null))).prescription).toBeNull();
+  });
+
+  it('fuera del fuero penal la prescripción vale null aunque hubiera calificaciones', async () => {
+    const item = await listOne({
+      ...anItem(null),
+      jurisdiction: JurisdictionCode.AMPARO,
+      legalQualifications: [robo],
+    });
+
+    expect(item.prescription).toBeNull();
+  });
+
+  it('una causa marcada como prescripta conserva su prescripción como dato histórico', async () => {
+    const item = await listOne({
+      ...anItem(null),
+      legalQualifications: [robo],
+      prescriptionDeclaration: {
+        prescriptionDate: day('2026-09-15'),
+        resolution: 'Sentencia N° 214',
+        grounds: null,
+        registeredBy: { id: 1, lastName: 'Vázquez', firstName: 'Fernando G.' },
+        registeredAt: day('2026-09-15'),
+      },
+    });
+
+    expect(item.prescription).not.toBeNull();
+    expect(item.prescriptionDeclaration).not.toBeNull();
   });
 });

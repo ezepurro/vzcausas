@@ -15,7 +15,7 @@ import { ProceduralActPrismaMapper } from './procedural-act-prisma.mapper';
  */
 const ACT_INCLUDE = {
   proceduralState: { select: { name: true } },
-  registeredByLawyer: { select: { fullName: true } },
+  registeredByLawyer: { select: { lastName: true, firstName: true } },
 } satisfies Prisma.ProceduralActInclude;
 
 type ActRow = Prisma.ProceduralActGetPayload<{ include: typeof ACT_INCLUDE }>;
@@ -79,6 +79,17 @@ function toView(row: ActRow): ProceduralActView {
   return {
     act: ProceduralActPrismaMapper.toDomain(row),
     resultingStateName,
-    registeredBy: { fullName: row.registeredByLawyer.fullName },
+    registeredBy: {
+      lastName: row.registeredByLawyer.lastName,
+      firstName: row.registeredByLawyer.firstName,
+    },
   };
 }
+
+// Shared with `CaseTimelinePrismaAdapter` (HU27): the line of life reads the
+// acts exactly as this listing does, so an entry cannot differ from the act.
+export {
+  ACT_INCLUDE as PROCEDURAL_ACT_INCLUDE,
+  NEWEST_FIRST as PROCEDURAL_ACTS_NEWEST_FIRST,
+  toView as toProceduralActView,
+};

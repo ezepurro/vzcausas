@@ -1,6 +1,9 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { CLOCK, ClockPort } from '@shared/domain/clock.port';
 import { businessDaysRemaining } from '../../domain/business-days';
+import { Prescription } from '../../domain/prescription';
+import { HarmfulAct } from '../../domain/value-objects/harmful-act';
+import { JurisdictionCode } from '../../domain/value-objects/jurisdiction-code';
 import {
   CASE_QUERY,
   CaseListItem,
@@ -41,27 +44,83 @@ export class ListCases {
     const today = this.clock.today();
 
     return {
-      items: found.items.map((item) => withBusinessDays(item, today)),
+      items: found.items.map((item) => withDeadlines(item, today)),
       totalItems: found.totalItems,
     };
   }
 }
 
 /**
- * Fills `businessDaysRemaining` against today. A case with no due date keeps
- * it `null`: there is no deadline to count towards.
+ * Fills the three fields that depend on today's date: `currentState.businessDaysRemaining`,
+ * `harmfulActDeadline` and `prescription`.
+ *
+ * A case with no due date keeps the first `null`: there is no deadline to count
+ * towards. The second exists only in an amparo that is still in the initial
+ * state and loaded the date of its harmful act (D-78): the first procedural
+ * act says the amparo was filed, and the term stops mattering.
+ *
+ * The third is `cases`' one prescription rule, {@link Prescription.of}, the same
+ * the registration uses (V4 §3.7). Only `CRIMINAL` prescribes, and a criminal
+ * case without qualifications has nothing to compute (D-74). A case already
+ * marked "Prescripta" keeps it, as historical data (V4 §3.7, HU33).
  */
-export function withBusinessDays(item: CaseListItem, today: Date): CaseListItem {
+export function withDeadlines(item: CaseListItem, today: Date): CaseListItem {
   const { dueDate } = item.currentState;
-  if (dueDate === null) {
-    return item;
-  }
+  const harmfulAct = harmfulActOf(item);
 
   return {
     ...item,
-    currentState: {
-      ...item.currentState,
-      businessDaysRemaining: businessDaysRemaining(today, dueDate),
-    },
+    currentState:
+      dueDate === null
+        ? item.currentState
+        : { ...item.currentState, businessDaysRemaining: businessDaysRemaining(today, dueDate) },
+    harmfulActDeadline: harmfulAct && item.currentState.initial ? harmfulAct.deadline(today) : null,
+    prescription: Prescription.of(
+      item.jurisdiction,
+      item.legalQualifications.map((qualification) => ({
+        legalQualificationId: qualification.id,
+        legalQualificationName: qualification.name,
+        prescriptionMonths: qualification.prescriptionMonths,
+        offenseDate: qualification.offenseDate,
+      })),
+      item.lastInterruptiveActDate,
+      today,
+    ),
   };
+}
+
+/** The fields of a case that {@link harmfulActOf} reads. */
+export type HarmfulActFields = Pick<
+  CaseListItem,
+  | 'jurisdiction'
+  | 'harmfulActDate'
+  | 'harmfulActRenews'
+  | 'harmfulActRenewalDays'
+  | 'harmfulActTermDays'
+  | 'harmfulActTermDayType'
+>;
+
+/**
+ * The harmful act of an amparo, or `null` outside it or while its date was not loaded.
+ *
+ * Exported for the daily deadline check (HU51, `list-open-deadlines.use-case.ts`),
+ * so the case and the check decide the same way when an amparo has a term to
+ * file it (CA-51.9). It takes only the fields it reads, not a whole `CaseListItem`.
+ */
+export function harmfulActOf(item: HarmfulActFields): HarmfulAct | null {
+  if (
+    item.jurisdiction !== JurisdictionCode.AMPARO ||
+    item.harmfulActDate === null ||
+    item.harmfulActTermDays === null ||
+    item.harmfulActTermDayType === null
+  ) {
+    return null;
+  }
+  return HarmfulAct.create({
+    date: item.harmfulActDate,
+    renews: item.harmfulActRenews ?? false,
+    renewalDays: item.harmfulActRenewalDays,
+    termDays: item.harmfulActTermDays,
+    termDayType: item.harmfulActTermDayType,
+  });
 }

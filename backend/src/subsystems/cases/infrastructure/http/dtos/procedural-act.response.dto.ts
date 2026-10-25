@@ -14,11 +14,14 @@ export class ProceduralActDeadlineResponseDto {
   computedDueDate!: string | null;
   dueDate!: string | null;
   manuallyAdjusted!: boolean;
+  // Days the manual due date gives, in `dayType`. `null` if not adjusted or `NONE` (D-86).
+  manualTimeLimitDays!: number | null;
 }
 
 export class RegisteredByResponseDto {
   id!: number;
-  fullName!: string;
+  lastName!: string;
+  firstName!: string;
 }
 
 export class ProceduralActResponseDto {

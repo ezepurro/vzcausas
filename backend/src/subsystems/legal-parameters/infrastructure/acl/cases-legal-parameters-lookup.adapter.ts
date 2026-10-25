@@ -30,6 +30,11 @@ export class CasesLegalParametersLookupAdapter implements LegalParametersLookupP
     return state ? this.toStateRef(state) : null;
   }
 
+  async findPrescribedProcStateByJurisdiction(jurisdiction: JurisdictionCode): Promise<ProceduralStateRef | null> {
+    const state = await this.procStateRepo.findPrescribedByJurisdiction(jurisdiction);
+    return state ? this.toStateRef(state) : null;
+  }
+
   async findProcStateById(id: number): Promise<ProceduralStateRef | null> {
     const state = await this.procStateRepo.findById(id);
     return state ? this.toStateRef(state) : null;
@@ -60,6 +65,7 @@ export class CasesLegalParametersLookupAdapter implements LegalParametersLookupP
       isInitial: state.isInitial,
       jurisdictionId: state.jurisdiction.id,
       terminal: state.terminal,
+      isPrescribed: state.isPrescribed,
       isActive: state.isActive,
       timeLimitDays: state.timeLimitDays,
       dayType: dayType as CasesDayType,

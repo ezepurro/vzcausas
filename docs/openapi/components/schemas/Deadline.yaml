@@ -10,6 +10,7 @@ required:
   - computedDueDate
   - dueDate
   - manuallyAdjusted
+  - manualTimeLimitDays
 properties:
   timeLimitDays:
     type: integer
@@ -44,3 +45,15 @@ properties:
     description: '`true` si `dueDate` se cargó a mano.'
     examples:
       - false
+  manualTimeLimitDays:
+    type:
+      - integer
+      - 'null'
+    minimum: 0
+    description: |
+      Días del plazo que resultan del vencimiento cargado a mano, desde
+      `countsFrom` (excluido) hasta `dueDate` (incluido), contados según
+      `dayType`. `null` si `manuallyAdjusted` es `false` o si `dayType` es
+      `NONE` (D-86).
+    examples:
+      - null

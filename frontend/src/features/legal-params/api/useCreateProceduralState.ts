@@ -10,7 +10,7 @@ import { proceduralStateKeys } from './proceduralStates.keys';
  * todas las páginas y todos los filtros, no sólo la que está en pantalla.
  *
  * El CLAUDE.md pide además sembrar `detail(id)` con lo que devolvió el
- * servidor. Acá no se hace: el `POST` responde sin `activeCases` (V3 D-32),
+ * servidor. Acá no se hace: el `POST` responde sin `caseCount` (V3 D-32, V4 D-70),
  * así que no tiene la forma de `GET /procedural-states/{id}`, y hoy ninguna
  * pantalla lee esa entrada.
  */

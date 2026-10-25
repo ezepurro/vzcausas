@@ -1,8 +1,9 @@
+import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { toIsoDate } from '@shared/infrastructure/http/iso-date';
 import { toPageRequest } from '@shared/infrastructure/http/pagination';
+import { toJurisdictionFilter } from '../../../core/application/common/jurisdiction-filter';
 import { RegisterCaseResult } from '../../../core/application/common/register-case.interfaces';
-import { AdministrativeCase } from '../../../core/domain/entities/administrative';
-import { Amparo } from '../../../core/domain/entities/amparo';
 import { ExclusiveCaseStateFilterError } from '../../../core/domain/errors/case.errors';
 import {
   CaseListItem,
@@ -11,6 +12,7 @@ import {
 } from '../../../core/domain/ports/case-query.port';
 import { CaseResponseDto } from '../dtos/case.response.dto';
 import { ListCasesQueryDto } from '../dtos/list-cases.query.dto';
+import { toPrescriptionDeclarationResponse } from './prescription-declaration-http.mapper';
 
 /**
  * Collapses the three mutually exclusive state parameters into the single
@@ -64,19 +66,31 @@ function toStateFilter(query: ListCasesQueryDto): CaseStateFilter | undefined {
  * it a flat row projected by one SQL query: an `instanceof` check here would
  * force every reader to rebuild the aggregate first, and a page of 20 cases
  * would cost about a hundred queries.
+ *
+ * Injectable because `prescriptionDeclaration.registeredAt` goes out with the
+ * offset of the firm's time zone (`APP_TIMEZONE`), like the other mappers of
+ * this subsystem that hold an instant (`ProceduralActHttpMapper`).
  */
+@Injectable()
 export class CaseHttpMapper {
+  private readonly timeZone: string;
+
+  constructor(config: ConfigService) {
+    this.timeZone = config.getOrThrow<string>('APP_TIMEZONE');
+  }
+
   /**
    * Query parameters of `GET /cases` into the criteria the read port takes.
    *
    * An empty `search` does not travel: `?search=` means "no filter", not "match
-   * the empty string".
+   * the empty string". A `jurisdiction` that names no jurisdiction is
+   * `400 INVALID_REQUEST`, same as `GET /cases/custom-states`.
    */
   static toSearchCriteria(query: ListCasesQueryDto): CaseSearchCriteria {
     return {
       ...toPageRequest(query),
       search: query.search?.trim() || undefined,
-      jurisdiction: query.jurisdiction,
+      jurisdiction: toJurisdictionFilter(query.jurisdiction),
       responsibleLawyerId: query.responsibleLawyerId,
       clientId: query.clientId,
       openDeadline: query.openDeadline,
@@ -84,7 +98,7 @@ export class CaseHttpMapper {
     };
   }
 
-  static toResponse(item: CaseListItem): CaseResponseDto {
+  toResponse(item: CaseListItem): CaseResponseDto {
     return {
       id: item.id,
       sacNumber: item.sacNumber,
@@ -97,6 +111,22 @@ export class CaseHttpMapper {
       instructorExtension: item.instructorExtension,
       counterparty: item.counterparty,
       subjectMatter: item.subjectMatter,
+      clientDetained: item.clientDetained,
+      injunctionGranted: item.injunctionGranted,
+      harmfulActDate: item.harmfulActDate && toIsoDate(item.harmfulActDate),
+      harmfulActRenews: item.harmfulActRenews,
+      harmfulActRenewalDays: item.harmfulActRenewalDays,
+      harmfulActTermDays: item.harmfulActTermDays,
+      harmfulActTermDayType: item.harmfulActTermDayType as 'BUSINESS' | 'CONSECUTIVE' | null,
+      harmfulActDeadline: item.harmfulActDeadline && {
+        actDate: toIsoDate(item.harmfulActDeadline.actDate),
+        renewed: item.harmfulActDeadline.renewed,
+        dueDate: toIsoDate(item.harmfulActDeadline.dueDate),
+        businessDaysRemaining: item.harmfulActDeadline.businessDaysRemaining,
+      },
+      administrativeRemedyExhaustedOn:
+        item.administrativeRemedyExhaustedOn && toIsoDate(item.administrativeRemedyExhaustedOn),
+      courtFeePaid: item.courtFeePaid,
       client: { ...item.client, clientSince: toIsoDate(item.client.clientSince) },
       responsibleLawyer: item.responsibleLawyer,
       legalQualifications: item.legalQualifications.map((qualification) => ({
@@ -105,9 +135,21 @@ export class CaseHttpMapper {
         prescriptionMonths: qualification.prescriptionMonths,
         offenseDate: toIsoDate(qualification.offenseDate),
         prescriptionStartsOn: toIsoDate(qualification.prescriptionStartsOn),
-        prescriptionExpiresOn:
-          qualification.prescriptionExpiresOn && toIsoDate(qualification.prescriptionExpiresOn),
+        prescriptionExpiresOn: toIsoDate(qualification.prescriptionExpiresOn),
       })),
+      prescription: item.prescription && {
+        legalQualificationId: item.prescription.legalQualificationId,
+        legalQualificationName: item.prescription.legalQualificationName,
+        startsOn: toIsoDate(item.prescription.startsOn),
+        expiresOn: toIsoDate(item.prescription.expiresOn),
+        elapsedPercentage: item.prescription.elapsedPercentage,
+        alert: item.prescription.alert,
+        expired: item.prescription.expired,
+        lastInterruptiveActDate:
+          item.prescription.lastInterruptiveActDate && toIsoDate(item.prescription.lastInterruptiveActDate),
+      },
+      prescriptionDeclaration:
+        item.prescriptionDeclaration && toPrescriptionDeclarationResponse(item.prescriptionDeclaration, this.timeZone),
       // `null` mientras la causa no tiene SAC (D-38): la fecha de inicio es la
       // de la causa en sede judicial, y sin SAC no existe. Antes la columna era
       // `NOT NULL` y se guardaba la del día, un dato inventado que el detalle
@@ -123,6 +165,7 @@ export class CaseHttpMapper {
         businessDaysRemaining: item.currentState.businessDaysRemaining,
         manuallyAdjusted: item.currentState.manuallyAdjusted,
       },
+      folder: item.folder && { ...item.folder },
       active: item.active,
     };
   }
@@ -131,10 +174,10 @@ export class CaseHttpMapper {
    * Response for `POST /cases` (HU18): projects the aggregate the use case
    * just built into a {@link CaseListItem}, then maps it.
    *
-   * This is the only place that holds a `Case`, so it is the only place that
-   * asks what kind of case it is. `counterparty` and `subjectMatter` exist
-   * only on `ADMINISTRATIVE` and `AMPARO`; in `CRIMINAL` the contract wants
-   * `null`.
+   * It holds no domain entity either: the result carries a {@link CaseSnapshot}
+   * where `counterparty` and `subjectMatter` (which exist only on
+   * `ADMINISTRATIVE` and `AMPARO`) and the data of the other jurisdictions are
+   * already `null`, as the contract wants.
    *
    * The four act-derived fields of `currentState` are empty here, and that is
    * a property of registration rather than a gap: a fresh case is in the
@@ -144,11 +187,10 @@ export class CaseHttpMapper {
    * mapping that id through would send the frontend looking for a state that
    * `/procedural-states` does not list.
    */
-  static fromRegisterResult(result: RegisterCaseResult): CaseResponseDto {
+  fromRegisterResult(result: RegisterCaseResult): CaseResponseDto {
     const { newCase, currentState } = result;
-    const hasCounterparty = newCase instanceof AdministrativeCase || newCase instanceof Amparo;
 
-    return CaseHttpMapper.toResponse({
+    return this.toResponse({
       id: newCase.id,
       sacNumber: newCase.sacNumber,
       caption: newCase.caption,
@@ -158,11 +200,22 @@ export class CaseHttpMapper {
       instructorName: newCase.instructor.name,
       tribunalPhone: newCase.instructor.phone,
       instructorExtension: newCase.instructor.extension,
-      counterparty: hasCounterparty ? newCase.counterparty : null,
-      subjectMatter: hasCounterparty ? newCase.subjectMatter : null,
+      counterparty: newCase.counterparty,
+      subjectMatter: newCase.subjectMatter,
+      // The data of each jurisdiction is `null` outside its own (D-67), already so in the snapshot.
+      clientDetained: newCase.clientDetained,
+      injunctionGranted: newCase.injunctionGranted,
+      harmfulActDate: newCase.harmfulActDate,
+      harmfulActRenews: newCase.harmfulActRenews,
+      harmfulActRenewalDays: newCase.harmfulActRenewalDays,
+      harmfulActTermDays: newCase.harmfulActTermDays,
+      harmfulActTermDayType: newCase.harmfulActTermDayType,
+      harmfulActDeadline: result.harmfulActDeadline,
+      administrativeRemedyExhaustedOn: newCase.administrativeRemedyExhaustedOn,
+      courtFeePaid: newCase.courtFeePaid,
       client: result.client,
       responsibleLawyer: result.responsibleLawyer,
-      legalQualifications: result.offenses.map((offense) => ({
+      legalQualifications: newCase.offenses.map((offense) => ({
         id: offense.legalQualificationId,
         name: offense.legalQualificationName,
         prescriptionMonths: offense.prescriptionMonths,
@@ -170,6 +223,10 @@ export class CaseHttpMapper {
         prescriptionStartsOn: offense.prescriptionStartsOn,
         prescriptionExpiresOn: offense.prescriptionExpiresOn,
       })),
+      // A case being registered has no interruptive acts and was never marked as prescribed.
+      lastInterruptiveActDate: null,
+      prescription: result.prescription,
+      prescriptionDeclaration: null,
       startDate: newCase.startDate,
       currentState: {
         proceduralStateId: currentState.isInitial ? null : currentState.id,
@@ -181,6 +238,7 @@ export class CaseHttpMapper {
         businessDaysRemaining: null,
         manuallyAdjusted: false,
       },
+      folder: result.folder,
       active: newCase.active,
     });
   }
