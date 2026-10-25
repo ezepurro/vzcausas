@@ -52,6 +52,9 @@ RUN npm prune --omit=dev
 # este. docker-compose pide development por nombre, así que no lo afecta.
 FROM node:22-alpine AS production
 ENV NODE_ENV=production
+# Escucha en IPv4: sin esto Node usa "::", y el detector de puertos de
+# Render no lo encuentra (ver main.ts).
+ENV HOST=0.0.0.0
 WORKDIR /app
 
 COPY --from=build --chown=node:node /app/package*.json ./

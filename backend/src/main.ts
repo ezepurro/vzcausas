@@ -60,7 +60,14 @@ async function bootstrap(): Promise<void> {
   // requests finish before the process exits.
   app.enableShutdownHooks();
 
-  await app.listen(Number(config.getOrThrow<string>("PORT")));
+  // Without HOST, Node listens on `::`, which inside a container shows up
+  // only in the IPv6 socket table; Render's port detection misses it and
+  // the deploy times out. The production image sets HOST=0.0.0.0. Not
+  // hardcoded because on a developer machine `localhost` may resolve to
+  // `::1` first, which an IPv4-only listener would refuse.
+  const port = Number(config.getOrThrow<string>("PORT"));
+  const host = config.get<string>("HOST");
+  await (host ? app.listen(port, host) : app.listen(port));
 }
 
 bootstrap();
