@@ -59,6 +59,7 @@ get:
                     computedDueDate: '2026-09-22'
                     dueDate: '2026-09-22'
                     manuallyAdjusted: false
+                    manualTimeLimitDays: null
                   registeredBy:
                     id: 3
                     lastName: Ríos

@@ -62,6 +62,7 @@ get:
                   computedDueDate: '2026-09-22'
                   dueDate: '2026-09-22'
                   manuallyAdjusted: false
+                  manualTimeLimitDays: null
                 registeredBy:
                   id: 3
                   lastName: Ríos
@@ -179,6 +180,7 @@ post:
                     computedDueDate: '2026-09-16'
                     dueDate: '2026-09-16'
                     manuallyAdjusted: false
+                    manualTimeLimitDays: null
                   registeredBy:
                     id: 3
                     lastName: Ríos
@@ -204,6 +206,7 @@ post:
                     computedDueDate: null
                     dueDate: '2026-09-25'
                     manuallyAdjusted: true
+                    manualTimeLimitDays: null
                   registeredBy:
                     id: 1
                     lastName: Vázquez
