@@ -38,6 +38,10 @@ COPY . .
 # queda en ninguna capa de la imagen final.
 RUN DATABASE_URL="postgresql://build:build@localhost:5432/build" npx prisma generate
 RUN npm run build
+# El seed corre en cada deploy (catálogo y bootstrap del primer
+# administrador). En desarrollo lo ejecuta ts-node, que es devDependency:
+# acá se compila a JS para correrlo con node en la imagen final.
+RUN npx tsc -p tsconfig.seed.json
 RUN npm prune --omit=dev
 
 # ─────────────────────────────
@@ -53,12 +57,15 @@ WORKDIR /app
 COPY --from=build --chown=node:node /app/package*.json ./
 COPY --from=build --chown=node:node /app/node_modules ./node_modules
 COPY --from=build --chown=node:node /app/dist ./dist
+COPY --from=build --chown=node:node /app/dist-seed ./dist-seed
 COPY --from=build --chown=node:node /app/prisma ./prisma
 COPY --from=build --chown=node:node /app/prisma.config.ts ./
 
 USER node
 
 # migrate deploy solo aplica migraciones ya creadas; nunca resetea la base.
-# El seed no corre: es de desarrollo y lo gatea NODE_ENV.
+# El seed carga el catálogo y, si están las BOOTSTRAP_ADMIN_*, el primer
+# administrador; el fixture de desarrollo lo gatea NODE_ENV. Si cualquiera
+# de los dos pasos falla, la app no arranca.
 EXPOSE 3000
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main.js"]
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist-seed/prisma/seed.js && node dist/main.js"]

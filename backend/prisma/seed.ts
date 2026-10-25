@@ -777,6 +777,155 @@ async function seedDevCases(prisma: PrismaClient): Promise<void> {
   );
 }
 
+// ─── Bootstrap: the first administrator outside development ──────────────────
+
+/**
+ * Environment variables describing the first administrator, keyed by
+ * the field each one fills (D-77).
+ */
+const BOOTSTRAP_ADMIN_VARS = {
+  username: 'BOOTSTRAP_ADMIN_USERNAME',
+  password: 'BOOTSTRAP_ADMIN_PASSWORD',
+  email: 'BOOTSTRAP_ADMIN_EMAIL',
+  lastName: 'BOOTSTRAP_ADMIN_LAST_NAME',
+  firstName: 'BOOTSTRAP_ADMIN_FIRST_NAME',
+  registrationNumber: 'BOOTSTRAP_ADMIN_REGISTRATION_NUMBER',
+} as const;
+
+/*
+ * Copies of the domain rules, because this script cannot import the
+ * domain: it resolves `@shared/*` aliases that ts-node does not. Keep
+ * them in step with their source:
+ *   - USERNAME_REGEX: username.vo.ts:3 (D-17, trimmed and lowercased first)
+ *   - EMAIL_REGEX: email.vo.ts:3 (trimmed and lowercased first)
+ *   - password policy: user.entity.ts `validatePasswordRules` (D-24)
+ */
+const USERNAME_REGEX = /^[a-z0-9._-]{3,30}$/;
+const EMAIL_REGEX = /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/;
+const MIN_PASSWORD_LENGTH = 8;
+const MAX_PASSWORD_BYTES = 72;
+const PASSWORD_DIGIT_REGEX = /\d/;
+
+/**
+ * Creates the first administrator from `BOOTSTRAP_ADMIN_*` (D-77).
+ *
+ * It exists because outside development nothing else can: the
+ * development accounts are gated by `NODE_ENV` (D-63), and `POST /users`
+ * needs an administrator to call it. Once this one exists, every other
+ * account goes through the API.
+ *
+ * Acts only when all six variables are set and no active administrator
+ * exists, so it runs once even if the variables stay behind. A partial
+ * set, or a value the domain would reject, fails the seed — and with it
+ * the deploy — instead of booting an application nobody can log into.
+ *
+ * Also writes the professional record (`lawyers`), which D-25 requires
+ * of an administrator: the same cross-subsystem exception as D-75,
+ * confined to bootstrap.
+ */
+async function bootstrapAdministrator(prisma: PrismaClient): Promise<void> {
+  const entries = Object.entries(BOOTSTRAP_ADMIN_VARS).map(
+    ([field, name]) => [field, process.env[name]?.trim() ?? ''] as const,
+  );
+  const missing = entries
+    .filter(([, value]) => value === '')
+    .map(([field]) => BOOTSTRAP_ADMIN_VARS[field as keyof typeof BOOTSTRAP_ADMIN_VARS]);
+
+  if (missing.length === entries.length) {
+    console.log('Administrator bootstrap: BOOTSTRAP_ADMIN_* not set, skipped.');
+    return;
+  }
+  if (missing.length > 0) {
+    throw new Error(
+      `Administrator bootstrap: set all BOOTSTRAP_ADMIN_* variables or none. Missing: ${missing.join(', ')}.`,
+    );
+  }
+
+  const values = Object.fromEntries(entries) as Record<keyof typeof BOOTSTRAP_ADMIN_VARS, string>;
+
+  const activeAdministrators = await prisma.user.count({
+    where: {
+      active: true,
+      deletedAt: null,
+      roles: { some: { role: { name: 'ADMINISTRATOR' } } },
+    },
+  });
+  if (activeAdministrators > 0) {
+    console.warn(
+      'Administrator bootstrap: an active administrator already exists, skipped. ' +
+        'Remove the BOOTSTRAP_ADMIN_* variables from the environment.',
+    );
+    return;
+  }
+
+  const username = values.username.toLowerCase();
+  const email = values.email.toLowerCase();
+  // The password is the one value that is not trimmed: the domain
+  // validates it as typed.
+  const password = process.env[BOOTSTRAP_ADMIN_VARS.password]!;
+
+  const errors: string[] = [];
+  if (!USERNAME_REGEX.test(username)) {
+    errors.push(`${BOOTSTRAP_ADMIN_VARS.username} must be 3–30 characters of [a-z0-9._-].`);
+  }
+  if (!EMAIL_REGEX.test(email)) {
+    errors.push(`${BOOTSTRAP_ADMIN_VARS.email} is not a valid email address.`);
+  }
+  if (
+    password.length < MIN_PASSWORD_LENGTH ||
+    !PASSWORD_DIGIT_REGEX.test(password) ||
+    Buffer.byteLength(password, 'utf8') > MAX_PASSWORD_BYTES
+  ) {
+    errors.push(
+      `${BOOTSTRAP_ADMIN_VARS.password} must be at least ${MIN_PASSWORD_LENGTH} characters, ` +
+        `contain a digit and not exceed ${MAX_PASSWORD_BYTES} bytes.`,
+    );
+  }
+  if (errors.length > 0) {
+    throw new Error(`Administrator bootstrap: ${errors.join(' ')}`);
+  }
+
+  const passwordHash = await bcrypt.hash(password, Number(process.env.BCRYPT_COST ?? 12));
+  const role = await prisma.role.findUniqueOrThrow({ where: { name: 'ADMINISTRATOR' } });
+
+  await prisma.$transaction(async (tx) => {
+    // An existing record is linked as it is, never edited or reactivated:
+    // a deactivated lawyer coming back is a decision for the API, not for
+    // a deploy.
+    const existing = await tx.lawyer.findUnique({
+      where: { registrationNumber: values.registrationNumber },
+    });
+    if (existing && !existing.active) {
+      throw new Error(
+        `Administrator bootstrap: the lawyer with registration number ${values.registrationNumber} is deactivated.`,
+      );
+    }
+    const lawyer =
+      existing ??
+      (await tx.lawyer.create({
+        data: {
+          lastName: values.lastName,
+          firstName: values.firstName,
+          registrationNumber: values.registrationNumber,
+        },
+      }));
+
+    const user = await tx.user.create({
+      data: {
+        username,
+        lastName: values.lastName,
+        firstName: values.firstName,
+        email,
+        passwordHash,
+        lawyerId: lawyer.id,
+      },
+    });
+    await tx.userRole.create({ data: { userId: user.id, roleId: role.id } });
+  });
+
+  console.log(`Administrator bootstrap: created "${username}" with the ADMINISTRATOR role.`);
+}
+
 /**
  * Idempotent by construction: every write is an upsert on a unique
  * column, so running this against an already-seeded database does
@@ -867,6 +1016,9 @@ async function main(): Promise<void> {
         await prisma.proceduralState.create({ data });
       }
     }
+
+    // After the catalog, which provides the ADMINISTRATOR role.
+    await bootstrapAdministrator(prisma);
 
     // Development only: a database holding accounts with a known
     // password is precisely what must never exist anywhere else. The
