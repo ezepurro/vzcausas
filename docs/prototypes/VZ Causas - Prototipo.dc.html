@@ -1015,7 +1015,7 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
           <span style="color:var(--faint)">/</span>
           <button type="button" onClick="{{ goDetalle }}" style="background:none;border:none;padding:0;color:var(--primary);font-size:12.5px;font-weight:600;font-family:'Roboto Mono',monospace;cursor:pointer;text-decoration:underline;text-underline-offset:2px">{{ causa.sac }}</button>
           <span style="color:var(--faint)">/</span>
-          <span style="color:var(--ink);font-weight:600">Registrar acto procesal</span>
+          <span style="color:var(--ink);font-weight:600">{{ actoTitulo }}</span>
         </nav>
 
         <div style="background:var(--surface);border:var(--panel-bd);border-radius:var(--r);box-shadow:var(--card-sh);padding:20px 22px;margin-bottom:16px">
@@ -1062,6 +1062,7 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
           <form style="background:var(--surface);border:var(--panel-bd);border-radius:var(--r);box-shadow:var(--card-sh);overflow:hidden;overflow-x:auto">
             <div style="padding:16px 22px;border-bottom:1px solid var(--border);background:var(--sunken)">
               <h2 style="font-size:16px;font-weight:700;margin:0">Datos del acto procesal</h2>
+              <sc-if value="{{ editandoActo }}" hint-placeholder-val="{{ false }}"><div style="font-size:12.5px;color:var(--muted);margin-top:4px">Modificás el acto del <span style="font-family:'Roboto Mono',monospace">{{ editActoFecha }}</span>. El cambio queda asentado con usuario y fecha.</div></sc-if>
             </div>
             <div style="padding:22px;display:flex;flex-direction:column;gap:18px">
 
@@ -1126,8 +1127,8 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
             </div>
             <div style="padding:16px 22px;border-top:1px solid var(--border);background:var(--sunken);display:flex;gap:10px;justify-content:flex-end;align-items:center">
               <span style="{{ permisoNotaCss }}">{{ permisoNota }}</span>
-              <button type="button" onClick="{{ goCausas }}" style="height:40px;padding:0 18px;border:1px solid var(--border-2);border-radius:var(--r-btn);background:var(--surface);color:var(--ink);font-size:14px;font-weight:600;cursor:pointer" style-hover="background:var(--canvas)">Cancelar</button>
-              <button type="button" onClick="{{ guardarActo }}" disabled="{{ guardarDisabled }}" style="{{ guardarCss }}">Registrar acto</button>
+              <button type="button" onClick="{{ actoCancelar }}" style="height:40px;padding:0 18px;border:1px solid var(--border-2);border-radius:var(--r-btn);background:var(--surface);color:var(--ink);font-size:14px;font-weight:600;cursor:pointer" style-hover="background:var(--canvas)">Cancelar</button>
+              <button type="button" onClick="{{ guardarActo }}" disabled="{{ guardarDisabled }}" style="{{ guardarCss }}">{{ actoBtnLabel }}</button>
             </div>
           </form>
 
@@ -1256,8 +1257,8 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
               <button type="button" onClick="{{ nuevoInterruptivo }}" style="{{ accionSecCss }}">Registrar acto interruptivo</button>
             </sc-if>
             <button type="button" onClick="{{ pagoTasa }}" style="{{ accionSecCss }}">Registrar pago de tasa</button>
-            <button type="button" onClick="{{ verCaratula }}" style="{{ accionSecCss }}">Emitir carátula</button>
-            <button type="button" onClick="{{ verExpediente }}" style="{{ accionSecCss }}">Emitir expediente</button>
+            
+            <button type="button" onClick="{{ verExpediente }}" style="{{ accionSecCss }}">Generar expediente</button>
             <sc-if value="{{ esPenal }}" hint-placeholder-val="{{ true }}">
               <sc-if value="{{ verPrescribir }}" hint-placeholder-val="{{ true }}"><button type="button" onClick="{{ marcarPrescripta }}" style="{{ accionSecRojaCss }}">Marcar prescripta</button></sc-if>
             </sc-if>
@@ -2094,8 +2095,6 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
             <p style="margin:6px 0 0;font-size:13.5px;color:var(--muted);max-width:620px">{{ docSub }}</p>
           </div>
           <div style="display:flex;gap:9px;flex-wrap:wrap">
-            <button type="button" onClick="{{ verCaratula }}" style="{{ cssDocCaratula }}">Carátula</button>
-            <button type="button" onClick="{{ verExpediente }}" style="{{ cssDocExpediente }}">Expediente</button>
             <button type="button" onClick="{{ imprimirDoc }}" style="height:38px;padding:0 18px;border:none;border-radius:var(--r-btn);background:var(--primary);color:#fff;font-size:13.5px;font-weight:600;cursor:pointer" style-hover="background:var(--primary-hi)">Imprimir</button>
           </div>
         </div>
@@ -2190,6 +2189,187 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
       </div>
       </sc-if>
 
+      <!-- ══════ GENERAR EXPEDIENTE ══════ -->
+      <sc-if value="{{ esExp }}" hint-placeholder-val="{{ false }}">
+      <div>
+        <nav aria-label="Migas" style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted);margin-bottom:12px;flex-wrap:wrap">
+          <button type="button" onClick="{{ goCausas }}" style="background:none;border:none;padding:0;color:var(--primary);font-size:12.5px;font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:2px">Causas</button>
+          <span style="color:var(--faint)">/</span>
+          <button type="button" onClick="{{ goDetalle }}" style="background:none;border:none;padding:0;color:var(--primary);font-size:12.5px;font-weight:600;font-family:'Roboto Mono',monospace;cursor:pointer;text-decoration:underline;text-underline-offset:2px">{{ causa.sac }}</button>
+          <span style="color:var(--faint)">/</span>
+          <span style="color:var(--ink);font-weight:600">Generar expediente</span>
+        </nav>
+
+        <div style="margin-bottom:18px">
+          <h1 style="font-size:24px;line-height:1.2;font-weight:700;letter-spacing:-.02em;margin:0">Generar expediente</h1>
+          <p style="margin:6px 0 0;font-size:13.5px;color:var(--muted);max-width:680px;text-wrap:pretty">{{ causa.caratula }}. Se arma un único PDF: primero la carátula, que se genera con los datos de la causa, y después los documentos de la causa que elijas, en el orden que definas.</p>
+        </div>
+
+        <div style="display:grid;grid-template-columns:var(--acto-cols);gap:16px;align-items:start">
+          <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
+
+            <section style="background:var(--surface);border:var(--panel-bd);border-radius:var(--r);box-shadow:var(--card-sh);overflow:hidden">
+              <div style="padding:16px 22px;border-bottom:1px solid var(--border);background:var(--sunken);display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                <span style="font-family:'Roboto Mono',monospace;font-size:12px;color:var(--muted)">1</span>
+                <h2 style="font-size:16px;font-weight:700;margin:0;flex:1">Carátula</h2>
+                              </div>
+              <div style="padding:16px 22px 20px">
+                <div style="display:flex;align-items:center;gap:12px;padding:11px 12px 11px 14px;border:1px solid var(--border-2);border-radius:var(--r);background:var(--surface);box-shadow:0 1px 2px rgba(15,23,42,.05)">
+                  <span style="font-family:'Roboto Mono',monospace;font-size:12px;color:var(--ink);width:18px;text-align:right">1</span>
+                  <span style="font-family:'Roboto Mono',monospace;font-size:10.5px;font-weight:600;letter-spacing:.04em;padding:3px 6px;border-radius:4px;flex:0 0 auto;background:#F7E9E7;color:#8E1F19">PDF</span>
+                  <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+                    <span style="font-size:13.5px;font-weight:600;color:var(--ink)">Carátula</span>
+                    <span style="font-size:12px;color:var(--muted)">Se genera con los datos de la causa</span>
+                  </div>
+                  <button type="button" onClick="{{ expPrevAbrir }}" style="height:30px;padding:0 12px;border:1px solid var(--border-2);border-radius:var(--r-btn);background:var(--surface);color:var(--primary);font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap" style-hover="background:var(--primary-soft);border-color:var(--primary)">Vista previa</button>
+                </div>
+                <span style="display:block;font-size:12px;color:var(--faint);margin-top:8px">¿Hay que corregir algo en la carátula? Modificá los datos de la causa y la carátula se actualiza sola.</span>
+              </div>
+            </section>
+
+            <section style="background:var(--surface);border:var(--panel-bd);border-radius:var(--r);box-shadow:var(--card-sh);overflow:hidden">
+              <div style="padding:16px 22px;border-bottom:1px solid var(--border);background:var(--sunken);display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                <span style="font-family:'Roboto Mono',monospace;font-size:12px;color:var(--muted)">2</span>
+                <h2 style="font-size:16px;font-weight:700;margin:0;flex:1">Documentos de la causa</h2>
+                <button type="button" onClick="{{ expTodos }}" style="background:none;border:none;padding:0;color:var(--primary);font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap">{{ expTodosLabel }}</button>
+              </div>
+              <div style="padding:16px 22px 20px;display:flex;flex-direction:column;gap:8px" onDragOver="{{ expListOver }}">
+                <sc-for list="{{ expDocs }}" as="d" hint-placeholder-count="3">
+                  <div draggable="true" onDragStart="{{ d.dragStart }}" onDragOver="{{ d.dragOver }}" onDrop="{{ d.drop }}" onDragEnd="{{ d.dragEnd }}" style="{{ d.filaCss }}">
+                    <svg width="12" height="18" viewBox="0 0 12 18" aria-hidden="true" style="flex:0 0 12px;color:var(--faint)"><g fill="currentColor"><circle cx="3" cy="3" r="1.4"></circle><circle cx="9" cy="3" r="1.4"></circle><circle cx="3" cy="9" r="1.4"></circle><circle cx="9" cy="9" r="1.4"></circle><circle cx="3" cy="15" r="1.4"></circle><circle cx="9" cy="15" r="1.4"></circle></g></svg>
+                    <span style="font-family:'Roboto Mono',monospace;font-size:12px;color:var(--ink);width:18px;text-align:right">{{ d.orden }}</span>
+                    <span style="{{ d.extCss }}">{{ d.ext }}</span>
+                    <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+                      <span style="font-size:13.5px;font-weight:600;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ d.nombre }}</span>
+                      <span style="font-size:12px;color:var(--muted)">{{ d.meta }}<span style="{{ d.convCss }}"> · Se convierte a PDF</span></span>
+                    </div>
+                    <button type="button" onClick="{{ d.toggle }}" aria-label="{{ d.quitarAria }}" style="height:28px;padding:0 10px;border:none;border-radius:var(--r-btn);background:transparent;color:var(--muted);font-size:12.5px;font-weight:600;cursor:pointer" style-hover="background:var(--sunken);color:#8E1F19">Quitar</button>
+                  </div>
+                </sc-for>
+                <div onDragOver="{{ expFinOver }}" onDrop="{{ expFinDrop }}" style="{{ expFinCss }}"></div>
+                <sc-if value="{{ expNingunoSel }}" hint-placeholder-val="{{ false }}">
+                  <div style="padding:18px;border:1.5px dashed var(--border-2);border-radius:var(--r);text-align:center;font-size:13px;color:var(--muted)">Agregá documentos desde la lista de abajo.</div>
+                </sc-if>
+                <span style="font-size:12px;color:var(--faint)">Arrastrá para cambiar el orden.</span>
+
+                <sc-if value="{{ expHayOtros }}" hint-placeholder-val="{{ false }}">
+                  <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:6px">
+                    <span style="font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:4px">No incluidos</span>
+                    <sc-for list="{{ expOtros }}" as="d" hint-placeholder-count="0">
+                      <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border:1px dashed var(--border-2);border-radius:var(--r);background:var(--surface)">
+                        <span style="{{ d.extCss }}">{{ d.ext }}</span>
+                        <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+                          <span style="font-size:13.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ d.nombre }}</span>
+                          <span style="font-size:12px;color:var(--faint)">{{ d.meta }}</span>
+                        </div>
+                        <button type="button" onClick="{{ d.toggle }}" style="height:30px;padding:0 12px;border:1px solid var(--border-2);border-radius:var(--r-btn);background:var(--surface);color:var(--primary);font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap" style-hover="background:var(--primary-soft);border-color:var(--primary)">Incluir</button>
+                      </div>
+                    </sc-for>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ expSinDocs }}" hint-placeholder-val="{{ false }}">
+                  <div style="padding:6px 0;font-size:13px;color:var(--muted)">La causa todavía no tiene documentos cargados.</div>
+                </sc-if>
+              </div>
+            </section>
+          </div>
+
+          <aside style="background:var(--surface);border:var(--panel-bd);border-radius:var(--r);box-shadow:var(--card-sh);position:sticky;top:104px;overflow:hidden">
+            <div style="padding:15px 18px;border-bottom:1px solid var(--border)">
+              <h2 style="font-size:15px;font-weight:700;margin:0">Resultado</h2>
+              <div style="font-family:'Roboto Mono',monospace;font-size:12px;color:var(--muted);margin-top:4px;word-break:break-all">{{ expArchivo }}</div>
+            </div>
+            <ol style="list-style:none;margin:0;padding:10px 18px;display:flex;flex-direction:column">
+              <sc-for list="{{ expIndice }}" as="x" hint-placeholder-count="3">
+                <li style="display:flex;gap:10px;align-items:baseline;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px">
+                  <span style="font-family:'Roboto Mono',monospace;font-size:12px;color:var(--faint);flex:0 0 18px">{{ x.n }}</span>
+                  <span style="{{ x.css }}">{{ x.nombre }}</span>
+                </li>
+              </sc-for>
+            </ol>
+            <div style="padding:6px 18px 16px;font-size:12.5px;color:var(--muted);line-height:1.5">{{ expResumen }}</div>
+            <div style="padding:14px 18px;border-top:1px solid var(--border);background:var(--sunken);display:flex;flex-direction:column;gap:8px">
+              <button type="button" onClick="{{ expGenerar }}" disabled="{{ expNoListo }}" style="{{ expGenerarCss }}">Generar PDF</button>
+              <span style="font-size:12px;color:var(--faint);line-height:1.45">{{ expAyuda }}</span>
+            </div>
+          </aside>
+        </div>
+
+        <sc-if value="{{ expPrev }}" hint-placeholder-val="{{ false }}">
+          <div onClick="{{ expPrevCerrar }}" style="position:fixed;inset:0;z-index:80;background:rgba(12,20,6,.55);display:flex;flex-direction:column;align-items:center;padding:20px;overflow-y:auto">
+            <div onClick="{{ expStop }}" role="dialog" aria-modal="true" aria-label="Vista previa de la carátula" style="display:flex;flex-direction:column;gap:12px;margin:auto 0">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;color:#fff">
+                <span style="font-size:14px;font-weight:600">Vista previa de la carátula · hoja 1 del expediente</span>
+                <button type="button" onClick="{{ expPrevCerrar }}" style="height:34px;padding:0 16px;border:1px solid rgba(255,255,255,.4);border-radius:var(--r-btn);background:transparent;color:#fff;font-size:13px;font-weight:600;cursor:pointer" style-hover="background:rgba(255,255,255,.12)">Cerrar</button>
+              </div>
+              <div style="box-shadow:0 24px 60px rgba(0,0,0,.35);max-width:calc(100vw - 40px);overflow-x:auto">
+                  <div style="width:595px;min-height:842px;background:#FFFFFF;padding:56px 54px;color:#0F172A;font-family:Figtree,system-ui,sans-serif">
+                    <div style="display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:18px;border-bottom:2px solid #0F172A">
+                      <div>
+                        <div style="font-weight:800;font-size:16px;letter-spacing:-.01em">Vázquez &amp; Zárate</div>
+                        <div style="font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:#5A6560;margin-top:3px">Staff de Abogados</div>
+                      </div>
+                      <div style="text-align:right;font-family:'Roboto Mono',monospace;font-size:11px;color:#5A6560;line-height:1.7">
+                        <div>SAC {{ causa.sac }}</div>
+                        <div>Emitido 15/09/2026</div>
+                      </div>
+                    </div>
+                    <div style="padding:34px 0 26px;border-bottom:1px solid #D8DDD6">
+                      <div style="font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#5A6560;margin-bottom:10px">Carátula</div>
+                      <div style="font-size:22px;font-weight:700;line-height:1.3;letter-spacing:-.01em">{{ causa.caratula }}</div>
+                    </div>
+                    <div style="padding-top:8px">
+                      <div style="display:grid;grid-template-columns:150px 1fr;gap:12px;padding:9px 0;border-bottom:1px solid #D8DDD6"><span style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#5A6560">Fuero</span><span style="font-size:13px;color:#0F172A">{{ causa.fuero }}</span></div>
+                      <div style="display:grid;grid-template-columns:150px 1fr;gap:12px;padding:9px 0;border-bottom:1px solid #D8DDD6"><span style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#5A6560">Tribunal</span><span style="font-size:13px;color:#0F172A">{{ causa.tribunal }}</span></div>
+                      <div style="display:grid;grid-template-columns:150px 1fr;gap:12px;padding:9px 0;border-bottom:1px solid #D8DDD6"><span style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#5A6560">Cliente</span><span style="font-size:13px;color:#0F172A">{{ expHojaCliente }}</span></div>
+                      <div style="display:grid;grid-template-columns:150px 1fr;gap:12px;padding:9px 0;border-bottom:1px solid #D8DDD6"><span style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#5A6560">Rol procesal</span><span style="font-size:13px;color:#0F172A">{{ causa.rol }}</span></div>
+                      <div style="display:grid;grid-template-columns:150px 1fr;gap:12px;padding:9px 0;border-bottom:1px solid #D8DDD6"><span style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#5A6560">Responsable</span><span style="font-size:13px;color:#0F172A">{{ expHojaResp }}</span></div>
+                      <div style="display:grid;grid-template-columns:150px 1fr;gap:12px;padding:9px 0;border-bottom:1px solid #D8DDD6"><span style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#5A6560">Estado procesal</span><span style="font-size:13px;color:#0F172A">{{ causa.estado }}</span></div>
+                    </div>
+                    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:34px">
+                      <div style="border:1px solid #0F172A;padding:10px 12px;height:62px"><div style="font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#5A6560">Cuerpo</div></div>
+                      <div style="border:1px solid #0F172A;padding:10px 12px;height:62px"><div style="font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#5A6560">Fojas</div></div>
+                      <div style="border:1px solid #0F172A;padding:10px 12px;height:62px"><div style="font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#5A6560">Ubicación</div></div>
+                    </div>
+                  </div>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ expListo }}" hint-placeholder-val="{{ false }}">
+          <div onClick="{{ expCerrar }}" style="position:fixed;inset:0;z-index:80;background:rgba(12,20,6,.45);display:flex;align-items:center;justify-content:center;padding:20px">
+            <div role="dialog" aria-modal="true" aria-labelledby="expListoT" onClick="{{ expStop }}" style="width:100%;max-width:440px;background:var(--surface);border-radius:var(--r);box-shadow:0 24px 60px rgba(12,20,6,.28);overflow:hidden">
+              <div style="padding:24px 24px 18px;display:flex;flex-direction:column;gap:14px">
+                <div style="display:flex;align-items:center;gap:12px">
+                  <span style="width:36px;height:36px;border-radius:50%;background:var(--primary-soft);display:flex;align-items:center;justify-content:center;flex:0 0 36px">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>
+                  </span>
+                  <h2 id="expListoT" style="font-size:17px;font-weight:700;margin:0">Expediente generado</h2>
+                </div>
+                <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--border);border-radius:var(--r);background:var(--sunken)">
+                  <span style="font-family:'Roboto Mono',monospace;font-size:10.5px;font-weight:600;letter-spacing:.04em;padding:3px 6px;border-radius:4px;background:#F7E9E7;color:#8E1F19">PDF</span>
+                  <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+                    <span style="font-family:'Roboto Mono',monospace;font-size:13px;font-weight:500;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ expArchivo }}</span>
+                    <span style="font-size:12px;color:var(--muted)">{{ expListoMeta }}</span>
+                  </div>
+                </div>
+                <span style="font-size:13px;color:var(--muted);line-height:1.5">Quedó guardado como nueva versión en la documentación de la causa y en su carpeta de Drive. Las versiones anteriores se conservan. Podés descargarlo e imprimirlo desde acá.</span>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                  <button type="button" onClick="{{ expDescargar }}" style="height:42px;padding:0 14px;border:1px solid var(--border-2);border-radius:var(--r-btn);background:var(--surface);color:var(--ink);font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap" style-hover="background:var(--canvas)">{{ expDescargarLabel }}</button>
+                  <button type="button" onClick="{{ expImprimir }}" style="height:42px;padding:0 14px;border:1px solid var(--border-2);border-radius:var(--r-btn);background:var(--surface);color:var(--ink);font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap" style-hover="background:var(--canvas)">{{ expImprimirLabel }}</button>
+                </div>
+              </div>
+              <div style="padding:14px 24px;border-top:1px solid var(--border);background:var(--sunken);display:flex;gap:8px;flex-wrap:wrap;justify-content:space-between;align-items:center">
+                <button type="button" onClick="{{ expCerrar }}" style="height:40px;padding:0 14px;border:none;border-radius:var(--r-btn);background:transparent;color:var(--ink);font-size:13.5px;font-weight:600;cursor:pointer" style-hover="background:var(--canvas)">Seguir editando</button>
+                <button type="button" onClick="{{ expVolver }}" style="height:40px;padding:0 18px;border:none;border-radius:var(--r-btn);background:var(--primary);color:#fff;font-size:14px;font-weight:600;cursor:pointer" style-hover="background:var(--primary-hi)">Volver a la causa</button>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+      </sc-if>
+
       <!-- ══════ SIN ACCESO ══════ -->
       <sc-if value="{{ esSinAcceso }}" hint-placeholder-val="{{ false }}">
       <div style="display:flex;flex-direction:column;gap:16px" data-screen-label="Sin acceso">
@@ -2255,6 +2435,30 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
                   <option value="{{ o.v }}">{{ o.t }}</option>
                 </sc-for>
               </select>
+            </sc-if>
+            <sc-if value="{{ f.esCombo }}" hint-placeholder-val="{{ false }}">
+              <div style="position:relative">
+                <input id="{{ f.id }}" type="text" role="combobox" aria-expanded="{{ f.combo.abierto }}" autocomplete="off" placeholder="{{ f.ph }}" value="{{ f.valor }}" onChange="{{ f.combo.escribir }}" onFocus="{{ f.combo.abrir }}" onClick="{{ f.combo.abrir }}" onBlur="{{ f.combo.cerrar }}" onKeyDown="{{ f.combo.tecla }}" style="width:100%;height:42px;padding:0 38px 0 12px;border:1px solid var(--border-2);border-radius:var(--r);background:var(--surface);font-size:14px;color:var(--ink)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;right:13px;top:14px;pointer-events:none" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg>
+                <sc-if value="{{ f.combo.abierto }}" hint-placeholder-val="{{ false }}">
+                  <div role="listbox" style="position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:30;max-height:240px;overflow-y:auto;background:var(--surface);border:1px solid var(--border-2);border-radius:var(--r);box-shadow:0 10px 28px rgba(15,23,42,.14);padding:4px">
+                    <sc-for list="{{ f.combo.opciones }}" as="o" hint-placeholder-count="5">
+                      <div role="option" aria-selected="{{ o.activa }}" onMouseDown="{{ o.elegir }}" onMouseEnter="{{ o.hover }}" style="{{ o.css }}">
+                        <div style="flex:1;min-width:0">
+                          <div style="{{ o.tituloCss }}">{{ o.titulo }}<span style="font-weight:400;color:var(--faint)">{{ o.sub }}</span></div>
+                        </div>
+                        <span style="{{ o.checkCss }}">✓</span>
+                      </div>
+                    </sc-for>
+                    <sc-if value="{{ f.combo.vacio }}" hint-placeholder-val="{{ false }}">
+                      <div style="padding:10px 12px;font-size:13px;color:var(--faint)">Escribí el estado procesal.</div>
+                    </sc-if>
+                  </div>
+                </sc-if>
+              </div>
+              <sc-if value="{{ f.combo.libre }}" hint-placeholder-val="{{ false }}">
+                <div style="font-size:12px;color:#7A5C1E;margin-top:6px;line-height:1.45">{{ f.combo.libreNota }}</div>
+              </sc-if>
             </sc-if>
             <sc-if value="{{ f.esMulti }}" hint-placeholder-val="{{ false }}">
               <div style="position:relative">
@@ -3254,7 +3458,36 @@ class Component extends DCLogic {
         valor: val === undefined ? '' : val, marcado: !!val, set,
         esTexto: !c.tipo || c.tipo === 'text', esPass: c.tipo === 'pass', esSelect: c.tipo === 'select',
         esFecha: c.tipo === 'date', esArea: c.tipo === 'area', esCheck: c.tipo === 'check', esGrupo: c.tipo === 'grupo', esCalifs: c.tipo === 'califs',
-        esMulti: c.tipo === 'multi',
+        esMulti: c.tipo === 'multi', esCombo: c.tipo === 'combo',
+        combo: c.tipo === 'combo' ? (() => {
+          const mv = this.state.mv, txt = String(val || '').trim(), q = txt.toLowerCase(), items = c.items || [];
+          const match = txt ? items.find(a => a.nombre.toLowerCase() === q) : null;
+          const base = items.filter(a => !q || match || a.nombre.toLowerCase().indexOf(q) >= 0).map(a => ({ titulo: a.nombre, sub: a.sub || '', valor: a.nombre, sel: !!match && match.nombre === a.nombre, libre: false }));
+          if (txt && !match) base.push({ titulo: 'Usar «' + txt + '»', sub: ' · ' + (c.libreSub || 'Escrito a mano'), valor: txt, sel: false, libre: true });
+          const idx = mv[c.k + '_i'] || 0, abierto = !!mv[c.k + '_open'];
+          const upd = o => this.setState({ mv: Object.assign({}, this.state.mv, o) });
+          const opciones = base.map((o, j) => ({
+            ...o, activa: j === idx,
+            css: 'display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--r-sm);cursor:pointer;background:' + (j === idx ? 'var(--sunken)' : 'transparent') + (o.libre ? ';border-top:1px solid var(--border);margin-top:4px' : ''),
+            tituloCss: 'font-size:13.5px;line-height:1.35;color:' + (o.libre ? 'var(--primary-hi)' : 'var(--ink)') + ';font-weight:' + (o.sel || o.libre ? '600' : '500'),
+            checkCss: o.sel ? 'color:var(--primary);font-weight:700;font-size:13px' : 'display:none',
+            hover: () => { if ((this.state.mv[c.k + '_i'] || 0) !== j) upd({ [c.k + '_i']: j }); },
+            elegir: e => { if (e && e.preventDefault) e.preventDefault(); upd({ [c.k]: o.valor, [c.k + '_open']: false }); }
+          }));
+          return {
+            abierto, opciones, vacio: !opciones.length, libre: !!txt && !match, libreNota: c.libreNota || '',
+            escribir: e => upd({ [c.k]: e.target.value, [c.k + '_open']: true, [c.k + '_i']: 0 }),
+            abrir: () => { if (!this.state.mv[c.k + '_open']) upd({ [c.k + '_open']: true, [c.k + '_i']: 0 }); },
+            cerrar: () => upd({ [c.k + '_open']: false }),
+            tecla: e => {
+              const n = opciones.length;
+              if (e.key === 'ArrowDown') { e.preventDefault(); upd({ [c.k + '_open']: true, [c.k + '_i']: n ? (idx + (abierto ? 1 : 0)) % n : 0 }); }
+              else if (e.key === 'ArrowUp') { e.preventDefault(); upd({ [c.k + '_i']: n ? (idx - 1 + n) % n : 0 }); }
+              else if (e.key === 'Enter') { if (abierto && opciones[idx]) { e.preventDefault(); opciones[idx].elegir(e); } }
+              else if (e.key === 'Escape') { upd({ [c.k + '_open']: false }); }
+            }
+          };
+        })() : null,
         multi: c.tipo === 'multi' ? (() => {
           const sel = Array.isArray(val) ? val : [];
           const ops = c.opciones || [];
@@ -3503,7 +3736,7 @@ class Component extends DCLogic {
       esCausas: s.pantalla === 'causas' || (s.pantalla === 'inicio' && !tieneInicio), esActo: s.pantalla === 'acto',
       esUsuarios: s.pantalla === 'usuarios', esPlazos: s.pantalla === 'plazos',
       esPendiente: s.pantalla === 'pendiente', esDetalle: s.pantalla === 'detalle',
-      goActo: () => esResp ? this.setState({ pantalla: 'acto' }) : this.aviso('Solo el abogado responsable de la causa (' + causa.abogado + ') registra sus actos procesales.'),
+      goActo: () => esResp ? this.setState({ pantalla: 'acto', editActo: null, estadoLibre: '', fechaActo: '2026-09-15', manual: false, vencManual: '', fechaNotif: '' }) : this.aviso('Solo el abogado responsable de la causa (' + causa.abogado + ') registra sus actos procesales.'),
       actoBtnCss: esResp ? 'display:flex;align-items:center;gap:8px;height:40px;padding:0 18px;border:none;border-radius:var(--r-btn);background:var(--primary);color:#fff;font-size:14px;font-weight:600;cursor:pointer' : 'display:flex;align-items:center;gap:8px;height:40px;padding:0 18px;border:none;border-radius:var(--r-btn);background:var(--border-2);color:#fff;font-size:14px;font-weight:600;cursor:not-allowed',
       actoNoResp: !esResp, actoRespNota: 'Solo el abogado responsable (' + causa.abogado + ') registra actos.',
       goDetalle: () => this.setState({ pantalla: 'detalle' }),
@@ -3511,7 +3744,7 @@ class Component extends DCLogic {
       accionSecRojaCss: this.accion(false, true),
       esPenal: causa.fuero === 'Penal',
       verCaratula: () => this.setState({ pantalla: 'doc', docTipo: 'caratula' }),
-      verExpediente: () => this.setState({ pantalla: 'doc', docTipo: 'expediente' }),
+      verExpediente: () => this.setState({ pantalla: 'exp', expCausa: causa.id, expOrden: (det.docs || []).map((_, i) => i).filter(i => !det.docs[i].expediente), expListo: false, expHecho: {}, expCar: (this.state.expCars || {})[causa.id] || null }),
       nuevoInterruptivo: () => !esResp ? this.aviso('Solo el abogado responsable de la causa (' + causa.abogado + ') registra actos interruptivos.') : this.abrir({
         titulo: 'Registrar acto interruptivo', sub: causa.caratula,
         nota: 'Un acto interruptivo reinicia el cómputo de la prescripción de la acción desde su fecha.',
@@ -3545,21 +3778,49 @@ class Component extends DCLogic {
         ],
         okLabel: 'Marcar prescripta', ok: 'Causa marcada como prescripta. Se cerraron los plazos abiertos.'
       }),
-      modificarCausa: () => this.abrir({
-        titulo: 'Modificar causa', sub: 'SAC ' + causa.sac,
-        nota: 'El número de SAC no se modifica: identifica la causa de forma única.',
-        campos: [
-          { k: 'car', label: 'Carátula', req: true, valor: causa.caratula },
-          { k: 'trib', label: 'Tribunal o dependencia', valor: causa.tribunal },
-          { k: 'inst', label: 'Instructor de la causa', ancho: 'half', ph: 'Apellido y nombre del instructor', valor: causa.instructor || '' },
-          { k: 'tel', label: 'Teléfono del instructor', ancho: 'half', mono: true, ph: '0351 448-1200', valor: causa.telefono && causa.telefono !== '—' ? causa.telefono : '' },
-          { k: 'int', label: 'Interno', ancho: 'half', mono: true, ph: '214', valor: causa.interno && causa.interno !== '—' ? causa.interno : '' },
-          ...(causa.fuero === 'Penal' ? [{ k: 'califs', label: 'Calificaciones legales', tipo: 'califs', fechas: causa.califFechas || {}, valor: causa.califs || CALIF.filter(k => (causa.calificacion || '').indexOf(califCorto(k)) === 0).map(k => k.id), nota: 'Agregá o quitá calificaciones si cambian los delitos imputados. Cada una recalcula su propia prescripción.' }] : []),
-          { k: 'rol', label: 'Rol procesal', tipo: 'select', ancho: 'half', valor: causa.rol, opciones: ROLES_FUERO[causa.fuero] || ['Defensa'] },
-          { k: 'resp', label: 'Abogado responsable', tipo: 'select', ancho: 'half', valor: causa.abogado, opciones: ABOGADOS.filter(a => a.activo).map(a => a.nombre) }
-        ],
-        ok: 'Causa actualizada. El cambio queda asentado con usuario y fecha.'
-      }),
+      modificarCausa: () => {
+        const fd = FUERO_DATOS[causa.id] || {}, sinSac = !causa.sac || causa.sac === '—' || causa.sac === 'Sin SAC';
+        const isoDe = f => { const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(f || ''); return m ? m[3] + '-' + m[2] + '-' + m[1] : ''; };
+        const es = f => v => v.fuero === f, noPenal = v => v.fuero !== 'Penal';
+        const FUEROS = ['Penal', 'Administrativo', 'Amparo'];
+        this.abrir({
+          titulo: 'Modificar causa', sub: sinSac ? 'Sin N° de SAC' : 'SAC ' + causa.sac,
+          nota: 'Cada cambio queda asentado en el historial de la causa con usuario y fecha.',
+          campos: [
+            { k: 'g1', tipo: 'grupo', label: 'Identificación' },
+            { k: 'sac', label: 'N° de SAC', ancho: 'half', mono: true, ph: '8 dígitos', valor: sinSac ? '' : causa.sac, nota: 'Opcional. Identifica la causa de forma única.' },
+            { k: 'fuero', label: 'Fuero', tipo: 'select', req: true, ancho: 'half', valor: causa.fuero, opciones: FUEROS, nota: 'Si lo cambiás, los actos se conservan y el estado procesal se reasigna según el ciclo de vida del nuevo fuero.' },
+            { k: 'car', label: 'Carátula', req: true, valor: causa.caratula },
+            { k: 'trib', label: 'Tribunal o dependencia', valor: causa.tribunal && causa.tribunal !== '—' ? causa.tribunal : '' },
+            { k: 'inst', label: 'Instructor de la causa', ph: 'Apellido y nombre del instructor', valor: causa.instructor && causa.instructor !== '—' ? causa.instructor : '' },
+            { k: 'tel', label: 'Teléfono', ancho: 'half', mono: true, ph: '0351 448-1200', valor: causa.telefono && causa.telefono !== '—' ? causa.telefono : '' },
+            { k: 'int', label: 'Interno', ancho: 'half', mono: true, ph: '214', valor: causa.interno && causa.interno !== '—' ? causa.interno : '' },
+            { k: 'g2', tipo: 'grupo', label: 'Cliente y rol procesal' },
+            ...FUEROS.map(f => ({ k: 'rol_' + f, label: 'Rol procesal del cliente', tipo: 'select', req: true, ancho: 'half', si: es(f), valor: causa.fuero === f ? causa.rol : (ROLES_FUERO[f] || ['Defensa'])[0], opciones: ROLES_FUERO[f] || ['Defensa'] })),
+            { k: 'califs', label: 'Calificaciones legales', tipo: 'califs', si: es('Penal'), fechas: causa.califFechas || {}, valor: causa.califs || CALIF.filter(k => (causa.calificacion || '').indexOf(califCorto(k)) === 0).map(k => k.id), nota: 'Si concurren varios delitos, una calificación por cada uno. Cada una recalcula su prescripción desde la fecha del hecho.' },
+            { k: 'preso', tipo: 'check', label: 'Preso: el cliente está detenido.', si: es('Penal'), valor: !!fd.preso },
+            { k: 'contra', label: 'Contraparte u organismo', si: noPenal, ph: 'APROSS, Provincia de Córdoba, Tribunal de Conducta…', valor: causa.contra || '' },
+            { k: 'obj', label: 'Objeto del reclamo o del amparo', tipo: 'area', req: true, si: noPenal, valor: causa.objeto || '', nota: 'Qué se reclama y por qué: el acto o la omisión que origina la causa y lo que se pide.' },
+            { k: 'caut', tipo: 'check', label: 'El juez hizo lugar a la medida cautelar.', si: es('Amparo'), valor: !!fd.cautelar },
+            { k: 'lesivo', tipo: 'date', label: 'Fecha del acto lesivo', ancho: 'half', si: es('Amparo'), valor: isoDe(fd.actoLesivo), nota: 'Opcional. Desde ella corre el plazo para presentar el amparo.' },
+            { k: 'agot', tipo: 'date', label: 'Agotamiento de la vía administrativa', ancho: 'half', si: es('Administrativo'), valor: isoDe(fd.agotamiento), nota: 'Opcional. Dejalo vacío mientras la vía no se agotó.' },
+            { k: 'g3', tipo: 'grupo', label: 'Asignación' },
+            { k: 'resp', label: 'Abogado responsable', tipo: 'select', req: true, ancho: 'half', valor: causa.abogado, opciones: ABOGADOS.filter(a => a.activo).map(a => a.nombre) },
+            { k: 'ini', label: 'Fecha de inicio', tipo: 'date', ancho: 'half', valor: isoDe(causa.inicio) },
+            { k: 'tasa', tipo: 'check', label: 'Tasa de justicia pagada', valor: !!fd.tasa }
+          ],
+          ok: v => {
+            const sac = String(v.sac || '').replace(/[^0-9]/g, '');
+            if (sac && !/^[0-9]{8}$/.test(sac)) return 'El SAC tiene 8 dígitos.';
+            if (sac && CAUSAS.some(c => c.sac === sac && c.id !== causa.id)) return 'Ya existe una causa registrada con este SAC.';
+            const fmt = x => x ? this.fmt(this.parse(x)) : '', f = v.fuero, cambio = f !== causa.fuero;
+            Object.assign(causa, { sac: sac || 'Sin SAC', fuero: f, caratula: v.car.trim(), tribunal: v.trib || '—', instructor: v.inst || '—', telefono: v.tel || '—', interno: v.int || '—', rol: v['rol_' + f], abogado: v.resp, inicio: fmt(v.ini) });
+            if (f === 'Penal') { causa.califs = v.califs; causa.califFechas = v.califs_f; } else { causa.contra = v.contra; causa.objeto = v.obj; }
+            FUERO_DATOS[causa.id] = { tasa: !!v.tasa, preso: f === 'Penal' && !!v.preso, cautelar: f === 'Amparo' && !!v.caut, actoLesivo: f === 'Amparo' ? fmt(v.lesivo) : '', agotamiento: f === 'Administrativo' ? fmt(v.agot) : '' };
+            return cambio ? 'Causa actualizada y pasada al fuero ' + f + '. Revisá el estado procesal asignado.' : 'Causa actualizada. El cambio queda asentado con usuario y fecha.';
+          }
+        });
+      },
       bajaCausa: () => this.abrir({
         tono: 'rojo', titulo: 'Dar de baja la causa', sub: causa.caratula,
         nota: 'La baja es lógica: la causa sale de los listados activos pero se conserva con todos sus actos y documentos.',
@@ -3627,15 +3888,10 @@ class Component extends DCLogic {
           porActo: t.estado === 'Sin cambio de estado' ? 'No modifica el estado procesal.' : (t.acto === t.estado ? '' : 'Por el acto: ' + t.acto),
           porActoCss: (t.estado !== 'Sin cambio de estado' && t.acto === t.estado) ? 'display:none' : 'font-size:12.5px;color:var(--muted);margin-top:4px;line-height:1.45',
           accCss: this.accion(!esResp, false), bajaAccCss: this.accion(!esResp, true),
-          modificar: () => !esResp ? this.aviso('Solo el abogado responsable de la causa modifica sus actos procesales.') : this.abrir({
-            titulo: 'Modificar acto procesal', sub: t.acto + ' · ' + t.fecha,
-            nota: 'Si cambia la fecha, el sistema recalcula el vencimiento con la tabla de plazos del fuero.',
-            campos: [
-              { k: 'fecha', label: 'Fecha del acto', tipo: 'date', ancho: 'half', req: true, valor: '2026-09-15', mono: true },
-              { k: 'estado', label: 'Estado resultante', tipo: 'select', ancho: 'half', valor: t.estado, opciones: ['Sin cambio de estado'].concat(NOMS(causa.fuero)) },
-              { k: 'obs', label: 'Observaciones', tipo: 'area', valor: t.nota }
-            ],
-            ok: 'Acto modificado. El vencimiento se recalculó con la tabla de plazos.'
+          modificar: () => !esResp ? this.aviso('Solo el abogado responsable de la causa modifica sus actos procesales.') : this.setState({
+            pantalla: 'acto', editActo: iOrig, estadoLibre: t.estado === 'Sin cambio de estado' ? t.acto : t.estado,
+            fechaActo: (f => { const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(f || ''); return m ? m[3] + '-' + m[2] + '-' + m[1] : ''; })(t.fecha) || '2026-09-15', fechaNotif: '', comboOpen: false, adjunto: false,
+            manual: false, vencManual: ''
           }),
           anular: () => !esResp ? this.aviso('Solo el abogado responsable de la causa anula sus actos procesales.') : this.abrir({
             ancho: 'sm', tono: 'rojo', titulo: 'Anular acto procesal', sub: t.acto + ' · ' + t.fecha,
@@ -3825,7 +4081,8 @@ class Component extends DCLogic {
         const nueva = {
           id, instructor: s.ncInstructor.trim() || '—', telefono: (s.ncTel || '').trim() || '—', interno: s.ncInterno.trim() || '—', sac: s.ncSac || 'Sin SAC', caratula: s.ncCaratula.trim(),
           tribunal: s.ncTribunal.trim() || '—', fuero: s.ncFuero, rol: s.ncRol, estado: estadoIni, abogado: s.ncResp, dias: null, fecha: '—',
-          califs: s.ncCalifs.slice(), califFechas: fechas
+          califs: s.ncCalifs.slice(), califFechas: fechas,
+          contra: s.ncContra.trim(), objeto: s.ncObjeto.trim(), inicio: s.ncFecha ? this.fmt(this.parse(s.ncFecha)) : ''
         };
         if (ncPenal && kals.length) {
           const conFecha = kals.map(k => ({ k, fh: this.parse(fechas[k.id]) })).filter(x => x.fh)
@@ -3911,10 +4168,22 @@ class Component extends DCLogic {
 
       guardarDisabled: !puedeGuardar,
       guardarCss: 'height:40px;padding:0 20px;border:none;border-radius:var(--r-btn);background:' + (puedeGuardar ? 'var(--primary)' : 'var(--border-2)') + ';color:#fff;font-size:14px;font-weight:600;' + (puedeGuardar ? 'cursor:pointer' : 'cursor:not-allowed'),
+      actoTitulo: s.editActo != null ? 'Modificar acto procesal' : 'Registrar acto procesal',
+      actoBtnLabel: s.editActo != null ? 'Guardar cambios' : 'Registrar acto',
+      editandoActo: s.editActo != null, editActoFecha: s.editActo != null && det.linea[s.editActo] ? det.linea[s.editActo].fecha : '',
+      actoCancelar: () => this.setState(s.editActo != null ? { pantalla: 'detalle', editActo: null, estadoLibre: '', manual: false, vencManual: '' } : { pantalla: 'causas' }),
       guardarActo: () => {
         if (!puedeGuardar) return;
-        const primero = det.linea.length === 0;
         const fActo = this.fmt(this.parse(s.fechaActo) || new Date());
+        if (s.editActo != null && det.linea[s.editActo]) {
+          const ent = det.linea[s.editActo], esUlt = s.editActo === det.linea.length - 1, nEst = acto.estado || acto.nombre;
+          Object.assign(ent, { fecha: fActo, acto: acto.nombre, estado: nEst, vence: venc ? this.fmt(venc) : undefined, abierto: esUlt && !!venc, nota: acto.libre ? 'Estado escrito a mano.' : ent.nota, modificado: true });
+          if (esUlt) { causa.estado = nEst; if (venc) { causa.fecha = this.fmt(venc); causa.dias = Math.round((venc - new Date(2026, 8, 15)) / 864e5); } else { causa.fecha = '—'; causa.dias = null; } }
+          this.aviso('Acto modificado' + (venc ? ' · vencimiento el ' + this.fmt(venc) : '') + '. El cambio queda asentado con usuario y fecha.');
+          this.setState({ pantalla: 'detalle', editActo: null, estadoLibre: '', manual: false, vencManual: '' });
+          return;
+        }
+        const primero = det.linea.length === 0;
         det.linea.forEach(t => { t.abierto = false; });
         const nuevoEstado = acto.estado || acto.nombre;
         det.linea.push({ por: s.usuarioActual, hora: new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: true }), fecha: fActo, acto: acto.nombre, estado: nuevoEstado, nota: (primero ? 'Primer acto procesal: la causa entra al ciclo de vida del fuero.' : '') + (acto.libre ? (primero ? ' ' : '') + 'Estado escrito a mano.' : ''), abierto: !!venc, vence: venc ? this.fmt(venc) : undefined });
@@ -4181,11 +4450,95 @@ class Component extends DCLogic {
       // ── documento imprimible ──
       esDoc: s.pantalla === 'doc',
       docEsCaratula: s.docTipo === 'caratula', docEsExpediente: s.docTipo === 'expediente',
-      docTitulo: s.docTipo === 'caratula' ? 'Carátula de la causa' : 'Expediente consolidado',
-      docSub: s.docTipo === 'caratula' ? 'Hoja de carátula para el expediente físico (HU 24).' : 'Reúne los datos de la causa, el ciclo de vida completo y el índice de documentación (HU 25).',
+      docTitulo: 'Carátula de la causa',
+      docSub: 'Hoja de carátula para el expediente físico (HU 24).',
       imprimirDoc: () => this.aviso('Se abriría el diálogo de impresión con el documento en tamaño A4.'),
       docFecha: '15/09/2026',
       docActos: det.linea.map(t => ({ fecha: t.fecha, acto: t.acto, estado: t.estado, nota: t.nota })),
+
+      // ── generar expediente ──
+      ...(() => {
+        const docs = det.docs || [], orden = (s.expCausa === causa.id && s.expOrden) ? s.expOrden : docs.map((_, i) => i).filter(i => !docs[i].expediente), car = { kb: 60 };
+        const sel = orden.filter(i => docs[i]), resto = docs.map((_, i) => i).filter(i => sel.indexOf(i) < 0 && !docs[i].expediente), lista = sel.concat(resto);
+        const setOrden = o => this.setState({ expOrden: o, expCausa: causa.id });
+        const kb = d => { const m = /([0-9.]+)\s*(KB|MB)/i.exec(d.meta || ''); return m ? parseFloat(m[1]) * (/MB/i.test(m[2]) ? 1024 : 1) : 0; };
+        const tot = sel.reduce((a, i) => a + kb(docs[i]), 0) + (car ? car.kb : 0);
+        const mov = dis => 'width:28px;height:28px;border:1px solid var(--border-2);border-radius:var(--r-sm);background:var(--surface);color:var(--ink);font-size:13px;cursor:' + (dis ? 'default' : 'pointer') + ';opacity:' + (dis ? '.35' : '1');
+        const tomar = f => {
+          if (!f) return;
+          const v = { url: URL.createObjectURL(f), nombre: f.name, pdf: /pdf$/i.test(f.type) || /\.pdf$/i.test(f.name), kb: Math.round(f.size / 1024), por: s.usuarioActual, fecha: '15/09/2026' };
+          this.setState({ expCar: v, expCars: Object.assign({}, this.state.expCars, { [causa.id]: v }) });
+        };
+        const listo = sel.length > 0;
+        return {
+          esExp: s.pantalla === 'exp',
+          expPrev: !!s.expPrev && s.pantalla === 'exp', expPrevAbrir: () => this.setState({ expPrev: true }), expPrevCerrar: () => this.setState({ expPrev: false }),
+          expHojaCliente: (det.cliente && det.cliente.nombre) || '—', expHojaResp: nomAp(causa.abogado),
+          expSinCar: !car, expConCar: !!car, expCarUrl: car ? car.url : '', expCarNombre: car ? car.nombre : '', expCarPor: car ? car.por : '', expCarFecha: car ? car.fecha : '',
+          expCarImgCss: car && !car.pdf ? 'width:100%;height:100%;background:center/cover no-repeat url(' + car.url + ')' : 'display:none',
+          expCarPdfCss: car && car.pdf ? 'font-family:\'Roboto Mono\',monospace;font-size:13px;font-weight:600;color:var(--muted)' : 'display:none',
+          expPickCar: e => { tomar(e.target.files && e.target.files[0]); e.target.value = ''; },
+          expDragOver: e => e.preventDefault(),
+          expDrop: e => { e.preventDefault(); tomar(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]); },
+          expQuitarCar: () => this.setState({ expCar: null, expCars: Object.assign({}, this.state.expCars, { [causa.id]: null }) }),
+          expSinDocs: docs.length === 0,
+          expTodosLabel: !resto.length ? 'Quitar todos' : 'Incluir todos',
+          expTodos: () => setOrden(!resto.length ? [] : lista),
+          expDocs: sel.map((i, k) => {
+            const d = docs[i], ext = ((/\.([a-z0-9]+)$/i.exec(d.nombre) || [])[1] || 'doc').toUpperCase(), drag = s.expDrag === k, over = s.expOver === k && s.expDrag != null && s.expDrag !== k;
+            const mover = (de, a) => { const o = sel.slice(); const [x] = o.splice(de, 1); o.splice(a > de ? a - 1 : a, 0, x); setOrden(o); };
+            return {
+              nombre: d.nombre, meta: d.meta, ext, orden: String(k + 2), quitarAria: 'Quitar ' + d.nombre,
+              extCss: 'font-family:\'Roboto Mono\',monospace;font-size:10.5px;font-weight:600;letter-spacing:.04em;padding:3px 6px;border-radius:4px;flex:0 0 auto;' + (ext === 'PDF' ? 'background:#F7E9E7;color:#8E1F19' : 'background:#E8EEF7;color:#24457A'),
+              filaCss: 'display:flex;align-items:center;gap:12px;padding:11px 12px 11px 14px;border:1px solid ' + (drag ? 'var(--primary)' : 'var(--border-2)') + ';border-radius:var(--r);background:var(--surface);cursor:grab;user-select:none;transition:box-shadow .15s,opacity .15s;opacity:' + (drag ? '.45' : '1') + ';box-shadow:' + (over ? '0 -3px 0 0 var(--primary)' : '0 1px 2px rgba(15,23,42,.05)'),
+              convCss: ext === 'PDF' ? 'display:none' : '',
+              primero: k === 0, ultimo: k === sel.length - 1, subirCss: mov(k === 0), bajarCss: mov(k === sel.length - 1),
+              toggle: () => setOrden(sel.filter(x => x !== i)),
+              subir: () => { if (k > 0) mover(k, k - 1); },
+              bajar: () => { if (k < sel.length - 1) mover(k, k + 2); },
+              dragStart: e => { if (e.dataTransfer) { e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', String(k)); } catch (x) {} } this.setState({ expDrag: k, expOver: null }); },
+              dragOver: e => { e.preventDefault(); if (this.state.expOver !== k) this.setState({ expOver: k }); },
+              drop: e => { e.preventDefault(); const de = this.state.expDrag; this.setState({ expDrag: null, expOver: null }); if (de != null && de !== k) mover(de, k); },
+              dragEnd: () => this.setState({ expDrag: null, expOver: null })
+            };
+          }),
+          expListOver: e => e.preventDefault(),
+          expFinOver: e => { e.preventDefault(); if (this.state.expOver !== 'fin') this.setState({ expOver: 'fin' }); },
+          expFinDrop: e => { e.preventDefault(); const de = this.state.expDrag; this.setState({ expDrag: null, expOver: null }); if (de != null) { const o = sel.slice(); const [x] = o.splice(de, 1); o.push(x); setOrden(o); } },
+          expFinCss: s.expDrag != null ? 'height:14px;margin-top:-4px;border-radius:2px;' + (s.expOver === 'fin' ? 'box-shadow:inset 0 3px 0 0 var(--primary)' : '') : 'display:none',
+          expNingunoSel: docs.length > 0 && sel.length === 0,
+          expHayOtros: resto.length > 0,
+          expOtros: resto.map(i => { const d = docs[i], ext = ((/\.([a-z0-9]+)$/i.exec(d.nombre) || [])[1] || 'doc').toUpperCase(); return {
+            nombre: d.nombre, meta: d.meta, ext, toggle: () => setOrden(sel.concat(i)),
+            extCss: 'font-family:\'Roboto Mono\',monospace;font-size:10.5px;font-weight:600;letter-spacing:.04em;padding:3px 6px;border-radius:4px;flex:0 0 auto;opacity:.7;' + (ext === 'PDF' ? 'background:#F7E9E7;color:#8E1F19' : 'background:#E8EEF7;color:#24457A')
+          }; }),
+          expArchivo: 'Expediente_' + String(causa.sac).replace(/\s+/g, '_') + '_v' + (s.expListo && s.expVersion ? s.expVersion : docs.filter(d => d.expediente).length + 1) + '.pdf',
+          expIndice: [{ n: '1', nombre: 'Carátula · generada con los datos de la causa', css: 'flex:1;min-width:0;color:var(--ink);font-weight:600' }]
+            .concat(sel.map((i, k) => ({ n: String(k + 2), nombre: docs[i].nombre, css: 'flex:1;min-width:0;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap' }))),
+          expResumen: (sel.length + (car ? 1 : 0)) + ' partes en un solo PDF' + (tot ? ' · ' + (tot >= 1024 ? (tot / 1024).toFixed(1).replace('.', ',') + ' MB' : Math.round(tot) + ' KB') + ' aprox.' : '') + '. Se guarda en la carpeta de la causa en Drive.',
+          expNoListo: !listo,
+          expAyuda: !sel.length ? 'Elegí al menos un documento.' : 'Las partes se unen en el orden de la lista.',
+          expGenerarCss: 'height:40px;border:none;border-radius:var(--r-btn);font-size:14px;font-weight:600;color:#fff;background:' + (listo ? 'var(--primary);cursor:pointer' : 'var(--border-2);cursor:not-allowed'),
+          expGenerar: () => {
+            if (!listo) return;
+            const v = docs.filter(d => d.expediente).length + 1;
+            const nom = 'Expediente_' + String(causa.sac).replace(/\s+/g, '_') + '_v' + v + '.pdf';
+            const tam = tot >= 1024 ? (tot / 1024).toFixed(1).replace('.', ',') + ' MB' : Math.round(tot) + ' KB';
+            docs.push({ nombre: nom, meta: 'Expediente · versión ' + v + ' · 15/09/2026 · ' + tam + ' · carátula + ' + sel.length + (sel.length === 1 ? ' documento' : ' documentos'), expediente: true, version: v });
+            if (!det.docs) det.docs = docs;
+            this.setState({ expListo: true, expHecho: {}, expVersion: v });
+          },
+          expListo: !!s.expListo && s.pantalla === 'exp',
+          expListoMeta: 'Versión ' + (s.expVersion || 1) + ' · ' + (sel.length + 1) + ' partes' + (tot ? ' · ' + (tot >= 1024 ? (tot / 1024).toFixed(1).replace('.', ',') + ' MB' : Math.round(tot) + ' KB') : ''),
+          expStop: e => e.stopPropagation(),
+          expCerrar: () => this.setState({ expListo: false }),
+          expVolver: () => this.setState({ expListo: false, pantalla: 'detalle' }),
+          expDescargarLabel: (s.expHecho || {}).desc ? '✓ Descargado' : 'Descargar',
+          expImprimirLabel: (s.expHecho || {}).imp ? '✓ Enviado a imprimir' : 'Imprimir',
+          expDescargar: () => { this.aviso('Descargando Expediente_' + causa.sac + '_v' + (this.state.expVersion || 1) + '.pdf.'); this.setState({ expHecho: Object.assign({}, this.state.expHecho, { desc: true }) }); },
+          expImprimir: () => { this.aviso('Se abriría el diálogo de impresión con el expediente completo.'); this.setState({ expHecho: Object.assign({}, this.state.expHecho, { imp: true }) }); }
+        };
+      })(),
 
       toast: s.toast, hayToast: !!s.toast,
       toastDot: 'width:7px;height:7px;border-radius:50%;flex:0 0 7px;background:#7FB08A'
