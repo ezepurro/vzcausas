@@ -709,21 +709,15 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
 
               <div>
                 <label for="ncTribunal" style="display:block;font-size:13px;font-weight:600;color:var(--ink);margin-bottom:7px">Órgano interviniente</label>
-                <input id="ncTribunal" type="text" placeholder="Fisc. de Distrito I, 3º turno · Cám. Cont. Adm. de 2ª Nom." value="{{ ncTribunal }}" onChange="{{ setNcTribunal }}" style="width:100%;height:42px;padding:0 12px;border:1px solid var(--border-2);border-radius:var(--r);background:var(--surface);font-size:14px;color:var(--ink)">
+                <input id="ncTribunal" type="text" placeholder="Juzgado de Control N° 3 · Córdoba" value="{{ ncTribunal }}" onChange="{{ setNcTribunal }}" style="width:100%;height:42px;padding:0 12px;border:1px solid var(--border-2);border-radius:var(--r);background:var(--surface);font-size:14px;color:var(--ink)">
               </div>
 
-              <div style="display:grid;grid-template-columns:var(--f2);gap:16px">
-                <div>
-                  <label for="ncSecretario" style="display:block;font-size:13px;font-weight:600;color:var(--ink);margin-bottom:7px">Secretario/a</label>
-                  <input id="ncSecretario" type="text" placeholder="Apellido y nombre" value="{{ ncSecretario }}" onChange="{{ setNcSecretario }}" style="width:100%;height:42px;padding:0 12px;border:1px solid var(--border-2);border-radius:var(--r);background:var(--surface);font-size:14px;color:var(--ink)">
-                </div>
+              <div style="display:grid;grid-template-columns:var(--f3);gap:16px">
                 <div>
                   <label for="ncInstructor" style="display:block;font-size:13px;font-weight:600;color:var(--ink);margin-bottom:7px">Instructor de la causa</label>
                   <input id="ncInstructor" type="text" placeholder="Apellido y nombre del instructor" value="{{ ncInstructor }}" onChange="{{ setNcInstructor }}" style="width:100%;height:42px;padding:0 12px;border:1px solid var(--border-2);border-radius:var(--r);background:var(--surface);font-size:14px;color:var(--ink)">
-                  <div style="font-size:12px;color:var(--faint);margin-top:6px">Quien lleva la instrucción en el órgano interviniente.</div>
+                  <div style="font-size:12px;color:var(--faint);margin-top:6px">Quien lleva la instrucción en el órgano interviniente. Figura como secretario/a en la carátula.</div>
                 </div>
-              </div>
-              <div style="display:grid;grid-template-columns:var(--f2);gap:16px">
                 <div>
                   <label for="ncTel" style="display:block;font-size:13px;font-weight:600;color:var(--ink);margin-bottom:7px">Teléfono</label>
                   <input id="ncTel" type="tel" inputmode="tel" placeholder="0351 448-1200" value="{{ ncTel }}" onChange="{{ setNcTel }}" style="width:100%;height:42px;padding:0 12px;border:1px solid var(--border-2);border-radius:var(--r);background:var(--surface);font-size:14px;color:var(--ink);font-family:'Roboto Mono',monospace">
@@ -819,28 +813,6 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
               </sc-if>
             </div>
 
-            <div style="padding:16px 22px;border-bottom:1px solid var(--border);background:var(--sunken);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
-              <h2 style="font-size:16px;font-weight:700;margin:0">Carátula del expediente</h2>
-              <span style="font-size:12px;color:var(--muted)">Plantilla <b style="color:var(--ink)">{{ ncPlantillaTxt }}</b></span>
-            </div>
-            <div style="padding:22px;display:flex;flex-direction:column;gap:18px;border-bottom:1px solid var(--border)">
-              <div style="font-size:12.5px;color:var(--muted);line-height:1.5;text-wrap:pretty">Son los recuadros de la hoja de carátula. N° de SAC, autos (la carátula), órgano interviniente, secretario/a e instructor se toman de Identificación.</div>
-              <div>
-                <label for="ncActor" style="display:block;font-size:13px;font-weight:600;color:var(--ink);margin-bottom:7px">Actor / querellante</label>
-                <textarea id="ncActor" rows="2" placeholder="{{ ncActorPh }}" value="{{ ncActor }}" onChange="{{ setNcActor }}" style="width:100%;min-height:64px;padding:10px 12px;border:1px solid var(--border-2);border-radius:var(--r);background:var(--surface);font-size:13.5px;line-height:1.5;color:var(--ink);font-family:inherit;resize:vertical;text-transform:uppercase"></textarea>
-              </div>
-              <div>
-                <label for="ncDemandado" style="display:block;font-size:13px;font-weight:600;color:var(--ink);margin-bottom:7px">Demandado / imputado</label>
-                <textarea id="ncDemandado" rows="2" placeholder="{{ ncDemandadoPh }}" value="{{ ncDemandado }}" onChange="{{ setNcDemandado }}" style="width:100%;min-height:64px;padding:10px 12px;border:1px solid var(--border-2);border-radius:var(--r);background:var(--surface);font-size:13.5px;line-height:1.5;color:var(--ink);font-family:inherit;resize:vertical;text-transform:uppercase"></textarea>
-                <div style="font-size:12px;color:var(--faint);margin-top:6px">Se completan con el cliente, su rol procesal y el abogado responsable. Si hay varias partes, agregalas.</div>
-              </div>
-              <div>
-                <label for="ncObsCar" style="display:block;font-size:13px;font-weight:600;color:var(--ink);margin-bottom:7px">Observaciones</label>
-                <textarea id="ncObsCar" rows="2" placeholder="Ej. Causa conexa en DI T6" value="{{ ncObsCar }}" onChange="{{ setNcObsCar }}" style="width:100%;min-height:64px;padding:10px 12px;border:1px solid var(--border-2);border-radius:var(--r);background:var(--surface);font-size:13.5px;line-height:1.5;color:var(--ink);font-family:inherit;resize:vertical;text-transform:uppercase"></textarea>
-                <div style="font-size:12px;color:var(--faint);margin-top:6px">Opcional.</div>
-              </div>
-            </div>
-
             <div style="padding:16px 22px;border-bottom:1px solid var(--border);background:var(--sunken)">
               <h2 style="font-size:16px;font-weight:700;margin:0">Asignación</h2>
             </div>
@@ -892,9 +864,6 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
               <button type="button" onClick="{{ usarSugerida }}" disabled="{{ sugeridaDisabled }}" style="{{ usarSugeridaCss }}">Usar esta carátula</button>
 
               <div style="display:flex;justify-content:space-between;gap:12px;padding:10px 0;margin-top:14px;border-top:1px solid var(--border);font-size:13px">
-                <span style="color:var(--muted)">Plantilla de carátula</span><span style="text-align:right"><b>{{ ncPlantillaTxt }}</b><span style="display:block;font-size:11.5px;color:var(--faint);margin-top:2px">{{ ncPlantillaNota }}</span></span>
-              </div>
-              <div style="display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid var(--border);font-size:13px">
                 <span style="color:var(--muted)">Estado inicial</span><span style="text-align:right"><b>{{ estadoInicial }}</b><span style="display:block;font-size:11.5px;color:var(--faint);margin-top:2px">El estado lo fija el primer acto procesal</span></span>
               </div>
               <div style="padding:10px 0;border-top:1px solid var(--border);font-size:13px">
@@ -1240,8 +1209,6 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
                 <span>Responsable <b style="color:var(--ink)">{{ causa.abogadoTxt }}</b></span>
               </div>
               <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:13px;color:var(--muted);margin-top:6px">
-                <span>Secretario/a <b style="color:var(--ink)">{{ causa.secretarioTxt }}</b></span>
-                <span style="color:var(--border-2)">|</span>
                 <span>Instructor <b style="color:var(--ink)">{{ causa.instructor }}</b></span>
                 <span style="color:var(--border-2)">|</span>
                 <span>Teléfono <b style="color:var(--ink);font-family:'Roboto Mono',monospace;font-weight:500">{{ causa.telefono }}</b></span>
@@ -2256,7 +2223,25 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
                   </div>
                   <button type="button" onClick="{{ expPrevAbrir }}" style="height:30px;padding:0 12px;border:1px solid var(--border-2);border-radius:var(--r-btn);background:var(--surface);color:var(--primary);font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap" style-hover="background:var(--primary-soft);border-color:var(--primary)">Vista previa</button>
                 </div>
-                <div style="margin-top:10px;font-size:12px;line-height:1.5;color:var(--faint);text-wrap:pretty">¿Hay que corregir algo en la carátula? <button type="button" onClick="{{ modificarCausa }}" style="display:inline-flex;align-items:center;gap:4px;background:none;border:none;padding:0;font:inherit;font-weight:600;color:var(--primary);cursor:pointer;text-decoration:underline;text-decoration-color:color-mix(in srgb, var(--primary) 35%, transparent);text-underline-offset:3px" style-hover="text-decoration-color:var(--primary)">Modificá los datos de la causa<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></button> y la carátula se actualiza sola.</div>
+                <sc-if value="{{ expPideParte }}" hint-placeholder-val="{{ false }}">
+                  <div style="margin-top:16px">
+                    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px">
+                      <label for="expOtra" style="display:block;font-size:13px;font-weight:600;color:var(--ink);margin-bottom:7px">{{ expOtraLabel }}</label>
+                      <span style="font-size:11.5px;color:var(--faint);font-family:'Roboto Mono',monospace">{{ expOtraCont }}</span>
+                    </div>
+                    <textarea id="expOtra" rows="2" placeholder="{{ expOtraPh }}" value="{{ expOtraVal }}" onChange="{{ setExpOtra }}" style="width:100%;min-height:64px;padding:10px 12px;border:1px solid var(--border-2);border-radius:var(--r);background:var(--surface);font-size:14px;line-height:1.5;color:var(--ink);font-family:inherit;resize:vertical;text-transform:uppercase"></textarea>
+                    <div style="font-size:12px;color:var(--faint);margin-top:6px;text-wrap:pretty">{{ expOtraNota }}</div>
+                  </div>
+                </sc-if>
+                <div style="margin-top:16px">
+                  <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px">
+                    <label for="expObs" style="display:block;font-size:13px;font-weight:600;color:var(--ink);margin-bottom:7px">Observaciones</label>
+                    <span style="font-size:11.5px;color:var(--faint);font-family:'Roboto Mono',monospace">{{ expObsCont }}</span>
+                  </div>
+                  <textarea id="expObs" rows="2" placeholder="Ej. Causa conexa en DI T6" value="{{ expObsVal }}" onChange="{{ setExpObs }}" style="width:100%;min-height:64px;padding:10px 12px;border:1px solid var(--border-2);border-radius:var(--r);background:var(--surface);font-size:14px;line-height:1.5;color:var(--ink);font-family:inherit;resize:vertical"></textarea>
+                  <div style="font-size:12px;color:var(--faint);margin-top:6px">Opcional. Va en el recuadro Observaciones de la carátula y no se guarda en la causa.</div>
+                </div>
+                <div style="margin-top:12px;font-size:12px;line-height:1.5;color:var(--faint);text-wrap:pretty">¿Hay que corregir algo en la carátula? <button type="button" onClick="{{ modificarCausa }}" style="display:inline-flex;align-items:center;gap:4px;background:none;border:none;padding:0;font:inherit;font-weight:600;color:var(--primary);cursor:pointer;text-decoration:underline;text-decoration-color:color-mix(in srgb, var(--primary) 35%, transparent);text-underline-offset:3px" style-hover="text-decoration-color:var(--primary)">Modificá los datos de la causa<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></button> y la carátula se actualiza sola.</div>
               </div>
             </section>
 
@@ -2341,7 +2326,7 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
                     <div style="position:absolute;left:109px;top:236px;width:443px;height:85px;padding:7px 9px;box-sizing:border-box;overflow:hidden;font-size:10.5px;line-height:1.4;font-weight:500;text-transform:uppercase;white-space:pre-line;font-weight:700">{{ expHojaAutos }}</div>
                     <div style="position:absolute;left:109px;top:352px;width:443px;height:85px;padding:7px 9px;box-sizing:border-box;overflow:hidden;font-size:10.5px;line-height:1.4;font-weight:500;text-transform:uppercase;white-space:pre-line;">{{ expHojaActor }}</div>
                     <div style="position:absolute;left:109px;top:468px;width:443px;height:85px;padding:7px 9px;box-sizing:border-box;overflow:hidden;font-size:10.5px;line-height:1.4;font-weight:500;text-transform:uppercase;white-space:pre-line;">{{ expHojaDem }}</div>
-                    <div style="position:absolute;left:109px;top:584px;width:443px;height:85px;padding:7px 9px;box-sizing:border-box;overflow:hidden;font-size:10.5px;line-height:1.4;font-weight:500;text-transform:uppercase;white-space:pre-line;white-space:normal"><div>{{ expHojaOrgano }}</div><div>SECRETARIO/A: {{ expHojaSec }}</div><div>INSTRUCTOR: {{ expHojaInst }}</div></div>
+                    <div style="position:absolute;left:109px;top:584px;width:443px;height:85px;padding:7px 9px;box-sizing:border-box;overflow:hidden;font-size:10.5px;line-height:1.4;font-weight:500;text-transform:uppercase;white-space:pre-line;white-space:normal"><div>{{ expHojaOrgano }}</div><div>SECRETARIO/A: {{ expHojaInst }}</div></div>
                     <div style="position:absolute;left:109px;top:700px;width:443px;height:85px;padding:7px 9px;box-sizing:border-box;overflow:hidden;font-size:10.5px;line-height:1.4;font-weight:500;text-transform:uppercase;white-space:pre-line;">{{ expHojaObs }}</div>
                   </div>
               </div>
@@ -2433,7 +2418,7 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
           <div style="{{ f.wrapCss }}">
             <label for="{{ f.id }}" style="{{ f.labelCss }}">{{ f.label }}<span style="color:#B3261E">{{ f.reqMark }}</span></label>
             <sc-if value="{{ f.esTexto }}" hint-placeholder-val="{{ true }}">
-              <input id="{{ f.id }}" type="text" placeholder="{{ f.ph }}" value="{{ f.valor }}" onChange="{{ f.set }}" style="{{ f.inputCss }}">
+              <input id="{{ f.id }}" type="text" placeholder="{{ f.ph }}" value="{{ f.valor }}" onChange="{{ f.set }}" readOnly="{{ f.soloLectura }}" style="{{ f.inputCss }}">
             </sc-if>
             <sc-if value="{{ f.esPass }}" hint-placeholder-val="{{ false }}">
               <input id="{{ f.id }}" type="password" value="{{ f.valor }}" onChange="{{ f.set }}" style="{{ f.inputCss }}">
@@ -2711,14 +2696,14 @@ const ESTADOS = {
 const NOMS = f => (ESTADOS[f] || []).map(e => e.nombre);
 
 const CAUSAS = [
-  { id: 1, secretario: 'Dra. Analía Correa', instructor: 'Dra. Verónica Ledesma', telefono: '0351 448-1200', interno: '214', sac: '13284571', caratula: 'GÓMEZ, Ariel Fernando p.s.a. Robo calificado', tribunal: 'Juzgado de Control N° 3 · Córdoba', fuero: 'Penal', rol: 'Defensa', estado: 'Oposición al requerimiento de elevación', abogado: 'Dra. Malena Ríos', dias: 1, fecha: '16/09/2026',
+  { id: 1, instructor: 'Dra. Verónica Ledesma', telefono: '0351 448-1200', interno: '214', sac: '13284571', caratula: 'GÓMEZ, Ariel Fernando p.s.a. Robo calificado', tribunal: 'Juzgado de Control N° 3 · Córdoba', fuero: 'Penal', rol: 'Defensa', estado: 'Oposición al requerimiento de elevación', abogado: 'Dra. Malena Ríos', dias: 1, fecha: '16/09/2026',
     calificacion: 'Robo calificado — art. 167 inc. 2 CP · 8 años', prescDesde: '04/07/2024', prescHasta: '04/07/2032', prescPct: 27, prescRestante: 'Restan 5 años 9 meses', prescNota: 'Cómputo reiniciado por el acto interruptivo registrado el 04/07/2024.' },
-  { id: 2, contra: 'Tribunal de Conducta Policial y Penitenciario', car: { demandado: 'TRIBUNAL DE CONDUCTA POLICIAL Y PENITENCIARIO – SUMARIO ADMINISTRATIVO' }, instructor: 'Crio. Insp. Raúl Bazán', telefono: '0351 428-6000', interno: '3120', sac: '12907344', caratula: 'PEREYRA, Marcos D. — Sumario administrativo', tribunal: 'Tribunal de Conducta Policial y Penitenciario', fuero: 'Administrativo', rol: 'Defensa', estado: 'Alegato', abogado: 'Dr. Ignacio Peralta', dias: -2, fecha: '11/09/2026' },
-  { id: 3, contra: 'Provincia de Córdoba', car: { demandado: 'PROVINCIA DE CÓRDOBA – AMPARO' }, instructor: 'Dr. Martín Sosa', telefono: '0351 448-1600', interno: '402', sac: '14002188', caratula: 'LUDUEÑA, Silvia c/ Provincia de Córdoba — Amparo', tribunal: 'Juzgado Civil y Comercial 21ª Nom.', fuero: 'Amparo', rol: 'Actora', estado: 'Aporto la prueba', abogado: 'Dra. Carolina Bustos', dias: 3, fecha: '18/09/2026' },
-  { id: 4, secretario: 'Dr. Gustavo Paz', car: { observaciones: 'Causa conexa en DI T6' }, instructor: 'Fisc. Adj. Paula Rinaldi', telefono: '0351 448-1150', interno: '118', sac: '11845620', caratula: 'ACOSTA, Jonathan E. p.s.a. Infracción Ley 23.737', tribunal: 'Fiscalía de Instrucción Distrito 2 Turno 4', fuero: 'Penal', rol: 'Defensa', estado: 'Cédula de notificación', abogado: 'Dr. Fernando G. Vázquez', dias: null, fecha: '—',
+  { id: 2, contra: 'Tribunal de Conducta Policial y Penitenciario', instructor: 'Crio. Insp. Raúl Bazán', telefono: '0351 428-6000', interno: '3120', sac: '12907344', caratula: 'PEREYRA, Marcos D. — Sumario administrativo', tribunal: 'Tribunal de Conducta Policial y Penitenciario', fuero: 'Administrativo', rol: 'Defensa', estado: 'Alegato', abogado: 'Dr. Ignacio Peralta', dias: -2, fecha: '11/09/2026' },
+  { id: 3, contra: 'Provincia de Córdoba', instructor: 'Dr. Martín Sosa', telefono: '0351 448-1600', interno: '402', sac: '14002188', caratula: 'LUDUEÑA, Silvia c/ Provincia de Córdoba — Amparo', tribunal: 'Juzgado Civil y Comercial 21ª Nom.', fuero: 'Amparo', rol: 'Actora', estado: 'Aporto la prueba', abogado: 'Dra. Carolina Bustos', dias: 3, fecha: '18/09/2026' },
+  { id: 4, instructor: 'Fisc. Adj. Paula Rinaldi', telefono: '0351 448-1150', interno: '118', sac: '11845620', caratula: 'ACOSTA, Jonathan E. p.s.a. Infracción Ley 23.737', tribunal: 'Fiscalía de Instrucción Distrito 2 Turno 4', fuero: 'Penal', rol: 'Defensa', estado: 'Cédula de notificación', abogado: 'Dr. Fernando G. Vázquez', dias: null, fecha: '—',
     calificacion: 'Infracción Ley 23.737 — art. 5 inc. c · 6 años', prescDesde: '19/01/2022', prescHasta: '19/01/2028', prescPct: 78, prescRestante: 'Restan 1 año 4 meses', prescNota: 'Sin actos interruptivos registrados: el cómputo corre desde la fecha del hecho.' },
-  { id: 5, contra: 'Tribunal de Conducta Policial y Penitenciario', car: { demandado: 'TRIBUNAL DE CONDUCTA POLICIAL Y PENITENCIARIO – RECURSO DE RECONSIDERACIÓN' }, instructor: 'Crio. Insp. Raúl Bazán', telefono: '0351 428-6000', interno: '3120', sac: '13560902', caratula: 'QUIROGA, Néstor A. — Recurso de reconsideración', tribunal: 'Tribunal de Conducta Policial y Penitenciario', fuero: 'Administrativo', rol: 'Defensa', estado: 'Recurso de reconsideración', abogado: 'Dr. Oscar Zárate', dias: 10, fecha: '29/09/2026', plazoAmparo: true },
-  { id: 6, contra: 'APROSS', car: { demandado: 'APROSS – AMPARO DE SALUD' }, secretario: 'Dra. Sofía Molina', instructor: 'Dra. Inés Ferrero', telefono: '0351 448-1600', interno: '517', sac: '12774310', caratula: 'MOYANO, Daniela c/ APROSS — Amparo de salud', tribunal: 'Juzgado Civil y Comercial 37ª Nom.', fuero: 'Amparo', rol: 'Actora', estado: 'Traslado a la demandada', abogado: 'Dr. Fernando G. Vázquez', dias: 0, fecha: '15/09/2026' },
+  { id: 5, contra: 'Tribunal de Conducta Policial y Penitenciario', instructor: 'Crio. Insp. Raúl Bazán', telefono: '0351 428-6000', interno: '3120', sac: '13560902', caratula: 'QUIROGA, Néstor A. — Recurso de reconsideración', tribunal: 'Tribunal de Conducta Policial y Penitenciario', fuero: 'Administrativo', rol: 'Defensa', estado: 'Recurso de reconsideración', abogado: 'Dr. Oscar Zárate', dias: 10, fecha: '29/09/2026', plazoAmparo: true },
+  { id: 6, contra: 'APROSS', instructor: 'Dra. Inés Ferrero', telefono: '0351 448-1600', interno: '517', sac: '12774310', caratula: 'MOYANO, Daniela c/ APROSS — Amparo de salud', tribunal: 'Juzgado Civil y Comercial 37ª Nom.', fuero: 'Amparo', rol: 'Actora', estado: 'Traslado a la demandada', abogado: 'Dr. Fernando G. Vázquez', dias: 0, fecha: '15/09/2026' },
   { id: 7, instructor: 'Dr. Martín Sosa', telefono: '0351 448-1600', interno: '402', sac: '10233874', caratula: 'FIGUEROA, Raúl A. p.s.a. Hurto simple', tribunal: 'Juzgado de Control N° 1 · Córdoba', fuero: 'Penal', rol: 'Defensa', estado: 'Archivada', abogado: 'Dr. Ignacio Peralta', dias: null, fecha: '—' },
   { id: 8, instructor: 'Fisc. Adj. Paula Rinaldi', telefono: '0351 448-1150', interno: '118', sac: '9871650', caratula: 'LEDESMA, Pablo M. p.s.a. Hurto simple', tribunal: 'Fiscalía de Instrucción Distrito 1 Turno 2', fuero: 'Penal', rol: 'Defensa', estado: 'Prescripta', abogado: 'Dra. Carolina Bustos', dias: null, fecha: '—',
     calificacion: 'Hurto simple — art. 162 CP · 2 años', prescDesde: '10/03/2022', prescHasta: '10/03/2024', prescPct: 100, prescRestante: 'Prescripta', prescNota: 'Prescripción de la acción operada.' }
@@ -2737,9 +2722,9 @@ const DETALLE = {
       { fecha: '09/09/2026', acto: 'Cédula de notificación', estado: 'Oposición al requerimiento de elevación', nota: 'Abre el plazo de 5 días hábiles para oponerse.', abierto: true, vence: '16/09/2026' }
     ],
     docs: [
-      { nombre: 'Requerimiento de elevación a juicio.pdf', meta: 'Recibido · 02/09/2026 · 412 KB' },
-      { nombre: 'Cédula de notificación.pdf', meta: 'Recibido · 09/09/2026 · 88 KB' },
-      { nombre: 'Convenio de honorarios.pdf', meta: 'Cargado · 12/03/2021 · 205 KB' }
+      { nombre: 'Requerimiento de elevación a juicio.pdf', por: 'Malena Ríos', meta: '02/09/2026 · 412 KB' },
+      { nombre: 'Cédula de notificación.pdf', por: 'Gestión Estudio', meta: '09/09/2026 · 88 KB' },
+      { nombre: 'Convenio de honorarios.pdf', por: 'Gestión Estudio', meta: '12/03/2021 · 205 KB' }
     ]
   },
   2: {
@@ -2750,8 +2735,8 @@ const DETALLE = {
       { fecha: '04/09/2026', acto: 'Clausura del sumario', estado: 'Alegato', nota: 'Abre el plazo de alegato. Plazo vencido sin presentación registrada.', abierto: true, vence: '11/09/2026', vencido: true }
     ],
     docs: [
-      { nombre: 'Acta de imputación.pdf', meta: 'Recibido · 18/05/2026 · 156 KB' },
-      { nombre: 'Descargo presentado.pdf', meta: 'Presentado · 28/08/2026 · 340 KB' }
+      { nombre: 'Acta de imputación.pdf', por: 'Romina Ávila', meta: '18/05/2026 · 156 KB' },
+      { nombre: 'Descargo presentado.pdf', por: 'Ignacio Peralta', meta: '28/08/2026 · 340 KB' }
     ]
   },
   3: {
@@ -2762,8 +2747,8 @@ const DETALLE = {
       { fecha: '11/09/2026', acto: 'Decreto de prueba', estado: 'Aporto la prueba', nota: 'Abre el plazo para aportar la prueba ordenada.', abierto: true, vence: '18/09/2026' }
     ],
     docs: [
-      { nombre: 'Demanda de amparo.pdf', meta: 'Presentado · 21/07/2026 · 520 KB' },
-      { nombre: 'Decreto de prueba.pdf', meta: 'Recibido · 11/09/2026 · 74 KB' }
+      { nombre: 'Demanda de amparo.pdf', por: 'Carolina Bustos', meta: '21/07/2026 · 520 KB' },
+      { nombre: 'Decreto de prueba.pdf', por: 'Gestión Estudio', meta: '11/09/2026 · 74 KB' }
     ]
   },
   4: {
@@ -2772,7 +2757,7 @@ const DETALLE = {
       { fecha: '19/01/2022', acto: 'Designación de abogado defensor', estado: 'Designación de abogado defensor', nota: 'El estudio asume la defensa técnica.' },
       { fecha: '06/07/2026', acto: 'Cédula de notificación', estado: 'Cédula de notificación', nota: 'Última actuación registrada. Sin movimiento desde hace 71 días.' }
     ],
-    docs: [{ nombre: 'Acta de procedimiento.pdf', meta: 'Recibido · 19/01/2022 · 288 KB' }]
+    docs: [{ nombre: 'Acta de procedimiento.pdf', por: 'Romina Ávila', meta: '19/01/2022 · 288 KB' }]
   },
   5: {
     cliente: { nombre: 'Néstor A. Quiroga', dni: '26.774.309', tel: '351 519-3320', mail: 'naquiroga@gmail.com', desde: '02/06/2026' },
@@ -2780,7 +2765,7 @@ const DETALLE = {
       { fecha: '02/06/2026', acto: 'Notificación de imputación en sumario', estado: 'Notificación de imputación en sumario', nota: 'Tribunal de Conducta Policial y Penitenciario.' },
       { fecha: '15/09/2026', acto: 'Notificación de la resolución', estado: 'Recurso de reconsideración', nota: 'Abre 10 días hábiles desde la notificación.', abierto: true, vence: '29/09/2026' }
     ],
-    docs: [{ nombre: 'Resolución del Tribunal de Conducta.pdf', meta: 'Recibido · 12/09/2026 · 190 KB' }]
+    docs: [{ nombre: 'Resolución del Tribunal de Conducta.pdf', por: 'Gestión Estudio', meta: '12/09/2026 · 190 KB' }]
   },
   6: {
     cliente: { nombre: 'Daniela Moyano', dni: '33.028.514', tel: '351 267-8891', mail: 'dmoyano@gmail.com', desde: '08/09/2026' },
@@ -2788,7 +2773,7 @@ const DETALLE = {
       { fecha: '08/09/2026', acto: 'Interposición de demanda de amparo', estado: 'Interposición de demanda de amparo', nota: 'Amparo de salud contra APROSS.' },
       { fecha: '10/09/2026', acto: 'Decreto de traslado', estado: 'Traslado a la demandada', nota: 'Vence hoy.', abierto: true, vence: '15/09/2026', hoy: true }
     ],
-    docs: [{ nombre: 'Demanda de amparo — APROSS.pdf', meta: 'Presentado · 08/09/2026 · 468 KB' }]
+    docs: [{ nombre: 'Demanda de amparo — APROSS.pdf', por: 'Fernando G. Vázquez', meta: '08/09/2026 · 468 KB' }]
   }
 };
 
@@ -2870,9 +2855,11 @@ const fmtPresc = m => { const a = Math.floor(m / 12), r = m % 12; return (a ? a 
 
 const MODELOS_FUERO = { Penal: 6, Administrativo: 4, Amparo: 3 };
 const PLANTILLA_TXT = { Penal: 'Penal', Administrativo: 'Administrativo', Amparo: 'Administrativo' };
-const carSug = (fuero, rol, cli, abog, contra) => {
-  const def = abog ? 'DEFENSOR: ' + abog.toUpperCase() : '', c = (cli || '').toUpperCase(), o = (contra || '').toUpperCase();
-  if (fuero === 'Penal') return rol === 'Querellante particular' ? { actor: c ? 'QUERELLANTE (' + c + ')' + (def ? '\n' + def : '') : '', demandado: '' } : { actor: '', demandado: c ? c + (def ? '\n' + def : '') : '' };
+// Partes de la carátula (GET /cases/{id}/cover). En penal, la parte que no es el cliente la envía el usuario al generar el expediente (cover.opposingParty).
+const apNom = n => { const p = String(n || '').replace(/^(Dra?\.|Dr\.)\s*/, '').trim().split(/\s+/); return p.length > 1 ? p[p.length - 1] + ' ' + p.slice(0, -1).join(' ') : p[0] || ''; };
+const carSug = (fuero, rol, cli, abog, contra, otra) => {
+  const def = abog ? 'DEFENSOR: DR/DRA. ' + apNom(abog).toUpperCase() : '', c = (cli || '').toUpperCase(), o = (contra || '').toUpperCase(), x = (otra || '').toUpperCase();
+  if (fuero === 'Penal') return rol === 'Querellante particular' ? { actor: c ? 'QUERELLANTE (' + c + ')' + (def ? '\n' + def : '') : '', demandado: x } : { actor: x, demandado: c ? c + (def ? '\n' + def : '') : '' };
   return rol === 'Demandada' ? { actor: o, demandado: c } : { actor: c, demandado: o };
 };
 const ROLES_FUERO = { Penal: ['Defensa', 'Querellante particular'], Administrativo: ['Defensa', 'Recurrente'], Amparo: ['Actora', 'Demandada'] };
@@ -2916,7 +2903,7 @@ class Component extends DCLogic {
     tab: 'usuarios', fuero: 'Penal', toast: '', pendiente: null, alcance: 'mios', tablero: (() => { try { return localStorage.getItem('vz-tablero') || 'abogado'; } catch (e) { return 'abogado'; } })(),
     modal: null, mv: {}, tabModelos: 'Todos', repTab: 'abogado', docTipo: 'caratula',
     notifActivo: true, notifMail: 'estudio@vazquezyzarate.com.ar', notifDias: '3', notifHora: '08:00', notifCopia: true,
-    ncSac: '', ncFuero: 'Penal', ncCaratula: '', ncTribunal: '', ncSecretario: '', ncActor: null, ncDemandado: null, ncObsCar: '', ncInstructor: '', ncTel: '', ncInterno: '', ncCliente: '', ncRol: 'Defensa',
+    ncSac: '', ncFuero: 'Penal', ncCaratula: '', ncTribunal: '', ncInstructor: '', ncTel: '', ncInterno: '', ncCliente: '', ncRol: 'Defensa',
     ncCalifs: [], ncCalifFechas: {}, ncContra: '', ncObjeto: '', ncResp: '', ncFecha: '2026-09-15', ncDrive: true, ncModelos: true, ncConvenio: false,
     ncPreso: false, ncCautelar: false, ncTasa: false, ncActoLesivo: '', ncAgotamiento: ''
   };
@@ -3185,11 +3172,17 @@ class Component extends DCLogic {
     }, 900);
   }
 
-  carDatos(c) {
-    const det = DETALLE[c.id] || {}, cs = carSug(c.fuero, c.rol, det.cliente && det.cliente.nombre, c.abogado, c.contra), g = c.car || {}, v = x => x && x !== '—' && x !== 'Sin SAC' ? x : '';
+  // Lo que el back arma solo con los datos de la causa para llenar la carátula. Observaciones es lo único que se carga al generar el expediente.
+  cliDe(c) {
+    const det = DETALLE[c.id] || {}, cl = det.cliente || {}, k = CLIENTES.find(x => x.dni === cl.dni);
+    return k ? k.apellido + ' ' + k.nombre : cl.nombre || '';
+  }
+
+  carDatos(c, observaciones, otraParte) {
+    const cs = carSug(c.fuero, c.rol, this.cliDe(c), c.abogado, c.contra, otraParte), v = x => x && x !== '—' && x !== 'Sin SAC' ? x : '';
     return {
-      plantilla: c.fuero === 'Penal' ? 'PENAL' : 'ADMINISTRATIVO', sac: v(c.sac), autos: c.caratula, organo: v(c.tribunal), secretario: c.secretario || '', instructor: v(c.instructor),
-      actor: g.actor != null ? g.actor : cs.actor, demandado: g.demandado != null ? g.demandado : cs.demandado, observaciones: g.observaciones || ''
+      plantilla: c.fuero === 'Penal' ? 'PENAL' : 'ADMINISTRATIVO', sac: v(c.sac), autos: c.caratula, organo: v(c.tribunal), secretario: v(c.instructor),
+      actor: cs.actor, demandado: cs.demandado, observaciones: observaciones || ''
     };
   }
 
@@ -3544,7 +3537,7 @@ class Component extends DCLogic {
       const val = s.mv[c.k];
       const set = e => {
         const v = c.tipo === 'check' ? e.target.checked : e.target.value;
-        this.setState({ mv: Object.assign({}, this.state.mv, { [c.k]: v }) });
+        this.setState({ mv: Object.assign({}, this.state.mv, { [c.k]: v }, c.alCambiar ? c.alCambiar(v, this.state.mv) : {}) });
       };
       return {
         id: 'mf' + i, label: c.label, reqMark: c.req ? ' *' : '', labelChk: c.label, ph: c.ph || '',
@@ -3621,10 +3614,10 @@ class Component extends DCLogic {
         califDisp: c.tipo === 'califs' ? CALIF.filter(k => k.activo && (val || []).indexOf(k.id) < 0).map(k => ({ id: k.id, etiqueta: k.nombre + ' · ' + fmtPresc(k.meses) })) : [],
         agregar: e => { const v = e.target.value; if (v) this.setState({ mv: Object.assign({}, this.state.mv, { [c.k]: (this.state.mv[c.k] || []).concat(v) }) }); },
         chkCss: 'display:flex;align-items:flex-start;gap:10px;padding:13px 14px;border:1px solid var(--border);border-radius:var(--r);background:var(--sunken);font-size:13.5px;line-height:1.45;color:var(--ink);cursor:pointer',
-        opciones: (c.opciones || []).map(o => ({ v: o, t: o })),
+        opciones: c.opcionesKV || (c.opciones || []).map(o => ({ v: o, t: o })), soloLectura: !!c.soloLectura,
         wrapCss: 'min-width:0;grid-column:' + (c.ancho === 'half' ? 'span 1' : '1 / -1') + (c.tipo === 'grupo' ? ';margin-top:4px' : ''),
         labelCss: (c.tipo === 'check' || c.tipo === 'grupo') ? 'display:none' : 'display:block;font-size:13px;font-weight:600;color:var(--ink);margin-bottom:7px',
-        inputCss: 'width:100%;height:42px;padding:0 12px;border:1px solid var(--border-2);border-radius:var(--r);background:var(--surface);font-size:14px;color:var(--ink)' + (c.mono ? ';font-family:\'Roboto Mono\',monospace' : ''),
+        inputCss: 'width:100%;height:42px;padding:0 12px;border:1px solid var(--border-2);border-radius:var(--r);background:var(--surface);font-size:14px;color:var(--ink)' + (c.mono ? ';font-family:\'Roboto Mono\',monospace' : '') + (c.soloLectura ? ';background:var(--sunken);color:var(--muted);cursor:not-allowed' : ''),
         selectCss: 'width:100%;height:42px;padding:0 34px 0 12px;border:1px solid var(--border-2);border-radius:var(--r);background:var(--surface);font-size:14px;color:var(--ink);cursor:pointer',
         areaCss: 'width:100%;min-height:92px;padding:11px 12px;border:1px solid var(--border-2);border-radius:var(--r);background:var(--surface);font-size:14px;color:var(--ink);font-family:inherit;line-height:1.5;resize:vertical',
         nota: c.nota || '', notaCss: c.nota ? 'font-size:12px;color:var(--faint);margin-top:6px;line-height:1.45' : 'display:none'
@@ -3875,21 +3868,22 @@ class Component extends DCLogic {
         const fd = FUERO_DATOS[causa.id] || {}, sinSac = !causa.sac || causa.sac === '—' || causa.sac === 'Sin SAC';
         const isoDe = f => { const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(f || ''); return m ? m[3] + '-' + m[2] + '-' + m[1] : ''; };
         const es = f => v => v.fuero === f, noPenal = v => v.fuero !== 'Penal';
-        const FUEROS = ['Penal', 'Administrativo', 'Amparo'];
+        const FUEROS = [causa.fuero], cliAct = CLIENTES.find(c => c.dni === (det.cliente || {}).dni) || null;
         this.abrir({
           titulo: 'Modificar causa', sub: sinSac ? 'Sin N° de SAC' : 'SAC ' + causa.sac,
           nota: 'Cada cambio queda asentado en el historial de la causa con usuario y fecha.',
           campos: [
             { k: 'g1', tipo: 'grupo', label: 'Identificación' },
             { k: 'sac', label: 'N° de SAC', ancho: 'half', mono: true, ph: '8 dígitos', valor: sinSac ? '' : causa.sac, nota: 'Opcional. Identifica la causa de forma única.' },
-            { k: 'fuero', label: 'Fuero', tipo: 'select', req: true, ancho: 'half', valor: causa.fuero, opciones: FUEROS, nota: 'Si lo cambiás, los actos se conservan y el estado procesal se reasigna según el ciclo de vida del nuevo fuero.' },
+            { k: 'fueroFijo', label: 'Fuero', ancho: 'half', valor: causa.fuero, soloLectura: true, nota: 'No se modifica. Si la causa se registró en otro fuero, dala de baja y registrala de nuevo.' },
             { k: 'car', label: 'Carátula', req: true, valor: causa.caratula },
             { k: 'trib', label: 'Órgano interviniente', valor: causa.tribunal && causa.tribunal !== '—' ? causa.tribunal : '' },
-            { k: 'sec', label: 'Secretario/a', ph: 'Apellido y nombre', valor: causa.secretario || '' },
             { k: 'inst', label: 'Instructor de la causa', ph: 'Apellido y nombre del instructor', valor: causa.instructor && causa.instructor !== '—' ? causa.instructor : '' },
             { k: 'tel', label: 'Teléfono', ancho: 'half', mono: true, ph: '0351 448-1200', valor: causa.telefono && causa.telefono !== '—' ? causa.telefono : '' },
             { k: 'int', label: 'Interno', ancho: 'half', mono: true, ph: '214', valor: causa.interno && causa.interno !== '—' ? causa.interno : '' },
             { k: 'g2', tipo: 'grupo', label: 'Cliente y rol procesal' },
+            { k: 'cli', label: 'Cliente', tipo: 'select', req: true, valor: cliAct ? cliAct.id : '', opcionesKV: CLIENTES.filter(c => c.activo || c === cliAct).map(c => ({ v: c.id, t: c.apellido + ', ' + c.nombre + ' · DNI ' + c.dni })), nota: 'Si lo cambiás, se propone la carátula con el cliente nuevo.',
+              alCambiar: (v, mv) => { const n = CLIENTES.find(c => c.id === v); if (!n) return {}; const m = /( p\.s\.a\.| c\/| —)/.exec(mv.car || ''); return { car: n.apellido.toUpperCase() + ', ' + n.nombre + (m ? (mv.car || '').slice(m.index) : '') }; } },
             ...FUEROS.map(f => ({ k: 'rol_' + f, label: 'Rol procesal del cliente', tipo: 'select', req: true, ancho: 'half', si: es(f), valor: causa.fuero === f ? causa.rol : (ROLES_FUERO[f] || ['Defensa'])[0], opciones: ROLES_FUERO[f] || ['Defensa'] })),
             { k: 'califs', label: 'Calificaciones legales', tipo: 'califs', si: es('Penal'), fechas: causa.califFechas || {}, valor: causa.califs || CALIF.filter(k => (causa.calificacion || '').indexOf(califCorto(k)) === 0).map(k => k.id), nota: 'Si concurren varios delitos, una calificación por cada uno. Cada una recalcula su prescripción desde la fecha del hecho.' },
             { k: 'preso', tipo: 'check', label: 'Preso: el cliente está detenido.', si: es('Penal'), valor: !!fd.preso },
@@ -3898,10 +3892,6 @@ class Component extends DCLogic {
             { k: 'caut', tipo: 'check', label: 'El juez hizo lugar a la medida cautelar.', si: es('Amparo'), valor: !!fd.cautelar },
             { k: 'lesivo', tipo: 'date', label: 'Fecha del acto lesivo', ancho: 'half', si: es('Amparo'), valor: isoDe(fd.actoLesivo), nota: 'Opcional. Desde ella corre el plazo para presentar el amparo.' },
             { k: 'agot', tipo: 'date', label: 'Agotamiento de la vía administrativa', ancho: 'half', si: es('Administrativo'), valor: isoDe(fd.agotamiento), nota: 'Opcional. Dejalo vacío mientras la vía no se agotó.' },
-            { k: 'g4', tipo: 'grupo', label: 'Carátula del expediente' },
-            { k: 'cact', label: 'Actor / querellante', tipo: 'area', valor: this.carDatos(causa).actor, nota: 'Plantilla Penal para el fuero penal; Administrativo para administrativo y amparo.' },
-            { k: 'cdem', label: 'Demandado / imputado', tipo: 'area', valor: this.carDatos(causa).demandado },
-            { k: 'cobs', label: 'Observaciones de la carátula', tipo: 'area', valor: this.carDatos(causa).observaciones },
             { k: 'g3', tipo: 'grupo', label: 'Asignación' },
             { k: 'resp', label: 'Abogado responsable', tipo: 'select', req: true, ancho: 'half', valor: causa.abogado, opciones: ABOGADOS.filter(a => a.activo).map(a => a.nombre) },
             { k: 'ini', label: 'Fecha de inicio', tipo: 'date', ancho: 'half', valor: isoDe(causa.inicio) },
@@ -3911,8 +3901,10 @@ class Component extends DCLogic {
             const sac = String(v.sac || '').replace(/[^0-9]/g, '');
             if (sac && !/^[0-9]{8}$/.test(sac)) return 'El SAC tiene 8 dígitos.';
             if (sac && CAUSAS.some(c => c.sac === sac && c.id !== causa.id)) return 'Ya existe una causa registrada con este SAC.';
-            const fmt = x => x ? this.fmt(this.parse(x)) : '', f = v.fuero, cambio = f !== causa.fuero;
-            Object.assign(causa, { sac: sac || 'Sin SAC', fuero: f, caratula: v.car.trim(), tribunal: v.trib || '—', secretario: (v.sec || '').trim(), car: { actor: (v.cact || '').trim(), demandado: (v.cdem || '').trim(), observaciones: (v.cobs || '').trim() }, instructor: v.inst || '—', telefono: v.tel || '—', interno: v.int || '—', rol: v['rol_' + f], abogado: v.resp, inicio: fmt(v.ini) });
+            const fmt = x => x ? this.fmt(this.parse(x)) : '', f = causa.fuero, cambio = false;
+            const nCli = CLIENTES.find(c => c.id === v.cli);
+            if (nCli && nCli !== cliAct) det.cliente = { nombre: nCli.nombre + ' ' + nCli.apellido, dni: nCli.dni, tel: nCli.tel || '—', mail: nCli.mail || '—', desde: det.cliente ? det.cliente.desde : '—' };
+            Object.assign(causa, { sac: sac || 'Sin SAC', fuero: f, caratula: v.car.trim(), tribunal: v.trib || '—', instructor: v.inst || '—', telefono: v.tel || '—', interno: v.int || '—', rol: v['rol_' + f], abogado: v.resp, inicio: fmt(v.ini) });
             if (f === 'Penal') { causa.califs = v.califs; causa.califFechas = v.califs_f; } else { causa.contra = v.contra; causa.objeto = v.obj; }
             FUERO_DATOS[causa.id] = { tasa: !!v.tasa, preso: f === 'Penal' && !!v.preso, cautelar: f === 'Amparo' && !!v.caut, actoLesivo: f === 'Amparo' ? fmt(v.lesivo) : '', agotamiento: f === 'Administrativo' ? fmt(v.agot) : '' };
             return cambio ? 'Causa actualizada y pasada al fuero ' + f + '. Revisá el estado procesal asignado.' : 'Causa actualizada. El cambio queda asentado con usuario y fecha.';
@@ -3951,8 +3943,8 @@ class Component extends DCLogic {
           docs: carg ? [] : det.docs.map(d => {
             const ext = ((d.nombre.match(/\.([a-z0-9]+)$/i) || [])[1] || '').toLowerCase(), e = EXT[ext] || ['ARCH', 'var(--muted)', 'var(--sunken)'];
             const p = (d.meta || '').split(' · ');
-            return { nombre: d.nombre, ext: e[0], fecha: p[1] || '—', peso: p[2] || '—',
-              autor: p[0] === 'Presentado' ? causa.abogado : 'Secretaría',
+            return { nombre: d.nombre, ext: e[0], fecha: p[0] || '—', peso: p[1] || '—',
+              autor: d.por || 'VZ Causas',
               icoCss: "width:34px;height:40px;flex:0 0 34px;border-radius:var(--r-sm);display:flex;align-items:flex-end;justify-content:center;padding-bottom:6px;font-family:'Roboto Mono',monospace;font-size:9px;font-weight:700;background:" + e[2] + ';color:' + e[1] + ';border:1px solid var(--border)',
               abrir: () => this.aviso('Se abriría "' + d.nombre + '" en Drive.') };
           })
@@ -3976,7 +3968,7 @@ class Component extends DCLogic {
         }
         return {
           fecha: t.fecha, acto: t.acto, estado: t.estado, nota: t.nota, badge,
-          registrado: 'Registrado por ' + (t.por || respNom) + ' el ' + t.fecha + ' a las ' + (t.hora || HORAS[iOrig % HORAS.length]),
+          registrado: 'Registrado por ' + (t.por || respNom) + ' el ' + t.fecha + ' a las ' + (t.hora || HORAS[iOrig % HORAS.length]) + (t.modificado ? ' · Modificado por ' + (t.modPor || respNom) + ' el ' + (t.modEn || '15/09/2026').replace(' ', ' a las ') : ''),
           registradoCss: 'font-size:11.5px;color:var(--faint);margin-top:6px',
           plazoTxt: conPlazo ? (estT && estT.dias ? 'Plazo de ' + estT.dias + ' días ' + String(estT.tipoDia).toLowerCase() : 'Plazo abierto') : '',
           vencTxt: !conPlazo ? '' : !t.abierto ? 'Venció el ' + t.vence : causa.dias < 0 ? 'Plazo vencido el ' + t.vence : causa.dias === 0 ? 'Vence hoy · ' + t.vence : 'En ' + causa.dias + (causa.dias === 1 ? ' día' : ' días') + ' · ' + t.vence,
@@ -4094,19 +4086,6 @@ class Component extends DCLogic {
       setNcFuero: e => this.setState({ ncFuero: e.target.value, ncRol: (ROLES_FUERO[e.target.value] || ['Defensa'])[0], ncCalifs: e.target.value === 'Penal' ? s.ncCalifs : [] }),
       ncCaratula: s.ncCaratula, setNcCaratula: e => this.setState({ ncCaratula: e.target.value }),
       ncTribunal: s.ncTribunal, setNcTribunal: e => this.setState({ ncTribunal: e.target.value }),
-      ncSecretario: s.ncSecretario || '', setNcSecretario: e => this.setState({ ncSecretario: e.target.value }),
-      ...(() => {
-        const cs = carSug(s.ncFuero, s.ncRol, cli ? cli.apellido + ' ' + cli.nombre : '', s.ncResp, s.ncContra);
-        const penal = s.ncFuero === 'Penal';
-        return {
-          ncPlantillaTxt: PLANTILLA_TXT[s.ncFuero], ncPlantillaNota: s.ncFuero === 'Amparo' ? 'El amparo usa la plantilla del fuero administrativo' : 'Según el fuero de la causa',
-          ncActor: s.ncActor != null ? s.ncActor : cs.actor, setNcActor: e => this.setState({ ncActor: e.target.value }),
-          ncDemandado: s.ncDemandado != null ? s.ncDemandado : cs.demandado, setNcDemandado: e => this.setState({ ncDemandado: e.target.value }),
-          ncActorPh: penal ? 'Querellante particular, si lo hay' : 'Actor o recurrente',
-          ncDemandadoPh: penal ? 'Imputado o imputados' : 'Organismo demandado y objeto. Ej. Caja de Jubilaciones – amparo por descuentos',
-          ncObsCar: s.ncObsCar || '', setNcObsCar: e => this.setState({ ncObsCar: e.target.value })
-        };
-      })(),
       ncInstructor: s.ncInstructor, setNcInstructor: e => this.setState({ ncInstructor: e.target.value }),
       ncTel: s.ncTel || '', setNcTel: e => this.setState({ ncTel: e.target.value }),
       ncInterno: s.ncInterno, setNcInterno: e => this.setState({ ncInterno: e.target.value.slice(0, 20) }),
@@ -4192,8 +4171,7 @@ class Component extends DCLogic {
         const nueva = {
           id, instructor: s.ncInstructor.trim() || '—', telefono: (s.ncTel || '').trim() || '—', interno: s.ncInterno.trim() || '—', sac: s.ncSac || 'Sin SAC', caratula: s.ncCaratula.trim(),
           tribunal: s.ncTribunal.trim() || '—', fuero: s.ncFuero, rol: s.ncRol, estado: estadoIni, abogado: s.ncResp, dias: null, fecha: '—',
-          califs: s.ncCalifs.slice(), califFechas: fechas, secretario: (s.ncSecretario || '').trim(),
-          car: (() => { const cs = carSug(s.ncFuero, s.ncRol, cli.apellido + ' ' + cli.nombre, s.ncResp, s.ncContra); return { actor: (s.ncActor != null ? s.ncActor : cs.actor).trim(), demandado: (s.ncDemandado != null ? s.ncDemandado : cs.demandado).trim(), observaciones: (s.ncObsCar || '').trim() }; })(),
+          califs: s.ncCalifs.slice(), califFechas: fechas,
           contra: s.ncContra.trim(), objeto: s.ncObjeto.trim(), inicio: s.ncFecha ? this.fmt(this.parse(s.ncFecha)) : ''
         };
         if (ncPenal && kals.length) {
@@ -4221,7 +4199,7 @@ class Component extends DCLogic {
         FUERO_DATOS[id] = { preso: s.ncPreso, cautelar: s.ncCautelar, tasa: s.ncTasa, actoLesivo: s.ncActoLesivo ? this.fmt(this.parse(s.ncActoLesivo)) : '', agotamiento: s.ncAgotamiento ? this.fmt(this.parse(s.ncAgotamiento)) : '' };
         this.setState({
           pantalla: 'detalle', causaId: id, actoId: '', fechaNotif: '', manual: false, vencManual: '', adjunto: false,
-          ncSac: '', ncCaratula: '', ncTribunal: '', ncSecretario: '', ncActor: null, ncDemandado: null, ncObsCar: '', ncInstructor: '', ncTel: '', ncInterno: '', ncCliente: '', ncCalifs: [], ncCalifFechas: {}, ncContra: '', ncObjeto: '', ncResp: ''
+          ncSac: '', ncCaratula: '', ncTribunal: '', ncInstructor: '', ncTel: '', ncInterno: '', ncCliente: '', ncCalifs: [], ncCalifFechas: {}, ncContra: '', ncObjeto: '', ncResp: ''
         });
       },
 
@@ -4229,7 +4207,7 @@ class Component extends DCLogic {
       causa: {
         ...causa,
         tienePrescripcion: !!causa.calificacion,
-        abogadoTxt: nomAp(causa.abogado), secretarioTxt: causa.secretario || '—', califTxt: (causa.calificacion || '').split(' · ')[0],
+        abogadoTxt: nomAp(causa.abogado), califTxt: (causa.calificacion || '').split(' · ')[0],
         plazoTxt: causa.dias === null || causa.dias === undefined ? 'Sin plazo abierto' : causa.dias < 0 ? 'Vencido hace ' + (-causa.dias) + (causa.dias === -1 ? ' día' : ' días') : causa.dias === 0 ? 'Vence hoy' : 'En ' + causa.dias + (causa.dias === 1 ? ' día' : ' días'),
         plazoPillCss: (() => { const sin = causa.dias === null || causa.dias === undefined, tn = sin ? ['var(--muted)', 'var(--surface)', 'var(--border)'] : tono(causa.dias); return 'display:inline-flex;align-items:center;gap:6px;margin-top:8px;padding:3px 10px;border-radius:var(--r-pill);font-size:12px;font-weight:600;color:' + tn[0] + ';background:' + tn[1] + ';border:1px solid ' + tn[2]; })(),
         plazoDot: 'width:6px;height:6px;border-radius:50%;flex:0 0 6px;background:currentColor',
@@ -4289,7 +4267,7 @@ class Component extends DCLogic {
         const fActo = this.fmt(this.parse(s.fechaActo) || new Date());
         if (s.editActo != null && det.linea[s.editActo]) {
           const ent = det.linea[s.editActo], esUlt = s.editActo === det.linea.length - 1, nEst = acto.estado || acto.nombre;
-          Object.assign(ent, { fecha: fActo, acto: acto.nombre, estado: nEst, vence: venc ? this.fmt(venc) : undefined, abierto: esUlt && !!venc, nota: acto.libre ? 'Estado escrito a mano.' : ent.nota, modificado: true });
+          Object.assign(ent, { fecha: fActo, acto: acto.nombre, estado: nEst, vence: venc ? this.fmt(venc) : undefined, abierto: esUlt && !!venc, nota: acto.libre ? 'Estado escrito a mano.' : ent.nota, modificado: true, modPor: s.usuarioActual || 'Usuario', modEn: '15/09/2026 ' + new Date().toTimeString().slice(0, 5) });
           if (esUlt) { causa.estado = nEst; if (venc) { causa.fecha = this.fmt(venc); causa.dias = Math.round((venc - new Date(2026, 8, 15)) / 864e5); } else { causa.fecha = '—'; causa.dias = null; } }
           this.aviso('Acto modificado' + (venc ? ' · vencimiento el ' + this.fmt(venc) : '') + '. El cambio queda asentado con usuario y fecha.');
           this.setState({ pantalla: 'detalle', editActo: null, estadoLibre: '', manual: false, vencManual: '' });
@@ -4586,7 +4564,18 @@ class Component extends DCLogic {
           esExp: s.pantalla === 'exp',
           expPrev: !!s.expPrev && s.pantalla === 'exp', expPrevAbrir: () => this.setState({ expPrev: true }), expPrevCerrar: () => this.setState({ expPrev: false }),
           expHojaCliente: (det.cliente && det.cliente.nombre) || '—',
-          ...(() => { const h = this.carDatos(causa); return { expPlantillaTxt: PLANTILLA_TXT[causa.fuero], expHojaSac: h.sac, expHojaAutos: h.autos, expHojaActor: h.actor, expHojaDem: h.demandado, expHojaOrgano: h.organo, expHojaSec: h.secretario, expHojaInst: h.instructor, expHojaObs: h.observaciones }; })(), expHojaResp: nomAp(causa.abogado),
+          ...(() => {
+            const obs = (s.expObs || {})[causa.id] || '', otra = (s.expOtra || {})[causa.id] || '', h = this.carDatos(causa, obs, otra), penal = causa.fuero === 'Penal', querella = causa.rol === 'Querellante particular';
+            return {
+              expPlantillaTxt: PLANTILLA_TXT[causa.fuero], expHojaSac: h.sac, expHojaAutos: h.autos, expHojaActor: h.actor, expHojaDem: h.demandado, expHojaOrgano: h.organo, expHojaInst: h.secretario, expHojaObs: h.observaciones,
+              expObsVal: obs, expObsCont: obs.length + ' / 500', setExpObs: e => this.setState({ expObs: Object.assign({}, this.state.expObs, { [causa.id]: e.target.value.slice(0, 500) }) }),
+              expPideParte: penal, expOtraVal: otra, expOtraCont: otra.length + ' / 500',
+              expOtraLabel: querella ? 'Imputado' : 'Querellante',
+              expOtraPh: querella ? 'Ej. DOMINGUEZ ORLANDO; JULIO Y MARCOS' : 'Ej. QUERELLANTE: PERALTA JUAN CARLOS\nAPODERADO: DR. MARTÍN SOSA',
+              expOtraNota: (querella ? 'Va en el recuadro Demandado / imputado.' : 'Va en el recuadro Actor / querellante.') + ' La causa solo registra al cliente, así que esta parte se completa acá. Opcional, no se guarda en la causa.',
+              setExpOtra: e => this.setState({ expOtra: Object.assign({}, this.state.expOtra, { [causa.id]: e.target.value.slice(0, 500) }) })
+            };
+          })(), expHojaResp: nomAp(causa.abogado),
           expSinCar: !car, expConCar: !!car, expCarUrl: car ? car.url : '', expCarNombre: car ? car.nombre : '', expCarPor: car ? car.por : '', expCarFecha: car ? car.fecha : '',
           expCarImgCss: car && !car.pdf ? 'width:100%;height:100%;background:center/cover no-repeat url(' + car.url + ')' : 'display:none',
           expCarPdfCss: car && car.pdf ? 'font-family:\'Roboto Mono\',monospace;font-size:13px;font-weight:600;color:var(--muted)' : 'display:none',
@@ -4622,7 +4611,7 @@ class Component extends DCLogic {
             nombre: d.nombre, meta: d.meta, ext, toggle: () => setOrden(sel.concat(i)),
             extCss: 'font-family:\'Roboto Mono\',monospace;font-size:10.5px;font-weight:600;letter-spacing:.04em;padding:3px 6px;border-radius:4px;flex:0 0 auto;opacity:.7;' + (ext === 'PDF' ? 'background:#F7E9E7;color:#8E1F19' : 'background:#E8EEF7;color:#24457A')
           }; }),
-          expArchivo: 'Expediente_' + String(causa.sac).replace(/\s+/g, '_') + '_v' + (s.expListo && s.expVersion ? s.expVersion : docs.filter(d => d.expediente).length + 1) + '.pdf',
+          expArchivo: 'Expediente_' + (/^[0-9]{8}$/.test(String(causa.sac)) ? causa.sac : 'causa-' + causa.id) + '_v' + (s.expListo && s.expVersion ? s.expVersion : docs.filter(d => d.expediente).length + 1) + '.pdf',
           expIndice: [{ n: '1', nombre: 'Carátula · generada con los datos de la causa', css: 'flex:1;min-width:0;color:var(--ink);font-weight:600' }]
             .concat(sel.map((i, k) => ({ n: String(k + 2), nombre: docs[i].nombre, css: 'flex:1;min-width:0;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap' }))),
           expResumen: (sel.length + (car ? 1 : 0)) + ' partes en un solo PDF' + (tot ? ' · ' + (tot >= 1024 ? (tot / 1024).toFixed(1).replace('.', ',') + ' MB' : Math.round(tot) + ' KB') + ' aprox.' : '') + '. Se guarda en la carpeta de la causa en Drive.',
@@ -4632,9 +4621,9 @@ class Component extends DCLogic {
           expGenerar: () => {
             if (!listo) return;
             const v = docs.filter(d => d.expediente).length + 1;
-            const nom = 'Expediente_' + String(causa.sac).replace(/\s+/g, '_') + '_v' + v + '.pdf';
+            const nom = 'Expediente_' + (/^[0-9]{8}$/.test(String(causa.sac)) ? causa.sac : 'causa-' + causa.id) + '_v' + v + '.pdf';
             const tam = tot >= 1024 ? (tot / 1024).toFixed(1).replace('.', ',') + ' MB' : Math.round(tot) + ' KB';
-            docs.push({ nombre: nom, meta: 'Expediente · versión ' + v + ' · 15/09/2026 · ' + tam + ' · carátula + ' + sel.length + (sel.length === 1 ? ' documento' : ' documentos'), expediente: true, version: v });
+            docs.push({ nombre: nom, por: 'VZ Causas', meta: '15/09/2026 · ' + tam, version: v, expediente: true });
             if (!det.docs) det.docs = docs;
             this.setState({ expListo: true, expHecho: {}, expVersion: v });
           },
