@@ -35,7 +35,7 @@ Jira.
 | 19  | Modificar Causa                     | `PATCH /cases/{caseId}`                                                                                     |
 | 21  | Registrar baja de Causa             | `DELETE /cases/{caseId}`                                                                                    |
 | 23  | Descargar Modelo Formal             | `GET /document-templates/{templateId}/file`, ya contratado en V4 (D-90)                                     |
-| 24  | Generar y Emitir Carátula           | `cover` y `courtSecretaryName` en la causa; `GET /cases/{caseId}/cover`                                     |
+| 24  | Generar y Emitir Carátula           | `GET /cases/{caseId}/cover`                                                                                 |
 | 25  | Generar y Emitir Expediente         | `POST /cases/{caseId}/case-files`; descarga con `GET /cases/{caseId}/documents/{documentId}/file`           |
 | 28  | Modificar Acto Procesal             | `PATCH /cases/{caseId}/procedural-acts/{actId}`                                                             |
 | 38  | Consultar Documentos de Causa       | `GET /cases/{caseId}/documents`, `GET /cases/{caseId}/documents/{documentId}/file`                          |
@@ -127,10 +127,10 @@ respecto de V3.
 | `POST`   | `/auth/refresh`                                       |      No       | -                             | Renovar el token de acceso               | -          | -          |
 | `POST`   | `/auth/logout`                                        |      Sí       | Cualquier usuario autenticado | Cerrar sesión                            | -          | -          |
 | `PATCH`  | `/auth/password`                                      |      Sí       | Cualquier usuario autenticado | Cambiar contraseña                       | -          | -          |
-| `POST`   | `/users`                                              |      Sí       | `ADMINISTRATOR`               | Registrar usuario                        | Modificado | -          |
+| `POST`   | `/users`                                              |      Sí       | `ADMINISTRATOR`               | Registrar usuario                        | Modificado | Precisado  |
 | `GET`    | `/users`                                              |      Sí       | `ADMINISTRATOR`               | Consultar usuarios                       | Modificado | -          |
 | `GET`    | `/users/{userId}`                                     |      Sí       | `ADMINISTRATOR`               | Consultar usuario                        | Modificado | -          |
-| `PATCH`  | `/users/{userId}`                                     |      Sí       | `ADMINISTRATOR`               | Modificar usuario                        | Modificado | -          |
+| `PATCH`  | `/users/{userId}`                                     |      Sí       | `ADMINISTRATOR`               | Modificar usuario                        | Modificado | Precisado  |
 | `DELETE` | `/users/{userId}`                                     |      Sí       | `ADMINISTRATOR`               | Dar de baja usuario                      | -          | -          |
 | `POST`   | `/lawyers`                                            |      Sí       | `ADMINISTRATOR`               | Registrar abogado                        | Modificado | -          |
 | `GET`    | `/lawyers`                                            |      Sí       | Cualquier usuario autenticado | Consultar abogados                       | Modificado | -          |
@@ -158,7 +158,7 @@ respecto de V3.
 | `DELETE` | `/cases/{caseId}`                                     |      Sí       | Cualquier usuario autenticado | Dar de baja causa (HU21)                 | -          | Nuevo      |
 | `GET`    | `/cases/{caseId}/cover`                               |      Sí       | Cualquier usuario autenticado | Emitir la carátula en PDF (HU24)         | -          | Nuevo      |
 | `POST`   | `/cases/{caseId}/prescription`                        |      Sí       | `ADMINISTRATOR` o `LAWYER`    | Marcar la causa como prescripta          | Nuevo      | -          |
-| `POST`   | `/cases/{caseId}/folder`                              |      Sí       | Cualquier usuario autenticado | Crear o reintentar la carpeta de la causa | Nuevo     | -          |
+| `POST`   | `/cases/{caseId}/folder`                              |      Sí       | Cualquier usuario autenticado | Crear o reintentar la carpeta de la causa | Nuevo     | Modificado |
 | `POST`   | `/cases/{caseId}/procedural-acts`                     |      Sí       | Abogado responsable de la causa | Registrar acto procesal                | Modificado | Modificado |
 | `GET`    | `/cases/{caseId}/procedural-acts/deadline-preview`    |      Sí       | Abogado responsable de la causa | Previsualizar el vencimiento de un acto | -         | -          |
 | `GET`    | `/cases/{caseId}/procedural-acts`                     |      Sí       | Cualquier usuario autenticado | Consultar actos procesales               | Modificado | Modificado |
@@ -167,7 +167,7 @@ respecto de V3.
 | `POST`   | `/cases/{caseId}/interruptive-acts`                   |      Sí       | Abogado responsable de la causa | Registrar acto interruptivo            | Nuevo      | -          |
 | `GET`    | `/cases/{caseId}/interruptive-acts`                   |      Sí       | Cualquier usuario autenticado | Consultar actos interruptivos            | Nuevo      | -          |
 | `GET`    | `/cases/{caseId}/timeline`                            |      Sí       | Cualquier usuario autenticado | Consultar línea de vida de la causa      | Nuevo      | Modificado |
-| `GET`    | `/cases/{caseId}/documents`                           |      Sí       | `LAWYER` o `SECRETARY`        | Consultar documentos de la causa (HU38)  | -          | Nuevo      |
+| `GET`    | `/cases/{caseId}/documents`                           |      Sí       | Cualquier usuario autenticado | Consultar documentos de la causa (HU38)  | -          | Nuevo      |
 | `GET`    | `/cases/{caseId}/documents/{documentId}/file`         |      Sí       | Cualquier usuario autenticado ² | Descargar un documento o un expediente | -          | Nuevo      |
 | `POST`   | `/cases/{caseId}/case-files`                          |      Sí       | Cualquier usuario autenticado | Generar el expediente (HU25)             | -          | Nuevo      |
 | `POST`   | `/document-templates`                                 |      Sí       | `ADMINISTRATOR` o `LAWYER`    | Registrar modelo formal                  | Nuevo      | -          |
@@ -183,13 +183,13 @@ La columna **Rol** se deriva de la tabla de
 
 ² Un documento cualquiera de la carpeta, solo `LAWYER` o `SECRETARY` (HU38); un
 expediente generado por el sistema, cualquier usuario autenticado (HU25). Ver
-[§3.12](#get-casescaseiddocumentsdocumentidfile) y el punto abierto C-27.
+[§3.12](#get-casescaseiddocumentsdocumentidfile) y D-103.
 
 **V5 no rompe a un cliente de V4.** Los endpoints marcados como **Modificado**
-en la columna v5 solo suman campos a la respuesta (`courtSecretaryName` y
-`cover` en la causa; `lastModifiedBy` y `lastModifiedAt` en el acto procesal) o
-campos opcionales al cuerpo (`courtSecretaryName` y `cover` en `POST /cases`).
-El detalle está en la [sección 7.2](#72-endpoints-modificados).
+en la columna v5 solo suman campos a la respuesta (`lastModifiedBy` y
+`lastModifiedAt` en el acto procesal) o cambian reglas sin cambiar la forma
+(el SAC de una causa dada de baja se puede volver a usar, D-97). El detalle
+está en la [sección 7.2](#72-endpoints-modificados).
 
 Lo que V4 decía sobre V3: la mayoría de los endpoints marcados como
 **Modificado** en la columna v4 no rompían a un cliente de V3. **Dos cambios sí
@@ -276,22 +276,6 @@ Situación de la carpeta de una causa en la nube.
 
 Una causa registrada antes de esta versión no tiene estado: su `folder` vale
 `null`.
-
-### `CoverTemplate` (V5)
-
-Plantilla de la hoja de carátula (HU24). La deriva el backend del fuero de la
-causa: no se envía.
-
-| Código           | Rótulo         | Fueros que la usan          |
-| ---------------- | -------------- | --------------------------- |
-| `CRIMINAL`       | Penal          | `CRIMINAL`                  |
-| `ADMINISTRATIVE` | Administrativo | `ADMINISTRATIVE` y `AMPARO` |
-
-El amparo usa la plantilla del fuero administrativo, como indica el prototipo
-("El amparo usa la plantilla del fuero administrativo") y las plantillas del
-estudio (D-93). Las dos plantillas comparten la misma hoja
-(`docs/prototypes/assets/caratula-plantilla.png`); lo que cambia es cómo se
-completan los recuadros de las partes (ver [`cover`](#37-causas-cases)).
 
 ---
 
@@ -693,9 +677,12 @@ tenga el rol `LAWYER` o `SECRETARY`, y se la quita cuando deja de cumplirlo
 
 Ninguna de las tres operaciones cambia su cuerpo ni su respuesta, y **ninguna
 falla si Drive no responde**: el usuario se registra, se modifica o se da de
-baja igual, y el proceso diario vuelve a ajustar los accesos (D-83). El correo
-tiene que ser de una cuenta de Google para que el acceso funcione
-([C-23](#82-puntos-abiertos)).
+baja igual, y el proceso diario vuelve a ajustar los accesos (D-83). **(V5)**
+El correo que se exige al registrar el usuario **es el que recibe el acceso a
+Drive**, así que tiene que ser de una cuenta de Google (C-23, decidido). La API
+no puede comprobarlo de antemano: si no lo es, Drive rechaza el acceso, el
+usuario se registra igual y el acceso queda pendiente, como cualquier otra
+falla de Drive.
 
 La contraseña no se devuelve en ninguna respuesta, ni en texto plano ni
 cifrada.
@@ -745,7 +732,7 @@ Registrando un abogado nuevo en la misma operación:
 | `username` | String         |     Sí      | Entre 3 y 30 caracteres: letras, números, punto, guión y guión bajo. Único    |
 | `lastName` | String         |     Sí      | Hasta 100 caracteres                                                          |
 | `firstName`| String         |     Sí      | Hasta 100 caracteres                                                          |
-| `email`    | String         |     Sí      | Formato de correo electrónico válido. Único                                   |
+| `email`    | String         |     Sí      | Formato de correo electrónico válido. Único. **(V5)** De una cuenta de Google si el usuario es `LAWYER` o `SECRETARY`: es el que recibe el acceso a Drive (C-23) |
 | `password` | String         |     Sí      | Mínimo 8 caracteres, con al menos un número                                   |
 | `roles`    | `Role[]`       |     Sí      | Al menos un rol                                                               |
 | `lawyerId` | Integer        | Condicional | Identificador de un abogado ya registrado                                     |
@@ -1657,9 +1644,13 @@ El campo `activeCases` no es modificable: lo calcula el backend.
 - **Dato único (CA-14.2).** Las causas no copian los datos del abogado: los
   referencian. El cambio se ve en todas sus causas, en `responsibleLawyer`, en
   la siguiente lectura.
-- **Carpeta de la causa.** La carpeta en Drive de sus causas **no se renombra**
-  aunque cambie el apellido o el nombre: la ruta se fija al crearla (D-61). Ver
-  el punto abierto C-26.
+- **Carpeta en Drive.** Si cambia el apellido o el nombre, se **renombra** la
+  carpeta del abogado (`/VZ Causas/Causas/{abogado}`); las carpetas de sus
+  causas quedan adentro y su `folder.path` cambia con ella (C-26). Si Drive no
+  responde, la modificación no falla: la carpeta conserva el nombre anterior y
+  la corrige el proceso diario (§4, Carpeta de la causa).
+- **Carátula.** La hoja de carátula de sus causas toma el nombre nuevo en la
+  próxima emisión, porque no se guarda (D-94).
 - **Auditoría (CA-14.5).** El backend registra quién modificó, cuándo y qué
   cambió, según `AUDITORIA_Y_TRAZABILIDAD.md`. No hay endpoint para
   consultarlo: no está en el prototipo.
@@ -3181,8 +3172,8 @@ habilita "Nueva causa" a los tres perfiles.
 **(V5)** El Sprint 4 suma la **modificación** de la causa
 ([`PATCH /cases/{caseId}`](#patch-casescaseid), HU19), su **baja**
 ([`DELETE /cases/{caseId}`](#delete-casescaseid), HU21) y la **carátula**
-(HU24): dos datos nuevos en el recurso, `courtSecretaryName` y `cover`, y la
-emisión de la hoja en PDF con
+(HU24), una hoja en PDF que se arma con los datos de la causa, sin datos
+nuevos en el recurso:
 [`GET /cases/{caseId}/cover`](#get-casescaseidcover). Los tres son de
 cualquier usuario autenticado, según la matriz de permisos (HU18 a HU25). La
 documentación de la causa y el expediente (HU38 y HU25) tienen su propia
@@ -3198,13 +3189,12 @@ El recurso causa posee la siguiente estructura:
 | Campo                     | Tipo                          | Nulo | Descripción                                                                                   |
 | ------------------------- | ----------------------------- | :--: | --------------------------------------------------------------------------------------------- |
 | `id`                      | Integer                       |  No  | Identificador único interno                                                                   |
-| `sacNumber`               | String \| `null`              |  Sí  | Número de SAC: 8 dígitos. Opcional. Si se informa, es único en todo el sistema (RN2)          |
+| `sacNumber`               | String \| `null`              |  Sí  | Número de SAC: 8 dígitos. Opcional. Si se informa, es único entre las causas vigentes (RN2). **(V5)** El de una causa dada de baja se puede volver a usar (D-97) |
 | `caption`                 | String                        |  No  | Carátula: el texto de los autos. Es el recuadro "Autos" de la hoja de carátula               |
 | `court`                   | String \| `null`              |  Sí  | Órgano interviniente (antes "Tribunal o dependencia"). **(V5)** Solo cambia el rótulo: el campo es el mismo |
-| `courtSecretaryName`      | String \| `null`              |  Sí  | **(V5)** Secretario/a del órgano interviniente. Texto libre: `Dra. Analía Correa`. No confundir con el perfil `SECRETARY`, que es la secretaría del estudio |
-| `jurisdiction`            | `Jurisdiction`                |  No  | Fuero. Define el ciclo de vida y la tabla de plazos aplicable                                 |
+| `jurisdiction`            | `Jurisdiction`                |  No  | Fuero. Define el ciclo de vida y la tabla de plazos aplicable. **(V5)** No se modifica (D-95) |
 | `proceduralRole`          | `ProceduralRole`              |  No  | Rol procesal del cliente                                                                      |
-| `instructorName`          | String \| `null`              |  Sí  | Instructor de la causa: quien lleva la instrucción en el tribunal o la dependencia            |
+| `instructorName`          | String \| `null`              |  Sí  | Instructor de la causa: quien lleva la instrucción en el tribunal o la dependencia. **(V5)** Es también el secretario/a del órgano que imprime la hoja de carátula (D-91) |
 | `tribunalPhone`           | String \| `null`              |  Sí  | Teléfono del instructor. Texto libre: `0351 448-1200`                                         |
 | `instructorExtension`     | String \| `null`              |  Sí  | Número de interno del instructor. Texto libre: `214`                                          |
 | `counterparty`            | String \| `null`              |  Sí  | Contraparte u organismo. Solo en `ADMINISTRATIVE` y `AMPARO`; en `CRIMINAL` vale `null`       |
@@ -3227,7 +3217,6 @@ El recurso causa posee la siguiente estructura:
 | `startDate`               | String (fecha ISO 8601) \| `null` |  Sí  | Fecha de inicio de la causa en sede judicial. `null` mientras no tiene SAC (D-38). No interviene en el cómputo de la prescripción |
 | `currentState`            | Object                        |  No  | Estado procesal actual, con el vencimiento del acto que llevó la causa a él. Ver estructura más abajo |
 | `folder`                  | Object \| `null`              |  Sí  | **Nuevo.** Carpeta de la causa en la nube (HU39, HU40). `null` si no se pidió crearla         |
-| `cover`                   | Object                        |  No  | **(V5)** Datos de la hoja de carátula (HU24). Ver estructura más abajo                        |
 | `active`                  | Boolean                       |  No  | Estado de alta. Vale siempre `true`: una causa dada de baja no se devuelve (HU21, ver §4, Bajas) |
 
 **Datos propios de cada fuero** (nuevos)
@@ -3413,92 +3402,6 @@ Cómo se nombra la carpeta, qué modelos se copian y qué pasa si el
 almacenamiento falla está en [Carpeta de la causa](#carpeta-de-la-causa), en la
 sección 4.
 
-**`cover`** (V5)
-
-La hoja de carátula rotula el expediente físico (HU24). Es una hoja A4 con el
-logo del estudio y seis recuadros: "Expte. / SAC", "Autos", "Actor /
-querellante", "Demandado / imputado", "Órgano interviniente" y
-"Observaciones". Cuatro de ellos salen de datos que la causa ya tiene; los
-otros tres son texto propio de la carátula, que es lo que guarda `cover`:
-
-| Recuadro de la hoja    | De dónde sale                                                                                  |
-| ---------------------- | ---------------------------------------------------------------------------------------------- |
-| Expte. / SAC           | `sacNumber`. Vacío si la causa no tiene SAC                                                     |
-| Autos                  | `caption`                                                                                      |
-| Actor / querellante    | `cover.plaintiffParty`                                                                         |
-| Demandado / imputado   | `cover.defendantParty`                                                                         |
-| Órgano interviniente   | Tres líneas: `court`, "SECRETARIO/A: " + `courtSecretaryName` e "INSTRUCTOR: " + `instructorName`. Un dato `null` deja la línea con el rótulo solo, como en las plantillas del estudio |
-| Observaciones          | `cover.notes`                                                                                  |
-
-| Campo             | Tipo            | Nulo | Descripción                                                                                   |
-| ----------------- | --------------- | :--: | --------------------------------------------------------------------------------------------- |
-| `template`        | `CoverTemplate` |  No  | Plantilla según el fuero: `CRIMINAL` en el penal, `ADMINISTRATIVE` en el administrativo y el amparo. Calculado |
-| `plaintiffParty`  | String          |  No  | Texto del recuadro "Actor / querellante". Puede ser vacío. Hasta 500 caracteres, con saltos de línea |
-| `defendantParty`  | String          |  No  | Texto del recuadro "Demandado / imputado". Puede ser vacío. Hasta 500 caracteres, con saltos de línea |
-| `notes`           | String          |  No  | Texto del recuadro "Observaciones": `Causa conexa en DI T6`. Vacío si no hay. Hasta 500 caracteres |
-| `partiesSuggested` | Boolean        |  No  | `true` si `plaintiffParty` y `defendantParty` son los **sugeridos** por el sistema: nadie los escribió y siguen a los datos de la causa. `false` si se escribieron a mano |
-
-La hoja se imprime **en mayúsculas**, como las plantillas del estudio; el
-backend guarda y devuelve el texto tal como se cargó, y el cliente lo muestra
-en mayúsculas (el prototipo usa `text-transform: uppercase`).
-
-**Partes sugeridas.** Mientras nadie escriba las partes a mano, el backend las
-arma con los datos de la causa, con la misma regla que el panel "Carátula del
-expediente" del prototipo (`carSug`):
-
-| Fuero y rol procesal                     | `plaintiffParty`                                         | `defendantParty`                                   |
-| ---------------------------------------- | -------------------------------------------------------- | -------------------------------------------------- |
-| `CRIMINAL`, `QUERELLANTE_PARTICULAR`     | `QUERELLANTE ({cliente})` y, en otra línea, `DEFENSOR: {abogado}` | Vacío: el imputado lo escribe el usuario    |
-| `CRIMINAL`, `DEFENSA`                    | Vacío: el querellante, si lo hay, lo escribe el usuario  | `{cliente}` y, en otra línea, `DEFENSOR: {abogado}` |
-| `ADMINISTRATIVE` o `AMPARO`, rol `DEMANDADA` | `counterparty`                                       | `{cliente}`                                        |
-| `ADMINISTRATIVE` o `AMPARO`, otro rol    | `{cliente}`                                              | `counterparty`                                     |
-
-`{cliente}` es `APELLIDO NOMBRES` del cliente y `{abogado}` es el apellido y
-los nombres del abogado responsable, sin tratamiento (D-81; ver el punto
-abierto C-28). Un dato `null` deja su parte vacía.
-
-Por eso `partiesSuggested` importa: mientras vale `true`, **la carátula se
-actualiza sola** si cambian los datos del cliente, el rol procesal, el
-responsable o la contraparte, que es lo que promete el prototipo en "Generar expediente"
-("Modificá los datos de la causa y la carátula se actualiza sola"). En cuanto
-alguien escribe una de las dos partes, las dos quedan fijas
-(`partiesSuggested` en `false`) hasta que se vuelva a pedir la sugerencia con
-`null` (ver [`PATCH /cases/{caseId}`](#patch-casescaseid)). Las partes se
-guardan juntas porque se sugieren juntas (D-92).
-
-Las causas registradas antes de V5 llegan con las partes sugeridas, `notes`
-vacío y `courtSecretaryName` en `null`.
-
-Ejemplo, causa penal con el cliente como defensa:
-
-```json
-{
-	"courtSecretaryName": "Dra. Analía Correa",
-	"cover": {
-		"template": "CRIMINAL",
-		"plaintiffParty": "",
-		"defendantParty": "GÓMEZ Ariel Fernando\nDEFENSOR: Ríos Malena",
-		"notes": "",
-		"partiesSuggested": true
-	}
-}
-```
-
-Ejemplo, amparo con las partes escritas a mano:
-
-```json
-{
-	"courtSecretaryName": "Dra. Sofía Molina",
-	"cover": {
-		"template": "ADMINISTRATIVE",
-		"plaintiffParty": "MOYANO Daniela",
-		"defendantParty": "APROSS – AMPARO DE SALUD",
-		"notes": "",
-		"partiesSuggested": false
-	}
-}
-```
-
 **Sobre la prescripción:** solo se computa en el fuero `CRIMINAL`; en los demás
 el prototipo informa "No aplica al fuero". **Cada calificación computa la suya**:
 `prescriptionExpiresOn` es `prescriptionStartsOn` más `prescriptionMonths`. La
@@ -3536,15 +3439,11 @@ Causa penal:
 	"jurisdiction": "CRIMINAL",
 	"caption": "GÓMEZ, Ariel Fernando p.s.a. Robo calificado",
 	"court": "Juzgado de Control N° 3 · Córdoba",
-	"courtSecretaryName": "Dra. Analía Correa",
 	"instructorName": "Dra. Verónica Ledesma",
 	"tribunalPhone": "0351 448-1200",
 	"instructorExtension": "214",
 	"clientId": 1,
 	"proceduralRole": "DEFENSA",
-	"cover": {
-		"notes": "Causa conexa en DI T6"
-	},
 	"clientDetained": false,
 	"legalQualifications": [
 		{
@@ -3573,10 +3472,6 @@ Amparo, sin carpeta:
 	"instructorExtension": "517",
 	"clientId": 6,
 	"proceduralRole": "ACTORA",
-	"cover": {
-		"plaintiffParty": "MOYANO Daniela",
-		"defendantParty": "APROSS – AMPARO DE SALUD"
-	},
 	"counterparty": "APROSS",
 	"subjectMatter": "Que se ordene a APROSS la cobertura integral del tratamiento de rehabilitación prescripto a la actora.",
 	"injunctionGranted": true,
@@ -3594,12 +3489,10 @@ Amparo, sin carpeta:
 
 | Campo                   | Tipo             | Requerido   | Restricciones                                                                                     |
 | ----------------------- | ---------------- | :---------: | ------------------------------------------------------------------------------------------------- |
-| `sacNumber`             | String           |     No      | Exactamente 8 dígitos. Si se envía, único en todo el sistema                                      |
+| `sacNumber`             | String           |     No      | Exactamente 8 dígitos. Si se envía, único entre las causas vigentes. **(V5)** Puede ser el de una causa dada de baja (D-97) |
 | `jurisdiction`          | `Jurisdiction`   |     Sí      | Fuero válido                                                                                      |
 | `caption`               | String           |     Sí      | Hasta 255 caracteres                                                                              |
 | `court`                 | String           |     No      | Hasta 255 caracteres                                                                              |
-| `courtSecretaryName`    | String           |     No      | **(V5)** Secretario/a del órgano interviniente. Hasta 150 caracteres                              |
-| `cover`                 | Object           |     No      | **(V5)** Recuadros propios de la carátula. Ver estructura más abajo                               |
 | `instructorName`        | String           |     No      | Hasta 150 caracteres                                                                              |
 | `tribunalPhone`         | String           |     No      | Hasta 50 caracteres                                                                               |
 | `instructorExtension`   | String           |     No      | Número de interno. Hasta 20 caracteres                                                            |
@@ -3634,21 +3527,10 @@ desde cuándo computar la prescripción. Cada calificación lleva la suya porque
 los delitos que concurren en una causa pueden haberse cometido en fechas
 distintas.
 
-**`cover`** (cuerpo de la petición, V5)
-
-| Campo            | Tipo   | Requerido   | Restricciones                                                                                  |
-| ---------------- | ------ | :---------: | ---------------------------------------------------------------------------------------------- |
-| `plaintiffParty` | String | Condicional | Hasta 500 caracteres; admite saltos de línea y vacío. Si se envía, también hay que enviar `defendantParty` |
-| `defendantParty` | String | Condicional | Hasta 500 caracteres; admite saltos de línea y vacío. Si se envía, también hay que enviar `plaintiffParty` |
-| `notes`          | String |     No      | Hasta 500 caracteres. Por defecto, vacío                                                       |
-
-`template` no se envía: sale del fuero. **Las partes van juntas o no van**:
-sin ninguna de las dos, la causa queda con las partes sugeridas
-(`partiesSuggested` en `true`); con las dos, quedan escritas a mano. El
-formulario del prototipo precarga la sugerencia en los dos recuadros: el
-cliente **solo debe enviarlas si el usuario las editó**, para que la carátula
-siga a los datos de la causa mientras nadie la toque (D-92). Un cliente de V4,
-que no envía `cover`, obtiene las partes sugeridas y observaciones vacías.
+**(V5)** El alta no cambia respecto de V4: la carátula del expediente no se
+carga al registrar la causa. Lo que la hoja de carátula necesita y la causa no
+tiene (las observaciones y, en el fuero penal, la parte que no es el cliente)
+se envía al generar el expediente (D-92).
 
 Un identificador de cliente, abogado o calificación que no existe o está dado
 de baja se informa como `400 VALIDATION_ERROR` sobre el campo correspondiente,
@@ -3712,7 +3594,6 @@ piden HU39 y HU40 ("que se cree automáticamente").
 		"sacNumber": "13284571",
 		"caption": "GÓMEZ, Ariel Fernando p.s.a. Robo calificado",
 		"court": "Juzgado de Control N° 3 · Córdoba",
-		"courtSecretaryName": "Dra. Analía Correa",
 		"jurisdiction": "CRIMINAL",
 		"proceduralRole": "DEFENSA",
 		"instructorName": "Dra. Verónica Ledesma",
@@ -3783,13 +3664,6 @@ piden HU39 y HU40 ("que se cree automáticamente").
 			"path": "/VZ Causas/Causas/Ríos, Malena/Penal/GÓMEZ, Ariel Fernando p.s.a. Robo calificado",
 			"templatesCopied": 6,
 			"templatesPending": 0
-		},
-		"cover": {
-			"template": "CRIMINAL",
-			"plaintiffParty": "",
-			"defendantParty": "GÓMEZ Ariel Fernando\nDEFENSOR: Ríos Malena",
-			"notes": "Causa conexa en DI T6",
-			"partiesSuggested": true
 		},
 		"active": true
 	}
@@ -3892,20 +3766,6 @@ Con `createFolder` en `false`, `folder.status` es `PENDING`, con `url` en
 }
 ```
 
-**(V5)**
-
-```json
-{
-	"error": {
-		"code": "VALIDATION_ERROR",
-		"message": "Los datos enviados no son válidos.",
-		"details": {
-			"cover": "Las dos partes de la carátula se envían juntas."
-		}
-	}
-}
-```
-
 **`401 Unauthorized`**
 
 ```json
@@ -3938,9 +3798,7 @@ Obtiene una lista paginada de las causas (HU20).
 
 **Rol requerido:** cualquier usuario autenticado.
 
-**(V5)** Cada elemento es el recurso causa completo, así que suma
-`courtSecretaryName` y `cover`. Las causas dadas de baja (HU21) no aparecen con
-ningún filtro.
+**(V5)** Las causas dadas de baja (HU21) no aparecen con ningún filtro.
 
 Los resultados se ordenan por urgencia: primero las causas con vencimiento,
 por la fecha de ese vencimiento ascendente (las vencidas quedan primeras), y
@@ -4308,7 +4166,7 @@ cliente ([D-85](#81-decisiones-tomadas), que reemplaza a D-47).
 
 | Elemento del detalle                          | Endpoint                                                        | HU |
 | --------------------------------------------- | --------------------------------------------------------------- | -- |
-| Línea "Secretario/a" del encabezado           | `courtSecretaryName` en este recurso                            | 24 |
+| Línea "Secretario/a" del encabezado           | `instructorName` en este recurso: el secretario/a es el instructor (D-91) | 24 |
 | "Modificar causa"                             | [`PATCH /cases/{caseId}`](#patch-casescaseid)                   | 19 |
 | "Dar de baja"                                 | [`DELETE /cases/{caseId}`](#delete-casescaseid)                 | 21 |
 | Tarjeta "Documentación"                       | [`GET /cases/{caseId}/documents`](#get-casescaseiddocuments)    | 38 |
@@ -4343,7 +4201,6 @@ vencimiento nuevos en `currentState`.
 		"sacNumber": "13284571",
 		"caption": "GÓMEZ, Ariel Fernando p.s.a. Robo calificado",
 		"court": "Juzgado de Control N° 3 · Córdoba",
-		"courtSecretaryName": "Dra. Analía Correa",
 		"jurisdiction": "CRIMINAL",
 		"proceduralRole": "DEFENSA",
 		"instructorName": "Dra. Verónica Ledesma",
@@ -4414,13 +4271,6 @@ vencimiento nuevos en `currentState`.
 			"path": "/VZ Causas/Causas/Ríos, Malena/Penal/GÓMEZ, Ariel Fernando p.s.a. Robo calificado",
 			"templatesCopied": 6,
 			"templatesPending": 0
-		},
-		"cover": {
-			"template": "CRIMINAL",
-			"plaintiffParty": "",
-			"defendantParty": "GÓMEZ Ariel Fernando\nDEFENSOR: Ríos Malena",
-			"notes": "",
-			"partiesSuggested": true
 		},
 		"active": true
 	}
@@ -4495,16 +4345,12 @@ usuario y fecha, como dice la nota del formulario, según
 
 **Cuerpo de la petición**
 
-Corrección de identificación y carátula:
+Corrección de identificación:
 
 ```json
 {
 	"court": "Fisc. de Distrito I, 3º turno",
-	"courtSecretaryName": "Dra. Analía Correa",
-	"instructorName": "Dra. Verónica Ledesma",
-	"cover": {
-		"notes": "Causa conexa en DI T6"
-	}
+	"instructorName": "Dra. Verónica Ledesma"
 }
 ```
 
@@ -4520,28 +4366,25 @@ Cambio de responsable y de calificaciones en una causa penal:
 }
 ```
 
-Cambio de fuero, de administrativo a amparo:
+Cambio de cliente, con la carátula que propone el cliente para el nuevo:
 
 ```json
 {
-	"jurisdiction": "AMPARO",
-	"proceduralRole": "ACTORA",
-	"subjectMatter": "Que se ordene a la Caja la restitución de los descuentos practicados sobre el haber.",
-	"injunctionGranted": false
+	"clientId": 9,
+	"caption": "FERREYRA, Lucas Martín p.s.a. Robo calificado"
 }
 ```
 
 | Campo                   | Tipo             | Nulo | Restricciones                                                                                   |
 | ----------------------- | ---------------- | :--: | ----------------------------------------------------------------------------------------------- |
-| `sacNumber`             | String           |  Sí  | Exactamente 8 dígitos y único en todo el sistema, también entre las causas dadas de baja (RN2). `null` deja la causa sin SAC |
-| `jurisdiction`          | `Jurisdiction`   |  No  | Fuero válido. Ver **Cambio de fuero** más abajo                                                 |
+| `sacNumber`             | String           |  Sí  | Exactamente 8 dígitos y único entre las causas vigentes (D-97). `null` deja la causa sin SAC    |
 | `caption`               | String           |  No  | No vacío. Hasta 255 caracteres                                                                  |
 | `court`                 | String           |  Sí  | Hasta 255 caracteres                                                                            |
-| `courtSecretaryName`    | String           |  Sí  | Hasta 150 caracteres                                                                            |
 | `instructorName`        | String           |  Sí  | Hasta 150 caracteres                                                                            |
 | `tribunalPhone`         | String           |  Sí  | Hasta 50 caracteres                                                                             |
 | `instructorExtension`   | String           |  Sí  | Hasta 20 caracteres                                                                             |
-| `proceduralRole`        | `ProceduralRole` |  No  | Debe corresponder al fuero que la causa tenga después del cambio                               |
+| `clientId`              | Integer          |  No  | Cliente vigente (C-31). Ver **Cliente** más abajo                                               |
+| `proceduralRole`        | `ProceduralRole` |  No  | Debe corresponder al fuero de la causa                                                          |
 | `legalQualifications`   | Object[]         |  No  | Solo en `CRIMINAL`. **Reemplaza la lista completa**; `[]` deja la causa sin calificaciones. Misma estructura y reglas que en el alta |
 | `clientDetained`        | Boolean          |  No  | Solo en `CRIMINAL`                                                                              |
 | `counterparty`          | String           |  Sí  | Solo en `ADMINISTRATIVE` y `AMPARO`. Hasta 255 caracteres                                      |
@@ -4556,48 +4399,43 @@ Cambio de fuero, de administrativo a amparo:
 | `courtFeePaid`          | Boolean          |  No  | En los tres fueros                                                                              |
 | `responsibleLawyerId`   | Integer          |  No  | Abogado vigente (RN3)                                                                           |
 | `startDate`             | String (fecha)   |  Sí  | Mismas reglas que en el alta: obligatoria si la causa queda con SAC; `null` si queda sin SAC (D-38). No posterior a hoy |
-| `cover`                 | Object           |  No  | Recuadros propios de la carátula. Ver más abajo                                                 |
 
-**No se modifican** el cliente (`clientId`: el formulario del prototipo no lo
-ofrece; ver C-31), la carpeta (tiene su propio endpoint), el estado procesal
-(lo mueven los actos), la prescripción y su declaración (calculada y HU33) ni
-`active` (la baja es `DELETE`). Un campo que no está en la tabla responde
-`400 VALIDATION_ERROR`.
-
-**`cover`** (cuerpo del `PATCH`)
-
-| Campo            | Tipo   | Nulo | Restricciones                                                                       |
-| ---------------- | ------ | :--: | ----------------------------------------------------------------------------------- |
-| `plaintiffParty` | String |  Sí  | Hasta 500 caracteres; admite vacío. Va junto con `defendantParty`                   |
-| `defendantParty` | String |  Sí  | Hasta 500 caracteres; admite vacío. Va junto con `plaintiffParty`                   |
-| `notes`          | String |  No  | Hasta 500 caracteres; vacío borra las observaciones                                 |
-
-- Las dos partes **con texto** las dejan escritas a mano
-  (`partiesSuggested` en `false`).
-- Las dos partes **en `null`** vuelven a la sugerencia del sistema
-  (`partiesSuggested` en `true`).
-- Una sola de las dos, o una con texto y otra en `null`, responde
-  `400 VALIDATION_ERROR` sobre `cover`.
-
-El formulario del prototipo muestra las partes precargadas: el cliente las
-envía solo si el usuario las editó (D-92).
+**No se modifican** el fuero (`jurisdiction`: D-95), la carpeta (tiene su
+propio endpoint), el estado procesal (lo mueven los actos), la prescripción y
+su declaración (calculada y HU33) ni `active` (la baja es `DELETE`). Un campo
+que no está en la tabla, `jurisdiction` incluido, responde
+`400 VALIDATION_ERROR`. Si una causa se registró en el fuero equivocado, se da
+de baja y se registra de nuevo; su SAC queda libre para eso (D-97).
 
 **Reglas**
 
 - **SAC.** Se puede agregar, corregir o quitar ("Opcional. Identifica la causa
-  de forma única"). Un SAC que ya tiene otra causa, vigente o dada de baja,
-  responde `409 CASE_SAC_ALREADY_EXISTS`. Quitar el SAC exige quitar también la
-  fecha de inicio (`startDate` en `null`) en la misma petición, y agregarlo
-  exige enviar `startDate` si la causa no la tiene: es la regla de D-38, que
-  ahora también aplica al modificar.
+  de forma única"). Un SAC que ya tiene otra causa vigente responde
+  `409 CASE_SAC_ALREADY_EXISTS`; el de una causa dada de baja se puede usar
+  (D-97). Quitar el SAC exige quitar también la fecha de inicio (`startDate` en
+  `null`) en la misma petición, y agregarlo exige enviar `startDate` si la
+  causa no la tiene: es la regla de D-38, que ahora también aplica al
+  modificar.
 - **Datos que no son del fuero.** Un dato propio de otro fuero responde
-  `400 VALIDATION_ERROR`, igual que en el alta. Se mira el fuero **que la causa
-  tendrá después del cambio**.
+  `400 VALIDATION_ERROR`, igual que en el alta.
+- **Cliente.** Se puede cambiar por otro cliente vigente (C-31). El backend no
+  recalcula la carátula: como en el alta, la propone el cliente con el cliente
+  nuevo y la envía en `caption`, en la misma petición. Si no la envía, la
+  carátula queda como estaba. La hoja de carátula toma el cliente nuevo desde
+  la próxima vez que se emita, porque no se guarda (D-94).
 - **Responsable.** Cambiarlo cambia quién registra los actos de la causa desde
   la próxima petición (D-30). Los actos ya registrados conservan su
-  `registeredBy`. La carpeta en Drive **no se mueve** a la del nuevo abogado
-  (D-61, C-26).
-- **Carátula (`caption`).** Cambiarla no renombra la carpeta (D-61, C-26).
+  `registeredBy`. La carpeta en Drive **se mueve** a la del nuevo abogado
+  (`/VZ Causas/Causas/{abogado}/{fuero}/`), que se crea si no existe (C-26).
+- **Carátula (`caption`).** Cambiarla **renombra** la carpeta de la causa en
+  Drive, con las mismas reglas de nombre que al crearla (C-26).
+- **Carpeta en Drive.** El movimiento y el cambio de nombre no hacen fallar la
+  modificación: si Drive no responde, la causa se guarda igual y la carpeta
+  queda donde estaba, con su nombre anterior; `folder.path` informa siempre la
+  ubicación real. Se corrige reintentando
+  [`POST /cases/{caseId}/folder`](#post-casescaseidfolder) o sola, con el
+  proceso diario (C-26, mismo criterio que D-60). Una causa sin la carpeta
+  creada no tiene nada que mover.
 - **Calificaciones legales.** Reemplazar la lista recalcula la prescripción en
   la siguiente lectura, porque nada se guarda calculado (§4, Prescripción).
   Los actos interruptivos de la causa siguen rigiendo para las calificaciones
@@ -4605,41 +4443,8 @@ envía solo si el usuario las editó (D-92).
 - **Acto lesivo.** Cambiar sus datos recalcula `harmfulActDeadline`.
 - **Causa en estado terminal.** Se puede corregir —es el caso más común de una
   causa archivada con un dato mal cargado—, salvo lo que cambiaría su
-  prescripción en una causa "Prescripta": `jurisdiction` y
-  `legalQualifications` responden `422 CASE_IN_TERMINAL_STATE` (D-96).
-
-**Cambio de fuero**
-
-El prototipo permite cambiar el fuero: "Si lo cambiás, los actos se conservan y
-el estado procesal se reasigna según el ciclo de vida del nuevo fuero". El
-contrato lo concreta así (D-95, provisoria; ver C-25):
-
-1. **Datos del fuero anterior.** Se vacían: los que el fuero nuevo no usa
-   quedan en `null` (y `legalQualifications` vacío al salir de `CRIMINAL`).
-2. **Datos del fuero nuevo.** Los obligatorios llegan en la misma petición:
-   `proceduralRole` (el anterior casi nunca corresponde al fuero nuevo) y, en
-   `ADMINISTRATIVE` y `AMPARO`, `subjectMatter`. Si faltan, `400
-   VALIDATION_ERROR` sobre cada uno.
-3. **Actos procesales.** Se conservan sin cambios, con el estado y el plazo con
-   que se registraron: son la historia de la causa.
-4. **Estado actual.** Si la causa está en "Iniciada", pasa al estado inicial
-   del fuero nuevo. Si no, se busca en la tabla del fuero nuevo un estado
-   vigente **con el mismo nombre**, sin distinguir mayúsculas: si existe, la
-   causa queda en él; si no, queda en un **estado escrito a mano** con el mismo
-   nombre (`custom` en `true`). En los dos casos el vencimiento vigente
-   (`currentState.dueDate`) no cambia: lo abrió un acto que sigue existiendo.
-5. **Actos interruptivos.** Al salir de `CRIMINAL` se conservan en la historia,
-   pero la causa deja de computar prescripción (`prescription` en `null`) y la
-   línea de vida deja de mostrarlos, como en cualquier causa no penal.
-6. **Carátula.** `cover.template` sigue al fuero nuevo. Si las partes eran
-   sugeridas, se vuelven a sugerir con la regla del fuero nuevo.
-7. **Carpeta.** No se mueve a la carpeta del fuero nuevo (C-26).
-8. **No se puede** cambiar el fuero de una causa "Prescripta" (`422
-   CASE_IN_TERMINAL_STATE`).
-
-La respuesta trae la causa entera, para que el cliente muestre el aviso del
-prototipo: "Causa actualizada y pasada al fuero Amparo. Revisá el estado
-procesal asignado".
+  prescripción en una causa "Prescripta": `legalQualifications` responde
+  `422 CASE_IN_TERMINAL_STATE` (D-96).
 
 **Respuestas**
 
@@ -4654,18 +4459,10 @@ Devuelve el recurso causa completo, igual que `GET /cases/{caseId}`.
 		"sacNumber": "13284571",
 		"caption": "GÓMEZ, Ariel Fernando p.s.a. Robo calificado",
 		"court": "Fisc. de Distrito I, 3º turno",
-		"courtSecretaryName": "Dra. Analía Correa",
 		"jurisdiction": "CRIMINAL",
 		"proceduralRole": "DEFENSA",
 		"instructorName": "Dra. Verónica Ledesma",
 		"...": "resto del recurso causa, sin cambios",
-		"cover": {
-			"template": "CRIMINAL",
-			"plaintiffParty": "",
-			"defendantParty": "GÓMEZ Ariel Fernando\nDEFENSOR: Ríos Malena",
-			"notes": "Causa conexa en DI T6",
-			"partiesSuggested": true
-		},
 		"active": true
 	}
 }
@@ -4679,8 +4476,7 @@ Devuelve el recurso causa completo, igual que `GET /cases/{caseId}`.
 		"code": "VALIDATION_ERROR",
 		"message": "Los datos enviados no son válidos.",
 		"details": {
-			"startDate": "Sin número de SAC la causa no tiene fecha de inicio.",
-			"cover": "Las dos partes de la carátula se envían juntas."
+			"startDate": "Sin número de SAC la causa no tiene fecha de inicio."
 		}
 	}
 }
@@ -4692,8 +4488,7 @@ Devuelve el recurso causa completo, igual que `GET /cases/{caseId}`.
 		"code": "VALIDATION_ERROR",
 		"message": "Los datos enviados no son válidos.",
 		"details": {
-			"proceduralRole": "El rol procesal no corresponde al fuero.",
-			"subjectMatter": "Es obligatorio en los fueros administrativo y de amparo."
+			"jurisdiction": "El fuero de una causa no se puede modificar."
 		}
 	}
 }
@@ -4747,7 +4542,7 @@ Causa inexistente o dada de baja.
 {
 	"error": {
 		"code": "CASE_IN_TERMINAL_STATE",
-		"message": "La causa está prescripta: no se puede cambiar su fuero ni sus calificaciones legales.",
+		"message": "La causa está prescripta: no se pueden cambiar sus calificaciones legales.",
 		"details": null
 	}
 }
@@ -4801,11 +4596,11 @@ cliente la causa deja de existir.
 - **Deja de contar** en los `activeCases` de su abogado, su cliente y sus
   calificaciones legales, en los tableros y en el proceso diario, que no la
   verifica ni avisa por ella (§4, Proceso automático diario).
-- **El SAC sigue ocupado.** Un SAC de una causa dada de baja no se puede
-  registrar de nuevo (RN2, según el diccionario de datos: "único en todo el
-  sistema, incluidas las causas dadas de baja"). Para registrar la causa bien
-  cargada, primero hay que quitarle el SAC con `PATCH` y después darla de baja.
-  Ver C-32.
+- **El SAC queda libre.** El SAC de una causa dada de baja se puede volver a
+  registrar, en el alta o en la modificación de otra causa: es lo que permite
+  cargar de nuevo, bien, una causa registrada mal (D-97, C-32). La causa dada
+  de baja conserva su SAC en la base, y el SAC sigue siendo único entre las
+  causas vigentes.
 - **La carpeta en Drive no se toca**: no se borra, no se mueve ni se renombra.
   Los documentos son del estudio y RN9 pide conservarlos.
 - **Cualquier estado.** Se puede dar de baja una causa en cualquier estado,
@@ -4871,18 +4666,58 @@ expediente físico.
 HU25).
 
 La genera el backend en cada pedido, con los datos vigentes de la causa: no se
-guarda. Es una hoja A4 con la plantilla de `cover.template` y los recuadros
-completos según [`cover`](#37-causas-cases), en mayúsculas. Sirve para tres cosas del
-prototipo:
+guarda nada de la carátula (D-92). Es una hoja A4 con el logo del estudio y
+seis recuadros, en mayúsculas, como las plantillas del estudio. Sirve para tres
+cosas del prototipo:
 
-- La **"Vista previa"** de la carátula en "Generar expediente".
-- La **hoja 1 del expediente**: `POST /cases/{caseId}/case-files` usa la misma
-  generación, así que la vista previa y el expediente siempre coinciden (D-94,
-  mismo criterio que D-20).
+- La **"Vista previa"** de la carátula al entrar a "Generar expediente".
 - **Imprimir la carátula sola**, para rotular la carpeta de papel, que es lo
   que pide HU24.
+- La **hoja 1 del expediente**: `POST /cases/{caseId}/case-files` usa la misma
+  generación (D-94), con los dos datos que este endpoint deja vacíos (ver más
+  abajo).
 
 No usa la carpeta en Drive: funciona aunque la causa no tenga carpeta.
+
+**Plantilla.** La elige el backend según el fuero: la penal en `CRIMINAL`, la
+administrativa en `ADMINISTRATIVE` y en `AMPARO` (D-93). No se envía ni se
+devuelve.
+
+**Recuadros de la hoja**
+
+> Los rótulos son los del prototipo y quedan **pendientes de confirmar contra
+> las plantillas del estudio** (`Caratula penal.docx`, `Caratula penal
+> QUERELLANTE.docx`, `Caratula administrativo.docx`): el equipo los va a
+> enviar y la hoja usa los rótulos que tengan ellas.
+
+| Recuadro de la hoja    | De dónde sale                                                                                  |
+| ---------------------- | ---------------------------------------------------------------------------------------------- |
+| Expte. / SAC           | `sacNumber`. Vacío si la causa no tiene SAC                                                     |
+| Autos                  | `caption`                                                                                      |
+| Actor / querellante    | Según el fuero y el rol procesal, ver la tabla siguiente                                       |
+| Demandado / imputado   | Según el fuero y el rol procesal, ver la tabla siguiente                                       |
+| Órgano interviniente   | Dos líneas: `court` y "SECRETARIO/A: " + `instructorName`. El instructor de la causa es el secretario/a del órgano (D-91). Un dato `null` deja la línea con el rótulo solo |
+| Observaciones          | **Vacío.** Se completa solo en el expediente, con las observaciones que envía el cliente       |
+
+**Partes.** El backend las arma con los datos de la causa:
+
+| Fuero y rol procesal                     | Actor / querellante                                      | Demandado / imputado                               |
+| ---------------------------------------- | -------------------------------------------------------- | -------------------------------------------------- |
+| `CRIMINAL`, `QUERELLANTE_PARTICULAR`     | `QUERELLANTE ({cliente})` y, en otra línea, `DEFENSOR: DR/DRA. {abogado}` | **Vacío**: el imputado no está en la causa; en el expediente lo envía el cliente |
+| `CRIMINAL`, `DEFENSA`                    | **Vacío**: el querellante no está en la causa; en el expediente lo envía el cliente | `{cliente}` y, en otra línea, `DEFENSOR: DR/DRA. {abogado}` |
+| `ADMINISTRATIVE` o `AMPARO`, rol `DEMANDADA` | `counterparty`                                       | `{cliente}`                                        |
+| `ADMINISTRATIVE` o `AMPARO`, otro rol    | `{cliente}`                                              | `counterparty`                                     |
+
+`{cliente}` es `APELLIDO NOMBRES` del cliente y `{abogado}`, el apellido y los
+nombres del abogado responsable. El tratamiento es el prefijo fijo
+`DR/DRA.`, igual para todos los abogados: el sistema no sabe si corresponde
+"Dr." o "Dra." y el estudio prefirió no cargar ese dato (C-28). Es la única
+excepción a D-81, porque esta hoja la escribe el backend. Un dato `null` deja
+su parte vacía.
+
+Como nada se guarda, la hoja sigue siempre a los datos vigentes de la causa:
+si se modifica el cliente, el rol procesal, el responsable, el instructor o la
+contraparte, la próxima emisión ya lo refleja.
 
 **Parámetros de ruta**
 
@@ -5362,7 +5197,7 @@ El prototipo no tiene un botón para esto: existe porque el alta de causa **no
 falla** cuando el almacenamiento en la nube no responde, y hace falta una forma
 de completar lo que quedó pendiente (ver
 [Carpeta de la causa](#carpeta-de-la-causa) y [D-60](#81-decisiones-tomadas)).
-Cubre cinco situaciones:
+Cubre cinco situaciones, y **(V5)** una sexta:
 
 | Situación de la causa                                         | Qué hace                                             |
 | ------------------------------------------------------------- | ---------------------------------------------------- |
@@ -5371,6 +5206,7 @@ Cubre cinco situaciones:
 | `folder.status` en `ERROR`                                    | Reintenta la creación                                |
 | `folder.status` en `CREATING`                                 | No hace nada: ya hay una creación en curso. Responde `200` con la carpeta tal como está |
 | `folder.status` en `CREATED` con `templatesPending` mayor a `0` | Copia los modelos que faltan, si `copyTemplates` es `true` |
+| **(V5)** `folder.status` en `CREATED`, con la carpeta en otro lugar o con otro nombre del que corresponde | La mueve a la carpeta del responsable y la renombra con la carátula vigentes: completa el cambio que Drive no aceptó durante un `PATCH` (C-26) |
 
 Espera el resultado igual que el alta, hasta el mismo límite del servidor: si la
 creación falla a tiempo responde `502`; si no termina a tiempo responde `200` con
@@ -7688,8 +7524,9 @@ de los datos del prototipo, y `team`, tres de los siete abogados.
 **(V5)** Nuevo en V5.
 
 **Autenticación requerida:** Sí.
-**Rol requerido:** `LAWYER` o `SECRETARY` para consultar los documentos de la
-causa (HU38); cualquier usuario autenticado para generar el expediente (HU25).
+**Rol requerido:** cualquier usuario autenticado para consultar los documentos
+de la causa (HU38) y para generar el expediente (HU25). Descargar un documento
+que no es un expediente requiere `LAWYER` o `SECRETARY` (D-103).
 
 La documentación de una causa vive en **su carpeta de Drive** (HU39). Los
 abogados y la secretaría suben ahí los escritos, las cédulas y los
@@ -7707,9 +7544,9 @@ archivos: **lee** la carpeta y **genera** el expediente.
 de la carpeta en cada pedido, como dice el prototipo ("esta lista se lee de ahí
 cada vez que abrís el detalle"). Lo que alguien suba, renombre o borre en Drive
 se ve en el siguiente pedido. Para que el backend vea los archivos que **no
-creó** —los que suben las personas— el permiso de Drive tiene que ampliarse de
-`drive.file` a `drive.readonly`, como anticipa `ADR-003_GOOGLE_DRIVE.md` §4.1.
-**Es una decisión pendiente del equipo** (C-24): con `drive.file` solo, la
+creó** —los que suben las personas— el backend opera con el permiso
+`drive.readonly` además de `drive.file`, como anticipa
+`ADR-003_GOOGLE_DRIVE.md` §4.1 (C-24, decidido). Con `drive.file` solo, la
 lista mostraría únicamente los modelos copiados y los expedientes generados.
 
 El recurso documento posee la siguiente estructura:
@@ -7741,10 +7578,12 @@ contrata (D-101).
 
 Consulta los documentos de la carpeta de la causa (HU38).
 
-**Rol requerido:** `LAWYER` o `SECRETARY`, según la matriz de permisos ("Consultar
-documentos de causa": Abogado y Secretaría). El prototipo no muestra la tarjeta
-"Documentación" al perfil Administrador. Un usuario que solo es
-`ADMINISTRATOR` recibe `403 FORBIDDEN`; ver C-27 para "Generar expediente".
+**Rol requerido:** cualquier usuario autenticado. **(V5)** La matriz de
+permisos le niega "Consultar documentos de causa" al Administrador, pero el
+equipo decidió abrírsela (C-27): sin la lista, un Administrador sin otro rol no
+podría elegir los documentos de "Generar expediente", que la matriz sí le da.
+Ver la lista no le da acceso a la carpeta en Drive (D-83) ni le permite
+descargar los documentos que no son expedientes (D-103).
 
 Devuelve los archivos que están directamente en la carpeta de la causa, sin
 entrar en subcarpetas y sin las subcarpetas mismas, ordenados del más reciente
@@ -7840,18 +7679,6 @@ Si la carpeta no está creada (`folderStatus` en `PENDING`, `CREATING` o
 	"error": {
 		"code": "UNAUTHENTICATED",
 		"message": "La autenticación es requerida.",
-		"details": null
-	}
-}
-```
-
-**`403 Forbidden`**
-
-```json
-{
-	"error": {
-		"code": "FORBIDDEN",
-		"message": "Se requiere el rol LAWYER o SECRETARY para realizar esta operación.",
 		"details": null
 	}
 }
@@ -7975,9 +7802,11 @@ HU25).
 
 Es la pantalla "Generar expediente" del prototipo:
 
-1. **Carátula**, siempre primera. Se genera con los datos de la causa, igual
-   que [`GET /cases/{caseId}/cover`](#get-casescaseidcover). No se elige ni se
-   quita.
+1. **Carátula**, siempre primera. Se genera igual que
+   [`GET /cases/{caseId}/cover`](#get-casescaseidcover), con los datos de la
+   causa, más las observaciones y, en el fuero penal, la parte que no está
+   registrada en la causa, que envía el cliente en `cover` (D-92). No se elige
+   ni se quita.
 2. **Documentos de la causa**, los que el usuario incluye, en el orden de la
    lista ("Arrastrá para cambiar el orden"). Los que no son PDF se convierten
    ("Se convierte a PDF").
@@ -7994,8 +7823,14 @@ carpeta de Drive. Las versiones anteriores se conservan").
 
 **Cuerpo de la petición**
 
+Causa penal con el cliente como defensa:
+
 ```json
 {
+	"cover": {
+		"opposingParty": "QUERELLANTE: PERALTA Juan Carlos\nAPODERADO: DR. Martín Sosa",
+		"notes": "Causa conexa en DI T6"
+	},
 	"documentIds": [
 		"1Zt5Np0aQe8Lr3Ku6Vb1Xc9Hj2Mf7Wd4S",
 		"1b7Hc3kQp9Wm2xYzR4tVnLs8dFgA0eJuK"
@@ -8003,9 +7838,32 @@ carpeta de Drive. Las versiones anteriores se conservan").
 }
 ```
 
+Amparo, sin observaciones:
+
+```json
+{
+	"documentIds": [
+		"1Vd2Kp8sLq4Wx7Zn0Rb3Ty6Uh9Me5Gc1J"
+	]
+}
+```
+
 | Campo         | Tipo     | Requerido | Restricciones                                                                                   |
 | ------------- | -------- | :-------: | ----------------------------------------------------------------------------------------------- |
+| `cover`       | Object   |    No     | Lo que la hoja de carátula necesita y la causa no tiene. Ver estructura más abajo              |
 | `documentIds` | String[] |    Sí     | Al menos uno ("Elegí al menos un documento"), sin repetir. Cada uno, un documento de la carpeta de esta causa que no sea un expediente (`caseFile` en `null`). Uno con `convertibleToPdf` en `false` responde `422 DOCUMENT_NOT_CONVERTIBLE`. El orden de la lista es el orden del expediente |
+
+**`cover`** (cuerpo de la petición)
+
+| Campo           | Tipo   | Requerido | Restricciones                                                                                    |
+| --------------- | ------ | :-------: | ------------------------------------------------------------------------------------------------ |
+| `opposingParty` | String |    No     | Solo en `CRIMINAL`. La parte que no está registrada en la causa: el querellante si el cliente es `DEFENSA`, el imputado si es `QUERELLANTE_PARTICULAR`. Hasta 500 caracteres, con saltos de línea. Va al recuadro vacío de la hoja (ver [Partes](#get-casescaseidcover)). Sin él, ese recuadro queda vacío. En otro fuero responde `400 VALIDATION_ERROR` |
+| `notes`         | String |    No     | Recuadro "Observaciones". Hasta 500 caracteres. Sin él, el recuadro queda vacío                  |
+
+La pantalla "Generar expediente" pide la parte porque la causa no la registra:
+de las partes de una causa penal, la causa solo conoce al cliente. Nada de
+`cover` se guarda en la causa: el próximo expediente lo vuelve a pedir (D-92).
+El texto se imprime en mayúsculas, tal como llega.
 
 **Reglas**
 
@@ -8106,6 +7964,18 @@ Con `version`, `parts` y `document.sizeBytes` el cliente arma el diálogo
 		"message": "Los datos enviados no son válidos.",
 		"details": {
 			"documentIds": "Un documento no está en la carpeta de la causa o es un expediente anterior."
+		}
+	}
+}
+```
+
+```json
+{
+	"error": {
+		"code": "VALIDATION_ERROR",
+		"message": "Los datos enviados no son válidos.",
+		"details": {
+			"cover": "La parte de la carátula solo corresponde al fuero penal."
 		}
 	}
 }
@@ -8287,16 +8157,17 @@ es solo del Administrador.
 Esta versión es la primera en la que la matriz **restringe la lectura** de algo:
 los modelos formales y los tableros no están abiertos a los tres perfiles.
 
-**(V5)** Los documentos de la causa (HU38) son la tercera lectura restringida,
-y la primera que **deja afuera al Administrador**: la matriz dice "—" para ese
-perfil. Generar el expediente (HU25), en cambio, es de los tres. La tensión
-entre las dos filas está en C-27.
+**(V5)** Dos apartamientos de la matriz, decididos por el equipo:
 
-**(V5)** HU23 ("Descargar Modelo Formal") figura en la matriz dentro de
-"Gestionar causas" (HU18 a HU25), abierta a los tres perfiles, pero su endpoint
-es la descarga de modelos de V4, restringida a `ADMINISTRATOR` o `LAWYER`
-("Administrar modelos formales", HU34 a HU37). El contrato mantiene la
-restricción de V4 (D-90); ver C-30.
+- **Consultar documentos de causa (HU38).** La matriz dice "—" para el
+  Administrador, pero generar el expediente (HU25), que se arma eligiendo
+  documentos, es de los tres. El equipo abrió la **lista** a los tres perfiles
+  (C-27). La descarga de un documento que no es un expediente sigue siendo de
+  `LAWYER` o `SECRETARY` (D-103).
+- **Descargar Modelo Formal (HU23).** Figura dentro de "Gestionar causas"
+  (HU18 a HU25), abierta a los tres, pero descarga modelos formales: quien no
+  puede ver los modelos no los descarga. Se mantiene la restricción de V4 a
+  `ADMINISTRATOR` o `LAWYER` (D-90, C-30).
 
 **Actos procesales.** Las filas marcadas con ¹ se restringen además a cada
 causa: solo el abogado responsable opera sus actos. Ningún otro abogado ni el
@@ -8318,7 +8189,7 @@ causa: solo el abogado responsable opera sus actos. Ningún otro abogado ni el
 | `/cases/{caseId}/folder`           | -                             | Cualquier usuario autenticado                                    |
 | `/cases/{caseId}/procedural-acts`  | Cualquier usuario autenticado; `deadline-preview`, solo el abogado responsable | Abogado responsable de la causa, también `PATCH` **(V5)** |
 | `/cases/{caseId}/interruptive-acts` | Cualquier usuario autenticado | Abogado responsable de la causa                                 |
-| `/cases/{caseId}/documents`        | `LAWYER` o `SECRETARY`; la descarga de un expediente, cualquier usuario autenticado **(V5)** | -                  |
+| `/cases/{caseId}/documents`        | Cualquier usuario autenticado; la descarga de un documento que no es un expediente, `LAWYER` o `SECRETARY` **(V5)** | -  |
 | `/cases/{caseId}/case-files`       | -                             | Cualquier usuario autenticado **(V5)**                           |
 | `/document-templates`              | `ADMINISTRATOR` o `LAWYER`    | `ADMINISTRATOR` o `LAWYER`                                       |
 | `/dashboards/lawyer`               | `LAWYER`                      | -                                                                |
@@ -8444,7 +8315,7 @@ carpetas que crea el sistema.
 
   | Nivel      | Qué es                                                                                   | Ejemplo                                        |
   | ---------- | ---------------------------------------------------------------------------------------- | ---------------------------------------------- |
-  | `abogado`  | El abogado responsable de la causa al crearse la carpeta, como `Apellido, Nombres`       | `Ríos, Malena`                                 |
+  | `abogado`  | El abogado responsable de la causa, como `Apellido, Nombres`. **(V5)** Sigue al responsable y al nombre vigentes (C-26) | `Ríos, Malena` |
   | `fuero`    | El rótulo en castellano del fuero                                                        | `Penal`, `Administrativo`, `Amparo`            |
   | `carátula` | La carátula de la causa (`caption`), tal como está registrada                            | `GÓMEZ, Ariel Fernando p.s.a. Robo calificado` |
 
@@ -8462,7 +8333,10 @@ carpetas que crea el sistema.
   correo de cada usuario vigente que tenga el rol `LAWYER` o `SECRETARY`, como
   editor; todo lo que hay adentro hereda ese acceso. Son los perfiles que
   consultan documentos de causa según la matriz de permisos; un usuario que solo
-  es `ADMINISTRATOR` no recibe acceso. El acceso se da y se quita solo, con el
+  es `ADMINISTRATOR` no recibe acceso. **(V5)** Ese usuario ve la lista de
+  documentos por la API (C-27), pero no entra a Drive. El correo con que se
+  registra al usuario tiene que ser de una cuenta de Google: es la que recibe
+  el acceso (C-23). El acceso se da y se quita solo, con el
   alta, la modificación y la baja de usuarios (ver
   [§3.2](#32-gestión-de-usuarios-users)), y el proceso diario lo revisa (D-83).
 - **Cuándo se crea la carpeta.** Al registrar la causa, si `createFolder` es
@@ -8477,17 +8351,30 @@ carpetas que crea el sistema.
   pero falló la copia de algún modelo, queda `CREATED` con `templatesPending`
   mayor a `0`. Es la mitigación que la arquitectura de backend ya había
   adoptado para este riesgo (R-03).
-- **La carpeta no se renombra ni se mueve** en esta versión. **(V5)** Tampoco
-  cuando la causa cambia de carátula, de responsable o de fuero
-  (`PATCH /cases/{caseId}`), ni cuando un abogado cambia de nombre
-  (`PATCH /lawyers/{lawyerId}`); la baja de la causa tampoco la toca. Ver C-26.
+- **(V5) La carpeta sigue a la causa** (C-26). Reemplaza la regla de V4 de que
+  la carpeta no se renombra ni se mueve (D-61):
+
+  | Cambio                                                        | Qué pasa en Drive                                                         |
+  | ------------------------------------------------------------- | ------------------------------------------------------------------------- |
+  | Cambia la carátula (`PATCH /cases/{caseId}`)                  | Se renombra la carpeta de la causa, con las mismas reglas de nombre       |
+  | Cambia el responsable (`PATCH /cases/{caseId}`)               | La carpeta de la causa se mueve a `/{nuevo abogado}/{fuero}/`, que se crea si no existe |
+  | Cambia el nombre de un abogado (`PATCH /lawyers/{lawyerId}`)  | Se renombra la carpeta del abogado. Las de sus causas quedan adentro      |
+  | Se da de baja la causa (`DELETE /cases/{caseId}`)             | Nada                                                                      |
+
+  El fuero no cambia (D-95), así que una carpeta nunca cambia de carpeta de
+  fuero. Mover y renombrar no necesitan más permisos que `drive.file`, porque
+  la app creó esas carpetas; lo que las personas subieron adentro se mueve con
+  ellas. **Si Drive no responde, la modificación no falla**: se guarda igual y
+  la carpeta queda como estaba, `folder.path` informa dónde está realmente, y
+  se corrige al reintentar `POST /cases/{caseId}/folder` o con el proceso
+  diario. Es el mismo criterio que la creación (R-03, D-60).
 - **Qué hay adentro.** Los modelos copiados. El resto de la documentación la
   suben los abogados y la secretaría directamente a Drive. **(V5)** Además, los
   expedientes que genera el sistema (HU25).
 - **(V5) Lectura de los documentos.** `GET /cases/{caseId}/documents` lee la
   carpeta en cada pedido (D-100). Para ver lo que suben las personas, el
-  backend necesita el permiso `drive.readonly` además de `drive.file`
-  (ADR-003 §4.1); es la decisión pendiente C-24.
+  backend opera con el permiso `drive.readonly` además de `drive.file`
+  (ADR-003 §4.1, C-24).
 
 ### Proceso automático diario
 
@@ -8505,6 +8392,7 @@ Cada corrida tiene dos pasos:
 | Avisar      | 30  | Envía por correo lo que encontró HU51                                                                    |
 | Avisar      | 32  | Envía por correo lo que encontró HU52                                                                    |
 | Ajustar     | 39  | Revisa que la carpeta raíz de Drive esté compartida exactamente con los usuarios que corresponde, y corrige lo que haya quedado pendiente |
+| Ajustar     | 19, 14 | **(V5)** Revisa que las carpetas de las causas y de los abogados tengan el nombre y la ubicación que corresponden, y corrige los movimientos y cambios de nombre que Drive no aceptó en su momento (C-26) |
 
 La verificación **no guarda un estado calculado** en la causa: aplica las mismas
 reglas que la API usa en cada lectura (`currentState.businessDaysRemaining`,
@@ -8783,9 +8671,9 @@ es que aparecen causas modificadas y que desaparecen las dadas de baja.
 
 | Endpoint | HU | Motivo |
 | --- | --- | --- |
-| `PATCH /cases/{caseId}` | 19 | "Modificar causa" del detalle, con los grupos Identificación, Cliente y rol procesal, Carátula del expediente y Asignación del prototipo |
+| `PATCH /cases/{caseId}` | 19 | "Modificar causa" del detalle. El fuero no se modifica (D-95); el cliente sí (C-31). Mueve y renombra la carpeta de Drive (C-26) |
 | `DELETE /cases/{caseId}` | 21 | "Dar de baja" del detalle, con motivo opcional |
-| `GET /cases/{caseId}/cover` | 24 | La hoja de carátula en PDF: vista previa, hoja 1 del expediente e impresión suelta |
+| `GET /cases/{caseId}/cover` | 24 | La hoja de carátula en PDF, armada con los datos de la causa: vista previa e impresión suelta. La hoja 1 del expediente es la misma, con las observaciones y la parte penal que envía el cliente |
 | `PATCH /cases/{caseId}/procedural-acts/{actId}` | 28 | "Modificar" en un acto del ciclo de vida |
 | `GET /cases/{caseId}/documents` | 38 | Tarjeta "Documentación" del detalle y lista de documentos de "Generar expediente" |
 | `GET /cases/{caseId}/documents/{documentId}/file` | 38, 25 | Descarga a través de la API: "Descargar" e "Imprimir" del expediente generado |
@@ -8799,17 +8687,18 @@ desde V4).
 
 | Endpoint | V4 | V5 | ¿Rompe? | Decisión |
 | --- | --- | --- | :---: | --- |
-| `POST /cases`, `GET /cases`, `GET /cases/{caseId}` | Sin secretario/a ni datos de carátula | Suman `courtSecretaryName` y `cover` en la respuesta, y aceptan los dos en el alta, opcionales | No | D-91, D-92 |
+| `POST /cases`, `PATCH /cases/{caseId}` | El SAC es único en todo el sistema | El SAC es único entre las causas vigentes: el de una causa dada de baja se puede volver a usar | No | D-97 |
 | `GET /cases`, `GET /cases/{caseId}` y subrecursos | Toda causa es activa | Las causas dadas de baja no aparecen y responden `404` | No | D-97 |
 | Acto procesal (`POST`, listado, `GET` de un acto y línea de vida) | Sin datos de modificación | Suma `lastModifiedBy` y `lastModifiedAt`, `null` hasta que se modifique | No | D-98 |
-| `PATCH /lawyers/{lawyerId}` | "Sin cambios respecto de V2" | Misma forma; se precisan obligatorios, unicidad y efectos (CA-14.1 a CA-14.6) | No | D-89 |
+| `PATCH /lawyers/{lawyerId}` | "Sin cambios respecto de V2" | Misma forma; se precisan obligatorios, unicidad y efectos (CA-14.1 a CA-14.6). Cambiar el nombre renombra la carpeta del abogado en Drive | No | D-89, C-26 |
 | `court` de la causa | "Tribunal o dependencia" | "Órgano interviniente": cambia el rótulo, no el campo | No | D-91 |
+| `POST /users`, `PATCH /users/{userId}` | El correo tenía que ser de Google "para que el acceso funcione" (punto abierto) | Misma forma. El correo de un `LAWYER` o `SECRETARY` es el que recibe el acceso a Drive y tiene que ser de una cuenta de Google | No | C-23 |
+| `POST /cases/{caseId}/folder` | Crea o reintenta la carpeta | Además completa un movimiento o cambio de nombre que Drive no aceptó | No | C-26 |
 
 ### 7.3 Enumerados incorporados
 
-| Enumerado | Motivo |
-| --- | --- |
-| `CoverTemplate` | Plantilla de la carátula: penal, o administrativa para el administrativo y el amparo |
+Ninguno. La plantilla de la carátula la elige el backend según el fuero y no
+viaja en la API (D-93).
 
 ### 7.4 Códigos de error y códigos HTTP
 
@@ -8820,8 +8709,8 @@ desde V4).
 modificaciones que no se admiten en una causa "Prescripta";
 `DOCUMENT_STORAGE_UNAVAILABLE` cubre la lectura de documentos, su descarga y la
 generación del expediente; `FORBIDDEN` cubre la modificación de un acto por
-quien no es el responsable y la consulta de documentos sin `LAWYER` ni
-`SECRETARY`.
+quien no es el responsable y la descarga de un documento que no es un
+expediente sin `LAWYER` ni `SECRETARY`.
 
 **Ningún código de error se retira. No hay códigos HTTP nuevos.**
 
@@ -8834,8 +8723,12 @@ quien no es el responsable y la consulta de documentos sin `LAWYER` ni
 - **Lectura en vivo de un servicio externo:** los documentos de la causa no se
   guardan; se leen de Drive en cada pedido.
 - **Un `DELETE` con cuerpo opcional:** el motivo de la baja de una causa.
-- **Valores sugeridos que dejan de serlo al editarse:** las partes de la
-  carátula (`partiesSuggested`).
+- **Datos que se envían para un documento y no se guardan:** las observaciones
+  y la parte penal de la carátula, en el cuerpo de
+  `POST /cases/{caseId}/case-files`.
+- **Efectos en Drive que no hacen fallar la operación:** la carpeta de la causa
+  se mueve y se renombra con el `PATCH`, y si Drive no responde se corrige
+  después (C-26).
 - **Reemplazo completo de una lista en un `PATCH`:** `legalQualifications` de la
   causa.
 
@@ -8846,10 +8739,11 @@ quien no es el responsable y la consulta de documentos sin `LAWYER` ni
 | "Modificar causa" y "Dar de baja" (§3.7, §8.3) | Hecho: `PATCH` y `DELETE /cases/{caseId}` |
 | Los datos por fuero "se cargan solo al registrar la causa; modificarlos llega con HU19" (D-67) | Hecho: todos se modifican con `PATCH /cases/{caseId}` |
 | "Emitir carátula" y "Emitir expediente" (§8.3) | Hecho: `GET /cases/{caseId}/cover` y `POST /cases/{caseId}/case-files` |
-| La lista de documentos de la carpeta (D-66, §8.3) | Hecho: `GET /cases/{caseId}/documents`, con la decisión de permisos de Drive pendiente (C-24) |
+| La lista de documentos de la carpeta (D-66, §8.3) | Hecho: `GET /cases/{caseId}/documents`, con `drive.readonly` (C-24) |
 | "Modificar" un acto (§8.3) | Hecho: `PATCH /cases/{caseId}/procedural-acts/{actId}`. "Anular" sigue para el Sprint 5 |
 | `PATCH /lawyers/{lawyerId}` "planificada para el Sprint 4" | Se mantiene y se precisa |
-| HU38 y el permiso `drive.readonly` (ADR-003 §4.1: "La decisión se toma al planificar HU38") | Contratado asumiendo `drive.readonly`; la decisión queda para el equipo (C-24) |
+| HU38 y el permiso `drive.readonly` (ADR-003 §4.1: "La decisión se toma al planificar HU38") | Decidido: `drive.readonly` (C-24) |
+| "La carpeta no se renombra ni se mueve" (D-61) | Reemplazado: la carpeta sigue a la carátula, al responsable y al nombre del abogado (C-26) |
 | P-08 de `PENDIENTE_DEFINICION.md`: dónde vive la generación de carátula y expediente | No es del contrato: la API es la misma en los dos casos. Sigue pendiente en la arquitectura |
 
 ### 7.7 Registro: cambios de V4 respecto de V3
@@ -8967,25 +8861,31 @@ D-87.
 
 | ID | Decisión | Fundamento |
 | --- | --- | --- |
-| D-87 | El alcance es HU 14, 19, 21, 23, 24, 25, 28 y 38 | Sprint "VZ Sprint 4" de Jira (25/10/2026 – 06/11/2026). Coincide con el Story Map del Seguimiento v1.3, salvo el nombre de HU23 (ver C-30) |
+| D-87 | El alcance es HU 14, 19, 21, 23, 24, 25, 28 y 38 | Sprint "VZ Sprint 4" de Jira (25/10/2026 – 06/11/2026). Coincide con el Story Map del Seguimiento v1.3, salvo el nombre de HU23, que el equipo confirmó como "Descargar Modelo Formal" (C-30) |
 | D-88 | V5 es autocontenido y V4 queda sin modificar | Mismo criterio que V4 respecto de V3 (D-46). Lo heredado conserva su redacción; lo nuevo se marca **(V5)** |
-| D-89 | HU14 no cambia la forma de `PATCH /lawyers/{lawyerId}`: se precisan los obligatorios (no se vacían), la unicidad de la matrícula (enviar la propia no es conflicto), que las causas referencian y no copian al abogado, y que la carpeta no se renombra | Criterios CA-14.1 a CA-14.6 de Jira y formulario "Modificar abogado" del prototipo (Apellido, Nombres, Matrícula, los tres obligatorios). El endpoint está contratado desde V2 y no implementado: no hay nada que migrar |
-| D-90 | HU23 ("Descargar Modelo Formal") es `GET /document-templates/{templateId}/file` de V4, con su restricción a `ADMINISTRATOR` o `LAWYER` | El botón "Descargar" de la pantalla Modelos es ese endpoint; la Secretaría no ve la sección "Modelos" en el prototipo. La matriz pone HU23 en "Gestionar causas", abierta a los tres: se mantiene V4 hasta que el equipo decida (C-30) |
-| D-91 | La causa suma `courtSecretaryName`, el secretario/a del órgano interviniente. `court` cambia de rótulo ("Órgano interviniente") pero no de nombre | El prototipo agrega "Secretario/a" en el alta, el detalle y "Modificar causa", y la hoja de carátula lo imprime. Renombrar `court` rompería a un cliente de V4 sin ganar nada. `courtSecretaryName` y no `secretaryName` para no confundirlo con el perfil `SECRETARY` |
-| D-92 | La causa suma `cover` con las partes ("Actor / querellante", "Demandado / imputado") y las observaciones de la carátula. Las partes se sugieren con los datos de la causa mientras nadie las escriba (`partiesSuggested`), se guardan y se vuelven a sugerir **juntas**, y el cliente las envía solo si el usuario las editó | Grupo "Carátula del expediente" del prototipo y su regla `carSug`. Las plantillas del estudio muestran que el texto de las partes es libre (varios imputados, "QUERELLANTE (…)" con el defensor), así que no alcanza con derivarlo; pero el prototipo promete que "la carátula se actualiza sola" al modificar la causa. Guardar las dos partes juntas evita una carátula con una parte vieja y otra nueva |
-| D-93 | Hay dos plantillas de carátula, `CRIMINAL` y `ADMINISTRATIVE`; el amparo usa la administrativa. La plantilla la deriva el backend del fuero | Pedido del equipo ("la carátula de administrativo se usa para amparo también") y prototipo (`PLANTILLA_TXT`). Las tres plantillas del estudio comparten la hoja; la de querellante es la penal con otra forma de llenar las partes, que resuelve la regla de sugerencia según el rol procesal |
-| D-94 | La carátula la genera **el backend** en PDF, siempre con la misma función: para la vista previa, para la hoja 1 del expediente y para imprimirla suelta (`GET /cases/{caseId}/cover`). No se guarda | Mismo criterio que D-20: lo que el usuario ve antes de generar el expediente tiene que ser lo que se imprime. El prototipo dibuja la vista previa en el cliente con la imagen de la plantilla; con el contrato, la vista previa es el PDF real. HU24 pide "emitir" la carátula para rotular el expediente físico, aunque el prototipo ya no tenga un botón aparte |
-| D-95 | **Provisoria.** `PATCH /cases/{caseId}` permite cambiar el fuero: vacía los datos del fuero anterior, exige los obligatorios del nuevo, conserva los actos y lleva el estado actual a un estado del fuero nuevo con el mismo nombre o, si no hay, a un estado escrito a mano con ese nombre, sin tocar el vencimiento | El prototipo ofrece el cambio ("los actos se conservan y el estado procesal se reasigna según el ciclo de vida del nuevo fuero") sin decir cómo se reasigna. La regla elegida no inventa un estado ni pierde el vencimiento abierto. Requiere confirmación del equipo (C-25) |
-| D-96 | Una causa en estado terminal se puede modificar, salvo el fuero y las calificaciones legales de una causa "Prescripta" | Corregir un dato mal cargado de una causa archivada es el uso normal de HU19. El fuero y las calificaciones son lo que sostiene la declaración de prescripción (D-53, D-74) |
-| D-97 | La baja de una causa es lógica, la puede hacer cualquier perfil, acepta un motivo opcional en el cuerpo del `DELETE` y deja la causa inexistente para el cliente, con todos sus subrecursos. El SAC queda ocupado. La carpeta de Drive no se toca | RN12, matriz de permisos y formulario "Dar de baja la causa" del prototipo ("Motivo (opcional)"). Un cuerpo en el `DELETE` evita un endpoint aparte solo para el motivo. El SAC ocupado es lo que dice el diccionario de datos sobre RN2; ver C-32 |
+| D-89 | HU14 no cambia la forma de `PATCH /lawyers/{lawyerId}`: se precisan los obligatorios (no se vacían), la unicidad de la matrícula (enviar la propia no es conflicto) y que las causas referencian y no copian al abogado. **(Revisión del 27/10/2026)** Cambiar el nombre renombra la carpeta del abogado en Drive (D-104) | Criterios CA-14.1 a CA-14.6 de Jira y formulario "Modificar abogado" del prototipo (Apellido, Nombres, Matrícula, los tres obligatorios). El endpoint está contratado desde V2 y no implementado: no hay nada que migrar |
+| D-90 | HU23 ("Descargar Modelo Formal") es `GET /document-templates/{templateId}/file` de V4, con su restricción a `ADMINISTRATOR` o `LAWYER` | El botón "Descargar" de la pantalla Modelos es ese endpoint, y solo descarga modelos formales: quien no puede ver los modelos no los descarga (respuesta del equipo a C-30). La Secretaría no ve la sección "Modelos" en el prototipo |
+| D-91 | **(Revisión del 27/10/2026)** La causa no suma datos para la carátula. El secretario/a del órgano que imprime la hoja es el instructor de la causa (`instructorName`). `court` cambia de rótulo ("Órgano interviniente") pero no de nombre | Definido por el equipo. Reemplaza el `courtSecretaryName` de la primera redacción de V5: el instructor ya es el dato que el estudio carga. Renombrar `court` rompería a un cliente de V4 sin ganar nada |
+| D-92 | **(Revisión del 27/10/2026)** Nada de la carátula se guarda en la causa: el alta y la modificación quedan como en V4. `GET /cases/{caseId}/cover` arma la hoja con los datos de la causa y las observaciones vacías; al generar el expediente, el cliente envía las observaciones y, en el fuero penal, la parte que no está registrada en la causa (el querellante si el cliente es defensa, el imputado si es querellante) | Definido por el equipo. Reemplaza el `cover` guardado con partes sugeridas (`partiesSuggested`) de la primera redacción de V5. La causa penal solo registra al cliente, así que la otra parte no se puede derivar; pedirla en "Generar expediente" evita guardar un dato que solo usa la hoja |
+| D-93 | Hay dos plantillas de carátula, la penal y la administrativa; el amparo usa la administrativa. La plantilla la elige el backend según el fuero y no viaja en la API | Pedido del equipo ("la carátula de administrativo se usa para amparo también") y prototipo (`PLANTILLA_TXT`). Las tres plantillas del estudio comparten la hoja; la de querellante es la penal con otra forma de llenar las partes, que resuelve la regla de partes según el rol procesal. **(Revisión del 27/10/2026)** Se retira el enumerado `CoverTemplate`, que solo existía para el `cover` guardado |
+| D-94 | La carátula la genera **el backend** en PDF, siempre con la misma función: para la vista previa y para imprimirla suelta (`GET /cases/{caseId}/cover`), y para la hoja 1 del expediente, con las observaciones y la parte penal que envía el cliente. No se guarda | Mismo criterio que D-20: lo que el usuario ve antes de generar el expediente es lo que se imprime, salvo lo que él mismo completa. HU24 pide "emitir" la carátula para rotular el expediente físico, aunque el prototipo ya no tenga un botón aparte |
+| D-95 | **(Revisión del 27/10/2026)** El fuero de una causa no se modifica: `PATCH /cases/{caseId}` rechaza `jurisdiction` con `400 VALIDATION_ERROR`. Una causa registrada en el fuero equivocado se da de baja y se registra de nuevo | Definido por el equipo (C-25). Reemplaza la regla provisoria de la primera redacción de V5, que permitía el cambio y reasignaba el estado procesal. Mismo criterio que D-36 para los estados procesales. Como el SAC se libera con la baja (D-97), registrar de nuevo es posible |
+| D-96 | Una causa en estado terminal se puede modificar, salvo las calificaciones legales de una causa "Prescripta" | Corregir un dato mal cargado de una causa archivada es el uso normal de HU19. Las calificaciones son lo que sostiene la declaración de prescripción (D-53, D-74). El fuero no figura porque no se modifica en ninguna causa (D-95) |
+| D-97 | La baja de una causa es lógica, la puede hacer cualquier perfil, acepta un motivo opcional en el cuerpo del `DELETE` y deja la causa inexistente para el cliente, con todos sus subrecursos. **(Revisión del 27/10/2026)** El SAC queda libre: es único entre las causas vigentes. La carpeta de Drive no se toca | RN12, matriz de permisos y formulario "Dar de baja la causa" del prototipo ("Motivo (opcional)"). Un cuerpo en el `DELETE` evita un endpoint aparte solo para el motivo. Liberar el SAC lo definió el equipo (C-32): permite volver a registrar bien una causa cargada mal. Se aparta del diccionario de datos, que hace el SAC único "incluidas las causas dadas de baja" |
 | D-98 | Modificar un acto procesal recalcula su plazo: con el plazo vigente de la tabla si cambia el estado, con el plazo copiado si no. El acto suma `lastModifiedBy` y `lastModifiedAt` | Si cambia el estado es como registrar de nuevo; si solo se corrige una fecha, el plazo que rige es el que se copió (§3.4, D-08). El prototipo promete "El cambio queda asentado con usuario y fecha" |
 | D-99 | Después de modificar un acto, el estado actual de la causa se recalcula con D-14 (el acto más reciente). Corregir el acto que cerró una causa puede reabrirla. Los actos de una causa "Prescripta" no se modifican | Una corrección de fecha no puede dejar a la causa en un estado que no le corresponde. Reabrir es la única forma de corregir un "Archivada" elegido por error, ya que la anulación (HU29) es del Sprint 5. "Prescripta" no la puso un acto (D-54) |
-| D-100 | Los documentos de la causa se leen de su carpeta de Drive en cada pedido, sin guardarlos ni paginarlos, y su `id` es el de Drive. Se asume el permiso `drive.readonly` | Es lo que describe el prototipo ("esta lista se lee de ahí cada vez que abrís el detalle") y lo que anticipó ADR-003 §4.1. Guardar una copia de la lista crearía dos verdades. La decisión sobre el permiso es del equipo (C-24) |
-| D-101 | El documento no tiene "Presentado", "Recibido" ni "Cargado", y su autor es el que informa Drive (`uploadedBy`), no un usuario del sistema | El prototipo deriva esas etiquetas de datos de ejemplo; Drive no tiene esa clasificación y las personas suben archivos directamente. Inventarla obligaría a mantenerla a mano |
+| D-100 | Los documentos de la causa se leen de su carpeta de Drive en cada pedido, sin guardarlos ni paginarlos, y su `id` es el de Drive. El backend opera con el permiso `drive.readonly` | Es lo que describe el prototipo ("esta lista se lee de ahí cada vez que abrís el detalle") y lo que anticipó ADR-003 §4.1. Guardar una copia de la lista crearía dos verdades. El permiso lo confirmó el equipo (C-24) |
+| D-101 | El documento no tiene "Presentado", "Recibido" ni "Cargado", y su autor es el que informa Drive (`uploadedBy`), no un usuario del sistema | El prototipo deriva esas etiquetas de datos de ejemplo; Drive no tiene esa clasificación y las personas suben archivos directamente. Inventarla obligaría a mantenerla a mano. Confirmado por el equipo: las etiquetas no van |
 | D-102 | El expediente es un PDF sincrónico, guardado en la carpeta de la causa con versión correlativa, que admite PDF, Word, documentos de Google y JPG o PNG, y no admite incluir un expediente anterior. Necesita la carpeta creada | Pantalla "Generar expediente" del prototipo: "un único PDF", "Se convierte a PDF", "Quedó guardado como nueva versión", y la lista que excluye los expedientes. Los tipos son los que el prototipo muestra (PDF, DOC, IMG) |
-| D-103 | La descarga de un documento pasa por la API; la de un expediente generado está abierta a los tres perfiles, la de cualquier otro documento solo a `LAWYER` y `SECRETARY` | Mismo motivo que D-58. Quien genera el expediente tiene que poder descargarlo e imprimirlo, y un Administrador sin otro rol no tiene acceso a la carpeta en Drive (D-83) |
+| D-103 | La descarga de un documento pasa por la API; la de un expediente generado está abierta a los tres perfiles, la de cualquier otro documento solo a `LAWYER` y `SECRETARY`. **(Revisión del 27/10/2026)** La lista de documentos está abierta a los tres perfiles (C-27) | Mismo motivo que D-58. Quien genera el expediente tiene que poder descargarlo e imprimirlo, y un Administrador sin otro rol no tiene acceso a la carpeta en Drive (D-83). El Administrador necesita la lista para elegir los documentos del expediente, pero lo único que descarga es el expediente |
+| D-104 | **(Revisión del 27/10/2026)** La carpeta de Drive sigue a la causa: se renombra si cambia la carátula, se mueve a la carpeta del nuevo responsable si cambia el responsable, y la del abogado se renombra si cambia su nombre. Si Drive no responde, la modificación no falla y el cambio se completa después, con `POST /cases/{caseId}/folder` o con el proceso diario. Reemplaza en esto a D-61 | Definido por el equipo (C-26). Una carpeta que no corresponde a la carátula o al responsable confunde a quien trabaja en Drive. Con `drive.file` alcanza, porque la app creó esas carpetas. No hacer fallar la modificación es el mismo criterio que la creación (D-60, R-03) |
+| D-105 | **(Revisión del 27/10/2026)** El cliente de una causa se puede modificar. El backend no recalcula la carátula: el cliente la propone y la envía en `caption`, en la misma petición | Definido por el equipo (C-31). Es la misma regla que el alta (§3.7): la carátula sugerida la arma el cliente |
+| D-106 | **(Revisión del 27/10/2026)** En la hoja de carátula, el abogado lleva el prefijo fijo `DR/DRA.`, igual para todos | Definido por el equipo (C-28). El sistema no sabe si corresponde "Dr." o "Dra." y el estudio prefirió no cargar ese dato en el abogado (C-13). Es una excepción a D-81 porque la hoja la escribe el backend |
 
 #### Decisiones de V4
+
+Sin cambios de redacción. Las que esta versión modifica: D-61 (la carpeta se
+renombra y se mueve, D-104) y D-81 (excepción de la hoja de carátula, D-106).
 
 | ID | Decisión | Fundamento |
 | --- | --- | --- |
@@ -9088,25 +8988,30 @@ para los estados procesales) y D-25 (por D-82).
 ### 8.2 Puntos abiertos
 
 Lo que el contrato **no puede decidir solo**. Cada punto dice qué asume hoy V5,
-para que el trabajo no se frene, y con quién hay que cerrarlo. Los dos
-primeros (C-24 y C-25) bloquean partes del Sprint 4: conviene resolverlos en la
-primera semana.
+para que el trabajo no se frene, y con quién hay que cerrarlo. Ninguno bloquea
+el Sprint 4.
 
 | ID | Punto | Qué asume hoy el contrato | Con quién | ¿Bloquea? |
 | --- | --- | --- | --- | :---: |
-| C-24 | **Permiso de Drive para HU38.** Con `drive.file` el backend solo ve lo que él creó: la tarjeta "Documentación" mostraría los modelos copiados y los expedientes, pero no lo que suben las personas. Las opciones de ADR-003 §4.1: (a) sumar `drive.readonly`, restringido, que obliga a reautorizar la cuenta de gestión y a aceptar el aviso de "app no verificada" (excepción de uso personal de Google, menos de 100 usuarios); (b) que los documentos se suban desde VZ Causas, que el prototipo no tiene | (a) `drive.readonly` | Equipo y estudio (la cuenta de gestión es del estudio) | Sí: HU38 y HU25 |
-| C-25 | **Cambio de fuero de una causa.** ¿Se permite? Si se permite, ¿cómo se reasigna el estado procesal? El prototipo lo ofrece, pero no define la reasignación | Se permite, con la regla de D-95: mismo nombre en el fuero nuevo o estado escrito a mano. Alternativas: rechazarlo si la causa tiene actos, o llevarla a "Iniciada" del fuero nuevo | Equipo / PO | Sí: HU19 |
-| C-26 | **La carpeta de Drive ante cambios.** La ruta es `/VZ Causas/Causas/{abogado}/{fuero}/{carátula}` (D-61). Si cambian el responsable, el fuero o la carátula, o el abogado cambia de nombre, la carpeta queda en un lugar o con un nombre que ya no corresponde | No se mueve ni se renombra (D-61 sin cambios); `folder.path` muestra la ubicación real. Moverla implica permisos de Drive sobre carpetas que la app creó, así que es posible con `drive.file` | Equipo | No |
-| C-27 | **Administrador sin otro rol y "Generar expediente".** La matriz le niega "Consultar documentos de causa" (HU38) pero le da "Generar expediente" (HU25), y el expediente se arma eligiendo documentos. Hoy todos los administradores del estudio son también abogados, así que el caso es teórico | Se respeta la matriz: `GET /cases/{caseId}/documents` responde `403` a ese usuario, que solo puede emitir la carátula. Si se decide abrirle la lista, cambia solo el rol del endpoint | Equipo | No |
-| C-28 | **Tratamiento en la carátula.** Las plantillas del estudio dicen "DEFENSOR: DR. FERNANDO VAZQUEZ", pero el sistema no sabe si corresponde "Dr." o "Dra." (D-81: el tratamiento lo pone el frontend, y la carátula la genera el backend) | La parte sugerida dice "DEFENSOR: VÁZQUEZ FERNANDO G.", sin tratamiento; el usuario lo puede escribir a mano. Para resolverlo bien, el abogado necesitaría un dato de tratamiento, que es el C-13 | Equipo / Cliente | No |
+| C-34 | **Rótulos de la hoja de carátula.** Los recuadros y sus rótulos ("Expte. / SAC", "Autos", "Actor / querellante", "Demandado / imputado", "Órgano interviniente" con la línea "SECRETARIO/A:", "Observaciones") salen del prototipo. La hoja tiene que usar los de las plantillas del estudio (`Caratula penal.docx`, `Caratula penal QUERELLANTE.docx`, `Caratula administrativo.docx`), que el equipo va a enviar. También queda por confirmar la forma exacta del prefijo `DR/DRA.` (D-106) | Los rótulos del prototipo | Equipo | No |
 | C-29 | **Límites del expediente.** Un expediente con muchos documentos o muy pesados puede tardar o superar lo que acepta una petición sincrónica | Sin límite contractual. Si hace falta, se agrega un máximo de tamaño con `413 FILE_TOO_LARGE`, que ya existe, o se pasa a generación en segundo plano, como la carpeta | Backend | No |
-| C-30 | **HU23 tiene dos nombres y dos permisos.** Jira y la Definición del Producto la llaman "Descargar Modelo Formal" y la ponen en EP-04; el Story Map del Seguimiento v1.3 la lista en el Sprint 4 como "Generar Línea de Tiempo de Causa". En Jira figura "Finalizada" con la descripción "REsolver". La matriz la abre a los tres perfiles; la sección Modelos, a Administrador y Abogado | Es "Descargar Modelo Formal" (Jira manda), ya contratada en V4, con la restricción de V4 (D-90) | PO / equipo | No |
-| C-31 | **El cliente de una causa no se modifica.** El formulario "Modificar causa" del prototipo no ofrece cambiar el cliente | `clientId` no es modificable. Si se cargó el cliente equivocado, la causa se da de baja y se registra de nuevo | PO | No |
-| C-32 | **SAC de una causa dada de baja.** RN2, según el diccionario de datos, hace el SAC único "incluidas las causas dadas de baja". Si una causa se registró mal y se da de baja, su SAC no se puede volver a usar | Se respeta RN2: el SAC queda ocupado. Para volver a registrarla hay que quitarle el SAC con `PATCH` antes de darla de baja. Alternativa: liberar el SAC al dar de baja | PO | No |
 | C-33 | **HU38 sin beneficio declarado.** Jira la marca: "la historia no declara el beneficio (…) Requiere refinamiento" | El contrato sigue al prototipo, que sí define la tarjeta "Documentación" | PO | No |
-| C-23 | (De V4.) **Correos que no son de Google.** Si el correo de un abogado o de la secretaría no corresponde a una cuenta de Google, Drive no le puede dar acceso a la carpeta del estudio. ¿Se exige una cuenta de Google al registrar el usuario, o alcanza con avisarlo? | El acceso queda pendiente y el proceso diario lo reintenta; la API no lo muestra | Equipo | No |
-| C-13 | **Otros datos del abogado.** Viene de V3. **(V5)** El tratamiento ("Dr.", "Dra.") para la carátula sería uno de esos datos (C-28) | El recurso abogado solo cambia en el nombre (D-68) | Cliente | No; ver C-28 |
-| C-20 | **SAC opcional y RN2.** Con el SAC opcional, nada impide registrar dos veces la misma causa sin SAC. Viene de V3 | Sin cambios | Cliente / PO | No; ver C-32 |
+| C-20 | **SAC opcional y RN2.** Con el SAC opcional, nada impide registrar dos veces la misma causa sin SAC. Viene de V3 | Sin cambios. Liberar el SAC con la baja (D-97) no lo cambia: afecta a las causas con SAC | Cliente / PO | No |
+
+**Resueltos en la revisión del 27/10/2026**
+
+| ID | Punto | Resolución |
+| --- | --- | --- |
+| C-23 | (De V4.) Correos que no son de Google | El correo que se exige al registrar el usuario es el que recibe el acceso a Drive: tiene que ser de una cuenta de Google. Si no lo es, el acceso queda pendiente, como antes (§3.2) |
+| C-24 | Permiso de Drive para HU38 | `drive.readonly`, además de `drive.file` (D-100) |
+| C-25 | Cambio de fuero de una causa | No se permite (D-95) |
+| C-26 | La carpeta de Drive ante cambios | Se renombra con la carátula, se mueve con el responsable y la del abogado se renombra con su nombre. Si Drive falla, la modificación no falla y se corrige después (D-104) |
+| C-27 | Administrador sin otro rol y "Generar expediente" | Ve la lista de documentos; de ellos, solo descarga los expedientes (D-103) |
+| C-28 | Tratamiento en la carátula | Prefijo fijo `DR/DRA.` para todos los abogados (D-106) |
+| C-30 | HU23 tiene dos nombres y dos permisos | Es "Descargar Modelo Formal", restringida a `ADMINISTRATOR` o `LAWYER` (D-90) |
+| C-31 | El cliente de una causa no se modifica | Sí se modifica; la carátula la propone el cliente (D-105) |
+| C-32 | SAC de una causa dada de baja | Se libera (D-97) |
+| C-13 | (De V3.) Otros datos del abogado | Para la carátula ya no hace falta un dato de tratamiento (D-106). El resto sigue como en V4 |
 
 Los demás puntos de V3 (C-01 a C-22) están resueltos, ya sea por las decisiones
 de V4 o porque no corresponden a estos sprints.
@@ -9120,7 +9025,7 @@ de otros sprints o no tienen historia:
 | --- | --- |
 | "Anular" un acto procesal | HU29, Sprint 5 |
 | "Registrar pago de tasa" en el detalle (concepto, monto, comprobante) | Sin historia. La causa solo tiene `courtFeePaid` (D-67), que se cambia con `PATCH /cases/{caseId}` |
-| "Adjuntar cédula o comprobante" en el acto procesal | Sin historia; implica subir archivos a Drive (ver C-24, opción b) |
+| "Adjuntar cédula o comprobante" en el acto procesal | Sin historia; implica subir archivos a Drive desde VZ Causas |
 | "Modificar", "Dar de baja" y "Reactivar" un modelo formal | HU36 y HU37, Sprint 5 |
 | "Eliminar abogado" con reasignación de sus causas | HU15, Sprint 5. El formulario del prototipo ("Reasignar sus causas a") propone una respuesta a P-05 de la arquitectura, que conviene tomar en ese sprint |
 | "Modificar" y "Eliminar" en clientes | HU10 y HU11, Sprint 5 |
@@ -9147,56 +9052,64 @@ para que el equipo las corrija; el contrato no las cambia.
 
 **Backend**
 
-- **Esquema (requiere migración).** En `cases`: el secretario/a
-  (`court_secretary_name`), las partes y las observaciones de la carátula, y el
-  motivo de la baja (la columna `active` ya existe en `schema.prisma`). Una tabla de expedientes generados, para
-  numerar las versiones (`version`, el `id` del archivo en Drive, quién y
-  cuándo). En `procedural_acts`: quién y cuándo lo modificó por última vez. Las
+- **Esquema (requiere migración).** En `cases`: el motivo de la baja (la
+  columna `active` ya existe en `schema.prisma`), y la unicidad del SAC pasa a
+  contar solo las causas vigentes (D-97): hoy es un `@unique` sobre
+  `sac_number` y tiene que ser un índice único parcial. Una tabla de
+  expedientes generados, para numerar las versiones (`version`, el `id` del
+  archivo en Drive, quién y cuándo). En `procedural_acts`: quién y cuándo lo
+  modificó por última vez. La carátula **no** suma columnas (D-91, D-92). Las
   migraciones las corre el equipo con `npx prisma migrate dev`, según
   `USO_PRISMA.md`.
 - **`cases`.** Casos de uso de modificación y baja de causa y de modificación
-  de acto, con el recálculo del estado actual (D-99) y el cambio de fuero
-  (D-95). Todas las lecturas de causas y de sus subrecursos excluyen las dadas
-  de baja; también `reporting` (tableros) y `deadlines` (proceso diario).
-- **Regla de partes sugeridas.** Una sola función, usada por la causa, la
-  carátula y el expediente.
+  de acto, con el recálculo del estado actual (D-99). La modificación avisa a
+  `documents` cuando cambian la carátula o el responsable, sin fallar si Drive
+  no responde (D-104). Todas las lecturas de causas y de sus subrecursos
+  excluyen las dadas de baja; también `reporting` (tableros) y `deadlines`
+  (proceso diario).
+- **Regla de partes de la carátula.** Una sola función, usada por
+  `GET /cases/{caseId}/cover` y por el expediente (D-94).
 - **`documents`.** Lectura de la carpeta y descarga de archivos de Drive
   (puerto ya previsto en ADR-003 §4.1), generación del PDF de la carátula y del
   expediente (conversión de Word y documentos de Google con Drive, imágenes a
-  A4, unión de PDFs) y guardado del resultado. Dónde vive la generación es P-08
-  de la arquitectura. Hace falta una librería de PDF.
-- **Drive.** Si se confirma C-24, sumar `drive.readonly` al cliente OAuth
-  compartido (`GOOGLE_OAUTH_CLIENTE_COMPARTIDO.md`) y reautorizar la cuenta de
-  gestión.
+  A4, unión de PDFs) y guardado del resultado. Mover y renombrar carpetas, y
+  la revisión diaria de nombres y ubicaciones (D-104). Dónde vive la
+  generación es P-08 de la arquitectura. Hace falta una librería de PDF.
+- **Drive.** Sumar `drive.readonly` al cliente OAuth compartido
+  (`GOOGLE_OAUTH_CLIENTE_COMPARTIDO.md`) y reautorizar la cuenta de gestión
+  (C-24).
 - **`PATCH /lawyers/{lawyerId}`.** Está contratado desde V2 pero no
-  implementado (el controlador de `people` no tiene `@Patch`).
+  implementado (el controlador de `people` no tiene `@Patch`). Si cambia el
+  nombre, avisa a `documents` para renombrar la carpeta del abogado (D-104).
 
 **Frontend**
 
-- **Tipos y *mocks*.** `courtSecretaryName`, `cover`, `CoverTemplate`,
-  `lastModifiedBy`, `lastModifiedAt`, el recurso documento y la respuesta del
-  expediente.
-- **Formularios.** "Modificar causa" (el grupo de fuero muestra los campos que
-  correspondan al fuero elegido), "Dar de baja", "Modificar acto procesal" y
-  "Modificar abogado". El alta y la modificación de causa envían las partes de
-  la carátula solo si el usuario las editó (D-92).
+- **Tipos y *mocks*.** `lastModifiedBy`, `lastModifiedAt`, el recurso
+  documento, el cuerpo y la respuesta del expediente.
+- **Formularios.** "Modificar causa" (sin el fuero, con el cliente: al cambiar
+  el cliente propone la carátula nueva y la envía en `caption`), "Dar de baja",
+  "Modificar acto procesal" y "Modificar abogado".
 - **Vista previa de la carátula.** Muestra el PDF de `GET /cases/{caseId}/cover`
   en lugar de dibujarlo sobre la imagen de la plantilla.
-- **Generar expediente.** Lista de `GET /cases/{caseId}/documents` sin los
-  expedientes, orden por arrastre y `documentIds` en ese orden.
+- **Generar expediente.** Pide las observaciones y, en una causa penal, la
+  parte que no es el cliente; lista de `GET /cases/{caseId}/documents` sin los
+  expedientes, orden por arrastre, y envía `cover` y `documentIds` en ese
+  orden. La lista se le muestra también al Administrador (C-27).
 - **Archivos.** Dos descargas binarias nuevas, con `disposition`.
 
 **Documentación**
 
-- **Glosario.** Faltan `courtSecretaryName`, `cover`, `CoverTemplate`,
-  `plaintiffParty`, `defendantParty`, `partiesSuggested`, `CaseFile` como
-  recurso (ya está como concepto), `Document`, `uploadedBy`,
-  `convertibleToPdf`, `lastModifiedBy` y `lastModifiedAt`, además de lo que V4
-  dejó pendiente.
+- **Glosario.** Faltan `opposingParty`, `CaseFile` como recurso (ya está como
+  concepto), `Document`, `uploadedBy`, `convertibleToPdf`, `lastModifiedBy` y
+  `lastModifiedAt`, además de lo que V4 dejó pendiente.
+- **Diccionario de datos.** `DICCIONARIO_DATOS.md` dice que el SAC es único
+  "incluidas las causas dadas de baja" (RN2); D-97 lo cambia.
 - **Referencias.** El `CLAUDE.md`, el glosario y la documentación de frontend
   citan V4 (o V3) como contrato vigente: hay que apuntarlos a V5.
 - **OpenAPI.** `docs/openapi` tiene que sumar los endpoints nuevos.
-- **ADR-003.** §4.1 se cierra con la decisión de C-24.
+- **ADR-003.** §4.1 se cierra con `drive.readonly` (C-24), y la regla de que la
+  carpeta no se mueve ni se renombra cambia con D-104. Además, §2.3 y §4 citan
+  "C-45" para los correos que no son de Google: es C-23.
 
 #### Impacto de V4 (registro)
 
@@ -9290,19 +9203,21 @@ frontend a la vez:
 
 | HU | Qué entra al contrato | Pendiente |
 | --- | --- | --- |
-| 14 | `PATCH /lawyers/{lawyerId}`, sin cambio de forma: obligatorios, matrícula única y efectos (D-89) | — |
-| 19 | `PATCH /cases/{caseId}`: identificación, secretario/a, rol, calificaciones, datos por fuero, carátula, responsable, fecha de inicio y tasa; cambio de fuero provisorio (D-95, D-96) | C-25, C-26, C-31 |
-| 21 | `DELETE /cases/{caseId}`: baja lógica con motivo opcional; la causa desaparece con sus subrecursos (D-97) | C-32 |
-| 23 | `GET /document-templates/{templateId}/file`, ya contratado en V4 (D-90) | C-30 |
-| 24 | `courtSecretaryName` y `cover` en la causa; `GET /cases/{caseId}/cover` en PDF; `CoverTemplate` (D-91 a D-94) | C-28 |
-| 25 | `POST /cases/{caseId}/case-files`: carátula más documentos elegidos, en orden, en un PDF versionado guardado en Drive; descarga con `GET .../documents/{documentId}/file` (D-102, D-103) | C-24, C-27, C-29 |
+| 14 | `PATCH /lawyers/{lawyerId}`, sin cambio de forma: obligatorios, matrícula única y efectos; el cambio de nombre renombra la carpeta del abogado (D-89, D-104) | — |
+| 19 | `PATCH /cases/{caseId}`: identificación, cliente, rol, calificaciones, datos por fuero, carátula, responsable, fecha de inicio y tasa. El fuero no se modifica. La carpeta de Drive sigue a la carátula y al responsable (D-95, D-96, D-104, D-105) | — |
+| 21 | `DELETE /cases/{caseId}`: baja lógica con motivo opcional; la causa desaparece con sus subrecursos y su SAC queda libre (D-97) | — |
+| 23 | `GET /document-templates/{templateId}/file`, ya contratado en V4 (D-90) | — |
+| 24 | `GET /cases/{caseId}/cover` en PDF, armada con los datos de la causa, sin datos nuevos en el recurso (D-91 a D-94, D-106) | C-34 |
+| 25 | `POST /cases/{caseId}/case-files`: carátula, con las observaciones y la parte penal que envía el cliente, más los documentos elegidos, en orden, en un PDF versionado guardado en Drive; descarga con `GET .../documents/{documentId}/file` (D-92, D-102, D-103) | C-29, C-34 |
 | 28 | `PATCH /cases/{caseId}/procedural-acts/{actId}`, con recálculo del plazo y del estado actual; `lastModifiedBy` y `lastModifiedAt` (D-98, D-99) | — |
-| 38 | `GET /cases/{caseId}/documents`, leído de Drive en cada pedido; `GET .../documents/{documentId}/file` (D-100, D-101, D-103) | C-24, C-33 |
+| 38 | `GET /cases/{caseId}/documents`, leído de Drive en cada pedido con `drive.readonly`, abierto a los tres perfiles; `GET .../documents/{documentId}/file` (D-100, D-101, D-103) | C-33 |
 
-En números: **7 endpoints nuevos** y **7 modificados** (más `PATCH /lawyers/{lawyerId}`, precisado), ninguno de forma
-incompatible con V4; 1 enumerado y 3 códigos de error nuevos; 17 decisiones
-(D-87 a D-103) y 10 puntos abiertos nuevos (C-24 a C-33), 2 de ellos
-bloqueantes.
+En números: **7 endpoints nuevos** y **8 modificados** (más `PATCH /lawyers/{lawyerId}`, `POST /users` y
+`PATCH /users/{userId}`, precisados), ninguno de forma incompatible con V4;
+ningún enumerado y 3 códigos de error nuevos; 20 decisiones (D-87 a D-106) y
+11 puntos abiertos nuevos (C-24 a C-34). La revisión del 27/10/2026 resolvió
+ocho de ellos, más C-13 y C-23; quedan abiertos C-29, C-33 y C-34, ninguno
+bloqueante.
 
 ### Sprint 3 (V4, registro)
 
@@ -9336,50 +9251,63 @@ nuevos; 40 decisiones (D-45 a D-84) y 3 puntos abiertos.
 **Qué se hizo.** Se contrató el Sprint 4 sobre la base de V4, sin modificar
 `API_CONTRACT_V4.md`. Las ocho historias del sprint en Jira quedan cubiertas:
 dos ya tenían endpoint (HU14 y HU23) y las otras seis suman siete endpoints
-nuevos y tres datos nuevos en recursos existentes. Nada de lo que ya funciona se
-rompe.
+nuevos. Nada de lo que ya funciona se rompe.
+
+**Revisión del 27/10/2026.** El equipo respondió los puntos abiertos de la
+primera redacción, y el contrato cambió en consecuencia:
+
+- **La carátula no se guarda.** Se retiraron `courtSecretaryName`, `cover` y el
+  enumerado `CoverTemplate`: el alta y la modificación de la causa quedan como
+  en V4. La hoja se arma con los datos de la causa; el secretario/a del órgano
+  es el instructor; las observaciones y, en penal, la parte que no es el
+  cliente se envían al generar el expediente (D-91, D-92).
+- **El fuero no cambia; el cliente, sí** (D-95, D-105).
+- **El SAC de una causa dada de baja queda libre** (D-97).
+- **La carpeta de Drive sigue a la causa**: se renombra y se mueve, sin hacer
+  fallar la modificación (D-104).
+- **Permisos.** `drive.readonly` confirmado (C-24); la lista de documentos se
+  abre a los tres perfiles, pero el Administrador solo descarga expedientes
+  (C-27); HU23 sigue restringida a quien ve los modelos (C-30).
+- **Prefijo `DR/DRA.`** fijo para los abogados en la carátula (D-106).
 
 **De dónde salió.**
 
 | Fuente | Qué aportó |
 | --- | --- |
 | Jira, sprint "VZ Sprint 4" | El alcance (HU14, 19, 21, 23, 24, 25, 28 y 38), los criterios de HU14 y las observaciones de HU23 y HU38 |
-| Prototipo del 27/10/2026 (`17c0e84`) | La fuente de verdad: los formularios "Modificar causa", "Dar de baja la causa", "Modificar acto procesal" y "Modificar abogado"; el grupo "Carátula del expediente"; la tarjeta "Documentación"; la pantalla "Generar expediente" con su vista previa |
-| Plantillas de carátula del estudio (penal, penal querellante, administrativo) | Los seis recuadros de la hoja, cómo se llenan las partes en cada caso, y que el amparo usa la plantilla administrativa |
+| Prototipo del 27/10/2026 (`17c0e84`) | La fuente de verdad: los formularios "Modificar causa", "Dar de baja la causa", "Modificar acto procesal" y "Modificar abogado"; la tarjeta "Documentación"; la pantalla "Generar expediente" con su vista previa |
+| Plantillas de carátula del estudio (penal, penal querellante, administrativo) | Los seis recuadros de la hoja, cómo se llenan las partes en cada caso, y que el amparo usa la plantilla administrativa. Los rótulos exactos quedan por confirmar (C-34) |
 | Definición del Producto V2.1, Seguimiento V1.3 | La matriz de permisos por perfil y las fechas del sprint |
 | `ADR-003_GOOGLE_DRIVE.md` §4.1 | Que HU38 necesita ampliar el permiso de Drive |
-| Diccionario de datos | Que el SAC sigue ocupado después de la baja (RN2) |
+| Respuestas del equipo (27/10/2026) | Las decisiones revisadas de la lista anterior, que prevalecen sobre el prototipo y el diccionario de datos donde los contradicen |
 
 **Por qué así, en tres ideas.**
 
-1. **El backend calcula, el cliente muestra.** Las partes sugeridas de la
-   carátula, la carátula en PDF, el estado actual después de modificar un acto
-   y el plazo recalculado salen de un solo lugar, como ya pasaba con
-   `deadline-preview` (D-20) y la prescripción (D-51). Así la vista previa es
-   lo que se imprime y el detalle es lo que dice el correo.
+1. **El backend calcula, el cliente muestra.** La carátula en PDF, el estado
+   actual después de modificar un acto y el plazo recalculado salen de un solo
+   lugar, como ya pasaba con `deadline-preview` (D-20) y la prescripción
+   (D-51). Así la vista previa es lo que se imprime y el detalle es lo que dice
+   el correo.
 2. **Drive es la verdad de los documentos.** El sistema no guarda una copia de
    la lista: la lee, y guarda en Drive lo que genera. Lo único que registra es
-   la numeración de los expedientes. El costo es ampliar el permiso de Drive
-   (C-24).
+   la numeración de los expedientes. La carpeta acompaña a la causa cuando
+   cambian su carátula o su responsable.
 3. **Corregir no es reescribir la historia.** Modificar una causa o un acto deja
-   rastro (auditoría, `lastModifiedBy`), conserva los actos y no mueve la
-   carpeta; la baja es lógica y el SAC no se libera. Las únicas operaciones que
-   el contrato bloquea son las que deshacen una prescripción declarada.
+   rastro (auditoría, `lastModifiedBy`) y conserva los actos; la baja es lógica.
+   Lo que no se corrige con un `PATCH` (el fuero) se corrige con baja y alta
+   nueva, y por eso el SAC se libera con la baja. Las únicas operaciones que el
+   contrato bloquea en una causa terminal son las que deshacen una prescripción
+   declarada.
 
-**Decisiones a tomar antes de implementar** (detalle en
-[§8.2](#82-puntos-abiertos)):
+**Decisiones a tomar** (detalle en [§8.2](#82-puntos-abiertos)):
 
 | Prioridad | Punto | Pregunta |
 | --- | --- | --- |
-| Bloquea HU38 y HU25 | C-24 | ¿Se amplía el permiso de Drive a `drive.readonly`, o los documentos se suben desde VZ Causas? |
-| Bloquea HU19 | C-25 | ¿Se permite cambiar el fuero de una causa con actos? ¿Con qué regla se reasigna el estado? |
-| Antes de cerrar el sprint | C-26 | ¿La carpeta se mueve o se renombra cuando cambian el responsable, el fuero o la carátula? |
-| Antes de cerrar el sprint | C-27 | ¿Un Administrador sin otro rol ve los documentos para armar el expediente? |
-| Antes de cerrar el sprint | C-28 | ¿Cómo se imprime "Dr." o "Dra." en la carátula? |
-| Antes de cerrar el sprint | C-32 | ¿El SAC de una causa dada de baja se libera? |
-| Puede esperar | C-29, C-30, C-31, C-33 | Límites del expediente, nombre y permisos de HU23, cliente no modificable, beneficio de HU38 |
+| Antes de implementar HU24 | C-34 | ¿Qué rótulos tiene la hoja de carátula según las plantillas del estudio, y cómo se escribe exactamente el prefijo `DR/DRA.`? |
+| Puede esperar | C-29, C-33 | Límites del expediente, beneficio de HU38 |
 
 **Qué no se verificó.** El contrato no se contrastó con una implementación:
 salvo `PATCH /lawyers/{lawyerId}` (contratado y no implementado), ninguno de
-los endpoints de V5 existe todavía. Las reglas de recálculo de D-95 y D-99 y la
-conversión de documentos de D-102 son diseño, no comportamiento probado.
+los endpoints de V5 existe todavía. Las reglas de recálculo de D-99, la
+conversión de documentos de D-102 y el movimiento de carpetas de D-104 son
+diseño, no comportamiento probado.
