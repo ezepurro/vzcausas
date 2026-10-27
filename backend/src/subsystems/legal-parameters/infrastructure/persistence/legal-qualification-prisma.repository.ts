@@ -3,7 +3,7 @@ import { PrismaService } from '@shared/infrastructure/prisma/prisma.service';
 import { QualificationFilter } from '@subsystems/legal-parameters/core/application/common/get-qualifications.interfaces';
 import { LegalQualification } from '@subsystems/legal-parameters/core/domain/entities/legal-qualification';
 import { LegalQualificationRepository } from '@subsystems/legal-parameters/core/domain/ports/legal-qualification.repository';
-import { PaginatedResult } from '../../../../common/pagination/paginated-result';
+import { PaginatedResult } from '@shared/domain/paginated-result';
 import { Prisma } from '../../../../generated/prisma/client';
 import { LegalQualificationMapper } from './legal-qualification.mapper';
 

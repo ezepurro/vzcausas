@@ -1,4 +1,4 @@
-import { parseTtlToSeconds } from "@shared/config/parse-ttl";
+import { parseTtlToSeconds } from "../../../config/parse-ttl";
 
 /**
  * The stricter per-IP limit for `POST /auth/login` and

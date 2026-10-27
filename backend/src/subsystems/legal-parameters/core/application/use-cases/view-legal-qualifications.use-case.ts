@@ -3,7 +3,7 @@ import { ActiveCasesCounterPort } from '../../domain/ports/active-cases-counter.
 import { LegalQualificationRepository } from '../../domain/ports/legal-qualification.repository';
 import { GetQualificationsInput, QualificationFilter } from '../common/get-qualifications.interfaces';
 import { LegalQualificationWithActiveCases } from '../read-models/legal-qualification-with-active-cases';
-import { PaginatedResult } from '../../../../../common/pagination/paginated-result';
+import { PaginatedResult } from '@shared/domain/paginated-result';
 
 /**
  * HU-47 — lists the current legal qualifications (contract §3.5).

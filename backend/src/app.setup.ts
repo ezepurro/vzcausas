@@ -5,7 +5,7 @@ import {
   ValidationPipe,
 } from "@nestjs/common";
 import cookieParser from "cookie-parser";
-import { InvalidPaginationError } from "@shared/infrastructure/http/pagination";
+import { InvalidPaginationError } from "@shared/infrastructure/http/pagination/pagination";
 
 /**
  * Campos de {@link PaginationQueryDto}. Cuando **todo** lo que falla es uno

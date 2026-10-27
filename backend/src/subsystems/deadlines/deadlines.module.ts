@@ -2,7 +2,7 @@ import { Module } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { IdentityModule } from "@subsystems/identity/identity.module";
 import { GoogleOAuthModule } from "@shared/infrastructure/google/google-oauth.module";
-import { SharedModule } from "@shared/shared.module";
+import { ClockModule } from "@shared/infrastructure/clock/clock.module";
 import { DeadlinesLawyerContactLookupAdapter } from "@subsystems/identity/infrastructure/acl/deadlines-lawyer-contact-lookup.adapter";
 import { CasesModule } from "@subsystems/cases/case.module";
 import { DetectUpcomingDeadlinesUseCase } from "./core/application/use-cases/detect-upcoming-deadlines.use-case";
@@ -42,7 +42,7 @@ import { PrismaSentNotificationRepository } from "./infrastructure/persistence/p
  *    exist and replace them.
  */
 @Module({
-  imports: [SharedModule, IdentityModule, GoogleOAuthModule, CasesModule],
+  imports: [ClockModule, IdentityModule, GoogleOAuthModule, CasesModule],
 
   controllers: [DailyRunController],
 

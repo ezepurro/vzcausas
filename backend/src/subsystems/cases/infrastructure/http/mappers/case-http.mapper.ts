@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { toIsoDate } from '@shared/infrastructure/http/iso-date';
-import { toPageRequest } from '@shared/infrastructure/http/pagination';
+import { toPageRequest } from '@shared/infrastructure/http/pagination/pagination';
 import { toJurisdictionFilter } from '../../../core/application/common/jurisdiction-filter';
 import { RegisterCaseResult } from '../../../core/application/common/register-case.interfaces';
 import { ExclusiveCaseStateFilterError } from '../../../core/domain/errors/case.errors';

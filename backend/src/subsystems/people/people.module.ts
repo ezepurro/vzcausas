@@ -1,5 +1,5 @@
 import { Module, forwardRef } from '@nestjs/common';
-import { SharedModule } from '@shared/shared.module';
+import { ClockModule } from '@shared/infrastructure/clock/clock.module';
 import { CasesModule } from '@subsystems/cases/case.module';
 import { PEOPLE_LOOKUP } from '@subsystems/cases/core/domain/ports/people-lookup.port';
 import { FindClientUseCase } from './core/application/use-cases/find-client.use-case';
@@ -25,11 +25,11 @@ import { PrismaLawyerRepository } from './infrastructure/persistence/prisma/pris
  * Everything else — the repositories, the entities, the registration
  * use cases — stays private (§6.3).
  *
- * `SharedModule` is imported for the {@link CLOCK} token:
+ * `ClockModule` is imported for the {@link CLOCK} token:
  * `RegisterClient` needs today's civil date for `clientSince`.
  */
 @Module({
-  imports: [SharedModule, forwardRef(() => CasesModule)],
+  imports: [ClockModule, forwardRef(() => CasesModule)],
   controllers: [LawyerController, ClientController],
   providers: [
     RegisterLawyerUseCase,

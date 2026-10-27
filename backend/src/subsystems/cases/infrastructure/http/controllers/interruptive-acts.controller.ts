@@ -1,7 +1,7 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Query } from '@nestjs/common';
 import { AuthenticatedUser } from '@shared/domain/authenticated-user';
 import { CurrentUser } from '@shared/infrastructure/http/current-user.decorator';
-import { PaginatedResponse, paginate, toPageRequest } from '@shared/infrastructure/http/pagination';
+import { PaginatedResponse, paginate, toPageRequest } from '@shared/infrastructure/http/pagination/pagination';
 import { ListInterruptiveActs } from '../../../core/application/use-cases/list-interruptive-acts.use-case';
 import { RegisterInterruptiveAct } from '../../../core/application/use-cases/register-interruptive-act.use-case';
 import { InvalidCaseIdError } from '../../../core/domain/errors/case.errors';

@@ -1,7 +1,7 @@
 import { Jurisdiction } from '../entities/jurisdiction';
 import { ProceduralState } from '../entities/procedural-states';
 import { JurisdictionCode } from '../value-objects/jurisdiction-code';
-import { PaginatedResult } from '../../../../../common/pagination/paginated-result';
+import { PaginatedResult } from '@shared/domain/paginated-result';
 
 /**
  * Filters of `GET /procedural-states`. Both optional: an absent field means

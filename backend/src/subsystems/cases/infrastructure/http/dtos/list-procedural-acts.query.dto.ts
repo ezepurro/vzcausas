@@ -1,6 +1,6 @@
 import { Type } from 'class-transformer';
 import { IsInt, IsOptional, Max, Min } from 'class-validator';
-import { MAX_LIMIT } from '@shared/infrastructure/http/pagination';
+import { MAX_LIMIT } from '@shared/infrastructure/http/pagination/pagination';
 
 /**
  * Query of `GET /cases/{caseId}/procedural-acts` (HU27): pagination and

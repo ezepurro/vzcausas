@@ -7,7 +7,7 @@ import {
   IssuedAccessToken,
   TokenIssuer,
 } from "@subsystems/identity/core/domain/ports/token-issuer.port";
-import { parseTtlToSeconds } from "@shared/config/parse-ttl";
+import { parseTtlToSeconds } from "../../../../config/parse-ttl";
 
 const MIN_SECRET_BYTES = 32;
 

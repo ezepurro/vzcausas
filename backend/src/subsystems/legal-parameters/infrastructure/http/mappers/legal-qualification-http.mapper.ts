@@ -1,6 +1,6 @@
 import { LegalQualificationWithActiveCases } from '@subsystems/legal-parameters/core/application/read-models/legal-qualification-with-active-cases';
 import { LegalQualification } from '@subsystems/legal-parameters/core/domain/entities/legal-qualification';
-import { PaginatedResult } from '../../../../../common/pagination/paginated-result';
+import { PaginatedResult } from '@shared/domain/paginated-result';
 import {
   LegalQualificationResponseDto,
   LegalQualificationsListResponseDto,

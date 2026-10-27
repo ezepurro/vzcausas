@@ -4,7 +4,7 @@ import {
   ProceduralStateRepository,
   ProcStateFilter,
 } from '@subsystems/legal-parameters/core/domain/ports/procedural-states.repository';
-import { PaginatedResult } from '../../../../common/pagination/paginated-result';
+import { PaginatedResult } from '@shared/domain/paginated-result';
 import { PrismaService } from '@shared/infrastructure/prisma/prisma.service';
 import { DayType, Prisma } from '../../../../generated/prisma/client';
 import { ProceduralStateMapper } from './proc-state.mapper';

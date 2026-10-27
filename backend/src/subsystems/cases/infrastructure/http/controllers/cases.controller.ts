@@ -1,7 +1,7 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Query } from '@nestjs/common';
 import { AuthenticatedUser } from '@shared/domain/authenticated-user';
 import { CurrentUser } from '@shared/infrastructure/http/current-user.decorator';
-import { PaginatedResponse, paginate, toPageRequest } from '@shared/infrastructure/http/pagination';
+import { PaginatedResponse, paginate, toPageRequest } from '@shared/infrastructure/http/pagination/pagination';
 import { DeclarePrescription } from '../../../core/application/use-cases/declare-prescription.use-case';
 import { GetCase } from '../../../core/application/use-cases/get-case.use-case';
 import { GetProceduralAct } from '../../../core/application/use-cases/get-procedural-act.use-case';

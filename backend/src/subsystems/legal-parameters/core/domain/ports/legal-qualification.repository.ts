@@ -1,6 +1,6 @@
 import { QualificationFilter } from '../../application/common/get-qualifications.interfaces';
 import { LegalQualification } from '../entities/legal-qualification';
-import { PaginatedResult } from '../../../../../common/pagination/paginated-result';
+import { PaginatedResult } from '@shared/domain/paginated-result';
 
 export interface LegalQualificationRepository {
   /** Reserves the next identity value, so the entity is whole before it is saved. */

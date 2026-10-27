@@ -1,6 +1,6 @@
 import { LegalQualification } from '../../domain/entities/legal-qualification';
 import { LegalQualificationRepository } from '../../domain/ports/legal-qualification.repository';
-import { PaginatedResult } from '../../../../../common/pagination/paginated-result';
+import { PaginatedResult } from '@shared/domain/paginated-result';
 import { ViewLegalQualifications } from './view-legal-qualifications.use-case';
 import { FakeActiveCasesCounter } from './test-support/procedural-state-fakes';
 

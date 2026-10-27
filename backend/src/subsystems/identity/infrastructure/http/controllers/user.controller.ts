@@ -24,7 +24,7 @@ import {
   PaginatedResponse,
   paginate,
   toPageRequest,
-} from "@shared/infrastructure/http/pagination";
+} from "@shared/infrastructure/http/pagination/pagination";
 import { ListUsersUseCase } from "../../../core/application/use-cases/list-users.use-case";
 import { ListUsersQueryDto } from "../dtos/list-users.query.dto";
 

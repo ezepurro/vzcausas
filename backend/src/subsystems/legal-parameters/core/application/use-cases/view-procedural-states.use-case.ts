@@ -3,7 +3,7 @@ import { ActiveCasesCounterPort } from '../../domain/ports/active-cases-counter.
 import { ProceduralStateRepository, ProcStateFilter } from '../../domain/ports/procedural-states.repository';
 import { GetProcStatesInput } from '../common/get-proc-states.interfaces';
 import { ProceduralStateWithActiveCases } from '../read-models/procedural-state-with-active-cases';
-import { PaginatedResult } from '../../../../../common/pagination/paginated-result';
+import { PaginatedResult } from '@shared/domain/paginated-result';
 
 /**
  * `GET /procedural-states` — one page of states, each with its

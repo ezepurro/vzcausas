@@ -1,6 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { parseTtlToSeconds } from "@shared/config/parse-ttl";
+import { parseTtlToSeconds } from "../../../../../config/parse-ttl";
 import { CLOCK, ClockPort } from "@shared/domain/clock.port";
 import { PrismaService } from "@shared/infrastructure/prisma/prisma.service";
 import {

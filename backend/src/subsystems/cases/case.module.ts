@@ -1,6 +1,6 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { SharedModule } from '@shared/shared.module';
+import { ClockModule } from '@shared/infrastructure/clock/clock.module';
 import { OPEN_DEADLINES } from '@subsystems/deadlines/core/domain/ports/open-deadlines.port';
 import { PRESCRIPTION_STATUS } from '@subsystems/deadlines/core/domain/ports/prescription-status.port';
 import { ActiveCasesCounterPort } from '@subsystems/legal-parameters/core/domain/ports/active-cases-counter.port';
@@ -107,7 +107,7 @@ import { ProceduralActQueryPrismaAdapter } from './infrastructure/persistence/pr
  * el CHECK de exclusión mutua del que dependen los conteos.
  */
 @Module({
-  imports: [forwardRef(() => PeopleModule), forwardRef(() => LegalParametersModule), SharedModule],
+  imports: [forwardRef(() => PeopleModule), forwardRef(() => LegalParametersModule), ClockModule],
   controllers: [CasesController, InterruptiveActsController, CaseTimelineController],
   providers: [
     RegisterCase,

@@ -14,7 +14,7 @@ import {
   PaginationQueryDto,
   paginate,
   toPageRequest,
-} from "@shared/infrastructure/http/pagination";
+} from "@shared/infrastructure/http/pagination/pagination";
 import { FindLawyerUseCase } from "../../../core/application/use-cases/find-lawyer.use-case";
 import { ListLawyersUseCase } from "../../../core/application/use-cases/list-lawyers.use-case";
 import { RegisterLawyerUseCase } from "../../../core/application/use-cases/register-lawyer.use-case";
