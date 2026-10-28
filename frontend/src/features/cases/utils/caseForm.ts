@@ -6,6 +6,7 @@ import type { Jurisdiction } from '@/features/legal-params'
 import {
     PROCEDURAL_ROLES_BY_JURISDICTION,
     type CaseFormValues,
+    type Case,
 } from '@/features/cases/types/case'
 
 /**
@@ -103,7 +104,28 @@ export function changeSacNumber(values: CaseFormValues, sacNumber: string): Case
         startDate: sacNumber.trim() ? values.startDate : '',
     }
 }
-
+/**
+ * El SAC en "Modificar causa" (HU19, CA-19.6). Va con la fecha de inicio,
+ * igual que en el alta (`changeSacNumber`), con una diferencia: corregir el
+ * SAC no cambia la fecha que ya tenía la causa.
+ *
+ * Para corregirlo se lo borra y se lo vuelve a escribir, y en el medio queda
+ * vacío: ahí `changeSacNumber` se lleva la fecha. Cuando el SAC vuelve a tener
+ * valor, se repone la fecha original. Sólo la que borró el SAC: si el usuario
+ * vació la fecha a mano, queda vacía.
+ */
+export function changeEditSacNumber(
+    values: CaseFormValues,
+    sacNumber: string,
+    originalStartDate: string | null,
+): CaseFormValues {
+    const next = changeSacNumber(values, sacNumber)
+    const sacCameBack = values.sacNumber.trim() === '' && sacNumber.trim() !== ''
+    if (sacCameBack && next.startDate === '' && originalStartDate) {
+        return { ...next, startDate: originalStartDate }
+    }
+    return next
+}
 /**
  * Sin carpeta no hay dónde copiar los modelos (CA-40.3): destildar "Crear la
  * carpeta" destilda también "Copiar los modelos", y el contrato respondería
@@ -115,5 +137,52 @@ export function changeCreateFolder(values: CaseFormValues, createFolder: boolean
         ...values,
         createFolder,
         copyTemplates: createFolder ? values.copyTemplates : false,
+    }
+}
+
+/**
+ * La causa abierta, en los valores del formulario "Modificar causa" (HU19).
+ * Es también contra lo que se compara al guardar: lo que no cambió no viaja
+ * (CA-19.2).
+ *
+ * Lo que viene en `null` pasa a `''`, que es lo que muestra un input vacío, y
+ * los ids pasan a texto porque salen de un select. Las calificaciones se
+ * cargan con la fecha del hecho de cada una; una dada de baja sigue en la
+ * lista, porque es parte de la causa.
+ *
+ * El fuero no se modifica (D-95) y la carpeta tiene su propio endpoint: las
+ * casillas de la carpeta quedan en `false` y el formulario no las muestra.
+ */
+export function caseToFormValues(c: Case): CaseFormValues {
+    return {
+        sacNumber: c.sacNumber ?? '',
+        jurisdiction: c.jurisdiction,
+        caption: c.caption,
+        court: c.court ?? '',
+        instructorName: c.instructorName ?? '',
+        tribunalPhone: c.tribunalPhone ?? '',
+        instructorExtension: c.instructorExtension ?? '',
+        clientId: String(c.client.id),
+        proceduralRole: c.proceduralRole,
+        legalQualifications: c.legalQualifications.map((q) => ({
+            legalQualificationId: q.id,
+            offenseDate: q.offenseDate,
+        })),
+        counterparty: c.counterparty ?? '',
+        subjectMatter: c.subjectMatter ?? '',
+        responsibleLawyerId: String(c.responsibleLawyer.id),
+        startDate: c.startDate ?? '',
+        clientDetained: c.clientDetained ?? false,
+        injunctionGranted: c.injunctionGranted ?? false,
+        harmfulActDate: c.harmfulActDate ?? '',
+        harmfulActRenews: c.harmfulActRenews ?? false,
+        harmfulActRenewalDays: c.harmfulActRenewalDays === null ? '' : String(c.harmfulActRenewalDays),
+        harmfulActTermDays: c.harmfulActTermDays === null ? '' : String(c.harmfulActTermDays),
+        // Sin acto lesivo no hay tipo de día: arranca en hábiles, como el alta.
+        harmfulActTermDayType: c.harmfulActTermDayType === 'CONSECUTIVE' ? 'CONSECUTIVE' : 'BUSINESS',
+        administrativeRemedyExhaustedOn: c.administrativeRemedyExhaustedOn ?? '',
+        courtFeePaid: c.courtFeePaid,
+        createFolder: false,
+        copyTemplates: false,
     }
 }

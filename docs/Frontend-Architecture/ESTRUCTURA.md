@@ -56,7 +56,8 @@ frontend/
     │   ├── proceedings/
     │   ├── deadlines/
     │   ├── documents/
-    │   └── dashboard/
+    │   ├── dashboard/
+    │   └── tools/
     ├── shared/           lo reutilizable por cualquier módulo
     │   ├── api/          el cliente HTTP y el manejo de errores
     │   ├── components/   componentes sin dueño
@@ -167,17 +168,21 @@ el registro de actos consumen sus datos. Si no hace falta, no se crea.
 | `deadlines/` | Vencimientos, prescripción y alertas |
 | `documents/` | Documentos de cada causa y los modelos formales del estudio |
 | `dashboard/` | El tablero de control accionable y los reportes. Su página es Inicio (`/inicio`), la pantalla de entrada después del login |
+| `tools/` | Herramientas: accesos directos a sitios externos (`/herramientas`) |
 
-De los diez, hoy tienen código ocho: `auth/`, `users/`, `lawyers/` y
+De los once, hoy tienen código diez: `auth/`, `users/`, `lawyers/` y
 `legal-params/`; los tres del Sprint 2 —`clients/`, `cases/` y
-`proceedings/`—, que ya tienen su `api/`, sus páginas y sus tests; y
-`dashboard/`, con los tableros de Inicio del Sprint 3. Los de `clients/`, los
-del listado de causas y los de los tableros se escribieron antes que la
-página. Los otros dos (`deadlines/` y `documents/`) están creados con sus seis
-carpetas vacías, para que el día que arranquen no haya que discutir dónde van.
+`proceedings/`—; y los del Sprint 3: `documents/` (los modelos formales),
+`dashboard/` (los tableros de Inicio) y `tools/`. Los tests de pantalla de
+cada sprint se escriben antes que la página: los del Sprint 4 están en rojo
+hasta que se programe cada historia (`TESTING.md` §11). `deadlines/` está
+creado con sus seis carpetas vacías, para que el día que arranque no haya que
+discutir dónde va.
 
-Todos siguen la revisión del 05/10/2026 del contrato. Cómo quedó aplicada está
-en `frontend/CLAUDE.md`, "Revisiones del contrato".
+Todos siguen el contrato V5 (`docs/Api-Contract/API_CONTRACT_V5.md`). Lo que
+V4 y V5 cambiaron sobre lo que ya estaba hecho está en `frontend/CLAUDE.md`,
+"Cambios de V4 sobre lo que ya estaba hecho" y "Cambios de V5 sobre lo que ya
+estaba hecho".
 
 ### `src/shared/` — lo reutilizable
 
@@ -247,10 +252,10 @@ Hoy tiene `envelopes.ts`, con los envoltorios que el contrato pone alrededor de
 toda respuesta exitosa: `ApiItem`, `ApiList`, `Pagination` y `PaginatedQuery`.
 La capa `api/` de cada módulo los desenvuelve y entrega los datos pelados, así
 el envoltorio no se propaga a las pantallas. La fuente es el contrato de
-`docs/Api-Contract/`: `API_CONTRACT_V3.md`, que es autocontenido —trae lo del
-Sprint 1 que sigue vigente y lo del Sprint 2: clientes, causas, actos
-procesales y calificaciones legales— y cuya última revisión es del 05/10/2026
-(§7.8). `API_CONTRACT_V2.md` queda como registro del Sprint 1.
+`docs/Api-Contract/`: `API_CONTRACT_V5.md`, la versión final, autocontenida
+(trae todo lo vigente de los Sprints 1 a 4), con su revisión del 27/10/2026.
+Las decisiones (D-xx) y los puntos abiertos (C-xx) están en `DECISIONES.md`.
+V2, V3 y V4 quedan como registro: no son referencia.
 
 La otra fuente de verdad es el prototipo (`docs/prototypes/`): de ahí salen las
 pantallas y sus textos. Cuando el contrato y el prototipo no coinciden, se

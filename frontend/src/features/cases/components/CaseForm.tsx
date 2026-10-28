@@ -1,4 +1,5 @@
 import type { FormEvent } from 'react'
+import { SUBJECT_MATTER_TEXT } from '@/features/cases/utils/subjectMatter'
 import { Button, Panel } from '@/shared/components/ui'
 import {
     Checkbox,
@@ -90,23 +91,6 @@ const TERM_DAY_TYPE_OPTIONS: SelectOption[] = (['BUSINESS', 'CONSECUTIVE'] as co
     value: d,
     label: DAY_TYPE_LABELS[d],
 }))
-
-/**
- * El campo es el mismo en los dos fueros (`subjectMatter`, V3 D-27); lo que
- * cambia es cómo lo llama el estudio y el ejemplo que orienta al que carga.
- */
-const SUBJECT_MATTER_TEXT: Record<Exclude<Jurisdiction, 'CRIMINAL'>, { label: string; placeholder: string }> = {
-    ADMINISTRATIVE: {
-        label: 'Objeto del reclamo',
-        placeholder:
-            'Ej. Se deje sin efecto la sanción de cesantía dispuesta por el Tribunal de Conducta Policial y se reincorpore al agente…',
-    },
-    AMPARO: {
-        label: 'Objeto del amparo',
-        placeholder:
-            'Ej. Se ordene a APROSS la cobertura integral del tratamiento prescripto, denegada por resolución del…',
-    },
-}
 
 /**
  * El formulario de "Registrar causa" (HU18), en tres secciones como el
@@ -439,7 +423,7 @@ export function CaseForm({
  * amparo (D-78), por eso el plazo y su tipo de día sólo se piden con ella; y la
  * renovación, sólo si el acto se renueva.
  */
-function HarmfulActFields({
+export function HarmfulActFields({
     values, errors, onChange,
 }: Pick<CaseFormProps, 'values' | 'errors' | 'onChange'>) {
     const hasDate = values.harmfulActDate.trim() !== ''

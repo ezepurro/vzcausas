@@ -42,3 +42,23 @@ export function suggestedCaption(input: CaptionInput): string | null {
             return `${input.clientName} — ${counterparty ? `${counterparty} · ` : ''}Sumario administrativo`
     }
 }
+
+/**
+ * Al cambiar el cliente en "Modificar causa" (HU19, D-105), la carátula se
+ * propone con el cliente nuevo y conserva el resto, como el prototipo:
+ *
+ * `GÓMEZ, Ariel Fernando p.s.a. Robo calificado` pasa a
+ * `PEREYRA, Marcos D. p.s.a. Robo calificado`.
+ *
+ * Lo que sigue al cliente empieza en la primera de estas marcas: ` p.s.a.`
+ * (penal), ` c/` (amparo) o ` —` (administrativo). Si la carátula no tiene
+ * ninguna, queda sólo el cliente nuevo. Es una propuesta: el usuario la puede
+ * corregir antes de guardar, y viaja en `caption` (el backend no la recalcula).
+ */
+const AFTER_CLIENT = / p\.s\.a\.| c\/| —/
+
+/** `clientName`, ya formateado: `PEREYRA, Marcos D.` */
+export function captionWithClient(caption: string, clientName: string): string {
+    const match = AFTER_CLIENT.exec(caption)
+    return match ? `${clientName}${caption.slice(match.index)}` : clientName
+}

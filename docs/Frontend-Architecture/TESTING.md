@@ -10,8 +10,8 @@ Si tenés una duda del tipo "¿este test dónde va?", saltá a
 [Dónde pongo este test](#9-dónde-pongo-este-test). Si la duda es "¿vale la pena
 este test?", andá a [Antes de escribir un test](#4-antes-de-escribir-un-test).
 
-> **Estado actual (28/10/2026):** **367 tests de Vitest**. Pasan 345 y fallan
-> 22: los 21 de pantalla del Sprint 4, escritos antes que sus pantallas (ver
+> **Estado actual (28/10/2026):** **369 tests de Vitest**. Pasan 345 y fallan
+> 24: los 23 de pantalla del Sprint 4, escritos antes que sus pantallas (ver
 > [§11](#sprint-4-los-tests-que-ya-están-escritos)), y el de contrato, hasta que
 > `docs/openapi` sume los endpoints de V5. Los del Sprint 3 ya están en verde.
 >
@@ -190,7 +190,7 @@ especificación OpenAPI en `docs/openapi/`.
 
 A su lado está `tests/unit/contract/permissions.test.ts`, que cubre lo que el
 anterior no mira: **quién puede cada operación**. Con un usuario por perfil,
-recorre la matriz de permisos del contrato (V3 §4) y comprueba qué endpoints
+recorre la matriz de permisos del contrato (V5 §4, "Autorización") y comprueba qué endpoints
 responden `403` y cuáles no.
 
 - Falla si el mock **inventa** un endpoint que el contrato no tiene, o si
@@ -575,20 +575,23 @@ primer render.
 Las pantallas de administración piden un administrador: casi todos los tests
 de páginas usan `as: 'fvazquez'`.
 
-**Qué responde el mock a cada perfil** (contrato V3 §4, permisos por perfil):
+**Qué responde el mock a cada perfil** (contrato V5 §4, "Autorización"):
 
 | Operación | Quién puede | El resto recibe |
 |---|---|---|
 | Leer abogados, estados, calificaciones, clientes y causas | Cualquiera con sesión | — |
 | Leer y escribir `/users` | `fvazquez` | `403` |
-| Escribir abogados | `fvazquez` | `403` |
+| Escribir abogados (alta, modificación y baja) | `fvazquez` | `403` |
 | Escribir estados y calificaciones | Cualquiera con sesión | — |
 | Registrar un cliente | Cualquiera con sesión | — |
-| Registrar una causa | Cualquiera con sesión | — |
-| Registrar un acto procesal y previsualizar su vencimiento | El abogado responsable de **esa** causa | `403` |
+| Registrar, modificar y dar de baja una causa; ver su carátula; generar su expediente | Cualquiera con sesión | — |
+| Registrar o modificar un acto procesal, previsualizar su vencimiento, registrar un acto interruptivo | El abogado responsable de **esa** causa | `403` |
+| Marcar prescripta; leer, registrar y descargar modelos formales | `ADMINISTRATOR` o `LAWYER` | `403` (`gestion`) |
+| Listar los documentos de la causa | Cualquiera con sesión (D-103) | — |
+| Descargar un documento que no es un expediente | `LAWYER` o `SECRETARY` | `403` (`supervision`) |
 
-**Los actos no dependen del rol sino de la causa** (V3 D-30): sólo los registra
-su abogado responsable. `mrios` lleva las causas 1 y 17; `fvazquez`, la 4, la 6
+**Los actos no dependen del rol sino de la causa** (D-30): sólo los registra
+y los modifica su abogado responsable actual. `mrios` lleva las causas 1 y 17; `fvazquez`, la 4, la 6
 y la 20; `mferreyra`, la 7. Con otro usuario —aunque sea abogado o
 administrador— el mock responde `403`. Antes de escribir un test de actos,
 mirá quién lleva la causa (`responsibleLawyerId` en `CASE_SEEDS`).
@@ -1011,7 +1014,7 @@ en el encabezado con `@backend`. Los mocks ya implementan todo V5
 | HU | Tests |
 | --- | --- |
 | 14 Modificar abogado | `components/lawyers/LawyersPage.edit.test.tsx` (4) |
-| 19 Modificar causa | `components/cases/CaseDetailPage.edit.test.tsx` (5) |
+| 19 Modificar causa | `components/cases/CaseDetailPage.edit.test.tsx` (7) |
 | 21 Dar de baja la causa | `components/cases/CaseDetailPage.delete.test.tsx` (3) |
 | 23 Descargar modelo formal | Ya cubierta por `components/documents/DocumentTemplatesPage.test.tsx` (HU-35) |
 | 24 y 25 Carátula y expediente | **Sin tests todavía.** "Generar expediente" es una página que no existe, y un test que importa un archivo que no existe rompe `npm test` y `npm run build`. Se escriben con la página, en su rama |
@@ -1046,9 +1049,39 @@ cambia, se cambian el test y la pantalla juntos:
 - **Errores**: se muestra el `message` del contrato, por ejemplo "No se pudo
   leer la carpeta de la causa en Drive. Intentá de nuevo en unos minutos.".
 
+**Decisiones de HU-19 y HU-38** (Facundo, 28/10/2026), antes de programarlas:
+
+- **Modificar causa manda sólo lo cambiado** (CA-19.2). El formulario se
+  compara con la causa que se abrió y viajan sólo los campos distintos.
+  "Guardar cambios" está siempre habilitado: si no cambió nada, el diálogo se
+  cierra sin llamar a la API y sin ningún aviso. Nunca sale un `PATCH` vacío.
+  Así una causa "Prescripta" no manda `legalQualifications` sin tocarlas
+  (CA-19.13) y la carpeta no se renombra ni se mueve sin motivo (D-104).
+- **"Fecha de inicio" va igual que en el alta** (CA-19.6): el mismo campo de
+  `CaseForm`, en el grupo "Asignación". Está deshabilitado sin SAC
+  ("Se carga junto con el N° de SAC."), es obligatorio con SAC y se borra al
+  borrar el SAC (`changeSacNumber`). **Si cambia el SAC, `startDate` viaja
+  siempre con él**: con el valor cargado, o `null` si la causa queda sin SAC.
+  **Corregir el SAC no cambia la fecha que ya tenía la causa** (ajuste del
+  28/10/2026): al borrarlo y escribir otro, el SAC pasa por vacío y
+  `changeSacNumber` se lleva la fecha; `changeEditSacNumber` la repone cuando
+  el SAC vuelve a tener valor. Sólo la que borró el SAC: una fecha vaciada a
+  mano queda vacía. Lo cubren `unit/cases/caseForm.test.ts` y "un SAC que ya
+  tiene otra causa se rechaza en su campo".
+- **"Abogado responsable" se modifica** (CA-19.8), con el select del
+  prototipo. Lo cubre un test de pantalla, escrito antes de programarlo:
+  cambiar el responsable lo guarda y el detalle muestra al nuevo. Otro cubre
+  CA-19.2: sin cambios, el diálogo se cierra y no sale ningún `PATCH`. Después de
+  guardar se vuelve a pedir el detalle, así lo que depende del responsable
+  (los botones de los actos) se recalcula.
+- **La tarjeta "Documentación" sólo tiene "Abrir"** (CA-38.7), que lleva a
+  Drive, como el prototipo. No hay descarga por la API en la tarjeta: la usa
+  "Generar expediente" (HU-25). CA-38.7 es `@backend` en el test de
+  documentos.
+
 **Lo que queda para el backend**, sin test de pantalla: CA-14.2 y 14.5;
 CA-19.4, 19.6 y 19.9 a 19.15; CA-21.3 a 21.10; CA-28.4 a 28.9 y 28.11; CA-38.2,
-38.3, 38.8 y 38.9.
+38.3, 38.7, 38.8 y 38.9.
 
 ---
 
@@ -1177,11 +1210,13 @@ Casi siempre es un `waitForTimeout` o un selector por clase CSS. Usá
   disparar cada error.
 - `docs/openapi/`: el contrato de la API que verifica el test de
   `tests/unit/contract/`.
-- `docs/Api-Contract/API_CONTRACT_V3.md`: lo que la API tiene que responder, y
-  lo que implementan hoy los mocks (con su revisión del 05/10/2026, §7.8).
-  `API_CONTRACT_V2.md` queda como registro del Sprint 1.
-- `frontend/CLAUDE.md`: cómo quedó aplicada esa revisión en el código, en
-  "Revisiones del contrato".
+- `docs/Api-Contract/API_CONTRACT_V5.md`: lo que la API tiene que responder, y
+  lo que implementan hoy los mocks (con su revisión del 27/10/2026). Las
+  decisiones y los puntos abiertos, en `DECISIONES.md`. V2, V3 y V4 quedan
+  como registro.
+- `frontend/CLAUDE.md`: qué falta del Sprint 4 y cómo quedaron aplicados V4 y
+  V5 en el código ("Cambios de V4/V5 sobre lo que ya estaba hecho").
+- Los criterios de aceptación de cada historia: su issue en Jira (proyecto VZ).
 - Las ideas de fondo: [Testing Trophy](https://kentcdodds.com/blog/the-testing-trophy-and-testing-classifications) ·
   [Write tests. Not too many. Mostly integration.](https://kentcdodds.com/blog/write-tests) ·
   [Common mistakes with React Testing Library](https://kentcdodds.com/blog/common-mistakes-with-react-testing-library) ·

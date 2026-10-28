@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { screen, within } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import { http, HttpResponse } from 'msw'
 import { renderWithProviders } from '../../setup/render'
 import { usePrototypeToday } from '../../setup/clock'
+import { personNameIn } from '../../setup/names'
 import { server } from '@/shared/mocks/server'
 import { db, errorBody } from '@/shared/mocks'
 import { CaseDetailPage } from '@/features/cases/pages/CaseDetailPage'
@@ -15,6 +16,9 @@ import { CaseDetailPage } from '@/features/cases/pages/CaseDetailPage'
  *
  * La causa 1 es penal, con SAC 13284571 y cliente GÓMEZ; la lleva `mrios`.
  * Se modifica como `gestion` porque no hace falta ser el responsable (V5 §3.7).
+ *
+ * Viaja sólo lo que cambió (decisión del 28/10/2026, TESTING.md §11): sin
+ * cambios, "Guardar cambios" cierra el diálogo sin llamar a la API.
  *
  * @backend CA-19.4 CA-19.6 CA-19.9 CA-19.10 CA-19.11 CA-19.12 CA-19.13 CA-19.14 CA-19.15
  * (datos de otro fuero, SAC ↔ fecha de inicio, carpeta en Drive, recálculos,
@@ -53,6 +57,43 @@ describe('CaseDetailPage · modificar causa', () => {
 
         expect(await screen.findByText('Causa actualizada. El cambio queda asentado con usuario y fecha.')).toBeInTheDocument()
         expect(screen.getByText('Fisc. de Distrito I, 3º turno')).toBeInTheDocument()
+    })
+
+    // CA-19.2: nunca sale un PATCH vacío. Sin cambios, el diálogo se cierra sin aviso.
+    it('guardar sin cambios cierra el diálogo sin llamar al servidor', async () => {
+        let patched = false
+        server.use(
+            http.patch('*/cases/:caseId', () => {
+                patched = true
+                return HttpResponse.json(errorBody('VALIDATION_ERROR', 'Los datos enviados no son válidos.'), { status: 400 })
+            }),
+        )
+        const { user } = renderPage(1)
+        const dialog = await openEdit(user)
+
+        await user.click(within(dialog).getByRole('button', { name: 'Guardar cambios' }))
+
+        await waitFor(() => expect(screen.queryByRole('dialog', { name: /Modificar causa/ })).not.toBeInTheDocument())
+        expect(patched).toBe(false)
+        expect(screen.queryByText('Causa actualizada. El cambio queda asentado con usuario y fecha.')).not.toBeInTheDocument()
+    })
+
+    // CA-19.8 (RN3): cualquier perfil cambia el responsable, y el detalle muestra al nuevo.
+    it('cambiar el abogado responsable lo guarda y el detalle muestra al nuevo', async () => {
+        const { user } = renderPage(1)
+        const dialog = await openEdit(user)
+
+        const lawyer = within(dialog).getByLabelText(/^abogado responsable/i)
+        await user.selectOptions(lawyer, within(lawyer).getByRole('option', { name: /Bustos/ }))
+        await user.click(within(dialog).getByRole('button', { name: 'Guardar cambios' }))
+
+        await screen.findByText('Causa actualizada. El cambio queda asentado con usuario y fecha.')
+        expect(db.cases.find((c) => c.id === 1)?.responsibleLawyerId).toBe(5)
+        await waitFor(async () =>
+            expect(await headerOf('Causa 13284571')).toHaveTextContent(
+                new RegExp(`Responsable ${personNameIn('Bustos', 'Carolina')}`),
+            ),
+        )
     })
 
     // CA-19.3 (D-95): el fuero se muestra, pero no se modifica.

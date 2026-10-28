@@ -56,25 +56,32 @@ de ahí, es un archivo nuevo, no algo que haya que buscar. `lib/` dejó de
 estarlo: tiene `dates.ts` e `initials.ts`. `hooks/` también: tiene
 `useDebouncedValue.ts` (ver [Hooks](#hooks)).
 
-`mocks/` implementa `docs/Api-Contract/API_CONTRACT_V3.md` (con su revisión
-del 05/10/2026, §7.8) sobre **MSW**, que intercepta la red de verdad (los
-pedidos se ven en la pestaña Network). Se enciende con `await startMocks()` de
+`mocks/` implementa `docs/Api-Contract/API_CONTRACT_V5.md` (con su revisión
+del 27/10/2026) sobre **MSW**, que intercepta la red de verdad (los pedidos se
+ven en la pestaña Network). Se enciende con `await startMocks()` de
 `@/shared/mocks/browser`. Están **todos los endpoints del contrato**, incluidos
-los del Sprint 2: calificaciones legales, clientes, causas, registro de acto
-procesal y `deadline-preview`. Lo que conviene saber antes de usarlo:
+los del Sprint 4: modificar y dar de baja una causa, la carátula, modificar un
+acto procesal, los documentos de la causa y el expediente. Lo que conviene
+saber antes de usarlo:
 
-- **Quién puede qué** sale de la tabla de permisos del contrato (V3 §4): leer
-  está abierto a cualquier usuario autenticado, salvo `/users`; registrar un
-  cliente pide `SECRETARY`, y el resto de las escrituras de administración,
-  `ADMINISTRATOR`. Un abogado (`mrios`) ya **no** recibe `403` al leer abogados
-  o estados procesales.
-- **Los actos procesales no se rigen por un rol** (V3 D-30): los registra sólo
-  el abogado responsable de la causa. Con cualquier otro usuario, abogado o
-  administrador, el mock responde `403`.
+- **Quién puede qué** sale de la tabla de permisos del contrato (V5 §4,
+  "Autorización"): leer está abierto a cualquier usuario autenticado, salvo
+  `/users` (`ADMINISTRATOR`), los modelos formales (`ADMINISTRATOR` o
+  `LAWYER`) y los tableros (cada uno el suyo). Escribir abogados y usuarios es
+  de `ADMINISTRATOR`; clientes, estados, calificaciones y causas —también
+  modificarlas y darlas de baja— de cualquier perfil. Descargar un documento de
+  la causa que no es un expediente pide `LAWYER` o `SECRETARY` (D-103).
+- **Los actos procesales no se rigen por un rol** (D-30): los registra y los
+  modifica sólo el abogado responsable actual de la causa. Con cualquier otro
+  usuario, abogado o administrador, el mock responde `403`. Lo mismo vale para
+  los actos interruptivos.
+- **Una causa dada de baja no existe para el cliente** (D-97): ella y todo lo
+  que cuelga de ella responden `404 CASE_NOT_FOUND`, sale de listados y
+  tableros, y su SAC se puede volver a usar.
 - **Nada se escribe a mano si se puede contar.** `activeCases`, el estado
   actual de una causa y su vencimiento se calculan en cada lectura a partir de
   las causas y los actos de la base. Una causa sin actos está en el estado
-  inicial, "Iniciada", que tampoco se guarda (V3 D-34).
+  inicial, "Iniciada", que tampoco se guarda (D-34).
 - **El mock sigue también al esquema de la base** (`backend/prisma/schema.prisma`)
   en lo que el contrato no detalla: largos, datos opcionales y unicidad.
 - **Los vencimientos de las semillas son relativos a hoy.** Los actos
@@ -159,7 +166,7 @@ import { ApiError, isApiError } from '@/shared/api/ApiError';
 | `resetMockDb` | Función | `mocks/db.ts` | Vuelve los datos del mock al estado inicial (y recalcula las fechas relativas a hoy) |
 | `toCase` / `toClient` / `toLawyer` … | Funciones | `mocks/db.ts` | El recurso del contrato a partir de lo guardado, con lo embebido y lo calculado |
 | `INITIAL_STATE_NAME` | Const | `mocks/fixtures.ts` | "Iniciada": el nombre del estado inicial de toda causa, para un test que lo afirme |
-| `addBusinessDays` / `businessDaysUntil` / `computeDueDate` | Funciones | `mocks/calendar.ts` | El cómputo de plazos del contrato (V3 §4), para armar expectativas en un test |
+| `addBusinessDays` / `businessDaysUntil` / `computeDueDate` | Funciones | `mocks/calendar.ts` | El cómputo de plazos del contrato (V5 §4, "Cómputo de días"), para armar expectativas en un test |
 
 ---
 
@@ -803,9 +810,9 @@ sesión se puede salvar, se salva sola.
 ### contract
 
 **Path:** `api/contract.ts` — la forma de los errores según el contrato.
-Exporta `ERROR_CODES` / `ErrorCode` (los 28 códigos: el catálogo de V3 §5.3,
-con los siete que sumó el Sprint 2 —`CASE_NOT_FOUND`, `CASE_SAC_ALREADY_EXISTS`,
-`CLIENT_DNI_ALREADY_EXISTS`, `CASE_IN_TERMINAL_STATE`, etc.— y sin
+Exporta `ERROR_CODES` / `ErrorCode` (41 códigos: el catálogo de V5 §5.3 —con
+los del Sprint 4, `DOCUMENT_NOT_FOUND`, `CASE_FOLDER_NOT_AVAILABLE` y
+`DOCUMENT_NOT_CONVERTIBLE`— más `LAWYER_ALREADY_LINKED`, que V5 no lista; sin
 `PROCEDURAL_STATE_HAS_DEPENDENCIES` ni `PROCEDURAL_STATE_IN_USE`, que el
 contrato retiró),
 `isErrorCode()`, `ErrorBody` y `LoginErrorBody`.
