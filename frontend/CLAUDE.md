@@ -5,7 +5,7 @@ adentro de un módulo** (`src/features/<módulo>/`), **qué está hecho y qué f
 en el sprint en curso**. El resto ya está documentado: no lo repito, leelo.
 
 Estado al **28/10/2026** (Sprint 4). Los mocks y los tests del Sprint 4 están
-escritos; de las pantallas están hechas HU14 y HU28: ver
+escritos; de las pantallas están hechas HU14, HU19, HU21 y HU28: ver
 [Sprint 4](#sprint-4--qué-falta-y-dónde).
 
 ## Antes de escribir código, leé
@@ -92,7 +92,7 @@ cada historia están en su issue.
 
 **Los mocks implementan todo V5 y los tests de pantalla ya están escritos**
 (`TESTING.md` §11, "Sprint 4"): están en rojo hasta que se programe cada
-pantalla. Están hechas HU14 y HU28; las demás, no.
+pantalla. Están hechas HU14, HU19, HU21 y HU28; las demás, no.
 
 | HU | Qué | Endpoint | Módulo | Tests (en rojo) |
 |---|---|---|---|---|
@@ -104,6 +104,26 @@ pantalla. Están hechas HU14 y HU28; las demás, no.
 | 25 | Generar expediente: página propia, carátula + documentos elegidos en orden, en un PDF | `POST /cases/{caseId}/case-files`, `GET …/documents/{documentId}/file` | `cases/` | Sin tests, por lo mismo |
 | 28 | Modificar acto procesal: "Modificar" en un acto de la línea de vida, sólo el responsable actual. Es `RegisterProceduralActPage` en `/causas/:caseId/acto/:actId`, con el título "Modificar acto procesal" | `PATCH /cases/{caseId}/procedural-acts/{actId}` | `proceedings/` | **Hecha** (Ezequiel Purro). Precarga con `GET …/procedural-acts/{actId}` (`useProceduralAct`, `toActFormValues`); manda sólo lo cambiado (`buildProceduralActPatch`). Mientras no cambien el estado ni las fechas, "Cómputo del plazo" muestra el plazo guardado del acto (D-98), no `deadline-preview`. La línea de vida suma "Modificar" y "Modificado por…"; en una causa prescripta no lo ofrece (`cases/CAMBIOS.md`). Tests: `components/proceedings/RegisterProceduralActPage.edit.test.tsx`, `unit/proceedings/buildProceduralActPatch.test.ts` |
 | 38 | Tarjeta "Documentación" del detalle: lee la carpeta en Drive; "Abrir" lleva a Drive | `GET /cases/{caseId}/documents` | `cases/` | `components/cases/CaseDetailPage.documents.test.tsx` |
+
+**"Modificar causa" (HU-19) se arma igual que el alta** (decisión del
+28/10/2026; los cambios al prototipo se pidieron a Claude Design). Donde el
+diálogo `modificarCausa` del prototipo difiere del alta, manda el alta:
+
+- el rol procesal es un `SegmentedControl`, no un select;
+- el objeto lleva un rótulo por fuero, "Objeto del reclamo" o "Objeto del
+  amparo", con el placeholder del alta;
+- en un amparo, con la fecha del acto lesivo se piden los mismos datos que en
+  el alta: "Plazo para presentar el amparo" (días y tipo de día), "El acto
+  lesivo se renueva" y "Se renueva cada". El prototipo sólo trae la fecha.
+
+Una excepción, que manda el contrato: el campo `court` se llama "Órgano
+interviniente" (V5 §3.7, D-91), como en el prototipo. Ahí el atrasado es el
+alta (ver [Problemas conocidos](#problemas-conocidos), punto 5).
+
+El formulario es un componente propio (`CaseEditForm`) que reusa las piezas
+del alta (`LegalQualificationPicker`, los datos del amparo), `validateCase`,
+`changeSacNumber` y `toFormErrors`. Las decisiones de qué viaja en el `PATCH`
+están en `TESTING.md` §11, "Decisiones de HU-19 y HU-38".
 
 **Lo que hay que sumar al programarlas:**
 
@@ -905,9 +925,10 @@ usuarios de prueba y sus contraseñas están en el README de los mocks.
 
 Al 28/10/2026. No se arreglan al paso: cada uno es de su dueño.
 
-1. **`npm test`: 372 pasan y 16 fallan, a propósito.**
-   - Los 15 tests de pantalla de HU19, HU21 y HU38 (`TESTING.md` §11): están
-     escritos antes que las pantallas.
+1. **`npm test`: de 419, 413 pasan y 6 fallan, a propósito** (corrida del
+   28/10/2026, con HU14, HU19, HU21 y HU28 programadas).
+   - Los 5 tests de pantalla de HU38 (`TESTING.md` §11): están escritos antes
+     que su pantalla.
    - `tests/unit/contract/endpoints.test.ts`: `docs/openapi` todavía no tiene
      los siete endpoints de V5 que el mock ya implementa.
 2. **`src/features/deadlines/` existe y está vacío** (sólo `.gitkeep`). La
@@ -918,6 +939,11 @@ Al 28/10/2026. No se arreglan al paso: cada uno es de su dueño.
    (`AppLayout.tsx`).
 4. **Lint:** un warning, `react(only-export-components)` en
    `src/shared/components/ui/Icon.tsx:2`.
+5. **El alta todavía dice "Tribunal o dependencia".** V5 cambió el rótulo del
+   campo `court` a "Órgano interviniente" (V5 §3.7, D-91), y así lo dicen el
+   prototipo, "Modificar causa" y su test (`CaseDetailPage.edit.test.tsx`).
+   `CaseForm.tsx:194` quedó con el rótulo de V4. Ningún test del alta lo
+   busca, así que el cambio no rompe nada; es del dueño del alta.
 
 ## Checklist de un módulo
 

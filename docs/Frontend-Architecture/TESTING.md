@@ -1062,6 +1062,12 @@ cambia, se cambian el test y la pantalla juntos:
   ("Se carga junto con el N° de SAC."), es obligatorio con SAC y se borra al
   borrar el SAC (`changeSacNumber`). **Si cambia el SAC, `startDate` viaja
   siempre con él**: con el valor cargado, o `null` si la causa queda sin SAC.
+  **Corregir el SAC no cambia la fecha que ya tenía la causa** (ajuste del
+  28/10/2026): al borrarlo y escribir otro, el SAC pasa por vacío y
+  `changeSacNumber` se lleva la fecha; `changeEditSacNumber` la repone cuando
+  el SAC vuelve a tener valor. Sólo la que borró el SAC: una fecha vaciada a
+  mano queda vacía. Lo cubren `unit/cases/caseForm.test.ts` y "un SAC que ya
+  tiene otra causa se rechaza en su campo".
 - **"Abogado responsable" se modifica** (CA-19.8), con el select del
   prototipo. Lo cubre un test de pantalla, escrito antes de programarlo:
   cambiar el responsable lo guarda y el detalle muestra al nuevo. Otro cubre

@@ -19,53 +19,60 @@ import { CasesPage } from '@/features/cases/pages/CasesPage'
 import { DocumentTemplatesPage } from '@/features/documents/pages/DocumentTemplatesPage'
 import { HomeRedirect } from '@/app/router/HomeRedirect'
 import { ToolsPage } from '@/features/tools/pages/ToolsPage'
+import { LowercasePath } from '@/app/router/LowercasePath'
 
 export const router = createBrowserRouter([
     {
-        // Sin sesión: sólo el login. Con sesión, la guarda rebota a Inicio.
-        element: <RedirectIfSession />,
+        // Antes que todo: `/Abogados` pasa a `/abogados` (ver LowercasePath).
+        element: <LowercasePath />,
         children: [
             {
-                element: <AuthLayout />,
-                children: [{ path: '/login', element: <LoginPage /> }],
-            },
-        ],
-    },
-    {
-        // Con sesión: todo lo que vive adentro del rail.
-        element: <RequireSession />,
-        children: [
-            {
-                element: <AppLayout />,
+                // Sin sesión: sólo el login. Con sesión, la guarda rebota a Inicio.
+                element: <RedirectIfSession />,
                 children: [
-                    { index: true, element: <HomeRedirect /> },
                     {
-                        element: <RequireAccess />,
-                        children: [
-                            { path: 'inicio', element: <HomePage /> },
-                            { path: 'clientes', element: <ClientsPage />},
-                            { path: 'estados-y-plazos', element: <ProceduralStatesPage /> },
-                            { path: 'calificaciones-legales', element: <LegalQualificationsPage /> },
-                            { path: 'usuarios', element: <UsersPage /> },
-                            { path: 'abogados', element: <LawyersPage /> },
-                            { path : 'causas', element: <CasesPage />},
-                            { path: 'causas/nueva', element: <RegisterCasePage /> },
-                            { path: 'causas/:caseId', element: <CaseDetailPage /> },
-                            { path: 'causas/:caseId/acto', element: <RegisterProceduralActPage /> },
-                            // Modificar un acto (HU28): la misma pantalla, con el acto elegido en la línea de vida.
-                            { path: 'causas/:caseId/acto/:actId', element: <RegisterProceduralActPage /> },
-                            { path: 'herramientas', element: <ToolsPage /> },
-                            { path: 'modelos', element: <DocumentTemplatesPage /> },
-
-
-                        ],
+                        element: <AuthLayout />,
+                        children: [{ path: '/login', element: <LoginPage /> }],
                     },
                 ],
             },
-            // Cualquier ruta desconocida, incluidas las secciones del rail que
-            // todavía no tienen pantalla. Va a sangre, sin el rail, pero sigue
-            // detrás de la guarda: sin sesión no se ve nada que no sea el login.
-            { path: '*', element: <NotFoundLayout /> },
+            {
+                // Con sesión: todo lo que vive adentro del rail.
+                element: <RequireSession />,
+                children: [
+                    {
+                        element: <AppLayout />,
+                        children: [
+                            { index: true, element: <HomeRedirect /> },
+                            {
+                                element: <RequireAccess />,
+                                children: [
+                                    { path: 'inicio', element: <HomePage /> },
+                                    { path: 'clientes', element: <ClientsPage />},
+                                    { path: 'estados-y-plazos', element: <ProceduralStatesPage /> },
+                                    { path: 'calificaciones-legales', element: <LegalQualificationsPage /> },
+                                    { path: 'usuarios', element: <UsersPage /> },
+                                    { path: 'abogados', element: <LawyersPage /> },
+                                    { path : 'causas', element: <CasesPage />},
+                                    { path: 'causas/nueva', element: <RegisterCasePage /> },
+                                    { path: 'causas/:caseId', element: <CaseDetailPage /> },
+                                    { path: 'causas/:caseId/acto', element: <RegisterProceduralActPage /> },
+                                    // Modificar un acto (HU28): la misma pantalla, con el acto elegido en la línea de vida.
+                                    { path: 'causas/:caseId/acto/:actId', element: <RegisterProceduralActPage /> },
+                                    { path: 'herramientas', element: <ToolsPage /> },
+                                    { path: 'modelos', element: <DocumentTemplatesPage /> },
+
+
+                                ],
+                            },
+                        ],
+                    },
+                    // Cualquier ruta desconocida, incluidas las secciones del rail que
+                    // todavía no tienen pantalla. Va a sangre, sin el rail, pero sigue
+                    // detrás de la guarda: sin sesión no se ve nada que no sea el login.
+                    { path: '*', element: <NotFoundLayout /> },
+                ],
+            },
         ],
     },
 ])

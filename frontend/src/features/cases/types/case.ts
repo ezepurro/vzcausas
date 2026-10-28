@@ -370,3 +370,54 @@ export interface CaseListParams extends PaginatedQuery {
      */
     openDeadline?: boolean
 }
+
+
+
+
+
+
+/**
+ * Cuerpo del `PATCH /cases/{caseId}`. Todo es opcional, pero
+ * tiene que viajar al menos un campo: un cuerpo vacío es un `400`. Un campo
+ * que no viaja no cambia; uno anulable en `null` se vacía.
+ *
+ * No están el fuero (D-95), la carpeta, el estado ni `active`: mandarlos es un
+ * `400`. Lo que es de un fuero no viaja en otro, igual que en el alta.
+ */
+export interface UpdateCaseBody {
+    /** 8 dígitos, único entre las causas vigentes. `null` deja la causa sin SAC. */
+    sacNumber?: string | null
+    caption?: string
+    court?: string | null
+    instructorName?: string | null
+    tribunalPhone?: string | null
+    instructorExtension?: string | null
+    /**
+     * Un cliente vigente. Si cambia, la carátula propuesta viaja en `caption`
+     * en la misma petición: el backend no la recalcula (D-105).
+     */
+    clientId?: number
+    proceduralRole?: ProceduralRole
+    /** Solo en `CRIMINAL`. Reemplaza la lista completa; `[]` la deja sin calificaciones. */
+    legalQualifications?: CaseQualificationBody[]
+    /** Solo en `CRIMINAL`. */
+    clientDetained?: boolean
+    /** Solo en `ADMINISTRATIVE` y `AMPARO`. */
+    counterparty?: string | null
+    /** Solo en `ADMINISTRATIVE` y `AMPARO`. No vacío, hasta 800 caracteres. */
+    subjectMatter?: string
+    /** Solo en `AMPARO`. */
+    injunctionGranted?: boolean
+    /** Solo en `AMPARO`. `null` borra el acto lesivo y sus datos asociados. */
+    harmfulActDate?: string | null
+    harmfulActRenews?: boolean
+    harmfulActRenewalDays?: number | null
+    harmfulActTermDays?: number | null
+    harmfulActTermDayType?: Exclude<DayType, 'NONE'> | null
+    /** Solo en `ADMINISTRATIVE`. `null`: la vía no se agotó. */
+    administrativeRemedyExhaustedOn?: string | null
+    courtFeePaid?: boolean
+    responsibleLawyerId?: number
+    /** Va con el SAC: obligatoria si la causa queda con SAC, `null` si queda sin él. */
+    startDate?: string | null
+}

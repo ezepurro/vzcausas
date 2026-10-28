@@ -62,6 +62,8 @@
   line-height: 1.4;
   color: var(--vz-faint);
 }
+/* "Modificar causa" y "Dar de baja", en una fila como el prototipo (HU19, HU21). */
+.vz-case-head__buttons { display: flex; flex-wrap: wrap; gap: 7px; }
 
 /* ─────────── barra de prescripción ─────────── */
 .vz-presc { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--vz-border); }
