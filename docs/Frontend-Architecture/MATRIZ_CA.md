@@ -62,11 +62,13 @@ que corresponde al servidor: el frontend muestra lo que recibe y no lo prueba.
 | Criterio | Dónde se cubre |
 | --- | --- |
 | CA-19.1 | `components/cases/CaseDetailPage.edit.test.tsx` (componentes) |
+| CA-19.2 | `components/cases/CaseDetailPage.edit.test.tsx` (componentes) |
 | CA-19.3 | `components/cases/CaseDetailPage.edit.test.tsx` (componentes) |
 | CA-19.4 | Backend |
 | CA-19.5 | `components/cases/CaseDetailPage.edit.test.tsx` (componentes) |
 | CA-19.6 | Backend |
 | CA-19.7 | `components/cases/CaseDetailPage.edit.test.tsx` (componentes) |
+| CA-19.8 | `components/cases/CaseDetailPage.edit.test.tsx` (componentes) |
 | CA-19.9 | Backend |
 | CA-19.10 | Backend |
 | CA-19.11 | Backend |
@@ -219,6 +221,7 @@ que corresponde al servidor: el frontend muestra lo que recibe y no lo prueba.
 | CA-38.4 | `components/cases/CaseDetailPage.documents.test.tsx` (componentes) |
 | CA-38.5 | `components/cases/CaseDetailPage.documents.test.tsx` (componentes) |
 | CA-38.6 | `components/cases/CaseDetailPage.documents.test.tsx` (componentes) |
+| CA-38.7 | Backend |
 | CA-38.8 | Backend |
 | CA-38.9 | Backend |
 
@@ -283,4 +286,4 @@ que corresponde al servidor: el frontend muestra lo que recibe y no lo prueba.
 
 ---
 
-166 criterios citados · 31 sólo del backend.
+169 criterios citados · 32 sólo del backend.

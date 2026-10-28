@@ -16,9 +16,10 @@ import { CaseDetailPage } from '@/features/cases/pages/CaseDetailPage'
  * | 1 | `CREATED`: 6 modelos penales y 6 archivos más, entre ellos el expediente v1 |
  * | 23 | `PENDING`: no hay nada que leer |
  *
- * @backend CA-38.2 CA-38.3 CA-38.8 CA-38.9
- * (la lectura en cada pedido, qué archivos entran y en qué orden, y los `404`
- * los resuelve el servidor)
+ * @backend CA-38.2 CA-38.3 CA-38.7 CA-38.8 CA-38.9
+ * (la lectura en cada pedido, qué archivos entran y en qué orden, los permisos
+ * de la descarga por la API y los `404` los resuelve el servidor; la tarjeta
+ * sólo tiene "Abrir", decisión del 28/10/2026 en TESTING.md §11)
  */
 
 function renderPage(caseId: number, as = 'gestion') {

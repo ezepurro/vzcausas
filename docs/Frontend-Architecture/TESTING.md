@@ -10,8 +10,8 @@ Si tenés una duda del tipo "¿este test dónde va?", saltá a
 [Dónde pongo este test](#9-dónde-pongo-este-test). Si la duda es "¿vale la pena
 este test?", andá a [Antes de escribir un test](#4-antes-de-escribir-un-test).
 
-> **Estado actual (28/10/2026):** **367 tests de Vitest**. Pasan 345 y fallan
-> 22: los 21 de pantalla del Sprint 4, escritos antes que sus pantallas (ver
+> **Estado actual (28/10/2026):** **369 tests de Vitest**. Pasan 345 y fallan
+> 24: los 23 de pantalla del Sprint 4, escritos antes que sus pantallas (ver
 > [§11](#sprint-4-los-tests-que-ya-están-escritos)), y el de contrato, hasta que
 > `docs/openapi` sume los endpoints de V5. Los del Sprint 3 ya están en verde.
 >
@@ -1014,7 +1014,7 @@ en el encabezado con `@backend`. Los mocks ya implementan todo V5
 | HU | Tests |
 | --- | --- |
 | 14 Modificar abogado | `components/lawyers/LawyersPage.edit.test.tsx` (4) |
-| 19 Modificar causa | `components/cases/CaseDetailPage.edit.test.tsx` (5) |
+| 19 Modificar causa | `components/cases/CaseDetailPage.edit.test.tsx` (7) |
 | 21 Dar de baja la causa | `components/cases/CaseDetailPage.delete.test.tsx` (3) |
 | 23 Descargar modelo formal | Ya cubierta por `components/documents/DocumentTemplatesPage.test.tsx` (HU-35) |
 | 24 y 25 Carátula y expediente | **Sin tests todavía.** "Generar expediente" es una página que no existe, y un test que importa un archivo que no existe rompe `npm test` y `npm run build`. Se escriben con la página, en su rama |
@@ -1063,8 +1063,9 @@ cambia, se cambian el test y la pantalla juntos:
   borrar el SAC (`changeSacNumber`). **Si cambia el SAC, `startDate` viaja
   siempre con él**: con el valor cargado, o `null` si la causa queda sin SAC.
 - **"Abogado responsable" se modifica** (CA-19.8), con el select del
-  prototipo. Lleva un test de pantalla, que se escribe antes de programarlo:
-  cambiar el responsable lo guarda y el detalle muestra al nuevo. Después de
+  prototipo. Lo cubre un test de pantalla, escrito antes de programarlo:
+  cambiar el responsable lo guarda y el detalle muestra al nuevo. Otro cubre
+  CA-19.2: sin cambios, el diálogo se cierra y no sale ningún `PATCH`. Después de
   guardar se vuelve a pedir el detalle, así lo que depende del responsable
   (los botones de los actos) se recalcula.
 - **La tarjeta "Documentación" sólo tiene "Abrir"** (CA-38.7), que lleva a
