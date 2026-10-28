@@ -7,6 +7,13 @@ describe('matchRoute', () => {
         expect(matchRoute('/usuarios/8')).toBe('/usuarios')
         expect(matchRoute('/usuarios/8/editar')).toBe('/usuarios')
     })
+
+    it('no distingue mayúsculas, como el router', () => {
+        expect(matchRoute('/Abogados')).toBe('/abogados')
+        expect(matchRoute('/CAUSAS/12/acto')).toBe('/causas')
+        expect(canAccess(['SECRETARY'], '/Abogados')).toBe(true)
+        expect(canAccess(['SECRETARY'], '/Usuarios')).toBe(false)
+    })
 })
 
 describe('canAccess', () => {

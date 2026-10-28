@@ -20,9 +20,15 @@ export const ROUTE_ACCESS: Record<string, readonly Role[]> = {
     '/calificaciones-legales': EVERYONE,
     '/reportes': ADMIN,
 }
+/**
+ * La sección de `ROUTE_ACCESS` a la que pertenece la ruta. Sin distinguir
+ * mayúsculas, como React Router: si no, `/Abogados` abre la pantalla pero
+ * acá no se encuentra y termina en "Sin acceso".
+ */
 export function matchRoute(pathname: string): string | undefined {
+    const path = pathname.toLowerCase()
     return Object.keys(ROUTE_ACCESS).find(
-        (route) => pathname === route || pathname.startsWith(`${route}/`),
+        (route) => path === route || path.startsWith(`${route}/`),
     )
 }
 /** ¿Algún rol del usuario habilita esta ruta? (también /usuarios/8 → /usuarios) */
