@@ -91,7 +91,8 @@ cada historia están en su issue.
 
 **Los mocks implementan todo V5 y los tests de pantalla ya están escritos**
 (`TESTING.md` §11, "Sprint 4"): están en rojo hasta que se programe cada
-pantalla. Ninguna pantalla del sprint está hecha.
+pantalla. HU-19 está programada (sus 7 tests pasan; falta el commit); las
+demás pantallas del sprint, no.
 
 | HU | Qué | Endpoint | Módulo | Tests (en rojo) |
 |---|---|---|---|---|
@@ -923,10 +924,11 @@ usuarios de prueba y sus contraseñas están en el README de los mocks.
 
 Al 28/10/2026. No se arreglan al paso: cada uno es de su dueño.
 
-1. **`npm test`: de 369, 345 pasan y 24 fallan, a propósito** (corrida del
-   28/10/2026).
-   - Los 23 tests de pantalla del Sprint 4 (`TESTING.md` §11): están escritos
-     antes que las pantallas.
+1. **`npm test`: de 393, 376 pasan y 17 fallan, a propósito** (corrida del
+   28/10/2026, con HU-19 programada).
+   - Los 16 tests de pantalla del Sprint 4 que faltan (`TESTING.md` §11):
+     HU-14, HU-21, HU-28 y HU-38, escritos antes que sus pantallas. Los 7 de
+     HU-19 ya pasan.
    - `tests/unit/contract/endpoints.test.ts`: `docs/openapi` todavía no tiene
      los siete endpoints de V5 que el mock ya implementa.
 2. **`src/features/deadlines/` existe y está vacío** (sólo `.gitkeep`). La

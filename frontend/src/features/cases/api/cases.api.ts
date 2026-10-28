@@ -1,6 +1,6 @@
 import { http } from '@/shared/api/http'
 import type { ApiItem } from '@/api-contract/envelopes'
-import type { Case, CaseFolder, CreateCaseBody } from '@/features/cases/types/case'
+import type { Case, CaseFolder, CreateCaseBody, UpdateCaseBody } from '@/features/cases/types/case'
 import type {  ApiList } from '@/api-contract/envelopes'
 import type { CaseListParams } from '@/features/cases/types/case'
 import type { Jurisdiction } from '@/features/legal-params'
@@ -42,6 +42,15 @@ export async function createCase(body: CreateCaseBody): Promise<Case> {
     return response.data.data
 }
 
+/**
+ * Modifica la causa (HU19, V5 §3.7). El cuerpo lleva sólo lo que cambió y
+ * nunca va vacío (`buildCasePatch`). Devuelve la causa completa, igual que
+ * `GET /cases/{caseId}`.
+ */
+export async function updateCase(id: number, body: UpdateCaseBody): Promise<Case> {
+    const response = await http.patch<ApiItem<Case>>(`${BASE}/${id}`, body)
+    return response.data.data
+}
 /**
  * La línea de vida de la causa (HU27, V4 D-85). Sin paginar, a propósito: una
  * línea de vida cortada en la página 1 sería incorrecta sin que nada lo delate.
