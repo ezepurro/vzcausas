@@ -40,6 +40,7 @@ import {
 import type { Case, CaseFormValues } from '@/features/cases/types/case'
 import type { InterruptiveActFormValues } from '@/features/cases/types/interruptiveAct'
 import type { PrescriptionDeclarationFormValues } from '@/features/cases/types/prescriptionDeclaration'
+import type { ProceduralAct } from '@/features/cases/types/proceduralAct'
 import { buildCasePatch } from '@/features/cases/utils/buildCasePatch'
 import { caseToFormValues, changeEditSacNumber } from '@/features/cases/utils/caseForm'
 import { prescriptionNote } from '@/features/cases/utils/prescription'
@@ -158,6 +159,19 @@ function CaseDetail({ case: c }: { case: Case }) {
        e interruptivos (D-30, D-50). No es un permiso por rol: depende de la causa. */
     const isResponsible = isResponsibleLawyer(c, lawyer?.id ?? null)
     const goRegisterAct = () => navigate(`/causas/${c.id}/acto`)
+
+    /* Los actos de una causa prescripta no se modifican (D-99): ahí la línea
+       de vida no ofrece "Modificar" (ver cases/CAMBIOS.md). */
+    const canModifyActs = c.prescriptionDeclaration === null
+
+    function modifyAct(act: ProceduralAct) {
+        // Como al registrar un acto interruptivo: el botón está para todos y avisa quién puede.
+        if (!isResponsible) {
+            toast('info', 'Solo el abogado responsable de la causa modifica sus actos procesales.')
+            return
+        }
+        navigate(`/causas/${c.id}/acto/${act.id}`)
+    }
 
     /* Actos interruptivos y prescripción sólo existen en el penal (D-50, D-52).
        Una causa ya prescripta está cerrada: no se ofrece ninguno de los dos. */
@@ -440,6 +454,8 @@ function CaseDetail({ case: c }: { case: Case }) {
                     }
                     canRegisterAct={isResponsible}
                     onRegisterAct={goRegisterAct}
+                    canModifyActs={canModifyActs}
+                    onModifyAct={modifyAct}
                 />
                 <div className="vz-case-detail__aside">
                     <ClientCard client={c.client} />

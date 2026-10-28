@@ -2,7 +2,7 @@ import { DetailList, LoadingState, Panel } from '@/shared/components/ui'
 import { Checkbox, Field, TextInput } from '@/shared/components/forms'
 import { formatDate, parseDateOnly } from '@/shared/lib/dates'
 import { DeadlinePreviewSkeleton } from '@/features/proceedings/components/ProceduralActFormSkeleton'
-import type { DeadlinePreview } from '@/features/proceedings/types/proceduralAct'
+import type { ActDeadline, DeadlinePreview } from '@/features/proceedings/types/proceduralAct'
 import { dueDateDetail, dueDateTone } from '@/features/proceedings/utils/dueDateText'
 import { termText } from '@/features/proceedings/utils/stateOptions'
 
@@ -20,6 +20,12 @@ export type DeadlinePreviewState =
     | { kind: 'loading' }
     | { kind: 'error'; message: string }
     | { kind: 'ready'; stateName: string; preview: DeadlinePreview }
+    /**
+     * Modificar un acto sin tocar el estado ni las fechas: el plazo es el que
+     * el acto tiene guardado, no el de la tabla de hoy (D-98). `null` si el
+     * acto no abre plazo.
+     */
+    | { kind: 'saved'; stateName: string; deadline: ActDeadline | null }
 
 export interface DeadlinePreviewAsideProps {
     state: DeadlinePreviewState
@@ -153,6 +159,8 @@ function PreviewBody({ state, manualDate }: { state: DeadlinePreviewState; manua
             )
         case 'error':
             return <p className="vz-error">{state.message}</p>
+        case 'saved':
+            return <SavedTermBody stateName={state.stateName} deadline={state.deadline} manualDate={manualDate} />
         case 'ready': {
             const { preview } = state
             const opensTerm = preview.dueDate !== null
@@ -189,6 +197,54 @@ function PreviewBody({ state, manualDate }: { state: DeadlinePreviewState; manua
             )
         }
     }
+}
+
+/**
+ * El plazo guardado del acto que se está modificando. Sin los días hábiles
+ * que faltan: el acto no los trae y el front no los cuenta (D-20).
+ */
+function SavedTermBody({ stateName, deadline, manualDate }: {
+    stateName: string
+    deadline: ActDeadline | null
+    manualDate: string | null
+}) {
+    const computed = deadline?.computedDueDate ?? null
+    return (
+        <>
+            <DetailList
+                items={[
+                    { label: 'Plazo del acto', value: deadline ? termText(deadline) : 'No abre plazo' },
+                    ...(deadline ? [{ label: 'Cuenta desde', value: formatDate(deadline.countsFrom), mono: true }] : []),
+                    { label: 'Estado procesal', value: stateName },
+                ]}
+            />
+            {manualDate ? (
+                <ManualDueBox
+                    date={manualDate}
+                    tableNote={
+                        computed
+                            ? `Con el plazo del acto vencía el ${formatDate(computed)}.`
+                            : 'El acto no tiene plazo de tabla.'
+                    }
+                />
+            ) : (
+                <div className="vz-due vz-due--neutral">
+                    <div className="vz-due__label">Vence el</div>
+                    <div className="vz-due__date">{computed ? formatDate(computed) : '—'}</div>
+                    {computed ? (
+                        <>
+                            <div className="vz-due__detail">{dueDateDetail(computed, null)}</div>
+                            <div className="vz-due__detail">
+                                Es el plazo con el que se registró el acto: se conserva mientras no cambies el estado.
+                            </div>
+                        </>
+                    ) : (
+                        <div className="vz-due__detail">Este acto no dispara un plazo de presentación.</div>
+                    )}
+                </div>
+            )}
+        </>
+    )
 }
 
 /**

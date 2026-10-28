@@ -252,6 +252,8 @@
 .vz-timeline__term { font-size: 12px; color: var(--vz-muted); }
 .vz-timeline__notes { margin-top: 7px; font-size: 12.5px; line-height: 1.5; color: var(--vz-muted); }
 .vz-timeline__by { margin-top: 5px; font-size: 12px; color: var(--vz-faint); }
+/* "Modificar" de cada acto procesal (HU28). */
+.vz-timeline__actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
 .vz-timeline__empty { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: 6px 0; }
 .vz-timeline__empty-title { font-size: 14px; font-weight: 600; }
 .vz-timeline__empty-text { margin: 0; max-width: 520px; font-size: 13px; line-height: 1.5; color: var(--vz-muted); }

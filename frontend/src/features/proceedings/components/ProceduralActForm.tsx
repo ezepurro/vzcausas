@@ -31,12 +31,17 @@ export interface ProceduralActFormProps {
     customState: boolean
     /** true mientras la mutación está en vuelo: bloquea el confirmar */
     saving: boolean
+    /** "Registrar acto" o, al modificar (HU28), "Guardar cambios". */
+    submitLabel: string
+    /** Debajo del título del panel. Al modificar dice qué acto y que el cambio queda asentado. */
+    sub?: string
     onConfirm: () => void
     onCancel: () => void
 }
 
 /**
- * El formulario de "Registrar acto procesal" (HU26): a qué estado pasa la
+ * El formulario de "Registrar acto procesal" (HU26), que es también el de
+ * "Modificar acto procesal" (HU28, V5 §3.8): a qué estado pasa la
  * causa, las fechas y las observaciones. El cómputo del plazo va al costado,
  * en `DeadlinePreviewAside`.
  *
@@ -53,7 +58,7 @@ export interface ProceduralActFormProps {
  */
 export function ProceduralActForm({
     values, errors, jurisdiction, stateOptions, onStateTextChange, onStateSelect, onChange,
-    customState, saving, onConfirm, onCancel,
+    customState, saving, submitLabel, sub, onConfirm, onCancel,
 }: ProceduralActFormProps) {
     const administrative = jurisdiction === 'ADMINISTRATIVE'
 
@@ -66,10 +71,11 @@ export function ProceduralActForm({
         <form onSubmit={handleSubmit} noValidate>
             <Panel
                 title="Datos del acto procesal"
+                sub={sub}
                 footer={
                     <div className="vz-form-actions">
                         <Button variant="secondary" size="md" onClick={onCancel}>Cancelar</Button>
-                        <Button type="submit" size="md" disabled={saving}>Registrar acto</Button>
+                        <Button type="submit" size="md" disabled={saving}>{submitLabel}</Button>
                     </div>
                 }
             >
