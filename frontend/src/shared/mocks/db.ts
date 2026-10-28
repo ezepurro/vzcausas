@@ -29,6 +29,7 @@ import type {
     ActDeadline,
     Case,
     CaseClient,
+    CaseDocument,
     CaseFolder,
     CaseFolderStatus,
     CaseLegalQualification,
@@ -65,6 +66,7 @@ import {
     CLIENTS,
     CREDENTIALS,
     DEFAULT_PASSWORD,
+    DOCUMENT_SEEDS,
     DOCUMENT_TEMPLATES,
     INITIAL_STATE_NAME,
     LAWYERS,
@@ -127,6 +129,36 @@ export interface StoredCase {
     /** La marca de HU33. Con ella la causa está en "Prescripta" (D-54). */
     prescriptionDeclaration: StoredPrescriptionDeclaration | null;
     active: boolean;
+    /**
+     * La baja (V5, HU21): motivo, quién y cuándo. Queda en la auditoría y la
+     * API no la devuelve, porque para el cliente la causa deja de existir.
+     */
+    deactivation: { reason: string | null; byId: number; at: string } | null;
+}
+
+/**
+ * Un archivo de la carpeta de la causa en Drive (V5 §3.12). La API no lo
+ * guarda —lo lee de Drive en cada pedido—; el mock hace de Drive.
+ */
+export interface StoredDocument {
+    id: string;
+    caseId: number;
+    name: string;
+    mimeType: string;
+    sizeBytes: number | null;
+    createdAt: string;
+    modifiedAt: string;
+    uploadedBy: string | null;
+    /**
+     * Sólo en un expediente generado: su número, su versión, el nombre de sus
+     * partes y lo que el cliente mandó para la carátula, para armar el PDF.
+     */
+    caseFile: {
+        id: number;
+        version: number;
+        parts: string[];
+        cover: { opposingParty: string | null; notes: string | null } | null;
+    } | null;
 }
 
 /**
@@ -186,6 +218,9 @@ export interface StoredAct {
     /** Id del usuario que lo registró. */
     registeredById: number;
     registeredAt: string;
+    /** La última modificación (V5, HU28). `null` si nunca se modificó. */
+    lastModifiedById: number | null;
+    lastModifiedAt: string | null;
 }
 
 export interface MockDb {
@@ -200,6 +235,14 @@ export interface MockDb {
     proceduralActs: StoredAct[];
     interruptiveActs: StoredInterruptiveAct[];
     documentTemplates: StoredDocumentTemplate[];
+    /** Lo que hay en las carpetas de las causas en Drive (V5 §3.12). */
+    documents: StoredDocument[];
+    /**
+     * La última versión de expediente de cada causa. La lleva el sistema, así
+     * que borrar un expediente en Drive no reutiliza su número (V5 D-102).
+     */
+    caseFileVersions: Map<number, number>;
+    nextCaseFileId: number;
     failures: MockFailures;
     /** `username` → contraseña en texto plano. Es un mock, no un backend. */
     passwords: Map<string, string>;
@@ -335,6 +378,8 @@ function seedAct(
         }),
         registeredById,
         registeredAt: `${actDate}T10:00:00-03:00`,
+        lastModifiedById: null,
+        lastModifiedAt: null,
     };
 }
 
@@ -371,17 +416,97 @@ const JURISDICTION_LABEL: Record<Jurisdiction, string> = {
 };
 
 /**
- * Dónde queda la carpeta: `/VZ Causas/{abogado}/{fuero}/{carátula}` (V4
- * D-61), con el abogado responsable como `Apellido, Nombres`, el rótulo del
- * fuero y la carátula tal como está registrada.
+ * El nombre de una carpeta en Drive (V5 §4): sin los caracteres que la nube no
+ * admite, con los espacios repetidos juntados y cortado en 255.
+ * `GÓMEZ, Ariel c/ PÉREZ` queda `GÓMEZ, Ariel c PÉREZ`.
+ */
+function driveFolderName(name: string): string {
+    // eslint-disable-next-line no-control-regex
+    return name.replace(/[/\\:*?"<>|\u0000-\u001f]/g, '').replace(/\s+/g, ' ').trim().slice(0, 255);
+}
+
+/**
+ * Dónde queda la carpeta: `/VZ Causas/Causas/{abogado}/{fuero}/{carátula}`
+ * (V5 §4, "Carpeta de la causa"), con el abogado responsable como
+ * `Apellido, Nombres`, el rótulo del fuero y la carátula. Sigue al responsable
+ * y a la carátula vigentes (D-104).
  */
 export function folderPath(input: {
     lawyer: Pick<Lawyer, 'lastName' | 'firstName'>;
     jurisdiction: Jurisdiction;
     caption: string;
 }): string {
-    const lawyer = `${input.lawyer.lastName}, ${input.lawyer.firstName}`;
-    return `/VZ Causas/${lawyer}/${JURISDICTION_LABEL[input.jurisdiction]}/${input.caption}`;
+    const lawyer = driveFolderName(`${input.lawyer.lastName}, ${input.lawyer.firstName}`);
+    return `/VZ Causas/Causas/${lawyer}/${JURISDICTION_LABEL[input.jurisdiction]}/${driveFolderName(input.caption)}`;
+}
+
+/** Dónde tendría que estar hoy la carpeta de la causa, con su responsable y su carátula vigentes. */
+export function expectedFolderPath(stored: Pick<StoredCase, 'responsibleLawyerId' | 'jurisdiction' | 'caption'>): string {
+    const lawyer = db.lawyers.find((l) => l.id === stored.responsibleLawyerId) ?? { lastName: '', firstName: '' };
+    return folderPath({ lawyer, jurisdiction: stored.jurisdiction, caption: stored.caption });
+}
+
+/* ------------------------------------------------------------------ */
+/* Documentos de la carpeta (V5 §3.12)                                 */
+/* ------------------------------------------------------------------ */
+
+export const PDF_MIME = 'application/pdf';
+export const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+const DOC_MIME = 'application/msword';
+export const GOOGLE_DOC_MIME = 'application/vnd.google-apps.document';
+
+/** Lo que admite el expediente: PDF, Word, documento de Google, JPG o PNG (V5 D-102). */
+const CONVERTIBLE_MIMES = new Set([PDF_MIME, DOCX_MIME, DOC_MIME, GOOGLE_DOC_MIME, 'image/jpeg', 'image/png']);
+
+/** Lo que el contrato llama documento nativo de Google: Drive no lo mide ni le pone extensión. */
+export function isGoogleNative(mimeType: string): boolean {
+    return mimeType.startsWith('application/vnd.google-apps.');
+}
+
+/** Quien sube lo que genera el sistema: la cuenta de gestión, como la ve Drive. */
+export const SYSTEM_UPLOADER = 'VZ Causas';
+
+/** El documento como lo devuelve la API: con su extensión, su enlace y si entra al expediente. */
+export function toCaseDocument(stored: StoredDocument): CaseDocument {
+    const native = isGoogleNative(stored.mimeType);
+    const dot = stored.name.lastIndexOf('.');
+    return {
+        id: stored.id,
+        name: stored.name,
+        extension: native || dot < 1 ? null : stored.name.slice(dot + 1).toLowerCase(),
+        mimeType: stored.mimeType,
+        sizeBytes: native ? null : stored.sizeBytes,
+        createdAt: stored.createdAt,
+        modifiedAt: stored.modifiedAt,
+        uploadedBy: stored.uploadedBy,
+        url: `https://drive.google.com/file/d/${stored.id}/view`,
+        convertibleToPdf: CONVERTIBLE_MIMES.has(stored.mimeType),
+        caseFile: stored.caseFile ? { id: stored.caseFile.id, version: stored.caseFile.version } : null,
+    };
+}
+
+/**
+ * Las copias de los modelos que quedan en una carpeta recién creada (V4 §4,
+ * "Qué modelos se copian"). Las usa la base al sembrar y el servidor al crear
+ * la carpeta, así una carpeta nueva se lee igual que una sembrada.
+ */
+export function templateCopies(
+    caseId: number,
+    templates: readonly StoredDocumentTemplate[],
+    jurisdiction: Jurisdiction,
+    at: string,
+): StoredDocument[] {
+    return templatesForNewCases(templates, jurisdiction).map((t) => ({
+        id: `vz-${caseId}-modelo-${t.id}`,
+        caseId,
+        name: t.fileName,
+        mimeType: DOCX_MIME,
+        sizeBytes: 24_576,
+        createdAt: at,
+        modifiedAt: at,
+        uploadedBy: SYSTEM_UPLOADER,
+        caseFile: null,
+    }));
 }
 
 /** El enlace falso de la carpeta en Drive. */
@@ -445,6 +570,9 @@ function initialState(): MockDb {
     const cases: StoredCase[] = [];
     const proceduralActs: StoredAct[] = [];
     const interruptiveActs: StoredInterruptiveAct[] = [];
+    const documents: StoredDocument[] = [];
+    const caseFileVersions = new Map<number, number>();
+    let caseFileId = 0;
 
     for (const seed of CASE_SEEDS) {
         const lawyer = LAWYERS.find((l) => l.id === seed.responsibleLawyerId);
@@ -483,8 +611,15 @@ function initialState(): MockDb {
             folder,
             prescriptionDeclaration: null,
             active: true,
+            deactivation: null,
         };
         cases.push(stored);
+
+        // Una carpeta creada tiene adentro las copias de los modelos del fuero.
+        if (folder?.status === 'CREATED') {
+            const createdOn = stored.startDate ?? today;
+            documents.push(...templateCopies(stored.id, documentTemplates, stored.jurisdiction, `${createdOn}T09:00:00-03:00`));
+        }
 
         // Los actos los registró quien lleva la causa: sólo el abogado
         // responsable lo hace (D-30), y la cuenta sale de su ficha.
@@ -516,6 +651,27 @@ function initialState(): MockDb {
         }
     }
 
+    DOCUMENT_SEEDS.forEach((seed, index) => {
+        const on = `${resolveSeedDate(seed.on, today)}T11:00:00-03:00`;
+        let caseFile: StoredDocument['caseFile'] = null;
+        if (seed.caseFile) {
+            caseFileId += 1;
+            caseFile = { id: caseFileId, version: seed.caseFile.version, parts: [...seed.caseFile.parts], cover: null };
+            caseFileVersions.set(seed.caseId, Math.max(caseFileVersions.get(seed.caseId) ?? 0, seed.caseFile.version));
+        }
+        documents.push({
+            id: `vz-doc-${index + 1}`,
+            caseId: seed.caseId,
+            name: seed.name,
+            mimeType: seed.mimeType,
+            sizeBytes: seed.sizeBytes,
+            createdAt: on,
+            modifiedAt: on,
+            uploadedBy: seed.uploadedBy,
+            caseFile,
+        });
+    });
+
     return {
         users,
         lawyers: LAWYERS.map((l) => ({ ...l })),
@@ -526,6 +682,9 @@ function initialState(): MockDb {
         proceduralActs,
         interruptiveActs,
         documentTemplates,
+        documents,
+        caseFileVersions,
+        nextCaseFileId: caseFileId + 1,
         failures: { documentStorage: false },
         passwords,
         sessions: new Map(),
@@ -1090,6 +1249,8 @@ export function toProceduralAct(stored: StoredAct): ProceduralAct {
         deadline: stored.deadline ? { ...stored.deadline } : null,
         registeredBy: userRef(stored.registeredById),
         registeredAt: stored.registeredAt,
+        lastModifiedBy: stored.lastModifiedById === null ? null : userRef(stored.lastModifiedById),
+        lastModifiedAt: stored.lastModifiedAt,
     };
 }
 

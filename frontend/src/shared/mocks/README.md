@@ -1,13 +1,19 @@
 # Mocks — API simulada
 
-Implementación en memoria de `docs/Api-Contract/API_CONTRACT_V4.md` (Sprint 3,
-con la revisión del 19/10/2026): los endpoints del contrato, con sus códigos de
+Implementación en memoria de `docs/Api-Contract/API_CONTRACT_V5.md` (Sprint 4,
+con la revisión del 27/10/2026): los endpoints del contrato, con sus códigos de
 error, su paginación, sus filtros, sus permisos por perfil y sus bajas
 lógicas. Sirve para desarrollar pantallas sin backend levantado y para tener
 fixtures estables en los tests.
 
-**Está entero**, la línea de vida de HU27 incluida (`GET /cases/{caseId}/timeline`
-y los listados de actos, D-85): ver [Lo que suma el Sprint 3](#lo-que-suma-el-sprint-3-v4).
+**Está entero**: lo del Sprint 3 ([Lo que suma el Sprint 3](#lo-que-suma-el-sprint-3-v4))
+y lo del Sprint 4, que es modificar y dar de baja una causa, la carátula,
+modificar un acto procesal, los documentos de la causa y el expediente
+([Lo que suma el Sprint 4](#lo-que-suma-el-sprint-4-v5)).
+
+> **`tests/unit/contract/endpoints.test.ts` está en rojo** hasta que
+> `docs/openapi` sume los siete endpoints de V5: el mock los implementa y la
+> especificación todavía no.
 Lo que V4 sacó del contrato tampoco está: los avisos por correo son
 configuración del servidor (D-79) y el adjunto de la cédula quedó fuera del
 sprint (§8.3).
@@ -214,7 +220,7 @@ Los clientes `JUÁREZ` (18) y `RUIZ` (24) no tienen causas.
 | Causa 4 | Sin actos interruptivos y con el 78 %: **alerta de prescripción**. Sin carpeta, y la lleva `fvazquez` |
 | Causa 10 | **Marcada como prescripta** (`prescriptionDeclaration`): está en "Prescripta" (estado 10) sin un acto que la lleve |
 | Causa 13 | Prescripción **cumplida** (`expired`) y sin marcar. Su acto interruptivo reinicia una calificación y no la otra, cuyo hecho es posterior |
-| Causas 1, 2, 3, 5, 6 | Carpeta `CREATED`, con los modelos del fuero, en `/VZ Causas/{Apellido, Nombres}/{Fuero}/{carátula}` (D-61) |
+| Causas 1, 2, 3, 5, 6 | Carpeta `CREATED`, con los modelos del fuero. Desde V5 la ruta es `/VZ Causas/Causas/{Apellido, Nombres}/{Fuero}/{carátula}`, sin los caracteres que Drive no admite |
 | Causa 11 | Carpeta `CREATING`: el `POST /cases/11/folder` no hace nada y responde `200` |
 | Causa 22 | Carpeta con `ERROR` (Drive falló al registrarla), con 2 modelos pendientes: para reintentar con `POST /cases/22/folder`. Es además el amparo con **vencimiento del acto lesivo** (23/09/2026, D-78) |
 | Causa 23 | Carpeta `PENDING`: se registró sin pedirla. Es también la penal sin calificaciones, que no se puede marcar prescripta (D-74) |
@@ -240,6 +246,39 @@ notificación), la 8 (estado escrito a mano con vencimiento ajustado), la 10
 "Dr." ni "Dra." (D-81): el tratamiento lo pone el frontend. En los tests,
 `personName` de `tests/setup/names.ts` acepta las formas posibles mientras el
 equipo no fije una.
+
+### Lo que suma el Sprint 4 (V5)
+
+| Dato | Para qué está |
+| --- | --- |
+| Causa 1 | Su carpeta tiene, además de los 6 modelos penales: dos PDF, una foto JPG, un documento de Google, una hoja de cálculo de Google (**no convertible**, `422 DOCUMENT_NOT_CONVERTIBLE`) y el **expediente versión 1** (`Expediente_13284571_v1.pdf`), que no se puede incluir en otro. El próximo expediente es la versión 2 |
+| Causas 2, 3, 5, 6 | Un escrito cada una (PDF, PDF, Word y PNG) además de los modelos: para generar el expediente en cada fuero |
+| Causas 11, 22, 23 | Carpeta `CREATING`, `ERROR` y `PENDING`: la lista de documentos vuelve vacía con `readAt` en `null`, y el expediente responde `422 CASE_FOLDER_NOT_AVAILABLE` |
+| Causa 10 | "Prescripta": `PATCH` con `legalQualifications` y modificar cualquiera de sus actos responden `422 CASE_IN_TERMINAL_STATE` |
+| Causa 9, 21 | Terminales que no son "Prescripta": sus actos sí se modifican, y corregir el que la cerró la reabre (D-99) |
+| Causa 23 | Sin SAC: la carátula se llama `Caratula_causa-23.pdf` |
+| Causa 20 | `QUERELLANTE_PARTICULAR`: la carátula lleva `QUERELLANTE (…)` arriba y deja vacío el imputado |
+| Causa 18 | `DEMANDADA`: la contraparte va arriba y el cliente abajo |
+
+**Lo que se guarda en una modificación.** `PATCH /cases/{caseId}` reemplaza lo
+que viene y deja lo que no; el fuero no se toca (`400`). Si cambian la
+carátula o el responsable, `folder.path` pasa a la ubicación nueva (D-104),
+salvo con `db.failures.documentStorage` y la carpeta `CREATED`: ahí la causa se
+guarda igual y la ruta queda la de antes, hasta que `POST /cases/{caseId}/folder`
+la corrige. Lo mismo con `PATCH /lawyers/{lawyerId}` si cambia el nombre.
+
+**La baja** (`DELETE /cases/{caseId}`) pone `active` en `false` y guarda el
+motivo, quién y cuándo (no se devuelven). Desde ahí la causa y todo lo que
+cuelga de ella responden `404 CASE_NOT_FOUND`, sale de los listados, los
+tableros y los conteos, y su SAC se puede volver a usar.
+
+**Modificar un acto** lo registra en `lastModifiedBy` y `lastModifiedAt`; un
+acto que nunca se modificó los trae en `null`. El estado de la causa no se
+escribe: se recalcula en la próxima lectura con el acto de fecha más reciente.
+
+**La carátula y el expediente son PDF de verdad** (`pdf.ts`), mínimos: el texto
+de cada recuadro en su orden, sin logo, sin acentos. Alcanzan para la vista
+previa, la impresión y para ver qué datos van en cada recuadro.
 
 "Prescripta" es un **estado de sistema protegido** (V4 D-53): se lista, sirve
 de filtro (`GET /cases?proceduralStateId=10`) y no se modifica ni se da de
@@ -355,7 +394,14 @@ Para tener el recurso como lo devuelve la API están los serializadores de
 | `GET` | `/cases` | 200, 400, 401 |
 | `GET` | `/cases/custom-states` | 200, 400, 401 |
 | `GET` | `/cases/{caseId}` | 200, 400, 401, 404 |
+| `PATCH` | `/cases/{caseId}` | 200, 400, 401, 404, 409, 422 |
+| `DELETE` | `/cases/{caseId}` | 204, 400, 401, 404 |
+| `GET` | `/cases/{caseId}/cover` | 200 (PDF), 400, 401, 404 |
 | `POST` | `/cases/{caseId}/procedural-acts` | 201, 400, 401, 403, 404, 422 |
+| `PATCH` | `/cases/{caseId}/procedural-acts/{actId}` | 200, 400, 401, 403, 404, 422 |
+| `GET` | `/cases/{caseId}/documents` | 200, 400, 401, 404, 502 |
+| `GET` | `/cases/{caseId}/documents/{documentId}/file` | 200 (archivo), 400, 401, 403, 404, 502 |
+| `POST` | `/cases/{caseId}/case-files` | 201, 400, 401, 404, 422, 502 |
 | `GET` | `/cases/{caseId}/procedural-acts/deadline-preview` | 200, 400, 401, 403, 404 |
 | `POST` | `/cases/{caseId}/prescription` | 200, 400, 401, 403, 404, 422 |
 | `POST` | `/cases/{caseId}/folder` | 200, 400, 401, 404, 502 |
@@ -462,6 +508,12 @@ de servir en el acto.
 | `413` | un archivo de más de 10 MB (`MAX_FILE_BYTES`) |
 | `422`, Sprint 3 | acto interruptivo o marca de prescripción fuera del penal (causas 2, 3, 22…) → `PRESCRIPTION_NOT_APPLICABLE`; marcar prescripta la causa 23, penal sin calificaciones → `PRESCRIPTION_NOT_APPLICABLE` con "La causa no tiene calificaciones legales: no puede prescribir." (D-74); cualquiera de los dos sobre una causa terminal (9, 10, 21) → `CASE_IN_TERMINAL_STATE`; `PATCH` o `DELETE /procedural-states/10` → `PROCEDURAL_STATE_PROTECTED` |
 | `502` | `db.failures.documentStorage = true` (Drive caído: carpeta, alta y descarga de modelos). La carpeta queda en `ERROR`. Se vuelve a `false` con `resetMockDb()` |
+| `400`, Sprint 4 | `PATCH /cases/1` con `jurisdiction`, con un campo que no está en la tabla, vacío (`{}`), con `sacNumber: null` sin `startDate: null`, con `legalQualifications` en una causa que no es penal (2, 3…); `DELETE /cases/{id}` con un `reason` de más de 500 caracteres; `GET /cases/1/cover?disposition=x`; modificar un acto dejando `notificationDate` antes del `actDate` nuevo, o con estado de la tabla y escrito a mano a la vez; `POST /cases/1/case-files` sin documentos, con el expediente `Expediente_13284571_v1.pdf` o con un id de otra causa; `cover.opposingParty` en una causa que no es penal; `PATCH /lawyers/4` con `lastName: null` o `firstName: "Dr. Ignacio"` |
+| `403`, Sprint 4 | modificar un acto sin ser el responsable actual (`fvazquez` sobre la causa 1); descargar un documento que no es un expediente como `supervision` (Administrador sin otro rol). El expediente sí lo descarga |
+| `404`, Sprint 4 | cualquier pedido sobre una causa dada de baja → `CASE_NOT_FOUND`; un acto de otra causa → `PROCEDURAL_ACT_NOT_FOUND`; descargar un documento de la causa 2 pidiéndolo por la 1, o uno inexistente → `DOCUMENT_NOT_FOUND` |
+| `409`, Sprint 4 | `PATCH /cases/1` con el SAC de otra causa vigente (`12907344`). El de una causa dada de baja no choca |
+| `422`, Sprint 4 | causa 10: `PATCH` con `legalQualifications` o modificar uno de sus actos → `CASE_IN_TERMINAL_STATE`; expediente de las causas 11, 22 o 23 → `CASE_FOLDER_NOT_AVAILABLE`; expediente con la "Planilla de gastos" de la causa 1 → `DOCUMENT_NOT_CONVERTIBLE` |
+| `502`, Sprint 4 | con `db.failures.documentStorage`: la lista de documentos, la descarga y el expediente (que no consume el número de versión) |
 
 #### Subir y descargar archivos
 
@@ -517,6 +569,7 @@ funciona como en el navegador.
 | `responses.ts` | Una respuesta de ejemplo por cada código documentado, en `RESPONSES.<endpoint>.<case>`, más los mensajes de error compartidos en `ERRORS` y `forbiddenFor(rol)`. |
 | `db.ts` | Base en memoria (copia mutable de las semillas, con las fechas relativas ya resueltas), tokens de sesión, `resetMockDb()` y los serializadores `toCase`, `toUser`, etc., que arman lo embebido y lo calculado. |
 | `handlers.ts` | **El servidor falso**: `resolveRequest(request)` → `{ status, body }`. Toda la lógica del contrato vive acá, y no sabe de MSW ni de axios. Su tabla `ROUTES` es la única lista de endpoints; `ROUTE_TABLE` es lo que exporta para la capa de transporte. |
+| `pdf.ts` | `buildPdf(páginas)`: un PDF mínimo y válido, para la carátula y el expediente (V5). |
 | `msw-handlers.ts` | La capa MSW: normaliza la url, aplica `passthrough`, latencia y fallos forzados, y convierte el resultado en `HttpResponse`. Sin lógica de negocio. Sus interceptores salen de `ROUTE_TABLE`. |
 | `browser.ts` | `startMocks()` / `stopMocks()` — service worker. Sólo navegador. |
 | `server.ts` | `server` de `msw/node` — tests. Sólo Node. |

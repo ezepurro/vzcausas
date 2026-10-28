@@ -59,6 +59,11 @@ export interface MockFile {
     content: string;
     contentType: string;
     fileName: string;
+    /**
+     * `inline` para abrirlo en el navegador (vista previa, imprimir) o
+     * `attachment` para descargarlo (V5 §3.7 y §3.12). Sin el campo, `attachment`.
+     */
+    disposition?: 'inline' | 'attachment';
 }
 
 function response<T>(status: number, body: T): MockResponse<T> {
@@ -170,6 +175,16 @@ export const ERRORS = {
         'FORBIDDEN',
         'Se requiere el rol ADMINISTRATOR o LAWYER para realizar esta operación.',
     ),
+    /** Modificar un acto procesal: el responsable actual de la causa (V5 §3.8). */
+    forbiddenNotResponsibleModify: errorBody(
+        'FORBIDDEN',
+        'Solo el abogado responsable de la causa puede modificar sus actos procesales.',
+    ),
+    /** Descargar un documento que no es un expediente (V5 D-103). */
+    forbiddenLawyerOrSecretary: errorBody(
+        'FORBIDDEN',
+        'Se requiere el rol LAWYER o SECRETARY para realizar esta operación.',
+    ),
 
     /* ---- 404 ---- */
     userNotFound: errorBody('USER_NOT_FOUND', 'No se encontró el usuario solicitado.'),
@@ -190,6 +205,7 @@ export const ERRORS = {
         'No se encontró el modelo formal solicitado.',
     ),
     resourceNotFound: errorBody('RESOURCE_NOT_FOUND', 'No se encontró el recurso solicitado.'),
+    documentNotFound: errorBody('DOCUMENT_NOT_FOUND', 'No se encontró el documento en la carpeta de la causa.'),
 
     /* ---- 409 ---- */
     usernameTaken: errorBody(
@@ -270,6 +286,25 @@ export const ERRORS = {
         'PRESCRIPTION_NOT_APPLICABLE',
         'La causa no tiene calificaciones legales: no puede prescribir.',
     ),
+    /** Cambiar las calificaciones de una causa "Prescripta" (V5 D-96). */
+    prescribedCaseQualifications: errorBody(
+        'CASE_IN_TERMINAL_STATE',
+        'La causa está prescripta: no se pueden cambiar sus calificaciones legales.',
+    ),
+    /** Modificar un acto de una causa "Prescripta" (V5 D-99). */
+    prescribedCaseActs: errorBody(
+        'CASE_IN_TERMINAL_STATE',
+        'La causa está prescripta: sus actos procesales no se pueden modificar.',
+    ),
+    /** Generar el expediente sin la carpeta creada (V5 D-102). */
+    caseFolderNotAvailable: errorBody(
+        'CASE_FOLDER_NOT_AVAILABLE',
+        'La causa no tiene su carpeta en Drive creada. Creala antes de generar el expediente.',
+    ),
+    documentNotConvertible: errorBody(
+        'DOCUMENT_NOT_CONVERTIBLE',
+        'Uno de los documentos no se puede convertir a PDF.',
+    ),
 
     /* ---- 429 ---- */
     /**
@@ -290,6 +325,19 @@ export const ERRORS = {
     documentStorageUnavailable: errorBody(
         'DOCUMENT_STORAGE_UNAVAILABLE',
         'No se pudo acceder al almacenamiento en la nube. Intentá de nuevo en unos minutos.',
+    ),
+    /** Los mismos `502`, con el texto de cada endpoint de la documentación (V5 §3.12). */
+    caseFolderUnreadable: errorBody(
+        'DOCUMENT_STORAGE_UNAVAILABLE',
+        'No se pudo leer la carpeta de la causa en Drive. Intentá de nuevo en unos minutos.',
+    ),
+    documentDownloadFailed: errorBody(
+        'DOCUMENT_STORAGE_UNAVAILABLE',
+        'No se pudo descargar el documento de Drive. Intentá de nuevo en unos minutos.',
+    ),
+    caseFileGenerationFailed: errorBody(
+        'DOCUMENT_STORAGE_UNAVAILABLE',
+        'No se pudo generar el expediente porque Drive no respondió. Intentá de nuevo en unos minutos.',
     ),
 } satisfies Record<string, ErrorBody>;
 
@@ -635,6 +683,8 @@ const EXAMPLE_ACT: ProceduralAct = {
     },
     registeredBy: { id: 3, lastName: 'Ríos', firstName: 'Malena' },
     registeredAt: '2026-09-09T11:42:00-03:00',
+    lastModifiedBy: null,
+    lastModifiedAt: null,
 };
 
 /** La causa del prototipo con la alerta activa, ya marcada como prescripta (V4 §3.7). */

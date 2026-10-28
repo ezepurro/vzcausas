@@ -1054,6 +1054,63 @@ export const DOCUMENT_TEMPLATES: readonly StoredDocumentTemplate[] = [
 export const MAX_FILE_BYTES = 10 * 1024 * 1024;
 
 /* ------------------------------------------------------------------ */
+/* Documentos de las carpetas (V5 §3.12)                               */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Un archivo que alguien subió a la carpeta de una causa, directamente en
+ * Drive. Las copias de los modelos no van acá: salen de los modelos del fuero
+ * al armar la base.
+ */
+export interface DocumentSeed {
+    caseId: number;
+    name: string;
+    mimeType: string;
+    /** `null` en los documentos nativos de Google. */
+    sizeBytes: number | null;
+    on: SeedDate;
+    /** La cuenta de Google que lo subió, como la informa Drive. */
+    uploadedBy: string | null;
+    /** Sólo un expediente que generó el sistema: su versión y sus partes. */
+    caseFile?: { version: number; parts: string[] };
+}
+
+/**
+ * Lo que hay en las carpetas creadas (causas 1, 2, 3, 5 y 6), además de los
+ * modelos copiados:
+ *
+ * | Causa | Para qué está |
+ * | --- | --- |
+ * | 1 | La del prototipo: dos PDF, una foto, un **expediente generado** (versión 1, no se puede incluir en otro), una hoja de cálculo de Google (**no convertible**) y un documento de Google (convertible) |
+ * | 2, 3, 5, 6 | Un escrito cada una, para generar el expediente en cada fuero |
+ *
+ * Las causas sin carpeta creada responden la lista vacía; la 11 (`CREATING`),
+ * la 22 (`ERROR`) y la 23 (`PENDING`) sirven para eso. Para generar un
+ * expediente sin SAC no hay semilla: se registra una causa sin SAC con
+ * carpeta.
+ */
+export const DOCUMENT_SEEDS: readonly DocumentSeed[] = [
+    { caseId: 1, name: 'Requerimiento de elevación a juicio.pdf', mimeType: 'application/pdf', sizeBytes: 421_888, on: AGO(9), uploadedBy: 'Malena Ríos' },
+    { caseId: 1, name: 'Cédula de notificación.pdf', mimeType: 'application/pdf', sizeBytes: 90_112, on: AGO(4), uploadedBy: 'Gestión Estudio' },
+    { caseId: 1, name: 'Acta de secuestro.jpg', mimeType: 'image/jpeg', sizeBytes: 1_310_720, on: AGO(12), uploadedBy: 'Malena Ríos' },
+    { caseId: 1, name: 'Planilla de gastos', mimeType: 'application/vnd.google-apps.spreadsheet', sizeBytes: null, on: AGO(20), uploadedBy: 'Gestión Estudio' },
+    { caseId: 1, name: 'Notas de la indagatoria', mimeType: 'application/vnd.google-apps.document', sizeBytes: null, on: '2024-07-05', uploadedBy: 'Malena Ríos' },
+    {
+        caseId: 1,
+        name: 'Expediente_13284571_v1.pdf',
+        mimeType: 'application/pdf',
+        sizeBytes: 768_000,
+        on: AGO(8),
+        uploadedBy: 'VZ Causas',
+        caseFile: { version: 1, parts: ['Carátula', 'Requerimiento de elevación a juicio.pdf'] },
+    },
+    { caseId: 2, name: 'Descargo presentado.pdf', mimeType: 'application/pdf', sizeBytes: 204_800, on: '2026-08-28', uploadedBy: 'Ignacio Peralta' },
+    { caseId: 3, name: 'Historia clínica.pdf', mimeType: 'application/pdf', sizeBytes: 512_000, on: AGO(15), uploadedBy: 'Carolina Bustos' },
+    { caseId: 5, name: 'Escrito de inicio.docx', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', sizeBytes: 36_864, on: AGO(30), uploadedBy: 'Gestión Estudio' },
+    { caseId: 6, name: 'Constancia de reclamo.png', mimeType: 'image/png', sizeBytes: 645_120, on: AGO(18), uploadedBy: 'Fernando G. Vázquez' },
+];
+
+/* ------------------------------------------------------------------ */
 /* Reglas de negocio simuladas                                         */
 /* ------------------------------------------------------------------ */
 

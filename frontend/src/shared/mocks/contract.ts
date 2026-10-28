@@ -405,6 +405,60 @@ export interface ProceduralAct {
     deadline: ActDeadline | null;
     registeredBy: PersonRef;
     registeredAt: string;
+    /** Quién y cuándo lo modificó por última vez (V5, HU28). `null` si nunca se modificó. */
+    lastModifiedBy: PersonRef | null;
+    lastModifiedAt: string | null;
+}
+
+/**
+ * Un archivo de la carpeta de la causa en Drive (V5 §3.12, HU38). Se lee de la
+ * carpeta en cada pedido; su `id` es el de Drive y el cliente no lo interpreta.
+ */
+export interface CaseDocument {
+    id: string;
+    name: string;
+    /** En minúsculas y sin punto. `null` si no tiene, o en un documento nativo de Google. */
+    extension: string | null;
+    mimeType: string;
+    /** `null` en los documentos nativos de Google, que Drive no mide. */
+    sizeBytes: number | null;
+    createdAt: string;
+    modifiedAt: string;
+    /** Quien lo subió según Drive: una cuenta de Google, no un usuario del sistema (D-101). */
+    uploadedBy: string | null;
+    url: string;
+    /** `true` si puede formar parte del expediente: PDF, Word, documento de Google, JPG o PNG. */
+    convertibleToPdf: boolean;
+    /** Sólo en un expediente generado por el sistema (HU25). */
+    caseFile: { id: number; version: number } | null;
+}
+
+/** `GET /cases/{caseId}/documents`: la carpeta y su contenido (V5 §3.12). */
+export interface CaseDocuments {
+    folderStatus: CaseFolderStatus | null;
+    folderUrl: string | null;
+    /** `null` si la carpeta no se leyó porque no está creada. */
+    readAt: string | null;
+    documents: CaseDocument[];
+}
+
+/** Una parte del expediente, en el orden en que quedó (V5 §3.12). */
+export interface CaseFilePart {
+    position: number;
+    kind: 'COVER' | 'DOCUMENT';
+    /** `null` en la carátula. */
+    documentId: string | null;
+    name: string;
+}
+
+/** Lo que devuelve `POST /cases/{caseId}/case-files` (HU25). */
+export interface GeneratedCaseFile {
+    document: CaseDocument;
+    version: number;
+    pageCount: number;
+    parts: CaseFilePart[];
+    generatedBy: PersonRef;
+    generatedAt: string;
 }
 
 /**

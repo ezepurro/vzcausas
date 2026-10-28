@@ -8301,8 +8301,9 @@ Las bajas de usuarios, abogados, estados procesales, calificaciones legales y
 Una causa dada de baja arrastra a sus subrecursos: actos procesales e
 interruptivos, línea de vida, carátula, documentos y expedientes responden
 `404 CASE_NOT_FOUND`, porque la causa que los contiene no existe para el
-cliente. La causa no figura en los tableros ni en los conteos, y su SAC sigue
-ocupado (ver [`DELETE /cases/{caseId}`](#delete-casescaseid)).
+cliente. La causa no figura en los tableros ni en los conteos, y su SAC queda
+libre: es único solo entre las causas vigentes (ver
+[`DELETE /cases/{caseId}`](#delete-casescaseid)).
 
 Esa conservación es interna del servidor. **Para el cliente, un registro dado
 de baja no existe**: no aparece en ningún listado, el `GET` por identificador

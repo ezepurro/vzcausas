@@ -267,12 +267,12 @@ async function resolver({ request }: { request: Request }) {
     }
 
     if (result.file) {
-        // La única respuesta exitosa que no es JSON: el archivo (V4 §5.1).
+        // Las respuestas exitosas que no son JSON: un archivo (V4 §5.1, V5 §3.12).
         return new HttpResponse(result.file.content, {
             status: result.status,
             headers: {
                 'Content-Type': result.file.contentType,
-                'Content-Disposition': `attachment; filename="${result.file.fileName}"`,
+                'Content-Disposition': `${result.file.disposition ?? 'attachment'}; filename="${result.file.fileName}"`,
             },
         });
     }

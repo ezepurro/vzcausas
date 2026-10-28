@@ -1,8 +1,9 @@
 /**
- * Servidor falso: implementa los endpoints de `API_CONTRACT_V4.md` sobre la
- * base en memoria de `db.ts`. Falta la consulta de actos procesales (HU27,
- * `GET /cases/{caseId}/procedural-acts` y `…/{actId}`), que queda para cuando
- * se cierre su historia.
+ * Servidor falso: implementa los endpoints de `API_CONTRACT_V5.md` sobre la
+ * base en memoria de `db.ts`. Lo que suma V5 (Sprint 4) está en su propia
+ * sección, antes de la tabla de rutas: modificar y dar de baja una causa, la
+ * carátula, modificar un acto procesal, los documentos de la causa y el
+ * expediente.
  *
  * Es una función pura respecto del transporte (`resolveRequest`): recibe un
  * pedido ya normalizado y devuelve `{ status, body }`. No sabe de axios ni de
@@ -66,6 +67,9 @@ import {
     ROLES,
     type AdministratorDashboard,
     type Case,
+    type CaseDocuments,
+    type CaseFilePart,
+    type GeneratedCaseFile,
     type TimelineEntry,
     type DashboardCaseToAdvance,
     type DashboardDeadline,
@@ -91,10 +95,18 @@ import {
     countTemplateCopies,
     currentStateIdOf,
     db,
+    expectedFolderPath,
     folderPath,
     interruptiveActsOf,
     isActiveCase,
+    isGoogleNative,
     isInTerminalState,
+    PDF_MIME,
+    SYSTEM_UPLOADER,
+    templateCopies,
+    toCaseDocument,
+    userRef,
+    type StoredDocument,
     issueToken,
     latestActOf,
     revokeToken,
@@ -131,6 +143,7 @@ import {
     type StoredProceduralState,
     type StoredUser,
 } from './fixtures';
+import { buildPdf } from './pdf';
 import {
     businessRuleViolation,
     ERRORS,
@@ -958,17 +971,25 @@ const updateLawyer: Handler = ({ request, params }) => {
         return validationError({ body: 'Debe enviarse al menos un campo para modificar.' });
     }
 
+    /* Los tres campos son obligatorios en la ficha: se pueden omitir, pero un
+       `null` o un texto vacío es un `400` (CA-14.4). */
     const details: Record<string, string> = {};
     const registrationNumber = asText(body.registrationNumber);
     const name = readPersonName(body, details, { partial: true });
     if (hasRegistration && !RE_REGISTRATION.test(registrationNumber)) {
         details.registrationNumber = 'El formato de la matrícula no es válido.';
     }
+    // El tratamiento no es parte del nombre (V4 D-81, V5 §3.3).
+    if (name.hasFirstName && !details.firstName && /^dra?\.?(\s|$)/i.test(name.firstName)) {
+        details.firstName = 'Sin "Dr." ni "Dra.": el tratamiento no es parte del nombre.';
+    }
+    if (body.activeCases !== undefined) details.activeCases = 'Lo calcula el sistema: no se modifica.';
     if (Object.keys(details).length > 0) return validationError(details);
 
     const lawyer = db.lawyers.find((l) => l.id === lawyerId && l.active);
     if (!lawyer) return fail(404, ERRORS.lawyerNotFound);
 
+    // Su propia matrícula no es un conflicto (CA-14.3).
     if (hasRegistration && registrationTaken(registrationNumber, lawyerId)) {
         return fail(409, ERRORS.registrationTaken);
     }
@@ -976,6 +997,16 @@ const updateLawyer: Handler = ({ request, params }) => {
     if (name.hasLastName) lawyer.lastName = name.lastName;
     if (name.hasFirstName) lawyer.firstName = name.firstName;
     if (hasRegistration) lawyer.registrationNumber = registrationNumber;
+
+    /* Cambiar el nombre renombra la carpeta del abogado, y con ella la ruta de
+       sus causas (V5 D-104). Si Drive no responde, la modificación se guarda
+       igual y las carpetas creadas quedan con el nombre anterior. */
+    if (hasName) {
+        for (const c of db.cases) {
+            if (c.responsibleLawyerId !== lawyer.id || !c.folder) continue;
+            if (c.folder.status !== 'CREATED' || !db.failures.documentStorage) c.folder.path = expectedFolderPath(c);
+        }
+    }
 
     return ok(itemBody(toLawyer(lawyer)));
 };
@@ -1725,9 +1756,10 @@ const createCase: Handler = ({ request }) => {
 
     if (Object.keys(details).length > 0) return validationError(details);
 
-    /* Si se informa, el SAC identifica la causa en todo el sistema (RN2),
-       incluidas las dadas de baja. Dos causas sin SAC no chocan entre sí. */
-    if (sacNumber !== null && db.cases.some((c) => c.sacNumber === sacNumber)) {
+    /* Si se informa, el SAC identifica la causa entre las vigentes (RN2): el
+       de una causa dada de baja se puede volver a usar (V5 D-97). Dos causas
+       sin SAC no chocan entre sí. */
+    if (sacNumber !== null && db.cases.some((c) => c.active && c.sacNumber === sacNumber)) {
         return fail(409, ERRORS.caseSacTaken);
     }
 
@@ -1752,6 +1784,7 @@ const createCase: Handler = ({ request }) => {
         folder: null,
         prescriptionDeclaration: null,
         active: true,
+        deactivation: null,
     };
 
     /* La carpeta no condiciona el alta (V4 D-60): si el almacenamiento falla,
@@ -1877,7 +1910,11 @@ function newFolder(stored: StoredCase, copyTemplates: boolean, status?: 'PENDING
         templates: templatesForNewCases(db.documentTemplates, stored.jurisdiction).length,
         status: status ?? (db.failures.documentStorage ? 'ERROR' : 'CREATED'),
     });
-    if (folder.status === 'CREATED' && copyTemplates) countTemplateCopies(stored.jurisdiction);
+    if (folder.status === 'CREATED' && copyTemplates) {
+        countTemplateCopies(stored.jurisdiction);
+        // Las copias quedan en la carpeta y se leen con sus documentos (V5 §3.12).
+        db.documents.push(...templateCopies(stored.id, db.documentTemplates, stored.jurisdiction, nowIso()));
+    }
     return folder;
 }
 
@@ -2187,6 +2224,8 @@ const createProceduralAct: Handler = ({ request, params }) => {
         }),
         registeredById: auth.user.id,
         registeredAt: nowIso(),
+        lastModifiedById: null,
+        lastModifiedAt: null,
     };
     db.nextProceduralActId += 1;
     db.proceduralActs.push(act);
@@ -2381,6 +2420,14 @@ const createCaseFolder: Handler = ({ request, params }) => {
         folder.templatesCopied += folder.templatesPending;
         folder.templatesPending = 0;
         folder.copyTemplates = true;
+        const copies = templateCopies(stored.id, db.documentTemplates, stored.jurisdiction, nowIso());
+        db.documents.push(...copies.filter((copy) => !db.documents.some((d) => d.id === copy.id)));
+    }
+
+    /* Una carpeta que quedó con la carátula o el responsable anteriores porque
+       Drive no respondió se corrige al reintentar (V5 D-104). */
+    if (stored.folder?.status === 'CREATED' && !db.failures.documentStorage) {
+        stored.folder.path = expectedFolderPath(stored);
     }
 
     return ok(itemBody(toFolder(stored.folder as StoredFolder)));
@@ -2911,6 +2958,680 @@ const administratorDashboard: Handler = ({ request }) => {
 };
 
 /* ------------------------------------------------------------------ */
+/* PATCH y DELETE /cases/{caseId} (V5, HU19 y HU21)                    */
+/* ------------------------------------------------------------------ */
+
+/** Lo que `PATCH /cases/{caseId}` deja cambiar (V5 §3.7). Todo lo demás es `400`. */
+const CASE_PATCH_FIELDS = [
+    'sacNumber', 'caption', 'court', 'instructorName', 'tribunalPhone', 'instructorExtension',
+    'clientId', 'proceduralRole', 'legalQualifications', 'clientDetained', 'counterparty',
+    'subjectMatter', 'injunctionGranted', 'harmfulActDate', 'harmfulActRenews',
+    'harmfulActRenewalDays', 'harmfulActTermDays', 'harmfulActTermDayType',
+    'administrativeRemedyExhaustedOn', 'courtFeePaid', 'responsibleLawyerId', 'startDate',
+] as const;
+
+/** Los campos que son de uno o dos fueros, con el mensaje para otro fuero. */
+const CASE_FIELD_JURISDICTIONS: Record<string, { only: Jurisdiction[]; message: string }> = {
+    legalQualifications: { only: ['CRIMINAL'], message: MSG_ONLY_CRIMINAL },
+    clientDetained: { only: ['CRIMINAL'], message: MSG_ONLY_CRIMINAL },
+    counterparty: { only: ['ADMINISTRATIVE', 'AMPARO'], message: MSG_NOT_CRIMINAL },
+    subjectMatter: { only: ['ADMINISTRATIVE', 'AMPARO'], message: MSG_NOT_CRIMINAL },
+    injunctionGranted: { only: ['AMPARO'], message: MSG_ONLY_AMPARO },
+    harmfulActDate: { only: ['AMPARO'], message: MSG_ONLY_AMPARO },
+    harmfulActRenews: { only: ['AMPARO'], message: MSG_ONLY_AMPARO },
+    harmfulActRenewalDays: { only: ['AMPARO'], message: MSG_ONLY_AMPARO },
+    harmfulActTermDays: { only: ['AMPARO'], message: MSG_ONLY_AMPARO },
+    harmfulActTermDayType: { only: ['AMPARO'], message: MSG_ONLY_AMPARO },
+    administrativeRemedyExhaustedOn: { only: ['ADMINISTRATIVE'], message: MSG_ONLY_ADMINISTRATIVE },
+};
+
+const MSG_NOT_MODIFIABLE = 'No es un dato modificable de la causa.';
+const MSG_NOT_TEXT = 'Debe ser un texto.';
+const MSG_NOT_EMPTY = 'No puede quedar vacío.';
+
+/**
+ * Modifica una causa (HU19, V5 §3.7). Lo hace cualquier perfil: la
+ * restricción al responsable es sólo para los actos.
+ *
+ * Como en los actos procesales, el `404` de la causa va antes que el `400` del
+ * cuerpo: qué datos admite depende de su fuero.
+ *
+ * El fuero no se modifica (D-95). El backend no recalcula la carátula al
+ * cambiar el cliente: la manda el cliente en `caption` (D-105). La carpeta
+ * sigue a la causa (D-104): se renombra con la carátula y se mueve con el
+ * responsable, salvo que Drive no responda; ahí la causa se guarda igual y la
+ * carpeta queda donde estaba.
+ */
+const updateCase: Handler = ({ request, params }) => {
+    const auth = requireUser(request);
+    if (!auth.ok) return auth.response;
+
+    const caseId = readRouteId(params, 'caseId');
+    if (caseId === undefined) return fail(400, ERRORS.invalidCaseId);
+
+    const stored = db.cases.find((c) => c.id === caseId && c.active);
+    if (!stored) return fail(404, ERRORS.caseNotFound);
+
+    const body = asObject(request.body);
+    const keys = Object.keys(body);
+    if (keys.length === 0) return validationError({ body: 'Debe enviarse al menos un campo para modificar.' });
+
+    const today = todayIso();
+    const details: Record<string, string> = {};
+    const has = (field: string) => keys.includes(field) && details[field] === undefined;
+
+    for (const key of keys) {
+        if (key === 'jurisdiction') details.jurisdiction = 'El fuero de una causa no se puede modificar.';
+        else if (!(CASE_PATCH_FIELDS as readonly string[]).includes(key)) details[key] = MSG_NOT_MODIFIABLE;
+        else {
+            const rule = CASE_FIELD_JURISDICTIONS[key];
+            if (rule && !rule.only.includes(stored.jurisdiction)) details[key] = rule.message;
+        }
+    }
+
+    const next: StoredCase = { ...stored, qualifications: [...stored.qualifications] };
+
+    const readText = (field: 'caption' | 'court' | 'instructorName' | 'tribunalPhone' | 'instructorExtension' | 'counterparty' | 'subjectMatter', max: number, required: boolean) => {
+        if (!has(field)) return;
+        const value = body[field];
+        if (value === null || (typeof value === 'string' && value.trim() === '')) {
+            if (required) details[field] = MSG_NOT_EMPTY;
+            else Object.assign(next, { [field]: null });
+        } else if (typeof value !== 'string') details[field] = MSG_NOT_TEXT;
+        else if (value.trim().length > max) details[field] = `Puede tener hasta ${max} caracteres.`;
+        else Object.assign(next, { [field]: value.trim() });
+    };
+    const readBoolean = (field: 'clientDetained' | 'injunctionGranted' | 'harmfulActRenews' | 'courtFeePaid') => {
+        if (!has(field)) return;
+        if (typeof body[field] !== 'boolean') details[field] = MSG_NOT_BOOL_FIELD;
+        else Object.assign(next, { [field]: body[field] });
+    };
+    const readPastDate = (field: 'harmfulActDate' | 'administrativeRemedyExhaustedOn' | 'startDate') => {
+        if (!has(field)) return;
+        const value = body[field];
+        if (value === null) Object.assign(next, { [field]: null });
+        else if (!isIsoDate(value)) details[field] = MSG_NOT_DATE;
+        else if (value > today) details[field] = 'No puede ser posterior a hoy.';
+        else Object.assign(next, { [field]: value });
+    };
+    const readCount = (field: 'harmfulActRenewalDays' | 'harmfulActTermDays') => {
+        if (!has(field)) return;
+        if (body[field] === null) Object.assign(next, { [field]: null });
+        else if (readPositiveInteger(body[field]) === undefined) details[field] = 'Debe ser un número entero mayor o igual a 1.';
+        else Object.assign(next, { [field]: body[field] });
+    };
+
+    if (has('sacNumber')) {
+        if (body.sacNumber === null) next.sacNumber = null;
+        else if (typeof body.sacNumber !== 'string' || !RE_SAC.test(body.sacNumber)) details.sacNumber = 'Debe contener exactamente 8 dígitos.';
+        else next.sacNumber = body.sacNumber;
+    }
+    readText('caption', CAPTION_MAX, true);
+    readText('court', COURT_MAX, false);
+    readText('instructorName', INSTRUCTOR_NAME_MAX, false);
+    readText('tribunalPhone', TRIBUNAL_PHONE_MAX, false);
+    readText('instructorExtension', INSTRUCTOR_EXTENSION_MAX, false);
+    readText('counterparty', COUNTERPARTY_MAX, false);
+    readText('subjectMatter', SUBJECT_MATTER_MAX, true);
+    readBoolean('clientDetained');
+    readBoolean('injunctionGranted');
+    readBoolean('harmfulActRenews');
+    readBoolean('courtFeePaid');
+    readPastDate('harmfulActDate');
+    readPastDate('administrativeRemedyExhaustedOn');
+    readPastDate('startDate');
+    readCount('harmfulActRenewalDays');
+    readCount('harmfulActTermDays');
+
+    if (has('harmfulActTermDayType')) {
+        const dayType = body.harmfulActTermDayType;
+        if (dayType === null || dayType === 'BUSINESS' || dayType === 'CONSECUTIVE') next.harmfulActTermDayType = dayType;
+        else details.harmfulActTermDayType = 'Debe ser BUSINESS o CONSECUTIVE.';
+    }
+    if (has('clientId')) {
+        const id = readBodyId(body.clientId);
+        if (id === undefined || !db.clients.some((c) => c.id === id && c.active)) {
+            details.clientId = 'No existe un cliente vigente con ese identificador.';
+        } else next.clientId = id;
+    }
+    if (has('responsibleLawyerId')) {
+        const id = readBodyId(body.responsibleLawyerId);
+        if (id === undefined || !db.lawyers.some((l) => l.id === id && l.active)) {
+            details.responsibleLawyerId = 'No existe un abogado vigente con ese identificador.';
+        } else next.responsibleLawyerId = id;
+    }
+    if (has('proceduralRole')) {
+        if (!isProceduralRole(body.proceduralRole, stored.jurisdiction)) details.proceduralRole = 'El rol procesal no corresponde al fuero.';
+        else next.proceduralRole = body.proceduralRole;
+    }
+    if (has('legalQualifications')) {
+        // Reemplaza la lista entera; `[]` deja la causa sin calificaciones.
+        const read = readCaseQualifications(body.legalQualifications, today);
+        if (read.ok) next.qualifications = read.value;
+        else details.legalQualifications = read.message;
+    }
+
+    /* La fecha de inicio va con el SAC, como en el alta: quitar el SAC exige
+       quitarla, y agregarlo exige tenerla. */
+    if ((keys.includes('sacNumber') || keys.includes('startDate')) && !details.sacNumber && !details.startDate) {
+        if (next.sacNumber !== null && next.startDate === null) {
+            details.startDate = 'Es obligatoria cuando la causa tiene número de SAC.';
+        } else if (next.sacNumber === null && next.startDate !== null) {
+            details.startDate = 'Sin número de SAC la causa no tiene fecha de inicio.';
+        }
+    }
+
+    /* El acto lesivo del amparo, como queda después del cambio (D-78): sin
+       fecha se borran sus datos; con fecha, el plazo es obligatorio. */
+    const harmfulFields = ['harmfulActDate', 'harmfulActRenews', 'harmfulActRenewalDays', 'harmfulActTermDays', 'harmfulActTermDayType'];
+    if (stored.jurisdiction === 'AMPARO' && harmfulFields.some((f) => keys.includes(f)) && harmfulFields.every((f) => !details[f])) {
+        if (next.harmfulActDate === null) {
+            for (const field of ['harmfulActRenewalDays', 'harmfulActTermDays', 'harmfulActTermDayType'] as const) {
+                if (isPresent(body[field])) details[field] = 'Solo corresponde si se informa la fecha del acto lesivo.';
+            }
+            next.harmfulActRenews = false;
+            next.harmfulActRenewalDays = null;
+            next.harmfulActTermDays = null;
+            next.harmfulActTermDayType = null;
+        } else {
+            if (next.harmfulActRenews && next.harmfulActRenewalDays === null) {
+                details.harmfulActRenewalDays = 'Indicá cada cuántos días se renueva el acto lesivo.';
+            } else if (!next.harmfulActRenews) {
+                if (isPresent(body.harmfulActRenewalDays)) details.harmfulActRenewalDays = 'Solo corresponde si el acto lesivo se renueva.';
+                next.harmfulActRenewalDays = null;
+            }
+            if (next.harmfulActTermDays === null) details.harmfulActTermDays = 'Indicá el plazo para presentar el amparo.';
+            if (next.harmfulActTermDayType === null) details.harmfulActTermDayType = 'Indicá si el plazo se cuenta en días hábiles o corridos.';
+        }
+    }
+
+    if (Object.keys(details).length > 0) return validationError(details);
+
+    // El SAC es único entre las causas vigentes: el de una dada de baja se puede usar (D-97).
+    if (keys.includes('sacNumber') && next.sacNumber !== null &&
+        db.cases.some((c) => c.active && c.id !== stored.id && c.sacNumber === next.sacNumber)) {
+        return fail(409, ERRORS.caseSacTaken);
+    }
+
+    // En una causa "Prescripta" no se tocan las calificaciones que la sostienen (D-96).
+    if (keys.includes('legalQualifications') && stored.prescriptionDeclaration) {
+        return fail(422, ERRORS.prescribedCaseQualifications);
+    }
+
+    const folderMoves = next.caption !== stored.caption || next.responsibleLawyerId !== stored.responsibleLawyerId;
+    Object.assign(stored, next);
+    if (folderMoves && stored.folder) {
+        // Una carpeta que no está creada no tiene nada que mover en Drive.
+        if (stored.folder.status !== 'CREATED' || !db.failures.documentStorage) {
+            stored.folder.path = expectedFolderPath(stored);
+        }
+    }
+
+    return ok(itemBody(toCase(stored)));
+};
+
+const REASON_MAX = 500;
+
+/**
+ * Da de baja una causa (HU21, V5 D-97). Es lógica: queda en la base con todo
+ * lo suyo, pero para el cliente deja de existir —ella y sus subrecursos
+ * responden `404`, no aparece en los listados, los tableros ni los conteos—.
+ * Su SAC queda libre y su carpeta en Drive no se toca. Cualquier perfil, en
+ * cualquier estado.
+ */
+const deleteCase: Handler = ({ request, params }) => {
+    const auth = requireUser(request);
+    if (!auth.ok) return auth.response;
+
+    const caseId = readRouteId(params, 'caseId');
+    if (caseId === undefined) return fail(400, ERRORS.invalidCaseId);
+
+    // El único `DELETE` con cuerpo, y es opcional: el motivo de la baja.
+    const body = asObject(request.body);
+    if (body.reason !== undefined && body.reason !== null && typeof body.reason !== 'string') {
+        return validationError({ reason: MSG_NOT_TEXT });
+    }
+    const reason = optionalText(body.reason);
+    if (reason !== null && reason.length > REASON_MAX) {
+        return validationError({ reason: `Debe tener hasta ${REASON_MAX} caracteres.` });
+    }
+
+    const stored = db.cases.find((c) => c.id === caseId && c.active);
+    if (!stored) return fail(404, ERRORS.caseNotFound);
+
+    stored.active = false;
+    stored.deactivation = { reason, byId: auth.user.id, at: nowIso() };
+    return NO_CONTENT;
+};
+
+/* ------------------------------------------------------------------ */
+/* GET /cases/{caseId}/cover (V5, HU24)                                */
+/* ------------------------------------------------------------------ */
+
+type Disposition = 'inline' | 'attachment';
+type DispositionResult = { ok: true; value: Disposition } | { ok: false; response: MockResponse };
+
+/** El parámetro `disposition` de las descargas (V5 §3.7 y §3.12). */
+function readDisposition(query: URLSearchParams, fallbackValue: Disposition): DispositionResult {
+    const value = query.get('disposition');
+    if (value === null || value === '') return { ok: true, value: fallbackValue };
+    if (value === 'inline' || value === 'attachment') return { ok: true, value };
+    return { ok: false, response: invalidQuery({ disposition: 'Debe ser inline o attachment.' }) };
+}
+
+/** `APELLIDO NOMBRES`, como lo escribe la hoja de carátula. */
+function coverName(person: { lastName: string; firstName: string }): string {
+    return `${person.lastName} ${person.firstName}`.toUpperCase();
+}
+
+/**
+ * Los dos recuadros de las partes (V5 §3.7, "Partes"). En el penal, la causa
+ * sólo registra al cliente: la otra parte la manda el cliente al generar el
+ * expediente (`opposingParty`) y, sin ella, ese recuadro queda vacío. El
+ * tratamiento del abogado es el prefijo fijo `DR/DRA.` (D-106).
+ */
+function coverParties(stored: StoredCase, opposingParty: string | null): { actor: string[]; defendant: string[] } {
+    const client = db.clients.find((c) => c.id === stored.clientId);
+    const lawyer = db.lawyers.find((l) => l.id === stored.responsibleLawyerId);
+    const clientName = client ? coverName(client) : '';
+    const defender = lawyer ? `DEFENSOR: DR/DRA. ${coverName(lawyer)}` : '';
+    const other = opposingParty ? opposingParty.toUpperCase().split('\n') : [];
+    const counterparty = stored.counterparty ? [stored.counterparty.toUpperCase()] : [];
+
+    if (stored.jurisdiction === 'CRIMINAL') {
+        return stored.proceduralRole === 'QUERELLANTE_PARTICULAR'
+            ? { actor: [`QUERELLANTE (${clientName})`, defender], defendant: other }
+            : { actor: other, defendant: [clientName, defender] };
+    }
+    return stored.proceduralRole === 'DEMANDADA'
+        ? { actor: counterparty, defendant: [clientName] }
+        : { actor: [clientName], defendant: counterparty };
+}
+
+/**
+ * Los renglones de la hoja de carátula, recuadro por recuadro y en mayúsculas.
+ * Una sola función para la carátula suelta y para la hoja 1 del expediente
+ * (V5 D-94): lo que cambia es sólo lo que manda el cliente en `cover`.
+ */
+function coverLines(stored: StoredCase, cover: { opposingParty: string | null; notes: string | null } | null): string[] {
+    const { actor, defendant } = coverParties(stored, cover?.opposingParty ?? null);
+    const template = stored.jurisdiction === 'CRIMINAL' ? 'PENAL' : 'ADMINISTRATIVO';
+    return [
+        `CARATULA (PLANTILLA ${template})`,
+        '',
+        `EXPTE. / SAC: ${stored.sacNumber ?? ''}`,
+        `AUTOS: ${stored.caption.toUpperCase()}`,
+        '',
+        'ACTOR / QUERELLANTE:',
+        ...actor,
+        '',
+        'DEMANDADO / IMPUTADO:',
+        ...defendant,
+        '',
+        'ORGANO INTERVINIENTE:',
+        (stored.court ?? '').toUpperCase(),
+        `SECRETARIO/A: ${(stored.instructorName ?? '').toUpperCase()}`,
+        '',
+        'OBSERVACIONES:',
+        ...(cover?.notes ? cover.notes.toUpperCase().split('\n') : []),
+    ];
+}
+
+/** `Caratula_13284571.pdf`, o `Caratula_causa-23.pdf` sin SAC. */
+function sacOrId(stored: StoredCase): string {
+    return stored.sacNumber ?? `causa-${stored.id}`;
+}
+
+/**
+ * La hoja de carátula en PDF (HU24). Se arma en cada pedido con los datos
+ * vigentes de la causa y nada se guarda (D-92); no usa la carpeta, así que
+ * anda aunque la causa no la tenga. La plantilla la elige el fuero (D-93).
+ */
+const getCaseCover: Handler = ({ request, params }) => {
+    const auth = requireUser(request);
+    if (!auth.ok) return auth.response;
+
+    const caseId = readRouteId(params, 'caseId');
+    if (caseId === undefined) return fail(400, ERRORS.invalidCaseId);
+
+    const disposition = readDisposition(request.query, 'inline');
+    if (!disposition.ok) return disposition.response;
+
+    const stored = db.cases.find((c) => c.id === caseId && c.active);
+    if (!stored) return fail(404, ERRORS.caseNotFound);
+
+    return {
+        status: 200,
+        body: null,
+        file: {
+            content: buildPdf([coverLines(stored, null)]),
+            contentType: PDF_MIME,
+            fileName: `Caratula_${sacOrId(stored)}.pdf`,
+            disposition: disposition.value,
+        },
+    };
+};
+
+/* ------------------------------------------------------------------ */
+/* PATCH /cases/{caseId}/procedural-acts/{actId} (V5, HU28)            */
+/* ------------------------------------------------------------------ */
+
+const ACT_PATCH_FIELDS = ['proceduralStateId', 'customState', 'actDate', 'notificationDate', 'manualDueDate', 'notes'];
+
+/**
+ * Modifica un acto procesal (HU28, V5 §3.8). Lo hace el responsable **actual**
+ * de la causa, igual que el registro, y en el mismo orden: `404`, `403`, `400`.
+ *
+ * Las reglas se validan sobre el acto como queda. El plazo se recalcula con el
+ * de la tabla si cambia el estado y con el copiado si no (D-98). El estado de
+ * la causa no se escribe: sale del acto más reciente en la próxima lectura, así
+ * que corregir una fecha puede cambiarlo y corregir el acto que la cerró la
+ * reabre (D-99). Una causa "Prescripta" no admite modificar sus actos.
+ */
+const updateProceduralAct: Handler = ({ request, params }) => {
+    const auth = requireUser(request);
+    if (!auth.ok) return auth.response;
+
+    const caseId = readRouteId(params, 'caseId');
+    if (caseId === undefined) return fail(400, ERRORS.invalidCaseId);
+    const actId = readRouteId(params, 'actId');
+    if (actId === undefined) return fail(400, ERRORS.invalidActId);
+
+    const stored = db.cases.find((c) => c.id === caseId && c.active);
+    if (!stored) return fail(404, ERRORS.caseNotFound);
+    const act = db.proceduralActs.find((a) => a.id === actId && a.caseId === stored.id);
+    if (!act) return fail(404, ERRORS.proceduralActNotFound);
+
+    if (!isResponsibleLawyer(auth.user, stored)) return fail(403, ERRORS.forbiddenNotResponsibleModify);
+
+    const body = asObject(request.body);
+    const keys = Object.keys(body);
+    if (keys.length === 0) return validationError({ body: 'Debe enviarse al menos un campo para modificar.' });
+
+    const details: Record<string, string> = {};
+    for (const key of keys) {
+        if (!ACT_PATCH_FIELDS.includes(key)) details[key] = 'No es un dato modificable del acto procesal.';
+    }
+
+    /* El estado: si viene, con las mismas reglas que el registro. */
+    const stateChanged = keys.includes('proceduralStateId') || keys.includes('customState');
+    const hasStateId = isPresent(body.proceduralStateId);
+    const customState = optionalText(body.customState);
+    let state = stateChanged ? undefined : (act.proceduralStateId === null ? undefined : db.proceduralStates.find((s) => s.id === act.proceduralStateId));
+    let nextCustomState = stateChanged ? null : act.customState;
+
+    if (stateChanged) {
+        if (hasStateId && customState !== null) {
+            details.proceduralStateId = 'Elegí un estado de la tabla o escribí uno, no las dos cosas.';
+        } else if (hasStateId) {
+            state = allowedTargetState(readBodyId(body.proceduralStateId), stored.jurisdiction);
+            if (!state) details.proceduralStateId = MSG_STATE_NOT_ALLOWED;
+        } else if (customState === null) {
+            details.proceduralStateId = 'Debe indicarse el estado procesal al que pasa la causa.';
+        } else if (customState.length > CUSTOM_STATE_MAX) {
+            details.customState = `Puede tener hasta ${CUSTOM_STATE_MAX} caracteres.`;
+        } else if (customState.toLowerCase() === INITIAL_STATE_NAME.toLowerCase()) {
+            details.customState = `"${INITIAL_STATE_NAME}" es el estado inicial y no puede ser destino de un acto.`;
+        } else if (db.proceduralStates.some((s) => s.active && s.jurisdiction === stored.jurisdiction && s.name.toLowerCase() === customState.toLowerCase())) {
+            details.customState = 'Coincide con un estado de la tabla del fuero: enviá su proceduralStateId.';
+        } else {
+            nextCustomState = customState;
+        }
+    }
+
+    /* El plazo que rige: el de la tabla si cambia el estado; el que el acto
+       copió al registrarse si no (D-98, D-08). */
+    const term = stateChanged
+        ? (state ?? null)
+        : act.deadline
+            ? { timeLimitDays: act.deadline.timeLimitDays, dayType: act.deadline.dayType }
+            : (state ?? null);
+
+    const actDate = keys.includes('actDate') ? body.actDate : act.actDate;
+    const notificationDate = keys.includes('notificationDate') ? body.notificationDate : act.notificationDate;
+    Object.assign(details, actDateErrors({
+        jurisdiction: stored.jurisdiction,
+        opensTerm: (term?.timeLimitDays ?? 0) > 0,
+        actDate,
+        notificationDate,
+    }));
+
+    let notes = act.notes;
+    if (keys.includes('notes')) {
+        notes = optionalText(body.notes);
+        const error = maxLengthError(notes, NOTES_MAX);
+        if (error) details.notes = error;
+    }
+
+    const validActDate = isIsoDate(actDate) ? actDate : act.actDate;
+    const validNotification = isIsoDate(notificationDate) ? notificationDate : null;
+    const countsFrom = stored.jurisdiction === 'ADMINISTRATIVE' && validNotification ? validNotification : validActDate;
+
+    /* El ajuste manual que no se toca se conserva, si sigue siendo válido. */
+    let manualDueDate = act.deadline?.manuallyAdjusted ? act.deadline.dueDate : null;
+    if (keys.includes('manualDueDate')) {
+        if (body.manualDueDate === null) manualDueDate = null;
+        else if (!isIsoDate(body.manualDueDate)) details.manualDueDate = MSG_NOT_DATE;
+        else if (state?.terminal) details.manualDueDate = 'Un estado terminal no abre plazo: no admite un vencimiento manual.';
+        else manualDueDate = body.manualDueDate;
+    } else if (state?.terminal) {
+        manualDueDate = null;
+    }
+    if (!details.manualDueDate && manualDueDate !== null && manualDueDate < countsFrom) {
+        details.manualDueDate = 'No puede ser anterior a la fecha desde la que corre el plazo.';
+    }
+
+    if (Object.keys(details).length > 0) return validationError(details);
+
+    // "Prescripta" no la puso un acto: corregir uno no la saca de ahí (D-99).
+    if (stored.prescriptionDeclaration) return fail(422, ERRORS.prescribedCaseActs);
+
+    act.proceduralStateId = nextCustomState === null ? (state?.id ?? null) : null;
+    act.customState = nextCustomState;
+    act.actDate = validActDate;
+    act.notificationDate = validNotification;
+    act.notes = notes;
+    act.deadline = buildActDeadline({
+        state: term,
+        jurisdiction: stored.jurisdiction,
+        actDate: validActDate,
+        notificationDate: validNotification,
+        manualDueDate,
+    });
+    act.lastModifiedById = auth.user.id;
+    act.lastModifiedAt = nowIso();
+
+    return ok(itemBody(toProceduralAct(act)));
+};
+
+/* ------------------------------------------------------------------ */
+/* Documentación de la causa (V5 §3.12, HU38 y HU25)                   */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Los documentos de la carpeta de la causa (HU38), del más reciente al más
+ * antiguo, sin paginar. Abierto a los tres perfiles (D-103): el Administrador
+ * los necesita para elegir los del expediente. Sin carpeta creada responde la
+ * lista vacía; con Drive caído, `502`.
+ */
+const listCaseDocuments: Handler = ({ request, params }) => {
+    const auth = requireUser(request);
+    if (!auth.ok) return auth.response;
+
+    const caseId = readRouteId(params, 'caseId');
+    if (caseId === undefined) return fail(400, ERRORS.invalidCaseId);
+
+    const stored = db.cases.find((c) => c.id === caseId && c.active);
+    if (!stored) return fail(404, ERRORS.caseNotFound);
+
+    const folder = stored.folder;
+    if (folder?.status !== 'CREATED') {
+        const empty: CaseDocuments = { folderStatus: folder?.status ?? null, folderUrl: folder?.url ?? null, readAt: null, documents: [] };
+        return ok(itemBody(empty));
+    }
+    if (db.failures.documentStorage) return fail(502, ERRORS.caseFolderUnreadable);
+
+    const data: CaseDocuments = {
+        folderStatus: folder.status,
+        folderUrl: folder.url,
+        readAt: nowIso(),
+        documents: db.documents
+            .filter((d) => d.caseId === stored.id)
+            .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id))
+            .map(toCaseDocument),
+    };
+    return ok(itemBody(data));
+};
+
+/** El contenido falso de un documento: un PDF si lo es o si se exporta, texto si no. */
+function documentFile(stored: StoredCase, doc: StoredDocument) {
+    if (doc.caseFile) {
+        const documents = doc.caseFile.parts.slice(1).map((name) => [`DOCUMENTO: ${name}`]);
+        return { content: buildPdf([coverLines(stored, doc.caseFile.cover), ...documents]), contentType: PDF_MIME, fileName: doc.name };
+    }
+    // Los documentos nativos de Google se descargan exportados a PDF (V5 §3.12).
+    if (isGoogleNative(doc.mimeType)) {
+        return { content: buildPdf([[doc.name]]), contentType: PDF_MIME, fileName: `${doc.name}.pdf` };
+    }
+    if (doc.mimeType === PDF_MIME) return { content: buildPdf([[doc.name]]), contentType: PDF_MIME, fileName: doc.name };
+    return { content: `Documento de la causa: ${doc.name}`, contentType: doc.mimeType, fileName: doc.name };
+}
+
+/**
+ * Descarga un archivo de la carpeta (HU38, HU25). Un expediente generado lo
+ * descarga cualquier perfil; otro documento, sólo `LAWYER` o `SECRETARY`
+ * (D-103). Un id de otra carpeta es `404`, aunque exista.
+ */
+const downloadCaseDocument: Handler = ({ request, params }) => {
+    const auth = requireUser(request);
+    if (!auth.ok) return auth.response;
+
+    const caseId = readRouteId(params, 'caseId');
+    if (caseId === undefined) return fail(400, ERRORS.invalidCaseId);
+
+    const disposition = readDisposition(request.query, 'attachment');
+    if (!disposition.ok) return disposition.response;
+
+    const stored = db.cases.find((c) => c.id === caseId && c.active);
+    if (!stored) return fail(404, ERRORS.caseNotFound);
+
+    const documentId = decodeURIComponent(params.documentId ?? '');
+    const doc = stored.folder?.status === 'CREATED'
+        ? db.documents.find((d) => d.id === documentId && d.caseId === stored.id)
+        : undefined;
+    if (!doc) return fail(404, ERRORS.documentNotFound);
+
+    if (!doc.caseFile && !auth.user.roles.some((role) => role === 'LAWYER' || role === 'SECRETARY')) {
+        return fail(403, ERRORS.forbiddenLawyerOrSecretary);
+    }
+    if (db.failures.documentStorage) return fail(502, ERRORS.documentDownloadFailed);
+
+    return { status: 200, body: null, file: { ...documentFile(stored, doc), disposition: disposition.value } };
+};
+
+const COVER_TEXT_MAX = 500;
+
+/** Hojas que suma un documento al expediente: una imagen por hoja, el resto según su peso. */
+function pagesOf(doc: StoredDocument): number {
+    if (doc.mimeType.startsWith('image/') || doc.sizeBytes === null) return 1;
+    return Math.max(1, Math.ceil(doc.sizeBytes / 100_000));
+}
+
+/**
+ * Genera el expediente (HU25, V5 D-102): la carátula, siempre primera, y los
+ * documentos elegidos en el orden en que llegan, en un único PDF que se guarda
+ * en la carpeta como nueva versión. Es sincrónico y atómico: si Drive falla no
+ * queda nada y no se consume el número de versión.
+ */
+const createCaseFile: Handler = ({ request, params }) => {
+    const auth = requireUser(request);
+    if (!auth.ok) return auth.response;
+
+    const caseId = readRouteId(params, 'caseId');
+    if (caseId === undefined) return fail(400, ERRORS.invalidCaseId);
+
+    const stored = db.cases.find((c) => c.id === caseId && c.active);
+    if (!stored) return fail(404, ERRORS.caseNotFound);
+
+    const body = asObject(request.body);
+    const details: Record<string, string> = {};
+
+    const ids = body.documentIds;
+    if (!Array.isArray(ids) || ids.length === 0 || !ids.every((id) => typeof id === 'string' && id.trim() !== '')) {
+        details.documentIds = 'Elegí al menos un documento.';
+    } else if (new Set(ids).size !== ids.length) {
+        details.documentIds = 'No puede repetirse un documento.';
+    }
+
+    let opposingParty: string | null = null;
+    let notes: string | null = null;
+    if (body.cover !== undefined && body.cover !== null) {
+        if (typeof body.cover !== 'object' || Array.isArray(body.cover)) details.cover = 'Debe ser un objeto.';
+        else {
+            const cover = asObject(body.cover);
+            opposingParty = optionalText(cover.opposingParty);
+            notes = optionalText(cover.notes);
+            // La parte que no está en la causa sólo existe en el penal (D-92).
+            if (opposingParty !== null && stored.jurisdiction !== 'CRIMINAL') {
+                details.cover = 'La parte de la carátula solo corresponde al fuero penal.';
+            } else if (opposingParty !== null && opposingParty.length > COVER_TEXT_MAX) {
+                details['cover.opposingParty'] = `Puede tener hasta ${COVER_TEXT_MAX} caracteres.`;
+            }
+            if (notes !== null && notes.length > COVER_TEXT_MAX) {
+                details['cover.notes'] = `Puede tener hasta ${COVER_TEXT_MAX} caracteres.`;
+            }
+        }
+    }
+    if (Object.keys(details).length > 0) return validationError(details);
+
+    // El expediente se guarda en la carpeta: sin ella no hay dónde (D-102).
+    if (stored.folder?.status !== 'CREATED') return fail(422, ERRORS.caseFolderNotAvailable);
+
+    const docs = (ids as string[]).map((id) => db.documents.find((d) => d.id === id && d.caseId === stored.id));
+    // Un expediente anterior no se incluye en otro.
+    if (docs.some((d) => d === undefined || d.caseFile !== null)) {
+        return validationError({ documentIds: 'Un documento no está en la carpeta de la causa o es un expediente anterior.' });
+    }
+    const chosen = docs as StoredDocument[];
+    if (chosen.some((d) => !toCaseDocument(d).convertibleToPdf)) return fail(422, ERRORS.documentNotConvertible);
+
+    if (db.failures.documentStorage) return fail(502, ERRORS.caseFileGenerationFailed);
+
+    const version = (db.caseFileVersions.get(stored.id) ?? 0) + 1;
+    db.caseFileVersions.set(stored.id, version);
+    const caseFileId = db.nextCaseFileId;
+    db.nextCaseFileId += 1;
+
+    const at = nowIso();
+    const parts: CaseFilePart[] = [
+        { position: 1, kind: 'COVER', documentId: null, name: 'Carátula' },
+        ...chosen.map((d, index) => ({ position: index + 2, kind: 'DOCUMENT' as const, documentId: d.id, name: d.name })),
+    ];
+    const generated: StoredDocument = {
+        id: `vz-expediente-${caseFileId}`,
+        caseId: stored.id,
+        name: `Expediente_${sacOrId(stored)}_v${version}.pdf`,
+        mimeType: PDF_MIME,
+        sizeBytes: 40_960 + chosen.reduce((total, d) => total + (d.sizeBytes ?? 20_480), 0),
+        createdAt: at,
+        modifiedAt: at,
+        uploadedBy: SYSTEM_UPLOADER,
+        caseFile: { id: caseFileId, version, parts: parts.map((p) => p.name), cover: { opposingParty, notes } },
+    };
+    db.documents.push(generated);
+
+    const data: GeneratedCaseFile = {
+        document: toCaseDocument(generated),
+        version,
+        pageCount: 1 + chosen.reduce((total, d) => total + pagesOf(d), 0),
+        parts,
+        generatedBy: userRef(auth.user.id),
+        generatedAt: at,
+    };
+    return created(itemBody(data));
+};
+
+/* ------------------------------------------------------------------ */
 /* Tabla de rutas                                                      */
 /* ------------------------------------------------------------------ */
 
@@ -2971,6 +3692,9 @@ const ROUTES: Route[] = [
        y, al revés, "custom-states" se tomaría como un id de causa inválido. */
     { method: 'GET', path: '/cases/custom-states', pattern: /^\/cases\/custom-states$/, handler: listCustomStates },
     { method: 'GET', path: '/cases/:caseId', pattern: /^\/cases\/(?<caseId>[^/]+)$/, handler: getCase },
+    { method: 'PATCH', path: '/cases/:caseId', pattern: /^\/cases\/(?<caseId>[^/]+)$/, handler: updateCase },
+    { method: 'DELETE', path: '/cases/:caseId', pattern: /^\/cases\/(?<caseId>[^/]+)$/, handler: deleteCase },
+    { method: 'GET', path: '/cases/:caseId/cover', pattern: /^\/cases\/(?<caseId>[^/]+)\/cover$/, handler: getCaseCover },
 
     { method: 'POST', path: '/cases/:caseId/prescription', pattern: /^\/cases\/(?<caseId>[^/]+)\/prescription$/, handler: declarePrescription },
     { method: 'POST', path: '/cases/:caseId/folder', pattern: /^\/cases\/(?<caseId>[^/]+)\/folder$/, handler: createCaseFolder },
@@ -2979,10 +3703,15 @@ const ROUTES: Route[] = [
     { method: 'GET', path: '/cases/:caseId/procedural-acts/deadline-preview', pattern: /^\/cases\/(?<caseId>[^/]+)\/procedural-acts\/deadline-preview$/, handler: previewDeadline },
     { method: 'GET', path: '/cases/:caseId/procedural-acts', pattern: /^\/cases\/(?<caseId>[^/]+)\/procedural-acts$/, handler: listProceduralActs },
     { method: 'GET', path: '/cases/:caseId/procedural-acts/:actId', pattern: /^\/cases\/(?<caseId>[^/]+)\/procedural-acts\/(?<actId>[^/]+)$/, handler: getProceduralAct },
+    { method: 'PATCH', path: '/cases/:caseId/procedural-acts/:actId', pattern: /^\/cases\/(?<caseId>[^/]+)\/procedural-acts\/(?<actId>[^/]+)$/, handler: updateProceduralAct },
     { method: 'GET', path: '/cases/:caseId/timeline', pattern: /^\/cases\/(?<caseId>[^/]+)\/timeline$/, handler: getCaseTimeline },
 
     { method: 'POST', path: '/cases/:caseId/interruptive-acts', pattern: /^\/cases\/(?<caseId>[^/]+)\/interruptive-acts$/, handler: createInterruptiveAct },
     { method: 'GET', path: '/cases/:caseId/interruptive-acts', pattern: /^\/cases\/(?<caseId>[^/]+)\/interruptive-acts$/, handler: listInterruptiveActs },
+
+    { method: 'GET', path: '/cases/:caseId/documents', pattern: /^\/cases\/(?<caseId>[^/]+)\/documents$/, handler: listCaseDocuments },
+    { method: 'GET', path: '/cases/:caseId/documents/:documentId/file', pattern: /^\/cases\/(?<caseId>[^/]+)\/documents\/(?<documentId>[^/]+)\/file$/, handler: downloadCaseDocument },
+    { method: 'POST', path: '/cases/:caseId/case-files', pattern: /^\/cases\/(?<caseId>[^/]+)\/case-files$/, handler: createCaseFile },
 
     { method: 'POST', path: '/document-templates', pattern: /^\/document-templates$/, handler: createDocumentTemplate },
     { method: 'GET', path: '/document-templates', pattern: /^\/document-templates$/, handler: listDocumentTemplates },

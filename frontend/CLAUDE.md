@@ -4,7 +4,8 @@ Sistema de gestión para un estudio jurídico. Este archivo dice **cómo se trab
 adentro de un módulo** (`src/features/<módulo>/`), **qué está hecho y qué falta
 en el sprint en curso**. El resto ya está documentado: no lo repito, leelo.
 
-Estado al **20/10/2026** (Sprint 3, rama `develop`).
+Estado al **28/10/2026** (Sprint 4). Los mocks y los tests del Sprint 4 están
+escritos; las pantallas, no: ver [Sprint 4](#sprint-4--qué-falta-y-dónde).
 
 ## Antes de escribir código, leé
 
@@ -14,41 +15,45 @@ Estado al **20/10/2026** (Sprint 3, rama `develop`).
    cliente HTTP y `ApiError`. Tiene la tabla "Si necesitás X, usá Y" y su propia
    guía para Claude al final.
 3. `frontend/src/shared/mocks/README.md` — **antes de escribir cualquier
-   llamada a la API**. El mock implementa V4 entero (revisión del 19/10/2026).
+   llamada a la API**. El mock implementa V5 entero (revisión del 27/10/2026).
    Ahí están los usuarios de prueba y qué puede cada perfil, qué causa semilla
    sirve para probar cada regla, cómo disparar cada error y cómo agregar un
    endpoint. El resumen está en [Los mocks](#los-mocks), más abajo.
-4. `docs/Api-Contract/API_CONTRACT_V4.md` — la fuente de verdad del backend.
-   Es autocontenido: trae lo de los Sprints 1 y 2 que sigue vigente y lo nuevo
-   del Sprint 3. **Última revisión: 19/10/2026.** `API_CONTRACT_V3.md` (Sprint 2)
-   y `API_CONTRACT_V2.md` (Sprint 1) quedan como registro: ninguno es referencia
-   vigente. Si un documento y el contrato no coinciden, manda el contrato.
-   La otra fuente de verdad es el prototipo (`docs/prototypes/`): de ahí salen
-   las pantallas y sus textos. Lo que el prototipo muestra y el contrato deja
-   fuera del sprint (V4 §8.3) no se programa.
+4. `docs/Api-Contract/API_CONTRACT_V5.md` — la fuente de verdad del backend.
+   Es autocontenido: trae lo de los Sprints 1 a 3 que sigue vigente y lo nuevo
+   del Sprint 4. **Última revisión: 27/10/2026.** Las decisiones (D-xx), los
+   puntos abiertos (C-xx) y lo que queda fuera del contrato están en
+   `docs/Api-Contract/DECISIONES.md`. V2, V3 y V4 quedan como registro: ninguno
+   es referencia vigente. Si un documento y el contrato no coinciden, manda el
+   contrato. La otra fuente de verdad es el prototipo (`docs/prototypes/`): de
+   ahí salen las pantallas y sus textos. Lo que el prototipo muestra y el
+   contrato deja fuera (`DECISIONES.md` §3) no se programa.
 5. `docs/Frontend-Architecture/TESTING.md` — dónde va cada test y qué mínimo
-   tiene que tener una feature. La §11 lista los tests del Sprint 3 y los
-   nombres que fijan.
+   tiene que tener una feature. La §11 lista los tests de los Sprints 3 y 4 y
+   los nombres que fijan.
 6. `docs/Frontend-Architecture/MATRIZ_CA.md` — qué test cubre cada criterio de
    aceptación. Se genera con `npm run ca-matrix`: no se edita a mano.
 
 ## Reglas que no se negocian
 
 - **No inventes endpoints.** Si lo que te piden necesita un endpoint que no está
-  en el contrato, frená y preguntá. V4 cubre `auth`, `users`, `lawyers`,
-  `procedural-states`, `legal-qualifications`, `clients`, `cases` (con
-  `timeline`, `prescription` y `folder`), `cases/{caseId}/procedural-acts`,
-  `cases/{caseId}/interruptive-acts`, `document-templates` y `dashboards`, y
-  nada más. Los avisos por correo (HU30, HU32, HU51, HU52) son un proceso del
-  servidor: **no tienen endpoint ni pantalla**. "Herramientas" (HU53) no usa
-  ninguno: su catálogo es fijo y vive en el front.
-- **No programes lo que el contrato deja afuera.** V4 §8.3 lista lo que el
-  prototipo muestra pero es de otra historia (lista de documentos de la causa,
-  modificar y dar de baja una causa, emitir carátula y expediente, adjuntos,
-  modificar o anular un acto, modificar y dar de baja modelos, campana de
-  notificaciones, pantalla "Vencimientos", etc.). No se dibuja ni deshabilitado:
-  no existe hasta su sprint. (Hoy hay dos excepciones en el rail que violan
-  esta regla: ver [Problemas conocidos](#problemas-conocidos).)
+  en el contrato, frená y preguntá. V5 cubre `auth`, `users`, `lawyers`,
+  `procedural-states`, `legal-qualifications`, `clients`, `cases` (con su
+  modificación y su baja, `cover`, `timeline`, `prescription`, `folder`,
+  `documents` y `case-files`), `cases/{caseId}/procedural-acts` (con su
+  modificación), `cases/{caseId}/interruptive-acts`, `document-templates` y
+  `dashboards`, y nada más. Los avisos por correo (HU30, HU32, HU51, HU52) son
+  un proceso del servidor: **no tienen endpoint ni pantalla**. "Herramientas"
+  (HU53) no usa ninguno: su catálogo es fijo y vive en el front.
+- **No programes lo que el contrato deja afuera.** `DECISIONES.md` §3 lista lo
+  que el prototipo muestra pero es de otra historia: anular un acto (HU29),
+  modificar y dar de baja modelos (HU36, HU37), modificar y dar de baja
+  clientes (HU10, HU11), eliminar abogado con reasignación (HU15), reportes
+  (HU43, HU44), registrar el pago de tasa, adjuntar cédulas, la campana de
+  notificaciones, la pantalla "Vencimientos", "Olvidé mi contraseña", etc. No
+  se dibuja ni deshabilitado: no existe hasta su sprint. (Hoy hay dos
+  excepciones en el rail que violan esta regla: ver
+  [Problemas conocidos](#problemas-conocidos).)
 - **No traigas código de otros proyectos** (componentes, estilos, hooks). Este
   proyecto tiene su propio sistema de diseño en `shared/` y `styles/`.
 - **No mezcles patrones.** Si ya existe una forma de hacer algo, seguila.
@@ -78,6 +83,47 @@ Playwright para los E2E.
 
 ---
 
+## Sprint 4 — qué falta y dónde
+
+Alcance según V5 (D-87): HU 14, 19, 21, 23, 24, 25, 28 y 38. Sprint "VZ
+Sprint 4" de Jira (25/10/2026 – 06/11/2026); los criterios de aceptación de
+cada historia están en su issue.
+
+**Los mocks implementan todo V5 y los tests de pantalla ya están escritos**
+(`TESTING.md` §11, "Sprint 4"): están en rojo hasta que se programe cada
+pantalla. Ninguna pantalla del sprint está hecha.
+
+| HU | Qué | Endpoint | Módulo | Tests (en rojo) |
+|---|---|---|---|---|
+| 14 | Modificar abogado: acción "Modificar" en cada fila, sólo el Administrador | `PATCH /lawyers/{lawyerId}` | `lawyers/` | `components/lawyers/LawyersPage.edit.test.tsx` |
+| 19 | Modificar causa: botón "Modificar causa" del detalle, cualquier perfil. El fuero no se modifica (D-95); al cambiar el cliente se propone la carátula y viaja en `caption` (D-105) | `PATCH /cases/{caseId}` | `cases/` | `components/cases/CaseDetailPage.edit.test.tsx` |
+| 21 | Dar de baja la causa: botón "Dar de baja" del detalle, con motivo opcional; vuelve al listado | `DELETE /cases/{caseId}` | `cases/` | `components/cases/CaseDetailPage.delete.test.tsx` |
+| 23 | Descargar modelo formal (D-90) | `GET /document-templates/{templateId}/file` | `documents/` | **Hecha** con HU35: `components/documents/DocumentTemplatesPage.test.tsx` |
+| 24 | Emitir la carátula en PDF: vista previa en "Generar expediente" e imprimirla suelta | `GET /cases/{caseId}/cover` | `cases/` | Sin tests: va con la página "Generar expediente", que no existe |
+| 25 | Generar expediente: página propia, carátula + documentos elegidos en orden, en un PDF | `POST /cases/{caseId}/case-files`, `GET …/documents/{documentId}/file` | `cases/` | Sin tests, por lo mismo |
+| 28 | Modificar acto procesal: "Modificar" en un acto de la línea de vida, sólo el responsable actual. Es `RegisterProceduralActPage` en `/causas/:caseId/acto/:actId`, con el título "Modificar acto procesal" | `PATCH /cases/{caseId}/procedural-acts/{actId}` | `proceedings/` | `components/proceedings/RegisterProceduralActPage.edit.test.tsx` |
+| 38 | Tarjeta "Documentación" del detalle: lee la carpeta en Drive; "Abrir" lleva a Drive | `GET /cases/{caseId}/documents` | `cases/` | `components/cases/CaseDetailPage.documents.test.tsx` |
+
+**Lo que hay que sumar al programarlas:**
+
+- **Tipos.** `lastModifiedBy` y `lastModifiedAt` en el acto procesal; el
+  recurso documento (`CaseDocument`), la respuesta de la lista y la del
+  expediente. Se escriben en el módulo a partir de V5 §3.12, no se copian de
+  `shared/mocks/contract.ts`.
+- **`ACTION_ACCESS`.** Una acción para "Modificar" abogado, sólo
+  `ADMINISTRATOR` (CA-14.6), con su caso en `unit/app/actionAccess.test.ts`.
+  Modificar y dar de baja una causa no se declaran: son de los tres perfiles.
+  Modificar un acto no es un permiso por rol: se resuelve con
+  `isResponsibleLawyer`.
+- **Ruta** `/causas/:caseId/acto/:actId` en el router (la fija el test de
+  HU28), y la de "Generar expediente".
+- **Descargas.** La carátula y los documentos son descargas binarias con
+  `disposition` (`inline` para ver e imprimir, `attachment` para guardar).
+  Un documento que no es un expediente sólo lo descargan `LAWYER` y
+  `SECRETARY` (D-103); el expediente, cualquiera.
+
+---
+
 ## Sprint 3 — qué está hecho y dónde
 
 Alcance según V4 (D-45): HU 27, 30, 31, 32, 33, 34, 35, 39, 40, 41, 42, 51 y
@@ -91,7 +137,7 @@ sprint de Jira pero no en el contrato: no pide nada al servidor.
 | 32 | Barra de prescripción con la alerta del 70 % y alertas en los tableros | `cases/`, `dashboard/` | — | **Hecha**: la barra lee `prescription` y los dos tableros muestran "Alertas de prescripción" (`PrescriptionAlertsPanel`). Los correos son del backend |
 | 33 | "Marcar prescripta" (`POST /cases/{caseId}/prescription`) | `cases/` | Ezequiel Purro | **Hecha.** Modal en el detalle (`PrescriptionDeclarationModal`, `useDeclarePrescription`), con `cases.declarePrescription` en `ACTION_ACCESS`: la Secretaría no ve el botón. En una causa ya prescripta no se ofrecen ni éste ni el acto interruptivo |
 | 34, 35 | Modelos formales: alta con archivo, listado por fuero y descarga | `documents/` | Luciano Cipolla | **Hecha.** `DocumentTemplatesPage` en `/modelos`: una tarjeta por fuero (`JurisdictionCard`), los modelos del fuero elegido (`DocumentTemplateCard`), el alta (`DocumentTemplateFormModal` con `FileDropzone` y `JurisdictionPicker`) y la descarga (`useDownloadDocumentTemplate`). Sólo Administrador y Abogado |
-| 39, 40 | Carpeta de la causa en Drive y copia de modelos | `cases/` | Luciano Cipolla | **A medias.** El alta ya está: las casillas "Crear carpeta" y "Copiar modelos" (`CaseForm`), la ruta prevista y la cantidad de modelos del fuero en el resumen (`CaseSummaryAside`, `folderPathPreview`), y `createFolder`/`copyTemplates` viajan siempre en `toCreateCaseBody`. El aviso del alta suma la carpeta (`folderNoticeSuffix`, `folderFailed`). **Falta el detalle**: abrir la carpeta, crearla y reintentar (`POST /cases/{caseId}/folder`). Sus tests (`CaseDetailPage.folder.test.tsx`) están en rojo |
+| 39, 40 | Carpeta de la causa en Drive y copia de modelos | `cases/` | Luciano Cipolla | **Hecha.** En el alta: las casillas "Crear carpeta" y "Copiar modelos" (`CaseForm`), la ruta prevista y la cantidad de modelos del fuero en el resumen (`CaseSummaryAside`, `folderPathPreview`, con la ruta de V5), y `createFolder`/`copyTemplates` viajan siempre en `toCreateCaseBody`. El aviso del alta suma la carpeta (`folderNoticeSuffix`, `folderFailed`). En el detalle, `CaseFolderCard`: abrir la carpeta, crearla y reintentar (`POST /cases/{caseId}/folder`) |
 | 41, 42 | Tableros "Mi día" y "Estudio" | `dashboard/` | Facundo Fiorani | **Hecha.** `HomePage` de `dashboard/` en `/inicio`. "Mi día": "Lo primero de hoy", la agenda del mes con las dos listas cortas al lado y, debajo y a todo el ancho, "Mis plazos abiertos"; "Estudio": cartera por fuero, "Vencimientos del estudio", alertas y "Carga del equipo". Los plazos se muestran como la línea de vencimientos del prototipo (`DeadlinesPanel`). Los tableros llevan `staleTime: 0` (CA-41.9): se vuelven a pedir cada vez que se entra a Inicio, así que las mutaciones no los invalidan. Los ajustes que no salen del prototipo están en `dashboard/CAMBIOS.md` |
 | 53 | Herramientas: accesos directos a sitios externos | `tools/` | — | **Hecha.** `ToolsPage` en `/herramientas`, para los tres perfiles. El catálogo está en `tools/utils/catalog.ts`; cómo sumar una herramienta y los cambios, en `tools/CAMBIOS.md` |
 | 30, 51, 52 | Avisos por correo y verificación diaria | — | Sólo backend | Sin trabajo de front: es un proceso del servidor |
@@ -279,7 +325,7 @@ Los componentes son presentacionales y lo reciben hecho:
 
 ### Reglas del dominio
 
-Son las de V4. Lo que V4 cambió respecto de V3 está marcado con su decisión.
+Son las de V5. Lo que V4 y V5 cambiaron está marcado con su decisión.
 
 - **Personas: apellido primero y orden alfabético por apellido** (observación
   de la Sprint Review 1). **Toda** persona trae `lastName` y `firstName`
@@ -346,8 +392,9 @@ Son las de V4. Lo que V4 cambió respecto de V3 está marcado con su decisión.
   grupo "Causas nuevas", opción "Iniciada" → `withoutProceduralActs=true`
   (D-29, D-34); grupo "Escritos a mano en causas" → `customState`. "Iniciada"
   es una opción fija: no viene de `GET /cases/custom-states`.
-- **El SAC es opcional** (D-33). Si se carga, son 8 dígitos y es único
-  (`409 CASE_SAC_ALREADY_EXISTS`, que se muestra en el campo). `sacNumber`
+- **El SAC es opcional** (D-33). Si se carga, son 8 dígitos y es único entre
+  las causas vigentes (`409 CASE_SAC_ALREADY_EXISTS`, que se muestra en el
+  campo): el de una causa dada de baja se puede volver a usar (V5 D-97). `sacNumber`
   puede venir en `null`: el prototipo lo muestra como "Sin SAC", y el listado
   se desempata por `id`.
 - **Calificaciones legales opcionales** (D-33): una causa penal puede no tener
@@ -381,7 +428,7 @@ Son las de V4. Lo que V4 cambió respecto de V3 está marcado con su decisión.
   (`administrativeRemedyExhaustedOn`); y `courtFeePaid` en los tres. No están
   en el prototipo: los suma el alta (`CaseForm`) y los muestra el detalle
   (`CaseFacts`). Un dato de otro fuero no se manda y en la respuesta vale
-  `null`. Se cargan sólo en el alta: modificarlos es HU19.
+  `null`. Se modifican con `PATCH /cases/{caseId}` (HU19).
 - **`startDate` es anulable** (D-38): `null` mientras la causa no tiene SAC.
 - **Objeto del reclamo / del amparo** (`subjectMatter`, D-27): sólo en
   `ADMINISTRATIVE` y `AMPARO`, **obligatorio** y de hasta 800 caracteres, con
@@ -406,10 +453,37 @@ Son las de V4. Lo que V4 cambió respecto de V3 está marcado con su decisión.
   backend responde `403` a quien no lo es, también en `deadline-preview`. El
   acto se aplica a la causa al registrarse: no hay actos pendientes ni
   confirmación (D-13).
-- **Carpeta de la causa** (V4 D-59 a D-61, D-83): la crea el backend en
-  `/VZ Causas/{Apellido, Nombres}/{Fuero}/{carátula}`. Si Drive falla, la
-  causa se registra igual y `folder.status` queda en `ERROR` (D-60). `folder`
-  vale `null` en las causas registradas antes de V4.
+- **Carpeta de la causa** (V4 D-59, D-60, D-83; V5 D-104): la crea el backend
+  en `/VZ Causas/Causas/{Apellido, Nombres}/{Fuero}/{carátula}`, sin los
+  caracteres que Drive no admite. Si Drive falla, la causa se registra igual y
+  `folder.status` queda en `ERROR` (D-60). `folder` vale `null` en las causas
+  registradas antes de V4. **Sigue a la causa**: se renombra si cambia la
+  carátula y se mueve si cambia el responsable; si Drive no responde, la
+  modificación no falla y `folder.path` dice dónde quedó.
+- **Modificar una causa** (HU19, V5 §3.7): cualquier perfil. El fuero no se
+  modifica (D-95): una causa en el fuero equivocado se da de baja y se
+  registra de nuevo. Una causa terminal se puede corregir, salvo las
+  calificaciones de una "Prescripta" (`422 CASE_IN_TERMINAL_STATE`, D-96).
+- **Baja de una causa** (HU21, D-97): lógica, de cualquier perfil, con motivo
+  opcional. Para el cliente deja de existir: ella y todo lo que cuelga de ella
+  responden `404 CASE_NOT_FOUND`, y sale de listados, tableros y conteos. La
+  mutación remueve `detail(id)` e invalida los listados.
+- **Modificar un acto procesal** (HU28, D-98, D-99): sólo el responsable
+  **actual** de la causa. Si cambia el estado, el plazo se recalcula con la
+  tabla de hoy; si no, con el que el acto copió. El estado de la causa se
+  recalcula con el acto más reciente: corregir el acto que la cerró la reabre.
+  Los actos de una causa "Prescripta" no se modifican. El acto trae
+  `lastModifiedBy` y `lastModifiedAt`. La mutación invalida las claves de la
+  causa, como el registro.
+- **Documentos de la causa** (HU38, D-100, D-101): se leen de Drive en cada
+  pedido, sin paginar; su `id` es el de Drive y su autor (`uploadedBy`) es una
+  cuenta de Google, no un usuario del sistema. No hay "Presentado" ni
+  "Recibido". La lista la ven los tres perfiles (D-103).
+- **Carátula y expediente** (HU24, HU25, D-91 a D-94, D-102, D-106): los arma
+  el backend en PDF; no se guarda nada de la carátula en la causa. Al generar
+  el expediente, el cliente manda las observaciones y, en el penal, la parte
+  que no es el cliente (`cover.opposingParty`). Un expediente no se incluye en
+  otro, y la causa necesita su carpeta creada.
 
 ### Cambios de V4 sobre lo que ya estaba hecho
 
@@ -431,30 +505,46 @@ Sprint 1 quedó registrado en `API_CONTRACT_V3.md` §7 y ya no es referencia.
 | Códigos de error nuevos (V4 §7.4) | `ERROR_CODES` de `src/shared/api/contract.ts` suma `DOCUMENT_TEMPLATE_NOT_FOUND`, `DOCUMENT_TEMPLATE_ALREADY_EXISTS`, `FILE_TOO_LARGE`, `PRESCRIPTION_NOT_APPLICABLE`, `PROCEDURAL_STATE_PROTECTED`, `DOCUMENT_STORAGE_UNAVAILABLE` y `PROCEDURAL_ACT_NOT_FOUND` |
 | Modificación y baja de calificaciones legales (pendiente del Sprint 2) | `LegalQualificationsPage`, con `useUpdateLegalQualification`, `useDeleteLegalQualification` y `buildLegalQualificationPatch` |
 
+### Cambios de V5 sobre lo que ya estaba hecho
+
+V5 no rompe nada de lo hecho (`DECISIONES.md` §4, "Impacto de V5"). Lo que ya
+está aplicado:
+
+| Cambio | En el front |
+|---|---|
+| Códigos de error nuevos: `DOCUMENT_NOT_FOUND`, `CASE_FOLDER_NOT_AVAILABLE` y `DOCUMENT_NOT_CONVERTIBLE` | `ERROR_CODES` de `src/shared/api/contract.ts` |
+| La carpeta va dentro de `/VZ Causas/Causas/`, con el nombre limpio de lo que Drive no admite | `folderPathPreview` en `cases/utils/caseFolder.ts` |
+| El SAC es único entre las causas vigentes (D-97) | Sólo en el mock: el front no valida unicidad |
+
+Lo que falta es lo de las historias del sprint: ver
+[Sprint 4](#sprint-4--qué-falta-y-dónde).
+
 Si el contrato vuelve a cambiar, **no se toca de una**: primero se listan los
 cambios y se acuerdan, después se aplican al contrato, a los mocks, a los tipos
 y a este archivo.
 
 ### Los mocks
 
-**El mock implementa V4 entero** (`docs/Api-Contract/API_CONTRACT_V4.md`, con
-la revisión del 19/10/2026), con MSW: lo de los Sprints 1 y 2 con los cambios
-de V4 y lo del Sprint 3 (línea de vida, actos interruptivos, prescripción,
-carpeta, modelos formales y tableros). Lo que hay que saber:
+**El mock implementa V5 entero** (`docs/Api-Contract/API_CONTRACT_V5.md`, con
+la revisión del 27/10/2026), con MSW: lo de los Sprints 1 a 3 y lo del Sprint 4
+(modificar y dar de baja una causa, la carátula, modificar un acto procesal,
+los documentos de la causa y el expediente). Lo que hay que saber:
 
 - **Usuarios de prueba:** `fvazquez` (Administrador y Abogado), `mrios`
   (Abogado), `gestion` (Secretaría), `supervision` (Administrador sin ficha) y
   `sledesma` (Secretaría y Abogado). Las contraseñas están en el README.
-- **Permisos**, según la tabla del contrato (V4 §4): leer está abierto a
+- **Permisos**, según la tabla del contrato (V5 §4): leer está abierto a
   cualquiera con sesión, salvo `/users`, los modelos y los tableros. `/users` y
-  escribir abogados piden `ADMINISTRATOR`. Registrar un cliente o una causa,
-  escribir estados procesales y calificaciones legales, y crear o reintentar
-  la carpeta, lo hace cualquiera. Los modelos y "Marcar prescripta" son de
+  escribir abogados piden `ADMINISTRATOR`. Registrar, modificar y dar de baja
+  una causa, registrar un cliente, escribir estados procesales y
+  calificaciones legales, crear o reintentar la carpeta, ver la carátula y los
+  documentos y generar el expediente, lo hace cualquiera. Descargar un
+  documento que no es un expediente pide `LAWYER` o `SECRETARY`. Los modelos y "Marcar prescripta" son de
   `ADMINISTRATOR` o `LAWYER`; `GET /dashboards/lawyer`, de `LAWYER`, y
   `GET /dashboards/administrator`, de `ADMINISTRATOR`. Lo prueba
   `tests/unit/contract/permissions.test.ts`.
-- **Los actos no se rigen por un rol** (D-30): los registra, y previsualiza su
-  vencimiento, sólo el abogado responsable de la causa. `mrios` lleva la 1 y la
+- **Los actos no se rigen por un rol** (D-30): los registra, los modifica y
+  previsualiza su vencimiento sólo el abogado responsable de la causa. `mrios` lleva la 1 y la
   17; `fvazquez`, la 4, la 6 y la 20; `mferreyra`, la 7; `sledesma`, la 15 y la
   16. Con cualquier otro usuario el mock responde `403`, aunque sea abogado o
   administrador.
@@ -465,8 +555,15 @@ carpeta, modelos formales y tableros). Lo que hay que saber:
   10 y 21), con una calificación dada de baja (13), con el vencimiento ajustado
   a mano (8 y 16). Del Sprint 3: alerta de prescripción (4), marcada
   prescripta (10), prescripción cumplida sin marcar (13), carpeta creada (1, 2,
-  3, 5 y 6), creándose (11), con error (22) y pendiente (23). La tabla completa
-  está en el README y en el comentario de `CASE_SEEDS`, en `fixtures.ts`.
+  3, 5 y 6), creándose (11), con error (22) y pendiente (23). Del Sprint 4:
+  la carpeta de la causa 1 tiene 12 archivos, entre ellos el expediente v1 y
+  una hoja de cálculo de Google que no se puede convertir; las 2, 3, 5 y 6
+  tienen un escrito cada una (`DOCUMENT_SEEDS`). La tabla completa está en el
+  README y en los comentarios de `CASE_SEEDS` y `DOCUMENT_SEEDS`, en
+  `fixtures.ts`.
+- **La carátula y el expediente son PDF de verdad**, mínimos (`pdf.ts`): el
+  texto de cada recuadro, sin logo ni acentos. Alcanzan para la vista previa y
+  la impresión.
 - **Los vencimientos son relativos a hoy.** Los actos recientes de las
   semillas se ubican "N días hábiles atrás", así el listado se ve como el
   prototipo cualquier día. Un test que afirme algo sobre vencimientos o sobre
@@ -482,7 +579,8 @@ carpeta, modelos formales y tableros). Lo que hay que saber:
   (qué usuario, qué causa, qué dato), cómo subir y descargar archivos, y las
   decisiones que el mock tomó donde el contrato no dice nada. Que el mock no
   invente ni olvide endpoints lo revisa `tests/unit/contract/endpoints.test.ts`
-  contra `docs/openapi`.
+  contra `docs/openapi`. **Hoy está en rojo**: `docs/openapi` todavía no tiene
+  los siete endpoints de V5.
 - **Si falta un endpoint**, se agrega en `src/shared/mocks/handlers.ts`
   (handler y su entrada en `ROUTES`), y el contrato en `docs/openapi` (el test
   de `tests/unit/contract/` falla si divergen). Sin handler, la pantalla falla
@@ -756,7 +854,7 @@ const canCreate = useCan('lawyers.create')   // de @/app/access/useCan
   prototipo. Donde el prototipo lo esconde ("Marcar prescripta" para la
   Secretaría), se esconde.
 - Una acción nueva se suma a `Action` y a `ACTION_ACCESS`, con el rol que fija
-  la tabla de permisos del contrato (V4 §4).
+  la tabla de permisos del contrato (V5 §4).
 - **Una acción que pueden los tres perfiles no se declara**: el botón va
   habilitado y listo. La tabla es sólo para lo que restringe. Registrar un
   cliente, una causa o una calificación legal no consulta nada (D-39).
@@ -803,27 +901,20 @@ usuarios de prueba y sus contraseñas están en el README de los mocks.
 
 ## Problemas conocidos
 
-Al 20/10/2026. No se arreglan al paso: cada uno es de su dueño.
+Al 28/10/2026. No se arreglan al paso: cada uno es de su dueño.
 
-1. **`npm run build` falla.** `tsc -b` marca que al objeto de
-   `tests/unit/cases/case.schema.test.ts:11` le faltan `createFolder` y
-   `copyTemplates`, que se sumaron a `CaseFormValues` con HU39. La app compila
-   (`tsc -p tsconfig.app.json` pasa); lo que no compila es el test.
-2. **`npm test`: 280 pasan y 7 fallan.**
-   - Los 6 de `tests/components/cases/CaseDetailPage.folder.test.tsx`: la
-     carpeta en el detalle (HU39) todavía no está programada.
-   - `tests/components/proceedings/RegisterProceduralActPage.test.tsx`, "no
-     ofrece los estados terminales": quedó de V3. Desde D-69 los terminales sí
-     se ofrecen; el test es el que está mal, no la pantalla.
-3. **El módulo `home/` volvió.** `src/features/home/pages/HomePage.tsx` es la
-   pantalla provisoria de antes de los tableros. `TESTING.md` dice que se
-   eliminó el 18/10/2026 y el router usa el `HomePage` de `dashboard/`: es
-   código muerto. También existe `src/features/deadlines/`, vacío.
-4. **El rail dibuja dos cosas que el contrato deja afuera** (V4 §8.3): el ítem
-   "Reportes" (`/reportes`), que no tiene ruta y da la página de no
-   encontrado, y la campana de "Notificaciones" de la barra superior
+1. **`npm test`: 345 pasan y 22 fallan, a propósito.**
+   - Los 21 tests de pantalla del Sprint 4 (`TESTING.md` §11): están escritos
+     antes que las pantallas.
+   - `tests/unit/contract/endpoints.test.ts`: `docs/openapi` todavía no tiene
+     los siete endpoints de V5 que el mock ya implementa.
+2. **`src/features/deadlines/` existe y está vacío** (sólo `.gitkeep`). La
+   pantalla "Vencimientos" no es de ninguna historia (`DECISIONES.md` §3).
+3. **El rail dibuja dos cosas que el contrato deja afuera** (`DECISIONES.md`
+   §3): el ítem "Reportes" (`/reportes`), que no tiene ruta y da la página de
+   no encontrado, y la campana de "Notificaciones" de la barra superior
    (`AppLayout.tsx`).
-5. **Lint:** un warning, `react(only-export-components)` en
+4. **Lint:** un warning, `react(only-export-components)` en
    `src/shared/components/ui/Icon.tsx:2`.
 
 ## Checklist de un módulo

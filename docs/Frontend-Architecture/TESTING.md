@@ -10,7 +10,12 @@ Si tenés una duda del tipo "¿este test dónde va?", saltá a
 [Dónde pongo este test](#9-dónde-pongo-este-test). Si la duda es "¿vale la pena
 este test?", andá a [Antes de escribir un test](#4-antes-de-escribir-un-test).
 
-> **Estado actual (18/10/2026):** **254 tests de Vitest** (76 de `unit/` y 178
+> **Estado actual (28/10/2026):** **367 tests de Vitest**. Pasan 345 y fallan
+> 22: los 21 de pantalla del Sprint 4, escritos antes que sus pantallas (ver
+> [§11](#sprint-4-los-tests-que-ya-están-escritos)), y el de contrato, hasta que
+> `docs/openapi` sume los endpoints de V5. Los del Sprint 3 ya están en verde.
+>
+> **Estado al 18/10/2026:** **254 tests de Vitest** (76 de `unit/` y 178
 > de `components/`) y **9 de Playwright** en 6 archivos. Pasan 217 y fallan 37:
 > 34 son los del Sprint 3, escritos antes que sus pantallas (ver
 > [§11](#sprint-3-los-tests-que-ya-están-escritos)), 2 esperan un comportamiento
@@ -942,8 +947,8 @@ la [§4](#4-antes-de-escribir-un-test).
   carpeta, "Copiar los modelos" queda destildada, deshabilitada y con el
   mensaje "Primero hay que crear la carpeta en Drive para poder copiar los
   modelos." a la vista (CA-40.3). La ubicación que muestra el resumen es la
-  del contrato, `/VZ Causas/{Apellido, Nombres}/{Fuero}/{carátula}` (D-61),
-  no la del prototipo. Si Drive falla, la causa se registra igual y la
+  del contrato, `/VZ Causas/Causas/{Apellido, Nombres}/{Fuero}/{carátula}`
+  (V5 §4; en V4 era sin `Causas/`), no la del prototipo. Si Drive falla, la causa se registra igual y la
   pantalla avisa que la carpeta no se creó; el texto lo elige la pantalla. La
   Secretaría no ve cuántos modelos se copian, porque no consulta modelos
   (CA-40.10).
@@ -989,6 +994,61 @@ y 27.17; CA-31.3 a 31.5, 31.7 y 31.12 a 31.14; CA-33.6 a 33.8 y 33.10 a
 33.15; CA-34.11; CA-35.3 y 35.7; CA-39.9 a 39.13 y 39.15; CA-40.5 a 40.9;
 CA-41.6, 41.9 y 41.11; CA-42.8; y HU-30, HU-32 (salvo lo visible), HU-51 y
 HU-52.
+
+> **Al 28/10/2026** las pantallas del Sprint 3 están programadas y sus tests,
+> en verde, incluidos los dos que esperaban un comportamiento de V3. Lo de
+> arriba queda como registro de cómo se escribieron.
+
+### Sprint 4: los tests que ya están escritos
+
+Los tests del Sprint 4 se escribieron antes que las pantallas y están en rojo
+hasta que se programe cada historia. Salen del contrato V5 (revisión del
+27/10/2026), del prototipo y de los criterios de Jira del 28/10/2026 (CA-14.x a
+CA-38.x); cada uno dice qué criterio cubre, y lo que resuelve el servidor queda
+en el encabezado con `@backend`. Los mocks ya implementan todo V5
+(`src/shared/mocks/README.md`, "Lo que suma el Sprint 4").
+
+| HU | Tests |
+| --- | --- |
+| 14 Modificar abogado | `components/lawyers/LawyersPage.edit.test.tsx` (4) |
+| 19 Modificar causa | `components/cases/CaseDetailPage.edit.test.tsx` (5) |
+| 21 Dar de baja la causa | `components/cases/CaseDetailPage.delete.test.tsx` (3) |
+| 23 Descargar modelo formal | Ya cubierta por `components/documents/DocumentTemplatesPage.test.tsx` (HU-35) |
+| 24 y 25 Carátula y expediente | **Sin tests todavía.** "Generar expediente" es una página que no existe, y un test que importa un archivo que no existe rompe `npm test` y `npm run build`. Se escriben con la página, en su rama |
+| 28 Modificar acto procesal | `components/proceedings/RegisterProceduralActPage.edit.test.tsx` (4) |
+| 38 Consultar documentos | `components/cases/CaseDetailPage.documents.test.tsx` (5) |
+| Permisos del servidor falso | `unit/contract/permissions.test.ts` suma los endpoints de V5 abiertos a los tres perfiles (en verde) |
+
+`LawyersPage` y el detalle de causa llevan un archivo por historia, como en el
+Sprint 3: en uno solo pasarían el techo de la [§4](#4-antes-de-escribir-un-test).
+
+**Los nombres que fijan los tests.** El código tiene que llamarse así:
+
+| Qué | Dónde |
+| --- | --- |
+| "Modificar" abogado | Botón "Modificar" en la fila de `LawyersPage`, deshabilitado para quien no es Administrador. Diálogo "Modificar abogado" con "Apellido", "Nombres", "Matrícula" y "Guardar cambios"; aviso "Datos de {Apellido}, {Nombres} actualizados." |
+| Modificar causa | Botón "Modificar causa" del detalle. Diálogo "Modificar causa" con "N° de SAC", "Órgano interviniente", "Interno", "Cliente" (select), "Carátula" y "Guardar cambios". El fuero se muestra con la nota "No se modifica. Si la causa se registró en otro fuero, dala de baja y registrala de nuevo." y no es un select. Aviso "Causa actualizada. El cambio queda asentado con usuario y fecha." |
+| Dar de baja | Botón "Dar de baja" del detalle. Diálogo "Dar de baja la causa" con "Motivo (opcional)" y "Dar de baja"; vuelve a `/causas` con el aviso "Causa dada de baja. Se conserva el historial completo." |
+| Modificar acto | Botón "Modificar" en cada movimiento de la línea de vida. `RegisterProceduralActPage` en **`/causas/:caseId/acto/:actId`**, con el título "Modificar acto procesal", "Observaciones" y "Guardar cambios"; vuelve al detalle con un aviso que empieza con "Acto modificado" y termina con "El cambio queda asentado con usuario y fecha." |
+| Documentación | Panel con título "Documentación" (`.vz-panel__title`), "N archivos", un `listitem` por documento con su nombre y quién lo subió, y un enlace "Abrir" que abre Drive en otra pestaña |
+
+**Lo que el equipo decidió** donde el prototipo no alcanza (28/10/2026). Si
+cambia, se cambian el test y la pantalla juntos:
+
+- **Quien no es el responsable** y toca "Modificar" en un acto recibe el aviso
+  "Solo el abogado responsable de la causa modifica sus actos procesales." y
+  no sale del detalle, como al registrar.
+- **Cambiar el cliente** propone la carátula con el cliente nuevo, conservando
+  el resto: `GÓMEZ, Ariel Fernando p.s.a. Robo calificado` pasa a
+  `PEREYRA, Marcos D. p.s.a. Robo calificado` (D-105).
+- **Con la carpeta sin crear** la tarjeta "Documentación" no lista nada; el
+  texto que muestra lo elige la pantalla.
+- **Errores**: se muestra el `message` del contrato, por ejemplo "No se pudo
+  leer la carpeta de la causa en Drive. Intentá de nuevo en unos minutos.".
+
+**Lo que queda para el backend**, sin test de pantalla: CA-14.2 y 14.5;
+CA-19.4, 19.6 y 19.9 a 19.15; CA-21.3 a 21.10; CA-28.4 a 28.9 y 28.11; CA-38.2,
+38.3, 38.8 y 38.9.
 
 ---
 

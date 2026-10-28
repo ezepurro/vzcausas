@@ -63,12 +63,13 @@ describe('RegisterCasePage · carpeta y modelos', () => {
         expect(created()?.folder).toMatchObject({ status: 'CREATED', templatesCopied: 6 })
     })
 
-    // CA-39.2: la ubicación es la del abogado responsable, el fuero y la carátula (D-61).
+    // CA-39.2, CA-39.3: la ubicación es la del abogado responsable, el fuero y la
+    // carátula, dentro de la carpeta raíz de causas (V5 §4).
     it('el resumen muestra dónde va a quedar la carpeta', async () => {
         const { user } = renderPage()
         await fillMinimum(user)
 
-        expect(screen.getByText(`/VZ Causas/Ríos, Malena/Penal/${CAPTION}`)).toBeInTheDocument()
+        expect(screen.getByText(`/VZ Causas/Causas/Ríos, Malena/Penal/${CAPTION}`)).toBeInTheDocument()
     })
 
     // CA-39.3, CA-40.3

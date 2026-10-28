@@ -3,7 +3,12 @@ import { resolveRequest } from '@/shared/mocks'
 
 /**
  * Permisos del servidor falso, según la matriz por perfil del contrato
- * (V4 §4: la del 11/10/2026, D-39, más lo que suma el Sprint 3).
+ * (V5 §4: la del 11/10/2026, D-39, más lo que suman los Sprints 3 y 4).
+ *
+ * Lo que no depende del rol sino de la causa o del documento no está acá:
+ * modificar un acto lo hace el responsable actual (D-30), y descargar un
+ * documento que no es un expediente, `LAWYER` o `SECRETARY` (D-103). Los
+ * prueban las pantallas.
  *
  * El mock valida en este orden: 401 → 403 → 400 → 404. Por eso alcanza con
  * mandar un cuerpo vacío o un id que no existe: si el perfil no puede, responde
@@ -62,6 +67,12 @@ const OPEN_TO_EVERYONE: readonly [Method, string][] = [
     ['GET', `/cases/${MISSING}/procedural-acts`],
     ['GET', `/cases/${MISSING}/procedural-acts/1`],
     ['GET', `/cases/${MISSING}/timeline`],
+    // V5: modificar y dar de baja la causa, la carátula, sus documentos y el expediente (HU19 a HU25, HU38).
+    ['PATCH', `/cases/${MISSING}`],
+    ['DELETE', `/cases/${MISSING}`],
+    ['GET', `/cases/${MISSING}/cover`],
+    ['GET', `/cases/${MISSING}/documents`],
+    ['POST', `/cases/${MISSING}/case-files`],
 ]
 
 /** Lo que sigue siendo sólo del Administrador. */
