@@ -6,6 +6,7 @@ import type { CaseListParams } from '@/features/cases/types/case'
 import type { Jurisdiction } from '@/features/legal-params'
 import type { DeclarePrescriptionBody } from '@/features/cases/types/prescriptionDeclaration'
 import type { TimelineEntry } from '@/features/cases/types/timeline'
+import type { DeleteCaseBody } from '@/features/cases/types/caseDeletion'
 /**
  * Todo lo que habla con el servidor, una función por endpoint.
  *
@@ -50,6 +51,15 @@ export async function createCase(body: CreateCaseBody): Promise<Case> {
 export async function updateCase(id: number, body: UpdateCaseBody): Promise<Case> {
     const response = await http.patch<ApiItem<Case>>(`${BASE}/${id}`, body)
     return response.data.data
+}
+
+/**
+ * Da de baja la causa (HU21, V5 §3.7). Es el único `DELETE` del contrato con
+ * cuerpo: el motivo, que es opcional. Sin motivo no se manda cuerpo y la baja
+ * procede igual. Responde `204` sin cuerpo.
+ */
+export async function deleteCase(id: number, body?: DeleteCaseBody): Promise<void> {
+    await http.delete(`${BASE}/${id}`, { data: body })
 }
 /**
  * La línea de vida de la causa (HU27, V4 D-85). Sin paginar, a propósito: una

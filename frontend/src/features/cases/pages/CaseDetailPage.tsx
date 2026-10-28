@@ -51,7 +51,11 @@ import { toDeclarePrescriptionBody } from '@/features/cases/utils/toDeclarePresc
 import { toFormErrors } from '@/features/cases/utils/toFormErrors'
 import { toInterruptiveActFormErrors } from '@/features/cases/utils/toInterruptiveActFormErrors'
 import { toPrescriptionDeclarationFormErrors } from '@/features/cases/utils/toPrescriptionDeclarationFormErrors'
-
+import { useDeleteCase } from '@/features/cases/api/useDeleteCase'
+import { DeleteCaseModal } from '@/features/cases/components/DeleteCaseModal'
+import { validateDeleteCase, type DeleteCaseFormErrors } from '@/features/cases/schemas/caseDeletion.schema'
+import type { DeleteCaseFormValues } from '@/features/cases/types/caseDeletion'
+import { toDeleteCaseBody } from '@/features/cases/utils/toDeleteCaseBody'
 /**
  * Detalle de causa (HU22), en `/causas/:caseId`.
  *
@@ -60,9 +64,10 @@ import { toPrescriptionDeclarationFormErrors } from '@/features/cases/utils/toPr
  * datos propios del fuero (V4 D-67). Lo ve cualquier perfil: todo el estudio
  * accede a todas las causas (RN11).
  *
- * "Modificar causa" (HU19) lo opera cualquier perfil, sin ser el responsable
- * (V5 §3.7). En las causas penales suma la fila "Sobre la causa", con
- * "Registrar acto interruptivo" (HU31) y "Marcar prescripta" (HU33). Lo demás
+ *  * "Modificar causa" (HU19) y "Dar de baja" (HU21) los opera cualquier perfil,
+ * sin ser el responsable (V5 §3.7). Dar de baja vuelve al listado: para el
+ * cliente la causa deja de existir (D-97). En las causas penales suma la fila
+ * "Sobre la causa", con "Registrar acto interruptivo" (HU31) y "Marcar prescripta" (HU33). Lo demás
  * que el prototipo pone en esa fila (pago de tasa, carátula, expediente) es de
  * otras historias y no se dibuja.
  *
@@ -111,12 +116,14 @@ const OPTIONS_LIMIT = 100
 
 /** El aviso de "Modificar causa", del prototipo. */
 const CASE_UPDATED = 'Causa actualizada. El cambio queda asentado con usuario y fecha.'
-
+/** El aviso de "Dar de baja", del prototipo. */
+const CASE_DELETED = 'Causa dada de baja. Se conserva el historial completo.'
 /** Qué modal está abierto, con sus valores y sus errores. */
 type ModalState =
     | { kind: 'interruptive'; values: InterruptiveActFormValues; errors: InterruptiveActFormErrors }
     | { kind: 'prescription'; values: PrescriptionDeclarationFormValues; errors: PrescriptionDeclarationFormErrors }
     | { kind: 'edit'; values: CaseFormValues; errors: CaseFormErrors }
+    | { kind: 'delete'; values: DeleteCaseFormValues; errors: DeleteCaseFormErrors }
     | null
 
 /** La pantalla con la causa ya cargada. */
@@ -130,6 +137,7 @@ function CaseDetail({ case: c }: { case: Case }) {
     const declarePrescription = useDeclarePrescription(c.id)
     const createFolder = useCreateCaseFolder(c.id)
     const updateCase = useUpdateCase(c.id)
+    const deleteCase = useDeleteCase(c.id)
     const [modal, setModal] = useState<ModalState>(null)
 
     /* Las opciones de "Modificar causa" se piden con la pantalla y no al abrir
@@ -174,7 +182,9 @@ function CaseDetail({ case: c }: { case: Case }) {
     function openEdit() {
         setModal({ kind: 'edit', values: caseToFormValues(c), errors: {} })
     }
-
+        function openDelete() {
+        setModal({ kind: 'delete', values: { reason: '' }, errors: {} })
+    }
     function changeValue(k: string, v: string | boolean) {
         setModal((m) => (m === null ? m : ({ ...m, values: { ...m.values, [k]: v } } as ModalState)))
     }
@@ -283,11 +293,13 @@ function CaseDetail({ case: c }: { case: Case }) {
         }
         if (error.isValidation && modal !== null) {
             // Sólo los campos que el modal abierto muestra.
-            const fieldErrors = modal.kind === 'interruptive'
+                const fieldErrors = modal.kind === 'interruptive'
                 ? toInterruptiveActFormErrors(error.details)
                 : modal.kind === 'prescription'
                     ? toPrescriptionDeclarationFormErrors(error.details)
-                    : toFormErrors(error.details)
+                    : modal.kind === 'delete'
+                        ? (error.details?.reason ? { reason: error.details.reason } : {})
+                        : toFormErrors(error.details)
             if (Object.keys(fieldErrors).length > 0) {
                 setModal((m) => (m === null ? m : ({ ...m, errors: fieldErrors } as ModalState)))
                 return
@@ -350,6 +362,24 @@ function CaseDetail({ case: c }: { case: Case }) {
         })
     }
 
+        /**
+     * Da de baja la causa y vuelve al listado (CA-21.1). El motivo es opcional
+     * (CA-21.2). El aviso es `info`: salió bien, pero no es un logro. Si falla,
+     * el diálogo queda abierto con el mensaje del servidor y la causa sigue.
+     */
+    function submitDelete(values: DeleteCaseFormValues) {
+        const errors = validateDeleteCase(values)
+        setModal({ kind: 'delete', values, errors })
+        if (Object.keys(errors).length > 0) return
+        deleteCase.mutate(toDeleteCaseBody(values), {
+            onSuccess: () => {
+                toast('info', CASE_DELETED)
+                navigate('/causas')
+            },
+            onError: handleApiError,
+        })
+    }
+
     return (
         <>
             <CaseHeader
@@ -365,10 +395,15 @@ function CaseDetail({ case: c }: { case: Case }) {
                                 Solo el abogado responsable ({formatPersonFullName(c.responsibleLawyer)}) registra actos.
                             </p>
                         )}
-                        {/* Cualquier perfil, sin ser el responsable (V5 §3.7): no se declara en ACTION_ACCESS. */}
-                        <Button variant="secondary" size="sm" onClick={openEdit}>
-                            Modificar causa
-                        </Button>
+                                              {/* Los dos los opera cualquier perfil (V5 §3.7): no se declaran en ACTION_ACCESS. */}
+                        <div className="vz-case-head__buttons">
+                            <Button variant="secondary" size="sm" onClick={openEdit}>
+                                Modificar causa
+                            </Button>
+                            <Button variant="danger" size="sm" onClick={openDelete}>
+                                Dar de baja
+                            </Button>
+                        </div>
                     </>
                 }
             >
@@ -456,6 +491,17 @@ function CaseDetail({ case: c }: { case: Case }) {
                     onOffenseDateChange={changeOffenseDate}
                     saving={updateCase.isPending}
                     onConfirm={() => submitEdit(modal.values)}
+                    onCancel={() => setModal(null)}
+                />
+            )}
+            {modal?.kind === 'delete' && (
+                <DeleteCaseModal
+                    caption={c.caption}
+                    values={modal.values}
+                    errors={modal.errors}
+                    saving={deleteCase.isPending}
+                    onChange={changeValue}
+                    onConfirm={() => submitDelete(modal.values)}
                     onCancel={() => setModal(null)}
                 />
             )}
