@@ -190,7 +190,7 @@ especificación OpenAPI en `docs/openapi/`.
 
 A su lado está `tests/unit/contract/permissions.test.ts`, que cubre lo que el
 anterior no mira: **quién puede cada operación**. Con un usuario por perfil,
-recorre la matriz de permisos del contrato (V3 §4) y comprueba qué endpoints
+recorre la matriz de permisos del contrato (V5 §4, "Autorización") y comprueba qué endpoints
 responden `403` y cuáles no.
 
 - Falla si el mock **inventa** un endpoint que el contrato no tiene, o si
@@ -575,20 +575,23 @@ primer render.
 Las pantallas de administración piden un administrador: casi todos los tests
 de páginas usan `as: 'fvazquez'`.
 
-**Qué responde el mock a cada perfil** (contrato V3 §4, permisos por perfil):
+**Qué responde el mock a cada perfil** (contrato V5 §4, "Autorización"):
 
 | Operación | Quién puede | El resto recibe |
 |---|---|---|
 | Leer abogados, estados, calificaciones, clientes y causas | Cualquiera con sesión | — |
 | Leer y escribir `/users` | `fvazquez` | `403` |
-| Escribir abogados | `fvazquez` | `403` |
+| Escribir abogados (alta, modificación y baja) | `fvazquez` | `403` |
 | Escribir estados y calificaciones | Cualquiera con sesión | — |
 | Registrar un cliente | Cualquiera con sesión | — |
-| Registrar una causa | Cualquiera con sesión | — |
-| Registrar un acto procesal y previsualizar su vencimiento | El abogado responsable de **esa** causa | `403` |
+| Registrar, modificar y dar de baja una causa; ver su carátula; generar su expediente | Cualquiera con sesión | — |
+| Registrar o modificar un acto procesal, previsualizar su vencimiento, registrar un acto interruptivo | El abogado responsable de **esa** causa | `403` |
+| Marcar prescripta; leer, registrar y descargar modelos formales | `ADMINISTRATOR` o `LAWYER` | `403` (`gestion`) |
+| Listar los documentos de la causa | Cualquiera con sesión (D-103) | — |
+| Descargar un documento que no es un expediente | `LAWYER` o `SECRETARY` | `403` (`supervision`) |
 
-**Los actos no dependen del rol sino de la causa** (V3 D-30): sólo los registra
-su abogado responsable. `mrios` lleva las causas 1 y 17; `fvazquez`, la 4, la 6
+**Los actos no dependen del rol sino de la causa** (D-30): sólo los registra
+y los modifica su abogado responsable actual. `mrios` lleva las causas 1 y 17; `fvazquez`, la 4, la 6
 y la 20; `mferreyra`, la 7. Con otro usuario —aunque sea abogado o
 administrador— el mock responde `403`. Antes de escribir un test de actos,
 mirá quién lleva la causa (`responsibleLawyerId` en `CASE_SEEDS`).
@@ -1177,11 +1180,13 @@ Casi siempre es un `waitForTimeout` o un selector por clase CSS. Usá
   disparar cada error.
 - `docs/openapi/`: el contrato de la API que verifica el test de
   `tests/unit/contract/`.
-- `docs/Api-Contract/API_CONTRACT_V3.md`: lo que la API tiene que responder, y
-  lo que implementan hoy los mocks (con su revisión del 05/10/2026, §7.8).
-  `API_CONTRACT_V2.md` queda como registro del Sprint 1.
-- `frontend/CLAUDE.md`: cómo quedó aplicada esa revisión en el código, en
-  "Revisiones del contrato".
+- `docs/Api-Contract/API_CONTRACT_V5.md`: lo que la API tiene que responder, y
+  lo que implementan hoy los mocks (con su revisión del 27/10/2026). Las
+  decisiones y los puntos abiertos, en `DECISIONES.md`. V2, V3 y V4 quedan
+  como registro.
+- `frontend/CLAUDE.md`: qué falta del Sprint 4 y cómo quedaron aplicados V4 y
+  V5 en el código ("Cambios de V4/V5 sobre lo que ya estaba hecho").
+- Los criterios de aceptación de cada historia: su issue en Jira (proyecto VZ).
 - Las ideas de fondo: [Testing Trophy](https://kentcdodds.com/blog/the-testing-trophy-and-testing-classifications) ·
   [Write tests. Not too many. Mostly integration.](https://kentcdodds.com/blog/write-tests) ·
   [Common mistakes with React Testing Library](https://kentcdodds.com/blog/common-mistakes-with-react-testing-library) ·
