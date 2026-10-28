@@ -104,6 +104,26 @@ pantalla. Ninguna pantalla del sprint está hecha.
 | 28 | Modificar acto procesal: "Modificar" en un acto de la línea de vida, sólo el responsable actual. Es `RegisterProceduralActPage` en `/causas/:caseId/acto/:actId`, con el título "Modificar acto procesal" | `PATCH /cases/{caseId}/procedural-acts/{actId}` | `proceedings/` | `components/proceedings/RegisterProceduralActPage.edit.test.tsx` |
 | 38 | Tarjeta "Documentación" del detalle: lee la carpeta en Drive; "Abrir" lleva a Drive | `GET /cases/{caseId}/documents` | `cases/` | `components/cases/CaseDetailPage.documents.test.tsx` |
 
+**"Modificar causa" (HU-19) se arma igual que el alta** (decisión del
+28/10/2026; los cambios al prototipo se pidieron a Claude Design). Donde el
+diálogo `modificarCausa` del prototipo difiere del alta, manda el alta:
+
+- el rol procesal es un `SegmentedControl`, no un select;
+- el objeto lleva un rótulo por fuero, "Objeto del reclamo" o "Objeto del
+  amparo", con el placeholder del alta;
+- en un amparo, con la fecha del acto lesivo se piden los mismos datos que en
+  el alta: "Plazo para presentar el amparo" (días y tipo de día), "El acto
+  lesivo se renueva" y "Se renueva cada". El prototipo sólo trae la fecha.
+
+Una excepción, que manda el contrato: el campo `court` se llama "Órgano
+interviniente" (V5 §3.7, D-91), como en el prototipo. Ahí el atrasado es el
+alta (ver [Problemas conocidos](#problemas-conocidos), punto 5).
+
+El formulario es un componente propio (`CaseEditForm`) que reusa las piezas
+del alta (`LegalQualificationPicker`, los datos del amparo), `validateCase`,
+`changeSacNumber` y `toFormErrors`. Las decisiones de qué viaja en el `PATCH`
+están en `TESTING.md` §11, "Decisiones de HU-19 y HU-38".
+
 **Lo que hay que sumar al programarlas:**
 
 - **Tipos.** `lastModifiedBy` y `lastModifiedAt` en el acto procesal; el
@@ -903,8 +923,9 @@ usuarios de prueba y sus contraseñas están en el README de los mocks.
 
 Al 28/10/2026. No se arreglan al paso: cada uno es de su dueño.
 
-1. **`npm test`: 345 pasan y 22 fallan, a propósito.**
-   - Los 21 tests de pantalla del Sprint 4 (`TESTING.md` §11): están escritos
+1. **`npm test`: de 369, 345 pasan y 24 fallan, a propósito** (corrida del
+   28/10/2026).
+   - Los 23 tests de pantalla del Sprint 4 (`TESTING.md` §11): están escritos
      antes que las pantallas.
    - `tests/unit/contract/endpoints.test.ts`: `docs/openapi` todavía no tiene
      los siete endpoints de V5 que el mock ya implementa.
@@ -916,6 +937,11 @@ Al 28/10/2026. No se arreglan al paso: cada uno es de su dueño.
    (`AppLayout.tsx`).
 4. **Lint:** un warning, `react(only-export-components)` en
    `src/shared/components/ui/Icon.tsx:2`.
+5. **El alta todavía dice "Tribunal o dependencia".** V5 cambió el rótulo del
+   campo `court` a "Órgano interviniente" (V5 §3.7, D-91), y así lo dicen el
+   prototipo, "Modificar causa" y su test (`CaseDetailPage.edit.test.tsx`).
+   `CaseForm.tsx:194` quedó con el rótulo de V4. Ningún test del alta lo
+   busca, así que el cambio no rompe nada; es del dueño del alta.
 
 ## Checklist de un módulo
 
