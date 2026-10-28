@@ -7,6 +7,7 @@ import type { Jurisdiction } from '@/features/legal-params'
 import type { DeclarePrescriptionBody } from '@/features/cases/types/prescriptionDeclaration'
 import type { TimelineEntry } from '@/features/cases/types/timeline'
 import type { DeleteCaseBody } from '@/features/cases/types/caseDeletion'
+import type { CaseDocumentList } from '@/features/cases/types/caseDocument'
 /**
  * Todo lo que habla con el servidor, una función por endpoint.
  *
@@ -83,5 +84,14 @@ export async function declarePrescription(id: number, body: DeclarePrescriptionB
  */
 export async function createCaseFolder(id: number, copyTemplates = true): Promise<CaseFolder> {
     const response = await http.post<ApiItem<CaseFolder>>(`${BASE}/${id}/folder`, { copyTemplates })
+    return response.data.data
+}
+/**
+ * Los documentos de la carpeta de la causa en Drive (HU38, V5 §3.12). Se leen
+ * de Drive en cada pedido y no están paginados. Es un objeto, no una lista:
+ * trae además la situación de la carpeta y cuándo se leyó.
+ */
+export async function getCaseDocuments(id: number): Promise<CaseDocumentList> {
+    const response = await http.get<ApiItem<CaseDocumentList>>(`${BASE}/${id}/documents`)
     return response.data.data
 }

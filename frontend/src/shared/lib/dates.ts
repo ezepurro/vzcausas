@@ -10,7 +10,9 @@
  * una tiene su función, porque se leen distinto.
  */
 
-const TIME = new Intl.DateTimeFormat('es-AR', { hour: '2-digit', minute: '2-digit' })
+/* `hourCycle: 'h23'`: el estudio lee la hora en 24 horas, como el prototipo
+   ("08:12", "a las 11:42"). Sin él, `es-AR` la da en 12 ("10:42 a. m."). */
+const TIME = new Intl.DateTimeFormat('es-AR', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
 const DATE = new Intl.DateTimeFormat('es-AR', {
     day: '2-digit',
     month: '2-digit',
@@ -59,6 +61,32 @@ export function formatDateTime(iso: string | null): string {
     return `${DATE.format(date)} a las ${TIME.format(date)}`
 }
 
+/**
+ * La hora de un instante ISO 8601: `10:42`. Es la de "Sincronizado con
+ * Drive · 10:42" (HU38). Como en `formatDateTime`, vale la hora local de quien
+ * lo lee.
+ */
+export function formatTime(iso: string | null): string {
+    if (!iso) return EMPTY
+
+    const date = new Date(iso)
+    return Number.isNaN(date.getTime()) ? EMPTY : TIME.format(date)
+}
+
+/**
+ * La fecha de un instante ISO 8601, sin la hora: `09/09/2026`. Para un dato
+ * que es un momento, pero del que alcanza con el día (cuándo se subió un
+ * documento a Drive, HU38).
+ *
+ * No es `formatDate`: esa recibe una fecha sin hora (`YYYY-MM-DD`) y no pasa
+ * por `new Date`. Acá el instante trae su offset y se muestra el día local.
+ */
+export function formatInstantDate(iso: string | null): string {
+    if (!iso) return EMPTY
+
+    const date = new Date(iso)
+    return Number.isNaN(date.getTime()) ? EMPTY : DATE.format(date)
+}
 /**
  * Cuántos días calendario pasaron, no cuántas 24 horas.
  *

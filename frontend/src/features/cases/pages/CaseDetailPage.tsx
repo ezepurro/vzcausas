@@ -56,6 +56,8 @@ import { DeleteCaseModal } from '@/features/cases/components/DeleteCaseModal'
 import { validateDeleteCase, type DeleteCaseFormErrors } from '@/features/cases/schemas/caseDeletion.schema'
 import type { DeleteCaseFormValues } from '@/features/cases/types/caseDeletion'
 import { toDeleteCaseBody } from '@/features/cases/utils/toDeleteCaseBody'
+import { useCaseDocuments } from '@/features/cases/api/useCaseDocuments'
+import { CaseDocumentsCard } from '@/features/cases/components/CaseDocumentsCard'
 /**
  * Detalle de causa (HU22), en `/causas/:caseId`.
  *
@@ -72,7 +74,7 @@ import { toDeleteCaseBody } from '@/features/cases/utils/toDeleteCaseBody'
  * otras historias y no se dibuja.
  *
  * Al costado, la carpeta de la causa en Drive (HU39), con la que se crea o se
- * reintenta si falta.
+ * reintenta si falta, y debajo sus documentos (HU38), que se leen de ella.
  */
 export function CaseDetailPage() {
     const { caseId: param } = useParams()
@@ -133,6 +135,9 @@ function CaseDetail({ case: c }: { case: Case }) {
     const { lawyer } = useCurrentUser()
     const canDeclarePrescription = useCan('cases.declarePrescription')
     const timeline = useCaseTimeline(c.id)
+    /* Los documentos se leen de la carpeta: sin ella creada no hay pedido (CA-38.5). */
+    const folderCreated = c.folder?.status === 'CREATED'
+    const documents = useCaseDocuments(c.id, folderCreated)
     const registerInterruptive = useRegisterInterruptiveAct(c.id)
     const declarePrescription = useDeclarePrescription(c.id)
     const createFolder = useCreateCaseFolder(c.id)
@@ -448,6 +453,17 @@ function CaseDetail({ case: c }: { case: Case }) {
                                 : null
                         }
                         onCreate={() => createFolder.mutate()}
+                    />
+                    <CaseDocumentsCard
+                        folderCreated={folderCreated}
+                        documents={documents.data?.documents}
+                        readAt={documents.data?.readAt}
+                        loading={documents.isPending}
+                        error={
+                            documents.isError
+                                ? isApiError(documents.error) ? documents.error.message : 'Ocurrió un error inesperado.'
+                                : null
+                        }
                     />
                 </div>
             </div>

@@ -1,5 +1,6 @@
 import type { CaseListParams } from '@/features/cases/types/case'
 import type { Jurisdiction } from '@/features/legal-params'
+
 /**
  * Claves de caché, en jerarquía. Nadie escribe una clave a mano fuera de este
  * archivo: se publican en el `index.ts` porque registrar un acto procesal
@@ -17,5 +18,8 @@ export const casesKeys = {
     /* La línea de vida cuelga del detalle a propósito: lo que invalida la
        causa (registrar un acto procesal o interruptivo) la invalida también. */
     timeline: (id: number) => [...casesKeys.detail(id), 'timeline'] as const,
+    /* Los documentos también cuelgan del detalle: modificar la causa (que
+    puede renombrar su carpeta) los refresca, y darla de baja los remueve. */
+    documents: (id: number) => [...casesKeys.detail(id), 'documents'] as const,
     customStates: (jurisdiction?: Jurisdiction) => [...casesKeys.lists(), 'custom-states', jurisdiction ?? 'all'] as const,
 }

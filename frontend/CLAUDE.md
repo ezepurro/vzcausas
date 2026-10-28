@@ -91,8 +91,15 @@ cada historia están en su issue.
 
 **Los mocks implementan todo V5 y los tests de pantalla ya están escritos**
 (`TESTING.md` §11, "Sprint 4"): están en rojo hasta que se programe cada
-pantalla. HU-19 y HU-21 están programadas (sus tests pasan; falta el
-commit); las demás pantallas del sprint, no.
+pantalla. HU-19, HU-21 y HU-38 están programadas y sus tests pasan (HU-38
+falta commitear); las demás pantallas del sprint, no.
+
+**"Documentación" (HU-38)**, decisiones del 28/10/2026: con la carpeta sin
+crear dice "La carpeta de la causa todavía no está creada en Drive." y no se
+pide la lista; "Abrir carpeta en Drive" queda sólo en `CaseFolderCard` (si se
+repite, rompe `CaseDetailPage.folder.test.tsx`); un documento sin
+`uploadedBy` no muestra autor. La lista no reintenta: con Drive caído el aviso
+sale en el momento.
 
 | HU | Qué | Endpoint | Módulo | Tests (en rojo) |
 |---|---|---|---|---|
@@ -924,11 +931,10 @@ usuarios de prueba y sus contraseñas están en el README de los mocks.
 
 Al 28/10/2026. No se arreglan al paso: cada uno es de su dueño.
 
-1. **`npm test`: de 396, 382 pasan y 14 fallan, a propósito** (corrida del
-   28/10/2026, con HU-19 y HU-21 programadas).
-   - Los 13 tests de pantalla del Sprint 4 que faltan (`TESTING.md` §11):
-     HU-14, HU-28 y HU-38, escritos antes que sus pantallas. Los de HU-19 y
-     HU-21 ya pasan.
+1. **`npm test`: de 405, 396 pasan y 9 fallan, a propósito** (corrida del
+   28/10/2026, con HU-19, HU-21 y HU-38 programadas).
+   - Los 8 tests de pantalla del Sprint 4 que faltan (`TESTING.md` §11):
+     HU-14 y HU-28, escritos antes que sus pantallas.
    - `tests/unit/contract/endpoints.test.ts`: `docs/openapi` todavía no tiene
      los siete endpoints de V5 que el mock ya implementa.
 2. **`src/features/deadlines/` existe y está vacío** (sólo `.gitkeep`). La
@@ -944,6 +950,14 @@ Al 28/10/2026. No se arreglan al paso: cada uno es de su dueño.
    prototipo, "Modificar causa" y su test (`CaseDetailPage.edit.test.tsx`).
    `CaseForm.tsx:194` quedó con el rótulo de V4. Ningún test del alta lo
    busca, así que el cambio no rompe nada; es del dueño del alta.
+6. **Los campos de fecha siguen el idioma del navegador.** Son
+   `<input type="date">` (el alta, "Modificar causa", las calificaciones, el
+   acto procesal, el acto interruptivo y "Marcar prescripta"): en un Chrome en
+   español se ven `dd/mm/aaaa`, en uno en inglés `mm/dd/yyyy`, y `lang="es"`
+   no lo cambia. Se decidió dejarlo así (28/10/2026): el estudio usa Chrome en
+   español. Las fechas que se muestran como texto salen siempre `dd/mm/aaaa`
+   (`formatDate`). Forzarlo pediría un campo de fecha propio en shared, que
+   cambia tests de otros y los archivos de HU-28.
 
 ## Checklist de un módulo
 
