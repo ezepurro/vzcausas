@@ -47,14 +47,16 @@ export function homeRoute(roles: readonly Role[]): string {
  */
 export type Action =
     | 'lawyers.create'
+    | 'lawyers.update'
     | 'dashboard.lawyer'
     | 'dashboard.administrator'
     | 'cases.declarePrescription'
 
 export const ACTION_ACCESS: Record<Action, readonly Role[]> = {
-    // Registrar, modificar y dar de baja abogados es sólo del Administrador;
-    // la pantalla la ven los tres perfiles (V3 §4, matriz del 11/10/2026).
+    // Registrar y modificar abogados es sólo del Administrador; la pantalla
+    // la ven los tres perfiles (V5 §4, matriz del 11/10/2026, CA-14.6).
     'lawyers.create': ADMIN,
+    'lawyers.update': ADMIN,
     // Cada tablero de Inicio es de un rol (V4 §3.11): "Mi día" del Abogado y
     // "Estudio" del Administrador. Quien tiene los dos roles ve las dos pestañas.
     'dashboard.lawyer': LAWYER,

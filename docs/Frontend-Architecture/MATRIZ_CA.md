@@ -35,12 +35,14 @@ que corresponde al servidor: el frontend muestra lo que recibe y no lo prueba.
 
 | Criterio | Dónde se cubre |
 | --- | --- |
-| CA-14.1 | `components/lawyers/LawyersPage.edit.test.tsx` (componentes) |
+| CA-14.1 | `components/lawyers/LawyersPage.edit.test.tsx` (componentes)<br>`unit/lawyers/buildLawyerPatch.test.ts` (unit) |
 | CA-14.2 | Backend |
 | CA-14.3 | `components/lawyers/LawyersPage.edit.test.tsx` (componentes) |
 | CA-14.4 | `components/lawyers/LawyersPage.edit.test.tsx` (componentes) |
 | CA-14.5 | Backend |
-| CA-14.6 | `components/lawyers/LawyersPage.edit.test.tsx` (componentes) |
+| CA-14.6 | `components/lawyers/LawyersPage.edit.test.tsx` (componentes)<br>`unit/app/actionAccess.test.ts` (unit) |
+| CA-14.7 | `unit/lawyers/buildLawyerPatch.test.ts` (unit) |
+| CA-14.10 | `unit/lawyers/buildLawyerPatch.test.ts` (unit) |
 
 ## HU-18
 
@@ -141,11 +143,12 @@ que corresponde al servidor: el frontend muestra lo que recibe y no lo prueba.
 
 | Criterio | Dónde se cubre |
 | --- | --- |
-| CA-28.1 | `components/proceedings/RegisterProceduralActPage.edit.test.tsx` (componentes) |
+| CA-28.1 | `components/proceedings/RegisterProceduralActPage.edit.test.tsx` (componentes)<br>`unit/proceedings/buildProceduralActPatch.test.ts` (unit) |
 | CA-28.2 | `components/proceedings/RegisterProceduralActPage.edit.test.tsx` (componentes) |
-| CA-28.4 | Backend |
-| CA-28.5 | Backend |
-| CA-28.6 | Backend |
+| CA-28.3 | `unit/proceedings/buildProceduralActPatch.test.ts` (unit) |
+| CA-28.4 | `unit/proceedings/buildProceduralActPatch.test.ts` (unit)<br>Backend |
+| CA-28.5 | `unit/proceedings/buildProceduralActPatch.test.ts` (unit)<br>Backend |
+| CA-28.6 | `unit/proceedings/buildProceduralActPatch.test.ts` (unit)<br>Backend |
 | CA-28.7 | Backend |
 | CA-28.8 | Backend |
 | CA-28.9 | Backend |
@@ -286,4 +289,4 @@ que corresponde al servidor: el frontend muestra lo que recibe y no lo prueba.
 
 ---
 
-169 criterios citados · 32 sólo del backend.
+172 criterios citados · 29 sólo del backend.

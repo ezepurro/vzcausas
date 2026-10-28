@@ -52,6 +52,8 @@ export const router = createBrowserRouter([
                             { path: 'causas/nueva', element: <RegisterCasePage /> },
                             { path: 'causas/:caseId', element: <CaseDetailPage /> },
                             { path: 'causas/:caseId/acto', element: <RegisterProceduralActPage /> },
+                            // Modificar un acto (HU28): la misma pantalla, con el acto elegido en la línea de vida.
+                            { path: 'causas/:caseId/acto/:actId', element: <RegisterProceduralActPage /> },
                             { path: 'herramientas', element: <ToolsPage /> },
                             { path: 'modelos', element: <DocumentTemplatesPage /> },
 

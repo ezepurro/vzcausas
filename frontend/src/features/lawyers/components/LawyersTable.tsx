@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { DataTable, Meter, type Column } from '@/shared/components/ui'
+import { Button, DataTable, Meter, type Column } from '@/shared/components/ui'
 import { formatPersonName } from '@/shared/lib/personName'
 import type { Lawyer } from '@/features/lawyers/types/lawyer'
 
@@ -11,6 +11,9 @@ export interface LawyersTableProps {
      * abogados del estudio en una sola página es lo mismo.
      */
     maxActiveCases?: number
+    onEdit: (lawyer: Lawyer) => void
+    /** Sólo el Administrador modifica abogados (CA-14.6): para el resto va deshabilitado. */
+    canEdit: boolean
     empty?: ReactNode
     /** Primera carga: la tabla dibuja su esqueleto. */
     loading?: boolean
@@ -27,9 +30,10 @@ export interface LawyersTableProps {
  * prototipo. Mientras nadie tiene causas no se dibuja: una barra vacía en
  * todas las filas no dice nada.
  *
- * Sin columna de acciones: modificar y dar de baja todavía no están en alcance.
+ * La columna de acciones tiene sólo "Modificar" (HU14). "Eliminar", que
+ * muestra el prototipo, es HU15 y queda fuera del contrato: no se dibuja.
  */
-export function LawyersTable({ rows, maxActiveCases, empty, loading, busy }: LawyersTableProps) {
+export function LawyersTable({ rows, maxActiveCases, onEdit, canEdit, empty, loading, busy }: LawyersTableProps) {
     const max = maxActiveCases ?? Math.max(0, ...rows.map((l) => l.activeCases))
 
     const columns: Column<Lawyer>[] = [
@@ -68,6 +72,22 @@ export function LawyersTable({ rows, maxActiveCases, empty, loading, busy }: Law
             ),
             mono: true,
             width: '28%',
+        },
+        {
+            id: 'actions',
+            header: '',
+            actions: true,
+            cell: (l) => (
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={!canEdit}
+                    title={canEdit ? undefined : 'Sólo el Administrador puede modificar abogados.'}
+                    onClick={() => onEdit(l)}
+                >
+                    Modificar
+                </Button>
+            ),
         },
     ]
 

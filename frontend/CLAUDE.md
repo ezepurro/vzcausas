@@ -5,7 +5,8 @@ adentro de un módulo** (`src/features/<módulo>/`), **qué está hecho y qué f
 en el sprint en curso**. El resto ya está documentado: no lo repito, leelo.
 
 Estado al **28/10/2026** (Sprint 4). Los mocks y los tests del Sprint 4 están
-escritos; las pantallas, no: ver [Sprint 4](#sprint-4--qué-falta-y-dónde).
+escritos; de las pantallas están hechas HU14 y HU28: ver
+[Sprint 4](#sprint-4--qué-falta-y-dónde).
 
 ## Antes de escribir código, leé
 
@@ -91,32 +92,32 @@ cada historia están en su issue.
 
 **Los mocks implementan todo V5 y los tests de pantalla ya están escritos**
 (`TESTING.md` §11, "Sprint 4"): están en rojo hasta que se programe cada
-pantalla. Ninguna pantalla del sprint está hecha.
+pantalla. Están hechas HU14 y HU28; las demás, no.
 
 | HU | Qué | Endpoint | Módulo | Tests (en rojo) |
 |---|---|---|---|---|
-| 14 | Modificar abogado: acción "Modificar" en cada fila, sólo el Administrador | `PATCH /lawyers/{lawyerId}` | `lawyers/` | `components/lawyers/LawyersPage.edit.test.tsx` |
+| 14 | Modificar abogado: acción "Modificar" en cada fila, sólo el Administrador | `PATCH /lawyers/{lawyerId}` | `lawyers/` | **Hecha** (Ezequiel Purro). `LawyerFormModal` con `mode`, `useUpdateLawyer`, `buildLawyerPatch` y `lawyers.update` en `ACTION_ACCESS`. Cambiar el nombre invalida toda la caché: las causas, los usuarios y los tableros lo nombran (CA-14.2). Tests: `components/lawyers/LawyersPage.edit.test.tsx`, `unit/lawyers/buildLawyerPatch.test.ts` |
 | 19 | Modificar causa: botón "Modificar causa" del detalle, cualquier perfil. El fuero no se modifica (D-95); al cambiar el cliente se propone la carátula y viaja en `caption` (D-105) | `PATCH /cases/{caseId}` | `cases/` | `components/cases/CaseDetailPage.edit.test.tsx` |
 | 21 | Dar de baja la causa: botón "Dar de baja" del detalle, con motivo opcional; vuelve al listado | `DELETE /cases/{caseId}` | `cases/` | `components/cases/CaseDetailPage.delete.test.tsx` |
 | 23 | Descargar modelo formal (D-90) | `GET /document-templates/{templateId}/file` | `documents/` | **Hecha** con HU35: `components/documents/DocumentTemplatesPage.test.tsx` |
 | 24 | Emitir la carátula en PDF: vista previa en "Generar expediente" e imprimirla suelta | `GET /cases/{caseId}/cover` | `cases/` | Sin tests: va con la página "Generar expediente", que no existe |
 | 25 | Generar expediente: página propia, carátula + documentos elegidos en orden, en un PDF | `POST /cases/{caseId}/case-files`, `GET …/documents/{documentId}/file` | `cases/` | Sin tests, por lo mismo |
-| 28 | Modificar acto procesal: "Modificar" en un acto de la línea de vida, sólo el responsable actual. Es `RegisterProceduralActPage` en `/causas/:caseId/acto/:actId`, con el título "Modificar acto procesal" | `PATCH /cases/{caseId}/procedural-acts/{actId}` | `proceedings/` | `components/proceedings/RegisterProceduralActPage.edit.test.tsx` |
+| 28 | Modificar acto procesal: "Modificar" en un acto de la línea de vida, sólo el responsable actual. Es `RegisterProceduralActPage` en `/causas/:caseId/acto/:actId`, con el título "Modificar acto procesal" | `PATCH /cases/{caseId}/procedural-acts/{actId}` | `proceedings/` | **Hecha** (Ezequiel Purro). Precarga con `GET …/procedural-acts/{actId}` (`useProceduralAct`, `toActFormValues`); manda sólo lo cambiado (`buildProceduralActPatch`). Mientras no cambien el estado ni las fechas, "Cómputo del plazo" muestra el plazo guardado del acto (D-98), no `deadline-preview`. La línea de vida suma "Modificar" y "Modificado por…"; en una causa prescripta no lo ofrece (`cases/CAMBIOS.md`). Tests: `components/proceedings/RegisterProceduralActPage.edit.test.tsx`, `unit/proceedings/buildProceduralActPatch.test.ts` |
 | 38 | Tarjeta "Documentación" del detalle: lee la carpeta en Drive; "Abrir" lleva a Drive | `GET /cases/{caseId}/documents` | `cases/` | `components/cases/CaseDetailPage.documents.test.tsx` |
 
 **Lo que hay que sumar al programarlas:**
 
-- **Tipos.** `lastModifiedBy` y `lastModifiedAt` en el acto procesal; el
-  recurso documento (`CaseDocument`), la respuesta de la lista y la del
+- **Tipos.** `lastModifiedBy` y `lastModifiedAt` en el acto procesal (ya
+  están, con HU28); el recurso documento (`CaseDocument`), la respuesta de la lista y la del
   expediente. Se escriben en el módulo a partir de V5 §3.12, no se copian de
   `shared/mocks/contract.ts`.
-- **`ACTION_ACCESS`.** Una acción para "Modificar" abogado, sólo
-  `ADMINISTRATOR` (CA-14.6), con su caso en `unit/app/actionAccess.test.ts`.
-  Modificar y dar de baja una causa no se declaran: son de los tres perfiles.
+- **`ACTION_ACCESS`.** `lawyers.update` para "Modificar" abogado, sólo
+  `ADMINISTRATOR` (CA-14.6), con su caso en `unit/app/actionAccess.test.ts`
+  (ya está, con HU14). Modificar y dar de baja una causa no se declaran: son de los tres perfiles.
   Modificar un acto no es un permiso por rol: se resuelve con
   `isResponsibleLawyer`.
-- **Ruta** `/causas/:caseId/acto/:actId` en el router (la fija el test de
-  HU28), y la de "Generar expediente".
+- **Ruta** de "Generar expediente". La de `/causas/:caseId/acto/:actId`
+  (HU28) ya está.
 - **Descargas.** La carátula y los documentos son descargas binarias con
   `disposition` (`inline` para ver e imprimir, `attachment` para guardar).
   Un documento que no es un expediente sólo lo descargan `LAWYER` y
@@ -212,8 +213,8 @@ Si aparece una flecha para el otro lado, algo está en el módulo equivocado.
 | `clients` | `ClientsPage` | `ClientsTable`, `ClientFormModal` | `clientFormat` (`formatClientName`, `formatDni`, `normalizeDni`), `toCreateClientBody` |
 | `legal-params` | `ProceduralStatesPage`, `LegalQualificationsPage` | `ProceduralStatesTable`, `ProceduralStateFormModal`, `DeleteProceduralStateModal`, `LegalQualificationsTable`, `LegalQualificationFormModal`, `DeleteLegalQualificationModal` | `prescription` (`formatPrescription`, `toPrescriptionMonths`, `splitPrescription`, `shortQualificationName`), `systemStates`, `dayTypeTone`, los `build…Patch` y `toCreate…Body`, `toFormErrors` |
 | `cases` | `CasesPage`, `RegisterCasePage`, `CaseDetailPage` | `CasesTable`, `CaseFilters`, `CaseForm`, `LegalQualificationPicker`, `CaseSummaryAside`, `CaseHeader`, `CaseFacts`, `PrescriptionBar`, `ClientCard`, `CaseTimeline`, `InterruptiveActModal`, `PrescriptionDeclarationModal` | `deadlineStatus`, `openDeadline`, `prescription`, `caseState`, `stateFilter`, `sac`, `suggestedCaption`, `responsibleLawyer`, `caseForm`, `caseFolder`, `timeline`, `toCreateCaseBody`, `toCreateInterruptiveActBody`, `toDeclarePrescriptionBody` |
-| `proceedings` | `RegisterProceduralActPage` | `ProceduralActForm`, `DeadlinePreviewAside` | `stateOptions`, `resolveState`, `terminalState`, `deadlinePreview`, `dueDateText`, `toCreateProceduralActBody`, `toFormErrors` |
-| `lawyers` | `LawyersPage` | `LawyersTable`, `LawyerFormModal` | `toCreateLawyerBody` |
+| `proceedings` | `RegisterProceduralActPage` | `ProceduralActForm`, `DeadlinePreviewAside` | `stateOptions`, `resolveState`, `terminalState`, `deadlinePreview`, `dueDateText`, `toCreateProceduralActBody`, `toActFormValues`, `buildProceduralActPatch`, `toFormErrors` |
+| `lawyers` | `LawyersPage` | `LawyersTable`, `LawyerFormModal` | `toCreateLawyerBody`, `buildLawyerPatch` |
 | `users` | `UsersPage` | `UsersTable`, `UserFormModal`, `DeleteUserModal` | `buildUserPatch`, `toCreateUserBody`, `roles`, `lawyerLink` |
 | `documents` | `DocumentTemplatesPage` | `JurisdictionCard`, `DocumentTemplateCard`, `DocumentTemplateFormModal`, `FileDropzone`, `JurisdictionPicker` | `templateFormat`, `toCreateDocumentTemplateBody` |
 | `dashboard` | `HomePage` | `LawyerDashboardView`, `AdministratorDashboardView`, `SummaryBand`, `FirstDeadline`, `DeadlinesPanel`, `DeadlineCalendar`, `CasesToAdvancePanel`, `PrescriptionAlertsPanel`, `PortfolioByJurisdiction`, `TeamLoadPanel` | `dashboardDate`, `urgency` |
@@ -609,8 +610,8 @@ features/users/
 
 El ejemplo es `users` porque tiene el ABM completo. En otro módulo, **creá sólo
 los hooks de los endpoints que existan y que la pantalla use**: `lawyers`, por
-ejemplo, tiene `useLawyers` y `useCreateLawyer`, y no tiene hooks de
-modificación ni de baja porque esas historias son de otro sprint. `clients`
+ejemplo, tiene `useLawyers`, `useCreateLawyer` y `useUpdateLawyer`, y no
+tiene hook de baja porque esa historia (HU15) no está en el contrato. `clients`
 tiene alta y consulta, y nada más.
 
 Dependencias permitidas dentro del módulo, en una sola dirección:
@@ -834,6 +835,7 @@ puede decir: una pantalla que ven varios perfiles, con algo que es de uno solo.
 | Acción | Perfiles | Dónde |
 |---|---|---|
 | `lawyers.create` | Administrador | "Registrar abogado" en `LawyersPage` |
+| `lawyers.update` | Administrador | "Modificar" en cada fila de `LawyersPage` (CA-14.6) |
 | `dashboard.lawyer` | Abogado | Pestaña "Mi día" de `/inicio` |
 | `dashboard.administrator` | Administrador | Pestaña "Estudio" de `/inicio` |
 | `cases.declarePrescription` | Administrador y Abogado | "Marcar prescripta" en el detalle de causa |
@@ -903,9 +905,9 @@ usuarios de prueba y sus contraseñas están en el README de los mocks.
 
 Al 28/10/2026. No se arreglan al paso: cada uno es de su dueño.
 
-1. **`npm test`: 345 pasan y 22 fallan, a propósito.**
-   - Los 21 tests de pantalla del Sprint 4 (`TESTING.md` §11): están escritos
-     antes que las pantallas.
+1. **`npm test`: 372 pasan y 16 fallan, a propósito.**
+   - Los 15 tests de pantalla de HU19, HU21 y HU38 (`TESTING.md` §11): están
+     escritos antes que las pantallas.
    - `tests/unit/contract/endpoints.test.ts`: `docs/openapi` todavía no tiene
      los siete endpoints de V5 que el mock ya implementa.
 2. **`src/features/deadlines/` existe y está vacío** (sólo `.gitkeep`). La

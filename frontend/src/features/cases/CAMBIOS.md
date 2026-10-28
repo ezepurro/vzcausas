@@ -5,6 +5,25 @@ contrato.
 
 ---
 
+## 2026-10-28 — Línea de vida: "Modificar" no se ofrece en una causa prescripta
+
+**Pedido:** decisión del equipo al planificar HU28 (Ezequiel Purro), donde el
+prototipo no alcanza.
+
+**Antes (prototipo):** cada acto procesal de la línea de vida lleva
+"Modificar", en cualquier causa.
+
+**Ahora:** en una causa marcada prescripta (`prescriptionDeclaration` distinto
+de `null`) la línea de vida no dibuja "Modificar" (`canModifyActs` de
+`CaseTimeline`, desde `CaseDetailPage`). Los actos de una causa "Prescripta"
+no se modifican: el backend responde `422 CASE_IN_TERMINAL_STATE` (D-99,
+CA-28.9), así que ofrecer el botón sólo llevaría a un error. Si alguien entra
+a `/causas/:caseId/acto/:actId` escribiendo la URL, el `422` se muestra con su
+mensaje al guardar. En las demás causas terminales el botón sigue, porque ahí
+corregir el acto que la cerró es posible (CA-28.8).
+
+---
+
 ## 2026-10-21 — Registrar causa: borrador y calificaciones dadas de baja
 
 **Pedido:** que lo cargado en "Registrar causa" no se pierda al irse a otra

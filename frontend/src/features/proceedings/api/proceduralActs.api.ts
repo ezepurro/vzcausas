@@ -5,6 +5,7 @@ import type {
     DeadlinePreview,
     DeadlinePreviewParams,
     ProceduralAct,
+    UpdateProceduralActBody,
 } from '@/features/proceedings/types/proceduralAct'
 
 /**
@@ -22,6 +23,21 @@ export async function registerProceduralAct(
     body: CreateProceduralActBody,
 ): Promise<ProceduralAct> {
     const response = await http.post<ApiItem<ProceduralAct>>(base(caseId), body)
+    return response.data.data
+}
+
+/** Un acto de la causa (V5 §3.8, D-85): lo que abre "Modificar" en la línea de vida. */
+export async function getProceduralAct(caseId: number, actId: number): Promise<ProceduralAct> {
+    const response = await http.get<ApiItem<ProceduralAct>>(`${base(caseId)}/${actId}`)
+    return response.data.data
+}
+
+export async function updateProceduralAct(
+    caseId: number,
+    actId: number,
+    body: UpdateProceduralActBody,
+): Promise<ProceduralAct> {
+    const response = await http.patch<ApiItem<ProceduralAct>>(`${base(caseId)}/${actId}`, body)
     return response.data.data
 }
 

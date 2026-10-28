@@ -3,6 +3,7 @@ import { Button, LoadingState, Panel, Pill } from '@/shared/components/ui'
 import { TimelineSkeleton } from '@/features/cases/components/CaseSkeletons'
 import { formatDate, formatDateTime } from '@/shared/lib/dates'
 import { formatPersonFullName } from '@/shared/lib/personName'
+import type { ProceduralAct } from '@/features/cases/types/proceduralAct'
 import type {
     TimelineEntry,
     TimelineInterruptiveActEntry,
@@ -20,6 +21,13 @@ export interface CaseTimelineProps {
     /** Sólo el abogado responsable registra el primer acto (D-30). */
     canRegisterAct: boolean
     onRegisterAct: () => void
+    /**
+     * Si los actos procesales ofrecen "Modificar" (HU28). En una causa
+     * prescripta no se ofrece: sus actos no se modifican (D-99).
+     */
+    canModifyActs: boolean
+    /** "Modificar" en un acto: la pantalla decide si avisa o navega. */
+    onModifyAct: (act: ProceduralAct) => void
 }
 
 /**
@@ -27,10 +35,12 @@ export interface CaseTimelineProps {
  * solo listado (`GET /cases/{caseId}/timeline`, V4 D-85). Cada movimiento es
  * un elemento de la lista; el orden lo fija el backend.
  *
- * "Modificar" y "Anular" de cada acto, que muestra el prototipo, son HU28 y
- * HU29 (V4 §8.3): no se dibujan.
+ * Cada acto procesal lleva "Modificar" (HU28). "Anular", que también muestra
+ * el prototipo, es HU29 y queda fuera del contrato: no se dibuja.
  */
-export function CaseTimeline({ entries, loading, error, canRegisterAct, onRegisterAct }: CaseTimelineProps) {
+export function CaseTimeline({
+    entries, loading, error, canRegisterAct, onRegisterAct, canModifyActs, onModifyAct,
+}: CaseTimelineProps) {
     let body: ReactNode
     if (loading) {
         body = (
@@ -61,7 +71,13 @@ export function CaseTimeline({ entries, loading, error, canRegisterAct, onRegist
     } else {
         body = (
             <ol className="vz-timeline">
-                {entries.map((entry) => <TimelineItem key={entryKey(entry)} entry={entry} />)}
+                {entries.map((entry) => (
+                    <TimelineItem
+                        key={entryKey(entry)}
+                        entry={entry}
+                        onModifyAct={canModifyActs ? onModifyAct : undefined}
+                    />
+                ))}
             </ol>
         )
     }
@@ -85,9 +101,12 @@ function entryKey(entry: TimelineEntry): string {
     }
 }
 
-function TimelineItem({ entry }: { entry: TimelineEntry }) {
+function TimelineItem({ entry, onModifyAct }: {
+    entry: TimelineEntry
+    onModifyAct: ((act: ProceduralAct) => void) | undefined
+}) {
     switch (entry.type) {
-        case 'PROCEDURAL_ACT': return <ProceduralActItem entry={entry} />
+        case 'PROCEDURAL_ACT': return <ProceduralActItem entry={entry} onModify={onModifyAct} />
         case 'INTERRUPTIVE_ACT': return <InterruptiveActItem entry={entry} />
         case 'PRESCRIPTION_DECLARATION': return <PrescriptionItem entry={entry} />
     }
@@ -102,8 +121,13 @@ function TimelineItem({ entry }: { entry: TimelineEntry }) {
  * demás se muestran cerrados (CA-27.4). Si el vencimiento se ajustó a mano,
  * se marca como tal y el plazo es el que da esa fecha, no el de la tabla
  * (CA-27.6, V4 D-86).
+ *
+ * Si se modificó, el pie lo dice con quién y cuándo (CA-28.10).
  */
-function ProceduralActItem({ entry }: { entry: TimelineProceduralActEntry }) {
+function ProceduralActItem({ entry, onModify }: {
+    entry: TimelineProceduralActEntry
+    onModify: ((act: ProceduralAct) => void) | undefined
+}) {
     const act = entry.proceduralAct
     const deadline = act.deadline
     const badge = deadline && entry.current ? actDeadlineBadge(deadline.dueDate) : null
@@ -134,7 +158,17 @@ function ProceduralActItem({ entry }: { entry: TimelineProceduralActEntry }) {
                 </div>
             )}
             <Notes text={act.notes} />
-            <RegisteredBy person={act.registeredBy} at={act.registeredAt} />
+            <RegisteredBy
+                person={act.registeredBy}
+                at={act.registeredAt}
+                modifiedBy={act.lastModifiedBy}
+                modifiedAt={act.lastModifiedAt}
+            />
+            {onModify && (
+                <div className="vz-timeline__actions">
+                    <Button variant="ghost" size="sm" onClick={() => onModify(act)}>Modificar</Button>
+                </div>
+            )}
         </Item>
     )
 }
@@ -193,11 +227,24 @@ function Notes({ text }: { text: string | null }) {
     return text ? <div className="vz-timeline__notes">{text}</div> : null
 }
 
-/** Quién lo registró y cuándo: "Registrado por Malena Ríos el 09/09/2026 a las 11:42". */
-function RegisteredBy({ person, at }: { person: { lastName: string; firstName: string }; at: string }) {
+type PersonRef = { lastName: string; firstName: string }
+
+/**
+ * Quién lo registró y cuándo: "Registrado por Malena Ríos el 09/09/2026 a las
+ * 11:42". Si se modificó, suma " · Modificado por … el … a las …" (prototipo).
+ */
+function RegisteredBy({ person, at, modifiedBy = null, modifiedAt = null }: {
+    person: PersonRef
+    at: string
+    modifiedBy?: PersonRef | null
+    modifiedAt?: string | null
+}) {
     return (
         <div className="vz-timeline__by">
             Registrado por {formatPersonFullName(person)} el {formatDateTime(at)}
+            {modifiedBy && modifiedAt && (
+                <> · Modificado por {formatPersonFullName(modifiedBy)} el {formatDateTime(modifiedAt)}</>
+            )}
         </div>
     )
 }

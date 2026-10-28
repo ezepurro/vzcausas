@@ -15,6 +15,13 @@ describe('can', () => {
         expect(can(['LAWYER'], 'lawyers.create')).toBe(false)
     })
 
+    /* Modificar un abogado es sólo del Administrador (CA-14.6). */
+    it('modificar un abogado es sólo del Administrador', () => {
+        expect(can(['ADMINISTRATOR'], 'lawyers.update')).toBe(true)
+        expect(can(['SECRETARY'], 'lawyers.update')).toBe(false)
+        expect(can(['LAWYER'], 'lawyers.update')).toBe(false)
+    })
+
     /* Marcar prescripta una causa penal es del Administrador y de cualquier
        abogado, aunque no sea el responsable; la Secretaría no (CA-33.1,
        CA-33.2, V4 §4). */
