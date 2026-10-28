@@ -1,11 +1,11 @@
 import { ConfigService } from '@nestjs/config';
 import { ValidationError } from '@shared/domain/domain-error';
-import { RegisterCaseResult } from '../../../core/application/common/register-case.interfaces';
+import { RegisterCaseResult } from '../../../core/application/use-cases/case/register-case.interfaces';
 import { CaseFactory, NewCaseInput } from '../../../core/domain/factories/case.factory';
-import { CaseListItem } from '../../../core/domain/ports/case-query.port';
-import { DayType } from '../../../core/domain/value-objects/day-type';
-import { JurisdictionCode } from '../../../core/domain/value-objects/jurisdiction-code';
-import { ProceduralRole } from '../../../core/domain/value-objects/procedural-role';
+import { CaseListItem } from '../../../core/domain/ports/case/case.repository';
+import { DayType } from '../../../core/domain/value-objects/deadline/day-type';
+import { JurisdictionCode } from '../../../core/domain/value-objects/case/jurisdiction-code';
+import { ProceduralRole } from '../../../core/domain/value-objects/case/procedural-role';
 import {
   CLIENT,
   INITIAL_STATES,
@@ -20,7 +20,7 @@ import { CaseHttpMapper } from './case-http.mapper';
 // No hace falta: lo que se prueba acá es la traducción, que sólo lee propiedades.
 // Que los decoradores del DTO validen de verdad lo cubre el spec de integración,
 // que pasa por el ValidationPipe real.
-import type { ListCasesQueryDto } from '../dtos/list-cases.query.dto';
+import type { ListCasesQueryDto } from '../dtos/case/list-cases.query.dto';
 
 const config = { getOrThrow: () => 'America/Argentina/Cordoba' } as unknown as ConfigService;
 const mapper = new CaseHttpMapper(config);

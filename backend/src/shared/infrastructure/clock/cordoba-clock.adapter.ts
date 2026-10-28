@@ -5,7 +5,7 @@ import { ClockPort } from "@shared/domain/clock.port";
 /**
  * Production {@link ClockPort}. `today()` is always the civil date in the
  * study's time zone (`APP_TIMEZONE`, Córdoba), never the server's or UTC's.
- * Registered against the {@link CLOCK} token in SharedModule.
+ * Registered against the {@link CLOCK} token in ClockModule.
  */
 @Injectable()
 export class CordobaClockAdapter implements ClockPort {

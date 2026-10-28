@@ -14,7 +14,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { AuthenticatedUser } from '@shared/domain/authenticated-user';
 import { CurrentUser } from '@shared/infrastructure/http/current-user.decorator';
-import { PaginatedResponse, paginate, toPageRequest } from '@shared/infrastructure/http/pagination';
+import { PaginatedResponse, paginate, toPageRequest } from '@shared/infrastructure/http/pagination/pagination';
 import { DownloadDocumentTemplate } from '../../../core/application/use-cases/download-document-template.use-case';
 import { GetDocumentTemplate } from '../../../core/application/use-cases/get-document-template.use-case';
 import { ListDocumentTemplates } from '../../../core/application/use-cases/list-document-templates.use-case';

@@ -1,17 +1,17 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { toIsoDate } from '@shared/infrastructure/http/iso-date';
-import { toPageRequest } from '@shared/infrastructure/http/pagination';
-import { toJurisdictionFilter } from '../../../core/application/common/jurisdiction-filter';
-import { RegisterCaseResult } from '../../../core/application/common/register-case.interfaces';
+import { toPageRequest } from '@shared/infrastructure/http/pagination/pagination';
+import { toJurisdictionFilter } from '../../../core/application/use-cases/case/jurisdiction-filter';
+import { RegisterCaseResult } from '../../../core/application/use-cases/case/register-case.interfaces';
 import { ExclusiveCaseStateFilterError } from '../../../core/domain/errors/case.errors';
 import {
   CaseListItem,
   CaseSearchCriteria,
   CaseStateFilter,
-} from '../../../core/domain/ports/case-query.port';
-import { CaseResponseDto } from '../dtos/case.response.dto';
-import { ListCasesQueryDto } from '../dtos/list-cases.query.dto';
+} from '../../../core/domain/ports/case/case.repository';
+import { CaseResponseDto } from '../dtos/case/case.response.dto';
+import { ListCasesQueryDto } from '../dtos/case/list-cases.query.dto';
 import { toPrescriptionDeclarationResponse } from './prescription-declaration-http.mapper';
 
 /**

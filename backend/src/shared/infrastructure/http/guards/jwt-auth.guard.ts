@@ -19,7 +19,7 @@ import { IS_PUBLIC_KEY } from "../public.decorator";
  * picks it up.
  *
  * Registered globally in `AppModule` (D-56, D-57) — not in
- * `SharedModule`, which would create a module cycle since the verifier
+ * `HttpKernelModule`, which would create a module cycle since the verifier
  * is provided by `IdentityModule`. Routes decorated with `@Public()`
  * short-circuit before any token handling.
  *

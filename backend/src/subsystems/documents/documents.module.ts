@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { SharedModule } from '@shared/shared.module';
+import { ClockModule } from '@shared/infrastructure/clock/clock.module';
 import { AssureSpace } from './core/application/use-cases/assure-space.use-case';
 import { CopyTemplatesToCaseFolder } from './core/application/use-cases/copy-templates-to-case-folder.use-case';
 import { DownloadDocumentTemplate } from './core/application/use-cases/download-document-template.use-case';
@@ -39,10 +39,10 @@ import { DOCUMENT_STORAGE_PROVIDER } from './infrastructure/storage/document-sto
  * find the structure missing, and the command `npm run documents:setup-storage`
  * by hand.
  *
- * `SharedModule` provides the `CLOCK` token; `EventPublisher` is global.
+ * `ClockModule` provides the `CLOCK` token; `EventPublisher` is global.
  */
 @Module({
-  imports: [SharedModule],
+  imports: [ClockModule],
   controllers: [DocumentTemplatesController],
   providers: [
     AssureSpace,

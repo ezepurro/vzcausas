@@ -1,9 +1,9 @@
-import { AdministrativeCase } from '../entities/administrative';
-import { Amparo } from '../entities/amparo';
-import { CriminalCase } from '../entities/criminal';
-import { DayType } from '../value-objects/day-type';
-import { JurisdictionCode } from '../value-objects/jurisdiction-code';
-import { ProceduralRole } from '../value-objects/procedural-role';
+import { AdministrativeCase } from '../entities/case/administrative-case.entity';
+import { Amparo } from '../entities/case/amparo.entity';
+import { CriminalCase } from '../entities/case/criminal-case.entity';
+import { DayType } from '../value-objects/deadline/day-type';
+import { JurisdictionCode } from '../value-objects/case/jurisdiction-code';
+import { ProceduralRole } from '../value-objects/case/procedural-role';
 import {
   aNewCaseInput,
   day,

@@ -4,7 +4,7 @@ import { ProceduralState, ProceduralStateProps } from '../../domain/entities/pro
 import { Jurisdiction } from '../../domain/entities/jurisdiction';
 import { DayType } from '../../domain/entities/day-types';
 import { JurisdictionCode } from '../../domain/value-objects/jurisdiction-code';
-import { PaginatedResult } from '../../../../../common/pagination/paginated-result';
+import { PaginatedResult } from '@shared/domain/paginated-result';
 import { FakeActiveCasesCounter } from './test-support/procedural-state-fakes';
 
 function aJurisdiction(code: JurisdictionCode = JurisdictionCode.CRIMINAL): Jurisdiction {

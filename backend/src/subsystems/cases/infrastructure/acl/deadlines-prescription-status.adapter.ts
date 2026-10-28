@@ -4,7 +4,7 @@ import {
   CasePrescriptionStatus,
   PrescriptionStatusPort,
 } from '@subsystems/deadlines/core/domain/ports/prescription-status.port';
-import { ListActivePrescriptions } from '../../core/application/use-cases/list-active-prescriptions.use-case';
+import { ListActivePrescriptions } from '../../core/application/use-cases/prescription/list-active-prescriptions.use-case';
 
 /**
  * Implements the {@link PrescriptionStatusPort} that `deadlines` declares, so

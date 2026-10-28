@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { DeadlineCalculatorPort } from '../../core/domain/ports/deadline-calculator.port';
-import { DayType } from '../../core/domain/value-objects/day-type';
+import { DeadlineCalculatorPort } from '../../core/domain/ports/procedural-act/deadline-calculator.port';
+import { DayType } from '../../core/domain/value-objects/deadline/day-type';
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 

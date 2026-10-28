@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { toIsoDate } from '@shared/infrastructure/http/iso-date';
-import { TimelineEntry } from '../../../core/application/use-cases/get-case-timeline.use-case';
-import { TimelineEntryResponseDto } from '../dtos/timeline.response.dto';
+import { TimelineEntry } from '../../../core/application/use-cases/case/get-case-timeline.use-case';
+import { TimelineEntryResponseDto } from '../dtos/case/timeline.response.dto';
 import { InterruptiveActHttpMapper } from './interruptive-act-http.mapper';
 import { toPrescriptionDeclarationResponse } from './prescription-declaration-http.mapper';
 import { ProceduralActHttpMapper } from './procedural-act-http.mapper';

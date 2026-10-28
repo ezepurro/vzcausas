@@ -1,5 +1,5 @@
 import { IsOptional, IsString } from "class-validator";
-import { PaginationQueryDto } from "@shared/infrastructure/http/pagination";
+import { PaginationQueryDto } from "@shared/infrastructure/http/pagination/pagination";
 
 /**
  * Query parameters of `GET /users` (§3.2): the shared pagination and

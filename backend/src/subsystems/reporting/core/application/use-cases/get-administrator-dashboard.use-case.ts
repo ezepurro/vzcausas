@@ -2,7 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { AuthenticatedUser } from '@shared/domain/authenticated-user';
 import { CLOCK, ClockPort } from '@shared/domain/clock.port';
 import { ForbiddenActionError } from '@shared/domain/domain-error';
-import { JurisdictionCode } from '@subsystems/cases/core/domain/value-objects/jurisdiction-code';
+import { JurisdictionCode } from '@subsystems/cases/core/domain/value-objects/case/jurisdiction-code';
 import {
   DashboardCaseRow,
   DashboardLawyerRef,

@@ -1,18 +1,20 @@
 import { ClockPort } from '@shared/domain/clock.port';
 import { TransactionManagerPort } from '@shared/domain/transaction-manager.port';
-import { Case } from '../domain/entities/cases';
-import { ProceduralAct } from '../domain/entities/procedural-act';
-import { DeadlineCalculatorPort } from '../domain/ports/deadline-calculator.port';
-import { CaseRepository } from '../domain/ports/case.repository';
-import { ProceduralActRepository } from '../domain/ports/procedural-act.repository';
+import { Case } from '../domain/entities/case/case.entity';
+import { InterruptiveAct } from '../domain/entities/interruptive-act.entity';
+import { ProceduralAct } from '../domain/entities/procedural-act.entity';
+import { DeadlineCalculatorPort } from '../domain/ports/procedural-act/deadline-calculator.port';
+import { CaseDueDateKey, CaseListItem, CaseRepository, CaseSearchFilters } from '../domain/ports/case/case.repository';
+import { InterruptiveActPage, InterruptiveActRepository } from '../domain/ports/interruptive-act/interruptive-act.repository';
+import { ProceduralActPage, ProceduralActRepository, ProceduralActView } from '../domain/ports/procedural-act/procedural-act.repository';
 import {
   LegalParametersLookupPort,
   LegalQualificationRef,
   ProceduralStateRef,
-} from '../domain/ports/legal-parameters-lookup.port';
-import { ClientRef, LawyerRef, PeopleLookupPort } from '../domain/ports/people-lookup.port';
-import { DayType } from '../domain/value-objects/day-type';
-import { JurisdictionCode } from '../domain/value-objects/jurisdiction-code';
+} from '../domain/ports/case/legal-parameters-lookup.port';
+import { ClientRef, LawyerRef, PeopleLookupPort } from '../domain/ports/case/people-lookup.port';
+import { DayType } from '../domain/value-objects/deadline/day-type';
+import { JurisdictionCode } from '../domain/value-objects/case/jurisdiction-code';
 
 /**
  * In-memory fakes of the ports of `cases`, for the use case specs: no NestJS,
@@ -20,11 +22,130 @@ import { JurisdictionCode } from '../domain/value-objects/jurisdiction-code';
  */
 
 /**
+ * Every method of `CaseRepository`, for a spec that does not use them: each
+ * double extends this and overrides only what its subject calls.
+ *
+ * They **throw** instead of answering something empty. A use case that starts
+ * asking for something new has to fail here, loudly; an empty answer (a `0`, a
+ * `null`) would be indistinguishable from real data and the spec would keep
+ * passing while the use case talked to a port that answers nothing. The
+ * methods a double does not override are what prove the subject does not
+ * reach for them.
+ *
+ * The parameters are declared, unused, so that an override can carry the
+ * port's real signature — a method with no parameters cannot be overridden by
+ * one that takes them.
+ */
+export abstract class UnusedCaseRepository implements CaseRepository {
+  async nextId(): Promise<number> {
+    throw new Error('Este spec no usa nextId de CaseRepository.');
+  }
+
+  async existsBySacNumber(_sacNumber: string): Promise<boolean> {
+    throw new Error('Este spec no usa existsBySacNumber de CaseRepository.');
+  }
+
+  async save(_newCase: Case): Promise<void> {
+    throw new Error('Este spec no usa save de CaseRepository.');
+  }
+
+  async findById(_id: number): Promise<Case | null> {
+    throw new Error('Este spec no usa findById de CaseRepository.');
+  }
+
+  async findCurrentState(_caseId: number): Promise<ProceduralStateRef> {
+    throw new Error('Este spec no usa findCurrentState de CaseRepository.');
+  }
+
+  async saveCurrentAct(_updatedCase: Case): Promise<void> {
+    throw new Error('Este spec no usa saveCurrentAct de CaseRepository.');
+  }
+
+  async saveDeclaredPrescription(_prescribedCase: Case): Promise<boolean> {
+    throw new Error('Este spec no usa saveDeclaredPrescription de CaseRepository.');
+  }
+
+  async findDueDateKeys(_filters: CaseSearchFilters): Promise<CaseDueDateKey[]> {
+    throw new Error('Este spec no usa findDueDateKeys de CaseRepository.');
+  }
+
+  async findListItemsByIds(_ids: readonly number[]): Promise<CaseListItem[]> {
+    throw new Error('Este spec no usa findListItemsByIds de CaseRepository.');
+  }
+
+  async findListItemById(_id: number): Promise<CaseListItem | null> {
+    throw new Error('Este spec no usa findListItemById de CaseRepository.');
+  }
+
+  async listCustomStates(_jurisdiction?: JurisdictionCode): Promise<string[]> {
+    throw new Error('Este spec no usa listCustomStates de CaseRepository.');
+  }
+
+  async countActiveByProceduralState(_stateIds: readonly number[]): Promise<ReadonlyMap<number, number>> {
+    throw new Error('Este spec no usa el conteo por estado procesal de CaseRepository.');
+  }
+
+  async countActiveByLegalQualification(_qualificationIds: readonly number[]): Promise<ReadonlyMap<number, number>> {
+    throw new Error('Este spec no usa el conteo por calificación legal de CaseRepository.');
+  }
+
+  async countActiveByResponsibleLawyer(_lawyerIds: readonly number[]): Promise<ReadonlyMap<number, number>> {
+    throw new Error('Este spec no usa el conteo por abogado responsable de CaseRepository.');
+  }
+
+  async countActiveByClient(_clientIds: readonly number[]): Promise<ReadonlyMap<number, number>> {
+    throw new Error('Este spec no usa el conteo por cliente de CaseRepository.');
+  }
+}
+
+/** Every method of `ProceduralActRepository`, throwing. Same idea as {@link UnusedCaseRepository}. */
+export abstract class UnusedProceduralActRepository implements ProceduralActRepository {
+  async nextId(): Promise<number> {
+    throw new Error('Este spec no usa nextId de ProceduralActRepository.');
+  }
+
+  async save(_act: ProceduralAct): Promise<void> {
+    throw new Error('Este spec no usa save de ProceduralActRepository.');
+  }
+
+  async caseExists(_caseId: number): Promise<boolean> {
+    throw new Error('Este spec no usa caseExists de ProceduralActRepository.');
+  }
+
+  async listByCase(_caseId: number, _page: number, _limit: number): Promise<ProceduralActPage> {
+    throw new Error('Este spec no usa listByCase de ProceduralActRepository.');
+  }
+
+  async findInCase(_caseId: number, _actId: number): Promise<ProceduralActView | null> {
+    throw new Error('Este spec no usa findInCase de ProceduralActRepository.');
+  }
+}
+
+/** Every method of `InterruptiveActRepository`, throwing. Same idea as {@link UnusedCaseRepository}. */
+export abstract class UnusedInterruptiveActRepository implements InterruptiveActRepository {
+  async nextId(): Promise<number> {
+    throw new Error('Este spec no usa nextId de InterruptiveActRepository.');
+  }
+
+  async save(_act: InterruptiveAct): Promise<void> {
+    throw new Error('Este spec no usa save de InterruptiveActRepository.');
+  }
+
+  async caseExists(_caseId: number): Promise<boolean> {
+    throw new Error('Este spec no usa caseExists de InterruptiveActRepository.');
+  }
+
+  async listByCase(_caseId: number, _page: number, _limit: number): Promise<InterruptiveActPage> {
+    throw new Error('Este spec no usa listByCase de InterruptiveActRepository.');
+  }
+}
+
+/**
  * In-memory {@link CaseRepository}. `states` plays the part of the
  * `procedural_states` table: `findCurrentState` looks the saved case's state up
  * there, as the real repository does with a join.
  */
-export class FakeCaseRepository implements CaseRepository {
+export class FakeCaseRepository extends UnusedCaseRepository {
   private nextIdValue = 1;
   readonly saved: Case[] = [];
   /** SAC numbers that already exist in the "database", with or without a saved case. */
@@ -50,7 +171,9 @@ export class FakeCaseRepository implements CaseRepository {
   /** When `true`, `saveDeclaredPrescription` finds the case already marked: another marking won. */
   prescriptionAlreadyDeclaredOnSave = false;
 
-  constructor(private readonly states: ProceduralStateRef[]) {}
+  constructor(private readonly states: ProceduralStateRef[]) {
+    super();
+  }
 
   /** Puts a case in the "database", as if it had been registered before. */
   add(existing: Case): void {
@@ -135,7 +258,7 @@ export class FakePeopleLookup implements PeopleLookupPort {
 }
 
 /** In-memory {@link ProceduralActRepository}. */
-export class FakeProceduralActRepository implements ProceduralActRepository {
+export class FakeProceduralActRepository extends UnusedProceduralActRepository {
   private nextIdValue = 1;
   readonly saved: ProceduralAct[] = [];
   /** When set, `save` fails with it. */
@@ -225,40 +348,6 @@ export class FakeLegalParametersLookup implements LegalParametersLookupPort {
 
   async findActiveQualificationsByIds(ids: number[]): Promise<LegalQualificationRef[]> {
     return this.activeQualifications.filter((qualification) => ids.includes(qualification.id));
-  }
-}
-
-/**
- * The four `countActiveBy*` methods of `CaseQueryPort`, for a spec that does
- * not use them: the three read use cases count nothing, and each one declares
- * its own double of the whole port.
- *
- * They **throw** instead of answering an empty map. A use case that starts
- * asking for a count has to fail here, loudly; a `0` would be
- * indistinguishable from "this id has no active cases" and the spec would keep
- * passing while the use case talked to a port that answers nothing.
- *
- * A spec that uses **one** of the four extends this and overrides that one:
- * the other three keep throwing, which is what proves the subject does not
- * reach for them. The parameters are declared, unused, so that an override can
- * carry the port's real signature — a method with no parameters cannot be
- * overridden by one that takes them.
- */
-export abstract class CaseQueryCountsUnused {
-  async countActiveByProceduralState(_stateIds: readonly number[]): Promise<ReadonlyMap<number, number>> {
-    throw new Error('Este spec no usa el conteo por estado procesal de CaseQueryPort.');
-  }
-
-  async countActiveByLegalQualification(_qualificationIds: readonly number[]): Promise<ReadonlyMap<number, number>> {
-    throw new Error('Este spec no usa el conteo por calificación legal de CaseQueryPort.');
-  }
-
-  async countActiveByResponsibleLawyer(_lawyerIds: readonly number[]): Promise<ReadonlyMap<number, number>> {
-    throw new Error('Este spec no usa el conteo por abogado responsable de CaseQueryPort.');
-  }
-
-  async countActiveByClient(_clientIds: readonly number[]): Promise<ReadonlyMap<number, number>> {
-    throw new Error('Este spec no usa el conteo por cliente de CaseQueryPort.');
   }
 }
 

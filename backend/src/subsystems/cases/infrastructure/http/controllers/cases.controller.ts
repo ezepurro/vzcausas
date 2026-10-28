@@ -1,32 +1,32 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Query } from '@nestjs/common';
 import { AuthenticatedUser } from '@shared/domain/authenticated-user';
 import { CurrentUser } from '@shared/infrastructure/http/current-user.decorator';
-import { PaginatedResponse, paginate, toPageRequest } from '@shared/infrastructure/http/pagination';
-import { DeclarePrescription } from '../../../core/application/use-cases/declare-prescription.use-case';
-import { GetCase } from '../../../core/application/use-cases/get-case.use-case';
-import { GetProceduralAct } from '../../../core/application/use-cases/get-procedural-act.use-case';
-import { ListCases } from '../../../core/application/use-cases/list-cases.use-case';
-import { ListCustomStates } from '../../../core/application/use-cases/list-custom-states.use-case';
-import { ListProceduralActs } from '../../../core/application/use-cases/list-procedural-acts.use-case';
-import { RegisterCase } from '../../../core/application/use-cases/register-case.use-case';
-import { RegisterProceduralAct } from '../../../core/application/use-cases/register-procedural-act.use-case';
-import { RequestCaseFolder } from '../../../core/application/use-cases/request-case-folder.use-case';
+import { PaginatedResponse, paginate, toPageRequest } from '@shared/infrastructure/http/pagination/pagination';
+import { DeclarePrescription } from '../../../core/application/use-cases/prescription/declare-prescription.use-case';
+import { GetCase } from '../../../core/application/use-cases/case/get-case.use-case';
+import { GetProceduralAct } from '../../../core/application/use-cases/procedural-act/get-procedural-act.use-case';
+import { ListCases } from '../../../core/application/use-cases/case/list-cases.use-case';
+import { ListCustomStates } from '../../../core/application/use-cases/case/list-custom-states.use-case';
+import { ListProceduralActs } from '../../../core/application/use-cases/procedural-act/list-procedural-acts.use-case';
+import { RegisterCase } from '../../../core/application/use-cases/case/register-case.use-case';
+import { RegisterProceduralAct } from '../../../core/application/use-cases/procedural-act/register-procedural-act.use-case';
+import { RequestCaseFolder } from '../../../core/application/use-cases/case/request-case-folder.use-case';
 import {
   CaseFolderUnavailableError,
   InvalidCaseIdError,
   InvalidProceduralActIdError,
 } from '../../../core/domain/errors/case.errors';
-import { CaseFolderResponseDto, CaseResponseDto } from '../dtos/case.response.dto';
-import { DeadlinePreviewQueryDto } from '../dtos/deadline-preview.query.dto';
-import { DeclarePrescriptionRequestDto } from '../dtos/declare-prescription.request.dto';
-import { DeadlinePreviewResponseDto } from '../dtos/deadline-preview.response.dto';
-import { ListCasesQueryDto } from '../dtos/list-cases.query.dto';
-import { ListProceduralActsQueryDto } from '../dtos/list-procedural-acts.query.dto';
-import { ProceduralActResponseDto } from '../dtos/procedural-act.response.dto';
-import { RegisterCaseRequestDto } from '../dtos/register-case.request.dto';
-import { RequestCaseFolderRequestDto } from '../dtos/request-case-folder.request.dto';
+import { CaseFolderResponseDto, CaseResponseDto } from '../dtos/case/case.response.dto';
+import { DeadlinePreviewQueryDto } from '../dtos/procedural-act/deadline-preview.query.dto';
+import { DeclarePrescriptionRequestDto } from '../dtos/prescription/declare-prescription.request.dto';
+import { DeadlinePreviewResponseDto } from '../dtos/procedural-act/deadline-preview.response.dto';
+import { ListCasesQueryDto } from '../dtos/case/list-cases.query.dto';
+import { ListProceduralActsQueryDto } from '../dtos/procedural-act/list-procedural-acts.query.dto';
+import { ProceduralActResponseDto } from '../dtos/procedural-act/procedural-act.response.dto';
+import { RegisterCaseRequestDto } from '../dtos/case/register-case.request.dto';
+import { RequestCaseFolderRequestDto } from '../dtos/case/request-case-folder.request.dto';
 import { CaseHttpMapper } from '../mappers/case-http.mapper';
-import { RegisterProceduralActRequestDto } from '../dtos/register-procedural-act.request.dto';
+import { RegisterProceduralActRequestDto } from '../dtos/procedural-act/register-procedural-act.request.dto';
 import { ProceduralActHttpMapper } from '../mappers/procedural-act-http.mapper';
 
 /**

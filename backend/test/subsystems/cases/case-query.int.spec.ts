@@ -1,9 +1,12 @@
 import { INestApplication } from '@nestjs/common';
 
+import { ListCases } from '../../../src/subsystems/cases/core/application/use-cases/case/list-cases.use-case';
 import {
-  CASE_QUERY,
-  CaseQueryPort,
-} from '../../../src/subsystems/cases/core/domain/ports/case-query.port';
+  CASE_REPOSITORY,
+  CasePage,
+  CaseRepository,
+  CaseSearchCriteria,
+} from '../../../src/subsystems/cases/core/domain/ports/case/case.repository';
 import { createClient } from '../../shared/factories/client.factory';
 import { createLawyer } from '../../shared/factories/lawyer.factory';
 import { createLegalQualification } from '../../shared/factories/legal-qualification.factory';
@@ -15,12 +18,12 @@ import { createUser } from '../../shared/factories/user.factory';
 import { getPrisma, startTestApp, stopTestApp } from '../../shared/harness/test-app';
 
 /*
- * Adaptador de lectura de causas (`CaseQueryPrismaAdapter`), HU20 y HU22.
+ * Adaptador de lectura de causas (`PrismaCaseRepository`), HU20 y HU22.
  *
- * Se prueba el PUERTO, no el endpoint: el caso de uso y el controller todavía no
- * existen. Lo que importa verificar acá es lo único que `tsc` no puede mirar —
- * el SQL escrito a mano: los nombres de columna, el orden por urgencia y los
- * ocho filtros.
+ * Se prueba el PUERTO contra la base real, no el endpoint. El listado (orden por
+ * urgencia, filtros y paginación) se prueba a través de `ListCases`: el
+ * repositorio filtra y devuelve el vencimiento de cada causa, y el caso de uso
+ * ordena y pagina, así que lo que hay que verificar es la composición de los dos.
  *
  * El orden es lo más delicado. El vencimiento vigente es
  * COALESCE(deadline_manual_due_date, deadline_computed_due_date) del acto que
@@ -29,16 +32,19 @@ import { getPrisma, startTestApp, stopTestApp } from '../../shared/harness/test-
  */
 const day = (iso: string): Date => new Date(`${iso}T00:00:00.000Z`);
 
-describe('CaseQueryPort (adaptador Prisma)', () => {
+describe('CaseRepository (adaptador Prisma)', () => {
   let app: INestApplication;
-  let cases: CaseQueryPort;
+  let cases: CaseRepository;
+  let search: (criteria: CaseSearchCriteria) => Promise<CasePage>;
   let userId: number;
   let lawyerId: number;
   let clientId: number;
 
   beforeAll(async () => {
     app = await startTestApp();
-    cases = app.get<CaseQueryPort>(CASE_QUERY);
+    cases = app.get<CaseRepository>(CASE_REPOSITORY);
+    const listCases = app.get(ListCases);
+    search = (criteria) => listCases.execute(criteria);
   });
 
   afterAll(async () => {
@@ -170,7 +176,7 @@ describe('CaseQueryPort (adaptador Prisma)', () => {
       await moveTo(vence.id, { computed: '2026-12-01' });
       await moveTo(vencida.id, { computed: '2026-09-11' });
 
-      const result = await cases.search(page);
+      const result = await search(page);
 
       expect(result.items.map((item) => item.caption)).toEqual([
         'YA VENCIDA', // la fecha más chica, aunque ya pasó
@@ -189,7 +195,7 @@ describe('CaseQueryPort (adaptador Prisma)', () => {
       await moveTo(a.id, { computed: '2026-09-01', manual: null });
       await moveTo(b.id, { computed: '2026-09-20', manual: '2026-09-05' });
 
-      const result = await cases.search(page);
+      const result = await search(page);
 
       expect(result.items.map((item) => item.caption)).toEqual(['A', 'B']);
       expect(result.items[0].currentState.dueDate).toEqual(day('2026-09-01'));
@@ -201,7 +207,7 @@ describe('CaseQueryPort (adaptador Prisma)', () => {
       const primera = await aCase({ caption: 'PRIMERA' });
       const segunda = await aCase({ caption: 'SEGUNDA' });
 
-      const result = await cases.search(page);
+      const result = await search(page);
 
       expect(result.items.map((item) => item.id)).toEqual([primera.id, segunda.id]);
     });
@@ -214,20 +220,20 @@ describe('CaseQueryPort (adaptador Prisma)', () => {
       await aCase({ caption: 'OTRA CAUSA', clientId: otroCliente.id });
 
       // Por apellido del cliente: es el campo que el stub hacía imposible (CA-20.2).
-      const porApellido = await cases.search({ ...page, search: 'quesada' });
+      const porApellido = await search({ ...page, search: 'quesada' });
       expect(porApellido.items.map((item) => item.caption)).toEqual(['OTRA CAUSA']);
 
-      const porCaratula = await cases.search({ ...page, search: 'DE GOMEZ' });
+      const porCaratula = await search({ ...page, search: 'DE GOMEZ' });
       expect(porCaratula.items.map((item) => item.caption)).toEqual(['CAUSA DE GOMEZ']);
     });
 
     it('search no distingue mayúsculas pero sí acentos', async () => {
       await aCase({ caption: 'CAUSA' });
 
-      expect((await cases.search({ ...page, search: 'gómez' })).items).toHaveLength(1);
-      expect((await cases.search({ ...page, search: 'GÓMEZ' })).items).toHaveLength(1);
+      expect((await search({ ...page, search: 'gómez' })).items).toHaveLength(1);
+      expect((await search({ ...page, search: 'GÓMEZ' })).items).toHaveLength(1);
       // Los acentos NO se ignoran: es deuda aceptada, no un olvido.
-      expect((await cases.search({ ...page, search: 'gomez' })).items).toHaveLength(0);
+      expect((await search({ ...page, search: 'gomez' })).items).toHaveLength(0);
     });
 
     it('filtra por fuero, por abogado responsable y por cliente', async () => {
@@ -238,9 +244,9 @@ describe('CaseQueryPort (adaptador Prisma)', () => {
       await aCase({ caption: 'DE OTRO ABOGADO', lawyerId: otroAbogado.id });
       await aCase({ caption: 'DE OTRO CLIENTE', clientId: otroCliente.id });
 
-      expect((await cases.search({ ...page, jurisdiction: 'AMPARO' as never })).items.map((i) => i.caption)).toEqual(['AMPARO']);
-      expect((await cases.search({ ...page, responsibleLawyerId: otroAbogado.id })).items.map((i) => i.caption)).toEqual(['DE OTRO ABOGADO']);
-      expect((await cases.search({ ...page, clientId: otroCliente.id })).items.map((i) => i.caption)).toEqual(['DE OTRO CLIENTE']);
+      expect((await search({ ...page, jurisdiction: 'AMPARO' as never })).items.map((i) => i.caption)).toEqual(['AMPARO']);
+      expect((await search({ ...page, responsibleLawyerId: otroAbogado.id })).items.map((i) => i.caption)).toEqual(['DE OTRO ABOGADO']);
+      expect((await search({ ...page, clientId: otroCliente.id })).items.map((i) => i.caption)).toEqual(['DE OTRO CLIENTE']);
     });
 
     it('openDeadline deja solo las que tienen vencimiento, vencidas incluidas', async () => {
@@ -248,7 +254,7 @@ describe('CaseQueryPort (adaptador Prisma)', () => {
       await aCase({ caption: 'SIN PLAZO' });
       await moveTo(vencida.id, { computed: '2026-09-11' });
 
-      const result = await cases.search({ ...page, openDeadline: true });
+      const result = await search({ ...page, openDeadline: true });
 
       expect(result.items.map((item) => item.caption)).toEqual(['VENCIDA']);
     });
@@ -261,28 +267,28 @@ describe('CaseQueryPort (adaptador Prisma)', () => {
       const act = await moveTo(enEstado.id, { stateName: 'Alegato', computed: '2026-10-01' });
       await moveTo(escritoAMano.id, { customState: 'Con acusación, pero con oposición', computed: '2026-10-02' });
 
-      const porEstado = await cases.search({
+      const porEstado = await search({
         ...page,
         state: { kind: 'proceduralState', proceduralStateId: act.proceduralStateId as number },
       });
       expect(porEstado.items.map((i) => i.caption)).toEqual(['EN ESTADO DE TABLA']);
 
       // Coincidencia exacta, sin distinguir mayúsculas.
-      const porCustom = await cases.search({
+      const porCustom = await search({
         ...page,
         state: { kind: 'custom', customState: 'CON ACUSACIÓN, PERO CON OPOSICIÓN' },
       });
       expect(porCustom.items.map((i) => i.caption)).toEqual(['ESCRITO A MANO']);
 
-      const iniciadas = await cases.search({ ...page, state: { kind: 'withoutProceduralActs' } });
+      const iniciadas = await search({ ...page, state: { kind: 'withoutProceduralActs' } });
       expect(iniciadas.items.map((i) => i.caption)).toEqual(['INICIADA']);
     });
 
     it('un filtro por un abogado o un estado inexistente devuelve vacío, no un error', async () => {
       await aCase();
 
-      const porAbogado = await cases.search({ ...page, responsibleLawyerId: 999999 });
-      const porEstado = await cases.search({
+      const porAbogado = await search({ ...page, responsibleLawyerId: 999999 });
+      const porEstado = await search({
         ...page,
         state: { kind: 'proceduralState', proceduralStateId: 999999 },
       });
@@ -298,8 +304,8 @@ describe('CaseQueryPort (adaptador Prisma)', () => {
       await aCase({ caption: 'DOS' });
       await aCase({ caption: 'TRES' });
 
-      const primera = await cases.search({ page: 1, limit: 2 });
-      const segunda = await cases.search({ page: 2, limit: 2 });
+      const primera = await search({ page: 1, limit: 2 });
+      const segunda = await search({ page: 2, limit: 2 });
 
       expect(primera.items).toHaveLength(2);
       expect(primera.totalItems).toBe(3);
@@ -313,7 +319,7 @@ describe('CaseQueryPort (adaptador Prisma)', () => {
     it('en el estado inicial manda proceduralStateId en null, aunque la columna apunte a la fila real', async () => {
       const created = await aCase();
 
-      const item = await cases.findById(created.id);
+      const item = await cases.findListItemById(created.id);
 
       expect(item?.currentState).toEqual({
         proceduralStateId: null, // la columna tiene el id de "Iniciada"; el contrato pide null
@@ -331,7 +337,7 @@ describe('CaseQueryPort (adaptador Prisma)', () => {
       const created = await aCase();
       await moveTo(created.id, { customState: 'Con acusación, pero con oposición', computed: '2026-10-02' });
 
-      const item = await cases.findById(created.id);
+      const item = await cases.findListItemById(created.id);
 
       expect(item?.currentState.proceduralStateId).toBeNull();
       expect(item?.currentState.custom).toBe(true);
@@ -344,7 +350,7 @@ describe('CaseQueryPort (adaptador Prisma)', () => {
       const created = await aCase();
       const act = await moveTo(created.id, { stateName: 'Alegato', computed: '2026-10-01' });
 
-      const item = await cases.findById(created.id);
+      const item = await cases.findListItemById(created.id);
 
       expect(item?.currentState.proceduralStateId).toBe(act.proceduralStateId);
       expect(item?.currentState.name).toBe('Alegato');
@@ -355,11 +361,11 @@ describe('CaseQueryPort (adaptador Prisma)', () => {
     });
   });
 
-  describe('findById', () => {
+  describe('findListItemById', () => {
     it('trae el cliente y el abogado resueltos, no sus ids', async () => {
       const created = await aCase();
 
-      const item = await cases.findById(created.id);
+      const item = await cases.findListItemById(created.id);
 
       expect(item?.client).toMatchObject({ id: clientId, lastName: 'GÓMEZ', firstName: 'Ariel Fernando' });
       expect(item?.responsibleLawyer).toMatchObject({ id: lawyerId });
@@ -372,15 +378,15 @@ describe('CaseQueryPort (adaptador Prisma)', () => {
       const created = await aCase();
       await getPrisma().case.update({ where: { id: created.id }, data: { active: false } });
 
-      expect(await cases.findById(created.id)).toBeNull();
-      expect(await cases.findById(999999)).toBeNull();
+      expect(await cases.findListItemById(created.id)).toBeNull();
+      expect(await cases.findListItemById(999999)).toBeNull();
     });
 
     it('una causa dada de baja tampoco aparece en el listado', async () => {
       const created = await aCase();
       await getPrisma().case.update({ where: { id: created.id }, data: { active: false } });
 
-      expect(await cases.search(page)).toEqual({ items: [], totalItems: 0 });
+      expect(await search(page)).toEqual({ items: [], totalItems: 0 });
     });
   });
 

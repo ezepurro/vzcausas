@@ -1,6 +1,6 @@
 import { Transform } from 'class-transformer';
 import { IsBoolean, IsOptional, IsString } from 'class-validator';
-import { PaginationQueryDto } from '@shared/infrastructure/http/pagination';
+import { PaginationQueryDto } from '@shared/infrastructure/http/pagination/pagination';
 
 /**
  * Query of `GET /document-templates` (HU35): pagination plus the two filters.
