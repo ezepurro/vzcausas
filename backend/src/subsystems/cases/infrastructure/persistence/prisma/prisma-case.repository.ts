@@ -1,18 +1,22 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@shared/infrastructure/prisma/prisma.service';
-import { Prisma } from '../../../../generated/prisma/client';
+import { Prisma } from '../../../../../generated/prisma/client';
+import { DayType as PrismaDayType, ProceduralRole as PrismaProceduralRole } from '../../../../../generated/prisma/enums';
+import { Case } from '../../../core/domain/entities/cases';
 import {
   CaseListItem,
   CasePage,
-  CaseQueryPort,
+  CaseRepository,
   CaseSearchCriteria,
-} from '../../core/domain/ports/case-query.port';
-import { addPrescriptionMonths, prescriptionStartsOn } from '../../core/domain/prescription';
-import { DayType } from '../../core/domain/value-objects/day-type';
-import { JurisdictionCode } from '../../core/domain/value-objects/jurisdiction-code';
-import { ProceduralRole } from '../../core/domain/value-objects/procedural-role';
-import { CASE_FOLDER_INCLUDE, TEMPLATE_COPIES_SELECT, toCaseFolderView } from './case-folder-prisma.mapper';
-import { PRESCRIPTION_DECLARATION_SELECT, toPrescriptionDeclarationView } from './prescription-declaration-prisma.mapper';
+} from '../../../core/domain/ports/case.repository';
+import { ProceduralStateRef } from '../../../core/domain/ports/legal-parameters-lookup.port';
+import { addPrescriptionMonths, prescriptionStartsOn } from '../../../core/domain/prescription';
+import { DayType } from '../../../core/domain/value-objects/day-type';
+import { JurisdictionCode } from '../../../core/domain/value-objects/jurisdiction-code';
+import { ProceduralRole } from '../../../core/domain/value-objects/procedural-role';
+import { CASE_FOLDER_INCLUDE, TEMPLATE_COPIES_SELECT, toCaseFolderView } from '../mappers/case-folder-prisma.mapper';
+import { CasePrismaMapper } from '../mappers/case-prisma.mapper';
+import { PRESCRIPTION_DECLARATION_SELECT, toPrescriptionDeclarationView } from '../mappers/prescription-declaration-prisma.mapper';
 
 /** What `findMany` has to bring for a row to be projected into a {@link CaseListItem}. */
 const CASE_INCLUDE = {
@@ -47,9 +51,9 @@ const CASE_INCLUDE = {
 type CaseRow = Prisma.CaseGetPayload<{ include: typeof CASE_INCLUDE }>;
 
 /**
- * Read adapter for {@link CaseQueryPort}, separate from `CasePrismaRepository`:
- * that one rebuilds the `Case` aggregate to write it, this one projects
- * straight to {@link CaseListItem} to show it.
+ * Prisma adapter for {@link CaseRepository}. Writing rebuilds the `Case`
+ * aggregate through {@link CasePrismaMapper}; reading projects straight to
+ * {@link CaseListItem} to show it.
  *
  * **Why `search` costs two queries.** The order of CA-20.1 is by the case's
  * live due date, which is `COALESCE(deadline_manual_due_date,
@@ -68,8 +72,169 @@ type CaseRow = Prisma.CaseGetPayload<{ include: typeof CASE_INCLUDE }>;
  * registration (HU26) can maintain.
  */
 @Injectable()
-export class CaseQueryPrismaAdapter implements CaseQueryPort {
+export class PrismaCaseRepository implements CaseRepository {
   constructor(private readonly prisma: PrismaService) {}
+
+  async nextId(): Promise<number> {
+    const [{ nextval }] = await this.prisma.db.$queryRaw<[{ nextval: bigint }]>`
+      SELECT nextval(pg_get_serial_sequence('cases', 'id'))
+    `;
+    return Number(nextval);
+  }
+
+  async existsBySacNumber(sacNumber: string): Promise<boolean> {
+    // Inactive cases count too: the SAC is unique system-wide (RN2).
+    const row = await this.prisma.db.case.findUnique({ where: { sacNumber }, select: { id: true } });
+    return row !== null;
+  }
+
+  async save(newCase: Case): Promise<void> {
+    // The data of each jurisdiction (D-67) is already `null` outside its own in the snapshot;
+    // the `ck_cases_harmful_act_*` constraints agree with how the factory builds them.
+    const data = newCase.toSnapshot();
+
+    // One nested create: the case and its offenses are saved together or not at all.
+    // Every offense already carries its prescription date (`CriminalCase` calculates
+    // it, and `Offense.toSnapshot` refuses one without it).
+
+    await this.prisma.db.case.create({
+      data: {
+        id: data.id,
+        sacNumber: data.sacNumber,
+        caption: data.caption,
+        court: data.court,
+        jurisdictionId: data.jurisdictionId,
+        proceduralRole: data.proceduralRole as PrismaProceduralRole,
+        instructorName: data.instructor.name,
+        instructorPhone: data.instructor.phone,
+        instructorExtension: data.instructor.extension,
+        counterparty: data.counterparty,
+        subjectMatter: data.subjectMatter,
+        clientId: data.clientId,
+        responsibleLawyerId: data.responsibleLawyerId,
+        startDate: data.startDate,
+        courtFeePaid: data.courtFeePaid,
+        clientDetained: data.clientDetained,
+        injunctionGranted: data.injunctionGranted,
+        harmfulActDate: data.harmfulActDate,
+        harmfulActRenews: data.harmfulActRenews,
+        harmfulActRenewalDays: data.harmfulActRenewalDays,
+        harmfulActTermDays: data.harmfulActTermDays,
+        harmfulActTermDayType: data.harmfulActTermDayType as PrismaDayType | null,
+        administrativeRemedyExhaustedOn: data.administrativeRemedyExhaustedOn,
+        currentStateId: data.currentStateId,
+        currentCustomState: data.currentCustomState,
+        currentProceduralActId: data.currentProceduralActId,
+        active: data.active,
+        // The folder is asked for after the case is saved (`RequestCaseFolder`),
+        // which is what moves it to `CREATING`.
+        folderStatus: 'PENDING',
+        createdByUserId: data.createdByUserId,
+        createdAt: data.createdAt,
+        updatedAt: data.updatedAt,
+        offenses: {
+          create: data.offenses.map((offense) => ({
+            legalQualificationId: offense.legalQualificationId,
+            offenseDate: offense.offenseDate,
+            prescriptionDate: offense.prescriptionExpiresOn,
+          })),
+        },
+      },
+    });
+  }
+
+  async findById(id: number): Promise<Case | null> {
+    const row = await this.prisma.db.case.findUnique({
+      where: { id },
+      include: {
+        jurisdiction: true,
+        offenses: { include: { legalQualification: true } },
+        currentState: true,
+        currentProceduralAct: true,
+      },
+    });
+    return row ? CasePrismaMapper.toDomain(row) : null;
+  }
+
+  async findCurrentState(caseId: number): Promise<ProceduralStateRef> {
+    const row = await this.prisma.db.case.findUniqueOrThrow({
+      where: { id: caseId },
+      select: {
+        currentState: {
+          select: {
+            stateId: true,
+            name: true,
+            isInitial: true,
+            jurisdictionId: true,
+            terminal: true,
+            isPrescribed: true,
+            isActive: true,
+            timeLimitDays: true,
+            dayType: true,
+          },
+        },
+      },
+    });
+    const state = row.currentState;
+    if (!state) {
+      throw new Error(`The case ${caseId} has no procedural state.`);
+    }
+    return {
+      id: state.stateId,
+      name: state.name,
+      isInitial: state.isInitial,
+      jurisdictionId: state.jurisdictionId,
+      terminal: state.terminal,
+      isPrescribed: state.isPrescribed,
+      isActive: state.isActive,
+      timeLimitDays: state.timeLimitDays,
+      dayType: state.dayType as DayType,
+    };
+  }
+
+  async saveCurrentAct(updatedCase: Case): Promise<void> {
+    // One UPDATE, so the state and the custom state change together and keep the CHECK that exactly one is set.
+    await this.prisma.db.case.update({
+      where: { id: updatedCase.id },
+      data: {
+        currentStateId: updatedCase.currentStateId,
+        currentCustomState: updatedCase.currentCustomState,
+        currentProceduralActId: updatedCase.currentProceduralActId,
+        updatedAt: updatedCase.updatedAt,
+      },
+    });
+  }
+
+  /**
+   * HU33. One conditional `UPDATE`: the state, the empty current act and the
+   * five declaration columns change together, which keeps the
+   * `ck_cases_prescription_declaration_complete` CHECK and the exclusive
+   * state/custom-state CHECK. `prescriptionDate: null` in the `WHERE` makes
+   * the check and the write one step in the database, so of two simultaneous
+   * markings only one writes (D-54: the declaration is recorded once).
+   */
+  async saveDeclaredPrescription(prescribedCase: Case): Promise<boolean> {
+    const declaration = prescribedCase.prescriptionDeclaration;
+    if (declaration === null) {
+      throw new Error(`The case ${prescribedCase.id} has no prescription declaration to save.`);
+    }
+
+    const { count } = await this.prisma.db.case.updateMany({
+      where: { id: prescribedCase.id, prescriptionDate: null },
+      data: {
+        currentStateId: prescribedCase.currentStateId,
+        currentCustomState: prescribedCase.currentCustomState,
+        currentProceduralActId: prescribedCase.currentProceduralActId,
+        prescriptionDate: declaration.prescriptionDate,
+        prescriptionResolution: declaration.resolution,
+        prescriptionGrounds: declaration.grounds,
+        prescriptionRegisteredByUserId: declaration.registeredByUserId,
+        prescriptionRegisteredAt: declaration.registeredAt,
+        updatedAt: prescribedCase.updatedAt,
+      },
+    });
+    return count === 1;
+  }
 
   async search(criteria: CaseSearchCriteria): Promise<CasePage> {
     const { page, limit } = criteria;
@@ -135,7 +300,7 @@ export class CaseQueryPrismaAdapter implements CaseQueryPort {
     return { items, totalItems: Number(rows[0].total) };
   }
 
-  async findById(id: number): Promise<CaseListItem | null> {
+  async findListItemById(id: number): Promise<CaseListItem | null> {
     // `active: true` applies to the case itself: one given de baja answers 404.
     // The relations are **not** filtered by `active`: a case keeps showing a
     // deactivated procedural state or legal qualification, because they are

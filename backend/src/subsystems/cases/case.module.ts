@@ -23,15 +23,12 @@ import { RegisterProceduralAct } from './core/application/use-cases/register-pro
 import { RequestCaseFolder } from './core/application/use-cases/request-case-folder.use-case';
 import { CASE_FOLDER_OUTCOMES } from './core/domain/ports/case-folder-outcome.port';
 import { CASE_FOLDER_STATE } from './core/domain/ports/case-folder-state.port';
-import { CASE_QUERY } from './core/domain/ports/case-query.port';
-import { CASE_TIMELINE_QUERY } from './core/domain/ports/case-timeline-query.port';
 import { CASE_REPOSITORY } from './core/domain/ports/case.repository';
+import { CASE_TIMELINE_QUERY } from './core/domain/ports/case-timeline-query.port';
 import { CRIMINAL_PRESCRIPTION_QUERY } from './core/domain/ports/criminal-prescription-query.port';
 import { DEADLINE_CALCULATOR } from './core/domain/ports/deadline-calculator.port';
-import { INTERRUPTIVE_ACT_QUERY } from './core/domain/ports/interruptive-act-query.port';
 import { INTERRUPTIVE_ACT_REPOSITORY } from './core/domain/ports/interruptive-act.repository';
 import { OPEN_DEADLINE_QUERY } from './core/domain/ports/open-deadline-query.port';
-import { PROCEDURAL_ACT_QUERY } from './core/domain/ports/procedural-act-query.port';
 import { PROCEDURAL_ACT_REPOSITORY } from './core/domain/ports/procedural-act.repository';
 import { BusinessDaysDeadlineCalculatorAdapter } from './infrastructure/acl/business-days-deadline-calculator.adapter';
 import { DeadlinesOpenDeadlinesAdapter } from './infrastructure/acl/deadlines-open-deadlines.adapter';
@@ -50,16 +47,13 @@ import { CaseHttpMapper } from './infrastructure/http/mappers/case-http.mapper';
 import { InterruptiveActHttpMapper } from './infrastructure/http/mappers/interruptive-act-http.mapper';
 import { ProceduralActHttpMapper } from './infrastructure/http/mappers/procedural-act-http.mapper';
 import { TimelineHttpMapper } from './infrastructure/http/mappers/timeline-http.mapper';
-import { CaseFolderStatePrismaAdapter } from './infrastructure/persistence/case-folder-state-prisma.adapter';
-import { CasePrismaRepository } from './infrastructure/persistence/case-prisma.repository';
-import { CaseQueryPrismaAdapter } from './infrastructure/persistence/case-query-prisma.adapter';
-import { CaseTimelinePrismaAdapter } from './infrastructure/persistence/case-timeline-prisma.adapter';
-import { CriminalPrescriptionQueryPrismaAdapter } from './infrastructure/persistence/criminal-prescription-query-prisma.adapter';
-import { InterruptiveActPrismaRepository } from './infrastructure/persistence/interruptive-act-prisma.repository';
-import { InterruptiveActQueryPrismaAdapter } from './infrastructure/persistence/interruptive-act-query-prisma.adapter';
-import { OpenDeadlineQueryPrismaAdapter } from './infrastructure/persistence/open-deadline-query-prisma.adapter';
-import { ProceduralActPrismaRepository } from './infrastructure/persistence/procedural-act-prisma.repository';
-import { ProceduralActQueryPrismaAdapter } from './infrastructure/persistence/procedural-act-query-prisma.adapter';
+import { CaseFolderStatePrismaAdapter } from './infrastructure/persistence/prisma/case-folder-state-prisma.adapter';
+import { PrismaCaseRepository } from './infrastructure/persistence/prisma/prisma-case.repository';
+import { CaseTimelinePrismaAdapter } from './infrastructure/persistence/prisma/case-timeline-prisma.adapter';
+import { CriminalPrescriptionQueryPrismaAdapter } from './infrastructure/persistence/prisma/criminal-prescription-query-prisma.adapter';
+import { PrismaInterruptiveActRepository } from './infrastructure/persistence/prisma/prisma-interruptive-act.repository';
+import { OpenDeadlineQueryPrismaAdapter } from './infrastructure/persistence/prisma/open-deadline-query-prisma.adapter';
+import { PrismaProceduralActRepository } from './infrastructure/persistence/prisma/prisma-procedural-act.repository';
 
 /**
  * Composition root of `cases`.
@@ -71,13 +65,13 @@ import { ProceduralActQueryPrismaAdapter } from './infrastructure/persistence/pr
  * those exported tokens. There are no stubs left.
  *
  * **Lectura** (HU20, HU22): `GET /cases`, `GET /cases/{caseId}` y
- * `GET /cases/custom-states`. Van por un puerto aparte, `CASE_QUERY`, que
- * proyecta a un modelo de lectura (`CaseListItem`) en vez de reconstruir el
- * agregado: el recurso junta datos de cinco tablas que la entidad `Case` no
+ * `GET /cases/custom-states`. Van por el mismo `CASE_REPOSITORY` que la
+ * escritura, pero sus métodos de lectura proyectan a un modelo de lectura
+ * (`CaseListItem`) en vez de reconstruir el agregado: el recurso junta datos de cinco tablas que la entidad `Case` no
  * tiene, y resolverlos de a uno por causa sería un N+1 de unas cien consultas
  * por página. El orden por urgencia necesita SQL crudo porque el `orderBy` de
  * Prisma no sabe expresar un `COALESCE` de dos columnas; el motivo está en
- * `CaseQueryPrismaAdapter`.
+ * `PrismaCaseRepository`.
  *
  * Los tres endpoints de lectura y el `POST` comparten `CaseHttpMapper`: el
  * contrato exige que devuelvan el mismo recurso (§3.7), y un solo mapeo es lo
@@ -134,21 +128,18 @@ import { ProceduralActQueryPrismaAdapter } from './infrastructure/persistence/pr
     // HU33: marks a criminal case as prescribed; answers with the detail (`GetCase`).
     DeclarePrescription,
     RegisterProceduralAct,
-    // HU27: la consulta de actos procesales, por su propio puerto de lectura.
+    // HU27: la consulta de actos procesales, por el mismo repositorio que los registra.
     ListProceduralActs,
     GetProceduralAct,
     ProceduralActHttpMapper,
-    { provide: CASE_REPOSITORY, useClass: CasePrismaRepository },
-    { provide: CASE_QUERY, useClass: CaseQueryPrismaAdapter },
-    { provide: PROCEDURAL_ACT_REPOSITORY, useClass: ProceduralActPrismaRepository },
-    { provide: PROCEDURAL_ACT_QUERY, useClass: ProceduralActQueryPrismaAdapter },
+    { provide: CASE_REPOSITORY, useClass: PrismaCaseRepository },
+    { provide: PROCEDURAL_ACT_REPOSITORY, useClass: PrismaProceduralActRepository },
     // HU31: actos interruptivos. Su efecto sobre la prescripción no se guarda:
-    // lo calculan `CaseQueryPrismaAdapter` y `withDeadlines` en cada lectura de la causa.
+    // lo calculan `PrismaCaseRepository` y `withDeadlines` en cada lectura de la causa.
     RegisterInterruptiveAct,
     ListInterruptiveActs,
     InterruptiveActHttpMapper,
-    { provide: INTERRUPTIVE_ACT_REPOSITORY, useClass: InterruptiveActPrismaRepository },
-    { provide: INTERRUPTIVE_ACT_QUERY, useClass: InterruptiveActQueryPrismaAdapter },
+    { provide: INTERRUPTIVE_ACT_REPOSITORY, useClass: PrismaInterruptiveActRepository },
     // HU27: la línea de vida de la causa (D-85), con las tres fuentes intercaladas.
     GetCaseTimeline,
     TimelineHttpMapper,

@@ -11,6 +11,7 @@ import {
   FakeCaseRepository,
   FakeClock,
   FakePeopleLookup,
+  UnusedInterruptiveActRepository,
 } from '../../test-support/case-fakes';
 import {
   ARCHIVED,
@@ -27,7 +28,7 @@ import {
 } from '../../test-support/case-fixtures';
 import { RegisterInterruptiveAct, RegisterInterruptiveActCommand } from './register-interruptive-act.use-case';
 
-class FakeInterruptiveActRepository implements InterruptiveActRepository {
+class FakeInterruptiveActRepository extends UnusedInterruptiveActRepository {
   readonly saved: InterruptiveAct[] = [];
   private next = 1;
 

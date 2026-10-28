@@ -1,17 +1,17 @@
 import {
   CaseListItem,
   CasePage,
-  CaseQueryPort,
+  CaseRepository,
   CaseSearchCriteria,
-} from '../../domain/ports/case-query.port';
+} from '../../domain/ports/case.repository';
 import { JurisdictionCode } from '../../domain/value-objects/jurisdiction-code';
 import { ProceduralRole } from '../../domain/value-objects/procedural-role';
-import { CaseQueryCountsUnused } from '../../test-support/case-fakes';
+import { UnusedCaseRepository } from '../../test-support/case-fakes';
 import { CLIENT, LAWYER, day } from '../../test-support/case-fixtures';
 import { ListCases } from './list-cases.use-case';
 
 /** Records the criteria it was asked for, so the spec can assert what travelled. */
-class SpyCaseQuery extends CaseQueryCountsUnused implements CaseQueryPort {
+class SpyCaseQuery extends UnusedCaseRepository implements CaseRepository {
   lastCriteria: CaseSearchCriteria | null = null;
 
   constructor(private readonly page: CasePage = { items: [], totalItems: 0 }) {
@@ -23,7 +23,7 @@ class SpyCaseQuery extends CaseQueryCountsUnused implements CaseQueryPort {
     return this.page;
   }
 
-  async findById(): Promise<CaseListItem | null> {
+  async findListItemById(): Promise<CaseListItem | null> {
     return null;
   }
 

@@ -2,17 +2,17 @@ import { NotFoundError } from '@shared/domain/domain-error';
 import {
   CaseListItem,
   CasePage,
-  CaseQueryPort,
+  CaseRepository,
   CaseSearchCriteria,
-} from '../../domain/ports/case-query.port';
+} from '../../domain/ports/case.repository';
 import { DayType } from '../../domain/value-objects/day-type';
 import { JurisdictionCode } from '../../domain/value-objects/jurisdiction-code';
 import { ProceduralRole } from '../../domain/value-objects/procedural-role';
-import { CaseQueryCountsUnused } from '../../test-support/case-fakes';
+import { UnusedCaseRepository } from '../../test-support/case-fakes';
 import { CLIENT, LAWYER, day } from '../../test-support/case-fixtures';
 import { GetCase } from './get-case.use-case';
 
-class StubCaseQuery extends CaseQueryCountsUnused implements CaseQueryPort {
+class StubCaseQuery extends UnusedCaseRepository implements CaseRepository {
   askedFor: number | null = null;
 
   constructor(private readonly item: CaseListItem | null) {
@@ -23,7 +23,7 @@ class StubCaseQuery extends CaseQueryCountsUnused implements CaseQueryPort {
     return { items: [], totalItems: 0 };
   }
 
-  async findById(id: number): Promise<CaseListItem | null> {
+  async findListItemById(id: number): Promise<CaseListItem | null> {
     this.askedFor = id;
     return this.item;
   }

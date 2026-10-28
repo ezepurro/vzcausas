@@ -1,13 +1,14 @@
 import { CaseNotFoundError } from '../../domain/errors/case.errors';
 import {
   ProceduralActPage,
-  ProceduralActQueryPort,
+  ProceduralActRepository,
   ProceduralActView,
-} from '../../domain/ports/procedural-act-query.port';
+} from '../../domain/ports/procedural-act.repository';
+import { UnusedProceduralActRepository } from '../../test-support/case-fakes';
 import { anAct } from '../../test-support/case-fixtures';
 import { ListProceduralActs } from './list-procedural-acts.use-case';
 
-class SpyActQuery implements ProceduralActQueryPort {
+class SpyActQuery extends UnusedProceduralActRepository {
   existingCases = new Set<number>([1]);
   page: ProceduralActPage = { items: [], totalItems: 0 };
   listCalls: [number, number, number][] = [];

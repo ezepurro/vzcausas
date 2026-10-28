@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { toIsoDate, toIsoWithOffset } from '@shared/infrastructure/http/iso-date';
-import { InterruptiveActView } from '../../../core/domain/ports/interruptive-act-query.port';
+import { InterruptiveActView } from '../../../core/domain/ports/interruptive-act.repository';
 import { InterruptiveActResponseDto } from '../dtos/interruptive-act.response.dto';
 
 /**

@@ -1,8 +1,8 @@
-import { Prisma, ProceduralAct as PrismaProceduralAct } from '../../../../generated/prisma/client';
-import { DayType as PrismaDayType } from '../../../../generated/prisma/enums';
-import { ProceduralAct } from '../../core/domain/entities/procedural-act';
-import { DayType } from '../../core/domain/value-objects/day-type';
-import { Deadline } from '../../core/domain/value-objects/deadline';
+import { Prisma, ProceduralAct as PrismaProceduralAct } from '../../../../../generated/prisma/client';
+import { DayType as PrismaDayType } from '../../../../../generated/prisma/enums';
+import { ProceduralAct } from '../../../core/domain/entities/procedural-act';
+import { DayType } from '../../../core/domain/value-objects/day-type';
+import { Deadline } from '../../../core/domain/value-objects/deadline';
 
 /** Translates a {@link ProceduralAct} to and from its `procedural_acts` row. */
 export class ProceduralActPrismaMapper {

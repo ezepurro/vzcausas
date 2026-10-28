@@ -1,10 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { CaseNotFoundError } from '../../domain/errors/case.errors';
 import {
-  INTERRUPTIVE_ACT_QUERY,
+  INTERRUPTIVE_ACT_REPOSITORY,
   InterruptiveActPage,
-  InterruptiveActQueryPort,
-} from '../../domain/ports/interruptive-act-query.port';
+  InterruptiveActRepository,
+} from '../../domain/ports/interruptive-act.repository';
 
 export type ListInterruptiveActsQuery = { caseId: number; page: number; limit: number };
 
@@ -18,7 +18,7 @@ export type ListInterruptiveActsQuery = { caseId: number; page: number; limit: n
  */
 @Injectable()
 export class ListInterruptiveActs {
-  constructor(@Inject(INTERRUPTIVE_ACT_QUERY) private readonly acts: InterruptiveActQueryPort) {}
+  constructor(@Inject(INTERRUPTIVE_ACT_REPOSITORY) private readonly acts: InterruptiveActRepository) {}
 
   async execute(query: ListInterruptiveActsQuery): Promise<InterruptiveActPage> {
     if (!(await this.acts.caseExists(query.caseId))) {

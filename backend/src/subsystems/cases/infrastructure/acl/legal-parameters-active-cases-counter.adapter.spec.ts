@@ -1,20 +1,20 @@
 import {
   CaseListItem,
   CasePage,
-  CaseQueryPort,
-} from '../../core/domain/ports/case-query.port';
-import { CaseQueryCountsUnused } from '../../core/test-support/case-fakes';
+  CaseRepository,
+} from '../../core/domain/ports/case.repository';
+import { UnusedCaseRepository } from '../../core/test-support/case-fakes';
 import { LegalParametersActiveCasesCounterAdapter } from './legal-parameters-active-cases-counter.adapter';
 
 /**
- * Double of {@link CaseQueryPort} that records what the adapter asked for.
+ * Double of {@link CaseRepository} that records what the adapter asked for.
  *
  * It overrides **only** the count by procedural state; the other three keep
- * throwing (`CaseQueryCountsUnused`), which is what proves the adapter does not
+ * throwing (`UnusedCaseRepository`), which is what proves the adapter does not
  * reach for a count that is not its own. No test asserts that: if it happened,
  * every test here would fail with the base class's error.
  */
-class SpyCaseQuery extends CaseQueryCountsUnused implements CaseQueryPort {
+class SpyCaseQuery extends UnusedCaseRepository implements CaseRepository {
   readonly calls: number[][] = [];
 
   constructor(private readonly counts: ReadonlyMap<number, number> = new Map()) {
@@ -25,7 +25,7 @@ class SpyCaseQuery extends CaseQueryCountsUnused implements CaseQueryPort {
     return { items: [], totalItems: 0 };
   }
 
-  async findById(): Promise<CaseListItem | null> {
+  async findListItemById(): Promise<CaseListItem | null> {
     return null;
   }
 
@@ -71,7 +71,7 @@ describe('LegalParametersActiveCasesCounterAdapter', () => {
 
   it('delega también la lista vacía, sin cortocircuitarla', async () => {
     // El guard de la lista vacía vive en el puerto, en un solo lugar
-    // (`CaseQueryPrismaAdapter.countActiveByProceduralState`). Duplicarlo acá
+    // (`PrismaCaseRepository.countActiveByProceduralState`). Duplicarlo acá
     // sería una segunda copia que se puede desincronizar.
     const query = new SpyCaseQuery();
 

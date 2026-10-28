@@ -9,7 +9,7 @@ import {
   CaseListItem,
   CaseSearchCriteria,
   CaseStateFilter,
-} from '../../../core/domain/ports/case-query.port';
+} from '../../../core/domain/ports/case.repository';
 import { CaseResponseDto } from '../dtos/case.response.dto';
 import { ListCasesQueryDto } from '../dtos/list-cases.query.dto';
 import { toPrescriptionDeclarationResponse } from './prescription-declaration-http.mapper';

@@ -8,7 +8,7 @@ export const OPEN_DEADLINE_QUERY = Symbol('OPEN_DEADLINE_QUERY');
  * One active case whose current procedural act left a deadline open. The due
  * date is already resolved — the manual one if the lawyer adjusted it, else the
  * computed one (CA-51.4) — the same rule as `currentState.dueDate`
- * (`case-query-prisma.adapter.ts`). How far it is from today is not here: that
+ * (`prisma-case.repository.ts`). How far it is from today is not here: that
  * depends on the date, and the use case computes it.
  */
 export type OpenProceduralDeadlineRow = {
@@ -47,7 +47,7 @@ export type OpenHarmfulActRow = {
 
 /**
  * Read port for the daily deadline check (HU51). Its own port, not one more
- * method of `CaseQueryPort`, for the same reason as `CriminalPrescriptionQueryPort`
+ * method of `CaseRepository`, for the same reason as `CriminalPrescriptionQueryPort`
  * (V-08, `IMPLEMENTACION_DETECCION.md`).
  */
 export interface OpenDeadlineQueryPort {

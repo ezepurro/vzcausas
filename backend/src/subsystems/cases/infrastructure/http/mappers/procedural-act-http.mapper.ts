@@ -8,7 +8,7 @@ import {
   PreviewProceduralActDeadlineQuery,
   RegisterProceduralActCommand,
 } from '../../../core/application/common/register-procedural-act.interfaces';
-import { ProceduralActView } from '../../../core/domain/ports/procedural-act-query.port';
+import { ProceduralActView } from '../../../core/domain/ports/procedural-act.repository';
 import { Deadline } from '../../../core/domain/value-objects/deadline';
 import { DeadlinePreviewQueryDto } from '../dtos/deadline-preview.query.dto';
 import { DeadlinePreviewResponseDto } from '../dtos/deadline-preview.response.dto';

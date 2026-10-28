@@ -2,14 +2,14 @@ import { ValidationError } from '@shared/domain/domain-error';
 import {
   CaseListItem,
   CasePage,
-  CaseQueryPort,
+  CaseRepository,
   CaseSearchCriteria,
-} from '../../domain/ports/case-query.port';
+} from '../../domain/ports/case.repository';
 import { JurisdictionCode } from '../../domain/value-objects/jurisdiction-code';
-import { CaseQueryCountsUnused } from '../../test-support/case-fakes';
+import { UnusedCaseRepository } from '../../test-support/case-fakes';
 import { ListCustomStates } from './list-custom-states.use-case';
 
-class SpyCaseQuery extends CaseQueryCountsUnused implements CaseQueryPort {
+class SpyCaseQuery extends UnusedCaseRepository implements CaseRepository {
   askedFor: JurisdictionCode | undefined | 'nunca' = 'nunca';
 
   constructor(private readonly states: string[] = []) {
@@ -20,7 +20,7 @@ class SpyCaseQuery extends CaseQueryCountsUnused implements CaseQueryPort {
     return { items: [], totalItems: 0 };
   }
 
-  async findById(): Promise<CaseListItem | null> {
+  async findListItemById(): Promise<CaseListItem | null> {
     return null;
   }
 

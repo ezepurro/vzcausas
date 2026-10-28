@@ -22,7 +22,7 @@ export type CriminalCasePrescriptionRow = {
 
 /**
  * Read port for the daily prescription check (HU52). Its own port, not one
- * more method of `CaseQueryPort`: that one projects the case resource of
+ * more method of `CaseRepository`: that one projects the case resource of
  * HU20/HU22, and this is a different read model with a single reader (V-08,
  * `IMPLEMENTACION_DETECCION.md`).
  */

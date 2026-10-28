@@ -5,8 +5,8 @@ import {
   CaseTimelineQueryPort,
   PrescriptionDeclarationView,
 } from '../../domain/ports/case-timeline-query.port';
-import { InterruptiveActView } from '../../domain/ports/interruptive-act-query.port';
-import { ProceduralActView } from '../../domain/ports/procedural-act-query.port';
+import { InterruptiveActView } from '../../domain/ports/interruptive-act.repository';
+import { ProceduralActView } from '../../domain/ports/procedural-act.repository';
 
 /**
  * One entry of the line of life (contract V4, `GET /cases/{caseId}/timeline`).

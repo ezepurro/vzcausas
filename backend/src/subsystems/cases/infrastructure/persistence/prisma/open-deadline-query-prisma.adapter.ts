@@ -1,14 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@shared/infrastructure/prisma/prisma.service';
-import { Prisma } from '../../../../generated/prisma/client';
+import { Prisma } from '../../../../../generated/prisma/client';
 import {
   OpenDeadlineQueryPort,
   OpenHarmfulActRow,
   OpenProceduralDeadlineRow,
-} from '../../core/domain/ports/open-deadline-query.port';
-import { DayType } from '../../core/domain/value-objects/day-type';
-import { JurisdictionCode } from '../../core/domain/value-objects/jurisdiction-code';
-import { ACTIVE_CASE } from './case-query-prisma.adapter';
+} from '../../../core/domain/ports/open-deadline-query.port';
+import { DayType } from '../../../core/domain/value-objects/day-type';
+import { JurisdictionCode } from '../../../core/domain/value-objects/jurisdiction-code';
+import { ACTIVE_CASE } from './prisma-case.repository';
 
 /** Only what the deadline and its notice need. */
 const OPEN_DEADLINE_SELECT = {

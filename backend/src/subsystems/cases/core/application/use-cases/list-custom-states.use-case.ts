@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { toJurisdictionFilter } from '../common/jurisdiction-filter';
-import { CASE_QUERY, CaseQueryPort } from '../../domain/ports/case-query.port';
+import { CASE_REPOSITORY, CaseRepository } from '../../domain/ports/case.repository';
 
 export type ListCustomStatesQuery = { jurisdiction?: string };
 
@@ -19,7 +19,7 @@ export type ListCustomStatesQuery = { jurisdiction?: string };
  */
 @Injectable()
 export class ListCustomStates {
-  constructor(@Inject(CASE_QUERY) private readonly cases: CaseQueryPort) {}
+  constructor(@Inject(CASE_REPOSITORY) private readonly cases: CaseRepository) {}
 
   async execute(query: ListCustomStatesQuery = {}): Promise<string[]> {
     return this.cases.listCustomStates(toJurisdictionFilter(query.jurisdiction));

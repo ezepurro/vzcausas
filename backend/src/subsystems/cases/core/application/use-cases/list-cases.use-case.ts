@@ -5,12 +5,12 @@ import { Prescription } from '../../domain/prescription';
 import { HarmfulAct } from '../../domain/value-objects/harmful-act';
 import { JurisdictionCode } from '../../domain/value-objects/jurisdiction-code';
 import {
-  CASE_QUERY,
+  CASE_REPOSITORY,
   CaseListItem,
   CasePage,
-  CaseQueryPort,
+  CaseRepository,
   CaseSearchCriteria,
-} from '../../domain/ports/case-query.port';
+} from '../../domain/ports/case.repository';
 
 /**
  * `GET /cases` (HU20): one page of cases, ordered by urgency.
@@ -35,7 +35,7 @@ import {
 @Injectable()
 export class ListCases {
   constructor(
-    @Inject(CASE_QUERY) private readonly cases: CaseQueryPort,
+    @Inject(CASE_REPOSITORY) private readonly cases: CaseRepository,
     @Inject(CLOCK) private readonly clock: ClockPort,
   ) {}
 

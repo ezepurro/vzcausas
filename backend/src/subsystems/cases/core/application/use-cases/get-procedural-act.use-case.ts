@@ -1,10 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { CaseNotFoundError, ProceduralActNotFoundError } from '../../domain/errors/case.errors';
 import {
-  PROCEDURAL_ACT_QUERY,
-  ProceduralActQueryPort,
+  PROCEDURAL_ACT_REPOSITORY,
+  ProceduralActRepository,
   ProceduralActView,
-} from '../../domain/ports/procedural-act-query.port';
+} from '../../domain/ports/procedural-act.repository';
 
 export type GetProceduralActQuery = { caseId: number; actId: number };
 
@@ -17,7 +17,7 @@ export type GetProceduralActQuery = { caseId: number; actId: number };
  */
 @Injectable()
 export class GetProceduralAct {
-  constructor(@Inject(PROCEDURAL_ACT_QUERY) private readonly acts: ProceduralActQueryPort) {}
+  constructor(@Inject(PROCEDURAL_ACT_REPOSITORY) private readonly acts: ProceduralActRepository) {}
 
   async execute(query: GetProceduralActQuery): Promise<ProceduralActView> {
     if (!(await this.acts.caseExists(query.caseId))) {

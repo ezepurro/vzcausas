@@ -1,12 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@shared/infrastructure/prisma/prisma.service';
-import { Prisma } from '../../../../generated/prisma/client';
+import { Prisma } from '../../../../../generated/prisma/client';
 import {
   CriminalCasePrescriptionRow,
   CriminalPrescriptionQueryPort,
-} from '../../core/domain/ports/criminal-prescription-query.port';
-import { JurisdictionCode } from '../../core/domain/value-objects/jurisdiction-code';
-import { ACTIVE_CASE } from './case-query-prisma.adapter';
+} from '../../../core/domain/ports/criminal-prescription-query.port';
+import { JurisdictionCode } from '../../../core/domain/value-objects/jurisdiction-code';
+import { ACTIVE_CASE } from './prisma-case.repository';
 
 /** Only the columns the prescription is computed from, plus what the notice shows. */
 const PRESCRIPTION_SELECT = {
@@ -22,7 +22,7 @@ const PRESCRIPTION_SELECT = {
   },
   // The act that governs the prescription: the most recent by its date, not by
   // when it was registered (CA-31.4). Same order as `CASE_INCLUDE` in
-  // `case-query-prisma.adapter.ts`, so both reads pick the same act.
+  // `prisma-case.repository.ts`, so both reads pick the same act.
   interruptiveActs: {
     select: { actDate: true },
     orderBy: [{ actDate: 'desc' }, { id: 'desc' }],

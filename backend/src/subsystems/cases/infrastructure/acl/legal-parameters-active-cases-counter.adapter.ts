@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { ActiveCasesCounterPort } from '@subsystems/legal-parameters/core/domain/ports/active-cases-counter.port';
-import { CASE_QUERY, CaseQueryPort } from '../../core/domain/ports/case-query.port';
+import { CASE_REPOSITORY, CaseRepository } from '../../core/domain/ports/case.repository';
 
 /**
  * Implements the {@link ActiveCasesCounterPort} that `legal-parameters`
@@ -19,13 +19,13 @@ import { CASE_QUERY, CaseQueryPort } from '../../core/domain/ports/case-query.po
  *
  * **A pass-through on purpose: no use case in between.** There is no rule to
  * apply on top of the number, and the rule that does matter — which cases count
- * as active — lives in {@link CaseQueryPort} and is tested there against a real
+ * as active — lives in {@link CaseRepository} and is tested there against a real
  * database (`test/subsystems/cases/case-query.int.spec.ts`). A use case here
  * would add a hop and a second place to read.
  */
 @Injectable()
 export class LegalParametersActiveCasesCounterAdapter implements ActiveCasesCounterPort {
-  constructor(@Inject(CASE_QUERY) private readonly cases: CaseQueryPort) {}
+  constructor(@Inject(CASE_REPOSITORY) private readonly cases: CaseRepository) {}
 
   /**
    * One call for the whole batch, never one per id: `GET /procedural-states` is

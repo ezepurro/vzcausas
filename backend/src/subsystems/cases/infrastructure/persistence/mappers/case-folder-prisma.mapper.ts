@@ -1,5 +1,5 @@
-import { CaseFolderStatus as PrismaCaseFolderStatus } from '../../../../generated/prisma/enums';
-import { CaseFolderView } from '../../core/domain/ports/case-folder-state.port';
+import { CaseFolderStatus as PrismaCaseFolderStatus } from '../../../../../generated/prisma/enums';
+import { CaseFolderView } from '../../../core/domain/ports/case-folder-state.port';
 
 /**
  * What the case row needs to bring so its folder can be shown: the status, the

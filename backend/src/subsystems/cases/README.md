@@ -49,7 +49,7 @@ cases/
 
 | Puerto (token) | Qué pide | Adaptador | Estado |
 |---|---|---|---|
-| `CASE_REPOSITORY` | guardar y leer causas, SAC repetido, estado actual | `CasePrismaRepository` (`cases`) | real |
+| `CASE_REPOSITORY` | guardar y leer causas (agregado y listado/detalle), SAC repetido, estado actual, conteos de causas activas | `PrismaCaseRepository` (`cases`) | real |
 | `PEOPLE_LOOKUP` | abogado y cliente vigentes por id | `CasesPeopleLookupAdapter` (`people`) | real |
 | `LEGAL_PARAMETERS_LOOKUP` | estado inicial «Iniciada» de un fuero y calificaciones legales vigentes por id | `CasesLegalParametersLookupAdapter` (`legal-parameters`) | real |
 | `CLOCK` (shared) | el instante actual y la fecha de hoy en Córdoba (`now()`, `today()`) | `CordobaClockAdapter` (`APP_TIMEZONE`) | real |

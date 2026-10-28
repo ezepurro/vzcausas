@@ -1,10 +1,10 @@
-import { PrescriptionDeclarationView } from '../../core/domain/ports/case-timeline-query.port';
+import { PrescriptionDeclarationView } from '../../../core/domain/ports/case-timeline-query.port';
 
 /**
  * The prescription declaration columns of `cases` (HU33), as a `select` or an
  * `include` asks for them.
  *
- * Shared by `CaseQueryPrismaAdapter` (the case resource) and
+ * Shared by `PrismaCaseRepository` (the case resource) and
  * `CaseTimelinePrismaAdapter` (the line of life): the contract shows the same
  * `prescriptionDeclaration` in both (V4 §3.7), so it is read one way only.
  */

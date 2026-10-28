@@ -1,12 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@shared/infrastructure/prisma/prisma.service';
-import { Prisma } from '../../../../generated/prisma/client';
+import { InterruptiveAct } from '../../../core/domain/entities/interruptive-act';
+import { Prisma } from '../../../../../generated/prisma/client';
 import {
   InterruptiveActPage,
-  InterruptiveActQueryPort,
+  InterruptiveActRepository,
   InterruptiveActView,
-} from '../../core/domain/ports/interruptive-act-query.port';
-import { InterruptiveActPrismaMapper } from './interruptive-act-prisma.mapper';
+} from '../../../core/domain/ports/interruptive-act.repository';
+import { InterruptiveActPrismaMapper } from '../mappers/interruptive-act-prisma.mapper';
 
 /** The lawyer is not filtered by `active`: one given de baja is still part of the case's history (§4, Bajas). */
 const ACT_INCLUDE = {
@@ -22,8 +23,19 @@ type ActRow = Prisma.InterruptiveActGetPayload<{ include: typeof ACT_INCLUDE }>;
 const NEWEST_FIRST: Prisma.InterruptiveActOrderByWithRelationInput[] = [{ actDate: 'desc' }, { id: 'desc' }];
 
 @Injectable()
-export class InterruptiveActQueryPrismaAdapter implements InterruptiveActQueryPort {
+export class PrismaInterruptiveActRepository implements InterruptiveActRepository {
   constructor(private readonly prisma: PrismaService) {}
+
+  async nextId(): Promise<number> {
+    const [{ nextval }] = await this.prisma.db.$queryRaw<[{ nextval: bigint }]>`
+      SELECT nextval(pg_get_serial_sequence('interruptive_acts', 'id'))
+    `;
+    return Number(nextval);
+  }
+
+  async save(act: InterruptiveAct): Promise<void> {
+    await this.prisma.db.interruptiveAct.create({ data: InterruptiveActPrismaMapper.toCreateData(act) });
+  }
 
   async caseExists(caseId: number): Promise<boolean> {
     const row = await this.prisma.db.case.findFirst({

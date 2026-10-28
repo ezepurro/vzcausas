@@ -2,7 +2,7 @@ import { ConfigService } from '@nestjs/config';
 import { ValidationError } from '@shared/domain/domain-error';
 import { RegisterCaseResult } from '../../../core/application/common/register-case.interfaces';
 import { CaseFactory, NewCaseInput } from '../../../core/domain/factories/case.factory';
-import { CaseListItem } from '../../../core/domain/ports/case-query.port';
+import { CaseListItem } from '../../../core/domain/ports/case.repository';
 import { DayType } from '../../../core/domain/value-objects/day-type';
 import { JurisdictionCode } from '../../../core/domain/value-objects/jurisdiction-code';
 import { ProceduralRole } from '../../../core/domain/value-objects/procedural-role';

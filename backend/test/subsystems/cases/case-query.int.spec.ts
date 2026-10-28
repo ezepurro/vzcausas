@@ -1,9 +1,9 @@
 import { INestApplication } from '@nestjs/common';
 
 import {
-  CASE_QUERY,
-  CaseQueryPort,
-} from '../../../src/subsystems/cases/core/domain/ports/case-query.port';
+  CASE_REPOSITORY,
+  CaseRepository,
+} from '../../../src/subsystems/cases/core/domain/ports/case.repository';
 import { createClient } from '../../shared/factories/client.factory';
 import { createLawyer } from '../../shared/factories/lawyer.factory';
 import { createLegalQualification } from '../../shared/factories/legal-qualification.factory';
@@ -15,7 +15,7 @@ import { createUser } from '../../shared/factories/user.factory';
 import { getPrisma, startTestApp, stopTestApp } from '../../shared/harness/test-app';
 
 /*
- * Adaptador de lectura de causas (`CaseQueryPrismaAdapter`), HU20 y HU22.
+ * Adaptador de lectura de causas (`PrismaCaseRepository`), HU20 y HU22.
  *
  * Se prueba el PUERTO, no el endpoint: el caso de uso y el controller todavía no
  * existen. Lo que importa verificar acá es lo único que `tsc` no puede mirar —
@@ -29,16 +29,16 @@ import { getPrisma, startTestApp, stopTestApp } from '../../shared/harness/test-
  */
 const day = (iso: string): Date => new Date(`${iso}T00:00:00.000Z`);
 
-describe('CaseQueryPort (adaptador Prisma)', () => {
+describe('CaseRepository (adaptador Prisma)', () => {
   let app: INestApplication;
-  let cases: CaseQueryPort;
+  let cases: CaseRepository;
   let userId: number;
   let lawyerId: number;
   let clientId: number;
 
   beforeAll(async () => {
     app = await startTestApp();
-    cases = app.get<CaseQueryPort>(CASE_QUERY);
+    cases = app.get<CaseRepository>(CASE_REPOSITORY);
   });
 
   afterAll(async () => {
@@ -313,7 +313,7 @@ describe('CaseQueryPort (adaptador Prisma)', () => {
     it('en el estado inicial manda proceduralStateId en null, aunque la columna apunte a la fila real', async () => {
       const created = await aCase();
 
-      const item = await cases.findById(created.id);
+      const item = await cases.findListItemById(created.id);
 
       expect(item?.currentState).toEqual({
         proceduralStateId: null, // la columna tiene el id de "Iniciada"; el contrato pide null
@@ -331,7 +331,7 @@ describe('CaseQueryPort (adaptador Prisma)', () => {
       const created = await aCase();
       await moveTo(created.id, { customState: 'Con acusación, pero con oposición', computed: '2026-10-02' });
 
-      const item = await cases.findById(created.id);
+      const item = await cases.findListItemById(created.id);
 
       expect(item?.currentState.proceduralStateId).toBeNull();
       expect(item?.currentState.custom).toBe(true);
@@ -344,7 +344,7 @@ describe('CaseQueryPort (adaptador Prisma)', () => {
       const created = await aCase();
       const act = await moveTo(created.id, { stateName: 'Alegato', computed: '2026-10-01' });
 
-      const item = await cases.findById(created.id);
+      const item = await cases.findListItemById(created.id);
 
       expect(item?.currentState.proceduralStateId).toBe(act.proceduralStateId);
       expect(item?.currentState.name).toBe('Alegato');
@@ -355,11 +355,11 @@ describe('CaseQueryPort (adaptador Prisma)', () => {
     });
   });
 
-  describe('findById', () => {
+  describe('findListItemById', () => {
     it('trae el cliente y el abogado resueltos, no sus ids', async () => {
       const created = await aCase();
 
-      const item = await cases.findById(created.id);
+      const item = await cases.findListItemById(created.id);
 
       expect(item?.client).toMatchObject({ id: clientId, lastName: 'GÓMEZ', firstName: 'Ariel Fernando' });
       expect(item?.responsibleLawyer).toMatchObject({ id: lawyerId });
@@ -372,8 +372,8 @@ describe('CaseQueryPort (adaptador Prisma)', () => {
       const created = await aCase();
       await getPrisma().case.update({ where: { id: created.id }, data: { active: false } });
 
-      expect(await cases.findById(created.id)).toBeNull();
-      expect(await cases.findById(999999)).toBeNull();
+      expect(await cases.findListItemById(created.id)).toBeNull();
+      expect(await cases.findListItemById(999999)).toBeNull();
     });
 
     it('una causa dada de baja tampoco aparece en el listado', async () => {

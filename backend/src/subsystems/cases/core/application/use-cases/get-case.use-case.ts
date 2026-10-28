@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { CLOCK, ClockPort } from '@shared/domain/clock.port';
 import { CaseNotFoundError } from '../../domain/errors/case.errors';
-import { CASE_QUERY, CaseListItem, CaseQueryPort } from '../../domain/ports/case-query.port';
+import { CASE_REPOSITORY, CaseListItem, CaseRepository } from '../../domain/ports/case.repository';
 import { withDeadlines } from './list-cases.use-case';
 
 /**
@@ -25,12 +25,12 @@ import { withDeadlines } from './list-cases.use-case';
 @Injectable()
 export class GetCase {
   constructor(
-    @Inject(CASE_QUERY) private readonly cases: CaseQueryPort,
+    @Inject(CASE_REPOSITORY) private readonly cases: CaseRepository,
     @Inject(CLOCK) private readonly clock: ClockPort,
   ) {}
 
   async execute(query: { id: number }): Promise<CaseListItem> {
-    const found = await this.cases.findById(query.id);
+    const found = await this.cases.findListItemById(query.id);
     if (found === null) {
       throw new CaseNotFoundError();
     }

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@shared/infrastructure/prisma/prisma.service';
-import { ACTIVE_CASE } from '@subsystems/cases/infrastructure/persistence/case-query-prisma.adapter';
+import { ACTIVE_CASE } from '@subsystems/cases/infrastructure/persistence/prisma/prisma-case.repository';
 import { Prisma } from '../../../../generated/prisma/client';
 import {
   DashboardCaseRow,
@@ -46,7 +46,7 @@ function toCaseRow(row: CaseRow): DashboardCaseRow {
     // A hand-written state wins; otherwise the state of the table, which is
     // "Iniciada" for a case that has no act yet.
     currentStateName: row.currentCustomState ?? row.currentState?.name ?? '',
-    // Same rule as `CaseQueryPrismaAdapter`: the manual due date, if adjusted.
+    // Same rule as `PrismaCaseRepository`: the manual due date, if adjusted.
     dueDate: row.currentProceduralAct
       ? (row.currentProceduralAct.deadlineManualDueDate ?? row.currentProceduralAct.deadlineComputedDueDate)
       : null,

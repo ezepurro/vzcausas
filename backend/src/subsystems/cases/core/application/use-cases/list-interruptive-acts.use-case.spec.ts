@@ -1,10 +1,11 @@
 import { InterruptiveAct } from '../../domain/entities/interruptive-act';
 import { CaseNotFoundError } from '../../domain/errors/case.errors';
-import { InterruptiveActPage, InterruptiveActQueryPort } from '../../domain/ports/interruptive-act-query.port';
+import { InterruptiveActPage, InterruptiveActRepository } from '../../domain/ports/interruptive-act.repository';
+import { UnusedInterruptiveActRepository } from '../../test-support/case-fakes';
 import { NOW, day } from '../../test-support/case-fixtures';
 import { ListInterruptiveActs } from './list-interruptive-acts.use-case';
 
-class SpyActQuery implements InterruptiveActQueryPort {
+class SpyActQuery extends UnusedInterruptiveActRepository {
   existingCases = new Set<number>([1]);
   page: InterruptiveActPage = { items: [], totalItems: 0 };
   listCalls: [number, number, number][] = [];

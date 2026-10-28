@@ -1,5 +1,5 @@
-import { InterruptiveActView } from './interruptive-act-query.port';
-import { ProceduralActView } from './procedural-act-query.port';
+import { InterruptiveActView } from './interruptive-act.repository';
+import { ProceduralActView } from './procedural-act.repository';
 
 /** DI token for {@link CaseTimelineQueryPort}. */
 export const CASE_TIMELINE_QUERY = Symbol('CASE_TIMELINE_QUERY');

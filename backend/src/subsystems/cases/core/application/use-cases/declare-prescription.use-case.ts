@@ -3,7 +3,7 @@ import { AuthenticatedUser } from '@shared/domain/authenticated-user';
 import { CLOCK, ClockPort } from '@shared/domain/clock.port';
 import { CaseInTerminalStateError, CaseNotFoundError } from '../../domain/errors/case.errors';
 import { CASE_REPOSITORY, CaseRepository } from '../../domain/ports/case.repository';
-import { CaseListItem } from '../../domain/ports/case-query.port';
+import { CaseListItem } from '../../domain/ports/case.repository';
 import { LEGAL_PARAMETERS_LOOKUP, LegalParametersLookupPort } from '../../domain/ports/legal-parameters-lookup.port';
 import {
   PrescriptionDeclaration,

@@ -5,7 +5,7 @@ import { InterruptiveAct } from '../../domain/entities/interruptive-act';
 import { CaseNotFoundError, PrescriptionNotApplicableError } from '../../domain/errors/case.errors';
 import { CASE_REPOSITORY, CaseRepository } from '../../domain/ports/case.repository';
 import { INTERRUPTIVE_ACT_REPOSITORY, InterruptiveActRepository } from '../../domain/ports/interruptive-act.repository';
-import { InterruptiveActView } from '../../domain/ports/interruptive-act-query.port';
+import { InterruptiveActView } from '../../domain/ports/interruptive-act.repository';
 import { PEOPLE_LOOKUP, PeopleLookupPort } from '../../domain/ports/people-lookup.port';
 import { JurisdictionCode } from '../../domain/value-objects/jurisdiction-code';
 

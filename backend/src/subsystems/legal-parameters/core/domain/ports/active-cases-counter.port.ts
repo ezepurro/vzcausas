@@ -15,7 +15,7 @@
  * port only asks for the number. Note the rule is **not** simply "active
  * case" — for a procedural state the initial state does not count either, and
  * that asymmetry is documented where it is implemented
- * (`cases/core/domain/ports/case-query.port.ts`, `countActiveByProceduralState`).
+ * (`cases/core/domain/ports/case.repository.ts`, `countActiveByProceduralState`).
  */
 export interface ActiveCasesCounterPort {
   /**

@@ -1,14 +1,15 @@
 import { CaseNotFoundError, ProceduralActNotFoundError } from '../../domain/errors/case.errors';
 import {
   ProceduralActPage,
-  ProceduralActQueryPort,
+  ProceduralActRepository,
   ProceduralActView,
-} from '../../domain/ports/procedural-act-query.port';
+} from '../../domain/ports/procedural-act.repository';
+import { UnusedProceduralActRepository } from '../../test-support/case-fakes';
 import { anAct } from '../../test-support/case-fixtures';
 import { GetProceduralAct } from './get-procedural-act.use-case';
 
 /** Holds acts by id, each with its case: `findInCase` only answers for the right pair. */
-class FakeActQuery implements ProceduralActQueryPort {
+class FakeActQuery extends UnusedProceduralActRepository {
   existingCases = new Set<number>([1, 2]);
   views = new Map<number, ProceduralActView>();
   findCalls = 0;

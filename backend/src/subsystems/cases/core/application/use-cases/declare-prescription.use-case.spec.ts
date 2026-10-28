@@ -4,7 +4,7 @@ import {
   CaseNotFoundError,
   PrescriptionNotApplicableError,
 } from '../../domain/errors/case.errors';
-import { CaseListItem } from '../../domain/ports/case-query.port';
+import { CaseListItem } from '../../domain/ports/case.repository';
 import { FakeCaseRepository, FakeClock, FakeLegalParametersLookup } from '../../test-support/case-fakes';
 import {
   INITIAL_STATES,

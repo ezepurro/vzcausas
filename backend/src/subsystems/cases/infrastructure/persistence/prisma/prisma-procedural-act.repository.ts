@@ -1,12 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@shared/infrastructure/prisma/prisma.service';
-import { Prisma } from '../../../../generated/prisma/client';
+import { ProceduralAct } from '../../../core/domain/entities/procedural-act';
+import { Prisma } from '../../../../../generated/prisma/client';
 import {
   ProceduralActPage,
-  ProceduralActQueryPort,
+  ProceduralActRepository,
   ProceduralActView,
-} from '../../core/domain/ports/procedural-act-query.port';
-import { ProceduralActPrismaMapper } from './procedural-act-prisma.mapper';
+} from '../../../core/domain/ports/procedural-act.repository';
+import { ProceduralActPrismaMapper } from '../mappers/procedural-act-prisma.mapper';
 
 /**
  * The two relations an act only holds as ids. Neither is filtered by
@@ -24,8 +25,19 @@ type ActRow = Prisma.ProceduralActGetPayload<{ include: typeof ACT_INCLUDE }>;
 const NEWEST_FIRST: Prisma.ProceduralActOrderByWithRelationInput[] = [{ actDate: 'desc' }, { id: 'desc' }];
 
 @Injectable()
-export class ProceduralActQueryPrismaAdapter implements ProceduralActQueryPort {
+export class PrismaProceduralActRepository implements ProceduralActRepository {
   constructor(private readonly prisma: PrismaService) {}
+
+  async nextId(): Promise<number> {
+    const [{ nextval }] = await this.prisma.db.$queryRaw<[{ nextval: bigint }]>`
+      SELECT nextval(pg_get_serial_sequence('procedural_acts', 'id'))
+    `;
+    return Number(nextval);
+  }
+
+  async save(act: ProceduralAct): Promise<void> {
+    await this.prisma.db.proceduralAct.create({ data: ProceduralActPrismaMapper.toCreateData(act) });
+  }
 
   async caseExists(caseId: number): Promise<boolean> {
     const row = await this.prisma.db.case.findFirst({

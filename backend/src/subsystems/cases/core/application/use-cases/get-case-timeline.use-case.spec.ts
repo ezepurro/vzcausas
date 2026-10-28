@@ -5,8 +5,8 @@ import {
   CaseTimelineSources,
   PrescriptionDeclarationView,
 } from '../../domain/ports/case-timeline-query.port';
-import { InterruptiveActView } from '../../domain/ports/interruptive-act-query.port';
-import { ProceduralActView } from '../../domain/ports/procedural-act-query.port';
+import { InterruptiveActView } from '../../domain/ports/interruptive-act.repository';
+import { ProceduralActView } from '../../domain/ports/procedural-act.repository';
 import { anAct, day } from '../../test-support/case-fixtures';
 import { GetCaseTimeline, TimelineEntry } from './get-case-timeline.use-case';
 

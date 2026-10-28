@@ -1,17 +1,17 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@shared/infrastructure/prisma/prisma.service';
-import { CaseTimelineQueryPort, CaseTimelineSources } from '../../core/domain/ports/case-timeline-query.port';
+import { CaseTimelineQueryPort, CaseTimelineSources } from '../../../core/domain/ports/case-timeline-query.port';
 import {
   INTERRUPTIVE_ACT_INCLUDE,
   INTERRUPTIVE_ACTS_NEWEST_FIRST,
   toInterruptiveActView,
-} from './interruptive-act-query-prisma.adapter';
-import { PRESCRIPTION_DECLARATION_SELECT, toPrescriptionDeclarationView } from './prescription-declaration-prisma.mapper';
+} from './prisma-interruptive-act.repository';
+import { PRESCRIPTION_DECLARATION_SELECT, toPrescriptionDeclarationView } from '../mappers/prescription-declaration-prisma.mapper';
 import {
   PROCEDURAL_ACT_INCLUDE,
   PROCEDURAL_ACTS_NEWEST_FIRST,
   toProceduralActView,
-} from './procedural-act-query-prisma.adapter';
+} from './prisma-procedural-act.repository';
 
 /** What the line of life needs from the case row itself: its current act and its prescription declaration. */
 const CASE_SELECT = {
@@ -23,7 +23,7 @@ const CASE_SELECT = {
  * Prisma-backed {@link CaseTimelineQueryPort} (HU27).
  *
  * The acts are read with the same include and mapping as their own listings
- * (`ProceduralActQueryPrismaAdapter`, `InterruptiveActQueryPrismaAdapter`), so
+ * (`PrismaProceduralActRepository`, `PrismaInterruptiveActRepository`), so
  * an entry of the line of life cannot differ from the act it shows. Unlike
  * those listings, nothing here is paginated: the line of life must be complete.
  */
