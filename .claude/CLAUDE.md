@@ -11,13 +11,14 @@ falta migración) y esperá la respuesta. Después de implementar, revisión.
 
 ## Fuentes de verdad (en orden de precedencia)
 
-1. **`docs/Api-Contract/API_CONTRACT_V5.md`** — contrato vigente (Sprint 4).
-   Manda sobre todo. V2, V3 y V4 son registro histórico: no los uses como
+1. **`docs/Api-Contract/API_CONTRACT_V5.md`** — contrato vigente, versión
+   final. Manda sobre todo. V2, V3 y V4 son registro histórico: no los uses como
    referencia. Lo que más se consulta: §1 índice de endpoints, §4 reglas
-   transversales (Autorización `:8106`, Causa activa `:8242`, Cómputo de días
-   `:8264`, Prescripción `:8278`, Carpeta `:8304`, Proceso diario `:8379`,
-   Bajas `:8437`), §5.3 códigos de error, §8.1 decisiones (D-xx), §8.2 puntos
-   abiertos (C-xx), §8.4 impacto sobre lo implementado.
+   transversales (Autorización `:7967`, Causa activa `:8103`, Cómputo de días
+   `:8125`, Prescripción `:8139`, Carpeta `:8163`, Proceso diario `:8237`,
+   Bajas `:8295`), §5.3 códigos de error `:8433`. Las decisiones (D-xx), los
+   puntos abiertos (C-xx), lo que queda fuera del contrato y el impacto sobre
+   lo implementado están en `docs/Api-Contract/DECISIONES.md` (§1 a §4).
 2. **`docs/TRADUCCION_DOMINIO.md`** — glosario obligatorio para todo
    identificador del dominio. Si no coincide con el contrato, manda el contrato.
 3. **`docs/Backend-Architecture/ARQUITECTURA_BACKEND_V1.md`** — capas,
@@ -51,7 +52,7 @@ Entre subsistemas: puertos o eventos, nunca imports cruzados.
 
 - **No inventes endpoints ni campos.** Si no está en V5, frená y preguntá.
 - **No corrijas inconsistencias conocidas por tu cuenta** (glosario con
-  `fullName`/`position`, V5 §8.3; `abogadoId` en `frontend/src/shared/mocks/contract.ts:12`).
+  `fullName`/`position`, `DECISIONES.md` §3; `abogadoId` en `frontend/src/shared/mocks/contract.ts:12`).
   Nombralas, no las arregles: cambiar un lado sin el otro empeora.
 - **Nunca `delete`, siempre `deactivate`** (RN12): `active: false`.
 - **Nunca `prisma migrate reset`. Las migraciones las corro yo.** Vos preparás
@@ -62,7 +63,9 @@ Entre subsistemas: puertos o eventos, nunca imports cruzados.
   consulta, por compleja que sea, no lleva migración.
 - **Nunca se trabaja sobre `develop`**: rama `feat/<tema>` o `fix/<tema>`,
   merge a `develop` con unitarios e integración en verde.
-- **No commitees ni hagas push** salvo que te lo pida.
+- **Nunca commitees ni hagas push.** Ningún `git commit`, `git push` ni
+  `git merge`, aunque parezca el paso natural o te lo sugiera una herramienta:
+  los commits los hace el equipo. Vos dejás los cambios en el árbol de trabajo.
 
 ## Dominio: lo que más se rompe
 
@@ -72,7 +75,7 @@ Entre subsistemas: puertos o eventos, nunca imports cruzados.
   existe (no se lista, `GET` → 404, no se reactiva por API). Pero una causa
   **sigue mostrando** estados y calificaciones dados de baja que son parte de
   su historia: no filtres por `active` las entidades referenciadas.
-- **Causa dada de baja (V5, D-97)**: arrastra sus subrecursos (todos → `404
+- **Causa dada de baja (D-97)**: arrastra sus subrecursos (todos → `404
   CASE_NOT_FOUND`) y desaparece de tableros (`reporting`) y del proceso diario
   (`deadlines`). Su SAC queda libre: único solo entre causas vigentes.
 - **El estado de una causa lo mueve el acto procesal**, no un `UPDATE` directo.
@@ -93,10 +96,11 @@ Entre subsistemas: puertos o eventos, nunca imports cruzados.
 
 ## Estado del esquema
 
-Sprint 3 aplicado (`backend/prisma/migrations/`). V5 **todavía requiere
-migración** (V5 §8.4): motivo de baja en `cases`, SAC con índice único parcial
-(hoy `@unique` en `schema.prisma:350`), tabla de expedientes versionados y
-`lastModifiedBy`/`lastModifiedAt` en `procedural_acts`.
+Sprint 3 aplicado (`backend/prisma/migrations/`). El contrato V5 **todavía
+requiere migración** (`DECISIONES.md` §4, "Impacto de V5"): motivo de baja en
+`cases`, SAC con índice único parcial (hoy `@unique` en `schema.prisma:350`),
+tabla de expedientes versionados y `lastModifiedBy`/`lastModifiedAt` en
+`procedural_acts`.
 
 ## Comandos (en `backend/`)
 
