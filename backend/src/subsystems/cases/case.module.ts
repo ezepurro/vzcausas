@@ -47,12 +47,12 @@ import { CaseHttpMapper } from './infrastructure/http/mappers/case-http.mapper';
 import { InterruptiveActHttpMapper } from './infrastructure/http/mappers/interruptive-act-http.mapper';
 import { ProceduralActHttpMapper } from './infrastructure/http/mappers/procedural-act-http.mapper';
 import { TimelineHttpMapper } from './infrastructure/http/mappers/timeline-http.mapper';
-import { CaseFolderStatePrismaAdapter } from './infrastructure/persistence/prisma/case-folder-state-prisma.adapter';
+import { PrismaCaseFolderStateAdapter } from './infrastructure/persistence/prisma/prisma-case-folder-state.adapter';
 import { PrismaCaseRepository } from './infrastructure/persistence/prisma/prisma-case.repository';
 import { CaseTimelinePrismaAdapter } from './infrastructure/persistence/prisma/case-timeline-prisma.adapter';
 import { CriminalPrescriptionQueryPrismaAdapter } from './infrastructure/persistence/prisma/criminal-prescription-query-prisma.adapter';
 import { PrismaInterruptiveActRepository } from './infrastructure/persistence/prisma/prisma-interruptive-act.repository';
-import { OpenDeadlineQueryPrismaAdapter } from './infrastructure/persistence/prisma/open-deadline-query-prisma.adapter';
+import { PrismaOpenDeadlineQueryAdapter } from './infrastructure/persistence/prisma/prisma-open-deadline-query.adapter';
 import { PrismaProceduralActRepository } from './infrastructure/persistence/prisma/prisma-procedural-act.repository';
 
 /**
@@ -69,9 +69,9 @@ import { PrismaProceduralActRepository } from './infrastructure/persistence/pris
  * escritura, pero sus métodos de lectura proyectan a un modelo de lectura
  * (`CaseListItem`) en vez de reconstruir el agregado: el recurso junta datos de cinco tablas que la entidad `Case` no
  * tiene, y resolverlos de a uno por causa sería un N+1 de unas cien consultas
- * por página. El orden por urgencia necesita SQL crudo porque el `orderBy` de
- * Prisma no sabe expresar un `COALESCE` de dos columnas; el motivo está en
- * `PrismaCaseRepository`.
+ * por página. El orden por urgencia lo hace `ListCases` en memoria, porque el
+ * `orderBy` de Prisma no sabe expresar un `COALESCE` de dos columnas; el
+ * motivo está en `PrismaCaseRepository`.
  *
  * Los tres endpoints de lectura y el `POST` comparten `CaseHttpMapper`: el
  * contrato exige que devuelvan el mismo recurso (§3.7), y un solo mapeo es lo
@@ -109,7 +109,7 @@ import { PrismaProceduralActRepository } from './infrastructure/persistence/pris
     // Used by the registration and by `POST /cases/{caseId}/folder`.
     RequestCaseFolder,
     CaseFolderOutcomeListener,
-    { provide: CASE_FOLDER_STATE, useClass: CaseFolderStatePrismaAdapter },
+    { provide: CASE_FOLDER_STATE, useClass: PrismaCaseFolderStateAdapter },
     { provide: CASE_FOLDER_OUTCOMES, useClass: InMemoryCaseFolderOutcomes },
     {
       // How long a request waits for the folder before answering `CREATING`.
@@ -160,7 +160,7 @@ import { PrismaProceduralActRepository } from './infrastructure/persistence/pris
     // HU51: los vencimientos abiertos de las causas activas, para la
     // verificación diaria de `deadlines` (V-04, V-05). Solo se exporta el token.
     ListOpenDeadlines,
-    { provide: OPEN_DEADLINE_QUERY, useClass: OpenDeadlineQueryPrismaAdapter },
+    { provide: OPEN_DEADLINE_QUERY, useClass: PrismaOpenDeadlineQueryAdapter },
     { provide: OPEN_DEADLINES, useClass: DeadlinesOpenDeadlinesAdapter },
   ],
   exports: [ActiveCasesCounterPort, PeopleActiveCasesCounterPort, PRESCRIPTION_STATUS, OPEN_DEADLINES],

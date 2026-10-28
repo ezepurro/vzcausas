@@ -4,7 +4,7 @@ import { Case } from '../domain/entities/cases';
 import { InterruptiveAct } from '../domain/entities/interruptive-act';
 import { ProceduralAct } from '../domain/entities/procedural-act';
 import { DeadlineCalculatorPort } from '../domain/ports/deadline-calculator.port';
-import { CaseListItem, CasePage, CaseRepository, CaseSearchCriteria } from '../domain/ports/case.repository';
+import { CaseDueDateKey, CaseListItem, CaseRepository, CaseSearchFilters } from '../domain/ports/case.repository';
 import { InterruptiveActPage, InterruptiveActRepository } from '../domain/ports/interruptive-act.repository';
 import { ProceduralActPage, ProceduralActRepository, ProceduralActView } from '../domain/ports/procedural-act.repository';
 import {
@@ -65,8 +65,12 @@ export abstract class UnusedCaseRepository implements CaseRepository {
     throw new Error('Este spec no usa saveDeclaredPrescription de CaseRepository.');
   }
 
-  async search(_criteria: CaseSearchCriteria): Promise<CasePage> {
-    throw new Error('Este spec no usa search de CaseRepository.');
+  async findDueDateKeys(_filters: CaseSearchFilters): Promise<CaseDueDateKey[]> {
+    throw new Error('Este spec no usa findDueDateKeys de CaseRepository.');
+  }
+
+  async findListItemsByIds(_ids: readonly number[]): Promise<CaseListItem[]> {
+    throw new Error('Este spec no usa findListItemsByIds de CaseRepository.');
   }
 
   async findListItemById(_id: number): Promise<CaseListItem | null> {

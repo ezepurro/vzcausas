@@ -4,10 +4,10 @@ import { Prisma } from '../../../../../generated/prisma/client';
 import { DayType as PrismaDayType, ProceduralRole as PrismaProceduralRole } from '../../../../../generated/prisma/enums';
 import { Case } from '../../../core/domain/entities/cases';
 import {
+  CaseDueDateKey,
   CaseListItem,
-  CasePage,
   CaseRepository,
-  CaseSearchCriteria,
+  CaseSearchFilters,
 } from '../../../core/domain/ports/case.repository';
 import { ProceduralStateRef } from '../../../core/domain/ports/legal-parameters-lookup.port';
 import { addPrescriptionMonths, prescriptionStartsOn } from '../../../core/domain/prescription';
@@ -55,21 +55,14 @@ type CaseRow = Prisma.CaseGetPayload<{ include: typeof CASE_INCLUDE }>;
  * aggregate through {@link CasePrismaMapper}; reading projects straight to
  * {@link CaseListItem} to show it.
  *
- * **Why `search` costs two queries.** The order of CA-20.1 is by the case's
- * live due date, which is `COALESCE(deadline_manual_due_date,
+ * **Why the listing is two reads and orders nothing.** The order of CA-20.1 is
+ * by the case's live due date, `COALESCE(deadline_manual_due_date,
  * deadline_computed_due_date)` on the act that set the current state. Prisma's
- * `orderBy` can sort by a related column, but it cannot express a `COALESCE`
- * of two of them — and ordering by one column and then the other is not an
- * approximation, it is wrong: a case whose manual date is null never gets its
- * computed date compared against another case's manual date.
- *
- * So the ordering goes to SQL and nothing else does. The first query returns
- * **only ids**, ordered and paged; the second is ordinary Prisma with the
- * relations. Keeping the hand-written SQL down to one column is what keeps a
- * mistyped column name obvious, and it leaves the joins and the typing to
- * Prisma. The alternative that needs no SQL at all is denormalising the due
- * date onto `cases`, which costs a migration and a column that only the act
- * registration (HU26) can maintain.
+ * `orderBy` cannot express a `COALESCE` of two columns, and ordering by one
+ * and then the other is not an approximation, it is wrong. So the order is not
+ * the query's: {@link findDueDateKeys} returns the id and due date of every
+ * matching case, `ListCases` orders and pages them, and
+ * {@link findListItemsByIds} reads the resource for that page only.
  */
 @Injectable()
 export class PrismaCaseRepository implements CaseRepository {
@@ -236,68 +229,77 @@ export class PrismaCaseRepository implements CaseRepository {
     return count === 1;
   }
 
-  async search(criteria: CaseSearchCriteria): Promise<CasePage> {
-    const { page, limit } = criteria;
-    const offset = (page - 1) * limit;
-
-    const state = criteria.state;
-    const proceduralStateId = state?.kind === 'proceduralState' ? state.proceduralStateId : null;
-    const customState = state?.kind === 'custom' ? state.customState : null;
-    const withoutProceduralActs = state?.kind === 'withoutProceduralActs' ? true : null;
-    const search = criteria.search?.trim() || null;
-
-    // Every filter is a parameter that disables its own clause when null, so
-    // the statement is a single fixed string: nothing is concatenated, so
-    // there is nothing to inject. `COUNT(*) OVER ()` is evaluated before
-    // `LIMIT`, so it yields the total of the filtered set, not of the page —
-    // which is why this does not need a third query.
-    const rows = await this.prisma.db.$queryRaw<{ id: number; total: bigint }[]>`
-      SELECT c.id, COUNT(*) OVER () AS total
-      FROM cases c
-      LEFT JOIN procedural_acts   a  ON a.id             = c.current_procedural_act_id
-      LEFT JOIN procedural_states s  ON s.state_id       = c.current_state_id
-      LEFT JOIN jurisdictions     j  ON j.jurisdiction_id = c.jurisdiction_id
-      LEFT JOIN clients           cl ON cl.id            = c.client_id
-      WHERE c.active = true
-        AND (${search}::text IS NULL
-             OR c.sac_number ILIKE '%' || ${search} || '%'
-             OR c.caption    ILIKE '%' || ${search} || '%'
-             OR cl.last_name ILIKE '%' || ${search} || '%'
-             OR cl.first_name ILIKE '%' || ${search} || '%')
-        AND (${criteria.jurisdiction ?? null}::text IS NULL OR j.name = ${criteria.jurisdiction ?? null})
-        AND (${criteria.responsibleLawyerId ?? null}::int IS NULL
-             OR c.responsible_lawyer_id = ${criteria.responsibleLawyerId ?? null})
-        AND (${criteria.clientId ?? null}::int IS NULL OR c.client_id = ${criteria.clientId ?? null})
-        AND (${criteria.openDeadline ?? null}::boolean IS NOT TRUE
-             OR COALESCE(a.deadline_manual_due_date, a.deadline_computed_due_date) IS NOT NULL)
-        AND (${proceduralStateId}::int IS NULL OR c.current_state_id = ${proceduralStateId})
-        AND (${customState}::text IS NULL OR lower(c.current_custom_state) = lower(${customState}))
-        AND (${withoutProceduralActs}::boolean IS NOT TRUE OR s.is_initial = true)
-      ORDER BY COALESCE(a.deadline_manual_due_date, a.deadline_computed_due_date) ASC NULLS LAST,
-               c.id ASC
-      LIMIT ${limit} OFFSET ${offset}
-    `;
-
-    if (rows.length === 0) {
-      return { items: [], totalItems: 0 };
-    }
-
-    const ids = rows.map((row) => row.id);
-    const found = await this.prisma.db.case.findMany({
-      where: { id: { in: ids } },
-      include: CASE_INCLUDE,
+  async findDueDateKeys(filters: CaseSearchFilters): Promise<CaseDueDateKey[]> {
+    const rows = await this.prisma.db.case.findMany({
+      where: PrismaCaseRepository.searchWhere(filters),
+      select: {
+        id: true,
+        currentProceduralAct: { select: { deadlineManualDueDate: true, deadlineComputedDueDate: true } },
+      },
     });
 
-    // `WHERE id IN (...)` does not preserve the order of the list, so the
-    // order the database already decided is restored here. This is not a sort:
-    // it is a lookup by the position the first query assigned.
-    const byId = new Map(found.map((row) => [row.id, row]));
-    const items = ids
-      .map((id) => byId.get(id))
-      .filter((row): row is NonNullable<typeof row> => row !== undefined)
-      .map((row) => toListItem(row));
+    return rows.map((row) => {
+      const act = row.currentProceduralAct;
+      return { id: row.id, dueDate: act ? (act.deadlineManualDueDate ?? act.deadlineComputedDueDate) : null };
+    });
+  }
 
-    return { items, totalItems: Number(rows[0].total) };
+  async findListItemsByIds(ids: readonly number[]): Promise<CaseListItem[]> {
+    if (ids.length === 0) {
+      return [];
+    }
+    // As in `findListItemById`: the case itself must be active, its relations
+    // are not filtered (§4, Bajas).
+    const rows = await this.prisma.db.case.findMany({
+      where: { id: { in: [...ids] }, active: true },
+      include: CASE_INCLUDE,
+    });
+    return rows.map((row) => toListItem(row));
+  }
+
+  /**
+   * The `WHERE` of `GET /cases` (§3.7). A filter that was not sent adds no
+   * condition. `mode: 'insensitive'` is PostgreSQL's `ILIKE`: case does not
+   * matter, accents do (decided with mmachuca on 07/10/2026; ignoring them
+   * needs the `unaccent` extension).
+   *
+   * Every relation filter also drops the cases without that relation, the way
+   * the old SQL's `LEFT JOIN` + `WHERE` did: `openDeadline` drops a case with no
+   * current act, `withoutProceduralActs` one with no table state.
+   */
+  private static searchWhere(filters: CaseSearchFilters): Prisma.CaseWhereInput {
+    const { state } = filters;
+    const search = filters.search?.trim();
+    const matches = { contains: search, mode: 'insensitive' } as const;
+
+    return {
+      active: true,
+      ...(search
+        ? {
+            OR: [
+              { sacNumber: matches },
+              { caption: matches },
+              { client: { lastName: matches } },
+              { client: { firstName: matches } },
+            ],
+          }
+        : {}),
+      ...(filters.jurisdiction !== undefined ? { jurisdiction: { name: filters.jurisdiction } } : {}),
+      ...(filters.responsibleLawyerId !== undefined ? { responsibleLawyerId: filters.responsibleLawyerId } : {}),
+      ...(filters.clientId !== undefined ? { clientId: filters.clientId } : {}),
+      // Overdue ones included: any due date, past or not.
+      ...(filters.openDeadline === true
+        ? {
+            currentProceduralAct: {
+              OR: [{ deadlineManualDueDate: { not: null } }, { deadlineComputedDueDate: { not: null } }],
+            },
+          }
+        : {}),
+      ...(state?.kind === 'proceduralState' ? { currentStateId: state.proceduralStateId } : {}),
+      // Exact match, ignoring case (CA-20.4).
+      ...(state?.kind === 'custom' ? { currentCustomState: { equals: state.customState, mode: 'insensitive' } } : {}),
+      ...(state?.kind === 'withoutProceduralActs' ? { currentState: { isInitial: true } } : {}),
+    };
   }
 
   async findListItemById(id: number): Promise<CaseListItem | null> {
@@ -482,7 +484,7 @@ function fill(
  * el 21/10/2026 en `fix/cases-contract-v4`, sin implementar y sin test): el
  * detalle y el listado ya lo devuelven, pero **no** ordenan ni filtran por
  * `harmfulActDeadline.dueDate` (D-82, `API_CONTRACT_V4.md:3719-3725` y `:7402`;
- * `openDeadline`). El orden lo resuelve el SQL de `search`, y ese vencimiento
+ * `openDeadline`). El orden lo resuelve `ListCases` (`byUrgency`), y ese vencimiento
  * depende de hoy (renovaciones, días hábiles): resolverlo es decidir dónde vive
  * esa regla, no solo una consulta. Los tableros del abogado
  * y del administrador (`reporting`, `GET /dashboards/*`) no lo cuentan: cada
@@ -494,10 +496,11 @@ function fill(
  * vencimiento del acto lesivo, así que mientras esto siga pendiente el correo
  * avisa un amparo que el orden por urgencia y `openDeadline` no consideran
  * (CA-51.9). El vencimiento no está guardado —depende de hoy y de las
- * renovaciones—, así que el `ORDER BY` de `search` no lo puede leer de una
- * columna: o se ordena en memoria con `harmfulActOf` + `HarmfulAct.deadline`
- * (exportados para eso, ver `list-cases.use-case.ts`), o se reescribe la regla
- * en SQL, y entonces son dos copias. Ver `IMPLEMENTACION_DETECCION.md`, B4.
+ * renovaciones—, así que no se puede leer de una columna. Desde que el orden
+ * se hace en memoria (`ListCases.byUrgency`), sumarlo no exige reescribir la
+ * regla en SQL: alcanza con `harmfulActOf` + `HarmfulAct.deadline` en el caso
+ * de uso. El filtro `openDeadline` sí sigue en la consulta. Ver
+ * `IMPLEMENTACION_DETECCION.md`, B4.
  */
 function toListItem(row: CaseRow): CaseListItem {
   const act = row.currentProceduralAct;

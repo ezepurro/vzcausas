@@ -1,8 +1,9 @@
 import {
+  CaseDueDateKey,
   CaseListItem,
-  CasePage,
   CaseRepository,
   CaseSearchCriteria,
+  CaseSearchFilters,
 } from '../../domain/ports/case.repository';
 import { JurisdictionCode } from '../../domain/value-objects/jurisdiction-code';
 import { ProceduralRole } from '../../domain/value-objects/procedural-role';
@@ -10,31 +11,34 @@ import { UnusedCaseRepository } from '../../test-support/case-fakes';
 import { CLIENT, LAWYER, day } from '../../test-support/case-fixtures';
 import { ListCases } from './list-cases.use-case';
 
-/** Records the criteria it was asked for, so the spec can assert what travelled. */
+/**
+ * Holds the cases that match the filters, in the order given — **not** the
+ * urgency order, which is the use case's to decide. Records what it was asked
+ * for, so the spec can assert what travelled.
+ */
 class SpyCaseQuery extends UnusedCaseRepository implements CaseRepository {
-  lastCriteria: CaseSearchCriteria | null = null;
+  lastFilters: CaseSearchFilters | null = null;
+  idsAskedFor: number[][] = [];
 
-  constructor(private readonly page: CasePage = { items: [], totalItems: 0 }) {
+  constructor(private readonly matching: CaseListItem[] = []) {
     super();
   }
 
-  async search(criteria: CaseSearchCriteria): Promise<CasePage> {
-    this.lastCriteria = criteria;
-    return this.page;
+  async findDueDateKeys(filters: CaseSearchFilters): Promise<CaseDueDateKey[]> {
+    this.lastFilters = filters;
+    return this.matching.map((item) => ({ id: item.id, dueDate: item.currentState.dueDate }));
   }
 
-  async findListItemById(): Promise<CaseListItem | null> {
-    return null;
-  }
-
-  async listCustomStates(): Promise<string[]> {
-    return [];
+  async findListItemsByIds(ids: readonly number[]): Promise<CaseListItem[]> {
+    this.idsAskedFor.push([...ids]);
+    // Reversed on purpose: the repository promises no order.
+    return this.matching.filter((item) => ids.includes(item.id)).reverse();
   }
 }
 
-function anItem(dueDate: Date | null): CaseListItem {
+function anItem(dueDate: Date | null, id = 1): CaseListItem {
   return {
-    id: 1,
+    id,
     sacNumber: '12345678',
     caption: 'CAUSA',
     court: null,
@@ -85,7 +89,7 @@ const page = { page: 1, limit: 20 };
 
 describe('ListCases', () => {
   it('completa businessDaysRemaining contra la fecha de hoy', async () => {
-    const query = new SpyCaseQuery({ items: [anItem(day('2026-09-16'))], totalItems: 1 });
+    const query = new SpyCaseQuery([anItem(day('2026-09-16'))]);
     const useCase = new ListCases(query, clockOn('2026-09-15'));
 
     const result = await useCase.execute(page);
@@ -95,7 +99,7 @@ describe('ListCases', () => {
   });
 
   it('devuelve negativo cuando el plazo ya venció', async () => {
-    const query = new SpyCaseQuery({ items: [anItem(day('2026-09-11'))], totalItems: 1 });
+    const query = new SpyCaseQuery([anItem(day('2026-09-11'))]);
     const useCase = new ListCases(query, clockOn('2026-09-15'));
 
     const result = await useCase.execute(page);
@@ -104,7 +108,7 @@ describe('ListCases', () => {
   });
 
   it('deja businessDaysRemaining en null cuando la causa no tiene vencimiento', async () => {
-    const query = new SpyCaseQuery({ items: [anItem(null)], totalItems: 1 });
+    const query = new SpyCaseQuery([anItem(null)]);
     const useCase = new ListCases(query, clockOn('2026-09-15'));
 
     const result = await useCase.execute(page);
@@ -114,7 +118,7 @@ describe('ListCases', () => {
 
   it('no toca ningún otro campo del recurso', async () => {
     const original = anItem(day('2026-09-16'));
-    const query = new SpyCaseQuery({ items: [original], totalItems: 1 });
+    const query = new SpyCaseQuery([original]);
     const useCase = new ListCases(query, clockOn('2026-09-15'));
 
     const [item] = (await useCase.execute(page)).items;
@@ -123,14 +127,7 @@ describe('ListCases', () => {
     expect({ ...item.currentState, businessDaysRemaining: null }).toEqual(original.currentState);
   });
 
-  it('pasa el total tal como lo devuelve el puerto', async () => {
-    const query = new SpyCaseQuery({ items: [], totalItems: 42 });
-    const useCase = new ListCases(query, clockOn('2026-09-15'));
-
-    expect((await useCase.execute(page)).totalItems).toBe(42);
-  });
-
-  it('reenvía los criterios al puerto sin agregar filtros propios', async () => {
+  it('reenvía los filtros al puerto sin agregar filtros propios', async () => {
     // RN11: el caso de uso NO puede agregar un filtro por el usuario autenticado.
     const query = new SpyCaseQuery();
     const useCase = new ListCases(query, clockOn('2026-09-15'));
@@ -143,7 +140,61 @@ describe('ListCases', () => {
 
     await useCase.execute(criteria);
 
-    expect(query.lastCriteria).toEqual(criteria);
+    // La página no viaja: ordenar y paginar es de este caso de uso.
+    expect(query.lastFilters).toEqual({
+      search: 'gómez',
+      responsibleLawyerId: 3,
+      state: { kind: 'withoutProceduralActs' },
+    });
+  });
+});
+
+describe('ListCases: orden por urgencia y paginación (CA-20.1)', () => {
+  const clock = clockOn('2026-09-15');
+
+  it('ordena por vencimiento ascendente, con las vencidas primero y las sin vencimiento al final, por id', async () => {
+    const query = new SpyCaseQuery([
+      anItem(null, 5),
+      anItem(day('2026-12-01'), 2),
+      anItem(null, 3),
+      anItem(day('2026-09-11'), 4), // ya vencida: la fecha más chica
+      anItem(day('2026-12-01'), 1), // mismo vencimiento que la 2: desempata el id
+    ]);
+
+    const { items } = await new ListCases(query, clock).execute(page);
+
+    expect(items.map((item) => item.id)).toEqual([4, 1, 2, 3, 5]);
+  });
+
+  it('devuelve la página pedida y el total del conjunto filtrado, no el de la página', async () => {
+    const query = new SpyCaseQuery([anItem(null, 1), anItem(null, 2), anItem(null, 3)]);
+    const useCase = new ListCases(query, clock);
+
+    const primera = await useCase.execute({ page: 1, limit: 2 });
+    const segunda = await useCase.execute({ page: 2, limit: 2 });
+
+    expect(primera).toMatchObject({ totalItems: 3 });
+    expect(primera.items.map((item) => item.id)).toEqual([1, 2]);
+    expect(segunda).toMatchObject({ totalItems: 3 });
+    expect(segunda.items.map((item) => item.id)).toEqual([3]);
+  });
+
+  it('pide al repositorio solo las causas de la página', async () => {
+    const query = new SpyCaseQuery([anItem(null, 1), anItem(null, 2), anItem(null, 3)]);
+
+    await new ListCases(query, clock).execute({ page: 2, limit: 2 });
+
+    expect(query.idsAskedFor).toEqual([[3]]);
+  });
+
+  it('sin causas, o con una página fuera de rango, no pide el recurso y devuelve el total real', async () => {
+    const vacio = new SpyCaseQuery();
+    const tres = new SpyCaseQuery([anItem(null, 1), anItem(null, 2), anItem(null, 3)]);
+
+    expect(await new ListCases(vacio, clock).execute(page)).toEqual({ items: [], totalItems: 0 });
+    expect(await new ListCases(tres, clock).execute({ page: 5, limit: 2 })).toEqual({ items: [], totalItems: 3 });
+    expect(vacio.idsAskedFor).toEqual([]);
+    expect(tres.idsAskedFor).toEqual([]);
   });
 });
 
@@ -158,7 +209,7 @@ describe('ListCases: prescription (V4 §3.7)', () => {
   };
 
   async function listOne(item: CaseListItem) {
-    const useCase = new ListCases(new SpyCaseQuery({ items: [item], totalItems: 1 }), clockOn('2026-09-15'));
+    const useCase = new ListCases(new SpyCaseQuery([item]), clockOn('2026-09-15'));
     return (await useCase.execute(page)).items[0];
   }
 

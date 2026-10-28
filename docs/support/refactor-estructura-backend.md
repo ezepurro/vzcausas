@@ -90,12 +90,26 @@ entidades. Los adaptadores, además, no seguían la convención
   error. Cada doble la extiende y sobrescribe solo lo que su spec usa, así que
   una llamada inesperada falla en vez de devolver un vacío que pase el test.
   Reemplaza a `CaseQueryCountsUnused`, que hacía lo mismo solo para los conteos.
+- `search` dejó de usar SQL a mano. El único motivo del SQL era el orden por
+  urgencia (CA-20.1): el vencimiento vigente es un `COALESCE` de dos fechas del
+  acto actual, y el `orderBy` de Prisma no lo puede expresar. Ahora el puerto
+  tiene dos métodos con ORM: `findDueDateKeys(filtros)` devuelve id y
+  vencimiento de **todas** las causas que cumplen los filtros, y
+  `findListItemsByIds(ids)` trae el recurso de la página. Ordenar y paginar
+  pasó a `ListCases` (`byUrgency`), donde se testea sin base. A cambio, cada
+  pedido del listado lee id y dos fechas de todas las causas filtradas, cosa
+  razonable para el volumen de un estudio.
+- Los adaptadores de folders y de vencimientos abiertos se renombraron a la
+  convención: `prisma-case-folder-state.adapter.ts` y
+  `prisma-open-deadline-query.adapter.ts`.
 
-**Pendiente.** Cuatro puertos de `cases` quedaron afuera de la unificación:
-`CaseTimelineQueryPort`, `CriminalPrescriptionQueryPort`,
-`OpenDeadlineQueryPort` y `CaseFolderStatePort`. Los tres primeros son lecturas
-con un único consumidor cada una. `CaseFolderStatePort` escribe sobre `cases`,
-lo usan tres clases y es la compuerta que impide pedir dos carpetas para la
-misma causa. La idea es sumarlos también a `CaseRepository`,
-pero se decide aparte. Sus adaptadores todavía no siguen la convención de
-nombres.
+**Cambio de comportamiento menor.** Antes, una página fuera de rango respondía
+`totalItems: 0`, porque el total salía de `COUNT(*) OVER ()` sobre las filas
+de la página. Ahora responde el total real del conjunto filtrado.
+
+**Pendiente.** Tres puertos de lectura de `cases` siguen fuera de
+`CaseRepository`: `CaseTimelineQueryPort`, `CriminalPrescriptionQueryPort`
+y `OpenDeadlineQueryPort`, además de `CaseFolderStatePort`. Si se suman o no
+se decide con el equipo (contradice V-08 de `IMPLEMENTACION_DETECCION.md`). Los
+adaptadores del timeline y de la prescripción penal todavía no siguen la
+convención de nombres.

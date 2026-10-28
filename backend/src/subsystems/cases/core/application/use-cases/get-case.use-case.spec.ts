@@ -1,9 +1,7 @@
 import { NotFoundError } from '@shared/domain/domain-error';
 import {
   CaseListItem,
-  CasePage,
   CaseRepository,
-  CaseSearchCriteria,
 } from '../../domain/ports/case.repository';
 import { DayType } from '../../domain/value-objects/day-type';
 import { JurisdictionCode } from '../../domain/value-objects/jurisdiction-code';
@@ -19,17 +17,9 @@ class StubCaseQuery extends UnusedCaseRepository implements CaseRepository {
     super();
   }
 
-  async search(_criteria: CaseSearchCriteria): Promise<CasePage> {
-    return { items: [], totalItems: 0 };
-  }
-
   async findListItemById(id: number): Promise<CaseListItem | null> {
     this.askedFor = id;
     return this.item;
-  }
-
-  async listCustomStates(): Promise<string[]> {
-    return [];
   }
 }
 

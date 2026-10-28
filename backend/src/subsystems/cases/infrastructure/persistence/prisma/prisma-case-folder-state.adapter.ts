@@ -15,7 +15,7 @@ import { CASE_FOLDER_INCLUDE, TEMPLATE_COPIES_SELECT, toCaseFolderView } from '.
  * requests arrive at the same time.
  */
 @Injectable()
-export class CaseFolderStatePrismaAdapter implements CaseFolderStatePort {
+export class PrismaCaseFolderStateAdapter implements CaseFolderStatePort {
   constructor(private readonly prisma: PrismaService) {}
 
   async startCreating(caseId: number): Promise<boolean> {

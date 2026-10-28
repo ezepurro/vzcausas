@@ -1,10 +1,5 @@
 import { ValidationError } from '@shared/domain/domain-error';
-import {
-  CaseListItem,
-  CasePage,
-  CaseRepository,
-  CaseSearchCriteria,
-} from '../../domain/ports/case.repository';
+import { CaseRepository } from '../../domain/ports/case.repository';
 import { JurisdictionCode } from '../../domain/value-objects/jurisdiction-code';
 import { UnusedCaseRepository } from '../../test-support/case-fakes';
 import { ListCustomStates } from './list-custom-states.use-case';
@@ -14,14 +9,6 @@ class SpyCaseQuery extends UnusedCaseRepository implements CaseRepository {
 
   constructor(private readonly states: string[] = []) {
     super();
-  }
-
-  async search(_criteria: CaseSearchCriteria): Promise<CasePage> {
-    return { items: [], totalItems: 0 };
-  }
-
-  async findListItemById(): Promise<CaseListItem | null> {
-    return null;
   }
 
   async listCustomStates(jurisdiction?: JurisdictionCode): Promise<string[]> {

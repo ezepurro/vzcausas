@@ -156,9 +156,7 @@ export type CaseStateFilter =
  * Filters of `GET /cases` (§3.7). An unknown lawyer, client or state is not
  * an error: it yields an empty collection, not a 404.
  */
-export type CaseSearchCriteria = {
-  page: number;
-  limit: number;
+export type CaseSearchFilters = {
   /** Matches `sacNumber`, `caption` **and** the client's surname and given names. The three. */
   search?: string;
   jurisdiction?: JurisdictionCode;
@@ -169,7 +167,18 @@ export type CaseSearchCriteria = {
   state?: CaseStateFilter;
 };
 
+/** The filters plus the page asked for: what `GET /cases` hands to `ListCases`. */
+export type CaseSearchCriteria = CaseSearchFilters & { page: number; limit: number };
+
 export type CasePage = { items: CaseListItem[]; totalItems: number };
+
+/**
+ * What the urgency order of the listing (CA-20.1) needs from each case: its id
+ * and its live due date — the manual one if the lawyer adjusted it, else the
+ * computed one, of the act that set the current state. `null` when the case
+ * has no due date.
+ */
+export type CaseDueDateKey = { id: number; dueDate: Date | null };
 
 /**
  * Persistence port for cases: one port for writing and reading them.
@@ -212,14 +221,21 @@ export interface CaseRepository {
   saveDeclaredPrescription(prescribedCase: Case): Promise<boolean>;
 
   /**
-   * One page of cases, ordered by urgency: first those with a due date,
-   * by due date ascending — **overdue first** — then those without one, by
-   * `id`. Not by `id`, and not by registration date.
+   * The id and live due date of **every** active case that matches the filters,
+   * in no particular order. The listing orders them by urgency and cuts the
+   * page (`ListCases`): the order is a rule of the use case, not of the query.
    *
-   * Returns the total alongside the page because the `pagination` block
-   * needs it and counting belongs to the database.
+   * Only two columns per case, so reading the whole filtered set stays cheap;
+   * the resource itself is read for the page alone, by {@link findListItemsByIds}.
    */
-  search(criteria: CaseSearchCriteria): Promise<CasePage>;
+  findDueDateKeys(filters: CaseSearchFilters): Promise<CaseDueDateKey[]>;
+
+  /**
+   * The cases with those ids, as {@link CaseListItem}, **in no particular
+   * order** — the caller already decided it. A case given de baja is left out.
+   * Referenced entities are not filtered by `active`, as in {@link findListItemById}.
+   */
+  findListItemsByIds(ids: readonly number[]): Promise<CaseListItem[]>;
 
   /**
    * One case for the detail (HU22), or `null` if there is none — which is

@@ -6,6 +6,7 @@ import { HarmfulAct } from '../../domain/value-objects/harmful-act';
 import { JurisdictionCode } from '../../domain/value-objects/jurisdiction-code';
 import {
   CASE_REPOSITORY,
+  CaseDueDateKey,
   CaseListItem,
   CasePage,
   CaseRepository,
@@ -15,10 +16,11 @@ import {
 /**
  * `GET /cases` (HU20): one page of cases, ordered by urgency.
  *
- * It coordinates and does not decide. The ordering and the filters are the
- * read port's job, because they are resolved by the database in one query; the
- * only thing added here is `businessDaysRemaining`, and only because it
- * depends on today's date.
+ * The filters are the repository's job; the **order and the page are this use
+ * case's** (CA-20.1). The repository answers the id and due date of every case
+ * that matches; this orders them, cuts the page, and asks for the resource of
+ * that page only. The total is the size of the whole filtered set, not of the
+ * page. On top of that it fills the fields that depend on today's date.
  *
  * **Why the clock lives in this layer.** The adapter returns the field as
  * `null`: persistence has no business reading a clock, and the same stored row
@@ -40,13 +42,47 @@ export class ListCases {
   ) {}
 
   async execute(criteria: CaseSearchCriteria): Promise<CasePage> {
-    const found = await this.cases.search(criteria);
+    const { page, limit, ...filters } = criteria;
+    const keys = await this.cases.findDueDateKeys(filters);
+
+    const pageIds = [...keys]
+      .sort(ListCases.byUrgency)
+      .slice((page - 1) * limit, page * limit)
+      .map((key) => key.id);
+    if (pageIds.length === 0) {
+      return { items: [], totalItems: keys.length };
+    }
+
+    // The repository answers in no particular order: each case goes back to
+    // the position the urgency order gave it.
+    const byId = new Map((await this.cases.findListItemsByIds(pageIds)).map((item) => [item.id, item]));
     const today = this.clock.today();
 
     return {
-      items: found.items.map((item) => withDeadlines(item, today)),
-      totalItems: found.totalItems,
+      items: pageIds
+        .map((id) => byId.get(id))
+        .filter((item): item is CaseListItem => item !== undefined)
+        .map((item) => withDeadlines(item, today)),
+      totalItems: keys.length,
     };
+  }
+
+  /**
+   * Urgency (CA-20.1): first the cases with a due date, by due date ascending —
+   * **overdue first**, they have the smallest dates — then those without one.
+   * Ties, and the cases without a due date, go by `id`. Not by registration date.
+   */
+  private static byUrgency(a: CaseDueDateKey, b: CaseDueDateKey): number {
+    if (a.dueDate !== null && b.dueDate !== null && a.dueDate.getTime() !== b.dueDate.getTime()) {
+      return a.dueDate.getTime() - b.dueDate.getTime();
+    }
+    if (a.dueDate === null && b.dueDate !== null) {
+      return 1;
+    }
+    if (a.dueDate !== null && b.dueDate === null) {
+      return -1;
+    }
+    return a.id - b.id;
   }
 }
 

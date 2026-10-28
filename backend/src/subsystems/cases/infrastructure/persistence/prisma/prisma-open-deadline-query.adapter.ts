@@ -48,7 +48,7 @@ const HARMFUL_ACT_SELECT = {
  * does not grow with the number of cases.
  */
 @Injectable()
-export class OpenDeadlineQueryPrismaAdapter implements OpenDeadlineQueryPort {
+export class PrismaOpenDeadlineQueryAdapter implements OpenDeadlineQueryPort {
   constructor(private readonly prisma: PrismaService) {}
 
   async findActiveWithOpenDeadline(): Promise<OpenProceduralDeadlineRow[]> {
