@@ -1049,9 +1049,32 @@ cambia, se cambian el test y la pantalla juntos:
 - **Errores**: se muestra el `message` del contrato, por ejemplo "No se pudo
   leer la carpeta de la causa en Drive. Intentá de nuevo en unos minutos.".
 
+**Decisiones de HU-19 y HU-38** (Facundo, 28/10/2026), antes de programarlas:
+
+- **Modificar causa manda sólo lo cambiado** (CA-19.2). El formulario se
+  compara con la causa que se abrió y viajan sólo los campos distintos.
+  "Guardar cambios" está siempre habilitado: si no cambió nada, el diálogo se
+  cierra sin llamar a la API y sin ningún aviso. Nunca sale un `PATCH` vacío.
+  Así una causa "Prescripta" no manda `legalQualifications` sin tocarlas
+  (CA-19.13) y la carpeta no se renombra ni se mueve sin motivo (D-104).
+- **"Fecha de inicio" va igual que en el alta** (CA-19.6): el mismo campo de
+  `CaseForm`, en el grupo "Asignación". Está deshabilitado sin SAC
+  ("Se carga junto con el N° de SAC."), es obligatorio con SAC y se borra al
+  borrar el SAC (`changeSacNumber`). **Si cambia el SAC, `startDate` viaja
+  siempre con él**: con el valor cargado, o `null` si la causa queda sin SAC.
+- **"Abogado responsable" se modifica** (CA-19.8), con el select del
+  prototipo. Lleva un test de pantalla, que se escribe antes de programarlo:
+  cambiar el responsable lo guarda y el detalle muestra al nuevo. Después de
+  guardar se vuelve a pedir el detalle, así lo que depende del responsable
+  (los botones de los actos) se recalcula.
+- **La tarjeta "Documentación" sólo tiene "Abrir"** (CA-38.7), que lleva a
+  Drive, como el prototipo. No hay descarga por la API en la tarjeta: la usa
+  "Generar expediente" (HU-25). CA-38.7 es `@backend` en el test de
+  documentos.
+
 **Lo que queda para el backend**, sin test de pantalla: CA-14.2 y 14.5;
 CA-19.4, 19.6 y 19.9 a 19.15; CA-21.3 a 21.10; CA-28.4 a 28.9 y 28.11; CA-38.2,
-38.3, 38.8 y 38.9.
+38.3, 38.7, 38.8 y 38.9.
 
 ---
 
