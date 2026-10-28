@@ -828,8 +828,8 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
                   </select>
                 </div>
                 <div>
-                  <label for="ncFecha" style="display:block;font-size:13px;font-weight:600;color:var(--ink);margin-bottom:7px">Fecha de inicio</label>
-                  <input id="ncFecha" type="date" value="{{ ncFecha }}" onChange="{{ setNcFecha }}" style="width:100%;height:42px;padding:0 12px;border:1px solid var(--border-2);border-radius:var(--r);background:var(--surface);font-size:14px;color:var(--ink);font-family:'Roboto Mono',monospace">
+                  <label for="ncFecha" style="display:block;font-size:13px;font-weight:600;color:var(--ink);margin-bottom:7px">Fecha de inicio<span style="color:#B3261E">{{ ncFechaReq }}</span></label>
+                  <input id="ncFecha" type="date" value="{{ ncFecha }}" onChange="{{ setNcFecha }}" disabled="{{ ncFechaDeshab }}" style="{{ ncFechaCss }}">
                   <div style="font-size:12px;color:var(--faint);margin-top:6px">Se carga junto con el N° de SAC.</div>
                 </div>
               </div>
@@ -2424,7 +2424,7 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
               <input id="{{ f.id }}" type="password" value="{{ f.valor }}" onChange="{{ f.set }}" style="{{ f.inputCss }}">
             </sc-if>
             <sc-if value="{{ f.esFecha }}" hint-placeholder-val="{{ false }}">
-              <input id="{{ f.id }}" type="date" value="{{ f.valor }}" onChange="{{ f.set }}" style="{{ f.inputCss }}">
+              <input id="{{ f.id }}" type="date" value="{{ f.valor }}" onChange="{{ f.set }}" disabled="{{ f.deshab }}" style="{{ f.inputCss }}">
             </sc-if>
             <sc-if value="{{ f.esSelect }}" hint-placeholder-val="{{ false }}">
               <select id="{{ f.id }}" value="{{ f.valor }}" onChange="{{ f.set }}" style="{{ f.selectCss }}">
@@ -2696,16 +2696,16 @@ const ESTADOS = {
 const NOMS = f => (ESTADOS[f] || []).map(e => e.nombre);
 
 const CAUSAS = [
-  { id: 1, instructor: 'Dra. Verónica Ledesma', telefono: '0351 448-1200', interno: '214', sac: '13284571', caratula: 'GÓMEZ, Ariel Fernando p.s.a. Robo calificado', tribunal: 'Juzgado de Control N° 3 · Córdoba', fuero: 'Penal', rol: 'Defensa', estado: 'Oposición al requerimiento de elevación', abogado: 'Dra. Malena Ríos', dias: 1, fecha: '16/09/2026',
+  { id: 1, inicio: '14/03/2024', instructor: 'Dra. Verónica Ledesma', telefono: '0351 448-1200', interno: '214', sac: '13284571', caratula: 'GÓMEZ, Ariel Fernando p.s.a. Robo calificado', tribunal: 'Juzgado de Control N° 3 · Córdoba', fuero: 'Penal', rol: 'Defensa', estado: 'Oposición al requerimiento de elevación', abogado: 'Dra. Malena Ríos', dias: 1, fecha: '16/09/2026',
     calificacion: 'Robo calificado — art. 167 inc. 2 CP · 8 años', prescDesde: '04/07/2024', prescHasta: '04/07/2032', prescPct: 27, prescRestante: 'Restan 5 años 9 meses', prescNota: 'Cómputo reiniciado por el acto interruptivo registrado el 04/07/2024.' },
-  { id: 2, contra: 'Tribunal de Conducta Policial y Penitenciario', instructor: 'Crio. Insp. Raúl Bazán', telefono: '0351 428-6000', interno: '3120', sac: '12907344', caratula: 'PEREYRA, Marcos D. — Sumario administrativo', tribunal: 'Tribunal de Conducta Policial y Penitenciario', fuero: 'Administrativo', rol: 'Defensa', estado: 'Alegato', abogado: 'Dr. Ignacio Peralta', dias: -2, fecha: '11/09/2026' },
-  { id: 3, contra: 'Provincia de Córdoba', instructor: 'Dr. Martín Sosa', telefono: '0351 448-1600', interno: '402', sac: '14002188', caratula: 'LUDUEÑA, Silvia c/ Provincia de Córdoba — Amparo', tribunal: 'Juzgado Civil y Comercial 21ª Nom.', fuero: 'Amparo', rol: 'Actora', estado: 'Aporto la prueba', abogado: 'Dra. Carolina Bustos', dias: 3, fecha: '18/09/2026' },
-  { id: 4, instructor: 'Fisc. Adj. Paula Rinaldi', telefono: '0351 448-1150', interno: '118', sac: '11845620', caratula: 'ACOSTA, Jonathan E. p.s.a. Infracción Ley 23.737', tribunal: 'Fiscalía de Instrucción Distrito 2 Turno 4', fuero: 'Penal', rol: 'Defensa', estado: 'Cédula de notificación', abogado: 'Dr. Fernando G. Vázquez', dias: null, fecha: '—',
+  { id: 2, inicio: '02/08/2025', contra: 'Tribunal de Conducta Policial y Penitenciario', instructor: 'Crio. Insp. Raúl Bazán', telefono: '0351 428-6000', interno: '3120', sac: '12907344', caratula: 'PEREYRA, Marcos D. — Sumario administrativo', tribunal: 'Tribunal de Conducta Policial y Penitenciario', fuero: 'Administrativo', rol: 'Defensa', estado: 'Alegato', abogado: 'Dr. Ignacio Peralta', dias: -2, fecha: '11/09/2026' },
+  { id: 3, inicio: '21/05/2026', contra: 'Provincia de Córdoba', instructor: 'Dr. Martín Sosa', telefono: '0351 448-1600', interno: '402', sac: '14002188', caratula: 'LUDUEÑA, Silvia c/ Provincia de Córdoba — Amparo', tribunal: 'Juzgado Civil y Comercial 21ª Nom.', fuero: 'Amparo', rol: 'Actora', estado: 'Aporto la prueba', abogado: 'Dra. Carolina Bustos', dias: 3, fecha: '18/09/2026' },
+  { id: 4, inicio: '09/11/2023', instructor: 'Fisc. Adj. Paula Rinaldi', telefono: '0351 448-1150', interno: '118', sac: '11845620', caratula: 'ACOSTA, Jonathan E. p.s.a. Infracción Ley 23.737', tribunal: 'Fiscalía de Instrucción Distrito 2 Turno 4', fuero: 'Penal', rol: 'Defensa', estado: 'Cédula de notificación', abogado: 'Dr. Fernando G. Vázquez', dias: null, fecha: '—',
     calificacion: 'Infracción Ley 23.737 — art. 5 inc. c · 6 años', prescDesde: '19/01/2022', prescHasta: '19/01/2028', prescPct: 78, prescRestante: 'Restan 1 año 4 meses', prescNota: 'Sin actos interruptivos registrados: el cómputo corre desde la fecha del hecho.' },
-  { id: 5, contra: 'Tribunal de Conducta Policial y Penitenciario', instructor: 'Crio. Insp. Raúl Bazán', telefono: '0351 428-6000', interno: '3120', sac: '13560902', caratula: 'QUIROGA, Néstor A. — Recurso de reconsideración', tribunal: 'Tribunal de Conducta Policial y Penitenciario', fuero: 'Administrativo', rol: 'Defensa', estado: 'Recurso de reconsideración', abogado: 'Dr. Oscar Zárate', dias: 10, fecha: '29/09/2026', plazoAmparo: true },
-  { id: 6, contra: 'APROSS', instructor: 'Dra. Inés Ferrero', telefono: '0351 448-1600', interno: '517', sac: '12774310', caratula: 'MOYANO, Daniela c/ APROSS — Amparo de salud', tribunal: 'Juzgado Civil y Comercial 37ª Nom.', fuero: 'Amparo', rol: 'Actora', estado: 'Traslado a la demandada', abogado: 'Dr. Fernando G. Vázquez', dias: 0, fecha: '15/09/2026' },
-  { id: 7, instructor: 'Dr. Martín Sosa', telefono: '0351 448-1600', interno: '402', sac: '10233874', caratula: 'FIGUEROA, Raúl A. p.s.a. Hurto simple', tribunal: 'Juzgado de Control N° 1 · Córdoba', fuero: 'Penal', rol: 'Defensa', estado: 'Archivada', abogado: 'Dr. Ignacio Peralta', dias: null, fecha: '—' },
-  { id: 8, instructor: 'Fisc. Adj. Paula Rinaldi', telefono: '0351 448-1150', interno: '118', sac: '9871650', caratula: 'LEDESMA, Pablo M. p.s.a. Hurto simple', tribunal: 'Fiscalía de Instrucción Distrito 1 Turno 2', fuero: 'Penal', rol: 'Defensa', estado: 'Prescripta', abogado: 'Dra. Carolina Bustos', dias: null, fecha: '—',
+  { id: 5, inicio: '17/02/2026', contra: 'Tribunal de Conducta Policial y Penitenciario', instructor: 'Crio. Insp. Raúl Bazán', telefono: '0351 428-6000', interno: '3120', sac: '13560902', caratula: 'QUIROGA, Néstor A. — Recurso de reconsideración', tribunal: 'Tribunal de Conducta Policial y Penitenciario', fuero: 'Administrativo', rol: 'Defensa', estado: 'Recurso de reconsideración', abogado: 'Dr. Oscar Zárate', dias: 10, fecha: '29/09/2026', plazoAmparo: true },
+  { id: 6, inicio: '30/06/2026', contra: 'APROSS', instructor: 'Dra. Inés Ferrero', telefono: '0351 448-1600', interno: '517', sac: '12774310', caratula: 'MOYANO, Daniela c/ APROSS — Amparo de salud', tribunal: 'Juzgado Civil y Comercial 37ª Nom.', fuero: 'Amparo', rol: 'Actora', estado: 'Traslado a la demandada', abogado: 'Dr. Fernando G. Vázquez', dias: 0, fecha: '15/09/2026' },
+  { id: 7, inicio: '05/04/2022', instructor: 'Dr. Martín Sosa', telefono: '0351 448-1600', interno: '402', sac: '10233874', caratula: 'FIGUEROA, Raúl A. p.s.a. Hurto simple', tribunal: 'Juzgado de Control N° 1 · Córdoba', fuero: 'Penal', rol: 'Defensa', estado: 'Archivada', abogado: 'Dr. Ignacio Peralta', dias: null, fecha: '—' },
+  { id: 8, inicio: '12/09/2021', instructor: 'Fisc. Adj. Paula Rinaldi', telefono: '0351 448-1150', interno: '118', sac: '9871650', caratula: 'LEDESMA, Pablo M. p.s.a. Hurto simple', tribunal: 'Fiscalía de Instrucción Distrito 1 Turno 2', fuero: 'Penal', rol: 'Defensa', estado: 'Prescripta', abogado: 'Dra. Carolina Bustos', dias: null, fecha: '—',
     calificacion: 'Hurto simple — art. 162 CP · 2 años', prescDesde: '10/03/2022', prescHasta: '10/03/2024', prescPct: 100, prescRestante: 'Prescripta', prescNota: 'Prescripción de la acción operada.' }
 ];
 
@@ -2904,7 +2904,7 @@ class Component extends DCLogic {
     modal: null, mv: {}, tabModelos: 'Todos', repTab: 'abogado', docTipo: 'caratula',
     notifActivo: true, notifMail: 'estudio@vazquezyzarate.com.ar', notifDias: '3', notifHora: '08:00', notifCopia: true,
     ncSac: '', ncFuero: 'Penal', ncCaratula: '', ncTribunal: '', ncInstructor: '', ncTel: '', ncInterno: '', ncCliente: '', ncRol: 'Defensa',
-    ncCalifs: [], ncCalifFechas: {}, ncContra: '', ncObjeto: '', ncResp: '', ncFecha: '2026-09-15', ncDrive: true, ncModelos: true, ncConvenio: false,
+    ncCalifs: [], ncCalifFechas: {}, ncContra: '', ncObjeto: '', ncResp: '', ncFecha: '', ncDrive: true, ncModelos: true, ncConvenio: false,
     ncPreso: false, ncCautelar: false, ncTasa: false, ncActoLesivo: '', ncAgotamiento: ''
   };
 
@@ -2989,13 +2989,16 @@ class Component extends DCLogic {
     }
     const mv = {};
     (spec.campos || []).forEach(c => { mv[c.k] = c.valor === undefined ? (c.tipo === 'check' ? false : '') : c.valor; if (c.tipo === 'califs') mv[c.k + '_f'] = Object.assign({}, c.fechas || {}); });
+    this._mv0 = JSON.stringify(mv);
     this.setState({ modal: spec, mv });
   }
   cerrar() { this.setState({ modal: null, mv: {} }); }
   confirmar() {
     const m = this.state.modal;
     if (!m) return;
-    const falta = (m.campos || []).filter(c => !c.si || c.si(this.state.mv)).some(c => c.req && !String(this.state.mv[c.k] || '').trim());
+    if (m.sinCambiosCierra && JSON.stringify(this.state.mv) === this._mv0) { this.cerrar(); return; }
+    const req = c => typeof c.req === 'function' ? c.req(this.state.mv) : c.req;
+    const falta = (m.campos || []).filter(c => !c.si || c.si(this.state.mv)).some(c => req(c) && !String(this.state.mv[c.k] || '').trim());
     if (falta) { this.aviso('Faltan datos obligatorios en el formulario.'); return; }
     const msg = typeof m.ok === 'function' ? m.ok(this.state.mv) : m.ok;
     this.cerrar();
@@ -3494,7 +3497,8 @@ class Component extends DCLogic {
     const sacValido = !s.ncSac || (sacOk && !sacDup);
     const fechasOk = kals.every(k => !!(s.ncCalifFechas || {})[k.id]);
     const objetoOk = ncPenal || !!(s.ncObjeto || '').trim();
-    const altaOk = sacValido && !!cli && !!s.ncResp && !!s.ncCaratula.trim() && fechasOk && objetoOk;
+    const fechaIniOk = !s.ncSac || !!s.ncFecha;
+    const altaOk = sacValido && fechaIniOk && !!cli && !!s.ncResp && !!s.ncCaratula.trim() && fechasOk && objetoOk;
     const check = (ok, texto) => ({
       texto, mark: ok ? '✓' : '○',
       markCss: 'flex:0 0 15px;font-size:12px;font-weight:700;line-height:1.35;color:' + (ok ? 'var(--primary)' : 'var(--border-2)'),
@@ -3540,7 +3544,7 @@ class Component extends DCLogic {
         this.setState({ mv: Object.assign({}, this.state.mv, { [c.k]: v }, c.alCambiar ? c.alCambiar(v, this.state.mv) : {}) });
       };
       return {
-        id: 'mf' + i, label: c.label, reqMark: c.req ? ' *' : '', labelChk: c.label, ph: c.ph || '',
+        id: 'mf' + i, label: c.label, reqMark: (typeof c.req === 'function' ? c.req(s.mv) : c.req) ? ' *' : '', deshab: typeof c.deshab === 'function' ? c.deshab(s.mv) : !!c.deshab, labelChk: c.label, ph: c.ph || '',
         valor: val === undefined ? '' : val, marcado: !!val, set,
         esTexto: !c.tipo || c.tipo === 'text', esPass: c.tipo === 'pass', esSelect: c.tipo === 'select',
         esFecha: c.tipo === 'date', esArea: c.tipo === 'area', esCheck: c.tipo === 'check', esGrupo: c.tipo === 'grupo', esCalifs: c.tipo === 'califs',
@@ -3617,7 +3621,7 @@ class Component extends DCLogic {
         opciones: c.opcionesKV || (c.opciones || []).map(o => ({ v: o, t: o })), soloLectura: !!c.soloLectura,
         wrapCss: 'min-width:0;grid-column:' + (c.ancho === 'half' ? 'span 1' : '1 / -1') + (c.tipo === 'grupo' ? ';margin-top:4px' : ''),
         labelCss: (c.tipo === 'check' || c.tipo === 'grupo') ? 'display:none' : 'display:block;font-size:13px;font-weight:600;color:var(--ink);margin-bottom:7px',
-        inputCss: 'width:100%;height:42px;padding:0 12px;border:1px solid var(--border-2);border-radius:var(--r);background:var(--surface);font-size:14px;color:var(--ink)' + (c.mono ? ';font-family:\'Roboto Mono\',monospace' : '') + (c.soloLectura ? ';background:var(--sunken);color:var(--muted);cursor:not-allowed' : ''),
+        inputCss: 'width:100%;height:42px;padding:0 12px;border:1px solid var(--border-2);border-radius:var(--r);background:var(--surface);font-size:14px;color:var(--ink)' + (c.mono ? ';font-family:\'Roboto Mono\',monospace' : '') + (c.soloLectura || (typeof c.deshab === 'function' ? c.deshab(s.mv) : c.deshab) ? ';background:var(--sunken);color:var(--muted);cursor:not-allowed' : ''),
         selectCss: 'width:100%;height:42px;padding:0 34px 0 12px;border:1px solid var(--border-2);border-radius:var(--r);background:var(--surface);font-size:14px;color:var(--ink);cursor:pointer',
         areaCss: 'width:100%;min-height:92px;padding:11px 12px;border:1px solid var(--border-2);border-radius:var(--r);background:var(--surface);font-size:14px;color:var(--ink);font-family:inherit;line-height:1.5;resize:vertical',
         nota: c.nota || '', notaCss: c.nota ? 'font-size:12px;color:var(--faint);margin-top:6px;line-height:1.45' : 'display:none'
@@ -3867,14 +3871,14 @@ class Component extends DCLogic {
       modificarCausa: () => {
         const fd = FUERO_DATOS[causa.id] || {}, sinSac = !causa.sac || causa.sac === '—' || causa.sac === 'Sin SAC';
         const isoDe = f => { const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(f || ''); return m ? m[3] + '-' + m[2] + '-' + m[1] : ''; };
-        const es = f => v => v.fuero === f, noPenal = v => v.fuero !== 'Penal';
+        const es = f => () => causa.fuero === f, noPenal = () => causa.fuero !== 'Penal';
         const FUEROS = [causa.fuero], cliAct = CLIENTES.find(c => c.dni === (det.cliente || {}).dni) || null;
         this.abrir({
-          titulo: 'Modificar causa', sub: sinSac ? 'Sin N° de SAC' : 'SAC ' + causa.sac,
+          titulo: 'Modificar causa', sub: sinSac ? 'Sin N° de SAC' : 'SAC ' + causa.sac, okLabel: 'Guardar cambios', sinCambiosCierra: true,
           nota: 'Cada cambio queda asentado en el historial de la causa con usuario y fecha.',
           campos: [
             { k: 'g1', tipo: 'grupo', label: 'Identificación' },
-            { k: 'sac', label: 'N° de SAC', ancho: 'half', mono: true, ph: '8 dígitos', valor: sinSac ? '' : causa.sac, nota: 'Opcional. Identifica la causa de forma única.' },
+            { k: 'sac', label: 'N° de SAC', ancho: 'half', mono: true, ph: '8 dígitos', valor: sinSac ? '' : causa.sac, nota: 'Opcional. Identifica la causa de forma única.', alCambiar: v => String(v || '').trim() ? {} : { ini: '' } },
             { k: 'fueroFijo', label: 'Fuero', ancho: 'half', valor: causa.fuero, soloLectura: true, nota: 'No se modifica. Si la causa se registró en otro fuero, dala de baja y registrala de nuevo.' },
             { k: 'car', label: 'Carátula', req: true, valor: causa.caratula },
             { k: 'trib', label: 'Órgano interviniente', valor: causa.tribunal && causa.tribunal !== '—' ? causa.tribunal : '' },
@@ -3894,7 +3898,7 @@ class Component extends DCLogic {
             { k: 'agot', tipo: 'date', label: 'Agotamiento de la vía administrativa', ancho: 'half', si: es('Administrativo'), valor: isoDe(fd.agotamiento), nota: 'Opcional. Dejalo vacío mientras la vía no se agotó.' },
             { k: 'g3', tipo: 'grupo', label: 'Asignación' },
             { k: 'resp', label: 'Abogado responsable', tipo: 'select', req: true, ancho: 'half', valor: causa.abogado, opciones: ABOGADOS.filter(a => a.activo).map(a => a.nombre) },
-            { k: 'ini', label: 'Fecha de inicio', tipo: 'date', ancho: 'half', valor: isoDe(causa.inicio) },
+            { k: 'ini', label: 'Fecha de inicio', tipo: 'date', ancho: 'half', mono: true, valor: sinSac ? '' : isoDe(causa.inicio), req: v => !!String(v.sac || '').trim(), deshab: v => !String(v.sac || '').trim(), nota: 'Se carga junto con el N° de SAC.' },
             { k: 'tasa', tipo: 'check', label: 'Tasa de justicia pagada', valor: !!fd.tasa }
           ],
           ok: v => {
@@ -3904,10 +3908,10 @@ class Component extends DCLogic {
             const fmt = x => x ? this.fmt(this.parse(x)) : '', f = causa.fuero, cambio = false;
             const nCli = CLIENTES.find(c => c.id === v.cli);
             if (nCli && nCli !== cliAct) det.cliente = { nombre: nCli.nombre + ' ' + nCli.apellido, dni: nCli.dni, tel: nCli.tel || '—', mail: nCli.mail || '—', desde: det.cliente ? det.cliente.desde : '—' };
-            Object.assign(causa, { sac: sac || 'Sin SAC', fuero: f, caratula: v.car.trim(), tribunal: v.trib || '—', instructor: v.inst || '—', telefono: v.tel || '—', interno: v.int || '—', rol: v['rol_' + f], abogado: v.resp, inicio: fmt(v.ini) });
+            Object.assign(causa, { sac: sac || 'Sin SAC', fuero: f, caratula: v.car.trim(), tribunal: v.trib || '—', instructor: v.inst || '—', telefono: v.tel || '—', interno: v.int || '—', rol: v['rol_' + f], abogado: v.resp, inicio: sac ? fmt(v.ini) : '' });
             if (f === 'Penal') { causa.califs = v.califs; causa.califFechas = v.califs_f; } else { causa.contra = v.contra; causa.objeto = v.obj; }
             FUERO_DATOS[causa.id] = { tasa: !!v.tasa, preso: f === 'Penal' && !!v.preso, cautelar: f === 'Amparo' && !!v.caut, actoLesivo: f === 'Amparo' ? fmt(v.lesivo) : '', agotamiento: f === 'Administrativo' ? fmt(v.agot) : '' };
-            return cambio ? 'Causa actualizada y pasada al fuero ' + f + '. Revisá el estado procesal asignado.' : 'Causa actualizada. El cambio queda asentado con usuario y fecha.';
+            return 'Causa actualizada. El cambio queda asentado con usuario y fecha.';
           }
         });
       },
@@ -4078,7 +4082,7 @@ class Component extends DCLogic {
       esNueva: s.pantalla === 'nueva',
       goNueva: () => this.setState({ pantalla: 'nueva', pendiente: null, menuOpen: false }),
       menuAttr: s.menuOpen ? 'open' : 'closed', abrirMenu: () => this.setState({ menuOpen: true }), cerrarMenu: () => this.setState({ menuOpen: false }),
-      ncSac: s.ncSac, setNcSac: e => this.setState({ ncSac: e.target.value.replace(/[^0-9]/g, '').slice(0, 8) }),
+      ncSac: s.ncSac, setNcSac: e => { const v = e.target.value.replace(/[^0-9]/g, '').slice(0, 8); this.setState(v ? { ncSac: v } : { ncSac: v, ncFecha: '' }); },
       ncSacCss: 'width:100%;height:42px;padding:0 12px;border:1px solid ' + (s.ncSac && (!sacOk || sacDup) ? '#B3261E' : 'var(--border-2)') + ';border-radius:var(--r);background:var(--surface);font-size:14px;color:var(--ink);font-family:\'Roboto Mono\',monospace;letter-spacing:.04em',
       ncSacNota: !s.ncSac ? 'Opcional. Si se conoce, identifica la causa de forma única.' : sacDup ? 'Ya existe una causa registrada con este SAC.' : !sacOk ? 'El SAC tiene 8 dígitos.' : 'Disponible.',
       ncSacNotaCss: 'font-size:12px;margin-top:6px;line-height:1.45;color:' + (s.ncSac && (!sacOk || sacDup) ? '#8E1F19' : s.ncSac ? 'var(--primary-hi)' : 'var(--faint)'),
@@ -4139,7 +4143,9 @@ class Component extends DCLogic {
       ncObjetoCont: (s.ncObjeto || '').length + ' / 800',
       responsables: ABOGADOS.filter(a => a.activo).map(a => ({ nombre: a.nombre, etiqueta: nomAp(a.nombre) + ' · matrícula ' + a.matricula })),
       ncResp: s.ncResp, setNcResp: e => this.setState({ ncResp: e.target.value }),
-      ncFecha: s.ncFecha, setNcFecha: e => this.setState({ ncFecha: e.target.value }),
+      ncFecha: s.ncSac ? s.ncFecha : '', setNcFecha: e => this.setState({ ncFecha: e.target.value }),
+      ncFechaDeshab: !s.ncSac, ncFechaReq: s.ncSac ? ' *' : '',
+      ncFechaCss: 'width:100%;height:42px;padding:0 12px;border:1px solid var(--border-2);border-radius:var(--r);font-size:14px;font-family:\'Roboto Mono\',monospace;' + (s.ncSac ? 'background:var(--surface);color:var(--ink)' : 'background:var(--sunken);color:var(--muted);cursor:not-allowed'),
       ncDrive: s.ncDrive, toggleDrive: () => this.setState({ ncDrive: !s.ncDrive, ncModelos: !s.ncDrive ? s.ncModelos : false }),
       ncModelos: s.ncModelos, toggleModelos: () => { if (!s.ncDrive) { this.aviso('Primero hay que crear la carpeta en Drive para poder copiar los modelos.'); return; } this.setState({ ncModelos: !s.ncModelos }); },
       ncConvenio: s.ncConvenio, toggleConvenio: () => this.setState({ ncConvenio: !s.ncConvenio }),
@@ -4154,6 +4160,7 @@ class Component extends DCLogic {
       carpetaDrive: s.ncDrive ? 'Se arma con el abogado responsable y la carátula.' : 'No se creará carpeta',
       checklist: [
         check(sacValido, s.ncSac ? 'N° de SAC válido y no repetido' : 'N° de SAC: opcional'),
+        ...(s.ncSac ? [check(fechaIniOk, 'Fecha de inicio cargada')] : []),
         check(!!cli, 'Cliente seleccionado'),
         check(fechasOk, ncPenal ? (kals.length ? 'Fecha del hecho en cada calificación legal' : 'Calificaciones legales: opcionales') : 'Calificación legal: no aplica a este fuero'),
         ...(ncPenal ? [] : [check(objetoOk, s.ncFuero === 'Amparo' ? 'Objeto del amparo redactado' : 'Objeto del reclamo redactado')]),
@@ -4172,7 +4179,7 @@ class Component extends DCLogic {
           id, instructor: s.ncInstructor.trim() || '—', telefono: (s.ncTel || '').trim() || '—', interno: s.ncInterno.trim() || '—', sac: s.ncSac || 'Sin SAC', caratula: s.ncCaratula.trim(),
           tribunal: s.ncTribunal.trim() || '—', fuero: s.ncFuero, rol: s.ncRol, estado: estadoIni, abogado: s.ncResp, dias: null, fecha: '—',
           califs: s.ncCalifs.slice(), califFechas: fechas,
-          contra: s.ncContra.trim(), objeto: s.ncObjeto.trim(), inicio: s.ncFecha ? this.fmt(this.parse(s.ncFecha)) : ''
+          contra: s.ncContra.trim(), objeto: s.ncObjeto.trim(), inicio: s.ncSac && s.ncFecha ? this.fmt(this.parse(s.ncFecha)) : ''
         };
         if (ncPenal && kals.length) {
           const conFecha = kals.map(k => ({ k, fh: this.parse(fechas[k.id]) })).filter(x => x.fh)
@@ -4290,7 +4297,7 @@ class Component extends DCLogic {
       noEsSec: false, altaClienteCss: this.primario(false),
       noEsAdmin: !esAdmin,
       noModelos: !puedeModelos, altaModeloCss: this.primario(!puedeModelos), altaCalifCss: this.primario(false),
-      verDocs: puedeDocs, verPrescribir: puedeAvisos,
+      verDocs: true, verPrescribir: puedeAvisos,
       intentarAlta: () => { if (!esAdmin) this.aviso('Acción no disponible para el perfil ' + s.perfil + '. Solo el Administrador puede operar esta sección.'); else this.aviso('En el prototipo esta acción abre el formulario correspondiente.'); },
       altaUsuarioLabel: s.tab === 'abogados' ? 'Registrar abogado' : 'Registrar usuario',
       altaUsuarioCss: this.primario(!esAdmin),
