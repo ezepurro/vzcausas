@@ -1,4 +1,4 @@
-import { PrescriptionDeclarationView } from '../../../core/domain/ports/case-timeline-query.port';
+import { PrescriptionDeclarationView } from '../../../core/domain/ports/case/case-timeline-query.port';
 
 /**
  * The prescription declaration columns of `cases` (HU33), as a `select` or an

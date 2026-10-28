@@ -1,12 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@shared/infrastructure/prisma/prisma.service';
-import { InterruptiveAct } from '../../../core/domain/entities/interruptive-act';
+import { InterruptiveAct } from '../../../core/domain/entities/interruptive-act.entity';
 import { Prisma } from '../../../../../generated/prisma/client';
 import {
   InterruptiveActPage,
   InterruptiveActRepository,
   InterruptiveActView,
-} from '../../../core/domain/ports/interruptive-act.repository';
+} from '../../../core/domain/ports/interruptive-act/interruptive-act.repository';
 import { InterruptiveActPrismaMapper } from '../mappers/interruptive-act-prisma.mapper';
 
 /** The lawyer is not filtered by `active`: one given de baja is still part of the case's history (§4, Bajas). */

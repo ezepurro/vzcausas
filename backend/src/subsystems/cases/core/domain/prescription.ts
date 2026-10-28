@@ -12,7 +12,7 @@
  * escribir la regla del 70 %.
  */
 
-import { JurisdictionCode } from './value-objects/jurisdiction-code';
+import { JurisdictionCode } from './value-objects/case/jurisdiction-code';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 

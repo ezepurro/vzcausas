@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { ActiveCasesCounterPort } from '@subsystems/people/core/domain/ports/active-cases-counter.port';
-import { CASE_REPOSITORY, CaseRepository } from '../../core/domain/ports/case.repository';
+import { CASE_REPOSITORY, CaseRepository } from '../../core/domain/ports/case/case.repository';
 
 /**
  * Implements the {@link ActiveCasesCounterPort} that `people` declares, so

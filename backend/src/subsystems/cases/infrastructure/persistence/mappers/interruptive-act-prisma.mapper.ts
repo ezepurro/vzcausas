@@ -1,5 +1,5 @@
 import { Prisma, InterruptiveAct as PrismaInterruptiveAct } from '../../../../../generated/prisma/client';
-import { InterruptiveAct } from '../../../core/domain/entities/interruptive-act';
+import { InterruptiveAct } from '../../../core/domain/entities/interruptive-act.entity';
 
 export class InterruptiveActPrismaMapper {
   static toDomain(row: PrismaInterruptiveAct): InterruptiveAct {

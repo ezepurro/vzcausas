@@ -5,9 +5,9 @@ import {
   OpenDeadlineQueryPort,
   OpenHarmfulActRow,
   OpenProceduralDeadlineRow,
-} from '../../../core/domain/ports/open-deadline-query.port';
-import { DayType } from '../../../core/domain/value-objects/day-type';
-import { JurisdictionCode } from '../../../core/domain/value-objects/jurisdiction-code';
+} from '../../../core/domain/ports/procedural-act/open-deadline-query.port';
+import { DayType } from '../../../core/domain/value-objects/deadline/day-type';
+import { JurisdictionCode } from '../../../core/domain/value-objects/case/jurisdiction-code';
 import { ACTIVE_CASE } from './prisma-case.repository';
 
 /** Only what the deadline and its notice need. */

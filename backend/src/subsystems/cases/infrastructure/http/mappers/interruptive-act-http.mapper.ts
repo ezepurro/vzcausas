@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { toIsoDate, toIsoWithOffset } from '@shared/infrastructure/http/iso-date';
-import { InterruptiveActView } from '../../../core/domain/ports/interruptive-act.repository';
-import { InterruptiveActResponseDto } from '../dtos/interruptive-act.response.dto';
+import { InterruptiveActView } from '../../../core/domain/ports/interruptive-act/interruptive-act.repository';
+import { InterruptiveActResponseDto } from '../dtos/interruptive-act/interruptive-act.response.dto';
 
 /**
  * Translates an interruptive act into the contract's resource (V4 §3.9). One

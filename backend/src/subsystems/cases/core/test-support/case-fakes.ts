@@ -1,20 +1,20 @@
 import { ClockPort } from '@shared/domain/clock.port';
 import { TransactionManagerPort } from '@shared/domain/transaction-manager.port';
-import { Case } from '../domain/entities/cases';
-import { InterruptiveAct } from '../domain/entities/interruptive-act';
-import { ProceduralAct } from '../domain/entities/procedural-act';
-import { DeadlineCalculatorPort } from '../domain/ports/deadline-calculator.port';
-import { CaseDueDateKey, CaseListItem, CaseRepository, CaseSearchFilters } from '../domain/ports/case.repository';
-import { InterruptiveActPage, InterruptiveActRepository } from '../domain/ports/interruptive-act.repository';
-import { ProceduralActPage, ProceduralActRepository, ProceduralActView } from '../domain/ports/procedural-act.repository';
+import { Case } from '../domain/entities/case/case.entity';
+import { InterruptiveAct } from '../domain/entities/interruptive-act.entity';
+import { ProceduralAct } from '../domain/entities/procedural-act.entity';
+import { DeadlineCalculatorPort } from '../domain/ports/procedural-act/deadline-calculator.port';
+import { CaseDueDateKey, CaseListItem, CaseRepository, CaseSearchFilters } from '../domain/ports/case/case.repository';
+import { InterruptiveActPage, InterruptiveActRepository } from '../domain/ports/interruptive-act/interruptive-act.repository';
+import { ProceduralActPage, ProceduralActRepository, ProceduralActView } from '../domain/ports/procedural-act/procedural-act.repository';
 import {
   LegalParametersLookupPort,
   LegalQualificationRef,
   ProceduralStateRef,
-} from '../domain/ports/legal-parameters-lookup.port';
-import { ClientRef, LawyerRef, PeopleLookupPort } from '../domain/ports/people-lookup.port';
-import { DayType } from '../domain/value-objects/day-type';
-import { JurisdictionCode } from '../domain/value-objects/jurisdiction-code';
+} from '../domain/ports/case/legal-parameters-lookup.port';
+import { ClientRef, LawyerRef, PeopleLookupPort } from '../domain/ports/case/people-lookup.port';
+import { DayType } from '../domain/value-objects/deadline/day-type';
+import { JurisdictionCode } from '../domain/value-objects/case/jurisdiction-code';
 
 /**
  * In-memory fakes of the ports of `cases`, for the use case specs: no NestJS,

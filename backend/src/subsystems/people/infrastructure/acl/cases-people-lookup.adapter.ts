@@ -3,7 +3,7 @@ import {
   ClientRef,
   LawyerRef,
   PeopleLookupPort,
-} from "@subsystems/cases/core/domain/ports/people-lookup.port";
+} from "@subsystems/cases/core/domain/ports/case/people-lookup.port";
 import {
   CLIENT_REPOSITORY,
   ClientRepository,

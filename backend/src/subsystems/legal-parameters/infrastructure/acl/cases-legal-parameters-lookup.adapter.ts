@@ -3,8 +3,8 @@ import {
   LegalParametersLookupPort,
   LegalQualificationRef,
   ProceduralStateRef,
-} from '@subsystems/cases/core/domain/ports/legal-parameters-lookup.port';
-import { DayType as CasesDayType } from '@subsystems/cases/core/domain/value-objects/day-type';
+} from '@subsystems/cases/core/domain/ports/case/legal-parameters-lookup.port';
+import { DayType as CasesDayType } from '@subsystems/cases/core/domain/value-objects/deadline/day-type';
 import { ProceduralState } from '../../core/domain/entities/procedural-states';
 import { LegalQualificationRepository } from '../../core/domain/ports/legal-qualification.repository';
 import { ProceduralStateRepository } from '../../core/domain/ports/procedural-states.repository';

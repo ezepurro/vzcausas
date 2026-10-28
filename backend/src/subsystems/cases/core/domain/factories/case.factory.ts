@@ -1,13 +1,13 @@
 import { ValidationError } from '@shared/domain/domain-error';
-import { AdministrativeCase } from '../entities/administrative';
-import { Amparo } from '../entities/amparo';
-import { Case, CaseProps } from '../entities/cases';
-import { CriminalCase } from '../entities/criminal';
-import { Offense } from '../entities/offense';
-import { LegalQualificationRef, ProceduralStateRef } from '../ports/legal-parameters-lookup.port';
-import { DayType } from '../value-objects/day-type';
-import { JurisdictionCode } from '../value-objects/jurisdiction-code';
-import { isRoleAllowedIn, ProceduralRole } from '../value-objects/procedural-role';
+import { AdministrativeCase } from '../entities/case/administrative-case.entity';
+import { Amparo } from '../entities/case/amparo.entity';
+import { Case, CaseProps } from '../entities/case/case.entity';
+import { CriminalCase } from '../entities/case/criminal-case.entity';
+import { Offense } from '../entities/case/offense.entity';
+import { LegalQualificationRef, ProceduralStateRef } from '../ports/case/legal-parameters-lookup.port';
+import { DayType } from '../value-objects/deadline/day-type';
+import { JurisdictionCode } from '../value-objects/case/jurisdiction-code';
+import { isRoleAllowedIn, ProceduralRole } from '../value-objects/case/procedural-role';
 
 export interface NewCaseInput {
   id: number;

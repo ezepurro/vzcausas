@@ -1,12 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@shared/infrastructure/prisma/prisma.service';
-import { ProceduralAct } from '../../../core/domain/entities/procedural-act';
+import { ProceduralAct } from '../../../core/domain/entities/procedural-act.entity';
 import { Prisma } from '../../../../../generated/prisma/client';
 import {
   ProceduralActPage,
   ProceduralActRepository,
   ProceduralActView,
-} from '../../../core/domain/ports/procedural-act.repository';
+} from '../../../core/domain/ports/procedural-act/procedural-act.repository';
 import { ProceduralActPrismaMapper } from '../mappers/procedural-act-prisma.mapper';
 
 /**

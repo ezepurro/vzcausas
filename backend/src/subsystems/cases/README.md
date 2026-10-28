@@ -160,10 +160,10 @@ Los unitarios están junto al código que prueban y no usan Nest, Prisma, HTTP n
 
 | Spec | Qué prueba |
 |---|---|
-| `core/domain/entities/offense.spec.ts` | cálculo de la prescripción (CA-18.6) |
-| `core/domain/value-objects/procedural-role.spec.ts` | rol según el fuero (CA-18.3) |
+| `core/domain/entities/case/offense.entity.spec.ts` | cálculo de la prescripción (CA-18.6) |
+| `core/domain/value-objects/case/procedural-role.spec.ts` | rol según el fuero (CA-18.3) |
 | `core/domain/factories/case.factory.spec.ts` | todas las reglas de validación y qué causa se arma |
-| `core/application/use-cases/register-case.use-case.spec.ts` | el flujo del caso de uso con puertos falsos |
+| `core/application/use-cases/case/register-case.use-case.spec.ts` | el flujo del caso de uso con puertos falsos |
 
 ```bash
 cd backend

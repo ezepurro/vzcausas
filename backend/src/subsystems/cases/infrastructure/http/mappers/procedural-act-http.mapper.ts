@@ -7,13 +7,13 @@ import {
   DeadlinePreviewResult,
   PreviewProceduralActDeadlineQuery,
   RegisterProceduralActCommand,
-} from '../../../core/application/common/register-procedural-act.interfaces';
-import { ProceduralActView } from '../../../core/domain/ports/procedural-act.repository';
-import { Deadline } from '../../../core/domain/value-objects/deadline';
-import { DeadlinePreviewQueryDto } from '../dtos/deadline-preview.query.dto';
-import { DeadlinePreviewResponseDto } from '../dtos/deadline-preview.response.dto';
-import { ProceduralActDeadlineResponseDto, ProceduralActResponseDto } from '../dtos/procedural-act.response.dto';
-import { RegisterProceduralActRequestDto } from '../dtos/register-procedural-act.request.dto';
+} from '../../../core/application/use-cases/procedural-act/register-procedural-act.interfaces';
+import { ProceduralActView } from '../../../core/domain/ports/procedural-act/procedural-act.repository';
+import { Deadline } from '../../../core/domain/value-objects/deadline/deadline.vo';
+import { DeadlinePreviewQueryDto } from '../dtos/procedural-act/deadline-preview.query.dto';
+import { DeadlinePreviewResponseDto } from '../dtos/procedural-act/deadline-preview.response.dto';
+import { ProceduralActDeadlineResponseDto, ProceduralActResponseDto } from '../dtos/procedural-act/procedural-act.response.dto';
+import { RegisterProceduralActRequestDto } from '../dtos/procedural-act/register-procedural-act.request.dto';
 
 const CIVIL_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 

@@ -4,7 +4,7 @@ import {
   CaseFolderStatePort,
   CaseFolderStatus,
   CaseFolderView,
-} from '../domain/ports/case-folder-state.port';
+} from '../domain/ports/case/case-folder-state.port';
 
 /**
  * In-memory {@link CaseFolderStatePort}. A case it was not told about is

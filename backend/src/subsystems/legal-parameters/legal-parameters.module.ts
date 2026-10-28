@@ -1,6 +1,6 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { CasesModule } from '@subsystems/cases/case.module';
-import { LEGAL_PARAMETERS_LOOKUP } from '@subsystems/cases/core/domain/ports/legal-parameters-lookup.port';
+import { LEGAL_PARAMETERS_LOOKUP } from '@subsystems/cases/core/domain/ports/case/legal-parameters-lookup.port';
 import { ViewProceduralStates } from './core/application/use-cases/view-procedural-states.use-case';
 import { GetProceduralState } from './core/application/use-cases/get-procedural-state.use-case';
 import { RegisterProceduralState } from './core/application/use-cases/register-procedural-state.use-case';

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@shared/infrastructure/prisma/prisma.service';
-import { CaseTimelineQueryPort, CaseTimelineSources } from '../../../core/domain/ports/case-timeline-query.port';
+import { CaseTimelineQueryPort, CaseTimelineSources } from '../../../core/domain/ports/case/case-timeline-query.port';
 import {
   INTERRUPTIVE_ACT_INCLUDE,
   INTERRUPTIVE_ACTS_NEWEST_FIRST,

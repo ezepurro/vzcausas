@@ -3,7 +3,7 @@ import { PrismaService } from '@shared/infrastructure/prisma/prisma.service';
 import {
   CaseFolderStatePort,
   CaseFolderView,
-} from '../../../core/domain/ports/case-folder-state.port';
+} from '../../../core/domain/ports/case/case-folder-state.port';
 import { CASE_FOLDER_INCLUDE, TEMPLATE_COPIES_SELECT, toCaseFolderView } from '../mappers/case-folder-prisma.mapper';
 
 /**

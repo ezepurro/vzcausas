@@ -2,7 +2,7 @@ import {
   CaseListItem,
   CasePage,
   CaseRepository,
-} from '../../core/domain/ports/case.repository';
+} from '../../core/domain/ports/case/case.repository';
 import { UnusedCaseRepository } from '../../core/test-support/case-fakes';
 import { LegalParametersActiveCasesCounterAdapter } from './legal-parameters-active-cases-counter.adapter';
 

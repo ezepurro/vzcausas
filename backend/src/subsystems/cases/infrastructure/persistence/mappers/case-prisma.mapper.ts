@@ -6,16 +6,16 @@ import {
   ProceduralAct as PrismaProceduralAct,
   ProceduralState as PrismaProceduralState,
 } from '../../../../../generated/prisma/client';
-import { AdministrativeCase } from '../../../core/domain/entities/administrative';
-import { Amparo } from '../../../core/domain/entities/amparo';
-import { Case, CaseProps } from '../../../core/domain/entities/cases';
-import { CriminalCase } from '../../../core/domain/entities/criminal';
-import { Offense } from '../../../core/domain/entities/offense';
+import { AdministrativeCase } from '../../../core/domain/entities/case/administrative-case.entity';
+import { Amparo } from '../../../core/domain/entities/case/amparo.entity';
+import { Case, CaseProps } from '../../../core/domain/entities/case/case.entity';
+import { CriminalCase } from '../../../core/domain/entities/case/criminal-case.entity';
+import { Offense } from '../../../core/domain/entities/case/offense.entity';
 import { ProceduralActPrismaMapper } from './procedural-act-prisma.mapper';
-import { DayType } from '../../../core/domain/value-objects/day-type';
-import { JurisdictionCode } from '../../../core/domain/value-objects/jurisdiction-code';
-import { PrescriptionDeclaration } from '../../../core/domain/value-objects/prescription-declaration.vo';
-import { ProceduralRole } from '../../../core/domain/value-objects/procedural-role';
+import { DayType } from '../../../core/domain/value-objects/deadline/day-type';
+import { JurisdictionCode } from '../../../core/domain/value-objects/case/jurisdiction-code';
+import { PrescriptionDeclaration } from '../../../core/domain/value-objects/prescription/prescription-declaration.vo';
+import { ProceduralRole } from '../../../core/domain/value-objects/case/procedural-role';
 
 export type OffenseRow = PrismaOffense & { legalQualification: PrismaLegalQualification };
 

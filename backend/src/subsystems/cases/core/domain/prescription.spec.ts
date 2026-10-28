@@ -6,7 +6,7 @@ import {
   prescriptionStartsOn,
   summarizePrescription,
 } from './prescription';
-import { JurisdictionCode } from './value-objects/jurisdiction-code';
+import { JurisdictionCode } from './value-objects/case/jurisdiction-code';
 
 const day = (iso: string) => new Date(`${iso}T00:00:00.000Z`);
 

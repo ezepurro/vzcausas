@@ -4,8 +4,8 @@ import { Prisma } from '../../../../../generated/prisma/client';
 import {
   CriminalCasePrescriptionRow,
   CriminalPrescriptionQueryPort,
-} from '../../../core/domain/ports/criminal-prescription-query.port';
-import { JurisdictionCode } from '../../../core/domain/value-objects/jurisdiction-code';
+} from '../../../core/domain/ports/prescription/criminal-prescription-query.port';
+import { JurisdictionCode } from '../../../core/domain/value-objects/case/jurisdiction-code';
 import { ACTIVE_CASE } from './prisma-case.repository';
 
 /** Only the columns the prescription is computed from, plus what the notice shows. */

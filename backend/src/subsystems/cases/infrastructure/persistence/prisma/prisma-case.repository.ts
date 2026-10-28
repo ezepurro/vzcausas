@@ -2,18 +2,18 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@shared/infrastructure/prisma/prisma.service';
 import { Prisma } from '../../../../../generated/prisma/client';
 import { DayType as PrismaDayType, ProceduralRole as PrismaProceduralRole } from '../../../../../generated/prisma/enums';
-import { Case } from '../../../core/domain/entities/cases';
+import { Case } from '../../../core/domain/entities/case/case.entity';
 import {
   CaseDueDateKey,
   CaseListItem,
   CaseRepository,
   CaseSearchFilters,
-} from '../../../core/domain/ports/case.repository';
-import { ProceduralStateRef } from '../../../core/domain/ports/legal-parameters-lookup.port';
+} from '../../../core/domain/ports/case/case.repository';
+import { ProceduralStateRef } from '../../../core/domain/ports/case/legal-parameters-lookup.port';
 import { addPrescriptionMonths, prescriptionStartsOn } from '../../../core/domain/prescription';
-import { DayType } from '../../../core/domain/value-objects/day-type';
-import { JurisdictionCode } from '../../../core/domain/value-objects/jurisdiction-code';
-import { ProceduralRole } from '../../../core/domain/value-objects/procedural-role';
+import { DayType } from '../../../core/domain/value-objects/deadline/day-type';
+import { JurisdictionCode } from '../../../core/domain/value-objects/case/jurisdiction-code';
+import { ProceduralRole } from '../../../core/domain/value-objects/case/procedural-role';
 import { CASE_FOLDER_INCLUDE, TEMPLATE_COPIES_SELECT, toCaseFolderView } from '../mappers/case-folder-prisma.mapper';
 import { CasePrismaMapper } from '../mappers/case-prisma.mapper';
 import { PRESCRIPTION_DECLARATION_SELECT, toPrescriptionDeclarationView } from '../mappers/prescription-declaration-prisma.mapper';

@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { ActiveCasesCounterPort } from '@subsystems/legal-parameters/core/domain/ports/active-cases-counter.port';
-import { CASE_REPOSITORY, CaseRepository } from '../../core/domain/ports/case.repository';
+import { CASE_REPOSITORY, CaseRepository } from '../../core/domain/ports/case/case.repository';
 
 /**
  * Implements the {@link ActiveCasesCounterPort} that `legal-parameters`
@@ -11,7 +11,7 @@ import { CASE_REPOSITORY, CaseRepository } from '../../core/domain/ports/case.re
  * **The direction is the inverse of every other ACL adapter here, and that is
  * the point.** Everywhere else `cases` declares what it needs and another
  * subsystem adapts — `people/infrastructure/acl/cases-people-lookup.adapter.ts`
- * implements the port of `cases/core/domain/ports/people-lookup.port.ts`. In
+ * implements the port of `cases/core/domain/ports/case/people-lookup.port.ts`. In
  * this one `legal-parameters` is the consumer, so it owns the port, and `cases`
  * adapts. The rule stays with the owner either way: "active case" is defined in
  * `cases` (§4), and counted by each module on its own it would drift in four

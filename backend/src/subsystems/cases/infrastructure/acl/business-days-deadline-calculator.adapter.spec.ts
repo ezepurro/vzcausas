@@ -1,4 +1,4 @@
-import { DayType } from '../../core/domain/value-objects/day-type';
+import { DayType } from '../../core/domain/value-objects/deadline/day-type';
 import { day } from '../../core/test-support/case-fixtures';
 import { BusinessDaysDeadlineCalculatorAdapter } from './business-days-deadline-calculator.adapter';
 

@@ -1,9 +1,9 @@
 import { DeadlinesPrescriptionStatusAdapter } from './deadlines-prescription-status.adapter';
-import { ListActivePrescriptions } from '../../core/application/use-cases/list-active-prescriptions.use-case';
+import { ListActivePrescriptions } from '../../core/application/use-cases/prescription/list-active-prescriptions.use-case';
 import {
   CriminalCasePrescriptionRow,
   CriminalPrescriptionQueryPort,
-} from '../../core/domain/ports/criminal-prescription-query.port';
+} from '../../core/domain/ports/prescription/criminal-prescription-query.port';
 
 const day = (iso: string) => new Date(`${iso}T00:00:00.000Z`);
 

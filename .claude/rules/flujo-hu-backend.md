@@ -43,7 +43,7 @@ paths:
 - **Value object para un dato que se valida al crearse** y no tiene identidad ni ciclo
   de vida: `create` valida y junta todos los errores, `hydrate` reconstruye sin
   validar, getters sin setters, `equals`. Molde:
-  `cases/core/domain/value-objects/prescription-declaration.vo.ts`. Entidad solo si
+  `cases/core/domain/value-objects/prescription/prescription-declaration.vo.ts`. Entidad solo si
   tiene identidad propia y cambia en el tiempo.
 - **Ninguna función suelta nueva** que decida reglas o arme respuestas pieza por pieza.
   `withDeadlines` (`list-cases.use-case.ts`) y las funciones de `prescription.ts` son
@@ -60,11 +60,12 @@ paths:
 
 ## Nombres de archivo
 
-Los archivos **nuevos** siguen `ARQUITECTURA_BACKEND_V1.md:386-396`: `.vo.ts`,
-`.entity.ts`, `<verbo>-<sustantivo>.use-case.ts`, `<caso-de-uso>.request.dto.ts`. Los
-archivos que ya existen en `cases` (`cases.ts`, `harmful-act.ts`,
-`case-prisma.repository.ts`) **no se renombran**: es una inconsistencia conocida, y
-renombrarlos al pasar mezcla un refactor con la HU. Decidido con mmachuca el 21/10/2026.
+Los archivos siguen `ARQUITECTURA_BACKEND_V1.md:386-396`: `.vo.ts`, `.entity.ts`,
+`<verbo>-<sustantivo>.use-case.ts`, `<caso-de-uso>.request.dto.ts`. En `cases` los
+archivos que no la seguían (`cases.ts`, `harmful-act.ts`, `case-prisma.repository.ts`)
+se renombraron en el refactor de estructura (`docs/support/refactor-estructura-backend.md`,
+fases B y C, 28/10/2026). La regla del 21/10/2026 sigue valiendo para el resto: un
+renombre no se mezcla con una HU, va en un refactor aparte.
 
 ## Tests contra los criterios y el contrato, no contra el código
 

@@ -1,12 +1,12 @@
 import { DeadlinesOpenDeadlinesAdapter } from './deadlines-open-deadlines.adapter';
-import { ListOpenDeadlines } from '../../core/application/use-cases/list-open-deadlines.use-case';
+import { ListOpenDeadlines } from '../../core/application/use-cases/case/list-open-deadlines.use-case';
 import {
   OpenDeadlineQueryPort,
   OpenHarmfulActRow,
   OpenProceduralDeadlineRow,
-} from '../../core/domain/ports/open-deadline-query.port';
-import { DayType } from '../../core/domain/value-objects/day-type';
-import { JurisdictionCode } from '../../core/domain/value-objects/jurisdiction-code';
+} from '../../core/domain/ports/procedural-act/open-deadline-query.port';
+import { DayType } from '../../core/domain/value-objects/deadline/day-type';
+import { JurisdictionCode } from '../../core/domain/value-objects/case/jurisdiction-code';
 
 const day = (iso: string) => new Date(`${iso}T00:00:00.000Z`);
 

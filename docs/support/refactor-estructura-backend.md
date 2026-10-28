@@ -11,7 +11,7 @@ El trabajo va en cinco fases, una por problema, en este orden:
 | ---- | ------------------------------------------------------------ | --------- |
 | A    | `common/` y `shared/` separados; `SharedModule` mezclado     | Hecha     |
 | B    | Puertos y adaptadores de persistencia duplicados en `cases`  | Hecha     |
-| C    | Carpetas de `cases` con demasiados archivos                  | Pendiente |
+| C    | Carpetas de `cases` con demasiados archivos                  | Hecha     |
 | D    | Funciones sueltas que rompen el paradigma orientado a objetos | Pendiente |
 | E    | Tests unitarios mezclados con el código                      | Pendiente |
 
@@ -113,3 +113,32 @@ y `OpenDeadlineQueryPort`, además de `CaseFolderStatePort`. Si se suman o no
 se decide con el equipo (contradice V-08 de `IMPLEMENTACION_DETECCION.md`). Los
 adaptadores del timeline y de la prescripción penal todavía no siguen la
 convención de nombres.
+
+## Fase C — Subcarpetas por entidad en `cases`
+
+**Por qué.** `cases` tenía 14 casos de uso, 11 puertos y 14 DTOs en carpetas
+planas, y varios archivos no seguían la convención de nombres
+(`cases.ts`, `harmful-act.ts`, `deadline.ts`).
+
+**Qué cambió.**
+
+- Se mantienen las carpetas canónicas (`entities/`, `value-objects/`,
+  `ports/`, `use-cases/`, `dtos/`) y adentro de cada una se agrupa por
+  entidad: `case/`, `procedural-act/`, `interruptive-act/` y `prescription/`.
+  Cada spec se movió junto a su archivo.
+- Renombres a la convención:
+  - entidades: `cases.ts` → `case.entity.ts`, `criminal.ts` →
+    `criminal-case.entity.ts`, `amparo.ts` → `amparo.entity.ts`,
+    `administrative.ts` → `administrative-case.entity.ts`, `offense.ts`,
+    `procedural-act.ts` e `interruptive-act.ts` → `.entity.ts`;
+  - value objects: `deadline.ts` → `deadline.vo.ts`, `harmful-act.ts` →
+    `harmful-act.vo.ts`. Los enums (`day-type`, `jurisdiction-code`,
+    `procedural-role`) y la interfaz `instructor` conservan su nombre.
+- `core/application/common/` desapareció: sus tres archivos fueron a la
+  subcarpeta del caso de uso que los usa.
+- No cambiaron de lugar: `business-days.ts` y `prescription.ts` (los mueve la
+  fase D), `errors/`, `factories/`, los controllers, los mappers HTTP, `acl/`,
+  `persistence/` y `test-support/`.
+- Se actualizaron los imports (también los de otros subsistemas y de
+  `test/`), las rutas citadas en `cases/README.md` y en `.claude/rules/`, y el
+  párrafo de `flujo-hu-backend.md` que prohibía estos renombres.

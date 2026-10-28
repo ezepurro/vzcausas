@@ -1,7 +1,7 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { ClockModule } from '@shared/infrastructure/clock/clock.module';
 import { CasesModule } from '@subsystems/cases/case.module';
-import { PEOPLE_LOOKUP } from '@subsystems/cases/core/domain/ports/people-lookup.port';
+import { PEOPLE_LOOKUP } from '@subsystems/cases/core/domain/ports/case/people-lookup.port';
 import { FindClientUseCase } from './core/application/use-cases/find-client.use-case';
 import { FindLawyerUseCase } from './core/application/use-cases/find-lawyer.use-case';
 import { FindLawyersUseCase } from './core/application/use-cases/find-lawyers.use-case';

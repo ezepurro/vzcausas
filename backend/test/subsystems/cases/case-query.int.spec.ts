@@ -1,12 +1,12 @@
 import { INestApplication } from '@nestjs/common';
 
-import { ListCases } from '../../../src/subsystems/cases/core/application/use-cases/list-cases.use-case';
+import { ListCases } from '../../../src/subsystems/cases/core/application/use-cases/case/list-cases.use-case';
 import {
   CASE_REPOSITORY,
   CasePage,
   CaseRepository,
   CaseSearchCriteria,
-} from '../../../src/subsystems/cases/core/domain/ports/case.repository';
+} from '../../../src/subsystems/cases/core/domain/ports/case/case.repository';
 import { createClient } from '../../shared/factories/client.factory';
 import { createLawyer } from '../../shared/factories/lawyer.factory';
 import { createLegalQualification } from '../../shared/factories/legal-qualification.factory';

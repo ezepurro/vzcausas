@@ -1,11 +1,11 @@
 import { ConfigService } from '@nestjs/config';
 import { ValidationError } from '@shared/domain/domain-error';
-import { RegisterProceduralActResult } from '../../../core/application/common/register-procedural-act.interfaces';
-import { ProceduralAct } from '../../../core/domain/entities/procedural-act';
-import { DayType } from '../../../core/domain/value-objects/day-type';
-import { Deadline } from '../../../core/domain/value-objects/deadline';
+import { RegisterProceduralActResult } from '../../../core/application/use-cases/procedural-act/register-procedural-act.interfaces';
+import { ProceduralAct } from '../../../core/domain/entities/procedural-act.entity';
+import { DayType } from '../../../core/domain/value-objects/deadline/day-type';
+import { Deadline } from '../../../core/domain/value-objects/deadline/deadline.vo';
 import { anAct, anActor, day, LAWYER, OPPOSITION, NOW } from '../../../core/test-support/case-fixtures';
-import { RegisterProceduralActRequestDto } from '../dtos/register-procedural-act.request.dto';
+import { RegisterProceduralActRequestDto } from '../dtos/procedural-act/register-procedural-act.request.dto';
 import { ProceduralActHttpMapper } from './procedural-act-http.mapper';
 
 describe('ProceduralActHttpMapper', () => {

@@ -1,7 +1,7 @@
 import { Controller, Get, Param } from '@nestjs/common';
-import { GetCaseTimeline } from '../../../core/application/use-cases/get-case-timeline.use-case';
+import { GetCaseTimeline } from '../../../core/application/use-cases/case/get-case-timeline.use-case';
 import { InvalidCaseIdError } from '../../../core/domain/errors/case.errors';
-import { TimelineEntryResponseDto } from '../dtos/timeline.response.dto';
+import { TimelineEntryResponseDto } from '../dtos/case/timeline.response.dto';
 import { TimelineHttpMapper } from '../mappers/timeline-http.mapper';
 
 /**

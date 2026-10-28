@@ -5,8 +5,8 @@ import {
   OpenDeadlinesPort,
 } from '@subsystems/deadlines/core/domain/ports/open-deadlines.port';
 import { JurisdictionCode as DeadlinesJurisdictionCode } from '@subsystems/deadlines/core/domain/value-objects/jurisdiction-code';
-import { ListOpenDeadlines } from '../../core/application/use-cases/list-open-deadlines.use-case';
-import { JurisdictionCode } from '../../core/domain/value-objects/jurisdiction-code';
+import { ListOpenDeadlines } from '../../core/application/use-cases/case/list-open-deadlines.use-case';
+import { JurisdictionCode } from '../../core/domain/value-objects/case/jurisdiction-code';
 
 /**
  * `cases` and `deadlines` each declare their own `JurisdictionCode`, with the
