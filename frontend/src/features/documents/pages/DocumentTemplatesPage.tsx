@@ -189,7 +189,7 @@ export function DocumentTemplatesPage() {
             <PageHeader
                 eyebrow="Trabajo diario"
                 title="Modelos formales"
-                sub="Los escritos tipo del estudio. Al registrar una causa, los modelos vigentes del fuero se copian a su carpeta en Drive."
+                sub="Los escritos tipo del estudio, por fuero. Los que estén marcados para copiar se suman a la carpeta en Drive de cada causa nueva."
                 actions={
                     <Button icon={<Icon name="plus" />} size="md" onClick={openCreate}>
                         Registrar modelo

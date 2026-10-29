@@ -76,7 +76,7 @@ export function ClientFormModal({
             sub={
                 fromCase
                     ? 'Al confirmar, el cliente queda seleccionado en la causa.'
-                    : 'Los datos de contacto se usan para los avisos de vencimiento.'
+                    : 'Después lo vas a poder elegir al registrar sus causas. El teléfono y el correo son opcionales.'
             }
             fields={fields}
             values={values}
