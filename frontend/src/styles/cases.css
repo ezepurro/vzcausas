@@ -428,3 +428,196 @@
 /* Sin carpeta, vacía o con Drive caído: una línea de texto en lugar de la lista. */
 .vz-docs__note { margin: 0; font-size: 13px; line-height: 1.45; color: var(--vz-muted); }
 .vz-docs__note--error { color: var(--vz-danger); }
+
+
+/* ─────────── generar expediente (HU25) ─────────── */
+/* La carátula y los documentos, uno por renglón, en el orden en que se unen;
+   el índice de "Resultado"; la vista previa (HU24) y el diálogo final. Sin
+   cortes propios: los renglones se acomodan con flex-wrap. */
+.vz-casefile__body { display: flex; flex-direction: column; gap: 14px; }
+.vz-casefile__list { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.vz-casefile__item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--vz-border-strong);
+  border-radius: var(--vz-r);
+  background: var(--vz-surface);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, .05);
+}
+/* Se arrastra desde toda la tarjeta, como el prototipo: `touch-action: none`
+   hace que el dedo la mueva en lugar de bajar la página. El `transform` del
+   arrastre no tiene transición: tiene que seguir al puntero sin demora. */
+.vz-casefile__item--draggable {
+  position: relative;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+  transition: background-color .5s, border-color .3s, box-shadow .15s;
+}
+.vz-casefile__item--draggable.is-dragging {
+  z-index: 5;
+  border-color: var(--vz-primary);
+  box-shadow: 0 14px 32px rgba(15, 23, 42, .18), 0 3px 8px rgba(15, 23, 42, .10);
+  cursor: grabbing;
+}
+/* Recién soltada: queda resaltada un momento. */
+.vz-casefile__item--draggable.is-flash { border-color: var(--vz-primary); background: var(--vz-primary-soft); }
+@media (prefers-reduced-motion: reduce) {
+  .vz-casefile__item--draggable { transition: none; }
+}
+.vz-casefile__item--excluded { border-style: dashed; box-shadow: none; }
+.vz-casefile__item--excluded .vz-casefile__name { font-weight: 500; color: var(--vz-muted); }
+.vz-casefile__item--excluded .vz-casefile__type { opacity: .7; }
+.vz-casefile__item--result { background: var(--vz-sunken); box-shadow: none; }
+.vz-casefile__grip { flex: 0 0 12px; color: var(--vz-faint); }
+.vz-casefile__order {
+  flex: 0 0 18px;
+  font-family: var(--vz-font-mono);
+  font-size: 12px;
+  color: var(--vz-ink);
+  text-align: right;
+}
+.vz-casefile__type {
+  flex: 0 0 auto;
+  padding: 3px 6px;
+  border-radius: 4px;
+  background: var(--vz-primary-soft);
+  font-family: var(--vz-font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  color: var(--vz-primary);
+}
+.vz-casefile__type--pdf { background: var(--vz-danger-bg); color: var(--vz-danger); }
+/* El nombre puede ser largo: se corta con "…" y completo queda en el title. */
+.vz-casefile__main { flex: 1 1 160px; min-width: 0; }
+.vz-casefile__name {
+  overflow: hidden;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--vz-ink);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.vz-casefile__name--mono { font-family: var(--vz-font-mono); font-weight: 500; }
+.vz-casefile__meta { margin-top: 2px; font-size: 12px; color: var(--vz-muted); }
+.vz-casefile__row-actions { display: flex; flex: 0 0 auto; gap: 4px; margin-left: auto; }
+.vz-casefile__empty {
+  padding: 18px;
+  border: 1.5px dashed var(--vz-border-strong);
+  border-radius: var(--vz-r);
+  font-size: 13px;
+  color: var(--vz-muted);
+  text-align: center;
+}
+.vz-casefile__hint { margin: 0; font-size: 12px; line-height: 1.45; color: var(--vz-faint); }
+.vz-casefile__link {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: 600;
+  color: var(--vz-primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+/* La parte va en mayúsculas en la hoja: se escribe así. */
+.vz-casefile__upper { text-transform: uppercase; }
+.vz-casefile__excluded {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 14px;
+  border-top: 1px solid var(--vz-border);
+}
+.vz-casefile__label {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--vz-muted);
+}
+
+/* "Resultado" */
+.vz-casefile__index { display: flex; flex-direction: column; margin: 0; padding: 10px var(--vz-panel-pad); list-style: none; }
+.vz-casefile__index li {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--vz-border);
+  font-size: 13px;
+}
+.vz-casefile__index-n { flex: 0 0 18px; font-family: var(--vz-font-mono); font-size: 12px; color: var(--vz-faint); }
+.vz-casefile__index-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--vz-ink);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.vz-casefile__index-name--cover { font-weight: 600; white-space: normal; }
+.vz-casefile__summary { margin: 0; padding: 6px var(--vz-panel-pad) 16px; font-size: 12.5px; line-height: 1.5; color: var(--vz-muted); }
+.vz-casefile__generate { display: flex; flex-direction: column; gap: 8px; }
+
+/* Vista previa y "Expediente generado" */
+/* Vista previa de la carátula (HU24), como el prototipo: la hoja A4 sola,
+   centrada sobre el fondo oscuro, del alto que entre en la ventana. Mismo
+   z-index que .vz-modal-backdrop. El blanco del título va fijo: el fondo es
+   siempre oscuro. */
+.vz-cover-preview {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+  overflow-y: auto;
+  background: rgba(12, 20, 6, .55);
+  overscroll-behavior: contain;
+}
+.vz-cover-preview__dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: min(595px, 100%, calc((100dvh - 96px) * 595 / 842));
+  min-width: min(280px, 100%);
+  margin: auto 0;
+}
+.vz-cover-preview__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: #fff; }
+.vz-cover-preview__title { font-size: 14px; font-weight: 600; }
+.vz-cover-preview__close {
+  flex: 0 0 auto;
+  height: 34px;
+  padding: 0 16px;
+  border: 1px solid rgba(255, 255, 255, .4);
+  border-radius: var(--vz-r-btn);
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  cursor: pointer;
+}
+.vz-cover-preview__close:hover { background: rgba(255, 255, 255, .12); }
+.vz-cover-preview__sheet {
+  display: flex;
+  flex-direction: column;
+  aspect-ratio: 595 / 842;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, .35);
+}
+.vz-cover-preview__sheet > * { flex: 1; min-height: 0; }
+.vz-cover-preview__frame { display: block; width: 100%; height: 100%; border: 0; }
+.vz-cover-preview__error { margin: 0; padding: 24px; font-size: 13px; line-height: 1.45; color: var(--vz-danger); }
+.vz-casefile__ready-text { margin: 14px 0; font-size: 13px; line-height: 1.5; color: var(--vz-muted); }
+.vz-casefile__ready-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
+.vz-casefile__keep { margin-right: auto; }
+.vz-casefile__panels { display: flex; flex-direction: column; gap: 16px; min-width: 0; }

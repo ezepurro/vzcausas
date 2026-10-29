@@ -19,7 +19,11 @@ export const casesKeys = {
        causa (registrar un acto procesal o interruptivo) la invalida también. */
     timeline: (id: number) => [...casesKeys.detail(id), 'timeline'] as const,
     /* Los documentos también cuelgan del detalle: modificar la causa (que
-    puede renombrar su carpeta) los refresca, y darla de baja los remueve. */
+        puede renombrar su carpeta) los refresca, y darla de baja los remueve. */
     documents: (id: number) => [...casesKeys.detail(id), 'documents'] as const,
+    /* La carátula cuelga del detalle: modificar la causa la invalida, y la
+        próxima vista previa ya refleja el cambio (CA-24.8). */
+    cover: (id: number) => [...casesKeys.detail(id), 'cover'] as const,
+
     customStates: (jurisdiction?: Jurisdiction) => [...casesKeys.lists(), 'custom-states', jurisdiction ?? 'all'] as const,
 }

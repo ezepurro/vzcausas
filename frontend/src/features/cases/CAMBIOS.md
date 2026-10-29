@@ -5,6 +5,48 @@ contrato.
 
 ---
 
+## 2026-10-29 — Generar expediente (HU25) y vista previa de la carátula (HU24)
+
+**Pedido:** decisiones de Luciano Cipolla al programar la pantalla, donde el
+prototipo no alcanza o choca con el contrato.
+
+**Antes (prototipo):** la pantalla "Generar expediente" ofrece todos los
+documentos que no son expediente, ordena sólo arrastrando y dibuja la hoja de
+carátula en HTML, sobre una imagen de la plantilla.
+
+**Ahora** (`GenerateCaseFilePage` en `/causas/:caseId/expediente`):
+
+- **Sin carpeta creada** la pantalla abre igual: la vista previa funciona
+  (CA-24.9), la lista dice "La carpeta de la causa todavía no está creada en
+  Drive." y "Generar PDF" queda deshabilitado, en lugar de esperar el `422
+  CASE_FOLDER_NOT_AVAILABLE`.
+- **Un documento que no se puede convertir** (`convertibleToPdf: false`) se
+  muestra en "No incluidos" con "No se puede convertir a PDF" e "Incluir"
+  deshabilitado. No se elige solo: daría `422 DOCUMENT_NOT_CONVERTIBLE`.
+- **El nombre de "Resultado"** antes de generar se estima con la versión más
+  alta de la carpeta + 1 (`caseFileNamePreview`). La versión la lleva el
+  servidor: después de generar se muestra el nombre que devuelve.
+- **Orden:** además del arrastre del prototipo (desde toda la tarjeta, con
+  mouse o con el dedo), cada documento lleva "↑" y "↓". Sirven con el
+  teclado, y son lo que prueba el orden: jsdom no calcula posiciones, así que
+  el arrastre no tiene test.
+- **Colores** de los recuadros "PDF" / "DOC": los tokens `danger` y `primary`
+  en lugar de los hexadecimales del prototipo.
+- **Vista previa de la carátula:** muestra el PDF de `GET /cases/{caseId}/cover`,
+  no una hoja dibujada en el front. D-94 pide que lo que se ve sea lo que se
+  imprime, y las partes de cada recuadro las decide el backend. Se presenta
+  como el prototipo (la hoja sola sobre el fondo oscuro, sin la barra del
+  visor de PDF en Chrome y Edge), en `CoverPreviewModal`. Con el mock la hoja
+  es texto suelto (`pdf.ts`): la del estudio llega con el backend.
+- **"Modificá los datos de la causa"** abre "Modificar causa" en la misma
+  pantalla, como el prototipo. Para eso la orquestación del diálogo pasó de
+  `CaseDetailPage` a `api/useCaseEdit.ts` (acordado con Facundo Fiorani), que
+  usan las dos pantallas. El hook importa dos tipos de `components/`
+  (`CaseEditFormProps`, `SelectedQualification`): es la única flecha de `api/`
+  hacia `components/` del módulo.
+
+---
+
 ## 2026-10-28 — Línea de vida: "Modificar" no se ofrece en una causa prescripta
 
 **Pedido:** decisión del equipo al planificar HU28 (Ezequiel Purro), donde el

@@ -15,6 +15,7 @@ import { RequireAccess } from '@/app/router/RequireAccess'
 import { ClientsPage } from '@/features/clients/pages/ClientsPage'
 import { RegisterCasePage } from '@/features/cases/pages/RegisterCasePage'
 import { CaseDetailPage } from '@/features/cases/pages/CaseDetailPage'
+import { GenerateCaseFilePage } from '@/features/cases/pages/GenerateCaseFilePage'
 import { CasesPage } from '@/features/cases/pages/CasesPage'
 import { DocumentTemplatesPage } from '@/features/documents/pages/DocumentTemplatesPage'
 import { HomeRedirect } from '@/app/router/HomeRedirect'
@@ -59,6 +60,7 @@ export const router = createBrowserRouter([
                                     { path: 'causas/:caseId/acto', element: <RegisterProceduralActPage /> },
                                     // Modificar un acto (HU28): la misma pantalla, con el acto elegido en la línea de vida.
                                     { path: 'causas/:caseId/acto/:actId', element: <RegisterProceduralActPage /> },
+                                    { path: 'causas/:caseId/expediente', element: <GenerateCaseFilePage /> },
                                     { path: 'herramientas', element: <ToolsPage /> },
                                     { path: 'modelos', element: <DocumentTemplatesPage /> },
 

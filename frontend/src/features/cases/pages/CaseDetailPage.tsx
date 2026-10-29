@@ -5,18 +5,14 @@ import { useCurrentUser } from '@/app/providers/AuthContext'
 import { useToast } from '@/app/providers/ToastContext'
 import { isApiError } from '@/shared/api/ApiError'
 import { Breadcrumbs, Button, Icon, Panel, type BreadcrumbItem } from '@/shared/components/ui'
-import type { SelectOption } from '@/shared/components/forms'
 import { formatDate, todayIsoDate } from '@/shared/lib/dates'
-import { formatPersonFullName, formatPersonName } from '@/shared/lib/personName'
-import { formatClientName, formatDni, useClients } from '@/features/clients'
-import { useLawyers } from '@/features/lawyers'
-import { formatPrescription, useLegalQualifications } from '@/features/legal-params'
+import { formatPersonFullName } from '@/shared/lib/personName'
 import { useCase } from '@/features/cases/api/useCase'
+import { useCaseEdit } from '@/features/cases/api/useCaseEdit'
 import { useCaseTimeline } from '@/features/cases/api/useCaseTimeline'
 import { useCreateCaseFolder } from '@/features/cases/api/useCreateCaseFolder'
 import { useDeclarePrescription } from '@/features/cases/api/useDeclarePrescription'
 import { useRegisterInterruptiveAct } from '@/features/cases/api/useRegisterInterruptiveAct'
-import { useUpdateCase } from '@/features/cases/api/useUpdateCase'
 import { CaseEditForm } from '@/features/cases/components/CaseEditForm'
 import { CaseHeader } from '@/features/cases/components/CaseHeader'
 import { CaseFacts } from '@/features/cases/components/CaseFacts'
@@ -25,10 +21,8 @@ import { CaseDetailSkeleton } from '@/features/cases/components/CaseSkeletons'
 import { CaseTimeline } from '@/features/cases/components/CaseTimeline'
 import { ClientCard } from '@/features/cases/components/ClientCard'
 import { InterruptiveActModal } from '@/features/cases/components/InterruptiveActModal'
-import type { SelectedQualification } from '@/features/cases/components/LegalQualificationPicker'
 import { PrescriptionBar } from '@/features/cases/components/PrescriptionBar'
 import { PrescriptionDeclarationModal } from '@/features/cases/components/PrescriptionDeclarationModal'
-import { isValid, validateCase, type CaseFormErrors } from '@/features/cases/schemas/case.schema'
 import {
     validateInterruptiveAct,
     type InterruptiveActFormErrors,
@@ -37,19 +31,15 @@ import {
     validatePrescriptionDeclaration,
     type PrescriptionDeclarationFormErrors,
 } from '@/features/cases/schemas/prescriptionDeclaration.schema'
-import type { Case, CaseFormValues } from '@/features/cases/types/case'
+import type { Case } from '@/features/cases/types/case'
 import type { InterruptiveActFormValues } from '@/features/cases/types/interruptiveAct'
 import type { PrescriptionDeclarationFormValues } from '@/features/cases/types/prescriptionDeclaration'
 import type { ProceduralAct } from '@/features/cases/types/proceduralAct'
-import { buildCasePatch } from '@/features/cases/utils/buildCasePatch'
-import { caseToFormValues, changeEditSacNumber } from '@/features/cases/utils/caseForm'
 import { prescriptionNote } from '@/features/cases/utils/prescription'
 import { isResponsibleLawyer } from '@/features/cases/utils/responsibleLawyer'
 import { sacLabel } from '@/features/cases/utils/sac'
-import { captionWithClient } from '@/features/cases/utils/suggestedCaption'
 import { toCreateInterruptiveActBody } from '@/features/cases/utils/toCreateInterruptiveActBody'
 import { toDeclarePrescriptionBody } from '@/features/cases/utils/toDeclarePrescriptionBody'
-import { toFormErrors } from '@/features/cases/utils/toFormErrors'
 import { toInterruptiveActFormErrors } from '@/features/cases/utils/toInterruptiveActFormErrors'
 import { toPrescriptionDeclarationFormErrors } from '@/features/cases/utils/toPrescriptionDeclarationFormErrors'
 import { useDeleteCase } from '@/features/cases/api/useDeleteCase'
@@ -69,10 +59,10 @@ import { CaseDocumentsCard } from '@/features/cases/components/CaseDocumentsCard
  *
  *  * "Modificar causa" (HU19) y "Dar de baja" (HU21) los opera cualquier perfil,
  * sin ser el responsable (V5 §3.7). Dar de baja vuelve al listado: para el
- * cliente la causa deja de existir (D-97). En las causas penales suma la fila
- * "Sobre la causa", con "Registrar acto interruptivo" (HU31) y "Marcar prescripta" (HU33). Lo demás
- * que el prototipo pone en esa fila (pago de tasa, carátula, expediente) es de
- * otras historias y no se dibuja.
+ * cliente la causa deja de existir (D-97). La fila "Sobre la causa" lleva, en
+ * todos los fueros, "Generar expediente" (HU25), y en las causas penales suma
+ * "Registrar acto interruptivo" (HU31) y "Marcar prescripta" (HU33). El pago
+ * de tasa, que el prototipo también pone ahí, es de otra historia y no se dibuja.
  *
  * Al costado, la carpeta de la causa en Drive (HU39), con la que se crea o se
  * reintenta si falta, y debajo sus documentos (HU38), que se leen de ella.
@@ -114,18 +104,16 @@ export function CaseDetailPage() {
     )
 }
 
-/** Los selects de "Modificar causa" necesitan todo junto, no paginado: 100 es el tope del contrato. */
-const OPTIONS_LIMIT = 100
-
-/** El aviso de "Modificar causa", del prototipo. */
-const CASE_UPDATED = 'Causa actualizada. El cambio queda asentado con usuario y fecha.'
 /** El aviso de "Dar de baja", del prototipo. */
 const CASE_DELETED = 'Causa dada de baja. Se conserva el historial completo.'
-/** Qué modal está abierto, con sus valores y sus errores. */
+/**
+ * Qué modal está abierto, con sus valores y sus errores. "Modificar causa"
+ * lleva su propio estado, en `useCaseEdit`, porque también lo abre "Generar
+ * expediente".
+ */
 type ModalState =
     | { kind: 'interruptive'; values: InterruptiveActFormValues; errors: InterruptiveActFormErrors }
     | { kind: 'prescription'; values: PrescriptionDeclarationFormValues; errors: PrescriptionDeclarationFormErrors }
-    | { kind: 'edit'; values: CaseFormValues; errors: CaseFormErrors }
     | { kind: 'delete'; values: DeleteCaseFormValues; errors: DeleteCaseFormErrors }
     | null
 
@@ -142,18 +130,9 @@ function CaseDetail({ case: c }: { case: Case }) {
     const registerInterruptive = useRegisterInterruptiveAct(c.id)
     const declarePrescription = useDeclarePrescription(c.id)
     const createFolder = useCreateCaseFolder(c.id)
-    const updateCase = useUpdateCase(c.id)
+    const edit = useCaseEdit(c)
     const deleteCase = useDeleteCase(c.id)
     const [modal, setModal] = useState<ModalState>(null)
-
-    /* Las opciones de "Modificar causa" se piden con la pantalla y no al abrir
-       el diálogo: así las listas ya están cuando se abre. */
-    const clientsQuery = useClients({ page: 1, limit: OPTIONS_LIMIT })
-    const lawyersQuery = useLawyers({ page: 1, limit: OPTIONS_LIMIT })
-    const qualificationsQuery = useLegalQualifications({ page: 1, limit: OPTIONS_LIMIT })
-    const clients = clientsQuery.data?.data ?? []
-    const lawyers = lawyersQuery.data?.data ?? []
-    const qualifications = qualificationsQuery.data?.data ?? []
 
     /* Sólo el abogado responsable registra los actos de esta causa, procesales
        e interruptivos (D-30, D-50). No es un permiso por rol: depende de la causa. */
@@ -197,10 +176,6 @@ function CaseDetail({ case: c }: { case: Case }) {
         })
     }
 
-    /** "Modificar causa" arranca con los datos de la causa abierta (HU19). */
-    function openEdit() {
-        setModal({ kind: 'edit', values: caseToFormValues(c), errors: {} })
-    }
         function openDelete() {
         setModal({ kind: 'delete', values: { reason: '' }, errors: {} })
     }
@@ -208,117 +183,20 @@ function CaseDetail({ case: c }: { case: Case }) {
         setModal((m) => (m === null ? m : ({ ...m, values: { ...m.values, [k]: v } } as ModalState)))
     }
 
-    /** Cambia los valores de "Modificar causa"; con otro modal abierto no hace nada. */
-    function changeEditValues(change: (values: CaseFormValues) => CaseFormValues) {
-        setModal((m) => (m?.kind === 'edit' ? { ...m, values: change(m.values) } : m))
-    }
-
-    /**
-     * Elegir otro cliente propone la carátula con el cliente nuevo y conserva
-     * el resto (D-105). Es una propuesta: se puede corregir antes de guardar.
-     */
-    function changeClient(clientId: string) {
-        const client = clients.find((item) => String(item.id) === clientId)
-            ?? (String(c.client.id) === clientId ? c.client : null)
-        changeEditValues((values) => ({
-            ...values,
-            clientId,
-            caption: client ? captionWithClient(values.caption, formatClientName(client)) : values.caption,
-        }))
-    }
-
-    /* ---------------- opciones de "Modificar causa" ---------------- */
-
-    /* El cliente y el responsable de la causa se ofrecen siempre, aunque el
-       listado no los traiga: la causa los tiene, y el select no puede quedar
-       sin la opción elegida. */
-    const clientOptions: SelectOption[] = clients.map((item) => ({
-        value: String(item.id),
-        label: `${formatClientName(item)} · DNI ${formatDni(item.dni)}`,
-    }))
-    if (!clients.some((item) => item.id === c.client.id)) {
-        clientOptions.unshift({
-            value: String(c.client.id),
-            label: `${formatClientName(c.client)} · DNI ${formatDni(c.client.dni)}`,
-        })
-    }
-
-    const lawyerOptions: SelectOption[] = lawyers.map((item) => ({
-        value: String(item.id),
-        label: `${formatPersonName(item)} · matrícula ${item.registrationNumber}`,
-    }))
-    if (!lawyers.some((item) => item.id === c.responsibleLawyer.id)) {
-        lawyerOptions.unshift({
-            value: String(c.responsibleLawyer.id),
-            label: `${formatPersonName(c.responsibleLawyer)} · matrícula ${c.responsibleLawyer.registrationNumber}`,
-        })
-    }
-
-    const editValues = modal?.kind === 'edit' ? modal.values : null
-
-    /** Una calificación ya elegida deja de ofrecerse: no puede repetirse (D-28). */
-    const chosen = new Set(editValues?.legalQualifications.map((q) => q.legalQualificationId) ?? [])
-    const qualificationOptions: SelectOption[] = qualifications
-        .filter((q) => !chosen.has(q.id))
-        .map((q) => ({ value: String(q.id), label: `${q.name} · ${formatPrescription(q.prescriptionMonths)}` }))
-
-    /* El nombre y el plazo de cada elegida salen de la causa —una dada de baja
-       sigue siendo parte de ella— o, si se agregó en el diálogo, del listado. */
-    const qualificationsLoaded = qualificationsQuery.isSuccess && !qualificationsQuery.isPlaceholderData
-    const selectedQualifications: SelectedQualification[] = (editValues?.legalQualifications ?? [])
-        .map((chosenQ): SelectedQualification | null => {
-            const q = c.legalQualifications.find((item) => item.id === chosenQ.legalQualificationId)
-                ?? qualifications.find((item) => item.id === chosenQ.legalQualificationId)
-            if (q) return { id: q.id, name: q.name, prescriptionMonths: q.prescriptionMonths, offenseDate: chosenQ.offenseDate }
-            if (qualificationsLoaded) return { id: chosenQ.legalQualificationId, unavailable: true, offenseDate: chosenQ.offenseDate }
-            return null
-        })
-        .filter((q): q is SelectedQualification => q !== null)
-
-    function addQualification(id: number) {
-        changeEditValues((values) => ({
-            ...values,
-            legalQualifications: [...values.legalQualifications, { legalQualificationId: id, offenseDate: '' }],
-        }))
-    }
-
-    function removeQualification(id: number) {
-        changeEditValues((values) => ({
-            ...values,
-            legalQualifications: values.legalQualifications.filter((q) => q.legalQualificationId !== id),
-        }))
-    }
-
-    function changeOffenseDate(id: number, offenseDate: string) {
-        changeEditValues((values) => ({
-            ...values,
-            legalQualifications: values.legalQualifications.map((q) =>
-                q.legalQualificationId === id ? { ...q, offenseDate } : q,
-            ),
-        }))
-    }
-
     /* ---------------- errores del servidor ---------------- */
 
-    /* Un SAC repetido es un `409`, pero el problema es de un campo: va en el
-       campo. Un 400 con detalle se marca en sus campos; el resto (los 422 de
-       estado terminal o de prescripción que no aplica) va al aviso, con el
-       mensaje del servidor. */
+    /* Un 400 con detalle se marca en sus campos; el resto (los 422 de estado
+       terminal o de prescripción que no aplica) va al aviso, con el mensaje
+       del servidor. Los errores de "Modificar causa" los maneja `useCaseEdit`. */
     function handleApiError(error: unknown) {
         if (!isApiError(error)) throw error
-        if (modal?.kind === 'edit' && error.is('CASE_SAC_ALREADY_EXISTS')) {
-            setModal((m) => (m?.kind === 'edit' ? { ...m, errors: { sacNumber: error.message } } : m))
-            return
-        }
         if (error.isValidation && modal !== null) {
             // Sólo los campos que el modal abierto muestra.
-                const fieldErrors = modal.kind === 'interruptive'
+            const fieldErrors = modal.kind === 'interruptive'
                 ? toInterruptiveActFormErrors(error.details)
                 : modal.kind === 'prescription'
                     ? toPrescriptionDeclarationFormErrors(error.details)
-                    : modal.kind === 'delete'
-                        ? (error.details?.reason ? { reason: error.details.reason } : {})
-                        : toFormErrors(error.details)
+                    : (error.details?.reason ? { reason: error.details.reason } : {})
             if (Object.keys(fieldErrors).length > 0) {
                 setModal((m) => (m === null ? m : ({ ...m, errors: fieldErrors } as ModalState)))
                 return
@@ -351,30 +229,6 @@ function CaseDetail({ case: c }: { case: Case }) {
         declarePrescription.mutate(toDeclarePrescriptionBody(values), {
             onSuccess: () => {
                 toast('success', 'Causa marcada como prescripta. Se cerraron los plazos abiertos.')
-                setModal(null)
-            },
-            onError: handleApiError,
-        })
-    }
-
-    /**
-     * Viaja sólo lo que cambió (CA-19.2). Si no cambió nada, el diálogo se
-     * cierra sin llamar al servidor y sin aviso: nunca sale un `PATCH` vacío.
-     * Se pregunta antes de validar, así un dato viejo que no cumpla una regla
-     * nueva no impide cerrar un diálogo que no tocó nadie.
-     */
-    function submitEdit(values: CaseFormValues) {
-        const patch = buildCasePatch(c, values)
-        if (Object.keys(patch).length === 0) {
-            setModal(null)
-            return
-        }
-        const errors = validateCase(values)
-        setModal({ kind: 'edit', values, errors })
-        if (!isValid(errors)) return
-        updateCase.mutate(patch, {
-            onSuccess: () => {
-                toast('success', CASE_UPDATED)
                 setModal(null)
             },
             onError: handleApiError,
@@ -416,7 +270,7 @@ function CaseDetail({ case: c }: { case: Case }) {
                         )}
                                               {/* Los dos los opera cualquier perfil (V5 §3.7): no se declaran en ACTION_ACCESS. */}
                         <div className="vz-case-head__buttons">
-                            <Button variant="secondary" size="sm" onClick={openEdit}>
+                            <Button variant="secondary" size="sm" onClick={edit.open}>
                                 Modificar causa
                             </Button>
                             <Button variant="danger" size="sm" onClick={openDelete}>
@@ -427,20 +281,25 @@ function CaseDetail({ case: c }: { case: Case }) {
                 }
             >
                 <CasePrescription case={c} />
-                {showCaseActions && (
-                    <div className="vz-case-actions">
-                        <span className="vz-case-actions__label">Sobre la causa</span>
+                <div className="vz-case-actions">
+                    <span className="vz-case-actions__label">Sobre la causa</span>
+                    {showCaseActions && (
                         <Button variant="secondary" size="sm" onClick={openInterruptive}>
                             Registrar acto interruptivo
                         </Button>
-                        {/* La Secretaría no lo ve: no es suyo (CA-33.2). */}
-                        {canDeclarePrescription && (
-                            <Button variant="danger" size="sm" onClick={openPrescription}>
-                                Marcar prescripta
-                            </Button>
-                        )}
-                    </div>
-                )}
+                    )}
+                    {/* Lo genera cualquier perfil, en cualquier fuero (HU25): no va en ACTION_ACCESS. */}
+                    <Button variant="secondary" size="sm" onClick={() => navigate(`/causas/${c.id}/expediente`)}>
+                        Generar expediente
+                    </Button>
+                    {/* La Secretaría no lo ve: no es suyo (CA-33.2). */}
+                    {showCaseActions && canDeclarePrescription && (
+                        <Button variant="danger" size="sm" onClick={openPrescription}>
+                            Marcar prescripta
+                        </Button>
+                    )}
+                </div>
+
             </CaseHeader>
 
             <div className="vz-case-detail">
@@ -506,26 +365,7 @@ function CaseDetail({ case: c }: { case: Case }) {
                     onCancel={() => setModal(null)}
                 />
             )}
-            {modal?.kind === 'edit' && (
-                <CaseEditForm
-                    sub={c.sacNumber ? `SAC ${c.sacNumber}` : 'Sin N° de SAC'}
-                    values={modal.values}
-                    errors={modal.errors}
-                    onChange={(key, value) => changeEditValues((values) => ({ ...values, [key]: value }))}
-                    onSacNumberChange={(sacNumber) => changeEditValues((values) => changeEditSacNumber(values, sacNumber, c.startDate))}
-                    onClientChange={changeClient}
-                    clientOptions={clientOptions}
-                    lawyerOptions={lawyerOptions}
-                    selectedQualifications={selectedQualifications}
-                    qualificationOptions={qualificationOptions}
-                    onAddQualification={addQualification}
-                    onRemoveQualification={removeQualification}
-                    onOffenseDateChange={changeOffenseDate}
-                    saving={updateCase.isPending}
-                    onConfirm={() => submitEdit(modal.values)}
-                    onCancel={() => setModal(null)}
-                />
-            )}
+            {edit.form && <CaseEditForm {...edit.form} />}
             {modal?.kind === 'delete' && (
                 <DeleteCaseModal
                     caption={c.caption}

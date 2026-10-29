@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import { goTo, loginAs } from './fixtures/auth'
+import { personNameIn } from '../setup/names'
 
 /**
  * Causas: HU-20 (Consultar Causas), HU-18 (Registrar causa) y el registro de
@@ -43,7 +44,8 @@ test.describe('Causas', () => {
 
         // Ve las 23 del estudio, también las que no lleva.
         await expect(page.getByText('23 causas · página 1 de 2')).toBeVisible()
-        await expect(rowOf(page, '12907344')).toContainText('Dr. Ignacio Peralta')
+        // Apellido y nombres, sin tratamiento (V4 D-68, D-81).
+        await expect(rowOf(page, '12907344')).toContainText(new RegExp(personNameIn('Peralta', 'Ignacio')))
 
         // Por urgencia: las que no tienen plazo van después de todas las que sí.
         const rows = await caseRows(page).allInnerTexts()
@@ -54,10 +56,10 @@ test.describe('Causas', () => {
         // La carga de trabajo de una abogada: sus tres causas.
         await page
             .getByRole('combobox', { name: 'Filtrar por responsable' })
-            .selectOption({ label: 'Dra. Malena Ríos' })
+            .selectOption({ label: 'Ríos, Malena' })
         await expect(caseRows(page)).toHaveCount(3)
         for (const row of await caseRows(page).all()) {
-            await expect(row).toContainText('Dra. Malena Ríos')
+            await expect(row).toContainText(new RegExp(personNameIn('Ríos', 'Malena')))
         }
 
         await rowOf(page, PROTOTYPE_SAC).getByRole('button', { name: 'Ver detalle' }).click()
