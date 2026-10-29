@@ -33,7 +33,7 @@ export function DocumentTemplateFormModal({
     return (
         <Modal
             title="Registrar modelo formal"
-            sub="Los modelos se copian a la carpeta de cada causa nueva de los fueros elegidos."
+            sub="Subí el modelo en Word (.docx, hasta 10 MB) y elegí los fueros en los que se usa."
             onClose={onCancel}
             footer={
                 <>
