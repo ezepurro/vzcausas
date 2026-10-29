@@ -2,7 +2,7 @@
 // behalf. Without this the connection fails with a SASL error that says
 // nothing about the actual cause.
 import 'dotenv/config';
-import { PrismaClient } from '../src/generated/prisma/client';
+import { PrismaClient, type ProceduralState } from '../src/generated/prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import * as bcrypt from 'bcryptjs';
 /**
@@ -262,6 +262,10 @@ const PROCEDURAL_STATES = [
  * because that service exists to guarantee *one* account that can log
  * in; this is bulk data to exercise listings and role-based access.
  *
+ * Every name, DNI and number below is made up: the fixture is shown to the
+ * firm, so it must not contain anyone from the firm. Emails use the `.local`
+ * domain so that nothing the app sends from a demo can reach a real mailbox.
+ *
  * Registration numbers follow the `<circuit>-<number>` shape validated
  * by the `RegistrationNumber` value object. The object itself is not
  * imported: the `@shared/*` and `@subsystems/*` aliases do not resolve
@@ -269,18 +273,13 @@ const PROCEDURAL_STATES = [
  * their normalized form.
  */
 const DEV_LAWYERS = [
-  { lastName: 'Vázquez', firstName: 'Fernando', registrationNumber: '1-28114' },
-  { lastName: 'Zárate', firstName: 'Lucía', registrationNumber: '1-30455' },
-  { lastName: 'Pereyra', firstName: 'Carla', registrationNumber: '1-31002' },
-  { lastName: 'Molina', firstName: 'Diego', registrationNumber: '2-18447' },
-  { lastName: 'Quiroga', firstName: 'Valeria', registrationNumber: '2-20113' },
-  { lastName: 'Ludueña', firstName: 'Martín', registrationNumber: '1-29876' },
-  { lastName: 'Bustos', firstName: 'Sofía', registrationNumber: '1-33120' },
-  { lastName: 'Ceballos', firstName: 'Javier', registrationNumber: '3-10455' },
-  { lastName: 'Ferreyra', firstName: 'Noelia', registrationNumber: '2-21988' },
-  { lastName: 'Aguirre', firstName: 'Gonzalo', registrationNumber: '1-34567' },
-  // The lawyer behind the `abogado` demo account: responsible for the demo cases.
-  { lastName: 'Prueba', firstName: 'Abogado', registrationNumber: '1-40001' },
+  { lastName: 'Sosa', firstName: 'Gabriela', registrationNumber: '1-27340' },
+  { lastName: 'Bianchi', firstName: 'Ricardo', registrationNumber: '1-25981' },
+  { lastName: 'Arias', firstName: 'Florencia', registrationNumber: '1-32214' },
+  { lastName: 'Herrera', firstName: 'Tomás', registrationNumber: '2-19873' },
+  { lastName: 'Medina', firstName: 'Paula', registrationNumber: '1-35102' },
+  { lastName: 'Rinaldi', firstName: 'Esteban', registrationNumber: '3-11208' },
+  { lastName: 'Funes', firstName: 'Andrea', registrationNumber: '1-30876' },
 ] as const;
 
 /**
@@ -289,8 +288,8 @@ const DEV_LAWYERS = [
  *
  * The partial unique index `users_lawyer_id_active_key` allows at most
  * one *active* account per lawyer, so every registration number appears
- * at most once here and all eleven end up taken. A further active account
- * in development needs a registration number of its own.
+ * at most once here. A further active account in development needs a
+ * registration number of its own.
  *
  * Neither `admin` nor registration number `0-00000` appear on purpose:
  * those belong to `DevSeedService`, which runs after this script and
@@ -298,13 +297,8 @@ const DEV_LAWYERS = [
  *
  * Roles are spread so all three can be exercised — two partners holding
  * a double role, management as a plain administrator, two secretaries.
- * Usernames are restricted to `[a-z0-9._-]` by the `Username` value
- * object, hence `m.luduena` rather than the accented spelling.
- *
- * `abogado` and `secret` are short demo accounts with a password of their
- * own (`password`), for trying the app quickly: a lawyer in charge of the
- * demo cases below, and a secretary. A secretary-only account has no
- * professional record (D-25), so `registrationNumber` is left out.
+ * A secretary-only account has no professional record (D-25), so
+ * `registrationNumber` is left out. All of them share DEV_SEED_PASSWORD.
  */
 interface DevUser {
   username: string;
@@ -313,121 +307,86 @@ interface DevUser {
   email: string;
   roles: readonly string[];
   registrationNumber?: string;
-  // Defaults to DEV_SEED_PASSWORD.
-  password?: string;
 }
 
 const DEV_USERS: readonly DevUser[] = [
   {
-    username: 'f.vazquez',
-    lastName: 'Vázquez',
-    firstName: 'Fernando',
-    email: 'f.vazquez@vzcausas.local',
+    username: 'g.sosa',
+    lastName: 'Sosa',
+    firstName: 'Gabriela',
+    email: 'g.sosa@estudio.local',
     roles: ['ADMINISTRATOR', 'LAWYER'],
-    registrationNumber: '1-28114',
+    registrationNumber: '1-27340',
   },
   {
-    username: 'l.zarate',
-    lastName: 'Zárate',
-    firstName: 'Lucía',
-    email: 'l.zarate@vzcausas.local',
+    username: 'r.bianchi',
+    lastName: 'Bianchi',
+    firstName: 'Ricardo',
+    email: 'r.bianchi@estudio.local',
     roles: ['ADMINISTRATOR', 'LAWYER'],
-    registrationNumber: '1-30455',
+    registrationNumber: '1-25981',
   },
   {
-    username: 'c.pereyra',
-    lastName: 'Pereyra',
-    firstName: 'Carla',
-    email: 'c.pereyra@vzcausas.local',
+    username: 'f.arias',
+    lastName: 'Arias',
+    firstName: 'Florencia',
+    email: 'f.arias@estudio.local',
     roles: ['LAWYER'],
-    registrationNumber: '1-31002',
+    registrationNumber: '1-32214',
   },
   {
-    username: 'd.molina',
-    lastName: 'Molina',
-    firstName: 'Diego',
-    email: 'd.molina@vzcausas.local',
+    username: 't.herrera',
+    lastName: 'Herrera',
+    firstName: 'Tomás',
+    email: 't.herrera@estudio.local',
     roles: ['LAWYER'],
-    registrationNumber: '2-18447',
+    registrationNumber: '2-19873',
   },
   {
-    username: 'v.quiroga',
-    lastName: 'Quiroga',
-    firstName: 'Valeria',
-    email: 'v.quiroga@vzcausas.local',
+    username: 'p.medina',
+    lastName: 'Medina',
+    firstName: 'Paula',
+    email: 'p.medina@estudio.local',
     roles: ['LAWYER'],
-    registrationNumber: '2-20113',
+    registrationNumber: '1-35102',
   },
   {
-    username: 'm.luduena',
-    lastName: 'Ludueña',
-    firstName: 'Martín',
-    email: 'm.luduena@vzcausas.local',
+    username: 'e.rinaldi',
+    lastName: 'Rinaldi',
+    firstName: 'Esteban',
+    email: 'e.rinaldi@estudio.local',
     roles: ['LAWYER'],
-    registrationNumber: '1-29876',
+    registrationNumber: '3-11208',
   },
   {
-    username: 's.bustos',
-    lastName: 'Bustos',
-    firstName: 'Sofía',
-    email: 's.bustos@vzcausas.local',
-    roles: ['LAWYER'],
-    registrationNumber: '1-33120',
-  },
-  {
-    username: 'j.ceballos',
-    lastName: 'Ceballos',
-    firstName: 'Javier',
-    email: 'j.ceballos@vzcausas.local',
+    username: 'a.funes',
+    lastName: 'Funes',
+    firstName: 'Andrea',
+    email: 'a.funes@estudio.local',
     roles: ['ADMINISTRATOR'],
-    registrationNumber: '3-10455',
+    registrationNumber: '1-30876',
   },
   {
-    username: 'n.ferreyra',
-    lastName: 'Ferreyra',
-    firstName: 'Noelia',
-    email: 'n.ferreyra@vzcausas.local',
+    username: 'm.godoy',
+    lastName: 'Godoy',
+    firstName: 'Mónica',
+    email: 'm.godoy@estudio.local',
     roles: ['SECRETARY'],
-    registrationNumber: '2-21988',
   },
   {
-    username: 'g.aguirre',
-    lastName: 'Aguirre',
-    firstName: 'Gonzalo',
-    email: 'g.aguirre@vzcausas.local',
+    username: 'j.paz',
+    lastName: 'Paz',
+    firstName: 'Joaquín',
+    email: 'j.paz@estudio.local',
     roles: ['SECRETARY'],
-    registrationNumber: '1-34567',
-  },
-  {
-    username: 'abogado',
-    lastName: 'Prueba',
-    firstName: 'Abogado',
-    email: 'abogado@vzcausas.local',
-    roles: ['LAWYER'],
-    registrationNumber: '1-40001',
-    password: 'abogado123',
-  },
-  {
-    username: 'secret',
-    lastName: 'Prueba',
-    firstName: 'Secretaría',
-    email: 'secret@vzcausas.local',
-    roles: ['SECRETARY'],
-    password: 'secret123',
   },
 ];
 
 async function seedDevPeople(prisma: PrismaClient): Promise<void> {
-  const defaultPassword = process.env.DEV_SEED_PASSWORD ?? 'admin123';
-  const cost = Number(process.env.BCRYPT_COST ?? 12);
-  // One hash per distinct password: bcrypt at cost 12 takes around 250 ms
-  // per call, so hashing for each account would add seconds to every boot
-  // and buy nothing — these passwords are shared and are not secrets.
-  const hashes = new Map<string, string>();
-  const hashOf = async (password: string): Promise<string> => {
-    if (!hashes.has(password)) hashes.set(password, await bcrypt.hash(password, cost));
-    return hashes.get(password)!;
-  };
+  const password = process.env.DEV_SEED_PASSWORD ?? 'admin123';
+  // One hash for every account: bcrypt at cost 12 takes around 250 ms per
+  // call, and the password is shared and not a secret.
+  const passwordHash = await bcrypt.hash(password, Number(process.env.BCRYPT_COST ?? 12));
 
   const lawyerIds = new Map<string, number>();
   for (const lawyer of DEV_LAWYERS) {
@@ -440,7 +399,6 @@ async function seedDevPeople(prisma: PrismaClient): Promise<void> {
   }
 
   for (const user of DEV_USERS) {
-    const passwordHash = await hashOf(user.password ?? defaultPassword);
     // `null` only when the account has no professional record on purpose.
     let lawyerId: number | null = null;
     if (user.registrationNumber !== undefined) {
@@ -475,8 +433,7 @@ async function seedDevPeople(prisma: PrismaClient): Promise<void> {
   }
 
   console.log(
-    `Development fixture: ${DEV_LAWYERS.length} lawyers, ${DEV_USERS.length} users ` +
-      '(password in DEV_SEED_PASSWORD; `abogado` / `secret` have their own).',
+    `Development fixture: ${DEV_LAWYERS.length} lawyers, ${DEV_USERS.length} users (password in DEV_SEED_PASSWORD).`,
   );
 }
 
@@ -484,41 +441,67 @@ async function seedDevPeople(prisma: PrismaClient): Promise<void> {
 
 /**
  * Sample data, not the firm's: the definitive legal qualifications and their
- * prescription terms are loaded by the Administrator through the API. They
- * only give the demo cases something to point at.
+ * prescription terms are loaded by the Administrator through the API. The
+ * terms follow art. 62 CP — the maximum of the penalty, between two and twelve
+ * years.
  */
 const DEV_LEGAL_QUALIFICATIONS = [
-  { name: 'Robo calificado — art. 167 inc. 2 CP', prescriptionMonths: 96 },
-  { name: 'Homicidio simple — art. 79 CP', prescriptionMonths: 180 },
+  { name: 'Hurto simple — art. 162 CP', prescriptionMonths: 24 },
+  { name: 'Robo simple — art. 164 CP', prescriptionMonths: 72 },
+  { name: 'Robo calificado por el uso de arma — art. 166 inc. 2 CP', prescriptionMonths: 144 },
   { name: 'Estafa — art. 172 CP', prescriptionMonths: 72 },
+  { name: 'Lesiones leves — art. 89 CP', prescriptionMonths: 24 },
+  { name: 'Lesiones graves — art. 90 CP', prescriptionMonths: 72 },
+  { name: 'Homicidio culposo — art. 84 CP', prescriptionMonths: 60 },
+  { name: 'Amenazas — art. 149 bis CP', prescriptionMonths: 24 },
+  { name: 'Encubrimiento — art. 277 CP', prescriptionMonths: 36 },
 ] as const;
 
 /** The DNI travels without dots (D-17) and is unique among active clients. */
 const DEV_CLIENTS = [
-  { lastName: 'GÓMEZ', firstName: 'Ariel Fernando', dni: '34812905', phone: '351 415-2288', email: 'afgomez@example.com' },
-  { lastName: 'PEREYRA', firstName: 'Marcos D.', dni: '29440117', phone: '351 622-9014', email: null },
-  { lastName: 'MOYANO', firstName: 'Daniela', dni: '31256890', phone: null, email: 'dmoyano@example.com' },
-  { lastName: 'RUIZ', firstName: 'Julián', dni: '38120456', phone: '351 530-1177', email: null },
-  { lastName: 'LEDESMA', firstName: 'Verónica', dni: '27654321', phone: null, email: null },
+  { lastName: 'CASTRO', firstName: 'Emiliano José', dni: '35447812', phone: '351 415-2288', email: 'emicastro@example.com' },
+  { lastName: 'ROMERO', firstName: 'Natalia Belén', dni: '33019455', phone: '351 622-9014', email: 'nbromero@example.com' },
+  { lastName: 'OLMOS', firstName: 'Héctor Raúl', dni: '22871360', phone: '351 530-1177', email: null },
+  { lastName: 'VERA', firstName: 'Camila', dni: '40112738', phone: '351 687-4410', email: 'camivera@example.com' },
+  { lastName: 'SALAS', firstName: 'Rodrigo Martín', dni: '30566921', phone: '3543 44-1902', email: null },
+  { lastName: 'PAREDES', firstName: 'Silvina Andrea', dni: '28934107', phone: '351 290-6635', email: 'sparedes@example.com' },
+  { lastName: 'NAVARRO', firstName: 'Facundo', dni: '39280554', phone: '351 744-0021', email: null },
+  { lastName: 'ACOSTA', firstName: 'Miriam del Valle', dni: '25617843', phone: null, email: 'miriamacosta@example.com' },
+  { lastName: 'BRIZUELA', firstName: 'Leandro Ezequiel', dni: '36702219', phone: '351 318-5567', email: null },
+  { lastName: 'CABRERA', firstName: 'Ana María', dni: '20455306', phone: '351 423-8890', email: 'anacabrera@example.com' },
+  { lastName: 'TOLEDO', firstName: 'Gustavo Adrián', dni: '31890467', phone: '3525 42-7713', email: null },
+  { lastName: 'GAITÁN', firstName: 'Rocío Soledad', dni: '37508132', phone: '351 566-3049', email: 'rociogaitan@example.com' },
+  { lastName: 'MANSILLA', firstName: 'Ramón Alberto', dni: '18923774', phone: '351 471-2286', email: null },
+  { lastName: 'OVIEDO', firstName: 'Agustina', dni: '42011596', phone: '351 239-7754', email: 'aguoviedo@example.com' },
+  { lastName: 'FIGUEROA', firstName: 'Walter Hugo', dni: '26770485', phone: null, email: null },
+  { lastName: 'QUINTEROS', firstName: 'Lorena Beatriz', dni: '34129870', phone: '351 655-1308', email: 'lquinteros@example.com' },
 ] as const;
 
-interface DevAct {
-  state: string;
-  // Calendar days before today.
-  daysAgo: number;
-}
+/**
+ * Each act gives its date one of two ways. `daysAgo` fixes it in calendar
+ * days before today. `dueInBusinessDays` fixes instead where its term ends,
+ * counted from today — negative overdue, `0` due today — and works the date
+ * of the act back from it, so the deadline lands in the same place whatever
+ * day the seed runs.
+ */
+type DevAct = { state: string } & ({ daysAgo: number } | { dueInBusinessDays: number });
 
 interface DevCase {
   sacNumber: string;
   jurisdiction: 'CRIMINAL' | 'ADMINISTRATIVE' | 'AMPARO';
-  proceduralRole: 'DEFENSA' | 'RECURRENTE' | 'ACTORA';
+  proceduralRole: 'DEFENSA' | 'QUERELLANTE_PARTICULAR' | 'RECURRENTE' | 'ACTORA';
   caption: string;
+  court: string;
   clientDni: string;
+  // Registration number of the responsible lawyer, who registers the acts.
+  lawyer: string;
   // Only ADMINISTRATIVE and AMPARO.
   counterparty?: string;
   subjectMatter?: string;
   // Only CRIMINAL: qualifications with the date of the offense.
   offenses?: { qualification: string; offenseDate: string }[];
+  // Only CRIMINAL: they restart the prescription term (RN8).
+  interruptiveActs?: { name: string; daysAgo: number }[];
   // Data of each jurisdiction (D-67). Left out, a datum takes the value the app gives it by default.
   clientDetained?: boolean;
   courtFeePaid?: boolean;
@@ -531,68 +514,295 @@ interface DevCase {
 }
 
 /**
- * One case per jurisdiction, each with two procedural acts: the case leaves
- * "Iniciada" with the first and ends up in the state of the second. All three
- * are in charge of the `abogado` demo account, so that account can register
- * further acts on them. The `state` names are those of `PROCEDURAL_STATES`.
+ * Cases spread over the three jurisdictions and the six lawyers, so the
+ * dashboards have something in every column: overdue terms, terms due today
+ * and in the coming days, finished cases, cases still in "Iniciada" and a
+ * criminal case close to prescribing. The `state` names are those of
+ * `PROCEDURAL_STATES`.
  */
 const DEV_CASES: readonly DevCase[] = [
+  // ── Criminal ──
   {
-    sacNumber: '90000001',
+    sacNumber: '11204587',
     jurisdiction: 'CRIMINAL',
     proceduralRole: 'DEFENSA',
-    caption: 'GÓMEZ, Ariel Fernando p.s.a. Robo calificado',
-    clientDni: '34812905',
+    caption: 'CASTRO, Emiliano José p.s.a. Robo calificado por el uso de arma',
+    court: 'Juzgado de Control N° 3 — Córdoba',
+    clientDni: '35447812',
+    lawyer: '1-27340',
     clientDetained: true,
     courtFeePaid: true,
-    offenses: [
-      { qualification: 'Robo calificado — art. 167 inc. 2 CP', offenseDate: '2021-02-27' },
-      { qualification: 'Estafa — art. 172 CP', offenseDate: '2021-03-05' },
-    ],
+    offenses: [{ qualification: 'Robo calificado por el uso de arma — art. 166 inc. 2 CP', offenseDate: '2026-03-14' }],
     acts: [
-      { state: 'Designación de abogado defensor', daysAgo: 14 },
-      { state: 'Declaración del imputado', daysAgo: 4 },
+      { state: 'Designación de abogado defensor', daysAgo: 48 },
+      { state: 'Declaración del imputado', daysAgo: 33 },
+      { state: 'Requerimiento de citación a juicio', dueInBusinessDays: -2 },
     ],
   },
   {
-    sacNumber: '90000002',
+    sacNumber: '10987342',
+    jurisdiction: 'CRIMINAL',
+    proceduralRole: 'DEFENSA',
+    caption: 'OLMOS, Héctor Raúl p.s.a. Estafa',
+    court: 'Fiscalía de Instrucción del Distrito 2, Turno 4 — Córdoba',
+    clientDni: '22871360',
+    lawyer: '1-25981',
+    courtFeePaid: true,
+    offenses: [{ qualification: 'Estafa — art. 172 CP', offenseDate: '2025-11-03' }],
+    acts: [
+      { state: 'Designación de abogado defensor', daysAgo: 21 },
+      { state: 'Declaración del imputado', dueInBusinessDays: 0 },
+    ],
+  },
+  {
+    sacNumber: '12045893',
+    jurisdiction: 'CRIMINAL',
+    proceduralRole: 'DEFENSA',
+    caption: 'NAVARRO, Facundo p.s.a. Lesiones graves',
+    court: 'Fiscalía de Instrucción del Distrito 1, Turno 2 — Córdoba',
+    clientDni: '39280554',
+    lawyer: '1-32214',
+    offenses: [{ qualification: 'Lesiones graves — art. 90 CP', offenseDate: '2026-08-22' }],
+    acts: [{ state: 'Designación de abogado defensor', dueInBusinessDays: 2 }],
+  },
+  {
+    sacNumber: '10512276',
+    jurisdiction: 'CRIMINAL',
+    proceduralRole: 'DEFENSA',
+    caption: 'BRIZUELA, Leandro Ezequiel p.s.a. Robo simple y Encubrimiento',
+    court: 'Juzgado de Control N° 7 — Córdoba',
+    clientDni: '36702219',
+    lawyer: '2-19873',
+    clientDetained: false,
+    courtFeePaid: true,
+    offenses: [
+      { qualification: 'Robo simple — art. 164 CP', offenseDate: '2024-06-09' },
+      { qualification: 'Encubrimiento — art. 277 CP', offenseDate: '2024-06-09' },
+    ],
+    interruptiveActs: [{ name: 'Citación a indagatoria', daysAgo: 70 }],
+    acts: [
+      { state: 'Designación de abogado defensor', daysAgo: 75 },
+      { state: 'Declaración del imputado', daysAgo: 62 },
+      { state: 'Requerimiento de citación a juicio', daysAgo: 30 },
+      { state: 'Oposición al requerimiento de elevación', dueInBusinessDays: 4 },
+    ],
+  },
+  {
+    sacNumber: '09873410',
+    jurisdiction: 'CRIMINAL',
+    proceduralRole: 'DEFENSA',
+    caption: 'TOLEDO, Gustavo Adrián p.s.a. Homicidio culposo',
+    court: 'Cámara en lo Criminal y Correccional de 5ª Nominación — Córdoba',
+    clientDni: '31890467',
+    lawyer: '1-27340',
+    courtFeePaid: true,
+    offenses: [{ qualification: 'Homicidio culposo — art. 84 CP', offenseDate: '2023-09-17' }],
+    interruptiveActs: [{ name: 'Requerimiento de citación a juicio', daysAgo: 210 }],
+    acts: [
+      { state: 'Designación de abogado defensor', daysAgo: 400 },
+      { state: 'Declaración del imputado', daysAgo: 385 },
+      { state: 'Requerimiento de citación a juicio', daysAgo: 210 },
+      { state: 'Sentencia definitiva', daysAgo: 15 },
+    ],
+  },
+  {
+    // No interruptive act and close to two years since the facts: shows the prescription alert (70 %).
+    sacNumber: '10334658',
+    jurisdiction: 'CRIMINAL',
+    proceduralRole: 'DEFENSA',
+    caption: 'MANSILLA, Ramón Alberto p.s.a. Amenazas',
+    court: 'Juzgado Correccional de 2ª Nominación — Córdoba',
+    clientDni: '18923774',
+    lawyer: '3-11208',
+    offenses: [{ qualification: 'Amenazas — art. 149 bis CP', offenseDate: '2025-02-15' }],
+    acts: [{ state: 'Designación de abogado defensor', dueInBusinessDays: -6 }],
+  },
+  {
+    sacNumber: '12198734',
+    jurisdiction: 'CRIMINAL',
+    proceduralRole: 'DEFENSA',
+    caption: 'FIGUEROA, Walter Hugo p.s.a. Hurto simple',
+    court: 'Fiscalía de Instrucción del Distrito 3, Turno 1 — Córdoba',
+    clientDni: '26770485',
+    lawyer: '1-35102',
+    offenses: [{ qualification: 'Hurto simple — art. 162 CP', offenseDate: '2026-07-02' }],
+    acts: [],
+  },
+  {
+    sacNumber: '11650921',
+    jurisdiction: 'CRIMINAL',
+    proceduralRole: 'QUERELLANTE_PARTICULAR',
+    caption: 'SOTO, Daniel Alejandro p.s.a. Lesiones leves',
+    court: 'Juzgado Correccional de 1ª Nominación — Córdoba',
+    clientDni: '20455306',
+    lawyer: '1-25981',
+    courtFeePaid: true,
+    offenses: [{ qualification: 'Lesiones leves — art. 89 CP', offenseDate: '2026-01-25' }],
+    acts: [
+      { state: 'Declaración del imputado', daysAgo: 24 },
+      { state: 'Requerimiento de citación a juicio', dueInBusinessDays: 6 },
+    ],
+  },
+  // ── Administrative ──
+  {
+    sacNumber: '11873045',
     jurisdiction: 'ADMINISTRATIVE',
     proceduralRole: 'RECURRENTE',
-    caption: 'PEREYRA, Marcos D. — Sumario administrativo',
-    clientDni: '29440117',
-    counterparty: 'Policía de la Provincia',
-    subjectMatter: 'Descargo frente a la imputación de falta grave y pedido de sobreseimiento.',
+    caption: 'ROMERO, Natalia Belén — Sumario administrativo N° 1452/26',
+    court: 'Tribunal de Conducta Policial y Penitenciario',
+    clientDni: '33019455',
+    lawyer: '1-32214',
+    counterparty: 'Policía de la Provincia de Córdoba',
+    subjectMatter: 'Descargo frente a la imputación de falta grave por abandono de servicio y pedido de sobreseimiento.',
     administrativeRemedyExhaustedOn: '2026-08-10',
     acts: [
-      { state: 'Notificación de imputación en sumario', daysAgo: 20 },
-      { state: 'Presentación de descargo', daysAgo: 6 },
+      { state: 'Notificación de imputación en sumario', daysAgo: 30 },
+      { state: 'Presentación de descargo', dueInBusinessDays: 1 },
     ],
   },
   {
-    sacNumber: '90000003',
+    sacNumber: '12230568',
+    jurisdiction: 'ADMINISTRATIVE',
+    proceduralRole: 'RECURRENTE',
+    caption: 'SALAS, Rodrigo Martín — Sumario administrativo N° 873/26',
+    court: 'Tribunal de Conducta Policial y Penitenciario',
+    clientDni: '30566921',
+    lawyer: '2-19873',
+    counterparty: 'Servicio Penitenciario de Córdoba',
+    subjectMatter: 'Defensa en el sumario por presunto incumplimiento de los deberes del cargo.',
+    acts: [{ state: 'Notificación de imputación en sumario', dueInBusinessDays: -3 }],
+  },
+  {
+    sacNumber: '11402397',
+    jurisdiction: 'ADMINISTRATIVE',
+    proceduralRole: 'RECURRENTE',
+    caption: 'PAREDES, Silvina Andrea — Sumario administrativo N° 2210/25',
+    court: 'Ministerio de Educación — Dirección de Sumarios',
+    clientDni: '28934107',
+    lawyer: '1-35102',
+    counterparty: 'Ministerio de Educación de la Provincia de Córdoba',
+    subjectMatter: 'Impugnación de la cesantía dispuesta y ofrecimiento de prueba testimonial y documental.',
+    courtFeePaid: true,
+    acts: [
+      { state: 'Notificación de imputación en sumario', daysAgo: 70 },
+      { state: 'Presentación de descargo', daysAgo: 50 },
+      { state: 'Apertura a prueba', dueInBusinessDays: 8 },
+    ],
+  },
+  {
+    sacNumber: '10765183',
+    jurisdiction: 'ADMINISTRATIVE',
+    proceduralRole: 'RECURRENTE',
+    caption: 'ACOSTA, Miriam del Valle — Sumario administrativo N° 455/25',
+    court: 'Ministerio de Salud — Dirección de Sumarios',
+    clientDni: '25617843',
+    lawyer: '1-27340',
+    counterparty: 'Ministerio de Salud de la Provincia de Córdoba',
+    subjectMatter: 'Defensa en el sumario por presuntas irregularidades en el registro de asistencia.',
+    acts: [
+      { state: 'Notificación de imputación en sumario', daysAgo: 160 },
+      { state: 'Presentación de descargo', daysAgo: 140 },
+      { state: 'Apertura a prueba', daysAgo: 110 },
+      { state: 'Presentación de alegato', daysAgo: 60 },
+      { state: 'Archivada', daysAgo: 10 },
+    ],
+  },
+  {
+    sacNumber: '12310476',
+    jurisdiction: 'ADMINISTRATIVE',
+    proceduralRole: 'RECURRENTE',
+    caption: 'GAITÁN, Rocío Soledad — Sumario administrativo N° 1987/26',
+    court: 'Tribunal de Conducta Policial y Penitenciario',
+    clientDni: '37508132',
+    lawyer: '3-11208',
+    counterparty: 'Policía de la Provincia de Córdoba',
+    subjectMatter: 'Descargo frente a la imputación de falta leve y pedido de archivo de las actuaciones.',
+    acts: [{ state: 'Notificación de imputación en sumario', dueInBusinessDays: 0 }],
+  },
+  // ── Amparo ──
+  {
+    sacNumber: '12087431',
     jurisdiction: 'AMPARO',
     proceduralRole: 'ACTORA',
-    caption: 'MOYANO, Daniela c/ APROSS — Amparo de salud',
-    clientDni: '31256890',
+    caption: 'VERA, Camila c/ APROSS — Amparo (Ley 4915)',
+    court: 'Cámara Contencioso Administrativa de 2ª Nominación — Córdoba',
+    clientDni: '40112738',
+    lawyer: '1-25981',
     counterparty: 'APROSS',
     subjectMatter: 'Que se ordene la cobertura integral del tratamiento de rehabilitación prescripto.',
     injunctionGranted: true,
+    courtFeePaid: true,
     // The case already left "Iniciada", so its term to file the amparo no longer counts (D-78).
-    harmfulAct: { daysAgo: 40, termDays: 15, termDayType: 'BUSINESS' },
+    harmfulAct: { daysAgo: 50, termDays: 15, termDayType: 'BUSINESS' },
     acts: [
-      { state: 'Interposición de la acción', daysAgo: 12 },
-      { state: 'Pedido de informe', daysAgo: 3 },
+      { state: 'Interposición de la acción', daysAgo: 30 },
+      { state: 'Pedido de informe', dueInBusinessDays: 3 },
+    ],
+  },
+  {
+    // Still in "Iniciada", with the term to file open: `harmfulActDeadline` shows in the detail.
+    sacNumber: '12355019',
+    jurisdiction: 'AMPARO',
+    proceduralRole: 'ACTORA',
+    caption: 'OVIEDO, Agustina c/ Municipalidad de Córdoba — Amparo por mora',
+    court: 'Cámara Contencioso Administrativa de 1ª Nominación — Córdoba',
+    clientDni: '42011596',
+    lawyer: '1-32214',
+    counterparty: 'Municipalidad de Córdoba',
+    subjectMatter: 'Que se ordene a la Municipalidad resolver el pedido de habilitación comercial presentado hace ocho meses.',
+    injunctionGranted: false,
+    harmfulAct: { daysAgo: 10, termDays: 15, termDayType: 'BUSINESS' },
+    acts: [],
+  },
+  {
+    sacNumber: '11598260',
+    jurisdiction: 'AMPARO',
+    proceduralRole: 'ACTORA',
+    caption: 'CABRERA, Ana María c/ Caja de Jubilaciones de la Provincia — Amparo',
+    court: 'Cámara Contencioso Administrativa de 3ª Nominación — Córdoba',
+    clientDni: '20455306',
+    lawyer: '2-19873',
+    counterparty: 'Caja de Jubilaciones, Pensiones y Retiros de Córdoba',
+    subjectMatter: 'Que se ordene liquidar el haber previsional conforme al cargo efectivamente desempeñado.',
+    injunctionGranted: false,
+    courtFeePaid: true,
+    harmfulAct: { daysAgo: 90, termDays: 15, termDayType: 'BUSINESS' },
+    acts: [
+      { state: 'Interposición de la acción', daysAgo: 75 },
+      { state: 'Pedido de informe', daysAgo: 60 },
+      { state: 'Contestación del informe', dueInBusinessDays: -1 },
+    ],
+  },
+  {
+    sacNumber: '10843375',
+    jurisdiction: 'AMPARO',
+    proceduralRole: 'ACTORA',
+    caption: 'QUINTEROS, Lorena Beatriz c/ EPEC — Amparo',
+    court: 'Juzgado Civil y Comercial de 30ª Nominación — Córdoba',
+    clientDni: '34129870',
+    lawyer: '1-35102',
+    counterparty: 'EPEC',
+    subjectMatter: 'Que se ordene restablecer el suministro eléctrico del domicilio, interrumpido sin aviso previo.',
+    injunctionGranted: true,
+    harmfulAct: { daysAgo: 140, termDays: 15, termDayType: 'BUSINESS' },
+    acts: [
+      { state: 'Interposición de la acción', daysAgo: 130 },
+      { state: 'Pedido de informe', daysAgo: 120 },
+      { state: 'Contestación del informe', daysAgo: 105 },
+      { state: 'Sentencia firme', daysAgo: 20 },
     ],
   },
   {
     // Still in "Iniciada": its harmful act renews every 30 days, so `harmfulActDeadline` shows in the detail.
-    sacNumber: '90000004',
+    sacNumber: '12401638',
     jurisdiction: 'AMPARO',
     proceduralRole: 'ACTORA',
-    caption: 'LEDESMA, Verónica c/ Municipalidad — Amparo ambiental',
-    clientDni: '27654321',
+    caption: 'ACOSTA, Miriam del Valle c/ Municipalidad de Córdoba — Amparo ambiental',
+    court: 'Cámara Contencioso Administrativa de 2ª Nominación — Córdoba',
+    clientDni: '25617843',
+    lawyer: '3-11208',
     counterparty: 'Municipalidad de Córdoba',
-    subjectMatter: 'Que se ordene el cese del vertido de efluentes en el predio lindero.',
+    subjectMatter: 'Que se ordene el cese del vertido de efluentes cloacales en el predio lindero al domicilio.',
     injunctionGranted: false,
     harmfulAct: { daysAgo: 45, renewalDays: 30, termDays: 15, termDayType: 'BUSINESS' },
     acts: [],
@@ -611,6 +821,8 @@ function civilToday(): Date {
 
 const addDays = (date: Date, days: number): Date => new Date(date.getTime() + days * ONE_DAY_MS);
 
+const isBusinessDay = (date: Date): boolean => date.getUTCDay() !== 0 && date.getUTCDay() !== 6;
+
 /**
  * Business days from Monday to Friday, counted from the day after. The same
  * provisional rule as the app's calculator (P-02: no holidays); the seed cannot
@@ -621,7 +833,18 @@ function addBusinessDays(date: Date, days: number): Date {
   let remaining = days;
   while (remaining > 0) {
     current = addDays(current, 1);
-    if (current.getUTCDay() !== 0 && current.getUTCDay() !== 6) remaining--;
+    if (isBusinessDay(current)) remaining--;
+  }
+  return current;
+}
+
+/** The inverse of `addBusinessDays`: from a weekday, adding `days` back gives `date` again. */
+function subtractBusinessDays(date: Date, days: number): Date {
+  let current = date;
+  let remaining = days;
+  while (remaining > 0) {
+    current = addDays(current, -1);
+    if (isBusinessDay(current)) remaining--;
   }
   return current;
 }
@@ -635,11 +858,11 @@ function addMonths(date: Date, months: number): Date {
 }
 
 /**
- * Clients, legal qualifications and one case per jurisdiction, each with two
- * procedural acts. Idempotent like the rest: clients and qualifications are
- * looked up by the rule of their partial unique index, and a case is looked up
- * by its SAC number — if it exists it is left alone, so acts registered
- * through the app are never duplicated or overwritten.
+ * Clients, legal qualifications and cases with their procedural acts.
+ * Idempotent like the rest: clients and qualifications are looked up by the
+ * rule of their partial unique index, and a case is looked up by its SAC
+ * number — if it exists it is left alone, so acts registered through the app
+ * are never duplicated or overwritten.
  */
 async function seedDevCases(prisma: PrismaClient): Promise<void> {
   const today = civilToday();
@@ -665,9 +888,8 @@ async function seedDevCases(prisma: PrismaClient): Promise<void> {
     }
   }
 
-  const lawyer = await prisma.lawyer.findUniqueOrThrow({ where: { registrationNumber: '1-40001' } });
-  const lawyerUser = await prisma.user.findUniqueOrThrow({ where: { username: 'abogado' } });
-  const secretary = await prisma.user.findUniqueOrThrow({ where: { username: 'secret' } });
+  // Cases are registered by a secretary, as the app does.
+  const secretary = await prisma.user.findUniqueOrThrow({ where: { username: 'm.godoy' } });
 
   let created = 0;
   for (const devCase of DEV_CASES) {
@@ -675,6 +897,9 @@ async function seedDevCases(prisma: PrismaClient): Promise<void> {
 
     const jurisdiction = await prisma.jurisdiction.findUniqueOrThrow({ where: { name: devCase.jurisdiction } });
     const client = await prisma.client.findFirstOrThrow({ where: { dni: devCase.clientDni, active: true } });
+    const lawyer = await prisma.lawyer.findUniqueOrThrow({ where: { registrationNumber: devCase.lawyer } });
+    // The responsible lawyer registers the acts, through their own account.
+    const lawyerUser = await prisma.user.findFirstOrThrow({ where: { lawyerId: lawyer.id, active: true } });
     const initialState = await prisma.proceduralState.findFirstOrThrow({
       where: { jurisdictionId: jurisdiction.jurisdictionId, isInitial: true, isActive: true },
     });
@@ -682,14 +907,45 @@ async function seedDevCases(prisma: PrismaClient): Promise<void> {
     const isAmparo = devCase.jurisdiction === 'AMPARO';
     const isCriminal = devCase.jurisdiction === 'CRIMINAL';
     const harmfulAct = devCase.harmfulAct;
+
+    // The date of every act, before writing anything: a case whose acts come
+    // out of order is a mistake in the table above, and fails the seed.
+    const acts: { state: ProceduralState; actDate: Date }[] = [];
+    for (const act of devCase.acts) {
+      const state = await prisma.proceduralState.findFirstOrThrow({
+        where: { jurisdictionId: jurisdiction.jurisdictionId, name: act.state, isActive: true },
+      });
+      let actDate: Date;
+      if ('daysAgo' in act) {
+        actDate = addDays(today, -act.daysAgo);
+      } else {
+        if (state.timeLimitDays <= act.dueInBusinessDays) {
+          throw new Error(
+            `Case ${devCase.sacNumber}: "${act.state}" has a term of ${state.timeLimitDays} business days, ` +
+              `so it cannot fall due in ${act.dueInBusinessDays} without an act dated in the future.`,
+          );
+        }
+        const countsFrom = subtractBusinessDays(today, state.timeLimitDays - act.dueInBusinessDays);
+        // In the administrative jurisdiction the term runs from the notification, the day after the act (RN6).
+        actDate = isAdministrative ? addDays(countsFrom, -1) : countsFrom;
+      }
+      const previous = acts[acts.length - 1];
+      if (previous && previous.actDate >= actDate) {
+        throw new Error(`Case ${devCase.sacNumber}: "${act.state}" is not later than "${previous.state.name}".`);
+      }
+      acts.push({ state, actDate });
+    }
+
     // The case started in court a month before its first act (or before its harmful act, if it has none).
-    const startDate = addDays(today, -(devCase.acts[0]?.daysAgo ?? harmfulAct?.daysAgo ?? 30) - 30);
+    const firstDate = acts[0]?.actDate ?? addDays(today, -(harmfulAct?.daysAgo ?? 30));
+    const startDate = addDays(firstDate, -30);
 
     await prisma.$transaction(async (tx) => {
       const newCase = await tx.case.create({
         data: {
           sacNumber: devCase.sacNumber,
           caption: devCase.caption,
+          court: devCase.court,
           jurisdictionId: jurisdiction.jurisdictionId,
           proceduralRole: devCase.proceduralRole,
           counterparty: devCase.counterparty ?? null,
@@ -711,7 +967,6 @@ async function seedDevCases(prisma: PrismaClient): Promise<void> {
             : null,
           // A case is born in the initial state; the first act takes it out.
           currentStateId: initialState.stateId,
-          // Registered by the secretary, as the app does.
           createdByUserId: secretary.id,
         },
       });
@@ -726,19 +981,27 @@ async function seedDevCases(prisma: PrismaClient): Promise<void> {
             caseId: newCase.id,
             legalQualificationId: qualification.id,
             offenseDate,
+            // As stored at registration: from the offense. The read side recalculates it from the last interruptive act.
             prescriptionDate: addMonths(offenseDate, qualification.prescriptionMonths),
+          },
+        });
+      }
+
+      for (const interruptive of devCase.interruptiveActs ?? []) {
+        await tx.interruptiveAct.create({
+          data: {
+            caseId: newCase.id,
+            name: interruptive.name,
+            actDate: addDays(today, -interruptive.daysAgo),
+            registeredByUserId: lawyerUser.id,
+            registeredByLawyerId: lawyer.id,
           },
         });
       }
 
       let lastActId: number | null = null;
       let lastStateId = initialState.stateId;
-      for (const act of devCase.acts) {
-        const state = await tx.proceduralState.findFirstOrThrow({
-          where: { jurisdictionId: jurisdiction.jurisdictionId, name: act.state, isActive: true },
-        });
-        const actDate = addDays(today, -act.daysAgo);
-        // In the administrative jurisdiction the term runs from the notification (RN6).
+      for (const { state, actDate } of acts) {
         const notificationDate = isAdministrative ? addDays(actDate, 1) : null;
         const countsFrom = notificationDate ?? actDate;
         const opensTerm = state.timeLimitDays > 0;
@@ -773,7 +1036,7 @@ async function seedDevCases(prisma: PrismaClient): Promise<void> {
 
   console.log(
     `Development cases: ${DEV_CLIENTS.length} clients, ${DEV_LEGAL_QUALIFICATIONS.length} legal qualifications, ` +
-      `${created} new cases of ${DEV_CASES.length} (the last one still in "Iniciada").`,
+      `${created} new cases of ${DEV_CASES.length}.`,
   );
 }
 

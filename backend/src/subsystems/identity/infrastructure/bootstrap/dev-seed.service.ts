@@ -118,7 +118,7 @@ export class DevSeedService implements OnModuleInit {
         passwordHash,
         lastName: SEED_LAWYER.lastName,
         firstName: SEED_LAWYER.firstName,
-        email: `${username}@vzcausas.local`,
+        email: `${username}@estudio.local`,
         lawyerId: lawyer.id,
       },
     });
