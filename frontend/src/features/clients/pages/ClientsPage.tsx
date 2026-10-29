@@ -104,7 +104,7 @@ export function ClientsPage() {
             <PageHeader
                 eyebrow="Trabajo diario"
                 title="Clientes"
-                sub="El estudio trabaja por causa, pero el cliente es quien firma el convenio y recibe los avisos. Un mismo cliente puede tener varias causas abiertas."
+                sub="Las personas que representa el estudio. Registrá cada cliente una vez y elegilo en todas sus causas."
                 actions={
                     <Button
                         icon={<Icon name="plus" />}
