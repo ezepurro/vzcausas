@@ -118,6 +118,39 @@ que corresponde al servidor: el frontend muestra lo que recibe y no lo prueba.
 | CA-22.5 | `components/proceedings/RegisterProceduralActPage.test.tsx` (componentes) |
 | CA-22.6 | `components/cases/CaseDetailPage.test.tsx` (componentes) |
 
+## HU-24
+
+| Criterio | Dónde se cubre |
+| --- | --- |
+| CA-24.1 | `components/cases/GenerateCaseFilePage.test.tsx` (componentes) |
+| CA-24.2 | Backend |
+| CA-24.3 | Backend |
+| CA-24.4 | Backend |
+| CA-24.5 | Backend |
+| CA-24.6 | Backend |
+| CA-24.7 | Backend |
+| CA-24.8 | Backend |
+| CA-24.9 | `components/cases/GenerateCaseFilePage.test.tsx` (componentes) |
+| CA-24.10 | Backend |
+| CA-24.11 | Backend |
+
+## HU-25
+
+| Criterio | Dónde se cubre |
+| --- | --- |
+| CA-25.1 | `components/cases/CaseDetailPage.caseFile.test.tsx` (componentes)<br>`components/cases/GenerateCaseFilePage.test.tsx` (componentes)<br>`unit/cases/caseFile.test.ts` (unit) |
+| CA-25.2 | `components/cases/GenerateCaseFilePage.test.tsx` (componentes)<br>`unit/cases/caseFile.schema.test.ts` (unit) |
+| CA-25.3 | `components/cases/GenerateCaseFilePage.test.tsx` (componentes)<br>`unit/cases/caseFile.test.ts` (unit) |
+| CA-25.4 | Backend |
+| CA-25.5 | `components/cases/GenerateCaseFilePage.test.tsx` (componentes)<br>`unit/cases/caseFile.schema.test.ts` (unit)<br>`unit/cases/caseFile.test.ts` (unit) |
+| CA-25.6 | `components/cases/GenerateCaseFilePage.test.tsx` (componentes)<br>`unit/cases/caseFile.test.ts` (unit) |
+| CA-25.7 | `components/cases/GenerateCaseFilePage.test.tsx` (componentes) |
+| CA-25.8 | `components/cases/GenerateCaseFilePage.test.tsx` (componentes) |
+| CA-25.9 | `components/cases/GenerateCaseFilePage.test.tsx` (componentes)<br>`unit/cases/caseFile.test.ts` (unit) |
+| CA-25.10 | `components/cases/GenerateCaseFilePage.test.tsx` (componentes) |
+| CA-25.11 | Backend |
+| CA-25.12 | Backend |
+
 ## HU-26
 
 | Criterio | Dónde se cubre |
@@ -289,4 +322,4 @@ que corresponde al servidor: el frontend muestra lo que recibe y no lo prueba.
 
 ---
 
-172 criterios citados · 27 sólo del backend.
+195 criterios citados · 39 sólo del backend.
