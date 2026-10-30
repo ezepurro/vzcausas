@@ -4580,15 +4580,16 @@ devuelve.
 
 | Fuero y rol procesal                     | Actor / querellante                                      | Demandado / imputado                               |
 | ---------------------------------------- | -------------------------------------------------------- | -------------------------------------------------- |
-| `CRIMINAL`, `QUERELLANTE_PARTICULAR`     | `QUERELLANTE ({cliente})` y, en otra línea, `DEFENSOR: DR/DRA. {abogado}` | **Vacío**: el imputado no está en la causa; en el expediente lo envía el cliente |
-| `CRIMINAL`, `DEFENSA`                    | **Vacío**: el querellante no está en la causa; en el expediente lo envía el cliente | `{cliente}` y, en otra línea, `DEFENSOR: DR/DRA. {abogado}` |
+| `CRIMINAL`, `QUERELLANTE_PARTICULAR`     | `QUERELLANTE ({cliente})` y, en otra línea, `DEFENSOR: DR. {abogado}` | **Vacío**: el imputado no está en la causa; en el expediente lo envía el cliente |
+| `CRIMINAL`, `DEFENSA`                    | **Vacío**: el querellante no está en la causa; en el expediente lo envía el cliente | `{cliente}` y, en otra línea, `DEFENSOR: DR. {abogado}` |
 | `ADMINISTRATIVE` o `AMPARO`, rol `DEMANDADA` | `counterparty`                                       | `{cliente}`                                        |
 | `ADMINISTRATIVE` o `AMPARO`, otro rol    | `{cliente}`                                              | `counterparty`                                     |
 
-`{cliente}` es `APELLIDO NOMBRES` del cliente y `{abogado}`, el apellido y los
-nombres del abogado responsable. El tratamiento es el prefijo fijo
-`DR/DRA.`, igual para todos los abogados: el sistema no sabe si corresponde
-"Dr." o "Dra." y el estudio prefirió no cargar ese dato. Es la única
+`{cliente}` es `APELLIDO NOMBRES` del cliente y `{abogado}`, `NOMBRES APELLIDO` del abogado responsable (nombre primero, como en las plantillas del estudio).
+El tratamiento es el prefijo fijo
+`DR.`, igual para todos los abogados: el sistema no sabe si corresponde
+"Dr." o "Dra." y el estudio prefirió no cargar ese dato (así figura en las
+plantillas del estudio). Es la única
 excepción a que el nombre no lleve "Dr." ni "Dra.", porque esta hoja la
 escribe el backend. Un dato `null` deja
 su parte vacía.

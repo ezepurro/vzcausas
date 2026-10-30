@@ -78,4 +78,15 @@ Acotado y postergable. Afecta la ubicación de un adaptador, no el modelo de dom
 
 Decisión del equipo al planificar el Sprint 4.
 
+### Resolución (29/10/2026) — opción B
+
+Decidido al planificar HU24: **`cases` decide qué dice la hoja y `documents` la dibuja.**
+
+- `cases` arma los datos de la hoja (los seis recuadros y la regla de partes, D-94) y los entrega por un puerto declarado en su propio dominio.
+- Un adaptador en `cases/infrastructure/acl/` llama al caso de uso de `documents` que genera el PDF (mecanismo de `ARQUITECTURA_BACKEND_V1.md` §6.2).
+- La carátula suelta (HU24) y el expediente (HU25) comparten así un único generador, y la librería de PDF vive en un solo subsistema.
+- Es una llamada síncrona por puerto, no un evento: la respuesta de `GET /cases/{caseId}/cover` es el PDF y un evento de integración (ADR-005) no devuelve datos.
+
+Consecuencia: `DocumentsModule` hoy no exporta nada (`documents.module.ts:23-28`); pasa a exportar el caso de uso de generación.
+
 ---

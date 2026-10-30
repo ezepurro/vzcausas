@@ -36,7 +36,7 @@ de `API_CONTRACT_V5.md`.
 | D-103 | La descarga de un documento pasa por la API; la de un expediente generado está abierta a los tres perfiles, la de cualquier otro documento solo a `LAWYER` y `SECRETARY`. **(Revisión del 27/10/2026)** La lista de documentos está abierta a los tres perfiles (C-27) | Mismo motivo que D-58. Quien genera el expediente tiene que poder descargarlo e imprimirlo, y un Administrador sin otro rol no tiene acceso a la carpeta en Drive (D-83). El Administrador necesita la lista para elegir los documentos del expediente, pero lo único que descarga es el expediente |
 | D-104 | **(Revisión del 27/10/2026)** La carpeta de Drive sigue a la causa: se renombra si cambia la carátula, se mueve a la carpeta del nuevo responsable si cambia el responsable, y la del abogado se renombra si cambia su nombre. Si Drive no responde, la modificación no falla y el cambio se completa después, con `POST /cases/{caseId}/folder` o con el proceso diario. Reemplaza en esto a D-61 | Definido por el equipo (C-26). Una carpeta que no corresponde a la carátula o al responsable confunde a quien trabaja en Drive. Con `drive.file` alcanza, porque la app creó esas carpetas. No hacer fallar la modificación es el mismo criterio que la creación (D-60, R-03) |
 | D-105 | **(Revisión del 27/10/2026)** El cliente de una causa se puede modificar. El backend no recalcula la carátula: el cliente la propone y la envía en `caption`, en la misma petición | Definido por el equipo (C-31). Es la misma regla que el alta (§3.7): la carátula sugerida la arma el cliente |
-| D-106 | **(Revisión del 27/10/2026)** En la hoja de carátula, el abogado lleva el prefijo fijo `DR/DRA.`, igual para todos | Definido por el equipo (C-28). El sistema no sabe si corresponde "Dr." o "Dra." y el estudio prefirió no cargar ese dato en el abogado (C-13). Es una excepción a D-81 porque la hoja la escribe el backend |
+| D-106 | **(Revisión del 27/10/2026)** En la hoja de carátula, el abogado lleva el prefijo fijo `DR.`, igual para todos. **(Revisado el 29/10/2026: era `DR/DRA.`; se alinea con las plantillas del estudio y con los CA de la HU24, VZ-32)** | Definido por el equipo (C-28). El sistema no sabe si corresponde "Dr." o "Dra." y el estudio prefirió no cargar ese dato en el abogado (C-13). Es una excepción a D-81 porque la hoja la escribe el backend |
 
 ### Decisiones de V4
 
@@ -163,7 +163,7 @@ el Sprint 4.
 | C-25 | Cambio de fuero de una causa | No se permite (D-95) |
 | C-26 | La carpeta de Drive ante cambios | Se renombra con la carátula, se mueve con el responsable y la del abogado se renombra con su nombre. Si Drive falla, la modificación no falla y se corrige después (D-104) |
 | C-27 | Administrador sin otro rol y "Generar expediente" | Ve la lista de documentos; de ellos, solo descarga los expedientes (D-103) |
-| C-28 | Tratamiento en la carátula | Prefijo fijo `DR/DRA.` para todos los abogados (D-106) |
+| C-28 | Tratamiento en la carátula | Prefijo fijo `DR.` para todos los abogados (D-106, revisado el 29/10/2026; antes `DR/DRA.`) |
 | C-30 | HU23 tiene dos nombres y dos permisos | Es "Descargar Modelo Formal", restringida a `ADMINISTRATOR` o `LAWYER` (D-90) |
 | C-31 | El cliente de una causa no se modifica | Sí se modifica; la carátula la propone el cliente (D-105) |
 | C-32 | SAC de una causa dada de baja | Se libera (D-97) |
