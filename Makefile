@@ -102,6 +102,8 @@ reset-db:
 	$(DC_DEV) exec backend npx prisma migrate reset --force
 	$(DC_DEV) exec backend npx prisma db seed
 	$(DC_DEV) restart backend
+clean-db:
+	$(DC_DEV) exec backend npx prisma migrate reset --force
 
 setup-storage:
 	$(DC_DEV) exec backend npm run documents:setup-storage

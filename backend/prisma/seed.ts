@@ -671,7 +671,10 @@ async function seedDevCases(prisma: PrismaClient): Promise<void> {
 
   let created = 0;
   for (const devCase of DEV_CASES) {
-    if (await prisma.case.findUnique({ where: { sacNumber: devCase.sacNumber } })) continue;
+    // findFirst y no findUnique: el SAC solo es único entre las causas
+    // vigentes (D-97). Sin filtrar por `active`: el seed solo evita cargar
+    // dos veces sus propios datos.
+    if (await prisma.case.findFirst({ where: { sacNumber: devCase.sacNumber } })) continue;
 
     const jurisdiction = await prisma.jurisdiction.findUniqueOrThrow({ where: { name: devCase.jurisdiction } });
     const client = await prisma.client.findFirstOrThrow({ where: { dni: devCase.clientDni, active: true } });
