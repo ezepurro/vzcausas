@@ -7,7 +7,10 @@ import { GetDocumentTemplate } from './core/application/use-cases/get-document-t
 import { ListDocumentTemplates } from './core/application/use-cases/list-document-templates.use-case';
 import { RegisterDocumentTemplate } from './core/application/use-cases/register-document-template.use-case';
 import { SetupCloudStorage } from './core/application/use-cases/setup-cloud-storage.use-case';
+import { GenerateCoverPdf } from './core/application/use-cases/generate-cover-pdf.use-case';
 import { CLOUD_FOLDER_REPOSITORY } from './core/domain/ports/cloud-folder.repository';
+import { COVER_PDF_RENDERER } from './core/domain/ports/cover-pdf-renderer.port';
+import { PdfLibCoverRenderer } from './infrastructure/pdf/pdf-lib-cover.renderer';
 import { DOCUMENT_TEMPLATE_REPOSITORY } from './core/domain/ports/document-template.repository';
 import { TEMPLATE_COPY_REPOSITORY } from './core/domain/ports/template-copy.repository';
 import { CaseRegisteredListener } from './infrastructure/acl/events/case-registered.listener';
@@ -24,7 +27,9 @@ import { DOCUMENT_STORAGE_PROVIDER } from './infrastructure/storage/document-sto
  * Composition root of `documents`. It talks to the rest of the system through
  * integration events only: it listens to `CaseRegistered` and
  * `CaseTemplatesCopyRequested` and announces `DocumentSpaceAssigned` /
- * `DocumentSpaceCreationFailed` / `CaseTemplatesCopied`, so it exports nothing.
+ * `DocumentSpaceCreationFailed` / `CaseTemplatesCopied`. The one exception is
+ * `GenerateCoverPdf` (HU24, P-08 option B): `cases` needs the PDF back, which an
+ * event cannot carry, so it is exported and `cases` calls it through an ACL adapter.
  * Its one HTTP resource is `/document-templates` (HU34 and HU35).
  *
  * The listeners MUST stay in `providers`: if one is missing it never runs and
@@ -56,10 +61,14 @@ import { DOCUMENT_STORAGE_PROVIDER } from './infrastructure/storage/document-sto
     GetDocumentTemplate,
     DownloadDocumentTemplate,
     DocumentTemplateHttpMapper,
+    // HU24: draws the cover sheet that `cases` asks for (P-08 option B).
+    GenerateCoverPdf,
+    { provide: COVER_PDF_RENDERER, useClass: PdfLibCoverRenderer },
     { provide: CLOUD_FOLDER_REPOSITORY, useClass: PrismaCloudFolderRepository },
     { provide: DOCUMENT_TEMPLATE_REPOSITORY, useClass: PrismaDocumentTemplateRepository },
     { provide: TEMPLATE_COPY_REPOSITORY, useClass: PrismaTemplateCopyRepository },
     DOCUMENT_STORAGE_PROVIDER,
   ],
+  exports: [GenerateCoverPdf],
 })
 export class DocumentsModule {}
