@@ -34,6 +34,19 @@ export class ExclusiveCaseStateFilterError extends ValidationError {
 }
 
 /**
+ * Emitted by `GET /cases/{caseId}/cover` when `disposition` is neither `inline` nor
+ * `attachment` (HU24, CA-24.10). The contract answers with `INVALID_REQUEST` and the
+ * parameter in `details`, not with the pipe's generic `VALIDATION_ERROR`.
+ */
+export class InvalidCoverDispositionError extends ValidationError {
+  constructor() {
+    super('INVALID_REQUEST', 'Parámetros de query inválidos.', {
+      disposition: 'Debe ser inline o attachment.',
+    });
+  }
+}
+
+/**
  * Emitted by `GET /cases/custom-states` when the `jurisdiction` filter names
  * no jurisdiction.
  *

@@ -7,7 +7,12 @@ import { ActiveCasesCounterPort } from '@subsystems/legal-parameters/core/domain
 import { LegalParametersModule } from '@subsystems/legal-parameters/legal-parameters.module';
 import { ActiveCasesCounterPort as PeopleActiveCasesCounterPort } from '@subsystems/people/core/domain/ports/active-cases-counter.port';
 import { PeopleModule } from '@subsystems/people/people.module';
+import { DocumentsModule } from '@subsystems/documents/documents.module';
 import { GetCase } from './core/application/use-cases/case/get-case.use-case';
+import { GetCaseCover } from './core/application/use-cases/case/get-case-cover.use-case';
+import { COVER_PDF } from './core/domain/ports/case/cover-pdf.port';
+import { DocumentsCoverPdfAdapter } from './infrastructure/acl/documents-cover-pdf.adapter';
+import { CaseCoverController } from './infrastructure/http/controllers/case-cover.controller';
 import { GetCaseTimeline } from './core/application/use-cases/case/get-case-timeline.use-case';
 import { GetProceduralAct } from './core/application/use-cases/procedural-act/get-procedural-act.use-case';
 import { ListCases } from './core/application/use-cases/case/list-cases.use-case';
@@ -101,9 +106,12 @@ import { PrismaProceduralActRepository } from './infrastructure/persistence/pris
  * el CHECK de exclusión mutua del que dependen los conteos.
  */
 @Module({
-  imports: [forwardRef(() => PeopleModule), forwardRef(() => LegalParametersModule), ClockModule],
-  controllers: [CasesController, InterruptiveActsController, CaseTimelineController],
+  imports: [forwardRef(() => PeopleModule), forwardRef(() => LegalParametersModule), ClockModule, DocumentsModule],
+  controllers: [CasesController, InterruptiveActsController, CaseTimelineController, CaseCoverController],
   providers: [
+    // HU24: the cover sheet. `cases` decides what it says (`CoverSheet`); `documents` draws it.
+    GetCaseCover,
+    { provide: COVER_PDF, useClass: DocumentsCoverPdfAdapter },
     RegisterCase,
     // HU39: asks `documents` for the folder of a case and waits for the answer.
     // Used by the registration and by `POST /cases/{caseId}/folder`.

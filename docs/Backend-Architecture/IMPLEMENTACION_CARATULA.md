@@ -26,6 +26,9 @@ causa; **no se guarda nada y no lleva migración**. Cualquier usuario autenticad
 | 6 | 29/10/2026 | `caseId` que no es un entero: `400 INVALID_PATH_PARAMETER`, como las demás rutas de `/cases/{caseId}` | Coherencia. El contrato del `cover` no lo lista |
 | 7 | 29/10/2026 | Librería de PDF: **`@cantoo/pdf-lib` 2.11.1** (instalada en `backend/package.json`) | Sirve a las dos HU: fondo PNG y texto con `maxWidth` (HU24); imágenes a A4 y `copyPages` para unir PDFs (HU25). Mantenida (la `pdf-lib` original no tiene versión desde 05/2022). No convierte Word a PDF: eso lo hace Drive |
 
+| 8 | 30/10/2026 | **Plantilla por fuero se mantiene**, aunque hoy las tres sean la misma imagen. `CoverSheet` guarda el fuero, el adaptador lo traduce al de `documents` y `PdfLibCoverRenderer` elige archivo con `TEMPLATE_BY_JURISDICTION` | Puede cambiar en el futuro: darle hoja propia a un fuero es un archivo nuevo y una línea. Ojo: las coordenadas de los recuadros están medidas sobre la imagen actual |
+| 9 | 30/10/2026 | `disposition` inválido: `InvalidCoverDispositionError` (`INVALID_REQUEST`, texto del contrato), validado en el controller, no con `@IsEnum` | El pipe daría `VALIDATION_ERROR`; el contrato pide `INVALID_REQUEST` |
+
 ## Hallazgos que condicionan el diseño
 
 - **Las tres plantillas (`Caratula penal.docx`, `Caratula penal QUERELLANTE.docx`,
@@ -69,20 +72,20 @@ rol `DEMANDADA` → Actor = contraparte, Demandado = cliente; con otro rol, al r
 |---|---|---|
 | — | Decisiones de diseño y plan de tests (`.claude/plans/tests-hu24-emitir-caratula.md`) | Hecho |
 | — | Instalar `@cantoo/pdf-lib` | Hecho (`backend/package.json:27`) |
-| 1 | Dominio `CoverSheet` y regla de partes, con sus tests unitarios | Pendiente |
-| 2 | Caso de uso `GetCaseCover` y sus tests | Pendiente |
-| 3 | Generador en `documents` (librería + PNG de fondo + salida a `dist/`) | Pendiente |
-| 4 | Puerto, adaptador ACL, controller y exportación del módulo | Pendiente |
-| 5 | Tests de integración (200, 400, 401, 404) | Pendiente |
+| 1 | Dominio `CoverSheet` y regla de partes, con sus tests unitarios | Hecho (`cover-sheet.vo.ts`, 14 tests en verde, `tsc` limpio). Sin commitear |
+| 2 | Caso de uso `GetCaseCover` y sus tests | Hecho (`get-case-cover.use-case.ts`, puerto `cover-pdf.port.ts`, 4 tests). Sin commitear |
+| 3 | Generador en `documents` (librería + PNG de fondo + salida a `dist/`) | Hecho salvo la exportación del módulo (actividad 4): `pdf-lib-cover.renderer.ts`, `generate-cover-pdf.use-case.ts`, PNG en `infrastructure/pdf/assets/`, `assets` en `nest-cli.json`. Sin commitear |
+| 4 | Puerto, adaptador ACL, controller y exportación del módulo | Hecho: `documents-cover-pdf.adapter.ts`, `case-cover.controller.ts`, `DocumentsModule` exporta `GenerateCoverPdf`, `CasesModule` lo importa. Compila y los unitarios pasan; **el arranque de la app (ciclo de módulos) no se probó** |
+| 5 | Tests de integración (200, 400, 401, 404) | Escritos (`backend/test/subsystems/cases/case-cover.int.spec.ts`), **sin correr**: Docker no estaba levantado |
 | 6 | Revisión visual del PDF contra la plantilla y cierre | Pendiente |
 
 ## Puntos abiertos
 
 1. Órgano interviniente: ¿dos líneas o tres? Confirmar con el estudio (C-34). Se aísla en una
    sola pieza para poder cambiarlo al final.
-2. Texto exacto del `message` de `INVALID_PATH_PARAMETER` (catálogo §5.3, `:8433`).
-3. Ciclo de módulos `CasesModule` ↔ `DocumentsModule`: verificar al enchufar.
-4. Dónde vive la imagen de fondo dentro del repo y cómo llega al build.
+2. ~~Texto del `message` de `INVALID_PATH_PARAMETER`~~: ya existe `InvalidCaseIdError` (`case.errors.ts`) y el controller lo reutiliza.
+3. Ciclo de módulos `CasesModule` ↔ `DocumentsModule`: `DocumentsModule` solo importa `ClockModule`, así que a simple vista no hay ciclo, pero falta **arrancar la app** para confirmarlo.
+4. ~~Imagen de fondo~~: en `documents/infrastructure/pdf/assets/cover-background.png`; `nest-cli.json` la copia a `dist/` (verificado con `nest build`).
 5. Actualizar la nota de rótulos "pendientes de confirmar" en el contrato (`:4565`) y el C-34
    de Jira (VZ-32): los rótulos ya están confirmados.
 6. Mock del frontend (`handlers.ts:3231` y `:3237`) y prototipo (`Prototipo.dc.html:2861`)
