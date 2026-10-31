@@ -938,12 +938,14 @@ Al 29/10/2026. No se arreglan al paso: cada uno es de su dueño.
    29/10/2026, con todo el Sprint 4 programado).
    - `tests/unit/contract/endpoints.test.ts`: `docs/openapi` todavía no tiene
      los siete endpoints de V5 que el mock ya implementa.
-2. **`src/features/deadlines/` existe y está vacío** (sólo `.gitkeep`). La
-   pantalla "Vencimientos" no es de ninguna historia (`DECISIONES.md` §3).
+2. **`src/features/deadlines/` no tiene pantallas.** La pantalla "Vencimientos"
+   no es de ninguna historia (`DECISIONES.md` §3). Sólo tiene el atajo local de
+   la campana (`deadlines/CAMBIOS.md`).
 3. **El rail dibuja dos cosas que el contrato deja afuera** (`DECISIONES.md`
    §3): el ítem "Reportes" (`/reportes`), que no tiene ruta y da la página de
    no encontrado, y la campana de "Notificaciones" de la barra superior
-   (`AppLayout.tsx`).
+   (`AppLayout.tsx`). La campana sólo hace algo en desarrollo, como atajo
+   para disparar la corrida diaria de los correos.
 4. **Lint:** un warning, `react(only-export-components)` en
    `src/shared/components/ui/Icon.tsx:2`.
 5. **El alta todavía dice "Tribunal o dependencia".** V5 cambió el rótulo del

@@ -115,6 +115,9 @@ services:
       # una ruta que no existe.
       VITE_API_URL: /api/v1
       VITE_USE_MOCKS: ${VITE_USE_MOCKS}
+      # Atajo local de la campana (features/deadlines/CAMBIOS.md). Este servicio
+      # corre sólo en desarrollo y el código lo lee únicamente con DEV.
+      VITE_INTERNAL_TRIGGER_SECRET: ${INTERNAL_TRIGGER_SECRET}
     ports:
       - "5173:5173"
     networks:

@@ -10,10 +10,13 @@ import {
     type RailGroup,
 } from '@/shared/components/ui'
 import { useCurrentUser } from '@/app/providers/AuthContext'
+import { useToast } from '@/app/providers/ToastContext'
+import { isApiError } from '@/shared/api/ApiError'
 import { formatPersonFullName } from '@/shared/lib/personName'
 import { profileLabel } from '@/features/auth/utils/profileLabel'
 import { ChangePasswordModal } from '@/features/auth/components/ChangePasswordModal'
 import { LogoutConfirmModal } from '@/features/auth/components/LogoutConfirmModal'
+import { DAILY_RUN_ENABLED, useRunDailyNotifications } from '@/features/deadlines'
 import { canAccess, matchRoute } from '@/app/access/access'
 import { useHomeRoute } from '@/app/access/useHomeRoute'
 
@@ -94,6 +97,25 @@ export function AppLayout() {
        actual: estando en /usuarios/8 tiene que quedar marcado Usuarios. */
     const active = matchRoute(pathname) ?? ''
 
+    const toast = useToast()
+    const dailyRun = useRunDailyNotifications()
+
+    /* Atajo local para probar los correos: ver `features/deadlines/CAMBIOS.md`. */
+    function runDailyNotifications() {
+        dailyRun.mutate(undefined, {
+            onSuccess: (result) => {
+                const sent = Number(result.mailboxSent)
+                    + result.lawyerSends.filter((lawyer) => lawyer.sent).length
+
+                if (sent === 0) toast('info', 'No se envió ningún correo.')
+                else toast('success', `Correos enviados: ${sent}.`)
+            },
+            onError: (error) => {
+                toast('error', isApiError(error) ? error.message : 'Ocurrió un error inesperado.')
+            },
+        })
+    }
+
     return (
         <>
 
@@ -125,7 +147,12 @@ export function AppLayout() {
             }
             topBar={
                     <div className="vz-topbar__right">
-                        <IconButton name="notifications" label="Notificaciones" />
+                        <IconButton
+                            name="notifications"
+                            label="Notificaciones"
+                            disabled={dailyRun.isPending}
+                            onClick={DAILY_RUN_ENABLED ? runDailyNotifications : undefined}
+                        />
                     </div>
             }
             railFooter={
