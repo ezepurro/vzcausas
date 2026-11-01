@@ -4573,7 +4573,7 @@ devuelve.
 | Autos                  | `caption`                                                                                      |
 | Actor / querellante    | Según el fuero y el rol procesal, ver la tabla siguiente                                       |
 | Demandado / imputado   | Según el fuero y el rol procesal, ver la tabla siguiente                                       |
-| Órgano interviniente   | Dos líneas: `court` y "SECRETARIO/A: " + `instructorName`. El instructor de la causa es el secretario/a del órgano. Un dato `null` deja la línea con el rótulo solo |
+| Órgano interviniente   | Tres líneas: `court`, "SECRETARIO/A: " + `instructorName` y "INSTRUCTOR:" **sin valor** (qué dato lleva está abierto, C-35). El instructor de la causa es el secretario/a del órgano. Un dato `null` deja la línea con el rótulo solo |
 | Observaciones          | **Vacío.** Se completa solo en el expediente, con las observaciones que envía el cliente       |
 
 **Partes.** El backend las arma con los datos de la causa:

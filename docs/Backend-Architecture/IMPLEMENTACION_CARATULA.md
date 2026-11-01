@@ -22,12 +22,13 @@ causa; **no se guarda nada y no lleva migración**. Cualquier usuario autenticad
 | 2 | 29/10/2026 | Tratamiento del abogado: `DR.` (antes `DR/DRA.`). Contrato V5, D-106, C-28 y los CA de VZ-32 actualizados | Así figura en las plantillas del estudio |
 | 3 | 29/10/2026 | Nombre del abogado en la hoja: **nombre primero** (`DEFENSOR: DR. FERNANDO VAZQUEZ`). El cliente sigue `APELLIDO NOMBRES`. `API_CONTRACT_V5.md:4588` actualizado | Como la plantilla |
 | 4 | 29/10/2026 | Observaciones: **siempre vacío** | La hoja la completa el estudio a mano; si quieren un texto predeterminado se agrega después |
-| 5 | 29/10/2026 | Órgano interviniente: **dos líneas, como el contrato** (`court` y `SECRETARIO/A: {instructor}`) | Provisional: las plantillas llevan tres (`INSTRUCTOR:` aparte). A confirmar con el estudio |
+| 5 | 29/10/2026 | Órgano interviniente: ~~dos líneas, como el contrato (`court` y `SECRETARIO/A: {instructor}`)~~ (reemplazada por la 10) | Provisional: las plantillas llevan tres (`INSTRUCTOR:` aparte). A confirmar con el estudio |
 | 6 | 29/10/2026 | `caseId` que no es un entero: `400 INVALID_PATH_PARAMETER`, como las demás rutas de `/cases/{caseId}` | Coherencia. El contrato del `cover` no lo lista |
 | 7 | 29/10/2026 | Librería de PDF: **`@cantoo/pdf-lib` 2.11.1** (instalada en `backend/package.json`) | Sirve a las dos HU: fondo PNG y texto con `maxWidth` (HU24); imágenes a A4 y `copyPages` para unir PDFs (HU25). Mantenida (la `pdf-lib` original no tiene versión desde 05/2022). No convierte Word a PDF: eso lo hace Drive |
 
 | 8 | 30/10/2026 | **Plantilla por fuero se mantiene**, aunque hoy las tres sean la misma imagen. `CoverSheet` guarda el fuero, el adaptador lo traduce al de `documents` y `PdfLibCoverRenderer` elige archivo con `TEMPLATE_BY_JURISDICTION` | Puede cambiar en el futuro: darle hoja propia a un fuero es un archivo nuevo y una línea. Ojo: las coordenadas de los recuadros están medidas sobre la imagen actual |
 | 9 | 30/10/2026 | `disposition` inválido: `InvalidCoverDispositionError` (`INVALID_REQUEST`, texto del contrato), validado en el controller, no con `@IsEnum` | El pipe daría `VALIDATION_ERROR`; el contrato pide `INVALID_REQUEST` |
+| 10 | 31/10/2026 | Órgano interviniente: **tres líneas** (`court`, `SECRETARIO/A: {instructor}` e `INSTRUCTOR:` en blanco). Contrato V5, D-91 y C-35 actualizados | Se pidió que estén las tres; qué dato va en `INSTRUCTOR:` está abierto (C-35) |
 
 ## Hallazgos que condicionan el diseño
 

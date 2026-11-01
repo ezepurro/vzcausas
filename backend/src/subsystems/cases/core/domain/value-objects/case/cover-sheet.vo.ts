@@ -3,6 +3,7 @@ import { JurisdictionCode } from './jurisdiction-code';
 import { ProceduralRole } from './procedural-role';
 
 const SECRETARY_LABEL = 'SECRETARIO/A:';
+const INSTRUCTOR_LABEL = 'INSTRUCTOR:';
 const LAWYER_LABEL = 'DEFENSOR: DR.';
 
 /** What the sheet reads from a case: a slice of the read model, so the use case passes it as is. */
@@ -83,12 +84,14 @@ export class CoverSheet {
   }
 
   /**
-   * Two lines: the court and the secretary label with the instructor, who is the
-   * secretary of the body (CA-24.3). Isolated on purpose: the studio's templates carry
-   * a third line (C-34) and this is the one place to change when that is confirmed.
+   * Three lines, as the studio's templates carry them: the court, the secretary label
+   * with the instructor (who is the secretary of the body, D-91) and the instructor
+   * label, left blank until the studio says what goes there (C-35). A `null` datum
+   * leaves its line with the label alone. Isolated on purpose: this is the one place
+   * to change when C-35 is answered.
    */
   private static interveningBodyOf(source: CoverSheetSource): string[] {
-    return [source.court ?? '', `${SECRETARY_LABEL} ${source.instructorName ?? ''}`.trim()];
+    return [source.court ?? '', `${SECRETARY_LABEL} ${source.instructorName ?? ''}`.trim(), INSTRUCTOR_LABEL];
   }
 
   /** `APELLIDO NOMBRES`, as the contract fixes it for the client. */

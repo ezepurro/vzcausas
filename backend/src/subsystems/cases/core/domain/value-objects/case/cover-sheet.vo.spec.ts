@@ -103,16 +103,20 @@ describe('CoverSheet', () => {
       expect(CoverSheet.create(aSource({ sacNumber: null })).sacNumber).toBe('');
     });
 
-    it('the intervening body is the court and, on another line, the secretary label with the instructor (CA-24.3)', () => {
+    it('the intervening body is the court, the secretary label with the instructor and the instructor label, blank (CA-24.3, C-35)', () => {
       const sheet = CoverSheet.create(aSource());
 
-      expect(sheet.interveningBody).toEqual(['JUZGADO DE CONTROL N° 3 · CÓRDOBA', 'SECRETARIO/A: DRA. VERÓNICA LEDESMA']);
+      expect(sheet.interveningBody).toEqual([
+        'JUZGADO DE CONTROL N° 3 · CÓRDOBA',
+        'SECRETARIO/A: DRA. VERÓNICA LEDESMA',
+        'INSTRUCTOR:',
+      ]);
     });
 
-    it('a null court or instructor leaves its line empty, the label alone for the instructor (CA-24.3)', () => {
+    it('a null court or instructor leaves its line empty, the label alone for the secretary (CA-24.3)', () => {
       const sheet = CoverSheet.create(aSource({ court: null, instructorName: null }));
 
-      expect(sheet.interveningBody).toEqual(['', 'SECRETARIO/A:']);
+      expect(sheet.interveningBody).toEqual(['', 'SECRETARIO/A:', 'INSTRUCTOR:']);
     });
 
     it('keeps the jurisdiction, which picks the template (CA-24.2)', () => {
