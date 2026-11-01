@@ -1,5 +1,7 @@
 import { ValidationError } from '@shared/domain/domain-error';
+import { CaseDataRules, FieldErrors } from '../../rules/case-data-rules';
 import { JurisdictionCode } from '../../value-objects/case/jurisdiction-code';
+import { CaseChanges, CaseField, CaseModificationContext, PendingChanges } from './case-changes';
 import { CaseSnapshot } from './case-snapshot';
 import { Case, CaseProps } from './case.entity';
 
@@ -34,6 +36,42 @@ export class AdministrativeCase extends Case {
     }
     // A state without a term needs no notification; a manual due date counts from the act.
     return actDate;
+  }
+
+  protected ownFields(): readonly CaseField[] {
+    return ['counterparty', 'subjectMatter', 'administrativeRemedyExhaustedOn'];
+  }
+
+  /** Counterparty and subject matter as in the registration; the remedy date may be emptied (`null`: not exhausted). */
+  protected validateOwnChanges(
+    changes: CaseChanges,
+    context: CaseModificationContext,
+    errors: FieldErrors,
+  ): PendingChanges {
+    const props = this.administrativeProps;
+    const counterparty =
+      changes.counterparty !== undefined ? CaseDataRules.checkCounterparty(errors, changes.counterparty) : props.counterparty;
+    const subjectMatter =
+      changes.subjectMatter !== undefined ? CaseDataRules.checkSubjectMatter(errors, changes.subjectMatter) : props.subjectMatter;
+    const remedy =
+      changes.administrativeRemedyExhaustedOn !== undefined
+        ? changes.administrativeRemedyExhaustedOn
+        : props.administrativeRemedyExhaustedOn;
+    if (changes.administrativeRemedyExhaustedOn) {
+      CaseDataRules.checkPastDate(errors, 'administrativeRemedyExhaustedOn', remedy, context.today);
+    }
+
+    return () => {
+      const changed: CaseField[] = [];
+      Case.track(changed, 'counterparty', props.counterparty, counterparty, () => (props.counterparty = counterparty));
+      Case.track(changed, 'subjectMatter', props.subjectMatter, subjectMatter, () => {
+        props.subjectMatter = subjectMatter as string;
+      });
+      Case.track(changed, 'administrativeRemedyExhaustedOn', props.administrativeRemedyExhaustedOn, remedy, () => {
+        props.administrativeRemedyExhaustedOn = remedy;
+      });
+      return changed;
+    };
   }
 
   toSnapshot(): CaseSnapshot {

@@ -1,0 +1,123 @@
+type: object
+description: |
+  Cuerpo de `PATCH /cases/{caseId}` (HU19). Todos los campos son opcionales,
+  pero debe enviarse al menos uno. Un campo omitido no cambia; un campo
+  anulable enviado en `null` se vacía.
+
+  - **No se modifican** el fuero (`jurisdiction` responde `400` con "El fuero
+    de una causa no se puede modificar."), la carpeta, el estado procesal, la
+    prescripción ni `active`: cualquier campo que no está acá responde `400`.
+  - **Datos de otro fuero**: igual que en el alta, `400` sobre el campo.
+  - **SAC**: único entre las causas vigentes (`409`). Quitarlo exige
+    `startDate` en `null`; agregarlo exige `startDate` si la causa no la tiene.
+  - **Cliente**: el backend no recalcula la carátula. Si cambia el cliente,
+    la carátula queda la que se envía en `caption` o, si no se envía, la
+    anterior (D-105).
+  - **Calificaciones**: reemplazan la lista completa; `[]` la vacía. En una
+    causa "Prescripta" responden `422 CASE_IN_TERMINAL_STATE` (D-96).
+  - **Acto lesivo**: `harmfulActDate` en `null` borra el acto y sus datos.
+additionalProperties: false
+properties:
+  sacNumber:
+    type:
+      - string
+      - 'null'
+    pattern: '^[0-9]{8}$'
+    examples:
+      - '13284571'
+  caption:
+    type: string
+    maxLength: 255
+  court:
+    type:
+      - string
+      - 'null'
+    maxLength: 255
+  instructorName:
+    type:
+      - string
+      - 'null'
+    maxLength: 150
+  tribunalPhone:
+    type:
+      - string
+      - 'null'
+    maxLength: 50
+  instructorExtension:
+    type:
+      - string
+      - 'null'
+    maxLength: 20
+  clientId:
+    type: integer
+    description: Cliente vigente.
+  proceduralRole:
+    $ref: ./ProceduralRole.yaml
+  legalQualifications:
+    type: array
+    description: Solo en `CRIMINAL`. Reemplaza la lista completa.
+    items:
+      $ref: ./CaseLegalQualificationInput.yaml
+  clientDetained:
+    type: boolean
+    description: Solo en `CRIMINAL`.
+  counterparty:
+    type:
+      - string
+      - 'null'
+    maxLength: 255
+    description: Solo en `ADMINISTRATIVE` y `AMPARO`.
+  subjectMatter:
+    type: string
+    maxLength: 800
+    description: Solo en `ADMINISTRATIVE` y `AMPARO`. No vacío.
+  injunctionGranted:
+    type: boolean
+    description: Solo en `AMPARO`.
+  harmfulActDate:
+    type:
+      - string
+      - 'null'
+    format: date
+    description: Solo en `AMPARO`. No posterior a hoy. `null` borra el acto lesivo y sus datos.
+  harmfulActRenews:
+    type: boolean
+    description: Solo en `AMPARO`.
+  harmfulActRenewalDays:
+    type:
+      - integer
+      - 'null'
+    minimum: 1
+    description: Solo en `AMPARO`, con las reglas del alta.
+  harmfulActTermDays:
+    type:
+      - integer
+      - 'null'
+    minimum: 1
+    description: Solo en `AMPARO`, con las reglas del alta.
+  harmfulActTermDayType:
+    type:
+      - string
+      - 'null'
+    enum:
+      - BUSINESS
+      - CONSECUTIVE
+      - null
+    description: Solo en `AMPARO`, con las reglas del alta.
+  administrativeRemedyExhaustedOn:
+    type:
+      - string
+      - 'null'
+    format: date
+    description: Solo en `ADMINISTRATIVE`. No posterior a hoy. `null`, la vía no se agotó.
+  courtFeePaid:
+    type: boolean
+  responsibleLawyerId:
+    type: integer
+    description: Abogado vigente (RN3). Desde la próxima petición registra él los actos.
+  startDate:
+    type:
+      - string
+      - 'null'
+    format: date
+    description: Obligatoria si la causa queda con SAC; `null` si queda sin SAC. No posterior a hoy.

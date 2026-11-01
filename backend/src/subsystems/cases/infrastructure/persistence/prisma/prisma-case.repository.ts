@@ -3,6 +3,7 @@ import { PrismaService } from '@shared/infrastructure/prisma/prisma.service';
 import { Prisma } from '../../../../../generated/prisma/client';
 import { DayType as PrismaDayType, ProceduralRole as PrismaProceduralRole } from '../../../../../generated/prisma/enums';
 import { Case } from '../../../core/domain/entities/case/case.entity';
+import { CaseSacAlreadyExistsError } from '../../../core/domain/errors/case.errors';
 import {
   CaseDueDateKey,
   CaseListItem,
@@ -75,12 +76,69 @@ export class PrismaCaseRepository implements CaseRepository {
     return Number(nextval);
   }
 
-  async existsBySacNumber(sacNumber: string): Promise<boolean> {
+  async existsBySacNumber(sacNumber: string, exceptCaseId?: number): Promise<boolean> {
     // Only active cases count: a deactivated case frees its SAC (D-97). The
     // partial unique index `cases_sac_number_active_key` enforces the same
     // rule in the database.
-    const row = await this.prisma.db.case.findFirst({ where: { sacNumber, active: true }, select: { id: true } });
+    const row = await this.prisma.db.case.findFirst({
+      where: { sacNumber, active: true, ...(exceptCaseId !== undefined && { id: { not: exceptCaseId } }) },
+      select: { id: true },
+    });
     return row !== null;
+  }
+
+  async saveModification(modifiedCase: Case): Promise<void> {
+    const data = modifiedCase.toSnapshot();
+    try {
+      await this.prisma.db.case.update({
+        where: { id: data.id },
+        data: {
+          sacNumber: data.sacNumber,
+          caption: data.caption,
+          court: data.court,
+          proceduralRole: data.proceduralRole as PrismaProceduralRole,
+          instructorName: data.instructor.name,
+          instructorPhone: data.instructor.phone,
+          instructorExtension: data.instructor.extension,
+          counterparty: data.counterparty,
+          subjectMatter: data.subjectMatter,
+          clientId: data.clientId,
+          responsibleLawyerId: data.responsibleLawyerId,
+          startDate: data.startDate,
+          courtFeePaid: data.courtFeePaid,
+          clientDetained: data.clientDetained,
+          injunctionGranted: data.injunctionGranted,
+          harmfulActDate: data.harmfulActDate,
+          harmfulActRenews: data.harmfulActRenews,
+          harmfulActRenewalDays: data.harmfulActRenewalDays,
+          harmfulActTermDays: data.harmfulActTermDays,
+          harmfulActTermDayType: data.harmfulActTermDayType as PrismaDayType | null,
+          administrativeRemedyExhaustedOn: data.administrativeRemedyExhaustedOn,
+          updatedAt: data.updatedAt,
+        },
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new CaseSacAlreadyExistsError();
+      }
+      throw error;
+    }
+
+    // Only a criminal case has offenses. The list is replaced whole (CA-19.11):
+    // rewriting it is simpler and as cheap as diffing a handful of rows.
+    if (modifiedCase.jurisdictionCode === JurisdictionCode.CRIMINAL) {
+      await this.prisma.db.offense.deleteMany({ where: { caseId: data.id } });
+      if (data.offenses.length > 0) {
+        await this.prisma.db.offense.createMany({
+          data: data.offenses.map((offense) => ({
+            caseId: data.id,
+            legalQualificationId: offense.legalQualificationId,
+            offenseDate: offense.offenseDate,
+            prescriptionDate: offense.prescriptionExpiresOn,
+          })),
+        });
+      }
+    }
   }
 
   async save(newCase: Case): Promise<void> {
