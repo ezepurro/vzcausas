@@ -1,7 +1,7 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { GoogleOAuthClientService } from '@shared/infrastructure/google/google-oauth-client.service';
-import { drive_v3, google } from 'googleapis';
+import { drive, drive_v3 } from '@googleapis/drive';
 import { Readable } from 'node:stream';
 import { DocumentStorageUnavailableError } from '../../../core/domain/errors/documents.errors';
 import {
@@ -32,7 +32,7 @@ const FILE_FIELDS = 'id, webViewLink';
  * - **Failures:** a call is retried up to 3 times on a passing problem (see
  *   {@link withDriveRetries}); what is left is translated into
  *   {@link DocumentStorageUnavailableError} with its reason. Nothing from the
- *   `googleapis` library leaves this class.
+ *   `@googleapis/drive` library leaves this class.
  * - **Logging:** ids and operations only. Folder and file names carry the
  *   parties of a case, so they are written at `debug` level at most.
  */
@@ -43,7 +43,7 @@ export class GoogleDriveDocumentStorage implements DocumentStoragePort {
   private readonly sleep: (ms: number) => Promise<void>;
   private readonly timeout: number;
   /**
-   * Options for every call. `retry: false` turns off the retries `googleapis`
+   * Options for every call. `retry: false` turns off the retries `googleapis-common`
    * adds by default (it sets `retry = true` on every request): `withDriveRetries`
    * is the only one that retries, so a call is attempted exactly 3 times, with the
    * waits of ADR-003 §2.5, and not 3 times by us times 4 by the library.
@@ -58,7 +58,7 @@ export class GoogleDriveDocumentStorage implements DocumentStoragePort {
     @Optional() driveClient?: DriveFilesClient,
     @Optional() sleep?: (ms: number) => Promise<void>,
   ) {
-    this.drive = driveClient ?? google.drive({ version: 'v3', auth: oauth.getClient() });
+    this.drive = driveClient ?? drive({ version: 'v3', auth: oauth.getClient() });
     this.sleep = sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
     const configured = Number(config.get<string>('DRIVE_REQUEST_TIMEOUT_MS'));
     this.timeout = Number.isFinite(configured) && configured > 0 ? configured : DEFAULT_TIMEOUT_MS;

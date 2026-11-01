@@ -19,7 +19,7 @@ export interface GoogleStackOptions {
 /**
  * Arma la pila REAL de Google contra el Google falso:
  *
- *   GoogleDriveDocumentStorage → googleapis → OAuth2Client → transporte falso
+ *   GoogleDriveDocumentStorage → @googleapis/drive → OAuth2Client → transporte falso
  *
  * Solo la salida a internet es falsa. El cliente OAuth es el
  * `GoogleOAuthClientService` de verdad (con el refresh token cargado como en

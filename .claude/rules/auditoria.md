@@ -25,10 +25,9 @@ paths:
      src/shared/infrastructure/audit/ contiene sólo un .gitkeep. O sea: todo
      lo que esta regla manda llamar todavía está sin escribir.
 
-     Fuente del contenido: docs/Backend-Architecture/AUDITORIA_Y_TRAZABILIDAD.md
-     Ojo que en esa carpeta hay además un AUDITORY_TRAIL.md. Son dos docs de
-     auditoría y no los cruzamos: si alguna vez hay que reactivar esta regla,
-     primero hay que ver cuál de los dos manda.
+     Fuente del contenido: docs/Backend-Architecture/AUDITORIA_Y_TRAZABILIDAD.md,
+     que es el único doc de auditoría. Había además un AUDITORY_TRAIL.md, pero
+     estaba vacío y se borró el 01/11/2026.
      ===================================================================== -->
 
 # Auditoría y trazabilidad
@@ -57,7 +56,11 @@ Nunca desde un interceptor HTTP genérico. La razón no es estilística:
   estado B"*. Eso es auditoría.
 
 El puerto es `src/shared/domain/audit-trail.port.ts`, con `record({ actorUserId,
-action, entityType, entityId, occurredAt, metadata? })`.
+action, entityType, entityId, occurredAt, metadata? })`. `actorUserId` es
+`number | null`: nulo en el login fallido y en el proceso diario, como en el
+modelo `AuditLog` de `schema.prisma`. El `correlationId` no lo pasa el caso de
+uso: lo completa el adaptador desde el contexto de la petición
+(`AUDITORIA_Y_TRAZABILIDAD.md` §3).
 
 El `action` usa la forma `entidad.verbo-en-pasado`: `case.status-changed`,
 `user.deactivated`.

@@ -103,7 +103,7 @@ Del _Estudio Inicial v1.1_, §3.6.
 
 | Marco                                                | Consecuencia sobre el backend                                                                                 |
 | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| Ley 25.326 de Protección de Datos Personales         | Registro de auditoría sobre datos sensibles (§9); credenciales cifradas; control de acceso verificable        |
+| Ley 25.326 de Protección de Datos Personales         | Registro de auditoría sobre datos sensibles (`AUDITORIA_Y_TRAZABILIDAD.md`); credenciales cifradas; control de acceso verificable        |
 | Secreto profesional                                  | La información de causas no es accesible fuera del estudio: no hay endpoints públicos de consulta de causas   |
 | Código Procesal Penal de Córdoba y régimen de plazos | El cómputo de plazos es lógica de dominio auditable y testeable, **no** una consulta suelta en un controlador |
 
@@ -204,7 +204,7 @@ Se admiten claves foráneas entre tablas de distinto subsistema, porque la persi
 | `deadlines`        | `deadlines`, `prescription_alerts`, `notifications`                                  |
 | `documents`        | `document_templates`, `case_folders`, `case_documents`                               |
 | `reporting`        | _(ninguna)_                                                                          |
-| _(transversal)_    | `audit_log` — escrita mediante el puerto compartido de auditoría (§9)                |
+| _(transversal)_    | `audit_log` — escrita mediante el puerto compartido de auditoría (`AUDITORIA_Y_TRAZABILIDAD.md` §3)                |
 
 ### 4.5 Grafo de dependencias
 
@@ -626,6 +626,7 @@ SMTP_HOST / SMTP_PORT / SMTP_USER / SMTP_PASSWORD
 MANAGEMENT_MAILBOX          # casilla de gestión del estudio (RNF 5)
 APP_TIMEZONE                # ver 8.7
 CORS_ALLOWED_ORIGINS
+LOG_LEVEL                   # opcional, default info; ver 7.9
 ```
 
 ### 7.7 Fecha, hora y zona horaria
@@ -678,6 +679,16 @@ DomainError (abstracta)
 Cada petición recibe un **identificador de correlación**, generado por un middleware, que acompaña a todas las entradas de log de esa petición.
 
 **Nunca se registran:** contraseñas, tokens completos, ni contenido de documentos de causas (Ley 25.326 y secreto profesional). Los identificadores de causa y de usuario sí se registran: son necesarios para el diagnóstico y para la auditoría.
+
+Este es el log **técnico**. La auditoría de negocio (quién hizo qué sobre qué entidad) es otra cosa: la escribe el caso de uso por `AuditTrailPort` (`AUDITORIA_Y_TRAZABILIDAD.md` §3). El log técnico vive entero en infraestructura y ningún caso de uso sabe que existe.
+
+**Implementación** (`shared/infrastructure/logging/logging.module.ts`):
+
+1. **pino** (`nestjs-pino`), en JSON a **stdout**. No se escriben archivos: en Render el disco es efímero y la plataforma ya recolecta la salida del proceso. `configureApp` lo pone como logger de Nest, así que todo `new Logger(X.name)` sale por el mismo lado. En desarrollo, `pino-pretty`. Nivel por `LOG_LEVEL` (opcional, `info` por defecto, silencio bajo Jest).
+2. **Una línea por petición**, al terminar la respuesta: `reqId`, método, **path sin query string**, status, `responseTime` y `userId` si hay sesión. Sin headers ni body (`request-log.serializers.ts`): el `?search=` de los listados lleva apellidos. 5xx en `error`, 4xx en `warn`. El endpoint de `health` no se loguea.
+3. **El `reqId` es el id de correlación**: `resolveCorrelationId` (`correlation-id.middleware.ts`) lo usan el middleware y el logger, así que coincide con el header `X-Correlation-Id` y con `audit_log.correlation_id`.
+4. **Transacciones** (`PrismaService.runInTransaction`): el rollback sale en `warn` con el nombre del error y la duración; la confirmación, en `debug`, o en `warn` si tarda más de 1 s.
+5. **Deuda asumida:** sin log de queries lentas de Prisma (`$on("query")`, cuyos tipos complica la subclase de `PrismaClient`); sin agregador de logs ni Sentry. Cuando se sumen, sólo con identificadores: mandar logs a un servicio externo es transferir datos fuera del país.
 
 ---
 

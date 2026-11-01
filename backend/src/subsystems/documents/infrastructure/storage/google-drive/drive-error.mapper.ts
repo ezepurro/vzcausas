@@ -35,7 +35,7 @@ interface GoogleLikeError {
 }
 
 /**
- * Reads what `googleapis` (gaxios) puts in a failed call and decides how to
+ * Reads what `@googleapis/drive` (gaxios) puts in a failed call and decides how to
  * treat it. Understands the three shapes it uses: an HTTP status, a Node
  * network code (`ECONNRESET`…) and the OAuth `invalid_grant` answer.
  */

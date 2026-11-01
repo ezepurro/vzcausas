@@ -16,7 +16,7 @@ const DOCX = 'application/vnd.openxmlformats-officedocument.wordprocessingml.doc
 
 /*
  * HU34 y HU35 con la pila REAL de Google: el archivo del modelo formal sube a
- * "Modelos formales" por la subida multipart de `googleapis` y se descarga igual
+ * "Modelos formales" por la subida multipart de `@googleapis/drive` y se descarga igual
  * de vuelta. Complementa `register-document-template.int.spec.ts`, que usa el
  * almacenamiento en memoria.
  */
