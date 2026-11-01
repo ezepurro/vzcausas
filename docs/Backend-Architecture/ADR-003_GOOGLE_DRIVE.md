@@ -157,7 +157,7 @@ usa el caso de uso `CopyTemplatesToCaseFolder`. Quedan **pendientes** los métod
 de acceso (`grantWriter`, `revokeAccess`, `listUserAccess`) del diseño original,
 que se agregan cuando se implementen sus historias.
 
-Implementaciones: `GoogleDriveDocumentStorage` (producción, con `googleapis` y el
+Implementaciones: `GoogleDriveDocumentStorage` (producción, con `@googleapis/drive` y el
 cliente OAuth compartido) e `InMemoryDocumentStorage` (pruebas y desarrollo sin
 credenciales). `createDocumentStorage` elige una al arrancar: Drive si están las
 tres variables `GOOGLE_OAUTH_*`; si no, la de memoria con una advertencia, salvo

@@ -24,7 +24,7 @@ const logger = new Logger('DocumentStorage');
  *
  * The choice is made here, when the container is built, and not when the module
  * file is loaded: by then `ConfigModule` has already read the `.env` file.
- * `googleapis` is large, so the Drive adapter is only loaded if it is used.
+ * The Drive client (`@googleapis/drive`) is large, so its adapter is only loaded if it is used.
  *
  * `sharedOAuth` is the app's shared Google client, if some other subsystem
  * registered it (`deadlines` does). It arrives as an optional dependency of the

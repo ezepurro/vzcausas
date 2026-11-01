@@ -173,7 +173,7 @@ Además de esta guía de setup, `docs/` tiene la documentación de arquitectura 
 | [`docs/Backend-Architecture/ARQUITECTURA_BACKEND_V1.md`](docs/Backend-Architecture/ARQUITECTURA_BACKEND_V1.md) | Arquitectura hexagonal del backend, subsistemas y convenciones. |
 | [`docs/Backend-Architecture/MODULO_AUTH.md`](docs/Backend-Architecture/MODULO_AUTH.md) / [`IMPLEMENTACION_AUTH.md`](docs/Backend-Architecture/IMPLEMENTACION_AUTH.md) | Diseño e historial de decisiones del módulo de autenticación (incluye el detalle de todas las variables de entorno). |
 | [`docs/Backend-Architecture/USO_PRISMA.md`](docs/Backend-Architecture/USO_PRISMA.md) | Convenciones para trabajar con Prisma en este proyecto. |
-| [`docs/Backend-Architecture/AUDITORIA_Y_TRAZABILIDAD.md`](docs/Backend-Architecture/AUDITORIA_Y_TRAZABILIDAD.md) / [`AUDITORY_TRAIL.md`](docs/Backend-Architecture/AUDITORY_TRAIL.md) | Auditoría y trazabilidad de operaciones. |
+| [`docs/Backend-Architecture/AUDITORIA_Y_TRAZABILIDAD.md`](docs/Backend-Architecture/AUDITORIA_Y_TRAZABILIDAD.md) | Auditoría y trazabilidad de operaciones. |
 | [`docs/Frontend-Architecture/ESTRUCTURA.md`](docs/Frontend-Architecture/ESTRUCTURA.md) | Organización de carpetas y capas del frontend. |
 | [`docs/Frontend-Architecture/SHARED.md`](docs/Frontend-Architecture/SHARED.md) | Código compartido del frontend (API client, utilidades). |
 | [`docs/Frontend-Architecture/TESTING.md`](docs/Frontend-Architecture/TESTING.md) | Estrategia de testing del frontend. |

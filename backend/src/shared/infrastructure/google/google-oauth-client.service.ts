@@ -1,8 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { google } from "googleapis";
-
-type OAuth2Client = InstanceType<typeof google.auth.OAuth2>;
+import { OAuth2Client } from "google-auth-library";
 
 /**
  * The single OAuth client shared by every subsystem that talks to Google —
@@ -30,11 +28,11 @@ export class GoogleOAuthClientService {
       "GOOGLE_OAUTH_REFRESH_TOKEN",
     );
 
-    this.client = new google.auth.OAuth2(clientId, clientSecret);
+    this.client = new OAuth2Client(clientId, clientSecret);
     this.client.setCredentials({ refresh_token: refreshToken });
   }
 
-  /** Pass this as `auth` to any `googleapis` client (`google.gmail`, `google.drive`, ...). */
+  /** Pass this as `auth` to any Google API client (`gmail()`, `drive()`, ...). */
   getClient(): OAuth2Client {
     return this.client;
   }

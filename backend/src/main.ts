@@ -15,7 +15,12 @@ import { configureApp } from "./app.setup";
  * harness so both exercise the same pipeline.
  */
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  // `bufferLogs`: what is logged while the modules boot is held until
+  // `configureApp` swaps in the JSON logger, instead of going out in
+  // Nest's plain-text format.
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    bufferLogs: true,
+  });
 
   // Safe to read eagerly: validation already ran during module
   // initialization, so every variable below is guaranteed present.

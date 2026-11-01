@@ -30,7 +30,7 @@ const CAPTION = 'GÓMEZ, Ariel Fernando p.s.a. Robo calificado';
 const CASE_PATH = `/VZ Causas/Causas/Ríos, Malena/Penal/${CAPTION}`;
 
 /*
- * HU39 · La carpeta de la causa, con la pila REAL de Google (`googleapis` +
+ * HU39 · La carpeta de la causa, con la pila REAL de Google (`@googleapis/drive` +
  * `OAuth2Client` + `GoogleDriveDocumentStorage`) y un Google falso como
  * "internet" (`test/shared/fakes/fake-google.ts`). La base es PostgreSQL real.
  *
