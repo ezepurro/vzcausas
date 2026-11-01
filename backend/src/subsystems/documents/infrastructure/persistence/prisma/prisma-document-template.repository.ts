@@ -11,9 +11,9 @@ import {
   DocumentTemplateRepository,
   DocumentTemplateSearch,
   DocumentTemplateView,
-  TemplateFile,
   TemplateFileLocation,
 } from '../../../core/domain/ports/document-template.repository';
+import { TemplateFile } from '../../../core/domain/value-objects/template-file.vo';
 
 /** The unique index on `lower(name)` among active templates (D-71). */
 const NAME_INDEX = 'document_templates_name_active_key';
@@ -74,10 +74,11 @@ export class PrismaDocumentTemplateRepository implements DocumentTemplateReposit
   }
 
   async findFileById(id: number): Promise<TemplateFile | null> {
-    return this.prisma.db.documentTemplate.findFirst({
+    const row = await this.prisma.db.documentTemplate.findFirst({
       where: { id, active: true },
       select: { fileName: true, cloudFileId: true },
     });
+    return row ? TemplateFile.hydrate(row) : null;
   }
 
   async save(template: DocumentTemplate, file: TemplateFileLocation): Promise<DocumentTemplateView> {

@@ -1,4 +1,5 @@
 import { DocumentTemplate, TemplateJurisdiction } from '../entities/document-template.entity';
+import { TemplateFile } from '../value-objects/template-file.vo';
 
 /** DI token for {@link DocumentTemplateRepository}. */
 export const DOCUMENT_TEMPLATE_REPOSITORY = Symbol('DOCUMENT_TEMPLATE_REPOSITORY');
@@ -32,12 +33,6 @@ export interface DocumentTemplateSearch {
   limit: number;
 }
 
-/** Where the file of a template is, to download it (CA-35.6). */
-export interface TemplateFile {
-  fileName: string;
-  cloudFileId: string;
-}
-
 /** Persistence of the formal templates (`document_templates` and its jurisdictions). */
 export interface DocumentTemplateRepository {
   /**
@@ -49,7 +44,7 @@ export interface DocumentTemplateRepository {
   /** The active template with that id; `null` if it does not exist or was given de baja. */
   findById(id: number): Promise<DocumentTemplateView | null>;
 
-  /** The file of the active template with that id; `null` like {@link findById}. */
+  /** The file of the active template with that id, to download it (CA-35.6, CA-23.1); `null` like {@link findById}. */
   findFileById(id: number): Promise<TemplateFile | null>;
 
   /** Whether an active template already has this name, ignoring case (D-71). */

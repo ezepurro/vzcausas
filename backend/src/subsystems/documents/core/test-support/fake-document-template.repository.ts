@@ -3,9 +3,9 @@ import {
   DocumentTemplateRepository,
   DocumentTemplateSearch,
   DocumentTemplateView,
-  TemplateFile,
   TemplateFileLocation,
 } from '../domain/ports/document-template.repository';
+import { TemplateFile } from '../domain/value-objects/template-file.vo';
 
 /** A template as the fake keeps it: the view plus where its file is. */
 type StoredTemplate = DocumentTemplateView & TemplateFileLocation;
@@ -60,7 +60,7 @@ export class FakeDocumentTemplateRepository implements DocumentTemplateRepositor
 
   async findFileById(id: number): Promise<TemplateFile | null> {
     const row = this.rows.find((stored) => stored.id === id && stored.active);
-    return row ? { fileName: row.fileName, cloudFileId: row.cloudFileId } : null;
+    return row ? TemplateFile.hydrate({ fileName: row.fileName, cloudFileId: row.cloudFileId }) : null;
   }
 
   async save(template: DocumentTemplate, file: TemplateFileLocation): Promise<DocumentTemplateView> {

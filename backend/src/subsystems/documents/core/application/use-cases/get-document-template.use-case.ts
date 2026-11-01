@@ -1,12 +1,12 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { AuthenticatedUser } from '@shared/domain/authenticated-user';
+import { DocumentTemplate } from '../../domain/entities/document-template.entity';
 import { DocumentTemplateNotFoundError } from '../../domain/errors/documents.errors';
 import {
   DOCUMENT_TEMPLATE_REPOSITORY,
   DocumentTemplateRepository,
   DocumentTemplateView,
 } from '../../domain/ports/document-template.repository';
-import { assertCanManageTemplates } from '../common/assert-can-manage-templates';
 
 /** HU35: one formal template (contract V4 §3.10, `GET /document-templates/{templateId}`). */
 @Injectable()
@@ -18,7 +18,7 @@ export class GetDocumentTemplate {
    * @throws {DocumentTemplateNotFoundError} 404, also for a template given de baja.
    */
   async execute(input: { actor: AuthenticatedUser; templateId: number }): Promise<DocumentTemplateView> {
-    assertCanManageTemplates(input.actor);
+    DocumentTemplate.assertCanBeManagedBy(input.actor);
     const template = await this.templates.findById(input.templateId);
     if (!template) {
       throw new DocumentTemplateNotFoundError();

@@ -229,6 +229,46 @@ describe('GET /api/v1/document-templates', () => {
     it('de un modelo inexistente es 404, con el error en JSON', async () => {
       expectError(await server().get(`${URL}/999999/file`).set(asLawyer), 404, 'DOCUMENT_TEMPLATE_NOT_FOUND');
     });
+
+    // CA-23.3
+    it('de un modelo dado de baja es 404 con el texto del contrato', async () => {
+      const old = await registered('Modelo viejo');
+      await getPrisma().documentTemplate.update({ where: { id: old.id }, data: { active: false } });
+
+      const res = await server().get(`${URL}/${old.id}/file`).set(asLawyer);
+
+      expectError(res, 404, 'DOCUMENT_TEMPLATE_NOT_FOUND');
+      expect(res.body.error).toEqual({
+        code: 'DOCUMENT_TEMPLATE_NOT_FOUND',
+        message: 'No se encontró el modelo formal solicitado.',
+        details: null,
+      });
+    });
+
+    // CA-23.6
+    it('con un templateId que no es entero es 400 INVALID_PATH_PARAMETER', async () => {
+      const res = await server().get(`${URL}/abc/file`).set(asLawyer);
+
+      expectError(res, 400, 'INVALID_PATH_PARAMETER', ['templateId']);
+      expect(res.body.error).toEqual({
+        code: 'INVALID_PATH_PARAMETER',
+        message: 'El identificador del modelo formal no es válido.',
+        details: { templateId: 'Debe ser un número entero válido.' },
+      });
+    });
+
+    // CA-23.5, D-58
+    it('sin Authorization es 401 en JSON: no es un enlace directo a Drive', async () => {
+      const created = await registered('Recurso de casación');
+
+      const res = await server().get(`${URL}/${created.id}/file`);
+
+      expect(res.status).toBe(401);
+      expect(res.headers['content-type']).toMatch(/application\/json/);
+      expect(res.body).toEqual({
+        error: { code: 'UNAUTHENTICATED', message: 'La autenticación es requerida.', details: null },
+      });
+    });
   });
 
   // CA-35.7, con login real
