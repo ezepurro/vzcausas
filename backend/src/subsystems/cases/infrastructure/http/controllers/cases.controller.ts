@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, Patch, Post, Query } from '@nestjs/common';
 import { AuthenticatedUser } from '@shared/domain/authenticated-user';
 import { CurrentUser } from '@shared/infrastructure/http/current-user.decorator';
 import { PaginatedResponse, paginate, toPageRequest } from '@shared/infrastructure/http/pagination/pagination';
@@ -11,6 +11,7 @@ import { ListProceduralActs } from '../../../core/application/use-cases/procedur
 import { RegisterCase } from '../../../core/application/use-cases/case/register-case.use-case';
 import { RegisterProceduralAct } from '../../../core/application/use-cases/procedural-act/register-procedural-act.use-case';
 import { RequestCaseFolder } from '../../../core/application/use-cases/case/request-case-folder.use-case';
+import { UpdateCase } from '../../../core/application/use-cases/case/update-case.use-case';
 import {
   CaseFolderUnavailableError,
   InvalidCaseIdError,
@@ -25,6 +26,7 @@ import { ListProceduralActsQueryDto } from '../dtos/procedural-act/list-procedur
 import { ProceduralActResponseDto } from '../dtos/procedural-act/procedural-act.response.dto';
 import { RegisterCaseRequestDto } from '../dtos/case/register-case.request.dto';
 import { RequestCaseFolderRequestDto } from '../dtos/case/request-case-folder.request.dto';
+import { UpdateCaseRequestDto } from '../dtos/case/update-case.request.dto';
 import { CaseHttpMapper } from '../mappers/case-http.mapper';
 import { RegisterProceduralActRequestDto } from '../dtos/procedural-act/register-procedural-act.request.dto';
 import { ProceduralActHttpMapper } from '../mappers/procedural-act-http.mapper';
@@ -52,6 +54,7 @@ export class CasesController {
     private readonly proceduralActMapper: ProceduralActHttpMapper,
     private readonly caseMapper: CaseHttpMapper,
     private readonly declarePrescription: DeclarePrescription,
+    private readonly updateCase: UpdateCase,
   ) {}
 
   /**
@@ -146,6 +149,23 @@ export class CasesController {
       throw new CaseFolderUnavailableError();
     }
     return { data: result.folder && { ...result.folder } };
+  }
+
+  /**
+   * `PATCH /cases/{caseId}` (HU19): corrects the data of a case. Any profile may,
+   * responsible or not (V5 §3.7), so no permission is declared. The case goes
+   * back whole, as `GET /cases/{caseId}` shows it.
+   */
+  @Patch(':caseId')
+  async update(
+    @Param('caseId') caseIdParam: string,
+    @Body() dto: UpdateCaseRequestDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ): Promise<{ data: CaseResponseDto }> {
+    // `jurisdiction` only reaches here to be refused by the pipe: it is not a change.
+    const { jurisdiction: _jurisdiction, ...changes } = dto;
+    const item = await this.updateCase.execute({ caseId: this.parseCaseId(caseIdParam), changes, actor });
+    return { data: this.caseMapper.toResponse(item) };
   }
 
   /**

@@ -15,6 +15,19 @@ export class CaseSacAlreadyExistsError extends ConflictError {
 }
 
 /**
+ * Emitted by `Case.modify` (HU19) when the `PATCH` brings no field to change
+ * (CA-19.2). Same `details` as the other `PATCH`es of the contract (HU14,
+ * `identity`), so they all answer alike.
+ */
+export class EmptyCaseUpdateError extends ValidationError {
+  constructor() {
+    super('VALIDATION_ERROR', 'Los datos enviados no son válidos.', {
+      body: 'Debe enviarse al menos un campo para modificar.',
+    });
+  }
+}
+
+/**
  * Emitted by `GET /cases` when more than one state filter arrives.
  *
  * The prototype's dropdown lets the user pick a single option, so the three

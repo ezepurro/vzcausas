@@ -193,11 +193,24 @@ export interface CaseRepository {
   /** Reserves the next primary key, so the use case can build the case with its id. */
   nextId(): Promise<number>;
 
-  /** `true` if the SAC number is already used by any case, including inactive ones (RN2). */
-  existsBySacNumber(sacNumber: string): Promise<boolean>;
+  /**
+   * `true` if the SAC number is used by an **active** case (RN2): a case given
+   * de baja frees its SAC (D-97). `exceptCaseId` leaves one case out, so a
+   * case modified with its own SAC is not a conflict (HU19).
+   */
+  existsBySacNumber(sacNumber: string, exceptCaseId?: number): Promise<boolean>;
 
   /** Inserts a new case together with its offenses. */
   save(newCase: Case): Promise<void>;
+
+  /**
+   * Saves what `Case.modify` changed (HU19): the case's own data and, if the
+   * qualifications changed, the whole list of offenses, replaced. Meant to run
+   * inside the use case's transaction, together with the audit record.
+   * @throws {CaseSacAlreadyExistsError} if an active case took the SAC between
+   *   the check and this write (the partial unique index wins the race).
+   */
+  saveModification(modifiedCase: Case): Promise<void>;
 
   /** Loads a case by primary key, with its current procedural act (not the whole history). Returns `null` if none. */
   findById(id: number): Promise<Case | null>;

@@ -1,5 +1,6 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { AuditModule } from '@shared/infrastructure/audit/audit.module';
 import { ClockModule } from '@shared/infrastructure/clock/clock.module';
 import { OPEN_DEADLINES } from '@subsystems/deadlines/core/domain/ports/open-deadlines.port';
 import { PRESCRIPTION_STATUS } from '@subsystems/deadlines/core/domain/ports/prescription-status.port';
@@ -23,6 +24,7 @@ import { ListOpenDeadlines } from './core/application/use-cases/case/list-open-d
 import { ListProceduralActs } from './core/application/use-cases/procedural-act/list-procedural-acts.use-case';
 import { RegisterInterruptiveAct } from './core/application/use-cases/interruptive-act/register-interruptive-act.use-case';
 import { DeclarePrescription } from './core/application/use-cases/prescription/declare-prescription.use-case';
+import { UpdateCase } from './core/application/use-cases/case/update-case.use-case';
 import { RegisterCase } from './core/application/use-cases/case/register-case.use-case';
 import { RegisterProceduralAct } from './core/application/use-cases/procedural-act/register-procedural-act.use-case';
 import { RequestCaseFolder } from './core/application/use-cases/case/request-case-folder.use-case';
@@ -106,7 +108,14 @@ import { PrismaProceduralActRepository } from './infrastructure/persistence/pris
  * el CHECK de exclusión mutua del que dependen los conteos.
  */
 @Module({
-  imports: [forwardRef(() => PeopleModule), forwardRef(() => LegalParametersModule), ClockModule, DocumentsModule],
+  // `AuditModule`: `UpdateCase` audits each modification (HU19, CA-19.15).
+  imports: [
+    forwardRef(() => PeopleModule),
+    forwardRef(() => LegalParametersModule),
+    ClockModule,
+    AuditModule,
+    DocumentsModule,
+  ],
   controllers: [CasesController, InterruptiveActsController, CaseTimelineController, CaseCoverController],
   providers: [
     // HU24: the cover sheet. `cases` decides what it says (`CoverSheet`); `documents` draws it.
@@ -135,6 +144,7 @@ import { PrismaProceduralActRepository } from './infrastructure/persistence/pris
     CaseHttpMapper,
     // HU33: marks a criminal case as prescribed; answers with the detail (`GetCase`).
     DeclarePrescription,
+    UpdateCase,
     RegisterProceduralAct,
     // HU27: la consulta de actos procesales, por el mismo repositorio que los registra.
     ListProceduralActs,

@@ -2,9 +2,14 @@ import { AuthenticatedUser } from '@shared/domain/authenticated-user';
 import { ValidationError } from '@shared/domain/domain-error';
 import {
   CaseInTerminalStateError,
+  EmptyCaseUpdateError,
   NotResponsibleLawyerError,
   PrescriptionNotApplicableError,
 } from '../../errors/case.errors';
+import { CaseDataRules, FieldErrors } from '../../rules/case-data-rules';
+import { CaseChangeSet } from '../../value-objects/case/case-change-set.vo';
+import { isRoleAllowedIn } from '../../value-objects/case/procedural-role';
+import { CASE_FIELDS, CaseChanges, CaseField, CaseModificationContext, PendingChanges } from './case-changes';
 import { ProceduralStateRef } from '../../ports/case/legal-parameters-lookup.port';
 import { DayType } from '../../value-objects/deadline/day-type';
 import { Deadline } from '../../value-objects/deadline/deadline.vo';
@@ -162,6 +167,190 @@ export abstract class Case {
   /** The declaration that the case prescribed. Only a criminal case can have one. */
   get prescriptionDeclaration(): PrescriptionDeclaration | null {
     return null;
+  }
+
+  /**
+   * HU19 — corrects the data of the case (contract V5, `PATCH /cases/{caseId}`).
+   *
+   * A template method. The base validates what every case has (SAC and start
+   * date, caption, court, instructor, procedural role, client, responsible
+   * lawyer, court fee) and rejects the data of other jurisdictions; each
+   * jurisdiction validates its own in {@link validateOwnChanges}. Everything is
+   * validated **before** anything is applied, and every problem is reported in
+   * one `400`: either the whole change lands or the case stays as it was.
+   *
+   * A case in a terminal state can be corrected too (D-96, CA-19.13): nothing
+   * here asks whether it accepts acts. What a jurisdiction refuses outright is
+   * checked first, in {@link assertCanBeModifiedWith}, the business before the data.
+   *
+   * @returns what actually changed: a field sent with the value it had is not a change.
+   * @throws {EmptyCaseUpdateError} no field was sent (CA-19.2).
+   * @throws {CaseInTerminalStateError} what the jurisdiction refuses (CA-19.13).
+   * @throws {ValidationError} `VALIDATION_ERROR` with every invalid field.
+   */
+  modify(changes: CaseChanges, context: CaseModificationContext): CaseChangeSet {
+    if (!CASE_FIELDS.some((field) => changes[field] !== undefined)) {
+      throw new EmptyCaseUpdateError();
+    }
+    this.assertCanBeModifiedWith(changes);
+
+    const errors: FieldErrors = { ...context.referenceErrors };
+    const applyCommon = this.validateCommonChanges(changes, context.today, errors);
+    this.rejectDataOfOtherJurisdictions(changes, errors);
+    const applyOwn = this.validateOwnChanges(changes, context, errors);
+    if (Object.keys(errors).length > 0) {
+      throw new ValidationError('VALIDATION_ERROR', INVALID_DATA_MESSAGE, errors);
+    }
+
+    const changed = [...applyCommon(), ...applyOwn()];
+    if (changed.length > 0) {
+      this.props.updatedAt = context.now;
+    }
+    return CaseChangeSet.of(changed);
+  }
+
+  /**
+   * What a jurisdiction refuses to change regardless of the data. Nothing, by
+   * default; `CriminalCase` refuses new qualifications once it prescribed.
+   * @throws CaseInTerminalStateError
+   */
+  protected assertCanBeModifiedWith(_changes: CaseChanges): void {}
+
+  /** The fields that belong to this jurisdiction only: the rest are rejected here (CA-19.4). */
+  protected abstract ownFields(): readonly CaseField[];
+
+  /** Validates the data of this jurisdiction and returns how to apply it. */
+  protected abstract validateOwnChanges(
+    changes: CaseChanges,
+    context: CaseModificationContext,
+    errors: FieldErrors,
+  ): PendingChanges;
+
+  /** The data of one jurisdiction, with the message for sending it in another: the registration's. */
+  private static readonly DATA_OF_ONE_JURISDICTION: Partial<Record<CaseField, string>> = {
+    legalQualifications: CaseDataRules.ONLY_CRIMINAL_QUALIFICATIONS,
+    clientDetained: CaseDataRules.ONLY_CRIMINAL,
+    counterparty: CaseDataRules.NOT_IN_CRIMINAL,
+    subjectMatter: CaseDataRules.NOT_IN_CRIMINAL,
+    injunctionGranted: CaseDataRules.ONLY_AMPARO,
+    harmfulActDate: CaseDataRules.ONLY_AMPARO,
+    harmfulActRenews: CaseDataRules.ONLY_AMPARO,
+    harmfulActRenewalDays: CaseDataRules.ONLY_AMPARO,
+    harmfulActTermDays: CaseDataRules.ONLY_AMPARO,
+    harmfulActTermDayType: CaseDataRules.ONLY_AMPARO,
+    administrativeRemedyExhaustedOn: CaseDataRules.ONLY_ADMINISTRATIVE,
+  };
+
+  private rejectDataOfOtherJurisdictions(changes: CaseChanges, errors: FieldErrors): void {
+    const own = this.ownFields();
+    for (const [field, message] of Object.entries(Case.DATA_OF_ONE_JURISDICTION) as [CaseField, string][]) {
+      if (!own.includes(field) && CaseDataRules.isSent(changes[field])) {
+        errors[field] = message;
+      }
+    }
+  }
+
+  /** What every case has: validated against the case as it would end up, applied later. */
+  private validateCommonChanges(changes: CaseChanges, today: Date, errors: FieldErrors): PendingChanges {
+    const sent = (field: CaseField) => changes[field] !== undefined;
+    const cannotBeEmptied = (field: CaseField) => {
+      if (changes[field] === null) {
+        errors[field] = CaseDataRules.CANNOT_BE_EMPTIED;
+      }
+    };
+
+    // SAC and start date go together, as in the registration: they are checked as they would end up.
+    const sacNumber = sent('sacNumber') ? CaseDataRules.clean(changes.sacNumber) : this.props.sacNumber;
+    if (sent('sacNumber') && sacNumber !== null && !CaseDataRules.isSacNumber(sacNumber)) {
+      errors.sacNumber = 'Debe contener exactamente 8 dígitos.';
+    }
+    const startDate = sent('startDate') ? (changes.startDate ?? null) : this.props.startDate;
+    if (sent('startDate') && startDate !== null) {
+      CaseDataRules.checkPastDate(errors, 'startDate', startDate, today);
+    }
+    if ((sent('sacNumber') || sent('startDate')) && !errors.startDate) {
+      if (sacNumber === null && startDate !== null) {
+        errors.startDate = 'Sin número de SAC la causa no tiene fecha de inicio.';
+      } else if (sacNumber !== null && startDate === null) {
+        errors.startDate = 'Es obligatoria cuando se informa el número de SAC.';
+      }
+    }
+
+    const caption = sent('caption') ? CaseDataRules.clean(changes.caption) : this.props.caption;
+    if (sent('caption')) {
+      if (caption === null) {
+        errors.caption = 'Es obligatoria.';
+      }
+      CaseDataRules.checkLength(errors, 'caption', caption);
+    }
+    const court = sent('court') ? CaseDataRules.clean(changes.court) : this.props.court;
+    const instructor = {
+      name: sent('instructorName') ? CaseDataRules.clean(changes.instructorName) : this.props.instructor.name,
+      phone: sent('tribunalPhone') ? CaseDataRules.clean(changes.tribunalPhone) : this.props.instructor.phone,
+      extension: sent('instructorExtension')
+        ? CaseDataRules.clean(changes.instructorExtension)
+        : this.props.instructor.extension,
+    };
+    CaseDataRules.checkLength(errors, 'court', court);
+    CaseDataRules.checkLength(errors, 'instructorName', instructor.name);
+    CaseDataRules.checkLength(errors, 'tribunalPhone', instructor.phone);
+    CaseDataRules.checkLength(errors, 'instructorExtension', instructor.extension);
+
+    cannotBeEmptied('clientId');
+    cannotBeEmptied('responsibleLawyerId');
+    cannotBeEmptied('courtFeePaid');
+    cannotBeEmptied('proceduralRole');
+    if (changes.proceduralRole && !isRoleAllowedIn(changes.proceduralRole, this.jurisdictionCode)) {
+      errors.proceduralRole = 'El rol procesal no corresponde al fuero.';
+    }
+
+    return () => {
+      const changed: CaseField[] = [];
+      const props = this.props;
+      Case.track(changed, 'sacNumber', props.sacNumber, sacNumber, () => (props.sacNumber = sacNumber));
+      Case.track(changed, 'startDate', props.startDate, startDate, () => (props.startDate = startDate));
+      Case.track(changed, 'caption', props.caption, caption, () => (props.caption = caption as string));
+      Case.track(changed, 'court', props.court, court, () => (props.court = court));
+      // The instructor is one object with three fields the contract names apart:
+      // each is recorded on its own, and the object is replaced once.
+      const noop = () => undefined;
+      Case.track(changed, 'instructorName', props.instructor.name, instructor.name, noop);
+      Case.track(changed, 'tribunalPhone', props.instructor.phone, instructor.phone, noop);
+      Case.track(changed, 'instructorExtension', props.instructor.extension, instructor.extension, noop);
+      props.instructor = instructor;
+      if (sent('clientId')) {
+        Case.track(changed, 'clientId', props.clientId, changes.clientId, () => (props.clientId = changes.clientId!));
+      }
+      if (sent('responsibleLawyerId')) {
+        Case.track(changed, 'responsibleLawyerId', props.responsibleLawyerId, changes.responsibleLawyerId, () => {
+          props.responsibleLawyerId = changes.responsibleLawyerId!;
+        });
+      }
+      if (sent('proceduralRole')) {
+        Case.track(changed, 'proceduralRole', props.proceduralRole, changes.proceduralRole, () => {
+          props.proceduralRole = changes.proceduralRole!;
+        });
+      }
+      if (sent('courtFeePaid')) {
+        Case.track(changed, 'courtFeePaid', props.courtFeePaid, changes.courtFeePaid, () => {
+          props.courtFeePaid = changes.courtFeePaid!;
+        });
+      }
+      return changed;
+    };
+  }
+
+  /**
+   * Applies a field only if its value is really different, and records it as
+   * changed. Dates are compared by their instant, not by reference.
+   */
+  protected static track(changed: CaseField[], field: CaseField, before: unknown, after: unknown, apply: () => void): void {
+    const same =
+      before instanceof Date && after instanceof Date ? before.getTime() === after.getTime() : before === after;
+    if (!same) {
+      apply();
+      changed.push(field);
+    }
   }
 
   /** What every case has; the part of each jurisdiction is `null` or empty until a subclass fills it. */
