@@ -2,6 +2,7 @@ import { Injectable, NestMiddleware } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
 import { IncomingMessage, ServerResponse } from "node:http";
 import { NextFunction, Request, Response } from "express";
+import { RequestContext } from "./request-context";
 
 /**
  * Augment Express's `Request` with the correlation id set by
@@ -56,11 +57,14 @@ export function resolveCorrelationId(
  * The correlation id lets logs, error responses and audit entries be
  * tied to a single request, which is what enables a "cannot log in"
  * user report to be traced end-to-end without leaking sensitive data.
+ *
+ * The rest of the request runs inside {@link RequestContext}, so the
+ * audit adapter finds the id there without any use case passing it
+ * (`AUDITORIA_Y_TRAZABILIDAD.md` §3).
  */
 @Injectable()
 export class CorrelationMiddleware implements NestMiddleware {
   use(req: Request, res: Response, next: NextFunction): void {
-    resolveCorrelationId(req, res);
-    next();
+    RequestContext.run(resolveCorrelationId(req, res), () => next());
   }
 }
