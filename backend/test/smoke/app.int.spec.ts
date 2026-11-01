@@ -29,6 +29,36 @@ describe('[smoke] App de integración', () => {
     expectError(res, 404, 'RESOURCE_NOT_FOUND');
   });
 
+  /**
+   * El 401 lo da el guard global (`jwt-auth.guard.ts`) y vale igual para toda ruta que
+   * no sea `@Public()`: se verifica acá, una vez, en vez de en cada suite. La lista
+   * sirve para que una ruta marcada pública por error se vea.
+   */
+  it('responde 401 UNAUTHENTICATED sin token en las rutas protegidas', async () => {
+    const routes: [method: 'get' | 'post' | 'patch' | 'delete', path: string][] = [
+      ['get', '/api/v1/procedural-states'],
+      ['post', '/api/v1/procedural-states'],
+      ['get', '/api/v1/procedural-states/1'],
+      ['patch', '/api/v1/procedural-states/1'],
+      ['delete', '/api/v1/procedural-states/1'],
+      ['get', '/api/v1/legal-qualifications'],
+      ['post', '/api/v1/legal-qualifications'],
+      ['get', '/api/v1/legal-qualifications/1'],
+      ['get', '/api/v1/lawyers'],
+      ['post', '/api/v1/lawyers'],
+      ['get', '/api/v1/lawyers/1'],
+    ];
+
+    for (const [method, path] of routes) {
+      const res = await request(app.getHttpServer())[method](path);
+      expect({ route: `${method.toUpperCase()} ${path}`, status: res.status }).toEqual({
+        route: `${method.toUpperCase()} ${path}`,
+        status: 401,
+      });
+      expectError(res, 401, 'UNAUTHENTICATED');
+    }
+  });
+
   it('devuelve el header X-Correlation-Id en cada respuesta', async () => {
     const res = await request(app.getHttpServer()).get('/api/v1/ruta-inexistente');
 

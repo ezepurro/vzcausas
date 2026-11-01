@@ -19,8 +19,9 @@ import { CASE_REPOSITORY, CaseRepository } from '../../core/domain/ports/case/ca
  *
  * **A pass-through on purpose: no use case in between.** There is no rule to
  * apply on top of the number, and the rule that does matter — which cases count
- * as active — lives in {@link CaseRepository} and is tested there against a real
- * database (`test/subsystems/cases/case-query.int.spec.ts`). A use case here
+ * as active — lives in {@link CaseRepository} and is tested through the API against
+ * a real database (`activeCases` in `test/subsystems/legal-parameters/procedural-states.int.spec.ts`
+ * and `legal-qualifications.int.spec.ts`). A use case here
  * would add a hop and a second place to read.
  */
 @Injectable()

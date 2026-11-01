@@ -10,7 +10,6 @@ import {
 } from '../../../src/subsystems/cases/core/domain/ports/case/case.repository';
 import { createClient } from '../../shared/factories/client.factory';
 import { createLawyer } from '../../shared/factories/lawyer.factory';
-import { createLegalQualification } from '../../shared/factories/legal-qualification.factory';
 import {
   createInitialState,
   createProceduralState,
@@ -98,10 +97,6 @@ describe('CaseRepository (adaptador Prisma)', () => {
    * Mueve una causa a un estado por un acto procesal, con su vencimiento.
    * `manual` y `computed` son las dos columnas del plazo: el vencimiento
    * vigente es el manual si existe, si no el calculado.
-   *
-   * `stateId` reusa un estado que ya existe, en vez de crear uno: los conteos
-   * necesitan varias causas en el MISMO estado, y sin esto cada llamada
-   * creaba uno nuevo y todos los conteos daban 1.
    */
   async function moveTo(
     caseId: number,
@@ -148,22 +143,6 @@ describe('CaseRepository (adaptador Prisma)', () => {
     });
 
     return act;
-  }
-
-  /**
-   * Cuelga calificaciones legales de una causa. `prescriptionDate` la calcula
-   * Registrar Causa al alta; para los conteos no importa su valor, importa
-   * que la fila de `offenses` exista.
-   */
-  async function withQualifications(caseId: number, qualificationIds: number[]) {
-    await getPrisma().offense.createMany({
-      data: qualificationIds.map((legalQualificationId) => ({
-        caseId,
-        legalQualificationId,
-        offenseDate: day('2021-03-12'),
-        prescriptionDate: day('2029-03-12'),
-      })),
-    });
   }
 
   const page = { page: 1, limit: 20 };
@@ -388,232 +367,6 @@ describe('CaseRepository (adaptador Prisma)', () => {
       await deactivateCase(created.id);
 
       expect(await search(page)).toEqual({ items: [], totalItems: 0 });
-    });
-  });
-
-  /*
-   * Los cuatro conteos de causas activas (contrato §8.4). La regla de qué es
-   * una causa activa vive acá, en `cases` (§4), y los otros subsistemas la
-   * consumen por un puerto: si cada uno contara por su cuenta, la regla
-   * quedaría duplicada en cuatro lugares.
-   *
-   * Lo que estos tests tienen que atrapar es que **el predicado no es el mismo
-   * para los cuatro**: el conteo por estado procesal excluye el estado
-   * inicial, y los otros tres NO. Es la corrección que el pedido original no
-   * tenía.
-   */
-  describe('countActiveByProceduralState', () => {
-    it('cuenta las causas de cada estado y devuelve 0 para un estado pedido sin causas', async () => {
-      const alegato = await createProceduralState();
-      const clausura = await createProceduralState();
-      const unaDeAlegato = await aCase();
-      const otraDeAlegato = await aCase();
-      const deClausura = await aCase();
-      await moveTo(unaDeAlegato.id, { stateId: alegato.stateId });
-      await moveTo(otraDeAlegato.id, { stateId: alegato.stateId });
-      await moveTo(deClausura.id, { stateId: clausura.stateId });
-
-      const counts = await cases.countActiveByProceduralState([alegato.stateId, clausura.stateId, 999999]);
-
-      expect(counts.get(alegato.stateId)).toBe(2);
-      expect(counts.get(clausura.stateId)).toBe(1);
-      // Un estado inexistente no es un error: viene con 0, como cualquier otro.
-      expect(counts.get(999999)).toBe(0);
-      // Ni un id de más: el puerto promete exactamente los pedidos.
-      expect(counts.size).toBe(3);
-    });
-
-    it('el estado inicial devuelve 0, aunque todas las causas nazcan en él', async () => {
-      // §4: "Iniciada" no forma parte de `GET /procedural-states`, así que un
-      // `activeCases` suyo no tiene dónde mostrarse. Este es el único de los
-      // cuatro conteos que excluye el estado inicial.
-      const inicial = await createInitialState('CRIMINAL');
-      await aCase();
-      await aCase();
-
-      const counts = await cases.countActiveByProceduralState([inicial.stateId]);
-
-      expect(counts.get(inicial.stateId)).toBe(0);
-    });
-
-    it('un estado terminal devuelve 0, aunque tenga causas', async () => {
-      const archivada = await createProceduralState({ name: 'Archivada', terminal: true });
-      const kase = await aCase();
-      await moveTo(kase.id, { stateId: archivada.stateId });
-
-      const counts = await cases.countActiveByProceduralState([archivada.stateId]);
-
-      expect(counts.get(archivada.stateId)).toBe(0);
-    });
-
-    it('no cuenta las causas dadas de baja', async () => {
-      const alegato = await createProceduralState();
-      const activa = await aCase();
-      const baja = await aCase();
-      await moveTo(activa.id, { stateId: alegato.stateId });
-      await moveTo(baja.id, { stateId: alegato.stateId });
-      await deactivateCase(baja.id);
-
-      const counts = await cases.countActiveByProceduralState([alegato.stateId]);
-
-      expect(counts.get(alegato.stateId)).toBe(1);
-    });
-
-    it('una causa con estado escrito a mano no suma a ningún estado de la tabla', async () => {
-      // No tiene `current_state_id`: no pertenece a ninguna fila de
-      // `procedural_states`. Sigue siendo activa para los otros tres conteos.
-      const alegato = await createProceduralState();
-      const aMano = await aCase();
-      await moveTo(aMano.id, { customState: 'Con acusación, pero con oposición' });
-
-      const counts = await cases.countActiveByProceduralState([alegato.stateId]);
-
-      expect(counts.get(alegato.stateId)).toBe(0);
-    });
-
-    it('cuenta las causas de un estado aunque se lo haya renombrado', async () => {
-      // Agrupa por el id, no por el nombre: la causa referencia la fila por FK.
-      const alegato = await createProceduralState();
-      const kase = await aCase();
-      await moveTo(kase.id, { stateId: alegato.stateId });
-      await getPrisma().proceduralState.update({
-        where: { stateId: alegato.stateId },
-        data: { name: 'Alegato, renombrado después' },
-      });
-
-      const counts = await cases.countActiveByProceduralState([alegato.stateId]);
-
-      expect(counts.get(alegato.stateId)).toBe(1);
-    });
-
-    it('una lista vacía de ids devuelve un Map vacío, sin consultar', async () => {
-      await aCase();
-
-      expect((await cases.countActiveByProceduralState([])).size).toBe(0);
-    });
-  });
-
-  describe('countActiveByResponsibleLawyer', () => {
-    it('cuenta las causas de cada abogado y devuelve 0 para uno pedido sin causas', async () => {
-      const otroAbogado = await createLawyer();
-      await aCase();
-      await aCase();
-      await aCase({ lawyerId: otroAbogado.id });
-
-      const counts = await cases.countActiveByResponsibleLawyer([lawyerId, otroAbogado.id, 999999]);
-
-      expect(counts.get(lawyerId)).toBe(2);
-      expect(counts.get(otroAbogado.id)).toBe(1);
-      expect(counts.get(999999)).toBe(0);
-      expect(counts.size).toBe(3);
-    });
-
-    it('la causa en el estado inicial cuenta para su abogado, aunque no cuente para su estado', async () => {
-      // Las dos mitades de la asimetría del §4, en un solo test. Si el conteo
-      // por abogado arrastra el `is_initial = false` del conteo por estado,
-      // esconde justo las causas que un estudio nuevo tiene casi todas.
-      const inicial = await createInitialState('CRIMINAL');
-      await aCase();
-
-      expect((await cases.countActiveByProceduralState([inicial.stateId])).get(inicial.stateId)).toBe(0);
-      expect((await cases.countActiveByResponsibleLawyer([lawyerId])).get(lawyerId)).toBe(1);
-    });
-
-    it('cuenta la de estado escrito a mano, y no la terminal ni la dada de baja', async () => {
-      // El estado escrito a mano es el que más fácil se pierde: la causa tiene
-      // `current_state_id` en null, así que un filtro de relación sobre
-      // `currentState.terminal` no la matchea y desaparece del conteo. Es
-      // activa: un estado escrito a mano no es terminal (§4).
-      const aMano = await aCase();
-      const archivada = await aCase();
-      const baja = await aCase();
-      await moveTo(aMano.id, { customState: 'Con acusación, pero con oposición' });
-      await moveTo(archivada.id, { stateName: 'Archivada', terminal: true });
-      await moveTo(baja.id, { stateName: 'Alegato' });
-      await deactivateCase(baja.id);
-
-      const counts = await cases.countActiveByResponsibleLawyer([lawyerId]);
-
-      expect(counts.get(lawyerId)).toBe(1);
-    });
-  });
-
-  describe('countActiveByClient', () => {
-    it('cuenta las causas de cada cliente, sin las terminales, y devuelve 0 para uno sin causas', async () => {
-      const otroCliente = await createClient();
-      await aCase();
-      await aCase();
-      await aCase({ clientId: otroCliente.id });
-      const archivada = await aCase();
-      await moveTo(archivada.id, { stateName: 'Archivada', terminal: true });
-
-      const counts = await cases.countActiveByClient([clientId, otroCliente.id, 999999]);
-
-      // Tres causas del cliente por defecto, una archivada: quedan dos.
-      expect(counts.get(clientId)).toBe(2);
-      expect(counts.get(otroCliente.id)).toBe(1);
-      expect(counts.get(999999)).toBe(0);
-      expect(counts.size).toBe(3);
-    });
-
-    it('cuenta la de estado escrito a mano y no la dada de baja', async () => {
-      const aMano = await aCase();
-      const baja = await aCase();
-      await moveTo(aMano.id, { customState: 'Con acusación, pero con oposición' });
-      await deactivateCase(baja.id);
-
-      const counts = await cases.countActiveByClient([clientId]);
-
-      expect(counts.get(clientId)).toBe(1);
-    });
-  });
-
-  describe('countActiveByLegalQualification', () => {
-    it('una causa suma a cada una de sus calificaciones, y una sin causas devuelve 0', async () => {
-      const robo = await createLegalQualification();
-      const lesiones = await createLegalQualification();
-      const sinCausas = await createLegalQualification();
-      const conDos = await aCase();
-      const conUna = await aCase();
-      await withQualifications(conDos.id, [robo.id, lesiones.id]);
-      await withQualifications(conUna.id, [robo.id]);
-
-      const counts = await cases.countActiveByLegalQualification([robo.id, lesiones.id, sinCausas.id]);
-
-      expect(counts.get(robo.id)).toBe(2);
-      expect(counts.get(lesiones.id)).toBe(1);
-      expect(counts.get(sinCausas.id)).toBe(0);
-      expect(counts.size).toBe(3);
-    });
-
-    it('una calificación dada de baja sigue contando sus causas (RN12)', async () => {
-      // El `active` de la calificación no filtra nada acá: la causa la sigue
-      // mostrando porque forma parte de su historia. Lo que no se puede es
-      // elegirla para una causa nueva.
-      const derogada = await createLegalQualification({ active: false });
-      const kase = await aCase();
-      await withQualifications(kase.id, [derogada.id]);
-
-      const counts = await cases.countActiveByLegalQualification([derogada.id]);
-
-      expect(counts.get(derogada.id)).toBe(1);
-    });
-
-    it('cuenta la de estado escrito a mano, y no la terminal ni la dada de baja', async () => {
-      const qualification = await createLegalQualification();
-      const aMano = await aCase();
-      const archivada = await aCase();
-      const baja = await aCase();
-      await withQualifications(aMano.id, [qualification.id]);
-      await withQualifications(archivada.id, [qualification.id]);
-      await withQualifications(baja.id, [qualification.id]);
-      await moveTo(aMano.id, { customState: 'Con acusación, pero con oposición' });
-      await moveTo(archivada.id, { stateName: 'Archivada', terminal: true });
-      await deactivateCase(baja.id);
-
-      const counts = await cases.countActiveByLegalQualification([qualification.id]);
-
-      expect(counts.get(qualification.id)).toBe(1);
     });
   });
 });

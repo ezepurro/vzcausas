@@ -10,6 +10,17 @@ import { createLegalQualification } from '../../shared/factories/legal-qualifica
 import { createCase, deactivateCase } from '../../shared/factories/case.factory';
 import { createClient } from '../../shared/factories/client.factory';
 import { createLawyer } from '../../shared/factories/lawyer.factory';
+import { createProceduralState } from '../../shared/factories/procedural-state.factory';
+
+/*
+ * Recurso calificaciones legales (HU47, HU48). Contrato: API_CONTRACT_V5.md §3.
+ *
+ * Una sola app para los tres endpoints. Las variantes de la denominación y del plazo
+ * (borde de 255 caracteres, plazo mínimo, recorte) están en `legal-qualification.spec.ts`
+ * y en `register-legal-qualification.spec.ts`; acá queda la forma del contrato, cada
+ * `code` de error una vez y lo que sólo la base puede probar. El 401 sin token está en
+ * `test/smoke/app.int.spec.ts`.
+ */
 
 const URL = '/api/v1/legal-qualifications';
 
@@ -24,334 +35,139 @@ interface QualificationBody {
 const PASSWORD = 'password1';
 const ROLES: TestRole[] = ['ADMINISTRATOR', 'LAWYER', 'SECRETARY'];
 
+const reader = () => loginAs({ permissions: ['qualification:read'] });
+const writer = () => loginAs({ permissions: ['qualification:create'] });
+
+let app: INestApplication;
+const server = () => request(app.getHttpServer());
+
 /**
- * Crea un usuario con ese rol y lo loguea de verdad, para que el token
- * traiga los permisos que el **seed** le dio a ese rol.
- *
- * No alcanza con `loginAs`: ese firma el token con los permisos que se
- * le pasen, así que prueba el guard pero no la matriz — diría que un
- * rol puede registrar aunque el seed no le haya dado nada. Acá la
- * cadena va entera: seed →
- * `role_permissions` → login → claims → guard.
+ * Crea un usuario con ese rol y lo loguea de verdad, para que el token traiga los
+ * permisos que el **seed** le dio a ese rol: seed → `role_permissions` → login →
+ * claims → guard. `loginAs` prueba el guard, pero no la matriz.
  */
-async function loginWithRole(app: INestApplication, role: TestRole) {
-  const user = await createUser({
-    roles: [role],
-    passwordHash: await bcrypt.hash(PASSWORD, 4),
-  });
-
-  const res = await request(app.getHttpServer())
-    .post('/api/v1/auth/login')
-    .send({ username: user.username, password: PASSWORD });
-
+async function loginWithRole(role: TestRole) {
+  const user = await createUser({ roles: [role], passwordHash: await bcrypt.hash(PASSWORD, 4) });
+  const res = await server().post('/api/v1/auth/login').send({ username: user.username, password: PASSWORD });
   if (res.status !== 200) {
     throw new Error(`login con rol ${role} falló: ${res.status} ${JSON.stringify(res.body)}`);
   }
   return { Authorization: `Bearer ${res.body.data.accessToken}` };
 }
 
-/**
- * Las calificaciones son referenciadas por `offenses` con `Restrict`,
- * así que los hechos van primero. El seed no crea ni unos ni otras,
- * pero un spec vecino podría dejarlos.
- */
-async function limpiar() {
-  await getPrisma().offense.deleteMany();
-  await getPrisma().legalQualification.deleteMany();
-}
+beforeAll(async () => {
+  app = await startTestApp();
+});
+
+afterAll(async () => {
+  await stopTestApp();
+});
+
+beforeEach(async () => {
+  // Las calificaciones son referenciadas por `offenses` con `Restrict`, y los hechos
+  // por la causa: van primero. La causa apunta a su acto vigente, así que ese vínculo
+  // se suelta antes de borrar los actos.
+  const prisma = getPrisma();
+  await prisma.offense.deleteMany();
+  await prisma.case.updateMany({ data: { currentProceduralActId: null } });
+  await prisma.proceduralAct.deleteMany();
+  await prisma.case.deleteMany();
+  // Las factories numeran DNI y matrícula desde 1 en cada suite: sin esto chocan con
+  // los que dejó otra suite.
+  await prisma.client.deleteMany();
+  await prisma.user.deleteMany(); // referencia a lawyers
+  await prisma.lawyer.deleteMany();
+  await prisma.legalQualification.deleteMany();
+});
 
 describe('POST /api/v1/legal-qualifications', () => {
-  let app: INestApplication;
-  const writer = () => loginAs({ permissions: ['qualification:create'] });
+  const post = (body: object, auth = writer()) => server().post(URL).set(auth).send(body);
 
-  beforeAll(async () => {
-    app = await startTestApp();
-  });
-
-  afterAll(async () => {
-    await stopTestApp();
-  });
-
-  beforeEach(limpiar);
-
-  // ── Contrato ──────────────────────────────────────────────────────
-
-  // CA-48.1
-  it('registra la calificación y la devuelve en la forma del contrato', async () => {
-    const res = await request(app.getHttpServer())
-      .post(URL)
-      .set(writer())
-      .send({ name: 'Hurto simple — art. 162 CP', prescriptionMonths: 24 });
+  // CA-48.1, CA-48.3 y CA-48.7: `activeCases` sólo va en los `GET`.
+  it('registra la calificación: 201 en la forma del contrato, sin activeCases, y la persiste con el plazo en meses', async () => {
+    const res = await post({ name: 'Abuso de armas — art. 104 CP', prescriptionMonths: 78 });
 
     const data = expectData<QualificationBody>(res, 201);
     expect(data).toEqual({
       id: expect.any(Number),
-      name: 'Hurto simple — art. 162 CP',
-      prescriptionMonths: 24,
+      name: 'Abuso de armas — art. 104 CP',
+      prescriptionMonths: 78,
+      active: true,
+    });
+    expect(await getPrisma().legalQualification.findUnique({ where: { id: data.id } })).toMatchObject({
+      name: 'Abuso de armas — art. 104 CP',
+      prescriptionMonths: 78,
       active: true,
     });
   });
 
-  /**
-   * El contrato marca `activeCases` como *"solo en las respuestas de
-   * `GET`"*, y el criterio detrás es CA-48.7: el alta no toca ninguna
-   * causa, así que no hay conteo que informar todavía.
-   */
-  it('no incluye `activeCases` en la respuesta del alta', async () => {
-    const res = await request(app.getHttpServer())
-      .post(URL)
-      .set(writer())
-      .send({ name: 'Amenazas coactivas — art. 149 bis CP', prescriptionMonths: 24 });
-
-    expect(res.body.data).not.toHaveProperty('activeCases');
-  });
-
-  // ── Comunicación con la base ──────────────────────────────────────
-
-  // CA-48.1: queda disponible para elegirse al registrar causas.
-  it('persiste la calificación y la deja visible en el listado', async () => {
-    const creada = await request(app.getHttpServer())
-      .post(URL)
-      .set(writer())
-      .send({ name: 'Robo calificado — art. 167 inc. 2 CP', prescriptionMonths: 96 });
-
-    const fila = await getPrisma().legalQualification.findUnique({
-      where: { id: creada.body.data.id },
-    });
-
-    expect(fila).toMatchObject({
-      name: 'Robo calificado — art. 167 inc. 2 CP',
-      prescriptionMonths: 96,
-      active: true,
-    });
-  });
-
-  // CA-48.3
-  it('guarda el plazo como la cantidad total de meses', async () => {
-    // 6 años y 6 meses.
-    const res = await request(app.getHttpServer())
-      .post(URL)
-      .set(writer())
-      .send({ name: 'Abuso de armas — art. 104 CP', prescriptionMonths: 78 });
-
-    expect(res.body.data.prescriptionMonths).toBe(78);
-    const fila = await getPrisma().legalQualification.findUnique({
-      where: { id: res.body.data.id },
-    });
-    expect(fila?.prescriptionMonths).toBe(78);
-  });
-
-  // ── Unicidad, contra el índice real (CA-48.4) ─────────────────────
-
-  it('rechaza una denominación que ya tiene una calificación vigente', async () => {
+  // CA-48.4, contra el índice real.
+  it('rechaza con 409 una denominación vigente aunque difiera en mayúsculas y espacios, y no guarda otra', async () => {
     await createLegalQualification({ name: 'Hurto simple — art. 162 CP' });
 
-    const res = await request(app.getHttpServer())
-      .post(URL)
-      .set(writer())
-      .send({ name: 'Hurto simple — art. 162 CP', prescriptionMonths: 24 });
+    const res = await post({ name: '  HURTO SIMPLE — art. 162 cp  ', prescriptionMonths: 24 });
 
     expectError(res, 409, 'LEGAL_QUALIFICATION_ALREADY_EXISTS');
-  });
-
-  it.each([
-    ['mayúsculas', 'HURTO SIMPLE — ART. 162 CP'],
-    ['minúsculas', 'hurto simple — art. 162 cp'],
-    ['espacios alrededor', '  Hurto simple — art. 162 CP  '],
-  ])('la rechaza aunque difiera en %s', async (_caso, name) => {
-    await createLegalQualification({ name: 'Hurto simple — art. 162 CP' });
-
-    const res = await request(app.getHttpServer())
-      .post(URL)
-      .set(writer())
-      .send({ name, prescriptionMonths: 24 });
-
-    expectError(res, 409, 'LEGAL_QUALIFICATION_ALREADY_EXISTS');
+    expect(await getPrisma().legalQualification.count()).toBe(1);
   });
 
   /**
-   * El índice es parcial (`WHERE active`), así que una calificación
-   * dada de baja libera su denominación. Importa porque sin esto un
-   * error de carga sería irreparable: se da de baja la calificación
-   * mal escrita y su nombre queda tomado para siempre.
+   * El índice es parcial (`WHERE active`): una calificación dada de baja libera su
+   * denominación. Sin esto un error de carga sería irreparable.
    */
   it('acepta la denominación de una calificación dada de baja', async () => {
     await createLegalQualification({ name: 'Hurto simple — art. 162 CP', active: false });
 
-    const res = await request(app.getHttpServer())
-      .post(URL)
-      .set(writer())
-      .send({ name: 'Hurto simple — art. 162 CP', prescriptionMonths: 24 });
-
-    expect(res.status).toBe(201);
+    expectData(await post({ name: 'Hurto simple — art. 162 CP', prescriptionMonths: 24 }), 201);
   });
 
-  // ── Validación (CA-48.5, CA-48.6) ─────────────────────────────────
+  // CA-48.5 y CA-48.6
+  it('responde 400 nombrando cada campo a corregir y no guarda nada', async () => {
+    const res = await post({ name: 'A'.repeat(256), prescriptionMonths: 0 });
 
-  it.each([
-    ['sin denominación', { prescriptionMonths: 24 }, 'name'],
-    ['sin plazo', { name: 'Hurto simple' }, 'prescriptionMonths'],
-    ['con denominación vacía', { name: '   ', prescriptionMonths: 24 }, 'name'],
-    ['con plazo cero', { name: 'Hurto simple', prescriptionMonths: 0 }, 'prescriptionMonths'],
-    ['con plazo negativo', { name: 'Hurto simple', prescriptionMonths: -6 }, 'prescriptionMonths'],
-    [
-      'con denominación de más de 255 caracteres',
-      { name: 'A'.repeat(256), prescriptionMonths: 24 },
-      'name',
-    ],
-  ])('rechaza el alta %s nombrando el campo a corregir', async (_caso, body, campo) => {
-    const res = await request(app.getHttpServer()).post(URL).set(writer()).send(body);
-
-    expectError(res, 400, 'VALIDATION_ERROR', [campo]);
+    expectError(res, 400, 'VALIDATION_ERROR', ['name', 'prescriptionMonths']);
+    expect(Object.keys(res.body.error.details).sort()).toEqual(['name', 'prescriptionMonths']);
+    expect(await getPrisma().legalQualification.count()).toBe(0);
   });
 
-  it('admite una denominación de exactamente 255 caracteres', async () => {
-    const res = await request(app.getHttpServer())
-      .post(URL)
-      .set(writer())
-      .send({ name: 'A'.repeat(255), prescriptionMonths: 24 });
+  it('responde 403 a un token sin el permiso y no guarda nada', async () => {
+    const res = await post({ name: 'Hurto simple — art. 162 CP', prescriptionMonths: 24 }, loginAs({ roles: ['LAWYER'] }));
 
-    expect(res.status).toBe(201);
-  });
-
-  // ── Acceso ────────────────────────────────────────────────────────
-
-  /**
-   * Con login real: lo que se verifica acá es el **seed**. Desde la
-   * matriz del 2026-10-11 (§5.1) los tres perfiles administran
-   * calificaciones legales. Antes la escritura era solo del
-   * Administrador (CA-48.9, D-04) y los otros dos recibían 403.
-   */
-  describe('escritura abierta a todos los perfiles', () => {
-    it.each(ROLES)('%s puede registrar', async (role) => {
-      const auth = await loginWithRole(app, role);
-
-      const res = await request(app.getHttpServer())
-        .post(URL)
-        .set(auth)
-        .send({ name: `Hurto simple ${role} — art. 162 CP`, prescriptionMonths: 24 });
-
-      expect(res.status).toBe(201);
-    });
-  });
-
-  it('exige autenticación', async () => {
-    await request(app.getHttpServer())
-      .post(URL)
-      .send({ name: 'Hurto simple — art. 162 CP', prescriptionMonths: 24 })
-      .expect(401);
+    expectError(res, 403, 'FORBIDDEN');
+    expect(await getPrisma().legalQualification.count()).toBe(0);
   });
 });
 
 describe('GET /api/v1/legal-qualifications', () => {
-  let app: INestApplication;
-  const reader = () => loginAs({ permissions: ['qualification:read'] });
+  const get = (query: Record<string, unknown> = {}) => server().get(URL).query(query).set(reader());
 
-  beforeAll(async () => {
-    app = await startTestApp();
-  });
-
-  afterAll(async () => {
-    await stopTestApp();
-  });
-
-  beforeEach(limpiar);
-
-  // ── Contrato ──────────────────────────────────────────────────────
-
-  // CA-47.1
-  it('devuelve el sobre paginado con cada calificación en la forma del contrato', async () => {
-    const saved = await createLegalQualification({
-      name: 'Abuso de armas — art. 104 CP',
-      prescriptionMonths: 78,
-    });
-
-    const res = await request(app.getHttpServer()).get(URL).set(reader());
-    const data = expectPaginated<QualificationBody>(res, {
-      page: 1,
-      limit: 20,
-      totalItems: 1,
-      totalPages: 1,
-    });
-
-    expect(data).toEqual([
-      {
-        id: saved.id,
-        name: 'Abuso de armas — art. 104 CP',
-        prescriptionMonths: 78,
-        // Cero porque esta calificación no tiene causas, no porque el
-        // campo esté clavado: el conteo es real desde `57f6f92`, que
-        // abrió `ActiveCasesCounterPort`. Los conteos distintos de
-        // cero se verifican más abajo, al final del spec.
-        activeCases: 0,
-        active: true,
-      },
-    ]);
-  });
-
-  // ── Comunicación con la base ──────────────────────────────────────
-
-  // CA-47.3
-  it('ordena alfabéticamente por denominación', async () => {
-    await createLegalQualification({ name: 'Hurto simple — art. 162 CP' });
-    await createLegalQualification({ name: 'Abuso de armas — art. 104 CP' });
-    await createLegalQualification({ name: 'Encubrimiento — art. 277 CP' });
-
-    const res = await request(app.getHttpServer()).get(URL).set(reader());
-    const data = expectPaginated<QualificationBody>(res);
-
-    expect(data.map((q) => q.name)).toEqual([
-      'Abuso de armas — art. 104 CP',
-      'Encubrimiento — art. 277 CP',
-      'Hurto simple — art. 162 CP',
-    ]);
-  });
-
-  // CA-47.4
-  it.each([
-    ['el nombre del delito', 'hurto'],
-    ['el artículo', 'art. 162'],
-    ['un fragmento del artículo', '162'],
-  ])('busca por %s', async (_caso, search) => {
-    await createLegalQualification({ name: 'Hurto simple — art. 162 CP' });
-    await createLegalQualification({ name: 'Abuso de armas — art. 104 CP' });
-
-    const res = await request(app.getHttpServer()).get(URL).query({ search }).set(reader());
-    const data = expectPaginated<QualificationBody>(res);
-
-    expect(data.map((q) => q.name)).toEqual(['Hurto simple — art. 162 CP']);
-  });
-
-  it('busca sin distinguir mayúsculas', async () => {
-    await createLegalQualification({ name: 'Hurto simple — art. 162 CP' });
-
-    const res = await request(app.getHttpServer()).get(URL).query({ search: 'HURTO' }).set(reader());
-
-    expect(expectPaginated<QualificationBody>(res)).toHaveLength(1);
-  });
-
-  // CA-47.6
-  it('devuelve la colección vacía con total en cero, sin tratarlo como error', async () => {
-    await createLegalQualification({ name: 'Hurto simple — art. 162 CP' });
-
-    const res = await request(app.getHttpServer())
-      .get(URL)
-      .query({ search: 'no coincide con nada' })
-      .set(reader());
-
-    const data = expectPaginated<QualificationBody>(res, { totalItems: 0 });
-    expect(data).toEqual([]);
-  });
-
-  // CA-47.9
-  it('no lista las calificaciones dadas de baja', async () => {
-    await createLegalQualification({ name: 'Hurto simple — art. 162 CP', active: true });
+  // CA-47.1, CA-47.3 y CA-47.9
+  it('devuelve el sobre paginado en la forma del contrato, en orden alfabético y sin las dadas de baja', async () => {
+    const hurto = await createLegalQualification({ name: 'Hurto simple — art. 162 CP', prescriptionMonths: 24 });
+    const abuso = await createLegalQualification({ name: 'Abuso de armas — art. 104 CP', prescriptionMonths: 78 });
     await createLegalQualification({ name: 'Figura derogada — art. 0 CP', active: false });
 
-    const res = await request(app.getHttpServer()).get(URL).set(reader());
-    const data = expectPaginated<QualificationBody>(res, { totalItems: 1 });
+    const data = expectPaginated<QualificationBody>(await get(), { page: 1, limit: 20, totalItems: 2, totalPages: 1 });
 
-    expect(data.map((q) => q.name)).toEqual(['Hurto simple — art. 162 CP']);
+    expect(data).toEqual([
+      { id: abuso.id, name: 'Abuso de armas — art. 104 CP', prescriptionMonths: 78, activeCases: 0, active: true },
+      { id: hurto.id, name: 'Hurto simple — art. 162 CP', prescriptionMonths: 24, activeCases: 0, active: true },
+    ]);
+  });
+
+  // CA-47.4 y CA-47.6: busca por el delito o por el artículo, sin distinguir mayúsculas;
+  // sin coincidencias es una colección vacía, no un error.
+  it('busca por el nombre del delito o por el artículo, sin distinguir mayúsculas', async () => {
+    await createLegalQualification({ name: 'Hurto simple — art. 162 CP' });
+    await createLegalQualification({ name: 'Abuso de armas — art. 104 CP' });
+
+    for (const search of ['HURTO', 'art. 162', '162']) {
+      expect(expectPaginated<QualificationBody>(await get({ search })).map((q) => q.name)).toEqual([
+        'Hurto simple — art. 162 CP',
+      ]);
+    }
+    // §4: una colección sin resultados lleva `totalPages` en 0 (`API_CONTRACT_V5.md:8350`).
+    expect(expectPaginated(await get({ search: 'no coincide con nada' }), { totalItems: 0, totalPages: 0 })).toEqual([]);
   });
 
   // CA-47.5
@@ -360,11 +176,7 @@ describe('GET /api/v1/legal-qualifications', () => {
     await createLegalQualification({ name: 'B — art. 2 CP' });
     await createLegalQualification({ name: 'C — art. 3 CP' });
 
-    const res = await request(app.getHttpServer())
-      .get(URL)
-      .query({ page: 2, limit: 2 })
-      .set(reader());
-    const data = expectPaginated<QualificationBody>(res, {
+    const data = expectPaginated<QualificationBody>(await get({ page: 2, limit: 2 }), {
       page: 2,
       limit: 2,
       totalItems: 3,
@@ -374,67 +186,19 @@ describe('GET /api/v1/legal-qualifications', () => {
     expect(data.map((q) => q.name)).toEqual(['C — art. 3 CP']);
   });
 
-  // El código es propio, `INVALID_PAGINATION`, como pide el contrato (§5.3), y
-  // lo comparten los cuatro listados del backend: lo resuelve el
-  // `exceptionFactory` global cuando todo lo que falla es paginación
-  // (`app.setup.ts`). `details` nombra los dos parámetros.
-  it.each([
-    ['page', { page: 0 }],
-    ['limit', { limit: 500 }],
-  ])('rechaza %s fuera de rango con INVALID_PAGINATION', async (_campo, query) => {
-    const res = await request(app.getHttpServer()).get(URL).query(query).set(reader());
-
-    expectError(res, 400, 'INVALID_PAGINATION', ['page', 'limit']);
-  });
-
-  // ── Acceso (CA-47.1, CA-47.11) ────────────────────────────────────
-
-  /**
-   * Con login real: la lectura es de cualquier autenticado, porque el
-   * alta de causa —que opera cualquier perfil— ofrece el selector de
-   * calificaciones (CA-47.10).
-   */
-  describe('lectura abierta a todos los perfiles (CA-47.1)', () => {
-    it.each(ROLES)('%s puede consultar el listado', async (role) => {
-      const auth = await loginWithRole(app, role);
-
-      const res = await request(app.getHttpServer()).get(URL).set(auth);
-
-      expect(res.status).toBe(200);
-    });
-  });
-
-  // CA-47.11
-  it('exige autenticación', async () => {
-    await request(app.getHttpServer()).get(URL).expect(401);
+  it('responde 400 INVALID_PAGINATION con un límite fuera de rango', async () => {
+    expectError(await get({ limit: 500 }), 400, 'INVALID_PAGINATION', ['page', 'limit']);
   });
 });
 
 describe('GET /api/v1/legal-qualifications/{qualificationId}', () => {
-  let app: INestApplication;
-  const reader = () => loginAs({ permissions: ['qualification:read'] });
-
-  beforeAll(async () => {
-    app = await startTestApp();
-  });
-
-  afterAll(async () => {
-    await stopTestApp();
-  });
-
-  beforeEach(limpiar);
+  const getById = (id: number | string) => server().get(`${URL}/${id}`).set(reader());
 
   // CA-47.7
   it('devuelve sus datos completos dentro del sobre `data`', async () => {
-    const saved = await createLegalQualification({
-      name: 'Robo calificado — art. 167 inc. 2 CP',
-      prescriptionMonths: 96,
-    });
+    const saved = await createLegalQualification({ name: 'Robo calificado — art. 167 inc. 2 CP', prescriptionMonths: 96 });
 
-    const res = await request(app.getHttpServer()).get(`${URL}/${saved.id}`).set(reader());
-
-    const data = expectData<QualificationBody>(res, 200);
-    expect(data).toEqual({
+    expect(expectData<QualificationBody>(await getById(saved.id), 200)).toEqual({
       id: saved.id,
       name: 'Robo calificado — art. 167 inc. 2 CP',
       prescriptionMonths: 96,
@@ -443,89 +207,31 @@ describe('GET /api/v1/legal-qualifications/{qualificationId}', () => {
     });
   });
 
-  it('responde 404 para una calificación inexistente', async () => {
-    const res = await request(app.getHttpServer()).get(`${URL}/999999`).set(reader());
+  // CA-47.9: dada de baja es indistinguible de inexistente.
+  it('responde 404 para una calificación inexistente y para una dada de baja', async () => {
+    const deactivated = await createLegalQualification({ active: false });
 
-    expectError(res, 404, 'LEGAL_QUALIFICATION_NOT_FOUND');
-  });
-
-  /**
-   * CA-47.9: una dada de baja no puede consultarse. Tiene que ser
-   * indistinguible de una que nunca existió, así que el mismo 404 y
-   * no un cuerpo con `active: false`.
-   */
-  it('responde 404 para una calificación dada de baja', async () => {
-    const saved = await createLegalQualification({
-      name: 'Figura derogada — art. 0 CP',
-      active: false,
-    });
-
-    const res = await request(app.getHttpServer()).get(`${URL}/${saved.id}`).set(reader());
-
-    expectError(res, 404, 'LEGAL_QUALIFICATION_NOT_FOUND');
+    expectError(await getById(999999), 404, 'LEGAL_QUALIFICATION_NOT_FOUND');
+    expectError(await getById(deactivated.id), 404, 'LEGAL_QUALIFICATION_NOT_FOUND');
   });
 
   it('rechaza un identificador que no es un entero', async () => {
-    const res = await request(app.getHttpServer()).get(`${URL}/abc`).set(reader());
-
-    expectError(res, 400, 'INVALID_PATH_PARAMETER', ['qualificationId']);
-  });
-
-  it.each(ROLES)('%s puede consultarla (CA-47.1)', async (role) => {
-    const saved = await createLegalQualification();
-    const auth = await loginWithRole(app, role);
-
-    const res = await request(app.getHttpServer()).get(`${URL}/${saved.id}`).set(auth);
-
-    expect(res.status).toBe(200);
-  });
-
-  it('exige autenticación', async () => {
-    const saved = await createLegalQualification();
-
-    await request(app.getHttpServer()).get(`${URL}/${saved.id}`).expect(401);
+    expectError(await getById('abc'), 400, 'INVALID_PATH_PARAMETER', ['qualificationId']);
   });
 });
 
 /**
- * `activeCases` de calificaciones legales (CA-47.8).
+ * `activeCases` de calificaciones legales (CA-47.8). Lo cuenta `cases`, dueño de la
+ * definición de causa activa (§4), y llega por `ActiveCasesCounterPort.countByQualifications`,
+ * que implementa `cases/infrastructure/acl/legal-parameters-active-cases-counter.adapter.ts`.
  *
- * Lo cuenta `cases`, dueño de la definición de causa activa (§4), y llega por
- * `ActiveCasesCounterPort.countByQualifications`, que implementa
- * `cases/infrastructure/acl/legal-parameters-active-cases-counter.adapter.ts`.
- * Hasta el 10/10/2026 el mapper devolvía `0` fijo y CA-47.8 quedaba incumplido
- * (TL-01 de `IMPLEMENTACION_CALIFICACIONES.md`).
- *
- * Lo que se verifica acá es el **cableado**: que el número cruce el borde y
- * llegue al JSON. La semántica está probada contra la base en el `describe` de
- * `countActiveByLegalQualification` de
- * `test/subsystems/cases/case-query.int.spec.ts`.
+ * Lo que no se ve desde acá es el conteo de una calificación dada de baja (RN12: sigue
+ * contando sus causas): la calificación no se lista ni se consulta, así que su número no
+ * tiene dónde mostrarse.
  */
 describe('activeCases de /api/v1/legal-qualifications', () => {
-  let app: INestApplication;
-  const reader = () => loginAs({ permissions: ['qualification:read'] });
-
-  beforeAll(async () => {
-    app = await startTestApp();
-  });
-
-  afterAll(async () => {
-    await stopTestApp();
-  });
-
-  beforeEach(async () => {
-    await getPrisma().offense.deleteMany();
-    await getPrisma().case.updateMany({ data: { currentProceduralActId: null } });
-    await getPrisma().proceduralAct.deleteMany();
-    await getPrisma().case.deleteMany();
-    await getPrisma().client.deleteMany();
-    await getPrisma().user.deleteMany(); // referencia a lawyers
-    await getPrisma().lawyer.deleteMany();
-    await getPrisma().legalQualification.deleteMany();
-  });
-
   /** Una causa penal que registra `qualificationIds` como sus hechos. */
-  async function aCaseWith(qualificationIds: number[]) {
+  async function aCaseWith(qualificationIds: number[], overrides: { currentCustomState?: string; currentStateId?: number } = {}) {
     const client = await createClient();
     const lawyer = await createLawyer();
     const user = await createUser();
@@ -533,6 +239,7 @@ describe('activeCases de /api/v1/legal-qualifications', () => {
       clientId: client.id,
       responsibleLawyerId: lawyer.id,
       createdByUserId: user.id,
+      ...overrides,
     });
     await getPrisma().offense.createMany({
       data: qualificationIds.map((legalQualificationId) => ({
@@ -545,52 +252,52 @@ describe('activeCases de /api/v1/legal-qualifications', () => {
     return kase;
   }
 
-  it('el listado y el detalle devuelven el conteo real', async () => {
+  it('el listado y el detalle devuelven el conteo real: una causa suma a cada una de sus calificaciones', async () => {
     const robo = await createLegalQualification();
     const lesiones = await createLegalQualification();
-    // Una causa suma a las dos calificaciones que registra; la segunda causa
-    // suma sólo a `robo`.
+    const sinCausas = await createLegalQualification();
     await aCaseWith([robo.id, lesiones.id]);
     await aCaseWith([robo.id]);
 
-    const list = await request(app.getHttpServer()).get(URL).set(reader());
-    const byId = new Map(
-      expectPaginated<QualificationBody>(list).map((q) => [q.id, q.activeCases]),
+    const list = expectPaginated<QualificationBody>(await server().get(URL).set(reader()));
+    expect(new Map(list.map((q) => [q.id, q.activeCases]))).toEqual(
+      new Map([
+        [robo.id, 2],
+        [lesiones.id, 1],
+        [sinCausas.id, 0],
+      ]),
     );
-    expect(byId.get(robo.id)).toBe(2);
-    expect(byId.get(lesiones.id)).toBe(1);
-
-    const one = await request(app.getHttpServer()).get(`${URL}/${robo.id}`).set(reader());
-    expect(expectData<QualificationBody>(one, 200).activeCases).toBe(2);
+    expect(expectData<QualificationBody>(await server().get(`${URL}/${robo.id}`).set(reader()), 200).activeCases).toBe(2);
   });
 
-  it('una calificación sin causas devuelve 0', async () => {
-    const sinCausas = await createLegalQualification();
-
-    const one = await request(app.getHttpServer()).get(`${URL}/${sinCausas.id}`).set(reader());
-
-    expect(expectData<QualificationBody>(one, 200).activeCases).toBe(0);
-  });
-
-  it('no cuenta la causa dada de baja', async () => {
+  it('cuenta la causa en el estado inicial y la de estado escrito a mano; no la dada de baja ni la terminal', async () => {
     const qualification = await createLegalQualification();
+    // Sin fijarle el nombre: el seed ya tiene una "Archivada" y chocaría con el índice
+    // único por fuero. Sólo importa que sea terminal.
+    const terminal = await createProceduralState({ terminal: true });
     await aCaseWith([qualification.id]);
+    await aCaseWith([qualification.id], { currentCustomState: 'Con acusación, pero con oposición' });
+    await aCaseWith([qualification.id], { currentStateId: terminal.stateId });
     const baja = await aCaseWith([qualification.id]);
     await deactivateCase(baja.id);
 
-    const one = await request(app.getHttpServer()).get(`${URL}/${qualification.id}`).set(reader());
+    const one = await server().get(`${URL}/${qualification.id}`).set(reader());
 
-    expect(expectData<QualificationBody>(one, 200).activeCases).toBe(1);
+    expect(expectData<QualificationBody>(one, 200).activeCases).toBe(2);
   });
+});
 
-  /** CA-48.7: el alta no informa el conteo, porque no toca ninguna causa. */
-  it('el POST sigue sin incluir activeCases', async () => {
-    const res = await request(app.getHttpServer())
-      .post(URL)
-      .set(loginAs({ permissions: ['qualification:create'] }))
-      .send({ name: 'Figura nueva — art. 1 CP', prescriptionMonths: 12 });
+/**
+ * Con login real: lo que se verifica es el **seed**. Desde la matriz del 2026-10-11
+ * (§5.1) los tres perfiles consultan y registran calificaciones (CA-47.1, CA-47.10).
+ */
+describe('Permisos de /api/v1/legal-qualifications', () => {
+  it.each(ROLES)('un %s consulta el listado y el detalle, y registra', async (role) => {
+    const auth = await loginWithRole(role);
 
-    expect(res.status).toBe(201);
-    expect(res.body.data).not.toHaveProperty('activeCases');
+    const created = await server().post(URL).set(auth).send({ name: `Hurto simple ${role} — art. 162 CP`, prescriptionMonths: 24 });
+    const { id } = expectData<QualificationBody>(created, 201);
+    expectPaginated(await server().get(URL).set(auth));
+    expectData(await server().get(`${URL}/${id}`).set(auth), 200);
   });
 });

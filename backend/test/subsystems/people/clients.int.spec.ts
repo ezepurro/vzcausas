@@ -294,49 +294,19 @@ describe('GET /api/v1/clients/{clientId}', () => {
 });
 
 /**
- * La matriz de permisos también cubre `/lawyers`: su lectura es de
- * cualquier autenticado. Antes de HU-9 el seed dejaba a `LAWYER` con
- * la lista vacía y el endpoint le respondía 403, contra la matriz, sin
- * que ningún test lo viera.
- */
-describe('GET /api/v1/lawyers — la matriz, del otro lado', () => {
-  let app: INestApplication;
-
-  beforeAll(async () => {
-    app = await startTestApp();
-  });
-
-  afterAll(async () => {
-    await stopTestApp();
-  });
-
-  it.each(ROLES)('%s puede consultar abogados', async (role) => {
-    const auth = await loginWithRole(app, role);
-
-    const res = await request(app.getHttpServer()).get('/api/v1/lawyers').set(auth);
-
-    expect(res.status).toBe(200);
-  });
-});
-
-/**
- * `activeCases` de clientes y abogados (contrato §3.6 y §3.3, V3 §8.4).
+ * `activeCases` de clientes (contrato §3.6). El de abogados está en `lawyers.int.spec.ts`.
  *
  * Lo cuenta `cases`, dueño de la definición de causa activa (§4), y llega por
  * el `ActiveCasesCounterPort` que declara `people` e implementa
  * `cases/infrastructure/acl/people-active-cases-counter.adapter.ts`. Hasta el
  * 10/10/2026 los dos mappers devolvían una constante `0`.
  *
- * Lo que se verifica acá es el **cableado**: que el número cruce el borde
- * entre subsistemas y llegue al JSON. La semántica del conteo está probada
- * contra la base en el `describe` de `countActiveByResponsibleLawyer` y
- * `countActiveByClient` de `test/subsystems/cases/case-query.int.spec.ts`.
+ * Se verifica a través de la API, contra la base: el número que cruza el borde
+ * y la regla de causa activa.
  */
-describe('activeCases de clientes y abogados', () => {
+describe('activeCases de clientes', () => {
   let app: INestApplication;
-  // Un solo token para los dos listados: `GET /clients` y `GET /lawyers`
-  // piden cualquier usuario autenticado, con su permiso de lectura.
-  const reader = () => loginAs({ permissions: ['client:read', 'lawyer:read'] });
+  const reader = () => loginAs({ permissions: ['client:read'] });
 
   beforeAll(async () => {
     app = await startTestApp();
@@ -384,17 +354,6 @@ describe('activeCases de clientes y abogados', () => {
     expect(one.body.data.activeCases).toBe(2);
   });
 
-  it('el listado de abogados devuelve el conteo real', async () => {
-    const { lawyerId } = await withCases(3);
-
-    const res = await request(app.getHttpServer()).get('/api/v1/lawyers').set(reader());
-
-    const found = expectPaginated<{ id: number; activeCases: number }>(res).find(
-      (l) => l.id === lawyerId,
-    );
-    expect(found?.activeCases).toBe(3);
-  });
-
   it('un cliente y un abogado sin causas devuelven 0', async () => {
     const client = await createClient();
     await createLawyer();
@@ -417,7 +376,7 @@ describe('activeCases de clientes y abogados', () => {
     expect(one.body.data.activeCases).toBe(1);
   });
 
-  it('no cuenta la causa dada de baja ni la de un estado terminal', async () => {
+  it('cuenta la de estado escrito a mano; no la dada de baja ni la de un estado terminal', async () => {
     const { clientId, lawyerId, userId } = await withCases(0);
     const quedaActiva = await createCase({
       clientId,
@@ -431,6 +390,13 @@ describe('activeCases de clientes y abogados', () => {
       createdByUserId: userId,
     });
     await deactivateCase(baja.id);
+    // Activa: un estado escrito a mano no es terminal (§4).
+    await createCase({
+      clientId,
+      responsibleLawyerId: lawyerId,
+      createdByUserId: userId,
+      currentCustomState: 'Con acusación, pero con oposición',
+    });
     // Sin fijarle el nombre, a propósito. Este spec **no** borra los estados
     // procesales en su `beforeEach`, así que los 18 que siembra el seed siguen
     // ahí, y uno se llama "Archivada": fijar ese nombre choca con
@@ -446,6 +412,6 @@ describe('activeCases de clientes y abogados', () => {
     const one = await request(app.getHttpServer()).get(`${URL}/${clientId}`).set(reader());
 
     expect(quedaActiva.id).toBeDefined();
-    expect(one.body.data.activeCases).toBe(1);
+    expect(one.body.data.activeCases).toBe(2);
   });
 });

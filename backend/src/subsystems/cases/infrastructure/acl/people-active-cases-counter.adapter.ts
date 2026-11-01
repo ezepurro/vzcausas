@@ -10,8 +10,9 @@ import { CASE_REPOSITORY, CaseRepository } from '../../core/domain/ports/case/ca
  * Same shape and same reasoning as
  * `legal-parameters-active-cases-counter.adapter.ts`: a pass-through, because
  * there is no rule to apply on top of the number and the rule that matters —
- * which cases are active — lives in {@link CaseRepository}, tested against a
- * real database in `test/subsystems/cases/case-query.int.spec.ts`.
+ * which cases are active — lives in {@link CaseRepository}, tested through the
+ * API against a real database (`activeCases` in `test/subsystems/people/lawyers.int.spec.ts`
+ * and `clients.int.spec.ts`).
  *
  * **The predicate here is not the one for procedural states.** A case in the
  * initial state counts for its lawyer and its client; only
