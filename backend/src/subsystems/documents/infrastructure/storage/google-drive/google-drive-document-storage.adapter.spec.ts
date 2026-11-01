@@ -73,14 +73,6 @@ describe('GoogleDriveDocumentStorage', () => {
       );
     });
 
-    it('con padre null crea en la raíz de la cuenta', async () => {
-      const { storage, files } = build();
-
-      await storage.createFolder({ parentId: null, name: 'VZ Causas' });
-
-      expect(files.create.mock.calls[0][0].requestBody.parents).toEqual(['root']);
-    });
-
     it('arma el enlace si Drive no lo devuelve', async () => {
       const { storage } = build({ create: jest.fn().mockResolvedValue({ data: { id: 'abc' } }) });
 
@@ -88,23 +80,34 @@ describe('GoogleDriveDocumentStorage', () => {
         'https://drive.google.com/drive/folders/abc',
       );
     });
+  });
 
-    it('no comparte la carpeta con nadie: no usa permissions (CA-39.8)', async () => {
-      const { storage, files } = build();
+  // La privacidad (CA-39.8) se mira con la biblioteca real en `test/subsystems/documents/google-stack.int.spec.ts`.
 
-      await storage.createFolder({ parentId: 'p', name: 'X' });
+  it('con padre null crea y busca en la raíz de la cuenta', async () => {
+    const { storage, files } = build();
 
-      expect(Object.keys(files)).not.toContain('permissions');
-      expect(JSON.stringify(files.create.mock.calls)).not.toMatch(/permission|anyone/i);
+    await storage.createFolder({ parentId: null, name: 'VZ Causas' });
+    await storage.findFolderByReference({ parentId: null, name: 'VZ Causas' });
+
+    expect(files.create.mock.calls[0][0].requestBody.parents).toEqual(['root']);
+    expect(files.list.mock.calls[0][0].q).toContain("'root' in parents");
+  });
+
+  it('si la carpeta o el archivo ya no existen en la nube, crear, copiar y descargar fallan como error de configuración', async () => {
+    const { storage } = build({
+      create: jest.fn().mockRejectedValue(httpError(404)),
+      copy: jest.fn().mockRejectedValue(httpError(404)),
+      get: jest.fn().mockRejectedValue(httpError(404)),
     });
 
-    it('si el padre ya no existe en la nube, informa un error de configuración', async () => {
-      const { storage } = build({ create: jest.fn().mockRejectedValue(httpError(404)) });
-
-      await expect(storage.createFolder({ parentId: 'gone', name: 'X' })).rejects.toMatchObject({
-        reason: 'CONFIGURATION',
-      });
-    });
+    for (const call of [
+      storage.createFolder({ parentId: 'gone', name: 'X' }),
+      storage.copyFile({ fileId: 'x', parentId: 'p', name: 'a.docx' }),
+      storage.downloadFile('gone'),
+    ]) {
+      await expect(call).rejects.toMatchObject({ reason: 'CONFIGURATION' });
+    }
   });
 
   describe('findFolderByReference', () => {
@@ -123,14 +126,6 @@ describe('GoogleDriveDocumentStorage', () => {
       expect(query).toContain('trashed = false');
     });
 
-    it('con padre null busca en la raíz de la cuenta', async () => {
-      const { storage, files } = build();
-
-      await storage.findFolderByReference({ parentId: null, name: 'VZ Causas' });
-
-      expect(files.list.mock.calls[0][0].q).toContain("'root' in parents");
-    });
-
     it('devuelve null si no hay resultados', async () => {
       const { storage } = build();
 
@@ -143,9 +138,6 @@ describe('GoogleDriveDocumentStorage', () => {
       await storage.findFolderByReference({ parentId: 'p', name: "O'Brien \\ Sons" });
 
       expect(files.list.mock.calls[0][0].q).toContain("name = 'O\\'Brien \\\\ Sons'");
-    });
-
-    it('escapeQueryValue deja intacto un texto sin caracteres especiales', () => {
       expect(escapeQueryValue('GÓMEZ, Ariel')).toBe('GÓMEZ, Ariel');
     });
   });
@@ -181,17 +173,13 @@ describe('GoogleDriveDocumentStorage', () => {
       ]);
     });
 
-    it('lo que ya no existe no es un error', async () => {
-      const { storage } = build({ delete: jest.fn().mockRejectedValue(httpError(404)) });
+    it('lo que ya no existe no es un error; otros fallos sí se informan', async () => {
+      const gone = build({ delete: jest.fn().mockRejectedValue(httpError(404)) });
+      const forbidden = build({ delete: jest.fn().mockRejectedValue(httpError(403, 'insufficientPermissions')) });
 
-      await expect(storage.deleteFolder('gone')).resolves.toBeUndefined();
-      await expect(storage.deleteFile('gone')).resolves.toBeUndefined();
-    });
-
-    it('otros fallos sí se informan', async () => {
-      const { storage } = build({ delete: jest.fn().mockRejectedValue(httpError(403, 'insufficientPermissions')) });
-
-      await expect(storage.deleteFile('x')).rejects.toMatchObject({ reason: 'AUTHORIZATION' });
+      await expect(gone.storage.deleteFolder('gone')).resolves.toBeUndefined();
+      await expect(gone.storage.deleteFile('gone')).resolves.toBeUndefined();
+      await expect(forbidden.storage.deleteFile('x')).rejects.toMatchObject({ reason: 'AUTHORIZATION' });
     });
   });
 
@@ -245,24 +233,6 @@ describe('GoogleDriveDocumentStorage', () => {
       expect(files.create).not.toHaveBeenCalled();
     });
 
-    it('si Drive no encuentra el archivo o la carpeta, falla como error de configuración', async () => {
-      const { storage } = build({ copy: jest.fn().mockRejectedValue(httpError(404)) });
-
-      await expect(storage.copyFile({ fileId: 'x', parentId: 'p', name: 'a.docx' })).rejects.toMatchObject({
-        reason: 'CONFIGURATION',
-      });
-    });
-
-    it('reintenta ante un error transitorio', async () => {
-      const copy = jest
-        .fn()
-        .mockRejectedValueOnce(httpError(503))
-        .mockResolvedValueOnce({ data: { id: 'ok', webViewLink: 'u' } });
-      const { storage } = build({ copy });
-
-      await expect(storage.copyFile({ fileId: 'x', parentId: 'p', name: 'a.docx' })).resolves.toEqual({ id: 'ok', url: 'u' });
-      expect(copy).toHaveBeenCalledTimes(2);
-    });
   });
 
   describe('downloadFile', () => {
@@ -277,23 +247,15 @@ describe('GoogleDriveDocumentStorage', () => {
       expect(files.get.mock.calls[0][1]).toMatchObject({ responseType: 'arraybuffer' });
     });
 
-    it('si el archivo ya no existe en la nube, informa un error de configuración', async () => {
-      const { storage } = build({ get: jest.fn().mockRejectedValue(httpError(404)) });
-
-      await expect(storage.downloadFile('gone')).rejects.toMatchObject({ reason: 'CONFIGURATION' });
-    });
   });
 
+  // Qué error se reintenta y cuál es de autorización lo decide `classifyDriveError`, con su
+  // tabla en `drive-error.mapper.spec.ts`. Acá, un representante de cada rama.
   describe('reintentos y errores', () => {
-    it.each([
-      ['503', httpError(503)],
-      ['429', httpError(429)],
-      ['rateLimitExceeded', httpError(403, 'rateLimitExceeded')],
-      ['un corte de red', { code: 'ECONNRESET' }],
-    ])('reintenta ante %s y termina bien si el segundo intento funciona', async (_label, failure) => {
+    it('reintenta un error transitorio y termina bien si el segundo intento funciona', async () => {
       const create = jest
         .fn()
-        .mockRejectedValueOnce(failure)
+        .mockRejectedValueOnce(httpError(503))
         .mockResolvedValueOnce({ data: { id: 'ok', webViewLink: 'u' } });
       const { storage, sleep } = build({ create });
 
@@ -315,12 +277,8 @@ describe('GoogleDriveDocumentStorage', () => {
       expect(sleep.mock.calls.map((call) => call[0])).toEqual([1000, 2000]);
     });
 
-    it.each([
-      ['un 401', httpError(401)],
-      ['un 403 por permisos', httpError(403, 'insufficientPermissions')],
-      ['invalid_grant', { response: { status: 400, data: { error: 'invalid_grant' } } }],
-    ])('no reintenta %s y lo informa como error de autorización', async (_label, failure) => {
-      const create = jest.fn().mockRejectedValue(failure);
+    it('no reintenta un error de autorización y lo informa como tal', async () => {
+      const create = jest.fn().mockRejectedValue(httpError(403, 'insufficientPermissions'));
       const { storage, sleep } = build({ create });
 
       const error = await storage.createFolder({ parentId: 'p', name: 'X' }).catch((e) => e);

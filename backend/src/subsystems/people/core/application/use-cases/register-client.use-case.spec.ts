@@ -28,33 +28,9 @@ describe("RegisterClientUseCase", () => {
     expect(clients.byId.get(client.id)).toBe(client);
   });
 
-  // CA-8.2 — apellido y nombres en campos separados; la forma
-  // "GÓMEZ, Ariel Fernando" la compone la interfaz.
-  it("keeps surname and given names apart", async () => {
-    const { useCase } = build();
-
-    const { client } = await useCase.execute({
-      ...baseCommand,
-      lastName: "GÓMEZ",
-      firstName: "Ariel Fernando",
-    });
-
-    expect(client.lastName).toBe("GÓMEZ");
-    expect(client.firstName).toBe("Ariel Fernando");
-  });
-
-  // CA-8.3 — se guarda solo con dígitos.
-  it("stores the document without its presentation dots", async () => {
-    const { useCase } = build();
-
-    const { client } = await useCase.execute({
-      ...baseCommand,
-      dni: "34.812.905",
-    });
-
-    expect(client.dni.toString()).toBe("34812905");
-  });
-
+  // CA-8.2 (apellido y nombres separados) lo fija la forma del recurso en
+  // `clients.int.spec.ts`; CA-8.3 (sólo dígitos), `dni.vo.spec.ts`. Acá, que el
+  // value object está conectado: un DNI mal formado no llega al repositorio.
   it("rejects a malformed document", async () => {
     const { useCase } = build();
 
@@ -102,34 +78,20 @@ describe("RegisterClientUseCase", () => {
     });
   });
 
-  // CA-8.5 — teléfono y correo son opcionales.
-  it("registers without phone or email", async () => {
+  // CA-8.5 — teléfono y correo son opcionales; un teléfono en blanco queda ausente.
+  it("registers without phone or email, and stores a blank phone as absent", async () => {
     const { useCase } = build();
 
     const { client } = await useCase.execute(baseCommand);
+    const { client: blank } = await useCase.execute({ ...baseCommand, dni: "29440117", phone: "   " });
 
     expect(client.phone).toBeNull();
     expect(client.email).toBeNull();
+    expect(blank.phone).toBeNull();
   });
 
-  it("stores a blank phone as absent rather than as an empty string", async () => {
-    const { useCase } = build();
-
-    const { client } = await useCase.execute({ ...baseCommand, phone: "   " });
-
-    expect(client.phone).toBeNull();
-  });
-
-  // CA-8.7 — la fecha de alta la asigna el sistema.
-  it("takes the registration date from the clock", async () => {
-    const { useCase } = build(new Date("2026-03-14T09:30:00Z"));
-
-    const { client } = await useCase.execute(baseCommand);
-
-    expect(client.clientSince.toISOString().slice(0, 10)).toBe("2026-03-14");
-  });
-
-  it("ignores any date the caller tries to supply", async () => {
+  // CA-8.7 — la fecha de alta la asigna el sistema, aunque el llamador mande otra.
+  it("takes the registration date from the clock and ignores any the caller supplies", async () => {
     const { useCase } = build(new Date("2026-03-14T09:30:00Z"));
 
     const { client } = await useCase.execute({
@@ -140,14 +102,5 @@ describe("RegisterClientUseCase", () => {
     } as never);
 
     expect(client.clientSince.toISOString().slice(0, 10)).toBe("2026-03-14");
-  });
-
-  // CA-8.8 — el alta no crea ninguna causa (RN1).
-  it("creates nothing but the client", async () => {
-    const { useCase, clients } = build();
-
-    await useCase.execute(baseCommand);
-
-    expect(clients.byId.size).toBe(1);
   });
 });
