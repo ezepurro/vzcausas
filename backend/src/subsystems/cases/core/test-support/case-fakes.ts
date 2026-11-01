@@ -1,6 +1,8 @@
+import { AuditEntry, AuditTrailPort } from '@shared/domain/audit-trail.port';
 import { ClockPort } from '@shared/domain/clock.port';
 import { TransactionManagerPort } from '@shared/domain/transaction-manager.port';
 import { Case } from '../domain/entities/case/case.entity';
+import { CaseSnapshot } from '../domain/entities/case/case-snapshot';
 import { InterruptiveAct } from '../domain/entities/interruptive-act.entity';
 import { ProceduralAct } from '../domain/entities/procedural-act.entity';
 import { DeadlineCalculatorPort } from '../domain/ports/procedural-act/deadline-calculator.port';
@@ -41,12 +43,16 @@ export abstract class UnusedCaseRepository implements CaseRepository {
     throw new Error('Este spec no usa nextId de CaseRepository.');
   }
 
-  async existsBySacNumber(_sacNumber: string): Promise<boolean> {
+  async existsBySacNumber(_sacNumber: string, _exceptCaseId?: number): Promise<boolean> {
     throw new Error('Este spec no usa existsBySacNumber de CaseRepository.');
   }
 
   async save(_newCase: Case): Promise<void> {
     throw new Error('Este spec no usa save de CaseRepository.');
+  }
+
+  async saveModification(_modifiedCase: Case): Promise<void> {
+    throw new Error('Este spec no usa saveModification de CaseRepository.');
   }
 
   async findById(_id: number): Promise<Case | null> {
@@ -203,9 +209,17 @@ export class FakeCaseRepository extends UnusedCaseRepository {
     return this.nextIdValue++;
   }
 
-  async existsBySacNumber(sacNumber: string): Promise<boolean> {
+  /** `takenSacNumbers` belong to **other** active cases, so `exceptCaseId` changes nothing here. */
+  async existsBySacNumber(sacNumber: string, _exceptCaseId?: number): Promise<boolean> {
     this.sacNumbersChecked.push(sacNumber);
     return this.takenSacNumbers.has(sacNumber);
+  }
+
+  /** The cases `saveModification` wrote, as snapshots taken at that instant (HU19). */
+  readonly modifications: CaseSnapshot[] = [];
+
+  async saveModification(modifiedCase: Case): Promise<void> {
+    this.modifications.push(modifiedCase.toSnapshot());
   }
 
   async save(newCase: Case): Promise<void> {
@@ -287,6 +301,21 @@ export class FakeTransactionManager implements TransactionManagerPort {
   async runInTransaction<T>(work: () => Promise<T>): Promise<T> {
     this.calls++;
     return work();
+  }
+}
+
+/** Collects the audit records (HU19). `failNextWith` makes the next one fail, to check nothing else is announced. */
+export class FakeAuditTrail implements AuditTrailPort {
+  readonly entries: AuditEntry[] = [];
+  failNextWith: Error | null = null;
+
+  async record(entry: AuditEntry): Promise<void> {
+    if (this.failNextWith) {
+      const error = this.failNextWith;
+      this.failNextWith = null;
+      throw error;
+    }
+    this.entries.push(entry);
   }
 }
 

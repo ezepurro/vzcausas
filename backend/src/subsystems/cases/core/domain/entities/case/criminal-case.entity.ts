@@ -1,4 +1,6 @@
 import { CaseInTerminalStateError, PrescriptionNotApplicableError } from '../../errors/case.errors';
+import { CaseDataRules, FieldErrors } from '../../rules/case-data-rules';
+import { CaseChanges, CaseField, CaseModificationContext, PendingChanges } from './case-changes';
 import { JurisdictionCode } from '../../value-objects/case/jurisdiction-code';
 import { PrescriptionDeclaration } from '../../value-objects/prescription/prescription-declaration.vo';
 import { CaseSnapshot } from './case-snapshot';
@@ -73,6 +75,69 @@ export class CriminalCase extends Case {
 
     this.criminalProps.prescriptionDeclaration = declaration;
     this.closeInState(state.id, input.now);
+  }
+
+  /**
+   * A prescribed case keeps its qualifications: changing them would change the
+   * prescription a court already declared (D-96, CA-19.13). Every other datum
+   * of a terminal case can still be corrected.
+   */
+  protected override assertCanBeModifiedWith(changes: CaseChanges): void {
+    if (changes.legalQualifications !== undefined && this.criminalProps.prescriptionDeclaration !== null) {
+      throw new CaseInTerminalStateError(CaseInTerminalStateError.FOR_THIS_OPERATION);
+    }
+  }
+
+  protected ownFields(): readonly CaseField[] {
+    return ['legalQualifications', 'clientDetained'];
+  }
+
+  /**
+   * The qualifications **replace** the whole list, and `[]` leaves the case
+   * without any (CA-19.11). Each new offense gets its prescription date as in
+   * the registration; the interruptive acts keep ruling on every read, since
+   * nothing computed is stored (§4, Prescripción).
+   */
+  protected validateOwnChanges(
+    changes: CaseChanges,
+    context: CaseModificationContext,
+    errors: FieldErrors,
+  ): PendingChanges {
+    let offenses: Offense[] | null = null;
+    if (changes.legalQualifications === null) {
+      errors.legalQualifications = 'Enviá la lista de calificaciones: [] deja la causa sin ninguna.';
+    } else if (changes.legalQualifications !== undefined) {
+      offenses = CaseDataRules.checkQualifications(
+        errors,
+        changes.legalQualifications,
+        context.legalQualificationRefs,
+        context.today,
+      );
+    }
+    if (changes.clientDetained === null) {
+      errors.clientDetained = CaseDataRules.CANNOT_BE_EMPTIED;
+    }
+
+    return () => {
+      const changed: CaseField[] = [];
+      if (offenses !== null && !CriminalCase.sameOffenses(this.criminalProps.offenses, offenses)) {
+        this.criminalProps.offenses = offenses;
+        changed.push('legalQualifications');
+      }
+      if (changes.clientDetained !== undefined) {
+        Case.track(changed, 'clientDetained', this.criminalProps.clientDetained, changes.clientDetained, () => {
+          this.criminalProps.clientDetained = changes.clientDetained!;
+        });
+      }
+      return changed;
+    };
+  }
+
+  /** The same qualifications with the same dates, in any order. */
+  private static sameOffenses(current: readonly Offense[], next: readonly Offense[]): boolean {
+    const key = (offense: Offense) => `${offense.legalQualificationId}@${offense.offenseDate.getTime()}`;
+    const currentKeys = new Set(current.map(key));
+    return current.length === next.length && next.every((offense) => currentKeys.has(key(offense)));
   }
 
   override get prescriptionDeclaration(): PrescriptionDeclaration | null {

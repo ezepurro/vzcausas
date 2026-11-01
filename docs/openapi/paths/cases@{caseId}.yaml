@@ -118,3 +118,93 @@ get:
       $ref: ../components/responses/Unauthorized.yaml
     '404':
       $ref: ../components/responses/CaseNotFound.yaml
+
+patch:
+  tags:
+    - Cases
+  operationId: updateCase
+  summary: Modificar causa
+  description: |
+    Corrige los datos de una causa vigente (HU19). Cualquier perfil puede,
+    sea o no el abogado responsable. Responde la causa completa, igual que
+    `GET /cases/{caseId}`.
+
+    Cada cambio queda auditado (usuario, fecha y qué campos), sin endpoint de
+    consulta. Si cambia la carátula o el responsable y la causa tiene su
+    carpeta creada, la carpeta se renombra o se mueve en Drive (D-104); si
+    Drive no responde, la causa se guarda igual y `folder.path` informa la
+    ubicación real.
+
+    **Rol requerido:** cualquier usuario autenticado.
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: ../components/schemas/CaseUpdate.yaml
+        example:
+          clientId: 9
+          caption: FERREYRA, Lucas Martín p.s.a. Robo calificado
+  responses:
+    '200':
+      description: La causa modificada.
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - data
+            properties:
+              data:
+                $ref: ../components/schemas/Case.yaml
+    '400':
+      description: Datos inválidos, campo no modificable, cuerpo vacío o identificador inválido.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          examples:
+            withoutSac:
+              summary: Fecha de inicio sin SAC
+              value:
+                error:
+                  code: VALIDATION_ERROR
+                  message: Los datos enviados no son válidos.
+                  details:
+                    startDate: Sin número de SAC la causa no tiene fecha de inicio.
+            jurisdiction:
+              summary: El fuero no se modifica (D-95)
+              value:
+                error:
+                  code: VALIDATION_ERROR
+                  message: Los datos enviados no son válidos.
+                  details:
+                    jurisdiction: El fuero de una causa no se puede modificar.
+            invalidCaseId:
+              $ref: ../components/examples/InvalidCaseIdError.yaml
+    '401':
+      $ref: ../components/responses/Unauthorized.yaml
+    '404':
+      $ref: ../components/responses/CaseNotFound.yaml
+    '409':
+      description: El SAC ya lo tiene otra causa vigente (D-97).
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          example:
+            error:
+              code: CASE_SAC_ALREADY_EXISTS
+              message: Ya existe una causa registrada con ese número de SAC.
+              details: null
+    '422':
+      description: Calificaciones en una causa "Prescripta" (D-96).
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          example:
+            error:
+              code: CASE_IN_TERMINAL_STATE
+              message: La causa se encuentra en un estado terminal y no admite esta operación.
+              details: null
