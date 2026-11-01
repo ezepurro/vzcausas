@@ -4,7 +4,7 @@ import request from 'supertest';
 import { getPrisma, startTestApp, stopTestApp } from '../../shared/harness/test-app';
 import { civil } from '../../shared/harness/fixed-clock';
 import { expectData } from '../../shared/contract/envelopes';
-import { createCase } from '../../shared/factories/case.factory';
+import { createCase, deactivateCase } from '../../shared/factories/case.factory';
 import { createProceduralState } from '../../shared/factories/procedural-state.factory';
 import {
   ProceduralActScenario,
@@ -224,7 +224,7 @@ describe('HU51 — verificación diaria de los vencimientos de actos procesales'
       const prisma = getPrisma();
       await prisma.case.update({ where: { id: archived.caseRow.id }, data: { currentStateId: s.states.terminal.stateId } });
       await prisma.case.update({ where: { id: prescribed.caseRow.id }, data: { currentStateId: s.states.prescribed.stateId } });
-      await prisma.case.update({ where: { id: deactivated.caseRow.id }, data: { active: false } });
+      await deactivateCase(deactivated.caseRow.id);
 
       await expect(detect()).resolves.toEqual([]);
     });
@@ -304,7 +304,7 @@ describe('HU51 — verificación diaria de los vencimientos de actos procesales'
     // CA-51.6
     it('no revisa un amparo dado de baja', async () => {
       const amparo = await newAmparo();
-      await getPrisma().case.update({ where: { id: amparo.id }, data: { active: false } });
+      await deactivateCase(amparo.id);
 
       await expect(detect()).resolves.toEqual([]);
     });

@@ -6,7 +6,7 @@ import { getPrisma, startTestApp, stopTestApp } from '../../shared/harness/test-
 import { withFixedClock } from '../../shared/harness/fixed-clock';
 import { expectError } from '../../shared/contract/envelopes';
 import { TestRole } from '../../shared/auth/login-as';
-import { createCase } from '../../shared/factories/case.factory';
+import { createCase, deactivateCase } from '../../shared/factories/case.factory';
 import { createLawyer } from '../../shared/factories/lawyer.factory';
 import { createProceduralAct } from '../../shared/factories/procedural-act.factory';
 import { createUser } from '../../shared/factories/user.factory';
@@ -206,7 +206,7 @@ describe('GET /api/v1/cases/:caseId/timeline', () => {
 
   it('responde 404 para una causa dada de baja', async () => {
     await registerAct({ proceduralStateId: s.states.fiveBusinessDays.stateId, actDate: '2025-05-10' });
-    await getPrisma().case.update({ where: { id: s.caseRow.id }, data: { active: false } });
+    await deactivateCase(s.caseRow.id);
 
     expectError(await server().get(url()).set(s.notResponsible), 404, 'CASE_NOT_FOUND');
   });

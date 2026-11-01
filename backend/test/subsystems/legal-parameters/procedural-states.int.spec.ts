@@ -11,7 +11,7 @@ import {
   createJurisdiction,
   createProceduralState,
 } from '../../shared/factories/procedural-state.factory';
-import { createCase } from '../../shared/factories/case.factory';
+import { createCase, deactivateCase } from '../../shared/factories/case.factory';
 import { createClient } from '../../shared/factories/client.factory';
 import { createLawyer } from '../../shared/factories/lawyer.factory';
 import { createUser } from '../../shared/factories/user.factory';
@@ -915,7 +915,7 @@ describe('activeCases de /api/v1/procedural-states', () => {
     const terminal = await createProceduralState({ name: 'Archivada', terminal: true });
     await createCaseInState(owner, estado.stateId);
     const baja = await createCaseInState(owner, estado.stateId);
-    await getPrisma().case.update({ where: { id: baja.id }, data: { active: false } });
+    await deactivateCase(baja.id);
     await createCaseInState(owner, terminal.stateId);
 
     expect(await activeCasesById(estado.stateId)).toBe(1);

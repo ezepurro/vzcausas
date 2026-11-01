@@ -96,6 +96,7 @@ describe('POST /api/v1/internal/deadlines/daily-run', () => {
       origin: 'PROCEDURAL_ACT',
       dueDate: '2026-10-21',
       proceduralActId: null,
+      businessDaysRemaining: 3,
       ...overrides,
     };
   }

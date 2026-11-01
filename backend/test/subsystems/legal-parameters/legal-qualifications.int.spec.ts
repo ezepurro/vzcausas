@@ -7,7 +7,7 @@ import { expectData, expectError, expectPaginated } from '../../shared/contract/
 import { loginAs, TestRole } from '../../shared/auth/login-as';
 import { createUser } from '../../shared/factories/user.factory';
 import { createLegalQualification } from '../../shared/factories/legal-qualification.factory';
-import { createCase } from '../../shared/factories/case.factory';
+import { createCase, deactivateCase } from '../../shared/factories/case.factory';
 import { createClient } from '../../shared/factories/client.factory';
 import { createLawyer } from '../../shared/factories/lawyer.factory';
 
@@ -576,7 +576,7 @@ describe('activeCases de /api/v1/legal-qualifications', () => {
     const qualification = await createLegalQualification();
     await aCaseWith([qualification.id]);
     const baja = await aCaseWith([qualification.id]);
-    await getPrisma().case.update({ where: { id: baja.id }, data: { active: false } });
+    await deactivateCase(baja.id);
 
     const one = await request(app.getHttpServer()).get(`${URL}/${qualification.id}`).set(reader());
 

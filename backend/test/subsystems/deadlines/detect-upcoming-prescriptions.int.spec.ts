@@ -4,7 +4,7 @@ import request from 'supertest';
 import { getPrisma, startTestApp, stopTestApp } from '../../shared/harness/test-app';
 import { civil, withFixedClock } from '../../shared/harness/fixed-clock';
 import { expectData } from '../../shared/contract/envelopes';
-import { createCase } from '../../shared/factories/case.factory';
+import { createCase, deactivateCase } from '../../shared/factories/case.factory';
 import { createInitialState } from '../../shared/factories/procedural-state.factory';
 import { createLegalQualification } from '../../shared/factories/legal-qualification.factory';
 import {
@@ -196,7 +196,7 @@ describe('HU52 — verificación diaria de la prescripción', () => {
       const archived = await newCase({ currentStateId: s.states.terminal.stateId });
       const prescribed = await newCase({ currentStateId: s.states.prescribed.stateId });
       const deactivated = await newCase();
-      await getPrisma().case.update({ where: { id: deactivated.id }, data: { active: false } });
+      await deactivateCase(deactivated.id);
       for (const caseRow of [archived, prescribed, deactivated]) {
         await withOffense(caseRow.id, tenYears.id);
       }

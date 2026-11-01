@@ -6,7 +6,7 @@ import { getPrisma, startTestApp, stopTestApp } from '../../shared/harness/test-
 import { withFixedClock } from '../../shared/harness/fixed-clock';
 import { expectData, expectError, expectPaginated } from '../../shared/contract/envelopes';
 import { loginAs, TestRole } from '../../shared/auth/login-as';
-import { createCase } from '../../shared/factories/case.factory';
+import { createCase, deactivateCase } from '../../shared/factories/case.factory';
 import { createLawyer } from '../../shared/factories/lawyer.factory';
 import { createLegalQualification } from '../../shared/factories/legal-qualification.factory';
 import { createUser } from '../../shared/factories/user.factory';
@@ -313,7 +313,7 @@ describe('POST /api/v1/cases/:caseId/interruptive-acts', () => {
 
   /** `CaseRepository.findById` no filtra `active`: el caso de uso lo verifica. */
   it('responde 404 para una causa dada de baja', async () => {
-    await getPrisma().case.update({ where: { id: s.caseRow.id }, data: { active: false } });
+    await deactivateCase(s.caseRow.id);
 
     expectError(await register({ name: 'Indagatoria', actDate: '2026-09-01' }), 404, 'CASE_NOT_FOUND');
     expect(await getPrisma().interruptiveAct.count()).toBe(0);
@@ -402,7 +402,7 @@ describe('GET /api/v1/cases/:caseId/interruptive-acts', () => {
   it('responde 404 para una causa inexistente o dada de baja', async () => {
     expectError(await server().get(url(999999)).set(s.notResponsible), 404, 'CASE_NOT_FOUND');
 
-    await getPrisma().case.update({ where: { id: s.caseRow.id }, data: { active: false } });
+    await deactivateCase(s.caseRow.id);
     expectError(await server().get(url()).set(s.notResponsible), 404, 'CASE_NOT_FOUND');
   });
 

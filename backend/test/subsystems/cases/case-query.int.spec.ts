@@ -1,3 +1,4 @@
+import { deactivateCase } from '../../shared/factories/case.factory';
 import { INestApplication } from '@nestjs/common';
 
 import { ListCases } from '../../../src/subsystems/cases/core/application/use-cases/case/list-cases.use-case';
@@ -376,7 +377,7 @@ describe('CaseRepository (adaptador Prisma)', () => {
 
     it('devuelve null para una causa inexistente y para una dada de baja', async () => {
       const created = await aCase();
-      await getPrisma().case.update({ where: { id: created.id }, data: { active: false } });
+      await deactivateCase(created.id);
 
       expect(await cases.findListItemById(created.id)).toBeNull();
       expect(await cases.findListItemById(999999)).toBeNull();
@@ -384,7 +385,7 @@ describe('CaseRepository (adaptador Prisma)', () => {
 
     it('una causa dada de baja tampoco aparece en el listado', async () => {
       const created = await aCase();
-      await getPrisma().case.update({ where: { id: created.id }, data: { active: false } });
+      await deactivateCase(created.id);
 
       expect(await search(page)).toEqual({ items: [], totalItems: 0 });
     });
@@ -451,7 +452,7 @@ describe('CaseRepository (adaptador Prisma)', () => {
       const baja = await aCase();
       await moveTo(activa.id, { stateId: alegato.stateId });
       await moveTo(baja.id, { stateId: alegato.stateId });
-      await getPrisma().case.update({ where: { id: baja.id }, data: { active: false } });
+      await deactivateCase(baja.id);
 
       const counts = await cases.countActiveByProceduralState([alegato.stateId]);
 
@@ -529,7 +530,7 @@ describe('CaseRepository (adaptador Prisma)', () => {
       await moveTo(aMano.id, { customState: 'Con acusación, pero con oposición' });
       await moveTo(archivada.id, { stateName: 'Archivada', terminal: true });
       await moveTo(baja.id, { stateName: 'Alegato' });
-      await getPrisma().case.update({ where: { id: baja.id }, data: { active: false } });
+      await deactivateCase(baja.id);
 
       const counts = await cases.countActiveByResponsibleLawyer([lawyerId]);
 
@@ -559,7 +560,7 @@ describe('CaseRepository (adaptador Prisma)', () => {
       const aMano = await aCase();
       const baja = await aCase();
       await moveTo(aMano.id, { customState: 'Con acusación, pero con oposición' });
-      await getPrisma().case.update({ where: { id: baja.id }, data: { active: false } });
+      await deactivateCase(baja.id);
 
       const counts = await cases.countActiveByClient([clientId]);
 
@@ -608,7 +609,7 @@ describe('CaseRepository (adaptador Prisma)', () => {
       await withQualifications(baja.id, [qualification.id]);
       await moveTo(aMano.id, { customState: 'Con acusación, pero con oposición' });
       await moveTo(archivada.id, { stateName: 'Archivada', terminal: true });
-      await getPrisma().case.update({ where: { id: baja.id }, data: { active: false } });
+      await deactivateCase(baja.id);
 
       const counts = await cases.countActiveByLegalQualification([qualification.id]);
 

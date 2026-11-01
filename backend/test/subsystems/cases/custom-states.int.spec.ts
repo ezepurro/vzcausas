@@ -1,3 +1,4 @@
+import { deactivationData } from '../../shared/factories/case.factory';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 
@@ -83,7 +84,7 @@ describe('GET /api/v1/cases/custom-states', () => {
         currentStateId: null,
         currentCustomState: customState,
         createdByUserId: userId,
-        active: options.active ?? true,
+        ...(options.active === false ? deactivationData(userId) : {}),
       },
     });
   }

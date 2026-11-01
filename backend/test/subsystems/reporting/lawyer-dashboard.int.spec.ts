@@ -6,7 +6,7 @@ import { getPrisma, startTestApp, stopTestApp } from '../../shared/harness/test-
 import { withFixedClock } from '../../shared/harness/fixed-clock';
 import { expectData, expectError } from '../../shared/contract/envelopes';
 import { loginAs, TestRole } from '../../shared/auth/login-as';
-import { createCase } from '../../shared/factories/case.factory';
+import { createCase, deactivateCase } from '../../shared/factories/case.factory';
 import { createUser } from '../../shared/factories/user.factory';
 import { createLegalQualification } from '../../shared/factories/legal-qualification.factory';
 import {
@@ -235,7 +235,7 @@ describe('GET /api/v1/dashboards/lawyer', () => {
   // CA-41.10
   it('cuenta solo las causas activas: ni dadas de baja ni terminales; sí las de estado escrito a mano', async () => {
     const deactivated = await newCase();
-    await getPrisma().case.update({ where: { id: deactivated.id }, data: { active: false } });
+    await deactivateCase(deactivated.id);
     await newCase({ currentStateId: s.states.terminal.stateId });
     const custom = await newCase({ currentCustomState: 'En espera de pericia' });
 

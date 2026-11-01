@@ -3,7 +3,7 @@ import request from 'supertest';
 
 import { loginAs } from '../../shared/auth/login-as';
 import { expectData, expectError, expectPaginated } from '../../shared/contract/envelopes';
-import { createCase } from '../../shared/factories/case.factory';
+import { createCase, deactivateCase } from '../../shared/factories/case.factory';
 import { createLegalQualification } from '../../shared/factories/legal-qualification.factory';
 import {
   ProceduralActScenario,
@@ -267,7 +267,7 @@ describe('POST /api/v1/cases/:caseId/prescription', () => {
         'fue dada de baja',
         async () => {
           await addRobbery(s.caseRow.id);
-          await getPrisma().case.update({ where: { id: s.caseRow.id }, data: { active: false } });
+          await deactivateCase(s.caseRow.id);
           return s.caseRow.id;
         },
       ],

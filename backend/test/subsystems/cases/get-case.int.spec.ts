@@ -10,7 +10,7 @@ import {
   createInitialState,
   createProceduralState,
 } from '../../shared/factories/procedural-state.factory';
-import { createCase } from '../../shared/factories/case.factory';
+import { createCase, deactivateCase } from '../../shared/factories/case.factory';
 import { createUser } from '../../shared/factories/user.factory';
 import { civil, withFixedClock } from '../../shared/harness/fixed-clock';
 import { getPrisma, startTestApp, stopTestApp } from '../../shared/harness/test-app';
@@ -446,7 +446,7 @@ describe('GET /api/v1/cases/{caseId}', () => {
 
     it('responde 404 para una causa dada de baja: no se distingue de una inexistente', async () => {
       const created = await aCase();
-      await getPrisma().case.update({ where: { id: created.id }, data: { active: false } });
+      await deactivateCase(created.id);
 
       const res = await request(app.getHttpServer()).get(`${URL}/${created.id}`).set(actor);
 

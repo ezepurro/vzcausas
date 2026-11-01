@@ -4,7 +4,7 @@ import { getPrisma, startTestApp, stopTestApp } from '../../shared/harness/test-
 import { expectError, expectPaginated } from '../../shared/contract/envelopes';
 import * as bcrypt from 'bcryptjs';
 import { loginAs, TestRole } from '../../shared/auth/login-as';
-import { createCase } from '../../shared/factories/case.factory';
+import { createCase, deactivateCase } from '../../shared/factories/case.factory';
 import { createClient } from '../../shared/factories/client.factory';
 import { createLawyer } from '../../shared/factories/lawyer.factory';
 import { createProceduralState } from '../../shared/factories/procedural-state.factory';
@@ -430,7 +430,7 @@ describe('activeCases de clientes y abogados', () => {
       responsibleLawyerId: lawyerId,
       createdByUserId: userId,
     });
-    await getPrisma().case.update({ where: { id: baja.id }, data: { active: false } });
+    await deactivateCase(baja.id);
     // Sin fijarle el nombre, a propósito. Este spec **no** borra los estados
     // procesales en su `beforeEach`, así que los 18 que siembra el seed siguen
     // ahí, y uno se llama "Archivada": fijar ese nombre choca con
