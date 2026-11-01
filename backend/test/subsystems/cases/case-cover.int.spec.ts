@@ -156,7 +156,11 @@ describe('GET /api/v1/cases/{caseId}/cover', () => {
 
     it('una causa inexistente o dada de baja: 404 CASE_NOT_FOUND (D4.3, D4.4)', async () => {
       const deactivated = await aCase({ sacNumber: '13284571' });
-      await getPrisma().case.update({ where: { id: deactivated.id }, data: { active: false } });
+      // `ck_cases_deactivation_coherent`: una baja lleva cuándo y quién.
+      await getPrisma().case.update({
+        where: { id: deactivated.id },
+        data: { active: false, deactivatedAt: new Date(), deactivatedByUserId: userId },
+      });
       const expected = {
         error: { code: 'CASE_NOT_FOUND', message: 'No se encontró la causa solicitada.', details: null },
       };

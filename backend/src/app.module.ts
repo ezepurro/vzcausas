@@ -9,6 +9,7 @@ import { JwtAuthGuard } from '@shared/infrastructure/http/guards/jwt-auth.guard'
 import { PermissionsGuard } from '@shared/infrastructure/http/guards/permissions.guard';
 import { EventsModule } from '@shared/infrastructure/events/events.module';
 import { HttpKernelModule } from '@shared/infrastructure/http/http-kernel.module';
+import { LoggingModule } from '@shared/infrastructure/logging/logging.module';
 import { HealthModule } from '@subsystems/health/health.module';
 import { validateEnv } from './config/env.validation';
 import { PrismaModule } from './shared/infrastructure/prisma/prisma.module';
@@ -98,6 +99,7 @@ if (missingDeadlinesVars.length > 0) {
     EventEmitterModule.forRoot(),
     EventsModule,
     PrismaModule,
+    LoggingModule,
     HttpKernelModule,
     HealthModule,
     PeopleModule,

@@ -15,7 +15,7 @@ paths:
 ## El flujo, en este orden
 
 1. **Criterios de aceptación y contrato.** Cada CA se cruza con su endpoint en
-   `docs/Api-Contract/API_CONTRACT_V4.md`: código HTTP, `code`, `message` y
+   `docs/Api-Contract/API_CONTRACT_V5.md`: código HTTP, `code`, `message` y
    `details` textuales. Si el contrato y la HU no coinciden, se frena y se pregunta.
 2. **Documento del plan de tests**, en `.claude/plans/tests-<hu>-<nombre>.md`, **antes de
    escribir código**. Una tabla CA → test (unitario o integración, o por qué no lleva

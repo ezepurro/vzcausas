@@ -120,7 +120,7 @@ que él mismo va a escribir.
    100 usuarios). Quien autoriza acepta una vez el aviso de "esta app no está
    verificada", para los dos scopes juntos.
 6. **Dónde vive el cliente.** `shared/infrastructure/google/` expone un
-   cliente `googleapis` ya autenticado (mismo criterio que `PrismaService` en
+   `OAuth2Client` (`google-auth-library`) ya autenticado (mismo criterio que `PrismaService` en
    `ARQUITECTURA_BACKEND_V1.md:551`: es mecánica genérica, libre de reglas de
    negocio — no sabe si lo usa Gmail o Drive). `deadlines/infrastructure` lo
    inyecta para construir `gmail.users.messages.send(...)`; `documents/infrastructure`
@@ -154,8 +154,8 @@ Nombrado por necesidad, no por tecnología: el día de mañana podría ser otra
 API y la interfaz seguiría siendo correcta.
 
 Implementación: `GmailApiEmailAdapter`, en
-`deadlines/infrastructure/external/`, con `googleapis` (se instala como
-dependencia nueva; no asumas que ya está, porque no está).
+`deadlines/infrastructure/external/`, con `@googleapis/gmail`. Se usa el paquete de la API y no `googleapis`
+entero: el índice de `googleapis` declara los tipos de todas las APIs de Google (~180 MB) y dejaba al compilador sin memoria (01/11/2026).
 
 - Construye el MIME (RFC 2822): `From`, `To`, `Cc`, `Subject`, `Content-Type:
   text/html`, cuerpo, todo codificado en base64url, y lo manda con

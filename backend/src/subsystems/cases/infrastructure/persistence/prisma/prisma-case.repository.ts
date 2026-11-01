@@ -76,8 +76,10 @@ export class PrismaCaseRepository implements CaseRepository {
   }
 
   async existsBySacNumber(sacNumber: string): Promise<boolean> {
-    // Inactive cases count too: the SAC is unique system-wide (RN2).
-    const row = await this.prisma.db.case.findUnique({ where: { sacNumber }, select: { id: true } });
+    // Only active cases count: a deactivated case frees its SAC (D-97). The
+    // partial unique index `cases_sac_number_active_key` enforces the same
+    // rule in the database.
+    const row = await this.prisma.db.case.findFirst({ where: { sacNumber, active: true }, select: { id: true } });
     return row !== null;
   }
 

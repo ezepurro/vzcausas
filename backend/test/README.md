@@ -166,7 +166,7 @@ Solo se reemplazan adaptadores de servicios **externos**. Repositorios y
 **El Google falso (`fakes/fake-google.ts`).** Para HU39 no se reemplaza el
 adaptador sino solo el transporte HTTP: `harness/google-stack.ts` arma el
 `GoogleOAuthClientService` y el `GoogleDriveDocumentStorage` **reales**, y le
-cambia el `transporter` por un `FakeGoogle`. Así se ejercitan `googleapis`,
+cambia el `transporter` por un `FakeGoogle`. Así se ejercitan `@googleapis/drive`,
 el canje del refresh token y los reintentos de verdad. El falso simula
 `oauth2.googleapis.com/token` y Drive v3 (`list`, `create`, `get`, `delete`)
 sobre un árbol en memoria, registra los pedidos (`requests`, `tokenRequests`,

@@ -1,4 +1,5 @@
 import { Module, forwardRef } from '@nestjs/common';
+import { AuditModule } from '@shared/infrastructure/audit/audit.module';
 import { ClockModule } from '@shared/infrastructure/clock/clock.module';
 import { CasesModule } from '@subsystems/cases/case.module';
 import { PEOPLE_LOOKUP } from '@subsystems/cases/core/domain/ports/case/people-lookup.port';
@@ -9,6 +10,7 @@ import { ListClientsUseCase } from './core/application/use-cases/list-clients.us
 import { ListLawyersUseCase } from './core/application/use-cases/list-lawyers.use-case';
 import { RegisterClientUseCase } from './core/application/use-cases/register-client.use-case';
 import { RegisterLawyerUseCase } from './core/application/use-cases/register-lawyer.use-case';
+import { UpdateLawyerUseCase } from './core/application/use-cases/update-lawyer.use-case';
 import { CLIENT_REPOSITORY } from './core/domain/ports/client.repository';
 import { LAWYER_REPOSITORY } from './core/domain/ports/lawyer.repository';
 import { CasesPeopleLookupAdapter } from './infrastructure/acl/cases-people-lookup.adapter';
@@ -26,13 +28,16 @@ import { PrismaLawyerRepository } from './infrastructure/persistence/prisma/pris
  * use cases — stays private (§6.3).
  *
  * `ClockModule` is imported for the {@link CLOCK} token:
- * `RegisterClient` needs today's civil date for `clientSince`.
+ * `RegisterClient` needs today's civil date for `clientSince`, and
+ * `UpdateLawyer` the time of its audit record. `AuditModule` gives
+ * `UpdateLawyer` the audit trail (HU14, CA-14.5).
  */
 @Module({
-  imports: [ClockModule, forwardRef(() => CasesModule)],
+  imports: [ClockModule, AuditModule, forwardRef(() => CasesModule)],
   controllers: [LawyerController, ClientController],
   providers: [
     RegisterLawyerUseCase,
+    UpdateLawyerUseCase,
     ListLawyersUseCase,
     FindLawyerUseCase,
     FindLawyersUseCase,

@@ -1,6 +1,6 @@
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { gmail_v1, google } from "googleapis";
+import { gmail, gmail_v1 } from "@googleapis/gmail";
 import { GoogleOAuthClientService } from "@shared/infrastructure/google/google-oauth-client.service";
 import {
   EmailMessage,
@@ -46,7 +46,7 @@ export class GmailApiEmailAdapter implements EmailSenderPort {
     @Optional() sleep?: (ms: number) => Promise<void>,
   ) {
     this.gmail =
-      gmailClient ?? google.gmail({ version: "v1", auth: oauth.getClient() });
+      gmailClient ?? gmail({ version: "v1", auth: oauth.getClient() });
     this.from = config.getOrThrow<string>("MANAGEMENT_MAILBOX");
     this.sleep =
       sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));

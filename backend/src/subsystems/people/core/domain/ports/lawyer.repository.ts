@@ -17,13 +17,30 @@ export interface LawyerRepository {
    */
   nextId(): Promise<number>;
 
-  /** `true` if the registration number is already taken (HU12, 409). */
+  /**
+   * `true` if the registration number is already taken (HU12, 409), by any
+   * lawyer, given de baja or not: the database's unique index covers them all.
+   *
+   * `exceptLawyerId` leaves one lawyer out: when modifying a lawyer (HU14),
+   * keeping their own registration number is not a conflict (CA-14.7).
+   */
   existsByRegistrationNumber(
     registrationNumber: RegistrationNumber,
+    exceptLawyerId?: number,
   ): Promise<boolean>;
 
   /** Inserts a freshly created lawyer. */
   create(lawyer: Lawyer): Promise<void>;
+
+  /**
+   * Saves a modified lawyer: last name, first names and registration number
+   * (HU14).
+   *
+   * @throws {LawyerRegistrationAlreadyExistsError} if another lawyer took the
+   *   registration number between the check and this write (the database's
+   *   unique index wins the race, CA-14.3).
+   */
+  update(lawyer: Lawyer): Promise<void>;
 
   /** Loads a lawyer by primary key. Returns `null` if none. */
   findById(id: number): Promise<Lawyer | null>;
