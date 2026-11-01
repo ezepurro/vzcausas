@@ -54,6 +54,19 @@ describe('[smoke] App de integración', () => {
       ['post', '/api/v1/document-templates'],
       ['get', '/api/v1/document-templates/1'],
       ['get', '/api/v1/document-templates/1/file'],
+      ['get', '/api/v1/cases'],
+      ['post', '/api/v1/cases'],
+      ['get', '/api/v1/cases/custom-states'],
+      ['get', '/api/v1/cases/1'],
+      ['get', '/api/v1/cases/1/timeline'],
+      ['get', '/api/v1/cases/1/procedural-acts'],
+      ['post', '/api/v1/cases/1/procedural-acts'],
+      ['get', '/api/v1/cases/1/procedural-acts/1'],
+      ['get', '/api/v1/cases/1/procedural-acts/deadline-preview'],
+      ['post', '/api/v1/cases/1/folder'],
+      ['get', '/api/v1/cases/1/interruptive-acts'],
+      ['post', '/api/v1/cases/1/interruptive-acts'],
+      ['post', '/api/v1/cases/1/prescription'],
     ];
 
     for (const [method, path] of routes) {
@@ -63,6 +76,7 @@ describe('[smoke] App de integración', () => {
         status: 401,
       });
       expectError(res, 401, 'UNAUTHENTICATED');
+      expect(res.body.error.message).toBe('La autenticación es requerida.');
     }
   });
 
