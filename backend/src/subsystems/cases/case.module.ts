@@ -20,6 +20,7 @@ import { ListProceduralActs } from './core/application/use-cases/procedural-act/
 import { RegisterInterruptiveAct } from './core/application/use-cases/interruptive-act/register-interruptive-act.use-case';
 import { DeclarePrescription } from './core/application/use-cases/prescription/declare-prescription.use-case';
 import { UpdateCase } from './core/application/use-cases/case/update-case.use-case';
+import { DeactivateCase } from './core/application/use-cases/case/deactivate-case.use-case';
 import { RegisterCase } from './core/application/use-cases/case/register-case.use-case';
 import { RegisterProceduralAct } from './core/application/use-cases/procedural-act/register-procedural-act.use-case';
 import { RequestCaseFolder } from './core/application/use-cases/case/request-case-folder.use-case';
@@ -103,7 +104,7 @@ import { PrismaProceduralActRepository } from './infrastructure/persistence/pris
  * el CHECK de exclusión mutua del que dependen los conteos.
  */
 @Module({
-  // `AuditModule`: `UpdateCase` audits each modification (HU19, CA-19.15).
+  // `AuditModule`: `UpdateCase` and `DeactivateCase` audit what they write (CA-19.15, CA-21.3).
   imports: [forwardRef(() => PeopleModule), forwardRef(() => LegalParametersModule), ClockModule, AuditModule],
   controllers: [CasesController, InterruptiveActsController, CaseTimelineController],
   providers: [
@@ -131,6 +132,8 @@ import { PrismaProceduralActRepository } from './infrastructure/persistence/pris
     // HU33: marks a criminal case as prescribed; answers with the detail (`GetCase`).
     DeclarePrescription,
     UpdateCase,
+    // HU21: logical baja, audited.
+    DeactivateCase,
     RegisterProceduralAct,
     // HU27: la consulta de actos procesales, por el mismo repositorio que los registra.
     ListProceduralActs,

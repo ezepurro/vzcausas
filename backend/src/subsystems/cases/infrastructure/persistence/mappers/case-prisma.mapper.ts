@@ -12,6 +12,7 @@ import { Case, CaseProps } from '../../../core/domain/entities/case/case.entity'
 import { CriminalCase } from '../../../core/domain/entities/case/criminal-case.entity';
 import { Offense } from '../../../core/domain/entities/case/offense.entity';
 import { ProceduralActPrismaMapper } from './procedural-act-prisma.mapper';
+import { CaseDeactivation } from '../../../core/domain/value-objects/case/case-deactivation.vo';
 import { DayType } from '../../../core/domain/value-objects/deadline/day-type';
 import { JurisdictionCode } from '../../../core/domain/value-objects/case/jurisdiction-code';
 import { PrescriptionDeclaration } from '../../../core/domain/value-objects/prescription/prescription-declaration.vo';
@@ -50,6 +51,24 @@ export class CasePrismaMapper {
     });
   }
 
+  /**
+   * The record of the baja from its columns, or `null` while the case is in
+   * force. `ck_cases_deactivation_coherent` keeps them together with `active`.
+   */
+  private static toDeactivation(row: PrismaCase): CaseDeactivation | null {
+    if (row.active) {
+      return null;
+    }
+    if (row.deactivatedAt === null || row.deactivatedByUserId === null) {
+      throw new Error(`Case ${row.id} is given de baja but its deactivation record is incomplete.`);
+    }
+    return CaseDeactivation.hydrate({
+      reason: row.deactivationReason,
+      deactivatedByUserId: row.deactivatedByUserId,
+      deactivatedAt: row.deactivatedAt,
+    });
+  }
+
   static toDomain(row: CaseRow): Case {
     const props: CaseProps = {
       id: row.id,
@@ -71,6 +90,7 @@ export class CasePrismaMapper {
       // Only the current act is loaded: registering an act needs it to tell whether the new one is older.
       proceduralActs: row.currentProceduralAct ? [ProceduralActPrismaMapper.toDomain(row.currentProceduralAct)] : [],
       active: row.active,
+      deactivation: CasePrismaMapper.toDeactivation(row),
       createdByUserId: row.createdByUserId,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,

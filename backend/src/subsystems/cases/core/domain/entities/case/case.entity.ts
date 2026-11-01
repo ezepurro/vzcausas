@@ -8,6 +8,7 @@ import {
 } from '../../errors/case.errors';
 import { CaseDataRules, FieldErrors } from '../../rules/case-data-rules';
 import { CaseChangeSet } from '../../value-objects/case/case-change-set.vo';
+import { CaseDeactivation } from '../../value-objects/case/case-deactivation.vo';
 import { isRoleAllowedIn } from '../../value-objects/case/procedural-role';
 import { CASE_FIELDS, CaseChanges, CaseField, CaseModificationContext, PendingChanges } from './case-changes';
 import { ProceduralStateRef } from '../../ports/case/legal-parameters-lookup.port';
@@ -114,6 +115,8 @@ export interface CaseProps {
   currentStateTerminal: boolean;
   proceduralActs: ProceduralAct[];
   active: boolean;
+  // Who gave the case de baja, when and why (HU21). Absent or `null` while it is in force.
+  deactivation?: CaseDeactivation | null;
   createdByUserId: number;
   createdAt: Date;
   updatedAt: Date;
@@ -167,6 +170,27 @@ export abstract class Case {
   /** The declaration that the case prescribed. Only a criminal case can have one. */
   get prescriptionDeclaration(): PrescriptionDeclaration | null {
     return null;
+  }
+
+  /**
+   * HU21 — gives the case de baja (contract V5, `DELETE /cases/{caseId}`). The
+   * baja is logical (RN12): the case keeps its acts, interruptive acts and
+   * folder, and only stops existing for the client (D-97).
+   *
+   * Any jurisdiction and any state, terminal ones included (CA-21.9): what is
+   * withdrawn is a wrongly registered case, not a finished one. That is why it
+   * lives in the base class and asks nothing about acts or the state.
+   *
+   * A case already given de baja does not exist for the client, so the use case
+   * answers 404 before getting here; reaching it twice is a programming error.
+   */
+  deactivate(deactivation: CaseDeactivation): void {
+    if (!this.props.active) {
+      throw new Error(`The case ${this.props.id} was already given de baja.`);
+    }
+    this.props.active = false;
+    this.props.deactivation = deactivation;
+    this.props.updatedAt = deactivation.deactivatedAt;
   }
 
   /**
@@ -611,6 +635,11 @@ export abstract class Case {
 
   get active(): boolean {
     return this.props.active;
+  }
+
+  /** The record of the baja; `null` while the case is in force. */
+  get deactivation(): CaseDeactivation | null {
+    return this.props.deactivation ?? null;
   }
 
   get createdByUserId(): number {

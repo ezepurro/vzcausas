@@ -208,3 +208,55 @@ patch:
               code: CASE_IN_TERMINAL_STATE
               message: La causa se encuentra en un estado terminal y no admite esta operación.
               details: null
+delete:
+  tags:
+    - Cases
+  operationId: deactivateCase
+  summary: Dar de baja causa
+  description: |
+    Da de baja una causa (HU21), para retirar registros incorrectos o
+    duplicados. La baja es lógica (RN12): la causa se conserva con sus actos,
+    actos interruptivos y expedientes, en cualquier estado, terminales
+    incluidos.
+
+    **Para el cliente la causa deja de existir** (D-97): `GET /cases/{caseId}`
+    y sus subrecursos responden `404 CASE_NOT_FOUND`, no aparece en
+    `GET /cases` y deja de contar en `activeCases`, tableros y proceso diario.
+    No hay reactivación por la API. Su SAC queda libre para otra causa.
+
+    La carpeta en Drive no se borra, no se mueve ni se renombra (RN9). El
+    motivo, el usuario y la fecha quedan registrados, sin endpoint de consulta.
+
+    **Rol requerido:** cualquier usuario autenticado.
+  requestBody:
+    required: false
+    content:
+      application/json:
+        schema:
+          $ref: ../components/schemas/CaseDeactivation.yaml
+        example:
+          reason: 'Causa duplicada: se registró dos veces con distinto SAC.'
+  responses:
+    '204':
+      description: Causa dada de baja. La respuesta no contiene cuerpo.
+    '400':
+      description: Motivo de más de 500 caracteres, campo no admitido o identificador inválido.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          examples:
+            reasonTooLong:
+              summary: Motivo de más de 500 caracteres
+              value:
+                error:
+                  code: VALIDATION_ERROR
+                  message: Los datos enviados no son válidos.
+                  details:
+                    reason: Debe tener hasta 500 caracteres.
+            invalidCaseId:
+              $ref: ../components/examples/InvalidCaseIdError.yaml
+    '401':
+      $ref: ../components/responses/Unauthorized.yaml
+    '404':
+      $ref: ../components/responses/CaseNotFound.yaml

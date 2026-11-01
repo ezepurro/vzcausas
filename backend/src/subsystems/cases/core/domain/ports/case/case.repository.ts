@@ -234,6 +234,15 @@ export interface CaseRepository {
   saveDeclaredPrescription(prescribedCase: Case): Promise<boolean>;
 
   /**
+   * Saves that the case was given de baja (HU21): `active` in `false` and who,
+   * when and why, in one write. Only a case still in force is written, so two
+   * simultaneous bajas cannot both win (CA-21.5). Meant to run inside the use
+   * case's transaction, together with the audit record.
+   * @returns `false` if the case was already given de baja (nothing written).
+   */
+  saveDeactivation(deactivatedCase: Case): Promise<boolean>;
+
+  /**
    * The id and live due date of **every** active case that matches the filters,
    * in no particular order. The listing orders them by urgency and cuts the
    * page (`ListCases`): the order is a rule of the use case, not of the query.

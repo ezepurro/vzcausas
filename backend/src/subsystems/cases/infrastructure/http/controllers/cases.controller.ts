@@ -1,7 +1,8 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Query } from '@nestjs/common';
 import { AuthenticatedUser } from '@shared/domain/authenticated-user';
 import { CurrentUser } from '@shared/infrastructure/http/current-user.decorator';
 import { PaginatedResponse, paginate, toPageRequest } from '@shared/infrastructure/http/pagination/pagination';
+import { DeactivateCase } from '../../../core/application/use-cases/case/deactivate-case.use-case';
 import { DeclarePrescription } from '../../../core/application/use-cases/prescription/declare-prescription.use-case';
 import { GetCase } from '../../../core/application/use-cases/case/get-case.use-case';
 import { GetProceduralAct } from '../../../core/application/use-cases/procedural-act/get-procedural-act.use-case';
@@ -18,6 +19,7 @@ import {
   InvalidProceduralActIdError,
 } from '../../../core/domain/errors/case.errors';
 import { CaseFolderResponseDto, CaseResponseDto } from '../dtos/case/case.response.dto';
+import { DeactivateCaseRequestDto } from '../dtos/case/deactivate-case.request.dto';
 import { DeadlinePreviewQueryDto } from '../dtos/procedural-act/deadline-preview.query.dto';
 import { DeclarePrescriptionRequestDto } from '../dtos/prescription/declare-prescription.request.dto';
 import { DeadlinePreviewResponseDto } from '../dtos/procedural-act/deadline-preview.response.dto';
@@ -55,6 +57,7 @@ export class CasesController {
     private readonly caseMapper: CaseHttpMapper,
     private readonly declarePrescription: DeclarePrescription,
     private readonly updateCase: UpdateCase,
+    private readonly deactivateCase: DeactivateCase,
   ) {}
 
   /**
@@ -166,6 +169,25 @@ export class CasesController {
     const { jurisdiction: _jurisdiction, ...changes } = dto;
     const item = await this.updateCase.execute({ caseId: this.parseCaseId(caseIdParam), changes, actor });
     return { data: this.caseMapper.toResponse(item) };
+  }
+
+  /**
+   * `DELETE /cases/{caseId}` (HU21): gives a case de baja. Any profile may (V5
+   * §3.7), so no permission is declared. The only `DELETE` of the contract with
+   * a body, and an optional one: without it the baja goes through (CA-21.2).
+   */
+  @Delete(':caseId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async deactivate(
+    @Param('caseId') caseIdParam: string,
+    @Body() dto: DeactivateCaseRequestDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ): Promise<void> {
+    await this.deactivateCase.execute({
+      caseId: this.parseCaseId(caseIdParam),
+      input: { reason: dto?.reason },
+      actor,
+    });
   }
 
   /**

@@ -71,6 +71,10 @@ export abstract class UnusedCaseRepository implements CaseRepository {
     throw new Error('Este spec no usa saveDeclaredPrescription de CaseRepository.');
   }
 
+  async saveDeactivation(_deactivatedCase: Case): Promise<boolean> {
+    throw new Error('Este spec no usa saveDeactivation de CaseRepository.');
+  }
+
   async findDueDateKeys(_filters: CaseSearchFilters): Promise<CaseDueDateKey[]> {
     throw new Error('Este spec no usa findDueDateKeys de CaseRepository.');
   }
@@ -220,6 +224,19 @@ export class FakeCaseRepository extends UnusedCaseRepository {
 
   async saveModification(modifiedCase: Case): Promise<void> {
     this.modifications.push(modifiedCase.toSnapshot());
+  }
+
+  /** The cases `saveDeactivation` wrote, in order (HU21). */
+  readonly deactivations: Case[] = [];
+  /** When `true`, `saveDeactivation` finds the case already given de baja: another baja won. */
+  alreadyDeactivatedOnSave = false;
+
+  async saveDeactivation(deactivatedCase: Case): Promise<boolean> {
+    if (this.alreadyDeactivatedOnSave) {
+      return false;
+    }
+    this.deactivations.push(deactivatedCase);
+    return true;
   }
 
   async save(newCase: Case): Promise<void> {
