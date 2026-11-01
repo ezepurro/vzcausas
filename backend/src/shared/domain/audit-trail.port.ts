@@ -20,8 +20,6 @@ export interface AuditEntry {
   entityId: string;
   occurredAt: Date;
   metadata?: Record<string, unknown>;
-  /** The request's `X-Correlation-Id`, to cross with the technical log. */
-  correlationId?: string | null;
 }
 
 /**
@@ -32,6 +30,9 @@ export interface AuditEntry {
  * can only say "a PATCH arrived"; the use case knows "the administrator changed
  * the lawyer's registration number". Called inside the use case's transaction,
  * so the change and its record land together or not at all.
+ *
+ * The request's correlation id is not part of the entry: the adapter takes it
+ * from the request's context, so no use case has to carry it (§3).
  */
 export interface AuditTrailPort {
   record(entry: AuditEntry): Promise<void>;

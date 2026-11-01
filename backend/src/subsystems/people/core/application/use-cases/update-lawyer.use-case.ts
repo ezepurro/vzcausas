@@ -18,8 +18,6 @@ export type UpdateLawyerCommand = {
   changes: LawyerChanges;
   /** The administrator who modifies, for the audit record (CA-14.5). */
   actorUserId: number;
-  /** The request's correlation id, to cross the audit record with the technical log. */
-  correlationId?: string | null;
 };
 
 /**
@@ -84,7 +82,6 @@ export class UpdateLawyerUseCase {
         occurredAt: now,
         // The names of the fields, never their values (audit §4).
         metadata: { changedFields: [...changes.fields] },
-        correlationId: command.correlationId ?? null,
       });
     });
 

@@ -8,9 +8,7 @@ import {
   Patch,
   Post,
   Query,
-  Req,
 } from "@nestjs/common";
-import { Request } from "express";
 import { AuthenticatedUser } from "@shared/domain/authenticated-user";
 import { CurrentUser } from "@shared/infrastructure/http/current-user.decorator";
 import { RequirePermissions } from "@shared/infrastructure/http/require-permissions.decorator";
@@ -112,7 +110,8 @@ export class LawyerController {
   /**
    * HU14. Only the fields sent are touched. The `403` for anyone who is not an
    * administrator comes from the permission, before the lawyer is read
-   * (CA-14.6). The user and the correlation id go to the audit record (CA-14.5).
+   * (CA-14.6). The user goes to the audit record (CA-14.5); the correlation id
+   * gets there on its own, through `RequestContext`.
    */
   @RequirePermissions("lawyer:update")
   @Patch(":lawyerId")
@@ -120,7 +119,6 @@ export class LawyerController {
     @Param("lawyerId") lawyerIdParam: string,
     @Body() dto: UpdateLawyerRequestDto,
     @CurrentUser() actor: AuthenticatedUser,
-    @Req() request: Request,
   ): Promise<{ data: LawyerResponseDto }> {
     const lawyer = await this.updateLawyer.execute({
       lawyerId: this.parseLawyerId(lawyerIdParam),
@@ -130,7 +128,6 @@ export class LawyerController {
         registrationNumber: dto.registrationNumber,
       },
       actorUserId: actor.userId,
-      correlationId: request.correlationId,
     });
     return { data: LawyerHttpMapper.fromView(lawyer) };
   }

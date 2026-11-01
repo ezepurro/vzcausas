@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { AuditEntry, AuditTrailPort } from "@shared/domain/audit-trail.port";
+import { RequestContext } from "@shared/infrastructure/http/request-context";
 import { PrismaService } from "@shared/infrastructure/prisma/prisma.service";
 import { Prisma } from "../../../generated/prisma/client";
 
@@ -27,7 +28,9 @@ export class PrismaAuditTrailAdapter implements AuditTrailPort {
         entityId: entry.entityId,
         occurredAt: entry.occurredAt,
         metadata: (entry.metadata as Prisma.InputJsonObject | undefined) ?? Prisma.JsonNull,
-        correlationId: entry.correlationId ?? null,
+        // Same id as the `X-Correlation-Id` header and the technical log;
+        // `null` outside an HTTP request, such as the daily process.
+        correlationId: RequestContext.correlationId(),
       },
     });
   }

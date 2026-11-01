@@ -63,7 +63,6 @@ const command = (overrides: Partial<UpdateLawyerCommand> = {}): UpdateLawyerComm
   lawyerId: RIOS,
   changes: { lastName: "Gómez" },
   actorUserId: 1,
-  correlationId: "corr-1",
   ...overrides,
 });
 
@@ -93,7 +92,6 @@ describe("UpdateLawyerUseCase", () => {
         entityId: String(RIOS),
         occurredAt: NOW,
         metadata: { changedFields: ["lastName", "registrationNumber"] },
-        correlationId: "corr-1",
         inTransaction: true,
       },
     ]);
