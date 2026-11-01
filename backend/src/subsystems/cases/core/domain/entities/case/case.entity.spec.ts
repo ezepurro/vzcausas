@@ -20,6 +20,7 @@ import {
   TODAY,
   validationDetailsOf,
 } from '../../../test-support/case-fixtures';
+import { CaseDeactivation } from '../../value-objects/case/case-deactivation.vo';
 import { JurisdictionCode } from '../../value-objects/case/jurisdiction-code';
 import { ProceduralRole } from '../../value-objects/case/procedural-role';
 import { Case, DeclarePrescriptionInput, RegisterProceduralActInput, TargetStateChoice } from './case.entity';
@@ -646,5 +647,56 @@ describe('Case', () => {
     (targetCase.proceduralActs as ProceduralAct[]).push(anAct());
 
     expect(targetCase.proceduralActs).toEqual([]);
+  });
+
+  describe('deactivate (HU21)', () => {
+    const LATER_NOW = new Date('2026-10-06T19:00:00.000Z');
+    const aDeactivation = (reason: string | null = 'Causa duplicada.') =>
+      CaseDeactivation.create({ reason }, { deactivatedByUserId: 9, deactivatedAt: LATER_NOW });
+
+    it('deja de estar vigente y guarda quién, cuándo y por qué (CA-21.1, CA-21.3)', () => {
+      const target = aCase();
+      const deactivation = aDeactivation();
+
+      target.deactivate(deactivation);
+
+      expect(target.active).toBe(false);
+      expect(target.deactivation).toBe(deactivation);
+      expect(target.updatedAt).toEqual(LATER_NOW);
+    });
+
+    it.each([
+      ['penal en "Iniciada"', () => aCase()],
+      ['administrativa', () => anAdministrativeCase()],
+      [
+        'de amparo',
+        () =>
+          aCase({
+            jurisdictionCode: JurisdictionCode.AMPARO,
+            proceduralRole: ProceduralRole.ACTORA,
+            subjectMatter: 'Que se ordene la cobertura integral.',
+          }),
+      ],
+      ['archivada', () => aCaseInState({ currentStateId: ARCHIVED.id })],
+      ['prescripta', () => aCaseInState({ currentStateId: PRESCRIBED.id })],
+    ])('se da de baja una causa %s: cualquier fuero y cualquier estado (CA-21.9)', (_case, build) => {
+      const target = build();
+
+      target.deactivate(aDeactivation(null));
+
+      expect(target.active).toBe(false);
+    });
+
+    it('una causa vigente no tiene registro de baja', () => {
+      expect(aCase().deactivation).toBeNull();
+    });
+
+    it('darla de baja dos veces es un error de programación: el caso de uso ya respondió 404', () => {
+      const target = aCase();
+      target.deactivate(aDeactivation());
+
+      expect(() => target.deactivate(aDeactivation('Otra'))).toThrow('was already given de baja');
+      expect(target.deactivation?.reason).toBe('Causa duplicada.');
+    });
   });
 });

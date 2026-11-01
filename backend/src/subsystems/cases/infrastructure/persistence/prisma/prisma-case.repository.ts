@@ -289,6 +289,25 @@ export class PrismaCaseRepository implements CaseRepository {
     return count === 1;
   }
 
+  async saveDeactivation(deactivatedCase: Case): Promise<boolean> {
+    const deactivation = deactivatedCase.deactivation;
+    if (deactivation === null) {
+      throw new Error(`The case ${deactivatedCase.id} has no deactivation to save.`);
+    }
+
+    const { count } = await this.prisma.db.case.updateMany({
+      where: { id: deactivatedCase.id, active: true },
+      data: {
+        active: false,
+        deactivatedAt: deactivation.deactivatedAt,
+        deactivatedByUserId: deactivation.deactivatedByUserId,
+        deactivationReason: deactivation.reason,
+        updatedAt: deactivatedCase.updatedAt,
+      },
+    });
+    return count === 1;
+  }
+
   async findDueDateKeys(filters: CaseSearchFilters): Promise<CaseDueDateKey[]> {
     const rows = await this.prisma.db.case.findMany({
       where: PrismaCaseRepository.searchWhere(filters),

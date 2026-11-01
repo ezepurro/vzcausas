@@ -27,7 +27,9 @@ export class PrismaAuditTrailAdapter implements AuditTrailPort {
         entityType: entry.entityType,
         entityId: entry.entityId,
         occurredAt: entry.occurredAt,
-        metadata: (entry.metadata as Prisma.InputJsonObject | undefined) ?? Prisma.JsonNull,
+        // Without metadata, a database NULL: `JsonNull` would store the JSON
+        // value `null`, which `ck_audit_log_metadata_is_object` refuses.
+        metadata: (entry.metadata as Prisma.InputJsonObject | undefined) ?? Prisma.DbNull,
         // Same id as the `X-Correlation-Id` header and the technical log;
         // `null` outside an HTTP request, such as the daily process.
         correlationId: RequestContext.correlationId(),
