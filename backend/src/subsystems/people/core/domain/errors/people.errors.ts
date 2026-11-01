@@ -60,6 +60,19 @@ export class InvalidLawyerIdError extends ValidationError {
 }
 
 /**
+ * Emitted by `Lawyer.update` (HU14) when the `PATCH` brings no field to
+ * change: the contract asks for at least one (CA-14.10). Same `details` as
+ * `identity`'s `EmptyUpdateRequestError`, so both `PATCH`es answer alike.
+ */
+export class EmptyLawyerUpdateError extends ValidationError {
+  constructor() {
+    super("VALIDATION_ERROR", "Los datos enviados no son válidos.", {
+      body: "Debe enviarse al menos un campo para modificar.",
+    });
+  }
+}
+
+/**
  * Emitted by `RegisterClient` (HU-8) when the DNI already belongs to
  * a **current** client (CA-8.4).
  *
