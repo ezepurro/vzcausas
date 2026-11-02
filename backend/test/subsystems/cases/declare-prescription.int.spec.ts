@@ -3,7 +3,7 @@ import request from 'supertest';
 
 import { loginAs } from '../../shared/auth/login-as';
 import { expectData, expectError, expectPaginated } from '../../shared/contract/envelopes';
-import { createCase } from '../../shared/factories/case.factory';
+import { createCase, deactivateCase } from '../../shared/factories/case.factory';
 import { createLegalQualification } from '../../shared/factories/legal-qualification.factory';
 import {
   ProceduralActScenario,
@@ -226,18 +226,15 @@ describe('POST /api/v1/cases/:caseId/prescription', () => {
   // ── D2: quién puede y qué datos ──────────────────────────────────────
 
   describe('quién puede y qué datos', () => {
-    // CA-33.2
-    it.each([
-      ['sin token', () => null, 401, 'UNAUTHENTICATED', 'La autenticación es requerida.'],
-      ['la secretaría', () => secretary, 403, 'FORBIDDEN', MESSAGES.forbidden],
-    ])('%s no puede marcarla y no se escribe nada', async (_actor, actor, status, code, message) => {
+    // CA-33.2. El 401 sin token está en `test/smoke/app.int.spec.ts`.
+    it('la secretaría no puede marcarla y no se escribe nada', async () => {
       await addRobbery(s.caseRow.id);
       const before = await persisted(s.caseRow.id);
 
-      const res = await mark(s.caseRow.id, actor());
+      const res = await mark(s.caseRow.id, secretary);
 
-      expectError(res, status, code);
-      expect(res.body.error.message).toBe(message);
+      expectError(res, 403, 'FORBIDDEN');
+      expect(res.body.error.message).toBe(MESSAGES.forbidden);
       expect(await persisted(s.caseRow.id)).toEqual(before);
     });
 
@@ -261,31 +258,24 @@ describe('POST /api/v1/cases/:caseId/prescription', () => {
     });
 
     // CA-33.11
-    it.each([
-      ['no existe', async () => 999999],
-      [
-        'fue dada de baja',
-        async () => {
-          await addRobbery(s.caseRow.id);
-          await getPrisma().case.update({ where: { id: s.caseRow.id }, data: { active: false } });
-          return s.caseRow.id;
-        },
-      ],
-    ])('una causa que %s responde 404 CASE_NOT_FOUND', async (_caso, arrange) => {
-      const caseId = await arrange();
+    it('una causa que no existe o fue dada de baja responde 404 CASE_NOT_FOUND', async () => {
+      await addRobbery(s.caseRow.id);
+      await deactivateCase(s.caseRow.id);
 
-      const res = await mark(caseId, administrator);
+      for (const caseId of [999999, s.caseRow.id]) {
+        const res = await mark(caseId, administrator);
 
-      expectError(res, 404, 'CASE_NOT_FOUND');
-      expect(res.body.error.message).toBe(MESSAGES.notFound);
+        expectError(res, 404, 'CASE_NOT_FOUND');
+        expect(res.body.error.message).toBe(MESSAGES.notFound);
+      }
     });
   });
 
   // ── D3: reglas de negocio (422) ──────────────────────────────────────
 
   describe('reglas de negocio', () => {
-    // CA-33.9
-    it('un amparo no prescribe: PRESCRIPTION_NOT_APPLICABLE del fuero', async () => {
+    // CA-33.9, D-74: el amparo por el fuero; la causa penal sin calificaciones, por no tener qué prescribir.
+    it('un amparo o una causa penal sin calificaciones no prescriben: PRESCRIPTION_NOT_APPLICABLE', async () => {
       await createInitialState('AMPARO');
       const amparo = await createCase({
         clientId: s.client.id,
@@ -293,56 +283,53 @@ describe('POST /api/v1/cases/:caseId/prescription', () => {
         createdByUserId: s.user.id,
         jurisdiction: 'AMPARO',
       });
-      const before = await persisted(amparo.id);
+      const cases: [caseId: number, message: string][] = [
+        [amparo.id, MESSAGES.notCriminal],
+        [s.caseRow.id, MESSAGES.withoutQualifications],
+      ];
 
-      const res = await mark(amparo.id, administrator);
+      for (const [caseId, message] of cases) {
+        const before = await persisted(caseId);
 
-      expectError(res, 422, 'PRESCRIPTION_NOT_APPLICABLE');
-      expect(res.body.error.message).toBe(MESSAGES.notCriminal);
-      expect(await persisted(amparo.id)).toEqual(before);
-    });
+        const res = await mark(caseId, administrator);
 
-    // CA-33.9, D-74
-    it('una causa penal sin calificaciones no prescribe: PRESCRIPTION_NOT_APPLICABLE de las calificaciones', async () => {
-      const before = await persisted(s.caseRow.id);
-
-      const res = await mark(s.caseRow.id, administrator);
-
-      expectError(res, 422, 'PRESCRIPTION_NOT_APPLICABLE');
-      expect(res.body.error.message).toBe(MESSAGES.withoutQualifications);
-      expect(await persisted(s.caseRow.id)).toEqual(before);
+        expectError(res, 422, 'PRESCRIPTION_NOT_APPLICABLE');
+        expect(res.body.error.message).toBe(message);
+        expect(await persisted(caseId)).toEqual(before);
+      }
     });
 
     // CA-33.8, CA-33.12
-    it.each([
-      [
-        'ya está prescripta',
-        (scenario: ProceduralActScenario) => ({
-          currentStateId: scenario.states.prescribed.stateId,
-          prescriptionDeclaration: {
-            prescriptionDate: '2026-08-01',
-            resolution: 'Auto N° 99, la resolución original',
-            registeredByUserId: scenario.user.id,
-            registeredAt: new Date('2026-08-01T15:00:00.000Z'),
-          },
-        }),
-      ],
-      ['está archivada', (scenario: ProceduralActScenario) => ({ currentStateId: scenario.states.terminal.stateId })],
-    ])('una causa que %s no se puede marcar: CASE_IN_TERMINAL_STATE, y su constancia no cambia', async (_caso, state) => {
-      const closed = await createCase({
+    it('una causa ya prescripta o archivada no se puede marcar: CASE_IN_TERMINAL_STATE, y su constancia no cambia', async () => {
+      const prescribed = await createCase({
         clientId: s.client.id,
         responsibleLawyerId: s.lawyer.id,
         createdByUserId: s.user.id,
-        ...state(s),
+        currentStateId: s.states.prescribed.stateId,
+        prescriptionDeclaration: {
+          prescriptionDate: '2026-08-01',
+          resolution: 'Auto N° 99, la resolución original',
+          registeredByUserId: s.user.id,
+          registeredAt: new Date('2026-08-01T15:00:00.000Z'),
+        },
       });
-      await addRobbery(closed.id);
-      const before = await persisted(closed.id);
+      const archived = await createCase({
+        clientId: s.client.id,
+        responsibleLawyerId: s.lawyer.id,
+        createdByUserId: s.user.id,
+        currentStateId: s.states.terminal.stateId,
+      });
 
-      const res = await mark(closed.id, administrator);
+      for (const closed of [prescribed, archived]) {
+        await addRobbery(closed.id);
+        const before = await persisted(closed.id);
 
-      expectError(res, 422, 'CASE_IN_TERMINAL_STATE');
-      expect(res.body.error.message).toBe(MESSAGES.terminal);
-      expect(await persisted(closed.id)).toEqual(before);
+        const res = await mark(closed.id, administrator);
+
+        expectError(res, 422, 'CASE_IN_TERMINAL_STATE');
+        expect(res.body.error.message).toBe(MESSAGES.terminal);
+        expect(await persisted(closed.id)).toEqual(before);
+      }
     });
   });
 

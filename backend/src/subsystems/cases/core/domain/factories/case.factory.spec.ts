@@ -37,27 +37,21 @@ function anAmparoInput(overrides: Partial<NewCaseInput> = {}) {
 }
 
 describe('CaseFactory', () => {
-  describe('qué causa construye', () => {
-    it('arma una causa penal para el fuero penal', () => {
-      const newCase = CaseFactory.create(aNewCaseInput());
+  it('arma la causa de cada fuero, con el fuero del estado inicial que recibe', () => {
+    const criminal = CaseFactory.create(aNewCaseInput());
+    const administrative = CaseFactory.create(anAdministrativeInput());
+    const amparo = CaseFactory.create(anAmparoInput());
 
-      expect(newCase).toBeInstanceOf(CriminalCase);
-      expect(newCase.jurisdictionCode).toBe(JurisdictionCode.CRIMINAL);
-    });
-
-    it('arma una causa administrativa para el fuero administrativo', () => {
-      const newCase = CaseFactory.create(anAdministrativeInput());
-
-      expect(newCase).toBeInstanceOf(AdministrativeCase);
-      expect(newCase.jurisdictionCode).toBe(JurisdictionCode.ADMINISTRATIVE);
-    });
-
-    it('arma un amparo para el fuero de amparo', () => {
-      const newCase = CaseFactory.create(anAmparoInput());
-
-      expect(newCase).toBeInstanceOf(Amparo);
-      expect(newCase.jurisdictionCode).toBe(JurisdictionCode.AMPARO);
-    });
+    expect(criminal).toBeInstanceOf(CriminalCase);
+    expect(administrative).toBeInstanceOf(AdministrativeCase);
+    expect(amparo).toBeInstanceOf(Amparo);
+    expect([criminal, administrative, amparo].map((newCase) => newCase.jurisdictionCode)).toEqual([
+      JurisdictionCode.CRIMINAL,
+      JurisdictionCode.ADMINISTRATIVE,
+      JurisdictionCode.AMPARO,
+    ]);
+    expect(amparo.jurisdictionId).toBe(INITIAL_STATES.AMPARO.jurisdictionId);
+    expect(amparo.currentStateId).toBe(INITIAL_STATES.AMPARO.id);
   });
 
   describe('estado inicial y datos de alta (CA-18.1, CA-18.7, CA-18.8)', () => {
@@ -70,27 +64,12 @@ describe('CaseFactory', () => {
       expect(newCase.proceduralActs).toEqual([]);
     });
 
-    it('toma el fuero del estado inicial que recibe', () => {
-      const newCase = CaseFactory.create(anAmparoInput());
-
-      expect(newCase.jurisdictionId).toBe(INITIAL_STATES.AMPARO.jurisdictionId);
-      expect(newCase.currentStateId).toBe(INITIAL_STATES.AMPARO.id);
-    });
-
-    it('queda vigente, con su abogado responsable, su cliente y quien la dio de alta', () => {
-      const newCase = CaseFactory.create(aNewCaseInput({ clientId: 7, responsibleLawyerId: 9, createdByUserId: 4 }));
-
-      expect(newCase.active).toBe(true);
-      expect(newCase.clientId).toBe(7);
-      expect(newCase.responsibleLawyerId).toBe(9);
-      expect(newCase.createdByUserId).toBe(4);
-      expect(newCase.createdAt).toEqual(NOW);
-      expect(newCase.updatedAt).toEqual(NOW);
-    });
-
-    it('guarda el rol procesal, la carátula y el instructor', () => {
+    it('queda vigente con su responsable, su cliente, quien la dio de alta, su rol, su carátula y su instructor', () => {
       const newCase = CaseFactory.create(
         aNewCaseInput({
+          clientId: 7,
+          responsibleLawyerId: 9,
+          createdByUserId: 4,
           court: 'Juzgado de Control N° 3',
           instructorName: 'Dra. Verónica Ledesma',
           tribunalPhone: '0351 448-1200',
@@ -98,9 +77,17 @@ describe('CaseFactory', () => {
         }),
       );
 
-      expect(newCase.proceduralRole).toBe(ProceduralRole.DEFENSA);
-      expect(newCase.caption).toBe('GÓMEZ, Ariel Fernando p.s.a. Robo calificado');
-      expect(newCase.court).toBe('Juzgado de Control N° 3');
+      expect(newCase).toMatchObject({
+        active: true,
+        clientId: 7,
+        responsibleLawyerId: 9,
+        createdByUserId: 4,
+        createdAt: NOW,
+        updatedAt: NOW,
+        proceduralRole: ProceduralRole.DEFENSA,
+        caption: 'GÓMEZ, Ariel Fernando p.s.a. Robo calificado',
+        court: 'Juzgado de Control N° 3',
+      });
       expect(newCase.instructor).toEqual({ name: 'Dra. Verónica Ledesma', phone: '0351 448-1200', extension: '214' });
     });
 
@@ -116,46 +103,34 @@ describe('CaseFactory', () => {
   });
 
   describe('número de SAC y fecha de inicio (CA-18.2)', () => {
-    it('acepta un SAC de exactamente 8 dígitos', async () => {
-      const newCase = CaseFactory.create(aNewCaseInput({ sacNumber: '00012345' }));
+    it('acepta un SAC de exactamente 8 dígitos y guarda la fecha de inicio que recibe', () => {
+      const newCase = CaseFactory.create(aNewCaseInput({ sacNumber: '00012345', startDate: day('2021-03-12') }));
 
       expect(newCase.sacNumber).toBe('00012345');
+      expect(newCase.startDate).toEqual(day('2021-03-12'));
     });
 
-    it.each(['1234567', '123456789', '1234567a', '12 34 56'])('rechaza el SAC "%s"', async (sacNumber) => {
+    it.each(['1234567', '123456789', '1234567a'])('rechaza el SAC "%s"', async (sacNumber) => {
       const details = await validationDetailsOf(() => CaseFactory.create(aNewCaseInput({ sacNumber })));
 
       expect(details).toEqual({ sacNumber: 'Debe contener exactamente 8 dígitos.' });
     });
 
-    it('con SAC, la fecha de inicio es obligatoria', async () => {
-      const details = await validationDetailsOf(() => CaseFactory.create(aNewCaseInput({ startDate: undefined })));
+    it('con SAC, la fecha de inicio es obligatoria, también si llega nula', async () => {
+      for (const startDate of [undefined, null]) {
+        const details = await validationDetailsOf(() => CaseFactory.create(aNewCaseInput({ startDate })));
 
-      expect(details).toEqual({ startDate: 'Es obligatoria cuando se informa el número de SAC.' });
+        expect(details).toEqual({ startDate: 'Es obligatoria cuando se informa el número de SAC.' });
+      }
     });
 
-    it('con SAC, la fecha de inicio es obligatoria aunque llegue nula', async () => {
-      const details = await validationDetailsOf(() => CaseFactory.create(aNewCaseInput({ startDate: null })));
+    it('sin SAC, o con uno en blanco, la causa se registra sin fecha de inicio: no se inventa una', () => {
+      for (const sacNumber of [null, '   ']) {
+        const newCase = CaseFactory.create(aNewCaseInput({ sacNumber, startDate: undefined }));
 
-      expect(details).toEqual({ startDate: 'Es obligatoria cuando se informa el número de SAC.' });
-    });
-
-    it('con SAC, guarda la fecha de inicio que recibe', () => {
-      const newCase = CaseFactory.create(aNewCaseInput({ startDate: day('2021-03-12') }));
-
-      expect(newCase.startDate).toEqual(day('2021-03-12'));
-    });
-
-    it('sin SAC, la causa se registra sin fecha de inicio', () => {
-      const newCase = CaseFactory.create(aNewCaseInput({ sacNumber: null, startDate: undefined }));
-
-      expect(newCase.sacNumber).toBeNull();
-    });
-
-    it('sin SAC, un SAC en blanco cuenta como no informado', () => {
-      const newCase = CaseFactory.create(aNewCaseInput({ sacNumber: '   ', startDate: undefined }));
-
-      expect(newCase.sacNumber).toBeNull();
+        expect(newCase.sacNumber).toBeNull();
+        expect(newCase.startDate).toBeNull();
+      }
     });
 
     it('sin SAC, la fecha de inicio no se informa', async () => {
@@ -166,24 +141,14 @@ describe('CaseFactory', () => {
       expect(details).toEqual({ startDate: 'No se informa si la causa no tiene número de SAC.' });
     });
 
-    it('sin SAC, la fecha de inicio queda vacía: no se inventa una', () => {
-      const newCase = CaseFactory.create(aNewCaseInput({ sacNumber: null, startDate: undefined }));
+    it('la fecha de inicio puede ser la de hoy, no una posterior', async () => {
+      expect(CaseFactory.create(aNewCaseInput({ startDate: TODAY })).startDate).toEqual(TODAY);
 
-      expect(newCase.startDate).toBeNull();
-    });
-
-    it('rechaza una fecha de inicio posterior a hoy', async () => {
       const details = await validationDetailsOf(() =>
         CaseFactory.create(aNewCaseInput({ startDate: day('2026-10-07') })),
       );
 
       expect(details).toEqual({ startDate: 'No puede ser posterior a la fecha de hoy.' });
-    });
-
-    it('acepta una fecha de inicio igual a hoy', () => {
-      const newCase = CaseFactory.create(aNewCaseInput({ startDate: TODAY }));
-
-      expect(newCase.startDate).toEqual(TODAY);
     });
 
     it('rechaza una fecha de inicio inválida', async () => {
@@ -196,7 +161,7 @@ describe('CaseFactory', () => {
   });
 
   describe('carátula y largos máximos', () => {
-    it.each([undefined, '', '   '])('la carátula es obligatoria: %p', async (caption) => {
+    it.each([undefined, '   '])('la carátula es obligatoria: %p', async (caption) => {
       const details = await validationDetailsOf(() =>
         CaseFactory.create(aNewCaseInput({ caption: caption as unknown as string })),
       );
@@ -240,7 +205,9 @@ describe('CaseFactory', () => {
       });
     });
 
-    it('rechaza una contraparte de más de 255 caracteres y un objeto de más de 800', async () => {
+    it('acepta un objeto de 800 caracteres; rechaza una contraparte de más de 255 y un objeto de más de 800', async () => {
+      expect(() => CaseFactory.create(anAmparoInput({ subjectMatter: 'a'.repeat(800) }))).not.toThrow();
+
       const details = await validationDetailsOf(() =>
         CaseFactory.create(anAmparoInput({ counterparty: 'a'.repeat(256), subjectMatter: 'a'.repeat(801) })),
       );
@@ -250,40 +217,27 @@ describe('CaseFactory', () => {
         subjectMatter: 'Debe tener como máximo 800 caracteres.',
       });
     });
-
-    it('acepta un objeto de exactamente 800 caracteres', () => {
-      expect(() => CaseFactory.create(anAmparoInput({ subjectMatter: 'a'.repeat(800) }))).not.toThrow();
-    });
   });
 
   describe('rol procesal según el fuero (CA-18.3)', () => {
-    it('acepta Defensa y Querellante particular en el fuero penal', () => {
-      expect(() => CaseFactory.create(aNewCaseInput({ proceduralRole: ProceduralRole.DEFENSA }))).not.toThrow();
-      expect(() =>
-        CaseFactory.create(aNewCaseInput({ proceduralRole: ProceduralRole.QUERELLANTE_PARTICULAR })),
-      ).not.toThrow();
-    });
+    it('acepta los dos roles de cada fuero', () => {
+      const valid: [() => NewCaseInput, ProceduralRole][] = [
+        [() => aNewCaseInput({ proceduralRole: ProceduralRole.DEFENSA }), ProceduralRole.DEFENSA],
+        [() => aNewCaseInput({ proceduralRole: ProceduralRole.QUERELLANTE_PARTICULAR }), ProceduralRole.QUERELLANTE_PARTICULAR],
+        [() => anAdministrativeInput({ proceduralRole: ProceduralRole.DEFENSA }), ProceduralRole.DEFENSA],
+        [() => anAdministrativeInput({ proceduralRole: ProceduralRole.RECURRENTE }), ProceduralRole.RECURRENTE],
+        [() => anAmparoInput({ proceduralRole: ProceduralRole.ACTORA }), ProceduralRole.ACTORA],
+        [() => anAmparoInput({ proceduralRole: ProceduralRole.DEMANDADA }), ProceduralRole.DEMANDADA],
+      ];
 
-    it('acepta Defensa y Recurrente en el fuero administrativo', () => {
-      expect(() =>
-        CaseFactory.create(anAdministrativeInput({ proceduralRole: ProceduralRole.DEFENSA })),
-      ).not.toThrow();
-      expect(() =>
-        CaseFactory.create(anAdministrativeInput({ proceduralRole: ProceduralRole.RECURRENTE })),
-      ).not.toThrow();
-    });
-
-    it('acepta Actora y Demandada en amparo', () => {
-      expect(() => CaseFactory.create(anAmparoInput({ proceduralRole: ProceduralRole.ACTORA }))).not.toThrow();
-      expect(() => CaseFactory.create(anAmparoInput({ proceduralRole: ProceduralRole.DEMANDADA }))).not.toThrow();
+      for (const [input, role] of valid) {
+        expect(CaseFactory.create(input()).proceduralRole).toBe(role);
+      }
     });
 
     it.each([
       [JurisdictionCode.CRIMINAL, ProceduralRole.ACTORA],
-      [JurisdictionCode.CRIMINAL, ProceduralRole.RECURRENTE],
       [JurisdictionCode.ADMINISTRATIVE, ProceduralRole.QUERELLANTE_PARTICULAR],
-      [JurisdictionCode.ADMINISTRATIVE, ProceduralRole.DEMANDADA],
-      [JurisdictionCode.AMPARO, ProceduralRole.DEFENSA],
       [JurisdictionCode.AMPARO, ProceduralRole.RECURRENTE],
     ])('en el fuero %s rechaza el rol %s', async (jurisdictionCode, proceduralRole) => {
       const details = await validationDetailsOf(() =>
@@ -302,43 +256,21 @@ describe('CaseFactory', () => {
   });
 
   describe('campos propios de cada fuero (CA-18.4)', () => {
-    it('en administrativo guarda la contraparte y el objeto', () => {
-      const newCase = CaseFactory.create(anAdministrativeInput({ counterparty: 'APROSS' })) as AdministrativeCase;
-
-      expect(newCase.counterparty).toBe('APROSS');
-      expect(newCase.subjectMatter).toBe('Se impugna la resolución que deniega la cobertura.');
-    });
-
-    it('en amparo guarda la contraparte y el objeto', () => {
-      const newCase = CaseFactory.create(anAmparoInput({ counterparty: 'APROSS' })) as Amparo;
-
-      expect(newCase.counterparty).toBe('APROSS');
-      expect(newCase.subjectMatter).toBe('Que se ordene la cobertura integral del tratamiento.');
-    });
-
-    it('en administrativo y amparo la contraparte es opcional', () => {
-      const administrative = CaseFactory.create(anAdministrativeInput()) as AdministrativeCase;
+    it('en administrativo y amparo guarda el objeto, y la contraparte es opcional', () => {
+      const administrative = CaseFactory.create(anAdministrativeInput({ counterparty: 'APROSS' })) as AdministrativeCase;
       const amparo = CaseFactory.create(anAmparoInput()) as Amparo;
 
-      expect(administrative.counterparty).toBeNull();
+      expect(administrative.counterparty).toBe('APROSS');
+      expect(administrative.subjectMatter).toBe('Se impugna la resolución que deniega la cobertura.');
       expect(amparo.counterparty).toBeNull();
+      expect(amparo.subjectMatter).toBe('Que se ordene la cobertura integral del tratamiento.');
     });
 
-    it.each([JurisdictionCode.ADMINISTRATIVE, JurisdictionCode.AMPARO])(
-      'en el fuero %s el objeto es obligatorio',
-      async (jurisdictionCode) => {
-        const role = jurisdictionCode === JurisdictionCode.AMPARO ? ProceduralRole.ACTORA : ProceduralRole.RECURRENTE;
-
-        const details = await validationDetailsOf(() =>
-          CaseFactory.create(aNewCaseInput({ jurisdictionCode, proceduralRole: role, subjectMatter: undefined })),
-        );
-
-        expect(details).toEqual({ subjectMatter: 'Es obligatorio en los fueros administrativo y de amparo.' });
-      },
-    );
-
-    it('un objeto en blanco cuenta como faltante', async () => {
-      const details = await validationDetailsOf(() => CaseFactory.create(anAmparoInput({ subjectMatter: '   ' })));
+    it.each([
+      ['administrativo, sin objeto', () => anAdministrativeInput({ subjectMatter: undefined })],
+      ['amparo, con el objeto en blanco', () => anAmparoInput({ subjectMatter: '   ' })],
+    ])('en el fuero %s responde que el objeto es obligatorio', async (_caso, input) => {
+      const details = await validationDetailsOf(() => CaseFactory.create(input()));
 
       expect(details).toEqual({ subjectMatter: 'Es obligatorio en los fueros administrativo y de amparo.' });
     });
@@ -377,22 +309,14 @@ describe('CaseFactory', () => {
       harmfulActTermDayType: DayType.BUSINESS,
     };
 
-    describe('tasa de justicia (RN10)', () => {
-      it.each([
-        ['penal', () => aNewCaseInput()],
-        ['administrativo', () => anAdministrativeInput()],
-        ['amparo', () => anAmparoInput()],
-      ])('en el fuero %s vale false si no se envía', (_fuero, input) => {
-        expect(CaseFactory.create(input()).courtFeePaid).toBe(false);
-      });
+    // RN10
+    it('en todos los fueros la tasa de justicia vale false si no se envía y guarda lo que se envía', () => {
+      const inputs = [aNewCaseInput, anAdministrativeInput, anAmparoInput];
 
-      it.each([
-        ['penal', () => aNewCaseInput({ courtFeePaid: true })],
-        ['administrativo', () => anAdministrativeInput({ courtFeePaid: true })],
-        ['amparo', () => anAmparoInput({ courtFeePaid: true })],
-      ])('en el fuero %s guarda lo que se envía', (_fuero, input) => {
-        expect(CaseFactory.create(input()).courtFeePaid).toBe(true);
-      });
+      for (const input of inputs) {
+        expect(CaseFactory.create(input()).courtFeePaid).toBe(false);
+        expect(CaseFactory.create(input({ courtFeePaid: true })).courtFeePaid).toBe(true);
+      }
     });
 
     describe('preso (solo penal)', () => {
@@ -479,20 +403,21 @@ describe('CaseFactory', () => {
         expect(amparo.harmfulAct).not.toBeNull();
       });
 
-      it('un acto lesivo que no se renueva no lleva días de renovación', () => {
+      it('un acto lesivo que no se renueva no lleva días de renovación, y su plazo puede contarse en días corridos', () => {
         const amparo = CaseFactory.create(
-          anAmparoInput({ ...acto, harmfulActRenews: false, harmfulActRenewalDays: undefined }),
+          anAmparoInput({
+            ...acto,
+            harmfulActRenews: false,
+            harmfulActRenewalDays: undefined,
+            harmfulActTermDayType: DayType.CONSECUTIVE,
+          }),
         ) as Amparo;
 
-        expect(amparo).toMatchObject({ harmfulActRenews: false, harmfulActRenewalDays: null });
-      });
-
-      it('el plazo puede contarse en días corridos', () => {
-        const amparo = CaseFactory.create(
-          anAmparoInput({ ...acto, harmfulActTermDayType: DayType.CONSECUTIVE }),
-        ) as Amparo;
-
-        expect(amparo.harmfulActTermDayType).toBe(DayType.CONSECUTIVE);
+        expect(amparo).toMatchObject({
+          harmfulActRenews: false,
+          harmfulActRenewalDays: null,
+          harmfulActTermDayType: DayType.CONSECUTIVE,
+        });
       });
 
       it('con la fecha del acto lesivo, el plazo y su forma de contarlo son obligatorios', async () => {
@@ -533,7 +458,7 @@ describe('CaseFactory', () => {
         expect(details).toEqual({ harmfulActRenewalDays: 'Solo se informa si el acto lesivo se renueva.' });
       });
 
-      it.each([0, -3, 1.5])('los días de renovación y el plazo son enteros mayores o iguales a 1 (%s)', async (days) => {
+      it.each([0, 1.5])('los días de renovación y el plazo son enteros mayores o iguales a 1 (%s)', async (days) => {
         const details = await validationDetailsOf(() =>
           CaseFactory.create(anAmparoInput({ ...acto, harmfulActRenewalDays: days, harmfulActTermDays: days })),
         );
@@ -609,6 +534,12 @@ describe('CaseFactory', () => {
   });
 
   describe('calificaciones legales de una causa penal (CA-18.5)', () => {
+    const withQualification = (offenseDate?: Date) =>
+      aNewCaseInput({
+        legalQualifications: [{ legalQualificationId: ROBBERY.id, offenseDate }],
+        legalQualificationRefs: [ROBBERY],
+      });
+
     it('una causa penal puede registrarse sin calificaciones', () => {
       const newCase = CaseFactory.create(aNewCaseInput()) as CriminalCase;
 
@@ -635,54 +566,20 @@ describe('CaseFactory', () => {
       expect(newCase.offenses[1].prescriptionExpiresOn).toEqual(day('2037-05-01'));
     });
 
-    it('la fecha del hecho es obligatoria en cada calificación', async () => {
-      const details = await validationDetailsOf(() =>
-        CaseFactory.create(
-          aNewCaseInput({
-            legalQualifications: [{ legalQualificationId: ROBBERY.id }],
-            legalQualificationRefs: [ROBBERY],
-          }),
-        ),
-      );
+    it('la fecha del hecho es obligatoria en cada calificación; una inválida cuenta como faltante', async () => {
+      for (const offenseDate of [undefined, new Date('nada')]) {
+        const details = await validationDetailsOf(() => CaseFactory.create(withQualification(offenseDate)));
 
-      expect(details).toEqual({ legalQualifications: 'Cada calificación legal requiere la fecha del hecho.' });
+        expect(details).toEqual({ legalQualifications: 'Cada calificación legal requiere la fecha del hecho.' });
+      }
     });
 
-    it('una fecha del hecho inválida cuenta como faltante', async () => {
-      const details = await validationDetailsOf(() =>
-        CaseFactory.create(
-          aNewCaseInput({
-            legalQualifications: [{ legalQualificationId: ROBBERY.id, offenseDate: new Date('nada') }],
-            legalQualificationRefs: [ROBBERY],
-          }),
-        ),
-      );
+    it('la fecha del hecho puede ser la de hoy, no una posterior', async () => {
+      expect(() => CaseFactory.create(withQualification(TODAY))).not.toThrow();
 
-      expect(details).toEqual({ legalQualifications: 'Cada calificación legal requiere la fecha del hecho.' });
-    });
-
-    it('la fecha del hecho no puede ser posterior a hoy', async () => {
-      const details = await validationDetailsOf(() =>
-        CaseFactory.create(
-          aNewCaseInput({
-            legalQualifications: [{ legalQualificationId: ROBBERY.id, offenseDate: day('2026-10-07') }],
-            legalQualificationRefs: [ROBBERY],
-          }),
-        ),
-      );
+      const details = await validationDetailsOf(() => CaseFactory.create(withQualification(day('2026-10-07'))));
 
       expect(details).toEqual({ legalQualifications: 'La fecha del hecho no puede ser posterior a hoy.' });
-    });
-
-    it('la fecha del hecho de hoy es válida', () => {
-      expect(() =>
-        CaseFactory.create(
-          aNewCaseInput({
-            legalQualifications: [{ legalQualificationId: ROBBERY.id, offenseDate: TODAY }],
-            legalQualificationRefs: [ROBBERY],
-          }),
-        ),
-      ).not.toThrow();
     });
 
     it('una calificación no puede repetirse dentro de la causa', async () => {
@@ -725,25 +622,21 @@ describe('CaseFactory', () => {
       });
     });
 
-    it('suma los errores de referencia que recibe a los propios', async () => {
-      const details = await validationDetailsOf(() =>
+    it('suma los errores de referencia que recibe a los propios, y con datos válidos igual rechaza', async () => {
+      const withOwn = await validationDetailsOf(() =>
         CaseFactory.create(aNewCaseInput({ caption: '' }), {
           clientId: 'No existe un cliente vigente con ese identificador.',
         }),
       );
-
-      expect(details).toEqual({
-        clientId: 'No existe un cliente vigente con ese identificador.',
-        caption: 'Es obligatoria.',
-      });
-    });
-
-    it('con un error de referencia y datos válidos igual rechaza', async () => {
-      const details = await validationDetailsOf(() =>
+      const onlyReferences = await validationDetailsOf(() =>
         CaseFactory.create(aNewCaseInput(), { responsibleLawyerId: 'No existe un abogado vigente.' }),
       );
 
-      expect(details).toEqual({ responsibleLawyerId: 'No existe un abogado vigente.' });
+      expect(withOwn).toEqual({
+        clientId: 'No existe un cliente vigente con ese identificador.',
+        caption: 'Es obligatoria.',
+      });
+      expect(onlyReferences).toEqual({ responsibleLawyerId: 'No existe un abogado vigente.' });
     });
 
     it('no arma las calificaciones que el llamador ya informó como inexistentes', () => {

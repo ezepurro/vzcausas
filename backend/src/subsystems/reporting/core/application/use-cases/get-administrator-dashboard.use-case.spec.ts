@@ -30,17 +30,22 @@ describe('GetAdministratorDashboard', () => {
     useCase = new GetAdministratorDashboard(query, clock);
   });
 
-  // CA-42.1 y CA-42.2: el alcance es todo el estudio, no un abogado
-  it('es el tablero de todo el estudio, con la fecha del día', async () => {
+  // CA-42.1 y CA-42.2: el alcance es todo el estudio, no un abogado. CA-42.4: los
+  // plazos de todos, por urgencia, con su responsable.
+  it('es el tablero de todo el estudio, con la fecha del día y los plazos de cada abogado', async () => {
     query.cases = [
-      aCase({ responsibleLawyer: RIOS, dueDate: day('2026-10-06') }),
-      aCase({ responsibleLawyer: PERALTA, dueDate: day('2026-10-05') }),
+      aCase({ responsibleLawyer: PERALTA, dueDate: day('2026-10-06') }),
+      aCase({ responsibleLawyer: RIOS, dueDate: day('2026-10-05') }),
     ];
 
     const view = await useCase.execute({ actor: adminActor() });
 
     expect(view.date).toEqual(TODAY);
     expect(view.summary).toEqual({ dueToday: 1, overdue: 1, dueSoon: 0, activeCases: 2 });
+    expect(view.deadlines.map((d) => [d.caseId, d.responsibleLawyer])).toEqual([
+      [2, RIOS],
+      [1, PERALTA],
+    ]);
     expect(query.askedFor).toEqual([]); // no usa findActiveCasesOf: ese es el de HU41
   });
 
@@ -54,21 +59,6 @@ describe('GetAdministratorDashboard', () => {
       { jurisdiction: 'CRIMINAL', activeCases: 2 },
       { jurisdiction: 'ADMINISTRATIVE', activeCases: 0 },
       { jurisdiction: 'AMPARO', activeCases: 1 },
-    ]);
-  });
-
-  // CA-42.4: todos los plazos del estudio, por urgencia, con su responsable
-  it('lista los plazos de todo el estudio por urgencia, con el abogado responsable', async () => {
-    query.cases = [
-      aCase({ responsibleLawyer: PERALTA, dueDate: day('2026-10-20') }),
-      aCase({ responsibleLawyer: RIOS, dueDate: day('2026-10-01') }),
-    ];
-
-    const { deadlines } = await useCase.execute({ actor: adminActor() });
-
-    expect(deadlines.map((d) => [d.caseId, d.responsibleLawyer])).toEqual([
-      [2, RIOS],
-      [1, PERALTA],
     ]);
   });
 

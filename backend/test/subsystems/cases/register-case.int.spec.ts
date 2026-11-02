@@ -18,7 +18,12 @@ import { createUser } from '../../shared/factories/user.factory';
 const URL = '/api/v1/cases';
 
 /*
- * HU18 Registrar Causa. Contrato: API_CONTRACT_V4.md §3.7 (POST /cases).
+ * HU18 Registrar Causa. Contrato: `API_CONTRACT_V5.md` §3.7 (POST /cases).
+ *
+ * Las reglas de cada fuero (D-67) y del SAC se prueban en `case.factory.spec.ts`; acá
+ * queda una alta por fuero con lo persistido, los textos del contrato y lo que sólo la
+ * base prueba (SAC único). La carpeta, en `case-folder.int.spec.ts`; el 401 sin token,
+ * en `test/smoke/app.int.spec.ts`.
  *
  * Con el reloj fijo (hoy es el 06/10/2026, `fixed-clock.ts`): `prescription`
  * depende de la fecha de hoy y el test fija sus valores exactos.
@@ -34,6 +39,8 @@ describe('POST /api/v1/cases', () => {
   let lawyerId: number;
   let clientId: number;
   let storage: InMemoryDocumentStorage;
+
+  const post = (body: object) => request(app.getHttpServer()).post(URL).set(actor).send(body);
 
   beforeAll(async () => {
     app = await startTestApp(withFixedClock);
@@ -53,8 +60,7 @@ describe('POST /api/v1/cases', () => {
     // `cases_current_procedural_act_id_fkey`. Sin esta línea el spec falla
     // **según el orden en que Jest corra las suites** —intermitente— y sólo
     // cuando una suite vecina dejó una causa con acto vigente, que es lo que
-    // hace `register-procedural-act.int.spec.ts`. Mismo orden que
-    // `case-query.int.spec.ts:53`.
+    // hace `register-procedural-act.int.spec.ts`.
     await prisma.case.updateMany({ data: { currentProceduralActId: null } });
     await prisma.proceduralAct.deleteMany();
     await prisma.case.deleteMany();
@@ -96,7 +102,7 @@ describe('POST /api/v1/cases', () => {
       },
     );
 
-    const res = await request(app.getHttpServer()).post(URL).set(actor).send(body);
+    const res = await post(body);
 
     // Contrato (Case.yaml): los datos de cliente y abogado vienen de sus subsistemas.
     const data = expectData(res, 201);
@@ -150,7 +156,7 @@ describe('POST /api/v1/cases', () => {
           prescriptionExpiresOn: '2029-02-27',
         },
       ],
-      // V4 §3.7: calculada desde el alta. Al 06/10/2026 transcurrieron 2047 de
+      // §3.7: calculada desde el alta. Al 06/10/2026 transcurrieron 2047 de
       // 2922 días (70,05 %): la alerta se evalúa sobre el valor exacto, y acá
       // ya está encendida aunque el redondeado sea 70.
       prescription: {
@@ -206,87 +212,149 @@ describe('POST /api/v1/cases', () => {
     expect(row.offenses[0].prescriptionDate).toEqual(new Date('2029-02-27T00:00:00.000Z'));
   });
 
-  it('registra un amparo con contraparte y objeto, sin calificaciones legales', async () => {
-    const body = aCaseBody(
-      { clientId, responsibleLawyerId: lawyerId },
-      {
-        jurisdiction: 'AMPARO',
-        proceduralRole: 'ACTORA',
-        caption: 'MOYANO, Daniela c/ APROSS — Amparo de salud',
-        counterparty: 'APROSS',
-        subjectMatter: 'Que se ordene a APROSS la cobertura integral del tratamiento prescripto.',
-      },
+  // D-67: un amparo con contraparte y objeto, sin calificaciones (no prescribe), con sus datos propios.
+  it('registra un amparo con su medida cautelar y su acto lesivo, y devuelve el plazo calculado', async () => {
+    const amparo = (extra: Record<string, unknown>) =>
+      aCaseBody(
+        { clientId, responsibleLawyerId: lawyerId },
+        {
+          jurisdiction: 'AMPARO',
+          proceduralRole: 'ACTORA',
+          caption: 'MOYANO, Daniela c/ APROSS — Amparo de salud',
+          counterparty: 'APROSS',
+          subjectMatter: 'Que se ordene a APROSS la cobertura integral del tratamiento prescripto.',
+          ...extra,
+        },
+      );
+
+    // Fechas fijas en el pasado: el plazo ya venció, pero sigue abierto (el amparo está en "Iniciada").
+    const withHarmfulAct = await post(
+      amparo({
+        injunctionGranted: true,
+        harmfulActDate: '2026-01-05',
+        harmfulActRenews: false,
+        harmfulActTermDays: 30,
+        harmfulActTermDayType: 'CONSECUTIVE',
+        courtFeePaid: true,
+      }),
     );
+    const renewing = await post(
+      amparo({
+        harmfulActDate: '2026-01-05',
+        harmfulActRenews: true,
+        harmfulActRenewalDays: 30,
+        harmfulActTermDays: 15,
+        harmfulActTermDayType: 'BUSINESS',
+      }),
+    );
+    const withoutHarmfulAct = await post(amparo({}));
 
-    const res = await request(app.getHttpServer()).post(URL).set(actor).send(body);
-
-    const data = expectData<Record<string, unknown>>(res, 201);
+    const data = expectData<{ id: number; harmfulActDeadline: { businessDaysRemaining: number } }>(withHarmfulAct, 201);
     expect(data).toMatchObject({
       jurisdiction: 'AMPARO',
       proceduralRole: 'ACTORA',
       counterparty: 'APROSS',
-      subjectMatter: body.subjectMatter,
+      subjectMatter: 'Que se ordene a APROSS la cobertura integral del tratamiento prescripto.',
       legalQualifications: [],
-      // Los amparos no prescriben (V4 §4, Prescripción).
+      // Los amparos no prescriben (§4, Prescripción).
       prescription: null,
       prescriptionDeclaration: null,
       currentState: { name: 'Iniciada', initial: true },
+      clientDetained: null,
+      injunctionGranted: true,
+      harmfulActDate: '2026-01-05',
+      harmfulActRenews: false,
+      harmfulActRenewalDays: null,
+      harmfulActTermDays: 30,
+      harmfulActTermDayType: 'CONSECUTIVE',
+      harmfulActDeadline: { actDate: '2026-01-05', renewed: false, dueDate: '2026-02-04' },
+      administrativeRemedyExhaustedOn: null,
+      courtFeePaid: true,
+    });
+    expect(data.harmfulActDeadline.businessDaysRemaining).toBeLessThan(0);
+    expect(await getPrisma().case.findUniqueOrThrow({ where: { id: data.id } })).toMatchObject({
+      injunctionGranted: true,
+      harmfulActDate: new Date('2026-01-05T00:00:00.000Z'),
+      harmfulActRenews: false,
+      harmfulActRenewalDays: null,
+      harmfulActTermDays: 30,
+      harmfulActTermDayType: 'CONSECUTIVE',
     });
 
-    expect(await getPrisma().case.count()).toBe(1);
+    // Con renovación, el plazo corre desde la última renovación; la fecha cargada no cambia.
+    const renewed = expectData<{ id: number; harmfulActDeadline: { actDate: string; renewed: boolean } }>(renewing, 201);
+    expect(renewed).toMatchObject({ harmfulActDate: '2026-01-05', harmfulActRenews: true, harmfulActRenewalDays: 30 });
+    expect(renewed.harmfulActDeadline.renewed).toBe(true);
+    expect(renewed.harmfulActDeadline.actDate > '2026-01-05').toBe(true);
+    expect(await getPrisma().case.findUniqueOrThrow({ where: { id: renewed.id } })).toMatchObject({
+      harmfulActRenews: true,
+      harmfulActRenewalDays: 30,
+    });
+
+    // Sin acto lesivo, la medida cautelar y la renovación valen false y no hay plazo.
+    expect(expectData(withoutHarmfulAct, 201)).toMatchObject({
+      injunctionGranted: false,
+      harmfulActDate: null,
+      harmfulActRenews: false,
+      harmfulActRenewalDays: null,
+      harmfulActTermDays: null,
+      harmfulActTermDayType: null,
+      harmfulActDeadline: null,
+      courtFeePaid: false,
+    });
     expect(await getPrisma().offense.count()).toBe(0);
   });
 
-  it('informa por campo un cliente, un abogado y una calificación inexistentes y no guarda nada', async () => {
-    const body = aCaseBody(
-      { clientId: clientId + 1000, responsibleLawyerId: lawyerId + 1000 },
-      { legalQualifications: [{ legalQualificationId: 999999, offenseDate: '2021-02-27' }] },
+  // D-67: los datos propios de penal y de administrativo se guardan; los de los otros fueros salen null.
+  it('registra los datos propios del fuero penal y del administrativo', async () => {
+    const criminal = expectData<{ id: number }>(
+      await post(aCaseBody({ clientId, responsibleLawyerId: lawyerId }, { clientDetained: true, courtFeePaid: true })),
+      201,
+    );
+    const administrative = expectData<{ id: number }>(
+      await post(
+        aCaseBody(
+          { clientId, responsibleLawyerId: lawyerId },
+          {
+            jurisdiction: 'ADMINISTRATIVE',
+            proceduralRole: 'RECURRENTE',
+            subjectMatter: 'Descargo frente a la imputación de falta grave.',
+            administrativeRemedyExhaustedOn: '2026-08-10',
+            courtFeePaid: true,
+          },
+        ),
+      ),
+      201,
     );
 
-    const res = await request(app.getHttpServer()).post(URL).set(actor).send(body);
-
-    expectError(res, 400, 'VALIDATION_ERROR', ['clientId', 'responsibleLawyerId', 'legalQualifications']);
-    expect(await getPrisma().case.count()).toBe(0);
-    expect(await getPrisma().offense.count()).toBe(0);
-  });
-
-  // Un dato dado de baja (active = false) cuenta como inexistente (RN12, CA-18.9):
-  // 400 VALIDATION_ERROR solo sobre su campo y nada guardado.
-  it('rechaza un abogado responsable dado de baja', async () => {
-    const inactiveLawyer = await createLawyer({ active: false });
-    const body = aCaseBody({ clientId, responsibleLawyerId: inactiveLawyer.id });
-
-    const res = await request(app.getHttpServer()).post(URL).set(actor).send(body);
-
-    expectError(res, 400, 'VALIDATION_ERROR', ['responsibleLawyerId']);
-    expect(Object.keys(res.body.error.details)).toEqual(['responsibleLawyerId']);
-    expect(await getPrisma().case.count()).toBe(0);
-  });
-
-  it('rechaza un cliente dado de baja', async () => {
-    const inactiveClient = await createClient({ active: false });
-    const body = aCaseBody({ clientId: inactiveClient.id, responsibleLawyerId: lawyerId });
-
-    const res = await request(app.getHttpServer()).post(URL).set(actor).send(body);
-
-    expectError(res, 400, 'VALIDATION_ERROR', ['clientId']);
-    expect(Object.keys(res.body.error.details)).toEqual(['clientId']);
-    expect(await getPrisma().case.count()).toBe(0);
-  });
-
-  it('rechaza una calificación legal dada de baja', async () => {
-    const inactiveQualification = await createLegalQualification({ active: false });
-    const body = aCaseBody(
-      { clientId, responsibleLawyerId: lawyerId },
-      { legalQualifications: [{ legalQualificationId: inactiveQualification.id, offenseDate: '2021-02-27' }] },
-    );
-
-    const res = await request(app.getHttpServer()).post(URL).set(actor).send(body);
-
-    expectError(res, 400, 'VALIDATION_ERROR', ['legalQualifications']);
-    expect(Object.keys(res.body.error.details)).toEqual(['legalQualifications']);
-    expect(await getPrisma().case.count()).toBe(0);
-    expect(await getPrisma().offense.count()).toBe(0);
+    expect(criminal).toMatchObject({
+      clientDetained: true,
+      injunctionGranted: null,
+      harmfulActDate: null,
+      harmfulActRenews: null,
+      harmfulActDeadline: null,
+      administrativeRemedyExhaustedOn: null,
+      courtFeePaid: true,
+    });
+    expect(administrative).toMatchObject({
+      clientDetained: null,
+      injunctionGranted: null,
+      harmfulActDeadline: null,
+      administrativeRemedyExhaustedOn: '2026-08-10',
+      courtFeePaid: true,
+      prescription: null,
+      prescriptionDeclaration: null,
+    });
+    expect(await getPrisma().case.findUniqueOrThrow({ where: { id: criminal.id } })).toMatchObject({
+      clientDetained: true,
+      courtFeePaid: true,
+      injunctionGranted: null,
+      harmfulActRenews: null,
+    });
+    expect(await getPrisma().case.findUniqueOrThrow({ where: { id: administrative.id } })).toMatchObject({
+      administrativeRemedyExhaustedOn: new Date('2026-08-10T00:00:00.000Z'),
+      clientDetained: null,
+    });
   });
 
   it('registra una causa sin SAC y sin fecha de inicio: la fecha queda en null', async () => {
@@ -295,226 +363,104 @@ describe('POST /api/v1/cases', () => {
     expect(body).not.toHaveProperty('sacNumber');
     expect(body).not.toHaveProperty('startDate');
 
-    const res = await request(app.getHttpServer()).post(URL).set(actor).send(body);
+    const data = expectData<{ id: number }>(await post(body), 201);
 
-    const data = expectData<{ id: number }>(res, 201);
     expect(data).toMatchObject({ sacNumber: null, startDate: null, active: true });
-    expect(data).toHaveProperty('startDate', null);
-
     // Base: la columna admite NULL; no se guarda una fecha inventada.
     const row = await getPrisma().case.findUniqueOrThrow({ where: { id: data.id } });
     expect(row.sacNumber).toBeNull();
     expect(row.startDate).toBeNull();
   });
 
+  // El SAC es único entre las causas vigentes (D-97): lo prueba la base.
   it('rechaza un número de SAC ya registrado y no guarda otra causa', async () => {
     await createCase({ clientId, responsibleLawyerId: lawyerId, createdByUserId: userId, sacNumber: '13284571' });
-    const body = aCaseBody({ clientId, responsibleLawyerId: lawyerId }, { sacNumber: '13284571', startDate: '2021-03-12' });
 
-    const res = await request(app.getHttpServer()).post(URL).set(actor).send(body);
+    const res = await post(aCaseBody({ clientId, responsibleLawyerId: lawyerId }, { sacNumber: '13284571', startDate: '2021-03-12' }));
 
     expectError(res, 409, 'CASE_SAC_ALREADY_EXISTS');
     expect(await getPrisma().case.count()).toBe(1); // solo la que ya existía
   });
 
-  // D-67: datos propios de cada fuero. Se cargan solo al registrar la causa y salen en el mismo recurso.
-  describe('datos propios de cada fuero (D-67)', () => {
-    it('penal: guarda si el cliente está preso y la tasa de justicia, y el resto de los datos sale null', async () => {
-      const body = aCaseBody({ clientId, responsibleLawyerId: lawyerId }, { clientDetained: true, courtFeePaid: true });
+  it('informa por campo un cliente, un abogado y una calificación inexistentes y no guarda nada', async () => {
+    const body = aCaseBody(
+      { clientId: clientId + 1000, responsibleLawyerId: lawyerId + 1000 },
+      { legalQualifications: [{ legalQualificationId: 999999, offenseDate: '2021-02-27' }] },
+    );
 
-      const res = await request(app.getHttpServer()).post(URL).set(actor).send(body);
+    const res = await post(body);
 
-      const data = expectData<{ id: number }>(res, 201);
-      expect(data).toMatchObject({
-        clientDetained: true,
-        injunctionGranted: null,
-        harmfulActDate: null,
-        harmfulActRenews: null,
-        harmfulActRenewalDays: null,
-        harmfulActTermDays: null,
-        harmfulActTermDayType: null,
-        harmfulActDeadline: null,
-        administrativeRemedyExhaustedOn: null,
-        courtFeePaid: true,
-      });
-      const row = await getPrisma().case.findUniqueOrThrow({ where: { id: data.id } });
-      expect(row).toMatchObject({ clientDetained: true, courtFeePaid: true, injunctionGranted: null, harmfulActRenews: null });
-    });
+    expectError(res, 400, 'VALIDATION_ERROR', ['clientId', 'responsibleLawyerId', 'legalQualifications']);
+    expect(await getPrisma().case.count()).toBe(0);
+    expect(await getPrisma().offense.count()).toBe(0);
+  });
 
-    it('administrativo: guarda la fecha de agotamiento de la vía administrativa', async () => {
-      const body = aCaseBody(
+  // Un dato dado de baja (active = false) cuenta como inexistente (RN12, CA-18.9):
+  // 400 VALIDATION_ERROR solo sobre su campo y nada guardado.
+  it('rechaza un abogado, un cliente y una calificación dados de baja, cada uno sobre su campo', async () => {
+    const inactiveLawyer = await createLawyer({ active: false });
+    const inactiveClient = await createClient({ active: false });
+    const inactiveQualification = await createLegalQualification({ active: false });
+    const cases: [field: string, body: object][] = [
+      ['responsibleLawyerId', aCaseBody({ clientId, responsibleLawyerId: inactiveLawyer.id })],
+      ['clientId', aCaseBody({ clientId: inactiveClient.id, responsibleLawyerId: lawyerId })],
+      [
+        'legalQualifications',
+        aCaseBody(
+          { clientId, responsibleLawyerId: lawyerId },
+          { legalQualifications: [{ legalQualificationId: inactiveQualification.id, offenseDate: '2021-02-27' }] },
+        ),
+      ],
+    ];
+
+    for (const [field, body] of cases) {
+      const res = await post(body);
+      expectError(res, 400, 'VALIDATION_ERROR', [field]);
+      expect({ field, details: Object.keys(res.body.error.details) }).toEqual({ field, details: [field] });
+    }
+    expect(await getPrisma().case.count()).toBe(0);
+    expect(await getPrisma().offense.count()).toBe(0);
+  });
+
+  // D-67: un dato de otro fuero y un acto lesivo incompleto (el ejemplo del contrato), con sus textos.
+  it('un dato de otro fuero o un acto lesivo incompleto responden 400 por campo y no guardan nada', async () => {
+    const amparo = {
+      jurisdiction: 'AMPARO',
+      proceduralRole: 'ACTORA',
+      subjectMatter: 'Que se ordene la cobertura integral del tratamiento.',
+    } as const;
+
+    const otherJurisdiction = await post(
+      aCaseBody(
         { clientId, responsibleLawyerId: lawyerId },
-        {
-          jurisdiction: 'ADMINISTRATIVE',
-          proceduralRole: 'RECURRENTE',
-          subjectMatter: 'Descargo frente a la imputación de falta grave.',
-          administrativeRemedyExhaustedOn: '2026-08-10',
-          courtFeePaid: true,
-        },
-      );
-
-      const res = await request(app.getHttpServer()).post(URL).set(actor).send(body);
-
-      const data = expectData<{ id: number }>(res, 201);
-      expect(data).toMatchObject({
-        clientDetained: null,
-        injunctionGranted: null,
-        harmfulActDeadline: null,
-        administrativeRemedyExhaustedOn: '2026-08-10',
-        courtFeePaid: true,
-        prescription: null,
-        prescriptionDeclaration: null,
-      });
-      const row = await getPrisma().case.findUniqueOrThrow({ where: { id: data.id } });
-      expect(row.administrativeRemedyExhaustedOn).toEqual(new Date('2026-08-10T00:00:00.000Z'));
-      expect(row.clientDetained).toBeNull();
-    });
-
-    it('amparo: guarda la medida cautelar y el acto lesivo, y devuelve su plazo calculado', async () => {
-      // Fechas fijas en el pasado: el plazo ya venció, pero sigue abierto (el amparo está en "Iniciada").
-      const body = aCaseBody(
+        { ...amparo, clientDetained: true, administrativeRemedyExhaustedOn: '2026-08-10' },
+      ),
+    );
+    const incomplete = await post(
+      aCaseBody(
         { clientId, responsibleLawyerId: lawyerId },
-        {
-          jurisdiction: 'AMPARO',
-          proceduralRole: 'ACTORA',
-          subjectMatter: 'Que se ordene la cobertura integral del tratamiento.',
-          injunctionGranted: true,
-          harmfulActDate: '2026-01-05',
-          harmfulActRenews: false,
-          harmfulActTermDays: 30,
-          harmfulActTermDayType: 'CONSECUTIVE',
-          courtFeePaid: true,
-        },
-      );
+        { ...amparo, clientDetained: true, harmfulActDate: '2026-08-28', harmfulActRenews: true, harmfulActTermDayType: 'BUSINESS' },
+      ),
+    );
 
-      const res = await request(app.getHttpServer()).post(URL).set(actor).send(body);
-
-      const data = expectData<{ id: number; harmfulActDeadline: { businessDaysRemaining: number } }>(res, 201);
-      expect(data).toMatchObject({
-        clientDetained: null,
-        injunctionGranted: true,
-        harmfulActDate: '2026-01-05',
-        harmfulActRenews: false,
-        harmfulActRenewalDays: null,
-        harmfulActTermDays: 30,
-        harmfulActTermDayType: 'CONSECUTIVE',
-        harmfulActDeadline: { actDate: '2026-01-05', renewed: false, dueDate: '2026-02-04' },
-        administrativeRemedyExhaustedOn: null,
-        courtFeePaid: true,
-      });
-      expect(data.harmfulActDeadline.businessDaysRemaining).toBeLessThan(0);
-      const row = await getPrisma().case.findUniqueOrThrow({ where: { id: data.id } });
-      expect(row).toMatchObject({
-        injunctionGranted: true,
-        harmfulActDate: new Date('2026-01-05T00:00:00.000Z'),
-        harmfulActRenews: false,
-        harmfulActRenewalDays: null,
-        harmfulActTermDays: 30,
-        harmfulActTermDayType: 'CONSECUTIVE',
-      });
+    expectError(otherJurisdiction, 400, 'VALIDATION_ERROR', ['clientDetained', 'administrativeRemedyExhaustedOn']);
+    expect(otherJurisdiction.body.error.details).toEqual({
+      clientDetained: 'Solo corresponde al fuero penal.',
+      administrativeRemedyExhaustedOn: 'Solo corresponde al fuero administrativo.',
     });
-
-    it('amparo con renovación: el plazo corre desde la última renovación y se guardan los días de renovación', async () => {
-      const body = aCaseBody(
-        { clientId, responsibleLawyerId: lawyerId },
-        {
-          jurisdiction: 'AMPARO',
-          proceduralRole: 'ACTORA',
-          subjectMatter: 'Que se ordene la cobertura integral del tratamiento.',
-          harmfulActDate: '2026-01-05',
-          harmfulActRenews: true,
-          harmfulActRenewalDays: 30,
-          harmfulActTermDays: 15,
-          harmfulActTermDayType: 'BUSINESS',
-        },
-      );
-
-      const res = await request(app.getHttpServer()).post(URL).set(actor).send(body);
-
-      const data = expectData<{ id: number; harmfulActDeadline: { actDate: string; renewed: boolean } }>(res, 201);
-      expect(data).toMatchObject({ harmfulActRenews: true, harmfulActRenewalDays: 30 });
-      // La fecha cargada no cambia; la renovación vigente es posterior a ella.
-      expect(data).toMatchObject({ harmfulActDate: '2026-01-05' });
-      expect(data.harmfulActDeadline.renewed).toBe(true);
-      expect(data.harmfulActDeadline.actDate > '2026-01-05').toBe(true);
-      const row = await getPrisma().case.findUniqueOrThrow({ where: { id: data.id } });
-      expect(row).toMatchObject({ harmfulActRenews: true, harmfulActRenewalDays: 30 });
+    expectError(incomplete, 400, 'VALIDATION_ERROR', ['harmfulActRenewalDays', 'harmfulActTermDays', 'clientDetained']);
+    expect(incomplete.body.error.details).toEqual({
+      harmfulActRenewalDays: 'Indicá cada cuántos días se renueva el acto lesivo.',
+      harmfulActTermDays: 'Indicá el plazo para presentar el amparo.',
+      clientDetained: 'Solo corresponde al fuero penal.',
     });
+    expect(await getPrisma().case.count()).toBe(0);
+  });
 
-    it('amparo sin acto lesivo: la medida cautelar y la renovación valen false y no hay plazo', async () => {
-      const body = aCaseBody(
-        { clientId, responsibleLawyerId: lawyerId },
-        {
-          jurisdiction: 'AMPARO',
-          proceduralRole: 'ACTORA',
-          subjectMatter: 'Que se ordene la cobertura integral del tratamiento.',
-        },
-      );
-
-      const res = await request(app.getHttpServer()).post(URL).set(actor).send(body);
-
-      expect(expectData(res, 201)).toMatchObject({
-        injunctionGranted: false,
-        harmfulActDate: null,
-        harmfulActRenews: false,
-        harmfulActRenewalDays: null,
-        harmfulActTermDays: null,
-        harmfulActTermDayType: null,
-        harmfulActDeadline: null,
-        courtFeePaid: false,
-      });
-    });
-
-    it('un dato de otro fuero responde 400 por campo y no guarda nada', async () => {
-      const body = aCaseBody(
-        { clientId, responsibleLawyerId: lawyerId },
-        {
-          jurisdiction: 'AMPARO',
-          proceduralRole: 'ACTORA',
-          subjectMatter: 'Que se ordene la cobertura integral del tratamiento.',
-          clientDetained: true,
-          administrativeRemedyExhaustedOn: '2026-08-10',
-        },
-      );
-
-      const res = await request(app.getHttpServer()).post(URL).set(actor).send(body);
-
-      expectError(res, 400, 'VALIDATION_ERROR', ['clientDetained', 'administrativeRemedyExhaustedOn']);
-      expect(res.body.error.details).toEqual({
-        clientDetained: 'Solo corresponde al fuero penal.',
-        administrativeRemedyExhaustedOn: 'Solo corresponde al fuero administrativo.',
-      });
-      expect(await getPrisma().case.count()).toBe(0);
-    });
-
-    it('el acto lesivo incompleto informa los campos que faltan (el ejemplo del contrato)', async () => {
-      const body = aCaseBody(
-        { clientId, responsibleLawyerId: lawyerId },
-        {
-          jurisdiction: 'AMPARO',
-          proceduralRole: 'ACTORA',
-          subjectMatter: 'Que se ordene la cobertura integral del tratamiento.',
-          clientDetained: true,
-          harmfulActDate: '2026-08-28',
-          harmfulActRenews: true,
-          harmfulActTermDayType: 'BUSINESS',
-        },
-      );
-
-      const res = await request(app.getHttpServer()).post(URL).set(actor).send(body);
-
-      expectError(res, 400, 'VALIDATION_ERROR', ['harmfulActRenewalDays', 'harmfulActTermDays', 'clientDetained']);
-      expect(res.body.error.details).toEqual({
-        harmfulActRenewalDays: 'Indicá cada cuántos días se renueva el acto lesivo.',
-        harmfulActTermDays: 'Indicá el plazo para presentar el amparo.',
-        clientDetained: 'Solo corresponde al fuero penal.',
-      });
-      expect(await getPrisma().case.count()).toBe(0);
-    });
-
-    // El `message` y los `details` son para el usuario final: en castellano, nunca
-    // el texto por defecto de `class-validator` ("clientDetained must be a boolean value").
-    it.each([
+  // El `message` y los `details` son para el usuario final: en castellano, nunca
+  // el texto por defecto de `class-validator` ("clientDetained must be a boolean value").
+  it('un tipo inválido o un campo que el contrato no define responden 400 sobre ese campo, en castellano', async () => {
+    const cases: [field: string, value: unknown, message: string][] = [
       ['clientDetained', 'si', 'Debe ser true o false.'],
       ['courtFeePaid', 'si', 'Debe ser true o false.'],
       ['harmfulActTermDays', 'quince', 'Debe ser un número entero.'],
@@ -522,79 +468,40 @@ describe('POST /api/v1/cases', () => {
       ['harmfulActTermDayType', 'HABILES', 'Debe ser BUSINESS o CONSECUTIVE.'],
       ['proceduralRole', 'DEFENSOR', 'No es un rol procesal válido.'],
       ['caption', 42, 'Debe ser un texto.'],
-    ])('%s con un tipo inválido responde 400 sobre ese campo, en castellano', async (field, value, message) => {
-      const body = aCaseBody({ clientId, responsibleLawyerId: lawyerId }, { [field]: value });
+      ['caratula', 'GÓMEZ', 'No es un campo admitido.'],
+    ];
 
-      const res = await request(app.getHttpServer()).post(URL).set(actor).send(body);
+    for (const [field, value, message] of cases) {
+      const res = await post({ ...aCaseBody({ clientId, responsibleLawyerId: lawyerId }), [field]: value });
+      expect({ field, status: res.status, error: res.body.error }).toEqual({
+        field,
+        status: 400,
+        error: { code: 'VALIDATION_ERROR', message: 'Los datos enviados no son válidos.', details: { [field]: message } },
+      });
+    }
+    expect(await getPrisma().case.count()).toBe(0);
+  });
 
-      expectError(res, 400, 'VALIDATION_ERROR', [field]);
-      expect(res.body.error.message).toBe('Los datos enviados no son válidos.');
-      expect(res.body.error.details).toEqual({ [field]: message });
-      expect(await getPrisma().case.count()).toBe(0);
-    });
-
-    it('un campo que el contrato no define se rechaza en castellano', async () => {
-      const body = { ...aCaseBody({ clientId, responsibleLawyerId: lawyerId }), caratula: 'GÓMEZ' };
-
-      const res = await request(app.getHttpServer()).post(URL).set(actor).send(body);
-
-      expectError(res, 400, 'VALIDATION_ERROR', ['caratula']);
-      expect(res.body.error.details).toEqual({ caratula: 'No es un campo admitido.' });
-    });
-
-    // V4 §3.7: "Los errores de una calificación se informan sobre `legalQualifications`",
-    // no sobre `legalQualifications.0.legalQualificationId`.
-    it.each([
-      ['no es un objeto', ['robo'], 'Cada calificación legal debe ser un objeto.'],
+  // §3.7: "Los errores de una calificación se informan sobre `legalQualifications`",
+  // no sobre `legalQualifications.0.legalQualificationId`.
+  it('los errores de una calificación se informan sobre legalQualifications, con el texto del contrato', async () => {
+    const qualification = await createLegalQualification();
+    const cases: [legalQualifications: unknown[], message: string][] = [
+      [['robo'], 'Cada calificación legal debe ser un objeto.'],
+      [[{ legalQualificationId: 'uno', offenseDate: '2021-02-27' }], 'Cada calificación legal requiere un identificador entero.'],
+      [[{ legalQualificationId: 1, offenseDate: 'no-es-fecha' }], 'La fecha del hecho debe ser una fecha válida (AAAA-MM-DD).'],
       [
-        'tiene un identificador que no es entero',
-        [{ legalQualificationId: 'uno', offenseDate: '2021-02-27' }],
-        'Cada calificación legal requiere un identificador entero.',
-      ],
-      [
-        'tiene una fecha del hecho inválida',
-        [{ legalQualificationId: 1, offenseDate: 'no-es-fecha' }],
-        'La fecha del hecho debe ser una fecha válida (AAAA-MM-DD).',
-      ],
-      [
-        'trae un campo que el contrato no define',
         [{ legalQualificationId: 1, offenseDate: '2021-02-27', fecha: '2021-02-27' }],
         'Cada calificación legal solo admite legalQualificationId y offenseDate.',
       ],
-    ])('una calificación que %s se informa sobre legalQualifications', async (_caso, legalQualifications, message) => {
-      const body = { ...aCaseBody({ clientId, responsibleLawyerId: lawyerId }), legalQualifications };
+      [[{ legalQualificationId: qualification.id }], 'Cada calificación legal requiere la fecha del hecho.'],
+    ];
 
-      const res = await request(app.getHttpServer()).post(URL).set(actor).send(body);
-
+    for (const [legalQualifications, message] of cases) {
+      const res = await post({ ...aCaseBody({ clientId, responsibleLawyerId: lawyerId }), legalQualifications });
       expectError(res, 400, 'VALIDATION_ERROR', ['legalQualifications']);
       expect(res.body.error.details).toEqual({ legalQualifications: message });
-      expect(await getPrisma().case.count()).toBe(0);
-    });
-
-    it('una calificación sin fecha del hecho responde el texto del contrato', async () => {
-      const qualification = await createLegalQualification();
-      const body = aCaseBody(
-        { clientId, responsibleLawyerId: lawyerId },
-        { legalQualifications: [{ legalQualificationId: qualification.id }] },
-      );
-
-      const res = await request(app.getHttpServer()).post(URL).set(actor).send(body);
-
-      expectError(res, 400, 'VALIDATION_ERROR', ['legalQualifications']);
-      expect(res.body.error.details).toEqual({
-        legalQualifications: 'Cada calificación legal requiere la fecha del hecho.',
-      });
-      expect(await getPrisma().case.count()).toBe(0);
-    });
-  });
-
-  it('responde 401 sin token', async () => {
-    const res = await request(app.getHttpServer())
-      .post(URL)
-      .send(aCaseBody({ clientId, responsibleLawyerId: lawyerId }));
-
-    expectError(res, 401, 'UNAUTHENTICATED');
-    expect(res.body.error.message).toBe('La autenticación es requerida.');
+    }
     expect(await getPrisma().case.count()).toBe(0);
   });
 });

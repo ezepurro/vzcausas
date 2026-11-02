@@ -5,8 +5,8 @@ import * as bcrypt from 'bcryptjs';
 import { getPrisma, startTestApp, stopTestApp } from '../../shared/harness/test-app';
 import { withFixedClock } from '../../shared/harness/fixed-clock';
 import { expectData, expectError, expectPaginated } from '../../shared/contract/envelopes';
-import { loginAs, TestRole } from '../../shared/auth/login-as';
-import { createCase } from '../../shared/factories/case.factory';
+import { TestRole } from '../../shared/auth/login-as';
+import { createCase, deactivateCase } from '../../shared/factories/case.factory';
 import { createLawyer } from '../../shared/factories/lawyer.factory';
 import { createLegalQualification } from '../../shared/factories/legal-qualification.factory';
 import { createUser } from '../../shared/factories/user.factory';
@@ -17,10 +17,14 @@ import {
 } from '../../shared/factories/procedural-act-scenario';
 
 /*
- * HU31 Registrar actos interruptivos (contrato V4 §3.9):
+ * HU31 Registrar actos interruptivos (`API_CONTRACT_V5.md` §3.9):
  *   POST /cases/{caseId}/interruptive-acts
  *   GET  /cases/{caseId}/interruptive-acts
  * y su efecto sobre la prescripción, que se ve en GET /cases/{caseId}.
+ *
+ * El cómputo fino de la prescripción (bordes, meses, la que prescribe primero) está en
+ * los specs de `prescription.ts`; acá, el efecto de punta a punta. El 401 sin token
+ * (CA-31.15) está en `test/smoke/app.int.spec.ts`.
  *
  * "Hoy" es el martes 6/10/2026 (reloj fijo).
  */
@@ -54,41 +58,49 @@ async function addOffense(caseId: number, offenseDate: string, prescriptionMonth
   return qualification;
 }
 
+let app: INestApplication;
+let s: ProceduralActScenario;
+
+const url = (caseId: number | string = s.caseRow.id) => `/api/v1/cases/${caseId}/interruptive-acts`;
+const server = () => request(app.getHttpServer());
+const register = (
+  body: Record<string, unknown>,
+  actor: { Authorization: string } = s.responsible,
+  caseId: number | string = s.caseRow.id,
+) => server().post(url(caseId)).set(actor).send(body);
+const list = (caseId: number | string = s.caseRow.id) => server().get(url(caseId)).set(s.notResponsible);
+const detail = async (caseId: number = s.caseRow.id) =>
+  expectData<Record<string, any>>(await server().get(`/api/v1/cases/${caseId}`).set(s.notResponsible), 200);
+const qualificationOf = (caseBody: Record<string, any>, id: number) =>
+  caseBody.legalQualifications.find((q: { id: number }) => q.id === id);
+const anAdministrativeCase = () =>
+  createCase({
+    clientId: s.client.id,
+    responsibleLawyerId: s.lawyer.id,
+    createdByUserId: s.user.id,
+    jurisdiction: 'ADMINISTRATIVE',
+  });
+
+/** Las calificaciones que crea este spec; las causas y los hechos los borra `resetProceduralActData`. */
+const deleteOwnQualifications = () =>
+  getPrisma().legalQualification.deleteMany({ where: { name: { startsWith: 'HU31 calificación' } } });
+
+beforeAll(async () => {
+  app = await startTestApp(withFixedClock);
+});
+
+afterAll(async () => {
+  await resetProceduralActData();
+  await deleteOwnQualifications();
+  await stopTestApp();
+});
+
+beforeEach(async () => {
+  s = await setUpProceduralActScenario();
+  await deleteOwnQualifications();
+});
+
 describe('POST /api/v1/cases/:caseId/interruptive-acts', () => {
-  let app: INestApplication;
-  let s: ProceduralActScenario;
-
-  const url = (caseId: number | string = s.caseRow.id) => `/api/v1/cases/${caseId}/interruptive-acts`;
-  const server = () => request(app.getHttpServer());
-  const register = (
-    body: Record<string, unknown>,
-    actor: { Authorization: string } = s.responsible,
-    caseId: number | string = s.caseRow.id,
-  ) => server().post(url(caseId)).set(actor).send(body);
-  const detail = async (caseId: number = s.caseRow.id) =>
-    expectData<Record<string, any>>(await server().get(`/api/v1/cases/${caseId}`).set(s.notResponsible), 200);
-  const qualificationOf = (caseBody: Record<string, any>, id: number) =>
-    caseBody.legalQualifications.find((q: { id: number }) => q.id === id);
-
-  beforeAll(async () => {
-    app = await startTestApp(withFixedClock);
-  });
-
-  /** Las calificaciones que crea este spec; las causas y los hechos los borra `resetProceduralActData`. */
-  const deleteOwnQualifications = () =>
-    getPrisma().legalQualification.deleteMany({ where: { name: { startsWith: 'HU31 calificación' } } });
-
-  afterAll(async () => {
-    await resetProceduralActData();
-    await deleteOwnQualifications();
-    await stopTestApp();
-  });
-
-  beforeEach(async () => {
-    s = await setUpProceduralActScenario();
-    await deleteOwnQualifications();
-  });
-
   // ── Alta ──────────────────────────────────────────────────────────
 
   // CA-31.1
@@ -117,14 +129,13 @@ describe('POST /api/v1/cases/:caseId/interruptive-acts', () => {
 
   // ── Efecto sobre la prescripción ──────────────────────────────────
 
-  // CA-31.2
-  it('reinicia la prescripción desde la fecha del acto y recalcula el vencimiento', async () => {
+  /** CA-31.2. El listado de causas usa la misma lectura: tiene que mostrar lo mismo que el detalle. */
+  it('reinicia la prescripción desde la fecha del acto, en el detalle y en el listado', async () => {
     const robo = await addOffense(s.caseRow.id, '2021-02-27', 96);
     expect(qualificationOf(await detail(), robo.id)).toMatchObject({
       prescriptionStartsOn: '2021-02-27',
       prescriptionExpiresOn: '2029-02-27',
     });
-
     expect((await detail()).prescription).toMatchObject({ startsOn: '2021-02-27', lastInterruptiveActDate: null });
 
     await register({ name: 'Indagatoria', actDate: '2024-07-04' }).expect(201);
@@ -135,7 +146,7 @@ describe('POST /api/v1/cases/:caseId/interruptive-acts', () => {
       prescriptionStartsOn: '2024-07-04',
       prescriptionExpiresOn: '2032-07-04',
     });
-    // Es la causa del ejemplo del contrato (V4 §3.7). Al 06/10/2026: 824 de 2922 días, 28 %.
+    // Es la causa del ejemplo del contrato (§3.7). Al 06/10/2026: 824 de 2922 días, 28 %.
     expect(body.prescription).toEqual({
       legalQualificationId: robo.id,
       legalQualificationName: robo.name,
@@ -146,6 +157,13 @@ describe('POST /api/v1/cases/:caseId/interruptive-acts', () => {
       expired: false,
       lastInterruptiveActDate: '2024-07-04',
     });
+
+    const listing = expectPaginated<Record<string, any>>(
+      await server().get('/api/v1/cases').query({ clientId: s.client.id }).set(s.notResponsible),
+    );
+    const listed = listing.find((c) => c.id === s.caseRow.id)!;
+    expect(qualificationOf(listed, robo.id).prescriptionStartsOn).toBe('2024-07-04');
+    expect(listed.prescription).toEqual(body.prescription);
   });
 
   // CA-31.3
@@ -175,27 +193,18 @@ describe('POST /api/v1/cases/:caseId/interruptive-acts', () => {
     });
   });
 
-  // CA-31.4
-  it('un acto con fecha anterior a otro ya registrado no cambia el cómputo', async () => {
+  /**
+   * CA-31.4: un acto registrado después pero con fecha anterior no cambia el cómputo.
+   * CA-31.5: una calificación con el hecho posterior al acto sigue contando desde su hecho.
+   */
+  it('un acto con fecha anterior a otro no cambia el cómputo, y un hecho posterior al acto cuenta desde el hecho', async () => {
     const robo = await addOffense(s.caseRow.id, '2021-02-27', 96);
+    const posterior = await addOffense(s.caseRow.id, '2025-03-10', 24);
     await register({ name: 'Indagatoria', actDate: '2024-07-04' }).expect(201);
-
-    // Registrado después, pero con fecha anterior.
     await register({ name: 'Citación a juicio', actDate: '2023-03-01' }).expect(201);
 
     const body = await detail();
-    expect(qualificationOf(body, robo.id).prescriptionStartsOn).toBe('2024-07-04');
-    expect(body.prescription).toMatchObject({ startsOn: '2024-07-04', lastInterruptiveActDate: '2024-07-04' });
-  });
 
-  // CA-31.5
-  it('una calificación con el hecho posterior al acto sigue contando desde su hecho', async () => {
-    const robo = await addOffense(s.caseRow.id, '2021-02-27', 96);
-    const posterior = await addOffense(s.caseRow.id, '2025-03-10', 24);
-
-    await register({ name: 'Indagatoria', actDate: '2024-07-04' }).expect(201);
-
-    const body = await detail();
     expect(qualificationOf(body, robo.id).prescriptionStartsOn).toBe('2024-07-04');
     expect(qualificationOf(body, posterior.id)).toMatchObject({
       offenseDate: '2025-03-10',
@@ -211,54 +220,34 @@ describe('POST /api/v1/cases/:caseId/interruptive-acts', () => {
     });
   });
 
-  /** El listado de causas usa la misma lectura: tiene que mostrar lo mismo que el detalle. */
-  it('el listado de causas muestra la prescripción reiniciada igual que el detalle', async () => {
-    const robo = await addOffense(s.caseRow.id, '2021-02-27', 96);
-    await register({ name: 'Indagatoria', actDate: '2024-07-04' }).expect(201);
-
-    const listing = expectPaginated<Record<string, any>>(
-      await server().get('/api/v1/cases').query({ clientId: s.client.id }).set(s.notResponsible),
-    );
-    const listed = listing.find((c) => c.id === s.caseRow.id)!;
-
-    expect(qualificationOf(listed, robo.id).prescriptionStartsOn).toBe('2024-07-04');
-    expect(listed.prescription).toEqual((await detail()).prescription);
-    expect(listed.prescription).toMatchObject({ startsOn: '2024-07-04', lastInterruptiveActDate: '2024-07-04' });
-  });
-
-  // CA-31.6
-  it('no mueve el estado ni el vencimiento de la causa', async () => {
-    const before = (await detail()).currentState;
+  // CA-31.6 y CA-31.7
+  it('se registra en una causa penal sin calificaciones y no mueve su estado ni su vencimiento', async () => {
+    const before = await detail();
+    expect(before.legalQualifications).toEqual([]);
 
     await register({ name: 'Indagatoria', actDate: '2026-09-01' }).expect(201);
 
-    expect((await detail()).currentState).toEqual(before);
-  });
-
-  // CA-31.7
-  it('se registra en una causa penal sin calificaciones', async () => {
-    expect((await detail()).legalQualifications).toEqual([]);
-
-    await register({ name: 'Indagatoria', actDate: '2026-09-01' }).expect(201);
+    expect((await detail()).currentState).toEqual(before.currentState);
   });
 
   // ── Validación (CA-31.8) ──────────────────────────────────────────
 
-  it.each([
-    ['sin nombre', { actDate: '2026-09-01' }, 'name'],
-    ['con nombre en blanco', { name: '   ', actDate: '2026-09-01' }, 'name'],
-    ['con nombre de 256 caracteres', { name: 'A'.repeat(256), actDate: '2026-09-01' }, 'name'],
-    ['sin fecha', { name: 'Indagatoria' }, 'actDate'],
-    ['con fecha posterior a hoy', { name: 'Indagatoria', actDate: '2026-10-07' }, 'actDate'],
-    ['con observaciones de 2001 caracteres', { name: 'Indagatoria', actDate: '2026-09-01', notes: 'x'.repeat(2001) }, 'notes'],
-  ])('rechaza el alta %s nombrando el campo', async (_caso, body, campo) => {
-    const res = await register(body);
+  it('rechaza un alta inválida nombrando el campo, sin guardar nada; admite los bordes', async () => {
+    const invalid: [body: Record<string, unknown>, field: string][] = [
+      [{ actDate: '2026-09-01' }, 'name'],
+      [{ name: '   ', actDate: '2026-09-01' }, 'name'],
+      [{ name: 'A'.repeat(256), actDate: '2026-09-01' }, 'name'],
+      [{ name: 'Indagatoria' }, 'actDate'],
+      [{ name: 'Indagatoria', actDate: '2026-10-07' }, 'actDate'],
+      [{ name: 'Indagatoria', actDate: '2026-09-01', notes: 'x'.repeat(2001) }, 'notes'],
+    ];
 
-    expectError(res, 400, 'VALIDATION_ERROR', [campo]);
+    for (const [body, field] of invalid) {
+      expectError(await register(body), 400, 'VALIDATION_ERROR', [field]);
+    }
     expect(await getPrisma().interruptiveAct.count()).toBe(0);
-  });
 
-  it('admite un nombre de 255 caracteres y un acto de hoy', async () => {
+    // Un nombre de 255 caracteres y un acto de hoy.
     await register({ name: 'A'.repeat(255), actDate: '2026-10-06' }).expect(201);
   });
 
@@ -266,12 +255,7 @@ describe('POST /api/v1/cases/:caseId/interruptive-acts', () => {
 
   // CA-31.9
   it('rechaza una causa que no es penal', async () => {
-    const administrative = await createCase({
-      clientId: s.client.id,
-      responsibleLawyerId: s.lawyer.id,
-      createdByUserId: s.user.id,
-      jurisdiction: 'ADMINISTRATIVE',
-    });
+    const administrative = await anAdministrativeCase();
 
     const res = await register({ name: 'Indagatoria', actDate: '2026-09-01' }, s.responsible, administrative.id);
 
@@ -294,81 +278,53 @@ describe('POST /api/v1/cases/:caseId/interruptive-acts', () => {
     expect(res.body.error.message).toBe('La causa se encuentra en un estado terminal y no admite esta operación.');
   });
 
-  // CA-31.11
-  it.each([
-    ['otro abogado', () => s.notResponsible],
-    ['un administrador con la ficha del responsable', () => s.administrator],
-  ])('responde 403 a %s y no guarda nada', async (_caso, actor) => {
-    const res = await register({ name: 'Indagatoria', actDate: '2026-09-01' }, actor());
+  // CA-31.11: ni otro abogado ni un administrador con la ficha del responsable.
+  it('responde 403 a quien no es el abogado responsable y no guarda nada', async () => {
+    for (const actor of [s.notResponsible, s.administrator]) {
+      const res = await register({ name: 'Indagatoria', actDate: '2026-09-01' }, actor);
 
-    expectError(res, 403, 'FORBIDDEN');
-    expect(res.body.error.message).toBe('Solo el abogado responsable de la causa puede registrar actos interruptivos.');
+      expectError(res, 403, 'FORBIDDEN');
+      expect(res.body.error.message).toBe('Solo el abogado responsable de la causa puede registrar actos interruptivos.');
+    }
     expect(await getPrisma().interruptiveAct.count()).toBe(0);
   });
 
-  // CA-31.14
-  it('responde 404 para una causa inexistente', async () => {
-    expectError(await register({ name: 'Indagatoria', actDate: '2026-09-01' }, s.responsible, 999999), 404, 'CASE_NOT_FOUND');
-  });
+  /** CA-31.14. `CaseRepository.findById` no filtra `active`: el caso de uso lo verifica. */
+  it('responde 404 para una causa inexistente o dada de baja, y 400 para un caseId no entero', async () => {
+    const body = { name: 'Indagatoria', actDate: '2026-09-01' };
+    expectError(await register(body, s.responsible, 999999), 404, 'CASE_NOT_FOUND');
+    expectError(await register(body, s.responsible, 'abc'), 400, 'INVALID_PATH_PARAMETER', ['caseId']);
 
-  /** `CaseRepository.findById` no filtra `active`: el caso de uso lo verifica. */
-  it('responde 404 para una causa dada de baja', async () => {
-    await getPrisma().case.update({ where: { id: s.caseRow.id }, data: { active: false } });
+    await deactivateCase(s.caseRow.id);
 
-    expectError(await register({ name: 'Indagatoria', actDate: '2026-09-01' }), 404, 'CASE_NOT_FOUND');
+    expectError(await register(body), 404, 'CASE_NOT_FOUND');
     expect(await getPrisma().interruptiveAct.count()).toBe(0);
-  });
-
-  it('rechaza un caseId que no es un entero', async () => {
-    expectError(await register({ name: 'Indagatoria', actDate: '2026-09-01' }, s.responsible, 'abc'), 400, 'INVALID_PATH_PARAMETER', ['caseId']);
-  });
-
-  // CA-31.15
-  it('exige autenticación', async () => {
-    await server().post(url()).send({ name: 'Indagatoria', actDate: '2026-09-01' }).expect(401);
   });
 });
 
 describe('GET /api/v1/cases/:caseId/interruptive-acts', () => {
-  let app: INestApplication;
-  let s: ProceduralActScenario;
   const PASSWORD = 'password1';
-
-  const url = (caseId: number | string = s.caseRow.id) => `/api/v1/cases/${caseId}/interruptive-acts`;
-  const server = () => request(app.getHttpServer());
-  const register = (name: string, actDate: string) =>
-    server().post(url()).set(s.responsible).send({ name, actDate }).expect(201);
-
-  beforeAll(async () => {
-    app = await startTestApp(withFixedClock);
-  });
-
-  // `resetProceduralActData` ya borra los actos interruptivos (HU31).
-  afterAll(async () => {
-    await resetProceduralActData();
-    await stopTestApp();
-  });
-
-  beforeEach(async () => {
-    s = await setUpProceduralActScenario();
-  });
+  const registerNamed = (name: string, actDate: string) => register({ name, actDate }).expect(201);
 
   // CA-31.12
   it('lista del más reciente al más antiguo; en la misma fecha, el último registrado primero', async () => {
-    await register('Indagatoria', '2024-07-04');
-    await register('Citación a juicio', '2025-01-10');
-    await register('Primero del día', '2024-12-01');
-    await register('Segundo del día', '2024-12-01');
+    await registerNamed('Indagatoria', '2024-07-04');
+    await registerNamed('Citación a juicio', '2025-01-10');
+    await registerNamed('Primero del día', '2024-12-01');
+    await registerNamed('Segundo del día', '2024-12-01');
 
-    const data = expectPaginated<{ name: string }>(await server().get(url()).set(s.notResponsible), { totalItems: 4 });
+    const data = expectPaginated<{ name: string }>(await list(), { totalItems: 4 });
 
     expect(data.map((a) => a.name)).toEqual(['Citación a juicio', 'Segundo del día', 'Primero del día', 'Indagatoria']);
   });
 
-  it('pagina contra la base', async () => {
-    await register('A', '2024-01-01');
-    await register('B', '2024-02-01');
-    await register('C', '2024-03-01');
+  it('sin actos, o en una causa que no es penal, la colección vacía; con actos, pagina contra la base', async () => {
+    expect(expectPaginated(await list(), { totalItems: 0 })).toEqual([]);
+    expect(expectPaginated(await list((await anAdministrativeCase()).id))).toEqual([]);
+
+    await registerNamed('A', '2024-01-01');
+    await registerNamed('B', '2024-02-01');
+    await registerNamed('C', '2024-03-01');
 
     const res = await server().get(url()).query({ page: 2, limit: 2 }).set(s.notResponsible);
     const data = expectPaginated<{ name: string }>(res, { page: 2, limit: 2, totalItems: 3, totalPages: 2 });
@@ -376,56 +332,31 @@ describe('GET /api/v1/cases/:caseId/interruptive-acts', () => {
     expect(data.map((a) => a.name)).toEqual(['A']);
   });
 
-  it('una causa sin actos interruptivos devuelve la colección vacía', async () => {
-    expect(expectPaginated(await server().get(url()).set(s.notResponsible), { totalItems: 0 })).toEqual([]);
-  });
-
-  it('una causa que no es penal devuelve la colección vacía, sin error', async () => {
-    const administrative = await createCase({
-      clientId: s.client.id,
-      responsibleLawyerId: s.lawyer.id,
-      createdByUserId: s.user.id,
-      jurisdiction: 'ADMINISTRATIVE',
-    });
-
-    expect(expectPaginated(await server().get(url(administrative.id)).set(s.notResponsible))).toEqual([]);
-  });
-
-  it.each([
-    ['page', { page: 0 }],
-    ['limit', { limit: 500 }],
-  ])('rechaza %s fuera de rango con INVALID_PAGINATION', async (_campo, query) => {
-    expectError(await server().get(url()).query(query).set(s.notResponsible), 400, 'INVALID_PAGINATION', ['page', 'limit']);
+  it('rechaza una paginación fuera de rango con INVALID_PAGINATION', async () => {
+    for (const query of [{ page: 0 }, { limit: 500 }]) {
+      expectError(await server().get(url()).query(query).set(s.notResponsible), 400, 'INVALID_PAGINATION', ['page', 'limit']);
+    }
   });
 
   // CA-31.14
   it('responde 404 para una causa inexistente o dada de baja', async () => {
-    expectError(await server().get(url(999999)).set(s.notResponsible), 404, 'CASE_NOT_FOUND');
+    expectError(await list(999999), 404, 'CASE_NOT_FOUND');
 
-    await getPrisma().case.update({ where: { id: s.caseRow.id }, data: { active: false } });
-    expectError(await server().get(url()).set(s.notResponsible), 404, 'CASE_NOT_FOUND');
-  });
-
-  // CA-31.15
-  it('exige autenticación', async () => {
-    await server().get(url()).expect(401);
+    await deactivateCase(s.caseRow.id);
+    expectError(await list(), 404, 'CASE_NOT_FOUND');
   });
 
   // CA-31.12, con login real: el que consulta no tiene por qué ser el responsable.
-  it.each<TestRole>(['ADMINISTRATOR', 'LAWYER', 'SECRETARY'])('%s puede consultar', async (role) => {
-    await register('Indagatoria', '2024-07-04');
-    const lawyerId = role === 'LAWYER' ? (await createLawyer()).id : null;
-    const user = await createUser({ roles: [role], lawyerId, passwordHash: await bcrypt.hash(PASSWORD, 4) });
-    const login = await server().post('/api/v1/auth/login').send({ username: user.username, password: PASSWORD });
-    const auth = { Authorization: `Bearer ${login.body.data.accessToken}` };
+  it('cada rol puede consultar, aunque no sea el responsable', async () => {
+    await registerNamed('Indagatoria', '2024-07-04');
 
-    const res = await server().get(url()).set(auth);
+    for (const role of ['ADMINISTRATOR', 'LAWYER', 'SECRETARY'] as TestRole[]) {
+      const lawyerId = role === 'LAWYER' ? (await createLawyer()).id : null;
+      const user = await createUser({ roles: [role], lawyerId, passwordHash: await bcrypt.hash(PASSWORD, 4) });
+      const login = await server().post('/api/v1/auth/login').send({ username: user.username, password: PASSWORD });
+      const res = await server().get(url()).set({ Authorization: `Bearer ${login.body.data.accessToken}` });
 
-    expect(res.status).toBe(200);
-    expect(res.body.data).toHaveLength(1);
-  });
-
-  it('un token sin rol de abogado igual puede consultar', async () => {
-    expect((await server().get(url()).set(loginAs({ roles: ['SECRETARY'] }))).status).toBe(200);
+      expect({ role, status: res.status, items: res.body.data?.length }).toEqual({ role, status: 200, items: 1 });
+    }
   });
 });

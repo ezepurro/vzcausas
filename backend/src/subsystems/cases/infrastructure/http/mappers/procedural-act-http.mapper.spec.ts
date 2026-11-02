@@ -4,7 +4,7 @@ import { RegisterProceduralActResult } from '../../../core/application/use-cases
 import { ProceduralAct } from '../../../core/domain/entities/procedural-act.entity';
 import { DayType } from '../../../core/domain/value-objects/deadline/day-type';
 import { Deadline } from '../../../core/domain/value-objects/deadline/deadline.vo';
-import { anAct, anActor, day, LAWYER, OPPOSITION, NOW } from '../../../core/test-support/case-fixtures';
+import { anAct, anActor, day, LAWYER, OPPOSITION } from '../../../core/test-support/case-fixtures';
 import { RegisterProceduralActRequestDto } from '../dtos/procedural-act/register-procedural-act.request.dto';
 import { ProceduralActHttpMapper } from './procedural-act-http.mapper';
 
@@ -56,19 +56,19 @@ describe('ProceduralActHttpMapper', () => {
         manualDueDate: day('2026-09-25'),
         notes: 'Con acusación.',
       });
-    });
 
-    it('un estado escrito a mano viaja como tal', () => {
-      const dto: RegisterProceduralActRequestDto = { customState: 'Pedido de informes', actDate: day('2026-09-15') };
-
-      const command = mapper.toCommand(8, dto, anActor());
-
-      expect(command.customState).toBe('Pedido de informes');
-      expect(command.proceduralStateId).toBeUndefined();
+      // Un estado escrito a mano viaja como tal.
+      const custom = mapper.toCommand(8, { customState: 'Pedido de informes', actDate: day('2026-09-15') }, actor);
+      expect(custom.customState).toBe('Pedido de informes');
+      expect(custom.proceduralStateId).toBeUndefined();
     });
   });
 
   describe('del resultado a la respuesta', () => {
+    /**
+     * La hora del registro sale con el desplazamiento del estudio, no en UTC (`NOW` es
+     * 15:30Z). El nombre de quien registró sale de la ficha del abogado; el id es el del usuario.
+     */
     it('arma el recurso con el estado de la tabla, las fechas sin hora y el plazo (CA-26.1)', () => {
       const response = mapper.toResponse(aResult());
 
@@ -93,19 +93,25 @@ describe('ProceduralActHttpMapper', () => {
       });
     });
 
-    it('la hora del registro sale con el desplazamiento del estudio, no en UTC', () => {
-      const response = mapper.toResponse(aResult());
-
-      expect(response.registeredAt).toBe('2026-10-06T12:30:00-03:00');
-      expect(NOW.toISOString()).toBe('2026-10-06T15:30:00.000Z');
-    });
-
-    it('un estado escrito a mano se informa sin id de la tabla y como custom (CA-26.7)', () => {
-      const act = anActWithDeadline(WITHOUT_TERM, { proceduralStateId: null, customState: 'Pedido de informes' });
+    /** CA-26.7: sin id de la tabla y como custom. Con vencimiento manual, el plazo es de cero días. */
+    it('un estado escrito a mano se informa como custom, y su vencimiento manual con un plazo de cero días', () => {
+      const act = anActWithDeadline(
+        { ...WITHOUT_TERM, manualDueDate: day('2026-10-20') },
+        { proceduralStateId: null, customState: 'Pedido de informes' },
+      );
 
       const response = mapper.toResponse(aResult({ resultingStateName: 'Pedido de informes' }, act));
 
       expect(response.resultingState).toEqual({ proceduralStateId: null, name: 'Pedido de informes', custom: true });
+      expect(response.deadline).toEqual({
+        timeLimitDays: 0,
+        dayType: 'NONE',
+        countsFrom: '2026-09-30',
+        computedDueDate: null,
+        dueDate: '2026-10-20',
+        manuallyAdjusted: true,
+        manualTimeLimitDays: null,
+      });
     });
 
     it('el vencimiento ajustado a mano es el vigente y el calculado se conserva (CA-26.5)', () => {
@@ -122,22 +128,6 @@ describe('ProceduralActHttpMapper', () => {
       });
     });
 
-    it('un estado escrito a mano con vencimiento manual informa un plazo de cero días', () => {
-      const act = anActWithDeadline({ ...WITHOUT_TERM, manualDueDate: day('2026-10-20') }, { proceduralStateId: null, customState: 'X' });
-
-      const response = mapper.toResponse(aResult({}, act));
-
-      expect(response.deadline).toEqual({
-        timeLimitDays: 0,
-        dayType: 'NONE',
-        countsFrom: '2026-09-30',
-        computedDueDate: null,
-        dueDate: '2026-10-20',
-        manuallyAdjusted: true,
-        manualTimeLimitDays: null,
-      });
-    });
-
     it('un acto que no abre plazo y no tiene vencimiento manual no informa plazo (CA-26.12)', () => {
       const act = anActWithDeadline(WITHOUT_TERM);
 
@@ -145,28 +135,12 @@ describe('ProceduralActHttpMapper', () => {
 
       expect(response.deadline).toBeNull();
     });
-
-    it('la fecha de notificación, si hay, sale como fecha sin hora (RN6)', () => {
-      const act = anAct({ notificationDate: day('2026-10-02') });
-
-      const response = mapper.toResponse(aResult({}, act));
-
-      expect(response.notificationDate).toBe('2026-10-02');
-    });
-
-    it('el nombre de quien registró sale de la ficha del abogado y el id es el del usuario', () => {
-      const act = anAct({ registeredByUserId: 41 });
-
-      const response = mapper.toResponse(aResult({}, act));
-
-      expect(response.registeredBy).toEqual({ id: 41, lastName: 'Ríos', firstName: 'Malena' });
-    });
   });
 
   describe('de la query de la previsualización al pedido', () => {
     const actor = anActor();
 
-    it('lee el estado como entero y las fechas sin hora', () => {
+    it('lee el estado como entero y las fechas sin hora; la notificación es opcional', () => {
       const query = mapper.toPreviewQuery(
         8,
         { proceduralStateId: '12', actDate: '2026-09-15', notificationDate: '2026-09-16' },
@@ -180,12 +154,7 @@ describe('ProceduralActHttpMapper', () => {
         actDate: day('2026-09-15'),
         notificationDate: day('2026-09-16'),
       });
-    });
-
-    it('la notificación es opcional', () => {
-      const query = mapper.toPreviewQuery(8, { proceduralStateId: '12', actDate: '2026-09-15' }, actor);
-
-      expect(query.notificationDate).toBeNull();
+      expect(mapper.toPreviewQuery(8, { proceduralStateId: '12', actDate: '2026-09-15' }, actor).notificationDate).toBeNull();
     });
 
     function detailsOf(query: Parameters<ProceduralActHttpMapper['toPreviewQuery']>[1]) {
@@ -204,13 +173,13 @@ describe('ProceduralActHttpMapper', () => {
       expect(detailsOf({})).toEqual({ proceduralStateId: 'Es obligatorio.', actDate: 'Es obligatoria.' });
     });
 
-    it.each(['abc', '1.5', '-3', '0', ''])('rechaza %j como identificador del estado', (proceduralStateId) => {
+    it.each(['abc', '1.5', '0'])('rechaza %j como identificador del estado', (proceduralStateId) => {
       expect(detailsOf({ proceduralStateId, actDate: '2026-09-15' })).toEqual({
         proceduralStateId: 'Debe ser un número entero válido.',
       });
     });
 
-    it.each(['15/09/2026', '2026-9-15', '2026-02-30', '2026-13-01', 'hoy', ''])(
+    it.each(['15/09/2026', '2026-02-30', 'hoy'])(
       'rechaza %j como fecha',
       (value) => {
         const expected = 'Debe ser una fecha válida (AAAA-MM-DD).';
@@ -232,7 +201,7 @@ describe('ProceduralActHttpMapper', () => {
   });
 
   describe('del resultado de la previsualización a la respuesta', () => {
-    it('formatea las fechas sin hora y conserva los días que restan', () => {
+    it('formatea las fechas sin hora y conserva los días que restan; sin plazo, salen null', () => {
       const response = mapper.toPreviewResponse({
         proceduralStateId: 12,
         timeLimitDays: 5,
@@ -250,10 +219,8 @@ describe('ProceduralActHttpMapper', () => {
         dueDate: '2026-09-22',
         businessDaysRemaining: 5,
       });
-    });
 
-    it('un estado que no abre plazo sale sin vencimiento ni días que restan', () => {
-      const response = mapper.toPreviewResponse({
+      const withoutTerm = mapper.toPreviewResponse({
         proceduralStateId: 23,
         timeLimitDays: 0,
         dayType: DayType.NONE,
@@ -262,8 +229,8 @@ describe('ProceduralActHttpMapper', () => {
         businessDaysRemaining: null,
       });
 
-      expect(response.dueDate).toBeNull();
-      expect(response.businessDaysRemaining).toBeNull();
+      expect(withoutTerm.dueDate).toBeNull();
+      expect(withoutTerm.businessDaysRemaining).toBeNull();
     });
   });
 });

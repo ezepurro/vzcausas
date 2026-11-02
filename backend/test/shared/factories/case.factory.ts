@@ -88,6 +88,28 @@ export interface CreateCaseOverrides {
 }
 
 /**
+ * Datos de una baja de causa (D-97) que satisfacen `ck_cases_deactivation_coherent`:
+ * `active: false` exige fecha y usuario de la baja. El motivo es opcional. Sirve
+ * tanto para `case.create` como para `case.update`.
+ */
+export function deactivationData(byUserId: number) {
+  return { active: false, deactivatedAt: new Date(), deactivatedByUserId: byUserId };
+}
+
+/**
+ * Da de baja una causa ya persistida, como la deja `DELETE /cases/{caseId}`. El
+ * usuario de la baja es quien la registró: a ningún test le importa cuál es.
+ */
+export async function deactivateCase(caseId: number) {
+  const prisma = getPrisma();
+  const { createdByUserId } = await prisma.case.findUniqueOrThrow({
+    where: { id: caseId },
+    select: { createdByUserId: true },
+  });
+  return prisma.case.update({ where: { id: caseId }, data: deactivationData(createdByUserId) });
+}
+
+/**
  * PERSISTE una causa. Sin overrides, una causa penal en el estado inicial
  * ("Iniciada"). Una causa administrativa lleva el objeto del reclamo, que ese
  * fuero exige. Un acto vigente no se pasa acá: se crea con `createProceduralAct`,

@@ -53,6 +53,7 @@ describe('RequestCaseFolder', () => {
 
   afterEach(() => jest.restoreAllMocks());
 
+  // El fuero viaja rotulado como lo ve el estudio ("Penal"), no con el código de la API.
   it('pasa la causa a CREATING, publica CaseRegistered con sus datos y devuelve la carpeta creada', async () => {
     const { useCase, registered, folderState, outcomes, events } = build();
     events.onPublish = answerWith('CREATED', folderState, outcomes);
@@ -72,15 +73,6 @@ describe('RequestCaseFolder', () => {
     expect((events.published[0] as CaseRegisteredEvent).eventId).toBeTruthy();
   });
 
-  it('rotula el fuero como lo ve el estudio, no con el código de la API', async () => {
-    const { useCase, registered, folderState, outcomes, events } = build();
-    events.onPublish = answerWith('CREATED', folderState, outcomes);
-
-    await useCase.execute({ caseId: registered.id });
-
-    expect((events.published[0] as CaseRegisteredEvent).jurisdiction.label).toBe('Penal');
-  });
-
   it('si la creación falla a tiempo, devuelve la carpeta en ERROR', async () => {
     const { useCase, registered, folderState, outcomes, events } = build();
     events.onPublish = answerWith('ERROR', folderState, outcomes);
@@ -91,19 +83,14 @@ describe('RequestCaseFolder', () => {
     expect(result.folder?.status).toBe('ERROR');
   });
 
-  it('si la respuesta tarda más que el límite, devuelve CREATING y no espera más', async () => {
-    const { useCase, registered, folderState } = build({ waitMs: 20 });
+  it('si la respuesta tarda más que el límite, devuelve CREATING; la que llega después igual deja la carpeta creada', async () => {
+    const { useCase, registered, folderState, outcomes } = build({ waitMs: 20 });
 
     const result = await useCase.execute({ caseId: registered.id });
 
     expect(result.outcome).toBe('TIMEOUT');
     expect(result.folder?.status).toBe('CREATING');
     expect(folderState.statusOf(registered.id)).toBe('CREATING');
-  });
-
-  it('la respuesta que llega después del límite igual deja la carpeta creada', async () => {
-    const { useCase, registered, folderState, outcomes } = build({ waitMs: 10 });
-    await useCase.execute({ caseId: registered.id });
 
     await folderState.markCreated(registered.id, 'late-folder');
     outcomes.notify(registered.id, 'CREATED');

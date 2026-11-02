@@ -4,9 +4,10 @@ import request from 'supertest';
 import { startTestApp, stopTestApp, getPrisma } from '../../shared/harness/test-app';
 import { civil, FIXED_NOW, withFixedClock } from '../../shared/harness/fixed-clock';
 import { expectData, expectError } from '../../shared/contract/envelopes';
-import { expectProceduralAct } from '../../shared/contract/procedural-acts';
+import { expectDeadlinePreview, expectProceduralAct } from '../../shared/contract/procedural-acts';
 import { loginAs } from '../../shared/auth/login-as';
 import { createCase } from '../../shared/factories/case.factory';
+import { createProceduralAct } from '../../shared/factories/procedural-act.factory';
 import {
   ProceduralActScenario,
   resetProceduralActData,
@@ -14,193 +15,166 @@ import {
 } from '../../shared/factories/procedural-act-scenario';
 
 /*
- * HU26 Registrar acto procesal — POST /cases/{caseId}/procedural-acts.
- * Contrato: openapi `paths/cases@{caseId}@procedural-acts.yaml` y
- * `components/schemas/ProceduralAct.yaml`.
+ * HU26 Registrar acto procesal:
+ *   POST /cases/{caseId}/procedural-acts
+ *   GET  /cases/{caseId}/procedural-acts/deadline-preview
+ * Contrato: `API_CONTRACT_V5.md` §3.8 (`ProceduralAct`, `Deadline`, `DeadlinePreview`).
  *
- * "Hoy" es el martes 6/10/2026 (reloj fijo): los vencimientos no dependen del
- * día en que se corre la suite. El estado, el fuero, el abogado y el usuario salen
- * de la base real a través de los adaptadores de `legal-parameters` y `people`, así
- * que cada test arma ese escenario con las factories.
+ * Una sola app: la previsualización anticipa el vencimiento que el registro va a
+ * calcular (D-20), y los dos comparten el escenario y el orden de los chequeos.
+ * "Hoy" es el martes 6/10/2026 (reloj fijo). El estado, el fuero, el abogado y el
+ * usuario salen de la base real por los adaptadores de `legal-parameters` y `people`.
+ *
+ * El cómputo del vencimiento y sus bordes están en `business-days.spec.ts` y
+ * `deadline.vo.spec.ts`; las reglas del acto, en `procedural-act.entity.spec.ts`.
+ * Acá: la forma del contrato, lo persistido, que un rechazo no escriba nada, cada
+ * código de error una vez y las reglas que necesitan la base. El 401 sin token está
+ * en `test/smoke/app.int.spec.ts`.
  */
-describe('POST /api/v1/cases/:caseId/procedural-acts', () => {
-  let app: INestApplication;
-  let s: ProceduralActScenario;
+let app: INestApplication;
+let s: ProceduralActScenario;
 
-  const url = (caseId: number | string = s.caseRow.id) => `/api/v1/cases/${caseId}/procedural-acts`;
+const actsUrl = (caseId: number | string = s.caseRow.id) => `/api/v1/cases/${caseId}/procedural-acts`;
 
-  const register = (
-    body: Record<string, unknown>,
-    actor: { Authorization: string } = s.responsible,
-    caseId: number | string = s.caseRow.id,
-  ) => request(app.getHttpServer()).post(url(caseId)).set(actor).send(body);
+const register = (
+  body: Record<string, unknown>,
+  actor: { Authorization: string } = s.responsible,
+  caseId: number | string = s.caseRow.id,
+) => request(app.getHttpServer()).post(actsUrl(caseId)).set(actor).send(body);
 
-  /** Lo que un rechazo no debe tocar: los actos guardados y la fila de la causa. */
-  const snapshot = async (caseId: number = s.caseRow.id) => ({
-    acts: await getPrisma().proceduralAct.count(),
-    states: await getPrisma().proceduralState.count(),
-    caseRow: await getPrisma().case.findUniqueOrThrow({ where: { id: caseId } }),
+const preview = (
+  query: Record<string, string | number>,
+  actor: { Authorization: string } = s.responsible,
+  caseId: number | string = s.caseRow.id,
+) => request(app.getHttpServer()).get(`${actsUrl(caseId)}/deadline-preview`).set(actor).query(query);
+
+/** Lo que un rechazo no debe tocar: los actos guardados, los estados y la fila de la causa. */
+const snapshot = async (caseId: number = s.caseRow.id) => ({
+  acts: await getPrisma().proceduralAct.count(),
+  states: await getPrisma().proceduralState.count(),
+  caseRow: await getPrisma().case.findUniqueOrThrow({ where: { id: caseId } }),
+});
+
+const caseRowOf = (caseId: number = s.caseRow.id) => getPrisma().case.findUniqueOrThrow({ where: { id: caseId } });
+const actRow = (id: number) => getPrisma().proceduralAct.findUniqueOrThrow({ where: { id } });
+
+const aClosedCase = () =>
+  createCase({
+    clientId: s.client.id,
+    responsibleLawyerId: s.lawyer.id,
+    createdByUserId: s.user.id,
+    currentStateId: s.states.terminal.stateId,
   });
 
-  beforeAll(async () => {
-    app = await startTestApp(withFixedClock);
+const anAdministrativeCase = () =>
+  createCase({
+    clientId: s.client.id,
+    responsibleLawyerId: s.lawyer.id,
+    createdByUserId: s.user.id,
+    jurisdiction: 'ADMINISTRATIVE',
   });
 
-  afterAll(async () => {
-    await resetProceduralActData(); // no dejar actos vigentes que rompan el beforeEach de otros specs
-    await stopTestApp();
-  });
+/** Los destinos que no se ofrecen (CA-26.8, D-69): los mismos para el registro y la previsualización. */
+const notOffered = () => [
+  ['el estado Prescripta', s.states.prescribed.stateId],
+  ['el estado inicial', s.states.initial.stateId],
+  ['un estado de otro fuero', s.states.administrative.stateId],
+  ['un estado dado de baja', s.states.deactivated.stateId],
+  ['un estado que no existe', 999999],
+] as const;
 
-  beforeEach(async () => {
-    s = await setUpProceduralActScenario();
-  });
+/** CA-26.2: otro abogado, un administrador sin el rol de abogado (aunque su ficha sea la del responsable) y un usuario sin ficha. */
+const notResponsibleActors = () => [s.notResponsible, s.administrator, loginAs({ roles: ['LAWYER'], lawyerId: null })];
 
-  // ── Registro exitoso y cómputo ────────────────────────────────────
+beforeAll(async () => {
+  app = await startTestApp(withFixedClock);
+});
 
-  describe('registro exitoso (CA-26.1) y cómputo del vencimiento (CA-26.3)', () => {
-    it('asienta el acto con su plazo y mueve la causa al estado del acto', async () => {
-      const stateId = s.states.fiveBusinessDays.stateId;
+afterAll(async () => {
+  await resetProceduralActData(); // no dejar actos vigentes que rompan el beforeEach de otros specs
+  await stopTestApp();
+});
 
-      const res = await register({
-        proceduralStateId: stateId,
-        actDate: '2026-10-05',
-        notes: 'Con acusación, pero con oposición.',
-      });
+beforeEach(async () => {
+  s = await setUpProceduralActScenario();
+});
 
-      // Contrato (ProceduralAct.yaml): el acto de 5 días hábiles del lunes 5/10 vence el lunes 12/10.
-      const data = expectData<{ id: number }>(res, 201);
-      expectProceduralAct(data, {
-        caseId: s.caseRow.id,
-        resultingState: {
-          proceduralStateId: stateId,
-          name: 'Oposición al requerimiento de elevación',
-          custom: false,
-        },
-        actDate: '2026-10-05',
-        notificationDate: null,
-        notes: 'Con acusación, pero con oposición.',
-        deadline: {
-          timeLimitDays: 5,
-          dayType: 'BUSINESS',
-          countsFrom: '2026-10-05',
-          computedDueDate: '2026-10-12',
-          dueDate: '2026-10-12',
-          manuallyAdjusted: false,
-          manualTimeLimitDays: null,
-        },
-        // El usuario es el que llama; el nombre sale de la ficha del abogado.
-        registeredBy: { id: s.user.id, lastName: 'Ríos', firstName: 'Malena' },
-        registeredAt: '2026-10-06T12:30:00-03:00',
-      });
+describe('POST /api/v1/cases/{caseId}/procedural-acts', () => {
+  // CA-26.1, CA-26.3, CA-26.9
+  it('asienta el acto con su plazo, en la forma del contrato, y saca a la causa del estado inicial', async () => {
+    const stateId = s.states.fiveBusinessDays.stateId;
 
-      // Base: el acto, con el plazo copiado de la tabla y quién lo registró.
-      const act = await getPrisma().proceduralAct.findUniqueOrThrow({ where: { id: data.id } });
-      expect(act).toMatchObject({
-        caseId: s.caseRow.id,
-        proceduralStateId: stateId,
-        customState: null,
-        actDate: civil('2026-10-05'),
-        notificationDate: null,
-        notes: 'Con acusación, pero con oposición.',
-        deadlineTimeLimitDays: 5,
-        deadlineDayType: 'BUSINESS',
-        deadlineCountsFrom: civil('2026-10-05'),
-        deadlineComputedDueDate: civil('2026-10-12'),
-        deadlineManualDueDate: null,
-        registeredByUserId: s.user.id,
-        registeredByLawyerId: s.lawyer.id,
-        registeredAt: FIXED_NOW,
-      });
-      // Base: la causa pasó al estado del acto y apunta a él.
-      const caseRow = await getPrisma().case.findUniqueOrThrow({ where: { id: s.caseRow.id } });
-      expect(caseRow).toMatchObject({
-        currentStateId: stateId,
-        currentCustomState: null,
-        currentProceduralActId: data.id,
-        updatedAt: FIXED_NOW,
-      });
+    const res = await register({ proceduralStateId: stateId, actDate: '2026-10-05', notes: 'Con acusación, pero con oposición.' });
+
+    // El acto de 5 días hábiles del lunes 5/10 vence el lunes 12/10.
+    const data = expectData<{ id: number }>(res, 201);
+    expectProceduralAct(data, {
+      caseId: s.caseRow.id,
+      resultingState: { proceduralStateId: stateId, name: 'Oposición al requerimiento de elevación', custom: false },
+      actDate: '2026-10-05',
+      notificationDate: null,
+      notes: 'Con acusación, pero con oposición.',
+      deadline: {
+        timeLimitDays: 5,
+        dayType: 'BUSINESS',
+        countsFrom: '2026-10-05',
+        computedDueDate: '2026-10-12',
+        dueDate: '2026-10-12',
+        manuallyAdjusted: false,
+        manualTimeLimitDays: null,
+      },
+      // El usuario es el que llama; el nombre sale de la ficha del abogado.
+      registeredBy: { id: s.user.id, lastName: 'Ríos', firstName: 'Malena' },
+      registeredAt: '2026-10-06T12:30:00-03:00',
     });
-
-    it('los días corridos se cuentan de corrido', async () => {
-      const res = await register({ proceduralStateId: s.states.tenConsecutiveDays.stateId, actDate: '2026-10-05' });
-
-      const data = expectData<{ id: number }>(res, 201);
-      expectProceduralAct(data, {
-        deadline: {
-          timeLimitDays: 10,
-          dayType: 'CONSECUTIVE',
-          countsFrom: '2026-10-05',
-          computedDueDate: '2026-10-15',
-          dueDate: '2026-10-15',
-          manuallyAdjusted: false,
-          manualTimeLimitDays: null,
-        },
-      });
-      const act = await getPrisma().proceduralAct.findUniqueOrThrow({ where: { id: data.id } });
-      expect(act).toMatchObject({ deadlineDayType: 'CONSECUTIVE', deadlineComputedDueDate: civil('2026-10-15') });
+    expect(await actRow(data.id)).toMatchObject({
+      caseId: s.caseRow.id,
+      proceduralStateId: stateId,
+      customState: null,
+      actDate: civil('2026-10-05'),
+      notificationDate: null,
+      notes: 'Con acusación, pero con oposición.',
+      deadlineTimeLimitDays: 5,
+      deadlineDayType: 'BUSINESS',
+      deadlineCountsFrom: civil('2026-10-05'),
+      deadlineComputedDueDate: civil('2026-10-12'),
+      deadlineManualDueDate: null,
+      registeredByUserId: s.user.id,
+      registeredByLawyerId: s.lawyer.id,
+      registeredAt: FIXED_NOW,
     });
-  });
-
-  // ── Solo el abogado responsable ───────────────────────────────────
-
-  describe('solo el abogado responsable (CA-26.2)', () => {
-    const body = () => ({ proceduralStateId: s.states.fiveBusinessDays.stateId, actDate: '2026-10-05' });
-
-    it.each([
-      ['otro abogado', () => s.notResponsible],
-      ['un administrador que no es abogado, aunque su ficha sea la del responsable', () => s.administrator],
-      ['un usuario sin ficha de abogado', () => loginAs({ roles: ['LAWYER'], lawyerId: null })],
-    ])('responde 403 a %s y no guarda nada', async (_name, actor) => {
-      const before = await snapshot();
-
-      const res = await register(body(), actor());
-
-      expectError(res, 403, 'FORBIDDEN');
-      expect(await snapshot()).toEqual(before);
-    });
-
-    it('lo permite a quien es administrador y abogado a la vez, si es el responsable', async () => {
-      const both = loginAs({ userId: s.user.id, roles: ['ADMINISTRATOR', 'LAWYER'], lawyerId: s.lawyer.id });
-
-      const res = await register(body(), both);
-
-      expectData(res, 201);
+    // La misma transacción mueve la causa al estado del acto y la apunta a él.
+    expect(await caseRowOf()).toMatchObject({
+      currentStateId: stateId,
+      currentCustomState: null,
+      currentProceduralActId: data.id,
+      updatedAt: FIXED_NOW,
     });
   });
 
-  // ── Fuero administrativo ──────────────────────────────────────────
+  // CA-26.2
+  it('sólo lo registra el abogado responsable: a cualquier otro le responde 403 sin guardar nada; administrador y abogado a la vez, sí', async () => {
+    const body = { proceduralStateId: s.states.fiveBusinessDays.stateId, actDate: '2026-10-05' };
+    const before = await snapshot();
 
-  describe('fuero administrativo (CA-26.4, RN6)', () => {
-    let administrativeCaseId: number;
+    for (const actor of notResponsibleActors()) {
+      expectError(await register(body, actor), 403, 'FORBIDDEN');
+    }
+    expect(await snapshot()).toEqual(before);
 
-    beforeEach(async () => {
-      const administrativeCase = await createCase({
-        clientId: s.client.id,
-        responsibleLawyerId: s.lawyer.id,
-        createdByUserId: s.user.id,
-        jurisdiction: 'ADMINISTRATIVE',
-      });
-      administrativeCaseId = administrativeCase.id;
-    });
+    const both = loginAs({ userId: s.user.id, roles: ['ADMINISTRATOR', 'LAWYER'], lawyerId: s.lawyer.id });
+    expectData(await register(body, both), 201);
+  });
 
-    it('la fecha de notificación es obligatoria si el estado abre plazo', async () => {
-      const before = await snapshot(administrativeCaseId);
+  // CA-26.4, RN6
+  describe('fuero administrativo', () => {
+    it('el plazo corre desde la notificación; sin plazo no hace falta notificación', async () => {
+      const administrative = await anAdministrativeCase();
 
-      const res = await register(
-        { proceduralStateId: s.states.administrative.stateId, actDate: '2026-10-02' },
-        s.responsible,
-        administrativeCaseId,
-      );
-
-      expectError(res, 400, 'VALIDATION_ERROR', ['notificationDate']);
-      expect(await snapshot(administrativeCaseId)).toEqual(before);
-    });
-
-    it('el plazo corre desde la notificación y no desde la fecha del acto', async () => {
       const res = await register(
         { proceduralStateId: s.states.administrative.stateId, actDate: '2026-10-02', notificationDate: '2026-10-05' },
         s.responsible,
-        administrativeCaseId,
+        administrative.id,
       );
 
       // Notificación del lunes 5/10 + 10 días hábiles = lunes 19/10.
@@ -210,387 +184,387 @@ describe('POST /api/v1/cases/:caseId/procedural-acts', () => {
         notificationDate: '2026-10-05',
         deadline: { countsFrom: '2026-10-05', computedDueDate: '2026-10-19', dueDate: '2026-10-19' },
       });
-      const act = await getPrisma().proceduralAct.findUniqueOrThrow({ where: { id: data.id } });
-      expect(act).toMatchObject({
-        actDate: civil('2026-10-02'),
+      expect(await actRow(data.id)).toMatchObject({
         notificationDate: civil('2026-10-05'),
         deadlineCountsFrom: civil('2026-10-05'),
         deadlineComputedDueDate: civil('2026-10-19'),
       });
-    });
-
-    it('si el estado no abre plazo no hace falta notificación', async () => {
-      const res = await register(
-        { proceduralStateId: s.states.administrativeWithoutTerm.stateId, actDate: '2026-10-02' },
-        s.responsible,
-        administrativeCaseId,
+      expectData(
+        await register(
+          { proceduralStateId: s.states.administrativeWithoutTerm.stateId, actDate: '2026-10-05' },
+          s.responsible,
+          administrative.id,
+        ),
+        201,
       );
-
-      expectData(res, 201);
     });
 
-    it('en los otros fueros no se informa la notificación', async () => {
-      const before = await snapshot();
+    it('rechaza la falta de notificación si el estado abre plazo, y una notificación en otro fuero, sin guardar nada', async () => {
+      const administrative = await anAdministrativeCase();
+      const before = { administrative: await snapshot(administrative.id), criminal: await snapshot() };
 
-      const res = await register({
+      const missing = await register(
+        { proceduralStateId: s.states.administrative.stateId, actDate: '2026-10-02' },
+        s.responsible,
+        administrative.id,
+      );
+      const notApplicable = await register({
         proceduralStateId: s.states.fiveBusinessDays.stateId,
         actDate: '2026-10-05',
         notificationDate: '2026-10-05',
       });
 
-      expectError(res, 400, 'VALIDATION_ERROR', ['notificationDate']);
-      expect(await snapshot()).toEqual(before);
+      expectError(missing, 400, 'VALIDATION_ERROR', ['notificationDate']);
+      expectError(notApplicable, 400, 'VALIDATION_ERROR', ['notificationDate']);
+      expect({ administrative: await snapshot(administrative.id), criminal: await snapshot() }).toEqual(before);
     });
   });
 
-  // ── Ajuste manual ─────────────────────────────────────────────────
-
-  describe('ajuste manual del vencimiento (CA-26.5)', () => {
-    it('el vencimiento ajustado pasa a ser el vigente y se conserva el calculado', async () => {
-      const res = await register({
-        proceduralStateId: s.states.fiveBusinessDays.stateId,
-        actDate: '2026-10-05',
-        manualDueDate: '2026-10-20',
-      });
-
-      const data = expectData<{ id: number }>(res, 201);
-      expectProceduralAct(data, {
-        deadline: {
-          timeLimitDays: 5,
-          dayType: 'BUSINESS',
-          countsFrom: '2026-10-05',
-          computedDueDate: '2026-10-12',
-          dueDate: '2026-10-20',
-          manuallyAdjusted: true,
-          // D-86: del lunes 5/10 al martes 20/10 hay 11 días hábiles (6-9, 12-16, 19-20).
-          manualTimeLimitDays: 11,
-        },
-        // Quién lo ajustó queda registrado en el acto.
-        registeredBy: { id: s.user.id },
-      });
-      const act = await getPrisma().proceduralAct.findUniqueOrThrow({ where: { id: data.id } });
-      expect(act).toMatchObject({
-        deadlineComputedDueDate: civil('2026-10-12'),
-        deadlineManualDueDate: civil('2026-10-20'),
-        registeredByUserId: s.user.id,
-      });
+  // CA-26.5, D-86
+  it('el vencimiento ajustado a mano pasa a ser el vigente y se conserva el calculado', async () => {
+    const res = await register({
+      proceduralStateId: s.states.fiveBusinessDays.stateId,
+      actDate: '2026-10-05',
+      manualDueDate: '2026-10-20',
     });
 
-    it('rechaza un ajuste anterior a la fecha desde la que corre el plazo', async () => {
-      const before = await snapshot();
-
-      const res = await register({
-        proceduralStateId: s.states.fiveBusinessDays.stateId,
-        actDate: '2026-10-05',
-        manualDueDate: '2026-10-04',
-      });
-
-      expectError(res, 400, 'VALIDATION_ERROR', ['manualDueDate']);
-      expect(await snapshot()).toEqual(before);
+    const data = expectData<{ id: number }>(res, 201);
+    expectProceduralAct(data, {
+      deadline: {
+        timeLimitDays: 5,
+        dayType: 'BUSINESS',
+        countsFrom: '2026-10-05',
+        computedDueDate: '2026-10-12',
+        dueDate: '2026-10-20',
+        manuallyAdjusted: true,
+        // Del lunes 5/10 al martes 20/10 hay 11 días hábiles (6-9, 12-16, 19-20).
+        manualTimeLimitDays: 11,
+      },
+      registeredBy: { id: s.user.id },
+    });
+    expect(await actRow(data.id)).toMatchObject({
+      deadlineComputedDueDate: civil('2026-10-12'),
+      deadlineManualDueDate: civil('2026-10-20'),
     });
   });
 
-  // ── Plazo copiado ─────────────────────────────────────────────────
+  // CA-26.6
+  it('el plazo se copia al acto: si después cambia el del estado, el vencimiento del acto no cambia', async () => {
+    const stateId = s.states.fiveBusinessDays.stateId;
+    const { id } = expectData<{ id: number }>(await register({ proceduralStateId: stateId, actDate: '2026-10-05' }), 201);
 
-  describe('plazo copiado al acto (CA-26.6)', () => {
-    it('si después se modifica el plazo del estado, el vencimiento del acto no cambia', async () => {
-      const stateId = s.states.fiveBusinessDays.stateId;
-      const res = await register({ proceduralStateId: stateId, actDate: '2026-10-05' });
-      const { id } = expectData<{ id: number }>(res, 201);
+    await getPrisma().proceduralState.update({ where: { stateId }, data: { timeLimitDays: 30, dayType: 'CONSECUTIVE' } });
 
-      await getPrisma().proceduralState.update({
-        where: { stateId },
-        data: { timeLimitDays: 30, dayType: 'CONSECUTIVE' },
-      });
-
-      const act = await getPrisma().proceduralAct.findUniqueOrThrow({ where: { id } });
-      expect(act).toMatchObject({
-        deadlineTimeLimitDays: 5,
-        deadlineDayType: 'BUSINESS',
-        deadlineComputedDueDate: civil('2026-10-12'),
-      });
+    expect(await actRow(id)).toMatchObject({
+      deadlineTimeLimitDays: 5,
+      deadlineDayType: 'BUSINESS',
+      deadlineComputedDueDate: civil('2026-10-12'),
     });
   });
 
-  // ── Estado escrito a mano ─────────────────────────────────────────
-
-  describe('estado escrito a mano (CA-26.7)', () => {
+  // CA-26.7
+  it('un estado escrito a mano queda sólo en esa causa, fuera de la tabla, y tiene vencimiento sólo si se carga a mano', async () => {
     const customState = 'Pedido de informes al Registro Nacional de Reincidencia';
+    const other = await createCase({ clientId: s.client.id, responsibleLawyerId: s.lawyer.id, createdByUserId: s.user.id });
+    const statesBefore = await getPrisma().proceduralState.count();
 
-    it('queda guardado solo en esa causa, sin plazo y sin entrar a la tabla del fuero', async () => {
-      const statesBefore = await getPrisma().proceduralState.count();
+    const plain = expectData<{ id: number }>(await register({ customState, actDate: '2026-10-05' }), 201);
+    const withManual = expectData(
+      await register({ customState, actDate: '2026-10-05', manualDueDate: '2026-10-25' }, s.responsible, other.id),
+      201,
+    );
 
-      const res = await register({ customState, actDate: '2026-10-05' });
-
-      const data = expectData<{ id: number }>(res, 201);
-      expectProceduralAct(data, {
-        resultingState: { proceduralStateId: null, name: customState, custom: true },
-        // No abre plazo y no se cargó un vencimiento a mano: no hay plazo que informar.
-        deadline: null,
-      });
-      const act = await getPrisma().proceduralAct.findUniqueOrThrow({ where: { id: data.id } });
-      expect(act).toMatchObject({
-        proceduralStateId: null,
-        customState,
-        deadlineTimeLimitDays: 0,
-        deadlineDayType: 'NONE',
-        deadlineComputedDueDate: null,
-        deadlineManualDueDate: null,
-      });
-      // La causa pasa al texto escrito a mano (y a ningún estado de la tabla).
-      const caseRow = await getPrisma().case.findUniqueOrThrow({ where: { id: s.caseRow.id } });
-      expect(caseRow).toMatchObject({
-        currentStateId: null,
-        currentCustomState: customState,
-        currentProceduralActId: data.id,
-      });
-      expect(await getPrisma().proceduralState.count()).toBe(statesBefore);
+    expectProceduralAct(plain, {
+      resultingState: { proceduralStateId: null, name: customState, custom: true },
+      deadline: null, // no abre plazo y no se cargó un vencimiento a mano
     });
-
-    it('solo tiene vencimiento si se carga a mano', async () => {
-      const res = await register({ customState, actDate: '2026-10-05', manualDueDate: '2026-10-25' });
-
-      expectProceduralAct(expectData(res, 201), {
-        deadline: {
-          timeLimitDays: 0,
-          dayType: 'NONE',
-          countsFrom: '2026-10-05',
-          computedDueDate: null,
-          dueDate: '2026-10-25',
-          manuallyAdjusted: true,
-          // D-86: sin plazo de tabla no hay unidad en la que contar.
-          manualTimeLimitDays: null,
-        },
-      });
+    expect(await actRow(plain.id)).toMatchObject({
+      proceduralStateId: null,
+      customState,
+      deadlineTimeLimitDays: 0,
+      deadlineDayType: 'NONE',
+      deadlineComputedDueDate: null,
+      deadlineManualDueDate: null,
     });
-
-    it('no puede coincidir con un estado de la tabla, sin distinguir mayúsculas', async () => {
-      const before = await snapshot();
-
-      const res = await register({
-        customState: 'OPOSICIÓN AL REQUERIMIENTO DE ELEVACIÓN',
-        actDate: '2026-10-05',
-      });
-
-      expectError(res, 400, 'VALIDATION_ERROR', ['customState']);
-      expect(await snapshot()).toEqual(before);
+    expect(await caseRowOf()).toMatchObject({ currentStateId: null, currentCustomState: customState, currentProceduralActId: plain.id });
+    expect(await getPrisma().proceduralState.count()).toBe(statesBefore);
+    expectProceduralAct(withManual, {
+      deadline: {
+        timeLimitDays: 0,
+        dayType: 'NONE',
+        countsFrom: '2026-10-05',
+        computedDueDate: null,
+        dueDate: '2026-10-25',
+        manuallyAdjusted: true,
+        manualTimeLimitDays: null, // D-86: sin plazo de tabla no hay unidad en la que contar
+      },
     });
   });
 
-  // ── Destinos que no se ofrecen ────────────────────────────────────
+  // CA-26.12
+  it('un estado sin plazo deja la causa sin vencimiento vigente', async () => {
+    const data = expectData<{ id: number }>(
+      await register({ proceduralStateId: s.states.withoutTerm.stateId, actDate: '2026-10-05' }),
+      201,
+    );
 
-  describe('un acto puede cerrar la causa en un estado terminal (D-69)', () => {
-    it('lleva la causa a "Archivada", sin vencimiento, y después no admite actos nuevos', async () => {
-      const res = await register({ proceduralStateId: s.states.terminal.stateId, actDate: '2026-10-05' });
-
-      expect(res.status).toBe(201);
-      expect(res.body.data.deadline).toBeNull();
-      const caseRow = await getPrisma().case.findUniqueOrThrow({ where: { id: s.caseRow.id } });
-      expect(caseRow.currentStateId).toBe(s.states.terminal.stateId);
-
-      const next = await register({ proceduralStateId: s.states.fiveBusinessDays.stateId, actDate: '2026-10-06' });
-      expectError(next, 422, 'CASE_IN_TERMINAL_STATE');
+    expectProceduralAct(data, { deadline: null });
+    expect(await actRow(data.id)).toMatchObject({
+      deadlineTimeLimitDays: 0,
+      deadlineDayType: 'NONE',
+      deadlineComputedDueDate: null,
+      deadlineManualDueDate: null,
     });
-
-    it('un estado terminal no admite vencimiento manual', async () => {
-      const before = await snapshot();
-
-      const res = await register({
-        proceduralStateId: s.states.terminal.stateId,
-        actDate: '2026-10-05',
-        manualDueDate: '2026-10-20',
-      });
-
-      expectError(res, 400, 'VALIDATION_ERROR', ['manualDueDate']);
-      expect(await snapshot()).toEqual(before);
-    });
+    expect((await caseRowOf()).currentProceduralActId).toBe(data.id);
   });
 
-  describe('estados que no se ofrecen como destino (CA-26.8)', () => {
-    it.each([
-      ['el estado Prescripta', () => s.states.prescribed.stateId],
-      ['el estado inicial', () => s.states.initial.stateId],
-      ['un estado de otro fuero', () => s.states.administrative.stateId],
-      ['un estado dado de baja', () => s.states.deactivated.stateId],
-      ['un estado que no existe', () => 999999],
-    ])('rechaza %s y no guarda nada', async (_name, stateId) => {
-      const before = await snapshot();
+  // CA-26.10
+  it('un acto anterior al último queda asentado sin retroceder el estado; uno posterior pasa a ser el vigente', async () => {
+    const first = expectData<{ id: number }>(
+      await register({ proceduralStateId: s.states.fiveBusinessDays.stateId, actDate: '2026-10-05' }),
+      201,
+    );
 
-      const res = await register({ proceduralStateId: stateId(), actDate: '2026-10-05' });
+    expectData(await register({ proceduralStateId: s.states.tenConsecutiveDays.stateId, actDate: '2026-10-01' }), 201);
+    expect(await getPrisma().proceduralAct.count()).toBe(2);
+    expect(await caseRowOf()).toMatchObject({ currentStateId: s.states.fiveBusinessDays.stateId, currentProceduralActId: first.id });
 
+    const later = expectData<{ id: number }>(
+      await register({ proceduralStateId: s.states.tenConsecutiveDays.stateId, actDate: '2026-10-06' }),
+      201,
+    );
+    expect(await caseRowOf()).toMatchObject({ currentStateId: s.states.tenConsecutiveDays.stateId, currentProceduralActId: later.id });
+  });
+
+  // D-69
+  it('un acto puede cerrar la causa en "Archivada", sin vencimiento, y después la causa no admite actos nuevos', async () => {
+    const res = await register({ proceduralStateId: s.states.terminal.stateId, actDate: '2026-10-05' });
+
+    expect(expectData<{ deadline: unknown }>(res, 201).deadline).toBeNull();
+    expect((await caseRowOf()).currentStateId).toBe(s.states.terminal.stateId);
+    expectError(
+      await register({ proceduralStateId: s.states.fiveBusinessDays.stateId, actDate: '2026-10-06' }),
+      422,
+      'CASE_IN_TERMINAL_STATE',
+    );
+  });
+
+  // CA-26.8. Contra la base: la tabla de estados la resuelve `legal-parameters`.
+  it('rechaza un destino que no se ofrece, y el estado de la tabla y uno escrito a mano juntos o ninguno, sin guardar nada', async () => {
+    const before = await snapshot();
+
+    for (const [name, stateId] of notOffered()) {
+      const res = await register({ proceduralStateId: stateId, actDate: '2026-10-05' });
+      expect({ name, status: res.status }).toEqual({ name, status: 400 });
       expectError(res, 400, 'VALIDATION_ERROR', ['proceduralStateId']);
-      expect(await snapshot()).toEqual(before);
+    }
+    expectError(
+      await register({ proceduralStateId: s.states.fiveBusinessDays.stateId, customState: 'Otro', actDate: '2026-10-05' }),
+      400,
+      'VALIDATION_ERROR',
+      ['proceduralStateId'],
+    );
+    expectError(await register({ actDate: '2026-10-05' }), 400, 'VALIDATION_ERROR', ['proceduralStateId']);
+    expect(await snapshot()).toEqual(before);
+  });
+
+  // CA-26.5, CA-26.7, CA-26.11, D-69
+  it('rechaza los datos que el dominio no admite nombrando el campo, sin guardar nada', async () => {
+    const stateId = s.states.fiveBusinessDays.stateId;
+    const before = await snapshot();
+
+    const cases: [Record<string, unknown>, string][] = [
+      [{ proceduralStateId: stateId, actDate: '2026-10-05', manualDueDate: '2026-10-04' }, 'manualDueDate'],
+      [{ proceduralStateId: s.states.terminal.stateId, actDate: '2026-10-05', manualDueDate: '2026-10-20' }, 'manualDueDate'],
+      // No puede coincidir con un estado de la tabla, sin distinguir mayúsculas.
+      [{ customState: 'OPOSICIÓN AL REQUERIMIENTO DE ELEVACIÓN', actDate: '2026-10-05' }, 'customState'],
+      [{ proceduralStateId: stateId, actDate: '2026-10-07' }, 'actDate'], // mañana
+    ];
+    for (const [body, field] of cases) {
+      expectError(await register(body), 400, 'VALIDATION_ERROR', [field]);
+    }
+    expect(await snapshot()).toEqual(before);
+  });
+
+  // `flujo-hu-backend.md`: 401 → 400 de forma → 403 → 404 → 422 → 400 de contenido.
+  it('resuelve 404, 403 y 422 antes que las reglas de los datos, y el 422 no guarda nada', async () => {
+    const closed = await aClosedCase();
+    const invalid = { proceduralStateId: 999999, actDate: '2026-12-01' };
+    const before = await snapshot(closed.id);
+
+    const notFound = await register(invalid, s.responsible, 999999);
+    expectError(notFound, 404, 'CASE_NOT_FOUND');
+    expect(notFound.body.error.message).toBe('No se encontró la causa solicitada.');
+    expectError(await register(invalid, s.notResponsible), 403, 'FORBIDDEN');
+    expectError(await register(invalid, s.responsible, closed.id), 422, 'CASE_IN_TERMINAL_STATE');
+    expect(await snapshot(closed.id)).toEqual(before);
+  });
+
+  it('responde 400 de forma: propiedad que el contrato no define, tipos inválidos, fecha faltante e id de causa no entero', async () => {
+    const valid = { proceduralStateId: s.states.fiveBusinessDays.stateId, actDate: '2026-10-05' };
+
+    expectError(await register({ ...valid, registeredAt: '2026-01-01' }), 400, 'VALIDATION_ERROR', ['registeredAt']);
+    expectError(await register({ proceduralStateId: 'doce', actDate: 'ayer', notes: 123 }), 400, 'VALIDATION_ERROR', [
+      'proceduralStateId',
+      'actDate',
+      'notes',
+    ]);
+    expectError(await register({ proceduralStateId: valid.proceduralStateId }), 400, 'VALIDATION_ERROR', ['actDate']);
+    expectError(await register(valid, s.responsible, 'abc'), 400, 'INVALID_PATH_PARAMETER', ['caseId']);
+  });
+});
+
+describe('GET /api/v1/cases/{caseId}/procedural-acts/deadline-preview', () => {
+  // CA-26.3, CA-26.12. Desde hoy (martes 6/10).
+  it('devuelve el vencimiento que tendría el acto y los días hábiles que restan, en la forma del contrato', async () => {
+    const five = s.states.fiveBusinessDays.stateId;
+
+    // Lunes 5/10 + 5 días hábiles = lunes 12/10: restan miércoles, jueves, viernes y lunes.
+    expectDeadlinePreview(expectData(await preview({ proceduralStateId: five, actDate: '2026-10-05' }), 200), {
+      proceduralStateId: five,
+      timeLimitDays: 5,
+      dayType: 'BUSINESS',
+      countsFrom: '2026-10-05',
+      dueDate: '2026-10-12',
+      businessDaysRemaining: 4,
     });
+    // Un acto de hoy deja todo el plazo por delante (CA-26.11 lo admite).
+    expectDeadlinePreview(expectData(await preview({ proceduralStateId: five, actDate: '2026-10-06' }), 200), {
+      dueDate: '2026-10-13',
+      businessDaysRemaining: 5,
+    });
+    // Lunes 14/9 + 5 = lunes 21/9: venció hace 11 días hábiles, y se informa en negativo.
+    expectDeadlinePreview(expectData(await preview({ proceduralStateId: five, actDate: '2026-09-14' }), 200), {
+      dueDate: '2026-09-21',
+      businessDaysRemaining: -11,
+    });
+    expectDeadlinePreview(
+      expectData(await preview({ proceduralStateId: s.states.tenConsecutiveDays.stateId, actDate: '2026-10-05' }), 200),
+      { timeLimitDays: 10, dayType: 'CONSECUTIVE', dueDate: '2026-10-15', businessDaysRemaining: 7 },
+    );
+    expectDeadlinePreview(
+      expectData(await preview({ proceduralStateId: s.states.withoutTerm.stateId, actDate: '2026-10-05' }), 200),
+      { timeLimitDays: 0, dayType: 'NONE', countsFrom: '2026-10-05', dueDate: null, businessDaysRemaining: null },
+    );
+  });
 
-    it('hay que indicar el estado de la tabla o uno escrito a mano, no ambos ni ninguno', async () => {
-      const before = await snapshot();
+  it('no registra nada, y responde igual sobre una causa en estado terminal: el 422 lo da el registro', async () => {
+    const before = await caseRowOf();
+    const closed = await aClosedCase();
 
-      const both = await register({
-        proceduralStateId: s.states.fiveBusinessDays.stateId,
-        customState: 'Otro',
-        actDate: '2026-10-05',
-      });
-      const none = await register({ actDate: '2026-10-05' });
+    await preview({ proceduralStateId: s.states.fiveBusinessDays.stateId, actDate: '2026-10-05' });
+    const onClosed = await preview(
+      { proceduralStateId: s.states.fiveBusinessDays.stateId, actDate: '2026-10-05' },
+      s.responsible,
+      closed.id,
+    );
 
-      expectError(both, 400, 'VALIDATION_ERROR', ['proceduralStateId']);
-      expectError(none, 400, 'VALIDATION_ERROR', ['proceduralStateId']);
-      expect(await snapshot()).toEqual(before);
+    expectDeadlinePreview(expectData(onClosed, 200), { dueDate: '2026-10-12' });
+    expect(await getPrisma().proceduralAct.count()).toBe(0);
+    expect(await caseRowOf()).toEqual(before);
+  });
+
+  // D-20
+  it('previsualizar y registrar con los mismos datos da el mismo vencimiento', async () => {
+    const query = { proceduralStateId: s.states.tenConsecutiveDays.stateId, actDate: '2026-10-05' };
+
+    const previewed = expectData<Record<string, unknown>>(await preview(query), 200);
+    const registered = expectData<{ deadline: Record<string, unknown> }>(await register(query), 201);
+
+    expect(registered.deadline).toMatchObject({
+      timeLimitDays: previewed.timeLimitDays,
+      dayType: previewed.dayType,
+      countsFrom: previewed.countsFrom,
+      dueDate: previewed.dueDate,
     });
   });
 
-  // ── Primer acto y actos anteriores ────────────────────────────────
+  // CA-26.4, RN6
+  it('en el fuero administrativo corre desde la notificación, que es obligatoria sólo si el estado abre plazo y no se informa en otro fuero', async () => {
+    const administrative = await anAdministrativeCase();
+    const onAdministrative = (query: Record<string, string | number>) => preview(query, s.responsible, administrative.id);
 
-  describe('primer acto de la causa (CA-26.9)', () => {
-    it('saca a la causa del estado inicial y la lleva al ciclo de vida del fuero', async () => {
-      expect(s.caseRow.currentStateId).toBe(s.states.initial.stateId);
+    // Notificación del lunes 5/10 + 10 días hábiles = lunes 19/10.
+    expectDeadlinePreview(
+      expectData(
+        await onAdministrative({
+          proceduralStateId: s.states.administrative.stateId,
+          actDate: '2026-10-02',
+          notificationDate: '2026-10-05',
+        }),
+        200,
+      ),
+      { timeLimitDays: 10, dayType: 'BUSINESS', countsFrom: '2026-10-05', dueDate: '2026-10-19', businessDaysRemaining: 9 },
+    );
+    expectDeadlinePreview(
+      expectData(await onAdministrative({ proceduralStateId: s.states.administrativeWithoutTerm.stateId, actDate: '2026-10-02' }), 200),
+      { countsFrom: '2026-10-02', dueDate: null },
+    );
 
-      await register({ proceduralStateId: s.states.tenConsecutiveDays.stateId, actDate: '2026-10-05' });
-
-      const caseRow = await getPrisma().case.findUniqueOrThrow({ where: { id: s.caseRow.id } });
-      expect(caseRow.currentStateId).toBe(s.states.tenConsecutiveDays.stateId);
-      expect(caseRow.currentStateId).not.toBe(s.states.initial.stateId);
-    });
+    const missing = await onAdministrative({ proceduralStateId: s.states.administrative.stateId, actDate: '2026-10-02' });
+    expectError(missing, 400, 'INVALID_REQUEST', ['notificationDate']);
+    expect(missing.body.error.message).toBe('Parámetros de query inválidos.');
+    expectError(
+      await preview({ proceduralStateId: s.states.fiveBusinessDays.stateId, actDate: '2026-10-05', notificationDate: '2026-10-05' }),
+      400,
+      'INVALID_REQUEST',
+      ['notificationDate'],
+    );
   });
 
-  describe('acto con fecha anterior al del último (CA-26.10)', () => {
-    it('queda asentado pero no retrocede el estado actual ni reemplaza el vencimiento vigente', async () => {
-      const first = expectData<{ id: number }>(
-        await register({ proceduralStateId: s.states.fiveBusinessDays.stateId, actDate: '2026-10-05' }),
-        201,
-      );
+  it('responde 400 de forma: faltan el estado y la fecha, formatos inválidos, un parámetro que el contrato no define y un id de causa no entero', async () => {
+    const valid = { proceduralStateId: s.states.fiveBusinessDays.stateId, actDate: '2026-10-05' };
 
-      const older = await register({ proceduralStateId: s.states.tenConsecutiveDays.stateId, actDate: '2026-10-01' });
-
-      expectData(older, 201);
-      expect(await getPrisma().proceduralAct.count()).toBe(2);
-      const caseRow = await getPrisma().case.findUniqueOrThrow({ where: { id: s.caseRow.id } });
-      expect(caseRow).toMatchObject({
-        currentStateId: s.states.fiveBusinessDays.stateId,
-        currentProceduralActId: first.id,
-      });
-    });
-
-    it('un acto posterior sí pasa a ser el vigente', async () => {
-      await register({ proceduralStateId: s.states.fiveBusinessDays.stateId, actDate: '2026-10-01' });
-
-      const later = expectData<{ id: number }>(
-        await register({ proceduralStateId: s.states.tenConsecutiveDays.stateId, actDate: '2026-10-05' }),
-        201,
-      );
-
-      const caseRow = await getPrisma().case.findUniqueOrThrow({ where: { id: s.caseRow.id } });
-      expect(caseRow).toMatchObject({
-        currentStateId: s.states.tenConsecutiveDays.stateId,
-        currentProceduralActId: later.id,
-      });
-    });
+    const missing = await preview({});
+    expectError(missing, 400, 'INVALID_REQUEST', ['proceduralStateId', 'actDate']);
+    expect(missing.body.error.message).toBe('Parámetros de query inválidos.');
+    expectError(
+      await preview({ proceduralStateId: 'abc', actDate: '15/09/2026', notificationDate: 'mañana' }),
+      400,
+      'INVALID_REQUEST',
+      ['proceduralStateId', 'actDate', 'notificationDate'],
+    );
+    // El pipe global rechaza lo que el contrato no define.
+    expectError(await preview({ ...valid, manualDueDate: '2026-10-20' }), 400, 'VALIDATION_ERROR', ['manualDueDate']);
+    expectError(await preview(valid, s.responsible, 'abc'), 400, 'INVALID_PATH_PARAMETER', ['caseId']);
   });
 
-  // ── Fecha del acto y estado sin plazo ─────────────────────────────
-
-  describe('fecha del acto (CA-26.11)', () => {
-    it('rechaza una fecha posterior a hoy y no guarda nada', async () => {
-      const before = await snapshot();
-
-      const res = await register({ proceduralStateId: s.states.fiveBusinessDays.stateId, actDate: '2026-10-07' });
-
-      expectError(res, 400, 'VALIDATION_ERROR', ['actDate']);
-      expect(await snapshot()).toEqual(before);
-    });
-
-    it('acepta un acto de hoy', async () => {
-      const res = await register({ proceduralStateId: s.states.fiveBusinessDays.stateId, actDate: '2026-10-06' });
-
-      expectProceduralAct(expectData(res, 201), { actDate: '2026-10-06' });
-    });
+  // CA-26.8, CA-26.11
+  it('rechaza un destino que no se ofrece y una fecha del acto posterior a hoy', async () => {
+    for (const [name, stateId] of notOffered()) {
+      const res = await preview({ proceduralStateId: stateId, actDate: '2026-10-05' });
+      expect({ name, status: res.status }).toEqual({ name, status: 400 });
+      expectError(res, 400, 'INVALID_REQUEST', ['proceduralStateId']);
+    }
+    expectError(
+      await preview({ proceduralStateId: s.states.fiveBusinessDays.stateId, actDate: '2026-10-07' }),
+      400,
+      'INVALID_REQUEST',
+      ['actDate'],
+    );
   });
 
-  describe('estado sin plazo (CA-26.12)', () => {
-    it('sin vencimiento manual, la causa queda sin vencimiento vigente', async () => {
-      const res = await register({ proceduralStateId: s.states.withoutTerm.stateId, actDate: '2026-10-05' });
-
-      const data = expectData<{ id: number }>(res, 201);
-      expectProceduralAct(data, { deadline: null });
-      const act = await getPrisma().proceduralAct.findUniqueOrThrow({ where: { id: data.id } });
-      expect(act).toMatchObject({
-        deadlineTimeLimitDays: 0,
-        deadlineDayType: 'NONE',
-        deadlineComputedDueDate: null,
-        deadlineManualDueDate: null,
-      });
-      const caseRow = await getPrisma().case.findUniqueOrThrow({ where: { id: s.caseRow.id } });
-      expect(caseRow.currentProceduralActId).toBe(data.id);
+  // CA-26.2. Un acto previo en la causa no cambia quién puede previsualizar.
+  it('sólo previsualiza el abogado responsable, aunque la causa ya tenga actos', async () => {
+    await createProceduralAct({
+      caseId: s.caseRow.id,
+      registeredByUserId: s.user.id,
+      registeredByLawyerId: s.lawyer.id,
+      proceduralStateId: s.states.fiveBusinessDays.stateId,
+      asCurrent: true,
     });
+    const query = { proceduralStateId: s.states.fiveBusinessDays.stateId, actDate: '2026-10-05' };
+
+    for (const actor of notResponsibleActors()) {
+      expectError(await preview(query, actor), 403, 'FORBIDDEN');
+    }
   });
 
-  // ── Errores del contrato ──────────────────────────────────────────
+  // Bien formados pero inválidos: los de formato los rechaza antes el mapper de la query.
+  it('resuelve 404 y 403 antes que las reglas de los datos', async () => {
+    const invalid = { proceduralStateId: 999999, actDate: '2026-12-01' };
 
-  describe('errores del contrato', () => {
-    const validBody = () => ({ proceduralStateId: s.states.fiveBusinessDays.stateId, actDate: '2026-10-05' });
-
-    it('responde 401 sin token', async () => {
-      const res = await request(app.getHttpServer()).post(url()).send(validBody());
-
-      expectError(res, 401, 'UNAUTHENTICATED');
-    });
-
-    it('responde 404 si la causa no existe', async () => {
-      const res = await register(validBody(), s.responsible, 999999);
-
-      expectError(res, 404, 'CASE_NOT_FOUND');
-    });
-
-    it('responde 400 si el identificador de la causa no es un entero', async () => {
-      const res = await register(validBody(), s.responsible, 'abc');
-
-      expectError(res, 400, 'INVALID_PATH_PARAMETER', ['caseId']);
-    });
-
-    it('responde 422 si la causa está en un estado terminal y no guarda nada', async () => {
-      const closed = await createCase({
-        clientId: s.client.id,
-        responsibleLawyerId: s.lawyer.id,
-        createdByUserId: s.user.id,
-        currentStateId: s.states.terminal.stateId,
-      });
-      const before = await snapshot(closed.id);
-
-      const res = await register(validBody(), s.responsible, closed.id);
-
-      expectError(res, 422, 'CASE_IN_TERMINAL_STATE');
-      expect(await snapshot(closed.id)).toEqual(before);
-    });
-
-    it('el 404, el 403 y el 422 se resuelven antes que las reglas de los datos', async () => {
-      const closed = await createCase({
-        clientId: s.client.id,
-        responsibleLawyerId: s.lawyer.id,
-        createdByUserId: s.user.id,
-        currentStateId: s.states.terminal.stateId,
-      });
-      const invalid = { proceduralStateId: 999999, actDate: '2026-12-01' };
-
-      expectError(await register(invalid, s.responsible, 999999), 404, 'CASE_NOT_FOUND');
-      expectError(await register(invalid, s.notResponsible), 403, 'FORBIDDEN');
-      expectError(await register(invalid, s.responsible, closed.id), 422, 'CASE_IN_TERMINAL_STATE');
-    });
-
-    it('responde 400 con el campo por una propiedad que el contrato no define', async () => {
-      const res = await register({ ...validBody(), registeredAt: '2026-01-01' });
-
-      expectError(res, 400, 'VALIDATION_ERROR', ['registeredAt']);
-    });
-
-    it('responde 400 con el campo si un valor no tiene el tipo del contrato', async () => {
-      const res = await register({ proceduralStateId: 'doce', actDate: 'ayer', notes: 123 });
-
-      expectError(res, 400, 'VALIDATION_ERROR', ['proceduralStateId', 'actDate', 'notes']);
-    });
-
-    it('responde 400 si la fecha del acto falta', async () => {
-      const res = await register({ proceduralStateId: s.states.fiveBusinessDays.stateId });
-
-      expectError(res, 400, 'VALIDATION_ERROR', ['actDate']);
-    });
+    expectError(await preview(invalid, s.responsible, 999999), 404, 'CASE_NOT_FOUND');
+    expectError(await preview(invalid, s.notResponsible), 403, 'FORBIDDEN');
   });
 });

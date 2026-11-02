@@ -1,12 +1,27 @@
 import { INestApplication } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import request from 'supertest';
 
+import { EventPublisher } from '../../../src/shared/infrastructure/events/event-publisher.port';
+import { createEventHeader } from '../../../src/shared/infrastructure/events/integration-event';
+import {
+  CASE_REGISTERED,
+  CaseRegisteredEvent,
+} from '../../../src/subsystems/cases/core/domain/ports/events/case-registered.event';
 import { DocumentStorageUnavailableError } from '../../../src/subsystems/documents/core/domain/errors/documents.errors';
 import { DOCUMENT_STORAGE, FileCopy } from '../../../src/subsystems/documents/core/domain/ports/document-storage.port';
+import {
+  DOCUMENT_SPACE_ASSIGNED,
+  DocumentSpaceAssignedEvent,
+} from '../../../src/subsystems/documents/core/domain/ports/events/document-space-assigned.event';
+import {
+  DOCUMENT_SPACE_CREATION_FAILED,
+  DocumentSpaceCreationFailedEvent,
+} from '../../../src/subsystems/documents/core/domain/ports/events/document-space-creation-failed.event';
 import { InMemoryDocumentStorage } from '../../../src/subsystems/documents/infrastructure/storage/in-memory/in-memory-document-storage';
 import { loginAs } from '../../shared/auth/login-as';
 import { expectData } from '../../shared/contract/envelopes';
-import { aCaseBody } from '../../shared/factories/case.factory';
+import { aCaseBody, createCase } from '../../shared/factories/case.factory';
 import { clearCloudFolders, createCloudStructure } from '../../shared/factories/cloud-structure.factory';
 import { createClient } from '../../shared/factories/client.factory';
 import { clearTemplates, createTemplate } from '../../shared/factories/document-template.factory';
@@ -17,6 +32,7 @@ import { getPrisma, startTestApp, stopTestApp } from '../../shared/harness/test-
 
 const CASES_URL = '/api/v1/cases';
 const TEMPLATES_URL = '/api/v1/document-templates';
+const WAIT_MS = 5000;
 
 /** Un almacenamiento al que se le puede hacer fallar la copia de un archivo por su nombre. */
 class FlakyCopyStorage extends InMemoryDocumentStorage {
@@ -31,20 +47,35 @@ class FlakyCopyStorage extends InMemoryDocumentStorage {
   }
 }
 
-/** Las claves exactas del recurso `folder` (contrato V4 §3.4, `folder`). */
+/** Las claves exactas del recurso `folder` (`API_CONTRACT_V5.md` §3.4, `folder`). */
 const FOLDER_KEYS = ['path', 'status', 'templatesCopied', 'templatesPending', 'url'];
 
+interface FolderBody {
+  status: string;
+  url: string | null;
+  path: string | null;
+  templatesCopied: number;
+  templatesPending: number;
+}
+
 /*
- * HU40 Crear modelos en la carpeta de la causa. El alta de una causa pide la
- * carpeta y la copia por eventos; `documents` copia y `cases` espera y lo
- * informa en `folder`. La base es real; el almacenamiento es el de memoria.
- * Lo que fija cada test sale de `.claude/plans/tests-hu40-crear-modelos-en-carpeta.md`.
- * CA-40.3 y CA-40.10 los cubren `case-folder.int.spec.ts` y
- * `consult-document-templates.int.spec.ts`.
+ * Lo que pasa en `documents` cuando se registra una causa. La base es real; el
+ * almacenamiento es el de memoria. La pila real de Google está en `google-stack`.
+ *
+ * - HU40, modelos en la carpeta de la causa: el alta pide la carpeta y la copia por
+ *   eventos; `documents` copia y `cases` espera y lo informa en `folder`. Lo que fija
+ *   cada test sale de `.claude/plans/tests-hu40-crear-modelos-en-carpeta.md`. CA-40.3 y
+ *   CA-40.10 los cubren `cases/case-folder.int.spec.ts` y `document-templates.int.spec.ts`.
+ * - El contrato de los eventos de integración (ADR-005): `CaseRegistered` publicado por
+ *   el puerto y su resultado, correlacionado por `causedByEventId`. El vínculo lo hace
+ *   el listener real de `cases` (`case-folder-outcome.listener.ts:42`). La
+ *   idempotencia (CA-39.7) y la falla vista desde la causa están en `case-folder.int`.
  */
-describe('Modelos en la carpeta de la causa (HU40)', () => {
+describe('documents al registrar una causa', () => {
   let app: INestApplication;
   let storage: FlakyCopyStorage;
+  let publisher: EventPublisher;
+  let emitter: EventEmitter2;
   let actor: { Authorization: string };
   let lawyerActor: { Authorization: string };
   let lawyerId: number;
@@ -56,6 +87,8 @@ describe('Modelos en la carpeta de la causa (HU40)', () => {
   beforeAll(async () => {
     app = await startTestApp((builder) => builder.overrideProvider(DOCUMENT_STORAGE).useClass(FlakyCopyStorage));
     storage = app.get(DOCUMENT_STORAGE);
+    publisher = app.get(EventPublisher);
+    emitter = app.get(EventEmitter2);
   });
 
   afterAll(async () => {
@@ -114,13 +147,11 @@ describe('Modelos en la carpeta de la causa (HU40)', () => {
 
   const retry = (caseId: number) => request(app.getHttpServer()).post(`${CASES_URL}/${caseId}/folder`).set(actor).send();
 
-  interface FolderBody {
-    status: string;
-    url: string | null;
-    path: string | null;
-    templatesCopied: number;
-    templatesPending: number;
-  }
+  const usageCountOfFirst = async () =>
+    expectData<{ usageCount: number }>(
+      await request(app.getHttpServer()).get(`${TEMPLATES_URL}/${sixTemplates[0].id}`).set(lawyerActor),
+      200,
+    ).usageCount;
 
   /** Los archivos que hay dentro de la carpeta de la causa, en el almacenamiento. */
   async function filesInFolderOf(caseId: number) {
@@ -130,7 +161,7 @@ describe('Modelos en la carpeta de la causa (HU40)', () => {
 
   const copyAttempts = () => storage.fileCalls.filter((call) => call.method === 'copyFile').length;
 
-  describe('alta de la causa con modelos', () => {
+  describe('alta de la causa con modelos (HU40)', () => {
     // CA-40.1, CA-40.2, CA-40.5
     it('copia los seis modelos penales marcados, ni más ni menos, e informa cuántos', async () => {
       const data = expectData<{ id: number; folder: FolderBody }>(await register(), 201);
@@ -159,35 +190,10 @@ describe('Modelos en la carpeta de la causa (HU40)', () => {
       expect(await contentOf(second.id)).toBe('XX Modelo 1 v1');
     });
 
-    // CA-40.8
-    it('cada copia suma uno al contador de usos del modelo', async () => {
-      const usageCount = async () =>
-        expectData<{ usageCount: number }>(
-          await request(app.getHttpServer()).get(`${TEMPLATES_URL}/${sixTemplates[0].id}`).set(lawyerActor),
-          200,
-        ).usageCount;
-      expect(await usageCount()).toBe(0);
-
-      await register();
-      await register();
-
-      expect(await usageCount()).toBe(2);
-    });
-  });
-
-  describe('alta de la causa sin modelos', () => {
-    // CA-40.4
-    it('con copyTemplates en false la carpeta se crea vacía', async () => {
-      const data = expectData<{ id: number; folder: FolderBody }>(await register({ copyTemplates: false }), 201);
-
-      expect(data.folder).toMatchObject({ status: 'CREATED', templatesCopied: 0, templatesPending: 0 });
-      expect(await filesInFolderOf(data.id)).toEqual([]);
-      expect(await getPrisma().documentTemplateCopy.count()).toBe(0);
-    });
-
-    // CA-40.9
-    it('si el fuero no tiene modelos la carpeta se crea igual, vacía', async () => {
-      const data = expectData<{ id: number; folder: FolderBody }>(
+    // CA-40.4, CA-40.9
+    it('con copyTemplates en false, o en un fuero sin modelos, la carpeta se crea vacía', async () => {
+      const unmarked = expectData<{ id: number; folder: FolderBody }>(await register({ copyTemplates: false }), 201);
+      const withoutTemplates = expectData<{ id: number; folder: FolderBody }>(
         await register({
           jurisdiction: 'ADMINISTRATIVE',
           proceduralRole: 'RECURRENTE',
@@ -196,13 +202,24 @@ describe('Modelos en la carpeta de la causa (HU40)', () => {
         201,
       );
 
-      expect(data.folder).toMatchObject({ status: 'CREATED', templatesCopied: 0, templatesPending: 0 });
-      expect(await filesInFolderOf(data.id)).toEqual([]);
+      for (const data of [unmarked, withoutTemplates]) {
+        expect(data.folder).toMatchObject({ status: 'CREATED', templatesCopied: 0, templatesPending: 0 });
+        expect(await filesInFolderOf(data.id)).toEqual([]);
+      }
+      expect(await getPrisma().documentTemplateCopy.count()).toBe(0);
     });
   });
 
-  describe('fallas', () => {
-    // CA-39.5, contrato `:3593-3601`
+  describe('fallas y reintento (HU40)', () => {
+    async function aCaseWithOneTemplatePending() {
+      storage.failCopyOf.add('Modelo 3.docx');
+      const created = expectData<{ id: number; folder: FolderBody }>(await register(), 201);
+      storage.failCopyOf.clear();
+      storage.fileCalls.length = 0;
+      return created;
+    }
+
+    // CA-39.5, `API_CONTRACT_V5.md` §3.4 (`folder` en ERROR)
     it('si el almacenamiento está caído, la causa se registra y los seis modelos quedan pendientes', async () => {
       storage.failNextWith(new DocumentStorageUnavailableError('TRANSIENT', 'timeout'));
 
@@ -218,38 +235,22 @@ describe('Modelos en la carpeta de la causa (HU40)', () => {
     });
 
     // CA-40.7
-    it('si falla la copia de un modelo, la carpeta queda creada con ese modelo pendiente', async () => {
-      storage.failCopyOf.add('Modelo 3.docx');
+    it('si falla la copia de un modelo queda pendiente, y el reintento copia solo el que falta', async () => {
+      const created = await aCaseWithOneTemplatePending();
+      expect(created.folder).toMatchObject({ status: 'CREATED', templatesCopied: 5, templatesPending: 1 });
+      expect(await filesInFolderOf(created.id)).toHaveLength(5);
 
-      const data = expectData<{ id: number; folder: FolderBody }>(await register(), 201);
-
-      expect(data.folder).toMatchObject({ status: 'CREATED', templatesCopied: 5, templatesPending: 1 });
-      expect(await filesInFolderOf(data.id)).toHaveLength(5);
-    });
-  });
-
-  describe('reintento (CA-40.7)', () => {
-    async function aCaseWithOneTemplatePending() {
-      storage.failCopyOf.add('Modelo 3.docx');
-      const created = expectData<{ id: number }>(await register(), 201);
-      storage.failCopyOf.clear();
-      storage.fileCalls.length = 0;
-      return created.id;
-    }
-
-    it('copia solo el que falta, sin repetir los ya copiados', async () => {
-      const caseId = await aCaseWithOneTemplatePending();
-
-      const data = expectData<FolderBody>(await retry(caseId), 200);
+      const data = expectData<FolderBody>(await retry(created.id), 200);
 
       expect(Object.keys(data).sort()).toEqual(FOLDER_KEYS);
       expect(data).toMatchObject({ status: 'CREATED', templatesCopied: 6, templatesPending: 0 });
       expect(copyAttempts()).toBe(1);
-      expect(await filesInFolderOf(caseId)).toHaveLength(6);
+      expect(await filesInFolderOf(created.id)).toHaveLength(6);
     });
 
+    // CA-40.7
     it('dos reintentos a la vez no repiten ninguna copia', async () => {
-      const caseId = await aCaseWithOneTemplatePending();
+      const { id: caseId } = await aCaseWithOneTemplatePending();
 
       await Promise.all([retry(caseId), retry(caseId)]);
 
@@ -257,20 +258,76 @@ describe('Modelos en la carpeta de la causa (HU40)', () => {
       expect(await getPrisma().documentTemplateCopy.count({ where: { caseId, status: 'COPIED' } })).toBe(6);
     });
 
-    it('sobre una carpeta completa no copia nada ni suma usos', async () => {
+    // CA-40.8
+    it('cada copia suma uno al contador de usos, y reintentar sobre una carpeta completa no copia ni suma', async () => {
+      expect(await usageCountOfFirst()).toBe(0);
+      await register();
       const created = expectData<{ id: number }>(await register(), 201);
+      expect(await usageCountOfFirst()).toBe(2);
       storage.fileCalls.length = 0;
 
       const data = expectData<FolderBody>(await retry(created.id), 200);
 
       expect(data).toMatchObject({ templatesCopied: 6, templatesPending: 0 });
       expect(copyAttempts()).toBe(0);
-      expect(
-        expectData<{ usageCount: number }>(
-          await request(app.getHttpServer()).get(`${TEMPLATES_URL}/${sixTemplates[0].id}`).set(lawyerActor),
-          200,
-        ).usageCount,
-      ).toBe(1);
+      expect(await usageCountOfFirst()).toBe(2);
+    });
+  });
+
+  /**
+   * Los eventos son asíncronos: cada test registra PRIMERO la espera del evento de
+   * resultado y recién después publica, así nunca depende de tiempos fijos.
+   */
+  describe('eventos de integración: CaseRegistered → resultado (HU39, ADR-005)', () => {
+    async function aRegisteredCase(caption = 'GÓMEZ, Ariel Fernando p.s.a. Robo calificado'): Promise<CaseRegisteredEvent> {
+      const created = await createCase({ clientId, responsibleLawyerId: lawyerId, createdByUserId: userId, caption });
+      return {
+        ...createEventHeader(CASE_REGISTERED, new Date()),
+        caseId: created.id,
+        caption,
+        lawyer: { id: lawyerId, lastName: 'Ríos', firstName: 'Malena' },
+        jurisdiction: { id: created.jurisdictionId, label: 'Penal' },
+        copyTemplates: false,
+      };
+    }
+
+    function expectOutcome<T>(type: string, caseId: number): Promise<T> {
+      return emitter
+        .waitFor(type, {
+          timeout: WAIT_MS,
+          filter: (event: { caseId: number }) => event.caseId === caseId,
+          handleError: false,
+          Promise,
+          overload: false,
+        })
+        .then(([event]) => event as T);
+    }
+
+    it('crea la carpeta de la causa y anuncia DocumentSpaceAssigned con el id del evento que la causó', async () => {
+      const event = await aRegisteredCase();
+      const outcome = expectOutcome<DocumentSpaceAssignedEvent>(DOCUMENT_SPACE_ASSIGNED, event.caseId);
+
+      await publisher.publish(event);
+      const assigned = await outcome;
+
+      expect(assigned).toMatchObject({
+        caseId: event.caseId,
+        causedByEventId: event.eventId,
+        path: 'Causas/Ríos, Malena/Penal/GÓMEZ, Ariel Fernando p.s.a. Robo calificado',
+      });
+      const persisted = await getPrisma().cloudFolder.findUnique({ where: { cloudFolderId: assigned.cloudFolderId } });
+      expect(persisted).toMatchObject({ kind: 'CASE', url: assigned.url });
+    });
+
+    it('anuncia DocumentSpaceCreationFailed (TRANSIENT) si el almacenamiento falla, y no deja carpetas de más', async () => {
+      const event = await aRegisteredCase();
+      storage.failNextWith(new DocumentStorageUnavailableError('TRANSIENT', 'timeout'));
+      const outcome = expectOutcome<DocumentSpaceCreationFailedEvent>(DOCUMENT_SPACE_CREATION_FAILED, event.caseId);
+
+      await publisher.publish(event);
+
+      expect(await outcome).toMatchObject({ caseId: event.caseId, reason: 'TRANSIENT', causedByEventId: event.eventId });
+      expect(await getPrisma().cloudFolder.count({ where: { kind: 'CASE' } })).toBe(0);
     });
   });
 });

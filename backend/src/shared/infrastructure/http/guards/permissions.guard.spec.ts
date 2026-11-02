@@ -47,7 +47,7 @@ describe("PermissionsGuard", () => {
     ).toBe(true);
   });
 
-  it("allows an actor holding the required permission", () => {
+  it("allows an actor holding the required permission, ignoring the ones beyond it", () => {
     expect(
       guard.canActivate(
         contextFor(
@@ -56,9 +56,6 @@ describe("PermissionsGuard", () => {
         ),
       ),
     ).toBe(true);
-  });
-
-  it("ignores permissions beyond the ones required", () => {
     expect(
       guard.canActivate(
         contextFor(
@@ -78,9 +75,6 @@ describe("PermissionsGuard", () => {
         ),
       ),
     ).toThrow(ForbiddenActionError);
-  });
-
-  it("allows the actor holding the full conjunction", () => {
     expect(
       guard.canActivate(
         contextFor(

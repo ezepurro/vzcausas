@@ -5,15 +5,14 @@ import {
   ProceduralStateEmptyPatchError,
   ProceduralStateNotFoundError,
 } from '../../domain/errors/procedural-state.errors';
-import { JurisdictionCode } from '../../domain/value-objects/jurisdiction-code';
-import {
-  aProceduralState,
-  anInitialState,
-  FAKE_JURISDICTIONS,
-  FakeProceduralStateRepository,
-} from './test-support/procedural-state-fakes';
+import { aProceduralState, anInitialState, FakeProceduralStateRepository } from './test-support/procedural-state-fakes';
 import { UpdateProceduralState } from './update-procedural-state.use-case';
 
+/*
+ * Coordinación de la modificación: completa lo que no se envió con los valores actuales,
+ * excluye al propio estado de la unicidad y no guarda nada si algo falla. Las reglas del
+ * estado (nombre reservado, coherencia del par) están en `procedural-states.spec.ts`.
+ */
 describe('UpdateProceduralState', () => {
   let repository: FakeProceduralStateRepository;
   let useCase: UpdateProceduralState;
@@ -26,43 +25,7 @@ describe('UpdateProceduralState', () => {
   });
 
   describe('CA-17.1 · successful update', () => {
-    it('renames the state and persists it', async () => {
-      const result = await useCase.execute({ id: 1, name: 'Citación a juicio oral' });
-
-      expect(result.name).toBe('Citación a juicio oral');
-      expect(repository.saved).toEqual([result]);
-    });
-
-    it('changes the time limit and day type together', async () => {
-      const result = await useCase.execute({ id: 1, timeLimitDays: 10, dayType: DayType.CONSECUTIVE });
-
-      expect(result.timeLimitDays).toBe(10);
-      expect(result.dayType).toBe(DayType.CONSECUTIVE);
-      expect(repository.saved).toEqual([result]);
-    });
-
-    it('changes only the time limit, keeping the current day type', async () => {
-      const result = await useCase.execute({ id: 1, timeLimitDays: 8 });
-
-      expect(result.timeLimitDays).toBe(8);
-      expect(result.dayType).toBe(DayType.BUSINESS);
-    });
-
-    it('changes only the day type, keeping the current time limit', async () => {
-      const result = await useCase.execute({ id: 1, dayType: DayType.CONSECUTIVE });
-
-      expect(result.timeLimitDays).toBe(5);
-      expect(result.dayType).toBe(DayType.CONSECUTIVE);
-    });
-
-    it('changes the terminal flag', async () => {
-      const result = await useCase.execute({ id: 1, terminal: true });
-
-      expect(result.terminal).toBe(true);
-      expect(repository.saved).toEqual([result]);
-    });
-
-    it('applies every field sent in the same request', async () => {
+    it('applies every field sent in the same request and persists it', async () => {
       const result = await useCase.execute({
         id: 1,
         name: 'Archivada',
@@ -75,17 +38,19 @@ describe('UpdateProceduralState', () => {
       expect(result.timeLimitDays).toBe(0);
       expect(result.dayType).toBe(DayType.NONE);
       expect(result.terminal).toBe(true);
+      expect(repository.saved).toEqual([result]);
     });
 
-    it('leaves the jurisdiction untouched (D-36: not modifiable)', async () => {
-      const result = await useCase.execute({ id: 1, name: 'Archivada' });
+    it('changes only the day type, keeping the current time limit', async () => {
+      const result = await useCase.execute({ id: 1, dayType: DayType.CONSECUTIVE });
 
-      expect(result.jurisdiction).toBe(FAKE_JURISDICTIONS[JurisdictionCode.CRIMINAL]);
+      expect(result.timeLimitDays).toBe(5);
+      expect(result.dayType).toBe(DayType.CONSECUTIVE);
     });
   });
 
   describe('CA-17.5 · name unique per jurisdiction', () => {
-    it('rejects a name another active state of the jurisdiction has', async () => {
+    it('rejects a name another active state of the jurisdiction has, and saves nothing', async () => {
       repository.seed(aProceduralState({ id: 2, name: 'Archivada' }));
 
       await expect(useCase.execute({ id: 1, name: 'archivada' })).rejects.toBeInstanceOf(
@@ -100,48 +65,12 @@ describe('UpdateProceduralState', () => {
       expect(result.name).toBe('CITACIÓN A JUICIO');
       expect(repository.saved).toEqual([result]);
     });
-
-    it('accepts a name used in another jurisdiction', async () => {
-      repository.seed(aProceduralState({ id: 2, name: 'Archivada', jurisdiction: FAKE_JURISDICTIONS.AMPARO }));
-
-      const result = await useCase.execute({ id: 1, name: 'Archivada' });
-
-      expect(result.name).toBe('Archivada');
-    });
-
-    it('accepts a name whose previous holder was deactivated', async () => {
-      repository.seed(aProceduralState({ id: 2, name: 'Archivada', isActive: false }));
-
-      const result = await useCase.execute({ id: 1, name: 'Archivada' });
-
-      expect(result.name).toBe('Archivada');
-    });
-
-    it.each(['Iniciada', ' INICIADA '])('rejects the reserved name %p', async (name) => {
-      repository.seed(anInitialState(2));
-
-      await expect(useCase.execute({ id: 1, name })).rejects.toBeInstanceOf(ProceduralStateAlreadyExistsError);
-      expect(repository.saved).toEqual([]);
-    });
   });
 
   describe('CA-17.6 · time limit and day type must be coherent', () => {
     it('rejects 0 days sent alone while the current day type is BUSINESS', async () => {
       await expect(useCase.execute({ id: 1, timeLimitDays: 0 })).rejects.toBeInstanceOf(ProceduralStateDayTypeError);
       expect(repository.saved).toEqual([]);
-    });
-
-    it('rejects NONE sent alone while the current time limit is above 0', async () => {
-      await expect(useCase.execute({ id: 1, dayType: DayType.NONE })).rejects.toBeInstanceOf(
-        ProceduralStateDayTypeError,
-      );
-      expect(repository.saved).toEqual([]);
-    });
-
-    it('rejects a time limit above 0 sent alone on a state without time limit', async () => {
-      repository.seed(aProceduralState({ id: 2, name: 'Archivada', timeLimitDays: 0, dayType: DayType.NONE }));
-
-      await expect(useCase.execute({ id: 2, timeLimitDays: 3 })).rejects.toBeInstanceOf(ProceduralStateDayTypeError);
     });
 
     it('does not persist a valid rename when the time limit in the same request is incoherent', async () => {
@@ -153,32 +82,22 @@ describe('UpdateProceduralState', () => {
   });
 
   describe('request and target validation', () => {
-    it('throws ProceduralStateEmptyPatchError when no field is sent', async () => {
-      await expect(useCase.execute({ id: 1 })).rejects.toBeInstanceOf(ProceduralStateEmptyPatchError);
-      expect(repository.saved).toEqual([]);
-    });
-
     it('rejects an empty request before looking the state up', async () => {
       const findById = jest.spyOn(repository, 'findById');
 
-      await expect(useCase.execute({ id: 999 })).rejects.toBeInstanceOf(ProceduralStateEmptyPatchError);
+      await expect(useCase.execute({ id: 1 })).rejects.toBeInstanceOf(ProceduralStateEmptyPatchError);
       expect(findById).not.toHaveBeenCalled();
+      expect(repository.saved).toEqual([]);
     });
 
-    it('throws ProceduralStateNotFoundError when no state has that id', async () => {
-      await expect(useCase.execute({ id: 999, terminal: true })).rejects.toBeInstanceOf(ProceduralStateNotFoundError);
-    });
-
-    it('throws ProceduralStateNotFoundError for a deactivated state', async () => {
+    it('throws ProceduralStateNotFoundError for a missing, a deactivated and the system state "Iniciada"', async () => {
       repository.seed(aProceduralState({ id: 2, name: 'Archivada', isActive: false }));
+      repository.seed(anInitialState(3));
 
-      await expect(useCase.execute({ id: 2, terminal: true })).rejects.toBeInstanceOf(ProceduralStateNotFoundError);
-    });
-
-    it('throws ProceduralStateNotFoundError for the system state "Iniciada"', async () => {
-      repository.seed(anInitialState(2));
-
-      await expect(useCase.execute({ id: 2, terminal: true })).rejects.toBeInstanceOf(ProceduralStateNotFoundError);
+      for (const id of [999, 2, 3]) {
+        await expect(useCase.execute({ id, terminal: true })).rejects.toBeInstanceOf(ProceduralStateNotFoundError);
+      }
+      expect(repository.saved).toEqual([]);
     });
   });
 

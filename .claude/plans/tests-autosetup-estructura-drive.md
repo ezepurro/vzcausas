@@ -29,15 +29,15 @@ Sin endpoint nuevo ni cambio de contrato. Decisiones de mmachuca (22/10/2026): o
 | R3 | unitario | `assure-space.use-case.spec.ts` | hecho (verde) |
 | R4 | unitario | `assure-space.use-case.spec.ts` (los existentes con `aSetUpStudio` ya lo cubren: `storage.calls` sin llamadas extra) + `register-document-template.use-case.spec.ts` | hecho (verde) |
 | R5 | unitario | `register-document-template.use-case.spec.ts` (reemplaza el test "responde 502" de CA-34.11) | hecho (verde) |
-| R5 | integración | `register-document-template.int.spec.ts` (reemplaza el 502 de CA-34.11: sin fila `TEMPLATES` → 201 y fila recreada) | hecho (verde) |
-| R1 | integración | `case-folder.int.spec.ts` y `google-drive-case-folder.int.spec.ts`: sin estructura → registrar causa → carpeta `CREATED` y 3 filas en `cloud_folders` | hecho (verde) |
+| R5 | integración | `document-templates.int.spec.ts:220` (antes `register-document-template.int.spec.ts`; reemplaza el 502 de CA-34.11: sin fila `TEMPLATES` → 201 y fila recreada) | hecho (verde) |
+| R1 | integración | `case-folder.int.spec.ts:152` (el de `google-drive-case-folder.int.spec.ts` se dejó en la poda del 01/11/2026: duplicaba este): sin estructura → registrar causa → carpeta `CREATED` y 3 filas en `cloud_folders` | hecho (verde) |
 | R6 | unitario | `setup-cloud-storage.use-case.spec.ts` | hecho (verde) |
 | R7 | unitario | `setup-cloud-storage.use-case.spec.ts` (espía `Logger.prototype.warn`; ADOPTED no avisa) | hecho (verde) |
 | R8 | unitario | `setup-cloud-storage.use-case.spec.ts` (ya existe) + `assure-space.use-case.spec.ts` | hecho (verde) |
 | R9 | unitario | `storage-bootstrap.spec.ts` (nuevo) | hecho (verde) |
 
 Tests existentes que fijan "sin estructura ⇒ `ERROR`" (`clearCloudFolders` en
-`case-folder.int.spec.ts`, `register-case.int.spec.ts`, `google-drive-case-folder.int.spec.ts`)
+`case-folder.int.spec.ts`, `register-case.int.spec.ts`, `google-drive-case-folder.int.spec.ts`; este último hoy es `documents/google-stack.int.spec.ts`)
 se revisan **contra el comportamiento nuevo**: no se fija ningún desvío.
 
 ## Queda para revisión manual

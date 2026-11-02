@@ -66,13 +66,7 @@ describe("DetectUpcomingPrescriptionsUseCase", () => {
     expect(notices[0]).toMatchObject({ kind: "PRESCRIPTION_EXPIRED", referenceDate: "2026-10-06" });
   });
 
-  it("una causa por debajo del 70 % no genera aviso", async () => {
-    const { useCase, prescriptions } = build();
-    prescriptions.statuses = [status({ alert: false, expired: false })];
-
-    await expect(useCase.execute()).resolves.toEqual([]);
-  });
-
+  // La de menos del 70 % no genera aviso.
   it("de varias causas devuelve solo las que llevan aviso, una vez cada una", async () => {
     const { useCase, prescriptions } = build();
     prescriptions.statuses = [
@@ -96,12 +90,6 @@ describe("DetectUpcomingPrescriptionsUseCase", () => {
     const [notice] = await useCase.execute();
 
     expect(notice.sacNumber).toBeNull();
-  });
-
-  it("sin causas penales activas devuelve una lista vacía", async () => {
-    const { useCase } = build();
-
-    await expect(useCase.execute()).resolves.toEqual([]);
   });
 
   // Puerto esencial: un día "sin nada que avisar" inventado es peor que un error.

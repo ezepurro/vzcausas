@@ -278,15 +278,6 @@ describe('AssureSpace', () => {
     expect(folders.all().filter((f) => f.key.kind === 'LAWYER')).toHaveLength(1);
   });
 
-  it('rechaza una carátula que queda vacía tras quitar los caracteres no admitidos', async () => {
-    const { assureSpace, storage } = await aSetUpStudio();
-
-    await expect(assureSpace.execute(aCommand({ caseCaption: ' /\\:*? ' }))).rejects.toBeInstanceOf(
-      InvalidCloudFolderError,
-    );
-    expect(storage.calls).toHaveLength(0);
-  });
-
   describe('compensación y concurrencia', () => {
     it('si no se puede guardar la fila de la causa, borra la carpeta recién creada y relanza el error', async () => {
       const { assureSpace, storage, folders } = await aSetUpStudio();
@@ -431,12 +422,14 @@ describe('AssureSpace', () => {
       expect(failed.detail).toBeTruthy();
     });
 
-    it('clasifica una carátula inválida como INVALID_DATA', async () => {
-      const { assureSpace, events } = await aSetUpStudio();
+    // Qué carátula queda vacía lo fija `folder-name.vo.spec.ts`; acá, que se rechaza sin tocar la nube.
+    it('rechaza una carátula que queda vacía, sin pedir nada al storage, y la clasifica como INVALID_DATA', async () => {
+      const { assureSpace, events, storage } = await aSetUpStudio();
 
-      await expect(assureSpace.execute(aCommand({ caseCaption: '///' }))).rejects.toBeInstanceOf(
+      await expect(assureSpace.execute(aCommand({ caseCaption: ' /\\:*? ' }))).rejects.toBeInstanceOf(
         InvalidCloudFolderError,
       );
+      expect(storage.calls).toHaveLength(0);
 
       const [failed] = events.ofType<DocumentSpaceCreationFailedEvent>(
         DOCUMENT_SPACE_CREATION_FAILED,
