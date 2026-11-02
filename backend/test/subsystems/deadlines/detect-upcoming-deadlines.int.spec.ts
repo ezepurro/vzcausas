@@ -182,36 +182,27 @@ describe('HU51 — verificación diaria de los vencimientos de actos procesales'
     });
 
     // CA-51.2: los plazos de presentación de todas las causas activas, no solo las penales.
-    it('detecta también el vencimiento de una causa administrativa', async () => {
+    // Causa activa (§4): un estado escrito a mano no es terminal, y su plazo es el que se ajustó a mano (D-11).
+    it('detecta también el vencimiento de una causa administrativa y el de un estado escrito a mano', async () => {
       const administrative = await newCase({ jurisdiction: 'ADMINISTRATIVE' });
       await registerAct(administrative.id, {
         proceduralStateId: s.states.administrative.stateId,
         notificationDate: '2026-10-01', // RN6: en el administrativo el plazo corre desde la notificación
         manualDueDate: '2026-10-07',
       });
-
-      const [notice] = await detect();
-
-      expect(notice).toMatchObject({
-        caseId: administrative.id,
-        jurisdiction: 'ADMINISTRATIVE',
-        kind: 'DEADLINE_WARNING',
-        dueDate: '2026-10-07',
-      });
-    });
-
-    // Causa activa (§4): un estado escrito a mano no es terminal, y su plazo es el que se ajustó a mano (D-11).
-    it('detecta el vencimiento ajustado a mano de un estado escrito a mano', async () => {
       const handWritten = await newCase();
       await registerAct(handWritten.id, {
         proceduralStateId: null,
         customState: 'Pedido de informes al Registro Nacional de Reincidencia',
-        manualDueDate: '2026-10-07',
+        manualDueDate: '2026-10-08',
       });
 
-      const [notice] = await detect();
+      const notices = await detect();
 
-      expect(notice).toMatchObject({ caseId: handWritten.id, kind: 'DEADLINE_WARNING', dueDate: '2026-10-07' });
+      expect(notices.map((n) => [n.caseId, n.jurisdiction, n.kind, n.dueDate])).toEqual([
+        [administrative.id, 'ADMINISTRATIVE', 'DEADLINE_WARNING', '2026-10-07'],
+        [handWritten.id, 'CRIMINAL', 'DEADLINE_WARNING', '2026-10-08'],
+      ]);
     });
 
     // CA-51.6. Por la API no se llega a una causa terminal con un plazo abierto
@@ -246,11 +237,14 @@ describe('HU51 — verificación diaria de los vencimientos de actos procesales'
         harmfulAct: { date: '2026-10-01', termDays: 5, termDayType: 'BUSINESS', ...harmfulAct },
       });
 
-    it('detecta el vencimiento del acto lesivo de un amparo en "Iniciada", sin acto procesal', async () => {
+    // CA-51.9: la misma fecha y los mismos días que `harmfulActDeadline` del detalle.
+    it('detecta el vencimiento del acto lesivo de un amparo en "Iniciada", igual al que muestra la causa', async () => {
       const amparo = await newAmparo();
 
       const notices = await detect();
+      const caseBody = await expectData<Body>(await server().get(`/api/v1/cases/${amparo.id}`).set(s.responsible), 200);
 
+      expect(caseBody.harmfulActDeadline).toMatchObject({ dueDate: '2026-10-08', businessDaysRemaining: 2 });
       expect(notices).toEqual([
         {
           caseId: amparo.id,
@@ -267,18 +261,11 @@ describe('HU51 — verificación diaria de los vencimientos de actos procesales'
       ]);
     });
 
-    // CA-51.9: la misma fecha y los mismos días que `harmfulActDeadline` del detalle.
-    it('coincide con el harmfulActDeadline que muestra la causa', async () => {
-      const amparo = await newAmparo();
-
-      const [notice] = await detect();
-      const caseBody = await expectData<Body>(await server().get(`/api/v1/cases/${amparo.id}`).set(s.responsible), 200);
-
-      expect(caseBody.harmfulActDeadline).toMatchObject({ dueDate: notice.dueDate, businessDaysRemaining: 2 });
-    });
-
-    it('un amparo sin fecha del acto lesivo no tiene plazo que revisar', async () => {
+    // CA-51.6: ni un amparo sin fecha del acto lesivo ni uno dado de baja tienen plazo que revisar.
+    it('no revisa un amparo sin fecha del acto lesivo ni uno dado de baja', async () => {
       await newCase({ jurisdiction: 'AMPARO' });
+      const deactivated = await newAmparo();
+      await deactivateCase(deactivated.id);
 
       await expect(detect()).resolves.toEqual([]);
     });
@@ -299,14 +286,6 @@ describe('HU51 — verificación diaria de los vencimientos de actos procesales'
       const notices = await detect();
       expect(notices).toHaveLength(1);
       expect(notices[0]).toMatchObject({ origin: 'PROCEDURAL_ACT', proceduralActId: actId, dueDate: '2026-10-09' });
-    });
-
-    // CA-51.6
-    it('no revisa un amparo dado de baja', async () => {
-      const amparo = await newAmparo();
-      await deactivateCase(amparo.id);
-
-      await expect(detect()).resolves.toEqual([]);
     });
 
     // CA-51.5 "si el acto lesivo se renueva, toma la renovación vigente", y CA-30.8:
@@ -372,8 +351,12 @@ describe('HU51 — verificación diaria de los vencimientos de actos procesales'
       getPrisma().sentNotification.findMany({ where: { caseId, recipientLawyerId: null }, orderBy: { id: 'asc' } });
 
     // HU51 → HU30: lo detectado llega al correo y queda registrado con su origen y su acto.
-    it('manda el preaviso a la casilla y al responsable, y registra cada envío con su acto procesal', async () => {
+    // CA-51.7: la revisión no cambia nada de la causa ni del acto.
+    it('manda el preaviso a la casilla y al responsable, registra cada envío con su acto y no cambia la causa ni el acto', async () => {
       const { caseRow, actId } = await caseDueOn('2026-10-09', { caption: 'GÓMEZ, Ariel p.s.a. Robo calificado' });
+      const prisma = getPrisma();
+      const caseBefore = await prisma.case.findUniqueOrThrow({ where: { id: caseRow.id } });
+      const actBefore = await prisma.proceduralAct.findUniqueOrThrow({ where: { id: actId } });
 
       const res = await dailyRun();
 
@@ -386,7 +369,7 @@ describe('HU51 — verificación diaria de los vencimientos de actos procesales'
       expect(emailSender.sent.map((m) => m.to)).toEqual([[MANAGEMENT_MAILBOX], [await lawyerEmail()]]);
       expect(emailSender.sent[0].html).toContain('GÓMEZ, Ariel p.s.a. Robo calificado');
 
-      const rows = await getPrisma().sentNotification.findMany({ where: { caseId: caseRow.id } });
+      const rows = await prisma.sentNotification.findMany({ where: { caseId: caseRow.id } });
       expect(rows).toHaveLength(2);
       for (const row of rows) {
         expect(row).toMatchObject({
@@ -396,6 +379,8 @@ describe('HU51 — verificación diaria de los vencimientos de actos procesales'
           referenceDate: civil('2026-10-09'),
         });
       }
+      expect(await prisma.case.findUniqueOrThrow({ where: { id: caseRow.id } })).toEqual(caseBefore);
+      expect(await prisma.proceduralAct.findUniqueOrThrow({ where: { id: actId } })).toEqual(actBefore);
     });
 
     // CA-51.8, V-12: dos corridas el mismo día, y tres días seguidos dentro del
@@ -436,20 +421,5 @@ describe('HU51 — verificación diaria de los vencimientos de actos procesales'
       await dailyRun();
 
       expect((await mailboxRows(caseRow.id)).map((r) => r.kind)).toEqual(['DEADLINE_WARNING']);
-    });
-
-    // CA-51.7: la revisión no cambia nada de la causa ni del acto.
-    it('no cambia la causa ni el acto procesal', async () => {
-      const { caseRow, actId } = await caseDueOn('2026-10-06');
-      const prisma = getPrisma();
-      const caseBefore = await prisma.case.findUniqueOrThrow({ where: { id: caseRow.id } });
-      const actBefore = await prisma.proceduralAct.findUniqueOrThrow({ where: { id: actId } });
-
-      const res = await dailyRun();
-
-      expect(res.body.mailboxNoticeCount).toBe(1);
-      expect(await prisma.case.findUniqueOrThrow({ where: { id: caseRow.id } })).toEqual(caseBefore);
-      expect(await prisma.proceduralAct.findUniqueOrThrow({ where: { id: actId } })).toEqual(actBefore);
-    });
-  });
+    });  });
 });

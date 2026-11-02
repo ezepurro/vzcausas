@@ -178,6 +178,6 @@ Tres niveles:
    `test/shared/fakes/fake-google.ts` reemplaza solo el transporte HTTP
    (`oauthClient.transporter`); corren `@googleapis/drive` y `OAuth2Client` reales,
    con el canje del refresh token incluido. Ver `test/README.md` §3.8 y los
-   specs `google-oauth-refresh`, `google-drive-case-folder` y
-   `google-drive-templates`. No hay prueba automática contra Drive real: la
+   spec `documents/google-stack.int.spec.ts` (junta los que eran
+   `google-oauth-refresh`, `google-drive-case-folder` y `google-drive-templates`). No hay prueba automática contra Drive real: la
    lista de verificación manual está en el plan de HU-39.

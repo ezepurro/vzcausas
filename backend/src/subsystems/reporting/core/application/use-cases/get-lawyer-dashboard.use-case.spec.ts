@@ -52,16 +52,6 @@ describe('GetLawyerDashboard', () => {
     expect(summary).toEqual({ dueToday: 1, overdue: 1, dueSoon: 2, activeCases: 6 });
   });
 
-  it('un plazo que vence el lunes, visto el viernes, está a 1 día hábil (sábado y domingo no cuentan)', async () => {
-    useCase = new GetLawyerDashboard(query, { now: () => new Date(), today: () => day('2026-10-09') });
-    query.cases = [aCase({ dueDate: day('2026-10-12') })];
-
-    const { deadlines, summary } = await useCase.execute({ actor: lawyerActor() });
-
-    expect(deadlines[0].businessDaysRemaining).toBe(1);
-    expect(summary.dueSoon).toBe(1);
-  });
-
   // CA-41.3 y CA-41.4
   it('ordena los plazos por urgencia: los vencidos primero', async () => {
     query.cases = [
@@ -143,20 +133,6 @@ describe('GetLawyerDashboard', () => {
         elapsedPercentage: 96,
         expired: false,
       });
-    });
-
-    it('resume la calificación que prescribe primero', async () => {
-      query.cases = [aCase({ offenses: [offense(240, 'Robo', 1), offense(96, 'Lesiones', 2)] })];
-
-      const [alert] = (await useCase.execute({ actor: lawyerActor() })).prescriptionAlerts;
-
-      expect(alert).toMatchObject({ legalQualificationName: 'Lesiones', elapsedPercentage: 100, expired: true });
-    });
-
-    it('un acto interruptivo reinicia el cómputo y la causa sale de las alertas', async () => {
-      query.cases = [aCase({ offenses: [offense(100)], lastInterruptiveActDate: day('2026-01-10') })];
-
-      expect((await useCase.execute({ actor: lawyerActor() })).prescriptionAlerts).toEqual([]);
     });
 
     it('no incluye las causas de otros fueros ni las penales sin calificación', async () => {

@@ -90,7 +90,7 @@ contenido. Un pedido rechazado **no escribe nada**.
 | 33.11 | Causa inexistente: se informa | INT D2.3 · UNIT caso de uso |
 | 33.12 | No se puede deshacer | Sin endpoint de reversión (no hay nada que testear) · INT D3.3 (volver a marcar falla) |
 | 33.13 | "Prescripta" listado pero protegido | INT D5 · UNIT `ProceduralState` |
-| 33.14 | "Prescripta" no es destino de un acto | **Ya cubierto**: `register-procedural-act.int.spec.ts:405`, `deadline-preview.int.spec.ts:241`. No se duplica |
+| 33.14 | "Prescripta" no es destino de un acto | **Ya cubierto**: `register-procedural-act.int.spec.ts:353` (el alta) y `:533` (la previsualización, antes `deadline-preview.int.spec.ts`), con la fila "el estado Prescripta" de `notOffered` (`:79`). No se duplica |
 | 33.15 | El sistema nunca marca solo | No hay disparo automático que testear; el proceso diario solo avisa (`daily-run.int.spec.ts`) |
 | 33.16 | Botón solo en penal y no para Secretaría; el pase se ve en la historia | El botón es del frontend. La historia: INT D4.1 (entrada `PRESCRIPTION_DECLARATION` en la línea de vida) |
 

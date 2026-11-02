@@ -71,7 +71,8 @@ renombre no se mezcla con una HU, va en un refactor aparte.
 
 Un test que se escribe mirando la implementación confirma lo que el código hace, no lo
 que el contrato promete, y da verde aunque el endpoint esté mal. Esa fue la causa de
-los falsos positivos de `list-cases.int.spec.ts` y `register-case.int.spec.ts`.
+los falsos positivos de `list-cases.int.spec.ts` (hoy en `consult-cases.int.spec.ts`) y
+`register-case.int.spec.ts`.
 
 Lista contra falsos positivos:
 
@@ -91,8 +92,17 @@ Lista contra falsos positivos:
 
 ## Límites
 
+- Qué va en integración y qué en unitarios: `backend/test/README.md` §1.1. En
+  integración, por endpoint: un caso feliz con la forma exacta, cada `code` de error
+  una vez, lo que solo la base puede probar y las integraciones. El 401 sin token no
+  se repite: la ruta nueva se agrega a la lista de `test/smoke/app.int.spec.ts`.
 - Integración: **hasta 5 `describe` de hasta 3 `it`** por HU. Es flexible si hace
-  falta, sin pasarse: la suite completa ya tarda. Usar `it.each` para variantes del
-  mismo caso.
-- Proporción orientativa: **~70 % unitarios, ~30 % integración**.
+  falta, sin pasarse: la suite completa ya tarda. Usar `it.each` o un bucle para
+  variantes del mismo caso.
+- **Una suite por recurso o por flujo**, no una por HU ni por endpoint: cada suite
+  levanta `AppModule` (~3 s). Los tests de una HU nueva van a la suite de su recurso
+  si existe (README §1.2).
+- Proporción orientativa: **~75 % unitarios, ~25 % integración**. Al 01/11/2026,
+  tras la poda de `refactor/refactor-backend-tests`: ~1130 unitarios y ~290 de
+  integración en 20 suites.
 - Un CA que ya cubre otro spec no se duplica: se cita en la tabla del documento.
