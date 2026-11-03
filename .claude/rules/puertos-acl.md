@@ -53,6 +53,28 @@ dependencias, y es lo que permite testear `cases` con un fake sin levantar
 Por eso se llama **ACL (anti-corruption layer)**: la capa que evita que el
 modelo de otro subsistema se filtre al tuyo.
 
+## Dónde va el adaptador: las dos opciones son válidas
+
+Decidido el 03/11/2026 (HU38). Lo que no se negocia es que **el puerto lo
+declara el consumidor** y que su `core` no importa nada del otro subsistema.
+Dónde vive el adaptador que lo implementa es secundario: las dos opciones
+aíslan el dominio.
+
+- **En el proveedor (la preferida).** Es lo de arriba:
+  `people/infrastructure/acl/cases-people-lookup.adapter.ts`. El proveedor
+  exporta **el token** del puerto, y su modelo no sale de su carpeta.
+- **En el consumidor**, cuando lo que hace falta del otro subsistema es un
+  **caso de uso con lógica propia**. Por ejemplo, `GenerateCoverPdf` (HU24) o
+  `ListFolderDocuments` y `DownloadFolderDocument` (HU38), que deciden quién
+  descarga y exportan a PDF. El proveedor exporta esos casos de uso,
+  devuelven tipos planos (nunca entidades) y el adaptador del consumidor los
+  traduce: `cases/infrastructure/acl/documents-cover-pdf.adapter.ts` y
+  `documents-case-documents.adapter.ts`.
+
+El detalle está en `ARQUITECTURA_BACKEND_V1.md` §6.2, "Dónde vive el
+adaptador". El flujo de HU38 está en
+`docs/support/flujo-hu38-documentos-causa.md`.
+
 <!-- Nota para mmachuca: hoy LawyerLookupPort tiene DOS implementaciones,
      cases/infrastructure/acl/people-lawyer-lookup.adapter.ts (vía el use case
      de people) y people/infrastructure/acl/cases-lawyer-lookup.adapter.ts
