@@ -29,13 +29,15 @@ shared/
 │   ├── ApiError.ts
 │   ├── contract.ts           forma de los errores (codigos + cuerpos)
 │   ├── http.ts
-│   └── queryClient.ts
+│   ├── optimisticRemoval.ts  sacar una fila de los listados al confirmar una baja
+│   ├── queryClient.ts
+│   └── usePrefetchNextPage.ts pedir de antemano la página siguiente de una tabla
 ├── components/
 │   ├── index.ts              barrel: reexporta ui + forms
 │   ├── ui/                   18 componentes + index.ts
 │   ├── forms/                Field.tsx, Combobox.tsx, SegmentedControl.tsx, FormModal.tsx + index.ts
 │   └── feedback/             VACÍA (sólo .gitkeep)
-├── hooks/                    useDebouncedValue.ts (búsqueda con demora)
+├── hooks/                    useDebouncedValue.ts (búsqueda con demora), useHoverIntent.ts (pedir al apuntar)
 ├── lib/                      dates.ts (fechas para mostrar), initials.ts (iniciales de avatar)
 ├── mocks/                    la API del contrato, simulada (ver su README)
 │   ├── contract.ts           tipos del contrato
@@ -186,6 +188,9 @@ import { ApiError, isApiError } from '@/shared/api/ApiError';
 | Filtros sobre una tabla | `Panel actions={...}` | Se renderiza en `.vz-filters` |
 | Paginar una tabla | `Pagination` | Va en `Panel footer={...}` |
 | Buscador de un listado | `SearchInput` + `useDebouncedValue` de `@/shared/hooks/useDebouncedValue` | El input muestra el texto al instante; a la consulta va el valor demorado, así no sale un pedido por tecla |
+| Que "Siguiente" no espere | `usePrefetchNextPage` de `@/shared/api/usePrefetchNextPage`, dentro del hook del listado (`prefetchNext`) | Sólo en tablas: un desplegable que pide la página 1 no lo activa |
+| Que la fila desaparezca al confirmar una baja | `removeFromLists` / `restoreLists` de `@/shared/api/optimisticRemoval` | En `onMutate` / `onError` de la mutación; `onSettled` invalida los listados igual. Si el servidor rechaza, la fila vuelve |
+| Pedir de antemano lo que abre un botón ("Ver detalle") | `useHoverIntent` de `@/shared/hooks/useHoverIntent` | Avisa si el mouse se queda encima 150 ms o si el botón toma el foco. Pasar el mouse de largo no pide nada |
 | Mostrar un último ingreso | `formatLastLogin` de `@/shared/lib/dates` | Para que la fecha no se formatee distinto en cada feature |
 | Mostrar una fecha sin hora (`startDate`, `dueDate`) | `formatDate` de `@/shared/lib/dates` | **Nunca** `new Date('2026-09-15')`: la corre un día |
 | Valor por defecto de un campo de fecha | `todayIsoDate()` de `@/shared/lib/dates` | No `toISOString()`, que después de las 21 ya dice mañana |
@@ -760,6 +765,31 @@ const query = useClients({
   demora: tienen que responder al toque.
 - Lo usan Clientes, Abogados, Usuarios y Estados y plazos. Su test está en
   `tests/components/shared/useDebouncedValue.test.ts`.
+
+### useHoverIntent
+
+**Path:** `hooks/useHoverIntent.ts`
+**Firma:** `useHoverIntent<T>(onIntent: ((value: T) => void) | undefined, delay = HOVER_INTENT_MS): (value: T) => HoverIntentHandlers`
+
+Avisa que el usuario **apunta** a un elemento, para pedir de antemano lo que
+va a abrir. Con el mouse, recién cuando lleva `delay` (150 ms) encima; con el
+teclado, al tomar el foco. Devuelve una función que arma los manejadores de
+cada elemento, así una tabla usa un solo hook para todas sus filas:
+
+```tsx
+const intent = useHoverIntent(onIntent)
+
+<Button onClick={() => onOpen(c)} {...intent(c)}>Ver detalle</Button>
+```
+
+- La espera es para la API: barrer una columna de 20 botones sin ella manda
+  40 pedidos que nadie usa, y el límite de pedidos del backend es por IP
+  (`THROTTLE_DEFAULT_LIMIT`), compartido por todo el estudio.
+- Lo que se pide al apuntar va con `queryClient.prefetchQuery` y las mismas
+  claves que la pantalla de destino; lo fresco no se vuelve a pedir.
+- Si la pantalla se desmonta antes de que venza (un click que navega), no avisa.
+- Lo usa "Ver detalle" del listado de causas (`CasesTable`, con
+  `usePrefetchCase`). Su test está en `tests/components/shared/useHoverIntent.test.ts`.
 
 ---
 

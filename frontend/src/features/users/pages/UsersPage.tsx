@@ -89,7 +89,7 @@ export function UsersPage() {
         limit: LIMIT,
         search: debouncedSearch === '' ? undefined : debouncedSearch,
         role: role === ALL_ROLES ? undefined : role,
-    })
+    }, { prefetchNext: true })
 
     /* Las fichas para el select del formulario. Se piden siempre y no sólo
         con el modal abierto porque son pocas y quedan cacheadas: abrir el alta
@@ -270,7 +270,6 @@ export function UsersPage() {
             onSuccess: () => {
                 // `info` y no `success`: salió bien, pero no es un logro.
                 toast('info', `${formatPersonName(user)} Eliminado correctamente.`)
-                closeModal()
                 // Si era la única fila de la página, no dejar al usuario en
                 // una página que ya no existe.
                 if (rows.length === 1 && page > 1) setPage(page - 1)
@@ -279,9 +278,10 @@ export function UsersPage() {
                 // Acá no hay campos que marcar: el 409 de dependencias es del
                 // registro entero.
                 if (isApiError(error)) toast('error', error.message)
-                closeModal()
             },
         })
+        // Se cierra al confirmar: la fila ya salió de la tabla (`useDeleteUser`).
+        closeModal()
     }
 
     /* ---------------- pantalla ---------------- */

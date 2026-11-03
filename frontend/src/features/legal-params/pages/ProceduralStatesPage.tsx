@@ -76,7 +76,7 @@ export function ProceduralStatesPage() {
         limit: LIMIT,
         search: debouncedSearch === '' ? undefined : debouncedSearch,
         jurisdiction,
-    });
+    }, { prefetchNext: true });
 
     const formOpen = modal?.kind === 'create' || modal?.kind === 'edit';
 
@@ -239,7 +239,6 @@ export function ProceduralStatesPage() {
             onSuccess: () => {
                 // `info` y no `success`: salió bien, pero no es un logro.
                 toast('info', `Estado "${state.name}" eliminado del fuero ${JURISDICTION_LABELS[state.jurisdiction]}.`);
-                closeModal();
                 // Si era la única fila de la página, no dejar al usuario en una
                 // página que ya no existe.
                 if (rows.length === 1 && page > 1) setPage(page - 1);
@@ -248,9 +247,10 @@ export function ProceduralStatesPage() {
                 // Acá no hay campos que marcar: un rechazo de la baja es del
                 // registro entero. Tener causas ya no la impide (V3 D-06).
                 if (isApiError(error)) toast('error', error.message);
-                closeModal();
             },
         });
+        // Se cierra al confirmar: la fila ya salió de la tabla (`useDeleteProceduralState`).
+        closeModal();
     }
 
     /* ---------------- pantalla ---------------- */

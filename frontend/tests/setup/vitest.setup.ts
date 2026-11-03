@@ -64,6 +64,8 @@ FormData.prototype.forEach = function forEach(callback, thisArg) {
 /** Sin demora ni logs: en los tests sólo hacen más lento y más ruidoso todo. */
 const TEST_MOCK_OPTIONS = {
     latencyMs: 0,
+    // Un test que le pone demora a una ruta (`latencyProfile`) no se la pasa al siguiente.
+    latencyProfile: null,
     log: false,
     forceFailure: null,
     passthrough: [],

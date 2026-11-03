@@ -76,11 +76,14 @@ describe('CaseDetailPage', () => {
             await headerOf('Causa 13284571')
 
             expect(panelTitle('Cliente')).toBeInTheDocument()
-            expect(screen.getByText('GÓMEZ, Ariel Fernando')).toBeInTheDocument()
-            expect(screen.getByText('34.812.905')).toBeInTheDocument()
-            expect(screen.getByText('351 415-2288')).toBeInTheDocument()
-            expect(screen.getByText('afgomez@gmail.com')).toBeInTheDocument()
-            expect(screen.getByText('12/03/2021')).toBeInTheDocument()
+            /* Dentro de la tarjeta: el 12/03/2021 es también la fecha del primer
+               acto de la línea de vida, que llega junto con la causa. */
+            const card = within(panelTitle('Cliente').closest('.vz-panel') as HTMLElement)
+            expect(card.getByText('GÓMEZ, Ariel Fernando')).toBeInTheDocument()
+            expect(card.getByText('34.812.905')).toBeInTheDocument()
+            expect(card.getByText('351 415-2288')).toBeInTheDocument()
+            expect(card.getByText('afgomez@gmail.com')).toBeInTheDocument()
+            expect(card.getByText('12/03/2021')).toBeInTheDocument()
         })
     })
 

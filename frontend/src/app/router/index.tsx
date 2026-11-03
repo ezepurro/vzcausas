@@ -5,22 +5,14 @@ import { NotFoundLayout } from '@/app/layouts/NotFoundLayout'
 import { RequireSession } from '@/app/router/RequireSession'
 import { RedirectIfSession } from '@/app/router/RedirectIfSession'
 import { LoginPage } from '@/features/auth/pages/LoginPage'
-import { HomePage } from '@/features/dashboard/pages/HomePage'
-import { ProceduralStatesPage } from '@/features/legal-params/pages/ProceduralStatesPage'
-import { LegalQualificationsPage } from '@/features/legal-params/pages/LegalQualificationsPage'
-import { UsersPage } from '@/features/users/pages/UsersPage'
-import { LawyersPage } from '@/features/lawyers/pages/LawyersPage'
-import { RegisterProceduralActPage } from '@/features/proceedings/pages/RegisterProceduralActPage'
 import { RequireAccess } from '@/app/router/RequireAccess'
-import { ClientsPage } from '@/features/clients/pages/ClientsPage'
-import { RegisterCasePage } from '@/features/cases/pages/RegisterCasePage'
-import { CaseDetailPage } from '@/features/cases/pages/CaseDetailPage'
-import { GenerateCaseFilePage } from '@/features/cases/pages/GenerateCaseFilePage'
-import { CasesPage } from '@/features/cases/pages/CasesPage'
-import { DocumentTemplatesPage } from '@/features/documents/pages/DocumentTemplatesPage'
 import { HomeRedirect } from '@/app/router/HomeRedirect'
-import { ToolsPage } from '@/features/tools/pages/ToolsPage'
 import { LowercasePath } from '@/app/router/LowercasePath'
+import { PAGES } from '@/app/router/pages'
+
+/* Las pantallas van con `lazy`: cada una se descarga la primera vez que se
+   entra (o antes, al apuntar a su sección del rail). Mientras llega, queda a
+   la vista la pantalla anterior. Ver `pages.ts`. */
 
 export const router = createBrowserRouter([
     {
@@ -48,21 +40,21 @@ export const router = createBrowserRouter([
                             {
                                 element: <RequireAccess />,
                                 children: [
-                                    { path: 'inicio', element: <HomePage /> },
-                                    { path: 'clientes', element: <ClientsPage />},
-                                    { path: 'estados-y-plazos', element: <ProceduralStatesPage /> },
-                                    { path: 'calificaciones-legales', element: <LegalQualificationsPage /> },
-                                    { path: 'usuarios', element: <UsersPage /> },
-                                    { path: 'abogados', element: <LawyersPage /> },
-                                    { path : 'causas', element: <CasesPage />},
-                                    { path: 'causas/nueva', element: <RegisterCasePage /> },
-                                    { path: 'causas/:caseId', element: <CaseDetailPage /> },
-                                    { path: 'causas/:caseId/acto', element: <RegisterProceduralActPage /> },
+                                    { path: 'inicio', lazy: PAGES.home },
+                                    { path: 'clientes', lazy: PAGES.clients},
+                                    { path: 'estados-y-plazos', lazy: PAGES.proceduralStates },
+                                    { path: 'calificaciones-legales', lazy: PAGES.legalQualifications },
+                                    { path: 'usuarios', lazy: PAGES.users },
+                                    { path: 'abogados', lazy: PAGES.lawyers },
+                                    { path : 'causas', lazy: PAGES.cases},
+                                    { path: 'causas/nueva', lazy: PAGES.registerCase },
+                                    { path: 'causas/:caseId', lazy: PAGES.caseDetail },
+                                    { path: 'causas/:caseId/acto', lazy: PAGES.registerProceduralAct },
                                     // Modificar un acto (HU28): la misma pantalla, con el acto elegido en la línea de vida.
-                                    { path: 'causas/:caseId/acto/:actId', element: <RegisterProceduralActPage /> },
-                                    { path: 'causas/:caseId/expediente', element: <GenerateCaseFilePage /> },
-                                    { path: 'herramientas', element: <ToolsPage /> },
-                                    { path: 'modelos', element: <DocumentTemplatesPage /> },
+                                    { path: 'causas/:caseId/acto/:actId', lazy: PAGES.registerProceduralAct },
+                                    { path: 'causas/:caseId/expediente', lazy: PAGES.generateCaseFile },
+                                    { path: 'herramientas', lazy: PAGES.tools },
+                                    { path: 'modelos', lazy: PAGES.documentTemplates },
 
 
                                 ],

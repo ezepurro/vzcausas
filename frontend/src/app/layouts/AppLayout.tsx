@@ -19,6 +19,8 @@ import { LogoutConfirmModal } from '@/features/auth/components/LogoutConfirmModa
 import { DAILY_RUN_ENABLED, useRunDailyNotifications } from '@/features/deadlines'
 import { canAccess, matchRoute } from '@/app/access/access'
 import { useHomeRoute } from '@/app/access/useHomeRoute'
+import { preloadSection } from '@/app/router/pages'
+import { useHoverIntent } from '@/shared/hooks/useHoverIntent'
 
 /**
  * Marco de la aplicación con sesión iniciada: rail oscuro a la izquierda,
@@ -70,6 +72,8 @@ const CASES = '/causas'
 
 export function AppLayout() {
     const navigate = useNavigate()
+    // "Nueva causa" adelanta la pantalla del alta, como los ítems del rail.
+    const newCaseIntent = useHoverIntent(preloadSection)
     const { pathname } = useLocation()
 
     /* Este marco vive detrás de la guarda de sesión, así que siempre hay
@@ -123,6 +127,8 @@ export function AppLayout() {
             groups={groups}
             active={active}
             onNavigate={(route) => navigate(route)}
+            // Al apuntar a una sección se descarga su pantalla: el click la encuentra lista.
+            onIntent={preloadSection}
             brand={
                 <Link to={homeRoute} className="vz-rail__brand" aria-label="Ir al inicio">
                     <Logo />
@@ -140,6 +146,7 @@ export function AppLayout() {
                         icon={<Icon name="plus" size={15} />}
                         title="Nueva causa"
                         onClick={() => navigate(`${CASES}/nueva`)}
+                        {...newCaseIntent(`${CASES}/nueva`)}
                     >
                         <span className="vz-rail__action-label">Nueva causa</span>
                     </Button>

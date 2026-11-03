@@ -43,7 +43,7 @@ export function ClientsPage() {
         page,
         limit:LIMIT,
         search: debouncedSearch === '' ? undefined : debouncedSearch,
-    })
+    }, { prefetchNext: true })
     const create = useCreateClient()
     const rows = query.data?.data ?? []
     const pagination = query.data?.pagination

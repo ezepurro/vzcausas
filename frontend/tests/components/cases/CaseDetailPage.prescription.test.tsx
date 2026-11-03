@@ -3,6 +3,7 @@ import { screen, within } from '@testing-library/react'
 import { renderWithProviders } from '../../setup/render'
 import { usePrototypeToday } from '../../setup/clock'
 import { db } from '@/shared/mocks'
+import { configureMocks } from '@/shared/mocks/server'
 import { CaseDetailPage } from '@/features/cases/pages/CaseDetailPage'
 
 /**
@@ -61,6 +62,31 @@ describe('CaseDetailPage · marcar prescripta', () => {
             resolution: 'Sentencia N° 214',
             registeredById: 1,
         })
+    })
+
+    /* Con demora de red, el modal se cerraba con el encabezado ya en
+       "Prescripta" y la línea de vida todavía sin el pase. La mutación ahora
+       espera la línea de vida: al cerrarse el modal ya lo muestra, sin `findBy`.
+       Sin demora el test no distingue: la línea de vida volvería antes de mirar. */
+    it('al cerrarse el modal, la línea de vida ya muestra el pase a "Prescripta"', async () => {
+        const { user } = renderPage(1, 'fvazquez')
+        const timeline = () =>
+            screen.getByText('Ciclo de vida de la causa', { selector: '.vz-panel__title' })
+                .closest('.vz-panel') as HTMLElement
+        await screen.findByText('Ciclo de vida de la causa', { selector: '.vz-panel__title' })
+        expect(await within(timeline()).findAllByRole('listitem')).toHaveLength(4)
+        // Desde acá, leer la línea de vida tarda.
+        configureMocks({ latencyProfile: { 'GET /cases/:caseId/timeline': 300 } })
+        const dialog = await openModal(user, 'Causa 13284571')
+
+        await user.type(within(dialog).getByLabelText(/^resolución que la declara/i), 'Sentencia N° 214')
+        await user.click(within(dialog).getByRole('button', { name: MARK }))
+        await screen.findByText('Causa marcada como prescripta. Se cerraron los plazos abiertos.')
+
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+        const items = within(timeline()).getAllByRole('listitem')
+        expect(items).toHaveLength(5)
+        expect(items[0]).toHaveTextContent('Prescripta')
     })
 
     // CA-33.3: la resolución es obligatoria.

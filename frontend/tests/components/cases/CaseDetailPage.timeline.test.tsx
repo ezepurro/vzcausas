@@ -4,7 +4,7 @@ import { http, HttpResponse } from 'msw'
 import { renderWithProviders } from '../../setup/render'
 import { usePrototypeToday } from '../../setup/clock'
 import { personNameIn } from '../../setup/names'
-import { server } from '@/shared/mocks/server'
+import { configureMocks, server } from '@/shared/mocks/server'
 import { db, errorBody } from '@/shared/mocks'
 import { CaseDetailPage } from '@/features/cases/pages/CaseDetailPage'
 
@@ -184,5 +184,30 @@ describe('CaseDetailPage · línea de vida', () => {
         expect(
             await within(panel).findByText('Error del servidor de prueba.', {}, { timeout: 5000 }),
         ).toBeInTheDocument()
+    })
+
+    /* Sin criterio de aceptación: es para que el panel aparezca antes. La
+       línea de vida sólo necesita el id de la causa, así que no espera a que
+       llegue la causa: los dos pedidos salen juntos. Con demora en las dos
+       lecturas, el de la línea de vida tiene que salir antes de que vuelva la
+       causa. */
+    it('pide la línea de vida junto con la causa, sin esperarla', async () => {
+        configureMocks({ latencyProfile: { 'GET /cases/:caseId': 200, 'GET /cases/:caseId/timeline': 200 } })
+        const events: string[] = []
+        const path = (request: Request) => new URL(request.url).pathname.replace(/^\/api/, '')
+        server.events.on('request:start', ({ request }) => events.push(`sale ${path(request)}`))
+        server.events.on('response:mocked', ({ request }) => events.push(`vuelve ${path(request)}`))
+
+        try {
+            renderPage(1)
+            expect(await entries()).toHaveLength(4)
+
+            const timelineOut = events.indexOf('sale /cases/1/timeline')
+            const caseBack = events.indexOf('vuelve /cases/1')
+            expect(timelineOut).toBeGreaterThanOrEqual(0)
+            expect(timelineOut).toBeLessThan(caseBack)
+        } finally {
+            server.events.removeAllListeners()
+        }
     })
 })

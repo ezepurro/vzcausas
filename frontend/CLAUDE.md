@@ -221,7 +221,7 @@ Varios módulos necesitan datos de otros. Cada dueño publica **sólo eso** en s
 | `clients` | `useClients`, `useCreateClient`, `ClientFormModal`, `validateClient`, `formatClientName`, `formatDni`, `normalizeDni`, `toCreateClientBody` | Registrar causa: select de cliente y "Registrar cliente nuevo" |
 | `legal-params` | `useLegalQualifications`, `useCreateLegalQualification`, `LegalQualificationFormModal`, `useProceduralStates`, `isPrescribedState`, el formateo de la prescripción, los rótulos de fueros y tipos de día | Registrar causa, Registrar acto, Modelos (los fueros) y los tableros |
 | `documents` | `useDocumentTemplates`, `DocumentTemplate` | Registrar causa: cuántos modelos del fuero se van a copiar (CA-40.10) |
-| `cases` | `useCase`, `useCreateCase`, `casesKeys`, `CaseHeader`, `PrescriptionBar`, `nearestQualification`, `prescriptionNote`, `openDeadline`, `isResponsibleLawyer`, `sacLabel`, los rótulos y los tipos de la causa y del acto procesal (`ProceduralAct`, `ActDeadline`) | Registrar acto (muestra la causa y, al registrarse, invalida sus claves) y los tableros |
+| `cases` | `useCase`, `useCreateCase`, `casesKeys`, `refreshCaseAfterAct` (las mutaciones de actos esperan la causa nueva), `CaseHeader`, `PrescriptionBar`, `nearestQualification`, `prescriptionNote`, `openDeadline`, `isResponsibleLawyer`, `sacLabel`, los rótulos y los tipos de la causa y del acto procesal (`ProceduralAct`, `ActDeadline`) | Registrar acto (muestra la causa y, al registrarse, invalida sus claves) y los tableros |
 
 `proceedings`, `dashboard`, `tools`, `users` y `auth` no publican nada: nadie
 los consume. Las dependencias van en una sola dirección:
@@ -822,7 +822,12 @@ No llama al servidor directo.
 ## Enchufar un módulo nuevo
 
 1. Registrar las páginas en `src/app/router/index.tsx`, **adentro** de
-   `<RequireAccess />`.
+   `<RequireAccess />`, con `lazy`: la pantalla se declara en
+   `src/app/router/pages.ts` (`PAGES`) y la ruta la usa como
+   `{ path: '…', lazy: PAGES.miPantalla }`. No se importa en el router: si
+   no, vuelve al archivo principal y se descarga antes del login. Si es una
+   sección del rail, sumala también a `SECTION_PAGES` (la adelanta al apuntar
+   al ítem); `tests/unit/app/pages.test.ts` revisa las dos cosas.
 2. Si falta, agregar el ítem en `src/app/layouts/AppLayout.tsx`, en el grupo
    que corresponda ("Trabajo diario" o "Administración").
 3. **Declarar la ruta en `ROUTE_ACCESS`** (`src/app/access/access.ts`) con los

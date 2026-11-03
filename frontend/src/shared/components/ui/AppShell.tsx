@@ -1,4 +1,5 @@
 import { useEffect, useId, useState, type MouseEvent, type ReactNode } from 'react';
+import { useHoverIntent } from '@/shared/hooks/useHoverIntent';
 import { Icon, type IconName } from './Icon';
 
 export interface RailItem {
@@ -17,6 +18,11 @@ export interface AppShellProps {
   groups: RailGroup[];
   active: string;
   onNavigate: (id: string) => void;
+  /**
+   * El usuario apunta a un ítem (el mouse quedó encima un momento o tomó el
+   * foco): la app puede adelantar lo que esa sección va a necesitar.
+   */
+  onIntent?: (id: string) => void;
   /** logo, o lo que vaya arriba del rail */
   brand: ReactNode;
   /** Acción destacada bajo el logo: normalmente 'Nueva causa'. */
@@ -38,9 +44,11 @@ export interface AppShellProps {
  * `shell.css`, así que en una pantalla ancha este estado no cambia nada.
  */
 export function AppShell({
-  groups, active, onNavigate, brand, railAction, railFooter, topBar, children,
+  groups, active, onNavigate, onIntent, brand, railAction, railFooter, topBar, children,
 }: AppShellProps) {
   const [menuOpen, setMenuOpen] = useState(false);
+  // Pasar el mouse por el rail no cuenta: sólo quedarse sobre un ítem (`useHoverIntent`).
+  const intent = useHoverIntent(onIntent);
   const railId = useId();
 
   useEffect(() => {
@@ -85,6 +93,7 @@ export function AppShell({
                   aria-current={it.id === active ? 'page' : undefined}
                   className={`vz-rail__item ${it.id === active ? 'is-on' : ''}`}
                   onClick={() => onNavigate(it.id)}
+                  {...intent(it.id)}
                   title={it.label}
                 >
                   <Icon name={it.icon} />

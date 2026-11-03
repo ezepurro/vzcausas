@@ -15,6 +15,7 @@ import {
 } from '@/features/legal-params'
 import { useCases } from '@/features/cases/api/useCases'
 import { useCaseCustomStates } from '@/features/cases/api/useCaseCustomStates'
+import { usePrefetchCase } from '@/features/cases/api/usePrefetchCase'
 import { CaseFilters } from '@/features/cases/components/CaseFilters'
 import { CasesTable } from '@/features/cases/components/CasesTable'
 import { INITIAL_STATE_LABEL } from '@/features/cases/utils/caseState'
@@ -35,6 +36,8 @@ const OPTIONS_LIMIT = 100
 
 export function CasesPage() {
     const navigate = useNavigate()
+    // Al apuntar a "Ver detalle" se pide la causa: cuando llega el click, ya está o está en camino.
+    const prefetchCase = usePrefetchCase()
 
     /* ---------------- las busquedas y filtros del usuario ---------------- */
     const [search, setSearch] = useState('')
@@ -56,7 +59,7 @@ export function CasesPage() {
             responsibleLawyerId: responsibleLawyerId === '' ? undefined : Number(responsibleLawyerId),
             openDeadline: openDeadline ? true : undefined,
             ...stateFilterParams(state),
-        })
+        }, { prefetchNext: true })
         const rows = query.data?.data ?? []
         const pagination = query.data?.pagination 
 
@@ -190,6 +193,7 @@ export function CasesPage() {
                         busy={query.isPlaceholderData}
                         rows={rows}
                         onOpen={(c) => navigate(`/causas/${c.id}`)}
+                        onIntent={(c) => prefetchCase(c.id)}
                         empty={
                             <div className="vz-empty">
                                 <div className="vz-empty__title">Sin causas</div>

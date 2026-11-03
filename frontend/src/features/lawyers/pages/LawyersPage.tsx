@@ -53,7 +53,7 @@ export function LawyersPage() {
         page,
         limit: LIMIT,
         search: debouncedSearch === '' ? undefined : debouncedSearch,
-    })
+    }, { prefetchNext: true })
     const create = useCreateLawyer()
     const update = useUpdateLawyer()
 

@@ -74,7 +74,7 @@ export function LegalQualificationsPage() {
         page,
         limit: LIMIT,
         search: debouncedSearch === '' ? undefined : debouncedSearch,
-    });
+    }, { prefetchNext: true });
     const create = useCreateLegalQualification();
     const update = useUpdateLegalQualification();
     const remove = useDeleteLegalQualification();
@@ -201,7 +201,6 @@ export function LegalQualificationsPage() {
             onSuccess: () => {
                 // `info` y no `success`: salió bien, pero no es un logro.
                 toast('info', `Calificación "${qualification.name}" eliminada.`);
-                closeModal();
                 // Si era la única fila de la página, no dejar al usuario en
                 // una página que ya no existe.
                 if (rows.length === 1 && page > 1) setPage(page - 1);
@@ -210,9 +209,10 @@ export function LegalQualificationsPage() {
                 // Acá no hay campos que marcar: un rechazo de la baja es del
                 // registro entero. Tener causas no la impide (V4 §3.5).
                 if (isApiError(error)) toast('error', error.message);
-                closeModal();
             },
         });
+        // Se cierra al confirmar: la fila ya salió de la tabla (`useDeleteLegalQualification`).
+        closeModal();
     }
 
     /* ---------------- pantalla ---------------- */
