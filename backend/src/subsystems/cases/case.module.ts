@@ -14,6 +14,12 @@ import { GetCaseCover } from './core/application/use-cases/case/get-case-cover.u
 import { COVER_PDF } from './core/domain/ports/case/cover-pdf.port';
 import { DocumentsCoverPdfAdapter } from './infrastructure/acl/documents-cover-pdf.adapter';
 import { CaseCoverController } from './infrastructure/http/controllers/case-cover.controller';
+import { DownloadCaseDocument } from './core/application/use-cases/case/download-case-document.use-case';
+import { ListCaseDocuments } from './core/application/use-cases/case/list-case-documents.use-case';
+import { CASE_DOCUMENTS } from './core/domain/ports/case/case-documents.port';
+import { DocumentsCaseDocumentsAdapter } from './infrastructure/acl/documents-case-documents.adapter';
+import { CaseDocumentsController } from './infrastructure/http/controllers/case-documents.controller';
+import { CaseDocumentHttpMapper } from './infrastructure/http/mappers/case-document-http.mapper';
 import { GetCaseTimeline } from './core/application/use-cases/case/get-case-timeline.use-case';
 import { GetProceduralAct } from './core/application/use-cases/procedural-act/get-procedural-act.use-case';
 import { ListCases } from './core/application/use-cases/case/list-cases.use-case';
@@ -117,11 +123,23 @@ import { PrismaProceduralActRepository } from './infrastructure/persistence/pris
     AuditModule,
     DocumentsModule,
   ],
-  controllers: [CasesController, InterruptiveActsController, CaseTimelineController, CaseCoverController],
+  controllers: [
+    CasesController,
+    InterruptiveActsController,
+    CaseTimelineController,
+    CaseCoverController,
+    CaseDocumentsController,
+  ],
   providers: [
     // HU24: the cover sheet. `cases` decides what it says (`CoverSheet`); `documents` draws it.
     GetCaseCover,
     { provide: COVER_PDF, useClass: DocumentsCoverPdfAdapter },
+    // HU38: the documents of the case folder. `cases` answers for the case and its
+    // folder; `documents` reads the storage and decides who downloads what (D-103).
+    ListCaseDocuments,
+    DownloadCaseDocument,
+    CaseDocumentHttpMapper,
+    { provide: CASE_DOCUMENTS, useClass: DocumentsCaseDocumentsAdapter },
     RegisterCase,
     // HU39: asks `documents` for the folder of a case and waits for the answer.
     // Used by the registration and by `POST /cases/{caseId}/folder`.

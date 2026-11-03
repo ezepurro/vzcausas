@@ -8,6 +8,10 @@ import { ListDocumentTemplates } from './core/application/use-cases/list-documen
 import { RegisterDocumentTemplate } from './core/application/use-cases/register-document-template.use-case';
 import { SetupCloudStorage } from './core/application/use-cases/setup-cloud-storage.use-case';
 import { GenerateCoverPdf } from './core/application/use-cases/generate-cover-pdf.use-case';
+import { DownloadFolderDocument } from './core/application/use-cases/download-folder-document.use-case';
+import { ListFolderDocuments } from './core/application/use-cases/list-folder-documents.use-case';
+import { CASE_FILE_REPOSITORY } from './core/domain/ports/case-file.repository';
+import { PrismaCaseFileRepository } from './infrastructure/persistence/prisma/prisma-case-file.repository';
 import { CLOUD_FOLDER_REPOSITORY } from './core/domain/ports/cloud-folder.repository';
 import { COVER_PDF_RENDERER } from './core/domain/ports/cover-pdf-renderer.port';
 import { PdfLibCoverRenderer } from './infrastructure/pdf/pdf-lib-cover.renderer';
@@ -30,6 +34,8 @@ import { DOCUMENT_STORAGE_PROVIDER } from './infrastructure/storage/document-sto
  * `DocumentSpaceCreationFailed` / `CaseTemplatesCopied`. The one exception is
  * `GenerateCoverPdf` (HU24, P-08 option B): `cases` needs the PDF back, which an
  * event cannot carry, so it is exported and `cases` calls it through an ACL adapter.
+ * `ListFolderDocuments` and `DownloadFolderDocument` (HU38) go the same way: `cases`
+ * owns `/cases/{caseId}/documents` and asks `documents` for the files of the folder.
  * Its one HTTP resource is `/document-templates` (HU34 and HU35).
  *
  * The listeners MUST stay in `providers`: if one is missing it never runs and
@@ -64,11 +70,15 @@ import { DOCUMENT_STORAGE_PROVIDER } from './infrastructure/storage/document-sto
     // HU24: draws the cover sheet that `cases` asks for (P-08 option B).
     GenerateCoverPdf,
     { provide: COVER_PDF_RENDERER, useClass: PdfLibCoverRenderer },
+    // HU38: the files of a case folder, for `cases`. `case_files` is only read here.
+    ListFolderDocuments,
+    DownloadFolderDocument,
+    { provide: CASE_FILE_REPOSITORY, useClass: PrismaCaseFileRepository },
     { provide: CLOUD_FOLDER_REPOSITORY, useClass: PrismaCloudFolderRepository },
     { provide: DOCUMENT_TEMPLATE_REPOSITORY, useClass: PrismaDocumentTemplateRepository },
     { provide: TEMPLATE_COPY_REPOSITORY, useClass: PrismaTemplateCopyRepository },
     DOCUMENT_STORAGE_PROVIDER,
   ],
-  exports: [GenerateCoverPdf],
+  exports: [GenerateCoverPdf, ListFolderDocuments, DownloadFolderDocument],
 })
 export class DocumentsModule {}

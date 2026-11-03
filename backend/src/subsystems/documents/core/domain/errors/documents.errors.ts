@@ -35,6 +35,44 @@ export class DocumentStorageUnavailableError extends BadGatewayError {
 }
 
 /**
+ * The storage did not answer while reading the folder of a case (HU38,
+ * CA-38.6). Same `code` as {@link DocumentStorageUnavailableError}, with the
+ * contract's text for this operation (V5 `:7570`).
+ */
+export class CaseFolderReadUnavailableError extends BadGatewayError {
+  constructor() {
+    super(
+      'DOCUMENT_STORAGE_UNAVAILABLE',
+      'No se pudo leer la carpeta de la causa en Drive. Intentá de nuevo en unos minutos.',
+    );
+  }
+}
+
+/**
+ * The storage did not answer while downloading a document of a case (HU38,
+ * CA-38.6). The contract words it apart from the read (V5 `:7649`).
+ */
+export class CaseDocumentDownloadUnavailableError extends BadGatewayError {
+  constructor() {
+    super(
+      'DOCUMENT_STORAGE_UNAVAILABLE',
+      'No se pudo descargar el documento de Drive. Intentá de nuevo en unos minutos.',
+    );
+  }
+}
+
+/**
+ * The document does not exist, is in the trash or is not in the folder asked
+ * for (HU38, CA-38.8): the API never hands out a file of another folder, even
+ * if its id is known (V5 `:7629-7631`).
+ */
+export class DocumentNotFoundError extends NotFoundError {
+  constructor() {
+    super('DOCUMENT_NOT_FOUND', 'No se encontró el documento en la carpeta de la causa.');
+  }
+}
+
+/**
  * The study's folder structure is saved in the database but the folder is no
  * longer in the cloud storage (deleted or trashed by hand). The saved id is
  * useless now, so someone has to decide what to do instead of recreating it

@@ -27,6 +27,7 @@ export const CASES_URL = '/api/v1/cases';
 /** Deja la base sin causas, carpetas ni actores, en el orden que piden las claves foráneas. */
 export async function resetDatabaseForCaseFolders(): Promise<void> {
   const prisma = getPrisma();
+  await prisma.caseFile.deleteMany(); // HU38/HU25: referencia a causas y usuarios con `Restrict`
   await prisma.sentNotification.deleteMany(); // referencia a causas; la deja `daily-run`
   await prisma.offense.deleteMany();
   await prisma.case.updateMany({ data: { currentProceduralActId: null } });
@@ -113,4 +114,7 @@ export class SwitchableStorage implements DocumentStoragePort {
   copyFile = (copy: FileCopy) => this.current.storage.copyFile(copy);
   deleteFile = (fileId: string) => this.current.storage.deleteFile(fileId);
   downloadFile = (fileId: string) => this.current.storage.downloadFile(fileId);
+  listFiles = (folderId: string) => this.current.storage.listFiles(folderId);
+  findFile = (fileId: string) => this.current.storage.findFile(fileId);
+  exportFile = (fileId: string, mimeType: string) => this.current.storage.exportFile(fileId, mimeType);
 }

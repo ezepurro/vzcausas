@@ -27,6 +27,7 @@ import { createUser } from './user.factory';
  */
 export async function resetProceduralActData(): Promise<void> {
   const prisma = getPrisma();
+  await prisma.caseFile.deleteMany(); // HU38/HU25: referencia a causas y usuarios con `Restrict`
   await prisma.sentNotification.deleteMany(); // referencia a causas; la deja `daily-run`
   await prisma.offense.deleteMany();
   await prisma.interruptiveAct.deleteMany(); // HU31: referencia a causas, usuarios y abogados
