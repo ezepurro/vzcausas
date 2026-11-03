@@ -1,9 +1,7 @@
 import { Controller, Get, Param, Query, StreamableFile } from '@nestjs/common';
 import { GetCaseCover } from '../../../core/application/use-cases/case/get-case-cover.use-case';
-import { InvalidCaseIdError, InvalidCoverDispositionError } from '../../../core/domain/errors/case.errors';
-
-const DISPOSITIONS = ['inline', 'attachment'] as const;
-type Disposition = (typeof DISPOSITIONS)[number];
+import { InvalidCaseIdError } from '../../../core/domain/errors/case.errors';
+import { parseDisposition } from '../disposition';
 
 /**
  * `GET /cases/{caseId}/cover` (HU24, contract V5 §3.7): the cover sheet of a case as a
@@ -29,7 +27,8 @@ export class CaseCoverController {
     if (!Number.isInteger(caseId) || caseId <= 0) {
       throw new InvalidCaseIdError();
     }
-    const disposition = this.parseDisposition(dispositionParam);
+    // `inline` when absent (CA-24.10).
+    const disposition = parseDisposition(dispositionParam, 'inline');
 
     const cover = await this.getCaseCover.execute({ id: caseId });
 
@@ -38,16 +37,5 @@ export class CaseCoverController {
       length: cover.content.length,
       disposition: `${disposition}; filename="${cover.fileName}"`,
     });
-  }
-
-  /** `inline` when absent (CA-24.10); anything else that is not one of the two is a 400. */
-  private parseDisposition(raw: unknown): Disposition {
-    if (raw === undefined) {
-      return 'inline';
-    }
-    if (!DISPOSITIONS.includes(raw as Disposition)) {
-      throw new InvalidCoverDispositionError();
-    }
-    return raw as Disposition;
   }
 }

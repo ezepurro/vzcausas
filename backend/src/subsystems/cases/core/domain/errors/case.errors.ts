@@ -93,6 +93,18 @@ export class CaseNotFoundError extends NotFoundError {
   }
 }
 
+/**
+ * Emitted by `GET /cases/{caseId}/documents/{documentId}/file` (HU38) when the
+ * folder of the case is not created: no document can be in it (CA-38.5,
+ * CA-38.8). `documents` has its own class with the same `code` for a file that
+ * is not in a folder that does exist.
+ */
+export class CaseDocumentNotFoundError extends NotFoundError {
+  constructor() {
+    super('DOCUMENT_NOT_FOUND', 'No se encontró el documento en la carpeta de la causa.');
+  }
+}
+
 /** Emitted when the user is not the lawyer in charge of the case (D-30, 403). */
 export class NotResponsibleLawyerError extends ForbiddenActionError {
   /**

@@ -420,6 +420,19 @@ Cuatro piezas:
 
 El nombre _anticorrupción_ es literal: su función es impedir que el modelo de un subsistema se filtre y corrompa el modelo del otro.
 
+#### Dónde vive el adaptador: proveedor o consumidor
+
+> **Actualización (03/11/2026, HU38).** El punto 2 de arriba ubica el adaptador en el consumidor; `.claude/rules/puertos-acl.md` y la mayoría del código lo ubican en el proveedor. **Las dos opciones son válidas**, porque las dos cumplen lo que importa: el puerto lo declara el consumidor con su vocabulario, y su `core` no importa nada del otro subsistema. Lo que cambia es sólo qué carpeta de `infrastructure/` conoce al otro.
+
+| Opción | Dónde | Qué exporta el proveedor | Ejemplos |
+| --- | --- | --- | --- |
+| **En el proveedor (preferida)** | `<proveedor>/infrastructure/acl/<consumidor>-<puerto>.adapter.ts` | El **token** del puerto | `people/…/cases-people-lookup.adapter.ts`, `legal-parameters/…/cases-legal-parameters-lookup.adapter.ts`, `cases/…/deadlines-prescription-status.adapter.ts` |
+| **En el consumidor** | `<consumidor>/infrastructure/acl/<proveedor>-<puerto>.adapter.ts` | Los **casos de uso** que el adaptador invoca (§6.3) | `cases/…/documents-cover-pdf.adapter.ts` (HU24), `cases/…/documents-case-documents.adapter.ts` (HU38) |
+
+**Conviene hacerlo en el proveedor**: el que conoce su propio modelo es quien mejor lo traduce, y su superficie pública queda en un token. **El adaptador va en el consumidor cuando lo que provee el otro subsistema es un caso de uso con lógica propia**, que vale la pena exponer entero y no rearmar detrás de un adaptador. Por ejemplo, dibujar la carátula (`GenerateCoverPdf`) o decidir quién descarga un documento y exportarlo (`DownloadFolderDocument`). En ese caso el proveedor exporta esos casos de uso y devuelven **tipos planos, nunca entidades** (§6.3), que el adaptador traduce.
+
+El flujo completo de HU38, con los diagramas de secuencia, está en `docs/support/flujo-hu38-documentos-causa.md`.
+
 ```mermaid
 sequenceDiagram
     participant UC as cases/RegisterCase
