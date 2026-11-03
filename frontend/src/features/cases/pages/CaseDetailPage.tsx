@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { useCan } from '@/app/access/useCan'
+import { useGoBack } from '@/app/router/useGoBack'
 import { useCurrentUser } from '@/app/providers/AuthContext'
 import { useToast } from '@/app/providers/ToastContext'
 import { isApiError } from '@/shared/api/ApiError'
@@ -73,6 +74,8 @@ export function CaseDetailPage() {
     const navigate = useNavigate()
     const validId = Number.isInteger(caseId) && caseId > 0
     const query = useCase(caseId)
+    // Al listado o a Inicio, según de dónde se entró.
+    const goBack = useGoBack('/causas')
 
     const c = query.data
     const crumbs: BreadcrumbItem[] = [
@@ -98,7 +101,7 @@ export function CaseDetailPage() {
 
     return (
         <>
-            <Breadcrumbs items={crumbs} />
+            <Breadcrumbs items={crumbs} onBack={goBack} />
             {body}
         </>
     )

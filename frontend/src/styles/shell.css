@@ -256,6 +256,33 @@
   margin-bottom: 14px;
   font-size: 13px;
 }
+/* Flecha de volver: chica y callada hasta que se la busca. */
+.vz-crumbs__back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  margin-right: 2px;
+  padding: 0;
+  border: 1px solid var(--vz-border);
+  border-radius: var(--vz-r-btn);
+  background: var(--vz-surface);
+  color: var(--vz-muted);
+  cursor: pointer;
+  transition: color .15s, background-color .15s, border-color .15s;
+}
+.vz-crumbs__back:hover {
+  color: var(--vz-primary);
+  background: var(--vz-primary-soft);
+  border-color: var(--vz-ok-bd);
+}
+.vz-crumbs__back svg { transition: transform .15s; }
+.vz-crumbs__back:hover svg { transform: translateX(-1px); }
+@media (prefers-reduced-motion: reduce) {
+  .vz-crumbs__back,
+  .vz-crumbs__back svg { transition: none; }
+}
 .vz-crumbs__sep { color: var(--vz-border-strong); }
 .vz-crumbs__link {
   padding: 0;

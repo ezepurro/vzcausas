@@ -5,6 +5,32 @@ contrato.
 
 ---
 
+## 2026-11-03 — Flecha de volver en las pantallas de causas
+
+**Pedido:** del equipo (Facundo Fiorani). Para volver había que usar el botón
+atrás del navegador o el rail, que deja en la entrada de la sección.
+
+**Antes (prototipo):** sólo las migas, que llevan siempre a `/causas` aunque se
+haya entrado a la causa desde Inicio.
+
+**Ahora:** una flecha chica antes de las migas (`Breadcrumbs` con `onBack`) en
+el detalle, Registrar causa, Registrar o Modificar acto (`proceedings/`) y
+Generar expediente. Vuelve a la pantalla anterior de la aplicación
+(`useGoBack`); si se entró por la URL, va a la pantalla de la que cuelga: el
+listado desde el detalle y el alta, el detalle desde el acto y el expediente.
+
+- Volver o guardar en el acto y "Volver a la causa" del expediente también
+  vuelven atrás en lugar de sumar el detalle al historial: si no, la flecha
+  del detalle llevaría de nuevo al formulario.
+- Registrar una causa reemplaza el alta por el detalle en el historial, por lo
+  mismo.
+- La flecha del alta descarta el borrador, como la miga "Causas".
+
+Los filtros del listado siguen sin conservarse al volver: viven en el estado de
+la página, no en la URL. Quedó para más adelante.
+
+---
+
 ## 2026-10-29 — Generar expediente (HU25) y vista previa de la carátula (HU24)
 
 **Pedido:** decisiones de Luciano Cipolla al programar la pantalla, donde el

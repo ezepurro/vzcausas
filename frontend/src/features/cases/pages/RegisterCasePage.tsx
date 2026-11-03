@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { useCurrentUser } from '@/app/providers/AuthContext'
 import { useToast } from '@/app/providers/ToastContext'
+import { useGoBack } from '@/app/router/useGoBack'
 import { isApiError } from '@/shared/api/ApiError'
 import { Breadcrumbs, Button, Modal, PageHeader } from '@/shared/components/ui'
 import { useFocusFirstError } from '@/shared/hooks/useFocusFirstError'
@@ -145,6 +146,14 @@ export function RegisterCasePage() {
     function goToList() {
         clearCaseDraft(userId)
         navigate('/causas')
+    }
+
+    /* La flecha también: vuelve a donde estaba, que puede no ser el listado
+       (el botón "Registrar causa" del rail está en todas las pantallas). */
+    const goBack = useGoBack('/causas')
+    function back() {
+        clearCaseDraft(userId)
+        goBack()
     }
 
     /* ---------------- opciones de los selects ---------------- */
@@ -308,7 +317,8 @@ export function RegisterCasePage() {
                 } else {
                     toast('success', `${message}${folderNoticeSuffix(registered.folder)}.`)
                 }
-                navigate(`/causas/${registered.id}`)
+                // Reemplaza el alta: la flecha del detalle no vuelve a un formulario ya guardado.
+                navigate(`/causas/${registered.id}`, { replace: true })
             },
             onError: handleApiError,
         })
@@ -320,6 +330,7 @@ export function RegisterCasePage() {
         <>
             <Breadcrumbs
                 items={[{ label: 'Causas', onClick: goToList }, { label: 'Registrar causa' }]}
+                onBack={back}
             />
             <PageHeader
                 title="Registrar causa"

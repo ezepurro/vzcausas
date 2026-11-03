@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { useToast } from '@/app/providers/ToastContext'
+import { useGoBack } from '@/app/router/useGoBack'
 import { isApiError } from '@/shared/api/ApiError'
 import { Breadcrumbs, PageHeader, Panel, type BreadcrumbItem } from '@/shared/components/ui'
 import { useCase } from '@/features/cases/api/useCase'
@@ -51,6 +52,7 @@ export function GenerateCaseFilePage() {
     const navigate = useNavigate()
     const validId = Number.isInteger(caseId) && caseId > 0
     const query = useCase(caseId)
+    const goBack = useGoBack(`/causas/${caseId}`)
 
     const c = query.data
     const crumbs: BreadcrumbItem[] = [
@@ -77,7 +79,7 @@ export function GenerateCaseFilePage() {
 
     return (
         <>
-            <Breadcrumbs items={crumbs} />
+            <Breadcrumbs items={crumbs} onBack={goBack} />
             {body}
         </>
     )
@@ -92,7 +94,6 @@ interface ReadyState {
 
 /** La pantalla con la causa ya cargada. */
 function CaseFileGenerator({ case: c }: { case: Case }) {
-    const navigate = useNavigate()
     const toast = useToast()
 
     /* Los documentos se leen de la carpeta: sin ella creada no hay pedido, y el
@@ -183,7 +184,8 @@ function CaseFileGenerator({ case: c }: { case: Case }) {
         )
     }
 
-    const goToCase = () => navigate(`/causas/${c.id}`)
+    // Se llega desde el detalle: volver saca esta pantalla del historial.
+    const goToCase = useGoBack(`/causas/${c.id}`)
 
     return (
         <>

@@ -2,6 +2,7 @@ import { useRef, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { useCurrentUser } from '@/app/providers/AuthContext'
 import { useToast } from '@/app/providers/ToastContext'
+import { useGoBack } from '@/app/router/useGoBack'
 import { isApiError } from '@/shared/api/ApiError'
 import { Breadcrumbs, Button, LoadingState, Panel, type BreadcrumbItem } from '@/shared/components/ui'
 import type { ComboboxOption } from '@/shared/components/forms'
@@ -75,6 +76,7 @@ export function RegisterProceduralActPage() {
     const actId = Number(actParam)
     const navigate = useNavigate()
     const caseQuery = useCase(caseId)
+    const goBack = useGoBack(`/causas/${caseId}`)
     // Sin `actId` en la ruta la consulta no sale (`enabled`).
     const actQuery = useProceduralAct(caseId, editing ? actId : Number.NaN)
     const validCaseId = Number.isInteger(caseId) && caseId > 0
@@ -127,7 +129,7 @@ export function RegisterProceduralActPage() {
 
     return (
         <>
-            <Breadcrumbs items={crumbs} />
+            <Breadcrumbs items={crumbs} onBack={goBack} />
             {body}
         </>
     )
@@ -138,7 +140,6 @@ export function RegisterProceduralActPage() {
  * el registro; con `act`, la modificación, que arranca con sus valores.
  */
 function RegisterProceduralAct({ case: c, act }: { case: Case; act?: ProceduralAct }) {
-    const navigate = useNavigate()
     const toast = useToast()
     const { lawyer } = useCurrentUser()
     const { jurisdiction } = c
@@ -188,7 +189,9 @@ function RegisterProceduralAct({ case: c, act }: { case: Case; act?: ProceduralA
 
     const register = useRegisterProceduralAct(c.id)
     const update = useUpdateProceduralAct(c.id, act?.id ?? 0)
-    const backToCase = () => navigate(`/causas/${c.id}`)
+    // Se llega desde el detalle: volver, cancelar o guardar sacan esta pantalla
+    // del historial, así la flecha del detalle no trae de nuevo el formulario.
+    const backToCase = useGoBack(`/causas/${c.id}`)
 
     /* ---------------- formulario ---------------- */
 
