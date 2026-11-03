@@ -41,6 +41,10 @@ class RecordingCaseDocuments implements CaseDocumentsPort {
     this.downloaded.push({ cloudFolderId, documentId, actor });
     return FILE;
   }
+
+  async generateCaseFile(): Promise<never> {
+    throw new Error('No se usa en este spec.');
+  }
 }
 
 let folders: FakeCaseFolderState;

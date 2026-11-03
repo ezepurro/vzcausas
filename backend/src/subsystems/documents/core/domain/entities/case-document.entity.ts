@@ -9,18 +9,28 @@ const GOOGLE_NATIVE_PREFIX = 'application/vnd.google-apps.';
 export const PDF_MIME_TYPE = 'application/pdf';
 
 /**
- * What can go into a case file (D-102, V5 `:7427`): PDF, Word, a Google
- * document and JPG or PNG images. A Google spreadsheet is not a "documento de
- * Google" and stays out.
+ * How a document becomes PDF to go into a case file (HU25, D-102, V5 `:7734-7736`):
+ *
+ * - `AS_IS`: a PDF goes as it is.
+ * - `EXPORT`: a Google document is exported to PDF by Drive.
+ * - `CONVERT`: a Word file (`.doc`, `.docx`) is converted by Drive.
+ * - `IMAGE`: a JPG or PNG image goes one per page, fitted to A4.
  */
-const CONVERTIBLE_MIME_TYPES = new Set([
-  PDF_MIME_TYPE,
-  'application/msword',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'application/vnd.google-apps.document',
-  'image/jpeg',
-  'image/png',
-]);
+export type PdfConversion = 'AS_IS' | 'EXPORT' | 'CONVERT' | 'IMAGE';
+
+/**
+ * What can go into a case file, and how (D-102, V5 `:7427`). A Google
+ * spreadsheet is not a "documento de Google" and stays out: anything absent
+ * here cannot be converted.
+ */
+const PDF_CONVERSIONS: Readonly<Record<string, PdfConversion>> = {
+  [PDF_MIME_TYPE]: 'AS_IS',
+  'application/vnd.google-apps.document': 'EXPORT',
+  'application/msword': 'CONVERT',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'CONVERT',
+  'image/jpeg': 'IMAGE',
+  'image/png': 'IMAGE',
+};
 
 /** Profiles that download a document that is not a case file (D-103, V5 `:7584-7587`). */
 const DOWNLOAD_ROLES = ['LAWYER', 'SECRETARY'];
@@ -82,6 +92,14 @@ export class CaseDocument {
     return this.stored.id;
   }
 
+  get name(): string {
+    return this.stored.name;
+  }
+
+  get mimeType(): string {
+    return this.stored.mimeType;
+  }
+
   get createdAt(): Date {
     return this.stored.createdAt;
   }
@@ -101,8 +119,18 @@ export class CaseDocument {
     return extension === '' ? null : extension;
   }
 
+  /** How it becomes PDF in a case file, or `null` if it cannot (HU25, CA-25.4). */
+  get pdfConversion(): PdfConversion | null {
+    return PDF_CONVERSIONS[this.stored.mimeType] ?? null;
+  }
+
   get convertibleToPdf(): boolean {
-    return CONVERTIBLE_MIME_TYPES.has(this.stored.mimeType);
+    return this.pdfConversion !== null;
+  }
+
+  /** A case file the system generated (`case_files`): it never goes into another one (CA-25.3). */
+  get isCaseFile(): boolean {
+    return this.caseFileRef !== null;
   }
 
   /** The name it is downloaded with: a native document gains `.pdf`, since it leaves as one. */

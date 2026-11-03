@@ -1,5 +1,6 @@
 import { AuthenticatedUser } from '@shared/domain/authenticated-user';
 import { DownloadFolderDocument } from '@subsystems/documents/core/application/use-cases/download-folder-document.use-case';
+import { GenerateCaseFile } from '@subsystems/documents/core/application/use-cases/generate-case-file.use-case';
 import {
   FolderDocumentResult,
   ListFolderDocuments,
@@ -26,9 +27,21 @@ describe('DocumentsCaseDocumentsAdapter', () => {
   const download = {
     execute: jest.fn().mockResolvedValue({ fileName: 'a.pdf', mimeType: 'application/pdf', content: Buffer.from('a') }),
   };
+  const generatedAt = new Date('2026-10-06T15:30:00Z');
+  const generate = {
+    execute: jest.fn().mockResolvedValue({
+      document: RESULT,
+      version: 1,
+      pageCount: 6,
+      parts: [{ position: 1, kind: 'COVER', documentId: null, name: 'Carátula' }],
+      generatedBy: { id: 5, lastName: 'Estudio', firstName: 'Gestión' },
+      generatedAt,
+    }),
+  };
   const adapter = new DocumentsCaseDocumentsAdapter(
     list as unknown as ListFolderDocuments,
     download as unknown as DownloadFolderDocument,
+    generate as unknown as GenerateCaseFile,
   );
 
   it('pide los documentos de la carpeta y los traduce campo por campo', async () => {
@@ -43,5 +56,35 @@ describe('DocumentsCaseDocumentsAdapter', () => {
 
     expect(download.execute).toHaveBeenCalledWith({ folderId: 'folder-ref', documentId: 'doc-1', actor: ACTOR });
     expect(file).toEqual({ fileName: 'a.pdf', mimeType: 'application/pdf', content: Buffer.from('a') });
+  });
+
+  it('genera el expediente con el id del actor y traduce el resultado campo por campo (HU25)', async () => {
+    const cover = Buffer.from('%PDF');
+
+    const result = await adapter.generateCaseFile({
+      caseId: 7,
+      sacNumber: '13284571',
+      cloudFolderId: 'folder-ref',
+      coverPdf: cover,
+      documentIds: ['doc-1'],
+      actor: ACTOR,
+    });
+
+    expect(generate.execute).toHaveBeenCalledWith({
+      caseId: 7,
+      sacNumber: '13284571',
+      folderId: 'folder-ref',
+      coverPdf: cover,
+      documentIds: ['doc-1'],
+      generatedByUserId: ACTOR.userId,
+    });
+    expect(result).toEqual({
+      document: RESULT,
+      version: 1,
+      pageCount: 6,
+      parts: [{ position: 1, kind: 'COVER', documentId: null, name: 'Carátula' }],
+      generatedBy: { id: 5, lastName: 'Estudio', firstName: 'Gestión' },
+      generatedAt,
+    });
   });
 });

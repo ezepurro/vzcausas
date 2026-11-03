@@ -105,6 +105,20 @@ export class CaseDocumentNotFoundError extends NotFoundError {
   }
 }
 
+/**
+ * Emitted by `POST /cases/{caseId}/case-files` (HU25, CA-25.7) when the folder of
+ * the case is not `CREATED`: the case file is saved in it (D-102). The cover sheet
+ * alone does not need it.
+ */
+export class CaseFolderNotAvailableError extends BusinessRuleError {
+  constructor() {
+    super(
+      'CASE_FOLDER_NOT_AVAILABLE',
+      'La causa no tiene su carpeta en Drive creada. Creala antes de generar el expediente.',
+    );
+  }
+}
+
 /** Emitted when the user is not the lawyer in charge of the case (D-30, 403). */
 export class NotResponsibleLawyerError extends ForbiddenActionError {
   /**

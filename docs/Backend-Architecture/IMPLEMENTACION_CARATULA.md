@@ -91,7 +91,7 @@ rol `DEMANDADA` → Actor = contraparte, Demandado = cliente; con otro rol, al r
    de Jira (VZ-32): los rótulos ya están confirmados.
 6. Mock del frontend (`handlers.ts:3231` y `:3237`) y prototipo (`Prototipo.dc.html:2861`)
    todavía dicen `DR/DRA.`; `coverName` arma el nombre del abogado de otra forma.
-7. Una vez resuelto el orden de la HU25: unir PDFs con `copyPages` es trabajo de esa HU.
+7. ~~Una vez resuelto el orden de la HU25: unir PDFs con `copyPages` es trabajo de esa HU.~~ Hecho en HU25 (03/11/2026): `PdfLibCaseFileComposer` (`documents/infrastructure/pdf/pdf-lib-case-file.composer.ts`) une la carátula y los documentos; la hoja 1 del expediente sale de `CoverSheet.forCaseFile`. Flujo en `docs/support/flujo-hu25-generar-expediente.md`.
 
 ## Cómo retomar
 

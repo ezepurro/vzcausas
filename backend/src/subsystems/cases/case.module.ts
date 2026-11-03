@@ -20,6 +20,9 @@ import { CASE_DOCUMENTS } from './core/domain/ports/case/case-documents.port';
 import { DocumentsCaseDocumentsAdapter } from './infrastructure/acl/documents-case-documents.adapter';
 import { CaseDocumentsController } from './infrastructure/http/controllers/case-documents.controller';
 import { CaseDocumentHttpMapper } from './infrastructure/http/mappers/case-document-http.mapper';
+import { GenerateCaseFile } from './core/application/use-cases/case/generate-case-file.use-case';
+import { CaseFilesController } from './infrastructure/http/controllers/case-files.controller';
+import { CaseFileHttpMapper } from './infrastructure/http/mappers/case-file-http.mapper';
 import { GetCaseTimeline } from './core/application/use-cases/case/get-case-timeline.use-case';
 import { GetProceduralAct } from './core/application/use-cases/procedural-act/get-procedural-act.use-case';
 import { ListCases } from './core/application/use-cases/case/list-cases.use-case';
@@ -129,6 +132,7 @@ import { PrismaProceduralActRepository } from './infrastructure/persistence/pris
     CaseTimelineController,
     CaseCoverController,
     CaseDocumentsController,
+    CaseFilesController,
   ],
   providers: [
     // HU24: the cover sheet. `cases` decides what it says (`CoverSheet`); `documents` draws it.
@@ -140,6 +144,9 @@ import { PrismaProceduralActRepository } from './infrastructure/persistence/pris
     DownloadCaseDocument,
     CaseDocumentHttpMapper,
     { provide: CASE_DOCUMENTS, useClass: DocumentsCaseDocumentsAdapter },
+    // HU25: the case file. `cases` checks the case and draws the cover; `documents` does the rest.
+    GenerateCaseFile,
+    CaseFileHttpMapper,
     RegisterCase,
     // HU39: asks `documents` for the folder of a case and waits for the answer.
     // Used by the registration and by `POST /cases/{caseId}/folder`.

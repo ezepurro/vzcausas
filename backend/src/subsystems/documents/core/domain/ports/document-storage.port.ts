@@ -120,4 +120,11 @@ export interface DocumentStoragePort {
    * `mimeType` (HU38: a Google document downloaded as PDF).
    */
   exportFile(fileId: string, mimeType: string): Promise<Buffer>;
+
+  /**
+   * A Word file (`.doc`, `.docx`) converted to PDF by the provider (HU25,
+   * D-102). The provider may need a temporary copy to convert it: it leaves
+   * none behind, whether the conversion works or not.
+   */
+  convertToPdf(fileId: string): Promise<Buffer>;
 }

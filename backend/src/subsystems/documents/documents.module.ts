@@ -9,6 +9,9 @@ import { RegisterDocumentTemplate } from './core/application/use-cases/register-
 import { SetupCloudStorage } from './core/application/use-cases/setup-cloud-storage.use-case';
 import { GenerateCoverPdf } from './core/application/use-cases/generate-cover-pdf.use-case';
 import { DownloadFolderDocument } from './core/application/use-cases/download-folder-document.use-case';
+import { GenerateCaseFile } from './core/application/use-cases/generate-case-file.use-case';
+import { CASE_FILE_PDF_COMPOSER } from './core/domain/ports/case-file-pdf-composer.port';
+import { PdfLibCaseFileComposer } from './infrastructure/pdf/pdf-lib-case-file.composer';
 import { ListFolderDocuments } from './core/application/use-cases/list-folder-documents.use-case';
 import { CASE_FILE_REPOSITORY } from './core/domain/ports/case-file.repository';
 import { PrismaCaseFileRepository } from './infrastructure/persistence/prisma/prisma-case-file.repository';
@@ -36,6 +39,8 @@ import { DOCUMENT_STORAGE_PROVIDER } from './infrastructure/storage/document-sto
  * event cannot carry, so it is exported and `cases` calls it through an ACL adapter.
  * `ListFolderDocuments` and `DownloadFolderDocument` (HU38) go the same way: `cases`
  * owns `/cases/{caseId}/documents` and asks `documents` for the files of the folder.
+ * So does `GenerateCaseFile` (HU25): `cases` owns `/cases/{caseId}/case-files`,
+ * draws the cover sheet and asks `documents` to join, number and save the case file.
  * Its one HTTP resource is `/document-templates` (HU34 and HU35).
  *
  * The listeners MUST stay in `providers`: if one is missing it never runs and
@@ -74,11 +79,14 @@ import { DOCUMENT_STORAGE_PROVIDER } from './infrastructure/storage/document-sto
     ListFolderDocuments,
     DownloadFolderDocument,
     { provide: CASE_FILE_REPOSITORY, useClass: PrismaCaseFileRepository },
+    // HU25: the case file. `case_files` is written here; the PDF is joined with the cover's library.
+    GenerateCaseFile,
+    { provide: CASE_FILE_PDF_COMPOSER, useClass: PdfLibCaseFileComposer },
     { provide: CLOUD_FOLDER_REPOSITORY, useClass: PrismaCloudFolderRepository },
     { provide: DOCUMENT_TEMPLATE_REPOSITORY, useClass: PrismaDocumentTemplateRepository },
     { provide: TEMPLATE_COPY_REPOSITORY, useClass: PrismaTemplateCopyRepository },
     DOCUMENT_STORAGE_PROVIDER,
   ],
-  exports: [GenerateCoverPdf, ListFolderDocuments, DownloadFolderDocument],
+  exports: [GenerateCoverPdf, ListFolderDocuments, DownloadFolderDocument, GenerateCaseFile],
 })
 export class DocumentsModule {}

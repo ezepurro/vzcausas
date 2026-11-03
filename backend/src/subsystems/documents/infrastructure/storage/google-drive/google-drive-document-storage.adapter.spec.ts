@@ -328,6 +328,37 @@ describe('GoogleDriveDocumentStorage', () => {
     });
   });
 
+  describe('convertToPdf (HU25)', () => {
+    it('copia el Word como documento de Google, exporta la copia a PDF y la borra (D-102)', async () => {
+      const bytes = new TextEncoder().encode('%PDF').buffer;
+      const { storage, files } = build({
+        copy: jest.fn().mockResolvedValue({ data: { id: 'tmp-1' } }),
+        export: jest.fn().mockResolvedValue({ data: bytes }),
+      });
+
+      const content = await storage.convertToPdf('word-1');
+
+      expect(content.toString()).toBe('%PDF');
+      expect(files.copy.mock.calls[0][0]).toMatchObject({
+        fileId: 'word-1',
+        requestBody: { mimeType: 'application/vnd.google-apps.document' },
+      });
+      expect(files.copy.mock.calls[0][0].requestBody.parents).toBeUndefined();
+      expect(files.export.mock.calls[0][0]).toEqual({ fileId: 'tmp-1', mimeType: 'application/pdf' });
+      expect(files.delete.mock.calls.map((call) => call[0])).toEqual([{ fileId: 'tmp-1' }]);
+    });
+
+    it('borra la copia aunque la exportación falle, y el fallo se informa (CA-25.8)', async () => {
+      const { storage, files } = build({
+        copy: jest.fn().mockResolvedValue({ data: { id: 'tmp-1' } }),
+        export: jest.fn().mockRejectedValue(httpError(403, 'insufficientPermissions')),
+      });
+
+      await expect(storage.convertToPdf('word-1')).rejects.toMatchObject({ reason: 'AUTHORIZATION' });
+      expect(files.delete.mock.calls.map((call) => call[0])).toEqual([{ fileId: 'tmp-1' }]);
+    });
+  });
+
   // Qué error se reintenta y cuál es de autorización lo decide `classifyDriveError`, con su
   // tabla en `drive-error.mapper.spec.ts`. Acá, un representante de cada rama.
   describe('reintentos y errores', () => {

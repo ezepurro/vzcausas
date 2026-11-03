@@ -70,6 +70,17 @@ describe('classifyDriveError', () => {
     expect(classifyDriveError(new TypeError('boom'))).toMatchObject({ retryable: false, authorization: false });
   });
 
+  it.each([
+    [{ response: { status: 400 }, errors: [{ reason: 'badRequest' }] }, 'status 400 (badRequest)'],
+    [
+      { response: { status: 403, data: { error: { errors: [{ reason: 'exportSizeLimitExceeded' }] } } } },
+      'status 403 (exportSizeLimitExceeded)',
+    ],
+    [{ response: { status: 503 } }, 'status 503'],
+  ])('el detalle lleva el motivo de Google cuando lo hay: %j → %s', (error, detail) => {
+    expect(classifyDriveError(error).detail).toBe(detail);
+  });
+
   it('no filtra el cuerpo de la respuesta en el detalle', () => {
     const error = { response: { status: 500, data: { secret: 'token-123' } } };
 
