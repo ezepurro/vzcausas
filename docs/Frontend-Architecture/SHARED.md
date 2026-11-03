@@ -425,20 +425,31 @@ cell: (c) => (
 ### Breadcrumbs
 
 **Path:** `components/ui/Breadcrumbs.tsx`
-**Props:** `items: BreadcrumbItem[]`, con `BreadcrumbItem = { label, onClick? }`.
+**Props:** `items: BreadcrumbItem[]`, con `BreadcrumbItem = { label, onClick? }`;
+`onBack?: () => void`.
 **Notas:** van arriba del título en las pantallas que cuelgan de otra (Registrar
 causa, Detalle, Registrar acto). No sabe de rutas: cada paso avisa con `onClick`
 y la pantalla navega. El último es la pantalla actual: siempre se muestra como
 texto con `aria-current="page"`, aunque traiga `onClick`. Un paso sin `onClick`
 también queda como texto (el SAC en Registrar causa, por ejemplo).
 
+Con `onBack`, una flecha redonda y chica va antes de las migas
+(`.vz-crumbs__back`, `aria-label="Volver"`). Las migas llevan siempre a la
+sección; la flecha, a donde estaba el usuario: se arma con `useGoBack(respaldo)`
+de `@/app/router/useGoBack`, que vuelve a la pantalla anterior de la aplicación
+o, si se entró por la URL, va al respaldo. La llevan las pantallas que cuelgan
+de otra; las secciones del rail no.
+
 ```tsx
+const goBack = useGoBack(`/causas/${causa.id}`)
+
 <Breadcrumbs
   items={[
     { label: 'Causas', onClick: () => navigate('/causas') },
     { label: causa.sacNumber, onClick: () => navigate(`/causas/${causa.id}`) },
     { label: 'Registrar acto procesal' },
   ]}
+  onBack={goBack}
 />
 ```
 
