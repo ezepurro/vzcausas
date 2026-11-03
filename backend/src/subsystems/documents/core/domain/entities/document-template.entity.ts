@@ -1,4 +1,5 @@
-import { ValidationError } from '@shared/domain/domain-error';
+import { AuthenticatedUser } from '@shared/domain/authenticated-user';
+import { ForbiddenActionError, ValidationError } from '@shared/domain/domain-error';
 
 /** The jurisdictions a template can apply to (contract `Jurisdiction`). */
 export const TEMPLATE_JURISDICTIONS = ['CRIMINAL', 'ADMINISTRATIVE', 'AMPARO'] as const;
@@ -9,6 +10,9 @@ export const DOCX_MIME_TYPE = 'application/vnd.openxmlformats-officedocument.wor
 const DOCX_EXTENSION = '.docx';
 const NAME_MAX_LENGTH = 150;
 const FILE_NAME_MAX_LENGTH = 255;
+
+/** The profiles that manage formal templates (matrix §5.1, D-90). */
+const MANAGING_ROLES: readonly string[] = ['ADMINISTRATOR', 'LAWYER'];
 
 /** The file as it arrives: its original name and the type the client declared. */
 export interface TemplateFileInput {
@@ -46,6 +50,23 @@ export interface DocumentTemplateProps {
  */
 export class DocumentTemplate {
   private constructor(private readonly props: DocumentTemplateProps) {}
+
+  /**
+   * Formal templates are for administrators and lawyers, to read and download
+   * as much as to register (CA-34.8, CA-35.7, CA-23.2, D-90): the first
+   * resource whose **reading** is not open to the three profiles. A user with
+   * several roles passes if one of them is allowed. It does not depend on any
+   * template, so the refusal comes before one is read (403 before 404).
+   * @throws {ForbiddenActionError} 403 `FORBIDDEN`.
+   */
+  static assertCanBeManagedBy(actor: AuthenticatedUser): void {
+    if (!actor.roleNames.some((role) => MANAGING_ROLES.includes(role))) {
+      throw new ForbiddenActionError(
+        'FORBIDDEN',
+        'Se requiere el rol ADMINISTRATOR o LAWYER para realizar esta operación.',
+      );
+    }
+  }
 
   /**
    * @throws {ValidationError} `VALIDATION_ERROR`, with one message per field.

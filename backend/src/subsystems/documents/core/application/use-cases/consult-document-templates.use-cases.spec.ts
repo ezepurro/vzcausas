@@ -119,9 +119,11 @@ describe('DownloadDocumentTemplate', () => {
   it('devuelve el archivo con su nombre y su tipo', async () => {
     const { id } = await aTemplateWithFile(Buffer.from('PK versión 1'));
 
-    const file = await useCase.execute({ actor: actor(), templateId: id });
+    const downloaded = await useCase.execute({ actor: actor(), templateId: id });
 
-    expect(file).toEqual({ fileName: 'casacion.docx', mimeType: DOCX_MIME_TYPE, content: Buffer.from('PK versión 1') });
+    expect(downloaded.file.fileName).toBe('casacion.docx');
+    expect(downloaded.file.mimeType).toBe(DOCX_MIME_TYPE);
+    expect(downloaded.content).toEqual(Buffer.from('PK versión 1'));
   });
 
   it('si Drive no responde, el error es el 502 de "intentá de nuevo"', async () => {

@@ -1,13 +1,12 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { AuthenticatedUser } from '@shared/domain/authenticated-user';
-import { TEMPLATE_JURISDICTIONS, TemplateJurisdiction } from '../../domain/entities/document-template.entity';
+import { DocumentTemplate, TEMPLATE_JURISDICTIONS, TemplateJurisdiction } from '../../domain/entities/document-template.entity';
 import { InvalidTemplateJurisdictionFilterError } from '../../domain/errors/documents.errors';
 import {
   DOCUMENT_TEMPLATE_REPOSITORY,
   DocumentTemplateRepository,
   DocumentTemplateView,
 } from '../../domain/ports/document-template.repository';
-import { assertCanManageTemplates } from '../common/assert-can-manage-templates';
 
 export interface ListDocumentTemplatesQuery {
   actor: AuthenticatedUser;
@@ -36,7 +35,7 @@ export class ListDocumentTemplates {
    * @throws {InvalidTemplateJurisdictionFilterError} 400 `INVALID_REQUEST`.
    */
   async execute(query: ListDocumentTemplatesQuery): Promise<{ items: DocumentTemplateView[]; totalItems: number }> {
-    assertCanManageTemplates(query.actor);
+    DocumentTemplate.assertCanBeManagedBy(query.actor);
     const { jurisdiction } = query;
     if (jurisdiction !== undefined && !TEMPLATE_JURISDICTIONS.includes(jurisdiction as TemplateJurisdiction)) {
       throw new InvalidTemplateJurisdictionFilterError();

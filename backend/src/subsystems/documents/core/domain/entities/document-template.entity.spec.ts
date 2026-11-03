@@ -1,4 +1,5 @@
-import { ValidationError } from '@shared/domain/domain-error';
+import { AuthenticatedUser } from '@shared/domain/authenticated-user';
+import { ForbiddenActionError, ValidationError } from '@shared/domain/domain-error';
 import { DOCX_MIME_TYPE, DocumentTemplate, NewDocumentTemplateInput } from './document-template.entity';
 
 const NOW = new Date('2026-10-17T12:00:00.000Z');
@@ -84,6 +85,21 @@ describe('DocumentTemplate', () => {
     });
     expect(detailsOf(() => DocumentTemplate.create(input({ jurisdictions: ['CRIMINAL', 'CRIMINAL'] })))).toEqual({
       jurisdictions: 'Cada fuero se elige una sola vez.',
+    });
+  });
+
+  describe('quién maneja los modelos (CA-34.8, CA-35.7, CA-23.2, D-90)', () => {
+    const actor = (roleNames: string[]): AuthenticatedUser => ({ userId: 1, roleNames, lawyerId: null, permissions: [] });
+
+    it.each([[['ADMINISTRATOR']], [['LAWYER']], [['SECRETARY', 'LAWYER']]])('un usuario con %j puede', (roles) => {
+      expect(() => DocumentTemplate.assertCanBeManagedBy(actor(roles))).not.toThrow();
+    });
+
+    it('la secretaría no: 403 FORBIDDEN con el texto del contrato', () => {
+      const attempt = () => DocumentTemplate.assertCanBeManagedBy(actor(['SECRETARY']));
+
+      expect(attempt).toThrow(ForbiddenActionError);
+      expect(attempt).toThrow('Se requiere el rol ADMINISTRATOR o LAWYER para realizar esta operación.');
     });
   });
 });

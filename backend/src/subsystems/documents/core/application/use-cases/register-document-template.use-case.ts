@@ -15,7 +15,6 @@ import {
   DocumentTemplateView,
 } from '../../domain/ports/document-template.repository';
 import { FolderKey } from '../../domain/value-objects/folder-key.vo';
-import { assertCanManageTemplates } from '../common/assert-can-manage-templates';
 import { SetupCloudStorage } from './setup-cloud-storage.use-case';
 
 export interface RegisterDocumentTemplateCommand {
@@ -59,7 +58,7 @@ export class RegisterDocumentTemplate {
    */
   async execute(command: RegisterDocumentTemplateCommand): Promise<DocumentTemplateView> {
     const { actor, file } = command;
-    assertCanManageTemplates(actor);
+    DocumentTemplate.assertCanBeManagedBy(actor);
 
     const template = DocumentTemplate.create({
       name: command.name,

@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { AuthenticatedUser } from '@shared/domain/authenticated-user';
+import { ContentDisposition } from '@shared/infrastructure/http/content-disposition';
 import { CurrentUser } from '@shared/infrastructure/http/current-user.decorator';
 import { PaginatedResponse, paginate, toPageRequest } from '@shared/infrastructure/http/pagination/pagination';
 import { DownloadDocumentTemplate } from '../../../core/application/use-cases/download-document-template.use-case';
@@ -107,22 +108,22 @@ export class DocumentTemplatesController {
   }
 
   /**
-   * HU35: the template's `.docx` (CA-35.6). The one success response of the
-   * contract that is not JSON; its errors still are.
+   * HU35 and HU23: the template's `.docx` (CA-35.6, CA-23.1). The one success
+   * response of the contract that is not JSON; its errors still are (CA-23.5).
    */
   @Get(':templateId/file')
   async download(
     @Param('templateId') templateIdParam: string,
     @CurrentUser() actor: AuthenticatedUser,
   ): Promise<StreamableFile> {
-    const file = await this.downloadDocumentTemplate.execute({
+    const { file, content } = await this.downloadDocumentTemplate.execute({
       actor,
       templateId: this.parseTemplateId(templateIdParam),
     });
-    return new StreamableFile(file.content, {
+    return new StreamableFile(content, {
       type: file.mimeType,
-      length: file.content.length,
-      disposition: contentDisposition(file.fileName),
+      length: content.length,
+      disposition: ContentDisposition.attachment(file.fileName).toString(),
     });
   }
 
@@ -133,14 +134,4 @@ export class DocumentTemplatesController {
     }
     return templateId;
   }
-}
-
-/**
- * `attachment` with the file's name. `filename` carries an ASCII fallback and
- * `filename*` the real name in UTF-8 (RFC 6266), so "designación.docx" keeps
- * its accent in every browser.
- */
-function contentDisposition(fileName: string): string {
-  const fallback = fileName.normalize('NFD').replace(/[^\x20-\x7e]/g, '').replace(/["\\]/g, '');
-  return `attachment; filename="${fallback}"; filename*=UTF-8''${encodeURIComponent(fileName)}`;
 }

@@ -300,10 +300,22 @@ describe('GET /api/v1/document-templates/{templateId} y /file', () => {
     const old = await registered('Modelo viejo');
     await getPrisma().documentTemplate.update({ where: { id: old.id }, data: { active: false } });
 
-    for (const path of [`/${old.id}`, '/999999', '/999999/file']) {
-      expectError(await server().get(`${URL}${path}`).set(asLawyer), 404, 'DOCUMENT_TEMPLATE_NOT_FOUND');
+    // CA-23.3: también el archivo de uno dado de baja.
+    for (const path of [`/${old.id}`, '/999999', '/999999/file', `/${old.id}/file`]) {
+      const res = await server().get(`${URL}${path}`).set(asLawyer);
+      expectError(res, 404, 'DOCUMENT_TEMPLATE_NOT_FOUND');
+      expect(res.body.error.message).toBe('No se encontró el modelo formal solicitado.');
     }
-    expectError(await server().get(`${URL}/abc`).set(asLawyer), 400, 'INVALID_PATH_PARAMETER', ['templateId']);
+    // CA-23.6: también al descargar.
+    for (const path of ['/abc', '/abc/file']) {
+      const res = await server().get(`${URL}${path}`).set(asLawyer);
+      expectError(res, 400, 'INVALID_PATH_PARAMETER', ['templateId']);
+      expect(res.body.error).toEqual({
+        code: 'INVALID_PATH_PARAMETER',
+        message: 'El identificador del modelo formal no es válido.',
+        details: { templateId: 'Debe ser un número entero válido.' },
+      });
+    }
   });
 
   // CA-35.6
