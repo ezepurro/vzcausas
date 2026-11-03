@@ -20,6 +20,8 @@ import { withDriveRetries } from './drive-retry';
 export type DriveFilesClient = Pick<drive_v3.Drive, 'files'>;
 
 const FOLDER_MIME_TYPE = 'application/vnd.google-apps.folder';
+const GOOGLE_DOCUMENT_MIME_TYPE = 'application/vnd.google-apps.document';
+const PDF_MIME_TYPE = 'application/pdf';
 const DEFAULT_TIMEOUT_MS = 15_000;
 const FILE_FIELDS = 'id, webViewLink';
 /** What the document list needs of each file (HU38). */
@@ -255,6 +257,42 @@ export class GoogleDriveDocumentStorage implements DocumentStoragePort {
       'The file no longer exists in the storage',
     );
     return Buffer.from(response.data as unknown as ArrayBuffer);
+  }
+
+  /**
+   * A Word file converted to PDF by Drive (HU25, D-102). Drive only exports its
+   * own documents, so the file is first copied as a Google document (`files.copy`
+   * with that type converts it), the copy is exported to PDF, and the copy is
+   * deleted **always**, even if the export failed: nothing is left behind
+   * (CA-25.8). The copy goes to the root of the account, never to the folder of
+   * the case, so it never shows in its document list.
+   */
+  async convertToPdf(fileId: string): Promise<Buffer> {
+    const copy = await this.call(
+      'convertToPdf',
+      () =>
+        this.drive.files.copy(
+          {
+            fileId,
+            requestBody: { name: `vz-conversion-${fileId}`, mimeType: GOOGLE_DOCUMENT_MIME_TYPE },
+            fields: 'id',
+          },
+          this.requestOptions,
+        ),
+      'The file to convert no longer exists in the storage',
+    );
+    const copyId = copy.data.id;
+    if (!copyId) {
+      throw new DocumentStorageUnavailableError('TRANSIENT', 'Drive answered without a file id');
+    }
+    try {
+      return await this.exportFile(copyId, PDF_MIME_TYPE);
+    } finally {
+      await this.deleteById('deleteConversionCopy', copyId).catch((error: unknown) => {
+        // The PDF is already in hand or the export already failed: a leftover copy is logged, not thrown.
+        this.logger.warn(`Drive conversion copy ${copyId} could not be deleted: ${String(error)}`);
+      });
+    }
   }
 
   /** A file or folder that is already gone counts as deleted. */

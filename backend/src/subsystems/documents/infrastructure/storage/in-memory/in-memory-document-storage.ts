@@ -1,3 +1,4 @@
+import { PDFDocument, StandardFonts } from '@cantoo/pdf-lib';
 import { Injectable } from '@nestjs/common';
 import {
   DocumentStoragePort,
@@ -10,6 +11,10 @@ import {
 } from '../../../core/domain/ports/document-storage.port';
 
 const GOOGLE_NATIVE_PREFIX = 'application/vnd.google-apps.';
+const WORD_MIME_TYPES = new Set([
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+]);
 
 /** A folder held by {@link InMemoryDocumentStorage}. */
 export interface InMemoryStoredFolder extends StoredFolder {
@@ -56,6 +61,7 @@ export class InMemoryDocumentStorage implements DocumentStoragePort {
   private readonly stored: InMemoryStoredFolder[] = [];
   private storedFiles: InMemoryStoredFile[] = [];
   private nextFailure: Error | null = null;
+  private readonly methodFailures = new Map<string, Error>();
   private sequence = 0;
 
   /** Every folder call received, in order. */
@@ -68,13 +74,18 @@ export class InMemoryDocumentStorage implements DocumentStoragePort {
   /** Every file call received, in order: the uploaded name, or the id deleted or downloaded. */
   readonly fileCalls: Array<
     | { method: 'uploadFile'; name: string }
-    | { method: 'deleteFile' | 'downloadFile' | 'copyFile' | 'findFile' | 'exportFile'; fileId: string }
+    | { method: 'deleteFile' | 'downloadFile' | 'copyFile' | 'findFile' | 'exportFile' | 'convertToPdf'; fileId: string }
     | { method: 'listFiles'; folderId: string }
   > = [];
 
   /** Makes the next call reject with `error` (once). */
   failNextWith(error: Error): void {
     this.nextFailure = error;
+  }
+
+  /** Makes the next call to that method reject with `error` (once); the other methods keep working. */
+  failNextCallTo(method: keyof DocumentStoragePort, error: Error): void {
+    this.methodFailures.set(method, error);
   }
 
   /** Registers a folder that already exists in the storage (e.g. the study's root). */
@@ -121,6 +132,7 @@ export class InMemoryDocumentStorage implements DocumentStoragePort {
     this.getFolderCalls.length = 0;
     this.deletedFolderIds.length = 0;
     this.nextFailure = null;
+    this.methodFailures.clear();
   }
 
   /** Folders currently held. */
@@ -130,7 +142,7 @@ export class InMemoryDocumentStorage implements DocumentStoragePort {
 
   async findFolderByReference(reference: FolderReference): Promise<StoredFolder | null> {
     this.calls.push({ method: 'findFolderByReference', reference });
-    this.failIfRequested();
+    this.failIfRequested('findFolderByReference');
     const found = this.stored.find(
       (folder) => folder.parentId === reference.parentId && folder.name === reference.name,
     );
@@ -139,13 +151,13 @@ export class InMemoryDocumentStorage implements DocumentStoragePort {
 
   async createFolder(reference: FolderReference): Promise<StoredFolder> {
     this.calls.push({ method: 'createFolder', reference });
-    this.failIfRequested();
+    this.failIfRequested('createFolder');
     return this.add(reference.parentId, reference.name);
   }
 
   async getFolder(folderId: string): Promise<StoredFolder | null> {
     this.getFolderCalls.push(folderId);
-    this.failIfRequested();
+    this.failIfRequested('getFolder');
     const found = this.stored.find((folder) => folder.id === folderId);
     return found ? { id: found.id, url: found.url } : null;
   }
@@ -153,7 +165,7 @@ export class InMemoryDocumentStorage implements DocumentStoragePort {
   /** Like a drive, deleting a folder also removes what is inside it. */
   async deleteFolder(folderId: string): Promise<void> {
     this.deletedFolderIds.push(folderId);
-    this.failIfRequested();
+    this.failIfRequested('deleteFolder');
     const doomed = new Set<string>([folderId]);
     let grew = true;
     while (grew) {
@@ -178,7 +190,7 @@ export class InMemoryDocumentStorage implements DocumentStoragePort {
 
   async uploadFile(upload: FileUpload): Promise<StoredFile> {
     this.fileCalls.push({ method: 'uploadFile', name: upload.name });
-    this.failIfRequested();
+    this.failIfRequested('uploadFile');
     return this.upload(upload);
   }
 
@@ -205,7 +217,7 @@ export class InMemoryDocumentStorage implements DocumentStoragePort {
   /** The copy gets its own bytes, so changing the original afterwards does not reach it (CA-40.6). */
   async copyFile(copy: FileCopy): Promise<StoredFile> {
     this.fileCalls.push({ method: 'copyFile', fileId: copy.fileId });
-    this.failIfRequested();
+    this.failIfRequested('copyFile');
     const original = this.storedFiles.find((stored) => stored.id === copy.fileId);
     if (!original) {
       throw new Error(`The file ${copy.fileId} is not in the storage.`);
@@ -215,14 +227,14 @@ export class InMemoryDocumentStorage implements DocumentStoragePort {
 
   async deleteFile(fileId: string): Promise<void> {
     this.fileCalls.push({ method: 'deleteFile', fileId });
-    this.failIfRequested();
+    this.failIfRequested('deleteFile');
     this.storedFiles = this.storedFiles.filter((file) => file.id !== fileId);
   }
 
   /** Like a drive asked for a file that is gone, a missing id fails: it is not an empty file. */
   async downloadFile(fileId: string): Promise<Buffer> {
     this.fileCalls.push({ method: 'downloadFile', fileId });
-    this.failIfRequested();
+    this.failIfRequested('downloadFile');
     const file = this.storedFiles.find((stored) => stored.id === fileId);
     if (!file) {
       throw new Error(`The file ${fileId} is not in the storage.`);
@@ -233,26 +245,40 @@ export class InMemoryDocumentStorage implements DocumentStoragePort {
   /** Files directly in the folder and not in the trash; subfolders are folders, not files. */
   async listFiles(folderId: string): Promise<StoredDocument[]> {
     this.fileCalls.push({ method: 'listFiles', folderId });
-    this.failIfRequested();
+    this.failIfRequested('listFiles');
     return this.storedFiles.filter((file) => file.parentId === folderId && !file.trashed).map(toStoredDocument);
   }
 
   async findFile(fileId: string): Promise<StoredDocument | null> {
     this.fileCalls.push({ method: 'findFile', fileId });
-    this.failIfRequested();
+    this.failIfRequested('findFile');
     const file = this.storedFiles.find((stored) => stored.id === fileId && !stored.trashed);
     return file ? toStoredDocument(file) : null;
   }
 
-  /** Like a drive, only its native documents can be exported; the "PDF" says what it came from. */
+  /**
+   * Like a drive, only its native documents can be exported. The result is a
+   * real one-page PDF that names what it came from, so a case file can join it.
+   */
   async exportFile(fileId: string, mimeType: string): Promise<Buffer> {
     this.fileCalls.push({ method: 'exportFile', fileId });
-    this.failIfRequested();
+    this.failIfRequested('exportFile');
     const file = this.storedFiles.find((stored) => stored.id === fileId);
-    if (!file || !file.mimeType.startsWith(GOOGLE_NATIVE_PREFIX)) {
+    if (!file || !file.mimeType.startsWith(GOOGLE_NATIVE_PREFIX) || mimeType !== 'application/pdf') {
       throw new Error(`The file ${fileId} is not a native document of the storage.`);
     }
-    return Buffer.from(`${mimeType} exportado de ${file.name}`);
+    return onePagePdf(`Exportado de ${file.name}`);
+  }
+
+  /** Like a drive converting a Word file: a real one-page PDF that names what it came from. */
+  async convertToPdf(fileId: string): Promise<Buffer> {
+    this.fileCalls.push({ method: 'convertToPdf', fileId });
+    this.failIfRequested('convertToPdf');
+    const file = this.storedFiles.find((stored) => stored.id === fileId);
+    if (!file || !WORD_MIME_TYPES.has(file.mimeType)) {
+      throw new Error(`The file ${fileId} is not a Word file.`);
+    }
+    return onePagePdf(`Convertido de ${file.name}`);
   }
 
   private add(parentId: string | null, name: string): StoredFolder {
@@ -268,7 +294,12 @@ export class InMemoryDocumentStorage implements DocumentStoragePort {
     return { id: folder.id, url: folder.url };
   }
 
-  private failIfRequested(): void {
+  private failIfRequested(method: keyof DocumentStoragePort): void {
+    const methodFailure = this.methodFailures.get(method);
+    if (methodFailure) {
+      this.methodFailures.delete(method);
+      throw methodFailure;
+    }
     if (this.nextFailure) {
       const error = this.nextFailure;
       this.nextFailure = null;
@@ -290,4 +321,14 @@ function toStoredDocument(file: InMemoryStoredFile): StoredDocument {
     url: file.url,
     parentIds: [file.parentId],
   };
+}
+
+/** A real A4 PDF of one page with a line of text: what a drive would hand back after converting. */
+async function onePagePdf(text: string): Promise<Buffer> {
+  const pdf = await PDFDocument.create();
+  const page = pdf.addPage([595.28, 841.89]);
+  const font = await pdf.embedFont(StandardFonts.Helvetica);
+  // Kept to plain ASCII: a test fake does not need the font that draws accents.
+  page.drawText(text.normalize('NFD').replace(/[^ -~]/g, ''), { x: 72, y: 760, size: 12, font });
+  return Buffer.from(await pdf.save());
 }

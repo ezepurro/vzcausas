@@ -6,7 +6,11 @@ export interface DriveFailure {
   authorization: boolean;
   /** The file or folder asked for does not exist (404). */
   notFound: boolean;
-  /** Short, non-sensitive text for the log: status or reason, never a response body. */
+  /**
+   * Short, non-sensitive text for the log: the status and, when Google gives one,
+   * its reason (`status 400 (badRequest)`), never a response body. The reason is
+   * what tells a refused conversion from a size limit (`exportSizeLimitExceeded`).
+   */
   detail: string;
 }
 
@@ -55,23 +59,28 @@ export function classifyDriveError(error: unknown): DriveFailure {
     return { retryable: false, authorization: false, notFound: true, detail: 'status 404' };
   }
   if (status === 401) {
-    return { retryable: false, authorization: true, notFound: false, detail: 'status 401' };
+    return { retryable: false, authorization: true, notFound: false, detail: describe(401, reason) };
   }
   if (status === 403) {
     if (reason && RATE_LIMIT_REASONS.has(reason)) {
-      return { retryable: true, authorization: false, notFound: false, detail: `status 403 (${reason})` };
+      return { retryable: true, authorization: false, notFound: false, detail: describe(403, reason) };
     }
-    return { retryable: false, authorization: true, notFound: false, detail: 'status 403' };
+    return { retryable: false, authorization: true, notFound: false, detail: describe(403, reason) };
   }
   if (status !== undefined && RETRYABLE_STATUS.has(status)) {
-    return { retryable: true, authorization: false, notFound: false, detail: `status ${status}` };
+    return { retryable: true, authorization: false, notFound: false, detail: describe(status, reason) };
   }
   return {
     retryable: false,
     authorization: false,
     notFound: false,
-    detail: status !== undefined ? `status ${status}` : 'unexpected error',
+    detail: status !== undefined ? describe(status, reason) : 'unexpected error',
   };
+}
+
+/** `status 400`, or `status 400 (badRequest)` when Google says why. */
+function describe(status: number, reason: string | undefined): string {
+  return reason ? `status ${status} (${reason})` : `status ${status}`;
 }
 
 function extractStatus(e: GoogleLikeError): number | undefined {

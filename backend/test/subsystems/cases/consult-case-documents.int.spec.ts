@@ -401,7 +401,8 @@ describe('Documentos de la causa (HU38)', () => {
       expect(res.status).toBe(200);
       expect(res.headers['content-type']).toMatch(/^application\/pdf/);
       expect(res.headers['content-disposition']).toMatch(/^inline; filename="Escrito de defensa.pdf"/);
-      expect((res.body as Buffer).toString()).toBe('application/pdf exportado de Escrito de defensa');
+      // El fake exporta un PDF real de una hoja (HU25 lo une al expediente).
+      expect((res.body as Buffer).subarray(0, 5).toString()).toBe('%PDF-');
     });
 
     it('el administrador descarga el expediente, pero no un documento común: 403 sin consultar Drive (D-103)', async () => {

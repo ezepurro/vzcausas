@@ -1,4 +1,6 @@
+import { ValidationError } from '@shared/domain/domain-error';
 import { CaseListItem } from '../../ports/case/case.repository';
+import { CaseFileCoverInput } from './case-file-request.vo';
 import { JurisdictionCode } from './jurisdiction-code';
 import { ProceduralRole } from './procedural-role';
 
@@ -59,6 +61,50 @@ export class CoverSheet {
       // The studio fills it by hand; a default text can be added later (decision 4, IMPLEMENTACION_CARATULA.md).
       observations: [],
     });
+  }
+
+  /**
+   * The sheet as the first page of the case file (HU25, D-92, D-94): the same as
+   * {@link create}, plus what the user completes in "Generar expediente".
+   *
+   * - `notes` goes to "Observaciones".
+   * - `opposingParty`, only in a criminal case, goes to the box the case leaves
+   *   empty: the plaintiff when the client is the defense, the defendant when the
+   *   client is the private prosecutor.
+   *
+   * Both in capitals, one line per line break; without them the box stays empty
+   * (CA-25.5). Nothing of this is stored in the case.
+   *
+   * @throws ValidationError `{ cover }` when `opposingParty` comes in another jurisdiction.
+   */
+  static forCaseFile(source: CoverSheetSource, cover: CaseFileCoverInput): CoverSheet {
+    if (cover.opposingParty !== null && source.jurisdiction !== JurisdictionCode.CRIMINAL) {
+      throw new ValidationError('VALIDATION_ERROR', 'Los datos enviados no son válidos.', {
+        cover: 'La parte de la carátula solo corresponde al fuero penal.',
+      });
+    }
+    const sheet = CoverSheet.create(source);
+    const opposingParty = CoverSheet.linesOf(cover.opposingParty);
+    const clientIsProsecutor = source.proceduralRole === ProceduralRole.QUERELLANTE_PARTICULAR;
+
+    return new CoverSheet({
+      ...sheet.props,
+      plaintiff: opposingParty.length > 0 && !clientIsProsecutor ? opposingParty : sheet.props.plaintiff,
+      defendant: opposingParty.length > 0 && clientIsProsecutor ? opposingParty : sheet.props.defendant,
+      observations: CoverSheet.linesOf(cover.notes),
+    });
+  }
+
+  /** A text the user wrote, as box lines: one per line break, blank ones dropped, in capitals. */
+  private static linesOf(text: string | null): string[] {
+    if (text === null) {
+      return [];
+    }
+    return text
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line !== '')
+      .map((line) => line.toUpperCase());
   }
 
   /**

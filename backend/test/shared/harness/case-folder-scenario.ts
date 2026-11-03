@@ -117,4 +117,5 @@ export class SwitchableStorage implements DocumentStoragePort {
   listFiles = (folderId: string) => this.current.storage.listFiles(folderId);
   findFile = (fileId: string) => this.current.storage.findFile(fileId);
   exportFile = (fileId: string, mimeType: string) => this.current.storage.exportFile(fileId, mimeType);
+  convertToPdf = (fileId: string) => this.current.storage.convertToPdf(fileId);
 }
