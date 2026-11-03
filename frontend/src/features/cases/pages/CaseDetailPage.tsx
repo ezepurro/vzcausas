@@ -49,7 +49,10 @@ import { validateDeleteCase, type DeleteCaseFormErrors } from '@/features/cases/
 import type { DeleteCaseFormValues } from '@/features/cases/types/caseDeletion'
 import { toDeleteCaseBody } from '@/features/cases/utils/toDeleteCaseBody'
 import { useCaseDocuments } from '@/features/cases/api/useCaseDocuments'
+import { useDownloadCaseDocument } from '@/features/cases/api/useDownloadCaseDocument'
 import { CaseDocumentsCard } from '@/features/cases/components/CaseDocumentsCard'
+import type { CaseDocument } from '@/features/cases/types/caseDocument'
+import { documentDownloadName } from '@/features/cases/utils/caseDocument'
 /**
  * Detalle de causa (HU22), en `/causas/:caseId`.
  *
@@ -130,6 +133,8 @@ function CaseDetail({ case: c }: { case: Case }) {
     /* Los documentos se leen de la carpeta: sin ella creada no hay pedido (CA-38.5). */
     const folderCreated = c.folder?.status === 'CREATED'
     const documents = useCaseDocuments(c.id, folderCreated)
+    const canDownloadDocuments = useCan('cases.downloadDocument')
+    const downloadDocument = useDownloadCaseDocument(c.id)
     const registerInterruptive = useRegisterInterruptiveAct(c.id)
     const declarePrescription = useDeclarePrescription(c.id)
     const createFolder = useCreateCaseFolder(c.id)
@@ -169,6 +174,21 @@ function CaseDetail({ case: c }: { case: Case }) {
             return
         }
         setModal({ kind: 'interruptive', values: { name: '', actDate: todayIsoDate(), notes: '' }, errors: {} })
+    }
+
+    /* "Descargar" de la tarjeta "Documentación" (CA-38.7): se guarda con el
+       nombre que pone el servidor (un documento de Google, como PDF). Si Drive
+       no responde, el aviso trae el mensaje del servidor y la lista queda. */
+    function downloadCaseDocument(doc: CaseDocument) {
+        downloadDocument.mutate(
+            { document: doc, disposition: 'attachment', fileName: documentDownloadName(doc) },
+            {
+                onError: (error) => {
+                    if (!isApiError(error)) throw error
+                    toast('error', error.message)
+                },
+            },
+        )
     }
 
     function openPrescription() {
@@ -342,6 +362,9 @@ function CaseDetail({ case: c }: { case: Case }) {
                                 ? isApiError(documents.error) ? documents.error.message : 'Ocurrió un error inesperado.'
                                 : null
                         }
+                        canDownloadDocuments={canDownloadDocuments}
+                        downloadingId={downloadDocument.isPending ? downloadDocument.variables.document.id : null}
+                        onDownload={downloadCaseDocument}
                     />
                 </div>
             </div>

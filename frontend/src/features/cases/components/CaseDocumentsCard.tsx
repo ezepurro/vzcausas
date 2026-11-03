@@ -1,4 +1,4 @@
-import { LoadingState, Panel, Skeleton } from '@/shared/components/ui'
+import { Button, Icon, LoadingState, Panel, Skeleton } from '@/shared/components/ui'
 import { formatInstantDate, formatTime } from '@/shared/lib/dates'
 import type { CaseDocument } from '@/features/cases/types/caseDocument'
 import { documentTypeLabel, formatFileSize } from '@/features/cases/utils/caseDocument'
@@ -13,7 +13,19 @@ export interface CaseDocumentsCardProps {
     loading: boolean
     /** El mensaje del servidor si no se pudo leer la carpeta (CA-38.6), o `null`. */
     error: string | null
+    /**
+     * Si el usuario descarga los documentos que no son expedientes
+     * (`cases.downloadDocument`: Abogado y Secretaría, D-103). El expediente
+     * lo descarga cualquiera.
+     */
+    canDownloadDocuments: boolean
+    /** El `id` del documento que se está bajando, o `null`. */
+    downloadingId: string | null
+    onDownload: (doc: CaseDocument) => void
 }
+
+/** Lo que explica "Descargar" deshabilitado. */
+const DOWNLOAD_FORBIDDEN = 'Sólo el Abogado y la Secretaría descargan los documentos que no son expedientes.'
 
 /** La nota al pie, del prototipo. */
 const FOOTNOTE =
@@ -25,13 +37,15 @@ const FOOTNOTE =
  * (D-103).
  *
  * Cada documento muestra su tipo, su nombre, quién lo subió según Drive, la
- * fecha y el peso, y "Abrir", que lo abre en Drive en otra pestaña. Es la única
- * acción: la descarga por la API es de "Generar expediente" (HU25, CA-38.7).
+ * fecha y el peso, "Abrir", que lo abre en Drive en otra pestaña, y
+ * "Descargar", que lo baja por la API (CA-38.7). "Descargar" no está en el
+ * prototipo: lo sumó el equipo (`cases/CAMBIOS.md`). A quien no puede bajar un
+ * documento le aparece deshabilitado, como las demás acciones por perfil.
  *
  * "Abrir carpeta en Drive" no va acá: ya lo tiene la tarjeta de la carpeta, que
  * está arriba. Sin carpeta creada, la tarjeta lo dice y no lista nada.
  */
-export function CaseDocumentsCard({ folderCreated, documents, readAt, loading, error }: CaseDocumentsCardProps) {
+export function CaseDocumentsCard({ folderCreated, documents, readAt, loading, error, ...download }: CaseDocumentsCardProps) {
     const listed = folderCreated && !loading && !error ? documents : undefined
 
     return (
@@ -41,10 +55,13 @@ export function CaseDocumentsCard({ folderCreated, documents, readAt, loading, e
             actions={folderCreated && !error ? <SyncStatus loading={loading} readAt={readAt} /> : undefined}
             footer={FOOTNOTE}
         >
-            <Body folderCreated={folderCreated} documents={listed} loading={loading} error={error} />
+            <Body folderCreated={folderCreated} documents={listed} loading={loading} error={error} download={download} />
         </Panel>
     )
 }
+
+/** Lo que cada fila necesita para "Descargar". */
+type DownloadProps = Pick<CaseDocumentsCardProps, 'canDownloadDocuments' | 'downloadingId' | 'onDownload'>
 
 /** "12 archivos", "1 archivo". */
 function filesCount(n: number): string {
@@ -58,7 +75,11 @@ function SyncStatus({ loading, readAt }: { loading: boolean; readAt: string | nu
     return <span className="vz-docs__sync">Sincronizado con Drive · {formatTime(readAt)}</span>
 }
 
-function Body({ folderCreated, documents, loading, error }: Omit<CaseDocumentsCardProps, 'readAt'>) {
+interface BodyProps extends Pick<CaseDocumentsCardProps, 'folderCreated' | 'documents' | 'loading' | 'error'> {
+    download: DownloadProps
+}
+
+function Body({ folderCreated, documents, loading, error, download }: BodyProps) {
     if (!folderCreated) {
         return (
             <div className="vz-panel__body">
@@ -93,7 +114,7 @@ function Body({ folderCreated, documents, loading, error }: Omit<CaseDocumentsCa
     }
     return (
         <ul className="vz-docs">
-            {documents.map((doc) => <DocumentRow key={doc.id} doc={doc} />)}
+            {documents.map((doc) => <DocumentRow key={doc.id} doc={doc} download={download} />)}
         </ul>
     )
 }
@@ -101,11 +122,17 @@ function Body({ folderCreated, documents, loading, error }: Omit<CaseDocumentsCa
 /**
  * Un documento: "Gestión Estudio · 09/09/2026 · 88 KB". Sin autor (Drive no lo
  * informó) o sin peso (un documento nativo de Google), ese dato no se muestra.
+ *
+ * "Descargar" se deshabilita mientras baja el archivo de esta fila, y para
+ * quien no puede bajarlo: el expediente lo baja cualquiera; lo demás, sólo
+ * con `canDownloadDocuments`.
  */
-function DocumentRow({ doc }: { doc: CaseDocument }) {
+function DocumentRow({ doc, download }: { doc: CaseDocument; download: DownloadProps }) {
     const meta = [doc.uploadedBy, formatInstantDate(doc.createdAt), formatFileSize(doc.sizeBytes)]
         .filter(Boolean)
         .join(' · ')
+    const allowed = doc.caseFile !== null || download.canDownloadDocuments
+    const downloading = download.downloadingId === doc.id
 
     return (
         <li className="vz-docs__item">
@@ -114,14 +141,26 @@ function DocumentRow({ doc }: { doc: CaseDocument }) {
                 <div className="vz-docs__name" title={doc.name}>{doc.name}</div>
                 <div className="vz-docs__meta">{meta}</div>
             </div>
-            <a
-                className="vz-btn vz-btn--secondary vz-btn--sm"
-                href={doc.url}
-                target="_blank"
-                rel="noopener noreferrer"
-            >
-                Abrir
-            </a>
+            <div className="vz-docs__actions">
+                <a
+                    className="vz-btn vz-btn--secondary vz-btn--sm"
+                    href={doc.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >
+                    Abrir
+                </a>
+                <Button
+                    variant="secondary"
+                    size="sm"
+                    icon={<Icon name="download" />}
+                    disabled={!allowed || downloading}
+                    title={allowed ? undefined : DOWNLOAD_FORBIDDEN}
+                    onClick={() => download.onDownload(doc)}
+                >
+                    Descargar
+                </Button>
+            </div>
         </li>
     )
 }

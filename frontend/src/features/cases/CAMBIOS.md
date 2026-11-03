@@ -5,6 +5,40 @@ contrato.
 
 ---
 
+## 2026-11-03 — "Descargar" en la tarjeta "Documentación" (HU38)
+
+**Pedido:** del equipo (Facundo Fiorani). Para bajar un escrito había que
+abrirlo en Drive y descargarlo desde ahí.
+
+**Antes (prototipo):** cada documento tenía sólo "Abrir", que lo abre en
+Drive. La descarga por la API (`GET /cases/{caseId}/documents/{documentId}/file`,
+V5 §3.12) la usaba únicamente "Generar expediente" (decisión del 28/10/2026 en
+`TESTING.md` §11).
+
+**Ahora:** cada fila suma "Descargar", al lado de "Abrir", que baja el archivo
+por la API como adjunto. No cambia el contrato: el endpoint ya preveía la
+descarga de cualquier documento de la carpeta (HU38).
+
+- Quién descarga sigue la regla de la API (D-103): el Abogado y la Secretaría,
+  todos los documentos (`cases.downloadDocument` en `ACTION_ACCESS`); el
+  expediente, cualquiera. El Administrador sin otro rol no tiene la carpeta
+  compartida en Drive (D-83): en los demás documentos ve "Descargar"
+  deshabilitado, con el motivo en el `title`. Ese texto no sale del prototipo.
+- Un documento de Google llega exportado a PDF (V5 `:7595`) y se guarda con
+  ".pdf" (`documentDownloadName`), como el nombre que pone el servidor.
+- Mientras baja, sólo el botón de esa fila queda deshabilitado. Si Drive no
+  responde, un aviso con el mensaje del servidor; la lista queda.
+- En el teléfono (720px) los botones bajan a su renglón, debajo del nombre:
+  al lado, el nombre quedaba en un par de letras.
+- `useDownloadCaseDocument` recibe el nombre del archivo (`fileName`) en vez
+  de calcularlo: `api/` no depende de `utils/`.
+
+El aspecto se pidió a Claude Design; si cambia, se ajusta la tarjeta. Tests:
+`components/cases/CaseDetailPage.documents.test.tsx` ("descarga (CA-38.7)"),
+`unit/app/actionAccess.test.ts`, `unit/cases/caseDocument.test.ts`.
+
+---
+
 ## 2026-11-03 — Flecha de volver en las pantallas de causas
 
 **Pedido:** del equipo (Facundo Fiorani). Para volver había que usar el botón
@@ -68,8 +102,10 @@ carátula en HTML, sobre una imagen de la plantilla.
   pantalla, como el prototipo. Para eso la orquestación del diálogo pasó de
   `CaseDetailPage` a `api/useCaseEdit.ts` (acordado con Facundo Fiorani), que
   usan las dos pantallas. El hook importa dos tipos de `components/`
-  (`CaseEditFormProps`, `SelectedQualification`): es la única flecha de `api/`
-  hacia `components/` del módulo.
+  (`CaseEditFormProps`, `SelectedQualification`), la validación de
+  `schemas/case.schema` y cuatro funciones de `utils/` (`buildCasePatch`,
+  `caseForm`, `suggestedCaption`, `toFormErrors`): es el único archivo de
+  `api/` que importa algo más que `types/`.
 
 ---
 

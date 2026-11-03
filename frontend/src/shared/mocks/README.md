@@ -12,8 +12,11 @@ modificar un acto procesal, los documentos de la causa y el expediente
 ([Lo que suma el Sprint 4](#lo-que-suma-el-sprint-4-v5)).
 
 > **`tests/unit/contract/endpoints.test.ts` está en rojo** hasta que
-> `docs/openapi` sume los siete endpoints de V5: el mock los implementa y la
-> especificación todavía no.
+> `docs/openapi` sume cinco endpoints de V5 que el mock implementa y la
+> especificación todavía no: `GET /cases/{caseId}/cover`,
+> `GET /cases/{caseId}/documents`, `GET /cases/{caseId}/documents/{documentId}/file`,
+> `PATCH /cases/{caseId}/procedural-acts/{actId}` y
+> `POST /cases/{caseId}/case-files`.
 Lo que V4 sacó del contrato tampoco está: los avisos por correo son
 configuración del servidor (D-79) y el adjunto de la cédula quedó fuera del
 sprint (§8.3).
@@ -145,19 +148,21 @@ Sin `Authorization: Bearer <token>` válido todo endpoint protegido responde
 
 ### Quién puede qué
 
-Sale de la tabla de permisos por perfil del contrato (V3 §4). Un usuario con
-varios roles pasa si el rol pedido está entre ellos.
+Sale de la tabla de permisos por perfil del contrato (V5 §4, "Autorización").
+Un usuario con varios roles pasa si el rol pedido está entre ellos.
 
 | Operación | Rol |
 | --- | --- |
 | Leer abogados, estados procesales, calificaciones legales, clientes y causas | Cualquier usuario autenticado |
 | Leer y escribir `/users` | `ADMINISTRATOR` |
-| Escribir abogados | `ADMINISTRATOR` |
+| Escribir abogados (registrar y modificar) | `ADMINISTRATOR` |
 | Escribir estados procesales y calificaciones legales | Cualquier usuario autenticado |
 | Registrar un cliente | Cualquier usuario autenticado |
-| Registrar una causa | Cualquier usuario autenticado |
-| Registrar un acto procesal y previsualizar su vencimiento | El abogado responsable de la causa |
+| Registrar, modificar y dar de baja una causa | Cualquier usuario autenticado |
+| Registrar o modificar un acto procesal y previsualizar su vencimiento | El abogado responsable (actual) de la causa |
 | Leer la línea de vida y los actos de una causa; crear o reintentar su carpeta | Cualquier usuario autenticado |
+| Ver la carátula, listar los documentos y generar el expediente | Cualquier usuario autenticado |
+| Descargar un documento de la causa | `LAWYER` o `SECRETARY`; el expediente, cualquier usuario autenticado (D-103) |
 | Registrar un acto interruptivo | El abogado responsable de la causa |
 | Marcar una causa como prescripta; leer y registrar modelos formales | `ADMINISTRATOR` o `LAWYER` |
 | `GET /dashboards/lawyer` | `LAWYER` (su propio tablero) |
@@ -521,8 +526,10 @@ El alta de modelo viaja como `multipart/form-data`, con el
 archivo en el campo `file`. El cliente HTTP tiene `Content-Type:
 application/json` por defecto, y con ese encabezado axios convierte el
 `FormData` a JSON: hay que mandar `{ headers: { 'Content-Type':
-'multipart/form-data' } }`, y axios completa el `boundary`. La descarga de un
-modelo es la única respuesta que no es JSON: pedila con `responseType: 'blob'`.
+'multipart/form-data' } }`, y axios completa el `boundary`. Las descargas —un
+modelo, la carátula, un documento de la causa— son las únicas respuestas que no
+son JSON: pedilas con `responseType: 'blob'` (como `documentTemplates.api.ts` y
+`cases.api.ts`).
 
 En los tests, Vitest 5 y jsdom 30 no se llevan bien con los archivos;
 `tests/setup/vitest.setup.ts` lo emparcha, y un `new File([...], 'modelo.docx')`
@@ -564,7 +571,7 @@ funciona como en el navegador.
 | Archivo | Contenido |
 | --- | --- |
 | `contract.ts` | Los tipos del contrato (recursos, cuerpos de petición, envoltorios, códigos de error) y los constructores `itemBody` / `listBody` / `errorBody` / `buildPagination`. |
-| `fixtures.ts` | Datos semilla de sólo lectura, sacados del prototipo: usuarios, abogados, estados procesales, calificaciones, clientes, causas con sus actos (`CASE_SEEDS`) y credenciales. También los tipos `Stored…`, que es cómo la base guarda cada cosa. |
+| `fixtures.ts` | Datos semilla de sólo lectura, sacados del prototipo: usuarios, abogados, estados procesales, calificaciones, clientes, causas con sus actos (`CASE_SEEDS`), los archivos de las carpetas en Drive (`DOCUMENT_SEEDS`) y credenciales. También los tipos `Stored…`, que es cómo la base guarda cada cosa. |
 | `calendar.ts` | Fechas sin hora y el cómputo de plazos del contrato (§4): días hábiles, corridos, `businessDaysRemaining` y la suma de meses de la prescripción. Lo usan las semillas, la base y los handlers. |
 | `responses.ts` | Una respuesta de ejemplo por cada código documentado, en `RESPONSES.<endpoint>.<case>`, más los mensajes de error compartidos en `ERRORS` y `forbiddenFor(rol)`. |
 | `db.ts` | Base en memoria (copia mutable de las semillas, con las fechas relativas ya resueltas), tokens de sesión, `resetMockDb()` y los serializadores `toCase`, `toUser`, etc., que arman lo embebido y lo calculado. |

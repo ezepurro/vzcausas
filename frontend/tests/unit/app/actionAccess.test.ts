@@ -30,4 +30,15 @@ describe('can', () => {
         expect(can(['LAWYER'], 'cases.declarePrescription')).toBe(true)
         expect(can(['SECRETARY'], 'cases.declarePrescription')).toBe(false)
     })
+
+    /* Descargar un documento de la causa que no es un expediente es del
+       Abogado y de la Secretaría: el Administrador no tiene acceso a la
+       carpeta en Drive (CA-38.7, V5 §3.12, D-103, D-83). El expediente lo
+       descarga cualquiera, y eso no es un permiso por rol. */
+    it('descargar un documento de la causa es del Abogado y de la Secretaría', () => {
+        expect(can(['LAWYER'], 'cases.downloadDocument')).toBe(true)
+        expect(can(['SECRETARY'], 'cases.downloadDocument')).toBe(true)
+        expect(can(['ADMINISTRATOR'], 'cases.downloadDocument')).toBe(false)
+        expect(can(['ADMINISTRATOR', 'LAWYER'], 'cases.downloadDocument')).toBe(true)
+    })
 })

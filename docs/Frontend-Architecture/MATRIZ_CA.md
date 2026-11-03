@@ -257,7 +257,7 @@ que corresponde al servidor: el frontend muestra lo que recibe y no lo prueba.
 | CA-38.4 | `components/cases/CaseDetailPage.documents.test.tsx` (componentes)<br>`unit/cases/caseDocument.test.ts` (unit) |
 | CA-38.5 | `components/cases/CaseDetailPage.documents.test.tsx` (componentes) |
 | CA-38.6 | `components/cases/CaseDetailPage.documents.test.tsx` (componentes) |
-| CA-38.7 | Backend |
+| CA-38.7 | `components/cases/CaseDetailPage.documents.test.tsx` (componentes)<br>`unit/app/actionAccess.test.ts` (unit)<br>`unit/cases/caseDocument.test.ts` (unit)<br>Backend |
 | CA-38.8 | Backend |
 | CA-38.9 | Backend |
 
@@ -322,4 +322,4 @@ que corresponde al servidor: el frontend muestra lo que recibe y no lo prueba.
 
 ---
 
-195 criterios citados · 39 sólo del backend.
+195 criterios citados · 38 sólo del backend.

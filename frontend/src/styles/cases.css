@@ -387,7 +387,7 @@
 /* ─────────── documentación de la causa (detalle) ─────────── */
 /* La tarjeta "Documentación" (HU38): un renglón por archivo de la carpeta en
    Drive, con su tipo en un recuadro, el nombre, quién lo subió, la fecha y el
-   peso, y "Abrir". */
+   peso, y "Abrir" y "Descargar". */
 .vz-docs__sync { font-size: 12px; color: var(--vz-muted); }
 .vz-docs { margin: 0; padding: 0 var(--vz-panel-pad); list-style: none; }
 .vz-docs__item {
@@ -424,10 +424,20 @@
   white-space: nowrap;
 }
 .vz-docs__meta { margin-top: 2px; font-size: 12px; color: var(--vz-muted); }
-.vz-docs__item > .vz-btn { flex: 0 0 auto; }
+.vz-docs__actions { display: flex; flex: 0 0 auto; gap: 8px; }
 /* Sin carpeta, vacía o con Drive caído: una línea de texto en lugar de la lista. */
 .vz-docs__note { margin: 0; font-size: 13px; line-height: 1.45; color: var(--vz-muted); }
 .vz-docs__note--error { color: var(--vz-danger); }
+
+/* Teléfono: con los dos botones al lado, el nombre quedaba en un par de
+   letras. Bajan a su renglón, alineados con el nombre (el recuadro del tipo,
+   34px, más el espacio entre los dos, 12px). Va después de las reglas de la
+   tarjeta para no quedar pisado. */
+@media (max-width: 720px) {
+  .vz-docs__item { flex-wrap: wrap; row-gap: 8px; }
+  .vz-docs__main { flex-basis: calc(100% - 46px); }
+  .vz-docs__actions { flex-basis: 100%; padding-left: 46px; }
+}
 
 
 /* ─────────── generar expediente (HU25) ─────────── */

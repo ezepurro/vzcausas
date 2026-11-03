@@ -4,6 +4,7 @@ import { ROLES, type Role } from '@/features/auth/types/session'
 const ADMIN: readonly Role[] = ['ADMINISTRATOR']
 const LAWYER: readonly Role[] = ['LAWYER']
 const ADMIN_AND_LAWYER: readonly Role[] = ['ADMINISTRATOR', 'LAWYER']
+const LAWYER_AND_SECRETARY: readonly Role[] = ['LAWYER', 'SECRETARY']
 const EVERYONE: readonly Role[] = ROLES
 export const ROUTE_ACCESS: Record<string, readonly Role[]> = {
     '/inicio': ADMIN_AND_LAWYER,  // cada tablero de Inicio es de un rol (V4 §3.11)
@@ -57,6 +58,7 @@ export type Action =
     | 'dashboard.lawyer'
     | 'dashboard.administrator'
     | 'cases.declarePrescription'
+    | 'cases.downloadDocument'
 
 export const ACTION_ACCESS: Record<Action, readonly Role[]> = {
     // Registrar y modificar abogados es sólo del Administrador; la pantalla
@@ -70,6 +72,11 @@ export const ACTION_ACCESS: Record<Action, readonly Role[]> = {
     // "Marcar prescripta" una causa penal: el Administrador y cualquier
     // abogado, aunque no sea el responsable; la Secretaría no (V4 §4, D-52).
     'cases.declarePrescription': ADMIN_AND_LAWYER,
+    // "Descargar" un documento de la causa que no es un expediente: el
+    // Abogado y la Secretaría, que tienen la carpeta compartida en Drive; el
+    // Administrador no (V5 §3.12, D-103, D-83). El expediente lo descarga
+    // cualquiera: eso no es un permiso por rol y lo resuelve la tarjeta.
+    'cases.downloadDocument': LAWYER_AND_SECRETARY,
 }
 
 

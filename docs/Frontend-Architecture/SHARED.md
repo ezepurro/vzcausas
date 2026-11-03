@@ -32,11 +32,11 @@ shared/
 │   └── queryClient.ts
 ├── components/
 │   ├── index.ts              barrel: reexporta ui + forms
-│   ├── ui/                   18 componentes + index.ts
-│   ├── forms/                Field.tsx, Combobox.tsx, SegmentedControl.tsx, FormModal.tsx + index.ts
+│   ├── ui/                   19 archivos (20 componentes: Skeleton.tsx trae LoadingState y Skeleton) + index.ts
+│   ├── forms/                Field.tsx, PasswordInput.tsx, Combobox.tsx, SegmentedControl.tsx, FormModal.tsx + index.ts
 │   └── feedback/             VACÍA (sólo .gitkeep)
-├── hooks/                    useDebouncedValue.ts (búsqueda con demora)
-├── lib/                      dates.ts (fechas para mostrar), initials.ts (iniciales de avatar)
+├── hooks/                    useDebouncedValue.ts, useFocusFirstError.ts, useCountdown.ts
+├── lib/                      dates.ts, personName.ts, initials.ts, saveFile.ts, printFile.ts, drafts.ts, focusFirstError.ts
 ├── mocks/                    la API del contrato, simulada (ver su README)
 │   ├── contract.ts           tipos del contrato
 │   ├── fixtures.ts           datos semilla
@@ -44,6 +44,7 @@ shared/
 │   ├── calendar.ts           fechas sin hora y cómputo de días hábiles
 │   ├── db.ts                 base en memoria + resetMockDb()
 │   ├── handlers.ts           servidor falso: resolveRequest()
+│   ├── pdf.ts                PDF mínimo para la carátula y el expediente
 │   ├── msw-handlers.ts       capa MSW (navegador y Node)
 │   ├── browser.ts            startMocks() — service worker
 │   ├── server.ts             setupServer — tests en Node
@@ -52,9 +53,9 @@ shared/
 ```
 
 `types/` y `components/feedback/` siguen vacías. Si una feature necesita algo
-de ahí, es un archivo nuevo, no algo que haya que buscar. `lib/` dejó de
-estarlo: tiene `dates.ts` e `initials.ts`. `hooks/` también: tiene
-`useDebouncedValue.ts` (ver [Hooks](#hooks)).
+de ahí, es un archivo nuevo, no algo que haya que buscar. `lib/` y `hooks/`
+tienen lo que figura en el [Índice rápido](#índice-rápido) y en
+[Hooks](#hooks).
 
 `mocks/` implementa `docs/Api-Contract/API_CONTRACT_V5.md` (con su revisión
 del 27/10/2026) sobre **MSW**, que intercepta la red de verdad (los pedidos se
@@ -157,7 +158,15 @@ import { ApiError, isApiError } from '@/shared/api/ApiError';
 | `formatDate` | Función | `lib/dates.ts` | Fecha sin hora del contrato: `2026-09-15` → `15/09/2026` |
 | `todayIsoDate` | Función | `lib/dates.ts` | Hoy como `YYYY-MM-DD`, para los `<input type="date">` |
 | `parseDateOnly` | Función | `lib/dates.ts` | `YYYY-MM-DD` → `Date` local, para hacer cuentas sin que la fecha se corra |
+| `formatDateTime` / `formatInstantDate` / `formatTime` | Funciones | `lib/dates.ts` | Un instante del contrato (con hora), en la hora local de quien lo lee: `09/09/2026 a las 11:42`, `09/09/2026` o `11:42` |
+| `formatPersonName` / `formatPersonFullName` | Funciones | `lib/personName.ts` | `Ríos, Malena` en tablas y selects; `Malena Ríos` dentro de una frase (D-68) |
 | `initials` | Función | `lib/initials.ts` | Iniciales de un nombre, para los avatares |
+| `saveFile` | Función | `lib/saveFile.ts` | Guarda en el equipo un archivo bajado de la API, con el nombre que se le pase |
+| `printFile` | Función | `lib/printFile.ts` | Abre el diálogo de impresión con un archivo bajado de la API (desde un iframe oculto) |
+| `draftKey` / `clearDrafts` | Funciones | `lib/drafts.ts` | La clave de un borrador en `sessionStorage` (`vz-draft:{formulario}:{usuario}`) y el borrado de todos al cerrar sesión |
+| `useFocusFirstError` | Hook | `hooks/useFocusFirstError.ts` | Lleva al primer campo con error al confirmar un formulario |
+| `useCountdown` | Hook | `hooks/useCountdown.ts` | Cuenta regresiva en segundos (el `429` del login) |
+| `useDebouncedValue` | Hook | `hooks/useDebouncedValue.ts` | El valor recién cuando deja de cambiar: el buscador de un listado |
 | `startMocks` | Función | `mocks/browser.ts` | Enciende la API simulada (async) |
 | `configureMocks` | Función | `mocks/browser.ts` · `mocks/server.ts` | Demora, logs y passthrough del mock |
 | `server` | SetupServer | `mocks/server.ts` | Los mismos handlers para tests en Node |
@@ -188,6 +197,10 @@ import { ApiError, isApiError } from '@/shared/api/ApiError';
 | Buscador de un listado | `SearchInput` + `useDebouncedValue` de `@/shared/hooks/useDebouncedValue` | El input muestra el texto al instante; a la consulta va el valor demorado, así no sale un pedido por tecla |
 | Mostrar un último ingreso | `formatLastLogin` de `@/shared/lib/dates` | Para que la fecha no se formatee distinto en cada feature |
 | Mostrar una fecha sin hora (`startDate`, `dueDate`) | `formatDate` de `@/shared/lib/dates` | **Nunca** `new Date('2026-09-15')`: la corre un día |
+| Mostrar un instante con hora (`registeredAt`, `createdAt`) | `formatDateTime`, `formatInstantDate` o `formatTime` de `@/shared/lib/dates` | Éstas sí pasan por `new Date`: el instante trae su offset |
+| Nombre de una persona | `formatPersonName` / `formatPersonFullName` de `@/shared/lib/personName` | Apellido primero en tablas y selects; nombre y apellido dentro de una frase |
+| Guardar o imprimir un archivo bajado de la API | `saveFile` / `printFile` de `@/shared/lib/` | Un enlace directo no sirve: la descarga lleva el token |
+| Guardar un borrador de formulario | `draftKey` de `@/shared/lib/drafts` | Así `clearDrafts()` lo borra al cerrar sesión (ver `cases/utils/caseDraft.ts`) |
 | Valor por defecto de un campo de fecha | `todayIsoDate()` de `@/shared/lib/dates` | No `toISOString()`, que después de las 21 ya dice mañana |
 | Primera columna de una persona en una tabla | `Avatar` + `.vz-table__ident` | Usuarios, clientes |
 | Ubicar al usuario en una pantalla interna | `Breadcrumbs` | Arriba del título, en lugar del `eyebrow` |
@@ -758,8 +771,31 @@ const query = useClients({
   `debouncedSearch`. La variable se llama así en todas las páginas.
 - Sólo para texto que se tipea. Un select, una pestaña o el paginado no llevan
   demora: tienen que responder al toque.
-- Lo usan Clientes, Abogados, Usuarios y Estados y plazos. Su test está en
+- Lo usan Causas, Clientes, Abogados, Usuarios, Estados y plazos y
+  Calificaciones legales. Su test está en
   `tests/components/shared/useDebouncedValue.test.ts`.
+
+### useFocusFirstError
+
+**Path:** `hooks/useFocusFirstError.ts`
+**Firma:** `useFocusFirstError(container: RefObject<HTMLElement | null>, errors: unknown): () => void`
+
+Devuelve una función para llamar al principio del `submit`: centra el primer
+`.vz-field--error` del contenedor y le da foco. También lo hace cuando
+`errors` cambia porque llegó un error del servidor. `FormModal` ya lo usa
+solo; lo usan además `LoginPage`, `RegisterCasePage`,
+`RegisterProceduralActPage` y `CaseEditForm`. La búsqueda del campo está en
+`lib/focusFirstError.ts`.
+
+### useCountdown
+
+**Path:** `hooks/useCountdown.ts`
+**Firma:** `useCountdown(seconds: number | null): number | null`
+
+Cuenta regresiva en segundos, para un `429` con `retryAfterSeconds`. Un valor
+nuevo reinicia la cuenta y `null` la apaga. Devuelve `null` cuando no hay
+cuenta o llegó a cero, así sirve directo como "¿está bloqueado?". Hoy lo usa
+`LoginPage`.
 
 ---
 
@@ -897,13 +933,18 @@ las clases `vz-*` existentes o agregando reglas al archivo que corresponda.
 | `controls.css` | `.vz-btn*` (y `.is-pressed`), `.vz-field`, `.vz-label*` (y `.vz-label-row`, `.vz-label__hint`), `.vz-input/select/textarea`, `.vz-check`, `.vz-form-grid`, `.vz-form-sep*`, `.vz-combobox*`, `.vz-segmented*`, `.vz-form-actions*`, `.vz-field-row` |
 | `table.css` | `.vz-panel*` (y `.vz-panel__body`), `.vz-table*`, `.vz-filters`, `.vz-pager*`, `.vz-avatar`, `.vz-details*` (y `.vz-details__note`), `.vz-meter*`, `.vz-load*` |
 | `feedback.css` | `.vz-pill*`, `.vz-dot`, `.vz-tabs`, `.vz-modal*`, `.vz-empty*`, `.vz-callout*`, `.vz-checklist*`, `.vz-overline` |
-| `cases.css` | `.vz-case-head*`, `.vz-presc*`, `.vz-picker*`, `.vz-due*`, `.vz-summary*`, `.vz-person-name`: lo propio de las pantallas de causas y actos |
+| `skeleton.css` | `.vz-skel*`, `.vz-loading`: los esqueletos de carga (`LoadingState`, `Skeleton`, `DataTable loading`) |
+| `cases.css` | `.vz-case-head*`, `.vz-case-detail*`, `.vz-case-actions`, `.vz-case-folder*`, `.vz-docs*`, `.vz-timeline*`, `.vz-presc*`, `.vz-picker*`, `.vz-due*`, `.vz-summary*`, `.vz-casefile*`, `.vz-cover-preview*`, `.vz-person-name`: lo propio de las pantallas de causas y actos |
+| `dashboard.css` | `.vz-dash*`: los tableros de Inicio |
+| `tools.css` | `.vz-tool*`, `.vz-tools-*`: Herramientas |
+| `documents.css` | `.vz-template-*`, `.vz-jur-card*`, `.vz-card-grid`, `.vz-dropzone*`, `.vz-multi*`: Modelos |
 | `login.css` | `.vz-login*`: lo propio de la pantalla de login |
 
-`index.css` es el punto de entrada: importa la tipografía y después los ocho
+`index.css` es el punto de entrada: importa la tipografía y después los doce
 archivos, con `tokens.css` primero porque todo el resto depende de sus
-variables. `cases.css` y `login.css` son de un área del sistema, no de
-`shared`: se usan sólo desde sus módulos.
+variables. `cases.css`, `dashboard.css`, `tools.css`, `documents.css` y
+`login.css` son de un área del sistema, no de `shared`: se usan sólo desde sus
+módulos.
 
 ### Tokens principales (`tokens.css`)
 
@@ -958,9 +999,9 @@ panel al costado), `.vz-mono`, `.vz-muted`, `.vz-faint`, `.vz-sr-only`.
 
 `AppShell`, `Avatar`, `Breadcrumbs`, `Button`, `DataTable`, `DetailList`, `Icon`,
 `ICONS`, `IconButton`, `Logo`, `Meter`, `Modal`, `PageHeader`, `Pagination`,
-`Panel`, `Pill`, `RailUser`, `SearchInput`, `Tabs`, `Field`, `TextInput`,
-`Select`, `Textarea`, `Checkbox`, `FormSection`, `Combobox`, `SegmentedControl`,
-`FormModal`.
+`Panel`, `Pill`, `RailUser`, `SearchInput`, `LoadingState`, `Skeleton`,
+`Tabs`, `Field`, `TextInput`, `Select`, `Textarea`, `Checkbox`, `FormSection`,
+`PasswordInput`, `Combobox`, `SegmentedControl`, `FormModal`.
 
 Tipos: `AppShellProps`, `RailGroup`, `RailItem`, `AvatarProps`,
 `BreadcrumbItem`, `BreadcrumbsProps`, `ButtonProps`, `Column`,
@@ -997,7 +1038,9 @@ directa (no tienen barrel).
 | `ROUTE_ACCESS` / `canAccess` / `useCanAccess` | `@/app/access/access.ts`, `useCanAccess.ts` | Quién ve cada sección: de ahí leen el rail y `RequireAccess` |
 | `ACTION_ACCESS` / `can` / `useCan` | `@/app/access/access.ts`, `useCan.ts` | Quién opera una acción de una pantalla que ven todos: "Registrar abogado" es sólo del Administrador |
 | `AppLayout` / `AuthLayout` / `NotFoundLayout` | `@/app/layouts/` | Marco con sesión, sin sesión y para las rutas desconocidas |
+| `useHomeRoute()` / `homeRoute(roles)` | `@/app/access/useHomeRoute.ts`, `access.ts` | La pantalla de entrada del usuario: `/inicio` si tiene tablero, si no `/causas` |
 | `RequireSession` / `RedirectIfSession` | `@/app/router/` | Las guardas: sin sesión al login, con sesión fuera del login |
+| `useGoBack(fallback)` | `@/app/router/useGoBack.ts` | Vuelve a la pantalla anterior de la aplicación o, si se entró por la URL, a `fallback`. Lo usa la flecha de `Breadcrumbs` (`onBack`) |
 | `router` | `@/app/router/index.tsx` | Rutas; las pantallas nuevas se registran acá |
 | Envoltorios de respuesta | `@/api-contract/envelopes.ts` | `ApiItem`, `ApiList`, `Pagination`, `PaginatedQuery` |
 | Estilos `vz-*` | `@/styles/` | Ver sección anterior |
@@ -1032,8 +1075,9 @@ Puramente informativo; nada de esto está resuelto ni debe corregirse al paso.
   `NotFoundLayout`.
 - No se detectaron componentes duplicados ni solapados dentro de `shared`.
 - **`UsersTable` todavía dibuja su avatar a mano** (`<span className="vz-avatar">`
-  con su propia función `initials()`), de antes de que existiera `Avatar`. Al
-  tocar esa tabla, reemplazarlo por `<Avatar name={u.fullName} />`.
+  con `initials()` de `lib/initials.ts`), de antes de que existiera `Avatar`.
+  Al tocar esa tabla, reemplazarlo por `<Avatar name={formatPersonName(u)} />`
+  (`fullName` ya no existe desde V4, D-68).
 
 ---
 
@@ -1063,8 +1107,8 @@ Puramente informativo; nada de esto está resuelto ni debe corregirse al paso.
 8. **Avisos al usuario:** `useToast()` de `@/app/providers/ToastContext`, no un
    componente propio.
 9. **Antes de crear algo en `shared/hooks`, `lib` o `types`:** `types/` está
-   vacía a propósito, `hooks/` tiene un archivo (`useDebouncedValue.ts`) y
-   `lib/` tiene dos (`dates.ts`, `initials.ts`). Si algo lo usa una sola feature, va en
+   vacía a propósito; lo que ya hay en `hooks/` y `lib/` está en el
+   [Índice rápido](#índice-rápido): fijate que no exista. Si algo lo usa una sola feature, va en
    `src/features/<feature>/`; sólo sube a `shared` cuando lo compartan dos o
    más. La excepción son los controles genéricos que no saben nada del dominio
    (`Combobox`, `SegmentedControl`): van a `shared` desde el primer uso, igual

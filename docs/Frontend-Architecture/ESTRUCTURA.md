@@ -64,8 +64,8 @@ frontend/
     │   │   ├── ui/       botones, inputs, tablas, modales
     │   │   ├── forms/    piezas para armar formularios
     │   │   └── feedback/ avisos, carteles de error, estados vacíos (hoy vacía)
-    │   ├── hooks/        hooks reutilizables: búsqueda con demora
-    │   ├── lib/          utilidades sueltas: fechas, iniciales
+    │   ├── hooks/        hooks reutilizables: búsqueda con demora, foco en el error
+    │   ├── lib/          utilidades sueltas: fechas, nombres, archivos, borradores
     │   ├── mocks/        datos y servidor simulado para desarrollar sin backend
     │   └── types/        tipos que usan varios módulos (hoy vacía)
     ├── domain/           las reglas del negocio jurídico, sin React (hoy vacía)
@@ -143,7 +143,7 @@ carpetas**:
 | `pages/` | Las pantallas completas, las que el router monta | `CasesPage.tsx`, `CaseDetailPage.tsx` |
 | `schemas/` | La validación de los formularios del módulo, como funciones puras | `case.schema.ts` |
 | `types/` | Los tipos de este módulo | `case.ts` |
-| `utils/` | Funciones auxiliares del módulo | `caseStatusTone.ts` |
+| `utils/` | Funciones auxiliares del módulo | `deadlineStatus.ts` |
 
 Si una de esas carpetas queda vacía, se deja igual, con un `.gitkeep`: la
 estructura tiene que ser predecible.
@@ -151,8 +151,11 @@ estructura tiene que ser predecible.
 **Hay un séptimo archivo, y es opcional: `index.ts` en la raíz del módulo.** Es
 la cara pública del módulo y sólo lo tiene el que necesita que otro lo use; ver
 la regla 1 en [§5](#5-las-tres-reglas-que-sostienen-todo). Hoy lo tienen
-`lawyers/`, `clients/`, `legal-params/` y `cases/`, porque el alta de causa y
-el registro de actos consumen sus datos. Si no hace falta, no se crea.
+`lawyers/`, `clients/`, `legal-params/`, `cases/` y `documents/`, porque el
+alta de causa, el registro de actos y los tableros consumen sus datos, y
+`deadlines/`, que le da a la barra superior el atajo de la campana. Lo que
+publica cada uno está en `frontend/CLAUDE.md`, "Qué publica el `index.ts` de
+cada módulo". Si no hace falta, no se crea.
 
 **Los módulos y qué cubre cada uno:**
 
@@ -163,21 +166,22 @@ el registro de actos consumen sus datos. Si no hace falta, no se crea.
 | `clients/` | Los clientes del estudio |
 | `lawyers/` | Los abogados del staff |
 | `legal-params/` | Datos maestros del dominio: fueros, estados procesales con sus plazos, y calificaciones legales |
-| `cases/` | Causas y amparos: alta, consulta, detalle, línea de tiempo, carátula y expediente |
-| `proceedings/` | Actos procesales y actos interruptivos de cada causa |
-| `deadlines/` | Vencimientos, prescripción y alertas |
-| `documents/` | Documentos de cada causa y los modelos formales del estudio |
+| `cases/` | Causas y amparos: alta, consulta, detalle, modificación y baja, línea de vida, carpeta y documentos en Drive, actos interruptivos, marca de prescripción, carátula y expediente |
+| `proceedings/` | Registrar y modificar los actos procesales de cada causa |
+| `deadlines/` | Vencimientos, prescripción y alertas. Hoy sólo tiene el atajo de la campana para la corrida diaria, en desarrollo (`deadlines/CAMBIOS.md`) |
+| `documents/` | Los modelos formales del estudio. Los documentos de cada causa están en `cases/` (la tarjeta "Documentación" del detalle) |
 | `dashboard/` | El tablero de control accionable y los reportes. Su página es Inicio (`/inicio`), la pantalla de entrada después del login |
 | `tools/` | Herramientas: accesos directos a sitios externos (`/herramientas`) |
 
-De los once, hoy tienen código diez: `auth/`, `users/`, `lawyers/` y
+De los once, diez tienen pantallas: `auth/`, `users/`, `lawyers/` y
 `legal-params/`; los tres del Sprint 2 —`clients/`, `cases/` y
 `proceedings/`—; y los del Sprint 3: `documents/` (los modelos formales),
-`dashboard/` (los tableros de Inicio) y `tools/`. Los tests de pantalla de
-cada sprint se escriben antes que la página: los del Sprint 4 están en rojo
-hasta que se programe cada historia (`TESTING.md` §11). `deadlines/` está
-creado con sus seis carpetas vacías, para que el día que arranque no haya que
-discutir dónde va.
+`dashboard/` (los tableros de Inicio) y `tools/`. El Sprint 4 sumó pantallas a
+`cases/`, `proceedings/` y `lawyers/`. Los tests de pantalla de cada sprint se
+escriben antes que la página (`TESTING.md` §11). `deadlines/` no tiene
+pantallas: tiene sus seis carpetas y sólo `api/` y `types/` con algo, el
+atajo de la campana que dispara la corrida diaria de los correos en
+desarrollo.
 
 Todos siguen el contrato V5 (`docs/Api-Contract/API_CONTRACT_V5.md`). Lo que
 V4 y V5 cambiaron sobre lo que ya estaba hecho está en `frontend/CLAUDE.md`,
@@ -202,12 +206,17 @@ Una tabla de causas o un formulario de cliente, en cambio, son del módulo.
 - **`components/feedback/`**: avisos, mensajes de error, estados de carga y de lista
   vacía. Hoy está vacía: los avisos son `useToast()`, que vive en
   `app/providers/`, y los estados vacíos se escriben con las clases `.vz-empty`.
-- **`hooks/`**: hooks reutilizables, por ejemplo uno de búsqueda con demora o uno que
-  guarda algo en el navegador. Hoy tiene `useDebouncedValue.ts`, el de la
-  búsqueda con demora de los listados.
+- **`hooks/`**: hooks reutilizables. Hoy tiene `useDebouncedValue.ts` (la
+  búsqueda con demora de los listados), `useFocusFirstError.ts` (lleva al
+  primer campo con error al confirmar un formulario) y `useCountdown.ts` (la
+  cuenta regresiva de un `429` en el login).
 - **`lib/`**: funciones sueltas sin estado. Hoy tiene `dates.ts` (el último
-  ingreso, las fechas sin hora del contrato y la fecha de hoy) e `initials.ts`
-  (las iniciales de los avatares).
+  ingreso, las fechas sin hora del contrato, los instantes y la fecha de hoy),
+  `personName.ts` (el nombre de una persona, apellido primero o dentro de una
+  frase), `initials.ts` (las iniciales de los avatares), `saveFile.ts` y
+  `printFile.ts` (guardar o imprimir un archivo bajado de la API), `drafts.ts`
+  (las claves de los borradores en `sessionStorage` y su borrado al cerrar
+  sesión) y `focusFirstError.ts` (lo que usa `useFocusFirstError`).
 - **`mocks/`**: datos de mentira y un servidor simulado, para poder desarrollar
   pantallas antes de que el backend esté listo.
 - **`types/`**: tipos que cruzan módulos. Hoy está vacía. El perfil del
@@ -225,9 +234,13 @@ Acá van las reglas jurídicas del sistema, escritas como funciones y tipos **si
 adentro**: nada de componentes, hooks ni llamadas HTTP. Entra sola y se puede probar
 sin levantar la interfaz.
 
-**Hoy está vacía**, porque las épicas que la van a poblar —plazos, vencimientos
-y prescripción— todavía no se programaron. Lo que sigue describe para qué está
-reservada.
+**Hoy está vacía.** Las épicas que la iban a poblar —plazos, vencimientos y
+prescripción— ya están programadas, pero el cálculo lo hace el backend: el
+vencimiento de un acto se pide a `deadline-preview` (D-20) y la prescripción
+llega calculada en la causa (D-51). El front sólo lo muestra, con utilidades de
+presentación en cada módulo (`cases/utils/deadlineStatus.ts`,
+`cases/utils/prescription.ts`). Lo que sigue describe para qué está reservada,
+si alguna vez una regla tiene que calcularse del lado del front.
 
 Es la carpeta que en este proyecto pesa más que en un ABM común, porque el negocio
 tiene reglas de verdad:
@@ -275,7 +288,7 @@ la red en el navegador; lo genera la propia librería y no se edita a mano.
 
 ### Dónde está esta documentación
 
-No vive adentro de `frontend/`. Los tres documentos del front están en
+No vive adentro de `frontend/`. Los cuatro documentos del front están en
 `docs/Frontend-Architecture/`, en la raíz del repositorio, al lado de los del
 backend y del contrato de API:
 
@@ -284,10 +297,14 @@ backend y del contrato de API:
 | `ESTRUCTURA.md` | Este: el mapa de `src/` y las reglas entre carpetas |
 | `SHARED.md` | Todo lo de `src/shared/`: componentes, `http`, `ApiError`, estilos |
 | `TESTING.md` | Con qué se testea, qué se testea y dónde va cada test |
+| `MATRIZ_CA.md` | Qué test cubre cada criterio de aceptación. Se genera con `npm run ca-matrix`: no se edita a mano |
 
-Hay dos más pegados al código que explican, y por eso viven adentro de
-`frontend/`: `CLAUDE.md` (cómo se trabaja adentro de un módulo) y
-`src/shared/mocks/README.md` (la API simulada y sus divergencias del contrato).
+Hay otros pegados al código, que por eso viven adentro de `frontend/`:
+`CLAUDE.md` (cómo se trabaja adentro de un módulo y el estado del sprint),
+`src/shared/mocks/README.md` (la API simulada y sus divergencias del contrato)
+y un `CAMBIOS.md` en la raíz de cada módulo que se aparta del prototipo o del
+contrato (hoy `cases`, `clients`, `dashboard`, `deadlines`, `documents`,
+`legal-params` y `tools`).
 
 ---
 
@@ -386,13 +403,13 @@ Equivalencias, para no traducir distinto cada vez:
 
 | Carpeta | Dominio |
 |---|---|
-| `cases` | causas y amparos |
-| `proceedings` | actos procesales e interruptivos |
+| `cases` | causas y amparos, con sus actos interruptivos y sus documentos |
+| `proceedings` | actos procesales |
 | `deadlines` | plazos, vencimientos y prescripción |
 | `lawyers` | abogados |
 | `clients` | clientes |
 | `legal-params` | fueros, estados procesales, tabla de plazos y calificaciones legales |
-| `documents` | documentos de causa y modelos formales |
+| `documents` | modelos formales |
 
 ---
 
