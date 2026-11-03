@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@shared/infrastructure/prisma/prisma.service';
 import {
+  ActiveCaseFolder,
   CaseFolderStatePort,
   CaseFolderView,
 } from '../../../core/domain/ports/case/case-folder-state.port';
@@ -51,5 +52,21 @@ export class PrismaCaseFolderStateAdapter implements CaseFolderStatePort {
       select: { folderStatus: true, cloudFolder: CASE_FOLDER_INCLUDE, templateCopies: TEMPLATE_COPIES_SELECT },
     });
     return row ? toCaseFolderView(row) : null;
+  }
+
+  async findActiveCaseFolder(caseId: number): Promise<ActiveCaseFolder | null> {
+    const row = await this.prisma.db.case.findFirst({
+      where: { id: caseId, active: true },
+      select: { folderStatus: true, cloudFolderId: true, cloudFolder: { select: { url: true } } },
+    });
+    if (row === null) {
+      return null;
+    }
+    const created = row.folderStatus === 'CREATED';
+    return {
+      status: row.folderStatus,
+      url: created ? (row.cloudFolder?.url ?? null) : null,
+      cloudFolderId: created ? row.cloudFolderId : null,
+    };
   }
 }

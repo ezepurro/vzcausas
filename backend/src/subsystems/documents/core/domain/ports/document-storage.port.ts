@@ -44,6 +44,28 @@ export interface FileCopy {
 }
 
 /**
+ * A file of a folder with what the provider says about it (HU38): enough to
+ * show it in a list and to tell whether it belongs to a given folder.
+ */
+export interface StoredDocument {
+  /** Provider's own identifier; opaque to the client. */
+  id: string;
+  /** The name as it is in the provider, with its extension if it has one. */
+  name: string;
+  mimeType: string;
+  /** `null` when the provider does not measure it (its own native documents). */
+  sizeBytes: number | null;
+  createdAt: Date;
+  modifiedAt: Date;
+  /** The provider account that owns it, as the provider names it. `null` if it does not say. */
+  uploadedBy: string | null;
+  /** Link that opens the file in the provider's web UI. */
+  url: string;
+  /** Folders the file is directly in. */
+  parentIds: string[];
+}
+
+/**
  * Port towards the document storage provider (a cloud drive). The domain
  * knows nothing about which one: no provider types cross this boundary.
  *
@@ -83,4 +105,19 @@ export interface DocumentStoragePort {
 
   /** The current content of a file: its last version (HU35, CA-35.6). */
   downloadFile(fileId: string): Promise<Buffer>;
+
+  /**
+   * The files directly in a folder (HU38, CA-38.3): no subfolders, nothing in
+   * the trash, in no given order. A folder that no longer exists has none.
+   */
+  listFiles(folderId: string): Promise<StoredDocument[]>;
+
+  /** The file with that provider id, or `null` if it does not exist, is in the trash or is a folder. */
+  findFile(fileId: string): Promise<StoredDocument | null>;
+
+  /**
+   * The content of one of the provider's native documents, converted to
+   * `mimeType` (HU38: a Google document downloaded as PDF).
+   */
+  exportFile(fileId: string, mimeType: string): Promise<Buffer>;
 }

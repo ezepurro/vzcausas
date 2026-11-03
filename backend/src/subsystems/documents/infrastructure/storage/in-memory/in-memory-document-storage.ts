@@ -4,9 +4,12 @@ import {
   FileCopy,
   FileUpload,
   FolderReference,
+  StoredDocument,
   StoredFile,
   StoredFolder,
 } from '../../../core/domain/ports/document-storage.port';
+
+const GOOGLE_NATIVE_PREFIX = 'application/vnd.google-apps.';
 
 /** A folder held by {@link InMemoryDocumentStorage}. */
 export interface InMemoryStoredFolder extends StoredFolder {
@@ -21,6 +24,25 @@ export interface InMemoryStoredFile extends StoredFile {
   mimeType: string;
   size: number;
   content: Buffer;
+  createdAt: Date;
+  modifiedAt: Date;
+  uploadedBy: string | null;
+  /** In the trash: the storage keeps it, but it is not listed nor found (HU38). */
+  trashed: boolean;
+}
+
+/** A file put in a folder by hand, as a person would upload it to the drive (HU38). */
+export interface SeededFile {
+  /** Fixed id; a generated one if absent. */
+  id?: string;
+  parentId: string;
+  name: string;
+  mimeType: string;
+  content?: Buffer;
+  createdAt: Date;
+  modifiedAt?: Date;
+  uploadedBy?: string | null;
+  trashed?: boolean;
 }
 
 /**
@@ -45,7 +67,9 @@ export class InMemoryDocumentStorage implements DocumentStoragePort {
 
   /** Every file call received, in order: the uploaded name, or the id deleted or downloaded. */
   readonly fileCalls: Array<
-    { method: 'uploadFile'; name: string } | { method: 'deleteFile' | 'downloadFile' | 'copyFile'; fileId: string }
+    | { method: 'uploadFile'; name: string }
+    | { method: 'deleteFile' | 'downloadFile' | 'copyFile' | 'findFile' | 'exportFile'; fileId: string }
+    | { method: 'listFiles'; folderId: string }
   > = [];
 
   /** Makes the next call reject with `error` (once). */
@@ -56,6 +80,36 @@ export class InMemoryDocumentStorage implements DocumentStoragePort {
   /** Registers a folder that already exists in the storage (e.g. the study's root). */
   seed(parentId: string | null, name: string): StoredFolder {
     return this.add(parentId, name);
+  }
+
+  /** Puts a file in a folder without going through `uploadFile`: no call is recorded. */
+  seedFile(file: SeededFile): StoredFile {
+    this.sequence += 1;
+    const id = file.id ?? `mem-file-${this.sequence}`;
+    const content = file.content ?? Buffer.from(`contenido de ${file.name}`);
+    this.storedFiles.push({
+      id,
+      url: `https://storage.invalid/files/${id}`,
+      parentId: file.parentId,
+      name: file.name,
+      mimeType: file.mimeType,
+      size: content.length,
+      content,
+      createdAt: file.createdAt,
+      modifiedAt: file.modifiedAt ?? file.createdAt,
+      uploadedBy: file.uploadedBy ?? null,
+      trashed: file.trashed ?? false,
+    });
+    return { id, url: `https://storage.invalid/files/${id}` };
+  }
+
+  /** Renames a file, as a person would in the drive's web UI. */
+  renameFile(fileId: string, name: string): void {
+    const file = this.storedFiles.find((stored) => stored.id === fileId);
+    if (!file) {
+      throw new Error(`The file ${fileId} is not in the storage.`);
+    }
+    file.name = name;
   }
 
   /** Forgets every folder, file and call: back to an empty storage. */
@@ -139,6 +193,10 @@ export class InMemoryDocumentStorage implements DocumentStoragePort {
       mimeType: upload.mimeType,
       size: upload.content.length,
       content: Buffer.from(upload.content),
+      createdAt: new Date(),
+      modifiedAt: new Date(),
+      uploadedBy: null,
+      trashed: false,
     };
     this.storedFiles.push(file);
     return { id: file.id, url: file.url };
@@ -172,6 +230,31 @@ export class InMemoryDocumentStorage implements DocumentStoragePort {
     return Buffer.from(file.content);
   }
 
+  /** Files directly in the folder and not in the trash; subfolders are folders, not files. */
+  async listFiles(folderId: string): Promise<StoredDocument[]> {
+    this.fileCalls.push({ method: 'listFiles', folderId });
+    this.failIfRequested();
+    return this.storedFiles.filter((file) => file.parentId === folderId && !file.trashed).map(toStoredDocument);
+  }
+
+  async findFile(fileId: string): Promise<StoredDocument | null> {
+    this.fileCalls.push({ method: 'findFile', fileId });
+    this.failIfRequested();
+    const file = this.storedFiles.find((stored) => stored.id === fileId && !stored.trashed);
+    return file ? toStoredDocument(file) : null;
+  }
+
+  /** Like a drive, only its native documents can be exported; the "PDF" says what it came from. */
+  async exportFile(fileId: string, mimeType: string): Promise<Buffer> {
+    this.fileCalls.push({ method: 'exportFile', fileId });
+    this.failIfRequested();
+    const file = this.storedFiles.find((stored) => stored.id === fileId);
+    if (!file || !file.mimeType.startsWith(GOOGLE_NATIVE_PREFIX)) {
+      throw new Error(`The file ${fileId} is not a native document of the storage.`);
+    }
+    return Buffer.from(`${mimeType} exportado de ${file.name}`);
+  }
+
   private add(parentId: string | null, name: string): StoredFolder {
     this.sequence += 1;
     const id = `mem-folder-${this.sequence}`;
@@ -192,4 +275,19 @@ export class InMemoryDocumentStorage implements DocumentStoragePort {
       throw error;
     }
   }
+}
+
+function toStoredDocument(file: InMemoryStoredFile): StoredDocument {
+  return {
+    id: file.id,
+    name: file.name,
+    mimeType: file.mimeType,
+    // Like Drive, the storage does not measure its native documents.
+    sizeBytes: file.mimeType.startsWith(GOOGLE_NATIVE_PREFIX) ? null : file.size,
+    createdAt: file.createdAt,
+    modifiedAt: file.modifiedAt,
+    uploadedBy: file.uploadedBy,
+    url: file.url,
+    parentIds: [file.parentId],
+  };
 }
