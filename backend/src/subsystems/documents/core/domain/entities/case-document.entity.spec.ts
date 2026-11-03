@@ -55,6 +55,24 @@ describe('CaseDocument', () => {
     expect(docOf({ mimeType }).convertibleToPdf).toBe(expected);
   });
 
+  it.each([
+    ['application/pdf', 'AS_IS'],
+    ['application/vnd.google-apps.document', 'EXPORT'],
+    ['application/msword', 'CONVERT'],
+    ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'CONVERT'],
+    ['image/jpeg', 'IMAGE'],
+    ['image/png', 'IMAGE'],
+    ['application/vnd.google-apps.spreadsheet', null],
+    ['text/plain', null],
+  ])('pdfConversion de %s es %s (HU25, CA-25.4)', (mimeType, expected) => {
+    expect(docOf({ mimeType }).pdfConversion).toBe(expected);
+  });
+
+  it('es un expediente sólo si tiene su fila en case_files (CA-25.3)', () => {
+    expect(CaseDocument.fromStorage(stored(), { id: 4, version: 1 }).isCaseFile).toBe(true);
+    expect(docOf().isCaseFile).toBe(false);
+  });
+
   it('reconoce los nativos de Google por su tipo', () => {
     expect(docOf({ mimeType: 'application/vnd.google-apps.spreadsheet' }).isGoogleNative).toBe(true);
     expect(docOf().isGoogleNative).toBe(false);
