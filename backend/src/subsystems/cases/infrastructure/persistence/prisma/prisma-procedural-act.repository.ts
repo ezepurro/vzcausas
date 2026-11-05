@@ -17,6 +17,8 @@ import { ProceduralActPrismaMapper } from '../mappers/procedural-act-prisma.mapp
 const ACT_INCLUDE = {
   proceduralState: { select: { name: true } },
   registeredByLawyer: { select: { lastName: true, firstName: true } },
+  // HU28: the user who last modified it, by name from `users` (decision of 05/11/2026).
+  lastModifiedBy: { select: { lastName: true, firstName: true } },
 } satisfies Prisma.ProceduralActInclude;
 
 type ActRow = Prisma.ProceduralActGetPayload<{ include: typeof ACT_INCLUDE }>;
@@ -77,12 +79,20 @@ export class PrismaProceduralActRepository implements ProceduralActRepository {
     return row ? toView(row) : null;
   }
 
-  async saveModification(_act: ProceduralAct): Promise<void> {
-    throw new Error('Not implemented: PrismaProceduralActRepository.saveModification (HU28).');
+  async saveModification(act: ProceduralAct): Promise<void> {
+    await this.prisma.db.proceduralAct.update({
+      where: { id: act.id },
+      data: ProceduralActPrismaMapper.toModificationData(act),
+    });
   }
 
-  async findLatestInCaseExcept(_caseId: number, _exceptActId: number): Promise<ProceduralAct | null> {
-    throw new Error('Not implemented: PrismaProceduralActRepository.findLatestInCaseExcept (HU28).');
+  /** Same order as the listing and the index: the newest date first and, on a tie, the last registered. */
+  async findLatestInCaseExcept(caseId: number, exceptActId: number): Promise<ProceduralAct | null> {
+    const row = await this.prisma.db.proceduralAct.findFirst({
+      where: { caseId, id: { not: exceptActId } },
+      orderBy: NEWEST_FIRST,
+    });
+    return row ? ProceduralActPrismaMapper.toDomain(row) : null;
   }
 }
 
@@ -103,6 +113,7 @@ function toView(row: ActRow): ProceduralActView {
       lastName: row.registeredByLawyer.lastName,
       firstName: row.registeredByLawyer.firstName,
     },
+    lastModifiedBy: row.lastModifiedBy,
   };
 }
 

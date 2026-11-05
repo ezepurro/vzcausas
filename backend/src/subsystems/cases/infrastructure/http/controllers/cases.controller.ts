@@ -13,6 +13,7 @@ import { RegisterCase } from '../../../core/application/use-cases/case/register-
 import { RegisterProceduralAct } from '../../../core/application/use-cases/procedural-act/register-procedural-act.use-case';
 import { RequestCaseFolder } from '../../../core/application/use-cases/case/request-case-folder.use-case';
 import { UpdateCase } from '../../../core/application/use-cases/case/update-case.use-case';
+import { UpdateProceduralAct } from '../../../core/application/use-cases/procedural-act/update-procedural-act.use-case';
 import {
   CaseFolderUnavailableError,
   InvalidCaseIdError,
@@ -31,6 +32,7 @@ import { RequestCaseFolderRequestDto } from '../dtos/case/request-case-folder.re
 import { UpdateCaseRequestDto } from '../dtos/case/update-case.request.dto';
 import { CaseHttpMapper } from '../mappers/case-http.mapper';
 import { RegisterProceduralActRequestDto } from '../dtos/procedural-act/register-procedural-act.request.dto';
+import { UpdateProceduralActRequestDto } from '../dtos/procedural-act/update-procedural-act.request.dto';
 import { ProceduralActHttpMapper } from '../mappers/procedural-act-http.mapper';
 
 /**
@@ -58,6 +60,7 @@ export class CasesController {
     private readonly declarePrescription: DeclarePrescription,
     private readonly updateCase: UpdateCase,
     private readonly deactivateCase: DeactivateCase,
+    private readonly updateProceduralAct: UpdateProceduralAct,
   ) {}
 
   /**
@@ -282,6 +285,28 @@ export class CasesController {
       actId: this.parseActId(actIdParam),
     });
     return { data: this.proceduralActMapper.toResponse(view) };
+  }
+
+  /**
+   * `PATCH /cases/{caseId}/procedural-acts/{actId}` (HU28): corrects an act.
+   * Only the current responsible lawyer may (CA-28.2): the domain checks it, so no
+   * permission is declared here, as in the registration. The act goes back as
+   * `GET` shows it; the client reads the case again, its state may have changed.
+   */
+  @Patch(':caseId/procedural-acts/:actId')
+  async updateAct(
+    @Param('caseId') caseIdParam: string,
+    @Param('actId') actIdParam: string,
+    @Body() dto: UpdateProceduralActRequestDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ): Promise<{ data: ProceduralActResponseDto }> {
+    const command = this.proceduralActMapper.toUpdateCommand(
+      this.parseCaseId(caseIdParam),
+      this.parseActId(actIdParam),
+      dto,
+      actor,
+    );
+    return { data: this.proceduralActMapper.toResponse(await this.updateProceduralAct.execute(command)) };
   }
 
   private parseCaseId(raw: string): number {
