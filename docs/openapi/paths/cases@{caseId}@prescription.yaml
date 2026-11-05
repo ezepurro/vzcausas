@@ -92,7 +92,9 @@ post:
                 id: 4
                 lastName: ACOSTA
                 firstName: Jonathan E.
-                dni: '38907221'
+                documentType: DNI
+                documentNumber: '38907221'
+                address: null
                 phone: 351 744-1160
                 email: null
                 clientSince: '2022-01-19'

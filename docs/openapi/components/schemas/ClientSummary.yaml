@@ -6,7 +6,9 @@ required:
   - id
   - lastName
   - firstName
-  - dni
+  - documentType
+  - documentNumber
+  - address
   - phone
   - email
   - clientSince
@@ -23,11 +25,24 @@ properties:
     type: string
     examples:
       - Ariel Fernando
-  dni:
+  documentType:
+    $ref: ./DocumentType.yaml
+  documentNumber:
     type: string
-    pattern: '^[0-9]{7,8}$'
+    description: |
+      Número de documento, con el formato de `documentType`. Único por tipo
+      entre los clientes vigentes. Reemplaza a `dni` (Revisión del 05/11/2026, D-108.)
+    pattern: '^([0-9]{7,8}|[A-Z0-9]{6,20})$'
     examples:
       - '34812905'
+  address:
+    type:
+      - string
+      - 'null'
+    maxLength: 255
+    description: Dirección. Texto libre (Revisión del 05/11/2026, D-108.)
+    examples:
+      - Av. Colón 1250, Córdoba
   phone:
     type:
       - string

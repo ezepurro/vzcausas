@@ -180,6 +180,15 @@ Situación de la carpeta de una causa en la nube.
 Una causa registrada antes de que existiera la carpeta en la nube no tiene
 estado: su `folder` vale `null`.
 
+### `DocumentType`
+
+**(Revisión del 05/11/2026)** Tipo de documento de identidad de un cliente (D-108).
+
+| Código     | Rótulo    | Formato de `documentNumber`                         |
+| ---------- | --------- | --------------------------------------------------- |
+| `DNI`      | DNI       | 7 u 8 dígitos, sin puntos: `34812905`               |
+| `PASSPORT` | Pasaporte | De 6 a 20 letras mayúsculas y dígitos, sin espacios: `AAE482915` |
+
 ---
 
 ## 3. Endpoints
@@ -564,6 +573,9 @@ El recurso usuario posee la siguiente estructura:
 separados, igual que en el cliente: en las respuestas, en los cuerpos de
 `POST` y `PATCH` y en el objeto `lawyer` que el usuario lleva vinculado.
 
+**Sobre `lawyer.registrationNumber`:** **(Revisión del 05/11/2026)** vale `null` si la ficha no tiene
+matrícula cargada (D-107).
+
 **Acceso a la carpeta del estudio en Drive.** El alta, la
 modificación y la baja de usuarios tienen un efecto fuera de la API: el sistema
 comparte la carpeta raíz `VZ Causas` con el `email` de cada usuario vigente que
@@ -637,7 +649,7 @@ Registrando un abogado nuevo en la misma operación:
 | `password` | String         |     Sí      | Mínimo 8 caracteres, con al menos un número                                   |
 | `roles`    | `Role[]`       |     Sí      | Al menos un rol                                                               |
 | `lawyerId` | Integer        | Condicional | Identificador de un abogado ya registrado                                     |
-| `lawyer`   | Object         | Condicional | Datos de un abogado a registrar. Mismos campos que el cuerpo de `POST /lawyers` |
+| `lawyer`   | Object         | Condicional | Datos de un abogado a registrar. Mismos campos que el cuerpo de `POST /lawyers`: la matrícula es opcional **(Revisión del 05/11/2026)** |
 
 **Vínculo con la ficha profesional**
 
@@ -1227,7 +1239,7 @@ El recurso abogado posee la siguiente estructura:
 | `id`                 | Integer |  No  | Identificador único                                                  |
 | `lastName`           | String  |  No  | Apellido                                                             |
 | `firstName`          | String  |  No  | Nombres, sin el tratamiento ("Dr.", "Dra.")                        |
-| `registrationNumber` | String  |  No  | Matrícula. Única                                                     |
+| `registrationNumber` | String \| `null` |  Sí  | Matrícula. Única entre los abogados que la tienen. `null` si no se cargó **(Revisión del 05/11/2026)** |
 | `activeCases`        | Integer |  No  | Causas activas en las que es responsable. Calculado, sólo lectura    |
 | `active`             | Boolean |  No  | Estado de alta. Vale siempre `true`: ver `DELETE /lawyers/{lawyerId}` |
 
@@ -1236,6 +1248,12 @@ parte del nombre: lo pone el frontend.
 
 **Formato de la matrícula:** el vigente en el Colegio de Abogados de Córdoba,
 compuesto por circunscripción y número separados por guión: `1-28114`.
+
+**Matrícula opcional:** **(Revisión del 05/11/2026)** un abogado se puede registrar sin matrícula, y
+cargarla o borrarla después (D-107). Sin ella, `registrationNumber` vale
+`null` en el recurso y en todos los lugares donde se lo embebe (el usuario
+vinculado, `responsibleLawyer` de la causa). La unicidad solo cuenta a los
+abogados que tienen matrícula: varios pueden no tenerla.
 
 **Sobre `activeCases`:** se calcula según la definición de
 [causa activa](#causa-activa) de la sección 4.
@@ -1262,7 +1280,7 @@ Registra un nuevo abogado en el sistema.
 | -------------------- | ------ | :-------: | ----------------------------- |
 | `lastName`           | String |    Sí     | Hasta 100 caracteres          |
 | `firstName`          | String |    Sí     | Hasta 100 caracteres          |
-| `registrationNumber` | String |    Sí     | Formato `1-28114`. Única      |
+| `registrationNumber` | String |    No     | Formato `1-28114`. Única. Si no se envía, vacía o `null`, el abogado queda sin matrícula **(Revisión del 05/11/2026)** |
 
 **Respuestas**
 
@@ -1527,18 +1545,20 @@ Todos los campos son opcionales, aunque debe enviarse al menos uno.
 | -------------------- | ------- | ------------------------------------------ |
 | `lastName`           | String  | Si se envía, no vacío ni solo espacios |
 | `firstName`          | String  | Si se envía, no vacío ni solo espacios. Sin "Dr." ni "Dra." |
-| `registrationNumber` | String  | Formato `1-28114`. Única                   |
+| `registrationNumber` | String \| `null` | Formato `1-28114`. Única. `null` o vacía borra la matrícula **(Revisión del 05/11/2026)** |
 
 El campo `activeCases` no es modificable: lo calcula el backend.
 
 **Reglas**
 
-- **Campos obligatorios (CA-14.4).** Los tres campos son obligatorios en la
-  ficha: se pueden omitir en el `PATCH`, pero no vaciar. Un valor vacío, solo
-  de espacios o `null` responde `400 VALIDATION_ERROR` sobre ese campo.
+- **Campos obligatorios (CA-14.4).** El apellido y los nombres son
+  obligatorios en la ficha: se pueden omitir en el `PATCH`, pero no vaciar. Un
+  valor vacío, solo de espacios o `null` responde `400 VALIDATION_ERROR` sobre
+  ese campo. **(Revisión del 05/11/2026)** La matrícula ya no es obligatoria (D-107): `null`, vacía o
+  solo de espacios la borra.
 - **Matrícula única (CA-14.3).** Una matrícula que ya tiene otro abogado
   responde `409 LAWYER_REGISTRATION_ALREADY_EXISTS`. Enviar la misma matrícula
-  que ya tiene el abogado no es un conflicto.
+  que ya tiene el abogado no es un conflicto. Borrarla nunca lo es.
 - **Dato único (CA-14.2).** Las causas no copian los datos del abogado: los
   referencian. El cambio se ve en todas sus causas, en `responsibleLawyer`, en
   la siguiente lectura.
@@ -2772,7 +2792,9 @@ El recurso cliente posee la siguiente estructura:
 | `id`          | Integer                      |  No  | Identificador único                                                      |
 | `lastName`    | String                       |  No  | Apellido                                                                 |
 | `firstName`   | String                       |  No  | Nombres                                                                  |
-| `dni`         | String                       |  No  | Número de DNI, solo dígitos. Único entre los clientes vigentes           |
+| `documentType` | `DocumentType`             |  No  | **(Revisión del 05/11/2026)** Tipo de documento: `DNI` o `PASSPORT`                                |
+| `documentNumber` | String                     |  No  | **(Revisión del 05/11/2026)** Número de documento, con el formato de su tipo. Único por tipo entre los clientes vigentes. Reemplaza a `dni` |
+| `address`     | String \| `null`             |  Sí  | **(Revisión del 05/11/2026)** Dirección. Texto libre                                             |
 | `phone`       | String \| `null`             |  Sí  | Teléfono de contacto. Texto libre                                        |
 | `email`       | String \| `null`             |  Sí  | Correo electrónico                                                       |
 | `clientSince` | String (fecha ISO 8601)      |  No  | Fecha de alta del cliente en el estudio. La asigna el backend            |
@@ -2785,9 +2807,16 @@ como llegan; la forma `GÓMEZ, Ariel Fernando` que se ve en el
 listado y en la carátula sugerida la compone el cliente. Usuarios y abogados
 siguen el mismo criterio.
 
-**Sobre `dni`:** viaja sin puntos (`34812905`). El formato `34.812.905` es de
-presentación y lo aplica el cliente. Se conserva la sigla, como `SacNumber`,
-por tratarse de un documento argentino sin equivalente directo.
+**Sobre `documentType` y `documentNumber`:** **(Revisión del 05/11/2026)** reemplazan al campo `dni`
+de las versiones anteriores (D-108), porque un cliente se puede identificar con
+DNI o con pasaporte. El formato de cada tipo está en
+[`DocumentType`](#documenttype). El DNI viaja sin puntos (`34812905`); el
+formato `34.812.905` es de presentación y lo aplica el cliente. El pasaporte
+viaja en mayúsculas y sin espacios. La unicidad es por tipo: un DNI y un
+pasaporte con el mismo número no chocan.
+
+**Sobre `address`:** **(Revisión del 05/11/2026)** texto libre, opcional, hasta 255 caracteres. No se
+separa en calle, localidad y provincia.
 
 **Sobre `clientSince`:** el prototipo lo asigna con la fecha del día al
 registrar el cliente y no lo ofrece para editar.
@@ -2806,7 +2835,9 @@ Registra un nuevo cliente (HU8).
 {
 	"lastName": "BENÍTEZ",
 	"firstName": "Rodrigo E.",
-	"dni": "31556208",
+	"documentType": "DNI",
+	"documentNumber": "31556208",
+	"address": "Av. Rafael Núñez 4560, Córdoba",
 	"phone": "351 401-5573",
 	"email": "rbenitez@gmail.com"
 }
@@ -2816,7 +2847,9 @@ Registra un nuevo cliente (HU8).
 | ----------- | ------ | :-------: | ------------------------------------------------------- |
 | `lastName`  | String |    Sí     | Hasta 100 caracteres                                    |
 | `firstName` | String |    Sí     | Hasta 100 caracteres                                    |
-| `dni`       | String |    Sí     | Entre 7 y 8 dígitos, sin puntos. Único entre los vigentes |
+| `documentType` | `DocumentType` | Sí  | `DNI` o `PASSPORT` **(Revisión del 05/11/2026)**                                 |
+| `documentNumber` | String |  Sí     | Con el formato de `documentType`. Único por tipo entre los vigentes **(Revisión del 05/11/2026)** |
+| `address`   | String |    No     | Hasta 255 caracteres **(Revisión del 05/11/2026)**                               |
 | `phone`     | String |    No     | Hasta 50 caracteres                                     |
 | `email`     | String |    No     | Formato de correo electrónico válido                    |
 
@@ -2830,7 +2863,9 @@ Registra un nuevo cliente (HU8).
 		"id": 7,
 		"lastName": "BENÍTEZ",
 		"firstName": "Rodrigo E.",
-		"dni": "31556208",
+		"documentType": "DNI",
+		"documentNumber": "31556208",
+		"address": "Av. Rafael Núñez 4560, Córdoba",
 		"phone": "351 401-5573",
 		"email": "rbenitez@gmail.com",
 		"clientSince": "2026-09-29",
@@ -2848,7 +2883,7 @@ Registra un nuevo cliente (HU8).
 		"code": "VALIDATION_ERROR",
 		"message": "Los datos enviados no son válidos.",
 		"details": {
-			"dni": "Debe contener 7 u 8 dígitos, sin puntos.",
+			"documentNumber": "Debe contener 7 u 8 dígitos, sin puntos.",
 			"email": "El formato del correo electrónico no es válido."
 		}
 	}
@@ -2868,6 +2903,9 @@ Registra un nuevo cliente (HU8).
 ```
 
 **`409 Conflict`**
+
+**(Revisión del 05/11/2026)** Responde así cualquier documento repetido, sea DNI o pasaporte: el
+código conserva su nombre para no romper a los clientes de V4.
 
 ```json
 {
@@ -2894,7 +2932,7 @@ Obtiene una lista paginada de los clientes vigentes (HU9), ordenada por
 | --------- | ------- | :-------: | ----------------- | ------------------- | ---------------------------------------------------- |
 | `page`    | Integer |    No     | `1`               | Mayor o igual a `1` | Número de página                                     |
 | `limit`   | Integer |    No     | `20`              | Entre `1` y `100`   | Cantidad máxima de elementos por página              |
-| `search`  | String  |    No     | -                 | -                   | Filtra por `lastName`, por `firstName` y por `dni`   |
+| `search`  | String  |    No     | -                 | -                   | Filtra por `lastName`, por `firstName` y por `documentNumber` **(Revisión del 05/11/2026)** |
 
 Ejemplo:
 
@@ -2916,7 +2954,9 @@ Las causas asociadas a un cliente, que HU9 pide consultar, se obtienen con
 			"id": 4,
 			"lastName": "ACOSTA",
 			"firstName": "Jonathan E.",
-			"dni": "38907221",
+			"documentType": "DNI",
+			"documentNumber": "38907221",
+			"address": null,
 			"phone": "351 744-1160",
 			"email": null,
 			"clientSince": "2022-01-19",
@@ -2927,7 +2967,9 @@ Las causas asociadas a un cliente, que HU9 pide consultar, se obtienen con
 			"id": 1,
 			"lastName": "GÓMEZ",
 			"firstName": "Ariel Fernando",
-			"dni": "34812905",
+			"documentType": "DNI",
+			"documentNumber": "34812905",
+			"address": null,
 			"phone": "351 415-2288",
 			"email": "afgomez@gmail.com",
 			"clientSince": "2021-03-12",
@@ -2995,7 +3037,9 @@ Obtiene la información de un cliente específico.
 		"id": 1,
 		"lastName": "GÓMEZ",
 		"firstName": "Ariel Fernando",
-		"dni": "34812905",
+		"documentType": "DNI",
+		"documentNumber": "34812905",
+		"address": null,
 		"phone": "351 415-2288",
 		"email": "afgomez@gmail.com",
 		"clientSince": "2021-03-12",
@@ -3096,7 +3140,7 @@ El recurso causa posee la siguiente estructura:
 | `administrativeRemedyExhaustedOn` | String (fecha ISO 8601) \| `null` | Sí | **Nuevo.** Fecha de agotamiento de la vía administrativa. Solo en `ADMINISTRATIVE`; `null` mientras no se agotó o en los demás fueros |
 | `courtFeePaid`            | Boolean                       |  No  | **Nuevo.** Si se pagó la tasa de justicia. En los tres fueros |
 | `client`                  | Object                        |  No  | Cliente de la causa. Ver estructura más abajo                                                 |
-| `responsibleLawyer`       | Object                        |  No  | Abogado responsable (RN3): `id`, `lastName`, `firstName`, `registrationNumber`                             |
+| `responsibleLawyer`       | Object                        |  No  | Abogado responsable (RN3): `id`, `lastName`, `firstName`, `registrationNumber` (`null` si no tiene, **(Revisión del 05/11/2026)**) |
 | `legalQualifications`     | Object[]                      |  No  | Calificaciones legales, cada una con su fecha del hecho y su prescripción. Opcional en `CRIMINAL`; vacío en los demás |
 | `prescription`            | Object \| `null`              |  Sí  | **Nuevo.** Prescripción que rige la causa: la de la calificación que prescribe primero. `null` si la causa no computa prescripción. Calculado |
 | `prescriptionDeclaration` | Object \| `null`              |  Sí  | **Nuevo.** Constancia de que la causa fue marcada como prescripta (HU33). `null` mientras no lo fue |
@@ -3173,7 +3217,8 @@ renovación vigente es la del 02/09/2026:
 ```
 
 **`client`** reúne los datos que muestra la tarjeta "Cliente" del detalle:
-`id`, `lastName`, `firstName`, `dni`, `phone`, `email` y `clientSince`, con el
+`id`, `lastName`, `firstName`, `documentType`, `documentNumber`, `address`,
+`phone`, `email` y `clientSince`, con el
 mismo significado que en [`/clients`](#36-clientes-clients).
 
 **`legalQualifications[]`**
@@ -3495,7 +3540,9 @@ piden HU39 y HU40 ("que se cree automáticamente").
 			"id": 1,
 			"lastName": "GÓMEZ",
 			"firstName": "Ariel Fernando",
-			"dni": "34812905",
+			"documentType": "DNI",
+			"documentNumber": "34812905",
+			"address": null,
 			"phone": "351 415-2288",
 			"email": "afgomez@gmail.com",
 			"clientSince": "2021-03-12"
@@ -3765,7 +3812,9 @@ causas de ese fuero que todavía están en el estado inicial.
 				"id": 2,
 				"lastName": "PEREYRA",
 				"firstName": "Marcos D.",
-				"dni": "29440117",
+				"documentType": "DNI",
+				"documentNumber": "29440117",
+				"address": null,
 				"phone": "351 622-9014",
 				"email": "mdpereyra@hotmail.com",
 				"clientSince": "2026-05-18"
@@ -3825,7 +3874,9 @@ causas de ese fuero que todavía están en el estado inicial.
 				"id": 1,
 				"lastName": "GÓMEZ",
 				"firstName": "Ariel Fernando",
-				"dni": "34812905",
+				"documentType": "DNI",
+				"documentNumber": "34812905",
+				"address": null,
 				"phone": "351 415-2288",
 				"email": "afgomez@gmail.com",
 				"clientSince": "2021-03-12"
@@ -4100,7 +4151,9 @@ vencimiento nuevos en `currentState`.
 			"id": 1,
 			"lastName": "GÓMEZ",
 			"firstName": "Ariel Fernando",
-			"dni": "34812905",
+			"documentType": "DNI",
+			"documentNumber": "34812905",
+			"address": null,
 			"phone": "351 415-2288",
 			"email": "afgomez@gmail.com",
 			"clientSince": "2021-03-12"
@@ -4905,7 +4958,9 @@ de prescripción activa:
 			"id": 4,
 			"lastName": "ACOSTA",
 			"firstName": "Jonathan E.",
-			"dni": "38907221",
+			"documentType": "DNI",
+			"documentNumber": "38907221",
+			"address": null,
 			"phone": "351 744-1160",
 			"email": null,
 			"clientSince": "2022-01-19"
@@ -8459,7 +8514,7 @@ respuesta.
 | `LAWYER_REGISTRATION_ALREADY_EXISTS`     | 409  | Matrícula ya registrada                                            |
 | `PROCEDURAL_STATE_ALREADY_EXISTS`        | 409  | Denominación repetida dentro del mismo fuero                       |
 | `LEGAL_QUALIFICATION_ALREADY_EXISTS`     | 409  | Denominación de calificación legal ya registrada                   |
-| `CLIENT_DNI_ALREADY_EXISTS`              | 409  | DNI ya registrado en un cliente vigente                            |
+| `CLIENT_DNI_ALREADY_EXISTS`              | 409  | Documento (DNI o pasaporte) ya registrado en un cliente vigente **(Revisión del 05/11/2026)** |
 | `CASE_SAC_ALREADY_EXISTS`                | 409  | Número de SAC ya registrado (RN2)                                  |
 | `DOCUMENT_TEMPLATE_ALREADY_EXISTS`       | 409  | **Nuevo.** Nombre de modelo formal ya registrado                   |
 | `USER_HAS_DEPENDENCIES`                  | 409  | El usuario posee recursos asociados                                |

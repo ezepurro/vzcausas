@@ -305,7 +305,7 @@ nombre de su columna encima. **Toda tabla nueva marca su columna `primary`.**
 <DataTable
   columns={[
     { id: 'name', header: 'Cliente', cell: (c) => `${c.lastName}, ${c.firstName}` },
-    { id: 'dni', header: 'DNI', cell: (c) => formatDni(c.dni), mono: true },
+    { id: 'document', header: 'Documento', cell: (c) => formatDocument(c), mono: true },
     { id: 'acc', header: '', actions: true,
       cell: (c) => <Button variant="ghost" size="sm" onClick={() => edit(c)}>Modificar</Button> },
   ]}
@@ -499,7 +499,7 @@ procesal" bajo el estado inicial de la causa, "Iniciada".
   <div className="vz-panel__body">
     <DetailList
       items={[
-        { label: 'DNI', value: formatDni(client.dni), mono: true },
+        { label: DOCUMENT_TYPE_LABELS[client.documentType], value: formatDocumentNumber(client), mono: true },
         { label: 'Teléfono', value: client.phone },
         { label: 'Cliente desde', value: formatDate(client.clientSince), mono: true },
       ]}
@@ -633,7 +633,8 @@ Fechas y números se manejan como string.
   fields={[
     { k: 'lastName', label: 'Apellido', required: true, width: 'half', error: errors.lastName },
     { k: 'firstName', label: 'Nombres', required: true, width: 'half', error: errors.firstName },
-    { k: 'dni', label: 'DNI', required: true, mono: true, width: 'half', placeholder: '00.000.000' },
+    { k: 'documentType', label: 'Tipo de documento', type: 'select', required: true, width: 'half', options: DOCUMENT_TYPE_OPTIONS },
+    { k: 'documentNumber', label: 'Número de documento', required: true, mono: true, width: 'half', placeholder: '00.000.000' },
     { k: 'phone', label: 'Teléfono', mono: true, width: 'half' },
     { k: 'email', label: 'Correo electrónico', width: 'half' },
   ]}

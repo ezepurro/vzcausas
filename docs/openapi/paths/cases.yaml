@@ -133,7 +133,9 @@ post:
                     id: 1
                     lastName: GÓMEZ
                     firstName: Ariel Fernando
-                    dni: '34812905'
+                    documentType: DNI
+                    documentNumber: '34812905'
+                    address: null
                     phone: 351 415-2288
                     email: afgomez@gmail.com
                     clientSince: '2021-03-12'
@@ -205,7 +207,9 @@ post:
                     id: 1
                     lastName: GÓMEZ
                     firstName: Ariel Fernando
-                    dni: '34812905'
+                    documentType: DNI
+                    documentNumber: '34812905'
+                    address: null
                     phone: 351 415-2288
                     email: afgomez@gmail.com
                     clientSince: '2021-03-12'
@@ -465,7 +469,9 @@ get:
                   id: 2
                   lastName: PEREYRA
                   firstName: Marcos D.
-                  dni: '29440117'
+                  documentType: DNI
+                  documentNumber: '29440117'
+                  address: null
                   phone: 351 622-9014
                   email: mdpereyra@hotmail.com
                   clientSince: '2026-05-18'
@@ -519,7 +525,9 @@ get:
                   id: 1
                   lastName: GÓMEZ
                   firstName: Ariel Fernando
-                  dni: '34812905'
+                  documentType: DNI
+                  documentNumber: '34812905'
+                  address: null
                   phone: 351 415-2288
                   email: afgomez@gmail.com
                   clientSince: '2021-03-12'

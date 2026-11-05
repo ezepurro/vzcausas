@@ -18,8 +18,11 @@ properties:
     examples:
       - Ignacio
   registrationNumber:
-    type: string
-    description: Formato `1-28114`. Única.
-    pattern: '^[0-9]+-[0-9]+$'
+    type:
+      - string
+      - 'null'
+    description: |
+      Formato `1-28114`. Única. `null` o vacía borra la matrícula (Revisión del 05/11/2026, D-107.)
+    pattern: '^([0-9]+-[0-9]+)?$'
     examples:
       - 1-35207

@@ -19,7 +19,7 @@ de `API_CONTRACT_V5.md`.
 | --- | --- | --- |
 | D-87 | El alcance es HU 14, 19, 21, 23, 24, 25, 28 y 38 | Sprint "VZ Sprint 4" de Jira (25/10/2026 – 06/11/2026). Coincide con el Story Map del Seguimiento v1.3, salvo el nombre de HU23, que el equipo confirmó como "Descargar Modelo Formal" (C-30) |
 | D-88 | V5 es autocontenido y V4 queda sin modificar | Mismo criterio que V4 respecto de V3 (D-46). Lo heredado conserva su redacción; lo nuevo se marca **(V5)** |
-| D-89 | HU14 no cambia la forma de `PATCH /lawyers/{lawyerId}`: se precisan los obligatorios (no se vacían), la unicidad de la matrícula (enviar la propia no es conflicto) y que las causas referencian y no copian al abogado. **(Revisión del 27/10/2026)** Cambiar el nombre renombra la carpeta del abogado en Drive (D-104) | Criterios CA-14.1 a CA-14.6 de Jira y formulario "Modificar abogado" del prototipo (Apellido, Nombres, Matrícula, los tres obligatorios). El endpoint está contratado desde V2 y no implementado: no hay nada que migrar |
+| D-89 | HU14 no cambia la forma de `PATCH /lawyers/{lawyerId}`: se precisan los obligatorios (no se vacían), la unicidad de la matrícula (enviar la propia no es conflicto) y que las causas referencian y no copian al abogado. **(Revisión del 27/10/2026)** Cambiar el nombre renombra la carpeta del abogado en Drive (D-104) | Criterios CA-14.1 a CA-14.6 de Jira y formulario "Modificar abogado" del prototipo (Apellido, Nombres, Matrícula, los tres obligatorios). El endpoint está contratado desde V2 y no implementado: no hay nada que migrar. **(Revisión del 05/11/2026)** La matrícula deja de ser obligatoria (D-107) |
 | D-90 | HU23 ("Descargar Modelo Formal") es `GET /document-templates/{templateId}/file` de V4, con su restricción a `ADMINISTRATOR` o `LAWYER` | El botón "Descargar" de la pantalla Modelos es ese endpoint, y solo descarga modelos formales: quien no puede ver los modelos no los descarga (respuesta del equipo a C-30). La Secretaría no ve la sección "Modelos" en el prototipo |
 | D-91 | **(Revisión del 27/10/2026)** La causa no suma datos para la carátula. El secretario/a del órgano que imprime la hoja es el instructor de la causa (`instructorName`). `court` cambia de rótulo ("Órgano interviniente") pero no de nombre **(Revisado el 31/10/2026: la hoja lleva tres líneas, ver C-35)** | Definido por el equipo. Reemplaza el `courtSecretaryName` de la primera redacción de V5: el instructor ya es el dato que el estudio carga. Renombrar `court` rompería a un cliente de V4 sin ganar nada |
 | D-92 | **(Revisión del 27/10/2026)** Nada de la carátula se guarda en la causa: el alta y la modificación quedan como en V4. `GET /cases/{caseId}/cover` arma la hoja con los datos de la causa y las observaciones vacías; al generar el expediente, el cliente envía las observaciones y, en el fuero penal, la parte que no está registrada en la causa (el querellante si el cliente es defensa, el imputado si es querellante) | Definido por el equipo. Reemplaza el `cover` guardado con partes sugeridas (`partiesSuggested`) de la primera redacción de V5. La causa penal solo registra al cliente, así que la otra parte no se puede derivar; pedirla en "Generar expediente" evita guardar un dato que solo usa la hoja |
@@ -36,6 +36,8 @@ de `API_CONTRACT_V5.md`.
 | D-103 | La descarga de un documento pasa por la API; la de un expediente generado está abierta a los tres perfiles, la de cualquier otro documento solo a `LAWYER` y `SECRETARY`. **(Revisión del 27/10/2026)** La lista de documentos está abierta a los tres perfiles (C-27) | Mismo motivo que D-58. Quien genera el expediente tiene que poder descargarlo e imprimirlo, y un Administrador sin otro rol no tiene acceso a la carpeta en Drive (D-83). El Administrador necesita la lista para elegir los documentos del expediente, pero lo único que descarga es el expediente |
 | D-104 | **(Revisión del 27/10/2026)** La carpeta de Drive sigue a la causa: se renombra si cambia la carátula, se mueve a la carpeta del nuevo responsable si cambia el responsable, y la del abogado se renombra si cambia su nombre. Si Drive no responde, la modificación no falla y el cambio se completa después, con `POST /cases/{caseId}/folder` o con el proceso diario. Reemplaza en esto a D-61 | Definido por el equipo (C-26). Una carpeta que no corresponde a la carátula o al responsable confunde a quien trabaja en Drive. Con `drive.file` alcanza, porque la app creó esas carpetas. No hacer fallar la modificación es el mismo criterio que la creación (D-60, R-03) |
 | D-105 | **(Revisión del 27/10/2026)** El cliente de una causa se puede modificar. El backend no recalcula la carátula: el cliente la propone y la envía en `caption`, en la misma petición | Definido por el equipo (C-31). Es la misma regla que el alta (§3.7): la carátula sugerida la arma el cliente |
+| D-107 | **(Revisión del 05/11/2026)** La matrícula del abogado es opcional: `registrationNumber` vale `null` si no se cargó, no viaja (o viaja vacía) en el alta, y en `PATCH /lawyers/{lawyerId}` `null` la borra. Sigue siendo única entre los abogados que la tienen. Vale también para la ficha que se registra con `POST /users` | Pedido del equipo. El estudio necesita registrar abogados de los que todavía no tiene la matrícula. Cambia CA-14.4 en lo que respecta a la matrícula; el apellido y los nombres siguen siendo obligatorios |
+| D-108 | **(Revisión del 05/11/2026)** El cliente se identifica con `documentType` (`DNI` o `PASSPORT`) y `documentNumber`, que reemplaza a `dni`, y suma `address` (texto libre, opcional, hasta 255 caracteres). El documento es único por tipo entre los clientes vigentes. El `409` conserva el código `CLIENT_DNI_ALREADY_EXISTS` | Pedido del equipo: hay clientes extranjeros que no tienen DNI, y el estudio necesita la dirección. Los tipos los eligió el equipo (DNI y pasaporte). Renombrar `dni` es un cambio incompatible que el equipo aceptó; el código de error no se renombra porque no aporta y rompería el manejo de errores de los dos lados |
 | D-106 | **(Revisión del 27/10/2026)** En la hoja de carátula, el abogado lleva el prefijo fijo `DR.`, igual para todos. **(Revisado el 29/10/2026: era `DR/DRA.`; se alinea con las plantillas del estudio y con los CA de la HU24, VZ-32)** | Definido por el equipo (C-28). El sistema no sabe si corresponde "Dr." o "Dra." y el estudio prefirió no cargar ese dato en el abogado (C-13). Es una excepción a D-81 porque la hoja la escribe el backend |
 
 ### Decisiones de V4
@@ -267,6 +269,40 @@ para que el equipo las corrija; el contrato no las cambia.
 - **ADR-003.** §4.1 se cierra con `drive.readonly` (C-24), y la regla de que la
   carpeta no se mueve ni se renombra cambia con D-104. Además, §2.3 y §4 citan
   "C-45" para los correos que no son de Google: es C-23.
+
+### Impacto de la revisión del 05/11/2026
+
+**Se rompe el alta de clientes.** `dni` pasa a `documentType` +
+`documentNumber` (D-108): un cliente que siga mandando `dni` recibe `400`.
+La matrícula opcional (D-107) no rompe nada: lo que hoy se manda sigue siendo
+válido.
+
+**Backend**
+
+- **Esquema (requiere migración).** En `lawyers`, `registration_number` pasa
+  a anulable; el `@unique` puede quedar, porque PostgreSQL admite varios
+  `NULL`. En `clients`, un enum nuevo y las columnas `document_type` (los
+  existentes, `DNI`) y `address`; `dni` pasa a `document_number` y crece
+  de largo; el CHECK de solo dígitos pasa a depender del tipo, y el índice
+  único parcial `clients_dni_active_key` pasa a `(document_type,
+  document_number) WHERE active`. Ese SQL va a mano (`--create-only`, según
+  `USO_PRISMA.md`).
+- **`people`.** Entidad, value objects, DTOs y mappers del abogado (matrícula
+  `null`) y del cliente (documento por tipo, dirección); el `search` de
+  clientes busca por `documentNumber`.
+- **`identity` y `cases`.** La ficha anidada de `POST /users`, la sesión, el
+  usuario y la causa embeben la matrícula como anulable; la causa embebe el
+  cliente con los campos nuevos.
+
+**Frontend**
+
+Ya aplicado en la rama `feat/lawyers-clients-fields`: formularios, tablas,
+selects, tarjeta del cliente, tipos y *mocks*.
+
+**Documentación**
+
+- **Glosario.** Suma `documentType`, `documentNumber` y `address`.
+- **OpenAPI.** `docs/openapi` actualiza los esquemas de abogado y cliente.
 
 ### Impacto de V4 (registro)
 

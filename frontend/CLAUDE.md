@@ -4,9 +4,11 @@ Sistema de gestión para un estudio jurídico. Este archivo dice **cómo se trab
 adentro de un módulo** (`src/features/<módulo>/`), **qué está hecho y qué falta
 en el sprint en curso**. El resto ya está documentado: no lo repito, leelo.
 
-Estado al **03/11/2026** (Sprint 4). Las pantallas del sprint están hechas,
+Estado al **05/11/2026** (Sprint 4). Las pantallas del sprint están hechas,
 todas (HU14, HU19, HU21, HU23, HU24, HU25, HU28 y HU38), y sus tests en verde:
-ver [Sprint 4](#sprint-4--qué-está-hecho-y-dónde).
+ver [Sprint 4](#sprint-4--qué-está-hecho-y-dónde). Después del sprint se sumó
+la revisión de V5 del 05/11/2026 (matrícula opcional y documento del cliente):
+ver [Revisión de V5 del 05/11/2026](#revisión-de-v5-del-05112026).
 
 ## Antes de escribir código, leé
 
@@ -16,13 +18,13 @@ ver [Sprint 4](#sprint-4--qué-está-hecho-y-dónde).
    cliente HTTP y `ApiError`. Tiene la tabla "Si necesitás X, usá Y" y su propia
    guía para Claude al final.
 3. `frontend/src/shared/mocks/README.md` — **antes de escribir cualquier
-   llamada a la API**. El mock implementa V5 entero (revisión del 27/10/2026).
+   llamada a la API**. El mock implementa V5 entero (revisión del 05/11/2026).
    Ahí están los usuarios de prueba y qué puede cada perfil, qué causa semilla
    sirve para probar cada regla, cómo disparar cada error y cómo agregar un
    endpoint. El resumen está en [Los mocks](#los-mocks), más abajo.
 4. `docs/Api-Contract/API_CONTRACT_V5.md` — la fuente de verdad del backend.
    Es autocontenido: trae lo de los Sprints 1 a 3 que sigue vigente y lo nuevo
-   del Sprint 4. **Última revisión: 27/10/2026.** Las decisiones (D-xx), los
+   del Sprint 4. **Última revisión: 05/11/2026** (D-107 y D-108). Las decisiones (D-xx), los
    puntos abiertos (C-xx) y lo que queda fuera del contrato están en
    `docs/Api-Contract/DECISIONES.md`. V2, V3 y V4 quedan como registro: ninguno
    es referencia vigente. Si un documento y el contrato no coinciden, manda el
@@ -92,10 +94,10 @@ cada historia están en su issue.
 
 **Las pantallas del sprint están hechas, todas, y sus tests en verde**
 (`TESTING.md` §11, "Sprint 4"; los tests se escribieron antes que las
-pantallas). Los mocks implementan todo V5. Del backend todavía faltan
-`POST /cases/{caseId}/case-files` (HU25) y
-`PATCH /cases/{caseId}/procedural-acts/{actId}` (HU28): esas dos pantallas
-sólo andan contra el mock.
+pantallas). Los mocks implementan todo V5. Del backend todavía falta
+`PATCH /cases/{caseId}/procedural-acts/{actId}` (HU28): esa pantalla sólo
+anda contra el mock. `POST /cases/{caseId}/case-files` (HU25) ya está en el
+backend (al 05/11/2026).
 
 **"Documentación" (HU-38)**, decisiones del 28/10/2026: con la carpeta sin
 crear dice "La carpeta de la causa todavía no está creada en Drive." y no se
@@ -550,19 +552,21 @@ Sprint 1 quedó registrado en `API_CONTRACT_V3.md` §7 y ya no es referencia.
 | Códigos de error nuevos (V4 §7.4) | `ERROR_CODES` de `src/shared/api/contract.ts` suma `DOCUMENT_TEMPLATE_NOT_FOUND`, `DOCUMENT_TEMPLATE_ALREADY_EXISTS`, `FILE_TOO_LARGE`, `PRESCRIPTION_NOT_APPLICABLE`, `PROCEDURAL_STATE_PROTECTED`, `DOCUMENT_STORAGE_UNAVAILABLE` y `PROCEDURAL_ACT_NOT_FOUND` |
 | Modificación y baja de calificaciones legales (pendiente del Sprint 2) | `LegalQualificationsPage`, con `useUpdateLegalQualification`, `useDeleteLegalQualification` y `buildLegalQualificationPatch`. Desde el 18/10/2026 las acciones de fila están ocultas (`SHOW_ROW_ACTIONS = false`): el backend no tiene esos dos endpoints (`legal-params/CAMBIOS.md`) |
 
-### Adelantado al contrato (05/11/2026)
+### Revisión de V5 del 05/11/2026
 
-Acordado con el backend y todavía **no escrito en V5**. El front y los mocks ya
-lo siguen; el backend todavía no, así que contra el servidor real el alta de
-clientes y la matrícula opcional no van a andar hasta que se implementen:
+Pedido del equipo, ya escrito en V5 (`DECISIONES.md`, D-107 y D-108, e
+"Impacto de la revisión del 05/11/2026"). **Está aplicado en la app, en los
+mocks y en los tests**; el backend todavía no lo implementa, así que contra el
+servidor real el alta de clientes (que ahora manda `documentNumber` en lugar
+de `dni`) y la matrícula vacía fallan hasta que se haga la migración:
 
 | Cambio | En el front |
 |---|---|
-| Matrícula del abogado opcional: `registrationNumber: string | null`; vacía no viaja en el alta, y en el `PATCH` `null` la borra | `lawyers/` (schema, body, patch, tabla con raya), `users/` (ficha nueva), `lawyerLabel` en los selects de causas y usuarios |
-| Cliente: `documentType` (`DNI` o `PASSPORT`), `documentNumber` (reemplaza a `dni`) y `address` (texto libre, opcional, hasta 255) | `clients/` (formulario, schema, tabla "Documento"), `ClientCard` y los selects de cliente de causas |
+| Matrícula del abogado opcional (D-107): `registrationNumber: string | null`; vacía no viaja en el alta, y en el `PATCH` `null` la borra | `lawyers/` (schema, body, patch, tabla con raya), `users/` (ficha nueva), `lawyerLabel` en los selects de causas y usuarios |
+| Cliente (D-108): `documentType` (`DNI` o `PASSPORT`), `documentNumber` (reemplaza a `dni`) y `address` (texto libre, opcional, hasta 255) | `clients/` (formulario, schema, tabla "Documento"), `ClientCard` y los selects de cliente de causas |
 
-El `409` de un documento repetido sigue siendo `CLIENT_DNI_ALREADY_EXISTS`
-hasta que el backend defina otro código.
+El `409` de un documento repetido sigue siendo `CLIENT_DNI_ALREADY_EXISTS`:
+el código no se renombra (D-108).
 
 ### Cambios de V5 sobre lo que ya estaba hecho
 
@@ -585,7 +589,7 @@ y a este archivo.
 ### Los mocks
 
 **El mock implementa V5 entero** (`docs/Api-Contract/API_CONTRACT_V5.md`, con
-la revisión del 27/10/2026), con MSW: lo de los Sprints 1 a 3 y lo del Sprint 4
+la revisión del 05/11/2026), con MSW: lo de los Sprints 1 a 3 y lo del Sprint 4
 (modificar y dar de baja una causa, la carátula, modificar un acto procesal,
 los documentos de la causa y el expediente). Lo que hay que saber:
 
@@ -634,6 +638,16 @@ los documentos de la causa y el expediente). Lo que hay que saber:
   lectura ya la devuelve cambiada, y por eso la mutación del acto tiene que
   invalidar las claves de la causa. "Iniciada" tampoco se guarda: una causa
   está en ese estado mientras no tenga actos.
+- **El mock atiende sólo las rutas exactas de la API.** Los handlers se
+  registran con `*` adelante (sirven para `/clients`, `/api/clients` y
+  `/api/v1/clients`), y con eso MSW también atrapaba archivos de la app como
+  `/src/features/clients/index.ts`: los contestaba con un 404, el `import()`
+  de la pantalla fallaba y aparecía "No se pudo cargar esta pantalla" (por
+  ejemplo, al entrar a Causas, Inicio o Usuarios). Desde el 05/11/2026 el
+  `resolver` deja pasar a Vite todo lo que no es exactamente su ruta
+  (`isRoutePath` en `msw-handlers.ts`; test en
+  `tests/unit/shared/mockRoutes.test.ts`). Si vuelve a aparecer esa pantalla
+  en desarrollo, mirá primero en Network si un archivo `.ts` respondió 404.
 - **El detalle está en el README de los mocks**: cómo disparar cada error
   (qué usuario, qué causa, qué dato), cómo subir y descargar archivos, y las
   decisiones que el mock tomó donde el contrato no dice nada. Que el mock no
@@ -784,7 +798,8 @@ puras** que reciben los valores del formulario y devuelven un error por campo:
 cambia el interior del archivo y no dónde está.
 
 Las restricciones salen de la tabla del cuerpo de cada endpoint en el contrato
-(largos, formatos: SAC de 8 dígitos, DNI de 7 u 8, matrícula `1-28114`,
+(largos, formatos: SAC de 8 dígitos, DNI de 7 u 8, pasaporte de 6 a 20 letras
+y números, matrícula `1-28114` cuando se carga,
 modelos `.docx` de hasta 10 MB).
 
 Es la primera barrera, no la única: el backend también valida y devuelve sus
@@ -842,8 +857,8 @@ No llama al servidor directo.
   - para ramificar, `e.is('CODIGO')` o los getters (`isConflict`,
     `isBusinessRule`, `isNotFound`…). **Nunca compares `e.message`.**
   - para marcar campos, `e.fieldError('campo')` en los `400`. Un conflicto que
-    es de un campo (usuario repetido, matrícula repetida, SAC repetido, DNI
-    repetido, nombre de modelo repetido) se muestra **en ese campo**, no en un
+    es de un campo (usuario repetido, matrícula repetida, SAC repetido,
+    documento repetido, nombre de modelo repetido) se muestra **en ese campo**, no en un
     aviso suelto.
   - para mostrar, `e.message`: el backend lo manda en castellano (D-23).
     No escribas mensajes de error genéricos propios.
@@ -982,10 +997,10 @@ usuarios de prueba y sus contraseñas están en el README de los mocks.
 
 ## Problemas conocidos
 
-Al 03/11/2026. No se arreglan al paso: cada uno es de su dueño.
+Al 05/11/2026. No se arreglan al paso: cada uno es de su dueño.
 
-1. **`npm test`: de 473, 472 pasan y 1 falla, a propósito** (corrida del
-   03/11/2026, con todo el Sprint 4 programado).
+1. **`npm test`: de 560, 559 pasan y 1 falla, a propósito** (corrida del
+   05/11/2026). Los 9 E2E (`npm run test:e2e`) pasan.
    - `tests/unit/contract/endpoints.test.ts`: a `docs/openapi` le faltan cinco
      endpoints de V5 que el mock ya implementa: `GET /cases/{}/cover`,
      `GET /cases/{}/documents`, `GET /cases/{}/documents/{}/file`,
@@ -1017,6 +1032,11 @@ Al 03/11/2026. No se arreglan al paso: cada uno es de su dueño.
    Administrador sin otro rol no tiene la carpeta compartida en Drive (D-83),
    así que Drive le niega el acceso al abrir un documento. Se decidió dejarlo
    así (03/11/2026); "Descargar" sí sigue la regla (`cases.downloadDocument`).
+8. **El backend no implementa todavía la revisión del 05/11/2026** (D-107,
+   D-108). Contra el servidor real, registrar un cliente responde `400`
+   (espera `dni`) y registrar un abogado sin matrícula también. Necesita una
+   migración del lado del backend (`DECISIONES.md`, "Impacto de la revisión
+   del 05/11/2026"). Contra los mocks anda todo.
 
 ## Checklist de un módulo
 

@@ -75,6 +75,13 @@ Un usuario puede poseer más de un rol. Cuando la interfaz muestra uno solo, gan
 | Corridos    | `CONSECUTIVE` |
 | Sin plazo   | `NONE`        |
 
+### `DocumentType` — tipo de documento del cliente
+
+| Rótulo (UI) | Código     |
+| ----------- | ---------- |
+| DNI         | `DNI`      |
+| Pasaporte   | `PASSPORT` |
+
 ## 4. Campos de la API
 
 Los nombres que viajan en los payloads. Un módulo los escribe igual en sus tipos.
@@ -87,7 +94,10 @@ Los nombres que viajan en los payloads. Un módulo los escribe igual en sus tipo
 | Contraseña               | `password`           | Alta de usuario                    |
 | Contraseña actual        | `currentPassword`    | Cambio de contraseña               |
 | Contraseña nueva         | `newPassword`        | Cambio de contraseña               |
-| Matrícula                | `registrationNumber` | `Lawyer`                           |
+| Matrícula                | `registrationNumber` | `Lawyer`. Opcional: `null` si no se cargó (D-107) |
+| Tipo de documento        | `documentType`       | `Client` (D-108)                   |
+| Número de documento      | `documentNumber`     | `Client`. Reemplaza a `dni` (D-108) |
+| Dirección                | `address`            | `Client` (D-108)                   |
 | Último acceso            | `lastLoginAt`        | `User`                             |
 | Denominación             | `name`               | `ProceduralState`                  |
 | Posición en el ciclo     | `position`           | `ProceduralState`                  |

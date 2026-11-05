@@ -20,7 +20,11 @@ properties:
     examples:
       - Ignacio
   registrationNumber:
-    type: string
-    description: Matrícula, con el formato del Colegio de Abogados de Córdoba.
+    type:
+      - string
+      - 'null'
+    description: |
+      Matrícula, con el formato del Colegio de Abogados de Córdoba. `null` si
+      no se cargó (Revisión del 05/11/2026, D-107.)
     examples:
       - 1-35207
