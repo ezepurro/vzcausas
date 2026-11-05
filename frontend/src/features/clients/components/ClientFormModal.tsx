@@ -1,6 +1,10 @@
 import { FormModal, type FieldSpec } from '@/shared/components/forms'
-import type { ClientFormValues } from '@/features/clients/types/client'
+import { DOCUMENT_TYPES, type ClientFormValues } from '@/features/clients/types/client'
 import type { ClientFormErrors } from '@/features/clients/schemas/client.schema'
+import { DOCUMENT_TYPE_LABELS } from '@/features/clients/utils/clientFormat'
+
+/* El código viaja y el rótulo se lee: `PASSPORT` se elige como "Pasaporte". */
+const DOCUMENT_TYPE_OPTIONS = DOCUMENT_TYPES.map((value) => ({ value, label: DOCUMENT_TYPE_LABELS[value] }))
 
 export interface ClientFormModalProps {
     values: ClientFormValues
@@ -44,14 +48,42 @@ export function ClientFormModal({
             error: errors.firstName,
         },
         {
-            k: 'dni',
-            label: 'DNI',
+            k: 'documentType',
+            label: 'Tipo de documento',
+            type: 'select',
             width: 'half',
             required: true,
-            mono: true,
-            placeholder: '00.000.000',
-            note: 'Con o sin puntos.',
-            error: errors.dni,
+            options: DOCUMENT_TYPE_OPTIONS,
+            error: errors.documentType,
+        },
+        /* El placeholder y la nota siguen al tipo elegido: los puntos son
+           sólo del DNI. */
+        values.documentType === 'PASSPORT'
+            ? {
+                k: 'documentNumber',
+                label: 'Número de documento',
+                width: 'half',
+                required: true,
+                mono: true,
+                placeholder: 'AAA000000',
+                error: errors.documentNumber,
+            }
+            : {
+                k: 'documentNumber',
+                label: 'Número de documento',
+                width: 'half',
+                required: true,
+                mono: true,
+                placeholder: '00.000.000',
+                note: 'Con o sin puntos.',
+                error: errors.documentNumber,
+            },
+        {
+            k: 'address',
+            label: 'Dirección',
+            width: 'full',
+            placeholder: 'Calle, número, localidad',
+            error: errors.address,
         },
         {
             k: 'phone',
@@ -76,7 +108,7 @@ export function ClientFormModal({
             sub={
                 fromCase
                     ? 'Al confirmar, el cliente queda seleccionado en la causa.'
-                    : 'Después lo vas a poder elegir al registrar sus causas. El teléfono y el correo son opcionales.'
+                    : 'Después lo vas a poder elegir al registrar sus causas. La dirección, el teléfono y el correo son opcionales.'
             }
             fields={fields}
             values={values}

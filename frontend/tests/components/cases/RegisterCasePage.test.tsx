@@ -276,7 +276,7 @@ describe('RegisterCasePage', () => {
             const dialog = screen.getByRole('dialog')
             await user.type(within(dialog).getByLabelText(/^apellido/i), 'ALBORNOZ')
             await user.type(within(dialog).getByLabelText(/^nombres/i), 'Bruno')
-            await user.type(within(dialog).getByLabelText(/^dni/i), '35778120')
+            await user.type(within(dialog).getByLabelText(/^número de documento/i), '35778120')
             await user.click(within(dialog).getByRole('button', { name: 'Registrar cliente' }))
 
             await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())

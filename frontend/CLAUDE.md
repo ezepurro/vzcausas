@@ -221,8 +221,8 @@ Varios módulos necesitan datos de otros. Cada dueño publica **sólo eso** en s
 
 | Módulo | Publica | Lo usa |
 |---|---|---|
-| `lawyers` | `useLawyers`, `Lawyer` | Registrar causa ("Abogado responsable"), el listado de causas, Usuarios (la ficha del abogado) |
-| `clients` | `useClients`, `useCreateClient`, `ClientFormModal`, `validateClient`, `isValidClient`, `toClientFormErrors`, `formatClientName`, `formatDni`, `normalizeDni`, `toCreateClientBody` | Registrar y modificar causa: select de cliente y "Registrar cliente nuevo" |
+| `lawyers` | `useLawyers`, `Lawyer`, `lawyerLabel` | Registrar causa ("Abogado responsable"), el listado de causas, Usuarios (la ficha del abogado) |
+| `clients` | `useClients`, `useCreateClient`, `ClientFormModal`, `validateClient`, `isValidClient`, `toClientFormErrors`, `formatClientName`, `formatDocument`, `formatDocumentNumber`, `DOCUMENT_TYPES`, `DOCUMENT_TYPE_LABELS`, `toCreateClientBody` | Registrar y modificar causa: select de cliente y "Registrar cliente nuevo" |
 | `legal-params` | `useLegalQualifications`, `useCreateLegalQualification`, `LegalQualificationFormModal`, `validateLegalQualification`, `toCreateLegalQualificationBody`, `toLegalQualificationFormErrors`, `useProceduralStates`, `isPrescribedState`, el formateo de la prescripción, los rótulos de fueros y tipos de día | Registrar y modificar causa, Registrar acto, Modelos (los fueros) y los tableros |
 | `documents` | `useDocumentTemplates`, `DocumentTemplate` | Registrar causa: cuántos modelos del fuero se van a copiar (CA-40.10) |
 | `cases` | `useCase`, `useCreateCase`, `casesKeys`, `refreshCaseAfterAct` (las mutaciones de actos esperan la causa nueva), `CaseHeader`, `CaseHeaderSkeleton`, `PrescriptionBar`, `nearestQualification`, `prescriptionNote`, `openDeadline`, `isResponsibleLawyer`, `sacLabel`, los rótulos y los tipos de la causa y del acto procesal (`ProceduralAct`, `ActDeadline`) | Registrar y modificar acto (muestra la causa y, al guardar, invalida sus claves) y los tableros |
@@ -247,11 +247,11 @@ Si aparece una flecha para el otro lado, algo está en el módulo equivocado.
 | Módulo | Páginas | Componentes | Utilidades |
 |---|---|---|---|
 | `auth` | `LoginPage` | `LoginForm`, `LoginAside`, `ChangePasswordModal`, `LogoutConfirmModal` | `profileLabel`, `sessionStorage` |
-| `clients` | `ClientsPage` | `ClientsTable`, `ClientFormModal` | `clientFormat` (`formatClientName`, `formatDni`, `normalizeDni`), `toCreateClientBody`, `toFormErrors` |
+| `clients` | `ClientsPage` | `ClientsTable`, `ClientFormModal` | `clientFormat` (`formatClientName`, `formatDocument`, `formatDocumentNumber`, `normalizeDocumentNumber`, `formatDni`, `normalizeDni`), `toCreateClientBody`, `toFormErrors` |
 | `legal-params` | `ProceduralStatesPage`, `LegalQualificationsPage` | `ProceduralStatesTable`, `ProceduralStateFormModal`, `DeleteProceduralStateModal`, `LegalQualificationsTable`, `LegalQualificationFormModal`, `DeleteLegalQualificationModal` | `prescription` (`formatPrescription`, `toPrescriptionMonths`, `splitPrescription`, `shortQualificationName`), `systemStates`, `dayTypeTone`, los `build…Patch` y `toCreate…Body`, `toFormErrors`, `toLegalQualificationFormErrors` |
 | `cases` | `CasesPage`, `RegisterCasePage`, `CaseDetailPage`, `GenerateCaseFilePage` | `CasesTable`, `CaseFilters`, `CaseForm`, `CaseEditForm`, `LegalQualificationPicker`, `CaseSummaryAside`, `CaseHeader`, `CaseFacts`, `PrescriptionBar`, `ClientCard`, `CaseFolderCard`, `CaseDocumentsCard`, `CaseTimeline`, `InterruptiveActModal`, `PrescriptionDeclarationModal`, `DeleteCaseModal`, `CaseFileCoverPanel`, `CaseFileDocumentsPanel`, `CaseFileResultAside`, `CoverPreviewModal`, `CaseFileReadyModal`, `CaseSkeletons` | `deadlineStatus`, `openDeadline`, `prescription`, `caseState`, `stateFilter`, `sac`, `subjectMatter`, `suggestedCaption`, `responsibleLawyer`, `caseForm`, `caseDraft`, `caseFolder`, `caseDocument`, `caseFile`, `timeline`, `buildCasePatch`, `toCreateCaseBody`, `toDeleteCaseBody`, `toCreateInterruptiveActBody`, `toDeclarePrescriptionBody` y los `to…FormErrors` |
 | `proceedings` | `RegisterProceduralActPage` | `ProceduralActForm`, `DeadlinePreviewAside`, `ProceduralActFormSkeleton` | `stateOptions`, `resolveState`, `terminalState`, `deadlinePreview`, `dueDateText`, `toCreateProceduralActBody`, `toActFormValues`, `buildProceduralActPatch`, `toFormErrors` |
-| `lawyers` | `LawyersPage` | `LawyersTable`, `LawyerFormModal` | `toCreateLawyerBody`, `buildLawyerPatch`, `toFormErrors` |
+| `lawyers` | `LawyersPage` | `LawyersTable`, `LawyerFormModal` | `toCreateLawyerBody`, `buildLawyerPatch`, `lawyerLabel`, `toFormErrors` |
 | `users` | `UsersPage` | `UsersTable`, `UserFormModal`, `DeleteUserModal` | `buildUserPatch`, `toCreateUserBody`, `roles`, `lawyerLink`, `toFormErrors` |
 | `documents` | `DocumentTemplatesPage` | `JurisdictionCard`, `DocumentTemplateCard`, `DocumentTemplateFormModal`, `FileDropzone`, `JurisdictionPicker`, `DocumentTemplatesSkeleton` | `templateFormat`, `toCreateDocumentTemplateBody`, `toFormErrors` |
 | `dashboard` | `HomePage` | `LawyerDashboardView`, `AdministratorDashboardView`, `SummaryBand`, `FirstDeadline`, `DeadlinesPanel`, `DeadlineCalendar`, `CasesToAdvancePanel`, `PrescriptionAlertsPanel`, `PortfolioByJurisdiction`, `TeamLoadPanel`, `DashboardSkeleton` | `dashboardDate`, `urgency` |
@@ -292,9 +292,11 @@ calificaciones del alta, el panel "Cómputo del plazo") van en su módulo.
 Los componentes son presentacionales y lo reciben hecho:
 
 - **Clientes** (así quedó `ClientsPage`). El botón "Registrar cliente" está
-  habilitado para los tres perfiles (D-39). El DNI se acepta con o sin puntos y
-  viaja sin puntos (`normalizeDni`); un teléfono o un correo vacío no viaja. Un
-  DNI repetido (`409 CLIENT_DNI_ALREADY_EXISTS`) se muestra en el campo DNI. Al
+  habilitado para los tres perfiles (D-39). El documento es DNI o pasaporte
+  (`documentType`); el DNI se acepta con o sin puntos y viaja sin puntos, el
+  pasaporte viaja sin espacios y en mayúsculas (`normalizeDocumentNumber`). Una
+  dirección, un teléfono o un correo vacío no viaja. Un documento repetido
+  (`409 CLIENT_DNI_ALREADY_EXISTS`) se muestra en el campo del número. Al
   registrar, el aviso es "Cliente GÓMEZ, Ariel Fernando registrado.". Sin
   acciones de fila: modificar y eliminar son del Sprint 4.
 - **Registrar causa.**
@@ -381,7 +383,11 @@ Son las de V5. Lo que V4 y V5 cambiaron está marcado con su decisión.
   `YYYY-MM-DD`. Nunca `new Date('2026-09-15')`: lo toma en UTC y en Córdoba
   muestra el día anterior. Para eso están `formatDate` y `todayIsoDate`.
 - **El DNI viaja sin puntos** (`34812905`) y se muestra con puntos
-  (`34.812.905`).
+  (`34.812.905`), precedido por el tipo: `DNI 34.812.905` o
+  `Pasaporte AAE482915` (`formatDocument`).
+- **La matrícula del abogado es opcional**: viene `null` si no se cargó, y
+  donde se nombra a un abogado con su matrícula se usa `lawyerLabel`, que sin
+  ella deja sólo el nombre.
 - **`prescriptionMonths` viaja en meses**; el formulario lo pide en años más un
   select de meses (0 a 11) y la tabla lo muestra como "6 años y 6 meses".
 - **Los estados procesales no tienen posición ni orden** (D-31). El backend los
@@ -543,6 +549,20 @@ Sprint 1 quedó registrado en `API_CONTRACT_V3.md` §7 y ya no es referencia.
 | `folder` en la causa; `POST /cases` acepta `createFolder` y `copyTemplates` | El alta los manda y su aviso suma la carpeta. El detalle la muestra en `CaseFolderCard` (HU39) |
 | Códigos de error nuevos (V4 §7.4) | `ERROR_CODES` de `src/shared/api/contract.ts` suma `DOCUMENT_TEMPLATE_NOT_FOUND`, `DOCUMENT_TEMPLATE_ALREADY_EXISTS`, `FILE_TOO_LARGE`, `PRESCRIPTION_NOT_APPLICABLE`, `PROCEDURAL_STATE_PROTECTED`, `DOCUMENT_STORAGE_UNAVAILABLE` y `PROCEDURAL_ACT_NOT_FOUND` |
 | Modificación y baja de calificaciones legales (pendiente del Sprint 2) | `LegalQualificationsPage`, con `useUpdateLegalQualification`, `useDeleteLegalQualification` y `buildLegalQualificationPatch`. Desde el 18/10/2026 las acciones de fila están ocultas (`SHOW_ROW_ACTIONS = false`): el backend no tiene esos dos endpoints (`legal-params/CAMBIOS.md`) |
+
+### Adelantado al contrato (05/11/2026)
+
+Acordado con el backend y todavía **no escrito en V5**. El front y los mocks ya
+lo siguen; el backend todavía no, así que contra el servidor real el alta de
+clientes y la matrícula opcional no van a andar hasta que se implementen:
+
+| Cambio | En el front |
+|---|---|
+| Matrícula del abogado opcional: `registrationNumber: string | null`; vacía no viaja en el alta, y en el `PATCH` `null` la borra | `lawyers/` (schema, body, patch, tabla con raya), `users/` (ficha nueva), `lawyerLabel` en los selects de causas y usuarios |
+| Cliente: `documentType` (`DNI` o `PASSPORT`), `documentNumber` (reemplaza a `dni`) y `address` (texto libre, opcional, hasta 255) | `clients/` (formulario, schema, tabla "Documento"), `ClientCard` y los selects de cliente de causas |
+
+El `409` de un documento repetido sigue siendo `CLIENT_DNI_ALREADY_EXISTS`
+hasta que el backend defina otro código.
 
 ### Cambios de V5 sobre lo que ya estaba hecho
 

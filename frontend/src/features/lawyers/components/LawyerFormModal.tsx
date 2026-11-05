@@ -51,9 +51,9 @@ export function LawyerFormModal({
             k: 'registrationNumber',
             label: 'Matrícula',
             width: 'half',
-            required: true,
             mono: true,
             placeholder: '1-00000',
+            note: 'Opcional.',
             error: errors.registrationNumber,
         },
     ]

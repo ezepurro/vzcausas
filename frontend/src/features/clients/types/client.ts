@@ -10,13 +10,23 @@
 
 import type { PaginatedQuery } from '@/api-contract/envelopes'
 
+/** Los tipos de documento que acepta el estudio. */
+export const DOCUMENT_TYPES = ['DNI', 'PASSPORT'] as const
+export type DocumentType = (typeof DOCUMENT_TYPES)[number]
+
 /** El recurso tal como viene adentro de `data`. */
 export interface Client {
     id: number
     lastName: string
     firstName: string
-    /** Sólo dígitos, sin puntos: `34812905`. Los puntos son de presentación. */
-    dni: string
+    documentType: DocumentType
+    /**
+     * Con DNI, sólo dígitos y sin puntos: `34812905`; los puntos son de
+     * presentación. Con pasaporte, letras y números en mayúsculas: `AAA123456`.
+     */
+    documentNumber: string
+    /** Dirección. Texto libre. */
+    address: string | null
     phone: string | null
     email: string | null
     /** Fecha de alta en el estudio, `YYYY-MM-DD`. La asigna el backend. */
@@ -28,13 +38,15 @@ export interface Client {
 }
 
 /**
- * Cuerpo del `POST /clients`. Teléfono y correo son opcionales: si están
- * vacíos no viajan.
+ * Cuerpo del `POST /clients`. Dirección, teléfono y correo son opcionales:
+ * si están vacíos no viajan.
  */
 export interface CreateClientBody {
     lastName: string
     firstName: string
-    dni: string
+    documentType: DocumentType
+    documentNumber: string
+    address?: string
     phone?: string
     email?: string
 }
@@ -43,14 +55,17 @@ export interface CreateClientBody {
 export type ClientFormValues = {
     lastName: string
     firstName: string
+    /** Uno de `DOCUMENT_TYPES`: sale de un select. */
+    documentType: string
     /** Como lo escriba el usuario: con o sin puntos. Se limpia al armar el cuerpo. */
-    dni: string
+    documentNumber: string
+    address: string
     phone: string
     email: string
 }
 
 /** Parámetros del listado `GET /clients`. */
 export interface ClientListParams extends PaginatedQuery {
-    /** Filtra por apellido, por nombres y por DNI. */
+    /** Filtra por apellido, por nombres y por número de documento. */
     search?: string
 }

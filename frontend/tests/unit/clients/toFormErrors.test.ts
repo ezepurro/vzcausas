@@ -3,8 +3,17 @@ import { toFormErrors } from '@/features/clients/utils/toFormErrors'
 
 describe('toFormErrors (cliente)', () => {
     it('pasa los campos del formulario', () => {
-        expect(toFormErrors({ dni: 'Entre 7 y 8 dígitos.', email: 'No es un correo válido.' })).toEqual({
-            dni: 'Entre 7 y 8 dígitos.',
+        expect(
+            toFormErrors({
+                documentType: 'El tipo de documento no es válido.',
+                documentNumber: 'Entre 7 y 8 dígitos.',
+                address: 'Hasta 255 caracteres.',
+                email: 'No es un correo válido.',
+            }),
+        ).toEqual({
+            documentType: 'El tipo de documento no es válido.',
+            documentNumber: 'Entre 7 y 8 dígitos.',
+            address: 'Hasta 255 caracteres.',
             email: 'No es un correo válido.',
         })
     })

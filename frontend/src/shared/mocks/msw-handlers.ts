@@ -212,6 +212,26 @@ export function normalizePath(pathname: string): string {
     return path === '' ? '/' : path;
 }
 
+/**
+ * `true` si la ruta ya normalizada es exactamente la de `routePath`
+ * (`/clients/:clientId`), con cada `:param` ocupando un solo segmento.
+ *
+ * Hace falta porque los handlers se registran con `*` adelante (ver
+ * `handlers`, más abajo), y con ese prefijo el handler de `/clients/:clientId`
+ * también calza con `/src/features/clients/index.ts`, que es un archivo de la
+ * app que pide Vite.
+ * Sin este control el mock lo contestaba con un 404 de la API, el `import()`
+ * de la pantalla fallaba y el router mostraba "No se pudo cargar esta
+ * pantalla".
+ */
+export function isRoutePath(path: string, routePath: string): boolean {
+    const pattern = routePath
+        .split('/')
+        .map((segment) => (segment.startsWith(':') ? '[^/]+' : segment.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+        .join('/');
+    return new RegExp(`^${pattern}$`).test(path);
+}
+
 function isPassthrough(path: string): boolean {
     return options.passthrough.some((rule) =>
         typeof rule === 'string' ? path === rule || path.startsWith(`${rule}/`) : rule.test(path),
@@ -304,6 +324,11 @@ type Route = (typeof ROUTE_TABLE)[number];
 async function resolver({ request }: { request: Request }, route: Route) {
     const url = new URL(request.url);
     const path = normalizePath(url.pathname);
+
+    // Lo que MSW atrapó por el `*` pero no es esta ruta de la API (un archivo
+    // de la app, como `/src/features/clients/index.ts`) sale a la red tal
+    // cual, sin demora: ver `isRoutePath`.
+    if (!isRoutePath(path, route.path)) return passthrough();
 
     // Antes que nada: si la ruta está delegada al backend real, no se toca
     // el cuerpo (leerlo lo consumiría y el request saldría vacío).

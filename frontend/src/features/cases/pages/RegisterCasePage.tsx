@@ -11,7 +11,7 @@ import { formatPersonName } from '@/shared/lib/personName'
 import {
     ClientFormModal,
     formatClientName,
-    formatDni,
+    formatDocument,
     isValidClient,
     toClientFormErrors,
     toCreateClientBody,
@@ -21,7 +21,7 @@ import {
     type ClientFormErrors,
     type ClientFormValues,
 } from '@/features/clients'
-import { useLawyers } from '@/features/lawyers'
+import { lawyerLabel, useLawyers } from '@/features/lawyers'
 import { useDocumentTemplates } from '@/features/documents'
 import { useCanAccess } from '@/app/access/useCanAccess'
 import {
@@ -83,7 +83,15 @@ import { toFormErrors } from '@/features/cases/utils/toFormErrors'
 /** Los selects necesitan todo junto, no paginado: 100 es el tope del contrato. */
 const OPTIONS_LIMIT = 100
 
-const EMPTY_CLIENT: ClientFormValues = { lastName: '', firstName: '', dni: '', phone: '', email: '' }
+const EMPTY_CLIENT: ClientFormValues = {
+    lastName: '',
+    firstName: '',
+    documentType: 'DNI',
+    documentNumber: '',
+    address: '',
+    phone: '',
+    email: '',
+}
 const EMPTY_QUALIFICATION: LegalQualificationFormValues = { name: '', years: '', months: '0' }
 
 /** Qué modal está abierto: un solo estado, no dos booleanos que se contradicen. */
@@ -160,12 +168,12 @@ export function RegisterCasePage() {
 
     const clientOptions: SelectOption[] = clients.map((c) => ({
         value: String(c.id),
-        label: `${formatClientName(c)} · DNI ${formatDni(c.dni)}`,
+        label: `${formatClientName(c)} · ${formatDocument(c)}`,
     }))
 
     const lawyerOptions: SelectOption[] = lawyers.map((l) => ({
         value: String(l.id),
-        label: `${formatPersonName(l)} · matrícula ${l.registrationNumber}`,
+        label: lawyerLabel(l),
     }))
 
     /** Una calificación ya elegida deja de ofrecerse: no puede repetirse (D-28). */
@@ -501,7 +509,7 @@ function NewClient({ onDone, onCancel }: { onDone: (id: number) => void; onCance
             onError: (error) => {
                 if (!isApiError(error)) throw error
                 if (error.is('CLIENT_DNI_ALREADY_EXISTS')) {
-                    setErrors({ dni: error.message })
+                    setErrors({ documentNumber: error.message })
                     return
                 }
                 if (error.isValidation) {

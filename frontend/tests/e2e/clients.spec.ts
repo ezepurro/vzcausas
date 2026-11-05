@@ -22,7 +22,7 @@ test.describe('Clientes', () => {
         const dialog = page.getByRole('dialog')
         await dialog.getByLabel(/^Apellido/).fill('ALBORNOZ')
         await dialog.getByLabel(/^Nombres/).fill('Bruno')
-        await dialog.getByLabel(/^DNI/).fill('35.778.120')
+        await dialog.getByLabel(/^Número de documento/).fill('35.778.120')
         await dialog.getByLabel(/^Teléfono/).fill('351 400-1122')
         await dialog.getByRole('button', { name: 'Registrar cliente' }).click()
 
@@ -34,6 +34,6 @@ test.describe('Clientes', () => {
         await page.getByRole('searchbox', { name: 'Buscar cliente' }).fill('35778120')
         await expect(page.getByText('ALBORNOZ, Bruno', { exact: true })).toBeVisible()
         await expect(page.getByText(FIRST, { exact: true })).toBeHidden()
-        await expect(page.getByRole('cell', { name: '35.778.120' })).toBeVisible()
+        await expect(page.getByRole('cell', { name: 'DNI 35.778.120' })).toBeVisible()
     })
 })

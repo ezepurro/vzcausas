@@ -116,8 +116,24 @@ describe('LawyersPage', () => {
 
             expect(within(dialog).getByText('El apellido es obligatorio.')).toBeInTheDocument()
             expect(within(dialog).getByText('Los nombres son obligatorios.')).toBeInTheDocument()
-            expect(within(dialog).getByText('La matrícula es obligatoria.')).toBeInTheDocument()
+            // La matrícula es opcional: vacía no se marca.
+            expect(within(dialog).queryByText('La matrícula es obligatoria.')).not.toBeInTheDocument()
             expect(db.lawyers).toHaveLength(LAWYERS.length)
+        })
+
+        it('registra un abogado sin matrícula', async () => {
+            const { user } = renderPage()
+            await screen.findByText(VAZQUEZ)
+
+            const dialog = await openCreate(user)
+            await user.type(within(dialog).getByLabelText(/^apellido/i), 'Pérez')
+            await user.type(within(dialog).getByLabelText(/^nombres/i), 'Ana')
+            await user.click(within(dialog).getByRole('button', { name: 'Registrar abogado' }))
+
+            expect(
+                await screen.findByText(new RegExp(`^Abogado ${personNameIn('Pérez', 'Ana')} registrado\\.$`)),
+            ).toBeInTheDocument()
+            expect(db.lawyers.find((l) => l.lastName === 'Pérez')).toMatchObject({ registrationNumber: null })
         })
 
         it('una matrícula ya registrada se marca en el campo', async () => {

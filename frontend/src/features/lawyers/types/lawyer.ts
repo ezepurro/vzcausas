@@ -21,9 +21,9 @@ export interface Lawyer {
     firstName: string
     /**
      * Matrícula del Colegio de Abogados de Córdoba: circunscripción y número
-     * separados por guión, `1-28114`.
+     * separados por guión, `1-28114`. No es obligatoria: `null` si no se cargó.
      */
-    registrationNumber: string
+    registrationNumber: string | null
     /**
      * Causas activas de las que es responsable: las que no fueron dadas de
      * baja y no están en un estado terminal (V4 §4). Calculado, sólo lectura.
@@ -33,21 +33,22 @@ export interface Lawyer {
     active: boolean
 }
 
-/** Cuerpo del `POST /lawyers`: sólo los dos campos que el estudio carga. */
+/** Cuerpo del `POST /lawyers`. La matrícula es opcional: vacía no viaja. */
 export interface CreateLawyerBody {
     lastName: string
     firstName: string
-    registrationNumber: string
+    registrationNumber?: string
 }
 
 /**
  * Cuerpo del `PATCH /lawyers/{id}`: todo opcional, al menos un campo.
  * `activeCases` no está porque no es modificable: lo calcula el backend.
+ * `registrationNumber` en `null` borra la matrícula.
  */
 export interface UpdateLawyerBody {
     lastName?: string
     firstName?: string
-    registrationNumber?: string
+    registrationNumber?: string | null
 }
 
 /** Los valores del formulario. Sólo `string`, como pide `FormValues`. */

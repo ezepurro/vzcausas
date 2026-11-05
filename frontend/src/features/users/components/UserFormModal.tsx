@@ -149,12 +149,11 @@ export function UserFormModal({
             k: 'registrationNumber',
             label: 'Matrícula',
             width: 'half',
-            required: true,
             mono: true,
             placeholder: '1-00000',
             /* La ficha nueva lleva el apellido y los nombres del usuario: sólo
-               pide la matrícula (TESTING.md §11). */
-            note: 'La ficha lleva el apellido y los nombres del usuario.',
+               pide la matrícula, que es opcional (TESTING.md §11). */
+            note: 'Opcional. La ficha lleva el apellido y los nombres del usuario.',
             error: errors.registrationNumber,
             when: creatingLawyer,
         },

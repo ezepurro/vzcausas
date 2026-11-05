@@ -287,24 +287,30 @@ export const LEGAL_QUALIFICATIONS: readonly StoredLegalQualification[] = [
 /** Cómo guarda la base un cliente: sin `activeCases`, que se calcula. */
 export type StoredClient = Omit<Client, 'activeCases'>;
 
+type ClientDocument = Pick<Client, 'documentType' | 'documentNumber'>;
+const DNI = (documentNumber: string): ClientDocument => ({ documentType: 'DNI', documentNumber });
+const PASSPORT = (documentNumber: string): ClientDocument => ({ documentType: 'PASSPORT', documentNumber });
+
 const CLIENT = (
     id: number,
     lastName: string,
     firstName: string,
-    dni: string,
+    document: ClientDocument,
+    address: string | null,
     phone: string | null,
     email: string | null,
     clientSince: string,
     active = true,
-): StoredClient => ({ id, lastName, firstName, dni, phone, email, clientSince, active });
+): StoredClient => ({ id, lastName, firstName, ...document, address, phone, email, clientSince, active });
 
 /**
  * Los ocho clientes del prototipo más dieciséis de relleno: 23 vigentes, para
  * que el listado dé dos páginas.
  *
  * El DNI va **sin puntos** (V3 D-17); `RUIZ` tiene uno de siete dígitos, el
- * otro largo válido. `ACOSTA` y `CABRAL` no tienen correo y `PAZ` no tiene
- * teléfono: son los `null` que la tabla muestra con una raya.
+ * otro largo válido. `NAVARRO` tiene pasaporte en lugar de DNI. `ACOSTA` y
+ * `CABRAL` no tienen correo y `PAZ` no tiene teléfono: son los `null` que la
+ * tabla muestra con una raya. `ACOSTA` y `PAZ` tampoco tienen dirección.
  *
  * `SOSA` (id 8) está dada de baja: no tiene que aparecer en ningún lado, y su
  * DNI se puede volver a registrar, porque la unicidad es entre los vigentes.
@@ -312,31 +318,31 @@ const CLIENT = (
  * `JUÁREZ` y `RUIZ` no tienen causas: es el "Sin causas" de la tabla.
  */
 export const CLIENTS: readonly StoredClient[] = [
-    CLIENT(1, 'GÓMEZ', 'Ariel Fernando', '34812905', '351 415-2288', 'afgomez@gmail.com', '2021-03-12'),
-    CLIENT(2, 'PEREYRA', 'Marcos D.', '29440117', '351 622-9014', 'mdpereyra@hotmail.com', '2026-05-18'),
-    CLIENT(3, 'LUDUEÑA', 'Silvia', '20115883', '351 308-7742', 'sluduena@gmail.com', '2026-07-21'),
-    CLIENT(4, 'ACOSTA', 'Jonathan E.', '38907221', '351 744-1160', null, '2022-01-19'),
-    CLIENT(5, 'QUIROGA', 'Néstor A.', '26774309', '351 519-3320', 'naquiroga@gmail.com', '2026-06-02'),
-    CLIENT(6, 'MOYANO', 'Daniela', '33028514', '351 267-8891', 'dmoyano@gmail.com', '2026-09-08'),
-    CLIENT(7, 'BENÍTEZ', 'Rodrigo E.', '31556208', '351 401-5573', 'rbenitez@gmail.com', '2025-02-14'),
-    CLIENT(8, 'SOSA', 'Verónica L.', '27903441', '351 330-2214', 'vlsosa@gmail.com', '2023-11-30', false),
+    CLIENT(1, 'GÓMEZ', 'Ariel Fernando', DNI('34812905'), 'Av. Colón 1250, Córdoba', '351 415-2288', 'afgomez@gmail.com', '2021-03-12'),
+    CLIENT(2, 'PEREYRA', 'Marcos D.', DNI('29440117'), 'Bv. San Juan 455, Córdoba', '351 622-9014', 'mdpereyra@hotmail.com', '2026-05-18'),
+    CLIENT(3, 'LUDUEÑA', 'Silvia', DNI('20115883'), 'Rondeau 210, Córdoba', '351 308-7742', 'sluduena@gmail.com', '2026-07-21'),
+    CLIENT(4, 'ACOSTA', 'Jonathan E.', DNI('38907221'), null, '351 744-1160', null, '2022-01-19'),
+    CLIENT(5, 'QUIROGA', 'Néstor A.', DNI('26774309'), 'Av. Vélez Sarsfield 1820, Córdoba', '351 519-3320', 'naquiroga@gmail.com', '2026-06-02'),
+    CLIENT(6, 'MOYANO', 'Daniela', DNI('33028514'), 'Obispo Trejo 340, Córdoba', '351 267-8891', 'dmoyano@gmail.com', '2026-09-08'),
+    CLIENT(7, 'BENÍTEZ', 'Rodrigo E.', DNI('31556208'), 'Av. Rafael Núñez 4560, Córdoba', '351 401-5573', 'rbenitez@gmail.com', '2025-02-14'),
+    CLIENT(8, 'SOSA', 'Verónica L.', DNI('27903441'), 'Duarte Quirós 890, Córdoba', '351 330-2214', 'vlsosa@gmail.com', '2023-11-30', false),
     // Relleno, para llegar a dos páginas.
-    CLIENT(9, 'AGÜERO', 'Luciana B.', '30112457', '351 220-4418', 'lbaguero@gmail.com', '2025-11-20'),
-    CLIENT(10, 'BARRIONUEVO', 'Héctor M.', '24578913', '351 588-0172', 'hmbarrionuevo@yahoo.com.ar', '2019-05-02'),
-    CLIENT(11, 'CABRAL', 'Mariano', '36221908', '351 690-3345', null, '2026-09-14'),
-    CLIENT(12, 'DOMÍNGUEZ', 'Paola A.', '32004117', '351 475-9020', 'padominguez@gmail.com', '2026-04-07'),
-    CLIENT(13, 'ESCUDERO', 'Raúl O.', '22890341', '351 312-6657', 'roescudero@hotmail.com', '2018-04-11'),
-    CLIENT(14, 'FUNES', 'Claudia N.', '28765430', '351 804-1193', 'cnfunes@gmail.com', '2024-08-20'),
-    CLIENT(15, 'GIMÉNEZ', 'Tomás', '40221876', '351 266-7308', 'tgimenez@gmail.com', '2023-06-15'),
-    CLIENT(16, 'HERRERA', 'Sandra V.', '25334790', '351 541-2086', 'svherrera@gmail.com', '2025-03-03'),
-    CLIENT(17, 'IBÁÑEZ', 'Cristian D.', '33987102', '351 709-5514', 'cdibanez@outlook.com', '2026-08-11'),
-    CLIENT(18, 'JUÁREZ', 'Mónica E.', '21776054', '351 433-8871', 'mejuarez@gmail.com', '2026-09-10'),
-    CLIENT(19, 'LEIVA', 'Gustavo A.', '29012663', '351 615-4402', 'galeiva@gmail.com', '2026-07-02'),
-    CLIENT(20, 'MALDONADO', 'Érica', '37445981', '351 298-6630', 'emaldonado@gmail.com', '2025-09-09'),
-    CLIENT(21, 'NAVARRO', 'Julio C.', '23650178', '351 520-7745', 'jcnavarro@yahoo.com.ar', '2024-02-12'),
-    CLIENT(22, 'OLMOS', 'Débora R.', '31220945', '351 377-1269', 'drolmos@gmail.com', '2026-06-25'),
-    CLIENT(23, 'PAZ', 'Ezequiel', '39101224', null, 'epaz@gmail.com', '2026-09-11'),
-    CLIENT(24, 'RUIZ', 'Elvira T.', '9876543', '351 451-0038', 'etruiz@gmail.com', '2026-08-28'),
+    CLIENT(9, 'AGÜERO', 'Luciana B.', DNI('30112457'), 'Caseros 1120, Córdoba', '351 220-4418', 'lbaguero@gmail.com', '2025-11-20'),
+    CLIENT(10, 'BARRIONUEVO', 'Héctor M.', DNI('24578913'), '9 de Julio 760, Villa Carlos Paz', '351 588-0172', 'hmbarrionuevo@yahoo.com.ar', '2019-05-02'),
+    CLIENT(11, 'CABRAL', 'Mariano', DNI('36221908'), 'Av. Sabattini 3300, Córdoba', '351 690-3345', null, '2026-09-14'),
+    CLIENT(12, 'DOMÍNGUEZ', 'Paola A.', DNI('32004117'), 'Belgrano 615, Río Cuarto', '351 475-9020', 'padominguez@gmail.com', '2026-04-07'),
+    CLIENT(13, 'ESCUDERO', 'Raúl O.', DNI('22890341'), 'Ituzaingó 1045, Córdoba', '351 312-6657', 'roescudero@hotmail.com', '2018-04-11'),
+    CLIENT(14, 'FUNES', 'Claudia N.', DNI('28765430'), 'Av. Hipólito Yrigoyen 222, Córdoba', '351 804-1193', 'cnfunes@gmail.com', '2024-08-20'),
+    CLIENT(15, 'GIMÉNEZ', 'Tomás', DNI('40221876'), 'Chacabuco 980, Córdoba', '351 266-7308', 'tgimenez@gmail.com', '2023-06-15'),
+    CLIENT(16, 'HERRERA', 'Sandra V.', DNI('25334790'), 'Av. Fuerza Aérea 2480, Córdoba', '351 541-2086', 'svherrera@gmail.com', '2025-03-03'),
+    CLIENT(17, 'IBÁÑEZ', 'Cristian D.', DNI('33987102'), 'Laprida 515, Córdoba', '351 709-5514', 'cdibanez@outlook.com', '2026-08-11'),
+    CLIENT(18, 'JUÁREZ', 'Mónica E.', DNI('21776054'), 'Santa Rosa 1330, Córdoba', '351 433-8871', 'mejuarez@gmail.com', '2026-09-10'),
+    CLIENT(19, 'LEIVA', 'Gustavo A.', DNI('29012663'), 'Av. Gauss 5800, Córdoba', '351 615-4402', 'galeiva@gmail.com', '2026-07-02'),
+    CLIENT(20, 'MALDONADO', 'Érica', DNI('37445981'), 'Jujuy 1777, Córdoba', '351 298-6630', 'emaldonado@gmail.com', '2025-09-09'),
+    CLIENT(21, 'NAVARRO', 'Julio C.', PASSPORT('AAE482915'), 'Av. Monseñor Pablo Cabrera 3900, Córdoba', '351 520-7745', 'jcnavarro@yahoo.com.ar', '2024-02-12'),
+    CLIENT(22, 'OLMOS', 'Débora R.', DNI('31220945'), 'Tucumán 420, Alta Gracia', '351 377-1269', 'drolmos@gmail.com', '2026-06-25'),
+    CLIENT(23, 'PAZ', 'Ezequiel', DNI('39101224'), null, null, 'epaz@gmail.com', '2026-09-11'),
+    CLIENT(24, 'RUIZ', 'Elvira T.', DNI('9876543'), 'Independencia 1150, Córdoba', '351 451-0038', 'etruiz@gmail.com', '2026-08-28'),
 ];
 
 /* ------------------------------------------------------------------ */

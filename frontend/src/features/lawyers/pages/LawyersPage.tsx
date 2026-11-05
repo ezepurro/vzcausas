@@ -20,6 +20,7 @@ import { buildLawyerPatch, hasChanges } from '@/features/lawyers/utils/buildLawy
 import { toFormErrors } from '@/features/lawyers/utils/toFormErrors'
 import { LawyersTable } from '@/features/lawyers/components/LawyersTable'
 import { LawyerFormModal } from '@/features/lawyers/components/LawyerFormModal'
+import { lawyerLabel } from '@/features/lawyers/utils/lawyerLabel'
 import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue'
 import { formatPersonName } from '@/shared/lib/personName'
 const LIMIT = 20
@@ -83,7 +84,7 @@ export function LawyersPage() {
         setValues({
             lastName: lawyer.lastName,
             firstName: lawyer.firstName,
-            registrationNumber: lawyer.registrationNumber,
+            registrationNumber: lawyer.registrationNumber ?? '',
         })
         setErrors({})
         setModal({ kind: 'edit', lawyer })
@@ -127,7 +128,9 @@ export function LawyersPage() {
             onSuccess: (lawyer) => {
                 toast(
                     'success',
-                    `Abogado ${formatPersonName(lawyer)} registrado con matrícula ${lawyer.registrationNumber}.`,
+                    lawyer.registrationNumber
+                        ? `Abogado ${formatPersonName(lawyer)} registrado con matrícula ${lawyer.registrationNumber}.`
+                        : `Abogado ${formatPersonName(lawyer)} registrado.`,
                 )
                 closeModal()
             },
@@ -238,7 +241,7 @@ export function LawyersPage() {
                     mode={modal.kind}
                     sub={
                         modal.kind === 'edit'
-                            ? `${formatPersonName(modal.lawyer)} · matrícula ${modal.lawyer.registrationNumber}`
+                            ? lawyerLabel(modal.lawyer)
                             : undefined
                     }
                     values={values}

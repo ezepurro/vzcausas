@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { Avatar, DataTable, Pill, type Column } from '@/shared/components/ui'
 import { formatDate } from '@/shared/lib/dates'
 import type { Client } from '@/features/clients/types/client'
-import { formatClientName, formatDni } from '@/features/clients/utils/clientFormat'
+import { formatClientName, formatDocument } from '@/features/clients/utils/clientFormat'
 
 export interface ClientsTableProps {
     rows: Client[]
@@ -38,7 +38,7 @@ export function ClientsTable({ rows, empty, loading, busy }: ClientsTableProps) 
                 )
             },
         },
-        { id: 'dni', header: 'DNI', cell: (c) => formatDni(c.dni), mono: true, nowrap: true },
+        { id: 'document', header: 'Documento', cell: (c) => formatDocument(c), mono: true, nowrap: true },
         // Opcionales: sin dato va la raya, igual que en el resto de las tablas.
         { id: 'phone', header: 'Teléfono', cell: (c) => c.phone ?? '—', mono: true, nowrap: true },
         { id: 'email', header: 'Correo electrónico', cell: (c) => c.email ?? '—' },

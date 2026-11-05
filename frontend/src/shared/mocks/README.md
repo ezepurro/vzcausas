@@ -495,7 +495,7 @@ de servir en el acto.
 | Código | Cómo |
 | --- | --- |
 | `400` validación | `username` de menos de 3 caracteres, matrícula fuera del formato `1-28114`, contraseña de menos de 8 caracteres o sin número; nombre de estado procesal de menos de 3 caracteres; un `dayType` incoherente con el plazo; mandar `lawyerId` **y** `lawyer` juntos; `PATCH` sin ningún campo |
-| `400` validación, Sprint 2 | DNI con puntos o de menos de 7 dígitos; SAC que no tiene 8 dígitos (omitirlo no es un error); una calificación sin `offenseDate`, repetida o dada de baja; un interno del instructor de más de 20 caracteres; amparo o administrativo sin `subjectMatter`, o con más de 800 caracteres; un rol procesal que el fuero no admite; un `clientId` o un `responsibleLawyerId` inexistente o dado de baja; un acto sin estado, con los dos (`proceduralStateId` y `customState`), con un estado terminal o de otro fuero, o con `actDate` futura; un acto con `customState: "Iniciada"`; un acto administrativo sin `notificationDate` en un estado que abre plazo |
+| `400` validación, Sprint 2 | DNI con puntos o de menos de 7 dígitos; pasaporte con espacios, minúsculas o de menos de 6 caracteres; un `documentType` que no es `DNI` ni `PASSPORT`; una dirección de más de 255 caracteres; una matrícula con otro formato que `1-28114` (vacía es válida); SAC que no tiene 8 dígitos (omitirlo no es un error); una calificación sin `offenseDate`, repetida o dada de baja; un interno del instructor de más de 20 caracteres; amparo o administrativo sin `subjectMatter`, o con más de 800 caracteres; un rol procesal que el fuero no admite; un `clientId` o un `responsibleLawyerId` inexistente o dado de baja; un acto sin estado, con los dos (`proceduralStateId` y `customState`), con un estado terminal o de otro fuero, o con `actDate` futura; un acto con `customState: "Iniciada"`; un acto administrativo sin `notificationDate` en un estado que abre plazo |
 | `400` paginación | `?page=0`, `?limit=500`, `?limit=abc` |
 | `400` ruta | `GET /users/abc`, `GET /cases/abc`, `DELETE /procedural-states/abc` |
 | `400` query | `?role=NOPE`, `?jurisdiction=NOPE`, `/cases?openDeadline=si`, `/cases?proceduralStateId=4&customState=x`, `/cases?withoutProceduralActs=true&proceduralStateId=4`; `deadline-preview` sin `proceduralStateId` o sin `actDate` |
@@ -504,7 +504,7 @@ de servir en el acto.
 | `401` renovación | `POST /auth/refresh` con la sesión ya revocada (`db.sessions.clear()`) → `UNAUTHENTICATED` |
 | `403` | `mrios` o `gestion` en cualquier endpoint de `/users`, o escribiendo abogados; cualquiera que no sea el abogado responsable registrando un acto o pidiendo `deadline-preview`: `gestion`, `supervision`, o `mrios` y `fvazquez` sobre la causa 7, que lleva `mferreyra` |
 | `404` | `GET /users/999`, `GET /cases/999`; también los que existen pero están dados de baja: `GET /users/22`, `GET /clients/8`, `GET /legal-qualifications/9` |
-| `409` | crear un usuario con `username: "fvazquez"` o con un email ya usado; vincular un abogado que ya tiene cuenta; crear un abogado con `1-28114`; dar de baja el usuario 3, 4 o 5; dar de baja un abogado con cuenta o con causas (del 1 al 8); crear un estado procesal o una calificación con un nombre que ya existe, o un estado que se llame "Iniciada"; registrar un cliente con el DNI `34812905`; registrar una causa con el SAC `13284571` |
+| `409` | crear un usuario con `username: "fvazquez"` o con un email ya usado; vincular un abogado que ya tiene cuenta; crear un abogado con `1-28114`; dar de baja el usuario 3, 4 o 5; dar de baja un abogado con cuenta o con causas (del 1 al 8); crear un estado procesal o una calificación con un nombre que ya existe, o un estado que se llame "Iniciada"; registrar un cliente con el DNI `34812905` (un pasaporte con ese número no choca: la unicidad es por tipo); registrar una causa con el SAC `13284571` |
 | `422` | crear un usuario `LAWYER` sin ficha profesional, o uno sin rol `LAWYER` **con** ficha; dar de baja o degradar el usuario 1; contraseña actual incorrecta en `PATCH /auth/password`; registrar un acto en la causa 9, 10 o 21 → `CASE_IN_TERMINAL_STATE` |
 | `500` / red | `configureMocks({ forceFailure: 500 })` / `configureMocks({ forceFailure: 'network' })` |
 | `400`, Sprint 3 | un acto interruptivo sin nombre, con fecha futura o con observaciones de más de 2000 caracteres; marcar prescripta sin resolución o con fecha futura; un modelo sin nombre, sin fuero, sin archivo o con un archivo que no es `.docx`; `POST /cases` con `createFolder: false` y `copyTemplates: true`; un dato de otro fuero en el alta (`clientDetained` en un amparo, `harmfulActDate` en el penal…); un amparo con `harmfulActDate` sin `harmfulActTermDays` o sin `harmfulActTermDayType`, o con `harmfulActRenews` sin `harmfulActRenewalDays`; un usuario o un abogado sin `lastName` o sin `firstName` |
@@ -716,8 +716,14 @@ este mock, no del backend.
   fuera del penal; `counterparty` o `subjectMatter` en el penal;
   `notificationDate` fuera del administrativo. Un `null` o un texto vacío
   cuentan como "no vino".
-- **La búsqueda de clientes por DNI acepta puntos**: `34.812` encuentra
-  `34812905`.
+- **La búsqueda de clientes por documento acepta puntos**: `34.812` encuentra
+  `34812905`, y `aae48` encuentra el pasaporte `AAE482915` de `NAVARRO`.
+- **Adelantado al contrato (05/11/2026):** la matrícula del abogado es
+  opcional (`null` si no se cargó; en el `PATCH`, `null` la borra) y el
+  cliente trae `documentType` (`DNI` o `PASSPORT`), `documentNumber` (antes
+  `dni`) y `address` (opcional). V5 todavía no lo dice: el mock sigue a lo
+  acordado con el backend, no al contrato. El `409` de un documento repetido
+  sigue siendo `CLIENT_DNI_ALREADY_EXISTS` hasta que el backend lo defina.
 - **La búsqueda de causas** mira el SAC, la carátula y el nombre del cliente
   en los dos órdenes ("gómez, ariel" y "ariel gómez"), sin distinguir tildes.
   Una causa sin SAC se encuentra por lo demás.

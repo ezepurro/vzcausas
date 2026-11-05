@@ -49,7 +49,15 @@ export const PROCEDURAL_ROLES_BY_JURISDICTION: Record<Jurisdiction, readonly Pro
 /** El cliente tal como viene embebido en la causa: sin `activeCases` ni `active`. */
 export type CaseClient = Pick<
     Client,
-    'id' | 'lastName' | 'firstName' | 'dni' | 'phone' | 'email' | 'clientSince'
+    | 'id'
+    | 'lastName'
+    | 'firstName'
+    | 'documentType'
+    | 'documentNumber'
+    | 'address'
+    | 'phone'
+    | 'email'
+    | 'clientSince'
 >
 
 /** El abogado responsable embebido (RN3). Apellido y nombres separados (V4 D-68). */
@@ -57,7 +65,8 @@ export interface CaseLawyer {
     id: number
     lastName: string
     firstName: string
-    registrationNumber: string
+    /** `null` si no tiene matrícula cargada: no es obligatoria. */
+    registrationNumber: string | null
 }
 
 /**

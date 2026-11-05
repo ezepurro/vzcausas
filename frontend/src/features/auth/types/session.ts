@@ -25,7 +25,8 @@ export interface AuthLawyer {
     id: number
     lastName: string
     firstName: string
-    registrationNumber: string
+    /** `null` si la ficha no tiene matrícula: no es obligatoria. */
+    registrationNumber: string | null
 }
 
 /**

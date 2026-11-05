@@ -79,6 +79,7 @@ import {
     type DayType,
     type DeadlinePreview,
     type DeadlineKind,
+    type DocumentType,
     type Jurisdiction,
     type Lawyer,
     type LawyerDashboard,
@@ -634,7 +635,9 @@ function lawyerLinked(lawyerId: number, exceptUserId?: number): boolean {
     return db.users.some((u) => u.active && u.lawyerId === lawyerId && u.id !== exceptUserId);
 }
 
-function registrationTaken(registrationNumber: string, exceptId?: number): boolean {
+/** Sin matrícula no hay choque: varios abogados pueden no tenerla. */
+function registrationTaken(registrationNumber: string | null, exceptId?: number): boolean {
+    if (registrationNumber === null) return false;
     return db.lawyers.some((l) => l.id !== exceptId && l.registrationNumber === registrationNumber);
 }
 
@@ -699,11 +702,12 @@ const createUser: Handler = ({ request }) => {
     let newLawyer: Lawyer | undefined;
     if (hasInlineLawyer) {
         const inline = asObject(body.lawyer);
-        const registrationNumber = asText(inline.registrationNumber);
+        // La matrícula es opcional: si no viene, la ficha queda sin ella.
+        const registrationNumber = optionalText(inline.registrationNumber);
 
         const lawyerDetails: Record<string, string> = {};
         const lawyerName = readPersonName(inline, lawyerDetails, { prefix: 'lawyer.' });
-        if (!RE_REGISTRATION.test(registrationNumber)) {
+        if (registrationNumber !== null && !RE_REGISTRATION.test(registrationNumber)) {
             lawyerDetails['lawyer.registrationNumber'] = 'El formato de la matrícula no es válido.';
         }
         if (Object.keys(lawyerDetails).length > 0) return validationError(lawyerDetails);
@@ -898,11 +902,12 @@ const createLawyer: Handler = ({ request }) => {
     if (!auth.ok) return auth.response;
 
     const body = asObject(request.body);
-    const registrationNumber = asText(body.registrationNumber);
+    // La matrícula es opcional: si no viene, la ficha queda sin ella.
+    const registrationNumber = optionalText(body.registrationNumber);
 
     const details: Record<string, string> = {};
     const { lastName, firstName } = readPersonName(body, details);
-    if (!RE_REGISTRATION.test(registrationNumber)) {
+    if (registrationNumber !== null && !RE_REGISTRATION.test(registrationNumber)) {
         details.registrationNumber = 'El formato de la matrícula no es válido.';
     }
     if (Object.keys(details).length > 0) return validationError(details);
@@ -936,7 +941,9 @@ const listLawyers: Handler = ({ request }) => {
     const filtered = db.lawyers
         .filter((l) => l.active)
         .filter((l) =>
-            search === '' ? true : matchesPerson(l, search) || contains(l.registrationNumber, search),
+            search === ''
+                ? true
+                : matchesPerson(l, search) || contains(l.registrationNumber ?? '', search),
         )
         .sort((a, b) => a.id - b.id)
         .map(toLawyer);
@@ -971,12 +978,13 @@ const updateLawyer: Handler = ({ request, params }) => {
         return validationError({ body: 'Debe enviarse al menos un campo para modificar.' });
     }
 
-    /* Los tres campos son obligatorios en la ficha: se pueden omitir, pero un
-       `null` o un texto vacío es un `400` (CA-14.4). */
+    /* Apellido y nombres son obligatorios en la ficha: se pueden omitir, pero
+       un `null` o un texto vacío es un `400` (CA-14.4). La matrícula no: en
+       `null` (o vacía) se borra. */
     const details: Record<string, string> = {};
-    const registrationNumber = asText(body.registrationNumber);
+    const registrationNumber = optionalText(body.registrationNumber);
     const name = readPersonName(body, details, { partial: true });
-    if (hasRegistration && !RE_REGISTRATION.test(registrationNumber)) {
+    if (hasRegistration && registrationNumber !== null && !RE_REGISTRATION.test(registrationNumber)) {
         details.registrationNumber = 'El formato de la matrícula no es válido.';
     }
     // El tratamiento no es parte del nombre (V4 D-81, V5 §3.3).
@@ -1473,12 +1481,28 @@ const deleteLegalQualification: Handler = ({ request, params }) => {
 const CLIENT_NAME_MAX = 100;
 const CLIENT_PHONE_MAX = 50;
 
+const CLIENT_ADDRESS_MAX = 255;
+
 /** DNI: 7 u 8 dígitos, sin puntos (V3 D-17). */
 const RE_DNI = /^\d{7,8}$/;
 
-/** Único entre los clientes vigentes: uno dado de baja libera su DNI. */
-function dniTaken(dni: string): boolean {
-    return db.clients.some((c) => c.active && c.dni === dni);
+/** Pasaporte: letras y números en mayúsculas, de 6 a 20. */
+const RE_PASSPORT = /^[A-Z0-9]{6,20}$/;
+
+const DOCUMENT_TYPES: readonly DocumentType[] = ['DNI', 'PASSPORT'];
+
+function isDocumentType(value: unknown): value is DocumentType {
+    return DOCUMENT_TYPES.includes(value as DocumentType);
+}
+
+/**
+ * Único por tipo entre los clientes vigentes: uno dado de baja libera su
+ * documento, y un DNI y un pasaporte con el mismo número no chocan.
+ */
+function documentTaken(documentType: DocumentType, documentNumber: string): boolean {
+    return db.clients.some(
+        (c) => c.active && c.documentType === documentType && c.documentNumber === documentNumber,
+    );
 }
 
 const createClient: Handler = ({ request }) => {
@@ -1489,7 +1513,9 @@ const createClient: Handler = ({ request }) => {
     const body = asObject(request.body);
     const lastName = asText(body.lastName);
     const firstName = asText(body.firstName);
-    const dni = asText(body.dni);
+    const documentType = body.documentType;
+    const documentNumber = asText(body.documentNumber);
+    const address = optionalText(body.address);
     const phone = optionalText(body.phone);
     const email = optionalText(body.email);
 
@@ -1502,16 +1528,25 @@ const createClient: Handler = ({ request }) => {
     else if (firstName.length > CLIENT_NAME_MAX) {
         details.firstName = `Puede tener hasta ${CLIENT_NAME_MAX} caracteres.`;
     }
-    if (!RE_DNI.test(dni)) details.dni = 'Debe contener 7 u 8 dígitos, sin puntos.';
+    if (!isDocumentType(documentType)) {
+        details.documentType = 'El tipo de documento no es válido.';
+    } else if (documentType === 'DNI' && !RE_DNI.test(documentNumber)) {
+        details.documentNumber = 'Debe contener 7 u 8 dígitos, sin puntos.';
+    } else if (documentType === 'PASSPORT' && !RE_PASSPORT.test(documentNumber)) {
+        details.documentNumber = 'Debe contener de 6 a 20 letras y números, sin espacios.';
+    }
+    if (address !== null && address.length > CLIENT_ADDRESS_MAX) {
+        details.address = `Puede tener hasta ${CLIENT_ADDRESS_MAX} caracteres.`;
+    }
     if (phone !== null && phone.length > CLIENT_PHONE_MAX) {
         details.phone = `Puede tener hasta ${CLIENT_PHONE_MAX} caracteres.`;
     }
     if (email !== null && !RE_EMAIL.test(email)) {
         details.email = 'El formato del correo electrónico no es válido.';
     }
-    if (Object.keys(details).length > 0) return validationError(details);
+    if (Object.keys(details).length > 0 || !isDocumentType(documentType)) return validationError(details);
 
-    if (dniTaken(dni)) return fail(409, ERRORS.clientDniTaken);
+    if (documentTaken(documentType, documentNumber)) return fail(409, ERRORS.clientDniTaken);
 
     // El backend guarda apellido y nombres tal como llegan; la fecha de alta
     // la pone él.
@@ -1519,7 +1554,9 @@ const createClient: Handler = ({ request }) => {
         id: db.nextClientId,
         lastName,
         firstName,
-        dni,
+        documentType,
+        documentNumber,
+        address,
         phone,
         email,
         clientSince: todayIso(),
@@ -1539,8 +1576,8 @@ const listClients: Handler = ({ request }) => {
     if (!page.ok) return page.response;
 
     const search = asText(request.query.get('search'));
-    // El DNI se busca como se guarda: quien escribe "34.812" busca "34812".
-    const digits = search.replace(/[.\s]/g, '');
+    // El documento se busca como se guarda: quien escribe "34.812" busca "34812".
+    const compact = search.replace(/[.\s]/g, '').toUpperCase();
     const filtered = db.clients
         .filter((c) => c.active)
         .filter((c) =>
@@ -1548,7 +1585,7 @@ const listClients: Handler = ({ request }) => {
                 ? true
                 : contains(c.lastName, search) ||
                   contains(c.firstName, search) ||
-                  (/^\d+$/.test(digits) && c.dni.includes(digits)),
+                  (/^[A-Z0-9]+$/.test(compact) && c.documentNumber.includes(compact)),
         )
         .sort((a, b) => byText(a.lastName, b.lastName) || byText(a.firstName, b.firstName))
         .map(toClient);

@@ -122,13 +122,12 @@ function validateLawyerLink(
     }
 
     /* La ficha nueva toma el apellido y los nombres del usuario, que ya se
-       validaron arriba: acá sólo falta la matrícula. */
+       validaron arriba: acá sólo falta la matrícula, que es opcional y sólo
+       se valida el formato si viene. */
     const errors: UserFormErrors = {}
 
     const registrationNumber = values.registrationNumber.trim()
-    if (!registrationNumber) {
-        errors.registrationNumber = 'La matrícula es obligatoria.'
-    } else if (!REGISTRATION_PATTERN.test(registrationNumber)) {
+    if (registrationNumber && !REGISTRATION_PATTERN.test(registrationNumber)) {
         errors.registrationNumber = 'El formato es circunscripción y número: 1-28114.'
     }
 

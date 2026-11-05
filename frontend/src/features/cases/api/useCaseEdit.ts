@@ -2,9 +2,8 @@ import { useState } from 'react'
 import { useToast } from '@/app/providers/ToastContext'
 import { isApiError } from '@/shared/api/ApiError'
 import type { SelectOption } from '@/shared/components/forms'
-import { formatPersonName } from '@/shared/lib/personName'
-import { formatClientName, formatDni, useClients } from '@/features/clients'
-import { useLawyers } from '@/features/lawyers'
+import { formatClientName, formatDocument, useClients } from '@/features/clients'
+import { lawyerLabel, useLawyers } from '@/features/lawyers'
 import { formatPrescription, useLegalQualifications } from '@/features/legal-params'
 /* Sólo tipos: la forma de lo que el hook le arma al diálogo. Es la única
    flecha de `api/` hacia `components/` del módulo (ver cases/CAMBIOS.md). */
@@ -84,23 +83,23 @@ export function useCaseEdit(c: Case) {
        sin la opción elegida. */
     const clientOptions: SelectOption[] = clients.map((item) => ({
         value: String(item.id),
-        label: `${formatClientName(item)} · DNI ${formatDni(item.dni)}`,
+        label: `${formatClientName(item)} · ${formatDocument(item)}`,
     }))
     if (!clients.some((item) => item.id === c.client.id)) {
         clientOptions.unshift({
             value: String(c.client.id),
-            label: `${formatClientName(c.client)} · DNI ${formatDni(c.client.dni)}`,
+            label: `${formatClientName(c.client)} · ${formatDocument(c.client)}`,
         })
     }
 
     const lawyerOptions: SelectOption[] = lawyers.map((item) => ({
         value: String(item.id),
-        label: `${formatPersonName(item)} · matrícula ${item.registrationNumber}`,
+        label: lawyerLabel(item),
     }))
     if (!lawyers.some((item) => item.id === c.responsibleLawyer.id)) {
         lawyerOptions.unshift({
             value: String(c.responsibleLawyer.id),
-            label: `${formatPersonName(c.responsibleLawyer)} · matrícula ${c.responsibleLawyer.registrationNumber}`,
+            label: lawyerLabel(c.responsibleLawyer),
         })
     }
 

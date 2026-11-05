@@ -37,10 +37,9 @@ export function validateLawyer(values: LawyerFormValues): LawyerFormErrors {
         errors.firstName = `Puede tener hasta ${NAME_MAX} caracteres.`
     }
 
+    /* Opcional: vacía está bien, y sólo se valida el formato si viene. */
     const registrationNumber = values.registrationNumber.trim()
-    if (!registrationNumber) {
-        errors.registrationNumber = 'La matrícula es obligatoria.'
-    } else if (!REGISTRATION_PATTERN.test(registrationNumber)) {
+    if (registrationNumber && !REGISTRATION_PATTERN.test(registrationNumber)) {
         errors.registrationNumber = 'El formato es circunscripción y número: 1-28114.'
     }
 

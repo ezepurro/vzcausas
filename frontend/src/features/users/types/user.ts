@@ -15,7 +15,8 @@ export interface EmbeddedLawyer {
     /** Desde V4 el apellido y los nombres van separados (D-68). */
     lastName: string
     firstName: string
-    registrationNumber: string
+    /** `null` si la ficha no tiene matrícula cargada: no es obligatoria. */
+    registrationNumber: string | null
 }
 
 /** El Usuario tal como viene adentro de `data`. */
@@ -45,7 +46,8 @@ export interface User {
 export interface NewLawyerBody {
     lastName: string
     firstName: string
-    registrationNumber: string
+    /** Opcional: vacía no viaja. */
+    registrationNumber?: string
 }
 
 /**
@@ -126,7 +128,7 @@ export type UserFormValues = {
     lawyerMode: string
     /** Id de la ficha a vincular, como string: sale de un select. */
     lawyerId: string
-    /** Matrícula de la ficha nueva, con el formato `1-28114`. */
+    /** Matrícula de la ficha nueva, con el formato `1-28114`. Opcional. */
     registrationNumber: string
 }
 

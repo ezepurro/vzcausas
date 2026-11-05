@@ -43,10 +43,10 @@ async function openCreate(user: User) {
 }
 
 /** Completa el formulario con un cliente que cae en la primera página. */
-async function fillValid(user: User, dialog: HTMLElement, dni = '35.778.120') {
+async function fillValid(user: User, dialog: HTMLElement, documentNumber = '35.778.120') {
     await user.type(within(dialog).getByLabelText(/^apellido/i), 'ALBORNOZ')
     await user.type(within(dialog).getByLabelText(/^nombres/i), 'Bruno')
-    await user.type(within(dialog).getByLabelText(/^dni/i), dni)
+    await user.type(within(dialog).getByLabelText(/^número de documento/i), documentNumber)
 }
 
 /*
@@ -73,14 +73,15 @@ describe('ClientsPage', () => {
         })
 
         /* CA-9.1, CA-8.5, CA-9.5, CA-9.6 (las causas en palabras) y CA-9.8 */
-        it('muestra de cada cliente la fecha de alta, el DNI con puntos, el contacto y sus causas', async () => {
+        it('muestra de cada cliente la fecha de alta, el documento, el contacto y sus causas', async () => {
             renderPage()
             await screen.findByText(FIRST)
 
             // ACOSTA no tiene correo y lleva una causa activa.
             const acosta = within(rowOf(FIRST))
             expect(acosta.getByText('desde 19/01/2022')).toBeInTheDocument()
-            expect(acosta.getByText('38.907.221')).toBeInTheDocument()
+            // El DNI con puntos, precedido por el tipo.
+            expect(acosta.getByText('DNI 38.907.221')).toBeInTheDocument()
             expect(acosta.getByText('351 744-1160')).toBeInTheDocument()
             expect(acosta.getByText('—')).toBeInTheDocument()
             expect(acosta.getByText('1 causa')).toBeInTheDocument()
@@ -89,9 +90,20 @@ describe('ClientsPage', () => {
             expect(within(rowOf('GÓMEZ, Ariel Fernando')).getByText('2 causas')).toBeInTheDocument()
         })
 
+        it('muestra el pasaporte tal como se guarda, sin puntos', async () => {
+            const { user } = renderPage()
+            await screen.findByText(FIRST)
+
+            await user.type(screen.getByRole('searchbox', { name: 'Buscar cliente' }), 'NAVARRO')
+
+            await waitFor(() => expect(screen.queryByText(FIRST)).not.toBeInTheDocument())
+            expect(within(rowOf('NAVARRO, Julio C.')).getByText('Pasaporte AAE482915')).toBeInTheDocument()
+        })
+
         /* CA-9.4 */
         it.each([
             ['DNI', '34812905', 'GÓMEZ, Ariel Fernando'],
+            ['pasaporte', 'AAE482915', 'NAVARRO, Julio C.'],
         ])('busca por %s', async (_, text, found) => {
             const { user } = renderPage()
             await screen.findByText(FIRST)
@@ -157,19 +169,41 @@ describe('ClientsPage', () => {
 
             // El listado se actualiza solo, con el cliente en su lugar alfabético.
             const row = within((await screen.findByText('ALBORNOZ, Bruno')).closest('tr') as HTMLElement)
-            expect(row.getByText('35.778.120')).toBeInTheDocument()
+            expect(row.getByText('DNI 35.778.120')).toBeInTheDocument()
             expect(row.getByText('351 400-1122')).toBeInTheDocument()
             expect(row.getByText('Sin causas')).toBeInTheDocument()
             // La fecha de alta la pone el backend: es la del día.
             expect(row.getByText(`desde ${formatDate(todayIsoDate())}`)).toBeInTheDocument()
 
-            // El DNI viajó sin puntos, y el correo vacío no viajó.
+            // El DNI viajó sin puntos, y la dirección y el correo vacíos no viajaron.
             expect(db.clients.find((c) => c.lastName === 'ALBORNOZ')).toMatchObject({
                 firstName: 'Bruno',
-                dni: '35778120',
+                documentType: 'DNI',
+                documentNumber: '35778120',
+                address: null,
                 phone: '351 400-1122',
                 email: null,
                 active: true,
+            })
+        })
+
+        it('registra un cliente con pasaporte y dirección', async () => {
+            const { user } = renderPage()
+            const dialog = await openCreate(user)
+
+            await user.type(within(dialog).getByLabelText(/^apellido/i), 'ALBORNOZ')
+            await user.type(within(dialog).getByLabelText(/^nombres/i), 'Bruno')
+            await user.selectOptions(within(dialog).getByLabelText(/^tipo de documento/i), 'Pasaporte')
+            // Se escribe en minúsculas y con espacios: viaja limpio.
+            await user.type(within(dialog).getByLabelText(/^número de documento/i), 'abc 123456')
+            await user.type(within(dialog).getByLabelText(/^dirección/i), 'Av. Colón 999, Córdoba')
+            await user.click(within(dialog).getByRole('button', { name: 'Registrar cliente' }))
+
+            expect(await screen.findByText('Cliente ALBORNOZ, Bruno registrado.')).toBeInTheDocument()
+            expect(db.clients.find((c) => c.lastName === 'ALBORNOZ')).toMatchObject({
+                documentType: 'PASSPORT',
+                documentNumber: 'ABC123456',
+                address: 'Av. Colón 999, Córdoba',
             })
         })
 
@@ -182,7 +216,7 @@ describe('ClientsPage', () => {
 
             expect(within(dialog).getByText('El apellido es obligatorio.')).toBeInTheDocument()
             expect(within(dialog).getByText('Los nombres son obligatorios.')).toBeInTheDocument()
-            expect(within(dialog).getByText('El DNI es obligatorio.')).toBeInTheDocument()
+            expect(within(dialog).getByText('El número de documento es obligatorio.')).toBeInTheDocument()
             // `FormModal` lleva al primer campo con error.
             expect(within(dialog).getByLabelText(/^apellido/i)).toHaveFocus()
             expect(db.clients).toHaveLength(CLIENTS.length)
@@ -199,9 +233,9 @@ describe('ClientsPage', () => {
             expect(
                 await within(dialog).findByText('Ya existe un cliente registrado con ese DNI.'),
             ).toBeInTheDocument()
-            expect(within(dialog).getByLabelText(/^dni/i).closest('.vz-field')).toHaveClass('vz-field--error')
+            expect(within(dialog).getByLabelText(/^número de documento/i).closest('.vz-field')).toHaveClass('vz-field--error')
             // También cuando el error llega del servidor.
-            await waitFor(() => expect(within(dialog).getByLabelText(/^dni/i)).toHaveFocus())
+            await waitFor(() => expect(within(dialog).getByLabelText(/^número de documento/i)).toHaveFocus())
             expect(screen.getByRole('dialog')).toBeInTheDocument()
             // Lo que ya se cargó no se pierde.
             expect(within(dialog).getByLabelText(/^apellido/i)).toHaveValue('ALBORNOZ')

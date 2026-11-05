@@ -24,7 +24,9 @@ type Modal = {kind: 'create'} | null
 const EMPTY_FORM: ClientFormValues = {
     lastName: '',
     firstName: '',
-    dni: '',
+    documentType: 'DNI',
+    documentNumber: '',
+    address: '',
     phone: '',
     email: '',
 }
@@ -73,7 +75,7 @@ export function ClientsPage() {
         if (!isApiError(error)) throw error
 
         if (error.is('CLIENT_DNI_ALREADY_EXISTS')) {
-            setErrors({dni: error.message})
+            setErrors({documentNumber: error.message})
             return
         }
         if (error.isValidation) {
