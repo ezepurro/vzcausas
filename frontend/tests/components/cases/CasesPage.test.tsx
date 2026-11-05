@@ -5,6 +5,7 @@ import { renderWithProviders } from '../../setup/render'
 import { usePrototypeToday } from '../../setup/clock'
 import { server } from '@/shared/mocks/server'
 import { errorBody } from '@/shared/mocks'
+import { HOVER_INTENT_MS } from '@/shared/hooks/useHoverIntent'
 import { ALL_STATES } from '@/features/cases/utils/stateFilter'
 import { CasesPage } from '@/features/cases/pages/CasesPage'
 
@@ -238,6 +239,95 @@ describe('CasesPage', () => {
 
             expect(await screen.findByText('Detalle de la causa')).toBeInTheDocument()
             expect(router.state.location.pathname).toBe('/causas/1')
+        })
+
+        /* Sin criterio de aceptación: es para que el detalle cargue antes.
+           Apuntar a "Ver detalle" pide la causa y su línea de vida, sin navegar;
+           volver a apuntar no repite los pedidos (siguen frescos). */
+        it('apuntar a "Ver detalle" pide de antemano la causa y su línea de vida', async () => {
+            const { user, router } = renderPage()
+            await screen.findByText(LOADED)
+            const requested: string[] = []
+            server.events.on('request:start', ({ request }) => {
+                requested.push(`${request.method} ${new URL(request.url).pathname.replace(/^\/api/, '')}`)
+            })
+
+            try {
+                const button = within(rowOf('13284571')).getByRole('button', { name: 'Ver detalle' })
+                await user.hover(button)
+                await waitFor(() =>
+                    expect(requested).toEqual(expect.arrayContaining(['GET /cases/1', 'GET /cases/1/timeline'])),
+                )
+                await user.unhover(button)
+                await user.hover(button)
+                // Lo que tarda en contar como intención, y algo más.
+                await new Promise((resolve) => setTimeout(resolve, HOVER_INTENT_MS * 2))
+
+                expect(requested.filter((r) => r === 'GET /cases/1')).toHaveLength(1)
+                expect(router.state.location.pathname).toBe('/causas')
+            } finally {
+                server.events.removeAllListeners()
+            }
+        })
+
+        /* Sin criterio de aceptación: la página 2 se pide recién cuando el
+           mouse se queda sobre "Siguiente" (`usePrefetchPage`, con
+           `useHoverIntent`), y el click la muestra sin otro pedido. Cargar la
+           página 1 no la pide sola, ni la de los desplegables de filtros. */
+        it('pide la página siguiente al apuntar a "Siguiente", y el click la muestra sin volver a pedirla', async () => {
+            const listed: string[] = []
+            server.events.on('request:start', ({ request }) => {
+                const url = new URL(request.url)
+                if (request.method === 'GET' && url.searchParams.has('page')) {
+                    listed.push(`${url.pathname.replace(/^\/api/, '')}?page=${url.searchParams.get('page')}`)
+                }
+            })
+
+            try {
+                const { user } = renderPage()
+                await screen.findByText(LOADED)
+                // Lo que tarda en contar como intención, y algo más: sin apuntar, nada.
+                await new Promise((resolve) => setTimeout(resolve, HOVER_INTENT_MS * 2))
+                expect(listed.filter((r) => r.endsWith('page=2'))).toEqual([])
+
+                const next = screen.getByRole('button', { name: /siguiente/i })
+                await user.hover(next)
+                await waitFor(() => expect(listed).toContain('/cases?page=2'))
+
+                await user.click(next)
+
+                expect(screen.getByText('13902244')).toBeInTheDocument()
+                expect(listed.filter((r) => r === '/cases?page=2')).toHaveLength(1)
+                expect(listed.filter((r) => r.endsWith('page=2') && !r.startsWith('/cases?'))).toEqual([])
+            } finally {
+                server.events.removeAllListeners()
+            }
+        })
+
+        /* Pasar el mouse por la columna de "Ver detalle" sin quedarse en
+           ninguno no pide nada: la API no recibe pedidos que nadie va a usar
+           (el límite de pedidos es por IP, compartido por el estudio). */
+        it('pasar el mouse de largo por varias filas no pide ninguna causa', async () => {
+            const { user } = renderPage()
+            await screen.findByText(LOADED)
+            const requested: string[] = []
+            server.events.on('request:start', ({ request }) => {
+                requested.push(new URL(request.url).pathname.replace(/^\/api/, ''))
+            })
+
+            try {
+                const buttons = screen.getAllByRole('button', { name: 'Ver detalle' })
+                expect(buttons.length).toBeGreaterThan(5)
+                for (const button of buttons) {
+                    await user.hover(button)
+                    await user.unhover(button)
+                }
+                await new Promise((resolve) => setTimeout(resolve, HOVER_INTENT_MS * 2))
+
+                expect(requested.filter((path) => /^\/cases\/\d+/.test(path))).toEqual([])
+            } finally {
+                server.events.removeAllListeners()
+            }
         })
     })
 })

@@ -5,9 +5,73 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>VZ Causas</title>
+    <!--
+      Pantalla de carga (BootScreen). Va acá y no en src/styles porque se
+      dibuja antes que cualquier JavaScript: sin esto, un F5 queda en blanco
+      hasta que la app arranca. Los componentes de React (BootScreen.tsx)
+      usan estas mismas clases.
+
+      Los colores son tokens de tokens.css con su valor de respaldo, porque
+      en el primer instante los tokens todavía no cargaron: si cambia un
+      token, actualizá también el respaldo. Las duraciones (2400ms la vuelta,
+      1200ms los puntos suspensivos) están también en BootScreen.tsx
+      (ORBIT_MS y DOTS_MS); un test verifica que coincidan.
+    -->
+    <style>
+      .vz-boot {
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 18px;
+        margin: 0;
+        background: var(--vz-canvas, #F6F7F4);
+        font-family: var(--vz-font, system-ui, -apple-system, sans-serif);
+      }
+      /* Lo mismo que base.css, para el instante antes de que cargue. */
+      body { margin: 0; background: var(--vz-canvas, #F6F7F4); }
+      .vz-boot__art { width: 132px; height: 132px; }
+      .vz-boot__ring { fill: none; stroke: var(--vz-border, #DDE2DC); stroke-width: 1.5; }
+      .vz-boot__ring--dashed { stroke-dasharray: 3 6; }
+      .vz-boot__mark { fill: var(--vz-primary, #406640); }
+      .vz-boot__dot { fill: var(--vz-primary, #406640); }
+      /* Estela del punto (90°) y brillo del círculo del medio (120°): arcos
+         que se desvanecen hacia atrás y giran con el punto. */
+      .vz-boot__tail { fill: none; stroke-width: 3; stroke-linecap: round; }
+      .vz-boot__glow { fill: none; stroke-width: 1.5; stroke-linecap: round; }
+      .vz-boot__stop { stop-color: var(--vz-primary, #406640); }
+      .vz-boot__orbit {
+        transform-origin: 66px 66px;
+        animation: vz-boot-orbit 2400ms linear infinite;
+      }
+      .vz-boot__text {
+        margin: 0;
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--vz-muted, #5A6560);
+      }
+      /* El "…" se revela de a un punto recortando su caja: el ancho no
+         cambia, así el texto no se mueve. */
+      .vz-boot__ellipsis {
+        display: inline-block;
+        animation: vz-boot-dots 1200ms steps(1, end) infinite;
+      }
+      @keyframes vz-boot-orbit { to { transform: rotate(360deg); } }
+      @keyframes vz-boot-dots {
+        0%       { clip-path: inset(0 100% 0 0); }
+        25%      { clip-path: inset(0 66% 0 0); }
+        50%      { clip-path: inset(0 33% 0 0); }
+        75%,100% { clip-path: inset(0 0 0 0); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .vz-boot__orbit,
+        .vz-boot__ellipsis { animation: none; }
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root"><div class="vz-boot" role="status"><svg class="vz-boot__art" viewBox="0 0 132 132" aria-hidden="true"><defs><linearGradient id="vz-boot-tail" gradientUnits="userSpaceOnUse" x1="8" y1="66" x2="66" y2="8"><stop class="vz-boot__stop" offset="0" stop-opacity="0"></stop><stop class="vz-boot__stop" offset="1" stop-opacity=".6"></stop></linearGradient><linearGradient id="vz-boot-glow" gradientUnits="userSpaceOnUse" x1="33.1" y1="85" x2="66" y2="28"><stop class="vz-boot__stop" offset="0" stop-opacity="0"></stop><stop class="vz-boot__stop" offset="1" stop-opacity=".35"></stop></linearGradient></defs><circle class="vz-boot__ring" cx="66" cy="66" r="38"></circle><circle class="vz-boot__ring vz-boot__ring--dashed" cx="66" cy="66" r="58"></circle><svg x="48" y="53" width="36" height="26" viewBox="0 0 60 42"><path class="vz-boot__mark" d="M2 2h12l10 26L34 2h12L28 40H16L2 2z"></path><path class="vz-boot__mark" d="M38 2h20L40 34h18v6H30L48 8H38V2z" opacity=".55"></path></svg><g class="vz-boot__orbit"><path class="vz-boot__glow" d="M33.1 85A38 38 0 0 1 66 28" stroke="url(#vz-boot-glow)"></path><path class="vz-boot__tail" d="M8 66A58 58 0 0 1 66 8" stroke="url(#vz-boot-tail)"></path><circle class="vz-boot__dot" cx="66" cy="8" r="4.5"></circle></g></svg><p class="vz-boot__text">Cargando<span class="vz-boot__ellipsis">…</span></p></div></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

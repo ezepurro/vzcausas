@@ -14,7 +14,7 @@ import {
 } from '@/shared/components/ui'
 import { Select, type SelectOption } from '@/shared/components/forms'
 import { useLawyers } from '@/features/lawyers'
-import { useUsers } from '@/features/users/api/useUsers'
+import { useUsers, usePrefetchUsersPage } from '@/features/users/api/useUsers'
 import { useCreateUser } from '@/features/users/api/useCreateUser'
 import { useUpdateUser } from '@/features/users/api/useUpdateUser'
 import { useDeleteUser } from '@/features/users/api/useDeleteUser'
@@ -84,12 +84,15 @@ export function UsersPage() {
     const [values, setValues] = useState<UserFormValues>(EMPTY_FORM)
     const [errors, setErrors] = useState<UserFormErrors>({})
 
-    const query = useUsers({
+    const listParams = {
         page,
         limit: LIMIT,
         search: debouncedSearch === '' ? undefined : debouncedSearch,
         role: role === ALL_ROLES ? undefined : role,
-    })
+    }
+    const query = useUsers(listParams)
+    // Al apuntar a "Siguiente" se pide esa página (`usePrefetchPage`).
+    const prefetchPage = usePrefetchUsersPage(listParams)
 
     /* Las fichas para el select del formulario. Se piden siempre y no sólo
         con el modal abierto porque son pocas y quedan cacheadas: abrir el alta
@@ -270,7 +273,6 @@ export function UsersPage() {
             onSuccess: () => {
                 // `info` y no `success`: salió bien, pero no es un logro.
                 toast('info', `${formatPersonName(user)} Eliminado correctamente.`)
-                closeModal()
                 // Si era la única fila de la página, no dejar al usuario en
                 // una página que ya no existe.
                 if (rows.length === 1 && page > 1) setPage(page - 1)
@@ -279,9 +281,10 @@ export function UsersPage() {
                 // Acá no hay campos que marcar: el 409 de dependencias es del
                 // registro entero.
                 if (isApiError(error)) toast('error', error.message)
-                closeModal()
             },
         })
+        // Se cierra al confirmar: la fila ya salió de la tabla (`useDeleteUser`).
+        closeModal()
     }
 
     /* ---------------- pantalla ---------------- */
@@ -322,6 +325,7 @@ export function UsersPage() {
                         totalItems={pagination?.totalItems ?? 0}
                         noun={['usuario', 'usuarios']}
                         onChange={setPage}
+                        onIntent={prefetchPage}
                     />
                 }
             >

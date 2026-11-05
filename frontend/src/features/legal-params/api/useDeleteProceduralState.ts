@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { removeFromLists, restoreLists } from '@/shared/api/optimisticRemoval';
 import { deleteProceduralState } from './proceduralStates.api';
 import { proceduralStateKeys } from './proceduralStates.keys';
 
@@ -18,9 +19,12 @@ export function useDeleteProceduralState() {
 
     return useMutation({
         mutationFn: deleteProceduralState,
+        // La fila sale de la tabla al confirmar; si la baja falla, vuelve (`optimisticRemoval`).
+        onMutate: (id) => removeFromLists(queryClient, proceduralStateKeys.lists(), id),
+        onError: (_error, _id, snapshot) => restoreLists(queryClient, snapshot),
         onSuccess: (_data, id) => {
             queryClient.removeQueries({ queryKey: proceduralStateKeys.detail(id) });
-            queryClient.invalidateQueries({ queryKey: proceduralStateKeys.lists() });
         },
+        onSettled: () => queryClient.invalidateQueries({ queryKey: proceduralStateKeys.lists() }),
     });
 }

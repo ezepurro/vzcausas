@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { casesKeys } from '@/features/cases'
 import type { UpdateProceduralActBody } from '@/features/proceedings/types/proceduralAct'
+import { refreshCaseAfterAct } from '@/features/cases'
 import { updateProceduralAct } from './proceduralActs.api'
 import { proceduralActKeys } from './proceduralActs.keys'
 
@@ -10,7 +10,8 @@ import { proceduralActKeys } from './proceduralActs.keys'
  * Corregir un acto puede cambiar el estado y el vencimiento de la causa, y
  * hasta cerrarla o reabrirla (D-99). Como en el registro, se invalidan el
  * detalle de la causa —que arrastra su línea de vida— y todos los listados de
- * causas. El acto se reemplaza con lo que devolvió el servidor.
+ * causas, y la mutación termina recién cuando llegó la causa nueva
+ * (`refreshCaseAfterAct`). El acto se reemplaza con lo que devolvió el servidor.
  */
 export function useUpdateProceduralAct(caseId: number, actId: number) {
     const queryClient = useQueryClient()
@@ -19,8 +20,8 @@ export function useUpdateProceduralAct(caseId: number, actId: number) {
         mutationFn: (body: UpdateProceduralActBody) => updateProceduralAct(caseId, actId, body),
         onSuccess: (updated) => {
             queryClient.setQueryData(proceduralActKeys.detail(caseId, actId), updated)
-            queryClient.invalidateQueries({ queryKey: casesKeys.detail(caseId) })
-            queryClient.invalidateQueries({ queryKey: casesKeys.lists() })
+            // Queda pendiente hasta que llega la causa nueva: ver `refreshCaseAfterAct`.
+            return refreshCaseAfterAct(queryClient, caseId)
         },
     })
 }

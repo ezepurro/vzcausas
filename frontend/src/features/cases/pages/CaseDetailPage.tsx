@@ -77,6 +77,12 @@ export function CaseDetailPage() {
     const navigate = useNavigate()
     const validId = Number.isInteger(caseId) && caseId > 0
     const query = useCase(caseId)
+    /* La línea de vida sólo necesita el id: se pide acá, junto con la causa, y
+       no recién cuando `CaseDetail` se monta con la causa ya llegada. Es la
+       misma consulta que lee el panel (comparten la clave), así que no sale
+       dos veces. Los documentos no se adelantan: dependen de que la carpeta
+       esté creada, y eso lo dice la causa (CA-38.5). */
+    useCaseTimeline(caseId)
     // Al listado o a Inicio, según de dónde se entró.
     const goBack = useGoBack('/causas')
 

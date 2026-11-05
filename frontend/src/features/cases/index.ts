@@ -17,6 +17,7 @@
 export { useCase } from './api/useCase'
 export { useCreateCase } from './api/useCreateCase'
 export { casesKeys } from './api/cases.keys'
+export { refreshCaseAfterAct } from './api/refreshCaseAfterAct'
 export { CaseHeader } from './components/CaseHeader'
 export { CaseHeaderSkeleton } from './components/CaseSkeletons'
 export { PrescriptionBar } from './components/PrescriptionBar'

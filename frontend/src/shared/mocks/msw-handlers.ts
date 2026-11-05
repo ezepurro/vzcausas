@@ -32,7 +32,13 @@ export interface MockOptions {
      * como contra un servidor desplegado: así se ven respuestas que llegan
      * desordenadas y estados de carga de duración variable.
      */
-    latencyMs: number | readonly [min: number, max: number];
+    latencyMs: Latency;
+    /**
+     * Demora propia de algunas rutas, que gana sobre `latencyMs`. La clave es
+     * `MÉTODO /ruta` tal como está en `ROUTE_TABLE` (`'GET /cases/:caseId'`);
+     * lo que no esté en el perfil usa `latencyMs`. `null`: todas iguales.
+     */
+    latencyProfile: LatencyProfile | null;
     /** Loguea cada pedido en la consola con método, ruta y código. */
     log: boolean;
     /**
@@ -61,8 +67,61 @@ export interface MockOptions {
     passthrough: (string | RegExp)[];
 }
 
+/** Una demora fija o un rango `[min, max]`, en milisegundos. */
+export type Latency = number | readonly [min: number, max: number];
+
+/** Demora por ruta: `'GET /cases/:caseId'` → demora. */
+export type LatencyProfile = Readonly<Record<string, Latency>>;
+
+/**
+ * Perfil `realistic`: lo que tardaría cada endpoint contra el backend
+ * desplegado, para ver qué pantallas sufren la demora.
+ *
+ * **Son estimaciones, no mediciones**: el contrato no fija tiempos. El orden
+ * sí sale de lo que hace el backend: lo que pasa por Google Drive (documentos,
+ * carpeta, modelos, carátula y expediente en PDF) es lo más lento; los
+ * tableros agregan sobre toda la cartera; la causa, su línea de vida y la
+ * vista previa del plazo calculan en cada lectura (prescripción, días
+ * hábiles). El login verifica la contraseña con hash, que es lento a
+ * propósito. El resto (catálogos, listados chicos, altas simples) usa
+ * `latencyMs`.
+ */
+export const REALISTIC_LATENCY: LatencyProfile = {
+    // Sesión
+    'POST /auth/login': [400, 900],
+    'POST /auth/refresh': [150, 400],
+    // Causas: se calculan en cada lectura
+    'GET /cases': [300, 800],
+    'GET /cases/:caseId': [250, 600],
+    'GET /cases/:caseId/timeline': [250, 600],
+    'GET /cases/:caseId/procedural-acts/deadline-preview': [150, 400],
+    'POST /cases/:caseId/procedural-acts': [400, 900],
+    'PATCH /cases/:caseId/procedural-acts/:actId': [400, 900],
+    // El alta y la modificación pueden crear, renombrar o mover la carpeta
+    'POST /cases': [1200, 2500],
+    'PATCH /cases/:caseId': [800, 1800],
+    // Tableros (reporting)
+    'GET /dashboards/lawyer': [800, 1600],
+    'GET /dashboards/administrator': [900, 1800],
+    // Google Drive
+    'POST /cases/:caseId/folder': [1500, 3500],
+    'GET /cases/:caseId/documents': [1200, 2500],
+    'GET /cases/:caseId/documents/:documentId/file': [1500, 3500],
+    'POST /document-templates': [1500, 3000],
+    'GET /document-templates/:templateId/file': [1000, 2500],
+    // PDF armados por el backend
+    'GET /cases/:caseId/cover': [1200, 2500],
+    'POST /cases/:caseId/case-files': [3000, 6000],
+};
+
+/** Los perfiles que se pueden pedir por `VITE_MOCK_LATENCY_PROFILE`. */
+const LATENCY_PROFILES: Readonly<Record<string, LatencyProfile>> = {
+    realistic: REALISTIC_LATENCY,
+};
+
 const options: MockOptions = {
     latencyMs: 300,
+    latencyProfile: null,
     log: true,
     forceFailure: null,
     passthrough: [],
@@ -75,10 +134,27 @@ export function configureMocks(changes: Partial<MockOptions>): MockOptions {
 }
 
 /** La demora de un pedido: la fija o una al azar dentro del rango. */
-function pickLatency(latency: MockOptions['latencyMs']): number {
+function pickLatency(latency: Latency): number {
     if (typeof latency === 'number') return latency;
     const [min, max] = latency;
     return Math.round(min + Math.random() * Math.max(0, max - min));
+}
+
+/**
+ * La demora que corresponde a una ruta de `ROUTE_TABLE`: la del perfil, si la
+ * tiene, y si no `latencyMs`.
+ */
+export function latencyFor(method: HttpMethod, routePath: string, current: MockOptions = options): Latency {
+    return current.latencyProfile?.[`${method} ${routePath}`] ?? current.latencyMs;
+}
+
+/**
+ * Lee el perfil de `VITE_MOCK_LATENCY_PROFILE` (hoy, sólo `"realistic"`).
+ * Devuelve `undefined` si no está o no se conoce, y ahí no hay perfil.
+ */
+export function latencyProfileFromEnv(raw: string | undefined): LatencyProfile | undefined {
+    const name = raw?.trim().toLowerCase();
+    return name ? LATENCY_PROFILES[name] : undefined;
 }
 
 /**
@@ -86,7 +162,7 @@ function pickLatency(latency: MockOptions['latencyMs']): number {
  * rango. Devuelve `undefined` si no está o no se entiende, y ahí queda el
  * default.
  */
-export function latencyFromEnv(raw: string | undefined): MockOptions['latencyMs'] | undefined {
+export function latencyFromEnv(raw: string | undefined): Latency | undefined {
     const match = /^\s*(\d+)\s*(?:-\s*(\d+)\s*)?$/.exec(raw ?? '');
     if (!match) return undefined;
     const min = Number(match[1]);
@@ -222,7 +298,10 @@ async function readBody(request: Request): Promise<unknown> {
 /* Resolver                                                            */
 /* ------------------------------------------------------------------ */
 
-async function resolver({ request }: { request: Request }) {
+/** La ruta de `ROUTE_TABLE` que atendió el pedido: de ahí sale su demora. */
+type Route = (typeof ROUTE_TABLE)[number];
+
+async function resolver({ request }: { request: Request }, route: Route) {
     const url = new URL(request.url);
     const path = normalizePath(url.pathname);
 
@@ -233,7 +312,7 @@ async function resolver({ request }: { request: Request }) {
         return passthrough();
     }
 
-    const latency = pickLatency(options.latencyMs);
+    const latency = pickLatency(latencyFor(route.method, route.path));
     if (latency > 0) await delay(latency);
 
     if (options.forceFailure === 'network') {
@@ -263,7 +342,8 @@ async function resolver({ request }: { request: Request }) {
 
     if (options.log) {
         const query = url.searchParams.toString();
-        console.info(`[mock] ${mockRequest.method} ${path}${query ? `?${query}` : ''} → ${result.status}`);
+        const took = latency > 0 ? ` (${latency} ms)` : '';
+        console.info(`[mock] ${mockRequest.method} ${path}${query ? `?${query}` : ''} → ${result.status}${took}`);
     }
 
     if (result.file) {
@@ -304,8 +384,8 @@ async function resolver({ request }: { request: Request }) {
  * prefijo, así el mismo handler sirve para `/users`, `/api/users` y
  * `/api/v1/users` sin registrar una variante por cada uno.
  */
-export const handlers: RequestHandler[] = ROUTE_TABLE.map(({ method, path }) =>
-    http[method.toLowerCase() as Lowercase<HttpMethod>](`*${path}`, resolver),
+export const handlers: RequestHandler[] = ROUTE_TABLE.map((route) =>
+    http[route.method.toLowerCase() as Lowercase<HttpMethod>](`*${route.path}`, (info) => resolver(info, route)),
 );
 
 /** `true` si el `.env` pide mocks (`VITE_USE_MOCKS=true`). */

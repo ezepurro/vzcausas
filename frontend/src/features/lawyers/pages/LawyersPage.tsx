@@ -10,7 +10,7 @@ import {
     Panel,
     SearchInput,
 } from '@/shared/components/ui'
-import { useLawyers } from '@/features/lawyers/api/useLawyers'
+import { useLawyers, usePrefetchLawyersPage } from '@/features/lawyers/api/useLawyers'
 import { useCreateLawyer } from '@/features/lawyers/api/useCreateLawyer'
 import { useUpdateLawyer } from '@/features/lawyers/api/useUpdateLawyer'
 import type { Lawyer, LawyerFormValues } from '@/features/lawyers/types/lawyer'
@@ -49,11 +49,14 @@ export function LawyersPage() {
     const [errors, setErrors] = useState<LawyerFormErrors>({})
 
     const debouncedSearch = useDebouncedValue(search.trim())
-    const query = useLawyers({
+    const listParams = {
         page,
         limit: LIMIT,
         search: debouncedSearch === '' ? undefined : debouncedSearch,
-    })
+    }
+    const query = useLawyers(listParams)
+    // Al apuntar a "Siguiente" se pide esa página (`usePrefetchPage`).
+    const prefetchPage = usePrefetchLawyersPage(listParams)
     const create = useCreateLawyer()
     const update = useUpdateLawyer()
 
@@ -198,6 +201,7 @@ export function LawyersPage() {
                         totalItems={pagination?.totalItems ?? 0}
                         noun={['abogado', 'abogados']}
                         onChange={setPage}
+                        onIntent={prefetchPage}
                     />
                 }
             >

@@ -1,3 +1,4 @@
+import { useHoverIntent } from '@/shared/hooks/useHoverIntent';
 import { Button } from './Button';
 import { Icon } from './Icon';
 
@@ -14,16 +15,24 @@ export interface PaginationProps {
    */
   noun: [singular: string, plural: string];
   onChange: (page: number) => void;
+  /**
+   * El usuario apunta a "Siguiente": el mouse quedó encima un momento o tomó
+   * el foco (`useHoverIntent`). Recibe la página a la que iría, para que la
+   * pantalla la pida de antemano.
+   */
+  onIntent?: (page: number) => void;
 }
 
 /**
  * Paginado del pie de un panel.
  *
  * Presentacional: no sabe cuántas páginas hay realmente ni pide datos, sólo
- * avisa a qué página quiere ir el usuario.
+ * avisa a qué página quiere ir el usuario (o a cuál apunta, con `onIntent`).
  */
-export function Pagination({ page, totalPages, totalItems, noun, onChange }: PaginationProps) {
+export function Pagination({ page, totalPages, totalItems, noun, onChange, onIntent }: PaginationProps) {
   const [singular, plural] = noun;
+  const intent = useHoverIntent(onIntent);
+  const hasNext = page < totalPages;
 
   return (
     <div className="vz-pager">
@@ -55,8 +64,10 @@ export function Pagination({ page, totalPages, totalItems, noun, onChange }: Pag
         <Button
           variant="secondary"
           size="sm"
-          disabled={page >= totalPages}
+          disabled={!hasNext}
           onClick={() => onChange(page + 1)}
+          // En la última página no hay qué pedir.
+          {...(hasNext && intent(page + 1))}
         >
           {/* La flecha va DESPUÉS del texto, así que entra por los children:
               `icon` siempre se dibuja a la izquierda. */}

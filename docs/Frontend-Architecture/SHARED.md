@@ -29,13 +29,15 @@ shared/
 │   ├── ApiError.ts
 │   ├── contract.ts           forma de los errores (codigos + cuerpos)
 │   ├── http.ts
-│   └── queryClient.ts
+│   ├── optimisticRemoval.ts  sacar una fila de los listados al confirmar una baja
+│   ├── queryClient.ts
+│   └── usePrefetchPage.ts    pedir de antemano una página de una tabla (al apuntar a "Siguiente")
 ├── components/
 │   ├── index.ts              barrel: reexporta ui + forms
 │   ├── ui/                   19 archivos (20 componentes: Skeleton.tsx trae LoadingState y Skeleton) + index.ts
 │   ├── forms/                Field.tsx, PasswordInput.tsx, Combobox.tsx, SegmentedControl.tsx, FormModal.tsx + index.ts
 │   └── feedback/             VACÍA (sólo .gitkeep)
-├── hooks/                    useDebouncedValue.ts, useFocusFirstError.ts, useCountdown.ts
+├── hooks/                    useDebouncedValue.ts, useFocusFirstError.ts, useCountdown.ts, useHoverIntent.ts
 ├── lib/                      dates.ts, personName.ts, initials.ts, saveFile.ts, printFile.ts, drafts.ts, focusFirstError.ts
 ├── mocks/                    la API del contrato, simulada (ver su README)
 │   ├── contract.ts           tipos del contrato
@@ -195,6 +197,9 @@ import { ApiError, isApiError } from '@/shared/api/ApiError';
 | Filtros sobre una tabla | `Panel actions={...}` | Se renderiza en `.vz-filters` |
 | Paginar una tabla | `Pagination` | Va en `Panel footer={...}` |
 | Buscador de un listado | `SearchInput` + `useDebouncedValue` de `@/shared/hooks/useDebouncedValue` | El input muestra el texto al instante; a la consulta va el valor demorado, así no sale un pedido por tecla |
+| Que "Siguiente" no espere | `usePrefetchPage` de `@/shared/api/usePrefetchPage`, envuelto por el listado (`usePrefetchCasesPage(listParams)`, junto a `useCases`), y lo que devuelve en `Pagination onIntent` | Pide la página recién al apuntar a "Siguiente", no al cargar cada una: así el buscador no pide la página 2 de cada término |
+| Que la fila desaparezca al confirmar una baja | `removeFromLists` / `restoreLists` de `@/shared/api/optimisticRemoval` | En `onMutate` / `onError` de la mutación; `onSettled` invalida los listados igual. Si el servidor rechaza, la fila vuelve |
+| Pedir de antemano lo que abre un botón ("Ver detalle") | `useHoverIntent` de `@/shared/hooks/useHoverIntent` | Avisa si el mouse se queda encima 150 ms o si el botón toma el foco. Pasar el mouse de largo no pide nada |
 | Mostrar un último ingreso | `formatLastLogin` de `@/shared/lib/dates` | Para que la fecha no se formatee distinto en cada feature |
 | Mostrar una fecha sin hora (`startDate`, `dueDate`) | `formatDate` de `@/shared/lib/dates` | **Nunca** `new Date('2026-09-15')`: la corre un día |
 | Mostrar un instante con hora (`registeredAt`, `createdAt`) | `formatDateTime`, `formatInstantDate` o `formatTime` de `@/shared/lib/dates` | Éstas sí pasan por `new Date`: el instante trae su offset |
@@ -325,13 +330,16 @@ dejan su propia rama sólo para el error.
 
 **Path:** `components/ui/Pagination.tsx`
 **Props:** `page`, `totalPages`, `totalItems`, `noun: [singular, plural]`,
-`onChange(page)`.
+`onChange(page)`, `onIntent?(page)`.
 **Notas:** va en el `footer` del `Panel` que envuelve la tabla, no adentro de la
 tabla. Presentacional como el resto: no sabe cuántas páginas hay de verdad ni
 pide datos, sólo avisa a qué página quiere ir el usuario; el estado y el
 refetch son de la pantalla. El `noun` va como par y no derivado con una `s`
 porque el castellano no siempre pluraliza así. Con `totalItems` en 0 muestra
-"Sin resultados".
+"Sin resultados". `onIntent` avisa la página siguiente cuando el usuario apunta
+a "Siguiente" (`useHoverIntent`: 150 ms con el mouse encima, o el foco); la
+pantalla le pasa el `usePrefetch…Page` de su listado. En la última página no
+avisa.
 
 ```tsx
 <Panel
@@ -343,6 +351,7 @@ porque el castellano no siempre pluraliza así. Con `totalItems` en 0 muestra
       totalItems={pagination?.totalItems ?? 0}
       noun={['usuario', 'usuarios']}
       onChange={setPage}
+      onIntent={prefetchPage}
     />
   }
 >
@@ -796,6 +805,31 @@ Cuenta regresiva en segundos, para un `429` con `retryAfterSeconds`. Un valor
 nuevo reinicia la cuenta y `null` la apaga. Devuelve `null` cuando no hay
 cuenta o llegó a cero, así sirve directo como "¿está bloqueado?". Hoy lo usa
 `LoginPage`.
+
+### useHoverIntent
+
+**Path:** `hooks/useHoverIntent.ts`
+**Firma:** `useHoverIntent<T>(onIntent: ((value: T) => void) | undefined, delay = HOVER_INTENT_MS): (value: T) => HoverIntentHandlers`
+
+Avisa que el usuario **apunta** a un elemento, para pedir de antemano lo que
+va a abrir. Con el mouse, recién cuando lleva `delay` (150 ms) encima; con el
+teclado, al tomar el foco. Devuelve una función que arma los manejadores de
+cada elemento, así una tabla usa un solo hook para todas sus filas:
+
+```tsx
+const intent = useHoverIntent(onIntent)
+
+<Button onClick={() => onOpen(c)} {...intent(c)}>Ver detalle</Button>
+```
+
+- La espera es para la API: barrer una columna de 20 botones sin ella manda
+  40 pedidos que nadie usa, y el límite de pedidos del backend es por IP
+  (`THROTTLE_DEFAULT_LIMIT`), compartido por todo el estudio.
+- Lo que se pide al apuntar va con `queryClient.prefetchQuery` y las mismas
+  claves que la pantalla de destino; lo fresco no se vuelve a pedir.
+- Si la pantalla se desmonta antes de que venza (un click que navega), no avisa.
+- Lo usa "Ver detalle" del listado de causas (`CasesTable`, con
+  `usePrefetchCase`). Su test está en `tests/components/shared/useHoverIntent.test.ts`.
 
 ---
 

@@ -1,4 +1,5 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { usePrefetchPage } from '@/shared/api/usePrefetchPage';
 import type { LegalQualificationListParams } from '@/features/legal-params/types/legalQualification';
 import { listLegalQualifications } from './legalQualifications.api';
 import { legalQualificationKeys } from './legalQualifications.keys';
@@ -16,4 +17,12 @@ export function useLegalQualifications(params: LegalQualificationListParams) {
         queryFn: () => listLegalQualifications(params),
         placeholderData: keepPreviousData,
     });
+}
+
+/** Pide de antemano otra página del listado, con la misma búsqueda (`usePrefetchPage`). */
+export function usePrefetchLegalQualificationsPage(params: LegalQualificationListParams) {
+    return usePrefetchPage((page) => ({
+        queryKey: legalQualificationKeys.list({ ...params, page }),
+        queryFn: () => listLegalQualifications({ ...params, page }),
+    }));
 }
