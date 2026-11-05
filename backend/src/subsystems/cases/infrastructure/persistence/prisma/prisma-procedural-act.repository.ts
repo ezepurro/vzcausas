@@ -76,6 +76,14 @@ export class PrismaProceduralActRepository implements ProceduralActRepository {
     });
     return row ? toView(row) : null;
   }
+
+  async saveModification(_act: ProceduralAct): Promise<void> {
+    throw new Error('Not implemented: PrismaProceduralActRepository.saveModification (HU28).');
+  }
+
+  async findLatestInCaseExcept(_caseId: number, _exceptActId: number): Promise<ProceduralAct | null> {
+    throw new Error('Not implemented: PrismaProceduralActRepository.findLatestInCaseExcept (HU28).');
+  }
 }
 
 /**

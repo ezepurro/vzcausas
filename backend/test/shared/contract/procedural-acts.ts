@@ -70,6 +70,9 @@ export function expectProceduralAct(data: unknown, expected: Record<string, unkn
     'deadline',
     'registeredBy',
     'registeredAt',
+    // HU28 (V5 §3.8, `:5273-5280`): en todas las respuestas, `null` si nunca se modificó.
+    'lastModifiedBy',
+    'lastModifiedAt',
   ]);
   expect(Number.isInteger(data.id)).toBe(true);
   expect(Number.isInteger(data.caseId)).toBe(true);
@@ -97,6 +100,14 @@ export function expectProceduralAct(data: unknown, expected: Record<string, unkn
   expect(typeof data.registeredBy.firstName).toBe('string');
 
   expect(data.registeredAt).toMatch(DATE_TIME_WITH_OFFSET);
+
+  // Los dos juntos: o el acto se modificó (usuario y momento) o ninguno.
+  expect(data.lastModifiedBy === null).toBe(data.lastModifiedAt === null);
+  if (data.lastModifiedBy !== null) {
+    expectExactKeys(data.lastModifiedBy, ['id', 'lastName', 'firstName']);
+    expect(Number.isInteger(data.lastModifiedBy.id)).toBe(true);
+    expect(data.lastModifiedAt).toMatch(DATE_TIME_WITH_OFFSET);
+  }
 
   expect(data).toMatchObject(expected);
   return data;

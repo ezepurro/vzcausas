@@ -20,7 +20,7 @@ import { PrescriptionDeclaration, PrescriptionDeclarationInput } from '../../val
 import { JurisdictionCode } from '../../value-objects/case/jurisdiction-code';
 import { ProceduralRole } from '../../value-objects/case/procedural-role';
 import { CaseSnapshot } from './case-snapshot';
-import { ProceduralAct } from '../procedural-act.entity';
+import { ProceduralAct, ProceduralActChanges, ProceduralActData, ProceduralActField } from '../procedural-act.entity';
 
 /** Name of the role that may register procedural acts (together with being the responsible lawyer). */
 const LAWYER_ROLE = 'LAWYER';
@@ -81,6 +81,35 @@ export interface DeclarePrescriptionInput {
   actor: AuthenticatedUser;
   // Civil date of the study today, and the instant of the declaration.
   today: Date;
+  now: Date;
+}
+
+/**
+ * What the use case found out about the state an act would end up in (HU28). The
+ * aggregate decides with it; it only looks it up.
+ */
+export interface ActModificationRefs {
+  // The row of the resulting table state: the one sent, or the current one if none was. `null` for a hand-written state.
+  state: ProceduralStateRef | null;
+  // Whether a hand-written state sent repeats an active state of the table (CA-26.7).
+  customStateNamesTableState: boolean;
+}
+
+/** {@link Case.planActModification}: the act as it will end up, the term to compute and what changed. */
+export interface ActModificationPlan extends ProceduralActData {
+  term: OpenedTerm;
+  // Whether the resulting state closes the case.
+  terminal: boolean;
+  changedFields: ProceduralActField[];
+}
+
+/** What {@link Case.recalculateCurrentAct} needs to apply D-14 after a modification (D-99). */
+export interface RecalculateCurrentActInput {
+  modified: ProceduralAct;
+  modifiedTerminal: boolean;
+  // The most recent of the other acts of the case, or `null` if it has no other.
+  latestOther: ProceduralAct | null;
+  latestOtherTerminal: boolean;
   now: Date;
 }
 
@@ -557,6 +586,49 @@ export abstract class Case {
       this.props.updatedAt = input.now;
     }
     return { act, becameCurrent };
+  }
+
+  /**
+   * HU28 — only the **current** responsible lawyer modifies the acts of the case
+   * (CA-28.2), with the same rule as registering them (D-30).
+   * @throws NotResponsibleLawyerError
+   */
+  assertCanModifyActs(_actor: AuthenticatedUser): void {
+    throw new Error('Not implemented: Case.assertCanModifyActs (HU28).');
+  }
+
+  /**
+   * HU28 — whether the acts of the case can still be corrected. Any case can,
+   * terminal or not (CA-28.9); `CriminalCase` refuses it once prescribed (D-99).
+   * @throws CaseInTerminalStateError
+   */
+  assertActsCanBeModified(): void {
+    throw new Error('Not implemented: Case.assertActsCanBeModified (HU28).');
+  }
+
+  /**
+   * HU28 — validates a change of one of its acts against the act as it would end
+   * up, reporting every problem at once (CA-28.3), and decides which term it
+   * takes: the table's of today if the state changes, the copied one if not (D-98).
+   * @throws EmptyCaseUpdateError no field was sent.
+   * @throws ValidationError `VALIDATION_ERROR` with every invalid field.
+   */
+  planActModification(
+    _act: ProceduralAct,
+    _changes: ProceduralActChanges,
+    _refs: ActModificationRefs,
+    _today: Date,
+  ): ActModificationPlan {
+    throw new Error('Not implemented: Case.planActModification (HU28).');
+  }
+
+  /**
+   * HU28 — after a modification the case is in the state of the act with the
+   * most recent date, the last registered on a tie (D-14, D-99). It closes or
+   * reopens with it (CA-28.7, CA-28.8).
+   */
+  recalculateCurrentAct(_input: RecalculateCurrentActInput): void {
+    throw new Error('Not implemented: Case.recalculateCurrentAct (HU28).');
   }
 
   /** The act that led the case to its current state, or `null` while it is in the initial state. */

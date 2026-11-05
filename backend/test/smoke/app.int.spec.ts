@@ -62,6 +62,7 @@ describe('[smoke] App de integración', () => {
       ['get', '/api/v1/cases/1/procedural-acts'],
       ['post', '/api/v1/cases/1/procedural-acts'],
       ['get', '/api/v1/cases/1/procedural-acts/1'],
+      ['patch', '/api/v1/cases/1/procedural-acts/1'],
       ['get', '/api/v1/cases/1/procedural-acts/deadline-preview'],
       ['post', '/api/v1/cases/1/folder'],
       ['get', '/api/v1/cases/1/interruptive-acts'],

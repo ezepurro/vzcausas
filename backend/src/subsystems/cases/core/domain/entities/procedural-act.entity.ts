@@ -16,6 +16,52 @@ export interface ProceduralActProps {
   // The responsible lawyer of the case at registration time.
   registeredByLawyerId: number;
   registeredAt: Date;
+  // Last modification (HU28, D-98). Absent or `null` while the act was never modified.
+  lastModifiedByUserId?: number | null;
+  lastModifiedAt?: Date | null;
+}
+
+/**
+ * What a `PATCH` of an act brings (HU28). A field left `undefined` was not sent
+ * and does not change; `null` empties it where the contract allows it.
+ */
+export interface ProceduralActChanges {
+  proceduralStateId?: number | null;
+  customState?: string | null;
+  actDate?: Date | null;
+  notificationDate?: Date | null;
+  manualDueDate?: Date | null;
+  notes?: string | null;
+}
+
+export type ProceduralActField = keyof ProceduralActChanges;
+
+/** The data of an act as it would end up after a change, before its deadline is computed. */
+export interface ProceduralActData {
+  proceduralStateId: number | null;
+  customState: string | null;
+  actDate: Date;
+  notificationDate: Date | null;
+  manualDueDate: Date | null;
+  notes: string | null;
+}
+
+/**
+ * {@link ProceduralAct.resolveChanges}: the act as it would end up, what really
+ * changed, and every problem of the act itself, keyed by field.
+ */
+export interface ResolvedActChanges extends ProceduralActData {
+  // Whether the resulting state differs from the current one: it decides which term applies (D-98).
+  stateChanged: boolean;
+  changedFields: ProceduralActField[];
+  errors: Record<string, string>;
+}
+
+/** What {@link ProceduralAct.modify} needs: the validated data, its new deadline and who modifies. */
+export interface ProceduralActModification extends Omit<ProceduralActData, 'manualDueDate'> {
+  deadline: Deadline;
+  modifiedByUserId: number;
+  now: Date;
 }
 
 export interface NewProceduralActInput {
@@ -116,6 +162,23 @@ export class ProceduralAct {
     return new ProceduralAct(props);
   }
 
+  /**
+   * HU28. Applies the sent changes over the act, without changing it, and checks
+   * the rules of the act itself on the result (CA-28.3). A value equal to the
+   * current one is not a change.
+   */
+  resolveChanges(_changes: ProceduralActChanges, _today: Date): ResolvedActChanges {
+    throw new Error('Not implemented: ProceduralAct.resolveChanges (HU28).');
+  }
+
+  /**
+   * HU28. The act with the data already validated and its new deadline. Keeps
+   * who registered it and when; records who modified it and when (CA-28.10).
+   */
+  modify(_modification: ProceduralActModification): ProceduralAct {
+    throw new Error('Not implemented: ProceduralAct.modify (HU28).');
+  }
+
   get id(): number {
     return this.props.id;
   }
@@ -163,5 +226,14 @@ export class ProceduralAct {
 
   get registeredAt(): Date {
     return this.props.registeredAt;
+  }
+
+  /** `null` while the act was never modified (CA-28.10). */
+  get lastModifiedByUserId(): number | null {
+    return this.props.lastModifiedByUserId ?? null;
+  }
+
+  get lastModifiedAt(): Date | null {
+    return this.props.lastModifiedAt ?? null;
   }
 }
