@@ -187,13 +187,23 @@ backend levantado con `make dev-up`, con la fecha real y los usuarios del seed.
 **Archivos:** `docs/postman/hu28-modificar-acto-procesal.postman_collection.json` y su
 `environment`. No hay ninguna colección previa en el repo.
 
-**Cómo se usa:** se importa en Postman y se corre con el Runner, o sin instalar nada:
+**Cómo se usa:** se importa en Postman y se corre **entera y en orden** con el Runner (cada
+paso usa lo que dejó el anterior), o sin instalar nada, con Newman en Docker. Desde Git Bash,
+en la raíz del repo:
 
 ```bash
-docker run --rm -v "$PWD/docs/postman:/etc/newman" postman/newman run \
-  hu28-modificar-acto-procesal.postman_collection.json \
+MSYS_NO_PATHCONV=1 docker run --rm -v "$(pwd -W)/docs/postman:/etc/newman" postman/newman:6-alpine \
+  run hu28-modificar-acto-procesal.postman_collection.json \
   --env-var baseUrl=http://host.docker.internal:3000/api/v1
 ```
+
+**Antes de correrla, `make backend-restart`** si se cambió código: el modo watch del contenedor
+no siempre detecta los cambios hechos desde Windows, y el backend sigue con la versión vieja
+(el `PATCH` responde `RESOURCE_NOT_FOUND`). Pasó el 05/11/2026.
+
+Las contraseñas son las del seed de desarrollo (`abogado123` y `DEV_SEED_PASSWORD`, que
+`docker/.env.example` trae como `admin123`); si cambian, se ajustan en las variables de la
+colección.
 
 **No depende de datos previos ni ensucia:** crea su propia causa por API, con fechas relativas
 a hoy, y al final la da de baja (RN12). No resetea la base y no cambia la tabla de estados.
@@ -226,6 +236,26 @@ porque obligaría a tocar la parametría de desarrollo. Eso queda en D3.2.
 | Unitarios | `make test-unit` |
 | Integración de esta HU | `make test-int SUITE=update-procedural-act` |
 | Integración completa | `make test-int` |
+
+## Estado al cierre (05/11/2026)
+
+Verificado en Docker: `tsc` sin errores (`src` y `test`), **unitarios 1420/1420**,
+**integración completa 422/422** (27 suites; las 26 de antes siguen en verde) y la **colección
+de Postman 63/63** contra el backend de desarrollo, corrida dos veces.
+
+| CA | Unitario | Integración | Postman |
+|---|---|---|---|
+| 28.1 Éxito | ✅ | ✅ D1.1 | ✅ |
+| 28.2 Solo el responsable actual | ✅ | ✅ D2.2 (3 casos 403 + el nuevo responsable sí) | ✅ otro abogado y administrador |
+| 28.3 Validación del acto resultante | ✅ | ✅ D2.1 (9 casos) | ✅ 4 casos |
+| 28.4 Cambia el estado: tabla de hoy | ✅ | ✅ D3.1 | ✅ contra `deadline-preview` |
+| 28.5 Mismo estado: plazo copiado | ✅ | ✅ D3.2, con la tabla cambiada | ✅ sin cambiar la tabla |
+| 28.6 Ajuste manual | ✅ | ✅ D3.3 y D2.1 | ✅ |
+| 28.7 Rige el acto más reciente | ✅ | ✅ D4.1 | ✅ |
+| 28.8 Cierre y reapertura | ✅ | ✅ D4.2 | ✅ |
+| 28.9 "Prescripta" no, otro terminal sí | ✅ | ✅ D2.3 y D4.2 | ✅ |
+| 28.10 Trazabilidad | ✅ | ✅ D1.1 y D1.2 (`POST`, `GET`, listado, línea de vida) | ✅ |
+| 28.11 Inexistentes e ids | ✅ | ✅ D2.2 | ✅ |
 
 ## Lo que este plan no cubre (revisión manual)
 
