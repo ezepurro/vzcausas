@@ -5,6 +5,51 @@ contrato.
 
 ---
 
+## 2026-11-03 — Generar expediente: la espera y el corte por tiempo (HU25)
+
+**Pedido:** de Luciano Cipolla, al probar contra el backend: generar el
+expediente tarda mucho y la pantalla no lo explica.
+
+**Antes:** mientras se generaba, sólo el botón decía "Generando…". Los paneles
+seguían activos: se podía reordenar, quitar documentos o cambiar las
+observaciones, y lo que se veía dejaba de ser lo que se mandó. Si el pedido
+pasaba los 120 s (`CASE_FILE_TIMEOUT_MS`), el aviso decía "Intentá de nuevo en
+unos minutos", pero el backend lo guarda igual: reintentar dejaba otra
+versión en la carpeta.
+
+**Ahora:**
+
+- **Mientras se genera**, los dos paneles quedan deshabilitados y atenuados:
+  son un `fieldset disabled`, y el arrastre se apaga aparte
+  (`CaseFileDocumentsPanel` con `disabled`). Bajo el botón, "Uniendo la
+  carátula y 3 documentos. Puede tardar un par de minutos." y el tiempo que
+  lleva (`generatingMessage`, `elapsedLabel`). El botón suma un aro que gira
+  y debajo corre una barra que va y viene, la misma espera que la carpeta del
+  detalle (quietos con movimiento reducido). Es una barra sin avance a
+  propósito: el contrato no tiene cómo consultar en qué paso va el servidor,
+  y por eso tampoco hay mensajes de etapa.
+- **Si se intenta salir mientras se genera**, un aviso: "El expediente se
+  está generando", con "Quedarme" y "Salir igual". El servidor lo termina
+  igual, pero quien sale no ve el resultado y al volver lo generaría de
+  nuevo. Cubre el rail, las migas, la flecha y el atrás del navegador
+  (`useBlocker`); recargar o cerrar la pestaña muestra el diálogo del
+  navegador (`beforeunload`), cuyo texto no se elige. Si la generación
+  termina con el aviso abierto, se cierra y se queda en la pantalla.
+- **Si no llega la respuesta** (corte por tiempo o red caída), en lugar del
+  aviso genérico queda uno fijo en "Resultado": el expediente puede haberse
+  generado, y antes de volver a generarlo conviene mirar "Documentación"
+  (`UNCONFIRMED_CASE_FILE_MESSAGE`). Se vuelve a leer la carpeta, así el
+  nombre estimado sube de versión si ya quedó guardado. El aviso se va al
+  generar de nuevo.
+- Los errores con respuesta (400, 422, 502) siguen como antes.
+
+Tests: `components/cases/GenerateCaseFilePage.test.tsx` ("mientras genera…",
+"si no llega la respuesta…", "si se intenta salir…", "Salir igual…"),
+`unit/cases/caseFile.test.ts` ("mientras se genera"). La animación, el
+contador y el diálogo de `beforeunload` no se prueban en jsdom.
+
+---
+
 ## 2026-11-03 — "Descargar" en la tarjeta "Documentación" (HU38)
 
 **Pedido:** del equipo (Facundo Fiorani). Para bajar un escrito había que

@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { screen, waitFor, within } from '@testing-library/react'
+import { delay, http, HttpResponse } from 'msw'
 import { renderWithProviders } from '../../setup/render'
 import { usePrototypeToday } from '../../setup/clock'
 import { db } from '@/shared/mocks'
+import { server } from '@/shared/mocks/server'
 import { GenerateCaseFilePage } from '@/features/cases/pages/GenerateCaseFilePage'
 
 /**
@@ -141,6 +143,84 @@ describe('GenerateCaseFilePage', () => {
         ).toBeInTheDocument()
         expect(screen.queryByRole('dialog', { name: 'Expediente generado' })).not.toBeInTheDocument()
         expect(within(await included()).getByText('Cédula de notificación.pdf')).toBeInTheDocument()
+    })
+
+    // Generar es sincrónico y puede tardar: lo que se mandó no cambia en pantalla y se explica la espera.
+    it('mientras genera, bloquea los paneles y explica la espera', async () => {
+        server.use(
+            http.post('*/cases/:caseId/case-files', async () => {
+                await delay('infinite')
+            }),
+        )
+        const { user } = renderPage(1)
+        const count = within(await included()).getAllByRole('listitem').length
+
+        await user.click(generateButton())
+
+        expect(screen.getByRole('button', { name: 'Generando…' })).toBeDisabled()
+        expect(
+            screen.getByText(`Uniendo la carátula y ${count} documentos. Puede tardar un par de minutos.`),
+        ).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Quitar todos' })).toBeDisabled()
+        expect(screen.getByRole('button', { name: 'Quitar Cédula de notificación.pdf' })).toBeDisabled()
+        expect(screen.getByLabelText('Observaciones')).toBeDisabled()
+    })
+
+    // Sin respuesta, el backend pudo haberlo guardado: no se invita a reintentar a ciegas.
+    it('si no llega la respuesta, avisa que el expediente puede haberse generado', async () => {
+        server.use(http.post('*/cases/:caseId/case-files', () => HttpResponse.error()))
+        const { user } = renderPage(1)
+        await included()
+
+        await user.click(generateButton())
+
+        expect(await screen.findByRole('alert')).toHaveTextContent(
+            'No llegó la respuesta del servidor, pero el expediente puede haberse generado igual. Antes de volver a generarlo, fijate en "Documentación" de la causa si ya está la versión nueva.',
+        )
+        expect(screen.queryByText('Error de red. Verificá tu conexión a internet.')).not.toBeInTheDocument()
+        expect(screen.queryByRole('dialog', { name: 'Expediente generado' })).not.toBeInTheDocument()
+        expect(generateButton()).toBeEnabled()
+    })
+
+    // Quien sale mientras se genera no ve el resultado y lo generaría de nuevo: se avisa antes.
+    it('si se intenta salir mientras genera, avisa y "Quedarme" deja la pantalla como estaba', async () => {
+        server.use(
+            http.post('*/cases/:caseId/case-files', async () => {
+                await delay('infinite')
+            }),
+        )
+        const { user } = renderPage(1)
+        await included()
+        await user.click(generateButton())
+
+        await user.click(screen.getByRole('button', { name: 'Causas' }))
+        const dialog = screen.getByRole('dialog', { name: 'El expediente se está generando' })
+        await user.click(within(dialog).getByRole('button', { name: 'Quedarme' }))
+
+        expect(screen.queryByRole('dialog', { name: 'El expediente se está generando' })).not.toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: 'Generar expediente' })).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Generando…' })).toBeDisabled()
+    })
+
+    it('"Salir igual" deja salir mientras genera', async () => {
+        server.use(
+            http.post('*/cases/:caseId/case-files', async () => {
+                await delay('infinite')
+            }),
+        )
+        const { user } = renderWithProviders(<GenerateCaseFilePage />, {
+            as: 'gestion',
+            path: '/causas/:caseId/expediente',
+            route: '/causas/1/expediente',
+            routes: [{ path: '/causas', element: <h1>Listado de causas</h1> }],
+        })
+        await included()
+        await user.click(generateButton())
+
+        await user.click(screen.getByRole('button', { name: 'Causas' }))
+        await user.click(screen.getByRole('button', { name: 'Salir igual' }))
+
+        expect(await screen.findByRole('heading', { name: 'Listado de causas' })).toBeInTheDocument()
     })
 
     // CA-25.10: el expediente lo descarga cualquiera, también el Administrador sin otro rol.

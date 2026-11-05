@@ -574,6 +574,47 @@
 .vz-casefile__index-name--cover { font-weight: 600; white-space: normal; }
 .vz-casefile__summary { margin: 0; padding: 6px var(--vz-panel-pad) 16px; font-size: 12.5px; line-height: 1.5; color: var(--vz-muted); }
 .vz-casefile__generate { display: flex; flex-direction: column; gap: 8px; }
+/* Mientras se genera, la misma espera que la carpeta del detalle: el aro en
+   el botón y la barra que va y viene (animaciones `vz-folder-*`, arriba). */
+.vz-casefile__spinner {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 13px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: vz-folder-spin .7s linear infinite;
+}
+.vz-casefile__progress {
+  position: relative;
+  height: 3px;
+  overflow: hidden;
+  border-radius: var(--vz-r-pill);
+  background: var(--vz-primary-soft);
+}
+.vz-casefile__progress::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 40%;
+  border-radius: inherit;
+  background: var(--vz-primary);
+  animation: vz-folder-progress 1.2s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .vz-casefile__spinner { animation: none; }
+  .vz-casefile__progress::before { animation: none; width: 100%; opacity: .5; }
+}
+.vz-casefile__notice {
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--vz-warn-bd);
+  border-radius: var(--vz-r);
+  background: var(--vz-warn-bg);
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--vz-warn);
+}
 
 /* Vista previa y "Expediente generado" */
 /* Vista previa de la carátula (HU24), como el prototipo: la hoja A4 sola,
@@ -630,4 +671,7 @@
 .vz-casefile__ready-text { margin: 14px 0; font-size: 13px; line-height: 1.5; color: var(--vz-muted); }
 .vz-casefile__ready-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
 .vz-casefile__keep { margin-right: auto; }
-.vz-casefile__panels { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+/* Es un `fieldset` (se deshabilita entero mientras se genera): sin el borde,
+   el margen ni el relleno que trae el navegador. */
+.vz-casefile__panels { display: flex; flex-direction: column; gap: 16px; min-width: 0; margin: 0; padding: 0; border: 0; transition: opacity .15s; }
+.vz-casefile__panels:disabled { opacity: .6; }

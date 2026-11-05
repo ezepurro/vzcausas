@@ -1036,7 +1036,7 @@ en el encabezado con `@backend`. Los mocks ya implementan todo V5
 | 19 Modificar causa | `components/cases/CaseDetailPage.edit.test.tsx` (7) |
 | 21 Dar de baja la causa | `components/cases/CaseDetailPage.delete.test.tsx` (3) |
 | 23 Descargar modelo formal | Ya cubierta por `components/documents/DocumentTemplatesPage.test.tsx` (HU-35) |
-| 24 y 25 Carátula y expediente | `components/cases/GenerateCaseFilePage.test.tsx` (11), `components/cases/CaseDetailPage.caseFile.test.tsx` (2), `unit/cases/caseFile.test.ts` (15), `unit/cases/caseFile.schema.test.ts` (4). No se escribieron antes: "Generar expediente" era una página que no existía, y un test que importa un archivo que no existe rompe `npm test` y `npm run build`. Se escribieron con la página, en su rama |
+| 24 y 25 Carátula y expediente | `components/cases/GenerateCaseFilePage.test.tsx` (15), `components/cases/CaseDetailPage.caseFile.test.tsx` (2), `unit/cases/caseFile.test.ts` (17), `unit/cases/caseFile.schema.test.ts` (4). No se escribieron antes: "Generar expediente" era una página que no existía, y un test que importa un archivo que no existe rompe `npm test` y `npm run build`. Se escribieron con la página, en su rama |
 | 28 Modificar acto procesal | `components/proceedings/RegisterProceduralActPage.edit.test.tsx` (4) |
 | 38 Consultar documentos | `components/cases/CaseDetailPage.documents.test.tsx` (12: los 5 de la consulta y, desde el 03/11/2026, 7 de "Descargar"), `unit/cases/caseDocument.test.ts` (7) |
 | Permisos del servidor falso | `unit/contract/permissions.test.ts` suma los endpoints de V5 abiertos a los tres perfiles (en verde) |
