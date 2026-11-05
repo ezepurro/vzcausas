@@ -2,6 +2,7 @@ import { ConfigService } from '@nestjs/config';
 import { ValidationError } from '@shared/domain/domain-error';
 import { RegisterProceduralActResult } from '../../../core/application/use-cases/procedural-act/register-procedural-act.interfaces';
 import { ProceduralAct } from '../../../core/domain/entities/procedural-act.entity';
+import { ProceduralActView } from '../../../core/domain/ports/procedural-act/procedural-act.repository';
 import { DayType } from '../../../core/domain/value-objects/deadline/day-type';
 import { Deadline } from '../../../core/domain/value-objects/deadline/deadline.vo';
 import { anAct, anActor, day, LAWYER, OPPOSITION } from '../../../core/test-support/case-fixtures';
@@ -14,7 +15,7 @@ describe('ProceduralActHttpMapper', () => {
 
   const WITHOUT_TERM = { timeLimitDays: 0, dayType: DayType.NONE, computedDueDate: null };
 
-  function aResult(overrides: Partial<RegisterProceduralActResult> = {}, act: ProceduralAct = anAct()) {
+  function aResult(overrides: Partial<RegisterProceduralActResult & ProceduralActView> = {}, act: ProceduralAct = anAct()) {
     return { act, becameCurrent: true, resultingStateName: OPPOSITION.name, registeredBy: LAWYER, ...overrides };
   }
 
@@ -90,7 +91,20 @@ describe('ProceduralActHttpMapper', () => {
         },
         registeredBy: { id: 5, lastName: LAWYER.lastName, firstName: LAWYER.firstName },
         registeredAt: '2026-10-06T12:30:00-03:00',
+        // V5 §3.8 (`:5273-5280`): están en todas las respuestas, en null si nunca se modificó.
+        lastModifiedBy: null,
+        lastModifiedAt: null,
       });
+    });
+
+    // CA-28.10: el id es el del usuario que modificó; el nombre, el de su fila de `users`.
+    it('un acto modificado informa quién y cuándo, con el desplazamiento del estudio', () => {
+      const act = anAct({ lastModifiedByUserId: 9, lastModifiedAt: new Date('2026-10-07T13:00:00.000Z') });
+
+      const response: Record<string, unknown> = { ...mapper.toResponse(aResult({ lastModifiedBy: { lastName: 'Peralta', firstName: 'Ignacio' } }, act)) };
+
+      expect(response.lastModifiedBy).toEqual({ id: 9, lastName: 'Peralta', firstName: 'Ignacio' });
+      expect(response.lastModifiedAt).toBe('2026-10-07T10:00:00-03:00');
     });
 
     /** CA-26.7: sin id de la tabla y como custom. Con vencimiento manual, el plazo es de cero días. */

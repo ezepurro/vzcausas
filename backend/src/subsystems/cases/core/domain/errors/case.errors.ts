@@ -121,6 +121,9 @@ export class CaseFolderNotAvailableError extends BusinessRuleError {
 
 /** Emitted when the user is not the lawyer in charge of the case (D-30, 403). */
 export class NotResponsibleLawyerError extends ForbiddenActionError {
+  /** The wording of V5 `:6114` for modifying an act (HU28). */
+  static readonly FOR_MODIFYING_ACTS = 'Solo el abogado responsable de la causa puede modificar sus actos procesales.';
+
   /**
    * The message names what was attempted: procedural acts by default (HU26),
    * interruptive acts for HU31, whose contract words it its own way (V4 §3.9).
@@ -134,6 +137,8 @@ export class NotResponsibleLawyerError extends ForbiddenActionError {
 export class CaseInTerminalStateError extends BusinessRuleError {
   /** The wording of the contract for an operation that is not a procedural act (HU31, HU33). */
   static readonly FOR_THIS_OPERATION = 'La causa se encuentra en un estado terminal y no admite esta operación.';
+  /** The wording of V5 `:6141`: the acts of a prescribed case cannot be modified (HU28, D-99). */
+  static readonly ACTS_OF_PRESCRIBED_CASE = 'La causa está prescripta: sus actos procesales no se pueden modificar.';
 
   /** Same as {@link NotResponsibleLawyerError}: the default is HU26's wording, HU31 passes its own. */
   constructor(message = 'La causa se encuentra en un estado terminal y no admite actos procesales.') {

@@ -25,6 +25,7 @@ import { CaseFilesController } from './infrastructure/http/controllers/case-file
 import { CaseFileHttpMapper } from './infrastructure/http/mappers/case-file-http.mapper';
 import { GetCaseTimeline } from './core/application/use-cases/case/get-case-timeline.use-case';
 import { GetProceduralAct } from './core/application/use-cases/procedural-act/get-procedural-act.use-case';
+import { UpdateProceduralAct } from './core/application/use-cases/procedural-act/update-procedural-act.use-case';
 import { ListCases } from './core/application/use-cases/case/list-cases.use-case';
 import { ListCustomStates } from './core/application/use-cases/case/list-custom-states.use-case';
 import { ListActivePrescriptions } from './core/application/use-cases/prescription/list-active-prescriptions.use-case';
@@ -177,6 +178,8 @@ import { PrismaProceduralActRepository } from './infrastructure/persistence/pris
     // HU27: la consulta de actos procesales, por el mismo repositorio que los registra.
     ListProceduralActs,
     GetProceduralAct,
+    // HU28: corrects an act, recalculates the case (D-99) and audits it; answers with `GetProceduralAct`.
+    UpdateProceduralAct,
     ProceduralActHttpMapper,
     { provide: CASE_REPOSITORY, useClass: PrismaCaseRepository },
     { provide: PROCEDURAL_ACT_REPOSITORY, useClass: PrismaProceduralActRepository },

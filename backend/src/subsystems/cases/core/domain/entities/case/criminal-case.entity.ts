@@ -88,6 +88,16 @@ export class CriminalCase extends Case {
     }
   }
 
+  /**
+   * HU28 — "Prescripta" was not set by an act (D-54), so correcting an act cannot
+   * take the case out of it (D-99, CA-28.9).
+   */
+  override assertActsCanBeModified(): void {
+    if (this.criminalProps.prescriptionDeclaration !== null) {
+      throw new CaseInTerminalStateError(CaseInTerminalStateError.ACTS_OF_PRESCRIBED_CASE);
+    }
+  }
+
   protected ownFields(): readonly CaseField[] {
     return ['legalQualifications', 'clientDetained'];
   }

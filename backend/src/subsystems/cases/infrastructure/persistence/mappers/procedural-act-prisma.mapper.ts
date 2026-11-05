@@ -26,7 +26,30 @@ export class ProceduralActPrismaMapper {
       registeredByUserId: row.registeredByUserId,
       registeredByLawyerId: row.registeredByLawyerId,
       registeredAt: row.registeredAt,
+      lastModifiedByUserId: row.lastModifiedByUserId,
+      lastModifiedAt: row.lastModifiedAt,
     });
+  }
+
+  /**
+   * What a modification writes (HU28). `registered_*` never change; the
+   * `ck_procedural_acts_last_modified_*` CHECKs keep who and when together.
+   */
+  static toModificationData(act: ProceduralAct): Prisma.ProceduralActUncheckedUpdateInput {
+    return {
+      proceduralStateId: act.proceduralStateId,
+      customState: act.customState,
+      actDate: act.actDate,
+      notificationDate: act.notificationDate,
+      notes: act.notes,
+      deadlineTimeLimitDays: act.deadline.timeLimitDays,
+      deadlineDayType: act.deadline.dayType as PrismaDayType,
+      deadlineCountsFrom: act.deadline.countsFrom,
+      deadlineComputedDueDate: act.deadline.computedDueDate,
+      deadlineManualDueDate: act.deadline.manualDueDate,
+      lastModifiedByUserId: act.lastModifiedByUserId,
+      lastModifiedAt: act.lastModifiedAt,
+    };
   }
 
   static toCreateData(act: ProceduralAct): Prisma.ProceduralActUncheckedCreateInput {
