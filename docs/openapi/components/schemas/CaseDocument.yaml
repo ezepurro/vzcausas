@@ -1,0 +1,104 @@
+type: object
+description: |
+  Archivo de la carpeta de la causa en Drive (HU38). Se lee de la carpeta en
+  cada pedido: no se guarda en la base (D-100). No tiene "Presentado",
+  "Recibido" ni "Cargado": esa clasificación no existe en Drive (D-101). El
+  tipo que muestra el prototipo ("PDF", "DOC", "IMG") lo deriva el cliente de
+  `extension` o de `mimeType`.
+required:
+  - id
+  - name
+  - extension
+  - mimeType
+  - sizeBytes
+  - createdAt
+  - modifiedAt
+  - uploadedBy
+  - url
+  - convertibleToPdf
+  - caseFile
+properties:
+  id:
+    type: string
+    description: Identificador del archivo en Drive. Es opaco, el cliente no lo interpreta.
+    examples:
+      - 1b7Hc3kQp9Wm2xYzR4tVnLs8dFgA0eJuK
+  name:
+    type: string
+    description: Nombre del archivo, con su extensión.
+    examples:
+      - Cédula de notificación.pdf
+  extension:
+    type:
+      - string
+      - 'null'
+    description: |
+      Extensión en minúsculas, sin punto. `null` si el nombre no tiene, o si
+      es un documento nativo de Google.
+    examples:
+      - pdf
+  mimeType:
+    type: string
+    description: Tipo del archivo según Drive.
+    examples:
+      - application/pdf
+  sizeBytes:
+    type:
+      - integer
+      - 'null'
+    description: Tamaño en bytes. `null` en los documentos nativos de Google, que Drive no mide.
+    examples:
+      - 90112
+  createdAt:
+    type: string
+    format: date-time
+    description: Fecha y hora en que se subió o creó en Drive.
+    examples:
+      - '2026-09-09T12:15:00-03:00'
+  modifiedAt:
+    type: string
+    format: date-time
+    description: Fecha y hora de la última modificación en Drive.
+    examples:
+      - '2026-09-09T12:15:00-03:00'
+  uploadedBy:
+    type:
+      - string
+      - 'null'
+    description: |
+      Nombre de quien subió el archivo, tal como lo informa Drive. `null` si
+      Drive no lo informa. No es un usuario del sistema: es una cuenta de
+      Google (D-101).
+    examples:
+      - Gestión Estudio
+  url:
+    type: string
+    format: uri
+    description: Enlace para abrirlo en Drive (botón "Abrir").
+    examples:
+      - https://drive.google.com/file/d/1b7Hc3kQp9Wm2xYzR4tVnLs8dFgA0eJuK/view
+  convertibleToPdf:
+    type: boolean
+    description: |
+      `true` si puede formar parte del expediente: PDF, Word (`.doc`,
+      `.docx`), documento de Google o imagen JPG o PNG.
+  caseFile:
+    description: |
+      Si el archivo es un **expediente generado por el sistema**, su `id` y su
+      `version`. `null` en los demás.
+    oneOf:
+      - type: object
+        required:
+          - id
+          - version
+        properties:
+          id:
+            type: integer
+            examples:
+              - 4
+          version:
+            type: integer
+            minimum: 1
+            examples:
+              - 1
+      - type: 'null'

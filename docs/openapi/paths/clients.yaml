@@ -63,7 +63,10 @@ post:
     '401':
       $ref: ../components/responses/Unauthorized.yaml
     '409':
-      description: Ya existe un cliente vigente con ese DNI.
+      description: |
+        Ya existe un cliente vigente con ese documento, sea DNI o pasaporte.
+        El código conserva su nombre para no romper a los clientes de V4
+        (D-108).
       content:
         application/json:
           schema:

@@ -13,10 +13,19 @@ get:
     Drive").
 
     El **ciclo de vida** sale de `GET /cases/{caseId}/timeline` (HU27, D-85),
-    que devuelve ya intercaladas y completas sus tres fuentes. La lista de
-    documentos y las acciones "Modificar causa", "Dar de baja", "Emitir
-    carátula", "Emitir expediente" y "Registrar pago de tasa" pertenecen a
-    sprints posteriores.
+    que devuelve ya intercaladas y completas sus tres fuentes. El resto del
+    detalle:
+
+    | Elemento del detalle | Endpoint | HU |
+    | -------------------- | -------- | -- |
+    | Línea "Secretario/a" del encabezado | `instructorName` en este recurso | 24 |
+    | "Modificar causa" | `PATCH /cases/{caseId}` | 19 |
+    | "Dar de baja" | `DELETE /cases/{caseId}` | 21 |
+    | Tarjeta "Documentación" | `GET /cases/{caseId}/documents` | 38 |
+    | "Generar expediente" | `POST /cases/{caseId}/case-files`, con la vista previa de `GET /cases/{caseId}/cover` | 25, 24 |
+    | "Modificar" en un acto del ciclo de vida | `PATCH /cases/{caseId}/procedural-acts/{actId}` | 28 |
+
+    "Registrar pago de tasa" y "Anular" un acto están fuera del contrato.
 
     **Rol requerido:** cualquier usuario autenticado.
   responses:

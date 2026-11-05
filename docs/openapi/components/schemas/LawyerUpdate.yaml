@@ -1,7 +1,8 @@
 type: object
 description: |
   Todos los campos son opcionales, aunque debe enviarse al menos uno.
-  `activeCases` no es modificable: lo calcula el backend.
+  `activeCases` no es modificable: lo calcula el backend. El apellido y los
+  nombres se pueden omitir, pero no vaciar (CA-14.4).
 additionalProperties: false
 minProperties: 1
 properties:
@@ -15,6 +16,7 @@ properties:
     type: string
     minLength: 1
     maxLength: 100
+    description: Sin el tratamiento ("Dr.", "Dra.").
     examples:
       - Ignacio
   registrationNumber:

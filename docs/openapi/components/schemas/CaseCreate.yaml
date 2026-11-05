@@ -38,7 +38,9 @@ properties:
   sacNumber:
     type: string
     pattern: '^[0-9]{8}$'
-    description: Exactamente 8 dígitos. Si se envía, único en todo el sistema.
+    description: |
+      Exactamente 8 dígitos. Si se envía, único entre las causas vigentes.
+      Puede ser el de una causa dada de baja (D-97).
     examples:
       - '13284571'
   jurisdiction:

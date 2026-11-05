@@ -1,0 +1,183 @@
+parameters:
+  - $ref: ../components/parameters/CaseIdParam.yaml
+
+post:
+  tags:
+    - Case Documents
+  operationId: generateCaseFile
+  summary: Generar el expediente
+  description: |
+    Genera el **expediente** de la causa: un único PDF, para imprimir, con la
+    carátula y los documentos que el usuario elige, en el orden que define
+    (HU25, D-102). Es la pantalla "Generar expediente" del prototipo:
+
+    1. **Carátula**, siempre primera. Se genera igual que
+       `GET /cases/{caseId}/cover`, más las observaciones y, en el fuero
+       penal, la parte que no está registrada en la causa, que envía el
+       cliente en `cover` (D-92, D-94). No se elige ni se quita.
+    2. **Documentos de la causa**, los que el usuario incluye, en el orden de
+       `documentIds`. Los que no son PDF se convierten.
+
+    **Reglas**
+
+    - **Un expediente no se incluye en otro.**
+    - **Conversión.** PDF, tal cual. Word (`.doc`, `.docx`) y documentos de
+      Google, convertidos con Drive. Imágenes JPG y PNG, una por hoja,
+      ajustadas a A4. Otro tipo responde `422 DOCUMENT_NOT_CONVERTIBLE`.
+    - **Nombre y versión.** El archivo se llama `Expediente_{SAC}_v{n}.pdf`,
+      o `Expediente_causa-{id}_v{n}.pdf` si la causa no tiene SAC. `n`
+      empieza en `1` y sube con cada expediente de la causa; lo lleva el
+      sistema, así que borrar un expediente en Drive no reutiliza su número.
+    - **Se guarda en la carpeta de la causa** como nueva versión; las
+      anteriores se conservan. La causa necesita la carpeta creada
+      (`folder.status` en `CREATED`); si no,
+      `422 CASE_FOLDER_NOT_AVAILABLE`. La carátula sola no la necesita.
+    - **Sincrónico.** La respuesta llega con el expediente ya generado y
+      guardado. Si Drive falla al leer un documento o al guardar el
+      resultado, no queda nada a medias: `502 DOCUMENT_STORAGE_UNAVAILABLE`
+      y no se consume el número de versión. Cuánto puede tardar o pesar un
+      expediente es un punto abierto (C-29).
+    - **No cambia la causa.** No mueve el estado ni toca la carátula.
+
+    Con el `id` del documento devuelto, el cliente lo descarga o lo imprime
+    con `GET /cases/{caseId}/documents/{documentId}/file`.
+
+    **Rol requerido:** cualquier usuario autenticado.
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: ../components/schemas/CaseFileCreate.yaml
+        examples:
+          criminalDefense:
+            summary: Causa penal con el cliente como defensa
+            value:
+              cover:
+                opposingParty: "QUERELLANTE: PERALTA Juan Carlos\nAPODERADO: DR. Martín Sosa"
+                notes: Causa conexa en DI T6
+              documentIds:
+                - 1Zt5Np0aQe8Lr3Ku6Vb1Xc9Hj2Mf7Wd4S
+                - 1b7Hc3kQp9Wm2xYzR4tVnLs8dFgA0eJuK
+          amparo:
+            summary: Amparo, sin observaciones
+            value:
+              documentIds:
+                - 1Vd2Kp8sLq4Wx7Zn0Rb3Ty6Uh9Me5Gc1J
+  responses:
+    '201':
+      description: Expediente generado y guardado en la carpeta de la causa.
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - data
+            properties:
+              data:
+                $ref: ../components/schemas/CaseFile.yaml
+          example:
+            data:
+              document:
+                id: 1Hn6Tq2Wz8Ce4Rb0Yv5Ux3Ma7Kd9Lp1Gs
+                name: Expediente_13284571_v2.pdf
+                extension: pdf
+                mimeType: application/pdf
+                sizeBytes: 574464
+                createdAt: '2026-09-15T10:48:00-03:00'
+                modifiedAt: '2026-09-15T10:48:00-03:00'
+                uploadedBy: VZ Causas
+                url: https://drive.google.com/file/d/1Hn6Tq2Wz8Ce4Rb0Yv5Ux3Ma7Kd9Lp1Gs/view
+                convertibleToPdf: true
+                caseFile:
+                  id: 5
+                  version: 2
+              version: 2
+              pageCount: 9
+              parts:
+                - position: 1
+                  kind: COVER
+                  documentId: null
+                  name: Carátula
+                - position: 2
+                  kind: DOCUMENT
+                  documentId: 1Zt5Np0aQe8Lr3Ku6Vb1Xc9Hj2Mf7Wd4S
+                  name: Requerimiento de elevación a juicio.pdf
+                - position: 3
+                  kind: DOCUMENT
+                  documentId: 1b7Hc3kQp9Wm2xYzR4tVnLs8dFgA0eJuK
+                  name: Cédula de notificación.pdf
+              generatedBy:
+                id: 3
+                lastName: Ríos
+                firstName: Malena
+              generatedAt: '2026-09-15T10:48:00-03:00'
+    '400':
+      description: Datos o identificador inválidos.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          examples:
+            noDocuments:
+              summary: Ningún documento elegido
+              value:
+                error:
+                  code: VALIDATION_ERROR
+                  message: Los datos enviados no son válidos.
+                  details:
+                    documentIds: Elegí al menos un documento.
+            foreignOrCaseFile:
+              summary: Documento de otra carpeta o expediente anterior
+              value:
+                error:
+                  code: VALIDATION_ERROR
+                  message: Los datos enviados no son válidos.
+                  details:
+                    documentIds: Un documento no está en la carpeta de la causa o es un expediente anterior.
+            opposingPartyNotCriminal:
+              summary: Parte de la carátula en una causa que no es penal
+              value:
+                error:
+                  code: VALIDATION_ERROR
+                  message: Los datos enviados no son válidos.
+                  details:
+                    cover: La parte de la carátula solo corresponde al fuero penal.
+            invalidCaseId:
+              $ref: ../components/examples/InvalidCaseIdError.yaml
+    '401':
+      $ref: ../components/responses/Unauthorized.yaml
+    '404':
+      $ref: ../components/responses/CaseNotFound.yaml
+    '422':
+      description: La causa no tiene la carpeta creada, o un documento no se puede convertir a PDF.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          examples:
+            folderNotAvailable:
+              summary: Carpeta de la causa no creada
+              value:
+                error:
+                  code: CASE_FOLDER_NOT_AVAILABLE
+                  message: La causa no tiene su carpeta en Drive creada. Creala antes de generar el expediente.
+                  details: null
+            notConvertible:
+              summary: Documento que no se convierte a PDF
+              value:
+                error:
+                  code: DOCUMENT_NOT_CONVERTIBLE
+                  message: Uno de los documentos no se puede convertir a PDF.
+                  details: null
+    '502':
+      description: Drive no respondió. No queda nada a medias y no se consume el número de versión.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          example:
+            error:
+              code: DOCUMENT_STORAGE_UNAVAILABLE
+              message: No se pudo generar el expediente porque Drive no respondió. Intentá de nuevo en unos minutos.
+              details: null

@@ -1,11 +1,11 @@
 type: object
 description: |
   Causa. Es el mismo recurso en el listado, en el detalle, en la respuesta del
-  alta y en la de `POST /cases/{caseId}/prescription`.
+  alta, en la de la modificación y en la de `POST /cases/{caseId}/prescription`.
 
   **Datos propios de cada fuero** (D-67). Un dato que no corresponde al fuero
-  de la causa vale `null`. En esta versión se cargan solo en el alta;
-  modificarlos llega con HU19.
+  de la causa vale `null`. Se cargan en el alta y se modifican con
+  `PATCH /cases/{caseId}` (HU19).
 
   | Fuero            | Datos                                                                                     |
   | ---------------- | ----------------------------------------------------------------------------------------- |
@@ -62,30 +62,42 @@ properties:
       - string
       - 'null'
     pattern: '^[0-9]{8}$'
-    description: Número de SAC, 8 dígitos. Opcional; si se informa, es único en todo el sistema (RN2).
+    description: |
+      Número de SAC, 8 dígitos. Opcional; si se informa, es único entre las
+      causas vigentes (RN2). El de una causa dada de baja se puede volver a
+      usar (D-97).
     examples:
       - '13284571'
   caption:
     type: string
-    description: Carátula.
+    description: Carátula, el texto de los autos. Es el recuadro "Autos" de la hoja de carátula.
     examples:
       - GÓMEZ, Ariel Fernando p.s.a. Robo calificado
   court:
     type:
       - string
       - 'null'
-    description: Tribunal o dependencia.
+    description: |
+      Órgano interviniente (antes "Tribunal o dependencia"). Solo cambia el
+      rótulo: el campo es el mismo (D-91).
     examples:
       - Juzgado de Control N° 3 · Córdoba
   jurisdiction:
-    $ref: ./Jurisdiction.yaml
+    description: |
+      Fuero. Define el ciclo de vida y la tabla de plazos aplicable. No se
+      modifica (D-95).
+    allOf:
+      - $ref: ./Jurisdiction.yaml
   proceduralRole:
     $ref: ./ProceduralRole.yaml
   instructorName:
     type:
       - string
       - 'null'
-    description: Instructor de la causa, quien lleva la instrucción en el tribunal o la dependencia.
+    description: |
+      Instructor de la causa, quien lleva la instrucción en el tribunal o la
+      dependencia. Es también el secretario/a del órgano que imprime la hoja
+      de carátula (D-91).
     examples:
       - Dra. Verónica Ledesma
   tribunalPhone:
@@ -248,7 +260,7 @@ properties:
   folder:
     description: |
       Carpeta de la causa en la nube (HU39, HU40). `null` en las causas
-      registradas antes de V4; con `status` en `PENDING` si se registró sin
+      registradas antes de que existiera la carpeta; con `status` en `PENDING` si se registró sin
       pedirla.
     oneOf:
       - $ref: ./CaseFolder.yaml
@@ -256,7 +268,8 @@ properties:
   active:
     type: boolean
     description: |
-      Estado de alta. Vale siempre `true` en esta versión, también en una
-      causa marcada como prescripta: no se da de baja.
+      Estado de alta. Vale siempre `true`: una causa dada de baja no se
+      devuelve (HU21, D-97). También vale `true` en una causa marcada como
+      prescripta, que no se da de baja.
     examples:
       - true

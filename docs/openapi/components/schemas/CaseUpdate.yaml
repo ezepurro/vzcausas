@@ -17,6 +17,7 @@ description: |
     causa "Prescripta" responden `422 CASE_IN_TERMINAL_STATE` (D-96).
   - **Acto lesivo**: `harmfulActDate` en `null` borra el acto y sus datos.
 additionalProperties: false
+minProperties: 1
 properties:
   sacNumber:
     type:

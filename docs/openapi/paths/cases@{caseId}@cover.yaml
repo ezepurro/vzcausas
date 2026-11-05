@@ -1,0 +1,103 @@
+parameters:
+  - $ref: ../components/parameters/CaseIdParam.yaml
+
+get:
+  tags:
+    - Cases
+  operationId: getCaseCover
+  summary: Emitir la carátula en PDF
+  description: |
+    Emite la hoja de carátula de la causa en PDF (HU24), para rotular el
+    expediente físico. La genera el backend en cada pedido, con los datos
+    vigentes de la causa: no se guarda nada de la carátula (D-92, D-94). Sirve
+    para la "Vista previa" de "Generar expediente", para imprimir la carátula
+    sola y, con la misma generación, como hoja 1 del expediente
+    (`POST /cases/{caseId}/case-files`).
+
+    No usa la carpeta en Drive: funciona aunque la causa no tenga carpeta.
+
+    **Plantilla** (D-93). La elige el backend según el fuero: la penal en
+    `CRIMINAL`, la administrativa en `ADMINISTRATIVE` y en `AMPARO`. No se
+    envía ni se devuelve.
+
+    **Recuadros de la hoja.** Hoja A4 con el logo del estudio y seis
+    recuadros, en mayúsculas. Los rótulos son los del prototipo y quedan
+    pendientes de confirmar contra las plantillas del estudio (C-34).
+
+    | Recuadro             | De dónde sale |
+    | -------------------- | ------------- |
+    | Expte. / SAC         | `sacNumber`. Vacío si la causa no tiene SAC |
+    | Autos                | `caption` |
+    | Actor / querellante  | Según el fuero y el rol procesal (tabla siguiente) |
+    | Demandado / imputado | Según el fuero y el rol procesal (tabla siguiente) |
+    | Órgano interviniente | Tres líneas: `court`, "SECRETARIO/A: " + `instructorName` (D-91) e "INSTRUCTOR:" sin valor (C-35). Un dato `null` deja la línea con el rótulo solo |
+    | Observaciones        | Vacío. Se completa solo en el expediente |
+
+    **Partes.** El backend las arma con los datos de la causa:
+
+    | Fuero y rol procesal | Actor / querellante | Demandado / imputado |
+    | -------------------- | ------------------- | -------------------- |
+    | `CRIMINAL`, `QUERELLANTE_PARTICULAR` | `QUERELLANTE ({cliente})` y, en otra línea, `DEFENSOR: DR. {abogado}` | Vacío: en el expediente lo envía el cliente |
+    | `CRIMINAL`, `DEFENSA` | Vacío: en el expediente lo envía el cliente | `{cliente}` y, en otra línea, `DEFENSOR: DR. {abogado}` |
+    | `ADMINISTRATIVE` o `AMPARO`, rol `DEMANDADA` | `counterparty` | `{cliente}` |
+    | `ADMINISTRATIVE` o `AMPARO`, otro rol | `{cliente}` | `counterparty` |
+
+    `{cliente}` es `APELLIDO NOMBRES` del cliente y `{abogado}`,
+    `NOMBRES APELLIDO` del abogado responsable. El prefijo `DR.` es fijo para
+    todos los abogados (D-106). Un dato `null` deja su parte vacía.
+
+    El cuerpo de la respuesta exitosa es el PDF; las respuestas de error son
+    JSON, con la estructura de siempre.
+
+    **Rol requerido:** cualquier usuario autenticado.
+  parameters:
+    - name: disposition
+      in: query
+      required: false
+      description: |
+        `inline` para mostrarla en el navegador (vista previa, imprimir);
+        `attachment` para descargarla.
+      schema:
+        type: string
+        enum:
+          - inline
+          - attachment
+        default: inline
+  responses:
+    '200':
+      description: |
+        Hoja de carátula en PDF. El nombre es `Caratula_{SAC}.pdf`, o
+        `Caratula_causa-{id}.pdf` si la causa no tiene SAC.
+      headers:
+        Content-Disposition:
+          description: '`inline` o `attachment` según `disposition`, con el nombre del archivo.'
+          schema:
+            type: string
+          example: inline; filename="Caratula_13284571.pdf"
+      content:
+        application/pdf:
+          schema:
+            type: string
+            format: binary
+            contentMediaType: application/pdf
+    '400':
+      description: Identificador o parámetro de consulta inválido.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          examples:
+            invalidDisposition:
+              summary: Valor de `disposition` inexistente
+              value:
+                error:
+                  code: INVALID_REQUEST
+                  message: Parámetros de query inválidos.
+                  details:
+                    disposition: Debe ser inline o attachment.
+            invalidCaseId:
+              $ref: ../components/examples/InvalidCaseIdError.yaml
+    '401':
+      $ref: ../components/responses/Unauthorized.yaml
+    '404':
+      $ref: ../components/responses/CaseNotFound.yaml

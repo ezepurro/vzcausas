@@ -14,11 +14,12 @@ post:
 
     | Situación de la causa                                           | Qué hace                                                  |
     | --------------------------------------------------------------- | --------------------------------------------------------- |
-    | `folder` en `null`: se registró antes de V4                     | Crea la carpeta                                           |
+    | `folder` en `null`: se registró antes de que existiera la carpeta | Crea la carpeta                                         |
     | `folder.status` en `PENDING`: se registró sin carpeta           | Crea la carpeta                                           |
     | `folder.status` en `ERROR`                                      | Reintenta la creación                                     |
     | `folder.status` en `CREATING`                                   | Nada: ya hay una creación en curso. Responde `200` con la carpeta tal como está |
     | `folder.status` en `CREATED` con `templatesPending` mayor a `0` | Copia los modelos que faltan, si `copyTemplates` es `true` |
+    | `folder.status` en `CREATED`, con la carpeta en otro lugar o con otro nombre del que corresponde | La mueve a la carpeta del responsable y la renombra con la carátula vigentes: completa el cambio que Drive no aceptó durante un `PATCH` (D-104) |
 
     Es **idempotente**: sobre una causa que ya tiene su carpeta completa no
     hace nada y responde `200` con la carpeta tal como está. No duplica la

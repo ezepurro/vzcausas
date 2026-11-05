@@ -39,7 +39,11 @@ properties:
   email:
     type: string
     format: email
-    description: Único.
+    description: |
+      Único. De una cuenta de Google si el usuario es `LAWYER` o
+      `SECRETARY`: es el que recibe el acceso a la carpeta del estudio en
+      Drive. La API no puede comprobarlo de antemano: si no lo es, el usuario
+      se registra igual y el acceso queda pendiente.
     examples:
       - iperalta@vazquezzarate.com
   password:

@@ -53,7 +53,7 @@ properties:
     lastVersionAt:
         type: string
         format: date-time
-        description: Fecha y hora de la última versión del archivo ("Última versión"). En esta versión coincide con el alta.
+        description: Fecha y hora de la última versión del archivo ("Última versión"). Coincide con el alta, porque los modelos no se modifican por API.
         examples:
             - "2026-08-21T17:40:00-03:00"
     lastVersionBy:
@@ -67,6 +67,6 @@ properties:
             - 12
     active:
         type: boolean
-        description: Estado de alta. Vale siempre `true` en esta versión.
+        description: Estado de alta. Vale siempre `true`.
         examples:
             - true
