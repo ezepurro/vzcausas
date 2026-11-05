@@ -19,6 +19,9 @@ export interface DeadlineProps {
  * Immutable.
  */
 export class Deadline {
+  /** Shared with the modification of an act (HU28), which checks it together with the other fields. */
+  static readonly MANUAL_BEFORE_COUNTS_FROM = 'No puede ser anterior a la fecha desde la que corre el plazo.';
+
   private constructor(private readonly props: DeadlineProps) {}
 
   /**
@@ -35,7 +38,7 @@ export class Deadline {
     }
     if (props.manualDueDate !== null && props.manualDueDate < props.countsFrom) {
       throw new ValidationError('VALIDATION_ERROR', 'Los datos enviados no son válidos.', {
-        manualDueDate: 'No puede ser anterior a la fecha desde la que corre el plazo.',
+        manualDueDate: Deadline.MANUAL_BEFORE_COUNTS_FROM,
       });
     }
     return new Deadline(props);

@@ -20,12 +20,19 @@ import { PrescriptionDeclaration, PrescriptionDeclarationInput } from '../../val
 import { JurisdictionCode } from '../../value-objects/case/jurisdiction-code';
 import { ProceduralRole } from '../../value-objects/case/procedural-role';
 import { CaseSnapshot } from './case-snapshot';
-import { ProceduralAct, ProceduralActChanges, ProceduralActData, ProceduralActField } from '../procedural-act.entity';
+import {
+  PROCEDURAL_ACT_FIELDS,
+  ProceduralAct,
+  ProceduralActChanges,
+  ProceduralActData,
+  ProceduralActField,
+} from '../procedural-act.entity';
 
 /** Name of the role that may register procedural acts (together with being the responsible lawyer). */
 const LAWYER_ROLE = 'LAWYER';
 
 const INVALID_DATA_MESSAGE = 'Los datos enviados no son válidos.';
+const TERMINAL_HAS_NO_DUE_DATE = 'Un estado terminal cierra la causa y no admite vencimiento.';
 
 /** The state an act takes the case to: from the table, or hand-written. */
 export interface TargetState {
@@ -539,7 +546,7 @@ export abstract class Case {
   ): OpenedTerm {
     if (target.state?.terminal && dates.manualDueDate != null) {
       throw new ValidationError('VALIDATION_ERROR', INVALID_DATA_MESSAGE, {
-        manualDueDate: 'Un estado terminal cierra la causa y no admite vencimiento.',
+        manualDueDate: TERMINAL_HAS_NO_DUE_DATE,
       });
     }
     const timeLimitDays = target.state?.timeLimitDays ?? 0;
@@ -593,8 +600,8 @@ export abstract class Case {
    * (CA-28.2), with the same rule as registering them (D-30).
    * @throws NotResponsibleLawyerError
    */
-  assertCanModifyActs(_actor: AuthenticatedUser): void {
-    throw new Error('Not implemented: Case.assertCanModifyActs (HU28).');
+  assertCanModifyActs(actor: AuthenticatedUser): void {
+    this.assertCanRegisterActs(actor, NotResponsibleLawyerError.FOR_MODIFYING_ACTS);
   }
 
   /**
@@ -602,9 +609,7 @@ export abstract class Case {
    * terminal or not (CA-28.9); `CriminalCase` refuses it once prescribed (D-99).
    * @throws CaseInTerminalStateError
    */
-  assertActsCanBeModified(): void {
-    throw new Error('Not implemented: Case.assertActsCanBeModified (HU28).');
-  }
+  assertActsCanBeModified(): void {}
 
   /**
    * HU28 — validates a change of one of its acts against the act as it would end
@@ -614,12 +619,64 @@ export abstract class Case {
    * @throws ValidationError `VALIDATION_ERROR` with every invalid field.
    */
   planActModification(
-    _act: ProceduralAct,
-    _changes: ProceduralActChanges,
-    _refs: ActModificationRefs,
-    _today: Date,
+    act: ProceduralAct,
+    changes: ProceduralActChanges,
+    refs: ActModificationRefs,
+    today: Date,
   ): ActModificationPlan {
-    throw new Error('Not implemented: Case.planActModification (HU28).');
+    if (!PROCEDURAL_ACT_FIELDS.some((field) => changes[field] !== undefined)) {
+      throw new EmptyCaseUpdateError();
+    }
+    const resolved = act.resolveChanges(changes, today);
+    const errors: Record<string, string> = { ...resolved.errors };
+    // Runs a rule that throws, and keeps its problems with the rest: they are all reported at once.
+    const collect = <T>(rule: () => T): T | null => {
+      try {
+        return rule();
+      } catch (error) {
+        if (!(error instanceof ValidationError)) throw error;
+        Object.assign(errors, error.details);
+        return null;
+      }
+    };
+
+    // A new state must be a valid target, as in the registration. The same state sent again is not re-checked.
+    if (resolved.stateChanged && !errors.proceduralStateId && !errors.customState) {
+      collect(() => this.resolveTargetState({ ...resolved, ...refs }));
+    }
+
+    // D-98: a new state takes the table's term of today; otherwise the act keeps the one it copied.
+    const tableState = resolved.proceduralStateId !== null ? refs.state : null;
+    const timeLimitDays = resolved.stateChanged ? (tableState?.timeLimitDays ?? 0) : act.deadline.timeLimitDays;
+    const dayType = resolved.stateChanged ? (tableState?.dayType ?? DayType.NONE) : act.deadline.dayType;
+    const terminal = tableState?.terminal ?? false;
+    const countsFrom = collect(() =>
+      this.resolveCountsFrom(resolved.actDate, resolved.notificationDate, timeLimitDays > 0),
+    );
+
+    // A manual due date, also one that was kept, is checked against the act as it ends up (CA-28.6).
+    if (resolved.manualDueDate !== null) {
+      if (terminal) {
+        errors.manualDueDate = TERMINAL_HAS_NO_DUE_DATE;
+      } else if (countsFrom !== null && resolved.manualDueDate < countsFrom) {
+        errors.manualDueDate = Deadline.MANUAL_BEFORE_COUNTS_FROM;
+      }
+    }
+
+    if (Object.keys(errors).length > 0) {
+      throw new ValidationError('VALIDATION_ERROR', INVALID_DATA_MESSAGE, errors);
+    }
+    return {
+      proceduralStateId: resolved.proceduralStateId,
+      customState: resolved.customState,
+      actDate: resolved.actDate,
+      notificationDate: resolved.notificationDate,
+      manualDueDate: resolved.manualDueDate,
+      notes: resolved.notes,
+      term: { timeLimitDays, dayType, countsFrom: countsFrom! },
+      terminal,
+      changedFields: resolved.changedFields,
+    };
   }
 
   /**
@@ -627,8 +684,20 @@ export abstract class Case {
    * most recent date, the last registered on a tie (D-14, D-99). It closes or
    * reopens with it (CA-28.7, CA-28.8).
    */
-  recalculateCurrentAct(_input: RecalculateCurrentActInput): void {
-    throw new Error('Not implemented: Case.recalculateCurrentAct (HU28).');
+  recalculateCurrentAct(input: RecalculateCurrentActInput): void {
+    const { modified, latestOther } = input;
+    const otherIsNewer =
+      latestOther !== null &&
+      (latestOther.actDate.getTime() > modified.actDate.getTime() ||
+        (latestOther.actDate.getTime() === modified.actDate.getTime() && latestOther.id > modified.id));
+    const governing = otherIsNewer ? latestOther : modified;
+
+    this.props.currentStateId = governing.proceduralStateId;
+    this.props.currentCustomState = governing.customState;
+    this.props.currentProceduralActId = governing.id;
+    this.props.currentStateTerminal = otherIsNewer ? input.latestOtherTerminal : input.modifiedTerminal;
+    this.props.proceduralActs = [governing];
+    this.props.updatedAt = input.now;
   }
 
   /** The act that led the case to its current state, or `null` while it is in the initial state. */
