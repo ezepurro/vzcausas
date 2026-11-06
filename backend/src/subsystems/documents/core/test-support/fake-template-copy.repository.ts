@@ -11,6 +11,8 @@ export interface FakeTemplate {
   fileName: string;
   cloudFileId: string;
   jurisdictionIds: number[];
+  /** The template's file in the folder of each jurisdiction (id → file id); none for a template from before the folders. */
+  filesByJurisdiction?: Record<number, string>;
   copyToNewCases: boolean;
   active: boolean;
 }
@@ -52,11 +54,15 @@ export class FakeTemplateCopyRepository implements TemplateCopyRepository {
     }
   }
 
-  async findPending(caseId: number): Promise<PendingTemplateCopy[]> {
+  async findPending(caseId: number, jurisdictionId?: number): Promise<PendingTemplateCopy[]> {
     return this.rowsOf(caseId)
       .filter((copy) => copy.isPending && this.templateOf(copy).active)
       .map((stored) => {
-        const { fileName, cloudFileId } = this.templateOf(stored);
+        const template = this.templateOf(stored);
+        const { fileName } = template;
+        const cloudFileId =
+          (jurisdictionId !== undefined ? template.filesByJurisdiction?.[jurisdictionId] : undefined) ??
+          template.cloudFileId;
         // A copy read from a database is a new object: changing it does not change the stored row.
         const copy = TemplateCopy.hydrate({
           caseId: stored.caseId,
