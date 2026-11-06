@@ -13,6 +13,7 @@ import { SetupCloudStorage } from './setup-cloud-storage.use-case';
 import { InMemoryCloudFolderRepository } from '../../../infrastructure/persistence/in-memory/in-memory-cloud-folder.repository';
 import { InMemoryDocumentStorage } from '../../../infrastructure/storage/in-memory/in-memory-document-storage';
 import { FakeClock, aCommand, aSetUpStudio } from '../../test-support/document-fixtures';
+import { FakeDocumentTemplateRepository } from '../../test-support/fake-document-template.repository';
 import { FakeEventPublisher } from '../../test-support/fake-event-publisher';
 import {
   DOCUMENT_SPACE_ASSIGNED,
@@ -128,7 +129,8 @@ describe('AssureSpace', () => {
         storage,
         new FakeClock(),
         events,
-        (setup as SetupCloudStorage) ?? new SetupCloudStorage(folders, storage, new FakeClock()),
+        (setup as SetupCloudStorage) ??
+          new SetupCloudStorage(folders, storage, new FakeClock(), new FakeDocumentTemplateRepository()),
       );
       return { folders, storage, events, assureSpace };
     }
@@ -149,6 +151,10 @@ describe('AssureSpace', () => {
         'MAIN',
         'TEMPLATES',
         'ROOT_CASES',
+        // Las subcarpetas de modelos por fuero que arma el setup, debajo de "Modelos formales".
+        'JURISDICTION',
+        'JURISDICTION',
+        'JURISDICTION',
         'LAWYER',
         'JURISDICTION',
         'CASE',

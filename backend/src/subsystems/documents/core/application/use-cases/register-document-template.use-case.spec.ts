@@ -45,7 +45,7 @@ describe('RegisterDocumentTemplate', () => {
       folders,
       storage,
       new FakeClock(),
-      new SetupCloudStorage(folders, storage, new FakeClock()),
+      new SetupCloudStorage(folders, storage, new FakeClock(), templates),
     );
 
     // "Modelos formales", armada por el script de puesta en marcha (ADR-003).
@@ -81,7 +81,9 @@ describe('RegisterDocumentTemplate', () => {
       expect.objectContaining({ parentId: templatesFolderId, name: 'casacion.docx', mimeType: DOCX_MIME_TYPE }),
     ]);
     expect(templates.saved).toHaveLength(1);
-    expect(templates.saved[0].file).toEqual({ cloudFileId: storage.files[0].id, cloudFolderId: templatesFolderId });
+    expect(templates.saved[0].placements).toEqual([
+      { jurisdiction: 'CRIMINAL', cloudFileId: storage.files[0].id, cloudFolderId: templatesFolderId },
+    ]);
     expect(view).toMatchObject({ name: 'Recurso de casación', lastVersionAt: NOW, lastVersionBy: { id: 6 } });
   });
 
@@ -153,7 +155,7 @@ describe('RegisterDocumentTemplate', () => {
         bareFolders,
         bareStorage,
         new FakeClock(),
-        new SetupCloudStorage(bareFolders, bareStorage, new FakeClock()),
+        new SetupCloudStorage(bareFolders, bareStorage, new FakeClock(), templates),
       );
     });
 
@@ -164,7 +166,7 @@ describe('RegisterDocumentTemplate', () => {
 
       const created = bareStorage.folders.find((f) => f.name === 'Modelos formales')!;
       expect(bareStorage.files).toEqual([expect.objectContaining({ parentId: created.id, name: 'casacion.docx' })]);
-      expect(templates.saved[0].file.cloudFolderId).toBe(created.id);
+      expect(templates.saved[0].placements[0].cloudFolderId).toBe(created.id);
     });
 
     it('si Drive falla al armarla, responde 502 y no sube ni registra nada', async () => {

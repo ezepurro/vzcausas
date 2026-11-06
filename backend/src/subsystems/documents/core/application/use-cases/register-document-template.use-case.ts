@@ -85,10 +85,14 @@ export class RegisterDocumentTemplate {
     });
 
     try {
-      return await this.templates.save(template, {
-        cloudFileId: stored.id,
-        cloudFolderId: templatesFolder.cloudFolderId,
-      });
+      // TEMPORARY (step 3 bridge): one placement in "Modelos formales"; step 5 puts a file in each jurisdiction folder.
+      return await this.templates.save(template, [
+        {
+          jurisdiction: template.jurisdictionsInContractOrder[0],
+          cloudFileId: stored.id,
+          cloudFolderId: templatesFolder.cloudFolderId,
+        },
+      ]);
     } catch (error) {
       await this.discardUpload(stored.id);
       throw error;

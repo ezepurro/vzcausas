@@ -4,6 +4,7 @@ import { AssureSpaceCommand } from '../application/common/assure-space.interface
 import { AssureSpace } from '../application/use-cases/assure-space.use-case';
 import { SetupCloudStorage } from '../application/use-cases/setup-cloud-storage.use-case';
 import { CloudFolderFactory } from '../domain/factories/cloud-folder.factory';
+import { FakeDocumentTemplateRepository } from './fake-document-template.repository';
 import { FakeEventPublisher } from './fake-event-publisher';
 import { InMemoryCloudFolderRepository } from '../../infrastructure/persistence/in-memory/in-memory-cloud-folder.repository';
 import { InMemoryDocumentStorage } from '../../infrastructure/storage/in-memory/in-memory-document-storage';
@@ -76,7 +77,7 @@ export async function aSetUpStudio(): Promise<{
       storage,
       new FakeClock(),
       events,
-      new SetupCloudStorage(folders, storage, new FakeClock()),
+      new SetupCloudStorage(folders, storage, new FakeClock(), new FakeDocumentTemplateRepository()),
     ),
     rootCasesId: rootCases.id,
   };
