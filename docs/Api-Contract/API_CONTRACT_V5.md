@@ -6509,8 +6509,10 @@ porque los modelos no se modifican por API.
 **Sobre el archivo:** no viaja dentro del recurso. Se sube con el alta y se
 descarga con
 [`GET /document-templates/{templateId}/file`](#get-document-templatestemplateidfile).
-El backend lo guarda en `/VZ Causas/Modelos formales`, en el mismo
-almacenamiento en la nube que las carpetas de las causas.
+El backend lo guarda en `/VZ Causas/Modelos formales/{fuero}`, en el mismo
+almacenamiento en la nube que las carpetas de las causas. Hay una subcarpeta
+por fuero (`Penal`, `Administrativo` y `Amparo`) y el archivo queda en la de
+cada uno de los fueros del modelo; el modelo sigue siendo uno solo.
 
 **Sobre las copias:** el modelo y sus copias son independientes. Lo que se copia
 a la carpeta de una causa es el archivo tal como estaba ese día: "cada causa
@@ -8242,8 +8244,8 @@ carpetas que crea el sistema.
   corta en 255 caracteres, así que `GÓMEZ, Ariel c/ PÉREZ` queda como
   `GÓMEZ, Ariel c PÉREZ`. Por eso `folder.path` es un dato para mostrar, no para
   separar en partes. Dos causas con la misma carátula tienen carpetas distintas.
-- **Modelos formales.** Viven en `/VZ Causas/Modelos formales`, fuera de las
-  carpetas de los abogados y de `Causas`.
+- **Modelos formales.** Viven en `/VZ Causas/Modelos formales/{fuero}`, con una
+  subcarpeta por fuero, fuera de las carpetas de los abogados y de `Causas`.
 - **Quién accede.** El sistema **comparte la carpeta raíz `VZ Causas`** con el
   correo de cada usuario vigente que tenga el rol `LAWYER` o `SECRETARY`, como
   editor; todo lo que hay adentro hereda ese acceso. Son los perfiles que
