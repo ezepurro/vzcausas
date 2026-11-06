@@ -7,8 +7,10 @@ export class ClientResponseDto {
   id!: number;
   lastName!: string;
   firstName!: string;
-  dni!: string;
-  phone!: string | null;
+  documentType!: string;
+  documentNumber!: string;
+  address!: string;
+  phone!: string;
   email!: string | null;
   clientSince!: string;
 }
@@ -17,7 +19,7 @@ export class ResponsibleLawyerResponseDto {
   id!: number;
   lastName!: string;
   firstName!: string;
-  registrationNumber!: string;
+  registrationNumber!: string | null;
 }
 
 export class LegalQualificationResponseDto {

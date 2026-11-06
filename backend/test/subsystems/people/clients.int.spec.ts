@@ -14,7 +14,7 @@ import { createUser } from '../../shared/factories/user.factory';
 /*
  * Recurso clientes (HU8, HU9). Contrato: API_CONTRACT_V5.md §3.6. Una sola app para
  * los tres endpoints. El 401 sin token está en `test/smoke/app.int.spec.ts`; las reglas
- * del DNI, en `dni.vo.spec.ts` y `register-client.use-case.spec.ts`.
+ * del documento, en `client-document.vo.spec.ts` y `register-client.use-case.spec.ts`.
  */
 
 const URL = '/api/v1/clients';
@@ -23,8 +23,10 @@ interface ClientBody {
   id: number;
   lastName: string;
   firstName: string;
-  dni: string;
-  phone: string | null;
+  documentType: string;
+  documentNumber: string;
+  address: string;
+  phone: string;
   email: string | null;
   clientSince: string;
   activeCases: number;
@@ -70,7 +72,9 @@ describe('POST /api/v1/clients', () => {
     const res = await post({
       lastName: 'BENÍTEZ',
       firstName: 'Rodrigo E.',
-      dni: '31556208',
+      documentType: 'DNI',
+      documentNumber: '31556208',
+      address: 'Av. Rafael Núñez 4560, Córdoba',
       phone: '351 401-5573',
       email: 'rbenitez@gmail.com',
     });
@@ -80,40 +84,79 @@ describe('POST /api/v1/clients', () => {
       id: expect.any(Number),
       lastName: 'BENÍTEZ',
       firstName: 'Rodrigo E.',
-      dni: '31556208',
+      documentType: 'DNI',
+      documentNumber: '31556208',
+      address: 'Av. Rafael Núñez 4560, Córdoba',
       phone: '351 401-5573',
       email: 'rbenitez@gmail.com',
       clientSince: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
       activeCases: 0,
       active: true,
     });
-    expect(await getPrisma().client.findUnique({ where: { id: data.id } })).toMatchObject({ dni: '31556208', active: true });
+    expect(await getPrisma().client.findUnique({ where: { id: data.id } })).toMatchObject({
+      documentType: 'DNI',
+      documentNumber: '31556208',
+      address: 'Av. Rafael Núñez 4560, Córdoba',
+      active: true,
+    });
+  });
+
+  // D-108: un cliente extranjero se registra con pasaporte, que se guarda en mayúsculas.
+  it('registra un cliente con pasaporte', async () => {
+    const res = await post({
+      lastName: 'SMITH',
+      firstName: 'John',
+      documentType: 'PASSPORT',
+      documentNumber: 'AAE482915',
+      address: '221B Baker Street, Londres',
+      phone: '+44 20 7946 0958',
+    });
+
+    expect(expectData<ClientBody>(res, 201)).toMatchObject({
+      documentType: 'PASSPORT',
+      documentNumber: 'AAE482915',
+      address: '221B Baker Street, Londres',
+    });
   });
 
   /**
-   * DNI único entre los vigentes, contra el índice parcial `clients_dni_active_key`.
+   * Documento único por tipo entre los vigentes, contra el índice parcial
+   * `clients_document_active_key` (D-108).
    *
    * Desvío nombrado, sin fijar: el contrato pide `details: null` y hoy llega
-   * `{ field: "dni" }` (`people.errors.ts:78`). Por eso no se usa `expectError`.
+   * `{ field: "documentNumber" }` (`people.errors.ts`). Por eso no se usa `expectError`.
    */
-  it('rechaza con 409 un DNI de un cliente vigente y no guarda otro', async () => {
-    await createClient({ dni: '31556208' });
+  it('rechaza con 409 un documento de un cliente vigente, pero no el mismo número de otro tipo', async () => {
+    await createClient({ documentType: 'DNI', documentNumber: '31556208' });
+    const body = { lastName: 'OTRO', firstName: 'Cliente', address: 'Calle 1', phone: '351 111-1111' };
 
-    const res = await post({ lastName: 'OTRO', firstName: 'Cliente', dni: '31556208' });
+    const res = await post({ ...body, documentType: 'DNI', documentNumber: '31556208' });
 
     expect(res.status).toBe(409);
     expect(res.body.error).toMatchObject({
       code: 'CLIENT_DNI_ALREADY_EXISTS',
       message: 'Ya existe un cliente registrado con ese DNI.',
     });
-    expect(await getPrisma().client.count({ where: { dni: '31556208' } })).toBe(1);
+    expect(await getPrisma().client.count({ where: { documentNumber: '31556208' } })).toBe(1);
+
+    // Un pasaporte con el mismo número es otro documento: no choca.
+    const passport = await post({ ...body, documentType: 'PASSPORT', documentNumber: '31556208' });
+    expectData<ClientBody>(passport, 201);
   });
 
+  // D-108, D-109
   it('responde 400 nombrando cada campo inválido y no guarda nada', async () => {
-    const res = await post({ lastName: 'BENÍTEZ', firstName: 'Rodrigo E.', dni: '31.556.208', email: 'no-es-un-correo' });
+    const res = await post({
+      lastName: 'BENÍTEZ',
+      firstName: 'Rodrigo E.',
+      documentType: 'DNI',
+      documentNumber: '31.556.208',
+      address: '   ',
+      email: 'no-es-un-correo',
+    });
 
-    expectError(res, 400, 'VALIDATION_ERROR', ['dni', 'email']);
-    expect(Object.keys(res.body.error.details).sort()).toEqual(['dni', 'email']);
+    expectError(res, 400, 'VALIDATION_ERROR', ['documentNumber', 'address', 'phone', 'email']);
+    expect(Object.keys(res.body.error.details).sort()).toEqual(['address', 'documentNumber', 'email', 'phone']);
     expect(await getPrisma().client.count()).toBe(0);
   });
 });
@@ -124,7 +167,7 @@ describe('GET /api/v1/clients', () => {
   // CA-9.1: por apellido y, dentro del apellido, por nombres.
   it('devuelve el sobre paginado en la forma del contrato, ordenado por apellido y nombres', async () => {
     const zulema = await createClient({ lastName: 'GÓMEZ', firstName: 'Zulema' });
-    const luis = await createClient({ lastName: 'ACOSTA', firstName: 'Luis', phone: null, email: null });
+    const luis = await createClient({ lastName: 'ACOSTA', firstName: 'Luis', email: null });
     const ariel = await createClient({ lastName: 'GÓMEZ', firstName: 'Ariel' });
 
     const data = expectPaginated<ClientBody>(await get(), { page: 1, limit: 20, totalItems: 3, totalPages: 1 });
@@ -134,8 +177,10 @@ describe('GET /api/v1/clients', () => {
       id: luis.id,
       lastName: 'ACOSTA',
       firstName: 'Luis',
-      dni: luis.dni,
-      phone: null,
+      documentType: 'DNI',
+      documentNumber: luis.documentNumber,
+      address: luis.address,
+      phone: luis.phone,
       email: null,
       clientSince: '2021-03-12',
       activeCases: 0,
@@ -152,8 +197,8 @@ describe('GET /api/v1/clients', () => {
    * `totalPages`.
    */
   it('busca por apellido, nombres y documento, sin distinguir mayúsculas', async () => {
-    const benitez = await createClient({ lastName: 'BENÍTEZ', firstName: 'Rodrigo E.', dni: '31556208' });
-    await createClient({ lastName: 'MOLINA', firstName: 'Daniel', dni: '28999888' });
+    const benitez = await createClient({ lastName: 'BENÍTEZ', firstName: 'Rodrigo E.', documentNumber: '31556208' });
+    await createClient({ lastName: 'MOLINA', firstName: 'Daniel', documentNumber: '28999888' });
 
     for (const search of ['bení', 'Rodrigo', '31556208']) {
       expect(expectPaginated<ClientBody>(await get({ search })).map((c) => c.id)).toEqual([benitez.id]);
@@ -186,13 +231,15 @@ describe('GET /api/v1/clients/{clientId}', () => {
   const getById = (id: number | string) => server().get(`${URL}/${id}`).set(reader());
 
   it('devuelve el cliente en la forma del contrato', async () => {
-    const client = await createClient({ lastName: 'BENÍTEZ', firstName: 'Rodrigo E.', dni: '31556208' });
+    const client = await createClient({ lastName: 'BENÍTEZ', firstName: 'Rodrigo E.', documentNumber: '31556208' });
 
     expect(expectData<ClientBody>(await getById(client.id), 200)).toEqual({
       id: client.id,
       lastName: 'BENÍTEZ',
       firstName: 'Rodrigo E.',
-      dni: '31556208',
+      documentType: 'DNI',
+      documentNumber: '31556208',
+      address: client.address,
       phone: client.phone,
       email: client.email,
       clientSince: '2021-03-12',
@@ -274,7 +321,14 @@ describe('Permisos de /api/v1/clients', () => {
     expect(login.status).toBe(200);
     const auth = { Authorization: `Bearer ${login.body.data.accessToken}` };
 
-    const created = await server().post(URL).set(auth).send({ lastName: 'TEST', firstName: role, dni: '26111222' });
+    const created = await server().post(URL).set(auth).send({
+      lastName: 'TEST',
+      firstName: role,
+      documentType: 'DNI',
+      documentNumber: '26111222',
+      address: 'Calle 1',
+      phone: '351 111-1111',
+    });
     const { id } = expectData<ClientBody>(created, 201);
     expectPaginated(await server().get(URL).set(auth));
     expectData(await server().get(`${URL}/${id}`).set(auth), 200);

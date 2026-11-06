@@ -1,5 +1,5 @@
 import { Client } from "../../domain/entities/client.entity";
-import { Dni } from "../../domain/value-objects/dni.vo";
+import { ClientDocument } from "../../domain/value-objects/client-document.vo";
 import { ListClientsUseCase } from "./list-clients.use-case";
 import {
   FakeActiveCasesCounter,
@@ -33,7 +33,9 @@ describe("ListClientsUseCase", () => {
       id: nextId++,
       lastName: props.lastName,
       firstName: props.firstName,
-      dni: Dni.create(props.dni),
+      document: ClientDocument.create("DNI", props.dni),
+      address: "Av. Rafael Núñez 4560, Córdoba",
+      phone: "351 401-5573",
       clientSince: CLIENT_SINCE,
     });
     if (props.active === false) client.deactivate();

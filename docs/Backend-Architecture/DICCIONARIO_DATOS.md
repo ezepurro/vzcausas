@@ -506,8 +506,10 @@ Almacena los datos personales y de contacto de los clientes del estudio.
 | `id` | SERIAL (INTEGER) | 4 B | PK | No | Identificador interno del cliente. |
 | `last_name` | VARCHAR | 100 |  | No | Apellido del cliente. |
 | `first_name` | VARCHAR | 100 |  | No | Nombre o nombres del cliente. |
-| `dni` | VARCHAR | 8 |  | No | DNI de 7 u 8 dígitos, sin puntos. Único entre clientes activos (índice único parcial). |
-| `phone` | VARCHAR | 50 |  | Sí | Teléfono de contacto. |
+| `document_type` | `document_type` (enum) | - |  | No | Tipo de documento: `DNI` o `PASSPORT` (D-108). Los clientes existentes quedan en `DNI`. |
+| `document_number` | VARCHAR | 20 |  | No | Número de documento (reemplaza a `dni`, D-108). DNI: 7 u 8 dígitos; pasaporte: 6 a 20 letras mayúsculas y dígitos. Único por `(document_type, document_number)` entre clientes activos (índice único parcial). |
+| `address` | VARCHAR | 255 |  | No | Dirección. Obligatoria (D-109). |
+| `phone` | VARCHAR | 50 |  | No | Teléfono de contacto. Obligatorio (D-109). |
 | `email` | VARCHAR | 255 |  | Sí | Correo electrónico de contacto. |
 | `client_since` | DATE | 4 B |  | No | Fecha desde la que la persona es cliente del estudio. La asigna la aplicación con la fecha de Córdoba. |
 | `active` | BOOLEAN | 1 B |  | No | `true`: vigente. `false`: baja lógica (RN12). Por defecto `true`. |

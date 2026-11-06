@@ -37,7 +37,8 @@ de `API_CONTRACT_V5.md`.
 | D-104 | **(Revisión del 27/10/2026)** La carpeta de Drive sigue a la causa: se renombra si cambia la carátula, se mueve a la carpeta del nuevo responsable si cambia el responsable, y la del abogado se renombra si cambia su nombre. Si Drive no responde, la modificación no falla y el cambio se completa después, con `POST /cases/{caseId}/folder` o con el proceso diario. Reemplaza en esto a D-61 | Definido por el equipo (C-26). Una carpeta que no corresponde a la carátula o al responsable confunde a quien trabaja en Drive. Con `drive.file` alcanza, porque la app creó esas carpetas. No hacer fallar la modificación es el mismo criterio que la creación (D-60, R-03) |
 | D-105 | **(Revisión del 27/10/2026)** El cliente de una causa se puede modificar. El backend no recalcula la carátula: el cliente la propone y la envía en `caption`, en la misma petición | Definido por el equipo (C-31). Es la misma regla que el alta (§3.7): la carátula sugerida la arma el cliente |
 | D-107 | **(Revisión del 05/11/2026)** La matrícula del abogado es opcional: `registrationNumber` vale `null` si no se cargó, no viaja (o viaja vacía) en el alta, y en `PATCH /lawyers/{lawyerId}` `null` la borra. Sigue siendo única entre los abogados que la tienen. Vale también para la ficha que se registra con `POST /users` | Pedido del equipo. El estudio necesita registrar abogados de los que todavía no tiene la matrícula. Cambia CA-14.4 en lo que respecta a la matrícula; el apellido y los nombres siguen siendo obligatorios |
-| D-108 | **(Revisión del 05/11/2026)** El cliente se identifica con `documentType` (`DNI` o `PASSPORT`) y `documentNumber`, que reemplaza a `dni`, y suma `address` (texto libre, opcional, hasta 255 caracteres). El documento es único por tipo entre los clientes vigentes. El `409` conserva el código `CLIENT_DNI_ALREADY_EXISTS` | Pedido del equipo: hay clientes extranjeros que no tienen DNI, y el estudio necesita la dirección. Los tipos los eligió el equipo (DNI y pasaporte). Renombrar `dni` es un cambio incompatible que el equipo aceptó; el código de error no se renombra porque no aporta y rompería el manejo de errores de los dos lados |
+| D-109 | **(Revisión del 06/11/2026)** `address` y `phone` del cliente son obligatorios en `POST /clients` (no vacíos). Reemplaza el "opcional" de `address` de D-108 y el de `phone` de V4. La regla vive en el dominio y también en la base: las dos columnas son `NOT NULL` | Pedido del equipo (06/11/2026). Los clientes cargados hasta ahora son datos de prueba: se vacía la base y se vuelve a cargar con el seed, así que no hace falta un valor de relleno para los viejos |
+| D-108 | **(Revisión del 05/11/2026)** El cliente se identifica con `documentType` (`DNI` o `PASSPORT`) y `documentNumber`, que reemplaza a `dni`, y suma `address` (texto libre, hasta 255 caracteres; obligatoria desde D-109). El documento es único por tipo entre los clientes vigentes. El `409` conserva el código `CLIENT_DNI_ALREADY_EXISTS` | Pedido del equipo: hay clientes extranjeros que no tienen DNI, y el estudio necesita la dirección. Los tipos los eligió el equipo (DNI y pasaporte). Renombrar `dni` es un cambio incompatible que el equipo aceptó; el código de error no se renombra porque no aporta y rompería el manejo de errores de los dos lados |
 | D-106 | **(Revisión del 27/10/2026)** En la hoja de carátula, el abogado lleva el prefijo fijo `DR.`, igual para todos. **(Revisado el 29/10/2026: era `DR/DRA.`; se alinea con las plantillas del estudio y con los CA de la HU24, VZ-32)** | Definido por el equipo (C-28). El sistema no sabe si corresponde "Dr." o "Dra." y el estudio prefirió no cargar ese dato en el abogado (C-13). Es una excepción a D-81 porque la hoja la escribe el backend |
 
 ### Decisiones de V4
@@ -269,6 +270,35 @@ para que el equipo las corrija; el contrato no las cambia.
 - **ADR-003.** §4.1 se cierra con `drive.readonly` (C-24), y la regla de que la
   carpeta no se mueve ni se renombra cambia con D-104. Además, §2.3 y §4 citan
   "C-45" para los correos que no son de Google: es C-23.
+
+### Impacto de la revisión del 06/11/2026
+
+**D-109: `address` y `phone` obligatorios en el alta del cliente.** `POST /clients`
+sin alguno de los dos, o con uno vacío o en blanco, responde `400
+VALIDATION_ERROR` con el campo en `details`. Rompe a quien hoy da de alta clientes
+sin ellos. Las dos columnas son `NOT NULL` en la base. Agregar una columna `NOT NULL`
+falla en una tabla con filas y no hay valor con qué completar a los clientes viejos:
+la migración supone que la tabla `clients` solo tiene datos de prueba, que se vacía
+(`make dev-down-v`) y se vuelve a cargar con el seed. Quien ya haya aplicado una
+versión anterior de la migración tiene que hacer lo mismo.
+
+**Límite conocido de D-107 (aceptado el 06/11/2026).** La matrícula era, de hecho,
+lo único que identificaba a un abogado sin repetirse. Sin ella, nada impide
+registrar dos veces al mismo abogado con el mismo apellido y nombres. Se decidió no
+agregar una restricción: el volumen de un estudio es chico y el administrador ve el
+listado. Si aparece el problema, las salidas son advertir sin bloquear en el alta o
+un índice único parcial por apellido y nombres entre los vigentes (requeriría
+migración).
+
+**Backend.** Aplicado en la rama `feat/client-document-address`: `ClientDocument`
+(reemplaza a `Dni`), `Client` con `address` y `phone` obligatorios en el alta,
+`Lawyer` con matrícula anulable, y la migración
+`20261106132157_client_document_address_lawyer_optional_registration` (renombra
+`dni` a `document_number`, agrega `address` y vuelve `phone` y `address` `NOT NULL`, y
+reemplaza el índice y el CHECK por los de `(document_type, document_number)`).
+
+**Frontend.** Los formularios de cliente tienen que marcar dirección y teléfono como
+obligatorios.
 
 ### Impacto de la revisión del 05/11/2026
 

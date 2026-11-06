@@ -194,7 +194,9 @@ model Lawyer {
   // Matrícula del Colegio de Abogados de Córdoba: circunscripción y
   // número separados por guión (`1-28114`). El formato lo valida el
   // value object RegistrationNumber; acá solo se garantiza unicidad.
-  registrationNumber String   @unique @map("registration_number") @db.VarChar(50)
+  // Opcional (D-107): un abogado puede no tener matrícula todavía. El
+  // @unique se mantiene: PostgreSQL admite varios NULL.
+  registrationNumber String?  @unique @map("registration_number") @db.VarChar(50)
   active             Boolean  @default(true)
   createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -218,11 +220,14 @@ model Client {
   id          Int      @id @default(autoincrement())
   lastName    String   @map("last_name") @db.VarChar(100)
   firstName   String   @map("first_name") @db.VarChar(100)
-  // Solo dígitos, 7 u 8 (CHECK manual). Único entre los clientes
-  // VIGENTES: índice único parcial `clients_dni_active_key`, creado a
-  // mano (ver el bloque de SQL manual al final del archivo).
-  dni         String   @db.VarChar(8)
-  phone       String?  @db.VarChar(50)
+  // Tipo y número de documento (D-108). El formato de cada tipo lo valida
+  // un CHECK manual. Único por (tipo, número) entre los clientes VIGENTES:
+  // índice único parcial `clients_document_active_key`, creado a mano.
+  documentType   DocumentType @default(DNI) @map("document_type")
+  documentNumber String        @map("document_number") @db.VarChar(20)
+  // Obligatorios (D-109), también en la base.
+  address     String   @db.VarChar(255)
+  phone       String   @db.VarChar(50)
   email       String?  @db.VarChar(255)
   // Fecha civil. La asigna la aplicación con `ClockPort.today()`
   // (Córdoba), nunca `CURRENT_DATE`, que corre en la zona de la base.
@@ -235,6 +240,13 @@ model Client {
 
   @@index([lastName, firstName])
   @@map("clients")
+}
+
+enum DocumentType {
+  DNI
+  PASSPORT
+
+  @@map("document_type")
 }
 
 enum DayType {

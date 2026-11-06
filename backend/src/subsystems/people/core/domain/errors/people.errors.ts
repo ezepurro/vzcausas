@@ -73,11 +73,14 @@ export class EmptyLawyerUpdateError extends ValidationError {
 }
 
 /**
- * Emitted by `RegisterClient` (HU-8) when the DNI already belongs to
- * a **current** client (CA-8.4).
+ * Emitted by `RegisterClient` (HU-8) when the document already belongs to
+ * a **current** client (CA-8.4), whether it is a DNI or a passport (D-108).
+ *
+ * The name and the `code` keep saying DNI on purpose: the contract keeps
+ * `CLIENT_DNI_ALREADY_EXISTS` so that V4 clients keep handling the error.
  *
  * Scoped to current clients on purpose: the database's unique index
- * is partial (`clients_dni_active_key ... WHERE active`), so a client
+ * is partial (`clients_document_active_key ... WHERE active`), so a client
  * who was logically deleted frees their document. The same person can
  * be registered again once HU-11 exists, which a plain unique index
  * would make impossible.
@@ -90,7 +93,7 @@ export class ClientDniAlreadyExistsError extends ConflictError {
     super(
       "CLIENT_DNI_ALREADY_EXISTS",
       "Ya existe un cliente registrado con ese DNI.",
-      { field: "dni" },
+      { field: "documentNumber" },
     );
   }
 }

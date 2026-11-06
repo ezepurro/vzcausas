@@ -15,8 +15,9 @@ import { createUser } from '../../shared/factories/user.factory';
  * Consulta de abogados (`GET /lawyers` y `GET /lawyers/{lawyerId}`). Contrato:
  * API_CONTRACT_V5.md §3.3. El 401 sin token está en `test/smoke/app.int.spec.ts`.
  *
- * `POST /lawyers` no tiene test de integración: nunca lo tuvo, y esta suite junta lo
- * que ya existía de abogados (antes en `clients.int.spec.ts` y en `case-query.int.spec.ts`).
+ * `POST /lawyers` solo se prueba acá en lo que cambió con D-107 (la matrícula opcional):
+ * esta suite junta lo que ya existía de abogados (antes en `clients.int.spec.ts` y en
+ * `case-query.int.spec.ts`).
  */
 
 const URL = '/api/v1/lawyers';
@@ -25,7 +26,7 @@ interface LawyerBody {
   id: number;
   lastName: string;
   firstName: string;
-  registrationNumber: string;
+  registrationNumber: string | null;
   activeCases: number;
   active: boolean;
 }
@@ -58,6 +59,31 @@ beforeEach(async () => {
   await prisma.client.deleteMany();
   await prisma.user.deleteMany();
   await prisma.lawyer.deleteMany();
+});
+
+describe('POST /api/v1/lawyers sin matrícula (D-107)', () => {
+  const post = (body: object) => server().post(URL).set(loginAs({ permissions: ['lawyer:create'] })).send(body);
+
+  // Un pasante que todavía no se matriculó: se registra, y varios pueden estar así a la vez.
+  it.each<[string, Record<string, unknown>]>([
+    ['sin el campo', {}],
+    ['con null', { registrationNumber: null }],
+    ['vacía', { registrationNumber: '' }],
+  ])('registra al abogado %s: 201 con registrationNumber en null, también al segundo', async (_case, extra) => {
+    const first = await post({ lastName: 'Gómez', firstName: 'Ana', ...extra });
+    const second = await post({ lastName: 'Ruiz', firstName: 'Luis', ...extra });
+
+    expect(expectData<LawyerBody>(first, 201)).toMatchObject({ lastName: 'Gómez', registrationNumber: null, active: true });
+    expect(expectData<LawyerBody>(second, 201)).toMatchObject({ lastName: 'Ruiz', registrationNumber: null });
+    expect(await getPrisma().lawyer.count({ where: { registrationNumber: null } })).toBe(2);
+  });
+
+  it('sigue validando el formato de una matrícula que se envía', async () => {
+    const res = await post({ lastName: 'Gómez', firstName: 'Ana', registrationNumber: '28114' });
+
+    expectError(res, 400, 'VALIDATION_ERROR', ['registrationNumber']);
+    expect(await getPrisma().lawyer.count()).toBe(0);
+  });
 });
 
 describe('GET /api/v1/lawyers', () => {

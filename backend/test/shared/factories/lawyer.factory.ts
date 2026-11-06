@@ -10,7 +10,8 @@ import { getPrisma } from '../harness/test-app';
 export interface CreateLawyerOverrides {
   lastName?: string;
   firstName?: string;
-  registrationNumber?: string;
+  /** `null` crea un abogado sin matrícula (D-107). */
+  registrationNumber?: string | null;
   active?: boolean;
 }
 
@@ -22,7 +23,8 @@ export async function createLawyer(overrides: CreateLawyerOverrides = {}) {
     data: {
       lastName: overrides.lastName ?? faker.person.lastName(),
       firstName: overrides.firstName ?? faker.person.firstName(),
-      registrationNumber: overrides.registrationNumber ?? `1-${10000 + sequence}`,
+      registrationNumber:
+        overrides.registrationNumber === undefined ? `1-${10000 + sequence}` : overrides.registrationNumber,
       active: overrides.active ?? true,
     },
   });

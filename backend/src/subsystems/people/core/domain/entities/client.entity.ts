@@ -1,5 +1,5 @@
 import { ValidationError } from "@shared/domain/domain-error";
-import { Dni } from "../value-objects/dni.vo";
+import { ClientDocument } from "../value-objects/client-document.vo";
 
 /**
  * A client of the firm: the person a case is run for.
@@ -17,14 +17,18 @@ import { Dni } from "../value-objects/dni.vo";
  * `clientSince` is a civil date supplied by the caller rather than
  * computed here: the entity has no business reading a clock, so the
  * use case injects it through `ClockPort.today()` (CA-8.7).
+ *
+ * The identity document is a type plus a number (D-108). Address and phone are
+ * required (D-109), in the entity and in the database.
  */
 export class Client {
   private constructor(
     private readonly _id: number,
     private _lastName: string,
     private _firstName: string,
-    private readonly _dni: Dni,
-    private _phone: string | null,
+    private readonly _document: ClientDocument,
+    private _address: string,
+    private _phone: string,
     private _email: string | null,
     private readonly _clientSince: Date,
     private _active: boolean,
@@ -39,8 +43,9 @@ export class Client {
     id: number;
     lastName: string;
     firstName: string;
-    dni: Dni;
-    phone: string | null;
+    document: ClientDocument;
+    address: string;
+    phone: string;
     email: string | null;
     clientSince: Date;
     active: boolean;
@@ -49,7 +54,8 @@ export class Client {
       props.id,
       props.lastName,
       props.firstName,
-      props.dni,
+      props.document,
+      props.address,
       props.phone,
       props.email,
       props.clientSince,
@@ -60,19 +66,21 @@ export class Client {
   /**
    * Creates a fresh {@link Client} (HU-8).
    *
-   * Phone and email are optional (CA-8.5): absent and blank both
-   * become `null`, so the column never holds an empty string that
-   * reads as "has a phone" to anything checking for presence.
+   * Address and phone are required (D-109): a missing, empty or blank one is
+   * rejected. The email stays optional (CA-8.5): absent and blank both become
+   * `null`, so the column never holds an empty string that reads as "has an
+   * email" to anything checking for presence.
    *
    * @throws {ValidationError} if the id is not a positive integer or
-   *   surname or given names are empty.
+   *   surname, given names, address or phone are empty.
    */
   static create(props: {
     id: number;
     lastName: string;
     firstName: string;
-    dni: Dni;
-    phone?: string | null;
+    document: ClientDocument;
+    address: string;
+    phone: string;
     email?: string | null;
     clientSince: Date;
     active?: boolean;
@@ -102,12 +110,31 @@ export class Client {
       );
     }
 
+    const address = props.address?.trim() ?? "";
+    if (address.length === 0) {
+      throw new ValidationError(
+        "INVALID_CLIENT",
+        "La dirección es obligatoria.",
+        { field: "address" },
+      );
+    }
+
+    const phone = props.phone?.trim() ?? "";
+    if (phone.length === 0) {
+      throw new ValidationError(
+        "INVALID_CLIENT",
+        "El teléfono es obligatorio.",
+        { field: "phone" },
+      );
+    }
+
     return new Client(
       props.id,
       lastName,
       firstName,
-      props.dni,
-      blankToNull(props.phone),
+      props.document,
+      address,
+      phone,
       blankToNull(props.email),
       props.clientSince,
       props.active ?? true,
@@ -131,11 +158,15 @@ export class Client {
     return this._firstName;
   }
 
-  get dni(): Dni {
-    return this._dni;
+  get document(): ClientDocument {
+    return this._document;
   }
 
-  get phone(): string | null {
+  get address(): string {
+    return this._address;
+  }
+
+  get phone(): string {
     return this._phone;
   }
 

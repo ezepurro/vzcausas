@@ -6,7 +6,8 @@ export interface LawyerRef {
   id: number;
   lastName: string;
   firstName: string;
-  registrationNumber: string;
+  /** `null` if the lawyer has no registration number loaded (D-107). */
+  registrationNumber: string | null;
 }
 
 /** What `cases` needs to know about a client. */
@@ -14,8 +15,10 @@ export interface ClientRef {
   id: number;
   lastName: string;
   firstName: string;
-  dni: string;
-  phone: string | null;
+  documentType: string;
+  documentNumber: string;
+  address: string;
+  phone: string;
   email: string | null;
   clientSince: Date;
 }

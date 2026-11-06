@@ -6,7 +6,17 @@ import { ProceduralRole } from './procedural-role';
 const LAWYER_VAZQUEZ: LawyerRef = { id: 1, lastName: 'Vazquez', firstName: 'Fernando', registrationNumber: '1-1' };
 
 function aClient(lastName: string, firstName: string): ClientRef {
-  return { id: 7, lastName, firstName, dni: '1', phone: null, email: null, clientSince: new Date('2021-01-01') };
+  return {
+    id: 7,
+    lastName,
+    firstName,
+    documentType: 'DNI',
+    documentNumber: '1',
+    address: 'Av. Colón 1320, Córdoba',
+    phone: '351 530-1177',
+    email: null,
+    clientSince: new Date('2021-01-01'),
+  };
 }
 
 /** C1 of the HU24 test plan: criminal, defense, with SAC. Override what each case needs. */

@@ -5,6 +5,8 @@ required:
   - firstName
   - documentType
   - documentNumber
+  - address
+  - phone
 properties:
   lastName:
     type: string
@@ -30,13 +32,22 @@ properties:
       - '31556208'
   address:
     type: string
+    minLength: 1
     maxLength: 255
-    description: Dirección. Texto libre, opcional (Revisión del 05/11/2026, D-108.)
+    pattern: '\S'
+    description: |
+      Dirección. Texto libre, obligatoria y no vacía
+      (Revisión del 05/11/2026, D-108; obligatoria desde la revisión del 06/11/2026, D-109.)
     examples:
       - Av. Rafael Núñez 4560, Córdoba
   phone:
     type: string
+    minLength: 1
     maxLength: 50
+    pattern: '\S'
+    description: |
+      Teléfono de contacto. Texto libre, obligatorio y no vacío
+      (Revisión del 06/11/2026, D-109.)
     examples:
       - 351 401-5573
   email:

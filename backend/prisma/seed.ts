@@ -493,13 +493,16 @@ const DEV_LEGAL_QUALIFICATIONS = [
   { name: 'Estafa — art. 172 CP', prescriptionMonths: 72 },
 ] as const;
 
-/** The DNI travels without dots (D-17) and is unique among active clients. */
+/**
+ * The DNI travels without dots (D-17) and the document is unique per type among
+ * active clients (D-108). Address and phone are required for a new client (D-109).
+ */
 const DEV_CLIENTS = [
-  { lastName: 'GÓMEZ', firstName: 'Ariel Fernando', dni: '34812905', phone: '351 415-2288', email: 'afgomez@example.com' },
-  { lastName: 'PEREYRA', firstName: 'Marcos D.', dni: '29440117', phone: '351 622-9014', email: null },
-  { lastName: 'MOYANO', firstName: 'Daniela', dni: '31256890', phone: null, email: 'dmoyano@example.com' },
-  { lastName: 'RUIZ', firstName: 'Julián', dni: '38120456', phone: '351 530-1177', email: null },
-  { lastName: 'LEDESMA', firstName: 'Verónica', dni: '27654321', phone: null, email: null },
+  { lastName: 'GÓMEZ', firstName: 'Ariel Fernando', documentType: 'DNI', documentNumber: '34812905', address: 'Av. Rafael Núñez 4560, Córdoba', phone: '351 415-2288', email: 'afgomez@example.com' },
+  { lastName: 'PEREYRA', firstName: 'Marcos D.', documentType: 'DNI', documentNumber: '29440117', address: 'Obispo Trejo 245, Córdoba', phone: '351 622-9014', email: null },
+  { lastName: 'MOYANO', firstName: 'Daniela', documentType: 'DNI', documentNumber: '31256890', address: 'Bv. San Juan 870, Córdoba', phone: '351 744-1160', email: 'dmoyano@example.com' },
+  { lastName: 'RUIZ', firstName: 'Julián', documentType: 'DNI', documentNumber: '38120456', address: 'Av. Colón 1320, Córdoba', phone: '351 530-1177', email: null },
+  { lastName: 'LEDESMA', firstName: 'Verónica', documentType: 'DNI', documentNumber: '27654321', address: 'Duarte Quirós 512, Córdoba', phone: '351 415-8890', email: null },
 ] as const;
 
 interface DevAct {
@@ -513,7 +516,7 @@ interface DevCase {
   jurisdiction: 'CRIMINAL' | 'ADMINISTRATIVE' | 'AMPARO';
   proceduralRole: 'DEFENSA' | 'RECURRENTE' | 'ACTORA';
   caption: string;
-  clientDni: string;
+  clientDocumentNumber: string;
   // Only ADMINISTRATIVE and AMPARO.
   counterparty?: string;
   subjectMatter?: string;
@@ -542,7 +545,7 @@ const DEV_CASES: readonly DevCase[] = [
     jurisdiction: 'CRIMINAL',
     proceduralRole: 'DEFENSA',
     caption: 'GÓMEZ, Ariel Fernando p.s.a. Robo calificado',
-    clientDni: '34812905',
+    clientDocumentNumber: '34812905',
     clientDetained: true,
     courtFeePaid: true,
     offenses: [
@@ -559,7 +562,7 @@ const DEV_CASES: readonly DevCase[] = [
     jurisdiction: 'ADMINISTRATIVE',
     proceduralRole: 'RECURRENTE',
     caption: 'PEREYRA, Marcos D. — Sumario administrativo',
-    clientDni: '29440117',
+    clientDocumentNumber: '29440117',
     counterparty: 'Policía de la Provincia',
     subjectMatter: 'Descargo frente a la imputación de falta grave y pedido de sobreseimiento.',
     administrativeRemedyExhaustedOn: '2026-08-10',
@@ -573,7 +576,7 @@ const DEV_CASES: readonly DevCase[] = [
     jurisdiction: 'AMPARO',
     proceduralRole: 'ACTORA',
     caption: 'MOYANO, Daniela c/ APROSS — Amparo de salud',
-    clientDni: '31256890',
+    clientDocumentNumber: '31256890',
     counterparty: 'APROSS',
     subjectMatter: 'Que se ordene la cobertura integral del tratamiento de rehabilitación prescripto.',
     injunctionGranted: true,
@@ -590,7 +593,7 @@ const DEV_CASES: readonly DevCase[] = [
     jurisdiction: 'AMPARO',
     proceduralRole: 'ACTORA',
     caption: 'LEDESMA, Verónica c/ Municipalidad — Amparo ambiental',
-    clientDni: '27654321',
+    clientDocumentNumber: '27654321',
     counterparty: 'Municipalidad de Córdoba',
     subjectMatter: 'Que se ordene el cese del vertido de efluentes en el predio lindero.',
     injunctionGranted: false,
@@ -659,7 +662,9 @@ async function seedDevCases(prisma: PrismaClient): Promise<void> {
   }
 
   for (const client of DEV_CLIENTS) {
-    const existing = await prisma.client.findFirst({ where: { dni: client.dni, active: true } });
+    const existing = await prisma.client.findFirst({
+      where: { documentType: client.documentType, documentNumber: client.documentNumber, active: true },
+    });
     if (!existing) {
       await prisma.client.create({ data: { ...client, clientSince: today } });
     }
@@ -677,7 +682,9 @@ async function seedDevCases(prisma: PrismaClient): Promise<void> {
     if (await prisma.case.findFirst({ where: { sacNumber: devCase.sacNumber } })) continue;
 
     const jurisdiction = await prisma.jurisdiction.findUniqueOrThrow({ where: { name: devCase.jurisdiction } });
-    const client = await prisma.client.findFirstOrThrow({ where: { dni: devCase.clientDni, active: true } });
+    const client = await prisma.client.findFirstOrThrow({
+      where: { documentType: 'DNI', documentNumber: devCase.clientDocumentNumber, active: true },
+    });
     const initialState = await prisma.proceduralState.findFirstOrThrow({
       where: { jurisdictionId: jurisdiction.jurisdictionId, isInitial: true, isActive: true },
     });

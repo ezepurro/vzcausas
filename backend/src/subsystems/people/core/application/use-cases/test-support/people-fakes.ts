@@ -10,7 +10,7 @@ import {
   ClientRepository,
   ClientSearchCriteria,
 } from "../../../domain/ports/client.repository";
-import { Dni } from "../../../domain/value-objects/dni.vo";
+import { ClientDocument } from "../../../domain/value-objects/client-document.vo";
 import { Lawyer } from "../../../domain/entities/lawyer.entity";
 import {
   LawyerPage,
@@ -41,7 +41,7 @@ export class FakeLawyerRepository implements LawyerRepository {
     return [...this.byId.values()].some(
       (lawyer) =>
         lawyer.id !== exceptLawyerId &&
-        lawyer.registrationNumber.equals(registrationNumber),
+        lawyer.registrationNumber?.equals(registrationNumber) === true,
     );
   }
 
@@ -94,7 +94,7 @@ export class FakeLawyerRepository implements LawyerRepository {
           needle === undefined ||
           lawyer.lastName.toLowerCase().includes(needle) ||
           lawyer.firstName.toLowerCase().includes(needle) ||
-          lawyer.registrationNumber.toString().toLowerCase().includes(needle),
+          (lawyer.registrationNumber?.toString().toLowerCase().includes(needle) ?? false),
       )
       .sort((a, b) => b.id - a.id);
 
@@ -110,7 +110,7 @@ export class FakeLawyerRepository implements LawyerRepository {
 /**
  * In-memory {@link ClientRepository} for `people`'s use-case specs.
  *
- * `existsActiveByDni` filters by `isActive()` on purpose, mirroring
+ * `existsActiveByDocument` filters by `isActive()` on purpose, mirroring
  * the partial unique index rather than a plain one: a spec that
  * passed against a stricter fake would hide the behaviour CA-8.4
  * actually asks for.
@@ -123,9 +123,9 @@ export class FakeClientRepository implements ClientRepository {
     return this.nextIdValue++;
   }
 
-  async existsActiveByDni(dni: Dni): Promise<boolean> {
+  async existsActiveByDocument(document: ClientDocument): Promise<boolean> {
     return [...this.byId.values()].some(
-      (client) => client.isActive() && client.dni.equals(dni),
+      (client) => client.isActive() && client.document.equals(document),
     );
   }
 
@@ -156,7 +156,7 @@ export class FakeClientRepository implements ClientRepository {
           needle === undefined ||
           client.lastName.toLowerCase().includes(needle) ||
           client.firstName.toLowerCase().includes(needle) ||
-          client.dni.toString().includes(needle),
+          client.document.number.toLowerCase().includes(needle),
       )
       .sort(
         (a, b) =>

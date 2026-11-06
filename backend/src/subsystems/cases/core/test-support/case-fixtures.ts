@@ -42,8 +42,10 @@ export const CLIENT: ClientRef = {
   id: 1,
   lastName: 'GÓMEZ',
   firstName: 'Ariel Fernando',
-  dni: '34812905',
-  phone: null,
+  documentType: 'DNI',
+  documentNumber: '34812905',
+  address: 'Av. Rafael Núñez 4560, Córdoba',
+  phone: '351 415-2288',
   email: null,
   clientSince: day('2021-03-12'),
 };

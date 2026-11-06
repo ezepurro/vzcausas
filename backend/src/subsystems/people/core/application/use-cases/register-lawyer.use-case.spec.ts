@@ -23,9 +23,35 @@ describe("RegisterLawyerUseCase", () => {
     expect(result.lawyer.id).toBe(1);
     expect(result.lawyer.lastName).toBe("Peralta");
     expect(result.lawyer.firstName).toBe("Ignacio");
-    expect(result.lawyer.registrationNumber.toString()).toBe("1-35207");
+    expect(result.lawyer.registrationNumber?.toString()).toBe("1-35207");
     expect(result.lawyer.isActive()).toBe(true);
     expect(lawyers.byId.size).toBe(1);
+  });
+
+  // D-107 — la matrícula es opcional.
+  describe("without a registration number (D-107)", () => {
+    it.each([
+      ["left out", {}],
+      ["null", { registrationNumber: null }],
+      ["empty", { registrationNumber: "" }],
+      ["blank", { registrationNumber: "   " }],
+    ])("registers the lawyer when it is %s", async (_, extra) => {
+      const { useCase, lawyers } = build();
+
+      const result = await useCase.execute({ lastName: "Gómez", firstName: "Ana", ...extra });
+
+      expect(result.lawyer.registrationNumber).toBeNull();
+      expect(lawyers.byId.size).toBe(1);
+    });
+
+    it("lets several lawyers have none, because uniqueness only applies to those that have one", async () => {
+      const { useCase, lawyers } = build();
+
+      await useCase.execute({ lastName: "Gómez", firstName: "Ana" });
+      await useCase.execute({ lastName: "Ruiz", firstName: "Luis" });
+
+      expect(lawyers.byId.size).toBe(2);
+    });
   });
 
   it("rejects a duplicate registration number", async () => {
@@ -72,6 +98,6 @@ describe("RegisterLawyerUseCase", () => {
 
     expect(result.lawyer.lastName).toBe("Gómez");
     expect(result.lawyer.firstName).toBe("Ana");
-    expect(result.lawyer.registrationNumber.toString()).toBe("2-12345");
+    expect(result.lawyer.registrationNumber?.toString()).toBe("2-12345");
   });
 });

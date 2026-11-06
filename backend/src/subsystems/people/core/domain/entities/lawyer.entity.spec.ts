@@ -17,8 +17,11 @@ const aLawyer = () =>
 const snapshot = (lawyer: Lawyer) => ({
   lastName: lawyer.lastName,
   firstName: lawyer.firstName,
-  registrationNumber: lawyer.registrationNumber.toString(),
+  registrationNumber: lawyer.registrationNumber?.toString() ?? null,
 });
+
+const aLawyerWithoutRegistration = () =>
+  Lawyer.hydrate({ id: 5, lastName: "Gómez", firstName: "Ana", registrationNumber: null, active: true });
 
 function detailsOf(lawyer: Lawyer, changes: LawyerChanges): Record<string, unknown> | null {
   try {
@@ -85,19 +88,60 @@ describe("Lawyer.update", () => {
   it("un campo inválido impide aplicar los válidos", () => {
     const lawyer = aLawyer();
 
-    detailsOf(lawyer, { lastName: "Peralta", registrationNumber: "" });
+    detailsOf(lawyer, { lastName: "Peralta", registrationNumber: "28114" });
 
     expect(lawyer.lastName).toBe("Ríos");
   });
 
-  // CA-14.4: null es vaciar el campo
+  // CA-14.4: null es vaciar el campo (el apellido y los nombres siguen siendo obligatorios)
   it.each<[LawyerChanges, Record<string, string>]>([
     [{ lastName: null }, { lastName: "El apellido es obligatorio." }],
     [{ firstName: null }, { firstName: "Los nombres son obligatorios." }],
-    [{ registrationNumber: null }, { registrationNumber: "La matrícula es obligatoria." }],
-    [{ registrationNumber: "   " }, { registrationNumber: "La matrícula es obligatoria." }],
   ])("%j no se puede vaciar", (changes, expected) => {
     expect(detailsOf(aLawyer(), changes)).toEqual(expected);
+  });
+
+  // D-107: la matrícula es opcional; vacía, en blanco o null la borra
+  describe("matrícula opcional (D-107)", () => {
+    it.each<[string, LawyerChanges]>([
+      ["null", { registrationNumber: null }],
+      ["vacía", { registrationNumber: "" }],
+      ["en blanco", { registrationNumber: "   " }],
+    ])("enviarla %s la borra y cuenta como cambio", (_, changes) => {
+      const lawyer = aLawyer();
+
+      const result = lawyer.update(changes);
+
+      expect(lawyer.registrationNumber).toBeNull();
+      expect(result.fields).toEqual(["registrationNumber"]);
+    });
+
+    it("borrarla en quien no la tiene no es un cambio", () => {
+      const result = aLawyerWithoutRegistration().update({ registrationNumber: null });
+
+      expect(result.isEmpty()).toBe(true);
+    });
+
+    it("se puede cargar después en quien no la tenía", () => {
+      const lawyer = aLawyerWithoutRegistration();
+
+      const result = lawyer.update({ registrationNumber: "1-40000" });
+
+      expect(lawyer.registrationNumber?.toString()).toBe("1-40000");
+      expect(result.fields).toEqual(["registrationNumber"]);
+    });
+
+    it("sigue rechazando una matrícula con formato inválido", () => {
+      expect(detailsOf(aLawyerWithoutRegistration(), { registrationNumber: "28114" })).toEqual({
+        registrationNumber: "El formato de la matrícula no es válido.",
+      });
+    });
+
+    it("un abogado se crea sin matrícula", () => {
+      const lawyer = Lawyer.create({ id: 6, lastName: "Gómez", firstName: "Ana" });
+
+      expect(lawyer.registrationNumber).toBeNull();
+    });
   });
 
   // CA-14.10

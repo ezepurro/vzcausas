@@ -36,17 +36,17 @@ properties:
     examples:
       - '34812905'
   address:
-    type:
-      - string
-      - 'null'
+    type: string
     maxLength: 255
-    description: Dirección. Texto libre (Revisión del 05/11/2026, D-108.)
+    description: |
+      Dirección. Texto libre (Revisión del 05/11/2026, D-108.) Obligatoria
+      desde la revisión del 06/11/2026 (D-109).
     examples:
       - Av. Colón 1250, Córdoba
   phone:
-    type:
-      - string
-      - 'null'
+    type: string
+    description: |
+      Teléfono de contacto. Obligatorio desde la revisión del 06/11/2026 (D-109).
     examples:
       - 351 415-2288
   email:

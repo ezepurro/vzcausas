@@ -66,6 +66,8 @@ export class UpdateLawyerUseCase {
 
     if (
       changes.fields.includes("registrationNumber") &&
+      // Clearing it (D-107) cannot clash with anybody's.
+      lawyer.registrationNumber !== null &&
       (await this.lawyers.existsByRegistrationNumber(lawyer.registrationNumber, lawyer.id))
     ) {
       throw new LawyerRegistrationAlreadyExistsError();

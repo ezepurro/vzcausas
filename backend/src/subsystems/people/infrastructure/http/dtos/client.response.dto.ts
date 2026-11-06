@@ -3,8 +3,10 @@ export class ClientResponseDto {
   id!: number;
   lastName!: string;
   firstName!: string;
-  dni!: string;
-  phone!: string | null;
+  documentType!: string;
+  documentNumber!: string;
+  address!: string;
+  phone!: string;
   email!: string | null;
   /** Civil date, `YYYY-MM-DD` — not an instant. */
   clientSince!: string;

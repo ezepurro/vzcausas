@@ -6,7 +6,7 @@ import {
   ClientRepository,
   ClientSearchCriteria,
 } from "../../../core/domain/ports/client.repository";
-import { Dni } from "../../../core/domain/value-objects/dni.vo";
+import { ClientDocument } from "../../../core/domain/value-objects/client-document.vo";
 import { ClientPrismaMapper } from "./client-prisma.mapper";
 
 /**
@@ -32,13 +32,17 @@ export class PrismaClientRepository implements ClientRepository {
   }
 
   /**
-   * Mirrors the partial unique index `clients_dni_active_key`: only
+   * Mirrors the partial unique index `clients_document_active_key`: only
    * current clients are considered, so a logically deleted one
-   * releases their document (CA-8.4).
+   * releases their document (CA-8.4), and the type is part of the key (D-108).
    */
-  async existsActiveByDni(dni: Dni): Promise<boolean> {
+  async existsActiveByDocument(document: ClientDocument): Promise<boolean> {
     const row = await this.prisma.db.client.findFirst({
-      where: { dni: dni.toString(), active: true },
+      where: {
+        documentType: document.type,
+        documentNumber: document.number,
+        active: true,
+      },
       select: { id: true },
     });
     return row !== null;
@@ -50,7 +54,9 @@ export class PrismaClientRepository implements ClientRepository {
         id: client.id,
         lastName: client.lastName,
         firstName: client.firstName,
-        dni: client.dni.toString(),
+        documentType: client.document.type,
+        documentNumber: client.document.number,
+        address: client.address,
         phone: client.phone,
         email: client.email,
         clientSince: client.clientSince,
@@ -99,7 +105,12 @@ export class PrismaClientRepository implements ClientRepository {
                   mode: "insensitive" as const,
                 },
               },
-              { dni: { contains: criteria.search } },
+              {
+                documentNumber: {
+                  contains: criteria.search,
+                  mode: "insensitive" as const,
+                },
+              },
             ],
           }
         : {}),

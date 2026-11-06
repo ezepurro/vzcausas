@@ -2794,8 +2794,8 @@ El recurso cliente posee la siguiente estructura:
 | `firstName`   | String                       |  No  | Nombres                                                                  |
 | `documentType` | `DocumentType`             |  No  | **(Revisión del 05/11/2026)** Tipo de documento: `DNI` o `PASSPORT`                                |
 | `documentNumber` | String                     |  No  | **(Revisión del 05/11/2026)** Número de documento, con el formato de su tipo. Único por tipo entre los clientes vigentes. Reemplaza a `dni` |
-| `address`     | String \| `null`             |  Sí  | **(Revisión del 05/11/2026)** Dirección. Texto libre                                             |
-| `phone`       | String \| `null`             |  Sí  | Teléfono de contacto. Texto libre                                        |
+| `address`     | String                       |  No  | **(Revisión del 05/11/2026; obligatoria desde la revisión del 06/11/2026, D-109)** Dirección. Texto libre |
+| `phone`       | String                       |  No  | **(Obligatorio desde la revisión del 06/11/2026, D-109)** Teléfono de contacto. Texto libre |
 | `email`       | String \| `null`             |  Sí  | Correo electrónico                                                       |
 | `clientSince` | String (fecha ISO 8601)      |  No  | Fecha de alta del cliente en el estudio. La asigna el backend            |
 | `activeCases` | Integer                      |  No  | Causas activas en las que es cliente. Calculado, sólo lectura            |
@@ -2815,8 +2815,10 @@ formato `34.812.905` es de presentación y lo aplica el cliente. El pasaporte
 viaja en mayúsculas y sin espacios. La unicidad es por tipo: un DNI y un
 pasaporte con el mismo número no chocan.
 
-**Sobre `address`:** **(Revisión del 05/11/2026)** texto libre, opcional, hasta 255 caracteres. No se
-separa en calle, localidad y provincia.
+**Sobre `address` y `phone`:** **(Revisión del 06/11/2026, D-109)** son obligatorios en el alta.
+`address` es texto libre de hasta 255 caracteres y no se separa en calle, localidad y provincia;
+`phone` es texto libre de hasta 50 caracteres. Un valor vacío o de solo espacios se rechaza con
+`400 VALIDATION_ERROR`. Ninguno de los dos viaja nunca como `null` en las respuestas.
 
 **Sobre `clientSince`:** el prototipo lo asigna con la fecha del día al
 registrar el cliente y no lo ofrece para editar.
@@ -2849,8 +2851,8 @@ Registra un nuevo cliente (HU8).
 | `firstName` | String |    Sí     | Hasta 100 caracteres                                    |
 | `documentType` | `DocumentType` | Sí  | `DNI` o `PASSPORT` **(Revisión del 05/11/2026)**                                 |
 | `documentNumber` | String |  Sí     | Con el formato de `documentType`. Único por tipo entre los vigentes **(Revisión del 05/11/2026)** |
-| `address`   | String |    No     | Hasta 255 caracteres **(Revisión del 05/11/2026)**                               |
-| `phone`     | String |    No     | Hasta 50 caracteres                                     |
+| `address`   | String |    Sí     | Hasta 255 caracteres. No vacía **(Revisión del 06/11/2026, D-109)**              |
+| `phone`     | String |    Sí     | Hasta 50 caracteres. No vacío **(Revisión del 06/11/2026, D-109)**               |
 | `email`     | String |    No     | Formato de correo electrónico válido                    |
 
 **Respuestas**
@@ -2884,6 +2886,8 @@ Registra un nuevo cliente (HU8).
 		"message": "Los datos enviados no son válidos.",
 		"details": {
 			"documentNumber": "Debe contener 7 u 8 dígitos, sin puntos.",
+			"address": "La dirección es obligatoria.",
+			"phone": "El teléfono es obligatorio.",
 			"email": "El formato del correo electrónico no es válido."
 		}
 	}
@@ -2956,7 +2960,7 @@ Las causas asociadas a un cliente, que HU9 pide consultar, se obtienen con
 			"firstName": "Jonathan E.",
 			"documentType": "DNI",
 			"documentNumber": "38907221",
-			"address": null,
+			"address": "Av. Colón 1250, Córdoba",
 			"phone": "351 744-1160",
 			"email": null,
 			"clientSince": "2022-01-19",
@@ -2969,7 +2973,7 @@ Las causas asociadas a un cliente, que HU9 pide consultar, se obtienen con
 			"firstName": "Ariel Fernando",
 			"documentType": "DNI",
 			"documentNumber": "34812905",
-			"address": null,
+			"address": "Av. Colón 1250, Córdoba",
 			"phone": "351 415-2288",
 			"email": "afgomez@gmail.com",
 			"clientSince": "2021-03-12",
@@ -3039,7 +3043,7 @@ Obtiene la información de un cliente específico.
 		"firstName": "Ariel Fernando",
 		"documentType": "DNI",
 		"documentNumber": "34812905",
-		"address": null,
+		"address": "Av. Colón 1250, Córdoba",
 		"phone": "351 415-2288",
 		"email": "afgomez@gmail.com",
 		"clientSince": "2021-03-12",
@@ -3542,7 +3546,7 @@ piden HU39 y HU40 ("que se cree automáticamente").
 			"firstName": "Ariel Fernando",
 			"documentType": "DNI",
 			"documentNumber": "34812905",
-			"address": null,
+			"address": "Av. Colón 1250, Córdoba",
 			"phone": "351 415-2288",
 			"email": "afgomez@gmail.com",
 			"clientSince": "2021-03-12"
@@ -3814,7 +3818,7 @@ causas de ese fuero que todavía están en el estado inicial.
 				"firstName": "Marcos D.",
 				"documentType": "DNI",
 				"documentNumber": "29440117",
-				"address": null,
+				"address": "Av. Colón 1250, Córdoba",
 				"phone": "351 622-9014",
 				"email": "mdpereyra@hotmail.com",
 				"clientSince": "2026-05-18"
@@ -3876,7 +3880,7 @@ causas de ese fuero que todavía están en el estado inicial.
 				"firstName": "Ariel Fernando",
 				"documentType": "DNI",
 				"documentNumber": "34812905",
-				"address": null,
+				"address": "Av. Colón 1250, Córdoba",
 				"phone": "351 415-2288",
 				"email": "afgomez@gmail.com",
 				"clientSince": "2021-03-12"
@@ -4153,7 +4157,7 @@ vencimiento nuevos en `currentState`.
 			"firstName": "Ariel Fernando",
 			"documentType": "DNI",
 			"documentNumber": "34812905",
-			"address": null,
+			"address": "Av. Colón 1250, Córdoba",
 			"phone": "351 415-2288",
 			"email": "afgomez@gmail.com",
 			"clientSince": "2021-03-12"
@@ -4960,7 +4964,7 @@ de prescripción activa:
 			"firstName": "Jonathan E.",
 			"documentType": "DNI",
 			"documentNumber": "38907221",
-			"address": null,
+			"address": "Av. Colón 1250, Córdoba",
 			"phone": "351 744-1160",
 			"email": null,
 			"clientSince": "2022-01-19"
