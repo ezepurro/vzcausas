@@ -4,11 +4,11 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
-  Matches,
   MaxLength,
 } from "class-validator";
 import { DOCUMENT_TYPES } from "../../../core/domain/value-objects/client-document.vo";
 import { IsDocumentNumberOf } from "../validators/document-number.validator";
+import { IsRequiredText } from "../validators/required-text.validator";
 
 /**
  * Request body of `POST /clients` (API contract §3.6).
@@ -47,15 +47,17 @@ export class RegisterClientRequestDto {
   documentNumber!: string;
 
   /** Required (D-109). A blank one is rejected like an empty one. */
-  @IsString({ message: "La dirección es obligatoria." })
-  @Matches(/\S/, { message: "La dirección es obligatoria." })
-  @MaxLength(255, { message: "La dirección no puede superar los 255 caracteres." })
+  @IsRequiredText(255, {
+    required: "La dirección es obligatoria.",
+    tooLong: "La dirección no puede superar los 255 caracteres.",
+  })
   address!: string;
 
   /** Required (D-109). A blank one is rejected like an empty one. */
-  @IsString({ message: "El teléfono es obligatorio." })
-  @Matches(/\S/, { message: "El teléfono es obligatorio." })
-  @MaxLength(50, { message: "El teléfono no puede superar los 50 caracteres." })
+  @IsRequiredText(50, {
+    required: "El teléfono es obligatorio.",
+    tooLong: "El teléfono no puede superar los 50 caracteres.",
+  })
   phone!: string;
 
   @IsOptional()

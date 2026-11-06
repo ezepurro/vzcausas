@@ -156,7 +156,31 @@ describe('POST /api/v1/clients', () => {
     });
 
     expectError(res, 400, 'VALIDATION_ERROR', ['documentNumber', 'address', 'phone', 'email']);
-    expect(Object.keys(res.body.error.details).sort()).toEqual(['address', 'documentNumber', 'email', 'phone']);
+    // `details` exacto: un mensaje por campo, sin repetir (D-109). El pipe une todos los que fallan.
+    expect(res.body.error.details).toEqual({
+      documentNumber: 'Debe contener 7 u 8 dígitos, sin puntos.',
+      address: 'La dirección es obligatoria.',
+      phone: 'El teléfono es obligatorio.',
+      email: 'El formato del correo electrónico no es válido.',
+    });
+    expect(await getPrisma().client.count()).toBe(0);
+  });
+
+  // D-109: omitir los dos campos (lo que manda un formulario con ellos vacíos) da un mensaje por campo.
+  it('con dirección y teléfono omitidos o demasiado largos, 400 con un solo mensaje por campo', async () => {
+    const base = { lastName: 'BENÍTEZ', firstName: 'Rodrigo E.', documentType: 'DNI', documentNumber: '31556208' };
+
+    const missing = await post(base);
+    expect(missing.body.error.details).toEqual({
+      address: 'La dirección es obligatoria.',
+      phone: 'El teléfono es obligatorio.',
+    });
+
+    const tooLong = await post({ ...base, address: 'a'.repeat(256), phone: '1'.repeat(51) });
+    expect(tooLong.body.error.details).toEqual({
+      address: 'La dirección no puede superar los 255 caracteres.',
+      phone: 'El teléfono no puede superar los 50 caracteres.',
+    });
     expect(await getPrisma().client.count()).toBe(0);
   });
 });
