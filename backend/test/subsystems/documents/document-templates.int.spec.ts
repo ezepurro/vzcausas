@@ -7,7 +7,11 @@ import { DocumentStorageUnavailableError } from '../../../src/subsystems/documen
 import { InMemoryDocumentStorage } from '../../../src/subsystems/documents/infrastructure/storage/in-memory/in-memory-document-storage';
 import { loginAs, TestRole } from '../../shared/auth/login-as';
 import { expectData, expectError, expectPaginated } from '../../shared/contract/envelopes';
-import { clearCloudFolders } from '../../shared/factories/cloud-structure.factory';
+import {
+  clearCloudFolders,
+  createTemplateJurisdictionFolders,
+  TemplateJurisdictionFolders,
+} from '../../shared/factories/cloud-structure.factory';
 import { createJurisdiction } from '../../shared/factories/procedural-state.factory';
 import { createUser } from '../../shared/factories/user.factory';
 import { getPrisma, startTestApp, stopTestApp } from '../../shared/harness/test-app';
@@ -38,6 +42,8 @@ function binary(res: any, done: (error: Error | null, body: Buffer) => void): vo
 let app: INestApplication;
 let storage: InMemoryDocumentStorage;
 let templatesFolderId: string;
+/** Las subcarpetas `Modelos formales/{fuero}`, como las deja `SetupCloudStorage`. */
+let jurisdictionFolders: TemplateJurisdictionFolders;
 let lawyer: { id: number; lastName: string; firstName: string };
 let asLawyer: { Authorization: string };
 
@@ -75,6 +81,7 @@ const templatesInDb = () =>
 
 async function cleanUp(): Promise<void> {
   const prisma = getPrisma();
+  await prisma.documentTemplateFile.deleteMany();
   await prisma.documentTemplateJurisdiction.deleteMany();
   await prisma.documentTemplate.deleteMany();
   // También ROOT_CASES: registrar un modelo sin estructura arma las tres carpetas base.
@@ -93,6 +100,7 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await cleanUp();
+  storage.reset();
   for (const code of ['CRIMINAL', 'ADMINISTRATIVE', 'AMPARO'] as const) await createJurisdiction(code);
 
   const user = await createUser({ roles: ['LAWYER'], lastName: 'Ferreyra', firstName: 'Matías' });
@@ -115,20 +123,25 @@ beforeEach(async () => {
       parentCloudFolderId: main.id,
     },
   });
+  jurisdictionFolders = await createTemplateJurisdictionFolders(storage, templatesFolder.id);
 });
 
 describe('POST /api/v1/document-templates', () => {
-  // CA-34.1, CA-34.6, CA-34.11: forma del contrato, archivo en "Modelos formales" y el
-  // nombre del archivo con sus acentos.
-  it('registra el modelo, con su archivo en "Modelos formales", en la forma del contrato', async () => {
+  // F1 — CA-34.1, CA-34.6: forma del contrato, el archivo en la subcarpeta de SU fuero (no suelto en
+  // "Modelos formales") y el nombre del archivo con sus acentos.
+  it.each([
+    ['CRIMINAL', 'Penal'],
+    ['ADMINISTRATIVE', 'Administrativo'],
+    ['AMPARO', 'Amparo'],
+  ] as const)('registra un modelo de %s, con su archivo en "Modelos formales/%s", en la forma del contrato', async (code, label) => {
     const file = { content: Buffer.from('PK contenido'), fileName: 'designación-defensor.docx', contentType: DOCX };
 
-    const data = expectData<Body>(await register({ file }), 201);
+    const data = expectData<Body>(await register({ jurisdictions: [code], file }), 201);
 
     expect(data).toEqual({
       id: expect.any(Number),
       name: 'Recurso de casación',
-      jurisdictions: ['CRIMINAL'],
+      jurisdictions: [code],
       fileName: 'designación-defensor.docx',
       copyToNewCases: true,
       lastVersionAt: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}-03:00$/),
@@ -137,29 +150,67 @@ describe('POST /api/v1/document-templates', () => {
       active: true,
     });
     const [row] = await templatesInDb();
-    expect(row).toMatchObject({ id: data.id, cloudFolderId: templatesFolderId, lastVersionByUserId: lawyer.id });
+    const folderId = jurisdictionFolders[code].id;
+    expect(row).toMatchObject({ id: data.id, cloudFolderId: folderId, lastVersionByUserId: lawyer.id });
     expect(storage.files.find((f) => f.id === row.cloudFileId)).toMatchObject({
-      parentId: templatesFolderId,
+      parentId: folderId,
       name: 'designación-defensor.docx',
       mimeType: DOCX,
     });
+    // Ni un archivo suelto en "Modelos formales" ni uno en otro fuero.
+    expect(storage.files.map((f) => f.parentId)).toEqual([folderId]);
+    expect((await getPrisma().cloudFolder.findUniqueOrThrow({ where: { cloudFolderId: folderId } })).name).toBe(label);
+    const files = await getPrisma().documentTemplateFile.findMany({ include: { jurisdiction: true } });
+    expect(files.map((f) => [f.templateId, f.jurisdiction.name, f.cloudFileId, f.cloudFolderId])).toEqual([
+      [data.id, code, row.cloudFileId, folderId],
+    ]);
   });
 
-  // CA-34.2 y CA-34.5
-  it('para todos los fueros es un solo modelo con un solo archivo, y "copiar en las causas nuevas" se puede desmarcar', async () => {
-    const before = storage.files.length;
+  // F2 — CA-34.2, CA-34.5, D-55, CA-35.6: un solo modelo, un archivo en la subcarpeta de cada fuero
+  // (el mismo contenido) y la descarga entrega el principal.
+  it('un modelo de varios fueros es uno solo, con un archivo idéntico en la subcarpeta de cada fuero, y se descarga', async () => {
+    const content = Buffer.from('PK contenido de varios fueros');
 
     const data = expectData<Body>(
-      await register({ jurisdictions: ['AMPARO', 'CRIMINAL', 'ADMINISTRATIVE'], copyToNewCases: false }),
+      await register({
+        jurisdictions: ['AMPARO', 'CRIMINAL'],
+        copyToNewCases: false,
+        file: { content, fileName: 'casacion.docx', contentType: DOCX },
+      }),
       201,
     );
 
-    expect(data.jurisdictions).toEqual(['CRIMINAL', 'ADMINISTRATIVE', 'AMPARO']);
+    expect(data.jurisdictions).toEqual(['CRIMINAL', 'AMPARO']);
     expect(data.copyToNewCases).toBe(false);
     const rows = await templatesInDb();
     expect(rows).toHaveLength(1);
-    expect(rows[0].jurisdictions).toHaveLength(3);
-    expect(storage.files.length - before).toBe(1);
+    expect(rows[0].jurisdictions).toHaveLength(2);
+    // Un archivo en Penal y otro en Amparo, con los mismos bytes y nombres de archivo distintos en la nube.
+    expect(storage.files.map((f) => f.parentId)).toEqual([jurisdictionFolders.CRIMINAL.id, jurisdictionFolders.AMPARO.id]);
+    expect(storage.files.every((f) => Buffer.compare(Buffer.from(f.content), content) === 0)).toBe(true);
+    const files = await getPrisma().documentTemplateFile.findMany({ include: { jurisdiction: true }, orderBy: { jurisdictionId: 'asc' } });
+    expect(files.map((f) => [f.jurisdiction.name, f.cloudFolderId]).sort()).toEqual([
+      ['AMPARO', jurisdictionFolders.AMPARO.id],
+      ['CRIMINAL', jurisdictionFolders.CRIMINAL.id],
+    ]);
+    expect(new Set(files.map((f) => f.cloudFileId)).size).toBe(2);
+    // El archivo principal del modelo es el del primer fuero del contrato: el de Penal.
+    expect(rows[0]).toMatchObject({ cloudFolderId: jurisdictionFolders.CRIMINAL.id });
+    expect(files.find((f) => f.cloudFolderId === jurisdictionFolders.CRIMINAL.id)!.cloudFileId).toBe(rows[0].cloudFileId);
+
+    const downloaded = await server().get(`${URL}/${data.id}/file`).set(asLawyer).buffer().parse(binary);
+    expect(downloaded.status).toBe(200);
+    expect(Buffer.compare(downloaded.body as Buffer, content)).toBe(0);
+  });
+
+  it('para todos los fueros deja un archivo en cada una de las tres subcarpetas, y un solo modelo', async () => {
+    const data = expectData<Body>(await register({ jurisdictions: ['AMPARO', 'CRIMINAL', 'ADMINISTRATIVE'] }), 201);
+
+    expect(data.jurisdictions).toEqual(['CRIMINAL', 'ADMINISTRATIVE', 'AMPARO']);
+    expect(await templatesInDb()).toHaveLength(1);
+    expect(storage.files.map((f) => f.parentId).sort()).toEqual(
+      Object.values(jurisdictionFolders).map((folder) => folder.id).sort(),
+    );
   });
 
   // CA-34.3 y CA-34.4
@@ -216,14 +267,40 @@ describe('POST /api/v1/document-templates', () => {
     expect(await templatesInDb()).toEqual([]);
   });
 
-  // CA-34.11, con el cambio del 22/10/2026: "Modelos formales" faltante se arma sola.
-  it('sin la carpeta "Modelos formales" registrada, la arma, sube el modelo y responde 201', async () => {
+  // F4 — CA-34.7: si falla la copia a otro fuero no queda nada, ni en la base ni en las subcarpetas.
+  it('si falla la copia al segundo fuero, responde 502 y no queda ningún archivo ni registro', async () => {
+    const before = { files: storage.files.map((f) => f.id), rows: await templatesInDb() };
+    storage.failNextCallTo('copyFile', new DocumentStorageUnavailableError('TRANSIENT', 'timeout'));
+
+    const res = await register({ jurisdictions: ['CRIMINAL', 'AMPARO'] });
+
+    expectError(res, 502, 'DOCUMENT_STORAGE_UNAVAILABLE');
+    expect(res.body.error.message).toBe(STORAGE_DOWN_MESSAGE);
+    expect(res.body.error.details).toBeNull();
+    expect(storage.files.map((f) => f.id)).toEqual(before.files);
+    expect(await templatesInDb()).toEqual(before.rows);
+    expect(await getPrisma().documentTemplateFile.count()).toBe(0);
+    expect(await getPrisma().documentTemplateJurisdiction.count()).toBe(0);
+  });
+
+  // F3 — CA-34.11, con el cambio del 22/10/2026: la estructura faltante se arma sola, ahora con las
+  // subcarpetas por fuero, y el archivo queda en la de su fuero.
+  it('sin la estructura registrada, la arma con las subcarpetas, sube el modelo a la de su fuero y responde 201', async () => {
     await clearCloudFolders();
 
-    expectData(await register(), 201);
+    expectData(await register({ jurisdictions: ['AMPARO'] }), 201);
 
-    const kinds = (await getPrisma().cloudFolder.findMany({ select: { kind: true } })).map((f) => f.kind).sort();
-    expect(kinds).toEqual(['MAIN', 'ROOT_CASES', 'TEMPLATES']);
+    const folders = await getPrisma().cloudFolder.findMany({ orderBy: { createdAt: 'asc' } });
+    expect(folders.map((f) => f.kind).sort()).toEqual(['JURISDICTION', 'JURISDICTION', 'JURISDICTION', 'MAIN', 'ROOT_CASES', 'TEMPLATES']);
+    const templates = folders.find((f) => f.kind === 'TEMPLATES')!;
+    const subfolders = folders.filter((f) => f.kind === 'JURISDICTION');
+    expect(subfolders.map((f) => [f.name, f.parentCloudFolderId, f.lawyerId]).sort()).toEqual([
+      ['Administrativo', templates.cloudFolderId, null],
+      ['Amparo', templates.cloudFolderId, null],
+      ['Penal', templates.cloudFolderId, null],
+    ]);
+    const amparo = subfolders.find((f) => f.name === 'Amparo')!;
+    expect(storage.files.map((f) => f.parentId)).toEqual([amparo.cloudFolderId]);
     expect(await templatesInDb()).toHaveLength(1);
   });
 });

@@ -22,7 +22,12 @@ import { InMemoryDocumentStorage } from '../../../src/subsystems/documents/infra
 import { loginAs } from '../../shared/auth/login-as';
 import { expectData } from '../../shared/contract/envelopes';
 import { aCaseBody, createCase } from '../../shared/factories/case.factory';
-import { clearCloudFolders, createCloudStructure } from '../../shared/factories/cloud-structure.factory';
+import {
+  clearCloudFolders,
+  createCloudStructure,
+  createTemplateJurisdictionFolders,
+  TemplateJurisdictionFolders,
+} from '../../shared/factories/cloud-structure.factory';
 import { createClient } from '../../shared/factories/client.factory';
 import { clearTemplates, createTemplate } from '../../shared/factories/document-template.factory';
 import { createLawyer } from '../../shared/factories/lawyer.factory';
@@ -82,6 +87,7 @@ describe('documents al registrar una causa', () => {
   let clientId: number;
   let userId: number;
   let templatesFolderId: string;
+  let jurisdictionFolders: TemplateJurisdictionFolders;
   let sixTemplates: Array<{ id: number; name: string; cloudFileId: string }>;
 
   beforeAll(async () => {
@@ -118,6 +124,7 @@ describe('documents al registrar una causa', () => {
     ({
       templates: { id: templatesFolderId },
     } = await createCloudStructure(storage));
+    jurisdictionFolders = await createTemplateJurisdictionFolders(storage, templatesFolderId);
 
     lawyerId = (await createLawyer({ lastName: 'Ríos', firstName: 'Malena' })).id;
     userId = (await createUser({ roles: ['SECRETARY'] })).id;
@@ -127,7 +134,7 @@ describe('documents al registrar una causa', () => {
     lawyerActor = loginAs({ userId: lawyerUser.id, roles: ['LAWYER'] });
 
     // Seis modelos penales que se copian, y tres que no: de otro fuero, sin marcar y dado de baja (CA-40.5).
-    const context = { templatesFolderId, userId };
+    const context = { templatesFolderId, userId, jurisdictionFolders };
     sixTemplates = [];
     for (let n = 1; n <= 6; n += 1) {
       const template = await createTemplate(storage, context, { name: `Modelo ${n}` });
@@ -188,6 +195,38 @@ describe('documents al registrar una causa', () => {
         (await filesInFolderOf(caseId)).find((file) => file.name === 'Modelo 1.docx')!.content.toString();
       expect(await contentOf(first.id)).toBe('PK Modelo 1 v1');
       expect(await contentOf(second.id)).toBe('XX Modelo 1 v1');
+    });
+
+    // F5 — CA-40.1, CA-40.5, CA-40.6: se copia el archivo del modelo en la subcarpeta del fuero de la causa
+    // (no el principal), y un modelo anterior a las subcarpetas se sigue copiando desde su archivo.
+    it('copia el archivo del modelo de su fuero, y desde el principal si el modelo es anterior a las subcarpetas', async () => {
+      const prisma = getPrisma();
+      // Principal en Penal; la causa es administrativa, así que debe copiarse el archivo de Administrativo.
+      const both = await createTemplate(
+        storage,
+        { templatesFolderId, userId, jurisdictionFolders },
+        { name: 'De dos fueros', jurisdictions: ['CRIMINAL', 'ADMINISTRATIVE'] },
+      );
+      const ofAdministrative = await prisma.documentTemplateFile.findFirstOrThrow({
+        where: { templateId: both.id, cloudFolderId: jurisdictionFolders.ADMINISTRATIVE.id },
+      });
+      expect(ofAdministrative.cloudFileId).not.toBe(both.cloudFileId);
+      const legacy = await createTemplate(storage, { templatesFolderId, userId }, { name: 'Anterior', jurisdictions: ['ADMINISTRATIVE'] });
+      storage.fileCalls.length = 0;
+
+      const data = expectData<{ id: number; folder: FolderBody }>(
+        await register({
+          jurisdiction: 'ADMINISTRATIVE',
+          proceduralRole: 'RECURRENTE',
+          subjectMatter: 'Se impugna la resolución que deniega la cobertura.',
+        }),
+        201,
+      );
+
+      expect(data.folder).toMatchObject({ status: 'CREATED', templatesCopied: 2, templatesPending: 0 });
+      const copied = storage.fileCalls.flatMap((call) => (call.method === 'copyFile' ? [call.fileId] : []));
+      expect(copied.sort()).toEqual([ofAdministrative.cloudFileId, legacy.cloudFileId].sort());
+      expect((await filesInFolderOf(data.id)).map((file) => file.name).sort()).toEqual(['Anterior.docx', 'De dos fueros.docx']);
     });
 
     // CA-40.4, CA-40.9

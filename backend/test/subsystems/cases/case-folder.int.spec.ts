@@ -156,7 +156,8 @@ describe('Carpeta de la causa en la nube (HU39)', () => {
 
       expect(folder).toMatchObject({ status: 'CREATED', path: expect.stringMatching(/^\/VZ Causas\/Causas\/Ríos, Malena\/Penal\//) });
       const kinds = (await getPrisma().cloudFolder.findMany({ select: { kind: true } })).map((f) => f.kind).sort();
-      expect(kinds).toEqual(['CASE', 'JURISDICTION', 'LAWYER', 'MAIN', 'ROOT_CASES', 'TEMPLATES']);
+      // Las tres JURISDICTION de modelos (Modelos formales/{fuero}) más la del fuero de la causa.
+      expect(kinds).toEqual(['CASE', 'JURISDICTION', 'JURISDICTION', 'JURISDICTION', 'JURISDICTION', 'LAWYER', 'MAIN', 'ROOT_CASES', 'TEMPLATES']);
     });
 
     it('rechaza con 400 copiar modelos sin crear la carpeta, y un createFolder o copyTemplates que no es booleano, sin registrar la causa', async () => {

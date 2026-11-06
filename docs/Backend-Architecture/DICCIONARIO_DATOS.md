@@ -236,6 +236,12 @@ erDiagram
         integer template_id PK, FK
         integer jurisdiction_id PK, FK
     }
+    document_template_files {
+        integer template_id PK, FK
+        integer jurisdiction_id PK, FK
+        varchar(128) cloud_file_id UK
+        varchar(128) cloud_folder_id FK
+    }
     document_template_copies {
         integer case_id PK, FK
         integer template_id PK, FK
@@ -306,6 +312,9 @@ erDiagram
     users ||--o{ document_templates : "sube versión"
     document_templates ||--o{ document_template_jurisdictions : "aplica a"
     jurisdictions ||--o{ document_template_jurisdictions : "admite"
+    document_templates ||--o{ document_template_files : "tiene un archivo por fuero"
+    jurisdictions ||--o{ document_template_files : "carpeta de modelos de"
+    cloud_folders ||--o{ document_template_files : "contiene"
     document_templates ||--o{ document_template_copies : "copiado como"
     cases ||--o{ document_template_copies : "recibe"
 
@@ -756,7 +765,8 @@ Carpetas que el sistema crea en Google Drive.
 
 Todas las carpetas del sistema en una sola tabla, organizadas en árbol:
 VZ Causas (`MAIN`) contiene Modelos formales (`TEMPLATES`), con una
-carpeta por fuero, y Causas (`ROOT_CASES`), con una carpeta por abogado,
+carpeta por fuero (Penal, Administrativo y Amparo; las arma el
+`SetupCloudStorage`), y Causas (`ROOT_CASES`), con una carpeta por abogado,
 una por fuero dentro de cada abogado y una por causa. Las carpetas no se
 renombran ni se mueven (D-61).
 
@@ -791,17 +801,22 @@ muestra la API se arma recorriendo los padres; no se guarda.
 
 Modelos formales de escritos (HU34, HU35).
 
-Cada modelo es un solo registro y un solo archivo aunque aplique a
-varios fueros (D-55). Vive en la carpeta de modelos de su fuero o, si
-aplica a varios, en Modelos formales.
+Cada modelo es un solo registro aunque aplique a varios fueros (D-55).
+Su archivo vive en la carpeta de modelos de **cada** uno de sus fueros
+(`Modelos formales/{fuero}`): `cloud_file_id` y `cloud_folder_id` son el
+archivo principal, el del primer fuero en el orden del contrato
+(`CRIMINAL`, `ADMINISTRATIVE`, `AMPARO`), que es el que se descarga. El
+archivo de cada fuero está en `document_template_files`. Los modelos
+cargados antes de las subcarpetas siguen en Modelos formales (`TEMPLATES`)
+y no tienen filas ahí.
 
 | Atributo | Tipo | Long. | Clave | Nulo | Descripción / valores posibles |
 | --- | --- | --- | :-: | :-: | --- |
 | `id` | SERIAL (INTEGER) | 4 B | PK | No | Identificador interno del modelo formal. |
 | `name` | VARCHAR | 150 |  | No | Nombre del modelo. Único entre los modelos activos, sin distinguir mayúsculas (D-71). |
 | `file_name` | VARCHAR | 255 |  | No | Nombre del archivo. |
-| `cloud_file_id` | VARCHAR | 128 | UK | No | Identificador del archivo en Google Drive. |
-| `cloud_folder_id` | VARCHAR | 128 | FK | No | Carpeta donde vive el modelo (→ `cloud_folders.cloud_folder_id`): la `JURISDICTION` de modelos de su fuero o `TEMPLATES`. |
+| `cloud_file_id` | VARCHAR | 128 | UK | No | Identificador del archivo principal en Google Drive. |
+| `cloud_folder_id` | VARCHAR | 128 | FK | No | Carpeta del archivo principal (→ `cloud_folders.cloud_folder_id`): la `JURISDICTION` de modelos de su primer fuero, o `TEMPLATES` en un modelo anterior a las subcarpetas. |
 | `copy_to_new_cases` | BOOLEAN | 1 B |  | No | `true`: se copia a la carpeta de las causas nuevas de sus fueros (HU40). Por defecto `true`. |
 | `last_version_at` | TIMESTAMPTZ | 8 B |  | No | Fecha y hora de la última versión subida. |
 | `last_version_by_user_id` | INTEGER | 4 B | FK | No | Usuario que subió la última versión (→ `users.id`). |
@@ -827,6 +842,28 @@ formales y fueros.
 
 Clave primaria compuesta (`template_id`, `jurisdiction_id`). Índices:
 `document_template_jurisdictions_jurisdiction_id_idx`.
+
+#### s bis) Tabla `document_template_files`
+
+Archivo de cada modelo formal en la carpeta de cada uno de sus fueros (HU34,
+HU40).
+
+Una fila por (modelo, fuero): el archivo se sube una vez y se copia dentro
+de la nube a la subcarpeta de los demás fueros, así que todos tienen el
+mismo contenido. Incluye la fila del archivo principal. HU40 copia a la
+carpeta de la causa el archivo de la subcarpeta de **su** fuero; sin fila
+(modelo anterior a las subcarpetas) usa el principal de `document_templates`.
+
+| Atributo | Tipo | Long. | Clave | Nulo | Descripción / valores posibles |
+| --- | --- | --- | :-: | :-: | --- |
+| `template_id` | INTEGER | 4 B | PK, FK | No | Modelo formal (→ `document_templates.id`). |
+| `jurisdiction_id` | INTEGER | 4 B | PK, FK | No | Fuero de la subcarpeta (→ `jurisdictions.jurisdiction_id`). |
+| `cloud_file_id` | VARCHAR | 128 | UK | No | Identificador de este archivo en Google Drive. |
+| `cloud_folder_id` | VARCHAR | 128 | FK | No | Subcarpeta del fuero donde está (→ `cloud_folders.cloud_folder_id`): la `JURISDICTION` de modelos de ese fuero. |
+
+Clave primaria compuesta (`template_id`, `jurisdiction_id`). Índices:
+`document_template_files_cloud_file_id_key` (UK),
+`document_template_files_cloud_folder_id_idx`.
 
 #### t) Tabla `document_template_copies`
 
@@ -943,7 +980,8 @@ diseño inicial que no figuran con su nombre original se resolvieron así:
 - `notificacion`: se implementa como `sent_notifications`, que registra
   cada aviso enviado y a qué destinatario.
 - `modelo_formal`: se implementa como `document_templates`, con sus
-  fueros en `document_template_jurisdictions` y sus copias por causa en
+  fueros en `document_template_jurisdictions`, su archivo de cada fuero en
+  `document_template_files` y sus copias por causa en
   `document_template_copies`.
 - `pago_tasa`: se reduce a la columna `cases.court_fee_paid` (RN10), que
   indica si la tasa de justicia está pagada.

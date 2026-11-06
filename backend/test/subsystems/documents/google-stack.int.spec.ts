@@ -9,7 +9,12 @@ import {
 } from '../../../src/subsystems/documents/core/domain/ports/events/document-space-creation-failed.event';
 import { loginAs } from '../../shared/auth/login-as';
 import { expectData, expectError } from '../../shared/contract/envelopes';
-import { clearCloudFolders, createCloudStructure } from '../../shared/factories/cloud-structure.factory';
+import {
+  clearCloudFolders,
+  createCloudStructure,
+  createTemplateJurisdictionFolders,
+  TemplateJurisdictionFolders,
+} from '../../shared/factories/cloud-structure.factory';
 import { createLawyer } from '../../shared/factories/lawyer.factory';
 import { createUser } from '../../shared/factories/user.factory';
 import {
@@ -73,6 +78,7 @@ describe('Pila real de Google', () => {
   async function resetDatabase() {
     // Los modelos apuntan al usuario de su última versión: van antes que los usuarios.
     const prisma = getPrisma();
+    await prisma.documentTemplateFile.deleteMany();
     await prisma.documentTemplateJurisdiction.deleteMany();
     await prisma.documentTemplate.deleteMany();
     await resetDatabaseForCaseFolders();
@@ -280,13 +286,18 @@ describe('Pila real de Google', () => {
     });
   });
 
-  /** HU34 y HU35: el archivo del modelo sube a "Modelos formales" por la subida multipart. */
+  /** HU34 y HU35: el archivo del modelo sube a "Modelos formales/{fuero}" por la subida multipart. */
   describe('modelos formales (HU34, HU35)', () => {
     let asLawyer: { Authorization: string };
+    let jurisdictionFolders: TemplateJurisdictionFolders;
 
     beforeEach(async () => {
       const user = await createUser({ roles: ['LAWYER'] });
       asLawyer = loginAs({ userId: user.id, roles: ['LAWYER'] });
+      jurisdictionFolders = await createTemplateJurisdictionFolders(
+        { seed: (parent, name) => stack.fake.seedFolder(name, parent!) },
+        structure.templates.id,
+      );
     });
 
     const registerTemplate = (content: Buffer) =>
@@ -297,7 +308,7 @@ describe('Pila real de Google', () => {
         .field('jurisdictions', 'CRIMINAL')
         .attach('file', content, { filename: 'casacion.docx', contentType: DOCX });
 
-    it('un archivo de casi 10 MB (el máximo del contrato) sube a "Modelos formales" y baja con los mismos bytes', async () => {
+    it('un archivo de casi 10 MB (el máximo del contrato) sube a "Modelos formales/Penal" y baja con los mismos bytes', async () => {
       const content = Buffer.alloc(9 * 1024 * 1024 + 512 * 1024);
       for (let i = 0; i < content.length; i++) content[i] = i % 251; // no repetitivo
 
@@ -316,7 +327,7 @@ describe('Pila real de Google', () => {
       expect((res.body as Buffer).equals(content)).toBe(true);
       const [file] = stack.fake.files;
       expect(file.name).toBe('casacion.docx');
-      expect(file.parentId).toBe(structure.templates.id);
+      expect(file.parentId).toBe(jurisdictionFolders.CRIMINAL.id);
     });
 
     it('si Drive falla al subir responde 502 con el texto del contrato y no registra el modelo (CA-34.7)', async () => {

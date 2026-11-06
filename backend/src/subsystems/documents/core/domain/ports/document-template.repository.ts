@@ -3,8 +3,12 @@ import { DocumentTemplate, TemplateJurisdiction } from '../entities/document-tem
 /** DI token for {@link DocumentTemplateRepository}. */
 export const DOCUMENT_TEMPLATE_REPOSITORY = Symbol('DOCUMENT_TEMPLATE_REPOSITORY');
 
-/** Where the template's file was stored. */
-export interface TemplateFileLocation {
+/**
+ * Where the template's file is for one jurisdiction: its file and the folder
+ * `Modelos formales/{fuero}` it is in.
+ */
+export interface TemplateFilePlacement {
+  jurisdiction: TemplateJurisdiction;
   cloudFileId: string;
   cloudFolderId: string;
 }
@@ -56,10 +60,18 @@ export interface DocumentTemplateRepository {
   existsByName(name: string): Promise<boolean>;
 
   /**
-   * Stores the template with its jurisdictions, in one write.
+   * The ids of the jurisdictions with those codes (`jurisdictions.name` holds
+   * the contract's code). A code that has no row is not in the result.
+   */
+  findJurisdictionIds(codes: readonly TemplateJurisdiction[]): Promise<Map<TemplateJurisdiction, number>>;
+
+  /**
+   * Stores the template, its jurisdictions and its file of each jurisdiction,
+   * in one write. The **first** placement is the template's main file, the one
+   * that is downloaded (CA-35.6).
    *
    * @throws {DocumentTemplateAlreadyExistsError} if the name was taken in the
    *   meantime (the unique index on `lower(name)`).
    */
-  save(template: DocumentTemplate, file: TemplateFileLocation): Promise<DocumentTemplateView>;
+  save(template: DocumentTemplate, placements: readonly TemplateFilePlacement[]): Promise<DocumentTemplateView>;
 }

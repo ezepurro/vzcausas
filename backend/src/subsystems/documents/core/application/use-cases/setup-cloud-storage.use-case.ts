@@ -1,38 +1,48 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { CLOCK, ClockPort } from '@shared/domain/clock.port';
 import { CloudFolder } from '../../domain/entities/cloud-folder.entity';
+import { TEMPLATE_JURISDICTIONS } from '../../domain/entities/document-template.entity';
 import {
   CloudFolderAlreadyExistsError,
+  DocumentStorageUnavailableError,
   StorageStructureBrokenError,
 } from '../../domain/errors/documents.errors';
-import { CloudFolderFactory } from '../../domain/factories/cloud-folder.factory';
+import { CloudFolderData, CloudFolderFactory } from '../../domain/factories/cloud-folder.factory';
 import {
   CLOUD_FOLDER_REPOSITORY,
   CloudFolderRepository,
 } from '../../domain/ports/cloud-folder.repository';
 import { DOCUMENT_STORAGE, DocumentStoragePort } from '../../domain/ports/document-storage.port';
+import {
+  DOCUMENT_TEMPLATE_REPOSITORY,
+  DocumentTemplateRepository,
+} from '../../domain/ports/document-template.repository';
 import { FolderKey } from '../../domain/value-objects/folder-key.vo';
+import { TEMPLATE_JURISDICTION_FOLDER_LABEL } from '../../domain/value-objects/template-jurisdiction-folder-label';
 import { KeyedMutex } from '../common/keyed-mutex';
 
 /** How one folder of the structure was found or made. */
 export type SetupOutcome = 'CREATED' | 'ADOPTED' | 'EXISTING';
 
 export interface SetupCloudStorageItem {
-  kind: 'MAIN' | 'TEMPLATES' | 'ROOT_CASES';
+  kind: 'MAIN' | 'TEMPLATES' | 'ROOT_CASES' | 'JURISDICTION';
   name: string;
   cloudFolderId: string;
   url: string;
   outcome: SetupOutcome;
 }
 
-type Step = (typeof STRUCTURE)[number];
+/** One folder of the structure: what it is called, its natural key and the columns its kind carries. */
+interface Step {
+  kind: SetupCloudStorageItem['kind'];
+  name: string;
+  key: FolderKey;
+  data?: Pick<CloudFolderData, 'jurisdictionId'>;
+}
 
-/** The three folders every other folder hangs from: MAIN, then TEMPLATES and ROOT_CASES below it. */
-const STRUCTURE = [
-  { kind: 'MAIN', name: 'VZ Causas', key: FolderKey.main(), underMain: false },
-  { kind: 'TEMPLATES', name: 'Modelos formales', key: FolderKey.templates(), underMain: true },
-  { kind: 'ROOT_CASES', name: 'Causas', key: FolderKey.rootCases(), underMain: true },
-] as const;
+const MAIN: Step = { kind: 'MAIN', name: 'VZ Causas', key: FolderKey.main() };
+const TEMPLATES: Step = { kind: 'TEMPLATES', name: 'Modelos formales', key: FolderKey.templates() };
+const ROOT_CASES: Step = { kind: 'ROOT_CASES', name: 'Causas', key: FolderKey.rootCases() };
 
 /**
  * Makes sure the study's folder structure exists, in the cloud and in
@@ -41,14 +51,21 @@ const STRUCTURE = [
  * ```
  * VZ Causas              MAIN
  * ├── Modelos formales   TEMPLATES
+ * │   ├── Penal          JURISDICTION (without lawyer)
+ * │   ├── Administrativo JURISDICTION (without lawyer)
+ * │   └── Amparo         JURISDICTION (without lawyer)
  * └── Causas             ROOT_CASES
  * ```
  *
  * Every other folder is created below these, and without them `AssureSpace`
- * and the template upload fail with a configuration error.
+ * and the template upload fail with a configuration error. The three
+ * jurisdiction folders are where each formal template's file lives, one file
+ * in the folder of every jurisdiction the template applies to (D-55).
  *
  * Idempotent: a folder that is already saved is only checked, one that exists
  * in the cloud but has no row is adopted, and only what is missing is created.
+ * That is also how a study that already had the three base folders gets the
+ * jurisdiction ones: the next run adds just those.
  * It is a use case (not a script) because three callers run it: the command
  * `npm run documents:setup-storage`, `StorageBootstrap` when the app starts, and
  * `AssureSpace` / `RegisterDocumentTemplate` when they find the structure missing.
@@ -69,11 +86,12 @@ export class SetupCloudStorage {
     @Inject(CLOUD_FOLDER_REPOSITORY) private readonly folders: CloudFolderRepository,
     @Inject(DOCUMENT_STORAGE) private readonly storage: DocumentStoragePort,
     @Inject(CLOCK) private readonly clock: ClockPort,
+    @Inject(DOCUMENT_TEMPLATE_REPOSITORY) private readonly templates: DocumentTemplateRepository,
   ) {}
 
   /**
    * @throws {StorageStructureBrokenError} if a saved folder is gone from the cloud.
-   * @throws {DocumentStorageUnavailableError} if the storage fails.
+   * @throws {DocumentStorageUnavailableError} if the storage fails, or a jurisdiction is missing from the database (`CONFIGURATION`).
    */
   execute(): Promise<SetupCloudStorageItem[]> {
     return this.locks.run('setup', () => this.run());
@@ -81,16 +99,35 @@ export class SetupCloudStorage {
 
   private async run(): Promise<SetupCloudStorageItem[]> {
     const report: SetupCloudStorageItem[] = [];
-    let main: CloudFolder | null = null;
+    const record = (result: { report: SetupCloudStorageItem }) => report.push(result.report);
 
-    for (const step of STRUCTURE) {
-      const result = await this.ensure(step, step.underMain ? main : null);
-      report.push(result.report);
-      if (step.kind === 'MAIN') {
-        main = result.folder;
-      }
+    const main = await this.ensure(MAIN, null);
+    record(main);
+    const templates = await this.ensure(TEMPLATES, main.folder);
+    record(templates);
+    record(await this.ensure(ROOT_CASES, main.folder));
+
+    for (const step of await this.jurisdictionSteps()) {
+      record(await this.ensure(step, templates.folder));
     }
     return report;
+  }
+
+  /** One folder per jurisdiction below "Modelos formales", in the order of the contract's enum. */
+  private async jurisdictionSteps(): Promise<Step[]> {
+    const ids = await this.templates.findJurisdictionIds(TEMPLATE_JURISDICTIONS);
+    return TEMPLATE_JURISDICTIONS.map((code) => {
+      const jurisdictionId = ids.get(code);
+      if (jurisdictionId === undefined) {
+        throw new DocumentStorageUnavailableError('CONFIGURATION', `Falta el fuero ${code} en la base de datos.`);
+      }
+      return {
+        kind: 'JURISDICTION' as const,
+        name: TEMPLATE_JURISDICTION_FOLDER_LABEL[code],
+        key: FolderKey.jurisdiction(null, jurisdictionId),
+        data: { jurisdictionId },
+      };
+    });
   }
 
   private async ensure(
@@ -117,6 +154,7 @@ export class SetupCloudStorage {
       name: step.name,
       parentCloudFolderId: parent?.cloudFolderId ?? null,
       createdAt: this.clock.now(),
+      ...step.data,
     });
 
     try {

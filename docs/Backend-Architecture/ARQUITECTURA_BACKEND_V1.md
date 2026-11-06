@@ -202,7 +202,7 @@ Se admiten claves foráneas entre tablas de distinto subsistema, porque la persi
 | `legal-parameters` | `jurisdictions`, `procedural_statuses`, `term_rules`                                 |
 | `cases`            | `cases`, `procedural_acts`, `interruptive_acts`, `court_fees`, `case_status_history` |
 | `deadlines`        | `deadlines`, `prescription_alerts`, `notifications`                                  |
-| `documents`        | `document_templates`, `case_folders`, `case_documents`                               |
+| `documents`        | `cloud_folders`, `document_templates`, `document_template_jurisdictions`, `document_template_files`, `document_template_copies`, `case_files` |
 | `reporting`        | _(ninguna)_                                                                          |
 | _(transversal)_    | `audit_log` — escrita mediante el puerto compartido de auditoría (`AUDITORIA_Y_TRAZABILIDAD.md` §3)                |
 

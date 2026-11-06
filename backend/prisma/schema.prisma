@@ -287,6 +287,7 @@ model Jurisdiction {
   cases             Case[]
   cloudFolders      CloudFolder[]
   documentTemplates DocumentTemplateJurisdiction[]
+  templateFiles     DocumentTemplateFile[]
 
   @@map("jurisdictions")
 }
@@ -684,15 +685,20 @@ model CloudFolder {
   // Causa de la carpeta, solo en las de tipo CASE.
   case              Case?
   documentTemplates DocumentTemplate[]
+  templateFiles     DocumentTemplateFile[]
 
   @@index([parentCloudFolderId])
   @@map("cloud_folders")
 }
 
-// Modelo formal (HU34, HU35): un solo registro y un solo archivo aunque
-// aplique a varios fueros (D-55). Vive en la JURISDICTION de modelos de
-// su fuero o, si es de varios fueros, en TEMPLATES. Nombre único sin
-// distinguir mayúsculas (D-71), pendiente del SQL manual.
+// Modelo formal (HU34, HU35): un solo registro aunque aplique a varios
+// fueros (D-55). Su archivo vive en la JURISDICTION de modelos de cada
+// uno de sus fueros (Modelos formales/{fuero}): `cloud_file_id` y
+// `cloud_folder_id` son el archivo PRINCIPAL, el del primer fuero en el
+// orden CRIMINAL, ADMINISTRATIVE, AMPARO, que es el que se descarga; el
+// archivo de cada fuero está en `document_template_files`. Los modelos
+// anteriores a esta estructura siguen en TEMPLATES y no tienen filas ahí.
+// Nombre único sin distinguir mayúsculas (D-71), pendiente del SQL manual.
 model DocumentTemplate {
   id                  Int      @id @default(autoincrement())
   name                String   @db.VarChar(150)
@@ -711,9 +717,31 @@ model DocumentTemplate {
   lastVersionBy User        @relation(fields: [lastVersionByUserId], references: [id], onDelete: Restrict)
 
   jurisdictions DocumentTemplateJurisdiction[]
+  files         DocumentTemplateFile[]
   copies        DocumentTemplateCopy[]
 
   @@map("document_templates")
+}
+
+// Archivo de un modelo formal en la subcarpeta de cada uno de sus fueros:
+// una fila por (modelo, fuero). Las copias se hacen dentro de la nube a
+// partir del archivo principal, así que todas tienen el mismo contenido.
+// HU40 copia a la causa el archivo de SU fuero; sin fila (modelo anterior
+// a las subcarpetas) usa el principal de `document_templates`.
+model DocumentTemplateFile {
+  templateId     Int    @map("template_id")
+  jurisdictionId Int    @map("jurisdiction_id")
+  cloudFileId    String @unique @map("cloud_file_id") @db.VarChar(128)
+  // La JURISDICTION de modelos (lawyer_id NULL) donde está el archivo.
+  cloudFolderId  String @map("cloud_folder_id") @db.VarChar(128)
+
+  template     DocumentTemplate @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  jurisdiction Jurisdiction     @relation(fields: [jurisdictionId], references: [jurisdictionId], onDelete: Restrict)
+  cloudFolder  CloudFolder      @relation(fields: [cloudFolderId], references: [cloudFolderId], onDelete: Restrict)
+
+  @@id([templateId, jurisdictionId])
+  @@index([cloudFolderId])
+  @@map("document_template_files")
 }
 
 // Fueros a los que aplica cada modelo formal (D-55).
