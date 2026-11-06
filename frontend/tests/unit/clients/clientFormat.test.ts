@@ -28,21 +28,23 @@ describe('toCreateClientBody', () => {
         firstName: 'Ariel Fernando',
         documentType: 'DNI',
         documentNumber: '34.812.905',
-        address: '',
-        phone: '',
+        address: ' Av. Colón 1250 ',
+        phone: ' 351 415-2288 ',
         email: '',
     }
 
-    it('manda el tipo y el número limpio, sin los opcionales vacíos', () => {
+    it('manda el tipo, el número limpio y la dirección y el teléfono recortados, sin el correo vacío', () => {
         expect(toCreateClientBody(VALUES)).toEqual({
             lastName: 'GÓMEZ',
             firstName: 'Ariel Fernando',
             documentType: 'DNI',
             documentNumber: '34812905',
+            address: 'Av. Colón 1250',
+            phone: '351 415-2288',
         })
     })
 
-    it('la dirección viaja recortada si se cargó', () => {
-        expect(toCreateClientBody({ ...VALUES, address: ' Av. Colón 1250 ' }).address).toBe('Av. Colón 1250')
+    it('el correo viaja recortado si se cargó', () => {
+        expect(toCreateClientBody({ ...VALUES, email: ' afgomez@gmail.com ' }).email).toBe('afgomez@gmail.com')
     })
 })

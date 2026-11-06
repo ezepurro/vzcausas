@@ -1,6 +1,6 @@
 import { FormModal, type FieldSpec } from '@/shared/components/forms'
 import type { InterruptiveActFormValues } from '@/features/cases/types/interruptiveAct'
-import type { InterruptiveActFormErrors } from '@/features/cases/schemas/interruptiveAct.schema'
+import { INTERRUPTIVE_ACT_MAX_LENGTH, type InterruptiveActFormErrors } from '@/features/cases/schemas/interruptiveAct.schema'
 
 export interface InterruptiveActModalProps {
     /** La carátula de la causa, debajo del título. */
@@ -27,6 +27,7 @@ export function InterruptiveActModal({
             label: 'Acto interruptivo',
             required: true,
             placeholder: 'Ej. Citación a juicio, indagatoria, sentencia no firme',
+            maxLength: INTERRUPTIVE_ACT_MAX_LENGTH.name,
             error: errors.name,
         },
         {
@@ -43,6 +44,7 @@ export function InterruptiveActModal({
             label: 'Observaciones',
             type: 'area',
             placeholder: 'Constancia, foja o referencia del expediente.',
+            maxLength: INTERRUPTIVE_ACT_MAX_LENGTH.notes,
             error: errors.notes,
         },
     ]

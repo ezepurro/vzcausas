@@ -125,6 +125,10 @@ a.vz-btn--ghost:hover { color: var(--vz-ink); }
 .vz-note { font-size: 12px; color: var(--vz-faint); line-height: 1.45; }
 .vz-error { font-size: 12px; color: var(--vz-danger); font-weight: 600; }
 
+/* error de un campo (`FieldError`): el ícono y una oración por renglón */
+.vz-error--field { display: flex; align-items: flex-start; gap: 6px; line-height: 1.45; white-space: pre-line; }
+.vz-error__icon { margin-top: 2px; }
+
 /* casilla: tarjeta clicable, no checkbox suelto */
 .vz-check {
   display: flex;

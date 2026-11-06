@@ -217,9 +217,10 @@ export interface Client {
     documentType: DocumentType;
     /** DNI: sólo dígitos, sin puntos. Pasaporte: letras y números en mayúsculas. Único por tipo entre los vigentes. */
     documentNumber: string;
-    /** Dirección. Texto libre. */
-    address: string | null;
-    phone: string | null;
+    /** Dirección. Texto libre. Obligatoria desde D-109: nunca viaja `null`. */
+    address: string;
+    /** Teléfono. Texto libre. Obligatorio desde D-109: nunca viaja `null`. */
+    phone: string;
     email: string | null;
     /** Fecha de alta en el estudio, `YYYY-MM-DD`. La asigna el backend. */
     clientSince: string;
@@ -708,14 +709,14 @@ export interface CreateLegalQualificationRequest {
 /** Edición de calificación legal. Al menos un campo. */
 export type UpdateLegalQualificationRequest = Partial<CreateLegalQualificationRequest>;
 
-/** Alta de cliente (§3.6). Dirección, teléfono y correo son opcionales. */
+/** Alta de cliente (§3.6). Dirección y teléfono son obligatorios (D-109); el correo, opcional. */
 export interface CreateClientRequest {
     lastName: string;
     firstName: string;
     documentType: DocumentType;
     documentNumber: string;
-    address?: string;
-    phone?: string;
+    address: string;
+    phone: string;
     email?: string;
 }
 

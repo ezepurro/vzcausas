@@ -1,6 +1,6 @@
 import { FormModal, type FieldSpec } from '@/shared/components/forms'
 import type { PrescriptionDeclarationFormValues } from '@/features/cases/types/prescriptionDeclaration'
-import type { PrescriptionDeclarationFormErrors } from '@/features/cases/schemas/prescriptionDeclaration.schema'
+import { PRESCRIPTION_DECLARATION_MAX_LENGTH, type PrescriptionDeclarationFormErrors } from '@/features/cases/schemas/prescriptionDeclaration.schema'
 
 export interface PrescriptionDeclarationModalProps {
     /** La carátula de la causa, debajo del título. */
@@ -38,12 +38,14 @@ export function PrescriptionDeclarationModal({
             width: 'half',
             required: true,
             placeholder: 'Sentencia',
+            maxLength: PRESCRIPTION_DECLARATION_MAX_LENGTH.resolution,
             error: errors.resolution,
         },
         {
             k: 'grounds',
             label: 'Fundamento (opcional)',
             type: 'area',
+            maxLength: PRESCRIPTION_DECLARATION_MAX_LENGTH.grounds,
             error: errors.grounds,
         },
     ]

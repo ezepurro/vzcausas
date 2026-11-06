@@ -25,9 +25,10 @@ export interface Client {
      * presentación. Con pasaporte, letras y números en mayúsculas: `AAA123456`.
      */
     documentNumber: string
-    /** Dirección. Texto libre. */
-    address: string | null
-    phone: string | null
+    /** Dirección. Texto libre. Obligatoria desde D-109: nunca llega `null`. */
+    address: string
+    /** Teléfono. Texto libre. Obligatorio desde D-109: nunca llega `null`. */
+    phone: string
     email: string | null
     /** Fecha de alta en el estudio, `YYYY-MM-DD`. La asigna el backend. */
     clientSince: string
@@ -38,16 +39,16 @@ export interface Client {
 }
 
 /**
- * Cuerpo del `POST /clients`. Dirección, teléfono y correo son opcionales:
- * si están vacíos no viajan.
+ * Cuerpo del `POST /clients`. Dirección y teléfono son obligatorios (D-109);
+ * el correo es opcional: si está vacío no viaja.
  */
 export interface CreateClientBody {
     lastName: string
     firstName: string
     documentType: DocumentType
     documentNumber: string
-    address?: string
-    phone?: string
+    address: string
+    phone: string
     email?: string
 }
 
@@ -57,7 +58,7 @@ export type ClientFormValues = {
     firstName: string
     /** Uno de `DOCUMENT_TYPES`: sale de un select. */
     documentType: string
-    /** Como lo escriba el usuario: con o sin puntos. Se limpia al armar el cuerpo. */
+    /** Como lo escriba el usuario: el DNI, sin puntos (tope de 8). Se limpia al armar el cuerpo. */
     documentNumber: string
     address: string
     phone: string

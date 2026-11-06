@@ -9,6 +9,12 @@ export type DeleteCaseFormErrors = Partial<Record<keyof DeleteCaseFormValues, st
 
 const REASON_MAX = 500
 
+/**
+ * Topes de los controles (`maxLength`), por campo del formulario: no dejan
+ * escribir de más. Salen de las mismas constantes que valida el schema.
+ */
+export const CASE_DELETION_MAX_LENGTH = { reason: REASON_MAX } as const
+
 export function validateDeleteCase(values: DeleteCaseFormValues): DeleteCaseFormErrors {
     const errors: DeleteCaseFormErrors = {}
 

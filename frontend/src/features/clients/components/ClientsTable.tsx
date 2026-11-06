@@ -40,7 +40,7 @@ export function ClientsTable({ rows, empty, loading, busy }: ClientsTableProps) 
         },
         { id: 'document', header: 'Documento', cell: (c) => formatDocument(c), mono: true, nowrap: true },
         // Opcionales: sin dato va la raya, igual que en el resto de las tablas.
-        { id: 'phone', header: 'Teléfono', cell: (c) => c.phone ?? '—', mono: true, nowrap: true },
+        { id: 'phone', header: 'Teléfono', cell: (c) => c.phone, mono: true, nowrap: true },
         { id: 'email', header: 'Correo electrónico', cell: (c) => c.email ?? '—' },
         {
             id: 'activeCases',

@@ -3,7 +3,7 @@
  * El backend las vuelve a verificar: validar acá es para no gastar un viaje al
  * servidor y para decir qué campo está mal, no para reemplazarlo.
  *
- * Los límites son los del cuerpo de `POST /clients` (V3 §3.6).
+ * Los límites son los del cuerpo de `POST /clients` (V5 §3.6, D-109).
  */
 
 import { DOCUMENT_TYPES, type ClientFormValues } from '@/features/clients/types/client'
@@ -14,6 +14,20 @@ export type ClientFormErrors = Partial<Record<keyof ClientFormValues, string>>
 const NAME_MAX = 100
 const PHONE_MAX = 50
 const ADDRESS_MAX = 255
+
+/**
+ * Topes de los controles (`maxLength`), por campo del formulario: no dejan
+ * escribir de más. Salen de las mismas constantes que valida el schema.
+ */
+export const CLIENT_MAX_LENGTH = {
+    lastName: NAME_MAX,
+    firstName: NAME_MAX,
+    /* El DNI se escribe sin puntos: 8 dígitos como mucho. */
+    dni: 8,
+    passport: 20,
+    address: ADDRESS_MAX,
+    phone: PHONE_MAX,
+} as const
 
 /** 7 u 8 dígitos, después de sacarle los puntos. */
 const DNI_PATTERN = /^\d{7,8}$/
@@ -56,14 +70,22 @@ export function validateClient(values: ClientFormValues): ClientFormErrors {
         errors.documentNumber = 'El pasaporte tiene de 6 a 20 letras y números.'
     }
 
-    // Opcionales: vacíos están bien, y sólo se validan si vienen.
-    if (values.address.trim().length > ADDRESS_MAX) {
+    // Obligatorios desde D-109: uno de solo espacios cuenta como vacío.
+    const address = values.address.trim()
+    if (!address) {
+        errors.address = 'La dirección es obligatoria.'
+    } else if (address.length > ADDRESS_MAX) {
         errors.address = `Puede tener hasta ${ADDRESS_MAX} caracteres.`
     }
 
-    if (values.phone.trim().length > PHONE_MAX) {
+    const phone = values.phone.trim()
+    if (!phone) {
+        errors.phone = 'El teléfono es obligatorio.'
+    } else if (phone.length > PHONE_MAX) {
         errors.phone = `Puede tener hasta ${PHONE_MAX} caracteres.`
     }
+
+    // Opcional: vacío está bien, y sólo se valida si viene.
 
     const email = values.email.trim()
     if (email && !EMAIL_PATTERN.test(email)) {

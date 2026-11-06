@@ -61,15 +61,29 @@ describe('validateClient', () => {
         expect(validateClient({ ...VALID, documentType: 'LE' }).documentType).toBe('Elegí el tipo de documento.')
     })
 
+    /* D-109: la dirección y el teléfono son obligatorios. */
     describe('dirección', () => {
-        it('es opcional', () => {
-            expect(validateClient({ ...VALID, address: '' }).address).toBeUndefined()
+        it.each(['', '   '])('es obligatoria (%j)', (address) => {
+            expect(validateClient({ ...VALID, address }).address).toBe('La dirección es obligatoria.')
         })
 
         it('acepta hasta 255 caracteres', () => {
             expect(validateClient({ ...VALID, address: 'a'.repeat(255) }).address).toBeUndefined()
             expect(validateClient({ ...VALID, address: 'a'.repeat(256) }).address).toBe(
                 'Puede tener hasta 255 caracteres.',
+            )
+        })
+    })
+
+    describe('teléfono', () => {
+        it.each(['', '   '])('es obligatorio (%j)', (phone) => {
+            expect(validateClient({ ...VALID, phone }).phone).toBe('El teléfono es obligatorio.')
+        })
+
+        it('acepta hasta 50 caracteres', () => {
+            expect(validateClient({ ...VALID, phone: '1'.repeat(50) }).phone).toBeUndefined()
+            expect(validateClient({ ...VALID, phone: '1'.repeat(51) }).phone).toBe(
+                'Puede tener hasta 50 caracteres.',
             )
         })
     })

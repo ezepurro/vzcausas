@@ -152,6 +152,16 @@ describe('RegisterCasePage', () => {
         })
     })
 
+    /* Topes de V5 en los campos de texto: no dejan escribir de más. */
+    it('los campos de texto traen el tope del contrato', async () => {
+        renderPage()
+
+        expect(await screen.findByLabelText(/^N° de SAC/)).toHaveAttribute('maxlength', '8')
+        expect(screen.getByLabelText(/^Carátula/)).toHaveAttribute('maxlength', '255')
+        expect(screen.getByLabelText(/^Instructor de la causa/)).toHaveAttribute('maxlength', '150')
+        expect(screen.getByLabelText(/^Interno/)).toHaveAttribute('maxlength', '20')
+    })
+
     describe('campos propios del fuero (CA-18.4)', () => {
         it('al pasar al amparo o al administrativo aparecen la contraparte y el objeto, y se van las calificaciones', async () => {
             const { user } = renderPage()
@@ -277,6 +287,8 @@ describe('RegisterCasePage', () => {
             await user.type(within(dialog).getByLabelText(/^apellido/i), 'ALBORNOZ')
             await user.type(within(dialog).getByLabelText(/^nombres/i), 'Bruno')
             await user.type(within(dialog).getByLabelText(/^número de documento/i), '35778120')
+            await user.type(within(dialog).getByLabelText(/^dirección/i), 'Av. Colón 999, Córdoba')
+            await user.type(within(dialog).getByLabelText(/^teléfono/i), '351 400-1122')
             await user.click(within(dialog).getByRole('button', { name: 'Registrar cliente' }))
 
             await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())

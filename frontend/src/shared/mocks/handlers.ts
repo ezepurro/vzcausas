@@ -1515,8 +1515,8 @@ const createClient: Handler = ({ request }) => {
     const firstName = asText(body.firstName);
     const documentType = body.documentType;
     const documentNumber = asText(body.documentNumber);
-    const address = optionalText(body.address);
-    const phone = optionalText(body.phone);
+    const address = asText(body.address);
+    const phone = asText(body.phone);
     const email = optionalText(body.email);
 
     const details: Record<string, string> = {};
@@ -1535,11 +1535,14 @@ const createClient: Handler = ({ request }) => {
     } else if (documentType === 'PASSPORT' && !RE_PASSPORT.test(documentNumber)) {
         details.documentNumber = 'Debe contener de 6 a 20 letras y números, sin espacios.';
     }
-    if (address !== null && address.length > CLIENT_ADDRESS_MAX) {
-        details.address = `Puede tener hasta ${CLIENT_ADDRESS_MAX} caracteres.`;
+    // Obligatorios desde D-109: uno de solo espacios se rechaza como vacío.
+    if (address === '') details.address = 'La dirección es obligatoria.';
+    else if (address.length > CLIENT_ADDRESS_MAX) {
+        details.address = 'La dirección no puede superar los 255 caracteres.';
     }
-    if (phone !== null && phone.length > CLIENT_PHONE_MAX) {
-        details.phone = `Puede tener hasta ${CLIENT_PHONE_MAX} caracteres.`;
+    if (phone === '') details.phone = 'El teléfono es obligatorio.';
+    else if (phone.length > CLIENT_PHONE_MAX) {
+        details.phone = 'El teléfono no puede superar los 50 caracteres.';
     }
     if (email !== null && !RE_EMAIL.test(email)) {
         details.email = 'El formato del correo electrónico no es válido.';

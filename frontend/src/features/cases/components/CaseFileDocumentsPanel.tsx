@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { Button, LoadingState, Panel, Skeleton } from '@/shared/components/ui'
+import { FieldError } from '@/shared/components/forms'
 import { formatInstantDate } from '@/shared/lib/dates'
 import type { CaseDocument } from '@/features/cases/types/caseDocument'
 import { documentTypeLabel, formatFileSize } from '@/features/cases/utils/caseDocument'
@@ -143,7 +144,7 @@ function Body({
                 <div className="vz-casefile__empty">Agregá documentos desde la lista de abajo.</div>
             )}
 
-            {selectionError && <div className="vz-error">{selectionError}</div>}
+            {selectionError && <FieldError message={selectionError} />}
             {selected.length > 0 && <span className="vz-casefile__hint">Arrastrá para cambiar el orden.</span>}
 
             {excluded.length > 0 && (

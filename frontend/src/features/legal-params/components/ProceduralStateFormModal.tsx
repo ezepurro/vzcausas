@@ -4,7 +4,7 @@ import {
     SELECTABLE_DAY_TYPES,
     type ProceduralStateFormValues,
 } from '@/features/legal-params/types/proceduralState';
-import type { ProceduralStateErrors } from '@/features/legal-params/schemas/proceduralState.schema';
+import { PROCEDURAL_STATE_MAX_LENGTH, type ProceduralStateErrors } from '@/features/legal-params/schemas/proceduralState.schema';
 
 export interface ProceduralStateFormModalProps {
     mode: 'create' | 'edit';
@@ -47,6 +47,7 @@ export function ProceduralStateFormModal({
             label: 'Nombre del estado',
             required: true,
             placeholder: 'Oposición',
+            maxLength: PROCEDURAL_STATE_MAX_LENGTH.name,
             error: errors.name,
         },
         { label: 'Plazo que abre el estado', type: 'section' },
@@ -58,6 +59,7 @@ export function ProceduralStateFormModal({
             mono: true,
             placeholder: '5',
             note: '0 si el estado no abre plazo.',
+            maxLength: PROCEDURAL_STATE_MAX_LENGTH.timeLimitDays,
             error: errors.timeLimitDays,
         },
         {

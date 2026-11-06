@@ -296,8 +296,8 @@ const CLIENT = (
     lastName: string,
     firstName: string,
     document: ClientDocument,
-    address: string | null,
-    phone: string | null,
+    address: string,
+    phone: string,
     email: string | null,
     clientSince: string,
     active = true,
@@ -309,8 +309,8 @@ const CLIENT = (
  *
  * El DNI va **sin puntos** (V3 D-17); `RUIZ` tiene uno de siete dígitos, el
  * otro largo válido. `NAVARRO` tiene pasaporte en lugar de DNI. `ACOSTA` y
- * `CABRAL` no tienen correo y `PAZ` no tiene teléfono: son los `null` que la
- * tabla muestra con una raya. `ACOSTA` y `PAZ` tampoco tienen dirección.
+ * `CABRAL` no tienen correo: son los `null` que la tabla muestra con una raya.
+ * La dirección y el teléfono los tienen todos: son obligatorios (D-109).
  *
  * `SOSA` (id 8) está dada de baja: no tiene que aparecer en ningún lado, y su
  * DNI se puede volver a registrar, porque la unicidad es entre los vigentes.
@@ -321,7 +321,7 @@ export const CLIENTS: readonly StoredClient[] = [
     CLIENT(1, 'GÓMEZ', 'Ariel Fernando', DNI('34812905'), 'Av. Colón 1250, Córdoba', '351 415-2288', 'afgomez@gmail.com', '2021-03-12'),
     CLIENT(2, 'PEREYRA', 'Marcos D.', DNI('29440117'), 'Bv. San Juan 455, Córdoba', '351 622-9014', 'mdpereyra@hotmail.com', '2026-05-18'),
     CLIENT(3, 'LUDUEÑA', 'Silvia', DNI('20115883'), 'Rondeau 210, Córdoba', '351 308-7742', 'sluduena@gmail.com', '2026-07-21'),
-    CLIENT(4, 'ACOSTA', 'Jonathan E.', DNI('38907221'), null, '351 744-1160', null, '2022-01-19'),
+    CLIENT(4, 'ACOSTA', 'Jonathan E.', DNI('38907221'), 'Av. Maipú 615, Córdoba', '351 744-1160', null, '2022-01-19'),
     CLIENT(5, 'QUIROGA', 'Néstor A.', DNI('26774309'), 'Av. Vélez Sarsfield 1820, Córdoba', '351 519-3320', 'naquiroga@gmail.com', '2026-06-02'),
     CLIENT(6, 'MOYANO', 'Daniela', DNI('33028514'), 'Obispo Trejo 340, Córdoba', '351 267-8891', 'dmoyano@gmail.com', '2026-09-08'),
     CLIENT(7, 'BENÍTEZ', 'Rodrigo E.', DNI('31556208'), 'Av. Rafael Núñez 4560, Córdoba', '351 401-5573', 'rbenitez@gmail.com', '2025-02-14'),
@@ -341,7 +341,7 @@ export const CLIENTS: readonly StoredClient[] = [
     CLIENT(20, 'MALDONADO', 'Érica', DNI('37445981'), 'Jujuy 1777, Córdoba', '351 298-6630', 'emaldonado@gmail.com', '2025-09-09'),
     CLIENT(21, 'NAVARRO', 'Julio C.', PASSPORT('AAE482915'), 'Av. Monseñor Pablo Cabrera 3900, Córdoba', '351 520-7745', 'jcnavarro@yahoo.com.ar', '2024-02-12'),
     CLIENT(22, 'OLMOS', 'Débora R.', DNI('31220945'), 'Tucumán 420, Alta Gracia', '351 377-1269', 'drolmos@gmail.com', '2026-06-25'),
-    CLIENT(23, 'PAZ', 'Ezequiel', DNI('39101224'), null, null, 'epaz@gmail.com', '2026-09-11'),
+    CLIENT(23, 'PAZ', 'Ezequiel', DNI('39101224'), 'Lima 1480, Córdoba', '351 566-7031', 'epaz@gmail.com', '2026-09-11'),
     CLIENT(24, 'RUIZ', 'Elvira T.', DNI('9876543'), 'Independencia 1150, Córdoba', '351 451-0038', 'etruiz@gmail.com', '2026-08-28'),
 ];
 

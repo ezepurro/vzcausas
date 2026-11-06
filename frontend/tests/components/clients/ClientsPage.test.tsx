@@ -43,10 +43,13 @@ async function openCreate(user: User) {
 }
 
 /** Completa el formulario con un cliente que cae en la primera página. */
-async function fillValid(user: User, dialog: HTMLElement, documentNumber = '35.778.120') {
+async function fillValid(user: User, dialog: HTMLElement, documentNumber = '35778120') {
     await user.type(within(dialog).getByLabelText(/^apellido/i), 'ALBORNOZ')
     await user.type(within(dialog).getByLabelText(/^nombres/i), 'Bruno')
     await user.type(within(dialog).getByLabelText(/^número de documento/i), documentNumber)
+    // Obligatorios desde D-109.
+    await user.type(within(dialog).getByLabelText(/^dirección/i), 'Av. Colón 999, Córdoba')
+    await user.type(within(dialog).getByLabelText(/^teléfono/i), '351 400-1122')
 }
 
 /*
@@ -161,7 +164,6 @@ describe('ClientsPage', () => {
             const dialog = await openCreate(user)
 
             await fillValid(user, dialog)
-            await user.type(within(dialog).getByLabelText(/^teléfono/i), '351 400-1122')
             await user.click(within(dialog).getByRole('button', { name: 'Registrar cliente' }))
 
             expect(await screen.findByText('Cliente ALBORNOZ, Bruno registrado.')).toBeInTheDocument()
@@ -175,12 +177,12 @@ describe('ClientsPage', () => {
             // La fecha de alta la pone el backend: es la del día.
             expect(row.getByText(`desde ${formatDate(todayIsoDate())}`)).toBeInTheDocument()
 
-            // El DNI viajó sin puntos, y la dirección y el correo vacíos no viajaron.
+            // El DNI viajó sin puntos, y el correo vacío no viajó.
             expect(db.clients.find((c) => c.lastName === 'ALBORNOZ')).toMatchObject({
                 firstName: 'Bruno',
                 documentType: 'DNI',
                 documentNumber: '35778120',
-                address: null,
+                address: 'Av. Colón 999, Córdoba',
                 phone: '351 400-1122',
                 email: null,
                 active: true,
@@ -197,6 +199,7 @@ describe('ClientsPage', () => {
             // Se escribe en minúsculas y con espacios: viaja limpio.
             await user.type(within(dialog).getByLabelText(/^número de documento/i), 'abc 123456')
             await user.type(within(dialog).getByLabelText(/^dirección/i), 'Av. Colón 999, Córdoba')
+            await user.type(within(dialog).getByLabelText(/^teléfono/i), '351 400-1122')
             await user.click(within(dialog).getByRole('button', { name: 'Registrar cliente' }))
 
             expect(await screen.findByText('Cliente ALBORNOZ, Bruno registrado.')).toBeInTheDocument()
@@ -205,6 +208,23 @@ describe('ClientsPage', () => {
                 documentNumber: 'ABC123456',
                 address: 'Av. Colón 999, Córdoba',
             })
+        })
+
+        /* Topes de los campos: el DNI son 8 dígitos sin puntos; el pasaporte, hasta 20. */
+        it('el número de documento corta en 8 con DNI y en 20 con pasaporte', async () => {
+            const { user } = renderPage()
+            const dialog = await openCreate(user)
+            const number = within(dialog).getByLabelText(/^número de documento/i)
+
+            await user.type(number, '123456789012')
+            expect(number).toHaveValue('12345678')
+
+            await user.selectOptions(within(dialog).getByLabelText(/^tipo de documento/i), 'Pasaporte')
+            const passport = within(dialog).getByLabelText(/^número de documento/i)
+            await user.clear(passport)
+            await user.type(passport, 'A'.repeat(25))
+            expect(passport).toHaveValue('A'.repeat(20))
+            expect(within(dialog).getByLabelText(/^teléfono/i)).toHaveAttribute('maxlength', '50')
         })
 
         /* CA-8.3 */
@@ -217,6 +237,9 @@ describe('ClientsPage', () => {
             expect(within(dialog).getByText('El apellido es obligatorio.')).toBeInTheDocument()
             expect(within(dialog).getByText('Los nombres son obligatorios.')).toBeInTheDocument()
             expect(within(dialog).getByText('El número de documento es obligatorio.')).toBeInTheDocument()
+            // D-109: la dirección y el teléfono también.
+            expect(within(dialog).getByText('La dirección es obligatoria.')).toBeInTheDocument()
+            expect(within(dialog).getByText('El teléfono es obligatorio.')).toBeInTheDocument()
             // `FormModal` lleva al primer campo con error.
             expect(within(dialog).getByLabelText(/^apellido/i)).toHaveFocus()
             expect(db.clients).toHaveLength(CLIENTS.length)
@@ -227,7 +250,7 @@ describe('ClientsPage', () => {
             const { user } = renderPage()
             const dialog = await openCreate(user)
 
-            await fillValid(user, dialog, '34.812.905')
+            await fillValid(user, dialog, '34812905')
             await user.click(within(dialog).getByRole('button', { name: 'Registrar cliente' }))
 
             expect(

@@ -1,5 +1,5 @@
 import { FormModal, type FieldSpec } from '@/shared/components/forms'
-import type { DeleteCaseFormErrors } from '@/features/cases/schemas/caseDeletion.schema'
+import { CASE_DELETION_MAX_LENGTH, type DeleteCaseFormErrors } from '@/features/cases/schemas/caseDeletion.schema'
 import type { DeleteCaseFormValues } from '@/features/cases/types/caseDeletion'
 
 export interface DeleteCaseModalProps {
@@ -32,6 +32,7 @@ export function DeleteCaseModal({
             label: 'Motivo (opcional)',
             type: 'area',
             placeholder: 'Queda asentado en el historial de la causa.',
+            maxLength: CASE_DELETION_MAX_LENGTH.reason,
             error: errors.reason,
         },
     ]

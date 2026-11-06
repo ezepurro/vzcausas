@@ -7,7 +7,8 @@ en el sprint en curso**. El resto ya está documentado: no lo repito, leelo.
 Estado al **05/11/2026** (Sprint 4). Las pantallas del sprint están hechas,
 todas (HU14, HU19, HU21, HU23, HU24, HU25, HU28 y HU38), y sus tests en verde:
 ver [Sprint 4](#sprint-4--qué-está-hecho-y-dónde). Después del sprint se sumó
-la revisión de V5 del 05/11/2026 (matrícula opcional y documento del cliente):
+la revisión de V5 del 05/11/2026 (matrícula opcional y documento del cliente)
+y la del 06/11/2026 (dirección y teléfono del cliente obligatorios, D-109):
 ver [Revisión de V5 del 05/11/2026](#revisión-de-v5-del-05112026).
 
 ## Antes de escribir código, leé
@@ -24,7 +25,7 @@ ver [Revisión de V5 del 05/11/2026](#revisión-de-v5-del-05112026).
    endpoint. El resumen está en [Los mocks](#los-mocks), más abajo.
 4. `docs/Api-Contract/API_CONTRACT_V5.md` — la fuente de verdad del backend.
    Es autocontenido: trae lo de los Sprints 1 a 3 que sigue vigente y lo nuevo
-   del Sprint 4. **Última revisión: 05/11/2026** (D-107 y D-108). Las decisiones (D-xx), los
+   del Sprint 4. **Última revisión: 06/11/2026** (D-107, D-108 y D-109). Las decisiones (D-xx), los
    puntos abiertos (C-xx) y lo que queda fuera del contrato están en
    `docs/Api-Contract/DECISIONES.md`. V2, V3 y V4 quedan como registro: ninguno
    es referencia vigente. Si un documento y el contrato no coinciden, manda el
@@ -295,9 +296,10 @@ Los componentes son presentacionales y lo reciben hecho:
 
 - **Clientes** (así quedó `ClientsPage`). El botón "Registrar cliente" está
   habilitado para los tres perfiles (D-39). El documento es DNI o pasaporte
-  (`documentType`); el DNI se acepta con o sin puntos y viaja sin puntos, el
-  pasaporte viaja sin espacios y en mayúsculas (`normalizeDocumentNumber`). Una
-  dirección, un teléfono o un correo vacío no viaja. Un documento repetido
+  (`documentType`); el DNI se escribe sin puntos (tope de 8) y el pasaporte
+  viaja sin espacios y en mayúsculas (`normalizeDocumentNumber`, que igual le
+  saca los puntos a un DNI pegado con ellos). La dirección y el teléfono son
+  obligatorios (D-109); un correo vacío no viaja. Un documento repetido
   (`409 CLIENT_DNI_ALREADY_EXISTS`) se muestra en el campo del número. Al
   registrar, el aviso es "Cliente GÓMEZ, Ariel Fernando registrado.". Sin
   acciones de fila: modificar y eliminar son del Sprint 4.
@@ -554,16 +556,42 @@ Sprint 1 quedó registrado en `API_CONTRACT_V3.md` §7 y ya no es referencia.
 
 ### Revisión de V5 del 05/11/2026
 
-Pedido del equipo, ya escrito en V5 (`DECISIONES.md`, D-107 y D-108, e
-"Impacto de la revisión del 05/11/2026"). **Está aplicado en la app, en los
-mocks y en los tests**; el backend todavía no lo implementa, así que contra el
-servidor real el alta de clientes (que ahora manda `documentNumber` en lugar
-de `dni`) y la matrícula vacía fallan hasta que se haga la migración:
+Pedido del equipo, ya escrito en V5 (`DECISIONES.md`, D-107, D-108 y D-109,
+e "Impacto de la revisión del 05/11/2026"). **Está aplicado en la app, en los
+mocks y en los tests, y también en el backend** (D-107 y D-108 con su
+migración; D-109 en la validación del alta de clientes):
 
 | Cambio | En el front |
 |---|---|
 | Matrícula del abogado opcional (D-107): `registrationNumber: string | null`; vacía no viaja en el alta, y en el `PATCH` `null` la borra | `lawyers/` (schema, body, patch, tabla con raya), `users/` (ficha nueva), `lawyerLabel` en los selects de causas y usuarios |
-| Cliente (D-108): `documentType` (`DNI` o `PASSPORT`), `documentNumber` (reemplaza a `dni`) y `address` (texto libre, opcional, hasta 255) | `clients/` (formulario, schema, tabla "Documento"), `ClientCard` y los selects de cliente de causas |
+| Cliente (D-108): `documentType` (`DNI` o `PASSPORT`), `documentNumber` (reemplaza a `dni`) y `address` (texto libre, hasta 255) | `clients/` (formulario, schema, tabla "Documento"), `ClientCard` y los selects de cliente de causas |
+| Cliente (D-109, revisión del 06/11/2026): `address` y `phone` obligatorios en el alta (no vacíos; nunca `null` en las respuestas) | `clients/` (asteriscos, schema, body, tipos), mock (`createClient` y semillas: todos tienen dirección y teléfono) y sus tests |
+
+### Errores de los campos (06/11/2026)
+
+El error de un campo se dibuja con `FieldError` (`shared/components/forms`):
+ícono de alerta y cada oración en su renglón, porque el backend junta en un
+texto todos los mensajes que fallan sobre un campo. `Field` y `FormModal` ya
+lo usan; para un control suelto, `<FieldError message={…} />`, nunca un
+`<div className="vz-error">` a mano. Lo prueba
+`tests/components/shared/FieldError.test.tsx`.
+
+### Topes de largo en los formularios (06/11/2026)
+
+Los campos de texto no dejan escribir más de lo que acepta el backend
+(`maxLength`). Cada schema exporta sus topes por campo
+(`CLIENT_MAX_LENGTH`, `CASE_MAX_LENGTH`, `PROCEDURAL_ACT_MAX_LENGTH`, etc.),
+sacados de las mismas constantes que valida: el número no se repite en el
+componente. En `FormModal` va como `FieldSpec.maxLength`, y en un `'area'`
+dibuja el contador. La validación del schema queda como respaldo.
+
+Donde V5 no fija tope, lo decidió el equipo: matrícula 12, años de
+prescripción 2 dígitos, días del amparo 3, buscadores 100
+(`SEARCH_MAX_LENGTH`, por defecto en `SearchInput`). El DNI se escribe **sin
+puntos** (tope 8; la nota del campo dice "Sin puntos.") y el pasaporte tiene
+tope 20. El correo, las contraseñas y el login no tienen tope. Lo prueban
+`tests/components/shared/{FormModal,SearchInput,formMaxLength}.test.tsx` y un
+caso en `ClientsPage`, `RegisterCasePage` y `RegisterProceduralActPage`.
 
 El `409` de un documento repetido sigue siendo `CLIENT_DNI_ALREADY_EXISTS`:
 el código no se renombra (D-108).
@@ -1032,11 +1060,6 @@ Al 05/11/2026. No se arreglan al paso: cada uno es de su dueño.
    Administrador sin otro rol no tiene la carpeta compartida en Drive (D-83),
    así que Drive le niega el acceso al abrir un documento. Se decidió dejarlo
    así (03/11/2026); "Descargar" sí sigue la regla (`cases.downloadDocument`).
-8. **El backend no implementa todavía la revisión del 05/11/2026** (D-107,
-   D-108). Contra el servidor real, registrar un cliente responde `400`
-   (espera `dni`) y registrar un abogado sin matrícula también. Necesita una
-   migración del lado del backend (`DECISIONES.md`, "Impacto de la revisión
-   del 05/11/2026"). Contra los mocks anda todo.
 
 ## Checklist de un módulo
 

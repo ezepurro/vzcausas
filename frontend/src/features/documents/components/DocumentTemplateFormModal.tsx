@@ -4,7 +4,7 @@ import { Checkbox, Field, TextInput } from '@/shared/components/forms'
 import { JurisdictionPicker } from '@/features/documents/components/JurisdictionPicker'
 import { FileDropzone } from '@/features/documents/components/FileDropzone'
 import type { DocumentTemplateFormValues } from '@/features/documents/types/documentTemplate'
-import type { DocumentTemplateErrors } from '@/features/documents/schemas/documentTemplate.schema'
+import { NAME_MAX, type DocumentTemplateErrors } from '@/features/documents/schemas/documentTemplate.schema'
 
 const DOCX_ACCEPT = '.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 
@@ -46,6 +46,7 @@ export function DocumentTemplateFormModal({
                 <Field label="Nombre del modelo" required htmlFor={nameId} error={errors.name}>
                     <TextInput
                         id={nameId}
+                        maxLength={NAME_MAX}
                         value={values.name}
                         placeholder="Recurso de queja"
                         onChange={(e) => onChange('name', e.target.value)}

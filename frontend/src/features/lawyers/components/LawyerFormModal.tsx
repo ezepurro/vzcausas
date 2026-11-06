@@ -1,6 +1,6 @@
 import { FormModal, type FieldSpec } from '@/shared/components/forms'
 import type { LawyerFormValues } from '@/features/lawyers/types/lawyer'
-import type { LawyerFormErrors } from '@/features/lawyers/schemas/lawyer.schema'
+import { LAWYER_MAX_LENGTH, type LawyerFormErrors } from '@/features/lawyers/schemas/lawyer.schema'
 
 export interface LawyerFormModalProps {
     mode: 'create' | 'edit'
@@ -37,6 +37,7 @@ export function LawyerFormModal({
             label: 'Apellido',
             width: 'half',
             required: true,
+            maxLength: LAWYER_MAX_LENGTH.lastName,
             error: errors.lastName,
         },
         {
@@ -45,6 +46,7 @@ export function LawyerFormModal({
             width: 'half',
             required: true,
             note: 'Sin "Dr." ni "Dra.".',
+            maxLength: LAWYER_MAX_LENGTH.firstName,
             error: errors.firstName,
         },
         {
@@ -54,6 +56,7 @@ export function LawyerFormModal({
             mono: true,
             placeholder: '1-00000',
             note: 'Opcional.',
+            maxLength: LAWYER_MAX_LENGTH.registrationNumber,
             error: errors.registrationNumber,
         },
     ]

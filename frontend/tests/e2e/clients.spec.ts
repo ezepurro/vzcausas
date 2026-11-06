@@ -22,7 +22,8 @@ test.describe('Clientes', () => {
         const dialog = page.getByRole('dialog')
         await dialog.getByLabel(/^Apellido/).fill('ALBORNOZ')
         await dialog.getByLabel(/^Nombres/).fill('Bruno')
-        await dialog.getByLabel(/^Número de documento/).fill('35.778.120')
+        await dialog.getByLabel(/^Número de documento/).fill('35778120')
+        await dialog.getByLabel(/^Dirección/).fill('Av. Colón 999, Córdoba')
         await dialog.getByLabel(/^Teléfono/).fill('351 400-1122')
         await dialog.getByRole('button', { name: 'Registrar cliente' }).click()
 

@@ -35,7 +35,7 @@ shared/
 ├── components/
 │   ├── index.ts              barrel: reexporta ui + forms
 │   ├── ui/                   19 archivos (20 componentes: Skeleton.tsx trae LoadingState y Skeleton) + index.ts
-│   ├── forms/                Field.tsx, PasswordInput.tsx, Combobox.tsx, SegmentedControl.tsx, FormModal.tsx + index.ts
+│   ├── forms/                Field.tsx, FieldError.tsx, PasswordInput.tsx, Combobox.tsx, SegmentedControl.tsx, FormModal.tsx + index.ts
 │   └── feedback/             VACÍA (sólo .gitkeep)
 ├── hooks/                    useDebouncedValue.ts, useFocusFirstError.ts, useCountdown.ts, useHoverIntent.ts
 ├── lib/                      dates.ts, personName.ts, initials.ts, saveFile.ts, printFile.ts, drafts.ts, focusFirstError.ts
@@ -147,6 +147,7 @@ import { ApiError, isApiError } from '@/shared/api/ApiError';
 | `Field` | Component | `components/forms/Field.tsx` | Label + control + nota + error |
 | `TextInput` `Select` `Textarea` `Checkbox` | Components | `components/forms/Field.tsx` | Controles sueltos |
 | `FormSection` | Component | `components/forms/Field.tsx` | Separador dentro del form |
+| `FieldError` | Component | `components/forms/FieldError.tsx` | Error de un campo: ícono y una oración por renglón |
 | `PasswordInput` | Component | `components/forms/PasswordInput.tsx` | Contraseña con un ojo para mostrarla u ocultarla |
 | `Combobox` | Component | `components/forms/Combobox.tsx` | Texto libre con lista para elegir |
 | `SegmentedControl` | Component | `components/forms/SegmentedControl.tsx` | Elegir una entre pocas opciones a la vista |
@@ -217,6 +218,7 @@ import { ApiError, isApiError } from '@/shared/api/ApiError';
 | Filtro con opciones agrupadas | `Select` con `{ group, options }` | Se dibuja como `<optgroup>` |
 | Botón que se prende y se apaga | `Button pressed={…}` | "Solo con plazo por vencer" |
 | Elegir de una lista o escribir otra cosa | `Combobox` | La pantalla filtra las opciones |
+| Error de un control que no está dentro de un `Field` | `FieldError` | `Field` y `FormModal` ya lo usan solos; no escribas `<div className="vz-error">` a mano |
 | Campo de contraseña que se pueda ver | `PasswordInput` | Dentro de un `Field`, igual que `TextInput` |
 | Elegir una entre 2 a 4 opciones cortas | `SegmentedControl` | Más opciones, `Select` |
 | Buscador | `SearchInput` | En `Panel actions` (ahí toma 280px de mínimo). La topbar no lleva buscador: el general quedó postergado |
@@ -407,7 +409,8 @@ Genérico en `T extends string`. No guarda estado.
 
 **Path:** `components/ui/SearchInput.tsx`
 **Props:** las de un `<input>` (`InputHTMLAttributes`). No tiene interfaz propia ni
-props extra; renderiza icono + `<input type="search">`. No debounce, no busca:
+props extra; renderiza icono + `<input type="search">`. Trae `maxLength` de
+`SEARCH_MAX_LENGTH` (100) por defecto; la pantalla lo puede cambiar. No debounce, no busca:
 la demora la pone la página con [`useDebouncedValue`](#usedebouncedvalue).
 
 ### Modal
@@ -618,7 +621,9 @@ FormModal
 
 **`FieldSpec`:** `k?` (clave del valor; no hace falta en `'section'`), `label`,
 `type?: 'text' | 'pass' | 'select' | 'date' | 'area' | 'check' | 'section'`,
-`width?: 'half' | 'full'`, `required?`, `mono?`, `placeholder?`, `note?`,
+`width?: 'half' | 'full'`, `required?`, `mono?`, `placeholder?`,
+`maxLength?` (tope de caracteres del control: no deja escribir de más; en un
+`'area'` también dibuja el contador `120 / 2000` en la etiqueta), `note?`,
 `error?` (mensaje de error **del campo**; lo decide la pantalla, igual que en
 `Field`: oculta la `note` y pinta el control en rojo),
 `options?: SelectOption[]` (ver `Select`: cadena suelta o par valor/etiqueta),
@@ -631,11 +636,12 @@ Fechas y números se manejan como string.
 <FormModal
   title="Registrar cliente"
   fields={[
-    { k: 'lastName', label: 'Apellido', required: true, width: 'half', error: errors.lastName },
+    { k: 'lastName', label: 'Apellido', required: true, width: 'half', maxLength: CLIENT_MAX_LENGTH.lastName, error: errors.lastName },
     { k: 'firstName', label: 'Nombres', required: true, width: 'half', error: errors.firstName },
     { k: 'documentType', label: 'Tipo de documento', type: 'select', required: true, width: 'half', options: DOCUMENT_TYPE_OPTIONS },
-    { k: 'documentNumber', label: 'Número de documento', required: true, mono: true, width: 'half', placeholder: '00.000.000' },
-    { k: 'phone', label: 'Teléfono', mono: true, width: 'half' },
+    { k: 'documentNumber', label: 'Número de documento', required: true, mono: true, width: 'half', placeholder: '00000000', maxLength: CLIENT_MAX_LENGTH.dni },
+    { k: 'address', label: 'Dirección', required: true },
+    { k: 'phone', label: 'Teléfono', required: true, mono: true, width: 'half' },
     { k: 'email', label: 'Correo electrónico', width: 'half' },
   ]}
   values={values}
@@ -660,6 +666,7 @@ es el modo "confirmar baja". El `children` se agrega debajo de los campos.
   chico a la derecha de la etiqueta, en monoespaciada: el contador de un texto
   largo (`hint="23 / 800"` en el objeto del reclamo). Lo calcula la pantalla;
   `Field` sólo lo ubica. Sin `hint`, la etiqueta se dibuja como siempre.
+  El `error` se dibuja con [`FieldError`](#fielderror).
 - `TextInput` — props de `<input>` + `mono?`.
 - `Select` — props de `<select>` + `options: SelectOption[]`, con
   `SelectOption = string | { value: string; label: string }`. Una cadena suelta
@@ -694,12 +701,30 @@ es el modo "confirmar baja". El `children` se agrega debajo de los campos.
 />
 ```
 
+### FieldError
+
+**Path:** `components/forms/FieldError.tsx`
+**Props:** `message` (el texto del error), `id?` (para el `aria-describedby` del control).
+**Notas:** el ícono `alert` y el mensaje con **cada oración en su renglón**. El
+backend junta en un solo texto todos los mensajes que fallan sobre un mismo campo
+(`backend/src/app.setup.ts`, `flatten`), y de corrido se leían como un párrafo.
+El corte lo hace `splitErrorMessage` (`shared/lib/splitErrorMessage.ts`): después
+de un punto seguido de mayúscula, así "art. 162 CP" o "1-28114." no se parten.
+- **Un solo ícono por campo**, no uno por oración: hay mensajes que son un error y
+  su aclaración ("Los años son obligatorios. Si el plazo es menor a un año, poné
+  0.") y con dos íconos parecerían dos errores.
+- El texto queda en un solo nodo (`white-space: pre-line`): `getByText` con el
+  mensaje entero lo sigue encontrando, y `{ selector: '.vz-error' }` también.
+- `Field` y la casilla de `FormModal` ya lo usan: sólo hace falta a mano para un
+  control suelto (la fecha del hecho de `LegalQualificationPicker`, la selección
+  de documentos del expediente).
+
 ### Combobox
 
 **Path:** `components/forms/Combobox.tsx`
 **Props:** `id?` (para el `htmlFor` de `Field`), `value` (el texto escrito),
 `onChange(text)`, `onSelect(option)`, `options: ComboboxOption[]`,
-`placeholder?`, `emptyText?`, `disabled?`, `mono?`.
+`placeholder?`, `emptyText?`, `disabled?`, `mono?`, `maxLength?` (tope de lo que se escribe).
 `ComboboxOption = { value, label, description? }`.
 **Notas:** campo de texto con lista que **también acepta lo que se escriba**
 aunque no esté en la lista: el "Estado procesal al que pasa la causa" del acto,

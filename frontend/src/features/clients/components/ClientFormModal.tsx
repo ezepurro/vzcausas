@@ -1,6 +1,6 @@
 import { FormModal, type FieldSpec } from '@/shared/components/forms'
 import { DOCUMENT_TYPES, type ClientFormValues } from '@/features/clients/types/client'
-import type { ClientFormErrors } from '@/features/clients/schemas/client.schema'
+import { CLIENT_MAX_LENGTH, type ClientFormErrors } from '@/features/clients/schemas/client.schema'
 import { DOCUMENT_TYPE_LABELS } from '@/features/clients/utils/clientFormat'
 
 /* El código viaja y el rótulo se lee: `PASSPORT` se elige como "Pasaporte". */
@@ -37,6 +37,7 @@ export function ClientFormModal({
             width: 'half',
             required: true,
             placeholder: 'GÓMEZ',
+            maxLength: CLIENT_MAX_LENGTH.lastName,
             error: errors.lastName,
         },
         {
@@ -45,6 +46,7 @@ export function ClientFormModal({
             width: 'half',
             required: true,
             placeholder: 'Ariel Fernando',
+            maxLength: CLIENT_MAX_LENGTH.firstName,
             error: errors.firstName,
         },
         {
@@ -56,8 +58,8 @@ export function ClientFormModal({
             options: DOCUMENT_TYPE_OPTIONS,
             error: errors.documentType,
         },
-        /* El placeholder y la nota siguen al tipo elegido: los puntos son
-           sólo del DNI. */
+        /* El placeholder y el tope siguen al tipo elegido: 8 dígitos sin
+           puntos para el DNI, hasta 20 letras y números para el pasaporte. */
         values.documentType === 'PASSPORT'
             ? {
                 k: 'documentNumber',
@@ -66,6 +68,7 @@ export function ClientFormModal({
                 required: true,
                 mono: true,
                 placeholder: 'AAA000000',
+                maxLength: CLIENT_MAX_LENGTH.passport,
                 error: errors.documentNumber,
             }
             : {
@@ -74,23 +77,28 @@ export function ClientFormModal({
                 width: 'half',
                 required: true,
                 mono: true,
-                placeholder: '00.000.000',
-                note: 'Con o sin puntos.',
+                placeholder: '00000000',
+                note: 'Sin puntos.',
+                maxLength: CLIENT_MAX_LENGTH.dni,
                 error: errors.documentNumber,
             },
         {
             k: 'address',
             label: 'Dirección',
             width: 'full',
+            required: true,
             placeholder: 'Calle, número, localidad',
+            maxLength: CLIENT_MAX_LENGTH.address,
             error: errors.address,
         },
         {
             k: 'phone',
             label: 'Teléfono',
             width: 'half',
+            required: true,
             mono: true,
             placeholder: '351 000-0000',
+            maxLength: CLIENT_MAX_LENGTH.phone,
             error: errors.phone,
         },
         {
@@ -108,7 +116,7 @@ export function ClientFormModal({
             sub={
                 fromCase
                     ? 'Al confirmar, el cliente queda seleccionado en la causa.'
-                    : 'Después lo vas a poder elegir al registrar sus causas. La dirección, el teléfono y el correo son opcionales.'
+                    : 'Después lo vas a poder elegir al registrar sus causas. El correo es opcional.'
             }
             fields={fields}
             values={values}

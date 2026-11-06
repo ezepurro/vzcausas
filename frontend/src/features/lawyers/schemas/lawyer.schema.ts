@@ -15,6 +15,19 @@ const REGISTRATION_PATTERN = /^\d{1,2}-\d{5}$/
 
 /* Apellido y nombres, cada uno hasta 100 caracteres (V4 §3.3, D-68). */
 const NAME_MAX = 100
+/* V5 no fija largo para la matrícula: `1-28114` tiene 7, y queda margen
+   (decisión del equipo, 06/11/2026). */
+const REGISTRATION_MAX = 12
+
+/**
+ * Topes de los controles (`maxLength`), por campo del formulario: no dejan
+ * escribir de más. Salen de las mismas constantes que valida el schema.
+ */
+export const LAWYER_MAX_LENGTH = {
+    lastName: NAME_MAX,
+    firstName: NAME_MAX,
+    registrationNumber: REGISTRATION_MAX,
+} as const
 
 /**
  * El alta y la edición validan lo mismo: son los tres únicos campos que el

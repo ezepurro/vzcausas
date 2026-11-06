@@ -1,5 +1,5 @@
 import { Button } from '@/shared/components/ui'
-import { Select, TextInput, type SelectOption } from '@/shared/components/forms'
+import { FieldError, Select, TextInput, type SelectOption } from '@/shared/components/forms'
 import { formatPrescription, type LegalQualification } from '@/features/legal-params'
 
 /** Una calificación ya elegida, con la fecha del hecho que se va cargando. */
@@ -114,7 +114,7 @@ export function LegalQualificationPicker({
                                         onChange={(e) => onOffenseDateChange(q.id, e.target.value)}
                                     />
                                     {dateError && (
-                                        <div id={`${dateId}-error`} className="vz-error">{dateError}</div>
+                                        <FieldError id={`${dateId}-error`} message={dateError} />
                                     )}
                                 </div>
 
