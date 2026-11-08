@@ -5,6 +5,7 @@ import {
   FileCopy,
   FileUpload,
   FolderReference,
+  FolderRelocation,
 } from '../../../src/subsystems/documents/core/domain/ports/document-storage.port';
 import { loginAs } from '../auth/login-as';
 import { aCaseBody } from '../factories/case.factory';
@@ -108,6 +109,7 @@ export class SwitchableStorage implements DocumentStoragePort {
 
   findFolderByReference = (reference: FolderReference) => this.current.storage.findFolderByReference(reference);
   createFolder = (reference: FolderReference) => this.current.storage.createFolder(reference);
+  relocateFolder = (relocation: FolderRelocation) => this.current.storage.relocateFolder(relocation);
   getFolder = (folderId: string) => this.current.storage.getFolder(folderId);
   deleteFolder = (folderId: string) => this.current.storage.deleteFolder(folderId);
   uploadFile = (upload: FileUpload) => this.current.storage.uploadFile(upload);

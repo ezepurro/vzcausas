@@ -235,8 +235,12 @@ delete:
     `GET /cases` y deja de contar en `activeCases`, tableros y proceso diario.
     No hay reactivación por la API. Su SAC queda libre para otra causa.
 
-    La carpeta en Drive no se borra, no se mueve ni se renombra (RN9). El
-    motivo, el usuario y la fecha quedan registrados, sin endpoint de consulta.
+    La carpeta en Drive se mueve a la carpeta `Papelera` (`/VZ Causas/Papelera/`),
+    con lo que tiene adentro (D-104, revisión del 08/11/2026): no se borra ni se
+    purga, y una persona puede devolverla a mano. `Papelera` se crea la primera
+    vez que hace falta. Si Drive no responde, la baja no falla y la carpeta
+    queda como estaba. El motivo, el
+    usuario y la fecha quedan registrados, sin endpoint de consulta.
 
     **Rol requerido:** cualquier usuario autenticado.
   requestBody:

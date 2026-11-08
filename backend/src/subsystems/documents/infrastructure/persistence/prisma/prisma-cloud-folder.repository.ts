@@ -57,6 +57,17 @@ export class PrismaCloudFolderRepository implements CloudFolderRepository {
     }
   }
 
+  async saveRelocation(folder: CloudFolder): Promise<void> {
+    await this.prisma.db.cloudFolder.update({
+      where: { cloudFolderId: folder.cloudFolderId },
+      data: {
+        name: folder.name,
+        parentCloudFolderId: folder.parentCloudFolderId,
+        lawyerId: folder.lawyerId,
+      },
+    });
+  }
+
   private toWhere(key: FolderKey): Prisma.CloudFolderWhereInput {
     switch (key.kind) {
       case 'LAWYER':

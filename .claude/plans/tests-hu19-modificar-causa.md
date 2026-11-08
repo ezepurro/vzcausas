@@ -92,8 +92,8 @@ admitidos) → 400 de `caseId` → 404 → 422 → 400 de contenido → 409. Un 
 | 19.6 SAC ↔ fecha de inicio | UNIT entidad · INT D2.1 |
 | 19.7 Cliente nuevo, carátula no recalculada | UNIT entidad · INT D4.1 |
 | 19.8 Responsable nuevo | INT D4.2 (el nuevo registra un acto: 201; el anterior: 403; el acto previo conserva su `registeredBy`) |
-| 19.9 La carpeta sigue a la causa | **Parcial.** UNIT caso de uso: se publica solo con carpeta `CREATED` y si cambió carátula o responsable. Mover y renombrar es de `documents` (Mateo) |
-| 19.10 Drive no hace fallar | **Por diseño, sin test propio:** el evento sale después del commit y `EventPublisher.publish` no lanza |
+| 19.9 La carpeta sigue a la causa | UNIT caso de uso (`UpdateCase`): se publica solo con carpeta `CREATED` y si cambió carátula o responsable · UNIT `SyncCaseFolder` (renombra, mueve creando las carpetas del abogado, las dos a la vez en una llamada, reutiliza carpetas, idempotente, sin carpeta no hace nada) · UNIT `CaseModifiedListener`, `CaseFolder` y los adaptadores (`relocateFolder` de Drive y de memoria) · INT F1, F2 (`case-folder.int.spec.ts`) |
+| 19.10 Drive no hace fallar | UNIT `SyncCaseFolder` (falla de Drive: la fila queda como estaba; el reintento completa) · UNIT `CaseModifiedListener` (no propaga el error) · INT F3 (`PATCH` responde 200, la causa se guarda y la carpeta conserva su nombre) |
 | 19.11 Calificaciones, reemplazo total | UNIT `CriminalCase` · INT D4.3 |
 | 19.12 Acto lesivo | UNIT `Amparo` · INT D5.1 |
 | 19.13 Terminal sí; "Prescripta" + calificaciones 422 | UNIT `CriminalCase` · INT D5.2 |
@@ -114,6 +114,23 @@ HU19 es grande: se usa el margen flexible del límite (5 `describe`, hasta 3 `it
 | D5 Amparo y estados terminales | 5.1 acto lesivo, recalculado y borrado · 5.2 "Archivada" se corrige; "Prescripta" + calificaciones: 422 |
 
 Cada error verifica que **no** se escribió nada.
+
+### La carpeta sigue a la causa (CA-19.9, CA-19.10, D-104)
+
+Van en `test/subsystems/cases/case-folder.int.spec.ts`, que ya tiene el almacenamiento en
+memoria y registra causas con carpeta (una suite por recurso o flujo). Un `describe` con 3
+`it`. `documents` actúa por un suscriptor asíncrono: se espera a ver la fila de
+`cloud_folders` en la base, sin pausas fijas.
+
+| `it` | Qué prueba |
+|---|---|
+| F1 | Cambiar la carátula renombra la carpeta (nombre limpio con las reglas de nombre), conserva su id y su padre, y `folder.path` del detalle informa el nombre nuevo |
+| F2 | Cambiar el responsable mueve la carpeta bajo el abogado nuevo, crea sus carpetas, conserva el id y el nombre, y no duplica la carpeta de la causa; `folder.path` informa la ubicación nueva |
+| F3 | Si Drive falla, `PATCH` responde 200, la causa se guarda y la carpeta queda con su nombre anterior; `folder.path` dice dónde está realmente |
+
+**No cubierto en integración:** la pila HTTP falsa de Google (`fake-google.ts`) no entiende
+`PATCH /files/{id}`, así que la llamada real de `relocateFolder` (`addParents` y
+`removeParents`) solo está probada con el cliente de Drive falso del unitario del adaptador.
 
 ## Desvíos conocidos
 

@@ -35,6 +35,15 @@ export class InMemoryCloudFolderRepository implements CloudFolderRepository {
     this.saveCount += 1;
   }
 
+  /** Number of `saveRelocation` calls (HU19). */
+  relocationCount = 0;
+
+  async saveRelocation(folder: CloudFolder): Promise<void> {
+    this.byId.set(folder.cloudFolderId, folder);
+    this.byKey.set(folderKeyToString(folder.key), folder);
+    this.relocationCount += 1;
+  }
+
   /** Every stored folder, in insertion order. */
   all(): CloudFolder[] {
     return [...this.byId.values()];

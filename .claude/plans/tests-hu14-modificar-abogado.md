@@ -91,8 +91,8 @@ escribe nada**: ni el abogado ni la auditoría.
 | 14.9 | "Dr."/"Dra." en los nombres: 400 sobre `firstName` | UNIT `PersonName` · INT D2.1 |
 | 14.10 | Sin campos o con `activeCases`: 400 | UNIT entidad · INT D2.2 |
 | 14.11 | Inexistente o dado de baja: 404 | UNIT caso de uso · INT D3.3 |
-| 14.12 | Renombrar la carpeta en Drive | **Parcial.** UNIT: se publica `lawyer-renamed` solo si cambió el nombre. El renombre lo hace `documents` (Mateo) |
-| 14.13 | Drive no hace fallar | **Por diseño, sin test propio:** el evento se publica después del commit y `EventPublisher.publish` no lanza (`event-publisher.port.ts`). El resto es de `documents` |
+| 14.12 | Renombrar la carpeta en Drive | UNIT `UpdateLawyer`: se publica `lawyer-renamed` solo si cambió el nombre · UNIT `RenameLawyerFolder` y `LawyerRenamedListener` (renombra conservando id y padre, mismo nombre no hace nada, sin carpeta no hace nada) · INT (`case-folder.int.spec.ts`, HU14): la carpeta del abogado se renombra y `folder.path` de sus causas lo sigue |
+| 14.13 | Drive no hace fallar | El evento se publica después del commit y `EventPublisher.publish` no lanza (`event-publisher.port.ts`) · UNIT `RenameLawyerFolder` (si Drive falla, la fila queda con el nombre anterior y un reintento lo completa) y `LawyerRenamedListener` (no propaga el error) · INT: con Drive caído, `PATCH` responde 200 y la carpeta conserva su nombre |
 | 14.14 | Carátula con el nombre nuevo | **Sin test propio:** la carátula se arma en cada emisión leyendo el abogado por referencia. Lo cubre CA-14.2 |
 
 ## Tests de integración (`test/subsystems/people/update-lawyer.int.spec.ts`)

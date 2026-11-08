@@ -19,4 +19,12 @@ export interface CloudFolderRepository {
    *   key (or provider id) already exists, e.g. a concurrent request won.
    */
   save(folder: CloudFolder): Promise<void>;
+
+  /**
+   * Writes the name, the parent and the lawyer of a folder that was renamed or
+   * moved (HU19, D-104), in one update: the shape check of the table needs the
+   * parent and the lawyer to change together. Called only after the provider
+   * confirmed the change, so the row always says where the folder really is.
+   */
+  saveRelocation(folder: CloudFolder): Promise<void>;
 }
