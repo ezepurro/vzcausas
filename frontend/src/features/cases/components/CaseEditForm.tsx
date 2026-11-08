@@ -124,12 +124,14 @@ export function CaseEditForm({
                     />
                 </Field>
 
-                {/* Se muestra, pero no es un select: no se modifica (D-95). */}
+                {/* Se muestra, pero no es un select: no se modifica (D-95).
+                    `disabled` y no `readOnly`: así se ve bloqueado (gris, sin foco),
+                    como los demás campos que no se pueden tocar. */}
                 <Field label="Fuero" width="half" htmlFor="edit-case-jurisdiction"
                     note="No se modifica. Si la causa se registró en otro fuero, dala de baja y registrala de nuevo.">
                     <TextInput
                         id="edit-case-jurisdiction"
-                        readOnly
+                        disabled
                         value={JURISDICTION_LABELS[values.jurisdiction]}
                     />
                 </Field>

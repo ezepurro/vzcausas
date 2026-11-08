@@ -105,6 +105,8 @@ describe('CaseDetailPage · modificar causa', () => {
             within(dialog).getByText('No se modifica. Si la causa se registró en otro fuero, dala de baja y registrala de nuevo.'),
         ).toBeInTheDocument()
         expect(within(dialog).queryByRole('combobox', { name: /^fuero/i })).not.toBeInTheDocument()
+        // Deshabilitado, no sólo de lectura: se ve bloqueado y no toma el foco.
+        expect(within(dialog).getByRole('textbox', { name: /^fuero/i })).toBeDisabled()
     })
 
     // CA-19.5: el SAC de otra causa vigente se marca en su campo.
