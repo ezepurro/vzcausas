@@ -170,6 +170,26 @@ export class GoogleDriveDocumentStorage implements DocumentStoragePort {
     return toStoredFolder(response.data);
   }
 
+  /**
+   * `files.update` with `trashed: true`: the folder and what it holds go to the
+   * trash, recoverable by hand, and it needs only `drive.file` because the app
+   * created the folder. A folder that is already gone counts as trashed.
+   */
+  async trashFolder(folderId: string): Promise<void> {
+    try {
+      await this.call('trashFolder', () =>
+        this.drive.files.update(
+          { fileId: folderId, requestBody: { trashed: true }, fields: 'id' },
+          this.requestOptions,
+        ),
+      );
+    } catch (error) {
+      if (!(error instanceof FolderNotFound)) {
+        throw error;
+      }
+    }
+  }
+
   async deleteFolder(folderId: string): Promise<void> {
     await this.deleteById('deleteFolder', folderId);
   }

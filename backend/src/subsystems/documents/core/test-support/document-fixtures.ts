@@ -1,4 +1,6 @@
 import { ClockPort } from '@shared/domain/clock.port';
+import { CaseDeactivatedEvent, CASE_DEACTIVATED } from '@subsystems/cases/core/domain/ports/events/case-deactivated.event';
+import { LawyerRenamedEvent, LAWYER_RENAMED } from '@subsystems/people/core/domain/ports/events/lawyer-renamed.event';
 import { CaseModifiedEvent, CASE_MODIFIED } from '@subsystems/cases/core/domain/ports/events/case-modified.event';
 import { CaseRegisteredEvent, CASE_REGISTERED } from '@subsystems/cases/core/domain/ports/events/case-registered.event';
 import { AssureSpaceCommand } from '../application/common/assure-space.interfaces';
@@ -111,6 +113,28 @@ export function aCaseModifiedEvent(overrides: Partial<CaseModifiedEvent> = {}): 
     lawyer: { id: 3, lastName: 'Ríos', firstName: 'Malena' },
     jurisdiction: { id: 1, label: 'Penal' },
     changed: ['caption'],
+    ...overrides,
+  };
+}
+
+export function aCaseDeactivatedEvent(overrides: Partial<CaseDeactivatedEvent> = {}): CaseDeactivatedEvent {
+  return {
+    type: CASE_DEACTIVATED,
+    eventId: 'evt-case-deactivated-1',
+    occurredAt: NOW.toISOString(),
+    caseId: 10,
+    ...overrides,
+  };
+}
+
+export function aLawyerRenamedEvent(overrides: Partial<LawyerRenamedEvent> = {}): LawyerRenamedEvent {
+  return {
+    type: LAWYER_RENAMED,
+    eventId: 'evt-lawyer-renamed-1',
+    occurredAt: NOW.toISOString(),
+    lawyerId: 3,
+    lastName: 'Ríos',
+    firstName: 'Malena',
     ...overrides,
   };
 }

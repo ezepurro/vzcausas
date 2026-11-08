@@ -144,6 +144,8 @@ ninguno devuelve tipos de la librería de Google.
 | `RegisterDocumentTemplate`  | controlador HTTP de `documents`       | `files.create` con el archivo (carga reanudable) en la subcarpeta del primer fuero y `files.copy` a la de cada fuero restante; `files.delete` de todo lo creado si algo falla |
 | `DownloadDocumentTemplate`  | controlador HTTP de `documents`       | `files.get` con `alt=media`, en *streaming*       |
 | `SyncCaseFolder`            | `cases`, por el evento `CaseModified` (HU19, D-104) | `files.get` (padres actuales) y `files.update` (nombre, `addParents`, `removeParents`); crea las carpetas del abogado y del fuero si faltan |
+| `TrashCaseFolder`           | `cases`, por el evento `CaseDeactivated` (HU21, D-104 revisado 08/11/2026) | `files.update` con `trashed: true`: la carpeta y lo que tiene adentro van a la papelera, sin borrarse; la fila de `cloud_folders` se conserva |
+| `RenameLawyerFolder`        | `people`, por el evento `LawyerRenamed` (HU14, D-104) | `files.update` con el nombre nuevo; las carpetas de sus causas quedan adentro |
 | `GrantStudioFolderAccess`   | `identity`, por `StudioFolderAccessPort` | `permissions.create` sobre la raíz             |
 | `RevokeStudioFolderAccess`  | `identity`, por `StudioFolderAccessPort` | `permissions.delete` sobre la raíz             |
 | `SyncStudioFolderAccess`    | `identity`, desde su disparador diario | `permissions.list`, y luego altas y bajas por diferencia |
@@ -158,7 +160,8 @@ export interface DocumentStoragePort {
   findFolderByReference(ref: { parentId: string | null; name: string }): Promise<StoredFolder | null>;
   createFolder(ref: { parentId: string | null; name: string }): Promise<StoredFolder>;  // { id, url }
   getFolder(folderId: string): Promise<StoredFolder | null>;   // null si ya no existe
-  relocateFolder(r: { folderId: string; name?: string; newParentId?: string }): Promise<StoredFolder>; // renombra y/o mueve (HU19)
+  relocateFolder(r: { folderId: string; name?: string; newParentId?: string }): Promise<StoredFolder>; // renombra y/o mueve (HU19, HU14)
+  trashFolder(folderId: string): Promise<void>;                // a la papelera, con su contenido; recuperable a mano (HU21)
   deleteFolder(folderId: string): Promise<void>;               // deshace una carpeta recién creada
   uploadFile(upload: FileUpload): Promise<StoredFile>;
   deleteFile(fileId: string): Promise<void>;

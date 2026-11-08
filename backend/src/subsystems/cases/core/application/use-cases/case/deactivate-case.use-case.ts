@@ -1,10 +1,14 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { AUDIT_TRAIL, AuditTrailPort } from '@shared/domain/audit-trail.port';
 import { AuthenticatedUser } from '@shared/domain/authenticated-user';
 import { CLOCK, ClockPort } from '@shared/domain/clock.port';
 import { TRANSACTION_MANAGER, TransactionManagerPort } from '@shared/domain/transaction-manager.port';
+import { EventPublisher } from '@shared/infrastructure/events/event-publisher.port';
+import { createEventHeader } from '@shared/infrastructure/events/integration-event';
 import { CaseNotFoundError } from '../../../domain/errors/case.errors';
+import { CASE_FOLDER_STATE, CaseFolderStatePort } from '../../../domain/ports/case/case-folder-state.port';
 import { CASE_REPOSITORY, CaseRepository } from '../../../domain/ports/case/case.repository';
+import { CASE_DEACTIVATED, CaseDeactivatedEvent } from '../../../domain/ports/events/case-deactivated.event';
 import { CaseDeactivation, CaseDeactivationInput } from '../../../domain/value-objects/case/case-deactivation.vo';
 
 export interface DeactivateCaseCommand {
@@ -22,17 +26,24 @@ export interface DeactivateCaseCommand {
  * {@link CaseDeactivation} and {@link Case.deactivate}. The case exists (404) →
  * the reason (400) → the baja and its audit record, in one transaction.
  *
- * Nothing is announced: the Drive folder is not deleted, moved or renamed
- * (CA-21.8, RN9). Everything else the baja turns off — listings, subresources,
- * counts, dashboards, the daily process — already reads only active cases.
+ * The case's Drive folder goes to the Drive trash, with what is inside it
+ * (D-104, revised; it replaces CA-21.8). It is announced **after** the commit
+ * and never fails the request: if Drive is down the baja stands and the folder
+ * stays where it was. Everything else the baja turns off — listings,
+ * subresources, counts, dashboards, the daily process — already reads only
+ * active cases.
  */
 @Injectable()
 export class DeactivateCase {
+  private readonly logger = new Logger(DeactivateCase.name);
+
   constructor(
     @Inject(CASE_REPOSITORY) private readonly cases: CaseRepository,
     @Inject(AUDIT_TRAIL) private readonly auditTrail: AuditTrailPort,
     @Inject(TRANSACTION_MANAGER) private readonly transactions: TransactionManagerPort,
     @Inject(CLOCK) private readonly clock: ClockPort,
+    @Inject(CASE_FOLDER_STATE) private readonly folderState: CaseFolderStatePort,
+    private readonly events: EventPublisher,
   ) {}
 
   /**
@@ -64,5 +75,24 @@ export class DeactivateCase {
         occurredAt: now,
       });
     });
+
+    await this.announceFolderTrash(target.id, now);
+  }
+
+  /**
+   * Only a folder that exists can be trashed, and the case is already saved: a
+   * failure here is logged and the folder is left as it is (D-104).
+   */
+  private async announceFolderTrash(caseId: number, occurredAt: Date): Promise<void> {
+    try {
+      const folder = await this.folderState.find(caseId);
+      if (folder?.status !== 'CREATED') {
+        return;
+      }
+      const event: CaseDeactivatedEvent = { ...createEventHeader(CASE_DEACTIVATED, occurredAt), caseId };
+      await this.events.publish(event);
+    } catch (error) {
+      this.logger.error(`Could not announce the baja of case ${caseId} for its folder: ${String(error)}`);
+    }
   }
 }

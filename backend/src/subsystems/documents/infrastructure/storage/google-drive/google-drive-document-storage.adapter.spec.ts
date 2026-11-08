@@ -225,6 +225,32 @@ describe('GoogleDriveDocumentStorage', () => {
     });
   });
 
+  describe('trashFolder (HU21, D-104)', () => {
+    it('manda la carpeta a la papelera con files.update y trashed en true, sin borrarla', async () => {
+      const { storage, files } = build();
+
+      await storage.trashFolder('case-folder');
+
+      expect(files.update).toHaveBeenCalledTimes(1);
+      expect(files.update.mock.calls[0][0]).toMatchObject({ fileId: 'case-folder', requestBody: { trashed: true } });
+      expect(files.delete).not.toHaveBeenCalled();
+    });
+
+    it('una carpeta que ya no existe cuenta como en la papelera: no es un error', async () => {
+      const { storage } = build({ update: jest.fn().mockRejectedValue(httpError(404)) });
+
+      await expect(storage.trashFolder('gone')).resolves.toBeUndefined();
+    });
+
+    it('ante un error pasajero reintenta y después informa que el almacenamiento no está disponible', async () => {
+      const update = jest.fn().mockRejectedValue(httpError(503));
+      const { storage } = build({ update });
+
+      await expect(storage.trashFolder('f')).rejects.toBeInstanceOf(DocumentStorageUnavailableError);
+      expect(update).toHaveBeenCalledTimes(3);
+    });
+  });
+
   describe('deleteFolder y deleteFile', () => {
     it('borran por id', async () => {
       const { storage, files } = build();

@@ -4535,8 +4535,12 @@ cliente la causa deja de existir.
   cargar de nuevo, bien, una causa registrada mal. La causa dada
   de baja conserva su SAC en la base, y el SAC sigue siendo único entre las
   causas vigentes.
-- **La carpeta en Drive no se toca**: no se borra, no se mueve ni se renombra.
-  Los documentos son del estudio y RN9 pide conservarlos.
+- **La carpeta en Drive va a la papelera** (D-104, revisión del 08/11/2026): se
+  manda a la papelera de Drive con lo que tiene adentro, sin borrarla; una
+  persona puede restaurarla a mano desde Drive mientras no se vacíe (Drive la
+  purga sola a los ~30 días). La fila de la carpeta y el vínculo de la causa se
+  conservan. **Si Drive no responde, la baja no falla**: se guarda igual y la
+  carpeta queda como estaba.
 - **Cualquier estado.** Se puede dar de baja una causa en cualquier estado,
   incluidos los terminales: lo que se retira es un registro mal cargado, no una
   causa terminada.
@@ -8279,7 +8283,7 @@ carpetas que crea el sistema.
   | Cambia la carátula (`PATCH /cases/{caseId}`)                  | Se renombra la carpeta de la causa, con las mismas reglas de nombre       |
   | Cambia el responsable (`PATCH /cases/{caseId}`)               | La carpeta de la causa se mueve a `/{nuevo abogado}/{fuero}/`, que se crea si no existe |
   | Cambia el nombre de un abogado (`PATCH /lawyers/{lawyerId}`)  | Se renombra la carpeta del abogado. Las de sus causas quedan adentro      |
-  | Se da de baja la causa (`DELETE /cases/{caseId}`)             | Nada                                                                      |
+  | Se da de baja la causa (`DELETE /cases/{caseId}`)             | La carpeta de la causa va a la papelera de Drive, con lo que tiene adentro |
 
   El fuero no cambia, así que una carpeta nunca cambia de carpeta de
   fuero. Mover y renombrar no necesitan más permisos que `drive.file`, porque

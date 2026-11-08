@@ -108,6 +108,13 @@ export interface DocumentStoragePort {
   relocateFolder(relocation: FolderRelocation): Promise<StoredFolder>;
 
   /**
+   * Sends a folder to the provider's trash, with everything in it (HU21, D-104).
+   * It is not deleted for good: the provider keeps it for a while and a person
+   * can restore it by hand. A folder that is already gone or trashed is not an error.
+   */
+  trashFolder(folderId: string): Promise<void>;
+
+  /**
    * Deletes a folder with everything in it. Used to undo a folder whose row
    * then could not be saved. A folder that is already gone is not an error.
    */

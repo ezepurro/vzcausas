@@ -70,6 +70,26 @@ describe('InMemoryDocumentStorage', () => {
     });
   });
 
+  describe('trashFolder (HU21)', () => {
+    it('deja la carpeta y su contenido en la papelera: ya no se encuentra, pero no se borró', async () => {
+      const parent = storage.seed('root', 'Penal');
+      const folder = storage.seed(parent.id, 'Causa');
+      storage.seedFile({ parentId: folder.id, name: 'escrito.pdf', mimeType: 'application/pdf', createdAt: new Date() });
+
+      await storage.trashFolder(folder.id);
+
+      expect(await storage.getFolder(folder.id)).toBeNull();
+      expect(await storage.findFolderByReference({ parentId: parent.id, name: 'Causa' })).toBeNull();
+      expect(storage.folders.find((f) => f.id === folder.id)?.trashed).toBe(true);
+      expect(storage.files.filter((f) => f.parentId === folder.id)).toHaveLength(1);
+      expect(storage.trashedFolderIds).toEqual([folder.id]);
+    });
+
+    it('una carpeta que no existe no es un error', async () => {
+      await expect(storage.trashFolder('gone')).resolves.toBeUndefined();
+    });
+  });
+
   describe('copyFile (HU40)', () => {
     const upload = (content: string) =>
       storage.uploadFile({ parentId: 'modelos', name: 'modelo.docx', mimeType: 'application/x', content: Buffer.from(content) });
