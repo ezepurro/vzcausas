@@ -449,6 +449,12 @@ a.vz-btn--ghost:hover { color: var(--vz-ink); }
   .vz-form-grid > .vz-form-row3 > :first-child { grid-column: 1 / -1; }
 }
 @media (max-width: 720px) {
+  /* Un campo con letra de menos de 16px hace que el teléfono (Safari en el
+     iPhone) agrande la página al tocarlo, y no la vuelve a achicar. El
+     `html:root` le gana a los tamaños más chicos que fijan los filtros
+     (`table.css`) y la fecha del hecho (`cases.css`), que cargan después. */
+  html:root :is(.vz-input, .vz-select, .vz-textarea, .vz-search__input) { font-size: 16px; }
+
   .vz-form-grid > .vz-form-row3 { grid-template-columns: minmax(0, 1fr); }
 
   /* El botón de al lado baja a su renglón: al costado dejaba al desplegable
@@ -458,6 +464,6 @@ a.vz-btn--ghost:hover { color: var(--vz-ink); }
   .vz-field-row > .vz-input { flex: 1 1 100%; }
   .vz-field-row > .vz-btn { flex: 1 1 auto; }
 
-  .vz-form-actions .vz-btn { flex: 1 1 auto; }
+  .vz-form-actions .vz-btn { flex: 1 1 auto; height: 42px; }
   .vz-form-actions__note { flex: 1 1 100%; }
 }

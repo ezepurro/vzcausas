@@ -91,6 +91,25 @@
    su mínimo, cortando el placeholder. */
 .vz-filters .vz-search { min-width: 280px; }
 
+/* Filtros plegables (`CollapsibleFilters`): en una pantalla ancha el botón no
+   se ve y los filtros quedan en la fila como si no estuvieran envueltos. El
+   teléfono los pliega (ver "Teléfono", abajo). */
+.vz-filters-toggle { display: none; }
+.vz-filters-body { display: contents; }
+.vz-filters-toggle__count {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: var(--vz-r-pill);
+  background: var(--vz-primary);
+  color: #fff;
+  font-family: var(--vz-font-mono);
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 20px;
+  text-align: center;
+}
+
 /* Paginado: va en el pie del panel, que ya trae borde y color apagado. */
 .vz-pager {
   display: flex;
@@ -186,45 +205,50 @@
   .vz-table__actions .vz-btn { opacity: 1; }
 }
 
-/* La tabla ya no entra con su ancho mínimo: lo suelta, y las columnas que la
-   pantalla marcó como prescindibles (`hideWhenNarrow`) se van. Si aun así no
-   entra, scrollea dentro del panel. */
+/* Una tabla tiene dos formas, y ninguna intermedia: renglón o ficha.
+   Debajo de 1180px las columnas ya no entran en su ancho mínimo. Antes la
+   tabla se apretaba para entrar igual, y la carátula y el estado se partían en
+   tres o cuatro renglones; ahora cada fila pasa a ser una ficha suelta. El
+   panel que la envuelve se abre: la cabecera con los filtros, cada ficha y el
+   pie con el paginado quedan como tarjetas separadas.
+   La cabecera de columnas se va, y cada celda lleva arriba el nombre de su
+   columna, que DataTable deja en `data-label`. La columna principal encabeza
+   la ficha y las acciones la cierran, las dos a todo el ancho; el resto se
+   reparte en tantas columnas como entren. */
 @media (max-width: 1180px) {
-  .vz-table { min-width: 0; }
-  .vz-table .vz-table__hide-narrow { display: none; }
-}
+  .vz-panel:has(> .vz-panel__scroll > .vz-table) {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    background: none;
+    border: 0;
+    box-shadow: none;
+    overflow: visible;
+  }
+  .vz-panel:has(> .vz-panel__scroll > .vz-table) > .vz-panel__head,
+  .vz-panel:has(> .vz-panel__scroll > .vz-table) > .vz-panel__foot {
+    border: 1px solid var(--vz-border);
+    border-radius: var(--vz-r);
+    background: var(--vz-surface);
+  }
+  .vz-panel:has(> .vz-panel__scroll > .vz-table) > .vz-panel__foot { padding-top: 10px; padding-bottom: 10px; }
+  .vz-panel__scroll:has(> .vz-table) { overflow: visible; }
 
-/* Mientras sigue siendo tabla, se aprieta para entrar sin scroll: menos aire
-   entre columnas, y el estado procesal puede partirse en dos renglones. */
-@media (min-width: 721px) and (max-width: 1180px) {
-  .vz-table th,
-  .vz-table td { padding-left: 10px; padding-right: 10px; }
-  .vz-table th:first-child,
-  .vz-table td:first-child { padding-left: 16px; }
-  .vz-table th:last-child,
-  .vz-table td:last-child { padding-right: 16px; }
-  .vz-table__cell--primary { min-width: 160px; }
-  .vz-table td { overflow-wrap: anywhere; }
-  .vz-table .vz-pill { white-space: normal; }
-}
-
-/* Teléfono: cada fila es una tarjeta. La cabecera se va y cada celda lleva
-   arriba el nombre de su columna, que DataTable deja en `data-label`. La
-   columna principal encabeza la tarjeta y las acciones la cierran, las dos a
-   todo el ancho; el resto se reparte de a dos. */
-@media (max-width: 720px) {
-  .vz-table,
-  .vz-table tbody { display: block; width: 100%; }
+  .vz-table { display: block; min-width: 0; }
   .vz-table thead { display: none; }
+  .vz-table tbody { display: flex; flex-direction: column; gap: 10px; }
 
   .vz-table tr {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px 16px;
-    padding: 14px var(--vz-panel-pad);
-    border-bottom: 1px solid var(--vz-border);
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 170px), 1fr));
+    gap: 14px 20px;
+    padding: 16px 18px;
+    border: 1px solid var(--vz-border);
+    border-radius: var(--vz-r);
+    background: var(--vz-surface);
+    transition: border-color .12s;
   }
-  .vz-table tbody tr:last-child { border-bottom: none; }
+  .vz-table tbody tr:hover { background: var(--vz-surface); border-color: var(--vz-border-strong); }
 
   .vz-table td {
     display: block;
@@ -239,7 +263,7 @@
   .vz-table td::before {
     content: attr(data-label);
     display: block;
-    margin-bottom: 4px;
+    margin-bottom: 5px;
     font-family: var(--vz-font);
     font-size: 10px;
     font-weight: 700;
@@ -249,9 +273,22 @@
     color: var(--vz-faint);
   }
 
-  .vz-table .vz-table__cell--primary,
-  .vz-table .vz-table__cell--actions { grid-column: 1 / -1; }
-  .vz-table .vz-table__cell--primary { order: -1; font-size: 14.5px; }
+  /* El título de la ficha, con su filete abajo. */
+  .vz-table .vz-table__cell--primary {
+    grid-column: 1 / -1;
+    order: -1;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--vz-border);
+    font-size: 15px;
+    font-weight: 600;
+  }
+  .vz-table .vz-table__cell--primary .vz-table__secondary { font-weight: 400; }
+  /* El pie de la ficha, con su filete arriba. */
+  .vz-table .vz-table__cell--actions {
+    grid-column: 1 / -1;
+    padding-top: 12px;
+    border-top: 1px solid var(--vz-border);
+  }
   .vz-table .vz-table__cell--primary::before,
   .vz-table .vz-table__cell--actions::before { display: none; }
 
@@ -259,23 +296,72 @@
   .vz-table .vz-pill { white-space: normal; }
 
   /* Las acciones dejan de ser texto callado: son botones que se tocan. */
-  .vz-table__actions { justify-content: flex-start; flex-wrap: wrap; gap: 6px; }
+  .vz-table__actions { flex-wrap: wrap; gap: 8px; }
   .vz-table__actions .vz-btn {
-    flex: 1 1 auto;
-    height: 34px;
+    height: 36px;
+    padding: 0 16px;
     opacity: 1;
     border-color: var(--vz-border-strong);
     color: var(--vz-ink);
   }
   .vz-table__actions .vz-btn--ghost-danger { border-color: var(--vz-danger-action-bd); color: var(--vz-danger-action); }
+}
 
-  /* Filtros: el buscador a todo el ancho y los desplegables de a dos. */
+/* Teléfono. */
+@media (max-width: 720px) {
+  /* Prescindibles (`hideWhenNarrow`): en una ficha angosta se van. */
+  .vz-table .vz-table__hide-narrow { display: none; }
+
+  .vz-table tr {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px 14px;
+    padding: 14px 16px;
+  }
+
+  /* La acción es lo más grande de la ficha y la cierra a todo el ancho. */
+  .vz-table__actions .vz-btn { flex: 1 1 0; height: 42px; }
+
+  /* Filtros de un listado (con buscador o desplegables): uno por renglón y a
+     todo el ancho. De a dos, lo elegido en un desplegable no entraba ("Todos
+     los responsa…"). Los botones sueltos de una cabecera ("Hoy" y las flechas
+     del calendario) siguen en fila. */
   .vz-panel__head > .vz-filters { flex: 1 1 100%; gap: 8px; }
-  .vz-filters .vz-search { flex: 1 1 100%; min-width: 0; max-width: none; }
+  .vz-panel__head > .vz-filters:has(.vz-search, .vz-select) { flex-direction: column; align-items: stretch; }
+  .vz-filters .vz-search { flex: none; min-width: 0; max-width: none; }
+  .vz-filters .vz-search__input { height: 42px; }
+  .vz-filters .vz-search__icon { top: 13px; }
   .vz-filters .vz-input,
-  .vz-filters .vz-select,
-  .vz-filters .vz-btn { flex: 1 1 calc(50% - 4px); min-width: 0; }
-  .vz-filters .vz-btn { padding: 0 10px; }
+  .vz-filters .vz-select { width: 100%; min-width: 0; height: 42px; }
+  .vz-filters:has(.vz-search, .vz-select) > .vz-btn { width: 100%; height: 42px; }
 
-  .vz-pager { justify-content: center; }
+  /* Con `CollapsibleFilters`: el buscador y el botón "Filtros" en un renglón,
+     y los filtros plegados debajo hasta que se tocan. Un botón de alta que
+     viva en la misma cabecera ("Registrar usuario") baja a su renglón. */
+  .vz-panel__head > .vz-filters:has(> .vz-filters-body) { flex-direction: row; flex-wrap: wrap; align-items: center; }
+  .vz-filters:has(> .vz-filters-body) > .vz-search { flex: 1 1 0; }
+  .vz-filters:has(> .vz-filters-body) > .vz-btn { flex: 1 1 100%; }
+  .vz-filters:has(> .vz-filters-body) > .vz-filters-toggle { display: inline-flex; flex: 0 0 auto; width: auto; }
+  .vz-filters-body { display: none; flex: 1 1 100%; flex-direction: column; gap: 8px; }
+  .vz-filters-body.is-open { display: flex; }
+  .vz-filters-body > .vz-btn { width: 100%; height: 42px; }
+
+  /* Un grupo de botones que filtran (`role="group"`: "Todos", "Vencidos",
+     "Hoy"…) es una fila de chips que se desliza de costado: apilados, cinco
+     botones a todo el ancho tapaban la lista que filtran. */
+  .vz-filters[role='group'] {
+    flex-wrap: nowrap;
+    max-width: 100%;
+    margin: -2px;
+    padding: 2px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .vz-filters[role='group']::-webkit-scrollbar { display: none; }
+  .vz-filters[role='group'] > .vz-btn { flex: 0 0 auto; height: 34px; }
+
+  /* Paginado: el resumen arriba y debajo "Anterior" y "Siguiente"
+     repartiéndose el ancho. */
+  .vz-pager { flex-direction: column; align-items: stretch; gap: 10px; text-align: center; }
+  .vz-pager__controls { gap: 8px; }
+  .vz-pager__controls .vz-btn { flex: 1 1 0; height: 42px; }
 }

@@ -31,8 +31,17 @@ export interface AppShellProps {
   railFooter?: ReactNode;
   /** contenido de la barra superior clara: buscador, avisos, notificaciones */
   topBar?: ReactNode;
+  /**
+   * Marca de la barra superior: normalmente el mismo logo del rail, como
+   * enlace al inicio. Se ve sólo debajo de 1024px, donde el rail está
+   * guardado y sin ella la barra no dice en qué aplicación se está.
+   */
+  topBarBrand?: ReactNode;
   children: ReactNode;
 }
+
+/** Desde acá el rail ocupa su columna. Coincide con el corte de `shell.css`. */
+const WIDE_SCREEN = '(min-width: 1024px)';
 
 /**
  * Estructura de la aplicación: rail a la izquierda, barra superior y página.
@@ -42,9 +51,13 @@ export interface AppShellProps {
  * abre encima de la página con el botón de la barra superior. Acá vive sólo
  * el estado —abierto o cerrado—; que el rail esté fijo o deslizable lo decide
  * `shell.css`, así que en una pantalla ancha este estado no cambia nada.
+ *
+ * Abierto, la página de abajo no scrollea. Al agrandar la ventana por encima
+ * del corte el menú se cierra solo: si no, quedaba abierto "de fondo" y
+ * reaparecía abierto al volver a achicarla.
  */
 export function AppShell({
-  groups, active, onNavigate, onIntent, brand, railAction, railFooter, topBar, children,
+  groups, active, onNavigate, onIntent, brand, railAction, railFooter, topBar, topBarBrand, children,
 }: AppShellProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   // Pasar el mouse por el rail no cuenta: sólo quedarse sobre un ítem (`useHoverIntent`).
@@ -60,6 +73,24 @@ export function AppShell({
 
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
+  }, [menuOpen]);
+
+  // El setState va en el aviso del navegador, no en el cuerpo del efecto.
+  // jsdom no implementa `matchMedia`: ahí no hay corte que cruzar.
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return;
+    const wide = window.matchMedia(WIDE_SCREEN);
+    const onChange = () => { if (wide.matches) setMenuOpen(false); };
+    wide.addEventListener('change', onChange);
+    return () => wide.removeEventListener('change', onChange);
+  }, []);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const { style } = document.documentElement;
+    const previous = style.overflow;
+    style.overflow = 'hidden';
+    return () => { style.overflow = previous; };
   }, [menuOpen]);
 
   /* Todo botón del rail lleva a otro lado o abre un modal —una sección,
@@ -119,6 +150,7 @@ export function AppShell({
           >
             <Icon name="menu" size={18} />
           </button>
+          {topBarBrand && <div className="vz-topbar__brand">{topBarBrand}</div>}
           {topBar}
         </header>
         <main className="vz-page">{children}</main>

@@ -350,7 +350,20 @@
    En una pantalla ancha nada de esto se ve. */
 .vz-scrim,
 .vz-rail__close,
-.vz-topbar__menu { display: none; }
+.vz-topbar__menu,
+.vz-topbar__brand { display: none; }
+
+/* El logo de la barra es el del rail sobre fondo claro: mismas piezas, otros
+   colores. */
+.vz-topbar__brand {
+  align-items: center;
+  min-width: 0;
+  --vz-rail-logo: var(--vz-rail);
+}
+.vz-topbar__brand .vz-rail__logo { padding: 0; gap: 9px; }
+.vz-topbar__brand .vz-rail__name { color: var(--vz-ink); }
+.vz-topbar__brand .vz-rail__studio { color: var(--vz-muted); }
+.vz-topbar__brand .vz-rail__brand:focus-visible { outline-color: var(--vz-primary); }
 
 @media (max-width: 1023px) {
   .vz-app { grid-template-columns: minmax(0, 1fr); }
@@ -381,6 +394,7 @@
   }
 
   .vz-topbar__menu { display: flex; color: var(--vz-ink); }
+  .vz-topbar__brand { display: flex; }
 
   .vz-rail__close {
     display: flex;
@@ -407,7 +421,13 @@
 
 /* ─────────── teléfono ─────────── */
 @media (max-width: 720px) {
-  .vz-page-head { gap: 12px; margin-bottom: 14px; }
+  .vz-topbar { padding-top: 10px; padding-bottom: 10px; }
+
+  .vz-page-head { gap: 14px; margin-bottom: 14px; }
   .vz-page-head__title { font-size: 22px; }
+  /* Las acciones del encabezado bajan a su renglón y se reparten el ancho:
+     al lado del título quedaban apretadas, y son lo que más se toca. */
+  .vz-page-head__actions { flex: 1 1 100%; }
+  .vz-page-head__actions > .vz-btn { flex: 1 1 auto; height: 42px; }
   .vz-crumbs { margin-bottom: 10px; }
 }

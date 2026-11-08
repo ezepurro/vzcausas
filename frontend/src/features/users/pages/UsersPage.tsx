@@ -6,6 +6,7 @@ import { useAuth, useCurrentUser } from '@/app/providers/AuthContext'
 import { canAccess, homeRoute } from '@/app/access/access'
 import {
     Button,
+    CollapsibleFilters,
     Icon,
     PageHeader,
     Pagination,
@@ -307,12 +308,15 @@ export function UsersPage() {
                             value={search}
                             onChange={(e) => changeSearch(e.target.value)}
                         />
-                        <Select
-                            aria-label="Filtrar por perfil"
-                            options={ROLE_FILTER}
-                            value={role}
-                            onChange={(e) => changeRole(e.target.value)}
-                        />
+                        {/* En el teléfono el filtro va plegado detrás de "Filtros". */}
+                        <CollapsibleFilters active={role === ALL_ROLES ? 0 : 1}>
+                            <Select
+                                aria-label="Filtrar por perfil"
+                                options={ROLE_FILTER}
+                                value={role}
+                                onChange={(e) => changeRole(e.target.value)}
+                            />
+                        </CollapsibleFilters>
                         <Button icon={<Icon name="plus" />} size="md" onClick={openCreate}>
                             Registrar usuario
                         </Button>

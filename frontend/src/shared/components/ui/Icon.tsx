@@ -30,6 +30,7 @@ export const ICONS = {
   forward: 'M9 18l6-6-6-6',
   menu: 'M4 7h16M4 12h16M4 17h16',
   close: 'M6 6l12 12M18 6L6 18',
+  filter: 'M3 5h18l-7 8.5V19l-4 2v-7.5z',
   // ── contenido ──
   folder: 'M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z',
 } as const;

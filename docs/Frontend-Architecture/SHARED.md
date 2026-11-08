@@ -130,6 +130,7 @@ import { ApiError, isApiError } from '@/shared/api/ApiError';
 | `PageHeader` | Component | `components/ui/PageHeader.tsx` | Título de pantalla + acciones |
 | `Panel` | Component | `components/ui/Panel.tsx` | Tarjeta con cabecera/pie |
 | `DataTable` | Component | `components/ui/DataTable.tsx` | Tabla de datos |
+| `CollapsibleFilters` | Component | `components/ui/CollapsibleFilters.tsx` | Filtros de un listado, plegados detrás de "Filtros" en el teléfono |
 | `Pagination` | Component | `components/ui/Pagination.tsx` | Paginado del pie de un panel |
 | `Tabs` | Component | `components/ui/Tabs.tsx` | Pestañas |
 | `Button` | Component | `components/ui/Button.tsx` | Acciones |
@@ -196,6 +197,7 @@ import { ApiError, isApiError } from '@/shared/api/ApiError';
 | Agrupar campos | `FormSection` | Dentro de `.vz-form-grid` |
 | Llevar al primer campo con error al confirmar | `const focusErrors = useFocusFirstError(ref, errors)` de `@/shared/hooks/useFocusFirstError`, y `focusErrors()` al principio del `submit` | Centra el primer `.vz-field--error` del contenedor y le da foco, también si el error llega del servidor. `FormModal` ya lo hace solo |
 | Filtros sobre una tabla | `Panel actions={...}` | Se renderiza en `.vz-filters` |
+| Desplegables de filtro de un listado | `CollapsibleFilters active={n}` dentro de `Panel actions`, al lado del `SearchInput` | En el teléfono quedan plegados detrás de "Filtros" (con el contador de los aplicados); arriba de 720px no cambia nada. El buscador y el botón de alta van afuera |
 | Paginar una tabla | `Pagination` | Va en `Panel footer={...}` |
 | Buscador de un listado | `SearchInput` + `useDebouncedValue` de `@/shared/hooks/useDebouncedValue` | El input muestra el texto al instante; a la consulta va el valor demorado, así no sale un pedido por tecla |
 | Que "Siguiente" no espere | `usePrefetchPage` de `@/shared/api/usePrefetchPage`, envuelto por el listado (`usePrefetchCasesPage(listParams)`, junto a `useCases`), y lo que devuelve en `Pagination onIntent` | Pide la página recién al apuntar a "Siguiente", no al cargar cada una: así el buscador no pide la página 2 de cada término |
@@ -249,7 +251,7 @@ import { ApiError, isApiError } from '@/shared/api/ApiError';
 **Propósito:** estructura de la app con sesión: rail oscuro, barra superior y página.
 
 **Props:** `groups: RailGroup[]`, `active: string`, `onNavigate(id)`, `brand`,
-`railAction?`, `railFooter?`, `topBar?`, `children`.
+`railAction?`, `railFooter?`, `topBar?`, `topBarBrand?`, `children`.
 `RailGroup = { label, items: RailItem[] }`, `RailItem = { id, label, icon: IconName }`.
 
 **Notas:** no sabe de rutas; la traducción ruta↔ítem la hace
@@ -260,9 +262,16 @@ si falta, el ítem en `AppLayout`.
 **Pantallas angostas:** debajo de 1024px el rail no ocupa lugar. Queda fuera de
 la pantalla y se abre encima de la página con el botón de menú que AppShell
 pone en la barra superior; se cierra con su botón, tocando el fondo, con Escape
-o al elegir cualquier cosa del rail. AppShell guarda ese estado y el CSS
-(`shell.css`) decide si el rail está fijo o es deslizable: quien lo monta no
-tiene que hacer nada.
+o al elegir cualquier cosa del rail. Abierto, la página de abajo no scrollea,
+y al agrandar la ventana por encima de 1024px se cierra solo (si no, quedaba
+abierto "de fondo" y reaparecía al volver a achicarla). AppShell guarda ese
+estado y el CSS (`shell.css`) decide si el rail está fijo o es deslizable:
+quien lo monta no tiene que hacer nada.
+
+`topBarBrand` es la marca de la barra superior y se ve sólo debajo de 1024px,
+donde el rail está guardado: sin ella la barra quedaba con el botón de menú y
+la campana. `AppLayout` le pasa el mismo `Logo` del rail, como enlace a la
+pantalla de entrada; `shell.css` lo pinta para el fondo claro.
 
 ### PageHeader
 
@@ -297,11 +306,17 @@ monoespaciada: SAC, fechas, importes), `nowrap?`, `actions?` (alinea a la derech
 `width?`, `primary?`, `hideWhenNarrow?`.
 
 **Pantallas angostas:** la tabla se adapta sola, pero cada pantalla le dice qué
-importa. Debajo de 1180px suelta `minWidth` y esconde las columnas marcadas
-`hideWhenNarrow` (lo prescindible: fuero, responsable, último acceso). Debajo
-de 720px cada fila es una tarjeta: la columna `primary` —la que identifica a la
-fila— va arriba a todo el ancho, las acciones abajo, y el resto de a dos con el
-nombre de su columna encima. **Toda tabla nueva marca su columna `primary`.**
+importa. Tiene dos formas y ninguna intermedia: arriba de 1180px es una tabla;
+debajo, cada fila es una ficha suelta. Antes, entre 721 y 1180px, la tabla se
+apretaba para entrar y la carátula o el estado se partían en tres o cuatro
+renglones. En la ficha la columna `primary` —la que identifica a la fila— la
+encabeza a todo el ancho, las acciones la cierran como botones, y el resto se
+reparte en tantas columnas como entren, con el nombre de su columna encima.
+El `Panel` que la envuelve se abre solo: la cabecera con los filtros, cada
+ficha y el pie con el paginado quedan como tarjetas separadas. En el teléfono
+(debajo de 721px) los datos van de a dos y se esconden las columnas marcadas
+`hideWhenNarrow` (lo prescindible: fuero, responsable, último acceso).
+**Toda tabla nueva marca su columna `primary`.**
 
 ```tsx
 <DataTable
@@ -327,6 +342,35 @@ columnas (`primary`, `actions` y `hideWhenNarrow` incluidas), dentro de un
 sus filas y se atenúa, a los 200 ms, como el esqueleto. Las páginas de listado
 le pasan `loading={query.isPending}` y `busy={query.isPlaceholderData}` y
 dejan su propia rama sólo para el error.
+
+### CollapsibleFilters
+
+**Path:** `components/ui/CollapsibleFilters.tsx`
+**Props:** `active?` (cuántos filtros están aplicados; default 0), `children`
+(los desplegables y botones de filtro).
+
+```tsx
+<Panel
+  actions={
+    <>
+      <SearchInput aria-label="Buscar usuario" value={search} onChange={…} />
+      <CollapsibleFilters active={role === ALL_ROLES ? 0 : 1}>
+        <Select aria-label="Filtrar por perfil" options={ROLE_FILTER} value={role} onChange={…} />
+      </CollapsibleFilters>
+      <Button icon={<Icon name="plus" />} size="md" onClick={openCreate}>Registrar usuario</Button>
+    </>
+  }
+>
+```
+
+**Notas:** en una pantalla ancha el botón no se ve y los filtros quedan en la
+fila de la cabecera como si no estuvieran envueltos (`display: contents`).
+Debajo de 721px el buscador y el botón "Filtros" comparten un renglón, y los
+filtros se despliegan debajo al tocarlo; con alguno aplicado el botón se pinta
+de verde y muestra cuántos. Apilados de a uno a todo el ancho, los cuatro
+filtros de Causas tapaban la lista. Los filtros nunca salen del DOM: plegados
+sólo no se dibujan, así que lo elegido no se pierde. Lo usan `CaseFilters` y
+`UsersPage`.
 
 ### Pagination
 
@@ -1025,14 +1069,24 @@ módulos.
 
 | Corte | Qué cambia |
 |---|---|
-| 1180px | `.vz-split` pasa a una columna y el panel lateral va abajo. Las tablas sueltan su ancho mínimo y esconden las columnas `hideWhenNarrow` |
-| 1023px | El rail sale de la pantalla y se abre con el botón de la barra superior |
+| 1180px | `.vz-split` pasa a una columna y el panel lateral va abajo. Cada fila de una tabla pasa a ser una ficha suelta y el `Panel` que la envuelve se abre en tarjetas (ver `DataTable`) |
+| 1023px | El rail sale de la pantalla y se abre con el botón de la barra superior, que suma el logo (`topBarBrand`) |
 | 860px | El login queda en una columna; `.vz-form-row3`, en dos |
-| 720px | Teléfono: `.vz-form-grid` en una columna, tablas como tarjetas, filtros de a dos, modal casi a pantalla completa, menos aire (`--vz-main-pad`, `--vz-panel-pad`); en los `select` lo elegido va en un renglón y se pierde bajo la flecha si no entra |
+| 720px | Teléfono: `.vz-form-grid` en una columna; las fichas de las tablas con los datos de a dos y sin las columnas `hideWhenNarrow`; los desplegables de filtro plegados detrás de "Filtros" (`CollapsibleFilters`); los filtros de un listado (con buscador o desplegables) uno por renglón a todo el ancho, y un grupo de botones que filtran (`role="group"`) en una fila que se desliza; "Anterior" y "Siguiente" del paginado repartiéndose el ancho; las acciones del encabezado de página, de los formularios y de los modales a todo el ancho y de 42px de alto; los campos con letra de 16px (con menos, el iPhone agranda la página al tocarlos); modal casi a pantalla completa; menos aire (`--vz-main-pad`, `--vz-panel-pad`); en los `select` lo elegido va en un renglón y se pierde bajo la flecha si no entra |
 
 Una pantalla nueva armada con los componentes y las clases de `shared` ya es
-responsive. Si necesita CSS propio, usa estos cortes y prueba a 375px que nada
-se salga de la pantalla.
+responsive. Si necesita CSS propio, usa estos cortes y prueba a 375px, 820px
+y 1100px que nada se salga de la pantalla. Tres criterios que siguen las
+pantallas que ya están:
+
+- **Dos formas, ninguna intermedia.** Si algo deja de entrar, cambia de forma
+  en un corte (renglón → ficha, fila → columna); no se aprieta para entrar
+  igual.
+- **En el teléfono no hay scroll adentro de la página.** Una lista con
+  `max-height` y `overflow-y: auto` se dibuja entera debajo de 721px: con el
+  dedo, un scroll dentro de otro atrapa el gesto.
+- **Lo que se toca, a la medida del dedo.** Debajo de 721px los botones de una
+  acción miden 36px de alto como mínimo, y los principales, 42px.
 
 **Regla del proyecto:** no hardcodear colores, siempre `var(--vz-*)`.
 
@@ -1057,14 +1111,14 @@ panel al costado), `.vz-mono`, `.vz-muted`, `.vz-faint`, `.vz-sr-only`.
 
 ### Pública (exportada por los barrels)
 
-`AppShell`, `Avatar`, `Breadcrumbs`, `Button`, `DataTable`, `DetailList`, `Icon`,
+`AppShell`, `Avatar`, `Breadcrumbs`, `Button`, `CollapsibleFilters`, `DataTable`, `DetailList`, `Icon`,
 `ICONS`, `IconButton`, `Logo`, `Meter`, `Modal`, `PageHeader`, `Pagination`,
 `Panel`, `Pill`, `RailUser`, `SearchInput`, `LoadingState`, `Skeleton`,
 `Tabs`, `Field`, `TextInput`, `Select`, `Textarea`, `Checkbox`, `FormSection`,
 `PasswordInput`, `Combobox`, `SegmentedControl`, `FormModal`.
 
 Tipos: `AppShellProps`, `RailGroup`, `RailItem`, `AvatarProps`,
-`BreadcrumbItem`, `BreadcrumbsProps`, `ButtonProps`, `Column`,
+`BreadcrumbItem`, `BreadcrumbsProps`, `ButtonProps`, `CollapsibleFiltersProps`, `Column`,
 `DataTableProps`, `DetailItem`, `DetailListProps`, `IconProps`, `IconName`,
 `IconButtonProps`, `MeterProps`, `MeterTone`, `ModalProps`,
 `PageHeaderProps`, `PaginationProps`, `PanelProps`, `PillProps`, `PillTone`,
