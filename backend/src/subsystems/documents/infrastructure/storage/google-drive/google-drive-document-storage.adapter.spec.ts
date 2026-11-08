@@ -21,12 +21,13 @@ const httpError = (status: number, reason?: string) => ({
   errors: reason ? [{ reason }] : undefined,
 });
 
-function build(overrides: Partial<Record<'list' | 'create' | 'get' | 'delete' | 'copy' | 'export', jest.Mock>> = {}, values = {}) {
+function build(overrides: Partial<Record<'list' | 'create' | 'get' | 'update' | 'delete' | 'copy' | 'export', jest.Mock>> = {}, values = {}) {
   const files = {
     copy: jest.fn().mockResolvedValue({ data: { id: 'copy-id', webViewLink: 'https://drive/copy-id' } }),
     list: jest.fn().mockResolvedValue({ data: { files: [] } }),
     create: jest.fn().mockResolvedValue({ data: { id: 'new-id', webViewLink: 'https://drive/new-id' } }),
     get: jest.fn().mockResolvedValue({ data: { id: 'f-1', webViewLink: 'https://drive/f-1', trashed: false } }),
+    update: jest.fn().mockResolvedValue({ data: { id: 'f-1', webViewLink: 'https://drive/f-1' } }),
     delete: jest.fn().mockResolvedValue({ data: {} }),
     export: jest.fn().mockResolvedValue({ data: new ArrayBuffer(0) }),
     ...overrides,
@@ -158,6 +159,69 @@ describe('GoogleDriveDocumentStorage', () => {
 
       expect(await notFound.storage.getFolder('f-1')).toBeNull();
       expect(await trashed.storage.getFolder('f-1')).toBeNull();
+    });
+  });
+
+  describe('relocateFolder (HU19, D-104)', () => {
+    it('solo renombrar: un files.update con el nombre nuevo, sin leer ni tocar los padres', async () => {
+      const { storage, files } = build();
+
+      const stored = await storage.relocateFolder({ folderId: 'case-folder', name: 'RUIZ s amparo' });
+
+      expect(stored).toEqual({ id: 'f-1', url: 'https://drive/f-1' });
+      expect(files.get).not.toHaveBeenCalled();
+      const args = files.update.mock.calls[0][0];
+      expect(args).toMatchObject({ fileId: 'case-folder', requestBody: { name: 'RUIZ s amparo' } });
+      expect(args.addParents).toBeUndefined();
+      expect(args.removeParents).toBeUndefined();
+    });
+
+    it('mover: lee los padres actuales y los cambia en el mismo files.update, sin tocar el nombre', async () => {
+      const get = jest.fn().mockResolvedValue({ data: { parents: ['old-jurisdiction'] } });
+      const { storage, files } = build({ get });
+
+      await storage.relocateFolder({ folderId: 'case-folder', newParentId: 'new-jurisdiction' });
+
+      expect(get.mock.calls[0][0]).toMatchObject({ fileId: 'case-folder', fields: 'parents' });
+      const args = files.update.mock.calls[0][0];
+      expect(args).toMatchObject({
+        fileId: 'case-folder',
+        addParents: 'new-jurisdiction',
+        removeParents: 'old-jurisdiction',
+        requestBody: {},
+      });
+    });
+
+    it('renombrar y mover a la vez es una sola llamada de escritura', async () => {
+      const get = jest.fn().mockResolvedValue({ data: { parents: ['old'] } });
+      const { storage, files } = build({ get });
+
+      await storage.relocateFolder({ folderId: 'case-folder', name: 'Nuevo', newParentId: 'new' });
+
+      expect(files.update).toHaveBeenCalledTimes(1);
+      expect(files.update.mock.calls[0][0]).toMatchObject({
+        requestBody: { name: 'Nuevo' },
+        addParents: 'new',
+        removeParents: 'old',
+      });
+    });
+
+    it('si la carpeta o el padre nuevo ya no existen, falla como error de configuración', async () => {
+      const { storage } = build({ update: jest.fn().mockRejectedValue(httpError(404)) });
+
+      await expect(storage.relocateFolder({ folderId: 'gone', name: 'X' })).rejects.toMatchObject({
+        reason: 'CONFIGURATION',
+      });
+    });
+
+    it('ante un error pasajero reintenta y después informa que el almacenamiento no está disponible', async () => {
+      const update = jest.fn().mockRejectedValue(httpError(503));
+      const { storage } = build({ update });
+
+      await expect(storage.relocateFolder({ folderId: 'f', name: 'X' })).rejects.toBeInstanceOf(
+        DocumentStorageUnavailableError,
+      );
+      expect(update).toHaveBeenCalledTimes(3);
     });
   });
 

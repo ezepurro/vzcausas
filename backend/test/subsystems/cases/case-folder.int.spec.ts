@@ -9,6 +9,8 @@ import { InMemoryDocumentStorage } from '../../../src/subsystems/documents/infra
 import { loginAs } from '../../shared/auth/login-as';
 import { expectData, expectError, expectPaginated } from '../../shared/contract/envelopes';
 import { createCase } from '../../shared/factories/case.factory';
+import { createLawyer } from '../../shared/factories/lawyer.factory';
+import { createUser } from '../../shared/factories/user.factory';
 import { clearCloudFolders, createCloudStructure } from '../../shared/factories/cloud-structure.factory';
 import {
   CASES_URL,
@@ -87,6 +89,17 @@ describe('Carpeta de la causa en la nube (HU39)', () => {
   const retry = (caseId: number | string) => requestFolder(app, actors.actor, caseId);
   const caseFolders = () => getPrisma().cloudFolder.count({ where: { kind: 'CASE' } });
   const savedCase = (id: number) => getPrisma().case.findUniqueOrThrow({ where: { id } });
+  const folderOf = async (caseId: number) => expectData<CaseBody>(await request(app.getHttpServer()).get(`${CASES_URL}/${caseId}`).set(actors.actor), 200).folder;
+  const caseFolderRow = () => getPrisma().cloudFolder.findFirstOrThrow({ where: { kind: 'CASE' } });
+
+  async function waitUntil(condition: () => Promise<boolean>, timeoutMs = 5000): Promise<void> {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      if (await condition()) return;
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    throw new Error('La carpeta no llegó al estado esperado');
+  }
 
   describe('POST /api/v1/cases', () => {
     // CA-39.1, CA-39.2, CA-39.3, CA-39.4
@@ -250,6 +263,165 @@ describe('Carpeta de la causa en la nube (HU39)', () => {
       expectError(await retry(999999), 404, 'CASE_NOT_FOUND');
       expectError(await retry('abc'), 400, 'INVALID_PATH_PARAMETER', ['caseId']);
       expectError(await retry(0), 400, 'INVALID_PATH_PARAMETER', ['caseId']);
+    });
+  });
+
+  /*
+   * HU19 (CA-19.9, CA-19.10, D-104): la carpeta sigue a la causa. `cases` publica
+   * `CaseModified` después de guardar y `documents` renombra o mueve la carpeta por
+   * un suscriptor asíncrono: se espera a ver la fila en la base, sin pausas fijas.
+   * El resto de HU19 está en `update-case.int.spec.ts`.
+   */
+  describe('PATCH /api/v1/cases/{caseId}: la carpeta sigue a la causa (HU19)', () => {
+    const patch = (caseId: number, body: Record<string, unknown>) =>
+      request(app.getHttpServer()).patch(`${CASES_URL}/${caseId}`).set(actors.actor).send(body);
+    // CA-19.9: la carátula renombra la carpeta con las reglas de nombre; el id y el padre no cambian
+    it('cambiar la carátula renombra la carpeta en la nube y en la base, y folder.path informa el nombre nuevo', async () => {
+      const created = expectData<CaseBody>(await register({ caption: 'GÓMEZ, Ariel p.s.a. Robo' }), 201);
+      const before = await caseFolderRow();
+
+      expectData(await patch(created.id, { caption: 'RUIZ c/ LÓPEZ: amparo' }), 200);
+      await waitUntil(async () => (await caseFolderRow()).name === 'RUIZ c LÓPEZ amparo');
+
+      const after = await caseFolderRow();
+      expect(after.cloudFolderId).toBe(before.cloudFolderId);
+      expect(after.parentCloudFolderId).toBe(before.parentCloudFolderId);
+      expect(storage.folders.find((f) => f.id === before.cloudFolderId)?.name).toBe('RUIZ c LÓPEZ amparo');
+      expect((await folderOf(created.id))?.path).toBe('/VZ Causas/Causas/Ríos, Malena/Penal/RUIZ c LÓPEZ amparo');
+    });
+
+    // CA-19.9: el responsable mueve la carpeta, y se crean las carpetas del abogado y del fuero que falten
+    it('cambiar el responsable mueve la carpeta bajo el abogado nuevo, creando sus carpetas, y la causa sigue siendo una', async () => {
+      const created = expectData<CaseBody>(await register({ caption: 'GÓMEZ, Ariel p.s.a. Robo' }), 201);
+      const before = await caseFolderRow();
+      const other = await createLawyer({ lastName: 'Peralta', firstName: 'Ignacio' });
+
+      expectData(await patch(created.id, { responsibleLawyerId: other.id }), 200);
+      await waitUntil(async () => (await caseFolderRow()).lawyerId === other.id);
+
+      const after = await caseFolderRow();
+      expect(after.cloudFolderId).toBe(before.cloudFolderId);
+      expect(after.name).toBe('GÓMEZ, Ariel p.s.a. Robo');
+      expect(storage.relocations).toHaveLength(1);
+      expect((await folderOf(created.id))?.path).toBe('/VZ Causas/Causas/Peralta, Ignacio/Penal/GÓMEZ, Ariel p.s.a. Robo');
+      expect(await getPrisma().cloudFolder.count({ where: { kind: 'LAWYER', lawyerId: other.id } })).toBe(1);
+      expect(await getPrisma().cloudFolder.count({ where: { kind: 'CASE' } })).toBe(1);
+    });
+
+    // CA-19.10: Drive no hace fallar la modificación; la carpeta queda como estaba y el path dice dónde está
+    it('si Drive falla, la modificación se guarda igual (200) y la carpeta queda con su nombre anterior', async () => {
+      const created = expectData<CaseBody>(await register({ caption: 'GÓMEZ, Ariel p.s.a. Robo' }), 201);
+      const before = await caseFolderRow();
+      storage.failNextCallTo('relocateFolder', new DocumentStorageUnavailableError('TRANSIENT', 'timeout'));
+
+      const res = await patch(created.id, { caption: 'RUIZ s/ amparo' });
+
+      expect(expectData<{ caption: string }>(res, 200).caption).toBe('RUIZ s/ amparo');
+      await waitUntil(async () => storage.relocations.length === 1);
+      expect((await savedCase(created.id)).caption).toBe('RUIZ s/ amparo');
+      expect((await caseFolderRow()).name).toBe(before.name);
+      expect((await folderOf(created.id))?.path).toBe('/VZ Causas/Causas/Ríos, Malena/Penal/GÓMEZ, Ariel p.s.a. Robo');
+    });
+  });
+
+  /*
+   * HU21 (D-104 revisado): al dar de baja una causa, su carpeta se mueve a la carpeta
+   * `Papelera`, en la raíz del estudio, con lo que tiene adentro. No se borra, y la fila de
+   * `cloud_folders` y el vínculo de la causa se conservan (RN12). `Papelera` se crea la
+   * primera vez que hace falta. `documents` actúa por un suscriptor asíncrono. El resto de
+   * HU21 está en el spec de la baja.
+   */
+  describe('DELETE /api/v1/cases/{caseId}: la carpeta va a la Papelera (HU21)', () => {
+    const remove = (caseId: number) =>
+      request(app.getHttpServer()).delete(`${CASES_URL}/${caseId}`).set(actors.actor).send();
+    const bin = () => storage.folders.find((f) => f.name === 'Papelera');
+
+    it('responde 204, la causa deja de existir para el cliente y su carpeta se mueve a la Papelera, creada en ese momento', async () => {
+      const created = expectData<CaseBody>(await register({ caption: 'GÓMEZ, Ariel p.s.a. Robo' }), 201);
+      const before = await caseFolderRow();
+      const root = await getPrisma().cloudFolder.findFirstOrThrow({ where: { kind: 'MAIN' } });
+      expect(bin()).toBeUndefined();
+
+      expect((await remove(created.id)).status).toBe(204);
+      await waitUntil(async () => storage.folders.find((f) => f.id === before.cloudFolderId)?.parentId === bin()?.id);
+
+      expect(bin()?.parentId).toBe(root.cloudFolderId);
+      expect(storage.folders.find((f) => f.id === before.cloudFolderId)).toMatchObject({ name: before.name });
+      expect(storage.deletedFolderIds).toEqual([]);
+      expectError(await request(app.getHttpServer()).get(`${CASES_URL}/${created.id}`).set(actors.actor), 404, 'CASE_NOT_FOUND');
+      // La fila y el vínculo se conservan: la causa se conserva (RN12).
+      expect((await caseFolderRow()).cloudFolderId).toBe(before.cloudFolderId);
+      expect(await savedCase(created.id)).toMatchObject({ active: false, cloudFolderId: before.cloudFolderId });
+    });
+
+    it('otra baja reutiliza la Papelera: queda una sola', async () => {
+      const first = expectData<CaseBody>(await register({ caption: 'GÓMEZ, Ariel p.s.a. Robo' }), 201);
+      const second = expectData<CaseBody>(await register({ caption: 'RUIZ s/ amparo' }), 201);
+
+      expect((await remove(first.id)).status).toBe(204);
+      await waitUntil(async () => storage.relocations.length === 1);
+      expect((await remove(second.id)).status).toBe(204);
+      await waitUntil(async () => storage.relocations.length === 2);
+
+      expect(storage.folders.filter((f) => f.name === 'Papelera')).toHaveLength(1);
+      expect(storage.folders.filter((f) => f.parentId === bin()?.id)).toHaveLength(2);
+    });
+
+    it('si Drive falla, la baja se guarda igual (204) y la carpeta queda donde estaba', async () => {
+      const created = expectData<CaseBody>(await register({ caption: 'GÓMEZ, Ariel p.s.a. Robo' }), 201);
+      const before = await caseFolderRow();
+      storage.failNextCallTo('relocateFolder', new DocumentStorageUnavailableError('TRANSIENT', 'timeout'));
+
+      expect((await remove(created.id)).status).toBe(204);
+      await waitUntil(async () => storage.relocations.length === 1);
+
+      expect((await savedCase(created.id)).active).toBe(false);
+      expect(storage.folders.find((f) => f.id === before.cloudFolderId)?.parentId).toBe(before.parentCloudFolderId);
+    });
+  });
+
+  /*
+   * HU14 (CA-14.12, CA-14.13, D-104): al cambiar el nombre de un abogado, `people`
+   * publica `LawyerRenamed` y `documents` renombra su carpeta; las de sus causas
+   * quedan adentro y `folder.path` las sigue. El resto de HU14 está en
+   * `people/update-lawyer.int.spec.ts`.
+   */
+  describe('PATCH /api/v1/lawyers/{lawyerId}: la carpeta del abogado se renombra (HU14)', () => {
+    const rename = async (body: Record<string, unknown>) => {
+      const admin = await createUser({ roles: ['ADMINISTRATOR'] });
+      return request(app.getHttpServer())
+        .patch(`/api/v1/lawyers/${actors.lawyerId}`)
+        .set(loginAs({ userId: admin.id, roles: ['ADMINISTRATOR'] }))
+        .send(body);
+    };
+    const lawyerFolderRow = () => getPrisma().cloudFolder.findFirstOrThrow({ where: { kind: 'LAWYER' } });
+
+    it('cambiar el apellido renombra la carpeta del abogado y las carpetas de sus causas siguen adentro', async () => {
+      const created = expectData<CaseBody>(await register({ caption: 'GÓMEZ, Ariel p.s.a. Robo' }), 201);
+      const before = await lawyerFolderRow();
+
+      expect((await rename({ lastName: 'Ríos Castro' })).status).toBe(200);
+      await waitUntil(async () => (await lawyerFolderRow()).name === 'Ríos Castro, Malena');
+
+      const after = await lawyerFolderRow();
+      expect(after.cloudFolderId).toBe(before.cloudFolderId);
+      expect(after.parentCloudFolderId).toBe(before.parentCloudFolderId);
+      expect(storage.folders.find((f) => f.id === before.cloudFolderId)?.name).toBe('Ríos Castro, Malena');
+      expect(storage.relocations).toHaveLength(1);
+      expect((await folderOf(created.id))?.path).toBe(
+        '/VZ Causas/Causas/Ríos Castro, Malena/Penal/GÓMEZ, Ariel p.s.a. Robo',
+      );
+    });
+
+    it('si Drive falla, la modificación se guarda igual (200) y la carpeta conserva su nombre', async () => {
+      expectData<CaseBody>(await register({ caption: 'GÓMEZ, Ariel p.s.a. Robo' }), 201);
+      storage.failNextCallTo('relocateFolder', new DocumentStorageUnavailableError('TRANSIENT', 'timeout'));
+
+      expect((await rename({ lastName: 'Ríos Castro' })).status).toBe(200);
+      await waitUntil(async () => storage.relocations.length === 1);
+
+      expect((await getPrisma().lawyer.findUniqueOrThrow({ where: { id: actors.lawyerId } })).lastName).toBe('Ríos Castro');
+      expect((await lawyerFolderRow()).name).toBe('Ríos, Malena');
     });
   });
 });

@@ -36,6 +36,40 @@ describe('InMemoryDocumentStorage', () => {
     expect(a.id).not.toBe(b.id);
   });
 
+  describe('relocateFolder (HU19)', () => {
+    it('renombra y mueve la carpeta conservando su id y lo que tiene adentro', async () => {
+      const oldParent = storage.seed('root', 'Ríos, Malena');
+      const newParent = storage.seed('root', 'Peralta, Ignacio');
+      const folder = storage.seed(oldParent.id, 'Viejo');
+      storage.seedFile({ parentId: folder.id, name: 'escrito.pdf', mimeType: 'application/pdf', createdAt: new Date() });
+
+      const stored = await storage.relocateFolder({ folderId: folder.id, name: 'Nuevo', newParentId: newParent.id });
+
+      expect(stored.id).toBe(folder.id);
+      expect(storage.folders.find((f) => f.id === folder.id)).toMatchObject({ name: 'Nuevo', parentId: newParent.id });
+      expect(storage.files.filter((f) => f.parentId === folder.id)).toHaveLength(1);
+      expect(storage.relocations).toEqual([{ folderId: folder.id, name: 'Nuevo', newParentId: newParent.id }]);
+    });
+
+    it('lo que se omite no cambia', async () => {
+      const parent = storage.seed('root', 'Padre');
+      const folder = storage.seed(parent.id, 'Viejo');
+
+      await storage.relocateFolder({ folderId: folder.id, name: 'Nuevo' });
+
+      expect(storage.folders.find((f) => f.id === folder.id)).toMatchObject({ name: 'Nuevo', parentId: parent.id });
+    });
+
+    it('si la carpeta o el padre nuevo no existen, falla como error de configuración', async () => {
+      const folder = storage.seed('root', 'X');
+
+      await expect(storage.relocateFolder({ folderId: 'gone', name: 'Y' })).rejects.toMatchObject({ reason: 'CONFIGURATION' });
+      await expect(
+        storage.relocateFolder({ folderId: folder.id, newParentId: 'gone' }),
+      ).rejects.toMatchObject({ reason: 'CONFIGURATION' });
+    });
+  });
+
   describe('copyFile (HU40)', () => {
     const upload = (content: string) =>
       storage.uploadFile({ parentId: 'modelos', name: 'modelo.docx', mimeType: 'application/x', content: Buffer.from(content) });

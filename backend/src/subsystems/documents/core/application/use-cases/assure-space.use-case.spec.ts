@@ -8,6 +8,7 @@ import {
   StudioRootNotConfiguredError,
 } from '../../domain/errors/documents.errors';
 import { CloudFolderFactory } from '../../domain/factories/cloud-folder.factory';
+import { FolderChain } from '../common/folder-chain';
 import { AssureSpace } from './assure-space.use-case';
 import { SetupCloudStorage } from './setup-cloud-storage.use-case';
 import { InMemoryCloudFolderRepository } from '../../../infrastructure/persistence/in-memory/in-memory-cloud-folder.repository';
@@ -126,11 +127,11 @@ describe('AssureSpace', () => {
       const events = new FakeEventPublisher();
       const assureSpace = new AssureSpace(
         folders,
-        storage,
         new FakeClock(),
         events,
         (setup as SetupCloudStorage) ??
           new SetupCloudStorage(folders, storage, new FakeClock(), new FakeDocumentTemplateRepository()),
+        new FolderChain(folders, storage, new FakeClock()),
       );
       return { folders, storage, events, assureSpace };
     }

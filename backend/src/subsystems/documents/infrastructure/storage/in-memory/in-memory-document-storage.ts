@@ -5,10 +5,12 @@ import {
   FileCopy,
   FileUpload,
   FolderReference,
+  FolderRelocation,
   StoredDocument,
   StoredFile,
   StoredFolder,
 } from '../../../core/domain/ports/document-storage.port';
+import { DocumentStorageUnavailableError } from '../../../core/domain/errors/documents.errors';
 
 const GOOGLE_NATIVE_PREFIX = 'application/vnd.google-apps.';
 const WORD_MIME_TYPES = new Set([
@@ -70,6 +72,8 @@ export class InMemoryDocumentStorage implements DocumentStoragePort {
   /** Ids asked to `getFolder`, and ids deleted by `deleteFolder`, in order. */
   readonly getFolderCalls: string[] = [];
   readonly deletedFolderIds: string[] = [];
+  /** Every `relocateFolder` received, in order (HU19). */
+  readonly relocations: FolderRelocation[] = [];
 
   /** Every file call received, in order: the uploaded name, or the id deleted or downloaded. */
   readonly fileCalls: Array<
@@ -131,6 +135,7 @@ export class InMemoryDocumentStorage implements DocumentStoragePort {
     this.fileCalls.length = 0;
     this.getFolderCalls.length = 0;
     this.deletedFolderIds.length = 0;
+    this.relocations.length = 0;
     this.nextFailure = null;
     this.methodFailures.clear();
   }
@@ -160,6 +165,28 @@ export class InMemoryDocumentStorage implements DocumentStoragePort {
     this.failIfRequested('getFolder');
     const found = this.stored.find((folder) => folder.id === folderId);
     return found ? { id: found.id, url: found.url } : null;
+  }
+
+  /** Like a drive: the id stays, the content goes along, and a missing folder or parent is a configuration error. */
+  async relocateFolder(relocation: FolderRelocation): Promise<StoredFolder> {
+    this.relocations.push({ ...relocation });
+    this.failIfRequested('relocateFolder');
+    const folder = this.stored.find((stored) => stored.id === relocation.folderId);
+    const parentMissing =
+      relocation.newParentId !== undefined && !this.stored.some((stored) => stored.id === relocation.newParentId);
+    if (!folder || parentMissing) {
+      throw new DocumentStorageUnavailableError(
+        'CONFIGURATION',
+        'The folder to rename or move, or its new parent, no longer exists in the storage',
+      );
+    }
+    if (relocation.name !== undefined) {
+      folder.name = relocation.name;
+    }
+    if (relocation.newParentId !== undefined) {
+      folder.parentId = relocation.newParentId;
+    }
+    return { id: folder.id, url: folder.url };
   }
 
   /** Like a drive, deleting a folder also removes what is inside it. */

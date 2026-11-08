@@ -64,7 +64,7 @@ va a `audit_log`. Pendiente de alinear la redacción del contrato con Luciano.
 | 21.6 Deja de contar | `activeCases` de `GET /lawyers/{id}` y `GET /clients/{id}` baja en 1 | INT |
 | 21.6 | calificaciones, tableros y proceso diario: usan el mismo filtro `ACTIVE_CASE` (`prisma-case.repository.ts:511`) y tienen sus propios specs; **revisión manual** | — |
 | 21.7 SAC liberado | otra causa se registra con el SAC (201) y otra se modifica con él (200) | INT |
-| 21.8 Drive intacto | por diseño: el caso de uso no publica eventos ni toca `cloud_folders` | sin test |
+| 21.8 La carpeta se mueve a la carpeta `Papelera` (**revisado 08/11/2026**: antes "Drive intacto", ver D-104) | UNIT `DeactivateCase`: publica `cases.case-deactivated.v1` solo con la carpeta `CREATED`, después de guardar; no publica si no hay carpeta o si el pedido se rechaza; si el anuncio falla, la baja se guarda igual · UNIT `RecycleCaseFolder` (crea `Papelera` la primera vez y la reutiliza, no toca la fila, sin carpeta no hace nada, reintento) y `CaseDeactivatedListener` · INT (`case-folder.int.spec.ts`, HU21): 204, la carpeta se mueve a `Papelera` sin borrarse, la fila y el vínculo se conservan; con Drive caído, 204 igual | UNIT + INT |
 | 21.9 Cualquier estado | "Archivada" y "Prescripta" → 204 | INT + unitario |
 | 21.10 Id inválido | `abc` → 400 `INVALID_PATH_PARAMETER` | INT |
 
