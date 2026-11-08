@@ -48,6 +48,10 @@ export class PrismaSentNotificationRepository implements SentNotificationReposit
     });
   }
 
+  async clearAll(): Promise<void> {
+    await this.prisma.db.sentNotification.deleteMany();
+  }
+
   /**
    * `referenceDate` is a civil date (`@db.Date`). A date-only ISO string
    * (`"2026-10-18"`) parses as UTC midnight per the `Date` constructor's

@@ -65,6 +65,10 @@ export class FakeSentNotificationRepository implements SentNotificationRepositor
     this.byKey.set(keyString(entry), entry);
   }
 
+  async clearAll(): Promise<void> {
+    this.byKey.clear();
+  }
+
   has(key: SentNotificationKey): boolean {
     return this.byKey.has(keyString(key));
   }

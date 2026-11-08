@@ -33,6 +33,11 @@ type Notice = UpcomingDeadlineNotice | PrescriptionNotice;
 export interface SendDailyNotificationDigestCommand {
   deadlineNotices: UpcomingDeadlineNotice[];
   prescriptionNotices: PrescriptionNotice[];
+  /**
+   * Development shortcut: forget what was already sent before filtering, so a
+   * manual run can be repeated. The caller decides whether it is allowed.
+   */
+  resetHistory?: boolean;
 }
 
 export interface SendDailyNotificationDigestResult {
@@ -166,6 +171,10 @@ export class SendDailyNotificationDigestUseCase {
       ...command.deadlineNotices,
       ...command.prescriptionNotices,
     ];
+
+    if (command.resetHistory) {
+      await this.sentNotifications.clearAll();
+    }
 
     const mailbox = await this.sendToMailbox(notices);
     const lawyerSends = this.copyToResponsibleLawyer

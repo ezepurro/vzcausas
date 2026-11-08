@@ -21,9 +21,14 @@ export const DAILY_RUN_ENABLED = Boolean(INTERNAL_TRIGGER_SECRET)
 /**
  * Dispara a mano la corrida que en producción lanza GitHub Actions. Es un
  * atajo local: el endpoint no está en el contrato (`CAMBIOS.md`).
+ *
+ * `dev=true` le pide al backend que borre antes el historial de avisos
+ * enviados (`sent_notifications`), así la campanita se puede apretar todas las
+ * veces que haga falta. El backend sólo lo acepta con `NODE_ENV=development`.
  */
 export async function runDailyNotifications(): Promise<DailyRunResult> {
     const res = await http.post<DailyRunResult>(DAILY_RUN_PATH, undefined, {
+        params: { dev: true },
         timeout: DAILY_RUN_TIMEOUT_MS,
         headers: { 'x-internal-trigger-secret': INTERNAL_TRIGGER_SECRET },
     })

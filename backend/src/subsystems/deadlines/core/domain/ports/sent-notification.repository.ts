@@ -54,4 +54,12 @@ export interface SentNotificationRecord extends SentNotificationKey {
 export interface SentNotificationRepository {
   existsFor(key: SentNotificationKey): Promise<boolean>;
   record(entry: SentNotificationRecord): Promise<void>;
+
+  /**
+   * Forgets every notification sent, so the next run sends them all again.
+   * Only for the development shortcut (`?dev=true` of the daily run): it is a
+   * physical delete of a log table, never part of the real flow, and the
+   * caller must have checked the environment (`DEV_TOOLS_ENABLED`).
+   */
+  clearAll(): Promise<void>;
 }
