@@ -110,7 +110,6 @@ export class SwitchableStorage implements DocumentStoragePort {
   findFolderByReference = (reference: FolderReference) => this.current.storage.findFolderByReference(reference);
   createFolder = (reference: FolderReference) => this.current.storage.createFolder(reference);
   relocateFolder = (relocation: FolderRelocation) => this.current.storage.relocateFolder(relocation);
-  trashFolder = (folderId: string) => this.current.storage.trashFolder(folderId);
   getFolder = (folderId: string) => this.current.storage.getFolder(folderId);
   deleteFolder = (folderId: string) => this.current.storage.deleteFolder(folderId);
   uploadFile = (upload: FileUpload) => this.current.storage.uploadFile(upload);

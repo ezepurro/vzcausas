@@ -325,40 +325,58 @@ describe('Carpeta de la causa en la nube (HU39)', () => {
   });
 
   /*
-   * HU21 (D-104 revisado): al dar de baja una causa, su carpeta va a la papelera de
-   * Drive con lo que tiene adentro. No se borra, y la fila de `cloud_folders` y el
-   * vínculo de la causa se conservan (RN12). `documents` actúa por un suscriptor
-   * asíncrono. El resto de HU21 está en el spec de la baja.
+   * HU21 (D-104 revisado): al dar de baja una causa, su carpeta se mueve a la carpeta
+   * `Papelera`, en la raíz del estudio, con lo que tiene adentro. No se borra, y la fila de
+   * `cloud_folders` y el vínculo de la causa se conservan (RN12). `Papelera` se crea la
+   * primera vez que hace falta. `documents` actúa por un suscriptor asíncrono. El resto de
+   * HU21 está en el spec de la baja.
    */
-  describe('DELETE /api/v1/cases/{caseId}: la carpeta va a la papelera (HU21)', () => {
+  describe('DELETE /api/v1/cases/{caseId}: la carpeta va a la Papelera (HU21)', () => {
     const remove = (caseId: number) =>
       request(app.getHttpServer()).delete(`${CASES_URL}/${caseId}`).set(actors.actor).send();
+    const bin = () => storage.folders.find((f) => f.name === 'Papelera');
 
-    it('responde 204, la causa deja de existir para el cliente y su carpeta va a la papelera sin borrarse', async () => {
+    it('responde 204, la causa deja de existir para el cliente y su carpeta se mueve a la Papelera, creada en ese momento', async () => {
       const created = expectData<CaseBody>(await register({ caption: 'GÓMEZ, Ariel p.s.a. Robo' }), 201);
       const before = await caseFolderRow();
+      const root = await getPrisma().cloudFolder.findFirstOrThrow({ where: { kind: 'MAIN' } });
+      expect(bin()).toBeUndefined();
 
       expect((await remove(created.id)).status).toBe(204);
-      await waitUntil(async () => storage.folders.find((f) => f.id === before.cloudFolderId)?.trashed === true);
+      await waitUntil(async () => storage.folders.find((f) => f.id === before.cloudFolderId)?.parentId === bin()?.id);
 
-      expectError(await request(app.getHttpServer()).get(`${CASES_URL}/${created.id}`).set(actors.actor), 404, 'CASE_NOT_FOUND');
+      expect(bin()?.parentId).toBe(root.cloudFolderId);
+      expect(storage.folders.find((f) => f.id === before.cloudFolderId)).toMatchObject({ name: before.name });
       expect(storage.deletedFolderIds).toEqual([]);
+      expectError(await request(app.getHttpServer()).get(`${CASES_URL}/${created.id}`).set(actors.actor), 404, 'CASE_NOT_FOUND');
       // La fila y el vínculo se conservan: la causa se conserva (RN12).
       expect((await caseFolderRow()).cloudFolderId).toBe(before.cloudFolderId);
       expect(await savedCase(created.id)).toMatchObject({ active: false, cloudFolderId: before.cloudFolderId });
-      expect(await getPrisma().cloudFolder.count({ where: { kind: 'LAWYER' } })).toBe(1);
+    });
+
+    it('otra baja reutiliza la Papelera: queda una sola', async () => {
+      const first = expectData<CaseBody>(await register({ caption: 'GÓMEZ, Ariel p.s.a. Robo' }), 201);
+      const second = expectData<CaseBody>(await register({ caption: 'RUIZ s/ amparo' }), 201);
+
+      expect((await remove(first.id)).status).toBe(204);
+      await waitUntil(async () => storage.relocations.length === 1);
+      expect((await remove(second.id)).status).toBe(204);
+      await waitUntil(async () => storage.relocations.length === 2);
+
+      expect(storage.folders.filter((f) => f.name === 'Papelera')).toHaveLength(1);
+      expect(storage.folders.filter((f) => f.parentId === bin()?.id)).toHaveLength(2);
     });
 
     it('si Drive falla, la baja se guarda igual (204) y la carpeta queda donde estaba', async () => {
       const created = expectData<CaseBody>(await register({ caption: 'GÓMEZ, Ariel p.s.a. Robo' }), 201);
       const before = await caseFolderRow();
-      storage.failNextCallTo('trashFolder', new DocumentStorageUnavailableError('TRANSIENT', 'timeout'));
+      storage.failNextCallTo('relocateFolder', new DocumentStorageUnavailableError('TRANSIENT', 'timeout'));
 
       expect((await remove(created.id)).status).toBe(204);
-      await waitUntil(async () => storage.trashedFolderIds.length === 1);
+      await waitUntil(async () => storage.relocations.length === 1);
 
       expect((await savedCase(created.id)).active).toBe(false);
-      expect(storage.folders.find((f) => f.id === before.cloudFolderId)?.trashed).toBeFalsy();
+      expect(storage.folders.find((f) => f.id === before.cloudFolderId)?.parentId).toBe(before.parentCloudFolderId);
     });
   });
 

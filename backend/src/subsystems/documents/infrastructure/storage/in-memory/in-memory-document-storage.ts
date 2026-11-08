@@ -22,8 +22,6 @@ const WORD_MIME_TYPES = new Set([
 export interface InMemoryStoredFolder extends StoredFolder {
   parentId: string | null;
   name: string;
-  /** In the trash: the storage keeps it, but it is not found nor listed (HU21). */
-  trashed?: boolean;
 }
 
 /** A file held by {@link InMemoryDocumentStorage}. */
@@ -74,8 +72,6 @@ export class InMemoryDocumentStorage implements DocumentStoragePort {
   /** Ids asked to `getFolder`, and ids deleted by `deleteFolder`, in order. */
   readonly getFolderCalls: string[] = [];
   readonly deletedFolderIds: string[] = [];
-  /** Ids sent to `trashFolder`, in order (HU21). */
-  readonly trashedFolderIds: string[] = [];
   /** Every `relocateFolder` received, in order (HU19). */
   readonly relocations: FolderRelocation[] = [];
 
@@ -140,7 +136,6 @@ export class InMemoryDocumentStorage implements DocumentStoragePort {
     this.getFolderCalls.length = 0;
     this.deletedFolderIds.length = 0;
     this.relocations.length = 0;
-    this.trashedFolderIds.length = 0;
     this.nextFailure = null;
     this.methodFailures.clear();
   }
@@ -154,7 +149,7 @@ export class InMemoryDocumentStorage implements DocumentStoragePort {
     this.calls.push({ method: 'findFolderByReference', reference });
     this.failIfRequested('findFolderByReference');
     const found = this.stored.find(
-      (folder) => !folder.trashed && folder.parentId === reference.parentId && folder.name === reference.name,
+      (folder) => folder.parentId === reference.parentId && folder.name === reference.name,
     );
     return found ? { id: found.id, url: found.url } : null;
   }
@@ -168,18 +163,8 @@ export class InMemoryDocumentStorage implements DocumentStoragePort {
   async getFolder(folderId: string): Promise<StoredFolder | null> {
     this.getFolderCalls.push(folderId);
     this.failIfRequested('getFolder');
-    const found = this.stored.find((folder) => folder.id === folderId && !folder.trashed);
+    const found = this.stored.find((folder) => folder.id === folderId);
     return found ? { id: found.id, url: found.url } : null;
-  }
-
-  /** Like a drive: the folder stays, marked as trashed, with its content; a missing or trashed one is not an error. */
-  async trashFolder(folderId: string): Promise<void> {
-    this.trashedFolderIds.push(folderId);
-    this.failIfRequested('trashFolder');
-    const folder = this.stored.find((stored) => stored.id === folderId);
-    if (folder) {
-      folder.trashed = true;
-    }
   }
 
   /** Like a drive: the id stays, the content goes along, and a missing folder or parent is a configuration error. */

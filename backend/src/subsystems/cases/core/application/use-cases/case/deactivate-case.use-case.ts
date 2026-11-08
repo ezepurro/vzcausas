@@ -26,8 +26,8 @@ export interface DeactivateCaseCommand {
  * {@link CaseDeactivation} and {@link Case.deactivate}. The case exists (404) →
  * the reason (400) → the baja and its audit record, in one transaction.
  *
- * The case's Drive folder goes to the Drive trash, with what is inside it
- * (D-104, revised; it replaces CA-21.8). It is announced **after** the commit
+ * The case's Drive folder moves to the `Papelera` folder, with what is inside
+ * it (D-104, revised; it replaces CA-21.8). It is announced **after** the commit
  * and never fails the request: if Drive is down the baja stands and the folder
  * stays where it was. Everything else the baja turns off — listings,
  * subresources, counts, dashboards, the daily process — already reads only
@@ -76,14 +76,14 @@ export class DeactivateCase {
       });
     });
 
-    await this.announceFolderTrash(target.id, now);
+    await this.announceFolderRecycle(target.id, now);
   }
 
   /**
    * Only a folder that exists can be trashed, and the case is already saved: a
    * failure here is logged and the folder is left as it is (D-104).
    */
-  private async announceFolderTrash(caseId: number, occurredAt: Date): Promise<void> {
+  private async announceFolderRecycle(caseId: number, occurredAt: Date): Promise<void> {
     try {
       const folder = await this.folderState.find(caseId);
       if (folder?.status !== 'CREATED') {

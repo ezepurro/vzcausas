@@ -1,5 +1,5 @@
 import { Logger } from '@nestjs/common';
-import { TrashCaseFolder } from '../../../core/application/use-cases/trash-case-folder.use-case';
+import { RecycleCaseFolder } from '../../../core/application/use-cases/recycle-case-folder.use-case';
 import { DocumentStorageUnavailableError } from '../../../core/domain/errors/documents.errors';
 import { aCaseDeactivatedEvent, aCommand, aSetUpStudio } from '../../../core/test-support/document-fixtures';
 import { CaseDeactivatedListener } from './case-deactivated.listener';
@@ -17,26 +17,28 @@ describe('CaseDeactivatedListener', () => {
   async function aListener() {
     const studio = await aSetUpStudio();
     await studio.assureSpace.execute(aCommand());
-    return { ...studio, listener: new CaseDeactivatedListener(new TrashCaseFolder(studio.folders, studio.storage)) };
+    return { ...studio, listener: new CaseDeactivatedListener(new RecycleCaseFolder(studio.folders, studio.storage)) };
   }
 
-  it('traduce el evento: manda la carpeta de la causa a la papelera (HU21)', async () => {
+  it('traduce el evento: mueve la carpeta de la causa a la carpeta Papelera (HU21)', async () => {
     const { listener, storage } = await aListener();
 
     await listener.handle(aCaseDeactivatedEvent());
 
-    expect(storage.trashedFolderIds).toHaveLength(1);
-    expect(storage.folders.filter((f) => f.trashed)).toHaveLength(1);
+    const bin = storage.folders.find((f) => f.name === 'Papelera')!;
+    expect(storage.relocations).toHaveLength(1);
+    expect(storage.relocations[0].newParentId).toBe(bin.id);
   });
 
-  it('si Drive falla, no propaga el error: lo registra y la carpeta queda como estaba', async () => {
+  it('si Drive falla al mover, no propaga el error: lo registra y la carpeta queda como estaba', async () => {
     const { listener, storage } = await aListener();
-    storage.failNextCallTo('trashFolder', new DocumentStorageUnavailableError('TRANSIENT', 'timeout'));
+    storage.failNextCallTo('relocateFolder', new DocumentStorageUnavailableError('TRANSIENT', 'timeout'));
 
     await expect(listener.handle(aCaseDeactivatedEvent())).resolves.toBeUndefined();
 
     expect(error).toHaveBeenCalledWith(expect.stringContaining('caseId=10'));
-    expect(storage.folders.filter((f) => f.trashed)).toEqual([]);
+    expect(storage.folders.find((f) => f.name === 'Papelera')?.id).toBeDefined();
+    expect(storage.folders.filter((f) => f.parentId === storage.folders.find((g) => g.name === 'Papelera')?.id)).toEqual([]);
   });
 
   it('un evento de una causa sin carpeta no hace nada ni falla', async () => {
@@ -44,7 +46,7 @@ describe('CaseDeactivatedListener', () => {
 
     await expect(listener.handle(aCaseDeactivatedEvent({ caseId: 99 }))).resolves.toBeUndefined();
 
-    expect(storage.trashedFolderIds).toEqual([]);
+    expect(storage.relocations).toEqual([]);
     expect(error).not.toHaveBeenCalled();
   });
 });

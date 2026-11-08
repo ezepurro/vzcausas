@@ -4,7 +4,7 @@ import { FolderChain } from './core/application/common/folder-chain';
 import { AssureSpace } from './core/application/use-cases/assure-space.use-case';
 import { RenameLawyerFolder } from './core/application/use-cases/rename-lawyer-folder.use-case';
 import { SyncCaseFolder } from './core/application/use-cases/sync-case-folder.use-case';
-import { TrashCaseFolder } from './core/application/use-cases/trash-case-folder.use-case';
+import { RecycleCaseFolder } from './core/application/use-cases/recycle-case-folder.use-case';
 import { CopyTemplatesToCaseFolder } from './core/application/use-cases/copy-templates-to-case-folder.use-case';
 import { DownloadDocumentTemplate } from './core/application/use-cases/download-document-template.use-case';
 import { GetDocumentTemplate } from './core/application/use-cases/get-document-template.use-case';
@@ -40,7 +40,7 @@ import { DOCUMENT_STORAGE_PROVIDER } from './infrastructure/storage/document-sto
 /**
  * Composition root of `documents`. It talks to the rest of the system through
  * integration events only: it listens to `CaseRegistered`, `CaseModified` (HU19: the
- * folder follows the case), `CaseDeactivated` (HU21: the folder goes to the trash),
+ * folder follows the case), `CaseDeactivated` (HU21: the folder goes to the `Papelera` folder),
  * `LawyerRenamed` (HU14: the lawyer's folder takes the new name) and `CaseTemplatesCopyRequested` and announces `DocumentSpaceAssigned` /
  * `DocumentSpaceCreationFailed` / `CaseTemplatesCopied`. The one exception is
  * `GenerateCoverPdf` (HU24, P-08 option B): `cases` needs the PDF back, which an
@@ -72,7 +72,7 @@ import { DOCUMENT_STORAGE_PROVIDER } from './infrastructure/storage/document-sto
     FolderChain,
     AssureSpace,
     SyncCaseFolder,
-    TrashCaseFolder,
+    RecycleCaseFolder,
     RenameLawyerFolder,
     SetupCloudStorage,
     CopyTemplatesToCaseFolder,
