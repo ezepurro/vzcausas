@@ -9,6 +9,7 @@ import {
   FileCopy,
   FileUpload,
   FolderReference,
+  FolderRelocation,
   StoredDocument,
   StoredFile,
   StoredFolder,
@@ -129,6 +130,44 @@ export class GoogleDriveDocumentStorage implements DocumentStoragePort {
       }
       throw error;
     }
+  }
+
+  /**
+   * `files.update` with the new name and, to move, `addParents` and
+   * `removeParents`: one call, so a rename and a move happen together. Moving
+   * needs the current parents first (`files.get`). Both need only `drive.file`,
+   * because the app created the folder (D-104).
+   */
+  async relocateFolder(relocation: FolderRelocation): Promise<StoredFolder> {
+    const missing = 'The folder to rename or move, or its new parent, no longer exists in the storage';
+    let removeParents: string | undefined;
+    if (relocation.newParentId) {
+      const current = await this.call(
+        'relocateFolder.getParents',
+        () => this.drive.files.get({ fileId: relocation.folderId, fields: 'parents' }, this.requestOptions),
+        missing,
+      );
+      removeParents = (current.data.parents ?? []).join(',') || undefined;
+    }
+    const response = await this.call(
+      'relocateFolder',
+      () =>
+        this.drive.files.update(
+          {
+            fileId: relocation.folderId,
+            requestBody: relocation.name === undefined ? {} : { name: relocation.name },
+            addParents: relocation.newParentId,
+            removeParents,
+            fields: FILE_FIELDS,
+          },
+          this.requestOptions,
+        ),
+      missing,
+    );
+    if (!response.data.id) {
+      throw new DocumentStorageUnavailableError('TRANSIENT', 'Drive answered without a folder id');
+    }
+    return toStoredFolder(response.data);
   }
 
   async deleteFolder(folderId: string): Promise<void> {
