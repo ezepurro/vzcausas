@@ -215,3 +215,23 @@ backend marca el campo (CA-18.10).
 **Límite conocido:** el listado de calificaciones se pide con `limit: 100`
 (`OPTIONS_LIMIT` en `RegisterCasePage`). Con más de 100 vigentes, las que
 quedan afuera se verían como dadas de baja.
+
+## Operación de la causa y cliente fijo (08/11/2026)
+
+Revisión de V5 del 08/11/2026 (D-110, D-111). Un abogado que no es el
+responsable sólo consulta la causa y genera su expediente:
+
+- **Deshabilitado, no escondido.** "Modificar causa", "Dar de baja",
+  "Marcar prescripta" y "Crear carpeta"/"Reintentar" se ven deshabilitados,
+  con un `title` que dice quién puede ("Solo el abogado responsable (…) …").
+  "Marcar prescripta" sigue escondido para la Secretaría (CA-33.2).
+- **"Modificá los datos de la causa"**, en "Generar expediente", no se le
+  ofrece: es un atajo dentro de un texto, y un enlace deshabilitado en medio
+  de una oración se lee como roto. La vista previa y el expediente siguen.
+- **La regla** vive en `caseOperation` (`utils/responsibleLawyer.ts`): el
+  responsable, o un rol de `ACTION_ACCESS` (`cases.operateAnyCase`,
+  `cases.declarePrescriptionAnyCase`). La página resuelve los roles con
+  `useCan` y se los pasa.
+- **El cliente** se muestra bloqueado en "Modificar causa", como el fuero, y
+  no viaja en el `PATCH` (`400` si viaja). Se borró `captionWithClient`, que
+  sólo servía para proponer la carátula al cambiarlo (D-105).

@@ -180,6 +180,26 @@ export const ERRORS = {
         'FORBIDDEN',
         'Solo el abogado responsable de la causa puede modificar sus actos procesales.',
     ),
+    /** Modificar una causa siendo sólo abogado y no el responsable (V5 §3.7, D-110). */
+    forbiddenNotResponsibleCaseUpdate: errorBody(
+        'FORBIDDEN',
+        'Solo el abogado responsable de la causa puede modificarla.',
+    ),
+    /** Dar de baja una causa siendo sólo abogado y no el responsable (D-110). */
+    forbiddenNotResponsibleCaseDelete: errorBody(
+        'FORBIDDEN',
+        'Solo el abogado responsable de la causa puede darla de baja.',
+    ),
+    /** Crear o reintentar la carpeta siendo sólo abogado y no el responsable (D-110). */
+    forbiddenNotResponsibleFolder: errorBody(
+        'FORBIDDEN',
+        'Solo el abogado responsable de la causa puede operar su carpeta.',
+    ),
+    /** Marcar prescripta siendo abogado, no el responsable, y sin ser administrador (D-110). */
+    forbiddenNotResponsiblePrescription: errorBody(
+        'FORBIDDEN',
+        'Solo el abogado responsable de la causa puede marcarla como prescripta.',
+    ),
     /** Descargar un documento que no es un expediente (V5 D-103). */
     forbiddenLawyerOrSecretary: errorBody(
         'FORBIDDEN',

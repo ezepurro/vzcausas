@@ -37,7 +37,7 @@ import type { InterruptiveActFormValues } from '@/features/cases/types/interrupt
 import type { PrescriptionDeclarationFormValues } from '@/features/cases/types/prescriptionDeclaration'
 import type { ProceduralAct } from '@/features/cases/types/proceduralAct'
 import { prescriptionNote } from '@/features/cases/utils/prescription'
-import { isResponsibleLawyer } from '@/features/cases/utils/responsibleLawyer'
+import { caseOperation, isResponsibleLawyer } from '@/features/cases/utils/responsibleLawyer'
 import { sacLabel } from '@/features/cases/utils/sac'
 import { toCreateInterruptiveActBody } from '@/features/cases/utils/toCreateInterruptiveActBody'
 import { toDeclarePrescriptionBody } from '@/features/cases/utils/toDeclarePrescriptionBody'
@@ -61,8 +61,11 @@ import { documentDownloadName } from '@/features/cases/utils/caseDocument'
  * datos propios del fuero (V4 D-67). Lo ve cualquier perfil: todo el estudio
  * accede a todas las causas (RN11).
  *
- *  * "Modificar causa" (HU19) y "Dar de baja" (HU21) los opera cualquier perfil,
- * sin ser el responsable (V5 §3.7). Dar de baja vuelve al listado: para el
+ * "Modificar causa" (HU19), "Dar de baja" (HU21), "Marcar prescripta" (HU33)
+ * y crear o reintentar la carpeta los opera el abogado responsable, el
+ * Administrador o la Secretaría (esta última no marca prescripta): un abogado
+ * que no es el responsable sólo consulta y genera el expediente (V5 §4,
+ * "Operación de la causa", D-110). Dar de baja vuelve al listado: para el
  * cliente la causa deja de existir (D-97). La fila "Sobre la causa" lleva, en
  * todos los fueros, "Generar expediente" (HU25), y en las causas penales suma
  * "Registrar acto interruptivo" (HU31) y "Marcar prescripta" (HU33). El pago
@@ -134,7 +137,9 @@ function CaseDetail({ case: c }: { case: Case }) {
     const navigate = useNavigate()
     const toast = useToast()
     const { lawyer } = useCurrentUser()
-    const canDeclarePrescription = useCan('cases.declarePrescription')
+    const showPrescription = useCan('cases.declarePrescription')
+    const operateAnyCase = useCan('cases.operateAnyCase')
+    const declarePrescriptionAnyCase = useCan('cases.declarePrescriptionAnyCase')
     const timeline = useCaseTimeline(c.id)
     /* Los documentos se leen de la carpeta: sin ella creada no hay pedido (CA-38.5). */
     const folderCreated = c.folder?.status === 'CREATED'
@@ -151,6 +156,13 @@ function CaseDetail({ case: c }: { case: Case }) {
     /* Sólo el abogado responsable registra los actos de esta causa, procesales
        e interruptivos (D-30, D-50). No es un permiso por rol: depende de la causa. */
     const isResponsible = isResponsibleLawyer(c, lawyer?.id ?? null)
+    /* Modificar, dar de baja, la carpeta y "Marcar prescripta" (D-110): el
+       responsable, o un rol que opera cualquier causa. */
+    const { canOperate, canDeclarePrescription } = caseOperation(c, lawyer?.id ?? null, {
+        operate: operateAnyCase,
+        declarePrescription: declarePrescriptionAnyCase,
+    })
+    const notResponsibleNote = `Solo el abogado responsable (${formatPersonFullName(c.responsibleLawyer)}) modifica o da de baja la causa.`
     const goRegisterAct = () => navigate(`/causas/${c.id}/acto`)
 
     /* Los actos de una causa prescripta no se modifican (D-99): ahí la línea
@@ -297,12 +309,24 @@ function CaseDetail({ case: c }: { case: Case }) {
                                 Solo el abogado responsable ({formatPersonFullName(c.responsibleLawyer)}) registra actos.
                             </p>
                         )}
-                                              {/* Los dos los opera cualquier perfil (V5 §3.7): no se declaran en ACTION_ACCESS. */}
+                        {/* El responsable, el Administrador o la Secretaría (D-110). */}
                         <div className="vz-case-head__buttons">
-                            <Button variant="secondary" size="sm" onClick={edit.open}>
+                            <Button
+                                variant="secondary"
+                                size="sm"
+                                disabled={!canOperate}
+                                title={canOperate ? undefined : notResponsibleNote}
+                                onClick={edit.open}
+                            >
                                 Modificar causa
                             </Button>
-                            <Button variant="danger" size="sm" onClick={openDelete}>
+                            <Button
+                                variant="danger"
+                                size="sm"
+                                disabled={!canOperate}
+                                title={canOperate ? undefined : notResponsibleNote}
+                                onClick={openDelete}
+                            >
                                 Dar de baja
                             </Button>
                         </div>
@@ -321,9 +345,18 @@ function CaseDetail({ case: c }: { case: Case }) {
                     <Button variant="secondary" size="sm" onClick={() => navigate(`/causas/${c.id}/expediente`)}>
                         Generar expediente
                     </Button>
-                    {/* La Secretaría no lo ve: no es suyo (CA-33.2). */}
-                    {showCaseActions && canDeclarePrescription && (
-                        <Button variant="danger" size="sm" onClick={openPrescription}>
+                    {/* La Secretaría no lo ve: no es suyo (CA-33.2). Un abogado que no es
+                        el responsable lo ve deshabilitado (D-110, CA-33.16). */}
+                    {showCaseActions && showPrescription && (
+                        <Button
+                            variant="danger"
+                            size="sm"
+                            disabled={!canDeclarePrescription}
+                            title={canDeclarePrescription
+                                ? undefined
+                                : `Solo el abogado responsable (${formatPersonFullName(c.responsibleLawyer)}) marca prescripta la causa.`}
+                            onClick={openPrescription}
+                        >
                             Marcar prescripta
                         </Button>
                     )}
@@ -350,6 +383,7 @@ function CaseDetail({ case: c }: { case: Case }) {
                     <CaseFacts case={c} />
                     <CaseFolderCard
                         case={c}
+                        canCreate={canOperate}
                         creating={createFolder.isPending}
                         error={
                             createFolder.isError

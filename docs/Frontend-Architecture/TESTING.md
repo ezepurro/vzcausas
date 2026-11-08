@@ -1060,9 +1060,14 @@ cambia, se cambian el test y la pantalla juntos:
 - **Quien no es el responsable** y toca "Modificar" en un acto recibe el aviso
   "Solo el abogado responsable de la causa modifica sus actos procesales." y
   no sale del detalle, como al registrar.
-- **Cambiar el cliente** propone la carátula con el cliente nuevo, conservando
-  el resto: `GÓMEZ, Ariel Fernando p.s.a. Robo calificado` pasa a
-  `PEREYRA, Marcos D. p.s.a. Robo calificado` (D-105).
+- **El cliente no se modifica** (D-111, revisión del 08/11/2026; reemplaza
+  D-105): se muestra bloqueado, como el fuero, y nunca viaja en el `PATCH`.
+- **Un abogado que no es el responsable** (D-110, revisión del 08/11/2026)
+  ve "Modificar causa", "Dar de baja", "Marcar prescripta" y "Crear
+  carpeta"/"Reintentar" deshabilitados, con un `title` que empieza "Solo el
+  abogado responsable"; en "Generar expediente" no se le ofrece "Modificá los
+  datos de la causa". Se prueba con `mrios` sobre la causa 4 (la lleva
+  `fvazquez`) y sobre la 2 y la 23.
 - **Con la carpeta sin crear** la tarjeta "Documentación" no lista nada; el
   texto que muestra lo elige la pantalla.
 - **Errores**: se muestra el `message` del contrato, por ejemplo "No se pudo

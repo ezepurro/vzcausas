@@ -41,8 +41,8 @@ async function openModal(user: User, header: string) {
 describe('CaseDetailPage · marcar prescripta', () => {
     usePrototypeToday()
 
-    // CA-33.1 (cualquier abogado, aunque no sea el responsable), CA-33.3, CA-33.4, CA-33.5
-    it('un abogado que no es el responsable la marca: pasa a "Prescripta" y se cierra su plazo', async () => {
+    // CA-33.1 (el Administrador, aunque no sea el responsable, D-110), CA-33.3, CA-33.4, CA-33.5
+    it('el Administrador que no es el responsable la marca: pasa a "Prescripta" y se cierra su plazo', async () => {
         const { user } = renderPage(1, 'fvazquez')
         const dialog = await openModal(user, 'Causa 13284571')
 
@@ -114,6 +114,24 @@ describe('CaseDetailPage · marcar prescripta', () => {
             await screen.findByText('La causa no tiene calificaciones legales: no puede prescribir.'),
         ).toBeInTheDocument()
         expect(db.cases.find((c) => c.id === 23)?.prescriptionDeclaration).toBeNull()
+    })
+
+    // CA-33.1 (D-110): el responsable, aunque sólo sea abogado, la marca.
+    it('el abogado responsable puede abrir "Marcar prescripta"', async () => {
+        const { user } = renderPage(1, 'mrios')
+        const dialog = await openModal(user, 'Causa 13284571')
+
+        expect(within(dialog).getByText('Marcar la causa como prescripta')).toBeInTheDocument()
+    })
+
+    // CA-33.1, CA-33.16 (D-110): un abogado que no es el responsable lo ve deshabilitado.
+    it('un abogado que no es el responsable ve "Marcar prescripta" deshabilitado', async () => {
+        renderPage(4, 'mrios')
+        await headerOf('Causa 11845620')
+
+        const button = screen.getByRole('button', { name: MARK })
+        expect(button).toBeDisabled()
+        expect(button).toHaveAttribute('title', expect.stringMatching(/^Solo el abogado responsable/))
     })
 
     // CA-33.2, CA-33.16: la Secretaría no tiene el botón.

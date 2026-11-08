@@ -159,13 +159,15 @@ Un usuario con varios roles pasa si el rol pedido está entre ellos.
 | Escribir abogados (registrar y modificar) | `ADMINISTRATOR` |
 | Escribir estados procesales y calificaciones legales | Cualquier usuario autenticado |
 | Registrar un cliente | Cualquier usuario autenticado |
-| Registrar, modificar y dar de baja una causa | Cualquier usuario autenticado |
+| Registrar una causa | Cualquier usuario autenticado |
+| Modificar y dar de baja una causa; crear o reintentar su carpeta | El abogado responsable, `ADMINISTRATOR` o `SECRETARY` (D-110) |
 | Registrar o modificar un acto procesal y previsualizar su vencimiento | El abogado responsable (actual) de la causa |
-| Leer la línea de vida y los actos de una causa; crear o reintentar su carpeta | Cualquier usuario autenticado |
+| Leer la línea de vida y los actos de una causa | Cualquier usuario autenticado |
 | Ver la carátula, listar los documentos y generar el expediente | Cualquier usuario autenticado |
 | Descargar un documento de la causa | `LAWYER` o `SECRETARY`; el expediente, cualquier usuario autenticado (D-103) |
 | Registrar un acto interruptivo | El abogado responsable de la causa |
-| Marcar una causa como prescripta; leer y registrar modelos formales | `ADMINISTRATOR` o `LAWYER` |
+| Marcar una causa como prescripta | `ADMINISTRATOR`, o el abogado responsable (D-110). Sin ninguno de los dos roles, `403` de rol |
+| Leer y registrar modelos formales | `ADMINISTRATOR` o `LAWYER` |
 | `GET /dashboards/lawyer` | `LAWYER` (su propio tablero) |
 | `GET /dashboards/administrator` | `ADMINISTRATOR` |
 
@@ -509,12 +511,13 @@ de servir en el acto.
 | `500` / red | `configureMocks({ forceFailure: 500 })` / `configureMocks({ forceFailure: 'network' })` |
 | `400`, Sprint 3 | un acto interruptivo sin nombre, con fecha futura o con observaciones de más de 2000 caracteres; marcar prescripta sin resolución o con fecha futura; un modelo sin nombre, sin fuero, sin archivo o con un archivo que no es `.docx`; `POST /cases` con `createFolder: false` y `copyTemplates: true`; un dato de otro fuero en el alta (`clientDetained` en un amparo, `harmfulActDate` en el penal…); un amparo con `harmfulActDate` sin `harmfulActTermDays` o sin `harmfulActTermDayType`, o con `harmfulActRenews` sin `harmfulActRenewalDays`; un usuario o un abogado sin `lastName` o sin `firstName` |
 | `403`, Sprint 3 | `gestion` en `/document-templates` o `POST /cases/{id}/prescription`; `supervision` o `gestion` en `/dashboards/lawyer`; `mrios` o `gestion` en `/dashboards/administrator`; cualquiera que no sea el responsable registrando un acto interruptivo (por ejemplo `fvazquez` sobre la causa 1) |
+| `403`, revisión del 08/11/2026 (D-110) | `mrios` (sólo abogado) sobre la causa 4, que lleva `fvazquez`: `PATCH` y `DELETE /cases/4`, `POST /cases/4/prescription` y `POST /cases/4/folder`. Pasan `fvazquez` (responsable), `supervision` (Administrador), `gestion` (Secretaría, salvo la prescripción) y `sledesma` (Secretaría y Abogado, por su rol de Secretaría) |
 | `404`, Sprint 3 | `GET /document-templates/13` (dado de baja) o `/999`; `GET /cases/1/procedural-acts/{actId}` con el id de un acto de otra causa → `PROCEDURAL_ACT_NOT_FOUND` |
 | `409`, Sprint 3 | un modelo con el nombre de otro, sin distinguir mayúsculas (`"recurso de casación"`) → `DOCUMENT_TEMPLATE_ALREADY_EXISTS` (D-71) |
 | `413` | un archivo de más de 10 MB (`MAX_FILE_BYTES`) |
 | `422`, Sprint 3 | acto interruptivo o marca de prescripción fuera del penal (causas 2, 3, 22…) → `PRESCRIPTION_NOT_APPLICABLE`; marcar prescripta la causa 23, penal sin calificaciones → `PRESCRIPTION_NOT_APPLICABLE` con "La causa no tiene calificaciones legales: no puede prescribir." (D-74); cualquiera de los dos sobre una causa terminal (9, 10, 21) → `CASE_IN_TERMINAL_STATE`; `PATCH` o `DELETE /procedural-states/10` → `PROCEDURAL_STATE_PROTECTED` |
 | `502` | `db.failures.documentStorage = true` (Drive caído: carpeta, alta y descarga de modelos). La carpeta queda en `ERROR`. Se vuelve a `false` con `resetMockDb()` |
-| `400`, Sprint 4 | `PATCH /cases/1` con `jurisdiction`, con un campo que no está en la tabla, vacío (`{}`), con `sacNumber: null` sin `startDate: null`, con `legalQualifications` en una causa que no es penal (2, 3…); `DELETE /cases/{id}` con un `reason` de más de 500 caracteres; `GET /cases/1/cover?disposition=x`; modificar un acto dejando `notificationDate` antes del `actDate` nuevo, o con estado de la tabla y escrito a mano a la vez; `POST /cases/1/case-files` sin documentos, con el expediente `Expediente_13284571_v1.pdf` o con un id de otra causa; `cover.opposingParty` en una causa que no es penal; `PATCH /lawyers/4` con `lastName: null` o `firstName: "Dr. Ignacio"` |
+| `400`, Sprint 4 | `PATCH /cases/1` con `jurisdiction` o con `clientId` (D-111), con un campo que no está en la tabla, vacío (`{}`), con `sacNumber: null` sin `startDate: null`, con `legalQualifications` en una causa que no es penal (2, 3…); `DELETE /cases/{id}` con un `reason` de más de 500 caracteres; `GET /cases/1/cover?disposition=x`; modificar un acto dejando `notificationDate` antes del `actDate` nuevo, o con estado de la tabla y escrito a mano a la vez; `POST /cases/1/case-files` sin documentos, con el expediente `Expediente_13284571_v1.pdf` o con un id de otra causa; `cover.opposingParty` en una causa que no es penal; `PATCH /lawyers/4` con `lastName: null` o `firstName: "Dr. Ignacio"` |
 | `403`, Sprint 4 | modificar un acto sin ser el responsable actual (`fvazquez` sobre la causa 1); descargar un documento que no es un expediente como `supervision` (Administrador sin otro rol). El expediente sí lo descarga |
 | `404`, Sprint 4 | cualquier pedido sobre una causa dada de baja → `CASE_NOT_FOUND`; un acto de otra causa → `PROCEDURAL_ACT_NOT_FOUND`; descargar un documento de la causa 2 pidiéndolo por la 1, o uno inexistente → `DOCUMENT_NOT_FOUND` |
 | `409`, Sprint 4 | `PATCH /cases/1` con el SAC de otra causa vigente (`12907344`). El de una causa dada de baja no choca |

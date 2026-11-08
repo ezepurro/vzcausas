@@ -401,11 +401,7 @@ export interface UpdateCaseBody {
     instructorName?: string | null
     tribunalPhone?: string | null
     instructorExtension?: string | null
-    /**
-     * Un cliente vigente. Si cambia, la carátula propuesta viaja en `caption`
-     * en la misma petición: el backend no la recalcula (D-105).
-     */
-    clientId?: number
+    /* Sin `clientId`: el cliente de una causa no se modifica (D-111, `400`). */
     proceduralRole?: ProceduralRole
     /** Solo en `CRIMINAL`. Reemplaza la lista completa; `[]` la deja sin calificaciones. */
     legalQualifications?: CaseQualificationBody[]

@@ -25,7 +25,7 @@ ver [Revisión de V5 del 05/11/2026](#revisión-de-v5-del-05112026).
    endpoint. El resumen está en [Los mocks](#los-mocks), más abajo.
 4. `docs/Api-Contract/API_CONTRACT_V5.md` — la fuente de verdad del backend.
    Es autocontenido: trae lo de los Sprints 1 a 3 que sigue vigente y lo nuevo
-   del Sprint 4. **Última revisión: 06/11/2026** (D-107, D-108 y D-109). Las decisiones (D-xx), los
+   del Sprint 4. **Última revisión: 08/11/2026** (D-110 y D-111). Las decisiones (D-xx), los
    puntos abiertos (C-xx) y lo que queda fuera del contrato están en
    `docs/Api-Contract/DECISIONES.md`. V2, V3 y V4 quedan como registro: ninguno
    es referencia vigente. Si un documento y el contrato no coinciden, manda el
@@ -111,7 +111,7 @@ API, que no está en el prototipo (`cases/CAMBIOS.md`).
 | HU | Qué | Endpoint | Módulo | Estado y tests |
 |---|---|---|---|---|
 | 14 | Modificar abogado: acción "Modificar" en cada fila, sólo el Administrador | `PATCH /lawyers/{lawyerId}` | `lawyers/` | **Hecha** (Ezequiel Purro). `LawyerFormModal` con `mode`, `useUpdateLawyer`, `buildLawyerPatch` y `lawyers.update` en `ACTION_ACCESS`. Cambiar el nombre invalida toda la caché: las causas, los usuarios y los tableros lo nombran (CA-14.2). Tests: `components/lawyers/LawyersPage.edit.test.tsx`, `unit/lawyers/buildLawyerPatch.test.ts` |
-| 19 | Modificar causa: botón "Modificar causa" del detalle, cualquier perfil. El fuero no se modifica (D-95); al cambiar el cliente se propone la carátula y viaja en `caption` (D-105) | `PATCH /cases/{caseId}` | `cases/` | **Hecha** (Facundo Fiorani). `CaseEditForm` en un diálogo, orquestado por `useCaseEdit` (lo comparte con "Generar expediente"); manda sólo lo cambiado (`buildCasePatch`) con `useUpdateCase`. Tests: `components/cases/CaseDetailPage.edit.test.tsx`, `unit/cases/caseForm.test.ts` |
+| 19 | Modificar causa: botón "Modificar causa" del detalle, para el responsable, el Administrador y la Secretaría (D-110). Ni el fuero ni el cliente se modifican (D-95, D-111) | `PATCH /cases/{caseId}` | `cases/` | **Hecha** (Facundo Fiorani). `CaseEditForm` en un diálogo, orquestado por `useCaseEdit` (lo comparte con "Generar expediente"); manda sólo lo cambiado (`buildCasePatch`) con `useUpdateCase`. Tests: `components/cases/CaseDetailPage.edit.test.tsx`, `unit/cases/caseForm.test.ts` |
 | 21 | Dar de baja la causa: botón "Dar de baja" del detalle, con motivo opcional; vuelve al listado | `DELETE /cases/{caseId}` | `cases/` | **Hecha** (Facundo Fiorani). `DeleteCaseModal`, `useDeleteCase` y `toDeleteCaseBody`. Tests: `components/cases/CaseDetailPage.delete.test.tsx` |
 | 23 | Descargar modelo formal (D-90) | `GET /document-templates/{templateId}/file` | `documents/` | **Hecha** con HU35: `components/documents/DocumentTemplatesPage.test.tsx` |
 | 24 | Emitir la carátula en PDF: vista previa en "Generar expediente" e imprimirla suelta | `GET /cases/{caseId}/cover` | `cases/` | **Hecha** con HU25 (Luciano Cipolla). "Vista previa" en "Generar expediente" (`CoverPreviewModal`, `useCaseCover`): muestra el PDF del servidor como la hoja del prototipo, sin dibujarla en el front (D-94, `cases/CAMBIOS.md`). Funciona sin carpeta (CA-24.9). Tests: `components/cases/GenerateCaseFilePage.test.tsx` |
@@ -148,9 +148,10 @@ están en `TESTING.md` §11, "Decisiones de HU-19 y HU-38".
 - **`ACTION_ACCESS`.** `lawyers.update` para "Modificar" abogado, sólo
   `ADMINISTRATOR` (CA-14.6), y `cases.downloadDocument` para "Descargar" un
   documento, `LAWYER` y `SECRETARY` (D-103), cada una con su caso en
-  `unit/app/actionAccess.test.ts`. Modificar y dar de baja una causa no se
-  declaran: son de los tres perfiles. Modificar un acto no es un permiso por
-  rol: se resuelve con `isResponsibleLawyer`.
+  `unit/app/actionAccess.test.ts`. Modificar y dar de baja una causa, su
+  carpeta y "Marcar prescripta" dependen además de la causa (D-110): ver
+  [Revisión de V5 del 08/11/2026](#revisión-de-v5-del-08112026). Modificar
+  un acto no es un permiso por rol: se resuelve con `isResponsibleLawyer`.
 - **Rutas.** "Generar expediente" (`/causas/:caseId/expediente`, HU25) y
   "Modificar acto procesal" (`/causas/:caseId/acto/:actId`, HU28).
 - **Descargas.** La carátula y los documentos son descargas binarias con
@@ -365,7 +366,10 @@ Los componentes son presentacionales y lo reciben hecho:
   responsable (…) registra actos.". La fila "Sobre la causa" ("Registrar acto
   interruptivo" y "Marcar prescripta") aparece sólo en una causa penal que
   todavía no fue marcada prescripta (`showCaseActions`); "Marcar prescripta",
-  además, sólo para el Administrador y los abogados. Lo demás (sin
+  además, sólo para el Administrador y los abogados, y deshabilitado para un
+  abogado que no es el responsable (D-110). "Modificar causa", "Dar de baja"
+  y "Crear carpeta"/"Reintentar" van deshabilitados para un abogado que no es
+  el responsable (`caseOperation`, D-110). Lo demás (sin
   calificaciones, causa archivada) lo rechaza el backend con su `422`.
 
 ### Reglas del dominio
@@ -509,12 +513,13 @@ Son las de V5. Lo que V4 y V5 cambiaron está marcado con su decisión.
   registradas antes de V4. **Sigue a la causa**: se renombra si cambia la
   carátula y se mueve si cambia el responsable; si Drive no responde, la
   modificación no falla y `folder.path` dice dónde quedó.
-- **Modificar una causa** (HU19, V5 §3.7): cualquier perfil. El fuero no se
-  modifica (D-95): una causa en el fuero equivocado se da de baja y se
-  registra de nuevo. Una causa terminal se puede corregir, salvo las
+- **Modificar una causa** (HU19, V5 §3.7): el responsable, el Administrador o
+  la Secretaría (D-110). Ni el fuero ni el cliente se modifican (D-95, D-111):
+  una causa en el fuero o con el cliente equivocados se da de baja y se
+  registra de nuevo; el formulario los muestra bloqueados. Una causa terminal se puede corregir, salvo las
   calificaciones de una "Prescripta" (`422 CASE_IN_TERMINAL_STATE`, D-96).
-- **Baja de una causa** (HU21, D-97): lógica, de cualquier perfil, con motivo
-  opcional. Para el cliente deja de existir: ella y todo lo que cuelga de ella
+- **Baja de una causa** (HU21, D-97): lógica, del responsable, el
+  Administrador o la Secretaría (D-110), con motivo opcional. Para el cliente deja de existir: ella y todo lo que cuelga de ella
   responden `404 CASE_NOT_FOUND`, y sale de listados, tableros y conteos. La
   mutación remueve `detail(id)` e invalida los listados.
 - **Modificar un acto procesal** (HU28, D-98, D-99): sólo el responsable
@@ -566,6 +571,17 @@ migración; D-109 en la validación del alta de clientes):
 | Matrícula del abogado opcional (D-107): `registrationNumber: string | null`; vacía no viaja en el alta, y en el `PATCH` `null` la borra | `lawyers/` (schema, body, patch, tabla con raya), `users/` (ficha nueva), `lawyerLabel` en los selects de causas y usuarios |
 | Cliente (D-108): `documentType` (`DNI` o `PASSPORT`), `documentNumber` (reemplaza a `dni`) y `address` (texto libre, hasta 255) | `clients/` (formulario, schema, tabla "Documento"), `ClientCard` y los selects de cliente de causas |
 | Cliente (D-109, revisión del 06/11/2026): `address` y `phone` obligatorios en el alta (no vacíos; nunca `null` en las respuestas) | `clients/` (asteriscos, schema, body, tipos), mock (`createClient` y semillas: todos tienen dirección y teléfono) y sus tests |
+
+### Revisión de V5 del 08/11/2026
+
+Pedido del equipo, ya escrito en V5 (§4 "Operación de la causa", D-110 y
+D-111 en `DECISIONES.md`) y en Jira (VZ-27, VZ-29, VZ-41, VZ-47). **Aplicado
+en la app, en los mocks y en los tests; el backend todavía no.**
+
+| Cambio | En el front |
+|---|---|
+| Un abogado que no es el responsable sólo consulta y genera el expediente (D-110): no modifica, no da de baja, no marca prescripta ni opera la carpeta. El Administrador y la Secretaría siguen operando cualquier causa (la Secretaría no marca prescripta) | `caseOperation` (`cases/utils/responsibleLawyer.ts`) combina `isResponsibleLawyer` con `cases.operateAnyCase` y `cases.declarePrescriptionAnyCase`. En el detalle, los botones van deshabilitados con su `title`; en "Generar expediente", "Modificá los datos de la causa" no se ofrece. Mock: `403` en `PATCH`/`DELETE /cases/{id}`, `…/prescription` y `…/folder` |
+| El cliente de la causa no se modifica (D-111) | "Modificar causa" lo muestra bloqueado, como el fuero; `clientId` sale de `UpdateCaseBody` y de `buildCasePatch`; se borró `captionWithClient`. Mock: `400` con `details.clientId` |
 
 ### Errores de los campos (06/11/2026)
 
@@ -626,12 +642,14 @@ los documentos de la causa y el expediente). Lo que hay que saber:
   `sledesma` (Secretaría y Abogado). Las contraseñas están en el README.
 - **Permisos**, según la tabla del contrato (V5 §4): leer está abierto a
   cualquiera con sesión, salvo `/users`, los modelos y los tableros. `/users` y
-  escribir abogados piden `ADMINISTRATOR`. Registrar, modificar y dar de baja
-  una causa, registrar un cliente, escribir estados procesales y
-  calificaciones legales, crear o reintentar la carpeta, ver la carátula y los
-  documentos y generar el expediente, lo hace cualquiera. Descargar un
-  documento que no es un expediente pide `LAWYER` o `SECRETARY`. Los modelos y "Marcar prescripta" son de
-  `ADMINISTRATOR` o `LAWYER`; `GET /dashboards/lawyer`, de `LAWYER`, y
+  escribir abogados piden `ADMINISTRATOR`. Registrar una causa, registrar un
+  cliente, escribir estados procesales y calificaciones legales, ver la
+  carátula y los documentos y generar el expediente, lo hace cualquiera.
+  Modificar y dar de baja una causa y crear o reintentar su carpeta, el
+  responsable, `ADMINISTRATOR` o `SECRETARY` (D-110: `mrios` sobre la causa 4
+  recibe `403`). Descargar un documento que no es un expediente pide `LAWYER`
+  o `SECRETARY`. Los modelos son de `ADMINISTRATOR` o `LAWYER`; "Marcar
+  prescripta", del responsable o de `ADMINISTRATOR`; `GET /dashboards/lawyer`, de `LAWYER`, y
   `GET /dashboards/administrator`, de `ADMINISTRATOR`. Lo prueba
   `tests/unit/contract/permissions.test.ts`.
 - **Los actos no se rigen por un rol** (D-30): los registra, los modifica y
@@ -959,7 +977,9 @@ puede decir: una pantalla que ven varios perfiles, con algo que es de uno solo.
 | `lawyers.update` | Administrador | "Modificar" en cada fila de `LawyersPage` (CA-14.6) |
 | `dashboard.lawyer` | Abogado | Pestaña "Mi día" de `/inicio` |
 | `dashboard.administrator` | Administrador | Pestaña "Estudio" de `/inicio` |
-| `cases.declarePrescription` | Administrador y Abogado | "Marcar prescripta" en el detalle de causa |
+| `cases.declarePrescription` | Administrador y Abogado | Que se vea "Marcar prescripta" en el detalle de causa |
+| `cases.declarePrescriptionAnyCase` | Administrador | "Marcar prescripta" una causa de la que no es responsable (D-110). Un abogado, sólo las suyas |
+| `cases.operateAnyCase` | Administrador y Secretaría | "Modificar causa", "Dar de baja" y crear o reintentar la carpeta de cualquier causa (D-110). Un abogado, sólo las suyas; lo combina `caseOperation` |
 | `cases.downloadDocument` | Abogado y Secretaría | "Descargar" un documento que no es un expediente, en la tarjeta "Documentación" (D-103). El expediente lo descarga cualquiera |
 
 ```tsx

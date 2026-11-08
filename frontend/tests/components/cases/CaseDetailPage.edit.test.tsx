@@ -15,7 +15,9 @@ import { CaseDetailPage } from '@/features/cases/pages/CaseDetailPage'
  * con usuario y fecha.".
  *
  * La causa 1 es penal, con SAC 13284571 y cliente GÓMEZ; la lleva `mrios`.
- * Se modifica como `gestion` porque no hace falta ser el responsable (V5 §3.7).
+ * Se modifica como `gestion`: la Secretaría opera cualquier causa (D-110).
+ * La causa 4 (SAC 11845620) la lleva `fvazquez`: `mrios`, que sólo es
+ * abogado, no la puede modificar.
  *
  * Viaja sólo lo que cambió (decisión del 28/10/2026, TESTING.md §11): sin
  * cambios, "Guardar cambios" cierra el diálogo sin llamar a la API.
@@ -45,7 +47,7 @@ async function openEdit(user: ReturnType<typeof renderPage>['user']) {
 describe('CaseDetailPage · modificar causa', () => {
     usePrototypeToday()
 
-    // CA-19.1: cualquier perfil, aunque no sea el responsable.
+    // CA-19.1: la Secretaría opera cualquier causa (D-110).
     it('la Secretaría corrige un dato y el detalle lo muestra', async () => {
         const { user } = renderPage(1)
         const dialog = await openEdit(user)
@@ -123,21 +125,55 @@ describe('CaseDetailPage · modificar causa', () => {
         expect(db.cases.find((c) => c.id === 1)?.sacNumber).toBe('13284571')
     })
 
-    // CA-19.7 (D-105): al cambiar el cliente, el formulario propone la carátula nueva.
-    it('cambiar el cliente propone la carátula con el cliente nuevo', async () => {
+    // CA-19.7 (D-111): el cliente se muestra, pero no se modifica, como el fuero.
+    it('el cliente no se puede cambiar y lo explica', async () => {
         const { user } = renderPage(1)
         const dialog = await openEdit(user)
 
-        await user.selectOptions(
-            within(dialog).getByLabelText(/^cliente/i),
-            within(dialog).getByRole('option', { name: /PEREYRA/ }),
+        expect(
+            within(dialog).getByText('No se modifica. Si la causa se registró con otro cliente, dala de baja y registrala de nuevo.'),
+        ).toBeInTheDocument()
+        expect(within(dialog).queryByRole('combobox', { name: /^cliente/i })).not.toBeInTheDocument()
+        const client = within(dialog).getByRole('textbox', { name: /^cliente/i })
+        expect(client).toBeDisabled()
+        expect(client).toHaveValue('GÓMEZ, Ariel Fernando · DNI 34.812.905')
+    })
+
+    // CA-19.7 (D-111): el cliente no viaja en el PATCH.
+    it('guardar un cambio no manda el cliente', async () => {
+        let body: Record<string, unknown> | null = null
+        server.use(
+            http.patch('*/cases/:caseId', async ({ request }) => {
+                body = (await request.json()) as Record<string, unknown>
+                return HttpResponse.json(errorBody('VALIDATION_ERROR', 'Los datos enviados no son válidos.'), { status: 400 })
+            }),
         )
+        const { user } = renderPage(1)
+        const dialog = await openEdit(user)
 
-        expect(within(dialog).getByLabelText(/^carátula/i)).toHaveValue('PEREYRA, Marcos D. p.s.a. Robo calificado')
-
+        await user.type(within(dialog).getByLabelText(/^interno/i), '5')
         await user.click(within(dialog).getByRole('button', { name: 'Guardar cambios' }))
-        await screen.findByText('Causa actualizada. El cambio queda asentado con usuario y fecha.')
-        expect(db.cases.find((c) => c.id === 1)).toMatchObject({ clientId: 2, caption: 'PEREYRA, Marcos D. p.s.a. Robo calificado' })
+
+        await waitFor(() => expect(body).not.toBeNull())
+        expect(body).not.toHaveProperty('clientId')
+    })
+
+    // CA-19.16 (D-110): un abogado que no es el responsable no la modifica.
+    it('un abogado que no es el responsable ve "Modificar causa" deshabilitado', async () => {
+        renderPage(4, 'mrios')
+        await headerOf('Causa 11845620')
+
+        const button = screen.getByRole('button', { name: 'Modificar causa' })
+        expect(button).toBeDisabled()
+        expect(button).toHaveAttribute('title', expect.stringMatching(/^Solo el abogado responsable/))
+    })
+
+    // CA-19.1 (D-110): el responsable modifica su causa aunque sólo sea abogado.
+    it('el abogado responsable puede abrir "Modificar causa"', async () => {
+        const { user } = renderPage(1, 'mrios')
+        const dialog = await openEdit(user)
+
+        expect(dialog).toBeInTheDocument()
     })
 
     // Mínimo por feature (TESTING.md §11): el error del servidor se muestra.

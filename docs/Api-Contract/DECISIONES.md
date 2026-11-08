@@ -27,7 +27,7 @@ de `API_CONTRACT_V5.md`.
 | D-94 | La carátula la genera **el backend** en PDF, siempre con la misma función: para la vista previa y para imprimirla suelta (`GET /cases/{caseId}/cover`), y para la hoja 1 del expediente, con las observaciones y la parte penal que envía el cliente. No se guarda | Mismo criterio que D-20: lo que el usuario ve antes de generar el expediente es lo que se imprime, salvo lo que él mismo completa. HU24 pide "emitir" la carátula para rotular el expediente físico, aunque el prototipo ya no tenga un botón aparte |
 | D-95 | **(Revisión del 27/10/2026)** El fuero de una causa no se modifica: `PATCH /cases/{caseId}` rechaza `jurisdiction` con `400 VALIDATION_ERROR`. Una causa registrada en el fuero equivocado se da de baja y se registra de nuevo | Definido por el equipo (C-25). Reemplaza la regla provisoria de la primera redacción de V5, que permitía el cambio y reasignaba el estado procesal. Mismo criterio que D-36 para los estados procesales. Como el SAC se libera con la baja (D-97), registrar de nuevo es posible |
 | D-96 | Una causa en estado terminal se puede modificar, salvo las calificaciones legales de una causa "Prescripta" | Corregir un dato mal cargado de una causa archivada es el uso normal de HU19. Las calificaciones son lo que sostiene la declaración de prescripción (D-53, D-74). El fuero no figura porque no se modifica en ninguna causa (D-95) |
-| D-97 | La baja de una causa es lógica, la puede hacer cualquier perfil, acepta un motivo opcional en el cuerpo del `DELETE` y deja la causa inexistente para el cliente, con todos sus subrecursos. **(Revisión del 27/10/2026)** El SAC queda libre: es único entre las causas vigentes. La carpeta de Drive no se toca | RN12, matriz de permisos y formulario "Dar de baja la causa" del prototipo ("Motivo (opcional)"). Un cuerpo en el `DELETE` evita un endpoint aparte solo para el motivo. Liberar el SAC lo definió el equipo (C-32): permite volver a registrar bien una causa cargada mal. Se aparta del diccionario de datos, que hace el SAC único "incluidas las causas dadas de baja" |
+| D-97 | La baja de una causa es lógica, la puede hacer cualquier perfil, acepta un motivo opcional en el cuerpo del `DELETE` y deja la causa inexistente para el cliente, con todos sus subrecursos. **(Revisión del 27/10/2026)** El SAC queda libre: es único entre las causas vigentes. La carpeta de Drive no se toca. **(08/11/2026)** "Cualquier perfil" ya no vale para un abogado sobre una causa ajena (D-110) | RN12, matriz de permisos y formulario "Dar de baja la causa" del prototipo ("Motivo (opcional)"). Un cuerpo en el `DELETE` evita un endpoint aparte solo para el motivo. Liberar el SAC lo definió el equipo (C-32): permite volver a registrar bien una causa cargada mal. Se aparta del diccionario de datos, que hace el SAC único "incluidas las causas dadas de baja" |
 | D-98 | Modificar un acto procesal recalcula su plazo: con el plazo vigente de la tabla si cambia el estado, con el plazo copiado si no. El acto suma `lastModifiedBy` y `lastModifiedAt` | Si cambia el estado es como registrar de nuevo; si solo se corrige una fecha, el plazo que rige es el que se copió (§3.4, D-08). El prototipo promete "El cambio queda asentado con usuario y fecha" |
 | D-99 | Después de modificar un acto, el estado actual de la causa se recalcula con D-14 (el acto más reciente). Corregir el acto que cerró una causa puede reabrirla. Los actos de una causa "Prescripta" no se modifican | Una corrección de fecha no puede dejar a la causa en un estado que no le corresponde. Reabrir es la única forma de corregir un "Archivada" elegido por error, ya que la anulación (HU29) es del Sprint 5. "Prescripta" no la puso un acto (D-54) |
 | D-100 | Los documentos de la causa se leen de su carpeta de Drive en cada pedido, sin guardarlos ni paginarlos, y su `id` es el de Drive. El backend opera con el permiso `drive.readonly` | Es lo que describe el prototipo ("esta lista se lee de ahí cada vez que abrís el detalle") y lo que anticipó ADR-003 §4.1. Guardar una copia de la lista crearía dos verdades. El permiso lo confirmó el equipo (C-24) |
@@ -35,7 +35,9 @@ de `API_CONTRACT_V5.md`.
 | D-102 | El expediente es un PDF sincrónico, guardado en la carpeta de la causa con versión correlativa, que admite PDF, Word, documentos de Google y JPG o PNG, y no admite incluir un expediente anterior. Necesita la carpeta creada | Pantalla "Generar expediente" del prototipo: "un único PDF", "Se convierte a PDF", "Quedó guardado como nueva versión", y la lista que excluye los expedientes. Los tipos son los que el prototipo muestra (PDF, DOC, IMG) |
 | D-103 | La descarga de un documento pasa por la API; la de un expediente generado está abierta a los tres perfiles, la de cualquier otro documento solo a `LAWYER` y `SECRETARY`. **(Revisión del 27/10/2026)** La lista de documentos está abierta a los tres perfiles (C-27) | Mismo motivo que D-58. Quien genera el expediente tiene que poder descargarlo e imprimirlo, y un Administrador sin otro rol no tiene acceso a la carpeta en Drive (D-83). El Administrador necesita la lista para elegir los documentos del expediente, pero lo único que descarga es el expediente |
 | D-104 | **(Revisión del 27/10/2026)** La carpeta de Drive sigue a la causa: se renombra si cambia la carátula, se mueve a la carpeta del nuevo responsable si cambia el responsable, y la del abogado se renombra si cambia su nombre. Si Drive no responde, la modificación no falla y el cambio se completa después, con `POST /cases/{caseId}/folder` o con el proceso diario. Reemplaza en esto a D-61 | Definido por el equipo (C-26). Una carpeta que no corresponde a la carátula o al responsable confunde a quien trabaja en Drive. Con `drive.file` alcanza, porque la app creó esas carpetas. No hacer fallar la modificación es el mismo criterio que la creación (D-60, R-03) |
-| D-105 | **(Revisión del 27/10/2026)** El cliente de una causa se puede modificar. El backend no recalcula la carátula: el cliente la propone y la envía en `caption`, en la misma petición | Definido por el equipo (C-31). Es la misma regla que el alta (§3.7): la carátula sugerida la arma el cliente |
+| D-105 | **(Revisión del 27/10/2026)** El cliente de una causa se puede modificar. El backend no recalcula la carátula: el cliente la propone y la envía en `caption`, en la misma petición. **(Reemplazada el 08/11/2026 por D-111: el cliente ya no se modifica)** | Definido por el equipo (C-31). Es la misma regla que el alta (§3.7): la carátula sugerida la arma el cliente |
+| D-110 | **(Revisión del 08/11/2026)** Un abogado que no es el responsable de una causa solo la consulta (detalle, línea de vida, actos, documentos y su descarga, carátula) y genera y descarga el expediente. No la modifica, no la da de baja, no la marca prescripta ni opera su carpeta (`PATCH` y `DELETE /cases/{caseId}`, `POST …/prescription`, `POST …/folder` → `403 FORBIDDEN`). El `ADMINISTRATOR` y la `SECRETARY` conservan lo que tenían sobre cualquier causa; con varios roles alcanza con uno. Primero `404`, después `403`. Los actos ya eran solo del responsable | Definido por el equipo (08/11/2026). Los perfiles siguen viendo todo (RN11): lo que cambia es lo que un abogado **opera** sobre una causa ajena. Admin y Secretaría quedan como estaban por decisión explícita del equipo. Reemplaza en esto la parte de D-97 que dice que la baja "la puede hacer cualquier perfil" y el "no hace falta ser el responsable" de HU33 |
+| D-111 | **(Revisión del 08/11/2026)** El cliente de una causa no se modifica: `PATCH /cases/{caseId}` rechaza `clientId` con `400 VALIDATION_ERROR` (`details.clientId`), igual que `jurisdiction` (D-95). Una causa con el cliente equivocado se da de baja y se registra de nuevo. La carátula se sigue corrigiendo | Definido por el equipo (08/11/2026). Reemplaza D-105 y vuelve a la propuesta original de C-31 |
 | D-107 | **(Revisión del 05/11/2026)** La matrícula del abogado es opcional: `registrationNumber` vale `null` si no se cargó, no viaja (o viaja vacía) en el alta, y en `PATCH /lawyers/{lawyerId}` `null` la borra. Sigue siendo única entre los abogados que la tienen. Vale también para la ficha que se registra con `POST /users` | Pedido del equipo. El estudio necesita registrar abogados de los que todavía no tiene la matrícula. Cambia CA-14.4 en lo que respecta a la matrícula; el apellido y los nombres siguen siendo obligatorios |
 | D-109 | **(Revisión del 06/11/2026)** `address` y `phone` del cliente son obligatorios en `POST /clients` (no vacíos). Reemplaza el "opcional" de `address` de D-108 y el de `phone` de V4. La regla vive en el dominio y también en la base: las dos columnas son `NOT NULL` | Pedido del equipo (06/11/2026). Los clientes cargados hasta ahora son datos de prueba: se vacía la base y se vuelve a cargar con el seed, así que no hace falta un valor de relleno para los viejos |
 | D-108 | **(Revisión del 05/11/2026)** El cliente se identifica con `documentType` (`DNI` o `PASSPORT`) y `documentNumber`, que reemplaza a `dni`, y suma `address` (texto libre, hasta 255 caracteres; obligatoria desde D-109). El documento es único por tipo entre los clientes vigentes. El `409` conserva el código `CLIENT_DNI_ALREADY_EXISTS` | Pedido del equipo: hay clientes extranjeros que no tienen DNI, y el estudio necesita la dirección. Los tipos los eligió el equipo (DNI y pasaporte). Renombrar `dni` es un cambio incompatible que el equipo aceptó; el código de error no se renombra porque no aporta y rompería el manejo de errores de los dos lados |
@@ -170,7 +172,7 @@ el Sprint 4.
 | C-27 | Administrador sin otro rol y "Generar expediente" | Ve la lista de documentos; de ellos, solo descarga los expedientes (D-103) |
 | C-28 | Tratamiento en la carátula | Prefijo fijo `DR.` para todos los abogados (D-106, revisado el 29/10/2026; antes `DR/DRA.`) |
 | C-30 | HU23 tiene dos nombres y dos permisos | Es "Descargar Modelo Formal", restringida a `ADMINISTRATOR` o `LAWYER` (D-90) |
-| C-31 | El cliente de una causa no se modifica | Sí se modifica; la carátula la propone el cliente (D-105) |
+| C-31 | El cliente de una causa no se modifica | Sí se modifica; la carátula la propone el cliente (D-105). **(08/11/2026)** Revisado: no se modifica (D-111) |
 | C-32 | SAC de una causa dada de baja | Se libera (D-97) |
 | C-13 | (De V3.) Otros datos del abogado | Para la carátula ya no hace falta un dato de tratamiento (D-106). El resto sigue como en V4 |
 
@@ -271,6 +273,41 @@ para que el equipo las corrija; el contrato no las cambia.
 - **ADR-003.** §4.1 se cierra con `drive.readonly` (C-24), y la regla de que la
   carpeta no se mueve ni se renombra cambia con D-104. Además, §2.3 y §4 citan
   "C-45" para los correos que no son de Google: es C-23.
+
+### Impacto de la revisión del 08/11/2026
+
+**D-110: un abogado no responsable solo consulta y genera el expediente.**
+`PATCH /cases/{caseId}`, `DELETE /cases/{caseId}`, `POST
+/cases/{caseId}/prescription` y `POST /cases/{caseId}/folder` pasan a responder
+`403 FORBIDDEN` a un usuario cuyo único rol operativo es `LAWYER` y que no es el
+responsable. Rompe a quien hoy opera causas ajenas siendo solo abogado; no
+cambia nada para `ADMINISTRATOR` ni `SECRETARY`. No cambia ningún campo ni
+código de error.
+
+**D-111: el cliente de la causa queda fijo.** `PATCH /cases/{caseId}` con
+`clientId` responde `400 VALIDATION_ERROR`. Rompe al formulario "Modificar
+causa", que hoy lo envía y propone la carátula nueva (CA-19.7).
+
+**Sin migración.** Las dos son reglas de autorización y de validación: no
+cambian tablas, columnas, enums ni índices.
+
+**Backend.** Una regla de autorización por causa en `cases` (hoy esa
+comparación solo existe en los casos de uso de actos), los tests de
+integración de los cuatro endpoints con los perfiles de la tabla de §4,
+"Operación de la causa", y sacar `clientId` del DTO de `PATCH`.
+
+**Frontend.** El detalle oculta o deshabilita "Modificar causa", "Dar de baja",
+"Marcar prescripta" y reintentar la carpeta para un abogado no responsable (con
+la misma lógica que hoy usa para "Registrar acto"); el formulario muestra el
+cliente fijo, como el fuero, y deja de mandar `clientId`; los mocks de MSW
+replican los `403` y el `400`.
+
+**OpenAPI.** `CaseUpdate.yaml` pierde `clientId` (cita D-105), y los cuatro
+endpoints suman el `403`.
+
+**Nota.** Este archivo tiene dos decisiones con el id D-109 (`address` y
+`phone` obligatorios, y los modelos por fuero en Drive). No se renumeró: las
+referencias que haya en el código seguirían apuntando a la que no es.
 
 ### Impacto de la revisión del 06/11/2026
 

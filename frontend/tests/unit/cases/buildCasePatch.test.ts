@@ -126,11 +126,15 @@ describe('buildCasePatch', () => {
         expect(buildCasePatch(CRIMINAL, edit(CRIMINAL, { instructorName: '   ' }))).toEqual({ instructorName: null })
     })
 
-    it('el cliente y el responsable viajan como número', () => {
-        expect(buildCasePatch(CRIMINAL, edit(CRIMINAL, { clientId: '2', responsibleLawyerId: '5' }))).toEqual({
-            clientId: 2,
+    it('el responsable viaja como número', () => {
+        expect(buildCasePatch(CRIMINAL, edit(CRIMINAL, { responsibleLawyerId: '5' }))).toEqual({
             responsibleLawyerId: 5,
         })
+    })
+
+    // CA-19.7 (D-111): el cliente no se modifica, así que nunca viaja.
+    it('el cliente no viaja aunque el formulario traiga otro', () => {
+        expect(buildCasePatch(CRIMINAL, edit(CRIMINAL, { clientId: '2' }))).toEqual({})
     })
 
     // CA-19.6: la fecha de inicio va con el SAC.

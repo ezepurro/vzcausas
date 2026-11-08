@@ -271,6 +271,23 @@ function isResponsibleLawyer(user: StoredUser, stored: StoredCase): boolean {
     return user.lawyerId !== null && user.lawyerId === stored.responsibleLawyerId;
 }
 
+/**
+ * Quien opera la causa (V5 §4, "Operación de la causa", D-110): modificarla,
+ * darla de baja y crear o reintentar su carpeta. El responsable, o un
+ * `ADMINISTRATOR` o una `SECRETARY` sobre cualquier causa. Un usuario que
+ * sólo es abogado y no es el responsable, no.
+ */
+function canOperateCase(user: StoredUser, stored: StoredCase): boolean {
+    return isResponsibleLawyer(user, stored)
+        || user.roles.includes('ADMINISTRATOR')
+        || user.roles.includes('SECRETARY');
+}
+
+/** "Marcar prescripta" (D-110): el responsable o un `ADMINISTRATOR`. */
+function canDeclarePrescription(user: StoredUser, stored: StoredCase): boolean {
+    return isResponsibleLawyer(user, stored) || user.roles.includes('ADMINISTRATOR');
+}
+
 /** La administración: usuarios, y escribir abogados (V3 D-39). */
 function requireAdmin(request: MockRequest): AuthResult {
     return requireRole(request, 'ADMINISTRATOR');
@@ -2404,6 +2421,7 @@ const declarePrescription: Handler = ({ request, params }) => {
 
     const stored = db.cases.find((c) => c.id === caseId && c.active);
     if (!stored) return fail(404, ERRORS.caseNotFound);
+    if (!canDeclarePrescription(auth.user, stored)) return fail(403, ERRORS.forbiddenNotResponsiblePrescription);
 
     if (stored.jurisdiction !== 'CRIMINAL') return fail(422, ERRORS.prescriptionNotApplicable);
     // Una causa penal sin calificación legal no prescribe (V4 D-74).
@@ -2450,6 +2468,7 @@ const createCaseFolder: Handler = ({ request, params }) => {
 
     const stored = db.cases.find((c) => c.id === caseId && c.active);
     if (!stored) return fail(404, ERRORS.caseNotFound);
+    if (!canOperateCase(auth.user, stored)) return fail(403, ERRORS.forbiddenNotResponsibleFolder);
 
     const folder = stored.folder;
     if (folder === null || folder.status === 'PENDING' || folder.status === 'ERROR') {
@@ -3004,7 +3023,7 @@ const administratorDashboard: Handler = ({ request }) => {
 /** Lo que `PATCH /cases/{caseId}` deja cambiar (V5 §3.7). Todo lo demás es `400`. */
 const CASE_PATCH_FIELDS = [
     'sacNumber', 'caption', 'court', 'instructorName', 'tribunalPhone', 'instructorExtension',
-    'clientId', 'proceduralRole', 'legalQualifications', 'clientDetained', 'counterparty',
+    'proceduralRole', 'legalQualifications', 'clientDetained', 'counterparty',
     'subjectMatter', 'injunctionGranted', 'harmfulActDate', 'harmfulActRenews',
     'harmfulActRenewalDays', 'harmfulActTermDays', 'harmfulActTermDayType',
     'administrativeRemedyExhaustedOn', 'courtFeePaid', 'responsibleLawyerId', 'startDate',
@@ -3030,14 +3049,13 @@ const MSG_NOT_TEXT = 'Debe ser un texto.';
 const MSG_NOT_EMPTY = 'No puede quedar vacío.';
 
 /**
- * Modifica una causa (HU19, V5 §3.7). Lo hace cualquier perfil: la
- * restricción al responsable es sólo para los actos.
+ * Modifica una causa (HU19, V5 §3.7). La modifica quien opera la causa: el
+ * responsable, un `ADMINISTRATOR` o una `SECRETARY` (D-110).
  *
- * Como en los actos procesales, el `404` de la causa va antes que el `400` del
- * cuerpo: qué datos admite depende de su fuero.
+ * Como en los actos procesales, el `404` de la causa va antes que el `403` y
+ * que el `400` del cuerpo: qué datos admite depende de su fuero.
  *
- * El fuero no se modifica (D-95). El backend no recalcula la carátula al
- * cambiar el cliente: la manda el cliente en `caption` (D-105). La carpeta
+ * Ni el fuero ni el cliente se modifican (D-95, D-111). La carpeta
  * sigue a la causa (D-104): se renombra con la carátula y se mueve con el
  * responsable, salvo que Drive no responda; ahí la causa se guarda igual y la
  * carpeta queda donde estaba.
@@ -3051,6 +3069,7 @@ const updateCase: Handler = ({ request, params }) => {
 
     const stored = db.cases.find((c) => c.id === caseId && c.active);
     if (!stored) return fail(404, ERRORS.caseNotFound);
+    if (!canOperateCase(auth.user, stored)) return fail(403, ERRORS.forbiddenNotResponsibleCaseUpdate);
 
     const body = asObject(request.body);
     const keys = Object.keys(body);
@@ -3062,6 +3081,7 @@ const updateCase: Handler = ({ request, params }) => {
 
     for (const key of keys) {
         if (key === 'jurisdiction') details.jurisdiction = 'El fuero de una causa no se puede modificar.';
+        else if (key === 'clientId') details.clientId = 'El cliente de una causa no se puede modificar.';
         else if (!(CASE_PATCH_FIELDS as readonly string[]).includes(key)) details[key] = MSG_NOT_MODIFIABLE;
         else {
             const rule = CASE_FIELD_JURISDICTIONS[key];
@@ -3127,12 +3147,6 @@ const updateCase: Handler = ({ request, params }) => {
         const dayType = body.harmfulActTermDayType;
         if (dayType === null || dayType === 'BUSINESS' || dayType === 'CONSECUTIVE') next.harmfulActTermDayType = dayType;
         else details.harmfulActTermDayType = 'Debe ser BUSINESS o CONSECUTIVE.';
-    }
-    if (has('clientId')) {
-        const id = readBodyId(body.clientId);
-        if (id === undefined || !db.clients.some((c) => c.id === id && c.active)) {
-            details.clientId = 'No existe un cliente vigente con ese identificador.';
-        } else next.clientId = id;
     }
     if (has('responsibleLawyerId')) {
         const id = readBodyId(body.responsibleLawyerId);
@@ -3238,6 +3252,7 @@ const deleteCase: Handler = ({ request, params }) => {
 
     const stored = db.cases.find((c) => c.id === caseId && c.active);
     if (!stored) return fail(404, ERRORS.caseNotFound);
+    if (!canOperateCase(auth.user, stored)) return fail(403, ERRORS.forbiddenNotResponsibleCaseDelete);
 
     stored.active = false;
     stored.deactivation = { reason, byId: auth.user.id, at: nowIso() };

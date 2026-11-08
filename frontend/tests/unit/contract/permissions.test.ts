@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { resolveRequest } from '@/shared/mocks'
+import { resetMockDb, resolveRequest } from '@/shared/mocks'
 
 /**
  * Permisos del servidor falso, según la matriz por perfil del contrato
@@ -68,6 +68,7 @@ const OPEN_TO_EVERYONE: readonly [Method, string][] = [
     ['GET', `/cases/${MISSING}/procedural-acts/1`],
     ['GET', `/cases/${MISSING}/timeline`],
     // V5: modificar y dar de baja la causa, la carátula, sus documentos y el expediente (HU19 a HU25, HU38).
+    // Por rol los tres pasan; modificar, dar de baja y la carpeta además dependen de la causa (D-110, abajo).
     ['PATCH', `/cases/${MISSING}`],
     ['DELETE', `/cases/${MISSING}`],
     ['GET', `/cases/${MISSING}/cover`],
@@ -145,5 +146,76 @@ describe('permisos del servidor falso', () => {
 
     it('el tablero "Mi día" es sólo del Abogado', () => {
         expect(forbiddenMap(LAWYER_ONLY)).toEqual(expectedMap(LAWYER_ONLY, ['LAWYER']))
+    })
+})
+
+/**
+ * Operación de la causa (V5 §4, D-110): además del rol, depende de quién
+ * la lleva. La causa 4 la lleva `fvazquez`; `mrios` sólo es abogado y no es
+ * el responsable. Acá el `404` va antes que el `403` (sin causa no hay
+ * responsable), así que se prueba con una causa que existe. Cada pedido va
+ * con un estado de la base nuevo, para que una baja no tape lo que sigue.
+ */
+describe('operación de la causa en el servidor falso (D-110)', () => {
+    const CASE = 4
+    /** Un cuerpo válido de "Marcar prescripta": con `{}` el `400` saldría antes. */
+    const PRESCRIPTION = { prescriptionDate: '2026-09-01', resolution: 'Sentencia N° 1' }
+
+    function statusOn(username: string, password: string, method: Method, path: string, body?: unknown): number {
+        resetMockDb()
+        const login = resolveRequest({
+            method: 'POST',
+            path: '/auth/login',
+            query: new URLSearchParams(),
+            body: { username, password },
+        })
+        const token = (login.body as { data: { accessToken: string } }).data.accessToken
+        return resolveRequest({ method, path, query: new URLSearchParams(), body, token }).status
+    }
+
+    const OPERATIONS: readonly [Method, string, unknown][] = [
+        ['PATCH', `/cases/${CASE}`, { court: 'Otro órgano' }],
+        ['DELETE', `/cases/${CASE}`, undefined],
+        ['POST', `/cases/${CASE}/folder`, {}],
+    ]
+
+    it('un abogado que no es el responsable recibe 403; el responsable, el Administrador y la Secretaría, no', () => {
+        const forbidden = (username: string, password: string) =>
+            OPERATIONS.map(([method, path, body]) => statusOn(username, password, method, path, body) === 403)
+
+        expect(forbidden('mrios', 'abogado123')).toEqual([true, true, true])
+        expect(forbidden('fvazquez', 'password1')).toEqual([false, false, false])
+        expect(forbidden(USERS.ADMINISTRATOR.username, USERS.ADMINISTRATOR.password)).toEqual([false, false, false])
+        expect(forbidden(USERS.SECRETARY.username, USERS.SECRETARY.password)).toEqual([false, false, false])
+    })
+
+    it('"Marcar prescripta" es del responsable o del Administrador', () => {
+        const path = `/cases/${CASE}/prescription`
+        expect(statusOn('mrios', 'abogado123', 'POST', path, PRESCRIPTION)).toBe(403)
+        expect(statusOn('fvazquez', 'password1', 'POST', path, PRESCRIPTION)).toBe(200)
+        expect(statusOn(USERS.ADMINISTRATOR.username, USERS.ADMINISTRATOR.password, 'POST', path, PRESCRIPTION)).toBe(200)
+        expect(statusOn(USERS.SECRETARY.username, USERS.SECRETARY.password, 'POST', path, PRESCRIPTION)).toBe(403)
+    })
+
+    it('un PATCH con clientId responde 400 en el campo (D-111)', () => {
+        resetMockDb()
+        const login = resolveRequest({
+            method: 'POST',
+            path: '/auth/login',
+            query: new URLSearchParams(),
+            body: USERS.SECRETARY,
+        })
+        const token = (login.body as { data: { accessToken: string } }).data.accessToken
+        const response = resolveRequest({
+            method: 'PATCH',
+            path: `/cases/${CASE}`,
+            query: new URLSearchParams(),
+            body: { clientId: 2 },
+            token,
+        })
+        expect(response.status).toBe(400)
+        expect(response.body).toMatchObject({
+            error: { details: { clientId: 'El cliente de una causa no se puede modificar.' } },
+        })
     })
 })

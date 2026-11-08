@@ -13,7 +13,12 @@ export interface CaseFileCoverPanelProps {
     errors: CaseFileFormErrors
     onChange: (key: keyof CaseFileFormValues, value: string) => void
     onPreview: () => void
-    onEditCase: () => void
+    /**
+     * "Modificá los datos de la causa", o `null` si el usuario no puede
+     * modificarla (un abogado que no es el responsable, D-110): ahí el atajo
+     * no se ofrece, aunque el expediente sí lo genere.
+     */
+    onEditCase: (() => void) | null
 }
 
 /**
@@ -84,13 +89,15 @@ export function CaseFileCoverPanel({
                     />
                 </Field>
 
-                <p className="vz-casefile__hint">
-                    ¿Hay que corregir algo en la carátula?{' '}
-                    <button type="button" className="vz-casefile__link" onClick={onEditCase}>
-                        Modificá los datos de la causa
-                    </button>{' '}
-                    y la carátula se actualiza sola.
-                </p>
+                {onEditCase && (
+                    <p className="vz-casefile__hint">
+                        ¿Hay que corregir algo en la carátula?{' '}
+                        <button type="button" className="vz-casefile__link" onClick={onEditCase}>
+                            Modificá los datos de la causa
+                        </button>{' '}
+                        y la carátula se actualiza sola.
+                    </p>
+                )}
             </div>
         </Panel>
     )

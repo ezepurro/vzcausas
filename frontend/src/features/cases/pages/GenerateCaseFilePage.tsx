@@ -1,7 +1,10 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { useBlocker, useNavigate, useParams } from 'react-router'
+import { useCan } from '@/app/access/useCan'
+import { useCurrentUser } from '@/app/providers/AuthContext'
 import { useToast } from '@/app/providers/ToastContext'
 import { useGoBack } from '@/app/router/useGoBack'
+import { caseOperation } from '@/features/cases/utils/responsibleLawyer'
 import { isApiError } from '@/shared/api/ApiError'
 import { Breadcrumbs, Button, Modal, PageHeader, Panel, type BreadcrumbItem } from '@/shared/components/ui'
 import { useCase } from '@/features/cases/api/useCase'
@@ -110,8 +113,15 @@ function CaseFileGenerator({ case: c }: { case: Case }) {
     const download = useDownloadCaseDocument(c.id)
     /* "Modificá los datos de la causa" abre el mismo diálogo que el detalle
        (HU19), sin salir de la pantalla: al guardar, la carátula ya sale con
-       los datos nuevos. */
+       los datos nuevos. Un abogado que no es el responsable genera el
+       expediente pero no modifica la causa (D-110): a él no se le ofrece. */
     const edit = useCaseEdit(c)
+    const { lawyer } = useCurrentUser()
+    const operateAnyCase = useCan('cases.operateAnyCase')
+    const { canOperate } = caseOperation(c, lawyer?.id ?? null, {
+        operate: operateAnyCase,
+        declarePrescription: false,
+    })
 
     const [values, setValues] = useState<CaseFileFormValues>({ opposingParty: '', notes: '' })
     const [errors, setErrors] = useState<CaseFileFormErrors>({})
@@ -222,7 +232,7 @@ function CaseFileGenerator({ case: c }: { case: Case }) {
                         errors={errors}
                         onChange={changeValue}
                         onPreview={() => setPreviewOpen(true)}
-                        onEditCase={edit.open}
+                        onEditCase={canOperate ? edit.open : null}
                     />
                     <CaseFileDocumentsPanel
                         folderCreated={folderCreated}

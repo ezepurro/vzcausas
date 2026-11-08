@@ -69,11 +69,11 @@ que el contrato fija de él está en
 | `GET`    | `/cases`                                              |      Sí       | Cualquier usuario autenticado | Consultar causas |
 | `GET`    | `/cases/custom-states`                                |      Sí       | Cualquier usuario autenticado | Consultar estados escritos a mano |
 | `GET`    | `/cases/{caseId}`                                     |      Sí       | Cualquier usuario autenticado | Consultar detalle de causa |
-| `PATCH`  | `/cases/{caseId}`                                     |      Sí       | Cualquier usuario autenticado | Modificar causa (HU19) |
-| `DELETE` | `/cases/{caseId}`                                     |      Sí       | Cualquier usuario autenticado | Dar de baja causa (HU21) |
+| `PATCH`  | `/cases/{caseId}`                                     |      Sí       | Quien opera la causa ³        | Modificar causa (HU19) |
+| `DELETE` | `/cases/{caseId}`                                     |      Sí       | Quien opera la causa ³        | Dar de baja causa (HU21) |
 | `GET`    | `/cases/{caseId}/cover`                               |      Sí       | Cualquier usuario autenticado | Emitir la carátula en PDF (HU24) |
-| `POST`   | `/cases/{caseId}/prescription`                        |      Sí       | `ADMINISTRATOR` o `LAWYER`    | Marcar la causa como prescripta |
-| `POST`   | `/cases/{caseId}/folder`                              |      Sí       | Cualquier usuario autenticado | Crear o reintentar la carpeta de la causa |
+| `POST`   | `/cases/{caseId}/prescription`                        |      Sí       | `ADMINISTRATOR` o abogado responsable de la causa ³ | Marcar la causa como prescripta |
+| `POST`   | `/cases/{caseId}/folder`                              |      Sí       | Quien opera la causa ³        | Crear o reintentar la carpeta de la causa |
 | `POST`   | `/cases/{caseId}/procedural-acts`                     |      Sí       | Abogado responsable de la causa | Registrar acto procesal |
 | `GET`    | `/cases/{caseId}/procedural-acts/deadline-preview`    |      Sí       | Abogado responsable de la causa | Previsualizar el vencimiento de un acto |
 | `GET`    | `/cases/{caseId}/procedural-acts`                     |      Sí       | Cualquier usuario autenticado | Consultar actos procesales |
@@ -99,6 +99,13 @@ La columna **Rol** se deriva de la tabla de
 ² Un documento cualquiera de la carpeta, solo `LAWYER` o `SECRETARY` (HU38); un
 expediente generado por el sistema, cualquier usuario autenticado (HU25). Ver
 [§3.12](#get-casescaseiddocumentsdocumentidfile).
+
+³ **(Revisión del 08/11/2026, D-110)** "Quien opera la causa" es el abogado
+responsable de la causa, un `ADMINISTRATOR` o una `SECRETARY`. Un usuario cuyo
+único rol es `LAWYER` y que no es el responsable recibe `403 FORBIDDEN`: sobre
+una causa ajena solo consulta (detalle, línea de vida, actos, documentos,
+carátula) y genera el expediente. Ver
+[Operación de la causa](#operación-de-la-causa).
 
 ---
 
@@ -3108,8 +3115,10 @@ La causa admite **modificación**
 ([`DELETE /cases/{caseId}`](#delete-casescaseid), HU21) y la **carátula**
 (HU24), una hoja en PDF que se arma con los datos de la causa, sin datos
 nuevos en el recurso:
-[`GET /cases/{caseId}/cover`](#get-casescaseidcover). Los tres son de
-cualquier usuario autenticado, según la matriz de permisos (HU18 a HU25). La
+[`GET /cases/{caseId}/cover`](#get-casescaseidcover). La carátula es de
+cualquier usuario autenticado; la modificación y la baja, de quien opera la
+causa **(Revisión del 08/11/2026, D-110)**: un abogado que no es el
+responsable no las hace (ver [Operación de la causa](#operación-de-la-causa)). La
 documentación de la causa y el expediente (HU38 y HU25) tienen su propia
 sección, [§3.12](#312-documentación-de-la-causa-casescaseiddocuments-y-casescaseidcase-files).
 
@@ -4262,9 +4271,11 @@ interruptivo registrado el 04/07/2024").
 Modifica los datos de una causa para corregir información errónea
 (HU19).
 
-**Rol requerido:** cualquier usuario autenticado (matriz de permisos, HU18 a
-HU25). No hace falta ser el abogado responsable: la restricción al responsable
-es solo para los actos procesales e interruptivos.
+**Rol requerido:** quien opera la causa **(Revisión del 08/11/2026, D-110)**:
+el abogado responsable, un `ADMINISTRATOR` o una `SECRETARY`. Un usuario cuyo
+único rol es `LAWYER` y que no es el responsable recibe `403 FORBIDDEN` (ver
+[Operación de la causa](#operación-de-la-causa)). Si la causa no existe, la
+respuesta es `404 CASE_NOT_FOUND`, antes que el `403`.
 
 Es el formulario "Modificar causa" del detalle. Todos los campos son
 opcionales, pero debe enviarse al menos uno. Un campo omitido no cambia; un
@@ -4301,15 +4312,6 @@ Cambio de responsable y de calificaciones en una causa penal:
 }
 ```
 
-Cambio de cliente, con la carátula que propone el cliente para el nuevo:
-
-```json
-{
-	"clientId": 9,
-	"caption": "FERREYRA, Lucas Martín p.s.a. Robo calificado"
-}
-```
-
 | Campo                   | Tipo             | Nulo | Restricciones                                                                                   |
 | ----------------------- | ---------------- | :--: | ----------------------------------------------------------------------------------------------- |
 | `sacNumber`             | String           |  Sí  | Exactamente 8 dígitos y único entre las causas vigentes. `null` deja la causa sin SAC    |
@@ -4318,7 +4320,6 @@ Cambio de cliente, con la carátula que propone el cliente para el nuevo:
 | `instructorName`        | String           |  Sí  | Hasta 150 caracteres                                                                            |
 | `tribunalPhone`         | String           |  Sí  | Hasta 50 caracteres                                                                             |
 | `instructorExtension`   | String           |  Sí  | Hasta 20 caracteres                                                                             |
-| `clientId`              | Integer          |  No  | Cliente vigente. Ver **Cliente** más abajo                                               |
 | `proceduralRole`        | `ProceduralRole` |  No  | Debe corresponder al fuero de la causa                                                          |
 | `legalQualifications`   | Object[]         |  No  | Solo en `CRIMINAL`. **Reemplaza la lista completa**; `[]` deja la causa sin calificaciones. Misma estructura y reglas que en el alta |
 | `clientDetained`        | Boolean          |  No  | Solo en `CRIMINAL`                                                                              |
@@ -4335,12 +4336,14 @@ Cambio de cliente, con la carátula que propone el cliente para el nuevo:
 | `responsibleLawyerId`   | Integer          |  No  | Abogado vigente (RN3)                                                                           |
 | `startDate`             | String (fecha)   |  Sí  | Mismas reglas que en el alta: obligatoria si la causa queda con SAC; `null` si queda sin SAC. No posterior a hoy |
 
-**No se modifican** el fuero (`jurisdiction`), la carpeta (tiene su
+**No se modifican** el fuero (`jurisdiction`), el cliente (`clientId`,
+**(Revisión del 08/11/2026, D-111)**), la carpeta (tiene su
 propio endpoint), el estado procesal (lo mueven los actos), la prescripción y
 su declaración (calculada y HU33) ni `active` (la baja es `DELETE`). Un campo
-que no está en la tabla, `jurisdiction` incluido, responde
-`400 VALIDATION_ERROR`. Si una causa se registró en el fuero equivocado, se da
-de baja y se registra de nuevo; su SAC queda libre para eso.
+que no está en la tabla, `jurisdiction` y `clientId` incluidos, responde
+`400 VALIDATION_ERROR`. Si una causa se registró en el fuero equivocado o con
+el cliente equivocado, se da de baja y se registra de nuevo; su SAC queda
+libre para eso.
 
 **Reglas**
 
@@ -4352,11 +4355,9 @@ de baja y se registra de nuevo; su SAC queda libre para eso.
   causa no la tiene: es la misma regla del alta.
 - **Datos que no son del fuero.** Un dato propio de otro fuero responde
   `400 VALIDATION_ERROR`, igual que en el alta.
-- **Cliente.** Se puede cambiar por otro cliente vigente. El backend no
-  recalcula la carátula: como en el alta, la propone el cliente con el cliente
-  nuevo y la envía en `caption`, en la misma petición. Si no la envía, la
-  carátula queda como estaba. La hoja de carátula toma el cliente nuevo desde
-  la próxima vez que se emita, porque no se guarda.
+- **Cliente.** **(Revisión del 08/11/2026, D-111)** No se cambia: queda fijo
+  desde el alta, igual que el fuero. El formulario lo muestra sin poder
+  editarlo. La carátula (`caption`) se sigue pudiendo corregir.
 - **Responsable.** Cambiarlo cambia quién registra los actos de la causa desde
   la próxima petición. Los actos ya registrados conservan su
   `registeredBy`. La carpeta en Drive **se mueve** a la del nuevo abogado
@@ -4428,6 +4429,20 @@ Devuelve el recurso causa completo, igual que `GET /cases/{caseId}`.
 }
 ```
 
+**(Revisión del 08/11/2026, D-111)**
+
+```json
+{
+	"error": {
+		"code": "VALIDATION_ERROR",
+		"message": "Los datos enviados no son válidos.",
+		"details": {
+			"clientId": "El cliente de una causa no se puede modificar."
+		}
+	}
+}
+```
+
 Un cuerpo sin ningún campo responde `400 VALIDATION_ERROR`, como en los demás
 `PATCH` del contrato. Un `caseId` que no es un entero responde
 `INVALID_PATH_PARAMETER`.
@@ -4439,6 +4454,21 @@ Un cuerpo sin ningún campo responde `400 VALIDATION_ERROR`, como en los demás
 	"error": {
 		"code": "UNAUTHENTICATED",
 		"message": "La autenticación es requerida.",
+		"details": null
+	}
+}
+```
+
+**`403 Forbidden`** **(Revisión del 08/11/2026, D-110)**
+
+Un usuario cuyo único rol es `LAWYER` y que no es el abogado responsable de la
+causa.
+
+```json
+{
+	"error": {
+		"code": "FORBIDDEN",
+		"message": "Solo el abogado responsable de la causa puede modificarla.",
 		"details": null
 	}
 }
@@ -4489,8 +4519,11 @@ Causa inexistente o dada de baja.
 Da de baja una causa (HU21), para retirar registros incorrectos o
 duplicados.
 
-**Rol requerido:** cualquier usuario autenticado (matriz de permisos, HU18 a
-HU25).
+**Rol requerido:** quien opera la causa **(Revisión del 08/11/2026, D-110)**:
+el abogado responsable, un `ADMINISTRATOR` o una `SECRETARY`. Un usuario cuyo
+único rol es `LAWYER` y que no es el responsable recibe `403 FORBIDDEN` (ver
+[Operación de la causa](#operación-de-la-causa)). Si la causa no existe, la
+respuesta es `404 CASE_NOT_FOUND`, antes que el `403`.
 
 La baja es **lógica** (RN12): el backend pone `active` en `false` y conserva la
 causa con todos sus actos, actos interruptivos, carátula y expedientes, como
@@ -4575,6 +4608,21 @@ Un `caseId` que no es un entero responde `INVALID_PATH_PARAMETER`.
 }
 ```
 
+**`403 Forbidden`** **(Revisión del 08/11/2026, D-110)**
+
+Un usuario cuyo único rol es `LAWYER` y que no es el abogado responsable de la
+causa.
+
+```json
+{
+	"error": {
+		"code": "FORBIDDEN",
+		"message": "Solo el abogado responsable de la causa puede darla de baja.",
+		"details": null
+	}
+}
+```
+
 **`404 Not Found`**
 
 Causa inexistente o ya dada de baja.
@@ -4652,7 +4700,7 @@ escribe el backend. Un dato `null` deja
 su parte vacía.
 
 Como nada se guarda, la hoja sigue siempre a los datos vigentes de la causa:
-si se modifica el cliente, el rol procesal, el responsable, el instructor o la
+si se modifica la carátula, el rol procesal, el responsable, el instructor o la
 contraparte, la próxima emisión ya lo refleja.
 
 **Parámetros de ruta**
@@ -4864,9 +4912,11 @@ Causa inexistente o dada de baja.
 
 Marca una causa penal como prescripta (HU33).
 
-**Rol requerido:** `ADMINISTRATOR` o `LAWYER`. No hace falta ser el abogado
-responsable de la causa: el prototipo habilita "Marcar prescripta" a los dos
-perfiles sobre cualquier causa penal, y no a la Secretaría.
+**Rol requerido:** `ADMINISTRATOR`, o `LAWYER` siendo el abogado responsable
+de la causa **(Revisión del 08/11/2026, D-110)**. Un abogado que no es el
+responsable recibe `403 FORBIDDEN`, salvo que también tenga el rol
+`ADMINISTRATOR`. La Secretaría no la marca, como en el prototipo. Si la causa
+no existe, la respuesta es `404 CASE_NOT_FOUND`, antes que el `403`.
 
 Es la acción "Marcar prescripta" del detalle, que el prototipo ofrece solo en
 el fuero penal. Su nota dice qué hace: *"La causa pasa al estado Prescripta,
@@ -5069,6 +5119,19 @@ Un `caseId` que no es un entero responde `INVALID_PATH_PARAMETER`, igual que en
 }
 ```
 
+**(Revisión del 08/11/2026, D-110)** Un abogado que no es el responsable de la
+causa y no tiene el rol `ADMINISTRATOR`:
+
+```json
+{
+	"error": {
+		"code": "FORBIDDEN",
+		"message": "Solo el abogado responsable de la causa puede marcarla como prescripta.",
+		"details": null
+	}
+}
+```
+
 **`404 Not Found`**
 
 ```json
@@ -5126,8 +5189,11 @@ La causa ya está en un estado terminal, incluido "Prescripta":
 Crea la carpeta de una causa que no la tiene, o reintenta una que falló
 (HU39, HU40).
 
-**Rol requerido:** cualquier usuario autenticado, igual que el alta de la
-causa.
+**Rol requerido:** quien opera la causa **(Revisión del 08/11/2026, D-110)**:
+el abogado responsable, un `ADMINISTRATOR` o una `SECRETARY`. Un usuario cuyo
+único rol es `LAWYER` y que no es el responsable recibe `403 FORBIDDEN` (ver
+[Operación de la causa](#operación-de-la-causa)). Si la causa no existe, la
+respuesta es `404 CASE_NOT_FOUND`, antes que el `403`.
 
 El prototipo no tiene un botón para esto: existe porque el alta de causa **no
 falla** cuando el almacenamiento en la nube no responde, y hace falta una forma
@@ -5203,6 +5269,21 @@ Un `caseId` que no es un entero responde `INVALID_PATH_PARAMETER`, igual que en
 	"error": {
 		"code": "UNAUTHENTICATED",
 		"message": "La autenticación es requerida.",
+		"details": null
+	}
+}
+```
+
+**`403 Forbidden`** **(Revisión del 08/11/2026, D-110)**
+
+Un usuario cuyo único rol es `LAWYER` y que no es el abogado responsable de la
+causa.
+
+```json
+{
+	"error": {
+		"code": "FORBIDDEN",
+		"message": "Solo el abogado responsable de la causa puede operar su carpeta.",
 		"details": null
 	}
 }
@@ -8037,11 +8118,52 @@ abogados. Si no lo posee, la respuesta es `403 FORBIDDEN`.
 Cuando un endpoint indica dos roles —"`ADMINISTRATOR` o `LAWYER`"— alcanza con
 poseer **uno** de los dos.
 
-Los **actos procesales** y los **actos interruptivos** son la excepción: no
-alcanza con un rol. Solo los registra el abogado responsable de la causa,
+Los **actos procesales**, los **actos interruptivos** y, para los abogados,
+la **operación de la causa** (ver [Operación de la causa](#operación-de-la-causa),
+revisión del 08/11/2026) son la excepción: no alcanza con un rol. Solo los registra el abogado responsable de la causa,
 comparando el `lawyerId` del usuario con el responsable de la causa (ver
 [§3.8](#38-actos-procesales-casescaseidprocedural-acts) y
 [§3.9](#39-actos-interruptivos-casescaseidinterruptive-acts)).
+
+#### Operación de la causa
+
+**(Revisión del 08/11/2026, D-110)** Un abogado que no es el responsable de una
+causa solo la **consulta** y **genera su expediente**. Sobre una causa ajena
+puede ver el detalle, la línea de vida, los actos procesales e interruptivos,
+los documentos (y descargarlos), emitir la carátula y generar y descargar el
+expediente. No puede modificarla, darla de baja, marcarla como prescripta,
+operar su carpeta ni registrar o modificar actos.
+
+| Operación sobre una causa                                   | Abogado responsable | Otro abogado | `ADMINISTRATOR` | `SECRETARY` |
+| ----------------------------------------------------------- | :-----------------: | :----------: | :-------------: | :---------: |
+| Consultar (detalle, línea de vida, actos, documentos)       |          ✓          |      ✓       |        ✓        |      ✓      |
+| Descargar un documento que no es expediente                 |          ✓          |      ✓       |        —        |      ✓      |
+| Emitir la carátula, generar y descargar el expediente       |          ✓          |      ✓       |        ✓        |      ✓      |
+| Modificar y dar de baja (`PATCH`, `DELETE /cases/{caseId}`) |          ✓          |      —       |        ✓        |      ✓      |
+| Crear o reintentar la carpeta (`POST …/folder`)             |          ✓          |      —       |        ✓        |      ✓      |
+| Marcar prescripta (`POST …/prescription`)                   |          ✓          |      —       |        ✓        |      —      |
+| Registrar y modificar actos procesales e interruptivos      |          ✓          |      —       |        —        |      —      |
+
+"Quien opera la causa" es, por lo tanto, el abogado responsable, un
+`ADMINISTRATOR` o una `SECRETARY`. La restricción nueva alcanza solo a los
+abogados: el Administrador y la Secretaría conservan lo que ya tenían.
+
+- **Cómo se evalúa.** Primero se busca la causa (`404 CASE_NOT_FOUND` si no
+  existe o está dada de baja). Después, si el usuario tiene un rol que habilita
+  la operación sin ser responsable (`ADMINISTRATOR` o `SECRETARY`, según la
+  tabla), pasa. Si no, se compara su `lawyerId` con `responsibleLawyer.id`; si
+  no coinciden, o no tiene ficha de abogado, `403 FORBIDDEN`.
+- **Varios roles.** Como en el resto del contrato, alcanza con uno: un usuario
+  `LAWYER` y `SECRETARY` que no es el responsable puede modificar la causa por
+  su rol de Secretaría; uno `LAWYER` y `ADMINISTRATOR`, además, marcarla
+  prescripta.
+- **Cambio de responsable.** Cuenta el responsable **actual**: después de un
+  `PATCH` que cambia `responsibleLawyerId`, el anterior pasa a ser "otro
+  abogado" desde la próxima petición. Si quien cambia el responsable es el
+  propio responsable, deja de poder operar la causa.
+- **Lo que no cambia.** El alta de causas (`POST /cases`) sigue abierta a
+  cualquier usuario autenticado, con cualquier abogado vigente como
+  responsable: la regla es sobre causas existentes.
 
 #### Permisos por perfil
 
@@ -8057,20 +8179,27 @@ contratos siguientes la respeten.
 | Consultar abogados                                                                      | 13             |   ✓    |    ✓    |    ✓    |
 | Registrar, modificar y dar de baja abogados                                             | 12, 14, 15     |   ✓    |    —    |    —    |
 | Administrar estados procesales                                                          | 16, 17, 45, 46 |   ✓    |    ✓    |    ✓    |
-| Gestionar causas (alta, consulta, detalle, línea de tiempo, carátula, expediente, baja) | 18 – 25        |   ✓    |    ✓    |    ✓    |
+| Gestionar causas: alta, consulta, detalle, línea de tiempo, carátula, expediente        | 18, 20, 22 – 25 |   ✓    |    ✓    |    ✓    |
+| Modificar y dar de baja causas ²                                                        | 19, 21         |   ✓    |    ✓    |    ✓    |
+| Marcar la causa como prescripta ²                                                       | 33             |   ✓    |    ✓    |    —    |
 | Consultar actos procesales                                                              | 27             |   ✓    |    ✓    |    ✓    |
 | Registrar, modificar y dar de baja actos procesales ¹                                   | 26, 28, 29     |   —    |    ✓    |    —    |
 | Registrar actos interruptivos ¹                                                         | 31             |   —    |    ✓    |    —    |
 | Recibir avisos de vencimiento y alertas de prescripción                                 | 30, 32, 33     |   ✓    |    ✓    |    —    |
 | Administrar modelos formales                                                            | 34 – 37        |   ✓    |    ✓    |    —    |
 | Consultar documentos de causa                                                           | 38             |   —    |    ✓    |    ✓    |
-| Crear carpeta y modelos en la nube                                                      | 39 – 40        |   ✓    |    ✓    |    ✓    |
+| Crear carpeta y modelos en la nube (reintentar la carpeta de una causa existente ²)     | 39 – 40        |   ✓    |    ✓    |    ✓    |
 | Tablero del abogado                                                                     | 41             |   —    |    ✓    |    —    |
 | Tablero del administrador y reportes                                                    | 42 – 44        |   ✓    |    —    |    —    |
 | Administrar calificaciones legales                                                      | 47 – 50        |   ✓    |    ✓    |    ✓    |
 
 ¹ Lo realiza el abogado asignado a su propia causa: solo el propietario de la
 causa puede realizar estas acciones.
+
+² **(Revisión del 08/11/2026, D-110)** El ✓ del Abogado vale solo para las
+causas de las que es responsable. El Administrador y la Secretaría (donde
+tienen ✓) lo hacen sobre cualquier causa. Ver
+[Operación de la causa](#operación-de-la-causa).
 
 La tabla es la matriz de permisos del 11/10/2026, la misma que figura en la
 Definición del Producto V2, §5.1. La **consulta** de abogados está
@@ -8096,6 +8225,12 @@ Dos apartamientos de la matriz, decididos por el equipo:
 causa: solo el abogado responsable opera sus actos. Ningún otro abogado ni el
 `ADMINISTRATOR` puede hacerlo sobre una causa ajena.
 
+**Operación de la causa.** **(Revisión del 08/11/2026, D-110)** Las filas
+marcadas con ² se restringen a cada causa solo para el Abogado: un abogado
+que no es el responsable no modifica, no da de baja, no marca prescripta ni
+reintenta la carpeta de una causa ajena. Antes de esta revisión, "Gestionar
+causas" (HU18 a HU25) y "Marcar prescripta" valían para cualquier causa.
+
 #### Matriz por recurso
 
 | Recurso                            | Lectura (`GET`)               | Escritura                                                        |
@@ -8106,10 +8241,10 @@ causa: solo el abogado responsable opera sus actos. Ningún otro abogado ni el
 | `/procedural-states`               | Cualquier usuario autenticado | Cualquier usuario autenticado                                    |
 | `/legal-qualifications`            | Cualquier usuario autenticado | Cualquier usuario autenticado                                    |
 | `/clients`                         | Cualquier usuario autenticado | Cualquier usuario autenticado                                    |
-| `/cases`                           | Cualquier usuario autenticado | Cualquier usuario autenticado, también `PATCH` y `DELETE` |
+| `/cases`                           | Cualquier usuario autenticado | Alta: cualquier usuario autenticado. `PATCH` y `DELETE`: abogado responsable, `ADMINISTRATOR` o `SECRETARY` **(08/11/2026)** |
 | `/cases/{caseId}/cover`            | Cualquier usuario autenticado | -                                                       |
-| `/cases/{caseId}/prescription`     | -                             | `ADMINISTRATOR` o `LAWYER`                                       |
-| `/cases/{caseId}/folder`           | -                             | Cualquier usuario autenticado                                    |
+| `/cases/{caseId}/prescription`     | -                             | `ADMINISTRATOR` o abogado responsable de la causa **(08/11/2026)** |
+| `/cases/{caseId}/folder`           | -                             | Abogado responsable, `ADMINISTRATOR` o `SECRETARY` **(08/11/2026)** |
 | `/cases/{caseId}/procedural-acts`  | Cualquier usuario autenticado; `deadline-preview`, solo el abogado responsable | Abogado responsable de la causa, también `PATCH` |
 | `/cases/{caseId}/interruptive-acts` | Cualquier usuario autenticado | Abogado responsable de la causa                                 |
 | `/cases/{caseId}/documents`        | Cualquier usuario autenticado; la descarga de un documento que no es un expediente, `LAWYER` o `SECRETARY` | -  |
@@ -8504,7 +8639,7 @@ respuesta.
 | `SAME_PASSWORD`                          | 400  | La contraseña nueva es igual a la actual. Exclusivo de `PATCH /auth/password` |
 | `INVALID_CREDENTIALS`                    | 401  | Credenciales incorrectas. Exclusivo de `/auth/login`               |
 | `UNAUTHENTICATED`                        | 401  | Token ausente, vencido, revocado o la sesión cerrada por inactividad |
-| `FORBIDDEN`                              | 403  | Usuario autenticado sin el rol requerido, o que no es el abogado responsable de la causa |
+| `FORBIDDEN`                              | 403  | Usuario autenticado sin el rol requerido, o que no es el abogado responsable de la causa (actos, y desde el 08/11/2026 la operación de la causa para un usuario solo `LAWYER`) |
 | `USER_NOT_FOUND`                         | 404  | Usuario inexistente                                                |
 | `LAWYER_NOT_FOUND`                       | 404  | Abogado inexistente                                                |
 | `PROCEDURAL_STATE_NOT_FOUND`             | 404  | Estado procesal inexistente                                        |

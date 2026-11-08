@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useToast } from '@/app/providers/ToastContext'
 import { isApiError } from '@/shared/api/ApiError'
 import type { SelectOption } from '@/shared/components/forms'
-import { formatClientName, formatDocument, useClients } from '@/features/clients'
+import { formatClientName, formatDocument } from '@/features/clients'
 import { lawyerLabel, useLawyers } from '@/features/lawyers'
 import { formatPrescription, useLegalQualifications } from '@/features/legal-params'
 /* Sólo tipos: la forma de lo que el hook le arma al diálogo. Es la única
@@ -13,7 +13,6 @@ import { isValid, validateCase, type CaseFormErrors } from '@/features/cases/sch
 import type { Case, CaseFormValues } from '@/features/cases/types/case'
 import { buildCasePatch } from '@/features/cases/utils/buildCasePatch'
 import { caseToFormValues, changeEditSacNumber } from '@/features/cases/utils/caseForm'
-import { captionWithClient } from '@/features/cases/utils/suggestedCaption'
 import { toFormErrors } from '@/features/cases/utils/toFormErrors'
 import { useUpdateCase } from './useUpdateCase'
 
@@ -45,10 +44,8 @@ export function useCaseEdit(c: Case) {
 
     /* Las opciones de "Modificar causa" se piden con la pantalla y no al abrir
        el diálogo: así las listas ya están cuando se abre. */
-    const clientsQuery = useClients({ page: 1, limit: OPTIONS_LIMIT })
     const lawyersQuery = useLawyers({ page: 1, limit: OPTIONS_LIMIT })
     const qualificationsQuery = useLegalQualifications({ page: 1, limit: OPTIONS_LIMIT })
-    const clients = clientsQuery.data?.data ?? []
     const lawyers = lawyersQuery.data?.data ?? []
     const qualifications = qualificationsQuery.data?.data ?? []
 
@@ -62,36 +59,14 @@ export function useCaseEdit(c: Case) {
         setDialog((d) => (d === null ? d : { ...d, values: change(d.values) }))
     }
 
-    /**
-     * Elegir otro cliente propone la carátula con el cliente nuevo y conserva
-     * el resto (D-105). Es una propuesta: se puede corregir antes de guardar.
-     */
-    function changeClient(clientId: string) {
-        const client = clients.find((item) => String(item.id) === clientId)
-            ?? (String(c.client.id) === clientId ? c.client : null)
-        changeValues((values) => ({
-            ...values,
-            clientId,
-            caption: client ? captionWithClient(values.caption, formatClientName(client)) : values.caption,
-        }))
-    }
-
     /* ---------------- opciones ---------------- */
 
-    /* El cliente y el responsable de la causa se ofrecen siempre, aunque el
-       listado no los traiga: la causa los tiene, y el select no puede quedar
-       sin la opción elegida. */
-    const clientOptions: SelectOption[] = clients.map((item) => ({
-        value: String(item.id),
-        label: `${formatClientName(item)} · ${formatDocument(item)}`,
-    }))
-    if (!clients.some((item) => item.id === c.client.id)) {
-        clientOptions.unshift({
-            value: String(c.client.id),
-            label: `${formatClientName(c.client)} · ${formatDocument(c.client)}`,
-        })
-    }
+    /* El cliente no se modifica (D-111): se muestra el de la causa. */
+    const clientLabel = `${formatClientName(c.client)} · ${formatDocument(c.client)}`
 
+    /* El responsable de la causa se ofrece siempre, aunque el listado no lo
+       traiga: la causa lo tiene, y el select no puede quedar sin la opción
+       elegida. */
     const lawyerOptions: SelectOption[] = lawyers.map((item) => ({
         value: String(item.id),
         label: lawyerLabel(item),
@@ -200,8 +175,7 @@ export function useCaseEdit(c: Case) {
         errors: dialog.errors,
         onChange: (key, value) => changeValues((values) => ({ ...values, [key]: value })),
         onSacNumberChange: (sacNumber) => changeValues((values) => changeEditSacNumber(values, sacNumber, c.startDate)),
-        onClientChange: changeClient,
-        clientOptions,
+        clientLabel,
         lawyerOptions,
         selectedQualifications,
         qualificationOptions,

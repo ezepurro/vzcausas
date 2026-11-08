@@ -32,14 +32,12 @@ export interface CaseEditFormProps {
     sub: string
     values: CaseFormValues
     errors: CaseFormErrors
-    /** Cada campo, salvo el SAC y el cliente. */
+    /** Cada campo, salvo el SAC. */
     onChange: <K extends keyof CaseFormValues>(key: K, value: CaseFormValues[K]) => void
     /** El SAC va aparte porque arrastra la fecha de inicio (`changeSacNumber`). */
     onSacNumberChange: (sacNumber: string) => void
-    /** El cliente va aparte porque propone la carátula nueva (`captionWithClient`, D-105). */
-    onClientChange: (clientId: string) => void
-    /** Los clientes, ya armados: `value` el id, `label` "GÓMEZ, Ariel Fernando · DNI …". */
-    clientOptions: SelectOption[]
+    /** El cliente de la causa, ya armado: "GÓMEZ, Ariel Fernando · DNI …". Se muestra y no se modifica (D-111). */
+    clientLabel: string
     /** Los abogados vigentes, ya armados. */
     lawyerOptions: SelectOption[]
     /** Las calificaciones de la causa, con su nombre, su plazo y su fecha del hecho. */
@@ -63,16 +61,16 @@ export interface CaseEditFormProps {
  * objeto con el rótulo de su fuero (decisión del 28/10/2026). El campo `court`
  * se llama "Órgano interviniente" (V5 §3.7, D-91).
  *
- * El fuero se muestra pero no se modifica (D-95). No están "Registrar cliente
- * nuevo" ni las casillas de la carpeta: la carpeta sigue a la causa sola
- * (D-104) y tiene su propio endpoint.
+ * El fuero y el cliente se muestran pero no se modifican (D-95, D-111). No
+ * están "Registrar cliente nuevo" ni las casillas de la carpeta: la carpeta
+ * sigue a la causa sola (D-104) y tiene su propio endpoint.
  *
  * No valida ni guarda: recibe los errores ya calculados y avisa con
  * `onConfirm`.
  */
 export function CaseEditForm({
-    sub, values, errors, onChange, onSacNumberChange, onClientChange,
-    clientOptions, lawyerOptions,
+    sub, values, errors, onChange, onSacNumberChange,
+    clientLabel, lawyerOptions,
     selectedQualifications, qualificationOptions, onAddQualification, onRemoveQualification,
     onOffenseDateChange, saving, onConfirm, onCancel,
 }: CaseEditFormProps) {
@@ -194,14 +192,10 @@ export function CaseEditForm({
 
                 <FormSection label="Cliente y rol procesal" />
 
-                <Field label="Cliente" required htmlFor="edit-case-client" error={errors.clientId}
-                    note="Si lo cambiás, se propone la carátula con el cliente nuevo.">
-                    <Select
-                        id="edit-case-client"
-                        options={clientOptions}
-                        value={values.clientId}
-                        onChange={(e) => onClientChange(e.target.value)}
-                    />
+                {/* Como el fuero: se muestra bloqueado, no se modifica (D-111). */}
+                <Field label="Cliente" htmlFor="edit-case-client"
+                    note="No se modifica. Si la causa se registró con otro cliente, dala de baja y registrala de nuevo.">
+                    <TextInput id="edit-case-client" disabled value={clientLabel} />
                 </Field>
 
                 <Field label="Rol procesal del cliente" required error={errors.proceduralRole}>

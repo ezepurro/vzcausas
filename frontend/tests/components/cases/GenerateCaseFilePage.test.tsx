@@ -259,4 +259,13 @@ describe('GenerateCaseFilePage', () => {
         await waitFor(() => expect(screen.queryByRole('dialog', { name: /Modificar causa/ })).not.toBeInTheDocument())
         expect(screen.getByRole('heading', { name: 'Generar expediente' })).toBeInTheDocument()
     })
+
+    // CA-19.16 (D-110): un abogado que no es el responsable genera el expediente, pero no modifica la causa.
+    it('a un abogado que no es el responsable no le ofrece "Modificá los datos de la causa"', async () => {
+        renderPage(4, 'mrios')
+        await screen.findByRole('heading', { name: 'Generar expediente' })
+
+        expect(screen.queryByRole('button', { name: 'Modificá los datos de la causa' })).not.toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Vista previa' })).toBeInTheDocument()
+    })
 })
