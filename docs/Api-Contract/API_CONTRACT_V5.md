@@ -3244,9 +3244,22 @@ mismo significado que en [`/clients`](#36-clientes-clients).
 | `offenseDate`           | String (fecha ISO 8601) | Fecha del hecho imputado bajo esta calificación. La carga el usuario |
 | `prescriptionStartsOn`  | String (fecha ISO 8601) | Fecha desde la que se computa la prescripción de esta calificación: la del último acto interruptivo o, si no hay ninguno, `offenseDate`. Calculado |
 | `prescriptionExpiresOn` | String (fecha ISO 8601) | `prescriptionStartsOn` más `prescriptionMonths`. Calculado           |
+| `elapsedPercentage`     | Integer                 | **(Revisión del 08/11/2026, D-112)** Porcentaje del plazo de esta calificación ya transcurrido entre `prescriptionStartsOn` y `prescriptionExpiresOn`, de `0` a `100`, redondeado al entero más cercano. Calculado |
+| `alert`                 | Boolean                 | **(Revisión del 08/11/2026, D-112)** `true` si transcurrió el **70 %** o más del plazo de esta calificación. Calculado |
+| `expired`               | Boolean                 | **(Revisión del 08/11/2026, D-112)** `true` si hoy es igual o posterior a `prescriptionExpiresOn`: el plazo de esta calificación se cumplió. Calculado |
 
 Una calificación dada de baja **sigue apareciendo** en las causas que la
 registran (ver [`DELETE /legal-qualifications`](#delete-legal-qualificationsqualificationid)).
+
+**Sobre `elapsedPercentage`, `alert` y `expired` de cada calificación:**
+**(Revisión del 08/11/2026, D-112)** tienen el mismo significado y se calculan
+con la misma regla que los campos homónimos de `prescription`, pero para cada
+calificación por separado. Así el cliente muestra el estado de cada delito
+—cuáles ya cumplieron su plazo y cuál es el próximo a prescribir— sin calcular
+nada. En la calificación que rige la causa los tres valores coinciden con los de
+`prescription`. `prescription` no cambia: sigue siendo la calificación que
+prescribe primero, aunque su plazo ya se haya cumplido, y es la que usan las
+alertas de los tableros y el proceso diario (D-52).
 
 Una causa penal puede registrarse sin calificaciones legales: en ese caso
 `legalQualifications` llega vacío, `prescription` vale `null` y la causa no
@@ -3573,7 +3586,10 @@ piden HU39 y HU40 ("que se cree automáticamente").
 				"prescriptionMonths": 96,
 				"offenseDate": "2021-02-27",
 				"prescriptionStartsOn": "2021-02-27",
-				"prescriptionExpiresOn": "2029-02-27"
+				"prescriptionExpiresOn": "2029-02-27",
+				"elapsedPercentage": 69,
+				"alert": false,
+				"expired": false
 			}
 		],
 		"prescription": {
@@ -3907,7 +3923,10 @@ causas de ese fuero que todavía están en el estado inicial.
 					"prescriptionMonths": 96,
 					"offenseDate": "2021-02-27",
 					"prescriptionStartsOn": "2024-07-04",
-					"prescriptionExpiresOn": "2032-07-04"
+					"prescriptionExpiresOn": "2032-07-04",
+					"elapsedPercentage": 27,
+					"alert": false,
+					"expired": false
 				}
 			],
 			"prescription": {
@@ -4184,7 +4203,10 @@ vencimiento nuevos en `currentState`.
 				"prescriptionMonths": 96,
 				"offenseDate": "2021-02-27",
 				"prescriptionStartsOn": "2024-07-04",
-				"prescriptionExpiresOn": "2032-07-04"
+				"prescriptionExpiresOn": "2032-07-04",
+				"elapsedPercentage": 27,
+				"alert": false,
+				"expired": false
 			}
 		],
 		"prescription": {
@@ -5036,7 +5058,10 @@ de prescripción activa:
 				"prescriptionMonths": 72,
 				"offenseDate": "2022-01-19",
 				"prescriptionStartsOn": "2022-01-19",
-				"prescriptionExpiresOn": "2028-01-19"
+				"prescriptionExpiresOn": "2028-01-19",
+				"elapsedPercentage": 78,
+				"alert": true,
+				"expired": false
 			}
 		],
 		"prescription": {
@@ -8349,6 +8374,11 @@ contrato.
   más reciente (RN8).
 - **La que rige la causa** es la calificación que prescribe primero: la de
   menor `prescriptionExpiresOn`. Es la que resume `prescription`.
+- **Cada calificación informa su estado** **(Revisión del 08/11/2026, D-112)**:
+  `elapsedPercentage`, `alert` y `expired` llegan también en cada elemento de
+  `legalQualifications[]`, con las mismas reglas de esta sección aplicadas a su
+  `prescriptionStartsOn` y su `prescriptionExpiresOn`. No cambian cuál rige
+  la causa.
 - **Porcentaje transcurrido** (`elapsedPercentage`): días corridos desde
   `startsOn` hasta hoy, sobre los días corridos entre `startsOn` y `expiresOn`.
   Entre `0` y `100`.

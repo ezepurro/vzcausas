@@ -5,8 +5,10 @@ import { toPageRequest } from '@shared/infrastructure/http/pagination/pagination
 import { toJurisdictionFilter } from '../../../core/application/use-cases/case/jurisdiction-filter';
 import { RegisterCaseResult } from '../../../core/application/use-cases/case/register-case.interfaces';
 import { ExclusiveCaseStateFilterError } from '../../../core/domain/errors/case.errors';
+import { PrescriptionStatus } from '../../../core/domain/prescription';
 import {
   CaseListItem,
+  CaseQualificationView,
   CaseSearchCriteria,
   CaseStateFilter,
 } from '../../../core/domain/ports/case/case.repository';
@@ -136,6 +138,7 @@ export class CaseHttpMapper {
         offenseDate: toIsoDate(qualification.offenseDate),
         prescriptionStartsOn: toIsoDate(qualification.prescriptionStartsOn),
         prescriptionExpiresOn: toIsoDate(qualification.prescriptionExpiresOn),
+        ...this.statusOf(qualification),
       })),
       prescription: item.prescription && {
         legalQualificationId: item.prescription.legalQualificationId,
@@ -215,13 +218,15 @@ export class CaseHttpMapper {
       courtFeePaid: newCase.courtFeePaid,
       client: result.client,
       responsibleLawyer: result.responsibleLawyer,
-      legalQualifications: newCase.offenses.map((offense) => ({
+      legalQualifications: newCase.offenses.map((offense, index) => ({
         id: offense.legalQualificationId,
         name: offense.legalQualificationName,
         prescriptionMonths: offense.prescriptionMonths,
         offenseDate: offense.offenseDate,
         prescriptionStartsOn: offense.prescriptionStartsOn,
         prescriptionExpiresOn: offense.prescriptionExpiresOn,
+        // D-112: computed by the use case, one per offense in the same order.
+        prescriptionStatus: result.offensePrescriptions[index] ?? null,
       })),
       // A case being registered has no interruptive acts and was never marked as prescribed.
       lastInterruptiveActDate: null,
@@ -241,5 +246,20 @@ export class CaseHttpMapper {
       folder: result.folder,
       active: newCase.active,
     });
+  }
+
+  /**
+   * The three D-112 fields of a qualification, as the use case filled them. A
+   * qualification without them is a programming error (a path that skipped
+   * `withDeadlines` or the registration's own computation): the mapper does
+   * not compute prescriptions, so it fails instead of making one up.
+   */
+  private statusOf(qualification: CaseQualificationView): PrescriptionStatus {
+    if (qualification.prescriptionStatus === null) {
+      throw new Error(
+        `The qualification ${qualification.id} reached the response without its prescriptionStatus (D-112).`,
+      );
+    }
+    return qualification.prescriptionStatus;
   }
 }

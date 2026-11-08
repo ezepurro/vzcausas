@@ -89,6 +89,9 @@ get:
                   offenseDate: '2021-02-27'
                   prescriptionStartsOn: '2024-07-04'
                   prescriptionExpiresOn: '2032-07-04'
+                  elapsedPercentage: 27
+                  alert: false
+                  expired: false
               prescription:
                 legalQualificationId: 1
                 legalQualificationName: Robo calificado — art. 167 inc. 2 CP

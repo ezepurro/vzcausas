@@ -156,6 +156,10 @@ describe('POST /api/v1/cases', () => {
           offenseDate: '2021-02-27',
           prescriptionStartsOn: '2021-02-27',
           prescriptionExpiresOn: '2029-02-27',
+          // D-112: su estado, el mismo que `prescription` porque es la única (70,05 %).
+          elapsedPercentage: 70,
+          alert: true,
+          expired: false,
         },
       ],
       // §3.7: calculada desde el alta. Al 06/10/2026 transcurrieron 2047 de

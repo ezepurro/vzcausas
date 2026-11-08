@@ -29,6 +29,10 @@ export class LegalQualificationResponseDto {
   offenseDate!: string;
   prescriptionStartsOn!: string;
   prescriptionExpiresOn!: string;
+  /** D-112: the same three fields as `prescription`, for this qualification. */
+  elapsedPercentage!: number;
+  alert!: boolean;
+  expired!: boolean;
 }
 
 export class CurrentStateResponseDto {

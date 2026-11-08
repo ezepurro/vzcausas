@@ -158,3 +158,79 @@ describe('summarizePrescription', () => {
     });
   });
 });
+
+// D-112: cada calificación informa su estado, con la misma regla que `prescription`.
+describe('Prescription.ofEach', () => {
+  /** Hecho del 1/1/2026. 10 meses: vence el 1/11/2026 (304 días). 96 meses: vence el 1/1/2034 (2922 días). */
+  const shorter: OffenseForPrescription = {
+    legalQualificationId: 2,
+    legalQualificationName: 'Lesiones leves',
+    prescriptionMonths: 10,
+    offenseDate: day('2026-01-01'),
+  };
+  const longer: OffenseForPrescription = {
+    legalQualificationId: 1,
+    legalQualificationName: 'Robo',
+    prescriptionMonths: 96,
+    offenseDate: day('2026-01-01'),
+  };
+
+  it('una causa sin calificaciones no tiene ninguna', () => {
+    expect(Prescription.ofEach([], null, day('2026-10-06'))).toEqual([]);
+  });
+
+  it('calcula una por calificación, en el mismo orden, cada una con su plazo', () => {
+    // Día 213: la corta va por el 70,07 % (alerta); la larga, por el 7,29 %.
+    const [first, second] = Prescription.ofEach([longer, shorter], null, day('2026-08-02'));
+
+    expect(first).toMatchObject({
+      legalQualificationId: 1,
+      expiresOn: day('2034-01-01'),
+      elapsedPercentage: 7,
+      alert: false,
+      expired: false,
+    });
+    expect(second).toMatchObject({
+      legalQualificationId: 2,
+      expiresOn: day('2026-11-01'),
+      elapsedPercentage: 70,
+      alert: true,
+      expired: false,
+    });
+  });
+
+  it('una calificación con el plazo cumplido no arrastra a las demás', () => {
+    // 1/11/2026: la corta venció; la larga va por el 10,40 % (304 de 2922 días).
+    const [first, second] = Prescription.ofEach([longer, shorter], null, day('2026-11-01'));
+
+    expect(first.status).toEqual({ elapsedPercentage: 10, alert: false, expired: false });
+    expect(second.status).toEqual({ elapsedPercentage: 100, alert: true, expired: true });
+  });
+
+  it('cada una cuenta desde el acto interruptivo, como la que rige', () => {
+    const [only] = Prescription.ofEach([shorter], day('2026-09-01'), day('2026-10-06'));
+
+    expect(only).toMatchObject({ startsOn: day('2026-09-01'), lastInterruptiveActDate: day('2026-09-01') });
+  });
+
+  it('la que rige es la de menor vencimiento entre ellas, aunque ya esté cumplido (D-52)', () => {
+    const today = day('2026-11-01');
+    const each = Prescription.ofEach([longer, shorter], null, today);
+
+    expect(Prescription.governing([longer, shorter], null, today)).toEqual(each[1]);
+    expect(Prescription.governing([longer, shorter], null, today)?.expired).toBe(true);
+  });
+});
+
+describe('Prescription.status', () => {
+  it('expone sólo lo que el contrato pide por calificación', () => {
+    const [only] = Prescription.ofEach(
+      [{ legalQualificationId: 1, legalQualificationName: 'Robo', prescriptionMonths: 10, offenseDate: day('2026-01-01') }],
+      null,
+      day('2026-08-01'),
+    );
+
+    // Día 212: 69,7 %, que se muestra como 70 pero todavía no es alerta.
+    expect(only.status).toEqual({ elapsedPercentage: 70, alert: false, expired: false });
+  });
+});

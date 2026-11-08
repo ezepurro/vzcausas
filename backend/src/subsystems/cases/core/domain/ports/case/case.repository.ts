@@ -1,5 +1,5 @@
 import { Case } from '../../entities/case/case.entity';
-import { PrescriptionSummary } from '../../prescription';
+import { PrescriptionStatus, PrescriptionSummary } from '../../prescription';
 import { CaseFolderView } from './case-folder-state.port';
 import { PrescriptionDeclarationView } from './case-timeline-query.port';
 import { ProceduralStateRef } from './legal-parameters-lookup.port';
@@ -54,6 +54,12 @@ export type CaseQualificationView = {
   prescriptionStartsOn: Date;
   /** Never `null` (V4 §3.7): computed on every read from `prescriptionStartsOn`. */
   prescriptionExpiresOn: Date;
+  /**
+   * Its elapsed share, alert and whether its term is met (D-112). The read port
+   * leaves it `null`: like `prescription`, it depends on today's date, and the
+   * use case fills it.
+   */
+  prescriptionStatus: PrescriptionStatus | null;
 };
 
 /**

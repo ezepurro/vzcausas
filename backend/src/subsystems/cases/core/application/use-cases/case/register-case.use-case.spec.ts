@@ -230,6 +230,22 @@ describe('RegisterCase', () => {
       });
     });
 
+    // D-112: el alta devuelve el estado de cada calificación, como el detalle.
+    it('devuelve el estado de prescripción de cada hecho, en el orden de los hechos', async () => {
+      const { useCase } = build();
+
+      const result = await useCase.execute(
+        aRegisterCaseCommand({ legalQualifications: [homicideOn('2022-05-01'), robberyOn('2021-02-27')] }),
+      );
+
+      // Al 06/10/2026. Homicidio vence el 01/05/2037: 29,55 %. Robo vence el 27/02/2029: 70,05 %.
+      expect(result.newCase.offenses.map((offense) => offense.legalQualificationId)).toEqual([HOMICIDE.id, ROBBERY.id]);
+      expect(result.offensePrescriptions).toEqual([
+        { elapsedPercentage: 30, alert: false, expired: false },
+        { elapsedPercentage: 70, alert: true, expired: false },
+      ]);
+    });
+
     // D-74
     it('una causa penal sin calificaciones, o sin el campo, se registra y no computa prescripción', async () => {
       const { useCase, cases } = build();

@@ -38,6 +38,7 @@ de `API_CONTRACT_V5.md`.
 | D-105 | **(Revisión del 27/10/2026)** El cliente de una causa se puede modificar. El backend no recalcula la carátula: el cliente la propone y la envía en `caption`, en la misma petición. **(Reemplazada el 08/11/2026 por D-111: el cliente ya no se modifica)** | Definido por el equipo (C-31). Es la misma regla que el alta (§3.7): la carátula sugerida la arma el cliente |
 | D-110 | **(Revisión del 08/11/2026)** Un abogado que no es el responsable de una causa solo la consulta (detalle, línea de vida, actos, documentos y su descarga, carátula) y genera y descarga el expediente. No la modifica, no la da de baja, no la marca prescripta ni opera su carpeta (`PATCH` y `DELETE /cases/{caseId}`, `POST …/prescription`, `POST …/folder` → `403 FORBIDDEN`). El `ADMINISTRATOR` y la `SECRETARY` conservan lo que tenían sobre cualquier causa; con varios roles alcanza con uno. Primero `404`, después `403`. Los actos ya eran solo del responsable | Definido por el equipo (08/11/2026). Los perfiles siguen viendo todo (RN11): lo que cambia es lo que un abogado **opera** sobre una causa ajena. Admin y Secretaría quedan como estaban por decisión explícita del equipo. Reemplaza en esto la parte de D-97 que dice que la baja "la puede hacer cualquier perfil" y el "no hace falta ser el responsable" de HU33 |
 | D-111 | **(Revisión del 08/11/2026)** El cliente de una causa no se modifica: `PATCH /cases/{caseId}` rechaza `clientId` con `400 VALIDATION_ERROR` (`details.clientId`), igual que `jurisdiction` (D-95). Una causa con el cliente equivocado se da de baja y se registra de nuevo. La carátula se sigue corrigiendo | Definido por el equipo (08/11/2026). Reemplaza D-105 y vuelve a la propuesta original de C-31 |
+| D-112 | **(Revisión del 08/11/2026)** Cada elemento de `legalQualifications[]` de la causa suma `elapsedPercentage`, `alert` y `expired`, calculados por el backend con la misma regla que `prescription` (§4, Prescripción) pero para esa calificación. `prescription` no cambia: sigue siendo la calificación que prescribe primero aunque su plazo ya se haya cumplido, y la usan los tableros y el proceso diario (D-52). Son campos calculados: no se guardan ni requieren migración | Pedido del equipo de frontend (08/11/2026): el detalle lista todos los delitos, marca los que ya cumplieron su plazo y muestra la barra del próximo a prescribir. Sin estos campos el cliente tendría que calcular el porcentaje y la alerta de las demás calificaciones, lo que D-51 descarta para que haya un único lugar de cálculo. Se suma en vez de cambiar qué calificación rige `prescription` para no tocar las alertas de los tableros ni el aviso diario, que según D-52 siguen mostrando el plazo cumplido hasta que la causa se marca como prescripta |
 | D-107 | **(Revisión del 05/11/2026)** La matrícula del abogado es opcional: `registrationNumber` vale `null` si no se cargó, no viaja (o viaja vacía) en el alta, y en `PATCH /lawyers/{lawyerId}` `null` la borra. Sigue siendo única entre los abogados que la tienen. Vale también para la ficha que se registra con `POST /users` | Pedido del equipo. El estudio necesita registrar abogados de los que todavía no tiene la matrícula. Cambia CA-14.4 en lo que respecta a la matrícula; el apellido y los nombres siguen siendo obligatorios |
 | D-109 | **(Revisión del 06/11/2026)** `address` y `phone` del cliente son obligatorios en `POST /clients` (no vacíos). Reemplaza el "opcional" de `address` de D-108 y el de `phone` de V4. La regla vive en el dominio y también en la base: las dos columnas son `NOT NULL` | Pedido del equipo (06/11/2026). Los clientes cargados hasta ahora son datos de prueba: se vacía la base y se vuelve a cargar con el seed, así que no hace falta un valor de relleno para los viejos |
 | D-108 | **(Revisión del 05/11/2026)** El cliente se identifica con `documentType` (`DNI` o `PASSPORT`) y `documentNumber`, que reemplaza a `dni`, y suma `address` (texto libre, hasta 255 caracteres; obligatoria desde D-109). El documento es único por tipo entre los clientes vigentes. El `409` conserva el código `CLIENT_DNI_ALREADY_EXISTS` | Pedido del equipo: hay clientes extranjeros que no tienen DNI, y el estudio necesita la dirección. Los tipos los eligió el equipo (DNI y pasaporte). Renombrar `dni` es un cambio incompatible que el equipo aceptó; el código de error no se renombra porque no aporta y rompería el manejo de errores de los dos lados |
@@ -288,8 +289,18 @@ código de error.
 `clientId` responde `400 VALIDATION_ERROR`. Rompe al formulario "Modificar
 causa", que hoy lo envía y propone la carátula nueva (CA-19.7).
 
-**Sin migración.** Las dos son reglas de autorización y de validación: no
-cambian tablas, columnas, enums ni índices.
+**D-112: estado de prescripción por calificación.** Cada elemento de
+`legalQualifications[]` suma `elapsedPercentage`, `alert` y `expired`. Es un
+cambio que solo suma: ningún campo existente cambia de forma ni de valor, y
+`prescription` sigue eligiendo la calificación que prescribe primero. Afecta
+a todas las respuestas que devuelven una causa (`GET /cases`,
+`GET /cases/{caseId}`, `POST /cases`, `PATCH /cases/{caseId}` y
+`POST /cases/{caseId}/prescription`). No cambia los tableros ni el proceso
+diario.
+
+**Sin migración.** D-110 y D-111 son reglas de autorización y de validación,
+y D-112 suma campos calculados en cada lectura: no cambian tablas, columnas,
+enums ni índices.
 
 **Backend.** Una regla de autorización por causa en `cases` (hoy esa
 comparación solo existe en los casos de uso de actos), los tests de
@@ -301,6 +312,16 @@ integración de los cuatro endpoints con los perfiles de la tabla de §4,
 la misma lógica que hoy usa para "Registrar acto"); el formulario muestra el
 cliente fijo, como el fuero, y deja de mandar `clientId`; los mocks de MSW
 replican los `403` y el `400`.
+
+**Backend (D-112).** En `cases`, la cuenta de una calificación se separa de
+`Prescription.governing` para calcularla en cada una; el caso de uso la
+completa en cada calificación, como ya hace con `prescription`, y la suman el
+DTO y el mapper de la causa.
+
+**Frontend (D-112).** El tipo de la calificación y los mocks suman los tres
+campos. El detalle los usa para listar los delitos, marcar los que
+cumplieron su plazo y mostrar la barra del próximo a prescribir sin
+calcular nada.
 
 **OpenAPI.** `CaseUpdate.yaml` pierde `clientId` (cita D-105), y los cuatro
 endpoints suman el `403`.

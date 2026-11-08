@@ -64,6 +64,8 @@ function anItem(overrides: Partial<CaseListItem> = {}): CaseListItem {
         offenseDate: day('2021-02-27'),
         prescriptionStartsOn: day('2021-02-27'),
         prescriptionExpiresOn: day('2029-02-27'),
+        // Como la deja el caso de uso (D-112): al 06/10/2026, 70,05 %.
+        prescriptionStatus: { elapsedPercentage: 70, alert: true, expired: false },
       },
     ],
     lastInterruptiveActDate: null,
@@ -133,6 +135,9 @@ describe('CaseHttpMapper.toResponse', () => {
           offenseDate: '2021-02-27',
           prescriptionStartsOn: '2021-02-27',
           prescriptionExpiresOn: '2029-02-27',
+          elapsedPercentage: 70,
+          alert: true,
+          expired: false,
         },
       ],
       prescription: null,
@@ -151,6 +156,17 @@ describe('CaseHttpMapper.toResponse', () => {
       folder: null,
       active: true,
     });
+  });
+
+  // D-112: el estado de cada calificación lo completa el caso de uso. Si llega sin él,
+  // es un error de programación, no un dato a inventar: el mapper no lo calcula.
+  it('una calificación sin su estado de prescripción es un error de programación', () => {
+    const item = anItem();
+    const [qualification] = item.legalQualifications;
+
+    expect(() =>
+      mapper.toResponse({ ...item, legalQualifications: [{ ...qualification, prescriptionStatus: null }] }),
+    ).toThrow(/prescriptionStatus/);
   });
 
   /** `remainingDays` es del resumen diario (HU32): el `prescription` del contrato no lo tiene. */
@@ -217,9 +233,46 @@ describe('CaseHttpMapper.fromRegisterResult', () => {
       currentState: INITIAL_STATES[input.jurisdictionCode],
       harmfulActDeadline: null,
       prescription: null,
+      offensePrescriptions: [],
       folder: { status: 'CREATING', url: null, path: null, templatesCopied: 0, templatesPending: 0 },
     };
   }
+
+  // D-112: el alta también trae el estado de cada calificación.
+  it('cada calificación sale con el estado de prescripción que calculó el caso de uso', () => {
+    const result = aResult();
+    const response = mapper.fromRegisterResult({
+      ...result,
+      newCase: {
+        ...result.newCase,
+        offenses: [
+          {
+            legalQualificationId: 1,
+            legalQualificationName: 'Robo calificado — art. 167 inc. 2 CP',
+            prescriptionMonths: 96,
+            offenseDate: day('2021-02-27'),
+            prescriptionStartsOn: day('2021-02-27'),
+            prescriptionExpiresOn: day('2029-02-27'),
+          },
+        ],
+      },
+      offensePrescriptions: [{ elapsedPercentage: 70, alert: true, expired: false }],
+    });
+
+    expect(response.legalQualifications).toEqual([
+      {
+        id: 1,
+        name: 'Robo calificado — art. 167 inc. 2 CP',
+        prescriptionMonths: 96,
+        offenseDate: '2021-02-27',
+        prescriptionStartsOn: '2021-02-27',
+        prescriptionExpiresOn: '2029-02-27',
+        elapsedPercentage: 70,
+        alert: true,
+        expired: false,
+      },
+    ]);
+  });
 
   it('una causa recién registrada sale en el estado inicial, sin acto, vencimiento ni declaración', () => {
     const response = mapper.fromRegisterResult(aResult());

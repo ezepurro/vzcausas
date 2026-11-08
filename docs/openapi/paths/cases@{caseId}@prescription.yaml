@@ -110,6 +110,9 @@ post:
                   offenseDate: '2022-01-19'
                   prescriptionStartsOn: '2022-01-19'
                   prescriptionExpiresOn: '2028-01-19'
+                  elapsedPercentage: 78
+                  alert: true
+                  expired: false
               prescription:
                 legalQualificationId: 2
                 legalQualificationName: Infracción Ley 23.737 — art. 5 inc. c

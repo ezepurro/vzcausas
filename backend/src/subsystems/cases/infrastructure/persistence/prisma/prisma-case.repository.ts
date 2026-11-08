@@ -645,6 +645,8 @@ function toListItem(row: CaseRow): CaseListItem {
         offenseDate: offense.offenseDate,
         prescriptionStartsOn: startsOn,
         prescriptionExpiresOn: addPrescriptionMonths(startsOn, offense.legalQualification.prescriptionMonths),
+        // D-112: depends on today's date; the use case fills it (`withDeadlines`).
+        prescriptionStatus: null,
       };
     }),
     lastInterruptiveActDate,

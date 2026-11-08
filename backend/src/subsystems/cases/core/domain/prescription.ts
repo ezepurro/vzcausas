@@ -46,6 +46,13 @@ export interface PrescriptionSummary {
 }
 
 /**
+ * What each qualification of a case shows about its own prescription
+ * (D-112): the same three fields as {@link PrescriptionSummary}, computed for
+ * that qualification. They never decide which one governs the case.
+ */
+export type PrescriptionStatus = Pick<PrescriptionSummary, 'elapsedPercentage' | 'alert' | 'expired'>;
+
+/**
  * `start` plus `months` calendar months. When the target month is shorter, the
  * date falls on its last day: 31/1 plus one month is 28/2 (or 29/2).
  *
@@ -116,9 +123,8 @@ export class Prescription implements PrescriptionSummary {
   /**
    * Every qualification computes its own term from the same start, and the one
    * that **expires first** governs the case (ties: the lowest qualification id,
-   * so the result does not depend on the order of the rows). The elapsed share is
-   * calendar days from `startsOn` to today over calendar days from `startsOn` to
-   * `expiresOn`, kept between 0 and 1.
+   * so the result does not depend on the order of the rows), even when its term
+   * is already met (D-52).
    *
    * `null` when there is nothing to compute: a case without qualifications
    * (D-74). The jurisdiction is not looked at here; see {@link Prescription.of}.
@@ -128,19 +134,43 @@ export class Prescription implements PrescriptionSummary {
     lastInterruptiveActDate: Date | null,
     today: Date,
   ): Prescription | null {
-    const terms = offenses.map((offense) => {
-      const startsOn = prescriptionStartsOn(offense.offenseDate, lastInterruptiveActDate);
-      return { offense, startsOn, expiresOn: addPrescriptionMonths(startsOn, offense.prescriptionMonths) };
-    });
-    if (terms.length === 0) {
-      return null;
-    }
-
-    const [first] = [...terms].sort(
-      (a, b) =>
-        a.expiresOn.getTime() - b.expiresOn.getTime() || a.offense.legalQualificationId - b.offense.legalQualificationId,
+    const [first] = Prescription.ofEach(offenses, lastInterruptiveActDate, today).sort(
+      (a, b) => a.expiresOn.getTime() - b.expiresOn.getTime() || a.legalQualificationId - b.legalQualificationId,
     );
-    const { offense, startsOn, expiresOn } = first;
+    return first ?? null;
+  }
+
+  /**
+   * The term of each qualification, in the order received (D-112): what
+   * `legalQualifications[]` shows next to its dates. The same rule as the one
+   * that governs, applied to every qualification; choosing which one governs is
+   * {@link Prescription.governing}. Empty for a case without qualifications.
+   */
+  static ofEach(
+    offenses: readonly OffenseForPrescription[],
+    lastInterruptiveActDate: Date | null,
+    today: Date,
+  ): Prescription[] {
+    return offenses.map((offense) => Prescription.termOf(offense, lastInterruptiveActDate, today));
+  }
+
+  /** The three fields the contract adds to each qualification (D-112). */
+  get status(): PrescriptionStatus {
+    return { elapsedPercentage: this.elapsedPercentage, alert: this.alert, expired: this.expired };
+  }
+
+  /**
+   * The term of one qualification. The elapsed share is calendar days from
+   * `startsOn` to today over calendar days from `startsOn` to `expiresOn`, kept
+   * between 0 and 1; the 70 % alert is judged on that exact share.
+   */
+  private static termOf(
+    offense: OffenseForPrescription,
+    lastInterruptiveActDate: Date | null,
+    today: Date,
+  ): Prescription {
+    const startsOn = prescriptionStartsOn(offense.offenseDate, lastInterruptiveActDate);
+    const expiresOn = addPrescriptionMonths(startsOn, offense.prescriptionMonths);
 
     const totalDays = (expiresOn.getTime() - startsOn.getTime()) / DAY_MS;
     const elapsedDays = (today.getTime() - startsOn.getTime()) / DAY_MS;
