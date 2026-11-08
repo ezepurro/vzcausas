@@ -415,7 +415,7 @@ describe('Carpeta de la causa en la nube (HU39)', () => {
       const admin = await createUser({ roles: ['ADMINISTRATOR'] });
       return request(app.getHttpServer())
         .patch(`/api/v1/lawyers/${actors.lawyerId}`)
-        .set(loginAs({ userId: admin.id, roles: ['ADMINISTRATOR'] }))
+        .set(loginAs({ userId: admin.id, roles: ['ADMINISTRATOR'], permissions: ['lawyer:update'] }))
         .send(body);
     };
     const lawyerFolderRow = () => getPrisma().cloudFolder.findFirstOrThrow({ where: { kind: 'LAWYER' } });
