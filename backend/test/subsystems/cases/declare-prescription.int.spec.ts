@@ -69,6 +69,7 @@ const REGISTERED_AT = '2026-10-06T12:30:00-03:00';
 
 const MESSAGES = {
   forbidden: 'Se requiere el rol ADMINISTRATOR o LAWYER para realizar esta operación.',
+  notResponsible: 'Solo el abogado responsable de la causa puede marcarla como prescripta.',
   notFound: 'No se encontró la causa solicitada.',
   notCriminal: 'La prescripción solo aplica a las causas del fuero penal.',
   withoutQualifications: 'La causa no tiene calificaciones legales: no puede prescribir.',
@@ -195,12 +196,12 @@ describe('POST /api/v1/cases/:caseId/prescription', () => {
     });
 
     // CA-33.1, CA-33.3, CA-33.10
-    it('un abogado que no es el responsable la marca sin fundamento, aunque el plazo no esté cumplido', async () => {
+    it('el abogado responsable la marca sin fundamento, aunque el plazo no esté cumplido', async () => {
       await addRobbery(s.caseRow.id);
       expect((await detail(s.caseRow.id)).prescription).toMatchObject({ expired: false });
 
       const { grounds: _omitted, ...withoutGrounds } = VALID_BODY;
-      const data = expectData<Record<string, any>>(await mark(s.caseRow.id, s.notResponsible, withoutGrounds), 200);
+      const data = expectData<Record<string, any>>(await mark(s.caseRow.id, s.responsible, withoutGrounds), 200);
 
       expect(data.prescriptionDeclaration).toMatchObject({ grounds: null });
       expect((await row(s.caseRow.id)).prescriptionGrounds).toBeNull();
@@ -216,7 +217,7 @@ describe('POST /api/v1/cases/:caseId/prescription', () => {
         .expect(201);
       expect((await detail(s.caseRow.id)).currentState.dueDate).not.toBeNull();
 
-      const data = expectData<Record<string, any>>(await mark(s.caseRow.id, s.notResponsible), 200);
+      const data = expectData<Record<string, any>>(await mark(s.caseRow.id, s.responsible), 200);
 
       expect(data.currentState).toMatchObject({ proceduralActId: null, dueDate: null, businessDaysRemaining: null });
       expect(await getPrisma().proceduralAct.count({ where: { caseId: s.caseRow.id } })).toBe(1);
@@ -236,6 +237,26 @@ describe('POST /api/v1/cases/:caseId/prescription', () => {
       expectError(res, 403, 'FORBIDDEN');
       expect(res.body.error.message).toBe(MESSAGES.forbidden);
       expect(await persisted(s.caseRow.id)).toEqual(before);
+    });
+
+    // D-110
+    it('un abogado que no es el responsable no puede marcarla y no se escribe nada', async () => {
+      await addRobbery(s.caseRow.id);
+      const before = await persisted(s.caseRow.id);
+
+      const res = await mark(s.caseRow.id, s.notResponsible);
+
+      expectError(res, 403, 'FORBIDDEN');
+      expect(res.body.error.message).toBe(MESSAGES.notResponsible);
+      expect(res.body.error.details).toBeNull();
+      expect(await persisted(s.caseRow.id)).toEqual(before);
+    });
+
+    // D-110: primero 404, después 403
+    it('una causa inexistente es 404 aunque pida la secretaría o un abogado ajeno', async () => {
+      for (const actor of [secretary, s.notResponsible]) {
+        expectError(await mark(999999, actor), 404, 'CASE_NOT_FOUND');
+      }
     });
 
     // CA-33.3

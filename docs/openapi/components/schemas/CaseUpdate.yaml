@@ -10,9 +10,10 @@ description: |
   - **Datos de otro fuero**: igual que en el alta, `400` sobre el campo.
   - **SAC**: único entre las causas vigentes (`409`). Quitarlo exige
     `startDate` en `null`; agregarlo exige `startDate` si la causa no la tiene.
-  - **Cliente**: el backend no recalcula la carátula. Si cambia el cliente,
-    la carátula queda la que se envía en `caption` o, si no se envía, la
-    anterior (D-105).
+  - **Cliente**: no se modifica (D-111). `clientId` responde `400
+    VALIDATION_ERROR` con `details.clientId` "El cliente de una causa no se
+    puede modificar."; una causa con el cliente equivocado se da de baja y se
+    registra de nuevo. La carátula sí se corrige.
   - **Calificaciones**: reemplazan la lista completa; `[]` la vacía. En una
     causa "Prescripta" responden `422 CASE_IN_TERMINAL_STATE` (D-96).
   - **Acto lesivo**: `harmfulActDate` en `null` borra el acto y sus datos.
@@ -49,9 +50,6 @@ properties:
       - string
       - 'null'
     maxLength: 20
-  clientId:
-    type: integer
-    description: Cliente vigente.
   proceduralRole:
     $ref: ./ProceduralRole.yaml
   legalQualifications:

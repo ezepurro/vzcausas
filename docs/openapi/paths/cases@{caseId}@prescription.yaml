@@ -161,7 +161,30 @@ post:
     '401':
       $ref: ../components/responses/Unauthorized.yaml
     '403':
-      $ref: ../components/responses/ForbiddenAdministratorOrLawyer.yaml
+      description: |
+        Solo marca la prescripción el `ADMINISTRATOR` o el abogado responsable
+        de la causa (D-110). Un abogado que no es el responsable, y no es
+        `ADMINISTRATOR`, recibe el primer mensaje; la `SECRETARY` sola, el
+        segundo. Se evalúa después del `404`.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          examples:
+            notResponsibleLawyer:
+              summary: Abogado que no es el responsable
+              value:
+                error:
+                  code: FORBIDDEN
+                  message: Solo el abogado responsable de la causa puede marcarla como prescripta.
+                  details: null
+            missingRole:
+              summary: Secretaría
+              value:
+                error:
+                  code: FORBIDDEN
+                  message: Se requiere el rol ADMINISTRATOR o LAWYER para realizar esta operación.
+                  details: null
     '404':
       $ref: ../components/responses/CaseNotFound.yaml
     '422':

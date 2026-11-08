@@ -2,10 +2,10 @@ import { Logger } from '@nestjs/common';
 import { InMemoryCaseFolderOutcomes } from '../../../../infrastructure/events/in-memory-case-folder-outcomes';
 import { CASE_REGISTERED, CaseRegisteredEvent } from '../../../domain/ports/events/case-registered.event';
 import { CASE_TEMPLATES_COPY_REQUESTED } from '../../../domain/ports/events/case-templates-copy-requested.event';
-import { CaseNotFoundError } from '../../../domain/errors/case.errors';
+import { CaseNotFoundError, NotResponsibleLawyerError } from '../../../domain/errors/case.errors';
 import { FakeCaseFolderState, FakeEventPublisher } from '../../../test-support/case-folder-fakes';
 import { FakeCaseRepository, FakeClock, FakePeopleLookup } from '../../../test-support/case-fakes';
-import { CLIENT, INITIAL_STATES, LAWYER, NOW, TODAY, aCase } from '../../../test-support/case-fixtures';
+import { CLIENT, INITIAL_STATES, anActor, LAWYER, NOW, TODAY, aCase } from '../../../test-support/case-fixtures';
 import { RequestCaseFolder } from './request-case-folder.use-case';
 
 /**
@@ -71,6 +71,38 @@ describe('RequestCaseFolder', () => {
       jurisdiction: { id: registered.jurisdictionId, label: 'Penal' },
     });
     expect((events.published[0] as CaseRegisteredEvent).eventId).toBeTruthy();
+  });
+
+  // D-110
+  it('otro abogado recibe 403, y la causa no pasa a CREATING ni se publica nada', async () => {
+    const { useCase, registered, folderState, events } = build();
+
+    const attempt = useCase.execute({ caseId: registered.id, actor: anActor({ lawyerId: 99 }) });
+
+    await expect(attempt).rejects.toThrow(NotResponsibleLawyerError);
+    await expect(attempt).rejects.toThrow('Solo el abogado responsable de la causa puede operar su carpeta.');
+    expect(events.published).toEqual([]);
+    expect((await folderState.find(registered.id))?.status).not.toBe('CREATING');
+  });
+
+  // D-110
+  it('una secretaría ajena opera la carpeta', async () => {
+    const { useCase, registered, folderState, outcomes, events } = build();
+    events.onPublish = answerWith('CREATED', folderState, outcomes);
+
+    const result = await useCase.execute({
+      caseId: registered.id,
+      actor: anActor({ roleNames: ['SECRETARY'], lawyerId: null }),
+    });
+
+    expect(result.outcome).toBe('CREATED');
+  });
+
+  // D-110: primero 404, después 403
+  it('una causa inexistente es 404 aunque el actor sea otro abogado', async () => {
+    const { useCase } = build();
+
+    await expect(useCase.execute({ caseId: 999, actor: anActor({ lawyerId: 99 }) })).rejects.toThrow(CaseNotFoundError);
   });
 
   it('si la creación falla a tiempo, devuelve la carpeta en ERROR', async () => {

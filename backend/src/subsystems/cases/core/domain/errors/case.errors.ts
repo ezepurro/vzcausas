@@ -123,6 +123,11 @@ export class CaseFolderNotAvailableError extends BusinessRuleError {
 export class NotResponsibleLawyerError extends ForbiddenActionError {
   /** The wording of V5 `:6114` for modifying an act (HU28). */
   static readonly FOR_MODIFYING_ACTS = 'Solo el abogado responsable de la causa puede modificar sus actos procesales.';
+  /** The wording of V5 §4 "Operación de la causa" (D-110) for each operation a non-responsible lawyer cannot do. */
+  static readonly FOR_MODIFYING_CASE = 'Solo el abogado responsable de la causa puede modificarla.';
+  static readonly FOR_DEACTIVATING_CASE = 'Solo el abogado responsable de la causa puede darla de baja.';
+  static readonly FOR_OPERATING_FOLDER = 'Solo el abogado responsable de la causa puede operar su carpeta.';
+  static readonly FOR_DECLARING_PRESCRIPTION = 'Solo el abogado responsable de la causa puede marcarla como prescripta.';
 
   /**
    * The message names what was attempted: procedural acts by default (HU26),
@@ -165,9 +170,10 @@ export class PrescriptionNotApplicableError extends BusinessRuleError {
 }
 
 /**
- * Emitted when someone who is neither an administrator nor a lawyer tries to
- * mark a case as prescribed (HU33, CA-33.2, 403). Any lawyer may, not only the
- * responsible one (CA-33.1), so this is not {@link NotResponsibleLawyerError}.
+ * Emitted when someone who is neither an administrator nor a lawyer (the
+ * secretariat alone) tries to mark a case as prescribed (HU33, CA-33.2, 403).
+ * A lawyer who is not the responsible one gets {@link NotResponsibleLawyerError}
+ * instead (D-110).
  */
 export class CannotDeclarePrescriptionError extends ForbiddenActionError {
   constructor() {

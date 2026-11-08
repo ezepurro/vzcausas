@@ -10,6 +10,7 @@ import {
 import { loginAs } from '../auth/login-as';
 import { aCaseBody } from '../factories/case.factory';
 import { createClient } from '../factories/client.factory';
+import { purgeAuditLog } from './audit-log';
 import { clearCloudFolders } from '../factories/cloud-structure.factory';
 import { createLawyer } from '../factories/lawyer.factory';
 import { createInitialState } from '../factories/procedural-state.factory';
@@ -35,6 +36,7 @@ export async function resetDatabaseForCaseFolders(): Promise<void> {
   await prisma.proceduralAct.deleteMany();
   await prisma.case.deleteMany();
   await clearCloudFolders();
+  await purgeAuditLog(); // `audit_log` referencia a los usuarios con `Restrict`
   await prisma.user.deleteMany();
   await prisma.lawyer.deleteMany();
   await prisma.client.deleteMany();

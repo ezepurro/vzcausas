@@ -5,7 +5,7 @@ import { CLOCK, ClockPort } from '@shared/domain/clock.port';
 import { TRANSACTION_MANAGER, TransactionManagerPort } from '@shared/domain/transaction-manager.port';
 import { EventPublisher } from '@shared/infrastructure/events/event-publisher.port';
 import { createEventHeader } from '@shared/infrastructure/events/integration-event';
-import { CaseNotFoundError } from '../../../domain/errors/case.errors';
+import { CaseNotFoundError, NotResponsibleLawyerError } from '../../../domain/errors/case.errors';
 import { CASE_FOLDER_STATE, CaseFolderStatePort } from '../../../domain/ports/case/case-folder-state.port';
 import { CASE_REPOSITORY, CaseRepository } from '../../../domain/ports/case/case.repository';
 import { CASE_DEACTIVATED, CaseDeactivatedEvent } from '../../../domain/ports/events/case-deactivated.event';
@@ -15,7 +15,7 @@ export interface DeactivateCaseCommand {
   caseId: number;
   /** What the form sends; the whole body is optional (CA-21.2). */
   input: CaseDeactivationInput;
-  /** Who gives it de baja, for the record and the audit (CA-21.3). Any profile may (V5 §3.7). */
+  /** Who gives it de baja, for the record and the audit (CA-21.3). Only who operates the case may (D-110). */
   actor: AuthenticatedUser;
 }
 
@@ -24,7 +24,7 @@ export interface DeactivateCaseCommand {
  *
  * Coordinates and decides nothing: what a valid baja is belongs to
  * {@link CaseDeactivation} and {@link Case.deactivate}. The case exists (404) →
- * the reason (400) → the baja and its audit record, in one transaction.
+ * the actor operates it (403, D-110) → the reason (400) → the baja and its audit record, in one transaction.
  *
  * The case's Drive folder moves to the `Papelera` folder, with what is inside
  * it (D-104, revised; it replaces CA-21.8). It is announced **after** the commit
@@ -49,6 +49,7 @@ export class DeactivateCase {
   /**
    * @throws {CaseNotFoundError} 404, also for a case already given de baja,
    *   even if another request gave it de baja a moment ago (CA-21.5).
+   * @throws {NotResponsibleLawyerError} 403, a lawyer who is not the responsible one (D-110).
    * @throws {ValidationError} 400, a reason longer than 500 characters (CA-21.2).
    */
   async execute(command: DeactivateCaseCommand): Promise<void> {
@@ -56,6 +57,8 @@ export class DeactivateCase {
     if (!target || !target.active) {
       throw new CaseNotFoundError();
     }
+
+    target.assertCanBeOperatedBy(command.actor, NotResponsibleLawyerError.FOR_DEACTIVATING_CASE);
 
     const now = this.clock.now();
     target.deactivate(

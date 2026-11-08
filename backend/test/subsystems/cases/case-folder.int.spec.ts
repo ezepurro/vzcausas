@@ -240,11 +240,12 @@ describe('Carpeta de la causa en la nube (HU39)', () => {
       expect((await savedCase(created.id)).folderStatus).toBe('ERROR');
     });
 
-    // CA-39.6: cualquier perfil puede pedirla.
+    // CA-39.6, D-110: la piden quien opera la causa (el abogado, solo si es el responsable).
     it.each(['ADMINISTRATOR', 'LAWYER', 'SECRETARY'] as const)('responde 200 al perfil %s', async (role) => {
       const created = expectData<CaseBody>(await register({ createFolder: false }), 201);
+      const lawyerId = role === 'LAWYER' ? actors.lawyerId : null;
 
-      const res = await requestFolder(app, loginAs({ userId: actors.userId, roles: [role] }), created.id);
+      const res = await requestFolder(app, loginAs({ userId: actors.userId, roles: [role], lawyerId }), created.id);
 
       expect(expectData<FolderBody>(res, 200).status).toBe('CREATED');
     });
@@ -257,6 +258,29 @@ describe('Carpeta de la causa en la nube (HU39)', () => {
 
       expect(folder.status).toBe('CREATED');
       expect(folder.path).toContain('Ríos, Malena');
+    });
+
+    // D-110
+    it('otro abogado: 403 con el texto del contrato y no se pide carpeta; la secretaría ajena sí puede', async () => {
+      const created = expectData<CaseBody>(await register({ createFolder: false }), 201);
+      const otherLawyer = loginAs({ roles: ['LAWYER'], lawyerId: actors.lawyerId + 1000 });
+
+      const res = await requestFolder(app, otherLawyer, created.id);
+
+      expectError(res, 403, 'FORBIDDEN');
+      expect(res.body.error.message).toBe('Solo el abogado responsable de la causa puede operar su carpeta.');
+      expect(res.body.error.details).toBeNull();
+      expect((await savedCase(created.id)).folderStatus).toBe('PENDING');
+      expect(await caseFolders()).toBe(0);
+
+      expectData<FolderBody>(await retry(created.id), 200);
+    });
+
+    // D-110: primero 404, después 403
+    it('una causa inexistente es 404 aunque pida otro abogado', async () => {
+      const otherLawyer = loginAs({ roles: ['LAWYER'], lawyerId: actors.lawyerId + 1000 });
+
+      expectError(await requestFolder(app, otherLawyer, 999999), 404, 'CASE_NOT_FOUND');
     });
 
     it('responde 404 CASE_NOT_FOUND si la causa no existe y 400 INVALID_PATH_PARAMETER si el id no es un entero positivo', async () => {

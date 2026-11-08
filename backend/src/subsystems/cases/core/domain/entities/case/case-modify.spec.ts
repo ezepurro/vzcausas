@@ -144,10 +144,9 @@ describe('Case.modify', () => {
   });
 
   it('una carátula vacía o un campo que la causa siempre tiene, en null, se rechazan', () => {
-    expect(detailsOf(aCase(), { caption: '  ', courtFeePaid: null, clientId: null })).toEqual({
+    expect(detailsOf(aCase(), { caption: '  ', courtFeePaid: null })).toEqual({
       caption: 'Es obligatoria.',
       courtFeePaid: 'No puede quedar vacío.',
-      clientId: 'No puede quedar vacío.',
     });
   });
 
@@ -194,13 +193,9 @@ describe('Case.modify', () => {
     expect(target.toSnapshot()).toEqual(before);
   });
 
-  // CA-19.7, CA-19.9
-  it('cambiar el cliente no recalcula la carátula; cambiar responsable o carátula mueve la carpeta', () => {
+  // CA-19.9
+  it('cambiar responsable o carátula mueve la carpeta', () => {
     const target = aCase();
-
-    const changes = target.modify({ clientId: 9 }, context());
-    expect(target.caption).toBe('GÓMEZ, Ariel Fernando p.s.a. Robo calificado');
-    expect(changes.relocatesFolder()).toBe(false);
 
     expect(target.modify({ responsibleLawyerId: 5 }, context()).folderChanges()).toEqual(['responsibleLawyer']);
     expect(target.modify({ caption: 'FERREYRA p.s.a. Robo' }, context()).folderChanges()).toEqual(['caption']);

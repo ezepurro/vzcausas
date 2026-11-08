@@ -146,9 +146,11 @@ export class CasesController {
   async createFolder(
     @Param('caseId') caseIdParam: string,
     @Body() dto: RequestCaseFolderRequestDto,
+    @CurrentUser() actor: AuthenticatedUser,
   ): Promise<{ data: CaseFolderResponseDto | null }> {
     const result = await this.requestCaseFolder.execute({
       caseId: this.parseCaseId(caseIdParam),
+      actor,
       copyTemplates: dto?.copyTemplates,
     });
     if (result.outcome === 'ERROR') {
@@ -158,8 +160,8 @@ export class CasesController {
   }
 
   /**
-   * `PATCH /cases/{caseId}` (HU19): corrects the data of a case. Any profile may,
-   * responsible or not (V5 §3.7), so no permission is declared. The case goes
+   * `PATCH /cases/{caseId}` (HU19): corrects the data of a case. Who operates it may
+   * (D-110): the use case checks it against the case, so no permission is declared. The case goes
    * back whole, as `GET /cases/{caseId}` shows it.
    */
   @Patch(':caseId')
@@ -168,15 +170,15 @@ export class CasesController {
     @Body() dto: UpdateCaseRequestDto,
     @CurrentUser() actor: AuthenticatedUser,
   ): Promise<{ data: CaseResponseDto }> {
-    // `jurisdiction` only reaches here to be refused by the pipe: it is not a change.
-    const { jurisdiction: _jurisdiction, ...changes } = dto;
+    // `jurisdiction` and `clientId` only reach here to be refused by the pipe: they are not changes.
+    const { jurisdiction: _jurisdiction, clientId: _clientId, ...changes } = dto;
     const item = await this.updateCase.execute({ caseId: this.parseCaseId(caseIdParam), changes, actor });
     return { data: this.caseMapper.toResponse(item) };
   }
 
   /**
-   * `DELETE /cases/{caseId}` (HU21): gives a case de baja. Any profile may (V5
-   * §3.7), so no permission is declared. The only `DELETE` of the contract with
+   * `DELETE /cases/{caseId}` (HU21): gives a case de baja. Who operates it may
+   * (D-110): the use case checks it against the case, so no permission is declared. The only `DELETE` of the contract with
    * a body, and an optional one: without it the baja goes through (CA-21.2).
    */
   @Delete(':caseId')

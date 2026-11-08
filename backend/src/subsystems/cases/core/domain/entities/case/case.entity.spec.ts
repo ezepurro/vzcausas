@@ -1,4 +1,9 @@
-import { CaseInTerminalStateError, NotResponsibleLawyerError, PrescriptionNotApplicableError } from '../../errors/case.errors';
+import {
+  CannotDeclarePrescriptionError,
+  CaseInTerminalStateError,
+  NotResponsibleLawyerError,
+  PrescriptionNotApplicableError,
+} from '../../errors/case.errors';
 import { DayType } from '../../value-objects/deadline/day-type';
 import { Deadline } from '../../value-objects/deadline/deadline.vo';
 import {
@@ -85,6 +90,58 @@ describe('Case', () => {
 
     it('la denegación se informa con el código FORBIDDEN', () => {
       expect(new NotResponsibleLawyerError().code).toBe('FORBIDDEN');
+    });
+  });
+
+  describe('quién opera la causa (D-110)', () => {
+    const MESSAGE = NotResponsibleLawyerError.FOR_MODIFYING_CASE;
+    const operate = (actor: ReturnType<typeof anActor>) => () => aCase().assertCanBeOperatedBy(actor, MESSAGE);
+
+    it('lo permite al abogado responsable', () => {
+      expect(operate(anActor())).not.toThrow();
+    });
+
+    it('lo deniega a otro abogado, con el texto del contrato', () => {
+      expect(operate(anActor({ lawyerId: 99 }))).toThrow(NotResponsibleLawyerError);
+      expect(operate(anActor({ lawyerId: 99 }))).toThrow('Solo el abogado responsable de la causa puede modificarla.');
+    });
+
+    it('lo deniega a un abogado sin ficha', () => {
+      expect(operate(anActor({ lawyerId: null }))).toThrow(NotResponsibleLawyerError);
+    });
+
+    it.each([
+      ['ADMINISTRATOR sin ficha', ['ADMINISTRATOR'], null],
+      ['SECRETARY', ['SECRETARY'], null],
+      ['LAWYER y SECRETARY sin ser el responsable', ['LAWYER', 'SECRETARY'], 99],
+    ])('lo permite a %s', (_name, roleNames, lawyerId) => {
+      expect(operate(anActor({ roleNames, lawyerId }))).not.toThrow();
+    });
+  });
+
+  describe('quién marca la prescripción (D-110, CA-33.1, CA-33.2)', () => {
+    const declare = (actor: ReturnType<typeof anActor>) => () => aCase().assertCanDeclarePrescriptionBy(actor);
+
+    it.each([
+      ['el abogado responsable', anActor()],
+      ['un ADMINISTRATOR sin ficha', anActor({ roleNames: ['ADMINISTRATOR'], lawyerId: null })],
+      ['un abogado ajeno que también es ADMINISTRATOR', anActor({ roleNames: ['LAWYER', 'ADMINISTRATOR'], lawyerId: 99 })],
+    ])('lo permite a %s', (_name, actor) => {
+      expect(declare(actor)).not.toThrow();
+    });
+
+    it('lo deniega a otro abogado, con el texto del contrato', () => {
+      expect(declare(anActor({ lawyerId: 99 }))).toThrow(NotResponsibleLawyerError);
+      expect(declare(anActor({ lawyerId: 99 }))).toThrow(
+        'Solo el abogado responsable de la causa puede marcarla como prescripta.',
+      );
+    });
+
+    it('lo deniega a la secretaría sola, con el texto del rol', () => {
+      const secretary = anActor({ roleNames: ['SECRETARY'], lawyerId: null });
+
+      expect(declare(secretary)).toThrow(CannotDeclarePrescriptionError);
+      expect(declare(secretary)).toThrow('Se requiere el rol ADMINISTRATOR o LAWYER para realizar esta operación.');
     });
   });
 

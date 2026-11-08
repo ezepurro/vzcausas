@@ -1,13 +1,8 @@
-import { AuthenticatedUser } from '@shared/domain/authenticated-user';
 import { ValidationError } from '@shared/domain/domain-error';
-import { CannotDeclarePrescriptionError } from '../../errors/case.errors';
 
 const RESOLUTION_MAX = 255;
 const GROUNDS_MAX = 2000;
 const INVALID_DATA_MESSAGE = 'Los datos enviados no son válidos.';
-
-/** The profiles that may mark a case as prescribed (HU33, CA-33.1, CA-33.2). */
-const DECLARING_ROLES: readonly string[] = ['ADMINISTRATOR', 'LAWYER'];
 
 /** What the form of "Marcar prescripta" sends (contract V4 §3.7, `POST /cases/{caseId}/prescription`). */
 export interface PrescriptionDeclarationInput {
@@ -47,18 +42,6 @@ export interface PrescriptionDeclarationProps {
  */
 export class PrescriptionDeclaration {
   private constructor(private readonly props: PrescriptionDeclarationProps) {}
-
-  /**
-   * Only an administrator or a lawyer may declare a prescription, any lawyer and
-   * not only the responsible one (CA-33.1); the secretariat may not (CA-33.2).
-   * It does not depend on the case, so the refusal comes before the case is read.
-   * @throws CannotDeclarePrescriptionError
-   */
-  static assertCanBeDeclaredBy(actor: AuthenticatedUser): void {
-    if (!actor.roleNames.some((role) => DECLARING_ROLES.includes(role))) {
-      throw new CannotDeclarePrescriptionError();
-    }
-  }
 
   /**
    * Validates the data of the form and reports **every** wrong field at once,

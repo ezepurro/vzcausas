@@ -1,5 +1,5 @@
 import { Logger } from '@nestjs/common';
-import { CaseNotFoundError } from '../../../domain/errors/case.errors';
+import { CaseNotFoundError, NotResponsibleLawyerError } from '../../../domain/errors/case.errors';
 import { CASE_DEACTIVATED } from '../../../domain/ports/events/case-deactivated.event';
 import { FakeCaseFolderState, FakeEventPublisher } from '../../../test-support/case-folder-fakes';
 import { aCase, anActor, INITIAL_STATES, NOW, STATES_TABLE, TODAY, validationDetailsOf } from '../../../test-support/case-fixtures';
@@ -54,6 +54,41 @@ describe('DeactivateCase', () => {
     expect(audit.entries).toEqual([
       { actorUserId: 5, action: 'case.deactivated', entityType: 'Case', entityId: '1', occurredAt: NOW },
     ]);
+  });
+
+  // D-110
+  it('otro abogado recibe 403 y no se escribe nada', async () => {
+    const { useCase, cases, audit, existing, events } = build();
+
+    const attempt = useCase.execute(command({ actor: anActor({ roleNames: ['LAWYER'], lawyerId: 99 }) }));
+
+    await expect(attempt).rejects.toThrow(NotResponsibleLawyerError);
+    await expect(attempt).rejects.toThrow('Solo el abogado responsable de la causa puede darla de baja.');
+    expect(cases.deactivations).toEqual([]);
+    expect(existing.active).toBe(true);
+    expect(audit.entries).toEqual([]);
+    expect(events.published).toEqual([]);
+  });
+
+  // D-110
+  it.each([
+    ['el abogado responsable', anActor()],
+    ['un ADMINISTRATOR', anActor({ roleNames: ['ADMINISTRATOR'], lawyerId: null })],
+  ])('%s da de baja', async (_name, actor) => {
+    const { useCase, cases } = build();
+
+    await useCase.execute(command({ actor }));
+
+    expect(cases.deactivations).toHaveLength(1);
+  });
+
+  // D-110: primero 404, después 403
+  it('una causa inexistente es 404 aunque el actor sea otro abogado', async () => {
+    const { useCase } = build();
+
+    await expect(useCase.execute(command({ caseId: 999, actor: anActor({ lawyerId: 99 }) }))).rejects.toThrow(
+      CaseNotFoundError,
+    );
   });
 
   // CA-21.5

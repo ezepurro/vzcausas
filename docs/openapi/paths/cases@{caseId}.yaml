@@ -195,6 +195,18 @@ patch:
               $ref: ../components/examples/InvalidCaseIdError.yaml
     '401':
       $ref: ../components/responses/Unauthorized.yaml
+    '403':
+      description: |
+        Un usuario cuyo único rol operativo es `LAWYER` y que no es el abogado responsable de la causa (D-110). `ADMINISTRATOR` y `SECRETARY` operan cualquier causa; con varios roles alcanza con uno. Se evalúa después del `404`.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          example:
+            error:
+              code: FORBIDDEN
+              message: Solo el abogado responsable de la causa puede modificarla.
+              details: null
     '404':
       $ref: ../components/responses/CaseNotFound.yaml
     '409':
@@ -273,5 +285,17 @@ delete:
               $ref: ../components/examples/InvalidCaseIdError.yaml
     '401':
       $ref: ../components/responses/Unauthorized.yaml
+    '403':
+      description: |
+        Un usuario cuyo único rol operativo es `LAWYER` y que no es el abogado responsable de la causa (D-110). `ADMINISTRATOR` y `SECRETARY` operan cualquier causa; con varios roles alcanza con uno. Se evalúa después del `404`.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          example:
+            error:
+              code: FORBIDDEN
+              message: Solo el abogado responsable de la causa puede darla de baja.
+              details: null
     '404':
       $ref: ../components/responses/CaseNotFound.yaml
