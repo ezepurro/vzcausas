@@ -23,12 +23,18 @@ Sólo debajo de 721 px; arriba nada cambia.
   de alto; antes eran botones de 28 px, chicos para el dedo.
 - **"Documentación":** "Abrir" y "Descargar" se reparten el renglón que ya
   tenían debajo del nombre.
+- **Filtros del listado:** los tres desplegables, "Solo con plazo por vencer"
+  y "Limpiar filtros" van plegados detrás de un botón "Filtros", al lado del
+  buscador, que muestra cuántos hay aplicados. Apilados de a uno a todo el
+  ancho tapaban la lista (pedido de Facundo Fiorani al revisar el celular).
+  Es `CollapsibleFilters`, de `shared`; `CaseFilters` cuenta los aplicados.
 
 ### Archivos
 
 | Archivo | Cambio |
 |---|---|
 | `src/styles/cases.css` | El bloque "teléfono" del encabezado y uno nuevo al final para los botones de "Generar expediente" y "Documentación" |
+| `components/CaseFilters.tsx` | Envuelve los filtros en `CollapsibleFilters` y cuenta los aplicados |
 
 ### Verificación
 

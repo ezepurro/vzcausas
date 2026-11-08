@@ -282,6 +282,7 @@ Están documentados en `SHARED.md`. Usalos antes de escribir nada parecido:
 | "Objeto del reclamo" / "Objeto del amparo" con contador `0 / 800` | `Textarea` dentro de `Field` con `hint` (ya está en `CaseForm`) |
 | "Solo con plazo por vencer" | `Button pressed={…}` |
 | Buscador de un listado | `SearchInput` + `useDebouncedValue` de `@/shared/hooks/useDebouncedValue` |
+| Desplegables de filtro de un listado, plegados en el teléfono detrás de "Filtros" | `CollapsibleFilters` con `active` = cuántos hay aplicados (ya está en `CaseFilters` y `UsersPage`) |
 | Formulario de página con panel al costado | `.vz-split` + `.vz-split__aside` |
 | Chip de vencimiento y de estado | `Pill` (`danger` vencido/hoy, `warn` ≤ 5 días, `dot="hollow"` sin plazo) |
 | Mostrar una fecha del contrato | `formatDate` de `@/shared/lib/dates` |

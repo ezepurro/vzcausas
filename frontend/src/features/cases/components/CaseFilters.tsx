@@ -1,4 +1,4 @@
-import { Button } from '@/shared/components/ui'
+import { Button, CollapsibleFilters } from '@/shared/components/ui'
 import { Select, type SelectOption, type SelectOptionGroup } from '@/shared/components/forms'
 import { JURISDICTION_LABELS, JURISDICTIONS, type Jurisdiction } from '@/features/legal-params'
 import { ALL_STATES } from '@/features/cases/utils/stateFilter'
@@ -45,11 +45,17 @@ export function CaseFilters({
     jurisdiction, responsibleLawyerId, state, openDeadline, lawyerOptions, stateOptions,
     onJurisdictionChange, onResponsibleLawyerChange, onStateChange, onOpenDeadlineChange, onClear,
 }: CaseFiltersProps) {
-    const hasFilters =
-        jurisdiction !== '' || responsibleLawyerId !== '' || state !== ALL_STATES || openDeadline
+    const activeFilters = [
+        jurisdiction !== '',
+        responsibleLawyerId !== '',
+        state !== ALL_STATES,
+        openDeadline,
+    ].filter(Boolean).length
+    const hasFilters = activeFilters > 0
 
     return (
-        <>
+        // En el teléfono los filtros van plegados detrás de "Filtros".
+        <CollapsibleFilters active={activeFilters}>
             <Select
                 aria-label="Filtrar por fuero"
                 options={JURISDICTION_OPTIONS}
@@ -79,6 +85,6 @@ export function CaseFilters({
             {hasFilters && (
                 <Button variant="ghost" size="md" onClick={onClear}>Limpiar filtros</Button>
             )}
-        </>
+        </CollapsibleFilters>
     )
 }

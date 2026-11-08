@@ -91,6 +91,25 @@
    su mínimo, cortando el placeholder. */
 .vz-filters .vz-search { min-width: 280px; }
 
+/* Filtros plegables (`CollapsibleFilters`): en una pantalla ancha el botón no
+   se ve y los filtros quedan en la fila como si no estuvieran envueltos. El
+   teléfono los pliega (ver "Teléfono", abajo). */
+.vz-filters-toggle { display: none; }
+.vz-filters-body { display: contents; }
+.vz-filters-toggle__count {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: var(--vz-r-pill);
+  background: var(--vz-primary);
+  color: #fff;
+  font-family: var(--vz-font-mono);
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 20px;
+  text-align: center;
+}
+
 /* Paginado: va en el pie del panel, que ya trae borde y color apagado. */
 .vz-pager {
   display: flex;
@@ -309,9 +328,22 @@
   .vz-panel__head > .vz-filters { flex: 1 1 100%; gap: 8px; }
   .vz-panel__head > .vz-filters:has(.vz-search, .vz-select) { flex-direction: column; align-items: stretch; }
   .vz-filters .vz-search { flex: none; min-width: 0; max-width: none; }
+  .vz-filters .vz-search__input { height: 42px; }
+  .vz-filters .vz-search__icon { top: 13px; }
   .vz-filters .vz-input,
   .vz-filters .vz-select { width: 100%; min-width: 0; height: 42px; }
   .vz-filters:has(.vz-search, .vz-select) > .vz-btn { width: 100%; height: 42px; }
+
+  /* Con `CollapsibleFilters`: el buscador y el botón "Filtros" en un renglón,
+     y los filtros plegados debajo hasta que se tocan. Un botón de alta que
+     viva en la misma cabecera ("Registrar usuario") baja a su renglón. */
+  .vz-panel__head > .vz-filters:has(> .vz-filters-body) { flex-direction: row; flex-wrap: wrap; align-items: center; }
+  .vz-filters:has(> .vz-filters-body) > .vz-search { flex: 1 1 0; }
+  .vz-filters:has(> .vz-filters-body) > .vz-btn { flex: 1 1 100%; }
+  .vz-filters:has(> .vz-filters-body) > .vz-filters-toggle { display: inline-flex; flex: 0 0 auto; width: auto; }
+  .vz-filters-body { display: none; flex: 1 1 100%; flex-direction: column; gap: 8px; }
+  .vz-filters-body.is-open { display: flex; }
+  .vz-filters-body > .vz-btn { width: 100%; height: 42px; }
 
   /* Un grupo de botones que filtran (`role="group"`: "Todos", "Vencidos",
      "Hoy"…) es una fila de chips que se desliza de costado: apilados, cinco
