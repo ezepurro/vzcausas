@@ -249,7 +249,7 @@ import { ApiError, isApiError } from '@/shared/api/ApiError';
 **Propósito:** estructura de la app con sesión: rail oscuro, barra superior y página.
 
 **Props:** `groups: RailGroup[]`, `active: string`, `onNavigate(id)`, `brand`,
-`railAction?`, `railFooter?`, `topBar?`, `children`.
+`railAction?`, `railFooter?`, `topBar?`, `topBarBrand?`, `children`.
 `RailGroup = { label, items: RailItem[] }`, `RailItem = { id, label, icon: IconName }`.
 
 **Notas:** no sabe de rutas; la traducción ruta↔ítem la hace
@@ -260,9 +260,16 @@ si falta, el ítem en `AppLayout`.
 **Pantallas angostas:** debajo de 1024px el rail no ocupa lugar. Queda fuera de
 la pantalla y se abre encima de la página con el botón de menú que AppShell
 pone en la barra superior; se cierra con su botón, tocando el fondo, con Escape
-o al elegir cualquier cosa del rail. AppShell guarda ese estado y el CSS
-(`shell.css`) decide si el rail está fijo o es deslizable: quien lo monta no
-tiene que hacer nada.
+o al elegir cualquier cosa del rail. Abierto, la página de abajo no scrollea,
+y al agrandar la ventana por encima de 1024px se cierra solo (si no, quedaba
+abierto "de fondo" y reaparecía al volver a achicarla). AppShell guarda ese
+estado y el CSS (`shell.css`) decide si el rail está fijo o es deslizable:
+quien lo monta no tiene que hacer nada.
+
+`topBarBrand` es la marca de la barra superior y se ve sólo debajo de 1024px,
+donde el rail está guardado: sin ella la barra quedaba con el botón de menú y
+la campana. `AppLayout` le pasa el mismo `Logo` del rail, como enlace a la
+pantalla de entrada; `shell.css` lo pinta para el fondo claro.
 
 ### PageHeader
 
@@ -297,11 +304,17 @@ monoespaciada: SAC, fechas, importes), `nowrap?`, `actions?` (alinea a la derech
 `width?`, `primary?`, `hideWhenNarrow?`.
 
 **Pantallas angostas:** la tabla se adapta sola, pero cada pantalla le dice qué
-importa. Debajo de 1180px suelta `minWidth` y esconde las columnas marcadas
-`hideWhenNarrow` (lo prescindible: fuero, responsable, último acceso). Debajo
-de 720px cada fila es una tarjeta: la columna `primary` —la que identifica a la
-fila— va arriba a todo el ancho, las acciones abajo, y el resto de a dos con el
-nombre de su columna encima. **Toda tabla nueva marca su columna `primary`.**
+importa. Tiene dos formas y ninguna intermedia: arriba de 1180px es una tabla;
+debajo, cada fila es una ficha suelta. Antes, entre 721 y 1180px, la tabla se
+apretaba para entrar y la carátula o el estado se partían en tres o cuatro
+renglones. En la ficha la columna `primary` —la que identifica a la fila— la
+encabeza a todo el ancho, las acciones la cierran como botones, y el resto se
+reparte en tantas columnas como entren, con el nombre de su columna encima.
+El `Panel` que la envuelve se abre solo: la cabecera con los filtros, cada
+ficha y el pie con el paginado quedan como tarjetas separadas. En el teléfono
+(debajo de 721px) los datos van de a dos y se esconden las columnas marcadas
+`hideWhenNarrow` (lo prescindible: fuero, responsable, último acceso).
+**Toda tabla nueva marca su columna `primary`.**
 
 ```tsx
 <DataTable
@@ -1025,14 +1038,24 @@ módulos.
 
 | Corte | Qué cambia |
 |---|---|
-| 1180px | `.vz-split` pasa a una columna y el panel lateral va abajo. Las tablas sueltan su ancho mínimo y esconden las columnas `hideWhenNarrow` |
-| 1023px | El rail sale de la pantalla y se abre con el botón de la barra superior |
+| 1180px | `.vz-split` pasa a una columna y el panel lateral va abajo. Cada fila de una tabla pasa a ser una ficha suelta y el `Panel` que la envuelve se abre en tarjetas (ver `DataTable`) |
+| 1023px | El rail sale de la pantalla y se abre con el botón de la barra superior, que suma el logo (`topBarBrand`) |
 | 860px | El login queda en una columna; `.vz-form-row3`, en dos |
-| 720px | Teléfono: `.vz-form-grid` en una columna, tablas como tarjetas, filtros de a dos, modal casi a pantalla completa, menos aire (`--vz-main-pad`, `--vz-panel-pad`); en los `select` lo elegido va en un renglón y se pierde bajo la flecha si no entra |
+| 720px | Teléfono: `.vz-form-grid` en una columna; las fichas de las tablas con los datos de a dos y sin las columnas `hideWhenNarrow`; los filtros de un listado (con buscador o desplegables) uno por renglón a todo el ancho, y un grupo de botones que filtran (`role="group"`) en una fila que se desliza; "Anterior" y "Siguiente" del paginado repartiéndose el ancho; las acciones del encabezado de página, de los formularios y de los modales a todo el ancho y de 42px de alto; los campos con letra de 16px (con menos, el iPhone agranda la página al tocarlos); modal casi a pantalla completa; menos aire (`--vz-main-pad`, `--vz-panel-pad`); en los `select` lo elegido va en un renglón y se pierde bajo la flecha si no entra |
 
 Una pantalla nueva armada con los componentes y las clases de `shared` ya es
-responsive. Si necesita CSS propio, usa estos cortes y prueba a 375px que nada
-se salga de la pantalla.
+responsive. Si necesita CSS propio, usa estos cortes y prueba a 375px, 820px
+y 1100px que nada se salga de la pantalla. Tres criterios que siguen las
+pantallas que ya están:
+
+- **Dos formas, ninguna intermedia.** Si algo deja de entrar, cambia de forma
+  en un corte (renglón → ficha, fila → columna); no se aprieta para entrar
+  igual.
+- **En el teléfono no hay scroll adentro de la página.** Una lista con
+  `max-height` y `overflow-y: auto` se dibuja entera debajo de 721px: con el
+  dedo, un scroll dentro de otro atrapa el gesto.
+- **Lo que se toca, a la medida del dedo.** Debajo de 721px los botones de una
+  acción miden 36px de alto como mínimo, y los principales, 42px.
 
 **Regla del proyecto:** no hardcodear colores, siempre `var(--vz-*)`.
 

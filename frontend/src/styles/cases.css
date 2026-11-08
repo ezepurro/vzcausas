@@ -267,6 +267,16 @@
   .vz-case-head__title { font-size: 19px; }
   .vz-case-head__note { max-width: none; }
 
+  /* Los datos de la causa, uno por renglón. En fila, al partirse, las rayas
+     separadoras quedaban colgando al final o al principio de un renglón. */
+  .vz-case-head__meta { flex-direction: column; gap: 3px; }
+  .vz-case-head__sep { display: none; }
+
+  /* Las acciones se reparten el ancho y se tocan con el dedo. */
+  .vz-case-head__buttons .vz-btn,
+  .vz-case-actions .vz-btn { flex: 1 1 auto; height: 38px; }
+  .vz-case-actions__label { flex: 1 1 100%; margin: 0; }
+
   /* La fecha del hecho baja a su renglón, con "Quitar" al lado. */
   .vz-picker__main { flex: 1 1 100%; min-width: 0; }
   .vz-picker__date { flex: 1 1 140px; }
@@ -442,8 +452,9 @@
 
 /* ─────────── generar expediente (HU25) ─────────── */
 /* La carátula y los documentos, uno por renglón, en el orden en que se unen;
-   el índice de "Resultado"; la vista previa (HU24) y el diálogo final. Sin
-   cortes propios: los renglones se acomodan con flex-wrap. */
+   el índice de "Resultado"; la vista previa (HU24) y el diálogo final. Los
+   renglones se acomodan con flex-wrap; en el teléfono sólo crecen los
+   botones de cada renglón (al final del archivo). */
 .vz-casefile__body { display: flex; flex-direction: column; gap: 14px; }
 .vz-casefile__list { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
 .vz-casefile__item {
@@ -675,3 +686,11 @@
    el margen ni el relleno que trae el navegador. */
 .vz-casefile__panels { display: flex; flex-direction: column; gap: 16px; min-width: 0; margin: 0; padding: 0; border: 0; transition: opacity .15s; }
 .vz-casefile__panels:disabled { opacity: .6; }
+
+/* Teléfono: los botones de cada documento ("↑", "↓", "Quitar") miden lo que
+   un dedo necesita. */
+@media (max-width: 720px) {
+  .vz-casefile__row-actions { gap: 6px; }
+  .vz-casefile__row-actions .vz-btn { height: 36px; min-width: 40px; }
+  .vz-docs__actions .vz-btn { flex: 1 1 auto; height: 36px; }
+}

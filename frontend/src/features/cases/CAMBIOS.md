@@ -5,6 +5,39 @@ contrato.
 
 ---
 
+## 2026-11-08 — El detalle y "Generar expediente" en el teléfono
+
+**Pedido:** del equipo (Facundo Fiorani), dentro del repaso del responsive de
+toda la aplicación (rama `refactor/front`). El listado de causas cambió por
+`DataTable` (ver `SHARED.md`, "DataTable"); acá queda lo propio de causas.
+Sólo debajo de 721 px; arriba nada cambia.
+
+- **Encabezado de la causa:** los datos (tribunal, fuero, rol, responsable,
+  instructor) van uno por renglón y sin las rayas que los separan. En fila,
+  al partirse, las rayas quedaban colgando al principio o al final de un
+  renglón.
+- **Acciones del encabezado** ("Modificar causa", "Dar de baja") y de "Sobre
+  la causa": se reparten el ancho, de 38 px de alto; el rótulo "Sobre la
+  causa" va en su propio renglón.
+- **"Generar expediente":** "↑", "↓" y "Quitar" de cada documento miden 36 px
+  de alto; antes eran botones de 28 px, chicos para el dedo.
+- **"Documentación":** "Abrir" y "Descargar" se reparten el renglón que ya
+  tenían debajo del nombre.
+
+### Archivos
+
+| Archivo | Cambio |
+|---|---|
+| `src/styles/cases.css` | El bloque "teléfono" del encabezado y uno nuevo al final para los botones de "Generar expediente" y "Documentación" |
+
+### Verificación
+
+En el navegador con los mocks, como `fvazquez`: el detalle de la causa 1,
+"Registrar acto procesal" de la 4 y "Generar expediente" de la 1, a 375 px y
+1100 px, sin scroll horizontal.
+
+---
+
 ## 2026-11-03 — Generar expediente: la espera y el corte por tiempo (HU25)
 
 **Pedido:** de Luciano Cipolla, al probar contra el backend: generar el
