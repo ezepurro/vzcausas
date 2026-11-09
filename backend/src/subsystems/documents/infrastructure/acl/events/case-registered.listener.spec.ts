@@ -68,10 +68,56 @@ describe('CaseRegisteredListener', () => {
   it('no deja escapar un error del caso de uso de copia', async () => {
     const { assureSpace } = await aSetUpStudio();
     const listener = new CaseRegisteredListener(assureSpace, {
+      request: jest.fn().mockResolvedValue(undefined),
       execute: jest.fn().mockRejectedValue(new Error('boom')),
     } as never);
 
     await expect(listener.handle(aCaseRegisteredEvent({ copyTemplates: true }))).resolves.toBeUndefined();
+  });
+
+  // CA-39.5: con la carpeta caída, `cases` responde ERROR enseguida y ya tiene que ver los pendientes.
+  it('registra los modelos pendientes ANTES de pedir la carpeta', async () => {
+    const order: string[] = [];
+    const assureSpace = {
+      execute: jest.fn().mockImplementation(async () => {
+        order.push('assure');
+        return { cloudFolderId: 'f', url: 'u', path: 'p' };
+      }),
+    };
+    const copyTemplates = {
+      request: jest.fn().mockImplementation(async () => void order.push('request')),
+      execute: jest.fn().mockImplementation(async () => void order.push('copy')),
+    };
+    const listener = new CaseRegisteredListener(assureSpace as never, copyTemplates as never);
+
+    await listener.handle(aCaseRegisteredEvent({ caseId: 10, copyTemplates: true }));
+
+    expect(order).toEqual(['request', 'assure', 'copy']);
+    expect(copyTemplates.request).toHaveBeenCalledWith({ caseId: 10, jurisdictionId: expect.any(Number) });
+  });
+
+  it('si no se pudieron registrar los pendientes, igual crea la carpeta y copia', async () => {
+    const assureSpace = { execute: jest.fn().mockResolvedValue({ cloudFolderId: 'f', url: 'u', path: 'p' }) };
+    const copyTemplates = {
+      request: jest.fn().mockRejectedValue(new Error('boom')),
+      execute: jest.fn().mockResolvedValue(undefined),
+    };
+    const listener = new CaseRegisteredListener(assureSpace as never, copyTemplates as never);
+
+    await expect(listener.handle(aCaseRegisteredEvent({ copyTemplates: true }))).resolves.toBeUndefined();
+
+    expect(assureSpace.execute).toHaveBeenCalledTimes(1);
+    expect(copyTemplates.execute).toHaveBeenCalledTimes(1);
+  });
+
+  it('sin copyTemplates no registra pendientes (CA-40.4)', async () => {
+    const assureSpace = { execute: jest.fn().mockResolvedValue({ cloudFolderId: 'f', url: 'u', path: 'p' }) };
+    const copyTemplates = { request: jest.fn(), execute: jest.fn() };
+    const listener = new CaseRegisteredListener(assureSpace as never, copyTemplates as never);
+
+    await listener.handle(aCaseRegisteredEvent({ copyTemplates: false }));
+
+    expect(copyTemplates.request).not.toHaveBeenCalled();
   });
 
   it('traduce CaseRegistered al comando y crea la carpeta de la causa', async () => {

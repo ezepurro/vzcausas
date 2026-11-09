@@ -76,6 +76,18 @@ export class CopyTemplatesToCaseFolder {
     private readonly events: EventPublisher,
   ) {}
 
+  /**
+   * Only asks: registers the copies as `PENDING`, touching neither the storage
+   * nor the events. It exists so the listener can ask **before** requesting the
+   * folder: if the folder then fails, `cases` answers `ERROR` right away and
+   * must already find the pending copies (CA-39.5). Idempotent (CA-40.7).
+   */
+  request(command: { caseId: number; jurisdictionId: number }): Promise<void> {
+    return this.locks.run(`case:${command.caseId}`, () =>
+      this.copies.registerPending(command.caseId, command.jurisdictionId),
+    );
+  }
+
   execute(command: CopyTemplatesToCaseFolderCommand): Promise<CopyTemplatesToCaseFolderResult> {
     return this.locks.run(`case:${command.caseId}`, () => this.copy(command));
   }
@@ -92,10 +104,12 @@ export class CopyTemplatesToCaseFolder {
       return this.copies.countByCase(caseId);
     }
 
-    // Each case is copied from the template's file of ITS jurisdiction. The case folder knows it, also
-    // on a retry, where the command has none; a folder not saved yet falls back to the command's.
-    const folder = await this.folders.findById(cloudFolderId);
-    const jurisdictionId = folder?.jurisdictionId ?? command.jurisdictionId;
+    // Each case is copied from the template's file of ITS jurisdiction. The command has it when the
+    // case was just registered. The folder is only asked on a retry, where the command has none: a
+    // folder `cases` has not linked yet cannot even be read (a case folder needs its `caseId`), so
+    // reading it on the registration path is a race against the `DocumentSpaceAssigned` handler.
+    const jurisdictionId =
+      command.jurisdictionId ?? (await this.folders.findById(cloudFolderId))?.jurisdictionId ?? undefined;
 
     for (const pending of await this.copies.findPending(caseId, jurisdictionId)) {
       await this.copyOne(cloudFolderId, pending);

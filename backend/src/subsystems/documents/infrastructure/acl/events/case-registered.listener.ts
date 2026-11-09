@@ -31,9 +31,25 @@ export class CaseRegisteredListener {
   @OnEvent(CASE_REGISTERED, { async: true })
   async handle(event: CaseRegisteredEvent): Promise<void> {
     this.logger.log(`Received ${event.type} (eventId=${event.eventId}, caseId=${event.caseId})`);
+    // Ask for the templates BEFORE the folder: if the folder fails, `cases` hears it
+    // and answers right away, so the pending copies must already be written.
+    if (event.copyTemplates) {
+      await this.requestTemplates(event);
+    }
     const space = await this.assure(event);
     if (event.copyTemplates) {
       await this.copy(event, space);
+    }
+  }
+
+  private async requestTemplates(event: CaseRegisteredEvent): Promise<void> {
+    try {
+      await this.copyTemplates.request({ caseId: event.caseId, jurisdictionId: event.jurisdiction.id });
+    } catch (error) {
+      // Not fatal: `execute` asks again below, and the folder is created either way.
+      this.logger.error(
+        `Could not register the pending templates (eventId=${event.eventId}, caseId=${event.caseId}): ${String(error)}`,
+      );
     }
   }
 

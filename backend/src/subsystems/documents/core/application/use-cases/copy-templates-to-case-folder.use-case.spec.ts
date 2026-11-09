@@ -166,6 +166,29 @@ describe('CopyTemplatesToCaseFolder', () => {
     expect(copiedEvents(events)).toEqual([]);
   });
 
+  // CA-39.5: el listener pide los modelos antes que la carpeta para que `cases` los vea si la carpeta falla.
+  it('request solo registra los pendientes: no copia, no toca el storage ni anuncia nada', async () => {
+    const { copyTemplates, copies, storage, events } = await aStudioWithTemplates(2);
+
+    await copyTemplates.request({ caseId: CASE_ID, jurisdictionId: CRIMINAL });
+
+    expect(copies.rowsOf(CASE_ID).map((c) => c.status)).toEqual(['PENDING', 'PENDING']);
+    expect(storage.fileCalls).toEqual([]);
+    expect(events.published).toEqual([]);
+  });
+
+  it('request seguido de execute copia cada modelo una sola vez (CA-40.7)', async () => {
+    const { copyTemplates, copies, storage, caseFolder } = await aStudioWithTemplates(2);
+
+    await copyTemplates.request({ caseId: CASE_ID, jurisdictionId: CRIMINAL });
+    await copyTemplates.request({ caseId: CASE_ID, jurisdictionId: CRIMINAL });
+    const result = await copyTemplates.execute({ caseId: CASE_ID, jurisdictionId: CRIMINAL });
+
+    expect(result).toEqual({ copied: 2, pending: 0 });
+    expect(copies.rowsOf(CASE_ID)).toHaveLength(2);
+    expect(storage.files.filter((f) => f.parentId === caseFolder.cloudFolderId)).toHaveLength(2);
+  });
+
   it('usa la carpeta que le pasan sin buscarla (todavía puede no estar vinculada a la causa)', async () => {
     const studio = await aStudioWithTemplates(1);
     const loose = await studio.storage.createFolder({ parentId: studio.rootCasesId, name: 'Suelta' });
@@ -173,6 +196,24 @@ describe('CopyTemplatesToCaseFolder', () => {
     await studio.copyTemplates.execute({ caseId: 77, jurisdictionId: CRIMINAL, cloudFolderId: loose.id });
 
     expect(studio.storage.files.filter((f) => f.parentId === loose.id)).toHaveLength(1);
+  });
+
+  // CA-40.1: `cases` puede no haber vinculado todavía la carpeta; una carpeta sin vincular ni se puede leer.
+  it('con el fuero y la carpeta en el comando no lee la carpeta, y copia igual', async () => {
+    const { copyTemplates, folders, caseFolder, storage } = await aStudioWithTemplates(2);
+    const findById = jest
+      .spyOn(folders, 'findById')
+      .mockRejectedValue(new Error('la carpeta todavía no está vinculada a la causa'));
+
+    const result = await copyTemplates.execute({
+      caseId: CASE_ID,
+      jurisdictionId: CRIMINAL,
+      cloudFolderId: caseFolder.cloudFolderId,
+    });
+
+    expect(result).toEqual({ copied: 2, pending: 0 });
+    expect(findById).not.toHaveBeenCalled();
+    expect(storage.files.filter((f) => f.parentId === caseFolder.cloudFolderId)).toHaveLength(2);
   });
 
   // C1

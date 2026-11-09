@@ -18,6 +18,10 @@ import {
   DOCUMENT_SPACE_CREATION_FAILED,
   DocumentSpaceCreationFailedEvent,
 } from '../../../src/subsystems/documents/core/domain/ports/events/document-space-creation-failed.event';
+import {
+  TEMPLATE_COPY_REPOSITORY,
+  TemplateCopyRepository,
+} from '../../../src/subsystems/documents/core/domain/ports/template-copy.repository';
 import { InMemoryDocumentStorage } from '../../../src/subsystems/documents/infrastructure/storage/in-memory/in-memory-document-storage';
 import { loginAs } from '../../shared/auth/login-as';
 import { expectData } from '../../shared/contract/envelopes';
@@ -259,10 +263,25 @@ describe('documents al registrar una causa', () => {
     }
 
     // CA-39.5, `API_CONTRACT_V5.md` §3.4 (`folder` en ERROR)
-    it('si el almacenamiento está caído, la causa se registra y los seis modelos quedan pendientes', async () => {
+    // El aviso de la falla despierta al alta sin esperar a nadie: los pendientes tienen que estar escritos
+    // ANTES de pedir la carpeta. Con 300 ms de demora al registrarlos, registrarlos después no alcanza.
+    it.each([0, 300])(
+      'si el almacenamiento está caído, la causa se registra y los seis modelos quedan pendientes (registro de pendientes con %i ms de demora)',
+      async (delayMs) => {
+      const copies = app.get<TemplateCopyRepository>(TEMPLATE_COPY_REPOSITORY);
+      const registerPending = copies.registerPending.bind(copies);
+      const slow = jest.spyOn(copies, 'registerPending').mockImplementation(async (caseId, jurisdictionId) => {
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        return registerPending(caseId, jurisdictionId);
+      });
       storage.failNextWith(new DocumentStorageUnavailableError('TRANSIENT', 'timeout'));
 
-      const data = expectData<{ folder: FolderBody }>(await register(), 201);
+      let data: { folder: FolderBody };
+      try {
+        data = expectData<{ folder: FolderBody }>(await register(), 201);
+      } finally {
+        slow.mockRestore();
+      }
 
       expect(data.folder).toEqual({
         status: 'ERROR',
@@ -271,7 +290,8 @@ describe('documents al registrar una causa', () => {
         templatesCopied: 0,
         templatesPending: 6,
       });
-    });
+      },
+    );
 
     // CA-40.7
     it('si falla la copia de un modelo queda pendiente, y el reintento copia solo el que falta', async () => {
