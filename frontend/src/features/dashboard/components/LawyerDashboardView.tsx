@@ -1,11 +1,11 @@
-import { useState } from 'react'
 import type { LawyerDashboard } from '@/features/dashboard/types/dashboard'
 import { SummaryBand, type SummaryTile } from '@/features/dashboard/components/SummaryBand'
 import { FirstDeadline } from '@/features/dashboard/components/FirstDeadline'
-import { DeadlinesPanel, type UrgencyFilter } from '@/features/dashboard/components/DeadlinesPanel'
+import { DeadlinesPanel } from '@/features/dashboard/components/DeadlinesPanel'
 import { DeadlineCalendar } from '@/features/dashboard/components/DeadlineCalendar'
 import { PrescriptionAlertsPanel } from '@/features/dashboard/components/PrescriptionAlertsPanel'
 import { CasesToAdvancePanel } from '@/features/dashboard/components/CasesToAdvancePanel'
+import { useDashboardFilters } from '@/features/dashboard/hooks/useDashboardFilters'
 
 interface LawyerDashboardViewProps {
     dashboard: LawyerDashboard
@@ -17,7 +17,8 @@ interface LawyerDashboardViewProps {
  * tablero ya cargado; lo pide `HomePage`.
  */
 export function LawyerDashboardView({ dashboard, onOpen }: LawyerDashboardViewProps) {
-    const [urgency, setUrgency] = useState<UrgencyFilter>('all')
+    // El filtro vive en la URL: sigue puesto al volver de una causa.
+    const { urgency, setUrgency } = useDashboardFilters()
     const { summary } = dashboard
 
     // CA-41.2, con los rótulos y las notas del prototipo, en su orden.

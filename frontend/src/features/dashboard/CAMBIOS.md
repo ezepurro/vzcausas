@@ -5,6 +5,48 @@ ni del contrato.
 
 ---
 
+## 2026-11-09 — La pestaña y los filtros sobreviven a abrir una causa
+
+**Pedido:** de Luciano Cipolla. En "Estudio", al filtrar por un responsable,
+abrir una causa y volver con la flechita, Inicio caía en "Mi día" y el filtro
+se perdía.
+
+**Antes:** la pestaña (`HomePage`) y los filtros (urgencia en las dos vistas,
+abogado en "Estudio") eran `useState`. Abrir la causa desmonta Inicio; al
+volver se monta de nuevo con los valores iniciales: "Mi día" (CA-41.7) y sin
+filtros.
+
+**Ahora** viven en la URL (`/inicio?tablero=administrator&urgencia=overdue&responsable=3`),
+con `useDashboardFilters`:
+
+- Volver de una causa, el botón atrás del navegador y recargar conservan la
+  pestaña y los filtros.
+- Entrar a Inicio desde el menú no trae parámetros: "Mi día" sin filtros,
+  como pide CA-41.7.
+- Se escribe con `replace`: tocar un filtro no suma una entrada al historial.
+- Cambiar de pestaña limpia los filtros, como antes (cada vista arrancaba con
+  los suyos). Tocar la pestaña que ya se ve no los limpia.
+- Un valor que no se entiende (`urgencia=xyz`, `responsable=abc`) cuenta como
+  ausente; un abogado que no está en el equipo no filtra.
+
+El mes del calendario sigue en el estado del componente: vuelve al mes actual.
+
+### Archivos
+
+| Archivo | Cambio |
+|---|---|
+| `hooks/useDashboardFilters.ts` | Nuevo: lee y escribe los tres parámetros |
+| `pages/HomePage.tsx` | La pestaña sale del hook |
+| `components/AdministratorDashboardView.tsx` | Urgencia y abogado salen del hook |
+| `components/LawyerDashboardView.tsx` | Urgencia sale del hook |
+
+### Verificación
+
+`tests/components/dashboard/HomePage.administrator.test.tsx`, "al volver de
+una causa conserva "Estudio" y el abogado elegido" (falla sin el cambio).
+
+---
+
 ## 2026-11-08 — Los tableros en el teléfono
 
 **Pedido:** del equipo (Facundo Fiorani), dentro del repaso del responsive de
