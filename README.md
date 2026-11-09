@@ -112,13 +112,15 @@ El login es `POST /auth/login` con `{ "username": "...", "password": "..." }`. Q
 - **Con mocks (`VITE_USE_MOCKS=true`, el default)**: el frontend no llama al backend real, así que el usuario `DEV_SEED_USERNAME`/`DEV_SEED_PASSWORD` sembrado en la base **no sirve para entrar por la UI**. Los usuarios válidos son los que trae el mock (`fvazquez` / `password1` como administrador, y varios más) — ver el detalle completo en [`frontend/src/shared/mocks/README.md`](frontend/src/shared/mocks/README.md#usuarios-de-prueba).
 - **Contra el backend real (`VITE_USE_MOCKS=false`)**, o pegándole directo a `http://localhost:3000/api/v1/auth/login`, en una base recién levantada existen:
   - El administrador que crea `DevSeedService`: por defecto `admin` / `admin123` (`DEV_SEED_USERNAME` / `DEV_SEED_PASSWORD` en `docker/.env`).
-  - Los 12 usuarios de prueba que crea el seed (`f.vazquez`, `l.zarate`, `c.pereyra`, …), con distintos roles (`ADMINISTRATOR`, `LAWYER`, `SECRETARY`) y la contraseña de `DEV_SEED_PASSWORD`. La lista completa está en `DEV_USERS` de [`backend/prisma/seed.ts`](backend/prisma/seed.ts).
-  - Dos cuentas cortas de demostración, con contraseña propia:
+  - Los 9 usuarios del seed de la presentación, todos con la contraseña de `DEV_SEED_PASSWORD` (`admin123` por defecto). La lista está en `DEV_USERS` de [`backend/prisma/seed-data/people.ts`](backend/prisma/seed-data/people.ts):
 
-    | Usuario | Contraseña | Rol | Para qué |
-    |---|---|---|---|
-    | `abogado` | `abogado123` | `LAWYER` | Es el abogado responsable de las tres causas de ejemplo: puede registrar actos y previsualizar su vencimiento. |
-    | `secret` | `secret123` | `SECRETARY` | Registra clientes y causas. Sin ficha de abogado, no puede registrar actos. |
+    | Usuario | Rol | Para qué |
+    |---|---|---|
+    | `lu.cipolla.del`, `facuchofiorani`, `gamondsantiago2`, `ezequiel.purro`, `teomach047`, `matecr361`, `matumontovani2006` | `LAWYER` | Los abogados del equipo, con su mail real: el proceso diario les llega. Cada uno es responsable de 10 a 15 causas activas y de algunas cerradas y prescriptas. |
+    | `administrador` | `ADMINISTRATOR` + `LAWYER` | Administra el sistema y también lleva causas. |
+    | `secretaria` | `SECRETARY` | Registra clientes y causas. Sin ficha de abogado, no puede registrar actos. |
+
+    Las causas, los clientes y las calificaciones se cargan solo en una base sin causas, con las fechas armadas alrededor de `SEED_PRESENTATION_DATE` (por defecto el 11/11/2026): ese día hay plazos vencidos, que vencen ese día y que vencen en los días siguientes.
 
 Estos usuarios solo se siembran con `NODE_ENV=development` — nunca en otro entorno, aunque las variables estén seteadas.
 
