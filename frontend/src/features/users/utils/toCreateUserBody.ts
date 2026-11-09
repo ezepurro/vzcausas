@@ -2,6 +2,7 @@
 
 import type {
     CreateUserBody,
+    NewLawyerBody,
     Role,
     UserFormValues,
 } from '@/features/users/types/user'
@@ -44,15 +45,18 @@ function lawyerPart(
     if (!needsLawyer(roles)) return {}
 
     if (isCreatingLawyer(values.lawyerMode)) {
-        return {
-            lawyer: {
-                /* La ficha nueva lleva el apellido y los nombres del usuario:
-                   es la misma persona y no se cargan dos veces (TESTING.md §11). */
-                lastName: values.lastName.trim(),
-                firstName: values.firstName.trim(),
-                registrationNumber: values.registrationNumber.trim(),
-            },
+        /* La ficha nueva lleva el apellido y los nombres del usuario:
+           es la misma persona y no se cargan dos veces (TESTING.md §11). */
+        const lawyer: NewLawyerBody = {
+            lastName: values.lastName.trim(),
+            firstName: values.firstName.trim(),
         }
+        /* La matrícula es opcional: vacía no viaja. */
+        const registrationNumber = values.registrationNumber.trim()
+        if (registrationNumber) {
+            lawyer.registrationNumber = registrationNumber
+        }
+        return { lawyer }
     }
 
     return { lawyerId: Number(values.lawyerId) }

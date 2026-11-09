@@ -278,3 +278,9 @@
   border: 1px solid var(--vz-border-strong);
   border-radius: var(--vz-r-btn);
 }
+
+/* Teléfono: "Descargar" cierra la tarjeta a todo el ancho, como la acción
+   de una ficha de listado. */
+@media (max-width: 720px) {
+  .vz-template-card__actions .vz-btn { flex: 1 1 auto; height: 40px; }
+}

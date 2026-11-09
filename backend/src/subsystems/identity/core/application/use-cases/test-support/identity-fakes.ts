@@ -269,7 +269,7 @@ export class FakeLawyerRegistrar implements LawyerRegistrarPort {
       id: this.nextId++,
       lastName: lawyer.lastName,
       firstName: lawyer.firstName,
-      registrationNumber: lawyer.registrationNumber,
+      registrationNumber: lawyer.registrationNumber ?? null,
     };
   }
 }

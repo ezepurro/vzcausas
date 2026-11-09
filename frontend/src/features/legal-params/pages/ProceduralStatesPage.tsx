@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { isApiError } from '@/shared/api/ApiError';
 import { useToast } from '@/app/providers/ToastContext';
 import { Button, Icon, PageHeader, Pagination, Panel, SearchInput, Tabs } from '@/shared/components/ui';
-import { useProceduralStates } from '@/features/legal-params/api/useProceduralStates';
+import { useProceduralStates, usePrefetchProceduralStatesPage } from '@/features/legal-params/api/useProceduralStates';
 import { useCreateProceduralState } from '@/features/legal-params/api/useCreateProceduralState';
 import { useUpdateProceduralState } from '@/features/legal-params/api/useUpdateProceduralState';
 import { useDeleteProceduralState } from '@/features/legal-params/api/useDeleteProceduralState';
@@ -71,12 +71,15 @@ export function ProceduralStatesPage() {
     const [values, setValues] = useState<ProceduralStateFormValues>(EMPTY_FORM);
     const [errors, setErrors] = useState<ProceduralStateErrors>({});
 
-    const query = useProceduralStates({
+    const listParams = {
         page,
         limit: LIMIT,
         search: debouncedSearch === '' ? undefined : debouncedSearch,
         jurisdiction,
-    });
+    };
+    const query = useProceduralStates(listParams);
+    // Al apuntar a "Siguiente" se pide esa página (`usePrefetchPage`).
+    const prefetchPage = usePrefetchProceduralStatesPage(listParams);
 
     const formOpen = modal?.kind === 'create' || modal?.kind === 'edit';
 
@@ -239,7 +242,6 @@ export function ProceduralStatesPage() {
             onSuccess: () => {
                 // `info` y no `success`: salió bien, pero no es un logro.
                 toast('info', `Estado "${state.name}" eliminado del fuero ${JURISDICTION_LABELS[state.jurisdiction]}.`);
-                closeModal();
                 // Si era la única fila de la página, no dejar al usuario en una
                 // página que ya no existe.
                 if (rows.length === 1 && page > 1) setPage(page - 1);
@@ -248,9 +250,10 @@ export function ProceduralStatesPage() {
                 // Acá no hay campos que marcar: un rechazo de la baja es del
                 // registro entero. Tener causas ya no la impide (V3 D-06).
                 if (isApiError(error)) toast('error', error.message);
-                closeModal();
             },
         });
+        // Se cierra al confirmar: la fila ya salió de la tabla (`useDeleteProceduralState`).
+        closeModal();
     }
 
     /* ---------------- pantalla ---------------- */
@@ -298,6 +301,7 @@ export function ProceduralStatesPage() {
                         totalItems={pagination?.totalItems ?? 0}
                         noun={['estado', 'estados']}
                         onChange={setPage}
+                        onIntent={prefetchPage}
                     />
                 }
             >

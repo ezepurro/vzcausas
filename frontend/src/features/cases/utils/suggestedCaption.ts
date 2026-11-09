@@ -42,3 +42,4 @@ export function suggestedCaption(input: CaptionInput): string | null {
             return `${input.clientName} — ${counterparty ? `${counterparty} · ` : ''}Sumario administrativo`
     }
 }
+

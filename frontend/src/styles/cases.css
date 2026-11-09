@@ -62,6 +62,8 @@
   line-height: 1.4;
   color: var(--vz-faint);
 }
+/* "Modificar causa" y "Dar de baja", en una fila como el prototipo (HU19, HU21). */
+.vz-case-head__buttons { display: flex; flex-wrap: wrap; gap: 7px; }
 
 /* ─────────── barra de prescripción ─────────── */
 .vz-presc { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--vz-border); }
@@ -85,6 +87,51 @@
   color: var(--vz-faint);
 }
 .vz-presc__note { margin-top: 6px; font-size: 12px; color: var(--vz-muted); }
+/* En lugar de la barra, cuando todos los que faltan declarar cumplieron su plazo (D-113). */
+.vz-presc__done { font-size: 12.5px; font-weight: 700; color: var(--vz-danger); }
+
+/* Las otras calificaciones sin declarar en alerta, debajo de la barra (D-113, CA-32.13):
+   nombre, barra fina y porcentaje en un renglón; en pantalla angosta, la barra baja. */
+.vz-presc-others { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.vz-presc-others__item {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(80px, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+}
+.vz-presc-others__name { color: var(--vz-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vz-presc-others__meter .vz-meter { margin: 0; }
+.vz-presc-others__value { font-family: var(--vz-font-mono); font-size: 11.5px; color: var(--vz-muted); white-space: nowrap; }
+.vz-presc-others__value.is-expired { color: var(--vz-danger); font-family: inherit; font-weight: 600; }
+@media (max-width: 640px) {
+  .vz-presc-others__item { grid-template-columns: minmax(0, 1fr) auto; }
+  .vz-presc-others__meter { grid-column: 1 / -1; grid-row: 2; }
+}
+
+/* ─────────── calificaciones legales, en el encabezado del detalle (D-112) ───────────
+   Al pie de la columna de datos, donde la columna del estado deja alto libre.
+   Un renglón por delito: nombre, plazo y vencimiento, y su píldora. */
+.vz-case-quals { margin-top: 16px; }
+/* El mismo rótulo que "Estado procesal actual". */
+.vz-case-quals__label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: var(--vz-muted);
+}
+.vz-case-quals__list { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.vz-case-quals__item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: 8px;
+  row-gap: 3px;
+  font-size: 13px;
+}
+.vz-case-quals__name { font-weight: 600; color: var(--vz-ink); overflow-wrap: anywhere; }
+.vz-case-quals__term { font-size: 12px; color: var(--vz-muted); }
 
 /* ─────────── calificaciones elegidas en el alta ─────────── */
 .vz-picker { display: flex; flex-direction: column; gap: 8px; }
@@ -250,6 +297,8 @@
 .vz-timeline__term { font-size: 12px; color: var(--vz-muted); }
 .vz-timeline__notes { margin-top: 7px; font-size: 12.5px; line-height: 1.5; color: var(--vz-muted); }
 .vz-timeline__by { margin-top: 5px; font-size: 12px; color: var(--vz-faint); }
+/* "Modificar" de cada acto procesal (HU28). */
+.vz-timeline__actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
 .vz-timeline__empty { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: 6px 0; }
 .vz-timeline__empty-title { font-size: 14px; font-weight: 600; }
 .vz-timeline__empty-text { margin: 0; max-width: 520px; font-size: 13px; line-height: 1.5; color: var(--vz-muted); }
@@ -262,6 +311,16 @@
   .vz-case-head__side { flex: 1 1 100%; min-width: 0; }
   .vz-case-head__title { font-size: 19px; }
   .vz-case-head__note { max-width: none; }
+
+  /* Los datos de la causa, uno por renglón. En fila, al partirse, las rayas
+     separadoras quedaban colgando al final o al principio de un renglón. */
+  .vz-case-head__meta { flex-direction: column; gap: 3px; }
+  .vz-case-head__sep { display: none; }
+
+  /* Las acciones se reparten el ancho y se tocan con el dedo. */
+  .vz-case-head__buttons .vz-btn,
+  .vz-case-actions .vz-btn { flex: 1 1 auto; height: 38px; }
+  .vz-case-actions__label { flex: 1 1 100%; margin: 0; }
 
   /* La fecha del hecho baja a su renglón, con "Quitar" al lado. */
   .vz-picker__main { flex: 1 1 100%; min-width: 0; }
@@ -378,4 +437,305 @@
   .vz-case-folder--requesting .vz-case-folder__icon,
   .vz-case-folder__spinner { animation: none; }
   .vz-case-folder__progress::before { animation: none; width: 100%; opacity: .5; }
+}
+
+/* ─────────── documentación de la causa (detalle) ─────────── */
+/* La tarjeta "Documentación" (HU38): un renglón por archivo de la carpeta en
+   Drive, con su tipo en un recuadro, el nombre, quién lo subió, la fecha y el
+   peso, y "Abrir" y "Descargar". */
+.vz-docs__sync { font-size: 12px; color: var(--vz-muted); }
+.vz-docs { margin: 0; padding: 0 var(--vz-panel-pad); list-style: none; }
+.vz-docs__item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--vz-border);
+}
+.vz-docs__item:last-child { border-bottom: 0; }
+.vz-docs__type {
+  display: flex;
+  flex: 0 0 34px;
+  align-items: flex-end;
+  justify-content: center;
+  height: 40px;
+  padding-bottom: 6px;
+  border: 1px solid var(--vz-border);
+  border-radius: var(--vz-r-sm);
+  background: var(--vz-sunken);
+  font-family: var(--vz-font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--vz-muted);
+}
+/* El nombre puede ser largo: se corta con "…" y completo queda en el title. */
+.vz-docs__main { flex: 1; min-width: 0; }
+.vz-docs__name {
+  overflow: hidden;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--vz-ink);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.vz-docs__meta { margin-top: 2px; font-size: 12px; color: var(--vz-muted); }
+.vz-docs__actions { display: flex; flex: 0 0 auto; gap: 8px; }
+/* Sin carpeta, vacía o con Drive caído: una línea de texto en lugar de la lista. */
+.vz-docs__note { margin: 0; font-size: 13px; line-height: 1.45; color: var(--vz-muted); }
+.vz-docs__note--error { color: var(--vz-danger); }
+
+/* Teléfono: con los dos botones al lado, el nombre quedaba en un par de
+   letras. Bajan a su renglón, alineados con el nombre (el recuadro del tipo,
+   34px, más el espacio entre los dos, 12px). Va después de las reglas de la
+   tarjeta para no quedar pisado. */
+@media (max-width: 720px) {
+  .vz-docs__item { flex-wrap: wrap; row-gap: 8px; }
+  .vz-docs__main { flex-basis: calc(100% - 46px); }
+  .vz-docs__actions { flex-basis: 100%; padding-left: 46px; }
+}
+
+
+/* ─────────── generar expediente (HU25) ─────────── */
+/* La carátula y los documentos, uno por renglón, en el orden en que se unen;
+   el índice de "Resultado"; la vista previa (HU24) y el diálogo final. Los
+   renglones se acomodan con flex-wrap; en el teléfono sólo crecen los
+   botones de cada renglón (al final del archivo). */
+.vz-casefile__body { display: flex; flex-direction: column; gap: 14px; }
+.vz-casefile__list { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.vz-casefile__item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--vz-border-strong);
+  border-radius: var(--vz-r);
+  background: var(--vz-surface);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, .05);
+}
+/* Se arrastra desde toda la tarjeta, como el prototipo: `touch-action: none`
+   hace que el dedo la mueva en lugar de bajar la página. El `transform` del
+   arrastre no tiene transición: tiene que seguir al puntero sin demora. */
+.vz-casefile__item--draggable {
+  position: relative;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+  transition: background-color .5s, border-color .3s, box-shadow .15s;
+}
+.vz-casefile__item--draggable.is-dragging {
+  z-index: 5;
+  border-color: var(--vz-primary);
+  box-shadow: 0 14px 32px rgba(15, 23, 42, .18), 0 3px 8px rgba(15, 23, 42, .10);
+  cursor: grabbing;
+}
+/* Recién soltada: queda resaltada un momento. */
+.vz-casefile__item--draggable.is-flash { border-color: var(--vz-primary); background: var(--vz-primary-soft); }
+@media (prefers-reduced-motion: reduce) {
+  .vz-casefile__item--draggable { transition: none; }
+}
+.vz-casefile__item--excluded { border-style: dashed; box-shadow: none; }
+.vz-casefile__item--excluded .vz-casefile__name { font-weight: 500; color: var(--vz-muted); }
+.vz-casefile__item--excluded .vz-casefile__type { opacity: .7; }
+.vz-casefile__item--result { background: var(--vz-sunken); box-shadow: none; }
+.vz-casefile__grip { flex: 0 0 12px; color: var(--vz-faint); }
+.vz-casefile__order {
+  flex: 0 0 18px;
+  font-family: var(--vz-font-mono);
+  font-size: 12px;
+  color: var(--vz-ink);
+  text-align: right;
+}
+.vz-casefile__type {
+  flex: 0 0 auto;
+  padding: 3px 6px;
+  border-radius: 4px;
+  background: var(--vz-primary-soft);
+  font-family: var(--vz-font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  color: var(--vz-primary);
+}
+.vz-casefile__type--pdf { background: var(--vz-danger-bg); color: var(--vz-danger); }
+/* El nombre puede ser largo: se corta con "…" y completo queda en el title. */
+.vz-casefile__main { flex: 1 1 160px; min-width: 0; }
+.vz-casefile__name {
+  overflow: hidden;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--vz-ink);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.vz-casefile__name--mono { font-family: var(--vz-font-mono); font-weight: 500; }
+.vz-casefile__meta { margin-top: 2px; font-size: 12px; color: var(--vz-muted); }
+.vz-casefile__row-actions { display: flex; flex: 0 0 auto; gap: 4px; margin-left: auto; }
+.vz-casefile__empty {
+  padding: 18px;
+  border: 1.5px dashed var(--vz-border-strong);
+  border-radius: var(--vz-r);
+  font-size: 13px;
+  color: var(--vz-muted);
+  text-align: center;
+}
+.vz-casefile__hint { margin: 0; font-size: 12px; line-height: 1.45; color: var(--vz-faint); }
+.vz-casefile__link {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: 600;
+  color: var(--vz-primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+/* La parte va en mayúsculas en la hoja: se escribe así. */
+.vz-casefile__upper { text-transform: uppercase; }
+.vz-casefile__excluded {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 14px;
+  border-top: 1px solid var(--vz-border);
+}
+.vz-casefile__label {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--vz-muted);
+}
+
+/* "Resultado" */
+.vz-casefile__index { display: flex; flex-direction: column; margin: 0; padding: 10px var(--vz-panel-pad); list-style: none; }
+.vz-casefile__index li {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--vz-border);
+  font-size: 13px;
+}
+.vz-casefile__index-n { flex: 0 0 18px; font-family: var(--vz-font-mono); font-size: 12px; color: var(--vz-faint); }
+.vz-casefile__index-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--vz-ink);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.vz-casefile__index-name--cover { font-weight: 600; white-space: normal; }
+.vz-casefile__summary { margin: 0; padding: 6px var(--vz-panel-pad) 16px; font-size: 12.5px; line-height: 1.5; color: var(--vz-muted); }
+.vz-casefile__generate { display: flex; flex-direction: column; gap: 8px; }
+/* Mientras se genera, la misma espera que la carpeta del detalle: el aro en
+   el botón y la barra que va y viene (animaciones `vz-folder-*`, arriba). */
+.vz-casefile__spinner {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 13px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: vz-folder-spin .7s linear infinite;
+}
+.vz-casefile__progress {
+  position: relative;
+  height: 3px;
+  overflow: hidden;
+  border-radius: var(--vz-r-pill);
+  background: var(--vz-primary-soft);
+}
+.vz-casefile__progress::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 40%;
+  border-radius: inherit;
+  background: var(--vz-primary);
+  animation: vz-folder-progress 1.2s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .vz-casefile__spinner { animation: none; }
+  .vz-casefile__progress::before { animation: none; width: 100%; opacity: .5; }
+}
+.vz-casefile__notice {
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--vz-warn-bd);
+  border-radius: var(--vz-r);
+  background: var(--vz-warn-bg);
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--vz-warn);
+}
+
+/* Vista previa y "Expediente generado" */
+/* Vista previa de la carátula (HU24), como el prototipo: la hoja A4 sola,
+   centrada sobre el fondo oscuro, del alto que entre en la ventana. Mismo
+   z-index que .vz-modal-backdrop. El blanco del título va fijo: el fondo es
+   siempre oscuro. */
+.vz-cover-preview {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+  overflow-y: auto;
+  background: rgba(12, 20, 6, .55);
+  overscroll-behavior: contain;
+}
+.vz-cover-preview__dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: min(595px, 100%, calc((100dvh - 96px) * 595 / 842));
+  min-width: min(280px, 100%);
+  margin: auto 0;
+}
+.vz-cover-preview__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: #fff; }
+.vz-cover-preview__title { font-size: 14px; font-weight: 600; }
+.vz-cover-preview__close {
+  flex: 0 0 auto;
+  height: 34px;
+  padding: 0 16px;
+  border: 1px solid rgba(255, 255, 255, .4);
+  border-radius: var(--vz-r-btn);
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  cursor: pointer;
+}
+.vz-cover-preview__close:hover { background: rgba(255, 255, 255, .12); }
+.vz-cover-preview__sheet {
+  display: flex;
+  flex-direction: column;
+  aspect-ratio: 595 / 842;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, .35);
+}
+.vz-cover-preview__sheet > * { flex: 1; min-height: 0; }
+.vz-cover-preview__frame { display: block; width: 100%; height: 100%; border: 0; }
+.vz-cover-preview__error { margin: 0; padding: 24px; font-size: 13px; line-height: 1.45; color: var(--vz-danger); }
+.vz-casefile__ready-text { margin: 14px 0; font-size: 13px; line-height: 1.5; color: var(--vz-muted); }
+.vz-casefile__ready-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
+.vz-casefile__keep { margin-right: auto; }
+/* Es un `fieldset` (se deshabilita entero mientras se genera): sin el borde,
+   el margen ni el relleno que trae el navegador. */
+.vz-casefile__panels { display: flex; flex-direction: column; gap: 16px; min-width: 0; margin: 0; padding: 0; border: 0; transition: opacity .15s; }
+.vz-casefile__panels:disabled { opacity: .6; }
+
+/* Teléfono: los botones de cada documento ("↑", "↓", "Quitar") miden lo que
+   un dedo necesita. */
+@media (max-width: 720px) {
+  .vz-casefile__row-actions { gap: 6px; }
+  .vz-casefile__row-actions .vz-btn { height: 36px; min-width: 40px; }
+  .vz-docs__actions .vz-btn { flex: 1 1 auto; height: 36px; }
 }

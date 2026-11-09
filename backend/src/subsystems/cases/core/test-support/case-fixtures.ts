@@ -1,17 +1,18 @@
 import { AuthenticatedUser } from '@shared/domain/authenticated-user';
 import { ValidationError } from '@shared/domain/domain-error';
-import { RegisterCaseCommand } from '../application/common/register-case.interfaces';
-import { RegisterProceduralActCommand } from '../application/common/register-procedural-act.interfaces';
-import { Case } from '../domain/entities/cases';
-import { CriminalCase } from '../domain/entities/criminal';
-import { ProceduralAct, ProceduralActProps } from '../domain/entities/procedural-act';
+import { RegisterCaseCommand } from '../application/use-cases/case/register-case.interfaces';
+import { RegisterProceduralActCommand } from '../application/use-cases/procedural-act/register-procedural-act.interfaces';
+import { Case } from '../domain/entities/case/case.entity';
+import { CriminalCase } from '../domain/entities/case/criminal-case.entity';
+import { ProceduralAct, ProceduralActProps } from '../domain/entities/procedural-act.entity';
 import { CaseFactory, NewCaseInput } from '../domain/factories/case.factory';
-import { ClientRef, LawyerRef } from '../domain/ports/people-lookup.port';
-import { LegalQualificationRef, ProceduralStateRef } from '../domain/ports/legal-parameters-lookup.port';
-import { DayType } from '../domain/value-objects/day-type';
-import { Deadline } from '../domain/value-objects/deadline';
-import { JurisdictionCode } from '../domain/value-objects/jurisdiction-code';
-import { ProceduralRole } from '../domain/value-objects/procedural-role';
+import { ClientRef, LawyerRef } from '../domain/ports/case/people-lookup.port';
+import { LegalQualificationRef, ProceduralStateRef } from '../domain/ports/case/legal-parameters-lookup.port';
+import { DayType } from '../domain/value-objects/deadline/day-type';
+import { Deadline } from '../domain/value-objects/deadline/deadline.vo';
+import { PrescriptionDeclaration } from '../domain/value-objects/prescription/prescription-declaration.vo';
+import { JurisdictionCode } from '../domain/value-objects/case/jurisdiction-code';
+import { ProceduralRole } from '../domain/value-objects/case/procedural-role';
 
 /** A date at midnight UTC, the way a `date` column is read: `day('2026-09-01')`. */
 export function day(isoDate: string): Date {
@@ -41,8 +42,10 @@ export const CLIENT: ClientRef = {
   id: 1,
   lastName: 'GÓMEZ',
   firstName: 'Ariel Fernando',
-  dni: '34812905',
-  phone: null,
+  documentType: 'DNI',
+  documentNumber: '34812905',
+  address: 'Av. Rafael Núñez 4560, Córdoba',
+  phone: '351 415-2288',
   email: null,
   clientSince: day('2021-03-12'),
 };
@@ -207,7 +210,13 @@ export function anAct(overrides: Partial<ProceduralActProps> = {}): ProceduralAc
  * its current act (or in `currentStateId`, if there is no act, for a case in a final state).
  */
 export function aCaseInState(
-  options: { currentAct?: ProceduralAct; currentStateId?: number; currentActNotLoaded?: boolean } = {},
+  options: {
+    currentAct?: ProceduralAct;
+    currentStateId?: number;
+    currentActNotLoaded?: boolean;
+    /** A case already marked as prescribed (HU33); combine it with `currentStateId: PRESCRIBED.id`. */
+    prescriptionDeclaration?: PrescriptionDeclaration;
+  } = {},
 ): Case {
   const act = options.currentAct;
   const currentStateId = act ? act.proceduralStateId : (options.currentStateId ?? INITIAL_STATES.CRIMINAL.id);
@@ -236,7 +245,18 @@ export function aCaseInState(
     updatedAt: NOW,
     offenses: [],
     clientDetained: false,
-    prescriptionDeclaration: null,
+    prescriptionDeclaration: options.prescriptionDeclaration ?? null,
+  });
+}
+
+/** The declaration that a case prescribed, as HU33 records it. */
+export function aPrescriptionDeclaration(): PrescriptionDeclaration {
+  return PrescriptionDeclaration.hydrate({
+    prescriptionDate: day('2026-09-15'),
+    resolution: 'Sentencia N° 214 del Juzgado de Control N° 3',
+    grounds: null,
+    registeredByUserId: 5,
+    registeredAt: NOW,
   });
 }
 

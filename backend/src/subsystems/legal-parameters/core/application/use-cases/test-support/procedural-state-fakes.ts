@@ -11,7 +11,7 @@ import {
 import { DayType } from '@subsystems/legal-parameters/core/domain/entities/day-types';
 import { ActiveCasesCounterPort } from '@subsystems/legal-parameters/core/domain/ports/active-cases-counter.port';
 import { JurisdictionCode } from '@subsystems/legal-parameters/core/domain/value-objects/jurisdiction-code';
-import { PaginatedResult } from '../../../../../../common/pagination/paginated-result';
+import { PaginatedResult } from '@shared/domain/paginated-result';
 
 /**
  * The jurisdiction catalogue the fake knows, one per code. Exported so specs

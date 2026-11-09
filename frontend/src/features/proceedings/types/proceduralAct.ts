@@ -10,9 +10,9 @@
  * confirmación posterior (V3 D-13), así que el recurso no tiene un estado
  * propio.
  *
- * Este módulo tiene el registro (HU26) y su previsualización. La consulta
- * es la línea de vida de la causa (HU27), en `cases`; modificar y anular
- * actos son de sprints posteriores.
+ * Este módulo tiene el registro (HU26), su previsualización y la
+ * modificación (HU28). La consulta es la línea de vida de la causa (HU27), en
+ * `cases`; anular un acto (HU29) queda fuera del contrato.
  */
 
 import type { ActDeadline, ProceduralAct, ResultingState } from '@/features/cases'
@@ -41,6 +41,21 @@ export interface CreateProceduralActBody {
     notificationDate?: string
     manualDueDate?: string
     notes?: string
+}
+
+/**
+ * Cuerpo del `PATCH /cases/{caseId}/procedural-acts/{actId}` (V5 §3.8): todo
+ * opcional, al menos un campo. Las restricciones son las del registro, sobre
+ * el acto como queda. `null` en `manualDueDate` quita el ajuste y vuelve al
+ * vencimiento calculado; en `notes` y `notificationDate`, los borra.
+ */
+export interface UpdateProceduralActBody {
+    proceduralStateId?: number
+    customState?: string
+    actDate?: string
+    notificationDate?: string | null
+    manualDueDate?: string | null
+    notes?: string | null
 }
 
 /** Respuesta de `GET .../deadline-preview`. */

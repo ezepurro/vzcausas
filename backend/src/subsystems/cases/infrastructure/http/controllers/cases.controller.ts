@@ -1,32 +1,40 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Query } from '@nestjs/common';
 import { AuthenticatedUser } from '@shared/domain/authenticated-user';
 import { CurrentUser } from '@shared/infrastructure/http/current-user.decorator';
-import { PaginatedResponse, paginate, toPageRequest } from '@shared/infrastructure/http/pagination';
-import { DeclarePrescription } from '../../../core/application/use-cases/declare-prescription.use-case';
-import { GetCase } from '../../../core/application/use-cases/get-case.use-case';
-import { GetProceduralAct } from '../../../core/application/use-cases/get-procedural-act.use-case';
-import { ListCases } from '../../../core/application/use-cases/list-cases.use-case';
-import { ListCustomStates } from '../../../core/application/use-cases/list-custom-states.use-case';
-import { ListProceduralActs } from '../../../core/application/use-cases/list-procedural-acts.use-case';
-import { RegisterCase } from '../../../core/application/use-cases/register-case.use-case';
-import { RegisterProceduralAct } from '../../../core/application/use-cases/register-procedural-act.use-case';
-import { RequestCaseFolder } from '../../../core/application/use-cases/request-case-folder.use-case';
+import { PaginatedResponse, paginate, toPageRequest } from '@shared/infrastructure/http/pagination/pagination';
+import { DeactivateCase } from '../../../core/application/use-cases/case/deactivate-case.use-case';
+import { DeclarePrescription } from '../../../core/application/use-cases/prescription/declare-prescription.use-case';
+import { DeclareQualificationPrescription } from '../../../core/application/use-cases/prescription/declare-qualification-prescription.use-case';
+import { GetCase } from '../../../core/application/use-cases/case/get-case.use-case';
+import { GetProceduralAct } from '../../../core/application/use-cases/procedural-act/get-procedural-act.use-case';
+import { ListCases } from '../../../core/application/use-cases/case/list-cases.use-case';
+import { ListCustomStates } from '../../../core/application/use-cases/case/list-custom-states.use-case';
+import { ListProceduralActs } from '../../../core/application/use-cases/procedural-act/list-procedural-acts.use-case';
+import { RegisterCase } from '../../../core/application/use-cases/case/register-case.use-case';
+import { RegisterProceduralAct } from '../../../core/application/use-cases/procedural-act/register-procedural-act.use-case';
+import { RequestCaseFolder } from '../../../core/application/use-cases/case/request-case-folder.use-case';
+import { UpdateCase } from '../../../core/application/use-cases/case/update-case.use-case';
+import { UpdateProceduralAct } from '../../../core/application/use-cases/procedural-act/update-procedural-act.use-case';
 import {
   CaseFolderUnavailableError,
   InvalidCaseIdError,
+  InvalidLegalQualificationIdError,
   InvalidProceduralActIdError,
 } from '../../../core/domain/errors/case.errors';
-import { CaseFolderResponseDto, CaseResponseDto } from '../dtos/case.response.dto';
-import { DeadlinePreviewQueryDto } from '../dtos/deadline-preview.query.dto';
-import { DeclarePrescriptionRequestDto } from '../dtos/declare-prescription.request.dto';
-import { DeadlinePreviewResponseDto } from '../dtos/deadline-preview.response.dto';
-import { ListCasesQueryDto } from '../dtos/list-cases.query.dto';
-import { ListProceduralActsQueryDto } from '../dtos/list-procedural-acts.query.dto';
-import { ProceduralActResponseDto } from '../dtos/procedural-act.response.dto';
-import { RegisterCaseRequestDto } from '../dtos/register-case.request.dto';
-import { RequestCaseFolderRequestDto } from '../dtos/request-case-folder.request.dto';
+import { CaseFolderResponseDto, CaseResponseDto } from '../dtos/case/case.response.dto';
+import { DeactivateCaseRequestDto } from '../dtos/case/deactivate-case.request.dto';
+import { DeadlinePreviewQueryDto } from '../dtos/procedural-act/deadline-preview.query.dto';
+import { DeclarePrescriptionRequestDto } from '../dtos/prescription/declare-prescription.request.dto';
+import { DeadlinePreviewResponseDto } from '../dtos/procedural-act/deadline-preview.response.dto';
+import { ListCasesQueryDto } from '../dtos/case/list-cases.query.dto';
+import { ListProceduralActsQueryDto } from '../dtos/procedural-act/list-procedural-acts.query.dto';
+import { ProceduralActResponseDto } from '../dtos/procedural-act/procedural-act.response.dto';
+import { RegisterCaseRequestDto } from '../dtos/case/register-case.request.dto';
+import { RequestCaseFolderRequestDto } from '../dtos/case/request-case-folder.request.dto';
+import { UpdateCaseRequestDto } from '../dtos/case/update-case.request.dto';
 import { CaseHttpMapper } from '../mappers/case-http.mapper';
-import { RegisterProceduralActRequestDto } from '../dtos/register-procedural-act.request.dto';
+import { RegisterProceduralActRequestDto } from '../dtos/procedural-act/register-procedural-act.request.dto';
+import { UpdateProceduralActRequestDto } from '../dtos/procedural-act/update-procedural-act.request.dto';
 import { ProceduralActHttpMapper } from '../mappers/procedural-act-http.mapper';
 
 /**
@@ -52,6 +60,10 @@ export class CasesController {
     private readonly proceduralActMapper: ProceduralActHttpMapper,
     private readonly caseMapper: CaseHttpMapper,
     private readonly declarePrescription: DeclarePrescription,
+    private readonly updateCase: UpdateCase,
+    private readonly deactivateCase: DeactivateCase,
+    private readonly updateProceduralAct: UpdateProceduralAct,
+    private readonly declareQualificationPrescription: DeclareQualificationPrescription,
   ) {}
 
   /**
@@ -137,15 +149,53 @@ export class CasesController {
   async createFolder(
     @Param('caseId') caseIdParam: string,
     @Body() dto: RequestCaseFolderRequestDto,
+    @CurrentUser() actor: AuthenticatedUser,
   ): Promise<{ data: CaseFolderResponseDto | null }> {
     const result = await this.requestCaseFolder.execute({
       caseId: this.parseCaseId(caseIdParam),
+      actor,
       copyTemplates: dto?.copyTemplates,
     });
     if (result.outcome === 'ERROR') {
       throw new CaseFolderUnavailableError();
     }
     return { data: result.folder && { ...result.folder } };
+  }
+
+  /**
+   * `PATCH /cases/{caseId}` (HU19): corrects the data of a case. Who operates it may
+   * (D-110): the use case checks it against the case, so no permission is declared. The case goes
+   * back whole, as `GET /cases/{caseId}` shows it.
+   */
+  @Patch(':caseId')
+  async update(
+    @Param('caseId') caseIdParam: string,
+    @Body() dto: UpdateCaseRequestDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ): Promise<{ data: CaseResponseDto }> {
+    // `jurisdiction` and `clientId` only reach here to be refused by the pipe: they are not changes.
+    const { jurisdiction: _jurisdiction, clientId: _clientId, ...changes } = dto;
+    const item = await this.updateCase.execute({ caseId: this.parseCaseId(caseIdParam), changes, actor });
+    return { data: this.caseMapper.toResponse(item) };
+  }
+
+  /**
+   * `DELETE /cases/{caseId}` (HU21): gives a case de baja. Who operates it may
+   * (D-110): the use case checks it against the case, so no permission is declared. The only `DELETE` of the contract with
+   * a body, and an optional one: without it the baja goes through (CA-21.2).
+   */
+  @Delete(':caseId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async deactivate(
+    @Param('caseId') caseIdParam: string,
+    @Body() dto: DeactivateCaseRequestDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ): Promise<void> {
+    await this.deactivateCase.execute({
+      caseId: this.parseCaseId(caseIdParam),
+      input: { reason: dto?.reason },
+      actor,
+    });
   }
 
   /**
@@ -165,6 +215,33 @@ export class CasesController {
     @CurrentUser() actor: AuthenticatedUser,
   ): Promise<{ data: CaseResponseDto }> {
     const item = await this.declarePrescription.execute({ ...dto, caseId: this.parseCaseId(caseIdParam), actor });
+    return { data: this.caseMapper.toResponse(item) };
+  }
+
+  /**
+   * D-113: declares one legal qualification of a criminal case prescribed (HU33
+   * revised). `200` with the whole case, as `POST …/prescription`; the case
+   * moves to "Prescripta" only when it was the last one pending. Same body and
+   * same validation as the case's, so the same request DTO.
+   *
+   * No permission is declared, as for the case: the domain refuses the
+   * secretariat and a lawyer who is not the responsible one with the
+   * contract's own `403` texts.
+   */
+  @Post(':caseId/legal-qualifications/:legalQualificationId/prescription')
+  @HttpCode(HttpStatus.OK)
+  async declareQualificationPrescribed(
+    @Param('caseId') caseIdParam: string,
+    @Param('legalQualificationId') legalQualificationIdParam: string,
+    @Body() dto: DeclarePrescriptionRequestDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ): Promise<{ data: CaseResponseDto }> {
+    const item = await this.declareQualificationPrescription.execute({
+      ...dto,
+      caseId: this.parseCaseId(caseIdParam),
+      legalQualificationId: this.parseLegalQualificationId(legalQualificationIdParam),
+      actor,
+    });
     return { data: this.caseMapper.toResponse(item) };
   }
 
@@ -240,6 +317,36 @@ export class CasesController {
       actId: this.parseActId(actIdParam),
     });
     return { data: this.proceduralActMapper.toResponse(view) };
+  }
+
+  /**
+   * `PATCH /cases/{caseId}/procedural-acts/{actId}` (HU28): corrects an act.
+   * Only the current responsible lawyer may (CA-28.2): the domain checks it, so no
+   * permission is declared here, as in the registration. The act goes back as
+   * `GET` shows it; the client reads the case again, its state may have changed.
+   */
+  @Patch(':caseId/procedural-acts/:actId')
+  async updateAct(
+    @Param('caseId') caseIdParam: string,
+    @Param('actId') actIdParam: string,
+    @Body() dto: UpdateProceduralActRequestDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ): Promise<{ data: ProceduralActResponseDto }> {
+    const command = this.proceduralActMapper.toUpdateCommand(
+      this.parseCaseId(caseIdParam),
+      this.parseActId(actIdParam),
+      dto,
+      actor,
+    );
+    return { data: this.proceduralActMapper.toResponse(await this.updateProceduralAct.execute(command)) };
+  }
+
+  private parseLegalQualificationId(raw: string): number {
+    const legalQualificationId = Number(raw);
+    if (!Number.isInteger(legalQualificationId) || legalQualificationId <= 0) {
+      throw new InvalidLegalQualificationIdError();
+    }
+    return legalQualificationId;
   }
 
   private parseCaseId(raw: string): number {

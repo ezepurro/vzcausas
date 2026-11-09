@@ -1,0 +1,14 @@
+type: object
+description: |
+  Cuerpo opcional de `DELETE /cases/{caseId}` (HU21): el "Motivo (opcional)"
+  del formulario de baja. Sin cuerpo, la baja procede igual. Un motivo en
+  blanco se guarda como ausente.
+additionalProperties: false
+properties:
+  reason:
+    type:
+      - string
+      - 'null'
+    maxLength: 500
+    examples:
+      - 'Causa duplicada: se registró dos veces con distinto SAC.'

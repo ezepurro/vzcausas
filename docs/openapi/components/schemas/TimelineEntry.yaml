@@ -42,10 +42,43 @@ oneOf:
       governsPrescription:
         type: boolean
         description: |
-          `true` en el acto interruptivo de fecha más reciente, el que rige el
-          cómputo de la prescripción.
+          `true` en el acto interruptivo desde el que corre `prescription` de
+          la causa: el que fija su `lastInterruptiveActDate`. **(Revisión del
+          08/11/2026, D-113)** Un acto posterior al vencimiento de una
+          calificación no la reinicia, así que el más reciente no siempre rige.
+          En una causa sin calificaciones no hay `prescription`: ningún acto
+          rige.
       interruptiveAct:
         $ref: ./InterruptiveAct.yaml
+  - type: object
+    title: Calificación declarada prescripta
+    description: '**(Revisión del 08/11/2026, D-113)** Una por calificación declarada.'
+    additionalProperties: false
+    required:
+      - type
+      - date
+      - legalQualification
+      - prescriptionDeclaration
+    properties:
+      type:
+        const: QUALIFICATION_PRESCRIPTION_DECLARATION
+      date:
+        type: string
+        format: date
+        description: La `prescriptionDate` de la declaración.
+      legalQualification:
+        type: object
+        additionalProperties: false
+        required:
+          - id
+          - name
+        properties:
+          id:
+            type: integer
+          name:
+            type: string
+      prescriptionDeclaration:
+        $ref: ./PrescriptionDeclaration.yaml
   - type: object
     title: Pase a prescripta
     additionalProperties: false

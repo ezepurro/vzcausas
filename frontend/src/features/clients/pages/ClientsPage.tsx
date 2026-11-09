@@ -9,7 +9,7 @@ import {
     Panel,
     SearchInput,
 } from '@/shared/components/ui'
-import { useClients } from '@/features/clients/api/useClients'
+import { useClients, usePrefetchClientsPage } from '@/features/clients/api/useClients'
 import { useCreateClient } from '@/features/clients/api/useCreateClient'
 import type { ClientFormValues } from '@/features/clients/types/client'
 import { validateClient, isValid, type ClientFormErrors } from '@/features/clients/schemas/client.schema'
@@ -24,7 +24,9 @@ type Modal = {kind: 'create'} | null
 const EMPTY_FORM: ClientFormValues = {
     lastName: '',
     firstName: '',
-    dni: '',
+    documentType: 'DNI',
+    documentNumber: '',
+    address: '',
     phone: '',
     email: '',
 }
@@ -39,11 +41,14 @@ export function ClientsPage() {
     const [values, setValues] = useState<ClientFormValues>(EMPTY_FORM)
     const [errors, setErrors] = useState<ClientFormErrors>({})
 
-    const query = useClients({
+    const listParams = {
         page,
         limit:LIMIT,
         search: debouncedSearch === '' ? undefined : debouncedSearch,
-    })
+    }
+    const query = useClients(listParams)
+    // Al apuntar a "Siguiente" se pide esa página (`usePrefetchPage`).
+    const prefetchPage = usePrefetchClientsPage(listParams)
     const create = useCreateClient()
     const rows = query.data?.data ?? []
     const pagination = query.data?.pagination
@@ -70,7 +75,7 @@ export function ClientsPage() {
         if (!isApiError(error)) throw error
 
         if (error.is('CLIENT_DNI_ALREADY_EXISTS')) {
-            setErrors({dni: error.message})
+            setErrors({documentNumber: error.message})
             return
         }
         if (error.isValidation) {
@@ -104,7 +109,7 @@ export function ClientsPage() {
             <PageHeader
                 eyebrow="Trabajo diario"
                 title="Clientes"
-                sub="El estudio trabaja por causa, pero el cliente es quien firma el convenio y recibe los avisos. Un mismo cliente puede tener varias causas abiertas."
+                sub="Las personas que representa el estudio. Registrá cada cliente una vez y elegilo en todas sus causas."
                 actions={
                     <Button
                         icon={<Icon name="plus" />}
@@ -132,6 +137,7 @@ export function ClientsPage() {
                         totalItems={pagination?.totalItems ?? 0}
                         noun={['cliente', 'clientes']}
                         onChange={setPage}
+                        onIntent={prefetchPage}
                     />
                 }
             >

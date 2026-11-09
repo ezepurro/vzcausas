@@ -4,7 +4,7 @@ import { ProceduralStateJurisdictionEditError } from '@subsystems/legal-paramete
 import { RegisterProceduralStateCommand } from '@subsystems/legal-parameters/core/application/use-cases/register-procedural-state.use-case';
 import { UpdateProceduralStateCommand } from '@subsystems/legal-parameters/core/application/use-cases/update-procedural-state.use-case';
 import { ProceduralStateWithActiveCases } from '@subsystems/legal-parameters/core/application/read-models/procedural-state-with-active-cases';
-import { PaginatedResult } from '../../../../../common/pagination/paginated-result';
+import { PaginatedResult } from '@shared/domain/paginated-result';
 import {
   ProceduralStateResponseDto,
   ProceduralStatesListResponseDto,

@@ -182,6 +182,29 @@ existe o ya se está creando, no pide nada nuevo y devuelve su estado.
   por una consulta a la base.
 - **Sin orden ni reintentos automáticos entre eventos.** Los reintentos son del caso
   de uso y del usuario (botón "Crear carpeta"), no del bus.
+- **Carrera conocida, sin corregir (detectada el 02/11/2026): con la carpeta en
+  `ERROR`, el alta puede responder `templatesPending: 0` en vez de la cantidad de
+  modelos pendientes.** El contrato pide, con el almacenamiento caído, `ERROR` y
+  `templatesPending: 6` para el ejemplo de seis modelos (`API_CONTRACT_V5.md`,
+  `POST /cases` `:3306`, ejemplo en `:3556-3566`; CA-39.5). Por qué pasa:
+  1. `CaseRegisteredListener` de `documents` primero pide la carpeta y recién
+     después registra las copias pendientes
+     (`case-registered.listener.ts`, `handle`: `assure` y después `copy`).
+  2. Si la carpeta falla, `AssureSpace` publica `DocumentSpaceCreationFailed`, y
+     ese evento ya termina la espera del alta
+     (`in-memory-case-folder-outcomes.ts:56`). La espera solo sigue de largo con
+     `CREATED`, no con `ERROR` (`:51`).
+  3. Las copias se registran como `PENDING` después
+     (`copy-templates-to-case-folder.use-case.ts:86`), y sin carpeta el caso de uso
+     no publica `CaseTemplatesCopied` (`:90`), así que nada hace esperar al alta.
+  El alta lee los contadores (`case-folder-prisma.mapper.ts:60`) antes de que
+  existan las filas. Las filas `PENDING` se escriben igual, un instante después, así
+  que un `GET /cases/{caseId}` posterior debería mostrar los pendientes (no
+  verificado con un test). Es de tiempos: pasaba hasta el 01/11/2026 y
+  desde el 02/11 falla siempre en el entorno de tests. Lo atrapa
+  `case-documents-flow.int.spec.ts:221`, que **queda en rojo** hasta que se
+  corrija. No se corrige en el refactor de tests (`refactor/refactor-backend-tests`):
+  es código de producción y lleva su propio plan.
 
 El mecanismo no reemplaza a las llamadas directas por puertos: el resto de la
 comunicación entre subsistemas sigue siendo síncrona (`ARQUITECTURA_BACKEND_V1.md`

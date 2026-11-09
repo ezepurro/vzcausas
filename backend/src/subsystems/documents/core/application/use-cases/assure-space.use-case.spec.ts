@@ -8,11 +8,13 @@ import {
   StudioRootNotConfiguredError,
 } from '../../domain/errors/documents.errors';
 import { CloudFolderFactory } from '../../domain/factories/cloud-folder.factory';
+import { FolderChain } from '../common/folder-chain';
 import { AssureSpace } from './assure-space.use-case';
 import { SetupCloudStorage } from './setup-cloud-storage.use-case';
 import { InMemoryCloudFolderRepository } from '../../../infrastructure/persistence/in-memory/in-memory-cloud-folder.repository';
 import { InMemoryDocumentStorage } from '../../../infrastructure/storage/in-memory/in-memory-document-storage';
 import { FakeClock, aCommand, aSetUpStudio } from '../../test-support/document-fixtures';
+import { FakeDocumentTemplateRepository } from '../../test-support/fake-document-template.repository';
 import { FakeEventPublisher } from '../../test-support/fake-event-publisher';
 import {
   DOCUMENT_SPACE_ASSIGNED,
@@ -125,10 +127,11 @@ describe('AssureSpace', () => {
       const events = new FakeEventPublisher();
       const assureSpace = new AssureSpace(
         folders,
-        storage,
         new FakeClock(),
         events,
-        (setup as SetupCloudStorage) ?? new SetupCloudStorage(folders, storage, new FakeClock()),
+        (setup as SetupCloudStorage) ??
+          new SetupCloudStorage(folders, storage, new FakeClock(), new FakeDocumentTemplateRepository()),
+        new FolderChain(folders, storage, new FakeClock()),
       );
       return { folders, storage, events, assureSpace };
     }
@@ -149,6 +152,10 @@ describe('AssureSpace', () => {
         'MAIN',
         'TEMPLATES',
         'ROOT_CASES',
+        // Las subcarpetas de modelos por fuero que arma el setup, debajo de "Modelos formales".
+        'JURISDICTION',
+        'JURISDICTION',
+        'JURISDICTION',
         'LAWYER',
         'JURISDICTION',
         'CASE',
@@ -276,15 +283,6 @@ describe('AssureSpace', () => {
     expect(caseFolder.parentCloudFolderId).not.toBeNull();
     expect(result.path).toContain('Ríos, Malena/Penal');
     expect(folders.all().filter((f) => f.key.kind === 'LAWYER')).toHaveLength(1);
-  });
-
-  it('rechaza una carátula que queda vacía tras quitar los caracteres no admitidos', async () => {
-    const { assureSpace, storage } = await aSetUpStudio();
-
-    await expect(assureSpace.execute(aCommand({ caseCaption: ' /\\:*? ' }))).rejects.toBeInstanceOf(
-      InvalidCloudFolderError,
-    );
-    expect(storage.calls).toHaveLength(0);
   });
 
   describe('compensación y concurrencia', () => {
@@ -431,12 +429,14 @@ describe('AssureSpace', () => {
       expect(failed.detail).toBeTruthy();
     });
 
-    it('clasifica una carátula inválida como INVALID_DATA', async () => {
-      const { assureSpace, events } = await aSetUpStudio();
+    // Qué carátula queda vacía lo fija `folder-name.vo.spec.ts`; acá, que se rechaza sin tocar la nube.
+    it('rechaza una carátula que queda vacía, sin pedir nada al storage, y la clasifica como INVALID_DATA', async () => {
+      const { assureSpace, events, storage } = await aSetUpStudio();
 
-      await expect(assureSpace.execute(aCommand({ caseCaption: '///' }))).rejects.toBeInstanceOf(
+      await expect(assureSpace.execute(aCommand({ caseCaption: ' /\\:*? ' }))).rejects.toBeInstanceOf(
         InvalidCloudFolderError,
       );
+      expect(storage.calls).toHaveLength(0);
 
       const [failed] = events.ofType<DocumentSpaceCreationFailedEvent>(
         DOCUMENT_SPACE_CREATION_FAILED,

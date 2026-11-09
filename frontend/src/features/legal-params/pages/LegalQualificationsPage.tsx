@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { isApiError } from '@/shared/api/ApiError';
 import { useToast } from '@/app/providers/ToastContext';
 import { Button, Icon, PageHeader, Pagination, Panel, SearchInput } from '@/shared/components/ui';
-import { useLegalQualifications } from '@/features/legal-params/api/useLegalQualifications';
+import { useLegalQualifications, usePrefetchLegalQualificationsPage } from '@/features/legal-params/api/useLegalQualifications';
 import { useCreateLegalQualification } from '@/features/legal-params/api/useCreateLegalQualification';
 import { useUpdateLegalQualification } from '@/features/legal-params/api/useUpdateLegalQualification';
 import { useDeleteLegalQualification } from '@/features/legal-params/api/useDeleteLegalQualification';
@@ -70,11 +70,14 @@ export function LegalQualificationsPage() {
     const [values, setValues] = useState<LegalQualificationFormValues>(EMPTY_FORM);
     const [errors, setErrors] = useState<LegalQualificationErrors>({});
 
-    const query = useLegalQualifications({
+    const listParams = {
         page,
         limit: LIMIT,
         search: debouncedSearch === '' ? undefined : debouncedSearch,
-    });
+    };
+    const query = useLegalQualifications(listParams);
+    // Al apuntar a "Siguiente" se pide esa página (`usePrefetchPage`).
+    const prefetchPage = usePrefetchLegalQualificationsPage(listParams);
     const create = useCreateLegalQualification();
     const update = useUpdateLegalQualification();
     const remove = useDeleteLegalQualification();
@@ -201,7 +204,6 @@ export function LegalQualificationsPage() {
             onSuccess: () => {
                 // `info` y no `success`: salió bien, pero no es un logro.
                 toast('info', `Calificación "${qualification.name}" eliminada.`);
-                closeModal();
                 // Si era la única fila de la página, no dejar al usuario en
                 // una página que ya no existe.
                 if (rows.length === 1 && page > 1) setPage(page - 1);
@@ -210,9 +212,10 @@ export function LegalQualificationsPage() {
                 // Acá no hay campos que marcar: un rechazo de la baja es del
                 // registro entero. Tener causas no la impide (V4 §3.5).
                 if (isApiError(error)) toast('error', error.message);
-                closeModal();
             },
         });
+        // Se cierra al confirmar: la fila ya salió de la tabla (`useDeleteLegalQualification`).
+        closeModal();
     }
 
     /* ---------------- pantalla ---------------- */
@@ -249,6 +252,7 @@ export function LegalQualificationsPage() {
                         totalItems={pagination?.totalItems ?? 0}
                         noun={['calificación', 'calificaciones']}
                         onChange={setPage}
+                        onIntent={prefetchPage}
                     />
                 }
             >

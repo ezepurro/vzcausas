@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { SharedModule } from '@shared/shared.module';
+import { ClockModule } from '@shared/infrastructure/clock/clock.module';
 import { LAWYER_DASHBOARD_QUERY } from './core/application/ports/lawyer-dashboard.query';
 import { GetAdministratorDashboard } from './core/application/use-cases/get-administrator-dashboard.use-case';
 import { GetLawyerDashboard } from './core/application/use-cases/get-lawyer-dashboard.use-case';
@@ -16,11 +16,11 @@ import { LawyerDashboardPrismaQuery } from './infrastructure/persistence/lawyer-
  * rules it shows — what an active case is, how business days count — are
  * imported from `cases`, which owns them.
  *
- * `SharedModule` is imported for the {@link CLOCK}: every dashboard is computed
+ * `ClockModule` is imported for the {@link CLOCK}: every dashboard is computed
  * against today's date in Córdoba.
  */
 @Module({
-  imports: [SharedModule],
+  imports: [ClockModule],
   controllers: [DashboardsController],
   providers: [
     // HU41: el tablero del abogado, "Mi día".

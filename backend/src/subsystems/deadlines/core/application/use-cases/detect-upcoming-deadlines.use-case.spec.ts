@@ -59,31 +59,6 @@ describe("DetectUpcomingDeadlinesUseCase", () => {
     ]);
   });
 
-  // CA-51.3
-  it('un vencimiento del día da "vence hoy"', async () => {
-    const { useCase, deadlines } = build();
-    deadlines.deadlines = [deadline({ dueDate: "2026-10-06", businessDaysRemaining: 0 })];
-
-    const [notice] = await useCase.execute();
-
-    expect(notice).toMatchObject({ kind: "DEADLINE_DUE_TODAY", dueDate: "2026-10-06" });
-  });
-
-  // CA-51.3, D-64, V-13: se detecta, pero no llega al aviso.
-  it("un vencimiento ya pasado no genera aviso", async () => {
-    const { useCase, deadlines } = build();
-    deadlines.deadlines = [deadline({ dueDate: "2026-10-02", businessDaysRemaining: -2 })];
-
-    await expect(useCase.execute()).resolves.toEqual([]);
-  });
-
-  it("un vencimiento lejano todavía no genera aviso", async () => {
-    const { useCase, deadlines } = build();
-    deadlines.deadlines = [deadline({ dueDate: "2026-10-20", businessDaysRemaining: 10 })];
-
-    await expect(useCase.execute()).resolves.toEqual([]);
-  });
-
   // D-79: los días de preaviso son configuración del servidor.
   it("usa los días de preaviso configurados", async () => {
     const { useCase, deadlines } = build(5);
@@ -94,6 +69,8 @@ describe("DetectUpcomingDeadlinesUseCase", () => {
     expect(notice.kind).toBe("DEADLINE_WARNING");
   });
 
+  // CA-51.3: el del día da "vence hoy". D-64, V-13: el vencido se detecta, pero no
+  // llega al aviso; el lejano todavía no.
   it("de varios vencimientos devuelve solo los que llevan aviso, en el orden en que llegan", async () => {
     const { useCase, deadlines } = build();
     deadlines.deadlines = [

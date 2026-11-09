@@ -1,6 +1,6 @@
 import { FormModal, type FieldSpec } from '@/shared/components/forms';
 import type { LegalQualificationFormValues } from '@/features/legal-params/types/legalQualification';
-import type { LegalQualificationErrors } from '@/features/legal-params/schemas/legalQualification.schema';
+import { LEGAL_QUALIFICATION_MAX_LENGTH, type LegalQualificationErrors } from '@/features/legal-params/schemas/legalQualification.schema';
 import { MONTH_OPTIONS } from '@/features/legal-params/utils/prescription';
 
 export interface LegalQualificationFormModalProps {
@@ -44,6 +44,7 @@ export function LegalQualificationFormModal({
             required: true,
             placeholder: 'Ej. Hurto simple — art. 162 CP',
             note: 'Con el artículo después de la raya: la carátula sugerida usa sólo la parte de adelante.',
+            maxLength: LEGAL_QUALIFICATION_MAX_LENGTH.name,
             error: errors.name,
         },
         { label: 'Plazo de prescripción de la acción', type: 'section' },
@@ -54,6 +55,7 @@ export function LegalQualificationFormModal({
             required: true,
             mono: true,
             placeholder: '6',
+            maxLength: LEGAL_QUALIFICATION_MAX_LENGTH.years,
             error: errors.years,
         },
         {

@@ -73,7 +73,7 @@ suya; lo que haya que cambiarle se coordina con él.
 | --- | --- |
 | TV-01 | `useExisting` sobre el token temporal `PRESCRIPTION_DETECTION` es un puente hasta resolver QV-03, no el diseño final. |
 | TV-02 | **Aislamiento de los tests de integración:** `daily-run.int.spec.ts` no limpia `sent_notifications` al terminar, y cuatro limpiezas de `cases` no la borran antes que `cases`. Fallan o no según el orden de las suites. Lo arregla mmachuca. El spec de integración de HU52 (paso 8) tiene que limpiar lo que escribe al terminar. |
-| TV-03 | **Test inestable ajeno:** `case-folder-contract.int.spec.ts` › CA-39.6 falla a veces con la suite completa (`CREATING` en vez de `CREATED`) y pasa solo. Es del módulo de documentos (HU39); avisar a su autor. |
+| TV-03 | **Test inestable ajeno:** `case-folder-contract.int.spec.ts` (hoy dentro de `cases/case-folder.int.spec.ts`) › CA-39.6 falla a veces con la suite completa (`CREATING` en vez de `CREATED`) y pasa solo. Es del módulo de documentos (HU39); avisar a su autor. |
 | TV-04 | **La suite de integración en segundo plano se corta sola** cuando coincide con el hook `Stop` del harness (`.claude/hooks/verificar.ps1`), que corre `tsc` y `npm test` al cerrar cada turno: Jest termina sin error y sin resumen (código 127). Correrla en primer plano evita la superposición. Es del harness, no del código. |
 
 ---

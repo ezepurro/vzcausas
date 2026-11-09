@@ -15,6 +15,19 @@ export class CaseSacAlreadyExistsError extends ConflictError {
 }
 
 /**
+ * Emitted by `Case.modify` (HU19) when the `PATCH` brings no field to change
+ * (CA-19.2). Same `details` as the other `PATCH`es of the contract (HU14,
+ * `identity`), so they all answer alike.
+ */
+export class EmptyCaseUpdateError extends ValidationError {
+  constructor() {
+    super('VALIDATION_ERROR', 'Los datos enviados no son válidos.', {
+      body: 'Debe enviarse al menos un campo para modificar.',
+    });
+  }
+}
+
+/**
  * Emitted by `GET /cases` when more than one state filter arrives.
  *
  * The prototype's dropdown lets the user pick a single option, so the three
@@ -30,6 +43,19 @@ export class CaseSacAlreadyExistsError extends ConflictError {
 export class ExclusiveCaseStateFilterError extends ValidationError {
   constructor(details: Record<string, string>) {
     super('INVALID_REQUEST', 'Parámetros de query inválidos.', details);
+  }
+}
+
+/**
+ * Emitted by `GET /cases/{caseId}/cover` when `disposition` is neither `inline` nor
+ * `attachment` (HU24, CA-24.10). The contract answers with `INVALID_REQUEST` and the
+ * parameter in `details`, not with the pipe's generic `VALIDATION_ERROR`.
+ */
+export class InvalidCoverDispositionError extends ValidationError {
+  constructor() {
+    super('INVALID_REQUEST', 'Parámetros de query inválidos.', {
+      disposition: 'Debe ser inline o attachment.',
+    });
   }
 }
 
@@ -67,8 +93,45 @@ export class CaseNotFoundError extends NotFoundError {
   }
 }
 
+/**
+ * Emitted by `GET /cases/{caseId}/documents/{documentId}/file` (HU38) when the
+ * folder of the case is not created: no document can be in it (CA-38.5,
+ * CA-38.8). `documents` has its own class with the same `code` for a file that
+ * is not in a folder that does exist.
+ */
+export class CaseDocumentNotFoundError extends NotFoundError {
+  constructor() {
+    super('DOCUMENT_NOT_FOUND', 'No se encontró el documento en la carpeta de la causa.');
+  }
+}
+
+/**
+ * Emitted by `POST /cases/{caseId}/case-files` (HU25, CA-25.7) when the folder of
+ * the case is not `CREATED`: the case file is saved in it (D-102). The cover sheet
+ * alone does not need it.
+ */
+export class CaseFolderNotAvailableError extends BusinessRuleError {
+  constructor() {
+    super(
+      'CASE_FOLDER_NOT_AVAILABLE',
+      'La causa no tiene su carpeta en Drive creada. Creala antes de generar el expediente.',
+    );
+  }
+}
+
 /** Emitted when the user is not the lawyer in charge of the case (D-30, 403). */
 export class NotResponsibleLawyerError extends ForbiddenActionError {
+  /** The wording of V5 `:6114` for modifying an act (HU28). */
+  static readonly FOR_MODIFYING_ACTS = 'Solo el abogado responsable de la causa puede modificar sus actos procesales.';
+  /** The wording of V5 §4 "Operación de la causa" (D-110) for each operation a non-responsible lawyer cannot do. */
+  static readonly FOR_MODIFYING_CASE = 'Solo el abogado responsable de la causa puede modificarla.';
+  static readonly FOR_DEACTIVATING_CASE = 'Solo el abogado responsable de la causa puede darla de baja.';
+  static readonly FOR_OPERATING_FOLDER = 'Solo el abogado responsable de la causa puede operar su carpeta.';
+  static readonly FOR_DECLARING_PRESCRIPTION = 'Solo el abogado responsable de la causa puede marcarla como prescripta.';
+  /** D-113: declaring the prescription of one legal qualification. */
+  static readonly FOR_DECLARING_QUALIFICATION_PRESCRIPTION =
+    'Solo el abogado responsable de la causa puede declarar la prescripción de sus calificaciones legales.';
+
   /**
    * The message names what was attempted: procedural acts by default (HU26),
    * interruptive acts for HU31, whose contract words it its own way (V4 §3.9).
@@ -82,6 +145,8 @@ export class NotResponsibleLawyerError extends ForbiddenActionError {
 export class CaseInTerminalStateError extends BusinessRuleError {
   /** The wording of the contract for an operation that is not a procedural act (HU31, HU33). */
   static readonly FOR_THIS_OPERATION = 'La causa se encuentra en un estado terminal y no admite esta operación.';
+  /** The wording of V5 `:6141`: the acts of a prescribed case cannot be modified (HU28, D-99). */
+  static readonly ACTS_OF_PRESCRIBED_CASE = 'La causa está prescripta: sus actos procesales no se pueden modificar.';
 
   /** Same as {@link NotResponsibleLawyerError}: the default is HU26's wording, HU31 passes its own. */
   constructor(message = 'La causa se encuentra en un estado terminal y no admite actos procesales.') {
@@ -108,9 +173,35 @@ export class PrescriptionNotApplicableError extends BusinessRuleError {
 }
 
 /**
- * Emitted when someone who is neither an administrator nor a lawyer tries to
- * mark a case as prescribed (HU33, CA-33.2, 403). Any lawyer may, not only the
- * responsible one (CA-33.1), so this is not {@link NotResponsibleLawyerError}.
+ * D-113 — the case does not register the legal qualification whose prescription
+ * is being declared (404). It may exist in `/legal-qualifications`: what matters
+ * is that this case has no offense under it. The `code` is the contract's.
+ */
+export class LegalQualificationNotInCaseError extends NotFoundError {
+  constructor() {
+    super('LEGAL_QUALIFICATION_NOT_FOUND', 'La causa no registra esa calificación legal.');
+  }
+}
+
+/**
+ * D-113 — a legal qualification of the case was already declared prescribed
+ * (422): it cannot be declared again (CA-33.8), and modifying the case cannot
+ * remove it or change its offense date (CA-33.18).
+ */
+export class LegalQualificationAlreadyPrescribedError extends BusinessRuleError {
+  static readonly FOR_DECLARING = 'La calificación legal ya fue declarada prescripta.';
+  static readonly FOR_MODIFYING = 'No se puede quitar ni modificar una calificación legal declarada prescripta.';
+
+  constructor(message = LegalQualificationAlreadyPrescribedError.FOR_DECLARING) {
+    super('LEGAL_QUALIFICATION_ALREADY_PRESCRIBED', message);
+  }
+}
+
+/**
+ * Emitted when someone who is neither an administrator nor a lawyer (the
+ * secretariat alone) tries to mark a case as prescribed (HU33, CA-33.2, 403).
+ * A lawyer who is not the responsible one gets {@link NotResponsibleLawyerError}
+ * instead (D-110).
  */
 export class CannotDeclarePrescriptionError extends ForbiddenActionError {
   constructor() {
@@ -151,6 +242,15 @@ export class InvalidProceduralActIdError extends ValidationError {
   constructor() {
     super('INVALID_PATH_PARAMETER', 'El identificador del acto procesal no es válido.', {
       actId: 'Debe ser un número entero válido.',
+    });
+  }
+}
+
+/** D-113: the `legalQualificationId` of the route is not a positive integer (400). */
+export class InvalidLegalQualificationIdError extends ValidationError {
+  constructor() {
+    super('INVALID_PATH_PARAMETER', 'El identificador de la calificación legal no es válido.', {
+      legalQualificationId: 'Debe ser un número entero válido.',
     });
   }
 }

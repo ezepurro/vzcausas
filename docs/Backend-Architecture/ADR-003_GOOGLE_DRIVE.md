@@ -84,7 +84,10 @@ y comparte la carpeta raíz con las cuentas de Google de los usuarios.**
 
 ```text
 VZ Causas/                                   ← raíz, creada por el script de autorización
-├── Modelos formales/                        ← los .docx de HU34
+├── Modelos formales/                        ← los .docx de HU34, una subcarpeta por fuero
+│   ├── Penal/                               ← el modelo, en la de cada fuero al que aplica
+│   ├── Administrativo/
+│   └── Amparo/
 ├── Ríos, Malena/                            ← abogado responsable (Apellido, Nombres)
 │   └── Penal/                               ← rótulo del fuero
 │       └── GÓMEZ, Ariel Fernando p.s.a. Robo calificado/   ← carátula
@@ -101,6 +104,18 @@ VZ Causas/                                   ← raíz, creada por el script de 
   sistema sigue funcionando. `folder.path` del contrato es solo informativo.
 - Las carpetas del abogado y del fuero se crean la primera vez que hacen falta,
   y su identificador se reutiliza después.
+- **Modelos por fuero (06/11/2026).** Las tres subcarpetas de `Modelos formales`
+  no se crean "la primera vez": las arma `SetupCloudStorage` junto con la
+  estructura base. Un modelo de un solo fuero vive en la subcarpeta de ese
+  fuero. Uno de varios fueros sigue siendo **un solo modelo** (D-55), pero su
+  archivo está **en la subcarpeta de cada fuero**: se sube una vez, a la del
+  primer fuero en el orden del contrato (`CRIMINAL`, `ADMINISTRATIVE`,
+  `AMPARO`), y se copia dentro de Drive (`files.copy`) a las demás. El de la
+  primera es el archivo principal: el que se descarga (CA-35.6). Al registrar una
+  causa (HU40) se copia a su carpeta el archivo de la subcarpeta de **su** fuero.
+  Los rótulos (`Penal`, `Administrativo`, `Amparo`) son los mismos de
+  `Causas/{abogado}/{fuero}`; están declarados en `cases` y en `documents`, que
+  no pueden importarse entre sí, así que si uno cambia hay que cambiar el otro.
 
 ### 2.3 Acceso de los usuarios
 
@@ -125,9 +140,12 @@ ninguno devuelve tipos de la librería de Google.
 | Caso de uso (`documents`)   | Lo invoca                             | Drive API                                         |
 | --------------------------- | ------------------------------------- | ------------------------------------------------- |
 | `AssureSpace`               | `cases`, por el evento `CaseRegistered` (ver [ADR-005](ADR-005_EVENTOS_DE_INTEGRACION.md)) | `files.list` y `files.create` (carpetas); `files.delete` si hay que deshacer una |
-| `SetupCloudStorage`         | `StorageBootstrap` al arrancar; `AssureSpace` y `RegisterDocumentTemplate` si falta la estructura; el comando `npm run documents:setup-storage` | `files.list`, `files.create` y `files.get` (`VZ Causas`, `Modelos formales`, `Causas`) |
-| `RegisterDocumentTemplate`  | controlador HTTP de `documents`       | `files.create` con el archivo, carga reanudable   |
+| `SetupCloudStorage`         | `StorageBootstrap` al arrancar; `AssureSpace` y `RegisterDocumentTemplate` si falta la estructura; el comando `npm run documents:setup-storage` | `files.list`, `files.create` y `files.get` (`VZ Causas`, `Modelos formales`, `Causas` y las subcarpetas `Penal`, `Administrativo` y `Amparo` de los modelos) |
+| `RegisterDocumentTemplate`  | controlador HTTP de `documents`       | `files.create` con el archivo (carga reanudable) en la subcarpeta del primer fuero y `files.copy` a la de cada fuero restante; `files.delete` de todo lo creado si algo falla |
 | `DownloadDocumentTemplate`  | controlador HTTP de `documents`       | `files.get` con `alt=media`, en *streaming*       |
+| `SyncCaseFolder`            | `cases`, por el evento `CaseModified` (HU19, D-104) | `files.get` (padres actuales) y `files.update` (nombre, `addParents`, `removeParents`); crea las carpetas del abogado y del fuero si faltan |
+| `RecycleCaseFolder`         | `cases`, por el evento `CaseDeactivated` (HU21, D-104 revisado 08/11/2026) | `files.list`/`files.create` (carpeta `Papelera` bajo la raíz, creada la primera vez) y `files.update` con `addParents`/`removeParents`: la carpeta de la causa se mueve, sin borrarse. **No usa la papelera de Drive**: con `drive.file` falla con `403 appNotAuthorizedToChild` si la carpeta tiene archivos que la app no creó. La fila de `cloud_folders` no se toca |
+| `RenameLawyerFolder`        | `people`, por el evento `LawyerRenamed` (HU14, D-104) | `files.update` con el nombre nuevo; las carpetas de sus causas quedan adentro |
 | `GrantStudioFolderAccess`   | `identity`, por `StudioFolderAccessPort` | `permissions.create` sobre la raíz             |
 | `RevokeStudioFolderAccess`  | `identity`, por `StudioFolderAccessPort` | `permissions.delete` sobre la raíz             |
 | `SyncStudioFolderAccess`    | `identity`, desde su disparador diario | `permissions.list`, y luego altas y bajas por diferencia |
@@ -142,6 +160,7 @@ export interface DocumentStoragePort {
   findFolderByReference(ref: { parentId: string | null; name: string }): Promise<StoredFolder | null>;
   createFolder(ref: { parentId: string | null; name: string }): Promise<StoredFolder>;  // { id, url }
   getFolder(folderId: string): Promise<StoredFolder | null>;   // null si ya no existe
+  relocateFolder(r: { folderId: string; name?: string; newParentId?: string }): Promise<StoredFolder>; // renombra y/o mueve (HU19, HU14, HU21: se mueve a la carpeta `Papelera`)
   deleteFolder(folderId: string): Promise<void>;               // deshace una carpeta recién creada
   uploadFile(upload: FileUpload): Promise<StoredFile>;
   deleteFile(fileId: string): Promise<void>;
@@ -157,7 +176,7 @@ usa el caso de uso `CopyTemplatesToCaseFolder`. Quedan **pendientes** los métod
 de acceso (`grantWriter`, `revokeAccess`, `listUserAccess`) del diseño original,
 que se agregan cuando se implementen sus historias.
 
-Implementaciones: `GoogleDriveDocumentStorage` (producción, con `googleapis` y el
+Implementaciones: `GoogleDriveDocumentStorage` (producción, con `@googleapis/drive` y el
 cliente OAuth compartido) e `InMemoryDocumentStorage` (pruebas y desarrollo sin
 credenciales). `createDocumentStorage` elige una al arrancar: Drive si están las
 tres variables `GOOGLE_OAUTH_*`; si no, la de memoria con una advertencia, salvo
@@ -217,9 +236,10 @@ Tablas que escribe `documents` (§4.4 de la arquitectura):
 
 | Tabla                     | Qué guarda                                                                          |
 | ------------------------- | ----------------------------------------------------------------------------------- |
-| `cloud_folders`           | Todas las carpetas de la nube, en una sola tabla: raíz (`MAIN`), modelos (`TEMPLATES`), causas (`ROOT_CASES`), abogado, fuero y causa. Tipo, identificador de Drive (clave primaria), enlace y padre |
+| `cloud_folders`           | Todas las carpetas de la nube, en una sola tabla: raíz (`MAIN`), modelos (`TEMPLATES`), causas (`ROOT_CASES`), abogado, fuero y causa. La carpeta de fuero de los modelos es una `JURISDICTION` sin abogado debajo de `TEMPLATES`. Tipo, identificador de Drive (clave primaria), enlace y padre |
 | `cases` (`folder_status`, `cloud_folder_id`) | La causa guarda el estado de su carpeta (`PENDING`, `CREATING`, `CREATED`, `ERROR`) y el identificador de la carpeta de tipo `CASE`; la escribe `cases`, no `documents` |
-| `document_templates`      | Modelos formales, con el identificador del archivo en Drive                         |
+| `document_templates`      | Modelos formales. `cloud_file_id` y `cloud_folder_id` son el archivo principal (el del primer fuero), el que se descarga |
+| `document_template_files` | El archivo del modelo en la subcarpeta de cada uno de sus fueros: una fila por (modelo, fuero), con su identificador de Drive y su carpeta. De acá copia HU40; un modelo anterior a las subcarpetas no tiene filas y se copia desde su archivo principal |
 | `document_template_copies`| Qué modelo se copió a qué causa, y el identificador de la copia. Da `templatesCopied`, `templatesPending` y `usageCount` |
 
 ### 2.6 Puesta en marcha y configuración
@@ -250,6 +270,18 @@ Tablas que escribe `documents` (§4.4 de la arquitectura):
 > `cloud_folders`. `npm run documents:setup-storage` queda como herramienta a
 > pedido; se niega a correr con el almacenamiento en memoria, para no guardar
 > identificadores de carpetas que no existen en ningún Drive.
+>
+> **Actualizado 06/11/2026 (modelos por fuero).** `SetupCloudStorage` arma
+> también `Modelos formales/Penal`, `Administrativo` y `Amparo` (filas
+> `JURISDICTION` sin abogado). Es idempotente: un entorno que ya tenía las tres
+> carpetas base obtiene solo las subcarpetas en la siguiente corrida o al
+> reiniciar la app. Necesita los tres fueros cargados en `jurisdictions`
+> (el seed): si falta alguno falla con `CONFIGURATION`, y sin el seed tampoco se
+> puede armar la carpeta de una causa si falta la estructura. El `outcome` que
+> informa (`CREATED`, `ADOPTED`, `EXISTING`) es el de **esa corrida**: tras
+> resetear la base, la app arranca y vuelve a registrar las carpetas que ya
+> están en Drive (`ADOPTED`), así que un `documents:setup-storage` posterior
+> las ve `EXISTING`. Con `DOCUMENTS_AUTO_SETUP=false` el armado solo ocurre a pedido.
 >
 > **Una carpeta creada a mano no se adopta.** Con `drive.file`, la app solo ve lo
 > que creó el mismo cliente OAuth: consultar por el identificador de una carpeta

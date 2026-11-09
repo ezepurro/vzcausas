@@ -1,9 +1,9 @@
 import { Module } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { JwtModule } from "@nestjs/jwt";
-import { parseTtlToSeconds } from "@shared/config/parse-ttl";
+import { parseTtlToSeconds } from "../../config/parse-ttl";
 import { ACCESS_TOKEN_VERIFIER } from "@shared/domain/access-token-verifier.port";
-import { SharedModule } from "@shared/shared.module";
+import { ClockModule } from "@shared/infrastructure/clock/clock.module";
 import { PeopleModule } from "@subsystems/people/people.module";
 import { AuthenticateUserUseCase } from "./core/application/use-cases/authenticate-user.use-case";
 import { ChangePasswordUseCase } from "./core/application/use-cases/change-password.use-case";
@@ -62,7 +62,7 @@ import { PrismaUserRepository } from "./infrastructure/persistence/prisma/prisma
   imports: [
     // Provides the clock injected by the use cases and by the refresh
     // token store.
-    SharedModule,
+    ClockModule,
     JwtModule.register({}),
     // `people` exports only its FindLawyer use case; the ACL adapter
     // below is what consumes it.

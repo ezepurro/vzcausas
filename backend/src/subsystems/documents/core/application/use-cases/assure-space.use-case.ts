@@ -4,19 +4,11 @@ import { EventPublisher } from '@shared/infrastructure/events/event-publisher.po
 import { createEventHeader } from '@shared/infrastructure/events/integration-event';
 import { CloudFolder } from '../../domain/entities/cloud-folder.entity';
 import { MainFolder } from '../../domain/entities/main-folder.entity';
-import {
-  CloudFolderAlreadyExistsError,
-  StudioRootNotConfiguredError,
-} from '../../domain/errors/documents.errors';
-import { CloudFolderData, CloudFolderFactory } from '../../domain/factories/cloud-folder.factory';
+import { StudioRootNotConfiguredError } from '../../domain/errors/documents.errors';
 import {
   CLOUD_FOLDER_REPOSITORY,
   CloudFolderRepository,
 } from '../../domain/ports/cloud-folder.repository';
-import {
-  DOCUMENT_STORAGE,
-  DocumentStoragePort,
-} from '../../domain/ports/document-storage.port';
 import {
   DOCUMENT_SPACE_ASSIGNED,
   DocumentSpaceAssignedEvent,
@@ -29,10 +21,8 @@ import { FolderKey, folderKeyToString } from '../../domain/value-objects/folder-
 import { FolderName } from '../../domain/value-objects/folder-name.vo';
 import { AssureSpaceCommand, AssureSpaceResult } from '../common/assure-space.interfaces';
 import { classifyFailure } from '../common/failure-reason';
-import { KeyedMutex } from '../common/keyed-mutex';
+import { FolderChain } from '../common/folder-chain';
 import { SetupCloudStorage } from './setup-cloud-storage.use-case';
-
-type ChainLevelData = Pick<CloudFolderData, 'kind' | 'lawyerId' | 'jurisdictionId' | 'caseId'>;
 
 /**
  * Makes sure a case has its folder in the cloud (HU39): `Causas/{lawyer}/
@@ -67,15 +57,13 @@ type ChainLevelData = Pick<CloudFolderData, 'kind' | 'lawyerId' | 'jurisdictionI
 @Injectable()
 export class AssureSpace {
   private readonly logger = new Logger(AssureSpace.name);
-  /** Orders concurrent requests for the same folder inside this process. */
-  private readonly locks = new KeyedMutex();
 
   constructor(
     @Inject(CLOUD_FOLDER_REPOSITORY) private readonly folders: CloudFolderRepository,
-    @Inject(DOCUMENT_STORAGE) private readonly storage: DocumentStoragePort,
     @Inject(CLOCK) private readonly clock: ClockPort,
     private readonly events: EventPublisher,
     private readonly setup: SetupCloudStorage,
+    private readonly chain: FolderChain,
   ) {}
 
   /**
@@ -135,26 +123,12 @@ export class AssureSpace {
 
     const root = await this.findOrSetUpRootCases();
 
-    const lawyer = await this.ensureFolder(
-      FolderKey.lawyer(command.lawyer.id),
-      root,
-      lawyerName,
-      true,
-      { kind: 'LAWYER', lawyerId: command.lawyer.id },
-    );
-    const jurisdiction = await this.ensureFolder(
-      FolderKey.jurisdiction(command.lawyer.id, command.jurisdiction.id),
-      lawyer,
-      jurisdictionName,
-      true,
-      {
-        kind: 'JURISDICTION',
-        lawyerId: command.lawyer.id,
-        jurisdictionId: command.jurisdiction.id,
-      },
-    );
+    const jurisdiction = await this.chain.ensureJurisdictionFolder(root, {
+      lawyer: { id: command.lawyer.id, name: lawyerName },
+      jurisdiction: { id: command.jurisdiction.id, name: jurisdictionName },
+    });
     // A caption is not unique, so a folder is never adopted by name at this level.
-    const caseFolder = await this.ensureFolder(
+    const caseFolder = await this.chain.ensureFolder(
       FolderKey.forCase(command.caseId),
       jurisdiction,
       caseName,
@@ -187,72 +161,6 @@ export class AssureSpace {
       throw new StudioRootNotConfiguredError();
     }
     return created;
-  }
-
-  /**
-   * Returns the folder with that key, creating it under `parent` if needed.
-   * `adoptOrphan` reuses a remote folder with the same name left behind by a
-   * crash between creating it and saving it.
-   *
-   * Requests for the same key go one at a time in this process, so two cases of
-   * the same lawyer and jurisdiction do not both create the shared folder.
-   */
-  private ensureFolder(
-    key: FolderKey,
-    parent: CloudFolder,
-    name: FolderName,
-    adoptOrphan: boolean,
-    data: ChainLevelData,
-  ): Promise<CloudFolder> {
-    return this.locks.run(folderKeyToString(key), async () => {
-      const existing = await this.folders.findByKey(key);
-      if (existing) {
-        return existing;
-      }
-
-      const reference = { parentId: parent.cloudFolderId, name: name.toString() };
-      const adopted = adoptOrphan ? await this.storage.findFolderByReference(reference) : null;
-      const stored = adopted ?? (await this.storage.createFolder(reference));
-      // Only a folder created here may be deleted again; an adopted one was not ours to undo.
-      const createdHere = adopted === null;
-
-      const folder = CloudFolderFactory.create({
-        ...data,
-        cloudFolderId: stored.id,
-        url: stored.url,
-        name: reference.name,
-        parentCloudFolderId: parent.cloudFolderId,
-        createdAt: this.clock.now(),
-      });
-
-      try {
-        await this.folders.save(folder);
-        return folder;
-      } catch (error) {
-        if (createdHere) {
-          await this.discardCreatedFolder(stored.id);
-        }
-        // Another instance saved the same key first: use the winner's folder.
-        if (error instanceof CloudFolderAlreadyExistsError) {
-          const winner = await this.folders.findByKey(key);
-          if (winner) {
-            return winner;
-          }
-        }
-        throw error;
-      }
-    });
-  }
-
-  /** Best effort: if deleting also fails, the leftover folder is only logged, by its id. */
-  private async discardCreatedFolder(cloudFolderId: string): Promise<void> {
-    try {
-      await this.storage.deleteFolder(cloudFolderId);
-    } catch (error) {
-      this.logger.error(
-        `Could not delete the folder ${cloudFolderId} created for a row that was not saved: ${String(error)}`,
-      );
-    }
   }
 
   private async toResult(folder: CloudFolder): Promise<AssureSpaceResult> {

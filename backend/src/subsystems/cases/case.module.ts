@@ -1,38 +1,54 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { SharedModule } from '@shared/shared.module';
+import { AuditModule } from '@shared/infrastructure/audit/audit.module';
+import { ClockModule } from '@shared/infrastructure/clock/clock.module';
 import { OPEN_DEADLINES } from '@subsystems/deadlines/core/domain/ports/open-deadlines.port';
 import { PRESCRIPTION_STATUS } from '@subsystems/deadlines/core/domain/ports/prescription-status.port';
 import { ActiveCasesCounterPort } from '@subsystems/legal-parameters/core/domain/ports/active-cases-counter.port';
 import { LegalParametersModule } from '@subsystems/legal-parameters/legal-parameters.module';
 import { ActiveCasesCounterPort as PeopleActiveCasesCounterPort } from '@subsystems/people/core/domain/ports/active-cases-counter.port';
 import { PeopleModule } from '@subsystems/people/people.module';
-import { GetCase } from './core/application/use-cases/get-case.use-case';
-import { GetCaseTimeline } from './core/application/use-cases/get-case-timeline.use-case';
-import { GetProceduralAct } from './core/application/use-cases/get-procedural-act.use-case';
-import { ListCases } from './core/application/use-cases/list-cases.use-case';
-import { ListCustomStates } from './core/application/use-cases/list-custom-states.use-case';
-import { ListActivePrescriptions } from './core/application/use-cases/list-active-prescriptions.use-case';
-import { ListInterruptiveActs } from './core/application/use-cases/list-interruptive-acts.use-case';
-import { ListOpenDeadlines } from './core/application/use-cases/list-open-deadlines.use-case';
-import { ListProceduralActs } from './core/application/use-cases/list-procedural-acts.use-case';
-import { RegisterInterruptiveAct } from './core/application/use-cases/register-interruptive-act.use-case';
-import { DeclarePrescription } from './core/application/use-cases/declare-prescription.use-case';
-import { RegisterCase } from './core/application/use-cases/register-case.use-case';
-import { RegisterProceduralAct } from './core/application/use-cases/register-procedural-act.use-case';
-import { RequestCaseFolder } from './core/application/use-cases/request-case-folder.use-case';
-import { CASE_FOLDER_OUTCOMES } from './core/domain/ports/case-folder-outcome.port';
-import { CASE_FOLDER_STATE } from './core/domain/ports/case-folder-state.port';
-import { CASE_QUERY } from './core/domain/ports/case-query.port';
-import { CASE_TIMELINE_QUERY } from './core/domain/ports/case-timeline-query.port';
-import { CASE_REPOSITORY } from './core/domain/ports/case.repository';
-import { CRIMINAL_PRESCRIPTION_QUERY } from './core/domain/ports/criminal-prescription-query.port';
-import { DEADLINE_CALCULATOR } from './core/domain/ports/deadline-calculator.port';
-import { INTERRUPTIVE_ACT_QUERY } from './core/domain/ports/interruptive-act-query.port';
-import { INTERRUPTIVE_ACT_REPOSITORY } from './core/domain/ports/interruptive-act.repository';
-import { OPEN_DEADLINE_QUERY } from './core/domain/ports/open-deadline-query.port';
-import { PROCEDURAL_ACT_QUERY } from './core/domain/ports/procedural-act-query.port';
-import { PROCEDURAL_ACT_REPOSITORY } from './core/domain/ports/procedural-act.repository';
+import { DocumentsModule } from '@subsystems/documents/documents.module';
+import { GetCase } from './core/application/use-cases/case/get-case.use-case';
+import { GetCaseCover } from './core/application/use-cases/case/get-case-cover.use-case';
+import { COVER_PDF } from './core/domain/ports/case/cover-pdf.port';
+import { DocumentsCoverPdfAdapter } from './infrastructure/acl/documents-cover-pdf.adapter';
+import { CaseCoverController } from './infrastructure/http/controllers/case-cover.controller';
+import { DownloadCaseDocument } from './core/application/use-cases/case/download-case-document.use-case';
+import { ListCaseDocuments } from './core/application/use-cases/case/list-case-documents.use-case';
+import { CASE_DOCUMENTS } from './core/domain/ports/case/case-documents.port';
+import { DocumentsCaseDocumentsAdapter } from './infrastructure/acl/documents-case-documents.adapter';
+import { CaseDocumentsController } from './infrastructure/http/controllers/case-documents.controller';
+import { CaseDocumentHttpMapper } from './infrastructure/http/mappers/case-document-http.mapper';
+import { GenerateCaseFile } from './core/application/use-cases/case/generate-case-file.use-case';
+import { CaseFilesController } from './infrastructure/http/controllers/case-files.controller';
+import { CaseFileHttpMapper } from './infrastructure/http/mappers/case-file-http.mapper';
+import { GetCaseTimeline } from './core/application/use-cases/case/get-case-timeline.use-case';
+import { GetProceduralAct } from './core/application/use-cases/procedural-act/get-procedural-act.use-case';
+import { UpdateProceduralAct } from './core/application/use-cases/procedural-act/update-procedural-act.use-case';
+import { ListCases } from './core/application/use-cases/case/list-cases.use-case';
+import { ListCustomStates } from './core/application/use-cases/case/list-custom-states.use-case';
+import { ListActivePrescriptions } from './core/application/use-cases/prescription/list-active-prescriptions.use-case';
+import { ListInterruptiveActs } from './core/application/use-cases/interruptive-act/list-interruptive-acts.use-case';
+import { ListOpenDeadlines } from './core/application/use-cases/case/list-open-deadlines.use-case';
+import { ListProceduralActs } from './core/application/use-cases/procedural-act/list-procedural-acts.use-case';
+import { RegisterInterruptiveAct } from './core/application/use-cases/interruptive-act/register-interruptive-act.use-case';
+import { DeclarePrescription } from './core/application/use-cases/prescription/declare-prescription.use-case';
+import { DeclareQualificationPrescription } from './core/application/use-cases/prescription/declare-qualification-prescription.use-case';
+import { UpdateCase } from './core/application/use-cases/case/update-case.use-case';
+import { DeactivateCase } from './core/application/use-cases/case/deactivate-case.use-case';
+import { RegisterCase } from './core/application/use-cases/case/register-case.use-case';
+import { RegisterProceduralAct } from './core/application/use-cases/procedural-act/register-procedural-act.use-case';
+import { RequestCaseFolder } from './core/application/use-cases/case/request-case-folder.use-case';
+import { CASE_FOLDER_OUTCOMES } from './core/domain/ports/case/case-folder-outcome.port';
+import { CASE_FOLDER_STATE } from './core/domain/ports/case/case-folder-state.port';
+import { CASE_REPOSITORY } from './core/domain/ports/case/case.repository';
+import { CASE_TIMELINE_QUERY } from './core/domain/ports/case/case-timeline-query.port';
+import { CRIMINAL_PRESCRIPTION_QUERY } from './core/domain/ports/prescription/criminal-prescription-query.port';
+import { DEADLINE_CALCULATOR } from './core/domain/ports/procedural-act/deadline-calculator.port';
+import { INTERRUPTIVE_ACT_REPOSITORY } from './core/domain/ports/interruptive-act/interruptive-act.repository';
+import { OPEN_DEADLINE_QUERY } from './core/domain/ports/procedural-act/open-deadline-query.port';
+import { PROCEDURAL_ACT_REPOSITORY } from './core/domain/ports/procedural-act/procedural-act.repository';
 import { BusinessDaysDeadlineCalculatorAdapter } from './infrastructure/acl/business-days-deadline-calculator.adapter';
 import { DeadlinesOpenDeadlinesAdapter } from './infrastructure/acl/deadlines-open-deadlines.adapter';
 import { DeadlinesPrescriptionStatusAdapter } from './infrastructure/acl/deadlines-prescription-status.adapter';
@@ -50,16 +66,13 @@ import { CaseHttpMapper } from './infrastructure/http/mappers/case-http.mapper';
 import { InterruptiveActHttpMapper } from './infrastructure/http/mappers/interruptive-act-http.mapper';
 import { ProceduralActHttpMapper } from './infrastructure/http/mappers/procedural-act-http.mapper';
 import { TimelineHttpMapper } from './infrastructure/http/mappers/timeline-http.mapper';
-import { CaseFolderStatePrismaAdapter } from './infrastructure/persistence/case-folder-state-prisma.adapter';
-import { CasePrismaRepository } from './infrastructure/persistence/case-prisma.repository';
-import { CaseQueryPrismaAdapter } from './infrastructure/persistence/case-query-prisma.adapter';
-import { CaseTimelinePrismaAdapter } from './infrastructure/persistence/case-timeline-prisma.adapter';
-import { CriminalPrescriptionQueryPrismaAdapter } from './infrastructure/persistence/criminal-prescription-query-prisma.adapter';
-import { InterruptiveActPrismaRepository } from './infrastructure/persistence/interruptive-act-prisma.repository';
-import { InterruptiveActQueryPrismaAdapter } from './infrastructure/persistence/interruptive-act-query-prisma.adapter';
-import { OpenDeadlineQueryPrismaAdapter } from './infrastructure/persistence/open-deadline-query-prisma.adapter';
-import { ProceduralActPrismaRepository } from './infrastructure/persistence/procedural-act-prisma.repository';
-import { ProceduralActQueryPrismaAdapter } from './infrastructure/persistence/procedural-act-query-prisma.adapter';
+import { PrismaCaseFolderStateAdapter } from './infrastructure/persistence/prisma/prisma-case-folder-state.adapter';
+import { PrismaCaseRepository } from './infrastructure/persistence/prisma/prisma-case.repository';
+import { CaseTimelinePrismaAdapter } from './infrastructure/persistence/prisma/case-timeline-prisma.adapter';
+import { CriminalPrescriptionQueryPrismaAdapter } from './infrastructure/persistence/prisma/criminal-prescription-query-prisma.adapter';
+import { PrismaInterruptiveActRepository } from './infrastructure/persistence/prisma/prisma-interruptive-act.repository';
+import { PrismaOpenDeadlineQueryAdapter } from './infrastructure/persistence/prisma/prisma-open-deadline-query.adapter';
+import { PrismaProceduralActRepository } from './infrastructure/persistence/prisma/prisma-procedural-act.repository';
 
 /**
  * Composition root of `cases`.
@@ -71,13 +84,13 @@ import { ProceduralActQueryPrismaAdapter } from './infrastructure/persistence/pr
  * those exported tokens. There are no stubs left.
  *
  * **Lectura** (HU20, HU22): `GET /cases`, `GET /cases/{caseId}` y
- * `GET /cases/custom-states`. Van por un puerto aparte, `CASE_QUERY`, que
- * proyecta a un modelo de lectura (`CaseListItem`) en vez de reconstruir el
- * agregado: el recurso junta datos de cinco tablas que la entidad `Case` no
+ * `GET /cases/custom-states`. Van por el mismo `CASE_REPOSITORY` que la
+ * escritura, pero sus métodos de lectura proyectan a un modelo de lectura
+ * (`CaseListItem`) en vez de reconstruir el agregado: el recurso junta datos de cinco tablas que la entidad `Case` no
  * tiene, y resolverlos de a uno por causa sería un N+1 de unas cien consultas
- * por página. El orden por urgencia necesita SQL crudo porque el `orderBy` de
- * Prisma no sabe expresar un `COALESCE` de dos columnas; el motivo está en
- * `CaseQueryPrismaAdapter`.
+ * por página. El orden por urgencia lo hace `ListCases` en memoria, porque el
+ * `orderBy` de Prisma no sabe expresar un `COALESCE` de dos columnas; el
+ * motivo está en `PrismaCaseRepository`.
  *
  * Los tres endpoints de lectura y el `POST` comparten `CaseHttpMapper`: el
  * contrato exige que devuelvan el mismo recurso (§3.7), y un solo mapeo es lo
@@ -107,15 +120,41 @@ import { ProceduralActQueryPrismaAdapter } from './infrastructure/persistence/pr
  * el CHECK de exclusión mutua del que dependen los conteos.
  */
 @Module({
-  imports: [forwardRef(() => PeopleModule), forwardRef(() => LegalParametersModule), SharedModule],
-  controllers: [CasesController, InterruptiveActsController, CaseTimelineController],
+  // `AuditModule`: `UpdateCase` and `DeactivateCase` audit what they write (CA-19.15, CA-21.3).
+  imports: [
+    forwardRef(() => PeopleModule),
+    forwardRef(() => LegalParametersModule),
+    ClockModule,
+    AuditModule,
+    DocumentsModule,
+  ],
+  controllers: [
+    CasesController,
+    InterruptiveActsController,
+    CaseTimelineController,
+    CaseCoverController,
+    CaseDocumentsController,
+    CaseFilesController,
+  ],
   providers: [
+    // HU24: the cover sheet. `cases` decides what it says (`CoverSheet`); `documents` draws it.
+    GetCaseCover,
+    { provide: COVER_PDF, useClass: DocumentsCoverPdfAdapter },
+    // HU38: the documents of the case folder. `cases` answers for the case and its
+    // folder; `documents` reads the storage and decides who downloads what (D-103).
+    ListCaseDocuments,
+    DownloadCaseDocument,
+    CaseDocumentHttpMapper,
+    { provide: CASE_DOCUMENTS, useClass: DocumentsCaseDocumentsAdapter },
+    // HU25: the case file. `cases` checks the case and draws the cover; `documents` does the rest.
+    GenerateCaseFile,
+    CaseFileHttpMapper,
     RegisterCase,
     // HU39: asks `documents` for the folder of a case and waits for the answer.
     // Used by the registration and by `POST /cases/{caseId}/folder`.
     RequestCaseFolder,
     CaseFolderOutcomeListener,
-    { provide: CASE_FOLDER_STATE, useClass: CaseFolderStatePrismaAdapter },
+    { provide: CASE_FOLDER_STATE, useClass: PrismaCaseFolderStateAdapter },
     { provide: CASE_FOLDER_OUTCOMES, useClass: InMemoryCaseFolderOutcomes },
     {
       // How long a request waits for the folder before answering `CREATING`.
@@ -133,22 +172,25 @@ import { ProceduralActQueryPrismaAdapter } from './infrastructure/persistence/pr
     CaseHttpMapper,
     // HU33: marks a criminal case as prescribed; answers with the detail (`GetCase`).
     DeclarePrescription,
+    DeclareQualificationPrescription,
+    UpdateCase,
+    // HU21: logical baja, audited.
+    DeactivateCase,
     RegisterProceduralAct,
-    // HU27: la consulta de actos procesales, por su propio puerto de lectura.
+    // HU27: la consulta de actos procesales, por el mismo repositorio que los registra.
     ListProceduralActs,
     GetProceduralAct,
+    // HU28: corrects an act, recalculates the case (D-99) and audits it; answers with `GetProceduralAct`.
+    UpdateProceduralAct,
     ProceduralActHttpMapper,
-    { provide: CASE_REPOSITORY, useClass: CasePrismaRepository },
-    { provide: CASE_QUERY, useClass: CaseQueryPrismaAdapter },
-    { provide: PROCEDURAL_ACT_REPOSITORY, useClass: ProceduralActPrismaRepository },
-    { provide: PROCEDURAL_ACT_QUERY, useClass: ProceduralActQueryPrismaAdapter },
+    { provide: CASE_REPOSITORY, useClass: PrismaCaseRepository },
+    { provide: PROCEDURAL_ACT_REPOSITORY, useClass: PrismaProceduralActRepository },
     // HU31: actos interruptivos. Su efecto sobre la prescripción no se guarda:
-    // lo calculan `CaseQueryPrismaAdapter` y `withDeadlines` en cada lectura de la causa.
+    // lo calculan `PrismaCaseRepository` y `withDeadlines` en cada lectura de la causa.
     RegisterInterruptiveAct,
     ListInterruptiveActs,
     InterruptiveActHttpMapper,
-    { provide: INTERRUPTIVE_ACT_REPOSITORY, useClass: InterruptiveActPrismaRepository },
-    { provide: INTERRUPTIVE_ACT_QUERY, useClass: InterruptiveActQueryPrismaAdapter },
+    { provide: INTERRUPTIVE_ACT_REPOSITORY, useClass: PrismaInterruptiveActRepository },
     // HU27: la línea de vida de la causa (D-85), con las tres fuentes intercaladas.
     GetCaseTimeline,
     TimelineHttpMapper,
@@ -169,7 +211,7 @@ import { ProceduralActQueryPrismaAdapter } from './infrastructure/persistence/pr
     // HU51: los vencimientos abiertos de las causas activas, para la
     // verificación diaria de `deadlines` (V-04, V-05). Solo se exporta el token.
     ListOpenDeadlines,
-    { provide: OPEN_DEADLINE_QUERY, useClass: OpenDeadlineQueryPrismaAdapter },
+    { provide: OPEN_DEADLINE_QUERY, useClass: PrismaOpenDeadlineQueryAdapter },
     { provide: OPEN_DEADLINES, useClass: DeadlinesOpenDeadlinesAdapter },
   ],
   exports: [ActiveCasesCounterPort, PeopleActiveCasesCounterPort, PRESCRIPTION_STATUS, OPEN_DEADLINES],

@@ -20,28 +20,32 @@ description: |
     | `CLIENT_NOT_FOUND`                   | 404  | Cliente inexistente                                                       |
     | `CASE_NOT_FOUND`                     | 404  | Causa inexistente                                                         |
     | `PROCEDURAL_ACT_NOT_FOUND`           | 404  | Acto procesal inexistente o de otra causa                                 |
-    | `DOCUMENT_TEMPLATE_NOT_FOUND`        | 404  | Modelo formal inexistente. Nuevo en V4                                    |
+    | `DOCUMENT_TEMPLATE_NOT_FOUND`        | 404  | Modelo formal inexistente                                                 |
+    | `DOCUMENT_NOT_FOUND`                 | 404  | Documento inexistente, borrado de Drive o que no está en la carpeta de la causa |
     | `RESOURCE_NOT_FOUND`                 | 404  | Ruta inexistente                                                          |
     | `USERNAME_ALREADY_EXISTS`            | 409  | Nombre de usuario ya registrado                                           |
     | `EMAIL_ALREADY_EXISTS`               | 409  | Correo electrónico ya registrado                                          |
     | `LAWYER_REGISTRATION_ALREADY_EXISTS` | 409  | Matrícula ya registrada                                                   |
     | `PROCEDURAL_STATE_ALREADY_EXISTS`    | 409  | Denominación repetida dentro del mismo fuero                              |
     | `LEGAL_QUALIFICATION_ALREADY_EXISTS` | 409  | Denominación de calificación legal ya registrada                          |
-    | `CLIENT_DNI_ALREADY_EXISTS`          | 409  | DNI ya registrado en un cliente vigente                                   |
+    | `CLIENT_DNI_ALREADY_EXISTS`          | 409  | Documento (DNI o pasaporte) ya registrado en un cliente vigente (D-108)   |
     | `CASE_SAC_ALREADY_EXISTS`            | 409  | Número de SAC ya registrado (RN2)                                         |
-    | `DOCUMENT_TEMPLATE_ALREADY_EXISTS`   | 409  | Nombre de modelo formal ya registrado. Nuevo en V4                        |
+    | `DOCUMENT_TEMPLATE_ALREADY_EXISTS`   | 409  | Nombre de modelo formal ya registrado                                     |
     | `USER_HAS_DEPENDENCIES`              | 409  | El usuario posee recursos asociados                                       |
     | `LAWYER_HAS_DEPENDENCIES`            | 409  | El abogado posee causas o un usuario vinculado                            |
-    | `FILE_TOO_LARGE`                     | 413  | El archivo enviado supera los 10 MB. Nuevo en V4                          |
+    | `FILE_TOO_LARGE`                     | 413  | El archivo enviado supera los 10 MB                                       |
     | `INVALID_CURRENT_PASSWORD`           | 422  | La contraseña actual no coincide                                          |
-    | `CASE_IN_TERMINAL_STATE`             | 422  | Acto procesal, acto interruptivo o marca de prescripción sobre una causa en estado terminal |
+    | `CASE_IN_TERMINAL_STATE`             | 422  | Acto procesal, acto interruptivo o marca de prescripción sobre una causa en estado terminal. También: modificar un acto de una causa "Prescripta", o cambiar las calificaciones legales de una causa "Prescripta" |
+    | `CASE_FOLDER_NOT_AVAILABLE`          | 422  | Generar el expediente de una causa sin su carpeta en Drive creada         |
+    | `DOCUMENT_NOT_CONVERTIBLE`           | 422  | Un documento elegido para el expediente no se puede convertir a PDF       |
+    | `LEGAL_QUALIFICATION_ALREADY_PRESCRIBED` | 422 | **(08/11/2026, D-113)** Declarar prescripta una calificación que ya lo está, o quitar o cambiar la fecha del hecho de una declarada al modificar la causa |
     | `PRESCRIPTION_NOT_APPLICABLE`        | 422  | Acto interruptivo o marca de prescripción sobre una causa que no es del fuero penal, o marca de prescripción sobre una causa sin calificaciones legales |
-    | `PROCEDURAL_STATE_PROTECTED`         | 422  | Modificación o baja del estado de sistema "Prescripta". Nuevo en V4       |
+    | `PROCEDURAL_STATE_PROTECTED`         | 422  | Modificación o baja del estado de sistema "Prescripta"                    |
     | `BUSINESS_RULE_VIOLATION`            | 422  | Violación de una regla de negocio                                         |
     | `TOO_MANY_LOGIN_ATTEMPTS`            | 429  | Bloqueo progresivo por intentos fallidos. Exclusivo de `POST /auth/login` |
     | `TOO_MANY_REQUESTS`                  | 429  | Límite de pedidos por dirección IP superado                               |
     | `INTERNAL_SERVER_ERROR`              | 500  | Error interno inesperado                                                  |
-    | `DOCUMENT_STORAGE_UNAVAILABLE`       | 502  | El almacenamiento en la nube (Google Drive) no respondió. Nuevo en V4     |
+    | `DOCUMENT_STORAGE_UNAVAILABLE`       | 502  | El almacenamiento en la nube (Google Drive) no respondió. También al leer los documentos, descargarlos o generar el expediente |
 enum:
     - VALIDATION_ERROR
     - INVALID_PAGINATION
@@ -59,6 +63,7 @@ enum:
     - CASE_NOT_FOUND
     - PROCEDURAL_ACT_NOT_FOUND
     - DOCUMENT_TEMPLATE_NOT_FOUND
+    - DOCUMENT_NOT_FOUND
     - RESOURCE_NOT_FOUND
     - USERNAME_ALREADY_EXISTS
     - EMAIL_ALREADY_EXISTS
@@ -73,7 +78,10 @@ enum:
     - FILE_TOO_LARGE
     - INVALID_CURRENT_PASSWORD
     - CASE_IN_TERMINAL_STATE
+    - CASE_FOLDER_NOT_AVAILABLE
+    - DOCUMENT_NOT_CONVERTIBLE
     - PRESCRIPTION_NOT_APPLICABLE
+    - LEGAL_QUALIFICATION_ALREADY_PRESCRIBED
     - PROCEDURAL_STATE_PROTECTED
     - BUSINESS_RULE_VIOLATION
     - TOO_MANY_LOGIN_ATTEMPTS

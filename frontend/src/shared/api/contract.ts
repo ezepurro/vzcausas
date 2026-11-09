@@ -1,5 +1,5 @@
 /**
- * Forma de los errores de la API, según `docs/Api-Contract/API_CONTRACT_V4.md`
+ * Forma de los errores de la API, según `docs/Api-Contract/API_CONTRACT_V5.md`
  * §5.2 y §5.3.
  *
  * Vive en `api/` y no en `mocks/` porque es contrato de producción: lo usa
@@ -8,11 +8,13 @@
  */
 
 /**
- * Códigos de error documentados (catálogo de V4 §5.3).
+ * Códigos de error documentados (catálogo de V5 §5.3).
  *
  * V4 suma seis (§7.4): los de modelos formales, el del tamaño del archivo, el
  * de la prescripción que no aplica, el del estado protegido "Prescripta" y el
- * del almacenamiento en la nube. Ninguno se retira.
+ * del almacenamiento en la nube. V5 suma tres, de la documentación de la causa
+ * (HU38, HU25): el documento que no está en la carpeta, la carpeta sin crear y
+ * el documento que no se convierte a PDF. Ninguno se retira.
  *
  * `PROCEDURAL_STATE_HAS_DEPENDENCIES` no está: V3 lo retiró, porque la baja de
  * un estado procesal ya no se rechaza por tener causas (D-06).
@@ -45,6 +47,7 @@ export const ERROR_CODES = [
     'CASE_NOT_FOUND',
     'PROCEDURAL_ACT_NOT_FOUND',
     'DOCUMENT_TEMPLATE_NOT_FOUND',
+    'DOCUMENT_NOT_FOUND',
     'RESOURCE_NOT_FOUND',
     // 409 — unicidad y dependencias
     'USERNAME_ALREADY_EXISTS',
@@ -64,7 +67,11 @@ export const ERROR_CODES = [
     'INVALID_CURRENT_PASSWORD',
     'CASE_IN_TERMINAL_STATE',
     'PRESCRIPTION_NOT_APPLICABLE',
+    // D-113: declarar una calificación ya declarada, o quitarla al modificar la causa
+    'LEGAL_QUALIFICATION_ALREADY_PRESCRIBED',
     'PROCEDURAL_STATE_PROTECTED',
+    'CASE_FOLDER_NOT_AVAILABLE',
+    'DOCUMENT_NOT_CONVERTIBLE',
     'BUSINESS_RULE_VIOLATION',
     // 429 — límite de frecuencia
     'TOO_MANY_LOGIN_ATTEMPTS',

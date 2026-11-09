@@ -1,4 +1,8 @@
+import { AuditEntry, AuditTrailPort } from "@shared/domain/audit-trail.port";
 import { ClockPort } from "@shared/domain/clock.port";
+import { TransactionManagerPort } from "@shared/domain/transaction-manager.port";
+import { EventPublisher } from "@shared/infrastructure/events/event-publisher.port";
+import { IntegrationEvent } from "@shared/infrastructure/events/integration-event";
 import { Client } from "../../../domain/entities/client.entity";
 import { ActiveCasesCounterPort } from "../../../domain/ports/active-cases-counter.port";
 import {
@@ -6,7 +10,7 @@ import {
   ClientRepository,
   ClientSearchCriteria,
 } from "../../../domain/ports/client.repository";
-import { Dni } from "../../../domain/value-objects/dni.vo";
+import { ClientDocument } from "../../../domain/value-objects/client-document.vo";
 import { Lawyer } from "../../../domain/entities/lawyer.entity";
 import {
   LawyerPage,
@@ -27,11 +31,17 @@ export class FakeLawyerRepository implements LawyerRepository {
     return this.nextIdValue++;
   }
 
+  /** Every lawyer `update` received, in order: what a modification really wrote. */
+  readonly updates: Lawyer[] = [];
+
   async existsByRegistrationNumber(
     registrationNumber: RegistrationNumber,
+    exceptLawyerId?: number,
   ): Promise<boolean> {
-    return [...this.byId.values()].some((lawyer) =>
-      lawyer.registrationNumber.equals(registrationNumber),
+    return [...this.byId.values()].some(
+      (lawyer) =>
+        lawyer.id !== exceptLawyerId &&
+        lawyer.registrationNumber?.equals(registrationNumber) === true,
     );
   }
 
@@ -39,8 +49,26 @@ export class FakeLawyerRepository implements LawyerRepository {
     this.byId.set(lawyer.id, lawyer);
   }
 
+  async update(lawyer: Lawyer): Promise<void> {
+    this.updates.push(lawyer);
+    this.byId.set(lawyer.id, lawyer);
+  }
+
+  /**
+   * A copy, like a row read from the database: a use case that changes the
+   * lawyer and then rejects the request must not have changed what is stored.
+   */
   async findById(id: number): Promise<Lawyer | null> {
-    return this.byId.get(id) ?? null;
+    const stored = this.byId.get(id);
+    return stored
+      ? Lawyer.hydrate({
+          id: stored.id,
+          lastName: stored.lastName,
+          firstName: stored.firstName,
+          registrationNumber: stored.registrationNumber,
+          active: stored.isActive(),
+        })
+      : null;
   }
 
   /**
@@ -66,7 +94,7 @@ export class FakeLawyerRepository implements LawyerRepository {
           needle === undefined ||
           lawyer.lastName.toLowerCase().includes(needle) ||
           lawyer.firstName.toLowerCase().includes(needle) ||
-          lawyer.registrationNumber.toString().toLowerCase().includes(needle),
+          (lawyer.registrationNumber?.toString().toLowerCase().includes(needle) ?? false),
       )
       .sort((a, b) => b.id - a.id);
 
@@ -82,7 +110,7 @@ export class FakeLawyerRepository implements LawyerRepository {
 /**
  * In-memory {@link ClientRepository} for `people`'s use-case specs.
  *
- * `existsActiveByDni` filters by `isActive()` on purpose, mirroring
+ * `existsActiveByDocument` filters by `isActive()` on purpose, mirroring
  * the partial unique index rather than a plain one: a spec that
  * passed against a stricter fake would hide the behaviour CA-8.4
  * actually asks for.
@@ -95,9 +123,9 @@ export class FakeClientRepository implements ClientRepository {
     return this.nextIdValue++;
   }
 
-  async existsActiveByDni(dni: Dni): Promise<boolean> {
+  async existsActiveByDocument(document: ClientDocument): Promise<boolean> {
     return [...this.byId.values()].some(
-      (client) => client.isActive() && client.dni.equals(dni),
+      (client) => client.isActive() && client.document.equals(document),
     );
   }
 
@@ -128,7 +156,7 @@ export class FakeClientRepository implements ClientRepository {
           needle === undefined ||
           client.lastName.toLowerCase().includes(needle) ||
           client.firstName.toLowerCase().includes(needle) ||
-          client.dni.toString().includes(needle),
+          client.document.number.toLowerCase().includes(needle),
       )
       .sort(
         (a, b) =>
@@ -178,6 +206,65 @@ export class FakeActiveCasesCounter implements ActiveCasesCounterPort {
   private record(ids: readonly number[]): ReadonlyMap<number, number> {
     this.calls.push(ids);
     return new Map(ids.map((id) => [id, this.counts.get(id) ?? 0]));
+  }
+}
+
+/**
+ * Runs the work and, when it throws, undoes what the lawyer repository and
+ * the audit trail recorded during it: the observable part of a rollback.
+ * `open` tells the other fakes whether a write happens inside the
+ * transaction, so a spec can assert that the change and its audit record are
+ * one unit (CA-14.5).
+ */
+export class FakeTransactionManager implements TransactionManagerPort {
+  open = false;
+  calls = 0;
+
+  constructor(
+    private readonly lawyers?: FakeLawyerRepository,
+    private readonly audit?: FakeAuditTrail,
+  ) {}
+
+  async runInTransaction<T>(work: () => Promise<T>): Promise<T> {
+    this.calls++;
+    const updatesBefore = this.lawyers?.updates.length ?? 0;
+    const entriesBefore = this.audit?.entries.length ?? 0;
+    this.open = true;
+    try {
+      return await work();
+    } catch (error) {
+      this.lawyers?.updates.splice(updatesBefore);
+      this.audit?.entries.splice(entriesBefore);
+      throw error;
+    } finally {
+      this.open = false;
+    }
+  }
+}
+
+/** Collects the audit records, and whether each was written inside a transaction. */
+export class FakeAuditTrail implements AuditTrailPort {
+  readonly entries: Array<AuditEntry & { inTransaction: boolean }> = [];
+  failNextWith: Error | null = null;
+  transactions?: FakeTransactionManager;
+
+  async record(entry: AuditEntry): Promise<void> {
+    if (this.failNextWith) {
+      const error = this.failNextWith;
+      this.failNextWith = null;
+      throw error;
+    }
+    this.entries.push({ ...entry, inTransaction: this.transactions?.open ?? false });
+  }
+}
+
+/** Collects what a use case publishes, and whether a transaction was still open. */
+export class FakeEventPublisher extends EventPublisher {
+  readonly published: Array<IntegrationEvent & { inTransaction?: boolean }> = [];
+  transactions?: FakeTransactionManager;
+
+  async publish(event: IntegrationEvent): Promise<void> {
+    this.published.push({ ...event, inTransaction: this.transactions?.open ?? false });
   }
 }
 

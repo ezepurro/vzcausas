@@ -10,6 +10,7 @@
 COMPOSE_BASE  := docker/docker-compose.yaml
 
 ENV_DEV       := docker/.env
+ENV_EXAMPLE   := docker/.env.example
 
 DC_DEV  := docker compose -f $(COMPOSE_BASE)  --env-file $(ENV_DEV)
 
@@ -19,7 +20,7 @@ DC_DEV  := docker compose -f $(COMPOSE_BASE)  --env-file $(ENV_DEV)
 export
 
 .PHONY: help \
-        dev-up dev-build dev-stop dev-down dev-down-v dev-logs ps clean \
+        dev-env dev-up dev-build dev-stop dev-down dev-down-v dev-logs ps clean \
         backend-restart backend-logs backend-shell backend-build \
         migrate-deploy migrate-dev migrate-create seed test-int \
         frontend-restart frontend-logs frontend-shell frontend-build \
@@ -36,6 +37,17 @@ help: ## Shows this list of commands
 	@echo ""
 
 # ---- Environment Wide -----------------------------------------------------
+
+# Never overwrites an existing docker/.env silently: it holds the secrets.
+# With FORCE=1 it replaces it, keeping the old one as docker/.env.bak
+# (ignored by git through the `.env.*` rule).
+dev-env: ## Creates docker/.env from docker/.env.example (FORCE=1 overwrites, backing up to docker/.env.bak)
+	@if [ -f $(ENV_DEV) ] && [ "$(FORCE)" != "1" ]; then \
+		echo "$(ENV_DEV) already exists, left untouched. To replace it: make dev-env FORCE=1 (backs it up to $(ENV_DEV).bak)."; \
+	else \
+		if [ -f $(ENV_DEV) ]; then cp $(ENV_DEV) $(ENV_DEV).bak && echo "Backed up the previous one to $(ENV_DEV).bak"; fi; \
+		cp $(ENV_EXAMPLE) $(ENV_DEV) && echo "Created $(ENV_DEV) from $(ENV_EXAMPLE). Fill in the values the example leaves empty."; \
+	fi
 
 dev-up: ## Starts all services in development mode (detached)
 	$(DC_DEV) up -d
@@ -95,13 +107,15 @@ seed: ## Runs Prisma seed inside the backend container (dev)
 test-unit: ## Runs backend integration tests inside the backend container (dev)
 	$(DC_DEV) exec backend npm run test
 
-test-int: ## Runs backend integration tests inside the backend container (dev)
-	$(DC_DEV) exec backend npm run test:int
+test-int: ## Runs backend integration tests inside the backend container (dev). SUITE=<pattern> to filter
+	$(DC_DEV) exec backend npm run test:int -- $(SUITE)
 
 reset-db:
 	$(DC_DEV) exec backend npx prisma migrate reset --force
 	$(DC_DEV) exec backend npx prisma db seed
 	$(DC_DEV) restart backend
+clean-db:
+	$(DC_DEV) exec backend npx prisma migrate reset --force
 
 setup-storage:
 	$(DC_DEV) exec backend npm run documents:setup-storage

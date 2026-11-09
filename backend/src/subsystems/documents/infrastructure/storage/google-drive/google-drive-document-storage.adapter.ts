@@ -1,7 +1,7 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { GoogleOAuthClientService } from '@shared/infrastructure/google/google-oauth-client.service';
-import { drive_v3, google } from 'googleapis';
+import { drive, drive_v3 } from '@googleapis/drive';
 import { Readable } from 'node:stream';
 import { DocumentStorageUnavailableError } from '../../../core/domain/errors/documents.errors';
 import {
@@ -9,6 +9,8 @@ import {
   FileCopy,
   FileUpload,
   FolderReference,
+  FolderRelocation,
+  StoredDocument,
   StoredFile,
   StoredFolder,
 } from '../../../core/domain/ports/document-storage.port';
@@ -19,8 +21,15 @@ import { withDriveRetries } from './drive-retry';
 export type DriveFilesClient = Pick<drive_v3.Drive, 'files'>;
 
 const FOLDER_MIME_TYPE = 'application/vnd.google-apps.folder';
+const GOOGLE_DOCUMENT_MIME_TYPE = 'application/vnd.google-apps.document';
+const PDF_MIME_TYPE = 'application/pdf';
 const DEFAULT_TIMEOUT_MS = 15_000;
 const FILE_FIELDS = 'id, webViewLink';
+/** What the document list needs of each file (HU38). */
+const DOCUMENT_FIELDS =
+  'id, name, mimeType, size, createdTime, modifiedTime, owners(displayName), webViewLink, parents';
+/** The most Drive hands out per page; a case folder has tens of files, so one page is the usual. */
+const LIST_PAGE_SIZE = 1000;
 
 /**
  * {@link DocumentStoragePort} over the Google Drive API v3, with the study's
@@ -32,7 +41,7 @@ const FILE_FIELDS = 'id, webViewLink';
  * - **Failures:** a call is retried up to 3 times on a passing problem (see
  *   {@link withDriveRetries}); what is left is translated into
  *   {@link DocumentStorageUnavailableError} with its reason. Nothing from the
- *   `googleapis` library leaves this class.
+ *   `@googleapis/drive` library leaves this class.
  * - **Logging:** ids and operations only. Folder and file names carry the
  *   parties of a case, so they are written at `debug` level at most.
  */
@@ -43,7 +52,7 @@ export class GoogleDriveDocumentStorage implements DocumentStoragePort {
   private readonly sleep: (ms: number) => Promise<void>;
   private readonly timeout: number;
   /**
-   * Options for every call. `retry: false` turns off the retries `googleapis`
+   * Options for every call. `retry: false` turns off the retries `googleapis-common`
    * adds by default (it sets `retry = true` on every request): `withDriveRetries`
    * is the only one that retries, so a call is attempted exactly 3 times, with the
    * waits of ADR-003 §2.5, and not 3 times by us times 4 by the library.
@@ -58,7 +67,7 @@ export class GoogleDriveDocumentStorage implements DocumentStoragePort {
     @Optional() driveClient?: DriveFilesClient,
     @Optional() sleep?: (ms: number) => Promise<void>,
   ) {
-    this.drive = driveClient ?? google.drive({ version: 'v3', auth: oauth.getClient() });
+    this.drive = driveClient ?? drive({ version: 'v3', auth: oauth.getClient() });
     this.sleep = sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
     const configured = Number(config.get<string>('DRIVE_REQUEST_TIMEOUT_MS'));
     this.timeout = Number.isFinite(configured) && configured > 0 ? configured : DEFAULT_TIMEOUT_MS;
@@ -123,6 +132,44 @@ export class GoogleDriveDocumentStorage implements DocumentStoragePort {
     }
   }
 
+  /**
+   * `files.update` with the new name and, to move, `addParents` and
+   * `removeParents`: one call, so a rename and a move happen together. Moving
+   * needs the current parents first (`files.get`). Both need only `drive.file`,
+   * because the app created the folder (D-104).
+   */
+  async relocateFolder(relocation: FolderRelocation): Promise<StoredFolder> {
+    const missing = 'The folder to rename or move, or its new parent, no longer exists in the storage';
+    let removeParents: string | undefined;
+    if (relocation.newParentId) {
+      const current = await this.call(
+        'relocateFolder.getParents',
+        () => this.drive.files.get({ fileId: relocation.folderId, fields: 'parents' }, this.requestOptions),
+        missing,
+      );
+      removeParents = (current.data.parents ?? []).join(',') || undefined;
+    }
+    const response = await this.call(
+      'relocateFolder',
+      () =>
+        this.drive.files.update(
+          {
+            fileId: relocation.folderId,
+            requestBody: relocation.name === undefined ? {} : { name: relocation.name },
+            addParents: relocation.newParentId,
+            removeParents,
+            fields: FILE_FIELDS,
+          },
+          this.requestOptions,
+        ),
+      missing,
+    );
+    if (!response.data.id) {
+      throw new DocumentStorageUnavailableError('TRANSIENT', 'Drive answered without a folder id');
+    }
+    return toStoredFolder(response.data);
+  }
+
   async deleteFolder(folderId: string): Promise<void> {
     await this.deleteById('deleteFolder', folderId);
   }
@@ -182,6 +229,111 @@ export class GoogleDriveDocumentStorage implements DocumentStoragePort {
     return Buffer.from(response.data as unknown as ArrayBuffer);
   }
 
+  /**
+   * The files directly in the folder, without subfolders and without the trash
+   * (CA-38.3), every page of them. It needs the `drive.readonly` scope to see
+   * what people uploaded by hand (C-24); with `drive.file` alone it sees only
+   * what the app created. A folder that is gone has no files.
+   */
+  async listFiles(folderId: string): Promise<StoredDocument[]> {
+    const query =
+      `'${escapeQueryValue(folderId)}' in parents` +
+      ' and trashed = false' +
+      ` and mimeType != '${FOLDER_MIME_TYPE}'`;
+    const documents: StoredDocument[] = [];
+    let pageToken: string | undefined;
+    try {
+      do {
+        const token = pageToken;
+        const response = await this.call('listFiles', () =>
+          this.drive.files.list(
+            {
+              q: query,
+              pageSize: LIST_PAGE_SIZE,
+              pageToken: token,
+              fields: `nextPageToken, files(${DOCUMENT_FIELDS})`,
+              spaces: 'drive',
+            },
+            this.requestOptions,
+          ),
+        );
+        documents.push(...(response.data.files ?? []).filter((file) => file.id).map(toStoredDocument));
+        pageToken = response.data.nextPageToken ?? undefined;
+      } while (pageToken);
+    } catch (error) {
+      if (error instanceof FolderNotFound) {
+        return [];
+      }
+      throw error;
+    }
+    return documents;
+  }
+
+  async findFile(fileId: string): Promise<StoredDocument | null> {
+    try {
+      const response = await this.call('findFile', () =>
+        this.drive.files.get({ fileId, fields: `${DOCUMENT_FIELDS}, trashed` }, this.requestOptions),
+      );
+      const file = response.data;
+      return file.trashed || !file.id || file.mimeType === FOLDER_MIME_TYPE ? null : toStoredDocument(file);
+    } catch (error) {
+      if (error instanceof FolderNotFound) {
+        return null;
+      }
+      throw error;
+    }
+  }
+
+  /** `files.export`: a native document converted by Drive (HU38, a Google document as PDF). */
+  async exportFile(fileId: string, mimeType: string): Promise<Buffer> {
+    const response = await this.call(
+      'exportFile',
+      () =>
+        this.drive.files.export(
+          { fileId, mimeType },
+          { ...this.requestOptions, responseType: 'arraybuffer' },
+        ),
+      'The file no longer exists in the storage',
+    );
+    return Buffer.from(response.data as unknown as ArrayBuffer);
+  }
+
+  /**
+   * A Word file converted to PDF by Drive (HU25, D-102). Drive only exports its
+   * own documents, so the file is first copied as a Google document (`files.copy`
+   * with that type converts it), the copy is exported to PDF, and the copy is
+   * deleted **always**, even if the export failed: nothing is left behind
+   * (CA-25.8). The copy goes to the root of the account, never to the folder of
+   * the case, so it never shows in its document list.
+   */
+  async convertToPdf(fileId: string): Promise<Buffer> {
+    const copy = await this.call(
+      'convertToPdf',
+      () =>
+        this.drive.files.copy(
+          {
+            fileId,
+            requestBody: { name: `vz-conversion-${fileId}`, mimeType: GOOGLE_DOCUMENT_MIME_TYPE },
+            fields: 'id',
+          },
+          this.requestOptions,
+        ),
+      'The file to convert no longer exists in the storage',
+    );
+    const copyId = copy.data.id;
+    if (!copyId) {
+      throw new DocumentStorageUnavailableError('TRANSIENT', 'Drive answered without a file id');
+    }
+    try {
+      return await this.exportFile(copyId, PDF_MIME_TYPE);
+    } finally {
+      await this.deleteById('deleteConversionCopy', copyId).catch((error: unknown) => {
+        // The PDF is already in hand or the export already failed: a leftover copy is logged, not thrown.
+        this.logger.warn(`Drive conversion copy ${copyId} could not be deleted: ${String(error)}`);
+      });
+    }
+  }
+
   /** A file or folder that is already gone counts as deleted. */
   private async deleteById(operation: string, id: string): Promise<void> {
     try {
@@ -232,6 +384,23 @@ function toStoredFolder(file: drive_v3.Schema$File): StoredFolder {
 function toStoredFile(file: drive_v3.Schema$File): StoredFile {
   const id = file.id as string;
   return { id, url: file.webViewLink ?? `https://drive.google.com/file/d/${id}/view` };
+}
+
+function toStoredDocument(file: drive_v3.Schema$File): StoredDocument {
+  const id = file.id as string;
+  const createdAt = new Date(file.createdTime as string);
+  return {
+    id,
+    name: file.name ?? '',
+    mimeType: file.mimeType ?? 'application/octet-stream',
+    // Drive sends the size as a string, and none for its native documents.
+    sizeBytes: file.size ? Number(file.size) : null,
+    createdAt,
+    modifiedAt: file.modifiedTime ? new Date(file.modifiedTime) : createdAt,
+    uploadedBy: file.owners?.[0]?.displayName ?? null,
+    url: file.webViewLink ?? `https://drive.google.com/file/d/${id}/view`,
+    parentIds: file.parents ?? [],
+  };
 }
 
 /** Escapes a value for a Drive search query (`q`), which is quoted with single quotes. */

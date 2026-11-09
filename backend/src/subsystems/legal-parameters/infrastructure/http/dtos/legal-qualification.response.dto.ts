@@ -1,4 +1,4 @@
-import { PaginationResponseDto } from '../../../../../common/pagination/paginated-response.dto';
+import { PaginationResponseDto } from '@shared/infrastructure/http/pagination/pagination-response.dto';
 
 /**
  * Legal qualification as the `POST` returns it (contract §3.5).

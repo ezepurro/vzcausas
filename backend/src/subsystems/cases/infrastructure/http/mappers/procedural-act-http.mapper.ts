@@ -7,13 +7,15 @@ import {
   DeadlinePreviewResult,
   PreviewProceduralActDeadlineQuery,
   RegisterProceduralActCommand,
-} from '../../../core/application/common/register-procedural-act.interfaces';
-import { ProceduralActView } from '../../../core/domain/ports/procedural-act-query.port';
-import { Deadline } from '../../../core/domain/value-objects/deadline';
-import { DeadlinePreviewQueryDto } from '../dtos/deadline-preview.query.dto';
-import { DeadlinePreviewResponseDto } from '../dtos/deadline-preview.response.dto';
-import { ProceduralActDeadlineResponseDto, ProceduralActResponseDto } from '../dtos/procedural-act.response.dto';
-import { RegisterProceduralActRequestDto } from '../dtos/register-procedural-act.request.dto';
+} from '../../../core/application/use-cases/procedural-act/register-procedural-act.interfaces';
+import { ProceduralActView } from '../../../core/domain/ports/procedural-act/procedural-act.repository';
+import { Deadline } from '../../../core/domain/value-objects/deadline/deadline.vo';
+import { DeadlinePreviewQueryDto } from '../dtos/procedural-act/deadline-preview.query.dto';
+import { DeadlinePreviewResponseDto } from '../dtos/procedural-act/deadline-preview.response.dto';
+import { ProceduralActDeadlineResponseDto, ProceduralActResponseDto } from '../dtos/procedural-act/procedural-act.response.dto';
+import { RegisterProceduralActRequestDto } from '../dtos/procedural-act/register-procedural-act.request.dto';
+import { UpdateProceduralActRequestDto } from '../dtos/procedural-act/update-procedural-act.request.dto';
+import { UpdateProceduralActCommand } from '../../../core/application/use-cases/procedural-act/update-procedural-act.use-case';
 
 const CIVIL_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 
@@ -133,6 +135,36 @@ export class ProceduralActHttpMapper {
         firstName: result.registeredBy.firstName,
       },
       registeredAt: toIsoWithOffset(act.registeredAt, this.timeZone),
+      lastModifiedBy:
+        act.lastModifiedByUserId === null || !result.lastModifiedBy
+          ? null
+          : { id: act.lastModifiedByUserId, ...result.lastModifiedBy },
+      lastModifiedAt: act.lastModifiedAt && toIsoWithOffset(act.lastModifiedAt, this.timeZone),
+    };
+  }
+
+  /**
+   * The body of the `PATCH` (HU28) to the command. Only what was sent travels: a
+   * field left out stays `undefined` and does not change, `null` empties it.
+   */
+  toUpdateCommand(
+    caseId: number,
+    actId: number,
+    dto: UpdateProceduralActRequestDto,
+    actor: AuthenticatedUser,
+  ): UpdateProceduralActCommand {
+    return {
+      caseId,
+      actId,
+      actor,
+      changes: {
+        proceduralStateId: dto.proceduralStateId,
+        customState: dto.customState,
+        actDate: dto.actDate,
+        notificationDate: dto.notificationDate,
+        manualDueDate: dto.manualDueDate,
+        notes: dto.notes,
+      },
     };
   }
 

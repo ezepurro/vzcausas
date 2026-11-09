@@ -25,6 +25,8 @@ export interface ComboboxProps {
   emptyText?: string;
   disabled?: boolean;
   mono?: boolean;
+  /** tope de caracteres de lo que se escribe (el atributo `maxlength`) */
+  maxLength?: number;
 }
 
 /**
@@ -46,7 +48,7 @@ export interface ComboboxProps {
  * `aria-activedescendant`.
  */
 export function Combobox({
-  id, value, onChange, onSelect, options, placeholder, emptyText, disabled, mono,
+  id, value, onChange, onSelect, options, placeholder, emptyText, disabled, mono, maxLength,
 }: ComboboxProps) {
   const listId = useId();
   const [open, setOpen] = useState(false);
@@ -120,6 +122,7 @@ export function Combobox({
         aria-activedescendant={expanded && activeIndex >= 0 ? optionId(activeIndex) : undefined}
         className={`vz-input ${mono ? 'vz-input--mono' : ''}`}
         placeholder={placeholder}
+        maxLength={maxLength}
         value={value}
         disabled={disabled}
         onChange={(e) => {

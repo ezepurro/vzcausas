@@ -1,6 +1,6 @@
 import { Client } from "../../domain/entities/client.entity";
 import { ClientNotFoundError } from "../../domain/errors/people.errors";
-import { Dni } from "../../domain/value-objects/dni.vo";
+import { ClientDocument } from "../../domain/value-objects/client-document.vo";
 import { FindClientUseCase } from "./find-client.use-case";
 import {
   FakeActiveCasesCounter,
@@ -26,7 +26,9 @@ describe("FindClientUseCase", () => {
       id: 1,
       lastName: "BENÍTEZ",
       firstName: "Rodrigo E.",
-      dni: Dni.create("31556208"),
+      document: ClientDocument.create("DNI", "31556208"),
+      address: "Av. Rafael Núñez 4560, Córdoba",
+      phone: "351 401-5573",
       clientSince: new Date("2026-10-07T00:00:00Z"),
     });
     if (!active) client.deactivate();

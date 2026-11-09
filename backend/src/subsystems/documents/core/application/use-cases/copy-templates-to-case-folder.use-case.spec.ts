@@ -175,6 +175,56 @@ describe('CopyTemplatesToCaseFolder', () => {
     expect(studio.storage.files.filter((f) => f.parentId === loose.id)).toHaveLength(1);
   });
 
+  // C1
+  it('copia el archivo del modelo en la subcarpeta del fuero de la causa, no el principal', async () => {
+    const { copyTemplates, copies, storage, caseFolder } = await aStudioWithTemplates(0);
+    const penal = await storage.uploadFile({ parentId: 'penal', name: 'm.docx', mimeType: 'application/x', content: Buffer.from('penal') });
+    const amparo = await storage.uploadFile({ parentId: 'amparo', name: 'm.docx', mimeType: 'application/x', content: Buffer.from('amparo') });
+    copies.addTemplate({
+      id: 1,
+      fileName: 'm.docx',
+      cloudFileId: amparo.id,
+      jurisdictionIds: [CRIMINAL, AMPARO],
+      filesByJurisdiction: { [CRIMINAL]: penal.id, [AMPARO]: amparo.id },
+    });
+    storage.fileCalls.length = 0;
+
+    await copyTemplates.execute({ caseId: CASE_ID, jurisdictionId: CRIMINAL });
+
+    expect(storage.fileCalls).toEqual([{ method: 'copyFile', fileId: penal.id }]);
+    expect(storage.files.filter((f) => f.parentId === caseFolder.cloudFolderId)).toHaveLength(1);
+  });
+
+  // C2
+  it('un modelo anterior a las subcarpetas (sin archivo por fuero) se copia desde su archivo principal', async () => {
+    const { copyTemplates, storage } = await aStudioWithTemplates(1);
+    const main = storage.files[0];
+    storage.fileCalls.length = 0;
+
+    await copyTemplates.execute({ caseId: CASE_ID, jurisdictionId: CRIMINAL });
+
+    expect(storage.fileCalls).toEqual([{ method: 'copyFile', fileId: main.id }]);
+  });
+
+  // C3
+  it('al reintentar sin el fuero en el comando, lo toma de la carpeta de la causa', async () => {
+    const { copyTemplates, copies, storage } = await aStudioWithTemplates(0);
+    const penal = await storage.uploadFile({ parentId: 'penal', name: 'm.docx', mimeType: 'application/x', content: Buffer.from('penal') });
+    const principal = await storage.uploadFile({ parentId: 'otro', name: 'm.docx', mimeType: 'application/x', content: Buffer.from('otro') });
+    copies.addTemplate({
+      id: 1,
+      fileName: 'm.docx',
+      cloudFileId: principal.id,
+      filesByJurisdiction: { [CRIMINAL]: penal.id },
+    });
+    await copies.registerPending(CASE_ID, CRIMINAL);
+    storage.fileCalls.length = 0;
+
+    await copyTemplates.execute({ caseId: CASE_ID });
+
+    expect(storage.fileCalls).toEqual([{ method: 'copyFile', fileId: penal.id }]);
+  });
+
   it('un modelo dado de baja con la copia pendiente no cuenta como pendiente', async () => {
     const { copyTemplates, copies } = await aStudioWithTemplates(2);
     await copies.registerPending(CASE_ID, CRIMINAL);

@@ -13,6 +13,7 @@ import {
   MaxLength,
   MinLength,
   Validate,
+  ValidateIf,
   ValidateNested,
   ValidationArguments,
   ValidatorConstraint,
@@ -37,11 +38,16 @@ export class NewLawyerDto {
   @MaxLength(100)
   firstName!: string;
 
+  /** Optional (D-107), like in `POST /lawyers`: only a value that is sent is checked. */
+  @ValidateIf(
+    (_: unknown, value: unknown) =>
+      typeof value === "string" ? value.trim() !== "" : value !== undefined && value !== null,
+  )
   @IsString()
   @Matches(/^\d+-\d+$/, {
     message: "El formato de la matrícula no es válido.",
   })
-  registrationNumber!: string;
+  registrationNumber?: string | null;
 }
 
 /**

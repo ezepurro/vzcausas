@@ -12,7 +12,7 @@ import {
   PaginatedResponse,
   paginate,
   toPageRequest,
-} from "@shared/infrastructure/http/pagination";
+} from "@shared/infrastructure/http/pagination/pagination";
 import { RequirePermissions } from "@shared/infrastructure/http/require-permissions.decorator";
 import { FindClientUseCase } from "../../../core/application/use-cases/find-client.use-case";
 import { ListClientsUseCase } from "../../../core/application/use-cases/list-clients.use-case";

@@ -4,7 +4,7 @@ import request from 'supertest';
 import { getPrisma, startTestApp, stopTestApp } from '../../shared/harness/test-app';
 import { civil, withFixedClock } from '../../shared/harness/fixed-clock';
 import { expectData } from '../../shared/contract/envelopes';
-import { createCase } from '../../shared/factories/case.factory';
+import { createCase, deactivateCase } from '../../shared/factories/case.factory';
 import { createInitialState } from '../../shared/factories/procedural-state.factory';
 import { createLegalQualification } from '../../shared/factories/legal-qualification.factory';
 import {
@@ -139,13 +139,14 @@ describe('HU52 — verificación diaria de la prescripción', () => {
   // ── Qué detecta ──────────────────────────────────────────────────────
 
   describe('qué causas detecta', () => {
-    // CA-52.1, CA-52.2
+    // CA-52.1, CA-52.2; CA-52.3: con dos calificaciones, usa la que prescribe primero.
     it('detecta las penales activas al 70 % o más y las de plazo cumplido, y nada más', async () => {
       const tenYears = await qualification(120);
       const twentyYears = await qualification(240);
       const inAlert = await newCase({ caption: 'ACOSTA, Jonathan p.s.a. Infracción Ley 23.737' });
       const met = await newCase({ caption: 'BRAVO, Lucía p.s.a. Hurto' });
       const below = await newCase();
+      await withOffense(inAlert.id, twentyYears.id);
       await withOffense(inAlert.id, tenYears.id);
       await withOffense(met.id, tenYears.id, '2016-10-06');
       await withOffense(below.id, twentyYears.id);
@@ -178,26 +179,34 @@ describe('HU52 — verificación diaria de la prescripción', () => {
       ]);
     });
 
-    // CA-52.4. Por la API no se les puede cargar un hecho: se carga directo
-    // para probar que el filtro de fuero no depende de eso.
-    it('no revisa causas administrativas ni amparos, aunque tengan un hecho cargado', async () => {
+    // D-113, CA-32.5: no se avisa por una calificación ya declarada; la causa se rige por la siguiente.
+    it('no avisa por una calificación declarada prescripta, aunque su plazo esté cumplido', async () => {
+      const tenYears = await qualification(120);
+      const twentyYears = await qualification(240);
+      const declared = await newCase();
+      await withOffense(declared.id, tenYears.id, '2016-10-06'); // cumplido hoy
+      await withOffense(declared.id, twentyYears.id); // 40 %
+      await server()
+        .post(`/api/v1/cases/${declared.id}/legal-qualifications/${tenYears.id}/prescription`)
+        .set(s.responsible)
+        .send({ prescriptionDate: '2026-10-06', resolution: 'Auto N° 88' })
+        .expect(200);
+
+      expect((await detect()).map((notice) => notice.caseId)).not.toContain(declared.id);
+    });
+
+    // CA-52.4. A las administrativas y los amparos no se les puede cargar un
+    // hecho por la API: se carga directo para probar que el filtro de fuero no
+    // depende de eso.
+    it('no revisa causas administrativas, amparos, archivadas, prescriptas ni dadas de baja, aunque tengan un hecho cargado', async () => {
       const tenYears = await qualification(120);
       const administrative = await newCase({ jurisdiction: 'ADMINISTRATIVE' });
       const amparo = await newAmparo();
-      await withOffense(administrative.id, tenYears.id);
-      await withOffense(amparo.id, tenYears.id);
-
-      await expect(detect()).resolves.toEqual([]);
-    });
-
-    // CA-52.4
-    it('no revisa causas archivadas, prescriptas ni dadas de baja', async () => {
-      const tenYears = await qualification(120);
       const archived = await newCase({ currentStateId: s.states.terminal.stateId });
       const prescribed = await newCase({ currentStateId: s.states.prescribed.stateId });
       const deactivated = await newCase();
-      await getPrisma().case.update({ where: { id: deactivated.id }, data: { active: false } });
-      for (const caseRow of [archived, prescribed, deactivated]) {
+      await deactivateCase(deactivated.id);
+      for (const caseRow of [administrative, amparo, archived, prescribed, deactivated]) {
         await withOffense(caseRow.id, tenYears.id);
       }
 
@@ -215,29 +224,6 @@ describe('HU52 — verificación diaria de la prescripción', () => {
       const notices = await detect();
 
       expect(notices.map((n) => n.caseId)).toEqual([handWritten.id, withDeactivatedQualification.id]);
-    });
-
-    // CA-52.3
-    it('usa la calificación que prescribe primero', async () => {
-      const tenYears = await qualification(120);
-      const twentyYears = await qualification(240);
-      const caseRow = await newCase();
-      await withOffense(caseRow.id, twentyYears.id);
-      await withOffense(caseRow.id, tenYears.id);
-
-      const [notice] = await detect();
-
-      expect(notice).toMatchObject({ legalQualificationName: tenYears.name, referenceDate: '2028-10-06' });
-    });
-
-    // CA-52.6, CA-52.8: nada se guarda calculado; el acto se ve en la corrida siguiente.
-    it('un acto interruptivo registrado por la API reinicia el cómputo y la saca de alerta', async () => {
-      await withOffense(s.caseRow.id, (await qualification(120)).id);
-      expect(await detect()).toHaveLength(1);
-
-      await interruptiveAct(s.caseRow.id, '2026-09-06');
-
-      await expect(detect()).resolves.toEqual([]);
     });
   });
 
@@ -322,14 +308,16 @@ describe('HU52 — verificación diaria de la prescripción', () => {
       expect(await getPrisma().sentNotification.count({ where: { caseId: caseRow.id } })).toBe(2);
     });
 
-    // CA-52.6: el acto interruptivo cambia `expiresOn`, que es parte de la clave
-    // de `sent_notifications`, y por eso se vuelve a avisar.
+    // CA-52.6, CA-52.8: el acto interruptivo reinicia el cómputo y, como nada se
+    // guarda calculado, se ve en la corrida siguiente. Cambia `expiresOn`, que es
+    // parte de la clave de `sent_notifications`, y por eso se vuelve a avisar.
     it('después de un acto interruptivo que reinicia el plazo, vuelve a avisar con la fecha nueva', async () => {
-      // Hecho del 1/1/2000 + 120 meses: prescripta desde el 1/1/2010.
-      await withOffense(s.caseRow.id, (await qualification(120)).id, '2000-01-01');
+      // Hecho del 1/1/2017 + 120 meses: vence el 1/1/2027, al 97,6 %: alerta.
+      await withOffense(s.caseRow.id, (await qualification(120)).id, '2017-01-01');
       await dailyRun();
 
-      // El acto del 6/10/2018 reinicia el cómputo: vence el 6/10/2028, al 80 %.
+      // El acto del 6/10/2018, anterior al vencimiento, reinicia el cómputo: vence el
+      // 6/10/2028, al 80 %. (D-113: uno posterior al vencimiento ya no lo reiniciaría.)
       await interruptiveAct(s.caseRow.id, '2018-10-06');
       emailSender.reset();
       const res = await dailyRun();
@@ -340,7 +328,7 @@ describe('HU52 — verificación diaria de la prescripción', () => {
         orderBy: { id: 'asc' },
       });
       expect(mailboxRows.map((r) => [r.kind, r.referenceDate])).toEqual([
-        ['PRESCRIPTION_EXPIRED', civil('2010-01-01')],
+        ['PRESCRIPTION_ALERT', civil('2027-01-01')],
         ['PRESCRIPTION_ALERT', civil('2028-10-06')],
       ]);
     });

@@ -59,6 +59,11 @@ export interface MockFile {
     content: string;
     contentType: string;
     fileName: string;
+    /**
+     * `inline` para abrirlo en el navegador (vista previa, imprimir) o
+     * `attachment` para descargarlo (V5 §3.7 y §3.12). Sin el campo, `attachment`.
+     */
+    disposition?: 'inline' | 'attachment';
 }
 
 function response<T>(status: number, body: T): MockResponse<T> {
@@ -170,6 +175,41 @@ export const ERRORS = {
         'FORBIDDEN',
         'Se requiere el rol ADMINISTRATOR o LAWYER para realizar esta operación.',
     ),
+    /** Modificar un acto procesal: el responsable actual de la causa (V5 §3.8). */
+    forbiddenNotResponsibleModify: errorBody(
+        'FORBIDDEN',
+        'Solo el abogado responsable de la causa puede modificar sus actos procesales.',
+    ),
+    /** Modificar una causa siendo sólo abogado y no el responsable (V5 §3.7, D-110). */
+    forbiddenNotResponsibleCaseUpdate: errorBody(
+        'FORBIDDEN',
+        'Solo el abogado responsable de la causa puede modificarla.',
+    ),
+    /** Dar de baja una causa siendo sólo abogado y no el responsable (D-110). */
+    forbiddenNotResponsibleCaseDelete: errorBody(
+        'FORBIDDEN',
+        'Solo el abogado responsable de la causa puede darla de baja.',
+    ),
+    /** Crear o reintentar la carpeta siendo sólo abogado y no el responsable (D-110). */
+    forbiddenNotResponsibleFolder: errorBody(
+        'FORBIDDEN',
+        'Solo el abogado responsable de la causa puede operar su carpeta.',
+    ),
+    /** Marcar prescripta siendo abogado, no el responsable, y sin ser administrador (D-110). */
+    forbiddenNotResponsiblePrescription: errorBody(
+        'FORBIDDEN',
+        'Solo el abogado responsable de la causa puede marcarla como prescripta.',
+    ),
+    /** Declarar la prescripción de una calificación siendo abogado, no el responsable (D-113). */
+    forbiddenNotResponsibleQualificationPrescription: errorBody(
+        'FORBIDDEN',
+        'Solo el abogado responsable de la causa puede declarar la prescripción de sus calificaciones legales.',
+    ),
+    /** Descargar un documento que no es un expediente (V5 D-103). */
+    forbiddenLawyerOrSecretary: errorBody(
+        'FORBIDDEN',
+        'Se requiere el rol LAWYER o SECRETARY para realizar esta operación.',
+    ),
 
     /* ---- 404 ---- */
     userNotFound: errorBody('USER_NOT_FOUND', 'No se encontró el usuario solicitado.'),
@@ -182,6 +222,8 @@ export const ERRORS = {
         'LEGAL_QUALIFICATION_NOT_FOUND',
         'No se encontró la calificación legal solicitada.',
     ),
+    /** La causa no registra la calificación cuya prescripción se declara (D-113). */
+    legalQualificationNotInCase: errorBody('LEGAL_QUALIFICATION_NOT_FOUND', 'La causa no registra esa calificación legal.'),
     clientNotFound: errorBody('CLIENT_NOT_FOUND', 'No se encontró el cliente solicitado.'),
     caseNotFound: errorBody('CASE_NOT_FOUND', 'No se encontró la causa solicitada.'),
     proceduralActNotFound: errorBody('PROCEDURAL_ACT_NOT_FOUND', 'No se encontró el acto procesal solicitado.'),
@@ -190,6 +232,7 @@ export const ERRORS = {
         'No se encontró el modelo formal solicitado.',
     ),
     resourceNotFound: errorBody('RESOURCE_NOT_FOUND', 'No se encontró el recurso solicitado.'),
+    documentNotFound: errorBody('DOCUMENT_NOT_FOUND', 'No se encontró el documento en la carpeta de la causa.'),
 
     /* ---- 409 ---- */
     usernameTaken: errorBody(
@@ -261,6 +304,16 @@ export const ERRORS = {
         'PRESCRIPTION_NOT_APPLICABLE',
         'La prescripción solo aplica a las causas del fuero penal.',
     ),
+    /** D-113: la calificación ya fue declarada prescripta. */
+    qualificationAlreadyPrescribed: errorBody(
+        'LEGAL_QUALIFICATION_ALREADY_PRESCRIBED',
+        'La calificación legal ya fue declarada prescripta.',
+    ),
+    /** D-113: modificar la causa quitando una declarada o cambiándole la fecha del hecho. */
+    prescribedQualificationLocked: errorBody(
+        'LEGAL_QUALIFICATION_ALREADY_PRESCRIBED',
+        'No se puede quitar ni modificar una calificación legal declarada prescripta.',
+    ),
     proceduralStateProtected: errorBody(
         'PROCEDURAL_STATE_PROTECTED',
         'El estado Prescripta es un estado del sistema y no puede modificarse ni darse de baja.',
@@ -269,6 +322,25 @@ export const ERRORS = {
     prescriptionWithoutQualifications: errorBody(
         'PRESCRIPTION_NOT_APPLICABLE',
         'La causa no tiene calificaciones legales: no puede prescribir.',
+    ),
+    /** Cambiar las calificaciones de una causa "Prescripta" (V5 D-96). */
+    prescribedCaseQualifications: errorBody(
+        'CASE_IN_TERMINAL_STATE',
+        'La causa está prescripta: no se pueden cambiar sus calificaciones legales.',
+    ),
+    /** Modificar un acto de una causa "Prescripta" (V5 D-99). */
+    prescribedCaseActs: errorBody(
+        'CASE_IN_TERMINAL_STATE',
+        'La causa está prescripta: sus actos procesales no se pueden modificar.',
+    ),
+    /** Generar el expediente sin la carpeta creada (V5 D-102). */
+    caseFolderNotAvailable: errorBody(
+        'CASE_FOLDER_NOT_AVAILABLE',
+        'La causa no tiene su carpeta en Drive creada. Creala antes de generar el expediente.',
+    ),
+    documentNotConvertible: errorBody(
+        'DOCUMENT_NOT_CONVERTIBLE',
+        'Uno de los documentos no se puede convertir a PDF.',
     ),
 
     /* ---- 429 ---- */
@@ -290,6 +362,19 @@ export const ERRORS = {
     documentStorageUnavailable: errorBody(
         'DOCUMENT_STORAGE_UNAVAILABLE',
         'No se pudo acceder al almacenamiento en la nube. Intentá de nuevo en unos minutos.',
+    ),
+    /** Los mismos `502`, con el texto de cada endpoint de la documentación (V5 §3.12). */
+    caseFolderUnreadable: errorBody(
+        'DOCUMENT_STORAGE_UNAVAILABLE',
+        'No se pudo leer la carpeta de la causa en Drive. Intentá de nuevo en unos minutos.',
+    ),
+    documentDownloadFailed: errorBody(
+        'DOCUMENT_STORAGE_UNAVAILABLE',
+        'No se pudo descargar el documento de Drive. Intentá de nuevo en unos minutos.',
+    ),
+    caseFileGenerationFailed: errorBody(
+        'DOCUMENT_STORAGE_UNAVAILABLE',
+        'No se pudo generar el expediente porque Drive no respondió. Intentá de nuevo en unos minutos.',
     ),
 } satisfies Record<string, ErrorBody>;
 
@@ -459,7 +544,9 @@ const EXAMPLE_CLIENT: Client = {
     id: 1,
     lastName: 'GÓMEZ',
     firstName: 'Ariel Fernando',
-    dni: '34812905',
+    documentType: 'DNI',
+    documentNumber: '34812905',
+    address: 'Av. Colón 1250, Córdoba',
     phone: '351 415-2288',
     email: 'afgomez@gmail.com',
     clientSince: '2021-03-12',
@@ -471,8 +558,10 @@ const EXAMPLE_CREATED_CLIENT: Client = {
     id: 25,
     lastName: 'TORRES',
     firstName: 'Bruno',
-    dni: '35778120',
-    phone: null,
+    documentType: 'DNI',
+    documentNumber: '35778120',
+    address: 'Ituzaingó 870, Córdoba',
+    phone: '351 288-4410',
     email: null,
     clientSince: '2026-09-29',
     activeCases: 0,
@@ -506,7 +595,9 @@ const EXAMPLE_CASE: Case = {
         id: 1,
         lastName: 'GÓMEZ',
         firstName: 'Ariel Fernando',
-        dni: '34812905',
+        documentType: 'DNI',
+        documentNumber: '34812905',
+        address: 'Av. Colón 1250, Córdoba',
         phone: '351 415-2288',
         email: 'afgomez@gmail.com',
         clientSince: '2021-03-12',
@@ -521,6 +612,10 @@ const EXAMPLE_CASE: Case = {
             // El acto interruptivo del 04/07/2024 reinició el cómputo (V4 §3.9).
             prescriptionStartsOn: '2024-07-04',
             prescriptionExpiresOn: '2032-07-04',
+            elapsedPercentage: 27,
+            alert: false,
+            expired: false,
+            prescriptionDeclaration: null,
         },
     ],
     prescription: {
@@ -582,6 +677,10 @@ const EXAMPLE_CREATED_CASE: Case = {
             offenseDate: '2021-02-27',
             prescriptionStartsOn: '2021-02-27',
             prescriptionExpiresOn: '2029-02-27',
+            elapsedPercentage: 69,
+            alert: false,
+            expired: false,
+            prescriptionDeclaration: null,
         },
     ],
     prescription: {
@@ -635,6 +734,8 @@ const EXAMPLE_ACT: ProceduralAct = {
     },
     registeredBy: { id: 3, lastName: 'Ríos', firstName: 'Malena' },
     registeredAt: '2026-09-09T11:42:00-03:00',
+    lastModifiedBy: null,
+    lastModifiedAt: null,
 };
 
 /** La causa del prototipo con la alerta activa, ya marcada como prescripta (V4 §3.7). */
@@ -651,6 +752,16 @@ const EXAMPLE_PRESCRIBED_CASE: Case = {
             offenseDate: '2022-01-19',
             prescriptionStartsOn: '2022-01-19',
             prescriptionExpiresOn: '2028-01-19',
+            elapsedPercentage: 78,
+            alert: true,
+            expired: false,
+            prescriptionDeclaration: {
+                prescriptionDate: '2026-09-15',
+                resolution: 'Sentencia N° 214 del Juzgado de Control N° 3',
+                grounds: 'Transcurrió el plazo del art. 62 inc. 2 CP sin actos interruptivos.',
+                registeredBy: { id: 1, lastName: 'Vázquez', firstName: 'Fernando G.' },
+                registeredAt: '2026-09-15T12:20:00-03:00',
+            },
         },
     ],
     prescription: {
@@ -1077,7 +1188,7 @@ export const RESPONSES = {
         validation: response(
             400,
             errorBody('VALIDATION_ERROR', 'Los datos enviados no son válidos.', {
-                dni: 'Debe contener 7 u 8 dígitos, sin puntos.',
+                documentNumber: 'Debe contener 7 u 8 dígitos, sin puntos.',
                 email: 'El formato del correo electrónico no es válido.',
             }),
         ),

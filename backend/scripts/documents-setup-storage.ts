@@ -1,9 +1,11 @@
 // backend/scripts/documents-setup-storage.ts
 // Herramienta a pedido (después de `npm run google:authorize`): crea la
 // estructura de carpetas del estudio en Google Drive y la registra en la base:
-// "VZ Causas", "VZ Causas/Modelos formales" y "VZ Causas/Causas". Ya no es
+// "VZ Causas", "VZ Causas/Modelos formales" (con una subcarpeta por fuero:
+// "Penal", "Administrativo" y "Amparo") y "VZ Causas/Causas". Ya no es
 // obligatoria: la app hace lo mismo sola al arrancar y cuando le falta la
 // estructura (`StorageBootstrap`, `AssureSpace`, `RegisterDocumentTemplate`).
+// Si el estudio ya tenía las tres carpetas base, solo agrega las subcarpetas.
 //
 // No tiene lógica propia: arranca la aplicación sin servidor HTTP y le pide al
 // caso de uso `SetupCloudStorage` que haga el trabajo. Es idempotente, así que

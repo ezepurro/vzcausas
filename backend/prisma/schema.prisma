@@ -36,15 +36,25 @@ model User {
   roles         UserRole[]
 
   // Relaciones inversas hacia `cases` (no agregan columnas a `users`).
-  createdCases             Case[]            @relation("CaseCreatedBy")
-  registeredProceduralActs ProceduralAct[]   @relation("ProceduralActRegisteredBy")
-  interruptiveActs         InterruptiveAct[] @relation("InterruptiveActRegisteredBy")
+  createdCases               Case[]            @relation("CaseCreatedBy")
+  registeredProceduralActs   ProceduralAct[]   @relation("ProceduralActRegisteredBy")
+  interruptiveActs           InterruptiveAct[] @relation("InterruptiveActRegisteredBy")
   // Causas que el usuario marcó como prescriptas (HU33).
-  casesMarkedAsPrescribed  Case[]            @relation("CasePrescriptionRegisteredBy")
+  casesMarkedAsPrescribed    Case[]            @relation("CasePrescriptionRegisteredBy")
+  offensesMarkedAsPrescribed Offense[]         @relation("OffensePrescriptionRegisteredBy")
+  // Causas que el usuario dio de baja (HU21).
+  deactivatedCases           Case[]            @relation("CaseDeactivatedBy")
+  // Actos procesales que el usuario modificó por última vez (HU28, D-98).
+  lastModifiedProceduralActs ProceduralAct[]   @relation("ProceduralActLastModifiedBy")
 
   // Relaciones inversas hacia `documents`.
   documentTemplateVersions DocumentTemplate[]
   folderAccess             UserFolderAccess?
+  // Expedientes que el usuario generó (HU25).
+  generatedCaseFiles       CaseFile[]
+
+  // Relación inversa hacia `audit_log` (HU14, HU19, HU21).
+  auditEntries AuditLog[]
 
   // Clave foránea hacia `people`. Se admite entre subsistemas (§4.4):
   // lo que no se admite es que `identity` escriba la tabla `lawyers`.
@@ -185,7 +195,9 @@ model Lawyer {
   // Matrícula del Colegio de Abogados de Córdoba: circunscripción y
   // número separados por guión (`1-28114`). El formato lo valida el
   // value object RegistrationNumber; acá solo se garantiza unicidad.
-  registrationNumber String   @unique @map("registration_number") @db.VarChar(50)
+  // Opcional (D-107): un abogado puede no tener matrícula todavía. El
+  // @unique se mantiene: PostgreSQL admite varios NULL.
+  registrationNumber String?  @unique @map("registration_number") @db.VarChar(50)
   active             Boolean  @default(true)
   createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -209,11 +221,14 @@ model Client {
   id          Int      @id @default(autoincrement())
   lastName    String   @map("last_name") @db.VarChar(100)
   firstName   String   @map("first_name") @db.VarChar(100)
-  // Solo dígitos, 7 u 8 (CHECK manual). Único entre los clientes
-  // VIGENTES: índice único parcial `clients_dni_active_key`, creado a
-  // mano (ver el bloque de SQL manual al final del archivo).
-  dni         String   @db.VarChar(8)
-  phone       String?  @db.VarChar(50)
+  // Tipo y número de documento (D-108). El formato de cada tipo lo valida
+  // un CHECK manual. Único por (tipo, número) entre los clientes VIGENTES:
+  // índice único parcial `clients_document_active_key`, creado a mano.
+  documentType   DocumentType @default(DNI) @map("document_type")
+  documentNumber String        @map("document_number") @db.VarChar(20)
+  // Obligatorios (D-109), también en la base.
+  address     String   @db.VarChar(255)
+  phone       String   @db.VarChar(50)
   email       String?  @db.VarChar(255)
   // Fecha civil. La asigna la aplicación con `ClockPort.today()`
   // (Córdoba), nunca `CURRENT_DATE`, que corre en la zona de la base.
@@ -226,6 +241,13 @@ model Client {
 
   @@index([lastName, firstName])
   @@map("clients")
+}
+
+enum DocumentType {
+  DNI
+  PASSPORT
+
+  @@map("document_type")
 }
 
 enum DayType {
@@ -266,6 +288,7 @@ model Jurisdiction {
   cases             Case[]
   cloudFolders      CloudFolder[]
   documentTemplates DocumentTemplateJurisdiction[]
+  templateFiles     DocumentTemplateFile[]
 
   @@map("jurisdictions")
 }
@@ -344,10 +367,21 @@ model LegalQualification {
 
 model Case {
   id                  Int            @id @default(autoincrement())
-  // Opcional (D-33). Si se informa, único en todo el sistema (RN2),
-  // incluidas las causas dadas de baja; Postgres admite varios NULL.
+  // Opcional (D-33). Si se informa, único entre las causas VIGENTES
+  // (D-97, Sprint 4): la baja libera el SAC y la causa dada de baja lo
+  // conserva. Lo impone un índice único parcial creado a mano en
+  // `sprint4_manual_constraints`:
+  //
+  //   CREATE UNIQUE INDEX "cases_sac_number_active_key"
+  //     ON "cases" ("sac_number")
+  //     WHERE "active" = true AND "sac_number" IS NOT NULL;
+  //
+  // ATENCIÓN: Prisma no expresa índices parciales. Por eso el campo ya no
+  // lleva `@unique` (no sirve `findUnique` por SAC: hay que usar
+  // `findFirst` con `active: true`), y si una migración generada trae un
+  // DROP de `cases_sac_number_active_key`, hay que quitarlo a mano.
   // CHECK manual: 8 dígitos.
-  sacNumber           String?        @unique @map("sac_number") @db.Char(8)
+  sacNumber           String?        @map("sac_number") @db.Char(8)
   caption             String         @db.VarChar(255)
   court               String?        @db.VarChar(255)
   jurisdictionId      Int            @map("jurisdiction_id")
@@ -416,10 +450,22 @@ model Case {
   // vencimiento. NULL en el estado inicial y en "Prescripta", al que no
   // se llega por un acto (D-54). Lo
   // actualiza la misma transacción que registra el acto, solo si su
-  // `act_date` es mayor o igual a la del acto vigente.
+  // `act_date` es mayor o igual a la del acto vigente. Al modificar un
+  // acto (HU28) se recalcula con la misma regla, y la causa puede
+  // reabrirse (D-99).
   currentProceduralActId Int?    @unique @map("current_procedural_act_id")
 
-  active          Boolean  @default(true)
+  active              Boolean   @default(true)
+  // Baja lógica (HU21, RN12, D-97). Las tres valen NULL mientras la causa
+  // está vigente; con la baja se cargan cuándo y quién, y el motivo si se
+  // informó (CHECK manual `ck_cases_deactivation_coherent`). Revertir una
+  // baja desde la base exige volver a NULL las tres. El motivo va acá y
+  // no en `audit_log` porque es texto libre que puede tener datos
+  // sensibles (AUDITORIA_Y_TRAZABILIDAD.md §4).
+  deactivatedAt       DateTime? @map("deactivated_at") @db.Timestamptz(6)
+  deactivatedByUserId Int?      @map("deactivated_by_user_id")
+  deactivationReason  String?   @map("deactivation_reason") @db.VarChar(500)
+
   createdByUserId Int      @map("created_by_user_id")
   createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -434,12 +480,14 @@ model Case {
   currentProceduralAct     ProceduralAct?   @relation("CaseCurrentAct", fields: [currentProceduralActId], references: [id], onDelete: Restrict)
   cloudFolder              CloudFolder?     @relation(fields: [cloudFolderId], references: [cloudFolderId], onDelete: Restrict)
   prescriptionRegisteredBy User?            @relation("CasePrescriptionRegisteredBy", fields: [prescriptionRegisteredByUserId], references: [id], onDelete: Restrict)
+  deactivatedBy            User?            @relation("CaseDeactivatedBy", fields: [deactivatedByUserId], references: [id], onDelete: Restrict)
 
   proceduralActs    ProceduralAct[]        @relation("CaseProceduralActs")
   offenses          Offense[]
   interruptiveActs  InterruptiveAct[]
   templateCopies    DocumentTemplateCopy[]
   sentNotifications SentNotification[]
+  caseFiles         CaseFile[]
 
   @@index([jurisdictionId])
   @@index([clientId])
@@ -464,8 +512,24 @@ model Offense {
   // inicio (RN8, D-49); uno con fecha anterior al vigente no la cambia.
   prescriptionDate     DateTime @map("prescription_date") @db.Date
 
-  case               Case               @relation(fields: [caseId], references: [id], onDelete: Restrict)
-  legalQualification LegalQualification @relation(fields: [legalQualificationId], references: [id], onDelete: Restrict)
+  // Declaración de que este hecho prescribió (HU33, D-113): la carga una
+  // persona con la resolución del tribunal, una por calificación. NULL
+  // mientras no se declaró; se carga una sola vez y no se revierte. No es
+  // `prescription_date` (el vencimiento calculado de arriba): es la fecha de
+  // la prescripción que declara la resolución. CHECK manual, como en `cases`:
+  //   num_nonnulls(prescription_declared_on, prescription_resolution,
+  //                prescription_registered_by_user_id,
+  //                prescription_registered_at) IN (0, 4)
+  //   prescription_grounds IS NULL OR prescription_declared_on IS NOT NULL
+  prescriptionDeclaredOn         DateTime? @map("prescription_declared_on") @db.Date
+  prescriptionResolution         String?   @map("prescription_resolution") @db.VarChar(255)
+  prescriptionGrounds            String?   @map("prescription_grounds") @db.VarChar(2000)
+  prescriptionRegisteredByUserId Int?      @map("prescription_registered_by_user_id")
+  prescriptionRegisteredAt       DateTime? @map("prescription_registered_at") @db.Timestamptz(6)
+
+  case                     Case               @relation(fields: [caseId], references: [id], onDelete: Restrict)
+  legalQualification       LegalQualification @relation(fields: [legalQualificationId], references: [id], onDelete: Restrict)
+  prescriptionRegisteredBy User?              @relation("OffensePrescriptionRegisteredBy", fields: [prescriptionRegisteredByUserId], references: [id], onDelete: Restrict)
 
   @@id([caseId, legalQualificationId])
   @@index([legalQualificationId])
@@ -510,11 +574,18 @@ model ProceduralAct {
   registeredByLawyerId Int      @map("registered_by_lawyer_id")
   registeredAt         DateTime @default(now()) @map("registered_at") @db.Timestamptz(6)
 
+  // Última modificación (HU28, D-98). NULL las dos si el acto nunca se
+  // modificó; `registered_*` no cambia al modificar. CHECK manual
+  // `ck_procedural_acts_last_modified_coherent`.
+  lastModifiedByUserId Int?      @map("last_modified_by_user_id")
+  lastModifiedAt       DateTime? @map("last_modified_at") @db.Timestamptz(6)
+
   case               Case             @relation("CaseProceduralActs", fields: [caseId], references: [id], onDelete: Restrict)
   currentOfCase      Case?            @relation("CaseCurrentAct")
   proceduralState    ProceduralState? @relation(fields: [proceduralStateId], references: [stateId], onDelete: Restrict)
   registeredBy       User             @relation("ProceduralActRegisteredBy", fields: [registeredByUserId], references: [id], onDelete: Restrict)
   registeredByLawyer Lawyer           @relation("ProceduralActRegisteredByLawyer", fields: [registeredByLawyerId], references: [id], onDelete: Restrict)
+  lastModifiedBy     User?            @relation("ProceduralActLastModifiedBy", fields: [lastModifiedByUserId], references: [id], onDelete: Restrict)
 
   // Avisos de vencimiento que el proceso diario envió por este acto.
   sentNotifications SentNotification[]
@@ -552,8 +623,8 @@ model InterruptiveAct {
 }
 
 // ─────────────────────────────────────────────────────────────
-// documents — Carpetas y modelos formales en la nube (HU34, HU35,
-// HU39, HU40; ADR-003)
+// documents — Carpetas, modelos formales y expedientes en la nube
+// (HU25, HU34, HU35, HU39, HU40; ADR-003)
 // ─────────────────────────────────────────────────────────────
 // La base no depende del proveedor de almacenamiento: nada se nombra por
 // la tecnología. Todo se referencia por el identificador que la nube le
@@ -599,7 +670,17 @@ enum TemplateCopyStatus {
 //
 // Las dos carpetas de fuero se distinguen por `lawyer_id` y por su padre.
 // La ruta que muestra la API (`folder.path`) se arma recorriendo los
-// padres; no se guarda. Las carpetas no se renombran ni se mueven (D-61).
+// padres; no se guarda.
+//
+// Las carpetas siguen a la causa (D-104, Sprint 4; reemplaza a D-61): la
+// CASE se renombra si cambia la carátula y se mueve a la JURISDICTION del
+// nuevo responsable si cambia el responsable (cambian `name`,
+// `parent_cloud_folder_id` y `lawyer_id` en la misma actualización), y la
+// LAWYER se renombra si cambia el nombre del abogado. La fila refleja el
+// nombre y la ubicación REALES en la nube: se actualiza solo cuando la
+// nube confirmó el cambio, y el proceso diario corrige lo que quedó
+// desfasado comparando lo esperado con lo guardado. La baja de la causa
+// no toca su carpeta.
 model CloudFolder {
   cloudFolderId       String          @id @map("cloud_folder_id") @db.VarChar(128)
   kind                CloudFolderKind
@@ -621,15 +702,20 @@ model CloudFolder {
   // Causa de la carpeta, solo en las de tipo CASE.
   case              Case?
   documentTemplates DocumentTemplate[]
+  templateFiles     DocumentTemplateFile[]
 
   @@index([parentCloudFolderId])
   @@map("cloud_folders")
 }
 
-// Modelo formal (HU34, HU35): un solo registro y un solo archivo aunque
-// aplique a varios fueros (D-55). Vive en la JURISDICTION de modelos de
-// su fuero o, si es de varios fueros, en TEMPLATES. Nombre único sin
-// distinguir mayúsculas (D-71), pendiente del SQL manual.
+// Modelo formal (HU34, HU35): un solo registro aunque aplique a varios
+// fueros (D-55). Su archivo vive en la JURISDICTION de modelos de cada
+// uno de sus fueros (Modelos formales/{fuero}): `cloud_file_id` y
+// `cloud_folder_id` son el archivo PRINCIPAL, el del primer fuero en el
+// orden CRIMINAL, ADMINISTRATIVE, AMPARO, que es el que se descarga; el
+// archivo de cada fuero está en `document_template_files`. Los modelos
+// anteriores a esta estructura siguen en TEMPLATES y no tienen filas ahí.
+// Nombre único sin distinguir mayúsculas (D-71), pendiente del SQL manual.
 model DocumentTemplate {
   id                  Int      @id @default(autoincrement())
   name                String   @db.VarChar(150)
@@ -648,9 +734,31 @@ model DocumentTemplate {
   lastVersionBy User        @relation(fields: [lastVersionByUserId], references: [id], onDelete: Restrict)
 
   jurisdictions DocumentTemplateJurisdiction[]
+  files         DocumentTemplateFile[]
   copies        DocumentTemplateCopy[]
 
   @@map("document_templates")
+}
+
+// Archivo de un modelo formal en la subcarpeta de cada uno de sus fueros:
+// una fila por (modelo, fuero). Las copias se hacen dentro de la nube a
+// partir del archivo principal, así que todas tienen el mismo contenido.
+// HU40 copia a la causa el archivo de SU fuero; sin fila (modelo anterior
+// a las subcarpetas) usa el principal de `document_templates`.
+model DocumentTemplateFile {
+  templateId     Int    @map("template_id")
+  jurisdictionId Int    @map("jurisdiction_id")
+  cloudFileId    String @unique @map("cloud_file_id") @db.VarChar(128)
+  // La JURISDICTION de modelos (lawyer_id NULL) donde está el archivo.
+  cloudFolderId  String @map("cloud_folder_id") @db.VarChar(128)
+
+  template     DocumentTemplate @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  jurisdiction Jurisdiction     @relation(fields: [jurisdictionId], references: [jurisdictionId], onDelete: Restrict)
+  cloudFolder  CloudFolder      @relation(fields: [cloudFolderId], references: [cloudFolderId], onDelete: Restrict)
+
+  @@id([templateId, jurisdictionId])
+  @@index([cloudFolderId])
+  @@map("document_template_files")
 }
 
 // Fueros a los que aplica cada modelo formal (D-55).
@@ -685,6 +793,37 @@ model DocumentTemplateCopy {
   @@id([caseId, templateId])
   @@index([templateId])
   @@map("document_template_copies")
+}
+
+// Expediente generado por el sistema (HU25, D-102): un PDF guardado en la
+// carpeta de la causa. La tabla lleva la numeración de las versiones
+// (`version` desde 1, correlativa por causa, nunca se reutiliza aunque el
+// archivo se borre en la nube) y permite reconocer qué archivo de la
+// carpeta es un expediente (`caseFile` en `GET /cases/{caseId}/documents`
+// y CA-25.3). La fila se inserta recién cuando la nube guardó el archivo:
+// un fallo no consume el número (CA-25.8). Las partes del expediente no
+// se guardan: solo viajan en la respuesta del alta.
+model CaseFile {
+  id                Int      @id @default(autoincrement())
+  caseId            Int      @map("case_id")
+  // CHECK manual: >= 1.
+  version           Int
+  cloudFileId       String   @unique @map("cloud_file_id") @db.VarChar(128)
+  // `Expediente_{SAC}_v{n}.pdf` o `Expediente_causa-{id}_v{n}.pdf`, tal
+  // como se guardó.
+  fileName          String   @map("file_name") @db.VarChar(255)
+  // CHECK manual: >= 1.
+  pageCount         Int      @map("page_count")
+  generatedByUserId Int      @map("generated_by_user_id")
+  generatedAt       DateTime @default(now()) @map("generated_at") @db.Timestamptz(6)
+
+  case        Case @relation(fields: [caseId], references: [id], onDelete: Restrict)
+  generatedBy User @relation(fields: [generatedByUserId], references: [id], onDelete: Restrict)
+
+  // Dos generaciones simultáneas de la misma causa chocan acá: la segunda
+  // reintenta con el número siguiente.
+  @@unique([caseId, version])
+  @@map("case_files")
 }
 
 // Acceso de cada usuario a la carpeta MAIN (D-83). Se comparte con los
@@ -763,6 +902,47 @@ model DailyJobRun {
 }
 
 // ─────────────────────────────────────────────────────────────
+// audit — Auditoría de negocio (transversal; AUDITORIA_Y_TRAZABILIDAD.md)
+// ─────────────────────────────────────────────────────────────
+// Quién hizo qué, sobre qué entidad y cuándo (Ley 25.326, RN12; CA-14.5,
+// CA-19.15, CA-21.3). La escriben los casos de uso de cualquier
+// subsistema a través de `AuditTrailPort` (§3), nunca un interceptor
+// HTTP. No tiene endpoint de consulta.
+//
+// Es de solo alta: un trigger manual (`trg_audit_log_append_only`)
+// rechaza UPDATE, DELETE y TRUNCATE. Solo admite borrar dentro de una
+// transacción que active `vzcausas.audit_purge` (limpieza de los tests).
+//
+// `metadata` NUNCA lleva datos sensibles ni contenido de la causa (§4):
+// identificadores y los NOMBRES de los campos que cambiaron, no sus
+// valores. Sin `onDelete: Cascade` hacia `users`: un usuario con
+// auditoría no se borra físicamente (RN12).
+model AuditLog {
+  id            Int      @id @default(autoincrement())
+  // NULL solo si no hay un usuario detrás: el proceso automático diario.
+  actorUserId   Int?     @map("actor_user_id")
+  // Entidad y verbo separados por punto: `case.updated`,
+  // `case.deactivated`, `lawyer.updated`.
+  action        String   @db.VarChar(100)
+  // `Case`, `Lawyer`, `ProceduralAct`…
+  entityType    String   @map("entity_type") @db.VarChar(50)
+  // Texto, para admitir claves numéricas y de la nube.
+  entityId      String   @map("entity_id") @db.VarChar(128)
+  occurredAt    DateTime @default(now()) @map("occurred_at") @db.Timestamptz(6)
+  // CHECK manual: objeto JSON.
+  metadata      Json?    @db.JsonB
+  // Id de correlación de la petición (`correlation-id.middleware`, hasta
+  // 128 caracteres), para cruzar con el log técnico.
+  correlationId String?  @map("correlation_id") @db.VarChar(128)
+
+  actor User? @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@index([entityType, entityId, occurredAt])
+  @@index([actorUserId, occurredAt])
+  @@map("audit_log")
+}
+
+// ─────────────────────────────────────────────────────────────
 // SQL manual — lo que Prisma no expresa
 // ─────────────────────────────────────────────────────────────
 // Va en una migración creada con `migrate dev --create-only`. Si una
@@ -783,6 +963,8 @@ model DailyJobRun {
 //   cloud_folders        (jurisdiction_id) WHERE kind = 'JURISDICTION' AND lawyer_id IS NULL
 //   document_templates   (lower(name)) WHERE active
 //   //   sent_notifications   (case_id, kind, deadline_kind, reference_date, recipient_lawyer_id) NULLS NOT DISTINCT
+//   -- Sprint 4 (migración sprint4_manual_constraints)
+//   cases                (sac_number) WHERE active AND sac_number IS NOT NULL  -- reemplaza a cases_sac_number_key
 //
 // CHECK:
 //   procedural_states    time_limit_days >= 0
@@ -810,3 +992,19 @@ model DailyJobRun {
 //   sent_notifications       ck_sent_notifications_deadline_kind_coherent
 //   sent_notifications       ck_sent_notifications_act_only_for_procedural_deadline
 //   daily_job_runs           ck_daily_job_runs_finished_after_started
+//   -- Sprint 4 (migración sprint4_manual_constraints)
+//   cases                    ck_cases_deactivation_coherent
+//   cases                    ck_cases_deactivation_reason_not_blank
+//   -- D-113 (migración offense_prescription_declaration)
+//   offenses                 ck_offenses_prescription_declaration_complete
+//   offenses                 ck_offenses_prescription_grounds_need_declaration
+//   procedural_acts          ck_procedural_acts_last_modified_coherent
+//   procedural_acts          ck_procedural_acts_last_modified_after_registered
+//   case_files               ck_case_files_version_positive
+//   case_files               ck_case_files_page_count_positive
+//   audit_log                ck_audit_log_metadata_is_object
+//
+// Triggers:
+//   -- Sprint 4 (migración sprint4_manual_constraints)
+//   audit_log                trg_audit_log_append_only, trg_audit_log_no_truncate
+//                            (función audit_log_reject_changes)

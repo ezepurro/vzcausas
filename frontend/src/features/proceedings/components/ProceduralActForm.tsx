@@ -10,7 +10,7 @@ import {
 } from '@/shared/components/forms'
 import { JURISDICTION_LABELS, type Jurisdiction } from '@/features/legal-params'
 import type { ProceduralActFormValues } from '@/features/proceedings/types/proceduralAct'
-import type { ProceduralActErrors } from '@/features/proceedings/schemas/proceduralAct.schema'
+import { PROCEDURAL_ACT_MAX_LENGTH, type ProceduralActErrors } from '@/features/proceedings/schemas/proceduralAct.schema'
 
 export interface ProceduralActFormProps {
     values: ProceduralActFormValues
@@ -31,12 +31,17 @@ export interface ProceduralActFormProps {
     customState: boolean
     /** true mientras la mutación está en vuelo: bloquea el confirmar */
     saving: boolean
+    /** "Registrar acto" o, al modificar (HU28), "Guardar cambios". */
+    submitLabel: string
+    /** Debajo del título del panel. Al modificar dice qué acto y que el cambio queda asentado. */
+    sub?: string
     onConfirm: () => void
     onCancel: () => void
 }
 
 /**
- * El formulario de "Registrar acto procesal" (HU26): a qué estado pasa la
+ * El formulario de "Registrar acto procesal" (HU26), que es también el de
+ * "Modificar acto procesal" (HU28, V5 §3.8): a qué estado pasa la
  * causa, las fechas y las observaciones. El cómputo del plazo va al costado,
  * en `DeadlinePreviewAside`.
  *
@@ -53,7 +58,7 @@ export interface ProceduralActFormProps {
  */
 export function ProceduralActForm({
     values, errors, jurisdiction, stateOptions, onStateTextChange, onStateSelect, onChange,
-    customState, saving, onConfirm, onCancel,
+    customState, saving, submitLabel, sub, onConfirm, onCancel,
 }: ProceduralActFormProps) {
     const administrative = jurisdiction === 'ADMINISTRATIVE'
 
@@ -66,10 +71,11 @@ export function ProceduralActForm({
         <form onSubmit={handleSubmit} noValidate>
             <Panel
                 title="Datos del acto procesal"
+                sub={sub}
                 footer={
                     <div className="vz-form-actions">
                         <Button variant="secondary" size="md" onClick={onCancel}>Cancelar</Button>
-                        <Button type="submit" size="md" disabled={saving}>Registrar acto</Button>
+                        <Button type="submit" size="md" disabled={saving}>{submitLabel}</Button>
                     </div>
                 }
             >
@@ -87,6 +93,7 @@ export function ProceduralActForm({
                     >
                         <Combobox
                             id="act-state"
+                            maxLength={PROCEDURAL_ACT_MAX_LENGTH.stateText}
                             value={values.stateText}
                             onChange={onStateTextChange}
                             onSelect={onStateSelect}
@@ -130,10 +137,12 @@ export function ProceduralActForm({
                         />
                     </Field>
 
-                    <Field label="Observaciones" htmlFor="act-notes" error={errors.notes}>
+                    <Field label="Observaciones" htmlFor="act-notes" error={errors.notes}
+                        hint={`${values.notes.length} / ${PROCEDURAL_ACT_MAX_LENGTH.notes}`}>
                         <Textarea
                             id="act-notes"
                             rows={3}
+                            maxLength={PROCEDURAL_ACT_MAX_LENGTH.notes}
                             placeholder="Situaciones que el estado procesal no alcanza a expresar. Por ejemplo: con acusación, pero con oposición."
                             value={values.notes}
                             onChange={(e) => onChange('notes', e.target.value)}

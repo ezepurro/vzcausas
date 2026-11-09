@@ -20,7 +20,7 @@ export class LawyerHttpMapper {
     return {
       lastName: dto.lastName,
       firstName: dto.firstName,
-      registrationNumber: dto.registrationNumber,
+      registrationNumber: dto.registrationNumber ?? null,
     };
   }
 
@@ -34,7 +34,7 @@ export class LawyerHttpMapper {
     dto.id = lawyer.id;
     dto.lastName = lawyer.lastName;
     dto.firstName = lawyer.firstName;
-    dto.registrationNumber = lawyer.registrationNumber.toString();
+    dto.registrationNumber = lawyer.registrationNumber?.toString() ?? null;
     dto.activeCases = activeCases;
     dto.active = lawyer.isActive();
     return dto;

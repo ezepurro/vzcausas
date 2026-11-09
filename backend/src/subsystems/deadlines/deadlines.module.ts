@@ -2,7 +2,7 @@ import { Module } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { IdentityModule } from "@subsystems/identity/identity.module";
 import { GoogleOAuthModule } from "@shared/infrastructure/google/google-oauth.module";
-import { SharedModule } from "@shared/shared.module";
+import { ClockModule } from "@shared/infrastructure/clock/clock.module";
 import { DeadlinesLawyerContactLookupAdapter } from "@subsystems/identity/infrastructure/acl/deadlines-lawyer-contact-lookup.adapter";
 import { CasesModule } from "@subsystems/cases/case.module";
 import { DetectUpcomingDeadlinesUseCase } from "./core/application/use-cases/detect-upcoming-deadlines.use-case";
@@ -10,6 +10,7 @@ import { DetectUpcomingPrescriptionsUseCase } from "./core/application/use-cases
 import { SendDailyNotificationDigestUseCase } from "./core/application/use-cases/send-daily-notification-digest.use-case";
 import {
   COPY_TO_RESPONSIBLE_LAWYER,
+  DEV_TOOLS_ENABLED,
   MANAGEMENT_MAILBOX,
 } from "./core/domain/ports/daily-digest-config.port";
 import { DEADLINE_DETECTION } from "./core/domain/ports/deadline-detection.port";
@@ -42,7 +43,7 @@ import { PrismaSentNotificationRepository } from "./infrastructure/persistence/p
  *    exist and replace them.
  */
 @Module({
-  imports: [SharedModule, IdentityModule, GoogleOAuthModule, CasesModule],
+  imports: [ClockModule, IdentityModule, GoogleOAuthModule, CasesModule],
 
   controllers: [DailyRunController],
 
@@ -68,6 +69,14 @@ import { PrismaSentNotificationRepository } from "./infrastructure/persistence/p
       provide: COPY_TO_RESPONSIBLE_LAWYER,
       useFactory: (config: ConfigService) =>
         config.get<string>("COPY_TO_RESPONSIBLE_LAWYER", "true") !== "false",
+      inject: [ConfigService],
+    },
+
+    // Atajos de desarrollo de la corrida diaria (`?dev=true`). Solo con
+    // NODE_ENV=development, igual que el seed de desarrollo de `identity`.
+    {
+      provide: DEV_TOOLS_ENABLED,
+      useFactory: (config: ConfigService) => config.get<string>("NODE_ENV") === "development",
       inject: [ConfigService],
     },
 

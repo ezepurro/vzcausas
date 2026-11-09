@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import { goTo, loginAs } from './fixtures/auth'
+import { personName, personNameIn } from '../setup/names'
 
 /** La fila de la tabla de ese nombre de usuario. */
 function rowOf(page: Page, username: string) {
@@ -18,13 +19,14 @@ test.describe('Usuarios', () => {
         // Registrar: un abogado nuevo, con su ficha, en una sola operación.
         await page.getByRole('button', { name: 'Registrar usuario' }).click()
         const dialog = page.getByRole('dialog')
-        await dialog.getByLabel(/^apellido y nombre\*?$/i).fill('Ana Pérez')
+        await dialog.getByLabel(/^apellido\*?$/i).fill('Pérez')
+        await dialog.getByLabel(/^nombres\*?$/i).fill('Ana')
         await dialog.getByLabel(/^Nombre de usuario/).fill('aperez')
         await dialog.getByLabel(/^Correo electrónico/).fill('aperez@vazquezzarate.com')
         await dialog.getByLabel(/^Contraseña inicial/).fill('inicial2026')
         await dialog.getByLabel(/^Repetir contraseña/).fill('inicial2026')
         await dialog.getByLabel(/^Ficha de abogado/).selectOption({ label: 'Registrar un abogado nuevo' })
-        await dialog.getByLabel(/^apellido y nombre del abogado/i).fill('Dra. Ana Pérez')
+        // La ficha nueva sólo pide la matrícula: el apellido y los nombres son los del usuario.
         await dialog.getByLabel(/^Matrícula/).fill('1-50000')
         await dialog.getByRole('button', { name: 'Registrar usuario' }).click()
 
@@ -34,7 +36,7 @@ test.describe('Usuarios', () => {
         await page.getByRole('searchbox', { name: 'Buscar usuario' }).fill('aperez')
         const row = rowOf(page, 'aperez')
         await expect(row).toBeVisible()
-        await expect(row.getByText('Dra. Ana Pérez')).toBeVisible()
+        await expect(row.getByText(personName('Pérez', 'Ana')).first()).toBeVisible()
 
         // Modificar: sumarle el perfil de administrador.
         await row.getByRole('button', { name: 'Modificar' }).click()
@@ -49,7 +51,7 @@ test.describe('Usuarios', () => {
         await row.getByRole('button', { name: 'Eliminar' }).click()
         await dialog.getByRole('button', { name: 'Eliminar' }).click()
 
-        await expect(page.getByText('Ana Pérez Eliminado correctamente.')).toBeVisible()
+        await expect(page.getByText(new RegExp(`^${personNameIn('Pérez', 'Ana')} Eliminado correctamente\\.$`))).toBeVisible()
         await expect(page.getByText('Sin usuarios')).toBeVisible()
     })
 })

@@ -6,7 +6,7 @@
 // import carga `backend/.env` a mano para que CLIENT_ID/CLIENT_SECRET
 // lleguen al proceso al correr `npm run google:authorize` desde la terminal.
 import 'dotenv/config';
-import { google } from 'googleapis';
+import { OAuth2Client } from 'google-auth-library';
 import * as http from 'http';
 import { URL } from 'url';
 
@@ -17,11 +17,14 @@ const REDIRECT_URI = `http://127.0.0.1:${PORT}`;
 
 const SCOPES = [
   'https://www.googleapis.com/auth/drive.file',
+  // HU38 (C-24, D-100): leer los archivos que la gente sube a mano a la carpeta
+  // de la causa. Con `drive.file` solo, la app ve únicamente lo que creó ella.
+  'https://www.googleapis.com/auth/drive.readonly',
   'https://www.googleapis.com/auth/gmail.send',
 ];
 
 async function main() {
-  const client = new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI);
+  const client = new OAuth2Client(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI);
 
   const authUrl = client.generateAuthUrl({
     access_type: 'offline',

@@ -92,7 +92,12 @@ export class CopyTemplatesToCaseFolder {
       return this.copies.countByCase(caseId);
     }
 
-    for (const pending of await this.copies.findPending(caseId)) {
+    // Each case is copied from the template's file of ITS jurisdiction. The case folder knows it, also
+    // on a retry, where the command has none; a folder not saved yet falls back to the command's.
+    const folder = await this.folders.findById(cloudFolderId);
+    const jurisdictionId = folder?.jurisdictionId ?? command.jurisdictionId;
+
+    for (const pending of await this.copies.findPending(caseId, jurisdictionId)) {
       await this.copyOne(cloudFolderId, pending);
     }
 

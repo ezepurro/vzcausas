@@ -1,4 +1,5 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
+import { usePrefetchPage } from '@/shared/api/usePrefetchPage'
 import { listClients } from '@/features/clients/api/clients.api'
 import { clientKeys } from '@/features/clients/api/clients.keys'
 import type { ClientListParams } from '@/features/clients/types/client'
@@ -11,4 +12,12 @@ export function useClients(params: ClientListParams = {}) {
            anterior mientras llega el nuevo, en vez de vaciar la tabla. */
         placeholderData: keepPreviousData,
     })
+}
+
+/** Pide de antemano otra página del listado, con la misma búsqueda (`usePrefetchPage`). */
+export function usePrefetchClientsPage(params: ClientListParams) {
+    return usePrefetchPage((page) => ({
+        queryKey: clientKeys.list({ ...params, page }),
+        queryFn: () => listClients({ ...params, page }),
+    }))
 }

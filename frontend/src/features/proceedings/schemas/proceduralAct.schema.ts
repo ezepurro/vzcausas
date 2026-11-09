@@ -26,6 +26,12 @@ export interface ProceduralActValidationContext {
 const STATE_MAX = 255
 const NOTES_MAX = 2000
 
+/**
+ * Topes de los controles (`maxLength`), por campo del formulario: no dejan
+ * escribir de más. Salen de las mismas constantes que valida el schema.
+ */
+export const PROCEDURAL_ACT_MAX_LENGTH = { stateText: STATE_MAX, notes: NOTES_MAX } as const
+
 export function validateProceduralAct(
     values: ProceduralActFormValues,
     ctx: ProceduralActValidationContext,

@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { ActiveCasesCounterPort } from '@subsystems/people/core/domain/ports/active-cases-counter.port';
-import { CASE_QUERY, CaseQueryPort } from '../../core/domain/ports/case-query.port';
+import { CASE_REPOSITORY, CaseRepository } from '../../core/domain/ports/case/case.repository';
 
 /**
  * Implements the {@link ActiveCasesCounterPort} that `people` declares, so
@@ -10,8 +10,9 @@ import { CASE_QUERY, CaseQueryPort } from '../../core/domain/ports/case-query.po
  * Same shape and same reasoning as
  * `legal-parameters-active-cases-counter.adapter.ts`: a pass-through, because
  * there is no rule to apply on top of the number and the rule that matters —
- * which cases are active — lives in {@link CaseQueryPort}, tested against a
- * real database in `test/subsystems/cases/case-query.int.spec.ts`.
+ * which cases are active — lives in {@link CaseRepository}, tested through the
+ * API against a real database (`activeCases` in `test/subsystems/people/lawyers.int.spec.ts`
+ * and `clients.int.spec.ts`).
  *
  * **The predicate here is not the one for procedural states.** A case in the
  * initial state counts for its lawyer and its client; only
@@ -21,7 +22,7 @@ import { CASE_QUERY, CaseQueryPort } from '../../core/domain/ports/case-query.po
  */
 @Injectable()
 export class PeopleActiveCasesCounterAdapter implements ActiveCasesCounterPort {
-  constructor(@Inject(CASE_QUERY) private readonly cases: CaseQueryPort) {}
+  constructor(@Inject(CASE_REPOSITORY) private readonly cases: CaseRepository) {}
 
   /** One call for the whole page, never one per lawyer: `GET /lawyers` is paginated. */
   async countByResponsibleLawyer(lawyerIds: readonly number[]): Promise<ReadonlyMap<number, number>> {

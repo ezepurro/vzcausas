@@ -13,7 +13,7 @@ type LawyerRow = {
   id: number;
   lastName: string;
   firstName: string;
-  registrationNumber: string;
+  registrationNumber: string | null;
   active: boolean;
 };
 
@@ -23,7 +23,10 @@ export class LawyerPrismaMapper {
       id: row.id,
       lastName: row.lastName,
       firstName: row.firstName,
-      registrationNumber: RegistrationNumber.create(row.registrationNumber),
+      registrationNumber:
+        row.registrationNumber === null
+          ? null
+          : RegistrationNumber.create(row.registrationNumber),
       active: row.active,
     });
   }

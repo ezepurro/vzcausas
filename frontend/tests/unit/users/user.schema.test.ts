@@ -65,11 +65,19 @@ describe('validateUser', () => {
             )
         })
 
-        it('con modo registrar, exige la matrícula de la ficha nueva', () => {
+        it('con modo registrar, la matrícula de la ficha nueva es opcional', () => {
             // El apellido y los nombres de la ficha son los del usuario (TESTING.md §11).
             const errors = validateUser({ ...SECRETARY, lawyerMode: LAWYER_MODES.create }, LAWYER)
+            expect(errors).toEqual({})
+        })
+
+        it('con modo registrar, valida el formato de la matrícula si viene', () => {
+            const errors = validateUser(
+                { ...SECRETARY, lawyerMode: LAWYER_MODES.create, registrationNumber: '28114' },
+                LAWYER,
+            )
             expect(errors).toEqual({
-                registrationNumber: 'La matrícula es obligatoria.',
+                registrationNumber: 'El formato es circunscripción y número: 1-28114.',
             })
         })
     })

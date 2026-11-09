@@ -17,7 +17,7 @@ export type DashboardDeadlineView = {
    * (V4 §3.7 "Dónde se ve", D-78). La verificación diaria (HU-51) **ya lo
    * avisa por correo**, así que hasta que esto se haga el correo dice algo que
    * el tablero no muestra (CA-51.9). Para no reescribir la regla:
-   * `harmfulActOf` (exportado de `cases/core/application/use-cases/list-cases.use-case.ts`)
+   * `harmfulActOf` (exportado de `cases/core/application/use-cases/case/list-cases.use-case.ts`)
    * + `HarmfulAct.deadline(today)`, solo en un amparo que sigue en "Iniciada";
    * es lo mismo que usan `ListCases` y `ListOpenDeadlines`. La consulta
    * (`DashboardCaseRow`) tiene que traer los `harmfulAct*` y si el estado es
@@ -89,7 +89,7 @@ export function toPrescriptionAlerts(cases: DashboardCaseRow[], today: Date): Pr
   return cases
     .filter((row) => row.jurisdiction === CRIMINAL)
     .flatMap((row) => {
-      const summary = summarizePrescription(row.offenses, row.lastInterruptiveActDate, today);
+      const summary = summarizePrescription(row.offenses, row.interruptiveActDates, today);
       if (summary === null || !summary.alert) return [];
       return [
         {

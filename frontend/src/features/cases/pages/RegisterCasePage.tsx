@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { useCurrentUser } from '@/app/providers/AuthContext'
 import { useToast } from '@/app/providers/ToastContext'
+import { useGoBack } from '@/app/router/useGoBack'
 import { isApiError } from '@/shared/api/ApiError'
 import { Breadcrumbs, Button, Modal, PageHeader } from '@/shared/components/ui'
 import { useFocusFirstError } from '@/shared/hooks/useFocusFirstError'
@@ -10,7 +11,7 @@ import { formatPersonName } from '@/shared/lib/personName'
 import {
     ClientFormModal,
     formatClientName,
-    formatDni,
+    formatDocument,
     isValidClient,
     toClientFormErrors,
     toCreateClientBody,
@@ -53,6 +54,7 @@ import type { CaseFormValues } from '@/features/cases/types/case'
 import { changeCreateFolder, changeJurisdiction, changeSacNumber, emptyCaseForm } from '@/features/cases/utils/caseForm'
 import { clearCaseDraft, readCaseDraft, writeCaseDraft } from '@/features/cases/utils/caseDraft'
 import { folderFailed, folderNoticeSuffix, folderPathPreview } from '@/features/cases/utils/caseFolder'
+import { buildLawyerOptions } from '@/features/cases/utils/lawyerOptions'
 import { INITIAL_STATE_LABEL } from '@/features/cases/utils/caseState'
 import { estimatedExpiry } from '@/features/cases/utils/prescription'
 import { suggestedCaption } from '@/features/cases/utils/suggestedCaption'
@@ -82,7 +84,15 @@ import { toFormErrors } from '@/features/cases/utils/toFormErrors'
 /** Los selects necesitan todo junto, no paginado: 100 es el tope del contrato. */
 const OPTIONS_LIMIT = 100
 
-const EMPTY_CLIENT: ClientFormValues = { lastName: '', firstName: '', dni: '', phone: '', email: '' }
+const EMPTY_CLIENT: ClientFormValues = {
+    lastName: '',
+    firstName: '',
+    documentType: 'DNI',
+    documentNumber: '',
+    address: '',
+    phone: '',
+    email: '',
+}
 const EMPTY_QUALIFICATION: LegalQualificationFormValues = { name: '', years: '', months: '0' }
 
 /** Qué modal está abierto: un solo estado, no dos booleanos que se contradicen. */
@@ -95,7 +105,7 @@ type ModalState =
 export function RegisterCasePage() {
     const navigate = useNavigate()
     const toast = useToast()
-    const { id: userId } = useCurrentUser()
+    const { id: userId, lawyer: myLawyer } = useCurrentUser()
 
     const [values, setValues] = useState<CaseFormValues>(emptyCaseForm)
     const [errors, setErrors] = useState<CaseFormErrors>({})
@@ -147,17 +157,23 @@ export function RegisterCasePage() {
         navigate('/causas')
     }
 
+    /* La flecha también: vuelve a donde estaba, que puede no ser el listado
+       (el botón "Registrar causa" del rail está en todas las pantallas). */
+    const goBack = useGoBack('/causas')
+    function back() {
+        clearCaseDraft(userId)
+        goBack()
+    }
+
     /* ---------------- opciones de los selects ---------------- */
 
     const clientOptions: SelectOption[] = clients.map((c) => ({
         value: String(c.id),
-        label: `${formatClientName(c)} · DNI ${formatDni(c.dni)}`,
+        label: `${formatClientName(c)} · ${formatDocument(c)}`,
     }))
 
-    const lawyerOptions: SelectOption[] = lawyers.map((l) => ({
-        value: String(l.id),
-        label: `${formatPersonName(l)} · matrícula ${l.registrationNumber}`,
-    }))
+    /* Si quien registra es abogado, su ficha va primero, con "(asignarme a mí)". */
+    const lawyerOptions: SelectOption[] = buildLawyerOptions(lawyers, myLawyer?.id ?? null)
 
     /** Una calificación ya elegida deja de ofrecerse: no puede repetirse (D-28). */
     const chosen = new Set(values.legalQualifications.map((q) => q.legalQualificationId))
@@ -308,7 +324,8 @@ export function RegisterCasePage() {
                 } else {
                     toast('success', `${message}${folderNoticeSuffix(registered.folder)}.`)
                 }
-                navigate(`/causas/${registered.id}`)
+                // Reemplaza el alta: la flecha del detalle no vuelve a un formulario ya guardado.
+                navigate(`/causas/${registered.id}`, { replace: true })
             },
             onError: handleApiError,
         })
@@ -320,6 +337,7 @@ export function RegisterCasePage() {
         <>
             <Breadcrumbs
                 items={[{ label: 'Causas', onClick: goToList }, { label: 'Registrar causa' }]}
+                onBack={back}
             />
             <PageHeader
                 title="Registrar causa"
@@ -490,7 +508,7 @@ function NewClient({ onDone, onCancel }: { onDone: (id: number) => void; onCance
             onError: (error) => {
                 if (!isApiError(error)) throw error
                 if (error.is('CLIENT_DNI_ALREADY_EXISTS')) {
-                    setErrors({ dni: error.message })
+                    setErrors({ documentNumber: error.message })
                     return
                 }
                 if (error.isValidation) {

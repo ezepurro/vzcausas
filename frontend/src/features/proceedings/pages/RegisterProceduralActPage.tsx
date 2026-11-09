@@ -2,6 +2,7 @@ import { useRef, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { useCurrentUser } from '@/app/providers/AuthContext'
 import { useToast } from '@/app/providers/ToastContext'
+import { useGoBack } from '@/app/router/useGoBack'
 import { isApiError } from '@/shared/api/ApiError'
 import { Breadcrumbs, Button, LoadingState, Panel, type BreadcrumbItem } from '@/shared/components/ui'
 import type { ComboboxOption } from '@/shared/components/forms'
@@ -11,16 +12,17 @@ import { formatPersonFullName } from '@/shared/lib/personName'
 import {
     CaseHeader,
     CaseHeaderSkeleton,
+    CasePrescriptionBar,
     isResponsibleLawyer,
     NO_SAC_LABEL,
-    PrescriptionBar,
-    prescriptionNote,
     useCase,
     type Case,
 } from '@/features/cases'
 import { useProceduralStates } from '@/features/legal-params'
 import { useDeadlinePreview } from '@/features/proceedings/api/useDeadlinePreview'
+import { useProceduralAct } from '@/features/proceedings/api/useProceduralAct'
 import { useRegisterProceduralAct } from '@/features/proceedings/api/useRegisterProceduralAct'
+import { useUpdateProceduralAct } from '@/features/proceedings/api/useUpdateProceduralAct'
 import {
     DeadlinePreviewAside,
     type DeadlinePreviewState,
@@ -32,11 +34,17 @@ import {
     validateProceduralAct,
     type ProceduralActErrors,
 } from '@/features/proceedings/schemas/proceduralAct.schema'
-import type { ProceduralActFormValues } from '@/features/proceedings/types/proceduralAct'
+import type {
+    ProceduralAct,
+    ProceduralActFormValues,
+    UpdateProceduralActBody,
+} from '@/features/proceedings/types/proceduralAct'
+import { buildProceduralActPatch, hasChanges, keepsSavedTerm } from '@/features/proceedings/utils/buildProceduralActPatch'
 import { previewRequest } from '@/features/proceedings/utils/deadlinePreview'
 import { opensTerm, resolveSelectedState } from '@/features/proceedings/utils/resolveState'
 import { filterStateOptions, stateOptions } from '@/features/proceedings/utils/stateOptions'
 import { isInTerminalState } from '@/features/proceedings/utils/terminalState'
+import { toActFormValues } from '@/features/proceedings/utils/toActFormValues'
 import { toCreateProceduralActBody } from '@/features/proceedings/utils/toCreateProceduralActBody'
 import { toFormErrors } from '@/features/proceedings/utils/toFormErrors'
 
@@ -44,35 +52,49 @@ import { toFormErrors } from '@/features/proceedings/utils/toFormErrors'
 const STATES_LIMIT = 100
 
 /**
- * Registrar acto procesal (HU26), en `/causas/:caseId/acto`.
+ * Registrar acto procesal (HU26), en `/causas/:caseId/acto`, y modificarlo
+ * (HU28), en `/causas/:caseId/acto/:actId`: es el mismo formulario, con el
+ * título "Modificar acto procesal" y "Guardar cambios" (V5 §3.8).
  *
  * Primero carga la causa: sin ella no se sabe el fuero, y sin el fuero no hay
  * estados que ofrecer ni regla de la notificación (RN6). Recién con la causa
  * cargada se monta el formulario, así los estados se piden una sola vez y del
  * fuero correcto.
  *
- * Lo registra sólo el abogado responsable de la causa (V3 D-30). A
- * cualquier otro usuario la pantalla le muestra un aviso en lugar del
- * formulario; el `403` del backend queda como respaldo.
+ * Lo registra y lo modifica sólo el abogado responsable **actual** de la
+ * causa (V3 D-30, CA-28.2). A cualquier otro usuario la pantalla le muestra
+ * un aviso en lugar del formulario; el `403` del backend queda como respaldo.
+ *
+ * Al modificar, además de la causa se carga el acto
+ * (`GET …/procedural-acts/{actId}`, D-85), que da los valores iniciales.
  */
 export function RegisterProceduralActPage() {
-    const { caseId: param } = useParams()
-    const caseId = Number(param)
+    const { caseId: caseParam, actId: actParam } = useParams()
+    const caseId = Number(caseParam)
+    const editing = actParam !== undefined
+    const actId = Number(actParam)
     const navigate = useNavigate()
     const caseQuery = useCase(caseId)
-    const validId = Number.isInteger(caseId) && caseId > 0
+    const goBack = useGoBack(`/causas/${caseId}`)
+    // Sin `actId` en la ruta la consulta no sale (`enabled`).
+    const actQuery = useProceduralAct(caseId, editing ? actId : Number.NaN)
+    const validCaseId = Number.isInteger(caseId) && caseId > 0
+    const validActId = !editing || (Number.isInteger(actId) && actId > 0)
+    const title = editing ? 'Modificar acto procesal' : 'Registrar acto procesal'
 
     const c = caseQuery.data
     const crumbs: BreadcrumbItem[] = [
         { label: 'Causas', onClick: () => navigate('/causas') },
         ...(c ? [{ label: c.sacNumber ?? NO_SAC_LABEL, onClick: () => navigate(`/causas/${c.id}`) }] : []),
-        { label: 'Registrar acto procesal' },
+        { label: title },
     ]
 
     let body: ReactNode
-    if (!validId) {
+    if (!validCaseId) {
         body = <Empty title="No se encontró la causa" text="La dirección no corresponde a ninguna causa." />
-    } else if (caseQuery.isPending) {
+    } else if (!validActId) {
+        body = <Empty title="No se encontró el acto procesal" text="La dirección no corresponde a ningún acto de la causa." />
+    } else if (caseQuery.isPending || (editing && actQuery.isPending)) {
         body = (
             <LoadingState label="Cargando causa…">
                 <CaseHeaderSkeleton />
@@ -86,26 +108,42 @@ export function RegisterProceduralActPage() {
                 text={isApiError(caseQuery.error) ? caseQuery.error.message : 'Ocurrió un error inesperado.'}
             />
         )
+    } else if (editing && actQuery.isError) {
+        body = (
+            <Empty
+                title="No se pudo cargar el acto procesal"
+                text={isApiError(actQuery.error) ? actQuery.error.message : 'Ocurrió un error inesperado.'}
+            />
+        )
     } else {
-        body = <RegisterProceduralAct case={caseQuery.data} />
+        // La clave rearma el formulario si se pasa de un acto a otro sin desmontar la ruta.
+        body = (
+            <RegisterProceduralAct
+                key={editing ? actId : 'new'}
+                case={caseQuery.data}
+                act={editing ? actQuery.data : undefined}
+            />
+        )
     }
 
     return (
         <>
-            <Breadcrumbs items={crumbs} />
+            <Breadcrumbs items={crumbs} onBack={goBack} />
             {body}
         </>
     )
 }
 
-/** La pantalla con la causa ya cargada. */
-function RegisterProceduralAct({ case: c }: { case: Case }) {
-    const navigate = useNavigate()
+/**
+ * La pantalla con la causa ya cargada y, al modificar, el acto. Sin `act` es
+ * el registro; con `act`, la modificación, que arranca con sus valores.
+ */
+function RegisterProceduralAct({ case: c, act }: { case: Case; act?: ProceduralAct }) {
     const toast = useToast()
     const { lawyer } = useCurrentUser()
     const { jurisdiction } = c
 
-    const [values, setValues] = useState<ProceduralActFormValues>(() => ({
+    const [values, setValues] = useState<ProceduralActFormValues>(() => act ? toActFormValues(act) : {
         stateText: '',
         proceduralStateId: '',
         actDate: todayIsoDate(),
@@ -113,7 +151,7 @@ function RegisterProceduralAct({ case: c }: { case: Case }) {
         notes: '',
         manualDue: false,
         manualDueDate: '',
-    }))
+    })
     const [errors, setErrors] = useState<ProceduralActErrors>({})
     const formRef = useRef<HTMLDivElement>(null)
     // El vencimiento manual está en el panel lateral: el contenedor lo incluye.
@@ -124,12 +162,22 @@ function RegisterProceduralAct({ case: c }: { case: Case }) {
     const selected = resolveSelectedState(values, states)
     const customState = values.stateText.trim() !== '' && selected === null
 
+    // Hacia un estado terminal no hay ajuste manual (V4 §3.8): si quedó
+    // tildado de un estado anterior, no se valida ni se manda.
+    const effective = selected?.terminal ? { ...values, manualDue: false } : values
+    // Al modificar, lo que cambió respecto del acto guardado.
+    const patch = act ? buildProceduralActPatch(act, effective, selected, jurisdiction) : null
+    // Sin tocar el estado ni las fechas rige el plazo que el acto copió al
+    // registrarse (D-98): se muestra ése, no el de la tabla de hoy.
+    const savedTerm = act !== undefined && patch !== null && keepsSavedTerm(patch)
+
     // El vencimiento lo calcula el backend (V3 D-20): acá sólo se decide si
     // ya hay con qué pedirlo.
     const request = previewRequest(values, selected, jurisdiction)
-    const preview = useDeadlinePreview(c.id, request.kind === 'request' ? request.params : null)
+    const preview = useDeadlinePreview(c.id, request.kind === 'request' && !savedTerm ? request.params : null)
     const previewState: DeadlinePreviewState =
-        request.kind !== 'request' ? request
+        act && savedTerm ? { kind: 'saved', stateName: act.resultingState.name, deadline: act.deadline }
+        : request.kind !== 'request' ? request
             : preview.isPending ? { kind: 'loading' }
                 : preview.isError
                     ? {
@@ -139,7 +187,10 @@ function RegisterProceduralAct({ case: c }: { case: Case }) {
                     : { kind: 'ready', stateName: selected?.name ?? values.stateText.trim(), preview: preview.data }
 
     const register = useRegisterProceduralAct(c.id)
-    const backToCase = () => navigate(`/causas/${c.id}`)
+    const update = useUpdateProceduralAct(c.id, act?.id ?? 0)
+    // Se llega desde el detalle: volver, cancelar o guardar sacan esta pantalla
+    // del historial, así la flecha del detalle no trae de nuevo el formulario.
+    const backToCase = useGoBack(`/causas/${c.id}`)
 
     /* ---------------- formulario ---------------- */
 
@@ -160,9 +211,9 @@ function RegisterProceduralAct({ case: c }: { case: Case }) {
 
     /**
      * Los errores llegan siempre como `ApiError`. Un 400 con campos se marca
-     * en el formulario; el resto —el 403 de quien no es abogado, el 422 de una
-     * causa en estado terminal— se muestra con `e.message`, que ya viene en
-     * castellano.
+     * en el formulario; el resto —el 403 de quien no es el responsable, el 422
+     * de una causa en estado terminal o prescripta, el 404 de un acto que ya
+     * no existe— se muestra con `e.message`, que ya viene en castellano.
      */
     function handleApiError(error: unknown) {
         if (!isApiError(error)) throw error
@@ -179,16 +230,18 @@ function RegisterProceduralAct({ case: c }: { case: Case }) {
         toast('error', error.message)
     }
 
-    /* ---------------- registro ---------------- */
+    /* ---------------- registro y modificación ---------------- */
 
     function submit() {
         focusErrors()
-        // Hacia un estado terminal no hay ajuste manual (V4 §3.8): si quedó
-        // tildado de un estado anterior, no se valida ni se manda.
-        const effective = selected?.terminal ? { ...values, manualDue: false } : values
         const found = validateProceduralAct(effective, { jurisdiction, opensTerm: opensTerm(selected) })
         setErrors(found)
         if (!isValid(found)) return
+
+        if (patch !== null) {
+            submitUpdate(patch)
+            return
+        }
 
         register.mutate(toCreateProceduralActBody(effective, selected, jurisdiction), {
             onSuccess: (act) => {
@@ -202,13 +255,32 @@ function RegisterProceduralAct({ case: c }: { case: Case }) {
         })
     }
 
+    function submitUpdate(body: UpdateProceduralActBody) {
+        // El contrato responde 400 a un PATCH vacío (CA-28.3): si no cambió
+        // nada, se vuelve a la causa sin llamar.
+        if (!hasChanges(body)) {
+            backToCase()
+            return
+        }
+
+        update.mutate(body, {
+            onSuccess: (updated) => {
+                const due = updated.deadline ? ` · vencimiento el ${formatDate(updated.deadline.dueDate)}` : ''
+                toast('success', `Acto modificado${due}. El cambio queda asentado con usuario y fecha.`)
+                // El estado de la causa pudo cambiar (D-99): el detalle lo vuelve a pedir.
+                backToCase()
+            },
+            onError: handleApiError,
+        })
+    }
+
     /* ---------------- pantalla ---------------- */
 
     let content: ReactNode
     if (!isResponsibleLawyer(c, lawyer?.id ?? null)) {
         content = (
             <Empty
-                title="Sólo el abogado responsable registra actos procesales"
+                title={act ? 'Sólo el abogado responsable modifica actos procesales' : 'Sólo el abogado responsable registra actos procesales'}
                 text={`El responsable de esta causa es ${formatPersonFullName(c.responsibleLawyer)}.`}
                 action={<Button variant="secondary" size="md" onClick={backToCase}>Volver a la causa</Button>}
             />
@@ -226,7 +298,9 @@ function RegisterProceduralAct({ case: c }: { case: Case }) {
                 text={isApiError(statesQuery.error) ? statesQuery.error.message : 'Ocurrió un error inesperado.'}
             />
         )
-    } else if (isInTerminalState(c, states)) {
+    } else if (!act && isInTerminalState(c, states)) {
+        // Una causa terminal no admite actos nuevos, pero sí corregir el que
+        // la cerró (CA-28.8): al modificar no se bloquea.
         content = (
             <Empty
                 title="La causa no admite actos procesales"
@@ -236,52 +310,49 @@ function RegisterProceduralAct({ case: c }: { case: Case }) {
         )
     } else {
         content = (
-            <div className="vz-split" ref={formRef}>
-                <ProceduralActForm
-                    values={values}
-                    errors={errors}
-                    jurisdiction={jurisdiction}
-                    stateOptions={filterStateOptions(stateOptions(states), values.stateText)}
-                    onStateTextChange={changeStateText}
-                    onStateSelect={selectState}
-                    onChange={changeValue}
-                    customState={customState}
-                    saving={register.isPending}
-                    onConfirm={submit}
-                    onCancel={backToCase}
-                />
-                <aside className="vz-split__aside">
-                    <DeadlinePreviewAside
-                        state={previewState}
-                        manualDue={values.manualDue}
-                        manualDueDate={values.manualDueDate}
-                        manualDueDateError={errors.manualDueDate}
-                        allowManualDue={!selected?.terminal}
-                        onManualDueChange={(value) => changeValue('manualDue', value)}
-                        onManualDueDateChange={(value) => changeValue('manualDueDate', value)}
+            <>
+                {/* El prototipo nombra la pantalla sólo en las migas; el título queda para los lectores de pantalla. */}
+                <h2 className="vz-sr-only">{act ? 'Modificar acto procesal' : 'Registrar acto procesal'}</h2>
+                <div className="vz-split" ref={formRef}>
+                    <ProceduralActForm
+                        values={values}
+                        errors={errors}
+                        jurisdiction={jurisdiction}
+                        stateOptions={filterStateOptions(stateOptions(states), values.stateText)}
+                        onStateTextChange={changeStateText}
+                        onStateSelect={selectState}
+                        onChange={changeValue}
+                        customState={customState}
+                        saving={act ? update.isPending : register.isPending}
+                        submitLabel={act ? 'Guardar cambios' : 'Registrar acto'}
+                        sub={act ? `Modificás el acto del ${formatDate(act.actDate)}. El cambio queda asentado con usuario y fecha.` : undefined}
+                        onConfirm={submit}
+                        onCancel={backToCase}
                     />
-                </aside>
-            </div>
+                    <aside className="vz-split__aside">
+                        <DeadlinePreviewAside
+                            state={previewState}
+                            manualDue={values.manualDue}
+                            manualDueDate={values.manualDueDate}
+                            manualDueDateError={errors.manualDueDate}
+                            allowManualDue={!selected?.terminal}
+                            onManualDueChange={(value) => changeValue('manualDue', value)}
+                            onManualDueDateChange={(value) => changeValue('manualDueDate', value)}
+                        />
+                    </aside>
+                </div>
+            </>
         )
     }
 
     return (
         <>
             <CaseHeader case={c}>
-                <CasePrescription case={c} />
+                <CasePrescriptionBar case={c} />
             </CaseHeader>
             {content}
         </>
     )
-}
-
-/**
- * La barra de prescripción al pie del encabezado, con la que rige la causa
- * (V4 D-51). `null` fuera del penal o sin calificaciones (D-74).
- */
-function CasePrescription({ case: c }: { case: Case }) {
-    if (!c.prescription) return null
-    return <PrescriptionBar prescription={c.prescription} note={prescriptionNote(c)} />
 }
 
 /** Error o un aviso que reemplaza al formulario, dentro de un panel. */

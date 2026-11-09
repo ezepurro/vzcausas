@@ -1,0 +1,10 @@
+name: documentId
+in: path
+required: true
+description: |
+  `id` del documento, tal como lo devolvió `GET /cases/{caseId}/documents`. Es
+  el identificador del archivo en Drive.
+schema:
+  type: string
+  minLength: 1
+example: 1Hn6Tq2Wz8Ce4Rb0Yv5Ux3Ma7Kd9Lp1Gs

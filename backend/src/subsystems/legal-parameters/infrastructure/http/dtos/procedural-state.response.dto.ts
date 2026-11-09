@@ -1,6 +1,6 @@
 import { DayType } from '@subsystems/legal-parameters/core/domain/entities/day-types';
 import { JurisdictionCode } from '@subsystems/legal-parameters/core/domain/value-objects/jurisdiction-code';
-import { PaginationResponseDto } from '../../../../../common/pagination/paginated-response.dto';
+import { PaginationResponseDto } from '@shared/infrastructure/http/pagination/pagination-response.dto';
 
 /**
  * Procedural state as `POST` and `PATCH` return it (contract V3 §3.4,

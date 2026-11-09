@@ -153,7 +153,7 @@
   .vz-modal__head { padding: 16px 16px 14px; }
   .vz-modal__body { padding: 16px; }
   .vz-modal__foot { padding: 12px 16px; flex-wrap: wrap; }
-  .vz-modal__foot .vz-btn { flex: 1 1 auto; }
+  .vz-modal__foot .vz-btn { flex: 1 1 auto; height: 42px; }
 
   .vz-tab { padding: 10px 13px; }
   .vz-empty { padding: 36px 16px; }

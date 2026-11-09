@@ -124,7 +124,8 @@ export interface PersonRef {
  * matrícula porque desambigua dos homónimos. No es la ficha completa.
  */
 export interface EmbeddedLawyer extends PersonRef {
-    registrationNumber: string;
+    /** `null` si la ficha no tiene matrícula: no es obligatoria. */
+    registrationNumber: string | null;
 }
 
 /** Usuario tal como lo devuelve `/users` y el login (§3.2). */
@@ -152,8 +153,8 @@ export interface Lawyer {
     lastName: string;
     /** Sin el tratamiento: "Dr." o "Dra." lo pone el frontend (D-81). */
     firstName: string;
-    /** Matrícula del Colegio de Abogados de Córdoba, formato `1-28114`. */
-    registrationNumber: string;
+    /** Matrícula del Colegio de Abogados de Córdoba, formato `1-28114`. `null` si no se cargó. */
+    registrationNumber: string | null;
     /** Causas activas donde es responsable. Calculado, sólo lectura. */
     activeCases: number;
     active: boolean;
@@ -205,14 +206,21 @@ export interface LegalQualification {
 /** Lo que devuelven `POST` y `PATCH /legal-qualifications`: sin `activeCases` (D-32). */
 export type WrittenLegalQualification = Omit<LegalQualification, 'activeCases'>;
 
+/** Los tipos de documento de un cliente. */
+export type DocumentType = 'DNI' | 'PASSPORT';
+
 /** Cliente tal como lo devuelve `/clients` (§3.6). */
 export interface Client {
     id: number;
     lastName: string;
     firstName: string;
-    /** Sólo dígitos, sin puntos. Único entre los vigentes. */
-    dni: string;
-    phone: string | null;
+    documentType: DocumentType;
+    /** DNI: sólo dígitos, sin puntos. Pasaporte: letras y números en mayúsculas. Único por tipo entre los vigentes. */
+    documentNumber: string;
+    /** Dirección. Texto libre. Obligatoria desde D-109: nunca viaja `null`. */
+    address: string;
+    /** Teléfono. Texto libre. Obligatorio desde D-109: nunca viaja `null`. */
+    phone: string;
     email: string | null;
     /** Fecha de alta en el estudio, `YYYY-MM-DD`. La asigna el backend. */
     clientSince: string;
@@ -238,6 +246,12 @@ export interface CaseLegalQualification {
     prescriptionStartsOn: string;
     /** `prescriptionStartsOn` más `prescriptionMonths`. */
     prescriptionExpiresOn: string;
+    /** De esta calificación, con la misma regla que `prescription` (D-112). */
+    elapsedPercentage: number;
+    alert: boolean;
+    expired: boolean;
+    /** La declaración de que prescribió (D-113); `null` mientras no se declaró. */
+    prescriptionDeclaration: PrescriptionDeclaration | null;
 }
 
 /**
@@ -405,6 +419,60 @@ export interface ProceduralAct {
     deadline: ActDeadline | null;
     registeredBy: PersonRef;
     registeredAt: string;
+    /** Quién y cuándo lo modificó por última vez (V5, HU28). `null` si nunca se modificó. */
+    lastModifiedBy: PersonRef | null;
+    lastModifiedAt: string | null;
+}
+
+/**
+ * Un archivo de la carpeta de la causa en Drive (V5 §3.12, HU38). Se lee de la
+ * carpeta en cada pedido; su `id` es el de Drive y el cliente no lo interpreta.
+ */
+export interface CaseDocument {
+    id: string;
+    name: string;
+    /** En minúsculas y sin punto. `null` si no tiene, o en un documento nativo de Google. */
+    extension: string | null;
+    mimeType: string;
+    /** `null` en los documentos nativos de Google, que Drive no mide. */
+    sizeBytes: number | null;
+    createdAt: string;
+    modifiedAt: string;
+    /** Quien lo subió según Drive: una cuenta de Google, no un usuario del sistema (D-101). */
+    uploadedBy: string | null;
+    url: string;
+    /** `true` si puede formar parte del expediente: PDF, Word, documento de Google, JPG o PNG. */
+    convertibleToPdf: boolean;
+    /** Sólo en un expediente generado por el sistema (HU25). */
+    caseFile: { id: number; version: number } | null;
+}
+
+/** `GET /cases/{caseId}/documents`: la carpeta y su contenido (V5 §3.12). */
+export interface CaseDocuments {
+    folderStatus: CaseFolderStatus | null;
+    folderUrl: string | null;
+    /** `null` si la carpeta no se leyó porque no está creada. */
+    readAt: string | null;
+    documents: CaseDocument[];
+}
+
+/** Una parte del expediente, en el orden en que quedó (V5 §3.12). */
+export interface CaseFilePart {
+    position: number;
+    kind: 'COVER' | 'DOCUMENT';
+    /** `null` en la carátula. */
+    documentId: string | null;
+    name: string;
+}
+
+/** Lo que devuelve `POST /cases/{caseId}/case-files` (HU25). */
+export interface GeneratedCaseFile {
+    document: CaseDocument;
+    version: number;
+    pageCount: number;
+    parts: CaseFilePart[];
+    generatedBy: PersonRef;
+    generatedAt: string;
 }
 
 /**
@@ -438,9 +506,16 @@ export type TimelineEntry =
     | {
           type: 'INTERRUPTIVE_ACT';
           date: string;
-          /** El acto interruptivo más reciente, el que rige la prescripción. */
+          /** El acto del que cuenta `prescription` de la causa (D-113): no siempre el más reciente. */
           governsPrescription: boolean;
           interruptiveAct: InterruptiveAct;
+      }
+    | {
+          /** Una calificación declarada prescripta (D-113). */
+          type: 'QUALIFICATION_PRESCRIPTION_DECLARATION';
+          date: string;
+          legalQualification: { id: number; name: string };
+          prescriptionDeclaration: PrescriptionDeclaration;
       }
     | {
           type: 'PRESCRIPTION_DECLARATION';
@@ -605,14 +680,15 @@ export interface UpdateUserRequest {
 export interface CreateLawyerRequest {
     lastName: string;
     firstName: string;
-    registrationNumber: string;
+    /** Opcional. */
+    registrationNumber?: string;
 }
 
-/** Edición de abogado. Al menos un campo. `activeCases` no es modificable. */
+/** Edición de abogado. Al menos un campo. `activeCases` no es modificable. `null` borra la matrícula. */
 export interface UpdateLawyerRequest {
     lastName?: string;
     firstName?: string;
-    registrationNumber?: string;
+    registrationNumber?: string | null;
 }
 
 /** Alta de estado procesal (§3.4). */
@@ -646,12 +722,14 @@ export interface CreateLegalQualificationRequest {
 /** Edición de calificación legal. Al menos un campo. */
 export type UpdateLegalQualificationRequest = Partial<CreateLegalQualificationRequest>;
 
-/** Alta de cliente (§3.6). Teléfono y correo son opcionales. */
+/** Alta de cliente (§3.6). Dirección y teléfono son obligatorios (D-109); el correo, opcional. */
 export interface CreateClientRequest {
     lastName: string;
     firstName: string;
-    dni: string;
-    phone?: string;
+    documentType: DocumentType;
+    documentNumber: string;
+    address: string;
+    phone: string;
     email?: string;
 }
 

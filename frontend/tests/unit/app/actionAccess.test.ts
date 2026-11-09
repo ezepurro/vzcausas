@@ -15,6 +15,13 @@ describe('can', () => {
         expect(can(['LAWYER'], 'lawyers.create')).toBe(false)
     })
 
+    /* Modificar un abogado es sólo del Administrador (CA-14.6). */
+    it('modificar un abogado es sólo del Administrador', () => {
+        expect(can(['ADMINISTRATOR'], 'lawyers.update')).toBe(true)
+        expect(can(['SECRETARY'], 'lawyers.update')).toBe(false)
+        expect(can(['LAWYER'], 'lawyers.update')).toBe(false)
+    })
+
     /* Marcar prescripta una causa penal es del Administrador y de cualquier
        abogado, aunque no sea el responsable; la Secretaría no (CA-33.1,
        CA-33.2, V4 §4). */
@@ -22,5 +29,31 @@ describe('can', () => {
         expect(can(['ADMINISTRATOR'], 'cases.declarePrescription')).toBe(true)
         expect(can(['LAWYER'], 'cases.declarePrescription')).toBe(true)
         expect(can(['SECRETARY'], 'cases.declarePrescription')).toBe(false)
+    })
+
+    /* Descargar un documento de la causa que no es un expediente es del
+       Abogado y de la Secretaría: el Administrador no tiene acceso a la
+       carpeta en Drive (CA-38.7, V5 §3.12, D-103, D-83). El expediente lo
+       descarga cualquiera, y eso no es un permiso por rol. */
+    // D-110: sobre cualquier causa, sin ser el responsable.
+    it('operar cualquier causa es del Administrador y de la Secretaría, no del Abogado', () => {
+        expect(can(['ADMINISTRATOR'], 'cases.operateAnyCase')).toBe(true)
+        expect(can(['SECRETARY'], 'cases.operateAnyCase')).toBe(true)
+        expect(can(['LAWYER'], 'cases.operateAnyCase')).toBe(false)
+        expect(can(['SECRETARY', 'LAWYER'], 'cases.operateAnyCase')).toBe(true)
+    })
+
+    // D-110: marcar prescripta una causa ajena es sólo del Administrador.
+    it('marcar prescripta cualquier causa es sólo del Administrador', () => {
+        expect(can(['ADMINISTRATOR'], 'cases.declarePrescriptionAnyCase')).toBe(true)
+        expect(can(['LAWYER'], 'cases.declarePrescriptionAnyCase')).toBe(false)
+        expect(can(['SECRETARY'], 'cases.declarePrescriptionAnyCase')).toBe(false)
+    })
+
+    it('descargar un documento de la causa es del Abogado y de la Secretaría', () => {
+        expect(can(['LAWYER'], 'cases.downloadDocument')).toBe(true)
+        expect(can(['SECRETARY'], 'cases.downloadDocument')).toBe(true)
+        expect(can(['ADMINISTRATOR'], 'cases.downloadDocument')).toBe(false)
+        expect(can(['ADMINISTRATOR', 'LAWYER'], 'cases.downloadDocument')).toBe(true)
     })
 })

@@ -4,7 +4,13 @@
  * del detalle y en la carátula sugerida: tiene que leerse igual en todos lados.
  */
 
-import type { Client } from '@/features/clients/types/client'
+import type { Client, DocumentType } from '@/features/clients/types/client'
+
+/** Cómo se lee cada tipo de documento en pantalla. */
+export const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
+    DNI: 'DNI',
+    PASSPORT: 'Pasaporte',
+}
 
 /**
  * `GÓMEZ, Ariel Fernando`: apellido primero, porque una persona se busca por
@@ -32,4 +38,24 @@ export function formatDni(dni: string): string {
  */
 export function normalizeDni(input: string): string {
     return input.replace(/[.\s]/g, '')
+}
+
+/**
+ * El número de documento como viaja: el DNI sin puntos ni espacios; el
+ * pasaporte sin espacios y en mayúsculas. Un tipo desconocido sólo se recorta.
+ */
+export function normalizeDocumentNumber(documentType: string, input: string): string {
+    if (documentType === 'DNI') return normalizeDni(input.trim())
+    if (documentType === 'PASSPORT') return input.replace(/\s/g, '').toUpperCase()
+    return input.trim()
+}
+
+/** Sólo el número, como se muestra: el DNI con puntos, el pasaporte tal cual. */
+export function formatDocumentNumber(client: Pick<Client, 'documentType' | 'documentNumber'>): string {
+    return client.documentType === 'DNI' ? formatDni(client.documentNumber) : client.documentNumber
+}
+
+/** `DNI 34.812.905` o `Pasaporte AAA123456`: el tipo y el número juntos. */
+export function formatDocument(client: Pick<Client, 'documentType' | 'documentNumber'>): string {
+    return `${DOCUMENT_TYPE_LABELS[client.documentType]} ${formatDocumentNumber(client)}`
 }

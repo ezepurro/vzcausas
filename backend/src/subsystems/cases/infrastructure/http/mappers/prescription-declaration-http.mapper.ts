@@ -1,6 +1,6 @@
 import { toIsoDate, toIsoWithOffset } from '@shared/infrastructure/http/iso-date';
-import { PrescriptionDeclarationView } from '../../../core/domain/ports/case-timeline-query.port';
-import { PrescriptionDeclarationResponseDto } from '../dtos/timeline.response.dto';
+import { PrescriptionDeclarationView } from '../../../core/domain/ports/case/case-timeline-query.port';
+import { PrescriptionDeclarationResponseDto } from '../dtos/case/timeline.response.dto';
 
 /**
  * `prescriptionDeclaration` in the contract's shape (V4 §3.7).

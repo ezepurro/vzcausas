@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { removeFromLists, restoreLists } from '@/shared/api/optimisticRemoval';
 import { deleteLegalQualification } from './legalQualifications.api';
 import { legalQualificationKeys } from './legalQualifications.keys';
 
@@ -14,9 +15,12 @@ export function useDeleteLegalQualification() {
 
     return useMutation({
         mutationFn: deleteLegalQualification,
+        // La fila sale de la tabla al confirmar; si la baja falla, vuelve (`optimisticRemoval`).
+        onMutate: (id) => removeFromLists(queryClient, legalQualificationKeys.lists(), id),
+        onError: (_error, _id, snapshot) => restoreLists(queryClient, snapshot),
         onSuccess: (_data, id) => {
             queryClient.removeQueries({ queryKey: legalQualificationKeys.detail(id) });
-            queryClient.invalidateQueries({ queryKey: legalQualificationKeys.lists() });
         },
+        onSettled: () => queryClient.invalidateQueries({ queryKey: legalQualificationKeys.lists() }),
     });
 }

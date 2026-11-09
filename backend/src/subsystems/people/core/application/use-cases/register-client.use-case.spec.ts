@@ -7,7 +7,10 @@ describe("RegisterClientUseCase", () => {
   const baseCommand = {
     lastName: "BENÍTEZ",
     firstName: "Rodrigo E.",
-    dni: "31556208",
+    documentType: "DNI",
+    documentNumber: "31556208",
+    address: "Av. Rafael Núñez 4560, Córdoba",
+    phone: "351 401-5573",
   };
 
   function build(at = new Date("2026-10-07T12:00:00Z")) {
@@ -28,39 +31,29 @@ describe("RegisterClientUseCase", () => {
     expect(clients.byId.get(client.id)).toBe(client);
   });
 
-  // CA-8.2 — apellido y nombres en campos separados; la forma
-  // "GÓMEZ, Ariel Fernando" la compone la interfaz.
-  it("keeps surname and given names apart", async () => {
-    const { useCase } = build();
-
-    const { client } = await useCase.execute({
-      ...baseCommand,
-      lastName: "GÓMEZ",
-      firstName: "Ariel Fernando",
-    });
-
-    expect(client.lastName).toBe("GÓMEZ");
-    expect(client.firstName).toBe("Ariel Fernando");
-  });
-
-  // CA-8.3 — se guarda solo con dígitos.
-  it("stores the document without its presentation dots", async () => {
-    const { useCase } = build();
-
-    const { client } = await useCase.execute({
-      ...baseCommand,
-      dni: "34.812.905",
-    });
-
-    expect(client.dni.toString()).toBe("34812905");
-  });
-
+  // CA-8.2 (apellido y nombres separados) lo fija la forma del recurso en
+  // `clients.int.spec.ts`; CA-8.3 (formato), `client-document.vo.spec.ts`. Acá, que el
+  // value object está conectado: un documento mal formado no llega al repositorio.
   it("rejects a malformed document", async () => {
     const { useCase } = build();
 
     await expect(
-      useCase.execute({ ...baseCommand, dni: "123456" }),
+      useCase.execute({ ...baseCommand, documentNumber: "123456" }),
     ).rejects.toBeInstanceOf(ValidationError);
+  });
+
+  // D-108 — el cliente se puede identificar con pasaporte (clientes extranjeros).
+  it("registers a client identified by passport (D-108)", async () => {
+    const { useCase } = build();
+
+    const { client } = await useCase.execute({
+      ...baseCommand,
+      documentType: "PASSPORT",
+      documentNumber: "aae 482915",
+    });
+
+    expect(client.document.type).toBe("PASSPORT");
+    expect(client.document.number).toBe("AAE482915");
   });
 
   // CA-8.4 — documento único entre clientes vigentes.
@@ -79,8 +72,22 @@ describe("RegisterClientUseCase", () => {
       await useCase.execute(baseCommand);
 
       await expect(
-        useCase.execute({ ...baseCommand, dni: "31.556.208" }),
+        useCase.execute({ ...baseCommand, documentNumber: "31.556.208" }),
       ).rejects.toBeInstanceOf(ClientDniAlreadyExistsError);
+    });
+
+    // D-108 — la unicidad es por tipo: un DNI y un pasaporte con el mismo número no chocan.
+    it("does not clash with another type holding the same number (D-108)", async () => {
+      const { useCase } = build();
+      await useCase.execute({ ...baseCommand, documentNumber: "12345678" });
+
+      const { client } = await useCase.execute({
+        ...baseCommand,
+        documentType: "PASSPORT",
+        documentNumber: "12345678",
+      });
+
+      expect(client.document.type).toBe("PASSPORT");
     });
 
     /**
@@ -102,34 +109,53 @@ describe("RegisterClientUseCase", () => {
     });
   });
 
-  // CA-8.5 — teléfono y correo son opcionales.
-  it("registers without phone or email", async () => {
+  // D-109 — dirección y teléfono son obligatorios; vacío y en blanco se rechazan igual.
+  describe("required address and phone (D-109)", () => {
+    it.each([
+      ["address", "", "La dirección es obligatoria."],
+      ["address", "   ", "La dirección es obligatoria."],
+      ["phone", "", "El teléfono es obligatorio."],
+      ["phone", "   ", "El teléfono es obligatorio."],
+    ])("rejects an empty or blank %s (%j)", async (field, value, message) => {
+      const { useCase, clients } = build();
+
+      await expect(
+        useCase.execute({ ...baseCommand, [field]: value }),
+      ).rejects.toMatchObject({ message, details: { field } });
+      expect(clients.byId.size).toBe(0);
+    });
+
+    it("stores them trimmed", async () => {
+      const { useCase } = build();
+
+      const { client } = await useCase.execute({
+        ...baseCommand,
+        address: "  Av. Colón 1320  ",
+        phone: " 351 530-1177 ",
+      });
+
+      expect(client.address).toBe("Av. Colón 1320");
+      expect(client.phone).toBe("351 530-1177");
+    });
+  });
+
+  // CA-8.5 — el correo es opcional; uno en blanco queda ausente.
+  it("registers without email, and stores a blank email as absent", async () => {
     const { useCase } = build();
 
     const { client } = await useCase.execute(baseCommand);
+    const { client: blank } = await useCase.execute({
+      ...baseCommand,
+      documentNumber: "29440117",
+      email: "   ",
+    });
 
-    expect(client.phone).toBeNull();
     expect(client.email).toBeNull();
+    expect(blank.email).toBeNull();
   });
 
-  it("stores a blank phone as absent rather than as an empty string", async () => {
-    const { useCase } = build();
-
-    const { client } = await useCase.execute({ ...baseCommand, phone: "   " });
-
-    expect(client.phone).toBeNull();
-  });
-
-  // CA-8.7 — la fecha de alta la asigna el sistema.
-  it("takes the registration date from the clock", async () => {
-    const { useCase } = build(new Date("2026-03-14T09:30:00Z"));
-
-    const { client } = await useCase.execute(baseCommand);
-
-    expect(client.clientSince.toISOString().slice(0, 10)).toBe("2026-03-14");
-  });
-
-  it("ignores any date the caller tries to supply", async () => {
+  // CA-8.7 — la fecha de alta la asigna el sistema, aunque el llamador mande otra.
+  it("takes the registration date from the clock and ignores any the caller supplies", async () => {
     const { useCase } = build(new Date("2026-03-14T09:30:00Z"));
 
     const { client } = await useCase.execute({
@@ -140,14 +166,5 @@ describe("RegisterClientUseCase", () => {
     } as never);
 
     expect(client.clientSince.toISOString().slice(0, 10)).toBe("2026-03-14");
-  });
-
-  // CA-8.8 — el alta no crea ninguna causa (RN1).
-  it("creates nothing but the client", async () => {
-    const { useCase, clients } = build();
-
-    await useCase.execute(baseCommand);
-
-    expect(clients.byId.size).toBe(1);
   });
 });

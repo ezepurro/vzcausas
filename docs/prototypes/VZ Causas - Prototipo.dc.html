@@ -708,7 +708,7 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
               </div>
 
               <div>
-                <label for="ncTribunal" style="display:block;font-size:13px;font-weight:600;color:var(--ink);margin-bottom:7px">Tribunal o dependencia</label>
+                <label for="ncTribunal" style="display:block;font-size:13px;font-weight:600;color:var(--ink);margin-bottom:7px">Órgano interviniente</label>
                 <input id="ncTribunal" type="text" placeholder="Juzgado de Control N° 3 · Córdoba" value="{{ ncTribunal }}" onChange="{{ setNcTribunal }}" style="width:100%;height:42px;padding:0 12px;border:1px solid var(--border-2);border-radius:var(--r);background:var(--surface);font-size:14px;color:var(--ink)">
               </div>
 
@@ -716,7 +716,7 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
                 <div>
                   <label for="ncInstructor" style="display:block;font-size:13px;font-weight:600;color:var(--ink);margin-bottom:7px">Instructor de la causa</label>
                   <input id="ncInstructor" type="text" placeholder="Apellido y nombre del instructor" value="{{ ncInstructor }}" onChange="{{ setNcInstructor }}" style="width:100%;height:42px;padding:0 12px;border:1px solid var(--border-2);border-radius:var(--r);background:var(--surface);font-size:14px;color:var(--ink)">
-                  <div style="font-size:12px;color:var(--faint);margin-top:6px">Quien lleva la instrucción en el tribunal o la dependencia.</div>
+                  <div style="font-size:12px;color:var(--faint);margin-top:6px">Quien lleva la instrucción en el órgano interviniente. Figura como secretario/a en la carátula.</div>
                 </div>
                 <div>
                   <label for="ncTel" style="display:block;font-size:13px;font-weight:600;color:var(--ink);margin-bottom:7px">Teléfono</label>
@@ -828,8 +828,8 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
                   </select>
                 </div>
                 <div>
-                  <label for="ncFecha" style="display:block;font-size:13px;font-weight:600;color:var(--ink);margin-bottom:7px">Fecha de inicio</label>
-                  <input id="ncFecha" type="date" value="{{ ncFecha }}" onChange="{{ setNcFecha }}" style="width:100%;height:42px;padding:0 12px;border:1px solid var(--border-2);border-radius:var(--r);background:var(--surface);font-size:14px;color:var(--ink);font-family:'Roboto Mono',monospace">
+                  <label for="ncFecha" style="display:block;font-size:13px;font-weight:600;color:var(--ink);margin-bottom:7px">Fecha de inicio<span style="color:#B3261E">{{ ncFechaReq }}</span></label>
+                  <input id="ncFecha" type="date" value="{{ ncFecha }}" onChange="{{ setNcFecha }}" disabled="{{ ncFechaDeshab }}" style="{{ ncFechaCss }}">
                   <div style="font-size:12px;color:var(--faint);margin-top:6px">Se carga junto con el N° de SAC.</div>
                 </div>
               </div>
@@ -1015,7 +1015,7 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
           <span style="color:var(--faint)">/</span>
           <button type="button" onClick="{{ goDetalle }}" style="background:none;border:none;padding:0;color:var(--primary);font-size:12.5px;font-weight:600;font-family:'Roboto Mono',monospace;cursor:pointer;text-decoration:underline;text-underline-offset:2px">{{ causa.sac }}</button>
           <span style="color:var(--faint)">/</span>
-          <span style="color:var(--ink);font-weight:600">Registrar acto procesal</span>
+          <span style="color:var(--ink);font-weight:600">{{ actoTitulo }}</span>
         </nav>
 
         <div style="background:var(--surface);border:var(--panel-bd);border-radius:var(--r);box-shadow:var(--card-sh);padding:20px 22px;margin-bottom:16px">
@@ -1062,6 +1062,7 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
           <form style="background:var(--surface);border:var(--panel-bd);border-radius:var(--r);box-shadow:var(--card-sh);overflow:hidden;overflow-x:auto">
             <div style="padding:16px 22px;border-bottom:1px solid var(--border);background:var(--sunken)">
               <h2 style="font-size:16px;font-weight:700;margin:0">Datos del acto procesal</h2>
+              <sc-if value="{{ editandoActo }}" hint-placeholder-val="{{ false }}"><div style="font-size:12.5px;color:var(--muted);margin-top:4px">Modificás el acto del <span style="font-family:'Roboto Mono',monospace">{{ editActoFecha }}</span>. El cambio queda asentado con usuario y fecha.</div></sc-if>
             </div>
             <div style="padding:22px;display:flex;flex-direction:column;gap:18px">
 
@@ -1126,8 +1127,8 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
             </div>
             <div style="padding:16px 22px;border-top:1px solid var(--border);background:var(--sunken);display:flex;gap:10px;justify-content:flex-end;align-items:center">
               <span style="{{ permisoNotaCss }}">{{ permisoNota }}</span>
-              <button type="button" onClick="{{ goCausas }}" style="height:40px;padding:0 18px;border:1px solid var(--border-2);border-radius:var(--r-btn);background:var(--surface);color:var(--ink);font-size:14px;font-weight:600;cursor:pointer" style-hover="background:var(--canvas)">Cancelar</button>
-              <button type="button" onClick="{{ guardarActo }}" disabled="{{ guardarDisabled }}" style="{{ guardarCss }}">Registrar acto</button>
+              <button type="button" onClick="{{ actoCancelar }}" style="height:40px;padding:0 18px;border:1px solid var(--border-2);border-radius:var(--r-btn);background:var(--surface);color:var(--ink);font-size:14px;font-weight:600;cursor:pointer" style-hover="background:var(--canvas)">Cancelar</button>
+              <button type="button" onClick="{{ guardarActo }}" disabled="{{ guardarDisabled }}" style="{{ guardarCss }}">{{ actoBtnLabel }}</button>
             </div>
           </form>
 
@@ -1256,8 +1257,8 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
               <button type="button" onClick="{{ nuevoInterruptivo }}" style="{{ accionSecCss }}">Registrar acto interruptivo</button>
             </sc-if>
             <button type="button" onClick="{{ pagoTasa }}" style="{{ accionSecCss }}">Registrar pago de tasa</button>
-            <button type="button" onClick="{{ verCaratula }}" style="{{ accionSecCss }}">Emitir carátula</button>
-            <button type="button" onClick="{{ verExpediente }}" style="{{ accionSecCss }}">Emitir expediente</button>
+            
+            <button type="button" onClick="{{ verExpediente }}" style="{{ accionSecCss }}">Generar expediente</button>
             <sc-if value="{{ esPenal }}" hint-placeholder-val="{{ true }}">
               <sc-if value="{{ verPrescribir }}" hint-placeholder-val="{{ true }}"><button type="button" onClick="{{ marcarPrescripta }}" style="{{ accionSecRojaCss }}">Marcar prescripta</button></sc-if>
             </sc-if>
@@ -2094,8 +2095,6 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
             <p style="margin:6px 0 0;font-size:13.5px;color:var(--muted);max-width:620px">{{ docSub }}</p>
           </div>
           <div style="display:flex;gap:9px;flex-wrap:wrap">
-            <button type="button" onClick="{{ verCaratula }}" style="{{ cssDocCaratula }}">Carátula</button>
-            <button type="button" onClick="{{ verExpediente }}" style="{{ cssDocExpediente }}">Expediente</button>
             <button type="button" onClick="{{ imprimirDoc }}" style="height:38px;padding:0 18px;border:none;border-radius:var(--r-btn);background:var(--primary);color:#fff;font-size:13.5px;font-weight:600;cursor:pointer" style-hover="background:var(--primary-hi)">Imprimir</button>
           </div>
         </div>
@@ -2190,6 +2189,184 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
       </div>
       </sc-if>
 
+      <!-- ══════ GENERAR EXPEDIENTE ══════ -->
+      <sc-if value="{{ esExp }}" hint-placeholder-val="{{ false }}">
+      <div>
+        <nav aria-label="Migas" style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted);margin-bottom:12px;flex-wrap:wrap">
+          <button type="button" onClick="{{ goCausas }}" style="background:none;border:none;padding:0;color:var(--primary);font-size:12.5px;font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:2px">Causas</button>
+          <span style="color:var(--faint)">/</span>
+          <button type="button" onClick="{{ goDetalle }}" style="background:none;border:none;padding:0;color:var(--primary);font-size:12.5px;font-weight:600;font-family:'Roboto Mono',monospace;cursor:pointer;text-decoration:underline;text-underline-offset:2px">{{ causa.sac }}</button>
+          <span style="color:var(--faint)">/</span>
+          <span style="color:var(--ink);font-weight:600">Generar expediente</span>
+        </nav>
+
+        <div style="margin-bottom:18px">
+          <h1 style="font-size:24px;line-height:1.2;font-weight:700;letter-spacing:-.02em;margin:0">Generar expediente</h1>
+          <p style="margin:6px 0 0;font-size:13.5px;color:var(--muted);max-width:680px;text-wrap:pretty">{{ causa.caratula }}. Se arma un único PDF: primero la carátula, que se genera con los datos de la causa, y después los documentos de la causa que elijas, en el orden que definas.</p>
+        </div>
+
+        <div style="display:grid;grid-template-columns:var(--acto-cols);gap:16px;align-items:start">
+          <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
+
+            <section style="background:var(--surface);border:var(--panel-bd);border-radius:var(--r);box-shadow:var(--card-sh);overflow:hidden">
+              <div style="padding:16px 22px;border-bottom:1px solid var(--border);background:var(--sunken);display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                <span style="font-family:'Roboto Mono',monospace;font-size:12px;color:var(--muted)">1</span>
+                <h2 style="font-size:16px;font-weight:700;margin:0;flex:1">Carátula</h2>
+                              </div>
+              <div style="padding:16px 22px 20px">
+                <div style="display:flex;align-items:center;gap:12px;padding:11px 12px 11px 14px;border:1px solid var(--border-2);border-radius:var(--r);background:var(--surface);box-shadow:0 1px 2px rgba(15,23,42,.05)">
+                  <span style="font-family:'Roboto Mono',monospace;font-size:12px;color:var(--ink);width:18px;text-align:right">1</span>
+                  <span style="font-family:'Roboto Mono',monospace;font-size:10.5px;font-weight:600;letter-spacing:.04em;padding:3px 6px;border-radius:4px;flex:0 0 auto;background:#F7E9E7;color:#8E1F19">PDF</span>
+                  <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+                    <span style="font-size:13.5px;font-weight:600;color:var(--ink)">Carátula</span>
+                    <span style="font-size:12px;color:var(--muted)">Plantilla {{ expPlantillaTxt }} · se genera con los datos de la causa</span>
+                  </div>
+                  <button type="button" onClick="{{ expPrevAbrir }}" style="height:30px;padding:0 12px;border:1px solid var(--border-2);border-radius:var(--r-btn);background:var(--surface);color:var(--primary);font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap" style-hover="background:var(--primary-soft);border-color:var(--primary)">Vista previa</button>
+                </div>
+                <sc-if value="{{ expPideParte }}" hint-placeholder-val="{{ false }}">
+                  <div style="margin-top:16px">
+                    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px">
+                      <label for="expOtra" style="display:block;font-size:13px;font-weight:600;color:var(--ink);margin-bottom:7px">{{ expOtraLabel }}</label>
+                      <span style="font-size:11.5px;color:var(--faint);font-family:'Roboto Mono',monospace">{{ expOtraCont }}</span>
+                    </div>
+                    <textarea id="expOtra" rows="2" placeholder="{{ expOtraPh }}" value="{{ expOtraVal }}" onChange="{{ setExpOtra }}" style="width:100%;min-height:64px;padding:10px 12px;border:1px solid var(--border-2);border-radius:var(--r);background:var(--surface);font-size:14px;line-height:1.5;color:var(--ink);font-family:inherit;resize:vertical;text-transform:uppercase"></textarea>
+                    <div style="font-size:12px;color:var(--faint);margin-top:6px;text-wrap:pretty">{{ expOtraNota }}</div>
+                  </div>
+                </sc-if>
+                <div style="margin-top:16px">
+                  <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px">
+                    <label for="expObs" style="display:block;font-size:13px;font-weight:600;color:var(--ink);margin-bottom:7px">Observaciones</label>
+                    <span style="font-size:11.5px;color:var(--faint);font-family:'Roboto Mono',monospace">{{ expObsCont }}</span>
+                  </div>
+                  <textarea id="expObs" rows="2" placeholder="Ej. Causa conexa en DI T6" value="{{ expObsVal }}" onChange="{{ setExpObs }}" style="width:100%;min-height:64px;padding:10px 12px;border:1px solid var(--border-2);border-radius:var(--r);background:var(--surface);font-size:14px;line-height:1.5;color:var(--ink);font-family:inherit;resize:vertical"></textarea>
+                  <div style="font-size:12px;color:var(--faint);margin-top:6px">Opcional. Va en el recuadro Observaciones de la carátula y no se guarda en la causa.</div>
+                </div>
+                <div style="margin-top:12px;font-size:12px;line-height:1.5;color:var(--faint);text-wrap:pretty">¿Hay que corregir algo en la carátula? <button type="button" onClick="{{ modificarCausa }}" style="display:inline-flex;align-items:center;gap:4px;background:none;border:none;padding:0;font:inherit;font-weight:600;color:var(--primary);cursor:pointer;text-decoration:underline;text-decoration-color:color-mix(in srgb, var(--primary) 35%, transparent);text-underline-offset:3px" style-hover="text-decoration-color:var(--primary)">Modificá los datos de la causa<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></button> y la carátula se actualiza sola.</div>
+              </div>
+            </section>
+
+            <section style="background:var(--surface);border:var(--panel-bd);border-radius:var(--r);box-shadow:var(--card-sh);overflow:hidden">
+              <div style="padding:16px 22px;border-bottom:1px solid var(--border);background:var(--sunken);display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                <span style="font-family:'Roboto Mono',monospace;font-size:12px;color:var(--muted)">2</span>
+                <h2 style="font-size:16px;font-weight:700;margin:0;flex:1">Documentos de la causa</h2>
+                <button type="button" onClick="{{ expTodos }}" style="background:none;border:none;padding:0;color:var(--primary);font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap">{{ expTodosLabel }}</button>
+              </div>
+              <div style="padding:16px 22px 20px;display:flex;flex-direction:column;gap:8px" onDragOver="{{ expListOver }}">
+                <sc-for list="{{ expDocs }}" as="d" hint-placeholder-count="3">
+                  <div data-exp-doc="{{ d.id }}" onPointerDown="{{ d.agarrar }}" style="{{ d.filaCss }}">
+                    <svg width="12" height="18" viewBox="0 0 12 18" aria-hidden="true" style="flex:0 0 12px;color:var(--faint)"><g fill="currentColor"><circle cx="3" cy="3" r="1.4"></circle><circle cx="9" cy="3" r="1.4"></circle><circle cx="3" cy="9" r="1.4"></circle><circle cx="9" cy="9" r="1.4"></circle><circle cx="3" cy="15" r="1.4"></circle><circle cx="9" cy="15" r="1.4"></circle></g></svg>
+                    <span style="font-family:'Roboto Mono',monospace;font-size:12px;color:var(--ink);width:18px;text-align:right">{{ d.orden }}</span>
+                    <span style="{{ d.extCss }}">{{ d.ext }}</span>
+                    <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+                      <span style="font-size:13.5px;font-weight:600;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ d.nombre }}</span>
+                      <span style="font-size:12px;color:var(--muted)">{{ d.meta }}<span style="{{ d.convCss }}"> · Se convierte a PDF</span></span>
+                    </div>
+                    <button type="button" onClick="{{ d.toggle }}" aria-label="{{ d.quitarAria }}" style="height:28px;padding:0 10px;border:none;border-radius:var(--r-btn);background:transparent;color:var(--muted);font-size:12.5px;font-weight:600;cursor:pointer" style-hover="background:var(--sunken);color:#8E1F19">Quitar</button>
+                  </div>
+                </sc-for>
+                <div onDragOver="{{ expFinOver }}" onDrop="{{ expFinDrop }}" style="{{ expFinCss }}"></div>
+                <sc-if value="{{ expNingunoSel }}" hint-placeholder-val="{{ false }}">
+                  <div style="padding:18px;border:1.5px dashed var(--border-2);border-radius:var(--r);text-align:center;font-size:13px;color:var(--muted)">Agregá documentos desde la lista de abajo.</div>
+                </sc-if>
+                <span style="font-size:12px;color:var(--faint)">Arrastrá para cambiar el orden.</span>
+
+                <sc-if value="{{ expHayOtros }}" hint-placeholder-val="{{ false }}">
+                  <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:6px">
+                    <span style="font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:4px">No incluidos</span>
+                    <sc-for list="{{ expOtros }}" as="d" hint-placeholder-count="0">
+                      <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border:1px dashed var(--border-2);border-radius:var(--r);background:var(--surface)">
+                        <span style="{{ d.extCss }}">{{ d.ext }}</span>
+                        <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+                          <span style="font-size:13.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ d.nombre }}</span>
+                          <span style="font-size:12px;color:var(--faint)">{{ d.meta }}</span>
+                        </div>
+                        <button type="button" onClick="{{ d.toggle }}" style="height:30px;padding:0 12px;border:1px solid var(--border-2);border-radius:var(--r-btn);background:var(--surface);color:var(--primary);font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap" style-hover="background:var(--primary-soft);border-color:var(--primary)">Incluir</button>
+                      </div>
+                    </sc-for>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ expSinDocs }}" hint-placeholder-val="{{ false }}">
+                  <div style="padding:6px 0;font-size:13px;color:var(--muted)">La causa todavía no tiene documentos cargados.</div>
+                </sc-if>
+              </div>
+            </section>
+          </div>
+
+          <aside style="background:var(--surface);border:var(--panel-bd);border-radius:var(--r);box-shadow:var(--card-sh);position:sticky;top:104px;overflow:hidden">
+            <div style="padding:15px 18px;border-bottom:1px solid var(--border)">
+              <h2 style="font-size:15px;font-weight:700;margin:0">Resultado</h2>
+              <div style="font-family:'Roboto Mono',monospace;font-size:12px;color:var(--muted);margin-top:4px;word-break:break-all">{{ expArchivo }}</div>
+            </div>
+            <ol style="list-style:none;margin:0;padding:10px 18px;display:flex;flex-direction:column">
+              <sc-for list="{{ expIndice }}" as="x" hint-placeholder-count="3">
+                <li style="display:flex;gap:10px;align-items:baseline;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px">
+                  <span style="font-family:'Roboto Mono',monospace;font-size:12px;color:var(--faint);flex:0 0 18px">{{ x.n }}</span>
+                  <span style="{{ x.css }}">{{ x.nombre }}</span>
+                </li>
+              </sc-for>
+            </ol>
+            <div style="padding:6px 18px 16px;font-size:12.5px;color:var(--muted);line-height:1.5">{{ expResumen }}</div>
+            <div style="padding:14px 18px;border-top:1px solid var(--border);background:var(--sunken);display:flex;flex-direction:column;gap:8px">
+              <button type="button" onClick="{{ expGenerar }}" disabled="{{ expNoListo }}" style="{{ expGenerarCss }}">Generar PDF</button>
+              <span style="font-size:12px;color:var(--faint);line-height:1.45">{{ expAyuda }}</span>
+            </div>
+          </aside>
+        </div>
+
+        <sc-if value="{{ expPrev }}" hint-placeholder-val="{{ false }}">
+          <div onClick="{{ expPrevCerrar }}" style="position:fixed;inset:0;z-index:80;background:rgba(12,20,6,.55);display:flex;flex-direction:column;align-items:center;padding:20px;overflow-y:auto">
+            <div onClick="{{ expStop }}" role="dialog" aria-modal="true" aria-label="Vista previa de la carátula" style="display:flex;flex-direction:column;gap:12px;margin:auto 0">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;color:#fff">
+                <span style="font-size:14px;font-weight:600">Vista previa de la carátula · hoja 1 del expediente</span>
+                <button type="button" onClick="{{ expPrevCerrar }}" style="height:34px;padding:0 16px;border:1px solid rgba(255,255,255,.4);border-radius:var(--r-btn);background:transparent;color:#fff;font-size:13px;font-weight:600;cursor:pointer" style-hover="background:rgba(255,255,255,.12)">Cerrar</button>
+              </div>
+              <div style="box-shadow:0 24px 60px rgba(0,0,0,.35);max-width:calc(100vw - 40px);overflow-x:auto">
+                  <div style="position:relative;width:595px;height:842px;background:#FFFFFF url(assets/caratula-plantilla.png) center/100% 100% no-repeat;color:#0F172A;font-family:Figtree,system-ui,sans-serif">
+                    <div style="position:absolute;left:383px;top:170px;width:170px;height:42px;display:flex;align-items:center;justify-content:center;font-family:'Roboto Mono',monospace;font-size:13px;font-weight:500;letter-spacing:.04em">{{ expHojaSac }}</div>
+                    <div style="position:absolute;left:109px;top:236px;width:443px;height:85px;padding:7px 9px;box-sizing:border-box;overflow:hidden;font-size:10.5px;line-height:1.4;font-weight:500;text-transform:uppercase;white-space:pre-line;font-weight:700">{{ expHojaAutos }}</div>
+                    <div style="position:absolute;left:109px;top:352px;width:443px;height:85px;padding:7px 9px;box-sizing:border-box;overflow:hidden;font-size:10.5px;line-height:1.4;font-weight:500;text-transform:uppercase;white-space:pre-line;">{{ expHojaActor }}</div>
+                    <div style="position:absolute;left:109px;top:468px;width:443px;height:85px;padding:7px 9px;box-sizing:border-box;overflow:hidden;font-size:10.5px;line-height:1.4;font-weight:500;text-transform:uppercase;white-space:pre-line;">{{ expHojaDem }}</div>
+                    <div style="position:absolute;left:109px;top:584px;width:443px;height:85px;padding:7px 9px;box-sizing:border-box;overflow:hidden;font-size:10.5px;line-height:1.4;font-weight:500;text-transform:uppercase;white-space:pre-line;white-space:normal"><div>{{ expHojaOrgano }}</div><div>SECRETARIO/A: {{ expHojaInst }}</div></div>
+                    <div style="position:absolute;left:109px;top:700px;width:443px;height:85px;padding:7px 9px;box-sizing:border-box;overflow:hidden;font-size:10.5px;line-height:1.4;font-weight:500;text-transform:uppercase;white-space:pre-line;">{{ expHojaObs }}</div>
+                  </div>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ expListo }}" hint-placeholder-val="{{ false }}">
+          <div onClick="{{ expCerrar }}" style="position:fixed;inset:0;z-index:80;background:rgba(12,20,6,.45);display:flex;align-items:center;justify-content:center;padding:20px">
+            <div role="dialog" aria-modal="true" aria-labelledby="expListoT" onClick="{{ expStop }}" style="width:100%;max-width:440px;background:var(--surface);border-radius:var(--r);box-shadow:0 24px 60px rgba(12,20,6,.28);overflow:hidden">
+              <div style="padding:24px 24px 18px;display:flex;flex-direction:column;gap:14px">
+                <div style="display:flex;align-items:center;gap:12px">
+                  <span style="width:36px;height:36px;border-radius:50%;background:var(--primary-soft);display:flex;align-items:center;justify-content:center;flex:0 0 36px">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>
+                  </span>
+                  <h2 id="expListoT" style="font-size:17px;font-weight:700;margin:0">Expediente generado</h2>
+                </div>
+                <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--border);border-radius:var(--r);background:var(--sunken)">
+                  <span style="font-family:'Roboto Mono',monospace;font-size:10.5px;font-weight:600;letter-spacing:.04em;padding:3px 6px;border-radius:4px;background:#F7E9E7;color:#8E1F19">PDF</span>
+                  <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+                    <span style="font-family:'Roboto Mono',monospace;font-size:13px;font-weight:500;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ expArchivo }}</span>
+                    <span style="font-size:12px;color:var(--muted)">{{ expListoMeta }}</span>
+                  </div>
+                </div>
+                <span style="font-size:13px;color:var(--muted);line-height:1.5">Quedó guardado como nueva versión en la documentación de la causa y en su carpeta de Drive. Las versiones anteriores se conservan. Podés descargarlo e imprimirlo desde acá.</span>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                  <button type="button" onClick="{{ expDescargar }}" style="height:42px;padding:0 14px;border:1px solid var(--border-2);border-radius:var(--r-btn);background:var(--surface);color:var(--ink);font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap" style-hover="background:var(--canvas)">{{ expDescargarLabel }}</button>
+                  <button type="button" onClick="{{ expImprimir }}" style="height:42px;padding:0 14px;border:1px solid var(--border-2);border-radius:var(--r-btn);background:var(--surface);color:var(--ink);font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap" style-hover="background:var(--canvas)">{{ expImprimirLabel }}</button>
+                </div>
+              </div>
+              <div style="padding:14px 24px;border-top:1px solid var(--border);background:var(--sunken);display:flex;gap:8px;flex-wrap:wrap;justify-content:space-between;align-items:center">
+                <button type="button" onClick="{{ expCerrar }}" style="height:40px;padding:0 14px;border:none;border-radius:var(--r-btn);background:transparent;color:var(--ink);font-size:13.5px;font-weight:600;cursor:pointer" style-hover="background:var(--canvas)">Seguir editando</button>
+                <button type="button" onClick="{{ expVolver }}" style="height:40px;padding:0 18px;border:none;border-radius:var(--r-btn);background:var(--primary);color:#fff;font-size:14px;font-weight:600;cursor:pointer" style-hover="background:var(--primary-hi)">Volver a la causa</button>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+      </sc-if>
+
       <!-- ══════ SIN ACCESO ══════ -->
       <sc-if value="{{ esSinAcceso }}" hint-placeholder-val="{{ false }}">
       <div style="display:flex;flex-direction:column;gap:16px" data-screen-label="Sin acceso">
@@ -2241,13 +2418,13 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
           <div style="{{ f.wrapCss }}">
             <label for="{{ f.id }}" style="{{ f.labelCss }}">{{ f.label }}<span style="color:#B3261E">{{ f.reqMark }}</span></label>
             <sc-if value="{{ f.esTexto }}" hint-placeholder-val="{{ true }}">
-              <input id="{{ f.id }}" type="text" placeholder="{{ f.ph }}" value="{{ f.valor }}" onChange="{{ f.set }}" style="{{ f.inputCss }}">
+              <input id="{{ f.id }}" type="text" placeholder="{{ f.ph }}" value="{{ f.valor }}" onChange="{{ f.set }}" readOnly="{{ f.soloLectura }}" style="{{ f.inputCss }}">
             </sc-if>
             <sc-if value="{{ f.esPass }}" hint-placeholder-val="{{ false }}">
               <input id="{{ f.id }}" type="password" value="{{ f.valor }}" onChange="{{ f.set }}" style="{{ f.inputCss }}">
             </sc-if>
             <sc-if value="{{ f.esFecha }}" hint-placeholder-val="{{ false }}">
-              <input id="{{ f.id }}" type="date" value="{{ f.valor }}" onChange="{{ f.set }}" style="{{ f.inputCss }}">
+              <input id="{{ f.id }}" type="date" value="{{ f.valor }}" onChange="{{ f.set }}" disabled="{{ f.deshab }}" style="{{ f.inputCss }}">
             </sc-if>
             <sc-if value="{{ f.esSelect }}" hint-placeholder-val="{{ false }}">
               <select id="{{ f.id }}" value="{{ f.valor }}" onChange="{{ f.set }}" style="{{ f.selectCss }}">
@@ -2255,6 +2432,30 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
                   <option value="{{ o.v }}">{{ o.t }}</option>
                 </sc-for>
               </select>
+            </sc-if>
+            <sc-if value="{{ f.esCombo }}" hint-placeholder-val="{{ false }}">
+              <div style="position:relative">
+                <input id="{{ f.id }}" type="text" role="combobox" aria-expanded="{{ f.combo.abierto }}" autocomplete="off" placeholder="{{ f.ph }}" value="{{ f.valor }}" onChange="{{ f.combo.escribir }}" onFocus="{{ f.combo.abrir }}" onClick="{{ f.combo.abrir }}" onBlur="{{ f.combo.cerrar }}" onKeyDown="{{ f.combo.tecla }}" style="width:100%;height:42px;padding:0 38px 0 12px;border:1px solid var(--border-2);border-radius:var(--r);background:var(--surface);font-size:14px;color:var(--ink)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;right:13px;top:14px;pointer-events:none" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg>
+                <sc-if value="{{ f.combo.abierto }}" hint-placeholder-val="{{ false }}">
+                  <div role="listbox" style="position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:30;max-height:240px;overflow-y:auto;background:var(--surface);border:1px solid var(--border-2);border-radius:var(--r);box-shadow:0 10px 28px rgba(15,23,42,.14);padding:4px">
+                    <sc-for list="{{ f.combo.opciones }}" as="o" hint-placeholder-count="5">
+                      <div role="option" aria-selected="{{ o.activa }}" onMouseDown="{{ o.elegir }}" onMouseEnter="{{ o.hover }}" style="{{ o.css }}">
+                        <div style="flex:1;min-width:0">
+                          <div style="{{ o.tituloCss }}">{{ o.titulo }}<span style="font-weight:400;color:var(--faint)">{{ o.sub }}</span></div>
+                        </div>
+                        <span style="{{ o.checkCss }}">✓</span>
+                      </div>
+                    </sc-for>
+                    <sc-if value="{{ f.combo.vacio }}" hint-placeholder-val="{{ false }}">
+                      <div style="padding:10px 12px;font-size:13px;color:var(--faint)">Escribí el estado procesal.</div>
+                    </sc-if>
+                  </div>
+                </sc-if>
+              </div>
+              <sc-if value="{{ f.combo.libre }}" hint-placeholder-val="{{ false }}">
+                <div style="font-size:12px;color:#7A5C1E;margin-top:6px;line-height:1.45">{{ f.combo.libreNota }}</div>
+              </sc-if>
             </sc-if>
             <sc-if value="{{ f.esMulti }}" hint-placeholder-val="{{ false }}">
               <div style="position:relative">
@@ -2495,16 +2696,16 @@ const ESTADOS = {
 const NOMS = f => (ESTADOS[f] || []).map(e => e.nombre);
 
 const CAUSAS = [
-  { id: 1, instructor: 'Dra. Verónica Ledesma', telefono: '0351 448-1200', interno: '214', sac: '13284571', caratula: 'GÓMEZ, Ariel Fernando p.s.a. Robo calificado', tribunal: 'Juzgado de Control N° 3 · Córdoba', fuero: 'Penal', rol: 'Defensa', estado: 'Oposición al requerimiento de elevación', abogado: 'Dra. Malena Ríos', dias: 1, fecha: '16/09/2026',
+  { id: 1, inicio: '14/03/2024', instructor: 'Dra. Verónica Ledesma', telefono: '0351 448-1200', interno: '214', sac: '13284571', caratula: 'GÓMEZ, Ariel Fernando p.s.a. Robo calificado', tribunal: 'Juzgado de Control N° 3 · Córdoba', fuero: 'Penal', rol: 'Defensa', estado: 'Oposición al requerimiento de elevación', abogado: 'Dra. Malena Ríos', dias: 1, fecha: '16/09/2026',
     calificacion: 'Robo calificado — art. 167 inc. 2 CP · 8 años', prescDesde: '04/07/2024', prescHasta: '04/07/2032', prescPct: 27, prescRestante: 'Restan 5 años 9 meses', prescNota: 'Cómputo reiniciado por el acto interruptivo registrado el 04/07/2024.' },
-  { id: 2, instructor: 'Crio. Insp. Raúl Bazán', telefono: '0351 428-6000', interno: '3120', sac: '12907344', caratula: 'PEREYRA, Marcos D. — Sumario administrativo', tribunal: 'Tribunal de Conducta Policial y Penitenciario', fuero: 'Administrativo', rol: 'Defensa', estado: 'Alegato', abogado: 'Dr. Ignacio Peralta', dias: -2, fecha: '11/09/2026' },
-  { id: 3, instructor: 'Dr. Martín Sosa', telefono: '0351 448-1600', interno: '402', sac: '14002188', caratula: 'LUDUEÑA, Silvia c/ Provincia de Córdoba — Amparo', tribunal: 'Juzgado Civil y Comercial 21ª Nom.', fuero: 'Amparo', rol: 'Actora', estado: 'Aporto la prueba', abogado: 'Dra. Carolina Bustos', dias: 3, fecha: '18/09/2026' },
-  { id: 4, instructor: 'Fisc. Adj. Paula Rinaldi', telefono: '0351 448-1150', interno: '118', sac: '11845620', caratula: 'ACOSTA, Jonathan E. p.s.a. Infracción Ley 23.737', tribunal: 'Fiscalía de Instrucción Distrito 2 Turno 4', fuero: 'Penal', rol: 'Defensa', estado: 'Cédula de notificación', abogado: 'Dr. Fernando G. Vázquez', dias: null, fecha: '—',
+  { id: 2, inicio: '02/08/2025', contra: 'Tribunal de Conducta Policial y Penitenciario', instructor: 'Crio. Insp. Raúl Bazán', telefono: '0351 428-6000', interno: '3120', sac: '12907344', caratula: 'PEREYRA, Marcos D. — Sumario administrativo', tribunal: 'Tribunal de Conducta Policial y Penitenciario', fuero: 'Administrativo', rol: 'Defensa', estado: 'Alegato', abogado: 'Dr. Ignacio Peralta', dias: -2, fecha: '11/09/2026' },
+  { id: 3, inicio: '21/05/2026', contra: 'Provincia de Córdoba', instructor: 'Dr. Martín Sosa', telefono: '0351 448-1600', interno: '402', sac: '14002188', caratula: 'LUDUEÑA, Silvia c/ Provincia de Córdoba — Amparo', tribunal: 'Juzgado Civil y Comercial 21ª Nom.', fuero: 'Amparo', rol: 'Actora', estado: 'Aporto la prueba', abogado: 'Dra. Carolina Bustos', dias: 3, fecha: '18/09/2026' },
+  { id: 4, inicio: '09/11/2023', instructor: 'Fisc. Adj. Paula Rinaldi', telefono: '0351 448-1150', interno: '118', sac: '11845620', caratula: 'ACOSTA, Jonathan E. p.s.a. Infracción Ley 23.737', tribunal: 'Fiscalía de Instrucción Distrito 2 Turno 4', fuero: 'Penal', rol: 'Defensa', estado: 'Cédula de notificación', abogado: 'Dr. Fernando G. Vázquez', dias: null, fecha: '—',
     calificacion: 'Infracción Ley 23.737 — art. 5 inc. c · 6 años', prescDesde: '19/01/2022', prescHasta: '19/01/2028', prescPct: 78, prescRestante: 'Restan 1 año 4 meses', prescNota: 'Sin actos interruptivos registrados: el cómputo corre desde la fecha del hecho.' },
-  { id: 5, instructor: 'Crio. Insp. Raúl Bazán', telefono: '0351 428-6000', interno: '3120', sac: '13560902', caratula: 'QUIROGA, Néstor A. — Recurso de reconsideración', tribunal: 'Tribunal de Conducta Policial y Penitenciario', fuero: 'Administrativo', rol: 'Defensa', estado: 'Recurso de reconsideración', abogado: 'Dr. Oscar Zárate', dias: 10, fecha: '29/09/2026', plazoAmparo: true },
-  { id: 6, instructor: 'Dra. Inés Ferrero', telefono: '0351 448-1600', interno: '517', sac: '12774310', caratula: 'MOYANO, Daniela c/ APROSS — Amparo de salud', tribunal: 'Juzgado Civil y Comercial 37ª Nom.', fuero: 'Amparo', rol: 'Actora', estado: 'Traslado a la demandada', abogado: 'Dr. Fernando G. Vázquez', dias: 0, fecha: '15/09/2026' },
-  { id: 7, instructor: 'Dr. Martín Sosa', telefono: '0351 448-1600', interno: '402', sac: '10233874', caratula: 'FIGUEROA, Raúl A. p.s.a. Hurto simple', tribunal: 'Juzgado de Control N° 1 · Córdoba', fuero: 'Penal', rol: 'Defensa', estado: 'Archivada', abogado: 'Dr. Ignacio Peralta', dias: null, fecha: '—' },
-  { id: 8, instructor: 'Fisc. Adj. Paula Rinaldi', telefono: '0351 448-1150', interno: '118', sac: '9871650', caratula: 'LEDESMA, Pablo M. p.s.a. Hurto simple', tribunal: 'Fiscalía de Instrucción Distrito 1 Turno 2', fuero: 'Penal', rol: 'Defensa', estado: 'Prescripta', abogado: 'Dra. Carolina Bustos', dias: null, fecha: '—',
+  { id: 5, inicio: '17/02/2026', contra: 'Tribunal de Conducta Policial y Penitenciario', instructor: 'Crio. Insp. Raúl Bazán', telefono: '0351 428-6000', interno: '3120', sac: '13560902', caratula: 'QUIROGA, Néstor A. — Recurso de reconsideración', tribunal: 'Tribunal de Conducta Policial y Penitenciario', fuero: 'Administrativo', rol: 'Defensa', estado: 'Recurso de reconsideración', abogado: 'Dr. Oscar Zárate', dias: 10, fecha: '29/09/2026', plazoAmparo: true },
+  { id: 6, inicio: '30/06/2026', contra: 'APROSS', instructor: 'Dra. Inés Ferrero', telefono: '0351 448-1600', interno: '517', sac: '12774310', caratula: 'MOYANO, Daniela c/ APROSS — Amparo de salud', tribunal: 'Juzgado Civil y Comercial 37ª Nom.', fuero: 'Amparo', rol: 'Actora', estado: 'Traslado a la demandada', abogado: 'Dr. Fernando G. Vázquez', dias: 0, fecha: '15/09/2026' },
+  { id: 7, inicio: '05/04/2022', instructor: 'Dr. Martín Sosa', telefono: '0351 448-1600', interno: '402', sac: '10233874', caratula: 'FIGUEROA, Raúl A. p.s.a. Hurto simple', tribunal: 'Juzgado de Control N° 1 · Córdoba', fuero: 'Penal', rol: 'Defensa', estado: 'Archivada', abogado: 'Dr. Ignacio Peralta', dias: null, fecha: '—' },
+  { id: 8, inicio: '12/09/2021', instructor: 'Fisc. Adj. Paula Rinaldi', telefono: '0351 448-1150', interno: '118', sac: '9871650', caratula: 'LEDESMA, Pablo M. p.s.a. Hurto simple', tribunal: 'Fiscalía de Instrucción Distrito 1 Turno 2', fuero: 'Penal', rol: 'Defensa', estado: 'Prescripta', abogado: 'Dra. Carolina Bustos', dias: null, fecha: '—',
     calificacion: 'Hurto simple — art. 162 CP · 2 años', prescDesde: '10/03/2022', prescHasta: '10/03/2024', prescPct: 100, prescRestante: 'Prescripta', prescNota: 'Prescripción de la acción operada.' }
 ];
 
@@ -2521,9 +2722,9 @@ const DETALLE = {
       { fecha: '09/09/2026', acto: 'Cédula de notificación', estado: 'Oposición al requerimiento de elevación', nota: 'Abre el plazo de 5 días hábiles para oponerse.', abierto: true, vence: '16/09/2026' }
     ],
     docs: [
-      { nombre: 'Requerimiento de elevación a juicio.pdf', meta: 'Recibido · 02/09/2026 · 412 KB' },
-      { nombre: 'Cédula de notificación.pdf', meta: 'Recibido · 09/09/2026 · 88 KB' },
-      { nombre: 'Convenio de honorarios.pdf', meta: 'Cargado · 12/03/2021 · 205 KB' }
+      { nombre: 'Requerimiento de elevación a juicio.pdf', por: 'Malena Ríos', meta: '02/09/2026 · 412 KB' },
+      { nombre: 'Cédula de notificación.pdf', por: 'Gestión Estudio', meta: '09/09/2026 · 88 KB' },
+      { nombre: 'Convenio de honorarios.pdf', por: 'Gestión Estudio', meta: '12/03/2021 · 205 KB' }
     ]
   },
   2: {
@@ -2534,8 +2735,8 @@ const DETALLE = {
       { fecha: '04/09/2026', acto: 'Clausura del sumario', estado: 'Alegato', nota: 'Abre el plazo de alegato. Plazo vencido sin presentación registrada.', abierto: true, vence: '11/09/2026', vencido: true }
     ],
     docs: [
-      { nombre: 'Acta de imputación.pdf', meta: 'Recibido · 18/05/2026 · 156 KB' },
-      { nombre: 'Descargo presentado.pdf', meta: 'Presentado · 28/08/2026 · 340 KB' }
+      { nombre: 'Acta de imputación.pdf', por: 'Romina Ávila', meta: '18/05/2026 · 156 KB' },
+      { nombre: 'Descargo presentado.pdf', por: 'Ignacio Peralta', meta: '28/08/2026 · 340 KB' }
     ]
   },
   3: {
@@ -2546,8 +2747,8 @@ const DETALLE = {
       { fecha: '11/09/2026', acto: 'Decreto de prueba', estado: 'Aporto la prueba', nota: 'Abre el plazo para aportar la prueba ordenada.', abierto: true, vence: '18/09/2026' }
     ],
     docs: [
-      { nombre: 'Demanda de amparo.pdf', meta: 'Presentado · 21/07/2026 · 520 KB' },
-      { nombre: 'Decreto de prueba.pdf', meta: 'Recibido · 11/09/2026 · 74 KB' }
+      { nombre: 'Demanda de amparo.pdf', por: 'Carolina Bustos', meta: '21/07/2026 · 520 KB' },
+      { nombre: 'Decreto de prueba.pdf', por: 'Gestión Estudio', meta: '11/09/2026 · 74 KB' }
     ]
   },
   4: {
@@ -2556,7 +2757,7 @@ const DETALLE = {
       { fecha: '19/01/2022', acto: 'Designación de abogado defensor', estado: 'Designación de abogado defensor', nota: 'El estudio asume la defensa técnica.' },
       { fecha: '06/07/2026', acto: 'Cédula de notificación', estado: 'Cédula de notificación', nota: 'Última actuación registrada. Sin movimiento desde hace 71 días.' }
     ],
-    docs: [{ nombre: 'Acta de procedimiento.pdf', meta: 'Recibido · 19/01/2022 · 288 KB' }]
+    docs: [{ nombre: 'Acta de procedimiento.pdf', por: 'Romina Ávila', meta: '19/01/2022 · 288 KB' }]
   },
   5: {
     cliente: { nombre: 'Néstor A. Quiroga', dni: '26.774.309', tel: '351 519-3320', mail: 'naquiroga@gmail.com', desde: '02/06/2026' },
@@ -2564,7 +2765,7 @@ const DETALLE = {
       { fecha: '02/06/2026', acto: 'Notificación de imputación en sumario', estado: 'Notificación de imputación en sumario', nota: 'Tribunal de Conducta Policial y Penitenciario.' },
       { fecha: '15/09/2026', acto: 'Notificación de la resolución', estado: 'Recurso de reconsideración', nota: 'Abre 10 días hábiles desde la notificación.', abierto: true, vence: '29/09/2026' }
     ],
-    docs: [{ nombre: 'Resolución del Tribunal de Conducta.pdf', meta: 'Recibido · 12/09/2026 · 190 KB' }]
+    docs: [{ nombre: 'Resolución del Tribunal de Conducta.pdf', por: 'Gestión Estudio', meta: '12/09/2026 · 190 KB' }]
   },
   6: {
     cliente: { nombre: 'Daniela Moyano', dni: '33.028.514', tel: '351 267-8891', mail: 'dmoyano@gmail.com', desde: '08/09/2026' },
@@ -2572,7 +2773,7 @@ const DETALLE = {
       { fecha: '08/09/2026', acto: 'Interposición de demanda de amparo', estado: 'Interposición de demanda de amparo', nota: 'Amparo de salud contra APROSS.' },
       { fecha: '10/09/2026', acto: 'Decreto de traslado', estado: 'Traslado a la demandada', nota: 'Vence hoy.', abierto: true, vence: '15/09/2026', hoy: true }
     ],
-    docs: [{ nombre: 'Demanda de amparo — APROSS.pdf', meta: 'Presentado · 08/09/2026 · 468 KB' }]
+    docs: [{ nombre: 'Demanda de amparo — APROSS.pdf', por: 'Fernando G. Vázquez', meta: '08/09/2026 · 468 KB' }]
   }
 };
 
@@ -2653,6 +2854,14 @@ const califCorto = k => k.nombre.split(' — ')[0];
 const fmtPresc = m => { const a = Math.floor(m / 12), r = m % 12; return (a ? a + (a === 1 ? ' año' : ' años') : '') + (a && r ? ' y ' : '') + (r ? r + (r === 1 ? ' mes' : ' meses') : '') || '0 meses'; };
 
 const MODELOS_FUERO = { Penal: 6, Administrativo: 4, Amparo: 3 };
+const PLANTILLA_TXT = { Penal: 'Penal', Administrativo: 'Administrativo', Amparo: 'Administrativo' };
+// Partes de la carátula (GET /cases/{id}/cover). En penal, la parte que no es el cliente la envía el usuario al generar el expediente (cover.opposingParty).
+const apNom = n => { const p = String(n || '').replace(/^(Dra?\.|Dr\.)\s*/, '').trim().split(/\s+/); return p.length > 1 ? p[p.length - 1] + ' ' + p.slice(0, -1).join(' ') : p[0] || ''; };
+const carSug = (fuero, rol, cli, abog, contra, otra) => {
+  const def = abog ? 'DEFENSOR: DR/DRA. ' + apNom(abog).toUpperCase() : '', c = (cli || '').toUpperCase(), o = (contra || '').toUpperCase(), x = (otra || '').toUpperCase();
+  if (fuero === 'Penal') return rol === 'Querellante particular' ? { actor: c ? 'QUERELLANTE (' + c + ')' + (def ? '\n' + def : '') : '', demandado: x } : { actor: x, demandado: c ? c + (def ? '\n' + def : '') : '' };
+  return rol === 'Demandada' ? { actor: o, demandado: c } : { actor: c, demandado: o };
+};
 const ROLES_FUERO = { Penal: ['Defensa', 'Querellante particular'], Administrativo: ['Defensa', 'Recurrente'], Amparo: ['Actora', 'Demandada'] };
 const MES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 
@@ -2695,7 +2904,7 @@ class Component extends DCLogic {
     modal: null, mv: {}, tabModelos: 'Todos', repTab: 'abogado', docTipo: 'caratula',
     notifActivo: true, notifMail: 'estudio@vazquezyzarate.com.ar', notifDias: '3', notifHora: '08:00', notifCopia: true,
     ncSac: '', ncFuero: 'Penal', ncCaratula: '', ncTribunal: '', ncInstructor: '', ncTel: '', ncInterno: '', ncCliente: '', ncRol: 'Defensa',
-    ncCalifs: [], ncCalifFechas: {}, ncContra: '', ncObjeto: '', ncResp: '', ncFecha: '2026-09-15', ncDrive: true, ncModelos: true, ncConvenio: false,
+    ncCalifs: [], ncCalifFechas: {}, ncContra: '', ncObjeto: '', ncResp: '', ncFecha: '', ncDrive: true, ncModelos: true, ncConvenio: false,
     ncPreso: false, ncCautelar: false, ncTasa: false, ncActoLesivo: '', ncAgotamiento: ''
   };
 
@@ -2780,13 +2989,16 @@ class Component extends DCLogic {
     }
     const mv = {};
     (spec.campos || []).forEach(c => { mv[c.k] = c.valor === undefined ? (c.tipo === 'check' ? false : '') : c.valor; if (c.tipo === 'califs') mv[c.k + '_f'] = Object.assign({}, c.fechas || {}); });
+    this._mv0 = JSON.stringify(mv);
     this.setState({ modal: spec, mv });
   }
   cerrar() { this.setState({ modal: null, mv: {} }); }
   confirmar() {
     const m = this.state.modal;
     if (!m) return;
-    const falta = (m.campos || []).filter(c => !c.si || c.si(this.state.mv)).some(c => c.req && !String(this.state.mv[c.k] || '').trim());
+    if (m.sinCambiosCierra && JSON.stringify(this.state.mv) === this._mv0) { this.cerrar(); return; }
+    const req = c => typeof c.req === 'function' ? c.req(this.state.mv) : c.req;
+    const falta = (m.campos || []).filter(c => !c.si || c.si(this.state.mv)).some(c => req(c) && !String(this.state.mv[c.k] || '').trim());
     if (falta) { this.aviso('Faltan datos obligatorios en el formulario.'); return; }
     const msg = typeof m.ok === 'function' ? m.ok(this.state.mv) : m.ok;
     this.cerrar();
@@ -2869,8 +3081,75 @@ class Component extends DCLogic {
     return 'width:7px;height:7px;border-radius:50%;flex:0 0 7px;' + (hueco ? 'border:1.5px solid ' + c : 'background:' + c);
   }
 
+  expSel(cid) {
+    const s = this.state, docs = (DETALLE[cid] || {}).docs || [];
+    const orden = (s.expCausa === cid && s.expOrden) ? s.expOrden : docs.map((_, i) => i).filter(i => !docs[i].expediente);
+    return orden.filter(i => docs[i]);
+  }
+
+  expEl(id) { return document.querySelector('[data-exp-doc="' + id + '"]'); }
+
+  agarrarExp(e, id, cid) {
+    if (e.button !== 0 || (e.target.closest && e.target.closest('button'))) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    this._drag = { id, cid, startY: e.clientY, y: e.clientY, grab: e.clientY - r.top, h: r.height, ty: 0, moved: false };
+    const move = ev => {
+      const d = this._drag; if (!d) return;
+      d.y = ev.clientY;
+      if (!d.moved) {
+        if (Math.abs(d.y - d.startY) < 4) return;
+        d.moved = true; document.body.style.cursor = 'grabbing';
+        this.setState({ expDrag: this.expSel(cid).indexOf(+id) });
+      }
+      ev.preventDefault();
+      this.posExp(); this.reordExp();
+    };
+    const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up); this.soltarExp(); };
+    window.addEventListener('pointermove', move); window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up);
+  }
+
+  posExp() {
+    const d = this._drag, el = d && this.expEl(d.id); if (!el) return;
+    const slot = el.getBoundingClientRect().top - d.ty;
+    d.ty = d.y - d.grab - slot;
+    el.style.transform = 'translateY(' + d.ty + 'px)';
+  }
+
+  reordExp() {
+    const d = this._drag, sel = this.expSel(d.cid), idx = sel.indexOf(+d.id); if (idx < 0) return;
+    const centro = d.y - d.grab + d.h / 2;
+    let target = 0;
+    sel.forEach(j => { if (String(j) === d.id) return; const el = this.expEl(j); if (!el) return; const r = el.getBoundingClientRect(); if (r.top + r.height / 2 < centro) target++; });
+    if (target === idx) return;
+    const o = sel.filter(j => String(j) !== d.id); o.splice(target, 0, +d.id);
+    this.setState({ expOrden: o, expCausa: d.cid, expDrag: target });
+  }
+
+  soltarExp() {
+    const d = this._drag; this._drag = null; document.body.style.cursor = '';
+    if (!d || !d.moved) return;
+    const el = this.expEl(d.id);
+    if (el) { el.style.transform = ''; if (el.animate) el.animate([{ transform: 'translateY(' + d.ty + 'px)' }, { transform: 'none' }], { duration: 200, easing: 'cubic-bezier(.2,.7,.3,1)' }); }
+    this.setState({ expDrag: null, expOver: null, expFlash: +d.id });
+    clearTimeout(this._flashT); this._flashT = setTimeout(() => this.setState({ expFlash: null }), 700);
+  }
+
+  animarExp() {
+    if (this.state.pantalla !== 'exp') { this._expPos = null; return; }
+    const prev = this._expPos || {}, next = {};
+    document.querySelectorAll('[data-exp-doc]').forEach(el => {
+      const id = el.getAttribute('data-exp-doc'), y = el.offsetTop; next[id] = y;
+      el.style.transform = '';
+      const dy = prev[id] != null ? prev[id] - y : 0;
+      if (dy && el.animate && !(this._drag && this._drag.id === id)) el.animate([{ transform: 'translateY(' + dy + 'px)' }, { transform: 'none' }], { duration: 200, easing: 'cubic-bezier(.2,.7,.3,1)' });
+    });
+    this._expPos = next;
+    if (this._drag && this._drag.moved) { this._drag.ty = 0; this.posExp(); }
+  }
+
   componentDidUpdate(pp, ps) {
     if (ps && ps.pantalla !== this.state.pantalla) window.scrollTo(0, 0);
+    this.animarExp();
     this.syncDrive();
   }
 
@@ -2894,6 +3173,20 @@ class Component extends DCLogic {
       const d = new Date();
       this.setState({ docsEstado: { id, cargando: false, hora: String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0') } });
     }, 900);
+  }
+
+  // Lo que el back arma solo con los datos de la causa para llenar la carátula. Observaciones es lo único que se carga al generar el expediente.
+  cliDe(c) {
+    const det = DETALLE[c.id] || {}, cl = det.cliente || {}, k = CLIENTES.find(x => x.dni === cl.dni);
+    return k ? k.apellido + ' ' + k.nombre : cl.nombre || '';
+  }
+
+  carDatos(c, observaciones, otraParte) {
+    const cs = carSug(c.fuero, c.rol, this.cliDe(c), c.abogado, c.contra, otraParte), v = x => x && x !== '—' && x !== 'Sin SAC' ? x : '';
+    return {
+      plantilla: c.fuero === 'Penal' ? 'PENAL' : 'ADMINISTRATIVO', sac: v(c.sac), autos: c.caratula, organo: v(c.tribunal), secretario: v(c.instructor),
+      actor: cs.actor, demandado: cs.demandado, observaciones: observaciones || ''
+    };
   }
 
   renderVals() {
@@ -3204,7 +3497,8 @@ class Component extends DCLogic {
     const sacValido = !s.ncSac || (sacOk && !sacDup);
     const fechasOk = kals.every(k => !!(s.ncCalifFechas || {})[k.id]);
     const objetoOk = ncPenal || !!(s.ncObjeto || '').trim();
-    const altaOk = sacValido && !!cli && !!s.ncResp && !!s.ncCaratula.trim() && fechasOk && objetoOk;
+    const fechaIniOk = !s.ncSac || !!s.ncFecha;
+    const altaOk = sacValido && fechaIniOk && !!cli && !!s.ncResp && !!s.ncCaratula.trim() && fechasOk && objetoOk;
     const check = (ok, texto) => ({
       texto, mark: ok ? '✓' : '○',
       markCss: 'flex:0 0 15px;font-size:12px;font-weight:700;line-height:1.35;color:' + (ok ? 'var(--primary)' : 'var(--border-2)'),
@@ -3247,14 +3541,43 @@ class Component extends DCLogic {
       const val = s.mv[c.k];
       const set = e => {
         const v = c.tipo === 'check' ? e.target.checked : e.target.value;
-        this.setState({ mv: Object.assign({}, this.state.mv, { [c.k]: v }) });
+        this.setState({ mv: Object.assign({}, this.state.mv, { [c.k]: v }, c.alCambiar ? c.alCambiar(v, this.state.mv) : {}) });
       };
       return {
-        id: 'mf' + i, label: c.label, reqMark: c.req ? ' *' : '', labelChk: c.label, ph: c.ph || '',
+        id: 'mf' + i, label: c.label, reqMark: (typeof c.req === 'function' ? c.req(s.mv) : c.req) ? ' *' : '', deshab: typeof c.deshab === 'function' ? c.deshab(s.mv) : !!c.deshab, labelChk: c.label, ph: c.ph || '',
         valor: val === undefined ? '' : val, marcado: !!val, set,
         esTexto: !c.tipo || c.tipo === 'text', esPass: c.tipo === 'pass', esSelect: c.tipo === 'select',
         esFecha: c.tipo === 'date', esArea: c.tipo === 'area', esCheck: c.tipo === 'check', esGrupo: c.tipo === 'grupo', esCalifs: c.tipo === 'califs',
-        esMulti: c.tipo === 'multi',
+        esMulti: c.tipo === 'multi', esCombo: c.tipo === 'combo',
+        combo: c.tipo === 'combo' ? (() => {
+          const mv = this.state.mv, txt = String(val || '').trim(), q = txt.toLowerCase(), items = c.items || [];
+          const match = txt ? items.find(a => a.nombre.toLowerCase() === q) : null;
+          const base = items.filter(a => !q || match || a.nombre.toLowerCase().indexOf(q) >= 0).map(a => ({ titulo: a.nombre, sub: a.sub || '', valor: a.nombre, sel: !!match && match.nombre === a.nombre, libre: false }));
+          if (txt && !match) base.push({ titulo: 'Usar «' + txt + '»', sub: ' · ' + (c.libreSub || 'Escrito a mano'), valor: txt, sel: false, libre: true });
+          const idx = mv[c.k + '_i'] || 0, abierto = !!mv[c.k + '_open'];
+          const upd = o => this.setState({ mv: Object.assign({}, this.state.mv, o) });
+          const opciones = base.map((o, j) => ({
+            ...o, activa: j === idx,
+            css: 'display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--r-sm);cursor:pointer;background:' + (j === idx ? 'var(--sunken)' : 'transparent') + (o.libre ? ';border-top:1px solid var(--border);margin-top:4px' : ''),
+            tituloCss: 'font-size:13.5px;line-height:1.35;color:' + (o.libre ? 'var(--primary-hi)' : 'var(--ink)') + ';font-weight:' + (o.sel || o.libre ? '600' : '500'),
+            checkCss: o.sel ? 'color:var(--primary);font-weight:700;font-size:13px' : 'display:none',
+            hover: () => { if ((this.state.mv[c.k + '_i'] || 0) !== j) upd({ [c.k + '_i']: j }); },
+            elegir: e => { if (e && e.preventDefault) e.preventDefault(); upd({ [c.k]: o.valor, [c.k + '_open']: false }); }
+          }));
+          return {
+            abierto, opciones, vacio: !opciones.length, libre: !!txt && !match, libreNota: c.libreNota || '',
+            escribir: e => upd({ [c.k]: e.target.value, [c.k + '_open']: true, [c.k + '_i']: 0 }),
+            abrir: () => { if (!this.state.mv[c.k + '_open']) upd({ [c.k + '_open']: true, [c.k + '_i']: 0 }); },
+            cerrar: () => upd({ [c.k + '_open']: false }),
+            tecla: e => {
+              const n = opciones.length;
+              if (e.key === 'ArrowDown') { e.preventDefault(); upd({ [c.k + '_open']: true, [c.k + '_i']: n ? (idx + (abierto ? 1 : 0)) % n : 0 }); }
+              else if (e.key === 'ArrowUp') { e.preventDefault(); upd({ [c.k + '_i']: n ? (idx - 1 + n) % n : 0 }); }
+              else if (e.key === 'Enter') { if (abierto && opciones[idx]) { e.preventDefault(); opciones[idx].elegir(e); } }
+              else if (e.key === 'Escape') { upd({ [c.k + '_open']: false }); }
+            }
+          };
+        })() : null,
         multi: c.tipo === 'multi' ? (() => {
           const sel = Array.isArray(val) ? val : [];
           const ops = c.opciones || [];
@@ -3295,10 +3618,10 @@ class Component extends DCLogic {
         califDisp: c.tipo === 'califs' ? CALIF.filter(k => k.activo && (val || []).indexOf(k.id) < 0).map(k => ({ id: k.id, etiqueta: k.nombre + ' · ' + fmtPresc(k.meses) })) : [],
         agregar: e => { const v = e.target.value; if (v) this.setState({ mv: Object.assign({}, this.state.mv, { [c.k]: (this.state.mv[c.k] || []).concat(v) }) }); },
         chkCss: 'display:flex;align-items:flex-start;gap:10px;padding:13px 14px;border:1px solid var(--border);border-radius:var(--r);background:var(--sunken);font-size:13.5px;line-height:1.45;color:var(--ink);cursor:pointer',
-        opciones: (c.opciones || []).map(o => ({ v: o, t: o })),
+        opciones: c.opcionesKV || (c.opciones || []).map(o => ({ v: o, t: o })), soloLectura: !!c.soloLectura,
         wrapCss: 'min-width:0;grid-column:' + (c.ancho === 'half' ? 'span 1' : '1 / -1') + (c.tipo === 'grupo' ? ';margin-top:4px' : ''),
         labelCss: (c.tipo === 'check' || c.tipo === 'grupo') ? 'display:none' : 'display:block;font-size:13px;font-weight:600;color:var(--ink);margin-bottom:7px',
-        inputCss: 'width:100%;height:42px;padding:0 12px;border:1px solid var(--border-2);border-radius:var(--r);background:var(--surface);font-size:14px;color:var(--ink)' + (c.mono ? ';font-family:\'Roboto Mono\',monospace' : ''),
+        inputCss: 'width:100%;height:42px;padding:0 12px;border:1px solid var(--border-2);border-radius:var(--r);background:var(--surface);font-size:14px;color:var(--ink)' + (c.mono ? ';font-family:\'Roboto Mono\',monospace' : '') + (c.soloLectura || (typeof c.deshab === 'function' ? c.deshab(s.mv) : c.deshab) ? ';background:var(--sunken);color:var(--muted);cursor:not-allowed' : ''),
         selectCss: 'width:100%;height:42px;padding:0 34px 0 12px;border:1px solid var(--border-2);border-radius:var(--r);background:var(--surface);font-size:14px;color:var(--ink);cursor:pointer',
         areaCss: 'width:100%;min-height:92px;padding:11px 12px;border:1px solid var(--border-2);border-radius:var(--r);background:var(--surface);font-size:14px;color:var(--ink);font-family:inherit;line-height:1.5;resize:vertical',
         nota: c.nota || '', notaCss: c.nota ? 'font-size:12px;color:var(--faint);margin-top:6px;line-height:1.45' : 'display:none'
@@ -3503,7 +3826,7 @@ class Component extends DCLogic {
       esCausas: s.pantalla === 'causas' || (s.pantalla === 'inicio' && !tieneInicio), esActo: s.pantalla === 'acto',
       esUsuarios: s.pantalla === 'usuarios', esPlazos: s.pantalla === 'plazos',
       esPendiente: s.pantalla === 'pendiente', esDetalle: s.pantalla === 'detalle',
-      goActo: () => esResp ? this.setState({ pantalla: 'acto' }) : this.aviso('Solo el abogado responsable de la causa (' + causa.abogado + ') registra sus actos procesales.'),
+      goActo: () => esResp ? this.setState({ pantalla: 'acto', editActo: null, estadoLibre: '', fechaActo: '2026-09-15', manual: false, vencManual: '', fechaNotif: '' }) : this.aviso('Solo el abogado responsable de la causa (' + causa.abogado + ') registra sus actos procesales.'),
       actoBtnCss: esResp ? 'display:flex;align-items:center;gap:8px;height:40px;padding:0 18px;border:none;border-radius:var(--r-btn);background:var(--primary);color:#fff;font-size:14px;font-weight:600;cursor:pointer' : 'display:flex;align-items:center;gap:8px;height:40px;padding:0 18px;border:none;border-radius:var(--r-btn);background:var(--border-2);color:#fff;font-size:14px;font-weight:600;cursor:not-allowed',
       actoNoResp: !esResp, actoRespNota: 'Solo el abogado responsable (' + causa.abogado + ') registra actos.',
       goDetalle: () => this.setState({ pantalla: 'detalle' }),
@@ -3511,7 +3834,7 @@ class Component extends DCLogic {
       accionSecRojaCss: this.accion(false, true),
       esPenal: causa.fuero === 'Penal',
       verCaratula: () => this.setState({ pantalla: 'doc', docTipo: 'caratula' }),
-      verExpediente: () => this.setState({ pantalla: 'doc', docTipo: 'expediente' }),
+      verExpediente: () => this.setState({ pantalla: 'exp', expCausa: causa.id, expOrden: (det.docs || []).map((_, i) => i).filter(i => !det.docs[i].expediente), expListo: false, expHecho: {}, expCar: (this.state.expCars || {})[causa.id] || null }),
       nuevoInterruptivo: () => !esResp ? this.aviso('Solo el abogado responsable de la causa (' + causa.abogado + ') registra actos interruptivos.') : this.abrir({
         titulo: 'Registrar acto interruptivo', sub: causa.caratula,
         nota: 'Un acto interruptivo reinicia el cómputo de la prescripción de la acción desde su fecha.',
@@ -3545,21 +3868,53 @@ class Component extends DCLogic {
         ],
         okLabel: 'Marcar prescripta', ok: 'Causa marcada como prescripta. Se cerraron los plazos abiertos.'
       }),
-      modificarCausa: () => this.abrir({
-        titulo: 'Modificar causa', sub: 'SAC ' + causa.sac,
-        nota: 'El número de SAC no se modifica: identifica la causa de forma única.',
-        campos: [
-          { k: 'car', label: 'Carátula', req: true, valor: causa.caratula },
-          { k: 'trib', label: 'Tribunal o dependencia', valor: causa.tribunal },
-          { k: 'inst', label: 'Instructor de la causa', ancho: 'half', ph: 'Apellido y nombre del instructor', valor: causa.instructor || '' },
-          { k: 'tel', label: 'Teléfono del instructor', ancho: 'half', mono: true, ph: '0351 448-1200', valor: causa.telefono && causa.telefono !== '—' ? causa.telefono : '' },
-          { k: 'int', label: 'Interno', ancho: 'half', mono: true, ph: '214', valor: causa.interno && causa.interno !== '—' ? causa.interno : '' },
-          ...(causa.fuero === 'Penal' ? [{ k: 'califs', label: 'Calificaciones legales', tipo: 'califs', fechas: causa.califFechas || {}, valor: causa.califs || CALIF.filter(k => (causa.calificacion || '').indexOf(califCorto(k)) === 0).map(k => k.id), nota: 'Agregá o quitá calificaciones si cambian los delitos imputados. Cada una recalcula su propia prescripción.' }] : []),
-          { k: 'rol', label: 'Rol procesal', tipo: 'select', ancho: 'half', valor: causa.rol, opciones: ROLES_FUERO[causa.fuero] || ['Defensa'] },
-          { k: 'resp', label: 'Abogado responsable', tipo: 'select', ancho: 'half', valor: causa.abogado, opciones: ABOGADOS.filter(a => a.activo).map(a => a.nombre) }
-        ],
-        ok: 'Causa actualizada. El cambio queda asentado con usuario y fecha.'
-      }),
+      modificarCausa: () => {
+        const fd = FUERO_DATOS[causa.id] || {}, sinSac = !causa.sac || causa.sac === '—' || causa.sac === 'Sin SAC';
+        const isoDe = f => { const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(f || ''); return m ? m[3] + '-' + m[2] + '-' + m[1] : ''; };
+        const es = f => () => causa.fuero === f, noPenal = () => causa.fuero !== 'Penal';
+        const FUEROS = [causa.fuero], cliAct = CLIENTES.find(c => c.dni === (det.cliente || {}).dni) || null;
+        this.abrir({
+          titulo: 'Modificar causa', sub: sinSac ? 'Sin N° de SAC' : 'SAC ' + causa.sac, okLabel: 'Guardar cambios', sinCambiosCierra: true,
+          nota: 'Cada cambio queda asentado en el historial de la causa con usuario y fecha.',
+          campos: [
+            { k: 'g1', tipo: 'grupo', label: 'Identificación' },
+            { k: 'sac', label: 'N° de SAC', ancho: 'half', mono: true, ph: '8 dígitos', valor: sinSac ? '' : causa.sac, nota: 'Opcional. Identifica la causa de forma única.', alCambiar: v => String(v || '').trim() ? {} : { ini: '' } },
+            { k: 'fueroFijo', label: 'Fuero', ancho: 'half', valor: causa.fuero, soloLectura: true, nota: 'No se modifica. Si la causa se registró en otro fuero, dala de baja y registrala de nuevo.' },
+            { k: 'car', label: 'Carátula', req: true, valor: causa.caratula },
+            { k: 'trib', label: 'Órgano interviniente', valor: causa.tribunal && causa.tribunal !== '—' ? causa.tribunal : '' },
+            { k: 'inst', label: 'Instructor de la causa', ph: 'Apellido y nombre del instructor', valor: causa.instructor && causa.instructor !== '—' ? causa.instructor : '' },
+            { k: 'tel', label: 'Teléfono', ancho: 'half', mono: true, ph: '0351 448-1200', valor: causa.telefono && causa.telefono !== '—' ? causa.telefono : '' },
+            { k: 'int', label: 'Interno', ancho: 'half', mono: true, ph: '214', valor: causa.interno && causa.interno !== '—' ? causa.interno : '' },
+            { k: 'g2', tipo: 'grupo', label: 'Cliente y rol procesal' },
+            { k: 'cli', label: 'Cliente', tipo: 'select', req: true, valor: cliAct ? cliAct.id : '', opcionesKV: CLIENTES.filter(c => c.activo || c === cliAct).map(c => ({ v: c.id, t: c.apellido + ', ' + c.nombre + ' · DNI ' + c.dni })), nota: 'Si lo cambiás, se propone la carátula con el cliente nuevo.',
+              alCambiar: (v, mv) => { const n = CLIENTES.find(c => c.id === v); if (!n) return {}; const m = /( p\.s\.a\.| c\/| —)/.exec(mv.car || ''); return { car: n.apellido.toUpperCase() + ', ' + n.nombre + (m ? (mv.car || '').slice(m.index) : '') }; } },
+            ...FUEROS.map(f => ({ k: 'rol_' + f, label: 'Rol procesal del cliente', tipo: 'select', req: true, ancho: 'half', si: es(f), valor: causa.fuero === f ? causa.rol : (ROLES_FUERO[f] || ['Defensa'])[0], opciones: ROLES_FUERO[f] || ['Defensa'] })),
+            { k: 'califs', label: 'Calificaciones legales', tipo: 'califs', si: es('Penal'), fechas: causa.califFechas || {}, valor: causa.califs || CALIF.filter(k => (causa.calificacion || '').indexOf(califCorto(k)) === 0).map(k => k.id), nota: 'Si concurren varios delitos, una calificación por cada uno. Cada una recalcula su prescripción desde la fecha del hecho.' },
+            { k: 'preso', tipo: 'check', label: 'Preso: el cliente está detenido.', si: es('Penal'), valor: !!fd.preso },
+            { k: 'contra', label: 'Contraparte u organismo', si: noPenal, ph: 'APROSS, Provincia de Córdoba, Tribunal de Conducta…', valor: causa.contra || '' },
+            { k: 'obj', label: 'Objeto del reclamo o del amparo', tipo: 'area', req: true, si: noPenal, valor: causa.objeto || '', nota: 'Qué se reclama y por qué: el acto o la omisión que origina la causa y lo que se pide.' },
+            { k: 'caut', tipo: 'check', label: 'El juez hizo lugar a la medida cautelar.', si: es('Amparo'), valor: !!fd.cautelar },
+            { k: 'lesivo', tipo: 'date', label: 'Fecha del acto lesivo', ancho: 'half', si: es('Amparo'), valor: isoDe(fd.actoLesivo), nota: 'Opcional. Desde ella corre el plazo para presentar el amparo.' },
+            { k: 'agot', tipo: 'date', label: 'Agotamiento de la vía administrativa', ancho: 'half', si: es('Administrativo'), valor: isoDe(fd.agotamiento), nota: 'Opcional. Dejalo vacío mientras la vía no se agotó.' },
+            { k: 'g3', tipo: 'grupo', label: 'Asignación' },
+            { k: 'resp', label: 'Abogado responsable', tipo: 'select', req: true, ancho: 'half', valor: causa.abogado, opciones: ABOGADOS.filter(a => a.activo).map(a => a.nombre) },
+            { k: 'ini', label: 'Fecha de inicio', tipo: 'date', ancho: 'half', mono: true, valor: sinSac ? '' : isoDe(causa.inicio), req: v => !!String(v.sac || '').trim(), deshab: v => !String(v.sac || '').trim(), nota: 'Se carga junto con el N° de SAC.' },
+            { k: 'tasa', tipo: 'check', label: 'Tasa de justicia pagada', valor: !!fd.tasa }
+          ],
+          ok: v => {
+            const sac = String(v.sac || '').replace(/[^0-9]/g, '');
+            if (sac && !/^[0-9]{8}$/.test(sac)) return 'El SAC tiene 8 dígitos.';
+            if (sac && CAUSAS.some(c => c.sac === sac && c.id !== causa.id)) return 'Ya existe una causa registrada con este SAC.';
+            const fmt = x => x ? this.fmt(this.parse(x)) : '', f = causa.fuero, cambio = false;
+            const nCli = CLIENTES.find(c => c.id === v.cli);
+            if (nCli && nCli !== cliAct) det.cliente = { nombre: nCli.nombre + ' ' + nCli.apellido, dni: nCli.dni, tel: nCli.tel || '—', mail: nCli.mail || '—', desde: det.cliente ? det.cliente.desde : '—' };
+            Object.assign(causa, { sac: sac || 'Sin SAC', fuero: f, caratula: v.car.trim(), tribunal: v.trib || '—', instructor: v.inst || '—', telefono: v.tel || '—', interno: v.int || '—', rol: v['rol_' + f], abogado: v.resp, inicio: sac ? fmt(v.ini) : '' });
+            if (f === 'Penal') { causa.califs = v.califs; causa.califFechas = v.califs_f; } else { causa.contra = v.contra; causa.objeto = v.obj; }
+            FUERO_DATOS[causa.id] = { tasa: !!v.tasa, preso: f === 'Penal' && !!v.preso, cautelar: f === 'Amparo' && !!v.caut, actoLesivo: f === 'Amparo' ? fmt(v.lesivo) : '', agotamiento: f === 'Administrativo' ? fmt(v.agot) : '' };
+            return 'Causa actualizada. El cambio queda asentado con usuario y fecha.';
+          }
+        });
+      },
       bajaCausa: () => this.abrir({
         tono: 'rojo', titulo: 'Dar de baja la causa', sub: causa.caratula,
         nota: 'La baja es lógica: la causa sale de los listados activos pero se conserva con todos sus actos y documentos.',
@@ -3592,8 +3947,8 @@ class Component extends DCLogic {
           docs: carg ? [] : det.docs.map(d => {
             const ext = ((d.nombre.match(/\.([a-z0-9]+)$/i) || [])[1] || '').toLowerCase(), e = EXT[ext] || ['ARCH', 'var(--muted)', 'var(--sunken)'];
             const p = (d.meta || '').split(' · ');
-            return { nombre: d.nombre, ext: e[0], fecha: p[1] || '—', peso: p[2] || '—',
-              autor: p[0] === 'Presentado' ? causa.abogado : 'Secretaría',
+            return { nombre: d.nombre, ext: e[0], fecha: p[0] || '—', peso: p[1] || '—',
+              autor: d.por || 'VZ Causas',
               icoCss: "width:34px;height:40px;flex:0 0 34px;border-radius:var(--r-sm);display:flex;align-items:flex-end;justify-content:center;padding-bottom:6px;font-family:'Roboto Mono',monospace;font-size:9px;font-weight:700;background:" + e[2] + ';color:' + e[1] + ';border:1px solid var(--border)',
               abrir: () => this.aviso('Se abriría "' + d.nombre + '" en Drive.') };
           })
@@ -3617,7 +3972,7 @@ class Component extends DCLogic {
         }
         return {
           fecha: t.fecha, acto: t.acto, estado: t.estado, nota: t.nota, badge,
-          registrado: 'Registrado por ' + (t.por || respNom) + ' el ' + t.fecha + ' a las ' + (t.hora || HORAS[iOrig % HORAS.length]),
+          registrado: 'Registrado por ' + (t.por || respNom) + ' el ' + t.fecha + ' a las ' + (t.hora || HORAS[iOrig % HORAS.length]) + (t.modificado ? ' · Modificado por ' + (t.modPor || respNom) + ' el ' + (t.modEn || '15/09/2026').replace(' ', ' a las ') : ''),
           registradoCss: 'font-size:11.5px;color:var(--faint);margin-top:6px',
           plazoTxt: conPlazo ? (estT && estT.dias ? 'Plazo de ' + estT.dias + ' días ' + String(estT.tipoDia).toLowerCase() : 'Plazo abierto') : '',
           vencTxt: !conPlazo ? '' : !t.abierto ? 'Venció el ' + t.vence : causa.dias < 0 ? 'Plazo vencido el ' + t.vence : causa.dias === 0 ? 'Vence hoy · ' + t.vence : 'En ' + causa.dias + (causa.dias === 1 ? ' día' : ' días') + ' · ' + t.vence,
@@ -3627,15 +3982,10 @@ class Component extends DCLogic {
           porActo: t.estado === 'Sin cambio de estado' ? 'No modifica el estado procesal.' : (t.acto === t.estado ? '' : 'Por el acto: ' + t.acto),
           porActoCss: (t.estado !== 'Sin cambio de estado' && t.acto === t.estado) ? 'display:none' : 'font-size:12.5px;color:var(--muted);margin-top:4px;line-height:1.45',
           accCss: this.accion(!esResp, false), bajaAccCss: this.accion(!esResp, true),
-          modificar: () => !esResp ? this.aviso('Solo el abogado responsable de la causa modifica sus actos procesales.') : this.abrir({
-            titulo: 'Modificar acto procesal', sub: t.acto + ' · ' + t.fecha,
-            nota: 'Si cambia la fecha, el sistema recalcula el vencimiento con la tabla de plazos del fuero.',
-            campos: [
-              { k: 'fecha', label: 'Fecha del acto', tipo: 'date', ancho: 'half', req: true, valor: '2026-09-15', mono: true },
-              { k: 'estado', label: 'Estado resultante', tipo: 'select', ancho: 'half', valor: t.estado, opciones: ['Sin cambio de estado'].concat(NOMS(causa.fuero)) },
-              { k: 'obs', label: 'Observaciones', tipo: 'area', valor: t.nota }
-            ],
-            ok: 'Acto modificado. El vencimiento se recalculó con la tabla de plazos.'
+          modificar: () => !esResp ? this.aviso('Solo el abogado responsable de la causa modifica sus actos procesales.') : this.setState({
+            pantalla: 'acto', editActo: iOrig, estadoLibre: t.estado === 'Sin cambio de estado' ? t.acto : t.estado,
+            fechaActo: (f => { const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(f || ''); return m ? m[3] + '-' + m[2] + '-' + m[1] : ''; })(t.fecha) || '2026-09-15', fechaNotif: '', comboOpen: false, adjunto: false,
+            manual: false, vencManual: ''
           }),
           anular: () => !esResp ? this.aviso('Solo el abogado responsable de la causa anula sus actos procesales.') : this.abrir({
             ancho: 'sm', tono: 'rojo', titulo: 'Anular acto procesal', sub: t.acto + ' · ' + t.fecha,
@@ -3732,7 +4082,7 @@ class Component extends DCLogic {
       esNueva: s.pantalla === 'nueva',
       goNueva: () => this.setState({ pantalla: 'nueva', pendiente: null, menuOpen: false }),
       menuAttr: s.menuOpen ? 'open' : 'closed', abrirMenu: () => this.setState({ menuOpen: true }), cerrarMenu: () => this.setState({ menuOpen: false }),
-      ncSac: s.ncSac, setNcSac: e => this.setState({ ncSac: e.target.value.replace(/[^0-9]/g, '').slice(0, 8) }),
+      ncSac: s.ncSac, setNcSac: e => { const v = e.target.value.replace(/[^0-9]/g, '').slice(0, 8); this.setState(v ? { ncSac: v } : { ncSac: v, ncFecha: '' }); },
       ncSacCss: 'width:100%;height:42px;padding:0 12px;border:1px solid ' + (s.ncSac && (!sacOk || sacDup) ? '#B3261E' : 'var(--border-2)') + ';border-radius:var(--r);background:var(--surface);font-size:14px;color:var(--ink);font-family:\'Roboto Mono\',monospace;letter-spacing:.04em',
       ncSacNota: !s.ncSac ? 'Opcional. Si se conoce, identifica la causa de forma única.' : sacDup ? 'Ya existe una causa registrada con este SAC.' : !sacOk ? 'El SAC tiene 8 dígitos.' : 'Disponible.',
       ncSacNotaCss: 'font-size:12px;margin-top:6px;line-height:1.45;color:' + (s.ncSac && (!sacOk || sacDup) ? '#8E1F19' : s.ncSac ? 'var(--primary-hi)' : 'var(--faint)'),
@@ -3793,7 +4143,9 @@ class Component extends DCLogic {
       ncObjetoCont: (s.ncObjeto || '').length + ' / 800',
       responsables: ABOGADOS.filter(a => a.activo).map(a => ({ nombre: a.nombre, etiqueta: nomAp(a.nombre) + ' · matrícula ' + a.matricula })),
       ncResp: s.ncResp, setNcResp: e => this.setState({ ncResp: e.target.value }),
-      ncFecha: s.ncFecha, setNcFecha: e => this.setState({ ncFecha: e.target.value }),
+      ncFecha: s.ncSac ? s.ncFecha : '', setNcFecha: e => this.setState({ ncFecha: e.target.value }),
+      ncFechaDeshab: !s.ncSac, ncFechaReq: s.ncSac ? ' *' : '',
+      ncFechaCss: 'width:100%;height:42px;padding:0 12px;border:1px solid var(--border-2);border-radius:var(--r);font-size:14px;font-family:\'Roboto Mono\',monospace;' + (s.ncSac ? 'background:var(--surface);color:var(--ink)' : 'background:var(--sunken);color:var(--muted);cursor:not-allowed'),
       ncDrive: s.ncDrive, toggleDrive: () => this.setState({ ncDrive: !s.ncDrive, ncModelos: !s.ncDrive ? s.ncModelos : false }),
       ncModelos: s.ncModelos, toggleModelos: () => { if (!s.ncDrive) { this.aviso('Primero hay que crear la carpeta en Drive para poder copiar los modelos.'); return; } this.setState({ ncModelos: !s.ncModelos }); },
       ncConvenio: s.ncConvenio, toggleConvenio: () => this.setState({ ncConvenio: !s.ncConvenio }),
@@ -3808,6 +4160,7 @@ class Component extends DCLogic {
       carpetaDrive: s.ncDrive ? 'Se arma con el abogado responsable y la carátula.' : 'No se creará carpeta',
       checklist: [
         check(sacValido, s.ncSac ? 'N° de SAC válido y no repetido' : 'N° de SAC: opcional'),
+        ...(s.ncSac ? [check(fechaIniOk, 'Fecha de inicio cargada')] : []),
         check(!!cli, 'Cliente seleccionado'),
         check(fechasOk, ncPenal ? (kals.length ? 'Fecha del hecho en cada calificación legal' : 'Calificaciones legales: opcionales') : 'Calificación legal: no aplica a este fuero'),
         ...(ncPenal ? [] : [check(objetoOk, s.ncFuero === 'Amparo' ? 'Objeto del amparo redactado' : 'Objeto del reclamo redactado')]),
@@ -3825,7 +4178,8 @@ class Component extends DCLogic {
         const nueva = {
           id, instructor: s.ncInstructor.trim() || '—', telefono: (s.ncTel || '').trim() || '—', interno: s.ncInterno.trim() || '—', sac: s.ncSac || 'Sin SAC', caratula: s.ncCaratula.trim(),
           tribunal: s.ncTribunal.trim() || '—', fuero: s.ncFuero, rol: s.ncRol, estado: estadoIni, abogado: s.ncResp, dias: null, fecha: '—',
-          califs: s.ncCalifs.slice(), califFechas: fechas
+          califs: s.ncCalifs.slice(), califFechas: fechas,
+          contra: s.ncContra.trim(), objeto: s.ncObjeto.trim(), inicio: s.ncSac && s.ncFecha ? this.fmt(this.parse(s.ncFecha)) : ''
         };
         if (ncPenal && kals.length) {
           const conFecha = kals.map(k => ({ k, fh: this.parse(fechas[k.id]) })).filter(x => x.fh)
@@ -3911,10 +4265,22 @@ class Component extends DCLogic {
 
       guardarDisabled: !puedeGuardar,
       guardarCss: 'height:40px;padding:0 20px;border:none;border-radius:var(--r-btn);background:' + (puedeGuardar ? 'var(--primary)' : 'var(--border-2)') + ';color:#fff;font-size:14px;font-weight:600;' + (puedeGuardar ? 'cursor:pointer' : 'cursor:not-allowed'),
+      actoTitulo: s.editActo != null ? 'Modificar acto procesal' : 'Registrar acto procesal',
+      actoBtnLabel: s.editActo != null ? 'Guardar cambios' : 'Registrar acto',
+      editandoActo: s.editActo != null, editActoFecha: s.editActo != null && det.linea[s.editActo] ? det.linea[s.editActo].fecha : '',
+      actoCancelar: () => this.setState(s.editActo != null ? { pantalla: 'detalle', editActo: null, estadoLibre: '', manual: false, vencManual: '' } : { pantalla: 'causas' }),
       guardarActo: () => {
         if (!puedeGuardar) return;
-        const primero = det.linea.length === 0;
         const fActo = this.fmt(this.parse(s.fechaActo) || new Date());
+        if (s.editActo != null && det.linea[s.editActo]) {
+          const ent = det.linea[s.editActo], esUlt = s.editActo === det.linea.length - 1, nEst = acto.estado || acto.nombre;
+          Object.assign(ent, { fecha: fActo, acto: acto.nombre, estado: nEst, vence: venc ? this.fmt(venc) : undefined, abierto: esUlt && !!venc, nota: acto.libre ? 'Estado escrito a mano.' : ent.nota, modificado: true, modPor: s.usuarioActual || 'Usuario', modEn: '15/09/2026 ' + new Date().toTimeString().slice(0, 5) });
+          if (esUlt) { causa.estado = nEst; if (venc) { causa.fecha = this.fmt(venc); causa.dias = Math.round((venc - new Date(2026, 8, 15)) / 864e5); } else { causa.fecha = '—'; causa.dias = null; } }
+          this.aviso('Acto modificado' + (venc ? ' · vencimiento el ' + this.fmt(venc) : '') + '. El cambio queda asentado con usuario y fecha.');
+          this.setState({ pantalla: 'detalle', editActo: null, estadoLibre: '', manual: false, vencManual: '' });
+          return;
+        }
+        const primero = det.linea.length === 0;
         det.linea.forEach(t => { t.abierto = false; });
         const nuevoEstado = acto.estado || acto.nombre;
         det.linea.push({ por: s.usuarioActual, hora: new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: true }), fecha: fActo, acto: acto.nombre, estado: nuevoEstado, nota: (primero ? 'Primer acto procesal: la causa entra al ciclo de vida del fuero.' : '') + (acto.libre ? (primero ? ' ' : '') + 'Estado escrito a mano.' : ''), abierto: !!venc, vence: venc ? this.fmt(venc) : undefined });
@@ -3931,7 +4297,7 @@ class Component extends DCLogic {
       noEsSec: false, altaClienteCss: this.primario(false),
       noEsAdmin: !esAdmin,
       noModelos: !puedeModelos, altaModeloCss: this.primario(!puedeModelos), altaCalifCss: this.primario(false),
-      verDocs: puedeDocs, verPrescribir: puedeAvisos,
+      verDocs: true, verPrescribir: puedeAvisos,
       intentarAlta: () => { if (!esAdmin) this.aviso('Acción no disponible para el perfil ' + s.perfil + '. Solo el Administrador puede operar esta sección.'); else this.aviso('En el prototipo esta acción abre el formulario correspondiente.'); },
       altaUsuarioLabel: s.tab === 'abogados' ? 'Registrar abogado' : 'Registrar usuario',
       altaUsuarioCss: this.primario(!esAdmin),
@@ -4181,11 +4547,104 @@ class Component extends DCLogic {
       // ── documento imprimible ──
       esDoc: s.pantalla === 'doc',
       docEsCaratula: s.docTipo === 'caratula', docEsExpediente: s.docTipo === 'expediente',
-      docTitulo: s.docTipo === 'caratula' ? 'Carátula de la causa' : 'Expediente consolidado',
-      docSub: s.docTipo === 'caratula' ? 'Hoja de carátula para el expediente físico (HU 24).' : 'Reúne los datos de la causa, el ciclo de vida completo y el índice de documentación (HU 25).',
+      docTitulo: 'Carátula de la causa',
+      docSub: 'Hoja de carátula para el expediente físico (HU 24).',
       imprimirDoc: () => this.aviso('Se abriría el diálogo de impresión con el documento en tamaño A4.'),
       docFecha: '15/09/2026',
       docActos: det.linea.map(t => ({ fecha: t.fecha, acto: t.acto, estado: t.estado, nota: t.nota })),
+
+      // ── generar expediente ──
+      ...(() => {
+        const docs = det.docs || [], orden = (s.expCausa === causa.id && s.expOrden) ? s.expOrden : docs.map((_, i) => i).filter(i => !docs[i].expediente), car = { kb: 60 };
+        const sel = orden.filter(i => docs[i]), resto = docs.map((_, i) => i).filter(i => sel.indexOf(i) < 0 && !docs[i].expediente), lista = sel.concat(resto);
+        const setOrden = o => this.setState({ expOrden: o, expCausa: causa.id });
+        const kb = d => { const m = /([0-9.]+)\s*(KB|MB)/i.exec(d.meta || ''); return m ? parseFloat(m[1]) * (/MB/i.test(m[2]) ? 1024 : 1) : 0; };
+        const tot = sel.reduce((a, i) => a + kb(docs[i]), 0) + (car ? car.kb : 0);
+        const mov = dis => 'width:28px;height:28px;border:1px solid var(--border-2);border-radius:var(--r-sm);background:var(--surface);color:var(--ink);font-size:13px;cursor:' + (dis ? 'default' : 'pointer') + ';opacity:' + (dis ? '.35' : '1');
+        const tomar = f => {
+          if (!f) return;
+          const v = { url: URL.createObjectURL(f), nombre: f.name, pdf: /pdf$/i.test(f.type) || /\.pdf$/i.test(f.name), kb: Math.round(f.size / 1024), por: s.usuarioActual, fecha: '15/09/2026' };
+          this.setState({ expCar: v, expCars: Object.assign({}, this.state.expCars, { [causa.id]: v }) });
+        };
+        const listo = sel.length > 0;
+        return {
+          esExp: s.pantalla === 'exp',
+          expPrev: !!s.expPrev && s.pantalla === 'exp', expPrevAbrir: () => this.setState({ expPrev: true }), expPrevCerrar: () => this.setState({ expPrev: false }),
+          expHojaCliente: (det.cliente && det.cliente.nombre) || '—',
+          ...(() => {
+            const obs = (s.expObs || {})[causa.id] || '', otra = (s.expOtra || {})[causa.id] || '', h = this.carDatos(causa, obs, otra), penal = causa.fuero === 'Penal', querella = causa.rol === 'Querellante particular';
+            return {
+              expPlantillaTxt: PLANTILLA_TXT[causa.fuero], expHojaSac: h.sac, expHojaAutos: h.autos, expHojaActor: h.actor, expHojaDem: h.demandado, expHojaOrgano: h.organo, expHojaInst: h.secretario, expHojaObs: h.observaciones,
+              expObsVal: obs, expObsCont: obs.length + ' / 500', setExpObs: e => this.setState({ expObs: Object.assign({}, this.state.expObs, { [causa.id]: e.target.value.slice(0, 500) }) }),
+              expPideParte: penal, expOtraVal: otra, expOtraCont: otra.length + ' / 500',
+              expOtraLabel: querella ? 'Imputado' : 'Querellante',
+              expOtraPh: querella ? 'Ej. DOMINGUEZ ORLANDO; JULIO Y MARCOS' : 'Ej. QUERELLANTE: PERALTA JUAN CARLOS\nAPODERADO: DR. MARTÍN SOSA',
+              expOtraNota: (querella ? 'Va en el recuadro Demandado / imputado.' : 'Va en el recuadro Actor / querellante.') + ' La causa solo registra al cliente, así que esta parte se completa acá. Opcional, no se guarda en la causa.',
+              setExpOtra: e => this.setState({ expOtra: Object.assign({}, this.state.expOtra, { [causa.id]: e.target.value.slice(0, 500) }) })
+            };
+          })(), expHojaResp: nomAp(causa.abogado),
+          expSinCar: !car, expConCar: !!car, expCarUrl: car ? car.url : '', expCarNombre: car ? car.nombre : '', expCarPor: car ? car.por : '', expCarFecha: car ? car.fecha : '',
+          expCarImgCss: car && !car.pdf ? 'width:100%;height:100%;background:center/cover no-repeat url(' + car.url + ')' : 'display:none',
+          expCarPdfCss: car && car.pdf ? 'font-family:\'Roboto Mono\',monospace;font-size:13px;font-weight:600;color:var(--muted)' : 'display:none',
+          expPickCar: e => { tomar(e.target.files && e.target.files[0]); e.target.value = ''; },
+          expDragOver: e => e.preventDefault(),
+          expDrop: e => { e.preventDefault(); tomar(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]); },
+          expQuitarCar: () => this.setState({ expCar: null, expCars: Object.assign({}, this.state.expCars, { [causa.id]: null }) }),
+          expSinDocs: docs.length === 0,
+          expTodosLabel: !resto.length ? 'Quitar todos' : 'Incluir todos',
+          expTodos: () => setOrden(!resto.length ? [] : lista),
+          expDocs: sel.map((i, k) => {
+            const d = docs[i], ext = ((/\.([a-z0-9]+)$/i.exec(d.nombre) || [])[1] || 'doc').toUpperCase(), drag = s.expDrag === k, over = s.expOver === k && s.expDrag != null && s.expDrag !== k;
+            const mover = (de, a) => { const o = sel.slice(); const [x] = o.splice(de, 1); o.splice(a > de ? a - 1 : a, 0, x); setOrden(o); };
+            return {
+              id: String(i), nombre: d.nombre, meta: d.meta, ext, orden: String(k + 2), quitarAria: 'Quitar ' + d.nombre,
+              extCss: 'font-family:\'Roboto Mono\',monospace;font-size:10.5px;font-weight:600;letter-spacing:.04em;padding:3px 6px;border-radius:4px;flex:0 0 auto;' + (ext === 'PDF' ? 'background:#F7E9E7;color:#8E1F19' : 'background:#E8EEF7;color:#24457A'),
+              filaCss: 'position:relative;display:flex;align-items:center;gap:12px;padding:11px 12px 11px 14px;border:1px solid ' + (drag || s.expFlash === i ? 'var(--primary)' : 'var(--border-2)') + ';border-radius:var(--r);background:' + (s.expFlash === i && !drag ? 'var(--primary-soft)' : 'var(--surface)') + ';cursor:' + (drag ? 'grabbing' : 'grab') + ';user-select:none;touch-action:none;transition:background-color .5s,border-color .3s,box-shadow .15s;z-index:' + (drag ? '5' : 'auto') + ';box-shadow:' + (drag ? '0 14px 32px rgba(15,23,42,.18),0 3px 8px rgba(15,23,42,.10)' : '0 1px 2px rgba(15,23,42,.05)'),
+              convCss: ext === 'PDF' ? 'display:none' : '',
+              primero: k === 0, ultimo: k === sel.length - 1, subirCss: mov(k === 0), bajarCss: mov(k === sel.length - 1),
+              toggle: () => setOrden(sel.filter(x => x !== i)),
+              subir: () => { if (k > 0) mover(k, k - 1); },
+              bajar: () => { if (k < sel.length - 1) mover(k, k + 2); },
+              agarrar: e => this.agarrarExp(e, String(i), causa.id)
+            };
+          }),
+          expListOver: e => e.preventDefault(),
+          expFinOver: e => { e.preventDefault(); if (this.state.expOver !== 'fin') this.setState({ expOver: 'fin' }); },
+          expFinDrop: e => { e.preventDefault(); const de = this.state.expDrag; this.setState({ expDrag: null, expOver: null }); if (de != null) { const o = sel.slice(); const [x] = o.splice(de, 1); o.push(x); setOrden(o); } },
+          expFinCss: 'display:none',
+          expNingunoSel: docs.length > 0 && sel.length === 0,
+          expHayOtros: resto.length > 0,
+          expOtros: resto.map(i => { const d = docs[i], ext = ((/\.([a-z0-9]+)$/i.exec(d.nombre) || [])[1] || 'doc').toUpperCase(); return {
+            nombre: d.nombre, meta: d.meta, ext, toggle: () => setOrden(sel.concat(i)),
+            extCss: 'font-family:\'Roboto Mono\',monospace;font-size:10.5px;font-weight:600;letter-spacing:.04em;padding:3px 6px;border-radius:4px;flex:0 0 auto;opacity:.7;' + (ext === 'PDF' ? 'background:#F7E9E7;color:#8E1F19' : 'background:#E8EEF7;color:#24457A')
+          }; }),
+          expArchivo: 'Expediente_' + (/^[0-9]{8}$/.test(String(causa.sac)) ? causa.sac : 'causa-' + causa.id) + '_v' + (s.expListo && s.expVersion ? s.expVersion : docs.filter(d => d.expediente).length + 1) + '.pdf',
+          expIndice: [{ n: '1', nombre: 'Carátula · generada con los datos de la causa', css: 'flex:1;min-width:0;color:var(--ink);font-weight:600' }]
+            .concat(sel.map((i, k) => ({ n: String(k + 2), nombre: docs[i].nombre, css: 'flex:1;min-width:0;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap' }))),
+          expResumen: (sel.length + (car ? 1 : 0)) + ' partes en un solo PDF' + (tot ? ' · ' + (tot >= 1024 ? (tot / 1024).toFixed(1).replace('.', ',') + ' MB' : Math.round(tot) + ' KB') + ' aprox.' : '') + '. Se guarda en la carpeta de la causa en Drive.',
+          expNoListo: !listo,
+          expAyuda: !sel.length ? 'Elegí al menos un documento.' : 'Las partes se unen en el orden de la lista.',
+          expGenerarCss: 'height:40px;border:none;border-radius:var(--r-btn);font-size:14px;font-weight:600;color:#fff;background:' + (listo ? 'var(--primary);cursor:pointer' : 'var(--border-2);cursor:not-allowed'),
+          expGenerar: () => {
+            if (!listo) return;
+            const v = docs.filter(d => d.expediente).length + 1;
+            const nom = 'Expediente_' + (/^[0-9]{8}$/.test(String(causa.sac)) ? causa.sac : 'causa-' + causa.id) + '_v' + v + '.pdf';
+            const tam = tot >= 1024 ? (tot / 1024).toFixed(1).replace('.', ',') + ' MB' : Math.round(tot) + ' KB';
+            docs.push({ nombre: nom, por: 'VZ Causas', meta: '15/09/2026 · ' + tam, version: v, expediente: true });
+            if (!det.docs) det.docs = docs;
+            this.setState({ expListo: true, expHecho: {}, expVersion: v });
+          },
+          expListo: !!s.expListo && s.pantalla === 'exp',
+          expListoMeta: 'Versión ' + (s.expVersion || 1) + ' · ' + (sel.length + 1) + ' partes' + (tot ? ' · ' + (tot >= 1024 ? (tot / 1024).toFixed(1).replace('.', ',') + ' MB' : Math.round(tot) + ' KB') : ''),
+          expStop: e => e.stopPropagation(),
+          expCerrar: () => this.setState({ expListo: false }),
+          expVolver: () => this.setState({ expListo: false, pantalla: 'detalle' }),
+          expDescargarLabel: (s.expHecho || {}).desc ? '✓ Descargado' : 'Descargar',
+          expImprimirLabel: (s.expHecho || {}).imp ? '✓ Enviado a imprimir' : 'Imprimir',
+          expDescargar: () => { this.aviso('Descargando Expediente_' + causa.sac + '_v' + (this.state.expVersion || 1) + '.pdf.'); this.setState({ expHecho: Object.assign({}, this.state.expHecho, { desc: true }) }); },
+          expImprimir: () => { this.aviso('Se abriría el diálogo de impresión con el expediente completo.'); this.setState({ expHecho: Object.assign({}, this.state.expHecho, { imp: true }) }); }
+        };
+      })(),
 
       toast: s.toast, hayToast: !!s.toast,
       toastDot: 'width:7px;height:7px;border-radius:50%;flex:0 0 7px;background:#7FB08A'

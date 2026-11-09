@@ -562,3 +562,91 @@
   }
   .vz-dash__row--matched .vz-dash-line { flex: 1; min-height: 0; max-height: none; }
 }
+
+/* ─────────── teléfono ─────────── */
+@media (max-width: 720px) {
+  .vz-dash { gap: 14px; }
+  .vz-dash-band { gap: 22px; padding: 20px 18px; }
+
+  /* Los cuatro números de a dos. El filete separa las dos columnas y no queda
+     corrido en el segundo renglón, y el rótulo se lee entero en dos líneas
+     en lugar de cortarse ("Próx. 5 días há…"). */
+  .vz-dash-band__tiles {
+    flex-basis: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 22px 0;
+  }
+  .vz-dash-tile { min-width: 0; padding: 0 0 0 16px; }
+  .vz-dash-tile:nth-child(odd) { padding: 0 16px 0 0; border-left: none; }
+  .vz-dash-tile__label { white-space: normal; overflow: visible; }
+  .vz-dash-tile__value { margin-top: 8px; font-size: 32px; }
+
+  /* Calendario: la grilla del mes entra entera, con el día y un punto por
+     plazo. El nombre de la causa no entra en una celda de 45px: queda para el
+     lector de pantalla y el `title`, y la lista de plazos de abajo lo dice
+     completo. */
+  .vz-dash-cal__weekday {
+    padding: 7px 0;
+    font-size: 9.5px;
+    letter-spacing: .04em;
+    text-align: center;
+  }
+  .vz-dash-cal__day {
+    min-height: 3.6rem;
+    padding: 5px 2px;
+    text-align: center;
+  }
+  .vz-dash-cal__num { font-size: 11.5px; }
+  .vz-dash-cal__items {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0;
+    margin-top: 3px;
+  }
+  .vz-dash-cal__item {
+    width: 18px;
+    height: 20px;
+    justify-content: center;
+    padding: 0;
+    border-radius: var(--vz-r-pill);
+  }
+  .vz-dash-cal__dot { width: 8px; height: 8px; flex-basis: 8px; }
+  .vz-dash-cal__item > span:last-child {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .vz-dash-cal__more { flex-basis: 100%; padding: 0; font-size: 9.5px; }
+
+  /* En el teléfono no hay listas que scrolleen adentro de la página: con el
+     dedo, un scroll dentro de otro atrapa el gesto y no se sabe cuál se
+     mueve. Las listas se dibujan enteras. */
+  .vz-dash-line,
+  .vz-dash-team,
+  .vz-dash-rows--scroll { max-height: none; overflow-y: visible; }
+
+  /* Línea de vencimientos: la columna de la fecha se achica y la tarjeta gana
+     el ancho. */
+  .vz-dash-line { padding: 12px 14px 16px; }
+  .vz-dash-line__item,
+  .vz-dash-line__today { grid-template-columns: 46px 22px minmax(0, 1fr); }
+  .vz-dash-line__rail::before { left: 10px; }
+  .vz-dash-line__node { left: 4px; }
+  .vz-dash-line__head { flex-direction: column; gap: 8px; }
+  .vz-dash-line__head > .vz-pill { align-self: flex-start; }
+
+  /* Causas para impulsar: el contador y el texto en un renglón, y "Ver
+     detalle" abajo a todo el ancho. */
+  .vz-dash-advance { padding: 14px 16px; gap: 12px 14px; }
+  .vz-dash-advance__body { min-width: 0; }
+  .vz-dash-advance > .vz-btn { flex: 1 1 100%; height: 40px; }
+
+  /* Alertas: el vencimiento baja abajo de la carátula. */
+  .vz-dash-alert { padding: 14px 16px; }
+  .vz-dash-alert__head { flex-direction: column; gap: 4px; }
+}

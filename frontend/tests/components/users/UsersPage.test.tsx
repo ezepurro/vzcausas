@@ -3,8 +3,8 @@ import { screen, waitFor, within } from '@testing-library/react'
 import { http, HttpResponse } from 'msw'
 import { renderWithProviders } from '../../setup/render'
 import { personNameIn } from '../../setup/names'
-import { server } from '@/shared/mocks/server'
-import { db, errorBody } from '@/shared/mocks'
+import { configureMocks, server } from '@/shared/mocks/server'
+import { db, errorBody, ERRORS } from '@/shared/mocks'
 import { UsersPage } from '@/features/users/pages/UsersPage'
 import { useCurrentUser } from '@/app/providers/AuthContext'
 
@@ -319,6 +319,41 @@ describe('UsersPage', () => {
             ).toBeInTheDocument()
             await waitFor(() => expect(screen.queryByRole('cell', { name: 'gestion' })).not.toBeInTheDocument())
             expect(db.users.find((u) => u.username === 'gestion')?.active).toBe(false)
+        })
+
+        /* Sin criterio de aceptación: baja optimista (`optimisticRemoval`). Con
+           demora en el DELETE, la fila y el modal se van al confirmar, antes
+           de que responda el servidor. Sin demora el test no distingue. */
+        it('la fila sale y el modal se cierra al confirmar, sin esperar al servidor', async () => {
+            configureMocks({ latencyProfile: { 'DELETE /users/:userId': 300 } })
+            const { user } = renderPage()
+            await screen.findByRole('cell', { name: 'gestion' })
+
+            await user.click(within(rowOf('gestion')).getByRole('button', { name: 'Eliminar' }))
+            await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Eliminar' }))
+
+            expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+            expect(screen.queryByRole('cell', { name: 'gestion' })).not.toBeInTheDocument()
+            expect(db.users.find((u) => u.username === 'gestion')?.active).toBe(true)
+            expect(
+                await screen.findByText(new RegExp(`^${personNameIn('Estudio', 'Gestión')} Eliminado correctamente\\.$`)),
+            ).toBeInTheDocument()
+        })
+
+        /* `mrios` tiene causas a cargo: el 409 llega después de sacar la fila,
+           y la fila vuelve con el mensaje del servidor. */
+        it('si el servidor rechaza la baja, la fila vuelve y muestra el error', async () => {
+            configureMocks({ latencyProfile: { 'DELETE /users/:userId': 300 } })
+            const { user } = renderPage()
+            await screen.findByRole('cell', { name: 'mrios' })
+
+            await user.click(within(rowOf('mrios')).getByRole('button', { name: 'Eliminar' }))
+            await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Eliminar' }))
+            expect(screen.queryByRole('cell', { name: 'mrios' })).not.toBeInTheDocument()
+
+            expect(await screen.findByText(ERRORS.userHasDependencies.error.message)).toBeInTheDocument()
+            expect(await screen.findByRole('cell', { name: 'mrios' })).toBeInTheDocument()
+            expect(db.users.find((u) => u.username === 'mrios')?.active).toBe(true)
         })
     })
 })

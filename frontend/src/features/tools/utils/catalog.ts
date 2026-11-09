@@ -6,12 +6,12 @@ import type { Tool, ToolCategory } from '@/features/tools/types/tool'
  */
 export const CATEGORY_INFO: Record<ToolCategory, { label: string; description: string }> = {
     judicial: {
-        label: 'Poder Judicial de Córdoba',
-        description: 'El portal, el SAC, la tasa de justicia y la jurisprudencia.',
+        label: 'Poder Judicial',
+        description: 'Córdoba: el portal, el SAC, la tasa de justicia y la jurisprudencia. Y el portal de la Nación.',
     },
     documents: {
         label: 'Trámites y documentos',
-        description: 'ARCA, PDF y cartas documento.',
+        description: 'ARCA, PDF, cartas documento y Claude para redactar.',
     },
 }
 
@@ -23,7 +23,8 @@ const PJ_LOGO = logo('justicia-cordoba.png')
 const PJ_BRAND = '#2F9488'
 
 /**
- * El catálogo: las herramientas de la página vieja del estudio. Para sumar
+ * El catálogo: las herramientas de la página vieja del estudio, más las que
+ * pidió el equipo el 08/11/2026 (ver `CAMBIOS.md`). Para sumar
  * una alcanza con agregarla acá: la página arma las secciones y la búsqueda
  * solas.
  */
@@ -76,6 +77,17 @@ export const TOOLS: Tool[] = [
         tags: ['Jurisprudencia', 'Córdoba', 'Boletín Judicial'],
         featured: true,
     },
+    // ── Poder Judicial de la Nación ──
+    {
+        id: 'pjn-portal',
+        name: 'Poder Judicial de la Nación',
+        description: 'Portal de la justicia nacional y federal: servicios, consulta de causas y novedades.',
+        url: 'https://www.pjn.gov.ar/',
+        category: 'judicial',
+        monogram: 'PJN',
+        brand: '#1B365D',
+        tags: ['Nación', 'Federal', 'Portal'],
+    },
     // ── Trámites y documentos ──
     {
         id: 'arca',
@@ -109,5 +121,15 @@ export const TOOLS: Tool[] = [
         monogram: 'CD',
         brand: '#2A2C6B',
         tags: ['Carta documento', 'Imprimir'],
+    },
+    {
+        id: 'claude',
+        name: 'Claude',
+        description: 'Asistente de inteligencia artificial para redactar, resumir y revisar escritos.',
+        url: 'https://claude.ai/',
+        category: 'documents',
+        monogram: 'CL',
+        brand: '#D97757',
+        tags: ['IA', 'Redacción', 'Resúmenes'],
     },
 ]

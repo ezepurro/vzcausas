@@ -10,23 +10,26 @@ import {
     Panel,
     SearchInput,
 } from '@/shared/components/ui'
-import { useLawyers } from '@/features/lawyers/api/useLawyers'
+import { useLawyers, usePrefetchLawyersPage } from '@/features/lawyers/api/useLawyers'
 import { useCreateLawyer } from '@/features/lawyers/api/useCreateLawyer'
-import type { LawyerFormValues } from '@/features/lawyers/types/lawyer'
+import { useUpdateLawyer } from '@/features/lawyers/api/useUpdateLawyer'
+import type { Lawyer, LawyerFormValues } from '@/features/lawyers/types/lawyer'
 import { validateLawyer, isValid, type LawyerFormErrors } from '@/features/lawyers/schemas/lawyer.schema'
 import { toCreateLawyerBody } from '@/features/lawyers/utils/toCreateLawyerBody'
+import { buildLawyerPatch, hasChanges } from '@/features/lawyers/utils/buildLawyerPatch'
 import { toFormErrors } from '@/features/lawyers/utils/toFormErrors'
 import { LawyersTable } from '@/features/lawyers/components/LawyersTable'
 import { LawyerFormModal } from '@/features/lawyers/components/LawyerFormModal'
+import { lawyerLabel } from '@/features/lawyers/utils/lawyerLabel'
 import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue'
 import { formatPersonName } from '@/shared/lib/personName'
 const LIMIT = 20
 
 /**
- * Qué modal está abierto: UN estado. Hoy sólo existe el alta; la
- * modificación y la baja se suman acá como `{ kind: 'edit'; lawyer }`.
+ * Qué modal está abierto: UN estado. La edición lleva el abogado que se abrió,
+ * contra el que se arma el parche. La baja (HU15) no está en el contrato.
  */
-type Modal = { kind: 'create' } | null
+type Modal = { kind: 'create' } | { kind: 'edit'; lawyer: Lawyer } | null
 
 const EMPTY_FORM: LawyerFormValues = {
     lastName: '',
@@ -36,6 +39,7 @@ const EMPTY_FORM: LawyerFormValues = {
 
 export function LawyersPage() {
     const canCreate = useCan('lawyers.create')
+    const canEdit = useCan('lawyers.update')
     const toast = useToast()
 
     /* Paginado y búsqueda viven acá y se pasan al hook: van en la clave de caché. */
@@ -46,12 +50,16 @@ export function LawyersPage() {
     const [errors, setErrors] = useState<LawyerFormErrors>({})
 
     const debouncedSearch = useDebouncedValue(search.trim())
-    const query = useLawyers({
+    const listParams = {
         page,
         limit: LIMIT,
         search: debouncedSearch === '' ? undefined : debouncedSearch,
-    })
+    }
+    const query = useLawyers(listParams)
+    // Al apuntar a "Siguiente" se pide esa página (`usePrefetchPage`).
+    const prefetchPage = usePrefetchLawyersPage(listParams)
     const create = useCreateLawyer()
+    const update = useUpdateLawyer()
 
     const rows = query.data?.data ?? []
     const pagination = query.data?.pagination
@@ -70,6 +78,16 @@ export function LawyersPage() {
         setValues(EMPTY_FORM)
         setErrors({})
         setModal({ kind: 'create' })
+    }
+
+    function openEdit(lawyer: Lawyer) {
+        setValues({
+            lastName: lawyer.lastName,
+            firstName: lawyer.firstName,
+            registrationNumber: lawyer.registrationNumber ?? '',
+        })
+        setErrors({})
+        setModal({ kind: 'edit', lawyer })
     }
 
     function closeModal() {
@@ -110,12 +128,42 @@ export function LawyersPage() {
             onSuccess: (lawyer) => {
                 toast(
                     'success',
-                    `Abogado ${formatPersonName(lawyer)} registrado con matrícula ${lawyer.registrationNumber}.`,
+                    lawyer.registrationNumber
+                        ? `Abogado ${formatPersonName(lawyer)} registrado con matrícula ${lawyer.registrationNumber}.`
+                        : `Abogado ${formatPersonName(lawyer)} registrado.`,
                 )
                 closeModal()
             },
             onError: handleApiError,
         })
+    }
+
+    /* ---------------- edición ---------------- */
+
+    function submitEdit(lawyer: Lawyer) {
+        const found = validateLawyer(values)
+        setErrors(found)
+        if (!isValid(found)) return
+
+        const patch = buildLawyerPatch(lawyer, values)
+
+        // El contrato responde 400 a un PATCH vacío (CA-14.10), así que si no
+        // cambió nada ni se manda: se cierra y listo.
+        if (!hasChanges(patch)) {
+            closeModal()
+            return
+        }
+
+        update.mutate(
+            { id: lawyer.id, body: patch },
+            {
+                onSuccess: (updated) => {
+                    toast('success', `Datos de ${formatPersonName(updated)} actualizados.`)
+                    closeModal()
+                },
+                onError: handleApiError,
+            },
+        )
     }
 
     /* ---------------- pantalla ---------------- */
@@ -156,6 +204,7 @@ export function LawyersPage() {
                         totalItems={pagination?.totalItems ?? 0}
                         noun={['abogado', 'abogados']}
                         onChange={setPage}
+                        onIntent={prefetchPage}
                     />
                 }
             >
@@ -173,6 +222,8 @@ export function LawyersPage() {
                         loading={query.isPending}
                         busy={query.isPlaceholderData}
                         rows={rows}
+                        onEdit={openEdit}
+                        canEdit={canEdit}
                         empty={
                             <div className="vz-empty">
                                 <div className="vz-empty__title">Sin abogados</div>
@@ -185,13 +236,19 @@ export function LawyersPage() {
                 )}
             </Panel>
 
-            {modal?.kind === 'create' && (
+            {modal !== null && (
                 <LawyerFormModal
+                    mode={modal.kind}
+                    sub={
+                        modal.kind === 'edit'
+                            ? lawyerLabel(modal.lawyer)
+                            : undefined
+                    }
                     values={values}
                     errors={errors}
-                    saving={create.isPending}
+                    saving={modal.kind === 'create' ? create.isPending : update.isPending}
                     onChange={(k, v) => setValues((s) => ({ ...s, [k]: v }))}
-                    onConfirm={submitCreate}
+                    onConfirm={modal.kind === 'create' ? submitCreate : () => submitEdit(modal.lawyer)}
                     onCancel={closeModal}
                 />
             )}

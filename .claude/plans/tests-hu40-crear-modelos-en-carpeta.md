@@ -22,7 +22,7 @@ implementación. Si un test falla contra el código, el código está mal (o el 
 | Situación | `folder` |
 |---|---|
 | Alta con 6 modelos | `CREATED`, `url`, `path`, `templatesCopied: 6`, `templatesPending: 0` |
-| Almacenamiento caído | `ERROR`, `url: null`, `path: null`, `templatesCopied: 0`, `templatesPending: 6` (`:3595-3600`) |
+| Almacenamiento caído | `ERROR`, `url: null`, `path: null`, `templatesCopied: 0`, `templatesPending: 6` (`:3556-3566`; la cita era `:3595-3600`, corrida en V5) |
 | `createFolder: false` | `PENDING`, `templatesCopied: 0`, `templatesPending: 0` (`:3603`) |
 | `copyTemplates: true` con `createFolder: false` | 400 `VALIDATION_ERROR`, `details.copyTemplates` = "Para copiar los modelos primero hay que crear la carpeta de la causa." (ya cubierto, `case-folder.int.spec.ts:133`) |
 | Reintento sobre carpeta `CREATED` con pendientes | 200, copia solo los que faltan (`:4638`, `:4647`) |
@@ -41,8 +41,8 @@ implementación. Si un test falla contra el código, el código está mal (o el 
 | 40.7 (carrera) | Integración | Dos reintentos a la vez → 6 archivos en la carpeta, no 7 |
 | 40.8 | Integración | `GET /document-templates/{id}`: `usageCount` 0 → 1; sigue 1 tras reintentar |
 | 40.9 | Integración | Fuero sin modelos → `CREATED`, 0/0, carpeta vacía |
-| 40.10 | Ya cubierto | `consult-document-templates.int.spec.ts:160` y `:248` |
-| — | Integración | Storage caído en el alta → 201, `folder` = `ERROR`, `templatesPending: 6` |
+| 40.10 | Ya cubierto | `document-templates.int.spec.ts:272` (filtro `copyToNewCases`) y `:356` (la secretaría no ve modelos) (antes `consult-document-templates.int.spec.ts`, fusionado el 01/11/2026) |
+| — | Integración | Storage caído en el alta → 201, `folder` = `ERROR`, `templatesPending: 6`. **En rojo desde el 02/11/2026** (`case-documents-flow.int.spec.ts:221`): responde `templatesPending: 0` por una carrera de producción, sin corregir; ver `ADR-005_EVENTOS_DE_INTEGRACION.md` §7 |
 | — | Integración | Reintento sobre carpeta completa → `copyFile` no se invoca |
 | — | Unit mapper | `templatesPending` no cuenta copias de modelos dados de baja |
 

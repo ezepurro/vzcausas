@@ -10,12 +10,18 @@ import {
     type RailGroup,
 } from '@/shared/components/ui'
 import { useCurrentUser } from '@/app/providers/AuthContext'
+import { useToast } from '@/app/providers/ToastContext'
+import { isApiError } from '@/shared/api/ApiError'
 import { formatPersonFullName } from '@/shared/lib/personName'
 import { profileLabel } from '@/features/auth/utils/profileLabel'
 import { ChangePasswordModal } from '@/features/auth/components/ChangePasswordModal'
 import { LogoutConfirmModal } from '@/features/auth/components/LogoutConfirmModal'
+import { DAILY_RUN_ENABLED, useRunDailyNotifications } from '@/features/deadlines'
 import { canAccess, matchRoute } from '@/app/access/access'
 import { useHomeRoute } from '@/app/access/useHomeRoute'
+import { preloadSection } from '@/app/router/pages'
+import { NavigationProgress } from '@/app/layouts/NavigationProgress'
+import { useHoverIntent } from '@/shared/hooks/useHoverIntent'
 
 /**
  * Marco de la aplicación con sesión iniciada: rail oscuro a la izquierda,
@@ -67,6 +73,8 @@ const CASES = '/causas'
 
 export function AppLayout() {
     const navigate = useNavigate()
+    // "Nueva causa" adelanta la pantalla del alta, como los ítems del rail.
+    const newCaseIntent = useHoverIntent(preloadSection)
     const { pathname } = useLocation()
 
     /* Este marco vive detrás de la guarda de sesión, así que siempre hay
@@ -94,6 +102,25 @@ export function AppLayout() {
        actual: estando en /usuarios/8 tiene que quedar marcado Usuarios. */
     const active = matchRoute(pathname) ?? ''
 
+    const toast = useToast()
+    const dailyRun = useRunDailyNotifications()
+
+    /* Atajo local para probar los correos: ver `features/deadlines/CAMBIOS.md`. */
+    function runDailyNotifications() {
+        dailyRun.mutate(undefined, {
+            onSuccess: (result) => {
+                const sent = Number(result.mailboxSent)
+                    + result.lawyerSends.filter((lawyer) => lawyer.sent).length
+
+                if (sent === 0) toast('info', 'No se envió ningún correo.')
+                else toast('success', `Correos enviados: ${sent}.`)
+            },
+            onError: (error) => {
+                toast('error', isApiError(error) ? error.message : 'Ocurrió un error inesperado.')
+            },
+        })
+    }
+
     return (
         <>
 
@@ -101,7 +128,15 @@ export function AppLayout() {
             groups={groups}
             active={active}
             onNavigate={(route) => navigate(route)}
+            // Al apuntar a una sección se descarga su pantalla: el click la encuentra lista.
+            onIntent={preloadSection}
             brand={
+                <Link to={homeRoute} className="vz-rail__brand" aria-label="Ir al inicio">
+                    <Logo />
+                </Link>
+            }
+            // En pantallas angostas el rail está guardado: la barra lleva el logo.
+            topBarBrand={
                 <Link to={homeRoute} className="vz-rail__brand" aria-label="Ir al inicio">
                     <Logo />
                 </Link>
@@ -118,15 +153,25 @@ export function AppLayout() {
                         icon={<Icon name="plus" size={15} />}
                         title="Nueva causa"
                         onClick={() => navigate(`${CASES}/nueva`)}
+                        {...newCaseIntent(`${CASES}/nueva`)}
                     >
                         <span className="vz-rail__action-label">Nueva causa</span>
                     </Button>
                 )
             }
             topBar={
+                    <>
+                    {/* Mientras se descarga la pantalla de destino (`lazy`). */}
+                    <NavigationProgress />
                     <div className="vz-topbar__right">
-                        <IconButton name="notifications" label="Notificaciones" />
+                        <IconButton
+                            name="notifications"
+                            label="Notificaciones"
+                            disabled={dailyRun.isPending}
+                            onClick={DAILY_RUN_ENABLED ? runDailyNotifications : undefined}
+                        />
                     </div>
+                    </>
             }
             railFooter={
                 <RailUser

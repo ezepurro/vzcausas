@@ -1,6 +1,8 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "@shared/infrastructure/prisma/prisma.service";
+import { Prisma } from "../../../../../generated/prisma/client";
 import { Lawyer } from "../../../core/domain/entities/lawyer.entity";
+import { LawyerRegistrationAlreadyExistsError } from "../../../core/domain/errors/people.errors";
 import {
   LawyerPage,
   LawyerRepository,
@@ -22,12 +24,33 @@ export class PrismaLawyerRepository implements LawyerRepository {
 
   async existsByRegistrationNumber(
     registrationNumber: RegistrationNumber,
+    exceptLawyerId?: number,
   ): Promise<boolean> {
     const row = await this.prisma.db.lawyer.findUnique({
       where: { registrationNumber: registrationNumber.toString() },
       select: { id: true },
     });
-    return row !== null;
+    return row !== null && row.id !== exceptLawyerId;
+  }
+
+  async update(lawyer: Lawyer): Promise<void> {
+    try {
+      await this.prisma.db.lawyer.update({
+        where: { id: lawyer.id },
+        data: {
+          lastName: lawyer.lastName,
+          firstName: lawyer.firstName,
+          registrationNumber: lawyer.registrationNumber?.toString() ?? null,
+        },
+      });
+    } catch (error) {
+      // Two simultaneous requests can both pass the use case's check; the
+      // unique index on `registration_number` lets only one write (CA-14.3).
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+        throw new LawyerRegistrationAlreadyExistsError();
+      }
+      throw error;
+    }
   }
 
   async create(lawyer: Lawyer): Promise<void> {
@@ -36,7 +59,7 @@ export class PrismaLawyerRepository implements LawyerRepository {
         id: lawyer.id,
         lastName: lawyer.lastName,
         firstName: lawyer.firstName,
-        registrationNumber: lawyer.registrationNumber.toString(),
+        registrationNumber: lawyer.registrationNumber?.toString() ?? null,
         active: lawyer.isActive(),
       },
     });

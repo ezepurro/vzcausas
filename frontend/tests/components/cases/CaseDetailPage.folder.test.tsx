@@ -46,7 +46,27 @@ describe('CaseDetailPage · carpeta en Drive', () => {
         expect(screen.queryByRole('button', { name: CREATE })).not.toBeInTheDocument()
     })
 
-    // CA-39.5, CA-39.8: cualquier perfil crea la carpeta de una causa que se registró sin ella.
+    // CA-39.8 (D-110): un abogado que no es el responsable (la 23 la lleva `mferreyra`) no la crea.
+    it('un abogado que no es el responsable ve "Crear carpeta" deshabilitado', async () => {
+        renderPage(23, 'mrios')
+        await headerOf('Causa sin SAC')
+
+        const button = screen.getByRole('button', { name: CREATE })
+        expect(button).toBeDisabled()
+        expect(button).toHaveAttribute('title', expect.stringMatching(/^Solo el abogado responsable/))
+    })
+
+    // CA-39.8 (D-110): el responsable sí, aunque sólo sea abogado.
+    it('el abogado responsable crea la carpeta de su causa', async () => {
+        const { user } = renderPage(23, 'mferreyra')
+        await headerOf('Causa sin SAC')
+
+        await user.click(screen.getByRole('button', { name: CREATE }))
+
+        expect(await screen.findByRole('link', { name: OPEN })).toBeInTheDocument()
+    })
+
+    // CA-39.5, CA-39.8: la Secretaría crea la carpeta de una causa que se registró sin ella.
     it('una carpeta pendiente se crea desde el detalle y queda para abrir', async () => {
         const { user } = renderPage(23)
         await headerOf('Causa sin SAC')

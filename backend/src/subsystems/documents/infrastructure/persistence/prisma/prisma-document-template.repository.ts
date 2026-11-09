@@ -12,7 +12,7 @@ import {
   DocumentTemplateSearch,
   DocumentTemplateView,
   TemplateFile,
-  TemplateFileLocation,
+  TemplateFilePlacement,
 } from '../../../core/domain/ports/document-template.repository';
 
 /** The unique index on `lower(name)` among active templates (D-71). */
@@ -80,25 +80,39 @@ export class PrismaDocumentTemplateRepository implements DocumentTemplateReposit
     });
   }
 
-  async save(template: DocumentTemplate, file: TemplateFileLocation): Promise<DocumentTemplateView> {
-    // The jurisdictions are looked up by name: `jurisdictions.name` holds the contract's code.
-    const jurisdictions = await this.prisma.db.jurisdiction.findMany({
-      where: { name: { in: [...template.jurisdictions] } },
-      select: { jurisdictionId: true },
+  async findJurisdictionIds(codes: readonly TemplateJurisdiction[]): Promise<Map<TemplateJurisdiction, number>> {
+    // `jurisdictions.name` holds the contract's code.
+    const rows = await this.prisma.db.jurisdiction.findMany({
+      where: { name: { in: [...codes] } },
+      select: { jurisdictionId: true, name: true },
     });
+    return new Map(rows.map(({ name, jurisdictionId }) => [name as TemplateJurisdiction, jurisdictionId]));
+  }
+
+  async save(template: DocumentTemplate, placements: readonly TemplateFilePlacement[]): Promise<DocumentTemplateView> {
+    const ids = await this.findJurisdictionIds(template.jurisdictions);
+    // The first placement is the main file: it is the one the template row points to.
+    const main = placements[0];
 
     try {
-      // One `create` with the nested rows: the template and its jurisdictions go in together.
+      // One `create` with the nested rows: the template, its jurisdictions and its files go in together.
       const row = await this.prisma.db.documentTemplate.create({
         data: {
           name: template.name,
           fileName: template.fileName,
-          cloudFileId: file.cloudFileId,
-          cloudFolderId: file.cloudFolderId,
+          cloudFileId: main.cloudFileId,
+          cloudFolderId: main.cloudFolderId,
           copyToNewCases: template.copyToNewCases,
           lastVersionAt: template.lastVersionAt,
           lastVersionByUserId: template.lastVersionByUserId,
-          jurisdictions: { create: jurisdictions.map(({ jurisdictionId }) => ({ jurisdictionId })) },
+          jurisdictions: { create: [...ids.values()].map((jurisdictionId) => ({ jurisdictionId })) },
+          files: {
+            create: placements.map(({ jurisdiction, cloudFileId, cloudFolderId }) => ({
+              jurisdictionId: ids.get(jurisdiction)!,
+              cloudFileId,
+              cloudFolderId,
+            })),
+          },
         },
         include: VIEW_INCLUDE,
       });

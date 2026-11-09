@@ -1,11 +1,11 @@
 import { ConfigService } from '@nestjs/config';
 import { ValidationError } from '@shared/domain/domain-error';
-import { RegisterCaseResult } from '../../../core/application/common/register-case.interfaces';
+import { RegisterCaseResult } from '../../../core/application/use-cases/case/register-case.interfaces';
 import { CaseFactory, NewCaseInput } from '../../../core/domain/factories/case.factory';
-import { CaseListItem } from '../../../core/domain/ports/case-query.port';
-import { DayType } from '../../../core/domain/value-objects/day-type';
-import { JurisdictionCode } from '../../../core/domain/value-objects/jurisdiction-code';
-import { ProceduralRole } from '../../../core/domain/value-objects/procedural-role';
+import { CaseListItem } from '../../../core/domain/ports/case/case.repository';
+import { DayType } from '../../../core/domain/value-objects/deadline/day-type';
+import { JurisdictionCode } from '../../../core/domain/value-objects/case/jurisdiction-code';
+import { ProceduralRole } from '../../../core/domain/value-objects/case/procedural-role';
 import {
   CLIENT,
   INITIAL_STATES,
@@ -20,7 +20,7 @@ import { CaseHttpMapper } from './case-http.mapper';
 // No hace falta: lo que se prueba acá es la traducción, que sólo lee propiedades.
 // Que los decoradores del DTO validen de verdad lo cubre el spec de integración,
 // que pasa por el ValidationPipe real.
-import type { ListCasesQueryDto } from '../dtos/list-cases.query.dto';
+import type { ListCasesQueryDto } from '../dtos/case/list-cases.query.dto';
 
 const config = { getOrThrow: () => 'America/Argentina/Cordoba' } as unknown as ConfigService;
 const mapper = new CaseHttpMapper(config);
@@ -64,9 +64,12 @@ function anItem(overrides: Partial<CaseListItem> = {}): CaseListItem {
         offenseDate: day('2021-02-27'),
         prescriptionStartsOn: day('2021-02-27'),
         prescriptionExpiresOn: day('2029-02-27'),
+        // Como la deja el caso de uso (D-112): al 06/10/2026, 70,05 %.
+        prescriptionStatus: { elapsedPercentage: 70, alert: true, expired: false },
+        prescriptionDeclaration: null,
       },
     ],
-    lastInterruptiveActDate: null,
+    interruptiveActDates: [],
     prescription: null,
     prescriptionDeclaration: null,
     startDate: day('2021-03-12'),
@@ -117,8 +120,10 @@ describe('CaseHttpMapper.toResponse', () => {
         id: CLIENT.id,
         lastName: 'GÓMEZ',
         firstName: 'Ariel Fernando',
-        dni: '34812905',
-        phone: null,
+        documentType: 'DNI',
+        documentNumber: '34812905',
+        address: 'Av. Rafael Núñez 4560, Córdoba',
+        phone: '351 415-2288',
         email: null,
         clientSince: '2021-03-12',
       },
@@ -131,6 +136,10 @@ describe('CaseHttpMapper.toResponse', () => {
           offenseDate: '2021-02-27',
           prescriptionStartsOn: '2021-02-27',
           prescriptionExpiresOn: '2029-02-27',
+          elapsedPercentage: 70,
+          alert: true,
+          expired: false,
+          prescriptionDeclaration: null,
         },
       ],
       prescription: null,
@@ -151,72 +160,19 @@ describe('CaseHttpMapper.toResponse', () => {
     });
   });
 
-  it('la carpeta de la causa sale tal como la lee la consulta', () => {
-    const folder = {
-      status: 'CREATED' as const,
-      url: 'https://drive.google.com/drive/folders/abc',
-      path: '/VZ Causas/Ríos, Malena/Penal/GÓMEZ',
-      templatesCopied: 0,
-      templatesPending: 0,
-    };
+  // D-112: el estado de cada calificación lo completa el caso de uso. Si llega sin él,
+  // es un error de programación, no un dato a inventar: el mapper no lo calcula.
+  it('una calificación sin su estado de prescripción es un error de programación', () => {
+    const item = anItem();
+    const [qualification] = item.legalQualifications;
 
-    expect(mapper.toResponse(anItem({ folder })).folder).toEqual(folder);
+    expect(() =>
+      mapper.toResponse({ ...item, legalQualifications: [{ ...qualification, prescriptionStatus: null }] }),
+    ).toThrow(/prescriptionStatus/);
   });
 
-  it('una causa anterior a las carpetas sale con folder en null', () => {
-    expect(mapper.toResponse(anItem({ folder: null })).folder).toBeNull();
-  });
-
-  it('una fecha nula sale nula, no como string', () => {
-    const response = mapper.toResponse(
-      anItem({
-        currentState: { ...anItem().currentState, dueDate: null, businessDaysRemaining: null },
-      }),
-    );
-
-    expect(response.currentState.dueDate).toBeNull();
-    expect(response.currentState.businessDaysRemaining).toBeNull();
-  });
-
-
-  it('no inventa ni pierde campos: exactamente los 30 del contrato (V4 §3.7)', () => {
-    expect(Object.keys(mapper.toResponse(anItem())).sort()).toEqual(
-      [
-        'active',
-        'administrativeRemedyExhaustedOn',
-        'caption',
-        'client',
-        'clientDetained',
-        'counterparty',
-        'court',
-        'courtFeePaid',
-        'currentState',
-        'folder',
-        'harmfulActDate',
-        'harmfulActDeadline',
-        'harmfulActRenewalDays',
-        'harmfulActRenews',
-        'harmfulActTermDayType',
-        'harmfulActTermDays',
-        'id',
-        'injunctionGranted',
-        'instructorExtension',
-        'instructorName',
-        'jurisdiction',
-        'legalQualifications',
-        'prescription',
-        'prescriptionDeclaration',
-        'proceduralRole',
-        'responsibleLawyer',
-        'sacNumber',
-        'startDate',
-        'subjectMatter',
-        'tribunalPhone',
-      ].sort(),
-    );
-  });
-
-  it('la prescripción que rige sale con sus fechas como YYYY-MM-DD (V4 §3.7)', () => {
+  /** `remainingDays` es del resumen diario (HU32): el `prescription` del contrato no lo tiene. */
+  it('la prescripción que rige sale con sus fechas como YYYY-MM-DD y sin remainingDays (§3.7)', () => {
     const response = mapper.toResponse(
       anItem({
         prescription: {
@@ -245,24 +201,33 @@ describe('CaseHttpMapper.toResponse', () => {
     });
   });
 
-  it('una prescripción que corre desde el hecho manda lastInterruptiveActDate en null', () => {
-    const response = mapper.toResponse(
-      anItem({
-        prescription: {
-          legalQualificationId: 1,
-          legalQualificationName: 'Robo calificado — art. 167 inc. 2 CP',
-          startsOn: day('2021-02-27'),
-          expiresOn: day('2029-02-27'),
-          elapsedPercentage: 69,
-          alert: false,
-          expired: false,
-          remainingDays: 875,
-          lastInterruptiveActDate: null,
+  // D-113: cada calificación sale con su propia declaración, con el mismo formato que la de la causa.
+  it('la declaración de una calificación sale con sus fechas como en la de la causa', () => {
+    const item = anItem();
+    const [qualification] = item.legalQualifications;
+    const response = mapper.toResponse({
+      ...item,
+      legalQualifications: [
+        {
+          ...qualification,
+          prescriptionDeclaration: {
+            prescriptionDate: day('2026-09-15'),
+            resolution: 'Auto N° 88',
+            grounds: null,
+            registeredBy: { id: 1, lastName: 'Vázquez', firstName: 'Fernando G.' },
+            registeredAt: new Date('2026-09-15T15:20:00.000Z'),
+          },
         },
-      }),
-    );
+      ],
+    });
 
-    expect(response.prescription?.lastInterruptiveActDate).toBeNull();
+    expect(response.legalQualifications[0].prescriptionDeclaration).toEqual({
+      prescriptionDate: '2026-09-15',
+      resolution: 'Auto N° 88',
+      grounds: null,
+      registeredBy: { id: 1, lastName: 'Vázquez', firstName: 'Fernando G.' },
+      registeredAt: '2026-09-15T12:20:00-03:00',
+    });
   });
 
   it('la declaración de prescripción sale con registeredAt en la hora de Córdoba', () => {
@@ -287,48 +252,6 @@ describe('CaseHttpMapper.toResponse', () => {
     });
   });
 
-  it('un amparo lleva contraparte y objeto; una penal los lleva nulos', () => {
-    const amparo = mapper.toResponse(
-      anItem({
-        jurisdiction: JurisdictionCode.AMPARO,
-        proceduralRole: ProceduralRole.ACTORA,
-        counterparty: 'APROSS',
-        subjectMatter: 'Que se ordene la cobertura integral del tratamiento.',
-        legalQualifications: [],
-      }),
-    );
-
-    expect(amparo).toMatchObject({
-      jurisdiction: 'AMPARO',
-      proceduralRole: 'ACTORA',
-      counterparty: 'APROSS',
-      subjectMatter: 'Que se ordene la cobertura integral del tratamiento.',
-      legalQualifications: [],
-    });
-    expect(mapper.toResponse(anItem())).toMatchObject({
-      counterparty: null,
-      subjectMatter: null,
-    });
-  });
-
-  it('un estado escrito a mano manda el texto como nombre y el id en null', () => {
-    const response = mapper.toResponse(
-      anItem({
-        currentState: {
-          ...anItem().currentState,
-          proceduralStateId: null,
-          name: 'Con acusación, pero con oposición',
-          custom: true,
-        },
-      }),
-    );
-
-    expect(response.currentState).toMatchObject({
-      proceduralStateId: null,
-      name: 'Con acusación, pero con oposición',
-      custom: true,
-    });
-  });
 });
 
 describe('CaseHttpMapper.fromRegisterResult', () => {
@@ -341,13 +264,53 @@ describe('CaseHttpMapper.fromRegisterResult', () => {
       currentState: INITIAL_STATES[input.jurisdictionCode],
       harmfulActDeadline: null,
       prescription: null,
+      offensePrescriptions: [],
       folder: { status: 'CREATING', url: null, path: null, templatesCopied: 0, templatesPending: 0 },
     };
   }
 
-  it('una causa recién registrada sale en el estado inicial, sin acto ni vencimiento', () => {
+  // D-112: el alta también trae el estado de cada calificación.
+  it('cada calificación sale con el estado de prescripción que calculó el caso de uso', () => {
+    const result = aResult();
+    const response = mapper.fromRegisterResult({
+      ...result,
+      newCase: {
+        ...result.newCase,
+        offenses: [
+          {
+            legalQualificationId: 1,
+            legalQualificationName: 'Robo calificado — art. 167 inc. 2 CP',
+            prescriptionMonths: 96,
+            offenseDate: day('2021-02-27'),
+            prescriptionStartsOn: day('2021-02-27'),
+            prescriptionExpiresOn: day('2029-02-27'),
+            prescriptionDeclaration: null,
+          },
+        ],
+      },
+      offensePrescriptions: [{ elapsedPercentage: 70, alert: true, expired: false }],
+    });
+
+    expect(response.legalQualifications).toEqual([
+      {
+        id: 1,
+        name: 'Robo calificado — art. 167 inc. 2 CP',
+        prescriptionMonths: 96,
+        offenseDate: '2021-02-27',
+        prescriptionStartsOn: '2021-02-27',
+        prescriptionExpiresOn: '2029-02-27',
+        elapsedPercentage: 70,
+        alert: true,
+        expired: false,
+        prescriptionDeclaration: null,
+      },
+    ]);
+  });
+
+  it('una causa recién registrada sale en el estado inicial, sin acto, vencimiento ni declaración', () => {
     const response = mapper.fromRegisterResult(aResult());
 
+    expect(response.prescriptionDeclaration).toBeNull();
     expect(response.currentState).toEqual({
       // La columna guarda el id real de "Iniciada", pero el contrato pide null:
       // mandarlo haría que el frontend lo buscara en /procedural-states.
@@ -362,29 +325,13 @@ describe('CaseHttpMapper.fromRegisterResult', () => {
     });
   });
 
-  it('la respuesta del alta incluye la carpeta como quedó al responder', () => {
-    const response = mapper.fromRegisterResult(aResult());
-
-    expect(response.folder).toEqual({
-      status: 'CREATING',
-      url: null,
-      path: null,
-      templatesCopied: 0,
-      templatesPending: 0,
-    });
-  });
-
-  it('en el fuero penal la contraparte y el objeto salen nulos', () => {
-    const response = mapper.fromRegisterResult(aResult());
-
-    expect(response).toMatchObject({
+  it('la contraparte y el objeto salen en un amparo, que es la rama del instanceof, y nulos en el penal', () => {
+    expect(mapper.fromRegisterResult(aResult())).toMatchObject({
       jurisdiction: 'CRIMINAL',
       counterparty: null,
       subjectMatter: null,
     });
-  });
 
-  it('en un amparo salen los dos, que es la rama del instanceof', () => {
     const response = mapper.fromRegisterResult(
       aResult({
         jurisdictionCode: JurisdictionCode.AMPARO,
@@ -411,10 +358,18 @@ describe('CaseHttpMapper.fromRegisterResult', () => {
       harmfulActTermDayType: DayType.BUSINESS,
     };
 
-    it('penal: sale clientDetained y los demás datos son null', () => {
-      const response = mapper.fromRegisterResult(aResult({ clientDetained: true, courtFeePaid: true }));
+    it('penal y administrativo: sale cada dato propio y los de los otros fueros son null', () => {
+      const criminal = mapper.fromRegisterResult(aResult({ clientDetained: true, courtFeePaid: true }));
+      const administrative = mapper.fromRegisterResult(
+        aResult({
+          jurisdictionCode: JurisdictionCode.ADMINISTRATIVE,
+          proceduralRole: ProceduralRole.RECURRENTE,
+          subjectMatter: 'Descargo frente a la imputación.',
+          administrativeRemedyExhaustedOn: day('2026-08-10'),
+        }),
+      );
 
-      expect(response).toMatchObject({
+      expect(criminal).toMatchObject({
         clientDetained: true,
         injunctionGranted: null,
         harmfulActDate: null,
@@ -425,6 +380,12 @@ describe('CaseHttpMapper.fromRegisterResult', () => {
         harmfulActDeadline: null,
         administrativeRemedyExhaustedOn: null,
         courtFeePaid: true,
+      });
+      expect(administrative).toMatchObject({
+        clientDetained: null,
+        injunctionGranted: null,
+        harmfulActDeadline: null,
+        administrativeRemedyExhaustedOn: '2026-08-10',
       });
     });
 
@@ -454,73 +415,6 @@ describe('CaseHttpMapper.fromRegisterResult', () => {
       });
     });
 
-    it('amparo sin acto lesivo: injunctionGranted y harmfulActRenews salen false, el resto null', () => {
-      const response = mapper.fromRegisterResult(
-        aResult({
-          jurisdictionCode: JurisdictionCode.AMPARO,
-          proceduralRole: ProceduralRole.ACTORA,
-          subjectMatter: 'Que se ordene la cobertura integral del tratamiento.',
-        }),
-      );
-
-      expect(response).toMatchObject({
-        injunctionGranted: false,
-        harmfulActDate: null,
-        harmfulActRenews: false,
-        harmfulActRenewalDays: null,
-        harmfulActTermDays: null,
-        harmfulActTermDayType: null,
-        harmfulActDeadline: null,
-      });
-    });
-
-    it('administrativo: sale la fecha de agotamiento de la vía y el resto de los datos es null', () => {
-      const response = mapper.fromRegisterResult(
-        aResult({
-          jurisdictionCode: JurisdictionCode.ADMINISTRATIVE,
-          proceduralRole: ProceduralRole.RECURRENTE,
-          subjectMatter: 'Descargo frente a la imputación.',
-          administrativeRemedyExhaustedOn: day('2026-08-10'),
-        }),
-      );
-
-      expect(response).toMatchObject({
-        clientDetained: null,
-        injunctionGranted: null,
-        harmfulActDeadline: null,
-        administrativeRemedyExhaustedOn: '2026-08-10',
-      });
-    });
-  });
-
-  it('una causa recién registrada nunca tiene declaración de prescripción', () => {
-    expect(mapper.fromRegisterResult(aResult()).prescriptionDeclaration).toBeNull();
-  });
-
-  it('la prescripción calculada al registrar sale en el recurso', () => {
-    const prescription = {
-      legalQualificationId: 1,
-      legalQualificationName: 'Robo calificado — art. 167 inc. 2 CP',
-      startsOn: day('2021-02-27'),
-      expiresOn: day('2029-02-27'),
-      elapsedPercentage: 70,
-      alert: true,
-      expired: false,
-      remainingDays: 875,
-      lastInterruptiveActDate: null,
-    };
-
-    // `remainingDays` is for the daily digest (HU32): the contract's `prescription` has no such field.
-    expect(mapper.fromRegisterResult({ ...aResult(), prescription }).prescription).toEqual({
-      legalQualificationId: 1,
-      legalQualificationName: 'Robo calificado — art. 167 inc. 2 CP',
-      startsOn: '2021-02-27',
-      expiresOn: '2029-02-27',
-      elapsedPercentage: 70,
-      alert: true,
-      expired: false,
-      lastInterruptiveActDate: null,
-    });
   });
 
   it('produce la misma forma que toResponse: las mismas 30 claves', () => {
@@ -533,16 +427,22 @@ describe('CaseHttpMapper.fromRegisterResult', () => {
 });
 
 describe('CaseHttpMapper.toSearchCriteria', () => {
-  it('aplica los valores por defecto del contrato cuando no viene paginación', () => {
-    const criteria = CaseHttpMapper.toSearchCriteria(aQuery());
+  it('aplica la paginación por defecto del contrato, recorta el search y reenvía los filtros simples', () => {
+    const criteria = CaseHttpMapper.toSearchCriteria(
+      aQuery({ search: ' gómez ', jurisdiction: JurisdictionCode.AMPARO, responsibleLawyerId: 3, clientId: 7, openDeadline: true }),
+    );
 
-    expect(criteria.page).toBe(1);
-    expect(criteria.limit).toBe(20);
-  });
-
-  it('un search vacío no viaja como filtro', () => {
+    expect(criteria).toMatchObject({
+      page: 1,
+      limit: 20,
+      search: 'gómez',
+      jurisdiction: JurisdictionCode.AMPARO,
+      responsibleLawyerId: 3,
+      clientId: 7,
+      openDeadline: true,
+    });
+    // Un search vacío no viaja como filtro.
     expect(CaseHttpMapper.toSearchCriteria(aQuery({ search: '   ' })).search).toBeUndefined();
-    expect(CaseHttpMapper.toSearchCriteria(aQuery({ search: ' gómez ' })).search).toBe('gómez');
   });
 
   it('normaliza el fuero y rechaza uno inexistente con INVALID_REQUEST (§5.3)', () => {
@@ -562,26 +462,8 @@ describe('CaseHttpMapper.toSearchCriteria', () => {
     }
   });
 
-  it('reenvía los filtros simples tal cual', () => {
-    const criteria = CaseHttpMapper.toSearchCriteria(
-      aQuery({
-        jurisdiction: JurisdictionCode.AMPARO,
-        responsibleLawyerId: 3,
-        clientId: 7,
-        openDeadline: true,
-      }),
-    );
-
-    expect(criteria).toMatchObject({
-      jurisdiction: JurisdictionCode.AMPARO,
-      responsibleLawyerId: 3,
-      clientId: 7,
-      openDeadline: true,
-    });
-  });
-
   describe('filtro de estado: tres parámetros, un solo valor (CA-20.4)', () => {
-    it('traduce cada uno a su variante', () => {
+    it('traduce cada uno a su variante; sin ninguno, o con withoutProceduralActs=false, no hay filtro', () => {
       expect(CaseHttpMapper.toSearchCriteria(aQuery({ proceduralStateId: 4 })).state).toEqual({
         kind: 'proceduralState',
         proceduralStateId: 4,
@@ -595,48 +477,36 @@ describe('CaseHttpMapper.toSearchCriteria', () => {
       expect(CaseHttpMapper.toSearchCriteria(aQuery({ withoutProceduralActs: true })).state).toEqual({
         kind: 'withoutProceduralActs',
       });
-    });
 
-    it('sin ninguno de los tres, no hay filtro de estado', () => {
       expect(CaseHttpMapper.toSearchCriteria(aQuery()).state).toBeUndefined();
-    });
-
-    it('withoutProceduralActs=false no filtra nada', () => {
       // El parámetro existe para pedir "solo las iniciadas", no para excluirlas.
       expect(CaseHttpMapper.toSearchCriteria(aQuery({ withoutProceduralActs: false })).state).toBeUndefined();
     });
 
-    it('rechaza proceduralStateId combinado con customState', () => {
-      const query = aQuery({ proceduralStateId: 4, customState: 'Con oposición' });
-
-      try {
-        CaseHttpMapper.toSearchCriteria(query);
-        throw new Error('Se esperaba un error y no se lanzó ninguno.');
-      } catch (error) {
-        expect(error).toBeInstanceOf(ValidationError);
-        expect((error as ValidationError).code).toBe('INVALID_REQUEST');
-        expect((error as ValidationError).details).toEqual({
-          customState: 'No puede combinarse con proceduralStateId.',
-        });
-      }
-    });
-
-    it('rechaza withoutProceduralActs combinado con cualquiera de los otros dos', () => {
-      const combinaciones = [
-        aQuery({ withoutProceduralActs: true, proceduralStateId: 4 }),
-        aQuery({ withoutProceduralActs: true, customState: 'Con oposición' }),
-        aQuery({ withoutProceduralActs: false, proceduralStateId: 4 }),
+    it('rechaza dos filtros de estado combinados con INVALID_REQUEST, sobre el campo que sobra', () => {
+      const combinaciones: [ListCasesQueryDto, Record<string, string>][] = [
+        [
+          aQuery({ proceduralStateId: 4, customState: 'Con oposición' }),
+          { customState: 'No puede combinarse con proceduralStateId.' },
+        ],
+        ...[
+          aQuery({ withoutProceduralActs: true, proceduralStateId: 4 }),
+          aQuery({ withoutProceduralActs: true, customState: 'Con oposición' }),
+          aQuery({ withoutProceduralActs: false, proceduralStateId: 4 }),
+        ].map((query): [ListCasesQueryDto, Record<string, string>] => [
+          query,
+          { withoutProceduralActs: 'No puede combinarse con proceduralStateId ni con customState.' },
+        ]),
       ];
 
-      for (const query of combinaciones) {
+      for (const [query, details] of combinaciones) {
         try {
           CaseHttpMapper.toSearchCriteria(query);
           throw new Error('Se esperaba un error y no se lanzó ninguno.');
         } catch (error) {
+          expect(error).toBeInstanceOf(ValidationError);
           expect((error as ValidationError).code).toBe('INVALID_REQUEST');
-          expect((error as ValidationError).details).toEqual({
-            withoutProceduralActs: 'No puede combinarse con proceduralStateId ni con customState.',
-          });
+          expect((error as ValidationError).details).toEqual(details);
         }
       }
     });

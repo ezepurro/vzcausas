@@ -82,7 +82,7 @@ cómo funciona en producción.
 Mismo patrón que `GmailApiEmailAdapter`
 (`deadlines/infrastructure/external/gmail-api-email.adapter.ts:42-53`):
 inyectás `GoogleOAuthClientService`, le pedís `getClient()`, y se lo pasás
-como `auth` al cliente de `googleapis` que corresponda.
+como `auth` al cliente de la API que corresponda (`@googleapis/gmail`, `@googleapis/drive`).
 
 La forma real está en
 `documents/infrastructure/storage/google-drive/google-drive-document-storage.adapter.ts`
@@ -169,15 +169,15 @@ instancia sin construir (reproducido en `document-storage.wiring.spec.ts`).
 
 Tres niveles:
 
-1. **Unitario del adaptador**: fake del cliente de `googleapis` inyectado por
+1. **Unitario del adaptador**: fake del cliente de la API (`@googleapis/drive`, `@googleapis/gmail`) inyectado por
    constructor (§3).
 2. **Integración sin Google**: `InMemoryDocumentStorage` reemplaza
    `DOCUMENT_STORAGE` vía `overrideProvider` (es el valor por defecto de
    `startTestApp`).
 3. **Integración con la pila real de Google y un Google falso**:
    `test/shared/fakes/fake-google.ts` reemplaza solo el transporte HTTP
-   (`oauthClient.transporter`); corren `googleapis` y `OAuth2Client` reales,
+   (`oauthClient.transporter`); corren `@googleapis/drive` y `OAuth2Client` reales,
    con el canje del refresh token incluido. Ver `test/README.md` §3.8 y los
-   specs `google-oauth-refresh`, `google-drive-case-folder` y
-   `google-drive-templates`. No hay prueba automática contra Drive real: la
+   spec `documents/google-stack.int.spec.ts` (junta los que eran
+   `google-oauth-refresh`, `google-drive-case-folder` y `google-drive-templates`). No hay prueba automática contra Drive real: la
    lista de verificación manual está en el plan de HU-39.

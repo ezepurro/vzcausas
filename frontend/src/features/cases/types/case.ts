@@ -49,7 +49,15 @@ export const PROCEDURAL_ROLES_BY_JURISDICTION: Record<Jurisdiction, readonly Pro
 /** El cliente tal como viene embebido en la causa: sin `activeCases` ni `active`. */
 export type CaseClient = Pick<
     Client,
-    'id' | 'lastName' | 'firstName' | 'dni' | 'phone' | 'email' | 'clientSince'
+    | 'id'
+    | 'lastName'
+    | 'firstName'
+    | 'documentType'
+    | 'documentNumber'
+    | 'address'
+    | 'phone'
+    | 'email'
+    | 'clientSince'
 >
 
 /** El abogado responsable embebido (RN3). Apellido y nombres separados (V4 D-68). */
@@ -57,7 +65,8 @@ export interface CaseLawyer {
     id: number
     lastName: string
     firstName: string
-    registrationNumber: string
+    /** `null` si no tiene matrícula cargada: no es obligatoria. */
+    registrationNumber: string | null
 }
 
 /**
@@ -77,6 +86,20 @@ export interface CaseLegalQualification {
     prescriptionStartsOn: string
     /** `prescriptionStartsOn` más `prescriptionMonths`, `YYYY-MM-DD`. */
     prescriptionExpiresOn: string
+    /**
+     * Lo mismo que `prescription` informa de la que rige, pero de esta
+     * calificación (D-112): el porcentaje transcurrido, la alerta del 70 % y si
+     * el plazo ya se cumplió. Los calcula el backend; el front no los recalcula.
+     */
+    elapsedPercentage: number
+    alert: boolean
+    expired: boolean
+    /**
+     * La constancia de que esta calificación fue declarada prescripta (D-113),
+     * con la misma forma que la de la causa. `null` mientras no se declaró: que
+     * el plazo esté cumplido (`expired`) no la declara.
+     */
+    prescriptionDeclaration: PrescriptionDeclaration | null
 }
 
 /**
@@ -369,4 +392,51 @@ export interface CaseListParams extends PaginatedQuery {
      * acto procesal o, en un amparo en "Iniciada", el del acto lesivo (V4 D-82).
      */
     openDeadline?: boolean
+}
+
+
+
+
+
+
+/**
+ * Cuerpo del `PATCH /cases/{caseId}`. Todo es opcional, pero
+ * tiene que viajar al menos un campo: un cuerpo vacío es un `400`. Un campo
+ * que no viaja no cambia; uno anulable en `null` se vacía.
+ *
+ * No están el fuero (D-95), la carpeta, el estado ni `active`: mandarlos es un
+ * `400`. Lo que es de un fuero no viaja en otro, igual que en el alta.
+ */
+export interface UpdateCaseBody {
+    /** 8 dígitos, único entre las causas vigentes. `null` deja la causa sin SAC. */
+    sacNumber?: string | null
+    caption?: string
+    court?: string | null
+    instructorName?: string | null
+    tribunalPhone?: string | null
+    instructorExtension?: string | null
+    /* Sin `clientId`: el cliente de una causa no se modifica (D-111, `400`). */
+    proceduralRole?: ProceduralRole
+    /** Solo en `CRIMINAL`. Reemplaza la lista completa; `[]` la deja sin calificaciones. */
+    legalQualifications?: CaseQualificationBody[]
+    /** Solo en `CRIMINAL`. */
+    clientDetained?: boolean
+    /** Solo en `ADMINISTRATIVE` y `AMPARO`. */
+    counterparty?: string | null
+    /** Solo en `ADMINISTRATIVE` y `AMPARO`. No vacío, hasta 800 caracteres. */
+    subjectMatter?: string
+    /** Solo en `AMPARO`. */
+    injunctionGranted?: boolean
+    /** Solo en `AMPARO`. `null` borra el acto lesivo y sus datos asociados. */
+    harmfulActDate?: string | null
+    harmfulActRenews?: boolean
+    harmfulActRenewalDays?: number | null
+    harmfulActTermDays?: number | null
+    harmfulActTermDayType?: Exclude<DayType, 'NONE'> | null
+    /** Solo en `ADMINISTRATIVE`. `null`: la vía no se agotó. */
+    administrativeRemedyExhaustedOn?: string | null
+    courtFeePaid?: boolean
+    responsibleLawyerId?: number
+    /** Va con el SAC: obligatoria si la causa queda con SAC, `null` si queda sin él. */
+    startDate?: string | null
 }

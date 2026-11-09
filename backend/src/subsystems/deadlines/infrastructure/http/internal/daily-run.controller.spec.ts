@@ -9,8 +9,10 @@ import {
 import { UpcomingDeadlineNotice, PrescriptionNotice } from "../../../core/domain/types/upcoming-deadline-notice";
 
 class FakeDeadlineDetection implements DeadlineDetectionPort {
+  calls = 0;
   constructor(private readonly notices: UpcomingDeadlineNotice[] = []) {}
   async execute(): Promise<UpcomingDeadlineNotice[]> {
+    this.calls++;
     return this.notices;
   }
 }
@@ -49,6 +51,7 @@ describe("DailyRunController", () => {
       new FakeDeadlineDetection([deadline]),
       new FakePrescriptionDetection([prescription]),
       digest as unknown as SendDailyNotificationDigestUseCase,
+      false,
     );
 
     const result = await controller.run();
@@ -72,6 +75,7 @@ describe("DailyRunController", () => {
       new FakeDeadlineDetection([]),
       new FakePrescriptionDetection([]),
       digest as unknown as SendDailyNotificationDigestUseCase,
+      false,
     );
 
     const result = await controller.run();
@@ -80,6 +84,56 @@ describe("DailyRunController", () => {
     expect(digest.received).toEqual({
       deadlineNotices: [],
       prescriptionNotices: [],
+    });
+  });
+
+  /* `?dev=true` borra el historial de `sent_notifications` para poder volver a probar la campanita. */
+  describe("?dev=true", () => {
+    const emptyResult = { mailboxSent: false, mailboxNoticeCount: 0, lawyerSends: [] };
+
+    function build(devToolsEnabled: boolean) {
+      const detection = new FakeDeadlineDetection([]);
+      const digest = new FakeDigestUseCase(emptyResult);
+      const controller = new DailyRunController(
+        detection,
+        new FakePrescriptionDetection([]),
+        digest as unknown as SendDailyNotificationDigestUseCase,
+        devToolsEnabled,
+      );
+      return { controller, detection, digest };
+    }
+
+    it("asks the digest to reset the history when the environment is development", async () => {
+      const { controller, digest } = build(true);
+
+      await controller.run({ dev: "true" });
+
+      expect(digest.received).toEqual({
+        deadlineNotices: [],
+        prescriptionNotices: [],
+        resetHistory: true,
+      });
+    });
+
+    it("is rejected outside development with a 400 on `dev`, before detecting or sending anything", async () => {
+      const { controller, detection, digest } = build(false);
+
+      await expect(controller.run({ dev: "true" })).rejects.toMatchObject({
+        code: "VALIDATION_ERROR",
+        details: { dev: "Solo está disponible en desarrollo." },
+      });
+      expect(detection.calls).toBe(0);
+      expect(digest.received).toBeNull();
+    });
+
+    it.each([undefined, "false"])("dev=%s runs as usual and never resets, in any environment", async (dev) => {
+      for (const devToolsEnabled of [true, false]) {
+        const { controller, digest } = build(devToolsEnabled);
+
+        await controller.run({ dev });
+
+        expect(digest.received).toEqual({ deadlineNotices: [], prescriptionNotices: [] });
+      }
     });
   });
 });

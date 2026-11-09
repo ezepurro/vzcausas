@@ -1,4 +1,5 @@
 import type { FormEvent } from 'react'
+import { SUBJECT_MATTER_TEXT } from '@/features/cases/utils/subjectMatter'
 import { Button, Panel } from '@/shared/components/ui'
 import {
     Checkbox,
@@ -23,7 +24,7 @@ import {
     type CaseFormValues,
     type ProceduralRole,
 } from '@/features/cases/types/case'
-import { SUBJECT_MATTER_MAX, type CaseFormErrors } from '@/features/cases/schemas/case.schema'
+import { CASE_MAX_LENGTH, SUBJECT_MATTER_MAX, type CaseFormErrors } from '@/features/cases/schemas/case.schema'
 import {
     LegalQualificationPicker,
     type SelectedQualification,
@@ -92,23 +93,6 @@ const TERM_DAY_TYPE_OPTIONS: SelectOption[] = (['BUSINESS', 'CONSECUTIVE'] as co
 }))
 
 /**
- * El campo es el mismo en los dos fueros (`subjectMatter`, V3 D-27); lo que
- * cambia es cómo lo llama el estudio y el ejemplo que orienta al que carga.
- */
-const SUBJECT_MATTER_TEXT: Record<Exclude<Jurisdiction, 'CRIMINAL'>, { label: string; placeholder: string }> = {
-    ADMINISTRATIVE: {
-        label: 'Objeto del reclamo',
-        placeholder:
-            'Ej. Se deje sin efecto la sanción de cesantía dispuesta por el Tribunal de Conducta Policial y se reincorpore al agente…',
-    },
-    AMPARO: {
-        label: 'Objeto del amparo',
-        placeholder:
-            'Ej. Se ordene a APROSS la cobertura integral del tratamiento prescripto, denegada por resolución del…',
-    },
-}
-
-/**
  * El formulario de "Registrar causa" (HU18), en tres secciones como el
  * prototipo: identificación, cliente y rol procesal, y asignación.
  *
@@ -165,7 +149,7 @@ export function CaseForm({
                             id="case-sac"
                             mono
                             inputMode="numeric"
-                            maxLength={8}
+                            maxLength={CASE_MAX_LENGTH.sacNumber}
                             placeholder="8 dígitos"
                             value={values.sacNumber}
                             onChange={(e) => onSacNumberChange(e.target.value)}
@@ -186,6 +170,7 @@ export function CaseForm({
                         note="Podés usar la que sugiere el resumen, a partir del cliente y la calificación.">
                         <TextInput
                             id="case-caption"
+                            maxLength={CASE_MAX_LENGTH.caption}
                             value={values.caption}
                             onChange={(e) => onChange('caption', e.target.value)}
                         />
@@ -195,6 +180,7 @@ export function CaseForm({
                         <TextInput
                             id="case-court"
                             placeholder="Juzgado de Control N° 3 · Córdoba"
+                            maxLength={CASE_MAX_LENGTH.court}
                             value={values.court}
                             onChange={(e) => onChange('court', e.target.value)}
                         />
@@ -210,6 +196,7 @@ export function CaseForm({
                             <TextInput
                                 id="case-instructor"
                                 placeholder="Apellido y nombre del instructor"
+                                maxLength={CASE_MAX_LENGTH.instructorName}
                                 value={values.instructorName}
                                 onChange={(e) => onChange('instructorName', e.target.value)}
                             />
@@ -222,6 +209,7 @@ export function CaseForm({
                                 type="tel"
                                 mono
                                 placeholder="0351 448-1200"
+                                maxLength={CASE_MAX_LENGTH.tribunalPhone}
                                 value={values.tribunalPhone}
                                 onChange={(e) => onChange('tribunalPhone', e.target.value)}
                             />
@@ -233,7 +221,7 @@ export function CaseForm({
                                 id="case-instructor-extension"
                                 mono
                                 inputMode="numeric"
-                                maxLength={20}
+                                maxLength={CASE_MAX_LENGTH.instructorExtension}
                                 placeholder="214"
                                 value={values.instructorExtension}
                                 onChange={(e) => onChange('instructorExtension', e.target.value)}
@@ -312,6 +300,7 @@ export function CaseForm({
                                 <TextInput
                                     id="case-counterparty"
                                     placeholder="APROSS, Provincia de Córdoba, Tribunal de Conducta…"
+                                    maxLength={CASE_MAX_LENGTH.counterparty}
                                     value={values.counterparty}
                                     onChange={(e) => onChange('counterparty', e.target.value)}
                                 />
@@ -439,7 +428,7 @@ export function CaseForm({
  * amparo (D-78), por eso el plazo y su tipo de día sólo se piden con ella; y la
  * renovación, sólo si el acto se renueva.
  */
-function HarmfulActFields({
+export function HarmfulActFields({
     values, errors, onChange,
 }: Pick<CaseFormProps, 'values' | 'errors' | 'onChange'>) {
     const hasDate = values.harmfulActDate.trim() !== ''
@@ -477,6 +466,7 @@ function HarmfulActFields({
                                 mono
                                 inputMode="numeric"
                                 placeholder="Días"
+                                maxLength={CASE_MAX_LENGTH.harmfulActTermDays}
                                 value={values.harmfulActTermDays}
                                 onChange={(e) => onChange('harmfulActTermDays', e.target.value)}
                             />
@@ -508,6 +498,7 @@ function HarmfulActFields({
                                 mono
                                 inputMode="numeric"
                                 placeholder="Días"
+                                maxLength={CASE_MAX_LENGTH.harmfulActRenewalDays}
                                 value={values.harmfulActRenewalDays}
                                 onChange={(e) => onChange('harmfulActRenewalDays', e.target.value)}
                             />

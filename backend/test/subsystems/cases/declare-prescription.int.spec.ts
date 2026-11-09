@@ -3,7 +3,7 @@ import request from 'supertest';
 
 import { loginAs } from '../../shared/auth/login-as';
 import { expectData, expectError, expectPaginated } from '../../shared/contract/envelopes';
-import { createCase } from '../../shared/factories/case.factory';
+import { createCase, deactivateCase } from '../../shared/factories/case.factory';
 import { createLegalQualification } from '../../shared/factories/legal-qualification.factory';
 import {
   ProceduralActScenario,
@@ -69,6 +69,7 @@ const REGISTERED_AT = '2026-10-06T12:30:00-03:00';
 
 const MESSAGES = {
   forbidden: 'Se requiere el rol ADMINISTRATOR o LAWYER para realizar esta operación.',
+  notResponsible: 'Solo el abogado responsable de la causa puede marcarla como prescripta.',
   notFound: 'No se encontró la causa solicitada.',
   notCriminal: 'La prescripción solo aplica a las causas del fuero penal.',
   withoutQualifications: 'La causa no tiene calificaciones legales: no puede prescribir.',
@@ -195,12 +196,12 @@ describe('POST /api/v1/cases/:caseId/prescription', () => {
     });
 
     // CA-33.1, CA-33.3, CA-33.10
-    it('un abogado que no es el responsable la marca sin fundamento, aunque el plazo no esté cumplido', async () => {
+    it('el abogado responsable la marca sin fundamento, aunque el plazo no esté cumplido', async () => {
       await addRobbery(s.caseRow.id);
       expect((await detail(s.caseRow.id)).prescription).toMatchObject({ expired: false });
 
       const { grounds: _omitted, ...withoutGrounds } = VALID_BODY;
-      const data = expectData<Record<string, any>>(await mark(s.caseRow.id, s.notResponsible, withoutGrounds), 200);
+      const data = expectData<Record<string, any>>(await mark(s.caseRow.id, s.responsible, withoutGrounds), 200);
 
       expect(data.prescriptionDeclaration).toMatchObject({ grounds: null });
       expect((await row(s.caseRow.id)).prescriptionGrounds).toBeNull();
@@ -216,7 +217,7 @@ describe('POST /api/v1/cases/:caseId/prescription', () => {
         .expect(201);
       expect((await detail(s.caseRow.id)).currentState.dueDate).not.toBeNull();
 
-      const data = expectData<Record<string, any>>(await mark(s.caseRow.id, s.notResponsible), 200);
+      const data = expectData<Record<string, any>>(await mark(s.caseRow.id, s.responsible), 200);
 
       expect(data.currentState).toMatchObject({ proceduralActId: null, dueDate: null, businessDaysRemaining: null });
       expect(await getPrisma().proceduralAct.count({ where: { caseId: s.caseRow.id } })).toBe(1);
@@ -226,19 +227,36 @@ describe('POST /api/v1/cases/:caseId/prescription', () => {
   // ── D2: quién puede y qué datos ──────────────────────────────────────
 
   describe('quién puede y qué datos', () => {
-    // CA-33.2
-    it.each([
-      ['sin token', () => null, 401, 'UNAUTHENTICATED', 'La autenticación es requerida.'],
-      ['la secretaría', () => secretary, 403, 'FORBIDDEN', MESSAGES.forbidden],
-    ])('%s no puede marcarla y no se escribe nada', async (_actor, actor, status, code, message) => {
+    // CA-33.2. El 401 sin token está en `test/smoke/app.int.spec.ts`.
+    it('la secretaría no puede marcarla y no se escribe nada', async () => {
       await addRobbery(s.caseRow.id);
       const before = await persisted(s.caseRow.id);
 
-      const res = await mark(s.caseRow.id, actor());
+      const res = await mark(s.caseRow.id, secretary);
 
-      expectError(res, status, code);
-      expect(res.body.error.message).toBe(message);
+      expectError(res, 403, 'FORBIDDEN');
+      expect(res.body.error.message).toBe(MESSAGES.forbidden);
       expect(await persisted(s.caseRow.id)).toEqual(before);
+    });
+
+    // D-110
+    it('un abogado que no es el responsable no puede marcarla y no se escribe nada', async () => {
+      await addRobbery(s.caseRow.id);
+      const before = await persisted(s.caseRow.id);
+
+      const res = await mark(s.caseRow.id, s.notResponsible);
+
+      expectError(res, 403, 'FORBIDDEN');
+      expect(res.body.error.message).toBe(MESSAGES.notResponsible);
+      expect(res.body.error.details).toBeNull();
+      expect(await persisted(s.caseRow.id)).toEqual(before);
+    });
+
+    // D-110: primero 404, después 403
+    it('una causa inexistente es 404 aunque pida la secretaría o un abogado ajeno', async () => {
+      for (const actor of [secretary, s.notResponsible]) {
+        expectError(await mark(999999, actor), 404, 'CASE_NOT_FOUND');
+      }
     });
 
     // CA-33.3
@@ -261,31 +279,24 @@ describe('POST /api/v1/cases/:caseId/prescription', () => {
     });
 
     // CA-33.11
-    it.each([
-      ['no existe', async () => 999999],
-      [
-        'fue dada de baja',
-        async () => {
-          await addRobbery(s.caseRow.id);
-          await getPrisma().case.update({ where: { id: s.caseRow.id }, data: { active: false } });
-          return s.caseRow.id;
-        },
-      ],
-    ])('una causa que %s responde 404 CASE_NOT_FOUND', async (_caso, arrange) => {
-      const caseId = await arrange();
+    it('una causa que no existe o fue dada de baja responde 404 CASE_NOT_FOUND', async () => {
+      await addRobbery(s.caseRow.id);
+      await deactivateCase(s.caseRow.id);
 
-      const res = await mark(caseId, administrator);
+      for (const caseId of [999999, s.caseRow.id]) {
+        const res = await mark(caseId, administrator);
 
-      expectError(res, 404, 'CASE_NOT_FOUND');
-      expect(res.body.error.message).toBe(MESSAGES.notFound);
+        expectError(res, 404, 'CASE_NOT_FOUND');
+        expect(res.body.error.message).toBe(MESSAGES.notFound);
+      }
     });
   });
 
   // ── D3: reglas de negocio (422) ──────────────────────────────────────
 
   describe('reglas de negocio', () => {
-    // CA-33.9
-    it('un amparo no prescribe: PRESCRIPTION_NOT_APPLICABLE del fuero', async () => {
+    // CA-33.9, D-74: el amparo por el fuero; la causa penal sin calificaciones, por no tener qué prescribir.
+    it('un amparo o una causa penal sin calificaciones no prescriben: PRESCRIPTION_NOT_APPLICABLE', async () => {
       await createInitialState('AMPARO');
       const amparo = await createCase({
         clientId: s.client.id,
@@ -293,56 +304,53 @@ describe('POST /api/v1/cases/:caseId/prescription', () => {
         createdByUserId: s.user.id,
         jurisdiction: 'AMPARO',
       });
-      const before = await persisted(amparo.id);
+      const cases: [caseId: number, message: string][] = [
+        [amparo.id, MESSAGES.notCriminal],
+        [s.caseRow.id, MESSAGES.withoutQualifications],
+      ];
 
-      const res = await mark(amparo.id, administrator);
+      for (const [caseId, message] of cases) {
+        const before = await persisted(caseId);
 
-      expectError(res, 422, 'PRESCRIPTION_NOT_APPLICABLE');
-      expect(res.body.error.message).toBe(MESSAGES.notCriminal);
-      expect(await persisted(amparo.id)).toEqual(before);
-    });
+        const res = await mark(caseId, administrator);
 
-    // CA-33.9, D-74
-    it('una causa penal sin calificaciones no prescribe: PRESCRIPTION_NOT_APPLICABLE de las calificaciones', async () => {
-      const before = await persisted(s.caseRow.id);
-
-      const res = await mark(s.caseRow.id, administrator);
-
-      expectError(res, 422, 'PRESCRIPTION_NOT_APPLICABLE');
-      expect(res.body.error.message).toBe(MESSAGES.withoutQualifications);
-      expect(await persisted(s.caseRow.id)).toEqual(before);
+        expectError(res, 422, 'PRESCRIPTION_NOT_APPLICABLE');
+        expect(res.body.error.message).toBe(message);
+        expect(await persisted(caseId)).toEqual(before);
+      }
     });
 
     // CA-33.8, CA-33.12
-    it.each([
-      [
-        'ya está prescripta',
-        (scenario: ProceduralActScenario) => ({
-          currentStateId: scenario.states.prescribed.stateId,
-          prescriptionDeclaration: {
-            prescriptionDate: '2026-08-01',
-            resolution: 'Auto N° 99, la resolución original',
-            registeredByUserId: scenario.user.id,
-            registeredAt: new Date('2026-08-01T15:00:00.000Z'),
-          },
-        }),
-      ],
-      ['está archivada', (scenario: ProceduralActScenario) => ({ currentStateId: scenario.states.terminal.stateId })],
-    ])('una causa que %s no se puede marcar: CASE_IN_TERMINAL_STATE, y su constancia no cambia', async (_caso, state) => {
-      const closed = await createCase({
+    it('una causa ya prescripta o archivada no se puede marcar: CASE_IN_TERMINAL_STATE, y su constancia no cambia', async () => {
+      const prescribed = await createCase({
         clientId: s.client.id,
         responsibleLawyerId: s.lawyer.id,
         createdByUserId: s.user.id,
-        ...state(s),
+        currentStateId: s.states.prescribed.stateId,
+        prescriptionDeclaration: {
+          prescriptionDate: '2026-08-01',
+          resolution: 'Auto N° 99, la resolución original',
+          registeredByUserId: s.user.id,
+          registeredAt: new Date('2026-08-01T15:00:00.000Z'),
+        },
       });
-      await addRobbery(closed.id);
-      const before = await persisted(closed.id);
+      const archived = await createCase({
+        clientId: s.client.id,
+        responsibleLawyerId: s.lawyer.id,
+        createdByUserId: s.user.id,
+        currentStateId: s.states.terminal.stateId,
+      });
 
-      const res = await mark(closed.id, administrator);
+      for (const closed of [prescribed, archived]) {
+        await addRobbery(closed.id);
+        const before = await persisted(closed.id);
 
-      expectError(res, 422, 'CASE_IN_TERMINAL_STATE');
-      expect(res.body.error.message).toBe(MESSAGES.terminal);
-      expect(await persisted(closed.id)).toEqual(before);
+        const res = await mark(closed.id, administrator);
+
+        expectError(res, 422, 'CASE_IN_TERMINAL_STATE');
+        expect(res.body.error.message).toBe(MESSAGES.terminal);
+        expect(await persisted(closed.id)).toEqual(before);
+      }
     });
   });
 
@@ -408,6 +416,112 @@ describe('POST /api/v1/cases/:caseId/prescription', () => {
       expectError(interruptive, 422, 'CASE_IN_TERMINAL_STATE');
       expect(await getPrisma().proceduralAct.count({ where: { caseId: s.caseRow.id } })).toBe(0);
       expect(await getPrisma().interruptiveAct.count({ where: { caseId: s.caseRow.id } })).toBe(0);
+    });
+  });
+
+  // ── D-113: declarar la prescripción de una calificación ─────────────────
+  // Plan: .claude/plans/tests-d113-prescripcion-por-delito.md. Causa con A (24 meses) y
+  // C (72 meses), hecho del 10/01/2024. Al 06/10/2026: A al 100 % y vencida; C al 46 %.
+  describe('POST /api/v1/cases/:caseId/legal-qualifications/:legalQualificationId/prescription (D-113)', () => {
+    const declareOne = (
+      caseId: number,
+      qualificationId: number,
+      actor: { Authorization: string },
+      body: object = { prescriptionDate: '2026-09-15', resolution: 'Auto N° 88' },
+    ) =>
+      server().post(`/api/v1/cases/${caseId}/legal-qualifications/${qualificationId}/prescription`).set(actor).send(body);
+
+    async function addOffense(caseId: number, months: number) {
+      qualificationSeq += 1;
+      const qualification = await createLegalQualification({
+        prescriptionMonths: months,
+        name: `HU33 calificación ${qualificationSeq} — art. ${qualificationSeq} CP`,
+      });
+      await getPrisma().offense.create({
+        data: { caseId, legalQualificationId: qualification.id, offenseDate: civil('2024-01-10'), prescriptionDate: civil('2024-01-10') },
+      });
+      return qualification;
+    }
+
+    const byId = (data: Record<string, any>) =>
+      [...data.legalQualifications].sort((x: { id: number }, y: { id: number }) => x.id - y.id);
+
+    // CA-33.1, CA-33.4, CA-33.5, CA-33.19
+    it('declara una calificación y la causa sigue abierta; al declarar la última, pasa a "Prescripta"', async () => {
+      const a = await addOffense(s.caseRow.id, 24);
+      const c = await addOffense(s.caseRow.id, 72);
+      const stateBefore = (await detail(s.caseRow.id)).currentState;
+
+      const first = expectData<Record<string, any>>(await declareOne(s.caseRow.id, a.id, s.responsible), 200);
+
+      expect(Object.keys(first).sort()).toEqual(CASE_KEYS);
+      const [declaredA, pendingC] = byId(first);
+      expect(declaredA.prescriptionDeclaration).toEqual({
+        prescriptionDate: '2026-09-15',
+        resolution: 'Auto N° 88',
+        grounds: null,
+        registeredBy: { id: s.user.id, lastName: s.user.lastName, firstName: s.user.firstName },
+        registeredAt: REGISTERED_AT,
+      });
+      expect(pendingC.prescriptionDeclaration).toBeNull();
+      // La que rige pasa a C: A ya no cuenta.
+      expect(first.prescription).toMatchObject({ legalQualificationId: c.id, elapsedPercentage: 46, expired: false });
+      expect(first.currentState).toEqual(stateBefore);
+      expect(first.prescriptionDeclaration).toBeNull();
+
+      const second = expectData<Record<string, any>>(
+        await declareOne(s.caseRow.id, c.id, administrator, { prescriptionDate: '2026-10-01', resolution: 'Auto N° 91' }),
+        200,
+      );
+
+      expect(second.currentState).toMatchObject({ proceduralStateId: s.states.prescribed.stateId, name: 'Prescripta', dueDate: null });
+      expect(second.prescriptionDeclaration).toMatchObject({ prescriptionDate: '2026-10-01', resolution: 'Auto N° 91' });
+      expect(await getPrisma().offense.findMany({ where: { caseId: s.caseRow.id }, orderBy: { legalQualificationId: 'asc' } })).toEqual([
+        expect.objectContaining({ prescriptionDeclaredOn: civil('2026-09-15'), prescriptionResolution: 'Auto N° 88' }),
+        expect.objectContaining({ prescriptionDeclaredOn: civil('2026-10-01'), prescriptionResolution: 'Auto N° 91' }),
+      ]);
+    });
+
+    // CA-33.1 (D-110), CA-33.8, CA-33.9: cada rechazo con el texto del contrato, y la base sin cambios.
+    it('rechaza un abogado ajeno, una calificación que la causa no registra y una ya declarada, sin escribir', async () => {
+      const a = await addOffense(s.caseRow.id, 24);
+      await addOffense(s.caseRow.id, 72); // sigue abierta después de declarar A
+      const foreign = await createLegalQualification({ prescriptionMonths: 24, name: 'HU33 calificación ajena — art. 1 CP' });
+
+      const notResponsible = await declareOne(s.caseRow.id, a.id, s.notResponsible);
+      expectError(notResponsible, 403, 'FORBIDDEN');
+      expect(notResponsible.body.error.message).toBe(
+        'Solo el abogado responsable de la causa puede declarar la prescripción de sus calificaciones legales.',
+      );
+
+      const notInCase = await declareOne(s.caseRow.id, foreign.id, s.responsible);
+      expectError(notInCase, 404, 'LEGAL_QUALIFICATION_NOT_FOUND');
+      expect(notInCase.body.error.message).toBe('La causa no registra esa calificación legal.');
+      expect(await getPrisma().offense.count({ where: { caseId: s.caseRow.id, prescriptionDeclaredOn: { not: null } } })).toBe(0);
+
+      await declareOne(s.caseRow.id, a.id, s.responsible).expect(200);
+      const again = await declareOne(s.caseRow.id, a.id, s.responsible, { prescriptionDate: '2026-10-01', resolution: 'Otra' });
+      expectError(again, 422, 'LEGAL_QUALIFICATION_ALREADY_PRESCRIBED');
+      expect(again.body.error.message).toBe('La calificación legal ya fue declarada prescripta.');
+      expect(await getPrisma().offense.findUniqueOrThrow({
+        where: { caseId_legalQualificationId: { caseId: s.caseRow.id, legalQualificationId: a.id } },
+      })).toMatchObject({ prescriptionResolution: 'Auto N° 88' });
+    });
+
+    // CA-33.17
+    it('"Marcar toda la causa" declara las que faltan y la ya declarada conserva su declaración', async () => {
+      const a = await addOffense(s.caseRow.id, 24);
+      const c = await addOffense(s.caseRow.id, 72);
+      await declareOne(s.caseRow.id, a.id, s.responsible).expect(200);
+
+      const data = expectData<Record<string, any>>(await mark(s.caseRow.id, administrator), 200);
+
+      const [declaredA, declaredC] = byId(data);
+      expect(declaredA.id).toBe(a.id);
+      expect(declaredA.prescriptionDeclaration).toMatchObject({ resolution: 'Auto N° 88' });
+      expect(declaredC.id).toBe(c.id);
+      expect(declaredC.prescriptionDeclaration).toMatchObject({ resolution: VALID_BODY.resolution });
+      expect(data.currentState.name).toBe('Prescripta');
     });
   });
 });

@@ -25,8 +25,15 @@ export interface TemplateCopyRepository {
    */
   registerPending(caseId: number, jurisdictionId: number): Promise<void>;
 
-  /** The copies of the case still `PENDING` whose template is still active. */
-  findPending(caseId: number): Promise<PendingTemplateCopy[]>;
+  /**
+   * The copies of the case still `PENDING` whose template is still active.
+   *
+   * `template.cloudFileId` is the template's file in the folder of the case's
+   * jurisdiction (`document_template_files`). A template without a file for
+   * that jurisdiction (registered before the jurisdiction folders, or no
+   * jurisdiction given) falls back to its main file.
+   */
+  findPending(caseId: number, jurisdictionId?: number): Promise<PendingTemplateCopy[]>;
 
   /** Same count `cases` shows: pending copies of templates given de baja do not count. */
   countByCase(caseId: number): Promise<TemplateCopyCounts>;

@@ -1,6 +1,6 @@
 # Trazabilidad y auditoría
 
-## Por qué existe esta sección
+## 1 Por qué existe esta sección
 
 Tres exigencias convergen:
 
@@ -22,7 +22,7 @@ Un control de acceso sin registro de qué se hizo es un control que no se puede 
 // src/shared/domain/audit-trail.port.ts
 export interface AuditTrailPort {
 	record(entry: {
-		actorUserId: string;
+		actorUserId: number | null; // null: login fallido o proceso diario
 		action: string; // 'case.status-changed'
 		entityType: string; // 'Case'
 		entityId: string;
@@ -31,6 +31,11 @@ export interface AuditTrailPort {
 	}): Promise<void>;
 }
 ```
+
+La firma sigue al modelo `AuditLog` ya migrado (`schema.prisma`, sección `audit`):
+
+- `actorUserId` es numérico y admite nulo. Es nulo cuando no hay un usuario detrás: el login fallido (la cuenta que se intentó va en `metadata`) y el proceso diario.
+- `correlationId` (`audit_log.correlation_id`) **no** lo pasa el caso de uso. Lo completa el adaptador desde el contexto de la petición, con el mismo id que el header `X-Correlation-Id` y que el log técnico (`ARQUITECTURA_BACKEND_V1.md` §7.9). Fuera de una petición HTTP queda nulo.
 
 Se invoca **desde el caso de uso**, no desde un interceptor HTTP genérico. Razón: un interceptor registra _"llegó un PATCH"_; el caso de uso registra _"el abogado X cambió la causa Y del estado A al estado B"_. Lo segundo es auditoría; lo primero es un log de acceso.
 
@@ -48,7 +53,7 @@ Se invoca **desde el caso de uso**, no desde un interceptor HTTP genérico. Raz�
 
 > El `metadata` del registro **nunca contiene el contenido de los documentos ni datos del caso más allá de identificadores**. La auditoría registra _que_ se accedió, no _qué_ se leyó.
 
-## 9 Historial de estados de la causa
+## 5 Historial de estados de la causa
 
 Separado de la auditoría, y por motivos distintos: la auditoría es un requisito legal y transversal; el historial de estados es **una necesidad funcional del negocio** (HU23, Línea de Tiempo de la Causa).
 

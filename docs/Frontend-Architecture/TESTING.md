@@ -10,7 +10,17 @@ Si tenés una duda del tipo "¿este test dónde va?", saltá a
 [Dónde pongo este test](#9-dónde-pongo-este-test). Si la duda es "¿vale la pena
 este test?", andá a [Antes de escribir un test](#4-antes-de-escribir-un-test).
 
-> **Estado actual (18/10/2026):** **254 tests de Vitest** (76 de `unit/` y 178
+> **Estado actual (03/11/2026):** **473 tests de Vitest** en 84 archivos (208
+> de `unit/` y 265 de `components/`) y **9 de Playwright** en 6 archivos. Pasan
+> 472 y falla 1, el de contrato, hasta que `docs/openapi` sume cinco endpoints
+> de V5 (ver `frontend/CLAUDE.md`, "Problemas conocidos"). Las pantallas del
+> Sprint 3 y del Sprint 4 están programadas y sus tests en verde.
+>
+> **Estado al 28/10/2026:** 369 tests de Vitest. Pasaban 345 y fallaban 24:
+> los 23 de pantalla del Sprint 4, escritos antes que sus pantallas, y el de
+> contrato.
+>
+> **Estado al 18/10/2026:** **254 tests de Vitest** (76 de `unit/` y 178
 > de `components/`) y **9 de Playwright** en 6 archivos. Pasan 217 y fallan 37:
 > 34 son los del Sprint 3, escritos antes que sus pantallas (ver
 > [§11](#sprint-3-los-tests-que-ya-están-escritos)), 2 esperan un comportamiento
@@ -185,7 +195,7 @@ especificación OpenAPI en `docs/openapi/`.
 
 A su lado está `tests/unit/contract/permissions.test.ts`, que cubre lo que el
 anterior no mira: **quién puede cada operación**. Con un usuario por perfil,
-recorre la matriz de permisos del contrato (V3 §4) y comprueba qué endpoints
+recorre la matriz de permisos del contrato (V5 §4, "Autorización") y comprueba qué endpoints
 responden `403` y cuáles no.
 
 - Falla si el mock **inventa** un endpoint que el contrato no tiene, o si
@@ -316,12 +326,15 @@ frontend/
 │   ├── unit/                             Vitest · lógica de dominio y esquemas
 │   │   ├── app/                          las tablas de acceso: por ruta y por acción
 │   │   ├── contract/                     el mock ⟷ la especificación OpenAPI
+│   │   ├── shared/                       las fechas y el reintento de http (src/shared)
 │   │   ├── auth/
 │   │   ├── cases/
 │   │   ├── clients/
+│   │   ├── documents/
 │   │   ├── lawyers/
 │   │   ├── legal-params/
 │   │   ├── proceedings/
+│   │   ├── tools/
 │   │   └── users/
 │   │
 │   ├── components/                       Vitest + RTL + MSW · un archivo por pantalla
@@ -346,38 +359,42 @@ frontend/
 └── tsconfig.test.json                    los tests se chequean en `npm run build`
 ```
 
-Una feature que todavía no se empezó (hoy, `deadlines`) **no tiene carpeta en
-`tests/`**. La carpeta se crea cuando alguien empieza a trabajar la feature
-(ver [sección 11](#11-cuando-arrancás-una-feature-nueva)): `dashboard` y
+Un módulo sin código que probar (hoy, `deadlines`, que sólo tiene el atajo de
+la campana) **no tiene carpeta en `tests/`**. La carpeta se crea cuando alguien
+empieza a trabajar la feature (ver
+[sección 11](#11-cuando-arrancás-una-feature-nueva)): `dashboard` y
 `documents` la tienen desde que se escribieron los tests del Sprint 3. Inicio
 (`HomePage`) es la página de `dashboard`, así que sus tests van en
-`components/dashboard/`.
+`components/dashboard/`. `tools` tiene sólo `unit/`: su pantalla no pide nada
+al servidor, y lo que tiene lógica es el filtro (`filterTools`).
 
 ### Cuántos tests hay en cada módulo
 
-Tests que corren al 18/10/2026 (un `it.each` cuenta una vez por fila). Incluye
-los del Sprint 3 que todavía están en rojo; no incluye los 4 archivos que no
-cargan (`documents` y los esquemas de acto interruptivo y de marca de
-prescripción):
+Tests que corren al 03/11/2026 (un `it.each` cuenta una vez por fila):
 
 | Módulo | `unit/` | `components/` | `e2e/` |
 |---|---:|---:|---:|
-| `app` (acceso, guardas, layout) | 8 | 9 | — |
-| `auth` | 4 | 13 | 2 |
-| `cases` | 22 | 60 | 2 |
-| `clients` | 5 | 10 | 1 |
-| `dashboard` | — | 20 | — |
-| `lawyers` | 3 | 10 | 1 |
+| `app` (acceso, guardas, layout) | 11 | 12 | — |
+| `auth` | 8 | 24 | 2 |
+| `cases` | 101 | 107 | 2 |
+| `clients` | 7 | 10 | 1 |
+| `dashboard` | — | 21 | — |
+| `documents` | 7 | 11 | — |
+| `lawyers` | 8 | 14 | 1 |
 | `legal-params` | 8 | 17 | 2 |
-| `proceedings` | 7 | 11 | — |
-| `users` | 8 | 10 | 1 |
-| `shared` | 4 | 18 | — |
+| `proceedings` | 22 | 15 | — |
+| `tools` | 8 | — | — |
+| `users` | 13 | 13 | 1 |
+| `shared` | 8 | 21 | — |
 | `contract` | 7 | — | — |
-| **Total** | **76** | **178** | **9** |
+| **Total** | **208** | **265** | **9** |
 
-De los 60 de `components/cases`, 34 son del detalle de causa (cinco archivos,
-uno por historia: ver [§11](#sprint-3-los-tests-que-ya-están-escritos)) y 17
-del alta (11 en `RegisterCasePage` y 6 en `RegisterCasePage.folder`).
+De los 107 de `components/cases`, 59 son del detalle de causa (nueve archivos,
+uno por historia: ver §11, Sprint 3 y Sprint 4), 28 del alta (12 en
+`RegisterCasePage`, 6 en `RegisterCasePage.folder` y 10 en
+`RegisterCasePage.draft`), 11 de "Generar expediente" y 9 del listado.
+
+**Al 18/10/2026** eran 76 de `unit/` y 178 de `components/`.
 
 **Recorte del 18/10/2026.** Con los tests del Sprint 3 la suite había pasado a
 334. Se recortó lo que pasaba el techo de la [§4](#4-antes-de-escribir-un-test),
@@ -401,11 +418,15 @@ sin perder cobertura de reglas:
 El registro de actos (`proceedings`) tiene su E2E dentro de `cases.spec.ts`,
 porque el flujo arranca en el alta de la causa.
 
-Cada pantalla tiene un archivo: `CasesPage`, `CaseDetailPage`,
-`RegisterCasePage`, `RegisterProceduralActPage`, `ClientsPage`, `LawyersPage`,
-`ProceduralStatesPage`, `LegalQualificationsPage`, `UsersPage` y `LoginPage`,
-más `ChangePasswordModal`, que se abre desde cualquier pantalla. Las piezas que
-usan (tablas, modales, filtros, paneles) no tienen archivo propio, a propósito.
+Cada pantalla tiene su archivo: `CasesPage`, `CaseDetailPage`,
+`RegisterCasePage`, `GenerateCaseFilePage`, `RegisterProceduralActPage`,
+`ClientsPage`, `LawyersPage`, `ProceduralStatesPage`,
+`LegalQualificationsPage`, `UsersPage`, `DocumentTemplatesPage`, `HomePage` y
+`LoginPage`, más `ChangePasswordModal`, que se abre desde cualquier pantalla.
+Las que suman historias de varias personas se parten en un archivo por
+historia (`CaseDetailPage.<historia>.test.tsx`, `RegisterCasePage.folder`,
+`LawyersPage.edit`, `HomePage.lawyer`…). Las piezas que usan (tablas, modales,
+filtros, paneles) no tienen archivo propio, a propósito.
 
 **Repaso del 09/10/2026.** Después del recorte se cruzó lo que hace cada pantalla
 con lo que prueban los tests y se sumaron los casos de uso que no tenían ninguno:
@@ -570,20 +591,23 @@ primer render.
 Las pantallas de administración piden un administrador: casi todos los tests
 de páginas usan `as: 'fvazquez'`.
 
-**Qué responde el mock a cada perfil** (contrato V3 §4, permisos por perfil):
+**Qué responde el mock a cada perfil** (contrato V5 §4, "Autorización"):
 
 | Operación | Quién puede | El resto recibe |
 |---|---|---|
 | Leer abogados, estados, calificaciones, clientes y causas | Cualquiera con sesión | — |
 | Leer y escribir `/users` | `fvazquez` | `403` |
-| Escribir abogados | `fvazquez` | `403` |
+| Escribir abogados (alta, modificación y baja) | `fvazquez` | `403` |
 | Escribir estados y calificaciones | Cualquiera con sesión | — |
 | Registrar un cliente | Cualquiera con sesión | — |
-| Registrar una causa | Cualquiera con sesión | — |
-| Registrar un acto procesal y previsualizar su vencimiento | El abogado responsable de **esa** causa | `403` |
+| Registrar, modificar y dar de baja una causa; ver su carátula; generar su expediente | Cualquiera con sesión | — |
+| Registrar o modificar un acto procesal, previsualizar su vencimiento, registrar un acto interruptivo | El abogado responsable de **esa** causa | `403` |
+| Marcar prescripta; leer, registrar y descargar modelos formales | `ADMINISTRATOR` o `LAWYER` | `403` (`gestion`) |
+| Listar los documentos de la causa | Cualquiera con sesión (D-103) | — |
+| Descargar un documento que no es un expediente | `LAWYER` o `SECRETARY` | `403` (`supervision`) |
 
-**Los actos no dependen del rol sino de la causa** (V3 D-30): sólo los registra
-su abogado responsable. `mrios` lleva las causas 1 y 17; `fvazquez`, la 4, la 6
+**Los actos no dependen del rol sino de la causa** (D-30): sólo los registra
+y los modifica su abogado responsable actual. `mrios` lleva las causas 1 y 17; `fvazquez`, la 4, la 6
 y la 20; `mferreyra`, la 7. Con otro usuario —aunque sea abogado o
 administrador— el mock responde `403`. Antes de escribir un test de actos,
 mirá quién lleva la causa (`responsibleLawyerId` en `CASE_SEEDS`).
@@ -890,8 +914,8 @@ el techo: entre los dos está lo que vale la pena.
 
 ### Sprint 3: los tests que ya están escritos
 
-Los tests del Sprint 3 se escribieron antes que las pantallas y están en rojo
-hasta que se programe cada historia. Salen del contrato V4 (revisión del
+Los tests del Sprint 3 se escribieron antes que las pantallas y estuvieron en
+rojo hasta que se programó cada historia (hoy están en verde). Salen del contrato V4 (revisión del
 19/10/2026), del prototipo y de los criterios de Jira del 17/10/2026; cada uno
 dice qué `CA-x.y` cubre o, si no tiene criterio, de qué parte del contrato o
 del prototipo sale. Los mocks ya implementan todo V4
@@ -942,8 +966,8 @@ la [§4](#4-antes-de-escribir-un-test).
   carpeta, "Copiar los modelos" queda destildada, deshabilitada y con el
   mensaje "Primero hay que crear la carpeta en Drive para poder copiar los
   modelos." a la vista (CA-40.3). La ubicación que muestra el resumen es la
-  del contrato, `/VZ Causas/{Apellido, Nombres}/{Fuero}/{carátula}` (D-61),
-  no la del prototipo. Si Drive falla, la causa se registra igual y la
+  del contrato, `/VZ Causas/Causas/{Apellido, Nombres}/{Fuero}/{carátula}`
+  (V5 §4; en V4 era sin `Causas/`), no la del prototipo. Si Drive falla, la causa se registra igual y la
   pantalla avisa que la carpeta no se creó; el texto lo elige la pantalla. La
   Secretaría no ve cuántos modelos se copian, porque no consulta modelos
   (CA-40.10).
@@ -989,6 +1013,107 @@ y 27.17; CA-31.3 a 31.5, 31.7 y 31.12 a 31.14; CA-33.6 a 33.8 y 33.10 a
 33.15; CA-34.11; CA-35.3 y 35.7; CA-39.9 a 39.13 y 39.15; CA-40.5 a 40.9;
 CA-41.6, 41.9 y 41.11; CA-42.8; y HU-30, HU-32 (salvo lo visible), HU-51 y
 HU-52.
+
+> **Al 28/10/2026** las pantallas del Sprint 3 están programadas y sus tests,
+> en verde, incluidos los dos que esperaban un comportamiento de V3. Lo de
+> arriba queda como registro de cómo se escribieron.
+
+### Sprint 4: los tests que ya están escritos
+
+> **Al 03/11/2026** las pantallas del Sprint 4 están programadas y sus tests,
+> en verde. Lo que sigue cuenta cómo se escribieron; la tabla tiene la cantidad
+> de tests de hoy.
+
+Los tests del Sprint 4 se escribieron antes que las pantallas. Salen del contrato V5 (revisión del
+27/10/2026), del prototipo y de los criterios de Jira del 28/10/2026 (CA-14.x a
+CA-38.x); cada uno dice qué criterio cubre, y lo que resuelve el servidor queda
+en el encabezado con `@backend`. Los mocks ya implementan todo V5
+(`src/shared/mocks/README.md`, "Lo que suma el Sprint 4").
+
+| HU | Tests |
+| --- | --- |
+| 14 Modificar abogado | `components/lawyers/LawyersPage.edit.test.tsx` (4) |
+| 19 Modificar causa | `components/cases/CaseDetailPage.edit.test.tsx` (7) |
+| 21 Dar de baja la causa | `components/cases/CaseDetailPage.delete.test.tsx` (3) |
+| 23 Descargar modelo formal | Ya cubierta por `components/documents/DocumentTemplatesPage.test.tsx` (HU-35) |
+| 24 y 25 Carátula y expediente | `components/cases/GenerateCaseFilePage.test.tsx` (15), `components/cases/CaseDetailPage.caseFile.test.tsx` (2), `unit/cases/caseFile.test.ts` (17), `unit/cases/caseFile.schema.test.ts` (4). No se escribieron antes: "Generar expediente" era una página que no existía, y un test que importa un archivo que no existe rompe `npm test` y `npm run build`. Se escribieron con la página, en su rama |
+| 28 Modificar acto procesal | `components/proceedings/RegisterProceduralActPage.edit.test.tsx` (4) |
+| 38 Consultar documentos | `components/cases/CaseDetailPage.documents.test.tsx` (12: los 5 de la consulta y, desde el 03/11/2026, 7 de "Descargar"), `unit/cases/caseDocument.test.ts` (7) |
+| Permisos del servidor falso | `unit/contract/permissions.test.ts` suma los endpoints de V5 abiertos a los tres perfiles (en verde) |
+| Revisión del 08/11/2026 (D-113), prescripción por calificación | `unit/cases/prescription.test.ts` (la barra sin las declaradas y `otherPrescriptionAlerts`), `components/cases/CaseDetailPage.prescription.test.tsx` (3 nuevos: declarar una, declarar la última cierra la causa, permisos; el botón de la causa pasa a "Marcar toda la causa prescripta"), `components/cases/CaseDetailPage.test.tsx` (barras chicas, "Plazo cumplido") y `components/cases/CaseDetailPage.timeline.test.tsx` (la entrada de una calificación declarada) y `components/cases/CaseDetailPage.edit.test.tsx` (1: una declarada queda fija en "Modificar causa") |
+| Revisión del 08/11/2026 (D-112) y "asignarme a mí" | `unit/cases/prescription.test.ts` (8 de la barra y la nota), `unit/cases/lawyerOptions.test.ts` (3), `components/cases/CaseDetailPage.test.tsx` (5: la barra con el próximo, todos prescriptos y "Calificaciones legales" en el encabezado), `components/cases/RegisterCasePage.test.tsx` (2) y `components/cases/CaseDetailPage.edit.test.tsx` (1). Se escribieron antes que el código, en `feat/front-prescripcion-y-responsable` |
+
+`LawyersPage` y el detalle de causa llevan un archivo por historia, como en el
+Sprint 3: en uno solo pasarían el techo de la [§4](#4-antes-de-escribir-un-test).
+
+**Los nombres que fijan los tests.** El código tiene que llamarse así:
+
+| Qué | Dónde |
+| --- | --- |
+| "Modificar" abogado | Botón "Modificar" en la fila de `LawyersPage`, deshabilitado para quien no es Administrador. Diálogo "Modificar abogado" con "Apellido", "Nombres", "Matrícula" y "Guardar cambios"; aviso "Datos de {Apellido}, {Nombres} actualizados." |
+| Modificar causa | Botón "Modificar causa" del detalle. Diálogo "Modificar causa" con "N° de SAC", "Órgano interviniente", "Interno", "Cliente" (select), "Carátula" y "Guardar cambios". El fuero se muestra con la nota "No se modifica. Si la causa se registró en otro fuero, dala de baja y registrala de nuevo." y no es un select. Aviso "Causa actualizada. El cambio queda asentado con usuario y fecha." |
+| Dar de baja | Botón "Dar de baja" del detalle. Diálogo "Dar de baja la causa" con "Motivo (opcional)" y "Dar de baja"; vuelve a `/causas` con el aviso "Causa dada de baja. Se conserva el historial completo." |
+| Modificar acto | Botón "Modificar" en cada movimiento de la línea de vida. `RegisterProceduralActPage` en **`/causas/:caseId/acto/:actId`**, con el título "Modificar acto procesal", "Observaciones" y "Guardar cambios"; vuelve al detalle con un aviso que empieza con "Acto modificado" y termina con "El cambio queda asentado con usuario y fecha." |
+| Documentación | Panel con título "Documentación" (`.vz-panel__title`), "N archivos", un `listitem` por documento con su nombre y quién lo subió, un enlace "Abrir" que abre Drive en otra pestaña y un botón "Descargar" (desde el 03/11/2026) |
+
+**Lo que el equipo decidió** donde el prototipo no alcanza (28/10/2026). Si
+cambia, se cambian el test y la pantalla juntos:
+
+- **Quien no es el responsable** y toca "Modificar" en un acto recibe el aviso
+  "Solo el abogado responsable de la causa modifica sus actos procesales." y
+  no sale del detalle, como al registrar.
+- **El cliente no se modifica** (D-111, revisión del 08/11/2026; reemplaza
+  D-105): se muestra bloqueado, como el fuero, y nunca viaja en el `PATCH`.
+- **Un abogado que no es el responsable** (D-110, revisión del 08/11/2026)
+  ve "Modificar causa", "Dar de baja", "Marcar prescripta" y "Crear
+  carpeta"/"Reintentar" deshabilitados, con un `title` que empieza "Solo el
+  abogado responsable"; en "Generar expediente" no se le ofrece "Modificá los
+  datos de la causa". Se prueba con `mrios` sobre la causa 4 (la lleva
+  `fvazquez`) y sobre la 2 y la 23.
+- **Con la carpeta sin crear** la tarjeta "Documentación" no lista nada; el
+  texto que muestra lo elige la pantalla.
+- **Errores**: se muestra el `message` del contrato, por ejemplo "No se pudo
+  leer la carpeta de la causa en Drive. Intentá de nuevo en unos minutos.".
+
+**Decisiones de HU-19 y HU-38** (Facundo, 28/10/2026), antes de programarlas:
+
+- **Modificar causa manda sólo lo cambiado** (CA-19.2). El formulario se
+  compara con la causa que se abrió y viajan sólo los campos distintos.
+  "Guardar cambios" está siempre habilitado: si no cambió nada, el diálogo se
+  cierra sin llamar a la API y sin ningún aviso. Nunca sale un `PATCH` vacío.
+  Así una causa "Prescripta" no manda `legalQualifications` sin tocarlas
+  (CA-19.13) y la carpeta no se renombra ni se mueve sin motivo (D-104).
+- **"Fecha de inicio" va igual que en el alta** (CA-19.6): el mismo campo de
+  `CaseForm`, en el grupo "Asignación". Está deshabilitado sin SAC
+  ("Se carga junto con el N° de SAC."), es obligatorio con SAC y se borra al
+  borrar el SAC (`changeSacNumber`). **Si cambia el SAC, `startDate` viaja
+  siempre con él**: con el valor cargado, o `null` si la causa queda sin SAC.
+  **Corregir el SAC no cambia la fecha que ya tenía la causa** (ajuste del
+  28/10/2026): al borrarlo y escribir otro, el SAC pasa por vacío y
+  `changeSacNumber` se lleva la fecha; `changeEditSacNumber` la repone cuando
+  el SAC vuelve a tener valor. Sólo la que borró el SAC: una fecha vaciada a
+  mano queda vacía. Lo cubren `unit/cases/caseForm.test.ts` y "un SAC que ya
+  tiene otra causa se rechaza en su campo".
+- **"Abogado responsable" se modifica** (CA-19.8), con el select del
+  prototipo. Lo cubre un test de pantalla, escrito antes de programarlo:
+  cambiar el responsable lo guarda y el detalle muestra al nuevo. Otro cubre
+  CA-19.2: sin cambios, el diálogo se cierra y no sale ningún `PATCH`. Después de
+  guardar se vuelve a pedir el detalle, así lo que depende del responsable
+  (los botones de los actos) se recalcula.
+- **La tarjeta "Documentación" tiene "Abrir" y "Descargar"** (CA-38.7).
+  "Abrir" lleva a Drive, como el prototipo; "Descargar" baja el archivo por la
+  API y lo sumó el equipo el 03/11/2026 (`cases/CAMBIOS.md`), en lugar de la
+  decisión del 28/10/2026 de dejar sólo "Abrir". Lo cubre el bloque "descarga
+  (CA-38.7)" de `CaseDetailPage.documents.test.tsx`: Abogado y Secretaría
+  descargan todo; el Administrador sin otro rol, sólo el expediente (en lo
+  demás, deshabilitado); un documento de Google se guarda con ".pdf"; sólo se
+  ocupa la fila que baja; y Drive caído da el aviso. El `403` y la conversión
+  a PDF siguen siendo `@backend`.
+
+**Lo que queda para el backend**, sin test de pantalla: CA-14.2 y 14.5;
+CA-19.4, 19.6 y 19.9 a 19.15; CA-21.3 a 21.10; CA-28.4 a 28.9 y 28.11; CA-38.2,
+38.3, 38.8 y 38.9; y de CA-38.7, el `403` y la conversión a PDF (lo que se ve
+de "Descargar" tiene test de pantalla).
 
 ---
 
@@ -1117,11 +1242,14 @@ Casi siempre es un `waitForTimeout` o un selector por clase CSS. Usá
   disparar cada error.
 - `docs/openapi/`: el contrato de la API que verifica el test de
   `tests/unit/contract/`.
-- `docs/Api-Contract/API_CONTRACT_V3.md`: lo que la API tiene que responder, y
-  lo que implementan hoy los mocks (con su revisión del 05/10/2026, §7.8).
-  `API_CONTRACT_V2.md` queda como registro del Sprint 1.
-- `frontend/CLAUDE.md`: cómo quedó aplicada esa revisión en el código, en
-  "Revisiones del contrato".
+- `docs/Api-Contract/API_CONTRACT_V5.md`: lo que la API tiene que responder, y
+  lo que implementan hoy los mocks (con su revisión del 27/10/2026). Las
+  decisiones y los puntos abiertos, en `DECISIONES.md`. V2, V3 y V4 quedan
+  como registro.
+- `frontend/CLAUDE.md`: el estado del Sprint 4, los problemas conocidos y cómo
+  quedaron aplicados V4 y V5 en el código ("Cambios de V4/V5 sobre lo que ya
+  estaba hecho").
+- Los criterios de aceptación de cada historia: su issue en Jira (proyecto VZ).
 - Las ideas de fondo: [Testing Trophy](https://kentcdodds.com/blog/the-testing-trophy-and-testing-classifications) ·
   [Write tests. Not too many. Mostly integration.](https://kentcdodds.com/blog/write-tests) ·
   [Common mistakes with React Testing Library](https://kentcdodds.com/blog/common-mistakes-with-react-testing-library) ·

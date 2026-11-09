@@ -5,7 +5,8 @@ import type { Config } from 'jest';
  *
  * Cada spec levanta la app NestJS completa contra un PostgreSQL real
  * (Testcontainers) y, en el mismo test, verifica el contrato de la API
- * (`docs/Api-Contract/API_CONTRACT_V2.md`). Ver `test/README.md`.
+ * (`docs/Api-Contract/API_CONTRACT_V5.md`). Qué va en este nivel y qué en
+ * los unitarios: `test/README.md` §1.1.
  */
 const config: Config = {
   displayName: 'integration',

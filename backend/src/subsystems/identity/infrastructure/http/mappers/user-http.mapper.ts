@@ -48,7 +48,7 @@ export class UserHttpMapper {
           : {
               lastName: dto.lawyer.lastName,
               firstName: dto.lawyer.firstName,
-              registrationNumber: dto.lawyer.registrationNumber,
+              registrationNumber: dto.lawyer.registrationNumber ?? null,
             },
     };
   }

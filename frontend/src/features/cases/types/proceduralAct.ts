@@ -1,5 +1,5 @@
 /**
- * Acto procesal tal como lo devuelve el contrato (V4 §3.8).
+ * Acto procesal tal como lo devuelve el contrato (V5 §3.8).
  *
  * El dueño de la pantalla de registro es `proceedings`, pero la forma vive acá
  * porque la línea de vida de la causa (HU27) la trae embebida y las
@@ -40,4 +40,8 @@ export interface ProceduralAct {
     registeredBy: { id: number; lastName: string; firstName: string }
     /** Fecha y hora del registro, ISO 8601. */
     registeredAt: string
+    /** Quién lo modificó por última vez (HU28, D-98). `null` si nunca se modificó. */
+    lastModifiedBy: { id: number; lastName: string; firstName: string } | null
+    /** Fecha y hora de la última modificación, ISO 8601. `null` si nunca se modificó. */
+    lastModifiedAt: string | null
 }

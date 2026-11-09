@@ -18,6 +18,7 @@ import {
 import { getSessionLawyer, refreshSession } from '@/features/auth/api/auth.api'
 import type { AuthUser, Session, StoredSession } from '@/features/auth/types/session'
 import { AuthContext, type AuthValue, type SignOutReason } from './AuthContext'
+import { BootScreen } from '@/app/layouts/BootScreen'
 
 type Props = {
     children: ReactNode
@@ -249,24 +250,9 @@ export function AuthProvider({ children }: Props) {
 
 /**
  * Lo que se ve mientras se verifica la sesión al abrir la aplicación. Dura lo
- * que tarda una renovación. Los estilos van inline, como en `AuthLayout` y
- * `NotFoundLayout`, que también se ven fuera del marco de la aplicación.
+ * que tarda una renovación. Es la pantalla de carga de siempre (`BootScreen`),
+ * la misma que ya estaba a la vista desde `index.html`: sólo cambia el texto.
  */
 function SessionCheck() {
-    return (
-        <div
-            role="status"
-            style={{
-                minHeight: '100vh',
-                display: 'grid',
-                placeItems: 'center',
-                background: 'var(--vz-canvas)',
-                fontFamily: 'var(--vz-font)',
-            }}
-        >
-            <div className="vz-empty">
-                <div className="vz-empty__title">Verificando la sesión…</div>
-            </div>
-        </div>
-    )
+    return <BootScreen label="Verificando la sesión" />
 }

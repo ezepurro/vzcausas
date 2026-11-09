@@ -10,6 +10,9 @@ export type { BreadcrumbItem, BreadcrumbsProps } from './Breadcrumbs';
 export { Button } from './Button';
 export type { ButtonProps } from './Button';
 
+export { CollapsibleFilters } from './CollapsibleFilters';
+export type { CollapsibleFiltersProps } from './CollapsibleFilters';
+
 export { DataTable } from './DataTable';
 export type { Column, DataTableProps } from './DataTable';
 

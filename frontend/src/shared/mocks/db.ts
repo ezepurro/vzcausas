@@ -29,6 +29,7 @@ import type {
     ActDeadline,
     Case,
     CaseClient,
+    CaseDocument,
     CaseFolder,
     CaseFolderStatus,
     CaseLegalQualification,
@@ -47,6 +48,7 @@ import type {
     ProceduralAct,
     ProceduralRole,
     PersonRef,
+    PrescriptionDeclaration,
     ProceduralState,
     User,
 } from './contract';
@@ -65,6 +67,7 @@ import {
     CLIENTS,
     CREDENTIALS,
     DEFAULT_PASSWORD,
+    DOCUMENT_SEEDS,
     DOCUMENT_TEMPLATES,
     INITIAL_STATE_NAME,
     LAWYERS,
@@ -91,6 +94,8 @@ import {
 export interface StoredCaseQualification {
     legalQualificationId: number;
     offenseDate: string;
+    /** La declaración de que prescribió (D-113). Ausente o `null` mientras no se declaró. */
+    prescriptionDeclaration?: StoredPrescriptionDeclaration | null;
 }
 
 /** Cómo guarda la base una causa: con ids, sin nada embebido ni calculado. */
@@ -127,6 +132,36 @@ export interface StoredCase {
     /** La marca de HU33. Con ella la causa está en "Prescripta" (D-54). */
     prescriptionDeclaration: StoredPrescriptionDeclaration | null;
     active: boolean;
+    /**
+     * La baja (V5, HU21): motivo, quién y cuándo. Queda en la auditoría y la
+     * API no la devuelve, porque para el cliente la causa deja de existir.
+     */
+    deactivation: { reason: string | null; byId: number; at: string } | null;
+}
+
+/**
+ * Un archivo de la carpeta de la causa en Drive (V5 §3.12). La API no lo
+ * guarda —lo lee de Drive en cada pedido—; el mock hace de Drive.
+ */
+export interface StoredDocument {
+    id: string;
+    caseId: number;
+    name: string;
+    mimeType: string;
+    sizeBytes: number | null;
+    createdAt: string;
+    modifiedAt: string;
+    uploadedBy: string | null;
+    /**
+     * Sólo en un expediente generado: su número, su versión, el nombre de sus
+     * partes y lo que el cliente mandó para la carátula, para armar el PDF.
+     */
+    caseFile: {
+        id: number;
+        version: number;
+        parts: string[];
+        cover: { opposingParty: string | null; notes: string | null } | null;
+    } | null;
 }
 
 /**
@@ -186,6 +221,9 @@ export interface StoredAct {
     /** Id del usuario que lo registró. */
     registeredById: number;
     registeredAt: string;
+    /** La última modificación (V5, HU28). `null` si nunca se modificó. */
+    lastModifiedById: number | null;
+    lastModifiedAt: string | null;
 }
 
 export interface MockDb {
@@ -200,6 +238,14 @@ export interface MockDb {
     proceduralActs: StoredAct[];
     interruptiveActs: StoredInterruptiveAct[];
     documentTemplates: StoredDocumentTemplate[];
+    /** Lo que hay en las carpetas de las causas en Drive (V5 §3.12). */
+    documents: StoredDocument[];
+    /**
+     * La última versión de expediente de cada causa. La lleva el sistema, así
+     * que borrar un expediente en Drive no reutiliza su número (V5 D-102).
+     */
+    caseFileVersions: Map<number, number>;
+    nextCaseFileId: number;
     failures: MockFailures;
     /** `username` → contraseña en texto plano. Es un mock, no un backend. */
     passwords: Map<string, string>;
@@ -335,6 +381,8 @@ function seedAct(
         }),
         registeredById,
         registeredAt: `${actDate}T10:00:00-03:00`,
+        lastModifiedById: null,
+        lastModifiedAt: null,
     };
 }
 
@@ -371,17 +419,97 @@ const JURISDICTION_LABEL: Record<Jurisdiction, string> = {
 };
 
 /**
- * Dónde queda la carpeta: `/VZ Causas/{abogado}/{fuero}/{carátula}` (V4
- * D-61), con el abogado responsable como `Apellido, Nombres`, el rótulo del
- * fuero y la carátula tal como está registrada.
+ * El nombre de una carpeta en Drive (V5 §4): sin los caracteres que la nube no
+ * admite, con los espacios repetidos juntados y cortado en 255.
+ * `GÓMEZ, Ariel c/ PÉREZ` queda `GÓMEZ, Ariel c PÉREZ`.
+ */
+function driveFolderName(name: string): string {
+    // eslint-disable-next-line no-control-regex
+    return name.replace(/[/\\:*?"<>|\u0000-\u001f]/g, '').replace(/\s+/g, ' ').trim().slice(0, 255);
+}
+
+/**
+ * Dónde queda la carpeta: `/VZ Causas/Causas/{abogado}/{fuero}/{carátula}`
+ * (V5 §4, "Carpeta de la causa"), con el abogado responsable como
+ * `Apellido, Nombres`, el rótulo del fuero y la carátula. Sigue al responsable
+ * y a la carátula vigentes (D-104).
  */
 export function folderPath(input: {
     lawyer: Pick<Lawyer, 'lastName' | 'firstName'>;
     jurisdiction: Jurisdiction;
     caption: string;
 }): string {
-    const lawyer = `${input.lawyer.lastName}, ${input.lawyer.firstName}`;
-    return `/VZ Causas/${lawyer}/${JURISDICTION_LABEL[input.jurisdiction]}/${input.caption}`;
+    const lawyer = driveFolderName(`${input.lawyer.lastName}, ${input.lawyer.firstName}`);
+    return `/VZ Causas/Causas/${lawyer}/${JURISDICTION_LABEL[input.jurisdiction]}/${driveFolderName(input.caption)}`;
+}
+
+/** Dónde tendría que estar hoy la carpeta de la causa, con su responsable y su carátula vigentes. */
+export function expectedFolderPath(stored: Pick<StoredCase, 'responsibleLawyerId' | 'jurisdiction' | 'caption'>): string {
+    const lawyer = db.lawyers.find((l) => l.id === stored.responsibleLawyerId) ?? { lastName: '', firstName: '' };
+    return folderPath({ lawyer, jurisdiction: stored.jurisdiction, caption: stored.caption });
+}
+
+/* ------------------------------------------------------------------ */
+/* Documentos de la carpeta (V5 §3.12)                                 */
+/* ------------------------------------------------------------------ */
+
+export const PDF_MIME = 'application/pdf';
+export const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+const DOC_MIME = 'application/msword';
+export const GOOGLE_DOC_MIME = 'application/vnd.google-apps.document';
+
+/** Lo que admite el expediente: PDF, Word, documento de Google, JPG o PNG (V5 D-102). */
+const CONVERTIBLE_MIMES = new Set([PDF_MIME, DOCX_MIME, DOC_MIME, GOOGLE_DOC_MIME, 'image/jpeg', 'image/png']);
+
+/** Lo que el contrato llama documento nativo de Google: Drive no lo mide ni le pone extensión. */
+export function isGoogleNative(mimeType: string): boolean {
+    return mimeType.startsWith('application/vnd.google-apps.');
+}
+
+/** Quien sube lo que genera el sistema: la cuenta de gestión, como la ve Drive. */
+export const SYSTEM_UPLOADER = 'VZ Causas';
+
+/** El documento como lo devuelve la API: con su extensión, su enlace y si entra al expediente. */
+export function toCaseDocument(stored: StoredDocument): CaseDocument {
+    const native = isGoogleNative(stored.mimeType);
+    const dot = stored.name.lastIndexOf('.');
+    return {
+        id: stored.id,
+        name: stored.name,
+        extension: native || dot < 1 ? null : stored.name.slice(dot + 1).toLowerCase(),
+        mimeType: stored.mimeType,
+        sizeBytes: native ? null : stored.sizeBytes,
+        createdAt: stored.createdAt,
+        modifiedAt: stored.modifiedAt,
+        uploadedBy: stored.uploadedBy,
+        url: `https://drive.google.com/file/d/${stored.id}/view`,
+        convertibleToPdf: CONVERTIBLE_MIMES.has(stored.mimeType),
+        caseFile: stored.caseFile ? { id: stored.caseFile.id, version: stored.caseFile.version } : null,
+    };
+}
+
+/**
+ * Las copias de los modelos que quedan en una carpeta recién creada (V4 §4,
+ * "Qué modelos se copian"). Las usa la base al sembrar y el servidor al crear
+ * la carpeta, así una carpeta nueva se lee igual que una sembrada.
+ */
+export function templateCopies(
+    caseId: number,
+    templates: readonly StoredDocumentTemplate[],
+    jurisdiction: Jurisdiction,
+    at: string,
+): StoredDocument[] {
+    return templatesForNewCases(templates, jurisdiction).map((t) => ({
+        id: `vz-${caseId}-modelo-${t.id}`,
+        caseId,
+        name: t.fileName,
+        mimeType: DOCX_MIME,
+        sizeBytes: 24_576,
+        createdAt: at,
+        modifiedAt: at,
+        uploadedBy: SYSTEM_UPLOADER,
+        caseFile: null,
+    }));
 }
 
 /** El enlace falso de la carpeta en Drive. */
@@ -445,6 +573,9 @@ function initialState(): MockDb {
     const cases: StoredCase[] = [];
     const proceduralActs: StoredAct[] = [];
     const interruptiveActs: StoredInterruptiveAct[] = [];
+    const documents: StoredDocument[] = [];
+    const caseFileVersions = new Map<number, number>();
+    let caseFileId = 0;
 
     for (const seed of CASE_SEEDS) {
         const lawyer = LAWYERS.find((l) => l.id === seed.responsibleLawyerId);
@@ -483,8 +614,15 @@ function initialState(): MockDb {
             folder,
             prescriptionDeclaration: null,
             active: true,
+            deactivation: null,
         };
         cases.push(stored);
+
+        // Una carpeta creada tiene adentro las copias de los modelos del fuero.
+        if (folder?.status === 'CREATED') {
+            const createdOn = stored.startDate ?? today;
+            documents.push(...templateCopies(stored.id, documentTemplates, stored.jurisdiction, `${createdOn}T09:00:00-03:00`));
+        }
 
         // Los actos los registró quien lleva la causa: sólo el abogado
         // responsable lo hace (D-30), y la cuenta sale de su ficha.
@@ -513,8 +651,31 @@ function initialState(): MockDb {
                 registeredById: registeredBy.id,
                 registeredAt: `${seed.prescriptionDeclaration.prescriptionDate}T10:00:00-03:00`,
             };
+            // D-113: una causa prescripta tiene todas sus calificaciones declaradas, como deja la migración.
+            for (const q of stored.qualifications) q.prescriptionDeclaration = { ...stored.prescriptionDeclaration };
         }
     }
+
+    DOCUMENT_SEEDS.forEach((seed, index) => {
+        const on = `${resolveSeedDate(seed.on, today)}T11:00:00-03:00`;
+        let caseFile: StoredDocument['caseFile'] = null;
+        if (seed.caseFile) {
+            caseFileId += 1;
+            caseFile = { id: caseFileId, version: seed.caseFile.version, parts: [...seed.caseFile.parts], cover: null };
+            caseFileVersions.set(seed.caseId, Math.max(caseFileVersions.get(seed.caseId) ?? 0, seed.caseFile.version));
+        }
+        documents.push({
+            id: `vz-doc-${index + 1}`,
+            caseId: seed.caseId,
+            name: seed.name,
+            mimeType: seed.mimeType,
+            sizeBytes: seed.sizeBytes,
+            createdAt: on,
+            modifiedAt: on,
+            uploadedBy: seed.uploadedBy,
+            caseFile,
+        });
+    });
 
     return {
         users,
@@ -526,6 +687,9 @@ function initialState(): MockDb {
         proceduralActs,
         interruptiveActs,
         documentTemplates,
+        documents,
+        caseFileVersions,
+        nextCaseFileId: caseFileId + 1,
         failures: { documentStorage: false },
         passwords,
         sessions: new Map(),
@@ -712,8 +876,9 @@ export function interruptiveActsOf(caseId: number): StoredInterruptiveAct[] {
 }
 
 /** La fecha del acto interruptivo que rige: el más reciente. `null` si no hay. */
-function latestInterruptiveActDate(caseId: number): string | null {
-    return interruptiveActsOf(caseId)[0]?.actDate ?? null;
+/** Las fechas de los actos interruptivos de la causa, de la más vieja a la más nueva (D-113). */
+function interruptiveActDates(caseId: number): string[] {
+    return interruptiveActsOf(caseId).map((act) => act.actDate).sort();
 }
 
 /**
@@ -819,7 +984,9 @@ function embedClient(clientId: number): CaseClient {
         id: client.id,
         lastName: client.lastName,
         firstName: client.firstName,
-        dni: client.dni,
+        documentType: client.documentType,
+        documentNumber: client.documentNumber,
+        address: client.address,
         phone: client.phone,
         email: client.email,
         clientSince: client.clientSince,
@@ -833,33 +1000,75 @@ function embedClient(clientId: number): CaseClient {
  * calificación fue dada de baja: por eso cambiar `prescriptionMonths` recalcula
  * la prescripción de las causas que la registran (D-08).
  *
- * Corre desde el acto interruptivo más reciente de la causa, que alcanza a
- * todas sus calificaciones (V4 D-49), salvo que sea anterior al hecho de
- * esta: ahí sigue corriendo desde el hecho (CA-31.5). La fecha del hecho no
- * cambia nunca.
+ * Desde cuándo corre (D-113, V5 §3.9): los actos interruptivos de la causa en
+ * orden de fecha, desde el hecho. Un acto la reinicia sólo si no es anterior
+ * al inicio vigente (CA-31.5), es anterior al vencimiento vigente —una que ya
+ * prescribió no vuelve a correr (CA-31.14)— y, si fue declarada, anterior a la
+ * fecha de la declaración. La fecha del hecho no cambia nunca.
  */
 function embedQualification(
     stored: StoredCaseQualification,
-    interruptedOn: string | null,
+    actDates: readonly string[],
 ): CaseLegalQualification {
     const qualification = db.legalQualifications.find((q) => q.id === stored.legalQualificationId);
     if (!qualification) {
         throw new Error(`[mock] La causa apunta a la calificación ${stored.legalQualificationId}, que no existe.`);
     }
-    const prescriptionStartsOn =
-        interruptedOn !== null && interruptedOn >= stored.offenseDate ? interruptedOn : stored.offenseDate;
+    const declaredOn = stored.prescriptionDeclaration?.prescriptionDate ?? null;
+    let prescriptionStartsOn = stored.offenseDate;
+    for (const actDate of actDates) {
+        const expiresOn = addMonths(prescriptionStartsOn, qualification.prescriptionMonths);
+        if (actDate >= prescriptionStartsOn && actDate < expiresOn && (declaredOn === null || actDate < declaredOn)) {
+            prescriptionStartsOn = actDate;
+        }
+    }
+    const prescriptionExpiresOn = addMonths(prescriptionStartsOn, qualification.prescriptionMonths);
     return {
         id: qualification.id,
         name: qualification.name,
         prescriptionMonths: qualification.prescriptionMonths,
         offenseDate: stored.offenseDate,
         prescriptionStartsOn,
-        prescriptionExpiresOn: addMonths(prescriptionStartsOn, qualification.prescriptionMonths),
+        prescriptionExpiresOn,
+        // D-112: cada calificación informa su estado, con la misma regla que la que rige.
+        ...prescriptionStatus(prescriptionStartsOn, prescriptionExpiresOn),
+        prescriptionDeclaration: stored.prescriptionDeclaration
+            ? toPrescriptionDeclaration(stored.prescriptionDeclaration)
+            : null,
+    };
+}
+
+/** Una declaración guardada, como la devuelve la API: con quién la registró (HU33, D-113). */
+function toPrescriptionDeclaration(stored: StoredPrescriptionDeclaration): PrescriptionDeclaration {
+    return {
+        prescriptionDate: stored.prescriptionDate,
+        resolution: stored.resolution,
+        grounds: stored.grounds,
+        registeredBy: userRef(stored.registeredById),
+        registeredAt: stored.registeredAt,
     };
 }
 
 /** El umbral fijo de la alerta de prescripción: el "aviso al 70 %" (V4 D-51). */
 const PRESCRIPTION_ALERT_RATIO = 0.7;
+
+/**
+ * El porcentaje transcurrido, la alerta y si el plazo se cumplió, al día de
+ * hoy (V4 §4, "Prescripción"). Es la misma cuenta para la que rige
+ * (`prescription`) y para cada calificación (D-112).
+ */
+function prescriptionStatus(startsOn: string, expiresOn: string) {
+    const today = todayIso();
+    const total = calendarDaysBetween(startsOn, expiresOn);
+    const elapsed = Math.min(Math.max(calendarDaysBetween(startsOn, today), 0), total);
+    // El umbral se evalúa sobre el valor exacto, no sobre el redondeado.
+    const ratio = total > 0 ? elapsed / total : 1;
+    return {
+        elapsedPercentage: Math.round(ratio * 100),
+        alert: ratio >= PRESCRIPTION_ALERT_RATIO,
+        expired: today >= expiresOn,
+    };
+}
 
 /**
  * La prescripción que rige la causa: la de la calificación que prescribe
@@ -870,30 +1079,28 @@ const PRESCRIPTION_ALERT_RATIO = 0.7;
 function prescriptionOf(
     stored: StoredCase,
     qualifications: CaseLegalQualification[],
-    interruptedOn: string | null,
 ): CasePrescription | null {
     if (stored.jurisdiction !== 'CRIMINAL' || qualifications.length === 0) return null;
 
-    const governing = [...qualifications].sort((a, b) =>
-        a.prescriptionExpiresOn.localeCompare(b.prescriptionExpiresOn),
+    // D-113: entre las que no fueron declaradas; si lo fueron todas, entre todas (dato histórico).
+    const pending = qualifications.filter((q) => q.prescriptionDeclaration === null);
+    const candidates = pending.length > 0 ? pending : qualifications;
+    // La que vence primero, aunque ya haya vencido (D-52); a igual vencimiento, la de menor id.
+    const governing = [...candidates].sort(
+        (a, b) => a.prescriptionExpiresOn.localeCompare(b.prescriptionExpiresOn) || a.id - b.id,
     )[0];
-    const today = todayIso();
-    const total = calendarDaysBetween(governing.prescriptionStartsOn, governing.prescriptionExpiresOn);
-    const elapsed = Math.min(Math.max(calendarDaysBetween(governing.prescriptionStartsOn, today), 0), total);
-    // El umbral se evalúa sobre el valor exacto, no sobre el redondeado.
-    const ratio = total > 0 ? elapsed / total : 1;
 
     return {
         legalQualificationId: governing.id,
         legalQualificationName: governing.name,
         startsOn: governing.prescriptionStartsOn,
         expiresOn: governing.prescriptionExpiresOn,
-        elapsedPercentage: Math.round(ratio * 100),
-        alert: ratio >= PRESCRIPTION_ALERT_RATIO,
-        expired: today >= governing.prescriptionExpiresOn,
-        // Sólo si es el acto el que fija el inicio de la que rige.
+        elapsedPercentage: governing.elapsedPercentage,
+        alert: governing.alert,
+        expired: governing.expired,
+        // Sólo si un acto fija el inicio de la que rige (CA-31.5).
         lastInterruptiveActDate:
-            interruptedOn !== null && governing.prescriptionStartsOn === interruptedOn ? interruptedOn : null,
+            governing.prescriptionStartsOn === governing.offenseDate ? null : governing.prescriptionStartsOn,
     };
 }
 
@@ -988,8 +1195,8 @@ export function toCase(stored: StoredCase): Case {
         throw new Error(`[mock] La causa ${stored.id} apunta al abogado ${stored.responsibleLawyerId}, que no existe.`);
     }
 
-    const interruptedOn = latestInterruptiveActDate(stored.id);
-    const legalQualifications = stored.qualifications.map((q) => embedQualification(q, interruptedOn));
+    const actDates = interruptiveActDates(stored.id);
+    const legalQualifications = stored.qualifications.map((q) => embedQualification(q, actDates));
 
     return {
         id: stored.id,
@@ -1016,15 +1223,9 @@ export function toCase(stored: StoredCase): Case {
         client: embedClient(stored.clientId),
         responsibleLawyer: lawyer,
         legalQualifications,
-        prescription: prescriptionOf(stored, legalQualifications, interruptedOn),
+        prescription: prescriptionOf(stored, legalQualifications),
         prescriptionDeclaration: stored.prescriptionDeclaration
-            ? {
-                  prescriptionDate: stored.prescriptionDeclaration.prescriptionDate,
-                  resolution: stored.prescriptionDeclaration.resolution,
-                  grounds: stored.prescriptionDeclaration.grounds,
-                  registeredBy: userRef(stored.prescriptionDeclaration.registeredById),
-                  registeredAt: stored.prescriptionDeclaration.registeredAt,
-              }
+            ? toPrescriptionDeclaration(stored.prescriptionDeclaration)
             : null,
         startDate: stored.startDate,
         currentState: currentStateOf(stored.id),
@@ -1090,6 +1291,8 @@ export function toProceduralAct(stored: StoredAct): ProceduralAct {
         deadline: stored.deadline ? { ...stored.deadline } : null,
         registeredBy: userRef(stored.registeredById),
         registeredAt: stored.registeredAt,
+        lastModifiedBy: stored.lastModifiedById === null ? null : userRef(stored.lastModifiedById),
+        lastModifiedAt: stored.lastModifiedAt,
     };
 }
 

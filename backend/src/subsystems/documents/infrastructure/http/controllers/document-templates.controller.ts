@@ -13,8 +13,9 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { AuthenticatedUser } from '@shared/domain/authenticated-user';
+import { contentDisposition } from '@shared/infrastructure/http/content-disposition';
 import { CurrentUser } from '@shared/infrastructure/http/current-user.decorator';
-import { PaginatedResponse, paginate, toPageRequest } from '@shared/infrastructure/http/pagination';
+import { PaginatedResponse, paginate, toPageRequest } from '@shared/infrastructure/http/pagination/pagination';
 import { DownloadDocumentTemplate } from '../../../core/application/use-cases/download-document-template.use-case';
 import { GetDocumentTemplate } from '../../../core/application/use-cases/get-document-template.use-case';
 import { ListDocumentTemplates } from '../../../core/application/use-cases/list-document-templates.use-case';
@@ -122,7 +123,7 @@ export class DocumentTemplatesController {
     return new StreamableFile(file.content, {
       type: file.mimeType,
       length: file.content.length,
-      disposition: contentDisposition(file.fileName),
+      disposition: contentDisposition('attachment', file.fileName),
     });
   }
 
@@ -133,14 +134,4 @@ export class DocumentTemplatesController {
     }
     return templateId;
   }
-}
-
-/**
- * `attachment` with the file's name. `filename` carries an ASCII fallback and
- * `filename*` the real name in UTF-8 (RFC 6266), so "designación.docx" keeps
- * its accent in every browser.
- */
-function contentDisposition(fileName: string): string {
-  const fallback = fileName.normalize('NFD').replace(/[^\x20-\x7e]/g, '').replace(/["\\]/g, '');
-  return `attachment; filename="${fallback}"; filename*=UTF-8''${encodeURIComponent(fileName)}`;
 }

@@ -11,8 +11,14 @@ Para ver un spec completo paso a paso, leé
 
 ## 1. Qué se prueba acá
 
-En este proyecto la suite del backend tiene **un solo nivel: tests de
-integración**. Cada test:
+La suite del backend tiene **dos niveles**:
+
+| Nivel | Dónde | Se corre con | Proporción |
+|---|---|---|---|
+| Unitarios: dominio, casos de uso y adaptadores, sin base ni HTTP | `src/**/*.spec.ts`, al lado del código | `npm test` | ~75 % |
+| Integración: la app completa contra PostgreSQL real | `test/**/*.int.spec.ts` (esta carpeta) | `npm run test:int` | ~25 % |
+
+Cada test de integración:
 
 1. Levanta la aplicación NestJS **completa** (`AppModule`), con la misma
    configuración HTTP que producción.
@@ -21,16 +27,65 @@ integración**. Cada test:
 3. Verifica **dos cosas en el mismo test**:
    - **El comportamiento:** qué quedó (o qué no quedó) guardado en la base.
    - **El contrato de la API:** status HTTP y forma exacta de la respuesta,
-     según [`API_CONTRACT_V2.md`](../../docs/Api-Contract/API_CONTRACT_V2.md).
+     según [`API_CONTRACT_V5.md`](../../docs/Api-Contract/API_CONTRACT_V5.md).
 
 No hay un nivel "API" separado. El contrato se verifica dentro de cada test de
 integración con los helpers de `shared/contract/`.
+
+### 1.1 Qué va en cada nivel
+
+Una regla se prueba **una vez, en el nivel más bajo que la alcanza**. Si ya la
+cubre otro spec, no se duplica: se cita.
+
+**Integración. Por endpoint se queda:**
+
+1. **Un caso feliz con la forma exacta del contrato** (`toEqual` u
+   `Object.keys(data).sort()`) y, si escribe, lo persistido.
+2. **Cada `code` de error que el endpoint emite, una vez.** El 400 de
+   validación en un solo test, con varios campos inválidos y `details` exacto
+   (`it.each` o un bucle para las variantes); un 403, un 404 y los 409/422 que
+   importan. **El 401 sin token va una sola vez**, en `smoke/app.int.spec.ts`,
+   que recorre todas las rutas protegidas: una ruta nueva se agrega a esa lista.
+3. **Lo que solo la base puede probar:** índices únicos (el SAC único entre
+   causas vigentes), conteos de `activeCases`, orden por `dueDate`, `ILIKE`,
+   "un pedido rechazado no escribe nada", la baja que arrastra subrecursos
+   (D-97), la escritura condicional.
+4. **Integraciones:** Drive, Gmail, OAuth y los eventos entre subsistemas.
+5. **Permisos:** un actor permitido y uno rechazado por recurso, no la matriz
+   de roles completa en cada endpoint.
+
+**Sale de integración:** las variantes de una regla que ya cubre el dominio
+(una por fuero alcanza), la validación campo por campo, la matriz de roles
+repetida y los códigos de Google que ya mapea `drive-error.mapper.spec.ts`.
+
+**Unitarios:**
+
+- **Dominio:** las reglas, con sus bordes. Las filas de `it.each` que prueban
+  la misma rama se consolidan.
+- **Caso de uso:** la coordinación. El caso feliz, el orden de los chequeos
+  (403 → 404 → 422), que un pedido rechazado no escriba nada, el uso de la
+  transacción y de los puertos, la propagación de errores y **un** test por
+  regla de dominio que pruebe que está conectada. El detalle de la regla queda
+  en el dominio (`.claude/rules/flujo-hu-backend.md`, paso 5).
+- **Infraestructura:** en los mappers, solo las derivaciones con lógica (la
+  copia campo a campo la cubre el contrato en integración); en los adaptadores,
+  la traducción de errores y los reintentos.
+
+### 1.2 Una suite por recurso o por flujo
+
+Cada suite levanta `AppModule` entero (unos 3 s). Por eso se arma **una suite
+por recurso o por flujo**, no una por endpoint: el ABMC de un recurso
+(`procedural-states`, `legal-qualifications`, `lawyers`, `clients`) vive en un
+solo archivo, con su `activeCases`. Si dos escenarios necesitan preparaciones
+distintas, van en `describe` anidados con su propio `beforeEach`. Dos suites no
+se juntan si sus `overrideProvider` no son compatibles en una misma app (por
+eso `deadlines` tiene tres).
 
 ### Lo que queda afuera de esta carpeta
 
 | Qué | Dónde | Por qué |
 |---|---|---|
-| Lógica pura de dominio (entidades, value objects, cómputo de plazos) | `src/**/*.spec.ts`, al lado del código | No necesita base ni HTTP. Se corre con `npm test` |
+| Unitarios (ver §1.1) | `src/**/*.spec.ts`, al lado del código | No necesitan base ni HTTP. Se corren con `npm test` |
 | Tests del frontend | `frontend/tests/` | Ver `docs/Frontend-Architecture/TESTING.md` |
 
 ---
@@ -44,12 +99,19 @@ backend/test/
 ├── tsconfig.json                 ← TypeScript para los tests
 │
 ├── subsystems/                   ← LOS TESTS: un subdirectorio por subsistema
-│   ├── identity/                 ← (ejemplo) users.int.spec.ts
-│   ├── people/                   ← (ejemplo) lawyers.int.spec.ts
-│   └── …                         ← refleja src/subsystems/ uno a uno
+│   ├── cases/                    ← register-case, consult-cases, register-procedural-act,
+│   │                               list-procedural-acts, interruptive-acts,
+│   │                               declare-prescription, case-folder
+│   ├── deadlines/                ← daily-run, detect-upcoming-deadlines,
+│   │                               detect-upcoming-prescriptions
+│   ├── documents/                ← document-templates, case-documents-flow, google-stack
+│   ├── identity/                 ← deactivate-user
+│   ├── legal-parameters/         ← procedural-states, legal-qualifications
+│   ├── people/                   ← lawyers, clients
+│   └── reporting/                ← dashboards
 │
 ├── smoke/
-│   └── app.int.spec.ts           ← verifica que el harness funciona
+│   └── app.int.spec.ts           ← el harness, el 401 de todas las rutas y /health/db
 │
 └── shared/                       ← infraestructura común (no contiene tests)
     ├── harness/                  ← ciclo de vida: contenedor, app, base
@@ -63,7 +125,7 @@ backend/test/
     │   └── envelopes.ts
     ├── auth/                     ← actores autenticados
     │   └── login-as.ts
-    └── fakes/                    ← (se crea cuando haga falta) reemplazos de servicios externos
+    └── fakes/                    ← reemplazos de servicios externos (correo, Drive, Google)
 ```
 
 ---
@@ -83,8 +145,8 @@ backend/test/
   `src/subsystems/` (`identity`, `people`, `legal-parameters`, `cases`,
   `deadlines`, `documents`, `reporting`). Quien conoce el código sabe dónde
   buscar el test.
-- **Un archivo por recurso o caso de uso**: `lawyers.int.spec.ts`,
-  `lend-book.int.spec.ts`. Dentro, un `describe` por endpoint.
+- **Un archivo por recurso o por flujo** (§1.2): `lawyers.int.spec.ts`,
+  `register-procedural-act.int.spec.ts`. Dentro, un `describe` por endpoint.
 - **No contiene helpers.** Lo que se repite entre dos subsistemas se mueve a
   `shared/`.
 
@@ -96,9 +158,9 @@ la suite está bien armada (el contenedor levantó, las migraciones se aplicaron
 correlación están activos). Si falla, el problema está en el harness, no en un
 subsistema.
 
-> Hoy el primer test del smoke está **en rojo a propósito**. El contrato pide
-> `RESOURCE_NOT_FOUND` para una ruta inexistente y `DomainErrorFilter`
-> responde `NOT_FOUND`. Pasa a verde cuando se corrija el filtro.
+También concentra lo que vale igual para todas las rutas: el **401 sin token**,
+recorriendo la lista de rutas protegidas (una ruta nueva se agrega ahí), y
+`GET /health/db`, que no es del contrato pero lo usa el healthcheck del compose.
 
 ### 3.4 `shared/harness/` — ciclo de vida de la suite
 
@@ -127,8 +189,8 @@ simple vista qué dato es relevante.
 
 ### 3.6 `shared/contract/` — verificación del contrato
 
-`envelopes.ts` concentra las reglas del contrato (§5 y §6 de
-`API_CONTRACT_V2.md`), así ningún spec las repite a mano:
+`envelopes.ts` concentra las reglas del contrato (§5 de
+`API_CONTRACT_V5.md`), así ningún spec las repite a mano:
 
 | Helper | Verifica | Devuelve |
 |---|---|---|
@@ -166,7 +228,7 @@ Solo se reemplazan adaptadores de servicios **externos**. Repositorios y
 **El Google falso (`fakes/fake-google.ts`).** Para HU39 no se reemplaza el
 adaptador sino solo el transporte HTTP: `harness/google-stack.ts` arma el
 `GoogleOAuthClientService` y el `GoogleDriveDocumentStorage` **reales**, y le
-cambia el `transporter` por un `FakeGoogle`. Así se ejercitan `googleapis`,
+cambia el `transporter` por un `FakeGoogle`. Así se ejercitan `@googleapis/drive`,
 el canje del refresh token y los reintentos de verdad. El falso simula
 `oauth2.googleapis.com/token` y Drive v3 (`list`, `create`, `get`, `delete`)
 sobre un árbol en memoria, registra los pedidos (`requests`, `tokenRequests`,

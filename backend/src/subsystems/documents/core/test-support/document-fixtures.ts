@@ -1,9 +1,14 @@
 import { ClockPort } from '@shared/domain/clock.port';
+import { CaseDeactivatedEvent, CASE_DEACTIVATED } from '@subsystems/cases/core/domain/ports/events/case-deactivated.event';
+import { LawyerRenamedEvent, LAWYER_RENAMED } from '@subsystems/people/core/domain/ports/events/lawyer-renamed.event';
+import { CaseModifiedEvent, CASE_MODIFIED } from '@subsystems/cases/core/domain/ports/events/case-modified.event';
 import { CaseRegisteredEvent, CASE_REGISTERED } from '@subsystems/cases/core/domain/ports/events/case-registered.event';
 import { AssureSpaceCommand } from '../application/common/assure-space.interfaces';
+import { FolderChain } from '../application/common/folder-chain';
 import { AssureSpace } from '../application/use-cases/assure-space.use-case';
 import { SetupCloudStorage } from '../application/use-cases/setup-cloud-storage.use-case';
 import { CloudFolderFactory } from '../domain/factories/cloud-folder.factory';
+import { FakeDocumentTemplateRepository } from './fake-document-template.repository';
 import { FakeEventPublisher } from './fake-event-publisher';
 import { InMemoryCloudFolderRepository } from '../../infrastructure/persistence/in-memory/in-memory-cloud-folder.repository';
 import { InMemoryDocumentStorage } from '../../infrastructure/storage/in-memory/in-memory-document-storage';
@@ -73,10 +78,10 @@ export async function aSetUpStudio(): Promise<{
     events,
     assureSpace: new AssureSpace(
       folders,
-      storage,
       new FakeClock(),
       events,
-      new SetupCloudStorage(folders, storage, new FakeClock()),
+      new SetupCloudStorage(folders, storage, new FakeClock(), new FakeDocumentTemplateRepository()),
+      new FolderChain(folders, storage, new FakeClock()),
     ),
     rootCasesId: rootCases.id,
   };
@@ -94,6 +99,42 @@ export function aCaseRegisteredEvent(
     lawyer: { id: 3, lastName: 'Ríos', firstName: 'Malena' },
     jurisdiction: { id: 1, label: 'Penal' },
     copyTemplates: false,
+    ...overrides,
+  };
+}
+
+export function aCaseModifiedEvent(overrides: Partial<CaseModifiedEvent> = {}): CaseModifiedEvent {
+  return {
+    type: CASE_MODIFIED,
+    eventId: 'evt-case-modified-1',
+    occurredAt: NOW.toISOString(),
+    caseId: 10,
+    caption: 'GÓMEZ, Ariel Fernando p.s.a. Robo calificado',
+    lawyer: { id: 3, lastName: 'Ríos', firstName: 'Malena' },
+    jurisdiction: { id: 1, label: 'Penal' },
+    changed: ['caption'],
+    ...overrides,
+  };
+}
+
+export function aCaseDeactivatedEvent(overrides: Partial<CaseDeactivatedEvent> = {}): CaseDeactivatedEvent {
+  return {
+    type: CASE_DEACTIVATED,
+    eventId: 'evt-case-deactivated-1',
+    occurredAt: NOW.toISOString(),
+    caseId: 10,
+    ...overrides,
+  };
+}
+
+export function aLawyerRenamedEvent(overrides: Partial<LawyerRenamedEvent> = {}): LawyerRenamedEvent {
+  return {
+    type: LAWYER_RENAMED,
+    eventId: 'evt-lawyer-renamed-1',
+    occurredAt: NOW.toISOString(),
+    lawyerId: 3,
+    lastName: 'Ríos',
+    firstName: 'Malena',
     ...overrides,
   };
 }

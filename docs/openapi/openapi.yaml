@@ -2,18 +2,23 @@ openapi: 3.1.0
 
 info:
     title: VZ Causas API
-    version: 4.0.0
-    summary: Contrato de la API de VZ Causas para el Sprint 3.
+    version: 5.0.0
+    summary: Contrato de la API de VZ Causas para el Sprint 4.
     description: |
-        Traducción a OpenAPI de `docs/api-contract/API_CONTRACT_V4.md` (versión del
-        14/10/2026, con la revisión del 19/10/2026 de HU27). Ante cualquier
-        diferencia, el contrato en Markdown es la referencia; las decisiones
-        (D-xx) y los puntos abiertos (C-xx) se documentan allí.
+        Traducción a OpenAPI de `docs/Api-Contract/API_CONTRACT_V5.md`, con las
+        revisiones del 27/10/2026 y del 05/11/2026. Ante cualquier diferencia,
+        el contrato en Markdown es la referencia; las decisiones (D-xx) y los
+        puntos abiertos (C-xx) se documentan en `docs/Api-Contract/DECISIONES.md`.
 
-        **Cambios que rompen la compatibilidad con V3:** el nombre y el apellido
-        separados (`lastName` y `firstName` en lugar de `fullName`) en usuarios,
-        abogados y toda referencia a ellos (D-68), y `caseCount` en lugar de
-        `activeCases` en los estados procesales (D-70).
+        **Alcance de V5** (D-87): HU14 (modificar abogado), HU19 y HU21
+        (modificar y dar de baja causa), HU23 (descargar modelo formal), HU24
+        (carátula en PDF), HU25 (expediente), HU28 (modificar acto procesal) y
+        HU38 (documentos de la causa).
+
+        **Cambio que rompe la compatibilidad con V4** (revisión del
+        05/11/2026, D-108): el cliente se identifica con `documentType` y
+        `documentNumber` en lugar de `dni`. La matrícula del abogado pasa a ser
+        opcional (D-107), lo que no rompe nada de lo que ya se enviaba.
 
         ## Autenticación
 
@@ -55,9 +60,9 @@ info:
         en la descripción de cada operación.
 
         Los **actos procesales** y los **actos interruptivos** son la excepción:
-        solo los registra el **abogado responsable de la causa**, comparando el
-        `lawyerId` del usuario con el responsable. Ningún otro usuario, ni
-        siquiera un `ADMINISTRATOR`.
+        solo los registra (y, los procesales, los modifica) el **abogado
+        responsable de la causa**, comparando el `lawyerId` del usuario con el
+        responsable. Ningún otro usuario, ni siquiera un `ADMINISTRATOR`.
 
         | Recurso                             | Lectura (`GET`)                                       | Escritura                                            |
         | ----------------------------------- | ----------------------------------------------------- | ---------------------------------------------------- |
@@ -67,19 +72,29 @@ info:
         | `/procedural-states`                | Cualquier usuario autenticado                         | Cualquier usuario autenticado                        |
         | `/legal-qualifications`             | Cualquier usuario autenticado                         | Cualquier usuario autenticado                        |
         | `/clients`                          | Cualquier usuario autenticado                         | Cualquier usuario autenticado                        |
-        | `/cases`                            | Cualquier usuario autenticado                         | Cualquier usuario autenticado                        |
+        | `/cases`                            | Cualquier usuario autenticado                         | Cualquier usuario autenticado, también `PATCH` y `DELETE` |
+        | `/cases/{caseId}/cover`             | Cualquier usuario autenticado                         | -                                                    |
         | `/cases/{caseId}/prescription`      | -                                                     | `ADMINISTRATOR` o `LAWYER`                           |
         | `/cases/{caseId}/folder`            | -                                                     | Cualquier usuario autenticado                        |
-        | `/cases/{caseId}/procedural-acts`   | Cualquier usuario autenticado; `deadline-preview`, solo el abogado responsable | Abogado responsable de la causa |
+        | `/cases/{caseId}/procedural-acts`   | Cualquier usuario autenticado; `deadline-preview`, solo el abogado responsable | Abogado responsable de la causa, también `PATCH` |
         | `/cases/{caseId}/interruptive-acts` | Cualquier usuario autenticado                         | Abogado responsable de la causa                      |
+        | `/cases/{caseId}/documents`         | Cualquier usuario autenticado; la descarga de un documento que no es un expediente, `LAWYER` o `SECRETARY` | - |
+        | `/cases/{caseId}/case-files`        | -                                                     | Cualquier usuario autenticado                        |
         | `/document-templates`               | `ADMINISTRATOR` o `LAWYER`                            | `ADMINISTRATOR` o `LAWYER`                           |
         | `/dashboards/lawyer`                | `LAWYER`                                              | -                                                    |
         | `/dashboards/administrator`         | `ADMINISTRATOR`                                       | -                                                    |
 
         RN11: todo el estudio accede a todas las causas. La diferencia entre
         perfiles está en lo que pueden **operar**, no en lo que pueden **ver**.
-        Los modelos formales y los tableros son los primeros recursos cuya
-        lectura no está abierta a los tres perfiles.
+        Los modelos formales, los tableros y la descarga de documentos que no
+        son expedientes son los recursos cuya lectura no está abierta a los
+        tres perfiles.
+
+        Dos apartamientos de la matriz de permisos, decididos por el equipo:
+        la **lista** de documentos de la causa (HU38) está abierta a los tres
+        perfiles, porque el Administrador la necesita para generar el
+        expediente (D-103); y **descargar un modelo formal** (HU23) queda
+        restringido a `ADMINISTRATOR` o `LAWYER` (D-90).
 
         ## Formato de intercambio
 
@@ -92,12 +107,20 @@ info:
         calendario judicial de Córdoba y "hoy" se interpreta en la zona horaria
         `America/Argentina/Cordoba`.
 
-        **Excepciones al JSON.** `POST /document-templates` recibe el cuerpo en
-        `multipart/form-data`, con el archivo en el campo `file` (cada campo
-        viaja como texto; `jurisdictions` se repite una vez por valor).
-        `GET /document-templates/{templateId}/file` responde el archivo, con su
-        `Content-Type` y `Content-Disposition: attachment`; sus errores son JSON.
-        El tamaño máximo de un archivo es **10 MB** (`413 FILE_TOO_LARGE`).
+        **Excepciones al JSON.** Estos endpoints manejan archivos; sus errores
+        son siempre JSON:
+
+        | Operación                                         | Qué cambia |
+        | ------------------------------------------------- | ---------- |
+        | `POST /document-templates`                        | El cuerpo es `multipart/form-data`, con el archivo en el campo `file` (cada campo viaja como texto; `jurisdictions` se repite una vez por valor) |
+        | `GET /document-templates/{templateId}/file`       | La respuesta exitosa es el archivo, con `Content-Disposition: attachment` |
+        | `GET /cases/{caseId}/cover`                       | La respuesta exitosa es un PDF, `inline` por defecto |
+        | `GET /cases/{caseId}/documents/{documentId}/file` | La respuesta exitosa es el archivo, `attachment` por defecto |
+
+        Las dos últimas aceptan el parámetro `disposition` (`inline` o
+        `attachment`): con `inline` el navegador muestra el PDF y el cliente
+        puede imprimirlo. El tamaño máximo de un archivo enviado es **10 MB**
+        (`413 FILE_TOO_LARGE`).
 
         ## Respuestas
 
@@ -109,8 +132,9 @@ info:
 
         Colección paginada (sin resultados: `data` vacío y `totalItems` y
         `totalPages` en `0`). No están paginadas `GET /cases/custom-states`,
-        `GET /cases/{caseId}/timeline` (D-85) y las listas que vienen dentro de
-        un tablero (D-62).
+        `GET /cases/{caseId}/timeline` (D-85), las listas que vienen dentro de
+        un tablero (D-62) y `documents` dentro de `GET /cases/{caseId}/documents`
+        (D-100).
 
         ```json
         { "data": [], "pagination": { "page": 1, "limit": 20, "totalItems": 57, "totalPages": 3 } }
@@ -135,8 +159,11 @@ info:
 
         `502 DOCUMENT_STORAGE_UNAVAILABLE` distingue una falla del
         almacenamiento en la nube (Google Drive) de un error propio: para el
-        cliente es "reintentar más tarde". El alta de causa nunca lo responde:
-        registra la causa y deja la carpeta pendiente.
+        cliente es "reintentar más tarde". El alta y la modificación de causa
+        nunca lo responden: guardan la causa y la carpeta se corrige después.
+
+        `DELETE /cases/{caseId}` es el único `DELETE` que acepta un cuerpo,
+        opcional, con el motivo de la baja.
 
         ## Causa activa
 
@@ -177,11 +204,23 @@ info:
 
         El almacenamiento en la nube es Google Drive, en la cuenta de gestión del
         estudio (D-84). Cada causa tiene su carpeta en
-        `/VZ Causas/{abogado}/{fuero}/{carátula}` (D-61), con los modelos
+        `/VZ Causas/Causas/{abogado}/{fuero}/{carátula}`, con los modelos
         formales de su fuero que se copian a las causas nuevas. La carpeta raíz
         `VZ Causas` se comparte, como editores, con los usuarios vigentes con rol
         `LAWYER` o `SECRETARY` (D-83). Si Drive falla, la operación que pidió la
         carpeta no falla (D-60).
+
+        **La carpeta sigue a la causa** (D-104): se renombra si cambia la
+        carátula, se mueve a la carpeta del nuevo responsable si cambia el
+        responsable, y la del abogado se renombra si cambia su nombre. La baja
+        de la causa no la toca. Si Drive no responde, la modificación no falla y
+        el cambio se completa con `POST /cases/{caseId}/folder` o con el proceso
+        diario.
+
+        Los documentos de la causa (`GET /cases/{caseId}/documents`) se leen
+        de la carpeta en cada pedido, con el permiso `drive.readonly` además de
+        `drive.file` (D-100). El expediente (`POST /cases/{caseId}/case-files`)
+        se guarda en ella como nueva versión (D-102).
 
         ## Proceso automático diario
 
@@ -191,17 +230,26 @@ info:
         activas, y envía **un correo por día** con los avisos: preaviso y día del
         vencimiento, alerta de prescripción al 70 % y prescripción cumplida
         (D-64). También ajusta el acceso de los usuarios a la carpeta del
-        estudio. No guarda estados calculados ni cambia el estado de ninguna
-        causa. Su configuración es del servidor, no de la API (D-79).
+        estudio y corrige el nombre y la ubicación de las carpetas de causas y
+        abogados que Drive no aceptó en su momento (D-104). No guarda estados
+        calculados ni cambia el estado de ninguna causa. Una causa dada de baja
+        no genera avisos. Su configuración es del servidor, no de la API (D-79).
 
         ## Bajas
 
-        Las bajas de usuarios, abogados, estados procesales y calificaciones
-        legales son **lógicas** (`active` en `false`, RN12), pero **para el
-        cliente un registro dado de baja no existe**: no aparece en listados y el
-        `GET` por identificador responde `404`. La excepción son las referencias
-        desde una causa, que siguen mostrando el estado o la calificación dados de
-        baja porque forman parte de su historia.
+        Las bajas de usuarios, abogados, estados procesales, calificaciones
+        legales y **causas** (HU21) son **lógicas** (`active` en `false`, RN12),
+        pero **para el cliente un registro dado de baja no existe**: no aparece
+        en listados, el `GET` por identificador responde `404` y no hay forma de
+        reactivarlo por la API. La excepción son las referencias desde una
+        causa, que siguen mostrando el estado o la calificación dados de baja
+        porque forman parte de su historia.
+
+        Una causa dada de baja arrastra a sus subrecursos (D-97): actos
+        procesales e interruptivos, línea de vida, carátula, documentos y
+        expedientes responden `404 CASE_NOT_FOUND`. La causa no figura en los
+        tableros ni en los conteos, y su SAC queda libre: es único solo entre
+        las causas vigentes.
     contact:
         name: Equipo VZ Causas
 
@@ -245,23 +293,32 @@ tags:
           Sprint 5.
     - name: Cases
       description: |
-          Causas del estudio. Lectura, alta y carpeta en la nube para cualquier
-          usuario autenticado; marcarla como prescripta, para `ADMINISTRATOR` o
-          `LAWYER`. Modificación y baja (HU19 y HU21) llegan en el Sprint 4.
+          Causas del estudio. Lectura, alta, modificación (HU19), baja (HU21),
+          carátula en PDF (HU24) y carpeta en la nube para cualquier usuario
+          autenticado; marcarla como prescripta, para `ADMINISTRATOR` o
+          `LAWYER`.
     - name: Procedural Acts
       description: |
           El acto procesal mueve la causa de estado y abre el plazo (RN5). Solo
-          lo registra el abogado responsable de la causa.
+          lo registra y lo modifica (HU28) el abogado responsable de la causa.
     - name: Interruptive Acts
       description: |
           El acto interruptivo reinicia la prescripción de una causa penal desde
           su fecha (RN8). No mueve el estado ni abre plazos. Solo lo registra el
           abogado responsable de la causa.
+    - name: Case Documents
+      description: |
+          Documentación de la causa: los archivos de su carpeta de Drive (HU38)
+          y el expediente en un único PDF (HU25). No sube archivos: lee la
+          carpeta y genera el expediente. Consultar la lista y generar el
+          expediente, cualquier usuario autenticado; descargar un documento que
+          no es un expediente, `LAWYER` o `SECRETARY`.
     - name: Document Templates
       description: |
           Modelos formales: los escritos tipo del estudio, plantillas `.docx` que
-          se copian a la carpeta de las causas nuevas (HU34, HU35, HU40). Lectura
-          y alta para `ADMINISTRATOR` o `LAWYER`.
+          se copian a la carpeta de las causas nuevas (HU34, HU35, HU40). Lectura,
+          alta y descarga (HU23) para `ADMINISTRATOR` o `LAWYER`. Modificación y
+          baja (HU36 y HU37) llegan en el Sprint 5.
     - name: Dashboards
       description: |
           La pantalla "Inicio": un tablero por rol, de solo lectura, sin paginar y
@@ -304,10 +361,14 @@ paths:
         $ref: paths/cases@custom-states.yaml
     /cases/{caseId}:
         $ref: paths/cases@{caseId}.yaml
+    /cases/{caseId}/cover:
+        $ref: paths/cases@{caseId}@cover.yaml
     /cases/{caseId}/timeline:
         $ref: paths/cases@{caseId}@timeline.yaml
     /cases/{caseId}/prescription:
         $ref: paths/cases@{caseId}@prescription.yaml
+    /cases/{caseId}/legal-qualifications/{legalQualificationId}/prescription:
+        $ref: paths/cases@{caseId}@legal-qualifications@{legalQualificationId}@prescription.yaml
     /cases/{caseId}/folder:
         $ref: paths/cases@{caseId}@folder.yaml
     /cases/{caseId}/procedural-acts:
@@ -318,6 +379,12 @@ paths:
         $ref: paths/cases@{caseId}@procedural-acts@{actId}.yaml
     /cases/{caseId}/interruptive-acts:
         $ref: paths/cases@{caseId}@interruptive-acts.yaml
+    /cases/{caseId}/documents:
+        $ref: paths/cases@{caseId}@documents.yaml
+    /cases/{caseId}/documents/{documentId}/file:
+        $ref: paths/cases@{caseId}@documents@{documentId}@file.yaml
+    /cases/{caseId}/case-files:
+        $ref: paths/cases@{caseId}@case-files.yaml
     /document-templates:
         $ref: paths/document-templates.yaml
     /document-templates/{templateId}:

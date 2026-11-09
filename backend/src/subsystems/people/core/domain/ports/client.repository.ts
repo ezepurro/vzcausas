@@ -1,5 +1,5 @@
 import { Client } from "../entities/client.entity";
-import { Dni } from "../value-objects/dni.vo";
+import { ClientDocument } from "../value-objects/client-document.vo";
 
 /**
  * DI token for {@link ClientRepository}. Symbol-as-token convention,
@@ -21,9 +21,11 @@ export interface ClientRepository {
    * (CA-8.4).
    *
    * Deactivated clients do not count: the database's unique index is
-   * partial, so a logically deleted client releases their DNI.
+   * partial, so a logically deleted client releases their document. The
+   * match is on the type and the number together (D-108): a DNI and a
+   * passport with the same number are different documents.
    */
-  existsActiveByDni(dni: Dni): Promise<boolean>;
+  existsActiveByDocument(document: ClientDocument): Promise<boolean>;
 
   /** Inserts a freshly created client. */
   create(client: Client): Promise<void>;
@@ -48,7 +50,7 @@ export interface ClientRepository {
 
 /**
  * `search` matches a free-text fragment against surname, given names
- * and document, as the contract specifies.
+ * and document number, as the contract specifies.
  */
 export type ClientSearchCriteria = {
   page: number;

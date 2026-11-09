@@ -4,7 +4,7 @@ import {
   CaseFolderOutcome,
   CaseFolderOutcomePort,
   CaseFolderWaitOptions,
-} from '../../core/domain/ports/case-folder-outcome.port';
+} from '../../core/domain/ports/case/case-folder-outcome.port';
 
 /** DI token for the longest a request waits for the folder, in milliseconds. */
 export const CASE_FOLDER_WAIT_MS = Symbol('CASE_FOLDER_WAIT_MS');

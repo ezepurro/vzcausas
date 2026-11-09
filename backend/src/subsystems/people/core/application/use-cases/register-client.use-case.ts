@@ -6,13 +6,15 @@ import {
   CLIENT_REPOSITORY,
   ClientRepository,
 } from "../../domain/ports/client.repository";
-import { Dni } from "../../domain/value-objects/dni.vo";
+import { ClientDocument } from "../../domain/value-objects/client-document.vo";
 
 export type RegisterClientCommand = {
   lastName: string;
   firstName: string;
-  dni: string;
-  phone?: string | null;
+  documentType: string;
+  documentNumber: string;
+  address: string;
+  phone: string;
   email?: string | null;
 };
 
@@ -47,13 +49,16 @@ export class RegisterClientUseCase {
     // Normalizes first: `34.812.905` and `34812905` are the same
     // document, and comparing the raw input would let both through as
     // two different clients.
-    const dni = Dni.create(command.dni);
+    const document = ClientDocument.create(
+      command.documentType,
+      command.documentNumber,
+    );
 
     // The partial unique index is what actually holds under
     // concurrency; this check exists so the caller gets the contract's
     // 409 instead of a raw constraint violation. Same reasoning as the
     // lawyer's matrícula.
-    if (await this.clients.existsActiveByDni(dni)) {
+    if (await this.clients.existsActiveByDocument(document)) {
       throw new ClientDniAlreadyExistsError();
     }
 
@@ -62,7 +67,8 @@ export class RegisterClientUseCase {
       id,
       lastName: command.lastName,
       firstName: command.firstName,
-      dni,
+      document,
+      address: command.address,
       phone: command.phone,
       email: command.email,
       clientSince: this.clock.today(),

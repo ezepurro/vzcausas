@@ -15,11 +15,11 @@ import {
 import {
   CASE_FOLDER_OUTCOMES,
   CaseFolderOutcomePort,
-} from '../../../core/domain/ports/case-folder-outcome.port';
+} from '../../../core/domain/ports/case/case-folder-outcome.port';
 import {
   CASE_FOLDER_STATE,
   CaseFolderStatePort,
-} from '../../../core/domain/ports/case-folder-state.port';
+} from '../../../core/domain/ports/case/case-folder-state.port';
 
 /**
  * Input adapter: hears what `documents` answers about the folder of a case and

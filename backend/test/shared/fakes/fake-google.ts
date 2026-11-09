@@ -1,7 +1,7 @@
 import { Gaxios } from 'gaxios';
 
 /**
- * Un Google falso, en proceso, para probar la pila REAL de Google (`googleapis`
+ * Un Google falso, en proceso, para probar la pila REAL de Google (`@googleapis/drive`
  * + `OAuth2Client` + `gaxios`) sin red ni credenciales.
  *
  * No reemplaza ninguna clase nuestra ni de Google: solo hace de "internet". Se

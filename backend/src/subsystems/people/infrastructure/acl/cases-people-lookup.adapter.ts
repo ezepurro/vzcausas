@@ -3,7 +3,7 @@ import {
   ClientRef,
   LawyerRef,
   PeopleLookupPort,
-} from "@subsystems/cases/core/domain/ports/people-lookup.port";
+} from "@subsystems/cases/core/domain/ports/case/people-lookup.port";
 import {
   CLIENT_REPOSITORY,
   ClientRepository,
@@ -38,7 +38,7 @@ export class CasesPeopleLookupAdapter implements PeopleLookupPort {
       id: lawyer.id,
       lastName: lawyer.lastName,
       firstName: lawyer.firstName,
-      registrationNumber: lawyer.registrationNumber.toString(),
+      registrationNumber: lawyer.registrationNumber?.toString() ?? null,
     };
   }
 
@@ -51,7 +51,7 @@ export class CasesPeopleLookupAdapter implements PeopleLookupPort {
       id: lawyer.id,
       lastName: lawyer.lastName,
       firstName: lawyer.firstName,
-      registrationNumber: lawyer.registrationNumber.toString(),
+      registrationNumber: lawyer.registrationNumber?.toString() ?? null,
     };
   }
 
@@ -65,7 +65,9 @@ export class CasesPeopleLookupAdapter implements PeopleLookupPort {
       id: client.id,
       lastName: client.lastName,
       firstName: client.firstName,
-      dni: client.dni.toString(),
+      documentType: client.document.type,
+      documentNumber: client.document.number,
+      address: client.address,
       phone: client.phone,
       email: client.email,
       clientSince: client.clientSince,

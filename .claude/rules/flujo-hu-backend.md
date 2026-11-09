@@ -15,7 +15,7 @@ paths:
 ## El flujo, en este orden
 
 1. **Criterios de aceptación y contrato.** Cada CA se cruza con su endpoint en
-   `docs/Api-Contract/API_CONTRACT_V4.md`: código HTTP, `code`, `message` y
+   `docs/Api-Contract/API_CONTRACT_V5.md`: código HTTP, `code`, `message` y
    `details` textuales. Si el contrato y la HU no coinciden, se frena y se pregunta.
 2. **Documento del plan de tests**, en `.claude/plans/tests-<hu>-<nombre>.md`, **antes de
    escribir código**. Una tabla CA → test (unitario o integración, o por qué no lleva
@@ -43,7 +43,7 @@ paths:
 - **Value object para un dato que se valida al crearse** y no tiene identidad ni ciclo
   de vida: `create` valida y junta todos los errores, `hydrate` reconstruye sin
   validar, getters sin setters, `equals`. Molde:
-  `cases/core/domain/value-objects/prescription-declaration.vo.ts`. Entidad solo si
+  `cases/core/domain/value-objects/prescription/prescription-declaration.vo.ts`. Entidad solo si
   tiene identidad propia y cambia en el tiempo.
 - **Ninguna función suelta nueva** que decida reglas o arme respuestas pieza por pieza.
   `withDeadlines` (`list-cases.use-case.ts`) y las funciones de `prescription.ts` son
@@ -60,17 +60,19 @@ paths:
 
 ## Nombres de archivo
 
-Los archivos **nuevos** siguen `ARQUITECTURA_BACKEND_V1.md:386-396`: `.vo.ts`,
-`.entity.ts`, `<verbo>-<sustantivo>.use-case.ts`, `<caso-de-uso>.request.dto.ts`. Los
-archivos que ya existen en `cases` (`cases.ts`, `harmful-act.ts`,
-`case-prisma.repository.ts`) **no se renombran**: es una inconsistencia conocida, y
-renombrarlos al pasar mezcla un refactor con la HU. Decidido con mmachuca el 21/10/2026.
+Los archivos siguen `ARQUITECTURA_BACKEND_V1.md:386-396`: `.vo.ts`, `.entity.ts`,
+`<verbo>-<sustantivo>.use-case.ts`, `<caso-de-uso>.request.dto.ts`. En `cases` los
+archivos que no la seguían (`cases.ts`, `harmful-act.ts`, `case-prisma.repository.ts`)
+se renombraron en el refactor de estructura (`docs/support/refactor-estructura-backend.md`,
+fases B y C, 28/10/2026). La regla del 21/10/2026 sigue valiendo para el resto: un
+renombre no se mezcla con una HU, va en un refactor aparte.
 
 ## Tests contra los criterios y el contrato, no contra el código
 
 Un test que se escribe mirando la implementación confirma lo que el código hace, no lo
 que el contrato promete, y da verde aunque el endpoint esté mal. Esa fue la causa de
-los falsos positivos de `list-cases.int.spec.ts` y `register-case.int.spec.ts`.
+los falsos positivos de `list-cases.int.spec.ts` (hoy en `consult-cases.int.spec.ts`) y
+`register-case.int.spec.ts`.
 
 Lista contra falsos positivos:
 
@@ -90,8 +92,17 @@ Lista contra falsos positivos:
 
 ## Límites
 
+- Qué va en integración y qué en unitarios: `backend/test/README.md` §1.1. En
+  integración, por endpoint: un caso feliz con la forma exacta, cada `code` de error
+  una vez, lo que solo la base puede probar y las integraciones. El 401 sin token no
+  se repite: la ruta nueva se agrega a la lista de `test/smoke/app.int.spec.ts`.
 - Integración: **hasta 5 `describe` de hasta 3 `it`** por HU. Es flexible si hace
-  falta, sin pasarse: la suite completa ya tarda. Usar `it.each` para variantes del
-  mismo caso.
-- Proporción orientativa: **~70 % unitarios, ~30 % integración**.
+  falta, sin pasarse: la suite completa ya tarda. Usar `it.each` o un bucle para
+  variantes del mismo caso.
+- **Una suite por recurso o por flujo**, no una por HU ni por endpoint: cada suite
+  levanta `AppModule` (~3 s). Los tests de una HU nueva van a la suite de su recurso
+  si existe (README §1.2).
+- Proporción orientativa: **~75 % unitarios, ~25 % integración**. Al 01/11/2026,
+  tras la poda de `refactor/refactor-backend-tests`: ~1130 unitarios y ~290 de
+  integración en 20 suites.
 - Un CA que ya cubre otro spec no se duplica: se cita en la tabla del documento.

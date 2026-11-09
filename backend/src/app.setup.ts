@@ -5,7 +5,8 @@ import {
   ValidationPipe,
 } from "@nestjs/common";
 import cookieParser from "cookie-parser";
-import { InvalidPaginationError } from "@shared/infrastructure/http/pagination";
+import { Logger } from "nestjs-pino";
+import { InvalidPaginationError } from "@shared/infrastructure/http/pagination/pagination";
 
 /**
  * Campos de {@link PaginationQueryDto}. Cuando **todo** lo que falla es uno
@@ -22,6 +23,10 @@ const PAGINATION_FIELDS = new Set(["page", "limit"]);
  * producción. Lo que es propio del proceso (CORS, puerto) queda en main.ts.
  */
 export function configureApp(app: INestApplication): INestApplication {
+  // Every `new Logger(X.name)` in the code now writes through pino, in
+  // JSON and with the request's id (`logging.module.ts`).
+  app.useLogger(app.get(Logger));
+
   app.setGlobalPrefix("api/v1");
 
   // Puebla las cookies parseadas en el request, que es cómo el

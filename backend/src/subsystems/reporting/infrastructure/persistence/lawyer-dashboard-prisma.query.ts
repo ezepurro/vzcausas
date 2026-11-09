@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@shared/infrastructure/prisma/prisma.service';
-import { ACTIVE_CASE } from '@subsystems/cases/infrastructure/persistence/case-query-prisma.adapter';
+import { ACTIVE_CASE } from '@subsystems/cases/infrastructure/persistence/prisma/prisma-case.repository';
 import { Prisma } from '../../../../generated/prisma/client';
 import {
   DashboardCaseRow,
@@ -15,6 +15,12 @@ const LAST_ACT = {
   take: 1,
 };
 
+/** Every interruptive act of the case, by date (D-113): the prescription needs them all. */
+const ALL_INTERRUPTIVE_ACTS = {
+  select: { actDate: true },
+  orderBy: [{ actDate: 'asc' as const }, { id: 'asc' as const }],
+};
+
 /** Fields every dashboard case row needs, shared so the lawyer's and the firm's query ask for the same shape. */
 const CASE_SELECT = {
   id: true,
@@ -25,10 +31,14 @@ const CASE_SELECT = {
   currentState: { select: { name: true } },
   currentProceduralAct: { select: { deadlineManualDueDate: true, deadlineComputedDueDate: true } },
   proceduralActs: LAST_ACT,
-  interruptiveActs: LAST_ACT,
+  // Every act, by date (D-113): the prescription needs them all; the last one is
+  // also the case's latest actuación.
+  interruptiveActs: ALL_INTERRUPTIVE_ACTS,
   offenses: {
     select: {
       offenseDate: true,
+      // D-113: a declared offense no longer governs the prescription alerts.
+      prescriptionDeclaredOn: true,
       legalQualification: { select: { id: true, name: true, prescriptionMonths: true } },
     },
   },
@@ -46,17 +56,19 @@ function toCaseRow(row: CaseRow): DashboardCaseRow {
     // A hand-written state wins; otherwise the state of the table, which is
     // "Iniciada" for a case that has no act yet.
     currentStateName: row.currentCustomState ?? row.currentState?.name ?? '',
-    // Same rule as `CaseQueryPrismaAdapter`: the manual due date, if adjusted.
+    // Same rule as `PrismaCaseRepository`: the manual due date, if adjusted.
     dueDate: row.currentProceduralAct
       ? (row.currentProceduralAct.deadlineManualDueDate ?? row.currentProceduralAct.deadlineComputedDueDate)
       : null,
     lastProceduralActDate: row.proceduralActs[0]?.actDate ?? null,
-    lastInterruptiveActDate: row.interruptiveActs[0]?.actDate ?? null,
+    lastInterruptiveActDate: row.interruptiveActs.at(-1)?.actDate ?? null,
+    interruptiveActDates: row.interruptiveActs.map((act) => act.actDate),
     offenses: row.offenses.map((offense) => ({
       legalQualificationId: offense.legalQualification.id,
       legalQualificationName: offense.legalQualification.name,
       prescriptionMonths: offense.legalQualification.prescriptionMonths,
       offenseDate: offense.offenseDate,
+      prescriptionDeclaredOn: offense.prescriptionDeclaredOn,
     })),
     responsibleLawyer: row.responsibleLawyer,
   };

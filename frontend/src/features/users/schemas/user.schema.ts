@@ -23,6 +23,19 @@ const USERNAME_PATTERN = /^[a-zA-Z0-9._-]+$/
 const PASSWORD_MIN = 8
 /* Apellido y nombres, cada uno hasta 100 caracteres (V4 §3.2, D-68). */
 const NAME_MAX = 100
+/* Igual que en `lawyers`: V5 no fija largo para la matrícula. */
+const REGISTRATION_MAX = 12
+
+/**
+ * Topes de los controles (`maxLength`), por campo del formulario: no dejan
+ * escribir de más. Salen de las mismas constantes que valida el schema.
+ */
+export const USER_MAX_LENGTH = {
+    lastName: NAME_MAX,
+    firstName: NAME_MAX,
+    username: USERNAME_MAX,
+    registrationNumber: REGISTRATION_MAX,
+} as const
 
 /* Un punto, una arroba y algo después. No es la gramática completa del RFC a
    propósito: la validación de verdad la hace el backend, y un patrón más
@@ -122,13 +135,12 @@ function validateLawyerLink(
     }
 
     /* La ficha nueva toma el apellido y los nombres del usuario, que ya se
-       validaron arriba: acá sólo falta la matrícula. */
+       validaron arriba: acá sólo falta la matrícula, que es opcional y sólo
+       se valida el formato si viene. */
     const errors: UserFormErrors = {}
 
     const registrationNumber = values.registrationNumber.trim()
-    if (!registrationNumber) {
-        errors.registrationNumber = 'La matrícula es obligatoria.'
-    } else if (!REGISTRATION_PATTERN.test(registrationNumber)) {
+    if (registrationNumber && !REGISTRATION_PATTERN.test(registrationNumber)) {
         errors.registrationNumber = 'El formato es circunscripción y número: 1-28114.'
     }
 

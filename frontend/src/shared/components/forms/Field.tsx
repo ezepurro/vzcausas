@@ -1,3 +1,4 @@
+import { FieldError } from './FieldError';
 import type {
   InputHTMLAttributes, SelectHTMLAttributes, TextareaHTMLAttributes, ReactNode,
 } from 'react';
@@ -42,7 +43,7 @@ export function Field({
       )}
       {children}
       {note && !error && <div className="vz-note">{note}</div>}
-      {error && <div className="vz-error">{error}</div>}
+      {error && <FieldError message={error} />}
     </div>
   );
 }

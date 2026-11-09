@@ -4,7 +4,7 @@ import { http, HttpResponse } from 'msw'
 import { renderWithProviders } from '../../setup/render'
 import { usePrototypeToday } from '../../setup/clock'
 import { personNameIn } from '../../setup/names'
-import { server } from '@/shared/mocks/server'
+import { configureMocks, server } from '@/shared/mocks/server'
 import { db, errorBody, ERRORS } from '@/shared/mocks'
 import { CaseDetailPage } from '@/features/cases/pages/CaseDetailPage'
 
@@ -70,6 +70,33 @@ describe('CaseDetailPage · acto interruptivo', () => {
             screen.getByText(/Cómputo reiniciado por el acto interruptivo registrado el 15\/09\/2026\./),
         ).toBeInTheDocument()
         expect(db.interruptiveActs.some((a) => a.caseId === 1 && a.name === 'Citación a juicio')).toBe(true)
+    })
+
+    /* Con demora de red, el modal se cerraba antes de que llegara la causa
+       nueva y la barra de prescripción mostraba por un instante el plazo viejo.
+       La mutación ahora espera la causa y la línea de vida
+       (`refreshCaseAfterAct`): al cerrarse el modal ya están las dos, sin `findBy`.
+       Sin demora el test no distingue: la causa volvería antes de mirar. */
+    it('al cerrarse el modal, la prescripción y la línea de vida ya muestran el acto', async () => {
+        const { user } = renderPage(1)
+        const timeline = () =>
+            screen.getByText('Ciclo de vida de la causa', { selector: '.vz-panel__title' })
+                .closest('.vz-panel') as HTMLElement
+        await screen.findByText('Ciclo de vida de la causa', { selector: '.vz-panel__title' })
+        expect(await within(timeline()).findAllByRole('listitem')).toHaveLength(4)
+        // Desde acá, leer la causa y su línea de vida tarda.
+        configureMocks({ latencyProfile: { 'GET /cases/:caseId': 300, 'GET /cases/:caseId/timeline': 300 } })
+        const dialog = await openForm(user)
+
+        await fill(user, dialog, 'Citación a juicio')
+        await user.click(within(dialog).getByRole('button', { name: OPEN }))
+        await screen.findByText(/^Acto interruptivo registrado\./)
+
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+        expect(within(screen.getByRole('region', { name: 'Causa 13284571' })).getByText('15/09/2034')).toBeInTheDocument()
+        const items = within(timeline()).getAllByRole('listitem')
+        expect(items).toHaveLength(5)
+        expect(items[0]).toHaveTextContent('Citación a juicio')
     })
 
     // CA-31.6: no mueve la causa. Se compara sólo el recuadro del estado actual:

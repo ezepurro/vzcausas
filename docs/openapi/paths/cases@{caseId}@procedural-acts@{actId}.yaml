@@ -52,6 +52,8 @@ get:
                 lastName: Ríos
                 firstName: Malena
               registeredAt: '2026-09-15T11:42:00-03:00'
+              lastModifiedBy: null
+              lastModifiedAt: null
     '400':
       description: Identificador inválido.
       content:
@@ -86,3 +88,176 @@ get:
                   code: PROCEDURAL_ACT_NOT_FOUND
                   message: No se encontró el acto procesal solicitado.
                   details: null
+
+patch:
+  tags:
+    - Procedural Acts
+  operationId: updateProceduralAct
+  summary: Modificar acto procesal
+  description: |
+    Modifica los datos de un acto procesal registrado, para corregir errores
+    en la carga (HU28). Es el mismo formulario de "Registrar acto procesal";
+    el panel "Cómputo del plazo" sigue usando `deadline-preview`.
+
+    **Recálculo del plazo** (D-98). El `deadline` se vuelve a calcular con las
+    reglas del registro, con una diferencia sobre qué plazo de tabla se usa:
+
+    - Si **cambia el estado** (`proceduralStateId` o `customState`), se toman
+      el `timeLimitDays` y el `dayType` **vigentes hoy** en la tabla del
+      estado nuevo, como en un registro nuevo.
+    - Si el estado **no cambia**, se conservan los que el acto copió al
+      registrarse. Cambiar la fecha del acto o de notificación mueve el
+      vencimiento con ese mismo plazo.
+    - Un ajuste manual (`manualDueDate`) que no se toca se conserva, aunque
+      cambie la fecha del acto, siempre que siga sin ser anterior a la fecha
+      desde la que corre el plazo; si queda anterior,
+      `400 VALIDATION_ERROR` sobre `manualDueDate`.
+
+    **Efecto sobre la causa** (D-99). La causa está en el estado del acto con
+    la fecha de acto más reciente, y el backend vuelve a aplicar esa regla:
+
+    - Si el acto modificado es el que rige el estado actual, la causa toma su
+      estado y su vencimiento nuevos (`currentState`).
+    - Si un cambio de `actDate` hace que **otro** acto pase a ser el más
+      reciente —o que este lo sea—, el estado actual pasa a ser el de ese
+      acto.
+    - Si el acto que rige pasa a un estado terminal, la causa se cierra como
+      con un registro. Si deja de serlo —se corrige un "Archivada" mal
+      elegido—, la causa vuelve a estar activa y admite actos nuevos.
+    - Una causa **"Prescripta"** no admite modificar sus actos
+      (`422 CASE_IN_TERMINAL_STATE`). Una causa en otro estado terminal sí:
+      es la única forma de corregir el acto que la cerró.
+
+    `registeredBy` y `registeredAt` no cambian; `lastModifiedBy` y
+    `lastModifiedAt` pasan a ser el usuario y el momento de esta modificación.
+    El cliente vuelve al detalle de la causa y lo pide de nuevo: el estado
+    actual pudo haber cambiado.
+
+    **Rol requerido:** abogado responsable de la causa, igual que el
+    registro. Si la causa cambió de responsable después de registrar el acto,
+    lo modifica el responsable **actual**, no quien lo registró.
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: ../components/schemas/ProceduralActUpdate.yaml
+        examples:
+          dateAndNotes:
+            summary: Corrección de la fecha y de las observaciones
+            value:
+              actDate: '2026-09-10'
+              notes: Con acusación, pero con oposición. Se corrigió la fecha del acto.
+          stateWithoutManualDueDate:
+            summary: Corrección del estado elegido, quitando el ajuste manual
+            value:
+              proceduralStateId: 14
+              manualDueDate: null
+  responses:
+    '200':
+      description: Acto procesal modificado, con el mismo recurso que el registro.
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - data
+            properties:
+              data:
+                $ref: ../components/schemas/ProceduralAct.yaml
+          example:
+            data:
+              id: 31
+              caseId: 1
+              resultingState:
+                proceduralStateId: 12
+                name: Oposición al requerimiento de elevación
+                custom: false
+              actDate: '2026-09-10'
+              notificationDate: null
+              notes: Con acusación, pero con oposición. Se corrigió la fecha del acto.
+              deadline:
+                timeLimitDays: 5
+                dayType: BUSINESS
+                countsFrom: '2026-09-10'
+                computedDueDate: '2026-09-17'
+                dueDate: '2026-09-17'
+                manuallyAdjusted: false
+                manualTimeLimitDays: null
+              registeredBy:
+                id: 3
+                lastName: Ríos
+                firstName: Malena
+              registeredAt: '2026-09-09T11:42:00-03:00'
+              lastModifiedBy:
+                id: 3
+                lastName: Ríos
+                firstName: Malena
+              lastModifiedAt: '2026-09-15T09:20:00-03:00'
+    '400':
+      description: Datos o identificadores inválidos.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          examples:
+            validation:
+              summary: Estado de la tabla y escrito a mano a la vez, vencimiento manual anterior
+              value:
+                error:
+                  code: VALIDATION_ERROR
+                  message: Los datos enviados no son válidos.
+                  details:
+                    proceduralStateId: Elegí un estado de la tabla o escribí uno, no las dos cosas.
+                    manualDueDate: No puede ser anterior a la fecha desde la que corre el plazo.
+            invalidCaseId:
+              $ref: ../components/examples/InvalidCaseIdError.yaml
+            invalidActId:
+              $ref: ../components/examples/InvalidActIdError.yaml
+    '401':
+      $ref: ../components/responses/Unauthorized.yaml
+    '403':
+      description: |
+        El usuario autenticado no es el abogado responsable de la causa. Aplica
+        aunque tenga el rol `LAWYER` o `ADMINISTRATOR`.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          example:
+            error:
+              code: FORBIDDEN
+              message: Solo el abogado responsable de la causa puede modificar sus actos procesales.
+              details: null
+    '404':
+      description: La causa no existe o fue dada de baja, o el acto no existe en esta causa.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          examples:
+            caseNotFound:
+              summary: Causa inexistente o dada de baja
+              value:
+                error:
+                  code: CASE_NOT_FOUND
+                  message: No se encontró la causa solicitada.
+                  details: null
+            actNotFound:
+              summary: Acto inexistente o de otra causa
+              value:
+                error:
+                  code: PROCEDURAL_ACT_NOT_FOUND
+                  message: No se encontró el acto procesal solicitado.
+                  details: null
+    '422':
+      description: 'La causa está "Prescripta": sus actos no se modifican.'
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          example:
+            error:
+              code: CASE_IN_TERMINAL_STATE
+              message: 'La causa está prescripta: sus actos procesales no se pueden modificar.'
+              details: null

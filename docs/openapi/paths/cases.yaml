@@ -133,7 +133,9 @@ post:
                     id: 1
                     lastName: GÓMEZ
                     firstName: Ariel Fernando
-                    dni: '34812905'
+                    documentType: DNI
+                    documentNumber: '34812905'
+                    address: Av. Colón 1250, Córdoba
                     phone: 351 415-2288
                     email: afgomez@gmail.com
                     clientSince: '2021-03-12'
@@ -149,6 +151,10 @@ post:
                       offenseDate: '2021-02-27'
                       prescriptionStartsOn: '2021-02-27'
                       prescriptionExpiresOn: '2029-02-27'
+                      elapsedPercentage: 69
+                      alert: false
+                      expired: false
+                      prescriptionDeclaration: null
                   prescription:
                     legalQualificationId: 1
                     legalQualificationName: Robo calificado — art. 167 inc. 2 CP
@@ -205,7 +211,9 @@ post:
                     id: 1
                     lastName: GÓMEZ
                     firstName: Ariel Fernando
-                    dni: '34812905'
+                    documentType: DNI
+                    documentNumber: '34812905'
+                    address: Av. Colón 1250, Córdoba
                     phone: 351 415-2288
                     email: afgomez@gmail.com
                     clientSince: '2021-03-12'
@@ -221,6 +229,10 @@ post:
                       offenseDate: '2021-02-27'
                       prescriptionStartsOn: '2021-02-27'
                       prescriptionExpiresOn: '2029-02-27'
+                      elapsedPercentage: 69
+                      alert: false
+                      expired: false
+                      prescriptionDeclaration: null
                   prescription:
                     legalQualificationId: 1
                     legalQualificationName: Robo calificado — art. 167 inc. 2 CP
@@ -465,7 +477,9 @@ get:
                   id: 2
                   lastName: PEREYRA
                   firstName: Marcos D.
-                  dni: '29440117'
+                  documentType: DNI
+                  documentNumber: '29440117'
+                  address: Av. Colón 1250, Córdoba
                   phone: 351 622-9014
                   email: mdpereyra@hotmail.com
                   clientSince: '2026-05-18'
@@ -519,7 +533,9 @@ get:
                   id: 1
                   lastName: GÓMEZ
                   firstName: Ariel Fernando
-                  dni: '34812905'
+                  documentType: DNI
+                  documentNumber: '34812905'
+                  address: Av. Colón 1250, Córdoba
                   phone: 351 415-2288
                   email: afgomez@gmail.com
                   clientSince: '2021-03-12'
@@ -535,6 +551,10 @@ get:
                     offenseDate: '2021-02-27'
                     prescriptionStartsOn: '2024-07-04'
                     prescriptionExpiresOn: '2032-07-04'
+                    elapsedPercentage: 27
+                    alert: false
+                    expired: false
+                    prescriptionDeclaration: null
                 prescription:
                   legalQualificationId: 1
                   legalQualificationName: Robo calificado — art. 167 inc. 2 CP

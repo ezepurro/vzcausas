@@ -1,0 +1,42 @@
+type: object
+description: |
+  Documentos de la carpeta de la causa, con la situación de la carpeta y el
+  momento de la lectura ("Sincronizado con Drive · 10:42"). Es un objeto y no
+  una lista, y **no está paginado** (D-100).
+required:
+  - folderStatus
+  - folderUrl
+  - readAt
+  - documents
+properties:
+  folderStatus:
+    description: |
+      El `folder.status` de la causa. `null` si la causa no tiene carpeta
+      (registrada antes de que existiera la carpeta).
+    oneOf:
+      - $ref: ./CaseFolderStatus.yaml
+      - type: 'null'
+  folderUrl:
+    type:
+      - string
+      - 'null'
+    format: uri
+    description: El `folder.url` de la causa, para "Abrir carpeta en Drive".
+    examples:
+      - https://drive.google.com/drive/folders/1Qw8zT3nKcVb5LhXy2RmPd7sUeJ4oAfG9
+  readAt:
+    type:
+      - string
+      - 'null'
+    format: date-time
+    description: Momento en que se leyó la carpeta. `null` si no se leyó porque no está creada.
+    examples:
+      - '2026-09-15T10:42:00-03:00'
+  documents:
+    type: array
+    description: |
+      Los archivos que están directamente en la carpeta, sin subcarpetas ni lo
+      que está en la papelera, del más reciente al más antiguo por
+      `createdAt`. Vacío si la carpeta está vacía o no está creada.
+    items:
+      $ref: ./CaseDocument.yaml

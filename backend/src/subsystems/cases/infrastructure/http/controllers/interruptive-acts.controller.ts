@@ -1,13 +1,13 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Query } from '@nestjs/common';
 import { AuthenticatedUser } from '@shared/domain/authenticated-user';
 import { CurrentUser } from '@shared/infrastructure/http/current-user.decorator';
-import { PaginatedResponse, paginate, toPageRequest } from '@shared/infrastructure/http/pagination';
-import { ListInterruptiveActs } from '../../../core/application/use-cases/list-interruptive-acts.use-case';
-import { RegisterInterruptiveAct } from '../../../core/application/use-cases/register-interruptive-act.use-case';
+import { PaginatedResponse, paginate, toPageRequest } from '@shared/infrastructure/http/pagination/pagination';
+import { ListInterruptiveActs } from '../../../core/application/use-cases/interruptive-act/list-interruptive-acts.use-case';
+import { RegisterInterruptiveAct } from '../../../core/application/use-cases/interruptive-act/register-interruptive-act.use-case';
 import { InvalidCaseIdError } from '../../../core/domain/errors/case.errors';
-import { InterruptiveActResponseDto } from '../dtos/interruptive-act.response.dto';
-import { ListInterruptiveActsQueryDto } from '../dtos/list-interruptive-acts.query.dto';
-import { RegisterInterruptiveActRequestDto } from '../dtos/register-interruptive-act.request.dto';
+import { InterruptiveActResponseDto } from '../dtos/interruptive-act/interruptive-act.response.dto';
+import { ListInterruptiveActsQueryDto } from '../dtos/interruptive-act/list-interruptive-acts.query.dto';
+import { RegisterInterruptiveActRequestDto } from '../dtos/interruptive-act/register-interruptive-act.request.dto';
 import { InterruptiveActHttpMapper } from '../mappers/interruptive-act-http.mapper';
 
 /**

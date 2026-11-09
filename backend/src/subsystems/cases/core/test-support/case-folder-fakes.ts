@@ -1,10 +1,11 @@
 import { EventPublisher } from '@shared/infrastructure/events/event-publisher.port';
 import { IntegrationEvent } from '@shared/infrastructure/events/integration-event';
 import {
+  ActiveCaseFolder,
   CaseFolderStatePort,
   CaseFolderStatus,
   CaseFolderView,
-} from '../domain/ports/case-folder-state.port';
+} from '../domain/ports/case/case-folder-state.port';
 
 /**
  * In-memory {@link CaseFolderStatePort}. A case it was not told about is
@@ -16,10 +17,17 @@ export class FakeCaseFolderState implements CaseFolderStatePort {
   private readonly cloudFolderIds = new Map<number, string>();
   /** Every `startCreating` that was granted, in order. */
   readonly started: number[] = [];
+  /** Cases that do not exist or were given de baja. */
+  private readonly gone = new Set<number>();
 
   /** Puts a case in a given status, as if it had been left there. */
   set(caseId: number, status: CaseFolderStatus | null): void {
     this.statuses.set(caseId, status);
+  }
+
+  /** The case no longer exists for the client: never registered, or given de baja (D-97). */
+  remove(caseId: number): void {
+    this.gone.add(caseId);
   }
 
   private readonly templates = new Map<number, { copied: number; pending: number }>();
@@ -70,6 +78,19 @@ export class FakeCaseFolderState implements CaseFolderStatePort {
       path: status === 'CREATED' ? '/VZ Causas/Ríos, Malena/Penal/CAUSA' : null,
       templatesCopied: this.templates.get(caseId)?.copied ?? 0,
       templatesPending: this.templates.get(caseId)?.pending ?? 0,
+    };
+  }
+
+  async findActiveCaseFolder(caseId: number): Promise<ActiveCaseFolder | null> {
+    if (this.gone.has(caseId)) {
+      return null;
+    }
+    const status = this.statusOf(caseId);
+    const cloudFolderId = status === 'CREATED' ? (this.cloudFolderIds.get(caseId) ?? null) : null;
+    return {
+      status,
+      url: cloudFolderId ? `https://storage.invalid/folders/${cloudFolderId}` : null,
+      cloudFolderId,
     };
   }
 }

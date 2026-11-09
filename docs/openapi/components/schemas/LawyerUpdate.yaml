@@ -1,7 +1,8 @@
 type: object
 description: |
   Todos los campos son opcionales, aunque debe enviarse al menos uno.
-  `activeCases` no es modificable: lo calcula el backend.
+  `activeCases` no es modificable: lo calcula el backend. El apellido y los
+  nombres se pueden omitir, pero no vaciar (CA-14.4).
 additionalProperties: false
 minProperties: 1
 properties:
@@ -15,11 +16,15 @@ properties:
     type: string
     minLength: 1
     maxLength: 100
+    description: Sin el tratamiento ("Dr.", "Dra.").
     examples:
       - Ignacio
   registrationNumber:
-    type: string
-    description: Formato `1-28114`. Única.
-    pattern: '^[0-9]+-[0-9]+$'
+    type:
+      - string
+      - 'null'
+    description: |
+      Formato `1-28114`. Única. `null` o vacía borra la matrícula (Revisión del 05/11/2026, D-107.)
+    pattern: '^([0-9]+-[0-9]+)?$'
     examples:
       - 1-35207

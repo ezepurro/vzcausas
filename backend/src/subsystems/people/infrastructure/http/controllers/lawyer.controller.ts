@@ -5,25 +5,30 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  Patch,
   Post,
   Query,
 } from "@nestjs/common";
+import { AuthenticatedUser } from "@shared/domain/authenticated-user";
+import { CurrentUser } from "@shared/infrastructure/http/current-user.decorator";
 import { RequirePermissions } from "@shared/infrastructure/http/require-permissions.decorator";
 import {
   PaginatedResponse,
   PaginationQueryDto,
   paginate,
   toPageRequest,
-} from "@shared/infrastructure/http/pagination";
+} from "@shared/infrastructure/http/pagination/pagination";
 import { FindLawyerUseCase } from "../../../core/application/use-cases/find-lawyer.use-case";
 import { ListLawyersUseCase } from "../../../core/application/use-cases/list-lawyers.use-case";
 import { RegisterLawyerUseCase } from "../../../core/application/use-cases/register-lawyer.use-case";
+import { UpdateLawyerUseCase } from "../../../core/application/use-cases/update-lawyer.use-case";
 import {
   InvalidLawyerIdError,
   LawyerNotFoundError,
 } from "../../../core/domain/errors/people.errors";
 import { LawyerResponseDto } from "../dtos/lawyer.response.dto";
 import { RegisterLawyerRequestDto } from "../dtos/register-lawyer.request.dto";
+import { UpdateLawyerRequestDto } from "../dtos/update-lawyer.request.dto";
 import { LawyerHttpMapper } from "../mappers/lawyer-http.mapper";
 
 /**
@@ -44,6 +49,7 @@ export class LawyerController {
     private readonly registerLawyer: RegisterLawyerUseCase,
     private readonly listLawyers: ListLawyersUseCase,
     private readonly findLawyer: FindLawyerUseCase,
+    private readonly updateLawyer: UpdateLawyerUseCase,
   ) {}
 
   @RequirePermissions("lawyer:create")
@@ -98,6 +104,31 @@ export class LawyerController {
       throw new LawyerNotFoundError(lawyerId);
     }
 
+    return { data: LawyerHttpMapper.fromView(lawyer) };
+  }
+
+  /**
+   * HU14. Only the fields sent are touched. The `403` for anyone who is not an
+   * administrator comes from the permission, before the lawyer is read
+   * (CA-14.6). The user goes to the audit record (CA-14.5); the correlation id
+   * gets there on its own, through `RequestContext`.
+   */
+  @RequirePermissions("lawyer:update")
+  @Patch(":lawyerId")
+  async update(
+    @Param("lawyerId") lawyerIdParam: string,
+    @Body() dto: UpdateLawyerRequestDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ): Promise<{ data: LawyerResponseDto }> {
+    const lawyer = await this.updateLawyer.execute({
+      lawyerId: this.parseLawyerId(lawyerIdParam),
+      changes: {
+        lastName: dto.lastName,
+        firstName: dto.firstName,
+        registrationNumber: dto.registrationNumber,
+      },
+      actorUserId: actor.userId,
+    });
     return { data: LawyerHttpMapper.fromView(lawyer) };
   }
 

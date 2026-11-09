@@ -49,7 +49,7 @@ cases/
 
 | Puerto (token) | Qué pide | Adaptador | Estado |
 |---|---|---|---|
-| `CASE_REPOSITORY` | guardar y leer causas, SAC repetido, estado actual | `CasePrismaRepository` (`cases`) | real |
+| `CASE_REPOSITORY` | guardar y leer causas (agregado y listado/detalle), SAC repetido, estado actual, conteos de causas activas | `PrismaCaseRepository` (`cases`) | real |
 | `PEOPLE_LOOKUP` | abogado y cliente vigentes por id | `CasesPeopleLookupAdapter` (`people`) | real |
 | `LEGAL_PARAMETERS_LOOKUP` | estado inicial «Iniciada» de un fuero y calificaciones legales vigentes por id | `CasesLegalParametersLookupAdapter` (`legal-parameters`) | real |
 | `CLOCK` (shared) | el instante actual y la fecha de hoy en Córdoba (`now()`, `today()`) | `CordobaClockAdapter` (`APP_TIMEZONE`) | real |
@@ -160,10 +160,10 @@ Los unitarios están junto al código que prueban y no usan Nest, Prisma, HTTP n
 
 | Spec | Qué prueba |
 |---|---|
-| `core/domain/entities/offense.spec.ts` | cálculo de la prescripción (CA-18.6) |
-| `core/domain/value-objects/procedural-role.spec.ts` | rol según el fuero (CA-18.3) |
+| `core/domain/entities/case/offense.entity.spec.ts` | cálculo de la prescripción (CA-18.6) |
+| `core/domain/value-objects/case/procedural-role.spec.ts` | rol según el fuero (CA-18.3) |
 | `core/domain/factories/case.factory.spec.ts` | todas las reglas de validación y qué causa se arma |
-| `core/application/use-cases/register-case.use-case.spec.ts` | el flujo del caso de uso con puertos falsos |
+| `core/application/use-cases/case/register-case.use-case.spec.ts` | el flujo del caso de uso con puertos falsos |
 
 ```bash
 cd backend

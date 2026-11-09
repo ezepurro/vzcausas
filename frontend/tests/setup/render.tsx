@@ -106,7 +106,14 @@ export function renderWithProviders(ui: ReactElement, options: RenderOptions = {
  * antes de mostrar la pantalla. Un test que consulte la pantalla con `getBy…`
  * apenas renderiza tiene que esperar esto antes; los `findBy…` ya esperan
  * solos.
+ *
+ * Se busca el aviso (`role="status"`) por su texto completo y no con
+ * `queryByText`: los puntos suspensivos van en un elemento aparte para
+ * animarlos (`BootScreen`), y `queryByText` mira el texto de un solo
+ * elemento, así que no lo encontraría y la espera pasaría sin esperar.
  */
 export async function waitForSession() {
-    await waitFor(() => expect(screen.queryByText('Verificando la sesión…')).not.toBeInTheDocument())
+    const verifying = () =>
+        screen.queryAllByRole('status').some((el) => el.textContent === 'Verificando la sesión…')
+    await waitFor(() => expect(verifying()).toBe(false))
 }

@@ -22,6 +22,7 @@ export function aCase(overrides: Partial<DashboardCaseRow> = {}): DashboardCaseR
     dueDate: null,
     lastProceduralActDate: null,
     lastInterruptiveActDate: null,
+    interruptiveActDates: [],
     offenses: [],
     responsibleLawyer: RIOS,
     ...overrides,

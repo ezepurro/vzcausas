@@ -3,6 +3,7 @@ import { useFocusFirstError } from '../../hooks/useFocusFirstError';
 import { Button } from '../ui/Button';
 import { Modal } from '../ui/Modal';
 import { Field, TextInput, Select, Textarea, Checkbox, FormSection, type SelectOption } from './Field';
+import { FieldError } from './FieldError';
 
 export type FieldType = 'text' | 'pass' | 'select' | 'date' | 'area' | 'check' | 'section';
 
@@ -17,6 +18,12 @@ export interface FieldSpec {
   required?: boolean;
   mono?: boolean;
   placeholder?: string;
+  /**
+   * tope de caracteres del control (el atributo `maxlength`): no deja escribir
+   * de más. En un 'area' también dibuja el contador `120 / 2000`. La
+   * validación del schema sigue igual, como respaldo
+   */
+  maxLength?: number;
   note?: ReactNode;
   /** mensaje de error del campo; lo decide la pantalla, igual que en `Field` */
   error?: string;
@@ -111,7 +118,7 @@ export function FormModal({
                     checked={Boolean(value)}
                     onChange={(e) => onChange(k, e.target.checked)}
                   />
-                  {c.error && <div className="vz-error">{c.error}</div>}
+                  {c.error && <FieldError message={c.error} />}
                 </div>
               );
             }
@@ -122,6 +129,9 @@ export function FormModal({
                 label={c.label}
                 required={c.required}
                 note={c.note}
+                hint={c.type === 'area' && c.maxLength !== undefined
+                  ? `${String(value ?? '').length} / ${c.maxLength}`
+                  : undefined}
                 error={c.error}
                 width={c.width ?? 'full'}
                 htmlFor={id}
@@ -136,6 +146,7 @@ export function FormModal({
                 ) : c.type === 'area' ? (
                   <Textarea
                     id={id}
+                    maxLength={c.maxLength}
                     placeholder={c.placeholder}
                     value={String(value ?? '')}
                     onChange={(e) => onChange(k, e.target.value)}
@@ -145,6 +156,7 @@ export function FormModal({
                     id={id}
                     type={c.type === 'pass' ? 'password' : c.type === 'date' ? 'date' : 'text'}
                     mono={c.mono}
+                    maxLength={c.maxLength}
                     placeholder={c.placeholder}
                     value={String(value ?? '')}
                     onChange={(e) => onChange(k, e.target.value)}

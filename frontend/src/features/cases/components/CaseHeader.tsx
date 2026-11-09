@@ -14,6 +14,12 @@ export interface CaseHeaderProps {
     showInstructor?: boolean
     /** Debajo del estado actual: "Registrar acto procesal" en el detalle. */
     actions?: ReactNode
+    /**
+     * Debajo de los datos de la causa, en la columna izquierda: las
+     * calificaciones legales en el detalle. Ocupa el alto que deja libre la
+     * columna del estado.
+     */
+    details?: ReactNode
     /** Al pie de la tarjeta: la barra de prescripción, en las causas penales. */
     children?: ReactNode
 }
@@ -33,7 +39,7 @@ export interface CaseHeaderProps {
  * Los botones "Modificar causa" y "Dar de baja" del prototipo no están: son
  * HU19 y HU21, del Sprint 3 (V3 §8.3). Tampoco "Sobre la causa".
  */
-export function CaseHeader({ case: c, showInstructor = false, actions, children }: CaseHeaderProps) {
+export function CaseHeader({ case: c, showInstructor = false, actions, details, children }: CaseHeaderProps) {
     const meta: ReactNode[] = [
         c.court,
         <>Fuero <b>{JURISDICTION_LABELS[c.jurisdiction]}</b></>,
@@ -61,6 +67,7 @@ export function CaseHeader({ case: c, showInstructor = false, actions, children 
                     <h1 className="vz-case-head__title">{c.caption}</h1>
                     <MetaRow items={meta} />
                     {instructor.length > 0 && <MetaRow items={instructor} />}
+                    {details}
                 </div>
 
                 <div className="vz-case-head__side">
