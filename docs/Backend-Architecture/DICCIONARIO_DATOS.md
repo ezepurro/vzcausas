@@ -2,7 +2,7 @@
 
 Generado a partir de `backend/prisma/schema.prisma` y de todas las
 migraciones de `backend/prisma/migrations/` hasta
-`20261018162502_sent_notifications_recipient`, que son la única fuente
+`20261106132157_client_document_address_lawyer_optional_registration`, que son la única fuente
 de verdad del esquema. Los nombres de índices y restricciones `CHECK`
 son los reales de las migraciones. Los nombres de columna son los
 físicos de PostgreSQL (`@map` del schema), no los del cliente de Prisma.
@@ -95,7 +95,9 @@ erDiagram
         serial id PK
         varchar(100) last_name
         varchar(100) first_name
-        varchar(8) dni
+        document_type document_type
+        varchar(20) document_number
+        varchar(255) address
         varchar(50) phone
         varchar(255) email
         date client_since
@@ -136,7 +138,7 @@ erDiagram
     %% ── cases ──
     cases {
         serial id PK
-        char(8) sac_number UK
+        char(8) sac_number
         varchar(255) caption
         varchar(255) court
         integer jurisdiction_id FK
@@ -169,6 +171,9 @@ erDiagram
         varchar(255) current_custom_state
         integer current_procedural_act_id FK, UK
         boolean active
+        timestamptz deactivated_at
+        integer deactivated_by_user_id FK
+        varchar(500) deactivation_reason
         integer created_by_user_id FK
         timestamptz created_at
         timestamptz updated_at
@@ -196,6 +201,8 @@ erDiagram
         integer registered_by_user_id FK
         integer registered_by_lawyer_id FK
         timestamptz registered_at
+        integer last_modified_by_user_id FK
+        timestamptz last_modified_at
     }
     interruptive_acts {
         serial id PK
@@ -249,6 +256,16 @@ erDiagram
         varchar(128) cloud_file_id UK
         timestamptz copied_at
     }
+    case_files {
+        serial id PK
+        integer case_id FK
+        integer version
+        varchar(128) cloud_file_id UK
+        varchar(255) file_name
+        integer page_count
+        integer generated_by_user_id FK
+        timestamptz generated_at
+    }
     user_folder_access {
         integer user_id PK, FK
         varchar(255) email
@@ -275,6 +292,18 @@ erDiagram
         text error
     }
 
+    %% ── audit ──
+    audit_log {
+        serial id PK
+        integer actor_user_id FK
+        varchar(100) action
+        varchar(50) entity_type
+        varchar(128) entity_id
+        timestamptz occurred_at
+        jsonb metadata
+        varchar(128) correlation_id
+    }
+
     %% ── relaciones ──
     users ||--o{ refresh_tokens : "emite"
     refresh_tokens |o--o| refresh_tokens : "reemplazado por"
@@ -291,6 +320,7 @@ erDiagram
     lawyers ||--o{ cases : "responsable de"
     users ||--o{ cases : "da de alta"
     users |o--o{ cases : "marca prescripta"
+    users |o--o{ cases : "da de baja"
     procedural_states |o--o{ cases : "estado actual"
     procedural_acts |o--o| cases : "acto vigente"
     cloud_folders |o--o| cases : "carpeta de"
@@ -300,6 +330,7 @@ erDiagram
     cases ||--o{ procedural_acts : "registra"
     procedural_states |o--o{ procedural_acts : "destino de"
     users ||--o{ procedural_acts : "registra"
+    users |o--o{ procedural_acts : "modifica"
     lawyers ||--o{ procedural_acts : "responsable al registrar"
     cases ||--o{ interruptive_acts : "interrumpe"
     users ||--o{ interruptive_acts : "registra"
@@ -317,10 +348,14 @@ erDiagram
     cloud_folders ||--o{ document_template_files : "contiene"
     document_templates ||--o{ document_template_copies : "copiado como"
     cases ||--o{ document_template_copies : "recibe"
+    cases ||--o{ case_files : "genera"
+    users ||--o{ case_files : "genera"
 
     cases ||--o{ sent_notifications : "avisada en"
     procedural_acts |o--o{ sent_notifications : "plazo avisado"
     lawyers |o--o{ sent_notifications : "destinatario"
+
+    users |o--o{ audit_log : "actúa en"
 ```
 
 ## 9.1. Diccionario de datos
@@ -492,7 +527,7 @@ Información profesional de los abogados del estudio.
 | `id` | SERIAL (INTEGER) | 4 B | PK | No | Identificador interno del abogado. |
 | `last_name` | VARCHAR | 100 |  | No | Apellido del abogado, sin el tratamiento (Dr., Dra.), que agrega la interfaz (D-68, D-81). |
 | `first_name` | VARCHAR | 100 |  | No | Nombre o nombres del abogado. |
-| `registration_number` | VARCHAR | 50 | UK | No | Matrícula del Colegio de Abogados de Córdoba: circunscripción y número separados por guión (1-28114). |
+| `registration_number` | VARCHAR | 50 | UK | Sí | Matrícula del Colegio de Abogados de Córdoba: circunscripción y número separados por guión (1-28114). Opcional (D-107): nula mientras no se cargó. Si se informa, es única entre los abogados que la tienen (PostgreSQL admite varios nulos en un índice único). |
 | `active` | BOOLEAN | 1 B |  | No | `true`: en ejercicio. `false`: baja lógica (RN12). Por defecto `true`. |
 | `created_at` | TIMESTAMPTZ | 8 B |  | No | Fecha y hora de registro. |
 | `updated_at` | TIMESTAMPTZ | 8 B |  | No | Fecha y hora de la última actualización. |
@@ -515,9 +550,9 @@ Almacena los datos personales y de contacto de los clientes del estudio.
 | `id` | SERIAL (INTEGER) | 4 B | PK | No | Identificador interno del cliente. |
 | `last_name` | VARCHAR | 100 |  | No | Apellido del cliente. |
 | `first_name` | VARCHAR | 100 |  | No | Nombre o nombres del cliente. |
-| `document_type` | `document_type` (enum) | - |  | No | Tipo de documento: `DNI` o `PASSPORT` (D-108). Los clientes existentes quedan en `DNI`. |
-| `document_number` | VARCHAR | 20 |  | No | Número de documento (reemplaza a `dni`, D-108). DNI: 7 u 8 dígitos; pasaporte: 6 a 20 letras mayúsculas y dígitos. Único por `(document_type, document_number)` entre clientes activos (índice único parcial). |
-| `address` | VARCHAR | 255 |  | No | Dirección. Obligatoria (D-109). |
+| `document_type` | `document_type` | 4 B |  | No | Tipo de documento: `DNI` o `PASSPORT` (D-108). Por defecto `DNI`; los clientes anteriores al cambio quedaron en `DNI`. |
+| `document_number` | VARCHAR | 20 |  | No | Número de documento, sin puntos ni espacios; reemplaza a `dni` (D-108). DNI: 7 u 8 dígitos; pasaporte: de 6 a 20 letras mayúsculas y dígitos. Único por tipo entre los clientes activos (índice único parcial). |
+| `address` | VARCHAR | 255 |  | No | Dirección del cliente, texto libre. Obligatoria (D-108, D-109). |
 | `phone` | VARCHAR | 50 |  | No | Teléfono de contacto. Obligatorio (D-109). |
 | `email` | VARCHAR | 255 |  | Sí | Correo electrónico de contacto. |
 | `client_since` | DATE | 4 B |  | No | Fecha desde la que la persona es cliente del estudio. La asigna la aplicación con la fecha de Córdoba. |
@@ -525,11 +560,14 @@ Almacena los datos personales y de contacto de los clientes del estudio.
 | `created_at` | TIMESTAMPTZ | 8 B |  | No | Fecha y hora de creación. |
 | `updated_at` | TIMESTAMPTZ | 8 B |  | No | Fecha y hora de la última actualización. |
 
-Índices: `clients_last_name_first_name_idx` y `clients_dni_active_key`,
-único parcial sobre `dni` entre clientes activos (un cliente dado de
-baja puede volver a registrarse, D-17).
+Índices: `clients_last_name_first_name_idx` y
+`clients_document_active_key`, único parcial sobre (`document_type`,
+`document_number`) entre clientes activos (un cliente dado de baja puede
+volver a registrarse, D-17).
 
-Restricciones: `ck_clients_dni_format` (`dni` ~ `'^[0-9]{7,8}$'`).
+Restricciones: `ck_clients_document_format` (con `DNI`,
+`document_number` ~ `'^[0-9]{7,8}$'`; con `PASSPORT`, `document_number`
+~ `'^[A-Z0-9]{6,20}$'`).
 
 #### j) Tabla `jurisdictions`
 
@@ -612,12 +650,12 @@ Causas judiciales que gestiona el estudio.
 
 Registra los datos de cada expediente: fuero, cliente, abogado
 responsable, estado procesal actual, datos propios de cada fuero,
-carpeta en la nube y declaración de prescripción.
+carpeta en la nube, declaración de prescripción y baja lógica.
 
 | Atributo | Tipo | Long. | Clave | Nulo | Descripción / valores posibles |
 | --- | --- | --- | :-: | :-: | --- |
 | `id` | SERIAL (INTEGER) | 4 B | PK | No | Identificador interno de la causa. |
-| `sac_number` | CHAR | 8 | UK | Sí | Número de expediente SAC, de 8 dígitos. Opcional (D-33); si se informa, es único en todo el sistema, incluidas las causas dadas de baja (RN2). |
+| `sac_number` | CHAR | 8 |  | Sí | Número de expediente SAC, de 8 dígitos. Opcional (D-33); si se informa, es único entre las causas vigentes (índice único parcial, D-97): la baja lo libera y la causa dada de baja lo conserva. |
 | `caption` | VARCHAR | 255 |  | No | Carátula de la causa. |
 | `court` | VARCHAR | 255 |  | Sí | Tribunal o juzgado interviniente. |
 | `jurisdiction_id` | INTEGER | 4 B | FK | No | Fuero de la causa (→ `jurisdictions.jurisdiction_id`). |
@@ -648,16 +686,21 @@ carpeta en la nube y declaración de prescripción.
 | `prescription_registered_at` | TIMESTAMPTZ | 8 B |  | Sí | Fecha y hora en que se marcó la causa como prescripta. La declaración se carga una sola vez y no se revierte (D-52, D-54). |
 | `current_state_id` | INTEGER | 4 B | FK | Sí | Estado procesal actual (→ `procedural_states.state_id`); al alta, el estado inicial "Iniciada" del fuero. Excluyente con `current_custom_state`: siempre se informa exactamente uno de los dos. |
 | `current_custom_state` | VARCHAR | 255 |  | Sí | Estado actual escrito a mano, cuando no corresponde a un estado parametrizado. Excluyente con `current_state_id`. |
-| `current_procedural_act_id` | INTEGER | 4 B | FK, UK | Sí | Acto procesal que llevó la causa a su estado actual (→ `procedural_acts.id`); de él sale el vencimiento vigente. Nulo en el estado inicial y en "Prescripta". Lo actualiza la misma transacción que registra el acto. |
-| `active` | BOOLEAN | 1 B |  | No | `true`: vigente. `false`: baja lógica (RN12). Por defecto `true`. |
+| `current_procedural_act_id` | INTEGER | 4 B | FK, UK | Sí | Acto procesal que llevó la causa a su estado actual (→ `procedural_acts.id`); de él sale el vencimiento vigente. Nulo en el estado inicial y en "Prescripta". Lo actualiza la misma transacción que registra el acto, y se recalcula al modificar un acto (D-99). |
+| `active` | BOOLEAN | 1 B |  | No | `true`: vigente. `false`: baja lógica (RN12, HU21). Por defecto `true`. Una causa dada de baja no se lista ni se consulta, y sale de los tableros y del proceso diario (D-97). |
+| `deactivated_at` | TIMESTAMPTZ | 8 B |  | Sí | Fecha y hora de la baja de la causa (HU21). Nula mientras la causa está vigente. |
+| `deactivated_by_user_id` | INTEGER | 4 B | FK | Sí | Usuario que dio de baja la causa (→ `users.id`). Nulo mientras la causa está vigente. |
+| `deactivation_reason` | VARCHAR | 500 |  | Sí | Motivo de la baja, opcional (CA-21.2). Se guarda en la causa y no en la auditoría porque es texto libre que puede contener datos sensibles. |
 | `created_by_user_id` | INTEGER | 4 B | FK | No | Usuario que dio de alta la causa (→ `users.id`). |
 | `created_at` | TIMESTAMPTZ | 8 B |  | No | Fecha y hora de creación. |
 | `updated_at` | TIMESTAMPTZ | 8 B |  | No | Fecha y hora de la última actualización. |
 
-Índices: `cases_sac_number_key` (UK),
-`cases_current_procedural_act_id_key` (UK), `cases_cloud_folder_id_key`
-(UK), `cases_jurisdiction_id_idx`, `cases_client_id_idx`,
-`cases_responsible_lawyer_id_idx`, `cases_current_state_id_idx`.
+Índices: `cases_current_procedural_act_id_key` (UK),
+`cases_cloud_folder_id_key` (UK), `cases_jurisdiction_id_idx`,
+`cases_client_id_idx`, `cases_responsible_lawyer_id_idx`,
+`cases_current_state_id_idx` y `cases_sac_number_active_key`, único
+parcial sobre `sac_number` entre las causas vigentes con SAC (la baja
+libera el número, D-97).
 
 Restricciones: `ck_cases_sac_number_format` (`sac_number` nulo o de 8
 dígitos); `ck_cases_one_current_state` (exactamente uno de
@@ -675,7 +718,12 @@ si y solo si `folder_status` es `CREATED`);
 `prescription_resolution`, `prescription_registered_by_user_id` y
 `prescription_registered_at`, los cuatro o ninguno);
 `ck_cases_prescription_grounds_need_declaration` (`prescription_grounds`
-requiere `prescription_date`).
+requiere `prescription_date`); `ck_cases_deactivation_coherent` (causa
+vigente: `deactivated_at`, `deactivated_by_user_id` y
+`deactivation_reason` nulos; dada de baja: `deactivated_at` y
+`deactivated_by_user_id` informados);
+`ck_cases_deactivation_reason_not_blank` (`deactivation_reason` nulo o
+no vacío).
 
 Todas las claves foráneas de la causa son `ON DELETE RESTRICT`. Los
 datos propios de cada fuero valen nulo fuera de su fuero; esa
@@ -725,7 +773,9 @@ hay una tabla de historial aparte.
 | `deadline_manual_due_date` | DATE | 4 B |  | Sí | Vencimiento ajustado a mano por el abogado. Mayor o igual a `deadline_counts_from`. El vencimiento vigente es este valor o, si es nulo, el calculado. |
 | `registered_by_user_id` | INTEGER | 4 B | FK | No | Usuario que registró el acto (→ `users.id`). |
 | `registered_by_lawyer_id` | INTEGER | 4 B | FK | No | Abogado responsable al momento del registro (→ `lawyers.id`). Si la causa cambia de responsable, el historial conserva quién lo era. |
-| `registered_at` | TIMESTAMPTZ | 8 B |  | No | Fecha y hora de registro. |
+| `registered_at` | TIMESTAMPTZ | 8 B |  | No | Fecha y hora de registro. No cambia al modificar el acto. |
+| `last_modified_by_user_id` | INTEGER | 4 B | FK | Sí | Usuario que modificó el acto por última vez (→ `users.id`), HU28, D-98. Nulo si el acto nunca se modificó. |
+| `last_modified_at` | TIMESTAMPTZ | 8 B |  | Sí | Fecha y hora de la última modificación. Se informa junto con `last_modified_by_user_id`, los dos o ninguno, y nunca es anterior a `registered_at`. |
 
 Índices: `procedural_acts_case_id_act_date_id_idx` (`case_id`,
 `act_date` DESC, id DESC), `procedural_acts_procedural_state_id_idx`.
@@ -734,7 +784,11 @@ Restricciones: `ck_procedural_acts_one_state` (`procedural_state_id` y
 `custom_state` son excluyentes);
 `ck_procedural_acts_notification_not_before_act` (`notification_date` ≥
 `act_date`); `ck_procedural_acts_manual_due_not_before_counts_from`
-(`deadline_manual_due_date` ≥ `deadline_counts_from`).
+(`deadline_manual_due_date` ≥ `deadline_counts_from`);
+`ck_procedural_acts_last_modified_coherent` (`last_modified_by_user_id`
+y `last_modified_at`, los dos o ninguno);
+`ck_procedural_acts_last_modified_after_registered` (`last_modified_at`
+≥ `registered_at`).
 
 #### p) Tabla `interruptive_acts`
 
@@ -765,10 +819,14 @@ Carpetas que el sistema crea en Google Drive.
 
 Todas las carpetas del sistema en una sola tabla, organizadas en árbol:
 VZ Causas (`MAIN`) contiene Modelos formales (`TEMPLATES`), con una
-carpeta por fuero (Penal, Administrativo y Amparo; las arma el
-`SetupCloudStorage`), y Causas (`ROOT_CASES`), con una carpeta por abogado,
-una por fuero dentro de cada abogado y una por causa. Las carpetas no se
-renombran ni se mueven (D-61).
+carpeta por fuero, y Causas (`ROOT_CASES`), con una carpeta por abogado,
+una por fuero dentro de cada abogado y una por causa. Las carpetas siguen
+a la causa (D-104): la `CASE` se renombra si cambia la carátula y se
+mueve a la carpeta de fuero del nuevo responsable si cambia el
+responsable; la `LAWYER` se renombra si cambia el nombre del abogado. La
+fila refleja el nombre y la ubicación reales en Google Drive: se
+actualiza solo cuando Drive confirma el cambio, y el proceso diario
+corrige lo que quedó desfasado. La baja de la causa no toca su carpeta.
 
 | Atributo | Tipo | Long. | Clave | Nulo | Descripción / valores posibles |
 | --- | --- | --- | :-: | :-: | --- |
@@ -803,10 +861,10 @@ Modelos formales de escritos (HU34, HU35).
 
 Cada modelo es un solo registro aunque aplique a varios fueros (D-55).
 Su archivo vive en la carpeta de modelos de **cada** uno de sus fueros
-(`Modelos formales/{fuero}`): `cloud_file_id` y `cloud_folder_id` son el
-archivo principal, el del primer fuero en el orden del contrato
-(`CRIMINAL`, `ADMINISTRATIVE`, `AMPARO`), que es el que se descarga. El
-archivo de cada fuero está en `document_template_files`. Los modelos
+(`Modelos formales/{fuero}`): `cloud_file_id` y `cloud_folder_id`
+corresponden al archivo principal, el del primer fuero en el orden
+`CRIMINAL`, `ADMINISTRATIVE`, `AMPARO`, que es el que se descarga. El
+archivo de cada fuero se registra en `document_template_files`. Los modelos
 cargados antes de las subcarpetas siguen en Modelos formales (`TEMPLATES`)
 y no tienen filas ahí.
 
@@ -843,29 +901,31 @@ formales y fueros.
 Clave primaria compuesta (`template_id`, `jurisdiction_id`). Índices:
 `document_template_jurisdictions_jurisdiction_id_idx`.
 
-#### s bis) Tabla `document_template_files`
+#### t) Tabla `document_template_files`
 
 Archivo de cada modelo formal en la carpeta de cada uno de sus fueros (HU34,
 HU40).
 
-Una fila por (modelo, fuero): el archivo se sube una vez y se copia dentro
-de la nube a la subcarpeta de los demás fueros, así que todos tienen el
-mismo contenido. Incluye la fila del archivo principal. HU40 copia a la
-carpeta de la causa el archivo de la subcarpeta de **su** fuero; sin fila
-(modelo anterior a las subcarpetas) usa el principal de `document_templates`.
+Una fila por modelo y fuero: el archivo se sube una vez y se copia dentro
+de Google Drive a la subcarpeta de los demás fueros, así que todos tienen
+el mismo contenido. Incluye la fila del archivo principal. HU40 copia a la
+carpeta de la causa el archivo de la subcarpeta de **su** fuero; si el
+modelo no tiene filas (es anterior a las subcarpetas), usa el archivo
+principal de `document_templates`.
 
 | Atributo | Tipo | Long. | Clave | Nulo | Descripción / valores posibles |
 | --- | --- | --- | :-: | :-: | --- |
 | `template_id` | INTEGER | 4 B | PK, FK | No | Modelo formal (→ `document_templates.id`). |
 | `jurisdiction_id` | INTEGER | 4 B | PK, FK | No | Fuero de la subcarpeta (→ `jurisdictions.jurisdiction_id`). |
 | `cloud_file_id` | VARCHAR | 128 | UK | No | Identificador de este archivo en Google Drive. |
-| `cloud_folder_id` | VARCHAR | 128 | FK | No | Subcarpeta del fuero donde está (→ `cloud_folders.cloud_folder_id`): la `JURISDICTION` de modelos de ese fuero. |
+| `cloud_folder_id` | VARCHAR | 128 | FK | No | Subcarpeta del fuero donde está el archivo (→ `cloud_folders.cloud_folder_id`): la `JURISDICTION` de modelos de ese fuero. |
 
 Clave primaria compuesta (`template_id`, `jurisdiction_id`). Índices:
 `document_template_files_cloud_file_id_key` (UK),
-`document_template_files_cloud_folder_id_idx`.
+`document_template_files_cloud_folder_id_idx`. Todas sus claves foráneas
+son `ON DELETE RESTRICT`.
 
-#### t) Tabla `document_template_copies`
+#### u) Tabla `document_template_copies`
 
 Copias de los modelos formales en la carpeta de cada causa (HU40).
 
@@ -891,7 +951,36 @@ Restricciones: `ck_document_template_copies_copied_has_file` (`status`
 es `COPIED` si y solo si `cloud_file_id` y `copied_at` están
 informados).
 
-#### u) Tabla `user_folder_access`
+#### v) Tabla `case_files`
+
+Expedientes generados por el sistema (HU25).
+
+Cada expediente es un PDF guardado en la carpeta de la causa (D-102). La
+tabla lleva la numeración de las versiones y permite reconocer qué
+archivo de la carpeta es un expediente. La fila se inserta recién cuando
+Google Drive guardó el archivo, así un fallo no consume el número
+(CA-25.8). Las partes del expediente no se guardan.
+
+| Atributo | Tipo | Long. | Clave | Nulo | Descripción / valores posibles |
+| --- | --- | --- | :-: | :-: | --- |
+| `id` | SERIAL (INTEGER) | 4 B | PK | No | Identificador interno del expediente. |
+| `case_id` | INTEGER | 4 B | FK | No | Causa del expediente (→ `cases.id`). |
+| `version` | INTEGER | 4 B |  | No | Número de versión, desde 1 y correlativo por causa. No se reutiliza aunque el archivo se borre en Google Drive (CA-25.6). |
+| `cloud_file_id` | VARCHAR | 128 | UK | No | Identificador del PDF en Google Drive. |
+| `file_name` | VARCHAR | 255 |  | No | Nombre del archivo tal como se guardó: `Expediente_{SAC}_v{n}.pdf` o `Expediente_causa-{id}_v{n}.pdf`. |
+| `page_count` | INTEGER | 4 B |  | No | Cantidad de hojas del expediente. Mayor o igual a 1. |
+| `generated_by_user_id` | INTEGER | 4 B | FK | No | Usuario que generó el expediente (→ `users.id`). |
+| `generated_at` | TIMESTAMPTZ | 8 B |  | No | Fecha y hora de generación. |
+
+Índices: `case_files_cloud_file_id_key` (UK) y
+`case_files_case_id_version_key`, único sobre (`case_id`, `version`):
+dos generaciones simultáneas de la misma causa no pueden tomar el mismo
+número.
+
+Restricciones: `ck_case_files_version_positive` (`version` ≥ 1) y
+`ck_case_files_page_count_positive` (`page_count` ≥ 1).
+
+#### w) Tabla `user_folder_access`
 
 Acceso de cada usuario a la carpeta VZ Causas en Google Drive (D-83).
 
@@ -907,7 +996,7 @@ uno con `users`.
 | `granted` | BOOLEAN | 1 B |  | No | Acceso que corresponde: `true` si debe tener acceso; `false` si debe quitarse. |
 | `synced_at` | TIMESTAMPTZ | 8 B |  | Sí | Momento en que Google Drive reflejó el valor de granted. Nulo: pendiente; el proceso diario lo reintenta (C-23). |
 
-#### v) Tabla `sent_notifications`
+#### x) Tabla `sent_notifications`
 
 Avisos por correo enviados por el proceso diario (HU30, HU32).
 
@@ -937,7 +1026,7 @@ Restricciones: `ck_sent_notifications_deadline_kind_coherent`
 `ck_sent_notifications_act_only_for_procedural_deadline`
 (`procedural_act_id` solo con `deadline_kind` `PROCEDURAL_ACT`).
 
-#### w) Tabla `daily_job_runs`
+#### y) Tabla `daily_job_runs`
 
 Corridas del proceso automático diario.
 
@@ -954,16 +1043,51 @@ prescripciones y envía los avisos (HU51, HU52, HU30, HU32).
 Restricciones: `ck_daily_job_runs_finished_after_started` (`finished_at`
 ≥ `started_at`).
 
+#### z) Tabla `audit_log`
+
+Registro de auditoría de negocio: quién hizo qué, sobre qué entidad y
+cuándo (HU14, HU19, HU21).
+
+La escriben los casos de uso de cualquier subsistema, nunca un
+interceptor HTTP, y no tiene endpoint de consulta. Es de solo alta: un
+disparador rechaza modificaciones y borrados. `metadata` nunca lleva
+datos sensibles ni contenido de la causa: solo identificadores y los
+nombres de los campos que cambiaron, no sus valores.
+
+| Atributo | Tipo | Long. | Clave | Nulo | Descripción / valores posibles |
+| --- | --- | --- | :-: | :-: | --- |
+| `id` | SERIAL (INTEGER) | 4 B | PK | No | Identificador interno del registro. |
+| `actor_user_id` | INTEGER | 4 B | FK | Sí | Usuario que realizó la acción (→ `users.id`), `ON DELETE RESTRICT`. Nulo solo si no hay un usuario detrás: el proceso automático diario. |
+| `action` | VARCHAR | 100 |  | No | Acción, con la entidad y el verbo separados por punto (ej.: `case.updated`, `case.deactivated`, `lawyer.updated`). |
+| `entity_type` | VARCHAR | 50 |  | No | Tipo de entidad afectada (ej.: `Case`, `Lawyer`, `ProceduralAct`). |
+| `entity_id` | VARCHAR | 128 |  | No | Identificador de la entidad afectada. Es texto para admitir claves numéricas y de Google Drive. |
+| `occurred_at` | TIMESTAMPTZ | 8 B |  | No | Fecha y hora de la acción. |
+| `metadata` | JSONB | — |  | Sí | Objeto JSON con datos complementarios, sin información sensible (ej.: `{"changedFields": ["caption", "court"]}`). |
+| `correlation_id` | VARCHAR | 128 |  | Sí | Identificador de correlación de la petición, para cruzarla con el log técnico. |
+
+Índices: `audit_log_entity_type_entity_id_occurred_at_idx`
+(`entity_type`, `entity_id`, `occurred_at`) y
+`audit_log_actor_user_id_occurred_at_idx` (`actor_user_id`,
+`occurred_at`).
+
+Restricciones: `ck_audit_log_metadata_is_object` (`metadata` nulo o un
+objeto JSON). Disparadores: `trg_audit_log_append_only`, que rechaza
+`UPDATE` y `DELETE`, y `trg_audit_log_no_truncate`, que rechaza
+`TRUNCATE`, ambos con la función `audit_log_reject_changes`. Solo se
+admite borrar dentro de una transacción que active
+`vzcausas.audit_purge`, para la limpieza de los tests.
+
 ## 9.2 Tipos enumerados
 
 Los dominios cerrados se implementan como tipos enumerados de
 PostgreSQL, generados por Prisma a partir de las enumeraciones del
-modelo. Hoy existen siete:
+modelo. Hoy existen ocho:
 
 | Tipo | Valores posibles | Utilizado en |
 | --- | --- | --- |
 | `day_type` | `NONE`, `BUSINESS`, `CONSECUTIVE` | `jurisdictions.day_type_default`, `procedural_states.day_type`, `procedural_acts.deadline_day_type`, `cases.harmful_act_term_day_type` |
 | `procedural_role` | `DEFENSA`, `QUERELLANTE_PARTICULAR`, `RECURRENTE`, `ACTORA`, `DEMANDADA` | `cases.procedural_role` |
+| `document_type` | `DNI`, `PASSPORT` | `clients.document_type` |
 | `case_folder_status` | `CREATED`, `PENDING`, `CREATING`, `ERROR` | `cases.folder_status` |
 | `cloud_folder_kind` | `MAIN`, `TEMPLATES`, `ROOT_CASES`, `LAWYER`, `JURISDICTION`, `CASE` | `cloud_folders.kind` |
 | `template_copy_status` | `COPIED`, `PENDING` | `document_template_copies.status` |
@@ -974,7 +1098,8 @@ modelo. Hoy existen siete:
 
 El esquema cubre identidad y acceso (EP-01), personas (EP-02),
 parámetros jurídicos, gestión de causas (EP-04, EP-05), plazos y
-notificaciones (EP-06) y documentos en la nube (EP-07). Las tablas del
+notificaciones (EP-06), documentos en la nube (EP-07) y la auditoría de
+negocio, transversal a todos los módulos. Las tablas del
 diseño inicial que no figuran con su nombre original se resolvieron así:
 
 - `notificacion`: se implementa como `sent_notifications`, que registra

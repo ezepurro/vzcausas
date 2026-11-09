@@ -135,6 +135,12 @@ export function AppLayout() {
                     <Logo />
                 </Link>
             }
+            // En pantallas angostas el rail está guardado: la barra lleva el logo.
+            topBarBrand={
+                <Link to={homeRoute} className="vz-rail__brand" aria-label="Ir al inicio">
+                    <Logo />
+                </Link>
+            }
             railAction={
                 /* "Nueva causa" bajo el logo, como el prototipo: registrar una
                    causa la puede hacer cualquier perfil (RN11), así que el

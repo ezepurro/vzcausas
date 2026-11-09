@@ -97,6 +97,47 @@ ficha está entre los vigentes que llegaron. En "Modificar causa", el
 responsable actual que no está en la lista se agrega después de la ficha
 propia.
 
+---
+
+## 2026-11-08 — El detalle y "Generar expediente" en el teléfono
+
+**Pedido:** del equipo (Facundo Fiorani), dentro del repaso del responsive de
+toda la aplicación (rama `refactor/front`). El listado de causas cambió por
+`DataTable` (ver `SHARED.md`, "DataTable"); acá queda lo propio de causas.
+Sólo debajo de 721 px; arriba nada cambia.
+
+- **Encabezado de la causa:** los datos (tribunal, fuero, rol, responsable,
+  instructor) van uno por renglón y sin las rayas que los separan. En fila,
+  al partirse, las rayas quedaban colgando al principio o al final de un
+  renglón.
+- **Acciones del encabezado** ("Modificar causa", "Dar de baja") y de "Sobre
+  la causa": se reparten el ancho, de 38 px de alto; el rótulo "Sobre la
+  causa" va en su propio renglón.
+- **"Generar expediente":** "↑", "↓" y "Quitar" de cada documento miden 36 px
+  de alto; antes eran botones de 28 px, chicos para el dedo.
+- **"Documentación":** "Abrir" y "Descargar" se reparten el renglón que ya
+  tenían debajo del nombre.
+- **Filtros del listado:** los tres desplegables, "Solo con plazo por vencer"
+  y "Limpiar filtros" van plegados detrás de un botón "Filtros", al lado del
+  buscador, que muestra cuántos hay aplicados. Apilados de a uno a todo el
+  ancho tapaban la lista (pedido de Facundo Fiorani al revisar el celular).
+  Es `CollapsibleFilters`, de `shared`; `CaseFilters` cuenta los aplicados.
+
+### Archivos
+
+| Archivo | Cambio |
+|---|---|
+| `src/styles/cases.css` | El bloque "teléfono" del encabezado y uno nuevo al final para los botones de "Generar expediente" y "Documentación" |
+| `components/CaseFilters.tsx` | Envuelve los filtros en `CollapsibleFilters` y cuenta los aplicados |
+
+### Verificación
+
+En el navegador con los mocks, como `fvazquez`: el detalle de la causa 1,
+"Registrar acto procesal" de la 4 y "Generar expediente" de la 1, a 375 px y
+1100 px, sin scroll horizontal.
+
+---
+
 ## 2026-11-03 — Generar expediente: la espera y el corte por tiempo (HU25)
 
 **Pedido:** de Luciano Cipolla, al probar contra el backend: generar el

@@ -8,7 +8,7 @@
  */
 
 import { describe, expect, it, vi } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { AppShell, type RailGroup } from '@/shared/components/ui'
 
@@ -103,5 +103,49 @@ describe('AppShell: menú en pantallas angostas', () => {
         await user.click(rail().getByRole('button', { name }))
 
         expect(isOpen()).toBe(false)
+    })
+
+    it('abierto, la página de abajo no scrollea; al cerrarlo vuelve a scrollear', async () => {
+        const { user } = renderShell()
+
+        await user.click(openButton())
+        expect(document.documentElement.style.overflow).toBe('hidden')
+
+        await user.keyboard('{Escape}')
+        expect(document.documentElement.style.overflow).toBe('')
+    })
+
+    it('al agrandar la ventana por encima de 1024px se cierra solo', async () => {
+        // jsdom no implementa `matchMedia`: se simula la ventana que se agranda.
+        const listeners = new Set<() => void>()
+        const query = {
+            matches: false,
+            addEventListener: (_: string, listener: () => void) => listeners.add(listener),
+            removeEventListener: (_: string, listener: () => void) => listeners.delete(listener),
+        }
+        vi.stubGlobal('matchMedia', vi.fn(() => query))
+        try {
+            const { user } = renderShell()
+            await user.click(openButton())
+
+            query.matches = true
+            act(() => listeners.forEach((listener) => listener()))
+
+            expect(isOpen()).toBe(false)
+        } finally {
+            vi.unstubAllGlobals()
+        }
+    })
+})
+
+describe('AppShell: marca de la barra superior', () => {
+    it('dibuja la marca que recibe en la barra superior', () => {
+        render(
+            <AppShell groups={GROUPS} active="/inicio" onNavigate={vi.fn()} brand={null} topBarBrand={<span>Marca</span>}>
+                <p>Contenido</p>
+            </AppShell>,
+        )
+
+        expect(within(screen.getByRole('banner')).getByText('Marca')).toBeInTheDocument()
     })
 })
