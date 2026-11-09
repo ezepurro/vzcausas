@@ -19,6 +19,9 @@ export interface CasePrescriptionBarProps {
  * (CA-32.13): en bronce las que corren, en rojo las que cumplieron su plazo y
  * falta declarar. En una causa ya prescripta no van: está cerrada.
  *
+ * En una causa ya prescripta la barra es `prescription`, como dato histórico
+ * (D-113), en rojo y con la fecha de la declaración (`kind: 'declared'`).
+ *
  * Fuera del penal o sin calificaciones no dibuja nada (D-74).
  */
 export function CasePrescriptionBar({ case: c }: CasePrescriptionBarProps) {
@@ -35,7 +38,11 @@ export function CasePrescriptionBar({ case: c }: CasePrescriptionBarProps) {
                     <div className="vz-presc__done">Todos los delitos que faltan declarar cumplieron su plazo.</div>
                 </div>
             ) : (
-                <PrescriptionBar prescription={shown.prescription} note={prescriptionNote(c, shown)} />
+                <PrescriptionBar
+                    prescription={shown.prescription}
+                    note={prescriptionNote(c, shown)}
+                    declaredOn={shown.kind === 'declared' ? shown.declaredOn : undefined}
+                />
             )}
             {others.length > 0 && (
                 <ul className="vz-presc-others" aria-label="Otras calificaciones en alerta de prescripción">

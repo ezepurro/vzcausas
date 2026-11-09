@@ -202,6 +202,15 @@ describe('CaseDetailPage · marcar prescripta', () => {
             const header = screen.getByRole('region', { name: 'Causa 14118903' })
             expect(await within(header).findByText('Prescripta')).toBeInTheDocument()
             expect(screen.queryByRole('button', { name: /^Marcar prescripta:/ })).not.toBeInTheDocument()
+
+            // D-113: se declaró con los plazos corriendo. La barra no dice lo que resta:
+            // va en rojo con la fecha de la declaración, y el porcentaje sigue siendo el del backend.
+            const meter = screen.getByRole('meter', { name: 'Prescripción transcurrida' })
+            const bar = meter.closest('.vz-presc') as HTMLElement
+            expect(await within(bar).findByText('Prescripta el 15/09/2026')).toBeInTheDocument()
+            expect(within(bar).queryByText(/^Restan /)).not.toBeInTheDocument()
+            expect(meter).toHaveClass('vz-meter--danger')
+            expect(meter).not.toHaveAttribute('aria-valuetext', '100 %')
         })
 
         // CA-33.1, CA-33.2, CA-33.16 (D-110)

@@ -365,7 +365,9 @@ Los componentes son presentacionales y lo reciben hecho:
   (también en "Registrar acto procesal"): la más cercana a prescribir entre
   las no declaradas; si todas las que faltan declarar cumplieron su plazo,
   "Todos los delitos que faltan declarar cumplieron su plazo." (D-112, D-113,
-  `shownPrescription`). Debajo, barras chicas con las otras sin declarar que
+  `shownPrescription`). En una causa ya marcada prescripta la barra va en
+  rojo y dice "Prescripta el …" (`kind: 'declared'`, `cases/CAMBIOS.md`).
+  Debajo, barras chicas con las otras sin declarar que
   pasaron el 70 % (`otherPrescriptionAlerts`, CA-32.13), en rojo las de plazo
   cumplido. La nota la arma `prescriptionNote`. Al pie de los datos del
   encabezado, "Calificaciones legales" (`CaseQualifications`, prop `details`
@@ -476,7 +478,9 @@ Son las de V5. Lo que V4 y V5 cambiaron está marcado con su decisión.
   primero, `elapsedPercentage`, `alert` (70 %, fijo) y `expired`. Del lado del
   front quedan el "Restan 5 años 9 meses" (`remainingLabel`, con `expiresOn`) y
   la nota (`prescriptionNote`). Un plazo cumplido no cambia el estado (D-52):
-  la barra dice "Plazo cumplido". `prescription` vale `null` fuera del penal y
+  la barra dice "Plazo cumplido". Una vez declarada la causa, la declaración
+  manda: la barra va en rojo con "Prescripta el …", con el porcentaje que
+  manda el backend. `prescription` vale `null` fuera del penal y
   en una causa penal sin calificaciones (D-74): ahí la barra no se dibuja.
   **Desde D-112** cada calificación trae también `elapsedPercentage`, `alert`
   y `expired`: cuando la que rige ya prescribió, la barra muestra la próxima

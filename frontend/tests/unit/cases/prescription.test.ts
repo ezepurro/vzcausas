@@ -140,10 +140,22 @@ describe('prescripción de una causa', () => {
             expect(nextToPrescribe(c)).toBeNull()
         })
 
-        it('una causa marcada prescripta sigue mostrando la que rige, como dato histórico', () => {
+        // D-113: la que rige, como dato histórico, con la fecha de la declaración de la causa.
+        it('una causa marcada prescripta muestra la que rige, tal como llega, con la fecha de la declaración', () => {
             const c = { prescription: governingOf(amenazas), legalQualifications: [amenazas, robo], prescriptionDeclaration: declaration }
 
-            expect(shownPrescription(c)).toEqual({ kind: 'governing', prescription: c.prescription })
+            expect(shownPrescription(c)).toEqual({ kind: 'declared', prescription: c.prescription, declaredOn: '2026-09-15' })
+        })
+
+        // Declarada antes de que el cálculo cumpliera el plazo: los valores del backend no se tocan.
+        it('una causa declarada con el plazo sin cumplir conserva el porcentaje y el expired del backend', () => {
+            const c = { prescription: governingOf(robo), legalQualifications: [robo], prescriptionDeclaration: declaration }
+
+            expect(shownPrescription(c)).toEqual({
+                kind: 'declared',
+                prescription: expect.objectContaining({ elapsedPercentage: 46, alert: false, expired: false }),
+                declaredOn: '2026-09-15',
+            })
         })
 
         // D-113: una calificación declarada no es la próxima, aunque su plazo no se haya cumplido.

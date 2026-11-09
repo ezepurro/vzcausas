@@ -61,9 +61,19 @@ usan el detalle y "Registrar acto procesal", así muestran lo mismo:
 - Si ya prescribió, muestra la **próxima a prescribir**: la de menor
   vencimiento con `expired` en `false`, con sus valores tal como llegan. La
   nota dice "Ya prescribió 1 delito. Próximo a prescribir: …".
-- Si prescribieron todas, no hay barra: "Todos los delitos prescribieron.".
-- En una causa ya marcada prescripta no cambia nada: sigue la de
-  `prescription`, como dato histórico.
+- Si todas las que faltan declarar cumplieron su plazo, no hay barra: "Todos
+  los delitos que faltan declarar cumplieron su plazo.".
+- En una causa ya marcada prescripta sigue la de `prescription`, como dato
+  histórico (D-113), pero **en rojo y con "Prescripta el dd/mm/aaaa"** (la
+  fecha de `prescriptionDeclaration`) en lugar de "Restan …" o "Plazo
+  cumplido" (pedido del 09/11/2026). La declaración manda sobre el cálculo: si
+  se declaró antes de que el plazo calculado se cumpliera (el tribunal computó
+  distinto, o "Marcar toda la causa prescripta" con delitos que corrían), la
+  causa cerrada mostraba "Restan 2 años" en azul. El porcentaje y las fechas
+  siguen siendo los del backend: el front no los fuerza al 100 % (D-51). El
+  backend sigue calculando contra hoy, así que el porcentaje de una causa
+  cerrada sigue avanzando; congelarlo en la fecha de la declaración sería un
+  cambio de contrato.
 - `prescription` del backend no cambió (D-52): los tableros siguen mostrando el
   delito prescripto en "Alertas de prescripción" hasta que se marque la
   causa. La diferencia con el detalle es a propósito.

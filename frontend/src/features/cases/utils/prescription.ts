@@ -32,9 +32,13 @@ export function remainingLabel(expiresOn: string, today: Date = new Date()): str
 /**
  * Qué muestra la barra de prescripción (D-112, D-113):
  *
- * - `governing`: la que rige la causa, tal como llega en `prescription`. Es el
- *   caso mientras no cumplió su plazo, y siempre en una causa ya marcada
- *   prescripta, donde queda como dato histórico.
+ * - `governing`: la que rige la causa, tal como llega en `prescription`,
+ *   mientras no cumplió su plazo.
+ * - `declared`: la causa ya fue marcada prescripta. Muestra `prescription`, que
+ *   el backend elige entre todas como dato histórico (D-113), con la fecha de la
+ *   declaración de la causa (`declaredOn`). La declaración manda sobre el
+ *   cálculo: el cálculo sigue corriendo contra hoy y, si se declaró antes de
+ *   que el plazo se cumpliera, no diría que la causa está cerrada.
  * - `next`: la que rige ya cumplió su plazo sin que nadie la declarara (sigue
  *   rigiendo, D-52) y hay otra sin declarar que todavía corre. Muestra esa, la
  *   más cercana a prescribir, con los valores que trae del backend.
@@ -47,6 +51,7 @@ export function remainingLabel(expiresOn: string, today: Date = new Date()): str
  */
 export type ShownPrescription =
     | { kind: 'governing'; prescription: CasePrescription }
+    | { kind: 'declared'; prescription: CasePrescription; declaredOn: string }
     | { kind: 'next'; prescription: CasePrescription }
     | { kind: 'allExpired' }
 
@@ -55,7 +60,9 @@ type PrescriptionFields = Pick<Case, 'prescription' | 'legalQualifications' | 'p
 export function shownPrescription(c: PrescriptionFields): ShownPrescription | null {
     const { prescription } = c
     if (!prescription) return null
-    if (c.prescriptionDeclaration !== null) return { kind: 'governing', prescription }
+    if (c.prescriptionDeclaration !== null) {
+        return { kind: 'declared', prescription, declaredOn: c.prescriptionDeclaration.prescriptionDate }
+    }
 
     const next = nextQualification(c)
     if (!next) return { kind: 'allExpired' }

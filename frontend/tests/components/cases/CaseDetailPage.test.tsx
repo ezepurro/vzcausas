@@ -141,6 +141,20 @@ describe('CaseDetailPage', () => {
             expect(screen.getAllByRole('meter')).toHaveLength(1)
         })
 
+        /* D-113. La causa 10 está marcada prescripta el 05/03/2020: la barra
+           sigue mostrando `prescription` como dato histórico, en rojo y con la
+           fecha de la declaración en lugar de "Plazo cumplido". */
+        it('en una causa marcada prescripta, la barra dice "Prescripta el …" y va en rojo', async () => {
+            renderPage(10)
+            await headerOf('Causa 10230417')
+
+            const meter = screen.getByRole('meter', { name: 'Prescripción transcurrida' })
+            const bar = meter.closest('.vz-presc') as HTMLElement
+            expect(within(bar).getByText('Prescripta el 05/03/2020')).toBeInTheDocument()
+            expect(within(bar).queryByText('Plazo cumplido')).not.toBeInTheDocument()
+            expect(meter).toHaveClass('vz-meter--danger')
+        })
+
         // D-112: el encabezado lista todos los delitos de la causa, con su estado.
         it('lista los delitos de la causa en el encabezado: los que prescribieron, el próximo y los vigentes', async () => {
             renderPage(13)
