@@ -168,6 +168,25 @@ describe('HomePage · Estudio', () => {
         expect(tileNumber('Causas activas')).toBe('20')
     })
 
+    // [equipo] dashboard/CAMBIOS.md 2026-11-09: la pestaña y los filtros viven en
+    // la URL, así que volver de una causa no los pierde (ni cae en "Mi día").
+    it('al volver de una causa conserva "Estudio" y el abogado elegido', async () => {
+        const { user, router } = renderPage('fvazquez')
+
+        await user.click(await screen.findByRole('tab', { name: 'Estudio' }))
+        await teamMember(user, 'Ríos', 'Malena')
+        const [first] = await listedCaptions()
+        await user.click(within(first).getByRole('button'))
+        expect(await screen.findByText('Detalle de la causa')).toBeInTheDocument()
+
+        await router.navigate(-1)
+
+        expect(await screen.findByRole('tab', { name: 'Estudio' })).toHaveAttribute('aria-selected', 'true')
+        const panel = await deadlinesPanel()
+        expect(within(panel).getByText('Vencimientos del responsable')).toBeInTheDocument()
+        expect(within(panel).getAllByRole('listitem')).toHaveLength(2)
+    })
+
     // TESTING.md §7
     it('si el tablero no carga, muestra el error', async () => {
         // Un 403 y no un 500: los errores del servidor se reintentan
