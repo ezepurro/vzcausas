@@ -13,6 +13,7 @@ import { useCaseEdit } from '@/features/cases/api/useCaseEdit'
 import { useCaseTimeline } from '@/features/cases/api/useCaseTimeline'
 import { useCreateCaseFolder } from '@/features/cases/api/useCreateCaseFolder'
 import { useDeclarePrescription } from '@/features/cases/api/useDeclarePrescription'
+import { useDeclareQualificationPrescription } from '@/features/cases/api/useDeclareQualificationPrescription'
 import { useRegisterInterruptiveAct } from '@/features/cases/api/useRegisterInterruptiveAct'
 import { CaseEditForm } from '@/features/cases/components/CaseEditForm'
 import { CaseHeader } from '@/features/cases/components/CaseHeader'
@@ -33,7 +34,7 @@ import {
     validatePrescriptionDeclaration,
     type PrescriptionDeclarationFormErrors,
 } from '@/features/cases/schemas/prescriptionDeclaration.schema'
-import type { Case } from '@/features/cases/types/case'
+import type { Case, CaseLegalQualification } from '@/features/cases/types/case'
 import type { InterruptiveActFormValues } from '@/features/cases/types/interruptiveAct'
 import type { PrescriptionDeclarationFormValues } from '@/features/cases/types/prescriptionDeclaration'
 import type { ProceduralAct } from '@/features/cases/types/proceduralAct'
@@ -129,6 +130,13 @@ const CASE_DELETED = 'Causa dada de baja. Se conserva el historial completo.'
 type ModalState =
     | { kind: 'interruptive'; values: InterruptiveActFormValues; errors: InterruptiveActFormErrors }
     | { kind: 'prescription'; values: PrescriptionDeclarationFormValues; errors: PrescriptionDeclarationFormErrors }
+    /** D-113: declarar prescripta una calificación. */
+    | {
+          kind: 'qualificationPrescription'
+          qualification: CaseLegalQualification
+          values: PrescriptionDeclarationFormValues
+          errors: PrescriptionDeclarationFormErrors
+      }
     | { kind: 'delete'; values: DeleteCaseFormValues; errors: DeleteCaseFormErrors }
     | null
 
@@ -148,6 +156,7 @@ function CaseDetail({ case: c }: { case: Case }) {
     const downloadDocument = useDownloadCaseDocument(c.id)
     const registerInterruptive = useRegisterInterruptiveAct(c.id)
     const declarePrescription = useDeclarePrescription(c.id)
+    const declareQualificationPrescription = useDeclareQualificationPrescription(c.id)
     const createFolder = useCreateCaseFolder(c.id)
     const edit = useCaseEdit(c)
     const deleteCase = useDeleteCase(c.id)
@@ -217,6 +226,16 @@ function CaseDetail({ case: c }: { case: Case }) {
         })
     }
 
+    /** D-113: "Marcar prescripta" de una calificación de la lista del encabezado. */
+    function openQualificationPrescription(qualification: CaseLegalQualification) {
+        setModal({
+            kind: 'qualificationPrescription',
+            qualification,
+            values: { prescriptionDate: todayIsoDate(), resolution: '', grounds: '' },
+            errors: {},
+        })
+    }
+
         function openDelete() {
         setModal({ kind: 'delete', values: { reason: '' }, errors: {} })
     }
@@ -235,7 +254,7 @@ function CaseDetail({ case: c }: { case: Case }) {
             // Sólo los campos que el modal abierto muestra.
             const fieldErrors = modal.kind === 'interruptive'
                 ? toInterruptiveActFormErrors(error.details)
-                : modal.kind === 'prescription'
+                : modal.kind === 'prescription' || modal.kind === 'qualificationPrescription'
                     ? toPrescriptionDeclarationFormErrors(error.details)
                     : (error.details?.reason ? { reason: error.details.reason } : {})
             if (Object.keys(fieldErrors).length > 0) {
@@ -276,6 +295,31 @@ function CaseDetail({ case: c }: { case: Case }) {
         })
     }
 
+    /**
+     * D-113: declara prescripta una calificación. Si era la última sin
+     * declarar, la causa pasa a "Prescripta" y el aviso es el de la causa.
+     */
+    function submitQualificationPrescription(qualification: CaseLegalQualification, values: PrescriptionDeclarationFormValues) {
+        const errors = validatePrescriptionDeclaration(values)
+        setModal({ kind: 'qualificationPrescription', qualification, values, errors })
+        if (Object.keys(errors).length > 0) return
+        declareQualificationPrescription.mutate(
+            { legalQualificationId: qualification.id, body: toDeclarePrescriptionBody(values) },
+            {
+                onSuccess: (updated) => {
+                    toast(
+                        'success',
+                        updated.prescriptionDeclaration
+                            ? 'Causa marcada como prescripta. Se cerraron los plazos abiertos.'
+                            : 'Calificación declarada prescripta.',
+                    )
+                    setModal(null)
+                },
+                onError: handleApiError,
+            },
+        )
+    }
+
         /**
      * Da de baja la causa y vuelve al listado (CA-21.1). El motivo es opcional
      * (CA-21.2). El aviso es `info`: salió bien, pero no es un logro. Si falla,
@@ -299,7 +343,18 @@ function CaseDetail({ case: c }: { case: Case }) {
             <CaseHeader
                 case={c}
                 showInstructor
-                details={<CaseQualifications case={c} />}
+                details={
+                    <CaseQualifications
+                        case={c}
+                        declare={showCaseActions && showPrescription
+                            ? {
+                                  enabled: canDeclarePrescription,
+                                  disabledTitle: `Solo el abogado responsable (${formatPersonFullName(c.responsibleLawyer)}) declara la prescripción de sus calificaciones.`,
+                                  onDeclare: openQualificationPrescription,
+                              }
+                            : undefined}
+                    />
+                }
                 actions={
                     <>
                         <Button icon={<Icon name="plus" />} disabled={!isResponsible} onClick={goRegisterAct}>
@@ -358,7 +413,7 @@ function CaseDetail({ case: c }: { case: Case }) {
                                 : `Solo el abogado responsable (${formatPersonFullName(c.responsibleLawyer)}) marca prescripta la causa.`}
                             onClick={openPrescription}
                         >
-                            Marcar prescripta
+                            Marcar toda la causa prescripta
                         </Button>
                     )}
                 </div>
@@ -429,6 +484,18 @@ function CaseDetail({ case: c }: { case: Case }) {
                     saving={declarePrescription.isPending}
                     onChange={changeValue}
                     onConfirm={() => submitPrescription(modal.values)}
+                    onCancel={() => setModal(null)}
+                />
+            )}
+            {modal?.kind === 'qualificationPrescription' && (
+                <PrescriptionDeclarationModal
+                    caption={c.caption}
+                    qualificationName={modal.qualification.name}
+                    values={modal.values}
+                    errors={modal.errors}
+                    saving={declareQualificationPrescription.isPending}
+                    onChange={changeValue}
+                    onConfirm={() => submitQualificationPrescription(modal.qualification, modal.values)}
                     onCancel={() => setModal(null)}
                 />
             )}

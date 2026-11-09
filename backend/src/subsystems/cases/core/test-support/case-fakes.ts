@@ -67,7 +67,7 @@ export abstract class UnusedCaseRepository implements CaseRepository {
     throw new Error('Este spec no usa saveCurrentAct de CaseRepository.');
   }
 
-  async saveDeclaredPrescription(_prescribedCase: Case): Promise<boolean> {
+  async saveDeclaredPrescription(_prescribedCase: Case, _declaredQualificationIds: readonly number[]): Promise<boolean> {
     throw new Error('Este spec no usa saveDeclaredPrescription de CaseRepository.');
   }
 
@@ -198,7 +198,7 @@ export class FakeCaseRepository extends UnusedCaseRepository {
     this.saved.push(existing);
   }
 
-  async saveDeclaredPrescription(prescribedCase: Case): Promise<boolean> {
+  async saveDeclaredPrescription(prescribedCase: Case, _declaredQualificationIds: readonly number[]): Promise<boolean> {
     if (this.prescriptionAlreadyDeclaredOnSave) {
       return false;
     }

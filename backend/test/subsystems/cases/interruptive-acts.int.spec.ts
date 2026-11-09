@@ -166,10 +166,11 @@ describe('POST /api/v1/cases/:caseId/interruptive-acts', () => {
     expect(listed.prescription).toEqual(body.prescription);
   });
 
-  // CA-31.3
+  // CA-31.3. Las dos siguen corriendo a la fecha del acto: Amenazas vence el 31/01/2025
+  // (D-113: una ya vencida no se reiniciaría, ver el test de CA-31.14).
   it('alcanza a todas las calificaciones de la causa', async () => {
     const robo = await addOffense(s.caseRow.id, '2021-02-27', 96);
-    const amenazas = await addOffense(s.caseRow.id, '2022-01-31', 24);
+    const amenazas = await addOffense(s.caseRow.id, '2023-01-31', 24);
 
     await register({ name: 'Indagatoria', actDate: '2024-07-04' }).expect(201);
 
@@ -218,6 +219,40 @@ describe('POST /api/v1/cases/:caseId/interruptive-acts', () => {
       expiresOn: '2027-03-10',
       lastInterruptiveActDate: null,
     });
+  });
+
+  /**
+   * D-113, CA-31.14: un acto posterior al vencimiento de una calificación no la reinicia.
+   * Plan: .claude/plans/tests-d113-prescripcion-por-delito.md. A (24 meses) vence el 10/01/2026;
+   * C (72 meses) el 10/01/2030. El acto del 01/03/2026 sólo reinicia C: vence el 01/03/2032 y al
+   * 06/10/2026 lleva 219 de 2192 días (10 %). A, vencida y sin declarar, sigue rigiendo (D-52).
+   */
+  it('un acto posterior al vencimiento de una calificación no la reinicia; las que corren, sí', async () => {
+    const a = await addOffense(s.caseRow.id, '2024-01-10', 24);
+    const c = await addOffense(s.caseRow.id, '2024-01-10', 72);
+
+    await register({ name: 'Citación a juicio', actDate: '2026-03-01' }).expect(201);
+
+    const body = await detail();
+    expect(qualificationOf(body, a.id)).toMatchObject({
+      prescriptionStartsOn: '2024-01-10',
+      prescriptionExpiresOn: '2026-01-10',
+      elapsedPercentage: 100,
+      expired: true,
+    });
+    expect(qualificationOf(body, c.id)).toMatchObject({
+      prescriptionStartsOn: '2026-03-01',
+      prescriptionExpiresOn: '2032-03-01',
+      elapsedPercentage: 10,
+      alert: false,
+      expired: false,
+    });
+    expect(body.prescription).toMatchObject({ legalQualificationId: a.id, lastInterruptiveActDate: null });
+
+    // El acto no fija el cómputo de `prescription`: en la línea de vida no rige.
+    const timelineRes = await server().get(`/api/v1/cases/${s.caseRow.id}/timeline`).set(s.notResponsible).expect(200);
+    const timeline = timelineRes.body.data as Record<string, any>[];
+    expect(timeline.find((entry) => entry.type === 'INTERRUPTIVE_ACT')).toMatchObject({ governsPrescription: false });
   });
 
   // CA-31.6 y CA-31.7

@@ -72,7 +72,8 @@ que el contrato fija de él está en
 | `PATCH`  | `/cases/{caseId}`                                     |      Sí       | Quien opera la causa ³        | Modificar causa (HU19) |
 | `DELETE` | `/cases/{caseId}`                                     |      Sí       | Quien opera la causa ³        | Dar de baja causa (HU21) |
 | `GET`    | `/cases/{caseId}/cover`                               |      Sí       | Cualquier usuario autenticado | Emitir la carátula en PDF (HU24) |
-| `POST`   | `/cases/{caseId}/prescription`                        |      Sí       | `ADMINISTRATOR` o abogado responsable de la causa ³ | Marcar la causa como prescripta |
+| `POST`   | `/cases/{caseId}/prescription`                        |      Sí       | `ADMINISTRATOR` o abogado responsable de la causa ³ | Marcar toda la causa como prescripta: declara las calificaciones que faltan (D-113) |
+| `POST`   | `/cases/{caseId}/legal-qualifications/{legalQualificationId}/prescription` | Sí | `ADMINISTRATOR` o abogado responsable de la causa ³ | Declarar prescripta una calificación legal de la causa (D-113) |
 | `POST`   | `/cases/{caseId}/folder`                              |      Sí       | Quien opera la causa ³        | Crear o reintentar la carpeta de la causa |
 | `POST`   | `/cases/{caseId}/procedural-acts`                     |      Sí       | Abogado responsable de la causa | Registrar acto procesal |
 | `GET`    | `/cases/{caseId}/procedural-acts/deadline-preview`    |      Sí       | Abogado responsable de la causa | Previsualizar el vencimiento de un acto |
@@ -3247,6 +3248,7 @@ mismo significado que en [`/clients`](#36-clientes-clients).
 | `elapsedPercentage`     | Integer                 | **(Revisión del 08/11/2026, D-112)** Porcentaje del plazo de esta calificación ya transcurrido entre `prescriptionStartsOn` y `prescriptionExpiresOn`, de `0` a `100`, redondeado al entero más cercano. Calculado |
 | `alert`                 | Boolean                 | **(Revisión del 08/11/2026, D-112)** `true` si transcurrió el **70 %** o más del plazo de esta calificación. Calculado |
 | `expired`               | Boolean                 | **(Revisión del 08/11/2026, D-112)** `true` si hoy es igual o posterior a `prescriptionExpiresOn`: el plazo de esta calificación se cumplió. Calculado |
+| `prescriptionDeclaration` | Object \| `null`      | **(Revisión del 08/11/2026, D-113)** Constancia de que esta calificación fue declarada prescripta, con la misma forma que `prescriptionDeclaration` de la causa. `null` mientras no lo fue |
 
 Una calificación dada de baja **sigue apareciendo** en las causas que la
 registran (ver [`DELETE /legal-qualifications`](#delete-legal-qualificationsqualificationid)).
@@ -3261,6 +3263,24 @@ nada. En la calificación que rige la causa los tres valores coinciden con los d
 prescribe primero, aunque su plazo ya se haya cumplido, y es la que usan las
 alertas de los tableros y el proceso diario (D-52).
 
+**Sobre `prescriptionDeclaration` de cada calificación:** **(Revisión del 08/11/2026, D-113)** la
+prescripción se declara **por calificación**: cada delito prescribe por su lado
+y el tribunal lo declara con su propia resolución
+([`POST /cases/{caseId}/legal-qualifications/{legalQualificationId}/prescription`](#post-casescaseidlegal-qualificationslegalqualificationidprescription)).
+Que el plazo esté cumplido (`expired`) no la declara: la declara una persona.
+Una calificación declarada:
+
+- deja de contar para `prescription`, que pasa a elegirse entre las que **no**
+  fueron declaradas;
+- no se reinicia con actos interruptivos posteriores a la fecha de su
+  declaración (ver [§3.9](#39-actos-interruptivos-casescaseidinterruptive-acts));
+- no se puede quitar de la causa ni cambiar su `offenseDate`
+  ([`PATCH /cases/{caseId}`](#patch-casescaseid)).
+
+Cuando quedan declaradas **todas** las calificaciones de la causa, la causa
+pasa a "Prescripta" en la misma operación, y su `prescriptionDeclaration` es
+el de la última declarada.
+
 Una causa penal puede registrarse sin calificaciones legales: en ese caso
 `legalQualifications` llega vacío, `prescription` vale `null` y la causa no
 computa prescripción hasta que se le cargue una.
@@ -3271,6 +3291,10 @@ Resume la prescripción de la causa en un solo objeto: la de la calificación
 **que prescribe primero**, que es la que el prototipo muestra en la barra del
 detalle y en las "Alertas de prescripción" de los tableros. Vale `null` en los
 fueros `ADMINISTRATIVE` y `AMPARO` y en una causa penal sin calificaciones.
+
+**(Revisión del 08/11/2026, D-113)** Se elige entre las calificaciones que **no** fueron
+declaradas prescriptas. Si están declaradas todas —la causa está
+"Prescripta"—, entre todas, como dato histórico.
 
 | Campo                     | Tipo                            | Descripción                                                                                 |
 | ------------------------- | ------------------------------- | ------------------------------------------------------------------------------------------- |
@@ -3589,7 +3613,8 @@ piden HU39 y HU40 ("que se cree automáticamente").
 				"prescriptionExpiresOn": "2029-02-27",
 				"elapsedPercentage": 69,
 				"alert": false,
-				"expired": false
+				"expired": false,
+				"prescriptionDeclaration": null
 			}
 		],
 		"prescription": {
@@ -3926,7 +3951,8 @@ causas de ese fuero que todavía están en el estado inicial.
 					"prescriptionExpiresOn": "2032-07-04",
 					"elapsedPercentage": 27,
 					"alert": false,
-					"expired": false
+					"expired": false,
+					"prescriptionDeclaration": null
 				}
 			],
 			"prescription": {
@@ -4206,7 +4232,8 @@ vencimiento nuevos en `currentState`.
 				"prescriptionExpiresOn": "2032-07-04",
 				"elapsedPercentage": 27,
 				"alert": false,
-				"expired": false
+				"expired": false,
+				"prescriptionDeclaration": null
 			}
 		],
 		"prescription": {
@@ -4396,7 +4423,10 @@ libre para eso.
 - **Calificaciones legales.** Reemplazar la lista recalcula la prescripción en
   la siguiente lectura, porque nada se guarda calculado (§4, Prescripción).
   Los actos interruptivos de la causa siguen rigiendo para las calificaciones
-  nuevas.
+  nuevas. **(Revisión del 08/11/2026, D-113)** Una calificación **declarada prescripta** no se
+  puede quitar de la lista ni cambiar su `offenseDate`:
+  `422 LEGAL_QUALIFICATION_ALREADY_PRESCRIBED`. Sí se pueden sumar otras y
+  quitar o corregir las que no están declaradas.
 - **Acto lesivo.** Cambiar sus datos recalcula `harmfulActDeadline`.
 - **Causa en estado terminal.** Se puede corregir —es el caso más común de una
   causa archivada con un dato mal cargado—, salvo lo que cambiaría su
@@ -4529,6 +4559,19 @@ Causa inexistente o dada de baja.
 	"error": {
 		"code": "CASE_IN_TERMINAL_STATE",
 		"message": "La causa está prescripta: no se pueden cambiar sus calificaciones legales.",
+		"details": null
+	}
+}
+```
+
+**(Revisión del 08/11/2026, D-113)** Se quita una calificación declarada prescripta, o se cambia su
+fecha del hecho:
+
+```json
+{
+	"error": {
+		"code": "LEGAL_QUALIFICATION_ALREADY_PRESCRIBED",
+		"message": "No se puede quitar ni modificar una calificación legal declarada prescripta.",
 		"details": null
 	}
 }
@@ -4819,8 +4862,9 @@ pasar a otro acto si cambió cuál es el más reciente (ver
 | `type`                     | `date`                                 | Trae                       | Además                                                                                       |
 | -------------------------- | -------------------------------------- | -------------------------- | -------------------------------------------------------------------------------------------- |
 | `PROCEDURAL_ACT`           | `actDate` del acto                     | `proceduralAct`            | `current`: `true` en el acto que llevó la causa a su estado actual. **Su plazo es el abierto**; los de los demás actos están cerrados |
-| `INTERRUPTIVE_ACT`         | `actDate` del acto                     | `interruptiveAct`          | `governsPrescription`: `true` en el acto interruptivo más reciente, el que rige el cómputo de la prescripción |
-| `PRESCRIPTION_DECLARATION` | `prescriptionDate` de la declaración   | `prescriptionDeclaration`  | —                                                                                            |
+| `INTERRUPTIVE_ACT`         | `actDate` del acto                     | `interruptiveAct`          | `governsPrescription`: `true` en el acto interruptivo desde el que corre `prescription` de la causa: el que fija su `lastInterruptiveActDate` **(Revisión del 08/11/2026, D-113)** |
+| `QUALIFICATION_PRESCRIPTION_DECLARATION` | `prescriptionDate` de la declaración | `legalQualification` (`id` y `name`) y `prescriptionDeclaration` | **(Revisión del 08/11/2026, D-113)** Una por calificación declarada |
+| `PRESCRIPTION_DECLARATION` | `prescriptionDate` de la declaración   | `prescriptionDeclaration`  | La de la causa: aparece cuando quedó "Prescripta" |
 
 **Orden:** de la más reciente a la más antigua por `date`. Si dos entradas
 tienen la misma fecha, primero la última registrada (`registeredAt`).
@@ -4837,7 +4881,9 @@ Qué **no** aparece:
   aplican a esos fueros. Su línea de vida tiene solo actos procesales.
 - Un acto interruptivo con fecha anterior a otro **sí aparece**, en su lugar
   cronológico y con `governsPrescription` en `false`: queda en la historia
-  aunque no rija el cómputo.
+  aunque no rija el cómputo. **(Revisión del 08/11/2026, D-113)** Lo mismo un acto posterior al
+  vencimiento de las calificaciones que no reinició ninguna, y cualquier acto
+  de una causa penal sin calificaciones: sin `prescription`, ningún acto rige.
 
 **Parámetros de ruta**
 
@@ -4938,6 +4984,12 @@ Causa inexistente o dada de baja.
 
 Marca una causa penal como prescripta (HU33).
 
+**(Revisión del 08/11/2026, D-113)** Es "Marcar toda la causa prescripta": declara prescriptas, con
+estos mismos datos, **todas las calificaciones que todavía no lo estaban**, y
+cierra la causa. Las ya declaradas conservan su propia declaración. Para
+declarar un solo delito y dejar la causa abierta está
+[`POST /cases/{caseId}/legal-qualifications/{legalQualificationId}/prescription`](#post-casescaseidlegal-qualificationslegalqualificationidprescription).
+
 **Rol requerido:** `ADMINISTRATOR`, o `LAWYER` siendo el abogado responsable
 de la causa **(Revisión del 08/11/2026, D-110)**. Un abogado que no es el
 responsable recibe `403 FORBIDDEN`, salvo que también tenga el rol
@@ -4999,6 +5051,8 @@ tribunal.
   el filtro de estado.
 - Los datos del formulario quedan en `prescriptionDeclaration`, con quién la
   marcó y cuándo.
+- **(Revisión del 08/11/2026, D-113)** Quedan también en el `prescriptionDeclaration` de cada
+  calificación que no estaba declarada.
 
 No existe una operación para revertirlo desde la API.
 
@@ -5061,7 +5115,14 @@ de prescripción activa:
 				"prescriptionExpiresOn": "2028-01-19",
 				"elapsedPercentage": 78,
 				"alert": true,
-				"expired": false
+				"expired": false,
+				"prescriptionDeclaration": {
+					"prescriptionDate": "2026-09-15",
+					"resolution": "Sentencia N° 214 del Juzgado de Control N° 3",
+					"grounds": "Transcurrió el plazo del art. 62 inc. 2 CP sin actos interruptivos.",
+					"registeredBy": { "id": 1, "lastName": "Vázquez", "firstName": "Fernando G." },
+					"registeredAt": "2026-09-15T12:20:00-03:00"
+				}
 			}
 		],
 		"prescription": {
@@ -5206,6 +5267,191 @@ La causa ya está en un estado terminal, incluido "Prescripta":
 	"error": {
 		"code": "CASE_IN_TERMINAL_STATE",
 		"message": "La causa se encuentra en un estado terminal y no admite esta operación.",
+		"details": null
+	}
+}
+```
+
+---
+
+#### `POST /cases/{caseId}/legal-qualifications/{legalQualificationId}/prescription`
+
+**(Revisión del 08/11/2026, D-113)** Declara prescripta **una** calificación
+legal de una causa penal (HU33). Es el "Marcar prescripta" de cada delito en el
+detalle.
+
+Cada delito prescribe por su lado: cuando el tribunal declara la prescripción
+de uno, la causa sigue abierta por los demás. Esta operación guarda esa
+declaración en la calificación y deja la causa como está, salvo que sea la
+**última** sin declarar: en ese caso la causa pasa a "Prescripta", con el
+mismo efecto que [`POST /cases/{caseId}/prescription`](#post-casescaseidprescription).
+
+**Rol requerido:** el mismo que `POST /cases/{caseId}/prescription`:
+`ADMINISTRATOR`, o `LAWYER` siendo el abogado responsable de la causa (D-110).
+La Secretaría no la declara. Si la causa no existe, la respuesta es
+`404 CASE_NOT_FOUND`, antes que el `403`.
+
+**Parámetros de ruta**
+
+| Parámetro              | Tipo    | Descripción                                                    |
+| ---------------------- | ------- | -------------------------------------------------------------- |
+| `caseId`               | Integer | Identificador único de la causa                                |
+| `legalQualificationId` | Integer | Calificación legal, tal como viene en `legalQualifications[].id` |
+
+**Cuerpo de la petición:** el mismo que
+[`POST /cases/{caseId}/prescription`](#post-casescaseidprescription):
+`prescriptionDate` (obligatoria, no posterior a hoy), `resolution`
+(obligatoria, hasta 255 caracteres) y `grounds` (opcional, hasta 2000), con
+las mismas validaciones y los mismos textos de error.
+
+```json
+{
+	"prescriptionDate": "2026-09-15",
+	"resolution": "Auto N° 88 de la Cámara en lo Criminal y Correccional 5ª Nom."
+}
+```
+
+No se exige que el plazo calculado de la calificación esté cumplido
+(`expired`): la prescripción la declara el tribunal.
+
+**Efecto**
+
+- El `prescriptionDeclaration` de la calificación queda cargado, con quién la
+  declaró y cuándo.
+- La calificación deja de contar para `prescription`: la causa pasa a regirse
+  por la que prescribe primero entre las que faltan declarar. Sale de las
+  alertas de los tableros y de los avisos del proceso diario.
+- Los actos interruptivos con fecha posterior a la de la declaración no la
+  reinician (ver [§3.9](#39-actos-interruptivos-casescaseidinterruptive-acts)).
+- La línea de vida suma una entrada `QUALIFICATION_PRESCRIPTION_DECLARATION`.
+- **Si era la última sin declarar**, la causa pasa a "Prescripta" y se cierran
+  sus plazos, como en `POST /cases/{caseId}/prescription`; el
+  `prescriptionDeclaration` de la causa toma estos mismos datos.
+- Si no, el estado procesal y el vencimiento de la causa no cambian: sigue
+  activa y admite actos procesales e interruptivos.
+
+No existe una operación para revertirlo desde la API.
+
+**Orden de los chequeos:** `401` → `400` de forma (`INVALID_PATH_PARAMETER`) →
+`404 CASE_NOT_FOUND` → `403` → `422` fuero → `404
+LEGAL_QUALIFICATION_NOT_FOUND` → `422` estado terminal → `422` calificación ya declarada → `400` de
+contenido (`VALIDATION_ERROR`). Un pedido rechazado no guarda nada.
+
+**Respuestas**
+
+**`200 OK`**
+
+Devuelve la causa actualizada, con la misma estructura que
+`GET /cases/{caseId}`. En el ejemplo, una causa con dos calificaciones a la que
+se le declara la que ya había cumplido su plazo: la causa sigue en su estado y
+`prescription` pasa a la otra. Se muestran solo los campos que cambian:
+
+```json
+{
+	"data": {
+		"legalQualifications": [
+			{
+				"id": 4,
+				"name": "Amenazas coactivas — art. 149 bis CP",
+				"prescriptionMonths": 24,
+				"offenseDate": "2024-07-02",
+				"prescriptionStartsOn": "2024-07-02",
+				"prescriptionExpiresOn": "2026-07-02",
+				"elapsedPercentage": 100,
+				"alert": true,
+				"expired": true,
+				"prescriptionDeclaration": {
+					"prescriptionDate": "2026-09-15",
+					"resolution": "Auto N° 88 de la Cámara en lo Criminal y Correccional 5ª Nom.",
+					"grounds": null,
+					"registeredBy": { "id": 1, "lastName": "Vázquez", "firstName": "Fernando G." },
+					"registeredAt": "2026-09-15T12:20:00-03:00"
+				}
+			},
+			{
+				"id": 9,
+				"name": "Encubrimiento — art. 277 CP",
+				"prescriptionMonths": 72,
+				"offenseDate": "2024-06-11",
+				"prescriptionStartsOn": "2024-06-20",
+				"prescriptionExpiresOn": "2030-06-20",
+				"elapsedPercentage": 37,
+				"alert": false,
+				"expired": false,
+				"prescriptionDeclaration": null
+			}
+		],
+		"prescription": {
+			"legalQualificationId": 9,
+			"legalQualificationName": "Encubrimiento — art. 277 CP",
+			"startsOn": "2024-06-20",
+			"expiresOn": "2030-06-20",
+			"elapsedPercentage": 37,
+			"alert": false,
+			"expired": false,
+			"lastInterruptiveActDate": "2024-06-20"
+		},
+		"prescriptionDeclaration": null,
+		"currentState": {
+			"proceduralStateId": 5,
+			"name": "Citación a juicio",
+			"custom": false,
+			"initial": false,
+			"proceduralActId": 31,
+			"dueDate": "2026-09-18",
+			"businessDaysRemaining": 3,
+			"manuallyAdjusted": false
+		}
+	}
+}
+```
+
+**`400 Bad Request`:** los mismos `VALIDATION_ERROR` que
+`POST /cases/{caseId}/prescription`. Un `caseId` o un `legalQualificationId`
+que no es un entero responde `INVALID_PATH_PARAMETER`.
+
+**`401 Unauthorized`** y **`403 Forbidden`:** los mismos que
+`POST /cases/{caseId}/prescription`. El de un abogado que no es el
+responsable:
+
+```json
+{
+	"error": {
+		"code": "FORBIDDEN",
+		"message": "Solo el abogado responsable de la causa puede declarar la prescripción de sus calificaciones legales.",
+		"details": null
+	}
+}
+```
+
+**`404 Not Found`**
+
+La causa no existe o fue dada de baja: `CASE_NOT_FOUND`, como en
+`GET /cases/{caseId}`. La calificación no está registrada en la causa (aunque
+exista en `/legal-qualifications`):
+
+```json
+{
+	"error": {
+		"code": "LEGAL_QUALIFICATION_NOT_FOUND",
+		"message": "La causa no registra esa calificación legal.",
+		"details": null
+	}
+}
+```
+
+**`422 Unprocessable Content`**
+
+La causa no es del fuero penal: `PRESCRIPTION_NOT_APPLICABLE`, con el texto de
+`POST /cases/{caseId}/prescription`. La causa está en un estado terminal,
+incluido "Prescripta": `CASE_IN_TERMINAL_STATE`, con el mismo texto. La
+calificación ya fue declarada prescripta:
+
+```json
+{
+	"error": {
+		"code": "LEGAL_QUALIFICATION_ALREADY_PRESCRIBED",
+		"message": "La calificación legal ya fue declarada prescripta.",
 		"details": null
 	}
 }
@@ -6301,17 +6547,27 @@ catálogo de actos interruptivos.
 **Efecto sobre la prescripción**
 
 - El acto interruptivo alcanza a **todas las calificaciones legales de la
-  causa**: el formulario no pide elegir una.
-- El `prescriptionStartsOn` de cada calificación pasa a ser la `actDate` del
-  **acto interruptivo más reciente** de la causa, siempre que no sea anterior a
-  su `offenseDate`. Su `prescriptionExpiresOn` se recalcula como
-  `prescriptionStartsOn` más `prescriptionMonths`.
+  causa** que todavía pueden interrumpirse: el formulario no pide elegir una.
+- **(Revisión del 08/11/2026, D-113)** **Un acto no reinicia una calificación que ya prescribió.** Para
+  cada calificación, los actos se toman en orden de fecha, empezando por su
+  `offenseDate`, y un acto la reinicia solo si su `actDate`:
+  - no es anterior al inicio vigente de esa calificación (la `offenseDate` o
+    el acto anterior que la reinició);
+  - es anterior a su vencimiento vigente: el día del vencimiento el plazo ya
+    está cumplido, y desde ahí ningún acto la reinicia; y
+  - si la calificación fue declarada prescripta, es anterior a la
+    `prescriptionDate` de su declaración.
+- El `prescriptionStartsOn` de cada calificación es la `actDate` del **último
+  acto que la reinició** con esa regla, o su `offenseDate` si ninguno lo hizo.
+  Su `prescriptionExpiresOn` se recalcula como `prescriptionStartsOn` más
+  `prescriptionMonths`. Antes de D-113 era el acto más reciente de la causa,
+  para todas por igual.
 - `prescription` de la causa se recalcula en consecuencia: cambian `startsOn`,
   `expiresOn`, `elapsedPercentage` y `alert`, y `lastInterruptiveActDate` toma
   la fecha del acto. Una causa que estaba en alerta puede dejar de estarlo.
 - Un acto interruptivo cargado con una fecha **anterior** a la de otro ya
-  registrado queda asentado en la historia de la causa, pero no cambia el
-  cómputo: rige siempre el más reciente.
+  registrado queda asentado en la historia de la causa. Cuenta en el orden de
+  fechas, con la regla de arriba: el cómputo se rehace en cada lectura.
 - `offenseDate` no cambia nunca: es el dato que se cargó.
 - El estado procesal y el vencimiento de la causa (`currentState`) no cambian.
 
@@ -7201,7 +7457,10 @@ a `5`) y "Después" (más de `5`) y sus contadores.
 | `expired`                | Boolean                 | `true` si el plazo de prescripción ya se cumplió |
 
 Los cuatro últimos campos tienen el mismo significado que en `prescription` de
-la causa (§3.7). Si ninguna causa llegó al umbral, la lista viene vacía y el
+la causa (§3.7). **(Revisión del 08/11/2026, D-113)** Como `prescription`, se elige
+entre las calificaciones que no fueron declaradas prescriptas: un delito
+declarado deja de alertar, y uno con el plazo cumplido sin declarar sigue en la
+lista. Si ninguna causa llegó al umbral, la lista viene vacía y el
 prototipo muestra "Ninguna causa superó el 70 % de su plazo de prescripción".
 
 **Sobre los días hábiles:** los indicadores y `businessDaysRemaining` usan el
@@ -8171,6 +8430,7 @@ operar su carpeta ni registrar o modificar actos.
 | Modificar y dar de baja (`PATCH`, `DELETE /cases/{caseId}`) |          ✓          |      —       |        ✓        |      ✓      |
 | Crear o reintentar la carpeta (`POST …/folder`)             |          ✓          |      —       |        ✓        |      ✓      |
 | Marcar prescripta (`POST …/prescription`)                   |          ✓          |      —       |        ✓        |      —      |
+| Declarar prescripta una calificación (`POST …/legal-qualifications/{id}/prescription`, D-113) | ✓ | — | ✓ | — |
 | Registrar y modificar actos procesales e interruptivos      |          ✓          |      —       |        —        |      —      |
 
 "Quien opera la causa" es, por lo tanto, el abogado responsable, un
@@ -8273,6 +8533,7 @@ causas" (HU18 a HU25) y "Marcar prescripta" valían para cualquier causa.
 | `/cases`                           | Cualquier usuario autenticado | Alta: cualquier usuario autenticado. `PATCH` y `DELETE`: abogado responsable, `ADMINISTRATOR` o `SECRETARY` **(08/11/2026)** |
 | `/cases/{caseId}/cover`            | Cualquier usuario autenticado | -                                                       |
 | `/cases/{caseId}/prescription`     | -                             | `ADMINISTRATOR` o abogado responsable de la causa **(08/11/2026)** |
+| `/cases/{caseId}/legal-qualifications/{legalQualificationId}/prescription` | - | `ADMINISTRATOR` o abogado responsable de la causa **(08/11/2026, D-113)** |
 | `/cases/{caseId}/folder`           | -                             | Abogado responsable, `ADMINISTRATOR` o `SECRETARY` **(08/11/2026)** |
 | `/cases/{caseId}/procedural-acts`  | Cualquier usuario autenticado; `deadline-preview`, solo el abogado responsable | Abogado responsable de la causa, también `PATCH` |
 | `/cases/{caseId}/interruptive-acts` | Cualquier usuario autenticado | Abogado responsable de la causa                                 |
@@ -8370,10 +8631,19 @@ contrato.
 - **Cada calificación legal computa la suya.** Su plazo es
   `prescriptionMonths`, y vence en `prescriptionStartsOn` más esos meses.
 - **Desde cuándo corre** (`prescriptionStartsOn`): desde la fecha del hecho
-  (`offenseDate`) o, si la causa tiene actos interruptivos, desde la fecha del
-  más reciente (RN8).
+  (`offenseDate`) o desde el último acto interruptivo que la reinició (RN8).
+  **(Revisión del 08/11/2026, D-113)** Un acto la reinicia solo si es anterior a su vencimiento
+  vigente y, si fue declarada prescripta, a la fecha de esa declaración: un
+  delito que ya prescribió no vuelve a correr (ver
+  [§3.9](#39-actos-interruptivos-casescaseidinterruptive-acts)).
 - **La que rige la causa** es la calificación que prescribe primero: la de
   menor `prescriptionExpiresOn`. Es la que resume `prescription`.
+  **(Revisión del 08/11/2026, D-113)** Se elige entre las que no fueron declaradas prescriptas; si
+  lo fueron todas, entre todas.
+- **Declaración por calificación** **(Revisión del 08/11/2026, D-113)**: cada calificación se
+  declara prescripta por separado, con su resolución. Que se cumpla el plazo
+  (`expired`) no la declara. Cuando quedan declaradas todas, la causa pasa a
+  "Prescripta".
 - **Cada calificación informa su estado** **(Revisión del 08/11/2026, D-112)**:
   `elapsedPercentage`, `alert` y `expired` llegan también en cada elemento de
   `legalQualifications[]`, con las mismas reglas de esta sección aplicadas a su
@@ -8477,7 +8747,7 @@ Cada corrida tiene dos pasos:
 | Paso        | HU  | Qué hace                                                                                                 |
 | ----------- | --- | -------------------------------------------------------------------------------------------------------- |
 | Verificar   | 51  | Recorre los vencimientos abiertos de las causas activas —los plazos de los actos procesales y los del acto lesivo de los amparos— y detecta los que entran en preaviso, los que vencen hoy y los vencidos |
-| Verificar   | 52  | Recorre la prescripción de las causas penales activas con calificación legal y detecta las que llegaron al 70 % y las que tienen el plazo cumplido |
+| Verificar   | 52  | Recorre la prescripción de las causas penales activas con calificación legal y detecta las que llegaron al 70 % y las que tienen el plazo cumplido. Mira `prescription`, que desde D-113 deja afuera las calificaciones ya declaradas prescriptas |
 | Avisar      | 30  | Envía por correo lo que encontró HU51                                                                    |
 | Avisar      | 32  | Envía por correo lo que encontró HU52                                                                    |
 | Ajustar     | 39  | Revisa que la carpeta raíz de Drive esté compartida exactamente con los usuarios que corresponde, y corrige lo que haya quedado pendiente |
@@ -8677,7 +8947,8 @@ respuesta.
 | `USER_NOT_FOUND`                         | 404  | Usuario inexistente                                                |
 | `LAWYER_NOT_FOUND`                       | 404  | Abogado inexistente                                                |
 | `PROCEDURAL_STATE_NOT_FOUND`             | 404  | Estado procesal inexistente                                        |
-| `LEGAL_QUALIFICATION_NOT_FOUND`          | 404  | Calificación legal inexistente                                     |
+| `LEGAL_QUALIFICATION_NOT_FOUND`          | 404  | Calificación legal inexistente. **(08/11/2026, D-113)** También, al declarar la prescripción de una calificación, una que la causa no registra |
+| `LEGAL_QUALIFICATION_ALREADY_PRESCRIBED` | 422  | **(08/11/2026, D-113)** Declarar prescripta una calificación que ya lo está, o quitar o cambiar la fecha del hecho de una declarada al modificar la causa |
 | `CLIENT_NOT_FOUND`                       | 404  | Cliente inexistente                                                |
 | `CASE_NOT_FOUND`                         | 404  | Causa inexistente                                                  |
 | `PROCEDURAL_ACT_NOT_FOUND`               | 404  | Acto procesal inexistente o de otra causa                          |

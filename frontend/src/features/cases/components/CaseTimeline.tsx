@@ -8,6 +8,7 @@ import type {
     TimelineEntry,
     TimelineInterruptiveActEntry,
     TimelinePrescriptionEntry,
+    TimelineQualificationPrescriptionEntry,
     TimelineProceduralActEntry,
 } from '@/features/cases/types/timeline'
 import { actDeadlineBadge, actTermDays, actTermText, closedDeadlineText } from '@/features/cases/utils/timeline'
@@ -97,6 +98,7 @@ function entryKey(entry: TimelineEntry): string {
     switch (entry.type) {
         case 'PROCEDURAL_ACT': return `act-${entry.proceduralAct.id}`
         case 'INTERRUPTIVE_ACT': return `interruptive-${entry.interruptiveAct.id}`
+        case 'QUALIFICATION_PRESCRIPTION_DECLARATION': return `qualification-prescription-${entry.legalQualification.id}`
         case 'PRESCRIPTION_DECLARATION': return 'prescription'
     }
 }
@@ -108,6 +110,7 @@ function TimelineItem({ entry, onModifyAct }: {
     switch (entry.type) {
         case 'PROCEDURAL_ACT': return <ProceduralActItem entry={entry} onModify={onModifyAct} />
         case 'INTERRUPTIVE_ACT': return <InterruptiveActItem entry={entry} />
+        case 'QUALIFICATION_PRESCRIPTION_DECLARATION': return <QualificationPrescriptionItem entry={entry} />
         case 'PRESCRIPTION_DECLARATION': return <PrescriptionItem entry={entry} />
     }
 }
@@ -192,6 +195,22 @@ function InterruptiveActItem({ entry }: { entry: TimelineInterruptiveActEntry })
 }
 
 /** El pase a "Prescripta" (HU33): con la resolución que la declara. */
+/**
+ * D-113: una calificación declarada prescripta. No cierra la causa por sí sola:
+ * eso lo dice, cuando pasa, la entrada "Prescripta" de la causa.
+ */
+function QualificationPrescriptionItem({ entry }: { entry: TimelineQualificationPrescriptionEntry }) {
+    const d = entry.prescriptionDeclaration
+    return (
+        <Item title="Calificación declarada prescripta" date={d.prescriptionDate} modifier="prescribed">
+            <div className="vz-timeline__sub">{entry.legalQualification.name}</div>
+            <div className="vz-timeline__sub">Resolución: {d.resolution}</div>
+            <Notes text={d.grounds} />
+            <RegisteredBy person={d.registeredBy} at={d.registeredAt} />
+        </Item>
+    )
+}
+
 function PrescriptionItem({ entry }: { entry: TimelinePrescriptionEntry }) {
     const d = entry.prescriptionDeclaration
     return (

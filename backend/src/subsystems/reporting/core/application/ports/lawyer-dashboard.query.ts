@@ -22,6 +22,11 @@ export type DashboardCaseRow = {
   dueDate: Date | null;
   lastProceduralActDate: Date | null;
   lastInterruptiveActDate: Date | null;
+  /**
+   * Every interruptive act of the case, by date, for the prescription: whether
+   * one restarts an offense depends on the ones before it (D-113).
+   */
+  interruptiveActDates: Date[];
   /** Its offenses, for the prescription (criminal only; empty in the other jurisdictions). */
   offenses: OffenseForPrescription[];
   responsibleLawyer: DashboardLawyerRef;

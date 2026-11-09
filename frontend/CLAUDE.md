@@ -25,7 +25,7 @@ ver [Revisión de V5 del 05/11/2026](#revisión-de-v5-del-05112026).
    endpoint. El resumen está en [Los mocks](#los-mocks), más abajo.
 4. `docs/Api-Contract/API_CONTRACT_V5.md` — la fuente de verdad del backend.
    Es autocontenido: trae lo de los Sprints 1 a 3 que sigue vigente y lo nuevo
-   del Sprint 4. **Última revisión: 08/11/2026** (D-110, D-111 y D-112). Las decisiones (D-xx), los
+   del Sprint 4. **Última revisión: 08/11/2026** (D-110, D-111, D-112 y D-113). Las decisiones (D-xx), los
    puntos abiertos (C-xx) y lo que queda fuera del contrato están en
    `docs/Api-Contract/DECISIONES.md`. V2, V3 y V4 quedan como registro: ninguno
    es referencia vigente. Si un documento y el contrato no coinciden, manda el
@@ -362,13 +362,16 @@ Los componentes son presentacionales y lo reciben hecho:
     de `casesKeys.lists()` a propósito: registrar un acto invalida los
     listados, y con eso el filtro vuelve a pedir sus opciones.
 - **Detalle de causa.** La barra de prescripción es `CasePrescriptionBar`
-  (también en "Registrar acto procesal"): la que rige mientras no prescribió;
-  si prescribió, la próxima; si prescribieron todas, "Todos los delitos
-  prescribieron." (D-112, `shownPrescription`). La nota la arma
-  `prescriptionNote`. Al pie de los datos del encabezado, "Calificaciones
-  legales" (`CaseQualifications`, prop `details` de `CaseHeader`, sólo penal)
-  lista todos los delitos con "Prescribió el …", "Próximo a prescribir" o
-  "Vigente". El instructor lleva dos datos,
+  (también en "Registrar acto procesal"): la más cercana a prescribir entre
+  las no declaradas; si todas las que faltan declarar cumplieron su plazo,
+  "Todos los delitos que faltan declarar cumplieron su plazo." (D-112, D-113,
+  `shownPrescription`). Debajo, barras chicas con las otras sin declarar que
+  pasaron el 70 % (`otherPrescriptionAlerts`, CA-32.13), en rojo las de plazo
+  cumplido. La nota la arma `prescriptionNote`. Al pie de los datos del
+  encabezado, "Calificaciones legales" (`CaseQualifications`, prop `details`
+  de `CaseHeader`, sólo penal) lista los delitos con "Prescripta el …",
+  "Plazo cumplido", "Próximo a prescribir" o "Vigente", y cada uno sin
+  declarar ofrece "Marcar prescripta" (D-113). El instructor lleva dos datos,
   "Teléfono" e "Interno"; los datos del fuero van en `CaseFacts`. Debajo, la
   línea de vida (`CaseTimeline`). "Registrar acto procesal" va deshabilitado
   para quien no es el abogado responsable, con la nota "Solo el abogado
@@ -479,13 +482,22 @@ Son las de V5. Lo que V4 y V5 cambiaron está marcado con su decisión.
   y `expired`: cuando la que rige ya prescribió, la barra muestra la próxima
   con esos valores, sin calcularlos. `prescription` no cambió: los tableros
   siguen mostrando la prescripta hasta que se marque la causa (D-52).
+  **Desde D-113** la prescripción se declara **por calificación**
+  (`prescriptionDeclaration` en cada una): una declarada no cuenta para
+  `prescription`, para la barra ni para las alertas. "Plazo cumplido" es lo
+  que calcula el sistema; "Prescripta" es lo que declaró una persona.
 - **Actos interruptivos** (HU31): sólo en el penal, sólo el abogado
-  responsable y nunca en una causa cerrada. Reinician la prescripción de todas
-  las calificaciones; rige el de fecha más reciente. No mueven el estado ni el
-  vencimiento de la causa.
-- **Marcar prescripta** (HU33, D-52, D-74): manual, con fecha (no futura) y
-  resolución; el fundamento es opcional. Sólo causas penales con
-  calificaciones. No se deshace.
+  responsable y nunca en una causa cerrada. Reinician la prescripción de las
+  calificaciones que todavía corren: **desde D-113** no reinician una con el
+  plazo cumplido a la fecha del acto, ni una declarada antes del acto. En la
+  línea de vida "rige" el acto del que cuenta `prescription`, no siempre el
+  más reciente. No mueven el estado ni el vencimiento de la causa.
+- **Marcar prescripta** (HU33, D-52, D-74, D-113): manual, con fecha (no
+  futura) y resolución; el fundamento es opcional. Sólo causas penales con
+  calificaciones. No se deshace. **Por calificación** ("Marcar prescripta" en
+  la lista, `useDeclareQualificationPrescription`): la causa sigue abierta y
+  pasa a "Prescripta" al declarar la última. "Marcar toda la causa
+  prescripta" declara las que faltan de una.
 - **Datos propios de cada fuero y tasa** (V4 D-67): "Preso" en el penal
   (`clientDetained`); medida cautelar y acto lesivo en el amparo
   (`injunctionGranted`, `harmfulActDate`, `harmfulActRenews`,
@@ -594,6 +606,7 @@ en la app, en los mocks y en los tests; el backend todavía no.**
 | Cambio | En el front |
 |---|---|
 | Un abogado que no es el responsable sólo consulta y genera el expediente (D-110): no modifica, no da de baja, no marca prescripta ni opera la carpeta. El Administrador y la Secretaría siguen operando cualquier causa (la Secretaría no marca prescripta) | `caseOperation` (`cases/utils/responsibleLawyer.ts`) combina `isResponsibleLawyer` con `cases.operateAnyCase` y `cases.declarePrescriptionAnyCase`. En el detalle, los botones van deshabilitados con su `title`; en "Generar expediente", "Modificá los datos de la causa" no se ofrece. Mock: `403` en `PATCH`/`DELETE /cases/{id}`, `…/prescription` y `…/folder` |
+| Prescripción declarada por calificación (D-113): `prescriptionDeclaration` en cada calificación, `POST /cases/{caseId}/legal-qualifications/{legalQualificationId}/prescription`, la línea de vida suma `QUALIFICATION_PRESCRIPTION_DECLARATION`, un acto interruptivo no reinicia un delito ya prescripto. **Ya está en el backend** (migración `offense_prescription_declaration`) | Tipos, mocks (el endpoint, la regla de los actos, "Marcar toda la causa", el `422` de "Modificar causa"), `useDeclareQualificationPrescription`, el botón por delito en `CaseQualifications`, `PrescriptionDeclarationModal` con `qualificationName`, las barras chicas y la entrada de la línea de vida. Ver `cases/CAMBIOS.md` |
 | Estado de prescripción por calificación (D-112): `elapsedPercentage`, `alert` y `expired` en cada elemento de `legalQualifications[]`. **Ya está en el backend** | Tipo `CaseLegalQualification` y mock (`prescriptionStatus` en `db.ts`). La barra pasa a la próxima a prescribir (`CasePrescriptionBar`) y el encabezado del detalle suma "Calificaciones legales" (`CaseQualifications`). Ver `cases/CAMBIOS.md` |
 | El cliente de la causa no se modifica (D-111) | "Modificar causa" lo muestra bloqueado, como el fuero; `clientId` sale de `UpdateCaseBody` y de `buildCasePatch`; se borró `captionWithClient`. Mock: `400` con `details.clientId` |
 
@@ -1059,14 +1072,12 @@ usuarios de prueba y sus contraseñas están en el README de los mocks.
 
 ## Problemas conocidos
 
-Al 05/11/2026. No se arreglan al paso: cada uno es de su dueño.
+Al 08/11/2026. No se arreglan al paso: cada uno es de su dueño.
 
-1. **`npm test`: de 560, 559 pasan y 1 falla, a propósito** (corrida del
-   05/11/2026). Los 9 E2E (`npm run test:e2e`) pasan.
-   - `tests/unit/contract/endpoints.test.ts`: a `docs/openapi` le faltan cinco
-     endpoints de V5 que el mock ya implementa: `GET /cases/{}/cover`,
-     `GET /cases/{}/documents`, `GET /cases/{}/documents/{}/file`,
-     `PATCH /cases/{}/procedural-acts/{}` y `POST /cases/{}/case-files`.
+1. **`npm test`: pasan todos** (corrida del 08/11/2026). Los tests de prefetch
+   recortan el prefijo de la API con `normalizePath` del mock, así no dependen
+   del `VITE_API_URL` de cada `.env.local`. Los E2E no se corrieron en esta
+   revisión (el 05/11/2026 pasaban los 9).
 2. **`src/features/deadlines/` no tiene pantallas.** La pantalla "Vencimientos"
    no es de ninguna historia (`DECISIONES.md` §3). Sólo tiene el atajo local de
    la campana (`deadlines/CAMBIOS.md`).

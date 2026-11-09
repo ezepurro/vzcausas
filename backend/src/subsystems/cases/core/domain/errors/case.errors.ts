@@ -128,6 +128,9 @@ export class NotResponsibleLawyerError extends ForbiddenActionError {
   static readonly FOR_DEACTIVATING_CASE = 'Solo el abogado responsable de la causa puede darla de baja.';
   static readonly FOR_OPERATING_FOLDER = 'Solo el abogado responsable de la causa puede operar su carpeta.';
   static readonly FOR_DECLARING_PRESCRIPTION = 'Solo el abogado responsable de la causa puede marcarla como prescripta.';
+  /** D-113: declaring the prescription of one legal qualification. */
+  static readonly FOR_DECLARING_QUALIFICATION_PRESCRIPTION =
+    'Solo el abogado responsable de la causa puede declarar la prescripción de sus calificaciones legales.';
 
   /**
    * The message names what was attempted: procedural acts by default (HU26),
@@ -166,6 +169,31 @@ export class PrescriptionNotApplicableError extends BusinessRuleError {
 
   constructor(message = 'La prescripción solo aplica a las causas del fuero penal.') {
     super('PRESCRIPTION_NOT_APPLICABLE', message);
+  }
+}
+
+/**
+ * D-113 — the case does not register the legal qualification whose prescription
+ * is being declared (404). It may exist in `/legal-qualifications`: what matters
+ * is that this case has no offense under it. The `code` is the contract's.
+ */
+export class LegalQualificationNotInCaseError extends NotFoundError {
+  constructor() {
+    super('LEGAL_QUALIFICATION_NOT_FOUND', 'La causa no registra esa calificación legal.');
+  }
+}
+
+/**
+ * D-113 — a legal qualification of the case was already declared prescribed
+ * (422): it cannot be declared again (CA-33.8), and modifying the case cannot
+ * remove it or change its offense date (CA-33.18).
+ */
+export class LegalQualificationAlreadyPrescribedError extends BusinessRuleError {
+  static readonly FOR_DECLARING = 'La calificación legal ya fue declarada prescripta.';
+  static readonly FOR_MODIFYING = 'No se puede quitar ni modificar una calificación legal declarada prescripta.';
+
+  constructor(message = LegalQualificationAlreadyPrescribedError.FOR_DECLARING) {
+    super('LEGAL_QUALIFICATION_ALREADY_PRESCRIBED', message);
   }
 }
 
@@ -214,6 +242,15 @@ export class InvalidProceduralActIdError extends ValidationError {
   constructor() {
     super('INVALID_PATH_PARAMETER', 'El identificador del acto procesal no es válido.', {
       actId: 'Debe ser un número entero válido.',
+    });
+  }
+}
+
+/** D-113: the `legalQualificationId` of the route is not a positive integer (400). */
+export class InvalidLegalQualificationIdError extends ValidationError {
+  constructor() {
+    super('INVALID_PATH_PARAMETER', 'El identificador de la calificación legal no es válido.', {
+      legalQualificationId: 'Debe ser un número entero válido.',
     });
   }
 }

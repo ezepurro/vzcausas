@@ -25,6 +25,12 @@ export interface OffenseForPrescription {
   legalQualificationName: string;
   prescriptionMonths: number;
   offenseDate: Date;
+  /**
+   * The date of the prescription a court declared for this offense (D-113), or
+   * `null`/absent while it was not declared. A declared offense no longer
+   * governs the case and no later interruptive act restarts it.
+   */
+  prescriptionDeclaredOn?: Date | null;
 }
 
 /** The `prescription` of a case (V4 §3.7): the one of the qualification that prescribes first. */
@@ -68,18 +74,35 @@ export function addPrescriptionMonths(start: Date, months: number): Date {
 }
 
 /**
- * The date a qualification's prescription counts from (HU31).
+ * The date a qualification's prescription counts from (HU31, D-113).
  *
- * It is the date of the case's **most recent** interruptive act (by its act
- * date, not by when it was registered), unless that act is older than the
- * offense: the prescription never counts from before the offense itself
- * (CA-31.5). Without interruptive acts it is the offense date.
+ * The interruptive acts of the case are taken in date order, starting from the
+ * offense date. An act restarts the term only if it is:
+ * - not before the start in force (the offense date, or the act that last
+ *   restarted it): an act older than the offense never counts (CA-31.5);
+ * - before the expiry in force: once the term is met, the offense prescribed
+ *   and no act revives it — on the expiry day itself it is already met
+ *   (CA-31.14);
+ * - before the date of its declared prescription, if it was declared (D-113).
+ *
+ * Without interruptive acts it is the offense date. The order the acts were
+ * registered in does not matter.
  */
-export function prescriptionStartsOn(offenseDate: Date, lastInterruptiveActDate: Date | null): Date {
-  if (lastInterruptiveActDate === null || lastInterruptiveActDate < offenseDate) {
-    return offenseDate;
+export function prescriptionStartsOn(
+  offense: Pick<OffenseForPrescription, 'offenseDate' | 'prescriptionMonths' | 'prescriptionDeclaredOn'>,
+  interruptiveActDates: readonly Date[],
+): Date {
+  const declaredOn = offense.prescriptionDeclaredOn ?? null;
+  let startsOn = offense.offenseDate;
+  for (const actDate of [...interruptiveActDates].sort((a, b) => a.getTime() - b.getTime())) {
+    const expiresOn = addPrescriptionMonths(startsOn, offense.prescriptionMonths);
+    const restarts =
+      actDate >= startsOn && actDate < expiresOn && (declaredOn === null || actDate < declaredOn);
+    if (restarts) {
+      startsOn = actDate;
+    }
   }
-  return lastInterruptiveActDate;
+  return startsOn;
 }
 
 /** Only a criminal case prescribes: in the other jurisdictions the prototype says "No aplica al fuero". */
@@ -114,10 +137,10 @@ export class Prescription implements PrescriptionSummary {
   static of(
     jurisdiction: JurisdictionCode,
     offenses: readonly OffenseForPrescription[],
-    lastInterruptiveActDate: Date | null,
+    interruptiveActDates: readonly Date[],
     today: Date,
   ): Prescription | null {
-    return prescribesIn(jurisdiction) ? Prescription.governing(offenses, lastInterruptiveActDate, today) : null;
+    return prescribesIn(jurisdiction) ? Prescription.governing(offenses, interruptiveActDates, today) : null;
   }
 
   /**
@@ -126,15 +149,21 @@ export class Prescription implements PrescriptionSummary {
    * so the result does not depend on the order of the rows), even when its term
    * is already met (D-52).
    *
+   * It is chosen among the offenses whose prescription was **not** declared
+   * (D-113): a declared one no longer governs. When all of them were declared
+   * —the case is "Prescripta"— among all of them, as historical data.
+   *
    * `null` when there is nothing to compute: a case without qualifications
    * (D-74). The jurisdiction is not looked at here; see {@link Prescription.of}.
    */
   static governing(
     offenses: readonly OffenseForPrescription[],
-    lastInterruptiveActDate: Date | null,
+    interruptiveActDates: readonly Date[],
     today: Date,
   ): Prescription | null {
-    const [first] = Prescription.ofEach(offenses, lastInterruptiveActDate, today).sort(
+    const pending = offenses.filter((offense) => (offense.prescriptionDeclaredOn ?? null) === null);
+    const candidates = pending.length > 0 ? pending : offenses;
+    const [first] = Prescription.ofEach(candidates, interruptiveActDates, today).sort(
       (a, b) => a.expiresOn.getTime() - b.expiresOn.getTime() || a.legalQualificationId - b.legalQualificationId,
     );
     return first ?? null;
@@ -148,10 +177,10 @@ export class Prescription implements PrescriptionSummary {
    */
   static ofEach(
     offenses: readonly OffenseForPrescription[],
-    lastInterruptiveActDate: Date | null,
+    interruptiveActDates: readonly Date[],
     today: Date,
   ): Prescription[] {
-    return offenses.map((offense) => Prescription.termOf(offense, lastInterruptiveActDate, today));
+    return offenses.map((offense) => Prescription.termOf(offense, interruptiveActDates, today));
   }
 
   /** The three fields the contract adds to each qualification (D-112). */
@@ -166,10 +195,10 @@ export class Prescription implements PrescriptionSummary {
    */
   private static termOf(
     offense: OffenseForPrescription,
-    lastInterruptiveActDate: Date | null,
+    interruptiveActDates: readonly Date[],
     today: Date,
   ): Prescription {
-    const startsOn = prescriptionStartsOn(offense.offenseDate, lastInterruptiveActDate);
+    const startsOn = prescriptionStartsOn(offense, interruptiveActDates);
     const expiresOn = addPrescriptionMonths(startsOn, offense.prescriptionMonths);
 
     const totalDays = (expiresOn.getTime() - startsOn.getTime()) / DAY_MS;
@@ -198,8 +227,8 @@ export class Prescription implements PrescriptionSummary {
  */
 export function summarizePrescription(
   offenses: readonly OffenseForPrescription[],
-  lastInterruptiveActDate: Date | null,
+  interruptiveActDates: readonly Date[],
   today: Date,
 ): PrescriptionSummary | null {
-  return Prescription.governing(offenses, lastInterruptiveActDate, today);
+  return Prescription.governing(offenses, interruptiveActDates, today);
 }

@@ -34,6 +34,7 @@ import { ListOpenDeadlines } from './core/application/use-cases/case/list-open-d
 import { ListProceduralActs } from './core/application/use-cases/procedural-act/list-procedural-acts.use-case';
 import { RegisterInterruptiveAct } from './core/application/use-cases/interruptive-act/register-interruptive-act.use-case';
 import { DeclarePrescription } from './core/application/use-cases/prescription/declare-prescription.use-case';
+import { DeclareQualificationPrescription } from './core/application/use-cases/prescription/declare-qualification-prescription.use-case';
 import { UpdateCase } from './core/application/use-cases/case/update-case.use-case';
 import { DeactivateCase } from './core/application/use-cases/case/deactivate-case.use-case';
 import { RegisterCase } from './core/application/use-cases/case/register-case.use-case';
@@ -171,6 +172,7 @@ import { PrismaProceduralActRepository } from './infrastructure/persistence/pris
     CaseHttpMapper,
     // HU33: marks a criminal case as prescribed; answers with the detail (`GetCase`).
     DeclarePrescription,
+    DeclareQualificationPrescription,
     UpdateCase,
     // HU21: logical baja, audited.
     DeactivateCase,

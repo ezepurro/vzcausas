@@ -94,6 +94,11 @@ export interface DeclarePrescriptionInput {
   now: Date;
 }
 
+/** D-113 — declaring the prescription of one legal qualification of the case. */
+export interface DeclareQualificationPrescriptionInput extends DeclarePrescriptionInput {
+  legalQualificationId: number;
+}
+
 /**
  * What the use case found out about the state an act would end up in (HU28). The
  * aggregate decides with it; it only looks it up.
@@ -204,6 +209,25 @@ export abstract class Case {
    */
   declarePrescription(_input: DeclarePrescriptionInput): void {
     throw new PrescriptionNotApplicableError();
+  }
+
+  /**
+   * D-113 — declares one legal qualification prescribed. Same as
+   * {@link Case.declarePrescription}: only a criminal case prescribes, and
+   * `CriminalCase` overrides it, so the jurisdiction is refused before looking
+   * for the qualification.
+   * @throws PrescriptionNotApplicableError
+   */
+  declareQualificationPrescription(_input: DeclareQualificationPrescriptionInput): void {
+    throw new PrescriptionNotApplicableError();
+  }
+
+  /**
+   * D-113: the legal qualifications whose prescription is not declared yet.
+   * Only a criminal case has any.
+   */
+  get qualificationsPendingPrescription(): number[] {
+    return [];
   }
 
   /** The declaration that the case prescribed. Only a criminal case can have one. */
@@ -494,16 +518,21 @@ export abstract class Case {
   /**
    * Who marks the case as prescribed (HU33, D-110): an administrator, or the
    * responsible lawyer. The secretariat alone may not (CA-33.2); a lawyer who
-   * is not the responsible one is refused with the contract's own wording.
+   * is not the responsible one is refused with the contract's own wording:
+   * `message` is the one of the case (HU33) by default, and D-113 passes its own
+   * for declaring a qualification.
    * @throws NotResponsibleLawyerError
    * @throws CannotDeclarePrescriptionError
    */
-  assertCanDeclarePrescriptionBy(actor: AuthenticatedUser): void {
+  assertCanDeclarePrescriptionBy(
+    actor: AuthenticatedUser,
+    message: string = NotResponsibleLawyerError.FOR_DECLARING_PRESCRIPTION,
+  ): void {
     if (actor.roleNames.includes(ADMINISTRATOR_ROLE) || this.isResponsibleLawyer(actor)) {
       return;
     }
     if (actor.roleNames.includes(LAWYER_ROLE)) {
-      throw new NotResponsibleLawyerError(NotResponsibleLawyerError.FOR_DECLARING_PRESCRIPTION);
+      throw new NotResponsibleLawyerError(message);
     }
     throw new CannotDeclarePrescriptionError();
   }

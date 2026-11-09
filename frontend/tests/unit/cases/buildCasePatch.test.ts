@@ -58,6 +58,7 @@ const CRIMINAL: Case = {
             elapsedPercentage: 38,
             alert: false,
             expired: false,
+            prescriptionDeclaration: null,
         },
         {
             id: 7,
@@ -69,6 +70,7 @@ const CRIMINAL: Case = {
             elapsedPercentage: 100,
             alert: true,
             expired: true,
+            prescriptionDeclaration: null,
         },
     ],
     prescription: null,

@@ -200,6 +200,11 @@ export const ERRORS = {
         'FORBIDDEN',
         'Solo el abogado responsable de la causa puede marcarla como prescripta.',
     ),
+    /** Declarar la prescripción de una calificación siendo abogado, no el responsable (D-113). */
+    forbiddenNotResponsibleQualificationPrescription: errorBody(
+        'FORBIDDEN',
+        'Solo el abogado responsable de la causa puede declarar la prescripción de sus calificaciones legales.',
+    ),
     /** Descargar un documento que no es un expediente (V5 D-103). */
     forbiddenLawyerOrSecretary: errorBody(
         'FORBIDDEN',
@@ -217,6 +222,8 @@ export const ERRORS = {
         'LEGAL_QUALIFICATION_NOT_FOUND',
         'No se encontró la calificación legal solicitada.',
     ),
+    /** La causa no registra la calificación cuya prescripción se declara (D-113). */
+    legalQualificationNotInCase: errorBody('LEGAL_QUALIFICATION_NOT_FOUND', 'La causa no registra esa calificación legal.'),
     clientNotFound: errorBody('CLIENT_NOT_FOUND', 'No se encontró el cliente solicitado.'),
     caseNotFound: errorBody('CASE_NOT_FOUND', 'No se encontró la causa solicitada.'),
     proceduralActNotFound: errorBody('PROCEDURAL_ACT_NOT_FOUND', 'No se encontró el acto procesal solicitado.'),
@@ -296,6 +303,16 @@ export const ERRORS = {
     prescriptionNotApplicable: errorBody(
         'PRESCRIPTION_NOT_APPLICABLE',
         'La prescripción solo aplica a las causas del fuero penal.',
+    ),
+    /** D-113: la calificación ya fue declarada prescripta. */
+    qualificationAlreadyPrescribed: errorBody(
+        'LEGAL_QUALIFICATION_ALREADY_PRESCRIBED',
+        'La calificación legal ya fue declarada prescripta.',
+    ),
+    /** D-113: modificar la causa quitando una declarada o cambiándole la fecha del hecho. */
+    prescribedQualificationLocked: errorBody(
+        'LEGAL_QUALIFICATION_ALREADY_PRESCRIBED',
+        'No se puede quitar ni modificar una calificación legal declarada prescripta.',
     ),
     proceduralStateProtected: errorBody(
         'PROCEDURAL_STATE_PROTECTED',
@@ -598,6 +615,7 @@ const EXAMPLE_CASE: Case = {
             elapsedPercentage: 27,
             alert: false,
             expired: false,
+            prescriptionDeclaration: null,
         },
     ],
     prescription: {
@@ -662,6 +680,7 @@ const EXAMPLE_CREATED_CASE: Case = {
             elapsedPercentage: 69,
             alert: false,
             expired: false,
+            prescriptionDeclaration: null,
         },
     ],
     prescription: {
@@ -736,6 +755,13 @@ const EXAMPLE_PRESCRIBED_CASE: Case = {
             elapsedPercentage: 78,
             alert: true,
             expired: false,
+            prescriptionDeclaration: {
+                prescriptionDate: '2026-09-15',
+                resolution: 'Sentencia N° 214 del Juzgado de Control N° 3',
+                grounds: 'Transcurrió el plazo del art. 62 inc. 2 CP sin actos interruptivos.',
+                registeredBy: { id: 1, lastName: 'Vázquez', firstName: 'Fernando G.' },
+                registeredAt: '2026-09-15T12:20:00-03:00',
+            },
         },
     ],
     prescription: {

@@ -112,8 +112,10 @@ export function withDeadlines(item: CaseListItem, today: Date): CaseListItem {
     legalQualificationName: qualification.name,
     prescriptionMonths: qualification.prescriptionMonths,
     offenseDate: qualification.offenseDate,
+    // D-113: a declared offense no longer governs, and no later act restarts it.
+    prescriptionDeclaredOn: qualification.prescriptionDeclaration?.prescriptionDate ?? null,
   }));
-  const terms = Prescription.ofEach(offenses, item.lastInterruptiveActDate, today);
+  const terms = Prescription.ofEach(offenses, item.interruptiveActDates, today);
 
   return {
     ...item,
@@ -127,7 +129,7 @@ export function withDeadlines(item: CaseListItem, today: Date): CaseListItem {
       ...qualification,
       prescriptionStatus: terms[index].status,
     })),
-    prescription: Prescription.of(item.jurisdiction, offenses, item.lastInterruptiveActDate, today),
+    prescription: Prescription.of(item.jurisdiction, offenses, item.interruptiveActDates, today),
   };
 }
 

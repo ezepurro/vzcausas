@@ -94,6 +94,12 @@ export interface CaseLegalQualification {
     elapsedPercentage: number
     alert: boolean
     expired: boolean
+    /**
+     * La constancia de que esta calificación fue declarada prescripta (D-113),
+     * con la misma forma que la de la causa. `null` mientras no se declaró: que
+     * el plazo esté cumplido (`expired`) no la declara.
+     */
+    prescriptionDeclaration: PrescriptionDeclaration | null
 }
 
 /**

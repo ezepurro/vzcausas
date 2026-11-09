@@ -62,7 +62,7 @@ function anItem(dueDate: Date | null, id = 1): CaseListItem {
     client: CLIENT,
     responsibleLawyer: LAWYER,
     legalQualifications: [],
-    lastInterruptiveActDate: null,
+    interruptiveActDates: [],
     prescription: null,
     prescriptionDeclaration: null,
     startDate: day('2026-09-01'),
@@ -208,6 +208,7 @@ describe('ListCases: prescription (V4 §3.7)', () => {
     prescriptionExpiresOn: day('2032-07-04'),
     // Como lo deja el adaptador: la persistencia no lee el reloj (D-112).
     prescriptionStatus: null,
+    prescriptionDeclaration: null,
   };
 
   async function listOne(item: CaseListItem) {
@@ -220,7 +221,7 @@ describe('ListCases: prescription (V4 §3.7)', () => {
     const item = await listOne({
       ...anItem(null),
       legalQualifications: [robo],
-      lastInterruptiveActDate: day('2024-07-04'),
+      interruptiveActDates: [day('2024-07-04')],
     });
 
     expect(item.prescription).toEqual({
@@ -251,7 +252,7 @@ describe('ListCases: prescription (V4 §3.7)', () => {
     const item = await listOne({
       ...anItem(null),
       legalQualifications: [robo, lesiones],
-      lastInterruptiveActDate: day('2024-07-04'),
+      interruptiveActDates: [day('2024-07-04')],
     });
 
     expect(item.legalQualifications.map((q) => [q.id, q.prescriptionStatus])).toEqual([

@@ -250,6 +250,8 @@ export interface CaseLegalQualification {
     elapsedPercentage: number;
     alert: boolean;
     expired: boolean;
+    /** La declaración de que prescribió (D-113); `null` mientras no se declaró. */
+    prescriptionDeclaration: PrescriptionDeclaration | null;
 }
 
 /**
@@ -504,9 +506,16 @@ export type TimelineEntry =
     | {
           type: 'INTERRUPTIVE_ACT';
           date: string;
-          /** El acto interruptivo más reciente, el que rige la prescripción. */
+          /** El acto del que cuenta `prescription` de la causa (D-113): no siempre el más reciente. */
           governsPrescription: boolean;
           interruptiveAct: InterruptiveAct;
+      }
+    | {
+          /** Una calificación declarada prescripta (D-113). */
+          type: 'QUALIFICATION_PRESCRIPTION_DECLARATION';
+          date: string;
+          legalQualification: { id: number; name: string };
+          prescriptionDeclaration: PrescriptionDeclaration;
       }
     | {
           type: 'PRESCRIPTION_DECLARATION';

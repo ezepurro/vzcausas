@@ -2,6 +2,7 @@ import { DayType } from '../../value-objects/deadline/day-type';
 import { Instructor } from '../../value-objects/case/instructor';
 import { JurisdictionCode } from '../../value-objects/case/jurisdiction-code';
 import { ProceduralRole } from '../../value-objects/case/procedural-role';
+import { PrescriptionDeclaration } from '../../value-objects/prescription/prescription-declaration.vo';
 
 /** An offense of a case as plain data. */
 export interface OffenseSnapshot {
@@ -12,6 +13,8 @@ export interface OffenseSnapshot {
   prescriptionStartsOn: Date;
   /** Never `null`: a criminal case calculates it when it is built (`CriminalCase`). */
   prescriptionExpiresOn: Date;
+  /** The declaration that this offense prescribed (D-113); `null` while it was not declared. */
+  prescriptionDeclaration: PrescriptionDeclaration | null;
 }
 
 /**

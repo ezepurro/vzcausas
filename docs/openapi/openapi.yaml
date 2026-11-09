@@ -367,6 +367,8 @@ paths:
         $ref: paths/cases@{caseId}@timeline.yaml
     /cases/{caseId}/prescription:
         $ref: paths/cases@{caseId}@prescription.yaml
+    /cases/{caseId}/legal-qualifications/{legalQualificationId}/prescription:
+        $ref: paths/cases@{caseId}@legal-qualifications@{legalQualificationId}@prescription.yaml
     /cases/{caseId}/folder:
         $ref: paths/cases@{caseId}@folder.yaml
     /cases/{caseId}/procedural-acts:

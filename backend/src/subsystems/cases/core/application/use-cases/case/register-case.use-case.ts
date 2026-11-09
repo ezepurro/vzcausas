@@ -131,9 +131,9 @@ export class RegisterCase {
       harmfulActDeadline: newCase.harmfulActDeadline(today),
       // Same rule as the listing and the detail (`withDeadlines`). A case being
       // registered has no interruptive acts, so it counts from each offense date.
-      prescription: Prescription.of(snapshot.jurisdictionCode, snapshot.offenses, null, today),
+      prescription: Prescription.of(snapshot.jurisdictionCode, snapshot.offenses, [], today),
       // D-112: the same rule for each offense, in the order of `snapshot.offenses`.
-      offensePrescriptions: Prescription.ofEach(snapshot.offenses, null, today).map((term) => term.status),
+      offensePrescriptions: Prescription.ofEach(snapshot.offenses, [], today).map((term) => term.status),
       folder,
     };
   }

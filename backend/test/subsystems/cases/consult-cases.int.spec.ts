@@ -512,6 +512,7 @@ describe('GET /api/v1/cases/{caseId} (HU22)', () => {
           elapsedPercentage: 100, // 1000 de 731 días: tope 100
           alert: true,
           expired: true,
+          prescriptionDeclaration: null,
         },
         {
           id: b.id,
@@ -523,6 +524,7 @@ describe('GET /api/v1/cases/{caseId} (HU22)', () => {
           elapsedPercentage: 91, // 1000 de 1096 días: 91,24 %
           alert: true,
           expired: false,
+          prescriptionDeclaration: null,
         },
         {
           id: c.id,
@@ -534,6 +536,7 @@ describe('GET /api/v1/cases/{caseId} (HU22)', () => {
           elapsedPercentage: 46, // 1000 de 2192 días: 45,62 %
           alert: false,
           expired: false,
+          prescriptionDeclaration: null,
         },
       ]);
       expect(item.prescription).toEqual({
@@ -687,7 +690,12 @@ describe('GET /api/v1/cases/{caseId}/timeline (HU27)', () => {
   });
 
   // CA-27.4 y CA-27.11
+  // D-113: rige el acto del que cuenta `prescription`; sin calificaciones no rige ninguno.
   it('marca vigente sólo el acto que llevó la causa a su estado actual, y rige el interruptivo de fecha más reciente', async () => {
+    const robbery = await createLegalQualification({ name: 'HU27 Robo — art. 167 CP', prescriptionMonths: 96 });
+    await getPrisma().offense.create({
+      data: { caseId: s.caseRow.id, legalQualificationId: robbery.id, offenseDate: civil('2021-02-27'), prescriptionDate: civil('2029-02-27') },
+    });
     const older = await registerAct({ proceduralStateId: s.states.withoutTerm.stateId, actDate: '2026-09-01' });
     const current = await registerAct({ proceduralStateId: s.states.fiveBusinessDays.stateId, actDate: '2026-10-01' });
     const governing = await registerInterruptive('Indagatoria', '2024-07-04');

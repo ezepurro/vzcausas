@@ -8,6 +8,8 @@ import { errorBody } from '@/shared/mocks'
 import { HOVER_INTENT_MS } from '@/shared/hooks/useHoverIntent'
 import { ALL_STATES } from '@/features/cases/utils/stateFilter'
 import { CasesPage } from '@/features/cases/pages/CasesPage'
+// Recorta el prefijo de la API como el servidor falso: no depende del VITE_API_URL de cada máquina.
+import { normalizePath } from '@/shared/mocks/msw-handlers'
 
 /**
  * El listado de causas (HU-20, Consultar Causas), en `/causas`. Cada test dice
@@ -249,7 +251,7 @@ describe('CasesPage', () => {
             await screen.findByText(LOADED)
             const requested: string[] = []
             server.events.on('request:start', ({ request }) => {
-                requested.push(`${request.method} ${new URL(request.url).pathname.replace(/^\/api/, '')}`)
+                requested.push(`${request.method} ${normalizePath(new URL(request.url).pathname)}`)
             })
 
             try {
@@ -279,7 +281,7 @@ describe('CasesPage', () => {
             server.events.on('request:start', ({ request }) => {
                 const url = new URL(request.url)
                 if (request.method === 'GET' && url.searchParams.has('page')) {
-                    listed.push(`${url.pathname.replace(/^\/api/, '')}?page=${url.searchParams.get('page')}`)
+                    listed.push(`${normalizePath(url.pathname)}?page=${url.searchParams.get('page')}`)
                 }
             })
 
@@ -312,7 +314,7 @@ describe('CasesPage', () => {
             await screen.findByText(LOADED)
             const requested: string[] = []
             server.events.on('request:start', ({ request }) => {
-                requested.push(new URL(request.url).pathname.replace(/^\/api/, ''))
+                requested.push(normalizePath(new URL(request.url).pathname))
             })
 
             try {

@@ -39,7 +39,7 @@ const row = (overrides: Partial<CriminalCasePrescriptionRow> = {}): CriminalCase
   sacNumber: '87654321',
   responsibleLawyerId: 20,
   offenses: [threeYears()],
-  lastInterruptiveActDate: null,
+  interruptiveActDates: [],
   ...overrides,
 });
 
@@ -108,7 +108,7 @@ describe('ListActivePrescriptions', () => {
   // CA-52.3, CA-52.6: el acto interruptivo reinicia el cómputo y la causa sale de alerta.
   it('cuenta desde el último acto interruptivo', async () => {
     const { useCase, query } = build();
-    query.rows = [row({ lastInterruptiveActDate: day('2026-01-01') })];
+    query.rows = [row({ interruptiveActDates: [day('2026-01-01')] })];
 
     const [view] = await useCase.execute({ today: day('2026-03-01') });
 

@@ -30,20 +30,24 @@ export function remainingLabel(expiresOn: string, today: Date = new Date()): str
 }
 
 /**
- * Qué muestra la barra de prescripción (D-112):
+ * Qué muestra la barra de prescripción (D-112, D-113):
  *
  * - `governing`: la que rige la causa, tal como llega en `prescription`. Es el
- *   caso mientras no prescribió, y siempre en una causa ya marcada prescripta,
- *   donde queda como dato histórico.
- * - `next`: la que rige ya prescribió y hay otra calificación que no. Muestra
- *   esa, con los valores que trae del backend.
- * - `allExpired`: prescribieron todas. No hay barra.
+ *   caso mientras no cumplió su plazo, y siempre en una causa ya marcada
+ *   prescripta, donde queda como dato histórico.
+ * - `next`: la que rige ya cumplió su plazo sin que nadie la declarara (sigue
+ *   rigiendo, D-52) y hay otra sin declarar que todavía corre. Muestra esa, la
+ *   más cercana a prescribir, con los valores que trae del backend.
+ * - `allExpired`: todas las que faltan declarar cumplieron su plazo. No hay
+ *   barra principal.
  *
- * `null` fuera del penal o sin calificaciones (D-74): ahí no se dibuja nada.
+ * Las declaradas prescriptas no cuentan (D-113): el backend ya no las elige
+ * para `prescription`, y acá tampoco son la próxima. `null` fuera del penal o
+ * sin calificaciones (D-74): ahí no se dibuja nada.
  */
 export type ShownPrescription =
     | { kind: 'governing'; prescription: CasePrescription }
-    | { kind: 'next'; prescription: CasePrescription; expiredCount: number }
+    | { kind: 'next'; prescription: CasePrescription }
     | { kind: 'allExpired' }
 
 type PrescriptionFields = Pick<Case, 'prescription' | 'legalQualifications' | 'prescriptionDeclaration'>
@@ -51,13 +55,13 @@ type PrescriptionFields = Pick<Case, 'prescription' | 'legalQualifications' | 'p
 export function shownPrescription(c: PrescriptionFields): ShownPrescription | null {
     const { prescription } = c
     if (!prescription) return null
-    if (!prescription.expired || c.prescriptionDeclaration !== null) return { kind: 'governing', prescription }
+    if (c.prescriptionDeclaration !== null) return { kind: 'governing', prescription }
 
     const next = nextQualification(c)
     if (!next) return { kind: 'allExpired' }
+    if (next.id === prescription.legalQualificationId) return { kind: 'governing', prescription }
     return {
         kind: 'next',
-        expiredCount: c.legalQualifications.filter((q) => q.expired).length,
         prescription: {
             legalQualificationId: next.id,
             legalQualificationName: next.name,
@@ -74,9 +78,9 @@ export function shownPrescription(c: PrescriptionFields): ShownPrescription | nu
 
 /**
  * La calificación que prescribe próxima: la de menor vencimiento entre las que
- * todavía no prescribieron (a igual vencimiento, la de menor id, como el
- * backend). `null` si prescribieron todas. Es la que el panel de calificaciones
- * marca "Próximo a prescribir".
+ * no fueron declaradas y todavía corren (a igual vencimiento, la de menor id,
+ * como el backend). `null` si no queda ninguna. Es la que la lista de
+ * calificaciones marca "Próximo a prescribir".
  */
 export function nextToPrescribe(c: Pick<Case, 'legalQualifications'>): number | null {
     return nextQualification(c)?.id ?? null
@@ -85,16 +89,35 @@ export function nextToPrescribe(c: Pick<Case, 'legalQualifications'>): number | 
 function nextQualification(c: Pick<Case, 'legalQualifications'>): CaseLegalQualification | null {
     return (
         c.legalQualifications
-            .filter((q) => !q.expired)
-            .sort((a, b) => a.prescriptionExpiresOn.localeCompare(b.prescriptionExpiresOn) || a.id - b.id)[0] ?? null
+            .filter((q) => q.prescriptionDeclaration === null && !q.expired)
+            .sort(byExpiry)[0] ?? null
     )
 }
 
 /**
+ * Las otras calificaciones sin declarar que pasaron el 70 % de su plazo
+ * (D-113, CA-32.13): van en barras chicas debajo de la principal, por
+ * vencimiento. Incluye las que ya cumplieron su plazo y falta declarar. No
+ * incluye la de la barra principal (`shownId`) ni las declaradas.
+ */
+export function otherPrescriptionAlerts(
+    c: Pick<Case, 'legalQualifications'>,
+    shownId: number | null,
+): CaseLegalQualification[] {
+    return c.legalQualifications
+        .filter((q) => q.prescriptionDeclaration === null && q.alert && q.id !== shownId)
+        .sort(byExpiry)
+}
+
+function byExpiry(a: CaseLegalQualification, b: CaseLegalQualification): number {
+    return a.prescriptionExpiresOn.localeCompare(b.prescriptionExpiresOn) || a.id - b.id
+}
+
+/**
  * La nota al pie de la barra: desde cuándo corre el cómputo —el último acto
- * interruptivo o la fecha del hecho (V4 D-49)— y cuál calificación se
- * muestra: con varias, la que prescribe primero; si esa ya prescribió, cuántas
- * prescribieron y cuál es la próxima (D-112).
+ * interruptivo que la reinició o la fecha del hecho (V4 D-49, D-113)— y cuál
+ * calificación se muestra: con varias, la que prescribe primero; si es la
+ * próxima porque la que rige ya cumplió su plazo, lo dice (D-112).
  */
 export function prescriptionNote(
     c: Pick<Case, 'legalQualifications'>,
@@ -105,8 +128,7 @@ export function prescriptionNote(
         ? `Cómputo reiniciado por el acto interruptivo registrado el ${formatDate(lastInterruptiveActDate)}.`
         : 'Sin actos interruptivos registrados: el cómputo corre desde la fecha del hecho.'
     if (shown.kind === 'next') {
-        const prescribed = shown.expiredCount === 1 ? 'Ya prescribió 1 delito.' : `Ya prescribieron ${shown.expiredCount} delitos.`
-        return `${base} ${prescribed} Próximo a prescribir: ${legalQualificationName}.`
+        return `${base} Próximo a prescribir: ${legalQualificationName}.`
     }
     return c.legalQualifications.length > 1
         ? `${base} Calificación que prescribe primero: ${legalQualificationName}.`

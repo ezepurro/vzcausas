@@ -10,6 +10,13 @@ post:
     Marca una causa penal como prescripta (HU33). Es la acción "Marcar
     prescripta" del detalle, que el prototipo ofrece solo en el fuero penal.
 
+    **(Revisión del 08/11/2026, D-113)** Es "Marcar toda la causa
+    prescripta": declara prescriptas, con estos datos, todas las
+    calificaciones que todavía no lo estaban, y cierra la causa. Las ya
+    declaradas conservan su declaración. Para un solo delito, sin cerrar la
+    causa, está
+    `POST /cases/{caseId}/legal-qualifications/{legalQualificationId}/prescription`.
+
     Es una acción **manual**, con la resolución que declara la prescripción
     (D-52). El proceso diario detecta el plazo cumplido (HU52), deja
     `prescription.expired` en `true` y avisa (HU32), pero no cambia el estado
@@ -38,8 +45,8 @@ post:
 
     No existe una operación para revertirlo desde la API.
 
-    **Rol requerido:** `ADMINISTRATOR` o `LAWYER`. No hace falta ser el
-    abogado responsable de la causa.
+    **Rol requerido:** `ADMINISTRATOR`, o `LAWYER` siendo el abogado
+    responsable de la causa (D-110).
   requestBody:
     required: true
     content:
@@ -113,6 +120,15 @@ post:
                   elapsedPercentage: 78
                   alert: true
                   expired: false
+                  prescriptionDeclaration:
+                    prescriptionDate: '2026-09-15'
+                    resolution: Sentencia N° 214 del Juzgado de Control N° 3
+                    grounds: Transcurrió el plazo del art. 62 inc. 2 CP sin actos interruptivos.
+                    registeredBy:
+                      id: 1
+                      lastName: Vázquez
+                      firstName: Fernando G.
+                    registeredAt: '2026-09-15T12:20:00-03:00'
               prescription:
                 legalQualificationId: 2
                 legalQualificationName: Infracción Ley 23.737 — art. 5 inc. c

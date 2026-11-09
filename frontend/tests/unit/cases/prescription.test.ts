@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
     estimatedExpiry,
     nextToPrescribe,
+    otherPrescriptionAlerts,
     prescriptionNote,
     prescriptionProgress,
     shownPrescription,
@@ -60,6 +61,7 @@ describe('prescripción de una causa', () => {
             prescriptionStartsOn: starts.startsOn ?? starts.offenseDate,
             prescriptionExpiresOn: expiresOn,
             ...status,
+            prescriptionDeclaration: null,
         })
         const governingOf = (q: CaseLegalQualification): CasePrescription => ({
             legalQualificationId: q.id,
@@ -99,7 +101,6 @@ describe('prescripción de una causa', () => {
 
             expect(shownPrescription(c)).toEqual({
                 kind: 'next',
-                expiredCount: 1,
                 prescription: {
                     legalQualificationId: 3,
                     legalQualificationName: 'Lesiones graves',
@@ -130,7 +131,8 @@ describe('prescripción de una causa', () => {
             })
         })
 
-        it('si vencieron todas, no hay próxima', () => {
+        // D-113: con el plazo cumplido y sin declarar, ninguna corre: no hay barra principal.
+        it('si vencieron todas las que faltan declarar, no hay próxima', () => {
             const hurto = qualification(6, 'Hurto simple', '2026-03-01', { elapsedPercentage: 100, alert: true, expired: true })
             const c = { prescription: governingOf(amenazas), legalQualifications: [hurto, amenazas], prescriptionDeclaration: null }
 
@@ -144,6 +146,33 @@ describe('prescripción de una causa', () => {
             expect(shownPrescription(c)).toEqual({ kind: 'governing', prescription: c.prescription })
         })
 
+        // D-113: una calificación declarada no es la próxima, aunque su plazo no se haya cumplido.
+        it('una calificación declarada prescripta no cuenta para la barra', () => {
+            const declaredLesiones = { ...lesiones, prescriptionDeclaration: declaration }
+            const c = { prescription: governingOf(robo), legalQualifications: [robo, declaredLesiones], prescriptionDeclaration: null }
+
+            expect(shownPrescription(c)).toEqual({ kind: 'governing', prescription: c.prescription })
+            expect(nextToPrescribe(c)).toBe(robo.id)
+        })
+
+        // D-113, CA-32.13: debajo de la barra, las otras sin declarar que pasaron el 70 %.
+        describe('otherPrescriptionAlerts', () => {
+            it('las otras sin declarar con alerta, por vencimiento, sin la de la barra ni las declaradas', () => {
+                const hurto = qualification(6, 'Hurto simple', '2026-03-01', { elapsedPercentage: 100, alert: true, expired: true })
+                const declaredHurto = { ...hurto, id: 7, prescriptionDeclaration: declaration }
+                const c = { legalQualifications: [robo, lesiones, amenazas, hurto, declaredHurto] }
+
+                // La barra muestra Lesiones (la próxima): quedan las dos vencidas sin declarar.
+                expect(otherPrescriptionAlerts(c, lesiones.id).map((q) => q.id)).toEqual([amenazas.id, hurto.id])
+            })
+
+            it('sin barra principal, son todas las sin declarar con alerta', () => {
+                expect(otherPrescriptionAlerts({ legalQualifications: [amenazas, robo] }, null).map((q) => q.id)).toEqual([
+                    amenazas.id,
+                ])
+            })
+        })
+
         describe('prescriptionNote', () => {
             it('con varias calificaciones nombra la que prescribe primero', () => {
                 const c = { prescription: governingOf(lesiones), legalQualifications: [robo, lesiones], prescriptionDeclaration: null }
@@ -153,13 +182,13 @@ describe('prescripción de una causa', () => {
                 )
             })
 
-            it('si muestra la próxima, dice cuántas prescribieron y cuál sigue', () => {
+            it('si muestra la próxima, dice cuál es', () => {
                 const c = { prescription: governingOf(amenazas), legalQualifications: [robo, amenazas, lesiones], prescriptionDeclaration: null }
                 const shown = shownPrescription(c)
                 if (shown === null || shown.kind === 'allExpired') throw new Error('Se esperaba una barra')
 
                 expect(prescriptionNote(c, shown)).toBe(
-                    'Sin actos interruptivos registrados: el cómputo corre desde la fecha del hecho. Ya prescribió 1 delito. Próximo a prescribir: Lesiones graves.',
+                    'Sin actos interruptivos registrados: el cómputo corre desde la fecha del hecho. Próximo a prescribir: Lesiones graves.',
                 )
             })
         })

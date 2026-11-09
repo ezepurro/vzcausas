@@ -1,6 +1,8 @@
 import {
   CannotDeclarePrescriptionError,
   CaseInTerminalStateError,
+  LegalQualificationAlreadyPrescribedError,
+  LegalQualificationNotInCaseError,
   NotResponsibleLawyerError,
   PrescriptionNotApplicableError,
 } from '../../errors/case.errors';
@@ -16,6 +18,7 @@ import {
   ARCHIVED,
   day,
   DEACTIVATED,
+  HOMICIDE,
   INITIAL_STATES,
   NOW,
   OPPOSITION,
@@ -28,7 +31,14 @@ import {
 import { CaseDeactivation } from '../../value-objects/case/case-deactivation.vo';
 import { JurisdictionCode } from '../../value-objects/case/jurisdiction-code';
 import { ProceduralRole } from '../../value-objects/case/procedural-role';
-import { Case, DeclarePrescriptionInput, RegisterProceduralActInput, TargetStateChoice } from './case.entity';
+import {
+  Case,
+  DeclarePrescriptionInput,
+  DeclareQualificationPrescriptionInput,
+  RegisterProceduralActInput,
+  TargetStateChoice,
+} from './case.entity';
+import { CriminalCase } from './criminal-case.entity';
 import { ProceduralAct } from '../procedural-act.entity';
 
 const LATER = new Date('2026-10-06T18:00:00.000Z');
@@ -695,6 +705,126 @@ describe('Case', () => {
       expect(() =>
         aCriminalCaseWithOffense().declarePrescription(aDeclaration({ prescribedState: ARCHIVED })),
       ).toThrow(/no "Prescripta" state/);
+    });
+  });
+
+  // D-113 (HU33 revisada): la prescripción se declara por calificación legal.
+  describe('declareQualificationPrescription (D-113)', () => {
+    const LATER_NOW = new Date('2026-10-06T19:00:00.000Z');
+    const aCaseWithTwoOffenses = () =>
+      aCase({
+        legalQualifications: [
+          { legalQualificationId: ROBBERY.id, offenseDate: day('2025-01-10') },
+          { legalQualificationId: HOMICIDE.id, offenseDate: day('2025-01-10') },
+        ],
+        legalQualificationRefs: [ROBBERY, HOMICIDE],
+      }) as CriminalCase;
+    const aQualificationDeclaration = (
+      overrides: Partial<DeclareQualificationPrescriptionInput> = {},
+    ): DeclareQualificationPrescriptionInput => ({
+      legalQualificationId: ROBBERY.id,
+      data: { prescriptionDate: day('2026-09-15'), resolution: 'Auto N° 88', grounds: null },
+      prescribedState: PRESCRIBED,
+      actor: anActor({ userId: 9, roleNames: ['ADMINISTRATOR'], lawyerId: null }),
+      today: TODAY,
+      now: LATER_NOW,
+      ...overrides,
+    });
+    const declarationOf = (target: CriminalCase, qualificationId: number) =>
+      target.offenses.find((offense) => offense.legalQualificationId === qualificationId)?.prescriptionDeclaration;
+
+    // CA-33.4, CA-33.5
+    it('guarda la declaración en esa calificación y la causa sigue abierta por las demás', () => {
+      const target = aCaseWithTwoOffenses();
+      const stateBefore = target.currentStateId;
+
+      target.declareQualificationPrescription(aQualificationDeclaration());
+
+      expect(declarationOf(target, ROBBERY.id)).toMatchObject({
+        prescriptionDate: day('2026-09-15'),
+        resolution: 'Auto N° 88',
+        grounds: null,
+        registeredByUserId: 9,
+        registeredAt: LATER_NOW,
+      });
+      expect(declarationOf(target, HOMICIDE.id)).toBeNull();
+      expect(target.currentStateId).toBe(stateBefore);
+      expect(target.prescriptionDeclaration).toBeNull();
+      expect(() => target.assertAcceptsActs()).not.toThrow();
+    });
+
+    // CA-33.4
+    it('al declarar la última, la causa pasa a "Prescripta" con esa declaración', () => {
+      const target = aCaseWithTwoOffenses();
+      target.declareQualificationPrescription(aQualificationDeclaration());
+
+      target.declareQualificationPrescription(
+        aQualificationDeclaration({ legalQualificationId: HOMICIDE.id, data: { prescriptionDate: day('2026-10-01'), resolution: 'Auto N° 91' } }),
+      );
+
+      expect(target.currentStateId).toBe(PRESCRIBED.id);
+      expect(target.currentProceduralActId).toBeNull();
+      expect(target.prescriptionDeclaration).toMatchObject({ prescriptionDate: day('2026-10-01'), resolution: 'Auto N° 91' });
+      expect(declarationOf(target, ROBBERY.id)).toMatchObject({ resolution: 'Auto N° 88' });
+    });
+
+    // CA-33.8, CA-33.9: el negocio antes que los datos.
+    it('rechaza una calificación ajena a la causa, una ya declarada y una causa ya cerrada', () => {
+      const target = aCaseWithTwoOffenses();
+      expect(() => target.declareQualificationPrescription(aQualificationDeclaration({ legalQualificationId: 99 }))).toThrow(
+        LegalQualificationNotInCaseError,
+      );
+      expect(() => target.declareQualificationPrescription(aQualificationDeclaration({ legalQualificationId: 99 }))).toThrow(
+        'La causa no registra esa calificación legal.',
+      );
+
+      target.declareQualificationPrescription(aQualificationDeclaration());
+      const again = () => target.declareQualificationPrescription(aQualificationDeclaration({ data: { resolution: '' } }));
+      expect(again).toThrow(LegalQualificationAlreadyPrescribedError);
+      expect(again).toThrow('La calificación legal ya fue declarada prescripta.');
+
+      // Con las dos declaradas la causa queda "Prescripta": el estado terminal va antes que "ya declarada".
+      target.declareQualificationPrescription(aQualificationDeclaration({ legalQualificationId: HOMICIDE.id }));
+      expect(() => target.declareQualificationPrescription(aQualificationDeclaration())).toThrow(CaseInTerminalStateError);
+    });
+
+    it('fuera del penal no aplica: PRESCRIPTION_NOT_APPLICABLE, antes que buscar la calificación', () => {
+      expect(() => anAdministrativeCase().declareQualificationPrescription(aQualificationDeclaration())).toThrow(
+        PrescriptionNotApplicableError,
+      );
+    });
+
+    // CA-33.3
+    it('con datos inválidos no guarda nada', async () => {
+      const target = aCaseWithTwoOffenses();
+
+      expect(
+        await validationDetailsOf(() =>
+          target.declareQualificationPrescription(aQualificationDeclaration({ data: { resolution: ' ' } })),
+        ),
+      ).toEqual({
+        prescriptionDate: 'La fecha de la prescripción es obligatoria.',
+        resolution: 'La resolución que declara la prescripción es obligatoria.',
+      });
+      expect(declarationOf(target, ROBBERY.id)).toBeNull();
+    });
+
+    // CA-33.17
+    it('"Marcar toda la causa" declara las que faltan y conserva la que ya estaba declarada', () => {
+      const target = aCaseWithTwoOffenses();
+      target.declareQualificationPrescription(aQualificationDeclaration());
+
+      target.declarePrescription({
+        data: { prescriptionDate: day('2026-10-01'), resolution: 'Sentencia N° 214', grounds: null },
+        prescribedState: PRESCRIBED,
+        actor: anActor({ userId: 9, roleNames: ['ADMINISTRATOR'], lawyerId: null }),
+        today: TODAY,
+        now: LATER_NOW,
+      });
+
+      expect(declarationOf(target, ROBBERY.id)).toMatchObject({ resolution: 'Auto N° 88' });
+      expect(declarationOf(target, HOMICIDE.id)).toMatchObject({ resolution: 'Sentencia N° 214' });
+      expect(target.currentStateId).toBe(PRESCRIBED.id);
     });
   });
 

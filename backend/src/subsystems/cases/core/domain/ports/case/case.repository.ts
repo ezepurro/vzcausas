@@ -60,6 +60,8 @@ export type CaseQualificationView = {
    * use case fills it.
    */
   prescriptionStatus: PrescriptionStatus | null;
+  /** The declaration that this offense prescribed (D-113); `null` while it was not declared. */
+  prescriptionDeclaration: PrescriptionDeclarationView | null;
 };
 
 /**
@@ -115,11 +117,11 @@ export type CaseListItem = {
   /** Empty unless the case is criminal. A deactivated qualification still shows (RN12). */
   legalQualifications: CaseQualificationView[];
   /**
-   * The date of the most recent interruptive act (HU31), the one the
-   * prescription counts from. Not part of the resource: it is what
-   * `summarizePrescription` needs to fill `prescription`.
+   * The dates of the interruptive acts of the case (HU31), in date order. Not
+   * part of the resource: whether each one restarts an offense depends on the
+   * ones before it (D-113), and `prescriptionStartsOn` needs them all.
    */
-  lastInterruptiveActDate: Date | null;
+  interruptiveActDates: Date[];
   /**
    * The prescription that governs the case (contract V4 §3.7): the one of the
    * qualification that prescribes first. The read port leaves it `null`: like
@@ -232,12 +234,14 @@ export interface CaseRepository {
   saveCurrentAct(updatedCase: Case): Promise<void>;
 
   /**
-   * Saves that the case was marked as prescribed (HU33): its new state, its
-   * empty current act and the declaration, in one write. Only a case that was
-   * not marked yet is written, so two simultaneous markings cannot both win.
-   * @returns `false` if the case was already marked (nothing written).
+   * Saves the prescription declarations of this request (HU33, D-113): those of
+   * the offenses of `declaredQualificationIds`, and the case's —its new state,
+   * its empty current act and its declaration— if it was closed. In one
+   * transaction, and each one only if it was not declared yet, so of two
+   * simultaneous declarations of the same thing only one writes.
+   * @returns `false` if one of them was already declared (nothing written).
    */
-  saveDeclaredPrescription(prescribedCase: Case): Promise<boolean>;
+  saveDeclaredPrescription(prescribedCase: Case, declaredQualificationIds: readonly number[]): Promise<boolean>;
 
   /**
    * Saves that the case was given de baja (HU21): `active` in `false` and who,

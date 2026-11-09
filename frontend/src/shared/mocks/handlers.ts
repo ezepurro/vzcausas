@@ -2435,7 +2435,72 @@ const declarePrescription: Handler = ({ request, params }) => {
         registeredById: auth.user.id,
         registeredAt: nowIso(),
     };
+    // D-113, CA-33.17: declara las calificaciones que faltaban; las declaradas conservan la suya.
+    for (const q of stored.qualifications) {
+        if (!q.prescriptionDeclaration) q.prescriptionDeclaration = { ...stored.prescriptionDeclaration };
+    }
     // Devuelve la causa entera: cambian varias partes a la vez (D-54).
+    return ok(itemBody(toCase(stored)));
+};
+
+/* ------------------------------------------------------------------ */
+/* /cases/{caseId}/legal-qualifications/{legalQualificationId}/prescription */
+/* ------------------------------------------------------------------ */
+
+/**
+ * D-113: declara prescripta una calificación de la causa. La causa sigue
+ * abierta por las demás; si era la última sin declarar, pasa a "Prescripta"
+ * con esa misma declaración. Mismo cuerpo y mismos permisos que la causa
+ * entera. Orden del contrato: 404 causa → 403 → 422 fuero → 404 calificación →
+ * 422 terminal → 422 ya declarada → 400 de los datos.
+ */
+const declareQualificationPrescription: Handler = ({ request, params }) => {
+    const auth = requireAdministratorOrLawyer(request);
+    if (!auth.ok) return auth.response;
+
+    const caseId = readRouteId(params, 'caseId');
+    if (caseId === undefined) return fail(400, ERRORS.invalidCaseId);
+    const qualificationId = readRouteId(params, 'legalQualificationId');
+    if (qualificationId === undefined) {
+        return fail(400, errorBody('INVALID_PATH_PARAMETER', 'El identificador de la calificación legal no es válido.', {
+            legalQualificationId: 'Debe ser un número entero válido.',
+        }));
+    }
+
+    const stored = db.cases.find((c) => c.id === caseId && c.active);
+    if (!stored) return fail(404, ERRORS.caseNotFound);
+    if (!canDeclarePrescription(auth.user, stored)) {
+        return fail(403, ERRORS.forbiddenNotResponsibleQualificationPrescription);
+    }
+    if (stored.jurisdiction !== 'CRIMINAL') return fail(422, ERRORS.prescriptionNotApplicable);
+    const qualification = stored.qualifications.find((q) => q.legalQualificationId === qualificationId);
+    if (!qualification) return fail(404, ERRORS.legalQualificationNotInCase);
+    if (isInTerminalState(stored.id)) return fail(422, ERRORS.caseInTerminalStateOperation);
+    if (qualification.prescriptionDeclaration) return fail(422, ERRORS.qualificationAlreadyPrescribed);
+
+    const body = asObject(request.body);
+    const details: Record<string, string> = {};
+    const dateError = pastDateError(body.prescriptionDate, 'La fecha de la prescripción es obligatoria.');
+    if (dateError) details.prescriptionDate = dateError;
+    const resolution = asText(body.resolution);
+    if (resolution === '') details.resolution = 'La resolución que declara la prescripción es obligatoria.';
+    else if (resolution.length > NAME_TEXT_MAX) details.resolution = `Puede tener hasta ${NAME_TEXT_MAX} caracteres.`;
+    const grounds = optionalText(body.grounds);
+    const groundsError = maxLengthError(grounds, NOTES_MAX);
+    if (groundsError) details.grounds = groundsError;
+    if (Object.keys(details).length > 0) return validationError(details);
+
+    qualification.prescriptionDeclaration = {
+        prescriptionDate: body.prescriptionDate as string,
+        resolution,
+        grounds,
+        registeredById: auth.user.id,
+        registeredAt: nowIso(),
+    };
+    // La última sin declarar cierra la causa (CA-33.4).
+    if (stored.qualifications.every((q) => q.prescriptionDeclaration)) {
+        stored.prescriptionDeclaration = { ...qualification.prescriptionDeclaration };
+    }
     return ok(itemBody(toCase(stored)));
 };
 
@@ -2638,6 +2703,8 @@ const getCaseTimeline: Handler = ({ request, params }) => {
     const c = toCase(stored);
     const currentActId = c.currentState.proceduralActId;
     const interruptive = interruptiveActsOf(stored.id);
+    const governingDate = c.prescription?.lastInterruptiveActDate ?? null;
+    const governingActId = interruptive.find((act) => act.actDate === governingDate)?.id ?? null;
 
     const entries: (TimelineEntry & { registeredAt: string })[] = [
         ...actsOf(stored.id).map((act) => ({
@@ -2647,14 +2714,26 @@ const getCaseTimeline: Handler = ({ request, params }) => {
             proceduralAct: toProceduralAct(act),
             registeredAt: act.registeredAt,
         })),
-        ...interruptive.map((act, index) => ({
+        ...interruptive.map((act) => ({
             type: 'INTERRUPTIVE_ACT' as const,
             date: act.actDate,
-            // La lista viene de la más reciente a la más antigua: rige la primera.
-            governsPrescription: index === 0,
+            // D-113: rige el acto del que cuenta `prescription`; la lista viene de la más
+            // reciente a la más antigua, así que a igual fecha rige el primero.
+            governsPrescription: governingActId === act.id,
             interruptiveAct: toInterruptiveAct(act),
             registeredAt: act.registeredAt,
         })),
+        ...c.legalQualifications.flatMap((q) =>
+            q.prescriptionDeclaration
+                ? [{
+                      type: 'QUALIFICATION_PRESCRIPTION_DECLARATION' as const,
+                      date: q.prescriptionDeclaration.prescriptionDate,
+                      legalQualification: { id: q.id, name: q.name },
+                      prescriptionDeclaration: q.prescriptionDeclaration,
+                      registeredAt: q.prescriptionDeclaration.registeredAt,
+                  }]
+                : [],
+        ),
         ...(c.prescriptionDeclaration
             ? [{
                   type: 'PRESCRIPTION_DECLARATION' as const,
@@ -3211,6 +3290,16 @@ const updateCase: Handler = ({ request, params }) => {
     if (keys.includes('legalQualifications') && stored.prescriptionDeclaration) {
         return fail(422, ERRORS.prescribedCaseQualifications);
     }
+    // D-113, CA-33.18: una calificación declarada queda, con su fecha del hecho y su declaración.
+    if (keys.includes('legalQualifications')) {
+        for (const declared of stored.qualifications.filter((q) => q.prescriptionDeclaration)) {
+            const kept = next.qualifications.find((q) => q.legalQualificationId === declared.legalQualificationId);
+            if (!kept || kept.offenseDate !== declared.offenseDate) {
+                return fail(422, ERRORS.prescribedQualificationLocked);
+            }
+            kept.prescriptionDeclaration = declared.prescriptionDeclaration;
+        }
+    }
 
     const folderMoves = next.caption !== stored.caption || next.responsibleLawyerId !== stored.responsibleLawyerId;
     Object.assign(stored, next);
@@ -3752,6 +3841,7 @@ const ROUTES: Route[] = [
     { method: 'GET', path: '/cases/:caseId/cover', pattern: /^\/cases\/(?<caseId>[^/]+)\/cover$/, handler: getCaseCover },
 
     { method: 'POST', path: '/cases/:caseId/prescription', pattern: /^\/cases\/(?<caseId>[^/]+)\/prescription$/, handler: declarePrescription },
+    { method: 'POST', path: '/cases/:caseId/legal-qualifications/:legalQualificationId/prescription', pattern: /^\/cases\/(?<caseId>[^/]+)\/legal-qualifications\/(?<legalQualificationId>[^/]+)\/prescription$/, handler: declareQualificationPrescription },
     { method: 'POST', path: '/cases/:caseId/folder', pattern: /^\/cases\/(?<caseId>[^/]+)\/folder$/, handler: createCaseFolder },
 
     { method: 'POST', path: '/cases/:caseId/procedural-acts', pattern: /^\/cases\/(?<caseId>[^/]+)\/procedural-acts$/, handler: createProceduralAct },

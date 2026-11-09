@@ -1,3 +1,4 @@
+import { OffenseForPrescription } from '../../prescription';
 import { InterruptiveActView } from '../interruptive-act/interruptive-act.repository';
 import { ProceduralActView } from '../procedural-act/procedural-act.repository';
 
@@ -27,6 +28,17 @@ export type CaseTimelineSources = {
   proceduralActs: ProceduralActView[];
   interruptiveActs: InterruptiveActView[];
   /** `null` while the case was not marked as prescribed. */
+  prescriptionDeclaration: PrescriptionDeclarationView | null;
+  /**
+   * D-113: the offenses of the case, with their declaration if they were
+   * declared prescribed. Each declaration is an entry of the line of life, and
+   * which interruptive act governs depends on them (`prescription.ts`).
+   */
+  offenses: TimelineOffense[];
+};
+
+/** An offense as the line of life needs it (D-113). */
+export type TimelineOffense = OffenseForPrescription & {
   prescriptionDeclaration: PrescriptionDeclarationView | null;
 };
 

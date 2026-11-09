@@ -418,4 +418,110 @@ describe('POST /api/v1/cases/:caseId/prescription', () => {
       expect(await getPrisma().interruptiveAct.count({ where: { caseId: s.caseRow.id } })).toBe(0);
     });
   });
+
+  // ── D-113: declarar la prescripción de una calificación ─────────────────
+  // Plan: .claude/plans/tests-d113-prescripcion-por-delito.md. Causa con A (24 meses) y
+  // C (72 meses), hecho del 10/01/2024. Al 06/10/2026: A al 100 % y vencida; C al 46 %.
+  describe('POST /api/v1/cases/:caseId/legal-qualifications/:legalQualificationId/prescription (D-113)', () => {
+    const declareOne = (
+      caseId: number,
+      qualificationId: number,
+      actor: { Authorization: string },
+      body: object = { prescriptionDate: '2026-09-15', resolution: 'Auto N° 88' },
+    ) =>
+      server().post(`/api/v1/cases/${caseId}/legal-qualifications/${qualificationId}/prescription`).set(actor).send(body);
+
+    async function addOffense(caseId: number, months: number) {
+      qualificationSeq += 1;
+      const qualification = await createLegalQualification({
+        prescriptionMonths: months,
+        name: `HU33 calificación ${qualificationSeq} — art. ${qualificationSeq} CP`,
+      });
+      await getPrisma().offense.create({
+        data: { caseId, legalQualificationId: qualification.id, offenseDate: civil('2024-01-10'), prescriptionDate: civil('2024-01-10') },
+      });
+      return qualification;
+    }
+
+    const byId = (data: Record<string, any>) =>
+      [...data.legalQualifications].sort((x: { id: number }, y: { id: number }) => x.id - y.id);
+
+    // CA-33.1, CA-33.4, CA-33.5, CA-33.19
+    it('declara una calificación y la causa sigue abierta; al declarar la última, pasa a "Prescripta"', async () => {
+      const a = await addOffense(s.caseRow.id, 24);
+      const c = await addOffense(s.caseRow.id, 72);
+      const stateBefore = (await detail(s.caseRow.id)).currentState;
+
+      const first = expectData<Record<string, any>>(await declareOne(s.caseRow.id, a.id, s.responsible), 200);
+
+      expect(Object.keys(first).sort()).toEqual(CASE_KEYS);
+      const [declaredA, pendingC] = byId(first);
+      expect(declaredA.prescriptionDeclaration).toEqual({
+        prescriptionDate: '2026-09-15',
+        resolution: 'Auto N° 88',
+        grounds: null,
+        registeredBy: { id: s.user.id, lastName: s.user.lastName, firstName: s.user.firstName },
+        registeredAt: REGISTERED_AT,
+      });
+      expect(pendingC.prescriptionDeclaration).toBeNull();
+      // La que rige pasa a C: A ya no cuenta.
+      expect(first.prescription).toMatchObject({ legalQualificationId: c.id, elapsedPercentage: 46, expired: false });
+      expect(first.currentState).toEqual(stateBefore);
+      expect(first.prescriptionDeclaration).toBeNull();
+
+      const second = expectData<Record<string, any>>(
+        await declareOne(s.caseRow.id, c.id, administrator, { prescriptionDate: '2026-10-01', resolution: 'Auto N° 91' }),
+        200,
+      );
+
+      expect(second.currentState).toMatchObject({ proceduralStateId: s.states.prescribed.stateId, name: 'Prescripta', dueDate: null });
+      expect(second.prescriptionDeclaration).toMatchObject({ prescriptionDate: '2026-10-01', resolution: 'Auto N° 91' });
+      expect(await getPrisma().offense.findMany({ where: { caseId: s.caseRow.id }, orderBy: { legalQualificationId: 'asc' } })).toEqual([
+        expect.objectContaining({ prescriptionDeclaredOn: civil('2026-09-15'), prescriptionResolution: 'Auto N° 88' }),
+        expect.objectContaining({ prescriptionDeclaredOn: civil('2026-10-01'), prescriptionResolution: 'Auto N° 91' }),
+      ]);
+    });
+
+    // CA-33.1 (D-110), CA-33.8, CA-33.9: cada rechazo con el texto del contrato, y la base sin cambios.
+    it('rechaza un abogado ajeno, una calificación que la causa no registra y una ya declarada, sin escribir', async () => {
+      const a = await addOffense(s.caseRow.id, 24);
+      await addOffense(s.caseRow.id, 72); // sigue abierta después de declarar A
+      const foreign = await createLegalQualification({ prescriptionMonths: 24, name: 'HU33 calificación ajena — art. 1 CP' });
+
+      const notResponsible = await declareOne(s.caseRow.id, a.id, s.notResponsible);
+      expectError(notResponsible, 403, 'FORBIDDEN');
+      expect(notResponsible.body.error.message).toBe(
+        'Solo el abogado responsable de la causa puede declarar la prescripción de sus calificaciones legales.',
+      );
+
+      const notInCase = await declareOne(s.caseRow.id, foreign.id, s.responsible);
+      expectError(notInCase, 404, 'LEGAL_QUALIFICATION_NOT_FOUND');
+      expect(notInCase.body.error.message).toBe('La causa no registra esa calificación legal.');
+      expect(await getPrisma().offense.count({ where: { caseId: s.caseRow.id, prescriptionDeclaredOn: { not: null } } })).toBe(0);
+
+      await declareOne(s.caseRow.id, a.id, s.responsible).expect(200);
+      const again = await declareOne(s.caseRow.id, a.id, s.responsible, { prescriptionDate: '2026-10-01', resolution: 'Otra' });
+      expectError(again, 422, 'LEGAL_QUALIFICATION_ALREADY_PRESCRIBED');
+      expect(again.body.error.message).toBe('La calificación legal ya fue declarada prescripta.');
+      expect(await getPrisma().offense.findUniqueOrThrow({
+        where: { caseId_legalQualificationId: { caseId: s.caseRow.id, legalQualificationId: a.id } },
+      })).toMatchObject({ prescriptionResolution: 'Auto N° 88' });
+    });
+
+    // CA-33.17
+    it('"Marcar toda la causa" declara las que faltan y la ya declarada conserva su declaración', async () => {
+      const a = await addOffense(s.caseRow.id, 24);
+      const c = await addOffense(s.caseRow.id, 72);
+      await declareOne(s.caseRow.id, a.id, s.responsible).expect(200);
+
+      const data = expectData<Record<string, any>>(await mark(s.caseRow.id, administrator), 200);
+
+      const [declaredA, declaredC] = byId(data);
+      expect(declaredA.id).toBe(a.id);
+      expect(declaredA.prescriptionDeclaration).toMatchObject({ resolution: 'Auto N° 88' });
+      expect(declaredC.id).toBe(c.id);
+      expect(declaredC.prescriptionDeclaration).toMatchObject({ resolution: VALID_BODY.resolution });
+      expect(data.currentState.name).toBe('Prescripta');
+    });
+  });
 });

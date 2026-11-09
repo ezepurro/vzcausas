@@ -154,6 +154,7 @@ post:
                       elapsedPercentage: 69
                       alert: false
                       expired: false
+                      prescriptionDeclaration: null
                   prescription:
                     legalQualificationId: 1
                     legalQualificationName: Robo calificado — art. 167 inc. 2 CP
@@ -231,6 +232,7 @@ post:
                       elapsedPercentage: 69
                       alert: false
                       expired: false
+                      prescriptionDeclaration: null
                   prescription:
                     legalQualificationId: 1
                     legalQualificationName: Robo calificado — art. 167 inc. 2 CP
@@ -552,6 +554,7 @@ get:
                     elapsedPercentage: 27
                     alert: false
                     expired: false
+                    prescriptionDeclaration: null
                 prescription:
                   legalQualificationId: 1
                   legalQualificationName: Robo calificado — art. 167 inc. 2 CP

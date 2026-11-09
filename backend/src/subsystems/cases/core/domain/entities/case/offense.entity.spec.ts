@@ -78,6 +78,8 @@ describe('Offense', () => {
       offenseDate: day('2021-02-27'),
       prescriptionStartsOn: day('2021-02-27'),
       prescriptionExpiresOn: day('2029-02-27'),
+      // D-113: sin declarar.
+      prescriptionDeclaration: null,
     });
   });
 

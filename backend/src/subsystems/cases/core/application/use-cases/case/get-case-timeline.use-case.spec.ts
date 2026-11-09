@@ -7,10 +7,20 @@ import {
 } from '../../../domain/ports/case/case-timeline-query.port';
 import { InterruptiveActView } from '../../../domain/ports/interruptive-act/interruptive-act.repository';
 import { ProceduralActView } from '../../../domain/ports/procedural-act/procedural-act.repository';
-import { anAct, day } from '../../../test-support/case-fixtures';
+import { FakeClock } from '../../../test-support/case-fakes';
+import { NOW, TODAY, anAct, day } from '../../../test-support/case-fixtures';
 import { GetCaseTimeline, TimelineEntry } from './get-case-timeline.use-case';
 
 const at = (iso: string) => new Date(iso);
+
+/** Robo calificado, 96 meses desde el 27/02/2021: los actos de 2023 y 2024 lo reinician. */
+const robbery = {
+  legalQualificationId: 1,
+  legalQualificationName: 'Robo calificado',
+  prescriptionMonths: 96,
+  offenseDate: day('2021-02-27'),
+  prescriptionDeclaration: null,
+};
 const RIOS = { lastName: 'Ríos', firstName: 'Malena' };
 
 function procedural(id: number, actDate: string, registeredAt = `${actDate}T15:00:00.000Z`): ProceduralActView {
@@ -51,6 +61,7 @@ class FakeTimelineQuery implements CaseTimelineQueryPort {
     proceduralActs: [],
     interruptiveActs: [],
     prescriptionDeclaration: null,
+    offenses: [],
   };
 
   async findSources(): Promise<CaseTimelineSources | null> {
@@ -67,6 +78,8 @@ function shape(entries: TimelineEntry[]): string[] {
         return `P${entry.proceduralAct.act.id} ${date}`;
       case 'INTERRUPTIVE_ACT':
         return `I${entry.interruptiveAct.act.id} ${date}`;
+      case 'QUALIFICATION_PRESCRIPTION_DECLARATION':
+        return `DECLARADA ${entry.legalQualification.id} ${date}`;
       case 'PRESCRIPTION_DECLARATION':
         return `PRESCRIPTA ${date}`;
     }
@@ -79,7 +92,7 @@ describe('GetCaseTimeline', () => {
 
   beforeEach(() => {
     query = new FakeTimelineQuery();
-    useCase = new GetCaseTimeline(query);
+    useCase = new GetCaseTimeline(query, new FakeClock(NOW, TODAY));
   });
 
   // CA-27.1 y CA-27.2
@@ -89,6 +102,7 @@ describe('GetCaseTimeline', () => {
       proceduralActs: [procedural(2, '2025-05-10'), procedural(1, '2023-01-15')],
       interruptiveActs: [interruptive(7, '2024-07-04')],
       prescriptionDeclaration: declaration('2026-09-30'),
+      offenses: [],
     };
 
     const entries = await useCase.execute({ caseId: 1 });
@@ -130,6 +144,7 @@ describe('GetCaseTimeline', () => {
 
   // CA-27.11
   it('el interruptivo que rige es el de fecha más reciente, aunque se haya registrado antes', async () => {
+    query.sources!.offenses = [robbery];
     query.sources!.interruptiveActs = [
       // Registrado último, pero con fecha anterior: no rige (CA-31.4).
       interruptive(9, '2023-03-01', '2026-10-01T15:00:00.000Z'),
@@ -147,6 +162,7 @@ describe('GetCaseTimeline', () => {
   });
 
   it('con dos interruptivos de la misma fecha rige el de id mayor, y uno solo', async () => {
+    query.sources!.offenses = [robbery];
     query.sources!.interruptiveActs = [interruptive(7, '2024-07-04'), interruptive(8, '2024-07-04')];
 
     const entries = await useCase.execute({ caseId: 1 });
@@ -154,6 +170,27 @@ describe('GetCaseTimeline', () => {
 
     expect(governing).toHaveLength(1);
     expect(governing[0].type === 'INTERRUPTIVE_ACT' && governing[0].interruptiveAct.act.id).toBe(8);
+  });
+
+  // D-113, CA-31.14: rige el acto del que cuenta `prescription`, no siempre el más reciente.
+  it('un acto posterior al vencimiento de la calificación que rige no rige', async () => {
+    // 24 meses desde el 10/01/2024: vence el 10/01/2026; el acto del 01/03/2026 no la reinicia.
+    query.sources!.offenses = [{ ...robbery, prescriptionMonths: 24, offenseDate: day('2024-01-10') }];
+    query.sources!.interruptiveActs = [interruptive(7, '2026-03-01')];
+
+    const [entry] = await useCase.execute({ caseId: 1 });
+
+    expect(entry).toMatchObject({ type: 'INTERRUPTIVE_ACT', governsPrescription: false });
+  });
+
+  // D-113, CA-33.16: cada calificación declarada es una entrada, con su calificación.
+  it('incluye una entrada por cada calificación declarada prescripta', async () => {
+    query.sources!.offenses = [robbery, { ...robbery, legalQualificationId: 2, prescriptionDeclaration: declaration('2026-09-15') }];
+
+    const entries = await useCase.execute({ caseId: 1 });
+
+    expect(shape(entries)).toEqual(['DECLARADA 2 2026-09-15']);
+    expect(entries[0]).toMatchObject({ legalQualification: { id: 2, name: 'Robo calificado' } });
   });
 
   // CA-27.12

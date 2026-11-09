@@ -4,6 +4,7 @@ import { CurrentUser } from '@shared/infrastructure/http/current-user.decorator'
 import { PaginatedResponse, paginate, toPageRequest } from '@shared/infrastructure/http/pagination/pagination';
 import { DeactivateCase } from '../../../core/application/use-cases/case/deactivate-case.use-case';
 import { DeclarePrescription } from '../../../core/application/use-cases/prescription/declare-prescription.use-case';
+import { DeclareQualificationPrescription } from '../../../core/application/use-cases/prescription/declare-qualification-prescription.use-case';
 import { GetCase } from '../../../core/application/use-cases/case/get-case.use-case';
 import { GetProceduralAct } from '../../../core/application/use-cases/procedural-act/get-procedural-act.use-case';
 import { ListCases } from '../../../core/application/use-cases/case/list-cases.use-case';
@@ -17,6 +18,7 @@ import { UpdateProceduralAct } from '../../../core/application/use-cases/procedu
 import {
   CaseFolderUnavailableError,
   InvalidCaseIdError,
+  InvalidLegalQualificationIdError,
   InvalidProceduralActIdError,
 } from '../../../core/domain/errors/case.errors';
 import { CaseFolderResponseDto, CaseResponseDto } from '../dtos/case/case.response.dto';
@@ -61,6 +63,7 @@ export class CasesController {
     private readonly updateCase: UpdateCase,
     private readonly deactivateCase: DeactivateCase,
     private readonly updateProceduralAct: UpdateProceduralAct,
+    private readonly declareQualificationPrescription: DeclareQualificationPrescription,
   ) {}
 
   /**
@@ -216,6 +219,33 @@ export class CasesController {
   }
 
   /**
+   * D-113: declares one legal qualification of a criminal case prescribed (HU33
+   * revised). `200` with the whole case, as `POST …/prescription`; the case
+   * moves to "Prescripta" only when it was the last one pending. Same body and
+   * same validation as the case's, so the same request DTO.
+   *
+   * No permission is declared, as for the case: the domain refuses the
+   * secretariat and a lawyer who is not the responsible one with the
+   * contract's own `403` texts.
+   */
+  @Post(':caseId/legal-qualifications/:legalQualificationId/prescription')
+  @HttpCode(HttpStatus.OK)
+  async declareQualificationPrescribed(
+    @Param('caseId') caseIdParam: string,
+    @Param('legalQualificationId') legalQualificationIdParam: string,
+    @Body() dto: DeclarePrescriptionRequestDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ): Promise<{ data: CaseResponseDto }> {
+    const item = await this.declareQualificationPrescription.execute({
+      ...dto,
+      caseId: this.parseCaseId(caseIdParam),
+      legalQualificationId: this.parseLegalQualificationId(legalQualificationIdParam),
+      actor,
+    });
+    return { data: this.caseMapper.toResponse(item) };
+  }
+
+  /**
    * HU26. Only the lawyer in charge of the case may register its acts (D-30):
    * the domain checks it, so no permission is declared here either.
    */
@@ -309,6 +339,14 @@ export class CasesController {
       actor,
     );
     return { data: this.proceduralActMapper.toResponse(await this.updateProceduralAct.execute(command)) };
+  }
+
+  private parseLegalQualificationId(raw: string): number {
+    const legalQualificationId = Number(raw);
+    if (!Number.isInteger(legalQualificationId) || legalQualificationId <= 0) {
+      throw new InvalidLegalQualificationIdError();
+    }
+    return legalQualificationId;
   }
 
   private parseCaseId(raw: string): number {

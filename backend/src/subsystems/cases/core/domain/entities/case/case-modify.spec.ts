@@ -1,5 +1,9 @@
 import { ValidationError } from '@shared/domain/domain-error';
-import { CaseInTerminalStateError, EmptyCaseUpdateError } from '../../errors/case.errors';
+import {
+  CaseInTerminalStateError,
+  EmptyCaseUpdateError,
+  LegalQualificationAlreadyPrescribedError,
+} from '../../errors/case.errors';
 import { DayType } from '../../value-objects/deadline/day-type';
 import { JurisdictionCode } from '../../value-objects/case/jurisdiction-code';
 import { ProceduralRole } from '../../value-objects/case/procedural-role';
@@ -7,11 +11,13 @@ import { PrescriptionDeclaration } from '../../value-objects/prescription/prescr
 import {
   aCase,
   aCaseInState,
+  anActor,
   anAdministrativeCase,
   ARCHIVED,
   day,
   HOMICIDE,
   NOW,
+  PRESCRIBED,
   ROBBERY,
   TODAY,
 } from '../../../test-support/case-fixtures';
@@ -247,6 +253,48 @@ describe('CriminalCase.modify', () => {
 
     expect(() => prescribed.modify({ legalQualifications: [], caption: '' }, context())).toThrow(CaseInTerminalStateError);
     expect(prescribed.modify({ court: 'Juzgado N° 3' }, context()).fields).toEqual(['court']);
+  });
+});
+
+// D-113, CA-33.18: una calificación declarada prescripta queda fija.
+describe('CriminalCase.modify con una calificación declarada prescripta', () => {
+  const ROBBERY_ITEM = { legalQualificationId: ROBBERY.id, offenseDate: day('2021-02-27') };
+  const HOMICIDE_ITEM = { legalQualificationId: HOMICIDE.id, offenseDate: day('2021-02-27') };
+  const withRobberyDeclared = () => {
+    const target = aCase({ legalQualifications: [ROBBERY_ITEM, HOMICIDE_ITEM], legalQualificationRefs: [ROBBERY, HOMICIDE] }) as CriminalCase;
+    target.declareQualificationPrescription({
+      legalQualificationId: ROBBERY.id,
+      data: { prescriptionDate: day('2026-09-15'), resolution: 'Auto N° 88', grounds: null },
+      prescribedState: PRESCRIBED,
+      actor: anActor({ userId: 9, roleNames: ['ADMINISTRATOR'], lawyerId: null }),
+      today: TODAY,
+      now: LATER,
+    });
+    return target;
+  };
+
+  it('no se puede quitar la calificación declarada', () => {
+    const attempt = () => withRobberyDeclared().modify({ legalQualifications: [HOMICIDE_ITEM] }, context());
+
+    expect(attempt).toThrow(LegalQualificationAlreadyPrescribedError);
+    expect(attempt).toThrow('No se puede quitar ni modificar una calificación legal declarada prescripta.');
+  });
+
+  it('no se puede cambiar la fecha del hecho de la calificación declarada', () => {
+    expect(() =>
+      withRobberyDeclared().modify(
+        { legalQualifications: [{ ...ROBBERY_ITEM, offenseDate: day('2021-03-01') }, HOMICIDE_ITEM] },
+        context(),
+      ),
+    ).toThrow(LegalQualificationAlreadyPrescribedError);
+  });
+
+  it('se puede quitar la que no está declarada, y la declarada conserva su declaración', () => {
+    const target = withRobberyDeclared();
+
+    expect(target.modify({ legalQualifications: [ROBBERY_ITEM] }, context()).fields).toEqual(['legalQualifications']);
+    expect(target.offenses.map((offense) => offense.legalQualificationId)).toEqual([ROBBERY.id]);
+    expect(target.offenses[0].prescriptionDeclaration).toMatchObject({ resolution: 'Auto N° 88' });
   });
 });
 

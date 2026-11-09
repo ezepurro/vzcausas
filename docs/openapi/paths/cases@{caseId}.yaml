@@ -92,6 +92,7 @@ get:
                   elapsedPercentage: 27
                   alert: false
                   expired: false
+                  prescriptionDeclaration: null
               prescription:
                 legalQualificationId: 1
                 legalQualificationName: Robo calificado — art. 167 inc. 2 CP
@@ -149,7 +150,9 @@ patch:
     Drive no responde, la causa se guarda igual y `folder.path` informa la
     ubicación real.
 
-    **Rol requerido:** cualquier usuario autenticado.
+    **Rol requerido:** quien opera la causa (D-110): el abogado responsable,
+    un `ADMINISTRATOR` o una `SECRETARY`. Un usuario cuyo único rol es `LAWYER`
+    y que no es el responsable recibe `403`, después del `404`.
   requestBody:
     required: true
     content:
@@ -223,16 +226,28 @@ patch:
               message: Ya existe una causa registrada con ese número de SAC.
               details: null
     '422':
-      description: Calificaciones en una causa "Prescripta" (D-96).
+      description: |
+        Calificaciones en una causa "Prescripta" (D-96), o quitar o cambiar la
+        fecha del hecho de una calificación declarada prescripta (D-113).
       content:
         application/json:
           schema:
             $ref: ../components/schemas/Error.yaml
-          example:
-            error:
-              code: CASE_IN_TERMINAL_STATE
-              message: La causa se encuentra en un estado terminal y no admite esta operación.
-              details: null
+          examples:
+            terminalState:
+              summary: Calificaciones de una causa "Prescripta"
+              value:
+                error:
+                  code: CASE_IN_TERMINAL_STATE
+                  message: La causa se encuentra en un estado terminal y no admite esta operación.
+                  details: null
+            prescribedQualification:
+              summary: Calificación declarada prescripta (D-113)
+              value:
+                error:
+                  code: LEGAL_QUALIFICATION_ALREADY_PRESCRIBED
+                  message: No se puede quitar ni modificar una calificación legal declarada prescripta.
+                  details: null
 delete:
   tags:
     - Cases
@@ -256,7 +271,9 @@ delete:
     queda como estaba. El motivo, el
     usuario y la fecha quedan registrados, sin endpoint de consulta.
 
-    **Rol requerido:** cualquier usuario autenticado.
+    **Rol requerido:** quien opera la causa (D-110): el abogado responsable,
+    un `ADMINISTRATOR` o una `SECRETARY`. Un usuario cuyo único rol es `LAWYER`
+    y que no es el responsable recibe `403`, después del `404`.
   requestBody:
     required: false
     content:

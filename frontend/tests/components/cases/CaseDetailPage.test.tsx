@@ -121,19 +121,24 @@ describe('CaseDetailPage', () => {
             expect(screen.getByText('20/06/2030')).toBeInTheDocument()
             expect(
                 screen.getByText(
-                    'Cómputo reiniciado por el acto interruptivo registrado el 20/06/2024. Ya prescribió 1 delito. Próximo a prescribir: Encubrimiento — art. 277 CP.',
+                    'Cómputo reiniciado por el acto interruptivo registrado el 20/06/2024. Próximo a prescribir: Encubrimiento — art. 277 CP.',
                 ),
             ).toBeInTheDocument()
+            // D-113, CA-32.13: debajo, la que cumplió su plazo y falta declarar, en su barra chica.
+            expect(screen.getByRole('meter', { name: 'Prescripción transcurrida de Amenazas coactivas — art. 149 bis CP' }))
+                .toHaveAttribute('aria-valuetext', 'Plazo cumplido · falta declararla')
         })
 
-        it('si prescribieron todos los delitos, no hay barra y lo dice', async () => {
+        // D-113: ninguna corre y falta declararlas: no hay barra principal, sólo las chicas.
+        it('si todas las que faltan declarar cumplieron su plazo, no hay barra principal y lo dice', async () => {
             const stored = db.cases.find((c) => c.id === 13)!
             stored.qualifications = stored.qualifications.filter((q) => q.legalQualificationId === 4)
             renderPage(13)
             await headerOf('Causa 12660318')
 
-            expect(screen.getByText('Todos los delitos prescribieron.')).toBeInTheDocument()
+            expect(screen.getByText('Todos los delitos que faltan declarar cumplieron su plazo.')).toBeInTheDocument()
             expect(screen.queryByText('Prescripción de la acción', { exact: false })).not.toBeInTheDocument()
+            expect(screen.getAllByRole('meter')).toHaveLength(1)
         })
 
         // D-112: el encabezado lista todos los delitos de la causa, con su estado.
@@ -146,7 +151,8 @@ describe('CaseDetailPage', () => {
             // Por vencimiento: primero la que ya prescribió.
             expect(rows).toHaveLength(2)
             expect(rows[0]).toHaveTextContent('Amenazas coactivas — art. 149 bis CP')
-            expect(rows[0]).toHaveTextContent('Prescribió el 02/07/2026')
+            // D-113: cumplió su plazo pero nadie la declaró: "Plazo cumplido", no "Prescripta".
+            expect(rows[0]).toHaveTextContent('Plazo cumplido')
             expect(rows[1]).toHaveTextContent('Encubrimiento — art. 277 CP')
             expect(rows[1]).toHaveTextContent('Próximo a prescribir')
             expect(rows[1]).toHaveTextContent('6 años · vence el 20/06/2030')

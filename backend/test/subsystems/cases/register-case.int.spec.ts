@@ -160,6 +160,7 @@ describe('POST /api/v1/cases', () => {
           elapsedPercentage: 70,
           alert: true,
           expired: false,
+          prescriptionDeclaration: null,
         },
       ],
       // §3.7: calculada desde el alta. Al 06/10/2026 transcurrieron 2047 de

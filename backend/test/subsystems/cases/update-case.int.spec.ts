@@ -248,6 +248,30 @@ describe('PATCH /api/v1/cases/:caseId', () => {
       expect(without.prescription).toBeNull();
       expect(await getPrisma().offense.count({ where: { caseId: s.caseRow.id } })).toBe(0);
     });
+
+    // D-113, CA-33.18: una calificación declarada prescripta queda fija.
+    it('no deja quitar una calificación declarada prescripta (422) y no se escribe nada', async () => {
+      const robbery = await createLegalQualification({ name: 'HU19 Robo declarado', prescriptionMonths: 96 });
+      const homicide = await createLegalQualification({ name: 'HU19 Homicidio', prescriptionMonths: 180 });
+      await patch({
+        legalQualifications: [
+          { legalQualificationId: robbery.id, offenseDate: '2021-02-27' },
+          { legalQualificationId: homicide.id, offenseDate: '2021-02-27' },
+        ],
+      }).expect(200);
+      await server()
+        .post(`/api/v1/cases/${s.caseRow.id}/legal-qualifications/${robbery.id}/prescription`)
+        .set(s.responsible)
+        .send({ prescriptionDate: '2026-09-15', resolution: 'Auto N° 88' })
+        .expect(200);
+      const before = await snapshot();
+
+      const res = await patch({ legalQualifications: [{ legalQualificationId: homicide.id, offenseDate: '2021-02-27' }] });
+
+      expectError(res, 422, 'LEGAL_QUALIFICATION_ALREADY_PRESCRIBED');
+      expect(res.body.error.message).toBe('No se puede quitar ni modificar una calificación legal declarada prescripta.');
+      expect(await snapshot()).toEqual(before);
+    });
   });
 
   describe('amparo y estados terminales', () => {

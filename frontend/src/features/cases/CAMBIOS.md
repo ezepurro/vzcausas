@@ -5,6 +5,46 @@ contrato.
 
 ---
 
+## 2026-11-08 — Prescripción declarada por calificación (D-113)
+
+**Pedido:** del equipo. Cuando un delito prescribía, la única acción era
+"Marcar prescripta" la causa entera, que la cerraba aunque siguiera por los
+demás. Ahora la prescripción se declara **por calificación** (D-113, HU-33
+revisada en Jira VZ-41; también VZ-39 y VZ-40).
+
+**Lista "Calificaciones legales"** (`CaseQualifications`):
+
+- Cada calificación sin declarar ofrece **"Marcar prescripta"**, con el
+  nombre del delito en su nombre accesible ("Marcar prescripta: Amenazas…").
+  Se puede declarar aunque el plazo calculado no se haya cumplido (CA-33.10).
+  Deshabilitado para un abogado que no es el responsable; la Secretaría no lo
+  ve (D-110, CA-33.2).
+- Los rótulos cambiaron: **"Plazo cumplido"** (rojo) es lo que calcula el
+  sistema y falta declarar; **"Prescripta el …"** es lo que declaró una
+  persona. Antes del cambio decía "Prescribió el …" para el plazo cumplido.
+
+**Botón de la causa:** pasa a decir **"Marcar toda la causa prescripta"**
+(CA-33.16) y declara de una las calificaciones que faltan. El modal es el
+mismo (`PrescriptionDeclarationModal`); con `qualificationName` cambia el
+título ("Declarar prescripta la calificación"), la nota y el botón
+("Declarar prescripta"). El aviso es "Calificación declarada prescripta.", o
+el de la causa si era la última.
+
+**Barra:** la principal es la más cercana a prescribir entre las no
+declaradas. Debajo, **barras chicas** con las otras sin declarar que pasaron
+el 70 % (CA-32.13): bronce las que corren, rojo con "Plazo cumplido · falta
+declararla" las vencidas. Si todas las que faltan declarar vencieron, en lugar
+de la barra: "Todos los delitos que faltan declarar cumplieron su plazo.".
+
+**Línea de vida:** cada declaración es una entrada "Calificación declarada
+prescripta", con el delito y la resolución. Al marcar la causa entera
+aparecen también las de sus calificaciones, como devuelve el contrato.
+
+**"Modificar causa"** (CA-33.18): una calificación declarada se muestra
+fija en `LegalQualificationPicker` (`prescribedOn`): sin "Quitar", con la
+fecha del hecho deshabilitada y la nota "Prescripta el …: no se quita ni se
+cambia la fecha del hecho.". El servidor igual lo rechaza con `422`.
+
 ## 2026-11-08 — Prescripción por delito y "asignarme a mí"
 
 **Pedido:** del equipo de front. Cuando un delito prescribe, la barra seguía

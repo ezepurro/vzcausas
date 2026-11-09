@@ -139,6 +139,9 @@ export class CaseHttpMapper {
         prescriptionStartsOn: toIsoDate(qualification.prescriptionStartsOn),
         prescriptionExpiresOn: toIsoDate(qualification.prescriptionExpiresOn),
         ...this.statusOf(qualification),
+        prescriptionDeclaration:
+          qualification.prescriptionDeclaration &&
+          toPrescriptionDeclarationResponse(qualification.prescriptionDeclaration, this.timeZone),
       })),
       prescription: item.prescription && {
         legalQualificationId: item.prescription.legalQualificationId,
@@ -227,9 +230,11 @@ export class CaseHttpMapper {
         prescriptionExpiresOn: offense.prescriptionExpiresOn,
         // D-112: computed by the use case, one per offense in the same order.
         prescriptionStatus: result.offensePrescriptions[index] ?? null,
+        // A case being registered has no declared offense (D-113).
+        prescriptionDeclaration: null,
       })),
       // A case being registered has no interruptive acts and was never marked as prescribed.
-      lastInterruptiveActDate: null,
+      interruptiveActDates: [],
       prescription: result.prescription,
       prescriptionDeclaration: null,
       startDate: newCase.startDate,

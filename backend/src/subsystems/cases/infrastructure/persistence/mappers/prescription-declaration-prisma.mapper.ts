@@ -48,3 +48,30 @@ export function toPrescriptionDeclarationView(
     registeredAt: row.prescriptionRegisteredAt,
   };
 }
+
+/**
+ * D-113 — the declaration columns of one `offenses` row: the same as the case's,
+ * except the date, which is `prescription_declared_on` there
+ * (`prescription_date` is the computed expiry of the offense).
+ */
+export const OFFENSE_PRESCRIPTION_DECLARATION_SELECT = {
+  prescriptionDeclaredOn: true,
+  prescriptionResolution: true,
+  prescriptionGrounds: true,
+  prescriptionRegisteredAt: true,
+  prescriptionRegisteredBy: { select: { id: true, lastName: true, firstName: true } },
+} as const;
+
+/** What {@link toOffensePrescriptionDeclarationView} needs from the offense row. */
+export type OffensePrescriptionDeclarationRow = Omit<PrescriptionDeclarationRow, 'prescriptionDate'> & {
+  prescriptionDeclaredOn: Date | null;
+};
+
+/** The declaration of one offense, read like the case's (D-113); `null` while it was not declared. */
+export function toOffensePrescriptionDeclarationView(
+  caseId: number,
+  row: OffensePrescriptionDeclarationRow,
+): PrescriptionDeclarationView | null {
+  const { prescriptionDeclaredOn, ...rest } = row;
+  return toPrescriptionDeclarationView(caseId, { ...rest, prescriptionDate: prescriptionDeclaredOn });
+}

@@ -89,7 +89,7 @@ export function toPrescriptionAlerts(cases: DashboardCaseRow[], today: Date): Pr
   return cases
     .filter((row) => row.jurisdiction === CRIMINAL)
     .flatMap((row) => {
-      const summary = summarizePrescription(row.offenses, row.lastInterruptiveActDate, today);
+      const summary = summarizePrescription(row.offenses, row.interruptiveActDates, today);
       if (summary === null || !summary.alert) return [];
       return [
         {

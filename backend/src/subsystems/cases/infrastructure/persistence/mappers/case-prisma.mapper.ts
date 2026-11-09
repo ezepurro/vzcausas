@@ -135,6 +135,30 @@ export class CasePrismaMapper {
       },
       offenseDate: row.offenseDate,
       prescriptionExpiresOn: row.prescriptionDate,
+      prescriptionDeclaration: CasePrismaMapper.toOffensePrescriptionDeclaration(row),
+    });
+  }
+
+  /**
+   * The declaration that the offense prescribed (D-113), or `null` while it was
+   * not declared. The `ck_offenses_prescription_*` CHECKs keep the columns
+   * together, as in `cases`, so a date without the rest is corrupt data.
+   */
+  private static toOffensePrescriptionDeclaration(row: OffenseRow): PrescriptionDeclaration | null {
+    if (row.prescriptionDeclaredOn === null) {
+      return null;
+    }
+    if (row.prescriptionResolution === null || row.prescriptionRegisteredByUserId === null || row.prescriptionRegisteredAt === null) {
+      throw new Error(
+        `The offense ${row.legalQualificationId} of case ${row.caseId} has a declared date but an incomplete prescription declaration.`,
+      );
+    }
+    return PrescriptionDeclaration.hydrate({
+      prescriptionDate: row.prescriptionDeclaredOn,
+      resolution: row.prescriptionResolution,
+      grounds: row.prescriptionGrounds,
+      registeredByUserId: row.prescriptionRegisteredByUserId,
+      registeredAt: row.prescriptionRegisteredAt,
     });
   }
 }

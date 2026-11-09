@@ -209,5 +209,29 @@ describe('CaseDetailPage · modificar causa', () => {
         expect(mine).toHaveTextContent(/^Vázquez, Fernando/)
         expect(select).toHaveValue('3')
     })
+
+    /* D-113, CA-33.18: una calificación declarada prescripta no se quita ni cambia su
+       fecha del hecho. El servidor lo rechaza (422); la pantalla no lo ofrece. Causa 13
+       (de mferreyra) con Amenazas coactivas declarada. */
+    it('una calificación declarada prescripta no ofrece "Quitar" y su fecha del hecho queda bloqueada', async () => {
+        db.cases.find((c) => c.id === 13)!.qualifications.find((q) => q.legalQualificationId === 4)!.prescriptionDeclaration = {
+            prescriptionDate: '2026-09-10',
+            resolution: 'Auto N° 88',
+            grounds: null,
+            registeredById: 6,
+            registeredAt: '2026-09-10T12:00:00-03:00',
+        }
+        const { user } = renderPage(13, 'mferreyra')
+        await headerOf('Causa 12660318')
+        await user.click(screen.getByRole('button', { name: 'Modificar causa' }))
+        const dialog = screen.getByRole('dialog', { name: /Modificar causa/ })
+
+        expect(within(dialog).queryByRole('button', { name: /^Quitar Amenazas coactivas/ })).not.toBeInTheDocument()
+        expect(within(dialog).getByLabelText(/^Fecha del hecho de Amenazas coactivas/)).toBeDisabled()
+        expect(within(dialog).getByText(/Prescripta el 10\/09\/2026/)).toBeInTheDocument()
+        // La que no está declarada se sigue pudiendo quitar y corregir.
+        expect(within(dialog).getByRole('button', { name: /^Quitar Encubrimiento/ })).toBeEnabled()
+        expect(within(dialog).getByLabelText(/^Fecha del hecho de Encubrimiento/)).toBeEnabled()
+    })
 })
 

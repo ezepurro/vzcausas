@@ -33,6 +33,8 @@ export class LegalQualificationResponseDto {
   elapsedPercentage!: number;
   alert!: boolean;
   expired!: boolean;
+  /** D-113: its declared prescription, with the same shape as the case's; `null` while it was not declared. */
+  prescriptionDeclaration!: PrescriptionDeclarationResponseDto | null;
 }
 
 export class CurrentStateResponseDto {

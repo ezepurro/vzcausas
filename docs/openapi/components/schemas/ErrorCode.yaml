@@ -38,6 +38,7 @@ description: |
     | `CASE_IN_TERMINAL_STATE`             | 422  | Acto procesal, acto interruptivo o marca de prescripción sobre una causa en estado terminal. También: modificar un acto de una causa "Prescripta", o cambiar las calificaciones legales de una causa "Prescripta" |
     | `CASE_FOLDER_NOT_AVAILABLE`          | 422  | Generar el expediente de una causa sin su carpeta en Drive creada         |
     | `DOCUMENT_NOT_CONVERTIBLE`           | 422  | Un documento elegido para el expediente no se puede convertir a PDF       |
+    | `LEGAL_QUALIFICATION_ALREADY_PRESCRIBED` | 422 | **(08/11/2026, D-113)** Declarar prescripta una calificación que ya lo está, o quitar o cambiar la fecha del hecho de una declarada al modificar la causa |
     | `PRESCRIPTION_NOT_APPLICABLE`        | 422  | Acto interruptivo o marca de prescripción sobre una causa que no es del fuero penal, o marca de prescripción sobre una causa sin calificaciones legales |
     | `PROCEDURAL_STATE_PROTECTED`         | 422  | Modificación o baja del estado de sistema "Prescripta"                    |
     | `BUSINESS_RULE_VIOLATION`            | 422  | Violación de una regla de negocio                                         |
@@ -80,6 +81,7 @@ enum:
     - CASE_FOLDER_NOT_AVAILABLE
     - DOCUMENT_NOT_CONVERTIBLE
     - PRESCRIPTION_NOT_APPLICABLE
+    - LEGAL_QUALIFICATION_ALREADY_PRESCRIBED
     - PROCEDURAL_STATE_PROTECTED
     - BUSINESS_RULE_VIOLATION
     - TOO_MANY_LOGIN_ATTEMPTS

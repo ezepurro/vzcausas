@@ -54,6 +54,8 @@ export class DeclarePrescription {
       targetCase.jurisdictionCode,
     );
 
+    // D-113: the offenses this marking declares are the ones still pending.
+    const declaredQualificationIds = targetCase.qualificationsPendingPrescription;
     targetCase.declarePrescription({
       data: command,
       prescribedState,
@@ -63,7 +65,7 @@ export class DeclarePrescription {
     });
 
     // Another marking of the same case won between our read and this write.
-    if (!(await this.cases.saveDeclaredPrescription(targetCase))) {
+    if (!(await this.cases.saveDeclaredPrescription(targetCase, declaredQualificationIds))) {
       throw new CaseInTerminalStateError(CaseInTerminalStateError.FOR_THIS_OPERATION);
     }
 

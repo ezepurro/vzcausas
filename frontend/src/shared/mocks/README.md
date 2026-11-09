@@ -412,6 +412,7 @@ Para tener el recurso como lo devuelve la API están los serializadores de
 | `POST` | `/cases/{caseId}/case-files` | 201, 400, 401, 404, 422, 502 |
 | `GET` | `/cases/{caseId}/procedural-acts/deadline-preview` | 200, 400, 401, 403, 404 |
 | `POST` | `/cases/{caseId}/prescription` | 200, 400, 401, 403, 404, 422 |
+| `POST` | `/cases/{caseId}/legal-qualifications/{legalQualificationId}/prescription` (D-113) | 200, 400, 401, 403, 404, 422 |
 | `POST` | `/cases/{caseId}/folder` | 200, 400, 401, 404, 502 |
 | `GET` | `/cases/{caseId}/procedural-acts` | 200, 400, 401, 404 |
 | `GET` | `/cases/{caseId}/procedural-acts/{actId}` | 200, 400, 401, 404 |

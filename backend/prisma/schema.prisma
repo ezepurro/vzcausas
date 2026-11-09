@@ -41,6 +41,7 @@ model User {
   interruptiveActs           InterruptiveAct[] @relation("InterruptiveActRegisteredBy")
   // Causas que el usuario marcó como prescriptas (HU33).
   casesMarkedAsPrescribed    Case[]            @relation("CasePrescriptionRegisteredBy")
+  offensesMarkedAsPrescribed Offense[]         @relation("OffensePrescriptionRegisteredBy")
   // Causas que el usuario dio de baja (HU21).
   deactivatedCases           Case[]            @relation("CaseDeactivatedBy")
   // Actos procesales que el usuario modificó por última vez (HU28, D-98).
@@ -511,8 +512,24 @@ model Offense {
   // inicio (RN8, D-49); uno con fecha anterior al vigente no la cambia.
   prescriptionDate     DateTime @map("prescription_date") @db.Date
 
-  case               Case               @relation(fields: [caseId], references: [id], onDelete: Restrict)
-  legalQualification LegalQualification @relation(fields: [legalQualificationId], references: [id], onDelete: Restrict)
+  // Declaración de que este hecho prescribió (HU33, D-113): la carga una
+  // persona con la resolución del tribunal, una por calificación. NULL
+  // mientras no se declaró; se carga una sola vez y no se revierte. No es
+  // `prescription_date` (el vencimiento calculado de arriba): es la fecha de
+  // la prescripción que declara la resolución. CHECK manual, como en `cases`:
+  //   num_nonnulls(prescription_declared_on, prescription_resolution,
+  //                prescription_registered_by_user_id,
+  //                prescription_registered_at) IN (0, 4)
+  //   prescription_grounds IS NULL OR prescription_declared_on IS NOT NULL
+  prescriptionDeclaredOn         DateTime? @map("prescription_declared_on") @db.Date
+  prescriptionResolution         String?   @map("prescription_resolution") @db.VarChar(255)
+  prescriptionGrounds            String?   @map("prescription_grounds") @db.VarChar(2000)
+  prescriptionRegisteredByUserId Int?      @map("prescription_registered_by_user_id")
+  prescriptionRegisteredAt       DateTime? @map("prescription_registered_at") @db.Timestamptz(6)
+
+  case                     Case               @relation(fields: [caseId], references: [id], onDelete: Restrict)
+  legalQualification       LegalQualification @relation(fields: [legalQualificationId], references: [id], onDelete: Restrict)
+  prescriptionRegisteredBy User?              @relation("OffensePrescriptionRegisteredBy", fields: [prescriptionRegisteredByUserId], references: [id], onDelete: Restrict)
 
   @@id([caseId, legalQualificationId])
   @@index([legalQualificationId])
@@ -978,6 +995,9 @@ model AuditLog {
 //   -- Sprint 4 (migración sprint4_manual_constraints)
 //   cases                    ck_cases_deactivation_coherent
 //   cases                    ck_cases_deactivation_reason_not_blank
+//   -- D-113 (migración offense_prescription_declaration)
+//   offenses                 ck_offenses_prescription_declaration_complete
+//   offenses                 ck_offenses_prescription_grounds_need_declaration
 //   procedural_acts          ck_procedural_acts_last_modified_coherent
 //   procedural_acts          ck_procedural_acts_last_modified_after_registered
 //   case_files               ck_case_files_version_positive

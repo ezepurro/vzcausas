@@ -179,6 +179,22 @@ describe('HU52 — verificación diaria de la prescripción', () => {
       ]);
     });
 
+    // D-113, CA-32.5: no se avisa por una calificación ya declarada; la causa se rige por la siguiente.
+    it('no avisa por una calificación declarada prescripta, aunque su plazo esté cumplido', async () => {
+      const tenYears = await qualification(120);
+      const twentyYears = await qualification(240);
+      const declared = await newCase();
+      await withOffense(declared.id, tenYears.id, '2016-10-06'); // cumplido hoy
+      await withOffense(declared.id, twentyYears.id); // 40 %
+      await server()
+        .post(`/api/v1/cases/${declared.id}/legal-qualifications/${tenYears.id}/prescription`)
+        .set(s.responsible)
+        .send({ prescriptionDate: '2026-10-06', resolution: 'Auto N° 88' })
+        .expect(200);
+
+      expect((await detect()).map((notice) => notice.caseId)).not.toContain(declared.id);
+    });
+
     // CA-52.4. A las administrativas y los amparos no se les puede cargar un
     // hecho por la API: se carga directo para probar que el filtro de fuero no
     // depende de eso.
@@ -296,11 +312,12 @@ describe('HU52 — verificación diaria de la prescripción', () => {
     // guarda calculado, se ve en la corrida siguiente. Cambia `expiresOn`, que es
     // parte de la clave de `sent_notifications`, y por eso se vuelve a avisar.
     it('después de un acto interruptivo que reinicia el plazo, vuelve a avisar con la fecha nueva', async () => {
-      // Hecho del 1/1/2000 + 120 meses: prescripta desde el 1/1/2010.
-      await withOffense(s.caseRow.id, (await qualification(120)).id, '2000-01-01');
+      // Hecho del 1/1/2017 + 120 meses: vence el 1/1/2027, al 97,6 %: alerta.
+      await withOffense(s.caseRow.id, (await qualification(120)).id, '2017-01-01');
       await dailyRun();
 
-      // El acto del 6/10/2018 reinicia el cómputo: vence el 6/10/2028, al 80 %.
+      // El acto del 6/10/2018, anterior al vencimiento, reinicia el cómputo: vence el
+      // 6/10/2028, al 80 %. (D-113: uno posterior al vencimiento ya no lo reiniciaría.)
       await interruptiveAct(s.caseRow.id, '2018-10-06');
       emailSender.reset();
       const res = await dailyRun();
@@ -311,7 +328,7 @@ describe('HU52 — verificación diaria de la prescripción', () => {
         orderBy: { id: 'asc' },
       });
       expect(mailboxRows.map((r) => [r.kind, r.referenceDate])).toEqual([
-        ['PRESCRIPTION_EXPIRED', civil('2010-01-01')],
+        ['PRESCRIPTION_ALERT', civil('2027-01-01')],
         ['PRESCRIPTION_ALERT', civil('2028-10-06')],
       ]);
     });

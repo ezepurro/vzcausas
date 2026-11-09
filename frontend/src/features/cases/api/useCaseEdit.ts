@@ -95,7 +95,17 @@ export function useCaseEdit(c: Case) {
         .map((chosenQ): SelectedQualification | null => {
             const q = c.legalQualifications.find((item) => item.id === chosenQ.legalQualificationId)
                 ?? qualifications.find((item) => item.id === chosenQ.legalQualificationId)
-            if (q) return { id: q.id, name: q.name, prescriptionMonths: q.prescriptionMonths, offenseDate: chosenQ.offenseDate }
+            if (q) {
+                // D-113: una declarada prescripta queda fija (CA-33.18).
+                const declaration = 'prescriptionDeclaration' in q ? q.prescriptionDeclaration : null
+                return {
+                    id: q.id,
+                    name: q.name,
+                    prescriptionMonths: q.prescriptionMonths,
+                    offenseDate: chosenQ.offenseDate,
+                    ...(declaration ? { prescribedOn: declaration.prescriptionDate } : {}),
+                }
+            }
             if (qualificationsLoaded) return { id: chosenQ.legalQualificationId, unavailable: true, offenseDate: chosenQ.offenseDate }
             return null
         })

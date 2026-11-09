@@ -87,8 +87,27 @@
   color: var(--vz-faint);
 }
 .vz-presc__note { margin-top: 6px; font-size: 12px; color: var(--vz-muted); }
-/* En lugar de la barra, cuando prescribieron todos los delitos (D-112). */
+/* En lugar de la barra, cuando todos los que faltan declarar cumplieron su plazo (D-113). */
 .vz-presc__done { font-size: 12.5px; font-weight: 700; color: var(--vz-danger); }
+
+/* Las otras calificaciones sin declarar en alerta, debajo de la barra (D-113, CA-32.13):
+   nombre, barra fina y porcentaje en un renglón; en pantalla angosta, la barra baja. */
+.vz-presc-others { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.vz-presc-others__item {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(80px, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+}
+.vz-presc-others__name { color: var(--vz-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vz-presc-others__meter .vz-meter { margin: 0; }
+.vz-presc-others__value { font-family: var(--vz-font-mono); font-size: 11.5px; color: var(--vz-muted); white-space: nowrap; }
+.vz-presc-others__value.is-expired { color: var(--vz-danger); font-family: inherit; font-weight: 600; }
+@media (max-width: 640px) {
+  .vz-presc-others__item { grid-template-columns: minmax(0, 1fr) auto; }
+  .vz-presc-others__meter { grid-column: 1 / -1; grid-row: 2; }
+}
 
 /* ─────────── calificaciones legales, en el encabezado del detalle (D-112) ───────────
    Al pie de la columna de datos, donde la columna del estado deja alto libre.

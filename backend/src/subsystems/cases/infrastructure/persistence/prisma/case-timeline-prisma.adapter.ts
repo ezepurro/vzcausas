@@ -6,7 +6,12 @@ import {
   INTERRUPTIVE_ACTS_NEWEST_FIRST,
   toInterruptiveActView,
 } from './prisma-interruptive-act.repository';
-import { PRESCRIPTION_DECLARATION_SELECT, toPrescriptionDeclarationView } from '../mappers/prescription-declaration-prisma.mapper';
+import {
+  OFFENSE_PRESCRIPTION_DECLARATION_SELECT,
+  PRESCRIPTION_DECLARATION_SELECT,
+  toOffensePrescriptionDeclarationView,
+  toPrescriptionDeclarationView,
+} from '../mappers/prescription-declaration-prisma.mapper';
 import {
   PROCEDURAL_ACT_INCLUDE,
   PROCEDURAL_ACTS_NEWEST_FIRST,
@@ -17,6 +22,15 @@ import {
 const CASE_SELECT = {
   currentProceduralActId: true,
   ...PRESCRIPTION_DECLARATION_SELECT,
+  // D-113: the offenses, with their declarations: entries of their own, and
+  // what decides which interruptive act governs.
+  offenses: {
+    select: {
+      offenseDate: true,
+      ...OFFENSE_PRESCRIPTION_DECLARATION_SELECT,
+      legalQualification: { select: { id: true, name: true, prescriptionMonths: true } },
+    },
+  },
 } as const;
 
 /**
@@ -60,6 +74,13 @@ export class CaseTimelinePrismaAdapter implements CaseTimelineQueryPort {
       proceduralActs: proceduralRows.map(toProceduralActView),
       interruptiveActs: interruptiveRows.map(toInterruptiveActView),
       prescriptionDeclaration: toPrescriptionDeclarationView(caseId, caseRow),
+      offenses: caseRow.offenses.map((offense) => ({
+        legalQualificationId: offense.legalQualification.id,
+        legalQualificationName: offense.legalQualification.name,
+        prescriptionMonths: offense.legalQualification.prescriptionMonths,
+        offenseDate: offense.offenseDate,
+        prescriptionDeclaration: toOffensePrescriptionDeclarationView(caseId, offense),
+      })),
     };
   }
 }
