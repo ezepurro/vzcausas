@@ -21,7 +21,7 @@ import {
     type ClientFormErrors,
     type ClientFormValues,
 } from '@/features/clients'
-import { lawyerLabel, useLawyers } from '@/features/lawyers'
+import { useLawyers } from '@/features/lawyers'
 import { useDocumentTemplates } from '@/features/documents'
 import { useCanAccess } from '@/app/access/useCanAccess'
 import {
@@ -54,6 +54,7 @@ import type { CaseFormValues } from '@/features/cases/types/case'
 import { changeCreateFolder, changeJurisdiction, changeSacNumber, emptyCaseForm } from '@/features/cases/utils/caseForm'
 import { clearCaseDraft, readCaseDraft, writeCaseDraft } from '@/features/cases/utils/caseDraft'
 import { folderFailed, folderNoticeSuffix, folderPathPreview } from '@/features/cases/utils/caseFolder'
+import { buildLawyerOptions } from '@/features/cases/utils/lawyerOptions'
 import { INITIAL_STATE_LABEL } from '@/features/cases/utils/caseState'
 import { estimatedExpiry } from '@/features/cases/utils/prescription'
 import { suggestedCaption } from '@/features/cases/utils/suggestedCaption'
@@ -104,7 +105,7 @@ type ModalState =
 export function RegisterCasePage() {
     const navigate = useNavigate()
     const toast = useToast()
-    const { id: userId } = useCurrentUser()
+    const { id: userId, lawyer: myLawyer } = useCurrentUser()
 
     const [values, setValues] = useState<CaseFormValues>(emptyCaseForm)
     const [errors, setErrors] = useState<CaseFormErrors>({})
@@ -171,10 +172,8 @@ export function RegisterCasePage() {
         label: `${formatClientName(c)} · ${formatDocument(c)}`,
     }))
 
-    const lawyerOptions: SelectOption[] = lawyers.map((l) => ({
-        value: String(l.id),
-        label: lawyerLabel(l),
-    }))
+    /* Si quien registra es abogado, su ficha va primero, con "(asignarme a mí)". */
+    const lawyerOptions: SelectOption[] = buildLawyerOptions(lawyers, myLawyer?.id ?? null)
 
     /** Una calificación ya elegida deja de ofrecerse: no puede repetirse (D-28). */
     const chosen = new Set(values.legalQualifications.map((q) => q.legalQualificationId))

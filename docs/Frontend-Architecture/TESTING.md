@@ -1040,6 +1040,7 @@ en el encabezado con `@backend`. Los mocks ya implementan todo V5
 | 28 Modificar acto procesal | `components/proceedings/RegisterProceduralActPage.edit.test.tsx` (4) |
 | 38 Consultar documentos | `components/cases/CaseDetailPage.documents.test.tsx` (12: los 5 de la consulta y, desde el 03/11/2026, 7 de "Descargar"), `unit/cases/caseDocument.test.ts` (7) |
 | Permisos del servidor falso | `unit/contract/permissions.test.ts` suma los endpoints de V5 abiertos a los tres perfiles (en verde) |
+| Revisión del 08/11/2026 (D-112) y "asignarme a mí" | `unit/cases/prescription.test.ts` (8 de la barra y la nota), `unit/cases/lawyerOptions.test.ts` (3), `components/cases/CaseDetailPage.test.tsx` (5: la barra con el próximo, todos prescriptos y "Calificaciones legales" en el encabezado), `components/cases/RegisterCasePage.test.tsx` (2) y `components/cases/CaseDetailPage.edit.test.tsx` (1). Se escribieron antes que el código, en `feat/front-prescripcion-y-responsable` |
 
 `LawyersPage` y el detalle de causa llevan un archivo por historia, como en el
 Sprint 3: en uno solo pasarían el techo de la [§4](#4-antes-de-escribir-un-test).

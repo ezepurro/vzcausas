@@ -86,6 +86,14 @@ export interface CaseLegalQualification {
     prescriptionStartsOn: string
     /** `prescriptionStartsOn` más `prescriptionMonths`, `YYYY-MM-DD`. */
     prescriptionExpiresOn: string
+    /**
+     * Lo mismo que `prescription` informa de la que rige, pero de esta
+     * calificación (D-112): el porcentaje transcurrido, la alerta del 70 % y si
+     * el plazo ya se cumplió. Los calcula el backend; el front no los recalcula.
+     */
+    elapsedPercentage: number
+    alert: boolean
+    expired: boolean
 }
 
 /**

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useCurrentUser } from '@/app/providers/AuthContext'
 import { useToast } from '@/app/providers/ToastContext'
 import { isApiError } from '@/shared/api/ApiError'
 import type { SelectOption } from '@/shared/components/forms'
@@ -13,6 +14,7 @@ import { isValid, validateCase, type CaseFormErrors } from '@/features/cases/sch
 import type { Case, CaseFormValues } from '@/features/cases/types/case'
 import { buildCasePatch } from '@/features/cases/utils/buildCasePatch'
 import { caseToFormValues, changeEditSacNumber } from '@/features/cases/utils/caseForm'
+import { buildLawyerOptions } from '@/features/cases/utils/lawyerOptions'
 import { toFormErrors } from '@/features/cases/utils/toFormErrors'
 import { useUpdateCase } from './useUpdateCase'
 
@@ -39,6 +41,7 @@ interface EditDialogState {
  */
 export function useCaseEdit(c: Case) {
     const toast = useToast()
+    const { lawyer: myLawyer } = useCurrentUser()
     const updateCase = useUpdateCase(c.id)
     const [dialog, setDialog] = useState<EditDialogState | null>(null)
 
@@ -64,15 +67,14 @@ export function useCaseEdit(c: Case) {
     /* El cliente no se modifica (D-111): se muestra el de la causa. */
     const clientLabel = `${formatClientName(c.client)} · ${formatDocument(c.client)}`
 
-    /* El responsable de la causa se ofrece siempre, aunque el listado no lo
-       traiga: la causa lo tiene, y el select no puede quedar sin la opción
-       elegida. */
-    const lawyerOptions: SelectOption[] = lawyers.map((item) => ({
-        value: String(item.id),
-        label: lawyerLabel(item),
-    }))
+    /* Si quien modifica es abogado, su ficha va primero, con "(asignarme a mí)"
+       (`buildLawyerOptions`). El responsable de la causa se ofrece siempre,
+       aunque el listado no lo traiga: la causa lo tiene, y el select no puede
+       quedar sin la opción elegida. Va después de la ficha propia. */
+    const lawyerOptions = buildLawyerOptions(lawyers, myLawyer?.id ?? null)
     if (!lawyers.some((item) => item.id === c.responsibleLawyer.id)) {
-        lawyerOptions.unshift({
+        const mineFirst = lawyerOptions[0]?.value === String(myLawyer?.id)
+        lawyerOptions.splice(mineFirst ? 1 : 0, 0, {
             value: String(c.responsibleLawyer.id),
             label: lawyerLabel(c.responsibleLawyer),
         })

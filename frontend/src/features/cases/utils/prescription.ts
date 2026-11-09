@@ -4,7 +4,9 @@
  *
  * Desde V4 la calificación que prescribe primero, el porcentaje y la alerta
  * llegan resueltos en `prescription` de la causa (D-51), y la barra los lee de
- * ahí. Del lado del front quedan el rótulo "Restan 5 años 9 meses"
+ * ahí. Desde D-112 cada calificación trae también los suyos, y cuando la que
+ * rige ya prescribió la barra pasa a la próxima (`shownPrescription`), sin
+ * calcular nada. Del lado del front quedan el rótulo "Restan 5 años 9 meses"
  * (`remainingLabel`), la nota del pie (`prescriptionNote`) y el vencimiento
  * estimado del resumen del alta, antes de que la causa exista.
  *
@@ -14,7 +16,7 @@
 
 import { formatDate, parseDateOnly } from '@/shared/lib/dates'
 import type { MeterTone } from '@/shared/components/ui'
-import type { Case, CaseLegalQualification } from '@/features/cases/types/case'
+import type { Case, CaseLegalQualification, CasePrescription } from '@/features/cases/types/case'
 
 /**
  * "Restan 5 años 9 meses", "Restan 20 días": lo que falta hasta `expiresOn`.
@@ -28,18 +30,84 @@ export function remainingLabel(expiresOn: string, today: Date = new Date()): str
 }
 
 /**
+ * Qué muestra la barra de prescripción (D-112):
+ *
+ * - `governing`: la que rige la causa, tal como llega en `prescription`. Es el
+ *   caso mientras no prescribió, y siempre en una causa ya marcada prescripta,
+ *   donde queda como dato histórico.
+ * - `next`: la que rige ya prescribió y hay otra calificación que no. Muestra
+ *   esa, con los valores que trae del backend.
+ * - `allExpired`: prescribieron todas. No hay barra.
+ *
+ * `null` fuera del penal o sin calificaciones (D-74): ahí no se dibuja nada.
+ */
+export type ShownPrescription =
+    | { kind: 'governing'; prescription: CasePrescription }
+    | { kind: 'next'; prescription: CasePrescription; expiredCount: number }
+    | { kind: 'allExpired' }
+
+type PrescriptionFields = Pick<Case, 'prescription' | 'legalQualifications' | 'prescriptionDeclaration'>
+
+export function shownPrescription(c: PrescriptionFields): ShownPrescription | null {
+    const { prescription } = c
+    if (!prescription) return null
+    if (!prescription.expired || c.prescriptionDeclaration !== null) return { kind: 'governing', prescription }
+
+    const next = nextQualification(c)
+    if (!next) return { kind: 'allExpired' }
+    return {
+        kind: 'next',
+        expiredCount: c.legalQualifications.filter((q) => q.expired).length,
+        prescription: {
+            legalQualificationId: next.id,
+            legalQualificationName: next.name,
+            startsOn: next.prescriptionStartsOn,
+            expiresOn: next.prescriptionExpiresOn,
+            elapsedPercentage: next.elapsedPercentage,
+            alert: next.alert,
+            expired: next.expired,
+            // Corre desde un acto sólo si el inicio no es la fecha del hecho (CA-31.5).
+            lastInterruptiveActDate: next.prescriptionStartsOn === next.offenseDate ? null : next.prescriptionStartsOn,
+        },
+    }
+}
+
+/**
+ * La calificación que prescribe próxima: la de menor vencimiento entre las que
+ * todavía no prescribieron (a igual vencimiento, la de menor id, como el
+ * backend). `null` si prescribieron todas. Es la que el panel de calificaciones
+ * marca "Próximo a prescribir".
+ */
+export function nextToPrescribe(c: Pick<Case, 'legalQualifications'>): number | null {
+    return nextQualification(c)?.id ?? null
+}
+
+function nextQualification(c: Pick<Case, 'legalQualifications'>): CaseLegalQualification | null {
+    return (
+        c.legalQualifications
+            .filter((q) => !q.expired)
+            .sort((a, b) => a.prescriptionExpiresOn.localeCompare(b.prescriptionExpiresOn) || a.id - b.id)[0] ?? null
+    )
+}
+
+/**
  * La nota al pie de la barra: desde cuándo corre el cómputo —el último acto
- * interruptivo o la fecha del hecho (V4 D-49)— y, si la causa tiene varias
- * calificaciones, cuál es la que se muestra.
+ * interruptivo o la fecha del hecho (V4 D-49)— y cuál calificación se
+ * muestra: con varias, la que prescribe primero; si esa ya prescribió, cuántas
+ * prescribieron y cuál es la próxima (D-112).
  */
 export function prescriptionNote(
-    c: Pick<Case, 'prescription' | 'legalQualifications'>,
-): string | undefined {
-    if (!c.prescription) return undefined
-    const { lastInterruptiveActDate, legalQualificationName } = c.prescription
+    c: Pick<Case, 'legalQualifications'>,
+    shown: Exclude<ShownPrescription, { kind: 'allExpired' }>,
+): string {
+    const { lastInterruptiveActDate, legalQualificationName } = shown.prescription
     const base = lastInterruptiveActDate
         ? `Cómputo reiniciado por el acto interruptivo registrado el ${formatDate(lastInterruptiveActDate)}.`
         : 'Sin actos interruptivos registrados: el cómputo corre desde la fecha del hecho.'
+    if (shown.kind === 'next') {
+        const prescribed = shown.expiredCount === 1 ? 'Ya prescribió 1 delito.' : `Ya prescribieron ${shown.expiredCount} delitos.`
+        return `${base} ${prescribed} Próximo a prescribir: ${legalQualificationName}.`
+    }
     return c.legalQualifications.length > 1
         ? `${base} Calificación que prescribe primero: ${legalQualificationName}.`
         : base

@@ -87,6 +87,32 @@
   color: var(--vz-faint);
 }
 .vz-presc__note { margin-top: 6px; font-size: 12px; color: var(--vz-muted); }
+/* En lugar de la barra, cuando prescribieron todos los delitos (D-112). */
+.vz-presc__done { font-size: 12.5px; font-weight: 700; color: var(--vz-danger); }
+
+/* ─────────── calificaciones legales, en el encabezado del detalle (D-112) ───────────
+   Al pie de la columna de datos, donde la columna del estado deja alto libre.
+   Un renglón por delito: nombre, plazo y vencimiento, y su píldora. */
+.vz-case-quals { margin-top: 16px; }
+/* El mismo rótulo que "Estado procesal actual". */
+.vz-case-quals__label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: var(--vz-muted);
+}
+.vz-case-quals__list { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.vz-case-quals__item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: 8px;
+  row-gap: 3px;
+  font-size: 13px;
+}
+.vz-case-quals__name { font-weight: 600; color: var(--vz-ink); overflow-wrap: anywhere; }
+.vz-case-quals__term { font-size: 12px; color: var(--vz-muted); }
 
 /* ─────────── calificaciones elegidas en el alta ─────────── */
 .vz-picker { display: flex; flex-direction: column; gap: 8px; }

@@ -157,7 +157,6 @@ patch:
         schema:
           $ref: ../components/schemas/CaseUpdate.yaml
         example:
-          clientId: 9
           caption: FERREYRA, Lucas Martín p.s.a. Robo calificado
   responses:
     '200':

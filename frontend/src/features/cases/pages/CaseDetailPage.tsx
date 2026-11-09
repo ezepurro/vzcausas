@@ -22,7 +22,8 @@ import { CaseDetailSkeleton } from '@/features/cases/components/CaseSkeletons'
 import { CaseTimeline } from '@/features/cases/components/CaseTimeline'
 import { ClientCard } from '@/features/cases/components/ClientCard'
 import { InterruptiveActModal } from '@/features/cases/components/InterruptiveActModal'
-import { PrescriptionBar } from '@/features/cases/components/PrescriptionBar'
+import { CasePrescriptionBar } from '@/features/cases/components/CasePrescriptionBar'
+import { CaseQualifications } from '@/features/cases/components/CaseQualifications'
 import { PrescriptionDeclarationModal } from '@/features/cases/components/PrescriptionDeclarationModal'
 import {
     validateInterruptiveAct,
@@ -36,7 +37,6 @@ import type { Case } from '@/features/cases/types/case'
 import type { InterruptiveActFormValues } from '@/features/cases/types/interruptiveAct'
 import type { PrescriptionDeclarationFormValues } from '@/features/cases/types/prescriptionDeclaration'
 import type { ProceduralAct } from '@/features/cases/types/proceduralAct'
-import { prescriptionNote } from '@/features/cases/utils/prescription'
 import { caseOperation, isResponsibleLawyer } from '@/features/cases/utils/responsibleLawyer'
 import { sacLabel } from '@/features/cases/utils/sac'
 import { toCreateInterruptiveActBody } from '@/features/cases/utils/toCreateInterruptiveActBody'
@@ -299,6 +299,7 @@ function CaseDetail({ case: c }: { case: Case }) {
             <CaseHeader
                 case={c}
                 showInstructor
+                details={<CaseQualifications case={c} />}
                 actions={
                     <>
                         <Button icon={<Icon name="plus" />} disabled={!isResponsible} onClick={goRegisterAct}>
@@ -333,7 +334,7 @@ function CaseDetail({ case: c }: { case: Case }) {
                     </>
                 }
             >
-                <CasePrescription case={c} />
+                <CasePrescriptionBar case={c} />
                 <div className="vz-case-actions">
                     <span className="vz-case-actions__label">Sobre la causa</span>
                     {showCaseActions && (
@@ -445,16 +446,6 @@ function CaseDetail({ case: c }: { case: Case }) {
             )}
         </>
     )
-}
-
-/**
- * La barra de prescripción al pie del encabezado, con la que rige la causa
- * (V4 D-51). Fuera del penal, o en una causa penal sin calificaciones,
- * `prescription` vale `null` y no se dibuja nada (D-74).
- */
-function CasePrescription({ case: c }: { case: Case }) {
-    if (!c.prescription) return null
-    return <PrescriptionBar prescription={c.prescription} note={prescriptionNote(c)} />
 }
 
 /** Error o causa inexistente, dentro de un panel. */

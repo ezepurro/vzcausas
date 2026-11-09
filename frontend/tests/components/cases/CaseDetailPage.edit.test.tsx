@@ -196,4 +196,18 @@ describe('CaseDetailPage · modificar causa', () => {
             await screen.findByText('La causa está prescripta: no se pueden cambiar sus calificaciones legales.'),
         ).toBeInTheDocument()
     })
+
+    /* "Asignarme a mí" (cases/CAMBIOS.md): el Administrador que también es
+       abogado ve su ficha primero; el responsable actual sigue elegido. */
+    it('a quien es abogado le ofrece primero su ficha, y el responsable actual sigue elegido', async () => {
+        const { user } = renderPage(1, 'fvazquez')
+        const dialog = await openEdit(user)
+
+        const select = within(dialog).getByLabelText(/^Abogado responsable/)
+        const mine = await within(select).findByRole('option', { name: /\(asignarme a mí\)$/ })
+        expect(within(select).getAllByRole('option')[0]).toBe(mine)
+        expect(mine).toHaveTextContent(/^Vázquez, Fernando/)
+        expect(select).toHaveValue('3')
+    })
 })
+

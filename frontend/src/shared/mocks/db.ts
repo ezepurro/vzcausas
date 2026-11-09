@@ -1009,18 +1009,39 @@ function embedQualification(
     }
     const prescriptionStartsOn =
         interruptedOn !== null && interruptedOn >= stored.offenseDate ? interruptedOn : stored.offenseDate;
+    const prescriptionExpiresOn = addMonths(prescriptionStartsOn, qualification.prescriptionMonths);
     return {
         id: qualification.id,
         name: qualification.name,
         prescriptionMonths: qualification.prescriptionMonths,
         offenseDate: stored.offenseDate,
         prescriptionStartsOn,
-        prescriptionExpiresOn: addMonths(prescriptionStartsOn, qualification.prescriptionMonths),
+        prescriptionExpiresOn,
+        // D-112: cada calificación informa su estado, con la misma regla que la que rige.
+        ...prescriptionStatus(prescriptionStartsOn, prescriptionExpiresOn),
     };
 }
 
 /** El umbral fijo de la alerta de prescripción: el "aviso al 70 %" (V4 D-51). */
 const PRESCRIPTION_ALERT_RATIO = 0.7;
+
+/**
+ * El porcentaje transcurrido, la alerta y si el plazo se cumplió, al día de
+ * hoy (V4 §4, "Prescripción"). Es la misma cuenta para la que rige
+ * (`prescription`) y para cada calificación (D-112).
+ */
+function prescriptionStatus(startsOn: string, expiresOn: string) {
+    const today = todayIso();
+    const total = calendarDaysBetween(startsOn, expiresOn);
+    const elapsed = Math.min(Math.max(calendarDaysBetween(startsOn, today), 0), total);
+    // El umbral se evalúa sobre el valor exacto, no sobre el redondeado.
+    const ratio = total > 0 ? elapsed / total : 1;
+    return {
+        elapsedPercentage: Math.round(ratio * 100),
+        alert: ratio >= PRESCRIPTION_ALERT_RATIO,
+        expired: today >= expiresOn,
+    };
+}
 
 /**
  * La prescripción que rige la causa: la de la calificación que prescribe
@@ -1035,23 +1056,19 @@ function prescriptionOf(
 ): CasePrescription | null {
     if (stored.jurisdiction !== 'CRIMINAL' || qualifications.length === 0) return null;
 
-    const governing = [...qualifications].sort((a, b) =>
-        a.prescriptionExpiresOn.localeCompare(b.prescriptionExpiresOn),
+    // La que vence primero, aunque ya haya vencido (D-52); a igual vencimiento, la de menor id.
+    const governing = [...qualifications].sort(
+        (a, b) => a.prescriptionExpiresOn.localeCompare(b.prescriptionExpiresOn) || a.id - b.id,
     )[0];
-    const today = todayIso();
-    const total = calendarDaysBetween(governing.prescriptionStartsOn, governing.prescriptionExpiresOn);
-    const elapsed = Math.min(Math.max(calendarDaysBetween(governing.prescriptionStartsOn, today), 0), total);
-    // El umbral se evalúa sobre el valor exacto, no sobre el redondeado.
-    const ratio = total > 0 ? elapsed / total : 1;
 
     return {
         legalQualificationId: governing.id,
         legalQualificationName: governing.name,
         startsOn: governing.prescriptionStartsOn,
         expiresOn: governing.prescriptionExpiresOn,
-        elapsedPercentage: Math.round(ratio * 100),
-        alert: ratio >= PRESCRIPTION_ALERT_RATIO,
-        expired: today >= governing.prescriptionExpiresOn,
+        elapsedPercentage: governing.elapsedPercentage,
+        alert: governing.alert,
+        expired: governing.expired,
         // Sólo si es el acto el que fija el inicio de la que rige.
         lastInterruptiveActDate:
             interruptedOn !== null && governing.prescriptionStartsOn === interruptedOn ? interruptedOn : null,

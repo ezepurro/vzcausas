@@ -25,7 +25,7 @@ ver [Revisión de V5 del 05/11/2026](#revisión-de-v5-del-05112026).
    endpoint. El resumen está en [Los mocks](#los-mocks), más abajo.
 4. `docs/Api-Contract/API_CONTRACT_V5.md` — la fuente de verdad del backend.
    Es autocontenido: trae lo de los Sprints 1 a 3 que sigue vigente y lo nuevo
-   del Sprint 4. **Última revisión: 08/11/2026** (D-110 y D-111). Las decisiones (D-xx), los
+   del Sprint 4. **Última revisión: 08/11/2026** (D-110, D-111 y D-112). Las decisiones (D-xx), los
    puntos abiertos (C-xx) y lo que queda fuera del contrato están en
    `docs/Api-Contract/DECISIONES.md`. V2, V3 y V4 quedan como registro: ninguno
    es referencia vigente. Si un documento y el contrato no coinciden, manda el
@@ -229,7 +229,7 @@ Varios módulos necesitan datos de otros. Cada dueño publica **sólo eso** en s
 | `clients` | `useClients`, `useCreateClient`, `ClientFormModal`, `validateClient`, `isValidClient`, `toClientFormErrors`, `formatClientName`, `formatDocument`, `formatDocumentNumber`, `DOCUMENT_TYPES`, `DOCUMENT_TYPE_LABELS`, `toCreateClientBody` | Registrar y modificar causa: select de cliente y "Registrar cliente nuevo" |
 | `legal-params` | `useLegalQualifications`, `useCreateLegalQualification`, `LegalQualificationFormModal`, `validateLegalQualification`, `toCreateLegalQualificationBody`, `toLegalQualificationFormErrors`, `useProceduralStates`, `isPrescribedState`, el formateo de la prescripción, los rótulos de fueros y tipos de día | Registrar y modificar causa, Registrar acto, Modelos (los fueros) y los tableros |
 | `documents` | `useDocumentTemplates`, `DocumentTemplate` | Registrar causa: cuántos modelos del fuero se van a copiar (CA-40.10) |
-| `cases` | `useCase`, `useCreateCase`, `casesKeys`, `refreshCaseAfterAct` (las mutaciones de actos esperan la causa nueva), `CaseHeader`, `CaseHeaderSkeleton`, `PrescriptionBar`, `nearestQualification`, `prescriptionNote`, `openDeadline`, `isResponsibleLawyer`, `sacLabel`, los rótulos y los tipos de la causa y del acto procesal (`ProceduralAct`, `ActDeadline`) | Registrar y modificar acto (muestra la causa y, al guardar, invalida sus claves) y los tableros |
+| `cases` | `useCase`, `useCreateCase`, `casesKeys`, `refreshCaseAfterAct` (las mutaciones de actos esperan la causa nueva), `CaseHeader`, `CaseHeaderSkeleton`, `CasePrescriptionBar` (la barra con la elección de D-112), `PrescriptionBar`, `nearestQualification`, `openDeadline`, `isResponsibleLawyer`, `sacLabel`, los rótulos y los tipos de la causa y del acto procesal (`ProceduralAct`, `ActDeadline`) | Registrar y modificar acto (muestra la causa y, al guardar, invalida sus claves) y los tableros |
 | `deadlines` | `DAILY_RUN_ENABLED`, `useRunDailyNotifications` | La campana de la barra superior (`AppLayout`), sólo en desarrollo (`deadlines/CAMBIOS.md`) |
 
 `proceedings`, `dashboard`, `tools`, `users` y `auth` no publican nada: ningún
@@ -253,7 +253,7 @@ Si aparece una flecha para el otro lado, algo está en el módulo equivocado.
 | `auth` | `LoginPage` | `LoginForm`, `LoginAside`, `ChangePasswordModal`, `LogoutConfirmModal` | `profileLabel`, `sessionStorage` |
 | `clients` | `ClientsPage` | `ClientsTable`, `ClientFormModal` | `clientFormat` (`formatClientName`, `formatDocument`, `formatDocumentNumber`, `normalizeDocumentNumber`, `formatDni`, `normalizeDni`), `toCreateClientBody`, `toFormErrors` |
 | `legal-params` | `ProceduralStatesPage`, `LegalQualificationsPage` | `ProceduralStatesTable`, `ProceduralStateFormModal`, `DeleteProceduralStateModal`, `LegalQualificationsTable`, `LegalQualificationFormModal`, `DeleteLegalQualificationModal` | `prescription` (`formatPrescription`, `toPrescriptionMonths`, `splitPrescription`, `shortQualificationName`), `systemStates`, `dayTypeTone`, los `build…Patch` y `toCreate…Body`, `toFormErrors`, `toLegalQualificationFormErrors` |
-| `cases` | `CasesPage`, `RegisterCasePage`, `CaseDetailPage`, `GenerateCaseFilePage` | `CasesTable`, `CaseFilters`, `CaseForm`, `CaseEditForm`, `LegalQualificationPicker`, `CaseSummaryAside`, `CaseHeader`, `CaseFacts`, `PrescriptionBar`, `ClientCard`, `CaseFolderCard`, `CaseDocumentsCard`, `CaseTimeline`, `InterruptiveActModal`, `PrescriptionDeclarationModal`, `DeleteCaseModal`, `CaseFileCoverPanel`, `CaseFileDocumentsPanel`, `CaseFileResultAside`, `CoverPreviewModal`, `CaseFileReadyModal`, `CaseSkeletons` | `deadlineStatus`, `openDeadline`, `prescription`, `caseState`, `stateFilter`, `sac`, `subjectMatter`, `suggestedCaption`, `responsibleLawyer`, `caseForm`, `caseDraft`, `caseFolder`, `caseDocument`, `caseFile`, `timeline`, `buildCasePatch`, `toCreateCaseBody`, `toDeleteCaseBody`, `toCreateInterruptiveActBody`, `toDeclarePrescriptionBody` y los `to…FormErrors` |
+| `cases` | `CasesPage`, `RegisterCasePage`, `CaseDetailPage`, `GenerateCaseFilePage` | `CasesTable`, `CaseFilters`, `CaseForm`, `CaseEditForm`, `LegalQualificationPicker`, `CaseSummaryAside`, `CaseHeader`, `CaseFacts`, `PrescriptionBar`, `CasePrescriptionBar`, `CaseQualifications`, `ClientCard`, `CaseFolderCard`, `CaseDocumentsCard`, `CaseTimeline`, `InterruptiveActModal`, `PrescriptionDeclarationModal`, `DeleteCaseModal`, `CaseFileCoverPanel`, `CaseFileDocumentsPanel`, `CaseFileResultAside`, `CoverPreviewModal`, `CaseFileReadyModal`, `CaseSkeletons` | `deadlineStatus`, `openDeadline`, `prescription`, `caseState`, `stateFilter`, `sac`, `subjectMatter`, `suggestedCaption`, `responsibleLawyer`, `lawyerOptions`, `caseForm`, `caseDraft`, `caseFolder`, `caseDocument`, `caseFile`, `timeline`, `buildCasePatch`, `toCreateCaseBody`, `toDeleteCaseBody`, `toCreateInterruptiveActBody`, `toDeclarePrescriptionBody` y los `to…FormErrors` |
 | `proceedings` | `RegisterProceduralActPage` | `ProceduralActForm`, `DeadlinePreviewAside`, `ProceduralActFormSkeleton` | `stateOptions`, `resolveState`, `terminalState`, `deadlinePreview`, `dueDateText`, `toCreateProceduralActBody`, `toActFormValues`, `buildProceduralActPatch`, `toFormErrors` |
 | `lawyers` | `LawyersPage` | `LawyersTable`, `LawyerFormModal` | `toCreateLawyerBody`, `buildLawyerPatch`, `lawyerLabel`, `toFormErrors` |
 | `users` | `UsersPage` | `UsersTable`, `UserFormModal`, `DeleteUserModal` | `buildUserPatch`, `toCreateUserBody`, `roles`, `lawyerLink`, `toFormErrors` |
@@ -320,6 +320,9 @@ Los componentes son presentacionales y lo reciben hecho:
     modelos" también, y se deshabilita si se desmarca la carpeta
     (`changeCreateFolder`). La cantidad de modelos del fuero sale de
     `useDocumentTemplates`.
+  - *Responsable:* si quien registra es abogado, su ficha va primera con
+    "(asignarme a mí)", sin quedar elegida (`buildLawyerOptions`; también en
+    "Modificar causa").
   - *"Para poder registrar":* cliente, carátula y responsable; el SAC es
     opcional, pero si se carga tiene que tener 8 dígitos y no estar repetido;
     en el penal, la fecha del hecho de cada calificación elegida; fuera del
@@ -358,8 +361,14 @@ Los componentes son presentacionales y lo reciben hecho:
   - *La clave de los estados escritos a mano* (`casesKeys.customStates`) cuelga
     de `casesKeys.lists()` a propósito: registrar un acto invalida los
     listados, y con eso el filtro vuelve a pedir sus opciones.
-- **Detalle de causa.** La barra de prescripción lee `prescription` de la causa
-  y arma la nota con `prescriptionNote`. El instructor lleva dos datos,
+- **Detalle de causa.** La barra de prescripción es `CasePrescriptionBar`
+  (también en "Registrar acto procesal"): la que rige mientras no prescribió;
+  si prescribió, la próxima; si prescribieron todas, "Todos los delitos
+  prescribieron." (D-112, `shownPrescription`). La nota la arma
+  `prescriptionNote`. Al pie de los datos del encabezado, "Calificaciones
+  legales" (`CaseQualifications`, prop `details` de `CaseHeader`, sólo penal)
+  lista todos los delitos con "Prescribió el …", "Próximo a prescribir" o
+  "Vigente". El instructor lleva dos datos,
   "Teléfono" e "Interno"; los datos del fuero van en `CaseFacts`. Debajo, la
   línea de vida (`CaseTimeline`). "Registrar acto procesal" va deshabilitado
   para quien no es el abogado responsable, con la nota "Solo el abogado
@@ -466,6 +475,10 @@ Son las de V5. Lo que V4 y V5 cambiaron está marcado con su decisión.
   la nota (`prescriptionNote`). Un plazo cumplido no cambia el estado (D-52):
   la barra dice "Plazo cumplido". `prescription` vale `null` fuera del penal y
   en una causa penal sin calificaciones (D-74): ahí la barra no se dibuja.
+  **Desde D-112** cada calificación trae también `elapsedPercentage`, `alert`
+  y `expired`: cuando la que rige ya prescribió, la barra muestra la próxima
+  con esos valores, sin calcularlos. `prescription` no cambió: los tableros
+  siguen mostrando la prescripta hasta que se marque la causa (D-52).
 - **Actos interruptivos** (HU31): sólo en el penal, sólo el abogado
   responsable y nunca en una causa cerrada. Reinician la prescripción de todas
   las calificaciones; rige el de fecha más reciente. No mueven el estado ni el
@@ -581,6 +594,7 @@ en la app, en los mocks y en los tests; el backend todavía no.**
 | Cambio | En el front |
 |---|---|
 | Un abogado que no es el responsable sólo consulta y genera el expediente (D-110): no modifica, no da de baja, no marca prescripta ni opera la carpeta. El Administrador y la Secretaría siguen operando cualquier causa (la Secretaría no marca prescripta) | `caseOperation` (`cases/utils/responsibleLawyer.ts`) combina `isResponsibleLawyer` con `cases.operateAnyCase` y `cases.declarePrescriptionAnyCase`. En el detalle, los botones van deshabilitados con su `title`; en "Generar expediente", "Modificá los datos de la causa" no se ofrece. Mock: `403` en `PATCH`/`DELETE /cases/{id}`, `…/prescription` y `…/folder` |
+| Estado de prescripción por calificación (D-112): `elapsedPercentage`, `alert` y `expired` en cada elemento de `legalQualifications[]`. **Ya está en el backend** | Tipo `CaseLegalQualification` y mock (`prescriptionStatus` en `db.ts`). La barra pasa a la próxima a prescribir (`CasePrescriptionBar`) y el encabezado del detalle suma "Calificaciones legales" (`CaseQualifications`). Ver `cases/CAMBIOS.md` |
 | El cliente de la causa no se modifica (D-111) | "Modificar causa" lo muestra bloqueado, como el fuero; `clientId` sale de `UpdateCaseBody` y de `buildCasePatch`; se borró `captionWithClient`. Mock: `400` con `details.clientId` |
 
 ### Errores de los campos (06/11/2026)

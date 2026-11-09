@@ -246,6 +246,10 @@ export interface CaseLegalQualification {
     prescriptionStartsOn: string;
     /** `prescriptionStartsOn` más `prescriptionMonths`. */
     prescriptionExpiresOn: string;
+    /** De esta calificación, con la misma regla que `prescription` (D-112). */
+    elapsedPercentage: number;
+    alert: boolean;
+    expired: boolean;
 }
 
 /**

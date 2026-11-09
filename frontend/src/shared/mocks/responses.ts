@@ -595,6 +595,9 @@ const EXAMPLE_CASE: Case = {
             // El acto interruptivo del 04/07/2024 reinició el cómputo (V4 §3.9).
             prescriptionStartsOn: '2024-07-04',
             prescriptionExpiresOn: '2032-07-04',
+            elapsedPercentage: 27,
+            alert: false,
+            expired: false,
         },
     ],
     prescription: {
@@ -656,6 +659,9 @@ const EXAMPLE_CREATED_CASE: Case = {
             offenseDate: '2021-02-27',
             prescriptionStartsOn: '2021-02-27',
             prescriptionExpiresOn: '2029-02-27',
+            elapsedPercentage: 69,
+            alert: false,
+            expired: false,
         },
     ],
     prescription: {
@@ -727,6 +733,9 @@ const EXAMPLE_PRESCRIBED_CASE: Case = {
             offenseDate: '2022-01-19',
             prescriptionStartsOn: '2022-01-19',
             prescriptionExpiresOn: '2028-01-19',
+            elapsedPercentage: 78,
+            alert: true,
+            expired: false,
         },
     ],
     prescription: {

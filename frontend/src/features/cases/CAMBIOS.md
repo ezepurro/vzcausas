@@ -5,6 +5,48 @@ contrato.
 
 ---
 
+## 2026-11-08 — Prescripción por delito y "asignarme a mí"
+
+**Pedido:** del equipo de front. Cuando un delito prescribe, la barra seguía
+mostrándolo ("Plazo cumplido") en lugar del próximo, y el detalle no listaba
+las calificaciones de la causa. Con el contrato de entonces, mostrar el
+próximo obligaba al front a calcular su porcentaje y su alerta, que D-51
+reserva al backend: por eso se sumó D-112 (cada calificación trae
+`elapsedPercentage`, `alert` y `expired`).
+
+**Barra de prescripción** (`CasePrescriptionBar`, `shownPrescription`). La
+usan el detalle y "Registrar acto procesal", así muestran lo mismo:
+
+- Mientras la que rige no prescribió, es `prescription`, como antes.
+- Si ya prescribió, muestra la **próxima a prescribir**: la de menor
+  vencimiento con `expired` en `false`, con sus valores tal como llegan. La
+  nota dice "Ya prescribió 1 delito. Próximo a prescribir: …".
+- Si prescribieron todas, no hay barra: "Todos los delitos prescribieron.".
+- En una causa ya marcada prescripta no cambia nada: sigue la de
+  `prescription`, como dato histórico.
+- `prescription` del backend no cambió (D-52): los tableros siguen mostrando el
+  delito prescripto en "Alertas de prescripción" hasta que se marque la
+  causa. La diferencia con el detalle es a propósito.
+
+**"Calificaciones legales" en el encabezado** (`CaseQualifications`), sólo en
+el penal y con al menos una calificación. No está en el prototipo. Va al pie
+de la columna de datos del encabezado, debajo del instructor: ahí la columna
+del estado procesal y los botones dejaba un hueco en blanco (pedido del
+08/11/2026; antes era una tarjeta en el aside). Un renglón por delito, por
+vencimiento: nombre, plazo y vencimiento, y una píldora "Prescribió el …"
+(`danger`), "Próximo a prescribir" (`warn` desde el 70 %, si no `primary`) o
+"Vigente". "Vigente" y no "Restan…": el "Restan…" ya está en la barra y
+repetirlo confundía cuál es cuál. La fecha del hecho no va, para que el
+renglón entre en una línea. El encabezado suma la prop `details` para
+esto; "Registrar acto procesal" no la usa.
+
+**"Asignarme a mí"** (`buildLawyerOptions`). En "Abogado responsable", del
+alta y de "Modificar causa", la ficha de quien usa la pantalla va primero
+con "(asignarme a mí)". No queda elegida sola. Sólo si es abogado y su
+ficha está entre los vigentes que llegaron. En "Modificar causa", el
+responsable actual que no está en la lista se agrega después de la ficha
+propia.
+
 ## 2026-11-03 — Generar expediente: la espera y el corte por tiempo (HU25)
 
 **Pedido:** de Luciano Cipolla, al probar contra el backend: generar el

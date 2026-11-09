@@ -328,4 +328,30 @@ describe('RegisterCasePage', () => {
         expect(await screen.findByText('Error del servidor de prueba.')).toBeInTheDocument()
         expect(screen.queryByText('Detalle de la causa')).not.toBeInTheDocument()
     })
+
+    /* "Asignarme a mí" (cases/CAMBIOS.md): no está en el prototipo. La ficha de
+       quien registra va primero en "Abogado responsable", sin elegirla sola. */
+    describe('abogado responsable: asignarme a mí', () => {
+        it('a un abogado le ofrece primero su propia ficha, sin dejarla elegida', async () => {
+            renderPage('mrios')
+
+            const mine = await screen.findByRole('option', { name: /\(asignarme a mí\)$/ })
+            const select = screen.getByLabelText(/^Abogado responsable/)
+            const options = within(select).getAllByRole('option')
+            // La primera es "Seleccionar responsable…".
+            expect(options[1]).toBe(mine)
+            expect(mine).toHaveValue(LAWYER_RIOS)
+            expect(mine).toHaveTextContent(/^Ríos, Malena/)
+            expect(select).toHaveValue('')
+        })
+
+        it('a quien no es abogado no le ofrece asignarse', async () => {
+            renderPage('gestion')
+            await waitForOptions()
+            await screen.findByRole('option', { name: /^Ríos, Malena/ })
+
+            expect(screen.queryByRole('option', { name: /asignarme a mí/ })).not.toBeInTheDocument()
+        })
+    })
 })
+
