@@ -101,8 +101,10 @@ Playwright para los E2E.
 
 Alcance según V6 (D-114): HU 10, 11, 15, 29, 36, 37, 43, 49 y 50. Sprint "VZ
 Sprint 5" de Jira (08/11/2026 – 20/11/2026). Todavía no hay pantallas, tipos ni
-mocks: es lo que hay que programar. Los criterios de aceptación se escriben a
-partir de V6 y todavía no están en los issues. Las decisiones son D-114 a D-139
+mocks: es lo que hay que programar. Los criterios de aceptación de cada
+historia están en su issue de Jira, escritos sobre V6 (09/11/2026): CA-10.x,
+CA-11.x, CA-15.x, CA-29.x, CA-36.x, CA-37.x, CA-43.x, CA-49.x y CA-50.x. Las
+decisiones son D-114 a D-139
 de `DECISIONES.md`. Del Sprint 5 no queda nada abierto (V6 §7).
 
 **HU43 es el reporte general; HU44 ya no existe.** Los reportes por abogado

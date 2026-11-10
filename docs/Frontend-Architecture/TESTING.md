@@ -1122,8 +1122,9 @@ de "Descargar" tiene test de pantalla).
 
 **Todavía no hay tests del Sprint 5.** Como en los sprints anteriores, se
 escriben antes que las pantallas ([Los tests primero](#los-tests-primero)), a
-partir de `API_CONTRACT_V6.md` y de los criterios de aceptación que se escriban
-sobre él (todavía no están en Jira). Antes del test, el endpoint tiene que
+partir de `API_CONTRACT_V6.md` y de los criterios de aceptación de cada
+historia, que están en su issue de Jira desde el 09/11/2026 (CA-10.x a
+CA-50.x). Antes del test, el endpoint tiene que
 estar en el mock (`frontend/CLAUDE.md`, "Checklist de un módulo"): hoy no está
 ninguno de los del Sprint 5, y la baja de abogado del mock sigue la regla de
 V5 (`frontend/CLAUDE.md`, "Cambios de V6 sobre lo que ya estaba hecho").
