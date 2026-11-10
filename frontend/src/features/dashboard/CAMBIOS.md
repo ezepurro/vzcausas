@@ -5,6 +5,26 @@ ni del contrato.
 
 ---
 
+## 2026-11-09 — "Estudio": las alertas de prescripción se desplazan adentro
+
+**Pedido:** de Luciano Cipolla. Con muchas alertas, "Alertas de prescripción"
+crecía sin tope y estiraba la columna lateral (y con ella "Vencimientos del
+estudio"), mientras "Carga del equipo" ya se desplazaba adentro.
+
+**Ahora**, sólo en "Estudio", la lista lleva `vz-dash-rows--scroll`: tope de
+`26rem`, como "Carga del equipo" y "Causas para impulsar", y scroll propio. En
+el teléfono se dibuja entera, como las otras listas. "Mi día" no cambia: ahí
+el alto ya lo reparte la columna (`.vz-dash__row--filled`).
+
+### Archivos
+
+| Archivo | Cambio |
+|---|---|
+| `components/PrescriptionAlertsPanel.tsx` | Prop `scroll` |
+| `components/AdministratorDashboardView.tsx` | La pasa |
+
+---
+
 ## 2026-11-09 — La pestaña y los filtros sobreviven a abrir una causa
 
 **Pedido:** de Luciano Cipolla. En "Estudio", al filtrar por un responsable,

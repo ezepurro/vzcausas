@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
+    isAccessTokenExpired,
     readStoredSession,
     writeRefreshedSession,
     writeStoredSession,
@@ -47,15 +48,36 @@ afterEach(() => {
 })
 
 describe('readStoredSession', () => {
-    it('devuelve null y limpia si la sesión ya venció', () => {
+    /* Antes la descartaba, y con eso la renovación no tenía sobre qué
+       trabajar: la sesión se cerraba a los quince minutos aunque la cookie de
+       renovación siguiera viva. */
+    it('conserva la sesión aunque el token de acceso haya vencido', () => {
         vi.useFakeTimers()
         vi.setSystemTime(new Date('2026-09-22T10:00:00Z'))
-        writeStoredSession(SESSION)
+        const stored = writeStoredSession(SESSION)
 
         vi.setSystemTime(new Date('2026-09-22T11:00:01Z'))
 
+        const read = readStoredSession()
+        expect(read).toEqual(stored)
+        expect(read && isAccessTokenExpired(read)).toBe(true)
+        expect(localStorage.getItem(TOKEN_KEY)).toBe('token-1')
+    })
+
+    it('devuelve null y limpia si el contenido no tiene la forma esperada', () => {
+        writeStoredSession(SESSION)
+        localStorage.setItem('vz.session', '{"user":{}}')
+
         expect(readStoredSession()).toBeNull()
         expect(localStorage.getItem(TOKEN_KEY)).toBeNull()
+    })
+})
+
+describe('isAccessTokenExpired', () => {
+    it('compara el vencimiento con el reloj', () => {
+        const session = { accessToken: 't', user: USER, expiresAt: 1000 }
+        expect(isAccessTokenExpired(session, 999)).toBe(false)
+        expect(isAccessTokenExpired(session, 1000)).toBe(true)
     })
 })
 
