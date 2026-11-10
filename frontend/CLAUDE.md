@@ -11,6 +11,14 @@ la revisión de V5 del 05/11/2026 (matrícula opcional y documento del cliente)
 y la del 06/11/2026 (dirección y teléfono del cliente obligatorios, D-109):
 ver [Revisión de V5 del 05/11/2026](#revisión-de-v5-del-05112026).
 
+**09/11/2026: contrato V6 (Sprint 5).** El contrato vigente pasa a ser
+`API_CONTRACT_V6.md`, la última versión. Suma lo del Sprint 5: ver
+[Sprint 5](#sprint-5--qué-trae-v6). Los mocks y los tipos todavía implementan
+V5: lo de V6 no está programado. Además hay código hecho que sigue una regla
+que V6 cambia (la baja de abogado del mock, `ERROR_CODES`, dos comentarios
+sobre HU29): ver
+[Cambios de V6 sobre lo que ya estaba hecho](#cambios-de-v6-sobre-lo-que-ya-estaba-hecho).
+
 ## Antes de escribir código, leé
 
 1. `docs/Frontend-Architecture/ESTRUCTURA.md` — el mapa general, las tres reglas entre
@@ -19,16 +27,17 @@ ver [Revisión de V5 del 05/11/2026](#revisión-de-v5-del-05112026).
    cliente HTTP y `ApiError`. Tiene la tabla "Si necesitás X, usá Y" y su propia
    guía para Claude al final.
 3. `frontend/src/shared/mocks/README.md` — **antes de escribir cualquier
-   llamada a la API**. El mock implementa V5 entero (revisión del 05/11/2026).
+   llamada a la API**. El mock implementa V5 entero (revisión del 05/11/2026);
+   lo del Sprint 5 (V6) todavía no está.
    Ahí están los usuarios de prueba y qué puede cada perfil, qué causa semilla
    sirve para probar cada regla, cómo disparar cada error y cómo agregar un
    endpoint. El resumen está en [Los mocks](#los-mocks), más abajo.
-4. `docs/Api-Contract/API_CONTRACT_V5.md` — la fuente de verdad del backend.
-   Es autocontenido: trae lo de los Sprints 1 a 3 que sigue vigente y lo nuevo
-   del Sprint 4. **Última revisión: 08/11/2026** (D-110, D-111, D-112 y D-113). Las decisiones (D-xx), los
-   puntos abiertos (C-xx) y lo que queda fuera del contrato están en
-   `docs/Api-Contract/DECISIONES.md`. V2, V3 y V4 quedan como registro: ninguno
-   es referencia vigente. Si un documento y el contrato no coinciden, manda el
+4. `docs/Api-Contract/API_CONTRACT_V6.md` — la fuente de verdad del backend,
+   **última versión** (09/11/2026). Es autocontenido: trae todo lo de V5, sin
+   cambios, y lo nuevo del Sprint 5, marcado **(V6)**. Los puntos abiertos
+   (C-xx) están en su §7, "Aspectos por definir". Las decisiones (D-xx) y lo que
+   queda fuera del contrato están en `docs/Api-Contract/DECISIONES.md`. V2, V3,
+   V4 y V5 quedan como registro: ninguno es referencia vigente. Si un documento y el contrato no coinciden, manda el
    contrato. La otra fuente de verdad es el prototipo (`docs/prototypes/`): de
    ahí salen las pantallas y sus textos. Lo que el prototipo muestra y el
    contrato deja fuera (`DECISIONES.md` §3) no se programa.
@@ -41,22 +50,23 @@ ver [Revisión de V5 del 05/11/2026](#revisión-de-v5-del-05112026).
 ## Reglas que no se negocian
 
 - **No inventes endpoints.** Si lo que te piden necesita un endpoint que no está
-  en el contrato, frená y preguntá. V5 cubre `auth`, `users`, `lawyers`,
-  `procedural-states`, `legal-qualifications`, `clients`, `cases` (con su
-  modificación y su baja, `cover`, `timeline`, `prescription`, `folder`,
-  `documents` y `case-files`), `cases/{caseId}/procedural-acts` (con su
-  modificación), `cases/{caseId}/interruptive-acts`, `document-templates` y
-  `dashboards`, y nada más. Los avisos por correo (HU30, HU32, HU51, HU52) son
+  en el contrato, frená y preguntá. V6 cubre `auth`, `users`, `lawyers` (con
+  la baja que reasigna sus causas), `procedural-states`,
+  `legal-qualifications`, `clients` (con su modificación y su baja), `cases`
+  (con su modificación y su baja, `cover`, `timeline`, `prescription`,
+  `folder`, `documents` y `case-files`), `cases/{caseId}/procedural-acts` (con
+  su modificación y su anulación), `cases/{caseId}/interruptive-acts`,
+  `document-templates` (con su modificación y su baja), `dashboards` y
+  `reports/monthly`, y nada más. Los avisos por correo (HU30, HU32, HU51, HU52) son
   un proceso del servidor: **no tienen endpoint ni pantalla**. "Herramientas"
   (HU53) no usa ninguno: su catálogo es fijo y vive en el front.
 - **No programes lo que el contrato deja afuera.** `DECISIONES.md` §3 lista lo
-  que el prototipo muestra pero es de otra historia: anular un acto (HU29),
-  modificar y dar de baja modelos (HU36, HU37), modificar y dar de baja
-  clientes (HU10, HU11), eliminar abogado con reasignación (HU15), reportes
-  (HU43, HU44), registrar el pago de tasa, adjuntar cédulas, la campana de
-  notificaciones, la pantalla "Vencimientos", "Olvidé mi contraseña", etc. No
-  se dibuja ni deshabilitado: no existe hasta su sprint. (Hoy hay dos
-  excepciones en el rail que violan esta regla: ver
+  que el prototipo muestra y el contrato no tiene: registrar el pago de tasa,
+  adjuntar cédulas, la campana de notificaciones, la pantalla "Vencimientos",
+  "Olvidé mi contraseña", y lo que el equipo decidió distinto en V6
+  ("Reactivar" un modelo, el acto anulado en el ciclo de vida, la vista del
+  reporte con versiones y huella, etc.). No se dibuja ni deshabilitado. (Hoy la
+  campana de notificaciones del rail viola esta regla: ver
   [Problemas conocidos](#problemas-conocidos).)
 - **No traigas código de otros proyectos** (componentes, estilos, hooks). Este
   proyecto tiene su propio sistema de diseño en `shared/` y `styles/`.
@@ -84,6 +94,45 @@ React 19 + TypeScript + Vite · React Router · TanStack Query · axios (sólo a
 través de `http`) · MSW (sólo para los mocks) · CSS global con clases `vz-*` y
 tokens `var(--vz-*)` · lint con **oxlint** · Vitest + Testing Library ·
 Playwright para los E2E.
+
+---
+
+## Sprint 5 — qué trae V6
+
+Alcance según V6 (D-114): HU 10, 11, 15, 29, 36, 37, 43, 49 y 50. Sprint "VZ
+Sprint 5" de Jira (08/11/2026 – 20/11/2026). Todavía no hay pantallas, tipos ni
+mocks: es lo que hay que programar. Los criterios de aceptación se escriben a
+partir de V6 y todavía no están en los issues. Las decisiones son D-114 a D-139
+de `DECISIONES.md`. Del Sprint 5 no queda nada abierto (V6 §7).
+
+**HU43 es el reporte general; HU44 ya no existe.** Los reportes por abogado
+(HU43) y por fuero (HU44) se unieron en uno solo (D-116). En Jira es VZ-51,
+"HU-43 · Generar y emitir el Reporte General" (Mateo Machuca, 20 SP), y VZ-52
+(HU-44) se elimina (D-128).
+
+| HU | Qué | Endpoint (V6) | Lo que más se rompe |
+| -- | --- | ------------- | ------------------- |
+| 10 | Modificar cliente | `PATCH /clients/{clientId}` | El documento **se puede** cambiar (D-121); `clientSince` no se envía (`400`). Si cambia el nombre, el backend cambia el comienzo `APELLIDO, Nombres` de la carátula de sus causas (las que empiezan de otra forma no se tocan, D-130): después de guardar hay que invalidar las causas, no solo el cliente |
+| 11 | Dar de baja cliente | `DELETE /clients/{clientId}` | Con causas activas no procede: `409 CLIENT_HAS_ACTIVE_CASES` (D-122). El prototipo lo deja eliminar: manda el contrato. Motivo opcional |
+| 15 | Dar de baja abogado | `DELETE /lawyers/{lawyerId}` con `reassignments` | El reparto va en el mismo `DELETE` (D-123): una entrada por **cada causa activa**; las terminales no se reparten. Si quedó una sin repartir (se le asignó una mientras el formulario estaba abierto), `409 LAWYER_HAS_DEPENDENCIES`: se vuelven a pedir sus causas y se rearma el reparto. El usuario vinculado **no** bloquea: pierde el rol `LAWYER`, o se da de baja si era el único (D-133). El aviso previo sale de `GET /users` (el usuario cuyo `lawyer` es este abogado). No existe `LAWYER_HAS_LINKED_USER` |
+| 29 | Anular acto procesal | `DELETE /cases/{caseId}/procedural-acts/{actId}` | Solo el responsable (`403` para los demás). En una causa "Prescripta", `422 CASE_IN_TERMINAL_STATE`. Motivo opcional. El acto **desaparece** de la línea de vida (D-124) y la causa cambia de estado: invalidar el detalle y la línea de vida |
+| 36 | Modificar modelo formal | `PATCH /document-templates/{templateId}` (`multipart`) | **Lista** de fueros, como el alta, no el selector de uno del prototipo (D-125). Todos los campos son opcionales, también el archivo. El archivo reemplazado va a la `Papelera` de Drive: no hay historial |
+| 37 | Dar de baja modelo formal | `DELETE /document-templates/{templateId}` | No hay "Reactivar", y los dados de baja no se listan (D-126). Su archivo va a la `Papelera` de Drive (D-131). Su nombre queda libre para un modelo nuevo (D-139) |
+| 43 | Reporte mensual de gestión | `GET /reports/monthly`, `GET /reports/monthly/file` | Reemplaza a los reportes por abogado y por fuero (D-116). Solo `ADMINISTRATOR`: la ruta es `/reportes`, que ya está en `ROUTE_ACCESS`. El backend trae todo calculado; los gráficos se dibujan con SVG y CSS, **sin librería** (D-120). El selector de mes va de `availableFrom` a `currentPeriod`; el mes en curso llega con `status` `IN_PROGRESS`. El PDF lo arma el backend: el front solo lo descarga o lo muestra |
+| 49, 50 | Modificar y dar de baja calificación legal | Ya en V5, sin cambios | — |
+
+**Lo que el prototipo muestra y el Sprint 5 no dibuja** (`DECISIONES.md` §3):
+
+- "Reactivar" un modelo, y los modelos dados de baja en el listado (D-126).
+- El acto anulado "asentado como anulado" en la línea de vida (D-124).
+- La vista del reporte con número `REP-AAAA-MM`, versiones, "Guardar
+  reporte del mes", "Regenerar" y huella (D-117). Un mes se elige y se ve; no
+  se guarda ni se regenera.
+- "En el orden del ciclo de vida" en "Causas por estado procesal": los estados
+  van en el orden de `GET /procedural-states` (D-120).
+- Una marca "dado de baja" junto al cliente o al responsable de una causa
+  terminal: se muestran como siempre (D-134).
+- El aviso "Primero eliminá el usuario" al dar de baja un abogado (D-133).
 
 ---
 
@@ -658,6 +707,22 @@ está aplicado:
 Lo de las historias del sprint está en
 [Sprint 4](#sprint-4--qué-está-hecho-y-dónde).
 
+### Cambios de V6 sobre lo que ya estaba hecho
+
+V6 no cambia la forma de ninguna respuesta que el front ya usa
+(`DECISIONES.md` §4, "Impacto de V6"). Pero hay código hecho que sigue una
+regla de V5 que V6 cambia, y se ajusta al programar el Sprint 5. **Nada de esto
+está aplicado todavía:**
+
+| Qué hay hoy | Dónde | Qué dice V6 |
+|---|---|---|
+| La baja de abogado del mock responde `409 LAWYER_HAS_DEPENDENCIES` si el abogado tiene causas, activas o no, o un usuario vinculado | `src/shared/mocks/handlers.ts:1039` | Reasigna las causas activas con `reassignments`; las terminales y el usuario vinculado no impiden la baja (D-123, D-133). `LAWYER_HAS_DEPENDENCIES` pasa a ser solo "quedan causas activas sin reasignar" |
+| La respuesta armada `businessRule` (`422`) de la baja de abogado | `src/shared/mocks/responses.ts:1058` | V6 retira ese `422` |
+| `deleteLawyer(id)` no manda cuerpo | `src/features/lawyers/api/lawyers.api.ts:45` | Lleva `reassignments` si el abogado tiene causas activas. Hoy ninguna pantalla lo llama |
+| `ERROR_CODES` no tiene `CLIENT_HAS_ACTIVE_CASES` ni `MONTHLY_REPORT_NOT_FOUND` | `src/shared/api/contract.ts` | Son códigos nuevos (V6 §5.3) |
+| Dos comentarios dicen que anular un acto (HU29) "queda fuera del contrato" | `src/features/cases/components/CaseTimeline.tsx:39`, `src/features/proceedings/types/proceduralAct.ts:15` | Está en V6: `DELETE /cases/{caseId}/procedural-acts/{actId}` |
+| "Reportes" está en el rail y en `ROUTE_ACCESS`, pero no tiene ruta | `src/app/layouts/AppLayout.tsx:66`, `src/app/access/access.ts:23` | Ahora es HU43: falta la página (ver [Problemas conocidos](#problemas-conocidos), 3) |
+
 Si el contrato vuelve a cambiar, **no se toca de una**: primero se listan los
 cambios y se acuerdan, después se aplican al contrato, a los mocks, a los tipos
 y a este archivo.
@@ -667,7 +732,11 @@ y a este archivo.
 **El mock implementa V5 entero** (`docs/Api-Contract/API_CONTRACT_V5.md`, con
 la revisión del 05/11/2026), con MSW: lo de los Sprints 1 a 3 y lo del Sprint 4
 (modificar y dar de baja una causa, la carátula, modificar un acto procesal,
-los documentos de la causa y el expediente). Lo que hay que saber:
+los documentos de la causa y el expediente). **Lo del Sprint 5 (V6) todavía
+no**: cada endpoint nuevo se agrega al mock antes que su pantalla, y la baja
+de abogado sigue la regla de V5 (ver
+[Cambios de V6 sobre lo que ya estaba hecho](#cambios-de-v6-sobre-lo-que-ya-estaba-hecho)).
+Lo que hay que saber:
 
 - **Usuarios de prueba:** `fvazquez` (Administrador y Abogado), `mrios`
   (Abogado), `gestion` (Secretaría), `supervision` (Administrador sin ficha) y
@@ -1077,7 +1146,8 @@ usuarios de prueba y sus contraseñas están en el README de los mocks.
 
 ## Problemas conocidos
 
-Al 08/11/2026. No se arreglan al paso: cada uno es de su dueño.
+Al 08/11/2026, con el 3 revisado el 09/11/2026 por V6. No se arreglan al
+paso: cada uno es de su dueño.
 
 1. **`npm test`: pasan todos** (corrida del 08/11/2026). Los tests de prefetch
    recortan el prefijo de la API con `normalizePath` del mock, así no dependen
@@ -1086,11 +1156,12 @@ Al 08/11/2026. No se arreglan al paso: cada uno es de su dueño.
 2. **`src/features/deadlines/` no tiene pantallas.** La pantalla "Vencimientos"
    no es de ninguna historia (`DECISIONES.md` §3). Sólo tiene el atajo local de
    la campana (`deadlines/CAMBIOS.md`).
-3. **El rail dibuja dos cosas que el contrato deja afuera** (`DECISIONES.md`
-   §3): el ítem "Reportes" (`/reportes`), que no tiene ruta y da la página de
-   no encontrado, y la campana de "Notificaciones" de la barra superior
-   (`AppLayout.tsx`). La campana sólo hace algo en desarrollo, como atajo
-   para disparar la corrida diaria de los correos.
+3. **El rail dibuja la campana de "Notificaciones"**, que el contrato deja
+   afuera (`DECISIONES.md` §3), en la barra superior (`AppLayout.tsx`). Sólo
+   hace algo en desarrollo, como atajo para disparar la corrida diaria de los
+   correos. **El ítem "Reportes" (`/reportes`) no tiene ruta** y da la página
+   de no encontrado. Desde V6 sí tiene contrato (HU43, `GET /reports/monthly`):
+   ya no viola la regla, y su página es del Sprint 5.
 4. **Lint:** un warning, `react(only-export-components)` en
    `src/shared/components/ui/Icon.tsx:2`.
 5. **El alta todavía dice "Tribunal o dependencia".** V5 cambió el rótulo del

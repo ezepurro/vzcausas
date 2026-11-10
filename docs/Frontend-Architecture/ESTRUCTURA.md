@@ -183,10 +183,23 @@ pantallas: tiene sus seis carpetas y sólo `api/` y `types/` con algo, el
 atajo de la campana que dispara la corrida diaria de los correos en
 desarrollo.
 
-Todos siguen el contrato V5 (`docs/Api-Contract/API_CONTRACT_V5.md`). Lo que
-V4 y V5 cambiaron sobre lo que ya estaba hecho está en `frontend/CLAUDE.md`,
-"Cambios de V4 sobre lo que ya estaba hecho" y "Cambios de V5 sobre lo que ya
-estaba hecho".
+Lo programado sigue el contrato V5 (`docs/Api-Contract/API_CONTRACT_V5.md`).
+**Desde el 09/11/2026 el vigente es V6** (`API_CONTRACT_V6.md`), que trae todo
+V5 y suma el Sprint 5, todavía sin programar. El Sprint 5 cae en módulos que ya
+existen:
+
+- `clients/`: modificar y dar de baja un cliente (HU10, HU11).
+- `lawyers/`: dar de baja un abogado y repartir sus causas (HU15).
+- `proceedings/`: anular un acto procesal (HU29).
+- `documents/`: modificar y dar de baja un modelo formal (HU36, HU37).
+- `dashboard/`: el reporte mensual de gestión (HU43), que es de EP-08 como
+  los tableros.
+- `legal-params/`: HU49 y HU50, ya contratadas desde V3.
+
+Lo que V4, V5 y V6 cambiaron sobre lo que ya estaba hecho está en
+`frontend/CLAUDE.md`, en "Cambios de V4 sobre lo que ya estaba hecho", "Cambios
+de V5…" y "Cambios de V6…"; lo que trae el Sprint 5, en "Sprint 5 — qué trae
+V6".
 
 ### `src/shared/` — lo reutilizable
 
@@ -265,10 +278,11 @@ Hoy tiene `envelopes.ts`, con los envoltorios que el contrato pone alrededor de
 toda respuesta exitosa: `ApiItem`, `ApiList`, `Pagination` y `PaginatedQuery`.
 La capa `api/` de cada módulo los desenvuelve y entrega los datos pelados, así
 el envoltorio no se propaga a las pantallas. La fuente es el contrato de
-`docs/Api-Contract/`: `API_CONTRACT_V5.md`, la versión final, autocontenida
-(trae todo lo vigente de los Sprints 1 a 4), con su revisión del 27/10/2026.
-Las decisiones (D-xx) y los puntos abiertos (C-xx) están en `DECISIONES.md`.
-V2, V3 y V4 quedan como registro: no son referencia.
+`docs/Api-Contract/`: `API_CONTRACT_V6.md`, la última versión (09/11/2026),
+autocontenida: trae todo lo de los Sprints 1 a 4, sin cambios, y suma el
+Sprint 5, marcado **(V6)**. Los puntos abiertos (C-xx) están en su §7,
+"Aspectos por definir"; las decisiones (D-xx), en `DECISIONES.md`. V2, V3, V4
+y V5 quedan como registro: no son referencia.
 
 La otra fuente de verdad es el prototipo (`docs/prototypes/`): de ahí salen las
 pantallas y sus textos. Cuando el contrato y el prototipo no coinciden, se

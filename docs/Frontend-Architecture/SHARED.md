@@ -62,9 +62,12 @@ tienen lo que figura en el [Índice rápido](#índice-rápido) y en
 `mocks/` implementa `docs/Api-Contract/API_CONTRACT_V5.md` (con su revisión
 del 27/10/2026) sobre **MSW**, que intercepta la red de verdad (los pedidos se
 ven en la pestaña Network). Se enciende con `await startMocks()` de
-`@/shared/mocks/browser`. Están **todos los endpoints del contrato**, incluidos
+`@/shared/mocks/browser`. Están **todos los endpoints de V5**, incluidos
 los del Sprint 4: modificar y dar de baja una causa, la carátula, modificar un
-acto procesal, los documentos de la causa y el expediente. Lo que conviene
+acto procesal, los documentos de la causa y el expediente. **Los del Sprint 5
+todavía no**: el contrato vigente es `API_CONTRACT_V6.md` (09/11/2026), y sus
+endpoints nuevos se agregan al mock antes que su pantalla (`frontend/CLAUDE.md`,
+"Sprint 5 — qué trae V6"). Lo que conviene
 saber antes de usarlo:
 
 - **Quién puede qué** sale de la tabla de permisos del contrato (V5 §4,
@@ -967,6 +970,10 @@ los del Sprint 4, `DOCUMENT_NOT_FOUND`, `CASE_FOLDER_NOT_AVAILABLE` y
 `PROCEDURAL_STATE_HAS_DEPENDENCIES` ni `PROCEDURAL_STATE_IN_USE`, que el
 contrato retiró),
 `isErrorCode()`, `ErrorBody` y `LoginErrorBody`.
+**V6 suma dos códigos que todavía no están**, `CLIENT_HAS_ACTIVE_CASES` (409)
+y `MONTHLY_REPORT_NOT_FOUND` (404), y cambia el significado de
+`LAWYER_HAS_DEPENDENCIES`: ahora es "quedan causas activas sin reasignar" en la
+baja del abogado (D-123).
 Vive en `api/` y no en `mocks/` porque es contrato de producción; los mocks
 lo reexportan desde acá.
 

@@ -11,6 +11,17 @@ y lo del Sprint 4, que es modificar y dar de baja una causa, la carátula,
 modificar un acto procesal, los documentos de la causa y el expediente
 ([Lo que suma el Sprint 4](#lo-que-suma-el-sprint-4-v5)).
 
+> **V6 (09/11/2026).** El contrato vigente pasa a ser
+> `docs/Api-Contract/API_CONTRACT_V6.md`. **Lo del Sprint 5 todavía no está en
+> el mock**: `PATCH` y `DELETE /clients/{clientId}`,
+> `DELETE /cases/{caseId}/procedural-acts/{actId}`, `PATCH` y
+> `DELETE /document-templates/{templateId}`, `GET /reports/monthly` y
+> `GET /reports/monthly/file`. Además, `DELETE /lawyers/{lawyerId}` sigue la
+> regla de V5 (`409` si el abogado tiene causas o un usuario vinculado). V6 la
+> cambia: reasigna sus causas activas con `reassignments`, y el usuario
+> vinculado ya no bloquea (D-123, D-133). Ver `frontend/CLAUDE.md`, "Cambios de
+> V6 sobre lo que ya estaba hecho".
+
 > **`tests/unit/contract/endpoints.test.ts` está en rojo** hasta que
 > `docs/openapi` sume cinco endpoints de V5 que el mock implementa y la
 > especificación todavía no: `GET /cases/{caseId}/cover`,
@@ -507,7 +518,7 @@ de servir en el acto.
 | `401` renovación | `POST /auth/refresh` con la sesión ya revocada (`db.sessions.clear()`) → `UNAUTHENTICATED` |
 | `403` | `mrios` o `gestion` en cualquier endpoint de `/users`, o escribiendo abogados; cualquiera que no sea el abogado responsable registrando un acto o pidiendo `deadline-preview`: `gestion`, `supervision`, o `mrios` y `fvazquez` sobre la causa 7, que lleva `mferreyra` |
 | `404` | `GET /users/999`, `GET /cases/999`; también los que existen pero están dados de baja: `GET /users/22`, `GET /clients/8`, `GET /legal-qualifications/9` |
-| `409` | crear un usuario con `username: "fvazquez"` o con un email ya usado; vincular un abogado que ya tiene cuenta; crear un abogado con `1-28114`; dar de baja el usuario 3, 4 o 5; dar de baja un abogado con cuenta o con causas (del 1 al 8); crear un estado procesal o una calificación con un nombre que ya existe, o un estado que se llame "Iniciada"; registrar un cliente con el DNI `34812905` (un pasaporte con ese número no choca: la unicidad es por tipo); registrar una causa con el SAC `13284571` |
+| `409` | crear un usuario con `username: "fvazquez"` o con un email ya usado; vincular un abogado que ya tiene cuenta; crear un abogado con `1-28114`; dar de baja el usuario 3, 4 o 5; dar de baja un abogado con cuenta o con causas (del 1 al 8; es la regla de V5, que V6 cambia); crear un estado procesal o una calificación con un nombre que ya existe, o un estado que se llame "Iniciada"; registrar un cliente con el DNI `34812905` (un pasaporte con ese número no choca: la unicidad es por tipo); registrar una causa con el SAC `13284571` |
 | `422` | crear un usuario `LAWYER` sin ficha profesional, o uno sin rol `LAWYER` **con** ficha; dar de baja o degradar el usuario 1; contraseña actual incorrecta en `PATCH /auth/password`; registrar un acto en la causa 9, 10 o 21 → `CASE_IN_TERMINAL_STATE` |
 | `500` / red | `configureMocks({ forceFailure: 500 })` / `configureMocks({ forceFailure: 'network' })` |
 | `400`, Sprint 3 | un acto interruptivo sin nombre, con fecha futura o con observaciones de más de 2000 caracteres; marcar prescripta sin resolución o con fecha futura; un modelo sin nombre, sin fuero, sin archivo o con un archivo que no es `.docx`; `POST /cases` con `createFolder: false` y `copyTemplates: true`; un dato de otro fuero en el alta (`clientDetained` en un amparo, `harmfulActDate` en el penal…); un amparo con `harmfulActDate` sin `harmfulActTermDays` o sin `harmfulActTermDayType`, o con `harmfulActRenews` sin `harmfulActRenewalDays`; un usuario o un abogado sin `lastName` o sin `firstName` |

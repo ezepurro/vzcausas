@@ -84,6 +84,8 @@ a{color:#406640}
 a:hover{color:#2F4D2F}
 input,select,textarea,button{font-family:inherit}
 input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible,[tabindex]:focus-visible{outline:2px solid #406640;outline-offset:2px}
+.vz-back svg{transition:transform .15s}.vz-back:hover svg{transform:translateX(-1px)}
+@media (prefers-reduced-motion:reduce){.vz-back,.vz-back svg{transition:none!important}}
 ::-webkit-scrollbar{width:10px;height:10px}
 ::-webkit-scrollbar-thumb{background:#C3CBC1;border-radius:6px}
 </style>
@@ -666,6 +668,7 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
       <sc-if value="{{ esNueva }}" hint-placeholder-val="{{ false }}">
       <div>
         <nav aria-label="Migas" style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted);margin-bottom:12px">
+          <button type="button" class="vz-back" aria-label="Volver" title="Volver" onClick="{{ volverAtras }}" style="flex:0 0 26px;width:26px;height:26px;margin-right:2px;padding:0;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:var(--r-btn);background:var(--surface);color:var(--muted);cursor:pointer;transition:color .15s,background .15s,border-color .15s,transform .15s" style-hover="color:var(--primary);background:var(--primary-soft);border-color:var(--ok-bd, #C9D8C5)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg></button>
           <button type="button" onClick="{{ goCausas }}" style="background:none;border:none;padding:0;color:var(--primary);font-size:12.5px;font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:2px">Causas</button>
           <span style="color:var(--faint)">/</span>
           <span style="color:var(--ink);font-weight:600">Registrar causa</span>
@@ -1011,6 +1014,7 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
       <sc-if value="{{ esActo }}" hint-placeholder-val="{{ false }}">
       <div>
         <nav aria-label="Migas" style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted);margin-bottom:12px">
+          <button type="button" class="vz-back" aria-label="Volver" title="Volver" onClick="{{ volverAtras }}" style="flex:0 0 26px;width:26px;height:26px;margin-right:2px;padding:0;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:var(--r-btn);background:var(--surface);color:var(--muted);cursor:pointer;transition:color .15s,background .15s,border-color .15s,transform .15s" style-hover="color:var(--primary);background:var(--primary-soft);border-color:var(--ok-bd, #C9D8C5)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg></button>
           <button type="button" onClick="{{ goCausas }}" style="background:none;border:none;padding:0;color:var(--primary);font-size:12.5px;font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:2px">Causas</button>
           <span style="color:var(--faint)">/</span>
           <button type="button" onClick="{{ goDetalle }}" style="background:none;border:none;padding:0;color:var(--primary);font-size:12.5px;font-weight:600;font-family:'Roboto Mono',monospace;cursor:pointer;text-decoration:underline;text-underline-offset:2px">{{ causa.sac }}</button>
@@ -1189,6 +1193,7 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
       <sc-if value="{{ esDetalle }}" hint-placeholder-val="{{ false }}">
       <div>
         <nav aria-label="Migas" style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted);margin-bottom:12px">
+          <button type="button" class="vz-back" aria-label="Volver" title="Volver" onClick="{{ volverAtras }}" style="flex:0 0 26px;width:26px;height:26px;margin-right:2px;padding:0;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:var(--r-btn);background:var(--surface);color:var(--muted);cursor:pointer;transition:color .15s,background .15s,border-color .15s,transform .15s" style-hover="color:var(--primary);background:var(--primary-soft);border-color:var(--ok-bd, #C9D8C5)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg></button>
           <button type="button" onClick="{{ goCausas }}" style="background:none;border:none;padding:0;color:var(--primary);font-size:12.5px;font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:2px">Causas</button>
           <span style="color:var(--faint)">/</span>
           <span style="color:var(--ink);font-weight:600;font-family:'Roboto Mono',monospace">{{ causa.sac }}</span>
@@ -1339,6 +1344,33 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
               </div>
             </div>
 
+            <div style="background:var(--surface);border:var(--panel-bd);border-radius:var(--r);box-shadow:var(--card-sh);padding:15px 18px;display:flex;flex-direction:column;gap:12px">
+              <div style="display:flex;align-items:center;gap:9px">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg>
+                <h2 style="font-size:15px;font-weight:700;margin:0">Carpeta en Drive</h2>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:3px;min-width:0">
+                <div style="font-size:13px;font-weight:600;line-height:1.4;text-wrap:pretty">{{ carpNombre }}</div>
+                <div style="font-size:12px;color:var(--muted)">{{ carpRuta }}</div>
+              </div>
+              <span style="{{ carpEstadoCss }}"><span style="{{ carpEstadoDot }}"></span>{{ carpEstado }}</span>
+              <sc-if value="{{ carpCreada }}" hint-placeholder-val="{{ true }}">
+                <button type="button" onClick="{{ abrirDrive }}" style="display:flex;align-items:center;justify-content:center;gap:7px;height:34px;padding:0 12px;border:1px solid var(--border-2);border-radius:var(--r-btn);background:var(--surface);color:var(--ink);font-size:12.5px;font-weight:600;cursor:pointer" style-hover="background:var(--primary-soft);border-color:var(--primary);color:var(--primary-hi)">
+                  Abrir carpeta en Drive
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"></path></svg>
+                </button>
+              </sc-if>
+              <sc-if value="{{ carpCrear }}" hint-placeholder-val="{{ false }}">
+                <button type="button" onClick="{{ crearCarpeta }}" style="display:flex;align-items:center;justify-content:center;gap:7px;height:34px;padding:0 12px;border:1px solid var(--border-2);border-radius:var(--r-btn);background:var(--surface);color:var(--ink);font-size:12.5px;font-weight:600;cursor:pointer" style-hover="background:var(--primary-soft);border-color:var(--primary);color:var(--primary-hi)">Crear carpeta</button>
+              </sc-if>
+              <sc-if value="{{ carpReintentar }}" hint-placeholder-val="{{ false }}">
+                <button type="button" onClick="{{ crearCarpeta }}" style="display:flex;align-items:center;justify-content:center;gap:7px;height:34px;padding:0 12px;border:1px solid var(--border-2);border-radius:var(--r-btn);background:var(--surface);color:var(--ink);font-size:12.5px;font-weight:600;cursor:pointer" style-hover="background:var(--primary-soft);border-color:var(--primary);color:var(--primary-hi)">Reintentar</button>
+              </sc-if>
+              <sc-if value="{{ carpCreando }}" hint-placeholder-val="{{ false }}">
+                <button type="button" disabled="" style="display:flex;align-items:center;justify-content:center;gap:7px;height:34px;padding:0 12px;border:1px solid var(--border-2);border-radius:var(--r-btn);background:var(--surface);color:var(--ink);font-size:12.5px;font-weight:600;cursor:pointer;color:var(--faint);cursor:default">Creando carpeta…</button>
+              </sc-if>
+            </div>
+
             <sc-if value="{{ verDocs }}" hint-placeholder-val="{{ true }}">
             <div style="background:var(--surface);border:var(--panel-bd);border-radius:var(--r);box-shadow:var(--card-sh);overflow:hidden">
               <div style="padding:15px 18px;border-bottom:1px solid var(--border);display:flex;flex-direction:column;gap:12px">
@@ -1347,14 +1379,16 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
                   <h2 style="font-size:15px;font-weight:700;margin:0">Documentación</h2>
                   <span style="margin-left:auto;font-size:12px;color:var(--muted);font-family:'Roboto Mono',monospace">{{ cantidadDocs }}</span>
                 </div>
-                <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+                <sc-if value="{{ docsConEstado }}" hint-placeholder-val="{{ true }}">
                   <span style="{{ docsSyncCss }}"><span style="{{ docsSyncDot }}"></span>{{ docsSync }}</span>
-                  <button type="button" onClick="{{ abrirDrive }}" style="display:flex;align-items:center;gap:7px;height:32px;padding:0 12px;border:1px solid var(--border-2);border-radius:var(--r-btn);background:var(--surface);color:var(--ink);font-size:12.5px;font-weight:600;cursor:pointer" style-hover="background:var(--primary-soft);border-color:var(--primary);color:var(--primary-hi)">
-                    Abrir carpeta en Drive
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"></path></svg>
-                  </button>
-                </div>
+                </sc-if>
               </div>
+              <sc-if value="{{ docsSinCarpeta }}" hint-placeholder-val="{{ false }}">
+                <div style="padding:22px 18px;text-align:center;font-size:13px;color:var(--muted);line-height:1.5">La carpeta de la causa todavía no está creada en Drive.</div>
+              </sc-if>
+              <sc-if value="{{ docsFalla }}" hint-placeholder-val="{{ false }}">
+                <div style="padding:22px 18px;text-align:center;font-size:13px;color:#8E1F19;line-height:1.5">No se pudo leer la carpeta de la causa en Drive. Intentá de nuevo en unos minutos.</div>
+              </sc-if>
               <sc-if value="{{ docsCargando }}" hint-placeholder-val="{{ false }}">
                 <div style="padding:8px">
                   <sc-for list="{{ docsEsqueleto }}" as="k" hint-placeholder-count="3">
@@ -1371,13 +1405,21 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
               <sc-if value="{{ docsListos }}" hint-placeholder-val="{{ true }}">
                 <div style="padding:6px 8px 8px;max-height:360px;overflow-y:auto;scrollbar-width:thin">
                   <sc-for list="{{ docs }}" as="d" hint-placeholder-count="3">
-                    <div style="display:flex;align-items:center;gap:11px;padding:9px 10px;border-radius:var(--r-sm)" style-hover="background:var(--sunken)">
+                    <div style="display:flex;align-items:center;flex-wrap:wrap;gap:6px 11px;padding:9px 10px;border-radius:var(--r-sm)" style-hover="background:var(--sunken)">
                       <span style="{{ d.icoCss }}">{{ d.ext }}</span>
-                      <div style="min-width:0;flex:1">
+                      <div style="min-width:0;flex:1 1 150px">
                         <div style="font-size:13px;font-weight:600;line-height:1.35;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{{ d.nombre }}">{{ d.nombre }}</div>
-                        <div style="font-size:11.5px;color:var(--faint);margin-top:2px">{{ d.autor }} · <span style="font-family:'Roboto Mono',monospace">{{ d.fecha }} · {{ d.peso }}</span></div>
+                        <div style="font-size:11.5px;color:var(--faint);margin-top:2px">{{ d.autorPre }}<span style="font-family:'Roboto Mono',monospace">{{ d.datos }}</span></div>
                       </div>
-                      <button type="button" onClick="{{ d.abrir }}" style="height:28px;padding:0 10px;border:none;background:none;color:var(--primary-hi);font-size:12.5px;font-weight:600;cursor:pointer;flex:0 0 auto;text-decoration:underline;text-underline-offset:2px">Abrir</button>
+                      <div style="display:flex;align-items:center;gap:6px;margin-left:auto;flex:0 0 auto">
+                        <button type="button" onClick="{{ d.abrir }}" style="height:28px;padding:0 10px;border:none;background:none;color:var(--primary-hi);font-size:12.5px;font-weight:600;cursor:pointer;flex:0 0 auto;text-decoration:underline;text-underline-offset:2px">Abrir</button>
+                        <sc-if value="{{ d.puedeDescargar }}" hint-placeholder-val="{{ true }}">
+                          <button type="button" onClick="{{ d.descargar }}" disabled="{{ d.ocupado }}" title="{{ d.descTitulo }}" style="height:28px;padding:0 10px;border:1px solid var(--border-2);border-radius:var(--r-btn);background:var(--surface);color:var(--ink);font-size:12.5px;font-weight:600;cursor:pointer;flex:0 0 auto" style-hover="background:var(--primary-soft);border-color:var(--primary);color:var(--primary-hi)">{{ d.descLabel }}</button>
+                        </sc-if>
+                      </div>
+                      <sc-if value="{{ d.descError }}" hint-placeholder-val="{{ false }}">
+                        <div role="alert" style="flex:0 0 100%;padding-left:45px;font-size:12px;color:#8E1F19;line-height:1.45;box-sizing:border-box">No se pudo descargar el documento de Drive. Intentá de nuevo en unos minutos.</div>
+                      </sc-if>
                     </div>
                   </sc-for>
                   <sc-if value="{{ docsVacio }}" hint-placeholder-val="{{ false }}">
@@ -2001,80 +2043,280 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
             <p style="margin:6px 0 0;font-size:13.5px;color:var(--muted);max-width:660px">Información consolidada del portafolio para la dirección del estudio.</p>
           </div>
           <div style="display:flex;gap:9px;flex-wrap:wrap">
-            <button type="button" onClick="{{ exportarCsv }}" style="height:40px;padding:0 16px;border:1px solid var(--border-2);border-radius:var(--r-btn);background:var(--surface);color:var(--ink);font-size:13.5px;font-weight:600;cursor:pointer" style-hover="background:var(--canvas)">Exportar CSV</button>
-            <button type="button" onClick="{{ exportar }}" style="height:40px;padding:0 18px;border:none;border-radius:var(--r-btn);background:var(--primary);color:#fff;font-size:13.5px;font-weight:600;cursor:pointer" style-hover="background:var(--primary-hi)">Descargar PDF</button>
+            
+            <div style="position:relative">
+              <div style="display:flex;align-items:center;height:40px;border:1px solid var(--border-2);border-radius:var(--r-btn);background:var(--surface);overflow:hidden">
+                <button type="button" aria-label="Mes anterior" title="Mes anterior" onClick="{{ repMesPrev }}" disabled="{{ repPrevDis }}" style="{{ repPrevCss }}" style-hover="background:var(--primary-soft);color:var(--primary)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg></button>
+                <button type="button" onClick="{{ repTogglePick }}" aria-haspopup="dialog" aria-expanded="{{ repPickOpen }}" style="height:40px;min-width:150px;padding:0 12px;border:0;border-left:1px solid var(--border);border-right:1px solid var(--border);background:transparent;color:var(--ink);font-size:13.5px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px" style-hover="background:var(--sunken)">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1zM4 10h16M8 3v4M16 3v4"></path></svg>{{ repMesLabel }}</button>
+                <button type="button" aria-label="Mes siguiente" title="Mes siguiente" onClick="{{ repMesNext }}" disabled="{{ repNextDis }}" style="{{ repNextCss }}" style-hover="background:var(--primary-soft);color:var(--primary)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"></path></svg></button>
+              </div>
+              <sc-if value="{{ repPickOpen }}" hint-placeholder-val="{{ false }}">
+                <div onClick="{{ repCerrarPick }}" style="position:fixed;inset:0;z-index:40"></div>
+                <div role="dialog" aria-label="Elegir mes" style="position:absolute;right:0;top:46px;z-index:41;width:264px;padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:0 14px 40px rgba(12,20,6,.18)">
+                  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+                    <button type="button" aria-label="Año anterior" onClick="{{ repAnioPrev }}" disabled="{{ repAnioPrevDis }}" style="{{ repAnioPrevCss }}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg></button>
+                    <span style="font-family:'Roboto Mono',monospace;font-size:14px;font-weight:600">{{ repPickAnio }}</span>
+                    <button type="button" aria-label="Año siguiente" onClick="{{ repAnioNext }}" disabled="{{ repAnioNextDis }}" style="{{ repAnioNextCss }}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"></path></svg></button>
+                  </div>
+                  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">
+                    <sc-for list="{{ repPickMeses }}" as="m" hint-placeholder-count="12">
+                      <button type="button" onClick="{{ m.elegir }}" disabled="{{ m.dis }}" title="{{ m.title }}" style="{{ m.css }}">{{ m.t }}</button>
+                    </sc-for>
+                  </div>
+                  <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:8px">
+                    <span style="font-size:11.5px;color:var(--faint)">{{ repPickNota }}</span>
+                    <button type="button" onClick="{{ repUltimo }}" style="border:0;background:none;padding:0;font-size:12.5px;font-weight:600;color:var(--primary-hi);cursor:pointer;text-decoration:underline;text-underline-offset:2px">Último cerrado</button>
+                  </div>
+                </div>
+              </sc-if>
+            </div>
+            <button type="button" onClick="{{ descargarRepMes }}" style="height:40px;padding:0 18px;border:none;border-radius:var(--r-btn);background:var(--primary);color:#fff;font-size:13.5px;font-weight:600;cursor:pointer" style-hover="background:var(--primary-hi)">Descargar PDF</button>
           </div>
         </div>
 
-        <div style="display:flex;gap:2px;border-bottom:1px solid var(--border);margin-bottom:18px;overflow-x:auto;scrollbar-width:none">
-          <button type="button" onClick="{{ verRepAbogado }}" style="{{ cssRepAbogado }}">Por abogado responsable</button>
-          <button type="button" onClick="{{ verRepFuero }}" style="{{ cssRepFuero }}">Por fuero</button>
-        </div>
-
-        <sc-if value="{{ repAbogado }}" hint-placeholder-val="{{ true }}">
-        <div style="background:var(--surface);border:var(--panel-bd);border-radius:var(--r);box-shadow:var(--card-sh);overflow:hidden;overflow-x:auto">
-          <div style="padding:15px 18px;border-bottom:1px solid var(--border);background:var(--sunken)">
-            <h2 style="font-size:15px;font-weight:700;margin:0">Causas por abogado responsable</h2>
-            <p style="margin:4px 0 0;font-size:12px;color:var(--muted)">Al 15/09/2026 · {{ repTotalCarga }} causas activas distribuidas entre 7 profesionales.</p>
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px">
+            <sc-for list="{{ repKpis }}" as="k" hint-placeholder-count="4">
+              <div style="background:var(--surface);border:var(--panel-bd);border-radius:var(--r);box-shadow:var(--card-sh);overflow:hidden;min-width:0;padding:16px 18px">
+                <div style="font-size:12px;font-weight:600;color:var(--muted)">{{ k.label }}</div>
+                <div style="font-family:'Roboto Mono',monospace;font-size:28px;font-weight:600;letter-spacing:-.02em;line-height:1.1;margin-top:8px">{{ k.valor }}</div>
+                <div style="font-size:12px;color:var(--faint);margin-top:4px">{{ k.nota }}</div>
+              </div>
+            </sc-for>
           </div>
-          <table data-rt="1" style="width:100%;min-width:760px;border-collapse:collapse;font-size:13.5px">
-            <thead>
-              <tr style="background:var(--th-bg)">
-                <th scope="col" style="text-align:left;padding:11px 16px;color:var(--th-fg);font-size:11px;font-weight:var(--th-weight);letter-spacing:.07em;text-transform:uppercase;width:32%">Abogado</th>
-                <th scope="col" style="text-align:left;padding:11px 16px;color:var(--th-fg);font-size:11px;font-weight:var(--th-weight);letter-spacing:.07em;text-transform:uppercase;width:34%">Distribución</th>
-                <th scope="col" style="text-align:right;padding:11px 16px;color:var(--th-fg);font-size:11px;font-weight:var(--th-weight);letter-spacing:.07em;text-transform:uppercase">Causas</th>
-                <th scope="col" data-hide="md" style="text-align:right;padding:11px 16px;color:var(--th-fg);font-size:11px;font-weight:var(--th-weight);letter-spacing:.07em;text-transform:uppercase">Del total</th>
-                <th scope="col" style="text-align:left;padding:11px 16px;color:var(--th-fg);font-size:11px;font-weight:var(--th-weight);letter-spacing:.07em;text-transform:uppercase">Estado</th>
-              </tr>
-            </thead>
-            <tbody>
-              <sc-for list="{{ repFilas }}" as="r" hint-placeholder-count="7">
-                <tr style="border-top:1px solid var(--border)" style-hover="background:var(--sunken)">
-                  <td data-l="Abogado" data-p="1" style="padding:var(--cell-y) 16px;height:var(--row);font-weight:600">{{ r.nombre }}</td>
-                  <td data-l="Distribución" style="padding:var(--cell-y) 16px">
-                    <div style="height:7px;border-radius:4px;background:var(--sunken);border:1px solid var(--border);overflow:hidden">
-                      <div style="{{ r.barCss }}"></div>
+
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:16px">
+            <div style="background:var(--surface);border:var(--panel-bd);border-radius:var(--r);box-shadow:var(--card-sh);overflow:hidden;min-width:0">
+              <div style="padding:15px 18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap"><div><h2 style="font-size:15px;font-weight:700;margin:0">Causas activas por fuero</h2><p style="margin:3px 0 0;font-size:12px;color:var(--muted)">Al {{ repCorte }}</p></div></div>
+              <div style="padding:22px 18px;display:flex;align-items:center;gap:28px;flex-wrap:wrap;justify-content:center">
+                <div style="{{ repDonutCss }}" role="img" aria-label="{{ repDonutAria }}">
+                  <div style="position:absolute;inset:26px;border-radius:50%;background:var(--surface);display:flex;flex-direction:column;align-items:center;justify-content:center">
+                    <span style="font-family:'Roboto Mono',monospace;font-size:30px;font-weight:600;line-height:1">{{ repActivas }}</span>
+                    <span style="font-size:11.5px;color:var(--muted);margin-top:4px">activas</span>
+                  </div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:12px;min-width:170px;flex:1 1 170px">
+                  <sc-for list="{{ repFueros }}" as="x" hint-placeholder-count="3">
+                    <div style="display:flex;align-items:center;gap:10px">
+                      <span style="{{ x.dot }}"></span>
+                      <span style="flex:1;font-size:13.5px;font-weight:600">{{ x.nombre }}</span>
+                      <span style="font-family:'Roboto Mono',monospace;font-size:13.5px;font-weight:600">{{ x.n }}</span>
+                      <span style="font-family:'Roboto Mono',monospace;font-size:12px;color:var(--muted);width:40px;text-align:right">{{ x.pct }}</span>
                     </div>
-                  </td>
-                  <td data-l="Causas" style="padding:var(--cell-y) 16px;text-align:right;font-family:'Roboto Mono',monospace;font-weight:500">{{ r.causas }}</td>
-                  <td data-l="Del total" data-hide="md" style="padding:var(--cell-y) 16px;text-align:right;font-family:'Roboto Mono',monospace;color:var(--muted)">{{ r.pct }}</td>
-                  <td data-l="Estado" style="padding:var(--cell-y) 16px;color:var(--muted);white-space:nowrap">{{ r.estado }}</td>
-                </tr>
-              </sc-for>
-            </tbody>
-          </table>
-          <div style="padding:12px 16px;border-top:1px solid var(--border);background:var(--sunken);font-size:12.5px;color:var(--muted);line-height:1.5">La barra compara contra el máximo del estudio. Una diferencia sostenida es la señal para redistribuir la cartera.</div>
-        </div>
-        </sc-if>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
 
-        <sc-if value="{{ repFuero }}" hint-placeholder-val="{{ false }}">
-        <div style="display:flex;flex-direction:column;gap:14px">
-          <sc-for list="{{ repFueroFilas }}" as="f" hint-placeholder-count="3">
-            <div style="background:var(--surface);border:var(--panel-bd);border-radius:var(--r);box-shadow:var(--card-sh);overflow:hidden">
-              <div style="padding:15px 18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:baseline;gap:16px;flex-wrap:wrap">
-                <div>
-                  <h2 style="font-size:16px;font-weight:700;margin:0">Fuero {{ f.nombre }}</h2>
-                  <p style="margin:4px 0 0;font-size:12px;color:var(--muted)">{{ f.activas }} activas · {{ f.archivadas }} archivadas · {{ f.prescriptas }} prescriptas</p>
+            <div style="background:var(--surface);border:var(--panel-bd);border-radius:var(--r);box-shadow:var(--card-sh);overflow:hidden;min-width:0">
+              <div style="padding:15px 18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap"><div><h2 style="font-size:15px;font-weight:700;margin:0">Causas ingresadas y archivadas por mes</h2><p style="margin:3px 0 0;font-size:12px;color:var(--muted)">{{ repMesesSub }}</p></div>
+                <div style="display:flex;gap:14px"><span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)"><span style="width:10px;height:10px;border-radius:2px;background:var(--primary)"></span>Ingresadas</span><span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)"><span style="width:10px;height:10px;border-radius:2px;background:#8E1F19"></span>Archivadas</span></div></div>
+              <div style="padding:18px 18px 14px">
+                <div style="display:grid;grid-template-columns:repeat(9,minmax(0,1fr));gap:6px;height:170px;align-items:end;border-bottom:1px solid var(--border-2)">
+                  <sc-for list="{{ repMeses }}" as="m" hint-placeholder-count="9">
+                    <div style="display:flex;align-items:flex-end;justify-content:center;gap:3px;height:100%" title="{{ m.title }}">
+                      <div style="{{ m.inCss }}"></div><div style="{{ m.outCss }}"></div>
+                    </div>
+                  </sc-for>
                 </div>
-                <div style="text-align:right">
-                  <div style="font-size:26px;font-weight:700;font-family:'Roboto Mono',monospace;line-height:1;letter-spacing:-.02em">{{ f.total }}</div>
-                  <div style="font-size:11.5px;color:var(--muted);margin-top:4px">{{ f.pct }} de las activas</div>
-                </div>
-              </div>
-              <div style="padding:14px 18px;border-bottom:1px solid var(--border)">
-                <div style="height:7px;border-radius:4px;background:var(--sunken);border:1px solid var(--border);overflow:hidden">
-                  <div style="{{ f.barCss }}"></div>
+                <div style="display:grid;grid-template-columns:repeat(9,minmax(0,1fr));gap:6px;margin-top:7px">
+                  <sc-for list="{{ repMeses }}" as="m" hint-placeholder-count="9">
+                    <span style="text-align:center;font-size:11.5px;color:var(--muted)">{{ m.mes }}</span>
+                  </sc-for>
                 </div>
               </div>
-              <div style="padding:14px 18px;display:flex;gap:8px;flex-wrap:wrap">
-                <sc-for list="{{ f.estados }}" as="e" hint-placeholder-count="5">
-                  <span style="{{ e.css }}">{{ e.nombre }} · {{ e.n }}</span>
+            </div>
+          </div>
+
+          <div style="background:var(--surface);border:var(--panel-bd);border-radius:var(--r);box-shadow:var(--card-sh);overflow:hidden;min-width:0">
+            <div style="padding:15px 18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap"><div><h2 style="font-size:15px;font-weight:700;margin:0">Carga por abogado responsable</h2><p style="margin:3px 0 0;font-size:12px;color:var(--muted)">Causas activas desglosadas por fuero. La línea marca el promedio del estudio ({{ repProm }}).</p></div>
+              <div style="display:flex;gap:14px;flex-wrap:wrap"><span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)"><span style="width:10px;height:10px;border-radius:2px;background:#406640"></span>Penal</span><span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)"><span style="width:10px;height:10px;border-radius:2px;background:#A8894C"></span>Administrativo</span><span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)"><span style="width:10px;height:10px;border-radius:2px;background:#4F6A8A"></span>Amparo</span></div></div>
+            <div style="padding:14px 18px 18px;display:flex;flex-direction:column;gap:12px">
+              <sc-for list="{{ repCarga }}" as="r" hint-placeholder-count="7">
+                <div style="display:grid;grid-template-columns:minmax(120px,200px) minmax(0,1fr) 34px;align-items:center;gap:14px">
+                  <span style="font-size:13.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.nombre }}</span>
+                  <div style="position:relative;height:16px">
+                    <div style="{{ r.barCss }}" title="{{ r.title }}">
+                      <div style="{{ r.pCss }}"></div><div style="{{ r.aCss }}"></div><div style="{{ r.mCss }}"></div>
+                    </div>
+                    <div style="{{ r.promCss }}"></div>
+                  </div>
+                  <span style="font-family:'Roboto Mono',monospace;font-size:13.5px;font-weight:600;text-align:right">{{ r.total }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:16px">
+            <div style="background:var(--surface);border:var(--panel-bd);border-radius:var(--r);box-shadow:var(--card-sh);overflow:hidden;min-width:0">
+              <div style="padding:15px 18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap"><div><h2 style="font-size:15px;font-weight:700;margin:0">Causas por estado procesal</h2><p style="margin:3px 0 0;font-size:12px;color:var(--muted)">{{ repEstSub }}</p></div>
+                <div style="display:flex;gap:6px;flex-wrap:wrap">
+                  <sc-for list="{{ repEstTabs }}" as="t" hint-placeholder-count="3"><button type="button" onClick="{{ t.ver }}" style="{{ t.css }}">{{ t.nombre }}</button></sc-for>
+                </div></div>
+              <div style="padding:14px 18px 18px;display:flex;flex-direction:column;gap:10px">
+                <sc-for list="{{ repEstados }}" as="e" hint-placeholder-count="6">
+                  <div style="display:flex;flex-direction:column;gap:5px">
+                    <div style="display:flex;justify-content:space-between;gap:10px;font-size:12.5px"><span>{{ e.nombre }}</span><span style="font-family:'Roboto Mono',monospace;font-weight:600">{{ e.n }}</span></div>
+                    <div style="height:6px;border-radius:3px;background:var(--sunken);overflow:hidden"><div style="{{ e.css }}"></div></div>
+                  </div>
                 </sc-for>
               </div>
             </div>
-          </sc-for>
+
+            <div style="background:var(--surface);border:var(--panel-bd);border-radius:var(--r);box-shadow:var(--card-sh);overflow:hidden;min-width:0">
+              <div style="padding:15px 18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap"><div><h2 style="font-size:15px;font-weight:700;margin:0">Avance de la prescripción</h2><p style="margin:3px 0 0;font-size:12px;color:var(--muted)">{{ repPrescSub }}</p></div></div>
+              <div style="padding:18px;display:flex;flex-direction:column;gap:18px">
+                <div style="display:flex;height:22px;border-radius:var(--r-sm);overflow:hidden;gap:2px" role="img" aria-label="Distribución del avance de la prescripción">
+                  <sc-for list="{{ repPresc }}" as="p" hint-placeholder-count="4"><div style="{{ p.barCss }}" title="{{ p.title }}"></div></sc-for>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:0">
+                  <sc-for list="{{ repPresc }}" as="p" hint-placeholder-count="4">
+                    <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--border)">
+                      <span style="{{ p.dot }}"></span>
+                      <span style="flex:1;font-size:13px">{{ p.rango }}</span>
+                      <span style="font-family:'Roboto Mono',monospace;font-size:13.5px;font-weight:600">{{ p.n }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+                <p style="margin:0;font-size:12.5px;color:var(--muted);line-height:1.5">Desde el 70 % la causa aparece en las alertas de Inicio. Un acto interruptivo reinicia el cómputo.</p>
+              </div>
+            </div>
+          </div>
+
         </div>
-        </sc-if>
+      </div>
+      </sc-if>
+
+      <!-- ══════ REPORTE MENSUAL · VISTA PREVIA ══════ -->
+      <sc-if value="{{ esRepPdf }}" hint-placeholder-val="{{ false }}">
+      <div>
+        <nav aria-label="Migas" style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted);margin-bottom:12px">
+          <button type="button" class="vz-back" aria-label="Volver" title="Volver" onClick="{{ irReportes }}" style="flex:0 0 26px;width:26px;height:26px;margin-right:2px;padding:0;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:var(--r-btn);background:var(--surface);color:var(--muted);cursor:pointer;transition:color .15s,background .15s,border-color .15s,transform .15s" style-hover="color:var(--primary);background:var(--primary-soft);border-color:var(--ok-bd, #C9D8C5)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg></button>
+          <a href="#" onClick="{{ irReportes }}" style="color:var(--muted);text-decoration:none">Reportes</a><span>/</span><span style="color:var(--ink);font-weight:600">{{ rp.periodo }}</span>
+        </nav>
+        <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:20px;margin-bottom:18px;flex-wrap:wrap">
+          <div>
+            <h1 style="font-size:var(--h1);line-height:1.2;font-weight:700;letter-spacing:-.02em;margin:0">Reporte mensual · {{ rp.periodo }}</h1>
+            <p style="margin:6px 0 0;font-size:13.5px;color:var(--muted);max-width:660px">{{ rp.ayuda }}</p>
+          </div>
+          <div style="display:flex;gap:9px;flex-wrap:wrap">
+            <sc-if value="{{ rp.puedeRegenerar }}" hint-placeholder-val="{{ false }}">
+              <button type="button" onClick="{{ rp.regenerar }}" style="height:40px;padding:0 16px;border:1px solid var(--border-2);border-radius:var(--r-btn);background:var(--surface);color:var(--ink);font-size:13.5px;font-weight:600;cursor:pointer" style-hover="background:var(--canvas)">Regenerar</button>
+            </sc-if>
+            <sc-if value="{{ rp.puedeGuardar }}" hint-placeholder-val="{{ false }}">
+              <button type="button" onClick="{{ rp.guardar }}" style="height:40px;padding:0 16px;border:1px solid var(--border-2);border-radius:var(--r-btn);background:var(--surface);color:var(--ink);font-size:13.5px;font-weight:600;cursor:pointer" style-hover="background:var(--canvas)">Guardar reporte del mes</button>
+            </sc-if>
+            <button type="button" onClick="{{ rp.descargar }}" style="height:40px;padding:0 18px;border:none;border-radius:var(--r-btn);background:var(--primary);color:#fff;font-size:13.5px;font-weight:600;cursor:pointer" style-hover="background:var(--primary-hi)">Descargar PDF</button>
+          </div>
+        </div>
+
+        <div style="background:#5A6560;border-radius:var(--r);padding:28px 20px;overflow-x:auto">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:24px;min-width:max-content">
+            <div style="position:relative;width:794px;min-height:1123px;box-sizing:border-box;padding:48px 56px 70px;background:#FFFFFF;color:#0F172A;font-family:Figtree,system-ui,sans-serif;box-shadow:0 18px 50px rgba(12,20,6,.22);display:flex;flex-direction:column;gap:20px">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:20px;padding-bottom:14px;border-bottom:2px solid #406640">
+                  <div style="display:flex;align-items:center;gap:12px">
+                    <svg width="38" height="27" viewBox="0 0 60 42" fill="none" aria-hidden="true"><path d="M2 2h12l10 26L34 2h12L28 40H16L2 2z" fill="#406640"></path><path d="M38 2h20L40 34h18v6H30L48 8H38V2z" fill="#406640" opacity=".55"></path></svg>
+                    <div><div style="font-size:13px;font-weight:700">Vázquez &amp; Zárate</div><div style="font-size:10px;color:#5A6560;letter-spacing:.04em">Staff de Abogados · Av. Agrim. Enrique Bodereau 9810, Córdoba</div></div>
+                  </div>
+                  <div style="text-align:right;font-size:10px;color:#5A6560;line-height:1.5"><div style="font-family:'Roboto Mono',monospace;font-weight:600;color:#0F172A">{{ rp.numero }} · v{{ rp.version }}</div><div>{{ rp.periodoCorto }}</div></div>
+                </div>
+              <div>
+                <div style="font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#406640">Reporte mensual de gestión de causas</div>
+                <div style="font-size:24px;font-weight:700;letter-spacing:-.01em;margin-top:4px">{{ rp.periodo }}</div>
+                <sc-if value="{{ rp.borrador }}" hint-placeholder-val="{{ false }}"><div style="display:inline-block;margin-top:8px;padding:3px 9px;border:1px solid #A8894C;border-radius:3px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#7A5C1E">Borrador · sin guardar · datos al {{ rp.corte }}</div></sc-if>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(4,1fr);border:1px solid #DDE2DC;border-radius:3px">
+                <sc-for list="{{ rp.meta }}" as="m" hint-placeholder-count="4">
+                  <div style="padding:8px 10px;border-right:1px solid #DDE2DC"><div style="font-size:9px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#5A6560">{{ m.k }}</div><div style="font-size:11px;font-weight:600;margin-top:3px">{{ m.v }}</div></div>
+                </sc-for>
+              </div>
+              <div>
+                <h3 style="margin:0 0 4px;font-size:13px;font-weight:700;color:#0F172A">1. Resumen del período</h3>
+                <div style="display:flex;flex-direction:column;gap:8px">
+                  <sc-for list="{{ rp.resumen }}" as="t" hint-placeholder-count="3"><p style="margin:0;font-size:11.5px;line-height:1.6;color:#0F172A;text-wrap:pretty">{{ t }}</p></sc-for>
+                </div>
+              </div>
+              <div>
+                <h3 style="margin:0 0 4px;font-size:13px;font-weight:700;color:#0F172A">2. Causas por fuero</h3>
+                <p style="margin:0 0 10px;font-size:10.5px;color:#5A6560">Cuadro 1 · Movimiento del mes y existencia al cierre.</p>
+                <table style="width:100%;border-collapse:collapse;font-size:11px">
+                  <thead><tr><th style="text-align:left;padding:6px 8px;font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#5A6560;border-bottom:1.5px solid #0F172A">Fuero</th><th style="text-align:right;padding:6px 8px;font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#5A6560;border-bottom:1.5px solid #0F172A">Al inicio</th><th style="text-align:right;padding:6px 8px;font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#5A6560;border-bottom:1.5px solid #0F172A">Ingresadas</th><th style="text-align:right;padding:6px 8px;font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#5A6560;border-bottom:1.5px solid #0F172A">Archivadas</th><th style="text-align:right;padding:6px 8px;font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#5A6560;border-bottom:1.5px solid #0F172A">Al cierre</th><th style="text-align:right;padding:6px 8px;font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#5A6560;border-bottom:1.5px solid #0F172A">% del total</th></tr></thead>
+                  <tbody>
+                    <sc-for list="{{ rp.fueros }}" as="x" hint-placeholder-count="3">
+                      <tr><td style="padding:6px 8px;border-bottom:1px solid #DDE2DC"><span style="display:inline-flex;align-items:center;gap:7px"><span style="{{ x.dot }}"></span>{{ x.nombre }}</span></td><td style="padding:6px 8px;border-bottom:1px solid #DDE2DC;text-align:right;font-family:'Roboto Mono',monospace">{{ x.ini }}</td><td style="padding:6px 8px;border-bottom:1px solid #DDE2DC;text-align:right;font-family:'Roboto Mono',monospace">{{ x.inn }}</td><td style="padding:6px 8px;border-bottom:1px solid #DDE2DC;text-align:right;font-family:'Roboto Mono',monospace">{{ x.out }}</td><td style="padding:6px 8px;border-bottom:1px solid #DDE2DC;text-align:right;font-family:'Roboto Mono',monospace;font-weight:600">{{ x.fin }}</td><td style="padding:6px 8px;border-bottom:1px solid #DDE2DC;text-align:right;font-family:'Roboto Mono',monospace">{{ x.pct }}</td></tr>
+                    </sc-for>
+                    <tr><td style="padding:6px 8px;border-bottom:1px solid #DDE2DC;font-weight:700;border-bottom:1.5px solid #0F172A">Total</td><td style="padding:6px 8px;border-bottom:1px solid #DDE2DC;text-align:right;font-family:'Roboto Mono',monospace;font-weight:700;border-bottom:1.5px solid #0F172A">{{ rp.tot.ini }}</td><td style="padding:6px 8px;border-bottom:1px solid #DDE2DC;text-align:right;font-family:'Roboto Mono',monospace;font-weight:700;border-bottom:1.5px solid #0F172A">{{ rp.tot.inn }}</td><td style="padding:6px 8px;border-bottom:1px solid #DDE2DC;text-align:right;font-family:'Roboto Mono',monospace;font-weight:700;border-bottom:1.5px solid #0F172A">{{ rp.tot.out }}</td><td style="padding:6px 8px;border-bottom:1px solid #DDE2DC;text-align:right;font-family:'Roboto Mono',monospace;font-weight:700;border-bottom:1.5px solid #0F172A">{{ rp.tot.fin }}</td><td style="padding:6px 8px;border-bottom:1px solid #DDE2DC;text-align:right;font-family:'Roboto Mono',monospace;font-weight:700;border-bottom:1.5px solid #0F172A">100 %</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div>
+                <h3 style="margin:0 0 4px;font-size:13px;font-weight:700;color:#0F172A">3. Carga por abogado responsable</h3>
+                <p style="margin:0 0 10px;font-size:10.5px;color:#5A6560">Cuadro 2 · Causas activas al cierre. Promedio del estudio: {{ rp.prom }} causas por abogado.</p>
+                <table style="width:100%;border-collapse:collapse;font-size:11px">
+                  <thead><tr><th style="text-align:left;padding:6px 8px;font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#5A6560;border-bottom:1.5px solid #0F172A">Abogado</th><th style="text-align:left;padding:6px 8px;font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#5A6560;border-bottom:1.5px solid #0F172A">Matrícula</th><th style="text-align:right;padding:6px 8px;font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#5A6560;border-bottom:1.5px solid #0F172A">Penal</th><th style="text-align:right;padding:6px 8px;font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#5A6560;border-bottom:1.5px solid #0F172A">Adm.</th><th style="text-align:right;padding:6px 8px;font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#5A6560;border-bottom:1.5px solid #0F172A">Amparo</th><th style="text-align:right;padding:6px 8px;font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#5A6560;border-bottom:1.5px solid #0F172A">Total</th><th style="text-align:right;padding:6px 8px;font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#5A6560;border-bottom:1.5px solid #0F172A">Vs. promedio</th></tr></thead>
+                  <tbody>
+                    <sc-for list="{{ rp.abogados }}" as="a" hint-placeholder-count="7">
+                      <tr><td style="padding:6px 8px;border-bottom:1px solid #DDE2DC;font-weight:600">{{ a.nombre }}</td><td style="padding:6px 8px;border-bottom:1px solid #DDE2DC;font-family:'Roboto Mono',monospace;color:#5A6560">{{ a.mat }}</td><td style="padding:6px 8px;border-bottom:1px solid #DDE2DC;text-align:right;font-family:'Roboto Mono',monospace">{{ a.p }}</td><td style="padding:6px 8px;border-bottom:1px solid #DDE2DC;text-align:right;font-family:'Roboto Mono',monospace">{{ a.a }}</td><td style="padding:6px 8px;border-bottom:1px solid #DDE2DC;text-align:right;font-family:'Roboto Mono',monospace">{{ a.m }}</td><td style="padding:6px 8px;border-bottom:1px solid #DDE2DC;text-align:right;font-family:'Roboto Mono',monospace;font-weight:600">{{ a.total }}</td><td style="{{ a.difCss }}">{{ a.dif }}</td></tr>
+                    </sc-for>
+                  </tbody>
+                </table>
+              </div>
+              <div style="position:absolute;left:56px;right:56px;bottom:28px;display:flex;justify-content:space-between;gap:16px;padding-top:8px;border-top:1px solid #DDE2DC;font-size:9.5px;color:#68716C"><span>VZ Causas · Reporte mensual de gestión · {{ rp.numero }} v{{ rp.version }}</span><span style="font-family:'Roboto Mono',monospace">Página 1 de 2</span></div>
+            </div>
+
+            <div style="position:relative;width:794px;min-height:1123px;box-sizing:border-box;padding:48px 56px 70px;background:#FFFFFF;color:#0F172A;font-family:Figtree,system-ui,sans-serif;box-shadow:0 18px 50px rgba(12,20,6,.22);display:flex;flex-direction:column;gap:20px">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:20px;padding-bottom:14px;border-bottom:2px solid #406640">
+                  <div style="display:flex;align-items:center;gap:12px">
+                    <svg width="38" height="27" viewBox="0 0 60 42" fill="none" aria-hidden="true"><path d="M2 2h12l10 26L34 2h12L28 40H16L2 2z" fill="#406640"></path><path d="M38 2h20L40 34h18v6H30L48 8H38V2z" fill="#406640" opacity=".55"></path></svg>
+                    <div><div style="font-size:13px;font-weight:700">Vázquez &amp; Zárate</div><div style="font-size:10px;color:#5A6560;letter-spacing:.04em">Staff de Abogados · Av. Agrim. Enrique Bodereau 9810, Córdoba</div></div>
+                  </div>
+                  <div style="text-align:right;font-size:10px;color:#5A6560;line-height:1.5"><div style="font-family:'Roboto Mono',monospace;font-weight:600;color:#0F172A">{{ rp.numero }} · v{{ rp.version }}</div><div>{{ rp.periodoCorto }}</div></div>
+                </div>
+              <div>
+                <h3 style="margin:0 0 4px;font-size:13px;font-weight:700;color:#0F172A">4. Causas ingresadas y archivadas en el año</h3>
+                <p style="margin:0 0 10px;font-size:10.5px;color:#5A6560">Cuadro 3 · Causas ingresadas y archivadas por mes, de enero al período informado.</p>
+                <table style="width:100%;border-collapse:collapse;font-size:11px">
+                  <thead><tr><th style="text-align:left;padding:6px 8px;font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#5A6560;border-bottom:1.5px solid #0F172A">Mes</th><th style="text-align:right;padding:6px 8px;font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#5A6560;border-bottom:1.5px solid #0F172A">Ingresadas</th><th style="text-align:right;padding:6px 8px;font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#5A6560;border-bottom:1.5px solid #0F172A">Archivadas</th><th style="text-align:right;padding:6px 8px;font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#5A6560;border-bottom:1.5px solid #0F172A">Saldo</th><th style="text-align:right;padding:6px 8px;font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#5A6560;border-bottom:1.5px solid #0F172A">Activas al cierre</th><th style="text-align:left;padding:6px 8px;font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#5A6560;border-bottom:1.5px solid #0F172A;width:36%">Ingresadas / archivadas</th></tr></thead>
+                  <tbody>
+                    <sc-for list="{{ rp.meses }}" as="m" hint-placeholder-count="8">
+                      <tr style="{{ m.rowCss }}"><td style="padding:6px 8px;border-bottom:1px solid #DDE2DC">{{ m.mes }}</td><td style="padding:6px 8px;border-bottom:1px solid #DDE2DC;text-align:right;font-family:'Roboto Mono',monospace">{{ m.inn }}</td><td style="padding:6px 8px;border-bottom:1px solid #DDE2DC;text-align:right;font-family:'Roboto Mono',monospace">{{ m.out }}</td><td style="padding:6px 8px;border-bottom:1px solid #DDE2DC;text-align:right;font-family:'Roboto Mono',monospace">{{ m.saldo }}</td><td style="padding:6px 8px;border-bottom:1px solid #DDE2DC;text-align:right;font-family:'Roboto Mono',monospace;font-weight:600">{{ m.fin }}</td>
+                        <td style="padding:6px 8px;border-bottom:1px solid #DDE2DC"><div style="display:flex;flex-direction:column;gap:2px"><div style="{{ m.inCss }}"></div><div style="{{ m.outCss }}"></div></div></td></tr>
+                    </sc-for>
+                  </tbody>
+                </table>
+              </div>
+              <div>
+                <h3 style="margin:0 0 4px;font-size:13px;font-weight:700;color:#0F172A">5. Prescripción de la acción</h3>
+                <p style="margin:0 0 10px;font-size:10.5px;color:#5A6560">Cuadro 4 · Causas penales activas según el porcentaje del plazo transcurrido.</p>
+                <table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:12px">
+                  <thead><tr><th style="text-align:left;padding:6px 8px;font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#5A6560;border-bottom:1.5px solid #0F172A">Tramo</th><th style="text-align:right;padding:6px 8px;font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#5A6560;border-bottom:1.5px solid #0F172A">Causas</th><th style="text-align:right;padding:6px 8px;font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#5A6560;border-bottom:1.5px solid #0F172A">% de las penales</th></tr></thead>
+                  <tbody>
+                    <sc-for list="{{ rp.presc }}" as="p" hint-placeholder-count="4"><tr><td style="padding:6px 8px;border-bottom:1px solid #DDE2DC"><span style="display:inline-flex;align-items:center;gap:7px"><span style="{{ p.dot }}"></span>{{ p.rango }}</span></td><td style="padding:6px 8px;border-bottom:1px solid #DDE2DC;text-align:right;font-family:'Roboto Mono',monospace">{{ p.n }}</td><td style="padding:6px 8px;border-bottom:1px solid #DDE2DC;text-align:right;font-family:'Roboto Mono',monospace">{{ p.pct }}</td></tr></sc-for>
+                  </tbody>
+                </table>
+                <p style="margin:0;font-size:11.5px;line-height:1.6;color:#0F172A;text-wrap:pretty">Causas con más del 70 % del plazo transcurrido al cierre del período:</p>
+                <table style="width:100%;border-collapse:collapse;font-size:11px;margin-top:6px">
+                  <thead><tr><th style="text-align:left;padding:6px 8px;font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#5A6560;border-bottom:1.5px solid #0F172A">SAC</th><th style="text-align:left;padding:6px 8px;font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#5A6560;border-bottom:1.5px solid #0F172A">Carátula</th><th style="text-align:left;padding:6px 8px;font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#5A6560;border-bottom:1.5px solid #0F172A">Responsable</th><th style="text-align:right;padding:6px 8px;font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#5A6560;border-bottom:1.5px solid #0F172A">Avance</th></tr></thead>
+                  <tbody>
+                    <sc-for list="{{ rp.alertas }}" as="c" hint-placeholder-count="4"><tr><td style="padding:6px 8px;border-bottom:1px solid #DDE2DC;font-family:'Roboto Mono',monospace">{{ c.sac }}</td><td style="padding:6px 8px;border-bottom:1px solid #DDE2DC">{{ c.caratula }}</td><td style="padding:6px 8px;border-bottom:1px solid #DDE2DC">{{ c.resp }}</td><td style="{{ c.pctCss }}">{{ c.pct }}</td></tr></sc-for>
+                  </tbody>
+                </table>
+              </div>
+              <div>
+                <h3 style="margin:0 0 4px;font-size:13px;font-weight:700;color:#0F172A">6. Plazos procesales del mes</h3>
+                <p style="margin:0;font-size:11.5px;line-height:1.6;color:#0F172A;text-wrap:pretty">{{ rp.plazos }}</p>
+              </div>
+              <div style="margin-top:auto;border:1px solid #C3CBC1;border-radius:3px;padding:12px 14px;background:#F6F7F4">
+                <div style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#406640;margin-bottom:8px">Trazabilidad del reporte</div>
+                <div style="display:grid;grid-template-columns:150px 1fr;gap:5px 14px;font-size:10.5px">
+                  <sc-for list="{{ rp.traza }}" as="t" hint-placeholder-count="6"><span style="color:#5A6560">{{ t.k }}</span><span style="{{ t.css }}">{{ t.v }}</span></sc-for>
+                </div>
+              </div>
+              <div style="position:absolute;left:56px;right:56px;bottom:28px;display:flex;justify-content:space-between;gap:16px;padding-top:8px;border-top:1px solid #DDE2DC;font-size:9.5px;color:#68716C"><span>VZ Causas · Reporte mensual de gestión · {{ rp.numero }} v{{ rp.version }}</span><span style="font-family:'Roboto Mono',monospace">Página 2 de 2</span></div>
+            </div>
+          </div>
+        </div>
       </div>
       </sc-if>
 
@@ -2193,6 +2435,7 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
       <sc-if value="{{ esExp }}" hint-placeholder-val="{{ false }}">
       <div>
         <nav aria-label="Migas" style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted);margin-bottom:12px;flex-wrap:wrap">
+          <button type="button" class="vz-back" aria-label="Volver" title="Volver" onClick="{{ volverAtras }}" style="flex:0 0 26px;width:26px;height:26px;margin-right:2px;padding:0;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:var(--r-btn);background:var(--surface);color:var(--muted);cursor:pointer;transition:color .15s,background .15s,border-color .15s,transform .15s" style-hover="color:var(--primary);background:var(--primary-soft);border-color:var(--ok-bd, #C9D8C5)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg></button>
           <button type="button" onClick="{{ goCausas }}" style="background:none;border:none;padding:0;color:var(--primary);font-size:12.5px;font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:2px">Causas</button>
           <span style="color:var(--faint)">/</span>
           <button type="button" onClick="{{ goDetalle }}" style="background:none;border:none;padding:0;color:var(--primary);font-size:12.5px;font-weight:600;font-family:'Roboto Mono',monospace;cursor:pointer;text-decoration:underline;text-underline-offset:2px">{{ causa.sac }}</button>
@@ -2416,7 +2659,17 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
       <div style="padding:22px clamp(16px,4vw,24px);display:grid;grid-template-columns:var(--f2);gap:16px">
         <sc-for list="{{ modalCampos }}" as="f" hint-placeholder-count="3">
           <div style="{{ f.wrapCss }}">
-            <label for="{{ f.id }}" style="{{ f.labelCss }}">{{ f.label }}<span style="color:#B3261E">{{ f.reqMark }}</span></label>
+            <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px">
+              <label for="{{ f.id }}" style="{{ f.labelCss }}">{{ f.label }}<span style="color:#B3261E">{{ f.reqMark }}</span></label>
+              <sc-if value="{{ f.hayCont }}" hint-placeholder-val="{{ false }}"><span style="font-size:11.5px;color:var(--faint);font-family:'Roboto Mono',monospace">{{ f.cont }}</span></sc-if>
+            </div>
+            <sc-if value="{{ f.esSeg }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <sc-for list="{{ f.segOpciones }}" as="o" hint-placeholder-count="2">
+                  <button type="button" onClick="{{ o.set }}" style="{{ o.css }}">{{ o.nombre }}</button>
+                </sc-for>
+              </div>
+            </sc-if>
             <sc-if value="{{ f.esTexto }}" hint-placeholder-val="{{ true }}">
               <input id="{{ f.id }}" type="text" placeholder="{{ f.ph }}" value="{{ f.valor }}" onChange="{{ f.set }}" readOnly="{{ f.soloLectura }}" style="{{ f.inputCss }}">
             </sc-if>
@@ -2507,7 +2760,65 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
               </sc-if>
             </sc-if>
             <sc-if value="{{ f.esArea }}" hint-placeholder-val="{{ false }}">
-              <textarea id="{{ f.id }}" placeholder="{{ f.ph }}" value="{{ f.valor }}" onChange="{{ f.set }}" style="{{ f.areaCss }}"></textarea>
+              <textarea id="{{ f.id }}" placeholder="{{ f.ph }}" maxLength="{{ f.max }}" value="{{ f.valor }}" onChange="{{ f.set }}" style="{{ f.areaCss }}"></textarea>
+            </sc-if>
+            <sc-if value="{{ f.esReparto }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;flex-direction:column;gap:18px">
+                <div style="display:flex;flex-direction:column;gap:8px">
+                  <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+                    <span style="font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)">{{ f.repPendTit }}</span>
+                    <sc-if value="{{ f.repHayPend }}" hint-placeholder-val="{{ true }}">
+                      <button type="button" onClick="{{ f.repToggleTodas }}" style="border:0;background:none;padding:0;font-size:12.5px;font-weight:600;color:var(--primary-hi);cursor:pointer;text-decoration:underline;text-underline-offset:2px">{{ f.repTodasLabel }}</button>
+                    </sc-if>
+                  </div>
+                  <sc-if value="{{ f.repHayPend }}" hint-placeholder-val="{{ true }}">
+                    <div style="display:flex;flex-direction:column;gap:6px;max-height:220px;overflow-y:auto">
+                      <sc-for list="{{ f.repPend }}" as="r" hint-placeholder-count="4">
+                        <label style="{{ r.css }}">
+                          <input type="checkbox" checked="{{ r.sel }}" onChange="{{ r.toggle }}" style="width:16px;height:16px;flex:0 0 16px;accent-color:#406640;cursor:pointer">
+                          <span style="min-width:0;flex:1">
+                            <span style="display:block;font-size:13.5px;font-weight:600;line-height:1.35;text-wrap:pretty">{{ r.caratula }}</span>
+                            <span style="display:block;font-size:12px;color:var(--muted);margin-top:2px">SAC <span style="font-family:'Roboto Mono',monospace">{{ r.sac }}</span></span>
+                          </span>
+                        </label>
+                      </sc-for>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ f.repListo }}" hint-placeholder-val="{{ false }}">
+                    <div style="padding:12px;border:1px solid var(--border);border-radius:var(--r);background:var(--sunken);font-size:13px;color:var(--muted)">Todas las causas tienen abogado asignado.</div>
+                  </sc-if>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:8px">
+                  <span style="font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)">Pasan a</span>
+                  <sc-for list="{{ f.repDestinos }}" as="o" hint-placeholder-count="4">
+                    <div style="border:1px solid var(--border);border-radius:var(--r);background:var(--surface)">
+                      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 12px">
+                        <div style="min-width:0;flex:1 1 180px">
+                          <div style="font-size:13.5px;font-weight:600;line-height:1.35">{{ o.nombre }}</div>
+                          <div style="font-size:12px;color:var(--muted);margin-top:2px">Causas activas: <span style="{{ o.cargaCss }}">{{ o.carga }}</span></div>
+                        </div>
+                        <sc-if value="{{ o.puedeAsignar }}" hint-placeholder-val="{{ false }}">
+                          <button type="button" onClick="{{ o.asignar }}" style="height:30px;padding:0 11px;border:1px solid var(--border-2);border-radius:var(--r-btn);background:var(--surface);color:var(--ink);font-size:12.5px;font-weight:600;cursor:pointer;flex:0 0 auto" style-hover="background:var(--primary-soft);border-color:var(--primary);color:var(--primary-hi)">{{ o.asignarLabel }}</button>
+                        </sc-if>
+                        <sc-if value="{{ o.hay }}" hint-placeholder-val="{{ false }}">
+                          <button type="button" onClick="{{ o.quitarTodas }}" style="height:30px;padding:0 11px;border:1px solid var(--border-2);border-radius:var(--r-btn);background:var(--surface);color:var(--ink);font-size:12.5px;font-weight:600;cursor:pointer;flex:0 0 auto" style-hover="background:var(--canvas)">Quitar todas</button>
+                        </sc-if>
+                      </div>
+                      <sc-if value="{{ o.hay }}" hint-placeholder-val="{{ false }}">
+                        <div style="display:flex;flex-direction:column;border-top:1px solid var(--border);background:var(--sunken)">
+                          <sc-for list="{{ o.lista }}" as="r" hint-placeholder-count="2">
+                            <div style="display:flex;align-items:center;gap:10px;padding:7px 12px">
+                              <span style="font-family:'Roboto Mono',monospace;font-size:12px;color:var(--muted);flex:0 0 auto">{{ r.sac }}</span>
+                              <span style="font-size:12.5px;min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{{ r.caratula }}">{{ r.caratula }}</span>
+                              <button type="button" onClick="{{ r.quitar }}" aria-label="Quitar" title="Quitar" style="width:26px;height:26px;flex:0 0 26px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--border-2);border-radius:var(--r-btn);background:var(--surface);color:var(--muted);cursor:pointer;padding:0" style-hover="color:var(--ink);background:var(--canvas)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+                            </div>
+                          </sc-for>
+                        </div>
+                      </sc-if>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
             </sc-if>
             <sc-if value="{{ f.esGrupo }}" hint-placeholder-val="{{ false }}">
               <div style="display:flex;align-items:center;gap:12px">
@@ -2712,6 +3023,7 @@ const CAUSAS = [
 // estado de sistema (uno por fuero): no está en la tabla de estados, no es destino de un acto y no aparece en el ciclo de vida
 const ESTADO_INICIAL = 'Iniciada';
 
+const DRIVE_FALLA = { 4: true };
 const DETALLE = {
   1: {
     cliente: { nombre: 'Ariel Fernando Gómez', dni: '34.812.905', tel: '351 415-2288', mail: 'afgomez@gmail.com', desde: '12/03/2021' },
@@ -2724,7 +3036,11 @@ const DETALLE = {
     docs: [
       { nombre: 'Requerimiento de elevación a juicio.pdf', por: 'Malena Ríos', meta: '02/09/2026 · 412 KB' },
       { nombre: 'Cédula de notificación.pdf', por: 'Gestión Estudio', meta: '09/09/2026 · 88 KB' },
-      { nombre: 'Convenio de honorarios.pdf', por: 'Gestión Estudio', meta: '12/03/2021 · 205 KB' }
+      { nombre: 'Convenio de honorarios.pdf', por: 'Gestión Estudio', meta: '12/03/2021 · 205 KB' },
+      { nombre: 'Escrito de oposición', tipo: 'gdoc', por: 'Malena Ríos', meta: '10/09/2026' },
+      { nombre: 'Ofrecimiento de prueba.docx', por: 'Malena Ríos', meta: '08/09/2026 · 64 KB' },
+      { nombre: 'Planilla de plazos', tipo: 'gsheet', por: 'Gestión Estudio', meta: '01/09/2026' },
+      { nombre: 'Foto del acta de secuestro.jpg', meta: '03/09/2026 · 1,2 MB' }
     ]
   },
   2: {
@@ -2806,14 +3122,14 @@ const ABOGADOS = [
 ];
 
 const CLIENTES = [
-  { id: 'cl1', apellido: 'GÓMEZ', nombre: 'Ariel Fernando', dni: '34.812.905', tel: '351 415-2288', mail: 'afgomez@gmail.com', fuerza: 'Policía de la Provincia', desde: '12/03/2021', suscripcion: true, activo: true },
-  { id: 'cl2', apellido: 'PEREYRA', nombre: 'Marcos D.', dni: '29.440.117', tel: '351 622-9014', mail: 'mdpereyra@hotmail.com', fuerza: 'Servicio Penitenciario', desde: '18/05/2026', suscripcion: true, activo: true },
-  { id: 'cl3', apellido: 'LUDUEÑA', nombre: 'Silvia', dni: '20.115.883', tel: '351 308-7742', mail: 'sluduena@gmail.com', fuerza: 'Particular', desde: '21/07/2026', suscripcion: false, activo: true },
-  { id: 'cl4', apellido: 'ACOSTA', nombre: 'Jonathan E.', dni: '38.907.221', tel: '351 744-1160', mail: '—', fuerza: 'FPA', desde: '19/01/2022', suscripcion: true, activo: true },
-  { id: 'cl5', apellido: 'QUIROGA', nombre: 'Néstor A.', dni: '26.774.309', tel: '351 519-3320', mail: 'naquiroga@gmail.com', fuerza: 'Policía de la Provincia', desde: '02/06/2026', suscripcion: true, activo: true },
-  { id: 'cl6', apellido: 'MOYANO', nombre: 'Daniela', dni: '33.028.514', tel: '351 267-8891', mail: 'dmoyano@gmail.com', fuerza: 'Particular', desde: '08/09/2026', suscripcion: false, activo: true },
-  { id: 'cl7', apellido: 'BENÍTEZ', nombre: 'Rodrigo E.', dni: '31.556.208', tel: '351 401-5573', mail: 'rbenitez@gmail.com', fuerza: 'ETAC', desde: '14/02/2025', suscripcion: true, activo: true },
-  { id: 'cl8', apellido: 'SOSA', nombre: 'Verónica L.', dni: '27.903.441', tel: '351 330-2214', mail: 'vlsosa@gmail.com', fuerza: 'Servicio Penitenciario', desde: '30/11/2023', suscripcion: false, activo: false }
+  { id: 'cl1', apellido: 'GÓMEZ', nombre: 'Ariel Fernando', dni: '34.812.905', dir: 'Bv. San Juan 1240, Córdoba', tel: '351 415-2288', mail: 'afgomez@gmail.com', fuerza: 'Policía de la Provincia', desde: '12/03/2021', suscripcion: true, activo: true },
+  { id: 'cl2', apellido: 'PEREYRA', nombre: 'Marcos D.', dni: '29.440.117', dir: 'Av. Colón 3580, Córdoba', tel: '351 622-9014', mail: 'mdpereyra@hotmail.com', fuerza: 'Servicio Penitenciario', desde: '18/05/2026', suscripcion: true, activo: true },
+  { id: 'cl3', apellido: 'LUDUEÑA', nombre: 'Silvia', dni: '20.115.883', dir: 'Rodríguez Peña 455, Villa Carlos Paz', tel: '351 308-7742', mail: 'sluduena@gmail.com', fuerza: 'Particular', desde: '21/07/2026', suscripcion: false, activo: true },
+  { id: 'cl4', apellido: 'ACOSTA', nombre: 'Jonathan E.', dni: '38.907.221', dir: 'Av. Sabattini 2915, Córdoba', tel: '351 744-1160', mail: '—', fuerza: 'FPA', desde: '19/01/2022', suscripcion: true, activo: true },
+  { id: 'cl5', apellido: 'QUIROGA', nombre: 'Néstor A.', dni: '26.774.309', dir: 'Obispo Trejo 870, 2° B, Córdoba', tel: '351 519-3320', mail: 'naquiroga@gmail.com', fuerza: 'Policía de la Provincia', desde: '02/06/2026', suscripcion: true, activo: true },
+  { id: 'cl6', apellido: 'MOYANO', nombre: 'Daniela', dni: '33.028.514', dir: 'Av. Fuerza Aérea 4120, Córdoba', tel: '351 267-8891', mail: 'dmoyano@gmail.com', fuerza: 'Particular', desde: '08/09/2026', suscripcion: false, activo: true },
+  { id: 'cl7', apellido: 'BENÍTEZ', nombre: 'Rodrigo E.', dni: '31.556.208', dir: 'San Martín 312, Río Segundo', tel: '351 401-5573', mail: 'rbenitez@gmail.com', fuerza: 'ETAC', desde: '14/02/2025', suscripcion: true, activo: true },
+  { id: 'cl8', apellido: 'SOSA', nombre: 'Verónica L.', dni: '27.903.441', dir: 'Av. Vélez Sarsfield 1688, Córdoba', tel: '351 330-2214', mail: 'vlsosa@gmail.com', fuerza: 'Servicio Penitenciario', desde: '30/11/2023', suscripcion: false, activo: false }
 ];
 
 const MODELOS = [
@@ -2901,7 +3217,7 @@ class Component extends DCLogic {
     pantalla: 'inicio', causaId: 1, actoId: '', fechaActo: '2026-09-15', fechaNotif: '',
     manual: false, vencManual: '', adjunto: false,
     tab: 'usuarios', fuero: 'Penal', toast: '', pendiente: null, alcance: 'mios', tablero: (() => { try { return localStorage.getItem('vz-tablero') || 'abogado'; } catch (e) { return 'abogado'; } })(),
-    modal: null, mv: {}, tabModelos: 'Todos', repTab: 'abogado', docTipo: 'caratula',
+    modal: null, mv: {}, tabModelos: 'Todos', repTab: 'abogado', docTipo: 'caratula', carpetas: { 3: 'error', 5: 'pendiente' },
     notifActivo: true, notifMail: 'estudio@vazquezyzarate.com.ar', notifDias: '3', notifHora: '08:00', notifCopia: true,
     ncSac: '', ncFuero: 'Penal', ncCaratula: '', ncTribunal: '', ncInstructor: '', ncTel: '', ncInterno: '', ncCliente: '', ncRol: 'Defensa',
     ncCalifs: [], ncCalifFechas: {}, ncContra: '', ncObjeto: '', ncResp: '', ncFecha: '', ncDrive: true, ncModelos: true, ncConvenio: false,
@@ -2923,13 +3239,14 @@ class Component extends DCLogic {
       sub: desdeCausa ? 'Al confirmar, el cliente queda seleccionado en la causa.' : 'Los datos de contacto se usan para los avisos de vencimiento.',
       campos: [
         { k: 'ap', label: 'Apellido', req: true, ancho: 'half' }, { k: 'no', label: 'Nombres', req: true, ancho: 'half' },
-        { k: 'dni', label: 'DNI', req: true, ancho: 'half', mono: true, ph: '00.000.000', nota: 'Con o sin puntos.' }, { k: 'tel', label: 'Teléfono', ancho: 'half', mono: true, ph: '351 000-0000' },
-        { k: 'mail', label: 'Correo electrónico', ancho: 'half', ph: 'nombre@correo.com' }
+        { k: 'td', label: 'Tipo de documento', tipo: 'select', req: true, ancho: 'half', valor: 'DNI', opciones: ['DNI', 'Pasaporte'] }, { k: 'dni', label: 'Número de documento', req: true, ancho: 'half', mono: true, ph: '00.000.000', nota: 'Con o sin puntos.' },
+        { k: 'dir', label: 'Dirección', req: true, ph: 'Calle, número, piso/depto., localidad' },
+        { k: 'tel', label: 'Teléfono', ancho: 'half', mono: true, ph: '351 000-0000' }, { k: 'mail', label: 'Correo electrónico', ancho: 'half', ph: 'nombre@correo.com' }
       ],
       okLabel: 'Registrar cliente',
       ok: v => {
         const id = 'cl' + (CLIENTES.length + 1) + '-' + Date.now();
-        CLIENTES.push({ id, apellido: (v.ap || '').trim().toUpperCase(), nombre: (v.no || '').trim(), dni: v.dni || '', tel: v.tel || '', mail: v.mail || '', desde: this.fmt(new Date()), activo: true });
+        CLIENTES.push({ id, apellido: (v.ap || '').trim().toUpperCase(), nombre: (v.no || '').trim(), tipoDoc: v.td || 'DNI', dni: v.dni || '', dir: v.dir || '', tel: v.tel || '', mail: v.mail || '', desde: this.fmt(new Date()), activo: true });
         if (desdeCausa) this.setState({ ncCliente: id });
         return 'Cliente ' + (v.ap || '').toUpperCase() + ', ' + v.no + ' registrado' + (desdeCausa ? ' y seleccionado en la causa.' : '.');
       }
@@ -3148,7 +3465,11 @@ class Component extends DCLogic {
   }
 
   componentDidUpdate(pp, ps) {
-    if (ps && ps.pantalla !== this.state.pantalla) window.scrollTo(0, 0);
+    if (ps && ps.pantalla !== this.state.pantalla) {
+      window.scrollTo(0, 0);
+      if (this._volviendo) this._volviendo = false;
+      else (this._hist = this._hist || []).push(ps.pantalla);
+    }
     this.animarExp();
     this.syncDrive();
   }
@@ -3164,6 +3485,160 @@ class Component extends DCLogic {
     if (k !== null) this.leerDrive();
   }
 
+  repPdfVals(s) {
+    const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre'];
+    const ULT = [31, 28, 31, 30, 31, 30, 31, 31, 30];
+    const IN = [11, 9, 14, 12, 10, 13, 8, 15, 12], OUT = [8, 10, 9, 11, 7, 12, 9, 10, 6];
+    const i = s.repMes == null ? 8 : s.repMes, mm = String(i + 1).padStart(2, '0');
+    const fin = k => 105 - IN.slice(k + 1).reduce((a, b) => a + b, 0) + OUT.slice(k + 1).reduce((a, b) => a + b, 0);
+    const vers = Object.assign({ 5: 2 }, s.repVers || {}), guardados = Object.assign({}, s.repGuard || {});
+    const enCurso = i === 8, guardado = !enCurso || !!guardados[8], borrador = !guardado, v = vers[i] || 1;
+    const corte = enCurso ? '15/09/2026' : ULT[i] + '/' + mm + '/2026';
+    const finM = fin(i), iniM = finM - IN[i] + OUT[i];
+    const SH = { Penal: [.6, .55, .6], Administrativo: [.3, .33, .3], Amparo: [.1, .12, .1] };
+    const part = (n, k) => { const p = Math.round(n * SH.Penal[k]), a = Math.round(n * SH.Administrativo[k]); return [p, a, n - p - a]; };
+    const pI = part(iniM, 0), pN = part(IN[i], 1), pO = part(OUT[i], 2), pF = pI.map((x, k) => x + pN[k] - pO[k]);
+    const COL = ['#406640', '#A8894C', '#4F6A8A'], dot = c => 'width:9px;height:9px;border-radius:2px;flex:0 0 9px;background:' + c;
+    const SPLIT = [[9, 4, 1], [8, 4, 1], [10, 5, 2], [10, 5, 1], [7, 5, 3], [10, 4, 2], [9, 4, 1]];
+    const prom = Math.round(105 / 7);
+    const mono = "font-family:'Roboto Mono',monospace";
+    const pct = n => Math.round(n / finM * 100) + ' %';
+    const fmtN = n => (n > 0 ? '+' : '') + n;
+    const PR = [['Menos del 50 %', 41, '#406640'], ['Entre 50 % y 70 %', 14, '#9DB59A'], ['Entre 70 % y 90 %', 6, '#A8894C'], ['Más del 90 %', 2, '#8E1F19']];
+    const quien = vers[i] === 2 && i === 5 ? 'Dr. Oscar Zárate' : 'Dr. Fernando G. Vázquez';
+    const genFecha = enCurso ? (guardado ? '15/09/2026 · 10:42' : '—') : (i === 5 && v === 2 ? '03/07/2026 · 09:15' : '01/' + String(i + 2).padStart(2, '0') + '/2026 · 08:00');
+    const hash = ('9f3a' + (i * 7919 + v * 104729).toString(16) + 'c2d81e07b5a4').slice(0, 16).toUpperCase();
+    const maxM = Math.max(...IN, ...OUT);
+    const saldo = IN[i] - OUT[i];
+    return {
+      periodo: MESES[i] + ' de 2026', periodoCorto: '01/' + mm + '/2026 al ' + ULT[i] + '/' + mm + '/2026',
+      numero: 'REP-2026-' + mm, version: v, borrador, corte,
+      ayuda: borrador ? 'Vista previa del reporte del mes en curso. Al guardarlo queda archivado con fecha, autor y versión, y ya no cambia.' : 'Reporte guardado el ' + genFecha.split(' · ')[0] + ' por ' + quien + '. Es la versión ' + v + '; ' + (v > 1 ? 'las anteriores siguen archivadas.' : 'si se regenera, esta queda archivada.'),
+      puedeGuardar: borrador, puedeRegenerar: !borrador,
+      guardar: () => { this.setState(st => ({ repGuard: Object.assign({}, st.repGuard, { 8: true }) })); this.aviso('Reporte REP-2026-' + mm + ' v1 guardado en Reportes mensuales.'); },
+      regenerar: () => this.abrir({ ancho: 'sm', titulo: 'Regenerar reporte', sub: MESES[i] + ' de 2026 · versión ' + v,
+        nota: 'Se genera la versión ' + (v + 1) + ' con los datos actuales del período. La versión ' + v + ' queda archivada y se puede seguir consultando.',
+        campos: [{ k: 'mot', label: 'Motivo', tipo: 'area', req: true, ph: 'Por ejemplo: se corrigió la carga de una causa.' }],
+        okLabel: 'Regenerar', ok: () => { this.setState(st => ({ repVers: Object.assign({}, st.repVers, { [i]: v + 1 }) })); return 'Versión ' + (v + 1) + ' generada. La versión ' + v + ' queda archivada.'; } }),
+      descargar: () => this.aviso('Descargando Reporte_' + 'REP-2026-' + mm + '_v' + v + '.pdf.'),
+      meta: [{ k: 'Período', v: MESES[i] + ' 2026' }, { k: 'Datos al', v: corte }, { k: 'Emitido por', v: borrador ? s.usuarioActual || 'Fernando G. Vázquez' : quien.replace(/^Dr\. /, '') }, { k: 'Versión', v: 'v' + v + (borrador ? ' · borrador' : '') }],
+      resumen: [
+        'Al ' + corte + ' el estudio registra ' + finM + ' causas activas: ' + pF[0] + ' en el fuero penal (' + pct(pF[0]) + '), ' + pF[1] + ' en el administrativo (' + pct(pF[1]) + ') y ' + pF[2] + ' amparos (' + pct(pF[2]) + ').',
+        'Durante ' + MESES[i].toLowerCase() + ' ingresaron ' + IN[i] + ' causas y se archivaron ' + OUT[i] + ', con un saldo de ' + fmtN(saldo) + ' respecto del cierre del mes anterior (' + iniM + ' activas).',
+        'La carga promedio es de ' + prom + ' causas por abogado. La Dra. Malena Ríos tiene la mayor cartera (17 causas) y el Dr. Oscar Zárate la menor (13). Hay 8 causas penales con más del 70 % del plazo de prescripción transcurrido.'
+      ],
+      fueros: ['Penal', 'Administrativo', 'Amparo'].map((n, k) => ({ nombre: n, dot: dot(COL[k]), ini: pI[k], inn: pN[k], out: pO[k], fin: pF[k], pct: pct(pF[k]) })),
+      tot: { ini: iniM, inn: IN[i], out: OUT[i], fin: finM },
+      prom,
+      abogados: ABOGADOS.map((a, k) => { const sp = SPLIT[k] || [a.causas, 0, 0], d = a.causas - prom; return { nombre: a.nombre, mat: 'M.P. ' + a.matricula, p: sp[0], a: sp[1], m: sp[2], total: a.causas, dif: d === 0 ? '—' : fmtN(d), difCss: 'padding:6px 8px;border-bottom:1px solid #DDE2DC;text-align:right;' + mono + ';color:' + (d >= 2 ? '#7A5C1E;font-weight:600' : '#5A6560') }; }),
+      meses: MESES.slice(0, i + 1).map((m, k) => ({ mes: m, inn: IN[k], out: OUT[k], saldo: fmtN(IN[k] - OUT[k]), fin: fin(k),
+        rowCss: k === i ? 'background:#EEF3EC;font-weight:600' : '',
+        inCss: 'height:5px;border-radius:1px;background:#406640;width:' + (IN[k] / maxM * 100) + '%', outCss: 'height:5px;border-radius:1px;background:#9DB59A;width:' + (OUT[k] / maxM * 100) + '%' })),
+      presc: PR.map(p => ({ rango: p[0], n: p[1], pct: Math.round(p[1] / 63 * 100) + ' %', dot: dot(p[2]) })),
+      alertas: [
+        { sac: '11873402', caratula: 'LUNA, Javier p.s.a. Lesiones leves', resp: 'Dr. Matías Ferreyra', pct: '94 %' },
+        { sac: '11590218', caratula: 'OLMOS, Ricardo p.s.a. Abuso de autoridad', resp: 'Dra. Malena Ríos', pct: '91 %' },
+        { sac: '12044715', caratula: 'PAZ, Marcelo p.s.a. Incumplimiento de deberes', resp: 'Dr. Ignacio Peralta', pct: '83 %' },
+        { sac: '12210963', caratula: 'VERA, Nicolás p.s.a. Lesiones leves', resp: 'Dr. Oscar Zárate', pct: '72 %' }
+      ].map(c => ({ ...c, pctCss: 'padding:6px 8px;border-bottom:1px solid #DDE2DC;text-align:right;' + mono + ';font-weight:600;color:' + (parseInt(c.pct) >= 90 ? '#8E1F19' : '#7A5C1E') })),
+      plazos: 'En el mes vencieron 41 plazos procesales: 39 se cumplieron con el acto correspondiente dentro del término y 2 se cumplieron el último día hábil. No hubo plazos vencidos sin acto registrado. Se registraron 3 actos interruptivos de la prescripción.',
+      traza: [
+        { k: 'Número', v: 'REP-2026-' + mm + ' · versión ' + v, css: mono + ';font-weight:600' },
+        { k: 'Estado', v: borrador ? 'Borrador, sin guardar' : 'Guardado y archivado', css: 'font-weight:600;color:' + (borrador ? '#7A5C1E' : '#2F4D2F') },
+        { k: 'Datos al', v: corte + ' · 23:59', css: mono },
+        { k: 'Generado', v: borrador ? '—' : genFecha + ' por ' + quien, css: '' },
+        { k: 'Versiones anteriores', v: v > 1 ? Array.from({ length: v - 1 }, (_, n) => 'v' + (n + 1)).join(', ') + ' (archivadas; motivo de la regeneración registrado)' : 'Ninguna', css: '' },
+        { k: 'Huella del documento', v: borrador ? 'Se calcula al guardar' : 'SHA-256 ' + hash + '…', css: mono }
+      ]
+    };
+  }
+
+  reportesVals(s) {
+    const COL = { Penal: '#406640', Administrativo: '#A8894C', Amparo: '#4F6A8A' };
+    const dot = c => 'width:10px;height:10px;border-radius:2px;flex:0 0 10px;background:' + c;
+    const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre'], ULT = [31, 28, 31, 30, 31, 30, 31, 31, 30];
+    const IN = [11, 9, 14, 12, 10, 13, 8, 15, 12], OUT = [8, 10, 9, 11, 7, 12, 9, 10, 6], MES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep'];
+    const k = s.repMesSel == null ? 7 : s.repMesSel, mm = String(k + 1).padStart(2, '0');
+    const finK = j => 105 - IN.slice(j + 1).reduce((a, b) => a + b, 0) + OUT.slice(j + 1).reduce((a, b) => a + b, 0);
+    const tot = finK(k), r = tot / 105;
+    const corte = k === 8 ? '15/09/2026' : ULT[k] + '/' + mm + '/2026';
+    const pP = Math.round(tot * .6), pA = Math.round(tot * .295), pM = tot - pP - pA;
+    const c1 = pP / tot * 100, c2 = (pP + pA) / tot * 100;
+    const SPLIT = [[9, 4, 1], [8, 4, 1], [10, 5, 2], [10, 5, 1], [7, 5, 3], [10, 4, 2], [9, 4, 1]];
+    const act = ABOGADOS.filter(a => a.activo !== false);
+    const carga = act.map((a, i) => { const sp = (SPLIT[i] || [a.causas, 0, 0]).map(x => Math.max(0, Math.round(x * r + ((i + k) % 3 === 0 ? 0 : (i + k) % 3 === 1 ? .4 : -.4)))); return { a, sp, n: sp[0] + sp[1] + sp[2] }; });
+    const prom = Math.round(tot / act.length), scale = Math.max(18, ...carga.map(c => c.n + 1));
+    const mMax = Math.max(...IN, ...OUT);
+    const fe = s.repEstFuero || 'Penal', est = ESTADOS[fe].filter(e => !e.terminal).map((e, i) => ({ ...e, uso: Math.max(0, Math.round(e.uso * r + ((i + k) % 2 ? .45 : -.45))) }));
+    const eMax = Math.max(1, ...est.map(e => e.uso)), eTot = est.reduce((n, e) => n + e.uso, 0);
+    const hi = [2, 2, 3, 4, 5, 5, 6, 7, 8][k], mid = [11, 12, 12, 13, 13, 14, 14, 14, 14][k];
+    const PR = [['Menos del 50 %', pP - mid - hi, 'var(--primary)'], ['Entre 50 % y 70 %', mid, '#9DB59A'], ['Entre 70 % y 90 %', hi - [1, 1, 1, 1, 2, 2, 2, 2, 2][k], '#A8894C'], ['Más del 90 %', [1, 1, 1, 1, 2, 2, 2, 2, 2][k], '#8E1F19']];
+    const col = (h, c, on) => 'width:min(14px,40%);height:' + h + '%;background:' + c + ';border-radius:2px 2px 0 0;opacity:' + (on ? 1 : .35);
+    return {
+      repCorte: corte, repActivas: tot, repProm: prom,
+      repDonutCss: 'position:relative;width:168px;height:168px;flex:0 0 168px;border-radius:50%;background:conic-gradient(#406640 0 ' + c1 + '%, #A8894C 0 ' + c2 + '%, #4F6A8A 0)',
+      repDonutAria: 'Penal ' + pP + ', Administrativo ' + pA + ', Amparo ' + pM,
+      repKpis: [
+        { label: 'Causas activas', valor: String(tot), nota: 'Al ' + corte },
+        { label: 'Ingresadas en el mes', valor: String(IN[k]), nota: (IN[k] - (IN[k - 1] || IN[k]) >= 0 ? '+' : '') + (IN[k] - (IN[k - 1] || IN[k])) + ' respecto del mes anterior' },
+        { label: 'Archivadas en el mes', valor: String(OUT[k]), nota: (OUT[k] - (OUT[k - 1] || OUT[k]) >= 0 ? '+' : '') + (OUT[k] - (OUT[k - 1] || OUT[k])) + ' respecto del mes anterior' },
+        { label: 'Promedio por abogado', valor: String(prom), nota: 'Entre ' + Math.min(...carga.map(c => c.n)) + ' y ' + Math.max(...carga.map(c => c.n)) + ' causas' }
+      ],
+      repFueros: [['Penal', pP], ['Administrativo', pA], ['Amparo', pM]].map(([n, v]) => ({ nombre: n, n: v, pct: Math.round(v / tot * 100) + ' %', dot: dot(COL[n]) })),
+      repMesesSub: 'Enero a ' + MESES[k].toLowerCase() + ' de 2026. Resaltado: ' + MESES[k].toLowerCase() + '.',
+      repMeses: MES.map((m, i) => i > k ? { mes: m, title: m + ': sin datos todavía', inCss: 'display:none', outCss: 'display:none' } : { mes: m, title: m + ': ' + IN[i] + ' ingresadas, ' + OUT[i] + ' archivadas', inCss: col(IN[i] / mMax * 100, 'var(--primary)', i === k), outCss: col(OUT[i] / mMax * 100, '#8E1F19', i === k) }),
+      repCarga: carga.sort((x, y) => y.n - x.n).map(({ a, sp, n }) => ({
+        nombre: a.nombre, total: n,
+        title: 'Penal ' + sp[0] + ' · Administrativo ' + sp[1] + ' · Amparo ' + sp[2],
+        barCss: 'display:flex;height:100%;gap:2px;width:' + (n / scale * 100) + '%;border-radius:var(--r-sm);overflow:hidden',
+        pCss: 'flex:' + sp[0] + ' 0 0;background:' + COL.Penal, aCss: 'flex:' + sp[1] + ' 0 0;background:' + COL.Administrativo, mCss: 'flex:' + sp[2] + ' 0 0;background:' + COL.Amparo,
+        promCss: 'position:absolute;top:-4px;bottom:-4px;left:' + (prom / scale * 100) + '%;border-left:1.5px dashed var(--ink);opacity:.55'
+      })),
+      repEstTabs: Object.keys(ESTADOS).map(x => ({ nombre: x, css: this.segLight(x === fe), ver: () => this.setState({ repEstFuero: x }) })),
+      repEstSub: eTot + ' causas activas en el fuero ' + fe + ' al ' + corte + ', en el orden del ciclo de vida.',
+      repEstados: est.map(e => ({ nombre: e.nombre, n: e.uso, css: 'height:100%;border-radius:3px;width:' + (e.uso / eMax * 100) + '%;background:' + COL[fe] })),
+      repPrescSub: pP + ' causas penales activas al ' + corte + ', según el porcentaje del plazo transcurrido.',
+      repPresc: PR.map(p => ({ rango: p[0], n: p[1], dot: dot(p[2]), title: p[0] + ': ' + p[1], barCss: 'flex:' + p[1] + ' 0 0;background:' + p[2] }))
+    };
+  }
+
+  repartoVals(c) {
+    const mv = this.state.mv, m = mv[c.k + '_m'] || {}, sel = mv[c.k + '_s'] || {};
+    const put = (nm, ns) => {
+      const done = c.causas.every(x => nm[x.sac]);
+      this.setState({ mv: Object.assign({}, this.state.mv, { [c.k + '_m']: nm, [c.k + '_s']: ns, [c.k]: done ? 'ok' : '' }) });
+    };
+    const pend = c.causas.filter(x => !m[x.sac]), selP = pend.filter(x => sel[x.sac]), nSel = selP.length, todas = pend.length > 0 && nSel === pend.length;
+    return {
+      repPendTit: 'Sin asignar · ' + pend.length + ' de ' + c.causas.length,
+      repHayPend: pend.length > 0, repListo: pend.length === 0,
+      repTodasLabel: todas ? 'Desmarcar todas' : 'Marcar todas',
+      repToggleTodas: () => { const ns = {}; if (!todas) pend.forEach(x => { ns[x.sac] = true; }); put(m, ns); },
+      repPend: pend.map(x => ({ sac: x.sac, caratula: x.caratula, sel: !!sel[x.sac],
+        css: 'display:flex;align-items:flex-start;gap:12px;padding:10px 12px;border:1px solid ' + (sel[x.sac] ? 'var(--primary)' : 'var(--border)') + ';border-radius:var(--r);background:' + (sel[x.sac] ? 'var(--primary-soft)' : 'var(--sunken)') + ';cursor:pointer',
+        toggle: () => put(m, Object.assign({}, sel, { [x.sac]: !sel[x.sac] })) })),
+      repDestinos: c.destinos.map(d => {
+        const lista = c.causas.filter(x => m[x.sac] === d.nombre), n = lista.length;
+        return { nombre: d.nombre, hay: n > 0, puedeAsignar: nSel > 0,
+          carga: n ? d.causas + ' → ' + (d.causas + n) : String(d.causas),
+          cargaCss: "font-family:'Roboto Mono',monospace;font-weight:" + (n ? '600;color:var(--primary-hi)' : '400;color:var(--muted)'),
+          asignarLabel: 'Asignar ' + nSel,
+          asignar: () => { const nm = Object.assign({}, m); selP.forEach(x => { nm[x.sac] = d.nombre; }); put(nm, {}); },
+          quitarTodas: () => { const nm = Object.assign({}, m); lista.forEach(x => { delete nm[x.sac]; }); put(nm, sel); },
+          lista: lista.map(x => ({ sac: x.sac, caratula: x.caratula, quitar: () => { const nm = Object.assign({}, m); delete nm[x.sac]; put(nm, sel); } })) };
+      })
+    };
+  }
+
+  crearCarpeta(id) {
+    clearTimeout(this._carp);
+    this.setState(s => ({ carpetas: { ...s.carpetas, [id]: 'creando' } }));
+    this._carp = setTimeout(() => {
+      this.setState(s => ({ carpetas: { ...s.carpetas, [id]: 'creada' } }));
+      this.leerDrive();
+    }, 1400);
+  }
+
   // simula GET /cases/{id}/documents: el back lista la carpeta de Drive de la causa
   leerDrive() {
     clearTimeout(this._drive);
@@ -3171,7 +3646,7 @@ class Component extends DCLogic {
     this.setState({ docsEstado: { id, cargando: true } });
     this._drive = setTimeout(() => {
       const d = new Date();
-      this.setState({ docsEstado: { id, cargando: false, hora: String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0') } });
+      this.setState({ docsEstado: { id, cargando: false, error: !!DRIVE_FALLA[id], hora: String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0') } });
     }, 900);
   }
 
@@ -3548,7 +4023,9 @@ class Component extends DCLogic {
         valor: val === undefined ? '' : val, marcado: !!val, set,
         esTexto: !c.tipo || c.tipo === 'text', esPass: c.tipo === 'pass', esSelect: c.tipo === 'select',
         esFecha: c.tipo === 'date', esArea: c.tipo === 'area', esCheck: c.tipo === 'check', esGrupo: c.tipo === 'grupo', esCalifs: c.tipo === 'califs',
-        esMulti: c.tipo === 'multi', esCombo: c.tipo === 'combo',
+        esMulti: c.tipo === 'multi', esReparto: c.tipo === 'reparto', ...(c.tipo === 'reparto' ? this.repartoVals(c) : {}), esCombo: c.tipo === 'combo', esSeg: c.tipo === 'seg',
+        segOpciones: c.tipo === 'seg' ? (c.opciones || []).map(o => ({ nombre: o, css: this.segLight(val === o), set: () => this.setState({ mv: Object.assign({}, this.state.mv, { [c.k]: o }) }) })) : [],
+        hayCont: !!c.max, cont: c.max ? String(val || '').length + ' / ' + c.max : '', max: c.max || undefined,
         combo: c.tipo === 'combo' ? (() => {
           const mv = this.state.mv, txt = String(val || '').trim(), q = txt.toLowerCase(), items = c.items || [];
           const match = txt ? items.find(a => a.nombre.toLowerCase() === q) : null;
@@ -3619,7 +4096,7 @@ class Component extends DCLogic {
         agregar: e => { const v = e.target.value; if (v) this.setState({ mv: Object.assign({}, this.state.mv, { [c.k]: (this.state.mv[c.k] || []).concat(v) }) }); },
         chkCss: 'display:flex;align-items:flex-start;gap:10px;padding:13px 14px;border:1px solid var(--border);border-radius:var(--r);background:var(--sunken);font-size:13.5px;line-height:1.45;color:var(--ink);cursor:pointer',
         opciones: c.opcionesKV || (c.opciones || []).map(o => ({ v: o, t: o })), soloLectura: !!c.soloLectura,
-        wrapCss: 'min-width:0;grid-column:' + (c.ancho === 'half' ? 'span 1' : '1 / -1') + (c.tipo === 'grupo' ? ';margin-top:4px' : ''),
+        wrapCss: 'min-width:0;grid-column:' + (c.ancho === 'half' ? (c.filaNueva ? '1 / span 1' : 'span 1') : '1 / -1') + (c.tipo === 'grupo' ? ';margin-top:4px' : ''),
         labelCss: (c.tipo === 'check' || c.tipo === 'grupo') ? 'display:none' : 'display:block;font-size:13px;font-weight:600;color:var(--ink);margin-bottom:7px',
         inputCss: 'width:100%;height:42px;padding:0 12px;border:1px solid var(--border-2);border-radius:var(--r);background:var(--surface);font-size:14px;color:var(--ink)' + (c.mono ? ';font-family:\'Roboto Mono\',monospace' : '') + (c.soloLectura || (typeof c.deshab === 'function' ? c.deshab(s.mv) : c.deshab) ? ';background:var(--sunken);color:var(--muted);cursor:not-allowed' : ''),
         selectCss: 'width:100%;height:42px;padding:0 34px 0 12px;border:1px solid var(--border-2);border-radius:var(--r);background:var(--surface);font-size:14px;color:var(--ink);cursor:pointer',
@@ -3645,19 +4122,20 @@ class Component extends DCLogic {
         bajaLabel: 'Eliminar',
         modCss: this.accion(false, false), bajaCss: this.accion(false, true), accDisabled: false,
         modificar: () => this.abrir({
-          titulo: 'Modificar cliente', sub: c.apellido + ', ' + c.nombre + ' · DNI ' + c.dni,
+          titulo: 'Modificar cliente', sub: c.apellido + ', ' + c.nombre + ' · ' + (c.tipoDoc || 'DNI') + ' ' + c.dni,
           campos: [
             { k: 'ap', label: 'Apellido', req: true, ancho: 'half', valor: c.apellido }, { k: 'no', label: 'Nombres', req: true, ancho: 'half', valor: c.nombre },
-            { k: 'dni', label: 'DNI', req: true, ancho: 'half', mono: true, valor: c.dni }, { k: 'tel', label: 'Teléfono', ancho: 'half', mono: true, valor: c.tel },
-            { k: 'mail', label: 'Correo electrónico', ancho: 'half', valor: c.mail }
+            { k: 'td', label: 'Tipo de documento', tipo: 'select', req: true, ancho: 'half', valor: c.tipoDoc || 'DNI', opciones: ['DNI', 'Pasaporte'] }, { k: 'dni', label: 'Número de documento', req: true, ancho: 'half', mono: true, valor: c.dni },
+            { k: 'dir', label: 'Dirección', req: true, ph: 'Calle, número, piso/depto., localidad', valor: c.dir || '' },
+            { k: 'tel', label: 'Teléfono', ancho: 'half', mono: true, valor: c.tel }, { k: 'mail', label: 'Correo electrónico', ancho: 'half', valor: c.mail }
           ],
           ok: 'Datos del cliente actualizados.'
         }),
         baja: () => this.abrir({
           ancho: 'sm', tono: 'rojo', titulo: 'Eliminar cliente',
           sub: c.apellido + ', ' + c.nombre,
-          nota: n ? 'Tiene ' + n + (n === 1 ? ' causa activa' : ' causas activas') + '. Deja de aparecer en el listado; es una baja lógica: se conserva el historial y las causas siguen accesibles.' : 'Deja de aparecer en el listado. Es una baja lógica: se conserva el historial.',
-          campos: [{ k: 'mot', label: 'Motivo', tipo: 'area', req: true, ph: 'Queda asentado en el historial.' }],
+          nota: n ? 'Tiene ' + n + (n === 1 ? ' causa activa' : ' causas activas') + '.' : '',
+          campos: [{ k: 'mot', label: 'Motivo (opcional)', tipo: 'area', ph: 'Queda asentado en el historial.' }],
           okLabel: 'Eliminar', ok: 'Cliente eliminado. El historial se conserva.'
         })
       };
@@ -3702,14 +4180,14 @@ class Component extends DCLogic {
       modCss: this.accion(!puedeModelos, false), bajaCss: this.accion(!puedeModelos, m.activo), accDisabled: !puedeModelos,
       descargar: () => this.aviso('Se descargaría ' + m.archivo + ' desde la carpeta de modelos del estudio.'),
       modificar: () => this.abrir({
-        permite: ['Administrador', 'Abogado'], titulo: 'Modificar modelo', sub: m.nombre,
+        permite: ['Administrador', 'Abogado'], titulo: 'Modificar modelo formal', sub: m.nombre,
         campos: [
-          { k: 'nom', label: 'Nombre del modelo', req: true, valor: m.nombre },
-          { k: 'fue', label: 'Fuero', tipo: 'select', ancho: 'half', req: true, valor: m.fuero, opciones: ['Penal', 'Administrativo', 'Amparo'] },
-          { k: 'tip', label: 'Tipo', tipo: 'select', ancho: 'half', valor: m.tipo, opciones: ['Escrito de presentación', 'Escrito de fondo', 'Recurso', 'Oficio'] },
-          { k: 'arc', label: 'Archivo del modelo', tipo: 'file', accept: '.docx', req: true, valor: m.archivo, nota: 'Reemplazar el archivo crea una versión nueva; la anterior queda en el historial.' }
+          { k: 'nom', label: 'Nombre del modelo', req: true, ph: 'Recurso de queja', valor: m.nombre },
+          { k: 'fue', label: 'Fuero', tipo: 'select', req: true, valor: m.fuero, opciones: ['Penal', 'Administrativo', 'Amparo'] },
+          { k: 'arc', label: 'Archivo del modelo', tipo: 'file', accept: '.docx', req: true, acceptTxt: 'Solo .docx, hasta 10 MB', valor: m.archivo, nota: 'Reemplazar el archivo crea una versión nueva; la anterior queda en el historial.' },
+          { k: 'auto', label: 'Copiar en las causas nuevas de los fueros elegidos', tipo: 'check', valor: m.activo !== false }
         ],
-        ok: 'Modelo actualizado. Las causas ya creadas conservan la copia anterior.'
+        okLabel: 'Guardar cambios', ok: 'Modelo actualizado. Las causas ya creadas conservan la copia anterior.'
       }),
       baja: () => this.abrir(m.activo ? {
         permite: ['Administrador', 'Abogado'], ancho: 'sm', tono: 'rojo', titulo: 'Dar de baja el modelo', sub: m.nombre,
@@ -3809,7 +4287,7 @@ class Component extends DCLogic {
         esAdmin && navTab('usuarios', 'Usuarios', 'usuarios'), navTab('abogados', 'Abogados', 'abogados'),
         navItem('plazos', 'Estados y plazos', s.pantalla === 'plazos', 'plazos'),
         navItem('calif', 'Calificaciones legales', s.pantalla === 'calif', 'calif'),
-        esAdmin && navItem('reportes', 'Reportes', s.pantalla === 'reportes', 'reportes')
+        esAdmin && navItem('reportes', 'Reportes', s.pantalla === 'reportes' || s.pantalla === 'repPdf', 'reportes')
       ].filter(Boolean),
       cambiarClave: () => this.abrir({
         ancho: 'sm', titulo: 'Cambiar contraseña', sub: s.usuarioActual + ' · ' + s.user,
@@ -3871,7 +4349,7 @@ class Component extends DCLogic {
       modificarCausa: () => {
         const fd = FUERO_DATOS[causa.id] || {}, sinSac = !causa.sac || causa.sac === '—' || causa.sac === 'Sin SAC';
         const isoDe = f => { const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(f || ''); return m ? m[3] + '-' + m[2] + '-' + m[1] : ''; };
-        const es = f => () => causa.fuero === f, noPenal = () => causa.fuero !== 'Penal';
+        const es = f => () => causa.fuero === f, noPenal = () => causa.fuero !== 'Penal', conLesivo = v => causa.fuero === 'Amparo' && !!v.lesivo;
         const FUEROS = [causa.fuero], cliAct = CLIENTES.find(c => c.dni === (det.cliente || {}).dni) || null;
         this.abrir({
           titulo: 'Modificar causa', sub: sinSac ? 'Sin N° de SAC' : 'SAC ' + causa.sac, okLabel: 'Guardar cambios', sinCambiosCierra: true,
@@ -3888,13 +4366,18 @@ class Component extends DCLogic {
             { k: 'g2', tipo: 'grupo', label: 'Cliente y rol procesal' },
             { k: 'cli', label: 'Cliente', tipo: 'select', req: true, valor: cliAct ? cliAct.id : '', opcionesKV: CLIENTES.filter(c => c.activo || c === cliAct).map(c => ({ v: c.id, t: c.apellido + ', ' + c.nombre + ' · DNI ' + c.dni })), nota: 'Si lo cambiás, se propone la carátula con el cliente nuevo.',
               alCambiar: (v, mv) => { const n = CLIENTES.find(c => c.id === v); if (!n) return {}; const m = /( p\.s\.a\.| c\/| —)/.exec(mv.car || ''); return { car: n.apellido.toUpperCase() + ', ' + n.nombre + (m ? (mv.car || '').slice(m.index) : '') }; } },
-            ...FUEROS.map(f => ({ k: 'rol_' + f, label: 'Rol procesal del cliente', tipo: 'select', req: true, ancho: 'half', si: es(f), valor: causa.fuero === f ? causa.rol : (ROLES_FUERO[f] || ['Defensa'])[0], opciones: ROLES_FUERO[f] || ['Defensa'] })),
+            ...FUEROS.map(f => ({ k: 'rol_' + f, label: 'Rol procesal del cliente', tipo: 'seg', req: true, si: es(f), valor: causa.fuero === f ? causa.rol : (ROLES_FUERO[f] || ['Defensa'])[0], opciones: ROLES_FUERO[f] || ['Defensa'] })),
             { k: 'califs', label: 'Calificaciones legales', tipo: 'califs', si: es('Penal'), fechas: causa.califFechas || {}, valor: causa.califs || CALIF.filter(k => (causa.calificacion || '').indexOf(califCorto(k)) === 0).map(k => k.id), nota: 'Si concurren varios delitos, una calificación por cada uno. Cada una recalcula su prescripción desde la fecha del hecho.' },
             { k: 'preso', tipo: 'check', label: 'Preso: el cliente está detenido.', si: es('Penal'), valor: !!fd.preso },
             { k: 'contra', label: 'Contraparte u organismo', si: noPenal, ph: 'APROSS, Provincia de Córdoba, Tribunal de Conducta…', valor: causa.contra || '' },
-            { k: 'obj', label: 'Objeto del reclamo o del amparo', tipo: 'area', req: true, si: noPenal, valor: causa.objeto || '', nota: 'Qué se reclama y por qué: el acto o la omisión que origina la causa y lo que se pide.' },
+            { k: 'obj', label: causa.fuero === 'Amparo' ? 'Objeto del amparo' : 'Objeto del reclamo', tipo: 'area', req: true, si: noPenal, max: 800, valor: causa.objeto || '',
+              ph: causa.fuero === 'Amparo' ? 'Ej. Se ordene a APROSS la cobertura integral del tratamiento prescripto, denegada por resolución del…' : 'Ej. Se deje sin efecto la sanción de cesantía dispuesta por el Tribunal de Conducta Policial y se reincorpore al agente…', nota: 'Qué se reclama y por qué: el acto o la omisión que origina la causa y lo que se pide.' },
             { k: 'caut', tipo: 'check', label: 'El juez hizo lugar a la medida cautelar.', si: es('Amparo'), valor: !!fd.cautelar },
             { k: 'lesivo', tipo: 'date', label: 'Fecha del acto lesivo', ancho: 'half', si: es('Amparo'), valor: isoDe(fd.actoLesivo), nota: 'Opcional. Desde ella corre el plazo para presentar el amparo.' },
+            { k: 'plDias', label: 'Plazo para presentar el amparo', ancho: 'half', filaNueva: true, req: true, mono: true, ph: 'Días', si: conLesivo, valor: fd.plazoDias != null ? String(fd.plazoDias) : '', alCambiar: v => ({ plDias: String(v).replace(/[^0-9]/g, '').slice(0, 3) }) },
+            { k: 'plTipo', label: '\u00a0', tipo: 'select', ancho: 'half', si: conLesivo, valor: fd.plazoTipo || 'Hábiles', opciones: ['Hábiles', 'Corridos'] },
+            { k: 'renueva', tipo: 'check', label: 'El acto lesivo se renueva.', si: conLesivo, valor: !!fd.renueva },
+            { k: 'renDias', label: 'Se renueva cada', ancho: 'half', req: true, mono: true, ph: 'Días', si: v => conLesivo(v) && !!v.renueva, valor: fd.renuevaDias != null ? String(fd.renuevaDias) : '', nota: 'En días corridos, contados desde la fecha del acto lesivo.', alCambiar: v => ({ renDias: String(v).replace(/[^0-9]/g, '').slice(0, 3) }) },
             { k: 'agot', tipo: 'date', label: 'Agotamiento de la vía administrativa', ancho: 'half', si: es('Administrativo'), valor: isoDe(fd.agotamiento), nota: 'Opcional. Dejalo vacío mientras la vía no se agotó.' },
             { k: 'g3', tipo: 'grupo', label: 'Asignación' },
             { k: 'resp', label: 'Abogado responsable', tipo: 'select', req: true, ancho: 'half', valor: causa.abogado, opciones: ABOGADOS.filter(a => a.activo).map(a => a.nombre) },
@@ -3910,7 +4393,8 @@ class Component extends DCLogic {
             if (nCli && nCli !== cliAct) det.cliente = { nombre: nCli.nombre + ' ' + nCli.apellido, dni: nCli.dni, tel: nCli.tel || '—', mail: nCli.mail || '—', desde: det.cliente ? det.cliente.desde : '—' };
             Object.assign(causa, { sac: sac || 'Sin SAC', fuero: f, caratula: v.car.trim(), tribunal: v.trib || '—', instructor: v.inst || '—', telefono: v.tel || '—', interno: v.int || '—', rol: v['rol_' + f], abogado: v.resp, inicio: sac ? fmt(v.ini) : '' });
             if (f === 'Penal') { causa.califs = v.califs; causa.califFechas = v.califs_f; } else { causa.contra = v.contra; causa.objeto = v.obj; }
-            FUERO_DATOS[causa.id] = { tasa: !!v.tasa, preso: f === 'Penal' && !!v.preso, cautelar: f === 'Amparo' && !!v.caut, actoLesivo: f === 'Amparo' ? fmt(v.lesivo) : '', agotamiento: f === 'Administrativo' ? fmt(v.agot) : '' };
+            FUERO_DATOS[causa.id] = { tasa: !!v.tasa, preso: f === 'Penal' && !!v.preso, cautelar: f === 'Amparo' && !!v.caut, actoLesivo: f === 'Amparo' ? fmt(v.lesivo) : '',
+              ...(f === 'Amparo' && v.lesivo ? { plazoDias: +v.plDias, plazoTipo: v.plTipo, renueva: !!v.renueva, renuevaDias: v.renueva ? +v.renDias : null } : {}), agotamiento: f === 'Administrativo' ? fmt(v.agot) : '' };
             return 'Causa actualizada. El cambio queda asentado con usuario y fecha.';
           }
         });
@@ -3934,23 +4418,49 @@ class Component extends DCLogic {
       lineaVacia: det.linea.length === 0,
       cantidadLinea: det.linea.length + (det.linea.length === 1 ? ' movimiento' : ' movimientos'),
       ...(() => {
-        const de = s.docsEstado || {}, carg = de.id !== causa.id || de.cargando;
-        const EXT = { pdf: ['PDF', '#8E1F19', '#FBEAE8'], docx: ['DOC', '#2F4D2F', '#EEF3EC'], doc: ['DOC', '#2F4D2F', '#EEF3EC'], jpg: ['IMG', '#7A5C1E', '#FBF3E2'], png: ['IMG', '#7A5C1E', '#FBF3E2'] };
+        const cs = (s.carpetas || {})[causa.id] || 'creada', creada = cs === 'creada';
+        const de = s.docsEstado || {}, carg = creada && (de.id !== causa.id || de.cargando), falla = creada && !carg && !!de.error, ok = creada && !carg && !falla;
+        const PDF = ['PDF', '#8E1F19', '#FBEAE8'], DOC = ['DOC', '#2F4D2F', '#EEF3EC'], IMG = ['IMG', '#7A5C1E', '#FBF3E2'];
+        const EXT = { pdf: PDF, docx: DOC, doc: DOC, gdoc: DOC, jpg: IMG, jpeg: IMG, png: IMG };
+        const CS = { creada: ['Creada', 'var(--primary-hi)', 'var(--primary)'], pendiente: ['Carpeta pendiente', '#7A5C1E', '#A8894C'], creando: ['Creando carpeta', 'var(--muted)', 'var(--border-2)'], error: ['Error en la carpeta', '#8E1F19', '#8E1F19'] }[cs];
+        const respNomC = (USUARIOS.find(u => u.abogado === causa.abogado) || {}).nombre || causa.abogado;
         return {
-          docsCargando: carg, docsListos: !carg, docsVacio: !carg && det.docs.length === 0,
-          cantidadDocs: carg ? '' : det.docs.length + (det.docs.length === 1 ? ' archivo' : ' archivos'),
+          carpNombre: causa.caratula,
+          carpRuta: respNomC + ' › ' + causa.fuero,
+          carpEstado: CS[0],
+          carpEstadoCss: 'display:flex;align-items:center;gap:7px;font-size:12px;font-weight:600;color:' + CS[1],
+          carpEstadoDot: 'width:7px;height:7px;border-radius:50%;flex:0 0 7px;background:' + CS[2],
+          carpCreada: creada, carpCrear: cs === 'pendiente', carpReintentar: cs === 'error', carpCreando: cs === 'creando',
+          crearCarpeta: () => this.crearCarpeta(causa.id),
+          docsCargando: carg, docsListos: ok, docsVacio: ok && det.docs.length === 0,
+          docsSinCarpeta: !creada, docsFalla: falla, docsConEstado: creada && !falla,
+          cantidadDocs: ok ? det.docs.length + (det.docs.length === 1 ? ' archivo' : ' archivos') : '',
           docsSync: carg ? 'Leyendo la carpeta de Drive…' : 'Sincronizado con Drive · ' + de.hora,
           docsSyncCss: 'display:flex;align-items:center;gap:7px;font-size:12px;color:' + (carg ? 'var(--muted)' : 'var(--primary-hi)'),
           docsSyncDot: 'width:7px;height:7px;border-radius:50%;flex:0 0 7px;background:' + (carg ? 'var(--border-2)' : 'var(--primary)'),
           docsEsqueleto: [0, 1, 2].map(i => ({ a: 'height:10px;border-radius:3px;background:var(--sunken);width:' + [72, 58, 66][i] + '%', b: 'height:8px;border-radius:3px;background:var(--sunken);width:' + [44, 36, 40][i] + '%' })),
           abrirDrive: () => this.aviso('Se abriría en Drive la carpeta de la causa "' + causa.caratula + '".'),
           docs: carg ? [] : det.docs.map(d => {
-            const ext = ((d.nombre.match(/\.([a-z0-9]+)$/i) || [])[1] || '').toLowerCase(), e = EXT[ext] || ['ARCH', 'var(--muted)', 'var(--sunken)'];
+            const ext = d.tipo || ((d.nombre.match(/\.([a-z0-9]+)$/i) || [])[1] || '').toLowerCase(), e = EXT[ext] || ['ARCH', 'var(--muted)', 'var(--sunken)'];
             const p = (d.meta || '').split(' · ');
-            return { nombre: d.nombre, ext: e[0], fecha: p[0] || '—', peso: p[1] || '—',
-              autor: d.por || 'VZ Causas',
+            return { nombre: d.nombre, ext: e[0],
+              autorPre: d.por ? d.por + ' · ' : '', datos: [p[0], p[1]].filter(Boolean).join(' · '),
               icoCss: "width:34px;height:40px;flex:0 0 34px;border-radius:var(--r-sm);display:flex;align-items:flex-end;justify-content:center;padding-bottom:6px;font-family:'Roboto Mono',monospace;font-size:9px;font-weight:700;background:" + e[2] + ';color:' + e[1] + ';border:1px solid var(--border)',
-              abrir: () => this.aviso('Se abriría "' + d.nombre + '" en Drive.') };
+              abrir: () => this.aviso('Se abriría "' + d.nombre + '" en Drive.'),
+              puedeDescargar: !esAdmin || !!d.expediente || /^Expediente_.+_v\d+\.pdf$/.test(d.nombre),
+              ocupado: s.descDoc === d.nombre, descError: s.descErr === d.nombre,
+              descLabel: s.descDoc === d.nombre ? 'Descargando…' : 'Descargar',
+              descTitulo: (d.tipo === 'gdoc' || d.tipo === 'gsheet') ? 'Se descarga convertido a PDF' : 'Descargar a esta computadora',
+              descargar: () => {
+                if (this.state.descDoc === d.nombre) return;
+                this.setState(st => ({ descDoc: d.nombre, descErr: st.descErr === d.nombre ? '' : st.descErr }));
+                setTimeout(() => {
+                  const falla = d.nombre === 'Ofrecimiento de prueba.docx' && !this._descOk;
+                  if (falla) this._descOk = true;
+                  this.setState({ descDoc: '', descErr: falla ? d.nombre : '' });
+                  if (!falla) this.aviso('Se descargó "' + d.nombre + ((d.tipo === 'gdoc' || d.tipo === 'gsheet') ? '.pdf' : '') + '".');
+                }, 1400);
+              } };
           })
         };
       })(),
@@ -4002,6 +4512,13 @@ class Component extends DCLogic {
       pendienteTitulo: (s.pendiente || 'Sección') + ' — fuera de esta entrega',
       pendienteTexto: 'Esta sección está planificada para el ' + (s.pendienteSprint === 'S2' ? 'Sprint 2' : s.pendienteSprint === 'S5' ? 'Sprint 5' : 'Sprint 3') + '. El prototipo cubre las historias de Sprint 1 y el registro de actos procesales del Sprint 2.',
       goCausas: () => this.setState({ pantalla: 'causas', pendiente: null }),
+      volverAtras: () => {
+        const h = this._hist || [], prev = h.pop();
+        const ok = prev && prev !== s.pantalla && prev !== 'login';
+        const dest = ok ? prev : (s.pantalla === 'acto' || s.pantalla === 'exp') ? 'detalle' : 'causas';
+        this._volviendo = true;
+        this.setState({ pantalla: dest, pendiente: null, editActo: null, expListo: false });
+      },
       causas,
       causasFiltradas: causasFil.slice((pag - 1) * PAG, pag * PAG).map(c => ({ ...c, abogadoTxt: nomAp(c.abogado), amparoCss: c.plazoAmparo ? 'font-size:11px;font-weight:600;color:#7A5C1E;margin-top:3px' : 'display:none' })),
       pagTxt: causasFil.length + (causasFil.length === 1 ? ' causa' : ' causas') + ' · página ' + pag + ' de ' + nPag,
@@ -4407,11 +4924,22 @@ class Component extends DCLogic {
         }),
         eliminar: () => this.abrir({
           soloAdmin: true, ancho: 'sm', tono: 'rojo', titulo: 'Eliminar abogado', sub: nomAp(a.nombre),
-          nota: 'Tiene ' + a.causas + ' causas activas. Hay que reasignarlas antes de eliminarlo.',
+          ancho: 'md', nota: 'Tiene ' + a.causas + ' causas activas. Asigná cada una a otro abogado antes de eliminarlo.',
           campos: [
-            { k: 'reasig', label: 'Reasignar sus causas a', tipo: 'select', req: true, opciones: ABOGADOS.filter(x => x.nombre !== a.nombre).map(x => x.nombre) }
+            { k: 'reasig', label: 'Reasignar sus causas', tipo: 'reparto', req: true, destinos: ABOGADOS.filter(x => x.nombre !== a.nombre && x.activo !== false), causas: (() => {
+              const AP = ['PERALTA, Diego', 'SOSA, Lucas Martín', 'BUSTOS, Carina', 'LUNA, Javier', 'FERREYRA, Pablo', 'OLMOS, Ricardo', 'ROMERO, Gisela', 'MOLINA, Hernán', 'CASAS, Andrea', 'VERA, Nicolás', 'PAZ, Marcelo', 'RÍOS, Silvia', 'AGÜERO, Tomás', 'QUIROGA, Elena', 'NIETO, Sergio'];
+              const TT = ['p.s.a. Lesiones leves', 'c/ Provincia de Córdoba — Plena jurisdicción', 'p.s.a. Incumplimiento de deberes', 'c/ Policía de la Provincia — Amparo', 'p.s.a. Abuso de autoridad'];
+              const reales = CAUSAS.filter(c => c.abogado === a.nombre).map(c => ({ sac: c.sac, caratula: c.caratula }));
+              const out = reales.slice();
+              for (let i = 0; out.length < a.causas; i++) out.push({ sac: String(13300000 + (a.matricula || '').replace(/\D/g, '').slice(-3) * 37 + i * 1291), caratula: AP[i % AP.length] + ' ' + TT[i % TT.length] });
+              return out;
+            })() }
           ],
-          okLabel: 'Eliminar y reasignar', ok: v => a.causas + ' causas reasignadas a ' + v.reasig + '. Abogado eliminado.'
+          okLabel: 'Eliminar y reasignar', ok: v => {
+            const m = v.reasig_m || {}, cnt = {};
+            Object.values(m).forEach(n => { cnt[n] = (cnt[n] || 0) + 1; });
+            return 'Causas reasignadas: ' + Object.keys(cnt).map(n => n + ' (' + cnt[n] + ')').join(', ') + '. Abogado eliminado.';
+          }
         })
       })),
 
@@ -4530,17 +5058,39 @@ class Component extends DCLogic {
 
       // ── reportes ──
       esReportes: s.pantalla === 'reportes',
-      repAbogado: s.repTab === 'abogado', repFuero: s.repTab === 'fuero',
-      cssRepAbogado: this.tabBtn(s.repTab === 'abogado'), cssRepFuero: this.tabBtn(s.repTab === 'fuero'),
-      verRepAbogado: () => this.setState({ repTab: 'abogado' }), verRepFuero: () => this.setState({ repTab: 'fuero' }),
-      repFilas: ABOGADOS.map(a => ({
-        nombre: a.nombre, causas: a.causas,
-        pct: Math.round(a.causas / totalCarga * 100) + ' %',
-        barCss: 'height:100%;width:' + Math.round(a.causas / maxCarga * 100) + '%;background:' + (a.causas >= maxCarga ? '#A8894C' : 'var(--primary)'),
-        estado: a.activo ? 'Activo' : 'Dado de baja'
-      })),
-      repTotalCarga: totalCarga,
-      repFueroFilas: repFueroFilas,
+      ...this.reportesVals(s),
+      esRepPdf: s.pantalla === 'repPdf',
+      irReportes: e => { if (e && e.preventDefault) e.preventDefault(); this.setState({ pantalla: 'reportes' }); },
+      repMesSel: String(s.repMesSel == null ? 7 : s.repMesSel),
+      ...(() => {
+        const MS = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+        const AB = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+        const k = s.repMesSel == null ? 7 : s.repMesSel, MAX = 8, ANIO = 2026, MINA = 2026, py = s.repPickAnio || ANIO;
+        const go = n => this.setState({ repMesSel: n, repPickOpen: false });
+        const arrow = dis => 'width:40px;height:40px;flex:0 0 40px;display:inline-flex;align-items:center;justify-content:center;padding:0;border:0;background:transparent;color:' + (dis ? 'var(--border-2)' : 'var(--muted)') + ';cursor:' + (dis ? 'default' : 'pointer');
+        const yArrow = dis => 'width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;padding:0;border:1px solid var(--border);border-radius:var(--r-btn);background:var(--surface);color:' + (dis ? 'var(--border-2)' : 'var(--muted)') + ';cursor:' + (dis ? 'default' : 'pointer');
+        return {
+          repMesLabel: MS[k] + ' ' + ANIO,
+          repPrevDis: k <= 0, repNextDis: k >= MAX, repPrevCss: arrow(k <= 0), repNextCss: arrow(k >= MAX),
+          repMesPrev: () => k > 0 && go(k - 1), repMesNext: () => k < MAX && go(k + 1),
+          repPickOpen: !!s.repPickOpen,
+          repTogglePick: () => this.setState(st => ({ repPickOpen: !st.repPickOpen, repPickAnio: ANIO })),
+          repCerrarPick: () => this.setState({ repPickOpen: false }),
+          repPickAnio: py,
+          repAnioPrevDis: py <= MINA, repAnioNextDis: py >= ANIO, repAnioPrevCss: yArrow(py <= MINA), repAnioNextCss: yArrow(py >= ANIO),
+          repAnioPrev: () => py > MINA && this.setState({ repPickAnio: py - 1 }), repAnioNext: () => py < ANIO && this.setState({ repPickAnio: py + 1 }),
+          repPickMeses: AB.map((t, i) => {
+            const dis = py === ANIO && i > MAX, on = py === ANIO && i === k, cur = py === ANIO && i === MAX;
+            return { t, dis, title: dis ? 'Todavía sin datos' : MS[i] + ' ' + py + (cur ? ' (en curso)' : ''), elegir: () => !dis && go(i),
+              css: 'height:34px;border-radius:var(--r-btn);font-size:12.5px;font-weight:600;cursor:' + (dis ? 'default' : 'pointer') + ';border:1px solid ' + (on ? 'var(--primary)' : cur ? 'var(--border-2)' : 'transparent') + ';background:' + (on ? 'var(--primary)' : 'transparent') + ';color:' + (on ? '#fff' : dis ? 'var(--border-2)' : 'var(--ink)') };
+          }),
+          repPickNota: 'Septiembre en curso',
+          repUltimo: () => go(MAX - 1)
+        };
+      })(),
+      setRepMes: e => this.setState({ repMesSel: +e.target.value }),
+      descargarRepMes: () => { const k = s.repMesSel == null ? 7 : s.repMesSel; this.aviso('Descargando Reporte_2026-' + String(k + 1).padStart(2, '0') + '.pdf.'); },
+      rp: this.repPdfVals(s),
       exportar: () => this.aviso('El reporte se descargaría en PDF con el logo del estudio y la fecha de emisión.'),
       exportarCsv: () => this.aviso('El reporte se exportaría en CSV para procesarlo en planilla.'),
 

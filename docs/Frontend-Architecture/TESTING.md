@@ -10,6 +10,9 @@ Si tenés una duda del tipo "¿este test dónde va?", saltá a
 [Dónde pongo este test](#9-dónde-pongo-este-test). Si la duda es "¿vale la pena
 este test?", andá a [Antes de escribir un test](#4-antes-de-escribir-un-test).
 
+> **09/11/2026: contrato V6 (Sprint 5).** Los tests del Sprint 5 todavía no
+> están escritos: ver [§11, "Sprint 5"](#sprint-5-lo-que-tienen-que-fijar-los-tests).
+>
 > **Estado actual (03/11/2026):** **473 tests de Vitest** en 84 archivos (208
 > de `unit/` y 265 de `components/`) y **9 de Playwright** en 6 archivos. Pasan
 > 472 y falla 1, el de contrato, hasta que `docs/openapi` sume cinco endpoints
@@ -1115,6 +1118,43 @@ CA-19.4, 19.6 y 19.9 a 19.15; CA-21.3 a 21.10; CA-28.4 a 28.9 y 28.11; CA-38.2,
 38.3, 38.8 y 38.9; y de CA-38.7, el `403` y la conversión a PDF (lo que se ve
 de "Descargar" tiene test de pantalla).
 
+### Sprint 5: lo que tienen que fijar los tests
+
+**Todavía no hay tests del Sprint 5.** Como en los sprints anteriores, se
+escriben antes que las pantallas ([Los tests primero](#los-tests-primero)), a
+partir de `API_CONTRACT_V6.md` y de los criterios de aceptación que se escriban
+sobre él (todavía no están en Jira). Antes del test, el endpoint tiene que
+estar en el mock (`frontend/CLAUDE.md`, "Checklist de un módulo"): hoy no está
+ninguno de los del Sprint 5, y la baja de abogado del mock sigue la regla de
+V5 (`frontend/CLAUDE.md`, "Cambios de V6 sobre lo que ya estaba hecho").
+
+Las reglas de V6 que se rompen fácil, y que conviene que fije un test de
+pantalla:
+
+- **Modificar cliente (HU10).** El documento se puede cambiar, y uno repetido
+  da `409 CLIENT_DNI_ALREADY_EXISTS`. Si cambia el nombre, después de guardar
+  se vuelven a pedir las causas: la carátula de una causa del cliente cambia
+  (D-121, D-130).
+- **Dar de baja cliente (HU11).** Con causas activas, `409
+  CLIENT_HAS_ACTIVE_CASES` y el cliente sigue en el listado (D-122).
+- **Dar de baja abogado (HU15).** El reparto manda una entrada por cada causa
+  activa, sin las terminales. Un `409 LAWYER_HAS_DEPENDENCIES` hace rearmar el
+  reparto. Si el abogado tiene usuario, el formulario avisa qué le pasa, y la
+  baja no se bloquea (D-123, D-133).
+- **Anular acto procesal (HU29).** Solo lo ofrece el responsable; el acto sale
+  de la línea de vida y la causa muestra su estado nuevo; en una causa
+  "Prescripta", `422 CASE_IN_TERMINAL_STATE` (D-124).
+- **Modificar modelo formal (HU36).** Los fueros son una lista, no un selector
+  de uno, y el archivo es opcional (D-125).
+- **Dar de baja modelo formal (HU37).** El modelo sale del listado y no hay
+  "Reactivar" (D-126).
+- **Reporte mensual (HU43).** Solo lo ve `ADMINISTRATOR`; el selector de mes va
+  de `availableFrom` a `currentPeriod`; el mes en curso se distingue de uno
+  cerrado (`status`); un período sin reporte da `404 MONTHLY_REPORT_NOT_FOUND`;
+  y la descarga pide `GET /reports/monthly/file` (D-116, D-117). El cálculo de
+  los números es del backend: el front no los recalcula, así que no se testea
+  acá ([Lo que no se testea](#lo-que-no-se-testea-a-propósito)).
+
 ---
 
 ## 12. Lint de los tests
@@ -1242,13 +1282,14 @@ Casi siempre es un `waitForTimeout` o un selector por clase CSS. Usá
   disparar cada error.
 - `docs/openapi/`: el contrato de la API que verifica el test de
   `tests/unit/contract/`.
-- `docs/Api-Contract/API_CONTRACT_V5.md`: lo que la API tiene que responder, y
-  lo que implementan hoy los mocks (con su revisión del 27/10/2026). Las
-  decisiones y los puntos abiertos, en `DECISIONES.md`. V2, V3 y V4 quedan
+- `docs/Api-Contract/API_CONTRACT_V6.md`: lo que la API tiene que responder,
+  última versión (09/11/2026), con el Sprint 5. Los puntos abiertos, en su §7;
+  las decisiones, en `DECISIONES.md`. Los mocks todavía implementan
+  `API_CONTRACT_V5.md` (con su revisión del 27/10/2026). V2, V3, V4 y V5 quedan
   como registro.
-- `frontend/CLAUDE.md`: el estado del Sprint 4, los problemas conocidos y cómo
-  quedaron aplicados V4 y V5 en el código ("Cambios de V4/V5 sobre lo que ya
-  estaba hecho").
+- `frontend/CLAUDE.md`: el estado del Sprint 4, lo que trae el Sprint 5, los
+  problemas conocidos y cómo quedaron aplicados V4, V5 y V6 en el código
+  ("Cambios de V4/V5/V6 sobre lo que ya estaba hecho").
 - Los criterios de aceptación de cada historia: su issue en Jira (proyecto VZ).
 - Las ideas de fondo: [Testing Trophy](https://kentcdodds.com/blog/the-testing-trophy-and-testing-classifications) ·
   [Write tests. Not too many. Mostly integration.](https://kentcdodds.com/blog/write-tests) ·
