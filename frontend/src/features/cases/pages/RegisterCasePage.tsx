@@ -19,6 +19,7 @@ import {
     useCreateClient,
     validateClient,
     type ClientFormErrors,
+    type Client,
     type ClientFormValues,
 } from '@/features/clients'
 import { useLawyers } from '@/features/lawyers'
@@ -109,6 +110,9 @@ export function RegisterCasePage() {
 
     const [values, setValues] = useState<CaseFormValues>(emptyCaseForm)
     const [errors, setErrors] = useState<CaseFormErrors>({})
+    /* El cliente registrado desde "Registrar cliente nuevo": el listado trae
+       sólo los primeros 100 por apellido, y puede no estar entre ellos. */
+    const [createdClient, setCreatedClient] = useState<Client | null>(null)
     /* Si quedó un borrador, lo primero es preguntar qué hacer con él. */
     const [modal, setModal] = useState<ModalState>(() => {
         const draft = readCaseDraft(userId)
@@ -131,7 +135,12 @@ export function RegisterCasePage() {
     const lawyersQuery = useLawyers({ page: 1, limit: OPTIONS_LIMIT })
     const qualificationsQuery = useLegalQualifications({ page: 1, limit: OPTIONS_LIMIT })
 
-    const clients = clientsQuery.data?.data ?? []
+    const listedClients = clientsQuery.data?.data ?? []
+    /* Sin esto, un cliente nuevo que cae fuera de la primera página queda
+       elegido en `values.clientId` pero sin opción en el select ni en el resumen. */
+    const clients = createdClient && !listedClients.some((c) => c.id === createdClient.id)
+        ? [...listedClients, createdClient]
+        : listedClients
     const lawyers = lawyersQuery.data?.data ?? []
     const qualifications = qualificationsQuery.data?.data ?? []
 
@@ -400,8 +409,9 @@ export function RegisterCasePage() {
             )}
             {modal?.kind === 'client' && (
                 <NewClient
-                    onDone={(id) => {
-                        changeValue('clientId', String(id))
+                    onDone={(created) => {
+                        setCreatedClient(created)
+                        changeValue('clientId', String(created.id))
                         setModal(null)
                     }}
                     onCancel={() => setModal(null)}
@@ -489,7 +499,7 @@ function RecoverDraft({ onRecover, onDiscard }: { onRecover: () => void; onDisca
 }
 
 /** "Registrar cliente nuevo": el modal de `clients`, que ya trae su modo `fromCase`. */
-function NewClient({ onDone, onCancel }: { onDone: (id: number) => void; onCancel: () => void }) {
+function NewClient({ onDone, onCancel }: { onDone: (client: Client) => void; onCancel: () => void }) {
     const toast = useToast()
     const [values, setValues] = useState<ClientFormValues>(EMPTY_CLIENT)
     const [errors, setErrors] = useState<ClientFormErrors>({})
@@ -503,7 +513,7 @@ function NewClient({ onDone, onCancel }: { onDone: (id: number) => void; onCance
         create.mutate(toCreateClientBody(values), {
             onSuccess: (client) => {
                 toast('success', `Cliente ${formatClientName(client)} registrado.`)
-                onDone(client.id)
+                onDone(client)
             },
             onError: (error) => {
                 if (!isApiError(error)) throw error
