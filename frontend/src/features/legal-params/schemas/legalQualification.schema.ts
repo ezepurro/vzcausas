@@ -13,6 +13,16 @@ export type LegalQualificationErrors = Partial<Record<keyof LegalQualificationFo
 
 const NAME_MAX = 255;
 
+/**
+ * Topes de los controles (`maxLength`), por campo del formulario: no dejan
+ * escribir de más. Salen de las mismas constantes que valida el schema.
+ */
+export const LEGAL_QUALIFICATION_MAX_LENGTH = {
+    name: NAME_MAX,
+    /* V5 no fija tope de años: dos dígitos alcanzan (decisión del equipo, 06/11/2026). */
+    years: 2,
+} as const;
+
 /** El alta y la modificación validan lo mismo: son los dos únicos campos. */
 export function validateLegalQualification(
     values: LegalQualificationFormValues,

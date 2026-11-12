@@ -1,5 +1,6 @@
 import {
   BadGatewayError,
+  BusinessRuleError,
   ConflictError,
   DomainError,
   NotFoundError,
@@ -31,6 +32,93 @@ export class DocumentStorageUnavailableError extends BadGatewayError {
       'DOCUMENT_STORAGE_UNAVAILABLE',
       'No se pudo acceder al almacenamiento en la nube. Intentá de nuevo en unos minutos.',
     );
+  }
+}
+
+/**
+ * The storage did not answer while reading the folder of a case (HU38,
+ * CA-38.6). Same `code` as {@link DocumentStorageUnavailableError}, with the
+ * contract's text for this operation (V5 `:7570`).
+ */
+export class CaseFolderReadUnavailableError extends BadGatewayError {
+  constructor() {
+    super(
+      'DOCUMENT_STORAGE_UNAVAILABLE',
+      'No se pudo leer la carpeta de la causa en Drive. Intentá de nuevo en unos minutos.',
+    );
+  }
+}
+
+/**
+ * The storage did not answer while downloading a document of a case (HU38,
+ * CA-38.6). The contract words it apart from the read (V5 `:7649`).
+ */
+export class CaseDocumentDownloadUnavailableError extends BadGatewayError {
+  constructor() {
+    super(
+      'DOCUMENT_STORAGE_UNAVAILABLE',
+      'No se pudo descargar el documento de Drive. Intentá de nuevo en unos minutos.',
+    );
+  }
+}
+
+/**
+ * The document does not exist, is in the trash or is not in the folder asked
+ * for (HU38, CA-38.8): the API never hands out a file of another folder, even
+ * if its id is known (V5 `:7629-7631`).
+ */
+export class DocumentNotFoundError extends NotFoundError {
+  constructor() {
+    super('DOCUMENT_NOT_FOUND', 'No se encontró el documento en la carpeta de la causa.');
+  }
+}
+
+/**
+ * A document asked for the case file is not in the folder of the case, does
+ * not exist, or is a case file generated before (HU25, CA-25.3): a case file
+ * never goes into another one (V5 `:7732`).
+ */
+export class CaseFileDocumentsInvalidError extends ValidationError {
+  constructor() {
+    super('VALIDATION_ERROR', 'Los datos enviados no son válidos.', {
+      documentIds: 'Un documento no está en la carpeta de la causa o es un expediente anterior.',
+    });
+  }
+}
+
+/**
+ * A document asked for the case file cannot become PDF (HU25, CA-25.4, D-102):
+ * only PDF, Word, Google documents and JPG or PNG images can. Also a PDF the
+ * storage hands over that cannot be opened.
+ */
+export class DocumentNotConvertibleError extends BusinessRuleError {
+  constructor() {
+    super('DOCUMENT_NOT_CONVERTIBLE', 'Uno de los documentos no se puede convertir a PDF.');
+  }
+}
+
+/**
+ * The storage failed while reading a document or saving the case file (HU25,
+ * CA-25.8). Nothing is left half done: no file stays in the folder and the
+ * version number is not used up. The contract words it apart (V5 `:7898`).
+ */
+export class CaseFileStorageUnavailableError extends BadGatewayError {
+  constructor() {
+    super(
+      'DOCUMENT_STORAGE_UNAVAILABLE',
+      'No se pudo generar el expediente porque Drive no respondió. Intentá de nuevo en unos minutos.',
+    );
+  }
+}
+
+/**
+ * Another case file of the same case took that version first (`case_files`
+ * is unique by case and version). Internal: the use case retries with the
+ * next number, so it is never meant to reach the client.
+ */
+export class CaseFileVersionTakenError extends DomainError {
+  constructor(public readonly version: number) {
+    super('CASE_FILE_VERSION_TAKEN', `La versión ${version} del expediente ya fue usada.`);
   }
 }
 

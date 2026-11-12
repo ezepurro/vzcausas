@@ -1,0 +1,68 @@
+type: object
+description: |
+  Expediente generado (HU25): el PDF guardado en la carpeta de la causa como
+  nueva versión, con sus partes en orden (D-102). Con `version`, `parts` y
+  `document.sizeBytes` el cliente arma el diálogo "Expediente generado":
+  "Versión 2 · 3 partes · 561 KB".
+required:
+  - document
+  - version
+  - pageCount
+  - parts
+  - generatedBy
+  - generatedAt
+properties:
+  document:
+    allOf:
+      - $ref: ./CaseDocument.yaml
+    description: El PDF guardado. `caseFile` trae `id` y `version`.
+  version:
+    type: integer
+    minimum: 1
+    description: |
+      Número de versión del expediente. Empieza en `1` y sube con cada
+      expediente que se genera de la causa; borrar uno en Drive no reutiliza
+      su número.
+    examples:
+      - 2
+  pageCount:
+    type: integer
+    minimum: 1
+    description: Cantidad de hojas del PDF.
+    examples:
+      - 9
+  parts:
+    type: array
+    description: Las partes, en orden. La carátula es siempre la primera.
+    items:
+      type: object
+      required:
+        - position
+        - kind
+        - documentId
+        - name
+      properties:
+        position:
+          type: integer
+          minimum: 1
+          description: Posición en el expediente, desde `1`.
+        kind:
+          type: string
+          enum:
+            - COVER
+            - DOCUMENT
+        documentId:
+          type:
+            - string
+            - 'null'
+          description: '`null` en la carátula.'
+        name:
+          type: string
+  generatedBy:
+    $ref: ./UserSummary.yaml
+  generatedAt:
+    type: string
+    format: date-time
+    description: Fecha y hora de la generación.
+    examples:
+      - '2026-09-15T10:48:00-03:00'

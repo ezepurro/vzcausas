@@ -8,6 +8,12 @@ export interface PrescriptionBarProps {
     prescription: CasePrescription
     /** Aclaración al pie: desde cuándo corre y, si hay varias, cuál calificación se muestra. */
     note?: string
+    /**
+     * La fecha en que se declaró prescripta la causa (`prescriptionDeclaration`),
+     * si ya lo fue: la barra va en rojo y dice "Prescripta el …" en lugar de lo
+     * que resta.
+     */
+    declaredOn?: string
     /** Para fijar el día en los tests; por defecto, hoy. */
     today?: Date
 }
@@ -26,10 +32,18 @@ export interface PrescriptionBarProps {
  * Un plazo cumplido no cambia el estado de la causa (D-52): la barra dice
  * "Plazo cumplido" y la causa sigue activa hasta que alguien la marque como
  * prescripta.
+ *
+ * Una causa ya marcada prescripta (`declaredOn`) va siempre en rojo y dice
+ * "Prescripta el …": la declaración manda sobre el cálculo, que puede no
+ * haber cumplido el plazo si se declaró antes. El porcentaje y las fechas
+ * siguen siendo los del backend (`cases/CAMBIOS.md`).
  */
-export function PrescriptionBar({ prescription, note, today }: PrescriptionBarProps) {
+export function PrescriptionBar({ prescription, note, declaredOn, today }: PrescriptionBarProps) {
     const { legalQualificationName, startsOn, expiresOn, elapsedPercentage, alert, expired } = prescription
-    const tone: MeterTone = expired ? 'danger' : alert ? 'warn' : 'primary'
+    const tone: MeterTone = declaredOn || expired ? 'danger' : alert ? 'warn' : 'primary'
+    const remaining = declaredOn
+        ? `Prescripta el ${formatDate(declaredOn)}`
+        : expired ? 'Plazo cumplido' : remainingLabel(expiresOn, today)
 
     return (
         <div className="vz-presc">
@@ -38,9 +52,7 @@ export function PrescriptionBar({ prescription, note, today }: PrescriptionBarPr
                     Prescripción de la acción{' '}
                     <span className="vz-presc__qualification">· {legalQualificationName}</span>
                 </div>
-                <div className="vz-presc__remaining">
-                    {expired ? 'Plazo cumplido' : remainingLabel(expiresOn, today)}
-                </div>
+                <div className="vz-presc__remaining">{remaining}</div>
             </div>
             <Meter
                 label="Prescripción transcurrida"

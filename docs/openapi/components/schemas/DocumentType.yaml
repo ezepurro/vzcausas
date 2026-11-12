@@ -1,0 +1,12 @@
+type: string
+description: |
+  Tipo de documento de identidad de un cliente (Revisión del 05/11/2026, D-108.)
+  El backend envía y recibe el código; el rótulo lo resuelve el cliente.
+
+  | Código     | Rótulo    | Formato de `documentNumber`                                  |
+  | ---------- | --------- | ------------------------------------------------------------ |
+  | `DNI`      | DNI       | 7 u 8 dígitos, sin puntos                                    |
+  | `PASSPORT` | Pasaporte | De 6 a 20 letras mayúsculas y dígitos, sin espacios          |
+enum:
+  - DNI
+  - PASSPORT

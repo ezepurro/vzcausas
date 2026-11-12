@@ -67,6 +67,8 @@ export const ERROR_CODES = [
     'INVALID_CURRENT_PASSWORD',
     'CASE_IN_TERMINAL_STATE',
     'PRESCRIPTION_NOT_APPLICABLE',
+    // D-113: declarar una calificación ya declarada, o quitarla al modificar la causa
+    'LEGAL_QUALIFICATION_ALREADY_PRESCRIBED',
     'PROCEDURAL_STATE_PROTECTED',
     'CASE_FOLDER_NOT_AVAILABLE',
     'DOCUMENT_NOT_CONVERTIBLE',

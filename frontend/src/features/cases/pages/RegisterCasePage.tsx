@@ -11,7 +11,7 @@ import { formatPersonName } from '@/shared/lib/personName'
 import {
     ClientFormModal,
     formatClientName,
-    formatDni,
+    formatDocument,
     isValidClient,
     toClientFormErrors,
     toCreateClientBody,
@@ -19,6 +19,7 @@ import {
     useCreateClient,
     validateClient,
     type ClientFormErrors,
+    type Client,
     type ClientFormValues,
 } from '@/features/clients'
 import { useLawyers } from '@/features/lawyers'
@@ -54,6 +55,7 @@ import type { CaseFormValues } from '@/features/cases/types/case'
 import { changeCreateFolder, changeJurisdiction, changeSacNumber, emptyCaseForm } from '@/features/cases/utils/caseForm'
 import { clearCaseDraft, readCaseDraft, writeCaseDraft } from '@/features/cases/utils/caseDraft'
 import { folderFailed, folderNoticeSuffix, folderPathPreview } from '@/features/cases/utils/caseFolder'
+import { buildLawyerOptions } from '@/features/cases/utils/lawyerOptions'
 import { INITIAL_STATE_LABEL } from '@/features/cases/utils/caseState'
 import { estimatedExpiry } from '@/features/cases/utils/prescription'
 import { suggestedCaption } from '@/features/cases/utils/suggestedCaption'
@@ -83,7 +85,15 @@ import { toFormErrors } from '@/features/cases/utils/toFormErrors'
 /** Los selects necesitan todo junto, no paginado: 100 es el tope del contrato. */
 const OPTIONS_LIMIT = 100
 
-const EMPTY_CLIENT: ClientFormValues = { lastName: '', firstName: '', dni: '', phone: '', email: '' }
+const EMPTY_CLIENT: ClientFormValues = {
+    lastName: '',
+    firstName: '',
+    documentType: 'DNI',
+    documentNumber: '',
+    address: '',
+    phone: '',
+    email: '',
+}
 const EMPTY_QUALIFICATION: LegalQualificationFormValues = { name: '', years: '', months: '0' }
 
 /** Qué modal está abierto: un solo estado, no dos booleanos que se contradicen. */
@@ -96,10 +106,13 @@ type ModalState =
 export function RegisterCasePage() {
     const navigate = useNavigate()
     const toast = useToast()
-    const { id: userId } = useCurrentUser()
+    const { id: userId, lawyer: myLawyer } = useCurrentUser()
 
     const [values, setValues] = useState<CaseFormValues>(emptyCaseForm)
     const [errors, setErrors] = useState<CaseFormErrors>({})
+    /* El cliente registrado desde "Registrar cliente nuevo": el listado trae
+       sólo los primeros 100 por apellido, y puede no estar entre ellos. */
+    const [createdClient, setCreatedClient] = useState<Client | null>(null)
     /* Si quedó un borrador, lo primero es preguntar qué hacer con él. */
     const [modal, setModal] = useState<ModalState>(() => {
         const draft = readCaseDraft(userId)
@@ -122,7 +135,12 @@ export function RegisterCasePage() {
     const lawyersQuery = useLawyers({ page: 1, limit: OPTIONS_LIMIT })
     const qualificationsQuery = useLegalQualifications({ page: 1, limit: OPTIONS_LIMIT })
 
-    const clients = clientsQuery.data?.data ?? []
+    const listedClients = clientsQuery.data?.data ?? []
+    /* Sin esto, un cliente nuevo que cae fuera de la primera página queda
+       elegido en `values.clientId` pero sin opción en el select ni en el resumen. */
+    const clients = createdClient && !listedClients.some((c) => c.id === createdClient.id)
+        ? [...listedClients, createdClient]
+        : listedClients
     const lawyers = lawyersQuery.data?.data ?? []
     const qualifications = qualificationsQuery.data?.data ?? []
 
@@ -160,13 +178,11 @@ export function RegisterCasePage() {
 
     const clientOptions: SelectOption[] = clients.map((c) => ({
         value: String(c.id),
-        label: `${formatClientName(c)} · DNI ${formatDni(c.dni)}`,
+        label: `${formatClientName(c)} · ${formatDocument(c)}`,
     }))
 
-    const lawyerOptions: SelectOption[] = lawyers.map((l) => ({
-        value: String(l.id),
-        label: `${formatPersonName(l)} · matrícula ${l.registrationNumber}`,
-    }))
+    /* Si quien registra es abogado, su ficha va primero, con "(asignarme a mí)". */
+    const lawyerOptions: SelectOption[] = buildLawyerOptions(lawyers, myLawyer?.id ?? null)
 
     /** Una calificación ya elegida deja de ofrecerse: no puede repetirse (D-28). */
     const chosen = new Set(values.legalQualifications.map((q) => q.legalQualificationId))
@@ -393,8 +409,9 @@ export function RegisterCasePage() {
             )}
             {modal?.kind === 'client' && (
                 <NewClient
-                    onDone={(id) => {
-                        changeValue('clientId', String(id))
+                    onDone={(created) => {
+                        setCreatedClient(created)
+                        changeValue('clientId', String(created.id))
                         setModal(null)
                     }}
                     onCancel={() => setModal(null)}
@@ -482,7 +499,7 @@ function RecoverDraft({ onRecover, onDiscard }: { onRecover: () => void; onDisca
 }
 
 /** "Registrar cliente nuevo": el modal de `clients`, que ya trae su modo `fromCase`. */
-function NewClient({ onDone, onCancel }: { onDone: (id: number) => void; onCancel: () => void }) {
+function NewClient({ onDone, onCancel }: { onDone: (client: Client) => void; onCancel: () => void }) {
     const toast = useToast()
     const [values, setValues] = useState<ClientFormValues>(EMPTY_CLIENT)
     const [errors, setErrors] = useState<ClientFormErrors>({})
@@ -496,12 +513,12 @@ function NewClient({ onDone, onCancel }: { onDone: (id: number) => void; onCance
         create.mutate(toCreateClientBody(values), {
             onSuccess: (client) => {
                 toast('success', `Cliente ${formatClientName(client)} registrado.`)
-                onDone(client.id)
+                onDone(client)
             },
             onError: (error) => {
                 if (!isApiError(error)) throw error
                 if (error.is('CLIENT_DNI_ALREADY_EXISTS')) {
-                    setErrors({ dni: error.message })
+                    setErrors({ documentNumber: error.message })
                     return
                 }
                 if (error.isValidation) {

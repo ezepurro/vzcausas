@@ -24,6 +24,27 @@ marca (filete de arriba y borde al pasar el mouse). El test
 
 ---
 
+## 2026-11-08 — Poder Judicial de la Nación y Claude
+
+Pedido del equipo. Quedan **9 herramientas**, en los dos grupos de siempre:
+
+- **Poder Judicial de la Nación** (`pjn-portal`, `https://www.pjn.gov.ar/`):
+  el portal, no la consulta de causas (`scw.pjn.gov.ar`), elegido por el
+  equipo. Va en el grupo judicial, que pasa a llamarse **"Poder Judicial"**
+  porque ya no es sólo de Córdoba. Respondió `200` el 08/11/2026.
+- **Claude** (`claude`, `https://claude.ai/`): los abogados lo usan para
+  redactar y resumir. Va en "Trámites y documentos". A un pedido sin
+  navegador (`curl`) responde `403`, por la protección contra bots; en el
+  navegador abre bien.
+- **Sin logo** las dos: se ven con su monograma ("PJN", "CL") y su color de
+  marca. Para sumar el logo, el PNG va en `public/tools/` (ver arriba).
+- **Pendiente:** la revista de novedades jurídicas. El equipo todavía tiene
+  que pasar cuál es y su link.
+
+Test: `tests/unit/tools/filterTools.test.ts` suma la búsqueda de las dos.
+
+---
+
 ## 2026-10-18 — Revisión del merge con la rama de modelos
 
 Al resolver el conflicto de `src/app/access/access.ts` se perdió

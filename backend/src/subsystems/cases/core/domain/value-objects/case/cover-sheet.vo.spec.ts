@@ -6,7 +6,17 @@ import { ProceduralRole } from './procedural-role';
 const LAWYER_VAZQUEZ: LawyerRef = { id: 1, lastName: 'Vazquez', firstName: 'Fernando', registrationNumber: '1-1' };
 
 function aClient(lastName: string, firstName: string): ClientRef {
-  return { id: 7, lastName, firstName, dni: '1', phone: null, email: null, clientSince: new Date('2021-01-01') };
+  return {
+    id: 7,
+    lastName,
+    firstName,
+    documentType: 'DNI',
+    documentNumber: '1',
+    address: 'Av. Colón 1320, Córdoba',
+    phone: '351 530-1177',
+    email: null,
+    clientSince: new Date('2021-01-01'),
+  };
 }
 
 /** C1 of the HU24 test plan: criminal, defense, with SAC. Override what each case needs. */
@@ -137,6 +147,54 @@ describe('CoverSheet', () => {
 
     it('is built from the case id when there is no SAC', () => {
       expect(CoverSheet.create(aSource({ id: 41, sacNumber: null })).fileName).toBe('Caratula_causa-41.pdf');
+    });
+  });
+
+  describe('forCaseFile (HU25, CA-25.5, D-92)', () => {
+    const none = { notes: null, opposingParty: null };
+
+    it('sin cover es la misma hoja que la carátula suelta', () => {
+      expect(CoverSheet.forCaseFile(aSource(), none)).toEqual(CoverSheet.create(aSource()));
+    });
+
+    it('las observaciones van en mayúsculas, una línea por salto', () => {
+      const sheet = CoverSheet.forCaseFile(aSource(), { notes: 'Causa conexa\n\nen DI T6', opposingParty: null });
+
+      expect(sheet.observations).toEqual(['CAUSA CONEXA', 'EN DI T6']);
+    });
+
+    it('con el cliente como defensa, la parte va al recuadro del actor / querellante', () => {
+      const sheet = CoverSheet.forCaseFile(aSource(), {
+        notes: null,
+        opposingParty: 'QUERELLANTE: Peralta Juan Carlos\nAPODERADO: Dr. Martín Sosa',
+      });
+
+      expect(sheet.plaintiff).toEqual(['QUERELLANTE: PERALTA JUAN CARLOS', 'APODERADO: DR. MARTÍN SOSA']);
+      expect(sheet.defendant).toEqual(CoverSheet.create(aSource()).defendant);
+    });
+
+    it('con el cliente como querellante, la parte va al recuadro del demandado / imputado', () => {
+      const source = aSource({ proceduralRole: ProceduralRole.QUERELLANTE_PARTICULAR });
+
+      const sheet = CoverSheet.forCaseFile(source, { notes: null, opposingParty: 'Gómez Ariel' });
+
+      expect(sheet.defendant).toEqual(['GÓMEZ ARIEL']);
+      expect(sheet.plaintiff).toEqual(CoverSheet.create(source).plaintiff);
+    });
+
+    it.each([
+      [JurisdictionCode.AMPARO, ProceduralRole.ACTORA],
+      [JurisdictionCode.ADMINISTRATIVE, ProceduralRole.RECURRENTE],
+    ])('en %s la parte responde 400 sobre cover', (jurisdiction, proceduralRole) => {
+      const attempt = () =>
+        CoverSheet.forCaseFile(aSource({ jurisdiction, proceduralRole }), { notes: null, opposingParty: 'X' });
+
+      expect(attempt).toThrow(
+        expect.objectContaining({
+          code: 'VALIDATION_ERROR',
+          details: { cover: 'La parte de la carátula solo corresponde al fuero penal.' },
+        }),
+      );
     });
   });
 });

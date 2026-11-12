@@ -1,5 +1,6 @@
 import { Button } from '@/shared/components/ui'
-import { Select, TextInput, type SelectOption } from '@/shared/components/forms'
+import { FieldError, Select, TextInput, type SelectOption } from '@/shared/components/forms'
+import { formatDate } from '@/shared/lib/dates'
 import { formatPrescription, type LegalQualification } from '@/features/legal-params'
 
 /** Una calificación ya elegida, con la fecha del hecho que se va cargando. */
@@ -9,6 +10,12 @@ export type AvailableQualification = Pick<LegalQualification, 'id' | 'name' | 'p
     unavailable?: false
     /** `YYYY-MM-DD`, o `''` mientras no se cargó. */
     offenseDate: string
+    /**
+     * D-113: la fecha de su prescripción declarada, en "Modificar causa". Una
+     * declarada no se quita ni cambia la fecha del hecho (CA-33.18): la fila se
+     * muestra fija.
+     */
+    prescribedOn?: string
 }
 
 /**
@@ -87,6 +94,7 @@ export function LegalQualificationPicker({
 
                         const dateId = `${id}-offense-${q.id}`
                         const dateError = dateErrors[q.id]
+                        const locked = q.prescribedOn !== undefined
 
                         return (
                             <div key={q.id} className="vz-picker__item">
@@ -95,6 +103,11 @@ export function LegalQualificationPicker({
                                     <div className="vz-picker__term">
                                         Prescripción: <span className="vz-mono">{formatPrescription(q.prescriptionMonths)}</span>
                                     </div>
+                                    {locked && (
+                                        <div className="vz-picker__term">
+                                            Prescripta el {formatDate(q.prescribedOn ?? null)}: no se quita ni se cambia la fecha del hecho.
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div className={`vz-picker__date ${dateError ? 'vz-field--error' : ''}`}>
@@ -108,24 +121,27 @@ export function LegalQualificationPicker({
                                         mono
                                         max={maxDate}
                                         value={q.offenseDate}
+                                        disabled={locked}
                                         aria-label={`Fecha del hecho de ${q.name}`}
                                         aria-invalid={dateError ? true : undefined}
                                         aria-describedby={dateError ? `${dateId}-error` : undefined}
                                         onChange={(e) => onOffenseDateChange(q.id, e.target.value)}
                                     />
                                     {dateError && (
-                                        <div id={`${dateId}-error`} className="vz-error">{dateError}</div>
+                                        <FieldError id={`${dateId}-error`} message={dateError} />
                                     )}
                                 </div>
 
-                                <Button
-                                    variant="ghost-danger"
-                                    size="sm"
-                                    aria-label={`Quitar ${q.name}`}
-                                    onClick={() => onRemove(q.id)}
-                                >
-                                    Quitar
-                                </Button>
+                                {!locked && (
+                                    <Button
+                                        variant="ghost-danger"
+                                        size="sm"
+                                        aria-label={`Quitar ${q.name}`}
+                                        onClick={() => onRemove(q.id)}
+                                    >
+                                        Quitar
+                                    </Button>
+                                )}
                             </div>
                         )
                     })}

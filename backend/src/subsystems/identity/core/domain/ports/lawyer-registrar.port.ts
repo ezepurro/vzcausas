@@ -10,7 +10,8 @@ export const LAWYER_REGISTRAR = Symbol("LAWYER_REGISTRAR");
 export type NewLawyer = {
   lastName: string;
   firstName: string;
-  registrationNumber: string;
+  /** Optional (D-107): left out, empty, blank or `null` means no registration number. */
+  registrationNumber?: string | null;
 };
 
 /**

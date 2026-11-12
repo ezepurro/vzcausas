@@ -69,11 +69,12 @@ que el contrato fija de él está en
 | `GET`    | `/cases`                                              |      Sí       | Cualquier usuario autenticado | Consultar causas |
 | `GET`    | `/cases/custom-states`                                |      Sí       | Cualquier usuario autenticado | Consultar estados escritos a mano |
 | `GET`    | `/cases/{caseId}`                                     |      Sí       | Cualquier usuario autenticado | Consultar detalle de causa |
-| `PATCH`  | `/cases/{caseId}`                                     |      Sí       | Cualquier usuario autenticado | Modificar causa (HU19) |
-| `DELETE` | `/cases/{caseId}`                                     |      Sí       | Cualquier usuario autenticado | Dar de baja causa (HU21) |
+| `PATCH`  | `/cases/{caseId}`                                     |      Sí       | Quien opera la causa ³        | Modificar causa (HU19) |
+| `DELETE` | `/cases/{caseId}`                                     |      Sí       | Quien opera la causa ³        | Dar de baja causa (HU21) |
 | `GET`    | `/cases/{caseId}/cover`                               |      Sí       | Cualquier usuario autenticado | Emitir la carátula en PDF (HU24) |
-| `POST`   | `/cases/{caseId}/prescription`                        |      Sí       | `ADMINISTRATOR` o `LAWYER`    | Marcar la causa como prescripta |
-| `POST`   | `/cases/{caseId}/folder`                              |      Sí       | Cualquier usuario autenticado | Crear o reintentar la carpeta de la causa |
+| `POST`   | `/cases/{caseId}/prescription`                        |      Sí       | `ADMINISTRATOR` o abogado responsable de la causa ³ | Marcar toda la causa como prescripta: declara las calificaciones que faltan (D-113) |
+| `POST`   | `/cases/{caseId}/legal-qualifications/{legalQualificationId}/prescription` | Sí | `ADMINISTRATOR` o abogado responsable de la causa ³ | Declarar prescripta una calificación legal de la causa (D-113) |
+| `POST`   | `/cases/{caseId}/folder`                              |      Sí       | Quien opera la causa ³        | Crear o reintentar la carpeta de la causa |
 | `POST`   | `/cases/{caseId}/procedural-acts`                     |      Sí       | Abogado responsable de la causa | Registrar acto procesal |
 | `GET`    | `/cases/{caseId}/procedural-acts/deadline-preview`    |      Sí       | Abogado responsable de la causa | Previsualizar el vencimiento de un acto |
 | `GET`    | `/cases/{caseId}/procedural-acts`                     |      Sí       | Cualquier usuario autenticado | Consultar actos procesales |
@@ -99,6 +100,13 @@ La columna **Rol** se deriva de la tabla de
 ² Un documento cualquiera de la carpeta, solo `LAWYER` o `SECRETARY` (HU38); un
 expediente generado por el sistema, cualquier usuario autenticado (HU25). Ver
 [§3.12](#get-casescaseiddocumentsdocumentidfile).
+
+³ **(Revisión del 08/11/2026, D-110)** "Quien opera la causa" es el abogado
+responsable de la causa, un `ADMINISTRATOR` o una `SECRETARY`. Un usuario cuyo
+único rol es `LAWYER` y que no es el responsable recibe `403 FORBIDDEN`: sobre
+una causa ajena solo consulta (detalle, línea de vida, actos, documentos,
+carátula) y genera el expediente. Ver
+[Operación de la causa](#operación-de-la-causa).
 
 ---
 
@@ -179,6 +187,15 @@ Situación de la carpeta de una causa en la nube.
 
 Una causa registrada antes de que existiera la carpeta en la nube no tiene
 estado: su `folder` vale `null`.
+
+### `DocumentType`
+
+**(Revisión del 05/11/2026)** Tipo de documento de identidad de un cliente (D-108).
+
+| Código     | Rótulo    | Formato de `documentNumber`                         |
+| ---------- | --------- | --------------------------------------------------- |
+| `DNI`      | DNI       | 7 u 8 dígitos, sin puntos: `34812905`               |
+| `PASSPORT` | Pasaporte | De 6 a 20 letras mayúsculas y dígitos, sin espacios: `AAE482915` |
 
 ---
 
@@ -564,6 +581,9 @@ El recurso usuario posee la siguiente estructura:
 separados, igual que en el cliente: en las respuestas, en los cuerpos de
 `POST` y `PATCH` y en el objeto `lawyer` que el usuario lleva vinculado.
 
+**Sobre `lawyer.registrationNumber`:** **(Revisión del 05/11/2026)** vale `null` si la ficha no tiene
+matrícula cargada (D-107).
+
 **Acceso a la carpeta del estudio en Drive.** El alta, la
 modificación y la baja de usuarios tienen un efecto fuera de la API: el sistema
 comparte la carpeta raíz `VZ Causas` con el `email` de cada usuario vigente que
@@ -637,7 +657,7 @@ Registrando un abogado nuevo en la misma operación:
 | `password` | String         |     Sí      | Mínimo 8 caracteres, con al menos un número                                   |
 | `roles`    | `Role[]`       |     Sí      | Al menos un rol                                                               |
 | `lawyerId` | Integer        | Condicional | Identificador de un abogado ya registrado                                     |
-| `lawyer`   | Object         | Condicional | Datos de un abogado a registrar. Mismos campos que el cuerpo de `POST /lawyers` |
+| `lawyer`   | Object         | Condicional | Datos de un abogado a registrar. Mismos campos que el cuerpo de `POST /lawyers`: la matrícula es opcional **(Revisión del 05/11/2026)** |
 
 **Vínculo con la ficha profesional**
 
@@ -1227,7 +1247,7 @@ El recurso abogado posee la siguiente estructura:
 | `id`                 | Integer |  No  | Identificador único                                                  |
 | `lastName`           | String  |  No  | Apellido                                                             |
 | `firstName`          | String  |  No  | Nombres, sin el tratamiento ("Dr.", "Dra.")                        |
-| `registrationNumber` | String  |  No  | Matrícula. Única                                                     |
+| `registrationNumber` | String \| `null` |  Sí  | Matrícula. Única entre los abogados que la tienen. `null` si no se cargó **(Revisión del 05/11/2026)** |
 | `activeCases`        | Integer |  No  | Causas activas en las que es responsable. Calculado, sólo lectura    |
 | `active`             | Boolean |  No  | Estado de alta. Vale siempre `true`: ver `DELETE /lawyers/{lawyerId}` |
 
@@ -1236,6 +1256,12 @@ parte del nombre: lo pone el frontend.
 
 **Formato de la matrícula:** el vigente en el Colegio de Abogados de Córdoba,
 compuesto por circunscripción y número separados por guión: `1-28114`.
+
+**Matrícula opcional:** **(Revisión del 05/11/2026)** un abogado se puede registrar sin matrícula, y
+cargarla o borrarla después (D-107). Sin ella, `registrationNumber` vale
+`null` en el recurso y en todos los lugares donde se lo embebe (el usuario
+vinculado, `responsibleLawyer` de la causa). La unicidad solo cuenta a los
+abogados que tienen matrícula: varios pueden no tenerla.
 
 **Sobre `activeCases`:** se calcula según la definición de
 [causa activa](#causa-activa) de la sección 4.
@@ -1262,7 +1288,7 @@ Registra un nuevo abogado en el sistema.
 | -------------------- | ------ | :-------: | ----------------------------- |
 | `lastName`           | String |    Sí     | Hasta 100 caracteres          |
 | `firstName`          | String |    Sí     | Hasta 100 caracteres          |
-| `registrationNumber` | String |    Sí     | Formato `1-28114`. Única      |
+| `registrationNumber` | String |    No     | Formato `1-28114`. Única. Si no se envía, vacía o `null`, el abogado queda sin matrícula **(Revisión del 05/11/2026)** |
 
 **Respuestas**
 
@@ -1527,18 +1553,20 @@ Todos los campos son opcionales, aunque debe enviarse al menos uno.
 | -------------------- | ------- | ------------------------------------------ |
 | `lastName`           | String  | Si se envía, no vacío ni solo espacios |
 | `firstName`          | String  | Si se envía, no vacío ni solo espacios. Sin "Dr." ni "Dra." |
-| `registrationNumber` | String  | Formato `1-28114`. Única                   |
+| `registrationNumber` | String \| `null` | Formato `1-28114`. Única. `null` o vacía borra la matrícula **(Revisión del 05/11/2026)** |
 
 El campo `activeCases` no es modificable: lo calcula el backend.
 
 **Reglas**
 
-- **Campos obligatorios (CA-14.4).** Los tres campos son obligatorios en la
-  ficha: se pueden omitir en el `PATCH`, pero no vaciar. Un valor vacío, solo
-  de espacios o `null` responde `400 VALIDATION_ERROR` sobre ese campo.
+- **Campos obligatorios (CA-14.4).** El apellido y los nombres son
+  obligatorios en la ficha: se pueden omitir en el `PATCH`, pero no vaciar. Un
+  valor vacío, solo de espacios o `null` responde `400 VALIDATION_ERROR` sobre
+  ese campo. **(Revisión del 05/11/2026)** La matrícula ya no es obligatoria (D-107): `null`, vacía o
+  solo de espacios la borra.
 - **Matrícula única (CA-14.3).** Una matrícula que ya tiene otro abogado
   responde `409 LAWYER_REGISTRATION_ALREADY_EXISTS`. Enviar la misma matrícula
-  que ya tiene el abogado no es un conflicto.
+  que ya tiene el abogado no es un conflicto. Borrarla nunca lo es.
 - **Dato único (CA-14.2).** Las causas no copian los datos del abogado: los
   referencian. El cambio se ve en todas sus causas, en `responsibleLawyer`, en
   la siguiente lectura.
@@ -2772,8 +2800,10 @@ El recurso cliente posee la siguiente estructura:
 | `id`          | Integer                      |  No  | Identificador único                                                      |
 | `lastName`    | String                       |  No  | Apellido                                                                 |
 | `firstName`   | String                       |  No  | Nombres                                                                  |
-| `dni`         | String                       |  No  | Número de DNI, solo dígitos. Único entre los clientes vigentes           |
-| `phone`       | String \| `null`             |  Sí  | Teléfono de contacto. Texto libre                                        |
+| `documentType` | `DocumentType`             |  No  | **(Revisión del 05/11/2026)** Tipo de documento: `DNI` o `PASSPORT`                                |
+| `documentNumber` | String                     |  No  | **(Revisión del 05/11/2026)** Número de documento, con el formato de su tipo. Único por tipo entre los clientes vigentes. Reemplaza a `dni` |
+| `address`     | String                       |  No  | **(Revisión del 05/11/2026; obligatoria desde la revisión del 06/11/2026, D-109)** Dirección. Texto libre |
+| `phone`       | String                       |  No  | **(Obligatorio desde la revisión del 06/11/2026, D-109)** Teléfono de contacto. Texto libre |
 | `email`       | String \| `null`             |  Sí  | Correo electrónico                                                       |
 | `clientSince` | String (fecha ISO 8601)      |  No  | Fecha de alta del cliente en el estudio. La asigna el backend            |
 | `activeCases` | Integer                      |  No  | Causas activas en las que es cliente. Calculado, sólo lectura            |
@@ -2785,9 +2815,18 @@ como llegan; la forma `GÓMEZ, Ariel Fernando` que se ve en el
 listado y en la carátula sugerida la compone el cliente. Usuarios y abogados
 siguen el mismo criterio.
 
-**Sobre `dni`:** viaja sin puntos (`34812905`). El formato `34.812.905` es de
-presentación y lo aplica el cliente. Se conserva la sigla, como `SacNumber`,
-por tratarse de un documento argentino sin equivalente directo.
+**Sobre `documentType` y `documentNumber`:** **(Revisión del 05/11/2026)** reemplazan al campo `dni`
+de las versiones anteriores (D-108), porque un cliente se puede identificar con
+DNI o con pasaporte. El formato de cada tipo está en
+[`DocumentType`](#documenttype). El DNI viaja sin puntos (`34812905`); el
+formato `34.812.905` es de presentación y lo aplica el cliente. El pasaporte
+viaja en mayúsculas y sin espacios. La unicidad es por tipo: un DNI y un
+pasaporte con el mismo número no chocan.
+
+**Sobre `address` y `phone`:** **(Revisión del 06/11/2026, D-109)** son obligatorios en el alta.
+`address` es texto libre de hasta 255 caracteres y no se separa en calle, localidad y provincia;
+`phone` es texto libre de hasta 50 caracteres. Un valor vacío o de solo espacios se rechaza con
+`400 VALIDATION_ERROR`. Ninguno de los dos viaja nunca como `null` en las respuestas.
 
 **Sobre `clientSince`:** el prototipo lo asigna con la fecha del día al
 registrar el cliente y no lo ofrece para editar.
@@ -2806,7 +2845,9 @@ Registra un nuevo cliente (HU8).
 {
 	"lastName": "BENÍTEZ",
 	"firstName": "Rodrigo E.",
-	"dni": "31556208",
+	"documentType": "DNI",
+	"documentNumber": "31556208",
+	"address": "Av. Rafael Núñez 4560, Córdoba",
 	"phone": "351 401-5573",
 	"email": "rbenitez@gmail.com"
 }
@@ -2816,8 +2857,10 @@ Registra un nuevo cliente (HU8).
 | ----------- | ------ | :-------: | ------------------------------------------------------- |
 | `lastName`  | String |    Sí     | Hasta 100 caracteres                                    |
 | `firstName` | String |    Sí     | Hasta 100 caracteres                                    |
-| `dni`       | String |    Sí     | Entre 7 y 8 dígitos, sin puntos. Único entre los vigentes |
-| `phone`     | String |    No     | Hasta 50 caracteres                                     |
+| `documentType` | `DocumentType` | Sí  | `DNI` o `PASSPORT` **(Revisión del 05/11/2026)**                                 |
+| `documentNumber` | String |  Sí     | Con el formato de `documentType`. Único por tipo entre los vigentes **(Revisión del 05/11/2026)** |
+| `address`   | String |    Sí     | Hasta 255 caracteres. No vacía **(Revisión del 06/11/2026, D-109)**              |
+| `phone`     | String |    Sí     | Hasta 50 caracteres. No vacío **(Revisión del 06/11/2026, D-109)**               |
 | `email`     | String |    No     | Formato de correo electrónico válido                    |
 
 **Respuestas**
@@ -2830,7 +2873,9 @@ Registra un nuevo cliente (HU8).
 		"id": 7,
 		"lastName": "BENÍTEZ",
 		"firstName": "Rodrigo E.",
-		"dni": "31556208",
+		"documentType": "DNI",
+		"documentNumber": "31556208",
+		"address": "Av. Rafael Núñez 4560, Córdoba",
 		"phone": "351 401-5573",
 		"email": "rbenitez@gmail.com",
 		"clientSince": "2026-09-29",
@@ -2848,7 +2893,9 @@ Registra un nuevo cliente (HU8).
 		"code": "VALIDATION_ERROR",
 		"message": "Los datos enviados no son válidos.",
 		"details": {
-			"dni": "Debe contener 7 u 8 dígitos, sin puntos.",
+			"documentNumber": "Debe contener 7 u 8 dígitos, sin puntos.",
+			"address": "La dirección es obligatoria.",
+			"phone": "El teléfono es obligatorio.",
 			"email": "El formato del correo electrónico no es válido."
 		}
 	}
@@ -2868,6 +2915,9 @@ Registra un nuevo cliente (HU8).
 ```
 
 **`409 Conflict`**
+
+**(Revisión del 05/11/2026)** Responde así cualquier documento repetido, sea DNI o pasaporte: el
+código conserva su nombre para no romper a los clientes de V4.
 
 ```json
 {
@@ -2894,7 +2944,7 @@ Obtiene una lista paginada de los clientes vigentes (HU9), ordenada por
 | --------- | ------- | :-------: | ----------------- | ------------------- | ---------------------------------------------------- |
 | `page`    | Integer |    No     | `1`               | Mayor o igual a `1` | Número de página                                     |
 | `limit`   | Integer |    No     | `20`              | Entre `1` y `100`   | Cantidad máxima de elementos por página              |
-| `search`  | String  |    No     | -                 | -                   | Filtra por `lastName`, por `firstName` y por `dni`   |
+| `search`  | String  |    No     | -                 | -                   | Filtra por `lastName`, por `firstName` y por `documentNumber` **(Revisión del 05/11/2026)** |
 
 Ejemplo:
 
@@ -2916,7 +2966,9 @@ Las causas asociadas a un cliente, que HU9 pide consultar, se obtienen con
 			"id": 4,
 			"lastName": "ACOSTA",
 			"firstName": "Jonathan E.",
-			"dni": "38907221",
+			"documentType": "DNI",
+			"documentNumber": "38907221",
+			"address": "Av. Colón 1250, Córdoba",
 			"phone": "351 744-1160",
 			"email": null,
 			"clientSince": "2022-01-19",
@@ -2927,7 +2979,9 @@ Las causas asociadas a un cliente, que HU9 pide consultar, se obtienen con
 			"id": 1,
 			"lastName": "GÓMEZ",
 			"firstName": "Ariel Fernando",
-			"dni": "34812905",
+			"documentType": "DNI",
+			"documentNumber": "34812905",
+			"address": "Av. Colón 1250, Córdoba",
 			"phone": "351 415-2288",
 			"email": "afgomez@gmail.com",
 			"clientSince": "2021-03-12",
@@ -2995,7 +3049,9 @@ Obtiene la información de un cliente específico.
 		"id": 1,
 		"lastName": "GÓMEZ",
 		"firstName": "Ariel Fernando",
-		"dni": "34812905",
+		"documentType": "DNI",
+		"documentNumber": "34812905",
+		"address": "Av. Colón 1250, Córdoba",
 		"phone": "351 415-2288",
 		"email": "afgomez@gmail.com",
 		"clientSince": "2021-03-12",
@@ -3060,8 +3116,10 @@ La causa admite **modificación**
 ([`DELETE /cases/{caseId}`](#delete-casescaseid), HU21) y la **carátula**
 (HU24), una hoja en PDF que se arma con los datos de la causa, sin datos
 nuevos en el recurso:
-[`GET /cases/{caseId}/cover`](#get-casescaseidcover). Los tres son de
-cualquier usuario autenticado, según la matriz de permisos (HU18 a HU25). La
+[`GET /cases/{caseId}/cover`](#get-casescaseidcover). La carátula es de
+cualquier usuario autenticado; la modificación y la baja, de quien opera la
+causa **(Revisión del 08/11/2026, D-110)**: un abogado que no es el
+responsable no las hace (ver [Operación de la causa](#operación-de-la-causa)). La
 documentación de la causa y el expediente (HU38 y HU25) tienen su propia
 sección, [§3.12](#312-documentación-de-la-causa-casescaseiddocuments-y-casescaseidcase-files).
 
@@ -3096,7 +3154,7 @@ El recurso causa posee la siguiente estructura:
 | `administrativeRemedyExhaustedOn` | String (fecha ISO 8601) \| `null` | Sí | **Nuevo.** Fecha de agotamiento de la vía administrativa. Solo en `ADMINISTRATIVE`; `null` mientras no se agotó o en los demás fueros |
 | `courtFeePaid`            | Boolean                       |  No  | **Nuevo.** Si se pagó la tasa de justicia. En los tres fueros |
 | `client`                  | Object                        |  No  | Cliente de la causa. Ver estructura más abajo                                                 |
-| `responsibleLawyer`       | Object                        |  No  | Abogado responsable (RN3): `id`, `lastName`, `firstName`, `registrationNumber`                             |
+| `responsibleLawyer`       | Object                        |  No  | Abogado responsable (RN3): `id`, `lastName`, `firstName`, `registrationNumber` (`null` si no tiene, **(Revisión del 05/11/2026)**) |
 | `legalQualifications`     | Object[]                      |  No  | Calificaciones legales, cada una con su fecha del hecho y su prescripción. Opcional en `CRIMINAL`; vacío en los demás |
 | `prescription`            | Object \| `null`              |  Sí  | **Nuevo.** Prescripción que rige la causa: la de la calificación que prescribe primero. `null` si la causa no computa prescripción. Calculado |
 | `prescriptionDeclaration` | Object \| `null`              |  Sí  | **Nuevo.** Constancia de que la causa fue marcada como prescripta (HU33). `null` mientras no lo fue |
@@ -3173,7 +3231,8 @@ renovación vigente es la del 02/09/2026:
 ```
 
 **`client`** reúne los datos que muestra la tarjeta "Cliente" del detalle:
-`id`, `lastName`, `firstName`, `dni`, `phone`, `email` y `clientSince`, con el
+`id`, `lastName`, `firstName`, `documentType`, `documentNumber`, `address`,
+`phone`, `email` y `clientSince`, con el
 mismo significado que en [`/clients`](#36-clientes-clients).
 
 **`legalQualifications[]`**
@@ -3186,9 +3245,41 @@ mismo significado que en [`/clients`](#36-clientes-clients).
 | `offenseDate`           | String (fecha ISO 8601) | Fecha del hecho imputado bajo esta calificación. La carga el usuario |
 | `prescriptionStartsOn`  | String (fecha ISO 8601) | Fecha desde la que se computa la prescripción de esta calificación: la del último acto interruptivo o, si no hay ninguno, `offenseDate`. Calculado |
 | `prescriptionExpiresOn` | String (fecha ISO 8601) | `prescriptionStartsOn` más `prescriptionMonths`. Calculado           |
+| `elapsedPercentage`     | Integer                 | **(Revisión del 08/11/2026, D-112)** Porcentaje del plazo de esta calificación ya transcurrido entre `prescriptionStartsOn` y `prescriptionExpiresOn`, de `0` a `100`, redondeado al entero más cercano. Calculado |
+| `alert`                 | Boolean                 | **(Revisión del 08/11/2026, D-112)** `true` si transcurrió el **70 %** o más del plazo de esta calificación. Calculado |
+| `expired`               | Boolean                 | **(Revisión del 08/11/2026, D-112)** `true` si hoy es igual o posterior a `prescriptionExpiresOn`: el plazo de esta calificación se cumplió. Calculado |
+| `prescriptionDeclaration` | Object \| `null`      | **(Revisión del 08/11/2026, D-113)** Constancia de que esta calificación fue declarada prescripta, con la misma forma que `prescriptionDeclaration` de la causa. `null` mientras no lo fue |
 
 Una calificación dada de baja **sigue apareciendo** en las causas que la
 registran (ver [`DELETE /legal-qualifications`](#delete-legal-qualificationsqualificationid)).
+
+**Sobre `elapsedPercentage`, `alert` y `expired` de cada calificación:**
+**(Revisión del 08/11/2026, D-112)** tienen el mismo significado y se calculan
+con la misma regla que los campos homónimos de `prescription`, pero para cada
+calificación por separado. Así el cliente muestra el estado de cada delito
+—cuáles ya cumplieron su plazo y cuál es el próximo a prescribir— sin calcular
+nada. En la calificación que rige la causa los tres valores coinciden con los de
+`prescription`. `prescription` no cambia: sigue siendo la calificación que
+prescribe primero, aunque su plazo ya se haya cumplido, y es la que usan las
+alertas de los tableros y el proceso diario (D-52).
+
+**Sobre `prescriptionDeclaration` de cada calificación:** **(Revisión del 08/11/2026, D-113)** la
+prescripción se declara **por calificación**: cada delito prescribe por su lado
+y el tribunal lo declara con su propia resolución
+([`POST /cases/{caseId}/legal-qualifications/{legalQualificationId}/prescription`](#post-casescaseidlegal-qualificationslegalqualificationidprescription)).
+Que el plazo esté cumplido (`expired`) no la declara: la declara una persona.
+Una calificación declarada:
+
+- deja de contar para `prescription`, que pasa a elegirse entre las que **no**
+  fueron declaradas;
+- no se reinicia con actos interruptivos posteriores a la fecha de su
+  declaración (ver [§3.9](#39-actos-interruptivos-casescaseidinterruptive-acts));
+- no se puede quitar de la causa ni cambiar su `offenseDate`
+  ([`PATCH /cases/{caseId}`](#patch-casescaseid)).
+
+Cuando quedan declaradas **todas** las calificaciones de la causa, la causa
+pasa a "Prescripta" en la misma operación, y su `prescriptionDeclaration` es
+el de la última declarada.
 
 Una causa penal puede registrarse sin calificaciones legales: en ese caso
 `legalQualifications` llega vacío, `prescription` vale `null` y la causa no
@@ -3200,6 +3291,10 @@ Resume la prescripción de la causa en un solo objeto: la de la calificación
 **que prescribe primero**, que es la que el prototipo muestra en la barra del
 detalle y en las "Alertas de prescripción" de los tableros. Vale `null` en los
 fueros `ADMINISTRATIVE` y `AMPARO` y en una causa penal sin calificaciones.
+
+**(Revisión del 08/11/2026, D-113)** Se elige entre las calificaciones que **no** fueron
+declaradas prescriptas. Si están declaradas todas —la causa está
+"Prescripta"—, entre todas, como dato histórico.
 
 | Campo                     | Tipo                            | Descripción                                                                                 |
 | ------------------------- | ------------------------------- | ------------------------------------------------------------------------------------------- |
@@ -3495,7 +3590,9 @@ piden HU39 y HU40 ("que se cree automáticamente").
 			"id": 1,
 			"lastName": "GÓMEZ",
 			"firstName": "Ariel Fernando",
-			"dni": "34812905",
+			"documentType": "DNI",
+			"documentNumber": "34812905",
+			"address": "Av. Colón 1250, Córdoba",
 			"phone": "351 415-2288",
 			"email": "afgomez@gmail.com",
 			"clientSince": "2021-03-12"
@@ -3513,7 +3610,11 @@ piden HU39 y HU40 ("que se cree automáticamente").
 				"prescriptionMonths": 96,
 				"offenseDate": "2021-02-27",
 				"prescriptionStartsOn": "2021-02-27",
-				"prescriptionExpiresOn": "2029-02-27"
+				"prescriptionExpiresOn": "2029-02-27",
+				"elapsedPercentage": 69,
+				"alert": false,
+				"expired": false,
+				"prescriptionDeclaration": null
 			}
 		],
 		"prescription": {
@@ -3765,7 +3866,9 @@ causas de ese fuero que todavía están en el estado inicial.
 				"id": 2,
 				"lastName": "PEREYRA",
 				"firstName": "Marcos D.",
-				"dni": "29440117",
+				"documentType": "DNI",
+				"documentNumber": "29440117",
+				"address": "Av. Colón 1250, Córdoba",
 				"phone": "351 622-9014",
 				"email": "mdpereyra@hotmail.com",
 				"clientSince": "2026-05-18"
@@ -3825,7 +3928,9 @@ causas de ese fuero que todavía están en el estado inicial.
 				"id": 1,
 				"lastName": "GÓMEZ",
 				"firstName": "Ariel Fernando",
-				"dni": "34812905",
+				"documentType": "DNI",
+				"documentNumber": "34812905",
+				"address": "Av. Colón 1250, Córdoba",
 				"phone": "351 415-2288",
 				"email": "afgomez@gmail.com",
 				"clientSince": "2021-03-12"
@@ -3843,7 +3948,11 @@ causas de ese fuero que todavía están en el estado inicial.
 					"prescriptionMonths": 96,
 					"offenseDate": "2021-02-27",
 					"prescriptionStartsOn": "2024-07-04",
-					"prescriptionExpiresOn": "2032-07-04"
+					"prescriptionExpiresOn": "2032-07-04",
+					"elapsedPercentage": 27,
+					"alert": false,
+					"expired": false,
+					"prescriptionDeclaration": null
 				}
 			],
 			"prescription": {
@@ -4100,7 +4209,9 @@ vencimiento nuevos en `currentState`.
 			"id": 1,
 			"lastName": "GÓMEZ",
 			"firstName": "Ariel Fernando",
-			"dni": "34812905",
+			"documentType": "DNI",
+			"documentNumber": "34812905",
+			"address": "Av. Colón 1250, Córdoba",
 			"phone": "351 415-2288",
 			"email": "afgomez@gmail.com",
 			"clientSince": "2021-03-12"
@@ -4118,7 +4229,11 @@ vencimiento nuevos en `currentState`.
 				"prescriptionMonths": 96,
 				"offenseDate": "2021-02-27",
 				"prescriptionStartsOn": "2024-07-04",
-				"prescriptionExpiresOn": "2032-07-04"
+				"prescriptionExpiresOn": "2032-07-04",
+				"elapsedPercentage": 27,
+				"alert": false,
+				"expired": false,
+				"prescriptionDeclaration": null
 			}
 		],
 		"prescription": {
@@ -4205,9 +4320,11 @@ interruptivo registrado el 04/07/2024").
 Modifica los datos de una causa para corregir información errónea
 (HU19).
 
-**Rol requerido:** cualquier usuario autenticado (matriz de permisos, HU18 a
-HU25). No hace falta ser el abogado responsable: la restricción al responsable
-es solo para los actos procesales e interruptivos.
+**Rol requerido:** quien opera la causa **(Revisión del 08/11/2026, D-110)**:
+el abogado responsable, un `ADMINISTRATOR` o una `SECRETARY`. Un usuario cuyo
+único rol es `LAWYER` y que no es el responsable recibe `403 FORBIDDEN` (ver
+[Operación de la causa](#operación-de-la-causa)). Si la causa no existe, la
+respuesta es `404 CASE_NOT_FOUND`, antes que el `403`.
 
 Es el formulario "Modificar causa" del detalle. Todos los campos son
 opcionales, pero debe enviarse al menos uno. Un campo omitido no cambia; un
@@ -4244,15 +4361,6 @@ Cambio de responsable y de calificaciones en una causa penal:
 }
 ```
 
-Cambio de cliente, con la carátula que propone el cliente para el nuevo:
-
-```json
-{
-	"clientId": 9,
-	"caption": "FERREYRA, Lucas Martín p.s.a. Robo calificado"
-}
-```
-
 | Campo                   | Tipo             | Nulo | Restricciones                                                                                   |
 | ----------------------- | ---------------- | :--: | ----------------------------------------------------------------------------------------------- |
 | `sacNumber`             | String           |  Sí  | Exactamente 8 dígitos y único entre las causas vigentes. `null` deja la causa sin SAC    |
@@ -4261,7 +4369,6 @@ Cambio de cliente, con la carátula que propone el cliente para el nuevo:
 | `instructorName`        | String           |  Sí  | Hasta 150 caracteres                                                                            |
 | `tribunalPhone`         | String           |  Sí  | Hasta 50 caracteres                                                                             |
 | `instructorExtension`   | String           |  Sí  | Hasta 20 caracteres                                                                             |
-| `clientId`              | Integer          |  No  | Cliente vigente. Ver **Cliente** más abajo                                               |
 | `proceduralRole`        | `ProceduralRole` |  No  | Debe corresponder al fuero de la causa                                                          |
 | `legalQualifications`   | Object[]         |  No  | Solo en `CRIMINAL`. **Reemplaza la lista completa**; `[]` deja la causa sin calificaciones. Misma estructura y reglas que en el alta |
 | `clientDetained`        | Boolean          |  No  | Solo en `CRIMINAL`                                                                              |
@@ -4278,12 +4385,14 @@ Cambio de cliente, con la carátula que propone el cliente para el nuevo:
 | `responsibleLawyerId`   | Integer          |  No  | Abogado vigente (RN3)                                                                           |
 | `startDate`             | String (fecha)   |  Sí  | Mismas reglas que en el alta: obligatoria si la causa queda con SAC; `null` si queda sin SAC. No posterior a hoy |
 
-**No se modifican** el fuero (`jurisdiction`), la carpeta (tiene su
+**No se modifican** el fuero (`jurisdiction`), el cliente (`clientId`,
+**(Revisión del 08/11/2026, D-111)**), la carpeta (tiene su
 propio endpoint), el estado procesal (lo mueven los actos), la prescripción y
 su declaración (calculada y HU33) ni `active` (la baja es `DELETE`). Un campo
-que no está en la tabla, `jurisdiction` incluido, responde
-`400 VALIDATION_ERROR`. Si una causa se registró en el fuero equivocado, se da
-de baja y se registra de nuevo; su SAC queda libre para eso.
+que no está en la tabla, `jurisdiction` y `clientId` incluidos, responde
+`400 VALIDATION_ERROR`. Si una causa se registró en el fuero equivocado o con
+el cliente equivocado, se da de baja y se registra de nuevo; su SAC queda
+libre para eso.
 
 **Reglas**
 
@@ -4295,11 +4404,9 @@ de baja y se registra de nuevo; su SAC queda libre para eso.
   causa no la tiene: es la misma regla del alta.
 - **Datos que no son del fuero.** Un dato propio de otro fuero responde
   `400 VALIDATION_ERROR`, igual que en el alta.
-- **Cliente.** Se puede cambiar por otro cliente vigente. El backend no
-  recalcula la carátula: como en el alta, la propone el cliente con el cliente
-  nuevo y la envía en `caption`, en la misma petición. Si no la envía, la
-  carátula queda como estaba. La hoja de carátula toma el cliente nuevo desde
-  la próxima vez que se emita, porque no se guarda.
+- **Cliente.** **(Revisión del 08/11/2026, D-111)** No se cambia: queda fijo
+  desde el alta, igual que el fuero. El formulario lo muestra sin poder
+  editarlo. La carátula (`caption`) se sigue pudiendo corregir.
 - **Responsable.** Cambiarlo cambia quién registra los actos de la causa desde
   la próxima petición. Los actos ya registrados conservan su
   `registeredBy`. La carpeta en Drive **se mueve** a la del nuevo abogado
@@ -4316,7 +4423,10 @@ de baja y se registra de nuevo; su SAC queda libre para eso.
 - **Calificaciones legales.** Reemplazar la lista recalcula la prescripción en
   la siguiente lectura, porque nada se guarda calculado (§4, Prescripción).
   Los actos interruptivos de la causa siguen rigiendo para las calificaciones
-  nuevas.
+  nuevas. **(Revisión del 08/11/2026, D-113)** Una calificación **declarada prescripta** no se
+  puede quitar de la lista ni cambiar su `offenseDate`:
+  `422 LEGAL_QUALIFICATION_ALREADY_PRESCRIBED`. Sí se pueden sumar otras y
+  quitar o corregir las que no están declaradas.
 - **Acto lesivo.** Cambiar sus datos recalcula `harmfulActDeadline`.
 - **Causa en estado terminal.** Se puede corregir —es el caso más común de una
   causa archivada con un dato mal cargado—, salvo lo que cambiaría su
@@ -4371,6 +4481,20 @@ Devuelve el recurso causa completo, igual que `GET /cases/{caseId}`.
 }
 ```
 
+**(Revisión del 08/11/2026, D-111)**
+
+```json
+{
+	"error": {
+		"code": "VALIDATION_ERROR",
+		"message": "Los datos enviados no son válidos.",
+		"details": {
+			"clientId": "El cliente de una causa no se puede modificar."
+		}
+	}
+}
+```
+
 Un cuerpo sin ningún campo responde `400 VALIDATION_ERROR`, como en los demás
 `PATCH` del contrato. Un `caseId` que no es un entero responde
 `INVALID_PATH_PARAMETER`.
@@ -4382,6 +4506,21 @@ Un cuerpo sin ningún campo responde `400 VALIDATION_ERROR`, como en los demás
 	"error": {
 		"code": "UNAUTHENTICATED",
 		"message": "La autenticación es requerida.",
+		"details": null
+	}
+}
+```
+
+**`403 Forbidden`** **(Revisión del 08/11/2026, D-110)**
+
+Un usuario cuyo único rol es `LAWYER` y que no es el abogado responsable de la
+causa.
+
+```json
+{
+	"error": {
+		"code": "FORBIDDEN",
+		"message": "Solo el abogado responsable de la causa puede modificarla.",
 		"details": null
 	}
 }
@@ -4425,6 +4564,19 @@ Causa inexistente o dada de baja.
 }
 ```
 
+**(Revisión del 08/11/2026, D-113)** Se quita una calificación declarada prescripta, o se cambia su
+fecha del hecho:
+
+```json
+{
+	"error": {
+		"code": "LEGAL_QUALIFICATION_ALREADY_PRESCRIBED",
+		"message": "No se puede quitar ni modificar una calificación legal declarada prescripta.",
+		"details": null
+	}
+}
+```
+
 ---
 
 #### `DELETE /cases/{caseId}`
@@ -4432,8 +4584,11 @@ Causa inexistente o dada de baja.
 Da de baja una causa (HU21), para retirar registros incorrectos o
 duplicados.
 
-**Rol requerido:** cualquier usuario autenticado (matriz de permisos, HU18 a
-HU25).
+**Rol requerido:** quien opera la causa **(Revisión del 08/11/2026, D-110)**:
+el abogado responsable, un `ADMINISTRATOR` o una `SECRETARY`. Un usuario cuyo
+único rol es `LAWYER` y que no es el responsable recibe `403 FORBIDDEN` (ver
+[Operación de la causa](#operación-de-la-causa)). Si la causa no existe, la
+respuesta es `404 CASE_NOT_FOUND`, antes que el `403`.
 
 La baja es **lógica** (RN12): el backend pone `active` en `false` y conserva la
 causa con todos sus actos, actos interruptivos, carátula y expedientes, como
@@ -4478,8 +4633,12 @@ cliente la causa deja de existir.
   cargar de nuevo, bien, una causa registrada mal. La causa dada
   de baja conserva su SAC en la base, y el SAC sigue siendo único entre las
   causas vigentes.
-- **La carpeta en Drive no se toca**: no se borra, no se mueve ni se renombra.
-  Los documentos son del estudio y RN9 pide conservarlos.
+- **La carpeta en Drive se mueve a la carpeta `Papelera`** (D-104, revisión del
+  08/11/2026): se mueve a `/VZ Causas/Papelera/` con lo que tiene adentro, sin
+  borrarla ni purgarla; una persona puede devolverla a mano moviéndola de
+  vuelta. `Papelera` se crea la primera vez que una baja la necesita. La fila de
+  la carpeta y el vínculo de la causa se conservan. **Si Drive no responde, la
+  baja no falla**: se guarda igual y la carpeta queda como estaba.
 - **Cualquier estado.** Se puede dar de baja una causa en cualquier estado,
   incluidos los terminales: lo que se retira es un registro mal cargado, no una
   causa terminada.
@@ -4513,6 +4672,21 @@ Un `caseId` que no es un entero responde `INVALID_PATH_PARAMETER`.
 	"error": {
 		"code": "UNAUTHENTICATED",
 		"message": "La autenticación es requerida.",
+		"details": null
+	}
+}
+```
+
+**`403 Forbidden`** **(Revisión del 08/11/2026, D-110)**
+
+Un usuario cuyo único rol es `LAWYER` y que no es el abogado responsable de la
+causa.
+
+```json
+{
+	"error": {
+		"code": "FORBIDDEN",
+		"message": "Solo el abogado responsable de la causa puede darla de baja.",
 		"details": null
 	}
 }
@@ -4595,7 +4769,7 @@ escribe el backend. Un dato `null` deja
 su parte vacía.
 
 Como nada se guarda, la hoja sigue siempre a los datos vigentes de la causa:
-si se modifica el cliente, el rol procesal, el responsable, el instructor o la
+si se modifica la carátula, el rol procesal, el responsable, el instructor o la
 contraparte, la próxima emisión ya lo refleja.
 
 **Parámetros de ruta**
@@ -4688,8 +4862,9 @@ pasar a otro acto si cambió cuál es el más reciente (ver
 | `type`                     | `date`                                 | Trae                       | Además                                                                                       |
 | -------------------------- | -------------------------------------- | -------------------------- | -------------------------------------------------------------------------------------------- |
 | `PROCEDURAL_ACT`           | `actDate` del acto                     | `proceduralAct`            | `current`: `true` en el acto que llevó la causa a su estado actual. **Su plazo es el abierto**; los de los demás actos están cerrados |
-| `INTERRUPTIVE_ACT`         | `actDate` del acto                     | `interruptiveAct`          | `governsPrescription`: `true` en el acto interruptivo más reciente, el que rige el cómputo de la prescripción |
-| `PRESCRIPTION_DECLARATION` | `prescriptionDate` de la declaración   | `prescriptionDeclaration`  | —                                                                                            |
+| `INTERRUPTIVE_ACT`         | `actDate` del acto                     | `interruptiveAct`          | `governsPrescription`: `true` en el acto interruptivo desde el que corre `prescription` de la causa: el que fija su `lastInterruptiveActDate` **(Revisión del 08/11/2026, D-113)** |
+| `QUALIFICATION_PRESCRIPTION_DECLARATION` | `prescriptionDate` de la declaración | `legalQualification` (`id` y `name`) y `prescriptionDeclaration` | **(Revisión del 08/11/2026, D-113)** Una por calificación declarada |
+| `PRESCRIPTION_DECLARATION` | `prescriptionDate` de la declaración   | `prescriptionDeclaration`  | La de la causa: aparece cuando quedó "Prescripta" |
 
 **Orden:** de la más reciente a la más antigua por `date`. Si dos entradas
 tienen la misma fecha, primero la última registrada (`registeredAt`).
@@ -4706,7 +4881,9 @@ Qué **no** aparece:
   aplican a esos fueros. Su línea de vida tiene solo actos procesales.
 - Un acto interruptivo con fecha anterior a otro **sí aparece**, en su lugar
   cronológico y con `governsPrescription` en `false`: queda en la historia
-  aunque no rija el cómputo.
+  aunque no rija el cómputo. **(Revisión del 08/11/2026, D-113)** Lo mismo un acto posterior al
+  vencimiento de las calificaciones que no reinició ninguna, y cualquier acto
+  de una causa penal sin calificaciones: sin `prescription`, ningún acto rige.
 
 **Parámetros de ruta**
 
@@ -4807,9 +4984,17 @@ Causa inexistente o dada de baja.
 
 Marca una causa penal como prescripta (HU33).
 
-**Rol requerido:** `ADMINISTRATOR` o `LAWYER`. No hace falta ser el abogado
-responsable de la causa: el prototipo habilita "Marcar prescripta" a los dos
-perfiles sobre cualquier causa penal, y no a la Secretaría.
+**(Revisión del 08/11/2026, D-113)** Es "Marcar toda la causa prescripta": declara prescriptas, con
+estos mismos datos, **todas las calificaciones que todavía no lo estaban**, y
+cierra la causa. Las ya declaradas conservan su propia declaración. Para
+declarar un solo delito y dejar la causa abierta está
+[`POST /cases/{caseId}/legal-qualifications/{legalQualificationId}/prescription`](#post-casescaseidlegal-qualificationslegalqualificationidprescription).
+
+**Rol requerido:** `ADMINISTRATOR`, o `LAWYER` siendo el abogado responsable
+de la causa **(Revisión del 08/11/2026, D-110)**. Un abogado que no es el
+responsable recibe `403 FORBIDDEN`, salvo que también tenga el rol
+`ADMINISTRATOR`. La Secretaría no la marca, como en el prototipo. Si la causa
+no existe, la respuesta es `404 CASE_NOT_FOUND`, antes que el `403`.
 
 Es la acción "Marcar prescripta" del detalle, que el prototipo ofrece solo en
 el fuero penal. Su nota dice qué hace: *"La causa pasa al estado Prescripta,
@@ -4866,6 +5051,8 @@ tribunal.
   el filtro de estado.
 - Los datos del formulario quedan en `prescriptionDeclaration`, con quién la
   marcó y cuándo.
+- **(Revisión del 08/11/2026, D-113)** Quedan también en el `prescriptionDeclaration` de cada
+  calificación que no estaba declarada.
 
 No existe una operación para revertirlo desde la API.
 
@@ -4905,7 +5092,9 @@ de prescripción activa:
 			"id": 4,
 			"lastName": "ACOSTA",
 			"firstName": "Jonathan E.",
-			"dni": "38907221",
+			"documentType": "DNI",
+			"documentNumber": "38907221",
+			"address": "Av. Colón 1250, Córdoba",
 			"phone": "351 744-1160",
 			"email": null,
 			"clientSince": "2022-01-19"
@@ -4923,7 +5112,17 @@ de prescripción activa:
 				"prescriptionMonths": 72,
 				"offenseDate": "2022-01-19",
 				"prescriptionStartsOn": "2022-01-19",
-				"prescriptionExpiresOn": "2028-01-19"
+				"prescriptionExpiresOn": "2028-01-19",
+				"elapsedPercentage": 78,
+				"alert": true,
+				"expired": false,
+				"prescriptionDeclaration": {
+					"prescriptionDate": "2026-09-15",
+					"resolution": "Sentencia N° 214 del Juzgado de Control N° 3",
+					"grounds": "Transcurrió el plazo del art. 62 inc. 2 CP sin actos interruptivos.",
+					"registeredBy": { "id": 1, "lastName": "Vázquez", "firstName": "Fernando G." },
+					"registeredAt": "2026-09-15T12:20:00-03:00"
+				}
 			}
 		],
 		"prescription": {
@@ -5010,6 +5209,19 @@ Un `caseId` que no es un entero responde `INVALID_PATH_PARAMETER`, igual que en
 }
 ```
 
+**(Revisión del 08/11/2026, D-110)** Un abogado que no es el responsable de la
+causa y no tiene el rol `ADMINISTRATOR`:
+
+```json
+{
+	"error": {
+		"code": "FORBIDDEN",
+		"message": "Solo el abogado responsable de la causa puede marcarla como prescripta.",
+		"details": null
+	}
+}
+```
+
 **`404 Not Found`**
 
 ```json
@@ -5062,13 +5274,201 @@ La causa ya está en un estado terminal, incluido "Prescripta":
 
 ---
 
+#### `POST /cases/{caseId}/legal-qualifications/{legalQualificationId}/prescription`
+
+**(Revisión del 08/11/2026, D-113)** Declara prescripta **una** calificación
+legal de una causa penal (HU33). Es el "Marcar prescripta" de cada delito en el
+detalle.
+
+Cada delito prescribe por su lado: cuando el tribunal declara la prescripción
+de uno, la causa sigue abierta por los demás. Esta operación guarda esa
+declaración en la calificación y deja la causa como está, salvo que sea la
+**última** sin declarar: en ese caso la causa pasa a "Prescripta", con el
+mismo efecto que [`POST /cases/{caseId}/prescription`](#post-casescaseidprescription).
+
+**Rol requerido:** el mismo que `POST /cases/{caseId}/prescription`:
+`ADMINISTRATOR`, o `LAWYER` siendo el abogado responsable de la causa (D-110).
+La Secretaría no la declara. Si la causa no existe, la respuesta es
+`404 CASE_NOT_FOUND`, antes que el `403`.
+
+**Parámetros de ruta**
+
+| Parámetro              | Tipo    | Descripción                                                    |
+| ---------------------- | ------- | -------------------------------------------------------------- |
+| `caseId`               | Integer | Identificador único de la causa                                |
+| `legalQualificationId` | Integer | Calificación legal, tal como viene en `legalQualifications[].id` |
+
+**Cuerpo de la petición:** el mismo que
+[`POST /cases/{caseId}/prescription`](#post-casescaseidprescription):
+`prescriptionDate` (obligatoria, no posterior a hoy), `resolution`
+(obligatoria, hasta 255 caracteres) y `grounds` (opcional, hasta 2000), con
+las mismas validaciones y los mismos textos de error.
+
+```json
+{
+	"prescriptionDate": "2026-09-15",
+	"resolution": "Auto N° 88 de la Cámara en lo Criminal y Correccional 5ª Nom."
+}
+```
+
+No se exige que el plazo calculado de la calificación esté cumplido
+(`expired`): la prescripción la declara el tribunal.
+
+**Efecto**
+
+- El `prescriptionDeclaration` de la calificación queda cargado, con quién la
+  declaró y cuándo.
+- La calificación deja de contar para `prescription`: la causa pasa a regirse
+  por la que prescribe primero entre las que faltan declarar. Sale de las
+  alertas de los tableros y de los avisos del proceso diario.
+- Los actos interruptivos con fecha posterior a la de la declaración no la
+  reinician (ver [§3.9](#39-actos-interruptivos-casescaseidinterruptive-acts)).
+- La línea de vida suma una entrada `QUALIFICATION_PRESCRIPTION_DECLARATION`.
+- **Si era la última sin declarar**, la causa pasa a "Prescripta" y se cierran
+  sus plazos, como en `POST /cases/{caseId}/prescription`; el
+  `prescriptionDeclaration` de la causa toma estos mismos datos.
+- Si no, el estado procesal y el vencimiento de la causa no cambian: sigue
+  activa y admite actos procesales e interruptivos.
+
+No existe una operación para revertirlo desde la API.
+
+**Orden de los chequeos:** `401` → `400` de forma (`INVALID_PATH_PARAMETER`) →
+`404 CASE_NOT_FOUND` → `403` → `422` fuero → `404
+LEGAL_QUALIFICATION_NOT_FOUND` → `422` estado terminal → `422` calificación ya declarada → `400` de
+contenido (`VALIDATION_ERROR`). Un pedido rechazado no guarda nada.
+
+**Respuestas**
+
+**`200 OK`**
+
+Devuelve la causa actualizada, con la misma estructura que
+`GET /cases/{caseId}`. En el ejemplo, una causa con dos calificaciones a la que
+se le declara la que ya había cumplido su plazo: la causa sigue en su estado y
+`prescription` pasa a la otra. Se muestran solo los campos que cambian:
+
+```json
+{
+	"data": {
+		"legalQualifications": [
+			{
+				"id": 4,
+				"name": "Amenazas coactivas — art. 149 bis CP",
+				"prescriptionMonths": 24,
+				"offenseDate": "2024-07-02",
+				"prescriptionStartsOn": "2024-07-02",
+				"prescriptionExpiresOn": "2026-07-02",
+				"elapsedPercentage": 100,
+				"alert": true,
+				"expired": true,
+				"prescriptionDeclaration": {
+					"prescriptionDate": "2026-09-15",
+					"resolution": "Auto N° 88 de la Cámara en lo Criminal y Correccional 5ª Nom.",
+					"grounds": null,
+					"registeredBy": { "id": 1, "lastName": "Vázquez", "firstName": "Fernando G." },
+					"registeredAt": "2026-09-15T12:20:00-03:00"
+				}
+			},
+			{
+				"id": 9,
+				"name": "Encubrimiento — art. 277 CP",
+				"prescriptionMonths": 72,
+				"offenseDate": "2024-06-11",
+				"prescriptionStartsOn": "2024-06-20",
+				"prescriptionExpiresOn": "2030-06-20",
+				"elapsedPercentage": 37,
+				"alert": false,
+				"expired": false,
+				"prescriptionDeclaration": null
+			}
+		],
+		"prescription": {
+			"legalQualificationId": 9,
+			"legalQualificationName": "Encubrimiento — art. 277 CP",
+			"startsOn": "2024-06-20",
+			"expiresOn": "2030-06-20",
+			"elapsedPercentage": 37,
+			"alert": false,
+			"expired": false,
+			"lastInterruptiveActDate": "2024-06-20"
+		},
+		"prescriptionDeclaration": null,
+		"currentState": {
+			"proceduralStateId": 5,
+			"name": "Citación a juicio",
+			"custom": false,
+			"initial": false,
+			"proceduralActId": 31,
+			"dueDate": "2026-09-18",
+			"businessDaysRemaining": 3,
+			"manuallyAdjusted": false
+		}
+	}
+}
+```
+
+**`400 Bad Request`:** los mismos `VALIDATION_ERROR` que
+`POST /cases/{caseId}/prescription`. Un `caseId` o un `legalQualificationId`
+que no es un entero responde `INVALID_PATH_PARAMETER`.
+
+**`401 Unauthorized`** y **`403 Forbidden`:** los mismos que
+`POST /cases/{caseId}/prescription`. El de un abogado que no es el
+responsable:
+
+```json
+{
+	"error": {
+		"code": "FORBIDDEN",
+		"message": "Solo el abogado responsable de la causa puede declarar la prescripción de sus calificaciones legales.",
+		"details": null
+	}
+}
+```
+
+**`404 Not Found`**
+
+La causa no existe o fue dada de baja: `CASE_NOT_FOUND`, como en
+`GET /cases/{caseId}`. La calificación no está registrada en la causa (aunque
+exista en `/legal-qualifications`):
+
+```json
+{
+	"error": {
+		"code": "LEGAL_QUALIFICATION_NOT_FOUND",
+		"message": "La causa no registra esa calificación legal.",
+		"details": null
+	}
+}
+```
+
+**`422 Unprocessable Content`**
+
+La causa no es del fuero penal: `PRESCRIPTION_NOT_APPLICABLE`, con el texto de
+`POST /cases/{caseId}/prescription`. La causa está en un estado terminal,
+incluido "Prescripta": `CASE_IN_TERMINAL_STATE`, con el mismo texto. La
+calificación ya fue declarada prescripta:
+
+```json
+{
+	"error": {
+		"code": "LEGAL_QUALIFICATION_ALREADY_PRESCRIBED",
+		"message": "La calificación legal ya fue declarada prescripta.",
+		"details": null
+	}
+}
+```
+
+---
+
 #### `POST /cases/{caseId}/folder`
 
 Crea la carpeta de una causa que no la tiene, o reintenta una que falló
 (HU39, HU40).
 
-**Rol requerido:** cualquier usuario autenticado, igual que el alta de la
-causa.
+**Rol requerido:** quien opera la causa **(Revisión del 08/11/2026, D-110)**:
+el abogado responsable, un `ADMINISTRATOR` o una `SECRETARY`. Un usuario cuyo
+único rol es `LAWYER` y que no es el responsable recibe `403 FORBIDDEN` (ver
+[Operación de la causa](#operación-de-la-causa)). Si la causa no existe, la
+respuesta es `404 CASE_NOT_FOUND`, antes que el `403`.
 
 El prototipo no tiene un botón para esto: existe porque el alta de causa **no
 falla** cuando el almacenamiento en la nube no responde, y hace falta una forma
@@ -5144,6 +5544,21 @@ Un `caseId` que no es un entero responde `INVALID_PATH_PARAMETER`, igual que en
 	"error": {
 		"code": "UNAUTHENTICATED",
 		"message": "La autenticación es requerida.",
+		"details": null
+	}
+}
+```
+
+**`403 Forbidden`** **(Revisión del 08/11/2026, D-110)**
+
+Un usuario cuyo único rol es `LAWYER` y que no es el abogado responsable de la
+causa.
+
+```json
+{
+	"error": {
+		"code": "FORBIDDEN",
+		"message": "Solo el abogado responsable de la causa puede operar su carpeta.",
 		"details": null
 	}
 }
@@ -6132,17 +6547,27 @@ catálogo de actos interruptivos.
 **Efecto sobre la prescripción**
 
 - El acto interruptivo alcanza a **todas las calificaciones legales de la
-  causa**: el formulario no pide elegir una.
-- El `prescriptionStartsOn` de cada calificación pasa a ser la `actDate` del
-  **acto interruptivo más reciente** de la causa, siempre que no sea anterior a
-  su `offenseDate`. Su `prescriptionExpiresOn` se recalcula como
-  `prescriptionStartsOn` más `prescriptionMonths`.
+  causa** que todavía pueden interrumpirse: el formulario no pide elegir una.
+- **(Revisión del 08/11/2026, D-113)** **Un acto no reinicia una calificación que ya prescribió.** Para
+  cada calificación, los actos se toman en orden de fecha, empezando por su
+  `offenseDate`, y un acto la reinicia solo si su `actDate`:
+  - no es anterior al inicio vigente de esa calificación (la `offenseDate` o
+    el acto anterior que la reinició);
+  - es anterior a su vencimiento vigente: el día del vencimiento el plazo ya
+    está cumplido, y desde ahí ningún acto la reinicia; y
+  - si la calificación fue declarada prescripta, es anterior a la
+    `prescriptionDate` de su declaración.
+- El `prescriptionStartsOn` de cada calificación es la `actDate` del **último
+  acto que la reinició** con esa regla, o su `offenseDate` si ninguno lo hizo.
+  Su `prescriptionExpiresOn` se recalcula como `prescriptionStartsOn` más
+  `prescriptionMonths`. Antes de D-113 era el acto más reciente de la causa,
+  para todas por igual.
 - `prescription` de la causa se recalcula en consecuencia: cambian `startsOn`,
   `expiresOn`, `elapsedPercentage` y `alert`, y `lastInterruptiveActDate` toma
   la fecha del acto. Una causa que estaba en alerta puede dejar de estarlo.
 - Un acto interruptivo cargado con una fecha **anterior** a la de otro ya
-  registrado queda asentado en la historia de la causa, pero no cambia el
-  cómputo: rige siempre el más reciente.
+  registrado queda asentado en la historia de la causa. Cuenta en el orden de
+  fechas, con la regla de arriba: el cómputo se rehace en cada lectura.
 - `offenseDate` no cambia nunca: es el dato que se cargó.
 - El estado procesal y el vencimiento de la causa (`currentState`) no cambian.
 
@@ -6454,8 +6879,10 @@ porque los modelos no se modifican por API.
 **Sobre el archivo:** no viaja dentro del recurso. Se sube con el alta y se
 descarga con
 [`GET /document-templates/{templateId}/file`](#get-document-templatestemplateidfile).
-El backend lo guarda en `/VZ Causas/Modelos formales`, en el mismo
-almacenamiento en la nube que las carpetas de las causas.
+El backend lo guarda en `/VZ Causas/Modelos formales/{fuero}`, en el mismo
+almacenamiento en la nube que las carpetas de las causas. Hay una subcarpeta
+por fuero (`Penal`, `Administrativo` y `Amparo`) y el archivo queda en la de
+cada uno de los fueros del modelo; el modelo sigue siendo uno solo.
 
 **Sobre las copias:** el modelo y sus copias son independientes. Lo que se copia
 a la carpeta de una causa es el archivo tal como estaba ese día: "cada causa
@@ -7030,7 +7457,10 @@ a `5`) y "Después" (más de `5`) y sus contadores.
 | `expired`                | Boolean                 | `true` si el plazo de prescripción ya se cumplió |
 
 Los cuatro últimos campos tienen el mismo significado que en `prescription` de
-la causa (§3.7). Si ninguna causa llegó al umbral, la lista viene vacía y el
+la causa (§3.7). **(Revisión del 08/11/2026, D-113)** Como `prescription`, se elige
+entre las calificaciones que no fueron declaradas prescriptas: un delito
+declarado deja de alertar, y uno con el plazo cumplido sin declarar sigue en la
+lista. Si ninguna causa llegó al umbral, la lista viene vacía y el
 prototipo muestra "Ninguna causa superó el 70 % de su plazo de prescripción".
 
 **Sobre los días hábiles:** los indicadores y `businessDaysRemaining` usan el
@@ -7976,11 +8406,53 @@ abogados. Si no lo posee, la respuesta es `403 FORBIDDEN`.
 Cuando un endpoint indica dos roles —"`ADMINISTRATOR` o `LAWYER`"— alcanza con
 poseer **uno** de los dos.
 
-Los **actos procesales** y los **actos interruptivos** son la excepción: no
-alcanza con un rol. Solo los registra el abogado responsable de la causa,
+Los **actos procesales**, los **actos interruptivos** y, para los abogados,
+la **operación de la causa** (ver [Operación de la causa](#operación-de-la-causa),
+revisión del 08/11/2026) son la excepción: no alcanza con un rol. Solo los registra el abogado responsable de la causa,
 comparando el `lawyerId` del usuario con el responsable de la causa (ver
 [§3.8](#38-actos-procesales-casescaseidprocedural-acts) y
 [§3.9](#39-actos-interruptivos-casescaseidinterruptive-acts)).
+
+#### Operación de la causa
+
+**(Revisión del 08/11/2026, D-110)** Un abogado que no es el responsable de una
+causa solo la **consulta** y **genera su expediente**. Sobre una causa ajena
+puede ver el detalle, la línea de vida, los actos procesales e interruptivos,
+los documentos (y descargarlos), emitir la carátula y generar y descargar el
+expediente. No puede modificarla, darla de baja, marcarla como prescripta,
+operar su carpeta ni registrar o modificar actos.
+
+| Operación sobre una causa                                   | Abogado responsable | Otro abogado | `ADMINISTRATOR` | `SECRETARY` |
+| ----------------------------------------------------------- | :-----------------: | :----------: | :-------------: | :---------: |
+| Consultar (detalle, línea de vida, actos, documentos)       |          ✓          |      ✓       |        ✓        |      ✓      |
+| Descargar un documento que no es expediente                 |          ✓          |      ✓       |        —        |      ✓      |
+| Emitir la carátula, generar y descargar el expediente       |          ✓          |      ✓       |        ✓        |      ✓      |
+| Modificar y dar de baja (`PATCH`, `DELETE /cases/{caseId}`) |          ✓          |      —       |        ✓        |      ✓      |
+| Crear o reintentar la carpeta (`POST …/folder`)             |          ✓          |      —       |        ✓        |      ✓      |
+| Marcar prescripta (`POST …/prescription`)                   |          ✓          |      —       |        ✓        |      —      |
+| Declarar prescripta una calificación (`POST …/legal-qualifications/{id}/prescription`, D-113) | ✓ | — | ✓ | — |
+| Registrar y modificar actos procesales e interruptivos      |          ✓          |      —       |        —        |      —      |
+
+"Quien opera la causa" es, por lo tanto, el abogado responsable, un
+`ADMINISTRATOR` o una `SECRETARY`. La restricción nueva alcanza solo a los
+abogados: el Administrador y la Secretaría conservan lo que ya tenían.
+
+- **Cómo se evalúa.** Primero se busca la causa (`404 CASE_NOT_FOUND` si no
+  existe o está dada de baja). Después, si el usuario tiene un rol que habilita
+  la operación sin ser responsable (`ADMINISTRATOR` o `SECRETARY`, según la
+  tabla), pasa. Si no, se compara su `lawyerId` con `responsibleLawyer.id`; si
+  no coinciden, o no tiene ficha de abogado, `403 FORBIDDEN`.
+- **Varios roles.** Como en el resto del contrato, alcanza con uno: un usuario
+  `LAWYER` y `SECRETARY` que no es el responsable puede modificar la causa por
+  su rol de Secretaría; uno `LAWYER` y `ADMINISTRATOR`, además, marcarla
+  prescripta.
+- **Cambio de responsable.** Cuenta el responsable **actual**: después de un
+  `PATCH` que cambia `responsibleLawyerId`, el anterior pasa a ser "otro
+  abogado" desde la próxima petición. Si quien cambia el responsable es el
+  propio responsable, deja de poder operar la causa.
+- **Lo que no cambia.** El alta de causas (`POST /cases`) sigue abierta a
+  cualquier usuario autenticado, con cualquier abogado vigente como
+  responsable: la regla es sobre causas existentes.
 
 #### Permisos por perfil
 
@@ -7996,20 +8468,27 @@ contratos siguientes la respeten.
 | Consultar abogados                                                                      | 13             |   ✓    |    ✓    |    ✓    |
 | Registrar, modificar y dar de baja abogados                                             | 12, 14, 15     |   ✓    |    —    |    —    |
 | Administrar estados procesales                                                          | 16, 17, 45, 46 |   ✓    |    ✓    |    ✓    |
-| Gestionar causas (alta, consulta, detalle, línea de tiempo, carátula, expediente, baja) | 18 – 25        |   ✓    |    ✓    |    ✓    |
+| Gestionar causas: alta, consulta, detalle, línea de tiempo, carátula, expediente        | 18, 20, 22 – 25 |   ✓    |    ✓    |    ✓    |
+| Modificar y dar de baja causas ²                                                        | 19, 21         |   ✓    |    ✓    |    ✓    |
+| Marcar la causa como prescripta ²                                                       | 33             |   ✓    |    ✓    |    —    |
 | Consultar actos procesales                                                              | 27             |   ✓    |    ✓    |    ✓    |
 | Registrar, modificar y dar de baja actos procesales ¹                                   | 26, 28, 29     |   —    |    ✓    |    —    |
 | Registrar actos interruptivos ¹                                                         | 31             |   —    |    ✓    |    —    |
 | Recibir avisos de vencimiento y alertas de prescripción                                 | 30, 32, 33     |   ✓    |    ✓    |    —    |
 | Administrar modelos formales                                                            | 34 – 37        |   ✓    |    ✓    |    —    |
 | Consultar documentos de causa                                                           | 38             |   —    |    ✓    |    ✓    |
-| Crear carpeta y modelos en la nube                                                      | 39 – 40        |   ✓    |    ✓    |    ✓    |
+| Crear carpeta y modelos en la nube (reintentar la carpeta de una causa existente ²)     | 39 – 40        |   ✓    |    ✓    |    ✓    |
 | Tablero del abogado                                                                     | 41             |   —    |    ✓    |    —    |
 | Tablero del administrador y reportes                                                    | 42 – 44        |   ✓    |    —    |    —    |
 | Administrar calificaciones legales                                                      | 47 – 50        |   ✓    |    ✓    |    ✓    |
 
 ¹ Lo realiza el abogado asignado a su propia causa: solo el propietario de la
 causa puede realizar estas acciones.
+
+² **(Revisión del 08/11/2026, D-110)** El ✓ del Abogado vale solo para las
+causas de las que es responsable. El Administrador y la Secretaría (donde
+tienen ✓) lo hacen sobre cualquier causa. Ver
+[Operación de la causa](#operación-de-la-causa).
 
 La tabla es la matriz de permisos del 11/10/2026, la misma que figura en la
 Definición del Producto V2, §5.1. La **consulta** de abogados está
@@ -8035,6 +8514,12 @@ Dos apartamientos de la matriz, decididos por el equipo:
 causa: solo el abogado responsable opera sus actos. Ningún otro abogado ni el
 `ADMINISTRATOR` puede hacerlo sobre una causa ajena.
 
+**Operación de la causa.** **(Revisión del 08/11/2026, D-110)** Las filas
+marcadas con ² se restringen a cada causa solo para el Abogado: un abogado
+que no es el responsable no modifica, no da de baja, no marca prescripta ni
+reintenta la carpeta de una causa ajena. Antes de esta revisión, "Gestionar
+causas" (HU18 a HU25) y "Marcar prescripta" valían para cualquier causa.
+
 #### Matriz por recurso
 
 | Recurso                            | Lectura (`GET`)               | Escritura                                                        |
@@ -8045,10 +8530,11 @@ causa: solo el abogado responsable opera sus actos. Ningún otro abogado ni el
 | `/procedural-states`               | Cualquier usuario autenticado | Cualquier usuario autenticado                                    |
 | `/legal-qualifications`            | Cualquier usuario autenticado | Cualquier usuario autenticado                                    |
 | `/clients`                         | Cualquier usuario autenticado | Cualquier usuario autenticado                                    |
-| `/cases`                           | Cualquier usuario autenticado | Cualquier usuario autenticado, también `PATCH` y `DELETE` |
+| `/cases`                           | Cualquier usuario autenticado | Alta: cualquier usuario autenticado. `PATCH` y `DELETE`: abogado responsable, `ADMINISTRATOR` o `SECRETARY` **(08/11/2026)** |
 | `/cases/{caseId}/cover`            | Cualquier usuario autenticado | -                                                       |
-| `/cases/{caseId}/prescription`     | -                             | `ADMINISTRATOR` o `LAWYER`                                       |
-| `/cases/{caseId}/folder`           | -                             | Cualquier usuario autenticado                                    |
+| `/cases/{caseId}/prescription`     | -                             | `ADMINISTRATOR` o abogado responsable de la causa **(08/11/2026)** |
+| `/cases/{caseId}/legal-qualifications/{legalQualificationId}/prescription` | - | `ADMINISTRATOR` o abogado responsable de la causa **(08/11/2026, D-113)** |
+| `/cases/{caseId}/folder`           | -                             | Abogado responsable, `ADMINISTRATOR` o `SECRETARY` **(08/11/2026)** |
 | `/cases/{caseId}/procedural-acts`  | Cualquier usuario autenticado; `deadline-preview`, solo el abogado responsable | Abogado responsable de la causa, también `PATCH` |
 | `/cases/{caseId}/interruptive-acts` | Cualquier usuario autenticado | Abogado responsable de la causa                                 |
 | `/cases/{caseId}/documents`        | Cualquier usuario autenticado; la descarga de un documento que no es un expediente, `LAWYER` o `SECRETARY` | -  |
@@ -8145,10 +8631,24 @@ contrato.
 - **Cada calificación legal computa la suya.** Su plazo es
   `prescriptionMonths`, y vence en `prescriptionStartsOn` más esos meses.
 - **Desde cuándo corre** (`prescriptionStartsOn`): desde la fecha del hecho
-  (`offenseDate`) o, si la causa tiene actos interruptivos, desde la fecha del
-  más reciente (RN8).
+  (`offenseDate`) o desde el último acto interruptivo que la reinició (RN8).
+  **(Revisión del 08/11/2026, D-113)** Un acto la reinicia solo si es anterior a su vencimiento
+  vigente y, si fue declarada prescripta, a la fecha de esa declaración: un
+  delito que ya prescribió no vuelve a correr (ver
+  [§3.9](#39-actos-interruptivos-casescaseidinterruptive-acts)).
 - **La que rige la causa** es la calificación que prescribe primero: la de
   menor `prescriptionExpiresOn`. Es la que resume `prescription`.
+  **(Revisión del 08/11/2026, D-113)** Se elige entre las que no fueron declaradas prescriptas; si
+  lo fueron todas, entre todas.
+- **Declaración por calificación** **(Revisión del 08/11/2026, D-113)**: cada calificación se
+  declara prescripta por separado, con su resolución. Que se cumpla el plazo
+  (`expired`) no la declara. Cuando quedan declaradas todas, la causa pasa a
+  "Prescripta".
+- **Cada calificación informa su estado** **(Revisión del 08/11/2026, D-112)**:
+  `elapsedPercentage`, `alert` y `expired` llegan también en cada elemento de
+  `legalQualifications[]`, con las mismas reglas de esta sección aplicadas a su
+  `prescriptionStartsOn` y su `prescriptionExpiresOn`. No cambian cuál rige
+  la causa.
 - **Porcentaje transcurrido** (`elapsedPercentage`): días corridos desde
   `startsOn` hasta hoy, sobre los días corridos entre `startsOn` y `expiresOn`.
   Entre `0` y `100`.
@@ -8187,8 +8687,8 @@ carpetas que crea el sistema.
   corta en 255 caracteres, así que `GÓMEZ, Ariel c/ PÉREZ` queda como
   `GÓMEZ, Ariel c PÉREZ`. Por eso `folder.path` es un dato para mostrar, no para
   separar en partes. Dos causas con la misma carátula tienen carpetas distintas.
-- **Modelos formales.** Viven en `/VZ Causas/Modelos formales`, fuera de las
-  carpetas de los abogados y de `Causas`.
+- **Modelos formales.** Viven en `/VZ Causas/Modelos formales/{fuero}`, con una
+  subcarpeta por fuero, fuera de las carpetas de los abogados y de `Causas`.
 - **Quién accede.** El sistema **comparte la carpeta raíz `VZ Causas`** con el
   correo de cada usuario vigente que tenga el rol `LAWYER` o `SECRETARY`, como
   editor; todo lo que hay adentro hereda ese acceso. Son los perfiles que
@@ -8218,7 +8718,7 @@ carpetas que crea el sistema.
   | Cambia la carátula (`PATCH /cases/{caseId}`)                  | Se renombra la carpeta de la causa, con las mismas reglas de nombre       |
   | Cambia el responsable (`PATCH /cases/{caseId}`)               | La carpeta de la causa se mueve a `/{nuevo abogado}/{fuero}/`, que se crea si no existe |
   | Cambia el nombre de un abogado (`PATCH /lawyers/{lawyerId}`)  | Se renombra la carpeta del abogado. Las de sus causas quedan adentro      |
-  | Se da de baja la causa (`DELETE /cases/{caseId}`)             | Nada                                                                      |
+  | Se da de baja la causa (`DELETE /cases/{caseId}`)             | La carpeta de la causa se mueve a `/VZ Causas/Papelera/`, con lo que tiene adentro |
 
   El fuero no cambia, así que una carpeta nunca cambia de carpeta de
   fuero. Mover y renombrar no necesitan más permisos que `drive.file`, porque
@@ -8247,7 +8747,7 @@ Cada corrida tiene dos pasos:
 | Paso        | HU  | Qué hace                                                                                                 |
 | ----------- | --- | -------------------------------------------------------------------------------------------------------- |
 | Verificar   | 51  | Recorre los vencimientos abiertos de las causas activas —los plazos de los actos procesales y los del acto lesivo de los amparos— y detecta los que entran en preaviso, los que vencen hoy y los vencidos |
-| Verificar   | 52  | Recorre la prescripción de las causas penales activas con calificación legal y detecta las que llegaron al 70 % y las que tienen el plazo cumplido |
+| Verificar   | 52  | Recorre la prescripción de las causas penales activas con calificación legal y detecta las que llegaron al 70 % y las que tienen el plazo cumplido. Mira `prescription`, que desde D-113 deja afuera las calificaciones ya declaradas prescriptas |
 | Avisar      | 30  | Envía por correo lo que encontró HU51                                                                    |
 | Avisar      | 32  | Envía por correo lo que encontró HU52                                                                    |
 | Ajustar     | 39  | Revisa que la carpeta raíz de Drive esté compartida exactamente con los usuarios que corresponde, y corrige lo que haya quedado pendiente |
@@ -8443,11 +8943,12 @@ respuesta.
 | `SAME_PASSWORD`                          | 400  | La contraseña nueva es igual a la actual. Exclusivo de `PATCH /auth/password` |
 | `INVALID_CREDENTIALS`                    | 401  | Credenciales incorrectas. Exclusivo de `/auth/login`               |
 | `UNAUTHENTICATED`                        | 401  | Token ausente, vencido, revocado o la sesión cerrada por inactividad |
-| `FORBIDDEN`                              | 403  | Usuario autenticado sin el rol requerido, o que no es el abogado responsable de la causa |
+| `FORBIDDEN`                              | 403  | Usuario autenticado sin el rol requerido, o que no es el abogado responsable de la causa (actos, y desde el 08/11/2026 la operación de la causa para un usuario solo `LAWYER`) |
 | `USER_NOT_FOUND`                         | 404  | Usuario inexistente                                                |
 | `LAWYER_NOT_FOUND`                       | 404  | Abogado inexistente                                                |
 | `PROCEDURAL_STATE_NOT_FOUND`             | 404  | Estado procesal inexistente                                        |
-| `LEGAL_QUALIFICATION_NOT_FOUND`          | 404  | Calificación legal inexistente                                     |
+| `LEGAL_QUALIFICATION_NOT_FOUND`          | 404  | Calificación legal inexistente. **(08/11/2026, D-113)** También, al declarar la prescripción de una calificación, una que la causa no registra |
+| `LEGAL_QUALIFICATION_ALREADY_PRESCRIBED` | 422  | **(08/11/2026, D-113)** Declarar prescripta una calificación que ya lo está, o quitar o cambiar la fecha del hecho de una declarada al modificar la causa |
 | `CLIENT_NOT_FOUND`                       | 404  | Cliente inexistente                                                |
 | `CASE_NOT_FOUND`                         | 404  | Causa inexistente                                                  |
 | `PROCEDURAL_ACT_NOT_FOUND`               | 404  | Acto procesal inexistente o de otra causa                          |
@@ -8459,7 +8960,7 @@ respuesta.
 | `LAWYER_REGISTRATION_ALREADY_EXISTS`     | 409  | Matrícula ya registrada                                            |
 | `PROCEDURAL_STATE_ALREADY_EXISTS`        | 409  | Denominación repetida dentro del mismo fuero                       |
 | `LEGAL_QUALIFICATION_ALREADY_EXISTS`     | 409  | Denominación de calificación legal ya registrada                   |
-| `CLIENT_DNI_ALREADY_EXISTS`              | 409  | DNI ya registrado en un cliente vigente                            |
+| `CLIENT_DNI_ALREADY_EXISTS`              | 409  | Documento (DNI o pasaporte) ya registrado en un cliente vigente **(Revisión del 05/11/2026)** |
 | `CASE_SAC_ALREADY_EXISTS`                | 409  | Número de SAC ya registrado (RN2)                                  |
 | `DOCUMENT_TEMPLATE_ALREADY_EXISTS`       | 409  | **Nuevo.** Nombre de modelo formal ya registrado                   |
 | `USER_HAS_DEPENDENCIES`                  | 409  | El usuario posee recursos asociados                                |

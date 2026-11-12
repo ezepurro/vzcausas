@@ -35,4 +35,7 @@ export class ProceduralActResponseDto {
   deadline!: ProceduralActDeadlineResponseDto | null;
   registeredBy!: RegisteredByResponseDto;
   registeredAt!: string;
+  // HU28 (V5 §3.8): in every response, `null` while the act was never modified.
+  lastModifiedBy!: RegisteredByResponseDto | null;
+  lastModifiedAt!: string | null;
 }

@@ -7,7 +7,6 @@ import { purgeAuditLog } from '../../shared/harness/audit-log';
 import { expectData, expectError } from '../../shared/contract/envelopes';
 import { loginAs } from '../../shared/auth/login-as';
 import { createCase } from '../../shared/factories/case.factory';
-import { createClient } from '../../shared/factories/client.factory';
 import { createLegalQualification } from '../../shared/factories/legal-qualification.factory';
 import { createUser } from '../../shared/factories/user.factory';
 import {
@@ -22,7 +21,7 @@ import {
  * Escrito desde `.claude/plans/tests-hu19-modificar-causa.md`, no desde el
  * código. Reloj fijo: hoy es 06/10/2026. La causa de referencia es la del
  * escenario de actos procesales: penal, en "Iniciada", sin SAC, responsable
- * Ríos, Malena. Modifica una secretaria: cualquier perfil puede (CA-19.1).
+ * Ríos, Malena. Modifica una secretaria, que opera cualquier causa (D-110).
  */
 type Body = Record<string, any>;
 const NOW = new Date('2026-10-06T15:30:00.000Z');
@@ -127,6 +126,7 @@ describe('PATCH /api/v1/cases/:caseId', () => {
     it.each<[string, Body, Record<string, string>]>([
       ['sin ningún campo', {}, { body: 'Debe enviarse al menos un campo para modificar.' }],
       ['con jurisdiction', { jurisdiction: 'AMPARO' }, { jurisdiction: 'El fuero de una causa no se puede modificar.' }],
+      ['con clientId', { clientId: 1 }, { clientId: 'El cliente de una causa no se puede modificar.' }],
       ['con active', { active: false }, { active: 'No es un campo admitido.' }],
     ])('%s: 400 y no se escribe nada', async (_case, body, details) => {
       const before = await snapshot();
@@ -182,19 +182,42 @@ describe('PATCH /api/v1/cases/:caseId', () => {
     });
   });
 
-  describe('cliente, responsable y calificaciones', () => {
-    // CA-19.7
-    it('cambiar el cliente no recalcula la carátula: queda la enviada o la anterior', async () => {
-      const other = await createClient();
+  // D-110: quién opera la causa. Primero 404, después 403.
+  describe('quién la modifica (D-110)', () => {
+    const otherLawyer = () => loginAs({ roles: ['LAWYER'], lawyerId: s.lawyer.id + 1000 });
+    const patchAs = (auth: { Authorization: string }, body: unknown, id?: number | string) =>
+      server().patch(url(id)).set(auth).send(body as object);
 
-      const kept = expectData<Body>(await patch({ clientId: other.id }), 200);
-      expect(kept.client.id).toBe(other.id);
-      expect(kept.caption).toBe(s.caseRow.caption);
+    it('otro abogado: 403 con el texto del contrato y no se escribe nada', async () => {
+      const before = await snapshot();
 
-      const renamed = expectData<Body>(await patch({ clientId: s.client.id, caption: 'RIOS p.s.a. Robo' }), 200);
-      expect(renamed.caption).toBe('RIOS p.s.a. Robo');
+      const res = await patchAs(otherLawyer(), { court: 'Juzgado N° 9' });
+
+      expectError(res, 403, 'FORBIDDEN');
+      expect(res.body.error.message).toBe('Solo el abogado responsable de la causa puede modificarla.');
+      expect(res.body.error.details).toBeNull();
+      expect(await snapshot()).toEqual(before);
     });
 
+    it.each<[string, { roles: ('ADMINISTRATOR' | 'LAWYER' | 'SECRETARY')[]; ownLawyer: boolean }]>([
+      ['el abogado responsable', { roles: ['LAWYER'], ownLawyer: true }],
+      ['un ADMINISTRATOR que no es el responsable', { roles: ['ADMINISTRATOR'], ownLawyer: false }],
+      ['un abogado con rol SECRETARY que no es el responsable', { roles: ['LAWYER', 'SECRETARY'], ownLawyer: false }],
+    ])('%s: 200', async (_name, { roles, ownLawyer }) => {
+      const user = await createUser({ roles });
+      const auth = loginAs({ userId: user.id, roles, lawyerId: ownLawyer ? s.lawyer.id : null });
+
+      const res = await patchAs(auth, { court: 'Juzgado N° 9' });
+
+      expect(expectData<Body>(res, 200).court).toBe('Juzgado N° 9');
+    });
+
+    it('una causa inexistente es 404 aunque pida otro abogado', async () => {
+      expectError(await patchAs(otherLawyer(), { court: 'Juzgado N° 9' }, 999999), 404, 'CASE_NOT_FOUND');
+    });
+  });
+
+  describe('cliente, responsable y calificaciones', () => {
     // CA-19.8
     it('el responsable nuevo registra los actos desde la próxima petición; los anteriores conservan su registeredBy', async () => {
       const actsUrl = `/api/v1/cases/${s.caseRow.id}/procedural-acts`;
@@ -224,6 +247,30 @@ describe('PATCH /api/v1/cases/:caseId', () => {
       expect(without.legalQualifications).toEqual([]);
       expect(without.prescription).toBeNull();
       expect(await getPrisma().offense.count({ where: { caseId: s.caseRow.id } })).toBe(0);
+    });
+
+    // D-113, CA-33.18: una calificación declarada prescripta queda fija.
+    it('no deja quitar una calificación declarada prescripta (422) y no se escribe nada', async () => {
+      const robbery = await createLegalQualification({ name: 'HU19 Robo declarado', prescriptionMonths: 96 });
+      const homicide = await createLegalQualification({ name: 'HU19 Homicidio', prescriptionMonths: 180 });
+      await patch({
+        legalQualifications: [
+          { legalQualificationId: robbery.id, offenseDate: '2021-02-27' },
+          { legalQualificationId: homicide.id, offenseDate: '2021-02-27' },
+        ],
+      }).expect(200);
+      await server()
+        .post(`/api/v1/cases/${s.caseRow.id}/legal-qualifications/${robbery.id}/prescription`)
+        .set(s.responsible)
+        .send({ prescriptionDate: '2026-09-15', resolution: 'Auto N° 88' })
+        .expect(200);
+      const before = await snapshot();
+
+      const res = await patch({ legalQualifications: [{ legalQualificationId: homicide.id, offenseDate: '2021-02-27' }] });
+
+      expectError(res, 422, 'LEGAL_QUALIFICATION_ALREADY_PRESCRIBED');
+      expect(res.body.error.message).toBe('No se puede quitar ni modificar una calificación legal declarada prescripta.');
+      expect(await snapshot()).toEqual(before);
     });
   });
 

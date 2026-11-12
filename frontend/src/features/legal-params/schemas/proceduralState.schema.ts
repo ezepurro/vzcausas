@@ -9,6 +9,16 @@ export type ProceduralStateErrors = Partial<Record<keyof ProceduralStateFormValu
 const NAME_MIN = 3;
 const NAME_MAX = 80;
 
+/**
+ * Topes de los controles (`maxLength`), por campo del formulario: no dejan
+ * escribir de más. Salen de las mismas constantes que valida el schema.
+ */
+export const PROCEDURAL_STATE_MAX_LENGTH = {
+    name: NAME_MAX,
+    /* El plazo va de 0 a 9999: cuatro dígitos. */
+    timeLimitDays: 4,
+} as const;
+
 /** Plazo: entero de 0 a 9999. Es string porque es lo que devuelve el input. */
 const RE_TIME_LIMIT = /^\d{1,4}$/;
 

@@ -13,10 +13,19 @@ get:
     Drive").
 
     El **ciclo de vida** sale de `GET /cases/{caseId}/timeline` (HU27, D-85),
-    que devuelve ya intercaladas y completas sus tres fuentes. La lista de
-    documentos y las acciones "Modificar causa", "Dar de baja", "Emitir
-    carátula", "Emitir expediente" y "Registrar pago de tasa" pertenecen a
-    sprints posteriores.
+    que devuelve ya intercaladas y completas sus tres fuentes. El resto del
+    detalle:
+
+    | Elemento del detalle | Endpoint | HU |
+    | -------------------- | -------- | -- |
+    | Línea "Secretario/a" del encabezado | `instructorName` en este recurso | 24 |
+    | "Modificar causa" | `PATCH /cases/{caseId}` | 19 |
+    | "Dar de baja" | `DELETE /cases/{caseId}` | 21 |
+    | Tarjeta "Documentación" | `GET /cases/{caseId}/documents` | 38 |
+    | "Generar expediente" | `POST /cases/{caseId}/case-files`, con la vista previa de `GET /cases/{caseId}/cover` | 25, 24 |
+    | "Modificar" en un acto del ciclo de vida | `PATCH /cases/{caseId}/procedural-acts/{actId}` | 28 |
+
+    "Registrar pago de tasa" y "Anular" un acto están fuera del contrato.
 
     **Rol requerido:** cualquier usuario autenticado.
   responses:
@@ -62,7 +71,9 @@ get:
                 id: 1
                 lastName: GÓMEZ
                 firstName: Ariel Fernando
-                dni: '34812905'
+                documentType: DNI
+                documentNumber: '34812905'
+                address: Av. Colón 1250, Córdoba
                 phone: 351 415-2288
                 email: afgomez@gmail.com
                 clientSince: '2021-03-12'
@@ -78,6 +89,10 @@ get:
                   offenseDate: '2021-02-27'
                   prescriptionStartsOn: '2024-07-04'
                   prescriptionExpiresOn: '2032-07-04'
+                  elapsedPercentage: 27
+                  alert: false
+                  expired: false
+                  prescriptionDeclaration: null
               prescription:
                 legalQualificationId: 1
                 legalQualificationName: Robo calificado — art. 167 inc. 2 CP
@@ -135,7 +150,9 @@ patch:
     Drive no responde, la causa se guarda igual y `folder.path` informa la
     ubicación real.
 
-    **Rol requerido:** cualquier usuario autenticado.
+    **Rol requerido:** quien opera la causa (D-110): el abogado responsable,
+    un `ADMINISTRATOR` o una `SECRETARY`. Un usuario cuyo único rol es `LAWYER`
+    y que no es el responsable recibe `403`, después del `404`.
   requestBody:
     required: true
     content:
@@ -143,7 +160,6 @@ patch:
         schema:
           $ref: ../components/schemas/CaseUpdate.yaml
         example:
-          clientId: 9
           caption: FERREYRA, Lucas Martín p.s.a. Robo calificado
   responses:
     '200':
@@ -184,6 +200,18 @@ patch:
               $ref: ../components/examples/InvalidCaseIdError.yaml
     '401':
       $ref: ../components/responses/Unauthorized.yaml
+    '403':
+      description: |
+        Un usuario cuyo único rol operativo es `LAWYER` y que no es el abogado responsable de la causa (D-110). `ADMINISTRATOR` y `SECRETARY` operan cualquier causa; con varios roles alcanza con uno. Se evalúa después del `404`.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          example:
+            error:
+              code: FORBIDDEN
+              message: Solo el abogado responsable de la causa puede modificarla.
+              details: null
     '404':
       $ref: ../components/responses/CaseNotFound.yaml
     '409':
@@ -198,16 +226,28 @@ patch:
               message: Ya existe una causa registrada con ese número de SAC.
               details: null
     '422':
-      description: Calificaciones en una causa "Prescripta" (D-96).
+      description: |
+        Calificaciones en una causa "Prescripta" (D-96), o quitar o cambiar la
+        fecha del hecho de una calificación declarada prescripta (D-113).
       content:
         application/json:
           schema:
             $ref: ../components/schemas/Error.yaml
-          example:
-            error:
-              code: CASE_IN_TERMINAL_STATE
-              message: La causa se encuentra en un estado terminal y no admite esta operación.
-              details: null
+          examples:
+            terminalState:
+              summary: Calificaciones de una causa "Prescripta"
+              value:
+                error:
+                  code: CASE_IN_TERMINAL_STATE
+                  message: La causa se encuentra en un estado terminal y no admite esta operación.
+                  details: null
+            prescribedQualification:
+              summary: Calificación declarada prescripta (D-113)
+              value:
+                error:
+                  code: LEGAL_QUALIFICATION_ALREADY_PRESCRIBED
+                  message: No se puede quitar ni modificar una calificación legal declarada prescripta.
+                  details: null
 delete:
   tags:
     - Cases
@@ -224,10 +264,16 @@ delete:
     `GET /cases` y deja de contar en `activeCases`, tableros y proceso diario.
     No hay reactivación por la API. Su SAC queda libre para otra causa.
 
-    La carpeta en Drive no se borra, no se mueve ni se renombra (RN9). El
-    motivo, el usuario y la fecha quedan registrados, sin endpoint de consulta.
+    La carpeta en Drive se mueve a la carpeta `Papelera` (`/VZ Causas/Papelera/`),
+    con lo que tiene adentro (D-104, revisión del 08/11/2026): no se borra ni se
+    purga, y una persona puede devolverla a mano. `Papelera` se crea la primera
+    vez que hace falta. Si Drive no responde, la baja no falla y la carpeta
+    queda como estaba. El motivo, el
+    usuario y la fecha quedan registrados, sin endpoint de consulta.
 
-    **Rol requerido:** cualquier usuario autenticado.
+    **Rol requerido:** quien opera la causa (D-110): el abogado responsable,
+    un `ADMINISTRATOR` o una `SECRETARY`. Un usuario cuyo único rol es `LAWYER`
+    y que no es el responsable recibe `403`, después del `404`.
   requestBody:
     required: false
     content:
@@ -258,5 +304,17 @@ delete:
               $ref: ../components/examples/InvalidCaseIdError.yaml
     '401':
       $ref: ../components/responses/Unauthorized.yaml
+    '403':
+      description: |
+        Un usuario cuyo único rol operativo es `LAWYER` y que no es el abogado responsable de la causa (D-110). `ADMINISTRATOR` y `SECRETARY` operan cualquier causa; con varios roles alcanza con uno. Se evalúa después del `404`.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          example:
+            error:
+              code: FORBIDDEN
+              message: Solo el abogado responsable de la causa puede darla de baja.
+              details: null
     '404':
       $ref: ../components/responses/CaseNotFound.yaml

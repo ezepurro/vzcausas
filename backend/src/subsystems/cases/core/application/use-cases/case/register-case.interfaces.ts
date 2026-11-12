@@ -2,7 +2,7 @@ import { CaseSnapshot } from '../../../domain/entities/case/case-snapshot';
 import { CaseFolderView } from '../../../domain/ports/case/case-folder-state.port';
 import { ClientRef, LawyerRef } from '../../../domain/ports/case/people-lookup.port';
 import { ProceduralStateRef } from '../../../domain/ports/case/legal-parameters-lookup.port';
-import { PrescriptionSummary } from '../../../domain/prescription';
+import { PrescriptionStatus, PrescriptionSummary } from '../../../domain/prescription';
 import { DayType } from '../../../domain/value-objects/deadline/day-type';
 import { HarmfulActDeadline } from '../../../domain/value-objects/case/harmful-act.vo';
 import { JurisdictionCode } from '../../../domain/value-objects/case/jurisdiction-code';
@@ -60,6 +60,9 @@ export interface RegisterCaseResult {
   // The prescription that governs the case as of today (V4 §3.7). `null` outside
   // `CRIMINAL` or without qualifications; a new case has no interruptive acts.
   prescription: PrescriptionSummary | null;
+  // The prescription status of each offense as of today (D-112): one per
+  // `newCase.offenses`, in the same order. Empty when the case has no offenses.
+  offensePrescriptions: PrescriptionStatus[];
   // The cloud folder as it stood when the registration answered (HU39): `CREATED`
   // if it was ready in time, `CREATING` if still being made, `ERROR` if it failed,
   // `PENDING` if none was asked for.

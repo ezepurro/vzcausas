@@ -1,0 +1,1953 @@
+{
+  "info": {
+    "name": "HU28 · Modificar acto procesal",
+    "description": "Prueba de punta a punta de PATCH /cases/{caseId}/procedural-acts/{actId} contra el backend de desarrollo (make dev-up), con los usuarios del seed.\nPlan: .claude/plans/tests-hu28-modificar-acto-procesal.md (sección \"Prueba manual\"). Contrato: API_CONTRACT_V5.md §3.8.\n\nCorrer TODA la colección en orden (Runner de Postman o Newman): cada paso usa lo que dejó el anterior.\nNo depende de datos previos: crea su propia causa penal por API, con fechas relativas a hoy, y al final la da de baja (RN12). No resetea la base ni cambia la tabla de estados.\n\nUsuarios: abogado / abogado123 (responsable), c.pereyra y j.ceballos con DEV_SEED_PASSWORD (otro abogado y un administrador).\nLo que no prueba: el plazo copiado cuando cambia la tabla (CA-28.5 con tabla modificada); eso está en update-procedural-act.int.spec.ts.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000/api/v1"
+    },
+    {
+      "key": "lawyerUsername",
+      "value": "abogado"
+    },
+    {
+      "key": "lawyerPassword",
+      "value": "abogado123"
+    },
+    {
+      "key": "otherLawyerUsername",
+      "value": "c.pereyra"
+    },
+    {
+      "key": "adminUsername",
+      "value": "j.ceballos"
+    },
+    {
+      "key": "seedPassword",
+      "value": "admin123"
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "const today = new Date(Date.now() - 3 * 60 * 60 * 1000);",
+          "const day = (offset) => new Date(today.getTime() + offset * 86400000).toISOString().slice(0, 10);",
+          "for (const offset of [-400, -30, -20, -12, -11, -10, -5, -1, 1, 30]) {",
+          "  pm.collectionVariables.set(offset < 0 ? 'day_m' + -offset : 'day_p' + offset, day(offset));",
+          "}"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "0 · Preparación",
+      "description": "Sesiones, estados del fuero penal y una causa nueva del abogado responsable.",
+      "item": [
+        {
+          "name": "Login del abogado responsable",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{lawyerUsername}}\",\n  \"password\": \"{{lawyerPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "// No se llama `data`: en Postman es una variable global reservada (datos de iteración).",
+                  "const session = pm.response.json().data;",
+                  "pm.collectionVariables.set('token_lawyer', session.accessToken);",
+                  "pm.collectionVariables.set('lawyerUserId', session.user.id);",
+                  "pm.collectionVariables.set('lawyerId', session.user.lawyer.id);",
+                  "pm.collectionVariables.set('lawyerLastName', session.user.lastName);",
+                  "pm.collectionVariables.set('lawyerFirstName', session.user.firstName);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login de otro abogado",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{otherLawyerUsername}}\",\n  \"password\": \"{{seedPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('token_other', pm.response.json().data.accessToken);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login de un administrador",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{adminUsername}}\",\n  \"password\": \"{{seedPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('token_admin', pm.response.json().data.accessToken);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Estados del fuero penal",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_lawyer}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/procedural-states?jurisdiction=CRIMINAL&limit=100",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "procedural-states"
+              ],
+              "query": [
+                {
+                  "key": "jurisdiction",
+                  "value": "CRIMINAL"
+                },
+                {
+                  "key": "limit",
+                  "value": "100"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "const states = pm.response.json().data.filter((s) => s.active);",
+                  "const withTerm = states.filter((s) => !s.terminal && s.timeLimitDays > 0);",
+                  "const archived = states.find((s) => s.terminal && s.name !== 'Prescripta');",
+                  "const prescribed = states.find((s) => s.name === 'Prescripta');",
+                  "pm.test('hay dos estados con plazo, uno terminal y \"Prescripta\"', () => {",
+                  "  pm.expect(withTerm.length).to.be.at.least(2);",
+                  "  pm.expect(archived, 'estado terminal').to.exist;",
+                  "  pm.expect(prescribed, '\"Prescripta\"').to.exist;",
+                  "});",
+                  "pm.collectionVariables.set('stateA', withTerm[0].id);",
+                  "pm.collectionVariables.set('stateB', withTerm[1].id);",
+                  "pm.collectionVariables.set('stateBTimeLimitDays', withTerm[1].timeLimitDays);",
+                  "pm.collectionVariables.set('stateArchived', archived.id);",
+                  "pm.collectionVariables.set('archivedName', archived.name);",
+                  "pm.collectionVariables.set('statePrescribed', prescribed.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Un cliente",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_lawyer}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/clients?limit=1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "clients"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "1"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 con al menos un cliente', () => pm.expect(pm.response.json().data.length).to.be.at.least(1));",
+                  "pm.collectionVariables.set('clientId', pm.response.json().data[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Una calificación legal",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_lawyer}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/legal-qualifications?limit=1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "legal-qualifications"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "1"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 con al menos una calificación', () => pm.expect(pm.response.json().data.length).to.be.at.least(1));",
+                  "pm.collectionVariables.set('qualificationId', pm.response.json().data[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Registrar una causa penal del abogado",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_lawyer}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cases",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cases"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"jurisdiction\": \"CRIMINAL\",\n  \"caption\": \"HU28 POSTMAN p.s.a. Prueba de modificación de actos\",\n  \"clientId\": {{clientId}},\n  \"proceduralRole\": \"DEFENSA\",\n  \"responsibleLawyerId\": {{lawyerId}},\n  \"legalQualifications\": [\n    {\n      \"legalQualificationId\": {{qualificationId}},\n      \"offenseDate\": \"{{day_m400}}\"\n    }\n  ],\n  \"createFolder\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('caseId', pm.response.json().data.id);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "1 · Modificación y plazo",
+      "description": "CA-28.1, CA-28.4, CA-28.5, CA-28.6, CA-28.10.",
+      "item": [
+        {
+          "name": "Registrar el acto A",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_lawyer}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cases/{{caseId}}/procedural-acts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cases",
+                "{{caseId}}",
+                "procedural-acts"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"proceduralStateId\": {{stateA}},\n  \"actDate\": \"{{day_m10}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201', () => pm.response.to.have.status(201));",
+                  "const act = pm.response.json().data;",
+                  "pm.test('CA-28.10: un acto recién registrado trae lastModifiedBy y lastModifiedAt en null', () => {",
+                  "  pm.expect(act).to.have.property('lastModifiedBy', null);",
+                  "  pm.expect(act).to.have.property('lastModifiedAt', null);",
+                  "});",
+                  "pm.collectionVariables.set('actAId', act.id);",
+                  "pm.collectionVariables.set('actARegisteredAt', act.registeredAt);",
+                  "pm.collectionVariables.set('actATimeLimitDays', act.deadline.timeLimitDays);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Vencimiento esperado con la fecha corregida (preview)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_lawyer}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cases/{{caseId}}/procedural-acts/deadline-preview?proceduralStateId={{stateA}}&actDate={{day_m12}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cases",
+                "{{caseId}}",
+                "procedural-acts",
+                "deadline-preview"
+              ],
+              "query": [
+                {
+                  "key": "proceduralStateId",
+                  "value": "{{stateA}}"
+                },
+                {
+                  "key": "actDate",
+                  "value": "{{day_m12}}"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('expectedDueSameState', pm.response.json().data.dueDate);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH: corregir fecha y observaciones",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_lawyer}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cases/{{caseId}}/procedural-acts/{{actAId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cases",
+                "{{caseId}}",
+                "procedural-acts",
+                "{{actAId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"actDate\": \"{{day_m12}}\",\n  \"notes\": \"Se corrigió la fecha del acto.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('CA-28.1: 200', () => pm.response.to.have.status(200));",
+                  "const act = pm.response.json().data;",
+                  "const v = (k) => pm.collectionVariables.get(k);",
+                  "pm.test('CA-28.1: los cambios quedan', () => {",
+                  "  pm.expect(act.actDate).to.eql(v('day_m12'));",
+                  "  pm.expect(act.notes).to.eql('Se corrigió la fecha del acto.');",
+                  "});",
+                  "pm.test('CA-28.5: mismo estado, el vencimiento se mueve con el plazo copiado', () => {",
+                  "  pm.expect(act.deadline.timeLimitDays).to.eql(Number(v('actATimeLimitDays')));",
+                  "  pm.expect(act.deadline.countsFrom).to.eql(v('day_m12'));",
+                  "  pm.expect(act.deadline.computedDueDate).to.eql(v('expectedDueSameState'));",
+                  "});",
+                  "pm.test('CA-28.10: registeredAt no cambia; lastModifiedBy es el usuario y lastModifiedAt tiene hora con -03:00', () => {",
+                  "  pm.expect(act.registeredAt).to.eql(v('actARegisteredAt'));",
+                  "  pm.expect(act.lastModifiedBy).to.eql({ id: Number(v('lawyerUserId')), lastName: v('lawyerLastName'), firstName: v('lawyerFirstName') });",
+                  "  pm.expect(act.lastModifiedAt).to.match(/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}-03:00$/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Vencimiento esperado con el estado nuevo (preview)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_lawyer}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cases/{{caseId}}/procedural-acts/deadline-preview?proceduralStateId={{stateB}}&actDate={{day_m12}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cases",
+                "{{caseId}}",
+                "procedural-acts",
+                "deadline-preview"
+              ],
+              "query": [
+                {
+                  "key": "proceduralStateId",
+                  "value": "{{stateB}}"
+                },
+                {
+                  "key": "actDate",
+                  "value": "{{day_m12}}"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('expectedDueNewState', pm.response.json().data.dueDate);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH: cambiar el estado",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_lawyer}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cases/{{caseId}}/procedural-acts/{{actAId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cases",
+                "{{caseId}}",
+                "procedural-acts",
+                "{{actAId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"proceduralStateId\": {{stateB}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "const { deadline, resultingState } = pm.response.json().data;",
+                  "pm.test('CA-28.4: plazo y vencimiento de la tabla del estado nuevo', () => {",
+                  "  pm.expect(resultingState.proceduralStateId).to.eql(Number(pm.collectionVariables.get('stateB')));",
+                  "  pm.expect(deadline.timeLimitDays).to.eql(Number(pm.collectionVariables.get('stateBTimeLimitDays')));",
+                  "  pm.expect(deadline.computedDueDate).to.eql(pm.collectionVariables.get('expectedDueNewState'));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH: ajustar el vencimiento a mano",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_lawyer}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cases/{{caseId}}/procedural-acts/{{actAId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cases",
+                "{{caseId}}",
+                "procedural-acts",
+                "{{actAId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"manualDueDate\": \"{{day_p30}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "const { deadline } = pm.response.json().data;",
+                  "pm.test('el vencimiento vigente es el manual', () => {",
+                  "  pm.expect(deadline.manuallyAdjusted).to.eql(true);",
+                  "  pm.expect(deadline.dueDate).to.eql(pm.collectionVariables.get('day_p30'));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH: mover la fecha sin tocar el ajuste",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_lawyer}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cases/{{caseId}}/procedural-acts/{{actAId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cases",
+                "{{caseId}}",
+                "procedural-acts",
+                "{{actAId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"actDate\": \"{{day_m11}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "pm.test('CA-28.6: el ajuste manual que no se toca se conserva', () => {",
+                  "  const { deadline } = pm.response.json().data;",
+                  "  pm.expect(deadline.manuallyAdjusted).to.eql(true);",
+                  "  pm.expect(deadline.dueDate).to.eql(pm.collectionVariables.get('day_p30'));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH: quitar el ajuste",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_lawyer}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cases/{{caseId}}/procedural-acts/{{actAId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cases",
+                "{{caseId}}",
+                "procedural-acts",
+                "{{actAId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"manualDueDate\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "pm.test('CA-28.6: en null vuelve al vencimiento calculado', () => {",
+                  "  const { deadline } = pm.response.json().data;",
+                  "  pm.expect(deadline.manuallyAdjusted).to.eql(false);",
+                  "  pm.expect(deadline.manualTimeLimitDays).to.eql(null);",
+                  "  pm.expect(deadline.dueDate).to.eql(deadline.computedDueDate);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2 · Rechazos",
+      "description": "CA-28.2, CA-28.3, CA-28.11. Ninguno modifica el acto.",
+      "item": [
+        {
+          "name": "400: los dos estados y un ajuste anterior (ejemplo del contrato)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_lawyer}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cases/{{caseId}}/procedural-acts/{{actAId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cases",
+                "{{caseId}}",
+                "procedural-acts",
+                "{{actAId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"proceduralStateId\": {{stateA}},\n  \"customState\": \"Otro\",\n  \"manualDueDate\": \"{{day_m30}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 VALIDATION_ERROR', () => pm.response.to.have.status(400));",
+                  "pm.test('error del contrato, textual', () => {",
+                  "  pm.expect(pm.response.json()).to.eql({ error: { code: 'VALIDATION_ERROR', message: \"Los datos enviados no son válidos.\", details: {\"proceduralStateId\":\"Elegí un estado de la tabla o escribí uno, no las dos cosas.\",\"manualDueDate\":\"No puede ser anterior a la fecha desde la que corre el plazo.\"} } });",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "400: \"Prescripta\" como destino",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_lawyer}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cases/{{caseId}}/procedural-acts/{{actAId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cases",
+                "{{caseId}}",
+                "procedural-acts",
+                "{{actAId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"proceduralStateId\": {{statePrescribed}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 VALIDATION_ERROR', () => pm.response.to.have.status(400));",
+                  "pm.test('error del contrato, textual', () => {",
+                  "  pm.expect(pm.response.json()).to.eql({ error: { code: 'VALIDATION_ERROR', message: \"Los datos enviados no son válidos.\", details: {\"proceduralStateId\":\"El estado procesal no pertenece al fuero de la causa o es el estado Prescripta.\"} } });",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "400: fecha del acto posterior a hoy",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_lawyer}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cases/{{caseId}}/procedural-acts/{{actAId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cases",
+                "{{caseId}}",
+                "procedural-acts",
+                "{{actAId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"actDate\": \"{{day_p1}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 VALIDATION_ERROR', () => pm.response.to.have.status(400));",
+                  "pm.test('error del contrato, textual', () => {",
+                  "  pm.expect(pm.response.json()).to.eql({ error: { code: 'VALIDATION_ERROR', message: \"Los datos enviados no son válidos.\", details: {\"actDate\":\"No puede ser posterior a la fecha de hoy.\"} } });",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "400: pedido sin campos",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_lawyer}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cases/{{caseId}}/procedural-acts/{{actAId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cases",
+                "{{caseId}}",
+                "procedural-acts",
+                "{{actAId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 VALIDATION_ERROR', () => pm.response.to.have.status(400));",
+                  "pm.test('error del contrato, textual', () => {",
+                  "  pm.expect(pm.response.json()).to.eql({ error: { code: 'VALIDATION_ERROR', message: \"Los datos enviados no son válidos.\", details: {\"body\":\"Debe enviarse al menos un campo para modificar.\"} } });",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "403: otro abogado",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_other}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cases/{{caseId}}/procedural-acts/{{actAId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cases",
+                "{{caseId}}",
+                "procedural-acts",
+                "{{actAId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"notes\": \"Intento de otro abogado.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403 FORBIDDEN', () => pm.response.to.have.status(403));",
+                  "pm.test('error del contrato, textual', () => {",
+                  "  pm.expect(pm.response.json()).to.eql({ error: { code: 'FORBIDDEN', message: \"Solo el abogado responsable de la causa puede modificar sus actos procesales.\", details: null } });",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "403: un administrador",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_admin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cases/{{caseId}}/procedural-acts/{{actAId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cases",
+                "{{caseId}}",
+                "procedural-acts",
+                "{{actAId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"notes\": \"Intento de un administrador.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403 FORBIDDEN', () => pm.response.to.have.status(403));",
+                  "pm.test('error del contrato, textual', () => {",
+                  "  pm.expect(pm.response.json()).to.eql({ error: { code: 'FORBIDDEN', message: \"Solo el abogado responsable de la causa puede modificar sus actos procesales.\", details: null } });",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "404: acto inexistente",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_lawyer}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cases/{{caseId}}/procedural-acts/999999999",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cases",
+                "{{caseId}}",
+                "procedural-acts",
+                "999999999"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"notes\": \"x\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 PROCEDURAL_ACT_NOT_FOUND', () => pm.response.to.have.status(404));",
+                  "pm.test('error del contrato, textual', () => {",
+                  "  pm.expect(pm.response.json()).to.eql({ error: { code: 'PROCEDURAL_ACT_NOT_FOUND', message: \"No se encontró el acto procesal solicitado.\", details: null } });",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "404: causa inexistente",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_lawyer}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cases/999999999/procedural-acts/{{actAId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cases",
+                "999999999",
+                "procedural-acts",
+                "{{actAId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"notes\": \"x\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 CASE_NOT_FOUND', () => pm.response.to.have.status(404));",
+                  "pm.test('error del contrato, textual', () => {",
+                  "  pm.expect(pm.response.json()).to.eql({ error: { code: 'CASE_NOT_FOUND', message: \"No se encontró la causa solicitada.\", details: null } });",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "400: actId no entero",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_lawyer}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cases/{{caseId}}/procedural-acts/abc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cases",
+                "{{caseId}}",
+                "procedural-acts",
+                "abc"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"notes\": \"x\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 INVALID_PATH_PARAMETER', () => pm.response.to.have.status(400));",
+                  "pm.test('error del contrato, textual', () => {",
+                  "  pm.expect(pm.response.json()).to.eql({ error: { code: 'INVALID_PATH_PARAMETER', message: \"El identificador del acto procesal no es válido.\", details: {\"actId\":\"Debe ser un número entero válido.\"} } });",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Los rechazos no tocaron el acto",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_lawyer}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cases/{{caseId}}/procedural-acts/{{actAId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cases",
+                "{{caseId}}",
+                "procedural-acts",
+                "{{actAId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "pm.test('sigue con las observaciones y la fecha de antes', () => {",
+                  "  const act = pm.response.json().data;",
+                  "  pm.expect(act.notes).to.eql('Se corrigió la fecha del acto.');",
+                  "  pm.expect(act.actDate).to.eql(pm.collectionVariables.get('day_m11'));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3 · Estado actual de la causa",
+      "description": "CA-28.7, CA-28.8, CA-28.10 (línea de vida).",
+      "item": [
+        {
+          "name": "Registrar el acto B, más reciente",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_lawyer}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cases/{{caseId}}/procedural-acts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cases",
+                "{{caseId}}",
+                "procedural-acts"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"proceduralStateId\": {{stateA}},\n  \"actDate\": \"{{day_m5}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('actBId', pm.response.json().data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "La causa está en el acto B",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_lawyer}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cases/{{caseId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cases",
+                "{{caseId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('rige B', () => pm.expect(pm.response.json().data.currentState.proceduralActId).to.eql(Number(pm.collectionVariables.get('actBId'))));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH: B pasa a una fecha anterior a A",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_lawyer}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cases/{{caseId}}/procedural-acts/{{actBId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cases",
+                "{{caseId}}",
+                "procedural-acts",
+                "{{actBId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"actDate\": \"{{day_m20}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CA-28.7: ahora rige A",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_lawyer}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cases/{{caseId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cases",
+                "{{caseId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('la causa pasó al acto A, el de fecha más reciente', () => {",
+                  "  pm.expect(pm.response.json().data.currentState.proceduralActId).to.eql(Number(pm.collectionVariables.get('actAId')));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Línea de vida: current y trazabilidad",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_lawyer}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cases/{{caseId}}/timeline",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cases",
+                "{{caseId}}",
+                "timeline"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "const acts = pm.response.json().data.filter((e) => e.type === 'PROCEDURAL_ACT');",
+                  "const byId = (id) => acts.find((e) => e.proceduralAct.id === Number(pm.collectionVariables.get(id)));",
+                  "pm.test('CA-28.7: current está en A y no en B', () => {",
+                  "  pm.expect(byId('actAId').current).to.eql(true);",
+                  "  pm.expect(byId('actBId').current).to.eql(false);",
+                  "});",
+                  "pm.test('CA-28.10: la entrada de B trae quién la modificó', () => {",
+                  "  pm.expect(byId('actBId').proceduralAct.lastModifiedBy.id).to.eql(Number(pm.collectionVariables.get('lawyerUserId')));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH: A pasa a un estado terminal",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_lawyer}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cases/{{caseId}}/procedural-acts/{{actAId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cases",
+                "{{caseId}}",
+                "procedural-acts",
+                "{{actAId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"proceduralStateId\": {{stateArchived}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "pm.test('un estado terminal no abre plazo', () => pm.expect(pm.response.json().data.deadline).to.eql(null));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CA-28.8: la causa quedó cerrada",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_lawyer}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cases/{{caseId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cases",
+                "{{caseId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('está en el estado terminal, sin vencimiento', () => {",
+                  "  const state = pm.response.json().data.currentState;",
+                  "  pm.expect(state.name).to.eql(pm.collectionVariables.get('archivedName'));",
+                  "  pm.expect(state.dueDate).to.eql(null);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CA-28.8: no admite actos nuevos",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_lawyer}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cases/{{caseId}}/procedural-acts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cases",
+                "{{caseId}}",
+                "procedural-acts"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"proceduralStateId\": {{stateA}},\n  \"actDate\": \"{{day_m1}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422 CASE_IN_TERMINAL_STATE', () => {",
+                  "  pm.response.to.have.status(422);",
+                  "  pm.expect(pm.response.json().error.code).to.eql('CASE_IN_TERMINAL_STATE');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH: corregir el terminal mal elegido",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_lawyer}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cases/{{caseId}}/procedural-acts/{{actAId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cases",
+                "{{caseId}}",
+                "procedural-acts",
+                "{{actAId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"proceduralStateId\": {{stateA}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('CA-28.9: en un terminal que no es \"Prescripta\" la modificación procede', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CA-28.8: la causa reabierta admite actos nuevos",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_lawyer}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cases/{{caseId}}/procedural-acts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cases",
+                "{{caseId}}",
+                "procedural-acts"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"proceduralStateId\": {{stateA}},\n  \"actDate\": \"{{day_m30}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4 · Causa prescripta y dada de baja",
+      "description": "CA-28.9, CA-28.11. Al final la causa queda dada de baja.",
+      "item": [
+        {
+          "name": "Marcar la causa como prescripta (HU33)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_lawyer}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cases/{{caseId}}/prescription",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cases",
+                "{{caseId}}",
+                "prescription"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"prescriptionDate\": \"{{day_m1}}\",\n  \"resolution\": \"Prueba de Postman de HU28\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "422: modificar un acto de una causa prescripta",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_lawyer}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cases/{{caseId}}/procedural-acts/{{actAId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cases",
+                "{{caseId}}",
+                "procedural-acts",
+                "{{actAId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"notes\": \"Intento sobre una causa prescripta.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422 CASE_IN_TERMINAL_STATE', () => pm.response.to.have.status(422));",
+                  "pm.test('error del contrato, textual', () => {",
+                  "  pm.expect(pm.response.json()).to.eql({ error: { code: 'CASE_IN_TERMINAL_STATE', message: \"La causa está prescripta: sus actos procesales no se pueden modificar.\", details: null } });",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Dar de baja la causa (limpieza, RN12)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_lawyer}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cases/{{caseId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cases",
+                "{{caseId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Causa de prueba de la colección de Postman de HU28.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "404: causa dada de baja",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_lawyer}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cases/{{caseId}}/procedural-acts/{{actAId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cases",
+                "{{caseId}}",
+                "procedural-acts",
+                "{{actAId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"notes\": \"x\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 CASE_NOT_FOUND', () => pm.response.to.have.status(404));",
+                  "pm.test('error del contrato, textual', () => {",
+                  "  pm.expect(pm.response.json()).to.eql({ error: { code: 'CASE_NOT_FOUND', message: \"No se encontró la causa solicitada.\", details: null } });",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

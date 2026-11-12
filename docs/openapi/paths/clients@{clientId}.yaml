@@ -27,7 +27,9 @@ get:
               id: 1
               lastName: GÓMEZ
               firstName: Ariel Fernando
-              dni: '34812905'
+              documentType: DNI
+              documentNumber: '34812905'
+              address: Av. Colón 1250, Córdoba
               phone: 351 415-2288
               email: afgomez@gmail.com
               clientSince: '2021-03-12'

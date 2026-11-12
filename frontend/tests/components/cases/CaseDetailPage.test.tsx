@@ -4,7 +4,7 @@ import { http, HttpResponse } from 'msw'
 import { renderWithProviders } from '../../setup/render'
 import { personNameIn } from '../../setup/names'
 import { server } from '@/shared/mocks/server'
-import { errorBody, resetMockDb } from '@/shared/mocks'
+import { db, errorBody, resetMockDb } from '@/shared/mocks'
 import { CaseDetailPage } from '@/features/cases/pages/CaseDetailPage'
 
 /**
@@ -76,11 +76,14 @@ describe('CaseDetailPage', () => {
             await headerOf('Causa 13284571')
 
             expect(panelTitle('Cliente')).toBeInTheDocument()
-            expect(screen.getByText('GÓMEZ, Ariel Fernando')).toBeInTheDocument()
-            expect(screen.getByText('34.812.905')).toBeInTheDocument()
-            expect(screen.getByText('351 415-2288')).toBeInTheDocument()
-            expect(screen.getByText('afgomez@gmail.com')).toBeInTheDocument()
-            expect(screen.getByText('12/03/2021')).toBeInTheDocument()
+            /* Dentro de la tarjeta: el 12/03/2021 es también la fecha del primer
+               acto de la línea de vida, que llega junto con la causa. */
+            const card = within(panelTitle('Cliente').closest('.vz-panel') as HTMLElement)
+            expect(card.getByText('GÓMEZ, Ariel Fernando')).toBeInTheDocument()
+            expect(card.getByText('34.812.905')).toBeInTheDocument()
+            expect(card.getByText('351 415-2288')).toBeInTheDocument()
+            expect(card.getByText('afgomez@gmail.com')).toBeInTheDocument()
+            expect(card.getByText('12/03/2021')).toBeInTheDocument()
         })
     })
 
@@ -102,6 +105,91 @@ describe('CaseDetailPage', () => {
             // Las dos fechas de esa calificación, no las de la otra.
             expect(screen.getByText('02/09/2026')).toBeInTheDocument()
             expect(screen.getByText('02/09/2028')).toBeInTheDocument()
+        })
+
+        /* D-112. La causa 13 tiene Amenazas coactivas (2 años desde el
+           02/07/2024: prescribió el 02/07/2026) y Encubrimiento (6 años desde el
+           acto interruptivo del 20/06/2024: vence el 20/06/2030, 37 %). Rige
+           Amenazas, pero ya prescribió: la barra muestra Encubrimiento. */
+        it('si el delito que prescribe primero ya prescribió, la barra muestra el próximo', async () => {
+            renderPage(13)
+            await headerOf('Causa 12660318')
+
+            expect(screen.getByText(/^· Encubrimiento/)).toBeInTheDocument()
+            expect(screen.queryByText(/^· Amenazas coactivas/)).not.toBeInTheDocument()
+            expect(screen.getByRole('meter', { name: 'Prescripción transcurrida' })).toHaveAttribute('aria-valuetext', '37 %')
+            expect(screen.getByText('20/06/2030')).toBeInTheDocument()
+            expect(
+                screen.getByText(
+                    'Cómputo reiniciado por el acto interruptivo registrado el 20/06/2024. Próximo a prescribir: Encubrimiento — art. 277 CP.',
+                ),
+            ).toBeInTheDocument()
+            // D-113, CA-32.13: debajo, la que cumplió su plazo y falta declarar, en su barra chica.
+            expect(screen.getByRole('meter', { name: 'Prescripción transcurrida de Amenazas coactivas — art. 149 bis CP' }))
+                .toHaveAttribute('aria-valuetext', 'Plazo cumplido · falta declararla')
+        })
+
+        // D-113: ninguna corre y falta declararlas: no hay barra principal, sólo las chicas.
+        it('si todas las que faltan declarar cumplieron su plazo, no hay barra principal y lo dice', async () => {
+            const stored = db.cases.find((c) => c.id === 13)!
+            stored.qualifications = stored.qualifications.filter((q) => q.legalQualificationId === 4)
+            renderPage(13)
+            await headerOf('Causa 12660318')
+
+            expect(screen.getByText('Todos los delitos que faltan declarar cumplieron su plazo.')).toBeInTheDocument()
+            expect(screen.queryByText('Prescripción de la acción', { exact: false })).not.toBeInTheDocument()
+            expect(screen.getAllByRole('meter')).toHaveLength(1)
+        })
+
+        /* D-113. La causa 10 está marcada prescripta el 05/03/2020: la barra
+           sigue mostrando `prescription` como dato histórico, en rojo y con la
+           fecha de la declaración en lugar de "Plazo cumplido". */
+        it('en una causa marcada prescripta, la barra dice "Prescripta el …" y va en rojo', async () => {
+            renderPage(10)
+            await headerOf('Causa 10230417')
+
+            const meter = screen.getByRole('meter', { name: 'Prescripción transcurrida' })
+            const bar = meter.closest('.vz-presc') as HTMLElement
+            expect(within(bar).getByText('Prescripta el 05/03/2020')).toBeInTheDocument()
+            expect(within(bar).queryByText('Plazo cumplido')).not.toBeInTheDocument()
+            expect(meter).toHaveClass('vz-meter--danger')
+        })
+
+        // D-112: el encabezado lista todos los delitos de la causa, con su estado.
+        it('lista los delitos de la causa en el encabezado: los que prescribieron, el próximo y los vigentes', async () => {
+            renderPage(13)
+            const header = await headerOf('Causa 12660318')
+
+            const list = within(header).getByRole('list', { name: 'Calificaciones legales' })
+            const rows = within(list).getAllByRole('listitem')
+            // Por vencimiento: primero la que ya prescribió.
+            expect(rows).toHaveLength(2)
+            expect(rows[0]).toHaveTextContent('Amenazas coactivas — art. 149 bis CP')
+            // D-113: cumplió su plazo pero nadie la declaró: "Plazo cumplido", no "Prescripta".
+            expect(rows[0]).toHaveTextContent('Plazo cumplido')
+            expect(rows[1]).toHaveTextContent('Encubrimiento — art. 277 CP')
+            expect(rows[1]).toHaveTextContent('Próximo a prescribir')
+            expect(rows[1]).toHaveTextContent('6 años · vence el 20/06/2030')
+        })
+
+        it('marca como vigentes los que no son el próximo', async () => {
+            renderPage(7, 'mferreyra')
+            await headerOf('Causa 14118903')
+
+            const rows = within(screen.getByRole('list', { name: 'Calificaciones legales' })).getAllByRole('listitem')
+            expect(rows[0]).toHaveTextContent(/Amenazas coactivas.*Próximo a prescribir/)
+            expect(rows[1]).toHaveTextContent(/Lesiones graves.*Vigente/)
+        })
+
+        it('fuera del penal, o sin calificaciones, no hay lista de calificaciones', async () => {
+            const amparo = renderPage(22)
+            await screen.findByText('Ciclo de vida de la causa', { selector: '.vz-panel__title' })
+            expect(screen.queryByRole('list', { name: 'Calificaciones legales' })).not.toBeInTheDocument()
+            amparo.unmount()
+
+            renderPage(23, 'mferreyra')
+            await headerOf('Causa sin SAC')
+            expect(screen.queryByRole('list', { name: 'Calificaciones legales' })).not.toBeInTheDocument()
         })
     })
 

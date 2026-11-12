@@ -12,6 +12,7 @@ import {
   FakeDeadlineDetection,
   FakePrescriptionDetection,
 } from '../../shared/fakes/deadline-detection.fake';
+import { DEV_TOOLS_ENABLED } from '../../../src/subsystems/deadlines/core/domain/ports/daily-digest-config.port';
 import { EMAIL_SENDER } from '../../../src/subsystems/deadlines/core/domain/ports/email-sender.port';
 import { DEADLINE_DETECTION } from '../../../src/subsystems/deadlines/core/domain/ports/deadline-detection.port';
 import { PRESCRIPTION_DETECTION } from '../../../src/subsystems/deadlines/core/domain/ports/prescription-detection.port';
@@ -56,7 +57,10 @@ describe('POST /api/v1/internal/deadlines/daily-run', () => {
         .overrideProvider(DEADLINE_DETECTION)
         .useValue(deadlineDetection)
         .overrideProvider(PRESCRIPTION_DETECTION)
-        .useValue(prescriptionDetection),
+        .useValue(prescriptionDetection)
+        // La suite corre con NODE_ENV=test; `?dev=true` solo anda en development.
+        .overrideProvider(DEV_TOOLS_ENABLED)
+        .useValue(true),
     );
   });
 
@@ -221,6 +225,59 @@ describe('POST /api/v1/internal/deadlines/daily-run', () => {
       const rows = await getPrisma().sentNotification.findMany({ where: { caseId: createdCase.id } });
       expect(rows).toHaveLength(1); // solo la casilla; el abogado queda pendiente para el próximo reintento
       expect(rows[0].recipientLawyerId).toBeNull();
+    });
+  });
+
+  // ── Atajo de desarrollo: ?dev=true (la campanita del frontend) ───────
+
+  describe('con ?dev=true', () => {
+    /** `DEV_TOOLS_ENABLED` vale `true` en esta app (ver `beforeAll`); fuera de desarrollo lo rechaza el controller. */
+    const runDev = (dev: string) =>
+      request(app.getHttpServer()).post(PATH).query({ dev }).set(SECRET_HEADER, TRIGGER_SECRET).send();
+
+    it('permite repetir la corrida: borra el historial y manda de nuevo lo que ya se había avisado', async () => {
+      const admin = await createUser({ roles: ['ADMINISTRATOR'] });
+      const { lawyer, case: createdCase } = await aCaseWithLawyer(admin.id);
+      deadlineDetection.notices = [
+        aDeadlineNotice({ caseId: createdCase.id, responsibleLawyerId: lawyer.id }),
+      ];
+
+      const first = await runDev('true');
+      const second = await runDev('true');
+
+      expect(first.body.mailboxSent).toBe(true);
+      expect(second.body.mailboxSent).toBe(true); // sin dev, la segunda no reenvía (CA-30.7)
+      expect(emailSender.sent).toHaveLength(2);
+      // Quedó registrado de nuevo: el historial se vacía antes de enviar, no después.
+      expect(await getPrisma().sentNotification.count({ where: { caseId: createdCase.id } })).toBe(1);
+    });
+
+    it('con dev=false se comporta como siempre y no toca el historial', async () => {
+      const admin = await createUser({ roles: ['ADMINISTRATOR'] });
+      const { lawyer, case: createdCase } = await aCaseWithLawyer(admin.id);
+      deadlineDetection.notices = [
+        aDeadlineNotice({ caseId: createdCase.id, responsibleLawyerId: lawyer.id }),
+      ];
+
+      await runDev('false');
+      const second = await runDev('false');
+
+      expect(second.body.mailboxSent).toBe(false);
+      expect(emailSender.sent).toHaveLength(1);
+    });
+
+    it('un valor que no es true ni false es 400 sobre dev y no borra nada', async () => {
+      const admin = await createUser({ roles: ['ADMINISTRATOR'] });
+      const { lawyer, case: createdCase } = await aCaseWithLawyer(admin.id);
+      deadlineDetection.notices = [
+        aDeadlineNotice({ caseId: createdCase.id, responsibleLawyerId: lawyer.id }),
+      ];
+      await run();
+
+      const res = await runDev('quizás');
+
+      expectError(res, 400, 'VALIDATION_ERROR', ['dev']);
+      expect(await getPrisma().sentNotification.count({ where: { caseId: createdCase.id } })).toBe(1);
     });
   });
 });

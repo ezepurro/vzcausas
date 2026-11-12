@@ -10,6 +10,8 @@ required:
   - deadline
   - registeredBy
   - registeredAt
+  - lastModifiedBy
+  - lastModifiedAt
 properties:
   id:
     type: integer
@@ -57,3 +59,19 @@ properties:
     description: Fecha y hora del registro.
     examples:
       - '2026-09-09T11:42:00-03:00'
+  lastModifiedBy:
+    description: |
+      Usuario que modificó el acto por última vez (HU28, D-98). `null` si nunca
+      se modificó. El historial completo de cambios queda en la auditoría, sin
+      endpoint.
+    oneOf:
+      - $ref: ./UserSummary.yaml
+      - type: 'null'
+  lastModifiedAt:
+    type:
+      - string
+      - 'null'
+    format: date-time
+    description: Fecha y hora de la última modificación. `null` si nunca se modificó.
+    examples:
+      - '2026-09-15T09:20:00-03:00'

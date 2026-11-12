@@ -39,8 +39,10 @@ const CRIMINAL: Case = {
         id: 1,
         lastName: 'GÓMEZ',
         firstName: 'Ariel Fernando',
-        dni: '34812905',
-        phone: null,
+        documentType: 'DNI',
+        documentNumber: '34812905',
+        address: 'Av. Colón 1250, Córdoba',
+        phone: '351 415-2288',
         email: null,
         clientSince: '2021-03-01',
     },
@@ -53,6 +55,10 @@ const CRIMINAL: Case = {
             offenseDate: '2021-02-27',
             prescriptionStartsOn: '2021-02-27',
             prescriptionExpiresOn: '2036-02-27',
+            elapsedPercentage: 38,
+            alert: false,
+            expired: false,
+            prescriptionDeclaration: null,
         },
         {
             id: 7,
@@ -61,6 +67,10 @@ const CRIMINAL: Case = {
             offenseDate: '2021-02-27',
             prescriptionStartsOn: '2021-02-27',
             prescriptionExpiresOn: '2023-02-27',
+            elapsedPercentage: 100,
+            alert: true,
+            expired: true,
+            prescriptionDeclaration: null,
         },
     ],
     prescription: null,
@@ -124,11 +134,15 @@ describe('buildCasePatch', () => {
         expect(buildCasePatch(CRIMINAL, edit(CRIMINAL, { instructorName: '   ' }))).toEqual({ instructorName: null })
     })
 
-    it('el cliente y el responsable viajan como número', () => {
-        expect(buildCasePatch(CRIMINAL, edit(CRIMINAL, { clientId: '2', responsibleLawyerId: '5' }))).toEqual({
-            clientId: 2,
+    it('el responsable viaja como número', () => {
+        expect(buildCasePatch(CRIMINAL, edit(CRIMINAL, { responsibleLawyerId: '5' }))).toEqual({
             responsibleLawyerId: 5,
         })
+    })
+
+    // CA-19.7 (D-111): el cliente no se modifica, así que nunca viaja.
+    it('el cliente no viaja aunque el formulario traiga otro', () => {
+        expect(buildCasePatch(CRIMINAL, edit(CRIMINAL, { clientId: '2' }))).toEqual({})
     })
 
     // CA-19.6: la fecha de inicio va con el SAC.

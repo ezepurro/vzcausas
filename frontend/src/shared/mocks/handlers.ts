@@ -79,6 +79,7 @@ import {
     type DayType,
     type DeadlinePreview,
     type DeadlineKind,
+    type DocumentType,
     type Jurisdiction,
     type Lawyer,
     type LawyerDashboard,
@@ -268,6 +269,23 @@ function requireRole(request: MockRequest, role: Role): AuthResult {
  */
 function isResponsibleLawyer(user: StoredUser, stored: StoredCase): boolean {
     return user.lawyerId !== null && user.lawyerId === stored.responsibleLawyerId;
+}
+
+/**
+ * Quien opera la causa (V5 §4, "Operación de la causa", D-110): modificarla,
+ * darla de baja y crear o reintentar su carpeta. El responsable, o un
+ * `ADMINISTRATOR` o una `SECRETARY` sobre cualquier causa. Un usuario que
+ * sólo es abogado y no es el responsable, no.
+ */
+function canOperateCase(user: StoredUser, stored: StoredCase): boolean {
+    return isResponsibleLawyer(user, stored)
+        || user.roles.includes('ADMINISTRATOR')
+        || user.roles.includes('SECRETARY');
+}
+
+/** "Marcar prescripta" (D-110): el responsable o un `ADMINISTRATOR`. */
+function canDeclarePrescription(user: StoredUser, stored: StoredCase): boolean {
+    return isResponsibleLawyer(user, stored) || user.roles.includes('ADMINISTRATOR');
 }
 
 /** La administración: usuarios, y escribir abogados (V3 D-39). */
@@ -634,7 +652,9 @@ function lawyerLinked(lawyerId: number, exceptUserId?: number): boolean {
     return db.users.some((u) => u.active && u.lawyerId === lawyerId && u.id !== exceptUserId);
 }
 
-function registrationTaken(registrationNumber: string, exceptId?: number): boolean {
+/** Sin matrícula no hay choque: varios abogados pueden no tenerla. */
+function registrationTaken(registrationNumber: string | null, exceptId?: number): boolean {
+    if (registrationNumber === null) return false;
     return db.lawyers.some((l) => l.id !== exceptId && l.registrationNumber === registrationNumber);
 }
 
@@ -699,11 +719,12 @@ const createUser: Handler = ({ request }) => {
     let newLawyer: Lawyer | undefined;
     if (hasInlineLawyer) {
         const inline = asObject(body.lawyer);
-        const registrationNumber = asText(inline.registrationNumber);
+        // La matrícula es opcional: si no viene, la ficha queda sin ella.
+        const registrationNumber = optionalText(inline.registrationNumber);
 
         const lawyerDetails: Record<string, string> = {};
         const lawyerName = readPersonName(inline, lawyerDetails, { prefix: 'lawyer.' });
-        if (!RE_REGISTRATION.test(registrationNumber)) {
+        if (registrationNumber !== null && !RE_REGISTRATION.test(registrationNumber)) {
             lawyerDetails['lawyer.registrationNumber'] = 'El formato de la matrícula no es válido.';
         }
         if (Object.keys(lawyerDetails).length > 0) return validationError(lawyerDetails);
@@ -898,11 +919,12 @@ const createLawyer: Handler = ({ request }) => {
     if (!auth.ok) return auth.response;
 
     const body = asObject(request.body);
-    const registrationNumber = asText(body.registrationNumber);
+    // La matrícula es opcional: si no viene, la ficha queda sin ella.
+    const registrationNumber = optionalText(body.registrationNumber);
 
     const details: Record<string, string> = {};
     const { lastName, firstName } = readPersonName(body, details);
-    if (!RE_REGISTRATION.test(registrationNumber)) {
+    if (registrationNumber !== null && !RE_REGISTRATION.test(registrationNumber)) {
         details.registrationNumber = 'El formato de la matrícula no es válido.';
     }
     if (Object.keys(details).length > 0) return validationError(details);
@@ -936,7 +958,9 @@ const listLawyers: Handler = ({ request }) => {
     const filtered = db.lawyers
         .filter((l) => l.active)
         .filter((l) =>
-            search === '' ? true : matchesPerson(l, search) || contains(l.registrationNumber, search),
+            search === ''
+                ? true
+                : matchesPerson(l, search) || contains(l.registrationNumber ?? '', search),
         )
         .sort((a, b) => a.id - b.id)
         .map(toLawyer);
@@ -971,12 +995,13 @@ const updateLawyer: Handler = ({ request, params }) => {
         return validationError({ body: 'Debe enviarse al menos un campo para modificar.' });
     }
 
-    /* Los tres campos son obligatorios en la ficha: se pueden omitir, pero un
-       `null` o un texto vacío es un `400` (CA-14.4). */
+    /* Apellido y nombres son obligatorios en la ficha: se pueden omitir, pero
+       un `null` o un texto vacío es un `400` (CA-14.4). La matrícula no: en
+       `null` (o vacía) se borra. */
     const details: Record<string, string> = {};
-    const registrationNumber = asText(body.registrationNumber);
+    const registrationNumber = optionalText(body.registrationNumber);
     const name = readPersonName(body, details, { partial: true });
-    if (hasRegistration && !RE_REGISTRATION.test(registrationNumber)) {
+    if (hasRegistration && registrationNumber !== null && !RE_REGISTRATION.test(registrationNumber)) {
         details.registrationNumber = 'El formato de la matrícula no es válido.';
     }
     // El tratamiento no es parte del nombre (V4 D-81, V5 §3.3).
@@ -1473,12 +1498,28 @@ const deleteLegalQualification: Handler = ({ request, params }) => {
 const CLIENT_NAME_MAX = 100;
 const CLIENT_PHONE_MAX = 50;
 
+const CLIENT_ADDRESS_MAX = 255;
+
 /** DNI: 7 u 8 dígitos, sin puntos (V3 D-17). */
 const RE_DNI = /^\d{7,8}$/;
 
-/** Único entre los clientes vigentes: uno dado de baja libera su DNI. */
-function dniTaken(dni: string): boolean {
-    return db.clients.some((c) => c.active && c.dni === dni);
+/** Pasaporte: letras y números en mayúsculas, de 6 a 20. */
+const RE_PASSPORT = /^[A-Z0-9]{6,20}$/;
+
+const DOCUMENT_TYPES: readonly DocumentType[] = ['DNI', 'PASSPORT'];
+
+function isDocumentType(value: unknown): value is DocumentType {
+    return DOCUMENT_TYPES.includes(value as DocumentType);
+}
+
+/**
+ * Único por tipo entre los clientes vigentes: uno dado de baja libera su
+ * documento, y un DNI y un pasaporte con el mismo número no chocan.
+ */
+function documentTaken(documentType: DocumentType, documentNumber: string): boolean {
+    return db.clients.some(
+        (c) => c.active && c.documentType === documentType && c.documentNumber === documentNumber,
+    );
 }
 
 const createClient: Handler = ({ request }) => {
@@ -1489,8 +1530,10 @@ const createClient: Handler = ({ request }) => {
     const body = asObject(request.body);
     const lastName = asText(body.lastName);
     const firstName = asText(body.firstName);
-    const dni = asText(body.dni);
-    const phone = optionalText(body.phone);
+    const documentType = body.documentType;
+    const documentNumber = asText(body.documentNumber);
+    const address = asText(body.address);
+    const phone = asText(body.phone);
     const email = optionalText(body.email);
 
     const details: Record<string, string> = {};
@@ -1502,16 +1545,28 @@ const createClient: Handler = ({ request }) => {
     else if (firstName.length > CLIENT_NAME_MAX) {
         details.firstName = `Puede tener hasta ${CLIENT_NAME_MAX} caracteres.`;
     }
-    if (!RE_DNI.test(dni)) details.dni = 'Debe contener 7 u 8 dígitos, sin puntos.';
-    if (phone !== null && phone.length > CLIENT_PHONE_MAX) {
-        details.phone = `Puede tener hasta ${CLIENT_PHONE_MAX} caracteres.`;
+    if (!isDocumentType(documentType)) {
+        details.documentType = 'El tipo de documento no es válido.';
+    } else if (documentType === 'DNI' && !RE_DNI.test(documentNumber)) {
+        details.documentNumber = 'Debe contener 7 u 8 dígitos, sin puntos.';
+    } else if (documentType === 'PASSPORT' && !RE_PASSPORT.test(documentNumber)) {
+        details.documentNumber = 'Debe contener de 6 a 20 letras y números, sin espacios.';
+    }
+    // Obligatorios desde D-109: uno de solo espacios se rechaza como vacío.
+    if (address === '') details.address = 'La dirección es obligatoria.';
+    else if (address.length > CLIENT_ADDRESS_MAX) {
+        details.address = 'La dirección no puede superar los 255 caracteres.';
+    }
+    if (phone === '') details.phone = 'El teléfono es obligatorio.';
+    else if (phone.length > CLIENT_PHONE_MAX) {
+        details.phone = 'El teléfono no puede superar los 50 caracteres.';
     }
     if (email !== null && !RE_EMAIL.test(email)) {
         details.email = 'El formato del correo electrónico no es válido.';
     }
-    if (Object.keys(details).length > 0) return validationError(details);
+    if (Object.keys(details).length > 0 || !isDocumentType(documentType)) return validationError(details);
 
-    if (dniTaken(dni)) return fail(409, ERRORS.clientDniTaken);
+    if (documentTaken(documentType, documentNumber)) return fail(409, ERRORS.clientDniTaken);
 
     // El backend guarda apellido y nombres tal como llegan; la fecha de alta
     // la pone él.
@@ -1519,7 +1574,9 @@ const createClient: Handler = ({ request }) => {
         id: db.nextClientId,
         lastName,
         firstName,
-        dni,
+        documentType,
+        documentNumber,
+        address,
         phone,
         email,
         clientSince: todayIso(),
@@ -1539,8 +1596,8 @@ const listClients: Handler = ({ request }) => {
     if (!page.ok) return page.response;
 
     const search = asText(request.query.get('search'));
-    // El DNI se busca como se guarda: quien escribe "34.812" busca "34812".
-    const digits = search.replace(/[.\s]/g, '');
+    // El documento se busca como se guarda: quien escribe "34.812" busca "34812".
+    const compact = search.replace(/[.\s]/g, '').toUpperCase();
     const filtered = db.clients
         .filter((c) => c.active)
         .filter((c) =>
@@ -1548,7 +1605,7 @@ const listClients: Handler = ({ request }) => {
                 ? true
                 : contains(c.lastName, search) ||
                   contains(c.firstName, search) ||
-                  (/^\d+$/.test(digits) && c.dni.includes(digits)),
+                  (/^[A-Z0-9]+$/.test(compact) && c.documentNumber.includes(compact)),
         )
         .sort((a, b) => byText(a.lastName, b.lastName) || byText(a.firstName, b.firstName))
         .map(toClient);
@@ -2364,6 +2421,7 @@ const declarePrescription: Handler = ({ request, params }) => {
 
     const stored = db.cases.find((c) => c.id === caseId && c.active);
     if (!stored) return fail(404, ERRORS.caseNotFound);
+    if (!canDeclarePrescription(auth.user, stored)) return fail(403, ERRORS.forbiddenNotResponsiblePrescription);
 
     if (stored.jurisdiction !== 'CRIMINAL') return fail(422, ERRORS.prescriptionNotApplicable);
     // Una causa penal sin calificación legal no prescribe (V4 D-74).
@@ -2377,7 +2435,72 @@ const declarePrescription: Handler = ({ request, params }) => {
         registeredById: auth.user.id,
         registeredAt: nowIso(),
     };
+    // D-113, CA-33.17: declara las calificaciones que faltaban; las declaradas conservan la suya.
+    for (const q of stored.qualifications) {
+        if (!q.prescriptionDeclaration) q.prescriptionDeclaration = { ...stored.prescriptionDeclaration };
+    }
     // Devuelve la causa entera: cambian varias partes a la vez (D-54).
+    return ok(itemBody(toCase(stored)));
+};
+
+/* ------------------------------------------------------------------ */
+/* /cases/{caseId}/legal-qualifications/{legalQualificationId}/prescription */
+/* ------------------------------------------------------------------ */
+
+/**
+ * D-113: declara prescripta una calificación de la causa. La causa sigue
+ * abierta por las demás; si era la última sin declarar, pasa a "Prescripta"
+ * con esa misma declaración. Mismo cuerpo y mismos permisos que la causa
+ * entera. Orden del contrato: 404 causa → 403 → 422 fuero → 404 calificación →
+ * 422 terminal → 422 ya declarada → 400 de los datos.
+ */
+const declareQualificationPrescription: Handler = ({ request, params }) => {
+    const auth = requireAdministratorOrLawyer(request);
+    if (!auth.ok) return auth.response;
+
+    const caseId = readRouteId(params, 'caseId');
+    if (caseId === undefined) return fail(400, ERRORS.invalidCaseId);
+    const qualificationId = readRouteId(params, 'legalQualificationId');
+    if (qualificationId === undefined) {
+        return fail(400, errorBody('INVALID_PATH_PARAMETER', 'El identificador de la calificación legal no es válido.', {
+            legalQualificationId: 'Debe ser un número entero válido.',
+        }));
+    }
+
+    const stored = db.cases.find((c) => c.id === caseId && c.active);
+    if (!stored) return fail(404, ERRORS.caseNotFound);
+    if (!canDeclarePrescription(auth.user, stored)) {
+        return fail(403, ERRORS.forbiddenNotResponsibleQualificationPrescription);
+    }
+    if (stored.jurisdiction !== 'CRIMINAL') return fail(422, ERRORS.prescriptionNotApplicable);
+    const qualification = stored.qualifications.find((q) => q.legalQualificationId === qualificationId);
+    if (!qualification) return fail(404, ERRORS.legalQualificationNotInCase);
+    if (isInTerminalState(stored.id)) return fail(422, ERRORS.caseInTerminalStateOperation);
+    if (qualification.prescriptionDeclaration) return fail(422, ERRORS.qualificationAlreadyPrescribed);
+
+    const body = asObject(request.body);
+    const details: Record<string, string> = {};
+    const dateError = pastDateError(body.prescriptionDate, 'La fecha de la prescripción es obligatoria.');
+    if (dateError) details.prescriptionDate = dateError;
+    const resolution = asText(body.resolution);
+    if (resolution === '') details.resolution = 'La resolución que declara la prescripción es obligatoria.';
+    else if (resolution.length > NAME_TEXT_MAX) details.resolution = `Puede tener hasta ${NAME_TEXT_MAX} caracteres.`;
+    const grounds = optionalText(body.grounds);
+    const groundsError = maxLengthError(grounds, NOTES_MAX);
+    if (groundsError) details.grounds = groundsError;
+    if (Object.keys(details).length > 0) return validationError(details);
+
+    qualification.prescriptionDeclaration = {
+        prescriptionDate: body.prescriptionDate as string,
+        resolution,
+        grounds,
+        registeredById: auth.user.id,
+        registeredAt: nowIso(),
+    };
+    // La última sin declarar cierra la causa (CA-33.4).
+    if (stored.qualifications.every((q) => q.prescriptionDeclaration)) {
+        stored.prescriptionDeclaration = { ...qualification.prescriptionDeclaration };
+    }
     return ok(itemBody(toCase(stored)));
 };
 
@@ -2410,6 +2533,7 @@ const createCaseFolder: Handler = ({ request, params }) => {
 
     const stored = db.cases.find((c) => c.id === caseId && c.active);
     if (!stored) return fail(404, ERRORS.caseNotFound);
+    if (!canOperateCase(auth.user, stored)) return fail(403, ERRORS.forbiddenNotResponsibleFolder);
 
     const folder = stored.folder;
     if (folder === null || folder.status === 'PENDING' || folder.status === 'ERROR') {
@@ -2579,6 +2703,8 @@ const getCaseTimeline: Handler = ({ request, params }) => {
     const c = toCase(stored);
     const currentActId = c.currentState.proceduralActId;
     const interruptive = interruptiveActsOf(stored.id);
+    const governingDate = c.prescription?.lastInterruptiveActDate ?? null;
+    const governingActId = interruptive.find((act) => act.actDate === governingDate)?.id ?? null;
 
     const entries: (TimelineEntry & { registeredAt: string })[] = [
         ...actsOf(stored.id).map((act) => ({
@@ -2588,14 +2714,26 @@ const getCaseTimeline: Handler = ({ request, params }) => {
             proceduralAct: toProceduralAct(act),
             registeredAt: act.registeredAt,
         })),
-        ...interruptive.map((act, index) => ({
+        ...interruptive.map((act) => ({
             type: 'INTERRUPTIVE_ACT' as const,
             date: act.actDate,
-            // La lista viene de la más reciente a la más antigua: rige la primera.
-            governsPrescription: index === 0,
+            // D-113: rige el acto del que cuenta `prescription`; la lista viene de la más
+            // reciente a la más antigua, así que a igual fecha rige el primero.
+            governsPrescription: governingActId === act.id,
             interruptiveAct: toInterruptiveAct(act),
             registeredAt: act.registeredAt,
         })),
+        ...c.legalQualifications.flatMap((q) =>
+            q.prescriptionDeclaration
+                ? [{
+                      type: 'QUALIFICATION_PRESCRIPTION_DECLARATION' as const,
+                      date: q.prescriptionDeclaration.prescriptionDate,
+                      legalQualification: { id: q.id, name: q.name },
+                      prescriptionDeclaration: q.prescriptionDeclaration,
+                      registeredAt: q.prescriptionDeclaration.registeredAt,
+                  }]
+                : [],
+        ),
         ...(c.prescriptionDeclaration
             ? [{
                   type: 'PRESCRIPTION_DECLARATION' as const,
@@ -2964,7 +3102,7 @@ const administratorDashboard: Handler = ({ request }) => {
 /** Lo que `PATCH /cases/{caseId}` deja cambiar (V5 §3.7). Todo lo demás es `400`. */
 const CASE_PATCH_FIELDS = [
     'sacNumber', 'caption', 'court', 'instructorName', 'tribunalPhone', 'instructorExtension',
-    'clientId', 'proceduralRole', 'legalQualifications', 'clientDetained', 'counterparty',
+    'proceduralRole', 'legalQualifications', 'clientDetained', 'counterparty',
     'subjectMatter', 'injunctionGranted', 'harmfulActDate', 'harmfulActRenews',
     'harmfulActRenewalDays', 'harmfulActTermDays', 'harmfulActTermDayType',
     'administrativeRemedyExhaustedOn', 'courtFeePaid', 'responsibleLawyerId', 'startDate',
@@ -2990,14 +3128,13 @@ const MSG_NOT_TEXT = 'Debe ser un texto.';
 const MSG_NOT_EMPTY = 'No puede quedar vacío.';
 
 /**
- * Modifica una causa (HU19, V5 §3.7). Lo hace cualquier perfil: la
- * restricción al responsable es sólo para los actos.
+ * Modifica una causa (HU19, V5 §3.7). La modifica quien opera la causa: el
+ * responsable, un `ADMINISTRATOR` o una `SECRETARY` (D-110).
  *
- * Como en los actos procesales, el `404` de la causa va antes que el `400` del
- * cuerpo: qué datos admite depende de su fuero.
+ * Como en los actos procesales, el `404` de la causa va antes que el `403` y
+ * que el `400` del cuerpo: qué datos admite depende de su fuero.
  *
- * El fuero no se modifica (D-95). El backend no recalcula la carátula al
- * cambiar el cliente: la manda el cliente en `caption` (D-105). La carpeta
+ * Ni el fuero ni el cliente se modifican (D-95, D-111). La carpeta
  * sigue a la causa (D-104): se renombra con la carátula y se mueve con el
  * responsable, salvo que Drive no responda; ahí la causa se guarda igual y la
  * carpeta queda donde estaba.
@@ -3011,6 +3148,7 @@ const updateCase: Handler = ({ request, params }) => {
 
     const stored = db.cases.find((c) => c.id === caseId && c.active);
     if (!stored) return fail(404, ERRORS.caseNotFound);
+    if (!canOperateCase(auth.user, stored)) return fail(403, ERRORS.forbiddenNotResponsibleCaseUpdate);
 
     const body = asObject(request.body);
     const keys = Object.keys(body);
@@ -3022,6 +3160,7 @@ const updateCase: Handler = ({ request, params }) => {
 
     for (const key of keys) {
         if (key === 'jurisdiction') details.jurisdiction = 'El fuero de una causa no se puede modificar.';
+        else if (key === 'clientId') details.clientId = 'El cliente de una causa no se puede modificar.';
         else if (!(CASE_PATCH_FIELDS as readonly string[]).includes(key)) details[key] = MSG_NOT_MODIFIABLE;
         else {
             const rule = CASE_FIELD_JURISDICTIONS[key];
@@ -3088,12 +3227,6 @@ const updateCase: Handler = ({ request, params }) => {
         if (dayType === null || dayType === 'BUSINESS' || dayType === 'CONSECUTIVE') next.harmfulActTermDayType = dayType;
         else details.harmfulActTermDayType = 'Debe ser BUSINESS o CONSECUTIVE.';
     }
-    if (has('clientId')) {
-        const id = readBodyId(body.clientId);
-        if (id === undefined || !db.clients.some((c) => c.id === id && c.active)) {
-            details.clientId = 'No existe un cliente vigente con ese identificador.';
-        } else next.clientId = id;
-    }
     if (has('responsibleLawyerId')) {
         const id = readBodyId(body.responsibleLawyerId);
         if (id === undefined || !db.lawyers.some((l) => l.id === id && l.active)) {
@@ -3157,6 +3290,16 @@ const updateCase: Handler = ({ request, params }) => {
     if (keys.includes('legalQualifications') && stored.prescriptionDeclaration) {
         return fail(422, ERRORS.prescribedCaseQualifications);
     }
+    // D-113, CA-33.18: una calificación declarada queda, con su fecha del hecho y su declaración.
+    if (keys.includes('legalQualifications')) {
+        for (const declared of stored.qualifications.filter((q) => q.prescriptionDeclaration)) {
+            const kept = next.qualifications.find((q) => q.legalQualificationId === declared.legalQualificationId);
+            if (!kept || kept.offenseDate !== declared.offenseDate) {
+                return fail(422, ERRORS.prescribedQualificationLocked);
+            }
+            kept.prescriptionDeclaration = declared.prescriptionDeclaration;
+        }
+    }
 
     const folderMoves = next.caption !== stored.caption || next.responsibleLawyerId !== stored.responsibleLawyerId;
     Object.assign(stored, next);
@@ -3198,6 +3341,7 @@ const deleteCase: Handler = ({ request, params }) => {
 
     const stored = db.cases.find((c) => c.id === caseId && c.active);
     if (!stored) return fail(404, ERRORS.caseNotFound);
+    if (!canOperateCase(auth.user, stored)) return fail(403, ERRORS.forbiddenNotResponsibleCaseDelete);
 
     stored.active = false;
     stored.deactivation = { reason, byId: auth.user.id, at: nowIso() };
@@ -3697,6 +3841,7 @@ const ROUTES: Route[] = [
     { method: 'GET', path: '/cases/:caseId/cover', pattern: /^\/cases\/(?<caseId>[^/]+)\/cover$/, handler: getCaseCover },
 
     { method: 'POST', path: '/cases/:caseId/prescription', pattern: /^\/cases\/(?<caseId>[^/]+)\/prescription$/, handler: declarePrescription },
+    { method: 'POST', path: '/cases/:caseId/legal-qualifications/:legalQualificationId/prescription', pattern: /^\/cases\/(?<caseId>[^/]+)\/legal-qualifications\/(?<legalQualificationId>[^/]+)\/prescription$/, handler: declareQualificationPrescription },
     { method: 'POST', path: '/cases/:caseId/folder', pattern: /^\/cases\/(?<caseId>[^/]+)\/folder$/, handler: createCaseFolder },
 
     { method: 'POST', path: '/cases/:caseId/procedural-acts', pattern: /^\/cases\/(?<caseId>[^/]+)\/procedural-acts$/, handler: createProceduralAct },

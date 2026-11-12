@@ -1,5 +1,6 @@
-import { Controller, HttpCode, HttpStatus, Inject, Logger, Post, UseGuards } from "@nestjs/common";
+import { Controller, HttpCode, HttpStatus, Inject, Logger, Post, Query, UseGuards } from "@nestjs/common";
 import { SkipThrottle } from "@nestjs/throttler";
+import { ValidationError } from "@shared/domain/domain-error";
 import { Public } from "@shared/infrastructure/http/public.decorator";
 import {
   SendDailyNotificationDigestResult,
@@ -13,6 +14,8 @@ import {
   PRESCRIPTION_DETECTION,
   PrescriptionDetectionPort,
 } from "../../../core/domain/ports/prescription-detection.port";
+import { DEV_TOOLS_ENABLED } from "../../../core/domain/ports/daily-digest-config.port";
+import { DailyRunQueryDto } from "./daily-run.query.dto";
 import { InternalTriggerGuard } from "./internal-trigger.guard";
 
 /**
@@ -41,11 +44,26 @@ export class DailyRunController {
     @Inject(PRESCRIPTION_DETECTION)
     private readonly detectPrescriptions: PrescriptionDetectionPort,
     private readonly sendDigest: SendDailyNotificationDigestUseCase,
+    @Inject(DEV_TOOLS_ENABLED) private readonly devToolsEnabled: boolean,
   ) {}
 
+  /**
+   * `?dev=true` is the shortcut behind the bell of the frontend: it wipes the
+   * `sent_notifications` history so the run can be repeated by hand. It is
+   * refused outside development with a 400 on `dev` — never silently ignored,
+   * so nobody believes the history was reset — and **before** detecting or
+   * sending anything.
+   */
   @Post("daily-run")
   @HttpCode(HttpStatus.OK)
-  async run(): Promise<SendDailyNotificationDigestResult> {
+  async run(@Query() query: DailyRunQueryDto = {}): Promise<SendDailyNotificationDigestResult> {
+    const resetHistory = query.dev === "true";
+    if (resetHistory && !this.devToolsEnabled) {
+      throw new ValidationError("VALIDATION_ERROR", "Los datos enviados no son válidos.", {
+        dev: "Solo está disponible en desarrollo.",
+      });
+    }
+
     const [deadlineNotices, prescriptionNotices] = await Promise.all([
       this.detectDeadlines.execute(),
       this.detectPrescriptions.execute(),
@@ -54,6 +72,7 @@ export class DailyRunController {
     const result = await this.sendDigest.execute({
       deadlineNotices,
       prescriptionNotices,
+      ...(resetHistory ? { resetHistory } : {}),
     });
 
     this.logger.log(

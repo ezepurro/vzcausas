@@ -4,8 +4,10 @@ import type { GeneratedCaseFile } from '@/features/cases/types/caseFile'
 import {
     caseFileNamePreview,
     caseFileSummary,
+    elapsedLabel,
     excludedDocuments,
     generatedCaseFileMeta,
+    generatingMessage,
     initialSelection,
     moveItem,
     opposingPartyField,
@@ -104,6 +106,20 @@ describe('resultado', () => {
             generatedAt: '2026-09-15T10:48:00-03:00',
         } satisfies GeneratedCaseFile
         expect(generatedCaseFileMeta(result)).toBe('Versión 2 · 3 partes · 561 KB')
+    })
+})
+
+describe('mientras se genera', () => {
+    it('dice cuántos documentos se unen a la carátula', () => {
+        expect(generatingMessage(3)).toBe('Uniendo la carátula y 3 documentos. Puede tardar un par de minutos.')
+        expect(generatingMessage(1)).toBe('Uniendo la carátula y 1 documento. Puede tardar un par de minutos.')
+    })
+
+    it('cuenta el tiempo en segundos y, desde el minuto, en minutos y segundos', () => {
+        expect(elapsedLabel(0)).toBe('Lleva 0 s')
+        expect(elapsedLabel(59)).toBe('Lleva 59 s')
+        expect(elapsedLabel(65)).toBe('Lleva 1 min 05 s')
+        expect(elapsedLabel(130)).toBe('Lleva 2 min 10 s')
     })
 })
 

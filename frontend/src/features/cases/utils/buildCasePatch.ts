@@ -62,7 +62,6 @@ function toCaseFields(values: CaseFormValues): UpdateCaseBody {
         instructorName: values.instructorName.trim() || null,
         tribunalPhone: values.tribunalPhone.trim() || null,
         instructorExtension: values.instructorExtension.trim() || null,
-        clientId: Number(values.clientId),
         proceduralRole: values.proceduralRole,
         responsibleLawyerId: Number(values.responsibleLawyerId),
         // Sin SAC no hay fecha de inicio (D-38).

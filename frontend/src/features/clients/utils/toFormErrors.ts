@@ -11,7 +11,9 @@ import type { ClientFormValues } from '@/features/clients/types/client'
 const FIELD_BY_SERVER_NAME: Record<string, keyof ClientFormValues> = {
     lastName: 'lastName',
     firstName: 'firstName',
-    dni: 'dni',
+    documentType: 'documentType',
+    documentNumber: 'documentNumber',
+    address: 'address',
     phone: 'phone',
     email: 'email',
 }

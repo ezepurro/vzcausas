@@ -17,7 +17,9 @@ post:
         example:
           lastName: BENÍTEZ
           firstName: Rodrigo E.
-          dni: '31556208'
+          documentType: DNI
+          documentNumber: '31556208'
+          address: Av. Rafael Núñez 4560, Córdoba
           phone: 351 401-5573
           email: rbenitez@gmail.com
   responses:
@@ -37,7 +39,9 @@ post:
               id: 7
               lastName: BENÍTEZ
               firstName: Rodrigo E.
-              dni: '31556208'
+              documentType: DNI
+              documentNumber: '31556208'
+              address: Av. Rafael Núñez 4560, Córdoba
               phone: 351 401-5573
               email: rbenitez@gmail.com
               clientSince: '2026-09-29'
@@ -54,12 +58,17 @@ post:
               code: VALIDATION_ERROR
               message: Los datos enviados no son válidos.
               details:
-                dni: Debe contener 7 u 8 dígitos, sin puntos.
+                documentNumber: Debe contener 7 u 8 dígitos, sin puntos.
+                address: La dirección es obligatoria.
+                phone: El teléfono es obligatorio.
                 email: El formato del correo electrónico no es válido.
     '401':
       $ref: ../components/responses/Unauthorized.yaml
     '409':
-      description: Ya existe un cliente vigente con ese DNI.
+      description: |
+        Ya existe un cliente vigente con ese documento, sea DNI o pasaporte.
+        El código conserva su nombre para no romper a los clientes de V4
+        (D-108).
       content:
         application/json:
           schema:
@@ -87,7 +96,7 @@ get:
     - name: search
       in: query
       required: false
-      description: Filtra por `lastName`, por `firstName` y por `dni`.
+      description: Filtra por `lastName`, por `firstName` y por `documentNumber`.
       schema:
         type: string
   responses:
@@ -112,7 +121,9 @@ get:
               - id: 4
                 lastName: ACOSTA
                 firstName: Jonathan E.
-                dni: '38907221'
+                documentType: DNI
+                documentNumber: '38907221'
+                address: Av. Colón 1250, Córdoba
                 phone: 351 744-1160
                 email: null
                 clientSince: '2022-01-19'
@@ -121,7 +132,9 @@ get:
               - id: 1
                 lastName: GÓMEZ
                 firstName: Ariel Fernando
-                dni: '34812905'
+                documentType: DNI
+                documentNumber: '34812905'
+                address: Av. Colón 1250, Córdoba
                 phone: 351 415-2288
                 email: afgomez@gmail.com
                 clientSince: '2021-03-12'

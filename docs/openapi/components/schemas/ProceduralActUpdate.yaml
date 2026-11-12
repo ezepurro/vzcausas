@@ -1,0 +1,63 @@
+type: object
+description: |
+  Cuerpo de `PATCH /cases/{caseId}/procedural-acts/{actId}` (HU28). Todos los
+  campos son opcionales, aunque debe enviarse al menos uno. Los campos y sus
+  restricciones son los del registro (`ProceduralActCreate`).
+
+  Las restricciones se validan sobre **el acto como queda después del
+  cambio**: por ejemplo, una `notificationDate` que ya estaba cargada tiene que
+  seguir siendo posterior o igual al `actDate` nuevo.
+additionalProperties: false
+minProperties: 1
+properties:
+  proceduralStateId:
+    type: integer
+    minimum: 1
+    description: |
+      Estado vigente del fuero de la causa, salvo "Prescripta". Excluyente con
+      `customState`.
+    examples:
+      - 14
+  customState:
+    type: string
+    minLength: 1
+    maxLength: 255
+    description: |
+      Estado escrito a mano. No puede coincidir con un estado vigente del
+      fuero. Excluyente con `proceduralStateId`.
+    examples:
+      - Pedido de informes al Registro Nacional de Reincidencia
+  actDate:
+    type: string
+    format: date
+    description: No puede ser posterior a hoy.
+    examples:
+      - '2026-09-10'
+  notificationDate:
+    type:
+      - string
+      - 'null'
+    format: date
+    description: |
+      Solo en `ADMINISTRATIVE`. Entre `actDate` y hoy. Obligatoria si el
+      estado resultante abre plazo (RN6).
+    examples:
+      - '2026-09-15'
+  manualDueDate:
+    type:
+      - string
+      - 'null'
+    format: date
+    description: |
+      Ajuste manual del vencimiento. `null` quita el ajuste y vuelve al
+      calculado.
+    examples:
+      - '2026-09-25'
+  notes:
+    type:
+      - string
+      - 'null'
+    maxLength: 2000
+    description: Observaciones. `null` las borra.
+    examples:
+      - Con acusación, pero con oposición. Se corrigió la fecha del acto.

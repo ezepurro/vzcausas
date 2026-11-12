@@ -80,11 +80,14 @@
 
 /* ── pantallas angostas ──
    Los cortes son los del prototipo y son los únicos del proyecto:
-     1180px  la tabla suelta su ancho mínimo y esconde las columnas
-             prescindibles; el formulario con panel al costado se apila
-     1023px  el rail sale de la pantalla y se abre con el botón de la barra
+     1180px  cada fila de una tabla pasa a ser una ficha; el formulario con
+             panel al costado se apila
+     1023px  el rail sale de la pantalla y se abre con el botón de la barra,
+             que suma el logo
       860px  el login queda en una columna; las filas de tres campos, en dos
-      720px  teléfono: una columna, tablas como tarjetas, menos aire */
+      720px  teléfono: una columna, fichas de a dos, botones a todo el ancho,
+             menos aire
+   El detalle de cada corte está en SHARED.md, "Breakpoints reales". */
 @media (max-width: 1023px) {
   :root { --vz-main-pad: 20px; }
 }

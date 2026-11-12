@@ -11,9 +11,23 @@ y lo del Sprint 4, que es modificar y dar de baja una causa, la carátula,
 modificar un acto procesal, los documentos de la causa y el expediente
 ([Lo que suma el Sprint 4](#lo-que-suma-el-sprint-4-v5)).
 
+> **V6 (09/11/2026).** El contrato vigente pasa a ser
+> `docs/Api-Contract/API_CONTRACT_V6.md`. **Lo del Sprint 5 todavía no está en
+> el mock**: `PATCH` y `DELETE /clients/{clientId}`,
+> `DELETE /cases/{caseId}/procedural-acts/{actId}`, `PATCH` y
+> `DELETE /document-templates/{templateId}`, `GET /reports/monthly` y
+> `GET /reports/monthly/file`. Además, `DELETE /lawyers/{lawyerId}` sigue la
+> regla de V5 (`409` si el abogado tiene causas o un usuario vinculado). V6 la
+> cambia: reasigna sus causas activas con `reassignments`, y el usuario
+> vinculado ya no bloquea (D-123, D-133). Ver `frontend/CLAUDE.md`, "Cambios de
+> V6 sobre lo que ya estaba hecho".
+
 > **`tests/unit/contract/endpoints.test.ts` está en rojo** hasta que
-> `docs/openapi` sume los siete endpoints de V5: el mock los implementa y la
-> especificación todavía no.
+> `docs/openapi` sume cinco endpoints de V5 que el mock implementa y la
+> especificación todavía no: `GET /cases/{caseId}/cover`,
+> `GET /cases/{caseId}/documents`, `GET /cases/{caseId}/documents/{documentId}/file`,
+> `PATCH /cases/{caseId}/procedural-acts/{actId}` y
+> `POST /cases/{caseId}/case-files`.
 Lo que V4 sacó del contrato tampoco está: los avisos por correo son
 configuración del servidor (D-79) y el adjunto de la cédula quedó fuera del
 sprint (§8.3).
@@ -79,7 +93,8 @@ await startMocks({ latencyMs: 0, log: false });
 | Opción | Default | Para qué |
 | --- | --- | --- |
 | `latencyMs` | `300` | Demora de cada respuesta. Sirve para ver los estados de carga; `0` responde lo más rápido que pueda. Con `[min, max]` cada pedido tarda un valor al azar dentro del rango, como contra un servidor desplegado. En el navegador se puede fijar sin tocar código con `VITE_MOCK_LATENCY` en `.env.local`: `800` (fija) o `400-1500` (rango). Los tests usan `0`. |
-| `log` | `true` | Loguea `[mock] GET /cases?page=2 → 200` en la consola. |
+| `latencyProfile` | `null` | Demora propia de algunas rutas, que gana sobre `latencyMs`: `{ 'GET /cases/:caseId': [250, 600] }`, con la ruta como está en `ROUTE_TABLE`. Lo que no está en el perfil usa `latencyMs`. `REALISTIC_LATENCY` (en `msw-handlers.ts`) estima lo que tardaría cada endpoint contra el backend desplegado: Drive y los PDF, lo más lento; después los tableros y lo que se calcula en cada lectura. Son estimaciones, no mediciones. En el navegador se activa con `VITE_MOCK_LATENCY_PROFILE=realistic` en `.env.local`. |
+| `log` | `true` | Loguea `[mock] GET /cases?page=2 → 200 (420 ms)` en la consola, con la demora que se aplicó. |
 | `forceFailure` | `null` | `500` (o cualquier código) hace fallar todo; `'network'` simula backend caído (`ApiError.isNetworkError`); `null` es el comportamiento normal. |
 | `passthrough` | `[]` | Rutas que salen al backend real en vez de mockearse. Ver abajo. |
 
@@ -145,21 +160,25 @@ Sin `Authorization: Bearer <token>` válido todo endpoint protegido responde
 
 ### Quién puede qué
 
-Sale de la tabla de permisos por perfil del contrato (V3 §4). Un usuario con
-varios roles pasa si el rol pedido está entre ellos.
+Sale de la tabla de permisos por perfil del contrato (V5 §4, "Autorización").
+Un usuario con varios roles pasa si el rol pedido está entre ellos.
 
 | Operación | Rol |
 | --- | --- |
 | Leer abogados, estados procesales, calificaciones legales, clientes y causas | Cualquier usuario autenticado |
 | Leer y escribir `/users` | `ADMINISTRATOR` |
-| Escribir abogados | `ADMINISTRATOR` |
+| Escribir abogados (registrar y modificar) | `ADMINISTRATOR` |
 | Escribir estados procesales y calificaciones legales | Cualquier usuario autenticado |
 | Registrar un cliente | Cualquier usuario autenticado |
 | Registrar una causa | Cualquier usuario autenticado |
-| Registrar un acto procesal y previsualizar su vencimiento | El abogado responsable de la causa |
-| Leer la línea de vida y los actos de una causa; crear o reintentar su carpeta | Cualquier usuario autenticado |
+| Modificar y dar de baja una causa; crear o reintentar su carpeta | El abogado responsable, `ADMINISTRATOR` o `SECRETARY` (D-110) |
+| Registrar o modificar un acto procesal y previsualizar su vencimiento | El abogado responsable (actual) de la causa |
+| Leer la línea de vida y los actos de una causa | Cualquier usuario autenticado |
+| Ver la carátula, listar los documentos y generar el expediente | Cualquier usuario autenticado |
+| Descargar un documento de la causa | `LAWYER` o `SECRETARY`; el expediente, cualquier usuario autenticado (D-103) |
 | Registrar un acto interruptivo | El abogado responsable de la causa |
-| Marcar una causa como prescripta; leer y registrar modelos formales | `ADMINISTRATOR` o `LAWYER` |
+| Marcar una causa como prescripta | `ADMINISTRATOR`, o el abogado responsable (D-110). Sin ninguno de los dos roles, `403` de rol |
+| Leer y registrar modelos formales | `ADMINISTRATOR` o `LAWYER` |
 | `GET /dashboards/lawyer` | `LAWYER` (su propio tablero) |
 | `GET /dashboards/administrator` | `ADMINISTRATOR` |
 
@@ -404,6 +423,7 @@ Para tener el recurso como lo devuelve la API están los serializadores de
 | `POST` | `/cases/{caseId}/case-files` | 201, 400, 401, 404, 422, 502 |
 | `GET` | `/cases/{caseId}/procedural-acts/deadline-preview` | 200, 400, 401, 403, 404 |
 | `POST` | `/cases/{caseId}/prescription` | 200, 400, 401, 403, 404, 422 |
+| `POST` | `/cases/{caseId}/legal-qualifications/{legalQualificationId}/prescription` (D-113) | 200, 400, 401, 403, 404, 422 |
 | `POST` | `/cases/{caseId}/folder` | 200, 400, 401, 404, 502 |
 | `GET` | `/cases/{caseId}/procedural-acts` | 200, 400, 401, 404 |
 | `GET` | `/cases/{caseId}/procedural-acts/{actId}` | 200, 400, 401, 404 |
@@ -489,7 +509,7 @@ de servir en el acto.
 | Código | Cómo |
 | --- | --- |
 | `400` validación | `username` de menos de 3 caracteres, matrícula fuera del formato `1-28114`, contraseña de menos de 8 caracteres o sin número; nombre de estado procesal de menos de 3 caracteres; un `dayType` incoherente con el plazo; mandar `lawyerId` **y** `lawyer` juntos; `PATCH` sin ningún campo |
-| `400` validación, Sprint 2 | DNI con puntos o de menos de 7 dígitos; SAC que no tiene 8 dígitos (omitirlo no es un error); una calificación sin `offenseDate`, repetida o dada de baja; un interno del instructor de más de 20 caracteres; amparo o administrativo sin `subjectMatter`, o con más de 800 caracteres; un rol procesal que el fuero no admite; un `clientId` o un `responsibleLawyerId` inexistente o dado de baja; un acto sin estado, con los dos (`proceduralStateId` y `customState`), con un estado terminal o de otro fuero, o con `actDate` futura; un acto con `customState: "Iniciada"`; un acto administrativo sin `notificationDate` en un estado que abre plazo |
+| `400` validación, Sprint 2 | DNI con puntos o de menos de 7 dígitos; pasaporte con espacios, minúsculas o de menos de 6 caracteres; un `documentType` que no es `DNI` ni `PASSPORT`; una dirección o un teléfono vacíos o de solo espacios (obligatorios desde D-109); una dirección de más de 255 caracteres o un teléfono de más de 50; una matrícula con otro formato que `1-28114` (vacía es válida); SAC que no tiene 8 dígitos (omitirlo no es un error); una calificación sin `offenseDate`, repetida o dada de baja; un interno del instructor de más de 20 caracteres; amparo o administrativo sin `subjectMatter`, o con más de 800 caracteres; un rol procesal que el fuero no admite; un `clientId` o un `responsibleLawyerId` inexistente o dado de baja; un acto sin estado, con los dos (`proceduralStateId` y `customState`), con un estado terminal o de otro fuero, o con `actDate` futura; un acto con `customState: "Iniciada"`; un acto administrativo sin `notificationDate` en un estado que abre plazo |
 | `400` paginación | `?page=0`, `?limit=500`, `?limit=abc` |
 | `400` ruta | `GET /users/abc`, `GET /cases/abc`, `DELETE /procedural-states/abc` |
 | `400` query | `?role=NOPE`, `?jurisdiction=NOPE`, `/cases?openDeadline=si`, `/cases?proceduralStateId=4&customState=x`, `/cases?withoutProceduralActs=true&proceduralStateId=4`; `deadline-preview` sin `proceduralStateId` o sin `actDate` |
@@ -498,17 +518,18 @@ de servir en el acto.
 | `401` renovación | `POST /auth/refresh` con la sesión ya revocada (`db.sessions.clear()`) → `UNAUTHENTICATED` |
 | `403` | `mrios` o `gestion` en cualquier endpoint de `/users`, o escribiendo abogados; cualquiera que no sea el abogado responsable registrando un acto o pidiendo `deadline-preview`: `gestion`, `supervision`, o `mrios` y `fvazquez` sobre la causa 7, que lleva `mferreyra` |
 | `404` | `GET /users/999`, `GET /cases/999`; también los que existen pero están dados de baja: `GET /users/22`, `GET /clients/8`, `GET /legal-qualifications/9` |
-| `409` | crear un usuario con `username: "fvazquez"` o con un email ya usado; vincular un abogado que ya tiene cuenta; crear un abogado con `1-28114`; dar de baja el usuario 3, 4 o 5; dar de baja un abogado con cuenta o con causas (del 1 al 8); crear un estado procesal o una calificación con un nombre que ya existe, o un estado que se llame "Iniciada"; registrar un cliente con el DNI `34812905`; registrar una causa con el SAC `13284571` |
+| `409` | crear un usuario con `username: "fvazquez"` o con un email ya usado; vincular un abogado que ya tiene cuenta; crear un abogado con `1-28114`; dar de baja el usuario 3, 4 o 5; dar de baja un abogado con cuenta o con causas (del 1 al 8; es la regla de V5, que V6 cambia); crear un estado procesal o una calificación con un nombre que ya existe, o un estado que se llame "Iniciada"; registrar un cliente con el DNI `34812905` (un pasaporte con ese número no choca: la unicidad es por tipo); registrar una causa con el SAC `13284571` |
 | `422` | crear un usuario `LAWYER` sin ficha profesional, o uno sin rol `LAWYER` **con** ficha; dar de baja o degradar el usuario 1; contraseña actual incorrecta en `PATCH /auth/password`; registrar un acto en la causa 9, 10 o 21 → `CASE_IN_TERMINAL_STATE` |
 | `500` / red | `configureMocks({ forceFailure: 500 })` / `configureMocks({ forceFailure: 'network' })` |
 | `400`, Sprint 3 | un acto interruptivo sin nombre, con fecha futura o con observaciones de más de 2000 caracteres; marcar prescripta sin resolución o con fecha futura; un modelo sin nombre, sin fuero, sin archivo o con un archivo que no es `.docx`; `POST /cases` con `createFolder: false` y `copyTemplates: true`; un dato de otro fuero en el alta (`clientDetained` en un amparo, `harmfulActDate` en el penal…); un amparo con `harmfulActDate` sin `harmfulActTermDays` o sin `harmfulActTermDayType`, o con `harmfulActRenews` sin `harmfulActRenewalDays`; un usuario o un abogado sin `lastName` o sin `firstName` |
 | `403`, Sprint 3 | `gestion` en `/document-templates` o `POST /cases/{id}/prescription`; `supervision` o `gestion` en `/dashboards/lawyer`; `mrios` o `gestion` en `/dashboards/administrator`; cualquiera que no sea el responsable registrando un acto interruptivo (por ejemplo `fvazquez` sobre la causa 1) |
+| `403`, revisión del 08/11/2026 (D-110) | `mrios` (sólo abogado) sobre la causa 4, que lleva `fvazquez`: `PATCH` y `DELETE /cases/4`, `POST /cases/4/prescription` y `POST /cases/4/folder`. Pasan `fvazquez` (responsable), `supervision` (Administrador), `gestion` (Secretaría, salvo la prescripción) y `sledesma` (Secretaría y Abogado, por su rol de Secretaría) |
 | `404`, Sprint 3 | `GET /document-templates/13` (dado de baja) o `/999`; `GET /cases/1/procedural-acts/{actId}` con el id de un acto de otra causa → `PROCEDURAL_ACT_NOT_FOUND` |
 | `409`, Sprint 3 | un modelo con el nombre de otro, sin distinguir mayúsculas (`"recurso de casación"`) → `DOCUMENT_TEMPLATE_ALREADY_EXISTS` (D-71) |
 | `413` | un archivo de más de 10 MB (`MAX_FILE_BYTES`) |
 | `422`, Sprint 3 | acto interruptivo o marca de prescripción fuera del penal (causas 2, 3, 22…) → `PRESCRIPTION_NOT_APPLICABLE`; marcar prescripta la causa 23, penal sin calificaciones → `PRESCRIPTION_NOT_APPLICABLE` con "La causa no tiene calificaciones legales: no puede prescribir." (D-74); cualquiera de los dos sobre una causa terminal (9, 10, 21) → `CASE_IN_TERMINAL_STATE`; `PATCH` o `DELETE /procedural-states/10` → `PROCEDURAL_STATE_PROTECTED` |
 | `502` | `db.failures.documentStorage = true` (Drive caído: carpeta, alta y descarga de modelos). La carpeta queda en `ERROR`. Se vuelve a `false` con `resetMockDb()` |
-| `400`, Sprint 4 | `PATCH /cases/1` con `jurisdiction`, con un campo que no está en la tabla, vacío (`{}`), con `sacNumber: null` sin `startDate: null`, con `legalQualifications` en una causa que no es penal (2, 3…); `DELETE /cases/{id}` con un `reason` de más de 500 caracteres; `GET /cases/1/cover?disposition=x`; modificar un acto dejando `notificationDate` antes del `actDate` nuevo, o con estado de la tabla y escrito a mano a la vez; `POST /cases/1/case-files` sin documentos, con el expediente `Expediente_13284571_v1.pdf` o con un id de otra causa; `cover.opposingParty` en una causa que no es penal; `PATCH /lawyers/4` con `lastName: null` o `firstName: "Dr. Ignacio"` |
+| `400`, Sprint 4 | `PATCH /cases/1` con `jurisdiction` o con `clientId` (D-111), con un campo que no está en la tabla, vacío (`{}`), con `sacNumber: null` sin `startDate: null`, con `legalQualifications` en una causa que no es penal (2, 3…); `DELETE /cases/{id}` con un `reason` de más de 500 caracteres; `GET /cases/1/cover?disposition=x`; modificar un acto dejando `notificationDate` antes del `actDate` nuevo, o con estado de la tabla y escrito a mano a la vez; `POST /cases/1/case-files` sin documentos, con el expediente `Expediente_13284571_v1.pdf` o con un id de otra causa; `cover.opposingParty` en una causa que no es penal; `PATCH /lawyers/4` con `lastName: null` o `firstName: "Dr. Ignacio"` |
 | `403`, Sprint 4 | modificar un acto sin ser el responsable actual (`fvazquez` sobre la causa 1); descargar un documento que no es un expediente como `supervision` (Administrador sin otro rol). El expediente sí lo descarga |
 | `404`, Sprint 4 | cualquier pedido sobre una causa dada de baja → `CASE_NOT_FOUND`; un acto de otra causa → `PROCEDURAL_ACT_NOT_FOUND`; descargar un documento de la causa 2 pidiéndolo por la 1, o uno inexistente → `DOCUMENT_NOT_FOUND` |
 | `409`, Sprint 4 | `PATCH /cases/1` con el SAC de otra causa vigente (`12907344`). El de una causa dada de baja no choca |
@@ -521,8 +542,10 @@ El alta de modelo viaja como `multipart/form-data`, con el
 archivo en el campo `file`. El cliente HTTP tiene `Content-Type:
 application/json` por defecto, y con ese encabezado axios convierte el
 `FormData` a JSON: hay que mandar `{ headers: { 'Content-Type':
-'multipart/form-data' } }`, y axios completa el `boundary`. La descarga de un
-modelo es la única respuesta que no es JSON: pedila con `responseType: 'blob'`.
+'multipart/form-data' } }`, y axios completa el `boundary`. Las descargas —un
+modelo, la carátula, un documento de la causa— son las únicas respuestas que no
+son JSON: pedilas con `responseType: 'blob'` (como `documentTemplates.api.ts` y
+`cases.api.ts`).
 
 En los tests, Vitest 5 y jsdom 30 no se llevan bien con los archivos;
 `tests/setup/vitest.setup.ts` lo emparcha, y un `new File([...], 'modelo.docx')`
@@ -564,7 +587,7 @@ funciona como en el navegador.
 | Archivo | Contenido |
 | --- | --- |
 | `contract.ts` | Los tipos del contrato (recursos, cuerpos de petición, envoltorios, códigos de error) y los constructores `itemBody` / `listBody` / `errorBody` / `buildPagination`. |
-| `fixtures.ts` | Datos semilla de sólo lectura, sacados del prototipo: usuarios, abogados, estados procesales, calificaciones, clientes, causas con sus actos (`CASE_SEEDS`) y credenciales. También los tipos `Stored…`, que es cómo la base guarda cada cosa. |
+| `fixtures.ts` | Datos semilla de sólo lectura, sacados del prototipo: usuarios, abogados, estados procesales, calificaciones, clientes, causas con sus actos (`CASE_SEEDS`), los archivos de las carpetas en Drive (`DOCUMENT_SEEDS`) y credenciales. También los tipos `Stored…`, que es cómo la base guarda cada cosa. |
 | `calendar.ts` | Fechas sin hora y el cómputo de plazos del contrato (§4): días hábiles, corridos, `businessDaysRemaining` y la suma de meses de la prescripción. Lo usan las semillas, la base y los handlers. |
 | `responses.ts` | Una respuesta de ejemplo por cada código documentado, en `RESPONSES.<endpoint>.<case>`, más los mensajes de error compartidos en `ERRORS` y `forbiddenFor(rol)`. |
 | `db.ts` | Base en memoria (copia mutable de las semillas, con las fechas relativas ya resueltas), tokens de sesión, `resetMockDb()` y los serializadores `toCase`, `toUser`, etc., que arman lo embebido y lo calculado. |
@@ -708,8 +731,15 @@ este mock, no del backend.
   fuera del penal; `counterparty` o `subjectMatter` en el penal;
   `notificationDate` fuera del administrativo. Un `null` o un texto vacío
   cuentan como "no vino".
-- **La búsqueda de clientes por DNI acepta puntos**: `34.812` encuentra
-  `34812905`.
+- **La búsqueda de clientes por documento acepta puntos**: `34.812` encuentra
+  `34812905`, y `aae48` encuentra el pasaporte `AAE482915` de `NAVARRO`.
+- **Revisiones del 05/11 y del 06/11/2026** (D-107, D-108 y D-109, ya en V5):
+  la matrícula del abogado es opcional (`null` si no se cargó; en el
+  `PATCH`, `null` la borra) y el cliente trae `documentType` (`DNI` o
+  `PASSPORT`), `documentNumber` (antes `dni`), `address` y `phone`, estos dos
+  obligatorios en el alta y nunca `null` en las respuestas. Todas las semillas
+  tienen dirección y teléfono. El `409` de un documento repetido sigue siendo
+  `CLIENT_DNI_ALREADY_EXISTS` (D-108).
 - **La búsqueda de causas** mira el SAC, la carátula y el nombre del cliente
   en los dos órdenes ("gómez, ariel" y "ariel gómez"), sin distinguir tildes.
   Una causa sin SAC se encuentra por lo demás.

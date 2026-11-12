@@ -18,8 +18,8 @@ export function buildLawyerPatch(original: Lawyer, values: LawyerFormValues): Up
     if (firstName !== original.firstName) patch.firstName = firstName
 
     /* La misma matrícula no viaja: no es un conflicto (CA-14.7), pero
-       tampoco es un cambio. */
-    const registrationNumber = values.registrationNumber.trim()
+       tampoco es un cambio. Vaciarla la borra: viaja `null`. */
+    const registrationNumber = values.registrationNumber.trim() || null
     if (registrationNumber !== original.registrationNumber) patch.registrationNumber = registrationNumber
 
     return patch

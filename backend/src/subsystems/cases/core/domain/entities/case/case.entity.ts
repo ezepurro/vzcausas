@@ -1,6 +1,7 @@
 import { AuthenticatedUser } from '@shared/domain/authenticated-user';
 import { ValidationError } from '@shared/domain/domain-error';
 import {
+  CannotDeclarePrescriptionError,
   CaseInTerminalStateError,
   EmptyCaseUpdateError,
   NotResponsibleLawyerError,
@@ -20,12 +21,21 @@ import { PrescriptionDeclaration, PrescriptionDeclarationInput } from '../../val
 import { JurisdictionCode } from '../../value-objects/case/jurisdiction-code';
 import { ProceduralRole } from '../../value-objects/case/procedural-role';
 import { CaseSnapshot } from './case-snapshot';
-import { ProceduralAct } from '../procedural-act.entity';
+import {
+  PROCEDURAL_ACT_FIELDS,
+  ProceduralAct,
+  ProceduralActChanges,
+  ProceduralActData,
+  ProceduralActField,
+} from '../procedural-act.entity';
 
 /** Name of the role that may register procedural acts (together with being the responsible lawyer). */
 const LAWYER_ROLE = 'LAWYER';
+const ADMINISTRATOR_ROLE = 'ADMINISTRATOR';
+const SECRETARY_ROLE = 'SECRETARY';
 
 const INVALID_DATA_MESSAGE = 'Los datos enviados no son válidos.';
+const TERMINAL_HAS_NO_DUE_DATE = 'Un estado terminal cierra la causa y no admite vencimiento.';
 
 /** The state an act takes the case to: from the table, or hand-written. */
 export interface TargetState {
@@ -81,6 +91,40 @@ export interface DeclarePrescriptionInput {
   actor: AuthenticatedUser;
   // Civil date of the study today, and the instant of the declaration.
   today: Date;
+  now: Date;
+}
+
+/** D-113 — declaring the prescription of one legal qualification of the case. */
+export interface DeclareQualificationPrescriptionInput extends DeclarePrescriptionInput {
+  legalQualificationId: number;
+}
+
+/**
+ * What the use case found out about the state an act would end up in (HU28). The
+ * aggregate decides with it; it only looks it up.
+ */
+export interface ActModificationRefs {
+  // The row of the resulting table state: the one sent, or the current one if none was. `null` for a hand-written state.
+  state: ProceduralStateRef | null;
+  // Whether a hand-written state sent repeats an active state of the table (CA-26.7).
+  customStateNamesTableState: boolean;
+}
+
+/** {@link Case.planActModification}: the act as it will end up, the term to compute and what changed. */
+export interface ActModificationPlan extends ProceduralActData {
+  term: OpenedTerm;
+  // Whether the resulting state closes the case.
+  terminal: boolean;
+  changedFields: ProceduralActField[];
+}
+
+/** What {@link Case.recalculateCurrentAct} needs to apply D-14 after a modification (D-99). */
+export interface RecalculateCurrentActInput {
+  modified: ProceduralAct;
+  modifiedTerminal: boolean;
+  // The most recent of the other acts of the case, or `null` if it has no other.
+  latestOther: ProceduralAct | null;
+  latestOtherTerminal: boolean;
   now: Date;
 }
 
@@ -160,11 +204,30 @@ export abstract class Case {
    * Marks the case as prescribed (HU33). Only a criminal case prescribes
    * (D-74, CA-33.9): every other jurisdiction refuses it here, and
    * `CriminalCase` overrides it. Who asks for it is checked before, by
-   * {@link PrescriptionDeclaration.assertCanBeDeclaredBy}.
+   * {@link Case.assertCanDeclarePrescriptionBy}.
    * @throws PrescriptionNotApplicableError
    */
   declarePrescription(_input: DeclarePrescriptionInput): void {
     throw new PrescriptionNotApplicableError();
+  }
+
+  /**
+   * D-113 — declares one legal qualification prescribed. Same as
+   * {@link Case.declarePrescription}: only a criminal case prescribes, and
+   * `CriminalCase` overrides it, so the jurisdiction is refused before looking
+   * for the qualification.
+   * @throws PrescriptionNotApplicableError
+   */
+  declareQualificationPrescription(_input: DeclareQualificationPrescriptionInput): void {
+    throw new PrescriptionNotApplicableError();
+  }
+
+  /**
+   * D-113: the legal qualifications whose prescription is not declared yet.
+   * Only a criminal case has any.
+   */
+  get qualificationsPendingPrescription(): number[] {
+    return [];
   }
 
   /** The declaration that the case prescribed. Only a criminal case can have one. */
@@ -320,7 +383,6 @@ export abstract class Case {
     CaseDataRules.checkLength(errors, 'tribunalPhone', instructor.phone);
     CaseDataRules.checkLength(errors, 'instructorExtension', instructor.extension);
 
-    cannotBeEmptied('clientId');
     cannotBeEmptied('responsibleLawyerId');
     cannotBeEmptied('courtFeePaid');
     cannotBeEmptied('proceduralRole');
@@ -342,9 +404,6 @@ export abstract class Case {
       Case.track(changed, 'tribunalPhone', props.instructor.phone, instructor.phone, noop);
       Case.track(changed, 'instructorExtension', props.instructor.extension, instructor.extension, noop);
       props.instructor = instructor;
-      if (sent('clientId')) {
-        Case.track(changed, 'clientId', props.clientId, changes.clientId, () => (props.clientId = changes.clientId!));
-      }
       if (sent('responsibleLawyerId')) {
         Case.track(changed, 'responsibleLawyerId', props.responsibleLawyerId, changes.responsibleLawyerId, () => {
           props.responsibleLawyerId = changes.responsibleLawyerId!;
@@ -434,10 +493,54 @@ export abstract class Case {
    * @throws NotResponsibleLawyerError
    */
   assertCanRegisterActs(actor: AuthenticatedUser, message?: string): void {
-    const isLawyer = actor.roleNames.includes(LAWYER_ROLE);
-    if (!isLawyer || actor.lawyerId === null || actor.lawyerId !== this.props.responsibleLawyerId) {
+    if (!this.isResponsibleLawyer(actor)) {
       throw new NotResponsibleLawyerError(message);
     }
+  }
+
+  /**
+   * Who operates the case (D-110, V5 §4 "Operación de la causa"): its
+   * responsible lawyer, an administrator or a secretary. A lawyer who is not
+   * the responsible one only consults it. One role among several is enough.
+   * Used by modifying, giving de baja and the folder; `message` words the
+   * refusal as the contract does for each.
+   * @throws NotResponsibleLawyerError
+   */
+  assertCanBeOperatedBy(actor: AuthenticatedUser, message: string): void {
+    if (actor.roleNames.includes(ADMINISTRATOR_ROLE) || actor.roleNames.includes(SECRETARY_ROLE)) {
+      return;
+    }
+    if (!this.isResponsibleLawyer(actor)) {
+      throw new NotResponsibleLawyerError(message);
+    }
+  }
+
+  /**
+   * Who marks the case as prescribed (HU33, D-110): an administrator, or the
+   * responsible lawyer. The secretariat alone may not (CA-33.2); a lawyer who
+   * is not the responsible one is refused with the contract's own wording:
+   * `message` is the one of the case (HU33) by default, and D-113 passes its own
+   * for declaring a qualification.
+   * @throws NotResponsibleLawyerError
+   * @throws CannotDeclarePrescriptionError
+   */
+  assertCanDeclarePrescriptionBy(
+    actor: AuthenticatedUser,
+    message: string = NotResponsibleLawyerError.FOR_DECLARING_PRESCRIPTION,
+  ): void {
+    if (actor.roleNames.includes(ADMINISTRATOR_ROLE) || this.isResponsibleLawyer(actor)) {
+      return;
+    }
+    if (actor.roleNames.includes(LAWYER_ROLE)) {
+      throw new NotResponsibleLawyerError(message);
+    }
+    throw new CannotDeclarePrescriptionError();
+  }
+
+  private isResponsibleLawyer(actor: AuthenticatedUser): boolean {
+    return (
+      actor.roleNames.includes(LAWYER_ROLE) && actor.lawyerId !== null && actor.lawyerId === this.props.responsibleLawyerId
+    );
   }
 
   /**
@@ -510,7 +613,7 @@ export abstract class Case {
   ): OpenedTerm {
     if (target.state?.terminal && dates.manualDueDate != null) {
       throw new ValidationError('VALIDATION_ERROR', INVALID_DATA_MESSAGE, {
-        manualDueDate: 'Un estado terminal cierra la causa y no admite vencimiento.',
+        manualDueDate: TERMINAL_HAS_NO_DUE_DATE,
       });
     }
     const timeLimitDays = target.state?.timeLimitDays ?? 0;
@@ -557,6 +660,111 @@ export abstract class Case {
       this.props.updatedAt = input.now;
     }
     return { act, becameCurrent };
+  }
+
+  /**
+   * HU28 — only the **current** responsible lawyer modifies the acts of the case
+   * (CA-28.2), with the same rule as registering them (D-30).
+   * @throws NotResponsibleLawyerError
+   */
+  assertCanModifyActs(actor: AuthenticatedUser): void {
+    this.assertCanRegisterActs(actor, NotResponsibleLawyerError.FOR_MODIFYING_ACTS);
+  }
+
+  /**
+   * HU28 — whether the acts of the case can still be corrected. Any case can,
+   * terminal or not (CA-28.9); `CriminalCase` refuses it once prescribed (D-99).
+   * @throws CaseInTerminalStateError
+   */
+  assertActsCanBeModified(): void {}
+
+  /**
+   * HU28 — validates a change of one of its acts against the act as it would end
+   * up, reporting every problem at once (CA-28.3), and decides which term it
+   * takes: the table's of today if the state changes, the copied one if not (D-98).
+   * @throws EmptyCaseUpdateError no field was sent.
+   * @throws ValidationError `VALIDATION_ERROR` with every invalid field.
+   */
+  planActModification(
+    act: ProceduralAct,
+    changes: ProceduralActChanges,
+    refs: ActModificationRefs,
+    today: Date,
+  ): ActModificationPlan {
+    if (!PROCEDURAL_ACT_FIELDS.some((field) => changes[field] !== undefined)) {
+      throw new EmptyCaseUpdateError();
+    }
+    const resolved = act.resolveChanges(changes, today);
+    const errors: Record<string, string> = { ...resolved.errors };
+    // Runs a rule that throws, and keeps its problems with the rest: they are all reported at once.
+    const collect = <T>(rule: () => T): T | null => {
+      try {
+        return rule();
+      } catch (error) {
+        if (!(error instanceof ValidationError)) throw error;
+        Object.assign(errors, error.details);
+        return null;
+      }
+    };
+
+    // A new state must be a valid target, as in the registration. The same state sent again is not re-checked.
+    if (resolved.stateChanged && !errors.proceduralStateId && !errors.customState) {
+      collect(() => this.resolveTargetState({ ...resolved, ...refs }));
+    }
+
+    // D-98: a new state takes the table's term of today; otherwise the act keeps the one it copied.
+    const tableState = resolved.proceduralStateId !== null ? refs.state : null;
+    const timeLimitDays = resolved.stateChanged ? (tableState?.timeLimitDays ?? 0) : act.deadline.timeLimitDays;
+    const dayType = resolved.stateChanged ? (tableState?.dayType ?? DayType.NONE) : act.deadline.dayType;
+    const terminal = tableState?.terminal ?? false;
+    const countsFrom = collect(() =>
+      this.resolveCountsFrom(resolved.actDate, resolved.notificationDate, timeLimitDays > 0),
+    );
+
+    // A manual due date, also one that was kept, is checked against the act as it ends up (CA-28.6).
+    if (resolved.manualDueDate !== null) {
+      if (terminal) {
+        errors.manualDueDate = TERMINAL_HAS_NO_DUE_DATE;
+      } else if (countsFrom !== null && resolved.manualDueDate < countsFrom) {
+        errors.manualDueDate = Deadline.MANUAL_BEFORE_COUNTS_FROM;
+      }
+    }
+
+    if (Object.keys(errors).length > 0) {
+      throw new ValidationError('VALIDATION_ERROR', INVALID_DATA_MESSAGE, errors);
+    }
+    return {
+      proceduralStateId: resolved.proceduralStateId,
+      customState: resolved.customState,
+      actDate: resolved.actDate,
+      notificationDate: resolved.notificationDate,
+      manualDueDate: resolved.manualDueDate,
+      notes: resolved.notes,
+      term: { timeLimitDays, dayType, countsFrom: countsFrom! },
+      terminal,
+      changedFields: resolved.changedFields,
+    };
+  }
+
+  /**
+   * HU28 — after a modification the case is in the state of the act with the
+   * most recent date, the last registered on a tie (D-14, D-99). It closes or
+   * reopens with it (CA-28.7, CA-28.8).
+   */
+  recalculateCurrentAct(input: RecalculateCurrentActInput): void {
+    const { modified, latestOther } = input;
+    const otherIsNewer =
+      latestOther !== null &&
+      (latestOther.actDate.getTime() > modified.actDate.getTime() ||
+        (latestOther.actDate.getTime() === modified.actDate.getTime() && latestOther.id > modified.id));
+    const governing = otherIsNewer ? latestOther : modified;
+
+    this.props.currentStateId = governing.proceduralStateId;
+    this.props.currentCustomState = governing.customState;
+    this.props.currentProceduralActId = governing.id;
+    this.props.currentStateTerminal = otherIsNewer ? input.latestOtherTerminal : input.modifiedTerminal;
+    this.props.proceduralActs = [governing];
+    this.props.updatedAt = input.now;
   }
 
   /** The act that led the case to its current state, or `null` while it is in the initial state. */

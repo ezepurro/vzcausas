@@ -5,10 +5,12 @@ import {
   FileCopy,
   FileUpload,
   FolderReference,
+  FolderRelocation,
 } from '../../../src/subsystems/documents/core/domain/ports/document-storage.port';
 import { loginAs } from '../auth/login-as';
 import { aCaseBody } from '../factories/case.factory';
 import { createClient } from '../factories/client.factory';
+import { purgeAuditLog } from './audit-log';
 import { clearCloudFolders } from '../factories/cloud-structure.factory';
 import { createLawyer } from '../factories/lawyer.factory';
 import { createInitialState } from '../factories/procedural-state.factory';
@@ -27,12 +29,14 @@ export const CASES_URL = '/api/v1/cases';
 /** Deja la base sin causas, carpetas ni actores, en el orden que piden las claves foráneas. */
 export async function resetDatabaseForCaseFolders(): Promise<void> {
   const prisma = getPrisma();
+  await prisma.caseFile.deleteMany(); // HU38/HU25: referencia a causas y usuarios con `Restrict`
   await prisma.sentNotification.deleteMany(); // referencia a causas; la deja `daily-run`
   await prisma.offense.deleteMany();
   await prisma.case.updateMany({ data: { currentProceduralActId: null } });
   await prisma.proceduralAct.deleteMany();
   await prisma.case.deleteMany();
   await clearCloudFolders();
+  await purgeAuditLog(); // `audit_log` referencia a los usuarios con `Restrict`
   await prisma.user.deleteMany();
   await prisma.lawyer.deleteMany();
   await prisma.client.deleteMany();
@@ -107,10 +111,15 @@ export class SwitchableStorage implements DocumentStoragePort {
 
   findFolderByReference = (reference: FolderReference) => this.current.storage.findFolderByReference(reference);
   createFolder = (reference: FolderReference) => this.current.storage.createFolder(reference);
+  relocateFolder = (relocation: FolderRelocation) => this.current.storage.relocateFolder(relocation);
   getFolder = (folderId: string) => this.current.storage.getFolder(folderId);
   deleteFolder = (folderId: string) => this.current.storage.deleteFolder(folderId);
   uploadFile = (upload: FileUpload) => this.current.storage.uploadFile(upload);
   copyFile = (copy: FileCopy) => this.current.storage.copyFile(copy);
   deleteFile = (fileId: string) => this.current.storage.deleteFile(fileId);
   downloadFile = (fileId: string) => this.current.storage.downloadFile(fileId);
+  listFiles = (folderId: string) => this.current.storage.listFiles(folderId);
+  findFile = (fileId: string) => this.current.storage.findFile(fileId);
+  exportFile = (fileId: string, mimeType: string) => this.current.storage.exportFile(fileId, mimeType);
+  convertToPdf = (fileId: string) => this.current.storage.convertToPdf(fileId);
 }

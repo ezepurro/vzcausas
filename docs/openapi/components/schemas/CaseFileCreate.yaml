@@ -1,0 +1,43 @@
+type: object
+description: Cuerpo de `POST /cases/{caseId}/case-files` (HU25).
+additionalProperties: false
+required:
+  - documentIds
+properties:
+  cover:
+    type: object
+    description: |
+      Lo que la hoja de carátula necesita y la causa no tiene (D-92). Nada se
+      guarda en la causa: el próximo expediente lo vuelve a pedir. El texto se
+      imprime en mayúsculas, tal como llega.
+    additionalProperties: false
+    properties:
+      opposingParty:
+        type: string
+        maxLength: 500
+        description: |
+          Solo en `CRIMINAL`. La parte que no está registrada en la causa: el
+          querellante si el cliente es `DEFENSA`, el imputado si es
+          `QUERELLANTE_PARTICULAR`. Admite saltos de línea. Va al recuadro
+          vacío de la hoja; sin él, ese recuadro queda vacío. En otro fuero
+          responde `400 VALIDATION_ERROR`.
+        examples:
+          - "QUERELLANTE: PERALTA Juan Carlos\nAPODERADO: DR. Martín Sosa"
+      notes:
+        type: string
+        maxLength: 500
+        description: Recuadro "Observaciones". Sin él, el recuadro queda vacío.
+        examples:
+          - Causa conexa en DI T6
+  documentIds:
+    type: array
+    minItems: 1
+    uniqueItems: true
+    description: |
+      Al menos uno, sin repetir. Cada uno, un documento de la carpeta de esta
+      causa que no sea un expediente (`caseFile` en `null`). Uno con
+      `convertibleToPdf` en `false` responde `422 DOCUMENT_NOT_CONVERTIBLE`.
+      El orden de la lista es el orden del expediente.
+    items:
+      type: string
+      minLength: 1

@@ -18,11 +18,20 @@ import {
   DOCUMENT_SPACE_CREATION_FAILED,
   DocumentSpaceCreationFailedEvent,
 } from '../../../src/subsystems/documents/core/domain/ports/events/document-space-creation-failed.event';
+import {
+  TEMPLATE_COPY_REPOSITORY,
+  TemplateCopyRepository,
+} from '../../../src/subsystems/documents/core/domain/ports/template-copy.repository';
 import { InMemoryDocumentStorage } from '../../../src/subsystems/documents/infrastructure/storage/in-memory/in-memory-document-storage';
 import { loginAs } from '../../shared/auth/login-as';
 import { expectData } from '../../shared/contract/envelopes';
 import { aCaseBody, createCase } from '../../shared/factories/case.factory';
-import { clearCloudFolders, createCloudStructure } from '../../shared/factories/cloud-structure.factory';
+import {
+  clearCloudFolders,
+  createCloudStructure,
+  createTemplateJurisdictionFolders,
+  TemplateJurisdictionFolders,
+} from '../../shared/factories/cloud-structure.factory';
 import { createClient } from '../../shared/factories/client.factory';
 import { clearTemplates, createTemplate } from '../../shared/factories/document-template.factory';
 import { createLawyer } from '../../shared/factories/lawyer.factory';
@@ -82,6 +91,7 @@ describe('documents al registrar una causa', () => {
   let clientId: number;
   let userId: number;
   let templatesFolderId: string;
+  let jurisdictionFolders: TemplateJurisdictionFolders;
   let sixTemplates: Array<{ id: number; name: string; cloudFileId: string }>;
 
   beforeAll(async () => {
@@ -118,6 +128,7 @@ describe('documents al registrar una causa', () => {
     ({
       templates: { id: templatesFolderId },
     } = await createCloudStructure(storage));
+    jurisdictionFolders = await createTemplateJurisdictionFolders(storage, templatesFolderId);
 
     lawyerId = (await createLawyer({ lastName: 'Ríos', firstName: 'Malena' })).id;
     userId = (await createUser({ roles: ['SECRETARY'] })).id;
@@ -127,7 +138,7 @@ describe('documents al registrar una causa', () => {
     lawyerActor = loginAs({ userId: lawyerUser.id, roles: ['LAWYER'] });
 
     // Seis modelos penales que se copian, y tres que no: de otro fuero, sin marcar y dado de baja (CA-40.5).
-    const context = { templatesFolderId, userId };
+    const context = { templatesFolderId, userId, jurisdictionFolders };
     sixTemplates = [];
     for (let n = 1; n <= 6; n += 1) {
       const template = await createTemplate(storage, context, { name: `Modelo ${n}` });
@@ -190,6 +201,38 @@ describe('documents al registrar una causa', () => {
       expect(await contentOf(second.id)).toBe('XX Modelo 1 v1');
     });
 
+    // F5 — CA-40.1, CA-40.5, CA-40.6: se copia el archivo del modelo en la subcarpeta del fuero de la causa
+    // (no el principal), y un modelo anterior a las subcarpetas se sigue copiando desde su archivo.
+    it('copia el archivo del modelo de su fuero, y desde el principal si el modelo es anterior a las subcarpetas', async () => {
+      const prisma = getPrisma();
+      // Principal en Penal; la causa es administrativa, así que debe copiarse el archivo de Administrativo.
+      const both = await createTemplate(
+        storage,
+        { templatesFolderId, userId, jurisdictionFolders },
+        { name: 'De dos fueros', jurisdictions: ['CRIMINAL', 'ADMINISTRATIVE'] },
+      );
+      const ofAdministrative = await prisma.documentTemplateFile.findFirstOrThrow({
+        where: { templateId: both.id, cloudFolderId: jurisdictionFolders.ADMINISTRATIVE.id },
+      });
+      expect(ofAdministrative.cloudFileId).not.toBe(both.cloudFileId);
+      const legacy = await createTemplate(storage, { templatesFolderId, userId }, { name: 'Anterior', jurisdictions: ['ADMINISTRATIVE'] });
+      storage.fileCalls.length = 0;
+
+      const data = expectData<{ id: number; folder: FolderBody }>(
+        await register({
+          jurisdiction: 'ADMINISTRATIVE',
+          proceduralRole: 'RECURRENTE',
+          subjectMatter: 'Se impugna la resolución que deniega la cobertura.',
+        }),
+        201,
+      );
+
+      expect(data.folder).toMatchObject({ status: 'CREATED', templatesCopied: 2, templatesPending: 0 });
+      const copied = storage.fileCalls.flatMap((call) => (call.method === 'copyFile' ? [call.fileId] : []));
+      expect(copied.sort()).toEqual([ofAdministrative.cloudFileId, legacy.cloudFileId].sort());
+      expect((await filesInFolderOf(data.id)).map((file) => file.name).sort()).toEqual(['Anterior.docx', 'De dos fueros.docx']);
+    });
+
     // CA-40.4, CA-40.9
     it('con copyTemplates en false, o en un fuero sin modelos, la carpeta se crea vacía', async () => {
       const unmarked = expectData<{ id: number; folder: FolderBody }>(await register({ copyTemplates: false }), 201);
@@ -220,10 +263,25 @@ describe('documents al registrar una causa', () => {
     }
 
     // CA-39.5, `API_CONTRACT_V5.md` §3.4 (`folder` en ERROR)
-    it('si el almacenamiento está caído, la causa se registra y los seis modelos quedan pendientes', async () => {
+    // El aviso de la falla despierta al alta sin esperar a nadie: los pendientes tienen que estar escritos
+    // ANTES de pedir la carpeta. Con 300 ms de demora al registrarlos, registrarlos después no alcanza.
+    it.each([0, 300])(
+      'si el almacenamiento está caído, la causa se registra y los seis modelos quedan pendientes (registro de pendientes con %i ms de demora)',
+      async (delayMs) => {
+      const copies = app.get<TemplateCopyRepository>(TEMPLATE_COPY_REPOSITORY);
+      const registerPending = copies.registerPending.bind(copies);
+      const slow = jest.spyOn(copies, 'registerPending').mockImplementation(async (caseId, jurisdictionId) => {
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        return registerPending(caseId, jurisdictionId);
+      });
       storage.failNextWith(new DocumentStorageUnavailableError('TRANSIENT', 'timeout'));
 
-      const data = expectData<{ folder: FolderBody }>(await register(), 201);
+      let data: { folder: FolderBody };
+      try {
+        data = expectData<{ folder: FolderBody }>(await register(), 201);
+      } finally {
+        slow.mockRestore();
+      }
 
       expect(data.folder).toEqual({
         status: 'ERROR',
@@ -232,7 +290,8 @@ describe('documents al registrar una causa', () => {
         templatesCopied: 0,
         templatesPending: 6,
       });
-    });
+      },
+    );
 
     // CA-40.7
     it('si falla la copia de un modelo queda pendiente, y el reintento copia solo el que falta', async () => {

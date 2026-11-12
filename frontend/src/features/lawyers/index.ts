@@ -13,3 +13,4 @@
 
 export { useLawyers } from './api/useLawyers'
 export type { Lawyer, LawyerListParams } from './types/lawyer'
+export { lawyerLabel } from './utils/lawyerLabel'

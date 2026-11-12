@@ -19,6 +19,12 @@ describe('filterTools', () => {
         expect(ids(filterTools(TOOLS, 'bancor'))).toEqual(['pj-tasa-justicia'])
     })
 
+    // Pedido del 08/11/2026: el portal de la Nación y Claude.
+    it('encuentra el Poder Judicial de la Nación y Claude', () => {
+        expect(ids(filterTools(TOOLS, 'nacion'))).toContain('pjn-portal')
+        expect(ids(filterTools(TOOLS, 'redacción'))).toEqual(['claude'])
+    })
+
     it('sin coincidencias devuelve una lista vacía', () => {
         expect(filterTools(TOOLS, 'zzzz')).toEqual([])
     })

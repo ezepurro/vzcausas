@@ -7,6 +7,10 @@ required:
   - offenseDate
   - prescriptionStartsOn
   - prescriptionExpiresOn
+  - elapsedPercentage
+  - alert
+  - expired
+  - prescriptionDeclaration
 properties:
   id:
     type: integer
@@ -46,3 +50,44 @@ properties:
     description: '`prescriptionStartsOn` más `prescriptionMonths`. Calculado.'
     examples:
       - '2032-07-04'
+  elapsedPercentage:
+    type: integer
+    minimum: 0
+    maximum: 100
+    readOnly: true
+    description: |
+      **(Revisión del 08/11/2026, D-112)** Porcentaje del plazo de esta
+      calificación ya transcurrido: días corridos desde `prescriptionStartsOn`
+      hasta hoy, sobre los días corridos entre `prescriptionStartsOn` y
+      `prescriptionExpiresOn`. Redondeado al entero más cercano. Misma regla
+      que `Prescription.elapsedPercentage`. Calculado.
+    examples:
+      - 27
+  alert:
+    type: boolean
+    readOnly: true
+    description: |
+      **(Revisión del 08/11/2026, D-112)** `true` si transcurrió el **70 %** o
+      más del plazo de esta calificación, evaluado sobre el valor exacto.
+      Calculado.
+    examples:
+      - false
+  expired:
+    type: boolean
+    readOnly: true
+    description: |
+      **(Revisión del 08/11/2026, D-112)** `true` si hoy es igual o posterior a
+      `prescriptionExpiresOn`: el plazo de esta calificación se cumplió. No
+      cambia cuál rige la causa (`Prescription`) ni su estado. Calculado.
+    examples:
+      - false
+  prescriptionDeclaration:
+    description: |
+      **(Revisión del 08/11/2026, D-113)** Constancia de que esta calificación
+      fue declarada prescripta, con la misma forma que la de la causa. `null`
+      mientras no lo fue. Que el plazo esté cumplido (`expired`) no la declara.
+      Una calificación declarada deja de contar para `prescription` y no se
+      reinicia con actos interruptivos posteriores a la declaración.
+    oneOf:
+      - $ref: ./PrescriptionDeclaration.yaml
+      - type: 'null'

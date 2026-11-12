@@ -2,6 +2,7 @@ import {
   CannotDeclarePrescriptionError,
   CaseInTerminalStateError,
   CaseNotFoundError,
+  NotResponsibleLawyerError,
   PrescriptionNotApplicableError,
 } from '../../../domain/errors/case.errors';
 import { CaseListItem } from '../../../domain/ports/case/case.repository';
@@ -76,12 +77,39 @@ describe('DeclarePrescription', () => {
     expect(result).toEqual({ id: 1 });
   });
 
-  it('la secretaría no puede, y se rechaza antes de leer la causa (CA-33.2)', async () => {
-    const attempt = useCase.execute(command({ caseId: 999, actor: anActor({ roleNames: ['SECRETARY'], lawyerId: null }) }));
+  it('la secretaría no puede (CA-33.2) y no se guarda nada', async () => {
+    cases.add(aCriminalCaseWithOffense());
 
-    // A 403, not the 404 of the missing case: who asks is checked first.
+    const attempt = useCase.execute(command({ actor: anActor({ roleNames: ['SECRETARY'], lawyerId: null }) }));
+
     await expect(attempt).rejects.toThrow(CannotDeclarePrescriptionError);
     expect(cases.declaredPrescriptions).toEqual([]);
+  });
+
+  // D-110
+  it('un abogado que no es el responsable no puede y no se guarda nada', async () => {
+    cases.add(aCriminalCaseWithOffense());
+
+    const attempt = useCase.execute(command({ actor: anActor({ roleNames: ['LAWYER'], lawyerId: 99 }) }));
+
+    await expect(attempt).rejects.toThrow(NotResponsibleLawyerError);
+    expect(cases.declaredPrescriptions).toEqual([]);
+  });
+
+  it('el abogado responsable la marca', async () => {
+    cases.add(aCriminalCaseWithOffense());
+
+    await useCase.execute(command({ actor: anActor() }));
+
+    expect(cases.declaredPrescriptions).toHaveLength(1);
+  });
+
+  // D-110: primero 404, después 403
+  it.each([
+    ['la secretaría', anActor({ roleNames: ['SECRETARY'], lawyerId: null })],
+    ['otro abogado', anActor({ lawyerId: 99 })],
+  ])('una causa inexistente es 404 aunque pida %s', async (_name, actor) => {
+    await expect(useCase.execute(command({ caseId: 999, actor }))).rejects.toThrow(CaseNotFoundError);
   });
 
   // The case given de baja is covered by the integration spec (D2.3): the fixtures only build active cases.

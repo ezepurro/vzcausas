@@ -45,6 +45,17 @@ export abstract class CloudFolder {
     return this.props.createdAt;
   }
 
+  /**
+   * Takes a new name, the one the provider now shows (HU19, D-104). The id and
+   * the position do not change.
+   *
+   * @throws {InvalidCloudFolderError} if the name is empty.
+   */
+  rename(name: string): void {
+    CloudFolder.requireText('name', name);
+    this.props.name = name;
+  }
+
   /** Lawyer the folder belongs to; `null` for kinds that have none. */
   get lawyerId(): number | null {
     return null;

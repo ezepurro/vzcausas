@@ -1,18 +1,22 @@
-import { DocumentTemplate } from '../domain/entities/document-template.entity';
+import {
+  DocumentTemplate,
+  TEMPLATE_JURISDICTIONS,
+  TemplateJurisdiction,
+} from '../domain/entities/document-template.entity';
 import {
   DocumentTemplateRepository,
   DocumentTemplateSearch,
   DocumentTemplateView,
-  TemplateFileLocation,
+  TemplateFilePlacement,
 } from '../domain/ports/document-template.repository';
 import { TemplateFile } from '../domain/value-objects/template-file.vo';
 
-/** A template as the fake keeps it: the view plus where its file is. */
-type StoredTemplate = DocumentTemplateView & TemplateFileLocation;
+/** A template as the fake keeps it: the view plus where its main file is. */
+type StoredTemplate = DocumentTemplateView & { cloudFileId: string; cloudFolderId: string };
 
 /** In-memory {@link DocumentTemplateRepository} for the use case specs. */
 export class FakeDocumentTemplateRepository implements DocumentTemplateRepository {
-  readonly saved: Array<{ template: DocumentTemplate; file: TemplateFileLocation }> = [];
+  readonly saved: Array<{ template: DocumentTemplate; placements: readonly TemplateFilePlacement[] }> = [];
   readonly rows: StoredTemplate[] = [];
   readonly searches: DocumentTemplateSearch[] = [];
   failOnSaveWith: Error | null = null;
@@ -63,9 +67,15 @@ export class FakeDocumentTemplateRepository implements DocumentTemplateRepositor
     return row ? TemplateFile.hydrate({ fileName: row.fileName, cloudFileId: row.cloudFileId }) : null;
   }
 
-  async save(template: DocumentTemplate, file: TemplateFileLocation): Promise<DocumentTemplateView> {
+  /** Ids are the position in the contract's enum, from 1: CRIMINAL 1, ADMINISTRATIVE 2, AMPARO 3. */
+  async findJurisdictionIds(codes: readonly TemplateJurisdiction[]): Promise<Map<TemplateJurisdiction, number>> {
+    return new Map(codes.map((code) => [code, TEMPLATE_JURISDICTIONS.indexOf(code) + 1]));
+  }
+
+  async save(template: DocumentTemplate, placements: readonly TemplateFilePlacement[]): Promise<DocumentTemplateView> {
     if (this.failOnSaveWith) throw this.failOnSaveWith;
-    this.saved.push({ template, file });
+    this.saved.push({ template, placements });
+    const main = placements[0];
     return toView(
       this.add({
         name: template.name,
@@ -74,7 +84,8 @@ export class FakeDocumentTemplateRepository implements DocumentTemplateRepositor
         copyToNewCases: template.copyToNewCases,
         lastVersionAt: template.lastVersionAt,
         lastVersionBy: { id: template.lastVersionByUserId, lastName: 'Ferreyra', firstName: 'Matías' },
-        ...file,
+        cloudFileId: main.cloudFileId,
+        cloudFolderId: main.cloudFolderId,
       }),
     );
   }

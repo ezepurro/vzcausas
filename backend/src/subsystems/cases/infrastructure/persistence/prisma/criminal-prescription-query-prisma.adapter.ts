@@ -17,16 +17,17 @@ const PRESCRIPTION_SELECT = {
   offenses: {
     select: {
       offenseDate: true,
+      // D-113: a declared offense no longer governs, and no later act restarts it.
+      prescriptionDeclaredOn: true,
       legalQualification: { select: { id: true, name: true, prescriptionMonths: true } },
     },
   },
-  // The act that governs the prescription: the most recent by its date, not by
-  // when it was registered (CA-31.4). Same order as `CASE_INCLUDE` in
-  // `prisma-case.repository.ts`, so both reads pick the same act.
+  // Every act, by its date (CA-31.4): whether one restarts an offense depends on
+  // the ones before it (D-113). Same order as `CASE_INCLUDE` in
+  // `prisma-case.repository.ts`, so both reads compute the same.
   interruptiveActs: {
     select: { actDate: true },
-    orderBy: [{ actDate: 'desc' }, { id: 'desc' }],
-    take: 1,
+    orderBy: [{ actDate: 'asc' }, { id: 'asc' }],
   },
 } as const satisfies Prisma.CaseSelect;
 
@@ -39,8 +40,8 @@ const PRESCRIPTION_SELECT = {
  * This only adds the two conditions of the port: the `CRIMINAL` jurisdiction
  * and at least one offense.
  *
- * One query for all the cases, the latest interruptive act as a `take: 1`
- * relation: the number of queries does not grow with the number of cases.
+ * One query for all the cases, with their interruptive acts as a relation: the
+ * number of queries does not grow with the number of cases.
  * The qualification is read whether it is active or not — a deactivated one
  * still governs the prescription of the cases that registered it (RN12).
  */
@@ -69,8 +70,9 @@ export class CriminalPrescriptionQueryPrismaAdapter implements CriminalPrescript
         legalQualificationName: offense.legalQualification.name,
         prescriptionMonths: offense.legalQualification.prescriptionMonths,
         offenseDate: offense.offenseDate,
+        prescriptionDeclaredOn: offense.prescriptionDeclaredOn,
       })),
-      lastInterruptiveActDate: row.interruptiveActs[0]?.actDate ?? null,
+      interruptiveActDates: row.interruptiveActs.map((act) => act.actDate),
     }));
   }
 }

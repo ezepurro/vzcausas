@@ -69,7 +69,7 @@ que corresponde al servidor: el frontend muestra lo que recibe y no lo prueba.
 | CA-19.4 | Backend |
 | CA-19.5 | `components/cases/CaseDetailPage.edit.test.tsx` (componentes) |
 | CA-19.6 | `unit/cases/buildCasePatch.test.ts` (unit)<br>`unit/cases/caseForm.test.ts` (unit)<br>Backend |
-| CA-19.7 | `components/cases/CaseDetailPage.edit.test.tsx` (componentes)<br>`unit/cases/suggestedCaption.test.ts` (unit) |
+| CA-19.7 | `components/cases/CaseDetailPage.edit.test.tsx` (componentes)<br>`unit/cases/buildCasePatch.test.ts` (unit) |
 | CA-19.8 | `components/cases/CaseDetailPage.edit.test.tsx` (componentes) |
 | CA-19.9 | Backend |
 | CA-19.10 | Backend |
@@ -78,6 +78,7 @@ que corresponde al servidor: el frontend muestra lo que recibe y no lo prueba.
 | CA-19.13 | `unit/cases/buildCasePatch.test.ts` (unit)<br>Backend |
 | CA-19.14 | Backend |
 | CA-19.15 | Backend |
+| CA-19.16 | `components/cases/CaseDetailPage.edit.test.tsx` (componentes)<br>`components/cases/GenerateCaseFilePage.test.tsx` (componentes) |
 
 ## HU-20
 
@@ -106,6 +107,7 @@ que corresponde al servidor: el frontend muestra lo que recibe y no lo prueba.
 | CA-21.8 | Backend |
 | CA-21.9 | Backend |
 | CA-21.10 | Backend |
+| CA-21.11 | `components/cases/CaseDetailPage.delete.test.tsx` (componentes) |
 
 ## HU-22
 
@@ -206,6 +208,7 @@ que corresponde al servidor: el frontend muestra lo que recibe y no lo prueba.
 | --- | --- |
 | CA-32.9 | `components/dashboard/HomePage.administrator.test.tsx` (componentes)<br>`components/dashboard/HomePage.lawyer.test.tsx` (componentes) |
 | CA-32.12 | `components/dashboard/HomePage.lawyer.test.tsx` (componentes) |
+| CA-32.13 | `components/cases/CaseDetailPage.test.tsx` (componentes)<br>`unit/cases/prescription.test.ts` (unit) |
 
 ## HU-33
 
@@ -217,7 +220,8 @@ que corresponde al servidor: el frontend muestra lo que recibe y no lo prueba.
 | CA-33.4 | `components/cases/CaseDetailPage.prescription.test.tsx` (componentes) |
 | CA-33.5 | `components/cases/CaseDetailPage.prescription.test.tsx` (componentes) |
 | CA-33.9 | `components/cases/CaseDetailPage.prescription.test.tsx` (componentes) |
-| CA-33.16 | `components/cases/CaseDetailPage.prescription.test.tsx` (componentes) |
+| CA-33.16 | `components/cases/CaseDetailPage.prescription.test.tsx` (componentes)<br>`components/cases/CaseDetailPage.timeline.test.tsx` (componentes) |
+| CA-33.19 | `components/cases/CaseDetailPage.prescription.test.tsx` (componentes) |
 
 ## HU-34
 
@@ -257,7 +261,7 @@ que corresponde al servidor: el frontend muestra lo que recibe y no lo prueba.
 | CA-38.4 | `components/cases/CaseDetailPage.documents.test.tsx` (componentes)<br>`unit/cases/caseDocument.test.ts` (unit) |
 | CA-38.5 | `components/cases/CaseDetailPage.documents.test.tsx` (componentes) |
 | CA-38.6 | `components/cases/CaseDetailPage.documents.test.tsx` (componentes) |
-| CA-38.7 | Backend |
+| CA-38.7 | `components/cases/CaseDetailPage.documents.test.tsx` (componentes)<br>`unit/app/actionAccess.test.ts` (unit)<br>`unit/cases/caseDocument.test.ts` (unit)<br>Backend |
 | CA-38.8 | Backend |
 | CA-38.9 | Backend |
 
@@ -322,4 +326,4 @@ que corresponde al servidor: el frontend muestra lo que recibe y no lo prueba.
 
 ---
 
-195 criterios citados · 39 sólo del backend.
+199 criterios citados · 38 sólo del backend.

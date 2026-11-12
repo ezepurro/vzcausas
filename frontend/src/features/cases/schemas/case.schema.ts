@@ -37,6 +37,25 @@ const COUNTERPARTY_MAX = 255
 /** El largo del objeto del reclamo o del amparo (V3 D-27). Lo usa también el contador del campo. */
 export const SUBJECT_MATTER_MAX = 800
 
+/**
+ * Topes de los controles (`maxLength`), por campo del formulario: no dejan
+ * escribir de más. Salen de las mismas constantes que valida el schema.
+ */
+export const CASE_MAX_LENGTH = {
+    /* Exactamente 8 dígitos. */
+    sacNumber: 8,
+    caption: CAPTION_MAX,
+    court: COURT_MAX,
+    instructorName: INSTRUCTOR_MAX,
+    tribunalPhone: PHONE_MAX,
+    instructorExtension: EXTENSION_MAX,
+    counterparty: COUNTERPARTY_MAX,
+    subjectMatter: SUBJECT_MATTER_MAX,
+    /* V5 no fija tope de días del amparo: tres dígitos alcanzan (decisión del equipo, 06/11/2026). */
+    harmfulActTermDays: 3,
+    harmfulActRenewalDays: 3,
+} as const
+
 export function validateCase(values: CaseFormValues): CaseFormErrors {
     const errors: CaseFormErrors = {}
     const criminal = values.jurisdiction === 'CRIMINAL'

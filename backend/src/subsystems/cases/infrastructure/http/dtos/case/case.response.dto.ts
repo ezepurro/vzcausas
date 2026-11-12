@@ -7,8 +7,10 @@ export class ClientResponseDto {
   id!: number;
   lastName!: string;
   firstName!: string;
-  dni!: string;
-  phone!: string | null;
+  documentType!: string;
+  documentNumber!: string;
+  address!: string;
+  phone!: string;
   email!: string | null;
   clientSince!: string;
 }
@@ -17,7 +19,7 @@ export class ResponsibleLawyerResponseDto {
   id!: number;
   lastName!: string;
   firstName!: string;
-  registrationNumber!: string;
+  registrationNumber!: string | null;
 }
 
 export class LegalQualificationResponseDto {
@@ -27,6 +29,12 @@ export class LegalQualificationResponseDto {
   offenseDate!: string;
   prescriptionStartsOn!: string;
   prescriptionExpiresOn!: string;
+  /** D-112: the same three fields as `prescription`, for this qualification. */
+  elapsedPercentage!: number;
+  alert!: boolean;
+  expired!: boolean;
+  /** D-113: its declared prescription, with the same shape as the case's; `null` while it was not declared. */
+  prescriptionDeclaration!: PrescriptionDeclarationResponseDto | null;
 }
 
 export class CurrentStateResponseDto {

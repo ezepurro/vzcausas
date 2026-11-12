@@ -10,6 +10,7 @@ import { DetectUpcomingPrescriptionsUseCase } from "./core/application/use-cases
 import { SendDailyNotificationDigestUseCase } from "./core/application/use-cases/send-daily-notification-digest.use-case";
 import {
   COPY_TO_RESPONSIBLE_LAWYER,
+  DEV_TOOLS_ENABLED,
   MANAGEMENT_MAILBOX,
 } from "./core/domain/ports/daily-digest-config.port";
 import { DEADLINE_DETECTION } from "./core/domain/ports/deadline-detection.port";
@@ -68,6 +69,14 @@ import { PrismaSentNotificationRepository } from "./infrastructure/persistence/p
       provide: COPY_TO_RESPONSIBLE_LAWYER,
       useFactory: (config: ConfigService) =>
         config.get<string>("COPY_TO_RESPONSIBLE_LAWYER", "true") !== "false",
+      inject: [ConfigService],
+    },
+
+    // Atajos de desarrollo de la corrida diaria (`?dev=true`). Solo con
+    // NODE_ENV=development, igual que el seed de desarrollo de `identity`.
+    {
+      provide: DEV_TOOLS_ENABLED,
+      useFactory: (config: ConfigService) => config.get<string>("NODE_ENV") === "development",
       inject: [ConfigService],
     },
 

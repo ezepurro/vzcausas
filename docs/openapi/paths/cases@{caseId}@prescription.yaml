@@ -10,6 +10,13 @@ post:
     Marca una causa penal como prescripta (HU33). Es la acción "Marcar
     prescripta" del detalle, que el prototipo ofrece solo en el fuero penal.
 
+    **(Revisión del 08/11/2026, D-113)** Es "Marcar toda la causa
+    prescripta": declara prescriptas, con estos datos, todas las
+    calificaciones que todavía no lo estaban, y cierra la causa. Las ya
+    declaradas conservan su declaración. Para un solo delito, sin cerrar la
+    causa, está
+    `POST /cases/{caseId}/legal-qualifications/{legalQualificationId}/prescription`.
+
     Es una acción **manual**, con la resolución que declara la prescripción
     (D-52). El proceso diario detecta el plazo cumplido (HU52), deja
     `prescription.expired` en `true` y avisa (HU32), pero no cambia el estado
@@ -38,8 +45,8 @@ post:
 
     No existe una operación para revertirlo desde la API.
 
-    **Rol requerido:** `ADMINISTRATOR` o `LAWYER`. No hace falta ser el
-    abogado responsable de la causa.
+    **Rol requerido:** `ADMINISTRATOR`, o `LAWYER` siendo el abogado
+    responsable de la causa (D-110).
   requestBody:
     required: true
     content:
@@ -92,7 +99,9 @@ post:
                 id: 4
                 lastName: ACOSTA
                 firstName: Jonathan E.
-                dni: '38907221'
+                documentType: DNI
+                documentNumber: '38907221'
+                address: Av. Colón 1250, Córdoba
                 phone: 351 744-1160
                 email: null
                 clientSince: '2022-01-19'
@@ -108,6 +117,18 @@ post:
                   offenseDate: '2022-01-19'
                   prescriptionStartsOn: '2022-01-19'
                   prescriptionExpiresOn: '2028-01-19'
+                  elapsedPercentage: 78
+                  alert: true
+                  expired: false
+                  prescriptionDeclaration:
+                    prescriptionDate: '2026-09-15'
+                    resolution: Sentencia N° 214 del Juzgado de Control N° 3
+                    grounds: Transcurrió el plazo del art. 62 inc. 2 CP sin actos interruptivos.
+                    registeredBy:
+                      id: 1
+                      lastName: Vázquez
+                      firstName: Fernando G.
+                    registeredAt: '2026-09-15T12:20:00-03:00'
               prescription:
                 legalQualificationId: 2
                 legalQualificationName: Infracción Ley 23.737 — art. 5 inc. c
@@ -159,7 +180,30 @@ post:
     '401':
       $ref: ../components/responses/Unauthorized.yaml
     '403':
-      $ref: ../components/responses/ForbiddenAdministratorOrLawyer.yaml
+      description: |
+        Solo marca la prescripción el `ADMINISTRATOR` o el abogado responsable
+        de la causa (D-110). Un abogado que no es el responsable, y no es
+        `ADMINISTRATOR`, recibe el primer mensaje; la `SECRETARY` sola, el
+        segundo. Se evalúa después del `404`.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          examples:
+            notResponsibleLawyer:
+              summary: Abogado que no es el responsable
+              value:
+                error:
+                  code: FORBIDDEN
+                  message: Solo el abogado responsable de la causa puede marcarla como prescripta.
+                  details: null
+            missingRole:
+              summary: Secretaría
+              value:
+                error:
+                  code: FORBIDDEN
+                  message: Se requiere el rol ADMINISTRATOR o LAWYER para realizar esta operación.
+                  details: null
     '404':
       $ref: ../components/responses/CaseNotFound.yaml
     '422':

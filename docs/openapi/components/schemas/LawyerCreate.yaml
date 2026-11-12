@@ -3,7 +3,6 @@ additionalProperties: false
 required:
   - lastName
   - firstName
-  - registrationNumber
 properties:
   lastName:
     type: string
@@ -19,8 +18,12 @@ properties:
     examples:
       - Ignacio
   registrationNumber:
-    type: string
-    description: Formato `1-28114`. Única.
-    pattern: '^[0-9]+-[0-9]+$'
+    type:
+      - string
+      - 'null'
+    description: |
+      Formato `1-28114`. Única. Opcional: si no se envía, vacía o `null`, el
+      abogado queda sin matrícula (Revisión del 05/11/2026, D-107.)
+    pattern: '^([0-9]+-[0-9]+)?$'
     examples:
       - 1-35207

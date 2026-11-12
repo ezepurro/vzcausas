@@ -5,6 +5,17 @@ del contrato.
 
 ---
 
+## 2026-11-08 — "Descargar" a todo el ancho en el teléfono
+
+**Pedido:** del equipo (Facundo Fiorani), dentro del repaso del responsive de
+toda la aplicación (rama `refactor/front`). Debajo de 721 px el botón
+"Descargar" de cada modelo ocupa el ancho de la tarjeta y mide 40 px de
+alto, como la acción que cierra una ficha de listado. Arriba nada cambia.
+Archivo: `src/styles/documents.css`, bloque "teléfono" al final. Verificado en
+el navegador a 375 px con los mocks (fuero Penal, como `fvazquez`).
+
+---
+
 ## 2026-10-29 — Textos de la página y de "Registrar modelo formal"
 
 **Pedido:** Luciano Cipolla. Los textos del prototipo parecían notas para el

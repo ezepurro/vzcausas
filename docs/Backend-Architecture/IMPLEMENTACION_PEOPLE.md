@@ -30,7 +30,7 @@ clientes), **HU-12** (registrar abogado).
 
 | Id | Pregunta |
 | --- | --- |
-| Q-01 | **¿Un cliente dado de baja libera su DNI?** Hoy sí: el índice único es parcial (`clients_dni_active_key ... WHERE active`). Es coherente con el abogado y con la matrícula, pero HU-11 (baja de cliente) todavía no existe y conviene confirmarlo cuando se escriba. |
+| Q-01 | **¿Un cliente dado de baja libera su DNI?** Hoy sí: el índice único es parcial (`clients_document_active_key ... WHERE active`, por `(document_type, document_number)` desde D-108). Es coherente con el abogado y con la matrícula, pero HU-11 (baja de cliente) todavía no existe y conviene confirmarlo cuando se escriba. |
 | Q-02 | **¿Qué pasa con un cliente que tiene causas cuando se lo da de baja?** La FK de `cases.client_id` es `Restrict`, así que un borrado físico no puede ocurrir; la baja lógica sí dejaría causas apuntando a un cliente no vigente. Decisión de HU-11. |
 | Q-03 | **¿El listado debería ignorar acentos al buscar?** Hoy `mode: "insensitive"` resuelve mayúsculas pero no acentos: buscar "gomez" no encuentra "GÓMEZ". Requiere `unaccent` en Postgres. |
 

@@ -5,7 +5,7 @@ export const CRIMINAL_PRESCRIPTION_QUERY = Symbol('CRIMINAL_PRESCRIPTION_QUERY')
 
 /**
  * One criminal case with what its prescription is computed from: its offenses
- * and the date of its most recent interruptive act. The inputs of
+ * and the dates of its interruptive acts. The inputs of
  * `summarizePrescription`, not its result — computing it is the use case's
  * job, against the date it is given.
  */
@@ -16,8 +16,12 @@ export type CriminalCasePrescriptionRow = {
   responsibleLawyerId: number;
   /** At least one. A deactivated qualification still counts: it is part of the case's history (RN12, §4 Bajas). */
   offenses: OffenseForPrescription[];
-  /** The most recent by its act date, not by when it was registered (CA-31.4); `null` without interruptive acts. */
-  lastInterruptiveActDate: Date | null;
+  /**
+   * Every interruptive act of the case, by act date (not by when it was
+   * registered, CA-31.4). All of them: whether one restarts an offense depends
+   * on the ones before it (D-113). Empty without interruptive acts.
+   */
+  interruptiveActDates: Date[];
 };
 
 /**

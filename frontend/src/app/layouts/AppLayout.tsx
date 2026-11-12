@@ -19,6 +19,9 @@ import { LogoutConfirmModal } from '@/features/auth/components/LogoutConfirmModa
 import { DAILY_RUN_ENABLED, useRunDailyNotifications } from '@/features/deadlines'
 import { canAccess, matchRoute } from '@/app/access/access'
 import { useHomeRoute } from '@/app/access/useHomeRoute'
+import { preloadSection } from '@/app/router/pages'
+import { NavigationProgress } from '@/app/layouts/NavigationProgress'
+import { useHoverIntent } from '@/shared/hooks/useHoverIntent'
 
 /**
  * Marco de la aplicación con sesión iniciada: rail oscuro a la izquierda,
@@ -60,7 +63,8 @@ const GROUPS: RailGroup[] = [
             { id: '/abogados', label: 'Abogados', icon: 'lawyers' },
             { id: '/estados-y-plazos', label: 'Estados y plazos', icon: 'timeLimits' },
             { id: '/calificaciones-legales', label: 'Calificaciones legales', icon: 'qualifications' },
-            { id: '/reportes', label: 'Reportes', icon: 'reports' },
+            // Oculto: Reportes (HU43, HU44) queda fuera del contrato y no tiene pantalla (DECISIONES.md §3).
+            { id: '/reportes', label: 'Reportes', icon: 'reports', hidden: true },
         ],
     },
 ]
@@ -70,6 +74,8 @@ const CASES = '/causas'
 
 export function AppLayout() {
     const navigate = useNavigate()
+    // "Nueva causa" adelanta la pantalla del alta, como los ítems del rail.
+    const newCaseIntent = useHoverIntent(preloadSection)
     const { pathname } = useLocation()
 
     /* Este marco vive detrás de la guarda de sesión, así que siempre hay
@@ -86,7 +92,7 @@ export function AppLayout() {
     const groups = GROUPS
         .map((group) => ({
             ...group,
-            items: group.items.filter((item) => canAccess(user.roles, item.id)),
+            items: group.items.filter((item) => !item.hidden && canAccess(user.roles, item.id)),
         }))
         .filter((group) => group.items.length > 0)
 
@@ -123,7 +129,15 @@ export function AppLayout() {
             groups={groups}
             active={active}
             onNavigate={(route) => navigate(route)}
+            // Al apuntar a una sección se descarga su pantalla: el click la encuentra lista.
+            onIntent={preloadSection}
             brand={
+                <Link to={homeRoute} className="vz-rail__brand" aria-label="Ir al inicio">
+                    <Logo />
+                </Link>
+            }
+            // En pantallas angostas el rail está guardado: la barra lleva el logo.
+            topBarBrand={
                 <Link to={homeRoute} className="vz-rail__brand" aria-label="Ir al inicio">
                     <Logo />
                 </Link>
@@ -140,12 +154,16 @@ export function AppLayout() {
                         icon={<Icon name="plus" size={15} />}
                         title="Nueva causa"
                         onClick={() => navigate(`${CASES}/nueva`)}
+                        {...newCaseIntent(`${CASES}/nueva`)}
                     >
                         <span className="vz-rail__action-label">Nueva causa</span>
                     </Button>
                 )
             }
             topBar={
+                    <>
+                    {/* Mientras se descarga la pantalla de destino (`lazy`). */}
+                    <NavigationProgress />
                     <div className="vz-topbar__right">
                         <IconButton
                             name="notifications"
@@ -154,6 +172,7 @@ export function AppLayout() {
                             onClick={DAILY_RUN_ENABLED ? runDailyNotifications : undefined}
                         />
                     </div>
+                    </>
             }
             railFooter={
                 <RailUser

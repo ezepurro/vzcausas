@@ -127,6 +127,35 @@ function partsLabel(n: number): string {
     return `${n} ${n === 1 ? 'parte' : 'partes'}`
 }
 
+/* ---------------- mientras se genera ---------------- */
+
+/**
+ * "Uniendo la carátula y 3 documentos. Puede tardar un par de minutos."
+ *
+ * El `POST` es sincrónico y el contrato no le pone límite de tamaño (C-29):
+ * con varios documentos tarda, y sin este texto parece colgado.
+ */
+export function generatingMessage(documentCount: number): string {
+    const documents = `${documentCount} ${documentCount === 1 ? 'documento' : 'documentos'}`
+    return `Uniendo la carátula y ${documents}. Puede tardar un par de minutos.`
+}
+
+/** "Lleva 42 s", "Lleva 1 min 05 s": cuánto va de la generación. */
+export function elapsedLabel(seconds: number): string {
+    if (seconds < 60) return `Lleva ${seconds} s`
+    const rest = String(seconds % 60).padStart(2, '0')
+    return `Lleva ${Math.floor(seconds / 60)} min ${rest} s`
+}
+
+/**
+ * El aviso cuando el pedido termina sin respuesta: se cortó por tiempo o se
+ * cayó la red. El backend pudo haberlo guardado igual, y volver a generar
+ * dejaría otra versión en la carpeta.
+ */
+export const UNCONFIRMED_CASE_FILE_MESSAGE =
+    'No llegó la respuesta del servidor, pero el expediente puede haberse generado igual. ' +
+    'Antes de volver a generarlo, fijate en "Documentación" de la causa si ya está la versión nueva.'
+
 /* ---------------- cuerpo y errores ---------------- */
 
 /**

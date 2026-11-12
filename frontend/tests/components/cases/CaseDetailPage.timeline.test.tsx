@@ -4,9 +4,11 @@ import { http, HttpResponse } from 'msw'
 import { renderWithProviders } from '../../setup/render'
 import { usePrototypeToday } from '../../setup/clock'
 import { personNameIn } from '../../setup/names'
-import { server } from '@/shared/mocks/server'
+import { configureMocks, server } from '@/shared/mocks/server'
 import { db, errorBody } from '@/shared/mocks'
 import { CaseDetailPage } from '@/features/cases/pages/CaseDetailPage'
+// Recorta el prefijo de la API como el servidor falso: no depende del VITE_API_URL de cada máquina.
+import { normalizePath } from '@/shared/mocks/msw-handlers'
 
 /**
  * La línea de vida de la causa (HU-27): el panel "Ciclo de vida de la causa"
@@ -153,12 +155,32 @@ describe('CaseDetailPage · línea de vida', () => {
     it('muestra el pase a prescripta con su fecha, la resolución, el fundamento y quién lo registró', async () => {
         renderPage(10)
 
-        const [declaration] = await entries()
+        // D-113: la causa marcada entera también trae la declaración de su calificación.
+        const declaration = (await entries()).find((item) => item.textContent?.includes('Causa prescripta'))!
         expect(declaration).toHaveTextContent('Prescripta')
         expect(declaration).toHaveTextContent('05/03/2020')
         expect(declaration).toHaveTextContent('Auto N° 57 de la Fiscalía de Instrucción Distrito 3 Turno 1')
         expect(declaration).toHaveTextContent('Transcurrió el plazo del art. 62 inc. 2 CP sin actos interruptivos.')
         expect(declaration).toHaveTextContent(new RegExp(personNameIn('Zárate', 'Oscar')))
+    })
+
+    // D-113, CA-33.16: cada calificación declarada es una entrada, con su nombre y su resolución.
+    it('muestra la declaración de una calificación, con su nombre, la fecha y la resolución', async () => {
+        const stored = db.cases.find((c) => c.id === 13)!
+        stored.qualifications.find((q) => q.legalQualificationId === 4)!.prescriptionDeclaration = {
+            prescriptionDate: '2026-09-10',
+            resolution: 'Auto N° 88 de la Cámara en lo Criminal',
+            grounds: null,
+            registeredById: 6,
+            registeredAt: '2026-09-10T12:00:00-03:00',
+        }
+        renderPage(13)
+
+        const declaration = (await entries()).find((item) => item.textContent?.includes('Calificación declarada prescripta'))!
+        expect(declaration).toHaveTextContent('Amenazas coactivas — art. 149 bis CP')
+        expect(declaration).toHaveTextContent('10/09/2026')
+        expect(declaration).toHaveTextContent('Auto N° 88 de la Cámara en lo Criminal')
+        expect(declaration).not.toHaveTextContent('Causa prescripta')
     })
 
     // CA-27.14: sin movimientos no es un error.
@@ -184,5 +206,30 @@ describe('CaseDetailPage · línea de vida', () => {
         expect(
             await within(panel).findByText('Error del servidor de prueba.', {}, { timeout: 5000 }),
         ).toBeInTheDocument()
+    })
+
+    /* Sin criterio de aceptación: es para que el panel aparezca antes. La
+       línea de vida sólo necesita el id de la causa, así que no espera a que
+       llegue la causa: los dos pedidos salen juntos. Con demora en las dos
+       lecturas, el de la línea de vida tiene que salir antes de que vuelva la
+       causa. */
+    it('pide la línea de vida junto con la causa, sin esperarla', async () => {
+        configureMocks({ latencyProfile: { 'GET /cases/:caseId': 200, 'GET /cases/:caseId/timeline': 200 } })
+        const events: string[] = []
+        const path = (request: Request) => normalizePath(new URL(request.url).pathname)
+        server.events.on('request:start', ({ request }) => events.push(`sale ${path(request)}`))
+        server.events.on('response:mocked', ({ request }) => events.push(`vuelve ${path(request)}`))
+
+        try {
+            renderPage(1)
+            expect(await entries()).toHaveLength(4)
+
+            const timelineOut = events.indexOf('sale /cases/1/timeline')
+            const caseBack = events.indexOf('vuelve /cases/1')
+            expect(timelineOut).toBeGreaterThanOrEqual(0)
+            expect(timelineOut).toBeLessThan(caseBack)
+        } finally {
+            server.events.removeAllListeners()
+        }
     })
 })

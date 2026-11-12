@@ -24,7 +24,7 @@ import {
     type CaseFormValues,
     type ProceduralRole,
 } from '@/features/cases/types/case'
-import { SUBJECT_MATTER_MAX, type CaseFormErrors } from '@/features/cases/schemas/case.schema'
+import { CASE_MAX_LENGTH, SUBJECT_MATTER_MAX, type CaseFormErrors } from '@/features/cases/schemas/case.schema'
 import {
     LegalQualificationPicker,
     type SelectedQualification,
@@ -149,7 +149,7 @@ export function CaseForm({
                             id="case-sac"
                             mono
                             inputMode="numeric"
-                            maxLength={8}
+                            maxLength={CASE_MAX_LENGTH.sacNumber}
                             placeholder="8 dígitos"
                             value={values.sacNumber}
                             onChange={(e) => onSacNumberChange(e.target.value)}
@@ -170,6 +170,7 @@ export function CaseForm({
                         note="Podés usar la que sugiere el resumen, a partir del cliente y la calificación.">
                         <TextInput
                             id="case-caption"
+                            maxLength={CASE_MAX_LENGTH.caption}
                             value={values.caption}
                             onChange={(e) => onChange('caption', e.target.value)}
                         />
@@ -179,6 +180,7 @@ export function CaseForm({
                         <TextInput
                             id="case-court"
                             placeholder="Juzgado de Control N° 3 · Córdoba"
+                            maxLength={CASE_MAX_LENGTH.court}
                             value={values.court}
                             onChange={(e) => onChange('court', e.target.value)}
                         />
@@ -194,6 +196,7 @@ export function CaseForm({
                             <TextInput
                                 id="case-instructor"
                                 placeholder="Apellido y nombre del instructor"
+                                maxLength={CASE_MAX_LENGTH.instructorName}
                                 value={values.instructorName}
                                 onChange={(e) => onChange('instructorName', e.target.value)}
                             />
@@ -206,6 +209,7 @@ export function CaseForm({
                                 type="tel"
                                 mono
                                 placeholder="0351 448-1200"
+                                maxLength={CASE_MAX_LENGTH.tribunalPhone}
                                 value={values.tribunalPhone}
                                 onChange={(e) => onChange('tribunalPhone', e.target.value)}
                             />
@@ -217,7 +221,7 @@ export function CaseForm({
                                 id="case-instructor-extension"
                                 mono
                                 inputMode="numeric"
-                                maxLength={20}
+                                maxLength={CASE_MAX_LENGTH.instructorExtension}
                                 placeholder="214"
                                 value={values.instructorExtension}
                                 onChange={(e) => onChange('instructorExtension', e.target.value)}
@@ -296,6 +300,7 @@ export function CaseForm({
                                 <TextInput
                                     id="case-counterparty"
                                     placeholder="APROSS, Provincia de Córdoba, Tribunal de Conducta…"
+                                    maxLength={CASE_MAX_LENGTH.counterparty}
                                     value={values.counterparty}
                                     onChange={(e) => onChange('counterparty', e.target.value)}
                                 />
@@ -461,6 +466,7 @@ export function HarmfulActFields({
                                 mono
                                 inputMode="numeric"
                                 placeholder="Días"
+                                maxLength={CASE_MAX_LENGTH.harmfulActTermDays}
                                 value={values.harmfulActTermDays}
                                 onChange={(e) => onChange('harmfulActTermDays', e.target.value)}
                             />
@@ -492,6 +498,7 @@ export function HarmfulActFields({
                                 mono
                                 inputMode="numeric"
                                 placeholder="Días"
+                                maxLength={CASE_MAX_LENGTH.harmfulActRenewalDays}
                                 value={values.harmfulActRenewalDays}
                                 onChange={(e) => onChange('harmfulActRenewalDays', e.target.value)}
                             />

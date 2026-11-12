@@ -1,4 +1,5 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { usePrefetchPage } from '@/shared/api/usePrefetchPage';
 import type { ProceduralStatesParams } from '@/features/legal-params/types/proceduralState';
 import { listProceduralStates } from './proceduralStates.api';
 import { proceduralStateKeys } from './proceduralStates.keys';
@@ -17,4 +18,12 @@ export function useProceduralStates(params: ProceduralStatesParams) {
         queryFn: () => listProceduralStates(params),
         placeholderData: keepPreviousData,
     });
+}
+
+/** Pide de antemano otra página del listado, con los mismos filtros (`usePrefetchPage`). */
+export function usePrefetchProceduralStatesPage(params: ProceduralStatesParams) {
+    return usePrefetchPage((page) => ({
+        queryKey: proceduralStateKeys.list({ ...params, page }),
+        queryFn: () => listProceduralStates({ ...params, page }),
+    }));
 }

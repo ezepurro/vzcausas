@@ -13,6 +13,7 @@ import { useCaseEdit } from '@/features/cases/api/useCaseEdit'
 import { useCaseTimeline } from '@/features/cases/api/useCaseTimeline'
 import { useCreateCaseFolder } from '@/features/cases/api/useCreateCaseFolder'
 import { useDeclarePrescription } from '@/features/cases/api/useDeclarePrescription'
+import { useDeclareQualificationPrescription } from '@/features/cases/api/useDeclareQualificationPrescription'
 import { useRegisterInterruptiveAct } from '@/features/cases/api/useRegisterInterruptiveAct'
 import { CaseEditForm } from '@/features/cases/components/CaseEditForm'
 import { CaseHeader } from '@/features/cases/components/CaseHeader'
@@ -22,7 +23,8 @@ import { CaseDetailSkeleton } from '@/features/cases/components/CaseSkeletons'
 import { CaseTimeline } from '@/features/cases/components/CaseTimeline'
 import { ClientCard } from '@/features/cases/components/ClientCard'
 import { InterruptiveActModal } from '@/features/cases/components/InterruptiveActModal'
-import { PrescriptionBar } from '@/features/cases/components/PrescriptionBar'
+import { CasePrescriptionBar } from '@/features/cases/components/CasePrescriptionBar'
+import { CaseQualifications } from '@/features/cases/components/CaseQualifications'
 import { PrescriptionDeclarationModal } from '@/features/cases/components/PrescriptionDeclarationModal'
 import {
     validateInterruptiveAct,
@@ -32,12 +34,11 @@ import {
     validatePrescriptionDeclaration,
     type PrescriptionDeclarationFormErrors,
 } from '@/features/cases/schemas/prescriptionDeclaration.schema'
-import type { Case } from '@/features/cases/types/case'
+import type { Case, CaseLegalQualification } from '@/features/cases/types/case'
 import type { InterruptiveActFormValues } from '@/features/cases/types/interruptiveAct'
 import type { PrescriptionDeclarationFormValues } from '@/features/cases/types/prescriptionDeclaration'
 import type { ProceduralAct } from '@/features/cases/types/proceduralAct'
-import { prescriptionNote } from '@/features/cases/utils/prescription'
-import { isResponsibleLawyer } from '@/features/cases/utils/responsibleLawyer'
+import { caseOperation, isResponsibleLawyer } from '@/features/cases/utils/responsibleLawyer'
 import { sacLabel } from '@/features/cases/utils/sac'
 import { toCreateInterruptiveActBody } from '@/features/cases/utils/toCreateInterruptiveActBody'
 import { toDeclarePrescriptionBody } from '@/features/cases/utils/toDeclarePrescriptionBody'
@@ -49,7 +50,10 @@ import { validateDeleteCase, type DeleteCaseFormErrors } from '@/features/cases/
 import type { DeleteCaseFormValues } from '@/features/cases/types/caseDeletion'
 import { toDeleteCaseBody } from '@/features/cases/utils/toDeleteCaseBody'
 import { useCaseDocuments } from '@/features/cases/api/useCaseDocuments'
+import { useDownloadCaseDocument } from '@/features/cases/api/useDownloadCaseDocument'
 import { CaseDocumentsCard } from '@/features/cases/components/CaseDocumentsCard'
+import type { CaseDocument } from '@/features/cases/types/caseDocument'
+import { documentDownloadName } from '@/features/cases/utils/caseDocument'
 /**
  * Detalle de causa (HU22), en `/causas/:caseId`.
  *
@@ -58,8 +62,11 @@ import { CaseDocumentsCard } from '@/features/cases/components/CaseDocumentsCard
  * datos propios del fuero (V4 D-67). Lo ve cualquier perfil: todo el estudio
  * accede a todas las causas (RN11).
  *
- *  * "Modificar causa" (HU19) y "Dar de baja" (HU21) los opera cualquier perfil,
- * sin ser el responsable (V5 §3.7). Dar de baja vuelve al listado: para el
+ * "Modificar causa" (HU19), "Dar de baja" (HU21), "Marcar prescripta" (HU33)
+ * y crear o reintentar la carpeta los opera el abogado responsable, el
+ * Administrador o la Secretaría (esta última no marca prescripta): un abogado
+ * que no es el responsable sólo consulta y genera el expediente (V5 §4,
+ * "Operación de la causa", D-110). Dar de baja vuelve al listado: para el
  * cliente la causa deja de existir (D-97). La fila "Sobre la causa" lleva, en
  * todos los fueros, "Generar expediente" (HU25), y en las causas penales suma
  * "Registrar acto interruptivo" (HU31) y "Marcar prescripta" (HU33). El pago
@@ -74,6 +81,12 @@ export function CaseDetailPage() {
     const navigate = useNavigate()
     const validId = Number.isInteger(caseId) && caseId > 0
     const query = useCase(caseId)
+    /* La línea de vida sólo necesita el id: se pide acá, junto con la causa, y
+       no recién cuando `CaseDetail` se monta con la causa ya llegada. Es la
+       misma consulta que lee el panel (comparten la clave), así que no sale
+       dos veces. Los documentos no se adelantan: dependen de que la carpeta
+       esté creada, y eso lo dice la causa (CA-38.5). */
+    useCaseTimeline(caseId)
     // Al listado o a Inicio, según de dónde se entró.
     const goBack = useGoBack('/causas')
 
@@ -117,6 +130,13 @@ const CASE_DELETED = 'Causa dada de baja. Se conserva el historial completo.'
 type ModalState =
     | { kind: 'interruptive'; values: InterruptiveActFormValues; errors: InterruptiveActFormErrors }
     | { kind: 'prescription'; values: PrescriptionDeclarationFormValues; errors: PrescriptionDeclarationFormErrors }
+    /** D-113: declarar prescripta una calificación. */
+    | {
+          kind: 'qualificationPrescription'
+          qualification: CaseLegalQualification
+          values: PrescriptionDeclarationFormValues
+          errors: PrescriptionDeclarationFormErrors
+      }
     | { kind: 'delete'; values: DeleteCaseFormValues; errors: DeleteCaseFormErrors }
     | null
 
@@ -125,13 +145,18 @@ function CaseDetail({ case: c }: { case: Case }) {
     const navigate = useNavigate()
     const toast = useToast()
     const { lawyer } = useCurrentUser()
-    const canDeclarePrescription = useCan('cases.declarePrescription')
+    const showPrescription = useCan('cases.declarePrescription')
+    const operateAnyCase = useCan('cases.operateAnyCase')
+    const declarePrescriptionAnyCase = useCan('cases.declarePrescriptionAnyCase')
     const timeline = useCaseTimeline(c.id)
     /* Los documentos se leen de la carpeta: sin ella creada no hay pedido (CA-38.5). */
     const folderCreated = c.folder?.status === 'CREATED'
     const documents = useCaseDocuments(c.id, folderCreated)
+    const canDownloadDocuments = useCan('cases.downloadDocument')
+    const downloadDocument = useDownloadCaseDocument(c.id)
     const registerInterruptive = useRegisterInterruptiveAct(c.id)
     const declarePrescription = useDeclarePrescription(c.id)
+    const declareQualificationPrescription = useDeclareQualificationPrescription(c.id)
     const createFolder = useCreateCaseFolder(c.id)
     const edit = useCaseEdit(c)
     const deleteCase = useDeleteCase(c.id)
@@ -140,6 +165,13 @@ function CaseDetail({ case: c }: { case: Case }) {
     /* Sólo el abogado responsable registra los actos de esta causa, procesales
        e interruptivos (D-30, D-50). No es un permiso por rol: depende de la causa. */
     const isResponsible = isResponsibleLawyer(c, lawyer?.id ?? null)
+    /* Modificar, dar de baja, la carpeta y "Marcar prescripta" (D-110): el
+       responsable, o un rol que opera cualquier causa. */
+    const { canOperate, canDeclarePrescription } = caseOperation(c, lawyer?.id ?? null, {
+        operate: operateAnyCase,
+        declarePrescription: declarePrescriptionAnyCase,
+    })
+    const notResponsibleNote = `Solo el abogado responsable (${formatPersonFullName(c.responsibleLawyer)}) modifica o da de baja la causa.`
     const goRegisterAct = () => navigate(`/causas/${c.id}/acto`)
 
     /* Los actos de una causa prescripta no se modifican (D-99): ahí la línea
@@ -171,9 +203,34 @@ function CaseDetail({ case: c }: { case: Case }) {
         setModal({ kind: 'interruptive', values: { name: '', actDate: todayIsoDate(), notes: '' }, errors: {} })
     }
 
+    /* "Descargar" de la tarjeta "Documentación" (CA-38.7): se guarda con el
+       nombre que pone el servidor (un documento de Google, como PDF). Si Drive
+       no responde, el aviso trae el mensaje del servidor y la lista queda. */
+    function downloadCaseDocument(doc: CaseDocument) {
+        downloadDocument.mutate(
+            { document: doc, disposition: 'attachment', fileName: documentDownloadName(doc) },
+            {
+                onError: (error) => {
+                    if (!isApiError(error)) throw error
+                    toast('error', error.message)
+                },
+            },
+        )
+    }
+
     function openPrescription() {
         setModal({
             kind: 'prescription',
+            values: { prescriptionDate: todayIsoDate(), resolution: '', grounds: '' },
+            errors: {},
+        })
+    }
+
+    /** D-113: "Marcar prescripta" de una calificación de la lista del encabezado. */
+    function openQualificationPrescription(qualification: CaseLegalQualification) {
+        setModal({
+            kind: 'qualificationPrescription',
+            qualification,
             values: { prescriptionDate: todayIsoDate(), resolution: '', grounds: '' },
             errors: {},
         })
@@ -197,7 +254,7 @@ function CaseDetail({ case: c }: { case: Case }) {
             // Sólo los campos que el modal abierto muestra.
             const fieldErrors = modal.kind === 'interruptive'
                 ? toInterruptiveActFormErrors(error.details)
-                : modal.kind === 'prescription'
+                : modal.kind === 'prescription' || modal.kind === 'qualificationPrescription'
                     ? toPrescriptionDeclarationFormErrors(error.details)
                     : (error.details?.reason ? { reason: error.details.reason } : {})
             if (Object.keys(fieldErrors).length > 0) {
@@ -238,6 +295,31 @@ function CaseDetail({ case: c }: { case: Case }) {
         })
     }
 
+    /**
+     * D-113: declara prescripta una calificación. Si era la última sin
+     * declarar, la causa pasa a "Prescripta" y el aviso es el de la causa.
+     */
+    function submitQualificationPrescription(qualification: CaseLegalQualification, values: PrescriptionDeclarationFormValues) {
+        const errors = validatePrescriptionDeclaration(values)
+        setModal({ kind: 'qualificationPrescription', qualification, values, errors })
+        if (Object.keys(errors).length > 0) return
+        declareQualificationPrescription.mutate(
+            { legalQualificationId: qualification.id, body: toDeclarePrescriptionBody(values) },
+            {
+                onSuccess: (updated) => {
+                    toast(
+                        'success',
+                        updated.prescriptionDeclaration
+                            ? 'Causa marcada como prescripta. Se cerraron los plazos abiertos.'
+                            : 'Calificación declarada prescripta.',
+                    )
+                    setModal(null)
+                },
+                onError: handleApiError,
+            },
+        )
+    }
+
         /**
      * Da de baja la causa y vuelve al listado (CA-21.1). El motivo es opcional
      * (CA-21.2). El aviso es `info`: salió bien, pero no es un logro. Si falla,
@@ -261,6 +343,18 @@ function CaseDetail({ case: c }: { case: Case }) {
             <CaseHeader
                 case={c}
                 showInstructor
+                details={
+                    <CaseQualifications
+                        case={c}
+                        declare={showCaseActions && showPrescription
+                            ? {
+                                  enabled: canDeclarePrescription,
+                                  disabledTitle: `Solo el abogado responsable (${formatPersonFullName(c.responsibleLawyer)}) declara la prescripción de sus calificaciones.`,
+                                  onDeclare: openQualificationPrescription,
+                              }
+                            : undefined}
+                    />
+                }
                 actions={
                     <>
                         <Button icon={<Icon name="plus" />} disabled={!isResponsible} onClick={goRegisterAct}>
@@ -271,19 +365,31 @@ function CaseDetail({ case: c }: { case: Case }) {
                                 Solo el abogado responsable ({formatPersonFullName(c.responsibleLawyer)}) registra actos.
                             </p>
                         )}
-                                              {/* Los dos los opera cualquier perfil (V5 §3.7): no se declaran en ACTION_ACCESS. */}
+                        {/* El responsable, el Administrador o la Secretaría (D-110). */}
                         <div className="vz-case-head__buttons">
-                            <Button variant="secondary" size="sm" onClick={edit.open}>
+                            <Button
+                                variant="secondary"
+                                size="sm"
+                                disabled={!canOperate}
+                                title={canOperate ? undefined : notResponsibleNote}
+                                onClick={edit.open}
+                            >
                                 Modificar causa
                             </Button>
-                            <Button variant="danger" size="sm" onClick={openDelete}>
+                            <Button
+                                variant="danger"
+                                size="sm"
+                                disabled={!canOperate}
+                                title={canOperate ? undefined : notResponsibleNote}
+                                onClick={openDelete}
+                            >
                                 Dar de baja
                             </Button>
                         </div>
                     </>
                 }
             >
-                <CasePrescription case={c} />
+                <CasePrescriptionBar case={c} />
                 <div className="vz-case-actions">
                     <span className="vz-case-actions__label">Sobre la causa</span>
                     {showCaseActions && (
@@ -295,10 +401,19 @@ function CaseDetail({ case: c }: { case: Case }) {
                     <Button variant="secondary" size="sm" onClick={() => navigate(`/causas/${c.id}/expediente`)}>
                         Generar expediente
                     </Button>
-                    {/* La Secretaría no lo ve: no es suyo (CA-33.2). */}
-                    {showCaseActions && canDeclarePrescription && (
-                        <Button variant="danger" size="sm" onClick={openPrescription}>
-                            Marcar prescripta
+                    {/* La Secretaría no lo ve: no es suyo (CA-33.2). Un abogado que no es
+                        el responsable lo ve deshabilitado (D-110, CA-33.16). */}
+                    {showCaseActions && showPrescription && (
+                        <Button
+                            variant="danger"
+                            size="sm"
+                            disabled={!canDeclarePrescription}
+                            title={canDeclarePrescription
+                                ? undefined
+                                : `Solo el abogado responsable (${formatPersonFullName(c.responsibleLawyer)}) marca prescripta la causa.`}
+                            onClick={openPrescription}
+                        >
+                            Marcar toda la causa prescripta
                         </Button>
                     )}
                 </div>
@@ -324,6 +439,7 @@ function CaseDetail({ case: c }: { case: Case }) {
                     <CaseFacts case={c} />
                     <CaseFolderCard
                         case={c}
+                        canCreate={canOperate}
                         creating={createFolder.isPending}
                         error={
                             createFolder.isError
@@ -342,6 +458,9 @@ function CaseDetail({ case: c }: { case: Case }) {
                                 ? isApiError(documents.error) ? documents.error.message : 'Ocurrió un error inesperado.'
                                 : null
                         }
+                        canDownloadDocuments={canDownloadDocuments}
+                        downloadingId={downloadDocument.isPending ? downloadDocument.variables.document.id : null}
+                        onDownload={downloadCaseDocument}
                     />
                 </div>
             </div>
@@ -368,6 +487,18 @@ function CaseDetail({ case: c }: { case: Case }) {
                     onCancel={() => setModal(null)}
                 />
             )}
+            {modal?.kind === 'qualificationPrescription' && (
+                <PrescriptionDeclarationModal
+                    caption={c.caption}
+                    qualificationName={modal.qualification.name}
+                    values={modal.values}
+                    errors={modal.errors}
+                    saving={declareQualificationPrescription.isPending}
+                    onChange={changeValue}
+                    onConfirm={() => submitQualificationPrescription(modal.qualification, modal.values)}
+                    onCancel={() => setModal(null)}
+                />
+            )}
             {edit.form && <CaseEditForm {...edit.form} />}
             {modal?.kind === 'delete' && (
                 <DeleteCaseModal
@@ -382,16 +513,6 @@ function CaseDetail({ case: c }: { case: Case }) {
             )}
         </>
     )
-}
-
-/**
- * La barra de prescripción al pie del encabezado, con la que rige la causa
- * (V4 D-51). Fuera del penal, o en una causa penal sin calificaciones,
- * `prescription` vale `null` y no se dibuja nada (D-74).
- */
-function CasePrescription({ case: c }: { case: Case }) {
-    if (!c.prescription) return null
-    return <PrescriptionBar prescription={c.prescription} note={prescriptionNote(c)} />
 }
 
 /** Error o causa inexistente, dentro de un panel. */

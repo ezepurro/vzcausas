@@ -80,6 +80,22 @@ export async function declarePrescription(id: number, body: DeclarePrescriptionB
 }
 
 /**
+ * Declara prescripta una calificación legal de la causa (D-113). Devuelve la
+ * causa ya cambiada; si era la última sin declarar, en "Prescripta".
+ */
+export async function declareQualificationPrescription(
+    id: number,
+    legalQualificationId: number,
+    body: DeclarePrescriptionBody,
+): Promise<Case> {
+    const response = await http.post<ApiItem<Case>>(
+        `${BASE}/${id}/legal-qualifications/${legalQualificationId}/prescription`,
+        body,
+    )
+    return response.data.data
+}
+
+/**
  * Crea la carpeta de una causa que no la tiene, o la reintenta si falló
  * (HU39, `POST /cases/{caseId}/folder`). Es idempotente: sobre una carpeta
  * creada o en creación devuelve la que hay. Devuelve sólo el `folder`.

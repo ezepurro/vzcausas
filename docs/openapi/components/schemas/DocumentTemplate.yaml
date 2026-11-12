@@ -6,8 +6,10 @@ description: |
 
     El archivo no viaja dentro del recurso: se sube con el alta y se descarga
     con `GET /document-templates/{templateId}/file`. El backend lo guarda en
-    `/VZ Causas/Modelos formales`. El modelo y sus copias son independientes:
-    cada causa conserva la versión con la que se abrió.
+    `/VZ Causas/Modelos formales/{fuero}`. Hay una subcarpeta por fuero
+    (`Penal`, `Administrativo` y `Amparo`) y el archivo queda en la de cada uno
+    de los fueros del modelo; el modelo sigue siendo uno solo. El modelo y sus
+    copias son independientes: cada causa conserva la versión con la que se abrió.
 required:
     - id
     - name
@@ -53,7 +55,7 @@ properties:
     lastVersionAt:
         type: string
         format: date-time
-        description: Fecha y hora de la última versión del archivo ("Última versión"). En esta versión coincide con el alta.
+        description: Fecha y hora de la última versión del archivo ("Última versión"). Coincide con el alta, porque los modelos no se modifican por API.
         examples:
             - "2026-08-21T17:40:00-03:00"
     lastVersionBy:
@@ -67,6 +69,6 @@ properties:
             - 12
     active:
         type: boolean
-        description: Estado de alta. Vale siempre `true` en esta versión.
+        description: Estado de alta. Vale siempre `true`.
         examples:
             - true

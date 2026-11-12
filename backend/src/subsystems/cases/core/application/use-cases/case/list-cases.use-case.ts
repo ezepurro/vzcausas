@@ -99,10 +99,23 @@ export class ListCases {
  * the registration uses (V4 §3.7). Only `CRIMINAL` prescribes, and a criminal
  * case without qualifications has nothing to compute (D-74). A case already
  * marked "Prescripta" keeps it, as historical data (V4 §3.7, HU33).
+ *
+ * It also fills the `prescriptionStatus` of each qualification (D-112), with
+ * the same rule ({@link Prescription.ofEach}). Outside `CRIMINAL` the case has
+ * no qualifications (§4, Prescripción), so there is nothing to fill there.
  */
 export function withDeadlines(item: CaseListItem, today: Date): CaseListItem {
   const { dueDate } = item.currentState;
   const harmfulAct = harmfulActOf(item);
+  const offenses = item.legalQualifications.map((qualification) => ({
+    legalQualificationId: qualification.id,
+    legalQualificationName: qualification.name,
+    prescriptionMonths: qualification.prescriptionMonths,
+    offenseDate: qualification.offenseDate,
+    // D-113: a declared offense no longer governs, and no later act restarts it.
+    prescriptionDeclaredOn: qualification.prescriptionDeclaration?.prescriptionDate ?? null,
+  }));
+  const terms = Prescription.ofEach(offenses, item.interruptiveActDates, today);
 
   return {
     ...item,
@@ -111,17 +124,12 @@ export function withDeadlines(item: CaseListItem, today: Date): CaseListItem {
         ? item.currentState
         : { ...item.currentState, businessDaysRemaining: businessDaysRemaining(today, dueDate) },
     harmfulActDeadline: harmfulAct && item.currentState.initial ? harmfulAct.deadline(today) : null,
-    prescription: Prescription.of(
-      item.jurisdiction,
-      item.legalQualifications.map((qualification) => ({
-        legalQualificationId: qualification.id,
-        legalQualificationName: qualification.name,
-        prescriptionMonths: qualification.prescriptionMonths,
-        offenseDate: qualification.offenseDate,
-      })),
-      item.lastInterruptiveActDate,
-      today,
-    ),
+    // `ofEach` keeps the order it receives, so each term is its qualification's.
+    legalQualifications: item.legalQualifications.map((qualification, index) => ({
+      ...qualification,
+      prescriptionStatus: terms[index].status,
+    })),
+    prescription: Prescription.of(item.jurisdiction, offenses, item.interruptiveActDates, today),
   };
 }
 

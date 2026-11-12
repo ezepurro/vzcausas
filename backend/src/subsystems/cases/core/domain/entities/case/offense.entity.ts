@@ -1,5 +1,6 @@
 import { LegalQualificationRef } from '../../ports/case/legal-parameters-lookup.port';
 import { addPrescriptionMonths } from '../../prescription';
+import { PrescriptionDeclaration } from '../../value-objects/prescription/prescription-declaration.vo';
 import { OffenseSnapshot } from './case-snapshot';
 
 export interface OffenseProps {
@@ -7,6 +8,8 @@ export interface OffenseProps {
   offenseDate: Date;
   // Null until `calculatePrescription()` runs.
   prescriptionExpiresOn: Date | null;
+  // The declaration that this offense prescribed (D-113). Absent or null until a court declared it.
+  prescriptionDeclaration?: PrescriptionDeclaration | null;
 }
 
 /**
@@ -46,6 +49,24 @@ export class Offense {
     return this.props.offenseDate;
   }
 
+  /** The declaration that this offense prescribed (D-113, HU33); `null` while it was not declared. */
+  get prescriptionDeclaration(): PrescriptionDeclaration | null {
+    return this.props.prescriptionDeclaration ?? null;
+  }
+
+  /**
+   * Records that a court declared this offense prescribed (D-113). Once, and
+   * for good: whether it may be declared is the case's rule
+   * (`CriminalCase.declareQualificationPrescription`), and here an offense
+   * already declared is a broken invariant.
+   */
+  declarePrescription(declaration: PrescriptionDeclaration): void {
+    if (this.prescriptionDeclaration !== null) {
+      throw new Error(`The offense of the qualification ${this.legalQualificationId} was already declared prescribed.`);
+    }
+    this.props.prescriptionDeclaration = declaration;
+  }
+
   /** The prescription date, or `null` if it was not calculated yet. */
   get prescriptionExpiresOn(): Date | null {
     return this.props.prescriptionExpiresOn;
@@ -69,6 +90,7 @@ export class Offense {
       offenseDate: this.offenseDate,
       prescriptionStartsOn: this.prescriptionStartsOn,
       prescriptionExpiresOn,
+      prescriptionDeclaration: this.prescriptionDeclaration,
     };
   }
 

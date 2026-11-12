@@ -36,6 +36,15 @@ describe('RegisterProceduralActPage', () => {
         expect(screen.getByRole('option', { name: /Archivada/ })).toHaveTextContent('Cierra la causa')
     })
 
+    /* Topes de V5: estado a mano 255 y observaciones 2000, con contador. */
+    it('el estado a mano y las observaciones traen su tope', async () => {
+        renderPage(1)
+
+        expect(await screen.findByRole('combobox')).toHaveAttribute('maxlength', '255')
+        expect(screen.getByLabelText(/^Observaciones/)).toHaveAttribute('maxlength', '2000')
+        expect(screen.getByText('0 / 2000')).toBeInTheDocument()
+    })
+
     it('elegir un estado pide el vencimiento, y registrar vuelve al detalle', async () => {
         const { user } = renderPage(1)
 

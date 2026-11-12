@@ -1,13 +1,18 @@
 import { Client } from "../../../core/domain/entities/client.entity";
-import { Dni } from "../../../core/domain/value-objects/dni.vo";
+import {
+  ClientDocument,
+  DocumentType,
+} from "../../../core/domain/value-objects/client-document.vo";
 
 /** Prisma row shape for `clients`. */
 type ClientRow = {
   id: number;
   lastName: string;
   firstName: string;
-  dni: string;
-  phone: string | null;
+  documentType: DocumentType;
+  documentNumber: string;
+  address: string;
+  phone: string;
   email: string | null;
   clientSince: Date;
   active: boolean;
@@ -20,9 +25,10 @@ export class ClientPrismaMapper {
       lastName: row.lastName,
       firstName: row.firstName,
       // Safe to rebuild without re-validating: the column carries a
-      // CHECK (`ck_clients_dni_format`) that enforces the same shape
+      // CHECK (`ck_clients_document_format`) that enforces the same shape
       // the value object does.
-      dni: Dni.create(row.dni),
+      document: ClientDocument.create(row.documentType, row.documentNumber),
+      address: row.address,
       phone: row.phone,
       email: row.email,
       clientSince: row.clientSince,

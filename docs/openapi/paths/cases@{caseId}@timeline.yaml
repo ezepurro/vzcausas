@@ -21,6 +21,11 @@ get:
     las causas que no son penales solo hay actos procesales: los actos
     interruptivos y la prescripción no aplican a esos fueros.
 
+    El acto procesal de cada entrada trae `lastModifiedBy` y
+    `lastModifiedAt` (HU28): el cliente puede mostrar "Modificado por … el
+    …" debajo de "Registrado por …". Después de modificar un acto,
+    `current` puede pasar a otro acto si cambió cuál es el más reciente.
+
     **Rol requerido:** cualquier usuario autenticado, sobre cualquier causa
     (RN11).
   responses:
@@ -65,6 +70,8 @@ get:
                     lastName: Ríos
                     firstName: Malena
                   registeredAt: '2026-09-15T11:42:00-03:00'
+                  lastModifiedBy: null
+                  lastModifiedAt: null
               - type: INTERRUPTIVE_ACT
                 date: '2024-07-04'
                 governsPrescription: true

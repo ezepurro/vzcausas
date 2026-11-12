@@ -41,4 +41,14 @@ describe('buildLawyerPatch', () => {
         expect(patch).toEqual({ firstName: 'Ignacio José' })
         expect(hasChanges(patch)).toBe(true)
     })
+
+    // La matrícula es opcional: vaciarla la borra.
+    it('vaciar la matrícula manda null', () => {
+        expect(buildLawyerPatch(PERALTA, { ...SAME, registrationNumber: '  ' })).toEqual({ registrationNumber: null })
+    })
+
+    it('sin matrícula, dejarla vacía no es un cambio', () => {
+        const withoutRegistration: Lawyer = { ...PERALTA, registrationNumber: null }
+        expect(buildLawyerPatch(withoutRegistration, { ...SAME, registrationNumber: '' })).toEqual({})
+    })
 })

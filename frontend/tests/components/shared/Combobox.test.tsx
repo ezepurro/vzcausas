@@ -19,6 +19,7 @@ function Harness(props: {
     options?: ComboboxOption[]
     emptyText?: string
     disabled?: boolean
+    maxLength?: number
     initial?: string
     onSelect?: (option: ComboboxOption) => void
     onSubmit?: () => void
@@ -45,6 +46,7 @@ function Harness(props: {
                     options={props.options ?? OPTIONS}
                     emptyText={props.emptyText}
                     disabled={props.disabled}
+                    maxLength={props.maxLength}
                 />
             </form>
         </div>
@@ -54,6 +56,15 @@ function Harness(props: {
 const input = () => screen.getByRole('combobox', { name: 'Estado' })
 
 describe('Combobox', () => {
+    it('no deja escribir más del tope', async () => {
+        const user = userEvent.setup()
+        render(<Harness options={[]} maxLength={5} />)
+
+        await user.type(input(), 'Apelación')
+
+        expect(input()).toHaveValue('Apela')
+    })
+
     it('con el teclado: las flechas recorren, Enter elige y no envía el formulario', async () => {
         const onSelect = vi.fn()
         const onSubmit = vi.fn()

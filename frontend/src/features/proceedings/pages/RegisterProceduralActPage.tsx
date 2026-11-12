@@ -12,10 +12,9 @@ import { formatPersonFullName } from '@/shared/lib/personName'
 import {
     CaseHeader,
     CaseHeaderSkeleton,
+    CasePrescriptionBar,
     isResponsibleLawyer,
     NO_SAC_LABEL,
-    PrescriptionBar,
-    prescriptionNote,
     useCase,
     type Case,
 } from '@/features/cases'
@@ -349,20 +348,11 @@ function RegisterProceduralAct({ case: c, act }: { case: Case; act?: ProceduralA
     return (
         <>
             <CaseHeader case={c}>
-                <CasePrescription case={c} />
+                <CasePrescriptionBar case={c} />
             </CaseHeader>
             {content}
         </>
     )
-}
-
-/**
- * La barra de prescripción al pie del encabezado, con la que rige la causa
- * (V4 D-51). `null` fuera del penal o sin calificaciones (D-74).
- */
-function CasePrescription({ case: c }: { case: Case }) {
-    if (!c.prescription) return null
-    return <PrescriptionBar prescription={c.prescription} note={prescriptionNote(c)} />
 }
 
 /** Error o un aviso que reemplaza al formulario, dentro de un panel. */

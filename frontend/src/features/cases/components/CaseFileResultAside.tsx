@@ -1,5 +1,7 @@
+import { useEffect, useState } from 'react'
 import { Button, Panel } from '@/shared/components/ui'
 import type { CaseDocument } from '@/features/cases/types/caseDocument'
+import { elapsedLabel } from '@/features/cases/utils/caseFile'
 
 export interface CaseFileResultAsideProps {
     /** `Expediente_13284571_v2.pdf`: el nombre estimado (`caseFileNamePreview`). */
@@ -12,6 +14,10 @@ export interface CaseFileResultAsideProps {
     help: string
     canGenerate: boolean
     generating: boolean
+    /** "Uniendo la carátula y 3 documentos…" (`generatingMessage`), mientras se genera. */
+    progress: string
+    /** Un aviso que queda hasta el próximo intento, o `null`. Ocupa el lugar de la ayuda. */
+    notice: string | null
     onGenerate: () => void
 }
 
@@ -26,6 +32,8 @@ export function CaseFileResultAside({
     help,
     canGenerate,
     generating,
+    progress,
+    notice,
     onGenerate,
 }: CaseFileResultAsideProps) {
     return (
@@ -34,10 +42,24 @@ export function CaseFileResultAside({
             sub={fileName}
             footer={
                 <div className="vz-casefile__generate">
-                    <Button block disabled={!canGenerate || generating} onClick={onGenerate}>
+                    <Button
+                        block
+                        disabled={!canGenerate || generating}
+                        icon={generating ? <span className="vz-casefile__spinner" aria-hidden="true" /> : undefined}
+                        onClick={onGenerate}
+                    >
                         {generating ? 'Generando…' : 'Generar PDF'}
                     </Button>
-                    <span className="vz-casefile__hint">{help}</span>
+                    {generating && <span className="vz-casefile__progress" aria-hidden="true" />}
+                    {generating ? (
+                        <span className="vz-casefile__hint">
+                            <span role="status">{progress}</span> <Elapsed />
+                        </span>
+                    ) : notice ? (
+                        <p className="vz-casefile__notice" role="alert">{notice}</p>
+                    ) : (
+                        <span className="vz-casefile__hint">{help}</span>
+                    )}
                 </div>
             }
         >
@@ -58,4 +80,20 @@ export function CaseFileResultAside({
             <p className="vz-casefile__summary">{summary}</p>
         </Panel>
     )
+}
+
+/**
+ * "Lleva 42 s", desde que se empezó a generar: se monta con la generación y
+ * se va con ella. Oculto al lector de pantalla, que si no lo leería cada
+ * segundo.
+ */
+function Elapsed() {
+    const [seconds, setSeconds] = useState(0)
+
+    useEffect(() => {
+        const timer = window.setInterval(() => setSeconds((s) => s + 1), 1000)
+        return () => window.clearInterval(timer)
+    }, [])
+
+    return <span aria-hidden="true">· {elapsedLabel(seconds)}</span>
 }

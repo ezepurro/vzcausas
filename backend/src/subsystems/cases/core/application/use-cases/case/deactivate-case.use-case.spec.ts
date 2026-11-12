@@ -1,4 +1,7 @@
-import { CaseNotFoundError } from '../../../domain/errors/case.errors';
+import { Logger } from '@nestjs/common';
+import { CaseNotFoundError, NotResponsibleLawyerError } from '../../../domain/errors/case.errors';
+import { CASE_DEACTIVATED } from '../../../domain/ports/events/case-deactivated.event';
+import { FakeCaseFolderState, FakeEventPublisher } from '../../../test-support/case-folder-fakes';
 import { aCase, anActor, INITIAL_STATES, NOW, STATES_TABLE, TODAY, validationDetailsOf } from '../../../test-support/case-fixtures';
 import { FakeAuditTrail, FakeCaseRepository, FakeClock, FakeTransactionManager } from '../../../test-support/case-fakes';
 import { DeactivateCase, DeactivateCaseCommand } from './deactivate-case.use-case';
@@ -14,8 +17,17 @@ function build() {
   const existing = aCase();
   cases.add(existing);
   const audit = new FakeAuditTrail();
-  const useCase = new DeactivateCase(cases, audit, new FakeTransactionManager(), new FakeClock(NOW, TODAY));
-  return { useCase, cases, audit, existing };
+  const folders = new FakeCaseFolderState();
+  const events = new FakeEventPublisher();
+  const useCase = new DeactivateCase(
+    cases,
+    audit,
+    new FakeTransactionManager(),
+    new FakeClock(NOW, TODAY),
+    folders,
+    events,
+  );
+  return { useCase, cases, audit, existing, folders, events };
 }
 
 const command = (overrides: Partial<DeactivateCaseCommand> = {}): DeactivateCaseCommand => ({
@@ -42,6 +54,41 @@ describe('DeactivateCase', () => {
     expect(audit.entries).toEqual([
       { actorUserId: 5, action: 'case.deactivated', entityType: 'Case', entityId: '1', occurredAt: NOW },
     ]);
+  });
+
+  // D-110
+  it('otro abogado recibe 403 y no se escribe nada', async () => {
+    const { useCase, cases, audit, existing, events } = build();
+
+    const attempt = useCase.execute(command({ actor: anActor({ roleNames: ['LAWYER'], lawyerId: 99 }) }));
+
+    await expect(attempt).rejects.toThrow(NotResponsibleLawyerError);
+    await expect(attempt).rejects.toThrow('Solo el abogado responsable de la causa puede darla de baja.');
+    expect(cases.deactivations).toEqual([]);
+    expect(existing.active).toBe(true);
+    expect(audit.entries).toEqual([]);
+    expect(events.published).toEqual([]);
+  });
+
+  // D-110
+  it.each([
+    ['el abogado responsable', anActor()],
+    ['un ADMINISTRATOR', anActor({ roleNames: ['ADMINISTRATOR'], lawyerId: null })],
+  ])('%s da de baja', async (_name, actor) => {
+    const { useCase, cases } = build();
+
+    await useCase.execute(command({ actor }));
+
+    expect(cases.deactivations).toHaveLength(1);
+  });
+
+  // D-110: primero 404, después 403
+  it('una causa inexistente es 404 aunque el actor sea otro abogado', async () => {
+    const { useCase } = build();
+
+    await expect(useCase.execute(command({ caseId: 999, actor: anActor({ lawyerId: 99 }) }))).rejects.toThrow(
+      CaseNotFoundError,
+    );
   });
 
   // CA-21.5
@@ -85,5 +132,56 @@ describe('DeactivateCase', () => {
     expect(cases.deactivations).toEqual([]);
     expect(audit.entries).toEqual([]);
     expect(existing.active).toBe(true);
+  });
+
+  // D-104 (revisado): la carpeta sigue a la baja, y Drive no hace fallar la baja
+  describe('la carpeta en Drive', () => {
+    beforeEach(() => jest.spyOn(Logger.prototype, 'error').mockImplementation());
+
+    afterEach(() => jest.restoreAllMocks());
+
+    it('con la carpeta creada, anuncia la baja después de guardarla', async () => {
+      const { useCase, cases, events, folders } = build();
+      folders.set(1, 'CREATED');
+
+      await useCase.execute(command());
+
+      expect(cases.deactivations).toHaveLength(1);
+      expect(events.published).toEqual([
+        { type: CASE_DEACTIVATED, eventId: expect.any(String), occurredAt: NOW.toISOString(), caseId: 1 },
+      ]);
+    });
+
+    it.each([
+      ['la causa no tiene carpeta', null],
+      ['la carpeta se está creando', 'CREATING' as const],
+      ['la carpeta quedó en error', 'ERROR' as const],
+    ])('no anuncia nada si %s', async (_case, status) => {
+      const { useCase, events, folders } = build();
+      folders.set(1, status);
+
+      await useCase.execute(command());
+
+      expect(events.published).toEqual([]);
+    });
+
+    it('un rechazo no anuncia nada', async () => {
+      const { useCase, events, folders } = build();
+      folders.set(1, 'CREATED');
+
+      await expect(useCase.execute(command({ caseId: 999 }))).rejects.toThrow(CaseNotFoundError);
+
+      expect(events.published).toEqual([]);
+    });
+
+    it('si el anuncio falla, la baja queda guardada y responde igual (CA-21.1)', async () => {
+      const { useCase, cases, events, folders } = build();
+      folders.set(1, 'CREATED');
+      events.failWith = new Error('bus caído');
+
+      await expect(useCase.execute(command())).resolves.toBeUndefined();
+
+      expect(cases.deactivations).toHaveLength(1);
+    });
   });
 });

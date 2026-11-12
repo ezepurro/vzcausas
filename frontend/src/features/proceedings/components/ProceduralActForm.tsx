@@ -10,7 +10,7 @@ import {
 } from '@/shared/components/forms'
 import { JURISDICTION_LABELS, type Jurisdiction } from '@/features/legal-params'
 import type { ProceduralActFormValues } from '@/features/proceedings/types/proceduralAct'
-import type { ProceduralActErrors } from '@/features/proceedings/schemas/proceduralAct.schema'
+import { PROCEDURAL_ACT_MAX_LENGTH, type ProceduralActErrors } from '@/features/proceedings/schemas/proceduralAct.schema'
 
 export interface ProceduralActFormProps {
     values: ProceduralActFormValues
@@ -93,6 +93,7 @@ export function ProceduralActForm({
                     >
                         <Combobox
                             id="act-state"
+                            maxLength={PROCEDURAL_ACT_MAX_LENGTH.stateText}
                             value={values.stateText}
                             onChange={onStateTextChange}
                             onSelect={onStateSelect}
@@ -136,10 +137,12 @@ export function ProceduralActForm({
                         />
                     </Field>
 
-                    <Field label="Observaciones" htmlFor="act-notes" error={errors.notes}>
+                    <Field label="Observaciones" htmlFor="act-notes" error={errors.notes}
+                        hint={`${values.notes.length} / ${PROCEDURAL_ACT_MAX_LENGTH.notes}`}>
                         <Textarea
                             id="act-notes"
                             rows={3}
+                            maxLength={PROCEDURAL_ACT_MAX_LENGTH.notes}
                             placeholder="Situaciones que el estado procesal no alcanza a expresar. Por ejemplo: con acusación, pero con oposición."
                             value={values.notes}
                             onChange={(e) => onChange('notes', e.target.value)}

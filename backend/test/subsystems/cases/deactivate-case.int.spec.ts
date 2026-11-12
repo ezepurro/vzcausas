@@ -20,7 +20,7 @@ import {
  * Escrito desde `.claude/plans/tests-hu21-baja-causa.md`, no desde el código.
  * Reloj fijo: ahora es 06/10/2026 12:30 en Córdoba. La causa de referencia es
  * la del escenario de actos procesales: penal, en "Iniciada", sin SAC,
- * responsable Ríos, Malena. Da de baja una secretaria: cualquier perfil puede.
+ * responsable Ríos, Malena. Da de baja una secretaria, que opera cualquier causa (D-110).
  */
 type Body = Record<string, any>;
 const NOW = new Date('2026-10-06T15:30:00.000Z');
@@ -110,6 +110,40 @@ describe('DELETE /api/v1/cases/:caseId', () => {
 
       const row = await getPrisma().case.findUnique({ where: { id: s.caseRow.id } });
       expect(row).toMatchObject({ active: false, deactivationReason: stored });
+    });
+  });
+
+  // D-110: quién opera la causa. Primero 404, después 403.
+  describe('quién la da de baja (D-110)', () => {
+    const otherLawyer = () => loginAs({ roles: ['LAWYER'], lawyerId: s.lawyer.id + 1000 });
+    const removeAs = (auth: { Authorization: string }, id?: number | string) => server().delete(url(id)).set(auth);
+
+    it('otro abogado: 403 con el texto del contrato y la causa sigue vigente', async () => {
+      const before = await snapshot();
+
+      const res = await removeAs(otherLawyer());
+
+      expectError(res, 403, 'FORBIDDEN');
+      expect(res.body.error.message).toBe('Solo el abogado responsable de la causa puede darla de baja.');
+      expect(res.body.error.details).toBeNull();
+      expect(await snapshot()).toEqual(before);
+    });
+
+    it.each<[string, { roles: ('ADMINISTRATOR' | 'LAWYER' | 'SECRETARY')[]; ownLawyer: boolean }]>([
+      ['el abogado responsable', { roles: ['LAWYER'], ownLawyer: true }],
+      ['un ADMINISTRATOR que no es el responsable', { roles: ['ADMINISTRATOR'], ownLawyer: false }],
+    ])('%s: 204', async (_name, { roles, ownLawyer }) => {
+      const user = await createUser({ roles });
+
+      const res = await removeAs(
+        loginAs({ userId: user.id, roles, lawyerId: ownLawyer ? s.lawyer.id : null }),
+      );
+
+      expect(res.status).toBe(204);
+    });
+
+    it('una causa inexistente es 404 aunque pida otro abogado', async () => {
+      expectError(await removeAs(otherLawyer(), 999999), 404, 'CASE_NOT_FOUND');
     });
   });
 

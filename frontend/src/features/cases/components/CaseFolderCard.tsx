@@ -1,5 +1,5 @@
 import { Button, Icon, Panel, Pill, type PillTone } from '@/shared/components/ui'
-import { formatPersonName } from '@/shared/lib/personName'
+import { formatPersonFullName, formatPersonName } from '@/shared/lib/personName'
 import { JURISDICTION_LABELS } from '@/features/legal-params'
 import type { Case, CaseFolderStatus } from '@/features/cases/types/case'
 import { copiedTemplatesText } from '@/features/cases/utils/caseFolder'
@@ -10,6 +10,12 @@ export interface CaseFolderCardProps {
     creating: boolean
     /** El mensaje del último intento fallido, o `null`. */
     error: string | null
+    /**
+     * El usuario puede crear o reintentar la carpeta: el responsable, el
+     * Administrador o la Secretaría (D-110). Si no, el botón se ve deshabilitado;
+     * "Abrir carpeta en Drive" no depende de esto.
+     */
+    canCreate: boolean
     onCreate: () => void
 }
 
@@ -69,12 +75,12 @@ const REQUESTING = {
  *
  * El botón no está en el prototipo (V4 §3.7).
  */
-export function CaseFolderCard({ case: c, creating, error, onCreate }: CaseFolderCardProps) {
+export function CaseFolderCard({ case: c, creating, error, canCreate, onCreate }: CaseFolderCardProps) {
     const folder = c.folder
     const view: FolderView = folder?.status ?? 'NONE'
     const { label, tone, note } = creating ? REQUESTING : VIEW[view]
     const busy = creating || view === 'CREATING'
-    const canCreate = view === 'NONE' || view === 'PENDING' || view === 'ERROR'
+    const needsFolder = view === 'NONE' || view === 'PENDING' || view === 'ERROR'
     const created = folder?.status === 'CREATED' ? folder : null
     const copied = created ? copiedTemplatesText(created) : null
     const missing = created?.templatesPending ?? 0
@@ -135,8 +141,11 @@ export function CaseFolderCard({ case: c, creating, error, onCreate }: CaseFolde
                         Abrir carpeta en Drive
                     </a>
                 )}
-                {canCreate && (
+                {needsFolder && (
                     <Button
+                        title={canCreate
+                            ? undefined
+                            : `Solo el abogado responsable (${formatPersonFullName(c.responsibleLawyer)}) crea o reintenta la carpeta.`}
                         size="sm"
                         block
                         variant={view === 'ERROR' ? 'secondary' : 'primary'}
@@ -145,7 +154,7 @@ export function CaseFolderCard({ case: c, creating, error, onCreate }: CaseFolde
                                 ? <span className="vz-case-folder__spinner" aria-hidden="true" />
                                 : <Icon name={view === 'ERROR' ? 'forward' : 'plus'} size={14} />
                         }
-                        disabled={creating}
+                        disabled={creating || !canCreate}
                         onClick={onCreate}
                     >
                         {view === 'ERROR' ? 'Reintentar' : 'Crear carpeta'}

@@ -1,9 +1,12 @@
-import { useState, type ReactNode } from 'react'
-import { useNavigate, useParams } from 'react-router'
+import { useEffect, useState, type ReactNode } from 'react'
+import { useBlocker, useNavigate, useParams } from 'react-router'
+import { useCan } from '@/app/access/useCan'
+import { useCurrentUser } from '@/app/providers/AuthContext'
 import { useToast } from '@/app/providers/ToastContext'
 import { useGoBack } from '@/app/router/useGoBack'
+import { caseOperation } from '@/features/cases/utils/responsibleLawyer'
 import { isApiError } from '@/shared/api/ApiError'
-import { Breadcrumbs, PageHeader, Panel, type BreadcrumbItem } from '@/shared/components/ui'
+import { Breadcrumbs, Button, Modal, PageHeader, Panel, type BreadcrumbItem } from '@/shared/components/ui'
 import { useCase } from '@/features/cases/api/useCase'
 import { useCaseCover } from '@/features/cases/api/useCaseCover'
 import { useCaseEdit } from '@/features/cases/api/useCaseEdit'
@@ -29,12 +32,14 @@ import {
     caseFileSummary,
     coverTemplateLabel,
     excludedDocuments,
+    generatingMessage,
     initialSelection,
     moveItem,
     opposingPartyField,
     selectedDocuments,
     toCaseFileFormErrors,
     toCreateCaseFileBody,
+    UNCONFIRMED_CASE_FILE_MESSAGE,
 } from '@/features/cases/utils/caseFile'
 import { sacLabel } from '@/features/cases/utils/sac'
 
@@ -108,8 +113,15 @@ function CaseFileGenerator({ case: c }: { case: Case }) {
     const download = useDownloadCaseDocument(c.id)
     /* "Modificá los datos de la causa" abre el mismo diálogo que el detalle
        (HU19), sin salir de la pantalla: al guardar, la carátula ya sale con
-       los datos nuevos. */
+       los datos nuevos. Un abogado que no es el responsable genera el
+       expediente pero no modifica la causa (D-110): a él no se le ofrece. */
     const edit = useCaseEdit(c)
+    const { lawyer } = useCurrentUser()
+    const operateAnyCase = useCan('cases.operateAnyCase')
+    const { canOperate } = caseOperation(c, lawyer?.id ?? null, {
+        operate: operateAnyCase,
+        declarePrescription: false,
+    })
 
     const [values, setValues] = useState<CaseFileFormValues>({ opposingParty: '', notes: '' })
     const [errors, setErrors] = useState<CaseFileFormErrors>({})
@@ -117,6 +129,10 @@ function CaseFileGenerator({ case: c }: { case: Case }) {
        arma con los documentos cuando llegan, sin copiarlos a un estado. */
     const [selection, setSelection] = useState<string[] | null>(null)
     const [ready, setReady] = useState<ReadyState | null>(null)
+    /** El último intento terminó sin respuesta: no se sabe si quedó guardado. */
+    const [unconfirmed, setUnconfirmed] = useState(false)
+    const generating = createCaseFile.isPending
+    const leaving = useLeaveGuard(generating)
 
     const order = selection ?? initialSelection(documents)
     const selected = selectedDocuments(documents, order)
@@ -147,16 +163,27 @@ function CaseFileGenerator({ case: c }: { case: Case }) {
 
     /* Un 400 con detalle se marca en su lugar; el resto (los 422 de carpeta
        o de conversión, el 502 de Drive) va al aviso con el mensaje del
-       servidor. La selección y los textos quedan como estaban. */
+       servidor. La selección y los textos quedan como estaban.
+
+       Sin respuesta (corte por tiempo o red caída) no se dice "intentá de
+       nuevo": el backend pudo haberlo guardado y un reintento dejaría otra
+       versión. Queda un aviso fijo en "Resultado" y se vuelve a leer la
+       carpeta, por si ya está. */
     function generate() {
         const validation = validateCaseFile(values, selectedIds)
         setErrors(validation)
         if (Object.keys(validation).length > 0) return
 
+        setUnconfirmed(false)
         createCaseFile.mutate(toCreateCaseFileBody(values, selectedIds, c.jurisdiction), {
             onSuccess: (file) => setReady({ file, downloaded: false, printed: false }),
             onError: (error) => {
                 if (!isApiError(error)) throw error
+                if (error.isNetworkError) {
+                    setUnconfirmed(true)
+                    void documentsQuery.refetch()
+                    return
+                }
                 if (error.isValidation) {
                     const fieldErrors = toCaseFileFormErrors(error.details)
                     if (Object.keys(fieldErrors).length > 0) {
@@ -195,7 +222,9 @@ function CaseFileGenerator({ case: c }: { case: Case }) {
             />
 
             <div className="vz-split">
-                <div className="vz-casefile__panels">
+                {/* Mientras se genera, nada de lo que se mandó cambia en pantalla:
+                    el `fieldset` deshabilita todos los controles de los dos paneles. */}
+                <fieldset className="vz-casefile__panels" disabled={generating}>
                     <CaseFileCoverPanel
                         templateLabel={coverTemplateLabel(c.jurisdiction)}
                         partyField={opposingPartyField(c)}
@@ -203,7 +232,7 @@ function CaseFileGenerator({ case: c }: { case: Case }) {
                         errors={errors}
                         onChange={changeValue}
                         onPreview={() => setPreviewOpen(true)}
-                        onEditCase={edit.open}
+                        onEditCase={canOperate ? edit.open : null}
                     />
                     <CaseFileDocumentsPanel
                         folderCreated={folderCreated}
@@ -221,8 +250,9 @@ function CaseFileGenerator({ case: c }: { case: Case }) {
                         onInclude={(id) => changeSelection([...selectedIds, id])}
                         onRemove={(id) => changeSelection(selectedIds.filter((selectedId) => selectedId !== id))}
                         onMove={(from, to) => changeSelection(moveItem(selectedIds, from, to))}
+                        disabled={generating}
                     />
-                </div>
+                </fieldset>
                 <aside className="vz-split__aside">
                     <CaseFileResultAside
                         fileName={caseFileNamePreview(c, documents)}
@@ -230,7 +260,9 @@ function CaseFileGenerator({ case: c }: { case: Case }) {
                         summary={caseFileSummary(selected)}
                         help={selected.length === 0 ? NO_DOCUMENTS_MESSAGE : 'Las partes se unen en el orden de la lista.'}
                         canGenerate={folderCreated && documentsQuery.isSuccess && selected.length > 0}
-                        generating={createCaseFile.isPending}
+                        generating={generating}
+                        progress={generatingMessage(selected.length)}
+                        notice={unconfirmed ? UNCONFIRMED_CASE_FILE_MESSAGE : null}
                         onGenerate={generate}
                     />
                 </aside>
@@ -249,6 +281,24 @@ function CaseFileGenerator({ case: c }: { case: Case }) {
                 />
             )}
             {edit.form && <CaseEditForm {...edit.form} />}
+            {leaving && (
+                <Modal
+                    title="El expediente se está generando"
+                    width="sm"
+                    onClose={leaving.stay}
+                    footer={
+                        <>
+                            <Button variant="secondary" onClick={leaving.leave}>Salir igual</Button>
+                            <Button onClick={leaving.stay}>Quedarme</Button>
+                        </>
+                    }
+                >
+                    <p className="vz-casefile__ready-text">
+                        Si salís, se termina de generar igual y queda en "Documentación", pero no vas a ver el
+                        resultado acá.
+                    </p>
+                </Modal>
+            )}
             {ready && (
                 <CaseFileReadyModal
                     result={ready.file}
@@ -263,6 +313,39 @@ function CaseFileGenerator({ case: c }: { case: Case }) {
             )}
         </>
     )
+}
+
+/**
+ * Frena la salida mientras se genera. El servidor lo termina igual, pero quien
+ * sale no ve "Expediente generado", y al volver lo generaría otra vez.
+ *
+ * - Dentro de la aplicación (rail, migas, flecha, atrás del navegador),
+ *   `useBlocker`: devuelve qué hacer con la salida pendiente, o `null` si no hay.
+ * - Recargar o cerrar la pestaña, `beforeunload`: el diálogo es del navegador
+ *   y su texto no se elige.
+ *
+ * Si la generación termina con el aviso abierto, se queda: el resultado ya
+ * está en pantalla.
+ */
+function useLeaveGuard(active: boolean): { stay: () => void; leave: () => void } | null {
+    const blocker = useBlocker(active)
+
+    useEffect(() => {
+        if (!active && blocker.state === 'blocked') blocker.reset()
+    }, [active, blocker])
+
+    useEffect(() => {
+        if (!active) return
+        const warn = (e: BeforeUnloadEvent) => {
+            e.preventDefault()
+            e.returnValue = ''
+        }
+        window.addEventListener('beforeunload', warn)
+        return () => window.removeEventListener('beforeunload', warn)
+    }, [active])
+
+    if (blocker.state !== 'blocked') return null
+    return { stay: blocker.reset, leave: blocker.proceed }
 }
 
 /** Error o causa inexistente, dentro de un panel. */

@@ -129,7 +129,6 @@ describe('PATCH /api/v1/lawyers/:lawyerId', () => {
       ['apellido solo de espacios', { lastName: '   ' }, { lastName: 'El apellido es obligatorio.' }],
       ['apellido null', { lastName: null }, { lastName: 'El apellido es obligatorio.' }],
       ['nombres vacíos', { firstName: '' }, { firstName: 'Los nombres son obligatorios.' }],
-      ['matrícula null', { registrationNumber: null }, { registrationNumber: 'La matrícula es obligatoria.' }],
       ['matrícula con otro formato', { registrationNumber: '28114' }, { registrationNumber: 'El formato de la matrícula no es válido.' }],
       ['"Dr." en los nombres', { firstName: 'Dr. Ignacio' }, { firstName: 'Los nombres no llevan el tratamiento (Dr., Dra.).' }],
       ['"Dra." en los nombres', { firstName: 'Dra. Malena' }, { firstName: 'Los nombres no llevan el tratamiento (Dr., Dra.).' }],
@@ -175,6 +174,23 @@ describe('PATCH /api/v1/lawyers/:lawyerId', () => {
       // Desvío 3 del documento: el `message` del contrato no se fija hasta que se traduzca.
       expectError(res, 409, 'LAWYER_REGISTRATION_ALREADY_EXISTS');
       expect(await snapshot()).toEqual(before);
+    });
+
+    // D-107: la matrícula es opcional; null o vacía la borra, y se puede volver a cargar.
+    it.each<[string, unknown]>([
+      ['null', null],
+      ['vacía', ''],
+    ])('enviar la matrícula %s la borra, y otro abogado puede quedar sin ella también', async (_case, value) => {
+      const other = await createLawyer({ registrationNumber: null });
+
+      const res = await patch({ registrationNumber: value });
+
+      expect(expectData<Body>(res, 200)).toMatchObject({ id: s.lawyer.id, registrationNumber: null });
+      expect(await getPrisma().lawyer.findUnique({ where: { id: s.lawyer.id } })).toMatchObject({ registrationNumber: null });
+      expect(other.registrationNumber).toBeNull();
+
+      const reloaded = await patch({ registrationNumber: '1-40000' });
+      expect(expectData<Body>(reloaded, 200)).toMatchObject({ registrationNumber: '1-40000' });
     });
 
     // CA-14.7

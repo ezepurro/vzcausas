@@ -27,6 +27,17 @@ export interface CaseFolderView {
 }
 
 /**
+ * The folder of a case that is still in force, as the documents of the case
+ * need it (HU38). `status` is `null` for a case registered before the folders
+ * existed; `url` and `cloudFolderId` are `null` until the folder is `CREATED`.
+ */
+export interface ActiveCaseFolder {
+  status: CaseFolderStatus | null;
+  url: string | null;
+  cloudFolderId: string | null;
+}
+
+/**
  * Port over the folder columns of `cases`. It is the gate that keeps a case
  * from having two folder requests in flight: only a caller whose
  * {@link startCreating} returns `true` may ask `documents` for the folder.
@@ -52,4 +63,10 @@ export interface CaseFolderStatePort {
 
   /** The folder of the case, or `null` for a case registered before the folders existed. */
   find(caseId: number): Promise<CaseFolderView | null>;
+
+  /**
+   * The folder of the case, or `null` if the case does not exist **or was given
+   * de baja**: a case given de baja drags its subresources with it (D-97).
+   */
+  findActiveCaseFolder(caseId: number): Promise<ActiveCaseFolder | null>;
 }

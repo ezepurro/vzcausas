@@ -17,7 +17,6 @@ export interface CaseChanges {
   instructorName?: string | null;
   tribunalPhone?: string | null;
   instructorExtension?: string | null;
-  clientId?: number | null;
   proceduralRole?: ProceduralRole | null;
   responsibleLawyerId?: number | null;
   startDate?: Date | null;
@@ -50,7 +49,6 @@ export const CASE_FIELDS: readonly CaseField[] = [
   'instructorName',
   'tribunalPhone',
   'instructorExtension',
-  'clientId',
   'proceduralRole',
   'legalQualifications',
   'clientDetained',

@@ -1,4 +1,4 @@
-description: La causa no existe.
+description: La causa no existe o fue dada de baja (D-97).
 content:
   application/json:
     schema:

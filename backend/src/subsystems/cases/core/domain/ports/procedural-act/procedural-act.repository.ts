@@ -18,6 +18,8 @@ export type ProceduralActView = {
   /** The state of the table, or the hand-written text. A deactivated state still shows (§4, Bajas). */
   resultingStateName: string;
   registeredBy: { lastName: string; firstName: string };
+  /** The user who last modified it (HU28). Absent or `null` while it was never modified. */
+  lastModifiedBy?: { lastName: string; firstName: string } | null;
 };
 
 export type ProceduralActPage = { items: ProceduralActView[]; totalItems: number };
@@ -47,4 +49,13 @@ export interface ProceduralActRepository {
 
   /** The act with that id **if it belongs to that case**; `null` otherwise. */
   findInCase(caseId: number, actId: number): Promise<ProceduralActView | null>;
+
+  /** Writes a modified act (HU28): its data, its deadline and who modified it and when. */
+  saveModification(act: ProceduralAct): Promise<void>;
+
+  /**
+   * The most recent act of the case other than `exceptActId`: by `actDate` and,
+   * on the same date, the last registered (D-14). `null` if the case has no other.
+   */
+  findLatestInCaseExcept(caseId: number, exceptActId: number): Promise<ProceduralAct | null>;
 }

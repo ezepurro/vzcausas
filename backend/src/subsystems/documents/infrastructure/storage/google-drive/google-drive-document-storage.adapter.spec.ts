@@ -21,13 +21,15 @@ const httpError = (status: number, reason?: string) => ({
   errors: reason ? [{ reason }] : undefined,
 });
 
-function build(overrides: Partial<Record<'list' | 'create' | 'get' | 'delete' | 'copy', jest.Mock>> = {}, values = {}) {
+function build(overrides: Partial<Record<'list' | 'create' | 'get' | 'update' | 'delete' | 'copy' | 'export', jest.Mock>> = {}, values = {}) {
   const files = {
     copy: jest.fn().mockResolvedValue({ data: { id: 'copy-id', webViewLink: 'https://drive/copy-id' } }),
     list: jest.fn().mockResolvedValue({ data: { files: [] } }),
     create: jest.fn().mockResolvedValue({ data: { id: 'new-id', webViewLink: 'https://drive/new-id' } }),
     get: jest.fn().mockResolvedValue({ data: { id: 'f-1', webViewLink: 'https://drive/f-1', trashed: false } }),
+    update: jest.fn().mockResolvedValue({ data: { id: 'f-1', webViewLink: 'https://drive/f-1' } }),
     delete: jest.fn().mockResolvedValue({ data: {} }),
+    export: jest.fn().mockResolvedValue({ data: new ArrayBuffer(0) }),
     ...overrides,
   };
   const sleep = jest.fn().mockResolvedValue(undefined);
@@ -160,6 +162,69 @@ describe('GoogleDriveDocumentStorage', () => {
     });
   });
 
+  describe('relocateFolder (HU19, D-104)', () => {
+    it('solo renombrar: un files.update con el nombre nuevo, sin leer ni tocar los padres', async () => {
+      const { storage, files } = build();
+
+      const stored = await storage.relocateFolder({ folderId: 'case-folder', name: 'RUIZ s amparo' });
+
+      expect(stored).toEqual({ id: 'f-1', url: 'https://drive/f-1' });
+      expect(files.get).not.toHaveBeenCalled();
+      const args = files.update.mock.calls[0][0];
+      expect(args).toMatchObject({ fileId: 'case-folder', requestBody: { name: 'RUIZ s amparo' } });
+      expect(args.addParents).toBeUndefined();
+      expect(args.removeParents).toBeUndefined();
+    });
+
+    it('mover: lee los padres actuales y los cambia en el mismo files.update, sin tocar el nombre', async () => {
+      const get = jest.fn().mockResolvedValue({ data: { parents: ['old-jurisdiction'] } });
+      const { storage, files } = build({ get });
+
+      await storage.relocateFolder({ folderId: 'case-folder', newParentId: 'new-jurisdiction' });
+
+      expect(get.mock.calls[0][0]).toMatchObject({ fileId: 'case-folder', fields: 'parents' });
+      const args = files.update.mock.calls[0][0];
+      expect(args).toMatchObject({
+        fileId: 'case-folder',
+        addParents: 'new-jurisdiction',
+        removeParents: 'old-jurisdiction',
+        requestBody: {},
+      });
+    });
+
+    it('renombrar y mover a la vez es una sola llamada de escritura', async () => {
+      const get = jest.fn().mockResolvedValue({ data: { parents: ['old'] } });
+      const { storage, files } = build({ get });
+
+      await storage.relocateFolder({ folderId: 'case-folder', name: 'Nuevo', newParentId: 'new' });
+
+      expect(files.update).toHaveBeenCalledTimes(1);
+      expect(files.update.mock.calls[0][0]).toMatchObject({
+        requestBody: { name: 'Nuevo' },
+        addParents: 'new',
+        removeParents: 'old',
+      });
+    });
+
+    it('si la carpeta o el padre nuevo ya no existen, falla como error de configuración', async () => {
+      const { storage } = build({ update: jest.fn().mockRejectedValue(httpError(404)) });
+
+      await expect(storage.relocateFolder({ folderId: 'gone', name: 'X' })).rejects.toMatchObject({
+        reason: 'CONFIGURATION',
+      });
+    });
+
+    it('ante un error pasajero reintenta y después informa que el almacenamiento no está disponible', async () => {
+      const update = jest.fn().mockRejectedValue(httpError(503));
+      const { storage } = build({ update });
+
+      await expect(storage.relocateFolder({ folderId: 'f', name: 'X' })).rejects.toBeInstanceOf(
+        DocumentStorageUnavailableError,
+      );
+      expect(update).toHaveBeenCalledTimes(3);
+    });
+  });
+
   describe('deleteFolder y deleteFile', () => {
     it('borran por id', async () => {
       const { storage, files } = build();
@@ -247,6 +312,115 @@ describe('GoogleDriveDocumentStorage', () => {
       expect(files.get.mock.calls[0][1]).toMatchObject({ responseType: 'arraybuffer' });
     });
 
+  });
+
+  describe('documentos de una carpeta (HU38)', () => {
+    const driveFile = {
+      id: 'doc-1',
+      name: 'Cédula.pdf',
+      mimeType: 'application/pdf',
+      size: '90112',
+      createdTime: '2026-09-09T15:15:00.000Z',
+      modifiedTime: '2026-09-10T18:00:00.000Z',
+      owners: [{ displayName: 'Gestión Estudio' }],
+      webViewLink: 'https://drive/doc-1',
+      parents: ['folder-ref'],
+    };
+    const expected = {
+      id: 'doc-1',
+      name: 'Cédula.pdf',
+      mimeType: 'application/pdf',
+      sizeBytes: 90112,
+      createdAt: new Date('2026-09-09T15:15:00.000Z'),
+      modifiedAt: new Date('2026-09-10T18:00:00.000Z'),
+      uploadedBy: 'Gestión Estudio',
+      url: 'https://drive/doc-1',
+      parentIds: ['folder-ref'],
+    };
+
+    it('listFiles pide los archivos directos de la carpeta, sin papelera ni subcarpetas, y recorre las páginas (CA-38.3)', async () => {
+      const list = jest
+        .fn()
+        .mockResolvedValueOnce({ data: { files: [driveFile], nextPageToken: 'p2' } })
+        .mockResolvedValueOnce({ data: { files: [{ ...driveFile, id: 'doc-2', size: undefined, owners: undefined }] } });
+      const { storage } = build({ list });
+
+      const documents = await storage.listFiles('folder-ref');
+
+      expect(documents).toEqual([expected, { ...expected, id: 'doc-2', sizeBytes: null, uploadedBy: null }]);
+      const [first, second] = list.mock.calls.map((call) => call[0]);
+      expect(first.q).toBe(
+        "'folder-ref' in parents and trashed = false and mimeType != 'application/vnd.google-apps.folder'",
+      );
+      expect(first.fields).toBe(
+        'nextPageToken, files(id, name, mimeType, size, createdTime, modifiedTime, owners(displayName), webViewLink, parents)',
+      );
+      expect(first.pageToken).toBeUndefined();
+      expect(second.pageToken).toBe('p2');
+    });
+
+    it('listFiles de una carpeta que ya no existe devuelve una lista vacía', async () => {
+      const { storage } = build({ list: jest.fn().mockRejectedValue(httpError(404)) });
+
+      expect(await storage.listFiles('gone')).toEqual([]);
+    });
+
+    it('findFile devuelve el archivo; null si no existe, está en la papelera o es una carpeta (CA-38.8)', async () => {
+      const found = build({ get: jest.fn().mockResolvedValue({ data: { ...driveFile, trashed: false } }) });
+      const notFound = build({ get: jest.fn().mockRejectedValue(httpError(404)) });
+      const trashed = build({ get: jest.fn().mockResolvedValue({ data: { ...driveFile, trashed: true } }) });
+      const folder = build({
+        get: jest.fn().mockResolvedValue({ data: { ...driveFile, mimeType: 'application/vnd.google-apps.folder' } }),
+      });
+
+      expect(await found.storage.findFile('doc-1')).toEqual(expected);
+      expect(found.files.get.mock.calls[0][0].fields).toContain('trashed');
+      expect(await notFound.storage.findFile('doc-1')).toBeNull();
+      expect(await trashed.storage.findFile('doc-1')).toBeNull();
+      expect(await folder.storage.findFile('doc-1')).toBeNull();
+    });
+
+    it('exportFile pide a Drive el tipo indicado y devuelve el contenido como Buffer (CA-38.7)', async () => {
+      const bytes = new TextEncoder().encode('%PDF').buffer;
+      const { storage, files } = build({ export: jest.fn().mockResolvedValue({ data: bytes }) });
+
+      const content = await storage.exportFile('doc-1', 'application/pdf');
+
+      expect(content.toString()).toBe('%PDF');
+      expect(files.export.mock.calls[0][0]).toEqual({ fileId: 'doc-1', mimeType: 'application/pdf' });
+      expect(files.export.mock.calls[0][1]).toMatchObject({ responseType: 'arraybuffer' });
+    });
+  });
+
+  describe('convertToPdf (HU25)', () => {
+    it('copia el Word como documento de Google, exporta la copia a PDF y la borra (D-102)', async () => {
+      const bytes = new TextEncoder().encode('%PDF').buffer;
+      const { storage, files } = build({
+        copy: jest.fn().mockResolvedValue({ data: { id: 'tmp-1' } }),
+        export: jest.fn().mockResolvedValue({ data: bytes }),
+      });
+
+      const content = await storage.convertToPdf('word-1');
+
+      expect(content.toString()).toBe('%PDF');
+      expect(files.copy.mock.calls[0][0]).toMatchObject({
+        fileId: 'word-1',
+        requestBody: { mimeType: 'application/vnd.google-apps.document' },
+      });
+      expect(files.copy.mock.calls[0][0].requestBody.parents).toBeUndefined();
+      expect(files.export.mock.calls[0][0]).toEqual({ fileId: 'tmp-1', mimeType: 'application/pdf' });
+      expect(files.delete.mock.calls.map((call) => call[0])).toEqual([{ fileId: 'tmp-1' }]);
+    });
+
+    it('borra la copia aunque la exportación falle, y el fallo se informa (CA-25.8)', async () => {
+      const { storage, files } = build({
+        copy: jest.fn().mockResolvedValue({ data: { id: 'tmp-1' } }),
+        export: jest.fn().mockRejectedValue(httpError(403, 'insufficientPermissions')),
+      });
+
+      await expect(storage.convertToPdf('word-1')).rejects.toMatchObject({ reason: 'AUTHORIZATION' });
+      expect(files.delete.mock.calls.map((call) => call[0])).toEqual([{ fileId: 'tmp-1' }]);
+    });
   });
 
   // Qué error se reintenta y cuál es de autorización lo decide `classifyDriveError`, con su

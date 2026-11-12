@@ -36,6 +36,6 @@ describe('CaseDetailPage · generar expediente', () => {
 
         expect(await screen.findByRole('button', { name: 'Generar expediente' })).toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Registrar acto interruptivo' })).not.toBeInTheDocument()
-        expect(screen.queryByRole('button', { name: 'Marcar prescripta' })).not.toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Marcar toda la causa prescripta' })).not.toBeInTheDocument()
     })
 })

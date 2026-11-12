@@ -47,7 +47,8 @@ export function LawyersTable({ rows, maxActiveCases, onEdit, canEdit, empty, loa
         {
             id: 'registrationNumber',
             header: 'Matrícula',
-            cell: (l) => l.registrationNumber,
+            // Opcional: sin dato va la raya, igual que en el resto de las tablas.
+            cell: (l) => l.registrationNumber ?? '—',
             mono: true,
             nowrap: true,
         },

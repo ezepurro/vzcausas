@@ -41,6 +41,7 @@ model User {
   interruptiveActs           InterruptiveAct[] @relation("InterruptiveActRegisteredBy")
   // Causas que el usuario marcó como prescriptas (HU33).
   casesMarkedAsPrescribed    Case[]            @relation("CasePrescriptionRegisteredBy")
+  offensesMarkedAsPrescribed Offense[]         @relation("OffensePrescriptionRegisteredBy")
   // Causas que el usuario dio de baja (HU21).
   deactivatedCases           Case[]            @relation("CaseDeactivatedBy")
   // Actos procesales que el usuario modificó por última vez (HU28, D-98).
@@ -194,7 +195,9 @@ model Lawyer {
   // Matrícula del Colegio de Abogados de Córdoba: circunscripción y
   // número separados por guión (`1-28114`). El formato lo valida el
   // value object RegistrationNumber; acá solo se garantiza unicidad.
-  registrationNumber String   @unique @map("registration_number") @db.VarChar(50)
+  // Opcional (D-107): un abogado puede no tener matrícula todavía. El
+  // @unique se mantiene: PostgreSQL admite varios NULL.
+  registrationNumber String?  @unique @map("registration_number") @db.VarChar(50)
   active             Boolean  @default(true)
   createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -218,11 +221,14 @@ model Client {
   id          Int      @id @default(autoincrement())
   lastName    String   @map("last_name") @db.VarChar(100)
   firstName   String   @map("first_name") @db.VarChar(100)
-  // Solo dígitos, 7 u 8 (CHECK manual). Único entre los clientes
-  // VIGENTES: índice único parcial `clients_dni_active_key`, creado a
-  // mano (ver el bloque de SQL manual al final del archivo).
-  dni         String   @db.VarChar(8)
-  phone       String?  @db.VarChar(50)
+  // Tipo y número de documento (D-108). El formato de cada tipo lo valida
+  // un CHECK manual. Único por (tipo, número) entre los clientes VIGENTES:
+  // índice único parcial `clients_document_active_key`, creado a mano.
+  documentType   DocumentType @default(DNI) @map("document_type")
+  documentNumber String        @map("document_number") @db.VarChar(20)
+  // Obligatorios (D-109), también en la base.
+  address     String   @db.VarChar(255)
+  phone       String   @db.VarChar(50)
   email       String?  @db.VarChar(255)
   // Fecha civil. La asigna la aplicación con `ClockPort.today()`
   // (Córdoba), nunca `CURRENT_DATE`, que corre en la zona de la base.
@@ -235,6 +241,13 @@ model Client {
 
   @@index([lastName, firstName])
   @@map("clients")
+}
+
+enum DocumentType {
+  DNI
+  PASSPORT
+
+  @@map("document_type")
 }
 
 enum DayType {
@@ -275,6 +288,7 @@ model Jurisdiction {
   cases             Case[]
   cloudFolders      CloudFolder[]
   documentTemplates DocumentTemplateJurisdiction[]
+  templateFiles     DocumentTemplateFile[]
 
   @@map("jurisdictions")
 }
@@ -498,8 +512,24 @@ model Offense {
   // inicio (RN8, D-49); uno con fecha anterior al vigente no la cambia.
   prescriptionDate     DateTime @map("prescription_date") @db.Date
 
-  case               Case               @relation(fields: [caseId], references: [id], onDelete: Restrict)
-  legalQualification LegalQualification @relation(fields: [legalQualificationId], references: [id], onDelete: Restrict)
+  // Declaración de que este hecho prescribió (HU33, D-113): la carga una
+  // persona con la resolución del tribunal, una por calificación. NULL
+  // mientras no se declaró; se carga una sola vez y no se revierte. No es
+  // `prescription_date` (el vencimiento calculado de arriba): es la fecha de
+  // la prescripción que declara la resolución. CHECK manual, como en `cases`:
+  //   num_nonnulls(prescription_declared_on, prescription_resolution,
+  //                prescription_registered_by_user_id,
+  //                prescription_registered_at) IN (0, 4)
+  //   prescription_grounds IS NULL OR prescription_declared_on IS NOT NULL
+  prescriptionDeclaredOn         DateTime? @map("prescription_declared_on") @db.Date
+  prescriptionResolution         String?   @map("prescription_resolution") @db.VarChar(255)
+  prescriptionGrounds            String?   @map("prescription_grounds") @db.VarChar(2000)
+  prescriptionRegisteredByUserId Int?      @map("prescription_registered_by_user_id")
+  prescriptionRegisteredAt       DateTime? @map("prescription_registered_at") @db.Timestamptz(6)
+
+  case                     Case               @relation(fields: [caseId], references: [id], onDelete: Restrict)
+  legalQualification       LegalQualification @relation(fields: [legalQualificationId], references: [id], onDelete: Restrict)
+  prescriptionRegisteredBy User?              @relation("OffensePrescriptionRegisteredBy", fields: [prescriptionRegisteredByUserId], references: [id], onDelete: Restrict)
 
   @@id([caseId, legalQualificationId])
   @@index([legalQualificationId])
@@ -672,15 +702,20 @@ model CloudFolder {
   // Causa de la carpeta, solo en las de tipo CASE.
   case              Case?
   documentTemplates DocumentTemplate[]
+  templateFiles     DocumentTemplateFile[]
 
   @@index([parentCloudFolderId])
   @@map("cloud_folders")
 }
 
-// Modelo formal (HU34, HU35): un solo registro y un solo archivo aunque
-// aplique a varios fueros (D-55). Vive en la JURISDICTION de modelos de
-// su fuero o, si es de varios fueros, en TEMPLATES. Nombre único sin
-// distinguir mayúsculas (D-71), pendiente del SQL manual.
+// Modelo formal (HU34, HU35): un solo registro aunque aplique a varios
+// fueros (D-55). Su archivo vive en la JURISDICTION de modelos de cada
+// uno de sus fueros (Modelos formales/{fuero}): `cloud_file_id` y
+// `cloud_folder_id` son el archivo PRINCIPAL, el del primer fuero en el
+// orden CRIMINAL, ADMINISTRATIVE, AMPARO, que es el que se descarga; el
+// archivo de cada fuero está en `document_template_files`. Los modelos
+// anteriores a esta estructura siguen en TEMPLATES y no tienen filas ahí.
+// Nombre único sin distinguir mayúsculas (D-71), pendiente del SQL manual.
 model DocumentTemplate {
   id                  Int      @id @default(autoincrement())
   name                String   @db.VarChar(150)
@@ -699,9 +734,31 @@ model DocumentTemplate {
   lastVersionBy User        @relation(fields: [lastVersionByUserId], references: [id], onDelete: Restrict)
 
   jurisdictions DocumentTemplateJurisdiction[]
+  files         DocumentTemplateFile[]
   copies        DocumentTemplateCopy[]
 
   @@map("document_templates")
+}
+
+// Archivo de un modelo formal en la subcarpeta de cada uno de sus fueros:
+// una fila por (modelo, fuero). Las copias se hacen dentro de la nube a
+// partir del archivo principal, así que todas tienen el mismo contenido.
+// HU40 copia a la causa el archivo de SU fuero; sin fila (modelo anterior
+// a las subcarpetas) usa el principal de `document_templates`.
+model DocumentTemplateFile {
+  templateId     Int    @map("template_id")
+  jurisdictionId Int    @map("jurisdiction_id")
+  cloudFileId    String @unique @map("cloud_file_id") @db.VarChar(128)
+  // La JURISDICTION de modelos (lawyer_id NULL) donde está el archivo.
+  cloudFolderId  String @map("cloud_folder_id") @db.VarChar(128)
+
+  template     DocumentTemplate @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  jurisdiction Jurisdiction     @relation(fields: [jurisdictionId], references: [jurisdictionId], onDelete: Restrict)
+  cloudFolder  CloudFolder      @relation(fields: [cloudFolderId], references: [cloudFolderId], onDelete: Restrict)
+
+  @@id([templateId, jurisdictionId])
+  @@index([cloudFolderId])
+  @@map("document_template_files")
 }
 
 // Fueros a los que aplica cada modelo formal (D-55).
@@ -938,6 +995,9 @@ model AuditLog {
 //   -- Sprint 4 (migración sprint4_manual_constraints)
 //   cases                    ck_cases_deactivation_coherent
 //   cases                    ck_cases_deactivation_reason_not_blank
+//   -- D-113 (migración offense_prescription_declaration)
+//   offenses                 ck_offenses_prescription_declaration_complete
+//   offenses                 ck_offenses_prescription_grounds_need_declaration
 //   procedural_acts          ck_procedural_acts_last_modified_coherent
 //   procedural_acts          ck_procedural_acts_last_modified_after_registered
 //   case_files               ck_case_files_version_positive

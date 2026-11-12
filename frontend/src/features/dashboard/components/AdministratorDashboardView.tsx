@@ -1,12 +1,12 @@
-import { useState } from 'react'
 import { Button, Icon } from '@/shared/components/ui'
 import { formatPersonName } from '@/shared/lib/personName'
 import type { AdministratorDashboard } from '@/features/dashboard/types/dashboard'
 import { SummaryBand, type SummaryTile } from '@/features/dashboard/components/SummaryBand'
 import { PortfolioByJurisdiction } from '@/features/dashboard/components/PortfolioByJurisdiction'
-import { DeadlinesPanel, type UrgencyFilter } from '@/features/dashboard/components/DeadlinesPanel'
+import { DeadlinesPanel } from '@/features/dashboard/components/DeadlinesPanel'
 import { PrescriptionAlertsPanel } from '@/features/dashboard/components/PrescriptionAlertsPanel'
 import { TeamLoadPanel } from '@/features/dashboard/components/TeamLoadPanel'
+import { useDashboardFilters } from '@/features/dashboard/hooks/useDashboardFilters'
 
 interface AdministratorDashboardViewProps {
     dashboard: AdministratorDashboard
@@ -19,8 +19,8 @@ interface AdministratorDashboardViewProps {
  * se aplican acá sobre `deadlines`, como indica el contrato (V4 §3.11).
  */
 export function AdministratorDashboardView({ dashboard, onOpen }: AdministratorDashboardViewProps) {
-    const [urgency, setUrgency] = useState<UrgencyFilter>('all')
-    const [lawyerId, setLawyerId] = useState<number | null>(null)
+    // Los filtros viven en la URL: siguen puestos al volver de una causa.
+    const { urgency, setUrgency, lawyerId, setLawyerId } = useDashboardFilters()
     const { summary } = dashboard
 
     // CA-42.2: los mismos cuatro números que en "Mi día", pero de todo el estudio.
@@ -71,7 +71,7 @@ export function AdministratorDashboardView({ dashboard, onOpen }: AdministratorD
                     />
                 </div>
                 <div className="vz-dash__side">
-                    <PrescriptionAlertsPanel alerts={dashboard.prescriptionAlerts} onOpen={onOpen} showLawyer />
+                    <PrescriptionAlertsPanel alerts={dashboard.prescriptionAlerts} onOpen={onOpen} showLawyer scroll />
                     <TeamLoadPanel team={dashboard.team} selectedLawyerId={lawyerId} onSelect={toggleLawyer} />
                 </div>
             </div>

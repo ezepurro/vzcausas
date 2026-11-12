@@ -71,13 +71,16 @@ function isAuthUser(value: unknown): value is AuthUser {
 /**
  * La sesión guardada, o `null` si no hay ninguna utilizable.
  *
- * Devuelve `null` —y limpia lo que haya— cuando falta el token, cuando el
- * contenido no tiene la forma esperada, o cuando el token ya venció.
+ * Devuelve `null` —y limpia lo que haya— cuando falta el token o cuando el
+ * contenido no tiene la forma esperada.
  *
- * Se descarta el token vencido en vez de intentar renovarlo acá: esta función
- * es pura y síncrona, y corre en el primer render. La renovación la maneja
- * `http.ts` cuando el servidor rechaza un pedido; si la cookie sigue viva, el
- * usuario vuelve a entrar sin escribir nada.
+ * **Un token de acceso vencido no invalida la sesión.** Dura quince minutos;
+ * la cookie de renovación, siete días. Si esta función descartara la sesión
+ * al vencer el token, la renovación —que la necesita para saber quién está
+ * adentro— no tendría sobre qué trabajar, y la cookie no serviría nunca: era
+ * el bug que cerraba la sesión a los quince minutos. Quien decide si la
+ * sesión terminó es `POST /auth/refresh`: si responde 401, `AuthProvider`
+ * cierra la sesión. `expiresAt` queda como dato (`isAccessTokenExpired`).
  */
 export function readStoredSession(): StoredSession | null {
     try {
@@ -100,17 +103,17 @@ export function readStoredSession(): StoredSession | null {
             return null
         }
 
-        if (expiresAt <= Date.now()) {
-            clearStoredSession()
-            return null
-        }
-
         return { accessToken, user, expiresAt }
     } catch {
         // JSON corrupto, o un navegador con el almacenamiento bloqueado.
         clearStoredSession()
         return null
     }
+}
+
+/** Si el token de acceso de la sesión ya venció según el reloj local. */
+export function isAccessTokenExpired(session: StoredSession, now: number = Date.now()): boolean {
+    return session.expiresAt <= now
 }
 
 /**

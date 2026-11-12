@@ -20,3 +20,12 @@ export const MANAGEMENT_MAILBOX = Symbol('MANAGEMENT_MAILBOX');
  * caveat as {@link MANAGEMENT_MAILBOX}.
  */
 export const COPY_TO_RESPONSIBLE_LAWYER = Symbol('COPY_TO_RESPONSIBLE_LAWYER');
+
+/**
+ * DI token for whether the development shortcuts of the daily run are
+ * allowed: `true` only when `NODE_ENV` is `development`. It guards
+ * `?dev=true`, which wipes the `sent_notifications` history, so it must never
+ * be `true` in a deployed environment. Same plain-value criterion as
+ * {@link MANAGEMENT_MAILBOX}: the controller never reads `ConfigService`.
+ */
+export const DEV_TOOLS_ENABLED = Symbol('DEV_TOOLS_ENABLED');

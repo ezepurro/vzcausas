@@ -1,5 +1,4 @@
-import { CannotDeclarePrescriptionError } from '../../errors/case.errors';
-import { anActor, day, NOW, TODAY, validationDetailsOf } from '../../../test-support/case-fixtures';
+import { day, NOW, TODAY, validationDetailsOf } from '../../../test-support/case-fixtures';
 import { PrescriptionDeclaration, PrescriptionDeclarationInput } from './prescription-declaration.vo';
 
 /** HU33, CA-33.1 to CA-33.3, contract V4 §3.7 (`POST /cases/{caseId}/prescription`). */
@@ -78,21 +77,6 @@ describe('PrescriptionDeclaration', () => {
     expect(await validationDetailsOf(() => create({ prescriptionDate: day('2026-12-01'), resolution: '' }))).toEqual({
       prescriptionDate: 'No puede ser posterior a hoy.',
       resolution: 'La resolución que declara la prescripción es obligatoria.',
-    });
-  });
-
-  describe('quién puede declararla (CA-33.1, CA-33.2)', () => {
-    it.each([['ADMINISTRATOR'], ['LAWYER']])('%s puede, sea o no el responsable', (role) => {
-      expect(() =>
-        PrescriptionDeclaration.assertCanBeDeclaredBy(anActor({ roleNames: [role], lawyerId: 999 })),
-      ).not.toThrow();
-    });
-
-    it('la secretaría no puede: FORBIDDEN con el texto del contrato', () => {
-      const attempt = () => PrescriptionDeclaration.assertCanBeDeclaredBy(anActor({ roleNames: ['SECRETARY'], lawyerId: null }));
-
-      expect(attempt).toThrow(CannotDeclarePrescriptionError);
-      expect(attempt).toThrow('Se requiere el rol ADMINISTRATOR o LAWYER para realizar esta operación.');
     });
   });
 });

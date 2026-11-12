@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { Button, DataTable, Pill, type Column } from '@/shared/components/ui'
 import { formatDate } from '@/shared/lib/dates'
 import { formatPersonName } from '@/shared/lib/personName'
+import { useHoverIntent } from '@/shared/hooks/useHoverIntent'
 import { JURISDICTION_LABELS } from '@/features/legal-params'
 import type { Case } from '@/features/cases/types/case'
 import { caseStateLabel } from '@/features/cases/utils/caseState'
@@ -13,6 +14,11 @@ export interface CasesTableProps {
     rows: Case[]
     /** "Ver detalle": la pantalla navega. */
     onOpen: (c: Case) => void
+    /**
+     * El usuario apunta a "Ver detalle": el mouse quedó encima un momento o
+     * tomó el foco. La pantalla puede pedir la causa de antemano.
+     */
+    onIntent?: (c: Case) => void
     empty?: ReactNode
     /** Primera carga: la tabla dibuja su esqueleto. */
     loading?: boolean
@@ -32,7 +38,9 @@ export interface CasesTableProps {
  * muestra "Sin plazo abierto". Una causa sin SAC se muestra como "Sin SAC"
  * (D-33).
  */
-export function CasesTable({ rows, onOpen, empty, loading, busy }: CasesTableProps) {
+export function CasesTable({ rows, onOpen, onIntent, empty, loading, busy }: CasesTableProps) {
+    // Pasar el mouse por la columna no cuenta: sólo quedarse encima (`useHoverIntent`).
+    const intent = useHoverIntent(onIntent)
     const columns: Column<Case>[] = [
         { id: 'sac', header: 'N° SAC', cell: (c) => sacLabel(c.sacNumber), mono: true, nowrap: true },
         {
@@ -94,7 +102,9 @@ export function CasesTable({ rows, onOpen, empty, loading, busy }: CasesTablePro
             header: '',
             actions: true,
             cell: (c) => (
-                <Button variant="ghost" size="sm" onClick={() => onOpen(c)}>Ver detalle</Button>
+                <Button variant="ghost" size="sm" onClick={() => onOpen(c)} {...intent(c)}>
+                    Ver detalle
+                </Button>
             ),
         },
     ]

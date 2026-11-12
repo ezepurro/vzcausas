@@ -1,0 +1,125 @@
+parameters:
+  - $ref: ../components/parameters/CaseIdParam.yaml
+  - $ref: ../components/parameters/DocumentIdParam.yaml
+
+get:
+  tags:
+    - Case Documents
+  operationId: downloadCaseDocumentFile
+  summary: Descargar un documento o un expediente
+  description: |
+    Descarga un archivo de la carpeta de la causa a través de la API (HU38,
+    HU25). Es lo que usan "Descargar" e "Imprimir" del diálogo "Expediente
+    generado"; "Abrir" en la tarjeta "Documentación" usa `url`, que abre
+    Drive.
+
+    Existe por el mismo motivo que la descarga de modelos (D-58): un enlace de
+    Drive no respeta los perfiles del sistema, y un usuario que solo es
+    `ADMINISTRATOR` no tiene acceso a la carpeta del estudio en Drive.
+
+    Los documentos nativos de Google (documentos, hojas de cálculo) se
+    descargan exportados a PDF. El cuerpo de la respuesta exitosa es el
+    archivo; las respuestas de error son JSON.
+
+    **Rol requerido** (D-103):
+
+    | Archivo | Rol |
+    | ------- | --- |
+    | Un expediente generado por el sistema (`caseFile` no `null`) | Cualquier usuario autenticado (HU25) |
+    | Cualquier otro documento | `LAWYER` o `SECRETARY` (HU38) |
+  parameters:
+    - name: disposition
+      in: query
+      required: false
+      description: |
+        `attachment` para descargar; `inline` para abrirlo en el navegador e
+        imprimirlo.
+      schema:
+        type: string
+        enum:
+          - attachment
+          - inline
+        default: attachment
+  responses:
+    '200':
+      description: |
+        El archivo, con su `Content-Type` (el del archivo, por ejemplo
+        `application/pdf`) y su nombre.
+      headers:
+        Content-Disposition:
+          description: '`attachment` o `inline` según `disposition`, con el nombre del archivo.'
+          schema:
+            type: string
+          example: attachment; filename="Expediente_13284571_v2.pdf"
+      content:
+        application/octet-stream:
+          schema:
+            type: string
+            format: binary
+    '400':
+      description: Identificador o parámetro de consulta inválido.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          examples:
+            invalidDisposition:
+              summary: Valor de `disposition` inexistente
+              value:
+                error:
+                  code: INVALID_REQUEST
+                  message: Parámetros de query inválidos.
+                  details:
+                    disposition: Debe ser inline o attachment.
+            invalidCaseId:
+              $ref: ../components/examples/InvalidCaseIdError.yaml
+    '401':
+      $ref: ../components/responses/Unauthorized.yaml
+    '403':
+      description: |
+        Un documento que no es un expediente, pedido por un usuario sin el rol
+        `LAWYER` ni `SECRETARY`.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          example:
+            error:
+              code: FORBIDDEN
+              message: Se requiere el rol LAWYER o SECRETARY para realizar esta operación.
+              details: null
+    '404':
+      description: |
+        La causa no existe o fue dada de baja, o el archivo no existe, se borró
+        de Drive o no está en la carpeta de esta causa. La API no descarga
+        archivos de otras carpetas aunque se conozca su `id`.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          examples:
+            caseNotFound:
+              summary: Causa inexistente o dada de baja
+              value:
+                error:
+                  code: CASE_NOT_FOUND
+                  message: No se encontró la causa solicitada.
+                  details: null
+            documentNotFound:
+              summary: Documento inexistente o de otra carpeta
+              value:
+                error:
+                  code: DOCUMENT_NOT_FOUND
+                  message: No se encontró el documento en la carpeta de la causa.
+                  details: null
+    '502':
+      description: Drive no respondió.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          example:
+            error:
+              code: DOCUMENT_STORAGE_UNAVAILABLE
+              message: No se pudo descargar el documento de Drive. Intentá de nuevo en unos minutos.
+              details: null

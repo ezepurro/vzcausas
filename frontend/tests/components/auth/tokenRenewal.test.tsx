@@ -20,12 +20,61 @@
  * todo termina en un cierre de sesión.
  */
 
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { screen } from '@testing-library/react'
 import { server } from '@/shared/mocks/server'
-import { db, expireIssuedTokens } from '@/shared/mocks'
+import { db, expireIssuedTokens, issueToken } from '@/shared/mocks'
 import { http, TOKEN_KEY } from '@/shared/api/http'
-import { renderWithProviders } from '../../setup/render'
+import {
+    isAccessTokenExpired,
+    readStoredSession,
+    writeStoredSession,
+} from '@/features/auth/utils/sessionStorage'
+import { renderWithProviders, signInAs } from '../../setup/render'
+
+/**
+ * Vence el token **también del lado del cliente**: el `expiresAt` guardado
+ * queda en el pasado. Es lo que pasa en la realidad a los quince minutos, y
+ * lo que `expireIssuedTokens()` solo no reproduce —con el `expiresAt` todavía
+ * vigente, el test de abajo pasaba aunque en el navegador la sesión se
+ * cerrara—.
+ */
+function expireEverywhere() {
+    expireIssuedTokens()
+    const raw = localStorage.getItem('vz.session')
+    if (raw === null) throw new Error('No hay sesión guardada que vencer')
+    localStorage.setItem('vz.session', JSON.stringify({ ...JSON.parse(raw), expiresAt: Date.now() - 1000 }))
+}
+
+/** Cuenta los `POST /auth/refresh` mientras corre `body`. */
+async function countRenewals(body: () => Promise<void>): Promise<number> {
+    let renewals = 0
+    const count = ({ request }: { request: Request }) => {
+        if (request.url.includes('/auth/refresh')) renewals += 1
+    }
+    server.events.on('request:start', count)
+    try {
+        await body()
+    } finally {
+        server.events.removeListener('request:start', count)
+    }
+    return renewals
+}
+
+/** Instala un `navigator.locks` de mentira; `beforeTask` corre al conseguir el lock. */
+function stubLocks(beforeTask: () => void = () => {}) {
+    const request = vi.fn(async (_name: string, task: () => Promise<unknown>) => {
+        beforeTask()
+        return task()
+    })
+    Object.defineProperty(navigator, 'locks', { value: { request }, configurable: true })
+    return request
+}
+
+afterEach(() => {
+    // jsdom no trae `navigator.locks`: se saca el de mentira si un test lo puso.
+    Reflect.deleteProperty(navigator, 'locks')
+})
 
 /**
  * Monta los proveedores sólo para que `AuthProvider` registre sus handlers en
@@ -101,5 +150,88 @@ describe('renovación del token', () => {
         } finally {
             server.events.removeListener('request:start', count)
         }
+    })
+
+    it('con el token vencido también en el cliente, renueva igual y no cierra la sesión', async () => {
+        /* El caso real a los quince minutos. Antes `readStoredSession`
+           descartaba la sesión por vencida, la renovación no tenía sobre qué
+           trabajar y la persona terminaba en el login. */
+        const session = await mountSession()
+        const before = session.token()
+        expireEverywhere()
+
+        const response = await http.get('/users')
+
+        expect(response.status).toBe(200)
+        expect(session.token()).not.toBe(before)
+        const stored = readStoredSession()
+        expect(stored).not.toBeNull()
+        expect(stored && isAccessTokenExpired(stored)).toBe(false)
+    })
+
+    it('al abrir la aplicación con el token vencido, lo renueva en vez de mandar al login', async () => {
+        signInAs('fvazquez')
+        const before = localStorage.getItem(TOKEN_KEY)
+        expireEverywhere()
+
+        renderWithProviders(<p>Sesión abierta</p>)
+        await screen.findByText('Sesión abierta')
+
+        const stored = readStoredSession()
+        expect(stored?.user.username).toBe('fvazquez')
+        expect(stored?.accessToken).not.toBe(before)
+        expect(stored && isAccessTokenExpired(stored)).toBe(false)
+    })
+
+    it('renueva adentro del lock compartido entre pestañas', async () => {
+        await mountSession()
+        const request = stubLocks()
+        expireEverywhere()
+
+        const renewals = await countRenewals(async () => {
+            await http.get('/users')
+        })
+
+        expect(request).toHaveBeenCalledWith('vz.auth.refresh', expect.any(Function))
+        expect(renewals).toBe(1)
+    })
+
+    it('si otra pestaña ya renovó mientras esperaba el lock, usa ese token y no llama al backend', async () => {
+        /* La cookie de esta pestaña ya fue rotada por la otra: presentarla de
+           nuevo haría que el backend revoque la sesión entera. */
+        await mountSession()
+        expireEverywhere()
+
+        let otherTabToken: string | null = null
+        stubLocks(() => {
+            const current = readStoredSession()
+            if (current === null) throw new Error('Sin sesión')
+            otherTabToken = issueToken(current.user.id)
+            writeStoredSession({ accessToken: otherTabToken, tokenType: 'Bearer', expiresIn: 900, user: current.user })
+        })
+
+        let status = 0
+        const renewals = await countRenewals(async () => {
+            status = (await http.get('/users')).status
+        })
+
+        expect(status).toBe(200)
+        expect(renewals).toBe(0)
+        expect(localStorage.getItem(TOKEN_KEY)).toBe(otherTabToken)
+    })
+
+    it('si otra pestaña no pudo renovar y borró la sesión, cierra la sesión sin llamar al backend', async () => {
+        await mountSession()
+        expireEverywhere()
+        stubLocks(() => localStorage.clear())
+
+        let failure: unknown = null
+        const renewals = await countRenewals(async () => {
+            failure = await http.get('/users').catch((error: unknown) => error)
+        })
+
+        expect(failure).toMatchObject({ code: 'UNAUTHENTICATED' })
+        expect(renewals).toBe(0)
+        expect(readStoredSession()).toBeNull()
     })
 })

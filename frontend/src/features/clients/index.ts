@@ -8,8 +8,14 @@
 
 export { ClientFormModal } from './components/ClientFormModal'
 export { validateClient, isValid as isValidClient, type ClientFormErrors } from './schemas/client.schema'
-export { formatClientName, formatDni, normalizeDni } from './utils/clientFormat'
-export type { Client, ClientFormValues, CreateClientBody } from './types/client'
+export {
+    DOCUMENT_TYPE_LABELS,
+    formatClientName,
+    formatDocument,
+    formatDocumentNumber,
+} from './utils/clientFormat'
+export { DOCUMENT_TYPES } from './types/client'
+export type { Client, ClientFormValues, CreateClientBody, DocumentType } from './types/client'
 export { useClients } from './api/useClients'
 export { useCreateClient } from './api/useCreateClient'
 export { toCreateClientBody } from './utils/toCreateClientBody'

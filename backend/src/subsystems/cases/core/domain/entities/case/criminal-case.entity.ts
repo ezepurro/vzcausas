@@ -1,10 +1,16 @@
-import { CaseInTerminalStateError, PrescriptionNotApplicableError } from '../../errors/case.errors';
+import {
+  CaseInTerminalStateError,
+  LegalQualificationAlreadyPrescribedError,
+  LegalQualificationNotInCaseError,
+  PrescriptionNotApplicableError,
+} from '../../errors/case.errors';
+import { ProceduralStateRef } from '../../ports/case/legal-parameters-lookup.port';
 import { CaseDataRules, FieldErrors } from '../../rules/case-data-rules';
 import { CaseChanges, CaseField, CaseModificationContext, PendingChanges } from './case-changes';
 import { JurisdictionCode } from '../../value-objects/case/jurisdiction-code';
 import { PrescriptionDeclaration } from '../../value-objects/prescription/prescription-declaration.vo';
 import { CaseSnapshot } from './case-snapshot';
-import { Case, CaseProps, DeclarePrescriptionInput } from './case.entity';
+import { Case, CaseProps, DeclarePrescriptionInput, DeclareQualificationPrescriptionInput } from './case.entity';
 import { Offense } from './offense.entity';
 
 export interface CriminalCaseProps extends CaseProps {
@@ -60,12 +66,7 @@ export class CriminalCase extends Case {
     if (this.criminalProps.offenses.length === 0) {
       throw new PrescriptionNotApplicableError(PrescriptionNotApplicableError.WITHOUT_QUALIFICATIONS);
     }
-
-    const state = input.prescribedState;
-    if (state === null || !state.isPrescribed || state.jurisdictionId !== this.jurisdictionId) {
-      // The seed creates "Prescripta" for the criminal jurisdiction (D-53): its absence is broken data.
-      throw new Error(`The jurisdiction of case ${this.id} has no "Prescripta" state to move it to.`);
-    }
+    const state = this.prescribedStateOf(input.prescribedState);
 
     const declaration = PrescriptionDeclaration.create(input.data, {
       registeredByUserId: input.actor.userId,
@@ -73,8 +74,76 @@ export class CriminalCase extends Case {
       today: input.today,
     });
 
+    // D-113, CA-33.17: "Marcar toda la causa" declares the offenses still pending;
+    // the ones already declared keep their own declaration.
+    for (const offense of this.criminalProps.offenses) {
+      if (offense.prescriptionDeclaration === null) {
+        offense.declarePrescription(declaration);
+      }
+    }
     this.criminalProps.prescriptionDeclaration = declaration;
     this.closeInState(state.id, input.now);
+  }
+
+  /**
+   * D-113 — declares one legal qualification of the case prescribed (HU33
+   * revised). Each offense prescribes on its own: the case stays open for the
+   * others, and moves to "Prescripta" when the one declared was the **last**
+   * pending one (CA-33.4). The rules go in the contract's order, the business
+   * before the data, so a refused request changes nothing:
+   *
+   * 1. The case registers that qualification (`404`).
+   * 2. The case is not closed (`422`, CA-33.8).
+   * 3. The qualification was not declared already (`422`, CA-33.8).
+   * 4. The data of the form make a valid declaration (`400`, CA-33.3).
+   *
+   * As for the whole case, the computed term is not required to be met
+   * (CA-33.10): the court declares it.
+   * @throws LegalQualificationNotInCaseError
+   * @throws CaseInTerminalStateError
+   * @throws LegalQualificationAlreadyPrescribedError
+   * @throws ValidationError
+   */
+  override declareQualificationPrescription(input: DeclareQualificationPrescriptionInput): void {
+    const offense = this.criminalProps.offenses.find(
+      (candidate) => candidate.legalQualificationId === input.legalQualificationId,
+    );
+    if (!offense) {
+      throw new LegalQualificationNotInCaseError();
+    }
+    if (this.criminalProps.prescriptionDeclaration !== null) {
+      throw new CaseInTerminalStateError(CaseInTerminalStateError.FOR_THIS_OPERATION);
+    }
+    this.assertAcceptsActs(CaseInTerminalStateError.FOR_THIS_OPERATION);
+    if (offense.prescriptionDeclaration !== null) {
+      throw new LegalQualificationAlreadyPrescribedError();
+    }
+
+    const closesTheCase = this.criminalProps.offenses.every(
+      (other) => other === offense || other.prescriptionDeclaration !== null,
+    );
+    const state = closesTheCase ? this.prescribedStateOf(input.prescribedState) : null;
+    const declaration = PrescriptionDeclaration.create(input.data, {
+      registeredByUserId: input.actor.userId,
+      registeredAt: input.now,
+      today: input.today,
+    });
+
+    offense.declarePrescription(declaration);
+    if (state === null) {
+      this.props.updatedAt = input.now;
+      return;
+    }
+    this.criminalProps.prescriptionDeclaration = declaration;
+    this.closeInState(state.id, input.now);
+  }
+
+  /** The "Prescripta" state of the criminal jurisdiction (D-53): the seed creates it, so its absence is broken data. */
+  private prescribedStateOf(state: ProceduralStateRef | null): ProceduralStateRef {
+    if (state === null || !state.isPrescribed || state.jurisdictionId !== this.jurisdictionId) {
+      throw new Error(`The jurisdiction of case ${this.id} has no "Prescripta" state to move it to.`);
+    }
+    return state;
   }
 
   /**
@@ -85,6 +154,32 @@ export class CriminalCase extends Case {
   protected override assertCanBeModifiedWith(changes: CaseChanges): void {
     if (changes.legalQualifications !== undefined && this.criminalProps.prescriptionDeclaration !== null) {
       throw new CaseInTerminalStateError(CaseInTerminalStateError.FOR_THIS_OPERATION);
+    }
+    // D-113, CA-33.18: an offense declared prescribed stays, with its offense date.
+    const items = changes.legalQualifications;
+    if (items === undefined) {
+      return;
+    }
+    for (const declared of this.criminalProps.offenses.filter((offense) => offense.prescriptionDeclaration !== null)) {
+      const kept = (items ?? []).some(
+        (item) =>
+          item.legalQualificationId === declared.legalQualificationId &&
+          item.offenseDate instanceof Date &&
+          item.offenseDate.getTime() === declared.offenseDate.getTime(),
+      );
+      if (!kept) {
+        throw new LegalQualificationAlreadyPrescribedError(LegalQualificationAlreadyPrescribedError.FOR_MODIFYING);
+      }
+    }
+  }
+
+  /**
+   * HU28 — "Prescripta" was not set by an act (D-54), so correcting an act cannot
+   * take the case out of it (D-99, CA-28.9).
+   */
+  override assertActsCanBeModified(): void {
+    if (this.criminalProps.prescriptionDeclaration !== null) {
+      throw new CaseInTerminalStateError(CaseInTerminalStateError.ACTS_OF_PRESCRIBED_CASE);
     }
   }
 
@@ -121,7 +216,14 @@ export class CriminalCase extends Case {
     return () => {
       const changed: CaseField[] = [];
       if (offenses !== null && !CriminalCase.sameOffenses(this.criminalProps.offenses, offenses)) {
-        this.criminalProps.offenses = offenses;
+        // A declared offense is kept as it is, declaration included (D-113): it cannot be changed.
+        this.criminalProps.offenses = offenses.map(
+          (next) =>
+            this.criminalProps.offenses.find(
+              (current) =>
+                current.prescriptionDeclaration !== null && current.legalQualificationId === next.legalQualificationId,
+            ) ?? next,
+        );
         changed.push('legalQualifications');
       }
       if (changes.clientDetained !== undefined) {
@@ -138,6 +240,12 @@ export class CriminalCase extends Case {
     const key = (offense: Offense) => `${offense.legalQualificationId}@${offense.offenseDate.getTime()}`;
     const currentKeys = new Set(current.map(key));
     return current.length === next.length && next.every((offense) => currentKeys.has(key(offense)));
+  }
+
+  override get qualificationsPendingPrescription(): number[] {
+    return this.criminalProps.offenses
+      .filter((offense) => offense.prescriptionDeclaration === null)
+      .map((offense) => offense.legalQualificationId);
   }
 
   override get prescriptionDeclaration(): PrescriptionDeclaration | null {

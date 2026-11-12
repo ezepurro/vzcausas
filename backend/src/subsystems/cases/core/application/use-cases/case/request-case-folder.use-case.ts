@@ -2,7 +2,8 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { CLOCK, ClockPort } from '@shared/domain/clock.port';
 import { EventPublisher } from '@shared/infrastructure/events/event-publisher.port';
 import { createEventHeader } from '@shared/infrastructure/events/integration-event';
-import { CaseNotFoundError } from '../../../domain/errors/case.errors';
+import { AuthenticatedUser } from '@shared/domain/authenticated-user';
+import { CaseNotFoundError, NotResponsibleLawyerError } from '../../../domain/errors/case.errors';
 import {
   CASE_FOLDER_OUTCOMES,
   CaseFolderOutcome,
@@ -24,6 +25,11 @@ import { JURISDICTION_FOLDER_LABEL } from '../../../domain/value-objects/case/ju
 
 export interface RequestCaseFolderCommand {
   caseId: number;
+  /**
+   * Who asks, when it is the retry endpoint: only who operates the case may (D-110).
+   * `RegisterCase` leaves it out: whoever registers a case has just created it.
+   */
+  actor?: AuthenticatedUser;
   /**
    * Also copy the formal templates of the jurisdiction into the folder (HU40).
    * Defaults to `true`, like the contract's `copyTemplates` of the retry endpoint.
@@ -83,6 +89,7 @@ export class RequestCaseFolder {
 
   /**
    * @throws {CaseNotFoundError} if the case does not exist or was given de baja.
+   * @throws {NotResponsibleLawyerError} 403, a lawyer who is not the responsible one (D-110).
    */
   async execute(command: RequestCaseFolderCommand): Promise<RequestCaseFolderResult> {
     const { caseId } = command;
@@ -90,6 +97,9 @@ export class RequestCaseFolder {
     const found = await this.cases.findById(caseId);
     if (!found || !found.active) {
       throw new CaseNotFoundError();
+    }
+    if (command.actor) {
+      found.assertCanBeOperatedBy(command.actor, NotResponsibleLawyerError.FOR_OPERATING_FOLDER);
     }
     // The lawyer may have been deactivated since the case was registered: the case keeps
     // showing them (RN12), so the folder is still named after them. Only a lawyer that

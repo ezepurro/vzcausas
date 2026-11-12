@@ -7,7 +7,7 @@ import { EventPublisher } from '@shared/infrastructure/events/event-publisher.po
 import { createEventHeader } from '@shared/infrastructure/events/integration-event';
 import { Case } from '../../../domain/entities/case/case.entity';
 import { CaseChanges, CaseModificationContext } from '../../../domain/entities/case/case-changes';
-import { CaseNotFoundError, CaseSacAlreadyExistsError } from '../../../domain/errors/case.errors';
+import { CaseNotFoundError, CaseSacAlreadyExistsError, NotResponsibleLawyerError } from '../../../domain/errors/case.errors';
 import { CASE_FOLDER_STATE, CaseFolderStatePort } from '../../../domain/ports/case/case-folder-state.port';
 import { CASE_REPOSITORY, CaseListItem, CaseRepository } from '../../../domain/ports/case/case.repository';
 import { LEGAL_PARAMETERS_LOOKUP, LegalParametersLookupPort } from '../../../domain/ports/case/legal-parameters-lookup.port';
@@ -20,7 +20,7 @@ import { GetCase } from './get-case.use-case';
 export interface UpdateCaseCommand {
   caseId: number;
   changes: CaseChanges;
-  /** Who modifies, for the audit record (CA-19.15). Any profile may (V5 §3.7). */
+  /** Who modifies: it decides whether they may (D-110) and goes to the audit record (CA-19.15). */
   actor: AuthenticatedUser;
 }
 
@@ -29,7 +29,8 @@ export interface UpdateCaseCommand {
  *
  * Coordinates and decides nothing: what a valid change is belongs to
  * {@link Case.modify} and to each jurisdiction. Order of the checks, so a
- * rejected request writes nothing: the case exists (404) → what the
+ * rejected request writes nothing: the case exists (404) → the actor operates
+ * it (403, D-110: not a lawyer who is not the responsible one) → what the
  * jurisdiction refuses (422) → the data, with the references looked up here
  * (400) → the SAC is not another active case's (409).
  *
@@ -57,6 +58,7 @@ export class UpdateCase {
    * @returns the whole case, as `GET /cases/{caseId}` shows it: the response is
    *   built by {@link GetCase}, not rebuilt here.
    * @throws {CaseNotFoundError} 404, also for a case given de baja (CA-19.14).
+   * @throws {NotResponsibleLawyerError} 403, a lawyer who is not the responsible one (D-110).
    * @throws {CaseInTerminalStateError} 422 (CA-19.13).
    * @throws {ValidationError} 400.
    * @throws {CaseSacAlreadyExistsError} 409 (CA-19.5).
@@ -66,6 +68,8 @@ export class UpdateCase {
     if (!target || !target.active) {
       throw new CaseNotFoundError();
     }
+
+    target.assertCanBeOperatedBy(command.actor, NotResponsibleLawyerError.FOR_MODIFYING_CASE);
 
     const changes = target.modify(command.changes, await this.contextFor(command.changes));
 
@@ -95,15 +99,14 @@ export class UpdateCase {
   }
 
   /**
-   * What the case cannot find out on its own: whether the client, the lawyer
+   * What the case cannot find out on its own: whether the lawyer
    * and the qualifications sent exist and are active. Only what was sent is
    * looked up, with the registration's messages (HU18).
    */
   private async contextFor(changes: CaseChanges): Promise<CaseModificationContext> {
     const referenceErrors: Record<string, string> = {};
     const requested = changes.legalQualifications ?? [];
-    const [client, lawyer, qualifications] = await Promise.all([
-      typeof changes.clientId === 'number' ? this.people.findActiveClientById(changes.clientId) : undefined,
+    const [lawyer, qualifications] = await Promise.all([
       typeof changes.responsibleLawyerId === 'number'
         ? this.people.findActiveLawyerById(changes.responsibleLawyerId)
         : undefined,
@@ -112,9 +115,6 @@ export class UpdateCase {
         : [],
     ]);
 
-    if (client === null) {
-      referenceErrors.clientId = 'No existe un cliente vigente con ese identificador.';
-    }
     if (lawyer === null) {
       referenceErrors.responsibleLawyerId = 'No existe un abogado vigente con ese identificador.';
     }

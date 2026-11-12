@@ -29,7 +29,7 @@ const row = (overrides: Partial<CriminalCasePrescriptionRow> = {}): CriminalCase
       offenseDate: day('2024-01-15'),
     },
   ],
-  lastInterruptiveActDate: null,
+  interruptiveActDates: [],
   ...overrides,
 });
 

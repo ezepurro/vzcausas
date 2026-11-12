@@ -14,7 +14,8 @@ import { CaseDetailPage } from '@/features/cases/pages/CaseDetailPage'
  * Se conserva el historial completo.", que vuelve al listado.
  *
  * La causa 2 es administrativa (SAC 12907344) y la lleva `iperalta`; la da de
- * baja `gestion`, porque lo puede cualquier perfil (V5 §3.7).
+ * baja `gestion`, porque la Secretaría opera cualquier causa (D-110). `mrios`,
+ * que sólo es abogado y no la lleva, no puede.
  *
  * @backend CA-21.3 CA-21.4 CA-21.5 CA-21.6 CA-21.7 CA-21.8 CA-21.9 CA-21.10
  * (que la causa desaparezca de listados, tableros y conteos, que su SAC
@@ -39,7 +40,7 @@ async function openDelete(user: ReturnType<typeof renderPage>['user']) {
 describe('CaseDetailPage · dar de baja la causa', () => {
     usePrototypeToday()
 
-    // CA-21.1, CA-21.2: cualquier perfil, con el motivo opcional.
+    // CA-21.1, CA-21.2: la Secretaría, con el motivo opcional.
     it('con un motivo, la baja vuelve al listado y el motivo se guarda', async () => {
         const { user } = renderPage(2)
         const dialog = await openDelete(user)
@@ -61,6 +62,27 @@ describe('CaseDetailPage · dar de baja la causa', () => {
 
         expect(await screen.findByText('Listado de causas')).toBeInTheDocument()
         expect(db.cases.find((c) => c.id === 2)?.deactivation?.reason).toBeNull()
+    })
+
+    // CA-21.1 (D-110): el abogado responsable da de baja su causa.
+    it('el abogado responsable la da de baja', async () => {
+        const { user } = renderPage(2, 'iperalta')
+        const dialog = await openDelete(user)
+
+        await user.click(within(dialog).getByRole('button', { name: 'Dar de baja' }))
+
+        expect(await screen.findByText('Listado de causas')).toBeInTheDocument()
+        expect(db.cases.find((c) => c.id === 2)?.active).toBe(false)
+    })
+
+    // CA-21.11 (D-110): un abogado que no es el responsable no la da de baja.
+    it('un abogado que no es el responsable ve "Dar de baja" deshabilitado', async () => {
+        renderPage(2, 'mrios')
+        await screen.findByRole('region', { name: 'Causa 12907344' })
+
+        const button = screen.getByRole('button', { name: 'Dar de baja' })
+        expect(button).toBeDisabled()
+        expect(button).toHaveAttribute('title', expect.stringMatching(/^Solo el abogado responsable/))
     })
 
     // Mínimo por feature (TESTING.md §11): si falla, no sale del detalle.

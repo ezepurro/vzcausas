@@ -1,10 +1,13 @@
 import { useEffect, useId, useState, type MouseEvent, type ReactNode } from 'react';
+import { useHoverIntent } from '@/shared/hooks/useHoverIntent';
 import { Icon, type IconName } from './Icon';
 
 export interface RailItem {
   id: string;
   label: string;
   icon: IconName;
+  /** el ítem no se dibuja (la sección existe pero todavía no se muestra) */
+  hidden?: boolean;
 }
 
 export interface RailGroup {
@@ -17,6 +20,11 @@ export interface AppShellProps {
   groups: RailGroup[];
   active: string;
   onNavigate: (id: string) => void;
+  /**
+   * El usuario apunta a un ítem (el mouse quedó encima un momento o tomó el
+   * foco): la app puede adelantar lo que esa sección va a necesitar.
+   */
+  onIntent?: (id: string) => void;
   /** logo, o lo que vaya arriba del rail */
   brand: ReactNode;
   /** Acción destacada bajo el logo: normalmente 'Nueva causa'. */
@@ -25,8 +33,17 @@ export interface AppShellProps {
   railFooter?: ReactNode;
   /** contenido de la barra superior clara: buscador, avisos, notificaciones */
   topBar?: ReactNode;
+  /**
+   * Marca de la barra superior: normalmente el mismo logo del rail, como
+   * enlace al inicio. Se ve sólo debajo de 1024px, donde el rail está
+   * guardado y sin ella la barra no dice en qué aplicación se está.
+   */
+  topBarBrand?: ReactNode;
   children: ReactNode;
 }
+
+/** Desde acá el rail ocupa su columna. Coincide con el corte de `shell.css`. */
+const WIDE_SCREEN = '(min-width: 1024px)';
 
 /**
  * Estructura de la aplicación: rail a la izquierda, barra superior y página.
@@ -36,11 +53,17 @@ export interface AppShellProps {
  * abre encima de la página con el botón de la barra superior. Acá vive sólo
  * el estado —abierto o cerrado—; que el rail esté fijo o deslizable lo decide
  * `shell.css`, así que en una pantalla ancha este estado no cambia nada.
+ *
+ * Abierto, la página de abajo no scrollea. Al agrandar la ventana por encima
+ * del corte el menú se cierra solo: si no, quedaba abierto "de fondo" y
+ * reaparecía abierto al volver a achicarla.
  */
 export function AppShell({
-  groups, active, onNavigate, brand, railAction, railFooter, topBar, children,
+  groups, active, onNavigate, onIntent, brand, railAction, railFooter, topBar, topBarBrand, children,
 }: AppShellProps) {
   const [menuOpen, setMenuOpen] = useState(false);
+  // Pasar el mouse por el rail no cuenta: sólo quedarse sobre un ítem (`useHoverIntent`).
+  const intent = useHoverIntent(onIntent);
   const railId = useId();
 
   useEffect(() => {
@@ -52,6 +75,24 @@ export function AppShell({
 
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
+  }, [menuOpen]);
+
+  // El setState va en el aviso del navegador, no en el cuerpo del efecto.
+  // jsdom no implementa `matchMedia`: ahí no hay corte que cruzar.
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return;
+    const wide = window.matchMedia(WIDE_SCREEN);
+    const onChange = () => { if (wide.matches) setMenuOpen(false); };
+    wide.addEventListener('change', onChange);
+    return () => wide.removeEventListener('change', onChange);
+  }, []);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const { style } = document.documentElement;
+    const previous = style.overflow;
+    style.overflow = 'hidden';
+    return () => { style.overflow = previous; };
   }, [menuOpen]);
 
   /* Todo botón del rail lleva a otro lado o abre un modal —una sección,
@@ -85,6 +126,7 @@ export function AppShell({
                   aria-current={it.id === active ? 'page' : undefined}
                   className={`vz-rail__item ${it.id === active ? 'is-on' : ''}`}
                   onClick={() => onNavigate(it.id)}
+                  {...intent(it.id)}
                   title={it.label}
                 >
                   <Icon name={it.icon} />
@@ -110,6 +152,7 @@ export function AppShell({
           >
             <Icon name="menu" size={18} />
           </button>
+          {topBarBrand && <div className="vz-topbar__brand">{topBarBrand}</div>}
           {topBar}
         </header>
         <main className="vz-page">{children}</main>

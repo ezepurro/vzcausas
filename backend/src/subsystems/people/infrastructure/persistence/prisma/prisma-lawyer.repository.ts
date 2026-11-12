@@ -40,7 +40,7 @@ export class PrismaLawyerRepository implements LawyerRepository {
         data: {
           lastName: lawyer.lastName,
           firstName: lawyer.firstName,
-          registrationNumber: lawyer.registrationNumber.toString(),
+          registrationNumber: lawyer.registrationNumber?.toString() ?? null,
         },
       });
     } catch (error) {
@@ -59,7 +59,7 @@ export class PrismaLawyerRepository implements LawyerRepository {
         id: lawyer.id,
         lastName: lawyer.lastName,
         firstName: lawyer.firstName,
-        registrationNumber: lawyer.registrationNumber.toString(),
+        registrationNumber: lawyer.registrationNumber?.toString() ?? null,
         active: lawyer.isActive(),
       },
     });

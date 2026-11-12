@@ -3,7 +3,10 @@ additionalProperties: false
 required:
   - lastName
   - firstName
-  - dni
+  - documentType
+  - documentNumber
+  - address
+  - phone
 properties:
   lastName:
     type: string
@@ -17,15 +20,34 @@ properties:
     maxLength: 100
     examples:
       - Rodrigo E.
-  dni:
+  documentType:
+    $ref: ./DocumentType.yaml
+  documentNumber:
     type: string
-    description: Entre 7 y 8 dígitos, sin puntos. Único entre los clientes vigentes.
-    pattern: '^[0-9]{7,8}$'
+    description: |
+      Con el formato de `documentType`: el DNI sin puntos, el pasaporte en
+      mayúsculas y sin espacios. Único por tipo entre los clientes vigentes (Revisión del 05/11/2026, D-108.)
+    pattern: '^([0-9]{7,8}|[A-Z0-9]{6,20})$'
     examples:
       - '31556208'
+  address:
+    type: string
+    minLength: 1
+    maxLength: 255
+    pattern: '\S'
+    description: |
+      Dirección. Texto libre, obligatoria y no vacía
+      (Revisión del 05/11/2026, D-108; obligatoria desde la revisión del 06/11/2026, D-109.)
+    examples:
+      - Av. Rafael Núñez 4560, Córdoba
   phone:
     type: string
+    minLength: 1
     maxLength: 50
+    pattern: '\S'
+    description: |
+      Teléfono de contacto. Texto libre, obligatorio y no vacío
+      (Revisión del 06/11/2026, D-109.)
     examples:
       - 351 401-5573
   email:

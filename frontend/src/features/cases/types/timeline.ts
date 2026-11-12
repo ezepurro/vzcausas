@@ -21,9 +21,21 @@ export interface TimelineProceduralActEntry {
 export interface TimelineInterruptiveActEntry {
     type: 'INTERRUPTIVE_ACT'
     date: string
-    /** El acto interruptivo más reciente, el que rige el cómputo de la prescripción. */
+    /**
+     * El acto del que cuenta `prescription` de la causa (D-113). No siempre el
+     * más reciente: uno posterior al vencimiento de una calificación no la
+     * reinicia, y sin calificaciones ninguno rige.
+     */
     governsPrescription: boolean
     interruptiveAct: InterruptiveAct
+}
+
+/** D-113: una calificación declarada prescripta. */
+export interface TimelineQualificationPrescriptionEntry {
+    type: 'QUALIFICATION_PRESCRIPTION_DECLARATION'
+    date: string
+    legalQualification: { id: number; name: string }
+    prescriptionDeclaration: PrescriptionDeclaration
 }
 
 export interface TimelinePrescriptionEntry {
@@ -35,4 +47,5 @@ export interface TimelinePrescriptionEntry {
 export type TimelineEntry =
     | TimelineProceduralActEntry
     | TimelineInterruptiveActEntry
+    | TimelineQualificationPrescriptionEntry
     | TimelinePrescriptionEntry

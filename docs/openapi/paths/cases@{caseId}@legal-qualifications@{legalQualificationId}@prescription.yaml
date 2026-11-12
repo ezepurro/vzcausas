@@ -1,0 +1,155 @@
+parameters:
+  - $ref: ../components/parameters/CaseIdParam.yaml
+  - name: legalQualificationId
+    in: path
+    required: true
+    description: Calificación legal de la causa, tal como viene en `legalQualifications[].id`.
+    schema:
+      type: integer
+      minimum: 1
+    example: 4
+post:
+  tags:
+    - Cases
+  operationId: declareQualificationPrescription
+  summary: Declarar prescripta una calificación legal de la causa
+  description: |
+    **(Revisión del 08/11/2026, D-113)** Declara prescripta **una**
+    calificación legal de una causa penal (HU33). Es el "Marcar prescripta" de
+    cada delito en el detalle.
+
+    Cada delito prescribe por su lado: cuando el tribunal declara la
+    prescripción de uno, la causa sigue abierta por los demás. Si es la
+    **última** calificación sin declarar, la causa pasa a "Prescripta", con el
+    mismo efecto que `POST /cases/{caseId}/prescription`.
+
+    No se exige que el plazo calculado esté cumplido (`expired`): la
+    prescripción la declara el tribunal.
+
+    **Efecto**
+
+    - El `prescriptionDeclaration` de la calificación queda cargado.
+    - La calificación deja de contar para `prescription`, para las alertas de
+      los tableros y para los avisos del proceso diario.
+    - Los actos interruptivos con fecha posterior a la declaración no la
+      reinician.
+    - La línea de vida suma una entrada `QUALIFICATION_PRESCRIPTION_DECLARATION`.
+    - Si era la última sin declarar, la causa pasa a "Prescripta" y se cierran
+      sus plazos; si no, sigue activa y admite actos.
+
+    No existe una operación para revertirlo desde la API.
+
+    **Rol requerido:** `ADMINISTRATOR`, o `LAWYER` siendo el abogado
+    responsable de la causa (D-110). Si la causa no existe, `404` antes que el
+    `403`.
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: ../components/schemas/PrescriptionDeclarationCreate.yaml
+        example:
+          prescriptionDate: '2026-09-15'
+          resolution: Auto N° 88 de la Cámara en lo Criminal y Correccional 5ª Nom.
+  responses:
+    '200':
+      description: Causa actualizada, con la misma estructura que `GET /cases/{caseId}`.
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - data
+            properties:
+              data:
+                $ref: ../components/schemas/Case.yaml
+    '400':
+      description: Datos inválidos, o un identificador de ruta que no es un entero.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          examples:
+            validationError:
+              summary: Fecha futura y resolución vacía
+              value:
+                error:
+                  code: VALIDATION_ERROR
+                  message: Los datos enviados no son válidos.
+                  details:
+                    prescriptionDate: No puede ser posterior a hoy.
+                    resolution: La resolución que declara la prescripción es obligatoria.
+            invalidCaseId:
+              $ref: ../components/examples/InvalidCaseIdError.yaml
+    '401':
+      $ref: ../components/responses/Unauthorized.yaml
+    '403':
+      description: Un abogado que no es el responsable, o la Secretaría. Se evalúa después del `404` de la causa.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          examples:
+            notResponsibleLawyer:
+              summary: Abogado que no es el responsable
+              value:
+                error:
+                  code: FORBIDDEN
+                  message: Solo el abogado responsable de la causa puede declarar la prescripción de sus calificaciones legales.
+                  details: null
+            missingRole:
+              summary: Secretaría
+              value:
+                error:
+                  code: FORBIDDEN
+                  message: Se requiere el rol ADMINISTRATOR o LAWYER para realizar esta operación.
+                  details: null
+    '404':
+      description: La causa no existe o fue dada de baja, o no registra esa calificación legal.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          examples:
+            caseNotFound:
+              summary: Causa inexistente o dada de baja
+              value:
+                error:
+                  code: CASE_NOT_FOUND
+                  message: No se encontró la causa solicitada.
+                  details: null
+            qualificationNotInCase:
+              summary: La causa no registra la calificación
+              value:
+                error:
+                  code: LEGAL_QUALIFICATION_NOT_FOUND
+                  message: La causa no registra esa calificación legal.
+                  details: null
+    '422':
+      description: La causa no es penal o está en un estado terminal, o la calificación ya fue declarada.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          examples:
+            notCriminal:
+              summary: La causa no es del fuero penal
+              value:
+                error:
+                  code: PRESCRIPTION_NOT_APPLICABLE
+                  message: La prescripción solo aplica a las causas del fuero penal.
+                  details: null
+            terminalState:
+              summary: La causa ya está en un estado terminal
+              value:
+                error:
+                  code: CASE_IN_TERMINAL_STATE
+                  message: La causa se encuentra en un estado terminal y no admite esta operación.
+                  details: null
+            alreadyPrescribed:
+              summary: La calificación ya fue declarada
+              value:
+                error:
+                  code: LEGAL_QUALIFICATION_ALREADY_PRESCRIBED
+                  message: La calificación legal ya fue declarada prescripta.
+                  details: null

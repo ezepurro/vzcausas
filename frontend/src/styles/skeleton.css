@@ -77,8 +77,8 @@
 
 .vz-table--skeleton tbody tr:hover { background: none; }
 .vz-table--skeleton .vz-table__cell--actions .vz-skel { margin-left: auto; }
-@media (max-width: 720px) {
-  /* En la tarjeta del teléfono no hay rótulo de columna que mostrar. */
+@media (max-width: 1180px) {
+  /* En la ficha no hay rótulo de columna que mostrar. */
   .vz-table--skeleton td::before { display: none; }
 }
 

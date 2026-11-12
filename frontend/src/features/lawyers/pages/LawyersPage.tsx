@@ -10,7 +10,7 @@ import {
     Panel,
     SearchInput,
 } from '@/shared/components/ui'
-import { useLawyers } from '@/features/lawyers/api/useLawyers'
+import { useLawyers, usePrefetchLawyersPage } from '@/features/lawyers/api/useLawyers'
 import { useCreateLawyer } from '@/features/lawyers/api/useCreateLawyer'
 import { useUpdateLawyer } from '@/features/lawyers/api/useUpdateLawyer'
 import type { Lawyer, LawyerFormValues } from '@/features/lawyers/types/lawyer'
@@ -20,6 +20,7 @@ import { buildLawyerPatch, hasChanges } from '@/features/lawyers/utils/buildLawy
 import { toFormErrors } from '@/features/lawyers/utils/toFormErrors'
 import { LawyersTable } from '@/features/lawyers/components/LawyersTable'
 import { LawyerFormModal } from '@/features/lawyers/components/LawyerFormModal'
+import { lawyerLabel } from '@/features/lawyers/utils/lawyerLabel'
 import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue'
 import { formatPersonName } from '@/shared/lib/personName'
 const LIMIT = 20
@@ -49,11 +50,14 @@ export function LawyersPage() {
     const [errors, setErrors] = useState<LawyerFormErrors>({})
 
     const debouncedSearch = useDebouncedValue(search.trim())
-    const query = useLawyers({
+    const listParams = {
         page,
         limit: LIMIT,
         search: debouncedSearch === '' ? undefined : debouncedSearch,
-    })
+    }
+    const query = useLawyers(listParams)
+    // Al apuntar a "Siguiente" se pide esa página (`usePrefetchPage`).
+    const prefetchPage = usePrefetchLawyersPage(listParams)
     const create = useCreateLawyer()
     const update = useUpdateLawyer()
 
@@ -80,7 +84,7 @@ export function LawyersPage() {
         setValues({
             lastName: lawyer.lastName,
             firstName: lawyer.firstName,
-            registrationNumber: lawyer.registrationNumber,
+            registrationNumber: lawyer.registrationNumber ?? '',
         })
         setErrors({})
         setModal({ kind: 'edit', lawyer })
@@ -124,7 +128,9 @@ export function LawyersPage() {
             onSuccess: (lawyer) => {
                 toast(
                     'success',
-                    `Abogado ${formatPersonName(lawyer)} registrado con matrícula ${lawyer.registrationNumber}.`,
+                    lawyer.registrationNumber
+                        ? `Abogado ${formatPersonName(lawyer)} registrado con matrícula ${lawyer.registrationNumber}.`
+                        : `Abogado ${formatPersonName(lawyer)} registrado.`,
                 )
                 closeModal()
             },
@@ -198,6 +204,7 @@ export function LawyersPage() {
                         totalItems={pagination?.totalItems ?? 0}
                         noun={['abogado', 'abogados']}
                         onChange={setPage}
+                        onIntent={prefetchPage}
                     />
                 }
             >
@@ -234,7 +241,7 @@ export function LawyersPage() {
                     mode={modal.kind}
                     sub={
                         modal.kind === 'edit'
-                            ? `${formatPersonName(modal.lawyer)} · matrícula ${modal.lawyer.registrationNumber}`
+                            ? lawyerLabel(modal.lawyer)
                             : undefined
                     }
                     values={values}

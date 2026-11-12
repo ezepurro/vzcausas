@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import { useCurrentUser } from '@/app/providers/AuthContext'
 import { useCan } from '@/app/access/useCan'
@@ -11,8 +10,7 @@ import { LawyerDashboardView } from '@/features/dashboard/components/LawyerDashb
 import { AdministratorDashboardView } from '@/features/dashboard/components/AdministratorDashboardView'
 import { DashboardSkeleton } from '@/features/dashboard/components/DashboardSkeleton'
 import { longDate } from '@/features/dashboard/utils/dashboardDate'
-
-type Board = 'lawyer' | 'administrator'
+import { useDashboardFilters, type Board } from '@/features/dashboard/hooks/useDashboardFilters'
 
 const BOARD_TABS: { id: Board; label: string }[] = [
     { id: 'lawyer', label: 'Mi día' },
@@ -50,9 +48,14 @@ export function HomePage() {
     /* La pestaña que eligió la persona, y la que se muestra. No son la misma
        porque los roles pueden cambiar con la pantalla abierta: si la elegida
        es de un tablero que ya no tiene, se muestra el que sí. Si no, su
-       consulta quedaría deshabilitada y el esqueleto, para siempre. */
-    const [chosen, setBoard] = useState<Board | null>(null)
+       consulta quedaría deshabilitada y el esqueleto, para siempre. La elegida
+       vive en la URL, para que siga elegida al volver de una causa. */
+    const { board: chosen, setBoard } = useDashboardFilters()
     const board = visibleBoard(chosen, hasLawyerBoard, hasAdministratorBoard)
+    // Tocar la pestaña que ya se ve no limpia sus filtros.
+    const changeBoard = (next: Board) => {
+        if (next !== board) setBoard(next)
+    }
 
     // Sólo sale la consulta de la pestaña que se ve: a quien no tiene el rol
     // el backend le respondería 403.
@@ -93,7 +96,7 @@ export function HomePage() {
                 sub={query.data ? `${longDate(query.data.date)} · ${SUBTITLES[board]}` : undefined}
             />
             {hasLawyerBoard && hasAdministratorBoard && (
-                <Tabs tabs={BOARD_TABS} active={board} onChange={setBoard} />
+                <Tabs tabs={BOARD_TABS} active={board} onChange={changeBoard} />
             )}
             {renderBoard()}
         </>

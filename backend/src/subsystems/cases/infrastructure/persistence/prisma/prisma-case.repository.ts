@@ -15,9 +15,15 @@ import { addPrescriptionMonths, prescriptionStartsOn } from '../../../core/domai
 import { DayType } from '../../../core/domain/value-objects/deadline/day-type';
 import { JurisdictionCode } from '../../../core/domain/value-objects/case/jurisdiction-code';
 import { ProceduralRole } from '../../../core/domain/value-objects/case/procedural-role';
+import { PrescriptionDeclaration } from '../../../core/domain/value-objects/prescription/prescription-declaration.vo';
 import { CASE_FOLDER_INCLUDE, TEMPLATE_COPIES_SELECT, toCaseFolderView } from '../mappers/case-folder-prisma.mapper';
 import { CasePrismaMapper } from '../mappers/case-prisma.mapper';
-import { PRESCRIPTION_DECLARATION_SELECT, toPrescriptionDeclarationView } from '../mappers/prescription-declaration-prisma.mapper';
+import {
+  OFFENSE_PRESCRIPTION_DECLARATION_SELECT,
+  PRESCRIPTION_DECLARATION_SELECT,
+  toOffensePrescriptionDeclarationView,
+  toPrescriptionDeclarationView,
+} from '../mappers/prescription-declaration-prisma.mapper';
 
 /** What `findMany` has to bring for a row to be projected into a {@link CaseListItem}. */
 const CASE_INCLUDE = {
@@ -26,17 +32,23 @@ const CASE_INCLUDE = {
   responsibleLawyer: true,
   currentState: true,
   currentProceduralAct: true,
-  offenses: { include: { legalQualification: true } },
+  // D-113: each offense with who declared it prescribed, if anyone did.
+  offenses: {
+    include: {
+      legalQualification: true,
+      prescriptionRegisteredBy: OFFENSE_PRESCRIPTION_DECLARATION_SELECT.prescriptionRegisteredBy,
+    },
+  },
   // HU39: the folder it points to and its ancestors, to show its link and path.
   cloudFolder: CASE_FOLDER_INCLUDE,
   // HU40: how many templates were copied into it and how many are pending.
   templateCopies: TEMPLATE_COPIES_SELECT,
-  // HU31: only the act that governs the prescription, the most recent by its
-  // date — not by when it was registered (CA-31.4). Same order as the index.
+  // HU31, D-113: every act, in date order. Whether each one restarts an
+  // offense depends on the ones before it (`prescriptionStartsOn`), so the
+  // most recent alone is not enough any more.
   interruptiveActs: {
     select: { actDate: true },
-    orderBy: [{ actDate: 'desc' }, { id: 'desc' }],
-    take: 1,
+    orderBy: [{ actDate: 'asc' }, { id: 'asc' }],
   },
   // HU33: who marked the case as prescribed. The other declaration columns are
   // scalars of `cases`, which an `include` already brings.
@@ -135,6 +147,8 @@ export class PrismaCaseRepository implements CaseRepository {
             legalQualificationId: offense.legalQualificationId,
             offenseDate: offense.offenseDate,
             prescriptionDate: offense.prescriptionExpiresOn,
+            // D-113: a declared offense is rewritten with its declaration, which never changes.
+            ...offensePrescriptionColumns(offense.prescriptionDeclaration),
           })),
         });
       }
@@ -266,27 +280,69 @@ export class PrismaCaseRepository implements CaseRepository {
    * the check and the write one step in the database, so of two simultaneous
    * markings only one writes (D-54: the declaration is recorded once).
    */
-  async saveDeclaredPrescription(prescribedCase: Case): Promise<boolean> {
+  async saveDeclaredPrescription(prescribedCase: Case, declaredQualificationIds: readonly number[]): Promise<boolean> {
     const declaration = prescribedCase.prescriptionDeclaration;
-    if (declaration === null) {
+    // D-113: the offenses this request declared; the case's own declaration, if it closed.
+    const declaredNow = prescribedCase
+      .toSnapshot()
+      .offenses.filter((offense) => declaredQualificationIds.includes(offense.legalQualificationId));
+    if (declaredNow.some((offense) => offense.prescriptionDeclaration === null)) {
+      throw new Error(`The case ${prescribedCase.id} has an offense to save without its prescription declaration.`);
+    }
+    if (declaration === null && declaredNow.length === 0) {
       throw new Error(`The case ${prescribedCase.id} has no prescription declaration to save.`);
     }
 
-    const { count } = await this.prisma.db.case.updateMany({
-      where: { id: prescribedCase.id, prescriptionDate: null },
-      data: {
-        currentStateId: prescribedCase.currentStateId,
-        currentCustomState: prescribedCase.currentCustomState,
-        currentProceduralActId: prescribedCase.currentProceduralActId,
-        prescriptionDate: declaration.prescriptionDate,
-        prescriptionResolution: declaration.resolution,
-        prescriptionGrounds: declaration.grounds,
-        prescriptionRegisteredByUserId: declaration.registeredByUserId,
-        prescriptionRegisteredAt: declaration.registeredAt,
-        updatedAt: prescribedCase.updatedAt,
-      },
-    });
-    return count === 1;
+    try {
+      await this.prisma.runInTransaction(async () => {
+        // One conditional write per offense: of two simultaneous declarations of
+        // the same one, only one writes (D-113, as D-54 for the case).
+        for (const offense of declaredNow) {
+          const { count } = await this.prisma.db.offense.updateMany({
+            where: {
+              caseId: prescribedCase.id,
+              legalQualificationId: offense.legalQualificationId,
+              prescriptionDeclaredOn: null,
+            },
+            data: offensePrescriptionColumns(offense.prescriptionDeclaration),
+          });
+          if (count !== 1) {
+            throw new LostDeclarationRace();
+          }
+        }
+
+        if (declaration === null) {
+          await this.prisma.db.case.update({
+            where: { id: prescribedCase.id },
+            data: { updatedAt: prescribedCase.updatedAt },
+          });
+          return;
+        }
+        const { count } = await this.prisma.db.case.updateMany({
+          where: { id: prescribedCase.id, prescriptionDate: null },
+          data: {
+            currentStateId: prescribedCase.currentStateId,
+            currentCustomState: prescribedCase.currentCustomState,
+            currentProceduralActId: prescribedCase.currentProceduralActId,
+            prescriptionDate: declaration.prescriptionDate,
+            prescriptionResolution: declaration.resolution,
+            prescriptionGrounds: declaration.grounds,
+            prescriptionRegisteredByUserId: declaration.registeredByUserId,
+            prescriptionRegisteredAt: declaration.registeredAt,
+            updatedAt: prescribedCase.updatedAt,
+          },
+        });
+        if (count !== 1) {
+          throw new LostDeclarationRace();
+        }
+      });
+    } catch (error) {
+      if (error instanceof LostDeclarationRace) {
+        return false;
+      }
+      throw error;
+    }
+    return true;
   }
 
   async saveDeactivation(deactivatedCase: Case): Promise<boolean> {
@@ -587,7 +643,7 @@ function toListItem(row: CaseRow): CaseListItem {
   const custom = row.currentCustomState !== null;
   const initial = state?.isInitial === true;
   const dueDate = act ? (act.deadlineManualDueDate ?? act.deadlineComputedDueDate) : null;
-  const lastInterruptiveActDate = row.interruptiveActs[0]?.actDate ?? null;
+  const interruptiveActDates = row.interruptiveActs.map((act) => act.actDate);
   const jurisdiction = row.jurisdiction.name as JurisdictionCode;
 
   return {
@@ -619,7 +675,9 @@ function toListItem(row: CaseRow): CaseListItem {
       id: row.client.id,
       lastName: row.client.lastName,
       firstName: row.client.firstName,
-      dni: row.client.dni,
+      documentType: row.client.documentType,
+      documentNumber: row.client.documentNumber,
+      address: row.client.address,
       phone: row.client.phone,
       email: row.client.email,
       clientSince: row.client.clientSince,
@@ -630,12 +688,20 @@ function toListItem(row: CaseRow): CaseListItem {
       firstName: row.responsibleLawyer.firstName,
       registrationNumber: row.responsibleLawyer.registrationNumber,
     },
-    // HU31: both dates are computed on every read (V4, D-08), from the most
-    // recent interruptive act of the case. The `prescription_date` stored at
+    // HU31: both dates are computed on every read (V4, D-08), from the
+    // interruptive acts of the case that restarted each offense (D-113). The
+    // `prescription_date` stored at
     // registration is not read: it cannot know about acts registered later.
     // Without interruptive acts the result is the same date it holds.
     legalQualifications: row.offenses.map((offense) => {
-      const startsOn = prescriptionStartsOn(offense.offenseDate, lastInterruptiveActDate);
+      const startsOn = prescriptionStartsOn(
+        {
+          offenseDate: offense.offenseDate,
+          prescriptionMonths: offense.legalQualification.prescriptionMonths,
+          prescriptionDeclaredOn: offense.prescriptionDeclaredOn,
+        },
+        interruptiveActDates,
+      );
       return {
         id: offense.legalQualification.id,
         name: offense.legalQualification.name,
@@ -643,9 +709,12 @@ function toListItem(row: CaseRow): CaseListItem {
         offenseDate: offense.offenseDate,
         prescriptionStartsOn: startsOn,
         prescriptionExpiresOn: addPrescriptionMonths(startsOn, offense.legalQualification.prescriptionMonths),
+        // D-112: depends on today's date; the use case fills it (`withDeadlines`).
+        prescriptionStatus: null,
+        prescriptionDeclaration: toOffensePrescriptionDeclarationView(row.id, offense),
       };
     }),
-    lastInterruptiveActDate,
+    interruptiveActDates,
     // Depends on today's date: the use case fills it (`withDeadlines`).
     prescription: null,
     prescriptionDeclaration: toPrescriptionDeclarationView(row.id, row),
@@ -668,3 +737,18 @@ function toListItem(row: CaseRow): CaseListItem {
     active: row.active,
   };
 }
+
+/** Another request declared the same prescription first: the transaction rolls back and the save reports it. */
+class LostDeclarationRace extends Error {}
+
+/** The declaration columns of an `offenses` row (D-113): all `null` while it was not declared. */
+function offensePrescriptionColumns(declaration: PrescriptionDeclaration | null) {
+  return {
+    prescriptionDeclaredOn: declaration?.prescriptionDate ?? null,
+    prescriptionResolution: declaration?.resolution ?? null,
+    prescriptionGrounds: declaration?.grounds ?? null,
+    prescriptionRegisteredByUserId: declaration?.registeredByUserId ?? null,
+    prescriptionRegisteredAt: declaration?.registeredAt ?? null,
+  };
+}
+

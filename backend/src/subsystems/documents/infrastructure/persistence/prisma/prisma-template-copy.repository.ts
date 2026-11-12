@@ -24,10 +24,22 @@ export class PrismaTemplateCopyRepository implements TemplateCopyRepository {
     });
   }
 
-  async findPending(caseId: number): Promise<PendingTemplateCopy[]> {
+  async findPending(caseId: number, jurisdictionId?: number): Promise<PendingTemplateCopy[]> {
     const rows = await this.prisma.db.documentTemplateCopy.findMany({
       where: { caseId, status: 'PENDING', template: { active: true } },
-      include: { template: { select: { fileName: true, cloudFileId: true } } },
+      include: {
+        template: {
+          select: {
+            fileName: true,
+            cloudFileId: true,
+            // At most one file per jurisdiction: the one in the folder of the case's jurisdiction.
+            files:
+              jurisdictionId === undefined
+                ? false
+                : { where: { jurisdictionId }, select: { cloudFileId: true } },
+          },
+        },
+      },
       orderBy: { templateId: 'asc' },
     });
     return rows.map((row) => ({
@@ -38,7 +50,11 @@ export class PrismaTemplateCopyRepository implements TemplateCopyRepository {
         cloudFileId: row.cloudFileId,
         copiedAt: row.copiedAt,
       }),
-      template: row.template,
+      template: {
+        fileName: row.template.fileName,
+        // Without a file for that jurisdiction (a template from before the folders) the main file is used.
+        cloudFileId: row.template.files?.[0]?.cloudFileId ?? row.template.cloudFileId,
+      },
     }));
   }
 

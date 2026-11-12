@@ -18,7 +18,8 @@ export type LawyerView = {
   id: number;
   lastName: string;
   firstName: string;
-  registrationNumber: string;
+  /** `null` if the lawyer has no registration number loaded (D-107). */
+  registrationNumber: string | null;
   /** Cases where this lawyer is the responsible one (RN3's workload, §3.3). */
   activeCases: number;
   active: boolean;
@@ -64,7 +65,7 @@ export class FindLawyerUseCase {
       id: lawyer.id,
       lastName: lawyer.lastName,
       firstName: lawyer.firstName,
-      registrationNumber: lawyer.registrationNumber.toString(),
+      registrationNumber: lawyer.registrationNumber?.toString() ?? null,
       activeCases: counts.get(lawyer.id) ?? 0,
       active: lawyer.isActive(),
     };

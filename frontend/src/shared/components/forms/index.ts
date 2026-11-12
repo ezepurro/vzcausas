@@ -10,5 +10,8 @@ export type { ComboboxOption, ComboboxProps } from './Combobox';
 export { SegmentedControl } from './SegmentedControl';
 export type { SegmentedControlProps } from './SegmentedControl';
 
+export { FieldError } from './FieldError';
+export type { FieldErrorProps } from './FieldError';
+
 export { FormModal } from './FormModal';
 export type { FieldSpec, FieldType, FormModalProps, FormValues } from './FormModal';

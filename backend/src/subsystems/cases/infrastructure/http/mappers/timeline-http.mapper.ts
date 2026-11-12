@@ -48,6 +48,13 @@ export class TimelineHttpMapper {
           governsPrescription: entry.governsPrescription,
           interruptiveAct: this.interruptiveActs.toResponse(entry.interruptiveAct),
         };
+      case 'QUALIFICATION_PRESCRIPTION_DECLARATION':
+        return {
+          type: entry.type,
+          date,
+          legalQualification: entry.legalQualification,
+          prescriptionDeclaration: toPrescriptionDeclarationResponse(entry.prescriptionDeclaration, this.timeZone),
+        };
       case 'PRESCRIPTION_DECLARATION':
         return {
           type: entry.type,

@@ -10,14 +10,17 @@ import { isApiError } from '@/shared/api/ApiError'
 import { clearDrafts } from '@/shared/lib/drafts'
 import {
     clearStoredSession,
+    isAccessTokenExpired,
     readStoredSession,
     writeRefreshedSession,
     writeStoredSession,
     writeStoredUser,
 } from '@/features/auth/utils/sessionStorage'
+import { withRenewalLock } from '@/features/auth/utils/renewalLock'
 import { getSessionLawyer, refreshSession } from '@/features/auth/api/auth.api'
 import type { AuthUser, Session, StoredSession } from '@/features/auth/types/session'
 import { AuthContext, type AuthValue, type SignOutReason } from './AuthContext'
+import { BootScreen } from '@/app/layouts/BootScreen'
 
 type Props = {
     children: ReactNode
@@ -27,8 +30,10 @@ type Props = {
  * Sostiene la sesión mientras la aplicación está abierta.
  *
  * Arranca leyendo lo que haya quedado guardado, así una recarga de página no
- * saca a nadie. Si no hay nada, o lo que hay venció, arranca sin sesión y la
- * guarda del router manda al login.
+ * saca a nadie. Si no hay nada, arranca sin sesión y la guarda del router
+ * manda al login. Si el token de acceso guardado venció, la verificación de
+ * abajo lo renueva con la cookie; sólo si la renovación responde 401 se
+ * vuelve al login.
  */
 export function AuthProvider({ children }: Props) {
     /* La función va como inicializador perezoso: si se pasara
@@ -95,20 +100,10 @@ export function AuthProvider({ children }: Props) {
     }, [])
 
     /**
-     * Consigue un token de acceso nuevo sin molestar al usuario.
-     *
-     * El token dura quince minutos; la cookie de renovación, siete días. Sin
-     * esto, una jornada de trabajo serían treinta vueltas al login.
-     *
-     * La sesión se lee del almacenamiento y no del estado a propósito: así la
-     * función no depende de ningún render y nunca trabaja sobre una versión
-     * vieja. Devuelve si lo consiguió; el que decide qué hacer con la
-     * respuesta es `http.ts`.
+     * Llama a `POST /auth/refresh` y guarda el token nuevo sobre `current`.
+     * Devuelve si lo consiguió; si no, deja anotado por qué en `lastFailure`.
      */
-    const renew = useCallback(async (): Promise<boolean> => {
-        const current = readStoredSession()
-        if (current === null) return false
-
+    const refreshStoredSession = useCallback(async (current: StoredSession): Promise<boolean> => {
         try {
             const refreshed = await refreshSession()
             const updated = writeRefreshedSession(current, refreshed)
@@ -139,6 +134,44 @@ export function AuthProvider({ children }: Props) {
             return false
         }
     }, [completeLawyer])
+
+    /**
+     * Consigue un token de acceso nuevo sin molestar al usuario.
+     *
+     * El token dura quince minutos; la cookie de renovación, siete días. Sin
+     * esto, una jornada de trabajo serían treinta vueltas al login.
+     *
+     * La sesión se lee del almacenamiento y no del estado a propósito: así la
+     * función no depende de ningún render y nunca trabaja sobre una versión
+     * vieja. Devuelve si lo consiguió; el que decide qué hacer con la
+     * respuesta es `http.ts`.
+     *
+     * Corre adentro de `withRenewalLock`: una sola pestaña renueva por vez.
+     * La que esperó, al entrar, mira si la otra ya dejó un token nuevo y
+     * vigente; si es así lo usa y no llama al backend, porque la cookie que
+     * tiene ya fue rotada y presentarla de nuevo revocaría la sesión.
+     */
+    const renew = useCallback(async (): Promise<boolean> => {
+        const before = readStoredSession()
+        if (before === null) return false
+
+        return withRenewalLock(async () => {
+            const current = readStoredSession()
+            if (current === null) {
+                /* Otra pestaña intentó renovar mientras esta esperaba, no
+                   pudo y borró la sesión: terminó para todas. */
+                lastFailure.current = 'unauthenticated'
+                return false
+            }
+
+            if (current.accessToken !== before.accessToken && !isAccessTokenExpired(current)) {
+                setSession(current)
+                return true
+            }
+
+            return refreshStoredSession(current)
+        })
+    }, [refreshStoredSession])
 
     const syncSession = useCallback(async (): Promise<StoredSession | null> => {
         if (readStoredSession() === null) return null
@@ -249,24 +282,9 @@ export function AuthProvider({ children }: Props) {
 
 /**
  * Lo que se ve mientras se verifica la sesión al abrir la aplicación. Dura lo
- * que tarda una renovación. Los estilos van inline, como en `AuthLayout` y
- * `NotFoundLayout`, que también se ven fuera del marco de la aplicación.
+ * que tarda una renovación. Es la pantalla de carga de siempre (`BootScreen`),
+ * la misma que ya estaba a la vista desde `index.html`: sólo cambia el texto.
  */
 function SessionCheck() {
-    return (
-        <div
-            role="status"
-            style={{
-                minHeight: '100vh',
-                display: 'grid',
-                placeItems: 'center',
-                background: 'var(--vz-canvas)',
-                fontFamily: 'var(--vz-font)',
-            }}
-        >
-            <div className="vz-empty">
-                <div className="vz-empty__title">Verificando la sesión…</div>
-            </div>
-        </div>
-    )
+    return <BootScreen label="Verificando la sesión" />
 }

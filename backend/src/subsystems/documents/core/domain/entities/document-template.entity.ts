@@ -127,6 +127,17 @@ export class DocumentTemplate {
     return this.props.jurisdictions;
   }
 
+  /**
+   * The jurisdictions in the order of the contract's enum, whatever order they
+   * were sent in. The file goes to the folder of the first one and is copied to
+   * the rest, so that first jurisdiction holds the template's main file (D-55).
+   */
+  get jurisdictionsInContractOrder(): readonly TemplateJurisdiction[] {
+    return [...this.props.jurisdictions].sort(
+      (a, b) => TEMPLATE_JURISDICTIONS.indexOf(a) - TEMPLATE_JURISDICTIONS.indexOf(b),
+    );
+  }
+
   get fileName(): string {
     return this.props.fileName;
   }

@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { Button, LoadingState, Panel, Skeleton } from '@/shared/components/ui'
+import { FieldError } from '@/shared/components/forms'
 import { formatInstantDate } from '@/shared/lib/dates'
 import type { CaseDocument } from '@/features/cases/types/caseDocument'
 import { documentTypeLabel, formatFileSize } from '@/features/cases/utils/caseDocument'
@@ -23,6 +24,11 @@ export interface CaseFileDocumentsPanelProps {
     onRemove: (id: string) => void
     /** `to` es la posición que termina teniendo. Al arrastrar se llama en vivo, varias veces. */
     onMove: (from: number, to: number) => void
+    /**
+     * Mientras se genera, la lista no se mueve. Los botones los deshabilita el
+     * `fieldset` de la página; el arrastre no es un control, así que va acá.
+     */
+    disabled?: boolean
 }
 
 /**
@@ -64,6 +70,7 @@ function Body({
     onInclude,
     onRemove,
     onMove,
+    disabled = false,
 }: CaseFileDocumentsPanelProps) {
     const drag = useDragReorder(selected.map((doc) => doc.id), onMove)
 
@@ -94,8 +101,8 @@ function Body({
                             <li
                                 key={doc.id}
                                 ref={drag.rowRef(doc.id)}
-                                className={`vz-casefile__item vz-casefile__item--draggable${state}`}
-                                onPointerDown={(e) => drag.grab(e, doc.id)}
+                                className={`vz-casefile__item${disabled ? '' : ' vz-casefile__item--draggable'}${state}`}
+                                onPointerDown={disabled ? undefined : (e) => drag.grab(e, doc.id)}
                             >
                                 <Grip />
                                 <span className="vz-casefile__order">{i + 2}</span>
@@ -137,7 +144,7 @@ function Body({
                 <div className="vz-casefile__empty">Agregá documentos desde la lista de abajo.</div>
             )}
 
-            {selectionError && <div className="vz-error">{selectionError}</div>}
+            {selectionError && <FieldError message={selectionError} />}
             {selected.length > 0 && <span className="vz-casefile__hint">Arrastrá para cambiar el orden.</span>}
 
             {excluded.length > 0 && (

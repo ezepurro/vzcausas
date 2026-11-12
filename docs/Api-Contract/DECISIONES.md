@@ -1,17 +1,61 @@
 # Decisiones del API Contract
 
 Registro de las decisiones de diseño detrás de
-[`API_CONTRACT_V5.md`](API_CONTRACT_V5.md), de los puntos que siguen abiertos y
-del impacto de cada versión sobre lo implementado. El contrato no las cita: este
-archivo existe para que las referencias `D-xx` y `C-xx` del código y de la
-documentación sigan teniendo a qué apuntar.
+[`API_CONTRACT_V6.md`](API_CONTRACT_V6.md), la última versión del contrato, y
+del impacto de cada versión sobre lo implementado. Este archivo existe para que
+las referencias `D-xx` y `C-xx` del código y de la documentación sigan teniendo
+a qué apuntar. **Desde V6, los puntos abiertos están en el propio contrato,
+§7 "Aspectos por definir"**.
 
-Las decisiones de V3 (D-01 a D-44), de V4 (D-45 a D-86) y de V5 (desde D-87)
-conservan su identificador. Cuando el texto dice "esta versión" o "nuevo", se
-refiere a la versión de la sección en que está. Las referencias a secciones (§4, §5.3, …) son
-de `API_CONTRACT_V5.md`.
+Las decisiones de V3 (D-01 a D-44), de V4 (D-45 a D-86), de V5 (D-87 a D-113)
+y de V6 (desde D-114) conservan su identificador. Cuando el texto dice "esta
+versión" o "nuevo", se refiere a la versión de la sección en que está. Las
+referencias a secciones (§4, §5.3, …) de las decisiones de V5 y anteriores son
+de `API_CONTRACT_V5.md`, y se mantienen iguales en V6; las de V6, de
+`API_CONTRACT_V6.md`.
 
 ## 1. Decisiones tomadas
+
+### Decisiones de V6
+
+Decididas por el equipo el 09/11/2026, al revisar el Sprint 5 contra el
+prototipo.
+
+| ID | Decisión | Fundamento |
+| --- | --- | --- |
+| D-114 | El alcance es HU 10, 11, 15, 29, 36, 37, 43, 49 y 50. HU43 pasa a ser el reporte general, que absorbe a HU44 (D-116) | Sprint "VZ Sprint 5" de Jira. HU49 y HU50 ya estaban contratadas desde V3 (D-127) |
+| D-115 | V6 es autocontenido, es la última versión y V5 queda sin modificar. Lo nuevo se marca **(V6)**, y los aspectos por definir pasan a §7 del contrato | Mismo criterio que D-88. Tener los pendientes en el contrato lo pidió el equipo, para los criterios de aceptación que se escriben a continuación |
+| D-116 | Un único **reporte mensual de gestión** (HU43, "Generar y emitir el reporte general") reemplaza a los reportes por abogado (HU43) y por fuero (HU44): una pantalla con indicadores y gráficos, `GET /reports/monthly`, y un PDF con texto y cuadros, `GET /reports/monthly/file`. Solo `ADMINISTRATOR` | Decisión del equipo y pantalla "Reportes" del prototipo, que ya no tiene las pestañas "Por abogado responsable" y "Por fuero". El permiso es el de la matriz (HU42 a HU44, solo el Administrador) |
+| D-117 | **Foto del mes cerrado, sin versionado.** El proceso diario guarda, en su primera corrida de cada mes, los datos del mes que terminó; un mes cerrado se lee siempre de su foto, que no cambia, y el mes en curso se calcula en cada pedido. Si falta la foto de un mes cerrado, se toma al pedirlo. No se guarda el PDF, ni hay número, versión, "Guardar", "Regenerar" ni huella. Hay reportes desde el mes en que se pone en funcionamiento (`availableFrom`, configuración del servidor) | Decisión del equipo ("vamos a cambiar de mes y generar el reporte de ese mes"). Entre las tres alternativas planteadas (recalcular siempre, foto del mes cerrado, historial de responsables), el equipo eligió la foto: sin historial de responsables, la carga por abogado de un mes pasado no se puede recalcular, y una corrección posterior cambiaría un reporte ya emitido. El prototipo tiene una vista del PDF con número, versiones y huella (`repPdf`), sin acceso desde la pantalla: no se adopta. **Requiere migración**: una tabla para las fotos |
+| D-118 | **Qué cuenta el reporte.** Ingresada: `startDate` dentro del mes. Una causa sin `startDate` no ingresó y no cuenta en el reporte (C-37). Archivada: pasó a cualquier estado terminal en el mes, en la fecha del acto o de la declaración de prescripción. Las causas dadas de baja no cuentan. El responsable es el del momento de la foto | Decisión del equipo: "una causa que nunca le asignaron SAC nunca ingresó; el tribunal sí o sí necesita asignárselo" y "sí cuentan todas las terminales". Dejar fuera las dadas de baja sigue a D-97 |
+| D-119 | **Plazos del mes.** Se cuentan los plazos de los actos procesales con vencimiento dentro del mes, y se clasifican por el acto siguiente de la causa: antes del vencimiento ("dentro del término"), el mismo día ("el último día"), ninguno ("vencido sin acto"), o todavía en curso en el mes actual. Se suman los actos interruptivos del mes | Aceptado por el equipo. El sistema no guarda si un plazo "se cumplió": el plazo se cierra con el acto siguiente, así que esa es la única forma de calcular la sección 6 del prototipo |
+| D-120 | **Quién hace qué.** El backend calcula todo y arma el PDF con `@cantoo/pdf-lib`, la librería que ya usa (tablas, barras y texto). Los párrafos del resumen y de los plazos son frases fijas del backend, completadas con los datos: el administrador no escribe nada. Los gráficos de la pantalla los dibuja el frontend con SVG y CSS, sin librería. Los estados procesales se listan en el orden de `GET /procedural-states` | Decisión del equipo. Mismo criterio que D-62 (los tableros llegan calculados) y D-94 (la carátula la arma el backend). El prototipo ya dibuja los gráficos con CSS, y no sumar una librería mantiene liviano el frontend. Los estados no tienen un orden de ciclo de vida (D-31), así que se saca el "en el orden del ciclo de vida" del prototipo |
+| D-121 | `PATCH /clients/{clientId}` modifica todos los datos del cliente salvo `clientSince`, **incluido el documento** (reemplaza a CA-10.3). Si cambia el nombre, el backend reemplaza el comienzo `APELLIDO, Nombres` de la carátula de cada causa vigente del cliente y se renombra su carpeta en Drive, sin fallar si Drive no responde | Decisión del equipo: "el DNI del cliente lo vamos a dejar cambiar" y "si cambiamos el nombre del cliente, se debería modificar la carátula y las carpetas, al igual que lo hace el modificar abogado". La regla del comienzo es la que usa el prototipo al cambiar el cliente de una causa. Es una excepción a que la carátula la proponga el cliente (D-105, D-111): acá el cambio lo dispara otro recurso |
+| D-122 | `DELETE /clients/{clientId}` no procede si el cliente tiene causas activas (`409 CLIENT_HAS_ACTIVE_CASES`, CA-11.2). Acepta un motivo opcional, como `DELETE /cases`, y libera el documento | Decisión del equipo: "está bien que no se permita eliminar el cliente si tiene causas activas, el prototipo lo pide mal". **Requiere migración**: el motivo de la baja en `clients` |
+| D-123 | `DELETE /lawyers/{lawyerId}` reasigna las causas activas del abogado **en la misma operación**, con el cuerpo `reassignments`, de forma atómica. Un usuario vigente vinculado la bloquea con `409 LAWYER_HAS_LINKED_USER`, que se evalúa antes que el reparto. Las causas terminales siguen con él. Se retira el `422` genérico | Decisión del equipo: "el prototipo está bien: cuando damos de baja se abre el modal, ahí reasignamos todo y damos de baja el abogado"; y "una alerta que diga que primero hay que eliminar el usuario, y que no te deje borrarlo". Reemplaza a CA-15.2 (reasignar antes) y a CA-15.5 (solo advertir). El endpoint está contratado desde V2 y no implementado: no hay nada que migrar. **Revisado el mismo día por D-133**: el usuario vinculado ya no bloquea la baja, y se retira `LAWYER_HAS_LINKED_USER` |
+| D-124 | Anular un acto procesal es `DELETE /cases/{caseId}/procedural-acts/{actId}`, una baja lógica: el acto desaparece del listado y de la línea de vida, y el estado de la causa se recalcula como en D-99. No procede en una causa "Prescripta". Acepta un motivo opcional | Decisión del equipo: "el anular acto procesal no va a aparecer en la línea de vida, así que podés hacerlo con un `DELETE`". El prototipo dice que el acto "queda asentado como anulado en el ciclo de vida": no se adopta. **Requiere migración**: la baja y el motivo en `procedural_acts` |
+| D-125 | `PATCH /document-templates/{templateId}` tiene los mismos campos que el alta, con la **lista** de fueros. El archivo reemplazado y la copia de un fuero que se quita se mueven a `/VZ Causas/Papelera/`; no hay historial de versiones | Decisión del equipo: "igual que el registrar modelo, con la lista de fueros" y "ese archivo reemplazado se manda a la carpeta Papelera de Drive, para backups". El prototipo muestra un solo fuero y "la anterior queda en el historial": no se adopta |
+| D-126 | `DELETE /document-templates/{templateId}` es una baja lógica sin reactivación: el modelo no se lista más | Decisión del equipo: "no se puede reactivar el modelo"; "Reactivar no existe más". El prototipo lista los modelos dados de baja: no se adopta, por §4 Bajas |
+| D-127 | HU49 y HU50 son `PATCH` y `DELETE /legal-qualifications/{qualificationId}`, contratados desde V3, sin cambios | El prototipo coincide con lo contratado |
+| D-128 | HU43 y HU44 se unen en **VZ-51**, que pasa a ser "HU-43 · Generar y emitir el reporte general", asignada a Mateo Machuca, con 20 SP. VZ-52 (HU-44) se elimina | Decisión del equipo (C-36): "editá directamente la historia de menor numeración, reemplazá la 51 y borrá la 52" |
+| D-129 | Las causas sin `startDate` quedan fuera de **todo** el reporte, no solo de las ingresadas | Confirmado por el equipo (C-37). Así la tabla por fuero cierra (al cierre = al inicio + ingresadas − archivadas). Las causas activas del reporte pueden ser menos que las del tablero |
+| D-130 | Al cambiar el nombre del cliente, solo se reemplaza el comienzo `APELLIDO, Nombres` de la carátula. Una carátula escrita de otra forma no se toca, ni una que con el nombre nuevo pasaría de 255 caracteres; el cambio del cliente se guarda igual | Confirmado por el equipo (C-38). Lo de los 255 caracteres sigue el mismo criterio: lo que no se puede reemplazar sin riesgo lo corrige el usuario con `PATCH /cases/{caseId}` |
+| D-131 | Al dar de baja un modelo formal, sus archivos en `/VZ Causas/Modelos formales/{fuero}` se mueven a la `Papelera`. Si Drive no responde, la baja no falla y el proceso diario los mueve después | Decisión del equipo (C-39): "cuando se da de baja un modelo o se reemplaza por otro, se manda a la carpeta Papelera" |
+| D-132 | Al dar de baja un abogado, las carpetas de sus causas activas se mueven a las de los abogados que las reciben. Las causas terminales quedan en la carpeta del abogado, como su historial. Las carpetas de causas vigentes de otros abogados que estén adentro por error vuelven a `/{su responsable}/{fuero}/`. Si no tiene causas terminales, su carpeta se mueve a la `Papelera` con lo que quede adentro (archivos sueltos, carpetas que el sistema no creó): no se borra nada | Decisión del equipo (C-40): "lo que se haya movido sin querer, que se devuelva a donde corresponde, y lo que no tenga nada que ver, que por las dudas se vaya a la carpeta Papelera; no borramos nada, por si es información importante" |
+| D-133 | **El usuario vinculado no impide la baja del abogado.** En la misma transacción, el usuario queda sin ficha (`lawyer` en `null`) y pierde el rol `LAWYER`; si tiene otros roles sigue vigente con ellos, y si `LAWYER` era el único, se da de baja. El acceso a Drive se ajusta como al cambiar los roles. Se retira `409 LAWYER_HAS_LINKED_USER` | Decisión del equipo (C-41), que reemplaza el bloqueo de D-123. El rol `LAWYER` exige una ficha (§3.2), así que el usuario no puede conservarlo; y un abogado se da de baja, en general, porque dejó el estudio, así que no debe conservar el acceso |
+| D-134 | El detalle de una causa terminal muestra a su cliente y a su responsable dados de baja igual que a los vigentes, sin marca. No se suma `active` | Decisión del equipo (C-42) |
+| D-135 | "Plazos procesales del mes" no cuenta el plazo del acto lesivo de los amparos | Decisión del equipo (C-43) |
+| D-136 | El encabezado del PDF del reporte lleva el logo de VZ Causas (el monograma "VZ" de `frontend/src/shared/components/ui/Logo.tsx`) y el nombre del estudio, "Vázquez y Zárate", sin "Staff de Abogados" ni dirección | Decisión del equipo (C-44): "el logo de VZ Causas, y que diga el nombre del estudio literal". El monograma son dos trazados SVG, que `@cantoo/pdf-lib` dibuja sin convertirlos a imagen |
+| D-137 | `availableFrom` es configuración del servidor y se fija al desplegar el reporte | Decidido por el equipo al definir que hay reportes desde que el reporte funciona (C-45); no queda nada por decidir |
+| D-138 | En el PDF del reporte los abogados se nombran como `Apellido, Nombres`, sin "Dr." ni "Dra." | Decisión del equipo (C-46). El sistema no sabe el tratamiento de cada abogado (C-13) |
+| D-139 | El nombre de un modelo formal dado de baja queda libre: la unicidad (D-71) cuenta solo los vigentes | Confirmado por el equipo (C-47). Mismo criterio que el SAC (D-97) y el documento del cliente |
+
+**Revisión del 12/11/2026.** Propuesta del equipo de backend, **pendiente de
+confirmar con el resto del equipo** (C-48 del contrato, §7.1).
+
+| ID | Decisión | Fundamento |
+| --- | --- | --- |
+| D-140 | **Revisa D-123.** En `DELETE /lawyers/{lawyerId}`, cada entrada de `reassignments` reasigna la causa (`responsibleLawyerId`) **o la da de baja** (`deactivate: true`), en la misma transacción y con los efectos de `DELETE /cases/{caseId}`. Es la causa que el administrador deja "Sin asignar": el formulario aclara que se dará de baja y la lista en la confirmación. El motivo es fijo, "Abogado dado de baja y no reasignada": lo registra el backend y no se envía. El formulario manda la entrada de forma **explícita**: una causa activa que no figura en el reparto sigue cortando la operación con `409 LAWYER_HAS_DEPENDENCIES`; nunca se da de baja por omisión | Pedido del equipo de backend: no toda causa de un abogado que se va tiene que pasar a otro, y lo que quede sin asignar se da de baja con un motivo fijo, aclarado en el formulario. Se descartaron la baja implícita por omisión, porque daría de baja sin aviso una causa asignada mientras el formulario estaba abierto (la carrera que cubre la regla 3) y la baja de causa no tiene vuelta atrás por la API; y dejar la causa sin responsable o con el abogado dado de baja, porque nadie podría operarla ni recibiría sus avisos. El `ADMINISTRATOR` ya da de baja causas (D-110). No requiere migración: la baja de causa ya está en el esquema. El prototipo solo ofrece reasignar |
 
 ### Decisiones de V5
 
@@ -19,7 +63,7 @@ de `API_CONTRACT_V5.md`.
 | --- | --- | --- |
 | D-87 | El alcance es HU 14, 19, 21, 23, 24, 25, 28 y 38 | Sprint "VZ Sprint 4" de Jira (25/10/2026 – 06/11/2026). Coincide con el Story Map del Seguimiento v1.3, salvo el nombre de HU23, que el equipo confirmó como "Descargar Modelo Formal" (C-30) |
 | D-88 | V5 es autocontenido y V4 queda sin modificar | Mismo criterio que V4 respecto de V3 (D-46). Lo heredado conserva su redacción; lo nuevo se marca **(V5)** |
-| D-89 | HU14 no cambia la forma de `PATCH /lawyers/{lawyerId}`: se precisan los obligatorios (no se vacían), la unicidad de la matrícula (enviar la propia no es conflicto) y que las causas referencian y no copian al abogado. **(Revisión del 27/10/2026)** Cambiar el nombre renombra la carpeta del abogado en Drive (D-104) | Criterios CA-14.1 a CA-14.6 de Jira y formulario "Modificar abogado" del prototipo (Apellido, Nombres, Matrícula, los tres obligatorios). El endpoint está contratado desde V2 y no implementado: no hay nada que migrar |
+| D-89 | HU14 no cambia la forma de `PATCH /lawyers/{lawyerId}`: se precisan los obligatorios (no se vacían), la unicidad de la matrícula (enviar la propia no es conflicto) y que las causas referencian y no copian al abogado. **(Revisión del 27/10/2026)** Cambiar el nombre renombra la carpeta del abogado en Drive (D-104) | Criterios CA-14.1 a CA-14.6 de Jira y formulario "Modificar abogado" del prototipo (Apellido, Nombres, Matrícula, los tres obligatorios). El endpoint está contratado desde V2 y no implementado: no hay nada que migrar. **(Revisión del 05/11/2026)** La matrícula deja de ser obligatoria (D-107) |
 | D-90 | HU23 ("Descargar Modelo Formal") es `GET /document-templates/{templateId}/file` de V4, con su restricción a `ADMINISTRATOR` o `LAWYER` | El botón "Descargar" de la pantalla Modelos es ese endpoint, y solo descarga modelos formales: quien no puede ver los modelos no los descarga (respuesta del equipo a C-30). La Secretaría no ve la sección "Modelos" en el prototipo |
 | D-91 | **(Revisión del 27/10/2026)** La causa no suma datos para la carátula. El secretario/a del órgano que imprime la hoja es el instructor de la causa (`instructorName`). `court` cambia de rótulo ("Órgano interviniente") pero no de nombre **(Revisado el 31/10/2026: la hoja lleva tres líneas, ver C-35)** | Definido por el equipo. Reemplaza el `courtSecretaryName` de la primera redacción de V5: el instructor ya es el dato que el estudio carga. Renombrar `court` rompería a un cliente de V4 sin ganar nada |
 | D-92 | **(Revisión del 27/10/2026)** Nada de la carátula se guarda en la causa: el alta y la modificación quedan como en V4. `GET /cases/{caseId}/cover` arma la hoja con los datos de la causa y las observaciones vacías; al generar el expediente, el cliente envía las observaciones y, en el fuero penal, la parte que no está registrada en la causa (el querellante si el cliente es defensa, el imputado si es querellante) | Definido por el equipo. Reemplaza el `cover` guardado con partes sugeridas (`partiesSuggested`) de la primera redacción de V5. La causa penal solo registra al cliente, así que la otra parte no se puede derivar; pedirla en "Generar expediente" evita guardar un dato que solo usa la hoja |
@@ -27,16 +71,24 @@ de `API_CONTRACT_V5.md`.
 | D-94 | La carátula la genera **el backend** en PDF, siempre con la misma función: para la vista previa y para imprimirla suelta (`GET /cases/{caseId}/cover`), y para la hoja 1 del expediente, con las observaciones y la parte penal que envía el cliente. No se guarda | Mismo criterio que D-20: lo que el usuario ve antes de generar el expediente es lo que se imprime, salvo lo que él mismo completa. HU24 pide "emitir" la carátula para rotular el expediente físico, aunque el prototipo ya no tenga un botón aparte |
 | D-95 | **(Revisión del 27/10/2026)** El fuero de una causa no se modifica: `PATCH /cases/{caseId}` rechaza `jurisdiction` con `400 VALIDATION_ERROR`. Una causa registrada en el fuero equivocado se da de baja y se registra de nuevo | Definido por el equipo (C-25). Reemplaza la regla provisoria de la primera redacción de V5, que permitía el cambio y reasignaba el estado procesal. Mismo criterio que D-36 para los estados procesales. Como el SAC se libera con la baja (D-97), registrar de nuevo es posible |
 | D-96 | Una causa en estado terminal se puede modificar, salvo las calificaciones legales de una causa "Prescripta" | Corregir un dato mal cargado de una causa archivada es el uso normal de HU19. Las calificaciones son lo que sostiene la declaración de prescripción (D-53, D-74). El fuero no figura porque no se modifica en ninguna causa (D-95) |
-| D-97 | La baja de una causa es lógica, la puede hacer cualquier perfil, acepta un motivo opcional en el cuerpo del `DELETE` y deja la causa inexistente para el cliente, con todos sus subrecursos. **(Revisión del 27/10/2026)** El SAC queda libre: es único entre las causas vigentes. La carpeta de Drive no se toca | RN12, matriz de permisos y formulario "Dar de baja la causa" del prototipo ("Motivo (opcional)"). Un cuerpo en el `DELETE` evita un endpoint aparte solo para el motivo. Liberar el SAC lo definió el equipo (C-32): permite volver a registrar bien una causa cargada mal. Se aparta del diccionario de datos, que hace el SAC único "incluidas las causas dadas de baja" |
+| D-97 | La baja de una causa es lógica, la puede hacer cualquier perfil, acepta un motivo opcional en el cuerpo del `DELETE` y deja la causa inexistente para el cliente, con todos sus subrecursos. **(Revisión del 27/10/2026)** El SAC queda libre: es único entre las causas vigentes. La carpeta de Drive no se toca. **(08/11/2026)** "Cualquier perfil" ya no vale para un abogado sobre una causa ajena (D-110) | RN12, matriz de permisos y formulario "Dar de baja la causa" del prototipo ("Motivo (opcional)"). Un cuerpo en el `DELETE` evita un endpoint aparte solo para el motivo. Liberar el SAC lo definió el equipo (C-32): permite volver a registrar bien una causa cargada mal. Se aparta del diccionario de datos, que hace el SAC único "incluidas las causas dadas de baja" |
 | D-98 | Modificar un acto procesal recalcula su plazo: con el plazo vigente de la tabla si cambia el estado, con el plazo copiado si no. El acto suma `lastModifiedBy` y `lastModifiedAt` | Si cambia el estado es como registrar de nuevo; si solo se corrige una fecha, el plazo que rige es el que se copió (§3.4, D-08). El prototipo promete "El cambio queda asentado con usuario y fecha" |
 | D-99 | Después de modificar un acto, el estado actual de la causa se recalcula con D-14 (el acto más reciente). Corregir el acto que cerró una causa puede reabrirla. Los actos de una causa "Prescripta" no se modifican | Una corrección de fecha no puede dejar a la causa en un estado que no le corresponde. Reabrir es la única forma de corregir un "Archivada" elegido por error, ya que la anulación (HU29) es del Sprint 5. "Prescripta" no la puso un acto (D-54) |
 | D-100 | Los documentos de la causa se leen de su carpeta de Drive en cada pedido, sin guardarlos ni paginarlos, y su `id` es el de Drive. El backend opera con el permiso `drive.readonly` | Es lo que describe el prototipo ("esta lista se lee de ahí cada vez que abrís el detalle") y lo que anticipó ADR-003 §4.1. Guardar una copia de la lista crearía dos verdades. El permiso lo confirmó el equipo (C-24) |
 | D-101 | El documento no tiene "Presentado", "Recibido" ni "Cargado", y su autor es el que informa Drive (`uploadedBy`), no un usuario del sistema | El prototipo deriva esas etiquetas de datos de ejemplo; Drive no tiene esa clasificación y las personas suben archivos directamente. Inventarla obligaría a mantenerla a mano. Confirmado por el equipo: las etiquetas no van |
 | D-102 | El expediente es un PDF sincrónico, guardado en la carpeta de la causa con versión correlativa, que admite PDF, Word, documentos de Google y JPG o PNG, y no admite incluir un expediente anterior. Necesita la carpeta creada | Pantalla "Generar expediente" del prototipo: "un único PDF", "Se convierte a PDF", "Quedó guardado como nueva versión", y la lista que excluye los expedientes. Los tipos son los que el prototipo muestra (PDF, DOC, IMG) |
 | D-103 | La descarga de un documento pasa por la API; la de un expediente generado está abierta a los tres perfiles, la de cualquier otro documento solo a `LAWYER` y `SECRETARY`. **(Revisión del 27/10/2026)** La lista de documentos está abierta a los tres perfiles (C-27) | Mismo motivo que D-58. Quien genera el expediente tiene que poder descargarlo e imprimirlo, y un Administrador sin otro rol no tiene acceso a la carpeta en Drive (D-83). El Administrador necesita la lista para elegir los documentos del expediente, pero lo único que descarga es el expediente |
-| D-104 | **(Revisión del 27/10/2026)** La carpeta de Drive sigue a la causa: se renombra si cambia la carátula, se mueve a la carpeta del nuevo responsable si cambia el responsable, y la del abogado se renombra si cambia su nombre. Si Drive no responde, la modificación no falla y el cambio se completa después, con `POST /cases/{caseId}/folder` o con el proceso diario. Reemplaza en esto a D-61 | Definido por el equipo (C-26). Una carpeta que no corresponde a la carátula o al responsable confunde a quien trabaja en Drive. Con `drive.file` alcanza, porque la app creó esas carpetas. No hacer fallar la modificación es el mismo criterio que la creación (D-60, R-03) |
-| D-105 | **(Revisión del 27/10/2026)** El cliente de una causa se puede modificar. El backend no recalcula la carátula: el cliente la propone y la envía en `caption`, en la misma petición | Definido por el equipo (C-31). Es la misma regla que el alta (§3.7): la carátula sugerida la arma el cliente |
+| D-104 | **(Revisión del 27/10/2026)** La carpeta de Drive sigue a la causa: se renombra si cambia la carátula, se mueve a la carpeta del nuevo responsable si cambia el responsable, y la del abogado se renombra si cambia su nombre. Si Drive no responde, la modificación no falla y el cambio se completa después, con `POST /cases/{caseId}/folder` o con el proceso diario. Reemplaza en esto a D-61. **(Revisión del 08/11/2026)** Al dar de baja la causa, su carpeta se mueve a la carpeta `Papelera` de la raíz del estudio (`/VZ Causas/Papelera/`, creada la primera vez que hace falta), con lo que tiene adentro: no se borra ni se purga, y la fila de la carpeta y el vínculo de la causa se conservan. Si Drive no responde, la baja no falla y la carpeta queda como estaba. Reemplaza el "la carpeta no se toca" de HU21 (CA-21.8) | Definido por el equipo (C-26). **Revisión del 08/11/2026: a acordar con el equipo** (cambia CA-21.8; RN9 se sigue cumpliendo, los documentos se conservan). Se mueve en lugar de usar la papelera propia de Drive porque con `drive.file` Drive rechaza (`403 appNotAuthorizedToChild`) mandar a la papelera una carpeta con archivos que no creó la app, como los que suben los abogados a mano; mover no tiene esa limitación. La fila de la carpeta queda con su ubicación anterior, algo que no se lee: para el cliente la causa dada de baja no existe (D-97). Una carpeta que no corresponde a la carátula o al responsable confunde a quien trabaja en Drive. Con `drive.file` alcanza, porque la app creó esas carpetas. No hacer fallar la modificación es el mismo criterio que la creación (D-60, R-03) |
+| D-105 | **(Revisión del 27/10/2026)** El cliente de una causa se puede modificar. El backend no recalcula la carátula: el cliente la propone y la envía en `caption`, en la misma petición. **(Reemplazada el 08/11/2026 por D-111: el cliente ya no se modifica)** | Definido por el equipo (C-31). Es la misma regla que el alta (§3.7): la carátula sugerida la arma el cliente |
+| D-110 | **(Revisión del 08/11/2026)** Un abogado que no es el responsable de una causa solo la consulta (detalle, línea de vida, actos, documentos y su descarga, carátula) y genera y descarga el expediente. No la modifica, no la da de baja, no la marca prescripta ni opera su carpeta (`PATCH` y `DELETE /cases/{caseId}`, `POST …/prescription`, `POST …/folder` → `403 FORBIDDEN`). El `ADMINISTRATOR` y la `SECRETARY` conservan lo que tenían sobre cualquier causa; con varios roles alcanza con uno. Primero `404`, después `403`. Los actos ya eran solo del responsable | Definido por el equipo (08/11/2026). Los perfiles siguen viendo todo (RN11): lo que cambia es lo que un abogado **opera** sobre una causa ajena. Admin y Secretaría quedan como estaban por decisión explícita del equipo. Reemplaza en esto la parte de D-97 que dice que la baja "la puede hacer cualquier perfil" y el "no hace falta ser el responsable" de HU33 |
+| D-111 | **(Revisión del 08/11/2026)** El cliente de una causa no se modifica: `PATCH /cases/{caseId}` rechaza `clientId` con `400 VALIDATION_ERROR` (`details.clientId`), igual que `jurisdiction` (D-95). Una causa con el cliente equivocado se da de baja y se registra de nuevo. La carátula se sigue corrigiendo | Definido por el equipo (08/11/2026). Reemplaza D-105 y vuelve a la propuesta original de C-31 |
+| D-112 | **(Revisión del 08/11/2026)** Cada elemento de `legalQualifications[]` de la causa suma `elapsedPercentage`, `alert` y `expired`, calculados por el backend con la misma regla que `prescription` (§4, Prescripción) pero para esa calificación. `prescription` no cambia: sigue siendo la calificación que prescribe primero aunque su plazo ya se haya cumplido, y la usan los tableros y el proceso diario (D-52). Son campos calculados: no se guardan ni requieren migración | Pedido del equipo de frontend (08/11/2026): el detalle lista todos los delitos, marca los que ya cumplieron su plazo y muestra la barra del próximo a prescribir. Sin estos campos el cliente tendría que calcular el porcentaje y la alerta de las demás calificaciones, lo que D-51 descarta para que haya un único lugar de cálculo. Se suma en vez de cambiar qué calificación rige `prescription` para no tocar las alertas de los tableros ni el aviso diario, que según D-52 siguen mostrando el plazo cumplido hasta que la causa se marca como prescripta |
+| D-113 | **(Revisión del 08/11/2026)** La prescripción se declara **por calificación legal**, cada una con su fecha, resolución y fundamento (`POST /cases/{caseId}/legal-qualifications/{legalQualificationId}/prescription`, `legalQualifications[].prescriptionDeclaration`). La causa pasa a "Prescripta" cuando quedan declaradas todas, en la misma operación; `POST /cases/{caseId}/prescription` pasa a declarar de una todas las que faltan. `prescription` se elige entre las no declaradas. Un acto interruptivo no reinicia una calificación cuyo plazo ya se cumplió a la fecha del acto, ni una declarada prescripta con un acto posterior a su declaración. No hay operación para revertir una declaración. Requiere migración: la declaración se guarda en `offenses` | Pedido del equipo (08/11/2026). Cada delito prescribe por su lado: con la declaración solo a nivel causa, que el tribunal declarara prescripto un delito obligaba a cerrar la causa entera, aunque siguiera por los demás. Amplía D-52 (la declaración sigue siendo manual, con la resolución) y cambia los criterios de HU33. Reemplaza, en D-49 y §3.9, el "rige siempre el acto interruptivo más reciente" para todas las calificaciones: un delito que ya prescribió no vuelve a correr |
+| D-107 | **(Revisión del 05/11/2026)** La matrícula del abogado es opcional: `registrationNumber` vale `null` si no se cargó, no viaja (o viaja vacía) en el alta, y en `PATCH /lawyers/{lawyerId}` `null` la borra. Sigue siendo única entre los abogados que la tienen. Vale también para la ficha que se registra con `POST /users` | Pedido del equipo. El estudio necesita registrar abogados de los que todavía no tiene la matrícula. Cambia CA-14.4 en lo que respecta a la matrícula; el apellido y los nombres siguen siendo obligatorios |
+| D-109 | **(Revisión del 06/11/2026)** `address` y `phone` del cliente son obligatorios en `POST /clients` (no vacíos). Reemplaza el "opcional" de `address` de D-108 y el de `phone` de V4. La regla vive en el dominio y también en la base: las dos columnas son `NOT NULL` | Pedido del equipo (06/11/2026). Los clientes cargados hasta ahora son datos de prueba: se vacía la base y se vuelve a cargar con el seed, así que no hace falta un valor de relleno para los viejos |
+| D-108 | **(Revisión del 05/11/2026)** El cliente se identifica con `documentType` (`DNI` o `PASSPORT`) y `documentNumber`, que reemplaza a `dni`, y suma `address` (texto libre, hasta 255 caracteres; obligatoria desde D-109). El documento es único por tipo entre los clientes vigentes. El `409` conserva el código `CLIENT_DNI_ALREADY_EXISTS` | Pedido del equipo: hay clientes extranjeros que no tienen DNI, y el estudio necesita la dirección. Los tipos los eligió el equipo (DNI y pasaporte). Renombrar `dni` es un cambio incompatible que el equipo aceptó; el código de error no se renombra porque no aporta y rompería el manejo de errores de los dos lados |
 | D-106 | **(Revisión del 27/10/2026)** En la hoja de carátula, el abogado lleva el prefijo fijo `DR.`, igual para todos. **(Revisado el 29/10/2026: era `DR/DRA.`; se alinea con las plantillas del estudio y con los CA de la HU24, VZ-32)** | Definido por el equipo (C-28). El sistema no sabe si corresponde "Dr." o "Dra." y el estudio prefirió no cargar ese dato en el abogado (C-13). Es una excepción a D-81 porque la hoja la escribe el backend |
+| D-109 | **(06/11/2026)** Los modelos formales se guardan en Drive en una subcarpeta por fuero, `/VZ Causas/Modelos formales/{Penal, Administrativo, Amparo}`. Un modelo de varios fueros sigue siendo un solo modelo (D-55) pero su archivo se copia en la subcarpeta de cada uno de sus fueros, y al registrar una causa se copia a su carpeta el de su fuero. **No cambia ningún endpoint, campo ni código de error** | Pedido del equipo: con todos los modelos en una sola carpeta, abrirla en Drive mezclaba los de los tres fueros. D-55 se mantiene porque habla del registro y de la API, no de dónde vive el archivo en Drive. El archivo del primer fuero es el principal (el que se descarga); el de cada fuero se registra en `document_template_files`. Los modelos anteriores se dejan donde están y HU40 los sigue copiando desde su archivo (`ADR-003_GOOGLE_DRIVE.md` §2.2) |
 
 ### Decisiones de V4
 
@@ -143,17 +195,40 @@ para los estados procesales) y D-25 (por D-82).
 
 ## 2. Puntos abiertos
 
-Lo que el contrato **no puede decidir solo**. Cada punto dice qué asume hoy V5,
-para que el trabajo no se frene, y con quién hay que cerrarlo. Ninguno bloquea
-el Sprint 4.
+**(V6)** Los puntos abiertos están ahora en
+[`API_CONTRACT_V6.md` §7, "Aspectos por definir"](API_CONTRACT_V6.md#7-aspectos-por-definir):
+del Sprint 5 queda solo C-48, confirmar D-140 (C-36 a C-47 se resolvieron el
+09/11/2026, D-128 a D-139), y siguen abiertos los de V5 (C-34, C-35, C-29, C-33 y C-20). Ninguno
+bloquea el Sprint 5. Se dejan de listar acá para
+que no haya dos versiones del mismo punto; lo que sigue es el registro de los
+resueltos.
 
-| ID | Punto | Qué asume hoy el contrato | Con quién | ¿Bloquea? |
-| --- | --- | --- | --- | :---: |
-| C-34 | **Rótulos de la hoja de carátula.** Los recuadros y sus rótulos ("Expte. / SAC", "Autos", "Actor / querellante", "Demandado / imputado", "Órgano interviniente" con la línea "SECRETARIO/A:", "Observaciones") salen del prototipo. La hoja tiene que usar los de las plantillas del estudio (`Caratula penal.docx`, `Caratula penal QUERELLANTE.docx`, `Caratula administrativo.docx`), que el equipo va a enviar. El prefijo del abogado ya está cerrado: `DR.` (D-106, revisado el 29/10/2026) | Los rótulos del prototipo | Equipo | No |
-| C-35 | **Línea "INSTRUCTOR:" del órgano interviniente.** Las plantillas del estudio llevan tres líneas (tribunal, "SECRETARIO/A:" e "INSTRUCTOR:"). Se pidió que las tres estén, pero no se sabe qué dato va en "INSTRUCTOR:". El secretario/a sigue siendo `instructorName` (D-91) | La hoja imprime "INSTRUCTOR:" sin valor | Equipo / estudio | No |
-| C-29 | **Límites del expediente.** Un expediente con muchos documentos o muy pesados puede tardar o superar lo que acepta una petición sincrónica | Sin límite contractual. Si hace falta, se agrega un máximo de tamaño con `413 FILE_TOO_LARGE`, que ya existe, o se pasa a generación en segundo plano, como la carpeta | Backend | No |
-| C-33 | **HU38 sin beneficio declarado.** Jira la marca: "la historia no declara el beneficio (…) Requiere refinamiento" | El contrato sigue al prototipo, que sí define la tarjeta "Documentación" | PO | No |
-| C-20 | **SAC opcional y RN2.** Con el SAC opcional, nada impide registrar dos veces la misma causa sin SAC. Viene de V3 | Sin cambios. Liberar el SAC con la baja (D-97) no lo cambia: afecta a las causas con SAC | Cliente / PO | No |
+**Resueltos en la revisión del 09/11/2026 (V6)**
+
+| Punto | Resolución |
+| --- | --- |
+| Reporte con versiones, número y huella (vista `repPdf` del prototipo) | Sin versionado: foto del mes cerrado (D-117) |
+| Qué es una causa "ingresada" y "archivada" | `startDate` del mes; pasaje a cualquier estado terminal (D-118) |
+| Regla de "plazos cumplidos dentro del término" | Por el acto siguiente (D-119) |
+| Quién escribe el texto del reporte y con qué se dibujan los gráficos | Frases fijas del backend; `@cantoo/pdf-lib` en el backend y SVG/CSS en el frontend (D-120) |
+| Orden de los estados en "Causas por estado procesal" | El de `GET /procedural-states` (D-120) |
+| Documento editable del cliente (CA-10.3) y carátula al cambiar su nombre | Editable; la carátula y la carpeta siguen al nombre (D-121) |
+| Baja de un cliente con causas activas | No procede (D-122) |
+| Baja de un abogado: reasignar antes o en el formulario, y usuario vinculado | En el formulario (D-123); cada causa se reasigna o, explícitamente, se da de baja (D-140, revisión del 12/11/2026); el usuario se desvincula y pierde el rol `LAWYER`, o se da de baja si era el único (D-133) |
+| Acto anulado en la línea de vida | No aparece (D-124) |
+| Modelo: un fuero o varios, historial del archivo, reactivación | Lista de fueros; el archivo anterior a la `Papelera`; sin reactivación (D-125, D-126) |
+| C-36 · La historia del reporte en Jira | VZ-51 reformulada, Mateo Machuca, 20 SP; VZ-52 se elimina (D-128) |
+| C-37 · Causas sin fecha de inicio en el reporte | Fuera de todo el reporte (D-129) |
+| C-38 · Carátulas que no empiezan con el nombre del cliente | No se tocan, tampoco las que pasarían de 255 caracteres (D-130) |
+| C-39 · El archivo de un modelo dado de baja | A la `Papelera` (D-131) |
+| C-40 · La carpeta de un abogado dado de baja | Queda con sus causas terminales; sin ellas, va a la `Papelera` con lo que tenga. Lo de otros abogados vuelve a su lugar; no se borra nada (D-132) |
+| C-41 · El usuario vinculado al abogado | No bloquea: se desvincula y pierde el rol `LAWYER`, o se da de baja (D-133) |
+| C-42 · Cliente o abogado dado de baja en el detalle de la causa | Sin marca (D-134) |
+| C-43 · Plazos del acto lesivo en el reporte | No cuentan (D-135) |
+| C-44 · Encabezado del PDF | Logo de VZ Causas y "Vázquez y Zárate" (D-136) |
+| C-45 · `availableFrom` | Configuración que se fija al desplegar (D-137) |
+| C-46 · Tratamiento de los abogados en el PDF | `Apellido, Nombres`, sin tratamiento (D-138) |
+| C-47 · Nombre de un modelo dado de baja | Queda libre (D-139) |
 
 **Resueltos en la revisión del 27/10/2026**
 
@@ -166,7 +241,7 @@ el Sprint 4.
 | C-27 | Administrador sin otro rol y "Generar expediente" | Ve la lista de documentos; de ellos, solo descarga los expedientes (D-103) |
 | C-28 | Tratamiento en la carátula | Prefijo fijo `DR.` para todos los abogados (D-106, revisado el 29/10/2026; antes `DR/DRA.`) |
 | C-30 | HU23 tiene dos nombres y dos permisos | Es "Descargar Modelo Formal", restringida a `ADMINISTRATOR` o `LAWYER` (D-90) |
-| C-31 | El cliente de una causa no se modifica | Sí se modifica; la carátula la propone el cliente (D-105) |
+| C-31 | El cliente de una causa no se modifica | Sí se modifica; la carátula la propone el cliente (D-105). **(08/11/2026)** Revisado: no se modifica (D-111) |
 | C-32 | SAC de una causa dada de baja | Se libera (D-97) |
 | C-13 | (De V3.) Otros datos del abogado | Para la carátula ya no hace falta un dato de tratamiento (D-106). El resto sigue como en V4 |
 
@@ -175,25 +250,28 @@ de V4 o porque no corresponden a estos sprints.
 
 ## 3. Visto en el prototipo y fuera del contrato
 
-Estos elementos del prototipo **no tienen endpoint ni campo** en V5. Todos son
-de otros sprints o no tienen historia:
+Estos elementos del prototipo **no tienen endpoint ni campo** en el contrato.
+**(V6)** Con el Sprint 5, que es el último, ya no quedan historias pendientes:
+lo que sigue no tiene historia o el equipo decidió otra cosa.
 
 | Elemento del prototipo | Por qué queda afuera |
 | --- | --- |
-| "Anular" un acto procesal | HU29, Sprint 5 |
 | "Registrar pago de tasa" en el detalle (concepto, monto, comprobante) | Sin historia. La causa solo tiene `courtFeePaid` (D-67), que se cambia con `PATCH /cases/{caseId}` |
 | "Adjuntar cédula o comprobante" en el acto procesal | Sin historia; implica subir archivos a Drive desde VZ Causas |
-| "Modificar", "Dar de baja" y "Reactivar" un modelo formal | HU36 y HU37, Sprint 5 |
-| "Eliminar abogado" con reasignación de sus causas | HU15, Sprint 5. El formulario del prototipo ("Reasignar sus causas a") propone una respuesta a P-05 de la arquitectura, que conviene tomar en ese sprint |
-| "Modificar" y "Eliminar" en clientes | HU10 y HU11, Sprint 5 |
-| Reportes por abogado y por fuero | HU43 y HU44, Sprint 5 |
+| **(V6)** "Reactivar" un modelo formal, y los modelos dados de baja en el listado | No hay reactivación ni se listan los dados de baja (D-126) |
+| **(V6)** "Modificar modelo formal" con un solo fuero y "la anterior queda en el historial" | Lista de fueros y archivo anterior a la `Papelera` (D-125) |
+| **(V6)** El acto anulado "queda asentado como anulado en el ciclo de vida" | El acto anulado no aparece (D-124) |
+| **(V6)** "Eliminar cliente" con causas activas | No procede (D-122) |
+| **(V6)** La vista previa del reporte con número `REP-AAAA-MM`, versiones, "Guardar reporte del mes", "Regenerar" con motivo y huella SHA-256 (pantalla `repPdf`, sin acceso desde "Reportes") | Sin versionado (D-117) |
+| **(V6)** "En el orden del ciclo de vida" en "Causas por estado procesal" | Los estados no tienen orden (D-31, D-120) |
 | La campana de notificaciones, el panel de avisos y "2 vencimientos hoy" | Sin historia; los avisos van por correo (§4, Proceso automático diario) |
 | La pantalla "Vencimientos" y su configuración de avisos | Sus datos están en los tableros; la configuración es del servidor (D-79) |
 | "Olvidé mi contraseña" | Sin historia |
 | El registro de cambios de una causa o de un abogado ("queda asentado con usuario y fecha") | Se guarda en la auditoría (`AUDITORIA_Y_TRAZABILIDAD.md`), pero ninguna pantalla lo consulta |
 
-Siguen en el contrato, porque ya figuraban en V3, `DELETE /lawyers/{lawyerId}`
-y `PATCH` y `DELETE /legal-qualifications/{qualificationId}` (D-02).
+`DELETE /lawyers/{lawyerId}` y `PATCH` y `DELETE
+/legal-qualifications/{qualificationId}`, que figuraban desde V3 (D-02), son
+desde V6 las historias HU15, HU49 y HU50 (D-123, D-127).
 
 **Inconsistencias conocidas del glosario que esta versión no toca.**
 `TRADUCCION_DOMINIO.md` todavía lista `fullName` y `position` en sus campos de
@@ -202,6 +280,78 @@ reactiva con un `PATCH`", lo que el contrato no permite (§4, Bajas). Se nombran
 para que el equipo las corrija; el contrato no las cambia.
 
 ## 4. Impacto sobre lo ya implementado
+
+### Impacto de V6
+
+**Casi nada se rompe**: V6 suma endpoints y no cambia la forma de ninguna
+respuesta existente. Las dos excepciones son de endpoints que no estaban
+implementados en el backend: `DELETE /lawyers/{lawyerId}` cambia su regla (de
+`409` si tiene causas a reasignarlas en la misma operación) y retira su `422`
+genérico, y `LAWYER_HAS_DEPENDENCIES` cambia de significado. El frontend ya
+tiene ese código en `frontend/src/shared/api/contract.ts` y en los *mocks*
+(`shared/mocks/responses.ts`).
+
+**Backend**
+
+- **Esquema (requiere migración).** Son tres cambios de estructura:
+  - El motivo de la baja en `clients` (D-122).
+  - La baja lógica y el motivo de la anulación en `procedural_acts` (D-124).
+  - Una tabla para las fotos de los meses cerrados del reporte (D-117): el
+    período, único; los datos del reporte; y cuándo se tomó.
+
+  Las migraciones las corre el equipo con `npx prisma migrate dev`, según
+  `USO_PRISMA.md`.
+- **`people`.** Modificación y baja de clientes. Si cambia el nombre, avisa a
+  `cases` para actualizar las carátulas, y `cases` avisa a `documents` para
+  renombrar las carpetas, sin fallar si Drive no responde (D-121). Baja de
+  abogado con reasignación atómica (D-123) y, por entrada, baja de la causa
+  (D-140): dar de baja la causa es de `cases`, con el mismo código que
+  `DELETE /cases/{caseId}`, y `people` lo pide con un puerto dentro de la
+  misma transacción, igual que la reasignación. Desvincular al usuario, quitarle
+  el rol `LAWYER` o darlo de baja (D-133) es de `identity`: `people` lo pide con
+  un puerto, no con un import cruzado, dentro de la misma transacción.
+- **`cases`.** Anulación de actos con el recálculo del estado (D-124, mismo
+  código que D-99). Todas las lecturas de actos (listado, `GET`, línea de vida,
+  recálculo del estado, tableros, proceso diario y reporte) excluyen los
+  anulados.
+- **`documents`.** Modificación y baja de modelos formales; mover a la
+  `Papelera` los archivos reemplazados (D-125) y los de un modelo dado de baja
+  (D-131), con el ajuste del proceso diario para los que no se movieron. Al
+  dar de baja un abogado, retirar su carpeta si no tiene causas terminales
+  (D-132).
+- **`reporting`.** El cálculo del reporte a una fecha (D-118, D-119), la foto
+  del mes en el proceso diario (D-117) y el PDF con `@cantoo/pdf-lib` (D-120), con el monograma
+  de VZ Causas dibujado con `drawSvgPath` (D-136).
+  Lee la base directo, como los tableros (ADR-002). El estado de una causa a
+  una fecha pasada y la prescripción a una fecha de corte tienen que salir de
+  las mismas funciones de dominio que usa la lectura de hoy, como
+  `summarizePrescription`.
+- **Configuración.** `availableFrom` del reporte (D-137).
+
+**Frontend**
+
+- **Tipos y *mocks*.** Los endpoints nuevos, los enumerados `ReportPeriodStatus`
+  y `PrescriptionBand`, y los códigos `CLIENT_HAS_ACTIVE_CASES` y
+  `MONTHLY_REPORT_NOT_FOUND`.
+- **Formularios.** "Modificar cliente" con el documento editable, "Eliminar
+  cliente" con el aviso de causas activas, "Eliminar abogado" con el reparto (las causas "Sin asignar" con la
+  aclaración "Se dará de baja: Abogado dado de baja y no reasignada", listadas
+  en la confirmación y enviadas con `deactivate: true`, D-140) y,
+  si tiene usuario, el aviso de qué le pasa (D-133), "Anular acto procesal", y "Modificar modelo
+  formal" con la lista de fueros. Se saca "Reactivar" de los modelos.
+- **Reportes.** La pantalla con el selector de mes, las tarjetas y los cinco
+  gráficos, en SVG y CSS sin librería (D-120), y la descarga del PDF.
+
+**Documentación**
+
+- **Glosario.** `TRADUCCION_DOMINIO.md` tiene que sumar `MonthlyReport`,
+  `ReportPeriodStatus`, `PrescriptionBand`, `reassignments` (con su
+  `deactivate`, D-140), `dataAsOf`,
+  `availableFrom` y los campos del reporte.
+- **Referencias.** El `CLAUDE.md` del proyecto, el glosario y la documentación
+  de frontend citan V5 como contrato vigente: hay que apuntarlos a V6.
+- **OpenAPI.** `docs/openapi` tiene que sumar los endpoints nuevos.
+- **Jira.** VZ-51 pasa a ser el reporte general y VZ-52 se elimina (D-128).
 
 ### Impacto de V5
 
@@ -267,6 +417,152 @@ para que el equipo las corrija; el contrato no las cambia.
 - **ADR-003.** §4.1 se cierra con `drive.readonly` (C-24), y la regla de que la
   carpeta no se mueve ni se renombra cambia con D-104. Además, §2.3 y §4 citan
   "C-45" para los correos que no son de Google: es C-23.
+
+### Impacto de la revisión del 08/11/2026
+
+**D-110: un abogado no responsable solo consulta y genera el expediente.**
+`PATCH /cases/{caseId}`, `DELETE /cases/{caseId}`, `POST
+/cases/{caseId}/prescription` y `POST /cases/{caseId}/folder` pasan a responder
+`403 FORBIDDEN` a un usuario cuyo único rol operativo es `LAWYER` y que no es el
+responsable. Rompe a quien hoy opera causas ajenas siendo solo abogado; no
+cambia nada para `ADMINISTRATOR` ni `SECRETARY`. No cambia ningún campo ni
+código de error.
+
+**D-111: el cliente de la causa queda fijo.** `PATCH /cases/{caseId}` con
+`clientId` responde `400 VALIDATION_ERROR`. Rompe al formulario "Modificar
+causa", que hoy lo envía y propone la carátula nueva (CA-19.7).
+
+**D-112: estado de prescripción por calificación.** Cada elemento de
+`legalQualifications[]` suma `elapsedPercentage`, `alert` y `expired`. Es un
+cambio que solo suma: ningún campo existente cambia de forma ni de valor, y
+`prescription` sigue eligiendo la calificación que prescribe primero. Afecta
+a todas las respuestas que devuelven una causa (`GET /cases`,
+`GET /cases/{caseId}`, `POST /cases`, `PATCH /cases/{caseId}` y
+`POST /cases/{caseId}/prescription`). No cambia los tableros ni el proceso
+diario.
+
+**D-113: prescripción declarada por calificación.** Suma
+`POST /cases/{caseId}/legal-qualifications/{legalQualificationId}/prescription`
+y `prescriptionDeclaration` en cada elemento de `legalQualifications[]`;
+`POST /cases/{caseId}/prescription` declara las calificaciones que faltan;
+`prescription`, las alertas de los tableros y el aviso diario dejan afuera las
+declaradas; la línea de vida suma `QUALIFICATION_PRESCRIPTION_DECLARATION`;
+`PATCH /cases/{caseId}` rechaza quitar o cambiar la fecha del hecho de una
+declarada (`422 LEGAL_QUALIFICATION_ALREADY_PRESCRIBED`, código nuevo). Cambia
+el cómputo de los actos interruptivos: uno posterior al vencimiento de una
+calificación ya no la reinicia. **No rompe** la forma de ninguna respuesta
+existente: suma campos y un endpoint. Sí cambian valores: una causa con un
+acto interruptivo posterior al vencimiento de alguna calificación puede
+mostrar otras fechas para esa calificación.
+
+**D-113 sí requiere migración:** cinco columnas opcionales en `offenses`
+(`prescription_declared_on`, `prescription_resolution`, `prescription_grounds`,
+`prescription_registered_by_user_id`, `prescription_registered_at`) y copiar a
+las calificaciones de las causas ya marcadas prescriptas su declaración. Solo
+suma columnas que admiten `NULL`: no falla con datos cargados. Las corre el
+equipo (`USO_PRISMA.md`).
+
+**D-110, D-111 y D-112, sin migración.** D-110 y D-111 son reglas de autorización y de validación,
+y D-112 suma campos calculados en cada lectura: no cambian tablas, columnas,
+enums ni índices.
+
+**Backend.** Una regla de autorización por causa en `cases` (hoy esa
+comparación solo existe en los casos de uso de actos), los tests de
+integración de los cuatro endpoints con los perfiles de la tabla de §4,
+"Operación de la causa", y sacar `clientId` del DTO de `PATCH`.
+
+**Frontend.** El detalle oculta o deshabilita "Modificar causa", "Dar de baja",
+"Marcar prescripta" y reintentar la carpeta para un abogado no responsable (con
+la misma lógica que hoy usa para "Registrar acto"); el formulario muestra el
+cliente fijo, como el fuero, y deja de mandar `clientId`; los mocks de MSW
+replican los `403` y el `400`.
+
+**Backend (D-112).** En `cases`, la cuenta de una calificación se separa de
+`Prescription.governing` para calcularla en cada una; el caso de uso la
+completa en cada calificación, como ya hace con `prescription`, y la suman el
+DTO y el mapper de la causa.
+
+**Frontend (D-113).** El tipo de la calificación suma `prescriptionDeclaration`;
+los mocks implementan el endpoint, la regla de los actos y el `422` de
+"Modificar causa"; el detalle ofrece "Marcar prescripta" por calificación, el
+botón de la causa pasa a "Marcar toda la causa prescripta", la barra y las
+alertas dejan afuera las declaradas, y la línea de vida suma la entrada nueva
+(`frontend/src/features/cases/CAMBIOS.md`).
+
+**Frontend (D-112).** El tipo de la calificación y los mocks suman los tres
+campos. El detalle los usa para listar los delitos, marcar los que
+cumplieron su plazo y mostrar la barra del próximo a prescribir sin
+calcular nada.
+
+**OpenAPI.** `CaseUpdate.yaml` pierde `clientId` (cita D-105), y los cuatro
+endpoints suman el `403`.
+
+**Nota.** Este archivo tiene dos decisiones con el id D-109 (`address` y
+`phone` obligatorios, y los modelos por fuero en Drive). No se renumeró: las
+referencias que haya en el código seguirían apuntando a la que no es.
+
+### Impacto de la revisión del 06/11/2026
+
+**D-109: `address` y `phone` obligatorios en el alta del cliente.** `POST /clients`
+sin alguno de los dos, o con uno vacío o en blanco, responde `400
+VALIDATION_ERROR` con el campo en `details`. Rompe a quien hoy da de alta clientes
+sin ellos. Las dos columnas son `NOT NULL` en la base. Agregar una columna `NOT NULL`
+falla en una tabla con filas y no hay valor con qué completar a los clientes viejos:
+la migración supone que la tabla `clients` solo tiene datos de prueba, que se vacía
+(`make dev-down-v`) y se vuelve a cargar con el seed. Quien ya haya aplicado una
+versión anterior de la migración tiene que hacer lo mismo.
+
+**Límite conocido de D-107 (aceptado el 06/11/2026).** La matrícula era, de hecho,
+lo único que identificaba a un abogado sin repetirse. Sin ella, nada impide
+registrar dos veces al mismo abogado con el mismo apellido y nombres. Se decidió no
+agregar una restricción: el volumen de un estudio es chico y el administrador ve el
+listado. Si aparece el problema, las salidas son advertir sin bloquear en el alta o
+un índice único parcial por apellido y nombres entre los vigentes (requeriría
+migración).
+
+**Backend.** Aplicado en la rama `feat/client-document-address`: `ClientDocument`
+(reemplaza a `Dni`), `Client` con `address` y `phone` obligatorios en el alta,
+`Lawyer` con matrícula anulable, y la migración
+`20261106132157_client_document_address_lawyer_optional_registration` (renombra
+`dni` a `document_number`, agrega `address` y vuelve `phone` y `address` `NOT NULL`, y
+reemplaza el índice y el CHECK por los de `(document_type, document_number)`).
+
+**Frontend.** Los formularios de cliente tienen que marcar dirección y teléfono como
+obligatorios.
+
+### Impacto de la revisión del 05/11/2026
+
+**Se rompe el alta de clientes.** `dni` pasa a `documentType` +
+`documentNumber` (D-108): un cliente que siga mandando `dni` recibe `400`.
+La matrícula opcional (D-107) no rompe nada: lo que hoy se manda sigue siendo
+válido.
+
+**Backend**
+
+- **Esquema (requiere migración).** En `lawyers`, `registration_number` pasa
+  a anulable; el `@unique` puede quedar, porque PostgreSQL admite varios
+  `NULL`. En `clients`, un enum nuevo y las columnas `document_type` (los
+  existentes, `DNI`) y `address`; `dni` pasa a `document_number` y crece
+  de largo; el CHECK de solo dígitos pasa a depender del tipo, y el índice
+  único parcial `clients_dni_active_key` pasa a `(document_type,
+  document_number) WHERE active`. Ese SQL va a mano (`--create-only`, según
+  `USO_PRISMA.md`).
+- **`people`.** Entidad, value objects, DTOs y mappers del abogado (matrícula
+  `null`) y del cliente (documento por tipo, dirección); el `search` de
+  clientes busca por `documentNumber`.
+- **`identity` y `cases`.** La ficha anidada de `POST /users`, la sesión, el
+  usuario y la causa embeben la matrícula como anulable; la causa embebe el
+  cliente con los campos nuevos.
+
+**Frontend**
+
+Ya aplicado en la rama `feat/lawyers-clients-fields`: formularios, tablas,
+selects, tarjeta del cliente, tipos y *mocks*.
+
+**Documentación**
+
+- **Glosario.** Suma `documentType`, `documentNumber` y `address`.
+- **OpenAPI.** `docs/openapi` actualiza los esquemas de abogado y cliente.
 
 ### Impacto de V4 (registro)
 

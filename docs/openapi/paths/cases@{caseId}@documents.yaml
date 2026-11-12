@@ -1,0 +1,120 @@
+parameters:
+  - $ref: ../components/parameters/CaseIdParam.yaml
+
+get:
+  tags:
+    - Case Documents
+  operationId: listCaseDocuments
+  summary: Consultar documentos de la causa
+  description: |
+    Consulta los documentos de la carpeta de la causa en Drive (HU38). Es la
+    tarjeta "Documentación" del detalle y la lista de "Generar expediente".
+
+    **Lectura directa de Drive** (D-100). La lista no se guarda en la base: se
+    lee de la carpeta en cada pedido. Lo que alguien suba, renombre o borre en
+    Drive se ve en el siguiente pedido. Devuelve los archivos que están
+    directamente en la carpeta, sin entrar en subcarpetas y sin las
+    subcarpetas mismas, ordenados del más reciente al más antiguo por
+    `createdAt`. No incluye lo que está en la papelera de Drive.
+
+    **No está paginado**: la carpeta de una causa tiene decenas de archivos,
+    no miles.
+
+    Si la carpeta no está creada (`folderStatus` en `PENDING`, `CREATING` o
+    `ERROR`, o `null`), la respuesta es `200` con `documents` vacío y
+    `readAt` en `null`: el cliente ofrece crearla o reintentarla con
+    `POST /cases/{caseId}/folder`.
+
+    **Rol requerido:** cualquier usuario autenticado (D-103). Ver la lista no
+    le da a un `ADMINISTRATOR` sin otro rol acceso a la carpeta en Drive ni le
+    permite descargar los documentos que no son expedientes.
+  responses:
+    '200':
+      description: Documentos de la carpeta de la causa.
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - data
+            properties:
+              data:
+                $ref: ../components/schemas/CaseDocumentList.yaml
+          examples:
+            created:
+              summary: Carpeta creada
+              value:
+                data:
+                  folderStatus: CREATED
+                  folderUrl: https://drive.google.com/drive/folders/1Qw8zT3nKcVb5LhXy2RmPd7sUeJ4oAfG9
+                  readAt: '2026-09-15T10:42:00-03:00'
+                  documents:
+                    - id: 1b7Hc3kQp9Wm2xYzR4tVnLs8dFgA0eJuK
+                      name: Cédula de notificación.pdf
+                      extension: pdf
+                      mimeType: application/pdf
+                      sizeBytes: 90112
+                      createdAt: '2026-09-09T12:15:00-03:00'
+                      modifiedAt: '2026-09-09T12:15:00-03:00'
+                      uploadedBy: Gestión Estudio
+                      url: https://drive.google.com/file/d/1b7Hc3kQp9Wm2xYzR4tVnLs8dFgA0eJuK/view
+                      convertibleToPdf: true
+                      caseFile: null
+                    - id: 1Zt5Np0aQe8Lr3Ku6Vb1Xc9Hj2Mf7Wd4S
+                      name: Requerimiento de elevación a juicio.pdf
+                      extension: pdf
+                      mimeType: application/pdf
+                      sizeBytes: 421888
+                      createdAt: '2026-09-02T16:03:00-03:00'
+                      modifiedAt: '2026-09-02T16:03:00-03:00'
+                      uploadedBy: Malena Ríos
+                      url: https://drive.google.com/file/d/1Zt5Np0aQe8Lr3Ku6Vb1Xc9Hj2Mf7Wd4S/view
+                      convertibleToPdf: true
+                      caseFile: null
+                    - id: 1Qd2Rf8Hs4Lk7Mn0Pb3Vc6Xz9Wa5Ty1Ue
+                      name: Expediente_13284571_v1.pdf
+                      extension: pdf
+                      mimeType: application/pdf
+                      sizeBytes: 768000
+                      createdAt: '2026-08-20T09:30:00-03:00'
+                      modifiedAt: '2026-08-20T09:30:00-03:00'
+                      uploadedBy: VZ Causas
+                      url: https://drive.google.com/file/d/1Qd2Rf8Hs4Lk7Mn0Pb3Vc6Xz9Wa5Ty1Ue/view
+                      convertibleToPdf: true
+                      caseFile:
+                        id: 4
+                        version: 1
+            notCreated:
+              summary: Carpeta no creada
+              value:
+                data:
+                  folderStatus: PENDING
+                  folderUrl: null
+                  readAt: null
+                  documents: []
+    '400':
+      description: Identificador inválido.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          examples:
+            invalidCaseId:
+              $ref: ../components/examples/InvalidCaseIdError.yaml
+    '401':
+      $ref: ../components/responses/Unauthorized.yaml
+    '404':
+      $ref: ../components/responses/CaseNotFound.yaml
+    '502':
+      description: |
+        Drive no respondió. El cliente muestra la tarjeta sin lista y permite
+        reintentar.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          example:
+            error:
+              code: DOCUMENT_STORAGE_UNAVAILABLE
+              message: No se pudo leer la carpeta de la causa en Drive. Intentá de nuevo en unos minutos.
+              details: null

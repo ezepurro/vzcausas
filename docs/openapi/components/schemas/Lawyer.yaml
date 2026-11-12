@@ -27,10 +27,13 @@ properties:
     examples:
       - Ignacio
   registrationNumber:
-    type: string
+    type:
+      - string
+      - 'null'
     description: |
-      Matrícula. Única. Formato del Colegio de Abogados de Córdoba:
-      circunscripción y número separados por guión.
+      Matrícula. Única entre los abogados que la tienen. Formato del Colegio
+      de Abogados de Córdoba: circunscripción y número separados por guión.
+      `null` si no se cargó (Revisión del 05/11/2026, D-107.)
     examples:
       - 1-35207
   activeCases:

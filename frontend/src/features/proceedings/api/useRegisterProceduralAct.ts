@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { casesKeys } from '@/features/cases'
 import type { CreateProceduralActBody } from '@/features/proceedings/types/proceduralAct'
+import { refreshCaseAfterAct } from '@/features/cases'
 import { registerProceduralAct } from './proceduralActs.api'
 
 /**
@@ -8,7 +8,8 @@ import { registerProceduralAct } from './proceduralActs.api'
  *
  * El acto se aplica a la causa en el momento (V3 D-13): cambia su estado y su
  * plazo abierto. Por eso se invalidan el detalle de la causa —al que se vuelve
- * después de guardar— y todos los listados de causas.
+ * después de guardar— y todos los listados de causas, y la mutación termina
+ * recién cuando llegó la causa nueva (`refreshCaseAfterAct`).
  *
  * No se siembra un detalle del acto: no existe `GET` de un acto en este
  * sprint, así que esa entrada no tendría quién la lea.
@@ -18,9 +19,7 @@ export function useRegisterProceduralAct(caseId: number) {
 
     return useMutation({
         mutationFn: (body: CreateProceduralActBody) => registerProceduralAct(caseId, body),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: casesKeys.detail(caseId) })
-            queryClient.invalidateQueries({ queryKey: casesKeys.lists() })
-        },
+        // Queda pendiente hasta que llega la causa nueva: ver `refreshCaseAfterAct`.
+        onSuccess: () => refreshCaseAfterAct(queryClient, caseId),
     })
 }

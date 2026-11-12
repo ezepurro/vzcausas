@@ -18,8 +18,10 @@ export class ClientHttpMapper {
     return {
       lastName: dto.lastName,
       firstName: dto.firstName,
-      dni: dto.dni,
-      phone: dto.phone ?? null,
+      documentType: dto.documentType,
+      documentNumber: dto.documentNumber,
+      address: dto.address,
+      phone: dto.phone,
       email: dto.email ?? null,
     };
   }
@@ -34,7 +36,9 @@ export class ClientHttpMapper {
     dto.id = client.id;
     dto.lastName = client.lastName;
     dto.firstName = client.firstName;
-    dto.dni = client.dni.toString();
+    dto.documentType = client.document.type;
+    dto.documentNumber = client.document.number;
+    dto.address = client.address;
     dto.phone = client.phone;
     dto.email = client.email;
     // Rendered as the `YYYY-MM-DD` civil date the contract shows, not

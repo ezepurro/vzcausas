@@ -67,7 +67,7 @@ export abstract class UnusedCaseRepository implements CaseRepository {
     throw new Error('Este spec no usa saveCurrentAct de CaseRepository.');
   }
 
-  async saveDeclaredPrescription(_prescribedCase: Case): Promise<boolean> {
+  async saveDeclaredPrescription(_prescribedCase: Case, _declaredQualificationIds: readonly number[]): Promise<boolean> {
     throw new Error('Este spec no usa saveDeclaredPrescription de CaseRepository.');
   }
 
@@ -128,6 +128,14 @@ export abstract class UnusedProceduralActRepository implements ProceduralActRepo
 
   async findInCase(_caseId: number, _actId: number): Promise<ProceduralActView | null> {
     throw new Error('Este spec no usa findInCase de ProceduralActRepository.');
+  }
+
+  async saveModification(_act: ProceduralAct): Promise<void> {
+    throw new Error('Este spec no usa saveModification de ProceduralActRepository.');
+  }
+
+  async findLatestInCaseExcept(_caseId: number, _exceptActId: number): Promise<ProceduralAct | null> {
+    throw new Error('Este spec no usa findLatestInCaseExcept de ProceduralActRepository.');
   }
 }
 
@@ -190,7 +198,7 @@ export class FakeCaseRepository extends UnusedCaseRepository {
     this.saved.push(existing);
   }
 
-  async saveDeclaredPrescription(prescribedCase: Case): Promise<boolean> {
+  async saveDeclaredPrescription(prescribedCase: Case, _declaredQualificationIds: readonly number[]): Promise<boolean> {
     if (this.prescriptionAlreadyDeclaredOnSave) {
       return false;
     }
@@ -304,6 +312,25 @@ export class FakeProceduralActRepository extends UnusedProceduralActRepository {
       throw this.failOnSaveWith;
     }
     this.saved.push(act);
+  }
+
+  /** The acts already on record, as `findInCase` answers them (HU28). */
+  readonly views: ProceduralActView[] = [];
+  /** What `saveModification` received, in order (HU28). */
+  readonly modifications: ProceduralAct[] = [];
+  /** What `findLatestInCaseExcept` answers: the most recent of the other acts. */
+  latestOther: ProceduralAct | null = null;
+
+  async findInCase(caseId: number, actId: number): Promise<ProceduralActView | null> {
+    return this.views.find((view) => view.act.caseId === caseId && view.act.id === actId) ?? null;
+  }
+
+  async saveModification(act: ProceduralAct): Promise<void> {
+    this.modifications.push(act);
+  }
+
+  async findLatestInCaseExcept(_caseId: number, _exceptActId: number): Promise<ProceduralAct | null> {
+    return this.latestOther;
   }
 }
 

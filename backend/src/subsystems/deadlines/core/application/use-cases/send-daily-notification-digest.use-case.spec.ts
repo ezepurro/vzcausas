@@ -91,6 +91,57 @@ describe("SendDailyNotificationDigestUseCase", () => {
     ).toBe(true);
   });
 
+  /* Atajo de desarrollo (`?dev=true`): sin esto, la campanita solo manda una vez por aviso. */
+  describe("resetHistory", () => {
+    const sentKey = (notice: UpcomingDeadlineNotice) => ({
+      caseId: notice.caseId,
+      kind: notice.kind,
+      deadlineKind: notice.origin,
+      referenceDate: notice.dueDate,
+      recipientLawyerId: null,
+    });
+
+    it("forgets what was already sent and sends it again", async () => {
+      const { useCase, emailSender, sentNotifications } = build(false);
+      const notice = deadlineNotice();
+      sentNotifications.seed(sentKey(notice));
+
+      const result = await useCase.execute({
+        deadlineNotices: [notice],
+        prescriptionNotices: [],
+        resetHistory: true,
+      });
+
+      expect(result.mailboxSent).toBe(true);
+      expect(emailSender.sent).toHaveLength(1);
+      // Y vuelve a quedar registrado: el reseteo es antes de enviar, no una vez por siempre.
+      expect(sentNotifications.has(sentKey(notice))).toBe(true);
+    });
+
+    it("clears the history even when there is nothing to send now", async () => {
+      const { useCase, emailSender, sentNotifications } = build(false);
+      const old = deadlineNotice({ caseId: 99 });
+      sentNotifications.seed(sentKey(old));
+
+      await useCase.execute({ deadlineNotices: [], prescriptionNotices: [], resetHistory: true });
+
+      expect(emailSender.sent).toHaveLength(0);
+      expect(sentNotifications.has(sentKey(old))).toBe(false);
+    });
+
+    it("does not touch the history by default, so the same notice is not resent", async () => {
+      const { useCase, emailSender, sentNotifications } = build(false);
+      const notice = deadlineNotice();
+      sentNotifications.seed(sentKey(notice));
+
+      const result = await useCase.execute({ deadlineNotices: [notice], prescriptionNotices: [] });
+
+      expect(result.mailboxSent).toBe(false);
+      expect(emailSender.sent).toHaveLength(0);
+      expect(sentNotifications.has(sentKey(notice))).toBe(true);
+    });
+  });
+
   it("sends nothing to the mailbox when there is nothing pending (CA-30.6)", async () => {
     const { useCase, emailSender } = build(false);
 

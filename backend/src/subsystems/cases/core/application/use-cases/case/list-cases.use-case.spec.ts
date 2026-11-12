@@ -62,7 +62,7 @@ function anItem(dueDate: Date | null, id = 1): CaseListItem {
     client: CLIENT,
     responsibleLawyer: LAWYER,
     legalQualifications: [],
-    lastInterruptiveActDate: null,
+    interruptiveActDates: [],
     prescription: null,
     prescriptionDeclaration: null,
     startDate: day('2026-09-01'),
@@ -206,6 +206,9 @@ describe('ListCases: prescription (V4 §3.7)', () => {
     offenseDate: day('2021-02-27'),
     prescriptionStartsOn: day('2024-07-04'),
     prescriptionExpiresOn: day('2032-07-04'),
+    // Como lo deja el adaptador: la persistencia no lee el reloj (D-112).
+    prescriptionStatus: null,
+    prescriptionDeclaration: null,
   };
 
   async function listOne(item: CaseListItem) {
@@ -218,7 +221,7 @@ describe('ListCases: prescription (V4 §3.7)', () => {
     const item = await listOne({
       ...anItem(null),
       legalQualifications: [robo],
-      lastInterruptiveActDate: day('2024-07-04'),
+      interruptiveActDates: [day('2024-07-04')],
     });
 
     expect(item.prescription).toEqual({
@@ -233,6 +236,30 @@ describe('ListCases: prescription (V4 §3.7)', () => {
       remainingDays: 2119,
       lastInterruptiveActDate: day('2024-07-04'),
     });
+  });
+
+  // D-112: cada calificación con su estado; `prescription` sigue siendo la vencida (D-52).
+  it('completa el estado de prescripción de cada calificación, y la que rige sigue siendo la de plazo cumplido', async () => {
+    // Consultada el 15/09/2026, con el acto interruptivo del 04/07/2024: Lesiones (24 meses)
+    // venció el 04/07/2026; Robo (96 meses) vence el 04/07/2032 y va por el 27 %.
+    const lesiones = {
+      ...robo,
+      id: 2,
+      name: 'Lesiones leves — art. 89 CP',
+      prescriptionMonths: 24,
+      prescriptionExpiresOn: day('2026-07-04'),
+    };
+    const item = await listOne({
+      ...anItem(null),
+      legalQualifications: [robo, lesiones],
+      interruptiveActDates: [day('2024-07-04')],
+    });
+
+    expect(item.legalQualifications.map((q) => [q.id, q.prescriptionStatus])).toEqual([
+      [1, { elapsedPercentage: 27, alert: false, expired: false }],
+      [2, { elapsedPercentage: 100, alert: true, expired: true }],
+    ]);
+    expect(item.prescription).toMatchObject({ legalQualificationId: 2, elapsedPercentage: 100, expired: true });
   });
 
   it('una causa penal sin calificaciones no computa prescripción (D-74)', async () => {

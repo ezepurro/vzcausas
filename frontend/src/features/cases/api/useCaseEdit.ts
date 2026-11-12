@@ -1,10 +1,10 @@
 import { useState } from 'react'
+import { useCurrentUser } from '@/app/providers/AuthContext'
 import { useToast } from '@/app/providers/ToastContext'
 import { isApiError } from '@/shared/api/ApiError'
 import type { SelectOption } from '@/shared/components/forms'
-import { formatPersonName } from '@/shared/lib/personName'
-import { formatClientName, formatDni, useClients } from '@/features/clients'
-import { useLawyers } from '@/features/lawyers'
+import { formatClientName, formatDocument } from '@/features/clients'
+import { lawyerLabel, useLawyers } from '@/features/lawyers'
 import { formatPrescription, useLegalQualifications } from '@/features/legal-params'
 /* Sólo tipos: la forma de lo que el hook le arma al diálogo. Es la única
    flecha de `api/` hacia `components/` del módulo (ver cases/CAMBIOS.md). */
@@ -14,7 +14,7 @@ import { isValid, validateCase, type CaseFormErrors } from '@/features/cases/sch
 import type { Case, CaseFormValues } from '@/features/cases/types/case'
 import { buildCasePatch } from '@/features/cases/utils/buildCasePatch'
 import { caseToFormValues, changeEditSacNumber } from '@/features/cases/utils/caseForm'
-import { captionWithClient } from '@/features/cases/utils/suggestedCaption'
+import { buildLawyerOptions } from '@/features/cases/utils/lawyerOptions'
 import { toFormErrors } from '@/features/cases/utils/toFormErrors'
 import { useUpdateCase } from './useUpdateCase'
 
@@ -41,15 +41,14 @@ interface EditDialogState {
  */
 export function useCaseEdit(c: Case) {
     const toast = useToast()
+    const { lawyer: myLawyer } = useCurrentUser()
     const updateCase = useUpdateCase(c.id)
     const [dialog, setDialog] = useState<EditDialogState | null>(null)
 
     /* Las opciones de "Modificar causa" se piden con la pantalla y no al abrir
        el diálogo: así las listas ya están cuando se abre. */
-    const clientsQuery = useClients({ page: 1, limit: OPTIONS_LIMIT })
     const lawyersQuery = useLawyers({ page: 1, limit: OPTIONS_LIMIT })
     const qualificationsQuery = useLegalQualifications({ page: 1, limit: OPTIONS_LIMIT })
-    const clients = clientsQuery.data?.data ?? []
     const lawyers = lawyersQuery.data?.data ?? []
     const qualifications = qualificationsQuery.data?.data ?? []
 
@@ -63,44 +62,21 @@ export function useCaseEdit(c: Case) {
         setDialog((d) => (d === null ? d : { ...d, values: change(d.values) }))
     }
 
-    /**
-     * Elegir otro cliente propone la carátula con el cliente nuevo y conserva
-     * el resto (D-105). Es una propuesta: se puede corregir antes de guardar.
-     */
-    function changeClient(clientId: string) {
-        const client = clients.find((item) => String(item.id) === clientId)
-            ?? (String(c.client.id) === clientId ? c.client : null)
-        changeValues((values) => ({
-            ...values,
-            clientId,
-            caption: client ? captionWithClient(values.caption, formatClientName(client)) : values.caption,
-        }))
-    }
-
     /* ---------------- opciones ---------------- */
 
-    /* El cliente y el responsable de la causa se ofrecen siempre, aunque el
-       listado no los traiga: la causa los tiene, y el select no puede quedar
-       sin la opción elegida. */
-    const clientOptions: SelectOption[] = clients.map((item) => ({
-        value: String(item.id),
-        label: `${formatClientName(item)} · DNI ${formatDni(item.dni)}`,
-    }))
-    if (!clients.some((item) => item.id === c.client.id)) {
-        clientOptions.unshift({
-            value: String(c.client.id),
-            label: `${formatClientName(c.client)} · DNI ${formatDni(c.client.dni)}`,
-        })
-    }
+    /* El cliente no se modifica (D-111): se muestra el de la causa. */
+    const clientLabel = `${formatClientName(c.client)} · ${formatDocument(c.client)}`
 
-    const lawyerOptions: SelectOption[] = lawyers.map((item) => ({
-        value: String(item.id),
-        label: `${formatPersonName(item)} · matrícula ${item.registrationNumber}`,
-    }))
+    /* Si quien modifica es abogado, su ficha va primero, con "(asignarme a mí)"
+       (`buildLawyerOptions`). El responsable de la causa se ofrece siempre,
+       aunque el listado no lo traiga: la causa lo tiene, y el select no puede
+       quedar sin la opción elegida. Va después de la ficha propia. */
+    const lawyerOptions = buildLawyerOptions(lawyers, myLawyer?.id ?? null)
     if (!lawyers.some((item) => item.id === c.responsibleLawyer.id)) {
-        lawyerOptions.unshift({
+        const mineFirst = lawyerOptions[0]?.value === String(myLawyer?.id)
+        lawyerOptions.splice(mineFirst ? 1 : 0, 0, {
             value: String(c.responsibleLawyer.id),
-            label: `${formatPersonName(c.responsibleLawyer)} · matrícula ${c.responsibleLawyer.registrationNumber}`,
+            label: lawyerLabel(c.responsibleLawyer),
         })
     }
 
@@ -119,7 +95,17 @@ export function useCaseEdit(c: Case) {
         .map((chosenQ): SelectedQualification | null => {
             const q = c.legalQualifications.find((item) => item.id === chosenQ.legalQualificationId)
                 ?? qualifications.find((item) => item.id === chosenQ.legalQualificationId)
-            if (q) return { id: q.id, name: q.name, prescriptionMonths: q.prescriptionMonths, offenseDate: chosenQ.offenseDate }
+            if (q) {
+                // D-113: una declarada prescripta queda fija (CA-33.18).
+                const declaration = 'prescriptionDeclaration' in q ? q.prescriptionDeclaration : null
+                return {
+                    id: q.id,
+                    name: q.name,
+                    prescriptionMonths: q.prescriptionMonths,
+                    offenseDate: chosenQ.offenseDate,
+                    ...(declaration ? { prescribedOn: declaration.prescriptionDate } : {}),
+                }
+            }
             if (qualificationsLoaded) return { id: chosenQ.legalQualificationId, unavailable: true, offenseDate: chosenQ.offenseDate }
             return null
         })
@@ -201,8 +187,7 @@ export function useCaseEdit(c: Case) {
         errors: dialog.errors,
         onChange: (key, value) => changeValues((values) => ({ ...values, [key]: value })),
         onSacNumberChange: (sacNumber) => changeValues((values) => changeEditSacNumber(values, sacNumber, c.startDate)),
-        onClientChange: changeClient,
-        clientOptions,
+        clientLabel,
         lawyerOptions,
         selectedQualifications,
         qualificationOptions,

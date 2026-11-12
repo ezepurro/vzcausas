@@ -47,7 +47,7 @@ export class FindLawyersUseCase {
       id: lawyer.id,
       lastName: lawyer.lastName,
       firstName: lawyer.firstName,
-      registrationNumber: lawyer.registrationNumber.toString(),
+      registrationNumber: lawyer.registrationNumber?.toString() ?? null,
       active: lawyer.isActive(),
     }));
   }

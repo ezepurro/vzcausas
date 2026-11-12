@@ -14,8 +14,18 @@ import { GetCaseCover } from './core/application/use-cases/case/get-case-cover.u
 import { COVER_PDF } from './core/domain/ports/case/cover-pdf.port';
 import { DocumentsCoverPdfAdapter } from './infrastructure/acl/documents-cover-pdf.adapter';
 import { CaseCoverController } from './infrastructure/http/controllers/case-cover.controller';
+import { DownloadCaseDocument } from './core/application/use-cases/case/download-case-document.use-case';
+import { ListCaseDocuments } from './core/application/use-cases/case/list-case-documents.use-case';
+import { CASE_DOCUMENTS } from './core/domain/ports/case/case-documents.port';
+import { DocumentsCaseDocumentsAdapter } from './infrastructure/acl/documents-case-documents.adapter';
+import { CaseDocumentsController } from './infrastructure/http/controllers/case-documents.controller';
+import { CaseDocumentHttpMapper } from './infrastructure/http/mappers/case-document-http.mapper';
+import { GenerateCaseFile } from './core/application/use-cases/case/generate-case-file.use-case';
+import { CaseFilesController } from './infrastructure/http/controllers/case-files.controller';
+import { CaseFileHttpMapper } from './infrastructure/http/mappers/case-file-http.mapper';
 import { GetCaseTimeline } from './core/application/use-cases/case/get-case-timeline.use-case';
 import { GetProceduralAct } from './core/application/use-cases/procedural-act/get-procedural-act.use-case';
+import { UpdateProceduralAct } from './core/application/use-cases/procedural-act/update-procedural-act.use-case';
 import { ListCases } from './core/application/use-cases/case/list-cases.use-case';
 import { ListCustomStates } from './core/application/use-cases/case/list-custom-states.use-case';
 import { ListActivePrescriptions } from './core/application/use-cases/prescription/list-active-prescriptions.use-case';
@@ -24,6 +34,7 @@ import { ListOpenDeadlines } from './core/application/use-cases/case/list-open-d
 import { ListProceduralActs } from './core/application/use-cases/procedural-act/list-procedural-acts.use-case';
 import { RegisterInterruptiveAct } from './core/application/use-cases/interruptive-act/register-interruptive-act.use-case';
 import { DeclarePrescription } from './core/application/use-cases/prescription/declare-prescription.use-case';
+import { DeclareQualificationPrescription } from './core/application/use-cases/prescription/declare-qualification-prescription.use-case';
 import { UpdateCase } from './core/application/use-cases/case/update-case.use-case';
 import { DeactivateCase } from './core/application/use-cases/case/deactivate-case.use-case';
 import { RegisterCase } from './core/application/use-cases/case/register-case.use-case';
@@ -117,11 +128,27 @@ import { PrismaProceduralActRepository } from './infrastructure/persistence/pris
     AuditModule,
     DocumentsModule,
   ],
-  controllers: [CasesController, InterruptiveActsController, CaseTimelineController, CaseCoverController],
+  controllers: [
+    CasesController,
+    InterruptiveActsController,
+    CaseTimelineController,
+    CaseCoverController,
+    CaseDocumentsController,
+    CaseFilesController,
+  ],
   providers: [
     // HU24: the cover sheet. `cases` decides what it says (`CoverSheet`); `documents` draws it.
     GetCaseCover,
     { provide: COVER_PDF, useClass: DocumentsCoverPdfAdapter },
+    // HU38: the documents of the case folder. `cases` answers for the case and its
+    // folder; `documents` reads the storage and decides who downloads what (D-103).
+    ListCaseDocuments,
+    DownloadCaseDocument,
+    CaseDocumentHttpMapper,
+    { provide: CASE_DOCUMENTS, useClass: DocumentsCaseDocumentsAdapter },
+    // HU25: the case file. `cases` checks the case and draws the cover; `documents` does the rest.
+    GenerateCaseFile,
+    CaseFileHttpMapper,
     RegisterCase,
     // HU39: asks `documents` for the folder of a case and waits for the answer.
     // Used by the registration and by `POST /cases/{caseId}/folder`.
@@ -145,6 +172,7 @@ import { PrismaProceduralActRepository } from './infrastructure/persistence/pris
     CaseHttpMapper,
     // HU33: marks a criminal case as prescribed; answers with the detail (`GetCase`).
     DeclarePrescription,
+    DeclareQualificationPrescription,
     UpdateCase,
     // HU21: logical baja, audited.
     DeactivateCase,
@@ -152,6 +180,8 @@ import { PrismaProceduralActRepository } from './infrastructure/persistence/pris
     // HU27: la consulta de actos procesales, por el mismo repositorio que los registra.
     ListProceduralActs,
     GetProceduralAct,
+    // HU28: corrects an act, recalculates the case (D-99) and audits it; answers with `GetProceduralAct`.
+    UpdateProceduralAct,
     ProceduralActHttpMapper,
     { provide: CASE_REPOSITORY, useClass: PrismaCaseRepository },
     { provide: PROCEDURAL_ACT_REPOSITORY, useClass: PrismaProceduralActRepository },

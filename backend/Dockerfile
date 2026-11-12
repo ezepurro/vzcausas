@@ -13,7 +13,10 @@ COPY package*.json ./
 FROM base AS development
 ENV NODE_ENV=development
 
-RUN npm ci
+# Caché de npm entre builds (BuildKit): si cambió package-lock.json, npm ci
+# baja sólo lo que no tiene. No cambia qué se instala: npm ci verifica cada
+# paquete contra el hash del lock. Sólo en desarrollo; el stage build no la usa.
+RUN --mount=type=cache,target=/root/.npm npm ci
 
 # Sin COPY del código ni prisma generate: en desarrollo docker-compose monta
 # ../backend sobre /app, así que de la imagen solo se usa node_modules. Copiar

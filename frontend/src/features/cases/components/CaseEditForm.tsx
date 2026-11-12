@@ -19,7 +19,7 @@ import {
     type CaseFormValues,
     type ProceduralRole,
 } from '@/features/cases/types/case'
-import { SUBJECT_MATTER_MAX, type CaseFormErrors } from '@/features/cases/schemas/case.schema'
+import { CASE_MAX_LENGTH, SUBJECT_MATTER_MAX, type CaseFormErrors } from '@/features/cases/schemas/case.schema'
 import { HarmfulActFields } from '@/features/cases/components/CaseForm'
 import { SUBJECT_MATTER_TEXT } from '@/features/cases/utils/subjectMatter'
 import {
@@ -32,14 +32,12 @@ export interface CaseEditFormProps {
     sub: string
     values: CaseFormValues
     errors: CaseFormErrors
-    /** Cada campo, salvo el SAC y el cliente. */
+    /** Cada campo, salvo el SAC. */
     onChange: <K extends keyof CaseFormValues>(key: K, value: CaseFormValues[K]) => void
     /** El SAC va aparte porque arrastra la fecha de inicio (`changeSacNumber`). */
     onSacNumberChange: (sacNumber: string) => void
-    /** El cliente va aparte porque propone la carátula nueva (`captionWithClient`, D-105). */
-    onClientChange: (clientId: string) => void
-    /** Los clientes, ya armados: `value` el id, `label` "GÓMEZ, Ariel Fernando · DNI …". */
-    clientOptions: SelectOption[]
+    /** El cliente de la causa, ya armado: "GÓMEZ, Ariel Fernando · DNI …". Se muestra y no se modifica (D-111). */
+    clientLabel: string
     /** Los abogados vigentes, ya armados. */
     lawyerOptions: SelectOption[]
     /** Las calificaciones de la causa, con su nombre, su plazo y su fecha del hecho. */
@@ -63,16 +61,16 @@ export interface CaseEditFormProps {
  * objeto con el rótulo de su fuero (decisión del 28/10/2026). El campo `court`
  * se llama "Órgano interviniente" (V5 §3.7, D-91).
  *
- * El fuero se muestra pero no se modifica (D-95). No están "Registrar cliente
- * nuevo" ni las casillas de la carpeta: la carpeta sigue a la causa sola
- * (D-104) y tiene su propio endpoint.
+ * El fuero y el cliente se muestran pero no se modifican (D-95, D-111). No
+ * están "Registrar cliente nuevo" ni las casillas de la carpeta: la carpeta
+ * sigue a la causa sola (D-104) y tiene su propio endpoint.
  *
  * No valida ni guarda: recibe los errores ya calculados y avisa con
  * `onConfirm`.
  */
 export function CaseEditForm({
-    sub, values, errors, onChange, onSacNumberChange, onClientChange,
-    clientOptions, lawyerOptions,
+    sub, values, errors, onChange, onSacNumberChange,
+    clientLabel, lawyerOptions,
     selectedQualifications, qualificationOptions, onAddQualification, onRemoveQualification,
     onOffenseDateChange, saving, onConfirm, onCancel,
 }: CaseEditFormProps) {
@@ -117,19 +115,21 @@ export function CaseEditForm({
                         id="edit-case-sac"
                         mono
                         inputMode="numeric"
-                        maxLength={8}
+                        maxLength={CASE_MAX_LENGTH.sacNumber}
                         placeholder="8 dígitos"
                         value={values.sacNumber}
                         onChange={(e) => onSacNumberChange(e.target.value)}
                     />
                 </Field>
 
-                {/* Se muestra, pero no es un select: no se modifica (D-95). */}
+                {/* Se muestra, pero no es un select: no se modifica (D-95).
+                    `disabled` y no `readOnly`: así se ve bloqueado (gris, sin foco),
+                    como los demás campos que no se pueden tocar. */}
                 <Field label="Fuero" width="half" htmlFor="edit-case-jurisdiction"
                     note="No se modifica. Si la causa se registró en otro fuero, dala de baja y registrala de nuevo.">
                     <TextInput
                         id="edit-case-jurisdiction"
-                        readOnly
+                        disabled
                         value={JURISDICTION_LABELS[values.jurisdiction]}
                     />
                 </Field>
@@ -137,6 +137,7 @@ export function CaseEditForm({
                 <Field label="Carátula" required htmlFor="edit-case-caption" error={errors.caption}>
                     <TextInput
                         id="edit-case-caption"
+                        maxLength={CASE_MAX_LENGTH.caption}
                         value={values.caption}
                         onChange={(e) => onChange('caption', e.target.value)}
                     />
@@ -146,6 +147,7 @@ export function CaseEditForm({
                     <TextInput
                         id="edit-case-court"
                         placeholder="Juzgado de Control N° 3 · Córdoba"
+                        maxLength={CASE_MAX_LENGTH.court}
                         value={values.court}
                         onChange={(e) => onChange('court', e.target.value)}
                     />
@@ -157,6 +159,7 @@ export function CaseEditForm({
                         <TextInput
                             id="edit-case-instructor"
                             placeholder="Apellido y nombre del instructor"
+                            maxLength={CASE_MAX_LENGTH.instructorName}
                             value={values.instructorName}
                             onChange={(e) => onChange('instructorName', e.target.value)}
                         />
@@ -168,6 +171,7 @@ export function CaseEditForm({
                             type="tel"
                             mono
                             placeholder="0351 448-1200"
+                            maxLength={CASE_MAX_LENGTH.tribunalPhone}
                             value={values.tribunalPhone}
                             onChange={(e) => onChange('tribunalPhone', e.target.value)}
                         />
@@ -178,7 +182,7 @@ export function CaseEditForm({
                             id="edit-case-instructor-extension"
                             mono
                             inputMode="numeric"
-                            maxLength={20}
+                            maxLength={CASE_MAX_LENGTH.instructorExtension}
                             placeholder="214"
                             value={values.instructorExtension}
                             onChange={(e) => onChange('instructorExtension', e.target.value)}
@@ -188,14 +192,10 @@ export function CaseEditForm({
 
                 <FormSection label="Cliente y rol procesal" />
 
-                <Field label="Cliente" required htmlFor="edit-case-client" error={errors.clientId}
-                    note="Si lo cambiás, se propone la carátula con el cliente nuevo.">
-                    <Select
-                        id="edit-case-client"
-                        options={clientOptions}
-                        value={values.clientId}
-                        onChange={(e) => onClientChange(e.target.value)}
-                    />
+                {/* Como el fuero: se muestra bloqueado, no se modifica (D-111). */}
+                <Field label="Cliente" htmlFor="edit-case-client"
+                    note="No se modifica. Si la causa se registró con otro cliente, dala de baja y registrala de nuevo.">
+                    <TextInput id="edit-case-client" disabled value={clientLabel} />
                 </Field>
 
                 <Field label="Rol procesal del cliente" required error={errors.proceduralRole}>
@@ -243,6 +243,7 @@ export function CaseEditForm({
                             <TextInput
                                 id="edit-case-counterparty"
                                 placeholder="APROSS, Provincia de Córdoba, Tribunal de Conducta…"
+                                maxLength={CASE_MAX_LENGTH.counterparty}
                                 value={values.counterparty}
                                 onChange={(e) => onChange('counterparty', e.target.value)}
                             />

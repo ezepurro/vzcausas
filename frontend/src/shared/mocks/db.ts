@@ -48,6 +48,7 @@ import type {
     ProceduralAct,
     ProceduralRole,
     PersonRef,
+    PrescriptionDeclaration,
     ProceduralState,
     User,
 } from './contract';
@@ -93,6 +94,8 @@ import {
 export interface StoredCaseQualification {
     legalQualificationId: number;
     offenseDate: string;
+    /** La declaración de que prescribió (D-113). Ausente o `null` mientras no se declaró. */
+    prescriptionDeclaration?: StoredPrescriptionDeclaration | null;
 }
 
 /** Cómo guarda la base una causa: con ids, sin nada embebido ni calculado. */
@@ -648,6 +651,8 @@ function initialState(): MockDb {
                 registeredById: registeredBy.id,
                 registeredAt: `${seed.prescriptionDeclaration.prescriptionDate}T10:00:00-03:00`,
             };
+            // D-113: una causa prescripta tiene todas sus calificaciones declaradas, como deja la migración.
+            for (const q of stored.qualifications) q.prescriptionDeclaration = { ...stored.prescriptionDeclaration };
         }
     }
 
@@ -871,8 +876,9 @@ export function interruptiveActsOf(caseId: number): StoredInterruptiveAct[] {
 }
 
 /** La fecha del acto interruptivo que rige: el más reciente. `null` si no hay. */
-function latestInterruptiveActDate(caseId: number): string | null {
-    return interruptiveActsOf(caseId)[0]?.actDate ?? null;
+/** Las fechas de los actos interruptivos de la causa, de la más vieja a la más nueva (D-113). */
+function interruptiveActDates(caseId: number): string[] {
+    return interruptiveActsOf(caseId).map((act) => act.actDate).sort();
 }
 
 /**
@@ -978,7 +984,9 @@ function embedClient(clientId: number): CaseClient {
         id: client.id,
         lastName: client.lastName,
         firstName: client.firstName,
-        dni: client.dni,
+        documentType: client.documentType,
+        documentNumber: client.documentNumber,
+        address: client.address,
         phone: client.phone,
         email: client.email,
         clientSince: client.clientSince,
@@ -992,33 +1000,75 @@ function embedClient(clientId: number): CaseClient {
  * calificación fue dada de baja: por eso cambiar `prescriptionMonths` recalcula
  * la prescripción de las causas que la registran (D-08).
  *
- * Corre desde el acto interruptivo más reciente de la causa, que alcanza a
- * todas sus calificaciones (V4 D-49), salvo que sea anterior al hecho de
- * esta: ahí sigue corriendo desde el hecho (CA-31.5). La fecha del hecho no
- * cambia nunca.
+ * Desde cuándo corre (D-113, V5 §3.9): los actos interruptivos de la causa en
+ * orden de fecha, desde el hecho. Un acto la reinicia sólo si no es anterior
+ * al inicio vigente (CA-31.5), es anterior al vencimiento vigente —una que ya
+ * prescribió no vuelve a correr (CA-31.14)— y, si fue declarada, anterior a la
+ * fecha de la declaración. La fecha del hecho no cambia nunca.
  */
 function embedQualification(
     stored: StoredCaseQualification,
-    interruptedOn: string | null,
+    actDates: readonly string[],
 ): CaseLegalQualification {
     const qualification = db.legalQualifications.find((q) => q.id === stored.legalQualificationId);
     if (!qualification) {
         throw new Error(`[mock] La causa apunta a la calificación ${stored.legalQualificationId}, que no existe.`);
     }
-    const prescriptionStartsOn =
-        interruptedOn !== null && interruptedOn >= stored.offenseDate ? interruptedOn : stored.offenseDate;
+    const declaredOn = stored.prescriptionDeclaration?.prescriptionDate ?? null;
+    let prescriptionStartsOn = stored.offenseDate;
+    for (const actDate of actDates) {
+        const expiresOn = addMonths(prescriptionStartsOn, qualification.prescriptionMonths);
+        if (actDate >= prescriptionStartsOn && actDate < expiresOn && (declaredOn === null || actDate < declaredOn)) {
+            prescriptionStartsOn = actDate;
+        }
+    }
+    const prescriptionExpiresOn = addMonths(prescriptionStartsOn, qualification.prescriptionMonths);
     return {
         id: qualification.id,
         name: qualification.name,
         prescriptionMonths: qualification.prescriptionMonths,
         offenseDate: stored.offenseDate,
         prescriptionStartsOn,
-        prescriptionExpiresOn: addMonths(prescriptionStartsOn, qualification.prescriptionMonths),
+        prescriptionExpiresOn,
+        // D-112: cada calificación informa su estado, con la misma regla que la que rige.
+        ...prescriptionStatus(prescriptionStartsOn, prescriptionExpiresOn),
+        prescriptionDeclaration: stored.prescriptionDeclaration
+            ? toPrescriptionDeclaration(stored.prescriptionDeclaration)
+            : null,
+    };
+}
+
+/** Una declaración guardada, como la devuelve la API: con quién la registró (HU33, D-113). */
+function toPrescriptionDeclaration(stored: StoredPrescriptionDeclaration): PrescriptionDeclaration {
+    return {
+        prescriptionDate: stored.prescriptionDate,
+        resolution: stored.resolution,
+        grounds: stored.grounds,
+        registeredBy: userRef(stored.registeredById),
+        registeredAt: stored.registeredAt,
     };
 }
 
 /** El umbral fijo de la alerta de prescripción: el "aviso al 70 %" (V4 D-51). */
 const PRESCRIPTION_ALERT_RATIO = 0.7;
+
+/**
+ * El porcentaje transcurrido, la alerta y si el plazo se cumplió, al día de
+ * hoy (V4 §4, "Prescripción"). Es la misma cuenta para la que rige
+ * (`prescription`) y para cada calificación (D-112).
+ */
+function prescriptionStatus(startsOn: string, expiresOn: string) {
+    const today = todayIso();
+    const total = calendarDaysBetween(startsOn, expiresOn);
+    const elapsed = Math.min(Math.max(calendarDaysBetween(startsOn, today), 0), total);
+    // El umbral se evalúa sobre el valor exacto, no sobre el redondeado.
+    const ratio = total > 0 ? elapsed / total : 1;
+    return {
+        elapsedPercentage: Math.round(ratio * 100),
+        alert: ratio >= PRESCRIPTION_ALERT_RATIO,
+        expired: today >= expiresOn,
+    };
+}
 
 /**
  * La prescripción que rige la causa: la de la calificación que prescribe
@@ -1029,30 +1079,28 @@ const PRESCRIPTION_ALERT_RATIO = 0.7;
 function prescriptionOf(
     stored: StoredCase,
     qualifications: CaseLegalQualification[],
-    interruptedOn: string | null,
 ): CasePrescription | null {
     if (stored.jurisdiction !== 'CRIMINAL' || qualifications.length === 0) return null;
 
-    const governing = [...qualifications].sort((a, b) =>
-        a.prescriptionExpiresOn.localeCompare(b.prescriptionExpiresOn),
+    // D-113: entre las que no fueron declaradas; si lo fueron todas, entre todas (dato histórico).
+    const pending = qualifications.filter((q) => q.prescriptionDeclaration === null);
+    const candidates = pending.length > 0 ? pending : qualifications;
+    // La que vence primero, aunque ya haya vencido (D-52); a igual vencimiento, la de menor id.
+    const governing = [...candidates].sort(
+        (a, b) => a.prescriptionExpiresOn.localeCompare(b.prescriptionExpiresOn) || a.id - b.id,
     )[0];
-    const today = todayIso();
-    const total = calendarDaysBetween(governing.prescriptionStartsOn, governing.prescriptionExpiresOn);
-    const elapsed = Math.min(Math.max(calendarDaysBetween(governing.prescriptionStartsOn, today), 0), total);
-    // El umbral se evalúa sobre el valor exacto, no sobre el redondeado.
-    const ratio = total > 0 ? elapsed / total : 1;
 
     return {
         legalQualificationId: governing.id,
         legalQualificationName: governing.name,
         startsOn: governing.prescriptionStartsOn,
         expiresOn: governing.prescriptionExpiresOn,
-        elapsedPercentage: Math.round(ratio * 100),
-        alert: ratio >= PRESCRIPTION_ALERT_RATIO,
-        expired: today >= governing.prescriptionExpiresOn,
-        // Sólo si es el acto el que fija el inicio de la que rige.
+        elapsedPercentage: governing.elapsedPercentage,
+        alert: governing.alert,
+        expired: governing.expired,
+        // Sólo si un acto fija el inicio de la que rige (CA-31.5).
         lastInterruptiveActDate:
-            interruptedOn !== null && governing.prescriptionStartsOn === interruptedOn ? interruptedOn : null,
+            governing.prescriptionStartsOn === governing.offenseDate ? null : governing.prescriptionStartsOn,
     };
 }
 
@@ -1147,8 +1195,8 @@ export function toCase(stored: StoredCase): Case {
         throw new Error(`[mock] La causa ${stored.id} apunta al abogado ${stored.responsibleLawyerId}, que no existe.`);
     }
 
-    const interruptedOn = latestInterruptiveActDate(stored.id);
-    const legalQualifications = stored.qualifications.map((q) => embedQualification(q, interruptedOn));
+    const actDates = interruptiveActDates(stored.id);
+    const legalQualifications = stored.qualifications.map((q) => embedQualification(q, actDates));
 
     return {
         id: stored.id,
@@ -1175,15 +1223,9 @@ export function toCase(stored: StoredCase): Case {
         client: embedClient(stored.clientId),
         responsibleLawyer: lawyer,
         legalQualifications,
-        prescription: prescriptionOf(stored, legalQualifications, interruptedOn),
+        prescription: prescriptionOf(stored, legalQualifications),
         prescriptionDeclaration: stored.prescriptionDeclaration
-            ? {
-                  prescriptionDate: stored.prescriptionDeclaration.prescriptionDate,
-                  resolution: stored.prescriptionDeclaration.resolution,
-                  grounds: stored.prescriptionDeclaration.grounds,
-                  registeredBy: userRef(stored.prescriptionDeclaration.registeredById),
-                  registeredAt: stored.prescriptionDeclaration.registeredAt,
-              }
+            ? toPrescriptionDeclaration(stored.prescriptionDeclaration)
             : null,
         startDate: stored.startDate,
         currentState: currentStateOf(stored.id),

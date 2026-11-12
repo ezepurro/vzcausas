@@ -46,6 +46,13 @@ describe('DocumentTemplate', () => {
     expect(template.jurisdictions).toHaveLength(3);
   });
 
+  it('ordena los fueros como el enum del contrato, sin importar cómo llegaron (el primero lleva el archivo principal)', () => {
+    const template = DocumentTemplate.create(input({ jurisdictions: ['AMPARO', 'CRIMINAL', 'ADMINISTRATIVE'] }));
+
+    expect(template.jurisdictionsInContractOrder).toEqual(['CRIMINAL', 'ADMINISTRATIVE', 'AMPARO']);
+    expect(template.jurisdictions).toEqual(['AMPARO', 'CRIMINAL', 'ADMINISTRATIVE']);
+  });
+
   // CA-34.4
   it('si faltan el nombre, el fuero y el archivo, indica los tres', () => {
     expect(detailsOf(() => DocumentTemplate.create(input({ name: '   ', jurisdictions: [], file: null })))).toEqual({

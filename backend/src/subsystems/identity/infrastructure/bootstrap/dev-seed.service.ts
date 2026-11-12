@@ -7,8 +7,14 @@ import {
 } from "@subsystems/identity/core/domain/ports/password-hasher.port";
 import { Username } from "@subsystems/identity/core/domain/value-objects/username.vo";
 
-/** Administrator, matching the role catalog written by the seed script. */
-const SEED_ROLE_NAME = "ADMINISTRATOR";
+/**
+ * Administrator and lawyer, matching the role catalog written by the seed
+ * script. Both, like the firm's partner in the presentation fixture
+ * (`prisma/populate/people.ts`): the account already carries a
+ * professional record, and with `LAWYER` it also sees "Mi día" and can be
+ * the responsible lawyer of a case.
+ */
+const SEED_ROLE_NAMES = ["ADMINISTRATOR", "LAWYER"] as const;
 
 /**
  * Professional record for the seeded account.
@@ -84,13 +90,14 @@ export class DevSeedService implements OnModuleInit {
     // account that authenticates and then fails resolving its roles —
     // a 500 on login, which looks like a defect rather than a missing
     // setup step.
-    const role = await this.prisma.role.findUnique({
-      where: { name: SEED_ROLE_NAME },
+    const roles = await this.prisma.role.findMany({
+      where: { name: { in: [...SEED_ROLE_NAMES] } },
     });
+    const missing = SEED_ROLE_NAMES.filter((name) => !roles.some((role) => role.name === name));
 
-    if (!role) {
+    if (missing.length > 0) {
       this.logger.warn(
-        `Role ${SEED_ROLE_NAME} is not in the database — skipping the development user. ` +
+        `Role(s) ${missing.join(", ")} not in the database — skipping the development user. ` +
           "Run `npm run prisma:seed` to load the role catalog first.",
       );
       return;
@@ -123,14 +130,19 @@ export class DevSeedService implements OnModuleInit {
       },
     });
 
-    await this.prisma.userRole.upsert({
-      where: { userId_roleId: { userId: user.id, roleId: role.id } },
-      update: {},
-      create: { userId: user.id, roleId: role.id },
-    });
+    // Upsert, not replace: roles given to this account through the API
+    // in development survive a restart. An account seeded before
+    // `LAWYER` was added gains it on the next boot.
+    for (const role of roles) {
+      await this.prisma.userRole.upsert({
+        where: { userId_roleId: { userId: user.id, roleId: role.id } },
+        update: {},
+        create: { userId: user.id, roleId: role.id },
+      });
+    }
 
     this.logger.log(
-      `Seeded development user "${username}" (id ${user.id}, role ${SEED_ROLE_NAME}).`,
+      `Seeded development user "${username}" (id ${user.id}, roles ${SEED_ROLE_NAMES.join(", ")}).`,
     );
   }
 }

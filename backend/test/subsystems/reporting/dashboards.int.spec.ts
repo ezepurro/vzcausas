@@ -170,6 +170,25 @@ describe('Tableros (HU41, HU42)', () => {
       ]);
     });
 
+    // D-113, CA-32.8: un delito declarado prescripto deja de alertar; la causa pasa a regirse por el siguiente.
+    it('una calificación declarada sale de las alertas aunque la causa siga abierta por otra', async () => {
+      const eightYears = await qualification(96); // vence el 6/10/2026: plazo cumplido, sin declarar
+      const twentyYears = await qualification(240); // 40 %: no alerta
+      await withOffense(s.caseRow.id, eightYears.id);
+      await withOffense(s.caseRow.id, twentyYears.id);
+      expect((await dashboard()).prescriptionAlerts).toEqual([
+        expect.objectContaining({ caseId: s.caseRow.id, legalQualificationName: eightYears.name, expired: true }),
+      ]);
+
+      await server()
+        .post(`/api/v1/cases/${s.caseRow.id}/legal-qualifications/${eightYears.id}/prescription`)
+        .set(s.responsible)
+        .send({ prescriptionDate: '2026-10-06', resolution: 'Auto N° 88' })
+        .expect(200);
+
+      expect((await dashboard()).prescriptionAlerts).toEqual([]);
+    });
+
     // CA-41.8 y CA-41.7: el acto interruptivo reinicia el cómputo y es la última actuación de la causa.
     it('un acto interruptivo registrado por la API la saca de las alertas y pasa a ser su última actuación', async () => {
       await withOffense(s.caseRow.id, (await qualification(120)).id);

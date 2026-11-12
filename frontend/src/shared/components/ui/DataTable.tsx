@@ -15,11 +15,11 @@ export interface Column<T> {
   actions?: boolean;
   width?: string;
   /**
-   * La columna que identifica a la fila: carátula, nombre. En una pantalla
-   * angosta, donde cada fila es una tarjeta, va arriba y a todo el ancho.
+   * La columna que identifica a la fila: carátula, nombre. Debajo de 1180px,
+   * donde cada fila es una ficha, la encabeza a todo el ancho.
    */
   primary?: boolean;
-  /** Prescindible: se esconde cuando la tabla no entra (debajo de 1180px). */
+  /** Prescindible: se esconde en la ficha del teléfono (debajo de 721px). */
   hideWhenNarrow?: boolean;
 }
 
@@ -29,7 +29,8 @@ export interface DataTableProps<T> {
   rowKey: (row: T) => string;
   /**
    * Ancho mínimo antes de que la tabla scrollee en horizontal. Vale en
-   * pantallas anchas: debajo de 1180px la tabla lo suelta y se acomoda sola.
+   * pantallas anchas: debajo de 1180px cada fila es una ficha y no hay ancho
+   * mínimo.
    */
   minWidth?: number;
   /** se muestra en lugar del cuerpo cuando no hay filas */
@@ -105,8 +106,9 @@ function TableSkeleton<T>({ columns, minWidth, label }: { columns: Column<T>[]; 
  * Tabla de datos. Presentacional: no ordena, no filtra, no pagina.
  * Las filas llegan ya ordenadas y formateadas desde la pantalla.
  *
- * Debajo de 720px cada fila se dibuja como una tarjeta y la cabecera se va
- * (`table.css`): por eso cada celda lleva en `data-label` el nombre de su
+ * Hay dos formas y ninguna intermedia: arriba de 1180px es una tabla; debajo,
+ * cada fila se dibuja como una ficha suelta y la cabecera se va (`table.css`).
+ * Por eso cada celda lleva en `data-label` el nombre de su
  * columna. Los `role` están escritos a mano por lo mismo: al dejar de
  * dibujarse como tabla, el navegador le saca la semántica de tabla, y un lector
  * de pantalla dejaría de anunciar filas y celdas.

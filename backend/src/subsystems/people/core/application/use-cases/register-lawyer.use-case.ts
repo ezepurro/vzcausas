@@ -10,7 +10,8 @@ import { RegistrationNumber } from "../../domain/value-objects/registration-numb
 export type RegisterLawyerCommand = {
   lastName: string;
   firstName: string;
-  registrationNumber: string;
+  /** Optional (D-107): left out, empty, blank or `null` means no registration number. */
+  registrationNumber?: string | null;
 };
 
 export type RegisterLawyerResult = { lawyer: Lawyer };
@@ -23,11 +24,17 @@ export class RegisterLawyerUseCase {
   ) {}
 
   async execute(command: RegisterLawyerCommand): Promise<RegisterLawyerResult> {
-    const registrationNumber = RegistrationNumber.create(
-      command.registrationNumber,
-    );
+    const registrationNumber =
+      command.registrationNumber == null ||
+      command.registrationNumber.trim() === ""
+        ? null
+        : RegistrationNumber.create(command.registrationNumber);
 
-    if (await this.lawyers.existsByRegistrationNumber(registrationNumber)) {
+    // Several lawyers can have none, so uniqueness is only checked when there is one.
+    if (
+      registrationNumber !== null &&
+      (await this.lawyers.existsByRegistrationNumber(registrationNumber))
+    ) {
       throw new LawyerRegistrationAlreadyExistsError();
     }
 

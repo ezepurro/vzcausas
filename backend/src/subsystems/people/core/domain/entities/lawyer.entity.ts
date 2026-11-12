@@ -8,8 +8,9 @@ const INVALID_DATA_MESSAGE = "Los datos enviados no son válidos.";
 
 /**
  * What the "Modificar abogado" form sends (HU14). A field left out
- * (`undefined`) is not touched; a field sent empty, blank or `null` is an
- * attempt to empty it, which the rules reject (CA-14.4).
+ * (`undefined`) is not touched; a name sent empty, blank or `null` is an
+ * attempt to empty it, which the rules reject (CA-14.4). The registration
+ * number is the exception: sent that way it is cleared (D-107).
  */
 export type LawyerChanges = {
   lastName?: string | null;
@@ -35,7 +36,7 @@ export class Lawyer {
     private readonly _id: number,
     private _lastName: string,
     private _firstName: string,
-    private _registrationNumber: RegistrationNumber,
+    private _registrationNumber: RegistrationNumber | null,
     private _active: boolean,
   ) {}
 
@@ -48,7 +49,7 @@ export class Lawyer {
     id: number;
     lastName: string;
     firstName: string;
-    registrationNumber: RegistrationNumber;
+    registrationNumber: RegistrationNumber | null;
     active: boolean;
   }): Lawyer {
     return new Lawyer(
@@ -67,6 +68,9 @@ export class Lawyer {
    * (D-68), without the "Dr."/"Dra." title, which the frontend adds
    * (D-81).
    *
+   * The registration number is optional (D-107): a lawyer who has not been
+   * registered at the bar yet is created without one.
+   *
    * @throws {ValidationError} if the id is not a positive integer or
    *   the last name or first names are empty.
    */
@@ -74,7 +78,7 @@ export class Lawyer {
     id: number;
     lastName: string;
     firstName: string;
-    registrationNumber: RegistrationNumber;
+    registrationNumber?: RegistrationNumber | null;
     active?: boolean;
   }): Lawyer {
     if (!Number.isInteger(props.id) || props.id <= 0) {
@@ -106,14 +110,15 @@ export class Lawyer {
       props.id,
       lastName,
       firstName,
-      props.registrationNumber,
+      props.registrationNumber ?? null,
       props.active ?? true,
     );
   }
 
   /**
    * HU14 — changes the last name, the first names or the registration
-   * number. Only the fields sent are touched.
+   * number. Only the fields sent are touched. A registration number sent
+   * empty, blank or `null` is cleared (D-107).
    *
    * Every field sent is validated **before** anything is applied, and every
    * problem is reported at once, one message per field: either the whole
@@ -153,9 +158,17 @@ export class Lawyer {
       this._firstName = firstName.toString();
       changed.push("firstName");
     }
-    if (registrationNumber && !registrationNumber.equals(this._registrationNumber)) {
-      this._registrationNumber = registrationNumber;
-      changed.push("registrationNumber");
+    // `registrationNumber` is `null` both for "not sent" and for "clear it", so
+    // what was sent decides (D-107).
+    if (changes.registrationNumber !== undefined) {
+      const same =
+        registrationNumber === null
+          ? this._registrationNumber === null
+          : this._registrationNumber?.equals(registrationNumber) === true;
+      if (!same) {
+        this._registrationNumber = registrationNumber;
+        changed.push("registrationNumber");
+      }
     }
     return LawyerChangeSet.of(changed);
   }
@@ -185,15 +198,16 @@ export class Lawyer {
   }
 
   /**
-   * The registration number with the messages of the form: required, and in
-   * the `1-28114` format (CA-14.8). `RegistrationNumber` itself keeps its own
-   * error, which the registration (HU12) relies on.
+   * The registration number with the message of the form for a bad format
+   * (CA-14.8). Empty, blank and `null` mean "no registration number" and give
+   * `null` (D-107). `RegistrationNumber` itself keeps its own error, which the
+   * registration (HU12) relies on.
    */
-  private static registrationNumberFrom(raw: string | null): RegistrationNumber {
+  private static registrationNumberFrom(raw: string | null): RegistrationNumber | null {
     const field = (message: string) =>
       new ValidationError("VALIDATION_ERROR", INVALID_DATA_MESSAGE, { registrationNumber: message });
     if (raw === null || raw.trim() === "") {
-      throw field("La matrícula es obligatoria.");
+      return null;
     }
     try {
       return RegistrationNumber.create(raw);
@@ -219,7 +233,8 @@ export class Lawyer {
     return this._firstName;
   }
 
-  get registrationNumber(): RegistrationNumber {
+  /** `null` if the lawyer has no registration number loaded (D-107). */
+  get registrationNumber(): RegistrationNumber | null {
     return this._registrationNumber;
   }
 

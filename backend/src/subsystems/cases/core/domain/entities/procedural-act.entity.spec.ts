@@ -1,6 +1,6 @@
 import { Deadline } from '../value-objects/deadline/deadline.vo';
 import { DayType } from '../value-objects/deadline/day-type';
-import { day, NOW, OPPOSITION, TODAY, validationDetailsOf } from '../../test-support/case-fixtures';
+import { anAct, day, NOW, OPPOSITION, TODAY, validationDetailsOf } from '../../test-support/case-fixtures';
 import { NewProceduralActInput, ProceduralAct } from './procedural-act.entity';
 
 const DEADLINE = Deadline.create({
@@ -210,6 +210,151 @@ describe('ProceduralAct', () => {
       const details = await validationDetailsOf(() => ProceduralAct.create(anActInput(dates)));
 
       expect(details).toEqual(ProceduralAct.validateDates(dates));
+    });
+  });
+
+  /*
+   * HU28 · Modificar acto procesal. `anAct()` es un acto del 30/09/2026 en
+   * "Oposición…" (5 días hábiles), sin notificación ni observaciones. Hoy es el
+   * 06/10/2026. Los textos son los del registro, salvo los dos estados a la vez,
+   * que es el de V5 `:6087`.
+   */
+  describe('modificación (HU28)', () => {
+    const CANNOT_BE_EMPTIED = 'No puede quedar vacío.';
+
+    describe('resolveChanges', () => {
+      // CA-28.1: lo enviado reemplaza, lo omitido se conserva.
+      it('aplica lo enviado sobre el acto, conserva lo omitido e informa qué cambió', () => {
+        const resolved = anAct().resolveChanges({ actDate: day('2026-09-28'), notes: '  Se corrigió la fecha.  ' }, TODAY);
+
+        expect(resolved).toEqual({
+          proceduralStateId: OPPOSITION.id,
+          customState: null,
+          actDate: day('2026-09-28'),
+          notificationDate: null,
+          manualDueDate: null,
+          notes: 'Se corrigió la fecha.',
+          stateChanged: false,
+          changedFields: ['actDate', 'notes'],
+          errors: {},
+        });
+      });
+
+      // Decisión del 05/11/2026: un valor igual al actual no es un cambio.
+      it('un valor igual al actual, también el mismo estado, no cuenta como cambio', () => {
+        const act = anAct({ notes: 'Con oposición.' });
+
+        const resolved = act.resolveChanges(
+          { proceduralStateId: OPPOSITION.id, actDate: day('2026-09-30'), notes: ' Con oposición. ' },
+          TODAY,
+        );
+
+        expect(resolved.changedFields).toEqual([]);
+        expect(resolved.stateChanged).toBe(false);
+        expect(resolved.errors).toEqual({});
+      });
+
+      it('pasar de un estado de la tabla a uno escrito a mano cambia el estado y vacía el de la tabla', () => {
+        const resolved = anAct().resolveChanges({ customState: 'Pedido de informes' }, TODAY);
+
+        expect(resolved).toMatchObject({ proceduralStateId: null, customState: 'Pedido de informes', stateChanged: true });
+        expect(resolved.changedFields).toEqual(['proceduralStateId', 'customState']);
+      });
+
+      it('las observaciones en blanco o en null quedan vacías', () => {
+        const act = anAct({ notes: 'Algo' });
+
+        expect(act.resolveChanges({ notes: '   ' }, TODAY).notes).toBeNull();
+        expect(act.resolveChanges({ notes: null }, TODAY).notes).toBeNull();
+      });
+
+      // CA-28.3: todos los problemas juntos, sobre el acto como queda.
+      it('informa juntos los problemas del acto resultante', () => {
+        const resolved = anAct().resolveChanges(
+          {
+            proceduralStateId: 99,
+            customState: 'Otro',
+            actDate: day('2026-10-07'),
+            notes: 'x'.repeat(2001),
+          },
+          TODAY,
+        );
+
+        expect(resolved.errors).toEqual({
+          proceduralStateId: 'Elegí un estado de la tabla o escribí uno, no las dos cosas.',
+          actDate: 'No puede ser posterior a la fecha de hoy.',
+          notes: 'Debe tener hasta 2000 caracteres.',
+        });
+      });
+
+      it('un estado escrito a mano de más de 255 caracteres no vale', () => {
+        expect(anAct().resolveChanges({ customState: 'x'.repeat(256) }, TODAY).errors).toEqual({
+          customState: 'Debe tener hasta 255 caracteres.',
+        });
+      });
+
+      // CA-28.3: la fecha de notificación ya guardada se valida contra la fecha del acto nueva.
+      it('valida la notificación que ya tenía contra la fecha del acto nueva', () => {
+        const act = anAct({ actDate: day('2026-10-01'), notificationDate: day('2026-10-02') });
+
+        expect(act.resolveChanges({ actDate: day('2026-10-03') }, TODAY).errors).toEqual({
+          notificationDate: 'Debe estar entre la fecha del acto y hoy.',
+        });
+      });
+
+      // Contrato V5 §3.8: `proceduralStateId`, `customState` y `actDate` no son anulables.
+      it('los campos no anulables no pueden quedar vacíos', () => {
+        expect(anAct().resolveChanges({ proceduralStateId: null, actDate: null }, TODAY).errors).toEqual({
+          proceduralStateId: CANNOT_BE_EMPTIED,
+          actDate: CANNOT_BE_EMPTIED,
+        });
+        expect(anAct().resolveChanges({ customState: null }, TODAY).errors).toEqual({ customState: CANNOT_BE_EMPTIED });
+      });
+    });
+
+    describe('modify', () => {
+      const LATER = new Date('2026-10-07T13:00:00.000Z');
+      const NEW_DEADLINE = Deadline.hydrate({
+        timeLimitDays: 5,
+        dayType: DayType.BUSINESS,
+        countsFrom: day('2026-09-28'),
+        computedDueDate: day('2026-10-05'),
+        manualDueDate: null,
+      });
+
+      // CA-28.10
+      it('cambia los datos y el plazo, conserva quién y cuándo lo registró y anota quién y cuándo lo modificó', () => {
+        const act = anAct();
+
+        const modified = act.modify({
+          proceduralStateId: OPPOSITION.id,
+          customState: null,
+          actDate: day('2026-09-28'),
+          notificationDate: null,
+          notes: 'Se corrigió la fecha.',
+          deadline: NEW_DEADLINE,
+          modifiedByUserId: 9,
+          now: LATER,
+        });
+
+        expect(modified.id).toBe(act.id);
+        expect(modified.caseId).toBe(act.caseId);
+        expect(modified.actDate).toEqual(day('2026-09-28'));
+        expect(modified.notes).toBe('Se corrigió la fecha.');
+        expect(modified.deadline).toBe(NEW_DEADLINE);
+        expect(modified.registeredByUserId).toBe(act.registeredByUserId);
+        expect(modified.registeredByLawyerId).toBe(act.registeredByLawyerId);
+        expect(modified.registeredAt).toBe(act.registeredAt);
+        expect(modified.lastModifiedByUserId).toBe(9);
+        expect(modified.lastModifiedAt).toBe(LATER);
+      });
+
+      it('un acto recién registrado no tiene modificación', () => {
+        const act = ProceduralAct.create(anActInput());
+
+        expect(act.lastModifiedByUserId).toBeNull();
+        expect(act.lastModifiedAt).toBeNull();
+      });
     });
   });
 });

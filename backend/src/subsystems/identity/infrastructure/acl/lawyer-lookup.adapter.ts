@@ -58,7 +58,7 @@ export class PeopleLawyerLookupAdapter
       id: created.id,
       lastName: created.lastName,
       firstName: created.firstName,
-      registrationNumber: created.registrationNumber.toString(),
+      registrationNumber: created.registrationNumber?.toString() ?? null,
     };
   }
 

@@ -34,6 +34,18 @@ export class JurisdictionIsNotModifiable implements ValidatorConstraintInterface
   }
 }
 
+/** `clientId` is refused like `jurisdiction`: the client of a case is fixed (D-111, CA-19.7 replaced). */
+@ValidatorConstraint({ name: 'clientIsNotModifiable', async: false })
+export class ClientIsNotModifiable implements ValidatorConstraintInterface {
+  validate(): boolean {
+    return false;
+  }
+
+  defaultMessage(): string {
+    return 'El cliente de una causa no se puede modificar.';
+  }
+}
+
 /**
  * Request body of `PATCH /cases/{caseId}` (HU19, contract V5 §3.7).
  *
@@ -72,9 +84,9 @@ export class UpdateCaseRequestDto {
   @IsString({ message: 'Debe ser un texto.' })
   instructorExtension?: string | null;
 
-  @IsOptional()
-  @IsInt({ message: 'Debe ser un número entero.' })
-  clientId?: number | null;
+  @ValidateIf((_, value) => value !== undefined)
+  @Validate(ClientIsNotModifiable)
+  clientId?: unknown;
 
   @IsOptional()
   @IsEnum(ProceduralRole, { message: 'No es un rol procesal válido.' })

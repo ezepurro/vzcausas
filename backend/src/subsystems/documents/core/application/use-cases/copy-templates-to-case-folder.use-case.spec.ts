@@ -166,6 +166,29 @@ describe('CopyTemplatesToCaseFolder', () => {
     expect(copiedEvents(events)).toEqual([]);
   });
 
+  // CA-39.5: el listener pide los modelos antes que la carpeta para que `cases` los vea si la carpeta falla.
+  it('request solo registra los pendientes: no copia, no toca el storage ni anuncia nada', async () => {
+    const { copyTemplates, copies, storage, events } = await aStudioWithTemplates(2);
+
+    await copyTemplates.request({ caseId: CASE_ID, jurisdictionId: CRIMINAL });
+
+    expect(copies.rowsOf(CASE_ID).map((c) => c.status)).toEqual(['PENDING', 'PENDING']);
+    expect(storage.fileCalls).toEqual([]);
+    expect(events.published).toEqual([]);
+  });
+
+  it('request seguido de execute copia cada modelo una sola vez (CA-40.7)', async () => {
+    const { copyTemplates, copies, storage, caseFolder } = await aStudioWithTemplates(2);
+
+    await copyTemplates.request({ caseId: CASE_ID, jurisdictionId: CRIMINAL });
+    await copyTemplates.request({ caseId: CASE_ID, jurisdictionId: CRIMINAL });
+    const result = await copyTemplates.execute({ caseId: CASE_ID, jurisdictionId: CRIMINAL });
+
+    expect(result).toEqual({ copied: 2, pending: 0 });
+    expect(copies.rowsOf(CASE_ID)).toHaveLength(2);
+    expect(storage.files.filter((f) => f.parentId === caseFolder.cloudFolderId)).toHaveLength(2);
+  });
+
   it('usa la carpeta que le pasan sin buscarla (todavía puede no estar vinculada a la causa)', async () => {
     const studio = await aStudioWithTemplates(1);
     const loose = await studio.storage.createFolder({ parentId: studio.rootCasesId, name: 'Suelta' });
@@ -173,6 +196,74 @@ describe('CopyTemplatesToCaseFolder', () => {
     await studio.copyTemplates.execute({ caseId: 77, jurisdictionId: CRIMINAL, cloudFolderId: loose.id });
 
     expect(studio.storage.files.filter((f) => f.parentId === loose.id)).toHaveLength(1);
+  });
+
+  // CA-40.1: `cases` puede no haber vinculado todavía la carpeta; una carpeta sin vincular ni se puede leer.
+  it('con el fuero y la carpeta en el comando no lee la carpeta, y copia igual', async () => {
+    const { copyTemplates, folders, caseFolder, storage } = await aStudioWithTemplates(2);
+    const findById = jest
+      .spyOn(folders, 'findById')
+      .mockRejectedValue(new Error('la carpeta todavía no está vinculada a la causa'));
+
+    const result = await copyTemplates.execute({
+      caseId: CASE_ID,
+      jurisdictionId: CRIMINAL,
+      cloudFolderId: caseFolder.cloudFolderId,
+    });
+
+    expect(result).toEqual({ copied: 2, pending: 0 });
+    expect(findById).not.toHaveBeenCalled();
+    expect(storage.files.filter((f) => f.parentId === caseFolder.cloudFolderId)).toHaveLength(2);
+  });
+
+  // C1
+  it('copia el archivo del modelo en la subcarpeta del fuero de la causa, no el principal', async () => {
+    const { copyTemplates, copies, storage, caseFolder } = await aStudioWithTemplates(0);
+    const penal = await storage.uploadFile({ parentId: 'penal', name: 'm.docx', mimeType: 'application/x', content: Buffer.from('penal') });
+    const amparo = await storage.uploadFile({ parentId: 'amparo', name: 'm.docx', mimeType: 'application/x', content: Buffer.from('amparo') });
+    copies.addTemplate({
+      id: 1,
+      fileName: 'm.docx',
+      cloudFileId: amparo.id,
+      jurisdictionIds: [CRIMINAL, AMPARO],
+      filesByJurisdiction: { [CRIMINAL]: penal.id, [AMPARO]: amparo.id },
+    });
+    storage.fileCalls.length = 0;
+
+    await copyTemplates.execute({ caseId: CASE_ID, jurisdictionId: CRIMINAL });
+
+    expect(storage.fileCalls).toEqual([{ method: 'copyFile', fileId: penal.id }]);
+    expect(storage.files.filter((f) => f.parentId === caseFolder.cloudFolderId)).toHaveLength(1);
+  });
+
+  // C2
+  it('un modelo anterior a las subcarpetas (sin archivo por fuero) se copia desde su archivo principal', async () => {
+    const { copyTemplates, storage } = await aStudioWithTemplates(1);
+    const main = storage.files[0];
+    storage.fileCalls.length = 0;
+
+    await copyTemplates.execute({ caseId: CASE_ID, jurisdictionId: CRIMINAL });
+
+    expect(storage.fileCalls).toEqual([{ method: 'copyFile', fileId: main.id }]);
+  });
+
+  // C3
+  it('al reintentar sin el fuero en el comando, lo toma de la carpeta de la causa', async () => {
+    const { copyTemplates, copies, storage } = await aStudioWithTemplates(0);
+    const penal = await storage.uploadFile({ parentId: 'penal', name: 'm.docx', mimeType: 'application/x', content: Buffer.from('penal') });
+    const principal = await storage.uploadFile({ parentId: 'otro', name: 'm.docx', mimeType: 'application/x', content: Buffer.from('otro') });
+    copies.addTemplate({
+      id: 1,
+      fileName: 'm.docx',
+      cloudFileId: principal.id,
+      filesByJurisdiction: { [CRIMINAL]: penal.id },
+    });
+    await copies.registerPending(CASE_ID, CRIMINAL);
+    storage.fileCalls.length = 0;
+
+    await copyTemplates.execute({ caseId: CASE_ID });
+
+    expect(storage.fileCalls).toEqual([{ method: 'copyFile', fileId: penal.id }]);
   });
 
   it('un modelo dado de baja con la copia pendiente no cuenta como pendiente', async () => {

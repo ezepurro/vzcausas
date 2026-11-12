@@ -50,8 +50,31 @@ patch:
   operationId: updateLawyer
   summary: Modificar abogado
   description: |
-    Modifica parcialmente la información de un abogado. Corresponde a HU14
-    (Sprint 4); se mantiene porque ya figuraba en V2.
+    Modifica parcialmente la información de un abogado (HU14, D-89). Las
+    validaciones siguen los criterios CA-14.1 a CA-14.6 y el formulario
+    "Modificar abogado" del prototipo.
+
+    **Reglas**
+
+    - **Campos obligatorios (CA-14.4).** El apellido y los nombres se pueden
+      omitir, pero no vaciar: un valor vacío, solo de espacios o `null`
+      responde `400 VALIDATION_ERROR` sobre ese campo. La matrícula es
+      opcional (D-107): `null`, vacía o solo de espacios la borra.
+    - **Matrícula única (CA-14.3).** Una matrícula que ya tiene otro abogado
+      responde `409 LAWYER_REGISTRATION_ALREADY_EXISTS`. Enviar la misma
+      que ya tiene el abogado no es un conflicto; borrarla nunca lo es.
+    - **Dato único (CA-14.2).** Las causas referencian al abogado, no lo
+      copian: el cambio se ve en `responsibleLawyer` de todas sus causas en
+      la siguiente lectura, y en la próxima emisión de su carátula.
+    - **Carpeta en Drive** (D-104). Si cambia el apellido o el nombre, se
+      renombra la carpeta del abogado (`/VZ Causas/Causas/{abogado}`); las
+      de sus causas quedan adentro y su `folder.path` cambia con ella. Si
+      Drive no responde, la modificación no falla: la carpeta conserva el
+      nombre anterior y la corrige el proceso diario.
+    - **Auditoría (CA-14.5).** Se registra quién modificó, cuándo y qué
+      cambió. No hay endpoint para consultarlo.
+    - **Abogado dado de baja.** Para el cliente no existe:
+      `404 LAWYER_NOT_FOUND`.
 
     **Rol requerido:** `ADMINISTRATOR`.
   requestBody:

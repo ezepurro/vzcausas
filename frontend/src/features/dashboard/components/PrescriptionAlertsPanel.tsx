@@ -9,6 +9,11 @@ interface PrescriptionAlertsPanelProps {
     onOpen: (caseId: number) => void
     /** En "Estudio" cada alerta dice quién es el responsable. */
     showLawyer?: boolean
+    /**
+     * La lista se desplaza adentro, con el mismo tope que "Carga del equipo".
+     * La usa "Estudio"; en "Mi día" el alto ya lo reparte la columna.
+     */
+    scroll?: boolean
 }
 
 /**
@@ -16,7 +21,12 @@ interface PrescriptionAlertsPanelProps {
  * 70 % o más de su plazo de prescripción transcurrido. El porcentaje lo
  * calcula el backend (D-51); acá sólo se dibuja.
  */
-export function PrescriptionAlertsPanel({ alerts, onOpen, showLawyer = false }: PrescriptionAlertsPanelProps) {
+export function PrescriptionAlertsPanel({
+    alerts,
+    onOpen,
+    showLawyer = false,
+    scroll = false,
+}: PrescriptionAlertsPanelProps) {
     return (
         <Panel title="Alertas de prescripción">
             {alerts.length === 0 ? (
@@ -24,7 +34,7 @@ export function PrescriptionAlertsPanel({ alerts, onOpen, showLawyer = false }: 
                     <div className="vz-empty__text">Ninguna causa superó el 70 % de su plazo de prescripción.</div>
                 </div>
             ) : (
-                <ul className="vz-dash-rows">
+                <ul className={scroll ? 'vz-dash-rows vz-dash-rows--scroll' : 'vz-dash-rows'}>
                     {alerts.map((alert) => (
                         <li key={alert.caseId}>
                             <button type="button" className="vz-dash-alert" onClick={() => onOpen(alert.caseId)}>

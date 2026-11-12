@@ -490,6 +490,67 @@ describe('GET /api/v1/cases/{caseId} (HU22)', () => {
       expect(item.prescriptionDeclaration).toBeNull();
     });
 
+    // D-112 (plan: .claude/plans/tests-d112-prescripcion-por-calificacion.md). Cada calificación
+    // trae su estado; `prescription` sigue siendo la que prescribe primero aunque ya venció (D-52).
+    it('cada calificación trae su estado de prescripción, y rige la de plazo cumplido', async () => {
+      const a = await addOffense(s.caseRow.id, '2024-01-10', 24);
+      const b = await addOffense(s.caseRow.id, '2024-01-10', 36);
+      const c = await addOffense(s.caseRow.id, '2024-01-10', 72);
+
+      const item = await detail(s.caseRow.id);
+      const byId = [...item.legalQualifications].sort((x: { id: number }, y: { id: number }) => x.id - y.id);
+
+      // Al 06/10/2026, 1000 días desde el hecho, sin actos interruptivos.
+      expect(byId).toEqual([
+        {
+          id: a.id,
+          name: a.name,
+          prescriptionMonths: 24,
+          offenseDate: '2024-01-10',
+          prescriptionStartsOn: '2024-01-10',
+          prescriptionExpiresOn: '2026-01-10',
+          elapsedPercentage: 100, // 1000 de 731 días: tope 100
+          alert: true,
+          expired: true,
+          prescriptionDeclaration: null,
+        },
+        {
+          id: b.id,
+          name: b.name,
+          prescriptionMonths: 36,
+          offenseDate: '2024-01-10',
+          prescriptionStartsOn: '2024-01-10',
+          prescriptionExpiresOn: '2027-01-10',
+          elapsedPercentage: 91, // 1000 de 1096 días: 91,24 %
+          alert: true,
+          expired: false,
+          prescriptionDeclaration: null,
+        },
+        {
+          id: c.id,
+          name: c.name,
+          prescriptionMonths: 72,
+          offenseDate: '2024-01-10',
+          prescriptionStartsOn: '2024-01-10',
+          prescriptionExpiresOn: '2030-01-10',
+          elapsedPercentage: 46, // 1000 de 2192 días: 45,62 %
+          alert: false,
+          expired: false,
+          prescriptionDeclaration: null,
+        },
+      ]);
+      expect(item.prescription).toEqual({
+        legalQualificationId: a.id,
+        legalQualificationName: a.name,
+        startsOn: '2024-01-10',
+        expiresOn: '2026-01-10',
+        elapsedPercentage: 100,
+        alert: true,
+        expired: true,
+        lastInterruptiveActDate: null,
+      });
+    });
+
     it('una causa marcada como prescripta devuelve la constancia y conserva su prescripción', async () => {
       const robo = await addOffense(s.caseRow.id, '2021-02-27', 96);
       await getPrisma().case.update({
@@ -629,7 +690,12 @@ describe('GET /api/v1/cases/{caseId}/timeline (HU27)', () => {
   });
 
   // CA-27.4 y CA-27.11
+  // D-113: rige el acto del que cuenta `prescription`; sin calificaciones no rige ninguno.
   it('marca vigente sólo el acto que llevó la causa a su estado actual, y rige el interruptivo de fecha más reciente', async () => {
+    const robbery = await createLegalQualification({ name: 'HU27 Robo — art. 167 CP', prescriptionMonths: 96 });
+    await getPrisma().offense.create({
+      data: { caseId: s.caseRow.id, legalQualificationId: robbery.id, offenseDate: civil('2021-02-27'), prescriptionDate: civil('2029-02-27') },
+    });
     const older = await registerAct({ proceduralStateId: s.states.withoutTerm.stateId, actDate: '2026-09-01' });
     const current = await registerAct({ proceduralStateId: s.states.fiveBusinessDays.stateId, actDate: '2026-10-01' });
     const governing = await registerInterruptive('Indagatoria', '2024-07-04');

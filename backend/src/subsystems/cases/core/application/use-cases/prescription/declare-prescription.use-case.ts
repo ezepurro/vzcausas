@@ -5,15 +5,12 @@ import { CaseInTerminalStateError, CaseNotFoundError } from '../../../domain/err
 import { CASE_REPOSITORY, CaseRepository } from '../../../domain/ports/case/case.repository';
 import { CaseListItem } from '../../../domain/ports/case/case.repository';
 import { LEGAL_PARAMETERS_LOOKUP, LegalParametersLookupPort } from '../../../domain/ports/case/legal-parameters-lookup.port';
-import {
-  PrescriptionDeclaration,
-  PrescriptionDeclarationInput,
-} from '../../../domain/value-objects/prescription/prescription-declaration.vo';
+import { PrescriptionDeclarationInput } from '../../../domain/value-objects/prescription/prescription-declaration.vo';
 import { GetCase } from '../case/get-case.use-case';
 
 export interface DeclarePrescriptionCommand extends PrescriptionDeclarationInput {
   caseId: number;
-  // Who marks it: an administrator or any lawyer (CA-33.1).
+  // Who marks it: an administrator or the responsible lawyer (CA-33.1, D-110).
   actor: AuthenticatedUser;
 }
 
@@ -22,13 +19,14 @@ export interface DeclarePrescriptionCommand extends PrescriptionDeclarationInput
  * contract V4 §3.7, D-52 to D-54).
  *
  * It coordinates and does not decide:
- * - who may do it is {@link PrescriptionDeclaration}'s rule, asked first
- *   because it does not depend on the case;
+ * - who may do it is the case's rule (`Case.assertCanDeclarePrescriptionBy`,
+ *   D-110): it depends on who the responsible lawyer is, so it comes after
+ *   the case is read;
  * - whether this case can prescribe, and what changes in it, is the case's own
  *   rule (`Case.declarePrescription`, overridden by `CriminalCase`). Here there
  *   is no `if` on the jurisdiction.
  *
- * Order (the business before the data, as in HU31): 403 → 404 → 422 → 400.
+ * Order (the business before the data, as in HU31): 404 → 403 → 422 → 400.
  * A refused request writes nothing.
  *
  * One conditional `UPDATE` is the whole write, so it needs no transaction. The
@@ -45,18 +43,19 @@ export class DeclarePrescription {
   ) {}
 
   async execute(command: DeclarePrescriptionCommand): Promise<CaseListItem> {
-    PrescriptionDeclaration.assertCanBeDeclaredBy(command.actor);
-
     // `findById` does not filter by `active`: a case given de baja does not exist here (§4, Bajas).
     const targetCase = await this.cases.findById(command.caseId);
     if (!targetCase || !targetCase.active) {
       throw new CaseNotFoundError();
     }
+    targetCase.assertCanDeclarePrescriptionBy(command.actor);
 
     const prescribedState = await this.legalParameters.findPrescribedProcStateByJurisdiction(
       targetCase.jurisdictionCode,
     );
 
+    // D-113: the offenses this marking declares are the ones still pending.
+    const declaredQualificationIds = targetCase.qualificationsPendingPrescription;
     targetCase.declarePrescription({
       data: command,
       prescribedState,
@@ -66,7 +65,7 @@ export class DeclarePrescription {
     });
 
     // Another marking of the same case won between our read and this write.
-    if (!(await this.cases.saveDeclaredPrescription(targetCase))) {
+    if (!(await this.cases.saveDeclaredPrescription(targetCase, declaredQualificationIds))) {
       throw new CaseInTerminalStateError(CaseInTerminalStateError.FOR_THIS_OPERATION);
     }
 

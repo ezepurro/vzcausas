@@ -3,6 +3,7 @@ import {
   CaseInTerminalStateError,
   CaseNotFoundError,
   CaseSacAlreadyExistsError,
+  NotResponsibleLawyerError,
 } from '../../../domain/errors/case.errors';
 import { CaseListItem } from '../../../domain/ports/case/case.repository';
 import { CASE_MODIFIED } from '../../../domain/ports/events/case-modified.event';
@@ -101,17 +102,54 @@ describe('UpdateCase', () => {
     expect(audit.entries).toEqual([]);
   });
 
-  // CA-19.7, CA-19.8: las referencias, con los mensajes del alta
-  it('un cliente o un abogado que no están vigentes se informan junto con los demás errores', async () => {
+  // D-110
+  it.each([
+    ['otro abogado', { roleNames: ['LAWYER'], lawyerId: 99 }],
+    ['un abogado sin ficha', { roleNames: ['LAWYER'], lawyerId: null }],
+  ])('%s recibe 403 y no escribe nada', async (_name, actor) => {
+    const { useCase, cases, audit, events } = build();
+
+    const attempt = useCase.execute(command({ actor: anActor(actor) }));
+
+    await expect(attempt).rejects.toThrow(NotResponsibleLawyerError);
+    await expect(attempt).rejects.toThrow('Solo el abogado responsable de la causa puede modificarla.');
+    expect(cases.modifications).toEqual([]);
+    expect(audit.entries).toEqual([]);
+    expect(events.published).toEqual([]);
+  });
+
+  // D-110
+  it.each([
+    ['ADMINISTRATOR', ['ADMINISTRATOR'], null],
+    ['SECRETARY', ['SECRETARY'], null],
+    ['LAWYER y SECRETARY, sin ser el responsable', ['LAWYER', 'SECRETARY'], 99],
+  ])('%s modifica una causa ajena', async (_name, roleNames, lawyerId) => {
+    const { useCase, cases } = build();
+
+    await useCase.execute(command({ actor: anActor({ roleNames, lawyerId }) }));
+
+    expect(cases.modifications).toHaveLength(1);
+  });
+
+  // D-110: primero 404, después 403
+  it('una causa inexistente es 404 aunque el actor sea otro abogado', async () => {
+    const { useCase } = build();
+
+    await expect(
+      useCase.execute(command({ caseId: 999, actor: anActor({ lawyerId: 99 }) })),
+    ).rejects.toBeInstanceOf(CaseNotFoundError);
+  });
+
+  // CA-19.8: las referencias, con los mensajes del alta
+  it('un abogado que no está vigente se informa junto con los demás errores', async () => {
     const { useCase, cases } = build();
 
     const error = await useCase
-      .execute(command({ changes: { clientId: 404, responsibleLawyerId: 404, sacNumber: '1' } }))
+      .execute(command({ changes: { responsibleLawyerId: 404, sacNumber: '1' } }))
       .catch((e: unknown) => e);
 
     expect(error).toBeInstanceOf(ValidationError);
     expect((error as ValidationError).details).toEqual({
-      clientId: 'No existe un cliente vigente con ese identificador.',
       responsibleLawyerId: 'No existe un abogado vigente con ese identificador.',
       sacNumber: 'Debe contener exactamente 8 dígitos.',
     });

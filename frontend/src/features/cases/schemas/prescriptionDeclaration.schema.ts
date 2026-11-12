@@ -12,6 +12,12 @@ export type PrescriptionDeclarationFormErrors = Partial<Record<keyof Prescriptio
 const RESOLUTION_MAX = 255
 const GROUNDS_MAX = 2000
 
+/**
+ * Topes de los controles (`maxLength`), por campo del formulario: no dejan
+ * escribir de más. Salen de las mismas constantes que valida el schema.
+ */
+export const PRESCRIPTION_DECLARATION_MAX_LENGTH = { resolution: RESOLUTION_MAX, grounds: GROUNDS_MAX } as const
+
 export function validatePrescriptionDeclaration(
     values: PrescriptionDeclarationFormValues,
 ): PrescriptionDeclarationFormErrors {

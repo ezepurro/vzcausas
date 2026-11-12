@@ -1,6 +1,6 @@
 import { FormModal, type FieldSpec, type SelectOption } from '@/shared/components/forms'
 import { LAWYER_MODES, type Role, type UserFormValues } from '@/features/users/types/user'
-import type { UserFormErrors } from '@/features/users/schemas/user.schema'
+import { USER_MAX_LENGTH, type UserFormErrors } from '@/features/users/schemas/user.schema'
 import { isCreatingLawyer, needsLawyer } from '@/features/users/utils/lawyerLink'
 
 export interface UserFormModalProps {
@@ -47,6 +47,7 @@ export function UserFormModal({
             label: 'Apellido',
             width: 'half',
             required: true,
+            maxLength: USER_MAX_LENGTH.lastName,
             error: errors.lastName,
         },
         {
@@ -54,6 +55,7 @@ export function UserFormModal({
             label: 'Nombres',
             width: 'half',
             required: true,
+            maxLength: USER_MAX_LENGTH.firstName,
             error: errors.firstName,
         },
         {
@@ -63,6 +65,7 @@ export function UserFormModal({
             required: true,
             mono: true,
             placeholder: 'usuario',
+            maxLength: USER_MAX_LENGTH.username,
             error: errors.username,
         },
         {
@@ -149,12 +152,12 @@ export function UserFormModal({
             k: 'registrationNumber',
             label: 'Matrícula',
             width: 'half',
-            required: true,
             mono: true,
             placeholder: '1-00000',
             /* La ficha nueva lleva el apellido y los nombres del usuario: sólo
-               pide la matrícula (TESTING.md §11). */
-            note: 'La ficha lleva el apellido y los nombres del usuario.',
+               pide la matrícula, que es opcional (TESTING.md §11). */
+            note: 'Opcional. La ficha lleva el apellido y los nombres del usuario.',
+            maxLength: USER_MAX_LENGTH.registrationNumber,
             error: errors.registrationNumber,
             when: creatingLawyer,
         },

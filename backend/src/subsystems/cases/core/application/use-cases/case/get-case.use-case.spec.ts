@@ -49,7 +49,7 @@ function anItem(dueDate: Date | null): CaseListItem {
     client: CLIENT,
     responsibleLawyer: LAWYER,
     legalQualifications: [],
-    lastInterruptiveActDate: null,
+    interruptiveActDates: [],
     prescription: null,
     prescriptionDeclaration: null,
     startDate: day('2026-09-01'),

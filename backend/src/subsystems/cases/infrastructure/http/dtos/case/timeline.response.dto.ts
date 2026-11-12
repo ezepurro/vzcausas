@@ -22,4 +22,11 @@ export type TimelineEntryResponseDto =
       governsPrescription: boolean;
       interruptiveAct: InterruptiveActResponseDto;
     }
+  | {
+      // D-113: one legal qualification declared prescribed.
+      type: 'QUALIFICATION_PRESCRIPTION_DECLARATION';
+      date: string;
+      legalQualification: { id: number; name: string };
+      prescriptionDeclaration: PrescriptionDeclarationResponseDto;
+    }
   | { type: 'PRESCRIPTION_DECLARATION'; date: string; prescriptionDeclaration: PrescriptionDeclarationResponseDto };
