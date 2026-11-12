@@ -697,7 +697,7 @@
   min-width: min(280px, 100%);
   margin: auto 0;
 }
-.vz-cover-preview__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: #fff; }
+.vz-cover-preview__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--vz-rail-fg-on); }
 .vz-cover-preview__title { font-size: 14px; font-weight: 600; }
 .vz-cover-preview__close {
   flex: 0 0 auto;
@@ -709,7 +709,7 @@
   font: inherit;
   font-size: 13px;
   font-weight: 600;
-  color: #fff;
+  color: var(--vz-rail-fg-on);
   cursor: pointer;
 }
 .vz-cover-preview__close:hover { background: rgba(255, 255, 255, .12); }
@@ -718,7 +718,7 @@
   flex-direction: column;
   aspect-ratio: 595 / 842;
   overflow: hidden;
-  background: #fff;
+  background: var(--vz-surface);
   box-shadow: 0 24px 60px rgba(0, 0, 0, .35);
 }
 .vz-cover-preview__sheet > * { flex: 1; min-height: 0; }
@@ -739,3 +739,8 @@
   .vz-casefile__row-actions .vz-btn { height: 36px; min-width: 40px; }
   .vz-docs__actions .vz-btn { flex: 1 1 auto; height: 36px; }
 }
+
+/* ─────────── listado de causas ─────────── */
+/* El estado procesal del listado parte en dos renglones si hace falta, en
+   lugar de ensanchar su columna a costa de la carátula (H-32). */
+.vz-cases__state .vz-pill { white-space: normal; line-height: 1.3; border-radius: var(--vz-r); }

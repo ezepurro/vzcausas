@@ -136,12 +136,19 @@
 
 /* ─────────── pantallas angostas ─────────── */
 
-/* La columna institucional es decoración: cuando no entra, se va entera y
-   queda el formulario solo. */
+/* Cuando la columna institucional no entra, queda de ella sólo la marca, en
+   una franja arriba del formulario: la cita y el monograma de fondo son
+   decoración y se van. Antes se iba la columna entera y el login no decía de
+   qué estudio era (H-26). */
 @media (max-width: 860px) {
-  .vz-login { grid-template-columns: minmax(0, 1fr); }
-  .vz-login__aside { display: none; }
+  .vz-login {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+  .vz-login__aside { padding: 18px 40px; gap: 0; }
+  .vz-login__aside > :not(.vz-login__brand) { display: none; }
 }
 @media (max-width: 720px) {
+  .vz-login__aside { padding: 16px 20px; }
   .vz-login__panel { padding: 32px 20px; }
 }

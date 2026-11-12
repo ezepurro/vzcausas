@@ -2,7 +2,9 @@
    En el entry de la app:  import '@/styles/index.css';
    El orden importa: tokens antes que todo lo demás. */
 
-@import url('https://fonts.googleapis.com/css2?family=Figtree:wght@300..900&family=Roboto+Mono:wght@400;500&display=swap');
+/* Las fuentes (Figtree y Roboto Mono) se piden desde `index.html`, con
+   `preconnect`: acá, como `@import`, el navegador recién las descubría al
+   terminar de bajar esta hoja y las pedía en cadena (H-23). */
 
 @import './tokens.css';
 @import './base.css';

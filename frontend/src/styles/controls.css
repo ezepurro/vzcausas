@@ -18,9 +18,15 @@
 }
 .vz-btn:disabled { cursor: not-allowed; }
 
-.vz-btn--primary { background: var(--vz-primary); color: #fff; }
+.vz-btn--primary { background: var(--vz-primary); color: var(--vz-on-primary); }
 .vz-btn--primary:hover:not(:disabled) { background: var(--vz-primary-hi); }
-.vz-btn--primary:disabled { background: var(--vz-border-strong); color: #fff; }
+/* Deshabilitado se tiene que poder leer: "Registrar causa" pasa buena parte
+   del alta así. Blanco sobre el gris del borde daba 1,66:1 (H-42). */
+.vz-btn--primary:disabled {
+  background: var(--vz-sunken);
+  border-color: var(--vz-border);
+  color: var(--vz-muted);
+}
 
 .vz-btn--secondary {
   background: var(--vz-surface);
@@ -55,7 +61,7 @@
    (base.css) le pondría el verde de los enlaces y el subrayado, y pesa más
    que la clase del botón. Al apuntarlo conserva el color de su variante. */
 a.vz-btn:hover { text-decoration: none; }
-a.vz-btn--primary:hover { color: #fff; }
+a.vz-btn--primary:hover { color: var(--vz-on-primary); }
 a.vz-btn--secondary:hover { color: var(--vz-ink); }
 a.vz-btn--danger:hover,
 a.vz-btn--ghost-danger:hover { color: var(--vz-danger-action); }
@@ -488,6 +494,11 @@ a.vz-btn--ghost:hover { color: var(--vz-ink); }
   html:root :is(.vz-input, .vz-select, .vz-textarea, .vz-search__input) { font-size: 16px; }
 
   .vz-form-grid > .vz-form-row3 { grid-template-columns: minmax(0, 1fr); }
+
+  /* Con el dedo, un botón de 28px se erra: los chicos suben a 36 (H-25,
+     H-52). Los que ya tienen su alto en el teléfono —acciones de una ficha,
+     paginado, chips de filtro— lo conservan, porque sus reglas pesan más. */
+  .vz-btn--sm { height: 36px; padding: 0 14px; font-size: 13px; }
 
   /* El botón de al lado baja a su renglón: al costado dejaba al desplegable
      sin lugar para mostrar lo elegido. */

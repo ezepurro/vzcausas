@@ -20,6 +20,8 @@
      quedaba tapado. */
   height: 100dvh;
   overflow: hidden;
+  /* Sobre el rail el foco es claro: el verde no se distingue (H-34). */
+  --vz-focus: var(--vz-rail-fg-on);
 }
 
 /* El logo es un link a la pantalla de entrada: sin el estilo de link. */
@@ -150,7 +152,15 @@
   color: var(--vz-rail-fg-on);
   font-size: 12.5px;
   font-weight: 600;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  line-height: 1.25;
+  /* Hasta dos renglones: en uno, entre el avatar y los dos botones, un nombre
+     corriente ("Fernando G. Vázquez") ya se cortaba (H-39). */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
 }
 .vz-rail__ident-profile { color: var(--vz-rail-fg); font-size: 11px; }
 
@@ -412,6 +422,9 @@
     cursor: pointer;
   }
   .vz-rail__close:hover { color: var(--vz-rail-fg-on); background: var(--vz-rail-on-bg); }
+
+  /* El rail abierto se usa con el dedo: los dos botones del pie crecen. */
+  .vz-rail__iconbtn { padding: 9px; }
 }
 
 @media (max-width: 1023px) and (prefers-reduced-motion: reduce) {
@@ -430,4 +443,7 @@
   .vz-page-head__actions { flex: 1 1 100%; }
   .vz-page-head__actions > .vz-btn { flex: 1 1 auto; height: 42px; }
   .vz-crumbs { margin-bottom: 10px; }
+  /* "Volver" y los enlaces de las migas, con lugar para el dedo (H-51). */
+  .vz-crumbs__back { width: 36px; height: 36px; }
+  .vz-crumbs__link { display: inline-flex; align-items: center; min-height: 36px; }
 }

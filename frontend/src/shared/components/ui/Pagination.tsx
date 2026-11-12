@@ -35,8 +35,11 @@ export function Pagination({ page, totalPages, totalItems, noun, onChange, onInt
   const hasNext = page < totalPages;
 
   return (
-    <div className="vz-pager">
-      <span className="vz-pager__status">
+    /* Una región con nombre: quien navega por regiones llega al paginado sin
+       recorrer la tabla. El resumen avisa el cambio de página a un lector de
+       pantalla, que si no aprieta "Siguiente" y no se entera de qué pasó. */
+    <nav className="vz-pager" aria-label="Paginación">
+      <span className="vz-pager__status" aria-live="polite">
         {totalItems === 0 ? (
           'Sin resultados'
         ) : (
@@ -75,6 +78,6 @@ export function Pagination({ page, totalPages, totalItems, noun, onChange, onInt
           <Icon name="forward" size={15} />
         </Button>
       </div>
-    </div>
+    </nav>
   );
 }

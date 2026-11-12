@@ -28,7 +28,7 @@ export interface BreadcrumbsProps {
  */
 export function Breadcrumbs({ items, onBack }: BreadcrumbsProps) {
   return (
-    <nav className="vz-crumbs" aria-label="Migas">
+    <nav className="vz-crumbs" aria-label="Ruta de navegación">
       {onBack && (
         <button type="button" className="vz-crumbs__back" onClick={onBack} aria-label="Volver" title="Volver">
           <Icon name="back" size={15} />

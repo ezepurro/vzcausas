@@ -18,7 +18,7 @@ export function RailUser({
     <div className="vz-rail__user">
       <span className="vz-rail__avatar" title={name}>{initials ?? deriveInitials(name)}</span>
       <div className="vz-rail__ident">
-        <div className="vz-rail__ident-name">{name}</div>
+        <div className="vz-rail__ident-name" title={name}>{name}</div>
         <div className="vz-rail__ident-profile">{profile}</div>
       </div>
       <button

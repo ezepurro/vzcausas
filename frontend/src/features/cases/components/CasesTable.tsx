@@ -46,7 +46,7 @@ export function CasesTable({ rows, onOpen, onIntent, empty, loading, busy }: Cas
         {
             id: 'caption',
             header: 'Carátula',
-            width: '32%',
+            width: '36%',
             primary: true,
             cell: (c) => (
                 <>
@@ -65,8 +65,15 @@ export function CasesTable({ rows, onOpen, onIntent, empty, loading, busy }: Cas
         {
             id: 'state',
             header: 'Estado procesal',
-            cell: (c) => <Pill>{caseStateLabel(c.currentState)}</Pill>,
-            nowrap: true,
+            /* El estado puede partir en dos renglones: en un renglón, un nombre
+               largo ("Requerimiento de elevación a juicio") se llevaba 270px
+               y dejaba a la carátula, que es lo que se lee, en 156 (H-32). */
+            width: '15%',
+            cell: (c) => (
+                <span className="vz-cases__state">
+                    <Pill>{caseStateLabel(c.currentState)}</Pill>
+                </span>
+            ),
         },
         {
             id: 'responsible',
@@ -114,7 +121,8 @@ export function CasesTable({ rows, onOpen, onIntent, empty, loading, busy }: Cas
             columns={columns}
             rows={rows}
             rowKey={(c) => String(c.id)}
-            minWidth={1100}
+            /* Entra sin scroll en una notebook de 1366px (1.045 de panel). */
+            minWidth={1040}
             empty={empty}
             loading={loading}
             loadingLabel="Cargando causas…"
