@@ -61,6 +61,7 @@ const PERMISSIONS = [
   { name: 'lawyer:delete', description: 'Dar de baja abogados.' },
   { name: 'client:create', description: 'Registrar clientes.' },
   { name: 'client:read', description: 'Consultar clientes.' },
+  { name: 'client:update', description: 'Modificar clientes.' },
   { name: 'qualification:create', description: 'Registrar calificaciones legales.' },
   { name: 'qualification:read', description: 'Consultar calificaciones legales.' },
   // Writing only (HU45, HU17, HU46). Reading procedural states is open to
@@ -92,6 +93,8 @@ const PERMISSIONS = [
 const STAFF = [
   'client:read',
   'client:create',
+  // HU10: the three profiles modify clients (CA-10.6).
+  'client:update',
   'lawyer:read',
   'qualification:read',
   'qualification:create',

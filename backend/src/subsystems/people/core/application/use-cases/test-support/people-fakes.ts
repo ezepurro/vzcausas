@@ -6,6 +6,11 @@ import { IntegrationEvent } from "@shared/infrastructure/events/integration-even
 import { Client } from "../../../domain/entities/client.entity";
 import { ActiveCasesCounterPort } from "../../../domain/ports/active-cases-counter.port";
 import {
+  CaptionsFollowUp,
+  ClientCaseCaptionsPort,
+  ClientRenamed,
+} from "../../../domain/ports/client-case-captions.port";
+import {
   ClientPage,
   ClientRepository,
   ClientSearchCriteria,
@@ -123,13 +128,21 @@ export class FakeClientRepository implements ClientRepository {
     return this.nextIdValue++;
   }
 
-  async existsActiveByDocument(document: ClientDocument): Promise<boolean> {
+  async existsActiveByDocument(document: ClientDocument, exceptClientId?: number): Promise<boolean> {
     return [...this.byId.values()].some(
-      (client) => client.isActive() && client.document.equals(document),
+      (client) => client.isActive() && client.id !== exceptClientId && client.document.equals(document),
     );
   }
 
   async create(client: Client): Promise<void> {
+    this.byId.set(client.id, client);
+  }
+
+  /** Every client `update` received, in order (HU10). */
+  readonly updates: number[] = [];
+
+  async update(client: Client): Promise<void> {
+    this.updates.push(client.id);
     this.byId.set(client.id, client);
   }
 
@@ -255,6 +268,35 @@ export class FakeAuditTrail implements AuditTrailPort {
       throw error;
     }
     this.entries.push({ ...entry, inTransaction: this.transactions?.open ?? false });
+  }
+}
+
+/**
+ * In-memory {@link ClientCaseCaptionsPort} (HU10). Records each rename and
+ * each announcement, and whether a transaction was open at the time, so a
+ * spec can assert the captions are written with the client and announced
+ * only after the commit.
+ */
+export class FakeClientCaseCaptions implements ClientCaseCaptionsPort {
+  readonly renames: Array<ClientRenamed & { inTransaction: boolean }> = [];
+  readonly announcements: Array<CaptionsFollowUp & { inTransaction: boolean }> = [];
+  /** The cases whose caption "changed", returned by `followRename`. */
+  renamedCaseIds: number[] = [];
+  failNextWith: Error | null = null;
+  transactions?: FakeTransactionManager;
+
+  async followRename(renamed: ClientRenamed): Promise<CaptionsFollowUp> {
+    if (this.failNextWith) {
+      const error = this.failNextWith;
+      this.failNextWith = null;
+      throw error;
+    }
+    this.renames.push({ ...renamed, inTransaction: this.transactions?.open ?? false });
+    return { renamedCaseIds: [...this.renamedCaseIds] };
+  }
+
+  async announce(followUp: CaptionsFollowUp): Promise<void> {
+    this.announcements.push({ ...followUp, inTransaction: this.transactions?.open ?? false });
   }
 }
 

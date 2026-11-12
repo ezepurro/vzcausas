@@ -48,3 +48,73 @@ get:
       $ref: ../components/responses/Unauthorized.yaml
     '404':
       $ref: ../components/responses/ClientNotFound.yaml
+
+patch:
+  tags:
+    - Clients
+  operationId: updateClient
+  summary: Modificar cliente
+  description: |
+    Modifica los datos de un cliente (HU10, V6). Los datos se guardan una sola
+    vez y las causas los referencian: el cambio se ve en todas sus causas.
+
+    Si cambia el apellido o los nombres, la carátula de cada causa vigente del
+    cliente que empieza con `APELLIDO, Nombres` pasa a empezar con el nombre
+    nuevo, y su carpeta en Drive se renombra. Si Drive no responde, la
+    modificación no falla.
+
+    **Rol requerido:** cualquier usuario autenticado.
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: ../components/schemas/ClientUpdate.yaml
+        example:
+          address: Bv. San Juan 1240, Córdoba
+          phone: 351 415-2288
+  responses:
+    '200':
+      description: El cliente modificado, igual que `GET /clients/{clientId}`.
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - data
+            properties:
+              data:
+                $ref: ../components/schemas/Client.yaml
+    '400':
+      description: Datos inválidos, cuerpo vacío, `clientSince` enviado o identificador inválido.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          examples:
+            invalidData:
+              summary: Datos inválidos
+              value:
+                error:
+                  code: VALIDATION_ERROR
+                  message: Los datos enviados no son válidos.
+                  details:
+                    documentNumber: Debe contener 7 u 8 dígitos, sin puntos.
+                    address: La dirección es obligatoria.
+            invalidClientId:
+              $ref: ../components/examples/InvalidClientIdError.yaml
+    '401':
+      $ref: ../components/responses/Unauthorized.yaml
+    '404':
+      $ref: ../components/responses/ClientNotFound.yaml
+    '409':
+      description: El documento lo tiene otro cliente vigente.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          example:
+            error:
+              code: CLIENT_DNI_ALREADY_EXISTS
+              message: Ya existe un cliente registrado con ese DNI.
+              details: null

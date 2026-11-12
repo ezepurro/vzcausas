@@ -73,6 +73,19 @@ export class EmptyLawyerUpdateError extends ValidationError {
 }
 
 /**
+ * Emitted by `Client.update` (HU10) when the `PATCH` brings no field to
+ * change: the contract asks for at least one (CA-10.1). Same `details` as
+ * {@link EmptyLawyerUpdateError}, so every `PATCH` answers alike.
+ */
+export class EmptyClientUpdateError extends ValidationError {
+  constructor() {
+    super("VALIDATION_ERROR", "Los datos enviados no son válidos.", {
+      body: "Debe enviarse al menos un campo para modificar.",
+    });
+  }
+}
+
+/**
  * Emitted by `RegisterClient` (HU-8) when the document already belongs to
  * a **current** client (CA-8.4), whether it is a DNI or a passport (D-108).
  *

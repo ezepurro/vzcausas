@@ -55,6 +55,14 @@ export abstract class UnusedCaseRepository implements CaseRepository {
     throw new Error('Este spec no usa saveModification de CaseRepository.');
   }
 
+  async findActiveByClientId(_clientId: number): Promise<Case[]> {
+    throw new Error('Este spec no usa findActiveByClientId de CaseRepository.');
+  }
+
+  async saveCaption(_updatedCase: Case): Promise<void> {
+    throw new Error('Este spec no usa saveCaption de CaseRepository.');
+  }
+
   async findById(_id: number): Promise<Case | null> {
     throw new Error('Este spec no usa findById de CaseRepository.');
   }
@@ -257,6 +265,17 @@ export class FakeCaseRepository extends UnusedCaseRepository {
 
   async findById(id: number): Promise<Case | null> {
     return this.saved.find((saved) => saved.id === id) ?? null;
+  }
+
+  async findActiveByClientId(clientId: number): Promise<Case[]> {
+    return this.saved.filter((saved) => saved.clientId === clientId && saved.active);
+  }
+
+  /** The `[caseId, caption]` that `saveCaption` wrote, in order (HU10). */
+  readonly captionsSaved: Array<[number, string]> = [];
+
+  async saveCaption(updatedCase: Case): Promise<void> {
+    this.captionsSaved.push([updatedCase.id, updatedCase.caption]);
   }
 
   async findCurrentState(caseId: number): Promise<ProceduralStateRef> {

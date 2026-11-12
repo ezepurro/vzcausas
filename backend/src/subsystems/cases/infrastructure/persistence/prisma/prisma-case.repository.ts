@@ -210,6 +210,27 @@ export class PrismaCaseRepository implements CaseRepository {
     });
   }
 
+  async findActiveByClientId(clientId: number): Promise<Case[]> {
+    const rows = await this.prisma.db.case.findMany({
+      where: { clientId, active: true },
+      include: {
+        jurisdiction: true,
+        offenses: { include: { legalQualification: true } },
+        currentState: true,
+        currentProceduralAct: true,
+      },
+      orderBy: { id: 'asc' },
+    });
+    return rows.map(CasePrismaMapper.toDomain);
+  }
+
+  async saveCaption(updatedCase: Case): Promise<void> {
+    await this.prisma.db.case.update({
+      where: { id: updatedCase.id },
+      data: { caption: updatedCase.caption, updatedAt: updatedCase.updatedAt },
+    });
+  }
+
   async findById(id: number): Promise<Case | null> {
     const row = await this.prisma.db.case.findUnique({
       where: { id },

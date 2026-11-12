@@ -1,0 +1,48 @@
+type: object
+description: |
+  Cuerpo de `PATCH /clients/{clientId}` (HU10, V6). Todos los campos son
+  opcionales, pero debe enviarse al menos uno. Las restricciones son las del
+  alta. Un campo omitido no cambia; `email` en `null` lo borra; los demás no
+  se pueden vaciar ni enviar en `null` (D-109).
+
+  - **El documento se puede cambiar** (D-121). El número se valida contra el
+    tipo que resulta: si se envía solo `documentType`, el número que ya tenía
+    el cliente tiene que respetar el formato del tipo nuevo.
+  - **`clientSince` no se modifica**: enviarlo responde `400`.
+  - **Si cambia el nombre**, cada causa vigente del cliente cuya carátula
+    empieza con `APELLIDO, Nombres` pasa a empezar con el nombre nuevo, y su
+    carpeta en Drive se renombra (D-121, D-130).
+additionalProperties: false
+properties:
+  lastName:
+    type: string
+    minLength: 1
+    maxLength: 100
+    examples:
+      - GÓMEZ PAZ
+  firstName:
+    type: string
+    minLength: 1
+    maxLength: 100
+  documentType:
+    $ref: ./DocumentType.yaml
+  documentNumber:
+    type: string
+    description: Con el formato del tipo de documento que resulta. Único por tipo entre los clientes vigentes.
+    pattern: '^([0-9]{7,8}|[A-Z0-9]{6,20})$'
+  address:
+    type: string
+    minLength: 1
+    maxLength: 255
+    pattern: '\S'
+  phone:
+    type: string
+    minLength: 1
+    maxLength: 50
+    pattern: '\S'
+  email:
+    type:
+      - string
+      - 'null'
+    format: email
+    description: '`null` borra el correo.'

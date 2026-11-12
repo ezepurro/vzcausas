@@ -1,5 +1,45 @@
 import { ValidationError } from "@shared/domain/domain-error";
+import { EmptyClientUpdateError } from "../errors/people.errors";
+import { CLIENT_FIELDS, ClientChangeSet, ClientField } from "../value-objects/client-change-set.vo";
 import { ClientDocument } from "../value-objects/client-document.vo";
+import { PersonName } from "../value-objects/person-name.vo";
+
+const INVALID_DATA_MESSAGE = "Los datos enviados no son válidos.";
+
+/** A required, bounded text of the client, with the registration's messages (D-109). */
+interface RequiredTextRule {
+  max: number;
+  required: string;
+  tooLong: string;
+}
+
+const ADDRESS_RULE: RequiredTextRule = {
+  max: 255,
+  required: "La dirección es obligatoria.",
+  tooLong: "La dirección no puede superar los 255 caracteres.",
+};
+
+const PHONE_RULE: RequiredTextRule = {
+  max: 50,
+  required: "El teléfono es obligatorio.",
+  tooLong: "El teléfono no puede superar los 50 caracteres.",
+};
+
+/**
+ * What `PATCH /clients/{clientId}` sends (HU10). Every field is optional:
+ * `undefined` means "not sent, keep it"; `null` on `email` clears it, and on
+ * a required field it is an attempt to empty it, refused by {@link Client.update}.
+ * `clientSince` is not here: it cannot be modified (CA-10.8).
+ */
+export interface ClientChanges {
+  lastName?: string | null;
+  firstName?: string | null;
+  documentType?: string | null;
+  documentNumber?: string | null;
+  address?: string | null;
+  phone?: string | null;
+  email?: string | null;
+}
 
 /**
  * A client of the firm: the person a case is run for.
@@ -26,7 +66,8 @@ export class Client {
     private readonly _id: number,
     private _lastName: string,
     private _firstName: string,
-    private readonly _document: ClientDocument,
+    // Editable since V6 (D-121): HU10 can change it.
+    private _document: ClientDocument,
     private _address: string,
     private _phone: string,
     private _email: string | null,
@@ -139,6 +180,131 @@ export class Client {
       props.clientSince,
       props.active ?? true,
     );
+  }
+
+  /**
+   * HU10 — corrects the client's data (contract V6, `PATCH /clients/{clientId}`).
+   *
+   * An omitted field does not change; `email: null` clears it. Last name,
+   * first names, address and phone may not be emptied (D-109). The document is
+   * editable (D-121) and its number is checked against the type that results:
+   * sending only the type checks the number the client already had (CA-10.3).
+   *
+   * Everything is validated **before** anything is applied, and every problem
+   * comes back in one `400` with the registration's messages: either the whole
+   * change lands or the client stays as it was. Whether the new document
+   * belongs to another client needs the others, so the use case checks it.
+   *
+   * @returns what actually changed.
+   * @throws {EmptyClientUpdateError} no field was sent (CA-10.1).
+   * @throws {ValidationError} `VALIDATION_ERROR` with every invalid field.
+   */
+  update(changes: ClientChanges): ClientChangeSet {
+    if (!CLIENT_FIELDS.some((field) => changes[field] !== undefined)) {
+      throw new EmptyClientUpdateError();
+    }
+
+    const errors: Record<string, string> = {};
+    const lastName = Client.collect(errors, () =>
+      changes.lastName === undefined ? undefined : PersonName.forClient("lastName", changes.lastName).toString(),
+    );
+    const firstName = Client.collect(errors, () =>
+      changes.firstName === undefined ? undefined : PersonName.forClient("firstName", changes.firstName).toString(),
+    );
+    const document = Client.collect(errors, () => this.documentAfter(changes));
+    const address = Client.requiredText(errors, "address", changes.address, ADDRESS_RULE);
+    const phone = Client.requiredText(errors, "phone", changes.phone, PHONE_RULE);
+    if (Object.keys(errors).length > 0) {
+      throw new ValidationError("VALIDATION_ERROR", INVALID_DATA_MESSAGE, errors);
+    }
+
+    const changed: ClientField[] = [];
+    if (lastName !== undefined && lastName !== this._lastName) {
+      this._lastName = lastName;
+      changed.push("lastName");
+    }
+    if (firstName !== undefined && firstName !== this._firstName) {
+      this._firstName = firstName;
+      changed.push("firstName");
+    }
+    if (document !== undefined && !document.equals(this._document)) {
+      if (document.type !== this._document.type) changed.push("documentType");
+      if (document.number !== this._document.number) changed.push("documentNumber");
+      this._document = document;
+    }
+    if (address !== undefined && address !== this._address) {
+      this._address = address;
+      changed.push("address");
+    }
+    if (phone !== undefined && phone !== this._phone) {
+      this._phone = phone;
+      changed.push("phone");
+    }
+    if (changes.email !== undefined) {
+      const email = blankToNull(changes.email);
+      if (email !== this._email) {
+        this._email = email;
+        changed.push("email");
+      }
+    }
+    return ClientChangeSet.of(changed);
+  }
+
+  /**
+   * The document the change leaves: what was sent over what the client has.
+   * The number is checked against the resulting type (CA-10.3).
+   */
+  private documentAfter(changes: ClientChanges): ClientDocument | undefined {
+    if (changes.documentType === undefined && changes.documentNumber === undefined) {
+      return undefined;
+    }
+    try {
+      return ClientDocument.create(
+        changes.documentType ?? this._document.type,
+        changes.documentNumber ?? this._document.number,
+      );
+    } catch (error) {
+      if (error instanceof ValidationError) {
+        const field = (error.details as { field?: string } | null)?.field ?? "documentNumber";
+        throw new ValidationError("VALIDATION_ERROR", INVALID_DATA_MESSAGE, { [field]: error.message });
+      }
+      throw error;
+    }
+  }
+
+  /** Runs a check and keeps its `details` instead of stopping at the first failure. */
+  private static collect<T>(errors: Record<string, string>, check: () => T): T | undefined {
+    try {
+      return check();
+    } catch (error) {
+      if (error instanceof ValidationError && error.details) {
+        Object.assign(errors, error.details);
+        return undefined;
+      }
+      throw error;
+    }
+  }
+
+  /** A required, bounded text (D-109): omitted keeps it; empty, blank or `null` is refused. */
+  private static requiredText(
+    errors: Record<string, string>,
+    field: "address" | "phone",
+    raw: string | null | undefined,
+    rule: RequiredTextRule,
+  ): string | undefined {
+    if (raw === undefined) {
+      return undefined;
+    }
+    const value = typeof raw === "string" ? raw.trim() : "";
+    if (value === "") {
+      errors[field] = rule.required;
+      return undefined;
+    }
+    if (value.length > rule.max) {
+      errors[field] = rule.tooLong;
+      return undefined;
+    }
+    return value;
   }
 
   /** Logical deletion (RN12), mirroring `Lawyer.deactivate()`. */

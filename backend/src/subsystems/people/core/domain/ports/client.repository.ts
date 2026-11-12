@@ -25,7 +25,20 @@ export interface ClientRepository {
    * match is on the type and the number together (D-108): a DNI and a
    * passport with the same number are different documents.
    */
-  existsActiveByDocument(document: ClientDocument): Promise<boolean>;
+  /**
+   * Whether a **current** client holds that document (D-108). `exceptClientId`
+   * leaves one client out: a client sending its own document is not a
+   * conflict (CA-10.7).
+   */
+  existsActiveByDocument(document: ClientDocument, exceptClientId?: number): Promise<boolean>;
+
+  /**
+   * Saves what `Client.update` changed (HU10). Meant to run inside the use
+   * case's transaction, together with the audit record and the captions.
+   * @throws {ClientDniAlreadyExistsError} if a current client took the document
+   *   between the check and this write (the partial unique index wins the race).
+   */
+  update(client: Client): Promise<void>;
 
   /** Inserts a freshly created client. */
   create(client: Client): Promise<void>;

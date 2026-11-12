@@ -50,6 +50,7 @@ describe('[smoke] App de integración', () => {
       ['get', '/api/v1/clients'],
       ['post', '/api/v1/clients'],
       ['get', '/api/v1/clients/1'],
+      ['patch', '/api/v1/clients/1'],
       ['get', '/api/v1/document-templates'],
       ['post', '/api/v1/document-templates'],
       ['get', '/api/v1/document-templates/1'],
