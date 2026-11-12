@@ -360,6 +360,37 @@ a.vz-btn--ghost:hover { color: var(--vz-ink); }
 .vz-combobox__check { color: var(--vz-primary); font-weight: 700; }
 .vz-combobox__empty { padding: 10px; font-size: 12.5px; color: var(--vz-faint); }
 
+/* Select con filtro (`SearchSelect`): la misma lista, y en el campo sólo se
+   elige. El rótulo elegido se corta con puntos si no entra. */
+.vz-combobox--select .vz-input { text-overflow: ellipsis; }
+.vz-combobox--select.has-clear .vz-input { padding-right: 36px; }
+.vz-combobox__option[aria-selected="true"] .vz-combobox__label { font-weight: 600; }
+.vz-combobox__clear {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--vz-faint);
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+}
+.vz-combobox__clear:hover { background: var(--vz-sunken); color: var(--vz-ink); }
+.vz-combobox__note {
+  margin-top: 4px;
+  padding: 8px 10px 6px;
+  border-top: 1px solid var(--vz-border);
+  font-size: 12px;
+  color: var(--vz-faint);
+}
+
 /* ─────────── segmented control ─────────── */
 /* Botones pegados en una cápsula: se elige uno. Envuelve si no entran. */
 .vz-segmented {
@@ -406,6 +437,7 @@ a.vz-btn--ghost:hover { color: var(--vz-ink); }
 /* Un control con un botón al lado: "Cliente" + "Registrar cliente nuevo". */
 .vz-field-row { display: flex; gap: 8px; align-items: center; }
 .vz-field-row > .vz-select,
+.vz-field-row > .vz-combobox,
 .vz-field-row > .vz-input { flex: 1; min-width: 0; }
 
 /* En un formulario de página —Registrar causa, Registrar acto procesal— el

@@ -13,6 +13,11 @@ export async function listClients(params: ClientListParams = {}): Promise<ApiLis
     return res.data
 }
 
+export async function getClient(id: number): Promise<Client> {
+    const res = await http.get<ApiItem<Client>>(`${RESOURCE}/${id}`)
+    return res.data.data
+}
+
 export async function createClient(body: CreateClientBody): Promise<Client> {
     const res = await http.post<ApiItem<Client>>(RESOURCE, body)
     return res.data.data
