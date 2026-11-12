@@ -63,7 +63,7 @@ que el contrato fija de él está en
 | `GET`    | `/lawyers`                                            |      Sí       | Cualquier usuario autenticado | Consultar abogados |
 | `GET`    | `/lawyers/{lawyerId}`                                 |      Sí       | Cualquier usuario autenticado | Consultar abogado |
 | `PATCH`  | `/lawyers/{lawyerId}`                                 |      Sí       | `ADMINISTRATOR`               | Modificar abogado (HU14) |
-| `DELETE` | `/lawyers/{lawyerId}`                                 |      Sí       | `ADMINISTRATOR`               | Dar de baja abogado y reasignar sus causas activas (HU15) **(V6)** |
+| `DELETE` | `/lawyers/{lawyerId}`                                 |      Sí       | `ADMINISTRATOR`               | Dar de baja abogado y reasignar o dar de baja sus causas activas (HU15) **(V6, D-140)** |
 | `POST`   | `/procedural-states`                                  |      Sí       | Cualquier usuario autenticado | Registrar estado procesal |
 | `GET`    | `/procedural-states`                                  |      Sí       | Cualquier usuario autenticado | Consultar estados procesales |
 | `GET`    | `/procedural-states/{stateId}`                        |      Sí       | Cualquier usuario autenticado | Consultar estado procesal |
@@ -1721,7 +1721,7 @@ El campo `activeCases` no es modificable: lo calcula el backend.
 #### `DELETE /lawyers/{lawyerId}`
 
 Da de baja un abogado y, en la misma operación, reasigna sus causas activas a
-otros abogados.
+otros abogados o, **(D-140)**, da de baja las que no pasan a nadie.
 
 **Rol requerido:** `ADMINISTRATOR`.
 
@@ -1729,6 +1729,15 @@ otros abogados.
 > prototipo: "Tiene N causas activas. Asigná cada una a otro abogado antes de
 > eliminarlo", con la lista "Sin asignar", los abogados de destino ("Pasan a")
 > y el botón "Eliminar y reasignar".
+>
+> **(D-140)** El prototipo solo ofrece reasignar. Además, una causa que el
+> administrador deja "Sin asignar" **se da de baja** en la misma operación, con
+> el motivo "Abogado dado de baja y no reasignada". El formulario lo aclara en
+> cada causa sin asignar ("Se dará de baja: Abogado dado de baja y no
+> reasignada") y en la confirmación, que lista esas causas antes de enviar. El
+> formulario manda esas causas en el reparto con `deactivate: true`: una causa
+> que no figura en el reparto no se da de baja, sino que corta la operación
+> (regla 3). En esto manda la decisión del equipo.
 
 **La baja es lógica, pero el cliente no la percibe.** El backend establece
 `active` en `false` y conserva el registro; para el cliente el abogado deja de
@@ -1742,10 +1751,13 @@ Se evalúan en este orden; la primera que no se cumple corta la operación:
 
 1. **El abogado existe y está vigente.** Si no, `404 LAWYER_NOT_FOUND`.
 2. **El cuerpo es válido** (ver más abajo). Si no, `400 VALIDATION_ERROR`.
-3. **Todas sus causas activas quedan reasignadas.** Si alguna causa activa
-   del abogado no figura en `reassignments` —por ejemplo, porque se le asignó
-   una causa nueva mientras el formulario estaba abierto—, `409
-   LAWYER_HAS_DEPENDENCIES`, sin cambiar nada.
+3. **Todas sus causas activas quedan resueltas**: reasignadas o, **(D-140)**,
+   marcadas para darse de baja. Si alguna causa activa del abogado no figura
+   en `reassignments` —por ejemplo, porque se le asignó una causa nueva
+   mientras el formulario estaba abierto—, `409 LAWYER_HAS_DEPENDENCIES`, sin
+   cambiar nada. Una causa que no figura **nunca se da de baja por omisión**:
+   la causa nueva no la vio nadie en el formulario ni en su aclaración. El
+   formulario vuelve a pedir las causas del abogado y la muestra "Sin asignar".
 
 Causa activa es la de [§4](#causa-activa): vigente y en un estado que no es
 terminal. Las causas del abogado que están en un estado terminal ("Archivada",
@@ -1769,15 +1781,21 @@ vinculado se obtiene de [`GET /users`](#get-users), donde cada usuario trae su
 **(V6) Cuerpo de la petición**
 
 Es el reparto que arma el formulario: una entrada por cada causa activa del
-abogado, con el abogado que pasa a ser su responsable. Las causas se pueden
-repartir entre varios abogados.
+abogado, que dice qué pasa con ella. Cada entrada hace **una de dos cosas**:
+
+- **Reasigna la causa**: lleva `responsibleLawyerId`, el abogado que pasa a ser
+  su responsable. Las causas se pueden repartir entre varios abogados.
+- **(D-140) Da de baja la causa**: lleva `deactivate: true`. Es la causa que
+  quedó "Sin asignar" en el formulario. El motivo no se envía: el backend
+  registra siempre **"Abogado dado de baja y no reasignada"**, como el
+  `reason` de [`DELETE /cases/{caseId}`](#delete-casescaseid).
 
 ```json
 {
 	"reassignments": [
 		{ "caseId": 1, "responsibleLawyerId": 4 },
 		{ "caseId": 9, "responsibleLawyerId": 4 },
-		{ "caseId": 12, "responsibleLawyerId": 5 }
+		{ "caseId": 12, "deactivate": true }
 	]
 }
 ```
@@ -1786,29 +1804,43 @@ repartir entre varios abogados.
 | -------------------------------------- | -------- | :-------: | ------------- |
 | `reassignments`                        | Object[] | Si el abogado tiene causas activas | Una entrada por cada causa activa del abogado, sin repetir causas. Si no tiene causas activas, puede omitirse, ir vacío o no enviarse cuerpo |
 | `reassignments[].caseId`               | Integer  |    Sí     | Una causa activa de la que el abogado es responsable |
-| `reassignments[].responsibleLawyerId`  | Integer  |    Sí     | Un abogado vigente, distinto del que se da de baja |
+| `reassignments[].responsibleLawyerId`  | Integer  | Si la entrada no lleva `deactivate` | Un abogado vigente, distinto del que se da de baja. No puede ir junto con `deactivate` |
+| `reassignments[].deactivate` **(D-140)** | Boolean | Si la entrada no lleva `responsibleLawyerId` | Solo `true`. No puede ir junto con `responsibleLawyerId` |
 
-Una causa que no es una causa activa de este abogado, una causa repetida o un
-abogado de destino inexistente, dado de baja o igual al que se da de baja
-responden `400 VALIDATION_ERROR`, con el detalle en
+Una causa que no es una causa activa de este abogado, una causa repetida, un
+abogado de destino inexistente, dado de baja o igual al que se da de baja, o
+**(D-140)** una entrada sin `responsibleLawyerId` ni `deactivate`, una con los
+dos o un `deactivate` que no es `true` responden `400 VALIDATION_ERROR`, con el detalle en
 `details.reassignments` (mismo criterio que D-22: es un dato del formulario
 para corregir).
 
 **(V6) Efectos de la baja**
 
-- **Es atómica.** Las reasignaciones y la baja se aplican juntas, en una sola
-  transacción: si algo falla, no cambia nada.
+- **Es atómica.** Las reasignaciones, **(D-140)** las bajas de causas y la baja
+  del abogado se aplican juntas, en una sola transacción: si algo falla, no
+  cambia nada.
 - **Cada reasignación es un cambio de responsable**, con los mismos efectos que
   cambiar `responsibleLawyerId` con
   [`PATCH /cases/{caseId}`](#patch-casescaseid): queda en la auditoría de la
   causa, el nuevo responsable pasa a operarla (ver
   [Operación de la causa](#operación-de-la-causa)), y la causa pasa a contar en
   su `activeCases`, en su tablero y en sus avisos diarios.
+- **(D-140) Cada baja de causa tiene los efectos de
+  [`DELETE /cases/{caseId}`](#delete-casescaseid)**: la causa deja de existir
+  para el cliente (`404 CASE_NOT_FOUND`, también en sus subrecursos), sale de
+  los `activeCases` de su cliente y sus calificaciones, de los tableros, del
+  proceso diario y del reporte del mes en curso, y su SAC queda libre. El
+  motivo "Abogado dado de baja y no reasignada", el usuario y la fecha quedan
+  en la auditoría de la causa. No hay
+  reactivación por la API. Dar de baja causas es una operación que el
+  `ADMINISTRATOR` ya puede hacer (D-110), así que no hace falta otro permiso.
 - **Drive.** La carpeta de cada causa reasignada se mueve a
   `/{nuevo abogado}/{fuero}/`, igual que en el `PATCH` (ver
-  [Carpeta de la causa](#carpeta-de-la-causa)). **Si Drive no responde, la baja
-  no falla**: las causas quedan reasignadas y el proceso diario mueve las
-  carpetas después.
+  [Carpeta de la causa](#carpeta-de-la-causa)). **(D-140)** La de cada causa
+  dada de baja se mueve a `/VZ Causas/Papelera/`, igual que en el `DELETE` de
+  la causa. **Si Drive no responde, la baja no falla**: las causas quedan
+  reasignadas o dadas de baja, y el proceso diario mueve las carpetas de las
+  reasignadas después.
 - **La carpeta del propio abogado** (`/VZ Causas/Causas/{abogado}/`):
   - Si el abogado tiene causas en un estado terminal, su carpeta **queda en
     Drive, con esas causas adentro**, como historial del abogado.
@@ -1818,7 +1850,8 @@ para corregir).
     Ríos—, el sistema las mueve a `/{su responsable}/{fuero}/`, donde
     corresponden.
   - Si no tiene causas terminales, después de mover las carpetas de sus causas
-    activas y las de otros abogados, **su carpeta se mueve a
+    activas (a su nuevo responsable o, **(D-140)**, a la `Papelera`) y las de
+    otros abogados, **su carpeta se mueve a
     `/VZ Causas/Papelera/` con lo que quede adentro** (un archivo suelto, una
     carpeta que el sistema no creó). **No se borra nada**, por si es
     información importante (D-132).
@@ -1915,14 +1948,15 @@ La respuesta no contiene cuerpo.
 
 **`409 Conflict`**
 
-**(V6)** Quedan causas activas sin reasignar (regla 3). El cliente vuelve a
-pedir las causas del abogado y rearma el reparto:
+**(V6)** Quedan causas activas sin reasignar ni marcar para darse de baja
+(regla 3, D-140). El cliente vuelve a pedir las causas del abogado y rearma el
+reparto:
 
 ```json
 {
 	"error": {
 		"code": "LAWYER_HAS_DEPENDENCIES",
-		"message": "El abogado tiene causas activas sin reasignar.",
+		"message": "El abogado tiene causas activas sin reasignar ni dar de baja.",
 		"details": null
 	}
 }
@@ -10111,7 +10145,7 @@ carpetas que crea el sistema.
   | Cambia el responsable (`PATCH /cases/{caseId}`)               | La carpeta de la causa se mueve a `/{nuevo abogado}/{fuero}/`, que se crea si no existe |
   | Cambia el nombre de un abogado (`PATCH /lawyers/{lawyerId}`)  | Se renombra la carpeta del abogado. Las de sus causas quedan adentro      |
   | **(V6)** Cambia el nombre de un cliente (`PATCH /clients/{clientId}`) | Cambia la carátula de sus causas (ver [`PATCH /clients/{clientId}`](#patch-clientsclientid)), y se renombra la carpeta de cada causa cuya carátula cambió |
-  | **(V6)** Se da de baja un abogado y se reasignan sus causas (`DELETE /lawyers/{lawyerId}`) | La carpeta de cada causa reasignada se mueve a `/{nuevo abogado}/{fuero}/`, igual que al cambiar el responsable. Las carpetas de causas de otros abogados que estén adentro por error vuelven a su lugar. La carpeta del abogado queda con sus causas terminales, como historial; si no tiene ninguna, va a la `Papelera` con lo que quede adentro (D-132) |
+  | **(V6)** Se da de baja un abogado y se reasignan sus causas (`DELETE /lawyers/{lawyerId}`) | La carpeta de cada causa reasignada se mueve a `/{nuevo abogado}/{fuero}/`, igual que al cambiar el responsable; **(D-140)** la de cada causa dada de baja en la misma operación, a `/VZ Causas/Papelera/`, igual que al dar de baja la causa. Las carpetas de causas de otros abogados que estén adentro por error vuelven a su lugar. La carpeta del abogado queda con sus causas terminales, como historial; si no tiene ninguna, va a la `Papelera` con lo que quede adentro (D-132) |
   | Se da de baja la causa (`DELETE /cases/{caseId}`)             | La carpeta de la causa se mueve a `/VZ Causas/Papelera/`, con lo que tiene adentro |
 
   El fuero no cambia, así que una carpeta nunca cambia de carpeta de
@@ -10201,7 +10235,7 @@ establece el campo `active` en `false` y conserva el registro por trazabilidad
 | Baja **(V6)** | Qué la impide | Qué arrastra |
 | ------------- | ------------- | ------------ |
 | Cliente (`DELETE /clients/{clientId}`) | Que tenga causas activas (`409 CLIENT_HAS_ACTIVE_CASES`) | Nada: sus causas terminales lo siguen mostrando |
-| Abogado (`DELETE /lawyers/{lawyerId}`) | Que tenga causas activas sin reasignar (`409 LAWYER_HAS_DEPENDENCIES`) | Reasigna sus causas activas en la misma operación; las terminales siguen con él. Su usuario vinculado pierde el rol `LAWYER`, o se da de baja si era el único (D-133) |
+| Abogado (`DELETE /lawyers/{lawyerId}`) | Que tenga causas activas sin reasignar ni marcar para darse de baja (`409 LAWYER_HAS_DEPENDENCIES`) | Reasigna sus causas activas o da de baja las que se marcaron (D-140), en la misma operación; las terminales siguen con él. Su usuario vinculado pierde el rol `LAWYER`, o se da de baja si era el único (D-133) |
 | Modelo formal (`DELETE /document-templates/{templateId}`) | Nada | Sus archivos van a la `Papelera`; las copias en las causas quedan (D-131) |
 | Acto procesal (`DELETE /cases/{caseId}/procedural-acts/{actId}`) | Que la causa esté "Prescripta" (`422 CASE_IN_TERMINAL_STATE`) | Recalcula el estado de la causa; el acto sale de la línea de vida |
 
@@ -10387,7 +10421,7 @@ respuesta.
 | `CASE_SAC_ALREADY_EXISTS`                | 409  | Número de SAC ya registrado (RN2)                                  |
 | `DOCUMENT_TEMPLATE_ALREADY_EXISTS`       | 409  | **Nuevo.** Nombre de modelo formal ya registrado                   |
 | `USER_HAS_DEPENDENCIES`                  | 409  | El usuario posee recursos asociados                                |
-| `LAWYER_HAS_DEPENDENCIES`                | 409  | **(V6)** Al dar de baja al abogado, quedan causas activas suyas sin reasignar |
+| `LAWYER_HAS_DEPENDENCIES`                | 409  | **(V6)** Al dar de baja al abogado, quedan causas activas suyas sin reasignar ni marcar para darse de baja (D-140) |
 | `CLIENT_HAS_ACTIVE_CASES`                | 409  | **(V6)** Dar de baja un cliente que tiene causas activas (HU11)    |
 | `FILE_TOO_LARGE`                         | 413  | **Nuevo.** El archivo enviado supera los 10 MB                     |
 | `INVALID_CURRENT_PASSWORD`               | 422  | La contraseña actual no coincide                                   |
@@ -10450,8 +10484,13 @@ numeración de los puntos abiertos de versiones anteriores.
 
 ### 7.1 Sprint 5
 
-**No queda nada abierto.** Los puntos C-36 a C-47 se revisaron con el equipo el
-09/11/2026 y pasaron a decisiones (D-128 a D-139 de `DECISIONES.md`).
+Los puntos C-36 a C-47 se revisaron con el equipo el 09/11/2026 y pasaron a
+decisiones (D-128 a D-139 de `DECISIONES.md`). Queda uno, de la revisión del
+12/11/2026:
+
+| ID | Punto | Qué asume hoy el contrato | Con quién | ¿Bloquea? |
+| --- | --- | --- | --- | :---: |
+| C-48 | **Confirmar D-140**: dar de baja causas activas al dar de baja a su abogado, en lugar de reasignarlas. Revisa D-123, que había decidido el equipo | Que se puede, de forma explícita, en cada entrada de `reassignments` (ver [`DELETE /lawyers/{lawyerId}`](#delete-lawyerslawyerid)) | Equipo | No |
 
 ### 7.2 Heredados de V5
 
