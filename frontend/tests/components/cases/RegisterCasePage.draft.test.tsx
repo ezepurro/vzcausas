@@ -122,7 +122,7 @@ describe('RegisterCasePage · borrador', () => {
         writeCaseDraft(userId(), draft())
         const { user } = renderPage()
         await user.click(await screen.findByRole('button', { name: 'Recuperar' }))
-        await screen.findByRole('option', { name: 'GÓMEZ, Ariel Fernando · DNI 34.812.905' })
+        await waitFor(() => expect(screen.getByLabelText(/^Cliente/)).toHaveValue('GÓMEZ, Ariel Fernando · DNI 34.812.905'))
 
         await user.click(screen.getByRole('button', { name: 'Registrar causa' }))
 

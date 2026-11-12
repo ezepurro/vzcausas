@@ -7,7 +7,7 @@ import {
     useLegalQualificationsByIds,
     type LegalQualification,
 } from '@/features/legal-params'
-import { moreResultsNote, OPTIONS_PAGE_SIZE } from '@/features/cases/utils/optionsNote'
+import { hasMorePages, moreResultsNote, OPTIONS_PAGE_SIZE } from '@/features/cases/utils/optionsNote'
 
 /**
  * Lo que se sabe de una calificación elegida: `found` con sus datos,
@@ -23,8 +23,9 @@ export type QualificationLookup =
  * Las calificaciones legales del selector de "Registrar causa" y de
  * "Modificar causa".
  *
- * - **Las que se pueden agregar** salen del listado, con lo escrito como
- *   `search`: el servidor busca entre todas, no sólo entre las primeras 100.
+ * - **Las que se pueden agregar** salen del listado. Con más de una página,
+ *   lo escrito viaja como `search` y el servidor busca entre todas, no sólo
+ *   entre las primeras 100.
  * - **Las elegidas** (`chosenIds`) se resuelven una por una por su id. Antes
  *   se buscaban en el listado, y una que no entraba en sus 100 —por ejemplo
  *   una recién registrada— se mostraba como "dada de baja" y bloqueaba el
@@ -34,7 +35,11 @@ export function useQualificationOptions(chosenIds: number[]) {
     const [search, setSearch] = useState('')
     const debouncedSearch = useDebouncedValue(search.trim())
 
-    const listQuery = useLegalQualifications({ page: 1, limit: OPTIONS_PAGE_SIZE, search: debouncedSearch })
+    /* Como en `useClientOptions`: mientras todas entren en la primera página,
+       lo escrito se filtra en el selector y no viaja. */
+    const firstPage = useLegalQualifications({ page: 1, limit: OPTIONS_PAGE_SIZE, search: '' })
+    const remote = debouncedSearch !== '' && hasMorePages(firstPage.data)
+    const listQuery = useLegalQualifications({ page: 1, limit: OPTIONS_PAGE_SIZE, search: remote ? debouncedSearch : '' })
     const listed = listQuery.data?.data ?? []
     const lookups = useLegalQualificationsByIds(chosenIds)
 

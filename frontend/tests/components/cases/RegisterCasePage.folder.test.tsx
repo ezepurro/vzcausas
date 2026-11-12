@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { screen } from '@testing-library/react'
 import { renderWithProviders } from '../../setup/render'
+import { chooseOption } from '../../setup/searchSelect'
 import { usePrototypeToday } from '../../setup/clock'
 import { CASE_SEEDS, db } from '@/shared/mocks'
 import { RegisterCasePage } from '@/features/cases/pages/RegisterCasePage'
@@ -32,8 +33,8 @@ type User = ReturnType<typeof renderPage>['user']
 
 /** Una causa penal mínima de la abogada Ríos, sin SAC (CA-18.5). */
 async function fillMinimum(user: User) {
-    await screen.findByRole('option', { name: 'GÓMEZ, Ariel Fernando · DNI 34.812.905' })
-    await user.selectOptions(screen.getByLabelText(/^Cliente/), '1')
+    await screen.findByRole('option', { name: /^Ríos, Malena/ })
+    await chooseOption(user, screen.getByLabelText(/^Cliente/), 'GÓMEZ, Ariel Fernando · DNI 34.812.905')
     await user.selectOptions(screen.getByLabelText(/^Abogado responsable/), '3')
     await user.type(screen.getByLabelText(/^Carátula/), CAPTION)
 }

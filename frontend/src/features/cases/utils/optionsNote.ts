@@ -10,3 +10,8 @@ export function moreResultsNote(shown: number, total: number | undefined, plural
     if (total === undefined || total <= shown) return null
     return `Se muestran ${shown} de ${total} ${plural}. Escribí para buscar entre todos.`
 }
+
+/** ¿El servidor tiene más resultados que los que trajo esta página? Sin respuesta todavía, `false`. */
+export function hasMorePages(list: { data: unknown[]; pagination: { totalItems: number } } | undefined): boolean {
+    return list !== undefined && list.pagination.totalItems > list.data.length
+}

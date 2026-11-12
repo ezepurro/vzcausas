@@ -11,11 +11,9 @@ import { formatPersonName } from '@/shared/lib/personName'
 import {
     ClientFormModal,
     formatClientName,
-    formatDocument,
     isValidClient,
     toClientFormErrors,
     toCreateClientBody,
-    useClients,
     useCreateClient,
     validateClient,
     type ClientFormErrors,
@@ -33,13 +31,14 @@ import {
     toCreateLegalQualificationBody,
     toLegalQualificationFormErrors,
     useCreateLegalQualification,
-    useLegalQualifications,
     validateLegalQualification,
     JURISDICTION_LABELS,
     type LegalQualificationErrors,
     type LegalQualificationFormValues,
 } from '@/features/legal-params'
+import { clientOptionLabel, useClientOptions } from '@/features/cases/api/useClientOptions'
 import { useCreateCase } from '@/features/cases/api/useCreateCase'
+import { useQualificationOptions } from '@/features/cases/api/useQualificationOptions'
 import { CaseForm } from '@/features/cases/components/CaseForm'
 import {
     CaseSummaryAside,
@@ -110,9 +109,6 @@ export function RegisterCasePage() {
 
     const [values, setValues] = useState<CaseFormValues>(emptyCaseForm)
     const [errors, setErrors] = useState<CaseFormErrors>({})
-    /* El cliente registrado desde "Registrar cliente nuevo": el listado trae
-       sólo los primeros 100 por apellido, y puede no estar entre ellos. */
-    const [createdClient, setCreatedClient] = useState<Client | null>(null)
     /* Si quedó un borrador, lo primero es preguntar qué hacer con él. */
     const [modal, setModal] = useState<ModalState>(() => {
         const draft = readCaseDraft(userId)
@@ -131,18 +127,17 @@ export function RegisterCasePage() {
        `validateCase` o del servidor, se lo lleva al primero. */
     const focusErrors = useFocusFirstError(formRef, errors)
 
-    const clientsQuery = useClients({ page: 1, limit: OPTIONS_LIMIT })
+    /* El cliente y las calificaciones se buscan en el servidor mientras se
+       escribe: el listado llega de a 100 y no alcanza para elegir entre todos.
+       Los elegidos se resuelven por su id (`useClientOptions`,
+       `useQualificationOptions`). */
+    const clientChoice = useClientOptions(values.clientId)
+    const qualificationChoice = useQualificationOptions(
+        values.legalQualifications.map((q) => q.legalQualificationId),
+    )
     const lawyersQuery = useLawyers({ page: 1, limit: OPTIONS_LIMIT })
-    const qualificationsQuery = useLegalQualifications({ page: 1, limit: OPTIONS_LIMIT })
 
-    const listedClients = clientsQuery.data?.data ?? []
-    /* Sin esto, un cliente nuevo que cae fuera de la primera página queda
-       elegido en `values.clientId` pero sin opción en el select ni en el resumen. */
-    const clients = createdClient && !listedClients.some((c) => c.id === createdClient.id)
-        ? [...listedClients, createdClient]
-        : listedClients
     const lawyers = lawyersQuery.data?.data ?? []
-    const qualifications = qualificationsQuery.data?.data ?? []
 
     /* "6 modelos parametrizados para el fuero Penal": basta con el total, así
        que se pide uno solo (V4 §3.10, "Cómo lo usa el prototipo"). */
@@ -176,43 +171,30 @@ export function RegisterCasePage() {
 
     /* ---------------- opciones de los selects ---------------- */
 
-    const clientOptions: SelectOption[] = clients.map((c) => ({
-        value: String(c.id),
-        label: `${formatClientName(c)} · ${formatDocument(c)}`,
-    }))
-
     /* Si quien registra es abogado, su ficha va primero, con "(asignarme a mí)". */
     const lawyerOptions: SelectOption[] = buildLawyerOptions(lawyers, myLawyer?.id ?? null)
 
     /** Una calificación ya elegida deja de ofrecerse: no puede repetirse (D-28). */
-    const chosen = new Set(values.legalQualifications.map((q) => q.legalQualificationId))
-    const qualificationOptions: SelectOption[] = qualifications
-        .filter((q) => !chosen.has(q.id))
-        .map((q) => ({
-            value: String(q.id),
-            label: `${q.name} · ${formatPrescription(q.prescriptionMonths)}`,
-        }))
-
-    /* Recién con el listado completo se puede decir que una calificación no
-       está: mientras carga, o mientras muestra el de antes, faltarían todas. */
-    const qualificationsLoaded = qualificationsQuery.isSuccess && !qualificationsQuery.isPlaceholderData
-
     /**
-     * Las calificaciones elegidas, con su nombre y su plazo: se arma cruzando
-     * lo que guarda el formulario con lo que devolvió el listado. Una recién
-     * registrada aparece en cuanto llega el `GET` que invalidó su alta.
-     *
-     * Una elegida que el listado ya no trae se dio de baja (o venía en un
-     * borrador): queda como fila "dada de baja", para que se pueda quitar.
+     * Las calificaciones elegidas, con su nombre y su plazo. Cada una se pide
+     * por su id: una que el servidor ya no tiene (se dio de baja, o venía en
+     * un borrador viejo) queda como fila "dada de baja", para que se pueda
+     * quitar. Mientras llega la respuesta, la fila todavía no se dibuja.
      */
     const selectedQualifications: SelectedQualification[] = values.legalQualifications
         .map((chosenQ): SelectedQualification | null => {
-            const q = qualifications.find((item) => item.id === chosenQ.legalQualificationId)
-            if (q) return { id: q.id, name: q.name, prescriptionMonths: q.prescriptionMonths, offenseDate: chosenQ.offenseDate }
-            if (qualificationsLoaded) return { id: chosenQ.legalQualificationId, unavailable: true, offenseDate: chosenQ.offenseDate }
+            const found = qualificationChoice.lookup(chosenQ.legalQualificationId)
+            if (found.status === 'found') {
+                const { id, name, prescriptionMonths } = found.qualification
+                return { id, name, prescriptionMonths, offenseDate: chosenQ.offenseDate }
+            }
+            if (found.status === 'missing') {
+                return { id: chosenQ.legalQualificationId, unavailable: true, offenseDate: chosenQ.offenseDate }
+            }
             return null
         })
         .filter((q): q is SelectedQualification => q !== null)
+
     const availableQualifications = selectedQualifications.filter(
         (q): q is AvailableQualification => !q.unavailable,
     )
@@ -249,7 +231,7 @@ export function RegisterCasePage() {
 
     /* ---------------- el resumen del alta ---------------- */
 
-    const client = clients.find((c) => String(c.id) === values.clientId) ?? null
+    const client = clientChoice.selected
     const criminal = values.jurisdiction === 'CRIMINAL'
 
     const caption = suggestedCaption({
@@ -368,10 +350,17 @@ export function RegisterCasePage() {
                         setValues((current) => changeCreateFolder(current, createFolder))
                     }
                     templatesNote={templatesNote}
-                    clientOptions={clientOptions}
+                    clientOptions={clientChoice.options}
+                    clientLabel={client ? clientOptionLabel(client) : undefined}
+                    onClientSearch={clientChoice.onSearch}
+                    clientsLoading={clientChoice.loading}
+                    clientsNote={clientChoice.note}
                     lawyerOptions={lawyerOptions}
                     selectedQualifications={selectedQualifications}
-                    qualificationOptions={qualificationOptions}
+                    qualificationOptions={qualificationChoice.options}
+                    onQualificationSearch={qualificationChoice.onSearch}
+                    qualificationsLoading={qualificationChoice.loading}
+                    qualificationsNote={qualificationChoice.note}
                     onAddQualification={addQualification}
                     onRemoveQualification={removeQualification}
                     onOffenseDateChange={changeOffenseDate}
@@ -410,7 +399,6 @@ export function RegisterCasePage() {
             {modal?.kind === 'client' && (
                 <NewClient
                     onDone={(created) => {
-                        setCreatedClient(created)
                         changeValue('clientId', String(created.id))
                         setModal(null)
                     }}

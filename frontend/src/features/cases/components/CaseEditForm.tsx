@@ -8,6 +8,7 @@ import {
     Select,
     Textarea,
     TextInput,
+    type SearchSelectOption,
     type SelectOption,
 } from '@/shared/components/forms'
 import { useFocusFirstError } from '@/shared/hooks/useFocusFirstError'
@@ -43,7 +44,10 @@ export interface CaseEditFormProps {
     /** Las calificaciones de la causa, con su nombre, su plazo y su fecha del hecho. */
     selectedQualifications: SelectedQualification[]
     /** Las que todavía se pueden agregar. */
-    qualificationOptions: SelectOption[]
+    qualificationOptions: SearchSelectOption[]
+    onQualificationSearch: (text: string) => void
+    qualificationsLoading: boolean
+    qualificationsNote: string | null
     onAddQualification: (id: number) => void
     onRemoveQualification: (id: number) => void
     onOffenseDateChange: (id: number, offenseDate: string) => void
@@ -71,7 +75,8 @@ export interface CaseEditFormProps {
 export function CaseEditForm({
     sub, values, errors, onChange, onSacNumberChange,
     clientLabel, lawyerOptions,
-    selectedQualifications, qualificationOptions, onAddQualification, onRemoveQualification,
+    selectedQualifications, qualificationOptions, onQualificationSearch, qualificationsLoading,
+    qualificationsNote, onAddQualification, onRemoveQualification,
     onOffenseDateChange, saving, onConfirm, onCancel,
 }: CaseEditFormProps) {
     const body = useRef<HTMLDivElement>(null)
@@ -224,6 +229,9 @@ export function CaseEditForm({
                                 onOffenseDateChange={onOffenseDateChange}
                                 dateErrors={errors.offenseDates}
                                 maxDate={todayIsoDate()}
+                                onSearch={onQualificationSearch}
+                                loading={qualificationsLoading}
+                                note={qualificationsNote}
                             />
                         </Field>
 

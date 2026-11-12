@@ -1,5 +1,6 @@
 import { Button } from '@/shared/components/ui'
-import { FieldError, Select, TextInput, type SelectOption } from '@/shared/components/forms'
+import { FieldError, SearchSelect, TextInput, type SearchSelectOption } from '@/shared/components/forms'
+import { SEARCH_MAX_LENGTH } from '@/shared/components/ui/SearchInput'
 import { formatDate } from '@/shared/lib/dates'
 import { formatPrescription, type LegalQualification } from '@/features/legal-params'
 
@@ -36,7 +37,7 @@ export interface LegalQualificationPickerProps {
     /** Las ya elegidas, con su plazo y su fecha del hecho, en el orden en que se agregaron. */
     selected: SelectedQualification[]
     /** Las que se pueden agregar: vigentes y todavía no elegidas. */
-    options: SelectOption[]
+    options: SearchSelectOption[]
     onAdd: (id: number) => void
     onRemove: (id: number) => void
     /** Cambió la fecha del hecho de una calificación. */
@@ -47,6 +48,11 @@ export interface LegalQualificationPickerProps {
     maxDate?: string
     /** "Registrar calificación nueva". Sin handler, el botón no se muestra. */
     onCreate?: () => void
+    /** Lo que se escribe en el selector, para buscar en el servidor. */
+    onSearch?: (text: string) => void
+    loading?: boolean
+    /** "Se muestran 100 de 240 calificaciones…", o `null` si están todas. */
+    note?: string | null
 }
 
 /**
@@ -64,7 +70,7 @@ export interface LegalQualificationPickerProps {
  */
 export function LegalQualificationPicker({
     id, selected, options, onAdd, onRemove, onOffenseDateChange, dateErrors = {}, maxDate,
-    onCreate,
+    onCreate, onSearch, loading, note,
 }: LegalQualificationPickerProps) {
     return (
         <div className="vz-picker">
@@ -149,14 +155,21 @@ export function LegalQualificationPicker({
             )}
 
             <div className="vz-field-row">
-                <Select
+                {/* `value` fijo en '': cada elección se agrega a la lista de
+                    arriba y el campo vuelve a quedar libre para la siguiente. */}
+                <SearchSelect
                     id={id}
-                    options={[{ value: '', label: 'Agregar calificación…' }, ...options]}
+                    placeholder="Agregar calificación…"
+                    emptyText="Ninguna calificación coincide."
+                    maxLength={SEARCH_MAX_LENGTH}
+                    options={options}
                     value=""
-                    disabled={options.length === 0}
-                    onChange={(e) => {
-                        if (e.target.value) onAdd(Number(e.target.value))
+                    onSelect={(value) => {
+                        if (value) onAdd(Number(value))
                     }}
+                    onSearch={onSearch}
+                    loading={loading}
+                    note={note}
                 />
                 {onCreate && (
                     <Button

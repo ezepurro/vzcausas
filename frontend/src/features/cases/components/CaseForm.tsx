@@ -1,14 +1,17 @@
 import type { FormEvent } from 'react'
 import { SUBJECT_MATTER_TEXT } from '@/features/cases/utils/subjectMatter'
 import { Button, Panel } from '@/shared/components/ui'
+import { SEARCH_MAX_LENGTH } from '@/shared/components/ui/SearchInput'
 import {
     Checkbox,
     Field,
     FormSection,
     SegmentedControl,
+    SearchSelect,
     Select,
     Textarea,
     TextInput,
+    type SearchSelectOption,
     type SelectOption,
 } from '@/shared/components/forms'
 import { todayIsoDate } from '@/shared/lib/dates'
@@ -57,7 +60,14 @@ export interface CaseFormProps {
      */
     templatesNote: string | null
     /** Los clientes, ya armados: `value` el id, `label` "GÓMEZ, Ariel Fernando · DNI …". */
-    clientOptions: SelectOption[]
+    clientOptions: SearchSelectOption[]
+    /** El rótulo del cliente elegido: puede no estar entre `clientOptions`, que cambian con la búsqueda. */
+    clientLabel: string | undefined
+    /** Lo que se escribe en el selector de cliente, para buscarlo en el servidor. */
+    onClientSearch: (text: string) => void
+    clientsLoading: boolean
+    /** "Se muestran 100 de 240 clientes…", o `null` si están todos. */
+    clientsNote: string | null
     /** Los abogados vigentes, ya armados. */
     lawyerOptions: SelectOption[]
     /**
@@ -67,7 +77,10 @@ export interface CaseFormProps {
      */
     selectedQualifications: SelectedQualification[]
     /** Las que todavía se pueden agregar. */
-    qualificationOptions: SelectOption[]
+    qualificationOptions: SearchSelectOption[]
+    onQualificationSearch: (text: string) => void
+    qualificationsLoading: boolean
+    qualificationsNote: string | null
     onAddQualification: (id: number) => void
     onRemoveQualification: (id: number) => void
     onOffenseDateChange: (id: number, offenseDate: string) => void
@@ -111,7 +124,8 @@ const TERM_DAY_TYPE_OPTIONS: SelectOption[] = (['BUSINESS', 'CONSECUTIVE'] as co
  */
 export function CaseForm({
     values, errors, onChange, onSacNumberChange, onJurisdictionChange, onCreateFolderChange,
-    templatesNote, clientOptions, lawyerOptions,
+    templatesNote, clientOptions, clientLabel, onClientSearch, clientsLoading, clientsNote, lawyerOptions,
+    onQualificationSearch, qualificationsLoading, qualificationsNote,
     selectedQualifications, qualificationOptions, onAddQualification, onRemoveQualification,
     onOffenseDateChange, onNewClient, onNewQualification,
     saving, onConfirm, onCancel,
@@ -233,11 +247,19 @@ export function CaseForm({
 
                     <Field label="Cliente" required htmlFor="case-client" error={errors.clientId}>
                         <div className="vz-field-row">
-                            <Select
+                            <SearchSelect
                                 id="case-client"
-                                options={[{ value: '', label: 'Seleccionar cliente…' }, ...clientOptions]}
+                                placeholder="Seleccionar cliente…"
+                                emptyText="Ningún cliente coincide."
+                                clearLabel="Quitar el cliente elegido"
+                                maxLength={SEARCH_MAX_LENGTH}
+                                options={clientOptions}
                                 value={values.clientId}
-                                onChange={(e) => onChange('clientId', e.target.value)}
+                                selectedLabel={clientLabel}
+                                onSelect={(clientId) => onChange('clientId', clientId)}
+                                onSearch={onClientSearch}
+                                loading={clientsLoading}
+                                note={clientsNote}
                             />
                             <Button
                                 variant="secondary"
@@ -279,6 +301,9 @@ export function CaseForm({
                                 dateErrors={errors.offenseDates}
                                 maxDate={todayIsoDate()}
                                 onCreate={onNewQualification}
+                                onSearch={onQualificationSearch}
+                                loading={qualificationsLoading}
+                                note={qualificationsNote}
                             />
                         </Field>
                     )}
