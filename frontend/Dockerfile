@@ -1,7 +1,10 @@
 FROM node:22-alpine AS development
 WORKDIR /app
 COPY ./package*.json /app/
-RUN npm ci
+# Caché de npm entre builds (BuildKit): si cambió package-lock.json, npm ci
+# baja sólo lo que no tiene. No cambia qué se instala: npm ci verifica cada
+# paquete contra el hash del lock.
+RUN --mount=type=cache,target=/root/.npm npm ci
 # Sin COPY del código: docker-compose monta ../frontend sobre /app, así que de
 # la imagen solo se usa node_modules. Un stage de producción sí lo necesita.
 EXPOSE 5173

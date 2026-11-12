@@ -94,10 +94,16 @@ services:
             interval: 10s
             timeout: 5s
             retries: 5
+            start_period: 30s
+            # Durante el arranque chequea cada 1 s: los servicios que esperan a la
+            # base arrancan apenas acepta conexiones, no hasta 10 s después.
+            start_interval: 1s
         volumes:
             - postgres_dev_data:/var/lib/postgresql/data
 
+    # Perfil "tools": no arranca con make dev-up, sino con make tools-up.
     adminer:
+        profiles: ["tools"]
         image: adminer:latest
         container_name: causas-adminer
         restart: unless-stopped
@@ -182,7 +188,9 @@ services:
 
     # Valida docs/openapi (Redocly + Spectral), arma el bundle en
     # build/openapi.yaml y termina. Para regenerarlo: make openapi-build.
+    # Perfil "tools", como openapi-docs y adminer: make tools-up.
     openapi-build:
+        profiles: ["tools"]
         build:
             context: ../tooling/openapi
             dockerfile: Dockerfile
@@ -197,6 +205,7 @@ services:
     # Swagger UI sobre el bundle. "Try it out" le pega a localhost:3000, así
     # que http://localhost:8081 tiene que estar en CORS_ALLOWED_ORIGINS.
     openapi-docs:
+        profiles: ["tools"]
         image: swaggerapi/swagger-ui
         container_name: causas-openapi-docs
         restart: unless-stopped

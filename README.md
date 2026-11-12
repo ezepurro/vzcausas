@@ -56,8 +56,8 @@ Con eso quedan arriba:
 |-----------|-------------------------|-------------------------------------|
 | Backend   | http://localhost:3000/api/v1 | NestJS, hot-reload                  |
 | Frontend  | http://localhost:5173   | Vite, hot-reload                    |
-| Adminer   | http://localhost:8080   | Cliente web para la DB — credenciales abajo |
-| Swagger UI | http://localhost:8081  | Documentación de la API, con "Try it out" — ver abajo |
+| Adminer   | http://localhost:8080   | Cliente web para la DB — sólo con `make tools-up`; credenciales abajo |
+| Swagger UI | http://localhost:8081  | Documentación de la API, con "Try it out" — sólo con `make tools-up`; ver abajo |
 | Postgres  | localhost:5432          | Credenciales en `docker/.env`   |
 
 ### Entrar a Adminer
@@ -78,7 +78,7 @@ Si conectás con un cliente en el host (DBeaver, psql, TablePlus, etc.) en cambi
 
 Swagger UI queda en **`http://localhost:8081`**. No confundir con Adminer, que usa el `8080`: dentro del contenedor Swagger también escucha en el `8080`, pero el compose lo publica en el `8081` del host (`8081:8080`).
 
-Lo levantan dos servicios del compose:
+Lo levantan dos servicios del compose, los dos en el perfil `tools` (`make tools-up`):
 
 | Servicio | Qué hace |
 |---|---|
@@ -132,39 +132,88 @@ Ver la lista completa y actualizada en cualquier momento con:
 make help
 ```
 
-Comandos más usados:
+### Qué hago si…
+
+| Situación | Comando |
+|---|---|
+| Cambié código | **Nada**: el backend recompila solo y el frontend se recarga solo (ver §6) |
+| Arranco el día | `make dev-up` |
+| Termino el día | `make dev-stop` |
+| Bajé una rama con dependencias nuevas (cambió algún `package-lock.json`) | `make deps` (o `make backend-deps` / `make frontend-deps`) |
+| Bajé una rama con migraciones o seed nuevos | `make dev-up` (el servicio `migrate` los aplica al levantar); con todo arriba, `make migrate-deploy` / `make seed` |
+| Quiero la base limpia | `make db-reset`, y `make populate` si además quiero los datos de ejemplo |
+| Quiero ver la base o probar la API | `make tools-up` (Adminer y Swagger) |
+| Trabajo sólo en el frontend con mocks | `make frontend-up` |
+| Cambié `docker/docker-compose.yaml` o `docker/.env` | `make dev-up` (o `make backend-up` / `make frontend-up`): `restart` no aplica esos cambios |
+| Algo no anda | Primero los logs (`make backend-logs`, `make frontend-logs`, `docker logs causas-migrate`). **No** `make nuke-v`: borra la base y no arregla nada de lo anterior |
+
+### Día a día
 
 | Comando | Qué hace |
 |---|---|
-| `make dev-up` | Levanta los contenedores (sin rebuildear) |
-| `make dev-build` | Rebuildea imágenes y levanta todo, con `node_modules` nuevo |
-| `make dev-stop` | Frena los contenedores sin borrarlos (`make dev-up` los retoma) |
-| `make dev-down` | Frena y elimina los contenedores (los datos de la DB se conservan) |
-| `make dev-down-v` | Baja los contenedores y borra los volúmenes (reset total de la DB) |
+| `make dev-up` | Levanta Postgres, `migrate`, el backend y el frontend. No levanta Adminer ni Swagger (ver "Herramientas") |
+| `make dev-stop` | Frena todos los contenedores, herramientas incluidas, sin borrar nada (`make dev-up` los retoma) |
+| `make backend-up` | Levanta sólo el backend, con Postgres y `migrate`, que necesita |
+| `make frontend-up` | Levanta sólo el frontend, sin esperar al backend. Alcanza con los mocks (`VITE_USE_MOCKS=true`) |
+| `make backend-restart` / `make frontend-restart` | Reinicia un servicio. No aplica cambios del compose: para eso, `make backend-up` / `make frontend-up` |
 | `make dev-logs` | Logs de todos los servicios |
-| `make ps` | Estado de los contenedores |
-| `make clean` | Baja todo, borra volúmenes y contenedores/imágenes huérfanas |
 | `make backend-logs` / `make frontend-logs` | Logs de un servicio puntual |
 | `make backend-shell` / `make frontend-shell` | Abre una shell dentro del contenedor |
-| `make backend-restart` / `make frontend-restart` | Reinicia un servicio puntual |
-| `make backend-build` / `make frontend-build` | Rebuildea la imagen de un servicio puntual y lo recrea con `node_modules` nuevo |
+| `make ps` | Estado de los contenedores, herramientas incluidas |
+
+### Dependencias
+
+| Comando | Qué hace |
+|---|---|
+| `make deps` | Reinstala las dependencias del backend y del frontend. Si ningún `package-lock.json` cambió, sale de la caché en segundos |
+| `make backend-deps` / `make frontend-deps` | Lo mismo, para uno solo |
+| `make dev-build` | Primer levantamiento: arma todas las imágenes y levanta todo (§3) |
+
+Para agregar una dependencia: `make backend-shell` (o `frontend-shell`) y adentro `npm install <paquete>`. El `package.json` y el `package-lock.json` quedan actualizados en tu carpeta, y quien baje la rama corre `make deps`.
+
+### Base de datos
+
+| Comando | Qué hace |
+|---|---|
+| `make db-reset` | Vacía la base, vuelve a aplicar las migraciones y el seed esencial, y reinicia el backend. Es la forma de tener una base limpia |
+| `make populate` | Puebla la base de desarrollo con datos de ejemplo: estados procesales de muestra, usuarios, abogados, clientes, calificaciones y causas. Requiere `make seed` antes y `NODE_ENV=development` |
+| `make seed` | Corre el seed esencial: roles, permisos, jurisdicciones y los estados de sistema (idempotente — se puede correr de nuevo sin romper nada) |
 | `make migrate-dev` | Corre `prisma migrate dev` (crea y aplica migraciones nuevas, interactivo) |
 | `make migrate-create name=<nombre>` | Crea una migración sin aplicarla (`--create-only`) |
 | `make migrate-deploy` | Aplica migraciones pendientes sin prompts |
-| `make seed` | Corre el seed esencial: roles, permisos, jurisdicciones y los estados de sistema (idempotente — se puede correr de nuevo sin romper nada) |
-| `make populate` | Puebla la base de desarrollo con datos de ejemplo: estados procesales de muestra, usuarios, abogados, clientes, calificaciones y causas. Requiere `make seed` antes y `NODE_ENV=development` |
-| `make openapi-build` | Valida `docs/openapi/` y regenera el bundle que muestra Swagger UI (`http://localhost:8081`) |
 | `make shell-db` | Abre `psql` contra la DB del contenedor |
 
-Después de bajar una rama con migraciones o seed nuevos de otra persona alcanza con `make dev-up`: el servicio `migrate` los aplica al levantar. Con los contenedores ya arriba, `make migrate-deploy` / `make seed` los aplican sin reiniciar nada.
+### Herramientas (perfil `tools`)
+
+Adminer y Swagger UI no arrancan con `make dev-up`: están en el perfil `tools` del compose, para no gastar arranque en lo que no siempre se usa.
+
+| Comando | Qué hace |
+|---|---|
+| `make tools-up` | Levanta Adminer (`http://localhost:8080`) y Swagger UI (`http://localhost:8081`), después de armar el bundle del spec |
+| `make tools-stop` | Los frena |
+| `make openapi-build` | Valida `docs/openapi/` y regenera el bundle que muestra Swagger UI |
+
+### Tests
+
+| Comando | Qué hace |
+|---|---|
+| `make test-unit` | Tests unitarios del backend |
+| `make test-int SUITE=<patrón>` | Tests de integración del backend (levantan su propio Postgres en un contenedor; no tocan la base de desarrollo) |
+
+### Los que no son para el día a día
+
+| Comando | Qué hace |
+|---|---|
+| `make nuke` | Borra todos los contenedores (la base se conserva). Para frenar alcanza con `make dev-stop` |
+| `make nuke-v` | **Borra los contenedores y los volúmenes: la base entera.** Para una base limpia, `make db-reset`; para dependencias nuevas, `make deps` |
 
 ## 6. Notas
 
 - El seed esencial (`backend/prisma/seed.ts`, automático al levantar o a mano con `make seed`) carga lo que el sistema necesita para funcionar en cualquier entorno: **roles, permisos, jurisdicciones y los estados de sistema** ("Iniciada" por fuero y "Prescripta" en penal), más el primer administrador si están las variables `BOOTSTRAP_ADMIN_*`. El resto de la tabla de estados la carga el estudio por la API.
-- El poblado (`backend/prisma/populate/populate.ts`, a mano con `make populate`, solo con `NODE_ENV=development`) carga los datos de ejemplo de `backend/prisma/populate/`: los estados procesales de muestra, los 9 usuarios de la presentación con sus fichas de abogado, clientes, calificaciones legales y causas fechadas alrededor de `SEED_PRESENTATION_DATE`. Las causas se cargan solo en una base sin causas. `make reset-db` corre los dos. El **usuario administrador** de desarrollo (`admin`) es un seed aparte, automático: lo crea el propio backend al arrancar (`DevSeedService`), y depende de que el catálogo de roles ya exista — ver §3 y §4.
-- Después de un `make dev-down-v` (que borra los volúmenes) la base queda vacía; el siguiente `make dev-up` vuelve a migrar y sembrar todo solo.
-- **Al cambiar código no hace falta reiniciar, rebuildear ni bajar nada**: el backend recompila solo y el frontend se recarga solo en el navegador. Si no lo hacen, mirá `make backend-logs` / `make frontend-logs` antes de usar `dev-build` o `dev-down-v`, que no arreglan eso y hacen el arranque siguiente mucho más lento. Como el código se monta desde el disco de Windows, los cambios no le llegan al contenedor como eventos de archivo: el compose activa que tsc y Vite revisen los archivos por intervalo (`TSC_WATCHFILE`, `TSC_WATCHDIRECTORY` y `WATCH_POLLING` en `docker/docker-compose.yaml`). Por eso un cambio tarda en detectarse: hasta un segundo en el frontend y unos segundos en el backend.
-- El código de `backend/` y `frontend/` está montado por bind mount, así que los cambios se reflejan sin rebuildear la imagen. Solo hace falta `make backend-build` / `make frontend-build` (o `dev-build`) cuando cambian dependencias (`package.json`) o el `Dockerfile`. Usá esos comandos y no un `docker compose build` suelto: `node_modules` vive en un volumen anónimo que compose reutiliza al recrear el contenedor, y los `make *-build` lo renuevan (`-V`) para que las dependencias nuevas lleguen al contenedor.
+- El poblado (`backend/prisma/populate/populate.ts`, a mano con `make populate`, solo con `NODE_ENV=development`) carga los datos de ejemplo de `backend/prisma/populate/`: los estados procesales de muestra, los 9 usuarios de la presentación con sus fichas de abogado, clientes, calificaciones legales y causas fechadas alrededor de `SEED_PRESENTATION_DATE`. Las causas se cargan solo en una base sin causas. Después de `make db-reset`, que corre el seed esencial, se corre a mano. El **usuario administrador** de desarrollo (`admin`) es un seed aparte, automático: lo crea el propio backend al arrancar (`DevSeedService`), y depende de que el catálogo de roles ya exista — ver §3 y §4.
+- Después de un `make nuke-v` (que borra los volúmenes) la base queda vacía; el siguiente `make dev-up` vuelve a migrar y sembrar todo solo. Para una base limpia es más rápido `make db-reset`.
+- **Al cambiar código no hace falta reiniciar, rebuildear ni bajar nada**: el backend recompila solo y el frontend se recarga solo en el navegador. Si no lo hacen, mirá `make backend-logs` / `make frontend-logs` antes de usar `deps` o `nuke-v`, que no arreglan eso y hacen el arranque siguiente mucho más lento. Como el código se monta desde el disco de Windows, los cambios no le llegan al contenedor como eventos de archivo: el compose activa que tsc y Vite revisen los archivos por intervalo (`TSC_WATCHFILE`, `TSC_WATCHDIRECTORY` y `WATCH_POLLING` en `docker/docker-compose.yaml`). Por eso un cambio tarda en detectarse: hasta un segundo en el frontend y unos segundos en el backend.
+- El código de `backend/` y `frontend/` está montado por bind mount, así que los cambios se reflejan sin rebuildear la imagen. Solo hace falta `make deps` (o `make backend-deps` / `make frontend-deps`) cuando cambian dependencias (`package-lock.json`) o el `Dockerfile`. Usá esos comandos y no un `docker compose build` suelto: `node_modules` vive en un volumen anónimo que compose reutiliza al recrear el contenedor, y los `make *deps` lo renuevan (`-V`) para que las dependencias nuevas lleguen al contenedor. El build usa una caché de npm (BuildKit), así que reinstalar sólo baja los paquetes nuevos; si alguna vez ocupa demasiado disco, se libera con `docker builder prune`.
 - Este setup es solo de desarrollo local; no hay todavía imágenes ni compose de producción.
 
 ## 7. Documentación del proyecto
