@@ -5,9 +5,12 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  Patch,
   Post,
   Query,
 } from "@nestjs/common";
+import { AuthenticatedUser } from "@shared/domain/authenticated-user";
+import { CurrentUser } from "@shared/infrastructure/http/current-user.decorator";
 import {
   PaginatedResponse,
   paginate,
@@ -17,10 +20,12 @@ import { RequirePermissions } from "@shared/infrastructure/http/require-permissi
 import { FindClientUseCase } from "../../../core/application/use-cases/find-client.use-case";
 import { ListClientsUseCase } from "../../../core/application/use-cases/list-clients.use-case";
 import { RegisterClientUseCase } from "../../../core/application/use-cases/register-client.use-case";
+import { UpdateClientUseCase } from "../../../core/application/use-cases/update-client.use-case";
 import { InvalidClientIdError } from "../../../core/domain/errors/people.errors";
 import { ClientResponseDto } from "../dtos/client.response.dto";
 import { ListClientsQueryDto } from "../dtos/list-clients.query.dto";
 import { RegisterClientRequestDto } from "../dtos/register-client.request.dto";
+import { UpdateClientRequestDto } from "../dtos/update-client.request.dto";
 import { ClientHttpMapper } from "../mappers/client-http.mapper";
 
 /**
@@ -32,7 +37,7 @@ import { ClientHttpMapper } from "../mappers/client-http.mapper";
  * (CA-8.9, D-05). Who holds `client:read` and `client:create` is decided
  * in `prisma/seed.ts`, not here.
  *
- * Modifying and deleting clients are HU-10 and HU-11, Sprint 4.
+ * Modifying is HU10 (`client:update`, the three profiles); deleting is HU11.
  */
 @Controller("clients")
 export class ClientController {
@@ -40,6 +45,7 @@ export class ClientController {
     private readonly registerClient: RegisterClientUseCase,
     private readonly listClients: ListClientsUseCase,
     private readonly findClient: FindClientUseCase,
+    private readonly updateClient: UpdateClientUseCase,
   ) {}
 
   @RequirePermissions("client:create")
@@ -89,6 +95,29 @@ export class ClientController {
   ): Promise<{ data: ClientResponseDto }> {
     const result = await this.findClient.execute({
       id: this.parseClientId(clientIdParam),
+    });
+    return {
+      data: ClientHttpMapper.toResponse(result.client, result.activeCases),
+    };
+  }
+
+  /**
+   * HU10: corrects a client's data. The three profiles may (CA-10.6), through
+   * `client:update`. The client goes back whole, as `GET /clients/{clientId}`
+   * shows it; when its name changed, the captions of its cases already show
+   * the new one (CA-10.9).
+   */
+  @RequirePermissions("client:update")
+  @Patch(":clientId")
+  async update(
+    @Param("clientId") clientIdParam: string,
+    @Body() dto: UpdateClientRequestDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ): Promise<{ data: ClientResponseDto }> {
+    const result = await this.updateClient.execute({
+      clientId: this.parseClientId(clientIdParam),
+      changes: { ...dto },
+      actorUserId: actor.userId,
     });
     return {
       data: ClientHttpMapper.toResponse(result.client, result.activeCases),

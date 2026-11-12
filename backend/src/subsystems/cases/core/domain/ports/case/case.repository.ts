@@ -220,6 +220,20 @@ export interface CaseRepository {
    */
   saveModification(modifiedCase: Case): Promise<void>;
 
+  /**
+   * The cases **in force** of a client — not given de baja, in any state,
+   * terminal ones included — loaded like {@link findById} (HU10, CA-10.9).
+   */
+  findActiveByClientId(clientId: number): Promise<Case[]>;
+
+  /**
+   * Saves only the caption and `updatedAt` of a case whose caption followed
+   * its client's new name (HU10). Narrower than {@link saveModification}, which
+   * rewrites every column and the offenses. Meant to run inside the caller's
+   * transaction, together with the audit record.
+   */
+  saveCaption(updatedCase: Case): Promise<void>;
+
   /** Loads a case by primary key, with its current procedural act (not the whole history). Returns `null` if none. */
   findById(id: number): Promise<Case | null>;
 

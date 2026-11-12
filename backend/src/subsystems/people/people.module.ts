@@ -11,6 +11,7 @@ import { ListLawyersUseCase } from './core/application/use-cases/list-lawyers.us
 import { RegisterClientUseCase } from './core/application/use-cases/register-client.use-case';
 import { RegisterLawyerUseCase } from './core/application/use-cases/register-lawyer.use-case';
 import { UpdateLawyerUseCase } from './core/application/use-cases/update-lawyer.use-case';
+import { UpdateClientUseCase } from './core/application/use-cases/update-client.use-case';
 import { CLIENT_REPOSITORY } from './core/domain/ports/client.repository';
 import { LAWYER_REPOSITORY } from './core/domain/ports/lawyer.repository';
 import { CasesPeopleLookupAdapter } from './infrastructure/acl/cases-people-lookup.adapter';
@@ -44,6 +45,9 @@ import { PrismaLawyerRepository } from './infrastructure/persistence/prisma/pris
     RegisterClientUseCase,
     ListClientsUseCase,
     FindClientUseCase,
+    // HU10: the captions of the client's cases follow through `cases`' adapter
+    // of `ClientCaseCaptionsPort`, exported by `CasesModule`.
+    UpdateClientUseCase,
     { provide: LAWYER_REPOSITORY, useClass: PrismaLawyerRepository },
     { provide: CLIENT_REPOSITORY, useClass: PrismaClientRepository },
     // Adapter of the port that `cases` defines to ask for lawyers and clients.

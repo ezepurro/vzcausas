@@ -9,6 +9,7 @@ import {
 } from '../../errors/case.errors';
 import { CaseDataRules, FieldErrors } from '../../rules/case-data-rules';
 import { CaseChangeSet } from '../../value-objects/case/case-change-set.vo';
+import { ClientCaptionName } from '../../value-objects/case/client-caption-name.vo';
 import { CaseDeactivation } from '../../value-objects/case/case-deactivation.vo';
 import { isRoleAllowedIn } from '../../value-objects/case/procedural-role';
 import { CASE_FIELDS, CaseChanges, CaseField, CaseModificationContext, PendingChanges } from './case-changes';
@@ -254,6 +255,32 @@ export abstract class Case {
     this.props.active = false;
     this.props.deactivation = deactivation;
     this.props.updatedAt = deactivation.deactivatedAt;
+  }
+
+  /**
+   * HU10 — the client changed name (D-121, D-130): a caption that begins with
+   * the old name in the form `APELLIDO, Nombres` begins with the new one, and
+   * the rest stays as it was.
+   *
+   * Any jurisdiction and any state, terminal ones included (CA-10.9): the
+   * caption is a datum of the case, not an act. Left as it was: a caption
+   * written another way (corrected with `PATCH /cases/{caseId}`) and one that
+   * would pass {@link CaseDataRules.MAX_LENGTH} with the new name — the client's
+   * change is saved anyway. Which cases are in force is the caller's to decide.
+   *
+   * @returns whether the caption changed.
+   */
+  followClientRename(previous: ClientCaptionName, next: ClientCaptionName, now: Date): boolean {
+    if (!previous.beginsAt(this.props.caption) || previous.equals(next)) {
+      return false;
+    }
+    const caption = previous.replacedBy(next, this.props.caption);
+    if (caption.length > CaseDataRules.MAX_LENGTH.caption || caption === this.props.caption) {
+      return false;
+    }
+    this.props.caption = caption;
+    this.props.updatedAt = now;
+    return true;
   }
 
   /**

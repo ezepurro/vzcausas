@@ -10,6 +10,7 @@ import { createClient } from '../../shared/factories/client.factory';
 import { createLawyer } from '../../shared/factories/lawyer.factory';
 import { createProceduralState } from '../../shared/factories/procedural-state.factory';
 import { createUser } from '../../shared/factories/user.factory';
+import { purgeAuditLog } from '../../shared/harness/audit-log';
 
 /*
  * Recurso clientes (HU8, HU9). Contrato: API_CONTRACT_V5.md §3.6. Una sola app para
@@ -57,6 +58,8 @@ beforeEach(async () => {
   // antes de borrar los actos. Usuarios y abogados, porque las factories numeran
   // matrícula y usuario desde 1 en cada suite.
   const prisma = getPrisma();
+  // Antes de borrar usuarios: modificar un cliente deja auditoría que los referencia (HU10).
+  await purgeAuditLog();
   await prisma.offense.deleteMany();
   await prisma.case.updateMany({ data: { currentProceduralActId: null } });
   await prisma.proceduralAct.deleteMany();
@@ -333,13 +336,218 @@ describe('activeCases de /api/v1/clients', () => {
   });
 });
 
+/*
+ * HU10 · Modificar cliente (contrato V6 §3.6). Escrito desde
+ * `.claude/plans/tests-hu10-modificar-cliente.md`, no desde el código. Modifica una
+ * secretaria que existe: la auditoría queda a su nombre.
+ */
+describe('PATCH /api/v1/clients/{clientId}', () => {
+  let editor: { id: number; auth: { Authorization: string } };
+  let gomez: Awaited<ReturnType<typeof createClient>>;
+  const patch = (body: unknown, id: number | string = gomez.id) =>
+    server().patch(`${URL}/${id}`).set(editor.auth).send(body as object);
+  /** Lo que un rechazo no puede tocar: el cliente y la auditoría. */
+  const snapshot = async () => ({
+    client: await getPrisma().client.findUnique({ where: { id: gomez.id } }),
+    audit: await getPrisma().auditLog.count(),
+  });
+
+  beforeEach(async () => {
+    const user = await createUser({ roles: ['SECRETARY'] });
+    editor = {
+      id: user.id,
+      auth: loginAs({ userId: user.id, roles: ['SECRETARY'], permissions: ['client:update', 'client:read'] }),
+    };
+    gomez = await createClient({
+      lastName: 'GÓMEZ',
+      firstName: 'Ariel Fernando',
+      documentNumber: '34812905',
+      email: 'afgomez@gmail.com',
+    });
+  });
+
+  describe('modificación exitosa', () => {
+    // CA-10.1, CA-10.5
+    it('responde 200 con el cliente como lo muestra GET; lo omitido no cambia, email en null se borra y queda auditado', async () => {
+      const data = expectData<ClientBody>(await patch({ address: 'Av. Colón 500, Córdoba', email: null }), 200);
+
+      expect(data).toEqual(expectData<ClientBody>(await server().get(`${URL}/${gomez.id}`).set(reader()), 200));
+      expect(data).toMatchObject({
+        lastName: 'GÓMEZ',
+        firstName: 'Ariel Fernando',
+        documentNumber: '34812905',
+        address: 'Av. Colón 500, Córdoba',
+        phone: '351 415-2288',
+        email: null,
+      });
+      const audit = await getPrisma().auditLog.findMany();
+      expect(audit).toHaveLength(1);
+      expect(audit[0]).toMatchObject({
+        actorUserId: editor.id,
+        action: 'client.updated',
+        entityType: 'Client',
+        entityId: String(gomez.id),
+        metadata: { changedFields: ['address', 'email'] },
+      });
+      expect(JSON.stringify(audit[0].metadata)).not.toContain('Colón');
+    });
+
+    // CA-10.3, CA-10.7
+    it('el documento se puede cambiar; el propio y el de un cliente dado de baja no son un conflicto', async () => {
+      const baja = await createClient({ documentType: 'PASSPORT', documentNumber: 'AB123456' });
+      await getPrisma().client.update({ where: { id: baja.id }, data: { active: false } });
+
+      expect(expectData<ClientBody>(await patch({ documentType: 'DNI', documentNumber: '34812905' }), 200).documentNumber).toBe('34812905');
+      expect(
+        expectData<ClientBody>(await patch({ documentType: 'PASSPORT', documentNumber: 'AB123456' }), 200),
+      ).toMatchObject({ documentType: 'PASSPORT', documentNumber: 'AB123456' });
+    });
+  });
+
+  describe('rechazos', () => {
+    // CA-10.1, CA-10.3, CA-10.4, CA-10.8
+    it.each<[string, object, Record<string, string>]>([
+      ['sin ningún campo', {}, { body: 'Debe enviarse al menos un campo para modificar.' }],
+      ['el apellido vacío y la dirección en null', { lastName: '  ', address: null }, {
+        lastName: 'El apellido es obligatorio.',
+        address: 'La dirección es obligatoria.',
+      }],
+      ['el teléfono en null', { phone: null }, { phone: 'El teléfono es obligatorio.' }],
+      ['clientSince', { clientSince: '2020-01-01' }, { clientSince: 'No es un campo admitido.' }],
+    ])('%s: 400 y no se escribe nada', async (_name, body, details) => {
+      const before = await snapshot();
+
+      const res = await patch(body);
+
+      expectError(res, 400, 'VALIDATION_ERROR', Object.keys(details));
+      expect(res.body.error.message).toBe('Los datos enviados no son válidos.');
+      expect(res.body.error.details).toEqual(details);
+      expect(await snapshot()).toEqual(before);
+    });
+
+    // CA-10.3: el número se valida contra el tipo que resulta.
+    it('si se cambia solo el tipo y el número que tenía no lo respeta, 400 sobre documentNumber', async () => {
+      await getPrisma().client.update({
+        where: { id: gomez.id },
+        data: { documentType: 'PASSPORT', documentNumber: 'AB123456' },
+      });
+      const before = await snapshot();
+
+      const res = await patch({ documentType: 'DNI' });
+
+      expectError(res, 400, 'VALIDATION_ERROR', ['documentNumber']);
+      expect(res.body.error.details).toEqual({ documentNumber: 'Debe contener 7 u 8 dígitos, sin puntos.' });
+      expect(await snapshot()).toEqual(before);
+    });
+
+    /**
+     * CA-10.7. El mismo desvío nombrado que en el alta, sin fijar: el contrato pide
+     * `details: null` y llega `{ field: "documentNumber" }` (`people.errors.ts`).
+     */
+    it('el documento de otro cliente vigente es 409 y no cambia nada', async () => {
+      await createClient({ documentNumber: '20111222' });
+      const before = await snapshot();
+
+      const res = await patch({ documentNumber: '20111222' });
+
+      expect(res.status).toBe(409);
+      expect(res.body.error).toMatchObject({
+        code: 'CLIENT_DNI_ALREADY_EXISTS',
+        message: 'Ya existe un cliente registrado con ese DNI.',
+      });
+      expect(await snapshot()).toEqual(before);
+    });
+
+    // CA-10.11
+    it('un cliente inexistente o dado de baja es 404; un id no entero, 400', async () => {
+      const baja = await createClient();
+      await getPrisma().client.update({ where: { id: baja.id }, data: { active: false } });
+
+      for (const id of [999999, baja.id]) {
+        const res = await patch({ phone: '351 000' }, id);
+        expectError(res, 404, 'CLIENT_NOT_FOUND');
+        expect(res.body.error.message).toBe('No se encontró el cliente solicitado.');
+      }
+      const invalid = await patch({ phone: '351 000' }, 'abc');
+      expectError(invalid, 400, 'INVALID_PATH_PARAMETER', ['clientId']);
+    });
+  });
+
+  /**
+   * CA-10.9 (D-121, D-130): las carátulas de sus causas siguen al nombre. Las causas
+   * del plan de tests: vigente, archivada, dada de baja, escrita de otra forma y una
+   * que con el nombre nuevo pasaría de 255 caracteres.
+   */
+  describe('carátulas de sus causas', () => {
+    const LONG = `GÓMEZ, Ariel Fernando ${'x'.repeat(255 - 'GÓMEZ, Ariel Fernando '.length)}`;
+
+    async function hisCases() {
+      const lawyer = await createLawyer();
+      const owner = { clientId: gomez.id, responsibleLawyerId: lawyer.id, createdByUserId: editor.id };
+      const terminal = await createProceduralState({ terminal: true });
+      const robo = await createCase({ ...owner, caption: 'GÓMEZ, Ariel Fernando p.s.a. Robo calificado' });
+      const archivada = await createCase({
+        ...owner,
+        caption: 'Gómez, Ariel Fernando c/ APROSS s/ amparo',
+        currentStateId: terminal.stateId,
+      });
+      const baja = await createCase({ ...owner, caption: 'GÓMEZ, Ariel Fernando p.s.a. Hurto' });
+      await deactivateCase(baja.id);
+      const otraForma = await createCase({ ...owner, caption: 'Ariel GÓMEZ c/ PÉREZ' });
+      const larga = await createCase({ ...owner, caption: LONG });
+      return { robo, archivada, baja, otraForma, larga };
+    }
+
+    const captionOf = async (id: number) =>
+      (await getPrisma().case.findUniqueOrThrow({ where: { id }, select: { caption: true } })).caption;
+
+    // CA-10.9, CA-10.2, CA-10.5
+    it('al cambiar el apellido cambian las que empiezan con su nombre, y cada una queda auditada', async () => {
+      const cases = await hisCases();
+
+      expectData(await patch({ lastName: 'GÓMEZ PAZ' }), 200);
+
+      expect(await captionOf(cases.robo.id)).toBe('GÓMEZ PAZ, Ariel Fernando p.s.a. Robo calificado');
+      expect(await captionOf(cases.archivada.id)).toBe('GÓMEZ PAZ, Ariel Fernando c/ APROSS s/ amparo');
+      expect(await captionOf(cases.baja.id)).toBe('GÓMEZ, Ariel Fernando p.s.a. Hurto');
+      expect(await captionOf(cases.otraForma.id)).toBe('Ariel GÓMEZ c/ PÉREZ');
+      expect(await captionOf(cases.larga.id)).toBe(LONG);
+
+      // CA-10.2: la causa muestra el cliente con su nombre nuevo; no hay copia.
+      const detail = await server().get(`/api/v1/cases/${cases.robo.id}`).set(loginAs({ userId: editor.id }));
+      expect(expectData<{ caption: string; client: { lastName: string } }>(detail, 200)).toMatchObject({
+        caption: 'GÓMEZ PAZ, Ariel Fernando p.s.a. Robo calificado',
+        client: { lastName: 'GÓMEZ PAZ' },
+      });
+
+      const caseAudit = await getPrisma().auditLog.findMany({ where: { action: 'case.updated' }, orderBy: { entityId: 'asc' } });
+      expect(caseAudit.map((row) => [row.entityId, row.actorUserId, row.metadata])).toEqual(
+        [cases.robo.id, cases.archivada.id]
+          .sort((a, b) => String(a).localeCompare(String(b)))
+          .map((id) => [String(id), editor.id, { changedFields: ['caption'] }]),
+      );
+    });
+
+    // CA-10.9
+    it('cambiar el documento, la dirección, el teléfono o el correo no cambia ninguna carátula', async () => {
+      const cases = await hisCases();
+
+      expectData(await patch({ documentNumber: '34812906', address: 'Otra 1', phone: '351 000', email: null }), 200);
+
+      expect(await captionOf(cases.robo.id)).toBe('GÓMEZ, Ariel Fernando p.s.a. Robo calificado');
+      expect(await getPrisma().auditLog.count({ where: { action: 'case.updated' } })).toBe(0);
+    });
+  });
+});
+
 /**
  * Con login real: lo que se verifica es el **seed** (seed → `role_permissions` → login
  * → claims → guard). RN11: todo el estudio ve todo, y desde la matriz del 2026-10-11
  * (§5.1) los tres perfiles dan de alta clientes (CA-9.3).
  */
 describe('Permisos de /api/v1/clients', () => {
-  it.each(ROLES)('un %s consulta el listado y el detalle, y da de alta', async (role) => {
+  // CA-10.6: los tres perfiles también modifican.
+  it.each(ROLES)('un %s consulta el listado y el detalle, da de alta y modifica', async (role) => {
     const user = await createUser({ roles: [role], passwordHash: await bcrypt.hash(PASSWORD, 4) });
     const login = await server().post('/api/v1/auth/login').send({ username: user.username, password: PASSWORD });
     expect(login.status).toBe(200);
@@ -356,5 +564,6 @@ describe('Permisos de /api/v1/clients', () => {
     const { id } = expectData<ClientBody>(created, 201);
     expectPaginated(await server().get(URL).set(auth));
     expectData(await server().get(`${URL}/${id}`).set(auth), 200);
+    expectData(await server().patch(`${URL}/${id}`).set(auth).send({ phone: '351 222-2222' }), 200);
   });
 });

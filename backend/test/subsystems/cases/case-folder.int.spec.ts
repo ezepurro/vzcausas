@@ -448,4 +448,64 @@ describe('Carpeta de la causa en la nube (HU39)', () => {
       expect((await lawyerFolderRow()).name).toBe('Ríos, Malena');
     });
   });
+
+  /*
+   * HU10 (CA-10.9, CA-10.10, D-121): al cambiar el nombre de un cliente, `cases` cambia
+   * la carátula de sus causas en la misma transacción y después publica `CaseModified`;
+   * `documents` renombra la carpeta. El resto de HU10 está en
+   * `people/clients.int.spec.ts`.
+   */
+  describe('PATCH /api/v1/clients/{clientId}: la carpeta sigue a la carátula (HU10)', () => {
+    const renameClient = async (body: Record<string, unknown>) =>
+      request(app.getHttpServer())
+        .patch(`/api/v1/clients/${actors.clientId}`)
+        .set(loginAs({ userId: actors.userId, roles: ['SECRETARY'], permissions: ['client:update'] }))
+        .send(body);
+
+    beforeEach(async () => {
+      await getPrisma().client.update({
+        where: { id: actors.clientId },
+        data: { lastName: 'GÓMEZ', firstName: 'Ariel' },
+      });
+    });
+
+    // CA-10.10: la carpeta se renombra con la carátula nueva; el id y el padre no cambian
+    it('cambiar el apellido renombra la carátula y la carpeta de la causa', async () => {
+      const created = expectData<CaseBody>(await register({ caption: 'GÓMEZ, Ariel p.s.a. Robo' }), 201);
+      const before = await caseFolderRow();
+
+      expectData(await renameClient({ lastName: 'GÓMEZ PAZ' }), 200);
+      // La carátula ya cambió al responder, en la misma transacción que el cliente (CA-10.9).
+      expect((await savedCase(created.id)).caption).toBe('GÓMEZ PAZ, Ariel p.s.a. Robo');
+      await waitUntil(async () => (await caseFolderRow()).name === 'GÓMEZ PAZ, Ariel p.s.a. Robo');
+
+      const after = await caseFolderRow();
+      expect(after.cloudFolderId).toBe(before.cloudFolderId);
+      expect(after.parentCloudFolderId).toBe(before.parentCloudFolderId);
+      expect(storage.folders.find((f) => f.id === before.cloudFolderId)?.name).toBe('GÓMEZ PAZ, Ariel p.s.a. Robo');
+      expect((await folderOf(created.id))?.path).toBe('/VZ Causas/Causas/Ríos, Malena/Penal/GÓMEZ PAZ, Ariel p.s.a. Robo');
+    });
+
+    // CA-10.10: Drive no hace fallar la modificación del cliente
+    it('si Drive falla, el cliente y la carátula se guardan igual (200) y la carpeta conserva su nombre', async () => {
+      const created = expectData<CaseBody>(await register({ caption: 'GÓMEZ, Ariel p.s.a. Robo' }), 201);
+      storage.failNextCallTo('relocateFolder', new DocumentStorageUnavailableError('TRANSIENT', 'timeout'));
+
+      expectData(await renameClient({ lastName: 'GÓMEZ PAZ' }), 200);
+      await waitUntil(async () => storage.relocations.length === 1);
+
+      expect((await savedCase(created.id)).caption).toBe('GÓMEZ PAZ, Ariel p.s.a. Robo');
+      expect((await caseFolderRow()).name).toBe('GÓMEZ, Ariel p.s.a. Robo');
+      expect((await folderOf(created.id))?.path).toBe('/VZ Causas/Causas/Ríos, Malena/Penal/GÓMEZ, Ariel p.s.a. Robo');
+    });
+
+    // CA-10.9: el documento, la dirección, el teléfono o el correo no tocan carátulas ni carpetas
+    it('cambiar el teléfono no pide nada a Drive', async () => {
+      expectData<CaseBody>(await register({ caption: 'GÓMEZ, Ariel p.s.a. Robo' }), 201);
+
+      expectData(await renameClient({ phone: '351 000-0000' }), 200);
+
+      expect(storage.relocations).toEqual([]);
+    });
+  });
 });

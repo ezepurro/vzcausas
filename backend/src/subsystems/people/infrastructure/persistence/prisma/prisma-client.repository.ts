@@ -1,6 +1,8 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "@shared/infrastructure/prisma/prisma.service";
+import { Prisma } from "../../../../../generated/prisma/client";
 import { Client } from "../../../core/domain/entities/client.entity";
+import { ClientDniAlreadyExistsError } from "../../../core/domain/errors/people.errors";
 import {
   ClientPage,
   ClientRepository,
@@ -36,16 +38,43 @@ export class PrismaClientRepository implements ClientRepository {
    * current clients are considered, so a logically deleted one
    * releases their document (CA-8.4), and the type is part of the key (D-108).
    */
-  async existsActiveByDocument(document: ClientDocument): Promise<boolean> {
+  async existsActiveByDocument(document: ClientDocument, exceptClientId?: number): Promise<boolean> {
     const row = await this.prisma.db.client.findFirst({
       where: {
         documentType: document.type,
         documentNumber: document.number,
         active: true,
+        ...(exceptClientId !== undefined && { id: { not: exceptClientId } }),
       },
       select: { id: true },
     });
     return row !== null;
+  }
+
+  async update(client: Client): Promise<void> {
+    try {
+      await this.prisma.db.client.update({
+        where: { id: client.id },
+        data: {
+          lastName: client.lastName,
+          firstName: client.firstName,
+          documentType: client.document.type,
+          documentNumber: client.document.number,
+          address: client.address,
+          phone: client.phone,
+          email: client.email,
+        },
+      });
+    } catch (error) {
+      // Two requests checked the same document at once: the partial unique index decides (CA-10.7).
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002"
+      ) {
+        throw new ClientDniAlreadyExistsError();
+      }
+      throw error;
+    }
   }
 
   async create(client: Client): Promise<void> {

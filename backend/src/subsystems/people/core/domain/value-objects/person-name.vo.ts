@@ -40,19 +40,33 @@ export class PersonName {
    * @throws {ValidationError} `VALIDATION_ERROR` with `{ [field]: message }`.
    */
   static create(field: PersonNameField, raw: string | null | undefined): PersonName {
-    const name = typeof raw === "string" ? raw.trim() : "";
+    const name = PersonName.required(field, raw);
+    if (field === "firstName" && TITLE.test(name)) {
+      throw PersonName.invalid(field, "Los nombres no llevan el tratamiento (Dr., Dra.).");
+    }
+    return new PersonName(name);
+  }
 
+  /**
+   * A client's last name or first names (HU10, contract V6 `PATCH
+   * /clients/{clientId}`): required and at most 100 characters, with the same
+   * messages. The "Dr."/"Dra." rule is the lawyer's (CA-14.9), not the client's.
+   * @throws {ValidationError} `VALIDATION_ERROR` with `{ [field]: message }`.
+   */
+  static forClient(field: PersonNameField, raw: string | null | undefined): PersonName {
+    return new PersonName(PersonName.required(field, raw));
+  }
+
+  /** Trimmed, present and not too long. */
+  private static required(field: PersonNameField, raw: string | null | undefined): string {
+    const name = typeof raw === "string" ? raw.trim() : "";
     if (name === "") {
       throw PersonName.invalid(field, REQUIRED_MESSAGE[field]);
     }
     if (name.length > MAX_LENGTH) {
       throw PersonName.invalid(field, `Debe tener como máximo ${MAX_LENGTH} caracteres.`);
     }
-    if (field === "firstName" && TITLE.test(name)) {
-      throw PersonName.invalid(field, "Los nombres no llevan el tratamiento (Dr., Dra.).");
-    }
-
-    return new PersonName(name);
+    return name;
   }
 
   private static invalid(field: PersonNameField, message: string): ValidationError {
