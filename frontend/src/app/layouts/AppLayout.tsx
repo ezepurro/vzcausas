@@ -63,7 +63,8 @@ const GROUPS: RailGroup[] = [
             { id: '/abogados', label: 'Abogados', icon: 'lawyers' },
             { id: '/estados-y-plazos', label: 'Estados y plazos', icon: 'timeLimits' },
             { id: '/calificaciones-legales', label: 'Calificaciones legales', icon: 'qualifications' },
-            { id: '/reportes', label: 'Reportes', icon: 'reports' },
+            // Oculto: Reportes (HU43, HU44) queda fuera del contrato y no tiene pantalla (DECISIONES.md §3).
+            { id: '/reportes', label: 'Reportes', icon: 'reports', hidden: true },
         ],
     },
 ]
@@ -91,7 +92,7 @@ export function AppLayout() {
     const groups = GROUPS
         .map((group) => ({
             ...group,
-            items: group.items.filter((item) => canAccess(user.roles, item.id)),
+            items: group.items.filter((item) => !item.hidden && canAccess(user.roles, item.id)),
         }))
         .filter((group) => group.items.length > 0)
 

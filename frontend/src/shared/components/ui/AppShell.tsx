@@ -6,6 +6,8 @@ export interface RailItem {
   id: string;
   label: string;
   icon: IconName;
+  /** el ítem no se dibuja (la sección existe pero todavía no se muestra) */
+  hidden?: boolean;
 }
 
 export interface RailGroup {

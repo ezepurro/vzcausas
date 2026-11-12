@@ -48,7 +48,7 @@ Las del backend (`JWT_*`, `BCRYPT_COST`, `COOKIE_*`, `CORS_ALLOWED_ORIGINS`, `AP
 make dev-build       # build de las imágenes + levanta todo en segundo plano
 ```
 
-No hace falta correr migraciones ni seed a mano: en cada `make dev-up` / `make dev-build` el servicio `migrate` aplica las migraciones pendientes (`prisma migrate deploy`) y corre el seed (`prisma db seed`, idempotente) antes de que arranque el backend. El backend espera a que `migrate` termine bien, así que cuando `DevSeedService` siembra el usuario administrador las tablas y el catálogo de roles ya existen. Si `migrate` falla, el backend no arranca: mirá `docker logs causas-migrate`.
+No hace falta correr migraciones ni seed a mano: en cada `make dev-up` / `make dev-build` el servicio `migrate` aplica las migraciones pendientes (`prisma migrate deploy`) y corre el seed esencial (`prisma db seed`, idempotente) antes de que arranque el backend. Los datos de ejemplo no se cargan solos: `make populate` (ver §5). El backend espera a que `migrate` termine bien, así que cuando `DevSeedService` siembra el usuario administrador las tablas y el catálogo de roles ya existen. Si `migrate` falla, el backend no arranca: mirá `docker logs causas-migrate`.
 
 Con eso quedan arriba:
 
@@ -112,13 +112,15 @@ El login es `POST /auth/login` con `{ "username": "...", "password": "..." }`. Q
 - **Con mocks (`VITE_USE_MOCKS=true`, el default)**: el frontend no llama al backend real, así que el usuario `DEV_SEED_USERNAME`/`DEV_SEED_PASSWORD` sembrado en la base **no sirve para entrar por la UI**. Los usuarios válidos son los que trae el mock (`fvazquez` / `password1` como administrador, y varios más) — ver el detalle completo en [`frontend/src/shared/mocks/README.md`](frontend/src/shared/mocks/README.md#usuarios-de-prueba).
 - **Contra el backend real (`VITE_USE_MOCKS=false`)**, o pegándole directo a `http://localhost:3000/api/v1/auth/login`, en una base recién levantada existen:
   - El administrador que crea `DevSeedService`: por defecto `admin` / `admin123` (`DEV_SEED_USERNAME` / `DEV_SEED_PASSWORD` en `docker/.env`).
-  - Los 12 usuarios de prueba que crea el seed (`f.vazquez`, `l.zarate`, `c.pereyra`, …), con distintos roles (`ADMINISTRATOR`, `LAWYER`, `SECRETARY`) y la contraseña de `DEV_SEED_PASSWORD`. La lista completa está en `DEV_USERS` de [`backend/prisma/seed.ts`](backend/prisma/seed.ts).
-  - Dos cuentas cortas de demostración, con contraseña propia:
+  - Los 9 usuarios del seed de la presentación, todos con la contraseña de `DEV_SEED_PASSWORD` (`admin123` por defecto). La lista está en `DEV_USERS` de [`backend/prisma/populate/people.ts`](backend/prisma/populate/people.ts). Solo existen después de `make populate`:
 
-    | Usuario | Contraseña | Rol | Para qué |
-    |---|---|---|---|
-    | `abogado` | `abogado123` | `LAWYER` | Es el abogado responsable de las tres causas de ejemplo: puede registrar actos y previsualizar su vencimiento. |
-    | `secret` | `secret123` | `SECRETARY` | Registra clientes y causas. Sin ficha de abogado, no puede registrar actos. |
+    | Usuario | Rol | Para qué |
+    |---|---|---|
+    | `lu.cipolla.del`, `facuchofiorani`, `gamondsantiago2`, `ezequiel.purro`, `teomach047`, `matecr361`, `matumontovani2006` | `LAWYER` | Los abogados del equipo, con su mail real: el proceso diario les llega. Cada uno es responsable de 10 a 15 causas activas y de algunas cerradas y prescriptas. |
+    | `administrador` | `ADMINISTRATOR` + `LAWYER` | Administra el sistema y también lleva causas. |
+    | `secretaria` | `SECRETARY` | Registra clientes y causas. Sin ficha de abogado, no puede registrar actos. |
+
+    Las causas, los clientes y las calificaciones se cargan solo en una base sin causas, con las fechas armadas alrededor de `SEED_PRESENTATION_DATE` (por defecto el 11/11/2026): ese día hay plazos vencidos, que vencen ese día y que vencen en los días siguientes.
 
 Estos usuarios solo se siembran con `NODE_ENV=development` — nunca en otro entorno, aunque las variables estén seteadas.
 
@@ -149,7 +151,8 @@ Comandos más usados:
 | `make migrate-dev` | Corre `prisma migrate dev` (crea y aplica migraciones nuevas, interactivo) |
 | `make migrate-create name=<nombre>` | Crea una migración sin aplicarla (`--create-only`) |
 | `make migrate-deploy` | Aplica migraciones pendientes sin prompts |
-| `make seed` | Corre el seed: roles, permisos, jurisdicciones, estados procesales y, en desarrollo, abogados y usuarios de prueba (idempotente — se puede correr de nuevo sin romper nada) |
+| `make seed` | Corre el seed esencial: roles, permisos, jurisdicciones y los estados de sistema (idempotente — se puede correr de nuevo sin romper nada) |
+| `make populate` | Puebla la base de desarrollo con datos de ejemplo: estados procesales de muestra, usuarios, abogados, clientes, calificaciones y causas. Requiere `make seed` antes y `NODE_ENV=development` |
 | `make openapi-build` | Valida `docs/openapi/` y regenera el bundle que muestra Swagger UI (`http://localhost:8081`) |
 | `make shell-db` | Abre `psql` contra la DB del contenedor |
 
@@ -157,7 +160,8 @@ Después de bajar una rama con migraciones o seed nuevos de otra persona alcanza
 
 ## 6. Notas
 
-- El seed (`backend/prisma/seed.ts`, automático al levantar o a mano con `make seed`) carga los datos de referencia (**roles, permisos, jurisdicciones y estados procesales**) y, solo en desarrollo, 11 abogados, 12 usuarios de prueba, 5 clientes, 3 calificaciones legales de ejemplo y 3 causas (una por fuero, con 2 actos procesales cada una, a cargo de `abogado`; identificadas por los SAC `90000001` a `90000003`). Las causas de ejemplo se crean una sola vez: si ya existen, la seed no las toca. El **usuario administrador** de desarrollo (`admin`) es un seed aparte, automático: lo crea el propio backend al arrancar (`DevSeedService`), y depende de que el catálogo de roles ya exista — ver §3 y §4.
+- El seed esencial (`backend/prisma/seed.ts`, automático al levantar o a mano con `make seed`) carga lo que el sistema necesita para funcionar en cualquier entorno: **roles, permisos, jurisdicciones y los estados de sistema** ("Iniciada" por fuero y "Prescripta" en penal), más el primer administrador si están las variables `BOOTSTRAP_ADMIN_*`. El resto de la tabla de estados la carga el estudio por la API.
+- El poblado (`backend/prisma/populate/populate.ts`, a mano con `make populate`, solo con `NODE_ENV=development`) carga los datos de ejemplo de `backend/prisma/populate/`: los estados procesales de muestra, los 9 usuarios de la presentación con sus fichas de abogado, clientes, calificaciones legales y causas fechadas alrededor de `SEED_PRESENTATION_DATE`. Las causas se cargan solo en una base sin causas. `make reset-db` corre los dos. El **usuario administrador** de desarrollo (`admin`) es un seed aparte, automático: lo crea el propio backend al arrancar (`DevSeedService`), y depende de que el catálogo de roles ya exista — ver §3 y §4.
 - Después de un `make dev-down-v` (que borra los volúmenes) la base queda vacía; el siguiente `make dev-up` vuelve a migrar y sembrar todo solo.
 - El código de `backend/` y `frontend/` está montado por bind mount, así que los cambios se reflejan sin rebuildear la imagen. Solo hace falta `make backend-build` / `make frontend-build` (o `dev-build`) cuando cambian dependencias (`package.json`) o el `Dockerfile`. Usá esos comandos y no un `docker compose build` suelto: `node_modules` vive en un volumen anónimo que compose reutiliza al recrear el contenedor, y los `make *-build` lo renuevan (`-V`) para que las dependencias nuevas lleguen al contenedor.
 - Este setup es solo de desarrollo local; no hay todavía imágenes ni compose de producción.

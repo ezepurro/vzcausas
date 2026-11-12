@@ -71,7 +71,7 @@ export function AdministratorDashboardView({ dashboard, onOpen }: AdministratorD
                     />
                 </div>
                 <div className="vz-dash__side">
-                    <PrescriptionAlertsPanel alerts={dashboard.prescriptionAlerts} onOpen={onOpen} showLawyer />
+                    <PrescriptionAlertsPanel alerts={dashboard.prescriptionAlerts} onOpen={onOpen} showLawyer scroll />
                     <TeamLoadPanel team={dashboard.team} selectedLawyerId={lawyerId} onSelect={toggleLawyer} />
                 </div>
             </div>

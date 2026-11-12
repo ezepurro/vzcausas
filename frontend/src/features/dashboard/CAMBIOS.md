@@ -5,6 +5,26 @@ ni del contrato.
 
 ---
 
+## 2026-11-09 — "Estudio": las alertas de prescripción se desplazan adentro
+
+**Pedido:** de Luciano Cipolla. Con muchas alertas, "Alertas de prescripción"
+crecía sin tope y estiraba la columna lateral (y con ella "Vencimientos del
+estudio"), mientras "Carga del equipo" ya se desplazaba adentro.
+
+**Ahora**, sólo en "Estudio", la lista lleva `vz-dash-rows--scroll`: tope de
+`26rem`, como "Carga del equipo" y "Causas para impulsar", y scroll propio. En
+el teléfono se dibuja entera, como las otras listas. "Mi día" no cambia: ahí
+el alto ya lo reparte la columna (`.vz-dash__row--filled`).
+
+### Archivos
+
+| Archivo                                     | Cambio        |
+| ------------------------------------------- | ------------- |
+| `components/PrescriptionAlertsPanel.tsx`    | Prop `scroll` |
+| `components/AdministratorDashboardView.tsx` | La pasa       |
+
+---
+
 ## 2026-11-09 — La pestaña y los filtros sobreviven a abrir una causa
 
 **Pedido:** de Luciano Cipolla. En "Estudio", al filtrar por un responsable,
@@ -33,12 +53,12 @@ El mes del calendario sigue en el estado del componente: vuelve al mes actual.
 
 ### Archivos
 
-| Archivo | Cambio |
-|---|---|
-| `hooks/useDashboardFilters.ts` | Nuevo: lee y escribe los tres parámetros |
-| `pages/HomePage.tsx` | La pestaña sale del hook |
-| `components/AdministratorDashboardView.tsx` | Urgencia y abogado salen del hook |
-| `components/LawyerDashboardView.tsx` | Urgencia sale del hook |
+| Archivo                                     | Cambio                                   |
+| ------------------------------------------- | ---------------------------------------- |
+| `hooks/useDashboardFilters.ts`              | Nuevo: lee y escribe los tres parámetros |
+| `pages/HomePage.tsx`                        | La pestaña sale del hook                 |
+| `components/AdministratorDashboardView.tsx` | Urgencia y abogado salen del hook        |
+| `components/LawyerDashboardView.tsx`        | Urgencia sale del hook                   |
 
 ### Verificación
 
@@ -85,10 +105,10 @@ Arriba de 720 px nada cambia.
 
 ### Archivos
 
-| Archivo | Cambio |
-|---|---|
-| `src/styles/dashboard.css` | Bloque "teléfono" al final |
-| `src/styles/table.css` | La fila de chips de un `.vz-filters[role="group"]` |
+| Archivo                    | Cambio                                             |
+| -------------------------- | -------------------------------------------------- |
+| `src/styles/dashboard.css` | Bloque "teléfono" al final                         |
+| `src/styles/table.css`     | La fila de chips de un `.vz-filters[role="group"]` |
 
 ### Verificación
 
@@ -124,10 +144,10 @@ prescripción" + "Carga del equipo" juntas.
 
 ### Archivos
 
-| Archivo | Cambio |
-|---|---|
-| `components/AdministratorDashboardView.tsx` | La fila suma la clase `vz-dash__row--matched` |
-| `src/styles/dashboard.css` | La variante `.vz-dash__row--matched` y su container query, debajo de "disposición del tablero" |
+| Archivo                                     | Cambio                                                                                         |
+| ------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `components/AdministratorDashboardView.tsx` | La fila suma la clase `vz-dash__row--matched`                                                  |
+| `src/styles/dashboard.css`                  | La variante `.vz-dash__row--matched` y su container query, debajo de "disposición del tablero" |
 
 ### Verificación
 
