@@ -10,7 +10,7 @@ import { Username } from "@subsystems/identity/core/domain/value-objects/usernam
 /**
  * Administrator and lawyer, matching the role catalog written by the seed
  * script. Both, like the firm's partner in the presentation fixture
- * (`prisma/seed-data/people.ts`): the account already carries a
+ * (`prisma/populate/people.ts`): the account already carries a
  * professional record, and with `LAWYER` it also sees "Mi día" and can be
  * the responsible lawyer of a case.
  */

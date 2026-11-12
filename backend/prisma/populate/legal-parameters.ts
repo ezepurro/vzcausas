@@ -26,20 +26,17 @@
  * verbatim, not developer-facing strings.
  */
 
-export type JurisdictionCode = 'CRIMINAL' | 'ADMINISTRATIVE' | 'AMPARO';
+import {
+  INITIAL_STATE_NAME,
+  JurisdictionCode,
+  PRESCRIBED_STATE,
+  PRESCRIBED_STATE_NAME,
+  StateSeed,
+  initialState as initial,
+} from '../procedural-states';
 
-export interface StateSeed {
-  jurisdiction: JurisdictionCode;
-  name: string;
-  timeLimitDays: number;
-  dayType: 'NONE' | 'BUSINESS' | 'CONSECUTIVE';
-  terminal: boolean;
-  isInitial?: boolean;
-  isPrescribed?: boolean;
-}
-
-export const INITIAL_STATE_NAME = 'Iniciada';
-export const PRESCRIBED_STATE_NAME = 'Prescripta';
+export { INITIAL_STATE_NAME, PRESCRIBED_STATE_NAME };
+export type { JurisdictionCode, StateSeed };
 
 /** `[name, business days]`: 0 opens no term. */
 type Row = readonly [string, number];
@@ -56,26 +53,10 @@ const open = (jurisdiction: JurisdictionCode, rows: readonly Row[]): StateSeed[]
 const closing = (jurisdiction: JurisdictionCode, names: readonly string[]): StateSeed[] =>
   names.map((name) => ({ jurisdiction, name, timeLimitDays: 0, dayType: 'NONE', terminal: true }));
 
-const initial = (jurisdiction: JurisdictionCode): StateSeed => ({
-  jurisdiction,
-  name: INITIAL_STATE_NAME,
-  timeLimitDays: 0,
-  dayType: 'NONE',
-  terminal: false,
-  isInitial: true,
-});
-
 export const PROCEDURAL_STATES: readonly StateSeed[] = [
   // ── Criminal ─────────────────────────────────────────────────────────────
   initial('CRIMINAL'),
-  {
-    jurisdiction: 'CRIMINAL',
-    name: PRESCRIBED_STATE_NAME,
-    timeLimitDays: 0,
-    dayType: 'NONE',
-    terminal: true,
-    isPrescribed: true,
-  },
+  PRESCRIBED_STATE,
   ...open('CRIMINAL', [
     ['Designación de abogado defensor', 3],
     // Art. 336: the prosecutor has 5 days from the statement to ask for pretrial detention.

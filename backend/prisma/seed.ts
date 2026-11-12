@@ -5,9 +5,14 @@ import 'dotenv/config';
 import { PrismaClient } from '../src/generated/prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import * as bcrypt from 'bcryptjs';
-import { seedPresentationCases } from './seed-data/cases';
-import { PROCEDURAL_STATES } from './seed-data/legal-parameters';
-import { DEV_USERS } from './seed-data/people';
+import { SYSTEM_STATES, upsertProceduralState } from './procedural-states';
+
+/*
+ * Essential seed: only what the system needs to work, in every environment
+ * (deploy, development, integration tests). Sample data for development and
+ * presentations lives in `populate/populate.ts` (`npm run prisma:populate`).
+ */
+
 /**
  * Role catalog. Reference data, not user data: no endpoint creates
  * these at any scope, so seeding them is the only way they come to
@@ -125,57 +130,6 @@ const JURISDICTIONS = [
   { name: 'ADMINISTRATIVE', dayTypeDefault: 'BUSINESS' },
   { name: 'AMPARO', dayTypeDefault: 'BUSINESS' },
 ] as const;
-
-/**
- * Accounts and professional records of the presentation fixture
- * (`seed-data/people.ts`). Each lawyer record is keyed by its registration
- * number and takes the account's name.
- */
-async function seedDevPeople(prisma: PrismaClient): Promise<void> {
-  const defaultPassword = process.env.DEV_SEED_PASSWORD ?? 'admin123';
-  const passwordHash = await bcrypt.hash(defaultPassword, Number(process.env.BCRYPT_COST ?? 12));
-
-  for (const user of DEV_USERS) {
-    // D-25 / Q-07: ADMINISTRATOR or LAWYER needs a professional record, and an
-    // account with neither role (a secretary) must not have one.
-    const needsLawyer = user.roles.includes('ADMINISTRATOR') || user.roles.includes('LAWYER');
-    if (needsLawyer !== (user.registrationNumber !== undefined)) {
-      throw new Error(
-        `User ${user.username} has roles [${user.roles.join(', ')}]: ` +
-          (needsLawyer ? 'it needs a registrationNumber.' : 'it must not have a registrationNumber.'),
-      );
-    }
-
-    let lawyerId: number | null = null;
-    if (user.registrationNumber !== undefined) {
-      const lawyer = await prisma.lawyer.upsert({
-        where: { registrationNumber: user.registrationNumber },
-        update: { lastName: user.lastName, firstName: user.firstName, active: true },
-        create: { lastName: user.lastName, firstName: user.firstName, registrationNumber: user.registrationNumber },
-      });
-      lawyerId = lawyer.id;
-    }
-
-    const row = await prisma.user.upsert({
-      where: { username: user.username },
-      // The password is refreshed so that editing the variable takes
-      // effect without wiping the volume.
-      update: { passwordHash, lastName: user.lastName, firstName: user.firstName, email: user.email, lawyerId, active: true, deletedAt: null },
-      create: { username: user.username, lastName: user.lastName, firstName: user.firstName, email: user.email, passwordHash, lawyerId },
-    });
-
-    const roles = await prisma.role.findMany({ where: { name: { in: [...user.roles] } } });
-    // Replaced rather than merged, for the same reason as
-    // `role_permissions`: the constants are the source of truth.
-    // Note this discards roles assigned through the API in development.
-    await prisma.userRole.deleteMany({ where: { userId: row.id } });
-    await prisma.userRole.createMany({
-      data: roles.map((role) => ({ userId: row.id, roleId: role.id })),
-    });
-  }
-
-  console.log(`Development fixture: ${DEV_USERS.length} users (password in DEV_SEED_PASSWORD, admin123 by default).`);
-}
 
 // ─── Bootstrap: the first administrator outside development ──────────────────
 
@@ -392,41 +346,12 @@ async function main(): Promise<void> {
       });
     }
 
-    for (const { jurisdiction: code, ...state } of PROCEDURAL_STATES) {
-      const jurisdiction = await prisma.jurisdiction.findUniqueOrThrow({
-        where: { name: code },
-      });
-      const data = { ...state, jurisdictionId: jurisdiction.jurisdictionId };
-
-      // `name` is no longer a unique key, so there is nothing to upsert
-      // on. Look the row up by the same rule the partial unique index
-      // enforces (jurisdiction + case-insensitive name, active only) to
-      // keep the seed idempotent.
-      const existing = await prisma.proceduralState.findFirst({
-        where: {
-          jurisdictionId: jurisdiction.jurisdictionId,
-          name: { equals: state.name, mode: 'insensitive' },
-          isActive: true,
-        },
-      });
-
-      if (existing) {
-        await prisma.proceduralState.update({ where: { stateId: existing.stateId }, data });
-      } else {
-        await prisma.proceduralState.create({ data });
-      }
+    for (const state of SYSTEM_STATES) {
+      await upsertProceduralState(prisma, state);
     }
 
     // After the catalog, which provides the ADMINISTRATOR role.
     await bootstrapAdministrator(prisma);
-
-    // Development only: a database holding accounts with a known
-    // password is precisely what must never exist anywhere else. The
-    // gate is the entire security argument for this fixture.
-    if (process.env.NODE_ENV === 'development') {
-      await seedDevPeople(prisma);
-      await seedPresentationCases(prisma);
-    }
 
     const roleCount = await prisma.role.count();
     const permissionCount = await prisma.permission.count();

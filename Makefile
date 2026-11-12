@@ -22,7 +22,7 @@ export
 .PHONY: help \
         dev-env dev-up dev-build dev-stop dev-down dev-down-v dev-logs ps clean \
         backend-restart backend-logs backend-shell backend-build \
-        migrate-deploy migrate-dev migrate-create seed test-int \
+        migrate-deploy migrate-dev migrate-create seed populate test-int \
         frontend-restart frontend-logs frontend-shell frontend-build \
         openapi-build \
         shell-db
@@ -101,8 +101,11 @@ migrate-dev: ## Runs Prisma migrations inside the backend container (dev)
 migrate-create: ## Create Prisma migration inside the backend container (dev)
 	$(DC_DEV) exec backend npx prisma migrate dev --create-only --name $(name)
 
-seed: ## Runs Prisma seed inside the backend container (dev)
+seed: ## Runs the essential Prisma seed inside the backend container (dev)
 	$(DC_DEV) exec backend npx prisma db seed
+
+populate: ## Populates the dev database with sample data (prisma/populate/populate.ts), after seed
+	$(DC_DEV) exec backend npm run prisma:populate
 
 test-unit: ## Runs backend integration tests inside the backend container (dev)
 	$(DC_DEV) exec backend npm run test
@@ -114,8 +117,6 @@ reset-db:
 	$(DC_DEV) exec backend npx prisma migrate reset --force
 	$(DC_DEV) exec backend npx prisma db seed
 	$(DC_DEV) restart backend
-clean-db:
-	$(DC_DEV) exec backend npx prisma migrate reset --force
 
 setup-storage:
 	$(DC_DEV) exec backend npm run documents:setup-storage
