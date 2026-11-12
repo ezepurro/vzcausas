@@ -16,6 +16,13 @@ services:
             <<: *database-url
             # Los contenedores que crea Testcontainers se alcanzan vía el host.
             TESTCONTAINERS_HOST_OVERRIDE: host.docker.internal
+            # El código está montado desde el disco de Windows: los cambios que
+            # se hacen en el host no le llegan al contenedor como eventos de
+            # archivo (inotify), y el watch de tsc nunca se entera. Con estas
+            # dos, TypeScript revisa los archivos por intervalo. La primera
+            # cubre los archivos editados; la segunda, los creados o borrados.
+            TSC_WATCHFILE: DynamicPriorityPolling
+            TSC_WATCHDIRECTORY: RecursiveDirectoryUsingDynamicPriorityPolling
         ports:
             - "3000:3000"
         env_file:
@@ -126,6 +133,11 @@ services:
             # Atajo local de la campana (features/deadlines/CAMBIOS.md). Este servicio
             # corre sólo en desarrollo y el código lo lee únicamente con DEV.
             VITE_INTERNAL_TRIGGER_SECRET: ${INTERNAL_TRIGGER_SECRET}
+            # La lee vite.config.ts para revisar los archivos por intervalo:
+            # montados desde el disco de Windows, los cambios no le llegan a
+            # Vite como eventos. Sin prefijo VITE_ a propósito: con ese
+            # prefijo, Vite la expondría al bundle del navegador.
+            WATCH_POLLING: "true"
         ports:
             - "5173:5173"
         networks:

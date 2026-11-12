@@ -23,6 +23,17 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       /**
+       * Dentro de Docker sobre Windows, los cambios hechos desde el host no
+       * le llegan a Vite como eventos de archivo: hay que revisar los
+       * archivos por intervalo. Lo activa sólo el compose (WATCH_POLLING);
+       * corriendo en el host o en WSL2, Vite usa los eventos nativos, que
+       * no gastan CPU.
+       */
+      watch:
+        process.env.WATCH_POLLING === 'true'
+          ? { usePolling: true, interval: 1000 }
+          : undefined,
+      /**
        * Todo lo que empiece con /api se reenvía al backend.
        *
        * Mientras VITE_USE_MOCKS sea true esto no se usa: el service worker
