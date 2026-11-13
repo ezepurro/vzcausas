@@ -9,7 +9,10 @@ import {
 
 /** Translates domain legal qualifications into the API contract shape. */
 export class LegalQualificationHttpMapper {
-  /** Shape of the `POST` response: no `activeCases` (CA-48.7). */
+  /**
+   * Shape of the `POST` and `PATCH` responses: no `activeCases` (CA-48.7,
+   * CA-49.5, D-32). It is counted only for the `GET`s.
+   */
   static toRegisteredResponse(
     qualification: LegalQualification,
   ): RegisteredLegalQualificationResponseDto {

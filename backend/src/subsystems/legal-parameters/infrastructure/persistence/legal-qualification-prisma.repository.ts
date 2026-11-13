@@ -3,9 +3,17 @@ import { PrismaService } from '@shared/infrastructure/prisma/prisma.service';
 import { QualificationFilter } from '@subsystems/legal-parameters/core/application/common/get-qualifications.interfaces';
 import { LegalQualification } from '@subsystems/legal-parameters/core/domain/entities/legal-qualification';
 import { LegalQualificationRepository } from '@subsystems/legal-parameters/core/domain/ports/legal-qualification.repository';
+import { LegalQualificationAlreadyExistsError } from '@subsystems/legal-parameters/core/domain/errors/legal-parameters.errors';
 import { PaginatedResult } from '@shared/domain/paginated-result';
 import { Prisma } from '../../../../generated/prisma/client';
 import { LegalQualificationMapper } from './legal-qualification.mapper';
+
+/**
+ * Partial unique index (migration `add_indexes_constraints_sprint2`):
+ * `lower(name) WHERE active`. Its violation is the only `P2002` that means
+ * "duplicate denomination"; any other one is a bug and must surface as such.
+ */
+const ACTIVE_NAME_UNIQUE_INDEX = 'legal_qualifications_name_active_key';
 
 /**
  * Prisma-backed {@link LegalQualificationRepository}.
@@ -49,12 +57,66 @@ export class LegalQualificationPrismaRepository implements LegalQualificationRep
    * SIMPLE" would pass this check and then hit a raw constraint
    * violation at insert time.
    */
-  async existsActiveByName(name: string): Promise<boolean> {
+  async existsActiveByName(name: string, excludingId?: number): Promise<boolean> {
     const row = await this.prisma.db.legalQualification.findFirst({
-      where: { name: { equals: name, mode: 'insensitive' }, active: true },
+      where: {
+        name: { equals: name, mode: 'insensitive' },
+        active: true,
+        // The qualification being renamed does not collide with itself (CA-49.2).
+        ...(excludingId !== undefined && { id: { not: excludingId } }),
+      },
       select: { id: true },
     });
     return row !== null;
+  }
+
+  /**
+   * One conditional write: `active: true` in the `WHERE` makes a row given
+   * up by a concurrent request count as not written, so the use case answers
+   * 404 instead of modifying — or giving up twice — a qualification the
+   * client can no longer see (CA-49.6, CA-50.4). `updatedAt` is Prisma's.
+   */
+  async update(qualification: LegalQualification): Promise<boolean> {
+    try {
+      const { count } = await this.prisma.db.legalQualification.updateMany({
+        where: { id: qualification.id, active: true },
+        data: {
+          name: qualification.name,
+          prescriptionMonths: qualification.prescriptionMonths,
+          active: qualification.isActive,
+        },
+      });
+      return count === 1;
+    } catch (error) {
+      this.translateUniqueViolation(error);
+    }
+  }
+
+  /**
+   * `UpdateLegalQualification` checks `existsActiveByName` before writing,
+   * but two concurrent renames can both pass that check; the partial unique
+   * index stops the second one. Without this, that request would end in a
+   * 500 instead of the contract's 409 (CA-49.2). Same translation as
+   * `proc-state-prisma.repository.ts`: with the `PrismaPg` driver adapter the
+   * violated index arrives in `meta.driverAdapterError.cause.constraint.index`,
+   * and any other error, a `P2002` on another constraint included, is
+   * rethrown untouched.
+   */
+  private translateUniqueViolation(error: unknown): never {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002' &&
+      this.violatedIndex(error) === ACTIVE_NAME_UNIQUE_INDEX
+    ) {
+      throw new LegalQualificationAlreadyExistsError();
+    }
+    throw error;
+  }
+
+  /** Name of the index behind a `P2002`, or `undefined` if Prisma did not report it. */
+  private violatedIndex(error: Prisma.PrismaClientKnownRequestError): string | undefined {
+    const meta = error.meta as { driverAdapterError?: { cause?: { constraint?: { index?: string } } } } | undefined;
+    return meta?.driverAdapterError?.cause?.constraint?.index;
   }
 
   async findActiveById(id: number): Promise<LegalQualification | null> {

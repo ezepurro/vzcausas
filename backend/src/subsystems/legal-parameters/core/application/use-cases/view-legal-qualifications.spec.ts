@@ -30,6 +30,7 @@ describe('ViewLegalQualifications', () => {
       existsActiveByName: jest.fn(),
       findActiveById: jest.fn(),
       findPaginated: jest.fn().mockResolvedValue(aPage([])),
+      update: jest.fn(),
     };
     counter = new FakeActiveCasesCounter();
     useCase = new ViewLegalQualifications(repository, counter);

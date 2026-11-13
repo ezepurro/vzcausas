@@ -6,8 +6,10 @@ import { GetProceduralState } from './core/application/use-cases/get-procedural-
 import { RegisterProceduralState } from './core/application/use-cases/register-procedural-state.use-case';
 import { UpdateProceduralState } from './core/application/use-cases/update-procedural-state.use-case';
 import { DeactivateProceduralState } from './core/application/use-cases/deactivate-procedural-state.use-case';
+import { DeactivateLegalQualification } from './core/application/use-cases/deactivate-legal-qualification.use-case';
 import { FindLegalQualification } from './core/application/use-cases/find-legal-qualification.use-case';
 import { RegisterLegalQualification } from './core/application/use-cases/register-legal-qualification.use-case';
+import { UpdateLegalQualification } from './core/application/use-cases/update-legal-qualification.use-case';
 import { ViewLegalQualifications } from './core/application/use-cases/view-legal-qualifications.use-case';
 import { LegalQualificationRepository } from './core/domain/ports/legal-qualification.repository';
 import { ProceduralStateRepository } from './core/domain/ports/procedural-states.repository';
@@ -48,10 +50,12 @@ import { ProceduralStatePrismaRepository } from './infrastructure/persistence/pr
       provide: ProceduralStateRepository,
       useClass: ProceduralStatePrismaRepository,
     },
-    // Calificaciones legales (HU-47, HU-48).
+    // Calificaciones legales (HU-47, HU-48, HU-49, HU-50).
     RegisterLegalQualification,
     ViewLegalQualifications,
     FindLegalQualification,
+    UpdateLegalQualification,
+    DeactivateLegalQualification,
     {
       provide: LegalQualificationRepository,
       useClass: LegalQualificationPrismaRepository,

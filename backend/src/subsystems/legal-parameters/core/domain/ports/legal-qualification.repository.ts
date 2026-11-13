@@ -18,8 +18,21 @@ export interface LegalQualificationRepository {
    * Mirrors the partial unique index over `lower(name)`: case is
    * ignored and only current qualifications count, so one given up
    * releases its denomination (CA-48.4).
+   *
+   * `excludingId` lets `UpdateLegalQualification` check without colliding
+   * with the qualification being renamed ("hurto simple" → "Hurto simple",
+   * CA-49.2).
    */
-  existsActiveByName(name: string): Promise<boolean>;
+  existsActiveByName(name: string, excludingId?: number): Promise<boolean>;
+  /**
+   * Writes the mutable fields of a **current** qualification: name,
+   * prescription term and the active flag (HU49, HU50). Returns `false`
+   * when nothing was written because the row is no longer current — given
+   * up between the read and the write — so the use case answers 404 instead
+   * of modifying a qualification that, for the client, no longer exists.
+   * There is no `delete`: qualifications are never physically removed (RN12).
+   */
+  update(qualification: LegalQualification): Promise<boolean>;
 }
 
 export const LegalQualificationRepository = Symbol('LegalQualificationRepository');

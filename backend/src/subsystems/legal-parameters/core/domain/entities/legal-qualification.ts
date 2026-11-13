@@ -50,7 +50,56 @@ export class LegalQualification {
       );
     }
 
-    const name = props.name?.trim() ?? '';
+    const name = LegalQualification.validName(props.name);
+    LegalQualification.assertValidPrescriptionMonths(props.prescriptionMonths);
+
+    return new LegalQualification({ ...props, name });
+  }
+
+  /**
+   * HU49 — changes the denomination, with the same rules as the alta
+   * (CA-49.2). Uniqueness is the use case's, as in {@link create}.
+   * Validates before assigning, so a rejected name leaves the old one.
+   *
+   * @throws {ValidationError} if the name is blank or longer than 255.
+   */
+  rename(name: string): void {
+    this.props.name = LegalQualification.validName(name);
+  }
+
+  /**
+   * HU49 — changes the prescription term (CA-49.3). The cases that
+   * register the qualification pick it up on their next read: they
+   * reference it, they do not copy the months (CA-49.4, D-08). Nothing
+   * else has to change here, and nothing outside this row is written.
+   *
+   * @throws {ValidationError} if the term is not an integer ≥ 1.
+   */
+  changePrescriptionMonths(prescriptionMonths: number): void {
+    LegalQualification.assertValidPrescriptionMonths(prescriptionMonths);
+    this.props.prescriptionMonths = prescriptionMonths;
+  }
+
+  /**
+   * HU50 — logical deletion (RN12, CA-50.1). The row is kept, name and term
+   * included: the cases that registered it keep showing it and computing
+   * their prescription with it (CA-50.3). Goes through even if cases hold
+   * it; there is nothing to check for that (contract §3.5, no 409).
+   *
+   * Whether an already given-up qualification may be given up again is not
+   * this entity's call: the use case never finds it, and answers 404.
+   */
+  deactivate(): void {
+    this.props.isActive = false;
+  }
+
+  /**
+   * Shared by {@link create} and {@link rename}, so the alta and the
+   * modification apply the same rules (CA-48.5, CA-48.6, CA-49.2). Returns
+   * the name trimmed, which is the one that is kept and compared.
+   */
+  private static validName(raw: string): string {
+    const name = raw?.trim() ?? '';
 
     if (name.length === 0) {
       throw new ValidationError(
@@ -68,19 +117,24 @@ export class LegalQualification {
       );
     }
 
-    // Mirrors the hand-written CHECK
-    // `ck_legal_qualifications_prescription_months_positive`: a term
-    // of zero months would prescribe the action at the very moment the
-    // offence is registered.
-    if (!Number.isInteger(props.prescriptionMonths) || props.prescriptionMonths < 1) {
+    return name;
+  }
+
+  /**
+   * Shared by {@link create} and {@link changePrescriptionMonths} (CA-48.3,
+   * CA-49.3). Mirrors the hand-written CHECK
+   * `ck_legal_qualifications_prescription_months_positive`: a term of zero
+   * months would prescribe the action at the very moment the offence is
+   * registered.
+   */
+  private static assertValidPrescriptionMonths(prescriptionMonths: number): void {
+    if (!Number.isInteger(prescriptionMonths) || prescriptionMonths < 1) {
       throw new ValidationError(
         'INVALID_LEGAL_QUALIFICATION',
         'El plazo de prescripción no es válido.',
         { prescriptionMonths: 'Debe ser un número entero mayor o igual a 1.' },
       );
     }
-
-    return new LegalQualification({ ...props, name });
   }
 
   get id(): number {
