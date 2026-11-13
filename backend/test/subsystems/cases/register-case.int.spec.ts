@@ -5,6 +5,7 @@ import { DOCUMENT_STORAGE } from '../../../src/subsystems/documents/core/domain/
 import { InMemoryDocumentStorage } from '../../../src/subsystems/documents/infrastructure/storage/in-memory/in-memory-document-storage';
 import { withFixedClock } from '../../shared/harness/fixed-clock';
 import { startTestApp, stopTestApp, getPrisma } from '../../shared/harness/test-app';
+import { purgeAuditLog } from '../../shared/harness/audit-log';
 import { expectData, expectError } from '../../shared/contract/envelopes';
 import { loginAs } from '../../shared/auth/login-as';
 import { aCaseBody, createCase } from '../../shared/factories/case.factory';
@@ -67,6 +68,7 @@ describe('POST /api/v1/cases', () => {
     await clearCloudFolders();
     // HU39: la estructura base del estudio, sin la cual la carpeta de una causa no se puede crear.
     await createCloudStructure(storage);
+    await purgeAuditLog();
     await prisma.user.deleteMany(); // referencia a lawyers
     await prisma.lawyer.deleteMany();
     await prisma.client.deleteMany();

@@ -3,6 +3,7 @@ import request from 'supertest';
 import * as bcrypt from 'bcryptjs';
 
 import { getPrisma, startTestApp, stopTestApp } from '../../shared/harness/test-app';
+import { purgeAuditLog } from '../../shared/harness/audit-log';
 import { expectData, expectError, expectPaginated } from '../../shared/contract/envelopes';
 import { loginAs, TestRole } from '../../shared/auth/login-as';
 import { createCase, deactivateCase } from '../../shared/factories/case.factory';
@@ -57,6 +58,7 @@ beforeEach(async () => {
   await prisma.proceduralAct.deleteMany();
   await prisma.case.deleteMany();
   await prisma.client.deleteMany();
+  await purgeAuditLog();
   await prisma.user.deleteMany();
   await prisma.lawyer.deleteMany();
 });

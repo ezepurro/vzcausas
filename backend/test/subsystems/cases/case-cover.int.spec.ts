@@ -8,6 +8,7 @@ import { createLawyer } from '../../shared/factories/lawyer.factory';
 import { createUser } from '../../shared/factories/user.factory';
 import { withFixedClock } from '../../shared/harness/fixed-clock';
 import { getPrisma, startTestApp, stopTestApp } from '../../shared/harness/test-app';
+import { purgeAuditLog } from '../../shared/harness/audit-log';
 
 /*
  * HU24 Generar y emitir carátula. Contrato: API_CONTRACT_V5.md:4537-4663
@@ -51,6 +52,7 @@ describe('GET /api/v1/cases/{caseId}/cover', () => {
     await prisma.case.updateMany({ data: { currentProceduralActId: null } });
     await prisma.proceduralAct.deleteMany();
     await prisma.case.deleteMany();
+    await purgeAuditLog();
     await prisma.user.deleteMany();
     await prisma.lawyer.deleteMany();
     await prisma.client.deleteMany();

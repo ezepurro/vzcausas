@@ -2,6 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 
 import { startTestApp, stopTestApp, getPrisma } from '../../shared/harness/test-app';
+import { purgeAuditLog } from '../../shared/harness/audit-log';
 import { expectError } from '../../shared/contract/envelopes';
 import { createCase } from '../../shared/factories/case.factory';
 import { createClient } from '../../shared/factories/client.factory';
@@ -77,6 +78,7 @@ describe('POST /api/v1/internal/deadlines/daily-run', () => {
     const prisma = getPrisma();
     await prisma.sentNotification.deleteMany();
     await prisma.case.deleteMany();
+    await purgeAuditLog();
     await prisma.user.deleteMany(); // referencia a lawyers
     await prisma.lawyer.deleteMany();
     await prisma.client.deleteMany();

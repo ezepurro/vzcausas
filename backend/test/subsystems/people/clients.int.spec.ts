@@ -49,6 +49,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  await purgeAuditLog();
   await stopTestApp();
 });
 

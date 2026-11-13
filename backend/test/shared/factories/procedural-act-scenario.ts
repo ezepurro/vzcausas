@@ -1,4 +1,5 @@
 import { getPrisma } from '../harness/test-app';
+import { purgeAuditLog } from '../harness/audit-log';
 import { loginAs } from '../auth/login-as';
 import { createCase } from './case.factory';
 import { createClient } from './client.factory';
@@ -36,6 +37,7 @@ export async function resetProceduralActData(): Promise<void> {
   await prisma.case.deleteMany();
   await prisma.proceduralState.deleteMany(); // hijos de jurisdictions
   await prisma.jurisdiction.deleteMany();
+  await purgeAuditLog();
   await prisma.user.deleteMany(); // referencia a lawyers
   await prisma.lawyer.deleteMany();
   await prisma.client.deleteMany();

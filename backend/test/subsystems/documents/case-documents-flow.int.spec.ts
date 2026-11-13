@@ -38,6 +38,7 @@ import { createLawyer } from '../../shared/factories/lawyer.factory';
 import { createInitialState } from '../../shared/factories/procedural-state.factory';
 import { createUser } from '../../shared/factories/user.factory';
 import { getPrisma, startTestApp, stopTestApp } from '../../shared/harness/test-app';
+import { purgeAuditLog } from '../../shared/harness/audit-log';
 
 const CASES_URL = '/api/v1/cases';
 const TEMPLATES_URL = '/api/v1/document-templates';
@@ -116,6 +117,7 @@ describe('documents al registrar una causa', () => {
     await prisma.proceduralAct.deleteMany();
     await prisma.case.deleteMany();
     await clearCloudFolders();
+    await purgeAuditLog();
     await prisma.user.deleteMany();
     await prisma.lawyer.deleteMany();
     await prisma.client.deleteMany();

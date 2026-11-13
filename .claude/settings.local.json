@@ -3,7 +3,22 @@
     "allow": [
       "Edit(.claude/**)",
       "Write(.claude/**)",
-      "PowerShell(npx tsc -p tsconfig.test.json --noEmit; \"exit: $LASTEXITCODE\")"
+      "PowerShell(npx tsc -p tsconfig.test.json --noEmit; \"exit: $LASTEXITCODE\")",
+      "PowerShell(Get-Command python -ErrorAction SilentlyContinue)",
+      "PowerShell(python --version)",
+      "PowerShell(python -c \"import docx; print\\('python-docx ok'\\)\" 2>&1)",
+      "PowerShell(python -m pip install python-docx --quiet 2>&1)",
+      "Bash(mkdir -p \"/c/Users/teoma/AppData/Local/Temp/claude/C--Users-teoma-Proyects-vzcausas/c68c966f-cff9-4930-b266-fcfe1066d560/scratchpad/unpacked\")",
+      "Bash(unzip -o -q \"/c/Users/teoma/Downloads/DEFINICION DEL PRODUCTO V2.2.docx\" -d unpacked)",
+      "Bash(python extract.py unpacked/word/document.xml extracted.txt)",
+      "mcp__03799913-9b0d-4adb-8572-07d2289104f9__getAccessibleAtlassianResources",
+      "mcp__03799913-9b0d-4adb-8572-07d2289104f9__searchJiraIssuesUsingJql",
+      "mcp__03799913-9b0d-4adb-8572-07d2289104f9__getJiraIssue",
+      "Bash(python dump_table.py unpacked/word/document.xml \"registro de una nueva causa penal\" table_cp3_title.xml)",
+      "Bash(python -c ' *)",
+      "Bash(python \"C:\\\\Users\\\\teoma\\\\AppData\\\\Roaming\\\\Claude\\\\local-agent-mode-sessions\\\\skills-plugin\\\\4e563d84-1689-40ae-b570-d3d353c787a9\\\\ae3b9606-46b7-4d2f-a642-d7755168fb43\\\\skills\\\\docx\\\\scripts\\\\merge_runs.py\" unpacked/)",
+      "Bash(python -m pip --version)",
+      "Bash(node build_hu25.js)"
     ],
     "deny": [
       "Bash(npx prisma migrate reset:*)",

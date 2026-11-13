@@ -13,6 +13,7 @@ import { createLawyer } from '../../shared/factories/lawyer.factory';
 import { createUser } from '../../shared/factories/user.factory';
 import { withFixedClock } from '../../shared/harness/fixed-clock';
 import { getPrisma, startTestApp, stopTestApp } from '../../shared/harness/test-app';
+import { purgeAuditLog } from '../../shared/harness/audit-log';
 
 /*
  * HU25 Generar y emitir expediente: POST /cases/{caseId}/case-files. Contrato:
@@ -105,6 +106,7 @@ describe('POST /api/v1/cases/{caseId}/case-files (HU25)', () => {
     await prisma.proceduralAct.deleteMany();
     await clearCloudFolders();
     await prisma.case.deleteMany();
+    await purgeAuditLog();
     await prisma.user.deleteMany();
     await prisma.lawyer.deleteMany();
     await prisma.client.deleteMany();

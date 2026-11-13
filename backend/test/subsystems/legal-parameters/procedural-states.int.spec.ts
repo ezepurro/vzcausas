@@ -3,6 +3,7 @@ import request from 'supertest';
 import * as bcrypt from 'bcryptjs';
 
 import { startTestApp, stopTestApp, getPrisma } from '../../shared/harness/test-app';
+import { purgeAuditLog } from '../../shared/harness/audit-log';
 import { expectData, expectError, expectNoContent, expectPaginated } from '../../shared/contract/envelopes';
 import { loginAs, TestRole } from '../../shared/auth/login-as';
 import {
@@ -81,6 +82,7 @@ beforeEach(async () => {
   // Las factories numeran DNI y matrícula desde 1 en cada suite: sin esto chocan con
   // los que dejó otra suite.
   await prisma.client.deleteMany();
+  await purgeAuditLog();
   await prisma.user.deleteMany(); // referencia a lawyers
   await prisma.lawyer.deleteMany();
   await prisma.proceduralState.deleteMany(); // hija: referencia a jurisdictions
