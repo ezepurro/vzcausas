@@ -633,7 +633,7 @@ prescripción.
 | --- | --- | --- | :-: | :-: | --- |
 | `id` | SERIAL (INTEGER) | 4 B | PK | No | Identificador interno de la calificación legal. |
 | `name` | VARCHAR | 255 |  | No | Nombre de la calificación legal (ej.: Robo calificado). Único entre calificaciones activas, sin distinguir mayúsculas. |
-| `prescription_months` | INTEGER | 4 B |  | No | Plazo de prescripción expresado en meses. Mayor o igual a 1. Modificarlo no recalcula las fechas de prescripción ya guardadas en `offenses`. |
+| `prescription_months` | INTEGER | 4 B |  | No | Plazo de prescripción expresado en meses. Mayor o igual a 1. La causa referencia la calificación y no copia el plazo: modificarlo recalcula la prescripción de las causas que la registran desde la siguiente consulta (V6 §3.5, D-08). |
 | `active` | BOOLEAN | 1 B |  | No | `true`: vigente. `false`: baja lógica (RN12). Por defecto `true`. |
 | `created_at` | TIMESTAMPTZ | 8 B |  | No | Fecha y hora de creación. |
 | `updated_at` | TIMESTAMPTZ | 8 B |  | No | Fecha y hora de la última actualización. |
@@ -742,7 +742,7 @@ fecha del hecho y su fecha de prescripción. Solo las causas del fuero
 | `case_id` | INTEGER | 4 B | PK, FK | No | Causa a la que pertenece el hecho (→ `cases.id`). |
 | `legal_qualification_id` | INTEGER | 4 B | PK, FK | No | Calificación legal del hecho (→ `legal_qualifications.id`). |
 | `offense_date` | DATE | 4 B |  | No | Fecha de comisión del hecho. |
-| `prescription_date` | DATE | 4 B |  | No | Fecha en que prescribe el hecho: inicio del cómputo más los `prescription_months` de la calificación. Al registrar la causa, el inicio es `offense_date`; un acto interruptivo que pasa a ser el más reciente de la causa reinicia el cómputo desde su fecha (RN8, D-49). |
+| `prescription_date` | DATE | 4 B |  | No | Fecha en que prescribe el hecho según los datos del momento en que se guardó la causa (alta o modificación): `offense_date` más los `prescription_months` vigentes entonces. No se actualiza después: ni un acto interruptivo ni un cambio de los meses de la calificación la tocan, así que puede quedar desactualizada. Ninguna lectura la usa: la prescripción se calcula en cada consulta con los meses vigentes y los actos interruptivos de la causa (V6 §4 "Prescripción", D-08, D-113). |
 
 Clave primaria compuesta (`case_id`, `legal_qualification_id`): una
 calificación no se repite en la misma causa. Índices:
