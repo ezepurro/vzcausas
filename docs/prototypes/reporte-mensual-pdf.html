@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reporte mensual · Vista del PDF</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Roboto+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<!--
+  Vista del PDF de GET /reports/monthly/pdf, según API_CONTRACT_V6.md
+  (§ "Contenido del PDF", líneas ~9669-9724) y D-117, D-120, D-136, D-138.
+
+  NO es el PDF real: el backend lo arma con @cantoo/pdf-lib. Esto sirve para ver
+  cómo debería quedar la hoja. Los datos de abajo (REPORT) tienen la misma forma
+  que `data` de GET /reports/monthly; se pueden reemplazar por una respuesta real.
+
+  Diferencias con la pantalla `repPdf` de "VZ Causas - Prototipo.dc.html":
+  sin número de reporte, versión, huella ni recuadro de trazabilidad (D-117);
+  encabezado con "Vázquez y Zárate" sin "Staff de Abogados" ni dirección (D-136);
+  abogados como "Apellido, Nombres", sin "Dr."/"Dra." (D-138);
+  recuadro con "Emitido por" y "Emitido el".
+-->
+<style>
+  :root { --ink:#0F172A; --muted:#5A6560; --line:#DDE2DC; --green:#406640; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:#5A6560; font-family:Figtree,system-ui,sans-serif; color:var(--ink); overflow-x:auto; }
+  .toolbar { position:sticky; left:0; top:0; z-index:5; display:flex; gap:16px; align-items:center; justify-content:space-between; flex-wrap:wrap;
+             padding:10px 20px; background:#2F3A33; color:#E8ECE6; font-size:12.5px; line-height:1.4; }
+  .toolbar button { height:32px; padding:0 14px; border:0; border-radius:6px; background:#fff; color:#2F4D2F; font:600 12.5px Figtree,system-ui,sans-serif; cursor:pointer; }
+  .stage { display:flex; flex-direction:column; align-items:center; gap:24px; padding:28px 20px; min-width:max-content; }
+  .page { position:relative; width:794px; min-height:1123px; padding:48px 56px 70px; background:#fff; box-shadow:0 18px 50px rgba(12,20,6,.22);
+          display:flex; flex-direction:column; gap:20px; }
+  .head { display:flex; justify-content:space-between; align-items:center; gap:20px; padding-bottom:14px; border-bottom:2px solid var(--green); }
+  .brand { display:flex; align-items:center; gap:12px; }
+  .firm { font-size:13px; font-weight:700; }
+  .hperiod { font-size:10px; color:var(--muted); text-align:right; }
+  .kicker { font-size:10px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--green); }
+  .title { font-size:24px; font-weight:700; letter-spacing:-.01em; margin-top:4px; }
+  .badge { display:inline-block; margin-top:8px; padding:3px 9px; border:1px solid #A8894C; border-radius:3px; font-size:10px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:#7A5C1E; }
+  .meta { display:grid; grid-template-columns:repeat(4,1fr); border:1px solid var(--line); border-radius:3px; }
+  .meta > div { padding:8px 10px; border-right:1px solid var(--line); }
+  .meta > div:last-child { border-right:0; }
+  .meta .k { font-size:9px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:var(--muted); }
+  .meta .v { font-size:11px; font-weight:600; margin-top:3px; }
+  h3 { margin:0 0 4px; font-size:13px; font-weight:700; }
+  .sub { margin:0 0 10px; font-size:10.5px; color:var(--muted); }
+  p.t { margin:0; font-size:11.5px; line-height:1.6; text-wrap:pretty; }
+  .paras { display:flex; flex-direction:column; gap:8px; }
+  table { width:100%; border-collapse:collapse; font-size:11px; }
+  th { text-align:left; padding:6px 8px; font-size:9.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); border-bottom:1.5px solid var(--ink); }
+  td { padding:6px 8px; border-bottom:1px solid var(--line); }
+  .r { text-align:right; }
+  .mono { font-family:'Roboto Mono',monospace; }
+  .b { font-weight:700; }
+  tr.total td { font-weight:700; border-bottom:1.5px solid var(--ink); }
+  tr.hl td { background:#EEF3EC; font-weight:600; }
+  .dot { display:inline-block; width:9px; height:9px; border-radius:2px; margin-right:7px; }
+  .bars { display:flex; flex-direction:column; gap:2px; }
+  .bars i { display:block; height:5px; border-radius:1px; }
+  .foot { position:absolute; left:56px; right:56px; bottom:28px; display:flex; justify-content:space-between; gap:16px; padding-top:8px; border-top:1px solid var(--line); font-size:9.5px; color:#68716C; }
+  @page { size:A4; margin:0; }
+  @media print {
+    body { background:#fff; overflow:visible; }
+    .toolbar { display:none; }
+    .stage { display:block; padding:0; min-width:0; }
+    .page { box-shadow:none; margin:0; width:210mm; min-height:297mm; break-after:page; }
+    .page:last-child { break-after:auto; }
+  }
+</style>
+</head>
+<body>
+<div class="toolbar">
+  <span>Vista de ejemplo del PDF de <b>GET /reports/monthly/pdf</b> (V6, D-117/D-120/D-136/D-138). Datos de muestra, no es el PDF real.</span>
+  <button type="button" onclick="window.print()">Imprimir / guardar como PDF</button>
+</div>
+<div class="stage" id="stage"></div>
+
+<script>
+// Misma forma que `data` de GET /reports/monthly (API_CONTRACT_V6.md ~9497-9590).
+// Datos de muestra: coinciden donde el contrato da un ejemplo (agosto de 2026) y
+// se completaron los abogados, estados y causas que el contrato recorta.
+const REPORT = {
+  period: '2026-08', status: 'CLOSED', dataAsOf: '2026-08-31',
+  takenAt: '2026-09-01T08:00:00-03:00', availableFrom: '2026-01', currentPeriod: '2026-09',
+  summary: { activeCases: 99, admitted: 15, archived: 10, admittedChange: 7, archivedChange: 1,
+             averagePerLawyer: 14.1, minPerLawyer: 13, maxPerLawyer: 17 },
+  byJurisdiction: [
+    { jurisdiction: 'CRIMINAL',       atStart: 56, admitted: 8, archived: 6, atEnd: 58, percentage: 59 },
+    { jurisdiction: 'ADMINISTRATIVE', atStart: 28, admitted: 5, archived: 3, atEnd: 30, percentage: 30 },
+    { jurisdiction: 'AMPARO',         atStart: 10, admitted: 2, archived: 1, atEnd: 11, percentage: 11 }
+  ],
+  lawyers: [
+    { lawyer: { id: 3, lastName: 'Ríos',     firstName: 'Malena',          registrationNumber: '1-36842' }, criminal: 10, administrative: 5, amparo: 2, total: 17, differenceFromAverage:  2.9 },
+    { lawyer: { id: 5, lastName: 'Bustos',   firstName: 'Carolina',        registrationNumber: '1-39510' }, criminal: 8,  administrative: 4, amparo: 2, total: 14, differenceFromAverage: -0.1 },
+    { lawyer: { id: 6, lastName: 'Ferreyra', firstName: 'Matías',          registrationNumber: '1-38226' }, criminal: 8,  administrative: 5, amparo: 1, total: 14, differenceFromAverage: -0.1 },
+    { lawyer: { id: 4, lastName: 'Peralta',  firstName: 'Ignacio',         registrationNumber: '1-35207' }, criminal: 8,  administrative: 4, amparo: 2, total: 14, differenceFromAverage: -0.1 },
+    { lawyer: { id: 1, lastName: 'Vázquez',  firstName: 'Fernando G.',     registrationNumber: '1-28114' }, criminal: 8,  administrative: 4, amparo: 2, total: 14, differenceFromAverage: -0.1 },
+    { lawyer: { id: 7, lastName: 'Ortega',   firstName: 'Lucía',           registrationNumber: '1-41033' }, criminal: 8,  administrative: 4, amparo: 1, total: 13, differenceFromAverage: -1.1 },
+    { lawyer: { id: 2, lastName: 'Zárate',   firstName: 'Oscar',           registrationNumber: '1-29540' }, criminal: 8,  administrative: 4, amparo: 1, total: 13, differenceFromAverage: -1.1 }
+  ],
+  monthly: [
+    { period: '2026-01', admitted: 11, archived: 8,  balance:  3, activeAtEnd: 86 },
+    { period: '2026-02', admitted: 9,  archived: 10, balance: -1, activeAtEnd: 85 },
+    { period: '2026-03', admitted: 14, archived: 9,  balance:  5, activeAtEnd: 90 },
+    { period: '2026-04', admitted: 12, archived: 11, balance:  1, activeAtEnd: 91 },
+    { period: '2026-05', admitted: 10, archived: 7,  balance:  3, activeAtEnd: 94 },
+    { period: '2026-06', admitted: 13, archived: 12, balance:  1, activeAtEnd: 95 },
+    { period: '2026-07', admitted: 8,  archived: 9,  balance: -1, activeAtEnd: 94 },
+    { period: '2026-08', admitted: 15, archived: 10, balance:  5, activeAtEnd: 99 }
+  ],
+  prescription: {
+    cases: 58,
+    bands: [
+      { band: 'UNDER_50',      cases: 37, percentage: 64 },
+      { band: 'FROM_50_TO_70', cases: 14, percentage: 24 },
+      { band: 'FROM_70_TO_90', cases: 5,  percentage: 9 },
+      { band: 'FROM_90',       cases: 2,  percentage: 3 }
+    ],
+    alerts: [
+      { caseId: 21, sacNumber: '11873402', caption: 'LUNA, Javier p.s.a. Lesiones leves',               responsibleLawyer: { id: 6, lastName: 'Ferreyra', firstName: 'Matías' },   elapsedPercentage: 94, expired: false },
+      { caseId: 14, sacNumber: '11590218', caption: 'OLMOS, Ricardo p.s.a. Abuso de autoridad',         responsibleLawyer: { id: 3, lastName: 'Ríos',     firstName: 'Malena' },   elapsedPercentage: 91, expired: false },
+      { caseId: 33, sacNumber: '11702245', caption: 'ROLDÁN, Sergio p.s.a. Defraudación',               responsibleLawyer: { id: 5, lastName: 'Bustos',   firstName: 'Carolina' }, elapsedPercentage: 88, expired: false },
+      { caseId: 18, sacNumber: '12044715', caption: 'PAZ, Marcelo p.s.a. Incumplimiento de deberes',    responsibleLawyer: { id: 4, lastName: 'Peralta',  firstName: 'Ignacio' },  elapsedPercentage: 83, expired: false },
+      { caseId: 40, sacNumber: '12098831', caption: 'SUÁREZ, Hugo p.s.a. Amenazas',                     responsibleLawyer: { id: 1, lastName: 'Vázquez',  firstName: 'Fernando G.' }, elapsedPercentage: 79, expired: false },
+      { caseId: 27, sacNumber: '12155407', caption: 'MOLINA, Daniel p.s.a. Lesiones leves',             responsibleLawyer: { id: 7, lastName: 'Ortega',   firstName: 'Lucía' },    elapsedPercentage: 75, expired: false },
+      { caseId: 25, sacNumber: '12210963', caption: 'VERA, Nicolás p.s.a. Lesiones leves',              responsibleLawyer: { id: 2, lastName: 'Zárate',   firstName: 'Oscar' },    elapsedPercentage: 72, expired: false }
+    ]
+  },
+  deadlines: { total: 41, metOnTime: 39, metOnLastDay: 2, overdue: 0, pending: 0, interruptiveActs: 3 }
+};
+// "Emitido por" (usuario autenticado, Apellido, Nombres) y "Emitido el" (momento de la descarga).
+const ISSUED = { by: 'Vázquez, Fernando G.', at: '13/11/2026 · 10:42' };
+
+// ───────── helpers ─────────
+const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const FUERO = { CRIMINAL: 'Penal', ADMINISTRATIVE: 'Administrativo', AMPARO: 'Amparo' };
+const FUERO_COLOR = { CRIMINAL: '#406640', ADMINISTRATIVE: '#A8894C', AMPARO: '#4F6A8A' };
+const BANDS = {
+  UNDER_50:      ['Menos del 50 %',   '#406640'],
+  FROM_50_TO_70: ['Entre 50 % y 70 %', '#9DB59A'],
+  FROM_70_TO_90: ['Entre 70 % y 90 %', '#A8894C'],
+  FROM_90:       ['Más del 90 %',      '#8E1F19']
+};
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const monthName = p => MESES[+p.slice(5, 7) - 1];
+const periodLabel = p => monthName(p) + ' de ' + p.slice(0, 4);
+const dmy = iso => iso.slice(8, 10) + '/' + iso.slice(5, 7) + '/' + iso.slice(0, 4);
+const dec = n => n.toFixed(1).replace('.', ',');
+const sign = n => (n > 0 ? '+' : n < 0 ? '−' : '') + Math.abs(n);
+const signDec = n => n === 0 ? '—' : (n > 0 ? '+' : '−') + dec(Math.abs(n));
+const nombre = l => l.lastName + ', ' + l.firstName;               // D-138: sin "Dr."/"Dra."
+const list = a => a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' y ' + a[a.length - 1];
+const causas = n => n + (n === 1 ? ' causa' : ' causas');
+
+// ───────── texto que arma el backend (frases fijas, D-120) ─────────
+function resumen(r) {
+  const s = r.summary, out = [];
+  const j = Object.fromEntries(r.byJurisdiction.map(x => [x.jurisdiction, x]));
+  const pie = x => x.atEnd + ' ' + ({ CRIMINAL: 'en el fuero penal', ADMINISTRATIVE: 'en el administrativo' }[x.jurisdiction] || (x.atEnd === 1 ? 'amparo' : 'amparos')) + ' (' + x.percentage + ' %)';
+  out.push(s.activeCases === 0
+    ? 'Al ' + dmy(r.dataAsOf) + ' el estudio no registra causas activas.'
+    : 'Al ' + dmy(r.dataAsOf) + ' el estudio registra ' + (s.activeCases === 1 ? '1 causa activa' : s.activeCases + ' causas activas') + ': ' +
+      list(['CRIMINAL', 'ADMINISTRATIVE', 'AMPARO'].map(k => j[k]).filter(x => x.atEnd > 0).map(pie)) + '.');
+  const iniTot = r.byJurisdiction.reduce((a, x) => a + x.atStart, 0), saldo = s.admitted - s.archived;
+  out.push('Durante ' + monthName(r.period).toLowerCase() + ' ' + (s.admitted === 1 ? 'ingresó 1 causa' : 'ingresaron ' + s.admitted + ' causas') +
+    ' y ' + (s.archived === 1 ? 'se archivó 1' : 'se archivaron ' + s.archived) + ', con un saldo de ' + sign(saldo) +
+    ' respecto del cierre del mes anterior (' + iniTot + ' activas).');
+  let p3 = '';
+  if (r.lawyers.length) {
+    p3 = 'La carga promedio es de ' + dec(s.averagePerLawyer) + ' causas por abogado.';
+    if (s.maxPerLawyer !== s.minPerLawyer) {
+      const may = r.lawyers.filter(x => x.total === s.maxPerLawyer).map(x => nombre(x.lawyer));
+      const men = r.lawyers.filter(x => x.total === s.minPerLawyer).map(x => nombre(x.lawyer));
+      p3 += ' ' + list(may) + (may.length > 1 ? ' tienen' : ' tiene') + ' la mayor cartera (' + causas(s.maxPerLawyer) + ') y ' + list(men) + ' la menor (' + s.minPerLawyer + ').';
+    }
+  }
+  if (r.prescription.cases > 0) {
+    const n = r.prescription.alerts.length;
+    p3 += (p3 ? ' ' : '') + 'Hay ' + causas(n) + ' penal' + (n === 1 ? '' : 'es') + ' con más del 70 % del plazo de prescripción transcurrido.';
+  }
+  if (p3) out.push(p3);
+  return out;
+}
+function plazos(r) {
+  const d = r.deadlines, enCurso = r.status === 'IN_PROGRESS';
+  if (d.total === 0 && d.pending === 0) return 'En el mes no venció ningún plazo procesal. Se registraron ' + d.interruptiveActs + ' actos interruptivos de la prescripción.';
+  let t = 'En el mes ' + (d.total === 1 ? 'venció 1 plazo procesal' : 'vencieron ' + d.total + ' plazos procesales') + ': ' +
+    d.metOnTime + (d.metOnTime === 1 ? ' se cumplió' : ' se cumplieron') + ' con el acto correspondiente dentro del término y ' +
+    d.metOnLastDay + (d.metOnLastDay === 1 ? ' se cumplió' : ' se cumplieron') + ' el último día. ';
+  t += d.overdue === 0 ? 'No hubo plazos vencidos sin acto registrado. ' : d.overdue + (d.overdue === 1 ? ' venció' : ' vencieron') + ' sin acto registrado. ';
+  if (enCurso) t += d.pending + ' siguen en curso. ';
+  return t + 'Se registraron ' + d.interruptiveActs + ' actos interruptivos de la prescripción.';
+}
+
+// ───────── piezas de la hoja ─────────
+const LOGO = '<svg width="38" height="27" viewBox="0 0 60 42" fill="none" aria-hidden="true"><path d="M2 2h12l10 26L34 2h12L28 40H16L2 2z" fill="#406640"></path><path d="M38 2h20L40 34h18v6H30L48 8H38V2z" fill="#406640" opacity=".55"></path></svg>';
+const head = r => '<div class="head"><div class="brand">' + LOGO + '<div class="firm">Vázquez y Zárate</div></div><div class="hperiod">' + esc(periodLabel(r.period)) + '</div></div>';
+const foot = (r, n, N) => '<div class="foot"><span>VZ Causas · Reporte mensual de gestión · ' + esc(periodLabel(r.period)) + '</span><span class="mono">Página ' + n + ' de ' + N + '</span></div>';
+const section = (t, sub, body) => '<div><h3>' + t + '</h3>' + (sub ? '<p class="sub">' + sub + '</p>' : '') + body + '</div>';
+
+function cuadroFueros(r) {
+  const rows = r.byJurisdiction.map(x => '<tr><td><span class="dot" style="background:' + FUERO_COLOR[x.jurisdiction] + '"></span>' + FUERO[x.jurisdiction] + '</td>' +
+    ['atStart', 'admitted', 'archived'].map(k => '<td class="r mono">' + x[k] + '</td>').join('') +
+    '<td class="r mono b">' + x.atEnd + '</td><td class="r mono">' + x.percentage + ' %</td></tr>').join('');
+  const tot = k => r.byJurisdiction.reduce((a, x) => a + x[k], 0);
+  return '<table><thead><tr><th>Fuero</th><th class="r">Al inicio</th><th class="r">Ingresadas</th><th class="r">Archivadas</th><th class="r">Al cierre</th><th class="r">% del total</th></tr></thead><tbody>' + rows +
+    '<tr class="total"><td>Total</td><td class="r mono">' + tot('atStart') + '</td><td class="r mono">' + tot('admitted') + '</td><td class="r mono">' + tot('archived') + '</td><td class="r mono">' + tot('atEnd') + '</td><td class="r mono">100 %</td></tr></tbody></table>';
+}
+function cuadroAbogados(r) {
+  const rows = r.lawyers.map(x => {
+    const d = x.differenceFromAverage;
+    return '<tr><td class="b" style="font-weight:600">' + esc(nombre(x.lawyer)) + '</td><td class="mono" style="color:#5A6560">' + (x.lawyer.registrationNumber || '—') + '</td>' +
+      '<td class="r mono">' + x.criminal + '</td><td class="r mono">' + x.administrative + '</td><td class="r mono">' + x.amparo + '</td>' +
+      '<td class="r mono" style="font-weight:600">' + x.total + '</td><td class="r mono" style="color:' + (d >= 2 ? '#7A5C1E;font-weight:600' : '#5A6560') + '">' + signDec(d) + '</td></tr>';
+  }).join('');
+  return '<table><thead><tr><th>Abogado</th><th>Matrícula</th><th class="r">Penal</th><th class="r">Adm.</th><th class="r">Amparo</th><th class="r">Total</th><th class="r">Vs. promedio</th></tr></thead><tbody>' + rows + '</tbody></table>';
+}
+function cuadroMeses(r) {
+  const vals = r.monthly.flatMap(m => [m.admitted, m.archived]).filter(v => v !== null), max = Math.max(1, ...vals);
+  const rows = r.monthly.map(m => {
+    const hl = m.period === r.period ? ' class="hl"' : '';
+    if (m.admitted === null) return '<tr' + hl + '><td>' + monthName(m.period) + '</td><td colspan="5" style="color:#5A6560">Sin datos</td></tr>';
+    return '<tr' + hl + '><td>' + monthName(m.period) + '</td><td class="r mono">' + m.admitted + '</td><td class="r mono">' + m.archived + '</td><td class="r mono">' + sign(m.balance) +
+      '</td><td class="r mono" style="font-weight:600">' + m.activeAtEnd + '</td><td><div class="bars"><i style="background:#406640;width:' + (m.admitted / max * 100) + '%"></i><i style="background:#9DB59A;width:' + (m.archived / max * 100) + '%"></i></div></td></tr>';
+  }).join('');
+  return '<table><thead><tr><th>Mes</th><th class="r">Ingresadas</th><th class="r">Archivadas</th><th class="r">Saldo</th><th class="r">Activas al cierre</th><th style="width:36%">Ingresadas / archivadas</th></tr></thead><tbody>' + rows + '</tbody></table>';
+}
+function cuadroPrescripcion(r) {
+  const p = r.prescription;
+  if (p.cases === 0) return '<p class="t">No hay causas penales activas con prescripción al cierre del período.</p>';
+  const bands = p.bands.map(b => '<tr><td><span class="dot" style="background:' + BANDS[b.band][1] + '"></span>' + BANDS[b.band][0] + '</td><td class="r mono">' + b.cases + '</td><td class="r mono">' + b.percentage + ' %</td></tr>').join('');
+  const alerts = p.alerts.map(a => '<tr><td class="mono">' + (a.sacNumber || '—') + '</td><td>' + esc(a.caption) + '</td><td>' + esc(nombre(a.responsibleLawyer)) + '</td>' +
+    '<td class="r mono" style="font-weight:600;color:' + (a.expired || a.elapsedPercentage >= 90 ? '#8E1F19' : '#7A5C1E') + '">' + (a.expired ? 'Prescripta' : a.elapsedPercentage + ' %') + '</td></tr>').join('');
+  return '<table style="margin-bottom:12px"><thead><tr><th>Tramo</th><th class="r">Causas</th><th class="r">% de las penales</th></tr></thead><tbody>' + bands + '</tbody></table>' +
+    '<p class="t">Causas con más del 70 % del plazo transcurrido al cierre del período:</p>' +
+    (alerts ? '<table style="margin-top:6px"><thead><tr><th>SAC</th><th>Carátula</th><th>Responsable</th><th class="r">Avance</th></tr></thead><tbody>' + alerts + '</tbody></table>' : '<p class="t" style="color:#5A6560;margin-top:6px">Ninguna.</p>');
+}
+
+// ───────── armado ─────────
+function render(r) {
+  const enCurso = r.status === 'IN_PROGRESS';
+  const meta = [['Período', periodLabel(r.period)], ['Datos al', dmy(r.dataAsOf)], ['Emitido por', ISSUED.by], ['Emitido el', ISSUED.at]]
+    .map(([k, v]) => '<div><div class="k">' + k + '</div><div class="v">' + esc(v) + '</div></div>').join('');
+  const p1 = '<div class="page">' + head(r) +
+    '<div><div class="kicker">Reporte mensual de gestión de causas</div><div class="title">' + esc(periodLabel(r.period)) + '</div>' +
+    (enCurso ? '<div class="badge">Mes en curso · datos al ' + dmy(r.dataAsOf) + '</div>' : '') + '</div>' +
+    '<div class="meta">' + meta + '</div>' +
+    section('1. Resumen del período', '', '<div class="paras">' + resumen(r).map(t => '<p class="t">' + esc(t) + '</p>').join('') + '</div>') +
+    section('2. Causas por fuero', 'Cuadro 1 · Movimiento del mes y existencia al cierre.', cuadroFueros(r)) +
+    section('3. Carga por abogado responsable', 'Cuadro 2 · Causas activas al cierre. Promedio del estudio: ' + dec(r.summary.averagePerLawyer) + ' causas por abogado.', cuadroAbogados(r)) +
+    foot(r, 1, 2) + '</div>';
+  const p2 = '<div class="page">' + head(r) +
+    section('4. Causas ingresadas y archivadas en el año', 'Cuadro 3 · Causas ingresadas y archivadas por mes, de enero al período informado.', cuadroMeses(r)) +
+    section('5. Prescripción de la acción', 'Cuadro 4 · Causas penales activas según el porcentaje del plazo transcurrido.', cuadroPrescripcion(r)) +
+    section('6. Plazos procesales del mes', '', '<p class="t">' + esc(plazos(r)) + '</p>') +
+    foot(r, 2, 2) + '</div>';
+  document.getElementById('stage').innerHTML = p1 + p2;
+  document.title = 'Reporte mensual · ' + periodLabel(r.period);
+}
+render(REPORT);
+</script>
+</body>
+</html>
