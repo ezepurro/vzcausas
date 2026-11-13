@@ -66,7 +66,14 @@ calificaciones"), los tests del alta y el E2E adaptados al selector nuevo, y
 en el navegador.
 
 **Para el plan B.** Se agregó CSS en el bloque "combobox" de
-`src/styles/controls.css`. Falta mirarlo a 320 px y adentro de un modal.
+`src/styles/controls.css`.
+
+**Corregido el 13/11/2026, al mirarlo en el navegador:** a 320 px, al lado
+de "Registrar cliente nuevo" o "Registrar calificación nueva", el campo
+quedaba de 34 px de ancho. Un `<select>` tiene ancho natural y hacía bajar
+al botón; este campo no. Se sumó a la regla del teléfono de `.vz-field-row`
+(`controls.css`) y ahora ocupa su renglón. Visto a 320 px en el alta y
+adentro de "Modificar causa". Sin test: es CSS.
 
 **Queda.** Un cliente elegido que después se da de baja no avisa nada en el
 selector (el alta lo rechaza el servidor). El selector de abogado responsable

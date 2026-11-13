@@ -503,7 +503,10 @@ a.vz-btn--ghost:hover { color: var(--vz-ink); }
   /* El botón de al lado baja a su renglón: al costado dejaba al desplegable
      sin lugar para mostrar lo elegido. */
   .vz-field-row { flex-wrap: wrap; }
+  /* El select con filtro también: sin ancho natural, al lado del botón
+     quedaba de 34px en vez de bajar el botón. */
   .vz-field-row > .vz-select,
+  .vz-field-row > .vz-combobox,
   .vz-field-row > .vz-input { flex: 1 1 100%; }
   .vz-field-row > .vz-btn { flex: 1 1 auto; }
 

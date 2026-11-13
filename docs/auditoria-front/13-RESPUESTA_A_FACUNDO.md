@@ -5,14 +5,52 @@
 Responde los tres puntos de tu nota. Las rutas son relativas a `frontend/`.
 Lo hecho del plan A está en [12-REGISTRO_PLAN_A.md](12-REGISTRO_PLAN_A.md).
 
-## a. Correr todo con tus cambios: todavía no se pudo
+## a. Correr todo con tus cambios: pasa todo
 
-Tu commit (`f6e94b9`) está bajado pero **no aplicado** en esta máquina: la
-rama local quedó un commit atrás, porque hay cambios del plan A sin commitear
-y el `pull` no los pisa. Cuando Luciano commitee y haga el `pull`, se corre
-lint, tipos, `vitest`, E2E y build, y se anota acá el resultado.
+13/11/2026, con tu commit `f6e94b9` mezclado con lo del plan A (`fbbafeb`),
+en la máquina de Luciano:
 
-Lo que se revisó sin aplicarlo, comparando archivos:
+| Qué | Resultado |
+|---|---|
+| `npm run lint` | 0 errores; el warning conocido de `Icon.tsx:2` |
+| `npx tsc -b` | Limpio |
+| `npx vitest run` | **688 de 688** (107 archivos): tus 676 más los tests nuevos del plan A |
+| `npm run test:e2e` | **9 de 9** |
+| `npm run build` | Sin errores; 136 kB comprimidos antes del login |
+
+No difiere de lo que te dio a vos.
+
+### Visto en el navegador con los dos planes juntos
+
+Con los mocks, usuario `fvazquez`, a 800 px y a 320 px. Sin errores en la
+consola.
+
+| Qué | Resultado |
+|---|---|
+| Selector con filtro en "Registrar causa", 800 px | Bien: abre con todas las opciones, filtra y elige con teclado |
+| Selector con filtro a 320 px | **Estaba roto y se corrigió**: al lado de "Registrar cliente nuevo" el campo quedaba de 34 px. Ahora ocupa su renglón (262 px) y el botón baja |
+| "Modificar causa" a 320 px | Bien: entra entero, con scroll interno |
+| "Registrar calificación nueva" encima de "Modificar causa", 320 px | Bien: el de arriba tapa al de abajo, el foco queda adentro, Escape cierra sólo el de arriba y el fondo sigue sin scroll |
+| Botón primario deshabilitado ("Registrar acto procesal") | Se lee: gris claro con texto oscuro |
+| Aviso de éxito | Sale con las clases `vz-toast` nuevas |
+
+**Te toqué una línea de CSS fuera del bloque "combobox"**: en
+`src/styles/controls.css`, en la regla del teléfono de `.vz-field-row`, sumé
+`.vz-field-row > .vz-combobox` a la lista que ya tenía `.vz-select` y
+`.vz-input`. Es el arreglo de los 34 px.
+
+**Tres cosas para que mires vos** (son visuales, no las toqué):
+
+1. **El aviso en el teléfono es angosto**: a 320 px "Causa actualizada. El
+   cambio queda asentado con usuario y fecha." se parte en seis renglones y
+   tapa el contenido.
+2. **El selector con filtro no tiene la flecha** del `<select>` nativo: al
+   lado de "Abogado responsable" parece un campo de texto común.
+3. **El aviso de éxito seguía a la vista pasados unos 5 segundos**, y tu nota
+   dice 4. La medición fue a ojo, con esperas del script: puede ser el foco o
+   el puntero encima. No lo doy por defecto; conviene cronometrarlo.
+
+Lo que se había revisado antes de mezclar, comparando archivos:
 
 - **No hay archivos en común** entre tu commit y lo que el plan A tiene sin
   commitear, salvo `docs/auditoria-front/README.md` (ya se dejó como estaba
@@ -23,7 +61,7 @@ Lo que se revisó sin aplicarlo, comparando archivos:
   número con tu `07-REVISION_VISUAL.md`: pasó a `12-REGISTRO_PLAN_A.md`.
 - Los tests nuevos del plan A no buscan `navigation` sin nombre, ni "Migas",
   ni llegan a una pestaña con `user.tab()`, ni miran cuánto dura un aviso.
-  **No se espera ninguna rotura, pero no está corrido.**
+  La corrida de arriba lo confirmó.
 
 **Cambios del plan A que te tocan a vos:**
 
