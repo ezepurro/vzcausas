@@ -309,6 +309,9 @@
   text-wrap: pretty;
 }
 .vz-page-head__actions { display: flex; gap: 8px; flex-wrap: wrap; }
+/* Aclaración bajo el encabezado: por qué una acción de la pantalla está
+   deshabilitada para este perfil (H-53). */
+.vz-page-note { margin: -6px 0 16px; font-size: 12.5px; line-height: 1.45; color: var(--vz-muted); }
 
 /* ─────────── migas ─────────── */
 .vz-crumbs {

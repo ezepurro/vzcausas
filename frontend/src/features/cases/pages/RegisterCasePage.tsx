@@ -6,6 +6,7 @@ import { useGoBack } from '@/app/router/useGoBack'
 import { isApiError } from '@/shared/api/ApiError'
 import { Breadcrumbs, Button, Modal, PageHeader } from '@/shared/components/ui'
 import { useFocusFirstError } from '@/shared/hooks/useFocusFirstError'
+import { usePageTitle } from '@/shared/hooks/usePageTitle'
 import type { SelectOption } from '@/shared/components/forms'
 import { formatPersonName } from '@/shared/lib/personName'
 import {
@@ -95,6 +96,7 @@ type ModalState =
     | null
 
 export function RegisterCasePage() {
+    usePageTitle('Registrar causa')
     const navigate = useNavigate()
     const toast = useToast()
     const { id: userId, lawyer: myLawyer } = useCurrentUser()

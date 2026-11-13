@@ -39,6 +39,7 @@ export interface SearchSelectProps {
   'aria-label'?: string;
   'aria-invalid'?: boolean;
   'aria-describedby'?: string;
+  'aria-required'?: boolean;
 }
 
 /** Sin acentos, sin mayúsculas y sin los puntos de un DNI, para comparar. */
@@ -73,6 +74,7 @@ export function SearchSelect({
   id, value, selectedLabel, options, onSelect, onSearch, placeholder, emptyText = 'Sin resultados.',
   loading = false, note, disabled, clearLabel, maxLength,
   'aria-label': ariaLabel, 'aria-invalid': ariaInvalid, 'aria-describedby': ariaDescribedBy,
+  'aria-required': ariaRequired,
 }: SearchSelectProps) {
   const listId = useId();
   const [open, setOpen] = useState(false);
@@ -156,6 +158,7 @@ export function SearchSelect({
         aria-label={ariaLabel}
         aria-invalid={ariaInvalid}
         aria-describedby={ariaDescribedBy}
+        aria-required={ariaRequired}
         className="vz-input"
         /* Con la lista abierta el campo queda libre para escribir, y lo
            elegido se sigue leyendo de fondo. */

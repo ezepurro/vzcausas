@@ -2,7 +2,9 @@ import type { FormEvent } from 'react'
 import { Button, Panel } from '@/shared/components/ui'
 import {
     Combobox,
+    controlA11y,
     Field,
+    fieldIds,
     FormSection,
     Textarea,
     TextInput,
@@ -83,7 +85,7 @@ export function ProceduralActForm({
                     <Field
                         label="Estado procesal al que pasa la causa"
                         required
-                        htmlFor="act-state"
+                        htmlFor="act-state" {...fieldIds('act-state')}
                         error={errors.stateText}
                         note={
                             customState
@@ -93,6 +95,7 @@ export function ProceduralActForm({
                     >
                         <Combobox
                             id="act-state"
+                            {...controlA11y('act-state', errors.stateText, { note: true, required: true })}
                             maxLength={PROCEDURAL_ACT_MAX_LENGTH.stateText}
                             value={values.stateText}
                             onChange={onStateTextChange}
@@ -105,9 +108,10 @@ export function ProceduralActForm({
 
                     <FormSection label="Fechas" />
 
-                    <Field label="Fecha del acto" required width="half" htmlFor="act-date" error={errors.actDate}>
+                    <Field label="Fecha del acto" required width="half" htmlFor="act-date" {...fieldIds('act-date')} error={errors.actDate}>
                         <TextInput
                             id="act-date"
+                            {...controlA11y('act-date', errors.actDate, { required: true })}
                             type="date"
                             mono
                             value={values.actDate}
@@ -119,7 +123,7 @@ export function ProceduralActForm({
                         label="Fecha de notificación"
                         required={administrative}
                         width="half"
-                        htmlFor="act-notification"
+                        htmlFor="act-notification" {...fieldIds('act-notification')}
                         error={errors.notificationDate}
                         note={
                             administrative
@@ -129,6 +133,7 @@ export function ProceduralActForm({
                     >
                         <TextInput
                             id="act-notification"
+                            {...controlA11y('act-notification', errors.notificationDate, { note: true, required: administrative })}
                             type="date"
                             mono
                             disabled={!administrative}
@@ -137,10 +142,11 @@ export function ProceduralActForm({
                         />
                     </Field>
 
-                    <Field label="Observaciones" htmlFor="act-notes" error={errors.notes}
+                    <Field label="Observaciones" htmlFor="act-notes" {...fieldIds('act-notes')} error={errors.notes}
                         hint={`${values.notes.length} / ${PROCEDURAL_ACT_MAX_LENGTH.notes}`}>
                         <Textarea
                             id="act-notes"
+                            {...controlA11y('act-notes', errors.notes)}
                             rows={3}
                             maxLength={PROCEDURAL_ACT_MAX_LENGTH.notes}
                             placeholder="Situaciones que el estado procesal no alcanza a expresar. Por ejemplo: con acusación, pero con oposición."

@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { useBlocker, useNavigate, useParams } from 'react-router'
+import { usePageTitle } from '@/shared/hooks/usePageTitle'
 import { useCan } from '@/app/access/useCan'
 import { useCurrentUser } from '@/app/providers/AuthContext'
 import { useToast } from '@/app/providers/ToastContext'
@@ -60,6 +61,7 @@ export function GenerateCaseFilePage() {
     const goBack = useGoBack(`/causas/${caseId}`)
 
     const c = query.data
+    usePageTitle(c ? `Generar expediente · ${c.caption}` : 'Generar expediente')
     const crumbs: BreadcrumbItem[] = [
         { label: 'Causas', onClick: () => navigate('/causas') },
         { label: c ? sacLabel(c.sacNumber) : '…', onClick: c ? () => navigate(`/causas/${c.id}`) : undefined },

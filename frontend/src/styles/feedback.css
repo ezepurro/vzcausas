@@ -79,24 +79,29 @@
 
 .vz-modal__head { position: relative; padding: 20px 56px 16px 24px; border-bottom: 1px solid var(--vz-border); }
 .vz-modal__title { font-size: 17px; }
-/* La "×" de la cabecera (H-44). Estilo mínimo del plan A: el plan B lo ajusta. */
+/* La "×" de la cabecera (H-44). Alineada con el título; el foco usa el
+   contorno general de `base.css`. */
 .vz-modal__close {
   position: absolute;
-  top: 14px;
-  right: 14px;
+  top: 15px;
+  right: 16px;
   width: 32px;
   height: 32px;
   display: grid;
   place-items: center;
+  padding: 0;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--vz-r-sm);
   background: transparent;
   color: var(--vz-muted);
-  font-size: 20px;
+  font: inherit;
+  font-size: 22px;
   line-height: 1;
   cursor: pointer;
+  transition: background-color .12s, color .12s;
 }
 .vz-modal__close:hover { background: var(--vz-sunken); color: var(--vz-ink); }
+.vz-modal__close:active { background: var(--vz-border); }
 .vz-modal__sub { margin: 5px 0 0; font-size: 13px; color: var(--vz-muted); }
 .vz-modal__body {padding: 22px 24px; overflow-y: auto; overscroll-behavior: contain;}
 .vz-modal__note {
@@ -243,7 +248,9 @@
 
   .vz-modal-backdrop { padding: 10px 8px; }
   .vz-modal { max-height: calc(100vh - 20px); max-height: calc(100dvh - 20px); }
-  .vz-modal__head { padding: 16px 52px 14px 16px; }
+  .vz-modal__head { padding: 16px 56px 14px 16px; }
+  /* Con el dedo: 40px, como el resto de los controles del teléfono. */
+  .vz-modal__close { top: 8px; right: 8px; width: 40px; height: 40px; }
   .vz-modal__body { padding: 16px; }
   .vz-modal__foot { padding: 12px 16px; flex-wrap: wrap; }
   .vz-modal__foot .vz-btn { flex: 1 1 auto; height: 42px; }

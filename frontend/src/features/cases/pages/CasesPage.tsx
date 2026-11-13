@@ -4,6 +4,7 @@ import { isApiError } from '@/shared/api/ApiError'
 import { Button, Icon, PageHeader, Pagination, Panel, SearchInput } from '@/shared/components/ui'
 import type { SelectOption, SelectOptionGroup } from '@/shared/components/forms'
 import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue'
+import { usePageTitle } from '@/shared/hooks/usePageTitle'
 import { formatPersonName } from '@/shared/lib/personName'
 import { useLawyers } from '@/features/lawyers'
 import {
@@ -35,6 +36,7 @@ const LIMIT = 20
 const OPTIONS_LIMIT = 100
 
 export function CasesPage() {
+    usePageTitle('Causas')
     const navigate = useNavigate()
     // Al apuntar a "Ver detalle" se pide la causa: cuando llega el click, ya está o está en camino.
     const prefetchCase = usePrefetchCase()

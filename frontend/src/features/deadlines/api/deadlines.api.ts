@@ -1,7 +1,12 @@
 import { http } from '@/shared/api/http'
 import type { DailyRunResult } from '@/features/deadlines/types/dailyRun'
 
-const DAILY_RUN_PATH = '/internal/deadlines/daily-run'
+/**
+ * Igual que el secreto de abajo: adentro de `DEV`, para que la ruta interna no
+ * quede escrita en el build de producción (Vite deja sólo la cadena vacía).
+ * La campana que la usa tampoco se dibuja ahí (`DAILY_RUN_ENABLED`).
+ */
+const DAILY_RUN_PATH = import.meta.env.DEV ? '/internal/deadlines/daily-run' : ''
 
 /** Envía correos de verdad, y eso puede tardar más que los 15 s de `http`. */
 const DAILY_RUN_TIMEOUT_MS = 120_000

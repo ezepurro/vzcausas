@@ -53,6 +53,10 @@ export interface LegalQualificationPickerProps {
     loading?: boolean
     /** "Se muestran 100 de 240 calificaciones…", o `null` si están todas. */
     note?: string | null
+    /** El error y la nota del campo (`controlA11y`): van al selector de "Agregar calificación…". */
+    'aria-invalid'?: boolean
+    'aria-describedby'?: string
+    'aria-required'?: boolean
 }
 
 /**
@@ -71,6 +75,7 @@ export interface LegalQualificationPickerProps {
 export function LegalQualificationPicker({
     id, selected, options, onAdd, onRemove, onOffenseDateChange, dateErrors = {}, maxDate,
     onCreate, onSearch, loading, note,
+    'aria-invalid': ariaInvalid, 'aria-describedby': ariaDescribedBy, 'aria-required': ariaRequired,
 }: LegalQualificationPickerProps) {
     return (
         <div className="vz-picker">
@@ -170,6 +175,9 @@ export function LegalQualificationPicker({
                     onSearch={onSearch}
                     loading={loading}
                     note={note}
+                    aria-invalid={ariaInvalid}
+                    aria-describedby={ariaDescribedBy}
+                    aria-required={ariaRequired}
                 />
                 {onCreate && (
                     <Button

@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useId, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { useCan } from '@/app/access/useCan'
 import { useGoBack } from '@/app/router/useGoBack'
@@ -6,6 +6,7 @@ import { useCurrentUser } from '@/app/providers/AuthContext'
 import { useToast } from '@/app/providers/ToastContext'
 import { isApiError } from '@/shared/api/ApiError'
 import { Breadcrumbs, Button, Icon, Panel, type BreadcrumbItem } from '@/shared/components/ui'
+import { usePageTitle } from '@/shared/hooks/usePageTitle'
 import { formatDate, todayIsoDate } from '@/shared/lib/dates'
 import { formatPersonFullName } from '@/shared/lib/personName'
 import { useCase } from '@/features/cases/api/useCase'
@@ -91,6 +92,8 @@ export function CaseDetailPage() {
     const goBack = useGoBack('/causas')
 
     const c = query.data
+    // La carátula: es como se reconoce una causa entre varias pestañas (H-20).
+    usePageTitle(c?.caption)
     const crumbs: BreadcrumbItem[] = [
         { label: 'Causas', onClick: () => navigate('/causas') },
         { label: c ? sacLabel(c.sacNumber) : '…' },
@@ -172,6 +175,11 @@ function CaseDetail({ case: c }: { case: Case }) {
         declarePrescription: declarePrescriptionAnyCase,
     })
     const notResponsibleNote = `Solo el abogado responsable (${formatPersonFullName(c.responsibleLawyer)}) modifica o da de baja la causa.`
+    const prescriptionNote = `Solo el abogado responsable (${formatPersonFullName(c.responsibleLawyer)}) marca prescripta la causa o sus calificaciones.`
+    /* Las notas visibles que explican los botones deshabilitados (H-53): el
+       `title` no se ve en el teléfono ni se alcanza con el teclado. */
+    const operateNoteId = useId()
+    const prescriptionNoteId = useId()
     const goRegisterAct = () => navigate(`/causas/${c.id}/acto`)
 
     /* Los actos de una causa prescripta no se modifican (D-99): ahí la línea
@@ -350,6 +358,7 @@ function CaseDetail({ case: c }: { case: Case }) {
                             ? {
                                   enabled: canDeclarePrescription,
                                   disabledTitle: `Solo el abogado responsable (${formatPersonFullName(c.responsibleLawyer)}) declara la prescripción de sus calificaciones.`,
+                                  disabledNoteId: prescriptionNoteId,
                                   onDeclare: openQualificationPrescription,
                               }
                             : undefined}
@@ -372,6 +381,7 @@ function CaseDetail({ case: c }: { case: Case }) {
                                 size="sm"
                                 disabled={!canOperate}
                                 title={canOperate ? undefined : notResponsibleNote}
+                                aria-describedby={canOperate ? undefined : operateNoteId}
                                 onClick={edit.open}
                             >
                                 Modificar causa
@@ -381,11 +391,15 @@ function CaseDetail({ case: c }: { case: Case }) {
                                 size="sm"
                                 disabled={!canOperate}
                                 title={canOperate ? undefined : notResponsibleNote}
+                                aria-describedby={canOperate ? undefined : operateNoteId}
                                 onClick={openDelete}
                             >
                                 Dar de baja
                             </Button>
                         </div>
+                        {!canOperate && (
+                            <p className="vz-case-head__note" id={operateNoteId}>{notResponsibleNote}</p>
+                        )}
                     </>
                 }
             >
@@ -411,10 +425,14 @@ function CaseDetail({ case: c }: { case: Case }) {
                             title={canDeclarePrescription
                                 ? undefined
                                 : `Solo el abogado responsable (${formatPersonFullName(c.responsibleLawyer)}) marca prescripta la causa.`}
+                            aria-describedby={canDeclarePrescription ? undefined : prescriptionNoteId}
                             onClick={openPrescription}
                         >
                             Marcar toda la causa prescripta
                         </Button>
+                    )}
+                    {showCaseActions && showPrescription && !canDeclarePrescription && (
+                        <p className="vz-case-actions__note" id={prescriptionNoteId}>{prescriptionNote}</p>
                     )}
                 </div>
 

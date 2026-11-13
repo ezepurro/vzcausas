@@ -13,6 +13,9 @@ export type { SearchSelectOption, SearchSelectProps } from './SearchSelect';
 export { SegmentedControl } from './SegmentedControl';
 export type { SegmentedControlProps } from './SegmentedControl';
 
+export { controlA11y, fieldIds } from './fieldA11y';
+export type { ControlA11y, ControlA11yOptions } from './fieldA11y';
+
 export { FieldError } from './FieldError';
 export type { FieldErrorProps } from './FieldError';
 

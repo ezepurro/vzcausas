@@ -7,6 +7,7 @@ import { isApiError } from '@/shared/api/ApiError'
 import { Breadcrumbs, Button, LoadingState, Panel, type BreadcrumbItem } from '@/shared/components/ui'
 import type { ComboboxOption } from '@/shared/components/forms'
 import { useFocusFirstError } from '@/shared/hooks/useFocusFirstError'
+import { usePageTitle } from '@/shared/hooks/usePageTitle'
 import { formatDate, todayIsoDate } from '@/shared/lib/dates'
 import { formatPersonFullName } from '@/shared/lib/personName'
 import {
@@ -83,6 +84,7 @@ export function RegisterProceduralActPage() {
     const title = editing ? 'Modificar acto procesal' : 'Registrar acto procesal'
 
     const c = caseQuery.data
+    usePageTitle(c ? `${title} · ${c.caption}` : title)
     const crumbs: BreadcrumbItem[] = [
         { label: 'Causas', onClick: () => navigate('/causas') },
         ...(c ? [{ label: c.sacNumber ?? NO_SAC_LABEL, onClick: () => navigate(`/causas/${c.id}`) }] : []),

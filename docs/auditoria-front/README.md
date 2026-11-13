@@ -5,6 +5,10 @@ común de los dos desarrolladores: lo que se decide o se encuentra, va acá.
 
 Rama: `feat/auditoria-front` (salió de `develop` en `b818d8f`, 12/11/2026).
 
+**Para leer una sola cosa: [RESUMEN_GENERAL.md](RESUMEN_GENERAL.md).** Junta
+por qué se hizo la auditoría, qué se encontró, qué se arregló y qué quedó. Los
+informes de abajo son el detalle de cada paso.
+
 | Archivo | Qué es | Estado |
 |---|---|---|
 | [00-ENCARGO.md](00-ENCARGO.md) | El encargo de la auditoría: alcance, fases, reglas y entregable | Fijo |
@@ -25,6 +29,7 @@ Rama: `feat/auditoria-front` (salió de `develop` en `b818d8f`, 12/11/2026).
 | [14-TANDAS6A10_RESULTADOS.md](14-TANDAS6A10_RESULTADOS.md) | Plan B, tandas 6 a 10: avisos, bordes, roles, acciones de fila, campana, errores de campo, rail como enlaces, menú del teléfono, pestañas y título. Cierra con "Para Luciano" | Hecha, sin commitear |
 | [15-PARA_LUCIANO_2.md](15-PARA_LUCIANO_2.md) | Segundo mensaje para el plan A: qué cambió en las tandas 6 a 10, la decisión sobre las acciones de fila y lo que le queda. Escrito para pasárselo a Claude en la sesión de Luciano | Para enviar |
 | [16-RESUMEN_PLAN_A.md](16-RESUMEN_PLAN_A.md) | **Cierre del plan A**: qué se hizo, qué quedó sin hacer y la respuesta a la segunda nota de Facundo | Hecho |
+| [17-TANDA11_RESULTADOS.md](17-TANDA11_RESULTADOS.md) | Tanda 11: lo que el 16 dejaba pendiente (`×` del modal, título de pestaña en causas y actos, errores unidos al control en los formularios de página, motivo visible de los botones deshabilitados, ruta interna fuera del build). **Toca archivos del plan A** | Hecha, sin commitear |
 
 `03-PLAN.md` queda como el detalle de cada tarea; quién hace qué lo dicen el
 05 y el 06, que no comparten archivos.
