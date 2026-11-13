@@ -77,10 +77,12 @@ describe('Modal', () => {
             const user = userEvent.setup()
             render(<Stacked onCloseLower={vi.fn()} onCloseUpper={vi.fn()} />)
 
-            await user.tab()
-            expect(screen.getByRole('button', { name: 'Botón de arriba' })).toHaveFocus()
-            await user.tab()
-            expect(screen.getByRole('button', { name: 'Botón de arriba' })).toHaveFocus()
+            const upper = screen.getByRole('dialog', { name: 'De arriba' })
+            // Tres veces: la "×", el botón y de vuelta. Nunca sale al de abajo.
+            for (let i = 0; i < 3; i++) {
+                await user.tab()
+                expect(upper).toContainElement(document.activeElement as HTMLElement)
+            }
         })
     })
 
@@ -92,10 +94,52 @@ describe('Modal', () => {
         expect(onClose).toHaveBeenCalledTimes(1)
     })
 
+    /* H-44: todo modal tiene una forma visible de cerrar. */
+    it('la "×" de la cabecera lo cierra', async () => {
+        const { onClose, user } = renderModal()
+
+        await user.click(screen.getByRole('button', { name: 'Cerrar' }))
+
+        expect(onClose).toHaveBeenCalledTimes(1)
+    })
+
+    /* H-05: un clic afuera se llevaba lo escrito sin preguntar. */
+    describe('clic en el fondo', () => {
+        const backdrop = () => document.querySelector('.vz-modal-backdrop') as HTMLElement
+
+        it('por defecto lo cierra', async () => {
+            const { onClose, user } = renderModal()
+
+            await user.click(backdrop())
+
+            expect(onClose).toHaveBeenCalledTimes(1)
+        })
+
+        it('con `dismissOnBackdrop={false}` no lo cierra; Escape y la "×", sí', async () => {
+            const onClose = vi.fn()
+            const user = userEvent.setup()
+            render(
+                <Modal title="Registrar cliente" onClose={onClose} dismissOnBackdrop={false}>
+                    <input aria-label="Apellido" />
+                </Modal>,
+            )
+
+            await user.type(screen.getByLabelText('Apellido'), 'Gómez')
+            await user.click(backdrop())
+            expect(onClose).not.toHaveBeenCalled()
+            expect(screen.getByLabelText('Apellido')).toHaveValue('Gómez')
+
+            await user.keyboard('{Escape}')
+            await user.click(screen.getByRole('button', { name: 'Cerrar' }))
+            expect(onClose).toHaveBeenCalledTimes(2)
+        })
+    })
+
     describe('el tabulador no se escapa', () => {
         const field = () => screen.getByLabelText('Nombre')
         const confirm = () => screen.getByRole('button', { name: 'Confirmar' })
         const outside = () => screen.getByRole('button', { name: 'Botón de la pantalla' })
+        const close = () => screen.getByRole('button', { name: 'Cerrar' })
 
         it('desde el último, Tab vuelve al primero', async () => {
             const { user } = renderModal()
@@ -103,8 +147,11 @@ describe('Modal', () => {
             await user.click(confirm())
             await user.tab()
 
-            expect(field()).toHaveFocus()
+            // El primero es la "×" de la cabecera; el campo viene después.
+            expect(close()).toHaveFocus()
             expect(outside()).not.toHaveFocus()
+            await user.tab()
+            expect(field()).toHaveFocus()
         })
     })
 })

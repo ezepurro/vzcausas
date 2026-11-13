@@ -51,3 +51,49 @@ describe('FormModal · maxLength', () => {
         expect(screen.queryByText(/\/ \d+$/)).not.toBeInTheDocument()
     })
 })
+
+/* H-05 de `docs/auditoria-front`: un clic afuera cerraba el formulario y se
+   perdía lo escrito. Con campos ya no; una confirmación sin campos, sí. */
+describe('FormModal · clic en el fondo', () => {
+    const backdrop = () => document.querySelector('.vz-modal-backdrop') as HTMLElement
+
+    function renderForm(fields: FieldSpec[]) {
+        let cancelled = 0
+        render(
+            <FormModal
+                title="Registrar cliente"
+                fields={fields}
+                values={{ name: 'Gómez' }}
+                onChange={() => {}}
+                onConfirm={() => {}}
+                onCancel={() => { cancelled += 1 }}
+            />,
+        )
+        return { cancelled: () => cancelled, user: userEvent.setup() }
+    }
+
+    it('con campos no se cierra', async () => {
+        const { cancelled, user } = renderForm([{ k: 'name', label: 'Nombre' }])
+
+        await user.click(backdrop())
+
+        expect(cancelled()).toBe(0)
+    })
+
+    it('con campos, "Cancelar" y la "×" sí cierran', async () => {
+        const { cancelled, user } = renderForm([{ k: 'name', label: 'Nombre' }])
+
+        await user.click(screen.getByRole('button', { name: 'Cancelar' }))
+        await user.click(screen.getByRole('button', { name: 'Cerrar' }))
+
+        expect(cancelled()).toBe(2)
+    })
+
+    it('una confirmación sin campos se cierra con un clic afuera', async () => {
+        const { cancelled, user } = renderForm([])
+
+        await user.click(backdrop())
+
+        expect(cancelled()).toBe(1)
+    })
+})

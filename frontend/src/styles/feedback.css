@@ -77,8 +77,26 @@
 .vz-modal--sm { max-width: 420px; }
 .vz-modal--lg { max-width: 720px; }
 
-.vz-modal__head { padding: 20px 24px 16px; border-bottom: 1px solid var(--vz-border); }
+.vz-modal__head { position: relative; padding: 20px 56px 16px 24px; border-bottom: 1px solid var(--vz-border); }
 .vz-modal__title { font-size: 17px; }
+/* La "×" de la cabecera (H-44). Estilo mínimo del plan A: el plan B lo ajusta. */
+.vz-modal__close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--vz-muted);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+.vz-modal__close:hover { background: var(--vz-sunken); color: var(--vz-ink); }
 .vz-modal__sub { margin: 5px 0 0; font-size: 13px; color: var(--vz-muted); }
 .vz-modal__body {padding: 22px 24px; overflow-y: auto; overscroll-behavior: contain;}
 .vz-modal__note {
@@ -218,7 +236,7 @@
 
   .vz-modal-backdrop { padding: 10px 8px; }
   .vz-modal { max-height: calc(100vh - 20px); max-height: calc(100dvh - 20px); }
-  .vz-modal__head { padding: 16px 16px 14px; }
+  .vz-modal__head { padding: 16px 52px 14px 16px; }
   .vz-modal__body { padding: 16px; }
   .vz-modal__foot { padding: 12px 16px; flex-wrap: wrap; }
   .vz-modal__foot .vz-btn { flex: 1 1 auto; height: 42px; }

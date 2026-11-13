@@ -1,8 +1,8 @@
-import { RouterProvider } from "react-router";
-import { QueryProvider } from "./app/providers/QueryProvider";
-import { ToastProvider } from "./app/providers/ToastProvider";
-import { AuthProvider } from "./app/providers/AuthProvider";
-import { router } from "./app/router";
+import { RouterProvider } from 'react-router'
+import { QueryProvider } from '@/app/providers/QueryProvider'
+import { ToastProvider } from '@/app/providers/ToastProvider'
+import { AuthProvider } from '@/app/providers/AuthProvider'
+import { router } from '@/app/router'
 
 /**
  * El orden de los proveedores no es casual:

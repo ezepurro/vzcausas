@@ -13,15 +13,15 @@ el resto está en el árbol de trabajo, sin commitear.
 | Tarea | Hallazgo | Estado |
 |---|---|---|
 | T-11 Selector con filtro | H-03, H-28, H-29 | **Hecha** |
-| T-13 Modales apilados | H-06 | **Hecha** la parte del teclado. Cerrar con datos cargados (H-05) espera la decisión 3 |
+| T-13 Modales apilados, cierre con datos y `×` | H-05, H-06, H-44 | **Hecha** |
 | T-12 Calificación nueva en "Modificar causa" | H-30 | **Hecha** |
 | T-28 El mock con dos pestañas | H-31 | **Hecha** |
 | T-10 Sesión entre pestañas | H-01 | **Hecha**, probada con el mock. Falta el backend real |
 | T-25 Test intermitente | H-02 | **Endurecido**; la causa no se confirmó |
-| T-23 Timeouts de archivos | H-11 | Pendiente: hay que medir con el backend |
-| T-24 Fecha estimada de prescripción | H-14 | Pendiente |
+| T-23 Timeouts de archivos | H-11 | **Hecha**, con un valor estimado: falta medir con el backend |
+| T-24 Fecha estimada de prescripción | H-14 | **Hecha** |
 | T-26 Renovación por `403` | H-09 | Pendiente (sólo análisis) |
-| T-40 Limpieza | H-16, H-18, H-19 | Pendiente, al final |
+| T-40 Limpieza | H-16, H-18, H-19 | **Hecha en parte** (ver abajo) |
 
 ## Verificación de la última tanda
 
@@ -29,7 +29,7 @@ el resto está en el árbol de trabajo, sin commitear.
 |---|---|
 | `npx tsc -b` | Limpio |
 | `npm run lint` | 0 errores (el warning conocido de `Icon.tsx:2`) |
-| `npx vitest run` | **677 de 677** (105 archivos). Antes de empezar: 651 |
+| `npx vitest run` | **695 de 695** (107 archivos, con lo del plan B). Antes de empezar: 651. **Ojo: falla intermitente abierta**, ver abajo |
 | `npm run test:e2e` | **9 de 9** |
 | Navegador con mocks | Selector en el alta y en "Modificar causa"; dos pestañas reales (ver T-10) |
 
@@ -95,8 +95,35 @@ pila se tocara ahí, un modal de abajo que se redibuja pasaría al frente.
 **Comprobado.** 2 tests nuevos en `tests/components/shared/Modal.test.tsx`,
 con `onClose` en línea a propósito para cubrir ese caso.
 
-**Queda (H-05).** Un modal con datos cargados se sigue cerrando sin preguntar
-con Escape o un clic afuera. Espera la decisión 3.
+### Cierre con datos cargados y `×` (H-05, H-44) — 13/11/2026
+
+**Qué pasaba.** Un clic en el fondo, a veces sin querer, cerraba un
+formulario y se perdía lo escrito sin preguntar. Y ningún modal tenía un
+botón visible para cerrar.
+
+**Solución.**
+- `Modal` acepta `dismissOnBackdrop` (por defecto `true`). `FormModal` lo
+  apaga cuando tiene campos, declarados o propios; también lo apagan
+  "Modificar causa" (`CaseEditForm.tsx`) y "Registrar modelo formal"
+  (`DocumentTemplateFormModal.tsx`). Una confirmación sin campos se sigue
+  cerrando con un clic afuera.
+- Todos los modales tienen una `×` en la cabecera (`aria-label="Cerrar"`).
+  Escape, "Cancelar" y la `×` siempre cierran: son gestos deliberados.
+
+**Comprobado.** 4 tests nuevos en `Modal.test.tsx` y 3 en
+`FormModal.test.tsx`; en el navegador, "Registrar cliente": el clic afuera no
+cierra y la `×` sí.
+
+**Cambia para quien usa teclado:** la `×` es la primera parada del tabulador
+de cada modal, antes del primer campo.
+
+**Para el plan B.** El estilo de la `×` es mínimo y está en
+`src/styles/feedback.css` (`.vz-modal__close`); la cabecera ganó espacio a la
+derecha para que el título no la pise.
+
+**No se hizo:** preguntar "¿descartar los cambios?" al cerrar con Escape o
+"Cancelar". Haría falta saber si el formulario cambió, y hoy `Modal` no lo
+sabe.
 
 ## T-12 · "Registrar calificación nueva" en "Modificar causa" (H-30)
 
@@ -161,6 +188,92 @@ completa y nunca aislado. Las dos afirmaciones que siguen a un evento
 hipótesis**: la falla no se pudo reproducir, así que no se puede afirmar que
 esa fuera la causa. Si vuelve a aparecer, hay que anotar el mensaje.
 
+## T-24 · Fecha estimada de prescripción en fin de mes (H-14)
+
+**Qué pasaba.** El resumen del alta mostraba un vencimiento estimado que
+podía no ser el que después tenía la causa: un hecho del 31/08 con 6 meses
+daba 03/03 en vez de 28/02.
+
+**Causa.** `estimatedExpiry` sumaba meses con `new Date(año, mes, día)`, que
+se pasa al mes siguiente si el de destino es más corto. El backend deja el
+día en el último del mes
+(`backend/src/subsystems/cases/core/domain/prescription.ts:69`,
+`addPrescriptionMonths`).
+
+**Solución.** La misma regla en `src/features/cases/utils/prescription.ts`.
+
+**Comprobado.** Un test nuevo con cinco casos, bisiesto incluido
+(`tests/unit/cases/prescription.test.ts`).
+
+**Contradicción sin resolver, para el equipo.** El mock hace la cuenta
+vieja a propósito: `src/shared/mocks/calendar.ts:111` (`addMonths`) dice
+"mismo criterio que el prototipo, incluido el desborde de fin de mes". El
+contrato no dice nada del caso. Hoy el backend corta en el último día y el
+mock y el prototipo se pasan de mes: **no se tocó el mock**; hay que decidir
+cuál vale y dejarlo escrito en el contrato.
+
+## T-23 · Timeout de subidas y descargas (H-11)
+
+Subir un modelo, bajarlo, la carátula y la descarga de un documento usaban
+el tope general de 15 s y podían cortarse a mitad de la transferencia. Ahora
+usan `FILE_TRANSFER_TIMEOUT_MS` (60 s, `src/shared/api/http.ts`). **El valor
+es una estimación**: no se midió contra el backend desplegado, y no tiene
+test.
+
+## T-40 · Limpieza (H-16, H-18, H-19)
+
+Hecho: los dos imports comentados de `src/main.tsx`; los imports relativos
+de `src/App.tsx` y `src/shared/components/forms/FormModal.tsx`, ahora con el
+alias `@`; y el comentario de `src/shared/api/http.ts` que citaba un
+contrato que no existe.
+
+No hecho, a propósito:
+
+- **`react-hook-form`** (H-16) sigue instalado: `frontend/CLAUDE.md` lo deja
+  como decisión pendiente del equipo.
+- **Las carpetas vacías con `.gitkeep`** (H-19) **no eran un hallazgo**:
+  `frontend/CLAUDE.md`, "Anatomía de un módulo", dice que las seis carpetas
+  existen siempre. Se retira.
+- `src/shared/components/forms/FieldError.tsx:1` conserva su import
+  relativo: el archivo es del plan B.
+
+## Falla intermitente abierta (H-55)
+
+En 2 de 6 corridas de la suite completa del 13/11/2026 falló **un** test del
+alta de causa, distinto cada vez: "con borrador, 'Recuperar' carga lo que
+había" (`RegisterCasePage.draft.test.tsx`) y "al pasar al amparo o al
+administrativo…" (`RegisterCasePage.test.tsx`). Aislados pasan siempre, y las
+últimas tres corridas completas dieron 694 de 694.
+
+**No se consiguió el mensaje del error ni la causa.** Sospecha, sin
+confirmar: el selector nuevo (T-11) suma pedidos y una espera de 200 ms a
+esos tests, que aislados ya tardan hasta 2,3 s, y con los 107 archivos
+corriendo a la vez alguno se pasa del tiempo. Antes de T-11 estos tests no
+habían fallado en ninguna corrida. Hay que capturar el mensaje la próxima vez
+que aparezca.
+
+**Capturado después (13/11/2026), y postergado a pedido.** En una corrida
+completa falló "con borrador, 'Recuperar' carga lo que había" con:
+
+```
+TestingLibraryElementError: Unable to find role="button" and name "Recuperar"
+```
+
+Es la primera espera del test (`findByRole`, 1 segundo por defecto): el
+diálogo del borrador no llegó a dibujarse a tiempo. En la misma salida
+aparece tres veces `Error: useCurrentUser() requires an open session`
+(`AuthContext.ts:81`, desde `RegisterCasePage.tsx:100`); **no se determinó**
+si es de este test —la sesión se habría cerrado antes de dibujar— o de otro
+del archivo que cierra la sesión a propósito. Las dos pistas para retomar:
+
+1. El tiempo de espera: `tests/setup/` no configura `asyncUtilTimeout`, así
+   que todo `findBy…` espera 1 s, poco para 107 archivos en paralelo.
+2. La sesión: ver si un test del mismo archivo deja la sesión cerrada, o si
+   la renovación del arranque falla bajo carga.
+
+Corriendo sólo los tres archivos del alta, cuatro veces seguidas con la suite
+completa al lado, no falló.
+
 ## Auditoría de caché (13/11/2026)
 
 Se leyeron los 29 hooks de mutación buscando qué queda viejo después de
@@ -221,7 +334,10 @@ contra la tabla de permisos.
 | `src/features/cases/components/{CaseForm,LegalQualificationPicker}.tsx` | T-11 |
 | `src/features/cases/api/useCaseEdit.ts`, `components/CaseEditForm.tsx` | T-11, T-12 |
 | `src/features/cases/components/NewQualificationModal.tsx` (nuevo) | T-12 |
-| `src/shared/components/ui/Modal.tsx` | T-13 |
+| `src/features/cases/utils/prescription.ts`, `tests/unit/cases/prescription.test.ts` | T-24 |
+| `src/shared/api/http.ts`, `documents/api/documentTemplates.api.ts`, `cases/api/cases.api.ts` | T-23 |
+| `src/main.tsx`, `src/App.tsx` | T-40 |
+| `src/shared/components/ui/Modal.tsx`, `forms/FormModal.tsx`, `documents/components/DocumentTemplateFormModal.tsx`, `src/styles/feedback.css` (la `×`), `tests/components/shared/FormModal.test.tsx` | T-13 |
 | `src/shared/mocks/db.ts` | T-28 |
 | `src/app/providers/AuthProvider.tsx`, `src/features/auth/utils/sessionStorage.ts` | T-10 |
 | `src/features/cases/api/invalidateCaseCounters.ts` (nuevo), `useCreateCase`, `useDeleteCase`, `useUpdateCase`, `useDeclarePrescription`, `useDeclareQualificationPrescription`, `refreshCaseAfterAct` | Caché C-1 |

@@ -104,3 +104,19 @@ Lo que se había revisado antes de mezclar, comparando archivos:
 `Modal.tsx`, `src/app/providers/AuthProvider.tsx`, `src/shared/mocks/db.ts`,
 `src/features/cases/pages/*`, `cases/api/*`, `CaseEditForm.tsx`, y todos los
 `use…` de mutación de `src/features/*/api/` (auditoría de caché).
+
+## Agregado del 13/11/2026: el modal ya está
+
+Hice la decisión 4 como la propuse arriba. Para vos:
+
+- **Todos los modales tienen una `×`** en la cabecera, con
+  `aria-label="Cerrar"`. Es la primera parada del tabulador. El estilo es
+  mínimo, en `src/styles/feedback.css` (`.vz-modal__close`), y la cabecera
+  ganó espacio a la derecha (`.vz-modal__head`, también en el corte del
+  teléfono). **Es tuyo: ajustalo.**
+- **Un formulario ya no se cierra con un clic afuera** (`dismissOnBackdrop`
+  en `Modal`). Una confirmación sin campos, sí.
+- `FormModal.tsx` queda liberado para H-35 y H-37. Sólo le agregué una
+  constante (`hasInputs`) y una prop al `<Modal>`.
+- Si un test tuyo busca un botón con `/cerrar/i` adentro de un modal, ahora
+  va a encontrar también la `×`.

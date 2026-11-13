@@ -8,6 +8,13 @@ export interface ModalProps {
   footer?: ReactNode;
   /** click en el fondo o Escape */
   onClose: () => void;
+  /**
+   * Si un clic en el fondo lo cierra. Por defecto sí. Un diálogo con campos
+   * lo apaga: un clic afuera, a veces sin querer, se llevaba lo escrito sin
+   * preguntar (H-05 de `docs/auditoria-front`). Escape, "Cancelar" y la "×"
+   * de la cabecera siguen cerrando: son gestos deliberados.
+   */
+  dismissOnBackdrop?: boolean;
   children: ReactNode;
 }
 
@@ -48,7 +55,9 @@ function focusableWithin(root: HTMLElement): HTMLElement[] {
 }
 
 /** Caparazón de modal: fondo, tarjeta, cabecera, cuerpo scrolleable y pie. */
-export function Modal({ title, sub, width = 'md', footer, onClose, children }: ModalProps) {
+export function Modal({
+  title, sub, width = 'md', footer, onClose, dismissOnBackdrop = true, children,
+}: ModalProps) {
   const titleId = useId();
   const card = useRef<HTMLDivElement>(null);
 
@@ -162,7 +171,7 @@ export function Modal({ title, sub, width = 'md', footer, onClose, children }: M
   }
 
   function handleBackdropClick(event: MouseEvent<HTMLDivElement>) {
-    if (event.target === event.currentTarget && pressedBackdrop.current) onClose();
+    if (dismissOnBackdrop && event.target === event.currentTarget && pressedBackdrop.current) onClose();
     pressedBackdrop.current = false;
   }
 
@@ -186,6 +195,11 @@ export function Modal({ title, sub, width = 'md', footer, onClose, children }: M
         <header className="vz-modal__head">
           <h2 className="vz-modal__title" id={titleId}>{title}</h2>
           {sub && <p className="vz-modal__sub">{sub}</p>}
+          {/* Siempre hay una forma visible de cerrar, también en los
+              diálogos que no cierran con un clic afuera (H-44). */}
+          <button type="button" className="vz-modal__close" aria-label="Cerrar" onClick={onClose}>
+            <span aria-hidden="true">×</span>
+          </button>
         </header>
 
         <div className="vz-modal__body">{children}</div>

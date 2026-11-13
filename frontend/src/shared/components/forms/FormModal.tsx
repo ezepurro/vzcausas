@@ -1,5 +1,5 @@
 import { useRef, type MouseEvent, type ReactNode } from 'react';
-import { useFocusFirstError } from '../../hooks/useFocusFirstError';
+import { useFocusFirstError } from '@/shared/hooks/useFocusFirstError';
 import { Button } from '../ui/Button';
 import { Modal } from '../ui/Modal';
 import { Field, TextInput, Select, Textarea, Checkbox, FormSection, type SelectOption } from './Field';
@@ -63,6 +63,8 @@ export function FormModal({
   okDisabled, onConfirm, onCancel, children,
 }: FormModalProps) {
   const visible = fields.filter((c) => !c.when || c.when(values));
+  /* ¿Hay algo para cargar? Los campos declarados, o los propios de la pantalla. */
+  const hasInputs = fields.length > 0 || Boolean(children);
 
   /* Al confirmar, al primer campo con error: el cuerpo del modal tiene su
      propio scroll, y en uno largo (usuarios) el error puede quedar arriba. El
@@ -82,6 +84,9 @@ export function FormModal({
       sub={sub}
       width={width}
       onClose={onCancel}
+      /* Con campos, un clic afuera no cierra: se perdía lo escrito. Una
+         confirmación sin campos se sigue cerrando así. */
+      dismissOnBackdrop={!hasInputs}
       footer={
         <>
           <Button variant="secondary" onClick={onCancel}>{cancelLabel}</Button>

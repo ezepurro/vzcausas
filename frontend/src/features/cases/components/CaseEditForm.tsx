@@ -106,6 +106,7 @@ export function CaseEditForm({
         <>
         <Modal
             title="Modificar causa"
+            dismissOnBackdrop={false}
             sub={sub}
             width="lg"
             onClose={onCancel}

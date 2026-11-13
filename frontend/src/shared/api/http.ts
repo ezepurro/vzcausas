@@ -4,7 +4,7 @@ import { ApiError } from './ApiError'
 /**
  * Parseo de los errores de la API.
  *
- * El contrato (`docs/api contract v1.md` §4.2) fija una sola forma para
+ * El contrato (`docs/Api-Contract/API_CONTRACT_V6.md` §5.2) fija una sola forma para
  * todas las respuestas de error:
  *
  * ```json
@@ -148,6 +148,15 @@ function toApiError(error: unknown): ApiError {
     // El backend respondió con un error, pero sin nada legible adentro.
     return new ApiError(status, fallbackMessage(status), null, null, retryAfterSeconds)
 }
+/**
+ * Tope para subir o bajar un archivo. Los 15 s de `http` alcanzan para un
+ * pedido de datos, pero no para un modelo de 10 MB o un PDF con una conexión
+ * lenta: se cortaba con "El servidor tardó demasiado en responder" a mitad de
+ * la transferencia (H-11 de `docs/auditoria-front`). Un minuto es una
+ * estimación: no se midió contra el backend desplegado.
+ */
+export const FILE_TRANSFER_TIMEOUT_MS = 60_000
+
 export const http = axios.create({
     baseURL: import.meta.env.VITE_API_URL ?? '/api',
     timeout:15000,
