@@ -218,7 +218,9 @@ estado: su `folder` vale `null`.
 
 ### `ReportPeriodStatus`
 
-**(V6)** Situación del mes de un reporte mensual (§3.13).
+**(V6)** Situación del mes de un reporte mensual (§3.13). **(D-141)** No viaja
+en la API: lo usa el backend para armar el PDF. El cliente distingue el mes en
+curso de uno cerrado comparando `period` con `currentPeriod`.
 
 | Código        | Rótulo      | Significado                                                                                       |
 | ------------- | ----------- | ------------------------------------------------------------------------------------------------- |
@@ -9265,17 +9267,20 @@ FORBIDDEN`; el prototipo muestra "Reportes" solo en el menú del Administrador.
 
 Es la pantalla "Reportes" (Administración: "Información consolidada del
 portafolio para la dirección del estudio") y su "Descargar PDF". Hay dos
-endpoints, uno para cada uso, que devuelven **los mismos datos**:
+endpoints, uno para cada uso, y **cada uno usa solo lo que necesita (D-141)**:
 
-| Uso                                          | Endpoint                         | Devuelve |
-| -------------------------------------------- | -------------------------------- | -------- |
-| La pantalla, con sus indicadores y gráficos  | `GET /reports/monthly`           | JSON     |
-| "Descargar PDF": el reporte escrito         | `GET /reports/monthly/file`      | PDF      |
+| Uso                                          | Endpoint                         | Devuelve | Datos |
+| -------------------------------------------- | -------------------------------- | -------- | ----- |
+| La pantalla, con sus indicadores y gráficos  | `GET /reports/monthly`           | JSON     | Solo lo que la pantalla dibuja |
+| "Descargar PDF": el reporte escrito         | `GET /reports/monthly/file`      | PDF      | Los [datos completos del reporte](#datos-del-reporte) |
 
 Como en los tableros (D-62), **el backend calcula y el cliente muestra**: los
 conteos, porcentajes, promedios y tramos llegan resueltos. Los gráficos de la
 pantalla los dibuja el cliente con esos números; el PDF lo arma el backend,
-con tablas, barras y texto, como la carátula (D-94).
+con tablas, barras y texto, como la carátula (D-94). **Lo que solo usa el PDF
+no viaja al cliente**: el backend lo calcula y lo guarda con lo demás en la
+foto del mes, pero `GET /reports/monthly` no lo devuelve. Todo el conjunto, con
+qué usa cada parte, está en [Datos del reporte](#datos-del-reporte).
 
 #### El período, el mes cerrado y la foto
 
@@ -9299,8 +9304,9 @@ Se pide de a un mes; no hay reportes de otros intervalos.
   cerrar agosto. Solo cambia el mes en curso.
 - **No hay versiones.** No se numera el reporte, no se "guarda" ni se
   "regenera", y no tiene huella: elegir otro mes muestra el reporte de ese mes
-  (D-117). Lo que se guarda son los datos del mes cerrado, no el PDF, que se
-  arma cada vez que se descarga.
+  (D-117). Lo que se guarda son los datos **completos** del mes cerrado
+  ([Datos del reporte](#datos-del-reporte), D-141), no el PDF, que se arma cada
+  vez que se descarga.
 - **Desde cuándo.** Hay reportes desde el mes en que el reporte se puso en
   funcionamiento (`availableFrom`, configuración del servidor que se fija al
   desplegar, D-137) hasta el
@@ -9326,18 +9332,200 @@ hoy:
 | **Al inicio** | Activas el último día del mes anterior |
 | **Al cierre** | Activas a `dataAsOf`. Siempre vale: al cierre = al inicio + ingresadas − archivadas |
 | **Responsable** | El abogado responsable de la causa cuando se toman los datos. El sistema no guarda el historial de responsables: por eso el mes se fotografía al cerrarlo |
-| **Estado procesal** | El de la causa a la fecha de corte, con la regla de "activa a una fecha" |
 | **Prescripción** | `prescription` de la causa (§4, [Prescripción](#prescripción)) calculada a la fecha de corte: con los actos interruptivos y las declaraciones hasta esa fecha |
-| **Plazos del mes** | Ver más abajo, en `deadlines` |
+| **Plazos del mes** | Ver [Datos del reporte](#datos-del-reporte), en `deadlines` |
 
 Los actos procesales anulados (HU29) no cuentan en nada.
+
+#### Datos del reporte
+
+**(V6, D-141)** El reporte tiene **un único conjunto de datos**, que el backend
+calcula a la fecha de corte y guarda **completo** en la foto del mes (D-117). No
+todo se muestra en la pantalla: una parte **solo la usa el PDF**, y esa parte
+**no viaja al cliente**. [`GET /reports/monthly`](#get-reportsmonthly) devuelve
+solo lo que la pantalla dibuja; el PDF
+([`GET /reports/monthly/file`](#get-reportsmonthlyfile)) se arma con el
+conjunto completo.
+
+Esta es la lista de todos los datos del reporte y de dónde se usa cada uno.
+**Pantalla** quiere decir que `GET /reports/monthly` lo devuelve; **PDF**, que
+entra en una sección del PDF (las secciones están numeradas en
+[`GET /reports/monthly/file`](#get-reportsmonthlyfile)). **(D-142)** El reporte
+ya no tiene "Causas por estado procesal": los estados procesales no forman
+parte de sus datos.
+
+| Dato | Pantalla | PDF | Sección del PDF |
+| ---- | :------: | :-: | --------------- |
+| `period` | Sí | Sí | Encabezado y "Período" |
+| `dataAsOf` | Sí | Sí | "Datos al" y el resumen (1) |
+| `availableFrom`, `currentPeriod` | Sí | No | — |
+| `status` | No | Sí | Leyenda "Mes en curso" y "siguen en curso" (6) |
+| `summary.activeCases`, `admitted`, `archived`, `averagePerLawyer`, `minPerLawyer`, `maxPerLawyer` | Sí | Sí | 1 |
+| `summary.admittedChange`, `archivedChange` | Sí | No | — |
+| `byJurisdiction[].jurisdiction`, `atEnd`, `percentage` | Sí | Sí | 1 y 2 |
+| `byJurisdiction[].atStart`, `admitted`, `archived` | No | Sí | 1 y 2 |
+| `lawyers[].lawyer.id` | Sí | No | — |
+| `lawyers[].lawyer.lastName`, `firstName` | Sí | Sí | 1, 3 y 5 |
+| `lawyers[].lawyer.registrationNumber` | No | Sí | 3 |
+| `lawyers[].criminal`, `administrative`, `amparo`, `total` | Sí | Sí | 3 |
+| `lawyers[].differenceFromAverage` | No | Sí | 3 |
+| `monthly[].period`, `admitted`, `archived` | Sí | Sí | 4 |
+| `monthly[].balance`, `activeAtEnd` | No | Sí | 4 |
+| `prescription.cases` | Sí | No | — |
+| `prescription.bands[].band`, `cases` | Sí | Sí | 5 |
+| `prescription.bands[].percentage` | No | Sí | 5 |
+| `prescription.alerts` | No | Sí | 1 y 5 |
+| `deadlines` | No | Sí | 6 |
+
+Los datos que marcan **No** en "Pantalla" son los que **no** están en la
+respuesta de `GET /reports/monthly`. Los que marcan **No** en "PDF" no entran
+en el PDF. Lo que la pantalla usa y está descrito en la respuesta de
+`GET /reports/monthly` no se repite acá; **lo que solo usa el PDF** se define
+a continuación.
+
+**Los datos que solo usa el PDF**
+
+| Dato | Tipo | Descripción |
+| ---- | ---- | ----------- |
+| `status` | `ReportPeriodStatus` | `CLOSED` si el período es anterior a `currentPeriod`; `IN_PROGRESS` si es el mes en curso |
+| `byJurisdiction[].atStart` | Integer | "Al inicio": causas activas el último día del mes anterior |
+| `byJurisdiction[].admitted` | Integer | "Ingresadas" del fuero en el mes |
+| `byJurisdiction[].archived` | Integer | "Archivadas" del fuero en el mes |
+| `lawyers[].lawyer.registrationNumber` | String \| `null` | Matrícula. `null` si no tiene (el PDF muestra "—") |
+| `lawyers[].differenceFromAverage` | Number | "Vs. promedio": `total` menos `summary.averagePerLawyer`, con un decimal |
+| `monthly[].balance` | Integer \| `null` | "Saldo": `admitted` menos `archived` del mes. `null` en un mes sin datos |
+| `monthly[].activeAtEnd` | Integer \| `null` | "Activas al cierre" de ese mes. `null` en un mes sin datos |
+| `prescription.bands[].percentage` | Integer | Porcentaje del tramo sobre `prescription.cases`, redondeado |
+| `prescription.alerts` | Object[] | Las causas con el **70 %** o más del plazo transcurrido ("Causas con más del 70 % del plazo transcurrido al cierre del período"), de mayor a menor `elapsedPercentage` |
+| `deadlines` | Object | "Plazos procesales del mes", la sección 6 del PDF |
+
+En `byJurisdiction`, la suma de cada columna es el total del estudio: la de
+`atStart` es el total de activas al inicio, la de `admitted` es
+`summary.admitted`, la de `archived` es `summary.archived` y la de `atEnd` es
+`summary.activeCases`. Para cada fuero, `atEnd` = `atStart` + `admitted` −
+`archived`.
+
+Cada elemento de `prescription.alerts` tiene `caseId`, `sacNumber`, `caption`,
+`responsibleLawyer` (`id`, `lastName` y `firstName`), `legalQualificationName`,
+`elapsedPercentage` y `expired`, con el mismo significado que en
+`prescriptionAlerts` de los tableros (§3.11), calculados a la fecha de corte.
+
+**`deadlines`** cuenta los plazos de los actos procesales de las causas del
+reporte **cuyo vencimiento (`dueDate`) cae dentro del mes**, y los clasifica
+según el **acto procesal siguiente** de la misma causa, que es el que cierra el
+plazo:
+
+| Campo              | Tipo    | Qué cuenta |
+| ------------------ | ------- | ---------- |
+| `total`            | Integer | Los plazos que vencen en el mes. Es la suma de los cuatro siguientes |
+| `metOnTime`        | Integer | "Se cumplieron dentro del término": el acto siguiente tiene `actDate` anterior al vencimiento |
+| `metOnLastDay`     | Integer | "Se cumplieron el último día": el acto siguiente tiene `actDate` igual al vencimiento |
+| `overdue`          | Integer | "Vencieron sin acto registrado": no hay acto siguiente con `actDate` hasta el vencimiento, y el vencimiento ya pasó a la fecha de corte |
+| `pending`          | Integer | Solo en el mes en curso: todavía sin acto siguiente, con el vencimiento hoy o más adelante. En un mes cerrado vale `0` |
+| `interruptiveActs` | Integer | Actos interruptivos con `actDate` dentro del mes. No forma parte de la suma de `total` |
+
+Solo cuentan los plazos de actos procesales (`DeadlineKind` `PROCEDURAL_ACT`),
+no el del acto lesivo de los amparos (D-135). Un acto que no abre plazo no
+cuenta.
+
+**Ejemplo: el conjunto completo** (los datos de la foto de un mes cerrado). Es
+lo que recibe el generador del PDF. Está recortado: `lawyers` muestra dos de los
+siete abogados y `prescription.alerts` una de las siete causas. Una versión completa, con los
+siete abogados y las siete alertas, está en la constante `REPORT` de
+[`docs/prototypes/reporte-mensual-pdf.html`](../prototypes/reporte-mensual-pdf.html).
+
+```json
+{
+	"period": "2026-08",
+	"status": "CLOSED",
+	"dataAsOf": "2026-08-31",
+	"availableFrom": "2026-01",
+	"currentPeriod": "2026-09",
+	"summary": {
+		"activeCases": 99,
+		"admitted": 15,
+		"archived": 10,
+		"admittedChange": 7,
+		"archivedChange": 1,
+		"averagePerLawyer": 14.1,
+		"minPerLawyer": 13,
+		"maxPerLawyer": 17
+	},
+	"byJurisdiction": [
+		{ "jurisdiction": "CRIMINAL", "atStart": 56, "admitted": 8, "archived": 6, "atEnd": 58, "percentage": 59 },
+		{ "jurisdiction": "ADMINISTRATIVE", "atStart": 28, "admitted": 5, "archived": 3, "atEnd": 30, "percentage": 30 },
+		{ "jurisdiction": "AMPARO", "atStart": 10, "admitted": 2, "archived": 1, "atEnd": 11, "percentage": 11 }
+	],
+	"lawyers": [
+		{
+			"lawyer": { "id": 3, "lastName": "Ríos", "firstName": "Malena", "registrationNumber": "1-36842" },
+			"criminal": 10,
+			"administrative": 5,
+			"amparo": 2,
+			"total": 17,
+			"differenceFromAverage": 2.9
+		},
+		{
+			"lawyer": { "id": 2, "lastName": "Zárate", "firstName": "Oscar", "registrationNumber": "1-29540" },
+			"criminal": 8,
+			"administrative": 4,
+			"amparo": 1,
+			"total": 13,
+			"differenceFromAverage": -1.1
+		}
+	],
+	"monthly": [
+		{ "period": "2026-01", "admitted": 11, "archived": 8, "balance": 3, "activeAtEnd": 86 },
+		{ "period": "2026-02", "admitted": 9, "archived": 10, "balance": -1, "activeAtEnd": 85 },
+		{ "period": "2026-03", "admitted": 14, "archived": 9, "balance": 5, "activeAtEnd": 90 },
+		{ "period": "2026-04", "admitted": 12, "archived": 11, "balance": 1, "activeAtEnd": 91 },
+		{ "period": "2026-05", "admitted": 10, "archived": 7, "balance": 3, "activeAtEnd": 94 },
+		{ "period": "2026-06", "admitted": 13, "archived": 12, "balance": 1, "activeAtEnd": 95 },
+		{ "period": "2026-07", "admitted": 8, "archived": 9, "balance": -1, "activeAtEnd": 94 },
+		{ "period": "2026-08", "admitted": 15, "archived": 10, "balance": 5, "activeAtEnd": 99 }
+	],
+	"prescription": {
+		"cases": 58,
+		"bands": [
+			{ "band": "UNDER_50", "cases": 37, "percentage": 64 },
+			{ "band": "FROM_50_TO_70", "cases": 14, "percentage": 24 },
+			{ "band": "FROM_70_TO_90", "cases": 5, "percentage": 9 },
+			{ "band": "FROM_90", "cases": 2, "percentage": 3 }
+		],
+		"alerts": [
+			{
+				"caseId": 21,
+				"sacNumber": "11873402",
+				"caption": "LUNA, Javier p.s.a. Lesiones leves",
+				"responsibleLawyer": { "id": 6, "lastName": "Ferreyra", "firstName": "Matías" },
+				"legalQualificationName": "Lesiones leves — art. 89 CP",
+				"elapsedPercentage": 94,
+				"expired": false
+			}
+		]
+	},
+	"deadlines": {
+		"total": 41,
+		"metOnTime": 39,
+		"metOnLastDay": 2,
+		"overdue": 0,
+		"pending": 0,
+		"interruptiveActs": 3
+	}
+}
+```
+
+Este conjunto **no tiene `takenAt`**: ni la pantalla ni el PDF lo usan (el PDF
+muestra "Emitido el", la fecha de la descarga). La foto guarda cuándo se tomó
+como un dato propio, que no sale por la API.
 
 ---
 
 #### `GET /reports/monthly`
 
-Obtiene los datos del reporte mensual de un período (HU43): los indicadores,
-los gráficos de la pantalla y las cifras del PDF.
+Obtiene los datos del reporte mensual de un período (HU43) que la pantalla
+muestra: los indicadores y los gráficos. **(D-141)** Las cifras que solo usa el
+PDF no vienen acá: están en [Datos del reporte](#datos-del-reporte).
 
 **Rol requerido:** `ADMINISTRATOR`.
 
@@ -9364,7 +9552,6 @@ GET /api/v1/reports/monthly?period=2026-08
 | "Causas activas por fuero" (dona) | `byJurisdiction[].atEnd` y `percentage`; el total, `summary.activeCases` |
 | "Causas ingresadas y archivadas por mes" | `monthly` |
 | "Carga por abogado responsable" y su línea de promedio | `lawyers` y `summary.averagePerLawyer` |
-| "Causas por estado procesal", con una pestaña por fuero | `proceduralStates` |
 | "Avance de la prescripción" | `prescription.bands` |
 | "Descargar PDF" | [`GET /reports/monthly/file`](#get-reportsmonthlyfile) con el mismo `period` |
 
@@ -9372,21 +9559,23 @@ GET /api/v1/reports/monthly?period=2026-08
 
 **`200 OK`**
 
+**(D-141)** Devuelve **solo lo que la pantalla dibuja**. Lo que solo usa el PDF
+(`status`, las cifras de apertura, de cierre y de saldo, la matrícula, la
+diferencia con el promedio, los porcentajes de los tramos, las alertas de
+prescripción y los plazos del mes) no viaja al cliente: está en
+[Datos del reporte](#datos-del-reporte).
+
 | Campo              | Tipo                    | Descripción |
 | ------------------ | ----------------------- | ----------- |
 | `period`           | String (`AAAA-MM`)      | Mes del reporte |
-| `status`           | `ReportPeriodStatus`    | `CLOSED` o `IN_PROGRESS` |
 | `dataAsOf`         | String (fecha ISO 8601) | Fecha de corte: el último día del mes, o hoy si es el mes en curso ("Datos al") |
-| `takenAt`          | String (ISO 8601)       | Momento en que se tomaron los datos: el de la foto, o el del pedido en el mes en curso |
 | `availableFrom`    | String (`AAAA-MM`)      | Primer mes con reporte |
-| `currentPeriod`    | String (`AAAA-MM`)      | Mes en curso, en la hora de Córdoba |
+| `currentPeriod`    | String (`AAAA-MM`)      | Mes en curso, en la hora de Córdoba. El cliente distingue el mes en curso de uno cerrado comparando `period` con `currentPeriod` |
 | `summary`          | Object                  | Indicadores del mes |
-| `byJurisdiction`   | Object[]                | Movimiento y existencia por fuero. Siempre los tres fueros, en el orden de [`Jurisdiction`](#jurisdiction) |
+| `byJurisdiction`   | Object[]                | Causas activas por fuero. Siempre los tres fueros, en el orden de [`Jurisdiction`](#jurisdiction) |
 | `lawyers`          | Object[]                | Carga por abogado responsable |
 | `monthly`          | Object[]                | Ingresadas y archivadas de cada mes del año, de enero al período |
-| `proceduralStates` | Object[]                | Causas activas por estado procesal, una entrada por fuero |
 | `prescription`     | Object                  | Avance de la prescripción de las causas penales activas |
-| `deadlines`        | Object                  | Plazos procesales del mes |
 
 **`summary`**
 
@@ -9401,106 +9590,54 @@ GET /api/v1/reports/monthly?period=2026-08
 | `minPerLawyer`     | Integer \| `null` | Menor `total` de `lawyers` ("Entre 13 y 17 causas"). `null` si no hay abogados |
 | `maxPerLawyer`     | Integer \| `null` | Mayor `total` de `lawyers` |
 
-**`byJurisdiction[]`** — el "Cuadro 1" del PDF y la dona de la pantalla.
+**`byJurisdiction[]`** — la dona de la pantalla.
 
 | Campo          | Tipo           | Descripción |
 | -------------- | -------------- | ----------- |
 | `jurisdiction` | `Jurisdiction` | Fuero |
-| `atStart`      | Integer        | "Al inicio" |
-| `admitted`     | Integer        | "Ingresadas" en el mes |
-| `archived`     | Integer        | "Archivadas" en el mes |
-| `atEnd`        | Integer        | "Al cierre" |
+| `atEnd`        | Integer        | Causas activas del fuero al cierre |
 | `percentage`   | Integer        | `atEnd` sobre `summary.activeCases`, redondeado. `0` si no hay causas activas. Por el redondeo, la suma puede no dar exactamente 100 |
 
-La suma de cada columna es el total del estudio: la de `atEnd` es
-`summary.activeCases`, la de `admitted` es `summary.admitted` y la de
-`archived` es `summary.archived`.
+La suma de `atEnd` es `summary.activeCases`.
 
-**`lawyers[]`** — el "Cuadro 2" del PDF y "Carga por abogado responsable". Un
-elemento por cada abogado vigente al tomar los datos, tenga o no causas.
-Ordenados por `total` descendente y, a igualdad, por `lastName` y `firstName`.
+**`lawyers[]`** — "Carga por abogado responsable". Un elemento por cada abogado
+vigente al tomar los datos, tenga o no causas. Ordenados por `total`
+descendente y, a igualdad, por `lastName` y `firstName`.
 
 | Campo                   | Tipo    | Descripción |
 | ----------------------- | ------- | ----------- |
-| `lawyer`                | Object  | `id`, `lastName`, `firstName` y `registrationNumber` (`null` si no tiene), como eran al tomar los datos |
+| `lawyer`                | Object  | `id`, `lastName` y `firstName`, como eran al tomar los datos |
 | `criminal`              | Integer | Sus causas activas al cierre en el fuero `CRIMINAL` |
 | `administrative`        | Integer | Las del fuero `ADMINISTRATIVE` |
 | `amparo`                | Integer | Las del fuero `AMPARO` |
 | `total`                 | Integer | La suma de los tres |
-| `differenceFromAverage` | Number  | "Vs. promedio": `total` menos `summary.averagePerLawyer`, con un decimal |
 
-**`monthly[]`** — el "Cuadro 3" del PDF y el gráfico de barras. Un elemento por
-mes, de enero del año del período hasta el período, en orden. Cada mes sale de
-su propia foto (o del cálculo del día, si es el mes en curso); un mes anterior a
-`availableFrom` no tiene datos y trae sus cifras en `null` ("sin datos
-todavía").
+**`monthly[]`** — el gráfico de barras. Un elemento por mes, de enero del año
+del período hasta el período, en orden. Cada mes sale de su propia foto (o del
+cálculo del día, si es el mes en curso); un mes anterior a `availableFrom` no
+tiene datos y trae sus cifras en `null` ("sin datos todavía").
 
 | Campo         | Tipo              | Descripción |
 | ------------- | ----------------- | ----------- |
 | `period`      | String (`AAAA-MM`) | Mes |
 | `admitted`    | Integer \| `null` | Ingresadas en ese mes |
 | `archived`    | Integer \| `null` | Archivadas en ese mes |
-| `balance`     | Integer \| `null` | "Saldo": `admitted` menos `archived` |
-| `activeAtEnd` | Integer \| `null` | "Activas al cierre" de ese mes |
 
-**`proceduralStates[]`** — "Causas por estado procesal". Un elemento por fuero,
-siempre los tres, en el orden de `Jurisdiction`:
-
-| Campo          | Tipo           | Descripción |
-| -------------- | -------------- | ----------- |
-| `jurisdiction` | `Jurisdiction` | Fuero |
-| `activeCases`  | Integer        | Causas activas del fuero al cierre. Es el `atEnd` del fuero |
-| `states`       | Object[]       | Una entrada por estado, con `proceduralStateId`, `name`, `initial` y `custom` —con el mismo significado que en `currentState` de la causa (§3.7)— y `activeCases`, las causas activas en ese estado |
-
-`states` trae primero el estado inicial ("Iniciada"); después los estados
-vigentes no terminales del fuero, **en el orden en que los devuelve
-[`GET /procedural-states`](#get-procedural-states)**, aunque tengan `0` causas —los
-estados procesales no tienen un orden de ciclo de vida (D-31)—; después los
-estados dados de baja que todavía tienen causas activas; y al final los estados
-escritos a mano, por nombre. Los estados terminales no figuran, porque sus
-causas no son activas.
-
-**`prescription`** — el "Cuadro 4" del PDF y "Avance de la prescripción".
-Considera las causas penales activas al cierre que tienen `prescription`
-(no la tienen las que no registran calificación legal, D-74, o las que ya
-tienen todas sus calificaciones declaradas, D-113).
+**`prescription`** — "Avance de la prescripción". Considera las causas penales
+activas al cierre que tienen `prescription` (no la tienen las que no registran
+calificación legal, D-74, o las que ya tienen todas sus calificaciones
+declaradas, D-113).
 
 | Campo    | Tipo     | Descripción |
 | -------- | -------- | ----------- |
 | `cases`  | Integer  | Cuántas son. Es el 100 % de los tramos |
-| `bands`  | Object[] | Siempre los cuatro tramos de [`PrescriptionBand`](#prescriptionband), en orden: `band`, `cases` y `percentage` (sobre `cases`, redondeado) |
-| `alerts` | Object[] | Las que tienen el **70 %** o más del plazo transcurrido ("Causas con más del 70 % del plazo transcurrido al cierre del período"), de mayor a menor `elapsedPercentage` |
-
-Cada elemento de `alerts` tiene `caseId`, `sacNumber`, `caption`,
-`responsibleLawyer` (`id`, `lastName` y `firstName`), `legalQualificationName`,
-`elapsedPercentage` y `expired`, con el mismo significado que en
-`prescriptionAlerts` de los tableros (§3.11), calculados a la fecha de corte.
-
-**`deadlines`** — "Plazos procesales del mes", la sección 6 del PDF. Cuenta los
-plazos de los actos procesales de las causas del reporte **cuyo vencimiento
-(`dueDate`) cae dentro del mes**, y los clasifica según el **acto procesal
-siguiente** de la misma causa, que es el que cierra el plazo:
-
-| Campo              | Tipo    | Qué cuenta |
-| ------------------ | ------- | ---------- |
-| `total`            | Integer | Los plazos que vencen en el mes. Es la suma de los cuatro siguientes |
-| `metOnTime`        | Integer | "Se cumplieron dentro del término": el acto siguiente tiene `actDate` anterior al vencimiento |
-| `metOnLastDay`     | Integer | "Se cumplieron el último día": el acto siguiente tiene `actDate` igual al vencimiento |
-| `overdue`          | Integer | "Vencieron sin acto registrado": no hay acto siguiente con `actDate` hasta el vencimiento, y el vencimiento ya pasó a la fecha de corte |
-| `pending`          | Integer | Solo en el mes en curso: todavía sin acto siguiente, con el vencimiento hoy o más adelante. En un mes cerrado vale `0` |
-| `interruptiveActs` | Integer | Actos interruptivos con `actDate` dentro del mes |
-
-Solo cuentan los plazos de actos procesales (`DeadlineKind` `PROCEDURAL_ACT`),
-no el del acto lesivo de los amparos (D-135). Un acto que no abre plazo no
-cuenta.
+| `bands`  | Object[] | Siempre los cuatro tramos de [`PrescriptionBand`](#prescriptionband), en orden: `band` y `cases` |
 
 ```json
 {
 	"data": {
 		"period": "2026-08",
-		"status": "CLOSED",
 		"dataAsOf": "2026-08-31",
-		"takenAt": "2026-09-01T08:00:00-03:00",
 		"availableFrom": "2026-01",
 		"currentPeriod": "2026-09",
 		"summary": {
@@ -9514,84 +9651,51 @@ cuenta.
 			"maxPerLawyer": 17
 		},
 		"byJurisdiction": [
-			{ "jurisdiction": "CRIMINAL", "atStart": 56, "admitted": 8, "archived": 6, "atEnd": 58, "percentage": 59 },
-			{ "jurisdiction": "ADMINISTRATIVE", "atStart": 28, "admitted": 5, "archived": 3, "atEnd": 30, "percentage": 30 },
-			{ "jurisdiction": "AMPARO", "atStart": 10, "admitted": 2, "archived": 1, "atEnd": 11, "percentage": 11 }
+			{ "jurisdiction": "CRIMINAL", "atEnd": 58, "percentage": 59 },
+			{ "jurisdiction": "ADMINISTRATIVE", "atEnd": 30, "percentage": 30 },
+			{ "jurisdiction": "AMPARO", "atEnd": 11, "percentage": 11 }
 		],
 		"lawyers": [
 			{
-				"lawyer": { "id": 3, "lastName": "Ríos", "firstName": "Malena", "registrationNumber": "1-36842" },
+				"lawyer": { "id": 3, "lastName": "Ríos", "firstName": "Malena" },
 				"criminal": 10,
 				"administrative": 5,
 				"amparo": 2,
-				"total": 17,
-				"differenceFromAverage": 2.9
+				"total": 17
 			},
 			{
-				"lawyer": { "id": 2, "lastName": "Zárate", "firstName": "Oscar", "registrationNumber": "1-29540" },
+				"lawyer": { "id": 2, "lastName": "Zárate", "firstName": "Oscar" },
 				"criminal": 8,
 				"administrative": 4,
 				"amparo": 1,
-				"total": 13,
-				"differenceFromAverage": -1.1
+				"total": 13
 			}
 		],
 		"monthly": [
-			{ "period": "2026-01", "admitted": 11, "archived": 8, "balance": 3, "activeAtEnd": 86 },
-			{ "period": "2026-02", "admitted": 9, "archived": 10, "balance": -1, "activeAtEnd": 85 },
-			{ "period": "2026-03", "admitted": 14, "archived": 9, "balance": 5, "activeAtEnd": 90 },
-			{ "period": "2026-04", "admitted": 12, "archived": 11, "balance": 1, "activeAtEnd": 91 },
-			{ "period": "2026-05", "admitted": 10, "archived": 7, "balance": 3, "activeAtEnd": 94 },
-			{ "period": "2026-06", "admitted": 13, "archived": 12, "balance": 1, "activeAtEnd": 95 },
-			{ "period": "2026-07", "admitted": 8, "archived": 9, "balance": -1, "activeAtEnd": 94 },
-			{ "period": "2026-08", "admitted": 15, "archived": 10, "balance": 5, "activeAtEnd": 99 }
-		],
-		"proceduralStates": [
-			{
-				"jurisdiction": "CRIMINAL",
-				"activeCases": 58,
-				"states": [
-					{ "proceduralStateId": null, "name": "Iniciada", "initial": true, "custom": false, "activeCases": 4 },
-					{ "proceduralStateId": 3, "name": "Cédula de notificación", "initial": false, "custom": false, "activeCases": 17 },
-					{ "proceduralStateId": 5, "name": "Oposición al requerimiento de elevación", "initial": false, "custom": false, "activeCases": 9 }
-				]
-			}
+			{ "period": "2026-01", "admitted": 11, "archived": 8 },
+			{ "period": "2026-02", "admitted": 9, "archived": 10 },
+			{ "period": "2026-03", "admitted": 14, "archived": 9 },
+			{ "period": "2026-04", "admitted": 12, "archived": 11 },
+			{ "period": "2026-05", "admitted": 10, "archived": 7 },
+			{ "period": "2026-06", "admitted": 13, "archived": 12 },
+			{ "period": "2026-07", "admitted": 8, "archived": 9 },
+			{ "period": "2026-08", "admitted": 15, "archived": 10 }
 		],
 		"prescription": {
 			"cases": 58,
 			"bands": [
-				{ "band": "UNDER_50", "cases": 37, "percentage": 64 },
-				{ "band": "FROM_50_TO_70", "cases": 14, "percentage": 24 },
-				{ "band": "FROM_70_TO_90", "cases": 5, "percentage": 9 },
-				{ "band": "FROM_90", "cases": 2, "percentage": 3 }
-			],
-			"alerts": [
-				{
-					"caseId": 21,
-					"sacNumber": "11873402",
-					"caption": "LUNA, Javier p.s.a. Lesiones leves",
-					"responsibleLawyer": { "id": 6, "lastName": "Ferreyra", "firstName": "Matías" },
-					"legalQualificationName": "Lesiones leves — art. 89 CP",
-					"elapsedPercentage": 94,
-					"expired": false
-				}
+				{ "band": "UNDER_50", "cases": 37 },
+				{ "band": "FROM_50_TO_70", "cases": 14 },
+				{ "band": "FROM_70_TO_90", "cases": 5 },
+				{ "band": "FROM_90", "cases": 2 }
 			]
-		},
-		"deadlines": {
-			"total": 41,
-			"metOnTime": 39,
-			"metOnLastDay": 2,
-			"overdue": 0,
-			"pending": 0,
-			"interruptiveActs": 3
 		}
 	}
 }
 ```
 
-El ejemplo usa los datos del prototipo y está recortado: `lawyers` muestra dos
-de los siete abogados, `proceduralStates` un fuero y algunos de sus estados, y
-`prescription.alerts` una de las siete causas.
+El ejemplo usa los datos del prototipo y está recortado: `lawyers` muestra dos de
+los siete abogados.
 
 **`400 Bad Request`**
 
@@ -9654,8 +9758,9 @@ causas" del período, para imprimirlo o archivarlo fuera del sistema.
 
 **Rol requerido:** `ADMINISTRATOR`.
 
-Lo genera el **backend**, con los mismos datos que
-[`GET /reports/monthly`](#get-reportsmonthly) para ese período. No se guarda:
+Lo genera el **backend**, con los **datos completos del reporte**
+([Datos del reporte](#datos-del-reporte)) de ese período, que incluyen lo que
+[`GET /reports/monthly`](#get-reportsmonthly) no devuelve. No se guarda:
 se arma en cada pedido. En un mes cerrado, como la foto no cambia, dos
 descargas dan el mismo contenido, salvo "Emitido por" y "Emitido el".
 
@@ -9719,9 +9824,54 @@ Es la hoja del prototipo, en A4, sin número de reporte, versión ni huella
 - **Pie de cada página.** "VZ Causas · Reporte mensual de gestión · {período}"
   y "Página X de N".
 
-Los gráficos de la pantalla (la dona, las barras verticales, la carga apilada y
-los estados) no van al PDF: el PDF los expresa con sus cuadros, como el
+Los gráficos de la pantalla (la dona, las barras verticales y la carga apilada)
+no van al PDF: el PDF los expresa con sus cuadros, como el
 prototipo.
+
+**Plantilla de referencia y datos que necesita (D-141)**
+
+El PDF se arma con el **conjunto completo** de
+[Datos del reporte](#datos-del-reporte) del período, no con la respuesta de
+`GET /reports/monthly`, que no trae todo.
+
+La hoja está maquetada en
+[`docs/prototypes/reporte-mensual-pdf.html`](../prototypes/reporte-mensual-pdf.html).
+Es una página estática: se abre en el navegador y dibuja las dos hojas A4 a
+partir de dos constantes, `REPORT` (los datos del reporte, con la forma de
+"Datos del reporte") e `ISSUED` ("Emitido por" y "Emitido el"). El botón
+"Imprimir / guardar como PDF" abre el diálogo de impresión con la hoja ya en
+A4. Es la **referencia visual**, no código de producción: el backend dibuja el
+PDF con `@cantoo/pdf-lib` (D-120), y la plantilla muestra qué datos entran en
+cada parte y cómo se ve.
+
+| Parte del PDF | Datos que usa |
+| ------------- | ------------- |
+| Encabezado de cada página | El logo, el nombre del estudio y `period` |
+| Título y recuadro | `period`, `dataAsOf`, el usuario autenticado ("Emitido por"), la fecha y la hora de la descarga ("Emitido el") y, en el mes en curso, `status` para la leyenda |
+| 1. Resumen del período | `dataAsOf`, `summary`, `byJurisdiction`, `lawyers` (los abogados con el mayor y el menor `total`) y la cantidad de `prescription.alerts` |
+| 2. Causas por fuero (Cuadro 1) | `byJurisdiction` |
+| 3. Carga por abogado (Cuadro 2) | `lawyers` y `summary.averagePerLawyer` |
+| 4. Ingresadas y archivadas en el año (Cuadro 3) | `monthly` |
+| 5. Prescripción (Cuadro 4 y lista) | `prescription.bands` y `prescription.alerts` |
+| 6. Plazos procesales del mes | `deadlines` y `status` |
+| Pie de cada página | `period` |
+
+`prescription.cases` no entra en el PDF.
+
+**Lo que la plantilla fija y el backend tiene que repetir**
+
+| Qué | Cómo |
+| --- | ---- |
+| Tamaño de la hoja | A4: 794 × 1123 px a 96 dpi (210 × 297 mm). Márgenes de 48 px arriba y 56 px a los costados; el pie, a 28 px del borde de abajo |
+| Tipografías | Figtree para el texto y Roboto Mono para las cifras. La plantilla las carga de Google Fonts: el backend tiene que incluir los archivos o reemplazarlas |
+| Colores | Texto `#0F172A`; texto secundario `#5A6560`; líneas `#DDE2DC`; fila del período `#EEF3EC`; verde del encabezado `#406640` |
+| Fueros | Penal `#406640`, administrativo `#A8894C`, amparo `#4F6A8A` |
+| Tramos de prescripción | `UNDER_50` `#406640`, `FROM_50_TO_70` `#9DB59A`, `FROM_70_TO_90` `#A8894C`, `FROM_90` `#8E1F19` |
+| Barras del Cuadro 3 | Ingresadas `#406640`, archivadas `#9DB59A`; el ancho es proporcional al mayor valor de los meses con datos |
+| Avance en la lista de alertas | `#8E1F19` si es 90 % o más o `expired`, `#7A5C1E` en los demás casos; una causa `expired` dice "Prescripta" |
+| Formato de los números | Coma decimal ("14,1"); signo "+" o "−" (el signo menos real) en saldos y diferencias; "—" cuando la diferencia con el promedio es exactamente `0` |
+| Formato de los textos | Fechas `dd/mm/aaaa`; "Emitido el" como `dd/mm/aaaa · hh:mm`; abogados como `Apellido, Nombres` (D-138); matrícula "—" si no tiene |
+| Frases del resumen y de los plazos | Las de las funciones `resumen()` y `plazos()` de la plantilla, que resuelven singular y plural, nombran a todos los abogados empatados y omiten lo que no aplica |
 
 **Respuestas**
 
@@ -10306,7 +10456,7 @@ y `GET /dashboards/administrator`), cuyo tamaño está limitado por la cantidad 
 causas activas del estudio. Se suma una cuarta: `documents` dentro de
 `GET /cases/{caseId}/documents`, acotada a lo que hay en la carpeta de una
 causa. **(V6)** Y las listas dentro de `GET /reports/monthly`, acotadas por la
-cantidad de abogados, de estados y de meses del año.
+cantidad de abogados y de meses del año.
 
 **GET — Archivo**
 

@@ -8,12 +8,16 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Roboto+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <!--
-  Vista del PDF de GET /reports/monthly/pdf, según API_CONTRACT_V6.md
-  (§ "Contenido del PDF", líneas ~9669-9724) y D-117, D-120, D-136, D-138.
+  Vista del PDF de GET /reports/monthly/file, según API_CONTRACT_V6.md §3.13
+  ("Datos del reporte" y "GET /reports/monthly/file", con su "Plantilla de
+  referencia") y D-117, D-120, D-136, D-138, D-141.
 
   NO es el PDF real: el backend lo arma con @cantoo/pdf-lib. Esto sirve para ver
-  cómo debería quedar la hoja. Los datos de abajo (REPORT) tienen la misma forma
-  que `data` de GET /reports/monthly; se pueden reemplazar por una respuesta real.
+  cómo debería quedar la hoja y qué datos necesita. Los datos de abajo (REPORT)
+  tienen la forma de "Datos del reporte": el conjunto completo, que incluye lo
+  que GET /reports/monthly NO devuelve (status, atStart, registrationNumber,
+  differenceFromAverage, balance, activeAtEnd, percentage de los tramos, alerts
+  y deadlines). El reporte ya no incluye `proceduralStates` (D-142).
 
   Diferencias con la pantalla `repPdf` de "VZ Causas - Prototipo.dc.html":
   sin número de reporte, versión, huella ni recuadro de trazabilidad (D-117);
@@ -71,18 +75,19 @@
 </head>
 <body>
 <div class="toolbar">
-  <span>Vista de ejemplo del PDF de <b>GET /reports/monthly/pdf</b> (V6, D-117/D-120/D-136/D-138). Datos de muestra, no es el PDF real.</span>
+  <span>Vista de ejemplo del PDF de <b>GET /reports/monthly/file</b> (V6, D-117/D-120/D-136/D-138/D-141). Datos de muestra, no es el PDF real.</span>
   <button type="button" onclick="window.print()">Imprimir / guardar como PDF</button>
 </div>
 <div class="stage" id="stage"></div>
 
 <script>
-// Misma forma que `data` de GET /reports/monthly (API_CONTRACT_V6.md ~9497-9590).
+// Forma de "Datos del reporte" (API_CONTRACT_V6.md §3.13): el conjunto completo
+// que recibe el generador del PDF, no la respuesta recortada de GET /reports/monthly.
 // Datos de muestra: coinciden donde el contrato da un ejemplo (agosto de 2026) y
-// se completaron los abogados, estados y causas que el contrato recorta.
+// se completaron los abogados y las causas que el contrato recorta.
 const REPORT = {
   period: '2026-08', status: 'CLOSED', dataAsOf: '2026-08-31',
-  takenAt: '2026-09-01T08:00:00-03:00', availableFrom: '2026-01', currentPeriod: '2026-09',
+  availableFrom: '2026-01', currentPeriod: '2026-09',
   summary: { activeCases: 99, admitted: 15, archived: 10, admittedChange: 7, archivedChange: 1,
              averagePerLawyer: 14.1, minPerLawyer: 13, maxPerLawyer: 17 },
   byJurisdiction: [
