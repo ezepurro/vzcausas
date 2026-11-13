@@ -159,4 +159,20 @@ describe('SearchSelect', () => {
         expect(onSelect).toHaveBeenCalledWith('')
         expect(screen.getByLabelText('Cliente')).toHaveValue('')
     })
+
+    /* Bug del 13/11/2026: un clic en la barra de scroll de la lista le sacaba
+       el foco al campo y la lista se cerraba; sólo se podía bajar con la rueda. */
+    it('un clic en la lista que no cae en una opción no la cierra', async () => {
+        const user = userEvent.setup()
+        render(<Harness />)
+        const field = screen.getByLabelText('Cliente')
+        await user.click(field)
+
+        await user.pointer({ keys: '[MouseLeft]', target: screen.getByRole('listbox') })
+
+        expect(screen.getByRole('listbox')).toBeInTheDocument()
+        expect(field).toHaveFocus()
+        expect(screen.getAllByRole('option')).toHaveLength(3)
+    })
+
 })

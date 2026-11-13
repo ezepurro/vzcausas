@@ -17,7 +17,7 @@ tanda, **manda el informe de la tanda**. Las rutas son relativas a `frontend/`.
 - Se encontraron **55 hallazgos** (`H-01` a `H-55`) y 3 huecos de caché
   (`C-1` a `C-3`). De gravedad alta, 5.
 - **Los 5 altos están corregidos**, y la gran mayoría de los medios y bajos.
-- La suite pasó de **651 tests a 735**. Los 9 E2E pasan. Lint, tipos y build,
+- La suite pasó de **651 tests a 744**. Los 9 E2E pasan. Lint, tipos y build,
   limpios.
 - **Todo se probó con los mocks. Nada se probó contra el backend real.**
 - Lo último (tanda 11) **está sin commitear**.
@@ -85,6 +85,9 @@ alta.
 | — | A 320 px, el selector con filtro quedaba de 34 px de ancho al lado de su botón | Un `<select>` tiene ancho natural; el campo nuevo, no | Ocupa su renglón y el botón baja |
 | — | La flecha de un `<select>` desaparecía cuando el campo tenía error | El fondo del error pisaba la imagen de la flecha | El error cambia sólo el color de fondo |
 | — | El aviso en el teléfono ocupaba media pantalla de ancho y se partía en seis renglones | La pila se centraba con `left: 50%` | Va de borde a borde: tres renglones |
+| — | En el selector de cliente y de calificaciones, un clic en la barra de scroll cerraba la lista: sólo se podía bajar con la rueda | El clic en la barra le sacaba el foco al campo, y la lista se cierra cuando el campo lo pierde | La lista no le saca el foco al campo. Mismo arreglo en el selector de estado procesal del acto |
+| — | En "Modificar causa", al hacer clic en "Fuero" (bloqueado) aparecía el cursor de escritura | Probable, sin confirmar: Chrome deja poner una selección de texto en un campo deshabilitado | Los campos deshabilitados no admiten selección de texto. **Falta confirmarlo en Chrome** |
+| — | El vencimiento de la prescripción del mock no coincidía con el del backend en fin de mes | El mock seguía al prototipo y se pasaba al mes siguiente | El mock corta en el último día del mes, como el backend (decisión del 13/11/2026) |
 
 **Datos que quedaban viejos hasta un minuto** (auditoría de caché, 29
 mutaciones leídas):
@@ -157,6 +160,7 @@ Se anotaron y después se vio que no eran un problema:
 | H-48 | El ojo de la contraseña ya cambia su rótulo; sumarle `aria-pressed` lo empeora |
 | "Aviso de 5 segundos" | Cronometrado: dura 4.020 ms. Lo que se vio era la pausa con el puntero encima |
 | H-28 en "Modificar causa" | Sólo pasaba en el alta |
+| Preguntar "¿descartar los cambios?" al cerrar con Escape o "Cancelar" (parte de H-05) | Se decidió que no: son gestos deliberados, y el clic afuera, que era el accidental, ya no cierra |
 
 ## 7. Verificación
 
@@ -166,7 +170,7 @@ Estado final, con los cambios de los dos planes y la tanda 11:
 |---|---|
 | `npm run lint` | 0 errores; un warning conocido en `src/shared/components/ui/Icon.tsx:2` |
 | `npx tsc -b` | Limpio |
-| `npx vitest run --maxWorkers=4` | **735 de 735** (112 archivos). Al empezar: 651 |
+| `npx vitest run --maxWorkers=4` | **744 de 744** (113 archivos). Al empezar: 651 |
 | `npm run test:e2e` | **9 de 9** |
 | `npm run build` | Sin errores |
 | Navegador, con mocks | Lo modificado se miró a 320–390 px y a 1024–1366 px, tanda por tanda |
@@ -183,8 +187,8 @@ sin resolver (sección 8).
 | Qué | Por qué importa |
 |---|---|
 | **Probar contra el backend real** | Todo se probó con mocks. Falta: sesión entre pestañas, subida de un modelo, timeouts de archivos, expediente |
-| **H-55 · falla intermitente de la suite** | Con todos los núcleos algún test se pasa del tiempo de espera. Pistas en [12-REGISTRO_PLAN_A.md](12-REGISTRO_PLAN_A.md): los `findBy…` esperan 1 s por defecto, poco para 112 archivos en paralelo |
-| **Fin de mes de la prescripción: el mock y el backend calculan distinto** | El backend corta en el último día del mes; el mock sigue al prototipo y se pasa al mes siguiente. El contrato no dice nada: hay que decidirlo y escribirlo |
+| **H-55 · falla intermitente de la suite** | Con todos los núcleos algún test se pasa del tiempo de espera. Pistas en [12-REGISTRO_PLAN_A.md](12-REGISTRO_PLAN_A.md): los `findBy…` esperan 1 s por defecto, poco para 113 archivos en paralelo |
+| **Fin de mes de la prescripción: escribirlo en el contrato** | Se decidió que vale el backend (corta en el último día del mes) y el mock ya lo sigue. El contrato todavía no lo dice |
 | **Los tres perfiles contra la tabla de permisos** (`gestion`, `mrios`, `supervision`) | No se llegó. `supervision` no se recorrió en ninguna tanda |
 | **Carreras** | Respuesta que llega después de salir de la pantalla; sondeo de la carpeta al cambiar de causa |
 | **Lector de pantalla real** | Todo lo de ARIA se comprobó en el DOM, nunca con NVDA |
@@ -201,10 +205,9 @@ teléfono.
 
 | Qué | Hallazgo |
 |---|---|
-| Puntos del calendario en el teléfono (18×20 px): ¿todo el día tocable? | H-50 |
+| Puntos del calendario en el teléfono (18×20 px): la idea es que todo el día sea tocable; falta acordar qué pasa con un día con varios plazos | H-50 |
 | El front decide permisos con sus tablas y no con `permissions` del backend | H-10 |
 | `react-hook-form` instalado y sin uso | H-16 |
-| Preguntar "¿descartar los cambios?" al cerrar un formulario con Escape o "Cancelar" | H-05 |
 | Las tres notas "Solo el abogado responsable (…)" del detalle de causa: ¿se unen en una? | H-53 |
 | Si después molesta que los nombres de las acciones de fila se repitan en un listado de botones, pasar a `aria-label` | H-40 |
 

@@ -80,4 +80,19 @@ describe('Combobox', () => {
         expect(onSelect).toHaveBeenCalledWith(OPTIONS[1])
         expect(onSubmit).not.toHaveBeenCalled()
     })
+
+    /* Bug del 13/11/2026: un clic en la barra de scroll de la lista le sacaba
+       el foco al campo y la lista se cerraba. */
+    it('un clic en la lista que no cae en una opción no la cierra', async () => {
+        const user = userEvent.setup()
+        render(<Harness />)
+        const field = screen.getByRole('combobox')
+        await user.click(field)
+
+        await user.pointer({ keys: '[MouseLeft]', target: screen.getByRole('listbox') })
+
+        expect(screen.getByRole('listbox')).toBeInTheDocument()
+        expect(field).toHaveFocus()
+    })
+
 })

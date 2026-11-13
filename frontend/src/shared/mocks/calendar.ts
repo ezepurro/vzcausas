@@ -103,12 +103,21 @@ export function subtractBusinessDays(iso: string, days: number): string {
 
 /**
  * Suma meses enteros conservando el día: es la cuenta de la prescripción
- * (`prescriptionStartsOn` más `prescriptionMonths`, V3 D-19). Mismo criterio
- * que el prototipo, incluido el desborde de fin de mes.
+ * (`prescriptionStartsOn` más `prescriptionMonths`, V3 D-19).
+ *
+ * Si el mes de destino es más corto, cae en su último día: 31/08 más 6 meses
+ * es 28/02 (o 29/02), no 03/03. Es lo que hace el backend
+ * (`addPrescriptionMonths`, `backend/src/subsystems/cases/core/domain/prescription.ts`)
+ * y el resumen del alta (`estimatedExpiry`). El prototipo se pasaba al mes
+ * siguiente; el equipo decidió el 13/11/2026 que vale el backend. El contrato
+ * todavía no lo dice.
  */
 export function addMonths(iso: string, months: number): string {
     const date = mustParse(iso);
-    return toIsoDate(new Date(date.getFullYear(), date.getMonth() + months, date.getDate()));
+    const year = date.getFullYear();
+    const month = date.getMonth() + months;
+    const lastDayOfMonth = new Date(year, month + 1, 0).getDate();
+    return toIsoDate(new Date(year, month, Math.min(date.getDate(), lastDayOfMonth)));
 }
 
 /**

@@ -112,6 +112,12 @@ a.vz-btn--ghost:hover { color: var(--vz-ink); }
 .vz-input:hover, .vz-select:hover, .vz-textarea:hover { border-color: var(--vz-faint); }
 .vz-input:disabled, .vz-select:disabled, .vz-textarea:disabled {
   background: var(--vz-sunken); color: var(--vz-faint); cursor: not-allowed;
+  /* Sin selección de texto: Chrome deja poner el cursor de escritura adentro
+     de un campo deshabilitado, y parecía que se podía escribir. */
+  user-select: none;
+}
+.vz-input:disabled:hover, .vz-select:disabled:hover, .vz-textarea:disabled:hover {
+  border-color: var(--vz-border-strong);
 }
 .vz-input--mono { font-family: var(--vz-font-mono); }
 

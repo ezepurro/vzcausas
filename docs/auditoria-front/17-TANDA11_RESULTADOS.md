@@ -87,6 +87,41 @@ En el navegador, con mocks y `mrios`, sin errores en la consola:
   en el rail.
 - Nada contra el backend real.
 
+## Agregado del 13/11/2026: lo que encontró Facundo probando a mano
+
+| Qué pasaba | Causa | Solución | Archivos |
+|---|---|---|---|
+| En el selector de cliente y en el de calificaciones, un clic en la barra de scroll de la lista la cerraba: sólo se podía bajar con la rueda | La lista se cierra cuando el campo pierde el foco, y un clic en la barra se lo sacaba. Las opciones ya lo evitaban; el contenedor de la lista, no | El contenedor tampoco le saca el foco al campo. `Combobox` (el estado procesal del acto) tenía el mismo defecto y lleva el mismo arreglo | `src/shared/components/forms/SearchSelect.tsx`, `Combobox.tsx` |
+| En "Modificar causa", al hacer clic en "Fuero" (bloqueado) aparecía el cursor de escritura, como si se pudiera escribir | **Probable, sin confirmar**: Chrome deja poner una selección de texto adentro de un campo deshabilitado. El campo está deshabilitado de verdad: no se podía escribir | Los campos deshabilitados no admiten selección de texto (`user-select: none`), y dejan de cambiar el borde al apuntarlos. Vale para todo campo bloqueado: tampoco se puede copiar su texto | `src/styles/controls.css` |
+
+**Decisiones de Facundo del 13/11/2026:**
+
+- **Fin de mes de la prescripción: vale el backend.** El mock dejó de pasarse
+  al mes siguiente (`src/shared/mocks/calendar.ts`, `addMonths`): 31/08 más 6
+  meses es 28/02, igual que el backend y que el resumen del alta. **El
+  contrato sigue sin decirlo**: queda como punto a escribir.
+- **No se pregunta "¿descartar los cambios?"** al cerrar un formulario con
+  Escape o "Cancelar": son gestos deliberados. Se cierra ese punto de H-05.
+- **Calendario en el teléfono (H-50):** la idea es que todo el día sea
+  tocable; falta acordar qué pasa con un día con varios plazos.
+
+Tests nuevos: uno en `tests/components/shared/SearchSelect.test.tsx` y uno en
+`Combobox.test.tsx` (un clic en la lista fuera de una opción no la cierra), y
+`tests/unit/shared/mockCalendar.test.ts` (7 casos: el fin de mes, y que el
+mock coincide con la estimación del alta).
+
+Verificado en el navegador, en "Registrar causa" a 1024 px: con la lista de
+23 clientes abierta, **arrastrar la barra de scroll baja la lista y no la
+cierra**; el foco sigue en el campo. Un clic suelto en la pista de la barra
+tampoco la cierra, pero en la prueba automatizada no desplazó la lista: no se
+determinó si es del navegador de prueba. **El cursor en "Fuero" no se pudo
+reproducir en el navegador de prueba**, así que el arreglo queda sin
+confirmar: hay que mirarlo en Chrome.
+
+Después de estos cambios: lint y `npx tsc -b` limpios, y
+`npx vitest run --maxWorkers=4` **744 de 744** (113 archivos). Los E2E y el
+build no se volvieron a correr.
+
 ## Lo que queda de la auditoría
 
 | Qué | De quién |

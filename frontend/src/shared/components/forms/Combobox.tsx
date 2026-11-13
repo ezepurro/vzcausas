@@ -145,7 +145,15 @@ export function Combobox({
       />
 
       {expanded && (
-        <div id={listId} role="listbox" className="vz-combobox__list">
+        <div
+          id={listId}
+          role="listbox"
+          className="vz-combobox__list"
+          /* Un clic en la lista que no cae en una opción —la barra de scroll,
+             el relleno— no le saca el foco al campo: si se lo saca, la lista
+             se cierra y no se puede arrastrar el scroll. */
+          onMouseDown={(e) => e.preventDefault()}
+        >
           {options.map((option, i) => (
             <div
               key={option.value}
