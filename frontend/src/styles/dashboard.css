@@ -13,6 +13,8 @@
   background: var(--vz-rail);
   color: var(--vz-rail-fg-on);
   box-shadow: var(--vz-card-sh);
+  /* Fondo oscuro, como el rail: el foco va en claro (H-34). */
+  --vz-focus: var(--vz-rail-fg-on);
 }
 .vz-dash-band__tiles {
   flex: 3 1 32rem;
@@ -44,9 +46,14 @@
   text-transform: uppercase;
   line-height: 1.3;
   color: var(--vz-rail-fg);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  /* El rótulo se lee entero: si no entra en un renglón usa dos, en lugar de
+     cortarse con puntos ("Próx. 5 días hábil…", H-38). Todos reservan los dos
+     renglones y se apoyan abajo, así los números quedan a la misma altura
+     aunque sólo uno parta. */
+  display: flex;
+  align-items: flex-end;
+  min-height: 2.6em;
+  text-wrap: balance;
 }
 .vz-dash-tile__value {
   margin-top: 10px;
@@ -58,8 +65,8 @@
 }
 /* Los tonos claros del prototipo para la banda oscura: los de --vz-danger y
    --vz-warn son para fondo claro y acá no se leen. */
-.vz-dash-tile__value--danger { color: #F4B4AC; }
-.vz-dash-tile__value--warn { color: #E9CF94; }
+.vz-dash-tile__value--danger { color: var(--vz-on-dark-danger); }
+.vz-dash-tile__value--warn { color: var(--vz-on-dark-warn); }
 .vz-dash-tile__note {
   margin-top: 6px;
   font-size: 11.5px;
@@ -112,9 +119,9 @@
   background: currentColor;
 }
 /* Mismos tonos claros que los números: vencido u hoy, esta semana, después. */
-.vz-dash-first__when--danger { color: #F4B4AC; }
-.vz-dash-first__when--warn { color: #E9CF94; }
-.vz-dash-first__when--ok { color: #B9D3B4; }
+.vz-dash-first__when--danger { color: var(--vz-on-dark-danger); }
+.vz-dash-first__when--warn { color: var(--vz-on-dark-warn); }
+.vz-dash-first__when--ok { color: var(--vz-on-dark-ok); }
 .vz-dash-first__date { font-weight: 500; color: var(--vz-rail-fg); }
 .vz-dash-first__caption { font-size: 15px; font-weight: 700; line-height: 1.35; text-wrap: pretty; }
 .vz-dash-first__state { font-size: 12px; line-height: 1.4; color: var(--vz-rail-fg); }
@@ -184,13 +191,13 @@
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  border: 3px solid var(--vz-node, #9DBF9D);
+  border: 3px solid var(--vz-node, var(--vz-mark-ok));
   background: var(--vz-surface);
 }
 .vz-dash-line__item--overdue { --vz-node: var(--vz-danger-action); }
-.vz-dash-line__item--today { --vz-node: #E08A80; }
+.vz-dash-line__item--today { --vz-node: var(--vz-mark-danger); }
 .vz-dash-line__item--thisWeek { --vz-node: var(--vz-warn-mark); }
-.vz-dash-line__item--later { --vz-node: #9DBF9D; }
+.vz-dash-line__item--later { --vz-node: var(--vz-mark-ok); }
 
 .vz-dash-line__card {
   display: block;
@@ -207,7 +214,7 @@
   transition: border-color .12s, box-shadow .12s;
 }
 .vz-dash-line__card:hover { border-color: var(--vz-primary); box-shadow: 0 4px 14px rgba(12, 20, 6, .08); }
-.vz-dash-line__item--overdue .vz-dash-line__card { border-color: var(--vz-danger-bd); background: #FDF6F5; }
+.vz-dash-line__item--overdue .vz-dash-line__card { border-color: var(--vz-danger-bd); background: var(--vz-danger-wash); }
 .vz-dash-line__item--today .vz-dash-line__card { border-color: var(--vz-danger-bd); }
 .vz-dash-line__head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
 .vz-dash-line__head > .vz-pill { flex: 0 0 auto; font-family: var(--vz-font-mono); }
@@ -325,7 +332,7 @@
   padding: 0 5px;
   border-radius: var(--vz-r-pill);
   background: var(--vz-primary);
-  color: #fff;
+  color: var(--vz-on-primary);
   font-weight: 700;
 }
 .vz-dash-cal__items { display: flex; flex-direction: column; gap: 3px; margin-top: 5px; min-width: 0; }
@@ -352,9 +359,9 @@
 .vz-dash-cal__item > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .vz-dash-cal__dot { width: 7px; height: 7px; flex: 0 0 7px; border-radius: 50%; }
 .vz-dash-cal__dot--overdue { background: var(--vz-danger-action); }
-.vz-dash-cal__dot--today { background: #E08A80; }
+.vz-dash-cal__dot--today { background: var(--vz-mark-danger); }
 .vz-dash-cal__dot--thisWeek { background: var(--vz-warn-mark); }
-.vz-dash-cal__dot--later { background: #9DBF9D; }
+.vz-dash-cal__dot--later { background: var(--vz-mark-ok); }
 .vz-dash-cal__more { padding-left: 2px; font-size: 10.5px; font-weight: 600; color: var(--vz-muted); }
 
 /* ─────────── causas para impulsar y alertas ─────────── */
@@ -446,9 +453,9 @@
 .vz-dash-portfolio__count { font-family: var(--vz-font-mono); font-weight: 500; color: var(--vz-rail-fg); }
 .vz-dash-portfolio__swatch { width: 9px; height: 9px; flex: 0 0 9px; border-radius: 2px; }
 /* Los colores de cada fuero en el prototipo, en el orden del contrato. */
-.vz-dash-fuero--CRIMINAL { background: #7FB27F; }
-.vz-dash-fuero--ADMINISTRATIVE { background: #C9D8C2; }
-.vz-dash-fuero--AMPARO { background: #C9A35E; }
+.vz-dash-fuero--CRIMINAL { background: var(--vz-fuero-criminal); }
+.vz-dash-fuero--ADMINISTRATIVE { background: var(--vz-fuero-administrative); }
+.vz-dash-fuero--AMPARO { background: var(--vz-fuero-amparo); }
 
 /* ─────────── carga del equipo ─────────── */
 /* Una tarjeta por abogado; tocarla filtra los vencimientos del estudio. */
@@ -500,9 +507,9 @@
    normal, 15 y 16 alta, 17 o más sobrecarga (lo decide `loadTone`). */
 .vz-dash-member .vz-meter { height: 8px; border-radius: 4px; }
 .vz-dash-member .vz-meter__fill { border-radius: 3px; }
-.vz-dash-member .vz-meter--primary .vz-meter__fill { background: #9DBF9D; }
-.vz-dash-member .vz-meter--warn .vz-meter__fill { background: #D9C08E; }
-.vz-dash-member .vz-meter--danger .vz-meter__fill { background: #D29A92; }
+.vz-dash-member .vz-meter--primary .vz-meter__fill { background: var(--vz-mark-ok); }
+.vz-dash-member .vz-meter--warn .vz-meter__fill { background: var(--vz-mark-warn-soft); }
+.vz-dash-member .vz-meter--danger .vz-meter__fill { background: var(--vz-mark-danger-soft); }
 
 /* ─────────── disposición del tablero ─────────── */
 /* La banda arriba y, debajo, dos columnas: la ancha con los plazos y la
@@ -579,7 +586,6 @@
   }
   .vz-dash-tile { min-width: 0; padding: 0 0 0 16px; }
   .vz-dash-tile:nth-child(odd) { padding: 0 16px 0 0; border-left: none; }
-  .vz-dash-tile__label { white-space: normal; overflow: visible; }
   .vz-dash-tile__value { margin-top: 8px; font-size: 32px; }
 
   /* Calendario: la grilla del mes entra entera, con el día y un punto por

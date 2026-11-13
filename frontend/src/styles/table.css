@@ -60,15 +60,14 @@
 .vz-table__num { font-family: var(--vz-font-mono); font-variant-numeric: tabular-nums; }
 .vz-table__nowrap { white-space: nowrap; }
 /* Acciones de fila.
-   Quedan tenues mientras el cursor no está en la fila: en una tabla larga, dos
-   botones por renglón compiten con los datos, que son lo que se vino a leer.
-   Al entrar en la fila toman contraste, y al apuntar uno se dibuja su borde.
+   Son calladas —sin borde ni fondo, en el color apagado— porque en una tabla
+   larga dos botones por renglón compiten con los datos, que son lo que se vino
+   a leer. Antes además iban al 72 % de opacidad fuera del hover y el texto
+   quedaba en 3,4:1 (H-40): ahora el contraste es siempre el del color apagado.
+   Al apuntar uno se dibuja su borde.
    El fondo del hover es el blanco de la superficie y no el hundido, porque la
    fila ya está hundida y el botón tiene que despegarse de ella. */
 .vz-table__actions { display: flex; gap: 4px; justify-content: flex-end; }
-.vz-table__actions .vz-btn { opacity: .72; transition: opacity .12s, background .12s, border-color .12s, color .12s; }
-.vz-table tbody tr:hover .vz-table__actions .vz-btn { opacity: 1; }
-.vz-table__actions .vz-btn:focus-visible { opacity: 1; }
 
 .vz-table__actions .vz-btn--ghost:hover:not(:disabled) {
   background: var(--vz-surface);
@@ -102,7 +101,7 @@
   padding: 0 6px;
   border-radius: var(--vz-r-pill);
   background: var(--vz-primary);
-  color: #fff;
+  color: var(--vz-on-primary);
   font-family: var(--vz-font-mono);
   font-size: 11.5px;
   font-weight: 700;
@@ -200,11 +199,6 @@
 
 /* ─────────── pantallas angostas ─────────── */
 
-/* Sin cursor no hay "entrar en la fila": las acciones se ven siempre. */
-@media (hover: none) {
-  .vz-table__actions .vz-btn { opacity: 1; }
-}
-
 /* Una tabla tiene dos formas, y ninguna intermedia: renglón o ficha.
    Debajo de 1180px las columnas ya no entran en su ancho mínimo. Antes la
    tabla se apretaba para entrar igual, y la carátula y el estado se partían en
@@ -300,7 +294,6 @@
   .vz-table__actions .vz-btn {
     height: 36px;
     padding: 0 16px;
-    opacity: 1;
     border-color: var(--vz-border-strong);
     color: var(--vz-ink);
   }
@@ -325,7 +318,10 @@
      todo el ancho. De a dos, lo elegido en un desplegable no entraba ("Todos
      los responsa…"). Los botones sueltos de una cabecera ("Hoy" y las flechas
      del calendario) siguen en fila. */
-  .vz-panel__head > .vz-filters { flex: 1 1 100%; gap: 8px; }
+  /* `min-width: 0`: sin eso la fila no se achica por debajo de su contenido,
+     se salía del panel y la fila de chips de adentro no tenía qué deslizar:
+     "Esta semana" y "Próximos" quedaban cortados y sin alcance (H-33). */
+  .vz-panel__head > .vz-filters { flex: 1 1 100%; min-width: 0; gap: 8px; }
   .vz-panel__head > .vz-filters:has(.vz-search, .vz-select) { flex-direction: column; align-items: stretch; }
   .vz-filters .vz-search { flex: none; min-width: 0; max-width: none; }
   .vz-filters .vz-search__input { height: 42px; }
@@ -350,6 +346,7 @@
      botones a todo el ancho tapaban la lista que filtran. */
   .vz-filters[role='group'] {
     flex-wrap: nowrap;
+    min-width: 0;
     max-width: 100%;
     margin: -2px;
     padding: 2px;

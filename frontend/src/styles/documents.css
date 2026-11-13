@@ -195,7 +195,7 @@
   font-size: 12px;
   font-weight: 700;
   line-height: 1;
-  color: #fff;
+  color: var(--vz-on-primary);
   background: var(--vz-surface);
   border: 1.5px solid var(--vz-border-strong);
   border-radius: 4px;

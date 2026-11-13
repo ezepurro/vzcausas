@@ -14,6 +14,11 @@ Rama: `feat/auditoria-front` (salió de `develop` en `b818d8f`, 12/11/2026).
 | [04-OLA1_RESULTADOS.md](04-OLA1_RESULTADOS.md) | Ola 1: qué se reprodujo, qué se midió y qué cambió en el diagnóstico | Hecho en parte: falta la revisión visual y el backend real |
 | [05-PLAN_A_TECNICO.md](05-PLAN_A_TECNICO.md) | **El plan de Luciano con Claude**: tareas técnicas y funcionales, sus archivos y su orden | Propuesta, sin acordar |
 | [06-PLAN_B_VISUAL.md](06-PLAN_B_VISUAL.md) | **El plan del compañero**: revisión visual que falta y tareas de UX, responsive y accesibilidad | Propuesta, sin acordar |
+| [07-REVISION_VISUAL.md](07-REVISION_VISUAL.md) | Revisión visual, UX, responsive y accesibilidad del plan B: hallazgos H-34 a H-52 y plan por tandas | Revisión hecha en parte (ver su §1); plan sin acordar |
+| [08-TANDA1_RESULTADOS.md](08-TANDA1_RESULTADOS.md) | Plan B, tanda 1: foco, textos cortados, contraste, controles de toque, pestañas, paginado y migas | Hecha, sin commitear |
+| [09-TANDA2_RESULTADOS.md](09-TANDA2_RESULTADOS.md) | Plan B, tanda 2: tabla de Causas a 1366 px y avisos | Hecha, sin commitear; falta la tarea 9 (decisión) |
+| [10-TANDA5_RESULTADOS.md](10-TANDA5_RESULTADOS.md) | Plan B, tanda 5: login angosto, fuentes, colores a tokens; revisión de perfiles y modales; E2E y build | Hecha, sin commitear |
+| [11-PARA_LUCIANO.md](11-PARA_LUCIANO.md) | Lo que el plan B cambió, las decisiones pendientes y los archivos compartidos que pide. Escrito para pasárselo a Claude en la sesión de Luciano | Para enviar |
 
 `03-PLAN.md` queda como el detalle de cada tarea; quién hace qué lo dicen el
 05 y el 06, que no comparten archivos.
