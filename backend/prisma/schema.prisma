@@ -348,9 +348,11 @@ model LegalQualification {
   // parcial `legal_qualifications_name_active_key` sobre `lower(name)`,
   // creado a mano.
   name               String   @db.VarChar(255)
-  // CHECK manual: >= 1. Cada hecho (`Offense`) guarda su fecha de
-  // prescripción, calculada con los meses vigentes al registrar la causa
-  // o el acto interruptivo: cambiar los meses después no la recalcula.
+  // CHECK manual: >= 1. La causa referencia la calificación, no copia el
+  // plazo: cada lectura calcula la prescripción de sus hechos con los
+  // meses vigentes. Cambiar los meses recalcula la de las causas que la
+  // registran desde la siguiente consulta (V6 §3.5, D-08). La fecha que
+  // guarda `Offense.prescriptionDate` no participa: ver ese campo.
   prescriptionMonths Int      @map("prescription_months")
   active             Boolean  @default(true)
   createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -505,11 +507,14 @@ model Offense {
   caseId               Int      @map("case_id")
   legalQualificationId Int      @map("legal_qualification_id")
   offenseDate          DateTime @map("offense_date") @db.Date
-  // Fecha en que prescribe este hecho: inicio del cómputo + los
-  // prescription_months de la calificación. Al registrar la causa, el
-  // inicio es offense_date. Al registrar un acto interruptivo que pasa a
-  // ser el más reciente de la causa, se actualiza con su fecha como
-  // inicio (RN8, D-49); uno con fecha anterior al vigente no la cambia.
+  // Fecha en que prescribe este hecho según los datos del momento en que
+  // se guardó la causa (alta o modificación): offense_date + los
+  // prescription_months vigentes entonces. No se actualiza después: ni un
+  // acto interruptivo ni un cambio de los meses de la calificación la
+  // tocan, así que puede quedar desactualizada. Por eso ninguna lectura la
+  // usa: detalle, listado, línea de tiempo, tableros y proceso diario
+  // calculan la prescripción en cada consulta con los meses vigentes y los
+  // actos interruptivos de la causa (V6 §4 "Prescripción", D-08, D-113).
   prescriptionDate     DateTime @map("prescription_date") @db.Date
 
   // Declaración de que este hecho prescribió (HU33, D-113): la carga una
