@@ -43,6 +43,8 @@ export function useCaseEdit(c: Case) {
     const { lawyer: myLawyer } = useCurrentUser()
     const updateCase = useUpdateCase(c.id)
     const [dialog, setDialog] = useState<EditDialogState | null>(null)
+    /* "Registrar calificación nueva", abierto encima del diálogo. */
+    const [creatingQualification, setCreatingQualification] = useState(false)
 
     /* Las opciones de "Modificar causa" se piden con la pantalla y no al abrir
        el diálogo: así las listas ya están cuando se abre. */
@@ -197,6 +199,13 @@ export function useCaseEdit(c: Case) {
         selectedQualifications,
         qualificationOptions,
         onQualificationSearch: qualificationChoice.onSearch,
+        creatingQualification,
+        onNewQualification: () => setCreatingQualification(true),
+        onQualificationCreated: (id) => {
+            addQualification(id)
+            setCreatingQualification(false)
+        },
+        onCancelNewQualification: () => setCreatingQualification(false),
         qualificationsLoading: qualificationChoice.loading,
         qualificationsNote: qualificationChoice.note,
         onAddQualification: addQualification,
@@ -204,7 +213,10 @@ export function useCaseEdit(c: Case) {
         onOffenseDateChange: changeOffenseDate,
         saving: updateCase.isPending,
         onConfirm: () => submit(dialog.values),
-        onCancel: () => setDialog(null),
+        onCancel: () => {
+            setCreatingQualification(false)
+            setDialog(null)
+        },
     }
 
     return { open, form }

@@ -1,7 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { UpdateProceduralStateBody } from '@/features/legal-params/types/proceduralState';
 import { updateProceduralState } from './proceduralStates.api';
-import { proceduralStateKeys } from './proceduralStates.keys';
 
 /**
  * Argumentos de la edición.
@@ -27,7 +26,12 @@ export function useUpdateProceduralState() {
     return useMutation({
         mutationFn: ({ id, body }: UpdateProceduralStateArgs) => updateProceduralState(id, body),
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: proceduralStateKeys.lists() });
+            /* El nombre y el plazo no se copian: los muestran las causas, su
+               línea de vida y los tableros, que son de módulos que dependen
+               de éste y no se pueden nombrar desde acá. Como al modificar un
+               abogado, se marca vieja toda la caché: se vuelve a pedir lo que
+               está en pantalla y lo demás, cuando se abra. */
+            queryClient.invalidateQueries();
         },
     });
 }

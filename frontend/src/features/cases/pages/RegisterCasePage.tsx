@@ -25,21 +25,14 @@ import { useDocumentTemplates } from '@/features/documents'
 import { useCanAccess } from '@/app/access/useCanAccess'
 import {
     formatPrescription,
-    isValidLegalQualification,
-    LegalQualificationFormModal,
     shortQualificationName,
-    toCreateLegalQualificationBody,
-    toLegalQualificationFormErrors,
-    useCreateLegalQualification,
-    validateLegalQualification,
     JURISDICTION_LABELS,
-    type LegalQualificationErrors,
-    type LegalQualificationFormValues,
 } from '@/features/legal-params'
 import { clientOptionLabel, useClientOptions } from '@/features/cases/api/useClientOptions'
 import { useCreateCase } from '@/features/cases/api/useCreateCase'
 import { useQualificationOptions } from '@/features/cases/api/useQualificationOptions'
 import { CaseForm } from '@/features/cases/components/CaseForm'
+import { NewQualificationModal } from '@/features/cases/components/NewQualificationModal'
 import {
     CaseSummaryAside,
     type ChecklistItem,
@@ -93,7 +86,6 @@ const EMPTY_CLIENT: ClientFormValues = {
     phone: '',
     email: '',
 }
-const EMPTY_QUALIFICATION: LegalQualificationFormValues = { name: '', years: '', months: '0' }
 
 /** Qué modal está abierto: un solo estado, no dos booleanos que se contradicen. */
 type ModalState =
@@ -406,7 +398,7 @@ export function RegisterCasePage() {
                 />
             )}
             {modal?.kind === 'qualification' && (
-                <NewQualification
+                <NewQualificationModal
                     onDone={(id) => {
                         addQualification(id)
                         setModal(null)
@@ -524,57 +516,6 @@ function NewClient({ onDone, onCancel }: { onDone: (client: Client) => void; onC
 
     return (
         <ClientFormModal
-            values={values}
-            errors={errors}
-            fromCase
-            saving={create.isPending}
-            onChange={(key, value) => setValues((current) => ({ ...current, [key]: value }))}
-            onConfirm={submit}
-            onCancel={onCancel}
-        />
-    )
-}
-
-/** "Registrar calificación nueva": el modal de `legal-params`, en su modo `fromCase`. */
-function NewQualification({ onDone, onCancel }: { onDone: (id: number) => void; onCancel: () => void }) {
-    const toast = useToast()
-    const [values, setValues] = useState<LegalQualificationFormValues>(EMPTY_QUALIFICATION)
-    const [errors, setErrors] = useState<LegalQualificationErrors>({})
-    const create = useCreateLegalQualification()
-
-    function submit() {
-        const found = validateLegalQualification(values)
-        setErrors(found)
-        if (!isValidLegalQualification(found)) return
-
-        create.mutate(toCreateLegalQualificationBody(values), {
-            onSuccess: (qualification) => {
-                toast(
-                    'success',
-                    `Calificación registrada · prescripción ${formatPrescription(qualification.prescriptionMonths)}.`,
-                )
-                onDone(qualification.id)
-            },
-            onError: (error) => {
-                if (!isApiError(error)) throw error
-                if (error.isValidation) {
-                    /* El servidor informa el plazo como `prescriptionMonths` y el
-                       formulario lo pide en años y meses: el mapa lo lleva a los años. */
-                    const fieldErrors = toLegalQualificationFormErrors(error.details)
-                    if (!isValidLegalQualification(fieldErrors)) {
-                        setErrors(fieldErrors)
-                        return
-                    }
-                    // Un 400 sin ningún campo que marcar no puede quedar mudo.
-                }
-                toast('error', error.message)
-            },
-        })
-    }
-
-    return (
-        <LegalQualificationFormModal
-            mode="create"
             values={values}
             errors={errors}
             fromCase

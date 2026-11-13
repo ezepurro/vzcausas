@@ -14,3 +14,6 @@
 export { useLawyers } from './api/useLawyers'
 export type { Lawyer, LawyerListParams } from './types/lawyer'
 export { lawyerLabel } from './utils/lawyerLabel'
+/* Las claves de caché: las necesitan los módulos que cambian algo que esta
+   lista muestra (la carga de causas de cada abogado, una ficha nueva). */
+export { lawyerKeys } from './api/lawyers.keys'

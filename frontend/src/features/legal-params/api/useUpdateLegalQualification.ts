@@ -1,7 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { UpdateLegalQualificationBody } from '@/features/legal-params/types/legalQualification';
 import { updateLegalQualification } from './legalQualifications.api';
-import { legalQualificationKeys } from './legalQualifications.keys';
 
 /** El id y el cuerpo viajan juntos: `useMutation` pasa un solo valor a `mutationFn`. */
 export interface UpdateLegalQualificationArgs {
@@ -27,7 +26,12 @@ export function useUpdateLegalQualification() {
     return useMutation({
         mutationFn: ({ id, body }: UpdateLegalQualificationArgs) => updateLegalQualification(id, body),
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: legalQualificationKeys.lists() });
+            /* El nombre y el plazo no se copian: los muestran las causas, su
+               línea de vida y los tableros, que son de módulos que dependen
+               de éste y no se pueden nombrar desde acá. Como al modificar un
+               abogado, se marca vieja toda la caché: se vuelve a pedir lo que
+               está en pantalla y lo demás, cuando se abra. */
+            queryClient.invalidateQueries();
         },
     });
 }

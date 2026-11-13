@@ -71,12 +71,7 @@ se tocan mientras no estorben una corrección.
   carpeta al cambiar de causa.
 - Los tres perfiles contra la tabla de permisos del contrato.
 
-## Estado al 12/11/2026
+## Estado
 
-**T-11 quedó empezada y frenada** a pedido ("sólo auditoría"). En el árbol de
-trabajo, sin commitear, hay piezas nuevas que **ninguna pantalla usa
-todavía**: `SearchSelect.tsx`, `useClient`, `useLegalQualificationsByIds`,
-`useClientOptions`, `useQualificationOptions`, `optionsNote.ts`, las dos
-funciones `get…` por id y el bloque de CSS. Compila y el lint pasa; **no
-tiene tests y no se probó en el navegador**. Falta decidir si se conserva
-para retomarla o se descarta.
+El avance, tarea por tarea, está en
+[12-REGISTRO_PLAN_A.md](12-REGISTRO_PLAN_A.md).

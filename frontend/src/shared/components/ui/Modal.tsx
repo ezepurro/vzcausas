@@ -35,6 +35,14 @@ const FOCUSABLE = [
  * DOM se ve. Si algún día aparece un campo oculto con estilos, este es el
  * lugar donde hay que filtrarlo.
  */
+/**
+ * Los modales abiertos, del primero al último. Con uno encima de otro —el
+ * alta de una calificación sobre "Modificar causa"—, cada uno escucha el
+ * teclado en `document`: sin esta pila, un Escape los cerraba a los dos y las
+ * dos trampas del tabulador se peleaban por el foco. Sólo atiende el de arriba.
+ */
+const openModals: symbol[] = [];
+
 function focusableWithin(root: HTMLElement): HTMLElement[] {
   return Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE));
 }
@@ -47,6 +55,9 @@ export function Modal({ title, sub, width = 'md', footer, onClose, children }: M
   /* Dónde estaba el foco antes de abrir, para devolvérselo al cerrar. Se
      guarda en un ref y no en estado: cambiarlo no tiene que redibujar nada. */
   const opener = useRef<Element | null>(null);
+
+  /* La marca de este modal en `openModals`. */
+  const token = useRef(Symbol('modal'));
 
   /**
    * El teclado del modal: cerrar con Escape y no dejar salir al tabulador.
@@ -61,6 +72,9 @@ export function Modal({ title, sub, width = 'md', footer, onClose, children }: M
    */
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
+      // Hay otro modal encima: el teclado es suyo.
+      if (openModals[openModals.length - 1] !== token.current) return;
+
       if (event.key === 'Escape') {
         onClose();
         return;
@@ -101,6 +115,17 @@ export function Modal({ title, sub, width = 'md', footer, onClose, children }: M
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [onClose]);
+
+  /* El lugar en la pila se toma al abrir y se deja al cerrar. Va aparte del
+     efecto de arriba, que se rearma cada vez que cambia `onClose`: si la pila
+     se tocara ahí, un modal de abajo que se redibuja pasaría al frente. */
+  useEffect(() => {
+    const own = token.current;
+    openModals.push(own);
+    return () => {
+      openModals.splice(openModals.indexOf(own), 1);
+    };
+  }, []);
 
   /* Al abrir, el foco entra al modal; al cerrar, vuelve a donde estaba. Sin
      esto, quien navega con teclado sigue parado atrás del fondo. */

@@ -16,6 +16,7 @@ export {
 } from './utils/clientFormat'
 export { DOCUMENT_TYPES } from './types/client'
 export type { Client, ClientFormValues, CreateClientBody, DocumentType } from './types/client'
+export { clientKeys } from './api/clients.keys'
 export { useClients } from './api/useClients'
 export { useClient } from './api/useClient'
 export { useCreateClient } from './api/useCreateClient'

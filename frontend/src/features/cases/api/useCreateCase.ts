@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import type { Case, CreateCaseBody } from '@/features/cases/types/case'
 import { createCase } from './cases.api'
 import { casesKeys } from './cases.keys'
+import { invalidateCaseCounters } from './invalidateCaseCounters'
 
 /**
  * Alta de causa (HU18).
@@ -19,6 +20,7 @@ export function useCreateCase() {
         onSuccess: (created: Case) => {
             queryClient.setQueryData(casesKeys.detail(created.id), created)
             queryClient.invalidateQueries({ queryKey: casesKeys.lists() })
+            invalidateCaseCounters(queryClient)
         },
     })
 }

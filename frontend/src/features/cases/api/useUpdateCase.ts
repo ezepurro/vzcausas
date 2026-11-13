@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import type { UpdateCaseBody } from '@/features/cases/types/case'
 import { updateCase } from './cases.api'
 import { casesKeys } from './cases.keys'
+import { invalidateCaseCounters } from './invalidateCaseCounters'
 
 /**
  * Modificar causa (HU19).
@@ -26,6 +27,8 @@ export function useUpdateCase(caseId: number) {
             // la edicion asi ya aparecen actualizadas las causas
             queryClient.invalidateQueries({ queryKey: casesKeys.detail(caseId) })
             queryClient.invalidateQueries({ queryKey: casesKeys.lists() })
+            // Cambiar el responsable o las calificaciones mueve sus contadores.
+            invalidateCaseCounters(queryClient)
         },
     })
 }

@@ -27,6 +27,7 @@ import {
     LegalQualificationPicker,
     type SelectedQualification,
 } from '@/features/cases/components/LegalQualificationPicker'
+import { NewQualificationModal } from '@/features/cases/components/NewQualificationModal'
 
 export interface CaseEditFormProps {
     /** Bajo el título: "SAC 13284571" o "Sin N° de SAC", el de la causa abierta. */
@@ -48,6 +49,12 @@ export interface CaseEditFormProps {
     onQualificationSearch: (text: string) => void
     qualificationsLoading: boolean
     qualificationsNote: string | null
+    /** "Registrar calificación nueva": si está abierto su modal, encima de este diálogo. */
+    creatingQualification: boolean
+    onNewQualification: () => void
+    /** La calificación recién registrada: se agrega a la causa. */
+    onQualificationCreated: (id: number) => void
+    onCancelNewQualification: () => void
     onAddQualification: (id: number) => void
     onRemoveQualification: (id: number) => void
     onOffenseDateChange: (id: number, offenseDate: string) => void
@@ -76,7 +83,8 @@ export function CaseEditForm({
     sub, values, errors, onChange, onSacNumberChange,
     clientLabel, lawyerOptions,
     selectedQualifications, qualificationOptions, onQualificationSearch, qualificationsLoading,
-    qualificationsNote, onAddQualification, onRemoveQualification,
+    qualificationsNote, creatingQualification, onNewQualification, onQualificationCreated,
+    onCancelNewQualification, onAddQualification, onRemoveQualification,
     onOffenseDateChange, saving, onConfirm, onCancel,
 }: CaseEditFormProps) {
     const body = useRef<HTMLDivElement>(null)
@@ -95,6 +103,7 @@ export function CaseEditForm({
     }
 
     return (
+        <>
         <Modal
             title="Modificar causa"
             sub={sub}
@@ -229,6 +238,7 @@ export function CaseEditForm({
                                 onOffenseDateChange={onOffenseDateChange}
                                 dateErrors={errors.offenseDates}
                                 maxDate={todayIsoDate()}
+                                onCreate={onNewQualification}
                                 onSearch={onQualificationSearch}
                                 loading={qualificationsLoading}
                                 note={qualificationsNote}
@@ -332,5 +342,11 @@ export function CaseEditForm({
                 </div>
             </div>
         </Modal>
+
+        {/* Encima del diálogo: `Modal` le da el teclado sólo al de arriba. */}
+        {creatingQualification && (
+            <NewQualificationModal onDone={onQualificationCreated} onCancel={onCancelNewQualification} />
+        )}
+        </>
     )
 }

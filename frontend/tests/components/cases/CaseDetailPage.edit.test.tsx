@@ -61,6 +61,37 @@ describe('CaseDetailPage · modificar causa', () => {
         expect(screen.getByText('Fisc. de Distrito I, 3º turno')).toBeInTheDocument()
     })
 
+    /* H-30 de `docs/auditoria-front`: "Modificar causa" no ofrecía registrar
+       una calificación. El alta se abre encima del diálogo, y Escape cierra
+       sólo el de arriba (H-06). */
+    it('registra una calificación nueva desde el diálogo y la agrega a la causa', async () => {
+        const { user } = renderPage(1)
+        const dialog = await openEdit(user)
+
+        await user.click(within(dialog).getByRole('button', { name: 'Registrar calificación nueva' }))
+        const creating = screen.getByRole('dialog', { name: /calificación/i })
+        await user.type(within(creating).getByLabelText(/^Nombre de la calificación legal/), 'Estafa — art. 172 CP')
+        await user.type(within(creating).getByLabelText(/^Años/), '6')
+        await user.click(within(creating).getByRole('button', { name: 'Registrar calificación' }))
+
+        expect(await within(dialog).findByLabelText(/^Fecha del hecho de Estafa — art\. 172 CP/)).toBeInTheDocument()
+        expect(screen.getAllByRole('dialog')).toHaveLength(1)
+        expect(screen.queryByText('Calificación dada de baja')).not.toBeInTheDocument()
+    })
+
+    it('Escape sobre "Registrar calificación nueva" no cierra "Modificar causa"', async () => {
+        const { user } = renderPage(1)
+        const dialog = await openEdit(user)
+
+        await user.click(within(dialog).getByRole('button', { name: 'Registrar calificación nueva' }))
+        expect(screen.getAllByRole('dialog')).toHaveLength(2)
+
+        await user.keyboard('{Escape}')
+
+        expect(screen.getAllByRole('dialog')).toHaveLength(1)
+        expect(screen.getByRole('dialog', { name: /Modificar causa/ })).toBeInTheDocument()
+    })
+
     // CA-19.2: nunca sale un PATCH vacío. Sin cambios, el diálogo se cierra sin aviso.
     it('guardar sin cambios cierra el diálogo sin llamar al servidor', async () => {
         let patched = false

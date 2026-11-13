@@ -32,6 +32,15 @@ import {
 /** El resto de la sesión, al lado del token. */
 const SESSION_KEY = 'vz.session'
 
+/**
+ * ¿Esta clave de `localStorage` es de la sesión? La usa el oyente de `storage`
+ * de `AuthProvider` para enterarse de lo que cambió otra pestaña. `null` es
+ * un `localStorage.clear()`, que también se la lleva.
+ */
+export function isSessionStorageKey(key: string | null): boolean {
+    return key === null || key === TOKEN_KEY || key === SESSION_KEY
+}
+
 /** Lo que se serializa bajo `vz.session`. */
 interface StoredPayload {
     user: AuthUser

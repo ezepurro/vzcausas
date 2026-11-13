@@ -1,5 +1,6 @@
 import type { QueryClient } from '@tanstack/react-query'
 import { casesKeys } from './cases.keys'
+import { invalidateCaseCounters } from './invalidateCaseCounters'
 
 /**
  * Deja la caché de la causa al día después de un acto —procesal (registro o
@@ -25,6 +26,8 @@ import { casesKeys } from './cases.keys'
  */
 export function refreshCaseAfterAct(queryClient: QueryClient, caseId: number): Promise<unknown> {
     queryClient.invalidateQueries({ queryKey: casesKeys.lists() })
+    // Un acto mueve la causa de estado, y uno terminal la saca de las activas.
+    invalidateCaseCounters(queryClient)
     queryClient.invalidateQueries({ queryKey: casesKeys.detail(caseId), refetchType: 'none' })
     return Promise.all([
         queryClient.refetchQueries({ queryKey: casesKeys.detail(caseId), exact: true }),

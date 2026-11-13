@@ -7,6 +7,7 @@
  * test lo miraba.
  */
 
+import { useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -32,6 +33,57 @@ function renderModal() {
 }
 
 describe('Modal', () => {
+    /* H-06 de `docs/auditoria-front`: cada modal escucha el teclado en
+       `document`, y con dos abiertos un Escape cerraba a los dos. */
+    describe('con un modal encima de otro', () => {
+        function Stacked({ onCloseLower, onCloseUpper }: { onCloseLower: () => void; onCloseUpper: () => void }) {
+            const [upper, setUpper] = useState(true)
+            // `onClose` en línea a propósito: cambia en cada render, como en las pantallas.
+            return (
+                <>
+                    <Modal title="De abajo" onClose={() => onCloseLower()}>
+                        <button type="button">Botón de abajo</button>
+                    </Modal>
+                    {upper && (
+                        <Modal
+                            title="De arriba"
+                            onClose={() => {
+                                onCloseUpper()
+                                setUpper(false)
+                            }}
+                        >
+                            <button type="button">Botón de arriba</button>
+                        </Modal>
+                    )}
+                </>
+            )
+        }
+
+        it('Escape cierra sólo el de arriba; el siguiente, el de abajo', async () => {
+            const onCloseLower = vi.fn()
+            const onCloseUpper = vi.fn()
+            const user = userEvent.setup()
+            render(<Stacked onCloseLower={onCloseLower} onCloseUpper={onCloseUpper} />)
+
+            await user.keyboard('{Escape}')
+            expect(onCloseUpper).toHaveBeenCalledTimes(1)
+            expect(onCloseLower).not.toHaveBeenCalled()
+
+            await user.keyboard('{Escape}')
+            expect(onCloseLower).toHaveBeenCalledTimes(1)
+        })
+
+        it('el tabulador se queda en el de arriba', async () => {
+            const user = userEvent.setup()
+            render(<Stacked onCloseLower={vi.fn()} onCloseUpper={vi.fn()} />)
+
+            await user.tab()
+            expect(screen.getByRole('button', { name: 'Botón de arriba' })).toHaveFocus()
+            await user.tab()
+            expect(screen.getByRole('button', { name: 'Botón de arriba' })).toHaveFocus()
+        })
+    })
+
     it('Escape lo cierra', async () => {
         const { onClose, user } = renderModal()
 

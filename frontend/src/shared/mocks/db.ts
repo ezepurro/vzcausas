@@ -768,6 +768,16 @@ class PersistedSessions extends Map<string, number> {
         this.save();
     }
 
+    /**
+     * Vuelve a leer lo guardado. Otra pestaña emitió o revocó un token: sin
+     * esto, esta pestaña no lo conoce, responde `401` a su propia renovación
+     * y cierra la sesión de las dos (H-31 de `docs/auditoria-front`).
+     */
+    reload(): void {
+        super.clear();
+        for (const [token, userId] of readStoredSessions(this.store)) super.set(token, userId);
+    }
+
     private save(): void {
         // `super(entries)` llama a `set` antes de que exista `store`.
         if (!this.store) return;
@@ -786,27 +796,47 @@ class PersistedSessions extends Map<string, number> {
  * Usa el mismo almacenamiento que el front para su sesión (`localStorage`),
  * así una pestaña nueva también la encuentra.
  */
-export function persistSessions(store: Storage): void {
-    let entries: [string, number][] = [];
+/** Las sesiones guardadas, descartando lo que no tenga la forma esperada. */
+function readStoredSessions(store: Storage): [string, number][] {
     try {
         const parsed: unknown = JSON.parse(store.getItem(SESSIONS_KEY) ?? '[]');
-        if (Array.isArray(parsed)) {
-            entries = parsed.filter(
-                (e): e is [string, number] =>
-                    Array.isArray(e) && typeof e[0] === 'string' && typeof e[1] === 'number',
-            );
-        }
+        if (!Array.isArray(parsed)) return [];
+        return parsed.filter(
+            (e): e is [string, number] =>
+                Array.isArray(e) && typeof e[0] === 'string' && typeof e[1] === 'number',
+        );
     } catch {
         // Un valor roto se descarta: hay que volver a entrar, nada más.
+        return [];
     }
+}
+
+/** Que un token nuevo no repita el número de uno ya emitido, acá o en otra pestaña. */
+function skipIssuedNumbers(entries: [string, number][]): void {
+    for (const [token] of entries) {
+        const n = Number(token.split('-').pop());
+        if (Number.isInteger(n) && n > db.issuedTokens) db.issuedTokens = n;
+    }
+}
+
+export function persistSessions(store: Storage): void {
+    const entries = readStoredSessions(store);
 
     sessionStore = store;
     db.sessions = new PersistedSessions(store, entries);
 
-    // Que un token nuevo no repita el número de uno recuperado.
-    for (const [token] of entries) {
-        const n = Number(token.split('-').pop());
-        if (Number.isInteger(n) && n > db.issuedTokens) db.issuedTokens = n;
+    skipIssuedNumbers(entries);
+
+    /* El evento `storage` llega sólo a las otras pestañas: cuando una escribe
+       sus sesiones, las demás se ponen al día. Se lee `db.sessions` en el
+       momento, porque `resetMockDb` lo reemplaza. */
+    if (typeof window !== 'undefined') {
+        window.addEventListener('storage', (event) => {
+            if (event.storageArea !== store || event.key !== SESSIONS_KEY) return;
+            if (!(db.sessions instanceof PersistedSessions)) return;
+            db.sessions.reload();
+            skipIssuedNumbers([...db.sessions.entries()]);
+        });
     }
 }
 
