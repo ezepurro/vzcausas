@@ -104,6 +104,7 @@ export function ClientFormModal({
         {
             k: 'email',
             label: 'Correo electrónico',
+            type: 'email',
             width: 'half',
             placeholder: 'nombre@correo.com',
             error: errors.email,

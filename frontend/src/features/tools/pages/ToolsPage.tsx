@@ -5,6 +5,7 @@ import { CATEGORY_INFO, TOOLS } from '@/features/tools/utils/catalog'
 import { filterTools, groupByCategory } from '@/features/tools/utils/filterTools'
 import { QuickAccessBand } from '@/features/tools/components/QuickAccessBand'
 import { ToolSection } from '@/features/tools/components/ToolSection'
+import { usePageTitle } from '@/shared/hooks/usePageTitle'
 
 const FEATURED = TOOLS.filter((tool) => tool.featured)
 
@@ -18,6 +19,7 @@ const FEATURED = TOOLS.filter((tool) => tool.featured)
  * agrupado; al buscar, sólo lo que coincide.
  */
 export function ToolsPage() {
+    usePageTitle('Herramientas')
     const [search, setSearch] = useState('')
 
     const results = filterTools(TOOLS, search)

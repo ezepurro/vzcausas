@@ -19,6 +19,10 @@ Rama: `feat/auditoria-front` (salió de `develop` en `b818d8f`, 12/11/2026).
 | [09-TANDA2_RESULTADOS.md](09-TANDA2_RESULTADOS.md) | Plan B, tanda 2: tabla de Causas a 1366 px y avisos | Hecha, sin commitear; falta la tarea 9 (decisión) |
 | [10-TANDA5_RESULTADOS.md](10-TANDA5_RESULTADOS.md) | Plan B, tanda 5: login angosto, fuentes, colores a tokens; revisión de perfiles y modales; E2E y build | Hecha, sin commitear |
 | [11-PARA_LUCIANO.md](11-PARA_LUCIANO.md) | Lo que el plan B cambió, las decisiones pendientes y los archivos compartidos que pide. Escrito para pasárselo a Claude en la sesión de Luciano | Para enviar |
+| [12-REGISTRO_PLAN_A.md](12-REGISTRO_PLAN_A.md) | Lo hecho del plan A, tarea por tarea | Lo mantiene Luciano |
+| [13-RESPUESTA_A_FACUNDO.md](13-RESPUESTA_A_FACUNDO.md) | Respuesta del plan A al 11: resultado de correr todo, las seis decisiones y el reparto de archivos compartidos | Recibida |
+| [14-TANDAS6A10_RESULTADOS.md](14-TANDAS6A10_RESULTADOS.md) | Plan B, tandas 6 a 10: avisos, bordes, roles, acciones de fila, campana, errores de campo, rail como enlaces, menú del teléfono, pestañas y título. Cierra con "Para Luciano" | Hecha, sin commitear |
+| [15-PARA_LUCIANO_2.md](15-PARA_LUCIANO_2.md) | Segundo mensaje para el plan A: qué cambió en las tandas 6 a 10, la decisión sobre las acciones de fila y lo que le queda. Escrito para pasárselo a Claude en la sesión de Luciano | Para enviar |
 
 `03-PLAN.md` queda como el detalle de cada tarea; quién hace qué lo dicen el
 05 y el 06, que no comparten archivos.

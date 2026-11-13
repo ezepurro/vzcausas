@@ -35,7 +35,7 @@ export function ProceduralStatesTable({
     rows, onEdit, onDelete, empty, loading, busy,
 }: ProceduralStatesTableProps) {
     const columns: Column<ProceduralState>[] = [
-        { id: 'name', header: 'Estado procesal', cell: (r) => r.name, primary: true },
+        { id: 'name', header: 'Estado procesal', cell: (r) => <span id={`state-row-${r.id}`}>{r.name}</span>, primary: true },
         {
             id: 'limit',
             header: 'Días',
@@ -76,8 +76,8 @@ export function ProceduralStatesTable({
                     <Pill>Estado del sistema</Pill>
                 ) : (
                     <>
-                        <Button variant="ghost" size="sm" onClick={() => onEdit(r)}>Modificar</Button>
-                        <Button variant="ghost-danger" size="sm" onClick={() => onDelete(r)}>Eliminar</Button>
+                        <Button variant="ghost" size="sm" aria-describedby={`state-row-${r.id}`} onClick={() => onEdit(r)}>Modificar</Button>
+                        <Button variant="ghost-danger" size="sm" aria-describedby={`state-row-${r.id}`} onClick={() => onDelete(r)}>Eliminar</Button>
                     </>
                 ),
         },

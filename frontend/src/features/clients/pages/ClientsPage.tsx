@@ -19,6 +19,7 @@ import { formatClientName } from '@/features/clients/utils/clientFormat'
 import { ClientsTable } from '@/features/clients/components/ClientsTable'
 import { ClientFormModal } from '@/features/clients/components/ClientFormModal'
 import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue'
+import { usePageTitle } from '@/shared/hooks/usePageTitle'
 const LIMIT = 20
 type Modal = {kind: 'create'} | null
 const EMPTY_FORM: ClientFormValues = {
@@ -31,6 +32,7 @@ const EMPTY_FORM: ClientFormValues = {
     email: '',
 }
 export function ClientsPage() {
+    usePageTitle('Clientes')
     const toast = useToast()
 
     //PAGINACION Y BUSQUEDA

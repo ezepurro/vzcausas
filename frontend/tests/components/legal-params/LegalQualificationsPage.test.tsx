@@ -64,7 +64,7 @@ describe('LegalQualificationsPage', () => {
             await fill(user, dialog, 'Estafa — art. 172 CP', '6', '6')
             await user.click(within(dialog).getByRole('button', { name: 'Registrar calificación' }))
 
-            expect(await screen.findByRole('alert')).toHaveTextContent('Calificación registrada · prescripción 6 años y 6 meses.')
+            expect(await screen.findByRole('status')).toHaveTextContent('Calificación registrada · prescripción 6 años y 6 meses.')
             expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
             expect(await screen.findByRole('cell', { name: 'Estafa — art. 172 CP' })).toBeInTheDocument()
         })

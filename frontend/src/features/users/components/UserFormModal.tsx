@@ -65,12 +65,17 @@ export function UserFormModal({
             required: true,
             mono: true,
             placeholder: 'usuario',
+            /* Es el usuario de otra persona: que el navegador no ofrezca el
+               de quien está logueado. Lo mismo el correo y la contraseña. */
+            autoComplete: 'off',
             maxLength: USER_MAX_LENGTH.username,
             error: errors.username,
         },
         {
             k: 'email',
             label: 'Correo electrónico',
+            type: 'email',
+            autoComplete: 'off',
             width: 'half',
             required: true,
             placeholder: 'apellidoNombre@vazquezzarate.com',
@@ -84,6 +89,7 @@ export function UserFormModal({
                         k: 'password',
                         label: 'Contraseña inicial',
                         type: 'pass' as const,
+                        autoComplete: 'new-password',
                         width: 'half' as const,
                         required: true,
                         note: 'Mínimo 8 caracteres, con al menos un número.',
@@ -93,6 +99,7 @@ export function UserFormModal({
                         k: 'passwordConfirm',
                         label: 'Repetir contraseña',
                         type: 'pass' as const,
+                        autoComplete: 'new-password',
                         width: 'half' as const,
                         required: true,
                         error: errors.passwordConfirm,

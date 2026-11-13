@@ -19,6 +19,7 @@ import { JurisdictionCard } from '@/features/documents/components/JurisdictionCa
 import { DocumentTemplateCard } from '@/features/documents/components/DocumentTemplateCard'
 import { DocumentTemplatesSkeleton } from '@/features/documents/components/DocumentTemplatesSkeleton'
 import { DocumentTemplateFormModal } from '@/features/documents/components/DocumentTemplateFormModal'
+import { usePageTitle } from '@/shared/hooks/usePageTitle'
 
 /**
  * El catálogo es chico: se trae entero, en la vista general y en la de cada
@@ -34,6 +35,7 @@ function emptyForm(jurisdiction: Jurisdiction | null): DocumentTemplateFormValue
 }
 
 export function DocumentTemplatesPage() {
+    usePageTitle('Modelos formales')
     const toast = useToast()
 
     // null = vista general (tarjetas por fuero); un fuero = sus modelos.

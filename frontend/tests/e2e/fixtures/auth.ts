@@ -50,6 +50,6 @@ export async function loginAs(page: Page, who: UserKey = 'admin') {
 export async function goTo(page: Page, section: string) {
     await page
         .getByRole('navigation', { name: 'Navegación principal' })
-        .getByRole('button', { name: section, exact: true })
+        .getByRole('link', { name: section, exact: true })
         .click()
 }
