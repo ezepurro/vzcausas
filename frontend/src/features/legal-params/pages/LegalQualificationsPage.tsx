@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { isApiError } from '@/shared/api/ApiError';
 import { useToast } from '@/app/providers/ToastContext';
-import { Button, Icon, PageHeader, Pagination, Panel, SearchInput } from '@/shared/components/ui';
+import { Button, Icon, PageHeader, Pagination, Panel, SearchInput, LoadError } from '@/shared/components/ui';
 import { useLegalQualifications, usePrefetchLegalQualificationsPage } from '@/features/legal-params/api/useLegalQualifications';
 import { useCreateLegalQualification } from '@/features/legal-params/api/useCreateLegalQualification';
 import { useUpdateLegalQualification } from '@/features/legal-params/api/useUpdateLegalQualification';
@@ -259,14 +259,7 @@ export function LegalQualificationsPage() {
                 }
             >
                 {query.isError ? (
-                    <div className="vz-empty">
-                        <div className="vz-empty__title">No se pudieron cargar las calificaciones</div>
-                        <div className="vz-empty__text">
-                            {isApiError(query.error)
-                                ? query.error.message
-                                : 'Ocurrió un error inesperado.'}
-                        </div>
-                    </div>
+                    <LoadError title="No se pudieron cargar las calificaciones" error={query.error} onRetry={() => void query.refetch()} retrying={query.isFetching} />
                 ) : (
                     <LegalQualificationsTable
                         loading={query.isPending}

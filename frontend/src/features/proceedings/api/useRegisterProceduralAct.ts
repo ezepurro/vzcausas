@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import type { CreateProceduralActBody } from '@/features/proceedings/types/proceduralAct'
-import { refreshCaseAfterAct } from '@/features/cases'
+import { casesKeys, refreshCaseAfterAct } from '@/features/cases'
 import { registerProceduralAct } from './proceduralActs.api'
 
 /**
@@ -18,6 +18,7 @@ export function useRegisterProceduralAct(caseId: number) {
     const queryClient = useQueryClient()
 
     return useMutation({
+        mutationKey: casesKeys.mutation(caseId, 'registerProceduralAct'),
         mutationFn: (body: CreateProceduralActBody) => registerProceduralAct(caseId, body),
         // Queda pendiente hasta que llega la causa nueva: ver `refreshCaseAfterAct`.
         onSuccess: () => refreshCaseAfterAct(queryClient, caseId),

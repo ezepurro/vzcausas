@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
-import { isApiError } from '@/shared/api/ApiError'
-import { Button, Icon, PageHeader, Pagination, Panel, SearchInput } from '@/shared/components/ui'
+import { Button, Icon, PageHeader, Pagination, Panel, SearchInput, LoadError } from '@/shared/components/ui'
 import type { SelectOption, SelectOptionGroup } from '@/shared/components/forms'
 import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue'
 import { usePageTitle } from '@/shared/hooks/usePageTitle'
@@ -187,12 +186,7 @@ export function CasesPage() {
                 }
             >
                 {query.isError ? (
-                    <div className="vz-empty">
-                        <div className="vz-empty__title">No se pudieron cargar las causas</div>
-                        <div className="vz-empty__text">
-                            {isApiError(query.error) ? query.error.message : 'Ocurrió un error inesperado.'}
-                        </div>
-                    </div>
+                    <LoadError title="No se pudieron cargar las causas" error={query.error} onRetry={() => void query.refetch()} retrying={query.isFetching} />
                 ) : (
                     <CasesTable
                         loading={query.isPending}

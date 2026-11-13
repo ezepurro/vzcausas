@@ -3,6 +3,7 @@ import { FieldError, SearchSelect, TextInput, type SearchSelectOption } from '@/
 import { SEARCH_MAX_LENGTH } from '@/shared/components/ui/SearchInput'
 import { formatDate } from '@/shared/lib/dates'
 import { formatPrescription, type LegalQualification } from '@/features/legal-params'
+import { optionsFailedText } from '@/features/cases/utils/optionsNote'
 
 /** Una calificación ya elegida, con la fecha del hecho que se va cargando. */
 export type SelectedQualification = AvailableQualification | UnavailableQualification
@@ -53,6 +54,8 @@ export interface LegalQualificationPickerProps {
     loading?: boolean
     /** "Se muestran 100 de 240 calificaciones…", o `null` si están todas. */
     note?: string | null
+    /** El listado no se pudo cargar: lo dice en lugar de "Ninguna calificación coincide.". */
+    failed?: boolean
     /** El error y la nota del campo (`controlA11y`): van al selector de "Agregar calificación…". */
     'aria-invalid'?: boolean
     'aria-describedby'?: string
@@ -74,7 +77,7 @@ export interface LegalQualificationPickerProps {
  */
 export function LegalQualificationPicker({
     id, selected, options, onAdd, onRemove, onOffenseDateChange, dateErrors = {}, maxDate,
-    onCreate, onSearch, loading, note,
+    onCreate, onSearch, loading, note, failed = false,
     'aria-invalid': ariaInvalid, 'aria-describedby': ariaDescribedBy, 'aria-required': ariaRequired,
 }: LegalQualificationPickerProps) {
     return (
@@ -165,7 +168,7 @@ export function LegalQualificationPicker({
                 <SearchSelect
                     id={id}
                     placeholder="Agregar calificación…"
-                    emptyText="Ninguna calificación coincide."
+                    emptyText={failed ? optionsFailedText('las calificaciones') : 'Ninguna calificación coincide.'}
                     maxLength={SEARCH_MAX_LENGTH}
                     options={options}
                     value=""

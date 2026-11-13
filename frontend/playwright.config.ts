@@ -29,7 +29,11 @@ export default defineConfig({
         screenshot: 'only-on-failure',
     },
 
-    projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+    /* La ventana de referencia de la app es la notebook de 1366 px. La de
+       "Desktop Chrome" (1280 × 720) es más angosta: ahí las tablas de 1.040px
+       de mínimo (Causas, Usuarios) pasan a fichas, y estas pruebas recorren la
+       tabla (tanda 14 de `docs/auditoria-front`). */
+    projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'], viewport: { width: 1366, height: 768 } } }],
 
     webServer: {
         command: `npx vite --port ${PORT} --strictPort`,

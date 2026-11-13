@@ -64,6 +64,20 @@ export function AuthProvider({ children }: Props) {
     /* La ficha que se está completando después de una renovación, si hay una. */
     const lawyerLoad = useRef<Promise<void> | null>(null)
 
+    /* Si el proveedor sigue montado. Un pedido que vuelve después de
+       desmontarlo no toca la sesión guardada: `localStorage` es de todos, y
+       para entonces puede ser la de otro. En la aplicación el proveedor no se
+       desmonta (en `StrictMode`, el efecto lo vuelve a poner en `true` antes de
+       que vuelva ningún pedido); en los tests, un test que se corta por tiempo
+       con una renovación en vuelo le cerraba la sesión al siguiente (H-55). */
+    const alive = useRef(true)
+    useEffect(() => {
+        alive.current = true
+        return () => {
+            alive.current = false
+        }
+    }, [])
+
     /**
      * Completa la ficha profesional de la sesión con `GET /lawyers/{id}`.
      *
@@ -73,6 +87,7 @@ export function AuthProvider({ children }: Props) {
     const completeLawyer = useCallback(async (lawyerId: number): Promise<void> => {
         try {
             const lawyer = await getSessionLawyer(lawyerId)
+            if (!alive.current) return
             const current = readStoredSession()
             if (current === null || current.user.lawyer !== null) return
             setSession(writeStoredUser(current, { ...current.user, lawyer }))
@@ -107,6 +122,7 @@ export function AuthProvider({ children }: Props) {
     const refreshStoredSession = useCallback(async (current: StoredSession): Promise<boolean> => {
         try {
             const refreshed = await refreshSession()
+            if (!alive.current) return false
             const updated = writeRefreshedSession(current, refreshed)
             if (updated === null) {
                 lastFailure.current = 'unauthenticated'
@@ -177,7 +193,10 @@ export function AuthProvider({ children }: Props) {
     const syncSession = useCallback(async (): Promise<StoredSession | null> => {
         if (readStoredSession() === null) return null
 
-        if (!(await renewSessionNow())) {
+        const renewed = await renewSessionNow()
+        if (!alive.current) return null
+
+        if (!renewed) {
             if (lastFailure.current === 'unauthenticated') {
                 signOut('expired')
                 return null
@@ -187,6 +206,7 @@ export function AuthProvider({ children }: Props) {
         }
 
         await lawyerLoad.current
+        if (!alive.current) return null
 
         /* La renovación ya actualizó la sesión del proveedor que la hizo. Se
            vuelve a leer igual: si se sumó a una renovación en curso, la hizo

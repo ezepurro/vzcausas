@@ -17,6 +17,7 @@ export function useDeleteCase(caseId: number) {
     const queryClient = useQueryClient()
 
     return useMutation({
+        mutationKey: casesKeys.mutation(caseId, 'delete'),
         mutationFn: (body: DeleteCaseBody | undefined) => deleteCase(caseId, body),
         onSuccess: () => {
             queryClient.removeQueries({ queryKey: casesKeys.detail(caseId) })

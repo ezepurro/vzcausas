@@ -12,6 +12,7 @@ import {
     Pagination,
     Panel,
     SearchInput,
+    LoadError,
 } from '@/shared/components/ui'
 import { Select, type SelectOption } from '@/shared/components/forms'
 import { useLawyers } from '@/features/lawyers'
@@ -336,14 +337,7 @@ export function UsersPage() {
                 }
             >
                 {query.isError ? (
-                    <div className="vz-empty">
-                        <div className="vz-empty__title">No se pudieron cargar los usuarios</div>
-                        <div className="vz-empty__text">
-                            {isApiError(query.error)
-                                ? query.error.message
-                                : 'Ocurrió un error inesperado.'}
-                        </div>
-                    </div>
+                    <LoadError title="No se pudieron cargar los usuarios" error={query.error} onRetry={() => void query.refetch()} retrying={query.isFetching} />
                 ) : (
                     <UsersTable
                         loading={query.isPending}

@@ -19,6 +19,7 @@ export function useDeclarePrescription(caseId: number) {
     const queryClient = useQueryClient()
 
     return useMutation({
+        mutationKey: casesKeys.mutation(caseId, 'declarePrescription'),
         mutationFn: (body: DeclarePrescriptionBody) => declarePrescription(caseId, body),
         onSuccess: (updated) => {
             queryClient.setQueryData(casesKeys.detail(caseId), updated)

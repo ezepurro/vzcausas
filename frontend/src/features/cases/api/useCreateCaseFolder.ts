@@ -16,6 +16,7 @@ export function useCreateCaseFolder(caseId: number) {
     const queryClient = useQueryClient()
 
     return useMutation({
+        mutationKey: casesKeys.mutation(caseId, 'createFolder'),
         mutationFn: () => createCaseFolder(caseId),
         onSuccess: (folder) => {
             queryClient.setQueryData<Case>(casesKeys.detail(caseId), (c) => (c ? { ...c, folder } : c))

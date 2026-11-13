@@ -1,8 +1,7 @@
 import { useNavigate } from 'react-router'
 import { useCurrentUser } from '@/app/providers/AuthContext'
 import { useCan } from '@/app/access/useCan'
-import { isApiError } from '@/shared/api/ApiError'
-import { PageHeader, Tabs } from '@/shared/components/ui'
+import { PageHeader, Tabs, LoadError } from '@/shared/components/ui'
 import { formatPersonFullName } from '@/shared/lib/personName'
 import { useLawyerDashboard } from '@/features/dashboard/api/useLawyerDashboard'
 import { useAdministratorDashboard } from '@/features/dashboard/api/useAdministratorDashboard'
@@ -76,12 +75,7 @@ export function HomePage() {
         if (query.isPending) return <DashboardSkeleton board={board} />
         if (query.isError) {
             return (
-                <div className="vz-empty">
-                    <div className="vz-empty__title">No se pudo cargar el tablero</div>
-                    <div className="vz-empty__text">
-                        {isApiError(query.error) ? query.error.message : 'Ocurrió un error inesperado.'}
-                    </div>
-                </div>
+                <LoadError title="No se pudo cargar el tablero" error={query.error} onRetry={() => void query.refetch()} retrying={query.isFetching} />
             )
         }
         if (board === 'lawyer' && lawyerQuery.data) {

@@ -20,6 +20,7 @@ export function useUpdateCase(caseId: number) {
     const queryClient = useQueryClient()
 
     return useMutation({
+        mutationKey: casesKeys.mutation(caseId, 'update'),
         mutationFn: (body: UpdateCaseBody) => updateCase(caseId, body),
         onSuccess: (updated) => {
             queryClient.setQueryData(casesKeys.detail(caseId), updated)

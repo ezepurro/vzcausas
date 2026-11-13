@@ -62,6 +62,8 @@ export function useQualificationOptions(chosenIds: number[]) {
         lookup,
         onSearch: setSearch,
         loading: listQuery.isFetching,
+        /** La lista no se pudo cargar: el selector lo dice en lugar de "Ninguna calificación coincide.". */
+        failed: listQuery.isError,
         note: moreResultsNote(listed.length, listQuery.data?.pagination.totalItems, 'calificaciones'),
     }
 }

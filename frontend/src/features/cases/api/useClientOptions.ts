@@ -46,6 +46,8 @@ export function useClientOptions(selectedId: string) {
         selected,
         onSearch: setSearch,
         loading: listQuery.isFetching,
+        /** La lista no se pudo cargar: el selector lo dice en lugar de "Ningún cliente coincide.". */
+        failed: listQuery.isError,
         note: moreResultsNote(listed.length, listQuery.data?.pagination.totalItems, 'clientes'),
     }
 }

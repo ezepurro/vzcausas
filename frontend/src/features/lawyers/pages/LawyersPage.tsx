@@ -9,6 +9,7 @@ import {
     Pagination,
     Panel,
     SearchInput,
+    LoadError,
 } from '@/shared/components/ui'
 import { useLawyers, usePrefetchLawyersPage } from '@/features/lawyers/api/useLawyers'
 import { useCreateLawyer } from '@/features/lawyers/api/useCreateLawyer'
@@ -224,14 +225,7 @@ export function LawyersPage() {
                 }
             >
                 {query.isError ? (
-                    <div className="vz-empty">
-                        <div className="vz-empty__title">No se pudieron cargar los abogados</div>
-                        <div className="vz-empty__text">
-                            {isApiError(query.error)
-                                ? query.error.message
-                                : 'Ocurrió un error inesperado.'}
-                        </div>
-                    </div>
+                    <LoadError title="No se pudieron cargar los abogados" error={query.error} onRetry={() => void query.refetch()} retrying={query.isFetching} />
                 ) : (
                     <LawyersTable
                         loading={query.isPending}

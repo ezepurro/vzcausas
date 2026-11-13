@@ -21,6 +21,7 @@ export function useDeclareQualificationPrescription(caseId: number) {
     const queryClient = useQueryClient()
 
     return useMutation({
+        mutationKey: casesKeys.mutation(caseId, 'declareQualificationPrescription'),
         mutationFn: ({ legalQualificationId, body }: DeclareQualificationPrescriptionVariables) =>
             declareQualificationPrescription(caseId, legalQualificationId, body),
         onSuccess: (updated) => {

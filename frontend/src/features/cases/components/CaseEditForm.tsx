@@ -25,6 +25,7 @@ import {
 import { CASE_MAX_LENGTH, SUBJECT_MATTER_MAX, type CaseFormErrors } from '@/features/cases/schemas/case.schema'
 import { HarmfulActFields } from '@/features/cases/components/CaseForm'
 import { SUBJECT_MATTER_TEXT } from '@/features/cases/utils/subjectMatter'
+import { optionsFailedText } from '@/features/cases/utils/optionsNote'
 import {
     LegalQualificationPicker,
     type SelectedQualification,
@@ -44,6 +45,8 @@ export interface CaseEditFormProps {
     clientLabel: string
     /** Los abogados vigentes, ya armados. */
     lawyerOptions: SelectOption[]
+    /** La lista de abogados no se pudo cargar. */
+    lawyersFailed?: boolean
     /** Las calificaciones de la causa, con su nombre, su plazo y su fecha del hecho. */
     selectedQualifications: SelectedQualification[]
     /** Las que todavía se pueden agregar. */
@@ -51,6 +54,8 @@ export interface CaseEditFormProps {
     onQualificationSearch: (text: string) => void
     qualificationsLoading: boolean
     qualificationsNote: string | null
+    /** La lista de calificaciones no se pudo cargar. */
+    qualificationsFailed?: boolean
     /** "Registrar calificación nueva": si está abierto su modal, encima de este diálogo. */
     creatingQualification: boolean
     onNewQualification: () => void
@@ -83,9 +88,9 @@ export interface CaseEditFormProps {
  */
 export function CaseEditForm({
     sub, values, errors, onChange, onSacNumberChange,
-    clientLabel, lawyerOptions,
+    clientLabel, lawyerOptions, lawyersFailed = false,
     selectedQualifications, qualificationOptions, onQualificationSearch, qualificationsLoading,
-    qualificationsNote, creatingQualification, onNewQualification, onQualificationCreated,
+    qualificationsNote, qualificationsFailed = false, creatingQualification, onNewQualification, onQualificationCreated,
     onCancelNewQualification, onAddQualification, onRemoveQualification,
     onOffenseDateChange, saving, onConfirm, onCancel,
 }: CaseEditFormProps) {
@@ -255,6 +260,7 @@ export function CaseEditForm({
                                 onSearch={onQualificationSearch}
                                 loading={qualificationsLoading}
                                 note={qualificationsNote}
+                                failed={qualificationsFailed}
                             />
                         </Field>
 
@@ -326,10 +332,11 @@ export function CaseEditForm({
                 <FormSection label="Asignación" />
 
                 <Field label="Abogado responsable" required width="half" htmlFor="edit-case-lawyer" {...fieldIds('edit-case-lawyer')}
-                    error={errors.responsibleLawyerId}>
+                    error={errors.responsibleLawyerId}
+                    note={lawyersFailed ? optionsFailedText('los abogados') : undefined}>
                     <Select
                         id="edit-case-lawyer"
-                        {...controlA11y('edit-case-lawyer', errors.responsibleLawyerId, { required: true })}
+                        {...controlA11y('edit-case-lawyer', errors.responsibleLawyerId, { required: true, note: lawyersFailed })}
                         options={lawyerOptions}
                         value={values.responsibleLawyerId}
                         onChange={(e) => onChange('responsibleLawyerId', e.target.value)}

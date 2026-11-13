@@ -222,6 +222,18 @@ function renewOnce(): Promise<boolean> {
 }
 
 /**
+ * Espera a que termine la renovación en curso, si hay una. Nunca falla.
+ *
+ * Es para los tests: entre uno y otro, la configuración la espera antes de
+ * reiniciar la base del mock. Si no, un test que se cortaba por tiempo con la
+ * renovación en vuelo se la dejaba al siguiente, que se sumaba a ella en vez
+ * de renovar con su propia sesión (H-55 de `docs/auditoria-front`).
+ */
+export async function settleRenewal(): Promise<void> {
+    await renewalInFlight?.catch(() => undefined)
+}
+
+/**
  * Renueva ahora, sin esperar a que un pedido vuelva con el token vencido.
  *
  * Lo usa el proveedor de sesión para traer los roles actuales al abrir la
@@ -285,11 +297,27 @@ http.interceptors.response.use(
             return http.request(config)
         }
 
+        /* Si el pedido salió con un token que ya no es el guardado, el 401 es
+           de una sesión que ya terminó: en otra pestaña entró otra persona
+           (o, en los tests, el pedido quedó en vuelo de un test anterior,
+           H-55). Cerrar la sesión acá le cerraría la suya a quien está ahora. */
+        const sentWith = tokenSentWith(config)
+        const stored = getToken()
+        if (sentWith !== null && stored !== null && sentWith !== stored) {
+            return Promise.reject(apiError)
+        }
+
         // No se pudo renovar: se acabó la sesión de verdad.
         onUnauthenticated?.()
         return Promise.reject(apiError)
     }
 );
+
+/** El token con el que salió un pedido: lo pone el interceptor de pedido, abajo. */
+function tokenSentWith(config: InternalAxiosRequestConfig | undefined): string | null {
+    const header = config?.headers?.Authorization
+    return typeof header === 'string' && header.startsWith('Bearer ') ? header.slice('Bearer '.length) : null
+}
 http.interceptors.request.use(
     config => {
         const token = getToken()

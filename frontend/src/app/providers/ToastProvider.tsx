@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { ToastContext } from './ToastContext'
 import type { Toast, ShowToast } from './ToastContext'
 import { TOAST_DURATION_MS } from './toastDuration'
+import { setLeftBehindErrorHandler } from '@/shared/api/leftBehindErrors'
 
 let nextId = 0
 
@@ -25,6 +26,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         const id = nextId++
         setToasts((current) => [...current, { id, kind, message }].slice(-MAX_TOASTS))
     }, [])
+
+    /* Lo que falla después de salir de la pantalla que lo pidió se avisa
+       desde acá: la pantalla ya no está para hacerlo (`leftBehindErrors.ts`). */
+    useEffect(() => {
+        setLeftBehindErrorHandler((message) => show('error', message))
+        return () => setLeftBehindErrorHandler(null)
+    }, [show])
 
     const dismiss = useCallback((id: number) => {
         setToasts((current) => current.filter((t) => t.id !== id))

@@ -1,5 +1,6 @@
 import type { FormEvent } from 'react'
 import { SUBJECT_MATTER_TEXT } from '@/features/cases/utils/subjectMatter'
+import { optionsFailedText } from '@/features/cases/utils/optionsNote'
 import { Button, Panel } from '@/shared/components/ui'
 import { SEARCH_MAX_LENGTH } from '@/shared/components/ui/SearchInput'
 import {
@@ -70,8 +71,12 @@ export interface CaseFormProps {
     clientsLoading: boolean
     /** "Se muestran 100 de 240 clientes…", o `null` si están todos. */
     clientsNote: string | null
+    /** La lista de clientes no se pudo cargar. */
+    clientsFailed?: boolean
     /** Los abogados vigentes, ya armados. */
     lawyerOptions: SelectOption[]
+    /** La lista de abogados no se pudo cargar. */
+    lawyersFailed?: boolean
     /**
      * Las calificaciones elegidas, resueltas a partir de
      * `values.legalQualifications`: cada una con su nombre, su plazo y la fecha
@@ -83,6 +88,8 @@ export interface CaseFormProps {
     onQualificationSearch: (text: string) => void
     qualificationsLoading: boolean
     qualificationsNote: string | null
+    /** La lista de calificaciones no se pudo cargar. */
+    qualificationsFailed?: boolean
     onAddQualification: (id: number) => void
     onRemoveQualification: (id: number) => void
     onOffenseDateChange: (id: number, offenseDate: string) => void
@@ -126,8 +133,8 @@ const TERM_DAY_TYPE_OPTIONS: SelectOption[] = (['BUSINESS', 'CONSECUTIVE'] as co
  */
 export function CaseForm({
     values, errors, onChange, onSacNumberChange, onJurisdictionChange, onCreateFolderChange,
-    templatesNote, clientOptions, clientLabel, onClientSearch, clientsLoading, clientsNote, lawyerOptions,
-    onQualificationSearch, qualificationsLoading, qualificationsNote,
+    templatesNote, clientOptions, clientLabel, onClientSearch, clientsLoading, clientsNote, clientsFailed = false, lawyerOptions, lawyersFailed = false,
+    onQualificationSearch, qualificationsLoading, qualificationsNote, qualificationsFailed = false,
     selectedQualifications, qualificationOptions, onAddQualification, onRemoveQualification,
     onOffenseDateChange, onNewClient, onNewQualification,
     saving, onConfirm, onCancel,
@@ -260,7 +267,7 @@ export function CaseForm({
                                 id="case-client"
                                 {...controlA11y('case-client', errors.clientId, { required: true })}
                                 placeholder="Seleccionar cliente…"
-                                emptyText="Ningún cliente coincide."
+                                emptyText={clientsFailed ? optionsFailedText('los clientes') : 'Ningún cliente coincide.'}
                                 clearLabel="Quitar el cliente elegido"
                                 maxLength={SEARCH_MAX_LENGTH}
                                 options={clientOptions}
@@ -317,6 +324,7 @@ export function CaseForm({
                                 onSearch={onQualificationSearch}
                                 loading={qualificationsLoading}
                                 note={qualificationsNote}
+                                failed={qualificationsFailed}
                             />
                         </Field>
                     )}
@@ -389,10 +397,11 @@ export function CaseForm({
                     <FormSection label="Asignación" />
 
                     <Field label="Abogado responsable" required width="half" htmlFor="case-lawyer" {...fieldIds('case-lawyer')}
-                        error={errors.responsibleLawyerId}>
+                        error={errors.responsibleLawyerId}
+                        note={lawyersFailed ? optionsFailedText('los abogados') : undefined}>
                         <Select
                             id="case-lawyer"
-                            {...controlA11y('case-lawyer', errors.responsibleLawyerId, { required: true })}
+                            {...controlA11y('case-lawyer', errors.responsibleLawyerId, { required: true, note: lawyersFailed })}
                             options={[{ value: '', label: 'Seleccionar responsable…' }, ...lawyerOptions]}
                             value={values.responsibleLawyerId}
                             onChange={(e) => onChange('responsibleLawyerId', e.target.value)}

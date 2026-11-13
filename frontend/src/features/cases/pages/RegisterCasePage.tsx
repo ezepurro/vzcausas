@@ -349,12 +349,15 @@ export function RegisterCasePage() {
                     onClientSearch={clientChoice.onSearch}
                     clientsLoading={clientChoice.loading}
                     clientsNote={clientChoice.note}
+                    clientsFailed={clientChoice.failed}
                     lawyerOptions={lawyerOptions}
+                    lawyersFailed={lawyersQuery.isError}
                     selectedQualifications={selectedQualifications}
                     qualificationOptions={qualificationChoice.options}
                     onQualificationSearch={qualificationChoice.onSearch}
                     qualificationsLoading={qualificationChoice.loading}
                     qualificationsNote={qualificationChoice.note}
+                    qualificationsFailed={qualificationChoice.failed}
                     onAddQualification={addQualification}
                     onRemoveQualification={removeQualification}
                     onOffenseDateChange={changeOffenseDate}

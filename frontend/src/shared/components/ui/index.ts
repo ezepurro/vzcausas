@@ -25,6 +25,9 @@ export type { IconName, IconProps } from './Icon';
 export { IconButton } from './IconButton';
 export type { IconButtonProps } from './IconButton';
 
+export { LoadError } from './LoadError';
+export type { LoadErrorProps } from './LoadError';
+
 export { Logo } from './Logo';
 
 export { Meter } from './Meter';

@@ -209,96 +209,99 @@
    columna, que DataTable deja en `data-label`. La columna principal encabeza
    la ficha y las acciones la cierran, las dos a todo el ancho; el resto se
    reparte en tantas columnas como entren. */
-@media (max-width: 1180px) {
-  .vz-panel:has(> .vz-panel__scroll > .vz-table) {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    background: none;
-    border: 0;
-    box-shadow: none;
-    overflow: visible;
-  }
-  .vz-panel:has(> .vz-panel__scroll > .vz-table) > .vz-panel__head,
-  .vz-panel:has(> .vz-panel__scroll > .vz-table) > .vz-panel__foot {
-    border: 1px solid var(--vz-border);
-    border-radius: var(--vz-r);
-    background: var(--vz-surface);
-  }
-  .vz-panel:has(> .vz-panel__scroll > .vz-table) > .vz-panel__foot { padding-top: 10px; padding-bottom: 10px; }
-  .vz-panel__scroll:has(> .vz-table) { overflow: visible; }
-
-  .vz-table { display: block; min-width: 0; }
-  .vz-table thead { display: none; }
-  .vz-table tbody { display: flex; flex-direction: column; gap: 10px; }
-
-  .vz-table tr {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, 170px), 1fr));
-    gap: 14px 20px;
-    padding: 16px 18px;
-    border: 1px solid var(--vz-border);
-    border-radius: var(--vz-r);
-    background: var(--vz-surface);
-    transition: border-color .12s;
-  }
-  .vz-table tbody tr:hover { background: var(--vz-surface); border-color: var(--vz-border-strong); }
-
-  .vz-table td {
-    display: block;
-    min-width: 0;
-    padding: 0;
-    border-bottom: none;
-    white-space: normal;
-    overflow-wrap: anywhere;
-  }
-  /* Una celda sin dato no deja su rótulo colgado. */
-  .vz-table td:empty { display: none; }
-  .vz-table td::before {
-    content: attr(data-label);
-    display: block;
-    margin-bottom: 5px;
-    font-family: var(--vz-font);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: .08em;
-    line-height: 1.2;
-    text-transform: uppercase;
-    color: var(--vz-faint);
-  }
-
-  /* El título de la ficha, con su filete abajo. */
-  .vz-table .vz-table__cell--primary {
-    grid-column: 1 / -1;
-    order: -1;
-    padding-bottom: 12px;
-    border-bottom: 1px solid var(--vz-border);
-    font-size: 15px;
-    font-weight: 600;
-  }
-  .vz-table .vz-table__cell--primary .vz-table__secondary { font-weight: 400; }
-  /* El pie de la ficha, con su filete arriba. */
-  .vz-table .vz-table__cell--actions {
-    grid-column: 1 / -1;
-    padding-top: 12px;
-    border-top: 1px solid var(--vz-border);
-  }
-  .vz-table .vz-table__cell--primary::before,
-  .vz-table .vz-table__cell--actions::before { display: none; }
-
-  /* Un estado procesal largo parte en dos renglones en vez de salirse. */
-  .vz-table .vz-pill { white-space: normal; }
-
-  /* Las acciones dejan de ser texto callado: son botones que se tocan. */
-  .vz-table__actions { flex-wrap: wrap; gap: 8px; }
-  .vz-table__actions .vz-btn {
-    height: 36px;
-    padding: 0 16px;
-    border-color: var(--vz-border-strong);
-    color: var(--vz-ink);
-  }
-  .vz-table__actions .vz-btn--ghost-danger { border-color: var(--vz-danger-action-bd); color: var(--vz-danger-action); }
+/* La forma de ficha la decide DataTable (clase `vz-table--stacked`): con la
+   ventana en 1180px o menos, como siempre, o si la tabla no entra en su panel
+   aunque la ventana sea más ancha. Antes dependía sólo del ancho de la
+   ventana, y entre 1181 y 1360px las tablas de Causas y Usuarios (1.040px de
+   mínimo) scrolleaban en horizontal (tanda 14 de `docs/auditoria-front`). */
+.vz-panel:has(> .vz-panel__scroll > .vz-table--stacked) {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: none;
+  border: 0;
+  box-shadow: none;
+  overflow: visible;
 }
+.vz-panel:has(> .vz-panel__scroll > .vz-table--stacked) > .vz-panel__head,
+.vz-panel:has(> .vz-panel__scroll > .vz-table--stacked) > .vz-panel__foot {
+  border: 1px solid var(--vz-border);
+  border-radius: var(--vz-r);
+  background: var(--vz-surface);
+}
+.vz-panel:has(> .vz-panel__scroll > .vz-table--stacked) > .vz-panel__foot { padding-top: 10px; padding-bottom: 10px; }
+.vz-panel__scroll:has(> .vz-table--stacked) { overflow: visible; }
+
+.vz-table--stacked { display: block; min-width: 0; }
+.vz-table--stacked thead { display: none; }
+.vz-table--stacked tbody { display: flex; flex-direction: column; gap: 10px; }
+
+.vz-table--stacked tr {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 170px), 1fr));
+  gap: 14px 20px;
+  padding: 16px 18px;
+  border: 1px solid var(--vz-border);
+  border-radius: var(--vz-r);
+  background: var(--vz-surface);
+  transition: border-color .12s;
+}
+.vz-table--stacked tbody tr:hover { background: var(--vz-surface); border-color: var(--vz-border-strong); }
+
+.vz-table--stacked td {
+  display: block;
+  min-width: 0;
+  padding: 0;
+  border-bottom: none;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+/* Una celda sin dato no deja su rótulo colgado. */
+.vz-table--stacked td:empty { display: none; }
+.vz-table--stacked td::before {
+  content: attr(data-label);
+  display: block;
+  margin-bottom: 5px;
+  font-family: var(--vz-font);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  line-height: 1.2;
+  text-transform: uppercase;
+  color: var(--vz-faint);
+}
+
+/* El título de la ficha, con su filete abajo. */
+.vz-table--stacked .vz-table__cell--primary {
+  grid-column: 1 / -1;
+  order: -1;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--vz-border);
+  font-size: 15px;
+  font-weight: 600;
+}
+.vz-table--stacked .vz-table__cell--primary .vz-table__secondary { font-weight: 400; }
+/* El pie de la ficha, con su filete arriba. */
+.vz-table--stacked .vz-table__cell--actions {
+  grid-column: 1 / -1;
+  padding-top: 12px;
+  border-top: 1px solid var(--vz-border);
+}
+.vz-table--stacked .vz-table__cell--primary::before,
+.vz-table--stacked .vz-table__cell--actions::before { display: none; }
+
+/* Un estado procesal largo parte en dos renglones en vez de salirse. */
+.vz-table--stacked .vz-pill { white-space: normal; }
+
+/* Las acciones dejan de ser texto callado: son botones que se tocan. */
+.vz-table--stacked .vz-table__actions { flex-wrap: wrap; gap: 8px; }
+.vz-table--stacked .vz-table__actions .vz-btn {
+  height: 36px;
+  padding: 0 16px;
+  border-color: var(--vz-border-strong);
+  color: var(--vz-ink);
+}
+.vz-table--stacked .vz-table__actions .vz-btn--ghost-danger { border-color: var(--vz-danger-action-bd); color: var(--vz-danger-action); }
 
 /* Teléfono. */
 @media (max-width: 720px) {
@@ -312,7 +315,7 @@
   }
 
   /* La acción es lo más grande de la ficha y la cierra a todo el ancho. */
-  .vz-table__actions .vz-btn { flex: 1 1 0; height: 42px; }
+  .vz-table--stacked .vz-table__actions .vz-btn { flex: 1 1 0; height: 42px; }
 
   /* Filtros de un listado (con buscador o desplegables): uno por renglón y a
      todo el ancho. De a dos, lo elegido en un desplegable no entraba ("Todos

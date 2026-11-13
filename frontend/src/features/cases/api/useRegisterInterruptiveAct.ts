@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import type { CreateInterruptiveActBody } from '@/features/cases/types/interruptiveAct'
 import { createInterruptiveAct } from './interruptiveActs.api'
 import { refreshCaseAfterAct } from './refreshCaseAfterAct'
+import { casesKeys } from './cases.keys'
 
 /**
  * Registro de un acto interruptivo (HU31).
@@ -17,6 +18,7 @@ export function useRegisterInterruptiveAct(caseId: number) {
     const queryClient = useQueryClient()
 
     return useMutation({
+        mutationKey: casesKeys.mutation(caseId, 'registerInterruptiveAct'),
         mutationFn: (body: CreateInterruptiveActBody) => createInterruptiveAct(caseId, body),
         onSuccess: () => refreshCaseAfterAct(queryClient, caseId),
     })

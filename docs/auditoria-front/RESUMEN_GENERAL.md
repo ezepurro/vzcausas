@@ -2,10 +2,11 @@
 
 13/11/2026 · rama `feat/auditoria-front` · Luciano (plan A: técnico y
 funcional) y Facundo (plan B: visual, UX, responsive y accesibilidad), los dos
-con Claude.
+con Claude. Desde la tanda 12, Luciano sigue con lo que quedaba de los dos
+planes.
 
 Este documento junta en un solo lugar lo que está repartido en los informes
-`00` a `17` de esta carpeta: por qué se hizo la auditoría, qué se encontró, qué
+`00` a `21` de esta carpeta: por qué se hizo la auditoría, qué se encontró, qué
 se arregló y qué quedó. Si un dato de acá no coincide con el informe de su
 tanda, **manda el informe de la tanda**. Las rutas son relativas a `frontend/`.
 
@@ -17,10 +18,12 @@ tanda, **manda el informe de la tanda**. Las rutas son relativas a `frontend/`.
 - Se encontraron **55 hallazgos** (`H-01` a `H-55`) y 3 huecos de caché
   (`C-1` a `C-3`). De gravedad alta, 5.
 - **Los 5 altos están corregidos**, y la gran mayoría de los medios y bajos.
-- La suite pasó de **651 tests a 744**. Los 9 E2E pasan. Lint, tipos y build,
-  limpios.
+- La suite pasó de **651 tests a 771**. Los 9 E2E pasan. Lint, tipos y build,
+  limpios. La falla intermitente con todos los núcleos (H-55) está resuelta
+  (tanda 12).
 - **Todo se probó con los mocks. Nada se probó contra el backend real.**
-- Lo último (tanda 11) **está sin commitear**.
+- La tanda 11 está commiteada (`91f0583`). Desde la tanda 12 sigue Luciano,
+  con lo que quedaba de los dos planes; lo nuevo **está sin commitear**.
 
 ## 2. Por qué se hizo
 
@@ -88,6 +91,12 @@ alta.
 | — | En el selector de cliente y de calificaciones, un clic en la barra de scroll cerraba la lista: sólo se podía bajar con la rueda | El clic en la barra le sacaba el foco al campo, y la lista se cierra cuando el campo lo pierde | La lista no le saca el foco al campo. Mismo arreglo en el selector de estado procesal del acto |
 | — | En "Modificar causa", al hacer clic en "Fuero" (bloqueado) aparecía el cursor de escritura | Probable, sin confirmar: Chrome deja poner una selección de texto en un campo deshabilitado | Los campos deshabilitados no admiten selección de texto. **Falta confirmarlo en Chrome** |
 | — | El vencimiento de la prescripción del mock no coincidía con el del backend en fin de mes | El mock seguía al prototipo y se pasaba al mes siguiente | El mock corta en el último día del mes, como el backend (decisión del 13/11/2026) |
+| H-55 | Con todos los núcleos fallaban 2 a 14 tests por corrida, distintos cada vez, por tiempo de espera | Dos causas encadenadas: 15 procesos en 8 núcleos físicos saturaban el arranque y los primeros tests no llegaban a su espera de 1 s; y el test que se cortaba dejaba su renovación de sesión en vuelo, que le cerraba la sesión al siguiente | Vitest usa la mitad de los núcleos lógicos (`maxWorkers: '50%'`); los tests esperan esa renovación entre uno y otro, y un `AuthProvider` desmontado o un 401 de otro token ya no cierran la sesión actual ([18](18-TANDA12_H55.md)) |
+| — | Entre 1.181 y 1.360 px las tablas de Causas y Usuarios (y Clientes hasta ~1.200) scrolleaban en horizontal, también en una notebook de 1.280 | La forma de ficha dependía sólo del ancho de la ventana (1180px), y esas tablas necesitan más lugar que el que tienen ahí | La tabla pasa a fichas también cuando no entra en su lugar (`DataTable`, decisión de Luciano). Los E2E fijan su ventana en 1366 × 768 ([20](20-TANDA14_VISUAL_PARTE1.md)) |
+| — | Ningún error de carga se anunciaba al lector de pantalla ni se podía reintentar sin recargar (15 pantallas) | Cada pantalla armaba su bloque a mano | `LoadError`: alerta y "Reintentar" (no para un 404, 403 o 400), decisión de Luciano ([20](20-TANDA14_VISUAL_PARTE1.md)) |
+| — | En "Registrar causa", con sus listas caídas, el cliente decía "Ningún cliente coincide." y el responsable quedaba vacío | Los selectores no distinguían "no hay" de "no cargó" | Cada selector dice "No se pudieron cargar los … Recargá la página para volver a intentar.", también en "Modificar causa" ([20](20-TANDA14_VISUAL_PARTE1.md)) |
+| — | Crear la carpeta de una causa y volver con "Atrás" a otra causa ya visitada dejaba en la otra la carpeta de la primera: "Abrir carpeta en Drive" abría una carpeta ajena | La página del detalle no se desmonta al cambiar de causa, y TanStack le pasa a una mutación pendiente las opciones nuevas del hook, con la causa nueva | Los nueve hooks de mutación que reciben la causa llevan una `mutationKey` con ella (`casesKeys.mutation`) ([19](19-TANDA13_CARRERAS_Y_CACHE.md)) |
+| — | Si se salía de una pantalla con algo guardándose y el servidor lo rechazaba (un SAC repetido al registrar una causa), nadie avisaba | TanStack sólo corre el `onError` de un `mutate(…)` si el componente sigue montado | Un aviso de error general para lo que falla sin pantalla que lo escuche: "No se completó lo que dejaste en curso: …" (`shared/api/leftBehindErrors.ts`, decisión de Luciano) ([19](19-TANDA13_CARRERAS_Y_CACHE.md)) |
 
 **Datos que quedaban viejos hasta un minuto** (auditoría de caché, 29
 mutaciones leídas):
@@ -95,12 +104,14 @@ mutaciones leídas):
 | Id | Qué quedaba viejo | Después de | Solución |
 |---|---|---|---|
 | C-1 | La carga de cada abogado y las causas activas de clientes, calificaciones y estados | Cualquier cambio sobre una causa o un acto | `invalidateCaseCounters`, llamado desde esas mutaciones |
-| C-2 | Un abogado recién creado no aparecía en "Abogados" ni en "Abogado responsable" | Registrar un usuario con ficha nueva | Las mutaciones de usuario invalidan los listados de abogados |
-| C-3 | El nombre y el plazo de un estado o una calificación en las causas | Modificar un estado o una calificación | Esas mutaciones marcan vieja la caché |
+| C-2 | Un abogado recién creado no aparecía en "Abogados" ni en "Abogado responsable" | Registrar un usuario con ficha nueva | Las mutaciones de usuario invalidan los listados de abogados. Test desde la tanda 13 |
+| C-3 | El nombre y el plazo de un estado o una calificación en las causas | Modificar un estado o una calificación | Esas mutaciones marcan vieja la caché. Test desde la tanda 13 |
 
 **Revisado y sin problemas:** doble envío (un doble clic manda un solo
-`POST`), bajas optimistas, retroceso de página al borrar la última fila, y el
-cierre de sesión cuando el pedido falla.
+`POST`), bajas optimistas, retroceso de página al borrar la última fila, el
+cierre de sesión cuando el pedido falla, el sondeo de la carpeta al cambiar de
+causa (se corta solo) y la respuesta que llega después de salir de la
+pantalla (no arrastra de vuelta; su error ahora se avisa, ver arriba).
 
 ## 5. Mejoras que no eran bugs
 
@@ -164,21 +175,20 @@ Se anotaron y después se vio que no eran un problema:
 
 ## 7. Verificación
 
-Estado final, con los cambios de los dos planes y la tanda 11:
+Estado con los cambios de los dos planes y las tandas 11 a 13:
 
 | Qué | Resultado |
 |---|---|
 | `npm run lint` | 0 errores; un warning conocido en `src/shared/components/ui/Icon.tsx:2` |
 | `npx tsc -b` | Limpio |
-| `npx vitest run --maxWorkers=4` | **744 de 744** (113 archivos). Al empezar: 651 |
-| `npm run test:e2e` | **9 de 9** |
-| `npm run build` | Sin errores |
+| `npx vitest run` | **771 de 771** (121 archivos), después de la primera parte de la tanda 14. En la tanda 12, cinco corridas seguidas sin fallas. Al empezar: 651 |
+| `npm run test:e2e` | **9 de 9**, después de la primera parte de la tanda 14, con la ventana de Playwright en 1366 × 768 |
+| `npm run build` | Sin errores, después de la primera parte de la tanda 14 |
 | Navegador, con mocks | Lo modificado se miró a 320–390 px y a 1024–1366 px, tanda por tanda |
 
-**Ojo con la suite a todo paralelismo.** `npx vitest run` sin limitar los
-procesos falla de forma intermitente: en dos corridas del 13/11 fallaron 2 y 5
-tests, distintos cada vez, todos por tiempo de espera. Solos pasan. Es H-55,
-sin resolver (sección 8).
+**La suite ya no falla a todo paralelismo** (H-55, tanda 12). Desde la tanda
+12, `npx vitest run` usa la mitad de los núcleos lógicos por configuración, y
+no hace falta pasarle `--maxWorkers`.
 
 ## 8. Lo que queda
 
@@ -187,19 +197,20 @@ sin resolver (sección 8).
 | Qué | Por qué importa |
 |---|---|
 | **Probar contra el backend real** | Todo se probó con mocks. Falta: sesión entre pestañas, subida de un modelo, timeouts de archivos, expediente |
-| **H-55 · falla intermitente de la suite** | Con todos los núcleos algún test se pasa del tiempo de espera. Pistas en [12-REGISTRO_PLAN_A.md](12-REGISTRO_PLAN_A.md): los `findBy…` esperan 1 s por defecto, poco para 113 archivos en paralelo |
 | **Fin de mes de la prescripción: escribirlo en el contrato** | Se decidió que vale el backend (corta en el último día del mes) y el mock ya lo sigue. El contrato todavía no lo dice |
-| **Los tres perfiles contra la tabla de permisos** (`gestion`, `mrios`, `supervision`) | No se llegó. `supervision` no se recorrió en ninguna tanda |
-| **Carreras** | Respuesta que llega después de salir de la pantalla; sondeo de la carpeta al cambiar de causa |
+| **Los tres perfiles contra la tabla de permisos** (`gestion`, `mrios`, `supervision`) | Recorridos en la tanda 15 ([21](21-TANDA15_PERFILES.md)): ningún perfil puede de más ni de menos. Quedan cinco diferencias de forma para decidir (acto interruptivo habilitado con aviso; dos motivos de deshabilitado sin unir o sólo en `title`; "Solo"/"Sólo"; "Sin acceso" repetido). Sin cambios de código |
 | **Lector de pantalla real** | Todo lo de ARIA se comprobó en el DOM, nunca con NVDA |
 
 ### Revisión visual que falta
 
-El borde nuevo de los campos y la flecha del selector a 1366 px; el tablero
+Para la segunda parte de la tanda 14, con el panel del navegador a la vista:
+el borde nuevo de los campos y la flecha del selector a 1366 px; el tablero
 "Estudio" a ojo; los modales de modelos, abogado, usuario, acto interruptivo y
-"Marcar prescripta" en el teléfono; estados de error y de carga forzados,
-pantalla por pantalla; las notas nuevas de botones deshabilitados en el
-teléfono.
+"Marcar prescripta" en el teléfono; las notas nuevas de botones deshabilitados
+en el teléfono; cómo se ven una tabla en fichas a 1.280 px y el bloque de
+error con "Reintentar"; y el cursor en "Fuero" (diagnóstico parcial en el
+[20](20-TANDA14_VISUAL_PARTE1.md), sección 5). Los estados de carga y de error
+forzados y el Ctrl+clic del rail ya se revisaron ([20](20-TANDA14_VISUAL_PARTE1.md)).
 
 ### Decisiones del equipo
 
@@ -215,8 +226,9 @@ teléfono.
 
 - Un `403` cualquiera renueva la sesión (H-09): sólo análisis.
 - Páginas de 500–600 líneas (H-12): no se tocaron.
-- Tests de C-2 y C-3.
-- Entre 1.181 y 1.360 px la tabla de Causas sigue con scroll horizontal.
+- `tests/unit/app/pages.test.ts:13` corre al límite cuando se lo corre solo
+  (3,6–4,3 s de 5): importa las 13 pantallas adentro del test. Propuesta:
+  darle un tiempo propio; falta el OK ([18](18-TANDA12_H55.md)).
 - Los mocks se publican en el build si se hace con `VITE_USE_MOCKS=true`
   (H-24): confirmar con qué variables se despliega.
 - **Documentación atrasada**: `frontend/CLAUDE.md` y
@@ -240,6 +252,10 @@ teléfono.
 | `src/features/cases/api/useClientOptions.ts`, `useQualificationOptions.ts` | De dónde salen las opciones del selector |
 | `src/features/cases/components/NewQualificationModal.tsx` | "Registrar calificación nueva", compartido por el alta y "Modificar causa" |
 | `tests/setup/searchSelect.ts` | `chooseOption`, para elegir en un `SearchSelect` desde un test |
+| `src/shared/api/leftBehindErrors.ts` | El aviso de lo que falla después de salir de la pantalla que lo pidió (tanda 13) |
+| `src/shared/components/ui/LoadError.tsx` | Lo que se ve cuando algo no se pudo cargar: alerta y "Reintentar". Toda pantalla nueva lo usa en lugar de armar su bloque (tanda 14) |
+| `useStacked` en `src/shared/components/ui/DataTable.tsx` | Cuándo una tabla pasa a fichas: ventana en 1180px o menos, o la tabla no entra en su lugar (tanda 14) |
+| `casesKeys.mutation` en `src/features/cases/api/cases.keys.ts` | La clave de mutación de una causa: todo hook de mutación nuevo que reciba la causa como parámetro tiene que llevarla (tanda 13) |
 
 **Tres cosas que rompen un test nuevo si no se saben:**
 
@@ -256,5 +272,9 @@ teléfono.
 | Hallazgos visuales H-34 a H-52 | [07](07-REVISION_VISUAL.md) |
 | Plan A, tarea por tarea, con causa y solución | [12](12-REGISTRO_PLAN_A.md), [16](16-RESUMEN_PLAN_A.md) |
 | Plan B, tanda por tanda | [08](08-TANDA1_RESULTADOS.md), [09](09-TANDA2_RESULTADOS.md), [10](10-TANDA5_RESULTADOS.md), [14](14-TANDAS6A10_RESULTADOS.md) |
-| La última tanda | [17](17-TANDA11_RESULTADOS.md) |
+| La tanda 11 | [17](17-TANDA11_RESULTADOS.md) |
+| H-55, la falla intermitente de la suite: causa y arreglo | [18](18-TANDA12_H55.md) |
+| Carreras (cambiar de causa, salir con algo guardándose, sondeo de la carpeta) y tests de C-2 y C-3 | [19](19-TANDA13_CARRERAS_Y_CACHE.md) |
+| Tablas que no entran, errores de carga, "Registrar causa" con sus listas caídas, Ctrl+clic, lo que se sabe del cursor en "Fuero" | [20](20-TANDA14_VISUAL_PARTE1.md) |
+| Los tres perfiles contra la tabla de permisos, pantalla por pantalla | [21](21-TANDA15_PERFILES.md) |
 | Las notas entre los dos planes y las decisiones acordadas | [11](11-PARA_LUCIANO.md), [13](13-RESPUESTA_A_FACUNDO.md), [15](15-PARA_LUCIANO_2.md) |
