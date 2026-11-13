@@ -2,6 +2,7 @@ import { Logger } from '@nestjs/common';
 import { DocumentStorageUnavailableError } from '../../domain/errors/documents.errors';
 import { FolderKey } from '../../domain/value-objects/folder-key.vo';
 import { aCommand, aSetUpStudio } from '../../test-support/document-fixtures';
+import { RecycleBin } from '../common/recycle-bin';
 import { RecycleCaseFolder } from './recycle-case-folder.use-case';
 
 /** El estudio con las carpetas de las causas 10 y 11 creadas: Causas/Ríos, Malena/Penal/{carátula}. */
@@ -9,7 +10,7 @@ async function aStudioWithCaseFolders() {
   const studio = await aSetUpStudio();
   await studio.assureSpace.execute(aCommand());
   await studio.assureSpace.execute(aCommand({ caseId: 11, caseCaption: 'RUIZ s/ amparo' }));
-  const recycle = new RecycleCaseFolder(studio.folders, studio.storage);
+  const recycle = new RecycleCaseFolder(studio.folders, studio.storage, new RecycleBin(studio.folders, studio.storage));
   const caseFolder = async (caseId: number) => (await studio.folders.findByKey(FolderKey.forCase(caseId)))!;
   const mainId = (await studio.folders.findByKey(FolderKey.main()))!.cloudFolderId;
   const first = await caseFolder(10);
@@ -122,10 +123,10 @@ describe('RecycleCaseFolder (HU21)', () => {
 
   it('sin la carpeta raíz del estudio registrada, falla sin crear nada', async () => {
     const { recycle, storage, folders } = await aStudioWithCaseFolders();
-    const bare = new RecycleCaseFolder(
-      Object.assign(Object.create(folders), { findByKey: async (key: { kind: string }) => (key.kind === 'MAIN' ? null : folders.findByKey(key as never)) }),
-      storage,
-    );
+    const withoutRoot = Object.assign(Object.create(folders), {
+      findByKey: async (key: { kind: string }) => (key.kind === 'MAIN' ? null : folders.findByKey(key as never)),
+    });
+    const bare = new RecycleCaseFolder(withoutRoot, storage, new RecycleBin(withoutRoot, storage));
 
     await expect(bare.execute({ caseId: 10 })).rejects.toMatchObject({ code: 'STUDIO_ROOT_NOT_CONFIGURED' });
 

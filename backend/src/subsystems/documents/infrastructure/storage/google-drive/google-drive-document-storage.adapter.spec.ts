@@ -225,6 +225,51 @@ describe('GoogleDriveDocumentStorage', () => {
     });
   });
 
+  describe('moveFile (HU37, D-131)', () => {
+    it('lee los padres actuales y los cambia en un solo files.update, sin tocar el nombre ni usar la papelera de Drive', async () => {
+      const get = jest.fn().mockResolvedValue({ data: { parents: ['modelos-penal'] } });
+      const { storage, files } = build({ get });
+
+      const stored = await storage.moveFile({ fileId: 'modelo-1', newParentId: 'papelera' });
+
+      expect(stored).toEqual({ id: 'f-1', url: 'https://drive/f-1' });
+      expect(get.mock.calls[0][0]).toMatchObject({ fileId: 'modelo-1', fields: 'parents' });
+      expect(files.update).toHaveBeenCalledTimes(1);
+      const args = files.update.mock.calls[0][0];
+      expect(args).toMatchObject({ fileId: 'modelo-1', addParents: 'papelera', removeParents: 'modelos-penal' });
+      expect(args.requestBody).toBeUndefined();
+      expect(files.delete).not.toHaveBeenCalled();
+    });
+
+    it('si el archivo ya está en la carpeta de destino, no la quita de sus padres', async () => {
+      const get = jest.fn().mockResolvedValue({ data: { parents: ['papelera'] } });
+      const { storage, files } = build({ get });
+
+      await storage.moveFile({ fileId: 'modelo-1', newParentId: 'papelera' });
+
+      expect(files.update.mock.calls[0][0].removeParents).toBeUndefined();
+    });
+
+    it('si el archivo o la carpeta de destino ya no existen, falla como error de configuración', async () => {
+      const { storage } = build({ get: jest.fn().mockRejectedValue(httpError(404)) });
+
+      await expect(storage.moveFile({ fileId: 'gone', newParentId: 'papelera' })).rejects.toMatchObject({
+        reason: 'CONFIGURATION',
+      });
+    });
+
+    it('ante un error pasajero reintenta y después informa que el almacenamiento no está disponible', async () => {
+      const update = jest.fn().mockRejectedValue(httpError(503));
+      const get = jest.fn().mockResolvedValue({ data: { parents: ['x'] } });
+      const { storage } = build({ get, update });
+
+      await expect(storage.moveFile({ fileId: 'f', newParentId: 'papelera' })).rejects.toBeInstanceOf(
+        DocumentStorageUnavailableError,
+      );
+      expect(update).toHaveBeenCalledTimes(3);
+    });
+  });
+
   describe('deleteFolder y deleteFile', () => {
     it('borran por id', async () => {
       const { storage, files } = build();

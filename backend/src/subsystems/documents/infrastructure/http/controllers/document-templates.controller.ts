@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -16,6 +17,7 @@ import { AuthenticatedUser } from '@shared/domain/authenticated-user';
 import { ContentDisposition } from '@shared/infrastructure/http/content-disposition';
 import { CurrentUser } from '@shared/infrastructure/http/current-user.decorator';
 import { PaginatedResponse, paginate, toPageRequest } from '@shared/infrastructure/http/pagination/pagination';
+import { DeactivateDocumentTemplate } from '../../../core/application/use-cases/deactivate-document-template.use-case';
 import { DownloadDocumentTemplate } from '../../../core/application/use-cases/download-document-template.use-case';
 import { GetDocumentTemplate } from '../../../core/application/use-cases/get-document-template.use-case';
 import { ListDocumentTemplates } from '../../../core/application/use-cases/list-document-templates.use-case';
@@ -50,6 +52,7 @@ export class DocumentTemplatesController {
     private readonly listDocumentTemplates: ListDocumentTemplates,
     private readonly getDocumentTemplate: GetDocumentTemplate,
     private readonly downloadDocumentTemplate: DownloadDocumentTemplate,
+    private readonly deactivateDocumentTemplate: DeactivateDocumentTemplate,
     private readonly mapper: DocumentTemplateHttpMapper,
   ) {}
 
@@ -125,6 +128,19 @@ export class DocumentTemplatesController {
       length: content.length,
       disposition: ContentDisposition.attachment(file.fileName).toString(),
     });
+  }
+
+  /**
+   * HU37: gives a template de baja (RN12, D-126). Logical, with no way back: the
+   * client no longer sees it. `204`, no body.
+   */
+  @Delete(':templateId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async deactivate(
+    @Param('templateId') templateIdParam: string,
+    @CurrentUser() actor: AuthenticatedUser,
+  ): Promise<void> {
+    await this.deactivateDocumentTemplate.execute({ actor, templateId: this.parseTemplateId(templateIdParam) });
   }
 
   private parseTemplateId(raw: string): number {

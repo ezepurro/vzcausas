@@ -4,9 +4,12 @@ import { FolderChain } from './core/application/common/folder-chain';
 import { AssureSpace } from './core/application/use-cases/assure-space.use-case';
 import { RenameLawyerFolder } from './core/application/use-cases/rename-lawyer-folder.use-case';
 import { SyncCaseFolder } from './core/application/use-cases/sync-case-folder.use-case';
+import { RecycleBin } from './core/application/common/recycle-bin';
 import { RecycleCaseFolder } from './core/application/use-cases/recycle-case-folder.use-case';
 import { CopyTemplatesToCaseFolder } from './core/application/use-cases/copy-templates-to-case-folder.use-case';
+import { DeactivateDocumentTemplate } from './core/application/use-cases/deactivate-document-template.use-case';
 import { DownloadDocumentTemplate } from './core/application/use-cases/download-document-template.use-case';
+import { MoveTemplateFilesToTrash } from './core/application/use-cases/move-template-files-to-trash.use-case';
 import { GetDocumentTemplate } from './core/application/use-cases/get-document-template.use-case';
 import { ListDocumentTemplates } from './core/application/use-cases/list-document-templates.use-case';
 import { RegisterDocumentTemplate } from './core/application/use-cases/register-document-template.use-case';
@@ -72,6 +75,8 @@ import { DOCUMENT_STORAGE_PROVIDER } from './infrastructure/storage/document-sto
     FolderChain,
     AssureSpace,
     SyncCaseFolder,
+    // One `RecycleBin` for the whole app: the case and the template bajas share its lock (HU21, HU37).
+    RecycleBin,
     RecycleCaseFolder,
     RenameLawyerFolder,
     SetupCloudStorage,
@@ -86,6 +91,9 @@ import { DOCUMENT_STORAGE_PROVIDER } from './infrastructure/storage/document-sto
     ListDocumentTemplates,
     GetDocumentTemplate,
     DownloadDocumentTemplate,
+    // HU37: the baja of a template, and the move of its files that the daily process will repeat (D-131).
+    DeactivateDocumentTemplate,
+    MoveTemplateFilesToTrash,
     DocumentTemplateHttpMapper,
     // HU24: draws the cover sheet that `cases` asks for (P-08 option B).
     GenerateCoverPdf,

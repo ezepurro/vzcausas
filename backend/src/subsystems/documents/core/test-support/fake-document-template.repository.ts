@@ -10,9 +10,19 @@ import {
   TemplateFilePlacement,
 } from '../domain/ports/document-template.repository';
 import { TemplateFile } from '../domain/value-objects/template-file.vo';
+import { TemplateStoredFiles } from '../domain/value-objects/template-stored-files.vo';
 
-/** A template as the fake keeps it: the view plus where its main file is. */
-type StoredTemplate = DocumentTemplateView & { cloudFileId: string; cloudFolderId: string };
+/**
+ * A template as the fake keeps it: the view plus where its main file is, the file
+ * of each jurisdiction (none for a template older than the subfolders) and whether
+ * its files still wait for the `Papelera` (HU37).
+ */
+type StoredTemplate = DocumentTemplateView & {
+  cloudFileId: string;
+  cloudFolderId: string;
+  jurisdictionFileIds: string[];
+  trashPending: boolean;
+};
 
 /** In-memory {@link DocumentTemplateRepository} for the use case specs. */
 export class FakeDocumentTemplateRepository implements DocumentTemplateRepository {
@@ -36,6 +46,8 @@ export class FakeDocumentTemplateRepository implements DocumentTemplateRepositor
       active: true,
       cloudFileId: `file-${id}`,
       cloudFolderId: 'templates-folder',
+      jurisdictionFileIds: [],
+      trashPending: false,
       ...overrides,
     };
     this.rows.push(row);
@@ -86,11 +98,43 @@ export class FakeDocumentTemplateRepository implements DocumentTemplateRepositor
         lastVersionBy: { id: template.lastVersionByUserId, lastName: 'Ferreyra', firstName: 'Matías' },
         cloudFileId: main.cloudFileId,
         cloudFolderId: main.cloudFolderId,
+        jurisdictionFileIds: placements.map((placement) => placement.cloudFileId),
       }),
     );
   }
+
+  async deactivate(id: number): Promise<boolean> {
+    const row = this.rows.find((stored) => stored.id === id && stored.active);
+    if (!row) {
+      return false;
+    }
+    row.active = false;
+    row.trashPending = true;
+    return true;
+  }
+
+  /** Like the real one, active or not. */
+  async findStoredFiles(id: number): Promise<TemplateStoredFiles | null> {
+    const row = this.rows.find((stored) => stored.id === id);
+    return row
+      ? TemplateStoredFiles.hydrate({ mainFileId: row.cloudFileId, jurisdictionFileIds: row.jurisdictionFileIds })
+      : null;
+  }
+
+  async markTrashed(id: number): Promise<void> {
+    const row = this.rows.find((stored) => stored.id === id);
+    if (row) {
+      row.trashPending = false;
+    }
+  }
 }
 
-function toView({ cloudFileId: _file, cloudFolderId: _folder, ...view }: StoredTemplate): DocumentTemplateView {
+function toView({
+  cloudFileId: _file,
+  cloudFolderId: _folder,
+  jurisdictionFileIds: _files,
+  trashPending: _pending,
+  ...view
+}: StoredTemplate): DocumentTemplateView {
   return view;
 }

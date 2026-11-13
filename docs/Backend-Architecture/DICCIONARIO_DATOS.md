@@ -236,6 +236,7 @@ erDiagram
         timestamptz last_version_at
         integer last_version_by_user_id FK
         boolean active
+        boolean trash_pending
         timestamptz created_at
         timestamptz updated_at
     }
@@ -878,7 +879,8 @@ y no tienen filas ahí.
 | `copy_to_new_cases` | BOOLEAN | 1 B |  | No | `true`: se copia a la carpeta de las causas nuevas de sus fueros (HU40). Por defecto `true`. |
 | `last_version_at` | TIMESTAMPTZ | 8 B |  | No | Fecha y hora de la última versión subida. |
 | `last_version_by_user_id` | INTEGER | 4 B | FK | No | Usuario que subió la última versión (→ `users.id`). |
-| `active` | BOOLEAN | 1 B |  | No | `true`: vigente. `false`: baja lógica (RN12). Por defecto `true`. |
+| `active` | BOOLEAN | 1 B |  | No | `true`: vigente. `false`: baja lógica (RN12, HU37). Por defecto `true`. |
+| `trash_pending` | BOOLEAN | 1 B |  | No | `true`: el modelo se dio de baja y sus archivos todavía no se movieron a `/VZ Causas/Papelera` porque Drive no respondió (D-131, HU37). Se pone en `true` al dar de baja y en `false` cuando Drive confirma el movimiento; el proceso diario mueve los que quedaron en `true`. Por defecto `false`. |
 | `created_at` | TIMESTAMPTZ | 8 B |  | No | Fecha y hora de creación. |
 | `updated_at` | TIMESTAMPTZ | 8 B |  | No | Fecha y hora de la última actualización. |
 

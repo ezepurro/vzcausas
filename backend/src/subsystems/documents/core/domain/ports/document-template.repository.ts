@@ -1,5 +1,6 @@
 import { DocumentTemplate, TemplateJurisdiction } from '../entities/document-template.entity';
 import { TemplateFile } from '../value-objects/template-file.vo';
+import { TemplateStoredFiles } from '../value-objects/template-stored-files.vo';
 
 /** DI token for {@link DocumentTemplateRepository}. */
 export const DOCUMENT_TEMPLATE_REPOSITORY = Symbol('DOCUMENT_TEMPLATE_REPOSITORY');
@@ -69,4 +70,23 @@ export interface DocumentTemplateRepository {
    *   meantime (the unique index on `lower(name)`).
    */
   save(template: DocumentTemplate, placements: readonly TemplateFilePlacement[]): Promise<DocumentTemplateView>;
+
+  /**
+   * Gives an **active** template de baja and marks its files as waiting for the
+   * `Papelera` (HU37, RN12, D-131), in one conditional write: `active` becomes
+   * `false` only if it was `true`. Returns whether it wrote, so of two
+   * simultaneous bajas only one wins and the other finds nothing (CA-37.7).
+   * The row is kept; nothing is deleted.
+   */
+  deactivate(id: number): Promise<boolean>;
+
+  /**
+   * Every file the template has in the storage, **whether it is active or
+   * not**: the files of a template given de baja are still to be moved. `null`
+   * if there is no such template.
+   */
+  findStoredFiles(id: number): Promise<TemplateStoredFiles | null>;
+
+  /** The files of a template given de baja are now in the `Papelera`: clears the mark set by {@link deactivate}. */
+  markTrashed(id: number): Promise<void>;
 }

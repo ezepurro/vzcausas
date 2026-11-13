@@ -70,6 +70,44 @@ describe('InMemoryDocumentStorage', () => {
     });
   });
 
+  describe('moveFile (HU37)', () => {
+    const aFile = (parentId: string) =>
+      storage.seedFile({ id: 'modelo-1', parentId, name: 'modelo.docx', mimeType: 'application/x', createdAt: new Date() });
+
+    it('mueve el archivo a otra carpeta conservando su id y su contenido', async () => {
+      const from = storage.seed('root', 'Penal');
+      const bin = storage.seed('root', 'Papelera');
+      aFile(from.id);
+
+      const stored = await storage.moveFile({ fileId: 'modelo-1', newParentId: bin.id });
+
+      expect(stored.id).toBe('modelo-1');
+      expect(storage.files.find((f) => f.id === 'modelo-1')).toMatchObject({ parentId: bin.id, name: 'modelo.docx' });
+      expect(storage.fileCalls).toEqual([{ method: 'moveFile', fileId: 'modelo-1' }]);
+    });
+
+    it('moverlo a la carpeta donde ya está lo deja ahí', async () => {
+      const bin = storage.seed('root', 'Papelera');
+      aFile(bin.id);
+
+      await storage.moveFile({ fileId: 'modelo-1', newParentId: bin.id });
+
+      expect(storage.files.find((f) => f.id === 'modelo-1')?.parentId).toBe(bin.id);
+    });
+
+    it('si el archivo o la carpeta de destino no existen, falla como error de configuración', async () => {
+      const from = storage.seed('root', 'Penal');
+      aFile(from.id);
+
+      await expect(storage.moveFile({ fileId: 'gone', newParentId: from.id })).rejects.toMatchObject({
+        reason: 'CONFIGURATION',
+      });
+      await expect(storage.moveFile({ fileId: 'modelo-1', newParentId: 'gone' })).rejects.toMatchObject({
+        reason: 'CONFIGURATION',
+      });
+    });
+  });
+
   describe('copyFile (HU40)', () => {
     const upload = (content: string) =>
       storage.uploadFile({ parentId: 'modelos', name: 'modelo.docx', mimeType: 'application/x', content: Buffer.from(content) });

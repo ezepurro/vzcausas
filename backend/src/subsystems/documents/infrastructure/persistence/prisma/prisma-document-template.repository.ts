@@ -14,6 +14,7 @@ import {
   TemplateFilePlacement,
 } from '../../../core/domain/ports/document-template.repository';
 import { TemplateFile } from '../../../core/domain/value-objects/template-file.vo';
+import { TemplateStoredFiles } from '../../../core/domain/value-objects/template-stored-files.vo';
 
 /** The unique index on `lower(name)` among active templates (D-71). */
 const NAME_INDEX = 'document_templates_name_active_key';
@@ -128,6 +129,37 @@ export class PrismaDocumentTemplateRepository implements DocumentTemplateReposit
       }
       throw error;
     }
+  }
+
+  /**
+   * One `UPDATE … WHERE id AND active = true`: it writes only if the template was
+   * active, so a missing one and one already given de baja both write nothing, and
+   * of two simultaneous bajas only one does (CA-37.7). The row stays (RN12).
+   */
+  async deactivate(id: number): Promise<boolean> {
+    const { count } = await this.prisma.db.documentTemplate.updateMany({
+      where: { id, active: true },
+      data: { active: false, trashPending: true },
+    });
+    return count === 1;
+  }
+
+  /** Not filtered by `active`: the files of a template given de baja are the ones still to be moved (HU37). */
+  async findStoredFiles(id: number): Promise<TemplateStoredFiles | null> {
+    const row = await this.prisma.db.documentTemplate.findUnique({
+      where: { id },
+      select: { cloudFileId: true, files: { select: { cloudFileId: true } } },
+    });
+    return row
+      ? TemplateStoredFiles.hydrate({
+          mainFileId: row.cloudFileId,
+          jurisdictionFileIds: row.files.map((file) => file.cloudFileId),
+        })
+      : null;
+  }
+
+  async markTrashed(id: number): Promise<void> {
+    await this.prisma.db.documentTemplate.update({ where: { id }, data: { trashPending: false } });
   }
 
   /** With the `PrismaPg` driver adapter the violated index arrives in `meta.driverAdapterError`. */

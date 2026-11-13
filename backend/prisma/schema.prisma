@@ -761,6 +761,10 @@ model DocumentTemplate {
   lastVersionAt       DateTime @default(now()) @map("last_version_at") @db.Timestamptz(6)
   lastVersionByUserId Int      @map("last_version_by_user_id")
   active              Boolean  @default(true)
+  // Modelo dado de baja (HU37, D-131) cuyos archivos todavía no se movieron a
+  // la Papelera: true al dar de baja, false cuando Drive confirma el movimiento.
+  // Si Drive no responde, queda en true y el proceso diario los mueve después.
+  trashPending        Boolean  @default(false) @map("trash_pending")
   createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt           DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 

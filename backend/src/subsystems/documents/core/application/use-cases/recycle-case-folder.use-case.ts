@@ -1,5 +1,4 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { StudioRootNotConfiguredError } from '../../domain/errors/documents.errors';
 import {
   CLOUD_FOLDER_REPOSITORY,
   CloudFolderRepository,
@@ -7,14 +6,10 @@ import {
 import {
   DOCUMENT_STORAGE,
   DocumentStoragePort,
-  StoredFolder,
 } from '../../domain/ports/document-storage.port';
 import { FolderKey } from '../../domain/value-objects/folder-key.vo';
-import { FolderName } from '../../domain/value-objects/folder-name.vo';
 import { KeyedMutex } from '../common/keyed-mutex';
-
-/** Name of the folder, directly under the study's root, where the folders of cases given de baja go (HU21). */
-export const RECYCLE_BIN_FOLDER_NAME = 'Papelera';
+import { RECYCLE_BIN_FOLDER_NAME, RecycleBin } from '../common/recycle-bin';
 
 export interface RecycleCaseFolderCommand {
   caseId: number;
@@ -43,10 +38,9 @@ export interface RecycleCaseFolderResult {
  * empties itself after about 30 days. A baja given by mistake is undone by
  * moving the folder back by hand.
  *
- * **`Papelera` is created here, the first time a baja needs it**, not by
- * `SetupCloudStorage`: a study that never gives a case de baja never gets it.
- * It is found by name under the root (the app created it, so `drive.file` sees
- * it) and has no row in `cloud_folders`.
+ * **`Papelera` comes from {@link RecycleBin}**, which creates it the first time
+ * a baja needs it and is shared with the baja of a formal template (HU37), so
+ * the two never create it twice.
  *
  * **The row of the case's folder is not touched.** It stays as it was: it is
  * still the case's reference to its folder (`cases.cloud_folder_id`, RN12), and
@@ -61,11 +55,11 @@ export interface RecycleCaseFolderResult {
 export class RecycleCaseFolder {
   private readonly logger = new Logger(RecycleCaseFolder.name);
   private readonly caseLocks = new KeyedMutex();
-  private readonly binLock = new KeyedMutex();
 
   constructor(
     @Inject(CLOUD_FOLDER_REPOSITORY) private readonly folders: CloudFolderRepository,
     @Inject(DOCUMENT_STORAGE) private readonly storage: DocumentStoragePort,
+    private readonly bin: RecycleBin,
   ) {}
 
   /**
@@ -82,27 +76,12 @@ export class RecycleCaseFolder {
       return { outcome: 'NO_FOLDER' };
     }
 
-    const bin = await this.findOrCreateBin();
+    const bin = await this.bin.folder();
     await this.storage.relocateFolder({ folderId: folder.cloudFolderId, newParentId: bin.id });
 
     this.logger.log(
       `Folder of case ${command.caseId} moved to ${RECYCLE_BIN_FOLDER_NAME}${command.causedByEventId ? ` (eventId=${command.causedByEventId})` : ''}`,
     );
     return { outcome: 'MOVED' };
-  }
-
-  /** The `Papelera` folder under the root, created if this is the first baja that needs it. */
-  private findOrCreateBin(): Promise<StoredFolder> {
-    return this.binLock.run(RECYCLE_BIN_FOLDER_NAME, async () => {
-      const root = await this.folders.findByKey(FolderKey.main());
-      if (!root) {
-        throw new StudioRootNotConfiguredError();
-      }
-      const reference = {
-        parentId: root.cloudFolderId,
-        name: FolderName.of(RECYCLE_BIN_FOLDER_NAME).toString(),
-      };
-      return (await this.storage.findFolderByReference(reference)) ?? (await this.storage.createFolder(reference));
-    });
   }
 }

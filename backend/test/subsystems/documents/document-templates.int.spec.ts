@@ -2,6 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import * as bcrypt from 'bcryptjs';
 
+import { MoveTemplateFilesToTrash } from '../../../src/subsystems/documents/core/application/use-cases/move-template-files-to-trash.use-case';
 import { DOCUMENT_STORAGE } from '../../../src/subsystems/documents/core/domain/ports/document-storage.port';
 import { DocumentStorageUnavailableError } from '../../../src/subsystems/documents/core/domain/errors/documents.errors';
 import { InMemoryDocumentStorage } from '../../../src/subsystems/documents/infrastructure/storage/in-memory/in-memory-document-storage';
@@ -17,9 +18,9 @@ import { createUser } from '../../shared/factories/user.factory';
 import { getPrisma, startTestApp, stopTestApp } from '../../shared/harness/test-app';
 
 /*
- * Recurso modelos formales: HU34 (POST /document-templates) y HU35 (GET
- * /document-templates, /{templateId} y /{templateId}/file). Contrato: API_CONTRACT_V5.md
- * §3.10.
+ * Recurso modelos formales: HU34 (POST /document-templates), HU35 (GET
+ * /document-templates, /{templateId} y /{templateId}/file) y HU37 (DELETE
+ * /{templateId}). Contrato: API_CONTRACT_V6.md §3.10.
  *
  * La base es real. El almacenamiento es el `InMemoryDocumentStorage`; la carpeta
  * "Modelos formales" se carga como la deja el script de puesta en marcha (ADR-003). Lo
@@ -456,5 +457,133 @@ describe('Permisos de /api/v1/document-templates', () => {
       expect(res.body.error.message).toBe(FORBIDDEN_MESSAGE);
     }
     expect(await templatesInDb()).toHaveLength(1);
+  });
+});
+
+/** HU37 · baja de un modelo formal. Contrato V6 §3.10, `DELETE /document-templates/{templateId}`. */
+describe('DELETE /api/v1/document-templates/{templateId}', () => {
+  const NOT_FOUND = {
+    code: 'DOCUMENT_TEMPLATE_NOT_FOUND',
+    message: 'No se encontró el modelo formal solicitado.',
+    details: null,
+  };
+  const remove = (id: number | string) => server().delete(`${URL}/${id}`).set(asLawyer);
+  /** Dónde está hoy cada archivo del modelo (el principal y el de cada fuero), por su id en el almacenamiento. */
+  const fileParents = async (templateId: number) => {
+    const row = await getPrisma().documentTemplate.findUniqueOrThrow({
+      where: { id: templateId },
+      include: { files: true },
+    });
+    const ids = [...new Set([row.cloudFileId, ...row.files.map((file) => file.cloudFileId)])];
+    return ids.map((id) => storage.files.find((file) => file.id === id)?.parentId);
+  };
+  const papelera = () => storage.folders.filter((folder) => folder.name === 'Papelera');
+
+  // CA-37.1, CA-37.2, CA-37.4, CA-37.5
+  it('204 sin cuerpo: la fila queda con active=false, el modelo deja de existir para el cliente, sus archivos van a la Papelera y su nombre queda libre', async () => {
+    const doomed = await registered('Escrito de apelación', ['CRIMINAL', 'AMPARO']);
+    const other = await registered('Otro escrito', ['CRIMINAL']);
+    const otherFiles = await fileParents(other.id);
+
+    const res = await remove(doomed.id);
+
+    expect(res.status).toBe(204);
+    expect(res.text).toBe('');
+    // CA-37.1: no se elimina físicamente.
+    expect(await getPrisma().documentTemplate.findUnique({ where: { id: doomed.id } })).toMatchObject({
+      active: false,
+      trashPending: false,
+    });
+    // CA-37.1 y CA-37.2: no está en el listado con ningún filtro, ni marcado como "dado de baja".
+    for (const query of ['', '?jurisdiction=CRIMINAL', '?jurisdiction=AMPARO', '?copyToNewCases=true']) {
+      const names = expectPaginated<Body>(await server().get(`${URL}${query}`).set(asLawyer)).map((t) => t.name);
+      expect(names).not.toContain('Escrito de apelación');
+    }
+    for (const path of [`/${doomed.id}`, `/${doomed.id}/file`]) {
+      const missing = await server().get(`${URL}${path}`).set(asLawyer);
+      expectError(missing, 404, 'DOCUMENT_TEMPLATE_NOT_FOUND');
+      expect(missing.body.error).toEqual(NOT_FOUND);
+    }
+    // CA-37.4: uno por cada fuero de su lista, todos en la única Papelera, bajo la raíz del estudio.
+    const [bin] = papelera();
+    expect(papelera()).toHaveLength(1);
+    expect(bin.parentId).toBe(storage.folders.find((folder) => folder.name === 'VZ Causas')!.id);
+    expect(await fileParents(doomed.id)).toEqual([bin.id, bin.id]);
+    expect(await fileParents(other.id)).toEqual(otherFiles);
+    // CA-37.5: el nombre es único solo entre los vigentes.
+    expectData(await register({ name: 'Escrito de apelación', jurisdictions: ['CRIMINAL'] }), 201);
+  });
+
+  // CA-37.4, D-131
+  it('si Drive no responde la baja vale (204): queda marcado y los archivos siguen donde estaban hasta que se repite el movimiento', async () => {
+    const doomed = await registered('Escrito de apelación', ['CRIMINAL', 'AMPARO']);
+    const before = await fileParents(doomed.id);
+    storage.failNextWith(new DocumentStorageUnavailableError('TRANSIENT', 'timeout'));
+
+    const res = await remove(doomed.id);
+
+    expect(res.status).toBe(204);
+    expect(await getPrisma().documentTemplate.findUnique({ where: { id: doomed.id } })).toMatchObject({
+      active: false,
+      trashPending: true,
+    });
+    expect(await fileParents(doomed.id)).toEqual(before);
+    expectError(await server().get(`${URL}/${doomed.id}`).set(asLawyer), 404, 'DOCUMENT_TEMPLATE_NOT_FOUND');
+
+    // Lo que hará el proceso diario con lo que quedó pendiente.
+    await app.get(MoveTemplateFilesToTrash).execute({ templateId: doomed.id });
+
+    const [bin] = papelera();
+    expect(await fileParents(doomed.id)).toEqual([bin.id, bin.id]);
+    expect(await getPrisma().documentTemplate.findUnique({ where: { id: doomed.id } })).toMatchObject({
+      trashPending: false,
+    });
+  });
+});
+
+describe('DELETE /api/v1/document-templates/{templateId}: errores', () => {
+  const remove = (id: number | string, actor = asLawyer) => server().delete(`${URL}/${id}`).set(actor);
+
+  // CA-37.6: 403 antes que 404 (el permiso no depende del modelo) y un pedido rechazado no escribe nada.
+  it('la secretaría recibe 403 con el texto del contrato, exista o no el modelo, y no cambia nada', async () => {
+    const created = await registered('Escrito de apelación');
+    const secretary = await createUser({ roles: ['SECRETARY'] });
+    const asSecretary = loginAs({ userId: secretary.id, roles: ['SECRETARY'] });
+    const filesBefore = storage.files.map((file) => ({ id: file.id, parentId: file.parentId }));
+
+    for (const id of [created.id, 999999]) {
+      const res = await remove(id, asSecretary);
+      expectError(res, 403, 'FORBIDDEN');
+      expect(res.body.error.message).toBe(FORBIDDEN_MESSAGE);
+    }
+
+    expect(await getPrisma().documentTemplate.findUnique({ where: { id: created.id } })).toMatchObject({
+      active: true,
+      trashPending: false,
+    });
+    expect(storage.files.map((file) => ({ id: file.id, parentId: file.parentId }))).toEqual(filesBefore);
+  });
+
+  // CA-37.7
+  it('un modelo inexistente o ya dado de baja es 404 y un id que no es entero, 400, con los textos del contrato', async () => {
+    const created = await registered('Escrito de apelación');
+    expect((await remove(created.id)).status).toBe(204);
+
+    for (const id of [999999, created.id]) {
+      const res = await remove(id);
+      expectError(res, 404, 'DOCUMENT_TEMPLATE_NOT_FOUND');
+      expect(res.body.error).toEqual({
+        code: 'DOCUMENT_TEMPLATE_NOT_FOUND',
+        message: 'No se encontró el modelo formal solicitado.',
+        details: null,
+      });
+    }
+    const invalid = await remove('abc');
+    expectError(invalid, 400, 'INVALID_PATH_PARAMETER', ['templateId']);
+    expect(invalid.body.error).toEqual({
+      code: 'INVALID_PATH_PARAMETER',
+      message: 'El identificador del modelo formal no es válido.',
+      details: { templateId: 'Debe ser un número entero válido.' },
+    });
   });
 });
