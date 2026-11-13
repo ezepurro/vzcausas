@@ -46,6 +46,12 @@ model User {
   deactivatedCases           Case[]            @relation("CaseDeactivatedBy")
   // Actos procesales que el usuario modificó por última vez (HU28, D-98).
   lastModifiedProceduralActs ProceduralAct[]   @relation("ProceduralActLastModifiedBy")
+  // Actos procesales que el usuario anuló (HU29, D-124).
+  deactivatedProceduralActs  ProceduralAct[]   @relation("ProceduralActDeactivatedBy")
+
+  // Relaciones inversas hacia `people`.
+  // Clientes que el usuario dio de baja (HU11, D-122).
+  deactivatedClients         Client[]          @relation("ClientDeactivatedBy")
 
   // Relaciones inversas hacia `documents`.
   documentTemplateVersions DocumentTemplate[]
@@ -234,8 +240,19 @@ model Client {
   // (Córdoba), nunca `CURRENT_DATE`, que corre en la zona de la base.
   clientSince DateTime @map("client_since") @db.Date
   active      Boolean  @default(true)
+  // Baja lógica (HU11, RN12, D-122). Las tres valen NULL mientras el
+  // cliente está vigente; con la baja se cargan cuándo y quién, y el
+  // motivo si se informó (CHECK manual `ck_clients_deactivation_coherent`).
+  // El motivo va acá y no en `audit_log` porque es texto libre que puede
+  // tener datos sensibles (AUDITORIA_Y_TRAZABILIDAD.md §4). Mismo criterio
+  // que `cases`.
+  deactivatedAt       DateTime? @map("deactivated_at") @db.Timestamptz(6)
+  deactivatedByUserId Int?      @map("deactivated_by_user_id")
+  deactivationReason  String?   @map("deactivation_reason") @db.VarChar(500)
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  deactivatedBy User? @relation("ClientDeactivatedBy", fields: [deactivatedByUserId], references: [id], onDelete: Restrict)
 
   cases Case[]
 
@@ -585,12 +602,24 @@ model ProceduralAct {
   lastModifiedByUserId Int?      @map("last_modified_by_user_id")
   lastModifiedAt       DateTime? @map("last_modified_at") @db.Timestamptz(6)
 
+  // Anulación = baja lógica (HU29, RN12, D-124). Para el cliente el acto
+  // anulado no existe: las lecturas filtran `active`. Las tres columnas
+  // valen NULL mientras el acto está vigente; con la anulación se cargan
+  // cuándo y quién, y el motivo si se informó (CHECK manual
+  // `ck_procedural_acts_deactivation_coherent`). El motivo va acá y no en
+  // `audit_log` por la misma razón que en `cases`.
+  active              Boolean   @default(true)
+  deactivatedAt       DateTime? @map("deactivated_at") @db.Timestamptz(6)
+  deactivatedByUserId Int?      @map("deactivated_by_user_id")
+  deactivationReason  String?   @map("deactivation_reason") @db.VarChar(500)
+
   case               Case             @relation("CaseProceduralActs", fields: [caseId], references: [id], onDelete: Restrict)
   currentOfCase      Case?            @relation("CaseCurrentAct")
   proceduralState    ProceduralState? @relation(fields: [proceduralStateId], references: [stateId], onDelete: Restrict)
   registeredBy       User             @relation("ProceduralActRegisteredBy", fields: [registeredByUserId], references: [id], onDelete: Restrict)
   registeredByLawyer Lawyer           @relation("ProceduralActRegisteredByLawyer", fields: [registeredByLawyerId], references: [id], onDelete: Restrict)
   lastModifiedBy     User?            @relation("ProceduralActLastModifiedBy", fields: [lastModifiedByUserId], references: [id], onDelete: Restrict)
+  deactivatedBy      User?            @relation("ProceduralActDeactivatedBy", fields: [deactivatedByUserId], references: [id], onDelete: Restrict)
 
   // Avisos de vencimiento que el proceso diario envió por este acto.
   sentNotifications SentNotification[]
@@ -907,6 +936,36 @@ model DailyJobRun {
 }
 
 // ─────────────────────────────────────────────────────────────
+// reporting — Foto del mes cerrado del reporte mensual (D-117, D-141)
+// ─────────────────────────────────────────────────────────────
+// Los datos de un mes que ya terminó, tomados al cerrarlo. Un mes cerrado
+// se lee siempre de acá y no cambia nunca; el mes en curso no se guarda,
+// se calcula en cada pedido. Conserva lo que valía ese mes (un abogado
+// dado de baja después sigue figurando con su nombre de entonces): por
+// eso es un JSON y no consultas a las tablas vivas. No se guarda el PDF:
+// se arma en cada descarga.
+//
+// Una fila por mes. La clave es el período, así que dos pedidos
+// simultáneos del mismo mes no pueden crear dos fotos distintas.
+model MonthlyReportSnapshot {
+  // 'AAAA-MM' (CHECK manual `ck_monthly_report_snapshots_period_format`).
+  period  String   @id @db.Char(7)
+  // Cuándo se tomó. Dato propio de la foto: ni la pantalla ni el PDF lo
+  // muestran (D-141).
+  takenAt DateTime @default(now()) @map("taken_at") @db.Timestamptz(6)
+  // Lo que se mide a la fecha de corte, con la forma de "Datos del
+  // reporte" (API_CONTRACT_V6.md §3.13): `summary`, `byJurisdiction`,
+  // `lawyers`, `prescription` y `deadlines`, incluido lo que solo usa el
+  // PDF. No se guarda lo que sale de otras filas o de la configuración y
+  // se arma al leer: `status`, `availableFrom`, `currentPeriod`, `monthly`
+  // (cada mes sale de su propia foto) y `admittedChange`/`archivedChange`
+  // (comparan con la foto del mes anterior). CHECK manual: objeto JSON.
+  data    Json     @db.JsonB
+
+  @@map("monthly_report_snapshots")
+}
+
+// ─────────────────────────────────────────────────────────────
 // audit — Auditoría de negocio (transversal; AUDITORIA_Y_TRAZABILIDAD.md)
 // ─────────────────────────────────────────────────────────────
 // Quién hizo qué, sobre qué entidad y cuándo (Ley 25.326, RN12; CA-14.5,
@@ -1008,6 +1067,13 @@ model AuditLog {
 //   case_files               ck_case_files_version_positive
 //   case_files               ck_case_files_page_count_positive
 //   audit_log                ck_audit_log_metadata_is_object
+//   -- Sprint 5 (migración sprint5_manual_constraints)
+//   clients                  ck_clients_deactivation_coherent           (D-122)
+//   clients                  ck_clients_deactivation_reason_not_blank
+//   procedural_acts          ck_procedural_acts_deactivation_coherent   (D-124)
+//   procedural_acts          ck_procedural_acts_deactivation_reason_not_blank
+//   monthly_report_snapshots ck_monthly_report_snapshots_period_format  (D-117, D-141)
+//   monthly_report_snapshots ck_monthly_report_snapshots_data_is_object
 //
 // Triggers:
 //   -- Sprint 4 (migración sprint4_manual_constraints)
