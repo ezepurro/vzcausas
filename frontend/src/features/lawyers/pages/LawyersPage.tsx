@@ -23,6 +23,7 @@ import { LawyerFormModal } from '@/features/lawyers/components/LawyerFormModal'
 import { lawyerLabel } from '@/features/lawyers/utils/lawyerLabel'
 import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue'
 import { formatPersonName } from '@/shared/lib/personName'
+import { usePageTitle } from '@/shared/hooks/usePageTitle'
 const LIMIT = 20
 
 /**
@@ -38,6 +39,7 @@ const EMPTY_FORM: LawyerFormValues = {
 }
 
 export function LawyersPage() {
+    usePageTitle('Abogados')
     const canCreate = useCan('lawyers.create')
     const canEdit = useCan('lawyers.update')
     const toast = useToast()

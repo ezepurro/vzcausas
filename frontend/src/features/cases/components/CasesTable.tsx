@@ -50,7 +50,7 @@ export function CasesTable({ rows, onOpen, onIntent, empty, loading, busy }: Cas
             primary: true,
             cell: (c) => (
                 <>
-                    <div className="vz-table__primary">{c.caption}</div>
+                    <div className="vz-table__primary" id={`case-row-${c.id}`}>{c.caption}</div>
                     {c.court && <div className="vz-table__secondary">{c.court}</div>}
                 </>
             ),
@@ -109,7 +109,7 @@ export function CasesTable({ rows, onOpen, onIntent, empty, loading, busy }: Cas
             header: '',
             actions: true,
             cell: (c) => (
-                <Button variant="ghost" size="sm" onClick={() => onOpen(c)} {...intent(c)}>
+                <Button variant="ghost" size="sm" aria-describedby={`case-row-${c.id}`} onClick={() => onOpen(c)} {...intent(c)}>
                     Ver detalle
                 </Button>
             ),

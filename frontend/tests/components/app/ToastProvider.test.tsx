@@ -61,7 +61,7 @@ describe('ToastProvider', () => {
     it('con el mouse encima no se va; al salir, vuelve a contar', () => {
         renderToasts()
         show('success', 'Cliente registrado.')
-        const toast = screen.getByRole('alert')
+        const toast = screen.getByRole('status')
 
         fireEvent.mouseEnter(toast)
         advance(TOAST_DURATION_MS.success * 3)
@@ -97,15 +97,24 @@ describe('ToastProvider', () => {
         show('info', 'Usuario eliminado.')
         show('error', 'El SAC ya existe.')
 
-        expect(screen.getAllByRole('alert')).toHaveLength(2)
+        expect([...screen.queryAllByRole('status'), ...screen.queryAllByRole('alert')]).toHaveLength(2)
         expect(screen.queryByText('Cliente registrado.')).not.toBeInTheDocument()
     })
 
-    it('cada aviso se anuncia una sola vez: es una alerta y nada alrededor lo repite', () => {
+    it('un error interrumpe (alert); un éxito o una baja esperan su turno (status)', () => {
+        renderToasts()
+        show('info', 'Usuario eliminado.')
+        show('error', 'El SAC ya existe.')
+
+        expect(screen.getByRole('status')).toHaveTextContent('Usuario eliminado.')
+        expect(screen.getByRole('alert')).toHaveTextContent('El SAC ya existe.')
+    })
+
+    it('cada aviso se anuncia una sola vez: nada alrededor lo repite', () => {
         renderToasts()
         show('success', 'Cliente registrado.')
 
-        const toast = screen.getByRole('alert')
+        const toast = screen.getByRole('status')
         expect(toast).toHaveTextContent('Cliente registrado.')
         expect(toast.closest('[aria-live]')).toBeNull()
     })

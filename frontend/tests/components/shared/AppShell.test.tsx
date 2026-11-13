@@ -90,10 +90,23 @@ describe('AppShell: menú en pantallas angostas', () => {
         const { user, onNavigate } = renderShell()
         await user.click(openButton())
 
-        await user.click(rail().getByRole('button', { name: 'Causas' }))
+        await user.click(rail().getByRole('link', { name: 'Causas' }))
 
         expect(onNavigate).toHaveBeenCalledWith('/causas')
         expect(isOpen()).toBe(false)
+    })
+
+    it('abierto, el foco entra al menú y la página queda inerte; al cerrar, vuelve al botón', async () => {
+        const { user } = renderShell()
+        const page = screen.getByRole('main').parentElement as HTMLElement
+
+        await user.click(openButton())
+        expect(rail().getByRole('button', { name: 'Cerrar menú' })).toHaveFocus()
+        expect(page).toHaveAttribute('inert')
+
+        await user.keyboard('{Escape}')
+        expect(page).not.toHaveAttribute('inert')
+        expect(screen.getByRole('button', { name: 'Abrir menú', hidden: true })).toHaveFocus()
     })
 
     it.each(['Nueva causa', 'Cerrar sesión'])('tocar "%s" también lo cierra', async (name) => {
@@ -135,6 +148,47 @@ describe('AppShell: menú en pantallas angostas', () => {
         } finally {
             vi.unstubAllGlobals()
         }
+    })
+})
+
+describe('AppShell: los ítems del rail son enlaces', () => {
+    it('cada sección es un enlace a su ruta, y la actual está marcada', () => {
+        renderShell()
+
+        expect(rail().getByRole('link', { name: 'Causas' })).toHaveAttribute('href', '/causas')
+        expect(rail().getByRole('link', { name: 'Inicio' })).toHaveAttribute('aria-current', 'page')
+        expect(rail().getByRole('link', { name: 'Causas' })).not.toHaveAttribute('aria-current')
+    })
+
+    it('un clic común navega la app sin recargar', async () => {
+        const { user, onNavigate } = renderShell()
+
+        await user.click(rail().getByRole('link', { name: 'Causas' }))
+
+        expect(onNavigate).toHaveBeenCalledWith('/causas')
+    })
+
+    it('con Ctrl apretado se deja al navegador: abrir en otra pestaña', async () => {
+        const { user, onNavigate } = renderShell()
+
+        await user.keyboard('{Control>}')
+        await user.click(rail().getByRole('link', { name: 'Causas' }))
+        await user.keyboard('{/Control}')
+
+        expect(onNavigate).not.toHaveBeenCalled()
+    })
+})
+
+describe('AppShell: saltar al contenido', () => {
+    it('es lo primero que encuentra el tabulador y lleva el foco al contenido', async () => {
+        const { user } = renderShell()
+
+        await user.tab()
+        const skip = screen.getByRole('link', { name: 'Saltar al contenido' })
+        expect(skip).toHaveFocus()
+
+        await user.click(skip)
+        expect(screen.getByRole('main')).toHaveFocus()
     })
 })
 

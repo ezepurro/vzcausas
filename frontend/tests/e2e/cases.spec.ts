@@ -93,7 +93,7 @@ test.describe('Causas', () => {
         // Vuelve al detalle con el estado que dejó el acto.
         await expect(page).toHaveURL(/\/causas\/\d+$/)
         await expect(
-            page.getByRole('alert').filter({ hasText: 'Acto registrado. La causa pasó a Cédula de notificación' }),
+            page.getByRole('status').filter({ hasText: 'Acto registrado. La causa pasó a Cédula de notificación' }),
         ).toBeVisible()
     })
 })

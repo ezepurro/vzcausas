@@ -89,7 +89,7 @@ describe('RegisterProceduralActPage · modificar acto procesal', () => {
         expect(await screen.findByText('Detalle de la causa')).toBeInTheDocument()
         // El aviso suma el ícono y el botón de cerrar: el principio y el final se miran en el mensaje.
         expect(
-            within(screen.getByRole('alert')).getByText(/^Acto modificado.*El cambio queda asentado con usuario y fecha\.$/),
+            within(screen.getByRole('status')).getByText(/^Acto modificado.*El cambio queda asentado con usuario y fecha\.$/),
         ).toBeInTheDocument()
         expect(db.proceduralActs.find((a) => a.id === ACT_ID)).toMatchObject({
             notes: 'Se corrigió la observación.',

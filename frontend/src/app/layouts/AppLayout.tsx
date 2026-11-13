@@ -164,14 +164,20 @@ export function AppLayout() {
                     <>
                     {/* Mientras se descarga la pantalla de destino (`lazy`). */}
                     <NavigationProgress />
-                    <div className="vz-topbar__right">
-                        <IconButton
-                            name="notifications"
-                            label="Notificaciones"
-                            disabled={dailyRun.isPending}
-                            onClick={DAILY_RUN_ENABLED ? runDailyNotifications : undefined}
-                        />
-                    </div>
+                    {/* La campana sólo se dibuja donde hace algo: el atajo de
+                        desarrollo para la corrida diaria. En producción era
+                        un botón muerto en todas las pantallas, y el contrato
+                        deja las notificaciones afuera (H-08). */}
+                    {DAILY_RUN_ENABLED && (
+                        <div className="vz-topbar__right">
+                            <IconButton
+                                name="notifications"
+                                label="Notificaciones"
+                                disabled={dailyRun.isPending}
+                                onClick={runDailyNotifications}
+                            />
+                        </div>
+                    )}
                     </>
             }
             railFooter={

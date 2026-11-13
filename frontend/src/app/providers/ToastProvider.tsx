@@ -42,8 +42,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     return (
         <ToastContext.Provider value={show}>
             {children}
-            {/* Sin `aria-live` acá: cada aviso ya es `role="alert"`, y una
-                región viva alrededor lo hacía anunciar dos veces. */}
+            {/* Sin `aria-live` acá: cada aviso ya trae su rol (`alert` o
+                `status`), y una región viva alrededor lo hacía anunciar dos
+                veces. */}
             <div
                 className="vz-toasts"
                 onMouseEnter={() => setHovered(true)}
@@ -83,7 +84,10 @@ function ToastItem({ toast, paused, onExpire, onClose }: ToastItemProps) {
     }, [id, kind, paused, onExpire])
 
     return (
-        <div className={`vz-toast vz-toast--${kind}`} role="alert">
+        /* Un error interrumpe (`alert`); un "guardado" o una baja se anuncian
+           cuando el lector de pantalla termina lo que estaba diciendo
+           (`status`). */
+        <div className={`vz-toast vz-toast--${kind}`} role={kind === 'error' ? 'alert' : 'status'}>
             {/* Círculo con el símbolo. Es decorativo (aria-hidden): el estado
                 ya lo dice el texto del mensaje. */}
             <span className="vz-toast__icon" aria-hidden="true">{SYMBOL[kind]}</span>

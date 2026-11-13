@@ -42,7 +42,7 @@ export function LawyersTable({ rows, maxActiveCases, onEdit, canEdit, empty, loa
             header: 'Apellido y Nombre',
             width: '42%',
             primary: true,
-            cell: (l) => <span className="vz-table__primary">{formatPersonName(l)}</span>,
+            cell: (l) => <span className="vz-table__primary" id={`lawyer-row-${l.id}`}>{formatPersonName(l)}</span>,
         },
         {
             id: 'registrationNumber',
@@ -84,6 +84,7 @@ export function LawyersTable({ rows, maxActiveCases, onEdit, canEdit, empty, loa
                     size="sm"
                     disabled={!canEdit}
                     title={canEdit ? undefined : 'Sólo el Administrador puede modificar abogados.'}
+                    aria-describedby={`lawyer-row-${l.id}`}
                     onClick={() => onEdit(l)}
                 >
                     Modificar

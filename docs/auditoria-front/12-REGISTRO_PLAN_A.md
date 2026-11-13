@@ -29,7 +29,7 @@ el resto está en el árbol de trabajo, sin commitear.
 |---|---|
 | `npx tsc -b` | Limpio |
 | `npm run lint` | 0 errores (el warning conocido de `Icon.tsx:2`) |
-| `npx vitest run` | **695 de 695** (107 archivos, con lo del plan B). Antes de empezar: 651. **Ojo: falla intermitente abierta**, ver abajo |
+| `npx vitest run` | **715 de 715** (108 archivos, con lo del plan B). Antes de empezar: 651. **Ojo: falla intermitente abierta**, ver abajo |
 | `npm run test:e2e` | **9 de 9** |
 | Navegador con mocks | Selector en el alta y en "Modificar causa"; dos pestañas reales (ver T-10) |
 
@@ -236,6 +236,21 @@ No hecho, a propósito:
   existen siempre. Se retira.
 - `src/shared/components/forms/FieldError.tsx:1` conserva su import
   relativo: el archivo es del plan B.
+
+## H-36 · Enter envía los formularios de modal (13/11/2026)
+
+**Qué pasaba.** Enter en un campo de un modal no hacía nada: `FormModal` no
+dibujaba un `<form>`.
+
+**Solución.** El cuerpo de `FormModal` es un `<form>` (`display: contents`,
+para no cambiar el armado) y "Confirmar" es su botón de envío, unido por el
+atributo `form` porque vive en el pie. Mientras guarda no envía: lo impide el
+botón deshabilitado y, además, una guarda propia (jsdom envía igual con el
+botón deshabilitado si está fuera del formulario; los navegadores no).
+
+**Comprobado.** 4 tests en `tests/components/shared/FormModal.test.tsx`:
+Enter confirma, no reenvía mientras guarda, en un área de texto es un renglón
+nuevo, y el botón sigue confirmando. **No se miró en el navegador.**
 
 ## Falla intermitente abierta (H-55)
 

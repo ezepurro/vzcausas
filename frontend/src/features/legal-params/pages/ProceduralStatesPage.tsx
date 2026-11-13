@@ -27,6 +27,7 @@ import { ProceduralStatesTable } from '@/features/legal-params/components/Proced
 import { ProceduralStateFormModal } from '@/features/legal-params/components/ProceduralStateFormModal';
 import { DeleteProceduralStateModal } from '@/features/legal-params/components/DeleteProceduralStateModal';
 import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue';
+import { usePageTitle } from '@/shared/hooks/usePageTitle';
 
 /** La pestaña de un fuero pide todos sus estados de una vez (§3.4). */
 const LIMIT = 100;
@@ -56,7 +57,11 @@ const EMPTY_FORM: ProceduralStateFormValues = {
     terminal: false,
 };
 
+/** El `id` del contenedor que cambia con la pestaña (`aria-controls`). */
+const STATES_PANEL_ID = 'procedural-states-panel'
+
 export function ProceduralStatesPage() {
+    usePageTitle('Estados y plazos');
     const toast = useToast();
 
     /* Filtros y paginado viven acá y se le pasan al hook: `DataTable` no
@@ -272,8 +277,12 @@ export function ProceduralStatesPage() {
                 tabs={JURISDICTION_TABS}
                 active={jurisdiction}
                 onChange={changeJurisdiction}
+                aria-label="Fuero"
+                panelId={STATES_PANEL_ID}
             />
 
+            {/* El panel de la pestaña elegida (H-41). */}
+            <div id={STATES_PANEL_ID} role="tabpanel" aria-label={`Fuero ${jurisdictionLabel}`}>
             <Panel
                 title={`Ciclo de vida del fuero ${jurisdictionLabel}`}
                 sub={`Estados procesales del fuero ${jurisdictionLabel}. Cada uno lleva su plazo.`}
@@ -332,6 +341,7 @@ export function ProceduralStatesPage() {
                     />
                 )}
             </Panel>
+            </div>
 
             {formOpen && (
                 <ProceduralStateFormModal

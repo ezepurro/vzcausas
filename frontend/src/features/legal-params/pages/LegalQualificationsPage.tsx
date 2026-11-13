@@ -26,6 +26,7 @@ import { LegalQualificationsTable } from '@/features/legal-params/components/Leg
 import { LegalQualificationFormModal } from '@/features/legal-params/components/LegalQualificationFormModal';
 import { DeleteLegalQualificationModal } from '@/features/legal-params/components/DeleteLegalQualificationModal';
 import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue';
+import { usePageTitle } from '@/shared/hooks/usePageTitle';
 
 const LIMIT = 20;
 
@@ -58,6 +59,7 @@ type Modal =
  * esas causas la conservan.
  */
 export function LegalQualificationsPage() {
+    usePageTitle('Calificaciones legales');
     const toast = useToast();
 
     /* El paginado y la búsqueda viven acá y se le pasan al hook: `DataTable`
