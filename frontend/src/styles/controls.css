@@ -229,6 +229,10 @@ a.vz-btn--ghost:hover { color: var(--vz-ink); }
   }
 
   .vz-select::picker-icon {
+    /* El mismo dibujo que la flecha de fondo: sin esto el navegador pone su
+       triángulo relleno, distinto del chevron del select con filtro (H-56). */
+    content: var(--vz-select-arrow);
+    display: flex;
     color: var(--vz-muted);
     transition: transform .15s ease;
   }

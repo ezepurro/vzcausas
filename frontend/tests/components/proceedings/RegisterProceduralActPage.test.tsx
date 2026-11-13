@@ -90,7 +90,7 @@ describe('RegisterProceduralActPage', () => {
 
         await user.type(await screen.findByRole('combobox'), 'Pedido de informes al Registro')
 
-        expect(screen.getByText(/Estado escrito a mano: queda guardado sólo en esta causa/)).toBeInTheDocument()
+        expect(screen.getByText(/Estado escrito a mano: queda guardado solo en esta causa/)).toBeInTheDocument()
         expect(screen.getByText('No tiene: estado escrito a mano')).toBeInTheDocument()
 
         await user.click(screen.getByRole('button', { name: 'Registrar acto' }))
@@ -160,7 +160,7 @@ describe('RegisterProceduralActPage', () => {
     ])('a %s le avisa quién es el responsable, sin formulario', async (_, username) => {
         const { user } = renderPage(1, username)
 
-        expect(await screen.findByText('Sólo el abogado responsable registra actos procesales')).toBeInTheDocument()
+        expect(await screen.findByText('Solo el abogado responsable registra actos procesales')).toBeInTheDocument()
         expect(screen.getByText(/^El responsable de esta causa es .*Malena Ríos\.$/)).toBeInTheDocument()
         expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
 

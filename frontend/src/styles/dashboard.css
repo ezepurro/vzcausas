@@ -362,7 +362,49 @@
 .vz-dash-cal__dot--today { background: var(--vz-mark-danger); }
 .vz-dash-cal__dot--thisWeek { background: var(--vz-warn-mark); }
 .vz-dash-cal__dot--later { background: var(--vz-mark-ok); }
-.vz-dash-cal__more { padding-left: 2px; font-size: 10.5px; font-weight: 600; color: var(--vz-muted); }
+.vz-dash-cal__more {
+  align-self: flex-start;
+  padding: 1px 4px;
+  border: none;
+  border-radius: var(--vz-r-sm);
+  background: transparent;
+  color: var(--vz-muted);
+  font: inherit;
+  font-size: 10.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.vz-dash-cal__more:hover { background: var(--vz-sunken); color: var(--vz-ink); }
+
+/* El día entero como botón: sólo en el teléfono (H-50). */
+.vz-dash-cal__open { display: none; }
+
+/* La lista del día elegido, debajo de la grilla (H-50). */
+.vz-dash-cal__list { border-top: 1px solid var(--vz-border); }
+.vz-dash-cal__list-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px var(--vz-panel-pad) 6px;
+}
+.vz-dash-cal__list-title { margin: 0; font-size: 13.5px; font-weight: 700; color: var(--vz-ink); }
+.vz-dash-cal__list-items { margin: 0; padding: 0 var(--vz-panel-pad) 8px; list-style: none; }
+.vz-dash-cal__list-items > li + li { border-top: 1px solid var(--vz-border); }
+.vz-dash-cal__list-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 8px 4px;
+  border-radius: var(--vz-r-sm);
+  color: var(--vz-ink);
+  text-decoration: none;
+}
+.vz-dash-cal__list-link:hover { background: var(--vz-sunken); }
+.vz-dash-cal__list-main { display: flex; flex: 1; flex-direction: column; min-width: 0; }
+.vz-dash-cal__list-caption { font-size: 13px; font-weight: 600; line-height: 1.35; }
+.vz-dash-cal__list-meta { font-size: 12px; color: var(--vz-muted); }
 
 /* ─────────── causas para impulsar y alertas ─────────── */
 /* Las dos listas de la columna derecha de "Mi día" (las alertas también
@@ -599,35 +641,30 @@
     text-align: center;
   }
   .vz-dash-cal__day {
+    position: relative;
     min-height: 3.6rem;
     padding: 5px 2px;
     text-align: center;
   }
   .vz-dash-cal__num { font-size: 11.5px; }
-  .vz-dash-cal__items {
-    flex-direction: row;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 0;
-    margin-top: 3px;
-  }
-  .vz-dash-cal__item {
-    width: 18px;
-    height: 20px;
-    justify-content: center;
-    padding: 0;
-    border-radius: var(--vz-r-pill);
-  }
-  .vz-dash-cal__dot { width: 8px; height: 8px; flex-basis: 8px; }
-  .vz-dash-cal__item > span:last-child {
+  /* El día entero es el botón (H-50): los puntos sueltos medían 18×20 px.
+     Las carátulas y el "+N más" de la celda no entran: van en la lista que
+     abre el día. */
+  .vz-dash-cal__items { display: none; }
+  .vz-dash-cal__open {
     position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
+    inset: 0;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 3px;
+    padding: 0 0 9px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
   }
-  .vz-dash-cal__more { flex-basis: 100%; padding: 0; font-size: 9.5px; }
+  .vz-dash-cal__day--open { box-shadow: inset 0 0 0 2px var(--vz-primary); }
+  .vz-dash-cal__dot { width: 8px; height: 8px; flex-basis: 8px; }
 
   /* En el teléfono no hay listas que scrolleen adentro de la página: con el
      dedo, un scroll dentro de otro atrapa el gesto y no se sabe cuál se

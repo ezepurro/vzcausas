@@ -187,7 +187,7 @@ export function LawyersPage() {
                 no se ve en el teléfono ni se alcanza con el teclado (H-53). */}
             {readOnly && (
                 <p className="vz-page-note" id={READ_ONLY_NOTE_ID}>
-                    Sólo el Administrador registra y modifica abogados.
+                    Solo el Administrador registra y modifica abogados.
                 </p>
             )}
 
@@ -205,7 +205,7 @@ export function LawyersPage() {
                             icon={<Icon name="plus" />}
                             size="md"
                             disabled={!canCreate}
-                            title={canCreate ? undefined : 'Sólo el Administrador puede registrar abogados.'}
+                            title={canCreate ? undefined : 'Solo el Administrador puede registrar abogados.'}
                             aria-describedby={canCreate ? undefined : READ_ONLY_NOTE_ID}
                             onClick={openCreate}
                         >

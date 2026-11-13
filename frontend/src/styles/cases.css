@@ -495,6 +495,8 @@
 /* Sin carpeta, vacía o con Drive caído: una línea de texto en lugar de la lista. */
 .vz-docs__note { margin: 0; font-size: 13px; line-height: 1.45; color: var(--vz-muted); }
 .vz-docs__note--error { color: var(--vz-danger); }
+/* El motivo de "Descargar" deshabilitado, arriba de la lista. */
+.vz-docs__reason { margin: 0; padding: 12px var(--vz-panel-pad) 0; }
 
 /* Teléfono: con los dos botones al lado, el nombre quedaba en un par de
    letras. Bajan a su renglón, alineados con el nombre (el recuadro del tipo,

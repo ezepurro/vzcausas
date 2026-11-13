@@ -1,3 +1,4 @@
+import { useId } from 'react'
 import { Button, Icon, LoadingState, Panel, Skeleton } from '@/shared/components/ui'
 import { formatInstantDate, formatTime } from '@/shared/lib/dates'
 import type { CaseDocument } from '@/features/cases/types/caseDocument'
@@ -24,8 +25,12 @@ export interface CaseDocumentsCardProps {
     onDownload: (doc: CaseDocument) => void
 }
 
-/** Lo que explica "Descargar" deshabilitado. */
-const DOWNLOAD_FORBIDDEN = 'Sólo el Abogado y la Secretaría descargan los documentos que no son expedientes.'
+/**
+ * Lo que explica "Descargar" deshabilitado. Va a la vista, arriba de la
+ * lista, y unido a cada botón: un `title` no se ve en el teléfono ni se
+ * alcanza con el teclado (H-53 de `docs/auditoria-front`).
+ */
+const DOWNLOAD_FORBIDDEN = 'Solo el Abogado y la Secretaría descargan los documentos que no son expedientes.'
 
 /** La nota al pie, del prototipo. */
 const FOOTNOTE =
@@ -63,6 +68,11 @@ export function CaseDocumentsCard({ folderCreated, documents, readAt, loading, e
 /** Lo que cada fila necesita para "Descargar". */
 type DownloadProps = Pick<CaseDocumentsCardProps, 'canDownloadDocuments' | 'downloadingId' | 'onDownload'>
 
+/** El expediente lo baja cualquiera; lo demás, sólo con `canDownloadDocuments` (D-103). */
+function canDownload(doc: CaseDocument, download: DownloadProps): boolean {
+    return doc.caseFile !== null || download.canDownloadDocuments
+}
+
 /** "12 archivos", "1 archivo". */
 function filesCount(n: number): string {
     return `${n} ${n === 1 ? 'archivo' : 'archivos'}`
@@ -80,6 +90,7 @@ interface BodyProps extends Pick<CaseDocumentsCardProps, 'folderCreated' | 'docu
 }
 
 function Body({ folderCreated, documents, loading, error, download }: BodyProps) {
+    const forbiddenNoteId = useId()
     if (!folderCreated) {
         return (
             <div className="vz-panel__body">
@@ -112,10 +123,19 @@ function Body({ folderCreated, documents, loading, error, download }: BodyProps)
             </div>
         )
     }
+    // La nota sólo si hay algún documento que este usuario no puede bajar.
+    const someForbidden = documents.some((doc) => !canDownload(doc, download))
     return (
-        <ul className="vz-docs">
-            {documents.map((doc) => <DocumentRow key={doc.id} doc={doc} download={download} />)}
-        </ul>
+        <>
+            {someForbidden && (
+                <p className="vz-note vz-docs__reason" id={forbiddenNoteId}>{DOWNLOAD_FORBIDDEN}</p>
+            )}
+            <ul className="vz-docs">
+                {documents.map((doc) => (
+                    <DocumentRow key={doc.id} doc={doc} download={download} forbiddenNoteId={forbiddenNoteId} />
+                ))}
+            </ul>
+        </>
     )
 }
 
@@ -127,11 +147,16 @@ function Body({ folderCreated, documents, loading, error, download }: BodyProps)
  * quien no puede bajarlo: el expediente lo baja cualquiera; lo demás, sólo
  * con `canDownloadDocuments`.
  */
-function DocumentRow({ doc, download }: { doc: CaseDocument; download: DownloadProps }) {
+function DocumentRow({ doc, download, forbiddenNoteId }: {
+    doc: CaseDocument
+    download: DownloadProps
+    /** El id de la nota que explica "Descargar" deshabilitado. */
+    forbiddenNoteId: string
+}) {
     const meta = [doc.uploadedBy, formatInstantDate(doc.createdAt), formatFileSize(doc.sizeBytes)]
         .filter(Boolean)
         .join(' · ')
-    const allowed = doc.caseFile !== null || download.canDownloadDocuments
+    const allowed = canDownload(doc, download)
     const downloading = download.downloadingId === doc.id
 
     return (
@@ -156,6 +181,7 @@ function DocumentRow({ doc, download }: { doc: CaseDocument; download: DownloadP
                     icon={<Icon name="download" />}
                     disabled={!allowed || downloading}
                     title={allowed ? undefined : DOWNLOAD_FORBIDDEN}
+                    aria-describedby={allowed ? undefined : forbiddenNoteId}
                     onClick={() => download.onDownload(doc)}
                 >
                     Descargar

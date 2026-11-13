@@ -6,7 +6,7 @@ con Claude. Desde la tanda 12, Luciano sigue con lo que quedaba de los dos
 planes.
 
 Este documento junta en un solo lugar lo que está repartido en los informes
-`00` a `21` de esta carpeta: por qué se hizo la auditoría, qué se encontró, qué
+`00` a `26` de esta carpeta: por qué se hizo la auditoría, qué se encontró, qué
 se arregló y qué quedó. Si un dato de acá no coincide con el informe de su
 tanda, **manda el informe de la tanda**. Las rutas son relativas a `frontend/`.
 
@@ -15,15 +15,21 @@ tanda, **manda el informe de la tanda**. Las rutas son relativas a `frontend/`.
 - Se revisó el frontend entero buscando bugs, problemas de accesibilidad,
   pantallas que se rompen en algún ancho y código frágil. **No se encontró
   nada crítico**: el front ya estaba bien armado.
-- Se encontraron **55 hallazgos** (`H-01` a `H-55`) y 3 huecos de caché
+- Se encontraron **57 hallazgos** (`H-01` a `H-57`) y 3 huecos de caché
   (`C-1` a `C-3`). De gravedad alta, 5.
 - **Los 5 altos están corregidos**, y la gran mayoría de los medios y bajos.
 - La suite pasó de **651 tests a 771**. Los 9 E2E pasan. Lint, tipos y build,
   limpios. La falla intermitente con todos los núcleos (H-55) está resuelta
   (tanda 12).
 - **Todo se probó con los mocks. Nada se probó contra el backend real.**
-- La tanda 11 está commiteada (`91f0583`). Desde la tanda 12 sigue Luciano,
-  con lo que quedaba de los dos planes; lo nuevo **está sin commitear**.
+- La tanda 11 está commiteada (`91f0583`), y las tandas 12 a 15 también
+  (`e90fe65`). Desde la tanda 12 siguió Luciano con lo que quedaba de los dos
+  planes, y desde el traspaso ([22](22-TRASPASO.md)), Facundo. **Sin
+  commitear:** los arreglos de la tanda 15, la revisión a ojo
+  ([23](23-TANDA14_VISUAL_PARTE2.md)) y la documentación
+  ([24](24-TANDA17_DOCUMENTACION.md)) y el calendario
+  ([26](26-TANDA16_CALENDARIO_H50.md)). Para seguir:
+  [25-TRASPASO_2.md](25-TRASPASO_2.md).
 
 ## 2. Por qué se hizo
 
@@ -125,7 +131,7 @@ pantalla (no arrastra de vuelta; su error ahora se avisa, ver arriba).
 | El paginado es una región con nombre y anuncia el cambio de página | H-46 |
 | Los avisos de éxito e información son `role="status"`: no interrumpen. Un error sigue siendo `alert` | Decisión 1 |
 | Cada acción de fila dice de quién es: "Modificar, botón, Ríos, Malena" | H-40 |
-| El motivo de un botón deshabilitado está a la vista, no sólo en el `title`: en Abogados y en el detalle de causa | H-53 |
+| El motivo de un botón deshabilitado está a la vista, no sólo en el `title`: en Abogados y en el detalle de causa. Desde la tanda 15, también en los actos (procesal, interruptivo y "Modificar" de la línea de vida) y en "Descargar" de un documento | H-53 |
 | Contraseñas y correo con `autocomplete` y tipo `email`: el navegador no ofrece la contraseña del administrador al crear un usuario | H-37 |
 | Todos los modales tienen una `×` | H-44 |
 | El título de la pestaña del navegador dice la pantalla; en una causa, su carátula | H-20 |
@@ -139,8 +145,9 @@ pantalla (no arrastra de vuelta; su error ahora se avisa, ver arriba).
 | Acciones de fila con contraste suficiente (de 3,4:1 a 6,06:1) | H-40 |
 | Borde de los campos más marcado | H-43 |
 | Controles de toque en el teléfono: botones chicos, "Volver", migas, pie del rail y fecha del hecho pasan a 36–40 px | H-25, H-51, H-52, H-54 |
+| El calendario en el teléfono: el día entero es un botón (49×57 px; antes, puntos de 18×20) que abre la lista de sus plazos, cada uno un enlace a su causa. En pantallas anchas la abre "+N más", que antes no se podía tocar ([26](26-TANDA16_CALENDARIO_H50.md)) | H-50 |
 | El login angosto muestra la marca en una franja arriba | H-26 |
-| El selector con filtro tiene la flecha de un `<select>` | — |
+| El selector con filtro tiene la flecha de un `<select>`; y en Chrome, donde el `<select>` dibujaba su propio triángulo, ahora lleva el mismo chevron ([23](23-TANDA14_VISUAL_PARTE2.md)) | H-56 |
 | 26 colores escritos a mano pasaron a 13 tokens, con el mismo valor | H-49 |
 
 ### Funcionalidad nueva
@@ -181,7 +188,7 @@ Estado con los cambios de los dos planes y las tandas 11 a 13:
 |---|---|
 | `npm run lint` | 0 errores; un warning conocido en `src/shared/components/ui/Icon.tsx:2` |
 | `npx tsc -b` | Limpio |
-| `npx vitest run` | **771 de 771** (121 archivos), después de la primera parte de la tanda 14. En la tanda 12, cinco corridas seguidas sin fallas. Al empezar: 651 |
+| `npx vitest run` | **774 de 774 (121 archivos), en las dos últimas corridas; ver abajo las fallas intermitentes**, después de la tanda 16 (782 de 782 (122 archivos), en una corrida). En la tanda 12, cinco corridas seguidas sin fallas. Al empezar: 651 |
 | `npm run test:e2e` | **9 de 9**, después de la primera parte de la tanda 14, con la ventana de Playwright en 1366 × 768 |
 | `npm run build` | Sin errores, después de la primera parte de la tanda 14 |
 | Navegador, con mocks | Lo modificado se miró a 320–390 px y a 1024–1366 px, tanda por tanda |
@@ -198,28 +205,33 @@ no hace falta pasarle `--maxWorkers`.
 |---|---|
 | **Probar contra el backend real** | Todo se probó con mocks. Falta: sesión entre pestañas, subida de un modelo, timeouts de archivos, expediente |
 | **Fin de mes de la prescripción: escribirlo en el contrato** | Se decidió que vale el backend (corta en el último día del mes) y el mock ya lo sigue. El contrato todavía no lo dice |
-| **Los tres perfiles contra la tabla de permisos** (`gestion`, `mrios`, `supervision`) | Recorridos en la tanda 15 ([21](21-TANDA15_PERFILES.md)): ningún perfil puede de más ni de menos. Quedan cinco diferencias de forma para decidir (acto interruptivo habilitado con aviso; dos motivos de deshabilitado sin unir o sólo en `title`; "Solo"/"Sólo"; "Sin acceso" repetido). Sin cambios de código |
 | **Lector de pantalla real** | Todo lo de ARIA se comprobó en el DOM, nunca con NVDA |
+
+**Resuelto:** los tres perfiles contra la tabla de permisos (`gestion`,
+`mrios`, `supervision`), recorridos en la tanda 15: ningún perfil puede de más
+ni de menos, y las cinco diferencias de forma que aparecieron están corregidas
+([21](21-TANDA15_PERFILES.md), "Arreglos").
 
 ### Revisión visual que falta
 
-Para la segunda parte de la tanda 14, con el panel del navegador a la vista:
-el borde nuevo de los campos y la flecha del selector a 1366 px; el tablero
-"Estudio" a ojo; los modales de modelos, abogado, usuario, acto interruptivo y
-"Marcar prescripta" en el teléfono; las notas nuevas de botones deshabilitados
-en el teléfono; cómo se ven una tabla en fichas a 1.280 px y el bloque de
-error con "Reintentar"; y el cursor en "Fuero" (diagnóstico parcial en el
-[20](20-TANDA14_VISUAL_PARTE1.md), sección 5). Los estados de carga y de error
-forzados y el Ctrl+clic del rail ya se revisaron ([20](20-TANDA14_VISUAL_PARTE1.md)).
+La segunda parte de la tanda 14 se hizo con el panel a la vista
+([23](23-TANDA14_VISUAL_PARTE2.md)): bordes de los campos, tablero "Estudio",
+los cinco modales y las notas de botones deshabilitados en el teléfono, las
+fichas a 1.280 px y el bloque de error. Nada roto. Queda:
+
+| Qué | Hallazgo |
+|---|---|
+| El pie de un listado dice "Sin resultados" mientras carga o cuando falló | H-57 |
+| El cursor en "Fuero": necesita Chrome real (diagnóstico parcial en el [20](20-TANDA14_VISUAL_PARTE1.md), sección 5) | — |
+| A 1.280 px las fichas de Causas muestran dos causas y media por pantalla: ¿alcanza, o se saca una columna en ese rango? | Decisión |
 
 ### Decisiones del equipo
 
 | Qué | Hallazgo |
 |---|---|
-| Puntos del calendario en el teléfono (18×20 px): la idea es que todo el día sea tocable; falta acordar qué pasa con un día con varios plazos | H-50 |
 | El front decide permisos con sus tablas y no con `permissions` del backend | H-10 |
 | `react-hook-form` instalado y sin uso | H-16 |
-| Las tres notas "Solo el abogado responsable (…)" del detalle de causa: ¿se unen en una? | H-53 |
+| Las notas "Solo el abogado responsable (…)" del detalle de causa, que con la de la línea de vida son cuatro: ¿se unen en una? "Registrar acto interruptivo" queda lejos de la suya | H-53 |
 | Si después molesta que los nombres de las acciones de fila se repitan en un listado de botones, pasar a `aria-label` | H-40 |
 
 ### Para después
@@ -231,12 +243,12 @@ forzados y el Ctrl+clic del rail ya se revisaron ([20](20-TANDA14_VISUAL_PARTE1.
   darle un tiempo propio; falta el OK ([18](18-TANDA12_H55.md)).
 - Los mocks se publican en el build si se hace con `VITE_USE_MOCKS=true`
   (H-24): confirmar con qué variables se despliega.
-- **Documentación atrasada**: `frontend/CLAUDE.md` y
-  `docs/Frontend-Architecture/SHARED.md` no mencionan `SearchSelect`,
-  `usePageTitle`, `fieldIds`/`controlA11y`, la pila de modales ni
-  `dismissOnBackdrop`. `MATRIZ_CA.md` se regenera con `npm run ca-matrix`.
-  El `CLAUDE.md` raíz dice que el contrato vigente es V5 y el del front, V6
-  (H-15).
+- **Documentación**: `frontend/CLAUDE.md` y
+  `docs/Frontend-Architecture/SHARED.md` ya describen lo que sumó la
+  auditoría, y `MATRIZ_CA.md` está regenerada (tanda 17,
+  [24](24-TANDA17_DOCUMENTACION.md)). Falta: `TESTING.md` §11 no lista los
+  tests de la auditoría, y el `CLAUDE.md` raíz dice que el contrato vigente es
+  V5 y el del front, V6 (H-15, decisión pendiente).
 
 ## 9. Lo nuevo que conviene conocer
 
@@ -276,5 +288,9 @@ forzados y el Ctrl+clic del rail ya se revisaron ([20](20-TANDA14_VISUAL_PARTE1.
 | H-55, la falla intermitente de la suite: causa y arreglo | [18](18-TANDA12_H55.md) |
 | Carreras (cambiar de causa, salir con algo guardándose, sondeo de la carpeta) y tests de C-2 y C-3 | [19](19-TANDA13_CARRERAS_Y_CACHE.md) |
 | Tablas que no entran, errores de carga, "Registrar causa" con sus listas caídas, Ctrl+clic, lo que se sabe del cursor en "Fuero" | [20](20-TANDA14_VISUAL_PARTE1.md) |
-| Los tres perfiles contra la tabla de permisos, pantalla por pantalla | [21](21-TANDA15_PERFILES.md) |
+| Los tres perfiles contra la tabla de permisos, pantalla por pantalla, y los arreglos de sus cinco diferencias | [21](21-TANDA15_PERFILES.md) |
+| Qué se documentó de la auditoría y qué quedó sin tocar | [24](24-TANDA17_DOCUMENTACION.md) |
+| El estado al cortar y el prompt para seguir | [25](25-TRASPASO_2.md) |
+| El calendario en el teléfono y la lista del día (H-50) | [26](26-TANDA16_CALENDARIO_H50.md) |
+| La revisión a ojo: campos, "Estudio", modales y notas en el teléfono, fichas y bloque de error; H-56 y H-57 | [23](23-TANDA14_VISUAL_PARTE2.md) |
 | Las notas entre los dos planes y las decisiones acordadas | [11](11-PARA_LUCIANO.md), [13](13-RESPUESTA_A_FACUNDO.md), [15](15-PARA_LUCIANO_2.md) |

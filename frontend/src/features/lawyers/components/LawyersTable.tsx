@@ -87,7 +87,7 @@ export function LawyersTable({
                     variant="ghost"
                     size="sm"
                     disabled={!canEdit}
-                    title={canEdit ? undefined : 'Sólo el Administrador puede modificar abogados.'}
+                    title={canEdit ? undefined : 'Solo el Administrador puede modificar abogados.'}
                     aria-describedby={[`lawyer-row-${l.id}`, !canEdit && readOnlyNoteId].filter(Boolean).join(' ')}
                     onClick={() => onEdit(l)}
                 >

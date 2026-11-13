@@ -133,6 +133,11 @@ import { ApiError, isApiError } from '@/shared/api/ApiError';
 | `PageHeader` | Component | `components/ui/PageHeader.tsx` | Título de pantalla + acciones |
 | `Panel` | Component | `components/ui/Panel.tsx` | Tarjeta con cabecera/pie |
 | `DataTable` | Component | `components/ui/DataTable.tsx` | Tabla de datos |
+| `LoadError` | Component | `components/ui/LoadError.tsx` | Lo que no se pudo cargar: alerta y "Reintentar" |
+| `SearchSelect` | Component | `components/forms/SearchSelect.tsx` | Select con filtro, para listas largas |
+| `fieldIds` / `controlA11y` | Función | `components/forms/fieldA11y.ts` | Unen un control con su error, su nota y su obligatoriedad |
+| `usePageTitle` | Hook | `hooks/usePageTitle.ts` | Título de la pestaña del navegador |
+| `leftBehindErrors` | Módulo | `api/leftBehindErrors.ts` | Aviso de lo que falla después de salir de la pantalla |
 | `CollapsibleFilters` | Component | `components/ui/CollapsibleFilters.tsx` | Filtros de un listado, plegados detrás de "Filtros" en el teléfono |
 | `Pagination` | Component | `components/ui/Pagination.tsx` | Paginado del pie de un panel |
 | `Tabs` | Component | `components/ui/Tabs.tsx` | Pestañas |
@@ -191,6 +196,11 @@ import { ApiError, isApiError } from '@/shared/api/ApiError';
 | Necesidad | Usar | Nota |
 | --- | --- | --- |
 | Pantalla de listado | `PageHeader` + `Panel` + `DataTable` | Patrón estándar del producto |
+| Algo no se pudo cargar | `LoadError` | Con el `refetch` de la consulta. No armes el bloque a mano |
+| Título de la pestaña | `usePageTitle('Clientes')` | Una línea por página, arriba de todo |
+| Elegir entre muchas opciones (cliente, calificación) | `SearchSelect` | Con más de una página de opciones, `onSearch` busca en el servidor |
+| Campo armado a mano con `Field` | `fieldIds` en el `Field` y `controlA11y` en el control | `FormModal` ya lo hace solo |
+| Diálogo con campos | `Modal dismissOnBackdrop={false}` (`FormModal` ya lo trae) | Un clic afuera no se lleva lo escrito |
 | Botón | `Button` | `variant` + `size`, nunca `<button>` suelto |
 | Botón de fila / acción compacta | `Button variant="ghost" size="sm"` o `IconButton` | En columna con `actions: true` |
 | Estado / plazo / semáforo | `Pill` | `tone`: warn = por vencer, danger = vencido |
@@ -320,6 +330,16 @@ ficha y el pie con el paginado quedan como tarjetas separadas. En el teléfono
 (debajo de 721px) los datos van de a dos y se esconden las columnas marcadas
 `hideWhenNarrow` (lo prescindible: fuero, responsable, último acceso).
 **Toda tabla nueva marca su columna `primary`.**
+
+**También pasa a fichas cuando no entra** (`useStacked`, 13/11/2026): con
+la ventana más ancha que 1180px, si el lugar que tiene la tabla es más angosto
+que su `minWidth`, se dibuja como fichas en vez de scrollear en horizontal.
+Pasa entre 1181 y 1360px con las tablas de 1.040px de mínimo (Causas,
+Usuarios). Se mide antes de dibujar, así no se ve la tabla un instante. En
+jsdom (sin `matchMedia` ni `ResizeObserver`) queda siempre como tabla: un
+test que necesite las fichas tiene que simularlos, como
+`tests/components/shared/DataTable.stacked.test.tsx`. Los E2E fijan la
+ventana en 1366 × 768 (`playwright.config.ts`) para ver la tabla.
 
 ```tsx
 <DataTable
@@ -475,6 +495,20 @@ donde se lo monte. Mientras está abierto, **bloquea el scroll de la página de
 atrás** (`body` en `overflow: hidden`) y lo devuelve como estaba al cerrarse,
 así que dos modales apilados no se desbloquean entre sí.
 
+Desde la auditoría del front (11/2026):
+
+- **`dismissOnBackdrop?`** (default `true`): si un clic en el fondo lo
+  cierra. **Un diálogo con campos lo apaga** (`FormModal` ya lo hace): un
+  clic afuera, a veces sin querer, se llevaba lo escrito. Una confirmación sin
+  campos lo deja prendido. Escape, "Cancelar" y la "×" siempre cierran, y no
+  se pregunta "¿descartar los cambios?" (decisión del equipo).
+- **Pila de modales.** Con un modal encima de otro ("Registrar cliente nuevo"
+  sobre "Modificar causa"), sólo el de arriba atiende Escape y Tab: Escape
+  cierra uno por vez.
+- **Todos llevan una "×"** en la cabecera, con el nombre accesible "Cerrar".
+  En un test, `getByRole('button', { name: /cerrar/i })` dentro de un modal
+  la encuentra también.
+
 ### Avatar
 
 **Path:** `components/ui/Avatar.tsx`
@@ -606,6 +640,32 @@ if (query.isPending) return (
   Si existe la clase de la pieza de verdad (`.vz-case-head`, `.vz-timeline`,
   `.vz-dash-band`), usala: el esqueleto queda igual de grande.
 - Con `prefers-reduced-motion` el brillo se apaga.
+
+### LoadError
+
+**Path:** `components/ui/LoadError.tsx`
+**Props:** `title` (qué no se pudo cargar: "No se pudieron cargar las
+causas"), `error` (el de la consulta; su mensaje va debajo del título),
+`onRetry()` (el `refetch` de la consulta), `retrying?`.
+
+Lo que se ve cuando una consulta falla. El título y el mensaje van en un
+`role="alert"` y debajo "Reintentar", que mientras vuelve a pedir dice
+"Reintentando…". **No ofrece reintentar lo que va a responder lo mismo**: un
+`404`, un `403` o un `400`; sí sin red, con un `5xx` o un `429`.
+**Toda pantalla nueva lo usa** en lugar de armar su bloque de error.
+
+```tsx
+if (query.isError) {
+  return (
+    <LoadError
+      title="No se pudieron cargar los clientes"
+      error={query.error}
+      onRetry={() => query.refetch()}
+      retrying={query.isFetching}
+    />
+  )
+}
+```
 
 ### Logo / RailUser
 
@@ -766,6 +826,59 @@ de un punto seguido de mayúscula, así "art. 162 CP" o "1-28114." no se parten.
   control suelto (la fecha del hecho de `LegalQualificationPicker`, la selección
   de documentos del expediente).
 
+### fieldIds / controlA11y
+
+**Path:** `components/forms/fieldA11y.ts`
+
+Unen un campo con su error, su nota y su obligatoriedad para un lector de
+pantalla, en los formularios que arman sus campos a mano con `Field`
+(`CaseForm`, `CaseEditForm`, `ProceduralActForm`). `FormModal` hace lo
+mismo por su cuenta, con los mismos ids.
+
+- `fieldIds(id)` → `{ errorId, noteId }`, para el `Field`.
+- `controlA11y(id, error, { note?, required? })` → `aria-invalid`,
+  `aria-describedby` (el error si lo hay; si no, la nota) y `aria-required`,
+  para el control. Lo obligatorio lo anuncia el control, no el asterisco.
+
+```tsx
+<Field label="Carátula" required htmlFor="case-caption" error={errors.caption}
+    {...fieldIds('case-caption')}>
+  <TextInput
+    id="case-caption"
+    {...controlA11y('case-caption', errors.caption, { required: true })}
+  />
+</Field>
+```
+
+### SearchSelect
+
+**Path:** `components/forms/SearchSelect.tsx`
+**Props:** `value` (el de la opción elegida, o `''`), `options:
+{ value, label }[]`, `onSelect(value)`, `selectedLabel?`, `onSearch?(text)`,
+`placeholder?`, `emptyText?`, `loading?`, `note?`, `disabled?`,
+`clearLabel?`, `maxLength?`, `id?` y los `aria-*` de `controlA11y`.
+
+Un select en el que se escribe para filtrar, sin distinguir acentos ni
+mayúsculas. Es para listas que pueden pasar de una página (clientes,
+calificaciones): un `<select>` con 100 opciones dejaba afuera, sin aviso, a
+la 101.
+
+- Las opciones se filtran acá con lo escrito, al instante. Con `onSearch`
+  además se le avisa al dueño para que busque en el servidor (con demora); al
+  cerrarse la lista avisa `''`.
+- `selectedLabel` hace falta cuando la elegida puede no estar entre
+  `options`, que cambian con cada búsqueda.
+- `note` es un renglón al pie de la lista: "Se muestran 100 de 240
+  clientes…".
+- Con `clearLabel` ofrece una "×" para sacar la elección.
+- De dónde salen las opciones lo resuelve cada módulo: ver
+  `useClientOptions` y `useQualificationOptions` de `cases/api/`.
+- En un test se elige con `chooseOption` de `tests/setup/searchSelect.ts`.
+
+**Diferencia con `Combobox`:** el `Combobox` acepta un valor escrito a
+mano (un estado procesal que no está en la tabla); el `SearchSelect` sólo
+deja elegir una opción.
+
 ### Combobox
 
 **Path:** `components/forms/Combobox.tsx`
@@ -826,6 +939,17 @@ más de cuatro opciones o textos largos, `Select`.
 ---
 
 ## Hooks
+
+### usePageTitle
+
+**Path:** `hooks/usePageTitle.ts`
+
+El título de la pestaña del navegador: `usePageTitle('Clientes')` deja
+"Clientes · VZ Causas". Va una vez por página, arriba de todo. Con un dato
+que todavía no llegó (la carátula de una causa) se pasa `undefined` y queda
+"VZ Causas" hasta que llegue. Al salir de la pantalla el título vuelve al de
+la aplicación. **Toda página nueva lo usa**: es lo primero que anuncia un
+lector de pantalla al cambiar de pantalla.
 
 ### useDebouncedValue
 
@@ -1026,6 +1150,19 @@ los getters, nunca comparar `e.message`.
 - Mutations: `retry: false` (nunca reintentar POST/PATCH/DELETE).
 
 Las features usan `useQuery` / `useMutation` normalmente; no hay que configurar nada.
+
+### leftBehindErrors
+
+**Path:** `api/leftBehindErrors.ts` — ya enchufado en `queryClient` y en
+`ToastProvider`; una feature no lo llama.
+
+TanStack sólo corre el `onError` de un `mutate(…)` si el componente sigue
+montado. Si la persona salió de la pantalla con algo guardándose y el servidor
+lo rechaza (un SAC repetido al registrar una causa), nadie avisaba. Este
+módulo lleva la cuenta de quién escucha cada mutación y, si una falla sin que
+nadie la escuche, muestra un aviso de error: "No se completó lo que dejaste en
+curso: …". Si la pantalla sigue ahí, no agrega nada. Un `UNAUTHENTICATED` no
+se avisa: de eso se encarga el login.
 
 ---
 

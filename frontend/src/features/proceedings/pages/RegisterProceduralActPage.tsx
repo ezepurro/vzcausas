@@ -280,7 +280,7 @@ function RegisterProceduralAct({ case: c, act }: { case: Case; act?: ProceduralA
     if (!isResponsibleLawyer(c, lawyer?.id ?? null)) {
         content = (
             <Empty
-                title={act ? 'Sólo el abogado responsable modifica actos procesales' : 'Sólo el abogado responsable registra actos procesales'}
+                title={act ? 'Solo el abogado responsable modifica actos procesales' : 'Solo el abogado responsable registra actos procesales'}
                 text={`El responsable de esta causa es ${formatPersonFullName(c.responsibleLawyer)}.`}
                 action={<Button variant="secondary" size="md" onClick={backToCase}>Volver a la causa</Button>}
             />

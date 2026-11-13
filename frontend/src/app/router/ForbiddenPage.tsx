@@ -16,10 +16,8 @@ export function ForbiddenPage() {
 
     return (
         <>
-            <PageHeader
-                title="Sin acceso"
-                sub="Tu perfil no tiene permiso para ver esta sección."
-            />
+            {/* Sin bajada: el panel de abajo ya lo dice (tanda 15 de `docs/auditoria-front`). */}
+            <PageHeader title="Sin acceso" />
             <Panel>
                 <div className="vz-empty">
                     <div className="vz-empty__title">No tenés permiso para ver esta sección</div>

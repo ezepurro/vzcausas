@@ -25,6 +25,13 @@ export function longDate(isoDate: string): string {
     return `${WEEKDAYS[date.getDay()]} ${date.getDate()} de ${MONTHS[date.getMonth()]} de ${date.getFullYear()}`
 }
 
+/** `2026-09-15` → "Martes 15 de septiembre", el título de la lista de un día del calendario. */
+export function dayTitle(isoDate: string): string {
+    const date = parseDateOnly(isoDate)
+    if (!date) return ''
+    return `${WEEKDAYS[date.getDay()]} ${date.getDate()} de ${MONTHS[date.getMonth()]}`
+}
+
 /** Título del calendario mensual: "Septiembre 2026". El mes va de 0 a 11, como en `Date`. */
 export function monthTitle(year: number, month: number): string {
     return `${capitalize(MONTHS[month])} ${year}`

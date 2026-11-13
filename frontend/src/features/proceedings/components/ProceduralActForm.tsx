@@ -89,7 +89,7 @@ export function ProceduralActForm({
                         error={errors.stateText}
                         note={
                             customState
-                                ? 'Estado escrito a mano: queda guardado sólo en esta causa, no se agrega a la tabla de estados del fuero y no tiene plazo asociado. Si corresponde, cargá el vencimiento con el ajuste manual.'
+                                ? 'Estado escrito a mano: queda guardado solo en esta causa, no se agrega a la tabla de estados del fuero y no tiene plazo asociado. Si corresponde, cargá el vencimiento con el ajuste manual.'
                                 : `El acto procesal es el que mueve la causa: elegí el estado al que la lleva y el plazo sale de la tabla del fuero ${JURISDICTION_LABELS[jurisdiction]}.`
                         }
                     >
@@ -128,7 +128,7 @@ export function ProceduralActForm({
                         note={
                             administrative
                                 ? 'En el fuero administrativo el plazo corre desde la notificación.'
-                                : 'Sólo en el fuero administrativo.'
+                                : 'Solo en el fuero administrativo.'
                         }
                     >
                         <TextInput

@@ -3,6 +3,7 @@ import { screen, within } from '@testing-library/react'
 import { http, HttpResponse } from 'msw'
 import { renderWithProviders } from '../../setup/render'
 import { usePrototypeToday } from '../../setup/clock'
+import { personNameIn } from '../../setup/names'
 import { server } from '@/shared/mocks/server'
 import { db, errorBody } from '@/shared/mocks'
 import { CaseDetailPage } from '@/features/cases/pages/CaseDetailPage'
@@ -44,12 +45,16 @@ function renderEdit(as = 'mrios') {
     })
 }
 
-/** El panel de la línea de vida, como lo busca `CaseDetailPage.timeline.test.tsx`. */
-async function modifyLatestAct(user: ReturnType<typeof renderDetail>['user']) {
+/** "Modificar" del acto más reciente. El panel se busca como en `CaseDetailPage.timeline.test.tsx`. */
+async function latestActModify() {
     const title = await screen.findByText('Ciclo de vida de la causa', { selector: '.vz-panel__title' })
     const timeline = title.closest('.vz-panel') as HTMLElement
     const [latest] = await within(timeline).findAllByRole('listitem')
-    await user.click(within(latest).getByRole('button', { name: 'Modificar' }))
+    return within(latest).getByRole('button', { name: 'Modificar' })
+}
+
+async function modifyLatestAct(user: ReturnType<typeof renderDetail>['user']) {
+    await user.click(await latestActModify())
 }
 
 describe('RegisterProceduralActPage · modificar acto procesal', () => {
@@ -64,13 +69,19 @@ describe('RegisterProceduralActPage · modificar acto procesal', () => {
     })
 
     // CA-28.2 (D-30): ni otro abogado ni el Administrador modifican actos ajenos.
-    it('quien no es el responsable recibe el aviso y no sale del detalle', async () => {
+    // Va deshabilitado con una nota a la vista, como "Registrar acto procesal"
+    // (tanda 15 de `docs/auditoria-front`); antes avisaba al tocarlo.
+    it('a quien no es el responsable se lo muestra deshabilitado, con su nota, y no sale del detalle', async () => {
         const { user } = renderDetail('fvazquez')
-        await modifyLatestAct(user)
+        const modify = await latestActModify()
+        const reason = new RegExp(
+            `^Solo el abogado responsable \\(${personNameIn('Ríos', 'Malena')}\\) modifica los actos procesales\\.$`,
+        )
 
-        expect(
-            await screen.findByText('Solo el abogado responsable de la causa modifica sus actos procesales.'),
-        ).toBeInTheDocument()
+        expect(modify).toBeDisabled()
+        expect(modify).toHaveAccessibleDescription(reason)
+        expect(screen.getByText(reason)).toBeVisible()
+        await user.click(modify)
         expect(screen.queryByText('Pantalla de modificar acto')).not.toBeInTheDocument()
     })
 

@@ -1,7 +1,9 @@
 # Tanda 15 — los tres perfiles contra la tabla de permisos
 
-13/11/2026 · Luciano con Claude · rama `feat/auditoria-front` · **sin cambios
-de código**: es un informe. Rutas relativas a `frontend/`.
+13/11/2026 · Luciano con Claude · rama `feat/auditoria-front`. Rutas relativas
+a `frontend/`. El recorrido (secciones 1 a 4) no tocó código; las cinco
+diferencias que encontró se resolvieron después, el mismo día: ver
+[Arreglos](#arreglos).
 
 Se recorrieron `gestion` (Secretaría), `mrios` (Abogado) y `supervision`
 (Administrador sin ficha de abogado, que no se había recorrido en ninguna
@@ -17,8 +19,8 @@ hacía falta.
 - **Ningún perfil puede algo que el contrato no le da, ni deja de poder algo
   que le da**, en lo que el front tiene programado.
 - Hay cinco diferencias de forma, ninguna de permisos (sección 3). Una es una
-  decisión del equipo y cuatro son arreglos chicos. **Ninguna se tocó:** quedan
-  para que Luciano decida.
+  decisión del equipo y cuatro son arreglos chicos. Luciano pidió resolver las
+  cinco: están en [Arreglos](#arreglos).
 - Lo de V6 que el front todavía no programó (Sprint 5) se lista aparte
   (sección 4).
 
@@ -91,3 +93,54 @@ front todavía no dibuja.
   Secretaría y Abogado): no estaban en el pedido. La regla "alcanza con uno" la
   cubren los tests de `tests/unit/app/actionAccess.test.ts`.
 - A ojo: el panel estaba oculto.
+
+## Arreglos
+
+13/11/2026 · empezados por Luciano con Claude (diferencias 1 y 2, commit
+`e90fe65`) y terminados por Facundo con Claude (sus tests y las diferencias 3,
+4 y 5, **sin commitear**).
+
+| # | Qué se hizo | Dónde |
+|---|---|---|
+| 1 | "Registrar acto interruptivo" va **deshabilitado** para quien no es el responsable y lo explica la nota de los actos del encabezado. "Modificar" de cada acto va deshabilitado con una nota nueva arriba de la línea de vida: "Solo el abogado responsable (…) modifica los actos procesales.". Ya no hay aviso al tocarlos. Es el criterio de "Registrar acto procesal" (decisión de Luciano) | `src/features/cases/pages/CaseDetailPage.tsx` (`modifyBlockedNote`, `openInterruptive`), `src/features/cases/components/CaseTimeline.tsx` (`modifyBlockedNote`, `registerNoteId`), `.vz-timeline__note` en `src/styles/cases.css` |
+| 2 | La nota "Solo el abogado responsable (…) registra actos." tiene id y la llevan como `aria-describedby` "Registrar acto procesal", "Registrar acto interruptivo" y "Registrar el primer acto" | `CaseDetailPage.tsx` (`actNoteId`) |
+| 3 | "Descargar" deshabilitado: el motivo va en una nota a la vista arriba de la lista, unida a cada botón bloqueado con `aria-describedby`. Aparece solo si hay algún documento que el usuario no puede bajar; el expediente, que sí puede, queda sin nota. El `title` se conserva, como en H-53 | `src/features/cases/components/CaseDocumentsCard.tsx` (`canDownload`, `forbiddenNoteId`), `.vz-docs__reason` en `src/styles/cases.css` |
+| 4 | "Sólo" → "Solo" en todos los textos de pantalla (los comentarios no se tocaron). Además de los siete del traspaso, dos en minúscula que tenían la misma mezcla: "queda guardado solo en esta causa" y "usa solo la parte de adelante" | `CaseDocumentsCard.tsx`, `src/features/lawyers/components/LawyersTable.tsx`, `src/features/lawyers/pages/LawyersPage.tsx`, `src/features/proceedings/components/ProceduralActForm.tsx`, `src/features/proceedings/pages/RegisterProceduralActPage.tsx`, `src/features/users/schemas/user.schema.ts`, `src/features/legal-params/components/LegalQualificationFormModal.tsx` |
+| 5 | "Sin acceso" ya no repite la idea: se sacó la bajada del encabezado y queda el panel ("No tenés permiso para ver esta sección") | `src/app/router/ForbiddenPage.tsx` |
+
+**Tests.** Los dos que esperaban el aviso viejo ahora piden el botón
+deshabilitado y descrito por su nota
+(`tests/components/cases/CaseDetailPage.interruptiveAct.test.tsx`,
+`tests/components/proceedings/RegisterProceduralActPage.edit.test.tsx`). Tres
+nuevos en `tests/components/cases/disabledReason.test.tsx`: la nota de los
+actos unida a sus dos botones, la de "Descargar" para el Administrador y que a
+quien descarga no se le muestra. Los textos con "Solo" se ajustaron en
+`disabledReason.test.tsx`, `RegisterProceduralActPage.test.tsx` y
+`tests/unit/users/user.schema.test.ts`.
+
+**Documentación.** `frontend/CLAUDE.md`, fila de HU31: decía que el botón "le
+avisa con un toast, como el prototipo".
+
+### Verificación de los arreglos
+
+| Qué | Resultado |
+|---|---|
+| `npm run lint` | 0 errores; el warning conocido de `src/shared/components/ui/Icon.tsx:2` |
+| `npx tsc -b` | Limpio |
+| `npx vitest run` | 774 de 774 (121 archivos), en las dos últimas corridas; ver abajo las fallas intermitentes |
+| Navegador, con mocks, a 1366 px y a 375 px | `mrios` en la causa 4: ocho botones deshabilitados, cada uno descrito por su nota (leído en el DOM y a ojo); "Crear carpeta" lleva el motivo en su nombre, como antes. `supervision` en la causa 1: la nota de "Descargar" arriba de la lista, 11 botones bloqueados descritos por ella y el del expediente habilitado y sin nota. `gestion`: "Sin acceso" con una sola frase, y Abogados con "Solo" en la nota y en los dos `title`. Sin scroll horizontal en el teléfono |
+
+**Fallas intermitentes al correr la suite entera.** De siete corridas, tres fallaron en tests que esta vuelta no tocó: `tests/unit/app/pages.test.ts` (tiempo de espera de 5 s) y "filtra con el buscador" de `tests/components/users/UsersPage.test.tsx`. Solos pasan, y sobre el commit base la suite da lo esperado. Hipótesis, sin confirmar: Vitest corre primero los archivos que fallaron la vez anterior, en el arranque en frío (H-55), y un test al límite vuelve a fallar; la primera de esas corridas compitió con el servidor de desarrollo. Las dos últimas corridas dieron 774 de 774. Refuerza la propuesta pendiente de darle un tiempo propio a `pages.test.ts`.
+
+**Sin verificar:** los E2E y el build no se corrieron en esta vuelta; lector de
+pantalla real; `/causas/:id/acto` y el error de usuario con "Solo" se
+comprobaron por sus tests, no en el navegador.
+
+**Visto al pasar, sin tocar:**
+
+- En la fila "Sobre la causa", "Registrar acto interruptivo" deshabilitado
+  queda lejos de su nota (está arriba, bajo "Registrar acto procesal") y pegado
+  a la de "Marcar prescripta". Va con la decisión pendiente de unir las notas
+  "Solo el abogado responsable (…)" del detalle, que ahora son cuatro.
+- "Sin acceso" no pone título de pestaña: queda "VZ Causas" (`ForbiddenPage`
+  no usa `usePageTitle`).

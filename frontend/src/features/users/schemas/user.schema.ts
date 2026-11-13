@@ -71,7 +71,7 @@ export function validateUser(
     } else if (username.length < USERNAME_MIN || username.length > USERNAME_MAX) {
         errors.username = `Debe tener entre ${USERNAME_MIN} y ${USERNAME_MAX} caracteres.`
     } else if (!USERNAME_PATTERN.test(username)) {
-        errors.username = 'Sólo se admiten letras, números, punto, guión y guión bajo.'
+        errors.username = 'Solo se admiten letras, números, punto, guión y guión bajo.'
     }
 
     const email = values.email.trim()
