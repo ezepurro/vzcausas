@@ -29,4 +29,12 @@ describe('RequireAccess', () => {
         expect(screen.queryByText('Pantalla de usuarios')).not.toBeInTheDocument()
         expect(screen.getByText('No tenés permiso para ver esta sección')).toBeInTheDocument()
     })
+
+    // La pestaña quedaba en "VZ Causas" a secas (tanda 18 de `docs/auditoria-front`).
+    it('el aviso de sin acceso pone su título en la pestaña', async () => {
+        renderWithProviders(<RequireAccess />, { ...ROUTES, as: 'mrios', route: '/usuarios' })
+        await waitForSession()
+
+        expect(document.title).toBe('Sin acceso · VZ Causas')
+    })
 })

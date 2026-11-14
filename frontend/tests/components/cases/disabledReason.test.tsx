@@ -58,7 +58,7 @@ describe('motivo visible de un botón deshabilitado (H-53)', () => {
             renderPage(4, 'mrios')
             await screen.findByRole('region', { name: 'Causa 11845620' })
 
-            const reason = /^Solo el abogado responsable \(.+\) modifica o da de baja la causa\.$/
+            const reason = /^Solo el abogado responsable \(.+\) registra actos, y modifica o da de baja la causa\.$/
             expect(screen.getByText(reason)).toBeVisible()
             expect(screen.getByRole('button', { name: 'Modificar causa' })).toHaveAccessibleDescription(reason)
             expect(screen.getByRole('button', { name: 'Dar de baja' })).toHaveAccessibleDescription(reason)
@@ -68,7 +68,7 @@ describe('motivo visible de un botón deshabilitado (H-53)', () => {
             renderPage(4, 'mrios')
             await screen.findByRole('region', { name: 'Causa 11845620' })
 
-            const reason = /^Solo el abogado responsable \(.+\) marca prescripta la causa o sus calificaciones\.$/
+            const reason = /^Solo el abogado responsable \(.+\) registra actos interruptivos y marca prescripta la causa o sus calificaciones\.$/
             expect(screen.getByText(reason)).toBeVisible()
             expect(screen.getByRole('button', { name: 'Marcar toda la causa prescripta' }))
                 .toHaveAccessibleDescription(reason)
@@ -83,9 +83,13 @@ describe('motivo visible de un botón deshabilitado (H-53)', () => {
             renderPage(4, 'mrios')
             await screen.findByRole('region', { name: 'Causa 11845620' })
 
-            const reason = /^Solo el abogado responsable \(.+\) registra actos\.$/
-            expect(screen.getByText(reason)).toBeVisible()
-            for (const name of ['Registrar acto procesal', 'Registrar acto interruptivo']) {
+            /* Una nota por zona (tanda 18): el acto procesal, con la del
+               encabezado; el interruptivo, con la de "Sobre la causa". */
+            const reasons = {
+                'Registrar acto procesal': /^Solo el abogado responsable \(.+\) registra actos, y modifica o da de baja la causa\.$/,
+                'Registrar acto interruptivo': /^Solo el abogado responsable \(.+\) registra actos interruptivos y marca prescripta la causa o sus calificaciones\.$/,
+            }
+            for (const [name, reason] of Object.entries(reasons)) {
                 const button = screen.getByRole('button', { name })
                 expect(button).toBeDisabled()
                 expect(button).toHaveAccessibleDescription(reason)
@@ -98,7 +102,7 @@ describe('motivo visible de un botón deshabilitado (H-53)', () => {
 
             expect(screen.queryByText(/modifica o da de baja la causa\.$/)).not.toBeInTheDocument()
             expect(screen.queryByText(/marca prescripta la causa o sus calificaciones\.$/)).not.toBeInTheDocument()
-            expect(screen.queryByText(/registra actos\.$/)).not.toBeInTheDocument()
+            expect(screen.queryByText(/registra actos/)).not.toBeInTheDocument()
             expect(screen.getByRole('button', { name: 'Modificar causa' })).not.toHaveAttribute('aria-describedby')
             expect(screen.getByRole('button', { name: 'Registrar acto procesal' })).not.toHaveAttribute('aria-describedby')
         })

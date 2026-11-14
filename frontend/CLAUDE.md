@@ -71,10 +71,10 @@ sobre HU29): ver
 - **No traigas código de otros proyectos** (componentes, estilos, hooks). Este
   proyecto tiene su propio sistema de diseño en `shared/` y `styles/`.
 - **No mezcles patrones.** Si ya existe una forma de hacer algo, seguila.
-- **No uses `react-hook-form` ni instales `zod`.** `react-hook-form` está
-  instalado pero nadie lo usa, y `zod` no está instalado. Es una decisión
-  pendiente del equipo. Hasta entonces, formularios controlados como
-  `FormModal` (`values` + `onChange`).
+- **No instales `react-hook-form` ni `zod`.** Ninguno está instalado:
+  `react-hook-form` se desinstaló el 13/11/2026 (auditoría del front, H-16),
+  porque nadie lo usaba. Los formularios son controlados, como `FormModal`
+  (`values` + `onChange`), con la validación en `schemas/`.
 - **Si el build o el lint fallan por algo que no tocaste, avisá.** No lo
   arregles al paso.
 - **Código en inglés** (archivos, tipos, funciones, props, clases CSS).
@@ -355,6 +355,9 @@ escribir código nuevo:
 
 - **Toda página pone su título** con `usePageTitle`, y **toda consulta que
   falla se muestra con `LoadError`** (alerta y "Reintentar").
+- **El pie de un listado se dibuja sólo cuando la consulta respondió**
+  (`footer={query.isSuccess && (<Pagination … />)}`): sin datos decía "Sin
+  resultados" mientras cargaba o si había fallado (H-57).
 - **Un diálogo con campos no se cierra con un clic afuera**
   (`dismissOnBackdrop={false}`; `FormModal` ya lo trae). Una confirmación
   sin campos, sí. No se pregunta "¿descartar los cambios?". Con dos modales
@@ -377,7 +380,10 @@ escribir código nuevo:
   `cases/api/`).
 - **El motivo de un botón deshabilitado va a la vista**, en una nota unida al
   botón con `aria-describedby`, no sólo en el `title` (Abogados, el detalle
-  de causa, la línea de vida y "Descargar" de un documento).
+  de causa, la línea de vida y "Descargar" de un documento). En el detalle
+  de causa va **una nota por zona** (encabezado, "Sobre la causa", línea de
+  vida), y cada una dice sólo lo que está bloqueado ahí (`headNote`,
+  `caseActionsNote` en `CaseDetailPage`).
 - **Textos: "Solo", sin tilde**, en todo lo que se ve en pantalla.
 - **El calendario de "Mi día" abre la lista del día** (H-50): en el teléfono
   el día entero es un botón; en pantallas anchas la abre "+N más". Los plazos
@@ -1196,15 +1202,15 @@ Al 08/11/2026, con el 3 revisado el 09/11/2026 por V6 y el 1 y el 3
 actualizados el 13/11/2026 por la auditoría del front. No se arreglan al
 paso: cada uno es de su dueño.
 
-1. **`npm test`: pasan los 774** (13/11/2026). Corre con la mitad de los
+1. **`npm test`: pasan los 796** (14/11/2026). Corre con la mitad de los
    núcleos por configuración (`maxWorkers: '50%'` en `vitest.config.ts`):
    con todos fallaban tests al azar por tiempo. Aun así, en alguna corrida de
    la suite entera falla por tiempo `tests/unit/app/pages.test.ts` o el
    buscador de `UsersPage.test.tsx`; solos pasan
    (`docs/auditoria-front/21-TANDA15_PERFILES.md`, "Arreglos"). Los tests de
    prefetch recortan el prefijo de la API con `normalizePath` del mock, así
-   no dependen del `VITE_API_URL` de cada `.env.local`. Los 9 E2E pasaban
-   el 13/11/2026, antes de los últimos arreglos de la auditoría.
+   no dependen del `VITE_API_URL` de cada `.env.local`. Los 9 E2E pasan
+   (13/11/2026, después de la tanda 18 de la auditoría).
 2. **`src/features/deadlines/` no tiene pantallas.** La pantalla "Vencimientos"
    no es de ninguna historia (`DECISIONES.md` §3). Sólo tiene el atajo local de
    la campana (`deadlines/CAMBIOS.md`).

@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router'
 import { Button, Icon, PageHeader, Panel } from '@/shared/components/ui'
 import { useHomeRoute } from '@/app/access/useHomeRoute'
+import { usePageTitle } from '@/shared/hooks/usePageTitle'
 
 /**
  * Lo que se ve al entrar a una sección que el perfil no habilita.
@@ -13,6 +14,7 @@ import { useHomeRoute } from '@/app/access/useHomeRoute'
 export function ForbiddenPage() {
     const navigate = useNavigate()
     const homeRoute = useHomeRoute()
+    usePageTitle('Sin acceso')
 
     return (
         <>

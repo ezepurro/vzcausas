@@ -10010,6 +10010,10 @@ contrato.
   `legalQualifications` llega vacío y `prescription` vale `null`.
 - **Cada calificación legal computa la suya.** Su plazo es
   `prescriptionMonths`, y vence en `prescriptionStartsOn` más esos meses.
+  **(Revisión del 13/11/2026, D-140)** Son meses de calendario: vence el mismo
+  día del mes de destino y, si ese mes no tiene ese día, **su último día**. El
+  31/08 más 6 meses vence el 28/02 (el 29/02 si el año es bisiesto), no el
+  03/03.
 - **Desde cuándo corre** (`prescriptionStartsOn`): desde la fecha del hecho
   (`offenseDate`) o desde el último acto interruptivo que la reinició (RN8).
   **(Revisión del 08/11/2026, D-113)** Un acto la reinicia solo si es anterior a su vencimiento

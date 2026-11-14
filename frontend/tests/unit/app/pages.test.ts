@@ -15,7 +15,10 @@ describe('pantallas con carga diferida', () => {
             const { Component } = await load()
             expect(Component, name).toBeTypeOf('function')
         }
-    })
+        /* Tiempo propio: importa todas las pantallas adentro del test, y solo
+           ya tarda cerca de los 5 s del tope general (3,6 a 4,3 s). En la suite
+           entera a veces se pasaba. No mide velocidad: que cada nombre cargue. */
+    }, 15_000)
 
     // Reportes está en el rail pero no tiene pantalla (DECISIONES.md §3): no hay qué adelantar.
     it('cada sección del rail con pantalla se puede adelantar', () => {

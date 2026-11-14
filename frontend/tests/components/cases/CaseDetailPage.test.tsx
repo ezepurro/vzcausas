@@ -213,7 +213,7 @@ describe('CaseDetailPage', () => {
 
             expect(screen.getByRole('button', { name: 'Registrar acto procesal' })).toBeDisabled()
             expect(
-                screen.getByText(new RegExp(`^Solo el abogado responsable \\(${personNameIn('Ríos', 'Malena')}\\) registra actos\\.$`)),
+                screen.getByText(new RegExp(`^Solo el abogado responsable \\(${personNameIn('Ríos', 'Malena')}\\) registra actos, y modifica o da de baja la causa\\.$`)),
             ).toBeInTheDocument()
         })
     })

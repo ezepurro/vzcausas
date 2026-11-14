@@ -405,7 +405,9 @@ tabla. Presentacional como el resto: no sabe cuántas páginas hay de verdad ni
 pide datos, sólo avisa a qué página quiere ir el usuario; el estado y el
 refetch son de la pantalla. El `noun` va como par y no derivado con una `s`
 porque el castellano no siempre pluraliza así. Con `totalItems` en 0 muestra
-"Sin resultados". `onIntent` avisa la página siguiente cuando el usuario apunta
+"Sin resultados": por eso **el pie se dibuja sólo cuando la consulta
+respondió** (`footer={query.isSuccess && (<Pagination … />)}`); mientras carga
+o si falló no hay total, y decir "Sin resultados" es falso (H-57). `onIntent` avisa la página siguiente cuando el usuario apunta
 a "Siguiente" (`useHoverIntent`: 150 ms con el mouse encima, o el foco); la
 pantalla le pasa el `usePrefetch…Page` de su listado. En la última página no
 avisa.
@@ -1317,11 +1319,11 @@ Puramente informativo; nada de esto está resuelto ni debe corregirse al paso.
   componentes. Export inconsistente.
 - **`SearchInput` no tiene interfaz de props propia** ni tipo exportado, a diferencia
   del resto.
-- **Los formularios son una decisión pendiente.** `react-hook-form` está en
-  `package.json` y no lo usa nadie; `zod` ni siquiera está instalado. Hoy
-  `FormModal` maneja los valores de forma controlada (`values` + `onChange`) y
-  la validación son funciones puras en el `schemas/` de cada feature. Definir
-  con qué van los formularios nuevos **antes** de mezclar los dos patrones.
+- **Los formularios son controlados.** Ni `react-hook-form` ni `zod` están
+  instalados (el primero se desinstaló el 13/11/2026, H-16 de la auditoría
+  del front). `FormModal` maneja los valores de forma controlada (`values` +
+  `onChange`) y la validación son funciones puras en el `schemas/` de cada
+  feature. Los formularios nuevos siguen ese patrón.
 - **`FormValues` sólo admite `string | boolean`.** Un formulario con multi-select,
   fechas como `Date` o números tipados no entra en `FormModal` sin cambiarlo.
 - **`api/` y `lib/` no tienen barrel** mientras que `components/` sí. Imports

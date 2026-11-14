@@ -173,15 +173,29 @@ function CaseDetail({ case: c }: { case: Case }) {
         operate: operateAnyCase,
         declarePrescription: declarePrescriptionAnyCase,
     })
-    const notResponsibleNote = `Solo el abogado responsable (${formatPersonFullName(c.responsibleLawyer)}) modifica o da de baja la causa.`
-    const prescriptionNote = `Solo el abogado responsable (${formatPersonFullName(c.responsibleLawyer)}) marca prescripta la causa o sus calificaciones.`
+    const onlyResponsible = `Solo el abogado responsable (${formatPersonFullName(c.responsibleLawyer)})`
+    const notResponsibleNote = `${onlyResponsible} modifica o da de baja la causa.`
     /* Las notas visibles que explican los botones deshabilitados (H-53): el
-       `title` no se ve en el teléfono ni se alcanza con el teclado. */
-    const operateNoteId = useId()
-    /* La nota de los actos: explica "Registrar acto procesal", "Registrar acto
-       interruptivo" y "Registrar el primer acto" cuando no es el responsable. */
-    const actNoteId = useId()
-    const prescriptionNoteId = useId()
+       `title` no se ve en el teléfono ni se alcanza con el teclado. Va una
+       por zona, pegada a sus botones, y dice sólo lo que está bloqueado ahí
+       (tanda 18 de `docs/auditoria-front`): quien opera cualquier causa
+       (Administrador, Secretaría) igual no registra sus actos. */
+    /* La del encabezado: "Registrar acto procesal", "Modificar causa", "Dar de
+       baja" y, en la línea de vida, "Registrar el primer acto". */
+    const headNoteId = useId()
+    const headNote = isResponsible
+        ? null
+        : canOperate
+            ? `${onlyResponsible} registra actos.`
+            : `${onlyResponsible} registra actos, y modifica o da de baja la causa.`
+    /* La de la fila "Sobre la causa": "Registrar acto interruptivo", "Marcar
+       toda la causa prescripta" y "Marcar prescripta" de cada calificación. */
+    const caseActionsNoteId = useId()
+    const caseActionsNote = isResponsible
+        ? null
+        : showPrescription && !canDeclarePrescription
+            ? `${onlyResponsible} registra actos interruptivos y marca prescripta la causa o sus calificaciones.`
+            : `${onlyResponsible} registra actos interruptivos.`
     const goRegisterAct = () => navigate(`/causas/${c.id}/acto`)
 
     /* Los actos de una causa prescripta no se modifican (D-99): ahí la línea
@@ -193,7 +207,7 @@ function CaseDetail({ case: c }: { case: Case }) {
        estaba habilitado y avisaba al tocarlo (tanda 15 de `docs/auditoria-front`). */
     const modifyBlockedNote = isResponsible
         ? null
-        : `Solo el abogado responsable (${formatPersonFullName(c.responsibleLawyer)}) modifica los actos procesales.`
+        : `${onlyResponsible} modifica los actos procesales.`
 
     function modifyAct(act: ProceduralAct) {
         if (!isResponsible) return
@@ -357,8 +371,8 @@ function CaseDetail({ case: c }: { case: Case }) {
                         declare={showCaseActions && showPrescription
                             ? {
                                   enabled: canDeclarePrescription,
-                                  disabledTitle: `Solo el abogado responsable (${formatPersonFullName(c.responsibleLawyer)}) declara la prescripción de sus calificaciones.`,
-                                  disabledNoteId: prescriptionNoteId,
+                                  disabledTitle: `${onlyResponsible} declara la prescripción de sus calificaciones.`,
+                                  disabledNoteId: caseActionsNoteId,
                                   onDeclare: openQualificationPrescription,
                               }
                             : undefined}
@@ -369,15 +383,15 @@ function CaseDetail({ case: c }: { case: Case }) {
                         <Button
                             icon={<Icon name="plus" />}
                             disabled={!isResponsible}
-                            aria-describedby={isResponsible ? undefined : actNoteId}
+                            aria-describedby={headNote ? headNoteId : undefined}
                             onClick={goRegisterAct}
                         >
                             Registrar acto procesal
                         </Button>
-                        {!isResponsible && (
-                            <p className="vz-case-head__note" id={actNoteId}>
-                                Solo el abogado responsable ({formatPersonFullName(c.responsibleLawyer)}) registra actos.
-                            </p>
+                        {/* Si sólo los actos están bloqueados, la nota va junto a
+                            su botón; si además lo están los de abajo, después de ellos. */}
+                        {headNote && canOperate && (
+                            <p className="vz-case-head__note" id={headNoteId}>{headNote}</p>
                         )}
                         {/* El responsable, el Administrador o la Secretaría (D-110). */}
                         <div className="vz-case-head__buttons">
@@ -386,7 +400,7 @@ function CaseDetail({ case: c }: { case: Case }) {
                                 size="sm"
                                 disabled={!canOperate}
                                 title={canOperate ? undefined : notResponsibleNote}
-                                aria-describedby={canOperate ? undefined : operateNoteId}
+                                aria-describedby={canOperate ? undefined : headNoteId}
                                 onClick={edit.open}
                             >
                                 Modificar causa
@@ -396,14 +410,14 @@ function CaseDetail({ case: c }: { case: Case }) {
                                 size="sm"
                                 disabled={!canOperate}
                                 title={canOperate ? undefined : notResponsibleNote}
-                                aria-describedby={canOperate ? undefined : operateNoteId}
+                                aria-describedby={canOperate ? undefined : headNoteId}
                                 onClick={openDelete}
                             >
                                 Dar de baja
                             </Button>
                         </div>
-                        {!canOperate && (
-                            <p className="vz-case-head__note" id={operateNoteId}>{notResponsibleNote}</p>
+                        {headNote && !canOperate && (
+                            <p className="vz-case-head__note" id={headNoteId}>{headNote}</p>
                         )}
                     </>
                 }
@@ -416,7 +430,7 @@ function CaseDetail({ case: c }: { case: Case }) {
                             variant="secondary"
                             size="sm"
                             disabled={!isResponsible}
-                            aria-describedby={isResponsible ? undefined : actNoteId}
+                            aria-describedby={caseActionsNote ? caseActionsNoteId : undefined}
                             onClick={openInterruptive}
                         >
                             Registrar acto interruptivo
@@ -435,15 +449,15 @@ function CaseDetail({ case: c }: { case: Case }) {
                             disabled={!canDeclarePrescription}
                             title={canDeclarePrescription
                                 ? undefined
-                                : `Solo el abogado responsable (${formatPersonFullName(c.responsibleLawyer)}) marca prescripta la causa.`}
-                            aria-describedby={canDeclarePrescription ? undefined : prescriptionNoteId}
+                                : `${onlyResponsible} marca prescripta la causa.`}
+                            aria-describedby={canDeclarePrescription ? undefined : caseActionsNoteId}
                             onClick={openPrescription}
                         >
                             Marcar toda la causa prescripta
                         </Button>
                     )}
-                    {showCaseActions && showPrescription && !canDeclarePrescription && (
-                        <p className="vz-case-actions__note" id={prescriptionNoteId}>{prescriptionNote}</p>
+                    {showCaseActions && caseActionsNote && (
+                        <p className="vz-case-actions__note" id={caseActionsNoteId}>{caseActionsNote}</p>
                     )}
                 </div>
 
@@ -458,7 +472,7 @@ function CaseDetail({ case: c }: { case: Case }) {
                     retrying={timeline.isFetching}
                     canRegisterAct={isResponsible}
                     onRegisterAct={goRegisterAct}
-                    registerNoteId={actNoteId}
+                    registerNoteId={headNoteId}
                     canModifyActs={canModifyActs}
                     onModifyAct={modifyAct}
                     modifyBlockedNote={modifyBlockedNote}

@@ -172,8 +172,8 @@ describe('CaseDetailPage · acto interruptivo', () => {
 
     /* CA-31.11: quien no es el responsable no lo registra. El prototipo deja el
        botón habilitado y avisa al tocarlo; desde la tanda 15 de
-       `docs/auditoria-front` va deshabilitado con la nota de los actos, como
-       "Registrar acto procesal". */
+       `docs/auditoria-front` va deshabilitado, como "Registrar acto procesal",
+       con la nota de su fila ("Sobre la causa", tanda 18). */
     it('a quien no es el responsable se lo muestra deshabilitado, con la nota de quién es el responsable', async () => {
         const { user } = renderPage(1, 'fvazquez')
         await headerOf('Causa 13284571')
@@ -181,7 +181,7 @@ describe('CaseDetailPage · acto interruptivo', () => {
 
         expect(button).toBeDisabled()
         expect(button).toHaveAccessibleDescription(
-            new RegExp(`^Solo el abogado responsable \\(${personNameIn('Ríos', 'Malena')}\\) registra actos\\.$`),
+            new RegExp(`^Solo el abogado responsable \\(${personNameIn('Ríos', 'Malena')}\\) registra actos interruptivos\\.$`),
         )
         await user.click(button)
         expect(screen.queryByRole('dialog')).not.toBeInTheDocument()

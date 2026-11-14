@@ -11,12 +11,13 @@ falta migración) y esperá la respuesta. Después de implementar, revisión.
 
 ## Fuentes de verdad (en orden de precedencia)
 
-1. **`docs/Api-Contract/API_CONTRACT_V5.md`** — contrato vigente, versión
-   final. Manda sobre todo. V2, V3 y V4 son registro histórico: no los uses como
-   referencia. Lo que más se consulta: §1 índice de endpoints, §4 reglas
-   transversales (Autorización `:7967`, Causa activa `:8103`, Cómputo de días
-   `:8125`, Prescripción `:8139`, Carpeta `:8163`, Proceso diario `:8237`,
-   Bajas `:8295`), §5.3 códigos de error `:8433`. Las decisiones (D-xx), los
+1. **`docs/Api-Contract/API_CONTRACT_V6.md`** — contrato vigente, última
+   versión (09/11/2026, Sprint 5). Trae todo V5 sin cambios y marca lo nuevo
+   **(V6)**. Manda sobre todo. V2, V3, V4 y V5 son registro histórico: no los
+   uses como referencia. Lo que más se consulta: §1 índice de endpoints, §4
+   reglas transversales (Autorización `:9775`, Causa activa `:9970`, Cómputo
+   de días `:9992`, Prescripción `:10006`, Carpeta `:10048`, Proceso diario
+   `:10136`, Bajas `:10197`), §5.3 códigos de error `:10361`. Las decisiones (D-xx), los
    puntos abiertos (C-xx), lo que queda fuera del contrato y el impacto sobre
    lo implementado están en `docs/Api-Contract/DECISIONES.md` (§1 a §4).
 2. **`docs/TRADUCCION_DOMINIO.md`** — glosario obligatorio para todo
@@ -38,7 +39,7 @@ falta migración) y esperá la respuesta. Después de implementar, revisión.
 Si dos documentos se contradicen, **decímelo en vez de elegir uno**.
 
 `.claude/rules/*.md` se cargan solos según el archivo que toques (`paths:` en
-su encabezado). Varios citan V3/V4: si una regla choca con V5, avisame.
+su encabezado). Varios citan V3, V4 o V5: si una regla choca con V6, avisame.
 
 ## Mapa del código
 
@@ -50,7 +51,7 @@ Entre subsistemas: puertos o eventos, nunca imports cruzados.
 
 ## Reglas que no se negocian
 
-- **No inventes endpoints ni campos.** Si no está en V5, frená y preguntá.
+- **No inventes endpoints ni campos.** Si no está en V6, frená y preguntá.
 - **No corrijas inconsistencias conocidas por tu cuenta** (glosario con
   `fullName`/`position`, `DECISIONES.md` §3; `abogadoId` en `frontend/src/shared/mocks/contract.ts:12`).
   Nombralas, no las arregles: cambiar un lado sin el otro empeora.

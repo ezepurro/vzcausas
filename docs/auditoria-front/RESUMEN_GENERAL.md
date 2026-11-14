@@ -6,7 +6,7 @@ con Claude. Desde la tanda 12, Luciano sigue con lo que quedaba de los dos
 planes.
 
 Este documento junta en un solo lugar lo que está repartido en los informes
-`00` a `26` de esta carpeta: por qué se hizo la auditoría, qué se encontró, qué
+`00` a `27` de esta carpeta: por qué se hizo la auditoría, qué se encontró, qué
 se arregló y qué quedó. Si un dato de acá no coincide con el informe de su
 tanda, **manda el informe de la tanda**. Las rutas son relativas a `frontend/`.
 
@@ -15,21 +15,22 @@ tanda, **manda el informe de la tanda**. Las rutas son relativas a `frontend/`.
 - Se revisó el frontend entero buscando bugs, problemas de accesibilidad,
   pantallas que se rompen en algún ancho y código frágil. **No se encontró
   nada crítico**: el front ya estaba bien armado.
-- Se encontraron **57 hallazgos** (`H-01` a `H-57`) y 3 huecos de caché
+- Se encontraron **58 hallazgos** (`H-01` a `H-58`) y 3 huecos de caché
   (`C-1` a `C-3`). De gravedad alta, 5.
 - **Los 5 altos están corregidos**, y la gran mayoría de los medios y bajos.
-- La suite pasó de **651 tests a 771**. Los 9 E2E pasan. Lint, tipos y build,
+- La suite pasó de **651 tests a 796**. Los 9 E2E pasan. Lint, tipos y build,
   limpios. La falla intermitente con todos los núcleos (H-55) está resuelta
   (tanda 12).
 - **Todo se probó con los mocks. Nada se probó contra el backend real.**
 - La tanda 11 está commiteada (`91f0583`), y las tandas 12 a 15 también
   (`e90fe65`). Desde la tanda 12 siguió Luciano con lo que quedaba de los dos
-  planes, y desde el traspaso ([22](22-TRASPASO.md)), Facundo. **Sin
-  commitear:** los arreglos de la tanda 15, la revisión a ojo
-  ([23](23-TANDA14_VISUAL_PARTE2.md)) y la documentación
-  ([24](24-TANDA17_DOCUMENTACION.md)) y el calendario
-  ([26](26-TANDA16_CALENDARIO_H50.md)). Para seguir:
-  [25-TRASPASO_2.md](25-TRASPASO_2.md).
+  planes, y desde el traspaso ([22](22-TRASPASO.md)), Facundo. Los arreglos
+  de la tanda 15, la revisión a ojo ([23](23-TANDA14_VISUAL_PARTE2.md)), la
+  documentación ([24](24-TANDA17_DOCUMENTACION.md)) y el calendario
+  ([26](26-TANDA16_CALENDARIO_H50.md)) entraron en `6336430`. **Sin
+  commitear:** la tanda 18, de Luciano
+  ([27](27-TANDA18_H57_Y_H56.md)). Para seguir:
+  [25-TRASPASO_2.md](25-TRASPASO_2.md), menos H-56 y H-57, que ya están.
 
 ## 2. Por qué se hizo
 
@@ -99,6 +100,8 @@ alta.
 | — | El vencimiento de la prescripción del mock no coincidía con el del backend en fin de mes | El mock seguía al prototipo y se pasaba al mes siguiente | El mock corta en el último día del mes, como el backend (decisión del 13/11/2026) |
 | H-55 | Con todos los núcleos fallaban 2 a 14 tests por corrida, distintos cada vez, por tiempo de espera | Dos causas encadenadas: 15 procesos en 8 núcleos físicos saturaban el arranque y los primeros tests no llegaban a su espera de 1 s; y el test que se cortaba dejaba su renovación de sesión en vuelo, que le cerraba la sesión al siguiente | Vitest usa la mitad de los núcleos lógicos (`maxWorkers: '50%'`); los tests esperan esa renovación entre uno y otro, y un `AuthProvider` desmontado o un 401 de otro token ya no cierran la sesión actual ([18](18-TANDA12_H55.md)) |
 | — | Entre 1.181 y 1.360 px las tablas de Causas y Usuarios (y Clientes hasta ~1.200) scrolleaban en horizontal, también en una notebook de 1.280 | La forma de ficha dependía sólo del ancho de la ventana (1180px), y esas tablas necesitan más lugar que el que tienen ahí | La tabla pasa a fichas también cuando no entra en su lugar (`DataTable`, decisión de Luciano). Los E2E fijan su ventana en 1366 × 768 ([20](20-TANDA14_VISUAL_PARTE1.md)) |
+| H-58 | En el login, el error de un campo vacío no llegaba al lector de pantalla | H-35 unió cada control con su error en `FormModal` y en los formularios de página; el login quedó afuera | `LoginForm` une "Usuario" y "Contraseña" con su error (`aria-invalid` y `aria-describedby`) ([27](27-TANDA18_H57_Y_H56.md), sección 6) |
+| H-57 | El pie de un listado decía "Sin resultados", con "Anterior" y "Siguiente", mientras la tabla cargaba y cuando había fallado | Sin datos, el total valía 0, y el pie lee 0 como "Sin resultados" | El pie se dibuja sólo cuando la consulta respondió, en los seis listados (decisión de Luciano). "Sin resultados" queda para una búsqueda que no encuentra nada ([27](27-TANDA18_H57_Y_H56.md)) |
 | — | Ningún error de carga se anunciaba al lector de pantalla ni se podía reintentar sin recargar (15 pantallas) | Cada pantalla armaba su bloque a mano | `LoadError`: alerta y "Reintentar" (no para un 404, 403 o 400), decisión de Luciano ([20](20-TANDA14_VISUAL_PARTE1.md)) |
 | — | En "Registrar causa", con sus listas caídas, el cliente decía "Ningún cliente coincide." y el responsable quedaba vacío | Los selectores no distinguían "no hay" de "no cargó" | Cada selector dice "No se pudieron cargar los … Recargá la página para volver a intentar.", también en "Modificar causa" ([20](20-TANDA14_VISUAL_PARTE1.md)) |
 | — | Crear la carpeta de una causa y volver con "Atrás" a otra causa ya visitada dejaba en la otra la carpeta de la primera: "Abrir carpeta en Drive" abría una carpeta ajena | La página del detalle no se desmonta al cambiar de causa, y TanStack le pasa a una mutación pendiente las opciones nuevas del hook, con la causa nueva | Los nueve hooks de mutación que reciben la causa llevan una `mutationKey` con ella (`casesKeys.mutation`) ([19](19-TANDA13_CARRERAS_Y_CACHE.md)) |
@@ -147,7 +150,7 @@ pantalla (no arrastra de vuelta; su error ahora se avisa, ver arriba).
 | Controles de toque en el teléfono: botones chicos, "Volver", migas, pie del rail y fecha del hecho pasan a 36–40 px | H-25, H-51, H-52, H-54 |
 | El calendario en el teléfono: el día entero es un botón (49×57 px; antes, puntos de 18×20) que abre la lista de sus plazos, cada uno un enlace a su causa. En pantallas anchas la abre "+N más", que antes no se podía tocar ([26](26-TANDA16_CALENDARIO_H50.md)) | H-50 |
 | El login angosto muestra la marca en una franja arriba | H-26 |
-| El selector con filtro tiene la flecha de un `<select>`; y en Chrome, donde el `<select>` dibujaba su propio triángulo, ahora lleva el mismo chevron ([23](23-TANDA14_VISUAL_PARTE2.md)) | H-56 |
+| El selector con filtro tiene la flecha de un `<select>`; y en Chrome, donde el `<select>` dibujaba su propio triángulo, ahora lleva el mismo chevron ([23](23-TANDA14_VISUAL_PARTE2.md)). Visto también abierto, en error, deshabilitado y en el teléfono ([27](27-TANDA18_H57_Y_H56.md)) | H-56 |
 | 26 colores escritos a mano pasaron a 13 tokens, con el mismo valor | H-49 |
 
 ### Funcionalidad nueva
@@ -182,15 +185,15 @@ Se anotaron y después se vio que no eran un problema:
 
 ## 7. Verificación
 
-Estado con los cambios de los dos planes y las tandas 11 a 13:
+Estado con los cambios de los dos planes y las tandas 11 a 18:
 
 | Qué | Resultado |
 |---|---|
 | `npm run lint` | 0 errores; un warning conocido en `src/shared/components/ui/Icon.tsx:2` |
 | `npx tsc -b` | Limpio |
-| `npx vitest run` | **774 de 774 (121 archivos), en las dos últimas corridas; ver abajo las fallas intermitentes**, después de la tanda 16 (782 de 782 (122 archivos), en una corrida). En la tanda 12, cinco corridas seguidas sin fallas. Al empezar: 651 |
-| `npm run test:e2e` | **9 de 9**, después de la primera parte de la tanda 14, con la ventana de Playwright en 1366 × 768 |
-| `npm run build` | Sin errores, después de la primera parte de la tanda 14 |
+| `npx vitest run` | **796 de 796 (123 archivos)**, al cerrar la tanda 18 (14/11/2026). En alguna corrida de la suite entera fallan por tiempo `tests/unit/app/pages.test.ts` o el buscador de `UsersPage.test.tsx`; solos pasan ([21](21-TANDA15_PERFILES.md), "Arreglos"). En la tanda 12, cinco corridas seguidas sin fallas. Al empezar: 651 |
+| `npm run test:e2e` | **9 de 9**, después de la tanda 18, con la ventana de Playwright en 1366 × 768 |
+| `npm run build` | Sin errores, después de la tanda 18. Con `VITE_USE_MOCKS=true` en `.env.local`, los mocks entran en el build (553 kB): ver H-24 |
 | Navegador, con mocks | Lo modificado se miró a 320–390 px y a 1024–1366 px, tanda por tanda |
 
 **La suite ya no falla a todo paralelismo** (H-55, tanda 12). Desde la tanda
@@ -204,8 +207,7 @@ no hace falta pasarle `--maxWorkers`.
 | Qué | Por qué importa |
 |---|---|
 | **Probar contra el backend real** | Todo se probó con mocks. Falta: sesión entre pestañas, subida de un modelo, timeouts de archivos, expediente |
-| **Fin de mes de la prescripción: escribirlo en el contrato** | Se decidió que vale el backend (corta en el último día del mes) y el mock ya lo sigue. El contrato todavía no lo dice |
-| **Lector de pantalla real** | Todo lo de ARIA se comprobó en el DOM, nunca con NVDA |
+| **Lector de pantalla real** | Todo lo de ARIA se comprobó en el DOM, nunca con NVDA. La lista de qué escuchar está en el [27](27-TANDA18_H57_Y_H56.md), sección 6 |
 
 **Resuelto:** los tres perfiles contra la tabla de permisos (`gestion`,
 `mrios`, `supervision`), recorridos en la tanda 15: ningún perfil puede de más
@@ -217,38 +219,39 @@ ni de menos, y las cinco diferencias de forma que aparecieron están corregidas
 La segunda parte de la tanda 14 se hizo con el panel a la vista
 ([23](23-TANDA14_VISUAL_PARTE2.md)): bordes de los campos, tablero "Estudio",
 los cinco modales y las notas de botones deshabilitados en el teléfono, las
-fichas a 1.280 px y el bloque de error. Nada roto. Queda:
+fichas a 1.280 px y el bloque de error. Nada roto. H-57 se corrigió en la
+tanda 18 ([27](27-TANDA18_H57_Y_H56.md)). Queda:
 
 | Qué | Hallazgo |
 |---|---|
-| El pie de un listado dice "Sin resultados" mientras carga o cuando falló | H-57 |
 | El cursor en "Fuero": necesita Chrome real (diagnóstico parcial en el [20](20-TANDA14_VISUAL_PARTE1.md), sección 5) | — |
-| A 1.280 px las fichas de Causas muestran dos causas y media por pantalla: ¿alcanza, o se saca una columna en ese rango? | Decisión |
 
 ### Decisiones del equipo
 
+Resueltas en la tanda 18 ([27](27-TANDA18_H57_Y_H56.md), sección 5): H-10
+(siguen las tablas por rol), H-16 (`react-hook-form` desinstalado), H-09 (la
+renovación ante un `403` queda como está) y H-12 (las páginas largas no se
+refactorizan en la auditoría), y las notas "Solo el abogado responsable (…)"
+del detalle de causa, que pasaron a una por zona. El fin de mes de la
+prescripción ya está en el contrato V6 (D-140), y el `CLAUDE.md` raíz ya dice
+que el contrato vigente es V6 (H-15). Las fichas de Causas a 1.280 px quedan
+como están. Quedan:
+
 | Qué | Hallazgo |
 |---|---|
-| El front decide permisos con sus tablas y no con `permissions` del backend | H-10 |
-| `react-hook-form` instalado y sin uso | H-16 |
-| Las notas "Solo el abogado responsable (…)" del detalle de causa, que con la de la línea de vida son cuatro: ¿se unen en una? "Registrar acto interruptivo" queda lejos de la suya | H-53 |
 | Si después molesta que los nombres de las acciones de fila se repitan en un listado de botones, pasar a `aria-label` | H-40 |
 
 ### Para después
 
-- Un `403` cualquiera renueva la sesión (H-09): sólo análisis.
-- Páginas de 500–600 líneas (H-12): no se tocaron.
-- `tests/unit/app/pages.test.ts:13` corre al límite cuando se lo corre solo
-  (3,6–4,3 s de 5): importa las 13 pantallas adentro del test. Propuesta:
-  darle un tiempo propio; falta el OK ([18](18-TANDA12_H55.md)).
+- `tests/unit/app/pages.test.ts:13` corría al límite (3,6–4,3 s de 5): desde
+  la tanda 18 tiene un tiempo propio de 15 s ([27](27-TANDA18_H57_Y_H56.md)).
 - Los mocks se publican en el build si se hace con `VITE_USE_MOCKS=true`
   (H-24): confirmar con qué variables se despliega.
-- **Documentación**: `frontend/CLAUDE.md` y
+- **Documentación**: `TESTING.md` §11 ya lista los tests de la auditoría
+  (tanda 18). `frontend/CLAUDE.md` y
   `docs/Frontend-Architecture/SHARED.md` ya describen lo que sumó la
   auditoría, y `MATRIZ_CA.md` está regenerada (tanda 17,
-  [24](24-TANDA17_DOCUMENTACION.md)). Falta: `TESTING.md` §11 no lista los
-  tests de la auditoría, y el `CLAUDE.md` raíz dice que el contrato vigente es
-  V5 y el del front, V6 (H-15, decisión pendiente).
+  [24](24-TANDA17_DOCUMENTACION.md)). Las reglas de `.claude/rules/` todavía citan V5.
 
 ## 9. Lo nuevo que conviene conocer
 
@@ -292,5 +295,6 @@ fichas a 1.280 px y el bloque de error. Nada roto. Queda:
 | Qué se documentó de la auditoría y qué quedó sin tocar | [24](24-TANDA17_DOCUMENTACION.md) |
 | El estado al cortar y el prompt para seguir | [25](25-TRASPASO_2.md) |
 | El calendario en el teléfono y la lista del día (H-50) | [26](26-TANDA16_CALENDARIO_H50.md) |
+| El pie de los listados sin datos (H-57), lo que faltaba mirar de la flecha del `<select>` (H-56) y de "+N más" del calendario (H-50), E2E y build | [27](27-TANDA18_H57_Y_H56.md) |
 | La revisión a ojo: campos, "Estudio", modales y notas en el teléfono, fichas y bloque de error; H-56 y H-57 | [23](23-TANDA14_VISUAL_PARTE2.md) |
 | Las notas entre los dos planes y las decisiones acordadas | [11](11-PARA_LUCIANO.md), [13](13-RESPUESTA_A_FACUNDO.md), [15](15-PARA_LUCIANO_2.md) |

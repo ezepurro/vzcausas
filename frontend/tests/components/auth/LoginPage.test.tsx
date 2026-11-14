@@ -50,6 +50,27 @@ describe('LoginPage', () => {
         expect(await screen.findByText('Pantalla de usuarios')).toBeInTheDocument()
     })
 
+    /* H-58 de `docs/auditoria-front`: el error se veía, pero el campo no
+       quedaba marcado ni unido a su mensaje, y un lector de pantalla no lo decía. */
+    it('enviado vacío, cada campo queda inválido y descrito por su error', async () => {
+        const { user } = renderWithProviders(<RedirectIfSession />, ROUTES)
+
+        await user.click(screen.getByRole('button', { name: 'Ingresar' }))
+
+        const username = screen.getByLabelText('Usuario')
+        const password = screen.getByLabelText('Contraseña')
+        expect(username).toBeInvalid()
+        expect(username).toHaveAccessibleDescription('El nombre de usuario es obligatorio.')
+        expect(password).toBeInvalid()
+        expect(password).toHaveAccessibleDescription('La contraseña es obligatoria.')
+
+        // Al escribir, ese campo deja de estar marcado; el otro sigue.
+        await user.type(username, 'mrios')
+        expect(username).toBeValid()
+        expect(username).not.toHaveAccessibleDescription()
+        expect(password).toBeInvalid()
+    })
+
     it('enviado vacío muestra los errores sin llamar al servidor', async () => {
         const { user } = renderWithProviders(<RedirectIfSession />, ROUTES)
 

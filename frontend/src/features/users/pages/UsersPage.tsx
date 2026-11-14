@@ -325,7 +325,9 @@ export function UsersPage() {
                         </Button>
                     </>
                 }
-                footer={
+                /* Sin datos no hay pie: mientras carga o si falló, decía "Sin
+                   resultados" (H-57). */
+                footer={query.isSuccess && (
                     <Pagination
                         page={pagination?.page ?? 1}
                         totalPages={pagination?.totalPages ?? 1}
@@ -334,7 +336,7 @@ export function UsersPage() {
                         onChange={setPage}
                         onIntent={prefetchPage}
                     />
-                }
+                )}
             >
                 {query.isError ? (
                     <LoadError title="No se pudieron cargar los usuarios" error={query.error} onRetry={() => void query.refetch()} retrying={query.isFetching} />
