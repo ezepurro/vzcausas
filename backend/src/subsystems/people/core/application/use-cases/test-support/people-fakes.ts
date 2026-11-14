@@ -15,6 +15,7 @@ import {
   ClientRepository,
   ClientSearchCriteria,
 } from "../../../domain/ports/client.repository";
+import { Deactivation } from "@shared/domain/deactivation.vo";
 import { ClientDocument } from "../../../domain/value-objects/client-document.vo";
 import { Lawyer } from "../../../domain/entities/lawyer.entity";
 import {
@@ -146,6 +147,20 @@ export class FakeClientRepository implements ClientRepository {
     this.byId.set(client.id, client);
   }
 
+  /** The clients `saveDeactivation` wrote, in order (HU11). */
+  readonly deactivations: number[] = [];
+  /** When `true`, `saveDeactivation` finds the client already given de baja: another baja won. */
+  alreadyDeactivatedOnSave = false;
+
+  async saveDeactivation(client: Client): Promise<boolean> {
+    if (this.alreadyDeactivatedOnSave) {
+      return false;
+    }
+    this.deactivations.push(client.id);
+    this.byId.set(client.id, client);
+    return true;
+  }
+
   async findActiveById(id: number): Promise<Client | null> {
     const client = this.byId.get(id);
     return client !== undefined && client.isActive() ? client : null;
@@ -269,6 +284,14 @@ export class FakeAuditTrail implements AuditTrailPort {
     }
     this.entries.push({ ...entry, inTransaction: this.transactions?.open ?? false });
   }
+}
+
+/** A valid record of a client's baja (HU11), for specs that need a client given de baja. */
+export function aClientDeactivation(reason: string | null = null): Deactivation {
+  return Deactivation.create(
+    { reason },
+    { deactivatedByUserId: 1, deactivatedAt: new Date("2026-10-07T12:00:00Z") },
+  );
 }
 
 /**

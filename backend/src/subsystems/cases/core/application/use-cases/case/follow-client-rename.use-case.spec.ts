@@ -1,5 +1,5 @@
 import { Logger } from '@nestjs/common';
-import { CaseDeactivation } from '../../../domain/value-objects/case/case-deactivation.vo';
+import { Deactivation } from '@shared/domain/deactivation.vo';
 import { CASE_MODIFIED } from '../../../domain/ports/events/case-modified.event';
 import { FakeCaseFolderState, FakeEventPublisher } from '../../../test-support/case-folder-fakes';
 import {
@@ -24,7 +24,7 @@ function build() {
   cases.add(aCase({ id: 2, caption: 'Ariel GÓMEZ c/ PÉREZ' }));
   cases.add(aCase({ id: 3, caption: 'GÓMEZ, Ariel Fernando p.s.a. Hurto', clientId: 99 }));
   const gone = aCase({ id: 4, caption: 'GÓMEZ, Ariel Fernando p.s.a. Estafa' });
-  gone.deactivate(CaseDeactivation.create({ reason: null }, { deactivatedByUserId: 5, deactivatedAt: NOW }));
+  gone.deactivate(Deactivation.create({ reason: null }, { deactivatedByUserId: 5, deactivatedAt: NOW }));
   cases.add(gone);
   const audit = new FakeAuditTrail();
   const folders = new FakeCaseFolderState();

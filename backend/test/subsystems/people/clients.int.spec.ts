@@ -6,7 +6,7 @@ import { getPrisma, startTestApp, stopTestApp } from '../../shared/harness/test-
 import { expectData, expectError, expectPaginated } from '../../shared/contract/envelopes';
 import { loginAs, TestRole } from '../../shared/auth/login-as';
 import { createCase, deactivateCase } from '../../shared/factories/case.factory';
-import { createClient } from '../../shared/factories/client.factory';
+import { createClient, deactivateClient } from '../../shared/factories/client.factory';
 import { createLawyer } from '../../shared/factories/lawyer.factory';
 import { createProceduralState } from '../../shared/factories/procedural-state.factory';
 import { createUser } from '../../shared/factories/user.factory';
@@ -48,17 +48,18 @@ beforeAll(async () => {
   app = await startTestApp();
 });
 
-afterAll(async () => {
-  await stopTestApp();
-});
-
-beforeEach(async () => {
-  // Las causas referencian clientes con `Restrict`, y antes que las causas van sus
-  // hijas (hechos y actos). La causa apunta a su acto vigente: ese vínculo se suelta
-  // antes de borrar los actos. Usuarios y abogados, porque las factories numeran
-  // matrícula y usuario desde 1 en cada suite.
+/**
+ * Las causas referencian clientes con `Restrict`, y antes que las causas van sus
+ * hijas (hechos y actos). La causa apunta a su acto vigente: ese vínculo se suelta
+ * antes de borrar los actos. Usuarios y abogados, porque las factories numeran
+ * matrícula y usuario desde 1 en cada suite.
+ *
+ * Corre también al final: HU10 y HU11 dejan auditoría y clientes dados de baja que
+ * referencian usuarios, y otras suites borran los usuarios antes que los clientes
+ * (`audit_log_actor_user_id_fkey`, `clients_deactivated_by_user_id_fkey`).
+ */
+async function resetDatabase(): Promise<void> {
   const prisma = getPrisma();
-  // Antes de borrar usuarios: modificar un cliente deja auditoría que los referencia (HU10).
   await purgeAuditLog();
   await prisma.offense.deleteMany();
   await prisma.case.updateMany({ data: { currentProceduralActId: null } });
@@ -67,6 +68,15 @@ beforeEach(async () => {
   await prisma.client.deleteMany();
   await prisma.user.deleteMany(); // referencia a lawyers
   await prisma.lawyer.deleteMany();
+}
+
+afterAll(async () => {
+  await resetDatabase();
+  await stopTestApp();
+});
+
+beforeEach(async () => {
+  await resetDatabase();
 });
 
 describe('POST /api/v1/clients', () => {
@@ -395,7 +405,7 @@ describe('PATCH /api/v1/clients/{clientId}', () => {
     // CA-10.3, CA-10.7
     it('el documento se puede cambiar; el propio y el de un cliente dado de baja no son un conflicto', async () => {
       const baja = await createClient({ documentType: 'PASSPORT', documentNumber: 'AB123456' });
-      await getPrisma().client.update({ where: { id: baja.id }, data: { active: false } });
+      await deactivateClient(baja.id, editor.id);
 
       expect(expectData<ClientBody>(await patch({ documentType: 'DNI', documentNumber: '34812905' }), 200).documentNumber).toBe('34812905');
       expect(
@@ -461,7 +471,7 @@ describe('PATCH /api/v1/clients/{clientId}', () => {
     // CA-10.11
     it('un cliente inexistente o dado de baja es 404; un id no entero, 400', async () => {
       const baja = await createClient();
-      await getPrisma().client.update({ where: { id: baja.id }, data: { active: false } });
+      await deactivateClient(baja.id, editor.id);
 
       for (const id of [999999, baja.id]) {
         const res = await patch({ phone: '351 000' }, id);
@@ -540,14 +550,187 @@ describe('PATCH /api/v1/clients/{clientId}', () => {
   });
 });
 
+/*
+ * HU11 · Registrar baja de cliente (contrato V6 §3.6, D-122, D-134). Escrito desde
+ * `.claude/plans/tests-hu11-baja-cliente.md`. Da de baja una secretaria que existe:
+ * la baja y su auditoría quedan a su nombre. Sin parte de Drive: no hay carpeta de cliente.
+ */
+describe('DELETE /api/v1/clients/{clientId}', () => {
+  let secretary: { id: number; auth: { Authorization: string } };
+  let benitez: Awaited<ReturnType<typeof createClient>>;
+  const remove = (id: number | string = benitez.id, body?: object) => {
+    const req = server().delete(`${URL}/${id}`).set(secretary.auth).set('X-Correlation-Id', 'corr-hu11');
+    return body === undefined ? req : req.send(body);
+  };
+  /** Lo que un rechazo no puede tocar: el cliente y la auditoría. */
+  const snapshot = async () => ({
+    client: await getPrisma().client.findUnique({ where: { id: benitez.id } }),
+    audit: await getPrisma().auditLog.count(),
+  });
+
+  /** Una causa del cliente: en trámite, archivada o dada de baja. */
+  async function aCaseOf(clientId: number, kind: 'activa' | 'archivada' | 'dada de baja' = 'activa') {
+    const lawyer = await createLawyer();
+    const owner = { clientId, responsibleLawyerId: lawyer.id, createdByUserId: secretary.id };
+    if (kind === 'archivada') {
+      const terminal = await createProceduralState({ terminal: true });
+      return createCase({ ...owner, caption: 'BENÍTEZ, Rodrigo p.s.a. Hurto', currentStateId: terminal.stateId });
+    }
+    const created = await createCase({ ...owner, caption: 'BENÍTEZ, Rodrigo p.s.a. Robo' });
+    if (kind === 'dada de baja') await deactivateCase(created.id);
+    return created;
+  }
+
+  beforeEach(async () => {
+    const user = await createUser({ roles: ['SECRETARY'] });
+    secretary = {
+      id: user.id,
+      auth: loginAs({ userId: user.id, roles: ['SECRETARY'], permissions: ['client:delete', 'client:read', 'client:create'] }),
+    };
+    benitez = await createClient({ lastName: 'BENÍTEZ', firstName: 'Rodrigo', documentNumber: '31556208' });
+  });
+
+  describe('baja exitosa', () => {
+    // CA-11.1, CA-11.5
+    it('responde 204 sin cuerpo; queda dado de baja con quién, cuándo y el motivo, y no existe para el cliente', async () => {
+      await aCaseOf(benitez.id, 'archivada');
+
+      const res = await remove(benitez.id, { reason: '  Cliente cargado dos veces.  ' });
+
+      expect(res.status).toBe(204);
+      expect(res.text).toBe('');
+      expect(await getPrisma().client.findUnique({ where: { id: benitez.id } })).toMatchObject({
+        active: false,
+        deactivatedByUserId: secretary.id,
+        deactivatedAt: expect.any(Date),
+        deactivationReason: 'Cliente cargado dos veces.',
+      });
+      const audit = await getPrisma().auditLog.findMany();
+      expect(audit).toHaveLength(1);
+      expect(audit[0]).toMatchObject({
+        actorUserId: secretary.id,
+        action: 'client.deactivated',
+        entityType: 'Client',
+        entityId: String(benitez.id),
+        metadata: null,
+        correlationId: 'corr-hu11',
+      });
+      expect(JSON.stringify(audit[0])).not.toContain('dos veces');
+
+      const list = expectPaginated<ClientBody>(await server().get(URL).set(reader()));
+      expect(list.map((c) => c.id)).not.toContain(benitez.id);
+      expectError(await server().get(`${URL}/${benitez.id}`).set(reader()), 404, 'CLIENT_NOT_FOUND');
+    });
+
+    // CA-11.7
+    it.each<[string, object | undefined, string | null]>([
+      ['sin cuerpo', undefined, null],
+      ['con un motivo en blanco', { reason: '   ' }, null],
+      ['con un motivo de 500 caracteres', { reason: 'a'.repeat(500) }, 'a'.repeat(500)],
+    ])('%s la baja procede', async (_case, body, stored) => {
+      expect((await remove(benitez.id, body)).status).toBe(204);
+
+      expect(await getPrisma().client.findUnique({ where: { id: benitez.id } })).toMatchObject({
+        active: false,
+        deactivationReason: stored,
+      });
+    });
+
+    // CA-11.2: las causas terminales y las dadas de baja no impiden la baja.
+    it('con causas solo archivadas o dadas de baja, la baja procede', async () => {
+      await aCaseOf(benitez.id, 'archivada');
+      await aCaseOf(benitez.id, 'dada de baja');
+
+      expect((await remove()).status).toBe(204);
+    });
+  });
+
+  describe('rechazos', () => {
+    // CA-11.2
+    it('con una causa activa responde 409 y no cambia nada', async () => {
+      await aCaseOf(benitez.id, 'activa');
+      const before = await snapshot();
+
+      const res = await remove(benitez.id, { reason: 'Duplicado' });
+
+      expectError(res, 409, 'CLIENT_HAS_ACTIVE_CASES');
+      expect(res.body.error).toEqual({
+        code: 'CLIENT_HAS_ACTIVE_CASES',
+        message: 'No se puede dar de baja el cliente porque tiene causas activas.',
+        details: null,
+      });
+      expect(await snapshot()).toEqual(before);
+    });
+
+    // CA-11.7
+    it('un motivo de 501 caracteres o un campo que no es el motivo es 400 y no cambia nada', async () => {
+      const before = await snapshot();
+
+      for (const [body, details] of [
+        [{ reason: 'a'.repeat(501) }, { reason: 'Debe tener hasta 500 caracteres.' }],
+        [{ active: false }, { active: 'No es un campo admitido.' }],
+      ] as const) {
+        const res = await remove(benitez.id, body);
+        expectError(res, 400, 'VALIDATION_ERROR', Object.keys(details));
+        expect(res.body.error.details).toEqual(details);
+      }
+      expect(await snapshot()).toEqual(before);
+    });
+
+    // CA-11.9
+    it('una segunda baja o un cliente inexistente es 404; un id no entero, 400', async () => {
+      expect((await remove()).status).toBe(204);
+
+      for (const id of [benitez.id, 999999]) {
+        const res = await remove(id);
+        expectError(res, 404, 'CLIENT_NOT_FOUND');
+        expect(res.body.error.message).toBe('No se encontró el cliente solicitado.');
+      }
+      expectError(await remove('abc'), 400, 'INVALID_PATH_PARAMETER', ['clientId']);
+    });
+  });
+
+  describe('después de la baja', () => {
+    // CA-11.3, CA-11.4 (D-134), CA-11.8
+    it('no se lo elige para una causa nueva, su causa archivada lo sigue mostrando y su documento queda libre', async () => {
+      const archivada = await aCaseOf(benitez.id, 'archivada');
+      const lawyer = await createLawyer();
+      expect((await remove()).status).toBe(204);
+
+      const newCase = await server()
+        .post('/api/v1/cases')
+        .set(secretary.auth)
+        .send({ jurisdiction: 'CRIMINAL', caption: 'BENÍTEZ p.s.a. Estafa', proceduralRole: 'DEFENSA', clientId: benitez.id, responsibleLawyerId: lawyer.id });
+      expectError(newCase, 400, 'VALIDATION_ERROR', ['clientId']);
+
+      const detail = expectData<{ client: Record<string, unknown> }>(
+        await server().get(`/api/v1/cases/${archivada.id}`).set(secretary.auth),
+        200,
+      );
+      expect(detail.client).toMatchObject({ id: benitez.id, lastName: 'BENÍTEZ', firstName: 'Rodrigo' });
+      expect(detail.client).not.toHaveProperty('active');
+
+      const again = await server().post(URL).set(secretary.auth).send({
+        lastName: 'BENÍTEZ',
+        firstName: 'Rodrigo',
+        documentType: 'DNI',
+        documentNumber: '31556208',
+        address: 'Calle 1',
+        phone: '351 111-1111',
+      });
+      expect(expectData<ClientBody>(again, 201).id).not.toBe(benitez.id);
+    });
+  });
+});
+
 /**
  * Con login real: lo que se verifica es el **seed** (seed → `role_permissions` → login
  * → claims → guard). RN11: todo el estudio ve todo, y desde la matriz del 2026-10-11
  * (§5.1) los tres perfiles dan de alta clientes (CA-9.3).
  */
 describe('Permisos de /api/v1/clients', () => {
-  // CA-10.6: los tres perfiles también modifican.
-  it.each(ROLES)('un %s consulta el listado y el detalle, da de alta y modifica', async (role) => {
+  // CA-10.6 y CA-11.6: los tres perfiles también modifican y dan de baja.
+  it.each(ROLES)('un %s consulta el listado y el detalle, da de alta, modifica y da de baja', async (role) => {
     const user = await createUser({ roles: [role], passwordHash: await bcrypt.hash(PASSWORD, 4) });
     const login = await server().post('/api/v1/auth/login').send({ username: user.username, password: PASSWORD });
     expect(login.status).toBe(200);
@@ -565,5 +748,6 @@ describe('Permisos de /api/v1/clients', () => {
     expectPaginated(await server().get(URL).set(auth));
     expectData(await server().get(`${URL}/${id}`).set(auth), 200);
     expectData(await server().patch(`${URL}/${id}`).set(auth).send({ phone: '351 222-2222' }), 200);
+    expect((await server().delete(`${URL}/${id}`).set(auth)).status).toBe(204);
   });
 });

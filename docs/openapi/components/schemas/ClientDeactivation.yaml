@@ -1,0 +1,14 @@
+type: object
+description: |
+  Cuerpo opcional de `DELETE /clients/{clientId}` (HU11, V6): el "Motivo
+  (opcional)" del formulario "Eliminar cliente". Sin cuerpo, la baja procede
+  igual. Un motivo en blanco se guarda como ausente.
+additionalProperties: false
+properties:
+  reason:
+    type:
+      - string
+      - 'null'
+    maxLength: 500
+    examples:
+      - Cliente cargado dos veces.

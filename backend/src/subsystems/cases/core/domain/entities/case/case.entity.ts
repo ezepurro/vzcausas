@@ -3,6 +3,7 @@ import { ValidationError } from '@shared/domain/domain-error';
 import {
   CannotDeclarePrescriptionError,
   CaseInTerminalStateError,
+  CaseNotFoundError,
   EmptyCaseUpdateError,
   NotResponsibleLawyerError,
   PrescriptionNotApplicableError,
@@ -10,7 +11,7 @@ import {
 import { CaseDataRules, FieldErrors } from '../../rules/case-data-rules';
 import { CaseChangeSet } from '../../value-objects/case/case-change-set.vo';
 import { ClientCaptionName } from '../../value-objects/case/client-caption-name.vo';
-import { CaseDeactivation } from '../../value-objects/case/case-deactivation.vo';
+import { Deactivation } from '@shared/domain/deactivation.vo';
 import { isRoleAllowedIn } from '../../value-objects/case/procedural-role';
 import { CASE_FIELDS, CaseChanges, CaseField, CaseModificationContext, PendingChanges } from './case-changes';
 import { ProceduralStateRef } from '../../ports/case/legal-parameters-lookup.port';
@@ -160,8 +161,8 @@ export interface CaseProps {
   currentStateTerminal: boolean;
   proceduralActs: ProceduralAct[];
   active: boolean;
-  // Who gave the case de baja, when and why (HU21). Absent or `null` while it is in force.
-  deactivation?: CaseDeactivation | null;
+  // Who gave the case de baja, when and why (HU21). `null` while it is in force.
+  deactivation: Deactivation | null;
   createdByUserId: number;
   createdAt: Date;
   updatedAt: Date;
@@ -174,7 +175,15 @@ export interface CaseProps {
  * One subclass per jurisdiction; all of them are stored in the `cases` table.
  */
 export abstract class Case {
-  protected constructor(protected readonly props: CaseProps) {}
+  /**
+   * A case given de baja carries the record of its baja and one in force does
+   * not (RN12, HU21): the same rule as `ck_cases_deactivation_coherent`.
+   */
+  protected constructor(protected readonly props: CaseProps) {
+    if (props.active === (props.deactivation !== null)) {
+      throw new Error(`The case ${props.id} must carry its deactivation exactly when it is given de baja.`);
+    }
+  }
 
   /** The jurisdiction this kind of case belongs to. */
   abstract get jurisdictionCode(): JurisdictionCode;
@@ -248,7 +257,7 @@ export abstract class Case {
    * A case already given de baja does not exist for the client, so the use case
    * answers 404 before getting here; reaching it twice is a programming error.
    */
-  deactivate(deactivation: CaseDeactivation): void {
+  deactivate(deactivation: Deactivation): void {
     if (!this.props.active) {
       throw new Error(`The case ${this.props.id} was already given de baja.`);
     }
@@ -872,9 +881,21 @@ export abstract class Case {
     return this.props.active;
   }
 
+  /**
+   * D-97: for the client a case given de baja does not exist (contract §4,
+   * Bajas). Every use case that reaches a case by its id answers the same 404
+   * whether it never existed or was given de baja.
+   * @throws CaseNotFoundError
+   */
+  assertInForce(): void {
+    if (!this.props.active) {
+      throw new CaseNotFoundError();
+    }
+  }
+
   /** The record of the baja; `null` while the case is in force. */
-  get deactivation(): CaseDeactivation | null {
-    return this.props.deactivation ?? null;
+  get deactivation(): Deactivation | null {
+    return this.props.deactivation;
   }
 
   get createdByUserId(): number {

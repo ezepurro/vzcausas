@@ -7,7 +7,7 @@ import {
   ProceduralActNotFoundError,
 } from '../../../domain/errors/case.errors';
 import { ProceduralActView } from '../../../domain/ports/procedural-act/procedural-act.repository';
-import { CaseDeactivation } from '../../../domain/value-objects/case/case-deactivation.vo';
+import { Deactivation } from '@shared/domain/deactivation.vo';
 import { DayType } from '../../../domain/value-objects/deadline/day-type';
 import {
   FakeAuditTrail,
@@ -163,7 +163,7 @@ describe('UpdateProceduralAct', () => {
    */
   const deactivated = () => {
     const target = aCaseInState({ currentAct: anAct() });
-    target.deactivate(CaseDeactivation.hydrate({ reason: null, deactivatedByUserId: 5, deactivatedAt: NOW }));
+    target.deactivate(Deactivation.hydrate({ reason: null, deactivatedByUserId: 5, deactivatedAt: NOW }));
     return target;
   };
   const prescribed = () =>

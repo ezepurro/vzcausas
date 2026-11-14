@@ -1,5 +1,6 @@
 import { ValidationError } from "@shared/domain/domain-error";
 import { EmptyClientUpdateError } from "../errors/people.errors";
+import { Deactivation } from "@shared/domain/deactivation.vo";
 import { ClientDocument } from "../value-objects/client-document.vo";
 import { Client, ClientChanges } from "./client.entity";
 
@@ -15,6 +16,7 @@ const aClient = () =>
     email: "afgomez@gmail.com",
     clientSince: new Date("2021-03-12T00:00:00.000Z"),
     active: true,
+    deactivation: null,
   });
 
 function detailsOf(work: () => unknown): Record<string, unknown> | null {
@@ -134,6 +136,42 @@ describe("Client.update", () => {
   });
 });
 
+/** HU11 · Registrar baja de cliente (contrato V6 §3.6, D-122). */
+describe("Client.deactivate", () => {
+  const record = () =>
+    Deactivation.create(
+      { reason: "Cliente cargado dos veces." },
+      { deactivatedByUserId: 9, deactivatedAt: new Date("2026-10-07T12:00:00Z") },
+    );
+
+  // CA-11.1, CA-11.5
+  it("deja de estar vigente y guarda quién, cuándo y por qué", () => {
+    const client = aClient();
+    const deactivation = record();
+
+    client.deactivate(deactivation);
+
+    expect(client.isActive()).toBe(false);
+    expect(client.deactivation).toBe(deactivation);
+  });
+
+  it("un cliente vigente no tiene registro de baja", () => {
+    expect(aClient().deactivation).toBeNull();
+  });
+
+  it("darlo de baja dos veces es un error de programación: el caso de uso ya respondió 404", () => {
+    const client = aClient();
+    client.deactivate(record());
+
+    expect(() => client.deactivate(record())).toThrow("was already given de baja");
+  });
+
+  it("no se puede reconstruir un cliente dado de baja sin su registro, ni uno vigente con registro", () => {
+    expect(() => Client.hydrate({ ...snapshot(aClient()), active: false, deactivation: null })).toThrow();
+    expect(() => Client.hydrate({ ...snapshot(aClient()), active: true, deactivation: record() })).toThrow();
+  });
+});
+
 function snapshot(client: Client) {
   return {
     id: client.id,
@@ -145,5 +183,6 @@ function snapshot(client: Client) {
     email: client.email,
     clientSince: client.clientSince,
     active: client.isActive(),
+    deactivation: client.deactivation,
   };
 }

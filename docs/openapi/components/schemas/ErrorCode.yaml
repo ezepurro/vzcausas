@@ -33,6 +33,7 @@ description: |
     | `DOCUMENT_TEMPLATE_ALREADY_EXISTS`   | 409  | Nombre de modelo formal ya registrado                                     |
     | `USER_HAS_DEPENDENCIES`              | 409  | El usuario posee recursos asociados                                       |
     | `LAWYER_HAS_DEPENDENCIES`            | 409  | El abogado posee causas o un usuario vinculado                            |
+    | `CLIENT_HAS_ACTIVE_CASES`            | 409  | El cliente tiene causas activas (V6, D-122)                               |
     | `FILE_TOO_LARGE`                     | 413  | El archivo enviado supera los 10 MB                                       |
     | `INVALID_CURRENT_PASSWORD`           | 422  | La contraseña actual no coincide                                          |
     | `CASE_IN_TERMINAL_STATE`             | 422  | Acto procesal, acto interruptivo o marca de prescripción sobre una causa en estado terminal. También: modificar un acto de una causa "Prescripta", o cambiar las calificaciones legales de una causa "Prescripta" |
@@ -75,6 +76,7 @@ enum:
     - DOCUMENT_TEMPLATE_ALREADY_EXISTS
     - USER_HAS_DEPENDENCIES
     - LAWYER_HAS_DEPENDENCIES
+    - CLIENT_HAS_ACTIVE_CASES
     - FILE_TOO_LARGE
     - INVALID_CURRENT_PASSWORD
     - CASE_IN_TERMINAL_STATE

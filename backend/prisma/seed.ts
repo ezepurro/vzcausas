@@ -62,6 +62,7 @@ const PERMISSIONS = [
   { name: 'client:create', description: 'Registrar clientes.' },
   { name: 'client:read', description: 'Consultar clientes.' },
   { name: 'client:update', description: 'Modificar clientes.' },
+  { name: 'client:delete', description: 'Dar de baja clientes.' },
   { name: 'qualification:create', description: 'Registrar calificaciones legales.' },
   { name: 'qualification:read', description: 'Consultar calificaciones legales.' },
   { name: 'qualification:update', description: 'Modificar calificaciones legales.' },
@@ -92,8 +93,10 @@ const PERMISSIONS = [
 const STAFF = [
   'client:read',
   'client:create',
-  // HU10: the three profiles modify clients (CA-10.6).
+  // HU10 and HU11: the three profiles modify clients and give them de baja
+  // (CA-10.6, CA-11.6).
   'client:update',
+  'client:delete',
   'lawyer:read',
   'qualification:read',
   'qualification:create',

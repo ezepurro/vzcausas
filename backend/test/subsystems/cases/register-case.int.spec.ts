@@ -9,7 +9,7 @@ import { expectData, expectError } from '../../shared/contract/envelopes';
 import { loginAs } from '../../shared/auth/login-as';
 import { aCaseBody, createCase } from '../../shared/factories/case.factory';
 import { clearCloudFolders, createCloudStructure } from '../../shared/factories/cloud-structure.factory';
-import { createClient } from '../../shared/factories/client.factory';
+import { createClient, deactivateClient } from '../../shared/factories/client.factory';
 import { createLawyer } from '../../shared/factories/lawyer.factory';
 import { createLegalQualification } from '../../shared/factories/legal-qualification.factory';
 import { createInitialState } from '../../shared/factories/procedural-state.factory';
@@ -49,6 +49,9 @@ describe('POST /api/v1/cases', () => {
 
   afterAll(async () => {
     await clearCloudFolders();
+    // El cliente dado de baja referencia a quien lo dio de baja (HU11): no se deja
+    // para otra suite que borre los usuarios antes que los clientes.
+    await getPrisma().client.deleteMany({ where: { active: false } });
     await stopTestApp();
   });
 
@@ -67,9 +70,10 @@ describe('POST /api/v1/cases', () => {
     await clearCloudFolders();
     // HU39: la estructura base del estudio, sin la cual la carpeta de una causa no se puede crear.
     await createCloudStructure(storage);
+    // Los clientes antes que los usuarios: uno dado de baja referencia a quien lo dio de baja (HU11).
+    await prisma.client.deleteMany();
     await prisma.user.deleteMany(); // referencia a lawyers
     await prisma.lawyer.deleteMany();
-    await prisma.client.deleteMany();
     await prisma.legalQualification.deleteMany();
 
     // Los fueros y sus estados iniciales los siembra el seed, pero otros specs los borran.
@@ -406,7 +410,8 @@ describe('POST /api/v1/cases', () => {
   // 400 VALIDATION_ERROR solo sobre su campo y nada guardado.
   it('rechaza un abogado, un cliente y una calificación dados de baja, cada uno sobre su campo', async () => {
     const inactiveLawyer = await createLawyer({ active: false });
-    const inactiveClient = await createClient({ active: false });
+    const inactiveClient = await createClient();
+    await deactivateClient(inactiveClient.id, userId);
     const inactiveQualification = await createLegalQualification({ active: false });
     const cases: [field: string, body: object][] = [
       ['responsibleLawyerId', aCaseBody({ clientId, responsibleLawyerId: inactiveLawyer.id })],

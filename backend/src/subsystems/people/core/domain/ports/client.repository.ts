@@ -40,6 +40,15 @@ export interface ClientRepository {
    */
   update(client: Client): Promise<void>;
 
+  /**
+   * Saves that the client was given de baja (HU11): `active` in `false` and
+   * who, when and why, in one write. Only a client still in force is written,
+   * so two simultaneous bajas cannot both win (CA-11.9). Meant to run inside
+   * the use case's transaction, together with the audit record.
+   * @returns `false` if the client was already given de baja (nothing written).
+   */
+  saveDeactivation(client: Client): Promise<boolean>;
+
   /** Inserts a freshly created client. */
   create(client: Client): Promise<void>;
 
