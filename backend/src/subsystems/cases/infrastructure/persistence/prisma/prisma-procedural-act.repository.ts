@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@shared/infrastructure/prisma/prisma.service';
+import { Deactivation } from '@shared/domain/deactivation.vo';
 import { ProceduralAct } from '../../../core/domain/entities/procedural-act.entity';
 import { Prisma } from '../../../../../generated/prisma/client';
 import {
@@ -55,7 +56,8 @@ export class PrismaProceduralActRepository implements ProceduralActRepository {
    * disagrees with the page.
    */
   async listByCase(caseId: number, page: number, limit: number): Promise<ProceduralActPage> {
-    const where = { caseId };
+    // An act given de baja does not exist for the client (HU29, D-124).
+    const where = { caseId, active: true };
     const [rows, totalItems] = await this.prisma.$transaction([
       this.prisma.db.proceduralAct.findMany({
         where,
@@ -71,9 +73,9 @@ export class PrismaProceduralActRepository implements ProceduralActRepository {
 
   async findInCase(caseId: number, actId: number): Promise<ProceduralActView | null> {
     // `caseId` in the filter, not checked afterwards: an act of another case
-    // must be as absent as one that does not exist.
+    // must be as absent as one that does not exist, and so must one given de baja (HU29, D-124).
     const row = await this.prisma.db.proceduralAct.findFirst({
-      where: { id: actId, caseId },
+      where: { id: actId, caseId, active: true },
       include: ACT_INCLUDE,
     });
     return row ? toView(row) : null;
@@ -86,10 +88,27 @@ export class PrismaProceduralActRepository implements ProceduralActRepository {
     });
   }
 
+  /**
+   * One step, conditioned on the act still being in force: of two requests
+   * giving the same act de baja at once, only one writes (HU29).
+   */
+  async saveDeactivation(caseId: number, actId: number, deactivation: Deactivation): Promise<boolean> {
+    const { count } = await this.prisma.db.proceduralAct.updateMany({
+      where: { id: actId, caseId, active: true },
+      data: {
+        active: false,
+        deactivatedAt: deactivation.deactivatedAt,
+        deactivatedByUserId: deactivation.deactivatedByUserId,
+        deactivationReason: deactivation.reason,
+      },
+    });
+    return count === 1;
+  }
+
   /** Same order as the listing and the index: the newest date first and, on a tie, the last registered. */
   async findLatestInCaseExcept(caseId: number, exceptActId: number): Promise<ProceduralAct | null> {
     const row = await this.prisma.db.proceduralAct.findFirst({
-      where: { caseId, id: { not: exceptActId } },
+      where: { caseId, id: { not: exceptActId }, active: true },
       orderBy: NEWEST_FIRST,
     });
     return row ? ProceduralActPrismaMapper.toDomain(row) : null;

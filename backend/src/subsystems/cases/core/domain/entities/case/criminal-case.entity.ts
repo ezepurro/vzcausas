@@ -183,6 +183,16 @@ export class CriminalCase extends Case {
     }
   }
 
+  /**
+   * HU29 — for the same reason, giving an act de baja cannot take the case out of
+   * "Prescripta" either (D-124, CA-29.8).
+   */
+  override assertActsCanBeDeactivated(): void {
+    if (this.criminalProps.prescriptionDeclaration !== null) {
+      throw new CaseInTerminalStateError(CaseInTerminalStateError.ACTS_OF_PRESCRIBED_CASE_CANNOT_BE_DEACTIVATED);
+    }
+  }
+
   protected ownFields(): readonly CaseField[] {
     return ['legalQualifications', 'clientDetained'];
   }

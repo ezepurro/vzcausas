@@ -1,4 +1,5 @@
 import { AuditEntry, AuditTrailPort } from '@shared/domain/audit-trail.port';
+import { Deactivation } from '@shared/domain/deactivation.vo';
 import { ClockPort } from '@shared/domain/clock.port';
 import { TransactionManagerPort } from '@shared/domain/transaction-manager.port';
 import { Case } from '../domain/entities/case/case.entity';
@@ -140,6 +141,10 @@ export abstract class UnusedProceduralActRepository implements ProceduralActRepo
 
   async saveModification(_act: ProceduralAct): Promise<void> {
     throw new Error('Este spec no usa saveModification de ProceduralActRepository.');
+  }
+
+  async saveDeactivation(_caseId: number, _actId: number, _deactivation: Deactivation): Promise<boolean> {
+    throw new Error('Este spec no usa saveDeactivation de ProceduralActRepository.');
   }
 
   async findLatestInCaseExcept(_caseId: number, _exceptActId: number): Promise<ProceduralAct | null> {
@@ -350,6 +355,19 @@ export class FakeProceduralActRepository extends UnusedProceduralActRepository {
 
   async findLatestInCaseExcept(_caseId: number, _exceptActId: number): Promise<ProceduralAct | null> {
     return this.latestOther;
+  }
+
+  /** What `saveDeactivation` received, in order (HU29). */
+  readonly deactivations: { caseId: number; actId: number; deactivation: Deactivation }[] = [];
+  /** When `true`, `saveDeactivation` answers as if another request gave the act de baja first. */
+  alreadyDeactivatedOnSave = false;
+
+  async saveDeactivation(caseId: number, actId: number, deactivation: Deactivation): Promise<boolean> {
+    if (this.alreadyDeactivatedOnSave) {
+      return false;
+    }
+    this.deactivations.push({ caseId, actId, deactivation });
+    return true;
   }
 }
 

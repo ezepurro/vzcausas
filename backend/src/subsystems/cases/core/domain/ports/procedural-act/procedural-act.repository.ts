@@ -1,3 +1,4 @@
+import { Deactivation } from '@shared/domain/deactivation.vo';
 import { ProceduralAct } from '../../entities/procedural-act.entity';
 
 /** DI token for {@link ProceduralActRepository}. Symbol-as-token, same as the other ports. */
@@ -47,11 +48,22 @@ export interface ProceduralActRepository {
    */
   listByCase(caseId: number, page: number, limit: number): Promise<ProceduralActPage>;
 
-  /** The act with that id **if it belongs to that case**; `null` otherwise. */
+  /**
+   * The act with that id **if it belongs to that case** and is in force; `null`
+   * otherwise. Like every read of this port, it never returns an act given de
+   * baja: for the client it does not exist (HU29, D-124).
+   */
   findInCase(caseId: number, actId: number): Promise<ProceduralActView | null>;
 
   /** Writes a modified act (HU28): its data, its deadline and who modified it and when. */
   saveModification(act: ProceduralAct): Promise<void>;
+
+  /**
+   * Gives an act de baja (HU29, RN12): `active: false` with who, when and the
+   * reason. Conditioned on the act being still in force: `false` if it was not,
+   * as when another request gave it de baja a moment ago.
+   */
+  saveDeactivation(caseId: number, actId: number, deactivation: Deactivation): Promise<boolean>;
 
   /**
    * The most recent act of the case other than `exceptActId`: by `actDate` and,
