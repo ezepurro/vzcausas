@@ -13,10 +13,11 @@ ver [Revisión de V5 del 05/11/2026](#revisión-de-v5-del-05112026).
 
 **09/11/2026: contrato V6 (Sprint 5).** El contrato vigente pasa a ser
 `API_CONTRACT_V6.md`, la última versión. Suma lo del Sprint 5: ver
-[Sprint 5](#sprint-5--qué-trae-v6). Los mocks y los tipos todavía implementan
-V5: lo de V6 no está programado. Además hay código hecho que sigue una regla
-que V6 cambia (la baja de abogado del mock, `ERROR_CODES`, dos comentarios
-sobre HU29): ver
+[Sprint 5](#sprint-5--qué-trae-v6). **Al 14/11/2026 están hechas HU10 y HU11**
+(modificar y dar de baja un cliente), con sus mocks y sus tests en verde; lo
+demás de V6 todavía no está programado. Además hay código hecho que sigue una
+regla que V6 cambia (la baja de abogado del mock, `ERROR_CODES`, dos
+comentarios sobre HU29): ver
 [Cambios de V6 sobre lo que ya estaba hecho](#cambios-de-v6-sobre-lo-que-ya-estaba-hecho).
 
 ## Antes de escribir código, leé
@@ -28,7 +29,7 @@ sobre HU29): ver
    guía para Claude al final.
 3. `frontend/src/shared/mocks/README.md` — **antes de escribir cualquier
    llamada a la API**. El mock implementa V5 entero (revisión del 05/11/2026);
-   lo del Sprint 5 (V6) todavía no está.
+   del Sprint 5 (V6) tiene sólo `PATCH` y `DELETE /clients/{clientId}`.
    Ahí están los usuarios de prueba y qué puede cada perfil, qué causa semilla
    sirve para probar cada regla, cómo disparar cada error y cómo agregar un
    endpoint. El resumen está en [Los mocks](#los-mocks), más abajo.
@@ -100,8 +101,8 @@ Playwright para los E2E.
 ## Sprint 5 — qué trae V6
 
 Alcance según V6 (D-114): HU 10, 11, 15, 29, 36, 37, 43, 49 y 50. Sprint "VZ
-Sprint 5" de Jira (08/11/2026 – 20/11/2026). Todavía no hay pantallas, tipos ni
-mocks: es lo que hay que programar. Los criterios de aceptación de cada
+Sprint 5" de Jira (08/11/2026 – 20/11/2026). Están hechas HU10 y HU11 (ver
+abajo); de las demás todavía no hay pantallas, tipos ni mocks. Los criterios de aceptación de cada
 historia están en su issue de Jira, escritos sobre V6 (09/11/2026): CA-10.x,
 CA-11.x, CA-15.x, CA-29.x, CA-36.x, CA-37.x, CA-43.x, CA-49.x y CA-50.x. Las
 decisiones son D-114 a D-139
@@ -122,6 +123,30 @@ de `DECISIONES.md`. Del Sprint 5 no queda nada abierto (V6 §7).
 | 37 | Dar de baja modelo formal | `DELETE /document-templates/{templateId}` | No hay "Reactivar", y los dados de baja no se listan (D-126). Su archivo va a la `Papelera` de Drive (D-131). Su nombre queda libre para un modelo nuevo (D-139) |
 | 43 | Reporte mensual de gestión | `GET /reports/monthly`, `GET /reports/monthly/file` | Reemplaza a los reportes por abogado y por fuero (D-116). Solo `ADMINISTRATOR`: la ruta es `/reportes`, que ya está en `ROUTE_ACCESS`. El backend trae todo calculado; los gráficos se dibujan con SVG y CSS, **sin librería** (D-120). El selector de mes va de `availableFrom` a `currentPeriod`; el mes en curso llega con `status` `IN_PROGRESS`. El PDF lo arma el backend: el front solo lo descarga o lo muestra |
 | 49, 50 | Modificar y dar de baja calificación legal | Ya en V5, sin cambios | — |
+
+**HU10 y HU11, hechas** (Facundo Fiorani, 14/11/2026). Funcionan contra el
+mock; contra el backend no se probaron (VZ-211 en revisión, VZ-212 por hacer).
+
+- **Modificar cliente.** "Modificar" en cada fila abre `ClientFormModal` con
+  `mode="edit"` (el subtítulo es el nombre y el documento) y "Guardar
+  cambios". Manda sólo lo cambiado (`buildClientPatch`); sin cambios, cierra
+  sin llamar. `useUpdateClient` marca vieja **toda** la caché con cualquier
+  cambio, no sólo con el nombre: el detalle de la causa muestra el teléfono y
+  el correo en la tarjeta del cliente (CA-10.2), y el nombre cambia la
+  carátula (CA-10.9). Un `404` avisa, cierra y vuelve a pedir la tabla.
+- **Dar de baja cliente.** "Eliminar" en cada fila abre `DeleteClientModal`,
+  con motivo opcional. La fila sale al confirmar (`useDeleteClient`, como
+  `useDeleteUser`), pero el diálogo **queda abierto hasta la respuesta**: con
+  `409 CLIENT_HAS_ACTIVE_CASES` muestra el mensaje y la lista de causas
+  activas, deshabilita "Eliminar" y la fila vuelve a la tabla.
+- **La lista de causas activas vive en `cases`** (`ClientActiveCases`, con
+  `activeCasesOf`): pide `GET /cases?clientId=` y los estados de los tres
+  fueros, y se queda con las que no están en un estado terminal. `clients` no
+  puede importarla, así que `ClientsPage` la recibe en la prop
+  `renderActiveCases` y la enchufa `src/app/router/ClientsRoute.tsx`, que es
+  lo que carga `PAGES.clients`. Si otra pantalla necesita algo de un módulo
+  que depende del suyo, es el mismo camino.
+- Tests y nombres que fijan: `TESTING.md` §11, "Sprint 5".
 
 **Lo que el prototipo muestra y el Sprint 5 no dibuja** (`DECISIONES.md` §3):
 
@@ -280,7 +305,7 @@ Varios módulos necesitan datos de otros. Cada dueño publica **sólo eso** en s
 | `clients` | `useClients`, `useCreateClient`, `ClientFormModal`, `validateClient`, `isValidClient`, `toClientFormErrors`, `formatClientName`, `formatDocument`, `formatDocumentNumber`, `DOCUMENT_TYPES`, `DOCUMENT_TYPE_LABELS`, `toCreateClientBody` | Registrar y modificar causa: select de cliente y "Registrar cliente nuevo" |
 | `legal-params` | `useLegalQualifications`, `useCreateLegalQualification`, `LegalQualificationFormModal`, `validateLegalQualification`, `toCreateLegalQualificationBody`, `toLegalQualificationFormErrors`, `useProceduralStates`, `isPrescribedState`, el formateo de la prescripción, los rótulos de fueros y tipos de día | Registrar y modificar causa, Registrar acto, Modelos (los fueros) y los tableros |
 | `documents` | `useDocumentTemplates`, `DocumentTemplate` | Registrar causa: cuántos modelos del fuero se van a copiar (CA-40.10) |
-| `cases` | `useCase`, `useCreateCase`, `casesKeys`, `refreshCaseAfterAct` (las mutaciones de actos esperan la causa nueva), `CaseHeader`, `CaseHeaderSkeleton`, `CasePrescriptionBar` (la barra con la elección de D-112), `PrescriptionBar`, `nearestQualification`, `openDeadline`, `isResponsibleLawyer`, `sacLabel`, los rótulos y los tipos de la causa y del acto procesal (`ProceduralAct`, `ActDeadline`) | Registrar y modificar acto (muestra la causa y, al guardar, invalida sus claves) y los tableros |
+| `cases` | `useCase`, `useCreateCase`, `casesKeys`, `refreshCaseAfterAct` (las mutaciones de actos esperan la causa nueva), `CaseHeader`, `CaseHeaderSkeleton`, `CasePrescriptionBar` (la barra con la elección de D-112), `PrescriptionBar`, `nearestQualification`, `openDeadline`, `isResponsibleLawyer`, `sacLabel`, `ClientActiveCases`, los rótulos y los tipos de la causa y del acto procesal (`ProceduralAct`, `ActDeadline`) | Registrar y modificar acto (muestra la causa y, al guardar, invalida sus claves), los tableros y, desde `src/app/router/ClientsRoute.tsx`, la baja de un cliente (sus causas activas) |
 | `deadlines` | `DAILY_RUN_ENABLED`, `useRunDailyNotifications` | La campana de la barra superior (`AppLayout`), sólo en desarrollo (`deadlines/CAMBIOS.md`) |
 
 `proceedings`, `dashboard`, `tools`, `users` y `auth` no publican nada: ningún
@@ -302,9 +327,9 @@ Si aparece una flecha para el otro lado, algo está en el módulo equivocado.
 | Módulo | Páginas | Componentes | Utilidades |
 |---|---|---|---|
 | `auth` | `LoginPage` | `LoginForm`, `LoginAside`, `ChangePasswordModal`, `LogoutConfirmModal` | `profileLabel`, `sessionStorage` |
-| `clients` | `ClientsPage` | `ClientsTable`, `ClientFormModal` | `clientFormat` (`formatClientName`, `formatDocument`, `formatDocumentNumber`, `normalizeDocumentNumber`, `formatDni`, `normalizeDni`), `toCreateClientBody`, `toFormErrors` |
+| `clients` | `ClientsPage` | `ClientsTable`, `ClientFormModal` (alta y modificación), `DeleteClientModal` | `clientFormat` (`formatClientName`, `formatDocument`, `formatDocumentNumber`, `normalizeDocumentNumber`, `formatDni`, `normalizeDni`), `toCreateClientBody`, `buildClientPatch`, `toDeleteClientBody`, `toFormErrors` |
 | `legal-params` | `ProceduralStatesPage`, `LegalQualificationsPage` | `ProceduralStatesTable`, `ProceduralStateFormModal`, `DeleteProceduralStateModal`, `LegalQualificationsTable`, `LegalQualificationFormModal`, `DeleteLegalQualificationModal` | `prescription` (`formatPrescription`, `toPrescriptionMonths`, `splitPrescription`, `shortQualificationName`), `systemStates`, `dayTypeTone`, los `build…Patch` y `toCreate…Body`, `toFormErrors`, `toLegalQualificationFormErrors` |
-| `cases` | `CasesPage`, `RegisterCasePage`, `CaseDetailPage`, `GenerateCaseFilePage` | `CasesTable`, `CaseFilters`, `CaseForm`, `CaseEditForm`, `LegalQualificationPicker`, `CaseSummaryAside`, `CaseHeader`, `CaseFacts`, `PrescriptionBar`, `CasePrescriptionBar`, `CaseQualifications`, `ClientCard`, `CaseFolderCard`, `CaseDocumentsCard`, `CaseTimeline`, `InterruptiveActModal`, `PrescriptionDeclarationModal`, `DeleteCaseModal`, `CaseFileCoverPanel`, `CaseFileDocumentsPanel`, `CaseFileResultAside`, `CoverPreviewModal`, `CaseFileReadyModal`, `CaseSkeletons` | `deadlineStatus`, `openDeadline`, `prescription`, `caseState`, `stateFilter`, `sac`, `subjectMatter`, `suggestedCaption`, `responsibleLawyer`, `lawyerOptions`, `caseForm`, `caseDraft`, `caseFolder`, `caseDocument`, `caseFile`, `timeline`, `buildCasePatch`, `toCreateCaseBody`, `toDeleteCaseBody`, `toCreateInterruptiveActBody`, `toDeclarePrescriptionBody` y los `to…FormErrors` |
+| `cases` | `CasesPage`, `RegisterCasePage`, `CaseDetailPage`, `GenerateCaseFilePage` | `CasesTable`, `CaseFilters`, `CaseForm`, `CaseEditForm`, `LegalQualificationPicker`, `CaseSummaryAside`, `CaseHeader`, `CaseFacts`, `PrescriptionBar`, `CasePrescriptionBar`, `CaseQualifications`, `ClientCard`, `CaseFolderCard`, `CaseDocumentsCard`, `CaseTimeline`, `InterruptiveActModal`, `PrescriptionDeclarationModal`, `DeleteCaseModal`, `CaseFileCoverPanel`, `CaseFileDocumentsPanel`, `CaseFileResultAside`, `CoverPreviewModal`, `CaseFileReadyModal`, `CaseSkeletons`, `ClientActiveCases` | `activeCases`, `deadlineStatus`, `openDeadline`, `prescription`, `caseState`, `stateFilter`, `sac`, `subjectMatter`, `suggestedCaption`, `responsibleLawyer`, `lawyerOptions`, `caseForm`, `caseDraft`, `caseFolder`, `caseDocument`, `caseFile`, `timeline`, `buildCasePatch`, `toCreateCaseBody`, `toDeleteCaseBody`, `toCreateInterruptiveActBody`, `toDeclarePrescriptionBody` y los `to…FormErrors` |
 | `proceedings` | `RegisterProceduralActPage` | `ProceduralActForm`, `DeadlinePreviewAside`, `ProceduralActFormSkeleton` | `stateOptions`, `resolveState`, `terminalState`, `deadlinePreview`, `dueDateText`, `toCreateProceduralActBody`, `toActFormValues`, `buildProceduralActPatch`, `toFormErrors` |
 | `lawyers` | `LawyersPage` | `LawyersTable`, `LawyerFormModal` | `toCreateLawyerBody`, `buildLawyerPatch`, `lawyerLabel`, `toFormErrors` |
 | `users` | `UsersPage` | `UsersTable`, `UserFormModal`, `DeleteUserModal` | `buildUserPatch`, `toCreateUserBody`, `roles`, `lawyerLink`, `toFormErrors` |
@@ -404,8 +429,9 @@ Los componentes son presentacionales y lo reciben hecho:
   saca los puntos a un DNI pegado con ellos). La dirección y el teléfono son
   obligatorios (D-109); un correo vacío no viaja. Un documento repetido
   (`409 CLIENT_DNI_ALREADY_EXISTS`) se muestra en el campo del número. Al
-  registrar, el aviso es "Cliente GÓMEZ, Ariel Fernando registrado.". Sin
-  acciones de fila: modificar y eliminar son del Sprint 4.
+  registrar, el aviso es "Cliente GÓMEZ, Ariel Fernando registrado.". Cada
+  fila tiene "Modificar" y "Eliminar" (HU10 y HU11, Sprint 5), habilitados
+  para los tres perfiles: ver [Sprint 5](#sprint-5--qué-trae-v6).
 - **Registrar causa.**
   - *Calificaciones:* `values.legalQualifications` es una lista de
     `{ legalQualificationId, offenseDate }`. Agregar una la suma con
@@ -771,7 +797,7 @@ está aplicado todavía:**
 | La baja de abogado del mock responde `409 LAWYER_HAS_DEPENDENCIES` si el abogado tiene causas, activas o no, o un usuario vinculado | `src/shared/mocks/handlers.ts:1039` | Reasigna las causas activas con `reassignments`; las terminales y el usuario vinculado no impiden la baja (D-123, D-133). `LAWYER_HAS_DEPENDENCIES` pasa a ser solo "quedan causas activas sin reasignar" |
 | La respuesta armada `businessRule` (`422`) de la baja de abogado | `src/shared/mocks/responses.ts:1058` | V6 retira ese `422` |
 | `deleteLawyer(id)` no manda cuerpo | `src/features/lawyers/api/lawyers.api.ts:45` | Lleva `reassignments` si el abogado tiene causas activas. Hoy ninguna pantalla lo llama |
-| `ERROR_CODES` no tiene `CLIENT_HAS_ACTIVE_CASES` ni `MONTHLY_REPORT_NOT_FOUND` | `src/shared/api/contract.ts` | Son códigos nuevos (V6 §5.3) |
+| `ERROR_CODES` no tiene `MONTHLY_REPORT_NOT_FOUND` | `src/shared/api/contract.ts` | Es un código nuevo (V6 §5.3). `CLIENT_HAS_ACTIVE_CASES` ya está (HU11, 14/11/2026) |
 | Dos comentarios dicen que anular un acto (HU29) "queda fuera del contrato" | `src/features/cases/components/CaseTimeline.tsx:39`, `src/features/proceedings/types/proceduralAct.ts:15` | Está en V6: `DELETE /cases/{caseId}/procedural-acts/{actId}` |
 | "Reportes" está en el rail y en `ROUTE_ACCESS`, pero no tiene ruta | `src/app/layouts/AppLayout.tsx:66`, `src/app/access/access.ts:23` | Ahora es HU43: falta la página (ver [Problemas conocidos](#problemas-conocidos), 3) |
 
@@ -784,8 +810,9 @@ y a este archivo.
 **El mock implementa V5 entero** (`docs/Api-Contract/API_CONTRACT_V5.md`, con
 la revisión del 05/11/2026), con MSW: lo de los Sprints 1 a 3 y lo del Sprint 4
 (modificar y dar de baja una causa, la carátula, modificar un acto procesal,
-los documentos de la causa y el expediente). **Lo del Sprint 5 (V6) todavía
-no**: cada endpoint nuevo se agrega al mock antes que su pantalla, y la baja
+los documentos de la causa y el expediente). **Del Sprint 5 (V6) tiene sólo
+`PATCH` y `DELETE /clients/{clientId}`** (HU10 y HU11): cada endpoint nuevo se
+agrega al mock antes que su pantalla, y la baja
 de abogado sigue la regla de V5 (ver
 [Cambios de V6 sobre lo que ya estaba hecho](#cambios-de-v6-sobre-lo-que-ya-estaba-hecho)).
 Lo que hay que saber:
@@ -883,8 +910,8 @@ features/users/
 El ejemplo es `users` porque tiene el ABM completo. En otro módulo, **creá sólo
 los hooks de los endpoints que existan y que la pantalla use**: `lawyers`, por
 ejemplo, tiene `useLawyers`, `useCreateLawyer` y `useUpdateLawyer`, y no
-tiene hook de baja porque esa historia (HU15) no está en el contrato. `clients`
-tiene alta y consulta, y nada más.
+tiene hook de baja porque esa historia (HU15) todavía no está programada. `clients`
+tiene el ABM completo desde HU10 y HU11.
 
 Dependencias permitidas dentro del módulo, en una sola dirección:
 
@@ -1202,7 +1229,7 @@ Al 08/11/2026, con el 3 revisado el 09/11/2026 por V6 y el 1 y el 3
 actualizados el 13/11/2026 por la auditoría del front. No se arreglan al
 paso: cada uno es de su dueño.
 
-1. **`npm test`: pasan los 796** (14/11/2026). Corre con la mitad de los
+1. **`npm test`: pasan los 828** (14/11/2026, ya con los de HU10 y HU11). Corre con la mitad de los
    núcleos por configuración (`maxWorkers: '50%'` en `vitest.config.ts`):
    con todos fallaban tests al azar por tiempo. Aun así, en alguna corrida de
    la suite entera falla por tiempo `tests/unit/app/pages.test.ts` o el

@@ -284,8 +284,15 @@ export const LEGAL_QUALIFICATIONS: readonly StoredLegalQualification[] = [
 /* Clientes                                                            */
 /* ------------------------------------------------------------------ */
 
-/** Cómo guarda la base un cliente: sin `activeCases`, que se calcula. */
-export type StoredClient = Omit<Client, 'activeCases'>;
+/**
+ * Cómo guarda la base un cliente: sin `activeCases`, que se calcula.
+ *
+ * `deactivation` es la baja (V6, HU11): motivo, quién y cuándo. Queda en la
+ * auditoría y la API no la devuelve (`toClient` la saca).
+ */
+export type StoredClient = Omit<Client, 'activeCases'> & {
+    deactivation?: { reason: string | null; byId: number; at: string } | null;
+};
 
 type ClientDocument = Pick<Client, 'documentType' | 'documentNumber'>;
 const DNI = (documentNumber: string): ClientDocument => ({ documentType: 'DNI', documentNumber });

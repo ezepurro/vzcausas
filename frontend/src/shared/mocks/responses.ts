@@ -274,6 +274,10 @@ export const ERRORS = {
         'CLIENT_DNI_ALREADY_EXISTS',
         'Ya existe un cliente registrado con ese DNI.',
     ),
+    clientHasActiveCases: errorBody(
+        'CLIENT_HAS_ACTIVE_CASES',
+        'No se puede dar de baja el cliente porque tiene causas activas.',
+    ),
     caseSacTaken: errorBody(
         'CASE_SAC_ALREADY_EXISTS',
         'Ya existe una causa registrada con ese número de SAC.',

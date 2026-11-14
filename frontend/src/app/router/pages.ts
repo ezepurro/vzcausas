@@ -25,7 +25,7 @@ function page<M>(load: () => Promise<M>, pick: (module: M) => ComponentType): La
 
 export const PAGES = {
     home: page(() => import('@/features/dashboard/pages/HomePage'), (m) => m.HomePage),
-    clients: page(() => import('@/features/clients/pages/ClientsPage'), (m) => m.ClientsPage),
+    clients: page(() => import('@/app/router/ClientsRoute'), (m) => m.ClientsRoute),
     proceduralStates: page(
         () => import('@/features/legal-params/pages/ProceduralStatesPage'),
         (m) => m.ProceduralStatesPage,

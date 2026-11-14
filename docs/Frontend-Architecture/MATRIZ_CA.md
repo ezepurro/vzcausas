@@ -31,6 +31,36 @@ que corresponde al servidor: el frontend muestra lo que recibe y no lo prueba.
 | CA-9.10 | `unit/app/access.test.ts` (unit)<br>Backend |
 | CA-9.11 | Backend |
 
+## HU-10
+
+| Criterio | Dónde se cubre |
+| --- | --- |
+| CA-10.1 | `components/clients/ClientsPage.edit.test.tsx` (componentes)<br>`unit/clients/buildClientPatch.test.ts` (unit)<br>Backend |
+| CA-10.2 | `components/clients/clientMutations.cache.test.tsx` (componentes)<br>Backend |
+| CA-10.3 | `components/clients/ClientsPage.edit.test.tsx` (componentes)<br>`unit/clients/buildClientPatch.test.ts` (unit) |
+| CA-10.4 | `components/clients/ClientsPage.edit.test.tsx` (componentes) |
+| CA-10.5 | Backend |
+| CA-10.6 | `components/clients/ClientsPage.edit.test.tsx` (componentes) |
+| CA-10.7 | `components/clients/ClientsPage.edit.test.tsx` (componentes)<br>`unit/clients/buildClientPatch.test.ts` (unit) |
+| CA-10.8 | `unit/clients/buildClientPatch.test.ts` (unit)<br>Backend |
+| CA-10.9 | `components/clients/clientMutations.cache.test.tsx` (componentes)<br>Backend |
+| CA-10.10 | Backend |
+| CA-10.11 | `components/clients/ClientsPage.edit.test.tsx` (componentes) |
+
+## HU-11
+
+| Criterio | Dónde se cubre |
+| --- | --- |
+| CA-11.1 | `components/clients/ClientsPage.delete.test.tsx` (componentes) |
+| CA-11.2 | `components/clients/ClientsPage.delete.test.tsx` (componentes)<br>`unit/cases/activeCases.test.ts` (unit) |
+| CA-11.3 | `components/clients/clientMutations.cache.test.tsx` (componentes)<br>Backend |
+| CA-11.4 | Backend |
+| CA-11.5 | `components/clients/ClientsPage.delete.test.tsx` (componentes)<br>Backend |
+| CA-11.6 | `components/clients/ClientsPage.edit.test.tsx` (componentes) |
+| CA-11.7 | `components/clients/ClientsPage.delete.test.tsx` (componentes)<br>Backend |
+| CA-11.8 | Backend |
+| CA-11.9 | `components/clients/ClientsPage.delete.test.tsx` (componentes) |
+
 ## HU-14
 
 | Criterio | Dónde se cubre |
@@ -89,7 +119,7 @@ que corresponde al servidor: el frontend muestra lo que recibe y no lo prueba.
 | CA-20.3 | `components/cases/CasesPage.test.tsx` (componentes) |
 | CA-20.4 | `components/cases/CasesPage.test.tsx` (componentes)<br>`unit/cases/stateFilter.test.ts` (unit) |
 | CA-20.5 | `unit/cases/deadlineStatus.test.ts` (unit) |
-| CA-20.6 | `components/cases/CasesPage.test.tsx` (componentes) |
+| CA-20.6 | `components/cases/CasesPage.test.tsx` (componentes)<br>`components/shared/listFooter.test.tsx` (componentes) |
 | CA-20.7 | `e2e/cases.spec.ts` (e2e)<br>`unit/app/access.test.ts` (unit) |
 | CA-20.8 | `e2e/cases.spec.ts` (e2e) |
 
@@ -327,4 +357,4 @@ que corresponde al servidor: el frontend muestra lo que recibe y no lo prueba.
 
 ---
 
-200 criterios citados · 38 sólo del backend.
+220 criterios citados · 42 sólo del backend.

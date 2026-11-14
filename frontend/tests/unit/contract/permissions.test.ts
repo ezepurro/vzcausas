@@ -74,6 +74,9 @@ const OPEN_TO_EVERYONE: readonly [Method, string][] = [
     ['GET', `/cases/${MISSING}/cover`],
     ['GET', `/cases/${MISSING}/documents`],
     ['POST', `/cases/${MISSING}/case-files`],
+    // V6: modificar y dar de baja un cliente (HU10, HU11): cualquier usuario autenticado (§3.6).
+    ['PATCH', `/clients/${MISSING}`],
+    ['DELETE', `/clients/${MISSING}`],
 ]
 
 /** Lo que sigue siendo sólo del Administrador. */

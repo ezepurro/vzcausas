@@ -61,6 +61,8 @@ export const ERROR_CODES = [
     'DOCUMENT_TEMPLATE_ALREADY_EXISTS',
     'USER_HAS_DEPENDENCIES',
     'LAWYER_HAS_DEPENDENCIES',
+    // V6 §5.3: la baja de un cliente con causas activas (D-122, CA-11.2)
+    'CLIENT_HAS_ACTIVE_CASES',
     // 413 — archivo demasiado grande
     'FILE_TOO_LARGE',
     // 422 — regla de negocio

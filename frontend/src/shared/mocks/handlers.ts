@@ -1626,6 +1626,159 @@ const getClient: Handler = ({ request, params }) => {
     return ok(itemBody(toClient(client)));
 };
 
+/** Lo que se puede mandar en el `PATCH /clients/{clientId}` (V6 §3.6). */
+const CLIENT_PATCH_FIELDS = ['lastName', 'firstName', 'documentType', 'documentNumber', 'address', 'phone', 'email'] as const;
+
+/** `GÓMEZ, Ariel Fernando`: como el cliente propone la carátula al registrar la causa (§3.7). */
+function captionPrefix(client: Pick<StoredClient, 'lastName' | 'firstName'>): string {
+    return `${client.lastName.toLocaleUpperCase('es')}, ${client.firstName}`;
+}
+
+/**
+ * Modifica un cliente (HU10, V6 §3.6). Lo hace cualquier perfil. Todo es
+ * opcional, pero tiene que viajar al menos un campo. El documento se puede
+ * cambiar (D-121) y se valida contra el tipo que resulta; `clientSince` no se
+ * modifica (`400`); dirección y teléfono no se vacían (D-109).
+ *
+ * Si cambia el nombre, reemplaza el comienzo `APELLIDO, Nombres` de la
+ * carátula de cada causa vigente del cliente, en cualquier estado (D-130):
+ * una carátula escrita de otra forma, o que con el nombre nuevo pasaría de 255
+ * caracteres, no se toca. La carpeta de cada causa que cambió se renombra; si
+ * Drive no responde, el cliente se guarda igual.
+ */
+const updateClient: Handler = ({ request, params }) => {
+    const auth = requireUser(request);
+    if (!auth.ok) return auth.response;
+
+    const clientId = readRouteId(params, 'clientId');
+    if (clientId === undefined) return fail(400, ERRORS.invalidClientId);
+
+    // Como `PATCH /cases/{caseId}`: primero el 404, después el cuerpo.
+    const client = db.clients.find((c) => c.id === clientId && c.active);
+    if (!client) return fail(404, ERRORS.clientNotFound);
+
+    const body = asObject(request.body);
+    const keys = Object.keys(body);
+    if (keys.length === 0) return validationError({ body: 'Debe enviarse al menos un campo para modificar.' });
+
+    const details: Record<string, string> = {};
+    for (const key of keys) {
+        if (key === 'clientSince') details.clientSince = 'La fecha de alta del cliente no se puede modificar.';
+        else if (!(CLIENT_PATCH_FIELDS as readonly string[]).includes(key)) details[key] = 'No es un dato modificable del cliente.';
+    }
+
+    /* Obligatorios: se pueden omitir, pero un `null` o un texto vacío es un
+       `400` (CA-10.4, D-109). */
+    const readRequired = (field: 'lastName' | 'firstName' | 'address' | 'phone', max: number, empty: string) => {
+        if (!keys.includes(field)) return undefined;
+        const value = body[field];
+        if (value !== null && value !== undefined && typeof value !== 'string') {
+            details[field] = 'Debe ser un texto.';
+            return undefined;
+        }
+        const text = asText(value);
+        if (text === '') details[field] = empty;
+        else if (text.length > max) details[field] = `Puede tener hasta ${max} caracteres.`;
+        return text;
+    };
+    const lastName = readRequired('lastName', CLIENT_NAME_MAX, 'El apellido es obligatorio.');
+    const firstName = readRequired('firstName', CLIENT_NAME_MAX, 'Los nombres son obligatorios.');
+    const address = readRequired('address', CLIENT_ADDRESS_MAX, 'La dirección es obligatoria.');
+    const phone = readRequired('phone', CLIENT_PHONE_MAX, 'El teléfono es obligatorio.');
+
+    // `null` (o vacío) lo borra.
+    const hasEmail = keys.includes('email');
+    const email = optionalText(body.email);
+    if (hasEmail && email !== null && !RE_EMAIL.test(email)) {
+        details.email = 'El formato del correo electrónico no es válido.';
+    }
+
+    /* El número se valida contra el tipo que resulta del cambio: si viaja
+       sólo el tipo, el número que ya tenía tiene que respetarlo (CA-10.3). */
+    const hasType = keys.includes('documentType');
+    const hasNumber = keys.includes('documentNumber');
+    if (hasType && !isDocumentType(body.documentType)) {
+        details.documentType = 'El tipo de documento no es válido.';
+    }
+    const documentType: DocumentType = hasType && isDocumentType(body.documentType) ? body.documentType : client.documentType;
+    const documentNumber = hasNumber ? asText(body.documentNumber) : client.documentNumber;
+    if ((hasType || hasNumber) && !details.documentType) {
+        if (documentType === 'DNI' && !RE_DNI.test(documentNumber)) {
+            details.documentNumber = 'Debe contener 7 u 8 dígitos, sin puntos.';
+        } else if (documentType === 'PASSPORT' && !RE_PASSPORT.test(documentNumber)) {
+            details.documentNumber = 'Debe contener de 6 a 20 letras y números, sin espacios.';
+        }
+    }
+    if (Object.keys(details).length > 0) return validationError(details);
+
+    // Su propio documento no es un conflicto (CA-10.7).
+    const documentChanges = documentType !== client.documentType || documentNumber !== client.documentNumber;
+    if (documentChanges && documentTaken(documentType, documentNumber)) return fail(409, ERRORS.clientDniTaken);
+
+    const before = captionPrefix(client);
+    if (lastName !== undefined) client.lastName = lastName;
+    if (firstName !== undefined) client.firstName = firstName;
+    if (address !== undefined) client.address = address;
+    if (phone !== undefined) client.phone = phone;
+    if (hasEmail) client.email = email;
+    client.documentType = documentType;
+    client.documentNumber = documentNumber;
+
+    const after = captionPrefix(client);
+    if (after !== before) {
+        for (const c of db.cases) {
+            // Las dadas de baja no se tocan; las terminales, sí (CA-10.9).
+            if (!c.active || c.clientId !== client.id) continue;
+            if (!c.caption.toLocaleLowerCase('es').startsWith(before.toLocaleLowerCase('es'))) continue;
+            const caption = after + c.caption.slice(before.length);
+            if (caption.length > CAPTION_MAX) continue;
+            c.caption = caption;
+            // Como al cambiar la carátula con `PATCH /cases/{caseId}` (CA-10.10).
+            if (c.folder && (c.folder.status !== 'CREATED' || !db.failures.documentStorage)) {
+                c.folder.path = expectedFolderPath(c);
+            }
+        }
+    }
+
+    return ok(itemBody(toClient(client)));
+};
+
+const CLIENT_REASON_MAX = 500;
+
+/**
+ * Da de baja un cliente (HU11, V6 §3.6). Es lógica: queda en la base, pero
+ * para el cliente HTTP deja de existir. No procede si tiene causas activas
+ * (`409 CLIENT_HAS_ACTIVE_CASES`, D-122): las terminales y las dadas de baja
+ * no la impiden. Libera su documento. Motivo opcional, hasta 500 caracteres.
+ */
+const deleteClient: Handler = ({ request, params }) => {
+    const auth = requireUser(request);
+    if (!auth.ok) return auth.response;
+
+    const clientId = readRouteId(params, 'clientId');
+    if (clientId === undefined) return fail(400, ERRORS.invalidClientId);
+
+    const body = asObject(request.body);
+    if (body.reason !== undefined && body.reason !== null && typeof body.reason !== 'string') {
+        return validationError({ reason: 'Debe ser un texto.' });
+    }
+    const reason = optionalText(body.reason);
+    if (reason !== null && reason.length > CLIENT_REASON_MAX) {
+        return validationError({ reason: `Debe tener hasta ${CLIENT_REASON_MAX} caracteres.` });
+    }
+
+    const client = db.clients.find((c) => c.id === clientId && c.active);
+    if (!client) return fail(404, ERRORS.clientNotFound);
+
+    if (db.cases.some((c) => c.clientId === clientId && isActiveCase(c))) {
+        return fail(409, ERRORS.clientHasActiveCases);
+    }
+
+    client.active = false;
+    client.deactivation = { reason, byId: auth.user.id, at: nowIso() };
+    return NO_CONTENT;
+};
+
 /* ------------------------------------------------------------------ */
 /* /cases                                                              */
 /* ------------------------------------------------------------------ */
@@ -3829,6 +3982,8 @@ const ROUTES: Route[] = [
     { method: 'POST', path: '/clients', pattern: /^\/clients$/, handler: createClient },
     { method: 'GET', path: '/clients', pattern: /^\/clients$/, handler: listClients },
     { method: 'GET', path: '/clients/:clientId', pattern: /^\/clients\/(?<clientId>[^/]+)$/, handler: getClient },
+    { method: 'PATCH', path: '/clients/:clientId', pattern: /^\/clients\/(?<clientId>[^/]+)$/, handler: updateClient },
+    { method: 'DELETE', path: '/clients/:clientId', pattern: /^\/clients\/(?<clientId>[^/]+)$/, handler: deleteClient },
 
     { method: 'POST', path: '/cases', pattern: /^\/cases$/, handler: createCase },
     { method: 'GET', path: '/cases', pattern: /^\/cases$/, handler: listCases },

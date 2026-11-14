@@ -1000,8 +1000,10 @@ export function toLegalQualification(stored: StoredLegalQualification): LegalQua
 
 /** El cliente con las causas activas en las que es cliente. */
 export function toClient(stored: StoredClient): Client {
+    // La baja queda en la auditoría: la API no la devuelve.
+    const { deactivation: _deactivation, ...client } = stored;
     return {
-        ...stored,
+        ...client,
         activeCases: activeCases().filter((c) => c.clientId === stored.id).length,
     };
 }

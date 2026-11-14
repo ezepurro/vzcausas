@@ -1,7 +1,7 @@
 /**
  * Cliente: la persona que firma el convenio con el estudio.
  *
- * Escrito a partir del contrato (V3 §3.6), no copiado de `shared/mocks`.
+ * Escrito a partir del contrato (V6 §3.6), no copiado de `shared/mocks`.
  *
  * Es la primera persona del sistema con apellido y nombres en campos
  * separados (observación de la Sprint Review 1): el backend los guarda tal
@@ -30,11 +30,14 @@ export interface Client {
     /** Teléfono. Texto libre. Obligatorio desde D-109: nunca llega `null`. */
     phone: string
     email: string | null
-    /** Fecha de alta en el estudio, `YYYY-MM-DD`. La asigna el backend. */
+    /** Fecha de alta en el estudio, `YYYY-MM-DD`. La asigna el backend y no se modifica. */
     clientSince: string
     /** Causas activas en las que es cliente. Calculado, sólo lectura. */
     activeCases: number
-    /** Vale siempre `true`: la baja (HU11) es del Sprint 4. */
+    /**
+     * Vale siempre `true`: un cliente dado de baja (HU11) no se lista y su
+     * consulta responde `404`, así que nunca llega uno con `false`.
+     */
     active: boolean
 }
 
@@ -50,6 +53,26 @@ export interface CreateClientBody {
     address: string
     phone: string
     email?: string
+}
+
+/**
+ * Cuerpo del `PATCH /clients/{clientId}` (HU10). Todo es opcional, pero tiene
+ * que viajar al menos un campo: un cuerpo vacío es un `400` (CA-10.1). Un
+ * campo que no viaja no cambia.
+ *
+ * - El documento se puede cambiar (D-121): el número se valida contra el tipo
+ *   que resulta del cambio.
+ * - `email` en `null` lo borra. Los demás no se pueden vaciar (D-109).
+ * - No está `clientSince`: mandarlo es un `400` (CA-10.8).
+ */
+export interface UpdateClientBody {
+    lastName?: string
+    firstName?: string
+    documentType?: DocumentType
+    documentNumber?: string
+    address?: string
+    phone?: string
+    email?: string | null
 }
 
 /** Los valores del formulario. Sólo `string`, como pide `FormValues`. */

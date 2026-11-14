@@ -12,8 +12,13 @@ modificar un acto procesal, los documentos de la causa y el expediente
 ([Lo que suma el Sprint 4](#lo-que-suma-el-sprint-4-v5)).
 
 > **V6 (09/11/2026).** El contrato vigente pasa a ser
-> `docs/Api-Contract/API_CONTRACT_V6.md`. **Lo del Sprint 5 todavía no está en
-> el mock**: `PATCH` y `DELETE /clients/{clientId}`,
+> `docs/Api-Contract/API_CONTRACT_V6.md`. Del Sprint 5 ya están `PATCH` y
+> `DELETE /clients/{clientId}` (HU10, HU11; 14/11/2026): con el nombre nuevo
+> cambia el comienzo `APELLIDO, Nombres` de la carátula de sus causas (D-130),
+> y la baja de un cliente con causas activas responde
+> `409 CLIENT_HAS_ACTIVE_CASES` (`GÓMEZ`, 1). `JUÁREZ` (18) no tiene causas y
+> `ESCUDERO` (13) tiene sólo una en "Prescripta": las dos se pueden dar de
+> baja. **Lo demás todavía no está en el mock**:
 > `DELETE /cases/{caseId}/procedural-acts/{actId}`, `PATCH` y
 > `DELETE /document-templates/{templateId}`, `GET /reports/monthly` y
 > `GET /reports/monthly/file`. Además, `DELETE /lawyers/{lawyerId}` sigue la
@@ -409,6 +414,8 @@ Para tener el recurso como lo devuelve la API están los serializadores de
 | `POST` | `/clients` | 201, 400, 401, 409 |
 | `GET` | `/clients` | 200, 400, 401 |
 | `GET` | `/clients/{clientId}` | 200, 400, 401, 404 |
+| `PATCH` | `/clients/{clientId}` | 200, 400, 401, 404, 409 |
+| `DELETE` | `/clients/{clientId}` | 204, 400, 401, 404, 409 |
 | `POST` | `/cases` | 201, 400, 401, 409 |
 | `GET` | `/cases` | 200, 400, 401 |
 | `GET` | `/cases/custom-states` | 200, 400, 401 |

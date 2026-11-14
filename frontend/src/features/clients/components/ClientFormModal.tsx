@@ -7,6 +7,16 @@ import { DOCUMENT_TYPE_LABELS } from '@/features/clients/utils/clientFormat'
 const DOCUMENT_TYPE_OPTIONS = DOCUMENT_TYPES.map((value) => ({ value, label: DOCUMENT_TYPE_LABELS[value] }))
 
 export interface ClientFormModalProps {
+    /**
+     * `create` (por defecto) registra; `edit` modifica (HU10). Los campos son
+     * los mismos: cambian el título, el texto de abajo y el botón.
+     */
+    mode?: 'create' | 'edit'
+    /**
+     * Debajo del título, en la edición: quién es, como en el prototipo.
+     * "GÓMEZ, Ariel Fernando · DNI 34.812.905". En el alta no se usa.
+     */
+    sub?: string
     values: ClientFormValues
     errors: ClientFormErrors
     /**
@@ -22,14 +32,19 @@ export interface ClientFormModalProps {
 }
 
 /**
- * Alta de cliente 
+ * Alta y modificación de cliente en el mismo modal, como `LawyerFormModal`.
  * No valida ni guarda: recibe los errores ya calculados y avisa con
  * `onConfirm`. La decisión la toma quien lo abre, que puede ser la pantalla
  * Clientes o el alta de causa.
+ *
+ * En la edición el documento se puede cambiar (D-121, CA-10.3): el tipo y el
+ * número quedan habilitados, como en el alta.
  */
 export function ClientFormModal({
-    values, errors, fromCase = false, saving, onChange, onConfirm, onCancel,
+    mode = 'create', sub, values, errors, fromCase = false, saving, onChange, onConfirm, onCancel,
 }: ClientFormModalProps) {
+    const creating = mode === 'create'
+
     const fields: FieldSpec[] = [
         {
             k: 'lastName',
@@ -113,19 +128,22 @@ export function ClientFormModal({
 
     return (
         <FormModal
-            title="Registrar cliente"
-            sub={
-                fromCase
-                    ? 'Al confirmar, el cliente queda seleccionado en la causa.'
-                    : 'Después lo vas a poder elegir al registrar sus causas. El correo es opcional.'
-            }
+            title={creating ? 'Registrar cliente' : 'Modificar cliente'}
+            sub={creating ? createSub(fromCase) : sub}
             fields={fields}
             values={values}
             onChange={onChange}
-            okLabel="Registrar cliente"
+            okLabel={creating ? 'Registrar cliente' : 'Guardar cambios'}
             okDisabled={saving}
             onConfirm={onConfirm}
             onCancel={onCancel}
         />
     )
+}
+
+/** El texto de abajo del título en el alta: depende de dónde se abre. */
+function createSub(fromCase: boolean): string {
+    return fromCase
+        ? 'Al confirmar, el cliente queda seleccionado en la causa.'
+        : 'Después lo vas a poder elegir al registrar sus causas. El correo es opcional.'
 }

@@ -1160,24 +1160,55 @@ casos a tests que ya existían (por ejemplo `LoginPage.test.tsx`, H-58, y
 
 ### Sprint 5: lo que tienen que fijar los tests
 
-**Todavía no hay tests del Sprint 5.** Como en los sprints anteriores, se
-escriben antes que las pantallas ([Los tests primero](#los-tests-primero)), a
-partir de `API_CONTRACT_V6.md` y de los criterios de aceptación de cada
-historia, que están en su issue de Jira desde el 09/11/2026 (CA-10.x a
-CA-50.x). Antes del test, el endpoint tiene que
-estar en el mock (`frontend/CLAUDE.md`, "Checklist de un módulo"): hoy no está
-ninguno de los del Sprint 5, y la baja de abogado del mock sigue la regla de
-V5 (`frontend/CLAUDE.md`, "Cambios de V6 sobre lo que ya estaba hecho").
+Como en los sprints anteriores, los tests se escriben antes que las pantallas
+([Los tests primero](#los-tests-primero)), a partir de `API_CONTRACT_V6.md` y
+de los criterios de aceptación de cada historia, que están en su issue de Jira
+desde el 09/11/2026 (CA-10.x a CA-50.x). Antes del test, el endpoint tiene que
+estar en el mock (`frontend/CLAUDE.md`, "Checklist de un módulo"). Del Sprint
+5, el mock ya tiene `PATCH` y `DELETE /clients/{clientId}`; los demás todavía
+no, y la baja de abogado del mock sigue la regla de V5 (`frontend/CLAUDE.md`,
+"Cambios de V6 sobre lo que ya estaba hecho").
+
+**HU10 y HU11, clientes (14/11/2026).** Los tests se escribieron antes que el
+código y están en verde. 31 en total, y cubren los 20 criterios (CA-10.1 a
+10.11 y CA-11.1 a 11.9); lo que es sólo del servidor va en el encabezado con
+`@backend`.
+
+| HU | Tests |
+| --- | --- |
+| 10 Modificar cliente | `components/clients/ClientsPage.edit.test.tsx` (11), `unit/clients/buildClientPatch.test.ts` (7) |
+| 11 Dar de baja cliente | `components/clients/ClientsPage.delete.test.tsx` (6), `unit/clients/clientDeletion.schema.test.ts` (2), `unit/cases/activeCases.test.ts` (2) |
+| 10 y 11, la caché | `components/clients/clientMutations.cache.test.tsx` (3): modificar marca vieja toda la caché, también con sólo el teléfono, porque el detalle de la causa lo muestra (CA-10.2); dar de baja quita el detalle y vacía el selector de "Registrar causa" (CA-11.3) |
+| Permisos del servidor falso | `unit/contract/permissions.test.ts` suma `PATCH` y `DELETE /clients/{clientId}`, abiertos a los tres perfiles |
+
+**Los nombres que fijan los tests.** El código tiene que llamarse así:
+
+| Qué | Dónde |
+| --- | --- |
+| Acciones de la fila | "Modificar" y "Eliminar" en cada fila de `ClientsPage`, habilitados para los tres perfiles |
+| Modificar cliente | Diálogo "Modificar cliente" con el subtítulo "GÓMEZ, Ariel Fernando · DNI 34.812.905", los siete campos del alta y "Guardar cambios"; aviso "Datos del cliente actualizados." |
+| Eliminar cliente | Diálogo "Eliminar cliente" con el nombre como subtítulo, "Motivo (opcional)" (hasta 500) y "Eliminar"; aviso "Cliente eliminado. El historial se conserva." |
+| El parche | `buildClientPatch(cliente, valores)` y `hasChanges` en `@/features/clients/utils/buildClientPatch` |
+| El motivo | `validateDeleteClient({ reason })` en `@/features/clients/schemas/clientDeletion.schema` |
+| Los hooks | `useUpdateClient` y `useDeleteClient` en `@/features/clients/api/`, los dos con `mutate({ id, body })` |
+| Las causas activas | `activeCasesOf(causas, estados)` en `@/features/cases/utils/activeCases`; `ClientActiveCases` (prop `clientId`) publicado por `@/features/cases`. `ClientsPage` lo recibe en `renderActiveCases`, porque `clients` no puede importar de `cases` |
+
+**Lo que se decidió** donde el contrato y el prototipo no alcanzan
+(14/11/2026). Si cambia, se cambian el test y la pantalla juntos:
+
+- **Con causas activas** (CA-11.2) el diálogo de baja queda abierto con el
+  mensaje del `409` y la lista de esas causas, y "Eliminar" se deshabilita.
+  La lista se pide recién al llegar el `409`, como dice el contrato. El
+  prototipo deja eliminar y avisa "Tiene N causas activas." antes de
+  confirmar; ese aviso no se dibuja.
+- **Guardar sin cambios** cierra el diálogo sin llamar a la API, como en
+  "Modificar abogado".
+- **Un `404`** (otro lo dio de baja con el diálogo abierto) avisa con el
+  mensaje del backend, cierra el diálogo y la fila sale de la tabla.
 
 Las reglas de V6 que se rompen fácil, y que conviene que fije un test de
-pantalla:
+pantalla en lo que queda del sprint:
 
-- **Modificar cliente (HU10).** El documento se puede cambiar, y uno repetido
-  da `409 CLIENT_DNI_ALREADY_EXISTS`. Si cambia el nombre, después de guardar
-  se vuelven a pedir las causas: la carátula de una causa del cliente cambia
-  (D-121, D-130).
-- **Dar de baja cliente (HU11).** Con causas activas, `409
-  CLIENT_HAS_ACTIVE_CASES` y el cliente sigue en el listado (D-122).
 - **Dar de baja abogado (HU15).** El reparto manda una entrada por cada causa
   activa, sin las terminales. Un `409 LAWYER_HAS_DEPENDENCIES` hace rearmar el
   reparto. Si el abogado tiene usuario, el formulario avisa qué le pasa, y la
