@@ -8,8 +8,9 @@ import {
   LawyerDashboardQuery,
 } from '../../core/application/ports/lawyer-dashboard.query';
 
-/** The most recent act of a relation: only its date, and only one row. */
+/** The most recent procedural act in force: only its date, and only one row. One given de baja does not count (HU29, D-124). */
 const LAST_ACT = {
+  where: { active: true },
   select: { actDate: true },
   orderBy: [{ actDate: 'desc' as const }, { id: 'desc' as const }],
   take: 1,

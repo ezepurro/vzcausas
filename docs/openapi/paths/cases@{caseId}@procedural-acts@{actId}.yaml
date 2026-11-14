@@ -261,3 +261,111 @@ patch:
               code: CASE_IN_TERMINAL_STATE
               message: 'La causa está prescripta: sus actos procesales no se pueden modificar.'
               details: null
+
+delete:
+  tags:
+    - Procedural Acts
+  operationId: deactivateProceduralAct
+  summary: Dar de baja (anular) acto procesal
+  description: |
+    Da de baja un acto procesal cargado por error o duplicado (HU29, V6,
+    D-124). Es el botón "Anular" de cada acto del ciclo de vida.
+
+    **La baja es lógica** (RN12): el acto se conserva con el motivo, quién lo
+    dio de baja y cuándo. Para el cliente deja de existir: no aparece en
+    `GET /cases/{caseId}/procedural-acts` ni en la línea de vida, `GET` y
+    `PATCH` del acto responden `404 PROCEDURAL_ACT_NOT_FOUND`, y no se
+    reactiva por la API.
+
+    **Efecto sobre la causa** (D-99, D-14):
+
+    - El estado actual pasa a ser el del acto vigente más reciente por fecha
+      del acto, con su plazo aunque ya esté vencido.
+    - Si no queda ningún acto, la causa vuelve a "Iniciada"; en un amparo
+      vuelve a correr el plazo del acto lesivo.
+    - Dar de baja el acto que cerró la causa ("Archivada") la reabre.
+    - Los actos interruptivos, la prescripción y los avisos ya enviados no
+      cambian.
+
+    Una causa **"Prescripta"** no admite dar de baja sus actos
+    (`422 CASE_IN_TERMINAL_STATE`).
+
+    **Rol requerido:** abogado responsable de la causa, igual que el registro
+    y la modificación. Primero `404`, después `403`.
+  requestBody:
+    required: false
+    content:
+      application/json:
+        schema:
+          $ref: ../components/schemas/ProceduralActDeactivation.yaml
+        example:
+          reason: Acto cargado dos veces.
+  responses:
+    '204':
+      description: Acto dado de baja. La respuesta no contiene cuerpo.
+    '400':
+      description: Motivo de más de 500 caracteres, campo no admitido o identificador inválido.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          examples:
+            reasonTooLong:
+              summary: Motivo de más de 500 caracteres
+              value:
+                error:
+                  code: VALIDATION_ERROR
+                  message: Los datos enviados no son válidos.
+                  details:
+                    reason: Debe tener hasta 500 caracteres.
+            invalidCaseId:
+              $ref: ../components/examples/InvalidCaseIdError.yaml
+            invalidActId:
+              $ref: ../components/examples/InvalidActIdError.yaml
+    '401':
+      $ref: ../components/responses/Unauthorized.yaml
+    '403':
+      description: |
+        El usuario autenticado no es el abogado responsable de la causa. Aplica
+        aunque tenga el rol `LAWYER` o `ADMINISTRATOR`.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          example:
+            error:
+              code: FORBIDDEN
+              message: Solo el abogado responsable de la causa puede anular sus actos procesales.
+              details: null
+    '404':
+      description: La causa no existe o fue dada de baja, o el acto no existe, ya fue dado de baja o es de otra causa.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          examples:
+            caseNotFound:
+              summary: Causa inexistente o dada de baja
+              value:
+                error:
+                  code: CASE_NOT_FOUND
+                  message: No se encontró la causa solicitada.
+                  details: null
+            actNotFound:
+              summary: Acto inexistente, ya dado de baja o de otra causa
+              value:
+                error:
+                  code: PROCEDURAL_ACT_NOT_FOUND
+                  message: No se encontró el acto procesal solicitado.
+                  details: null
+    '422':
+      description: 'La causa está "Prescripta": sus actos no se dan de baja.'
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          example:
+            error:
+              code: CASE_IN_TERMINAL_STATE
+              message: 'La causa está prescripta: sus actos procesales no se pueden anular.'
+              details: null

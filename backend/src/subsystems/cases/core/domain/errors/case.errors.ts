@@ -123,6 +123,8 @@ export class CaseFolderNotAvailableError extends BusinessRuleError {
 export class NotResponsibleLawyerError extends ForbiddenActionError {
   /** The wording of V5 `:6114` for modifying an act (HU28). */
   static readonly FOR_MODIFYING_ACTS = 'Solo el abogado responsable de la causa puede modificar sus actos procesales.';
+  /** The wording of V6 `:7100` for giving an act de baja (HU29); the contract says "anular". */
+  static readonly FOR_DEACTIVATING_ACTS = 'Solo el abogado responsable de la causa puede anular sus actos procesales.';
   /** The wording of V5 §4 "Operación de la causa" (D-110) for each operation a non-responsible lawyer cannot do. */
   static readonly FOR_MODIFYING_CASE = 'Solo el abogado responsable de la causa puede modificarla.';
   static readonly FOR_DEACTIVATING_CASE = 'Solo el abogado responsable de la causa puede darla de baja.';
@@ -147,6 +149,9 @@ export class CaseInTerminalStateError extends BusinessRuleError {
   static readonly FOR_THIS_OPERATION = 'La causa se encuentra en un estado terminal y no admite esta operación.';
   /** The wording of V5 `:6141`: the acts of a prescribed case cannot be modified (HU28, D-99). */
   static readonly ACTS_OF_PRESCRIBED_CASE = 'La causa está prescripta: sus actos procesales no se pueden modificar.';
+  /** The wording of V6 `:7130`: nor given de baja (HU29, D-124); the contract says "anular". */
+  static readonly ACTS_OF_PRESCRIBED_CASE_CANNOT_BE_DEACTIVATED =
+    'La causa está prescripta: sus actos procesales no se pueden anular.';
 
   /** Same as {@link NotResponsibleLawyerError}: the default is HU26's wording, HU31 passes its own. */
   constructor(message = 'La causa se encuentra en un estado terminal y no admite actos procesales.') {

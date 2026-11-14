@@ -1,0 +1,15 @@
+type: object
+description: |
+  Cuerpo opcional de `DELETE /cases/{caseId}/procedural-acts/{actId}` (HU29,
+  V6): el "Motivo de la anulación (opcional)" del formulario "Anular acto
+  procesal". Sin cuerpo, la baja procede igual. Un motivo en blanco se guarda
+  como ausente.
+additionalProperties: false
+properties:
+  reason:
+    type:
+      - string
+      - 'null'
+    maxLength: 500
+    examples:
+      - Acto cargado dos veces.

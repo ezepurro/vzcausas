@@ -130,6 +130,17 @@ export interface RecalculateCurrentActInput {
   now: Date;
 }
 
+/** What {@link Case.deactivateProceduralAct} needs to apply D-14 after an act is given de baja (HU29, D-124). */
+export interface DeactivateProceduralActInput {
+  deactivated: ProceduralAct;
+  // The most recent act of the case still in force, without the one given de baja; `null` if none is left.
+  latestRemaining: ProceduralAct | null;
+  latestRemainingTerminal: boolean;
+  // "Iniciada" of the case's jurisdiction, where it goes back to when no act is left.
+  initialState: ProceduralStateRef | null;
+  now: Date;
+}
+
 export interface RegisterProceduralActOutcome {
   act: ProceduralAct;
   // `false` when the act is older than the current one: it is on record but does not move the case (CA-26.10).
@@ -715,6 +726,23 @@ export abstract class Case {
   assertActsCanBeModified(): void {}
 
   /**
+   * HU29 — only the **current** responsible lawyer gives the acts of the case de
+   * baja (CA-29.7), with the same rule as registering them (D-30): not an
+   * administrator, not another lawyer.
+   * @throws NotResponsibleLawyerError
+   */
+  assertCanDeactivateActs(actor: AuthenticatedUser): void {
+    this.assertCanRegisterActs(actor, NotResponsibleLawyerError.FOR_DEACTIVATING_ACTS);
+  }
+
+  /**
+   * HU29 — whether an act of the case can still be given de baja. Any case can,
+   * terminal or not (CA-29.5); `CriminalCase` refuses it once prescribed (CA-29.8).
+   * @throws CaseInTerminalStateError
+   */
+  assertActsCanBeDeactivated(): void {}
+
+  /**
    * HU28 — validates a change of one of its acts against the act as it would end
    * up, reporting every problem at once (CA-28.3), and decides which term it
    * takes: the table's of today if the state changes, the copied one if not (D-98).
@@ -795,12 +823,46 @@ export abstract class Case {
         (latestOther.actDate.getTime() === modified.actDate.getTime() && latestOther.id > modified.id));
     const governing = otherIsNewer ? latestOther : modified;
 
-    this.props.currentStateId = governing.proceduralStateId;
-    this.props.currentCustomState = governing.customState;
-    this.props.currentProceduralActId = governing.id;
-    this.props.currentStateTerminal = otherIsNewer ? input.latestOtherTerminal : input.modifiedTerminal;
-    this.props.proceduralActs = [governing];
+    this.enterStateOf(governing, otherIsNewer ? input.latestOtherTerminal : input.modifiedTerminal, input.now);
+  }
+
+  /**
+   * HU29 — after an act is given de baja the case is in the state of the most
+   * recent act still in force (D-14, D-124), with that act's term even if it
+   * already expired (CA-29.4). Giving de baja the act that closed the case
+   * reopens it (CA-29.5). With no act left, the case goes back to "Iniciada"
+   * (CA-29.3): no current act and no term, and an amparo's harmful-act term
+   * runs again, since it only exists in that state.
+   *
+   * An act older than the current one does not move the case (CA-29.6).
+   */
+  deactivateProceduralAct(input: DeactivateProceduralActInput): void {
+    if (input.deactivated.id !== this.props.currentProceduralActId) {
+      return;
+    }
+    if (input.latestRemaining !== null) {
+      this.enterStateOf(input.latestRemaining, input.latestRemainingTerminal, input.now);
+      return;
+    }
+    if (input.initialState === null) {
+      throw new Error(`The case ${this.props.id} has no initial state to go back to.`);
+    }
+    this.props.currentStateId = input.initialState.id;
+    this.props.currentCustomState = null;
+    this.props.currentProceduralActId = null;
+    this.props.currentStateTerminal = input.initialState.terminal;
+    this.props.proceduralActs = [];
     this.props.updatedAt = input.now;
+  }
+
+  /** The case moves to the state of `act`, which becomes its current act (D-14). */
+  private enterStateOf(act: ProceduralAct, terminal: boolean, now: Date): void {
+    this.props.currentStateId = act.proceduralStateId;
+    this.props.currentCustomState = act.customState;
+    this.props.currentProceduralActId = act.id;
+    this.props.currentStateTerminal = terminal;
+    this.props.proceduralActs = [act];
+    this.props.updatedAt = now;
   }
 
   /** The act that led the case to its current state, or `null` while it is in the initial state. */
