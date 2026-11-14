@@ -12,8 +12,11 @@ import {
   DocumentTemplateSearch,
   DocumentTemplateView,
   TemplateFilePlacement,
+  TemplateForModification,
+  TemplateUpdate,
 } from '../../../core/domain/ports/document-template.repository';
 import { TemplateFile } from '../../../core/domain/value-objects/template-file.vo';
+import { TemplateStoredFiles } from '../../../core/domain/value-objects/template-stored-files.vo';
 
 /** The unique index on `lower(name)` among active templates (D-71). */
 const NAME_INDEX = 'document_templates_name_active_key';
@@ -35,12 +38,52 @@ type TemplateRow = Prisma.DocumentTemplateGetPayload<{ include: typeof VIEW_INCL
 export class PrismaDocumentTemplateRepository implements DocumentTemplateRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async existsByName(name: string): Promise<boolean> {
+  async existsByName(name: string, exceptId?: number): Promise<boolean> {
     const found = await this.prisma.db.documentTemplate.findFirst({
-      where: { active: true, name: { equals: name, mode: 'insensitive' } },
+      where: {
+        active: true,
+        name: { equals: name, mode: 'insensitive' },
+        // A template's own name is no conflict (CA-36.3).
+        ...(exceptId !== undefined && { id: { not: exceptId } }),
+      },
       select: { id: true },
     });
     return found !== null;
+  }
+
+  async findForModification(id: number): Promise<TemplateForModification | null> {
+    const row = await this.prisma.db.documentTemplate.findFirst({
+      where: { id, active: true },
+      include: {
+        jurisdictions: { select: { jurisdiction: { select: { name: true } } } },
+        files: { include: { jurisdiction: { select: { name: true } } } },
+      },
+    });
+    if (!row) {
+      return null;
+    }
+    const byContractOrder = (a: TemplateJurisdiction, b: TemplateJurisdiction) =>
+      TEMPLATE_JURISDICTIONS.indexOf(a) - TEMPLATE_JURISDICTIONS.indexOf(b);
+    return {
+      template: DocumentTemplate.hydrate({
+        name: row.name,
+        jurisdictions: row.jurisdictions
+          .map(({ jurisdiction }) => jurisdiction.name as TemplateJurisdiction)
+          .sort(byContractOrder),
+        fileName: row.fileName,
+        copyToNewCases: row.copyToNewCases,
+        lastVersionByUserId: row.lastVersionByUserId,
+        lastVersionAt: row.lastVersionAt,
+      }),
+      mainFileId: row.cloudFileId,
+      placements: row.files
+        .map(({ jurisdiction, cloudFileId, cloudFolderId }) => ({
+          jurisdiction: jurisdiction.name as TemplateJurisdiction,
+          cloudFileId,
+          cloudFolderId,
+        }))
+        .sort((a, b) => byContractOrder(a.jurisdiction, b.jurisdiction)),
+    };
   }
 
   async findPage(search: DocumentTemplateSearch): Promise<{ items: DocumentTemplateView[]; totalItems: number }> {
@@ -119,15 +162,113 @@ export class PrismaDocumentTemplateRepository implements DocumentTemplateReposit
       });
       return PrismaDocumentTemplateRepository.toView(row);
     } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002' &&
-        this.violatedIndex(error) === NAME_INDEX
-      ) {
-        throw new DocumentTemplateAlreadyExistsError();
-      }
-      throw error;
+      throw this.nameConflictOr(error);
     }
+  }
+
+  /**
+   * One transaction: the conditional `UPDATE … WHERE id AND active = true`, the
+   * replacement of the jurisdictions and of the files, and the files waiting for the
+   * `Papelera` (HU36, D-125). If the template was given de baja in the meantime the
+   * `UPDATE` finds nothing and the rest is not written.
+   */
+  async update(id: number, update: TemplateUpdate): Promise<DocumentTemplateView | null> {
+    const { template, placements, trash } = update;
+    try {
+      return await this.prisma.runInTransaction(async () => {
+        const db = this.prisma.db;
+        // The first placement is the main file: it is the one the template row points to.
+        const main = placements?.[0];
+        const { count } = await db.documentTemplate.updateMany({
+          where: { id, active: true },
+          data: {
+            name: template.name,
+            fileName: template.fileName,
+            copyToNewCases: template.copyToNewCases,
+            lastVersionAt: template.lastVersionAt,
+            lastVersionByUserId: template.lastVersionByUserId,
+            ...(main && { cloudFileId: main.cloudFileId, cloudFolderId: main.cloudFolderId }),
+          },
+        });
+        if (count === 0) {
+          return null;
+        }
+
+        if (placements) {
+          const ids = await this.findJurisdictionIds(template.jurisdictions);
+          await db.documentTemplateFile.deleteMany({ where: { templateId: id } });
+          await db.documentTemplateJurisdiction.deleteMany({ where: { templateId: id } });
+          await db.documentTemplateJurisdiction.createMany({
+            data: [...ids.values()].map((jurisdictionId) => ({ templateId: id, jurisdictionId })),
+          });
+          await db.documentTemplateFile.createMany({
+            data: placements.map(({ jurisdiction, cloudFileId, cloudFolderId }) => ({
+              templateId: id,
+              jurisdictionId: ids.get(jurisdiction)!,
+              cloudFileId,
+              cloudFolderId,
+            })),
+          });
+        }
+        if (trash.length > 0) {
+          await db.templateFilePendingTrash.createMany({
+            data: trash.map((cloudFileId) => ({ cloudFileId, templateId: id })),
+            skipDuplicates: true,
+          });
+        }
+
+        return toView(await db.documentTemplate.findUniqueOrThrow({ where: { id }, include: VIEW_INCLUDE }));
+      });
+    } catch (error) {
+      throw this.nameConflictOr(error);
+    }
+  }
+
+  async clearPendingTrash(fileIds: readonly string[]): Promise<void> {
+    await this.prisma.db.templateFilePendingTrash.deleteMany({ where: { cloudFileId: { in: [...fileIds] } } });
+  }
+
+  /** The error of a taken name (D-71, D-139), or the same error if it is any other. */
+  private nameConflictOr(error: unknown): unknown {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002' &&
+      this.violatedIndex(error) === NAME_INDEX
+    ) {
+      return new DocumentTemplateAlreadyExistsError();
+    }
+    return error;
+  }
+
+  /**
+   * One `UPDATE … WHERE id AND active = true`: it writes only if the template was
+   * active, so a missing one and one already given de baja both write nothing, and
+   * of two simultaneous bajas only one does (CA-37.7). The row stays (RN12).
+   */
+  async deactivate(id: number): Promise<boolean> {
+    const { count } = await this.prisma.db.documentTemplate.updateMany({
+      where: { id, active: true },
+      data: { active: false, trashPending: true },
+    });
+    return count === 1;
+  }
+
+  /** Not filtered by `active`: the files of a template given de baja are the ones still to be moved (HU37). */
+  async findStoredFiles(id: number): Promise<TemplateStoredFiles | null> {
+    const row = await this.prisma.db.documentTemplate.findUnique({
+      where: { id },
+      select: { cloudFileId: true, files: { select: { cloudFileId: true } } },
+    });
+    return row
+      ? TemplateStoredFiles.hydrate({
+          mainFileId: row.cloudFileId,
+          jurisdictionFileIds: row.files.map((file) => file.cloudFileId),
+        })
+      : null;
+  }
+
+  async markTrashed(id: number): Promise<void> {
+    await this.prisma.db.documentTemplate.update({ where: { id }, data: { trashPending: false } });
   }
 
   /** With the `PrismaPg` driver adapter the violated index arrives in `meta.driverAdapterError`. */

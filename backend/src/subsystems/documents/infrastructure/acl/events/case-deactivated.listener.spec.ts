@@ -1,4 +1,5 @@
 import { Logger } from '@nestjs/common';
+import { RecycleBin } from '../../../core/application/common/recycle-bin';
 import { RecycleCaseFolder } from '../../../core/application/use-cases/recycle-case-folder.use-case';
 import { DocumentStorageUnavailableError } from '../../../core/domain/errors/documents.errors';
 import { aCaseDeactivatedEvent, aCommand, aSetUpStudio } from '../../../core/test-support/document-fixtures';
@@ -17,7 +18,11 @@ describe('CaseDeactivatedListener', () => {
   async function aListener() {
     const studio = await aSetUpStudio();
     await studio.assureSpace.execute(aCommand());
-    return { ...studio, listener: new CaseDeactivatedListener(new RecycleCaseFolder(studio.folders, studio.storage)) };
+    const bin = new RecycleBin(studio.folders, studio.storage);
+    return {
+      ...studio,
+      listener: new CaseDeactivatedListener(new RecycleCaseFolder(studio.folders, studio.storage, bin)),
+    };
   }
 
   it('traduce el evento: mueve la carpeta de la causa a la carpeta Papelera (HU21)', async () => {

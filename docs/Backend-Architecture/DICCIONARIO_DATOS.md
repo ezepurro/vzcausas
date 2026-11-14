@@ -236,8 +236,14 @@ erDiagram
         timestamptz last_version_at
         integer last_version_by_user_id FK
         boolean active
+        boolean trash_pending
         timestamptz created_at
         timestamptz updated_at
+    }
+    template_files_pending_trash {
+        varchar(128) cloud_file_id PK
+        integer template_id FK
+        timestamptz created_at
     }
     document_template_jurisdictions {
         integer template_id PK, FK
@@ -347,6 +353,7 @@ erDiagram
     jurisdictions ||--o{ document_template_files : "carpeta de modelos de"
     cloud_folders ||--o{ document_template_files : "contiene"
     document_templates ||--o{ document_template_copies : "copiado como"
+    document_templates ||--o{ template_files_pending_trash : "dejó sin referencia"
     cases ||--o{ document_template_copies : "recibe"
     cases ||--o{ case_files : "genera"
     users ||--o{ case_files : "genera"
@@ -878,13 +885,34 @@ y no tienen filas ahí.
 | `copy_to_new_cases` | BOOLEAN | 1 B |  | No | `true`: se copia a la carpeta de las causas nuevas de sus fueros (HU40). Por defecto `true`. |
 | `last_version_at` | TIMESTAMPTZ | 8 B |  | No | Fecha y hora de la última versión subida. |
 | `last_version_by_user_id` | INTEGER | 4 B | FK | No | Usuario que subió la última versión (→ `users.id`). |
-| `active` | BOOLEAN | 1 B |  | No | `true`: vigente. `false`: baja lógica (RN12). Por defecto `true`. |
+| `active` | BOOLEAN | 1 B |  | No | `true`: vigente. `false`: baja lógica (RN12, HU37). Por defecto `true`. |
+| `trash_pending` | BOOLEAN | 1 B |  | No | `true`: el modelo se dio de baja y sus archivos todavía no se movieron a `/VZ Causas/Papelera` porque Drive no respondió (D-131, HU37). Se pone en `true` al dar de baja y en `false` cuando Drive confirma el movimiento; el proceso diario mueve los que quedaron en `true`. Por defecto `false`. |
 | `created_at` | TIMESTAMPTZ | 8 B |  | No | Fecha y hora de creación. |
 | `updated_at` | TIMESTAMPTZ | 8 B |  | No | Fecha y hora de la última actualización. |
 
 Índices: `document_templates_cloud_file_id_key` (UK) y
 `document_templates_name_active_key`, único parcial sobre `lower(name)`
 entre modelos activos.
+
+#### r bis) Tabla `template_files_pending_trash`
+
+Archivos de un modelo formal que una modificación (HU36, D-125) dejó sin
+referencia y que todavía hay que mover a `/VZ Causas/Papelera`: el archivo
+reemplazado con todas sus copias de las subcarpetas de fuero, la copia de un
+fuero que se quitó y el archivo suelto de un modelo anterior a las subcarpetas.
+
+La fila se escribe en la **misma transacción** que la modificación, así que no se
+pierde si el proceso cae antes de mover el archivo. Se borra cuando Drive confirma
+el movimiento; si Drive no responde queda, y el proceso diario la mueve después
+(D-125). No tiene clave foránea al archivo: ya no es de ningún modelo.
+
+| Atributo | Tipo | Long. | Clave | Nulo | Descripción / valores posibles |
+| --- | --- | --- | :-: | :-: | --- |
+| `cloud_file_id` | VARCHAR | 128 | PK | No | Identificador del archivo en Google Drive. |
+| `template_id` | INTEGER | 4 B | FK | No | Modelo del que era el archivo (→ `document_templates.id`). |
+| `created_at` | TIMESTAMPTZ | 8 B |  | No | Fecha y hora en que se anotó. |
+
+Índices: `template_files_pending_trash_template_id_idx`.
 
 #### s) Tabla `document_template_jurisdictions`
 

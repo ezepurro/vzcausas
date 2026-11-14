@@ -761,6 +761,10 @@ model DocumentTemplate {
   lastVersionAt       DateTime @default(now()) @map("last_version_at") @db.Timestamptz(6)
   lastVersionByUserId Int      @map("last_version_by_user_id")
   active              Boolean  @default(true)
+  // Modelo dado de baja (HU37, D-131) cuyos archivos todavía no se movieron a
+  // la Papelera: true al dar de baja, false cuando Drive confirma el movimiento.
+  // Si Drive no responde, queda en true y el proceso diario los mueve después.
+  trashPending        Boolean  @default(false) @map("trash_pending")
   createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt           DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -770,8 +774,26 @@ model DocumentTemplate {
   jurisdictions DocumentTemplateJurisdiction[]
   files         DocumentTemplateFile[]
   copies        DocumentTemplateCopy[]
+  pendingTrash  TemplateFilePendingTrash[]
 
   @@map("document_templates")
+}
+
+// Archivo de un modelo formal que una modificación (HU36, D-125) dejó sin
+// referencia —el archivo reemplazado, la copia de un fuero que se quitó o el
+// archivo suelto de un modelo anterior a las subcarpetas— y que todavía hay que
+// mover a la Papelera. La fila nace en la misma transacción que la modificación
+// y se borra cuando Drive confirma el movimiento; si Drive no responde, queda y
+// el proceso diario la mueve después. No tiene FK al archivo: ya no es de nadie.
+model TemplateFilePendingTrash {
+  cloudFileId String   @id @map("cloud_file_id") @db.VarChar(128)
+  templateId  Int      @map("template_id")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  template DocumentTemplate @relation(fields: [templateId], references: [id], onDelete: Restrict)
+
+  @@index([templateId])
+  @@map("template_files_pending_trash")
 }
 
 // Archivo de un modelo formal en la subcarpeta de cada uno de sus fueros:

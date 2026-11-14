@@ -58,6 +58,8 @@ describe('[smoke] App de integración', () => {
       ['post', '/api/v1/document-templates'],
       ['get', '/api/v1/document-templates/1'],
       ['get', '/api/v1/document-templates/1/file'],
+      ['patch', '/api/v1/document-templates/1'],
+      ['delete', '/api/v1/document-templates/1'],
       ['get', '/api/v1/cases'],
       ['post', '/api/v1/cases'],
       ['get', '/api/v1/cases/custom-states'],
