@@ -1,5 +1,6 @@
 import { useId, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router'
+import { useQueryClient } from '@tanstack/react-query'
 import { useCan } from '@/app/access/useCan'
 import { useGoBack } from '@/app/router/useGoBack'
 import { useCurrentUser } from '@/app/providers/AuthContext'
@@ -55,6 +56,15 @@ import { useDownloadCaseDocument } from '@/features/cases/api/useDownloadCaseDoc
 import { CaseDocumentsCard } from '@/features/cases/components/CaseDocumentsCard'
 import type { CaseDocument } from '@/features/cases/types/caseDocument'
 import { documentDownloadName } from '@/features/cases/utils/caseDocument'
+import { refreshCaseAfterAct } from '@/features/cases/api/refreshCaseAfterAct'
+import { useAnnulProceduralAct } from '@/features/cases/api/useAnnulProceduralAct'
+import { AnnulProceduralActModal } from '@/features/cases/components/AnnulProceduralActModal'
+import {
+    validateAnnulProceduralAct,
+    type AnnulProceduralActFormErrors,
+} from '@/features/cases/schemas/proceduralActAnnulment.schema'
+import type { AnnulProceduralActFormValues } from '@/features/cases/types/proceduralActAnnulment'
+import { toAnnulProceduralActBody } from '@/features/cases/utils/toAnnulProceduralActBody'
 /**
  * Detalle de causa (HU22), en `/causas/:caseId`.
  *
@@ -125,6 +135,12 @@ export function CaseDetailPage() {
 /** El aviso de "Dar de baja", del prototipo. */
 const CASE_DELETED = 'Causa dada de baja. Se conserva el historial completo.'
 /**
+ * El aviso de "Anular acto procesal" (HU29). No es el del prototipo ("Queda
+ * asentado en el ciclo de vida"): por D-124 el acto deja de mostrarse
+ * (`cases/CAMBIOS.md`).
+ */
+const ACT_ANNULLED = 'Acto anulado. El estado de la causa se recalculó.'
+/**
  * Qué modal está abierto, con sus valores y sus errores. "Modificar causa"
  * lleva su propio estado, en `useCaseEdit`, porque también lo abre "Generar
  * expediente".
@@ -140,6 +156,8 @@ type ModalState =
           errors: PrescriptionDeclarationFormErrors
       }
     | { kind: 'delete'; values: DeleteCaseFormValues; errors: DeleteCaseFormErrors }
+    /** HU29: anular un acto procesal de la línea de vida. */
+    | { kind: 'annulAct'; act: ProceduralAct; values: AnnulProceduralActFormValues; errors: AnnulProceduralActFormErrors }
     | null
 
 /** La pantalla con la causa ya cargada. */
@@ -162,6 +180,8 @@ function CaseDetail({ case: c }: { case: Case }) {
     const createFolder = useCreateCaseFolder(c.id)
     const edit = useCaseEdit(c)
     const deleteCase = useDeleteCase(c.id)
+    const annulAct = useAnnulProceduralAct(c.id)
+    const queryClient = useQueryClient()
     const [modal, setModal] = useState<ModalState>(null)
 
     /* Sólo el abogado responsable registra los actos de esta causa, procesales
@@ -198,20 +218,28 @@ function CaseDetail({ case: c }: { case: Case }) {
             : `${onlyResponsible} registra actos interruptivos.`
     const goRegisterAct = () => navigate(`/causas/${c.id}/acto`)
 
-    /* Los actos de una causa prescripta no se modifican (D-99): ahí la línea
-       de vida no ofrece "Modificar" (ver cases/CAMBIOS.md). */
+    /* Los actos de una causa prescripta no se modifican ni se anulan (D-99,
+       D-124): ahí la línea de vida no ofrece "Modificar" ni "Anular" (ver
+       cases/CAMBIOS.md). */
     const canModifyActs = c.prescriptionDeclaration === null
 
-    /* Sólo el responsable modifica los actos (D-30): para los demás, "Modificar"
-       va deshabilitado con esta nota, como "Registrar acto procesal". Antes
-       estaba habilitado y avisaba al tocarlo (tanda 15 de `docs/auditoria-front`). */
+    /* Sólo el responsable modifica y anula los actos (D-30): para los demás,
+       "Modificar" y "Anular" van deshabilitados con esta nota, como "Registrar
+       acto procesal". Antes estaba habilitado y avisaba al tocarlo (tanda 15
+       de `docs/auditoria-front`). */
     const modifyBlockedNote = isResponsible
         ? null
-        : `${onlyResponsible} modifica los actos procesales.`
+        : `${onlyResponsible} modifica y anula los actos procesales.`
 
     function modifyAct(act: ProceduralAct) {
         if (!isResponsible) return
         navigate(`/causas/${c.id}/acto/${act.id}`)
+    }
+
+    /* HU29: "Anular" abre el diálogo ahí mismo, sin salir del detalle. */
+    function openAnnulAct(act: ProceduralAct) {
+        if (!isResponsible) return
+        setModal({ kind: 'annulAct', act, values: { reason: '' }, errors: {} })
     }
 
     /* Actos interruptivos y prescripción sólo existen en el penal (D-50, D-52).
@@ -360,6 +388,43 @@ function CaseDetail({ case: c }: { case: Case }) {
         })
     }
 
+    /**
+     * Anula el acto (HU29) y se queda en el detalle, que ya muestra la causa
+     * recalculada: la mutación termina cuando llegaron la causa y la línea de
+     * vida nuevas (CA-29.1). El motivo es opcional. El aviso es `info`, como
+     * el de una baja.
+     *
+     * Un 400 del motivo se marca en el campo. Los demás rechazos (403 si
+     * cambió el responsable, 422 si la marcaron prescripta, 404 si otro ya lo
+     * anuló) se avisan con el texto del backend y cierran el diálogo: no hay
+     * nada que corregir ahí. Con el 404 se vuelve a pedir la causa, que ya no
+     * tiene ese acto.
+     */
+    function submitAnnulAct(act: ProceduralAct, values: AnnulProceduralActFormValues) {
+        const errors = validateAnnulProceduralAct(values)
+        setModal({ kind: 'annulAct', act, values, errors })
+        if (Object.keys(errors).length > 0) return
+        annulAct.mutate(
+            { actId: act.id, body: toAnnulProceduralActBody(values) },
+            {
+                onSuccess: () => {
+                    toast('info', ACT_ANNULLED)
+                    setModal(null)
+                },
+                onError: (error) => {
+                    if (!isApiError(error)) throw error
+                    if (error.isValidation && error.details?.reason) {
+                        setModal((m) => (m?.kind === 'annulAct' ? { ...m, errors: { reason: error.details?.reason } } : m))
+                        return
+                    }
+                    toast('error', error.message)
+                    setModal(null)
+                    if (error.isNotFound) void refreshCaseAfterAct(queryClient, c.id)
+                },
+            },
+        )
+    }
+
     return (
         <>
             <CaseHeader
@@ -475,6 +540,7 @@ function CaseDetail({ case: c }: { case: Case }) {
                     registerNoteId={headNoteId}
                     canModifyActs={canModifyActs}
                     onModifyAct={modifyAct}
+                    onAnnulAct={openAnnulAct}
                     modifyBlockedNote={modifyBlockedNote}
                 />
                 <div className="vz-case-detail__aside">
@@ -551,6 +617,17 @@ function CaseDetail({ case: c }: { case: Case }) {
                     saving={deleteCase.isPending}
                     onChange={changeValue}
                     onConfirm={() => submitDelete(modal.values)}
+                    onCancel={() => setModal(null)}
+                />
+            )}
+            {modal?.kind === 'annulAct' && (
+                <AnnulProceduralActModal
+                    actLabel={`${modal.act.resultingState.name} · ${formatDate(modal.act.actDate)}`}
+                    values={modal.values}
+                    errors={modal.errors}
+                    saving={annulAct.isPending}
+                    onChange={changeValue}
+                    onConfirm={() => submitAnnulAct(modal.act, modal.values)}
                     onCancel={() => setModal(null)}
                 />
             )}

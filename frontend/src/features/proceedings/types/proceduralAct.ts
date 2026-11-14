@@ -12,7 +12,8 @@
  *
  * Este módulo tiene el registro (HU26), su previsualización y la
  * modificación (HU28). La consulta es la línea de vida de la causa (HU27), en
- * `cases`; anular un acto (HU29) queda fuera del contrato.
+ * `cases`, y también la anulación (HU29, V6), que se hace desde ella
+ * (`cases/api/useAnnulProceduralAct.ts`).
  */
 
 import type { ActDeadline, ProceduralAct, ResultingState } from '@/features/cases'

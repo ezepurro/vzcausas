@@ -29,17 +29,17 @@ async function fill(user: User, dialog: HTMLElement, name: string, years: string
 
 describe('LegalQualificationsPage', () => {
     describe('consulta', () => {
-        /* "Modificar" y "Eliminar" están ocultos por pedido del equipo
-           (`SHOW_ROW_ACTIONS` en la página). */
-        it('lista las vigentes en orden alfabético, sin Modificar ni Eliminar', async () => {
+        /* "Modificar" y "Eliminar" volvieron con HU-49 y HU-50 (Sprint 5): una
+           por fila, como en el prototipo. */
+        it('lista las vigentes en orden alfabético, con Modificar y Eliminar en cada fila', async () => {
             renderPage()
 
             expect(await screen.findByRole('cell', { name: FIRST })).toBeInTheDocument()
             const vigentes = db.legalQualifications.filter((q) => q.active)
             expect(screen.getAllByRole('row')).toHaveLength(vigentes.length + 1)
             expect(screen.getAllByRole('row')[1]).toHaveTextContent(FIRST)
-            expect(screen.queryByRole('button', { name: 'Modificar' })).not.toBeInTheDocument()
-            expect(screen.queryByRole('button', { name: 'Eliminar' })).not.toBeInTheDocument()
+            expect(screen.getAllByRole('button', { name: 'Modificar' })).toHaveLength(vigentes.length)
+            expect(screen.getAllByRole('button', { name: 'Eliminar' })).toHaveLength(vigentes.length)
             expect(screen.queryByRole('cell', { name: 'Encubrimiento — art. 277 CP' })).not.toBeInTheDocument()
         })
 

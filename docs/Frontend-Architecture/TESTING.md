@@ -10,8 +10,9 @@ Si tenés una duda del tipo "¿este test dónde va?", saltá a
 [Dónde pongo este test](#9-dónde-pongo-este-test). Si la duda es "¿vale la pena
 este test?", andá a [Antes de escribir un test](#4-antes-de-escribir-un-test).
 
-> **09/11/2026: contrato V6 (Sprint 5).** Los tests del Sprint 5 todavía no
-> están escritos: ver [§11, "Sprint 5"](#sprint-5-lo-que-tienen-que-fijar-los-tests).
+> **09/11/2026: contrato V6 (Sprint 5).** Al 14/11/2026 están escritos los de
+> HU10, HU11, HU29, HU36, HU37, HU49 y HU50; los demás todavía no: ver
+> [§11, "Sprint 5"](#sprint-5-lo-que-tienen-que-fijar-los-tests).
 >
 > **Estado actual (03/11/2026):** **473 tests de Vitest** en 84 archivos (208
 > de `unit/` y 265 de `components/`) y **9 de Playwright** en 6 archivos. Pasan
@@ -1166,7 +1167,8 @@ de los criterios de aceptación de cada historia, que están en su issue de Jira
 desde el 09/11/2026 (CA-10.x a CA-50.x). Antes del test, el endpoint tiene que
 estar en el mock (`frontend/CLAUDE.md`, "Checklist de un módulo"). Del Sprint
 5, el mock ya tiene `PATCH` y `DELETE` de `/clients/{clientId}` y de
-`/document-templates/{templateId}`; los demás todavía no, y la baja de abogado del mock sigue la regla de V5 (`frontend/CLAUDE.md`,
+`/document-templates/{templateId}`, y `DELETE
+/cases/{caseId}/procedural-acts/{actId}`; los demás todavía no, y la baja de abogado del mock sigue la regla de V5 (`frontend/CLAUDE.md`,
 "Cambios de V6 sobre lo que ya estaba hecho").
 
 **HU10 y HU11, clientes (14/11/2026).** Los tests se escribieron antes que el
@@ -1238,6 +1240,61 @@ CA-37.1 a 37.7); CA-36.9, CA-37.4 y CA-37.6 son sólo del servidor.
 - **E8 carga el `.pdf` con `fireEvent`**: `user.upload` respeta el `accept`
   del campo y el archivo nunca llegaría al formulario.
 
+**HU29, anular acto procesal (14/11/2026).** Escritos antes que el código y
+en verde. 19 en total (13 de pantalla, 5 unitarios y 1 de permisos del
+mock), y cubren CA-29.1 a 29.10; CA-29.6, 29.11
+y 29.12 son sólo del servidor (`@backend`).
+
+| HU | Tests |
+| --- | --- |
+| 29 Anular acto procesal | `components/cases/CaseDetailPage.annulAct.test.tsx` (13), `unit/cases/proceduralActAnnulment.test.ts` (5) |
+| Permisos del servidor falso | `unit/contract/permissions.test.ts` suma "anular un acto procesal es sólo del responsable" (causa 4: `fvazquez` `204`; `mrios`, `supervision` y `gestion` `403`) |
+| La nota de la línea de vida | `components/proceedings/RegisterProceduralActPage.edit.test.tsx` pasa a esperar "… modifica y anula los actos procesales." |
+
+**Los nombres que fijan los tests:**
+
+| Qué | Dónde |
+| --- | --- |
+| La acción | "Anular" en cada acto procesal de la línea de vida, junto a "Modificar"; no en los actos interruptivos ni en una causa prescripta |
+| El diálogo | "Anular acto procesal", con "<estado> · dd/mm/aaaa" como subtítulo, la nota "La baja es lógica: el acto deja de mostrarse en el ciclo de vida y el estado de la causa se recalcula con el acto anterior.", "Motivo de la anulación (opcional)" (hasta 500) y "Anular acto"; aviso "Acto anulado. El estado de la causa se recalculó." |
+| La validación y el cuerpo | `validateAnnulProceduralAct({ reason })` en `@/features/cases/schemas/proceduralActAnnulment.schema`; `toAnnulProceduralActBody` en `@/features/cases/utils/toAnnulProceduralActBody` (sin motivo, `undefined`) |
+| El hook | `useAnnulProceduralAct(caseId)` en `@/features/cases/api/`, con `mutate({ actId, body })` |
+| El mock | El acto anulado queda con `active: false` y `annulment: { reason, byId, at }` en `db.proceduralActs` |
+
+**Lo que se decidió** (14/11/2026):
+
+- **Vive en `cases`**, como los actos interruptivos: se anula desde el
+  detalle, y `cases` no puede importar de `proceedings`.
+- **Los textos del prototipo que contradicen D-124 se adaptaron** (la nota, la
+  ayuda del motivo y el aviso): ver `cases/CAMBIOS.md`.
+- **El diálogo queda en "Guardando…"** hasta que llegan la causa y la línea de
+  vida nuevas; no se navega, porque ya se está en el detalle (CA-29.1).
+- **Un `403`, `422` o `404`** se avisa con el texto del backend y cierra el
+  diálogo; con el `404` se vuelve a pedir la causa. Un `400` del motivo va al
+  campo.
+
+**HU49 y HU50, calificaciones legales (14/11/2026).** También escritos antes
+que el código y en verde. 24 en total, y cubren CA-49.1 a 49.4, 49.6 y
+CA-50.1 a 50.4; CA-49.5 es sólo del servidor.
+
+| HU | Tests |
+| --- | --- |
+| 49 Modificar calificación legal | `components/legal-params/LegalQualificationsPage.edit.test.tsx` (12), `unit/legal-params/buildLegalQualificationPatch.test.ts` (6) |
+| 50 Dar de baja calificación legal | `components/legal-params/LegalQualificationsPage.delete.test.tsx` (5), y en `legalParamsMutations.cache.test.tsx` que la baja marca viejo el listado del selector de "Registrar causa" (CA-50.2) |
+| La consulta | `LegalQualificationsPage.test.tsx` pasa a esperar "Modificar" y "Eliminar" en cada fila |
+
+**Los nombres que fijan los tests:**
+
+| Qué | Dónde |
+| --- | --- |
+| Acciones de la fila | "Modificar" y "Eliminar" en cada fila de `LegalQualificationsPage`, habilitados para los tres perfiles |
+| Modificar | Diálogo "Modificar calificación legal" con el nombre como subtítulo, la nota "Se usa en N causas. Cambiar el plazo recalcula su prescripción." (sólo si la usan causas) y "Guardar cambios"; aviso "Calificación actualizada." |
+| Eliminar | Diálogo "Eliminar calificación legal" con el nombre como subtítulo, la nota "Se usa en N causas, que la conservan. Deja de ofrecerse al registrar causas nuevas." (o sólo la segunda oración) y "Eliminar"; aviso "Calificación eliminada." |
+
+**Lo que se decidió** (14/11/2026): los textos, alineados al prototipo; un
+`404` al modificar avisa, cierra y vuelve a pedir la tabla, como en HU10; la
+baja cierra el diálogo al confirmar, porque no hay `409` que mostrar.
+
 Las reglas de V6 que se rompen fácil, y que conviene que fije un test de
 pantalla en lo que queda del sprint:
 
@@ -1245,9 +1302,6 @@ pantalla en lo que queda del sprint:
   activa, sin las terminales. Un `409 LAWYER_HAS_DEPENDENCIES` hace rearmar el
   reparto. Si el abogado tiene usuario, el formulario avisa qué le pasa, y la
   baja no se bloquea (D-123, D-133).
-- **Anular acto procesal (HU29).** Solo lo ofrece el responsable; el acto sale
-  de la línea de vida y la causa muestra su estado nuevo; en una causa
-  "Prescripta", `422 CASE_IN_TERMINAL_STATE` (D-124).
 - **Reporte mensual (HU43).** Solo lo ve `ADMINISTRATOR`; el selector de mes va
   de `availableFrom` a `currentPeriod`; el mes en curso se distingue de uno
   cerrado (`status`); un período sin reporte da `404 MONTHLY_REPORT_NOT_FOUND`;

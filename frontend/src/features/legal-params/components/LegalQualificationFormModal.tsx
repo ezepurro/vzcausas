@@ -81,7 +81,8 @@ export function LegalQualificationFormModal({
             }
             note={
                 !creating && activeCases > 0
-                    ? `La usan ${activeCases === 1 ? '1 causa activa' : `${activeCases} causas activas`}. Cambiar el plazo recalcula su prescripción.`
+                    // El texto del prototipo (CA-49.4).
+                    ? `Se usa en ${activeCases === 1 ? '1 causa' : `${activeCases} causas`}. Cambiar el plazo recalcula su prescripción.`
                     : undefined
             }
             fields={fields}

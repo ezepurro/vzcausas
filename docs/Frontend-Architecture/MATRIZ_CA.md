@@ -220,6 +220,23 @@ que corresponde al servidor: el frontend muestra lo que recibe y no lo prueba.
 | CA-28.10 | `components/proceedings/RegisterProceduralActPage.edit.test.tsx` (componentes) |
 | CA-28.11 | Backend |
 
+## HU-29
+
+| Criterio | Dónde se cubre |
+| --- | --- |
+| CA-29.1 | `components/cases/CaseDetailPage.annulAct.test.tsx` (componentes)<br>`unit/cases/proceduralActAnnulment.test.ts` (unit) |
+| CA-29.2 | `components/cases/CaseDetailPage.annulAct.test.tsx` (componentes) |
+| CA-29.3 | `components/cases/CaseDetailPage.annulAct.test.tsx` (componentes) |
+| CA-29.4 | `components/cases/CaseDetailPage.annulAct.test.tsx` (componentes) |
+| CA-29.5 | `components/cases/CaseDetailPage.annulAct.test.tsx` (componentes) |
+| CA-29.6 | Backend |
+| CA-29.7 | `components/cases/CaseDetailPage.annulAct.test.tsx` (componentes)<br>`unit/contract/permissions.test.ts` (unit) |
+| CA-29.8 | `components/cases/CaseDetailPage.annulAct.test.tsx` (componentes) |
+| CA-29.9 | `components/cases/CaseDetailPage.annulAct.test.tsx` (componentes)<br>Backend |
+| CA-29.10 | `components/cases/CaseDetailPage.annulAct.test.tsx` (componentes)<br>`unit/cases/proceduralActAnnulment.test.ts` (unit) |
+| CA-29.11 | Backend |
+| CA-29.12 | Backend |
+
 ## HU-31
 
 | Criterio | Dónde se cubre |
@@ -382,6 +399,26 @@ que corresponde al servidor: el frontend muestra lo que recibe y no lo prueba.
 | --- | --- |
 | CA-48.8 | `components/cases/RegisterCasePage.test.tsx` (componentes) |
 
+## HU-49
+
+| Criterio | Dónde se cubre |
+| --- | --- |
+| CA-49.1 | `components/legal-params/LegalQualificationsPage.edit.test.tsx` (componentes)<br>`unit/legal-params/buildLegalQualificationPatch.test.ts` (unit) |
+| CA-49.2 | `components/legal-params/LegalQualificationsPage.edit.test.tsx` (componentes) |
+| CA-49.3 | `components/legal-params/LegalQualificationsPage.edit.test.tsx` (componentes)<br>`unit/legal-params/buildLegalQualificationPatch.test.ts` (unit) |
+| CA-49.4 | `components/legal-params/LegalQualificationsPage.edit.test.tsx` (componentes) |
+| CA-49.5 | Backend |
+| CA-49.6 | `components/legal-params/LegalQualificationsPage.edit.test.tsx` (componentes)<br>Backend |
+
+## HU-50
+
+| Criterio | Dónde se cubre |
+| --- | --- |
+| CA-50.1 | `components/legal-params/LegalQualificationsPage.delete.test.tsx` (componentes)<br>Backend |
+| CA-50.2 | `components/legal-params/legalParamsMutations.cache.test.tsx` (componentes) |
+| CA-50.3 | `components/legal-params/LegalQualificationsPage.delete.test.tsx` (componentes)<br>`components/legal-params/legalParamsMutations.cache.test.tsx` (componentes)<br>Backend |
+| CA-50.4 | `components/legal-params/LegalQualificationsPage.delete.test.tsx` (componentes)<br>Backend |
+
 ---
 
-237 criterios citados · 45 sólo del backend.
+259 criterios citados · 49 sólo del backend.

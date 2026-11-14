@@ -224,6 +224,14 @@ export interface StoredAct {
     /** La última modificación (V5, HU28). `null` si nunca se modificó. */
     lastModifiedById: number | null;
     lastModifiedAt: string | null;
+    /**
+     * `false` si se anuló (V6, HU29, D-124). Un acto anulado no existe para el
+     * cliente: no se lista, no está en la línea de vida y no cuenta para el
+     * estado de la causa.
+     */
+    active: boolean;
+    /** La anulación: motivo, quién y cuándo. Queda en la auditoría; la API no la devuelve. */
+    annulment: { reason: string | null; byId: number; at: string } | null;
 }
 
 export interface MockDb {
@@ -383,6 +391,8 @@ function seedAct(
         registeredAt: `${actDate}T10:00:00-03:00`,
         lastModifiedById: null,
         lastModifiedAt: null,
+        active: true,
+        annulment: null,
     };
 }
 
@@ -844,10 +854,15 @@ export function persistSessions(store: Storage): void {
 /* Causas: estado actual, vencimiento y causa activa                   */
 /* ------------------------------------------------------------------ */
 
-/** Los actos de una causa, del más viejo al más nuevo. */
+/**
+ * Los actos vigentes de una causa, del más viejo al más nuevo. Los anulados
+ * (HU29, D-124) no cuentan: de acá salen el listado, la línea de vida, el
+ * estado actual, el vencimiento y los tableros, así que anular un acto los
+ * recalcula a todos (D-99).
+ */
 export function actsOf(caseId: number): StoredAct[] {
     return db.proceduralActs
-        .filter((a) => a.caseId === caseId)
+        .filter((a) => a.caseId === caseId && a.active)
         // A igual fecha de acto, manda el que se registró después.
         .sort((a, b) => a.actDate.localeCompare(b.actDate) || a.id - b.id);
 }

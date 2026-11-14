@@ -23,8 +23,13 @@ modificar un acto procesal, los documentos de la causa y el expediente
 > responde `502` y no cambia nada; el nombre es único sólo entre los modelos
 > vigentes, así que el del modelo 13 ("Amparo por mora de la
 > administración", dado de baja) se puede usar (D-139), también en el alta.
-> **Lo demás todavía no está en el mock**:
-> `DELETE /cases/{caseId}/procedural-acts/{actId}`, `GET /reports/monthly` y
+> También `DELETE /cases/{caseId}/procedural-acts/{actId}` (HU29; 14/11/2026):
+> la anulación es lógica (`active: false`, con el motivo, quién y cuándo en
+> `annulment`), el acto deja de existir para el cliente y el estado de la causa
+> se recalcula solo, porque sale de `actsOf` (D-124, D-99). Se prueba con
+> `mrios` sobre la causa 1 (vuelve al acto anterior), la 9 (anular "Archivada"
+> la reabre) o la 17; en la 10, prescripta, responde `422`.
+> **Lo demás todavía no está en el mock**: `GET /reports/monthly` y
 > `GET /reports/monthly/file`. Además, `DELETE /lawyers/{lawyerId}` sigue la
 > regla de V5 (`409` si el abogado tiene causas o un usuario vinculado). V6 la
 > cambia: reasigna sus causas activas con `reassignments`, y el usuario
@@ -181,7 +186,7 @@ Un usuario con varios roles pasa si el rol pedido está entre ellos.
 | Registrar un cliente | Cualquier usuario autenticado |
 | Registrar una causa | Cualquier usuario autenticado |
 | Modificar y dar de baja una causa; crear o reintentar su carpeta | El abogado responsable, `ADMINISTRATOR` o `SECRETARY` (D-110) |
-| Registrar o modificar un acto procesal y previsualizar su vencimiento | El abogado responsable (actual) de la causa |
+| Registrar, modificar o anular un acto procesal y previsualizar su vencimiento | El abogado responsable (actual) de la causa |
 | Leer la línea de vida y los actos de una causa | Cualquier usuario autenticado |
 | Ver la carátula, listar los documentos y generar el expediente | Cualquier usuario autenticado |
 | Descargar un documento de la causa | `LAWYER` o `SECRETARY`; el expediente, cualquier usuario autenticado (D-103) |
@@ -303,6 +308,13 @@ tableros y los conteos, y su SAC se puede volver a usar.
 **Modificar un acto** lo registra en `lastModifiedBy` y `lastModifiedAt`; un
 acto que nunca se modificó los trae en `null`. El estado de la causa no se
 escribe: se recalcula en la próxima lectura con el acto de fecha más reciente.
+
+**Anular un acto** (V6, HU29) lo deja en `active: false` y guarda el motivo,
+quién y cuándo en `annulment` (no se devuelven). `actsOf` sólo devuelve los
+vigentes, así que el acto sale del listado y de la línea de vida, su `GET` y
+su `PATCH` responden `404 PROCEDURAL_ACT_NOT_FOUND`, y el estado, el
+vencimiento y los tableros salen del acto vigente más reciente: sin ninguno, la
+causa vuelve a "Iniciada".
 
 **La carátula y el expediente son PDF de verdad** (`pdf.ts`), mínimos: el texto
 de cada recuadro en su orden, sin logo, sin acentos. Alcanzan para la vista
@@ -429,6 +441,7 @@ Para tener el recurso como lo devuelve la API están los serializadores de
 | `GET` | `/cases/{caseId}/cover` | 200 (PDF), 400, 401, 404 |
 | `POST` | `/cases/{caseId}/procedural-acts` | 201, 400, 401, 403, 404, 422 |
 | `PATCH` | `/cases/{caseId}/procedural-acts/{actId}` | 200, 400, 401, 403, 404, 422 |
+| `DELETE` | `/cases/{caseId}/procedural-acts/{actId}` (V6, HU29) | 204, 400, 401, 403, 404, 422 |
 | `GET` | `/cases/{caseId}/documents` | 200, 400, 401, 404, 502 |
 | `GET` | `/cases/{caseId}/documents/{documentId}/file` | 200 (archivo), 400, 401, 403, 404, 502 |
 | `POST` | `/cases/{caseId}/case-files` | 201, 400, 401, 404, 422, 502 |
@@ -542,11 +555,11 @@ de servir en el acto.
 | `413` | un archivo de más de 10 MB (`MAX_FILE_BYTES`) |
 | `422`, Sprint 3 | acto interruptivo o marca de prescripción fuera del penal (causas 2, 3, 22…) → `PRESCRIPTION_NOT_APPLICABLE`; marcar prescripta la causa 23, penal sin calificaciones → `PRESCRIPTION_NOT_APPLICABLE` con "La causa no tiene calificaciones legales: no puede prescribir." (D-74); cualquiera de los dos sobre una causa terminal (9, 10, 21) → `CASE_IN_TERMINAL_STATE`; `PATCH` o `DELETE /procedural-states/10` → `PROCEDURAL_STATE_PROTECTED` |
 | `502` | `db.failures.documentStorage = true` (Drive caído: carpeta, alta y descarga de modelos). La carpeta queda en `ERROR`. Se vuelve a `false` con `resetMockDb()` |
-| `400`, Sprint 4 | `PATCH /cases/1` con `jurisdiction` o con `clientId` (D-111), con un campo que no está en la tabla, vacío (`{}`), con `sacNumber: null` sin `startDate: null`, con `legalQualifications` en una causa que no es penal (2, 3…); `DELETE /cases/{id}` con un `reason` de más de 500 caracteres; `GET /cases/1/cover?disposition=x`; modificar un acto dejando `notificationDate` antes del `actDate` nuevo, o con estado de la tabla y escrito a mano a la vez; `POST /cases/1/case-files` sin documentos, con el expediente `Expediente_13284571_v1.pdf` o con un id de otra causa; `cover.opposingParty` en una causa que no es penal; `PATCH /lawyers/4` con `lastName: null` o `firstName: "Dr. Ignacio"` |
-| `403`, Sprint 4 | modificar un acto sin ser el responsable actual (`fvazquez` sobre la causa 1); descargar un documento que no es un expediente como `supervision` (Administrador sin otro rol). El expediente sí lo descarga |
-| `404`, Sprint 4 | cualquier pedido sobre una causa dada de baja → `CASE_NOT_FOUND`; un acto de otra causa → `PROCEDURAL_ACT_NOT_FOUND`; descargar un documento de la causa 2 pidiéndolo por la 1, o uno inexistente → `DOCUMENT_NOT_FOUND` |
+| `400`, Sprint 4 | `PATCH /cases/1` con `jurisdiction` o con `clientId` (D-111), con un campo que no está en la tabla, vacío (`{}`), con `sacNumber: null` sin `startDate: null`, con `legalQualifications` en una causa que no es penal (2, 3…); `DELETE /cases/{id}` o (V6) `DELETE /cases/{id}/procedural-acts/{actId}` con un `reason` de más de 500 caracteres; `GET /cases/1/cover?disposition=x`; modificar un acto dejando `notificationDate` antes del `actDate` nuevo, o con estado de la tabla y escrito a mano a la vez; `POST /cases/1/case-files` sin documentos, con el expediente `Expediente_13284571_v1.pdf` o con un id de otra causa; `cover.opposingParty` en una causa que no es penal; `PATCH /lawyers/4` con `lastName: null` o `firstName: "Dr. Ignacio"` |
+| `403`, Sprint 4 | modificar o (V6) anular un acto sin ser el responsable actual (`fvazquez` sobre la causa 1); descargar un documento que no es un expediente como `supervision` (Administrador sin otro rol). El expediente sí lo descarga |
+| `404`, Sprint 4 | cualquier pedido sobre una causa dada de baja → `CASE_NOT_FOUND`; un acto de otra causa o (V6) ya anulado → `PROCEDURAL_ACT_NOT_FOUND`; descargar un documento de la causa 2 pidiéndolo por la 1, o uno inexistente → `DOCUMENT_NOT_FOUND` |
 | `409`, Sprint 4 | `PATCH /cases/1` con el SAC de otra causa vigente (`12907344`). El de una causa dada de baja no choca |
-| `422`, Sprint 4 | causa 10: `PATCH` con `legalQualifications` o modificar uno de sus actos → `CASE_IN_TERMINAL_STATE`; expediente de las causas 11, 22 o 23 → `CASE_FOLDER_NOT_AVAILABLE`; expediente con la "Planilla de gastos" de la causa 1 → `DOCUMENT_NOT_CONVERTIBLE` |
+| `422`, Sprint 4 | causa 10: `PATCH` con `legalQualifications`, o modificar o (V6) anular uno de sus actos → `CASE_IN_TERMINAL_STATE`; expediente de las causas 11, 22 o 23 → `CASE_FOLDER_NOT_AVAILABLE`; expediente con la "Planilla de gastos" de la causa 1 → `DOCUMENT_NOT_CONVERTIBLE` |
 | `502`, Sprint 4 | con `db.failures.documentStorage`: la lista de documentos, la descarga y el expediente (que no consume el número de versión) |
 
 #### Subir y descargar archivos

@@ -5,6 +5,56 @@ contrato.
 
 ---
 
+## 2026-11-14 — "Anular" un acto procesal (HU29, V6)
+
+**Contrato:** `DELETE /cases/{caseId}/procedural-acts/{actId}` (V6 §3.8,
+D-124). Cada acto procesal de la línea de vida suma **"Anular"**, junto a
+"Modificar", con la misma regla: sólo el responsable actual (deshabilitado
+para los demás, con la nota de la línea de vida, que pasa a decir "… modifica
+y anula los actos procesales.") y nunca en una causa "Prescripta". Los actos
+interruptivos no lo llevan.
+
+**Dónde vive.** Todo en `cases` (acordado el 14/11/2026), como los actos
+interruptivos: se anula desde el detalle, y `cases` no puede importar de
+`proceedings`. `api/proceduralActs.api.ts` (`annulProceduralAct`),
+`api/useAnnulProceduralAct.ts`, `components/AnnulProceduralActModal.tsx`,
+`schemas/proceduralActAnnulment.schema.ts`,
+`types/proceduralActAnnulment.ts` y `utils/toAnnulProceduralActBody.ts`.
+
+**Textos que no son los del prototipo.** El prototipo dice que el acto "queda
+asentado como anulado en el ciclo de vida", y D-124 lo descarta: el acto
+desaparece. Se adaptaron (acordado el 14/11/2026):
+
+| Dónde | Prototipo | Ahora |
+|---|---|---|
+| Nota del diálogo | "La baja es lógica: el acto queda asentado como anulado en el ciclo de vida, con el motivo y quién lo anuló. Si abría un plazo, el plazo se cierra." | "La baja es lógica: el acto deja de mostrarse en el ciclo de vida y el estado de la causa se recalcula con el acto anterior." |
+| Ayuda del motivo | "Queda asentado en el ciclo de vida." | "Queda asentado en el historial de la causa." |
+| Aviso | "Acto anulado. Queda asentado en el ciclo de vida." | "Acto anulado. El estado de la causa se recalculó." (`info`) |
+
+El título ("Anular acto procesal"), el subtítulo (estado · fecha), el campo
+("Motivo de la anulación (opcional)", hasta 500) y el botón ("Anular acto")
+son los del prototipo.
+
+**Cómo se comporta.**
+
+- El diálogo queda en "Guardando…" hasta que llegan la causa y la línea de
+  vida nuevas (`refreshCaseAfterAct`, como el registro y la modificación): al
+  cerrarse, el acto ya no está y el encabezado muestra el estado recalculado
+  (CA-29.1, CA-29.3 a 29.5). No se navega: ya se está en el detalle.
+- Un `400` del motivo va al campo. Un `403`, un `422` o un `404` se avisan con
+  el texto del backend y cierran el diálogo; con el `404` (otro ya lo anuló)
+  se vuelve a pedir la causa.
+- Lo que `proceedings` cachea del acto (`proceduralActKeys.detail`) no se
+  toca: `cases` no puede nombrar esa clave, y el acto anulado ya no se ofrece
+  para abrirlo.
+
+Tests: `components/cases/CaseDetailPage.annulAct.test.tsx`,
+`unit/cases/proceduralActAnnulment.test.ts`, el caso nuevo de
+`unit/contract/permissions.test.ts` y la nota de
+`components/proceedings/RegisterProceduralActPage.edit.test.tsx`.
+
+---
+
 ## 2026-11-08 — Prescripción declarada por calificación (D-113)
 
 **Pedido:** del equipo. Cuando un delito prescribía, la única acción era

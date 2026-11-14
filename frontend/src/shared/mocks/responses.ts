@@ -180,6 +180,11 @@ export const ERRORS = {
         'FORBIDDEN',
         'Solo el abogado responsable de la causa puede modificar sus actos procesales.',
     ),
+    /** Anular un acto procesal: el responsable actual de la causa (V6 §3.8, HU29). */
+    forbiddenNotResponsibleAnnul: errorBody(
+        'FORBIDDEN',
+        'Solo el abogado responsable de la causa puede anular sus actos procesales.',
+    ),
     /** Modificar una causa siendo sólo abogado y no el responsable (V5 §3.7, D-110). */
     forbiddenNotResponsibleCaseUpdate: errorBody(
         'FORBIDDEN',
@@ -336,6 +341,11 @@ export const ERRORS = {
     prescribedCaseActs: errorBody(
         'CASE_IN_TERMINAL_STATE',
         'La causa está prescripta: sus actos procesales no se pueden modificar.',
+    ),
+    /** Anular un acto de una causa "Prescripta" (V6 §3.8, D-124). */
+    prescribedCaseAnnul: errorBody(
+        'CASE_IN_TERMINAL_STATE',
+        'La causa está prescripta: sus actos procesales no se pueden anular.',
     ),
     /** Generar el expediente sin la carpeta creada (V5 D-102). */
     caseFolderNotAvailable: errorBody(

@@ -36,13 +36,6 @@ const EMPTY_FORM: LegalQualificationFormValues = {
     months: '0',
 };
 
-/**
- * "Modificar" y "Eliminar" en cada fila. Ocultos por pedido del equipo
- * (18/10/2026): la modificación y la baja siguen programadas y se vuelven a
- * mostrar poniendo esto en `true`.
- */
-const SHOW_ROW_ACTIONS = false;
-
 /** Qué modal está abierto y con qué registro: UN estado. */
 type Modal =
     | { kind: 'create' }
@@ -53,6 +46,8 @@ type Modal =
 /**
  * Calificaciones legales: el ABMC completo (HU-47 a HU-50), en
  * `/calificaciones-legales`. Lo ven y lo operan los tres perfiles (V3 D-39).
+ * "Modificar" y "Eliminar" van en cada fila desde el Sprint 5 (HU-49, HU-50,
+ * `legal-params/CAMBIOS.md`).
  *
  * Modificar el plazo recalcula la prescripción de las causas que la registran
  * (V4 §3.5): el modal lo avisa. La baja procede aunque haya causas que la usen:
@@ -137,6 +132,16 @@ export function LegalQualificationsPage() {
             return;
         }
 
+        // HU-49 (CA-49.6): otro la dio de baja con el diálogo abierto. Se avisa
+        // con el texto del backend, se cierra y la tabla se vuelve a pedir,
+        // como al modificar un cliente (HU-10).
+        if (error.isNotFound) {
+            toast('error', error.message);
+            closeModal();
+            void query.refetch();
+            return;
+        }
+
         if (error.isValidation) {
             const fieldErrors = toLegalQualificationFormErrors(error.details);
             if (!isValid(fieldErrors)) {
@@ -183,11 +188,9 @@ export function LegalQualificationsPage() {
             update.mutate(
                 { id: modal.qualification.id, body: patch },
                 {
-                    onSuccess: (qualification) => {
-                        toast(
-                            'success',
-                            `Calificación actualizada · prescripción ${formatPrescription(qualification.prescriptionMonths)}.`,
-                        );
+                    onSuccess: () => {
+                        // El texto del prototipo.
+                        toast('success', 'Calificación actualizada.');
                         closeModal();
                     },
                     onError: handleApiError,
@@ -205,7 +208,7 @@ export function LegalQualificationsPage() {
         remove.mutate(qualification.id, {
             onSuccess: () => {
                 // `info` y no `success`: salió bien, pero no es un logro.
-                toast('info', `Calificación "${qualification.name}" eliminada.`);
+                toast('info', 'Calificación eliminada.');
                 // Si era la única fila de la página, no dejar al usuario en
                 // una página que ya no existe.
                 if (rows.length === 1 && page > 1) setPage(page - 1);
@@ -267,12 +270,8 @@ export function LegalQualificationsPage() {
                         loading={query.isPending}
                         busy={query.isPlaceholderData}
                         rows={rows}
-                        onEdit={SHOW_ROW_ACTIONS ? openEdit : undefined}
-                        onDelete={
-                            SHOW_ROW_ACTIONS
-                                ? (qualification) => setModal({ kind: 'delete', qualification })
-                                : undefined
-                        }
+                        onEdit={openEdit}
+                        onDelete={(qualification) => setModal({ kind: 'delete', qualification })}
                         empty={
                             <div className="vz-empty">
                                 <div className="vz-empty__title">

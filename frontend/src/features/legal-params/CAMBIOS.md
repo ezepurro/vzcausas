@@ -5,6 +5,39 @@ contrato.
 
 ---
 
+## 2026-11-14 — Calificaciones legales: vuelven "Modificar" y "Eliminar" (HU-49, HU-50)
+
+**Sprint 5 (V6, D-127).** El backend ya tiene `PATCH` y `DELETE
+/legal-qualifications/{qualificationId}`, así que las acciones de fila vuelven
+a mostrarse para los tres perfiles. Se borró `SHOW_ROW_ACTIONS`.
+
+- **Textos del prototipo** (acordado el 14/11/2026): las notas pasan a "Se
+  usa en N causas. Cambiar el plazo recalcula su prescripción." (modificar) y
+  "Se usa en N causas, que la conservan. Deja de ofrecerse al registrar causas
+  nuevas." (eliminar; sin uso, sólo la segunda oración). Los avisos, a
+  "Calificación actualizada." y "Calificación eliminada.". El subtítulo de
+  "Eliminar calificación legal" es sólo el nombre, sin el plazo.
+- **`404` al modificar** (CA-49.6): si otro la dio de baja con el diálogo
+  abierto, avisa con el texto del backend, cierra el diálogo y vuelve a pedir
+  la tabla, como "Modificar cliente" (HU-10).
+- La baja sigue cerrando el diálogo al confirmar, con la fila sacada de forma
+  optimista: no hay `409` que mostrar (CA-50.3).
+
+### Archivos
+
+| Archivo | Cambio |
+|---|---|
+| `pages/LegalQualificationsPage.tsx` | Sin `SHOW_ROW_ACTIONS`; avisos del prototipo; `404` al modificar |
+| `components/LegalQualificationFormModal.tsx` | Nota del prototipo |
+| `components/DeleteLegalQualificationModal.tsx` | Nota y subtítulo del prototipo |
+
+Tests: `components/legal-params/LegalQualificationsPage.edit.test.tsx`,
+`LegalQualificationsPage.delete.test.tsx`, el caso nuevo de
+`legalParamsMutations.cache.test.tsx` (CA-50.2) y
+`unit/legal-params/buildLegalQualificationPatch.test.ts`.
+
+---
+
 ## 2026-10-18 — Calificaciones legales: sin "Modificar" ni "Eliminar"
 
 **Pedido del equipo:** ocultar los botones de modificar y dar de baja en la

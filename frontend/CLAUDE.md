@@ -14,8 +14,9 @@ ver [Revisión de V5 del 05/11/2026](#revisión-de-v5-del-05112026).
 **09/11/2026: contrato V6 (Sprint 5).** El contrato vigente pasa a ser
 `API_CONTRACT_V6.md`, la última versión. Suma lo del Sprint 5: ver
 [Sprint 5](#sprint-5--qué-trae-v6). **Al 14/11/2026 están hechas HU10, HU11,
-HU36 y HU37** (modificar y dar de baja un cliente y un modelo formal), con sus
-mocks y sus tests en verde; lo demás de V6 todavía no está programado. Además hay código hecho que sigue una
+HU29, HU36, HU37, HU49 y HU50** (modificar y dar de baja un cliente, un modelo
+formal y una calificación legal, y anular un acto procesal), con sus mocks y
+sus tests en verde; lo demás de V6 todavía no está programado. Además hay código hecho que sigue una
 regla que V6 cambia (la baja de abogado del mock, `ERROR_CODES`, dos
 comentarios sobre HU29): ver
 [Cambios de V6 sobre lo que ya estaba hecho](#cambios-de-v6-sobre-lo-que-ya-estaba-hecho).
@@ -30,7 +31,8 @@ comentarios sobre HU29): ver
 3. `frontend/src/shared/mocks/README.md` — **antes de escribir cualquier
    llamada a la API**. El mock implementa V5 entero (revisión del 05/11/2026);
    del Sprint 5 (V6) tiene sólo `PATCH` y `DELETE` de `/clients/{clientId}` y
-   de `/document-templates/{templateId}`.
+   de `/document-templates/{templateId}`, y `DELETE` de
+   `/cases/{caseId}/procedural-acts/{actId}`.
    Ahí están los usuarios de prueba y qué puede cada perfil, qué causa semilla
    sirve para probar cada regla, cómo disparar cada error y cómo agregar un
    endpoint. El resumen está en [Los mocks](#los-mocks), más abajo.
@@ -102,8 +104,9 @@ Playwright para los E2E.
 ## Sprint 5 — qué trae V6
 
 Alcance según V6 (D-114): HU 10, 11, 15, 29, 36, 37, 43, 49 y 50. Sprint "VZ
-Sprint 5" de Jira (08/11/2026 – 20/11/2026). Están hechas HU10, HU11, HU36 y
-HU37 (ver abajo); de las demás todavía no hay pantallas, tipos ni mocks. Los criterios de aceptación de cada
+Sprint 5" de Jira (08/11/2026 – 20/11/2026). Están hechas HU10, HU11, HU29,
+HU36, HU37, HU49 y HU50 (ver abajo); de las demás todavía no hay pantallas,
+tipos ni mocks. Los criterios de aceptación de cada
 historia están en su issue de Jira, escritos sobre V6 (09/11/2026): CA-10.x,
 CA-11.x, CA-15.x, CA-29.x, CA-36.x, CA-37.x, CA-43.x, CA-49.x y CA-50.x. Las
 decisiones son D-114 a D-139
@@ -171,6 +174,36 @@ probó contra el mock.
 - **La caché.** Las dos mutaciones invalidan `documentTemplateKeys.lists()`,
   que incluye el contador de "Registrar causa" (`copyToNewCases`, `limit: 1`).
 - Tests y nombres que fijan: `TESTING.md` §11, "Sprint 5".
+
+**HU29, hecha** (Ezequiel Purro, 14/11/2026). Sólo contra el mock: el backend
+todavía no la tiene (VZ-219), y `docs/openapi` tampoco (ver
+[Los mocks](#los-mocks)).
+
+- **Anular acto procesal.** "Anular" va junto a "Modificar" en cada acto
+  procesal de la línea de vida, con la misma regla: sólo el responsable actual
+  (para los demás, deshabilitado con la nota "… modifica y anula los actos
+  procesales.") y nunca en una causa "Prescripta". Abre
+  `AnnulProceduralActModal` ahí mismo, con "Motivo de la anulación (opcional)"
+  (hasta 500). `useAnnulProceduralAct` espera la causa y la línea de vida
+  nuevas (`refreshCaseAfterAct`): al cerrar, el acto ya no está y el
+  encabezado muestra el estado recalculado.
+- **Vive en `cases`**, no en `proceedings`: se anula desde el detalle, y
+  `cases` no puede importar de `proceedings` (como los actos interruptivos).
+- **La nota y el aviso no son los del prototipo**: dicen que el acto "queda
+  asentado como anulado", y por D-124 desaparece (`cases/CAMBIOS.md`).
+
+**HU49 y HU50, hechas** (Ezequiel Purro, 14/11/2026). El backend ya las tiene
+(VZ-227, VZ-229); el front se probó contra el mock.
+
+- "Modificar" y "Eliminar" volvieron a cada fila de `LegalQualificationsPage`,
+  para los tres perfiles: se borró `SHOW_ROW_ACTIONS`. La modificación, la
+  baja, sus hooks y `buildLegalQualificationPatch` ya estaban programados.
+- Notas y avisos alineados al prototipo ("Se usa en N causas…",
+  "Calificación actualizada.", "Calificación eliminada."). Un `404` al
+  modificar avisa, cierra y vuelve a pedir la tabla, como en HU10
+  (`legal-params/CAMBIOS.md`).
+
+Tests y nombres que fijan, de las tres: `TESTING.md` §11, "Sprint 5".
 
 **Lo que el prototipo muestra y el Sprint 5 no dibuja** (`DECISIONES.md` §3):
 
@@ -293,7 +326,7 @@ esto ya está aplicado en la app, en los mocks y en los tests (ver
 | — | Iniciar sesión | `auth/` | `/login` |
 | — | Usuarios: ABM | `users/` | `/usuarios` |
 | 8, 9 | Clientes: listado y alta | `clients/` | `/clientes` |
-| 47 a 50 | Calificaciones legales: listado y alta. La modificación y la baja están programadas pero ocultas (`SHOW_ROW_ACTIONS = false`, `legal-params/CAMBIOS.md`) | `legal-params/` | `/calificaciones-legales` |
+| 47 a 50 | Calificaciones legales: listado y alta. La modificación y la baja (HU49, HU50) se mostraron recién en el Sprint 5 (`legal-params/CAMBIOS.md`) | `legal-params/` | `/calificaciones-legales` |
 | 17, 45, 46 | Estados procesales | `legal-params/` | `/estados-y-plazos` |
 | 13 | Consultar abogado, con la barra de carga (`Meter`) | `lawyers/` | `/abogados` |
 | 20 | Causas: listado con búsqueda y filtros | `cases/` | `/causas` |
@@ -353,7 +386,7 @@ Si aparece una flecha para el otro lado, algo está en el módulo equivocado.
 | `auth` | `LoginPage` | `LoginForm`, `LoginAside`, `ChangePasswordModal`, `LogoutConfirmModal` | `profileLabel`, `sessionStorage` |
 | `clients` | `ClientsPage` | `ClientsTable`, `ClientFormModal` (alta y modificación), `DeleteClientModal` | `clientFormat` (`formatClientName`, `formatDocument`, `formatDocumentNumber`, `normalizeDocumentNumber`, `formatDni`, `normalizeDni`), `toCreateClientBody`, `buildClientPatch`, `toDeleteClientBody`, `toFormErrors` |
 | `legal-params` | `ProceduralStatesPage`, `LegalQualificationsPage` | `ProceduralStatesTable`, `ProceduralStateFormModal`, `DeleteProceduralStateModal`, `LegalQualificationsTable`, `LegalQualificationFormModal`, `DeleteLegalQualificationModal` | `prescription` (`formatPrescription`, `toPrescriptionMonths`, `splitPrescription`, `shortQualificationName`), `systemStates`, `dayTypeTone`, los `build…Patch` y `toCreate…Body`, `toFormErrors`, `toLegalQualificationFormErrors` |
-| `cases` | `CasesPage`, `RegisterCasePage`, `CaseDetailPage`, `GenerateCaseFilePage` | `CasesTable`, `CaseFilters`, `CaseForm`, `CaseEditForm`, `LegalQualificationPicker`, `CaseSummaryAside`, `CaseHeader`, `CaseFacts`, `PrescriptionBar`, `CasePrescriptionBar`, `CaseQualifications`, `ClientCard`, `CaseFolderCard`, `CaseDocumentsCard`, `CaseTimeline`, `InterruptiveActModal`, `PrescriptionDeclarationModal`, `DeleteCaseModal`, `CaseFileCoverPanel`, `CaseFileDocumentsPanel`, `CaseFileResultAside`, `CoverPreviewModal`, `CaseFileReadyModal`, `CaseSkeletons`, `ClientActiveCases` | `activeCases`, `deadlineStatus`, `openDeadline`, `prescription`, `caseState`, `stateFilter`, `sac`, `subjectMatter`, `suggestedCaption`, `responsibleLawyer`, `lawyerOptions`, `caseForm`, `caseDraft`, `caseFolder`, `caseDocument`, `caseFile`, `timeline`, `buildCasePatch`, `toCreateCaseBody`, `toDeleteCaseBody`, `toCreateInterruptiveActBody`, `toDeclarePrescriptionBody` y los `to…FormErrors` |
+| `cases` | `CasesPage`, `RegisterCasePage`, `CaseDetailPage`, `GenerateCaseFilePage` | `CasesTable`, `CaseFilters`, `CaseForm`, `CaseEditForm`, `LegalQualificationPicker`, `CaseSummaryAside`, `CaseHeader`, `CaseFacts`, `PrescriptionBar`, `CasePrescriptionBar`, `CaseQualifications`, `ClientCard`, `CaseFolderCard`, `CaseDocumentsCard`, `CaseTimeline`, `InterruptiveActModal`, `PrescriptionDeclarationModal`, `DeleteCaseModal`, `AnnulProceduralActModal`, `CaseFileCoverPanel`, `CaseFileDocumentsPanel`, `CaseFileResultAside`, `CoverPreviewModal`, `CaseFileReadyModal`, `CaseSkeletons`, `ClientActiveCases` | `activeCases`, `deadlineStatus`, `openDeadline`, `prescription`, `caseState`, `stateFilter`, `sac`, `subjectMatter`, `suggestedCaption`, `responsibleLawyer`, `lawyerOptions`, `caseForm`, `caseDraft`, `caseFolder`, `caseDocument`, `caseFile`, `timeline`, `buildCasePatch`, `toCreateCaseBody`, `toDeleteCaseBody`, `toCreateInterruptiveActBody`, `toDeclarePrescriptionBody`, `toAnnulProceduralActBody` y los `to…FormErrors` |
 | `proceedings` | `RegisterProceduralActPage` | `ProceduralActForm`, `DeadlinePreviewAside`, `ProceduralActFormSkeleton` | `stateOptions`, `resolveState`, `terminalState`, `deadlinePreview`, `dueDateText`, `toCreateProceduralActBody`, `toActFormValues`, `buildProceduralActPatch`, `toFormErrors` |
 | `lawyers` | `LawyersPage` | `LawyersTable`, `LawyerFormModal` | `toCreateLawyerBody`, `buildLawyerPatch`, `lawyerLabel`, `toFormErrors` |
 | `users` | `UsersPage` | `UsersTable`, `UserFormModal`, `DeleteUserModal` | `buildUserPatch`, `toCreateUserBody`, `roles`, `lawyerLink`, `toFormErrors` |
@@ -738,7 +771,7 @@ Sprint 1 quedó registrado en `API_CONTRACT_V3.md` §7 y ya no es referencia.
 | `prescriptionDeclaration` en la causa | El modal "Marcar prescripta" y el pase en la línea de vida (HU33) |
 | `folder` en la causa; `POST /cases` acepta `createFolder` y `copyTemplates` | El alta los manda y su aviso suma la carpeta. El detalle la muestra en `CaseFolderCard` (HU39) |
 | Códigos de error nuevos (V4 §7.4) | `ERROR_CODES` de `src/shared/api/contract.ts` suma `DOCUMENT_TEMPLATE_NOT_FOUND`, `DOCUMENT_TEMPLATE_ALREADY_EXISTS`, `FILE_TOO_LARGE`, `PRESCRIPTION_NOT_APPLICABLE`, `PROCEDURAL_STATE_PROTECTED`, `DOCUMENT_STORAGE_UNAVAILABLE` y `PROCEDURAL_ACT_NOT_FOUND` |
-| Modificación y baja de calificaciones legales (pendiente del Sprint 2) | `LegalQualificationsPage`, con `useUpdateLegalQualification`, `useDeleteLegalQualification` y `buildLegalQualificationPatch`. Desde el 18/10/2026 las acciones de fila están ocultas (`SHOW_ROW_ACTIONS = false`): el backend no tiene esos dos endpoints (`legal-params/CAMBIOS.md`) |
+| Modificación y baja de calificaciones legales (pendiente del Sprint 2) | `LegalQualificationsPage`, con `useUpdateLegalQualification`, `useDeleteLegalQualification` y `buildLegalQualificationPatch`. Ocultas del 18/10/2026 al 14/11/2026, cuando el backend sumó los dos endpoints (HU49, HU50, `legal-params/CAMBIOS.md`) |
 
 ### Revisión de V5 del 05/11/2026
 
@@ -822,7 +855,7 @@ está aplicado todavía:**
 | La respuesta armada `businessRule` (`422`) de la baja de abogado | `src/shared/mocks/responses.ts:1058` | V6 retira ese `422` |
 | `deleteLawyer(id)` no manda cuerpo | `src/features/lawyers/api/lawyers.api.ts:45` | Lleva `reassignments` si el abogado tiene causas activas. Hoy ninguna pantalla lo llama |
 | `ERROR_CODES` no tiene `MONTHLY_REPORT_NOT_FOUND` | `src/shared/api/contract.ts` | Es un código nuevo (V6 §5.3). `CLIENT_HAS_ACTIVE_CASES` ya está (HU11, 14/11/2026) |
-| Dos comentarios dicen que anular un acto (HU29) "queda fuera del contrato" | `src/features/cases/components/CaseTimeline.tsx:39`, `src/features/proceedings/types/proceduralAct.ts:15` | Está en V6: `DELETE /cases/{caseId}/procedural-acts/{actId}` |
+| ~~Dos comentarios dicen que anular un acto (HU29) "queda fuera del contrato"~~ **Corregido el 14/11/2026, con HU29** | `src/features/cases/components/CaseTimeline.tsx`, `src/features/proceedings/types/proceduralAct.ts` | Está en V6: `DELETE /cases/{caseId}/procedural-acts/{actId}` |
 | "Reportes" está en el rail y en `ROUTE_ACCESS`, pero no tiene ruta | `src/app/layouts/AppLayout.tsx:66`, `src/app/access/access.ts:23` | Ahora es HU43: falta la página (ver [Problemas conocidos](#problemas-conocidos), 3) |
 
 Si el contrato vuelve a cambiar, **no se toca de una**: primero se listan los
@@ -836,7 +869,8 @@ la revisión del 05/11/2026), con MSW: lo de los Sprints 1 a 3 y lo del Sprint 4
 (modificar y dar de baja una causa, la carátula, modificar un acto procesal,
 los documentos de la causa y el expediente). **Del Sprint 5 (V6) tiene sólo
 `PATCH` y `DELETE` de `/clients/{clientId}` (HU10 y HU11) y de
-`/document-templates/{templateId}` (HU36 y HU37)**: cada endpoint nuevo se
+`/document-templates/{templateId}` (HU36 y HU37), y `DELETE
+/cases/{caseId}/procedural-acts/{actId}` (HU29)**: cada endpoint nuevo se
 agrega al mock antes que su pantalla, y la baja
 de abogado sigue la regla de V5 (ver
 [Cambios de V6 sobre lo que ya estaba hecho](#cambios-de-v6-sobre-lo-que-ya-estaba-hecho)).
@@ -857,8 +891,8 @@ Lo que hay que saber:
   prescripta", del responsable o de `ADMINISTRATOR`; `GET /dashboards/lawyer`, de `LAWYER`, y
   `GET /dashboards/administrator`, de `ADMINISTRATOR`. Lo prueba
   `tests/unit/contract/permissions.test.ts`.
-- **Los actos no se rigen por un rol** (D-30): los registra, los modifica y
-  previsualiza su vencimiento sólo el abogado responsable de la causa. `mrios` lleva la 1 y la
+- **Los actos no se rigen por un rol** (D-30): los registra, los modifica, los
+  anula y previsualiza su vencimiento sólo el abogado responsable de la causa. `mrios` lleva la 1 y la
   17; `fvazquez`, la 4, la 6 y la 20; `mferreyra`, la 7; `sledesma`, la 15 y la
   16. Con cualquier otro usuario el mock responde `403`, aunque sea abogado o
   administrador.
@@ -903,9 +937,10 @@ Lo que hay que saber:
   (qué usuario, qué causa, qué dato), cómo subir y descargar archivos, y las
   decisiones que el mock tomó donde el contrato no dice nada. Que el mock no
   invente ni olvide endpoints lo revisa `tests/unit/contract/endpoints.test.ts`
-  contra `docs/openapi`. **Hoy está en rojo**: a `docs/openapi` le faltan
-  cinco endpoints de V5 que el mock ya implementa (la carátula, la lista y la
-  descarga de documentos, modificar un acto y generar el expediente).
+  contra `docs/openapi`. **Hoy está en rojo** (14/11/2026) por un solo
+  endpoint: `DELETE /cases/{caseId}/procedural-acts/{actId}` (HU29) está en el
+  mock y todavía no en `docs/openapi`, que lo suma el backend con VZ-219. Hasta
+  esa fecha estaba en verde.
 - **Si falta un endpoint**, se agrega en `src/shared/mocks/handlers.ts`
   (handler y su entrada en `ROUTES`), y el contrato en `docs/openapi` (el test
   de `tests/unit/contract/` falla si divergen). Sin handler, la pantalla falla
@@ -1254,7 +1289,11 @@ Al 08/11/2026, con el 3 revisado el 09/11/2026 por V6 y el 1 y el 3
 actualizados el 13/11/2026 por la auditoría del front. No se arreglan al
 paso: cada uno es de su dueño.
 
-1. **`npm test`: pasan los 854** (14/11/2026, ya con los de HU10, HU11, HU36 y HU37). Corre con la mitad de los
+1. **`npm test`: pasan 896 de 897** (14/11/2026, ya con los de HU10, HU11,
+   HU29, HU36, HU37, HU49 y HU50). El que falla es
+   `tests/unit/contract/endpoints.test.ts`: el mock tiene
+   `DELETE /cases/{caseId}/procedural-acts/{actId}` (HU29) y `docs/openapi`
+   todavía no. Corre con la mitad de los
    núcleos por configuración (`maxWorkers: '50%'` en `vitest.config.ts`):
    con todos fallaban tests al azar por tiempo. Aun así, en alguna corrida de
    la suite entera falla por tiempo `tests/unit/app/pages.test.ts` o el

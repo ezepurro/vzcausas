@@ -2436,6 +2436,8 @@ const createProceduralAct: Handler = ({ request, params }) => {
         registeredAt: nowIso(),
         lastModifiedById: null,
         lastModifiedAt: null,
+        active: true,
+        annulment: null,
     };
     db.nextProceduralActId += 1;
     db.proceduralActs.push(act);
@@ -2832,7 +2834,8 @@ const getProceduralAct: Handler = ({ request, params }) => {
     const stored = db.cases.find((c) => c.id === caseId && c.active);
     if (!stored) return fail(404, ERRORS.caseNotFound);
 
-    const act = db.proceduralActs.find((a) => a.id === actId && a.caseId === stored.id);
+    // Uno anulado es `404`, como uno inexistente (D-124).
+    const act = db.proceduralActs.find((a) => a.id === actId && a.caseId === stored.id && a.active);
     if (!act) return fail(404, ERRORS.proceduralActNotFound);
     return ok(itemBody(toProceduralAct(act)));
 };
@@ -3735,7 +3738,8 @@ const updateProceduralAct: Handler = ({ request, params }) => {
 
     const stored = db.cases.find((c) => c.id === caseId && c.active);
     if (!stored) return fail(404, ERRORS.caseNotFound);
-    const act = db.proceduralActs.find((a) => a.id === actId && a.caseId === stored.id);
+    // Uno anulado es `404`, como uno inexistente (D-124).
+    const act = db.proceduralActs.find((a) => a.id === actId && a.caseId === stored.id && a.active);
     if (!act) return fail(404, ERRORS.proceduralActNotFound);
 
     if (!isResponsibleLawyer(auth.user, stored)) return fail(403, ERRORS.forbiddenNotResponsibleModify);
@@ -3838,6 +3842,56 @@ const updateProceduralAct: Handler = ({ request, params }) => {
     act.lastModifiedAt = nowIso();
 
     return ok(itemBody(toProceduralAct(act)));
+};
+
+/* ------------------------------------------------------------------ */
+/* DELETE /cases/{caseId}/procedural-acts/{actId} (V6, HU29)           */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Anula un acto procesal (HU29, V6 §3.8, D-124). Lo hace el responsable
+ * **actual** de la causa, como el registro y la modificación, y en el orden
+ * del contrato: `404` (causa, acto), `403`, `400`, `422`.
+ *
+ * Es una baja lógica: el acto queda con `active: false` y la anulación en la
+ * auditoría. Para el cliente deja de existir. El estado de la causa no se
+ * escribe: sale del acto vigente más reciente en la próxima lectura
+ * (`actsOf`), así que sin actos vuelve a "Iniciada" (y en un amparo vuelve a
+ * correr el plazo del acto lesivo) y anular el acto que la cerró la reabre
+ * (D-99). Una causa "Prescripta" no admite anular sus actos.
+ */
+const deleteProceduralAct: Handler = ({ request, params }) => {
+    const auth = requireUser(request);
+    if (!auth.ok) return auth.response;
+
+    const caseId = readRouteId(params, 'caseId');
+    if (caseId === undefined) return fail(400, ERRORS.invalidCaseId);
+    const actId = readRouteId(params, 'actId');
+    if (actId === undefined) return fail(400, ERRORS.invalidActId);
+
+    const stored = db.cases.find((c) => c.id === caseId && c.active);
+    if (!stored) return fail(404, ERRORS.caseNotFound);
+    const act = db.proceduralActs.find((a) => a.id === actId && a.caseId === stored.id && a.active);
+    if (!act) return fail(404, ERRORS.proceduralActNotFound);
+
+    if (!isResponsibleLawyer(auth.user, stored)) return fail(403, ERRORS.forbiddenNotResponsibleAnnul);
+
+    // El cuerpo es opcional: el motivo de la anulación.
+    const body = asObject(request.body);
+    if (body.reason !== undefined && body.reason !== null && typeof body.reason !== 'string') {
+        return validationError({ reason: MSG_NOT_TEXT });
+    }
+    const reason = optionalText(body.reason);
+    if (reason !== null && reason.length > REASON_MAX) {
+        return validationError({ reason: `Debe tener hasta ${REASON_MAX} caracteres.` });
+    }
+
+    // "Prescripta" no la puso un acto: anular uno no la saca de ahí (D-99).
+    if (stored.prescriptionDeclaration) return fail(422, ERRORS.prescribedCaseAnnul);
+
+    act.active = false;
+    act.annulment = { reason, byId: auth.user.id, at: nowIso() };
+    return NO_CONTENT;
 };
 
 /* ------------------------------------------------------------------ */
@@ -4103,6 +4157,7 @@ const ROUTES: Route[] = [
     { method: 'GET', path: '/cases/:caseId/procedural-acts', pattern: /^\/cases\/(?<caseId>[^/]+)\/procedural-acts$/, handler: listProceduralActs },
     { method: 'GET', path: '/cases/:caseId/procedural-acts/:actId', pattern: /^\/cases\/(?<caseId>[^/]+)\/procedural-acts\/(?<actId>[^/]+)$/, handler: getProceduralAct },
     { method: 'PATCH', path: '/cases/:caseId/procedural-acts/:actId', pattern: /^\/cases\/(?<caseId>[^/]+)\/procedural-acts\/(?<actId>[^/]+)$/, handler: updateProceduralAct },
+    { method: 'DELETE', path: '/cases/:caseId/procedural-acts/:actId', pattern: /^\/cases\/(?<caseId>[^/]+)\/procedural-acts\/(?<actId>[^/]+)$/, handler: deleteProceduralAct },
     { method: 'GET', path: '/cases/:caseId/timeline', pattern: /^\/cases\/(?<caseId>[^/]+)\/timeline$/, handler: getCaseTimeline },
 
     { method: 'POST', path: '/cases/:caseId/interruptive-acts', pattern: /^\/cases\/(?<caseId>[^/]+)\/interruptive-acts$/, handler: createInterruptiveAct },

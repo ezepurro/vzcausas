@@ -8,6 +8,8 @@ import { casesKeys } from '@/features/cases'
 import { dashboardKeys } from '@/features/dashboard/api/dashboards.keys'
 import { useUpdateProceduralState } from '@/features/legal-params/api/useUpdateProceduralState'
 import { useUpdateLegalQualification } from '@/features/legal-params/api/useUpdateLegalQualification'
+import { useDeleteLegalQualification } from '@/features/legal-params/api/useDeleteLegalQualification'
+import { legalQualificationKeys } from '@/features/legal-params/api/legalQualifications.keys'
 
 /**
  * C-3 de la auditoría de caché (`docs/auditoria-front/12-REGISTRO_PLAN_A.md`):
@@ -57,5 +59,23 @@ describe('estados y calificaciones · caché de las causas (C-3)', () => {
 
         await waitFor(() => expect(result.current.isSuccess).toBe(true))
         for (const key of SHOWN_ELSEWHERE) expect(isStale(key), JSON.stringify(key)).toBe(true)
+    })
+
+    /* CA-50.2: una calificación dada de baja no se ofrece al registrar ni al
+       modificar una causa. El selector lee el mismo listado que la tabla
+       (`useQualificationOptions`, con `limit: 100`), así que la baja tiene que
+       marcarlo viejo. Las causas que la registran no se tocan (CA-50.3). */
+    it('dar de baja una calificación legal marca viejo el listado del selector de "Registrar causa"', async () => {
+        signInAs('gestion')
+        const pickerList = legalQualificationKeys.list({ page: 1, limit: 100, search: '' })
+        queryClient.setQueryData(pickerList, { data: [], pagination: null })
+        queryClient.setQueryData(casesKeys.detail(1), { data: [] })
+        const { result } = renderHook(() => useDeleteLegalQualification(), { wrapper })
+
+        act(() => result.current.mutate(5))
+
+        await waitFor(() => expect(result.current.isSuccess).toBe(true))
+        expect(isStale(pickerList)).toBe(true)
+        expect(isStale(casesKeys.detail(1))).toBe(false)
     })
 })

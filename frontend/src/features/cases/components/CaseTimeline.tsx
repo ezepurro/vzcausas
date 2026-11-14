@@ -29,18 +29,22 @@ export interface CaseTimelineProps {
     registerNoteId?: string
     onRegisterAct: () => void
     /**
-     * Si los actos procesales ofrecen "Modificar" (HU28). En una causa
-     * prescripta no se ofrece: sus actos no se modifican (D-99).
+     * Si los actos procesales ofrecen "Modificar" (HU28) y "Anular" (HU29).
+     * En una causa prescripta no se ofrecen: sus actos no se modifican ni se
+     * anulan (D-99, D-124).
      */
     canModifyActs: boolean
     /** "Modificar" en un acto. */
     onModifyAct: (act: ProceduralAct) => void
+    /** "Anular" en un acto (HU29). */
+    onAnnulAct: (act: ProceduralAct) => void
     /**
-     * Por qué no se pueden modificar los actos, o `null` si se puede. Con
-     * texto, cada "Modificar" va deshabilitado y la nota se muestra arriba de
-     * la lista, unida a ellos: sólo el responsable los modifica (D-30). Antes
-     * el botón estaba para todos y avisaba al tocarlo; ahora sigue el criterio
-     * de "Registrar acto procesal" (tanda 15 de `docs/auditoria-front`).
+     * Por qué no se pueden modificar ni anular los actos, o `null` si se
+     * puede. Con texto, cada "Modificar" y cada "Anular" van deshabilitados y
+     * la nota se muestra arriba de la lista, unida a ellos: sólo el
+     * responsable los opera (D-30). Antes el botón estaba para todos y avisaba
+     * al tocarlo; ahora sigue el criterio de "Registrar acto procesal" (tanda
+     * 15 de `docs/auditoria-front`).
      */
     modifyBlockedNote?: string | null
 }
@@ -50,12 +54,13 @@ export interface CaseTimelineProps {
  * solo listado (`GET /cases/{caseId}/timeline`, V4 D-85). Cada movimiento es
  * un elemento de la lista; el orden lo fija el backend.
  *
- * Cada acto procesal lleva "Modificar" (HU28). "Anular", que también muestra
- * el prototipo, es HU29 y queda fuera del contrato: no se dibuja.
+ * Cada acto procesal lleva "Modificar" (HU28) y "Anular" (HU29). Un acto
+ * anulado no vuelve en la respuesta: desaparece de la lista (D-124), no queda
+ * "asentado como anulado" como dice el prototipo.
  */
 export function CaseTimeline({
     entries, loading, error, onRetry, retrying, canRegisterAct, registerNoteId, onRegisterAct, canModifyActs, onModifyAct,
-    modifyBlockedNote = null,
+    onAnnulAct, modifyBlockedNote = null,
 }: CaseTimelineProps) {
     const modifyNoteId = useId()
     const blocked = canModifyActs && modifyBlockedNote !== null
@@ -95,7 +100,7 @@ export function CaseTimeline({
                         <TimelineItem
                             key={entryKey(entry)}
                             entry={entry}
-                            onModifyAct={canModifyActs ? onModifyAct : undefined}
+                            actActions={canModifyActs ? { onModify: onModifyAct, onAnnul: onAnnulAct } : undefined}
                             modifyNoteId={blocked ? modifyNoteId : undefined}
                         />
                     ))}
@@ -124,14 +129,21 @@ function entryKey(entry: TimelineEntry): string {
     }
 }
 
-function TimelineItem({ entry, onModifyAct, modifyNoteId }: {
+/** "Modificar" y "Anular" de un acto procesal. */
+type ActActions = {
+    onModify: (act: ProceduralAct) => void
+    onAnnul: (act: ProceduralAct) => void
+}
+
+function TimelineItem({ entry, actActions, modifyNoteId }: {
     entry: TimelineEntry
-    onModifyAct: ((act: ProceduralAct) => void) | undefined
-    /** Con id, "Modificar" va deshabilitado y lo explica esa nota. */
+    /** Sin acciones (causa prescripta), el acto no ofrece ninguna. */
+    actActions: ActActions | undefined
+    /** Con id, "Modificar" y "Anular" van deshabilitados y lo explica esa nota. */
     modifyNoteId: string | undefined
 }) {
     switch (entry.type) {
-        case 'PROCEDURAL_ACT': return <ProceduralActItem entry={entry} onModify={onModifyAct} blockedNoteId={modifyNoteId} />
+        case 'PROCEDURAL_ACT': return <ProceduralActItem entry={entry} actions={actActions} blockedNoteId={modifyNoteId} />
         case 'INTERRUPTIVE_ACT': return <InterruptiveActItem entry={entry} />
         case 'QUALIFICATION_PRESCRIPTION_DECLARATION': return <QualificationPrescriptionItem entry={entry} />
         case 'PRESCRIPTION_DECLARATION': return <PrescriptionItem entry={entry} />
@@ -148,11 +160,12 @@ function TimelineItem({ entry, onModifyAct, modifyNoteId }: {
  * se marca como tal y el plazo es el que da esa fecha, no el de la tabla
  * (CA-27.6, V4 D-86).
  *
- * Si se modificó, el pie lo dice con quién y cuándo (CA-28.10).
+ * Si se modificó, el pie lo dice con quién y cuándo (CA-28.10). Al pie,
+ * "Modificar" (HU28) y "Anular" (HU29), como en el prototipo.
  */
-function ProceduralActItem({ entry, onModify, blockedNoteId }: {
+function ProceduralActItem({ entry, actions, blockedNoteId }: {
     entry: TimelineProceduralActEntry
-    onModify: ((act: ProceduralAct) => void) | undefined
+    actions: ActActions | undefined
     blockedNoteId: string | undefined
 }) {
     const act = entry.proceduralAct
@@ -191,16 +204,25 @@ function ProceduralActItem({ entry, onModify, blockedNoteId }: {
                 modifiedBy={act.lastModifiedBy}
                 modifiedAt={act.lastModifiedAt}
             />
-            {onModify && (
+            {actions && (
                 <div className="vz-timeline__actions">
                     <Button
                         variant="ghost"
                         size="sm"
                         disabled={blockedNoteId !== undefined}
                         aria-describedby={blockedNoteId}
-                        onClick={() => onModify(act)}
+                        onClick={() => actions.onModify(act)}
                     >
                         Modificar
+                    </Button>
+                    <Button
+                        variant="ghost-danger"
+                        size="sm"
+                        disabled={blockedNoteId !== undefined}
+                        aria-describedby={blockedNoteId}
+                        onClick={() => actions.onAnnul(act)}
+                    >
+                        Anular
                     </Button>
                 </div>
             )}

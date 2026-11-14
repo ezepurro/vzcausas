@@ -75,7 +75,7 @@ describe('RegisterProceduralActPage · modificar acto procesal', () => {
         const { user } = renderDetail('fvazquez')
         const modify = await latestActModify()
         const reason = new RegExp(
-            `^Solo el abogado responsable \\(${personNameIn('Ríos', 'Malena')}\\) modifica los actos procesales\\.$`,
+            `^Solo el abogado responsable \\(${personNameIn('Ríos', 'Malena')}\\) modifica y anula los actos procesales\\.$`,
         )
 
         expect(modify).toBeDisabled()

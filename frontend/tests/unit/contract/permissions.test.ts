@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { resetMockDb, resolveRequest } from '@/shared/mocks'
+import { db, resetMockDb, resolveRequest } from '@/shared/mocks'
 
 /**
  * Permisos del servidor falso, según la matriz por perfil del contrato
@@ -201,6 +201,21 @@ describe('operación de la causa en el servidor falso (D-110)', () => {
         expect(statusOn('fvazquez', 'password1', 'POST', path, PRESCRIPTION)).toBe(200)
         expect(statusOn(USERS.ADMINISTRATOR.username, USERS.ADMINISTRATOR.password, 'POST', path, PRESCRIPTION)).toBe(200)
         expect(statusOn(USERS.SECRETARY.username, USERS.SECRETARY.password, 'POST', path, PRESCRIPTION)).toBe(403)
+    })
+
+    /* HU29 (V6 §3.8, CA-29.7): anular un acto no es un permiso por rol. Lo
+       hace sólo el responsable actual, como registrarlo y modificarlo (D-30):
+       ni otro abogado ni el Administrador ni la Secretaría. */
+    it('anular un acto procesal es sólo del responsable', () => {
+        resetMockDb()
+        const actId = db.proceduralActs.find((a) => a.caseId === CASE)?.id
+        expect(actId).toBeDefined()
+        const path = `/cases/${CASE}/procedural-acts/${actId}`
+
+        expect(statusOn('mrios', 'abogado123', 'DELETE', path)).toBe(403)
+        expect(statusOn(USERS.ADMINISTRATOR.username, USERS.ADMINISTRATOR.password, 'DELETE', path)).toBe(403)
+        expect(statusOn(USERS.SECRETARY.username, USERS.SECRETARY.password, 'DELETE', path)).toBe(403)
+        expect(statusOn('fvazquez', 'password1', 'DELETE', path)).toBe(204)
     })
 
     it('un PATCH con clientId responde 400 en el campo (D-111)', () => {
