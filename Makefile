@@ -135,8 +135,12 @@ backend-shell: ## Opens a shell inside the backend container (dev)
 test-unit: ## Runs backend unit tests inside the backend container (dev)
 	$(DC_DEV) exec backend npm run test
 
-test-int: ## Runs backend integration tests inside the backend container (dev). SUITE=<pattern> to filter
+test-int: ## Runs backend integration tests inside the backend container (dev). No SUITE: all of them, loading the app once. SUITE=<pattern>: only those files
+ifeq ($(strip $(SUITE)),)
+	$(DC_DEV) exec backend npm run test:int:all
+else
 	$(DC_DEV) exec backend npm run test:int -- $(SUITE)
+endif
 
 setup-storage: ## Creates the studio's Google Drive folders and registers them (optional: the app does it on startup)
 	$(DC_DEV) exec backend npm run documents:setup-storage
