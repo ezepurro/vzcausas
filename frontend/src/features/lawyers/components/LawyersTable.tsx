@@ -14,6 +14,8 @@ export interface LawyersTableProps {
     onEdit: (lawyer: Lawyer) => void
     /** Sólo el Administrador modifica abogados (CA-14.6): para el resto va deshabilitado. */
     canEdit: boolean
+    /** El `id` de la nota visible que dice por qué "Modificar" está deshabilitado (H-53). */
+    readOnlyNoteId?: string
     empty?: ReactNode
     /** Primera carga: la tabla dibuja su esqueleto. */
     loading?: boolean
@@ -33,7 +35,9 @@ export interface LawyersTableProps {
  * La columna de acciones tiene sólo "Modificar" (HU14). "Eliminar", que
  * muestra el prototipo, es HU15 y queda fuera del contrato: no se dibuja.
  */
-export function LawyersTable({ rows, maxActiveCases, onEdit, canEdit, empty, loading, busy }: LawyersTableProps) {
+export function LawyersTable({
+    rows, maxActiveCases, onEdit, canEdit, readOnlyNoteId, empty, loading, busy,
+}: LawyersTableProps) {
     const max = maxActiveCases ?? Math.max(0, ...rows.map((l) => l.activeCases))
 
     const columns: Column<Lawyer>[] = [
@@ -42,7 +46,7 @@ export function LawyersTable({ rows, maxActiveCases, onEdit, canEdit, empty, loa
             header: 'Apellido y Nombre',
             width: '42%',
             primary: true,
-            cell: (l) => <span className="vz-table__primary">{formatPersonName(l)}</span>,
+            cell: (l) => <span className="vz-table__primary" id={`lawyer-row-${l.id}`}>{formatPersonName(l)}</span>,
         },
         {
             id: 'registrationNumber',
@@ -83,7 +87,8 @@ export function LawyersTable({ rows, maxActiveCases, onEdit, canEdit, empty, loa
                     variant="ghost"
                     size="sm"
                     disabled={!canEdit}
-                    title={canEdit ? undefined : 'Sólo el Administrador puede modificar abogados.'}
+                    title={canEdit ? undefined : 'Solo el Administrador puede modificar abogados.'}
+                    aria-describedby={[`lawyer-row-${l.id}`, !canEdit && readOnlyNoteId].filter(Boolean).join(' ')}
                     onClick={() => onEdit(l)}
                 >
                     Modificar

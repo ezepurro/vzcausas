@@ -1,8 +1,7 @@
 import { useNavigate } from 'react-router'
 import { useCurrentUser } from '@/app/providers/AuthContext'
 import { useCan } from '@/app/access/useCan'
-import { isApiError } from '@/shared/api/ApiError'
-import { PageHeader, Tabs } from '@/shared/components/ui'
+import { PageHeader, Tabs, LoadError } from '@/shared/components/ui'
 import { formatPersonFullName } from '@/shared/lib/personName'
 import { useLawyerDashboard } from '@/features/dashboard/api/useLawyerDashboard'
 import { useAdministratorDashboard } from '@/features/dashboard/api/useAdministratorDashboard'
@@ -11,6 +10,7 @@ import { AdministratorDashboardView } from '@/features/dashboard/components/Admi
 import { DashboardSkeleton } from '@/features/dashboard/components/DashboardSkeleton'
 import { longDate } from '@/features/dashboard/utils/dashboardDate'
 import { useDashboardFilters, type Board } from '@/features/dashboard/hooks/useDashboardFilters'
+import { usePageTitle } from '@/shared/hooks/usePageTitle'
 
 const BOARD_TABS: { id: Board; label: string }[] = [
     { id: 'lawyer', label: 'Mi día' },
@@ -40,7 +40,11 @@ function visibleBoard(chosen: Board | null, hasLawyerBoard: boolean, hasAdminist
  *
  * La página pide el tablero de la pestaña activa y lo pasa armado a su vista.
  */
+/** El `id` del contenedor que cambia con la pestaña (`aria-controls`). */
+const BOARD_PANEL_ID = 'home-board-panel'
+
 export function HomePage() {
+    usePageTitle('Inicio')
     const user = useCurrentUser()
     const navigate = useNavigate()
     const hasLawyerBoard = useCan('dashboard.lawyer')
@@ -71,12 +75,7 @@ export function HomePage() {
         if (query.isPending) return <DashboardSkeleton board={board} />
         if (query.isError) {
             return (
-                <div className="vz-empty">
-                    <div className="vz-empty__title">No se pudo cargar el tablero</div>
-                    <div className="vz-empty__text">
-                        {isApiError(query.error) ? query.error.message : 'Ocurrió un error inesperado.'}
-                    </div>
-                </div>
+                <LoadError title="No se pudo cargar el tablero" error={query.error} onRetry={() => void query.refetch()} retrying={query.isFetching} />
             )
         }
         if (board === 'lawyer' && lawyerQuery.data) {
@@ -95,10 +94,28 @@ export function HomePage() {
                 title={`Buen día, ${formatPersonFullName(user)}`}
                 sub={query.data ? `${longDate(query.data.date)} · ${SUBTITLES[board]}` : undefined}
             />
-            {hasLawyerBoard && hasAdministratorBoard && (
-                <Tabs tabs={BOARD_TABS} active={board} onChange={changeBoard} />
+            {hasLawyerBoard && hasAdministratorBoard ? (
+                <>
+                    <Tabs
+                        tabs={BOARD_TABS}
+                        active={board}
+                        onChange={changeBoard}
+                        aria-label="Tableros"
+                        panelId={BOARD_PANEL_ID}
+                    />
+                    {/* El panel de la pestaña elegida: un lector de pantalla
+                        salta de la pestaña a su contenido (H-41). */}
+                    <div
+                        id={BOARD_PANEL_ID}
+                        role="tabpanel"
+                        aria-label={BOARD_TABS.find((tab) => tab.id === board)?.label}
+                    >
+                        {renderBoard()}
+                    </div>
+                </>
+            ) : (
+                renderBoard()
             )}
-            {renderBoard()}
         </>
     )
 }

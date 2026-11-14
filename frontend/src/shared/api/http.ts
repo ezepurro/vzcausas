@@ -4,7 +4,7 @@ import { ApiError } from './ApiError'
 /**
  * Parseo de los errores de la API.
  *
- * El contrato (`docs/api contract v1.md` §4.2) fija una sola forma para
+ * El contrato (`docs/Api-Contract/API_CONTRACT_V6.md` §5.2) fija una sola forma para
  * todas las respuestas de error:
  *
  * ```json
@@ -148,6 +148,15 @@ function toApiError(error: unknown): ApiError {
     // El backend respondió con un error, pero sin nada legible adentro.
     return new ApiError(status, fallbackMessage(status), null, null, retryAfterSeconds)
 }
+/**
+ * Tope para subir o bajar un archivo. Los 15 s de `http` alcanzan para un
+ * pedido de datos, pero no para un modelo de 10 MB o un PDF con una conexión
+ * lenta: se cortaba con "El servidor tardó demasiado en responder" a mitad de
+ * la transferencia (H-11 de `docs/auditoria-front`). Un minuto es una
+ * estimación: no se midió contra el backend desplegado.
+ */
+export const FILE_TRANSFER_TIMEOUT_MS = 60_000
+
 export const http = axios.create({
     baseURL: import.meta.env.VITE_API_URL ?? '/api',
     timeout:15000,
@@ -210,6 +219,18 @@ function renewOnce(): Promise<boolean> {
         })
     }
     return renewalInFlight
+}
+
+/**
+ * Espera a que termine la renovación en curso, si hay una. Nunca falla.
+ *
+ * Es para los tests: entre uno y otro, la configuración la espera antes de
+ * reiniciar la base del mock. Si no, un test que se cortaba por tiempo con la
+ * renovación en vuelo se la dejaba al siguiente, que se sumaba a ella en vez
+ * de renovar con su propia sesión (H-55 de `docs/auditoria-front`).
+ */
+export async function settleRenewal(): Promise<void> {
+    await renewalInFlight?.catch(() => undefined)
 }
 
 /**
@@ -276,11 +297,27 @@ http.interceptors.response.use(
             return http.request(config)
         }
 
+        /* Si el pedido salió con un token que ya no es el guardado, el 401 es
+           de una sesión que ya terminó: en otra pestaña entró otra persona
+           (o, en los tests, el pedido quedó en vuelo de un test anterior,
+           H-55). Cerrar la sesión acá le cerraría la suya a quien está ahora. */
+        const sentWith = tokenSentWith(config)
+        const stored = getToken()
+        if (sentWith !== null && stored !== null && sentWith !== stored) {
+            return Promise.reject(apiError)
+        }
+
         // No se pudo renovar: se acabó la sesión de verdad.
         onUnauthenticated?.()
         return Promise.reject(apiError)
     }
 );
+
+/** El token con el que salió un pedido: lo pone el interceptor de pedido, abajo. */
+function tokenSentWith(config: InternalAxiosRequestConfig | undefined): string | null {
+    const header = config?.headers?.Authorization
+    return typeof header === 'string' && header.startsWith('Bearer ') ? header.slice('Bearer '.length) : null
+}
 http.interceptors.request.use(
     config => {
         const token = getToken()

@@ -2,12 +2,15 @@ import { useRef } from 'react'
 import { Button, Modal } from '@/shared/components/ui'
 import {
     Checkbox,
+    controlA11y,
     Field,
+    fieldIds,
     FormSection,
     SegmentedControl,
     Select,
     Textarea,
     TextInput,
+    type SearchSelectOption,
     type SelectOption,
 } from '@/shared/components/forms'
 import { useFocusFirstError } from '@/shared/hooks/useFocusFirstError'
@@ -22,10 +25,12 @@ import {
 import { CASE_MAX_LENGTH, SUBJECT_MATTER_MAX, type CaseFormErrors } from '@/features/cases/schemas/case.schema'
 import { HarmfulActFields } from '@/features/cases/components/CaseForm'
 import { SUBJECT_MATTER_TEXT } from '@/features/cases/utils/subjectMatter'
+import { optionsFailedText } from '@/features/cases/utils/optionsNote'
 import {
     LegalQualificationPicker,
     type SelectedQualification,
 } from '@/features/cases/components/LegalQualificationPicker'
+import { NewQualificationModal } from '@/features/cases/components/NewQualificationModal'
 
 export interface CaseEditFormProps {
     /** Bajo el título: "SAC 13284571" o "Sin N° de SAC", el de la causa abierta. */
@@ -40,10 +45,23 @@ export interface CaseEditFormProps {
     clientLabel: string
     /** Los abogados vigentes, ya armados. */
     lawyerOptions: SelectOption[]
+    /** La lista de abogados no se pudo cargar. */
+    lawyersFailed?: boolean
     /** Las calificaciones de la causa, con su nombre, su plazo y su fecha del hecho. */
     selectedQualifications: SelectedQualification[]
     /** Las que todavía se pueden agregar. */
-    qualificationOptions: SelectOption[]
+    qualificationOptions: SearchSelectOption[]
+    onQualificationSearch: (text: string) => void
+    qualificationsLoading: boolean
+    qualificationsNote: string | null
+    /** La lista de calificaciones no se pudo cargar. */
+    qualificationsFailed?: boolean
+    /** "Registrar calificación nueva": si está abierto su modal, encima de este diálogo. */
+    creatingQualification: boolean
+    onNewQualification: () => void
+    /** La calificación recién registrada: se agrega a la causa. */
+    onQualificationCreated: (id: number) => void
+    onCancelNewQualification: () => void
     onAddQualification: (id: number) => void
     onRemoveQualification: (id: number) => void
     onOffenseDateChange: (id: number, offenseDate: string) => void
@@ -70,8 +88,10 @@ export interface CaseEditFormProps {
  */
 export function CaseEditForm({
     sub, values, errors, onChange, onSacNumberChange,
-    clientLabel, lawyerOptions,
-    selectedQualifications, qualificationOptions, onAddQualification, onRemoveQualification,
+    clientLabel, lawyerOptions, lawyersFailed = false,
+    selectedQualifications, qualificationOptions, onQualificationSearch, qualificationsLoading,
+    qualificationsNote, qualificationsFailed = false, creatingQualification, onNewQualification, onQualificationCreated,
+    onCancelNewQualification, onAddQualification, onRemoveQualification,
     onOffenseDateChange, saving, onConfirm, onCancel,
 }: CaseEditFormProps) {
     const body = useRef<HTMLDivElement>(null)
@@ -90,8 +110,10 @@ export function CaseEditForm({
     }
 
     return (
+        <>
         <Modal
             title="Modificar causa"
+            dismissOnBackdrop={false}
             sub={sub}
             width="lg"
             onClose={onCancel}
@@ -109,10 +131,11 @@ export function CaseEditForm({
             <div className="vz-form-grid" ref={body}>
                 <FormSection label="Identificación" />
 
-                <Field label="N° de SAC" width="half" htmlFor="edit-case-sac" error={errors.sacNumber}
+                <Field label="N° de SAC" width="half" htmlFor="edit-case-sac" {...fieldIds('edit-case-sac')} error={errors.sacNumber}
                     note="Opcional. Identifica la causa de forma única.">
                     <TextInput
                         id="edit-case-sac"
+                        {...controlA11y('edit-case-sac', errors.sacNumber, { note: true })}
                         mono
                         inputMode="numeric"
                         maxLength={CASE_MAX_LENGTH.sacNumber}
@@ -125,27 +148,30 @@ export function CaseEditForm({
                 {/* Se muestra, pero no es un select: no se modifica (D-95).
                     `disabled` y no `readOnly`: así se ve bloqueado (gris, sin foco),
                     como los demás campos que no se pueden tocar. */}
-                <Field label="Fuero" width="half" htmlFor="edit-case-jurisdiction"
+                <Field label="Fuero" width="half" htmlFor="edit-case-jurisdiction" {...fieldIds('edit-case-jurisdiction')}
                     note="No se modifica. Si la causa se registró en otro fuero, dala de baja y registrala de nuevo.">
                     <TextInput
                         id="edit-case-jurisdiction"
+                        {...controlA11y('edit-case-jurisdiction', undefined, { note: true })}
                         disabled
                         value={JURISDICTION_LABELS[values.jurisdiction]}
                     />
                 </Field>
 
-                <Field label="Carátula" required htmlFor="edit-case-caption" error={errors.caption}>
+                <Field label="Carátula" required htmlFor="edit-case-caption" {...fieldIds('edit-case-caption')} error={errors.caption}>
                     <TextInput
                         id="edit-case-caption"
+                        {...controlA11y('edit-case-caption', errors.caption, { required: true })}
                         maxLength={CASE_MAX_LENGTH.caption}
                         value={values.caption}
                         onChange={(e) => onChange('caption', e.target.value)}
                     />
                 </Field>
 
-                <Field label="Órgano interviniente" htmlFor="edit-case-court" error={errors.court}>
+                <Field label="Órgano interviniente" htmlFor="edit-case-court" {...fieldIds('edit-case-court')} error={errors.court}>
                     <TextInput
                         id="edit-case-court"
+                        {...controlA11y('edit-case-court', errors.court)}
                         placeholder="Juzgado de Control N° 3 · Córdoba"
                         maxLength={CASE_MAX_LENGTH.court}
                         value={values.court}
@@ -154,10 +180,11 @@ export function CaseEditForm({
                 </Field>
 
                 <div className="vz-form-row3">
-                    <Field label="Instructor de la causa" htmlFor="edit-case-instructor"
+                    <Field label="Instructor de la causa" htmlFor="edit-case-instructor" {...fieldIds('edit-case-instructor')}
                         error={errors.instructorName}>
                         <TextInput
                             id="edit-case-instructor"
+                            {...controlA11y('edit-case-instructor', errors.instructorName)}
                             placeholder="Apellido y nombre del instructor"
                             maxLength={CASE_MAX_LENGTH.instructorName}
                             value={values.instructorName}
@@ -165,9 +192,10 @@ export function CaseEditForm({
                         />
                     </Field>
 
-                    <Field label="Teléfono" htmlFor="edit-case-tribunal-phone" error={errors.tribunalPhone}>
+                    <Field label="Teléfono" htmlFor="edit-case-tribunal-phone" {...fieldIds('edit-case-tribunal-phone')} error={errors.tribunalPhone}>
                         <TextInput
                             id="edit-case-tribunal-phone"
+                            {...controlA11y('edit-case-tribunal-phone', errors.tribunalPhone)}
                             type="tel"
                             mono
                             placeholder="0351 448-1200"
@@ -177,9 +205,10 @@ export function CaseEditForm({
                         />
                     </Field>
 
-                    <Field label="Interno" htmlFor="edit-case-instructor-extension" error={errors.instructorExtension}>
+                    <Field label="Interno" htmlFor="edit-case-instructor-extension" {...fieldIds('edit-case-instructor-extension')} error={errors.instructorExtension}>
                         <TextInput
                             id="edit-case-instructor-extension"
+                            {...controlA11y('edit-case-instructor-extension', errors.instructorExtension)}
                             mono
                             inputMode="numeric"
                             maxLength={CASE_MAX_LENGTH.instructorExtension}
@@ -193,13 +222,15 @@ export function CaseEditForm({
                 <FormSection label="Cliente y rol procesal" />
 
                 {/* Como el fuero: se muestra bloqueado, no se modifica (D-111). */}
-                <Field label="Cliente" htmlFor="edit-case-client"
+                <Field label="Cliente" htmlFor="edit-case-client" {...fieldIds('edit-case-client')}
                     note="No se modifica. Si la causa se registró con otro cliente, dala de baja y registrala de nuevo.">
-                    <TextInput id="edit-case-client" disabled value={clientLabel} />
+                    <TextInput id="edit-case-client" {...controlA11y('edit-case-client', undefined, { note: true })} disabled value={clientLabel} />
                 </Field>
 
-                <Field label="Rol procesal del cliente" required error={errors.proceduralRole}>
+                <Field label="Rol procesal del cliente" required error={errors.proceduralRole}
+                    {...fieldIds('edit-case-role')}>
                     <SegmentedControl
+                        {...controlA11y('edit-case-role', errors.proceduralRole, { required: true })}
                         aria-label="Rol procesal del cliente"
                         options={roleOptions}
                         value={values.proceduralRole}
@@ -211,12 +242,13 @@ export function CaseEditForm({
                     <>
                         <Field
                             label="Calificaciones legales"
-                            htmlFor="edit-case-qualifications"
+                            htmlFor="edit-case-qualifications" {...fieldIds('edit-case-qualifications')}
                             error={errors.legalQualifications}
                             note="Si concurren varios delitos, una calificación por cada uno. Cada una recalcula su prescripción desde la fecha del hecho."
                         >
                             <LegalQualificationPicker
                                 id="edit-case-qualifications"
+                                {...controlA11y('edit-case-qualifications', errors.legalQualifications, { note: true })}
                                 selected={selectedQualifications}
                                 options={qualificationOptions}
                                 onAdd={onAddQualification}
@@ -224,6 +256,11 @@ export function CaseEditForm({
                                 onOffenseDateChange={onOffenseDateChange}
                                 dateErrors={errors.offenseDates}
                                 maxDate={todayIsoDate()}
+                                onCreate={onNewQualification}
+                                onSearch={onQualificationSearch}
+                                loading={qualificationsLoading}
+                                note={qualificationsNote}
+                                failed={qualificationsFailed}
                             />
                         </Field>
 
@@ -239,9 +276,10 @@ export function CaseEditForm({
 
                 {values.jurisdiction !== 'CRIMINAL' && (
                     <>
-                        <Field label="Contraparte u organismo" htmlFor="edit-case-counterparty" error={errors.counterparty}>
+                        <Field label="Contraparte u organismo" htmlFor="edit-case-counterparty" {...fieldIds('edit-case-counterparty')} error={errors.counterparty}>
                             <TextInput
                                 id="edit-case-counterparty"
+                                {...controlA11y('edit-case-counterparty', errors.counterparty)}
                                 placeholder="APROSS, Provincia de Córdoba, Tribunal de Conducta…"
                                 maxLength={CASE_MAX_LENGTH.counterparty}
                                 value={values.counterparty}
@@ -252,13 +290,14 @@ export function CaseEditForm({
                         <Field
                             label={SUBJECT_MATTER_TEXT[values.jurisdiction].label}
                             required
-                            htmlFor="edit-case-subject"
+                            htmlFor="edit-case-subject" {...fieldIds('edit-case-subject')}
                             hint={`${values.subjectMatter.length} / ${SUBJECT_MATTER_MAX}`}
                             error={errors.subjectMatter}
                             note="Qué se reclama y por qué: el acto o la omisión que origina la causa y lo que se pide."
                         >
                             <Textarea
                                 id="edit-case-subject"
+                                {...controlA11y('edit-case-subject', errors.subjectMatter, { note: true, required: true })}
                                 rows={4}
                                 maxLength={SUBJECT_MATTER_MAX}
                                 placeholder={SUBJECT_MATTER_TEXT[values.jurisdiction].placeholder}
@@ -271,10 +310,11 @@ export function CaseEditForm({
 
                 {values.jurisdiction === 'ADMINISTRATIVE' && (
                     <Field label="Agotamiento de la vía administrativa" width="half"
-                        htmlFor="edit-case-remedy-exhausted" error={errors.administrativeRemedyExhaustedOn}
+                        htmlFor="edit-case-remedy-exhausted" {...fieldIds('edit-case-remedy-exhausted')} error={errors.administrativeRemedyExhaustedOn}
                         note="Opcional. Dejalo vacío mientras la vía no se agotó.">
                         <TextInput
                             id="edit-case-remedy-exhausted"
+                            {...controlA11y('edit-case-remedy-exhausted', errors.administrativeRemedyExhaustedOn, { note: true })}
                             type="date"
                             mono
                             max={todayIsoDate()}
@@ -291,10 +331,12 @@ export function CaseEditForm({
 
                 <FormSection label="Asignación" />
 
-                <Field label="Abogado responsable" required width="half" htmlFor="edit-case-lawyer"
-                    error={errors.responsibleLawyerId}>
+                <Field label="Abogado responsable" required width="half" htmlFor="edit-case-lawyer" {...fieldIds('edit-case-lawyer')}
+                    error={errors.responsibleLawyerId}
+                    note={lawyersFailed ? optionsFailedText('los abogados') : undefined}>
                     <Select
                         id="edit-case-lawyer"
+                        {...controlA11y('edit-case-lawyer', errors.responsibleLawyerId, { required: true, note: lawyersFailed })}
                         options={lawyerOptions}
                         value={values.responsibleLawyerId}
                         onChange={(e) => onChange('responsibleLawyerId', e.target.value)}
@@ -302,11 +344,12 @@ export function CaseEditForm({
                 </Field>
 
                 {/* Va con el SAC (CA-19.6), igual que en el alta. */}
-                <Field label="Fecha de inicio" required={hasSac} width="half" htmlFor="edit-case-start"
+                <Field label="Fecha de inicio" required={hasSac} width="half" htmlFor="edit-case-start" {...fieldIds('edit-case-start')}
                     error={errors.startDate}
                     note={hasSac ? undefined : 'Se carga junto con el N° de SAC.'}>
                     <TextInput
                         id="edit-case-start"
+                        {...controlA11y('edit-case-start', errors.startDate, { note: !hasSac, required: hasSac })}
                         type="date"
                         mono
                         disabled={!hasSac}
@@ -324,5 +367,11 @@ export function CaseEditForm({
                 </div>
             </div>
         </Modal>
+
+        {/* Encima del diálogo: `Modal` le da el teclado sólo al de arriba. */}
+        {creatingQualification && (
+            <NewQualificationModal onDone={onQualificationCreated} onCancel={onCancelNewQualification} />
+        )}
+        </>
     )
 }

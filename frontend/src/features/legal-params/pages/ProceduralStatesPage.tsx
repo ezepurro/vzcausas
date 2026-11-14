@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { isApiError } from '@/shared/api/ApiError';
 import { useToast } from '@/app/providers/ToastContext';
-import { Button, Icon, PageHeader, Pagination, Panel, SearchInput, Tabs } from '@/shared/components/ui';
+import { Button, Icon, PageHeader, Pagination, Panel, SearchInput, Tabs, LoadError } from '@/shared/components/ui';
 import { useProceduralStates, usePrefetchProceduralStatesPage } from '@/features/legal-params/api/useProceduralStates';
 import { useCreateProceduralState } from '@/features/legal-params/api/useCreateProceduralState';
 import { useUpdateProceduralState } from '@/features/legal-params/api/useUpdateProceduralState';
@@ -27,6 +27,7 @@ import { ProceduralStatesTable } from '@/features/legal-params/components/Proced
 import { ProceduralStateFormModal } from '@/features/legal-params/components/ProceduralStateFormModal';
 import { DeleteProceduralStateModal } from '@/features/legal-params/components/DeleteProceduralStateModal';
 import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue';
+import { usePageTitle } from '@/shared/hooks/usePageTitle';
 
 /** La pestaña de un fuero pide todos sus estados de una vez (§3.4). */
 const LIMIT = 100;
@@ -56,7 +57,11 @@ const EMPTY_FORM: ProceduralStateFormValues = {
     terminal: false,
 };
 
+/** El `id` del contenedor que cambia con la pestaña (`aria-controls`). */
+const STATES_PANEL_ID = 'procedural-states-panel'
+
 export function ProceduralStatesPage() {
+    usePageTitle('Estados y plazos');
     const toast = useToast();
 
     /* Filtros y paginado viven acá y se le pasan al hook: `DataTable` no
@@ -272,8 +277,12 @@ export function ProceduralStatesPage() {
                 tabs={JURISDICTION_TABS}
                 active={jurisdiction}
                 onChange={changeJurisdiction}
+                aria-label="Fuero"
+                panelId={STATES_PANEL_ID}
             />
 
+            {/* El panel de la pestaña elegida (H-41). */}
+            <div id={STATES_PANEL_ID} role="tabpanel" aria-label={`Fuero ${jurisdictionLabel}`}>
             <Panel
                 title={`Ciclo de vida del fuero ${jurisdictionLabel}`}
                 sub={`Estados procesales del fuero ${jurisdictionLabel}. Cada uno lleva su plazo.`}
@@ -294,7 +303,9 @@ export function ProceduralStatesPage() {
                         </Button>
                     </>
                 }
-                footer={
+                /* Sin datos no hay pie: mientras carga o si falló, decía "Sin
+                   resultados" (H-57). */
+                footer={query.isSuccess && (
                     <Pagination
                         page={pagination?.page ?? 1}
                         totalPages={pagination?.totalPages ?? 1}
@@ -303,17 +314,10 @@ export function ProceduralStatesPage() {
                         onChange={setPage}
                         onIntent={prefetchPage}
                     />
-                }
+                )}
             >
                 {query.isError ? (
-                    <div className="vz-empty">
-                        <div className="vz-empty__title">No se pudieron cargar los estados</div>
-                        <div className="vz-empty__text">
-                            {isApiError(query.error)
-                                ? query.error.message
-                                : 'Ocurrió un error inesperado.'}
-                        </div>
-                    </div>
+                    <LoadError title="No se pudieron cargar los estados" error={query.error} onRetry={() => void query.refetch()} retrying={query.isFetching} />
                 ) : (
                     <ProceduralStatesTable
                         loading={query.isPending}
@@ -332,6 +336,7 @@ export function ProceduralStatesPage() {
                     />
                 )}
             </Panel>
+            </div>
 
             {formOpen && (
                 <ProceduralStateFormModal

@@ -1,6 +1,8 @@
 /* VZ Causas — tokens visuales. Dirección: Órbita.
    Única fuente de verdad del color, el radio y la densidad.
-   No hardcodear colores en ningún componente: siempre var(--vz-*). */
+   No hardcodear colores en ningún componente: siempre var(--vz-*).
+   Lo único que queda escrito a mano en las hojas son transparencias de
+   blanco y de negro (`rgba(255, 255, 255, .12)`): velos, no colores. */
 
 :root {
   /* ── superficies ── */
@@ -45,6 +47,38 @@
   --vz-danger-bd: #F0CDC9;
   --vz-danger-action: #B3261E;
   --vz-danger-action-bd: #E8C9C6;
+
+  /* ── texto sobre el verde lleno ──
+     Botón primario, contadores, el día de hoy del calendario. */
+  --vz-on-primary: #FFFFFF;
+
+  /* ── sobre fondo oscuro (banda de los tableros) ──
+     Los tonos de --vz-danger, --vz-warn y --vz-ok son para fondo claro: sobre
+     el rail no se leen. Estos son sus pares claros, los del prototipo. */
+  --vz-on-dark-danger: #F4B4AC;
+  --vz-on-dark-warn: #E9CF94;
+  --vz-on-dark-ok: #B9D3B4;
+
+  /* ── marcas de urgencia ──
+     Nodos de la línea de vencimientos, puntos del calendario y barras de la
+     carga del equipo: rellenos chicos, más suaves que el color de texto. */
+  --vz-mark-danger: #E08A80;
+  --vz-mark-ok: #9DBF9D;
+  --vz-mark-danger-soft: #D29A92;
+  --vz-mark-warn-soft: #D9C08E;
+  /* fondo de la tarjeta de un plazo vencido: un paso más claro que danger-bg */
+  --vz-danger-wash: #FDF6F5;
+
+  /* ── fueros (cartera por fuero del tablero) ── */
+  --vz-fuero-criminal: #7FB27F;
+  --vz-fuero-administrative: #C9D8C2;
+  --vz-fuero-amparo: #C9A35E;
+
+  /* ── foco del teclado ──
+     El contorno de `:focus-visible` (base.css). Las superficies oscuras —el
+     rail, la banda de los tableros— lo redefinen: el verde sobre ellas da
+     menos de 3:1 y no se ve (H-34). */
+  --vz-focus: var(--vz-primary);
 
   /* ── radios (lo que define Órbita) ── */
   --vz-r: 12px;

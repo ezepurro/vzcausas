@@ -4,6 +4,18 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <!--
+      Fuentes. Van acá y no como @import en src/styles/index.css: así el
+      navegador abre la conexión y las pide mientras baja el CSS de la app, en
+      lugar de descubrirlas después. Con display=swap el texto se ve enseguida
+      con la fuente del sistema (el respaldo de --vz-font).
+    -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Figtree:wght@300..900&family=Roboto+Mono:wght@400;500&display=swap"
+    />
     <title>VZ Causas</title>
     <!--
       Pantalla de carga (BootScreen). Va acá y no en src/styles porque se

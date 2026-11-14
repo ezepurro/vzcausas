@@ -43,7 +43,7 @@ export function LegalQualificationFormModal({
             label: 'Nombre de la calificación legal',
             required: true,
             placeholder: 'Ej. Hurto simple — art. 162 CP',
-            note: 'Con el artículo después de la raya: la carátula sugerida usa sólo la parte de adelante.',
+            note: 'Con el artículo después de la raya: la carátula sugerida usa solo la parte de adelante.',
             maxLength: LEGAL_QUALIFICATION_MAX_LENGTH.name,
             error: errors.name,
         },

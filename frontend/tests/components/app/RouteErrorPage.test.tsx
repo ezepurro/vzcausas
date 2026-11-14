@@ -6,7 +6,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, render, screen } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, Outlet, RouterProvider, type RouteObject } from 'react-router'
 import { RouteErrorPage } from '@/app/router/RouteErrorPage'
@@ -106,7 +106,12 @@ describe('RouteErrorPage', () => {
             window.dispatchEvent(new Event('online'))
         })
 
-        expect(screen.getByRole('alert')).toHaveTextContent('No se pudo cargar esta pantalla')
+        /* Con espera: el aviso se redibuja al enterarse de `online`, y con
+           toda la suite corriendo a veces no llegó a hacerlo antes de esta
+           línea (falló una vez en una corrida completa; aislado, nunca). */
+        await waitFor(() =>
+            expect(screen.getByRole('alert')).toHaveTextContent('No se pudo cargar esta pantalla'),
+        )
         expect(screen.getByRole('button', { name: 'Recargar' })).toBeEnabled()
     })
 
@@ -120,7 +125,7 @@ describe('RouteErrorPage', () => {
             window.dispatchEvent(new Event('offline'))
         })
 
-        expect(screen.getByRole('button', { name: 'Esperando conexión…' })).toBeDisabled()
+        expect(await screen.findByRole('button', { name: 'Esperando conexión…' })).toBeDisabled()
         // Navegar dentro de la app no recarga la página: sigue disponible.
         expect(screen.getByRole('button', { name: 'Volver al inicio' })).toBeEnabled()
     })

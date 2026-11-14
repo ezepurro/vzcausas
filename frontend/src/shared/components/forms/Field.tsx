@@ -19,17 +19,27 @@ export interface FieldProps {
   /** ocupa las dos columnas de .vz-form-grid */
   width?: 'half' | 'full';
   htmlFor?: string;
+  /**
+   * `id` del mensaje de error y de la nota, para que el control los nombre en
+   * su `aria-describedby`. `Field` no dibuja el control —llega en
+   * `children`—, así que quien lo arma (`FormModal`, o la pantalla) es quien
+   * une las dos puntas.
+   */
+  errorId?: string;
+  noteId?: string;
   children: ReactNode;
 }
 
 /** Envoltorio de campo: etiqueta, control, nota y error. */
 export function Field({
-  label, required, note, hint, error, width = 'full', htmlFor, children,
+  label, required, note, hint, error, width = 'full', htmlFor, errorId, noteId, children,
 }: FieldProps) {
   const labelNode = (
     <label className="vz-label" htmlFor={htmlFor}>
       {label}
-      {required && <span className="vz-label__req">*</span>}
+      {/* El asterisco es para la vista: lo obligatorio se anuncia con
+          `aria-required` en el control, no leyendo "asterisco". */}
+      {required && <span className="vz-label__req" aria-hidden="true">*</span>}
     </label>
   );
 
@@ -42,8 +52,8 @@ export function Field({
         </div>
       )}
       {children}
-      {note && !error && <div className="vz-note">{note}</div>}
-      {error && <FieldError message={error} />}
+      {note && !error && <div id={noteId} className="vz-note">{note}</div>}
+      {error && <FieldError id={errorId} message={error} />}
     </div>
   );
 }

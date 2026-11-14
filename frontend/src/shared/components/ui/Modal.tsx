@@ -8,6 +8,13 @@ export interface ModalProps {
   footer?: ReactNode;
   /** click en el fondo o Escape */
   onClose: () => void;
+  /**
+   * Si un clic en el fondo lo cierra. Por defecto sí. Un diálogo con campos
+   * lo apaga: un clic afuera, a veces sin querer, se llevaba lo escrito sin
+   * preguntar (H-05 de `docs/auditoria-front`). Escape, "Cancelar" y la "×"
+   * de la cabecera siguen cerrando: son gestos deliberados.
+   */
+  dismissOnBackdrop?: boolean;
   children: ReactNode;
 }
 
@@ -35,18 +42,31 @@ const FOCUSABLE = [
  * DOM se ve. Si algún día aparece un campo oculto con estilos, este es el
  * lugar donde hay que filtrarlo.
  */
+/**
+ * Los modales abiertos, del primero al último. Con uno encima de otro —el
+ * alta de una calificación sobre "Modificar causa"—, cada uno escucha el
+ * teclado en `document`: sin esta pila, un Escape los cerraba a los dos y las
+ * dos trampas del tabulador se peleaban por el foco. Sólo atiende el de arriba.
+ */
+const openModals: symbol[] = [];
+
 function focusableWithin(root: HTMLElement): HTMLElement[] {
   return Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE));
 }
 
 /** Caparazón de modal: fondo, tarjeta, cabecera, cuerpo scrolleable y pie. */
-export function Modal({ title, sub, width = 'md', footer, onClose, children }: ModalProps) {
+export function Modal({
+  title, sub, width = 'md', footer, onClose, dismissOnBackdrop = true, children,
+}: ModalProps) {
   const titleId = useId();
   const card = useRef<HTMLDivElement>(null);
 
   /* Dónde estaba el foco antes de abrir, para devolvérselo al cerrar. Se
      guarda en un ref y no en estado: cambiarlo no tiene que redibujar nada. */
   const opener = useRef<Element | null>(null);
+
+  /* La marca de este modal en `openModals`. */
+  const token = useRef(Symbol('modal'));
 
   /**
    * El teclado del modal: cerrar con Escape y no dejar salir al tabulador.
@@ -61,6 +81,9 @@ export function Modal({ title, sub, width = 'md', footer, onClose, children }: M
    */
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
+      // Hay otro modal encima: el teclado es suyo.
+      if (openModals[openModals.length - 1] !== token.current) return;
+
       if (event.key === 'Escape') {
         onClose();
         return;
@@ -102,6 +125,17 @@ export function Modal({ title, sub, width = 'md', footer, onClose, children }: M
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [onClose]);
 
+  /* El lugar en la pila se toma al abrir y se deja al cerrar. Va aparte del
+     efecto de arriba, que se rearma cada vez que cambia `onClose`: si la pila
+     se tocara ahí, un modal de abajo que se redibuja pasaría al frente. */
+  useEffect(() => {
+    const own = token.current;
+    openModals.push(own);
+    return () => {
+      openModals.splice(openModals.indexOf(own), 1);
+    };
+  }, []);
+
   /* Al abrir, el foco entra al modal; al cerrar, vuelve a donde estaba. Sin
      esto, quien navega con teclado sigue parado atrás del fondo. */
   useEffect(() => {
@@ -137,7 +171,7 @@ export function Modal({ title, sub, width = 'md', footer, onClose, children }: M
   }
 
   function handleBackdropClick(event: MouseEvent<HTMLDivElement>) {
-    if (event.target === event.currentTarget && pressedBackdrop.current) onClose();
+    if (dismissOnBackdrop && event.target === event.currentTarget && pressedBackdrop.current) onClose();
     pressedBackdrop.current = false;
   }
 
@@ -161,6 +195,11 @@ export function Modal({ title, sub, width = 'md', footer, onClose, children }: M
         <header className="vz-modal__head">
           <h2 className="vz-modal__title" id={titleId}>{title}</h2>
           {sub && <p className="vz-modal__sub">{sub}</p>}
+          {/* Siempre hay una forma visible de cerrar, también en los
+              diálogos que no cierran con un clic afuera (H-44). */}
+          <button type="button" className="vz-modal__close" aria-label="Cerrar" onClick={onClose}>
+            <span aria-hidden="true">×</span>
+          </button>
         </header>
 
         <div className="vz-modal__body">{children}</div>

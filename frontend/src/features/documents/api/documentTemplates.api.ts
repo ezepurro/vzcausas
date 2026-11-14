@@ -1,5 +1,5 @@
 import type { ApiItem, ApiList } from '@/api-contract/envelopes'
-import { http } from '@/shared/api/http'
+import { FILE_TRANSFER_TIMEOUT_MS, http } from '@/shared/api/http'
 import type { DocumentTemplate, DocumentTemplateListParams } from '@/features/documents/types/documentTemplate'
 
 const RESOURCE = '/document-templates'
@@ -23,12 +23,16 @@ export async function listDocumentTemplates(params: DocumentTemplateListParams =
 export async function createDocumentTemplate(body: FormData): Promise<DocumentTemplate> {
     const res = await http.post<ApiItem<DocumentTemplate>>(RESOURCE, body, {
         headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: FILE_TRANSFER_TIMEOUT_MS,
     })
     return res.data.data
 }
 
 /** El `.docx` en su última versión (CA-35.6). La única respuesta que no es JSON. */
 export async function downloadDocumentTemplateFile(templateId: number): Promise<Blob> {
-    const res = await http.get<Blob>(`${RESOURCE}/${templateId}/file`, { responseType: 'blob' })
+    const res = await http.get<Blob>(`${RESOURCE}/${templateId}/file`, {
+        responseType: 'blob',
+        timeout: FILE_TRANSFER_TIMEOUT_MS,
+    })
     return res.data
 }

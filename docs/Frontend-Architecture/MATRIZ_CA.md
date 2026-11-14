@@ -221,6 +221,7 @@ que corresponde al servidor: el frontend muestra lo que recibe y no lo prueba.
 | CA-33.5 | `components/cases/CaseDetailPage.prescription.test.tsx` (componentes) |
 | CA-33.9 | `components/cases/CaseDetailPage.prescription.test.tsx` (componentes) |
 | CA-33.16 | `components/cases/CaseDetailPage.prescription.test.tsx` (componentes)<br>`components/cases/CaseDetailPage.timeline.test.tsx` (componentes) |
+| CA-33.18 | `components/cases/CaseDetailPage.edit.test.tsx` (componentes) |
 | CA-33.19 | `components/cases/CaseDetailPage.prescription.test.tsx` (componentes) |
 
 ## HU-34
@@ -326,4 +327,4 @@ que corresponde al servidor: el frontend muestra lo que recibe y no lo prueba.
 
 ---
 
-199 criterios citados · 38 sólo del backend.
+200 criterios citados · 38 sólo del backend.

@@ -74,7 +74,9 @@ test.describe('Causas', () => {
 
         await page.getByRole('button', { name: 'Registrar causa' }).click()
         await expect(page).toHaveURL(/\/causas\/nueva$/)
-        await page.getByLabel(/^Cliente/).selectOption('1')
+        // El cliente se elige en un selector con filtro: se escribe y se hace clic en la opción.
+        await page.getByLabel(/^Cliente/).fill('gomez')
+        await page.getByRole('option', { name: /^GÓMEZ, Ariel Fernando/ }).click()
         await page.getByLabel(/^Abogado responsable/).selectOption('3')
         await page.getByLabel(/^Carátula/).fill('GÓMEZ, Ariel Fernando p.s.a. Estafa')
         await page.getByRole('button', { name: 'Registrar causa' }).click()
@@ -91,7 +93,7 @@ test.describe('Causas', () => {
         // Vuelve al detalle con el estado que dejó el acto.
         await expect(page).toHaveURL(/\/causas\/\d+$/)
         await expect(
-            page.getByRole('alert').filter({ hasText: 'Acto registrado. La causa pasó a Cédula de notificación' }),
+            page.getByRole('status').filter({ hasText: 'Acto registrado. La causa pasó a Cédula de notificación' }),
         ).toBeVisible()
     })
 })

@@ -27,6 +27,10 @@ export interface ComboboxProps {
   mono?: boolean;
   /** tope de caracteres de lo que se escribe (el atributo `maxlength`) */
   maxLength?: number;
+  /** el error, la nota y lo obligatorio del campo (`controlA11y`) */
+  'aria-invalid'?: boolean;
+  'aria-describedby'?: string;
+  'aria-required'?: boolean;
 }
 
 /**
@@ -49,6 +53,7 @@ export interface ComboboxProps {
  */
 export function Combobox({
   id, value, onChange, onSelect, options, placeholder, emptyText, disabled, mono, maxLength,
+  'aria-invalid': ariaInvalid, 'aria-describedby': ariaDescribedBy, 'aria-required': ariaRequired,
 }: ComboboxProps) {
   const listId = useId();
   const [open, setOpen] = useState(false);
@@ -120,6 +125,9 @@ export function Combobox({
         aria-expanded={expanded}
         aria-controls={listId}
         aria-activedescendant={expanded && activeIndex >= 0 ? optionId(activeIndex) : undefined}
+        aria-invalid={ariaInvalid}
+        aria-describedby={ariaDescribedBy}
+        aria-required={ariaRequired}
         className={`vz-input ${mono ? 'vz-input--mono' : ''}`}
         placeholder={placeholder}
         maxLength={maxLength}
@@ -137,7 +145,15 @@ export function Combobox({
       />
 
       {expanded && (
-        <div id={listId} role="listbox" className="vz-combobox__list">
+        <div
+          id={listId}
+          role="listbox"
+          className="vz-combobox__list"
+          /* Un clic en la lista que no cae en una opción —la barra de scroll,
+             el relleno— no le saca el foco al campo: si se lo saca, la lista
+             se cierra y no se puede arrastrar el scroll. */
+          onMouseDown={(e) => e.preventDefault()}
+        >
           {options.map((option, i) => (
             <div
               key={option.value}

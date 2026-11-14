@@ -1,9 +1,22 @@
-import {QueryClient} from '@tanstack/react-query';
+import {MutationCache, QueryClient} from '@tanstack/react-query';
 import {isApiError} from './ApiError';
+import {reportIfLeftBehind, trackMutationListeners} from './leftBehindErrors';
 
 const MAX_RETRIES = 2;
 
+/**
+ * Un error de una operación que quedó en curso cuando se salió de la
+ * pantalla se avisa igual (ver `leftBehindErrors.ts`). El de una pantalla que
+ * sigue ahí lo avisa ella misma.
+ */
+const mutationCache = new MutationCache({
+    onError: (error, _variables, _context, mutation) =>
+        reportIfLeftBehind(error, mutation as Parameters<typeof reportIfLeftBehind>[1]),
+});
+trackMutationListeners(mutationCache);
+
 export const queryClient = new QueryClient({
+    mutationCache,
     defaultOptions: {
         queries: {
         retry: (failureCount, error) => {

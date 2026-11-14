@@ -34,7 +34,7 @@ export function LegalQualificationsTable({
             id: 'name',
             header: 'Calificación legal',
             primary: true,
-            cell: (q) => <span className="vz-table__primary">{q.name}</span>,
+            cell: (q) => <span className="vz-table__primary" id={`qualification-row-${q.id}`}>{q.name}</span>,
         },
         {
             id: 'prescription',
@@ -66,8 +66,8 @@ export function LegalQualificationsTable({
             actions: true,
             cell: (q) => (
                 <>
-                    {onEdit && <Button variant="ghost" size="sm" onClick={() => onEdit(q)}>Modificar</Button>}
-                    {onDelete && <Button variant="ghost-danger" size="sm" onClick={() => onDelete(q)}>Eliminar</Button>}
+                    {onEdit && <Button variant="ghost" size="sm" aria-describedby={`qualification-row-${q.id}`} onClick={() => onEdit(q)}>Modificar</Button>}
+                    {onDelete && <Button variant="ghost-danger" size="sm" aria-describedby={`qualification-row-${q.id}`} onClick={() => onDelete(q)}>Eliminar</Button>}
                 </>
             ),
         });

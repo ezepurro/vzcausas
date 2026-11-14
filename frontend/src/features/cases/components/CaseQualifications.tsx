@@ -11,6 +11,8 @@ export interface QualificationDeclareAction {
     enabled: boolean
     /** Por qué está deshabilitado, en el `title`. */
     disabledTitle?: string
+    /** El `id` de la nota visible que lo explica (H-53): el `title` no se ve en el teléfono. */
+    disabledNoteId?: string
     onDeclare: (qualification: CaseLegalQualification) => void
 }
 
@@ -70,6 +72,7 @@ export function CaseQualifications({ case: c, declare }: CaseQualificationsProps
                                 aria-label={`Marcar prescripta: ${q.name}`}
                                 disabled={!declare.enabled}
                                 title={declare.enabled ? undefined : declare.disabledTitle}
+                                aria-describedby={declare.enabled ? undefined : declare.disabledNoteId}
                                 onClick={() => declare.onDeclare(q)}
                             >
                                 Marcar prescripta

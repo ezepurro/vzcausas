@@ -23,7 +23,7 @@ const CREATE = { mode: 'create' as const, roles: ['SECRETARY' as const] }
 describe('validateUser', () => {
     describe('datos personales', () => {
         it.each([
-            ['con espacios', 'ana perez', 'Sólo se admiten letras, números, punto, guión y guión bajo.'],
+            ['con espacios', 'ana perez', 'Solo se admiten letras, números, punto, guión y guión bajo.'],
         ])('rechaza un usuario %s', (_caso, username, message) => {
             expect(validateUser({ ...SECRETARY, username }, CREATE).username).toBe(message)
         })

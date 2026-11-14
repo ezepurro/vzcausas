@@ -15,6 +15,7 @@ import { afterAll, afterEach, beforeAll } from 'vitest'
 import { configureMocks, server } from '@/shared/mocks/server'
 import { resetMockDb } from '@/shared/mocks'
 import { queryClient } from '@/shared/api/queryClient'
+import { settleRenewal } from '@/shared/api/http'
 
 /*
  * Compatibilidad entre Vitest y jsdom para subir archivos (V4: modelos formales
@@ -78,8 +79,13 @@ beforeAll(() => {
     server.listen({ onUnhandledRequest: 'error' })
 })
 
-afterEach(() => {
+afterEach(async () => {
     cleanup()
+    /* Un test que se cortó por tiempo puede dejar la renovación del arranque
+       en vuelo. Se la espera acá, con la base del mock y la sesión de ese
+       test: si volviera durante el siguiente, el siguiente se sumaría a ella
+       y no renovaría la suya (H-55). */
+    await settleRenewal()
     server.resetHandlers()
     resetMockDb()
     configureMocks({ ...TEST_MOCK_OPTIONS, passthrough: [] })

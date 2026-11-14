@@ -8,6 +8,7 @@ import {
     Pagination,
     Panel,
     SearchInput,
+    LoadError,
 } from '@/shared/components/ui'
 import { useClients, usePrefetchClientsPage } from '@/features/clients/api/useClients'
 import { useCreateClient } from '@/features/clients/api/useCreateClient'
@@ -19,6 +20,7 @@ import { formatClientName } from '@/features/clients/utils/clientFormat'
 import { ClientsTable } from '@/features/clients/components/ClientsTable'
 import { ClientFormModal } from '@/features/clients/components/ClientFormModal'
 import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue'
+import { usePageTitle } from '@/shared/hooks/usePageTitle'
 const LIMIT = 20
 type Modal = {kind: 'create'} | null
 const EMPTY_FORM: ClientFormValues = {
@@ -31,6 +33,7 @@ const EMPTY_FORM: ClientFormValues = {
     email: '',
 }
 export function ClientsPage() {
+    usePageTitle('Clientes')
     const toast = useToast()
 
     //PAGINACION Y BUSQUEDA
@@ -130,7 +133,9 @@ export function ClientsPage() {
                         onChange={(e) => changeSearch(e.target.value)}
                     />
                 }
-                footer={
+                /* Sin datos no hay pie: mientras carga o si falló, decía "Sin
+                   resultados" (H-57). */
+                footer={query.isSuccess && (
                     <Pagination
                         page={pagination?.page ?? 1}
                         totalPages={pagination?.totalPages ?? 1}
@@ -139,17 +144,10 @@ export function ClientsPage() {
                         onChange={setPage}
                         onIntent={prefetchPage}
                     />
-                }
+                )}
             >
                 {query.isError ? (
-                    <div className="vz-empty">
-                        <div className="vz-empty__title">No se pudieron cargar los clientes</div>
-                        <div className="vz-empty__text">
-                            {isApiError(query.error)
-                                ? query.error.message
-                                : 'Ocurrió un error inesperado.'}
-                        </div>
-                    </div>
+                    <LoadError title="No se pudieron cargar los clientes" error={query.error} onRetry={() => void query.refetch()} retrying={query.isFetching} />
                 ) : (
                     <ClientsTable
                         loading={query.isPending}

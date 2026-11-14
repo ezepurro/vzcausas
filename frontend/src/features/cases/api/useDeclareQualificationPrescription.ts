@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import type { DeclarePrescriptionBody } from '@/features/cases/types/prescriptionDeclaration'
 import { declareQualificationPrescription } from './cases.api'
 import { casesKeys } from './cases.keys'
+import { invalidateCaseCounters } from './invalidateCaseCounters'
 
 export interface DeclareQualificationPrescriptionVariables {
     legalQualificationId: number
@@ -20,11 +21,14 @@ export function useDeclareQualificationPrescription(caseId: number) {
     const queryClient = useQueryClient()
 
     return useMutation({
+        mutationKey: casesKeys.mutation(caseId, 'declareQualificationPrescription'),
         mutationFn: ({ legalQualificationId, body }: DeclareQualificationPrescriptionVariables) =>
             declareQualificationPrescription(caseId, legalQualificationId, body),
         onSuccess: (updated) => {
             queryClient.setQueryData(casesKeys.detail(caseId), updated)
             queryClient.invalidateQueries({ queryKey: casesKeys.lists() })
+            // La causa puede haber pasado a "Prescripta": deja de ser activa.
+            invalidateCaseCounters(queryClient)
             return queryClient.invalidateQueries({ queryKey: casesKeys.timeline(caseId) })
         },
     })

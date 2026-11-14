@@ -13,6 +13,10 @@ export interface SegmentedControlProps {
    */
   'aria-label'?: string;
   'aria-labelledby'?: string;
+  /** el error y lo obligatorio del campo (`controlA11y`): van al grupo */
+  'aria-invalid'?: boolean;
+  'aria-describedby'?: string;
+  'aria-required'?: boolean;
   disabled?: boolean;
 }
 

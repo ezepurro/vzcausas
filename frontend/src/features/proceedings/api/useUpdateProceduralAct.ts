@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import type { UpdateProceduralActBody } from '@/features/proceedings/types/proceduralAct'
-import { refreshCaseAfterAct } from '@/features/cases'
+import { casesKeys, refreshCaseAfterAct } from '@/features/cases'
 import { updateProceduralAct } from './proceduralActs.api'
 import { proceduralActKeys } from './proceduralActs.keys'
 
@@ -17,6 +17,7 @@ export function useUpdateProceduralAct(caseId: number, actId: number) {
     const queryClient = useQueryClient()
 
     return useMutation({
+        mutationKey: casesKeys.mutation(caseId, 'updateProceduralAct', actId),
         mutationFn: (body: UpdateProceduralActBody) => updateProceduralAct(caseId, actId, body),
         onSuccess: (updated) => {
             queryClient.setQueryData(proceduralActKeys.detail(caseId, actId), updated)

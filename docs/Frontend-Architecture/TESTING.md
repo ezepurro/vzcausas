@@ -1118,6 +1118,46 @@ CA-19.4, 19.6 y 19.9 a 19.15; CA-21.3 a 21.10; CA-28.4 a 28.9 y 28.11; CA-38.2,
 38.3, 38.8 y 38.9; y de CA-38.7, el `403` y la conversión a PDF (lo que se ve
 de "Descargar" tiene test de pantalla).
 
+### Auditoría del front (11/2026): los tests que sumó
+
+La auditoría (`docs/auditoria-front/RESUMEN_GENERAL.md`) no cubre criterios
+de aceptación nuevos: fija bugs corregidos y comportamiento de accesibilidad,
+de caché y de carga. Cada archivo dice en su encabezado qué hallazgo (`H-xx`,
+`C-x`) o qué tanda lo pidió. Todos son archivos nuevos; además se sumaron
+casos a tests que ya existían (por ejemplo `LoginPage.test.tsx`, H-58, y
+`RequireAccess.test.tsx`).
+
+| Archivo (en `tests/`) | Qué fija |
+|---|---|
+| `components/app/ToastProvider.test.tsx` | Cuánto dura cada aviso, que no se vaya mientras se lo lee y que se anuncie una sola vez (H-04) |
+| `components/auth/crossTab.test.tsx` | La sesión entre pestañas: cerrar en una cierra en las otras; si entra otro usuario, se vacía la caché (H-01) |
+| `components/auth/staleSession.test.tsx` | Una sesión que ya terminó no toca la que está abierta (H-55) |
+| `components/cases/caseSwitchRace.test.tsx` | Pasar de una causa a otra con una operación en vuelo no escribe en la causa equivocada (`casesKeys.mutation`) |
+| `components/cases/disabledReason.test.tsx` | El motivo de un botón deshabilitado está a la vista y unido al botón: Abogados, el detalle de causa (una nota por zona) y "Descargar" (H-53) |
+| `components/cases/fieldErrors.a11y.test.tsx` | El error, la nota y lo obligatorio llegan al control en "Registrar causa", "Modificar causa" y "Registrar acto procesal" (H-35) |
+| `components/cases/loadErrors.test.tsx` | Causas con el listado caído: alerta y "Reintentar". "Registrar causa" con sus listas caídas: cada selector lo dice |
+| `components/cases/pageTitle.test.tsx` | El título de la pestaña en las pantallas de causas y actos (H-20) |
+| `components/dashboard/DeadlineCalendar.test.tsx` | La lista del día del calendario: el día entero y "+N más" la abren; foco, Escape y "Cerrar" (H-50) |
+| `components/legal-params/legalParamsMutations.cache.test.tsx` | Modificar un estado o una calificación marca vieja la caché de las causas (C-3) |
+| `components/shared/DataTable.stacked.test.tsx` | Cuándo una tabla pasa a fichas: ventana en 1180px o menos, o no entra en su lugar |
+| `components/shared/LoadError.test.tsx` | El bloque de error: alerta, "Reintentar", sin reintentar un 404 |
+| `components/shared/SearchSelect.test.tsx` | El selector con filtro: abrir, filtrar sin acentos ni mayúsculas, teclado, más de 100 opciones (H-03, H-29) |
+| `components/shared/Tabs.test.tsx` | Las pestañas con teclado: flechas, Inicio, Fin y un solo punto de tabulación (H-41) |
+| `components/shared/leftBehindErrors.test.tsx` | Lo que falla después de salir de la pantalla se avisa igual |
+| `components/shared/listFooter.test.tsx` | El pie de los seis listados no se dibuja mientras cargan ni si fallaron (H-57) |
+| `components/shared/usePageTitle.test.tsx` | El hook del título de la pestaña (H-20) |
+| `components/users/userMutations.cache.test.tsx` | Registrar o modificar un usuario refresca los listados de abogados (C-2) |
+| `unit/cases/invalidateCaseCounters.test.ts` | Qué listados quedan viejos cuando cambia una causa (C-1) |
+| `unit/shared/fieldA11y.test.ts` | `fieldIds` y `controlA11y` (H-35) |
+| `unit/shared/mockCalendar.test.ts` | La suma de meses de la prescripción en el mock corta en el último día del mes, como el backend (D-140) |
+
+`tests/setup/searchSelect.ts` suma `chooseOption`, para elegir en un
+`SearchSelect` desde un test.
+
+**Tres cosas que rompen un test nuevo si no se saben:** un ítem del rail es
+`link`, no `button`; un aviso de éxito o de información es `status`, no
+`alert`; y dentro de un modal `/cerrar/i` encuentra también la "×".
+
 ### Sprint 5: lo que tienen que fijar los tests
 
 **Todavía no hay tests del Sprint 5.** Como en los sprints anteriores, se

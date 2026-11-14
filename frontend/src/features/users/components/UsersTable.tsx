@@ -33,7 +33,7 @@ export function UsersTable({ rows, onEdit, onDelete, empty, loading, busy }: Use
             cell: (u) => (
                 <div className="vz-table__ident">
                     <span className="vz-avatar" aria-hidden="true">{initials(formatPersonName(u))}</span>
-                    <span className="vz-table__primary">{formatPersonName(u)}</span>
+                    <span className="vz-table__primary" id={`user-row-${u.id}`}>{formatPersonName(u)}</span>
                 </div>
             ),
         },
@@ -69,9 +69,12 @@ export function UsersTable({ rows, onEdit, onDelete, empty, loading, busy }: Use
             header: '',
             actions: true,
             cell: (u) => (
+                /* Las acciones se llaman igual en todas las filas ("Modificar"): cada botón
+                   apunta con `aria-describedby` al nombre de su fila, así un lector de
+                   pantalla dice de quién es (H-40). El nombre del botón no cambia. */
                 <>
-                    <Button variant="ghost" size="sm" onClick={() => onEdit(u)}>Modificar</Button>
-                    <Button variant="ghost-danger" size="sm" onClick={() => onDelete(u)}>Eliminar</Button>
+                    <Button variant="ghost" size="sm" aria-describedby={`user-row-${u.id}`} onClick={() => onEdit(u)}>Modificar</Button>
+                    <Button variant="ghost-danger" size="sm" aria-describedby={`user-row-${u.id}`} onClick={() => onDelete(u)}>Eliminar</Button>
                 </>
             ),
         },

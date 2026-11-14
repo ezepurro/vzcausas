@@ -30,7 +30,7 @@ function rail() {
 }
 
 function railItem(label: string) {
-    return rail().queryByRole('button', { name: label })
+    return rail().queryByRole('link', { name: label })
 }
 
 describe('AppLayout', () => {

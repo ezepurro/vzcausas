@@ -8,6 +8,7 @@ import { validateLogin, type LoginErrors } from '@/features/auth/schemas/login.s
 import type { LoginFormValues } from '@/features/auth/types/credentials'
 import { LoginAside } from '@/features/auth/components/LoginAside'
 import { LoginForm } from '@/features/auth/components/LoginForm'
+import { usePageTitle } from '@/shared/hooks/usePageTitle'
 
 const EMPTY_FORM: LoginFormValues = { username: '', password: '' }
 
@@ -22,6 +23,7 @@ const EMPTY_FORM: LoginFormValues = { username: '', password: '' }
  * y no en la pantalla que había pedido.
  */
 export function LoginPage() {
+    usePageTitle('Iniciar sesión')
     const { signIn } = useAuth()
 
     const [values, setValues] = useState<LoginFormValues>(EMPTY_FORM)

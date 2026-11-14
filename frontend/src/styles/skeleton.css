@@ -77,10 +77,8 @@
 
 .vz-table--skeleton tbody tr:hover { background: none; }
 .vz-table--skeleton .vz-table__cell--actions .vz-skel { margin-left: auto; }
-@media (max-width: 1180px) {
-  /* En la ficha no hay rótulo de columna que mostrar. */
-  .vz-table--skeleton td::before { display: none; }
-}
+/* En la ficha no hay rótulo de columna que mostrar. */
+.vz-table--skeleton.vz-table--stacked td::before { display: none; }
 
 /* Una tabla que ya tiene filas y está trayendo otra página u otro filtro: se
    atenúa en lugar de vaciarse. Espera lo mismo que el esqueleto para hacerlo,

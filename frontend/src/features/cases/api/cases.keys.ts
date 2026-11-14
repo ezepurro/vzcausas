@@ -26,4 +26,13 @@ export const casesKeys = {
     cover: (id: number) => [...casesKeys.detail(id), 'cover'] as const,
 
     customStates: (jurisdiction?: Jurisdiction) => [...casesKeys.lists(), 'custom-states', jurisdiction ?? 'all'] as const,
+
+    /* Claves de MUTACIÓN de una causa (las de arriba son de consultas). Cada
+       hook que recibe la causa como parámetro la lleva: si la página pasa a
+       otra causa con la mutación en vuelo —"Atrás" del navegador entre dos
+       detalles—, TanStack la suelta en vez de pasarle las opciones de la causa
+       nueva, y la respuesta se escribe en la causa que la pidió. Sin esto, la
+       carpeta creada en una causa aparecía en otra (tanda 13 de
+       `docs/auditoria-front`). */
+    mutation: (id: number, ...action: (string | number)[]) => [...casesKeys.detail(id), 'mutation', ...action] as const,
 }

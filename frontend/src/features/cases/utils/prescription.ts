@@ -193,13 +193,21 @@ export function prescriptionProgress(
 /**
  * Vencimiento estimado para el resumen del alta, antes de guardar la causa:
  * la **fecha del hecho** de la calificación más sus meses, que es la misma
- * cuenta que hace el backend (V3 D-19). Devuelve `YYYY-MM-DD`, o `null` si
+ * cuenta que hace el backend (V3 D-19;
+ * `backend/src/subsystems/cases/core/domain/prescription.ts`). Devuelve `YYYY-MM-DD`, o `null` si
  * todavía no se cargó la fecha.
  */
 export function estimatedExpiry(offenseDate: string, months: number): string | null {
     const start = parseDateOnly(offenseDate)
     if (!start) return null
-    const end = new Date(start.getFullYear(), start.getMonth() + months, start.getDate())
+    /* Si el mes de destino es más corto, el día se queda en el último de ese
+       mes: 31/08 más seis meses es 28/02, no 03/03. Es la cuenta del backend
+       (`addPrescriptionMonths`); `new Date(año, mes, 31)` a secas se pasa al
+       mes siguiente y el resumen mostraba una fecha que después no era la de
+       la causa. */
+    const month = start.getMonth() + months
+    const lastDay = new Date(start.getFullYear(), month + 1, 0).getDate()
+    const end = new Date(start.getFullYear(), month, Math.min(start.getDate(), lastDay))
     const pad = (n: number) => String(n).padStart(2, '0')
     return `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())}`
 }

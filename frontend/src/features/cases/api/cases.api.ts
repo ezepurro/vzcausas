@@ -1,4 +1,4 @@
-import { http } from '@/shared/api/http'
+import { FILE_TRANSFER_TIMEOUT_MS, http } from '@/shared/api/http'
 import type { ApiItem } from '@/api-contract/envelopes'
 import type { Case, CaseFolder, CreateCaseBody, UpdateCaseBody } from '@/features/cases/types/case'
 import type {  ApiList } from '@/api-contract/envelopes'
@@ -121,7 +121,11 @@ export async function getCaseDocuments(id: number): Promise<CaseDocumentList> {
  * `inline` por defecto: es la vista previa de "Generar expediente".
  */
 export async function getCaseCover(id: number, disposition: FileDisposition = 'inline'): Promise<Blob> {
-    const response = await http.get<Blob>(`${BASE}/${id}/cover`, { params: { disposition }, responseType: 'blob' })
+    const response = await http.get<Blob>(`${BASE}/${id}/cover`, {
+        params: { disposition },
+        responseType: 'blob',
+        timeout: FILE_TRANSFER_TIMEOUT_MS,
+    })
     return response.data
 }
 
@@ -158,7 +162,7 @@ export async function downloadCaseDocumentFile(
 ): Promise<Blob> {
     const response = await http.get<Blob>(
         `${BASE}/${caseId}/documents/${encodeURIComponent(documentId)}/file`,
-        { params: { disposition }, responseType: 'blob' },
+        { params: { disposition }, responseType: 'blob', timeout: FILE_TRANSFER_TIMEOUT_MS },
     )
     return response.data
 }

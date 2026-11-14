@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import type { DeleteCaseBody } from '@/features/cases/types/caseDeletion'
 import { deleteCase } from './cases.api'
 import { casesKeys } from './cases.keys'
+import { invalidateCaseCounters } from './invalidateCaseCounters'
 
 /**
  * Dar de baja la causa (HU21).
@@ -16,10 +17,12 @@ export function useDeleteCase(caseId: number) {
     const queryClient = useQueryClient()
 
     return useMutation({
+        mutationKey: casesKeys.mutation(caseId, 'delete'),
         mutationFn: (body: DeleteCaseBody | undefined) => deleteCase(caseId, body),
         onSuccess: () => {
             queryClient.removeQueries({ queryKey: casesKeys.detail(caseId) })
             queryClient.invalidateQueries({ queryKey: casesKeys.lists() })
+            invalidateCaseCounters(queryClient)
         },
     })
 }

@@ -27,10 +27,10 @@ El backend es aparte (Node + NestJS + Prisma + Postgres) y se consume por HTTP.
 
 **Sobre la validación: no hay librería.** Cada formulario tiene en su carpeta
 `schemas/` una función pura que recibe los valores y devuelve un objeto con un
-mensaje por campo con problema (`validateLogin`, `validateUser`…). `zod` **no
-está instalado**, y `react-hook-form` figura en `package.json` pero no lo usa
-nadie. Las dos son una decisión pendiente del equipo: hasta que se tome,
-formularios controlados y validación a mano, sin mezclar los dos patrones.
+mensaje por campo con problema (`validateLogin`, `validateUser`…). Ni `zod` ni
+`react-hook-form` **están instalados** (el segundo se desinstaló el 13/11/2026,
+H-16 de la auditoría del front: nadie lo usaba). Formularios controlados y
+validación a mano, sin mezclar patrones.
 
 ---
 

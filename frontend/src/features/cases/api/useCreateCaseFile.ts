@@ -17,6 +17,7 @@ export function useCreateCaseFile(caseId: number) {
     const queryClient = useQueryClient()
 
     return useMutation({
+        mutationKey: casesKeys.mutation(caseId, 'createCaseFile'),
         mutationFn: (body: CreateCaseFileBody) => createCaseFile(caseId, body),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: casesKeys.documents(caseId) })

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { isApiError } from '@/shared/api/ApiError';
 import { useToast } from '@/app/providers/ToastContext';
-import { Button, Icon, PageHeader, Pagination, Panel, SearchInput } from '@/shared/components/ui';
+import { Button, Icon, PageHeader, Pagination, Panel, SearchInput, LoadError } from '@/shared/components/ui';
 import { useLegalQualifications, usePrefetchLegalQualificationsPage } from '@/features/legal-params/api/useLegalQualifications';
 import { useCreateLegalQualification } from '@/features/legal-params/api/useCreateLegalQualification';
 import { useUpdateLegalQualification } from '@/features/legal-params/api/useUpdateLegalQualification';
@@ -26,6 +26,7 @@ import { LegalQualificationsTable } from '@/features/legal-params/components/Leg
 import { LegalQualificationFormModal } from '@/features/legal-params/components/LegalQualificationFormModal';
 import { DeleteLegalQualificationModal } from '@/features/legal-params/components/DeleteLegalQualificationModal';
 import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue';
+import { usePageTitle } from '@/shared/hooks/usePageTitle';
 
 const LIMIT = 20;
 
@@ -58,6 +59,7 @@ type Modal =
  * esas causas la conservan.
  */
 export function LegalQualificationsPage() {
+    usePageTitle('Calificaciones legales');
     const toast = useToast();
 
     /* El paginado y la búsqueda viven acá y se le pasan al hook: `DataTable`
@@ -245,7 +247,9 @@ export function LegalQualificationsPage() {
                         </Button>
                     </>
                 }
-                footer={
+                /* Sin datos no hay pie: mientras carga o si falló, decía "Sin
+                   resultados" (H-57). */
+                footer={query.isSuccess && (
                     <Pagination
                         page={pagination?.page ?? 1}
                         totalPages={pagination?.totalPages ?? 1}
@@ -254,17 +258,10 @@ export function LegalQualificationsPage() {
                         onChange={setPage}
                         onIntent={prefetchPage}
                     />
-                }
+                )}
             >
                 {query.isError ? (
-                    <div className="vz-empty">
-                        <div className="vz-empty__title">No se pudieron cargar las calificaciones</div>
-                        <div className="vz-empty__text">
-                            {isApiError(query.error)
-                                ? query.error.message
-                                : 'Ocurrió un error inesperado.'}
-                        </div>
-                    </div>
+                    <LoadError title="No se pudieron cargar las calificaciones" error={query.error} onRetry={() => void query.refetch()} retrying={query.isFetching} />
                 ) : (
                     <LegalQualificationsTable
                         loading={query.isPending}

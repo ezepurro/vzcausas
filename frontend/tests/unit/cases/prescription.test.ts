@@ -42,6 +42,16 @@ describe('prescripción de una causa', () => {
             expect(estimatedExpiry('2025-11-14', 78)).toBe('2032-05-14')
             expect(estimatedExpiry('2026-09-02', 24)).toBe('2028-09-02')
         })
+
+        /* H-14 de `docs/auditoria-front`: el backend deja el día en el último
+           del mes de destino; el front se pasaba al mes siguiente. */
+        it('si el mes de destino es más corto, queda en su último día', () => {
+            expect(estimatedExpiry('2024-08-31', 6)).toBe('2025-02-28')
+            expect(estimatedExpiry('2023-08-31', 6)).toBe('2024-02-29') // bisiesto
+            expect(estimatedExpiry('2024-01-31', 3)).toBe('2024-04-30')
+            expect(estimatedExpiry('2024-02-29', 12)).toBe('2025-02-28')
+            expect(estimatedExpiry('2024-10-31', 24)).toBe('2026-10-31')
+        })
     })
 
     /* D-112: cada calificación trae su estado. La barra muestra la que rige

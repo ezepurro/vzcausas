@@ -57,7 +57,7 @@ describe('RegisterProceduralActPage', () => {
         await user.click(screen.getByRole('button', { name: 'Registrar acto' }))
 
         expect(await screen.findByText('Detalle de la causa')).toBeInTheDocument()
-        expect(screen.getByRole('alert')).toHaveTextContent(
+        expect(screen.getByRole('status')).toHaveTextContent(
             'Acto registrado. La causa pasó a Cédula de notificación · vencimiento el 18/09/2026.',
         )
     })
@@ -82,7 +82,7 @@ describe('RegisterProceduralActPage', () => {
         await user.click(screen.getByRole('button', { name: 'Registrar acto' }))
 
         expect(await screen.findByText('Detalle de la causa')).toBeInTheDocument()
-        expect(screen.getByRole('alert')).toHaveTextContent('vencimiento el 25/09/2026')
+        expect(screen.getByRole('status')).toHaveTextContent('vencimiento el 25/09/2026')
     })
 
     it('un estado escrito a mano se registra sin plazo de tabla', async () => {
@@ -90,13 +90,13 @@ describe('RegisterProceduralActPage', () => {
 
         await user.type(await screen.findByRole('combobox'), 'Pedido de informes al Registro')
 
-        expect(screen.getByText(/Estado escrito a mano: queda guardado sólo en esta causa/)).toBeInTheDocument()
+        expect(screen.getByText(/Estado escrito a mano: queda guardado solo en esta causa/)).toBeInTheDocument()
         expect(screen.getByText('No tiene: estado escrito a mano')).toBeInTheDocument()
 
         await user.click(screen.getByRole('button', { name: 'Registrar acto' }))
 
         expect(await screen.findByText('Detalle de la causa')).toBeInTheDocument()
-        expect(screen.getByRole('alert')).toHaveTextContent('Acto registrado. La causa pasó a Pedido de informes al Registro.')
+        expect(screen.getByRole('status')).toHaveTextContent('Acto registrado. La causa pasó a Pedido de informes al Registro.')
     })
 
     it('enviado sin estado, marca el campo y no registra', async () => {
@@ -160,7 +160,7 @@ describe('RegisterProceduralActPage', () => {
     ])('a %s le avisa quién es el responsable, sin formulario', async (_, username) => {
         const { user } = renderPage(1, username)
 
-        expect(await screen.findByText('Sólo el abogado responsable registra actos procesales')).toBeInTheDocument()
+        expect(await screen.findByText('Solo el abogado responsable registra actos procesales')).toBeInTheDocument()
         expect(screen.getByText(/^El responsable de esta causa es .*Malena Ríos\.$/)).toBeInTheDocument()
         expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
 

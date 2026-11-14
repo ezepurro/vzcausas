@@ -1,12 +1,13 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { useBlocker, useNavigate, useParams } from 'react-router'
+import { usePageTitle } from '@/shared/hooks/usePageTitle'
 import { useCan } from '@/app/access/useCan'
 import { useCurrentUser } from '@/app/providers/AuthContext'
 import { useToast } from '@/app/providers/ToastContext'
 import { useGoBack } from '@/app/router/useGoBack'
 import { caseOperation } from '@/features/cases/utils/responsibleLawyer'
 import { isApiError } from '@/shared/api/ApiError'
-import { Breadcrumbs, Button, Modal, PageHeader, Panel, type BreadcrumbItem } from '@/shared/components/ui'
+import { Breadcrumbs, Button, LoadError, Modal, PageHeader, Panel, type BreadcrumbItem } from '@/shared/components/ui'
 import { useCase } from '@/features/cases/api/useCase'
 import { useCaseCover } from '@/features/cases/api/useCaseCover'
 import { useCaseEdit } from '@/features/cases/api/useCaseEdit'
@@ -60,6 +61,7 @@ export function GenerateCaseFilePage() {
     const goBack = useGoBack(`/causas/${caseId}`)
 
     const c = query.data
+    usePageTitle(c ? `Generar expediente · ${c.caption}` : 'Generar expediente')
     const crumbs: BreadcrumbItem[] = [
         { label: 'Causas', onClick: () => navigate('/causas') },
         { label: c ? sacLabel(c.sacNumber) : '…', onClick: c ? () => navigate(`/causas/${c.id}`) : undefined },
@@ -73,10 +75,9 @@ export function GenerateCaseFilePage() {
         body = <CaseDetailSkeleton />
     } else if (query.isError) {
         body = (
-            <Empty
-                title="No se pudo cargar la causa"
-                text={isApiError(query.error) ? query.error.message : 'Ocurrió un error inesperado.'}
-            />
+            <Panel>
+                <LoadError title="No se pudo cargar la causa" error={query.error} onRetry={() => void query.refetch()} retrying={query.isFetching} />
+            </Panel>
         )
     } else {
         body = <CaseFileGenerator case={query.data} />

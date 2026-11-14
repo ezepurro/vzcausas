@@ -1,14 +1,20 @@
 import type { FormEvent } from 'react'
 import { SUBJECT_MATTER_TEXT } from '@/features/cases/utils/subjectMatter'
+import { optionsFailedText } from '@/features/cases/utils/optionsNote'
 import { Button, Panel } from '@/shared/components/ui'
+import { SEARCH_MAX_LENGTH } from '@/shared/components/ui/SearchInput'
 import {
     Checkbox,
+    controlA11y,
     Field,
+    fieldIds,
     FormSection,
     SegmentedControl,
+    SearchSelect,
     Select,
     Textarea,
     TextInput,
+    type SearchSelectOption,
     type SelectOption,
 } from '@/shared/components/forms'
 import { todayIsoDate } from '@/shared/lib/dates'
@@ -57,9 +63,20 @@ export interface CaseFormProps {
      */
     templatesNote: string | null
     /** Los clientes, ya armados: `value` el id, `label` "GÓMEZ, Ariel Fernando · DNI …". */
-    clientOptions: SelectOption[]
+    clientOptions: SearchSelectOption[]
+    /** El rótulo del cliente elegido: puede no estar entre `clientOptions`, que cambian con la búsqueda. */
+    clientLabel: string | undefined
+    /** Lo que se escribe en el selector de cliente, para buscarlo en el servidor. */
+    onClientSearch: (text: string) => void
+    clientsLoading: boolean
+    /** "Se muestran 100 de 240 clientes…", o `null` si están todos. */
+    clientsNote: string | null
+    /** La lista de clientes no se pudo cargar. */
+    clientsFailed?: boolean
     /** Los abogados vigentes, ya armados. */
     lawyerOptions: SelectOption[]
+    /** La lista de abogados no se pudo cargar. */
+    lawyersFailed?: boolean
     /**
      * Las calificaciones elegidas, resueltas a partir de
      * `values.legalQualifications`: cada una con su nombre, su plazo y la fecha
@@ -67,7 +84,12 @@ export interface CaseFormProps {
      */
     selectedQualifications: SelectedQualification[]
     /** Las que todavía se pueden agregar. */
-    qualificationOptions: SelectOption[]
+    qualificationOptions: SearchSelectOption[]
+    onQualificationSearch: (text: string) => void
+    qualificationsLoading: boolean
+    qualificationsNote: string | null
+    /** La lista de calificaciones no se pudo cargar. */
+    qualificationsFailed?: boolean
     onAddQualification: (id: number) => void
     onRemoveQualification: (id: number) => void
     onOffenseDateChange: (id: number, offenseDate: string) => void
@@ -111,7 +133,8 @@ const TERM_DAY_TYPE_OPTIONS: SelectOption[] = (['BUSINESS', 'CONSECUTIVE'] as co
  */
 export function CaseForm({
     values, errors, onChange, onSacNumberChange, onJurisdictionChange, onCreateFolderChange,
-    templatesNote, clientOptions, lawyerOptions,
+    templatesNote, clientOptions, clientLabel, onClientSearch, clientsLoading, clientsNote, clientsFailed = false, lawyerOptions, lawyersFailed = false,
+    onQualificationSearch, qualificationsLoading, qualificationsNote, qualificationsFailed = false,
     selectedQualifications, qualificationOptions, onAddQualification, onRemoveQualification,
     onOffenseDateChange, onNewClient, onNewQualification,
     saving, onConfirm, onCancel,
@@ -143,10 +166,11 @@ export function CaseForm({
 
                     {/* El SAC es opcional (V3 D-33): la causa puede iniciarse antes de
                         que el Poder Judicial se lo asigne. */}
-                    <Field label="N° de SAC" width="half" htmlFor="case-sac" error={errors.sacNumber}
+                    <Field label="N° de SAC" width="half" htmlFor="case-sac" {...fieldIds('case-sac')} error={errors.sacNumber}
                         note="Opcional. Si se conoce, identifica la causa de forma única.">
                         <TextInput
                             id="case-sac"
+                            {...controlA11y('case-sac', errors.sacNumber, { note: true })}
                             mono
                             inputMode="numeric"
                             maxLength={CASE_MAX_LENGTH.sacNumber}
@@ -156,29 +180,32 @@ export function CaseForm({
                         />
                     </Field>
 
-                    <Field label="Fuero" required width="half" htmlFor="case-jurisdiction"
+                    <Field label="Fuero" required width="half" htmlFor="case-jurisdiction" {...fieldIds('case-jurisdiction')}
                         note="Define el ciclo de vida y la tabla de plazos aplicable.">
                         <Select
                             id="case-jurisdiction"
+                            {...controlA11y('case-jurisdiction', undefined, { note: true, required: true })}
                             options={JURISDICTION_OPTIONS}
                             value={values.jurisdiction}
                             onChange={(e) => onJurisdictionChange(e.target.value as Jurisdiction)}
                         />
                     </Field>
 
-                    <Field label="Carátula" required htmlFor="case-caption" error={errors.caption}
+                    <Field label="Carátula" required htmlFor="case-caption" {...fieldIds('case-caption')} error={errors.caption}
                         note="Podés usar la que sugiere el resumen, a partir del cliente y la calificación.">
                         <TextInput
                             id="case-caption"
+                            {...controlA11y('case-caption', errors.caption, { note: true, required: true })}
                             maxLength={CASE_MAX_LENGTH.caption}
                             value={values.caption}
                             onChange={(e) => onChange('caption', e.target.value)}
                         />
                     </Field>
 
-                    <Field label="Tribunal o dependencia" htmlFor="case-court" error={errors.court}>
+                    <Field label="Tribunal o dependencia" htmlFor="case-court" {...fieldIds('case-court')} error={errors.court}>
                         <TextInput
                             id="case-court"
+                            {...controlA11y('case-court', errors.court)}
                             placeholder="Juzgado de Control N° 3 · Córdoba"
                             maxLength={CASE_MAX_LENGTH.court}
                             value={values.court}
@@ -190,11 +217,12 @@ export function CaseForm({
                         como en el prototipo. El teléfono y el interno son dos
                         campos distintos (V3 D-33). */}
                     <div className="vz-form-row3">
-                        <Field label="Instructor de la causa" htmlFor="case-instructor"
+                        <Field label="Instructor de la causa" htmlFor="case-instructor" {...fieldIds('case-instructor')}
                             error={errors.instructorName}
                             note="Quien lleva la instrucción en el tribunal o la dependencia.">
                             <TextInput
                                 id="case-instructor"
+                                {...controlA11y('case-instructor', errors.instructorName, { note: true })}
                                 placeholder="Apellido y nombre del instructor"
                                 maxLength={CASE_MAX_LENGTH.instructorName}
                                 value={values.instructorName}
@@ -202,10 +230,11 @@ export function CaseForm({
                             />
                         </Field>
 
-                        <Field label="Teléfono" htmlFor="case-tribunal-phone"
+                        <Field label="Teléfono" htmlFor="case-tribunal-phone" {...fieldIds('case-tribunal-phone')}
                             error={errors.tribunalPhone}>
                             <TextInput
                                 id="case-tribunal-phone"
+                                {...controlA11y('case-tribunal-phone', errors.tribunalPhone)}
                                 type="tel"
                                 mono
                                 placeholder="0351 448-1200"
@@ -215,10 +244,11 @@ export function CaseForm({
                             />
                         </Field>
 
-                        <Field label="Interno" htmlFor="case-instructor-extension"
+                        <Field label="Interno" htmlFor="case-instructor-extension" {...fieldIds('case-instructor-extension')}
                             error={errors.instructorExtension}>
                             <TextInput
                                 id="case-instructor-extension"
+                                {...controlA11y('case-instructor-extension', errors.instructorExtension)}
                                 mono
                                 inputMode="numeric"
                                 maxLength={CASE_MAX_LENGTH.instructorExtension}
@@ -231,13 +261,22 @@ export function CaseForm({
 
                     <FormSection label="Cliente y rol procesal" />
 
-                    <Field label="Cliente" required htmlFor="case-client" error={errors.clientId}>
+                    <Field label="Cliente" required htmlFor="case-client" {...fieldIds('case-client')} error={errors.clientId}>
                         <div className="vz-field-row">
-                            <Select
+                            <SearchSelect
                                 id="case-client"
-                                options={[{ value: '', label: 'Seleccionar cliente…' }, ...clientOptions]}
+                                {...controlA11y('case-client', errors.clientId, { required: true })}
+                                placeholder="Seleccionar cliente…"
+                                emptyText={clientsFailed ? optionsFailedText('los clientes') : 'Ningún cliente coincide.'}
+                                clearLabel="Quitar el cliente elegido"
+                                maxLength={SEARCH_MAX_LENGTH}
+                                options={clientOptions}
                                 value={values.clientId}
-                                onChange={(e) => onChange('clientId', e.target.value)}
+                                selectedLabel={clientLabel}
+                                onSelect={(clientId) => onChange('clientId', clientId)}
+                                onSearch={onClientSearch}
+                                loading={clientsLoading}
+                                note={clientsNote}
                             />
                             <Button
                                 variant="secondary"
@@ -251,9 +290,11 @@ export function CaseForm({
 
                     {/* Sin htmlFor: un grupo de botones no se enlaza con un
                         <label>, así que el nombre va en el aria-label. */}
-                    <Field label="Rol procesal del cliente" required error={errors.proceduralRole}>
+                    <Field label="Rol procesal del cliente" required error={errors.proceduralRole}
+                        {...fieldIds('case-role')}>
                         <SegmentedControl
                             aria-label="Rol procesal del cliente"
+                            {...controlA11y('case-role', errors.proceduralRole, { required: true })}
                             options={roleOptions}
                             value={values.proceduralRole}
                             onChange={(value) => onChange('proceduralRole', value as ProceduralRole)}
@@ -265,12 +306,13 @@ export function CaseForm({
                            sin ninguna, y entonces no computa prescripción. */
                         <Field
                             label="Calificaciones legales"
-                            htmlFor="case-qualifications"
+                            htmlFor="case-qualifications" {...fieldIds('case-qualifications')}
                             error={errors.legalQualifications}
                             note="Si en la causa concurren varios delitos, agregá una calificación por cada uno: cada una tiene su propio plazo de prescripción, que corre desde la fecha del hecho."
                         >
                             <LegalQualificationPicker
                                 id="case-qualifications"
+                                {...controlA11y('case-qualifications', errors.legalQualifications, { note: true })}
                                 selected={selectedQualifications}
                                 options={qualificationOptions}
                                 onAdd={onAddQualification}
@@ -279,6 +321,10 @@ export function CaseForm({
                                 dateErrors={errors.offenseDates}
                                 maxDate={todayIsoDate()}
                                 onCreate={onNewQualification}
+                                onSearch={onQualificationSearch}
+                                loading={qualificationsLoading}
+                                note={qualificationsNote}
+                                failed={qualificationsFailed}
                             />
                         </Field>
                     )}
@@ -296,9 +342,10 @@ export function CaseForm({
 
                     {values.jurisdiction !== 'CRIMINAL' && (
                         <>
-                            <Field label="Contraparte u organismo" htmlFor="case-counterparty" error={errors.counterparty}>
+                            <Field label="Contraparte u organismo" htmlFor="case-counterparty" {...fieldIds('case-counterparty')} error={errors.counterparty}>
                                 <TextInput
                                     id="case-counterparty"
+                                    {...controlA11y('case-counterparty', errors.counterparty)}
                                     placeholder="APROSS, Provincia de Córdoba, Tribunal de Conducta…"
                                     maxLength={CASE_MAX_LENGTH.counterparty}
                                     value={values.counterparty}
@@ -309,13 +356,14 @@ export function CaseForm({
                             <Field
                                 label={SUBJECT_MATTER_TEXT[values.jurisdiction].label}
                                 required
-                                htmlFor="case-subject"
+                                htmlFor="case-subject" {...fieldIds('case-subject')}
                                 hint={`${values.subjectMatter.length} / ${SUBJECT_MATTER_MAX}`}
                                 error={errors.subjectMatter}
                                 note="Qué se reclama y por qué: el acto o la omisión que origina la causa y lo que se pide."
                             >
                                 <Textarea
                                     id="case-subject"
+                                    {...controlA11y('case-subject', errors.subjectMatter, { note: true, required: true })}
                                     rows={4}
                                     maxLength={SUBJECT_MATTER_MAX}
                                     placeholder={SUBJECT_MATTER_TEXT[values.jurisdiction].placeholder}
@@ -328,10 +376,11 @@ export function CaseForm({
 
                     {values.jurisdiction === 'ADMINISTRATIVE' && (
                         <Field label="Agotamiento de la vía administrativa" width="half"
-                            htmlFor="case-remedy-exhausted" error={errors.administrativeRemedyExhaustedOn}
+                            htmlFor="case-remedy-exhausted" {...fieldIds('case-remedy-exhausted')} error={errors.administrativeRemedyExhaustedOn}
                             note="Opcional. Dejalo vacío mientras la vía no se agotó.">
                             <TextInput
                                 id="case-remedy-exhausted"
+                                {...controlA11y('case-remedy-exhausted', errors.administrativeRemedyExhaustedOn, { note: true })}
                                 type="date"
                                 mono
                                 max={todayIsoDate()}
@@ -347,10 +396,12 @@ export function CaseForm({
 
                     <FormSection label="Asignación" />
 
-                    <Field label="Abogado responsable" required width="half" htmlFor="case-lawyer"
-                        error={errors.responsibleLawyerId}>
+                    <Field label="Abogado responsable" required width="half" htmlFor="case-lawyer" {...fieldIds('case-lawyer')}
+                        error={errors.responsibleLawyerId}
+                        note={lawyersFailed ? optionsFailedText('los abogados') : undefined}>
                         <Select
                             id="case-lawyer"
+                            {...controlA11y('case-lawyer', errors.responsibleLawyerId, { required: true, note: lawyersFailed })}
                             options={[{ value: '', label: 'Seleccionar responsable…' }, ...lawyerOptions]}
                             value={values.responsibleLawyerId}
                             onChange={(e) => onChange('responsibleLawyerId', e.target.value)}
@@ -358,11 +409,12 @@ export function CaseForm({
                     </Field>
 
                     {/* Va con el SAC (CA-18.2): obligatoria si lo hay, y sin él no se carga. */}
-                    <Field label="Fecha de inicio" required={hasSac} width="half" htmlFor="case-start"
+                    <Field label="Fecha de inicio" required={hasSac} width="half" htmlFor="case-start" {...fieldIds('case-start')}
                         error={errors.startDate}
                         note={hasSac ? undefined : 'Se carga junto con el N° de SAC.'}>
                         <TextInput
                             id="case-start"
+                            {...controlA11y('case-start', errors.startDate, { note: !hasSac, required: hasSac })}
                             type="date"
                             mono
                             disabled={!hasSac}
@@ -443,11 +495,12 @@ export function HarmfulActFields({
                 />
             </div>
 
-            <Field label="Fecha del acto lesivo" width="half" htmlFor="case-harmful-act-date"
+            <Field label="Fecha del acto lesivo" width="half" htmlFor="case-harmful-act-date" {...fieldIds('case-harmful-act-date')}
                 error={errors.harmfulActDate}
                 note="Opcional. Desde ella corre el plazo para presentar el amparo.">
                 <TextInput
                     id="case-harmful-act-date"
+                    {...controlA11y('case-harmful-act-date', errors.harmfulActDate, { note: true })}
                     type="date"
                     mono
                     max={todayIsoDate()}
@@ -459,10 +512,11 @@ export function HarmfulActFields({
             {hasDate && (
                 <>
                     <Field label="Plazo para presentar el amparo" required width="half"
-                        htmlFor="case-harmful-act-term" error={errors.harmfulActTermDays}>
+                        htmlFor="case-harmful-act-term" {...fieldIds('case-harmful-act-term')} error={errors.harmfulActTermDays}>
                         <div className="vz-field-row">
                             <TextInput
                                 id="case-harmful-act-term"
+                                {...controlA11y('case-harmful-act-term', errors.harmfulActTermDays, { required: true })}
                                 mono
                                 inputMode="numeric"
                                 placeholder="Días"
@@ -491,10 +545,11 @@ export function HarmfulActFields({
 
                     {values.harmfulActRenews && (
                         <Field label="Se renueva cada" required width="half"
-                            htmlFor="case-harmful-act-renewal" error={errors.harmfulActRenewalDays}
+                            htmlFor="case-harmful-act-renewal" {...fieldIds('case-harmful-act-renewal')} error={errors.harmfulActRenewalDays}
                             note="En días corridos, contados desde la fecha del acto lesivo.">
                             <TextInput
                                 id="case-harmful-act-renewal"
+                                {...controlA11y('case-harmful-act-renewal', errors.harmfulActRenewalDays, { note: true, required: true })}
                                 mono
                                 inputMode="numeric"
                                 placeholder="Días"

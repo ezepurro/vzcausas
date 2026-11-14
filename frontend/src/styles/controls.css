@@ -18,9 +18,15 @@
 }
 .vz-btn:disabled { cursor: not-allowed; }
 
-.vz-btn--primary { background: var(--vz-primary); color: #fff; }
+.vz-btn--primary { background: var(--vz-primary); color: var(--vz-on-primary); }
 .vz-btn--primary:hover:not(:disabled) { background: var(--vz-primary-hi); }
-.vz-btn--primary:disabled { background: var(--vz-border-strong); color: #fff; }
+/* Deshabilitado se tiene que poder leer: "Registrar causa" pasa buena parte
+   del alta así. Blanco sobre el gris del borde daba 1,66:1 (H-42). */
+.vz-btn--primary:disabled {
+  background: var(--vz-sunken);
+  border-color: var(--vz-border);
+  color: var(--vz-muted);
+}
 
 .vz-btn--secondary {
   background: var(--vz-surface);
@@ -55,7 +61,7 @@
    (base.css) le pondría el verde de los enlaces y el subrayado, y pesa más
    que la clase del botón. Al apuntarlo conserva el color de su variante. */
 a.vz-btn:hover { text-decoration: none; }
-a.vz-btn--primary:hover { color: #fff; }
+a.vz-btn--primary:hover { color: var(--vz-on-primary); }
 a.vz-btn--secondary:hover { color: var(--vz-ink); }
 a.vz-btn--danger:hover,
 a.vz-btn--ghost-danger:hover { color: var(--vz-danger-action); }
@@ -79,16 +85,23 @@ a.vz-btn--ghost:hover { color: var(--vz-ink); }
 .vz-label-row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
 .vz-label__hint { font-family: var(--vz-font-mono); font-size: 11.5px; color: var(--vz-faint); white-space: nowrap; }
 
+/* El borde es el fuerte: con `--vz-border` (1,31:1 sobre blanco) el límite de
+   un campo vacío casi no se veía (H-43). Las tarjetas y los paneles siguen
+   con el fino; un campo es algo que se busca para escribir. */
 .vz-input, .vz-select, .vz-textarea {
   width: 100%;
-  border: 1px solid var(--vz-border);
+  border: 1px solid var(--vz-border-strong);
   border-radius: var(--vz-r-sm);
   background: var(--vz-surface);
   color: var(--vz-ink);
   font-size: 13.5px;
 }
 .vz-input, .vz-select { height: 40px; padding: 0 12px; }
-.vz-select { padding-right: 34px; cursor: pointer; appearance: none;
+/* La flecha la comparte el select con filtro (`SearchSelect`), que es un
+   campo de texto y sin ella no se distingue de uno común. */
+.vz-select { padding-right: 34px; cursor: pointer; appearance: none; }
+.vz-select,
+.vz-combobox--select .vz-input {
   --vz-select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235A6560' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
   background-image: var(--vz-select-arrow);
   background-repeat: no-repeat; background-position: right 12px center;
@@ -96,9 +109,15 @@ a.vz-btn--ghost:hover { color: var(--vz-ink); }
 .vz-textarea { padding: 10px 12px; min-height: 84px; resize: vertical; line-height: 1.5; }
 
 .vz-input::placeholder, .vz-textarea::placeholder { color: var(--vz-faint); }
-.vz-input:hover, .vz-select:hover, .vz-textarea:hover { border-color: var(--vz-border-strong); }
+.vz-input:hover, .vz-select:hover, .vz-textarea:hover { border-color: var(--vz-faint); }
 .vz-input:disabled, .vz-select:disabled, .vz-textarea:disabled {
   background: var(--vz-sunken); color: var(--vz-faint); cursor: not-allowed;
+  /* Sin selección de texto: Chrome deja poner el cursor de escritura adentro
+     de un campo deshabilitado, y parecía que se podía escribir. */
+  user-select: none;
+}
+.vz-input:disabled:hover, .vz-select:disabled:hover, .vz-textarea:disabled:hover {
+  border-color: var(--vz-border-strong);
 }
 .vz-input--mono { font-family: var(--vz-font-mono); }
 
@@ -120,7 +139,7 @@ a.vz-btn--ghost:hover { color: var(--vz-ink); }
 
 .vz-field--error .vz-input,
 .vz-field--error .vz-select,
-.vz-field--error .vz-textarea { border-color: var(--vz-danger-bd); background: var(--vz-danger-bg); }
+.vz-field--error .vz-textarea { border-color: var(--vz-danger-bd); background-color: var(--vz-danger-bg); }
 
 .vz-note { font-size: 12px; color: var(--vz-faint); line-height: 1.45; }
 .vz-error { font-size: 12px; color: var(--vz-danger); font-weight: 600; }
@@ -210,6 +229,10 @@ a.vz-btn--ghost:hover { color: var(--vz-ink); }
   }
 
   .vz-select::picker-icon {
+    /* El mismo dibujo que la flecha de fondo: sin esto el navegador pone su
+       triángulo relleno, distinto del chevron del select con filtro (H-56). */
+    content: var(--vz-select-arrow);
+    display: flex;
     color: var(--vz-muted);
     transition: transform .15s ease;
   }
@@ -360,6 +383,38 @@ a.vz-btn--ghost:hover { color: var(--vz-ink); }
 .vz-combobox__check { color: var(--vz-primary); font-weight: 700; }
 .vz-combobox__empty { padding: 10px; font-size: 12.5px; color: var(--vz-faint); }
 
+/* Select con filtro (`SearchSelect`): la misma lista, y en el campo sólo se
+   elige. El rótulo elegido se corta con puntos si no entra. */
+.vz-combobox--select .vz-input { padding-right: 34px; text-overflow: ellipsis; }
+/* Con algo elegido, la "×" de quitar va a la izquierda de la flecha. */
+.vz-combobox--select.has-clear .vz-input { padding-right: 62px; }
+.vz-combobox__option[aria-selected="true"] .vz-combobox__label { font-weight: 600; }
+.vz-combobox__clear {
+  position: absolute;
+  top: 50%;
+  right: 30px;
+  transform: translateY(-50%);
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--vz-faint);
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+}
+.vz-combobox__clear:hover { background: var(--vz-sunken); color: var(--vz-ink); }
+.vz-combobox__note {
+  margin-top: 4px;
+  padding: 8px 10px 6px;
+  border-top: 1px solid var(--vz-border);
+  font-size: 12px;
+  color: var(--vz-faint);
+}
+
 /* ─────────── segmented control ─────────── */
 /* Botones pegados en una cápsula: se elige uno. Envuelve si no entran. */
 .vz-segmented {
@@ -406,6 +461,7 @@ a.vz-btn--ghost:hover { color: var(--vz-ink); }
 /* Un control con un botón al lado: "Cliente" + "Registrar cliente nuevo". */
 .vz-field-row { display: flex; gap: 8px; align-items: center; }
 .vz-field-row > .vz-select,
+.vz-field-row > .vz-combobox,
 .vz-field-row > .vz-input { flex: 1; min-width: 0; }
 
 /* En un formulario de página —Registrar causa, Registrar acto procesal— el
@@ -457,10 +513,18 @@ a.vz-btn--ghost:hover { color: var(--vz-ink); }
 
   .vz-form-grid > .vz-form-row3 { grid-template-columns: minmax(0, 1fr); }
 
+  /* Con el dedo, un botón de 28px se erra: los chicos suben a 36 (H-25,
+     H-52). Los que ya tienen su alto en el teléfono —acciones de una ficha,
+     paginado, chips de filtro— lo conservan, porque sus reglas pesan más. */
+  .vz-btn--sm { height: 36px; padding: 0 14px; font-size: 13px; }
+
   /* El botón de al lado baja a su renglón: al costado dejaba al desplegable
      sin lugar para mostrar lo elegido. */
   .vz-field-row { flex-wrap: wrap; }
+  /* El select con filtro también: sin ancho natural, al lado del botón
+     quedaba de 34px en vez de bajar el botón. */
   .vz-field-row > .vz-select,
+  .vz-field-row > .vz-combobox,
   .vz-field-row > .vz-input { flex: 1 1 100%; }
   .vz-field-row > .vz-btn { flex: 1 1 auto; }
 

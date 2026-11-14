@@ -49,6 +49,7 @@ prototipo.
 | D-137 | `availableFrom` es configuración del servidor y se fija al desplegar el reporte | Decidido por el equipo al definir que hay reportes desde que el reporte funciona (C-45); no queda nada por decidir |
 | D-138 | En el PDF del reporte los abogados se nombran como `Apellido, Nombres`, sin "Dr." ni "Dra." | Decisión del equipo (C-46). El sistema no sabe el tratamiento de cada abogado (C-13) |
 | D-139 | El nombre de un modelo formal dado de baja queda libre: la unicidad (D-71) cuenta solo los vigentes | Confirmado por el equipo (C-47). Mismo criterio que el SAC (D-97) y el documento del cliente |
+| D-140 | **(Revisión del 13/11/2026)** El vencimiento de la prescripción suma meses de calendario: si el mes de destino no tiene el día de inicio, vence su último día (31/08 más 6 meses → 28/02, o 29/02 en año bisiesto) | Decisión del equipo del 13/11/2026, a partir de la auditoría del front (H-14). El contrato decía solo "más esos meses"; el backend ya lo calculaba así (`addPrescriptionMonths`, `backend/src/subsystems/cases/core/domain/prescription.ts`) y el prototipo se pasaba al mes siguiente (03/03) |
 
 **Revisión del 12/11/2026.** Propuesta del equipo de backend, **pendiente de
 confirmar con el resto del equipo** (C-48 del contrato, §7.1).
@@ -417,6 +418,14 @@ tiene ese código en `frontend/src/shared/api/contract.ts` y en los *mocks*
 - **ADR-003.** §4.1 se cierra con `drive.readonly` (C-24), y la regla de que la
   carpeta no se mueve ni se renombra cambia con D-104. Además, §2.3 y §4 citan
   "C-45" para los correos que no son de Google: es C-23.
+
+### Impacto de la revisión del 13/11/2026
+
+D-140 no cambia ningún comportamiento: escribe la regla que el backend ya
+aplicaba. El front (`estimatedExpiry`, la estimación del resumen del alta) y
+el mock (`frontend/src/shared/mocks/calendar.ts`) la siguen desde la
+auditoría del front (H-14, `docs/auditoria-front/RESUMEN_GENERAL.md`). Sin
+migración, sin cambios de tipos ni de respuestas.
 
 ### Impacto de la revisión del 08/11/2026
 

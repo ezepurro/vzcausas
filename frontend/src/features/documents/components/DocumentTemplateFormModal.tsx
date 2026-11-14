@@ -35,6 +35,7 @@ export function DocumentTemplateFormModal({
             title="Registrar modelo formal"
             sub="Subí el modelo en Word (.docx, hasta 10 MB) y elegí los fueros en los que se usa."
             onClose={onCancel}
+            dismissOnBackdrop={false}
             footer={
                 <>
                     <Button variant="secondary" size="md" onClick={onCancel}>Cancelar</Button>

@@ -36,6 +36,11 @@ export async function listLegalQualifications(
     return response.data;
 }
 
+export async function getLegalQualification(id: number): Promise<LegalQualification> {
+    const response = await http.get<ApiItem<LegalQualification>>(`${BASE}/${id}`);
+    return response.data.data;
+}
+
 export async function createLegalQualification(
     body: CreateLegalQualificationBody,
 ): Promise<CreatedLegalQualification> {

@@ -1,6 +1,6 @@
 import type { FormEvent } from 'react'
 import { Button, Icon } from '@/shared/components/ui'
-import { Field, PasswordInput, TextInput } from '@/shared/components/forms'
+import { controlA11y, Field, fieldIds, PasswordInput, TextInput } from '@/shared/components/forms'
 import type { LoginFormValues } from '@/features/auth/types/credentials'
 import type { LoginErrors } from '@/features/auth/schemas/login.schema'
 
@@ -52,9 +52,12 @@ export function LoginForm({
             )}
 
             <div className="vz-login__fields">
-                <Field label="Usuario" error={errors.username} htmlFor="login-username">
+                {/* Cada control queda unido a su error (H-58): sin esto un lector
+                    de pantalla no se enteraba de que el campo estaba vacío. */}
+                <Field label="Usuario" error={errors.username} htmlFor="login-username" {...fieldIds('login-username')}>
                     <TextInput
                         id="login-username"
+                        {...controlA11y('login-username', errors.username)}
                         type="text"
                         autoComplete="username"
                         autoFocus
@@ -64,9 +67,10 @@ export function LoginForm({
                     />
                 </Field>
 
-                <Field label="Contraseña" error={errors.password} htmlFor="login-password">
+                <Field label="Contraseña" error={errors.password} htmlFor="login-password" {...fieldIds('login-password')}>
                     <PasswordInput
                         id="login-password"
+                        {...controlA11y('login-password', errors.password)}
                         autoComplete="current-password"
                         placeholder=""
                         disabled={submitting}

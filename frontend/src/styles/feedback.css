@@ -1,4 +1,4 @@
-/* Píldoras, pestañas, modal, estado vacío. */
+/* Píldoras, pestañas, modal, avisos, estado vacío. */
 
 /* ─────────── píldora de estado ─────────── */
 .vz-pill {
@@ -77,8 +77,31 @@
 .vz-modal--sm { max-width: 420px; }
 .vz-modal--lg { max-width: 720px; }
 
-.vz-modal__head { padding: 20px 24px 16px; border-bottom: 1px solid var(--vz-border); }
+.vz-modal__head { position: relative; padding: 20px 56px 16px 24px; border-bottom: 1px solid var(--vz-border); }
 .vz-modal__title { font-size: 17px; }
+/* La "×" de la cabecera (H-44). Alineada con el título; el foco usa el
+   contorno general de `base.css`. */
+.vz-modal__close {
+  position: absolute;
+  top: 15px;
+  right: 16px;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--vz-r-sm);
+  background: transparent;
+  color: var(--vz-muted);
+  font: inherit;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color .12s, color .12s;
+}
+.vz-modal__close:hover { background: var(--vz-sunken); color: var(--vz-ink); }
+.vz-modal__close:active { background: var(--vz-border); }
 .vz-modal__sub { margin: 5px 0 0; font-size: 13px; color: var(--vz-muted); }
 .vz-modal__body {padding: 22px 24px; overflow-y: auto; overscroll-behavior: contain;}
 .vz-modal__note {
@@ -112,6 +135,10 @@
 }
 .vz-empty__title { font-size: 15px; font-weight: 700; color: var(--vz-ink); }
 .vz-empty__text { font-size: 13px; max-width: 380px; text-wrap: pretty; }
+/* Un error de carga (`LoadError`): el título y el mensaje van juntos en el
+   `alert`, y "Reintentar" queda debajo, separado. */
+.vz-empty__message { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.vz-empty__action { margin-top: 8px; }
 
 /* ─────────── recuadro destacado ─────────── */
 /* Un dato que se propone o se resalta dentro de un panel: la carátula
@@ -146,11 +173,88 @@
   color: var(--vz-muted);
 }
 
+/* ─────────── avisos ─────────── */
+/* La pila de avisos (`ToastProvider`): hasta dos, apilados desde abajo y al
+   centro de la pantalla, sobre todo lo demás —modales incluidos—. Oscuros
+   como el rail, así se despegan de cualquier pantalla. */
+.vz-toasts {
+  position: fixed;
+  bottom: 22px;
+  /* De borde a borde, con los avisos centrados adentro. Antes la pila se
+     centraba con `left: 50%` y eso le dejaba como mucho media pantalla: en un
+     teléfono de 320px un aviso se partía en seis renglones. La pila no
+     recibe el mouse —ocupa todo el ancho y taparía lo de abajo—; cada aviso
+     sí. */
+  left: 16px;
+  right: 16px;
+  pointer-events: none;
+  z-index: 95;
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: center;
+  gap: 8px;
+  /* Fondo oscuro: el foco va en claro (H-34). */
+  --vz-focus: var(--vz-rail-fg-on);
+}
+.vz-toast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(520px, 100%);
+  pointer-events: auto;
+  padding: 8px 8px 8px 12px;
+  /* Una cápsula con un renglón; con dos —un error del servidor—, una tarjeta
+     redondeada: el radio de píldora le comía las esquinas al texto. */
+  border-radius: 22px;
+  background: var(--vz-rail);
+  color: var(--vz-rail-fg-on);
+  font-size: 13px;
+  box-shadow: var(--vz-pop-sh);
+}
+.vz-toast__icon {
+  display: flex;
+  flex: 0 0 18px;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+.vz-toast--success .vz-toast__icon { background: var(--vz-ok-bd); color: var(--vz-ok); }
+.vz-toast--error .vz-toast__icon { background: var(--vz-danger-bd); color: var(--vz-danger); }
+.vz-toast--info .vz-toast__icon { background: var(--vz-border); color: var(--vz-rail); }
+.vz-toast__message { flex: 1; margin: 0; line-height: 1.4; }
+.vz-toast__close {
+  flex: 0 0 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  color: var(--vz-rail-fg);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+.vz-toast__close:hover { color: var(--vz-rail-fg-on); background: var(--vz-rail-on-bg); }
+
 /* ─────────── teléfono ─────────── */
 @media (max-width: 720px) {
+  .vz-toasts { bottom: 14px; left: 10px; right: 10px; }
+  .vz-toast__close { flex-basis: 36px; width: 36px; height: 36px; }
+
   .vz-modal-backdrop { padding: 10px 8px; }
   .vz-modal { max-height: calc(100vh - 20px); max-height: calc(100dvh - 20px); }
-  .vz-modal__head { padding: 16px 16px 14px; }
+  .vz-modal__head { padding: 16px 56px 14px 16px; }
+  /* Con el dedo: 40px, como el resto de los controles del teléfono. */
+  .vz-modal__close { top: 8px; right: 8px; width: 40px; height: 40px; }
   .vz-modal__body { padding: 16px; }
   .vz-modal__foot { padding: 12px 16px; flex-wrap: wrap; }
   .vz-modal__foot .vz-btn { flex: 1 1 auto; height: 42px; }

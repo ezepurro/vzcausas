@@ -1,5 +1,5 @@
-import type { ReactNode } from 'react'
-import { Button, LoadingState, Panel, Pill } from '@/shared/components/ui'
+import { useId, type ReactNode } from 'react'
+import { Button, LoadError, LoadingState, Panel, Pill } from '@/shared/components/ui'
 import { TimelineSkeleton } from '@/features/cases/components/CaseSkeletons'
 import { formatDate, formatDateTime } from '@/shared/lib/dates'
 import { formatPersonFullName } from '@/shared/lib/personName'
@@ -17,18 +17,32 @@ export interface CaseTimelineProps {
     /** Las entradas tal como las manda el backend, de la más reciente a la más antigua. */
     entries: TimelineEntry[] | undefined
     loading: boolean
-    /** El mensaje del servidor si no cargó; se muestra dentro del panel. */
-    error: string | null
+    /** El error de la consulta si no cargó (`null` si cargó); se muestra dentro del panel. */
+    error: unknown
+    /** Vuelve a pedir la línea de vida. */
+    onRetry: () => void
+    /** Se está volviendo a pedir. */
+    retrying: boolean
     /** Sólo el abogado responsable registra el primer acto (D-30). */
     canRegisterAct: boolean
+    /** El id de la nota que explica por qué "Registrar el primer acto" está deshabilitado. */
+    registerNoteId?: string
     onRegisterAct: () => void
     /**
      * Si los actos procesales ofrecen "Modificar" (HU28). En una causa
      * prescripta no se ofrece: sus actos no se modifican (D-99).
      */
     canModifyActs: boolean
-    /** "Modificar" en un acto: la pantalla decide si avisa o navega. */
+    /** "Modificar" en un acto. */
     onModifyAct: (act: ProceduralAct) => void
+    /**
+     * Por qué no se pueden modificar los actos, o `null` si se puede. Con
+     * texto, cada "Modificar" va deshabilitado y la nota se muestra arriba de
+     * la lista, unida a ellos: sólo el responsable los modifica (D-30). Antes
+     * el botón estaba para todos y avisaba al tocarlo; ahora sigue el criterio
+     * de "Registrar acto procesal" (tanda 15 de `docs/auditoria-front`).
+     */
+    modifyBlockedNote?: string | null
 }
 
 /**
@@ -40,8 +54,11 @@ export interface CaseTimelineProps {
  * el prototipo, es HU29 y queda fuera del contrato: no se dibuja.
  */
 export function CaseTimeline({
-    entries, loading, error, canRegisterAct, onRegisterAct, canModifyActs, onModifyAct,
+    entries, loading, error, onRetry, retrying, canRegisterAct, registerNoteId, onRegisterAct, canModifyActs, onModifyAct,
+    modifyBlockedNote = null,
 }: CaseTimelineProps) {
+    const modifyNoteId = useId()
+    const blocked = canModifyActs && modifyBlockedNote !== null
     let body: ReactNode
     if (loading) {
         body = (
@@ -49,13 +66,8 @@ export function CaseTimeline({
                 <TimelineSkeleton />
             </LoadingState>
         )
-    } else if (error !== null) {
-        body = (
-            <div className="vz-empty">
-                <div className="vz-empty__title">No se pudo cargar el ciclo de vida</div>
-                <div className="vz-empty__text">{error}</div>
-            </div>
-        )
+    } else if (error != null) {
+        body = <LoadError title="No se pudo cargar el ciclo de vida" error={error} onRetry={onRetry} retrying={retrying} />
     } else if (!entries || entries.length === 0) {
         // La causa está en "Iniciada": no es un error (CA-27.14).
         body = (
@@ -64,22 +76,31 @@ export function CaseTimeline({
                 <p className="vz-timeline__empty-text">
                     El ciclo de vida empieza con el primer acto procesal: ese acto fija el estado de la causa.
                 </p>
-                <Button size="md" disabled={!canRegisterAct} onClick={onRegisterAct}>
+                <Button
+                    size="md"
+                    disabled={!canRegisterAct}
+                    aria-describedby={canRegisterAct ? undefined : registerNoteId}
+                    onClick={onRegisterAct}
+                >
                     Registrar el primer acto
                 </Button>
             </div>
         )
     } else {
         body = (
-            <ol className="vz-timeline">
-                {entries.map((entry) => (
-                    <TimelineItem
-                        key={entryKey(entry)}
-                        entry={entry}
-                        onModifyAct={canModifyActs ? onModifyAct : undefined}
-                    />
-                ))}
-            </ol>
+            <>
+                {blocked && <p className="vz-note vz-timeline__note" id={modifyNoteId}>{modifyBlockedNote}</p>}
+                <ol className="vz-timeline">
+                    {entries.map((entry) => (
+                        <TimelineItem
+                            key={entryKey(entry)}
+                            entry={entry}
+                            onModifyAct={canModifyActs ? onModifyAct : undefined}
+                            modifyNoteId={blocked ? modifyNoteId : undefined}
+                        />
+                    ))}
+                </ol>
+            </>
         )
     }
 
@@ -103,12 +124,14 @@ function entryKey(entry: TimelineEntry): string {
     }
 }
 
-function TimelineItem({ entry, onModifyAct }: {
+function TimelineItem({ entry, onModifyAct, modifyNoteId }: {
     entry: TimelineEntry
     onModifyAct: ((act: ProceduralAct) => void) | undefined
+    /** Con id, "Modificar" va deshabilitado y lo explica esa nota. */
+    modifyNoteId: string | undefined
 }) {
     switch (entry.type) {
-        case 'PROCEDURAL_ACT': return <ProceduralActItem entry={entry} onModify={onModifyAct} />
+        case 'PROCEDURAL_ACT': return <ProceduralActItem entry={entry} onModify={onModifyAct} blockedNoteId={modifyNoteId} />
         case 'INTERRUPTIVE_ACT': return <InterruptiveActItem entry={entry} />
         case 'QUALIFICATION_PRESCRIPTION_DECLARATION': return <QualificationPrescriptionItem entry={entry} />
         case 'PRESCRIPTION_DECLARATION': return <PrescriptionItem entry={entry} />
@@ -127,9 +150,10 @@ function TimelineItem({ entry, onModifyAct }: {
  *
  * Si se modificó, el pie lo dice con quién y cuándo (CA-28.10).
  */
-function ProceduralActItem({ entry, onModify }: {
+function ProceduralActItem({ entry, onModify, blockedNoteId }: {
     entry: TimelineProceduralActEntry
     onModify: ((act: ProceduralAct) => void) | undefined
+    blockedNoteId: string | undefined
 }) {
     const act = entry.proceduralAct
     const deadline = act.deadline
@@ -169,7 +193,15 @@ function ProceduralActItem({ entry, onModify }: {
             />
             {onModify && (
                 <div className="vz-timeline__actions">
-                    <Button variant="ghost" size="sm" onClick={() => onModify(act)}>Modificar</Button>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={blockedNoteId !== undefined}
+                        aria-describedby={blockedNoteId}
+                        onClick={() => onModify(act)}
+                    >
+                        Modificar
+                    </Button>
                 </div>
             )}
         </Item>

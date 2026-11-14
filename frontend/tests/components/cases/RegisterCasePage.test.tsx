@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { screen, waitFor, within } from '@testing-library/react'
 import { http, HttpResponse } from 'msw'
 import { renderWithProviders } from '../../setup/render'
+import { chooseOption } from '../../setup/searchSelect'
 import { server } from '@/shared/mocks/server'
 import { CASE_SEEDS, db, errorBody, resetMockDb } from '@/shared/mocks'
 import { RegisterCasePage } from '@/features/cases/pages/RegisterCasePage'
@@ -19,10 +20,10 @@ import { RegisterCasePage } from '@/features/cases/pages/RegisterCasePage'
  */
 
 /** El cliente 1 y la abogada 3 de los fixtures. */
-const CLIENT_GOMEZ = '1'
+const CLIENT_GOMEZ = 'GÓMEZ, Ariel Fernando · DNI 34.812.905'
 const LAWYER_RIOS = '3'
 /** Robo calificado, 96 meses. */
-const ROBBERY = '1'
+const ROBBERY = /^Robo calificado/
 
 /** El aviso del alta, como lo escribe el prototipo. */
 // Desde V4 la carpeta se crea por defecto, con los 6 modelos del penal (CA-39.1, CA-40.2).
@@ -43,15 +44,15 @@ function renderPage(as = 'gestion') {
 
 type User = ReturnType<typeof renderPage>['user']
 
-/** Espera a que lleguen los clientes: hasta entonces el select está vacío. */
+/** Espera a que lleguen los abogados: hasta entonces su select está vacío. */
 async function waitForOptions() {
-    await screen.findByRole('option', { name: 'GÓMEZ, Ariel Fernando · DNI 34.812.905' })
+    await screen.findByRole('option', { name: /^Ríos, Malena/ })
 }
 
 /** Lo mínimo que una causa penal necesita, sin calificaciones (CA-18.5). */
 async function fillMinimum(user: User, caption = 'GÓMEZ, Ariel Fernando p.s.a. Robo calificado') {
     await waitForOptions()
-    await user.selectOptions(screen.getByLabelText(/^Cliente/), CLIENT_GOMEZ)
+    await chooseOption(user, screen.getByLabelText(/^Cliente/), CLIENT_GOMEZ)
     await user.selectOptions(screen.getByLabelText(/^Abogado responsable/), LAWYER_RIOS)
     await user.type(screen.getByLabelText(/^Carátula/), caption)
 }
@@ -83,7 +84,7 @@ describe('RegisterCasePage', () => {
             await fillMinimum(user)
 
             await fillSac(user, '14200315')
-            await user.selectOptions(screen.getByLabelText(/^Calificaciones legales/), ROBBERY)
+            await chooseOption(user, screen.getByLabelText(/^Calificaciones legales/), ROBBERY)
             const offenseDate = screen.getByLabelText(/^Fecha del hecho de Robo calificado/)
             await user.clear(offenseDate)
             await user.type(offenseDate, '2021-02-27')
@@ -112,7 +113,7 @@ describe('RegisterCasePage', () => {
             await waitForOptions()
 
             await user.selectOptions(screen.getByLabelText(/^Fuero/), 'AMPARO')
-            await user.selectOptions(screen.getByLabelText(/^Cliente/), '6')
+            await chooseOption(user, screen.getByLabelText(/^Cliente/), /^MOYANO, Daniela/)
             await user.selectOptions(screen.getByLabelText(/^Abogado responsable/), '1')
             await user.type(screen.getByLabelText(/^Carátula/), 'MOYANO, Daniela c/ APROSS — Amparo')
             await user.type(screen.getByLabelText(/^Contraparte u organismo/), 'APROSS')
@@ -251,8 +252,8 @@ describe('RegisterCasePage', () => {
         it('"Usar esta carátula" la copia al campo', async () => {
             const { user } = renderPage()
             await waitForOptions()
-            await user.selectOptions(screen.getByLabelText(/^Cliente/), CLIENT_GOMEZ)
-            await user.selectOptions(screen.getByLabelText(/^Calificaciones legales/), ROBBERY)
+            await chooseOption(user, screen.getByLabelText(/^Cliente/), CLIENT_GOMEZ)
+            await chooseOption(user, screen.getByLabelText(/^Calificaciones legales/), ROBBERY)
 
             await user.click(screen.getByRole('button', { name: 'Usar esta carátula' }))
 
@@ -293,7 +294,8 @@ describe('RegisterCasePage', () => {
 
             await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
             const client = db.clients.find((c) => c.lastName === 'ALBORNOZ')!
-            expect(screen.getByLabelText(/^Cliente/)).toHaveValue(String(client.id))
+            expect(screen.getByLabelText(/^Cliente/)).toHaveValue(`ALBORNOZ, Bruno · DNI 35.778.120`)
+            expect(client).toBeDefined()
             // Y ya sugiere la carátula con él.
             expect(screen.getByText('ALBORNOZ, Bruno p.s.a. …')).toBeInTheDocument()
         })
@@ -311,6 +313,87 @@ describe('RegisterCasePage', () => {
 
             await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
             expect(screen.getByLabelText(/^Fecha del hecho de Estafa — art\. 172 CP/)).toBeInTheDocument()
+        })
+    })
+
+    /* El listado llega de a 100 (el `limit` máximo del contrato). Con más
+       registros que eso, lo que no entraba en la primera página no se podía
+       elegir, y una calificación recién registrada se mostraba como dada de
+       baja (H-03 y H-28 de `docs/auditoria-front`). */
+    describe('con más de 100 clientes o calificaciones', () => {
+        /** 110 que quedan primeros en el orden alfabético: empujan a los reales fuera de la página. */
+        function seedClientsBefore() {
+            const template = db.clients[0]
+            for (let i = 0; i < 110; i++) {
+                db.clients.push({
+                    ...template,
+                    id: 5000 + i,
+                    lastName: `AAPRUEBA${String(i).padStart(3, '0')}`,
+                    firstName: 'Cliente',
+                    documentNumber: String(41000000 + i),
+                })
+            }
+        }
+
+        function seedQualificationsBefore() {
+            const template = db.legalQualifications[0]
+            for (let i = 0; i < 110; i++) {
+                db.legalQualifications.push({
+                    ...template,
+                    id: 5000 + i,
+                    name: `Aa prueba ${String(i).padStart(3, '0')} — art. ${700 + i} CP`,
+                })
+            }
+        }
+
+        it('un cliente que no entra en los primeros 100 se encuentra escribiendo', async () => {
+            seedClientsBefore()
+            const { user } = renderPage()
+            await waitForOptions()
+
+            const field = screen.getByLabelText(/^Cliente/)
+            await user.click(field)
+            await screen.findByRole('option', { name: /^AAPRUEBA000/ })
+            expect(screen.queryByRole('option', { name: CLIENT_GOMEZ })).not.toBeInTheDocument()
+            expect(screen.getByText(/^Se muestran 100 de \d+ clientes\. Escribí para buscar entre todos\.$/)).toBeInTheDocument()
+
+            await user.type(field, 'gomez')
+            await user.click(await screen.findByRole('option', { name: CLIENT_GOMEZ }))
+
+            expect(field).toHaveValue(CLIENT_GOMEZ)
+            // Y el resumen ya lo conoce: sugiere la carátula con él.
+            expect(await screen.findByText('GÓMEZ, Ariel Fernando p.s.a. …')).toBeInTheDocument()
+        })
+
+        it('una calificación que no entra en las primeras 100 se encuentra escribiendo', async () => {
+            seedQualificationsBefore()
+            const { user } = renderPage()
+            await waitForOptions()
+
+            const field = screen.getByLabelText(/^Calificaciones legales/)
+            await user.type(field, 'robo calif')
+            await user.click(await screen.findByRole('option', { name: ROBBERY }))
+
+            expect(await screen.findByLabelText(/^Fecha del hecho de Robo calificado/)).toBeInTheDocument()
+            // Sigue ahí cuando la búsqueda se vacía y el listado vuelve a no traerla.
+            await waitFor(() => expect(screen.queryByText('Calificación dada de baja')).not.toBeInTheDocument())
+            expect(screen.getByLabelText(/^Fecha del hecho de Robo calificado/)).toBeInTheDocument()
+        })
+
+        it('la calificación recién registrada no se muestra como dada de baja', async () => {
+            seedQualificationsBefore()
+            const { user } = renderPage()
+            await waitForOptions()
+
+            await user.click(screen.getByRole('button', { name: 'Registrar calificación nueva' }))
+            const dialog = screen.getByRole('dialog')
+            await user.type(within(dialog).getByLabelText(/^Nombre de la calificación legal/), 'Zz tardía — art. 999 CP')
+            await user.type(within(dialog).getByLabelText(/^Años/), '3')
+            await user.click(within(dialog).getByRole('button', { name: 'Registrar calificación' }))
+
+            await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+            expect(await screen.findByLabelText(/^Fecha del hecho de Zz tardía — art\. 999 CP/)).toBeInTheDocument()
+            expect(screen.queryByText('Calificación dada de baja')).not.toBeInTheDocument()
         })
     })
 

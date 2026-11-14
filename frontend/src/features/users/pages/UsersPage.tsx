@@ -12,6 +12,7 @@ import {
     Pagination,
     Panel,
     SearchInput,
+    LoadError,
 } from '@/shared/components/ui'
 import { Select, type SelectOption } from '@/shared/components/forms'
 import { useLawyers } from '@/features/lawyers'
@@ -37,6 +38,7 @@ import { UserFormModal } from '@/features/users/components/UserFormModal'
 import { DeleteUserModal } from '@/features/users/components/DeleteUserModal'
 import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue'
 import { formatPersonName } from '@/shared/lib/personName'
+import { usePageTitle } from '@/shared/hooks/usePageTitle'
 const LIMIT = 20
 
 /** El "sin filtro" del select de perfil. Cadena vacía, que es lo que no viaja. */
@@ -70,6 +72,7 @@ const EMPTY_FORM: UserFormValues = {
 }
 
 export function UsersPage() {
+    usePageTitle('Usuarios')
     const toast = useToast()
     const navigate = useNavigate()
     const currentUser = useCurrentUser()
@@ -322,7 +325,9 @@ export function UsersPage() {
                         </Button>
                     </>
                 }
-                footer={
+                /* Sin datos no hay pie: mientras carga o si falló, decía "Sin
+                   resultados" (H-57). */
+                footer={query.isSuccess && (
                     <Pagination
                         page={pagination?.page ?? 1}
                         totalPages={pagination?.totalPages ?? 1}
@@ -331,17 +336,10 @@ export function UsersPage() {
                         onChange={setPage}
                         onIntent={prefetchPage}
                     />
-                }
+                )}
             >
                 {query.isError ? (
-                    <div className="vz-empty">
-                        <div className="vz-empty__title">No se pudieron cargar los usuarios</div>
-                        <div className="vz-empty__text">
-                            {isApiError(query.error)
-                                ? query.error.message
-                                : 'Ocurrió un error inesperado.'}
-                        </div>
-                    </div>
+                    <LoadError title="No se pudieron cargar los usuarios" error={query.error} onRetry={() => void query.refetch()} retrying={query.isFetching} />
                 ) : (
                     <UsersTable
                         loading={query.isPending}

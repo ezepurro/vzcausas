@@ -4,9 +4,10 @@ import { useCurrentUser } from '@/app/providers/AuthContext'
 import { useToast } from '@/app/providers/ToastContext'
 import { useGoBack } from '@/app/router/useGoBack'
 import { isApiError } from '@/shared/api/ApiError'
-import { Breadcrumbs, Button, LoadingState, Panel, type BreadcrumbItem } from '@/shared/components/ui'
+import { Breadcrumbs, Button, LoadError, LoadingState, Panel, type BreadcrumbItem } from '@/shared/components/ui'
 import type { ComboboxOption } from '@/shared/components/forms'
 import { useFocusFirstError } from '@/shared/hooks/useFocusFirstError'
+import { usePageTitle } from '@/shared/hooks/usePageTitle'
 import { formatDate, todayIsoDate } from '@/shared/lib/dates'
 import { formatPersonFullName } from '@/shared/lib/personName'
 import {
@@ -83,6 +84,7 @@ export function RegisterProceduralActPage() {
     const title = editing ? 'Modificar acto procesal' : 'Registrar acto procesal'
 
     const c = caseQuery.data
+    usePageTitle(c ? `${title} · ${c.caption}` : title)
     const crumbs: BreadcrumbItem[] = [
         { label: 'Causas', onClick: () => navigate('/causas') },
         ...(c ? [{ label: c.sacNumber ?? NO_SAC_LABEL, onClick: () => navigate(`/causas/${c.id}`) }] : []),
@@ -103,17 +105,15 @@ export function RegisterProceduralActPage() {
         )
     } else if (caseQuery.isError) {
         body = (
-            <Empty
-                title="No se pudo cargar la causa"
-                text={isApiError(caseQuery.error) ? caseQuery.error.message : 'Ocurrió un error inesperado.'}
-            />
+            <Panel>
+                <LoadError title="No se pudo cargar la causa" error={caseQuery.error} onRetry={() => void caseQuery.refetch()} retrying={caseQuery.isFetching} />
+            </Panel>
         )
     } else if (editing && actQuery.isError) {
         body = (
-            <Empty
-                title="No se pudo cargar el acto procesal"
-                text={isApiError(actQuery.error) ? actQuery.error.message : 'Ocurrió un error inesperado.'}
-            />
+            <Panel>
+                <LoadError title="No se pudo cargar el acto procesal" error={actQuery.error} onRetry={() => void actQuery.refetch()} retrying={actQuery.isFetching} />
+            </Panel>
         )
     } else {
         // La clave rearma el formulario si se pasa de un acto a otro sin desmontar la ruta.
@@ -280,7 +280,7 @@ function RegisterProceduralAct({ case: c, act }: { case: Case; act?: ProceduralA
     if (!isResponsibleLawyer(c, lawyer?.id ?? null)) {
         content = (
             <Empty
-                title={act ? 'Sólo el abogado responsable modifica actos procesales' : 'Sólo el abogado responsable registra actos procesales'}
+                title={act ? 'Solo el abogado responsable modifica actos procesales' : 'Solo el abogado responsable registra actos procesales'}
                 text={`El responsable de esta causa es ${formatPersonFullName(c.responsibleLawyer)}.`}
                 action={<Button variant="secondary" size="md" onClick={backToCase}>Volver a la causa</Button>}
             />
@@ -293,10 +293,9 @@ function RegisterProceduralAct({ case: c, act }: { case: Case; act?: ProceduralA
         )
     } else if (statesQuery.isError) {
         content = (
-            <Empty
-                title="No se pudieron cargar los estados procesales"
-                text={isApiError(statesQuery.error) ? statesQuery.error.message : 'Ocurrió un error inesperado.'}
-            />
+            <Panel>
+                <LoadError title="No se pudieron cargar los estados procesales" error={statesQuery.error} onRetry={() => void statesQuery.refetch()} retrying={statesQuery.isFetching} />
+            </Panel>
         )
     } else if (!act && isInTerminalState(c, states)) {
         // Una causa terminal no admite actos nuevos, pero sí corregir el que

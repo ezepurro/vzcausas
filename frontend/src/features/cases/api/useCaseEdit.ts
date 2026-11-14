@@ -2,10 +2,8 @@ import { useState } from 'react'
 import { useCurrentUser } from '@/app/providers/AuthContext'
 import { useToast } from '@/app/providers/ToastContext'
 import { isApiError } from '@/shared/api/ApiError'
-import type { SelectOption } from '@/shared/components/forms'
 import { formatClientName, formatDocument } from '@/features/clients'
 import { lawyerLabel, useLawyers } from '@/features/lawyers'
-import { formatPrescription, useLegalQualifications } from '@/features/legal-params'
 /* Sólo tipos: la forma de lo que el hook le arma al diálogo. Es la única
    flecha de `api/` hacia `components/` del módulo (ver cases/CAMBIOS.md). */
 import type { CaseEditFormProps } from '@/features/cases/components/CaseEditForm'
@@ -16,6 +14,7 @@ import { buildCasePatch } from '@/features/cases/utils/buildCasePatch'
 import { caseToFormValues, changeEditSacNumber } from '@/features/cases/utils/caseForm'
 import { buildLawyerOptions } from '@/features/cases/utils/lawyerOptions'
 import { toFormErrors } from '@/features/cases/utils/toFormErrors'
+import { useQualificationOptions } from '@/features/cases/api/useQualificationOptions'
 import { useUpdateCase } from './useUpdateCase'
 
 /** Los selects de "Modificar causa" necesitan todo junto, no paginado: 100 es el tope del contrato. */
@@ -44,13 +43,13 @@ export function useCaseEdit(c: Case) {
     const { lawyer: myLawyer } = useCurrentUser()
     const updateCase = useUpdateCase(c.id)
     const [dialog, setDialog] = useState<EditDialogState | null>(null)
+    /* "Registrar calificación nueva", abierto encima del diálogo. */
+    const [creatingQualification, setCreatingQualification] = useState(false)
 
     /* Las opciones de "Modificar causa" se piden con la pantalla y no al abrir
        el diálogo: así las listas ya están cuando se abre. */
     const lawyersQuery = useLawyers({ page: 1, limit: OPTIONS_LIMIT })
-    const qualificationsQuery = useLegalQualifications({ page: 1, limit: OPTIONS_LIMIT })
     const lawyers = lawyersQuery.data?.data ?? []
-    const qualifications = qualificationsQuery.data?.data ?? []
 
     /** "Modificar causa" arranca con los datos de la causa abierta (HU19). */
     function open() {
@@ -81,32 +80,40 @@ export function useCaseEdit(c: Case) {
     }
 
     const editValues = dialog?.values ?? null
-
-    /** Una calificación ya elegida deja de ofrecerse: no puede repetirse (D-28). */
-    const chosen = new Set(editValues?.legalQualifications.map((q) => q.legalQualificationId) ?? [])
-    const qualificationOptions: SelectOption[] = qualifications
-        .filter((q) => !chosen.has(q.id))
-        .map((q) => ({ value: String(q.id), label: `${q.name} · ${formatPrescription(q.prescriptionMonths)}` }))
+    /* Las que se pueden agregar se buscan en el servidor mientras se escribe.
+       De las elegidas, sólo hace falta pedir las que se agregaron en el
+       diálogo: las demás ya vienen en la causa. */
+    const inCase = new Set(c.legalQualifications.map((q) => q.id))
+    const chosenIds = editValues?.legalQualifications.map((q) => q.legalQualificationId) ?? []
+    const qualificationChoice = useQualificationOptions(chosenIds.filter((id) => !inCase.has(id)))
+    const chosen = new Set(chosenIds)
+    const qualificationOptions = qualificationChoice.options.filter((option) => !chosen.has(Number(option.value)))
 
     /* El nombre y el plazo de cada elegida salen de la causa —una dada de baja
-       sigue siendo parte de ella— o, si se agregó en el diálogo, del listado. */
-    const qualificationsLoaded = qualificationsQuery.isSuccess && !qualificationsQuery.isPlaceholderData
+       sigue siendo parte de ella— o, si se agregó en el diálogo, de su consulta
+       por id. */
     const selectedQualifications: SelectedQualification[] = (editValues?.legalQualifications ?? [])
         .map((chosenQ): SelectedQualification | null => {
-            const q = c.legalQualifications.find((item) => item.id === chosenQ.legalQualificationId)
-                ?? qualifications.find((item) => item.id === chosenQ.legalQualificationId)
-            if (q) {
-                // D-113: una declarada prescripta queda fija (CA-33.18).
-                const declaration = 'prescriptionDeclaration' in q ? q.prescriptionDeclaration : null
+            const fromCase = c.legalQualifications.find((item) => item.id === chosenQ.legalQualificationId)
+            if (fromCase) {
+                const declaration = fromCase.prescriptionDeclaration
                 return {
-                    id: q.id,
-                    name: q.name,
-                    prescriptionMonths: q.prescriptionMonths,
+                    id: fromCase.id,
+                    name: fromCase.name,
+                    prescriptionMonths: fromCase.prescriptionMonths,
                     offenseDate: chosenQ.offenseDate,
                     ...(declaration ? { prescribedOn: declaration.prescriptionDate } : {}),
                 }
             }
-            if (qualificationsLoaded) return { id: chosenQ.legalQualificationId, unavailable: true, offenseDate: chosenQ.offenseDate }
+
+            const found = qualificationChoice.lookup(chosenQ.legalQualificationId)
+            if (found.status === 'found') {
+                const { id, name, prescriptionMonths } = found.qualification
+                return { id, name, prescriptionMonths, offenseDate: chosenQ.offenseDate }
+            }
+            if (found.status === 'missing') {
+                return { id: chosenQ.legalQualificationId, unavailable: true, offenseDate: chosenQ.offenseDate }
+            }
             return null
         })
         .filter((q): q is SelectedQualification => q !== null)
@@ -189,14 +196,29 @@ export function useCaseEdit(c: Case) {
         onSacNumberChange: (sacNumber) => changeValues((values) => changeEditSacNumber(values, sacNumber, c.startDate)),
         clientLabel,
         lawyerOptions,
+        lawyersFailed: lawyersQuery.isError,
         selectedQualifications,
         qualificationOptions,
+        onQualificationSearch: qualificationChoice.onSearch,
+        creatingQualification,
+        onNewQualification: () => setCreatingQualification(true),
+        onQualificationCreated: (id) => {
+            addQualification(id)
+            setCreatingQualification(false)
+        },
+        onCancelNewQualification: () => setCreatingQualification(false),
+        qualificationsLoading: qualificationChoice.loading,
+        qualificationsNote: qualificationChoice.note,
+        qualificationsFailed: qualificationChoice.failed,
         onAddQualification: addQualification,
         onRemoveQualification: removeQualification,
         onOffenseDateChange: changeOffenseDate,
         saving: updateCase.isPending,
         onConfirm: () => submit(dialog.values),
-        onCancel: () => setDialog(null),
+        onCancel: () => {
+            setCreatingQualification(false)
+            setDialog(null)
+        },
     }
 
     return { open, form }

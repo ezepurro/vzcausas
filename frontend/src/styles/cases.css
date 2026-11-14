@@ -226,6 +226,14 @@
   padding-top: 15px;
   border-top: 1px solid var(--vz-border);
 }
+/* Por qué "Marcar prescripta" está deshabilitado (H-53): en su renglón, bajo los botones. */
+.vz-case-actions__note {
+  flex: 1 1 100%;
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--vz-faint);
+}
 .vz-case-actions__label {
   margin-right: 4px;
   font-size: 11px;
@@ -301,6 +309,8 @@
 .vz-timeline__actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
 .vz-timeline__empty { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: 6px 0; }
 .vz-timeline__empty-title { font-size: 14px; font-weight: 600; }
+/* Por qué no se pueden modificar los actos (sólo el responsable): arriba de la lista. */
+.vz-timeline__note { margin: 0 0 14px; }
 .vz-timeline__empty-text { margin: 0; max-width: 520px; font-size: 13px; line-height: 1.5; color: var(--vz-muted); }
 
 /* ─────────── teléfono ─────────── */
@@ -325,6 +335,8 @@
   /* La fecha del hecho baja a su renglón, con "Quitar" al lado. */
   .vz-picker__main { flex: 1 1 100%; min-width: 0; }
   .vz-picker__date { flex: 1 1 140px; }
+  /* Con el dedo, 34px de alto es poco (H-54). */
+  .vz-picker__date .vz-input { height: 40px; }
 
   .vz-due__date { font-size: 20px; }
 }
@@ -483,6 +495,8 @@
 /* Sin carpeta, vacía o con Drive caído: una línea de texto en lugar de la lista. */
 .vz-docs__note { margin: 0; font-size: 13px; line-height: 1.45; color: var(--vz-muted); }
 .vz-docs__note--error { color: var(--vz-danger); }
+/* El motivo de "Descargar" deshabilitado, arriba de la lista. */
+.vz-docs__reason { margin: 0; padding: 12px var(--vz-panel-pad) 0; }
 
 /* Teléfono: con los dos botones al lado, el nombre quedaba en un par de
    letras. Bajan a su renglón, alineados con el nombre (el recuadro del tipo,
@@ -697,7 +711,7 @@
   min-width: min(280px, 100%);
   margin: auto 0;
 }
-.vz-cover-preview__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: #fff; }
+.vz-cover-preview__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--vz-rail-fg-on); }
 .vz-cover-preview__title { font-size: 14px; font-weight: 600; }
 .vz-cover-preview__close {
   flex: 0 0 auto;
@@ -709,7 +723,7 @@
   font: inherit;
   font-size: 13px;
   font-weight: 600;
-  color: #fff;
+  color: var(--vz-rail-fg-on);
   cursor: pointer;
 }
 .vz-cover-preview__close:hover { background: rgba(255, 255, 255, .12); }
@@ -718,7 +732,7 @@
   flex-direction: column;
   aspect-ratio: 595 / 842;
   overflow: hidden;
-  background: #fff;
+  background: var(--vz-surface);
   box-shadow: 0 24px 60px rgba(0, 0, 0, .35);
 }
 .vz-cover-preview__sheet > * { flex: 1; min-height: 0; }
@@ -739,3 +753,8 @@
   .vz-casefile__row-actions .vz-btn { height: 36px; min-width: 40px; }
   .vz-docs__actions .vz-btn { flex: 1 1 auto; height: 36px; }
 }
+
+/* ─────────── listado de causas ─────────── */
+/* El estado procesal del listado parte en dos renglones si hace falta, en
+   lugar de ensanchar su columna a costa de la carátula (H-32). */
+.vz-cases__state .vz-pill { white-space: normal; line-height: 1.3; border-radius: var(--vz-r); }

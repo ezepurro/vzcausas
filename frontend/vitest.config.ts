@@ -20,6 +20,15 @@ export default defineConfig((env) =>
          compartido: son estado de módulo. Cada archivo corre aislado y el
          setup limpia entre tests. */
       restoreMocks: true,
+      /* La mitad de los núcleos lógicos, que suele ser la cantidad de
+         núcleos físicos. Por defecto Vitest usa todos menos uno, y con jsdom
+         cada proceso ocupa un núcleo entero: mientras todos arrancan a la vez,
+         los primeros tests corren tan lentos que sus esperas de 1 s no llegan
+         y fallan de a dos o tres por corrida, distintos cada vez (H-55 de
+         `docs/auditoria-front`). Medido el 13/11/2026 en 8 núcleos físicos y
+         16 lógicos: con todos, 83–95 s y fallas; con la mitad, 84–88 s y
+         ninguna. `--maxWorkers` en la línea de comandos lo pisa. */
+      maxWorkers: '50%',
     },
   }),
 )

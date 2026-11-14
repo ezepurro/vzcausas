@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { isApiError } from '@/shared/api/ApiError'
 import { useToast } from '@/app/providers/ToastContext'
-import { Button, Icon, PageHeader } from '@/shared/components/ui'
+import { Button, Icon, PageHeader, LoadError } from '@/shared/components/ui'
 import { JURISDICTION_LABELS, type Jurisdiction } from '@/features/legal-params'
 import { useDocumentTemplates } from '@/features/documents/api/useDocumentTemplates'
 import { useCreateDocumentTemplate } from '@/features/documents/api/useCreateDocumentTemplate'
@@ -19,6 +19,7 @@ import { JurisdictionCard } from '@/features/documents/components/JurisdictionCa
 import { DocumentTemplateCard } from '@/features/documents/components/DocumentTemplateCard'
 import { DocumentTemplatesSkeleton } from '@/features/documents/components/DocumentTemplatesSkeleton'
 import { DocumentTemplateFormModal } from '@/features/documents/components/DocumentTemplateFormModal'
+import { usePageTitle } from '@/shared/hooks/usePageTitle'
 
 /**
  * El catálogo es chico: se trae entero, en la vista general y en la de cada
@@ -34,6 +35,7 @@ function emptyForm(jurisdiction: Jurisdiction | null): DocumentTemplateFormValue
 }
 
 export function DocumentTemplatesPage() {
+    usePageTitle('Modelos formales')
     const toast = useToast()
 
     // null = vista general (tarjetas por fuero); un fuero = sus modelos.
@@ -115,12 +117,7 @@ export function DocumentTemplatesPage() {
     function renderStatus() {
         if (loading) return <DocumentTemplatesSkeleton view={jurisdiction ? 'templates' : 'jurisdictions'} />
         return (
-            <div className="vz-empty">
-                <div className="vz-empty__title">No se pudieron cargar los modelos</div>
-                <div className="vz-empty__text">
-                    {isApiError(query.error) ? query.error.message : 'Ocurrió un error inesperado.'}
-                </div>
-            </div>
+            <LoadError title="No se pudieron cargar los modelos" error={query.error} onRetry={() => void query.refetch()} retrying={query.isFetching} />
         )
     }
 

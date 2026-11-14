@@ -71,10 +71,10 @@ sobre HU29): ver
 - **No traigas código de otros proyectos** (componentes, estilos, hooks). Este
   proyecto tiene su propio sistema de diseño en `shared/` y `styles/`.
 - **No mezcles patrones.** Si ya existe una forma de hacer algo, seguila.
-- **No uses `react-hook-form` ni instales `zod`.** `react-hook-form` está
-  instalado pero nadie lo usa, y `zod` no está instalado. Es una decisión
-  pendiente del equipo. Hasta entonces, formularios controlados como
-  `FormModal` (`values` + `onChange`).
+- **No instales `react-hook-form` ni `zod`.** Ninguno está instalado:
+  `react-hook-form` se desinstaló el 13/11/2026 (auditoría del front, H-16),
+  porque nadie lo usaba. Los formularios son controlados, como `FormModal`
+  (`values` + `onChange`), con la validación en `schemas/`.
 - **Si el build o el lint fallan por algo que no tocaste, avisá.** No lo
   arregles al paso.
 - **Código en inglés** (archivos, tipos, funciones, props, clases CSS).
@@ -222,7 +222,7 @@ sprint de Jira pero no en el contrato: no pide nada al servidor.
 | HU | Qué | Módulo | Frontend | Estado en el front |
 |---|---|---|---|---|
 | 27 | Línea de vida de la causa: actos procesales, actos interruptivos y pase a "Prescripta", intercalados por fecha | `cases/` | Ezequiel Purro | **Hecha.** Panel "Ciclo de vida de la causa" (`CaseTimeline`) del detalle, con `GET /cases/{caseId}/timeline` (D-85): sin paginar y ya intercalada; el front no ordena. `casesKeys.timeline(id)` cuelga de `detail(id)`, así que registrar un acto la refresca |
-| 31 | Registrar actos interruptivos (solo penal, solo el abogado responsable). La consulta es la línea de vida | `cases/` | Ezequiel Purro | **Hecha.** Modal en el detalle (`InterruptiveActModal`, `useRegisterInterruptiveAct`), fila "Sobre la causa". A quien no es el responsable el botón le avisa con un toast, como el prototipo |
+| 31 | Registrar actos interruptivos (solo penal, solo el abogado responsable). La consulta es la línea de vida | `cases/` | Ezequiel Purro | **Hecha.** Modal en el detalle (`InterruptiveActModal`, `useRegisterInterruptiveAct`), fila "Sobre la causa". A quien no es el responsable el botón le aparece deshabilitado, con la nota "Solo el abogado responsable (…) registra actos.", como "Registrar acto procesal" (desde el 13/11/2026; el prototipo avisa con un toast) |
 | 32 | Barra de prescripción con la alerta del 70 % y alertas en los tableros | `cases/`, `dashboard/` | — | **Hecha**: la barra lee `prescription` y los dos tableros muestran "Alertas de prescripción" (`PrescriptionAlertsPanel`). Los correos son del backend |
 | 33 | "Marcar prescripta" (`POST /cases/{caseId}/prescription`) | `cases/` | Ezequiel Purro | **Hecha.** Modal en el detalle (`PrescriptionDeclarationModal`, `useDeclarePrescription`), con `cases.declarePrescription` en `ACTION_ACCESS`: la Secretaría no ve el botón. En una causa ya prescripta no se ofrecen ni éste ni el acto interruptivo |
 | 34, 35 | Modelos formales: alta con archivo, listado por fuero y descarga | `documents/` | Luciano Cipolla | **Hecha.** `DocumentTemplatesPage` en `/modelos`: una tarjeta por fuero (`JurisdictionCard`), los modelos del fuero elegido (`DocumentTemplateCard`), el alta (`DocumentTemplateFormModal` con `FileDropzone` y `JurisdictionPicker`) y la descarga (`useDownloadDocumentTemplate`). Sólo Administrador y Abogado |
@@ -339,9 +339,59 @@ Están documentados en `SHARED.md`. Usalos antes de escribir nada parecido:
 | Mostrar una fecha del contrato | `formatDate` de `@/shared/lib/dates` |
 | Valor por defecto de un campo de fecha | `todayIsoDate()` de `@/shared/lib/dates` |
 | Nombre de una persona | `formatPersonName` / `formatPersonFullName` de `@/shared/lib/personName` |
+| Elegir cliente o calificación entre muchos | `SearchSelect`, con las opciones de `useClientOptions` / `useQualificationOptions` |
+| Algo no se pudo cargar | `LoadError` con el `refetch` de la consulta |
+| Título de la pestaña del navegador | `usePageTitle` de `@/shared/hooks/usePageTitle` |
+| Unir un control con su error y su nota (formularios de página) | `fieldIds` + `controlA11y` de `@/shared/components/forms` |
 
 Los componentes propios de cada pantalla (la tabla de causas, el selector de
 calificaciones del alta, el panel "Cómputo del plazo") van en su módulo.
+
+### Lo que sumó la auditoría del front (11/2026)
+
+El detalle de cada cosa está en `SHARED.md`; el porqué, en
+`docs/auditoria-front/RESUMEN_GENERAL.md`. Lo que hay que saber para
+escribir código nuevo:
+
+- **Toda página pone su título** con `usePageTitle`, y **toda consulta que
+  falla se muestra con `LoadError`** (alerta y "Reintentar").
+- **El pie de un listado se dibuja sólo cuando la consulta respondió**
+  (`footer={query.isSuccess && (<Pagination … />)}`): sin datos decía "Sin
+  resultados" mientras cargaba o si había fallado (H-57).
+- **Un diálogo con campos no se cierra con un clic afuera**
+  (`dismissOnBackdrop={false}`; `FormModal` ya lo trae). Una confirmación
+  sin campos, sí. No se pregunta "¿descartar los cambios?". Con dos modales
+  apilados, Escape cierra sólo el de arriba.
+- **Los avisos duran 4 s (éxito, información) y 8 s (error)**
+  (`src/app/providers/toastDuration.ts`); con el puntero encima o el foco
+  adentro no se van. Éxito e información son `role="status"`; un error,
+  `alert`.
+- **Una tabla pasa a fichas** con la ventana en 1180px o menos, **o si no
+  entra en su lugar** (`useStacked` en `DataTable`).
+- **Todo hook de mutación que recibe la causa como parámetro lleva
+  `mutationKey: casesKeys.mutation(id, 'acción')`**
+  (`src/features/cases/api/cases.keys.ts`). Sin ella, al pasar de una causa
+  a otra con la mutación en vuelo, la respuesta se escribía en la causa
+  equivocada.
+- **Lo que falla después de salir de la pantalla se avisa solo**
+  (`src/shared/api/leftBehindErrors.ts`): no hace falta nada en la feature.
+- **Cambiar una causa o un acto invalida los contadores** de abogados,
+  clientes, calificaciones y estados (`invalidateCaseCounters` de
+  `cases/api/`).
+- **El motivo de un botón deshabilitado va a la vista**, en una nota unida al
+  botón con `aria-describedby`, no sólo en el `title` (Abogados, el detalle
+  de causa, la línea de vida y "Descargar" de un documento). En el detalle
+  de causa va **una nota por zona** (encabezado, "Sobre la causa", línea de
+  vida), y cada una dice sólo lo que está bloqueado ahí (`headNote`,
+  `caseActionsNote` en `CaseDetailPage`).
+- **Textos: "Solo", sin tilde**, en todo lo que se ve en pantalla.
+- **El calendario de "Mi día" abre la lista del día** (H-50): en el teléfono
+  el día entero es un botón; en pantallas anchas la abre "+N más". Los plazos
+  de la lista son enlaces a su causa (`DeadlineCalendar`).
+
+Tres cosas que rompen un test nuevo si no se saben: un ítem del rail es
+`link`, no `button`; un aviso de éxito es `status`, no `alert`; y dentro
+de un modal `/cerrar/i` encuentra también la "×".
 
 ### Lo que tiene que armar cada página
 
@@ -1148,21 +1198,28 @@ usuarios de prueba y sus contraseñas están en el README de los mocks.
 
 ## Problemas conocidos
 
-Al 08/11/2026, con el 3 revisado el 09/11/2026 por V6. No se arreglan al
+Al 08/11/2026, con el 3 revisado el 09/11/2026 por V6 y el 1 y el 3
+actualizados el 13/11/2026 por la auditoría del front. No se arreglan al
 paso: cada uno es de su dueño.
 
-1. **`npm test`: pasan todos** (corrida del 08/11/2026). Los tests de prefetch
-   recortan el prefijo de la API con `normalizePath` del mock, así no dependen
-   del `VITE_API_URL` de cada `.env.local`. Los E2E no se corrieron en esta
-   revisión (el 05/11/2026 pasaban los 9).
+1. **`npm test`: pasan los 796** (14/11/2026). Corre con la mitad de los
+   núcleos por configuración (`maxWorkers: '50%'` en `vitest.config.ts`):
+   con todos fallaban tests al azar por tiempo. Aun así, en alguna corrida de
+   la suite entera falla por tiempo `tests/unit/app/pages.test.ts` o el
+   buscador de `UsersPage.test.tsx`; solos pasan
+   (`docs/auditoria-front/21-TANDA15_PERFILES.md`, "Arreglos"). Los tests de
+   prefetch recortan el prefijo de la API con `normalizePath` del mock, así
+   no dependen del `VITE_API_URL` de cada `.env.local`. Los 9 E2E pasan
+   (13/11/2026, después de la tanda 18 de la auditoría).
 2. **`src/features/deadlines/` no tiene pantallas.** La pantalla "Vencimientos"
    no es de ninguna historia (`DECISIONES.md` §3). Sólo tiene el atajo local de
    la campana (`deadlines/CAMBIOS.md`).
-3. **El rail dibuja la campana de "Notificaciones"**, que el contrato deja
-   afuera (`DECISIONES.md` §3), en la barra superior (`AppLayout.tsx`). Sólo
-   hace algo en desarrollo, como atajo para disparar la corrida diaria de los
-   correos. **El ítem "Reportes" (`/reportes`) no tiene ruta** y da la página
-   de no encontrado. Desde V6 sí tiene contrato (HU43, `GET /reports/monthly`):
+3. **La campana de "Notificaciones"**, que el contrato deja afuera
+   (`DECISIONES.md` §3), **sólo se dibuja en desarrollo** (desde la auditoría
+   del front, H-08), como atajo para disparar la corrida diaria de los
+   correos (`AppLayout.tsx`). **El ítem "Reportes" (`/reportes`) está
+   oculto en el rail** (`hidden: true` en `AppLayout.tsx`) y no tiene ruta:
+   escrita a mano, da la página de no encontrado. Desde V6 sí tiene contrato (HU43, `GET /reports/monthly`):
    ya no viola la regla, y su página es del Sprint 5.
 4. **Lint:** un warning, `react(only-export-components)` en
    `src/shared/components/ui/Icon.tsx:2`.
