@@ -1,0 +1,21 @@
+type: object
+description: |
+  Cuerpo de `DELETE /lawyers/{lawyerId}` (V6 §3.3). Una entrada por cada causa
+  activa del abogado; puede omitirse si no tiene ninguna.
+additionalProperties: false
+properties:
+  reassignments:
+    type: array
+    items:
+      type: object
+      additionalProperties: false
+      required:
+        - caseId
+        - responsibleLawyerId
+      properties:
+        caseId:
+          type: integer
+          description: Una causa activa del abogado que se da de baja.
+        responsibleLawyerId:
+          type: integer
+          description: Abogado vigente, distinto del que se da de baja, que pasa a ser su responsable.

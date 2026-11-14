@@ -83,6 +83,8 @@ import {
     type Jurisdiction,
     type Lawyer,
     type LawyerDashboard,
+    type MonthlyReport,
+    PRESCRIPTION_BANDS,
     type ProceduralRole,
     type Role,
     permissionsFor,
@@ -1046,13 +1048,75 @@ const deleteLawyer: Handler = ({ request, params }) => {
     const lawyer = db.lawyers.find((l) => l.id === lawyerId && l.active);
     if (!lawyer) return fail(404, ERRORS.lawyerNotFound);
 
-    /* "El abogado posee causas o un usuario vinculado" (§5.3). Las causas se
-       cuentan de la base, activas o no: la causa lo sigue nombrando como
-       responsable y no hay todavía a quién reasignarla (C-17). */
-    const linked = db.users.some((u) => u.active && u.lawyerId === lawyerId);
-    const hasCases = db.cases.some((c) => c.active && c.responsibleLawyerId === lawyerId);
-    if (linked || hasCases) {
+    /* V6 §3.3 (D-123): el reparto de sus causas activas va en la misma baja.
+       Orden de las reglas (L1741-1748): 404 → 400 del cuerpo → 409 si falta
+       alguna causa activa. Las terminales no se reparten: quedan como su
+       historial (L1750). */
+    const activeIds = new Set(
+        db.cases.filter((c) => isActiveCase(c) && c.responsibleLawyerId === lawyerId).map((c) => c.id),
+    );
+
+    const body = asObject(request.body);
+    const raw = body.reassignments;
+    if (raw !== undefined && raw !== null && !Array.isArray(raw)) {
+        return validationError({ reassignments: 'Debe ser una lista.' });
+    }
+    const entries = Array.isArray(raw) ? raw : [];
+
+    /* El detalle es una sola frase en `details.reassignments` (L1791-1795). */
+    const seen = new Set<number>();
+    const reassignments: Array<{ caseId: number; responsibleLawyerId: number }> = [];
+    for (const entry of entries) {
+        const item = asObject(entry);
+        const caseId = item.caseId;
+        const targetId = item.responsibleLawyerId;
+        if (!Number.isInteger(caseId) || !Number.isInteger(targetId)) {
+            return validationError({ reassignments: 'Cada entrada lleva caseId y responsibleLawyerId enteros.' });
+        }
+        const c = caseId as number;
+        const t = targetId as number;
+        if (!activeIds.has(c)) {
+            return validationError({ reassignments: `La causa ${c} no es una causa activa de este abogado.` });
+        }
+        if (seen.has(c)) {
+            return validationError({ reassignments: `La causa ${c} figura más de una vez.` });
+        }
+        if (t === lawyerId) {
+            return validationError({ reassignments: 'El abogado de destino no puede ser el que se da de baja.' });
+        }
+        if (!db.lawyers.some((l) => l.id === t && l.active)) {
+            return validationError({ reassignments: `No existe un abogado vigente con el identificador ${t}.` });
+        }
+        seen.add(c);
+        reassignments.push({ caseId: c, responsibleLawyerId: t });
+    }
+
+    // Una causa activa sin repartir: no cambia nada y el cliente rearma el reparto (L1918).
+    if ([...activeIds].some((id) => !seen.has(id))) {
         return fail(409, ERRORS.lawyerHasDependencies);
+    }
+
+    /* Todo junto, como la transacción del backend. Cada reasignación es un
+       cambio de responsable como el de `PATCH /cases` (CA-15.8): la carpeta
+       pasa a `/{nuevo abogado}/{fuero}/` (CA-15.11). */
+    for (const r of reassignments) {
+        const stored = db.cases.find((c) => c.id === r.caseId);
+        if (!stored) continue;
+        stored.responsibleLawyerId = r.responsibleLawyerId;
+        if (stored.folder && (stored.folder.status !== 'CREATED' || !db.failures.documentStorage)) {
+            stored.folder.path = expectedFolderPath(stored);
+        }
+    }
+
+    /* El usuario vinculado no bloquea (D-133): pierde la ficha y el perfil
+       Abogado; si era el único, se da de baja y se cierran sus sesiones. */
+    for (const user of db.users.filter((u) => u.active && u.lawyerId === lawyerId)) {
+        user.lawyerId = null;
+        user.roles = user.roles.filter((role) => role !== 'LAWYER');
+        if (user.roles.length === 0) {
+            user.active = false;
+            revokeUserSessions(user.id);
+        }
     }
 
     lawyer.active = false;
@@ -3096,6 +3160,339 @@ const administratorDashboard: Handler = ({ request }) => {
 };
 
 /* ------------------------------------------------------------------ */
+/* GET /reports/monthly y /reports/monthly/file (V6 §3.13, HU43)       */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Primer mes con reporte. En el backend es una configuración del servidor que
+ * se fija al desplegar (D-137); acá, una constante.
+ */
+const REPORTS_AVAILABLE_FROM = '2026-01';
+
+const RE_PERIOD = /^\d{4}-(0[1-9]|1[0-2])$/;
+
+const MONTH_NAMES = [
+    'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+    'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+];
+
+function lastDayOf(period: string): string {
+    const [y, m] = period.split('-').map(Number);
+    const day = new Date(y, m, 0).getDate();
+    return `${period}-${String(day).padStart(2, '0')}`;
+}
+
+function shiftPeriod(period: string, months: number): string {
+    const [y, m] = period.split('-').map(Number);
+    const d = new Date(y, m - 1 + months, 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+/** El acto vigente de la causa a esa fecha: el más reciente con `actDate` hasta ella (D-14). */
+function actAt(stored: StoredCase, date: string): StoredAct | undefined {
+    return actsOf(stored.id).filter((a) => a.actDate <= date).at(-1);
+}
+
+/** ¿Estaba en un estado terminal a esa fecha? "Prescripta" desde su declaración. */
+function terminalAt(stored: StoredCase, date: string): boolean {
+    if (stored.prescriptionDeclaration && stored.prescriptionDeclaration.prescriptionDate <= date) return true;
+    const act = actAt(stored, date);
+    if (!act || act.proceduralStateId === null) return false;
+    return db.proceduralStates.find((s) => s.id === act.proceduralStateId)?.terminal === true;
+}
+
+/**
+ * Las causas del reporte: vigentes y con fecha de inicio (D-129). Activa a
+ * una fecha: ya había ingresado y no estaba en un estado terminal.
+ */
+function reportCases(): StoredCase[] {
+    return db.cases.filter((c) => c.active && c.startDate !== null);
+}
+
+function activeAt(stored: StoredCase, date: string): boolean {
+    return (stored.startDate as string) <= date && !terminalAt(stored, date);
+}
+
+/** Ingresadas y archivadas de un mes, y activas al cierre. */
+function movementOf(cases: StoredCase[], period: string, cutoff: string) {
+    const startOfMonth = `${period}-01`;
+    const prevEnd = lastDayOf(shiftPeriod(period, -1));
+    const admitted = cases.filter((c) => (c.startDate as string) >= startOfMonth && (c.startDate as string) <= cutoff)
+    const archived = cases.filter((c) => !terminalAt(c, prevEnd) && terminalAt(c, cutoff) && (c.startDate as string) <= cutoff)
+    return {
+        atStart: cases.filter((c) => activeAt(c, prevEnd)),
+        admitted,
+        archived,
+        atEnd: cases.filter((c) => activeAt(c, cutoff)),
+    };
+}
+
+const round1 = (n: number) => Math.round(n * 10) / 10;
+const pct = (part: number, total: number) => (total === 0 ? 0 : Math.round((part / total) * 100));
+
+function bandOf(elapsed: number) {
+    if (elapsed < 50) return 'UNDER_50' as const;
+    if (elapsed < 70) return 'FROM_50_TO_70' as const;
+    if (elapsed < 90) return 'FROM_70_TO_90' as const;
+    return 'FROM_90' as const;
+}
+
+/**
+ * Arma el reporte de un período. El mock lo calcula en cada pedido, también
+ * para los meses cerrados (el backend los toma de su foto, D-117): con la
+ * base del mock alcanza para ver la pantalla. Dos simplificaciones: el
+ * responsable es el de hoy y la prescripción es la de hoy, no a la fecha de
+ * corte. Un mes cerrado conserva a los abogados dados de baja que tenían causas
+ * (CA-43.5); el mes en curso, solo los vigentes (CA-15.12).
+ */
+function buildMonthlyReport(period: string, currentPeriod: string): MonthlyReport {
+    const status = period === currentPeriod ? 'IN_PROGRESS' : 'CLOSED';
+    const today = todayIso();
+    const cutoff = status === 'CLOSED' ? lastDayOf(period) : today;
+    const cases = reportCases();
+    const move = movementOf(cases, period, cutoff);
+
+    const prevPeriod = shiftPeriod(period, -1);
+    const prevMove = prevPeriod >= REPORTS_AVAILABLE_FROM ? movementOf(cases, prevPeriod, lastDayOf(prevPeriod)) : null;
+
+    const byJurisdiction = JURISDICTIONS.map((jurisdiction) => {
+        const of = (list: StoredCase[]) => list.filter((c) => c.jurisdiction === jurisdiction).length;
+        return {
+            jurisdiction,
+            atStart: of(move.atStart),
+            admitted: of(move.admitted),
+            archived: of(move.archived),
+            atEnd: of(move.atEnd),
+            percentage: pct(of(move.atEnd), move.atEnd.length),
+        };
+    });
+
+    const lawyerPool = db.lawyers.filter((l) =>
+        status === 'IN_PROGRESS' ? l.active : l.active || move.atEnd.some((c) => c.responsibleLawyerId === l.id),
+    );
+    const average = lawyerPool.length === 0 ? 0 : round1(move.atEnd.length / lawyerPool.length);
+    const lawyers = lawyerPool
+        .map((lawyer) => {
+            const own = move.atEnd.filter((c) => c.responsibleLawyerId === lawyer.id);
+            const count = (j: Jurisdiction) => own.filter((c) => c.jurisdiction === j).length;
+            return {
+                lawyer: {
+                    id: lawyer.id,
+                    lastName: lawyer.lastName,
+                    firstName: lawyer.firstName,
+                    registrationNumber: lawyer.registrationNumber,
+                },
+                criminal: count('CRIMINAL'),
+                administrative: count('ADMINISTRATIVE'),
+                amparo: count('AMPARO'),
+                total: own.length,
+                differenceFromAverage: round1(own.length - average),
+            };
+        })
+        .sort((a, b) => b.total - a.total || byText(a.lawyer.lastName, b.lawyer.lastName) || byText(a.lawyer.firstName, b.lawyer.firstName));
+    const totals = lawyers.map((l) => l.total);
+
+    const year = period.slice(0, 4);
+    const monthly = [];
+    for (let m = `${year}-01`; m <= period; m = shiftPeriod(m, 1)) {
+        if (m < REPORTS_AVAILABLE_FROM) {
+            monthly.push({ period: m, admitted: null, archived: null, balance: null, activeAtEnd: null });
+            continue;
+        }
+        const mv = movementOf(cases, m, m === currentPeriod ? today : lastDayOf(m));
+        monthly.push({
+            period: m,
+            admitted: mv.admitted.length,
+            archived: mv.archived.length,
+            balance: mv.admitted.length - mv.archived.length,
+            activeAtEnd: mv.atEnd.length,
+        });
+    }
+
+    /* Primero "Iniciada"; después los no terminales del fuero en el orden de
+       `GET /procedural-states`; después los escritos a mano (V6 L9421). */
+    const proceduralStates = JURISDICTIONS.map((jurisdiction) => {
+        const own = move.atEnd.filter((c) => c.jurisdiction === jurisdiction);
+        const acts = own.map((c) => actAt(c, cutoff))
+        const initial = acts.filter((a) => a === undefined).length;
+        const registered = db.proceduralStates
+            .filter((s) => s.jurisdiction === jurisdiction && s.active && !s.terminal)
+            .sort((a, b) => a.id - b.id)
+            .map((s) => ({
+                proceduralStateId: s.id as number | null,
+                name: s.name,
+                initial: false,
+                custom: false,
+                activeCases: acts.filter((a) => a?.proceduralStateId === s.id).length,
+            }));
+        const customNames = [...new Set(acts.map((a) => a?.customState).filter((n): n is string => !!n))].sort(byText);
+        const custom = customNames.map((name) => ({
+            proceduralStateId: null,
+            name,
+            initial: false,
+            custom: true,
+            activeCases: acts.filter((a) => a?.customState === name).length,
+        }));
+        return {
+            jurisdiction,
+            activeCases: own.length,
+            states: [
+                { proceduralStateId: null, name: INITIAL_STATE_NAME, initial: true, custom: false, activeCases: initial },
+                ...registered,
+                ...custom,
+            ],
+        };
+    });
+
+    const criminal = move.atEnd
+        .filter((c) => c.jurisdiction === 'CRIMINAL')
+        .map(toCase)
+        .filter((c) => c.prescription !== null);
+    const prescription = {
+        cases: criminal.length,
+        bands: PRESCRIPTION_BANDS.map((band) => {
+            const n = criminal.filter((c) => bandOf(c.prescription?.elapsedPercentage ?? 0) === band).length;
+            return { band, cases: n, percentage: pct(n, criminal.length) };
+        }),
+        alerts: criminal
+            .filter((c) => (c.prescription?.elapsedPercentage ?? 0) >= 70)
+            .sort((a, b) => (b.prescription?.elapsedPercentage ?? 0) - (a.prescription?.elapsedPercentage ?? 0) || a.id - b.id)
+            .map((c) => ({
+                caseId: c.id,
+                sacNumber: c.sacNumber,
+                caption: c.caption,
+                responsibleLawyer: lawyerRef(c),
+                legalQualificationName: c.prescription?.legalQualificationName ?? '',
+                elapsedPercentage: c.prescription?.elapsedPercentage ?? 0,
+                expired: c.prescription?.expired ?? false,
+            })),
+    };
+
+    /* Plazos de actos procesales que vencen en el mes, según el acto siguiente (D-119). */
+    const start = `${period}-01`;
+    const end = lastDayOf(period);
+    const deadlines = { total: 0, metOnTime: 0, metOnLastDay: 0, overdue: 0, pending: 0, interruptiveActs: 0 };
+    for (const c of cases) {
+        const acts = actsOf(c.id);
+        acts.forEach((act, i) => {
+            const due = act.deadline?.dueDate;
+            if (!due || due < start || due > end) return;
+            const next = acts.slice(i + 1).find((a) => a.actDate <= cutoff);
+            deadlines.total += 1;
+            if (next && next.actDate < due) deadlines.metOnTime += 1;
+            else if (next && next.actDate === due) deadlines.metOnLastDay += 1;
+            else if (due < cutoff || status === 'CLOSED') deadlines.overdue += 1;
+            else deadlines.pending += 1;
+        });
+        deadlines.interruptiveActs += interruptiveActsOf(c.id).filter((a) => a.actDate >= start && a.actDate <= cutoff).length;
+    }
+
+    return {
+        period,
+        status,
+        dataAsOf: cutoff,
+        takenAt: status === 'CLOSED' ? `${shiftPeriod(period, 1)}-01T08:00:00-03:00` : nowIso(),
+        availableFrom: REPORTS_AVAILABLE_FROM,
+        currentPeriod,
+        summary: {
+            activeCases: move.atEnd.length,
+            admitted: move.admitted.length,
+            archived: move.archived.length,
+            admittedChange: prevMove ? move.admitted.length - prevMove.admitted.length : null,
+            archivedChange: prevMove ? move.archived.length - prevMove.archived.length : null,
+            averagePerLawyer: average,
+            minPerLawyer: totals.length ? Math.min(...totals) : null,
+            maxPerLawyer: totals.length ? Math.max(...totals) : null,
+        },
+        byJurisdiction,
+        lawyers,
+        monthly,
+        proceduralStates,
+        prescription,
+        deadlines,
+    };
+}
+
+type PeriodResult = { ok: true; period: string; currentPeriod: string } | { ok: false; response: MockResponse };
+
+/** `period`: `AAAA-MM`, entre `availableFrom` y el mes en curso. Sin él, el último cerrado. */
+function readReportPeriod(query: URLSearchParams): PeriodResult {
+    const currentPeriod = todayIso().slice(0, 7);
+    const raw = query.get('period');
+    if (raw !== null && raw !== '' && !RE_PERIOD.test(raw)) {
+        return { ok: false, response: invalidQuery({ period: 'Debe tener el formato AAAA-MM.' }) };
+    }
+    const lastClosed = shiftPeriod(currentPeriod, -1);
+    const period = raw === null || raw === ''
+        ? (lastClosed >= REPORTS_AVAILABLE_FROM ? lastClosed : currentPeriod)
+        : raw;
+    if (period < REPORTS_AVAILABLE_FROM || period > currentPeriod) {
+        return { ok: false, response: fail(404, ERRORS.monthlyReportNotFound) };
+    }
+    return { ok: true, period, currentPeriod };
+}
+
+const monthlyReport: Handler = ({ request }) => {
+    const auth = requireAdmin(request);
+    if (!auth.ok) return auth.response;
+
+    const period = readReportPeriod(request.query);
+    if (!period.ok) return period.response;
+
+    return ok(itemBody(buildMonthlyReport(period.period, period.currentPeriod)));
+};
+
+/** "Agosto de 2026". */
+function periodLabel(period: string): string {
+    const [y, m] = period.split('-').map(Number);
+    const name = MONTH_NAMES[m - 1];
+    return `${name.charAt(0).toUpperCase()}${name.slice(1)} de ${y}`;
+}
+
+/**
+ * El PDF del reporte (V6 L9616-9707). El mock escribe una hoja de texto con
+ * los mismos datos: lo que importa acá es la descarga, no el diseño.
+ */
+const monthlyReportFile: Handler = ({ request }) => {
+    const auth = requireAdmin(request);
+    if (!auth.ok) return auth.response;
+
+    const disposition = readDisposition(request.query, 'attachment');
+    if (!disposition.ok) return disposition.response;
+
+    const period = readReportPeriod(request.query);
+    if (!period.ok) return period.response;
+
+    const report = buildMonthlyReport(period.period, period.currentPeriod);
+    const s = report.summary;
+    const lines = [
+        'Vázquez y Zárate',
+        'Reporte mensual de gestión de causas',
+        periodLabel(report.period),
+        `Datos al ${report.dataAsOf} · Emitido por ${auth.user.lastName}, ${auth.user.firstName}`,
+        ...(report.status === 'IN_PROGRESS' ? [`Mes en curso · datos al ${report.dataAsOf}`] : []),
+        '',
+        `1. Resumen: ${s.activeCases} causas activas, ${s.admitted} ingresadas, ${s.archived} archivadas.`,
+        `2. Causas por fuero: ${report.byJurisdiction.map((j) => `${j.jurisdiction} ${j.atEnd}`).join(' · ')}`,
+        `3. Carga por abogado. Promedio: ${s.averagePerLawyer}`,
+        ...report.lawyers.map((l) => `   ${l.lawyer.lastName}, ${l.lawyer.firstName}: ${l.total}`),
+        `5. Prescripción: ${report.prescription.cases} causas penales`,
+        `6. Plazos del mes: ${report.deadlines.total}`,
+    ];
+
+    return {
+        status: 200,
+        body: null,
+        file: {
+            content: buildPdf([lines]),
+            contentType: PDF_MIME,
+            fileName: `Reporte_${report.period}.pdf`,
+            disposition: disposition.value,
+        },
+    };
+};
+
+/* ------------------------------------------------------------------ */
 /* PATCH y DELETE /cases/{caseId} (V5, HU19 y HU21)                    */
 /* ------------------------------------------------------------------ */
 
@@ -3865,6 +4262,8 @@ const ROUTES: Route[] = [
 
     { method: 'GET', path: '/dashboards/lawyer', pattern: /^\/dashboards\/lawyer$/, handler: lawyerDashboard },
     { method: 'GET', path: '/dashboards/administrator', pattern: /^\/dashboards\/administrator$/, handler: administratorDashboard },
+    { method: 'GET', path: '/reports/monthly', pattern: /^\/reports\/monthly$/, handler: monthlyReport },
+    { method: 'GET', path: '/reports/monthly/file', pattern: /^\/reports\/monthly\/file$/, handler: monthlyReportFile },
 
 ];
 

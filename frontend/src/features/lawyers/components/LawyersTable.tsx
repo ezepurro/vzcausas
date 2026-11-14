@@ -12,9 +12,12 @@ export interface LawyersTableProps {
      */
     maxActiveCases?: number
     onEdit: (lawyer: Lawyer) => void
+    onDelete: (lawyer: Lawyer) => void
     /** Sólo el Administrador modifica abogados (CA-14.6): para el resto va deshabilitado. */
     canEdit: boolean
-    /** El `id` de la nota visible que dice por qué "Modificar" está deshabilitado (H-53). */
+    /** Sólo el Administrador da de baja abogados (CA-15.7): para el resto va deshabilitado. */
+    canDelete: boolean
+    /** El `id` de la nota visible que dice por qué las acciones están deshabilitadas (H-53). */
     readOnlyNoteId?: string
     empty?: ReactNode
     /** Primera carga: la tabla dibuja su esqueleto. */
@@ -32,11 +35,11 @@ export interface LawyersTableProps {
  * prototipo. Mientras nadie tiene causas no se dibuja: una barra vacía en
  * todas las filas no dice nada.
  *
- * La columna de acciones tiene sólo "Modificar" (HU14). "Eliminar", que
- * muestra el prototipo, es HU15 y queda fuera del contrato: no se dibuja.
+ * La columna de acciones tiene "Modificar" (HU14) y "Eliminar" (HU15, V6
+ * §3.3), que abre el reparto de sus causas activas.
  */
 export function LawyersTable({
-    rows, maxActiveCases, onEdit, canEdit, readOnlyNoteId, empty, loading, busy,
+    rows, maxActiveCases, onEdit, onDelete, canEdit, canDelete, readOnlyNoteId, empty, loading, busy,
 }: LawyersTableProps) {
     const max = maxActiveCases ?? Math.max(0, ...rows.map((l) => l.activeCases))
 
@@ -83,16 +86,28 @@ export function LawyersTable({
             header: '',
             actions: true,
             cell: (l) => (
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    disabled={!canEdit}
-                    title={canEdit ? undefined : 'Solo el Administrador puede modificar abogados.'}
-                    aria-describedby={[`lawyer-row-${l.id}`, !canEdit && readOnlyNoteId].filter(Boolean).join(' ')}
-                    onClick={() => onEdit(l)}
-                >
-                    Modificar
-                </Button>
+                <>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={!canEdit}
+                        title={canEdit ? undefined : 'Solo el Administrador puede modificar abogados.'}
+                        aria-describedby={[`lawyer-row-${l.id}`, !canEdit && readOnlyNoteId].filter(Boolean).join(' ')}
+                        onClick={() => onEdit(l)}
+                    >
+                        Modificar
+                    </Button>
+                    <Button
+                        variant="ghost-danger"
+                        size="sm"
+                        disabled={!canDelete}
+                        title={canDelete ? undefined : 'Solo el Administrador puede eliminar abogados.'}
+                        aria-describedby={[`lawyer-row-${l.id}`, !canDelete && readOnlyNoteId].filter(Boolean).join(' ')}
+                        onClick={() => onDelete(l)}
+                    >
+                        Eliminar
+                    </Button>
+                </>
             ),
         },
     ]

@@ -20,16 +20,13 @@ describe('pantallas con carga diferida', () => {
            entera a veces se pasaba. No mide velocidad: que cada nombre cargue. */
     }, 15_000)
 
-    // Reportes está en el rail pero no tiene pantalla (DECISIONES.md §3): no hay qué adelantar.
-    it('cada sección del rail con pantalla se puede adelantar', () => {
-        const sections = Object.keys(ROUTE_ACCESS).filter((route) => route !== '/reportes')
-        for (const route of sections) {
+    it('cada sección del rail se puede adelantar', () => {
+        for (const route of Object.keys(ROUTE_ACCESS)) {
             expect(SECTION_PAGES[route], route).toBeDefined()
         }
     })
 
     it('adelantar una sección sin pantalla no hace nada ni falla', () => {
-        expect(() => preloadSection('/reportes')).not.toThrow()
         expect(() => preloadSection('/no-existe')).not.toThrow()
     })
 })

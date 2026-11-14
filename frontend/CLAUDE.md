@@ -116,11 +116,11 @@ de `DECISIONES.md`. Del Sprint 5 no queda nada abierto (V6 §7).
 | -- | --- | ------------- | ------------------- |
 | 10 | Modificar cliente | `PATCH /clients/{clientId}` | El documento **se puede** cambiar (D-121); `clientSince` no se envía (`400`). Si cambia el nombre, el backend cambia el comienzo `APELLIDO, Nombres` de la carátula de sus causas (las que empiezan de otra forma no se tocan, D-130): después de guardar hay que invalidar las causas, no solo el cliente |
 | 11 | Dar de baja cliente | `DELETE /clients/{clientId}` | Con causas activas no procede: `409 CLIENT_HAS_ACTIVE_CASES` (D-122). El prototipo lo deja eliminar: manda el contrato. Motivo opcional |
-| 15 | Dar de baja abogado | `DELETE /lawyers/{lawyerId}` con `reassignments` | El reparto va en el mismo `DELETE` (D-123): una entrada por **cada causa activa**; las terminales no se reparten. Si quedó una sin repartir (se le asignó una mientras el formulario estaba abierto), `409 LAWYER_HAS_DEPENDENCIES`: se vuelven a pedir sus causas y se rearma el reparto. El usuario vinculado **no** bloquea: pierde el rol `LAWYER`, o se da de baja si era el único (D-133). El aviso previo sale de `GET /users` (el usuario cuyo `lawyer` es este abogado). No existe `LAWYER_HAS_LINKED_USER` |
+| 15 | Dar de baja abogado. **Hecha en el front (14/11/2026)**, solo contra el mock: `DeleteLawyerModal`, `useDeleteLawyer`, `useLawyerActiveCases`, `useLinkedUser`, `utils/reassignment`; `lawyers.delete` en `ACTION_ACCESS`. Tests: `components/lawyers/LawyersPage.delete.test.tsx`, `unit/lawyers/reassignment.test.ts` | `DELETE /lawyers/{lawyerId}` con `reassignments` | El reparto va en el mismo `DELETE` (D-123): una entrada por **cada causa activa**; las terminales no se reparten. Si quedó una sin repartir (se le asignó una mientras el formulario estaba abierto), `409 LAWYER_HAS_DEPENDENCIES`: se vuelven a pedir sus causas y se rearma el reparto. El usuario vinculado **no** bloquea: pierde el rol `LAWYER`, o se da de baja si era el único (D-133). El aviso previo sale de `GET /users` (el usuario cuyo `lawyer` es este abogado). No existe `LAWYER_HAS_LINKED_USER` |
 | 29 | Anular acto procesal | `DELETE /cases/{caseId}/procedural-acts/{actId}` | Solo el responsable (`403` para los demás). En una causa "Prescripta", `422 CASE_IN_TERMINAL_STATE`. Motivo opcional. El acto **desaparece** de la línea de vida (D-124) y la causa cambia de estado: invalidar el detalle y la línea de vida |
 | 36 | Modificar modelo formal | `PATCH /document-templates/{templateId}` (`multipart`) | **Lista** de fueros, como el alta, no el selector de uno del prototipo (D-125). Todos los campos son opcionales, también el archivo. El archivo reemplazado va a la `Papelera` de Drive: no hay historial |
 | 37 | Dar de baja modelo formal | `DELETE /document-templates/{templateId}` | No hay "Reactivar", y los dados de baja no se listan (D-126). Su archivo va a la `Papelera` de Drive (D-131). Su nombre queda libre para un modelo nuevo (D-139) |
-| 43 | Reporte mensual de gestión | `GET /reports/monthly`, `GET /reports/monthly/file` | Reemplaza a los reportes por abogado y por fuero (D-116). Solo `ADMINISTRATOR`: la ruta es `/reportes`, que ya está en `ROUTE_ACCESS`. El backend trae todo calculado; los gráficos se dibujan con SVG y CSS, **sin librería** (D-120). El selector de mes va de `availableFrom` a `currentPeriod`; el mes en curso llega con `status` `IN_PROGRESS`. El PDF lo arma el backend: el front solo lo descarga o lo muestra |
+| 43 | Reporte mensual de gestión. **Hecha en el front (14/11/2026)**, solo contra el mock: `dashboard/pages/ReportsPage`, `components/report/*`, `useMonthlyReport`, `useDownloadMonthlyReport`, `utils/reportPeriod`. Tests: `components/dashboard/ReportsPage.test.tsx`, `unit/dashboard/reportPeriod.test.ts` | `GET /reports/monthly`, `GET /reports/monthly/file` | Reemplaza a los reportes por abogado y por fuero (D-116). Solo `ADMINISTRATOR`: la ruta es `/reportes`, que ya está en `ROUTE_ACCESS`. El backend trae todo calculado; los gráficos se dibujan con SVG y CSS, **sin librería** (D-120). El selector de mes va de `availableFrom` a `currentPeriod`; el mes en curso llega con `status` `IN_PROGRESS`. El PDF lo arma el backend: el front solo lo descarga o lo muestra |
 | 49, 50 | Modificar y dar de baja calificación legal | Ya en V5, sin cambios | — |
 
 **Lo que el prototipo muestra y el Sprint 5 no dibuja** (`DECISIONES.md` §3):
@@ -293,7 +293,14 @@ cases       → clients, legal-params, lawyers, documents
 dashboard   → cases, legal-params
 documents   → legal-params
 users       → lawyers
+lawyers     → legal-params
 ```
+
+`lawyers → legal-params` es de HU15 (14/11/2026): el reparto de la baja
+descarta las causas terminales con `useProceduralStates`. Las causas del
+abogado y su usuario vinculado los pide `lawyers/api/lawyers.api.ts` con
+tipos mínimos propios (`types/lawyerDeletion.ts`), sin importar de `cases/` ni
+de `users/`, que dependen de `lawyers`.
 
 Si aparece una flecha para el otro lado, algo está en el módulo equivocado.
 
@@ -306,7 +313,7 @@ Si aparece una flecha para el otro lado, algo está en el módulo equivocado.
 | `legal-params` | `ProceduralStatesPage`, `LegalQualificationsPage` | `ProceduralStatesTable`, `ProceduralStateFormModal`, `DeleteProceduralStateModal`, `LegalQualificationsTable`, `LegalQualificationFormModal`, `DeleteLegalQualificationModal` | `prescription` (`formatPrescription`, `toPrescriptionMonths`, `splitPrescription`, `shortQualificationName`), `systemStates`, `dayTypeTone`, los `build…Patch` y `toCreate…Body`, `toFormErrors`, `toLegalQualificationFormErrors` |
 | `cases` | `CasesPage`, `RegisterCasePage`, `CaseDetailPage`, `GenerateCaseFilePage` | `CasesTable`, `CaseFilters`, `CaseForm`, `CaseEditForm`, `LegalQualificationPicker`, `CaseSummaryAside`, `CaseHeader`, `CaseFacts`, `PrescriptionBar`, `CasePrescriptionBar`, `CaseQualifications`, `ClientCard`, `CaseFolderCard`, `CaseDocumentsCard`, `CaseTimeline`, `InterruptiveActModal`, `PrescriptionDeclarationModal`, `DeleteCaseModal`, `CaseFileCoverPanel`, `CaseFileDocumentsPanel`, `CaseFileResultAside`, `CoverPreviewModal`, `CaseFileReadyModal`, `CaseSkeletons` | `deadlineStatus`, `openDeadline`, `prescription`, `caseState`, `stateFilter`, `sac`, `subjectMatter`, `suggestedCaption`, `responsibleLawyer`, `lawyerOptions`, `caseForm`, `caseDraft`, `caseFolder`, `caseDocument`, `caseFile`, `timeline`, `buildCasePatch`, `toCreateCaseBody`, `toDeleteCaseBody`, `toCreateInterruptiveActBody`, `toDeclarePrescriptionBody` y los `to…FormErrors` |
 | `proceedings` | `RegisterProceduralActPage` | `ProceduralActForm`, `DeadlinePreviewAside`, `ProceduralActFormSkeleton` | `stateOptions`, `resolveState`, `terminalState`, `deadlinePreview`, `dueDateText`, `toCreateProceduralActBody`, `toActFormValues`, `buildProceduralActPatch`, `toFormErrors` |
-| `lawyers` | `LawyersPage` | `LawyersTable`, `LawyerFormModal` | `toCreateLawyerBody`, `buildLawyerPatch`, `lawyerLabel`, `toFormErrors` |
+| `lawyers` | `LawyersPage` | `LawyersTable`, `LawyerFormModal`, `DeleteLawyerModal` | `toCreateLawyerBody`, `buildLawyerPatch`, `lawyerLabel`, `toFormErrors`, `reassignment`, `linkedUserNotice` |
 | `users` | `UsersPage` | `UsersTable`, `UserFormModal`, `DeleteUserModal` | `buildUserPatch`, `toCreateUserBody`, `roles`, `lawyerLink`, `toFormErrors` |
 | `documents` | `DocumentTemplatesPage` | `JurisdictionCard`, `DocumentTemplateCard`, `DocumentTemplateFormModal`, `FileDropzone`, `JurisdictionPicker`, `DocumentTemplatesSkeleton` | `templateFormat`, `toCreateDocumentTemplateBody`, `toFormErrors` |
 | `dashboard` | `HomePage` | `LawyerDashboardView`, `AdministratorDashboardView`, `SummaryBand`, `FirstDeadline`, `DeadlinesPanel`, `DeadlineCalendar`, `CasesToAdvancePanel`, `PrescriptionAlertsPanel`, `PortfolioByJurisdiction`, `TeamLoadPanel`, `DashboardSkeleton` | `dashboardDate`, `urgency` |
@@ -768,12 +775,12 @@ está aplicado todavía:**
 
 | Qué hay hoy | Dónde | Qué dice V6 |
 |---|---|---|
-| La baja de abogado del mock responde `409 LAWYER_HAS_DEPENDENCIES` si el abogado tiene causas, activas o no, o un usuario vinculado | `src/shared/mocks/handlers.ts:1039` | Reasigna las causas activas con `reassignments`; las terminales y el usuario vinculado no impiden la baja (D-123, D-133). `LAWYER_HAS_DEPENDENCIES` pasa a ser solo "quedan causas activas sin reasignar" |
-| La respuesta armada `businessRule` (`422`) de la baja de abogado | `src/shared/mocks/responses.ts:1058` | V6 retira ese `422` |
-| `deleteLawyer(id)` no manda cuerpo | `src/features/lawyers/api/lawyers.api.ts:45` | Lleva `reassignments` si el abogado tiene causas activas. Hoy ninguna pantalla lo llama |
-| `ERROR_CODES` no tiene `CLIENT_HAS_ACTIVE_CASES` ni `MONTHLY_REPORT_NOT_FOUND` | `src/shared/api/contract.ts` | Son códigos nuevos (V6 §5.3) |
+| ~~La baja de abogado del mock responde `409 LAWYER_HAS_DEPENDENCIES` si el abogado tiene causas, activas o no, o un usuario vinculado~~ **Aplicado (HU15, 14/11/2026)** | `src/shared/mocks/handlers.ts`, `deleteLawyer` | Reasigna las causas activas con `reassignments`; las terminales y el usuario vinculado no impiden la baja (D-123, D-133). `LAWYER_HAS_DEPENDENCIES` pasa a ser solo "quedan causas activas sin reasignar" |
+| ~~La respuesta armada `businessRule` (`422`) de la baja de abogado~~ **Aplicado** | `src/shared/mocks/responses.ts`, `RESPONSES.deleteLawyer` | V6 retira ese `422` |
+| ~~`deleteLawyer(id)` no manda cuerpo~~ **Aplicado** | `src/features/lawyers/api/lawyers.api.ts` | Lleva `reassignments` si el abogado tiene causas activas |
+| `ERROR_CODES` no tiene `CLIENT_HAS_ACTIVE_CASES` (~~ni `MONTHLY_REPORT_NOT_FOUND`~~, aplicado con HU43) | `src/shared/api/contract.ts` | Son códigos nuevos (V6 §5.3). `CLIENT_HAS_ACTIVE_CASES` es de HU11 |
 | Dos comentarios dicen que anular un acto (HU29) "queda fuera del contrato" | `src/features/cases/components/CaseTimeline.tsx:39`, `src/features/proceedings/types/proceduralAct.ts:15` | Está en V6: `DELETE /cases/{caseId}/procedural-acts/{actId}` |
-| "Reportes" está en el rail y en `ROUTE_ACCESS`, pero no tiene ruta | `src/app/layouts/AppLayout.tsx:66`, `src/app/access/access.ts:23` | Ahora es HU43: falta la página (ver [Problemas conocidos](#problemas-conocidos), 3) |
+| ~~"Reportes" está en el rail y en `ROUTE_ACCESS`, pero no tiene ruta~~ **Aplicado (HU43, 14/11/2026)** | `src/app/layouts/AppLayout.tsx`, `src/app/router/index.tsx` | `ReportsPage` en `/reportes`, solo `ADMINISTRATOR` |
 
 Si el contrato vuelve a cambiar, **no se toca de una**: primero se listan los
 cambios y se acuerdan, después se aplican al contrato, a los mocks, a los tipos

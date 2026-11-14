@@ -612,6 +612,90 @@ export interface AdministratorDashboard {
     team: DashboardTeamMember[];
 }
 
+/* ------------------------------------------------------------------ */
+/* Reporte mensual (V6 §3.13, HU43)                                    */
+/* ------------------------------------------------------------------ */
+
+export type ReportPeriodStatus = 'CLOSED' | 'IN_PROGRESS';
+
+export const PRESCRIPTION_BANDS = ['UNDER_50', 'FROM_50_TO_70', 'FROM_70_TO_90', 'FROM_90'] as const;
+export type PrescriptionBand = (typeof PRESCRIPTION_BANDS)[number];
+
+/** Respuesta de `GET /reports/monthly` (V6 L9341-9456). */
+export interface MonthlyReport {
+    period: string;
+    status: ReportPeriodStatus;
+    dataAsOf: string;
+    takenAt: string;
+    availableFrom: string;
+    currentPeriod: string;
+    summary: {
+        activeCases: number;
+        admitted: number;
+        archived: number;
+        admittedChange: number | null;
+        archivedChange: number | null;
+        averagePerLawyer: number;
+        minPerLawyer: number | null;
+        maxPerLawyer: number | null;
+    };
+    byJurisdiction: {
+        jurisdiction: Jurisdiction;
+        atStart: number;
+        admitted: number;
+        archived: number;
+        atEnd: number;
+        percentage: number;
+    }[];
+    lawyers: {
+        lawyer: PersonRef & { registrationNumber: string | null };
+        criminal: number;
+        administrative: number;
+        amparo: number;
+        total: number;
+        differenceFromAverage: number;
+    }[];
+    monthly: {
+        period: string;
+        admitted: number | null;
+        archived: number | null;
+        balance: number | null;
+        activeAtEnd: number | null;
+    }[];
+    proceduralStates: {
+        jurisdiction: Jurisdiction;
+        activeCases: number;
+        states: {
+            proceduralStateId: number | null;
+            name: string;
+            initial: boolean;
+            custom: boolean;
+            activeCases: number;
+        }[];
+    }[];
+    prescription: {
+        cases: number;
+        bands: { band: PrescriptionBand; cases: number; percentage: number }[];
+        alerts: {
+            caseId: number;
+            sacNumber: string | null;
+            caption: string;
+            responsibleLawyer: PersonRef;
+            legalQualificationName: string;
+            elapsedPercentage: number;
+            expired: boolean;
+        }[];
+    };
+    deadlines: {
+        total: number;
+        metOnTime: number;
+        metOnLastDay: number;
+        overdue: number;
+        pending: number;
+        interruptiveActs: number;
+    };
+}
+
 /** Respuesta de `GET /cases/{caseId}/procedural-acts/deadline-preview` (§3.8). */
 export interface DeadlinePreview {
     proceduralStateId: number;

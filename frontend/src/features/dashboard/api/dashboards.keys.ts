@@ -7,4 +7,10 @@ export const dashboardKeys = {
 
     /** "Estudio". */
     administrator: () => [...dashboardKeys.all, 'administrator'] as const,
+
+    /**
+     * El reporte mensual de un período (HU43). Sin período, el que el backend
+     * elige por defecto: el último mes cerrado.
+     */
+    monthlyReport: (period: string | null) => [...dashboardKeys.all, 'monthly-report', period] as const,
 }

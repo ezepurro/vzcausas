@@ -48,6 +48,8 @@ export const ERROR_CODES = [
     'PROCEDURAL_ACT_NOT_FOUND',
     'DOCUMENT_TEMPLATE_NOT_FOUND',
     'DOCUMENT_NOT_FOUND',
+    // V6 §3.13: un período sin reporte (antes de `availableFrom` o después del mes en curso)
+    'MONTHLY_REPORT_NOT_FOUND',
     'RESOURCE_NOT_FOUND',
     // 409 — unicidad y dependencias
     'USERNAME_ALREADY_EXISTS',

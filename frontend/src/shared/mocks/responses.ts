@@ -214,6 +214,8 @@ export const ERRORS = {
     /* ---- 404 ---- */
     userNotFound: errorBody('USER_NOT_FOUND', 'No se encontró el usuario solicitado.'),
     lawyerNotFound: errorBody('LAWYER_NOT_FOUND', 'No se encontró el abogado solicitado.'),
+    /* V6 §3.13: un período anterior a `availableFrom` o posterior al mes en curso. */
+    monthlyReportNotFound: errorBody('MONTHLY_REPORT_NOT_FOUND', 'No hay reporte para ese período.'),
     proceduralStateNotFound: errorBody(
         'PROCEDURAL_STATE_NOT_FOUND',
         'No se encontró el estado procesal solicitado.',
@@ -262,9 +264,10 @@ export const ERRORS = {
         'USER_HAS_DEPENDENCIES',
         'No se puede dar de baja el usuario porque posee recursos asociados.',
     ),
+    /* V6 §3.3 (L1918): solo "quedan causas activas sin reasignar". */
     lawyerHasDependencies: errorBody(
         'LAWYER_HAS_DEPENDENCIES',
-        'No se puede dar de baja el abogado porque posee recursos asociados.',
+        'El abogado tiene causas activas sin reasignar.',
     ),
     legalQualificationNameTaken: errorBody(
         'LEGAL_QUALIFICATION_ALREADY_EXISTS',
@@ -1047,15 +1050,21 @@ export const RESPONSES = {
         businessRule: response(422, businessRuleViolation('updateLawyer')),
     },
 
-    /** `DELETE /lawyers/{lawyerId}` — baja lógica. */
+    /** `DELETE /lawyers/{lawyerId}` — baja lógica con el reparto de sus causas activas (V6 §3.3). */
     deleteLawyer: {
         ok: NO_CONTENT,
         invalidId: response(400, ERRORS.invalidLawyerId),
+        validation: response(
+            400,
+            errorBody('VALIDATION_ERROR', 'Los datos enviados no son válidos.', {
+                reassignments: 'La causa 12 no es una causa activa de este abogado.',
+            }),
+        ),
         unauthenticated: response(401, ERRORS.unauthenticated),
         forbidden: response(403, ERRORS.forbidden),
         notFound: response(404, ERRORS.lawyerNotFound),
+        // V6 retira el `422`: queda solo "causas activas sin reasignar".
         hasDependencies: response(409, ERRORS.lawyerHasDependencies),
-        businessRule: response(422, businessRuleViolation('deleteLawyer')),
     },
 
     /** `POST /procedural-states` */

@@ -1,0 +1,61 @@
+get:
+  tags:
+    - Reports
+  operationId: getMonthlyReportFile
+  summary: Reporte mensual en PDF
+  description: |
+    Emite el reporte mensual en PDF (HU43, V6 §3.13): el "Reporte mensual de
+    gestión de causas" del período. Lo arma el backend en cada pedido, con los
+    mismos datos que `GET /reports/monthly`.
+
+    **Rol requerido:** `ADMINISTRATOR`.
+  parameters:
+    - name: period
+      in: query
+      required: false
+      description: Mes del reporte, `AAAA-MM`. Por defecto, el mismo que `GET /reports/monthly`.
+      schema:
+        type: string
+        pattern: '^\d{4}-(0[1-9]|1[0-2])$'
+    - name: disposition
+      in: query
+      required: false
+      description: Con `inline` el navegador muestra el PDF; con `attachment`, lo descarga.
+      schema:
+        type: string
+        enum: [inline, attachment]
+        default: attachment
+  responses:
+    '200':
+      description: El PDF del reporte.
+      headers:
+        Content-Disposition:
+          schema:
+            type: string
+          example: attachment; filename="Reporte_2026-08.pdf"
+      content:
+        application/pdf:
+          schema:
+            type: string
+            format: binary
+    '400':
+      description: Un `period` o un `disposition` con otro valor.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+    '401':
+      $ref: ../components/responses/Unauthorized.yaml
+    '403':
+      $ref: ../components/responses/ForbiddenAdministrator.yaml
+    '404':
+      description: El período es anterior a `availableFrom` o posterior al mes en curso.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          example:
+            error:
+              code: MONTHLY_REPORT_NOT_FOUND
+              message: No hay reporte para ese período.
+              details: null

@@ -1,0 +1,146 @@
+/* Reportes: el reporte mensual de gestión (HU43, V6 §3.13).
+   Sale de la pantalla "Reportes" del prototipo (L2036-2190). Los gráficos son
+   SVG y CSS, sin librería (D-120). Los colores de fuero son los de los
+   tableros (`--vz-fuero-*`, `.vz-dash-fuero--*`). */
+
+.vz-report-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+.vz-report-picker { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.vz-report-picker__nav { display: flex; align-items: center; gap: 4px; }
+.vz-report-picker__select { width: auto; min-width: 190px; }
+
+.vz-report { display: flex; flex-direction: column; gap: 16px; transition: opacity .15s; }
+.vz-report.is-busy { opacity: .6; }
+.vz-report__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+}
+/* Los dos paneles de la fila tienen el mismo alto: el contenido se reparte
+   en todo el recuadro en vez de quedar arriba a la izquierda. */
+.vz-report__row > .vz-panel { display: flex; flex-direction: column; }
+.vz-report__row > .vz-panel > .vz-report-body { flex: 1; display: flex; flex-direction: column; }
+@media (max-width: 960px) {
+  .vz-report__row { grid-template-columns: minmax(0, 1fr); }
+}
+
+.vz-report-period { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0; font-size: 15px; }
+.vz-report-period__note { font-size: 13px; color: var(--vz-muted); }
+
+/* Leyendas y muestras de color */
+.vz-report-legend { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.vz-report-legend--inline { flex-direction: row; flex-wrap: wrap; gap: 12px; font-size: 12.5px; color: var(--vz-muted); }
+.vz-report-legend--inline > span { display: inline-flex; align-items: center; gap: 6px; }
+.vz-report-legend__row { display: flex; align-items: center; gap: 10px; font-size: 13.5px; }
+.vz-report-legend__name { flex: 1; min-width: 0; }
+.vz-report-legend__n { font-family: var(--vz-font-mono); font-weight: 600; }
+.vz-report-legend__pct { font-family: var(--vz-font-mono); color: var(--vz-muted); min-width: 44px; text-align: right; }
+.vz-report-swatch { display: inline-block; width: 10px; height: 10px; flex: 0 0 10px; border-radius: 2px; }
+
+.vz-report-fill--admitted { background: var(--vz-primary); }
+.vz-report-fill--archived { background: var(--vz-danger); }
+
+/* Dona */
+.vz-report-donut {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-evenly;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+.vz-report-donut__svg { width: 190px; height: 190px; flex: 0 0 190px; }
+.vz-report-donut .vz-report-legend { flex: 1 1 200px; max-width: 320px; gap: 12px; }
+.vz-report-donut__track { stroke: var(--vz-sunken); }
+.vz-report-donut__total { font-family: var(--vz-font-mono); font-size: 28px; font-weight: 700; fill: var(--vz-ink); }
+.vz-report-donut__caption { font-size: 12px; fill: var(--vz-muted); }
+.vz-report-stroke--CRIMINAL { stroke: var(--vz-fuero-criminal); }
+.vz-report-stroke--ADMINISTRATIVE { stroke: var(--vz-fuero-administrative); }
+.vz-report-stroke--AMPARO { stroke: var(--vz-fuero-amparo); }
+
+/* Ingresadas y archivadas por mes */
+.vz-report-bars {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 6px;
+  height: 200px;
+}
+.vz-report-bars__month { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.vz-report-bars__plot {
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 3px;
+  border-bottom: 1px solid var(--vz-border);
+}
+/* Cada barra con su cantidad arriba. */
+.vz-report-bars__col {
+  height: 100%;
+  width: min(18px, 46%);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+}
+.vz-report-bars__value {
+  font-family: var(--vz-font-mono);
+  font-size: 10.5px;
+  line-height: 16px;
+  color: var(--vz-muted);
+}
+.vz-report-bars__bar { width: 100%; border-radius: 2px 2px 0 0; opacity: .35; }
+.vz-report-bars__month.is-current .vz-report-bars__bar { opacity: 1; }
+.vz-report-bars__month.is-current .vz-report-bars__value { color: var(--vz-ink); font-weight: 700; }
+.vz-report-bars__nodata { align-self: center; font-size: 12px; color: var(--vz-faint); }
+@media (max-width: 560px) {
+  .vz-report-bars__value { font-size: 9.5px; }
+}
+
+/* El detalle del mes resaltado, debajo del gráfico. */
+.vz-report-flow-detail {
+  margin: 14px 0 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+.vz-report-flow-detail > div {
+  padding: 8px 10px;
+  border: 1px solid var(--vz-border);
+  border-radius: var(--vz-r);
+  background: var(--vz-sunken);
+}
+.vz-report-flow-detail dt { font-size: 11.5px; color: var(--vz-muted); }
+.vz-report-flow-detail dd { margin: 2px 0 0; font-family: var(--vz-font-mono); font-size: 16px; font-weight: 700; }
+@media (max-width: 560px) {
+  .vz-report-flow-detail { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+.vz-report-bars__label { font-size: 11.5px; text-align: center; color: var(--vz-muted); }
+.vz-report-bars__month.is-current .vz-report-bars__label { color: var(--vz-ink); font-weight: 700; }
+
+/* Carga por abogado */
+.vz-report-load { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 10px; }
+.vz-report-load__row { display: grid; grid-template-columns: minmax(110px, 200px) minmax(0, 1fr) 36px; align-items: center; gap: 12px; }
+.vz-report-load__name { font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vz-report-load__track { position: relative; height: 16px; }
+.vz-report-load__bar { display: flex; height: 100%; gap: 2px; border-radius: var(--vz-r-sm); overflow: hidden; }
+.vz-report-load__avg { position: absolute; top: -4px; bottom: -4px; border-left: 1.5px dashed var(--vz-ink); opacity: .55; }
+.vz-report-load__total { font-family: var(--vz-font-mono); font-weight: 600; text-align: right; }
+@media (max-width: 560px) {
+  .vz-report-load__row { grid-template-columns: minmax(0, 1fr) 36px; }
+  .vz-report-load__name { grid-column: 1 / -1; }
+}
+
+/* Prescripción */
+.vz-report-presc { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 14px; }
+.vz-report-presc__bar { display: flex; height: 18px; gap: 2px; border-radius: var(--vz-r-sm); overflow: hidden; background: var(--vz-sunken); }
+.vz-report-band--UNDER_50 { background: var(--vz-primary); }
+.vz-report-band--FROM_50_TO_70 { background: var(--vz-ok-bd); }
+.vz-report-band--FROM_70_TO_90 { background: var(--vz-warn); }
+.vz-report-band--FROM_90 { background: var(--vz-danger); }
+
+.vz-report-note, .vz-report-empty { margin: 0; font-size: 12.5px; color: var(--vz-muted); }

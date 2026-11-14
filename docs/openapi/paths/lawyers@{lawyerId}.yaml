@@ -159,20 +159,39 @@ delete:
   operationId: deleteLawyer
   summary: Dar de baja abogado
   description: |
-    Da de baja un abogado. Corresponde a HU15 (Sprint 5); se mantiene porque
-    ya figuraba en V2.
+    Da de baja un abogado y, en la misma operación, reasigna sus causas
+    activas a otros abogados (HU15, V6 §3.3, D-123).
 
     **La baja es lógica, pero el cliente no la percibe.** El abogado deja de
     existir para la API: no aparece en ningún listado, no puede vincularse a
     un usuario ni asignarse como responsable de una causa, y
-    `GET /lawyers/{lawyerId}` responde `404`.
+    `GET /lawyers/{lawyerId}` responde `404`. No se reactiva.
+
+    `reassignments` lleva una entrada por **cada causa activa** del abogado.
+    Las causas en estado terminal no se reparten. Sin causas activas puede
+    omitirse. Las reasignaciones y la baja se aplican juntas.
+
+    El usuario vinculado no impide la baja (D-133): pierde la ficha y el rol
+    `LAWYER`; si era su único rol, también se da de baja.
 
     **Rol requerido:** `ADMINISTRATOR`.
+  requestBody:
+    required: false
+    content:
+      application/json:
+        schema:
+          $ref: ../components/schemas/LawyerDeactivation.yaml
+        example:
+          reassignments:
+            - caseId: 1
+              responsibleLawyerId: 4
+            - caseId: 12
+              responsibleLawyerId: 5
   responses:
     '204':
       description: Abogado dado de baja. La respuesta no contiene cuerpo.
     '400':
-      description: Identificador inválido.
+      description: Identificador inválido o reparto inválido.
       content:
         application/json:
           schema:
@@ -180,6 +199,13 @@ delete:
           examples:
             invalidLawyerId:
               $ref: ../components/examples/InvalidLawyerIdError.yaml
+            invalidReassignments:
+              value:
+                error:
+                  code: VALIDATION_ERROR
+                  message: Los datos enviados no son válidos.
+                  details:
+                    reassignments: La causa 12 no es una causa activa de este abogado.
     '401':
       $ref: ../components/responses/Unauthorized.yaml
     '403':
@@ -187,7 +213,7 @@ delete:
     '404':
       $ref: ../components/responses/LawyerNotFound.yaml
     '409':
-      description: El abogado posee causas o un usuario vinculado.
+      description: Quedan causas activas sin reasignar.
       content:
         application/json:
           schema:
@@ -195,16 +221,5 @@ delete:
           example:
             error:
               code: LAWYER_HAS_DEPENDENCIES
-              message: No se puede dar de baja el abogado porque posee recursos asociados.
-              details: null
-    '422':
-      description: Violación de una regla de negocio.
-      content:
-        application/json:
-          schema:
-            $ref: ../components/schemas/Error.yaml
-          example:
-            error:
-              code: BUSINESS_RULE_VIOLATION
-              message: No se puede dar de baja el abogado debido a una regla de negocio.
+              message: El abogado tiene causas activas sin reasignar.
               details: null

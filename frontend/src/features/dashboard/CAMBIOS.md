@@ -5,6 +5,54 @@ ni del contrato.
 
 ---
 
+## 2026-11-14 — "Reportes" (HU-43): lo que difiere del prototipo
+
+La pantalla sigue a la de "Reportes" del prototipo, con estas diferencias, que
+manda el contrato V6 §3.13 o que son de implementación:
+
+- **Selector de mes.** Es un `<select>` nativo entre las flechas, no el
+  calendario desplegable del prototipo. Ofrece los mismos meses (de
+  `availableFrom` a `currentPeriod`, este marcado "(en curso)") y suma
+  "Último cerrado" cuando no es el que se ve. El mes va en la URL
+  (`/reportes?periodo=2026-08`).
+- **"Promedio por abogado"** con un decimal (`14,1`), como manda el contrato.
+  El prototipo lo redondea a entero.
+- **"Causas por estado procesal" no se dibuja** (decisión de Luciano Cipolla,
+  14/11/2026). **Se aparta de CA-43.9**, que lo pide con una pestaña por fuero:
+  el backend lo sigue mandando en `proceduralStates` y la pantalla no lo usa.
+- **Orden de los paneles** (misma decisión): arriba "Causas activas por fuero"
+  y "Avance de la prescripción", lado a lado y con el mismo alto; después, a
+  todo el ancho, "Causas ingresadas y archivadas por mes"; al final, "Carga por
+  abogado responsable". El prototipo pone las barras al lado de la dona y la
+  prescripción al final.
+- **Las barras de ingresadas y archivadas llevan su cantidad** arriba de cada
+  barra, y debajo del gráfico va el detalle del mes resaltado (ingresadas,
+  archivadas, saldo y activas al cierre). Sin números, eran barras de colores
+  sin escala.
+- **El mes cerrado y el en curso.** Debajo del encabezado, "Mes cerrado ·
+  datos al …" o la etiqueta "Mes en curso · datos al …" (CA-43.6).
+- **El tramo `FROM_90`** dice "Desde el 90 %" (CA-43.10), no "Más del 90 %".
+- La lista de alertas de prescripción y los plazos del mes no se dibujan en
+  pantalla: el prototipo no los muestra y van en el PDF (CA-43.13).
+- No hay número de reporte, versiones, "Guardar" ni "Regenerar" (D-117).
+
+El mock calcula el reporte en cada pedido desde su base, también para los meses
+cerrados: con dos simplificaciones (responsable y prescripción de hoy, no a la
+fecha de corte). Solo sirve para ver la pantalla; la foto del mes es del backend.
+
+### Archivos
+
+| Archivo | Qué |
+| --- | --- |
+| `pages/ReportsPage.tsx` | La página |
+| `components/report/*` | El selector, los indicadores y los cuatro gráficos (SVG y CSS) |
+| `api/reports.api.ts`, `useMonthlyReport.ts`, `useDownloadMonthlyReport.ts` | Los dos endpoints |
+| `types/monthlyReport.ts` | La respuesta, desde V6 L9341-9456 |
+| `utils/reportPeriod.ts` | Los períodos `AAAA-MM` |
+| `src/styles/reports.css` | Estilos |
+
+---
+
 ## 2026-11-09 — "Estudio": las alertas de prescripción se desplazan adentro
 
 **Pedido:** de Luciano Cipolla. Con muchas alertas, "Alertas de prescripción"

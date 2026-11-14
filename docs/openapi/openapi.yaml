@@ -83,6 +83,7 @@ info:
         | `/document-templates`               | `ADMINISTRATOR` o `LAWYER`                            | `ADMINISTRATOR` o `LAWYER`                           |
         | `/dashboards/lawyer`                | `LAWYER`                                              | -                                                    |
         | `/dashboards/administrator`         | `ADMINISTRATOR`                                       | -                                                    |
+        | `/reports/monthly`                  | `ADMINISTRATOR`                                       | -                                                    |
 
         RN11: todo el estudio accede a todas las causas. La diferencia entre
         perfiles está en lo que pueden **operar**, no en lo que pueden **ver**.
@@ -319,6 +320,10 @@ tags:
           se copian a la carpeta de las causas nuevas (HU34, HU35, HU40). Lectura,
           alta y descarga (HU23) para `ADMINISTRATOR` o `LAWYER`. Modificación y
           baja (HU36 y HU37) llegan en el Sprint 5.
+    - name: Reports
+      description: |
+          El reporte mensual de gestión (HU43, V6 §3.13): la pantalla "Reportes" y
+          su "Descargar PDF". Solo el Administrador.
     - name: Dashboards
       description: |
           La pantalla "Inicio": un tablero por rol, de solo lectura, sin paginar y
@@ -395,6 +400,10 @@ paths:
         $ref: paths/dashboards@lawyer.yaml
     /dashboards/administrator:
         $ref: paths/dashboards@administrator.yaml
+    /reports/monthly:
+        $ref: paths/reports@monthly.yaml
+    /reports/monthly/file:
+        $ref: paths/reports@monthly@file.yaml
 
 components:
     securitySchemes:
