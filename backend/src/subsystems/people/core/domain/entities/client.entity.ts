@@ -1,6 +1,7 @@
 import { ValidationError } from "@shared/domain/domain-error";
 import { EmptyClientUpdateError } from "../errors/people.errors";
 import { CLIENT_FIELDS, ClientChangeSet, ClientField } from "../value-objects/client-change-set.vo";
+import { ClientDeactivation } from "../value-objects/client-deactivation.vo";
 import { ClientDocument } from "../value-objects/client-document.vo";
 import { PersonName } from "../value-objects/person-name.vo";
 
@@ -73,12 +74,16 @@ export class Client {
     private _email: string | null,
     private readonly _clientSince: Date,
     private _active: boolean,
+    // Who gave the client de baja, when and why (HU11). `null` while in force.
+    private _deactivation: ClientDeactivation | null = null,
   ) {}
 
   /**
    * Rebuilds a {@link Client} from persisted data, trusting the
    * database and skipping creation-time validation — same contract as
-   * `Lawyer.hydrate`.
+   * `Lawyer.hydrate`. The one rule it keeps is the one the database keeps
+   * too (`ck_clients_deactivation_coherent`): a client given de baja has its
+   * record and one in force has none, so neither half can exist alone.
    */
   static hydrate(props: {
     id: number;
@@ -90,7 +95,11 @@ export class Client {
     email: string | null;
     clientSince: Date;
     active: boolean;
+    deactivation: ClientDeactivation | null;
   }): Client {
+    if (props.active === (props.deactivation !== null)) {
+      throw new Error(`Client ${props.id} is ${props.active ? "in force with" : "given de baja without"} a deactivation record.`);
+    }
     return new Client(
       props.id,
       props.lastName,
@@ -101,6 +110,7 @@ export class Client {
       props.email,
       props.clientSince,
       props.active,
+      props.deactivation,
     );
   }
 
@@ -307,9 +317,28 @@ export class Client {
     return value;
   }
 
-  /** Logical deletion (RN12), mirroring `Lawyer.deactivate()`. */
-  deactivate(): void {
+  /**
+   * HU11 — gives the client de baja (contract V6, `DELETE /clients/{clientId}`).
+   * The baja is logical (RN12): the client is kept, with who, when and why,
+   * and stops existing for the client of the API. Its cases keep referencing
+   * it (CA-11.4).
+   *
+   * Whether it may — no active cases (CA-11.2, D-122) — needs the cases, which
+   * are another subsystem's: the use case asks before getting here. A client
+   * already given de baja answers 404 earlier too, so reaching it twice is a
+   * programming error.
+   */
+  deactivate(deactivation: ClientDeactivation): void {
+    if (!this._active) {
+      throw new Error(`The client ${this._id} was already given de baja.`);
+    }
     this._active = false;
+    this._deactivation = deactivation;
+  }
+
+  /** The record of the baja; `null` while the client is in force. */
+  get deactivation(): ClientDeactivation | null {
+    return this._deactivation;
   }
 
   get id(): number {

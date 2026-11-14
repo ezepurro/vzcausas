@@ -3,6 +3,7 @@ import { ClientNotFoundError } from "../../domain/errors/people.errors";
 import { ClientDocument } from "../../domain/value-objects/client-document.vo";
 import { FindClientUseCase } from "./find-client.use-case";
 import {
+  aClientDeactivation,
   FakeActiveCasesCounter,
   FakeClientRepository,
 } from "./test-support/people-fakes";
@@ -31,7 +32,7 @@ describe("FindClientUseCase", () => {
       phone: "351 401-5573",
       clientSince: new Date("2026-10-07T00:00:00Z"),
     });
-    if (!active) client.deactivate();
+    if (!active) client.deactivate(aClientDeactivation());
     await clients.create(client);
     return client;
   }

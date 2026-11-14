@@ -112,6 +112,21 @@ export class ClientDniAlreadyExistsError extends ConflictError {
 }
 
 /**
+ * Emitted by `DeactivateClient` (HU11) when the client still has active
+ * cases (CA-11.2, D-122): if the case is alive, the client is still part of
+ * the firm (RN1). Cases in a terminal state and cases given de baja do not
+ * count. The screen lists the active ones with `GET /cases?clientId=`.
+ */
+export class ClientHasActiveCasesError extends ConflictError {
+  constructor() {
+    super(
+      "CLIENT_HAS_ACTIVE_CASES",
+      "No se puede dar de baja el cliente porque tiene causas activas.",
+    );
+  }
+}
+
+/**
  * Emitted by `GET /clients/{clientId}` when no current client matches.
  *
  * A logically deleted client gets this too, not a payload with

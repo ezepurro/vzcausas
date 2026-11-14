@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -21,11 +22,13 @@ import { FindClientUseCase } from "../../../core/application/use-cases/find-clie
 import { ListClientsUseCase } from "../../../core/application/use-cases/list-clients.use-case";
 import { RegisterClientUseCase } from "../../../core/application/use-cases/register-client.use-case";
 import { UpdateClientUseCase } from "../../../core/application/use-cases/update-client.use-case";
+import { DeactivateClientUseCase } from "../../../core/application/use-cases/deactivate-client.use-case";
 import { InvalidClientIdError } from "../../../core/domain/errors/people.errors";
 import { ClientResponseDto } from "../dtos/client.response.dto";
 import { ListClientsQueryDto } from "../dtos/list-clients.query.dto";
 import { RegisterClientRequestDto } from "../dtos/register-client.request.dto";
 import { UpdateClientRequestDto } from "../dtos/update-client.request.dto";
+import { DeactivateClientRequestDto } from "../dtos/deactivate-client.request.dto";
 import { ClientHttpMapper } from "../mappers/client-http.mapper";
 
 /**
@@ -37,7 +40,8 @@ import { ClientHttpMapper } from "../mappers/client-http.mapper";
  * (CA-8.9, D-05). Who holds `client:read` and `client:create` is decided
  * in `prisma/seed.ts`, not here.
  *
- * Modifying is HU10 (`client:update`, the three profiles); deleting is HU11.
+ * Modifying is HU10 (`client:update`) and giving de baja HU11
+ * (`client:delete`), both for the three profiles.
  */
 @Controller("clients")
 export class ClientController {
@@ -46,6 +50,7 @@ export class ClientController {
     private readonly listClients: ListClientsUseCase,
     private readonly findClient: FindClientUseCase,
     private readonly updateClient: UpdateClientUseCase,
+    private readonly deactivateClient: DeactivateClientUseCase,
   ) {}
 
   @RequirePermissions("client:create")
@@ -122,6 +127,26 @@ export class ClientController {
     return {
       data: ClientHttpMapper.toResponse(result.client, result.activeCases),
     };
+  }
+
+  /**
+   * HU11: gives a client de baja. The three profiles may (CA-11.6), through
+   * `client:delete`. The body is optional: it carries only the reason
+   * (CA-11.7). A client with active cases answers 409 (CA-11.2).
+   */
+  @RequirePermissions("client:delete")
+  @Delete(":clientId")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async deactivate(
+    @Param("clientId") clientIdParam: string,
+    @Body() dto: DeactivateClientRequestDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ): Promise<void> {
+    await this.deactivateClient.execute({
+      clientId: this.parseClientId(clientIdParam),
+      input: { reason: dto?.reason },
+      actorUserId: actor.userId,
+    });
   }
 
   private parseClientId(raw: string): number {

@@ -1,7 +1,7 @@
 import { ValidationError } from "@shared/domain/domain-error";
 import { ClientDniAlreadyExistsError } from "../../domain/errors/people.errors";
 import { RegisterClientUseCase } from "./register-client.use-case";
-import { FakeClientRepository, FakeClock } from "./test-support/people-fakes";
+import { aClientDeactivation, FakeClientRepository, FakeClock } from "./test-support/people-fakes";
 
 describe("RegisterClientUseCase", () => {
   const baseCommand = {
@@ -99,7 +99,7 @@ describe("RegisterClientUseCase", () => {
     it("frees the document once the client is deactivated", async () => {
       const { useCase, clients } = build();
       const first = await useCase.execute(baseCommand);
-      first.client.deactivate();
+      first.client.deactivate(aClientDeactivation());
       await clients.create(first.client);
 
       const second = await useCase.execute(baseCommand);
