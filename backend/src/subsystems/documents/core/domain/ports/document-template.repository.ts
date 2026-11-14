@@ -15,6 +15,27 @@ export interface TemplateFilePlacement {
   cloudFolderId: string;
 }
 
+/** An active template loaded to be modified (HU36): its state and where its files are in the storage. */
+export interface TemplateForModification {
+  template: DocumentTemplate;
+  /** The template's main file (`document_templates.cloud_file_id`): the one that is downloaded. */
+  mainFileId: string;
+  /** The file of each of its jurisdictions; none for a template older than the subfolders. */
+  placements: TemplateFilePlacement[];
+}
+
+/**
+ * What a modification writes (HU36). `placements` is the template's **whole**
+ * new set of files, the first one being the main file; `null` if the files are
+ * not touched. `trash` are the ids of the files the template stops referencing,
+ * which still have to go to the `Papelera`.
+ */
+export interface TemplateUpdate {
+  template: DocumentTemplate;
+  placements: readonly TemplateFilePlacement[] | null;
+  trash: readonly string[];
+}
+
 /** A registered template, as the contract shows it (V4 §3.10). */
 export interface DocumentTemplateView {
   id: number;
@@ -52,8 +73,14 @@ export interface DocumentTemplateRepository {
   /** The file of the active template with that id, to download it (CA-35.6, CA-23.1); `null` like {@link findById}. */
   findFileById(id: number): Promise<TemplateFile | null>;
 
-  /** Whether an active template already has this name, ignoring case (D-71). */
-  existsByName(name: string): Promise<boolean>;
+  /**
+   * Whether an active template already has this name, ignoring case (D-71,
+   * D-139). `exceptId`: a template's own name is no conflict (CA-36.3).
+   */
+  existsByName(name: string, exceptId?: number): Promise<boolean>;
+
+  /** The active template with that id, ready to be modified (HU36); `null` if it does not exist or was given de baja. */
+  findForModification(id: number): Promise<TemplateForModification | null>;
 
   /**
    * The ids of the jurisdictions with those codes (`jurisdictions.name` holds
@@ -70,6 +97,24 @@ export interface DocumentTemplateRepository {
    *   meantime (the unique index on `lower(name)`).
    */
   save(template: DocumentTemplate, placements: readonly TemplateFilePlacement[]): Promise<DocumentTemplateView>;
+
+  /**
+   * Writes a modification of an **active** template in one transaction (HU36,
+   * D-125): its name, `copyToNewCases`, file name and last version, and, if
+   * `placements` is given, its jurisdictions and the file of each. The ids in
+   * `trash` are recorded as waiting for the `Papelera` in the same write, so
+   * they are not lost if the process dies before moving them. It writes only if
+   * the template is still active: if it was given de baja in the meantime it
+   * writes nothing and returns `null`. Returns the template as the contract
+   * shows it. `usageCount` does not change (CA-36.7).
+   *
+   * @throws {DocumentTemplateAlreadyExistsError} if the name was taken in the
+   *   meantime (the unique index on `lower(name)`).
+   */
+  update(id: number, update: TemplateUpdate): Promise<DocumentTemplateView | null>;
+
+  /** The files in `fileIds` are now in the `Papelera`: forgets them. Ids that are not recorded are ignored. */
+  clearPendingTrash(fileIds: readonly string[]): Promise<void>;
 
   /**
    * Gives an **active** template de baja and marks its files as waiting for the

@@ -1,6 +1,12 @@
 import { AuthenticatedUser } from '@shared/domain/authenticated-user';
 import { ForbiddenActionError, ValidationError } from '@shared/domain/domain-error';
-import { DOCX_MIME_TYPE, DocumentTemplate, NewDocumentTemplateInput } from './document-template.entity';
+import {
+  DOCX_MIME_TYPE,
+  DocumentTemplate,
+  DocumentTemplateProps,
+  NewDocumentTemplateInput,
+  TemplateModificationInput,
+} from './document-template.entity';
 
 const NOW = new Date('2026-10-17T12:00:00.000Z');
 
@@ -92,6 +98,123 @@ describe('DocumentTemplate', () => {
     });
     expect(detailsOf(() => DocumentTemplate.create(input({ jurisdictions: ['CRIMINAL', 'CRIMINAL'] })))).toEqual({
       jurisdictions: 'Cada fuero se elige una sola vez.',
+    });
+  });
+
+  describe('modificar un modelo (HU36)', () => {
+    const LATER = new Date('2026-11-12T13:30:00.000Z');
+    const stored = (overrides: Partial<DocumentTemplateProps> = {}) =>
+      DocumentTemplate.hydrate({
+        name: 'Recurso de casación',
+        jurisdictions: ['CRIMINAL', 'AMPARO'],
+        fileName: 'casacion.docx',
+        copyToNewCases: true,
+        lastVersionByUserId: 6,
+        lastVersionAt: NOW,
+        ...overrides,
+      });
+    const change = (overrides: Partial<TemplateModificationInput> = {}): TemplateModificationInput => ({
+      byUserId: 9,
+      now: LATER,
+      ...overrides,
+    });
+    const docx = (originalName = 'nuevo.docx') => ({ originalName, mimeType: DOCX_MIME_TYPE });
+
+    // CA-36.1
+    it('cambia solo lo que se envía y deja lo demás como estaba, incluida la última versión', () => {
+      const template = stored();
+
+      const modification = template.modify(change({ name: '  Casación 2026  ', copyToNewCases: false }));
+
+      expect(template.name).toBe('Casación 2026');
+      expect(template.copyToNewCases).toBe(false);
+      expect(template.jurisdictions).toEqual(['CRIMINAL', 'AMPARO']);
+      expect(template.fileName).toBe('casacion.docx');
+      expect(template.lastVersionByUserId).toBe(6);
+      expect(template.lastVersionAt).toBe(NOW);
+      expect(modification).toMatchObject({
+        fileReplaced: false,
+        jurisdictionsAdded: [],
+        jurisdictionsRemoved: [],
+        touchesStorage: false,
+      });
+    });
+
+    // CA-36.4
+    it('un archivo nuevo cambia el nombre del archivo y la fecha y el usuario de la última versión', () => {
+      const template = stored();
+
+      const modification = template.modify(change({ file: docx('casacion-2026.docx') }));
+
+      expect(template.fileName).toBe('casacion-2026.docx');
+      expect(template.lastVersionByUserId).toBe(9);
+      expect(template.lastVersionAt).toBe(LATER);
+      expect(modification).toMatchObject({ fileReplaced: true, touchesStorage: true });
+    });
+
+    // CA-36.2, CA-36.6
+    it('la lista de fueros reemplaza a la anterior y dice cuáles se suman y cuáles se quitan, en el orden del contrato', () => {
+      const template = stored({ jurisdictions: ['AMPARO', 'CRIMINAL'] });
+
+      const modification = template.modify(change({ jurisdictions: ['ADMINISTRATIVE', 'CRIMINAL'] }));
+
+      expect(template.jurisdictions).toEqual(['ADMINISTRATIVE', 'CRIMINAL']);
+      expect(template.jurisdictionsInContractOrder).toEqual(['CRIMINAL', 'ADMINISTRATIVE']);
+      expect(modification).toMatchObject({
+        jurisdictionsAdded: ['ADMINISTRATIVE'],
+        jurisdictionsRemoved: ['AMPARO'],
+        touchesStorage: true,
+      });
+    });
+
+    it('enviar los mismos fueros, en otro orden, no toca la nube', () => {
+      const modification = stored().modify(change({ jurisdictions: ['AMPARO', 'CRIMINAL'] }));
+
+      expect(modification.touchesStorage).toBe(false);
+    });
+
+    // CA-36.3: el propio nombre no es conflicto, y el entorno lo decide el caso de uso
+    it('conservar su propio nombre es una modificación válida', () => {
+      const template = stored();
+
+      expect(() => template.modify(change({ name: 'Recurso de casación' }))).not.toThrow();
+    });
+
+    // CA-36.1
+    it('un pedido sin ningún campo es VALIDATION_ERROR bajo "body" y no cambia nada', () => {
+      const template = stored();
+
+      expect(detailsOf(() => template.modify(change()))).toEqual({
+        body: 'Debe enviarse al menos un campo para modificar.',
+      });
+      expect(template.name).toBe('Recurso de casación');
+    });
+
+    // CA-36.2, CA-36.3, CA-36.5
+    it('junta los problemas de todos los campos y no cambia nada si alguno falla', () => {
+      const template = stored();
+
+      expect(
+        detailsOf(() =>
+          template.modify(
+            change({ name: '   ', jurisdictions: [], file: { originalName: 'casacion.pdf', mimeType: 'application/pdf' } }),
+          ),
+        ),
+      ).toEqual({
+        name: 'El nombre del modelo es obligatorio.',
+        jurisdictions: 'Elegí al menos un fuero.',
+        file: 'El archivo tiene que ser .docx.',
+      });
+      expect(template).toMatchObject({ name: 'Recurso de casación', fileName: 'casacion.docx' });
+      expect(template.lastVersionAt).toBe(NOW);
+    });
+
+    it.each([
+      [{ name: 'x'.repeat(151) }, { name: 'Debe tener hasta 150 caracteres.' }],
+      [{ jurisdictions: ['LABORAL'] }, { jurisdictions: 'Los fueros válidos son CRIMINAL, ADMINISTRATIVE y AMPARO.' }],
+      [{ jurisdictions: ['AMPARO', 'AMPARO'] }, { jurisdictions: 'Cada fuero se elige una sola vez.' }],
+    ])('rechaza %j', (overrides, expected) => {
+      expect(detailsOf(() => stored().modify(change(overrides)))).toEqual(expected);
     });
   });
 

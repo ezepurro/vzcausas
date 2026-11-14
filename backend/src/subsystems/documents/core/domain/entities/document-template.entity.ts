@@ -30,6 +30,30 @@ export interface NewDocumentTemplateInput {
   now: Date;
 }
 
+/** What the user sends to modify a template (HU36). Anything left out stays as it is. */
+export interface TemplateModificationInput {
+  name?: string | null;
+  jurisdictions?: readonly string[] | null;
+  copyToNewCases?: boolean | null;
+  file?: TemplateFileInput | null;
+  /** Who and when, for the "last version", if the file is replaced. */
+  byUserId: number;
+  now: Date;
+}
+
+/**
+ * What a modification changes in the cloud storage (HU36, CA-36.4, CA-36.6): a
+ * new file, jurisdictions that were added and jurisdictions that were removed.
+ * Changing only the name or `copyToNewCases` touches nothing there.
+ */
+export interface TemplateModification {
+  readonly fileReplaced: boolean;
+  readonly jurisdictionsAdded: readonly TemplateJurisdiction[];
+  readonly jurisdictionsRemoved: readonly TemplateJurisdiction[];
+  /** Whether a file has to be uploaded, copied or moved. */
+  readonly touchesStorage: boolean;
+}
+
 export interface DocumentTemplateProps {
   name: string;
   jurisdictions: TemplateJurisdiction[];
@@ -44,9 +68,10 @@ export interface DocumentTemplateProps {
  * applies to one or more jurisdictions. A template for several jurisdictions
  * is **one** template with one file (CA-34.2, D-55).
  *
- * Built only through {@link create}, which checks every field and reports all
- * the problems at once (CA-34.4). The unique name needs the other templates,
- * so the use case checks it; the file itself lives in the cloud storage.
+ * Built through {@link create}, which checks every field and reports all the
+ * problems at once (CA-34.4), or rebuilt from the database with {@link hydrate}
+ * and changed with {@link modify} (HU36). The unique name needs the other
+ * templates, so the use case checks it; the file itself lives in the cloud storage.
  */
 export class DocumentTemplate {
   private constructor(private readonly props: DocumentTemplateProps) {}
@@ -75,29 +100,12 @@ export class DocumentTemplate {
     const errors: Record<string, string> = {};
 
     const name = input.name?.trim() ?? '';
-    if (name.length === 0) {
-      errors.name = 'El nombre del modelo es obligatorio.';
-    } else if (name.length > NAME_MAX_LENGTH) {
-      errors.name = `Debe tener hasta ${NAME_MAX_LENGTH} caracteres.`;
-    }
-
     const jurisdictions = input.jurisdictions ?? [];
-    if (jurisdictions.length === 0) {
-      errors.jurisdictions = 'Elegí al menos un fuero.';
-    } else if (jurisdictions.some((code) => !TEMPLATE_JURISDICTIONS.includes(code as TemplateJurisdiction))) {
-      errors.jurisdictions = 'Los fueros válidos son CRIMINAL, ADMINISTRATIVE y AMPARO.';
-    } else if (new Set(jurisdictions).size !== jurisdictions.length) {
-      errors.jurisdictions = 'Cada fuero se elige una sola vez.';
-    }
-
     const fileName = input.file?.originalName.trim() ?? '';
-    if (!input.file) {
-      errors.file = 'El archivo del modelo es obligatorio.';
-    } else if (!DocumentTemplate.isDocx(fileName, input.file.mimeType)) {
-      errors.file = 'El archivo tiene que ser .docx.';
-    } else if (fileName.length > FILE_NAME_MAX_LENGTH) {
-      errors.file = `El nombre del archivo debe tener hasta ${FILE_NAME_MAX_LENGTH} caracteres.`;
-    }
+
+    DocumentTemplate.collect(errors, 'name', DocumentTemplate.nameError(name));
+    DocumentTemplate.collect(errors, 'jurisdictions', DocumentTemplate.jurisdictionsError(jurisdictions));
+    DocumentTemplate.collect(errors, 'file', DocumentTemplate.fileError(input.file, fileName));
 
     if (Object.keys(errors).length > 0) {
       throw new ValidationError('VALIDATION_ERROR', 'Los datos enviados no son válidos.', errors);
@@ -112,6 +120,117 @@ export class DocumentTemplate {
       lastVersionByUserId: input.lastVersionByUserId,
       lastVersionAt: input.now,
     });
+  }
+
+  /** Rebuilds a stored template, without validation: what the database holds was valid when it was saved. */
+  static hydrate(props: DocumentTemplateProps): DocumentTemplate {
+    return new DocumentTemplate({ ...props, jurisdictions: [...props.jurisdictions] });
+  }
+
+  /**
+   * HU36 (CA-36.1): changes what was sent and leaves the rest as it is. Every
+   * field is optional, but at least one must come. The problems of all the
+   * fields are reported at once, as in {@link create}.
+   *
+   * - `jurisdictions` **replaces** the whole list (CA-36.2, D-125).
+   * - Only a new file moves `lastVersionAt` and `lastVersionByUserId`: they are
+   *   the moment and the user of the replacement (CA-36.4).
+   * - A name that is the template's own is no conflict: whether another template
+   *   has it needs the others, so the use case checks it (CA-36.3).
+   *
+   * Nothing changes unless the whole request is valid.
+   *
+   * @throws {ValidationError} `VALIDATION_ERROR`, with one message per field, or
+   *   under `body` if nothing was sent.
+   */
+  modify(input: TemplateModificationInput): TemplateModification {
+    const nothingSent =
+      input.name == null && input.jurisdictions == null && input.copyToNewCases == null && input.file == null;
+    if (nothingSent) {
+      throw new ValidationError('VALIDATION_ERROR', 'Los datos enviados no son válidos.', {
+        body: 'Debe enviarse al menos un campo para modificar.',
+      });
+    }
+
+    const name = input.name == null ? null : input.name.trim();
+    const fileName = input.file == null ? '' : input.file.originalName.trim();
+    const errors: Record<string, string> = {};
+    if (name !== null) {
+      DocumentTemplate.collect(errors, 'name', DocumentTemplate.nameError(name));
+    }
+    if (input.jurisdictions != null) {
+      DocumentTemplate.collect(errors, 'jurisdictions', DocumentTemplate.jurisdictionsError(input.jurisdictions));
+    }
+    if (input.file != null) {
+      DocumentTemplate.collect(errors, 'file', DocumentTemplate.fileError(input.file, fileName));
+    }
+    if (Object.keys(errors).length > 0) {
+      throw new ValidationError('VALIDATION_ERROR', 'Los datos enviados no son válidos.', errors);
+    }
+
+    const before = this.props.jurisdictions;
+    const after = input.jurisdictions == null ? before : (input.jurisdictions as TemplateJurisdiction[]);
+    const inContractOrder = (list: readonly TemplateJurisdiction[]) =>
+      [...list].sort((a, b) => TEMPLATE_JURISDICTIONS.indexOf(a) - TEMPLATE_JURISDICTIONS.indexOf(b));
+    const modification: TemplateModification = {
+      fileReplaced: input.file != null,
+      jurisdictionsAdded: inContractOrder(after.filter((code) => !before.includes(code))),
+      jurisdictionsRemoved: inContractOrder(before.filter((code) => !after.includes(code))),
+      get touchesStorage(): boolean {
+        return this.fileReplaced || this.jurisdictionsAdded.length > 0 || this.jurisdictionsRemoved.length > 0;
+      },
+    };
+
+    if (name !== null) {
+      this.props.name = name;
+    }
+    if (input.jurisdictions != null) {
+      this.props.jurisdictions = [...after];
+    }
+    if (input.copyToNewCases != null) {
+      this.props.copyToNewCases = input.copyToNewCases;
+    }
+    if (input.file != null) {
+      this.props.fileName = fileName;
+      this.props.lastVersionByUserId = input.byUserId;
+      this.props.lastVersionAt = input.now;
+    }
+    return modification;
+  }
+
+  private static collect(errors: Record<string, string>, field: string, message: string | null): void {
+    if (message !== null) {
+      errors[field] = message;
+    }
+  }
+
+  private static nameError(name: string): string | null {
+    if (name.length === 0) {
+      return 'El nombre del modelo es obligatorio.';
+    }
+    return name.length > NAME_MAX_LENGTH ? `Debe tener hasta ${NAME_MAX_LENGTH} caracteres.` : null;
+  }
+
+  private static jurisdictionsError(jurisdictions: readonly string[]): string | null {
+    if (jurisdictions.length === 0) {
+      return 'Elegí al menos un fuero.';
+    }
+    if (jurisdictions.some((code) => !TEMPLATE_JURISDICTIONS.includes(code as TemplateJurisdiction))) {
+      return 'Los fueros válidos son CRIMINAL, ADMINISTRATIVE y AMPARO.';
+    }
+    return new Set(jurisdictions).size !== jurisdictions.length ? 'Cada fuero se elige una sola vez.' : null;
+  }
+
+  private static fileError(file: TemplateFileInput | null | undefined, fileName: string): string | null {
+    if (!file) {
+      return 'El archivo del modelo es obligatorio.';
+    }
+    if (!DocumentTemplate.isDocx(fileName, file.mimeType)) {
+      return 'El archivo tiene que ser .docx.';
+    }
+    return fileName.length > FILE_NAME_MAX_LENGTH
+      ? `El nombre del archivo debe tener hasta ${FILE_NAME_MAX_LENGTH} caracteres.`
+      : null;
   }
 
   /** Both the extension and the declared type: a renamed PDF is not a Word document. */

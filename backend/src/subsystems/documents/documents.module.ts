@@ -5,11 +5,13 @@ import { AssureSpace } from './core/application/use-cases/assure-space.use-case'
 import { RenameLawyerFolder } from './core/application/use-cases/rename-lawyer-folder.use-case';
 import { SyncCaseFolder } from './core/application/use-cases/sync-case-folder.use-case';
 import { RecycleBin } from './core/application/common/recycle-bin';
+import { TemplateCloudFiles } from './core/application/common/template-cloud-files';
 import { RecycleCaseFolder } from './core/application/use-cases/recycle-case-folder.use-case';
 import { CopyTemplatesToCaseFolder } from './core/application/use-cases/copy-templates-to-case-folder.use-case';
 import { DeactivateDocumentTemplate } from './core/application/use-cases/deactivate-document-template.use-case';
 import { DownloadDocumentTemplate } from './core/application/use-cases/download-document-template.use-case';
 import { MoveTemplateFilesToTrash } from './core/application/use-cases/move-template-files-to-trash.use-case';
+import { UpdateDocumentTemplate } from './core/application/use-cases/update-document-template.use-case';
 import { GetDocumentTemplate } from './core/application/use-cases/get-document-template.use-case';
 import { ListDocumentTemplates } from './core/application/use-cases/list-document-templates.use-case';
 import { RegisterDocumentTemplate } from './core/application/use-cases/register-document-template.use-case';
@@ -87,7 +89,11 @@ import { DOCUMENT_STORAGE_PROVIDER } from './infrastructure/storage/document-sto
     LawyerRenamedListener,
     CaseTemplatesCopyRequestedListener,
     StorageBootstrap,
+    // What registering (HU34) and modifying (HU36) a template share in the cloud storage.
+    TemplateCloudFiles,
     RegisterDocumentTemplate,
+    // HU36: modifies a template and sends what it replaces to the Papelera (D-125).
+    UpdateDocumentTemplate,
     ListDocumentTemplates,
     GetDocumentTemplate,
     DownloadDocumentTemplate,

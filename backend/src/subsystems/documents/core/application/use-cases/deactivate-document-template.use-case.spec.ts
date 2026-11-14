@@ -35,10 +35,13 @@ async function aStudioWithATemplate() {
     jurisdictions: ['CRIMINAL', 'AMPARO'],
     cloudFileId: 'f-penal',
     cloudFolderId: penal.id,
-    jurisdictionFileIds: ['f-penal', 'f-amparo'],
+    placements: [
+      { jurisdiction: 'CRIMINAL', cloudFileId: 'f-penal', cloudFolderId: penal.id },
+      { jurisdiction: 'AMPARO', cloudFileId: 'f-amparo', cloudFolderId: amparo.id },
+    ],
   });
   const bin = new RecycleBin(studio.folders, studio.storage);
-  const move = new MoveTemplateFilesToTrash(templates, studio.storage, bin);
+  const move = new MoveTemplateFilesToTrash(templates, bin);
   const useCase = new DeactivateDocumentTemplate(templates, move);
   const parentOf = (fileId: string) => studio.storage.files.find((file) => file.id === fileId)?.parentId;
   const papelera = () => studio.storage.folders.find((folder) => folder.name === 'Papelera');
@@ -145,7 +148,7 @@ describe('DeactivateDocumentTemplate', () => {
   it('si no hay carpeta raíz del estudio en la nube, la baja vale igual', async () => {
     const { templates, storage, folders } = await aStudioWithATemplate();
     const withoutRoot = Object.assign(Object.create(folders), { findByKey: async () => null });
-    const move = new MoveTemplateFilesToTrash(templates, storage, new RecycleBin(withoutRoot, storage));
+    const move = new MoveTemplateFilesToTrash(templates, new RecycleBin(withoutRoot, storage));
 
     await expect(
       new DeactivateDocumentTemplate(templates, move).execute({ actor: actor(), templateId: 5 }),
@@ -165,7 +168,7 @@ describe('MoveTemplateFilesToTrash', () => {
 
   async function aMover() {
     const scenario = await aStudioWithATemplate();
-    const move = new MoveTemplateFilesToTrash(scenario.templates, scenario.storage, new RecycleBin(scenario.folders, scenario.storage));
+    const move = new MoveTemplateFilesToTrash(scenario.templates, new RecycleBin(scenario.folders, scenario.storage));
     return { ...scenario, move };
   }
 
@@ -187,7 +190,7 @@ describe('MoveTemplateFilesToTrash', () => {
 
   it('un modelo anterior a las subcarpetas, sin archivo por fuero, mueve solo el principal', async () => {
     const { move, templates, storage, papelera } = await aMover();
-    templates.add({ id: 6, cloudFileId: 'f-viejo', jurisdictionFileIds: [] });
+    templates.add({ id: 6, cloudFileId: 'f-viejo', placements: [] });
     storage.seedFile({ id: 'f-viejo', parentId: 'templates-folder', name: 'v.docx', mimeType: 'x', createdAt: new Date() });
     await templates.deactivate(6);
     storage.fileCalls.length = 0;

@@ -1,4 +1,6 @@
+import { InMemoryDocumentStorage } from '../../../infrastructure/storage/in-memory/in-memory-document-storage';
 import { aSetUpStudio } from '../../test-support/document-fixtures';
+import { DocumentStorageUnavailableError } from '../../domain/errors/documents.errors';
 import { FolderKey } from '../../domain/value-objects/folder-key.vo';
 import { RecycleBin } from './recycle-bin';
 
@@ -29,6 +31,46 @@ describe('RecycleBin', () => {
 
     expect(forCase.id).toBe(forTemplate.id);
     expect(papeleras()).toHaveLength(1);
+  });
+
+  // HU36, HU37
+  describe('moveFiles', () => {
+    const seedFiles = (storage: InMemoryDocumentStorage, parentId: string, ids: string[]) =>
+      ids.forEach((id) =>
+        storage.seedFile({ id, parentId, name: `${id}.docx`, mimeType: 'application/x', createdAt: new Date() }),
+      );
+
+    it('mueve cada archivo a la Papelera y es idempotente: repetirlo los deja ahí', async () => {
+      const { bin, storage, mainId } = await aBin();
+      seedFiles(storage, mainId, ['a', 'b']);
+
+      await bin.moveFiles(['a', 'b']);
+      await bin.moveFiles(['a', 'b']);
+
+      const papelera = (await bin.folder()).id;
+      expect(storage.files.map((file) => file.parentId)).toEqual([papelera, papelera]);
+    });
+
+    it('sin archivos no toca la nube, ni crea la Papelera', async () => {
+      const { bin, storage, papeleras } = await aBin();
+      storage.calls.length = 0;
+
+      await bin.moveFiles([]);
+
+      expect(storage.calls).toEqual([]);
+      expect(papeleras()).toHaveLength(0);
+    });
+
+    it('si un archivo falla prueba con los demás y avisa el primer fallo', async () => {
+      const { bin, storage, mainId } = await aBin();
+      seedFiles(storage, mainId, ['a', 'b']);
+      storage.failNextCallTo('moveFile', new DocumentStorageUnavailableError('TRANSIENT', 'timeout'));
+
+      await expect(bin.moveFiles(['a', 'b'])).rejects.toBeInstanceOf(DocumentStorageUnavailableError);
+
+      expect(storage.files.find((file) => file.id === 'a')?.parentId).toBe(mainId);
+      expect(storage.files.find((file) => file.id === 'b')?.parentId).toBe((await bin.folder()).id);
+    });
   });
 
   it('sin la carpeta raíz del estudio registrada, falla sin crear nada', async () => {

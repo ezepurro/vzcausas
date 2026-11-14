@@ -1,5 +1,4 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { DOCUMENT_STORAGE, DocumentStoragePort } from '../../domain/ports/document-storage.port';
 import {
   DOCUMENT_TEMPLATE_REPOSITORY,
   DocumentTemplateRepository,
@@ -44,7 +43,6 @@ export class MoveTemplateFilesToTrash {
 
   constructor(
     @Inject(DOCUMENT_TEMPLATE_REPOSITORY) private readonly templates: DocumentTemplateRepository,
-    @Inject(DOCUMENT_STORAGE) private readonly storage: DocumentStoragePort,
     private readonly bin: RecycleBin,
   ) {}
 
@@ -58,18 +56,7 @@ export class MoveTemplateFilesToTrash {
       return { outcome: 'NO_TEMPLATE' };
     }
 
-    const bin = await this.bin.folder();
-    let firstFailure: unknown = null;
-    for (const fileId of stored.fileIds) {
-      try {
-        await this.storage.moveFile({ fileId, newParentId: bin.id });
-      } catch (error) {
-        firstFailure ??= error;
-      }
-    }
-    if (firstFailure) {
-      throw firstFailure;
-    }
+    await this.bin.moveFiles(stored.fileIds);
 
     await this.templates.markTrashed(command.templateId);
     this.logger.log(

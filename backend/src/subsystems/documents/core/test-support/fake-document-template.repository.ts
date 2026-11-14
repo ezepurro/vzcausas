@@ -3,11 +3,14 @@ import {
   TEMPLATE_JURISDICTIONS,
   TemplateJurisdiction,
 } from '../domain/entities/document-template.entity';
+import { DocumentTemplateAlreadyExistsError } from '../domain/errors/documents.errors';
 import {
   DocumentTemplateRepository,
   DocumentTemplateSearch,
   DocumentTemplateView,
   TemplateFilePlacement,
+  TemplateForModification,
+  TemplateUpdate,
 } from '../domain/ports/document-template.repository';
 import { TemplateFile } from '../domain/value-objects/template-file.vo';
 import { TemplateStoredFiles } from '../domain/value-objects/template-stored-files.vo';
@@ -20,7 +23,8 @@ import { TemplateStoredFiles } from '../domain/value-objects/template-stored-fil
 type StoredTemplate = DocumentTemplateView & {
   cloudFileId: string;
   cloudFolderId: string;
-  jurisdictionFileIds: string[];
+  /** The file of each jurisdiction; none for a template older than the subfolders. */
+  placements: TemplateFilePlacement[];
   trashPending: boolean;
 };
 
@@ -29,7 +33,12 @@ export class FakeDocumentTemplateRepository implements DocumentTemplateRepositor
   readonly saved: Array<{ template: DocumentTemplate; placements: readonly TemplateFilePlacement[] }> = [];
   readonly rows: StoredTemplate[] = [];
   readonly searches: DocumentTemplateSearch[] = [];
+  /** Files a modification left without a reference and that still wait for the `Papelera` (HU36). */
+  readonly pendingTrash = new Set<string>();
+  /** Every `update` that wrote, in order (HU36). */
+  readonly updates: TemplateUpdate[] = [];
   failOnSaveWith: Error | null = null;
+  failOnUpdateWith: Error | null = null;
 
   /** Puts a template in the "database", as if it had been registered before. */
   add(overrides: Partial<StoredTemplate> = {}): StoredTemplate {
@@ -46,7 +55,7 @@ export class FakeDocumentTemplateRepository implements DocumentTemplateRepositor
       active: true,
       cloudFileId: `file-${id}`,
       cloudFolderId: 'templates-folder',
-      jurisdictionFileIds: [],
+      placements: [],
       trashPending: false,
       ...overrides,
     };
@@ -54,8 +63,64 @@ export class FakeDocumentTemplateRepository implements DocumentTemplateRepositor
     return row;
   }
 
-  async existsByName(name: string): Promise<boolean> {
-    return this.rows.some((row) => row.active && row.name.toLowerCase() === name.toLowerCase());
+  async existsByName(name: string, exceptId?: number): Promise<boolean> {
+    return this.rows.some(
+      (row) => row.active && row.id !== exceptId && row.name.toLowerCase() === name.toLowerCase(),
+    );
+  }
+
+  async findForModification(id: number): Promise<TemplateForModification | null> {
+    const row = this.rows.find((stored) => stored.id === id && stored.active);
+    return row
+      ? {
+          template: DocumentTemplate.hydrate({
+            name: row.name,
+            jurisdictions: [...row.jurisdictions],
+            fileName: row.fileName,
+            copyToNewCases: row.copyToNewCases,
+            lastVersionByUserId: row.lastVersionBy.id,
+            lastVersionAt: row.lastVersionAt,
+          }),
+          mainFileId: row.cloudFileId,
+          placements: [...row.placements],
+        }
+      : null;
+  }
+
+  /** Like the real one: nothing is written if the template is no longer active or the name is taken. */
+  async update(id: number, update: TemplateUpdate): Promise<DocumentTemplateView | null> {
+    if (this.failOnUpdateWith) throw this.failOnUpdateWith;
+    const row = this.rows.find((stored) => stored.id === id && stored.active);
+    if (!row) {
+      return null;
+    }
+    const { template, placements, trash } = update;
+    if (await this.existsByName(template.name, id)) {
+      throw new DocumentTemplateAlreadyExistsError();
+    }
+    row.name = template.name;
+    // Like the real one, the contract's order whatever order they were sent in.
+    row.jurisdictions = [...template.jurisdictionsInContractOrder];
+    row.fileName = template.fileName;
+    row.copyToNewCases = template.copyToNewCases;
+    row.lastVersionAt = template.lastVersionAt;
+    row.lastVersionBy = { ...row.lastVersionBy, id: template.lastVersionByUserId };
+    if (placements) {
+      row.placements = [...placements];
+      row.cloudFileId = placements[0].cloudFileId;
+      row.cloudFolderId = placements[0].cloudFolderId;
+    }
+    for (const fileId of trash) {
+      this.pendingTrash.add(fileId);
+    }
+    this.updates.push(update);
+    return toView(row);
+  }
+
+  async clearPendingTrash(fileIds: readonly string[]): Promise<void> {
+    for (const fileId of fileIds) {
+      this.pendingTrash.delete(fileId);
+    }
   }
 
   async findPage(search: DocumentTemplateSearch): Promise<{ items: DocumentTemplateView[]; totalItems: number }> {
@@ -98,7 +163,7 @@ export class FakeDocumentTemplateRepository implements DocumentTemplateRepositor
         lastVersionBy: { id: template.lastVersionByUserId, lastName: 'Ferreyra', firstName: 'Matías' },
         cloudFileId: main.cloudFileId,
         cloudFolderId: main.cloudFolderId,
-        jurisdictionFileIds: placements.map((placement) => placement.cloudFileId),
+        placements: [...placements],
       }),
     );
   }
@@ -117,7 +182,10 @@ export class FakeDocumentTemplateRepository implements DocumentTemplateRepositor
   async findStoredFiles(id: number): Promise<TemplateStoredFiles | null> {
     const row = this.rows.find((stored) => stored.id === id);
     return row
-      ? TemplateStoredFiles.hydrate({ mainFileId: row.cloudFileId, jurisdictionFileIds: row.jurisdictionFileIds })
+      ? TemplateStoredFiles.hydrate({
+          mainFileId: row.cloudFileId,
+          jurisdictionFileIds: row.placements.map((placement) => placement.cloudFileId),
+        })
       : null;
   }
 
@@ -132,7 +200,7 @@ export class FakeDocumentTemplateRepository implements DocumentTemplateRepositor
 function toView({
   cloudFileId: _file,
   cloudFolderId: _folder,
-  jurisdictionFileIds: _files,
+  placements: _placements,
   trashPending: _pending,
   ...view
 }: StoredTemplate): DocumentTemplateView {

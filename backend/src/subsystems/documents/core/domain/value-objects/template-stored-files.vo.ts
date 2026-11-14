@@ -32,4 +32,15 @@ export class TemplateStoredFiles {
   get fileIds(): readonly string[] {
     return [...new Set([this.props.mainFileId, ...this.props.jurisdictionFileIds])];
   }
+
+  /**
+   * What a modification leaves without a reference (HU36, D-125): the files the
+   * template has now that are not among `kept`. They are the replaced file with
+   * all its copies, the copy of a jurisdiction that was removed and the loose file
+   * of a template older than the subfolders; all of them go to the `Papelera`.
+   */
+  unreferencedBy(kept: readonly string[]): string[] {
+    const keep = new Set(kept);
+    return this.fileIds.filter((fileId) => !keep.has(fileId));
+  }
 }

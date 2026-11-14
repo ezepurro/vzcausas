@@ -11,6 +11,7 @@ import { FakeClock, NOW } from '../../test-support/document-fixtures';
 import { FakeDocumentTemplateRepository } from '../../test-support/fake-document-template.repository';
 import { InMemoryCloudFolderRepository } from '../../../infrastructure/persistence/in-memory/in-memory-cloud-folder.repository';
 import { InMemoryDocumentStorage } from '../../../infrastructure/storage/in-memory/in-memory-document-storage';
+import { TemplateCloudFiles } from '../common/template-cloud-files';
 import { RegisterDocumentTemplate, RegisterDocumentTemplateCommand } from './register-document-template.use-case';
 import { SetupCloudStorage } from './setup-cloud-storage.use-case';
 
@@ -44,10 +45,13 @@ describe('RegisterDocumentTemplate', () => {
     storage = new InMemoryDocumentStorage();
     useCase = new RegisterDocumentTemplate(
       templates,
-      folders,
-      storage,
       new FakeClock(),
-      new SetupCloudStorage(folders, storage, new FakeClock(), templates),
+      new TemplateCloudFiles(
+        templates,
+        folders,
+        storage,
+        new SetupCloudStorage(folders, storage, new FakeClock(), templates),
+      ),
     );
 
     // "Modelos formales", armada por el script de puesta en marcha (ADR-003).
@@ -227,10 +231,13 @@ describe('RegisterDocumentTemplate', () => {
       bareStorage = new InMemoryDocumentStorage();
       useCase = new RegisterDocumentTemplate(
         templates,
-        bareFolders,
-        bareStorage,
         new FakeClock(),
-        new SetupCloudStorage(bareFolders, bareStorage, new FakeClock(), templates),
+        new TemplateCloudFiles(
+          templates,
+          bareFolders,
+          bareStorage,
+          new SetupCloudStorage(bareFolders, bareStorage, new FakeClock(), templates),
+        ),
       );
     });
 
@@ -265,9 +272,11 @@ describe('RegisterDocumentTemplate', () => {
 
     it('con la estructura completa no llama al setup', async () => {
       const execute = jest.fn();
-      useCase = new RegisterDocumentTemplate(templates, folders, storage, new FakeClock(), {
-        execute,
-      } as unknown as SetupCloudStorage);
+      useCase = new RegisterDocumentTemplate(
+        templates,
+        new FakeClock(),
+        new TemplateCloudFiles(templates, folders, storage, { execute } as unknown as SetupCloudStorage),
+      );
 
       await useCase.execute(command());
 

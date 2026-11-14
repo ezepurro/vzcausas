@@ -51,4 +51,31 @@ export class RecycleBin {
       return (await this.storage.findFolderByReference(reference)) ?? (await this.storage.createFolder(reference));
     });
   }
+
+  /**
+   * Moves each file to the `Papelera` (HU37, HU36, D-131, D-125): nothing is
+   * deleted, and a file that is already there stays there, so it can be run
+   * again. It tries **every** file even if one fails, so one bad file does not
+   * leave the rest where they were, and then reports the first failure.
+   *
+   * @throws {StudioRootNotConfiguredError} if the study's root folder is not set up.
+   * @throws {DocumentStorageUnavailableError} if the storage fails, or a file no longer exists there.
+   */
+  async moveFiles(fileIds: readonly string[]): Promise<void> {
+    if (fileIds.length === 0) {
+      return;
+    }
+    const bin = await this.folder();
+    let firstFailure: unknown = null;
+    for (const fileId of fileIds) {
+      try {
+        await this.storage.moveFile({ fileId, newParentId: bin.id });
+      } catch (error) {
+        firstFailure ??= error;
+      }
+    }
+    if (firstFailure) {
+      throw firstFailure;
+    }
+  }
 }
