@@ -15,7 +15,7 @@ import {
 /*
  * HU11 · Registrar baja de cliente. Solo lo que es del caso de uso: el orden de
  * los chequeos, que un rechazo no escriba nada y la auditoría. Las reglas del
- * motivo están en `client-deactivation.vo.spec.ts` y las del cliente en
+ * motivo están en `shared/domain/deactivation.vo.spec.ts` y las del cliente en
  * `client.entity.spec.ts`.
  */
 const NOW = new Date("2026-10-07T12:00:00Z");

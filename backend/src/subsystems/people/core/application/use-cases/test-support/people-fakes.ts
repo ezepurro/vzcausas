@@ -15,7 +15,7 @@ import {
   ClientRepository,
   ClientSearchCriteria,
 } from "../../../domain/ports/client.repository";
-import { ClientDeactivation } from "../../../domain/value-objects/client-deactivation.vo";
+import { Deactivation } from "@shared/domain/deactivation.vo";
 import { ClientDocument } from "../../../domain/value-objects/client-document.vo";
 import { Lawyer } from "../../../domain/entities/lawyer.entity";
 import {
@@ -287,8 +287,8 @@ export class FakeAuditTrail implements AuditTrailPort {
 }
 
 /** A valid record of a client's baja (HU11), for specs that need a client given de baja. */
-export function aClientDeactivation(reason: string | null = null): ClientDeactivation {
-  return ClientDeactivation.create(
+export function aClientDeactivation(reason: string | null = null): Deactivation {
+  return Deactivation.create(
     { reason },
     { deactivatedByUserId: 1, deactivatedAt: new Date("2026-10-07T12:00:00Z") },
   );

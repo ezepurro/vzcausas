@@ -1,6 +1,6 @@
 import { ValidationError } from "@shared/domain/domain-error";
 import { EmptyClientUpdateError } from "../errors/people.errors";
-import { ClientDeactivation } from "../value-objects/client-deactivation.vo";
+import { Deactivation } from "@shared/domain/deactivation.vo";
 import { ClientDocument } from "../value-objects/client-document.vo";
 import { Client, ClientChanges } from "./client.entity";
 
@@ -139,7 +139,7 @@ describe("Client.update", () => {
 /** HU11 · Registrar baja de cliente (contrato V6 §3.6, D-122). */
 describe("Client.deactivate", () => {
   const record = () =>
-    ClientDeactivation.create(
+    Deactivation.create(
       { reason: "Cliente cargado dos veces." },
       { deactivatedByUserId: 9, deactivatedAt: new Date("2026-10-07T12:00:00Z") },
     );

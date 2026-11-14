@@ -12,7 +12,7 @@ import { Case, CaseProps } from '../../../core/domain/entities/case/case.entity'
 import { CriminalCase } from '../../../core/domain/entities/case/criminal-case.entity';
 import { Offense } from '../../../core/domain/entities/case/offense.entity';
 import { ProceduralActPrismaMapper } from './procedural-act-prisma.mapper';
-import { CaseDeactivation } from '../../../core/domain/value-objects/case/case-deactivation.vo';
+import { Deactivation } from '@shared/domain/deactivation.vo';
 import { DayType } from '../../../core/domain/value-objects/deadline/day-type';
 import { JurisdictionCode } from '../../../core/domain/value-objects/case/jurisdiction-code';
 import { PrescriptionDeclaration } from '../../../core/domain/value-objects/prescription/prescription-declaration.vo';
@@ -55,14 +55,14 @@ export class CasePrismaMapper {
    * The record of the baja from its columns, or `null` while the case is in
    * force. `ck_cases_deactivation_coherent` keeps them together with `active`.
    */
-  private static toDeactivation(row: PrismaCase): CaseDeactivation | null {
+  private static toDeactivation(row: PrismaCase): Deactivation | null {
     if (row.active) {
       return null;
     }
     if (row.deactivatedAt === null || row.deactivatedByUserId === null) {
       throw new Error(`Case ${row.id} is given de baja but its deactivation record is incomplete.`);
     }
-    return CaseDeactivation.hydrate({
+    return Deactivation.hydrate({
       reason: row.deactivationReason,
       deactivatedByUserId: row.deactivatedByUserId,
       deactivatedAt: row.deactivatedAt,

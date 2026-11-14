@@ -5,15 +5,12 @@ import { TRANSACTION_MANAGER, TransactionManagerPort } from "@shared/domain/tran
 import { ClientHasActiveCasesError, ClientNotFoundError } from "../../domain/errors/people.errors";
 import { ActiveCasesCounterPort } from "../../domain/ports/active-cases-counter.port";
 import { CLIENT_REPOSITORY, ClientRepository } from "../../domain/ports/client.repository";
-import {
-  ClientDeactivation,
-  ClientDeactivationInput,
-} from "../../domain/value-objects/client-deactivation.vo";
+import { Deactivation, DeactivationInput } from "@shared/domain/deactivation.vo";
 
 export type DeactivateClientCommand = {
   clientId: number;
   /** What the form sends; the whole body is optional (CA-11.7). */
-  input: ClientDeactivationInput;
+  input: DeactivationInput;
   /** Who gives it de baja, for the record and the audit (CA-11.5). Any profile may (CA-11.6). */
   actorUserId: number;
 };
@@ -22,7 +19,7 @@ export type DeactivateClientCommand = {
  * HU11 — gives a client de baja (contract V6, `DELETE /clients/{clientId}`).
  *
  * Coordinates and decides nothing: what a valid baja is belongs to
- * {@link ClientDeactivation} and `Client.deactivate`; which cases are active
+ * {@link Deactivation} and `Client.deactivate`; which cases are active
  * belongs to `cases`, asked through {@link ActiveCasesCounterPort}. Order of the
  * checks, so a rejected request writes nothing: the client exists (404) → it
  * has no active cases (409, CA-11.2, D-122) → the reason (400). The baja and its
@@ -63,7 +60,7 @@ export class DeactivateClientUseCase {
 
     const now = this.clock.now();
     client.deactivate(
-      ClientDeactivation.create(command.input, { deactivatedByUserId: command.actorUserId, deactivatedAt: now }),
+      Deactivation.create(command.input, { deactivatedByUserId: command.actorUserId, deactivatedAt: now }),
     );
 
     await this.transactions.runInTransaction(async () => {

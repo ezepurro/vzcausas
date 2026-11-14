@@ -64,9 +64,10 @@ export class UpdateCase {
    */
   async execute(command: UpdateCaseCommand): Promise<CaseListItem> {
     const target = await this.cases.findById(command.caseId);
-    if (!target || !target.active) {
+    if (!target) {
       throw new CaseNotFoundError();
     }
+    target.assertInForce();
 
     target.assertCanBeOperatedBy(command.actor, NotResponsibleLawyerError.FOR_MODIFYING_CASE);
 

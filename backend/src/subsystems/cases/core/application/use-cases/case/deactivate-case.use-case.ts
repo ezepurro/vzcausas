@@ -9,12 +9,12 @@ import { CaseNotFoundError, NotResponsibleLawyerError } from '../../../domain/er
 import { CASE_FOLDER_STATE, CaseFolderStatePort } from '../../../domain/ports/case/case-folder-state.port';
 import { CASE_REPOSITORY, CaseRepository } from '../../../domain/ports/case/case.repository';
 import { CASE_DEACTIVATED, CaseDeactivatedEvent } from '../../../domain/ports/events/case-deactivated.event';
-import { CaseDeactivation, CaseDeactivationInput } from '../../../domain/value-objects/case/case-deactivation.vo';
+import { Deactivation, DeactivationInput } from '@shared/domain/deactivation.vo';
 
 export interface DeactivateCaseCommand {
   caseId: number;
   /** What the form sends; the whole body is optional (CA-21.2). */
-  input: CaseDeactivationInput;
+  input: DeactivationInput;
   /** Who gives it de baja, for the record and the audit (CA-21.3). Only who operates the case may (D-110). */
   actor: AuthenticatedUser;
 }
@@ -23,7 +23,7 @@ export interface DeactivateCaseCommand {
  * HU21 — gives a case de baja (contract V5, `DELETE /cases/{caseId}`).
  *
  * Coordinates and decides nothing: what a valid baja is belongs to
- * {@link CaseDeactivation} and {@link Case.deactivate}. The case exists (404) →
+ * {@link Deactivation} and {@link Case.deactivate}. The case exists (404) →
  * the actor operates it (403, D-110) → the reason (400) → the baja and its audit record, in one transaction.
  *
  * The case's Drive folder moves to the `Papelera` folder, with what is inside
@@ -54,15 +54,16 @@ export class DeactivateCase {
    */
   async execute(command: DeactivateCaseCommand): Promise<void> {
     const target = await this.cases.findById(command.caseId);
-    if (!target || !target.active) {
+    if (!target) {
       throw new CaseNotFoundError();
     }
+    target.assertInForce();
 
     target.assertCanBeOperatedBy(command.actor, NotResponsibleLawyerError.FOR_DEACTIVATING_CASE);
 
     const now = this.clock.now();
     target.deactivate(
-      CaseDeactivation.create(command.input, { deactivatedByUserId: command.actor.userId, deactivatedAt: now }),
+      Deactivation.create(command.input, { deactivatedByUserId: command.actor.userId, deactivatedAt: now }),
     );
 
     await this.transactions.runInTransaction(async () => {

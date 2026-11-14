@@ -47,33 +47,6 @@ const CASE_SELECT = {
 
 type CaseRow = Prisma.CaseGetPayload<{ select: typeof CASE_SELECT }>;
 
-function toCaseRow(row: CaseRow): DashboardCaseRow {
-  return {
-    caseId: row.id,
-    sacNumber: row.sacNumber,
-    caption: row.caption,
-    jurisdiction: row.jurisdiction.name,
-    // A hand-written state wins; otherwise the state of the table, which is
-    // "Iniciada" for a case that has no act yet.
-    currentStateName: row.currentCustomState ?? row.currentState?.name ?? '',
-    // Same rule as `PrismaCaseRepository`: the manual due date, if adjusted.
-    dueDate: row.currentProceduralAct
-      ? (row.currentProceduralAct.deadlineManualDueDate ?? row.currentProceduralAct.deadlineComputedDueDate)
-      : null,
-    lastProceduralActDate: row.proceduralActs[0]?.actDate ?? null,
-    lastInterruptiveActDate: row.interruptiveActs.at(-1)?.actDate ?? null,
-    interruptiveActDates: row.interruptiveActs.map((act) => act.actDate),
-    offenses: row.offenses.map((offense) => ({
-      legalQualificationId: offense.legalQualification.id,
-      legalQualificationName: offense.legalQualification.name,
-      prescriptionMonths: offense.legalQualification.prescriptionMonths,
-      offenseDate: offense.offenseDate,
-      prescriptionDeclaredOn: offense.prescriptionDeclaredOn,
-    })),
-    responsibleLawyer: row.responsibleLawyer,
-  };
-}
-
 /**
  * Prisma-backed {@link LawyerDashboardQuery} of both dashboards, "Mi día"
  * (HU41) and "Estudio" (HU42).
@@ -104,7 +77,7 @@ export class LawyerDashboardPrismaQuery implements LawyerDashboardQuery {
       select: CASE_SELECT,
       orderBy: { id: 'asc' },
     });
-    return rows.map(toCaseRow);
+    return rows.map(LawyerDashboardPrismaQuery.toCaseRow);
   }
 
   async findActiveLawyers(): Promise<DashboardLawyerRef[]> {
@@ -121,6 +94,34 @@ export class LawyerDashboardPrismaQuery implements LawyerDashboardQuery {
       select: CASE_SELECT,
       orderBy: { id: 'asc' },
     });
-    return rows.map(toCaseRow);
+    return rows.map(LawyerDashboardPrismaQuery.toCaseRow);
+  }
+
+  /** A row of `cases` as the dashboards read it. */
+  private static toCaseRow(row: CaseRow): DashboardCaseRow {
+    return {
+      caseId: row.id,
+      sacNumber: row.sacNumber,
+      caption: row.caption,
+      jurisdiction: row.jurisdiction.name,
+      // A hand-written state wins; otherwise the state of the table, which is
+      // "Iniciada" for a case that has no act yet.
+      currentStateName: row.currentCustomState ?? row.currentState?.name ?? '',
+      // Same rule as `PrismaCaseRepository`: the manual due date, if adjusted.
+      dueDate: row.currentProceduralAct
+        ? (row.currentProceduralAct.deadlineManualDueDate ?? row.currentProceduralAct.deadlineComputedDueDate)
+        : null,
+      lastProceduralActDate: row.proceduralActs[0]?.actDate ?? null,
+      lastInterruptiveActDate: row.interruptiveActs.at(-1)?.actDate ?? null,
+      interruptiveActDates: row.interruptiveActs.map((act) => act.actDate),
+      offenses: row.offenses.map((offense) => ({
+        legalQualificationId: offense.legalQualification.id,
+        legalQualificationName: offense.legalQualification.name,
+        prescriptionMonths: offense.legalQualification.prescriptionMonths,
+        offenseDate: offense.offenseDate,
+        prescriptionDeclaredOn: offense.prescriptionDeclaredOn,
+      })),
+      responsibleLawyer: row.responsibleLawyer,
+    };
   }
 }

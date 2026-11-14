@@ -7,7 +7,7 @@ import { IsOptional, IsString, MaxLength } from "class-validator";
  * campo admitido.".
  *
  * The length is checked here with the contract's text and again in
- * `ClientDeactivation`, which measures it once trimmed.
+ * `Deactivation`, which measures it once trimmed.
  */
 export class DeactivateClientRequestDto {
   @IsOptional()

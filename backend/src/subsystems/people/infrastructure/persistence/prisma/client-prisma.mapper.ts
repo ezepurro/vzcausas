@@ -1,5 +1,5 @@
 import { Client } from "../../../core/domain/entities/client.entity";
-import { ClientDeactivation } from "../../../core/domain/value-objects/client-deactivation.vo";
+import { Deactivation } from "@shared/domain/deactivation.vo";
 import {
   ClientDocument,
   DocumentType,
@@ -46,14 +46,14 @@ export class ClientPrismaMapper {
    * is in force. `ck_clients_deactivation_coherent` keeps them together with
    * `active`, so a baja without who and when is corrupt data.
    */
-  private static toDeactivation(row: ClientRow): ClientDeactivation | null {
+  private static toDeactivation(row: ClientRow): Deactivation | null {
     if (row.active) {
       return null;
     }
     if (row.deactivatedAt === null || row.deactivatedByUserId === null) {
       throw new Error(`Client ${row.id} is given de baja but its deactivation record is incomplete.`);
     }
-    return ClientDeactivation.hydrate({
+    return Deactivation.hydrate({
       reason: row.deactivationReason,
       deactivatedByUserId: row.deactivatedByUserId,
       deactivatedAt: row.deactivatedAt,

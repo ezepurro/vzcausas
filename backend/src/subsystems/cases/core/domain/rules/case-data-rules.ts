@@ -27,6 +27,13 @@ export interface HarmfulActData {
  * One copy of each rule: if the length of a caption or the coherence of a
  * harmful act changes, it changes for both. Each method adds its message to
  * `errors` instead of throwing, so the caller reports every problem at once.
+ *
+ * **A domain service, not a value object.** It holds no state and builds
+ * nothing: it is the place for rules that belong to no single object, because
+ * both the factory and the case entities (`Case` and its jurisdiction
+ * subclasses) apply them to raw form data before any value exists. A value
+ * object would have to throw on the first problem, and the contract wants all
+ * of them in one `400` (HU18, HU19). That is why every member is static.
  */
 export class CaseDataRules {
   static readonly ONLY_CRIMINAL = 'Solo corresponde al fuero penal.';

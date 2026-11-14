@@ -1,7 +1,7 @@
 import { ValidationError } from "@shared/domain/domain-error";
 import { EmptyClientUpdateError } from "../errors/people.errors";
 import { CLIENT_FIELDS, ClientChangeSet, ClientField } from "../value-objects/client-change-set.vo";
-import { ClientDeactivation } from "../value-objects/client-deactivation.vo";
+import { Deactivation } from "@shared/domain/deactivation.vo";
 import { ClientDocument } from "../value-objects/client-document.vo";
 import { PersonName } from "../value-objects/person-name.vo";
 
@@ -75,7 +75,7 @@ export class Client {
     private readonly _clientSince: Date,
     private _active: boolean,
     // Who gave the client de baja, when and why (HU11). `null` while in force.
-    private _deactivation: ClientDeactivation | null = null,
+    private _deactivation: Deactivation | null = null,
   ) {}
 
   /**
@@ -95,7 +95,7 @@ export class Client {
     email: string | null;
     clientSince: Date;
     active: boolean;
-    deactivation: ClientDeactivation | null;
+    deactivation: Deactivation | null;
   }): Client {
     if (props.active === (props.deactivation !== null)) {
       throw new Error(`Client ${props.id} is ${props.active ? "in force with" : "given de baja without"} a deactivation record.`);
@@ -186,7 +186,7 @@ export class Client {
       props.document,
       address,
       phone,
-      blankToNull(props.email),
+      Client.blankToNull(props.email),
       props.clientSince,
       props.active ?? true,
     );
@@ -251,7 +251,7 @@ export class Client {
       changed.push("phone");
     }
     if (changes.email !== undefined) {
-      const email = blankToNull(changes.email);
+      const email = Client.blankToNull(changes.email);
       if (email !== this._email) {
         this._email = email;
         changed.push("email");
@@ -328,7 +328,7 @@ export class Client {
    * already given de baja answers 404 earlier too, so reaching it twice is a
    * programming error.
    */
-  deactivate(deactivation: ClientDeactivation): void {
+  deactivate(deactivation: Deactivation): void {
     if (!this._active) {
       throw new Error(`The client ${this._id} was already given de baja.`);
     }
@@ -337,7 +337,7 @@ export class Client {
   }
 
   /** The record of the baja; `null` while the client is in force. */
-  get deactivation(): ClientDeactivation | null {
+  get deactivation(): Deactivation | null {
     return this._deactivation;
   }
 
@@ -376,9 +376,10 @@ export class Client {
   isActive(): boolean {
     return this._active;
   }
-}
 
-function blankToNull(value: string | null | undefined): string | null {
-  const trimmed = value?.trim() ?? "";
-  return trimmed.length === 0 ? null : trimmed;
+  /** An optional text field: trimmed, and `null` when nothing is left. */
+  private static blankToNull(value: string | null | undefined): string | null {
+    const trimmed = value?.trim() ?? "";
+    return trimmed.length === 0 ? null : trimmed;
+  }
 }

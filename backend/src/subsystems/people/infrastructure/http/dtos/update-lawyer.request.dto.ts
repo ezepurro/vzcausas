@@ -1,8 +1,5 @@
 import { IsString, ValidateIf } from "class-validator";
 
-/** A field sent with a value: `null` passes through, so the domain rejects it as "empty". */
-const sentWithValue = (_: unknown, value: unknown) => value !== undefined && value !== null;
-
 /**
  * Request body of `PATCH /lawyers/{lawyerId}` (HU14, contract V5 §3.3).
  *
@@ -17,15 +14,20 @@ const sentWithValue = (_: unknown, value: unknown) => value !== undefined && val
  * (CA-14.10).
  */
 export class UpdateLawyerRequestDto {
-  @ValidateIf(sentWithValue)
+  /** A field sent with a value: `null` passes through, so the domain rejects it as "empty". */
+  static sentWithValue(_: unknown, value: unknown): boolean {
+    return value !== undefined && value !== null;
+  }
+
+  @ValidateIf(UpdateLawyerRequestDto.sentWithValue)
   @IsString({ message: "Debe ser un texto." })
   lastName?: string | null;
 
-  @ValidateIf(sentWithValue)
+  @ValidateIf(UpdateLawyerRequestDto.sentWithValue)
   @IsString({ message: "Debe ser un texto." })
   firstName?: string | null;
 
-  @ValidateIf(sentWithValue)
+  @ValidateIf(UpdateLawyerRequestDto.sentWithValue)
   @IsString({ message: "Debe ser un texto." })
   registrationNumber?: string | null;
 }

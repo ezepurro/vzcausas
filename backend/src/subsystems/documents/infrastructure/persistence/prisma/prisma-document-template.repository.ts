@@ -65,12 +65,12 @@ export class PrismaDocumentTemplateRepository implements DocumentTemplateReposit
       include: VIEW_INCLUDE,
     });
     const byId = new Map(rows.map((row) => [row.id, row]));
-    return { items: pageIds.map((id) => toView(byId.get(id)!)), totalItems: names.length };
+    return { items: pageIds.map((id) => PrismaDocumentTemplateRepository.toView(byId.get(id)!)), totalItems: names.length };
   }
 
   async findById(id: number): Promise<DocumentTemplateView | null> {
     const row = await this.prisma.db.documentTemplate.findFirst({ where: { id, active: true }, include: VIEW_INCLUDE });
-    return row ? toView(row) : null;
+    return row ? PrismaDocumentTemplateRepository.toView(row) : null;
   }
 
   async findFileById(id: number): Promise<TemplateFile | null> {
@@ -117,7 +117,7 @@ export class PrismaDocumentTemplateRepository implements DocumentTemplateReposit
         },
         include: VIEW_INCLUDE,
       });
-      return toView(row);
+      return PrismaDocumentTemplateRepository.toView(row);
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -137,23 +137,23 @@ export class PrismaDocumentTemplateRepository implements DocumentTemplateReposit
       | undefined;
     return meta?.driverAdapterError?.cause?.constraint?.index;
   }
-}
 
-/** The one way a row becomes the contract's resource, so the `POST` and the `GET`s cannot drift. */
-function toView(row: TemplateRow): DocumentTemplateView {
-  return {
-    id: row.id,
-    name: row.name,
-    // In the order of the contract's enum, whatever order they were sent in.
-    jurisdictions: row.jurisdictions
-      .map(({ jurisdiction }) => jurisdiction.name as TemplateJurisdiction)
-      .sort((a, b) => TEMPLATE_JURISDICTIONS.indexOf(a) - TEMPLATE_JURISDICTIONS.indexOf(b)),
-    fileName: row.fileName,
-    copyToNewCases: row.copyToNewCases,
-    lastVersionAt: row.lastVersionAt,
-    lastVersionBy: row.lastVersionBy,
-    // Cases the template was copied to (HU40); a pending copy does not count yet.
-    usageCount: row._count.copies,
-    active: row.active,
-  };
+  /** The one way a row becomes the contract's resource, so the `POST` and the `GET`s cannot drift. */
+  private static toView(row: TemplateRow): DocumentTemplateView {
+    return {
+      id: row.id,
+      name: row.name,
+      // In the order of the contract's enum, whatever order they were sent in.
+      jurisdictions: row.jurisdictions
+        .map(({ jurisdiction }) => jurisdiction.name as TemplateJurisdiction)
+        .sort((a, b) => TEMPLATE_JURISDICTIONS.indexOf(a) - TEMPLATE_JURISDICTIONS.indexOf(b)),
+      fileName: row.fileName,
+      copyToNewCases: row.copyToNewCases,
+      lastVersionAt: row.lastVersionAt,
+      lastVersionBy: row.lastVersionBy,
+      // Cases the template was copied to (HU40); a pending copy does not count yet.
+      usageCount: row._count.copies,
+      active: row.active,
+    };
+  }
 }

@@ -1,6 +1,7 @@
 import {
   CannotDeclarePrescriptionError,
   CaseInTerminalStateError,
+  CaseNotFoundError,
   LegalQualificationAlreadyPrescribedError,
   LegalQualificationNotInCaseError,
   NotResponsibleLawyerError,
@@ -28,7 +29,7 @@ import {
   TODAY,
   validationDetailsOf,
 } from '../../../test-support/case-fixtures';
-import { CaseDeactivation } from '../../value-objects/case/case-deactivation.vo';
+import { Deactivation } from '@shared/domain/deactivation.vo';
 import { JurisdictionCode } from '../../value-objects/case/jurisdiction-code';
 import { ProceduralRole } from '../../value-objects/case/procedural-role';
 import {
@@ -38,7 +39,7 @@ import {
   RegisterProceduralActInput,
   TargetStateChoice,
 } from './case.entity';
-import { CriminalCase } from './criminal-case.entity';
+import { CriminalCase, CriminalCaseProps } from './criminal-case.entity';
 import { ProceduralAct } from '../procedural-act.entity';
 
 const LATER = new Date('2026-10-06T18:00:00.000Z');
@@ -839,7 +840,7 @@ describe('Case', () => {
   describe('deactivate (HU21)', () => {
     const LATER_NOW = new Date('2026-10-06T19:00:00.000Z');
     const aDeactivation = (reason: string | null = 'Causa duplicada.') =>
-      CaseDeactivation.create({ reason }, { deactivatedByUserId: 9, deactivatedAt: LATER_NOW });
+      Deactivation.create({ reason }, { deactivatedByUserId: 9, deactivatedAt: LATER_NOW });
 
     it('deja de estar vigente y guarda quién, cuándo y por qué (CA-21.1, CA-21.3)', () => {
       const target = aCase();
@@ -884,6 +885,26 @@ describe('Case', () => {
 
       expect(() => target.deactivate(aDeactivation('Otra'))).toThrow('was already given de baja');
       expect(target.deactivation?.reason).toBe('Causa duplicada.');
+    });
+
+    it('una causa dada de baja trae su registro de baja y una vigente no: la misma regla que ck_cases_deactivation_coherent', () => {
+      const props = (aCase() as unknown as { props: CriminalCaseProps }).props;
+
+      expect(() => CriminalCase.hydrate({ ...props, active: false, deactivation: null })).toThrow('must carry its deactivation');
+      expect(() => CriminalCase.hydrate({ ...props, active: true, deactivation: aDeactivation() })).toThrow('must carry its deactivation');
+    });
+  });
+
+  describe('assertInForce (D-97)', () => {
+    it('una causa vigente pasa', () => {
+      expect(() => aCase().assertInForce()).not.toThrow();
+    });
+
+    it('una causa dada de baja no existe para el cliente: CASE_NOT_FOUND (CA-19.14, CA-21.5)', () => {
+      const target = aCase();
+      target.deactivate(Deactivation.create({ reason: null }, { deactivatedByUserId: 9, deactivatedAt: NOW }));
+
+      expect(() => target.assertInForce()).toThrow(CaseNotFoundError);
     });
   });
 });
