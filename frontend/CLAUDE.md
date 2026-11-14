@@ -937,10 +937,8 @@ Lo que hay que saber:
   (qué usuario, qué causa, qué dato), cómo subir y descargar archivos, y las
   decisiones que el mock tomó donde el contrato no dice nada. Que el mock no
   invente ni olvide endpoints lo revisa `tests/unit/contract/endpoints.test.ts`
-  contra `docs/openapi`. **Hoy está en rojo** (14/11/2026) por un solo
-  endpoint: `DELETE /cases/{caseId}/procedural-acts/{actId}` (HU29) está en el
-  mock y todavía no en `docs/openapi`, que lo suma el backend con VZ-219. Hasta
-  esa fecha estaba en verde.
+  contra `docs/openapi`. Está en verde: el `DELETE` de actos (HU29) se sumó a
+  `docs/openapi` junto con el mock (14/11/2026).
 - **Si falta un endpoint**, se agrega en `src/shared/mocks/handlers.ts`
   (handler y su entrada en `ROUTES`), y el contrato en `docs/openapi` (el test
   de `tests/unit/contract/` falla si divergen). Sin handler, la pantalla falla
@@ -1289,11 +1287,8 @@ Al 08/11/2026, con el 3 revisado el 09/11/2026 por V6 y el 1 y el 3
 actualizados el 13/11/2026 por la auditoría del front. No se arreglan al
 paso: cada uno es de su dueño.
 
-1. **`npm test`: pasan 896 de 897** (14/11/2026, ya con los de HU10, HU11,
-   HU29, HU36, HU37, HU49 y HU50). El que falla es
-   `tests/unit/contract/endpoints.test.ts`: el mock tiene
-   `DELETE /cases/{caseId}/procedural-acts/{actId}` (HU29) y `docs/openapi`
-   todavía no. Corre con la mitad de los
+1. **`npm test`: pasan los 897** (14/11/2026, ya con los de HU10, HU11,
+   HU29, HU36, HU37, HU49 y HU50). Corre con la mitad de los
    núcleos por configuración (`maxWorkers: '50%'` en `vitest.config.ts`):
    con todos fallaban tests al azar por tiempo. Aun así, en alguna corrida de
    la suite entera falla por tiempo `tests/unit/app/pages.test.ts` o el

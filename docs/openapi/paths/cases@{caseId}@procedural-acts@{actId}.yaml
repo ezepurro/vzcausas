@@ -261,3 +261,119 @@ patch:
               code: CASE_IN_TERMINAL_STATE
               message: 'La causa está prescripta: sus actos procesales no se pueden modificar.'
               details: null
+
+delete:
+  tags:
+    - Procedural Acts
+  operationId: annulProceduralAct
+  summary: Anular acto procesal
+  description: |
+    **(V6)** Anula un acto procesal (HU29), para eliminar un registro
+    incorrecto o duplicado. Es el botón "Anular" de cada acto del ciclo de
+    vida, con "Motivo de la anulación (opcional)".
+
+    **La anulación es una baja lógica** (RN12, D-124): el acto queda en
+    `active: false`, con el motivo, quién lo anuló y cuándo en la auditoría.
+    Para el cliente el acto anulado no existe: no aparece en
+    `GET /cases/{caseId}/procedural-acts` ni en la línea de vida, `GET` y
+    `PATCH` del acto responden `404 PROCEDURAL_ACT_NOT_FOUND`, y no se puede
+    reactivar por la API.
+
+    **Efectos de la anulación:**
+
+    - El estado de la causa se recalcula como al modificar un acto (D-99): pasa
+      a ser el del acto vigente más reciente por `actDate` (D-14). Si no queda
+      ningún acto, la causa vuelve a "Iniciada"; en un amparo vuelve a correr
+      el plazo del acto lesivo (`harmfulActDeadline`).
+    - Si el acto anulado era el que llevó la causa a su estado actual, el plazo
+      abierto pasa a ser el del nuevo acto más reciente, aunque ya esté vencido.
+    - Anular el acto que cerró la causa la reabre.
+    - Los actos interruptivos y la prescripción no cambian. Los avisos ya
+      enviados por el proceso diario no se retiran.
+
+    **Rol requerido:** abogado responsable de la causa, igual que el registro
+    y la modificación. Cualquier otro usuario, aunque tenga el rol `LAWYER` o
+    `ADMINISTRATOR`, recibe `403`. Primero `404`, después `403`.
+  requestBody:
+    required: false
+    content:
+      application/json:
+        schema:
+          type: object
+          additionalProperties: false
+          properties:
+            reason:
+              type: string
+              maxLength: 500
+              description: Motivo de la anulación. Opcional.
+        example:
+          reason: Acto cargado dos veces.
+  responses:
+    '204':
+      description: Acto anulado. La respuesta no contiene cuerpo.
+    '400':
+      description: Motivo de más de 500 caracteres o identificador inválido.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          examples:
+            reasonTooLong:
+              summary: Motivo de más de 500 caracteres
+              value:
+                error:
+                  code: VALIDATION_ERROR
+                  message: Los datos enviados no son válidos.
+                  details:
+                    reason: Debe tener hasta 500 caracteres.
+            invalidCaseId:
+              $ref: ../components/examples/InvalidCaseIdError.yaml
+            invalidActId:
+              $ref: ../components/examples/InvalidActIdError.yaml
+    '401':
+      $ref: ../components/responses/Unauthorized.yaml
+    '403':
+      description: |
+        El usuario autenticado no es el abogado responsable de la causa. Aplica
+        aunque tenga el rol `LAWYER` o `ADMINISTRATOR`.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          example:
+            error:
+              code: FORBIDDEN
+              message: Solo el abogado responsable de la causa puede anular sus actos procesales.
+              details: null
+    '404':
+      description: La causa no existe o fue dada de baja, o el acto no existe, ya fue anulado o es de otra causa.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          examples:
+            caseNotFound:
+              summary: Causa inexistente o dada de baja
+              value:
+                error:
+                  code: CASE_NOT_FOUND
+                  message: No se encontró la causa solicitada.
+                  details: null
+            actNotFound:
+              summary: Acto inexistente, ya anulado o de otra causa
+              value:
+                error:
+                  code: PROCEDURAL_ACT_NOT_FOUND
+                  message: No se encontró el acto procesal solicitado.
+                  details: null
+    '422':
+      description: 'La causa está "Prescripta": sus actos no se anulan.'
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          example:
+            error:
+              code: CASE_IN_TERMINAL_STATE
+              message: 'La causa está prescripta: sus actos procesales no se pueden anular.'
+              details: null

@@ -36,12 +36,9 @@ modificar un acto procesal, los documentos de la causa y el expediente
 > vinculado ya no bloquea (D-123, D-133). Ver `frontend/CLAUDE.md`, "Cambios de
 > V6 sobre lo que ya estaba hecho".
 
-> **`tests/unit/contract/endpoints.test.ts` está en rojo** hasta que
-> `docs/openapi` sume cinco endpoints de V5 que el mock implementa y la
-> especificación todavía no: `GET /cases/{caseId}/cover`,
-> `GET /cases/{caseId}/documents`, `GET /cases/{caseId}/documents/{documentId}/file`,
-> `PATCH /cases/{caseId}/procedural-acts/{actId}` y
-> `POST /cases/{caseId}/case-files`.
+> **`tests/unit/contract/endpoints.test.ts` está en verde** (14/11/2026): el
+> mock y `docs/openapi` tienen los mismos endpoints, también el `DELETE` de
+> actos (HU29).
 Lo que V4 sacó del contrato tampoco está: los avisos por correo son
 configuración del servidor (D-79) y el adjunto de la cédula quedó fuera del
 sprint (§8.3).
