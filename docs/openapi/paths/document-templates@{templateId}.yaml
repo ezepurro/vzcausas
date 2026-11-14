@@ -53,3 +53,135 @@ get:
             $ref: ../components/responses/ForbiddenAdministratorOrLawyer.yaml
         "404":
             $ref: ../components/responses/DocumentTemplateNotFound.yaml
+
+patch:
+    tags:
+        - Document Templates
+    operationId: updateDocumentTemplate
+    summary: Modificar modelo formal
+    description: |
+        **(V6)** Modifica un modelo formal (HU36): su nombre, sus fueros, si se
+        copia a las causas nuevas y, si hace falta, su archivo. Viaja en
+        `multipart/form-data`, como el alta. Los fueros son una lista (D-125).
+
+        Reemplazar el archivo mueve el anterior a la `Papelera` de Drive, sin
+        historial. Las copias que ya están en las carpetas de las causas no se
+        tocan. Si Drive no responde al guardar el archivo nuevo o la copia de un
+        fuero que se suma, el modelo no cambia (`502`).
+
+        **Rol requerido:** `ADMINISTRATOR` o `LAWYER`.
+    requestBody:
+        required: true
+        content:
+            multipart/form-data:
+                schema:
+                    $ref: ../components/schemas/DocumentTemplateUpdate.yaml
+    responses:
+        "200":
+            description: Modelo formal modificado.
+            content:
+                application/json:
+                    schema:
+                        type: object
+                        required:
+                            - data
+                        properties:
+                            data:
+                                $ref: ../components/schemas/DocumentTemplate.yaml
+                    example:
+                        data:
+                            id: 4
+                            name: Recurso de casación
+                            jurisdictions:
+                                - CRIMINAL
+                                - ADMINISTRATIVE
+                            fileName: casacion-2026.docx
+                            copyToNewCases: true
+                            lastVersionAt: "2026-11-12T10:30:00-03:00"
+                            lastVersionBy:
+                                id: 3
+                                lastName: Ríos
+                                firstName: Malena
+                            usageCount: 7
+                            active: true
+        "400":
+            description: Datos inválidos, cuerpo vacío o identificador inválido.
+            content:
+                application/json:
+                    schema:
+                        $ref: ../components/schemas/Error.yaml
+                    examples:
+                        invalidFields:
+                            summary: Sin fueros y con un archivo que no es .docx (CA-36.2, CA-36.5)
+                            value:
+                                error:
+                                    code: VALIDATION_ERROR
+                                    message: Los datos enviados no son válidos.
+                                    details:
+                                        jurisdictions: Elegí al menos un fuero.
+                                        file: El archivo tiene que ser .docx.
+                        invalidTemplateId:
+                            $ref: ../components/examples/InvalidTemplateIdError.yaml
+        "401":
+            $ref: ../components/responses/Unauthorized.yaml
+        "403":
+            $ref: ../components/responses/ForbiddenAdministratorOrLawyer.yaml
+        "404":
+            $ref: ../components/responses/DocumentTemplateNotFound.yaml
+        "409":
+            description: Ya existe un modelo formal vigente con ese nombre (D-139).
+            content:
+                application/json:
+                    schema:
+                        $ref: ../components/schemas/Error.yaml
+                    example:
+                        error:
+                            code: DOCUMENT_TEMPLATE_ALREADY_EXISTS
+                            message: Ya existe un modelo formal con ese nombre.
+                            details: null
+        "413":
+            description: El archivo supera los 10 MB.
+            content:
+                application/json:
+                    schema:
+                        $ref: ../components/schemas/Error.yaml
+                    example:
+                        error:
+                            code: FILE_TOO_LARGE
+                            message: El archivo supera el tamaño máximo de 10 MB.
+                            details: null
+        "502":
+            $ref: ../components/responses/DocumentStorageUnavailable.yaml
+
+delete:
+    tags:
+        - Document Templates
+    operationId: deleteDocumentTemplate
+    summary: Dar de baja modelo formal
+    description: |
+        **(V6)** Da de baja un modelo formal (HU37). La baja es lógica y no tiene
+        vuelta atrás por la API (D-126): el modelo no se lista, su consulta y su
+        descarga responden `404`, y su nombre queda libre (D-139). Deja de
+        copiarse a las causas nuevas; las copias ya distribuidas no se tocan.
+        Su archivo va a la `Papelera` de Drive (D-131); si Drive no responde, la
+        baja no falla. No lleva cuerpo.
+
+        **Rol requerido:** `ADMINISTRATOR` o `LAWYER`.
+    responses:
+        "204":
+            description: Modelo formal dado de baja. Sin cuerpo.
+        "400":
+            description: Identificador inválido.
+            content:
+                application/json:
+                    schema:
+                        $ref: ../components/schemas/Error.yaml
+                    examples:
+                        invalidTemplateId:
+                            $ref: ../components/examples/InvalidTemplateIdError.yaml
+        "401":
+            $ref: ../components/responses/Unauthorized.yaml
+        "403":
+            $ref: ../components/responses/ForbiddenAdministratorOrLawyer.yaml
+        "404":
+            $ref: ../components/responses/DocumentTemplateNotFound.yaml

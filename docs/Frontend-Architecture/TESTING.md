@@ -1165,8 +1165,8 @@ Como en los sprints anteriores, los tests se escriben antes que las pantallas
 de los criterios de aceptación de cada historia, que están en su issue de Jira
 desde el 09/11/2026 (CA-10.x a CA-50.x). Antes del test, el endpoint tiene que
 estar en el mock (`frontend/CLAUDE.md`, "Checklist de un módulo"). Del Sprint
-5, el mock ya tiene `PATCH` y `DELETE /clients/{clientId}`; los demás todavía
-no, y la baja de abogado del mock sigue la regla de V5 (`frontend/CLAUDE.md`,
+5, el mock ya tiene `PATCH` y `DELETE` de `/clients/{clientId}` y de
+`/document-templates/{templateId}`; los demás todavía no, y la baja de abogado del mock sigue la regla de V5 (`frontend/CLAUDE.md`,
 "Cambios de V6 sobre lo que ya estaba hecho").
 
 **HU10 y HU11, clientes (14/11/2026).** Los tests se escribieron antes que el
@@ -1206,6 +1206,38 @@ código y están en verde. 31 en total, y cubren los 20 criterios (CA-10.1 a
 - **Un `404`** (otro lo dio de baja con el diálogo abierto) avisa con el
   mensaje del backend, cierra el diálogo y la fila sale de la tabla.
 
+**HU36 y HU37, modelos formales (14/11/2026).** También escritos antes que el
+código y en verde. 25 en total, y cubren los 17 criterios (CA-36.1 a 36.10 y
+CA-37.1 a 37.7); CA-36.9, CA-37.4 y CA-37.6 son sólo del servidor.
+
+| HU | Tests |
+| --- | --- |
+| 36 Modificar modelo formal | `components/documents/DocumentTemplatesPage.edit.test.tsx` (11), `unit/documents/buildDocumentTemplatePatch.test.ts` (5), `unit/documents/documentTemplate.schema.test.ts` (2 de la edición) |
+| 37 Dar de baja modelo formal | `components/documents/DocumentTemplatesPage.delete.test.tsx` (5) |
+| 36 y 37, la caché | `components/documents/templateMutations.cache.test.tsx` (2): las dos invalidan todos los listados de modelos, también el contador de "Registrar causa" (CA-36.7, CA-37.3) |
+| Permisos del servidor falso | `unit/contract/permissions.test.ts` suma `PATCH` y `DELETE /document-templates/{templateId}`, de Administrador y Abogado |
+
+**Los nombres que fijan los tests:**
+
+| Qué | Dónde |
+| --- | --- |
+| Acciones de la tarjeta | "Descargar", "Modificar" y "Dar de baja" en cada `DocumentTemplateCard` |
+| Modificar modelo | Diálogo "Modificar modelo formal" con el nombre como subtítulo, el archivo actual a la vista y "Guardar cambios"; aviso "Modelo actualizado. Las causas ya creadas conservan la copia anterior." |
+| Dar de baja | Diálogo "Dar de baja el modelo" con el nombre, la nota "Deja de copiarse en las causas nuevas. Las copias ya distribuidas no se tocan." y "Dar de baja"; aviso "Modelo dado de baja." |
+| El cambio | `buildDocumentTemplatePatch(modelo, valores)` y `hasChanges` en `@/features/documents/utils/buildDocumentTemplatePatch` |
+| La validación | `validateDocumentTemplate(valores, 'edit')`: sin el segundo parámetro, es la del alta |
+| Los hooks | `useUpdateDocumentTemplate` con `mutate({ id, body: FormData })` y `useDeleteDocumentTemplate` con `mutate(id)` |
+
+**Lo que se decidió** (14/11/2026):
+
+- **El archivo en la edición es opcional**, y se muestra el actual hasta que
+  se elija otro. El texto del prototipo ("la anterior queda en el historial")
+  no se usa: en V6 no hay historial (`documents/CAMBIOS.md`).
+- **La baja cierra el diálogo al confirmar**, como en Usuarios: no hay ningún
+  `409` que mostrar adentro.
+- **E8 carga el `.pdf` con `fireEvent`**: `user.upload` respeta el `accept`
+  del campo y el archivo nunca llegaría al formulario.
+
 Las reglas de V6 que se rompen fácil, y que conviene que fije un test de
 pantalla en lo que queda del sprint:
 
@@ -1216,10 +1248,6 @@ pantalla en lo que queda del sprint:
 - **Anular acto procesal (HU29).** Solo lo ofrece el responsable; el acto sale
   de la línea de vida y la causa muestra su estado nuevo; en una causa
   "Prescripta", `422 CASE_IN_TERMINAL_STATE` (D-124).
-- **Modificar modelo formal (HU36).** Los fueros son una lista, no un selector
-  de uno, y el archivo es opcional (D-125).
-- **Dar de baja modelo formal (HU37).** El modelo sale del listado y no hay
-  "Reactivar" (D-126).
 - **Reporte mensual (HU43).** Solo lo ve `ADMINISTRATOR`; el selector de mes va
   de `availableFrom` a `currentPeriod`; el mes en curso se distingue de uno
   cerrado (`status`); un período sin reporte da `404 MONTHLY_REPORT_NOT_FOUND`;

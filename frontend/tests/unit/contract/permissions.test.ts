@@ -99,6 +99,9 @@ const ADMINISTRATOR_OR_LAWYER: readonly [Method, string][] = [
     ['GET', '/document-templates'],
     ['GET', `/document-templates/${MISSING}`],
     ['GET', `/document-templates/${MISSING}/file`],
+    // V6: modificar y dar de baja un modelo (HU36, HU37), con el mismo rol que el resto de la sección (§3.10).
+    ['PATCH', `/document-templates/${MISSING}`],
+    ['DELETE', `/document-templates/${MISSING}`],
     ['POST', `/cases/${MISSING}/prescription`],
 ]
 

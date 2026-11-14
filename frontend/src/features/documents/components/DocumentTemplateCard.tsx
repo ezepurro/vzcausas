@@ -1,3 +1,4 @@
+import { useId } from 'react'
 import { JURISDICTION_LABELS } from '@/features/legal-params'
 import { Button, Icon, Pill } from '@/shared/components/ui'
 import { formatDate } from '@/shared/lib/dates'
@@ -10,16 +11,27 @@ export interface DocumentTemplateCardProps {
     /** true mientras se baja el archivo de esta tarjeta */
     downloading: boolean
     onDownload: () => void
+    /** "Modificar" (HU36). */
+    onEdit: () => void
+    /** "Dar de baja" (HU37). */
+    onDelete: () => void
 }
 
-/** Un modelo dentro de la vista de su fuero: los datos de CA-35.10 y "Descargar". */
-export function DocumentTemplateCard({ template, downloading, onDownload }: DocumentTemplateCardProps) {
+/**
+ * Un modelo dentro de la vista de su fuero: los datos de CA-35.10 y, como en
+ * el prototipo, "Descargar", "Modificar" y "Dar de baja". La sección es sólo
+ * de Administrador y Abogado (§3.10), y los dos pueden las tres acciones: no
+ * consultan `ACTION_ACCESS`. No hay "Reactivar" (D-126).
+ */
+export function DocumentTemplateCard({ template, downloading, onDownload, onEdit, onDelete }: DocumentTemplateCardProps) {
+    const nameId = useId()
+
     return (
         <article className="vz-template-card">
             <div className="vz-template-card__head">
                 <span className="vz-template-card__badge" aria-hidden="true">DOCX</span>
                 <div className="vz-template-card__title">
-                    <h3 className="vz-template-card__name">{template.name}</h3>
+                    <h3 className="vz-template-card__name" id={nameId}>{template.name}</h3>
                     <div className="vz-template-card__file">{template.fileName}</div>
                 </div>
             </div>
@@ -41,9 +53,24 @@ export function DocumentTemplateCard({ template, downloading, onDownload }: Docu
                 </span>
             </div>
 
+            {/* Las acciones se llaman igual en todas las tarjetas: cada botón
+                apunta al nombre de su modelo, así un lector de pantalla dice de
+                cuál es (H-40), como en las tablas. */}
             <div className="vz-template-card__actions">
-                <Button size="sm" icon={<Icon name="download" />} disabled={downloading} onClick={onDownload}>
+                <Button
+                    size="sm"
+                    icon={<Icon name="download" />}
+                    disabled={downloading}
+                    aria-describedby={nameId}
+                    onClick={onDownload}
+                >
                     Descargar
+                </Button>
+                <Button variant="ghost" size="sm" aria-describedby={nameId} onClick={onEdit}>
+                    Modificar
+                </Button>
+                <Button variant="ghost-danger" size="sm" aria-describedby={nameId} onClick={onDelete}>
+                    Dar de baja
                 </Button>
             </div>
         </article>

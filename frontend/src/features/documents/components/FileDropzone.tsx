@@ -5,7 +5,13 @@ import { formatFileSize } from '@/features/documents/utils/templateFormat'
 export interface FileDropzoneProps {
     /** para enlazarlo con la etiqueta de `Field` (`htmlFor`) */
     id?: string
+    /** el archivo elegido; `null` si todavía no se eligió ninguno */
     file: File | null
+    /**
+     * El nombre del archivo que ya tiene el modelo, en "Modificar modelo
+     * formal" (HU36): se ve mientras no se elija otro. En el alta no se pasa.
+     */
+    currentFileName?: string
     /** el `accept` del input: ".docx,application/…" */
     accept: string
     /** lo que se lee: "Solo .docx, hasta 10 MB" */
@@ -19,13 +25,15 @@ export interface FileDropzoneProps {
  * el click abre el selector del sistema sin código propio. No valida: el tipo
  * y el tamaño los revisa el schema.
  */
-export function FileDropzone({ id, file, accept, acceptText, onChange }: FileDropzoneProps) {
+export function FileDropzone({ id, file, currentFileName, accept, acceptText, onChange }: FileDropzoneProps) {
     const [dragging, setDragging] = useState(false)
-    const extension = file?.name.split('.').pop()?.toUpperCase() ?? ''
+    /* Lo que se muestra: el archivo nuevo si se eligió uno; si no, el actual. */
+    const shownName = file?.name ?? currentFileName
+    const extension = shownName?.split('.').pop()?.toUpperCase() ?? ''
 
     return (
         <div
-            className={`vz-dropzone ${dragging ? 'is-dragging' : ''} ${file ? 'has-file' : ''}`}
+            className={`vz-dropzone ${dragging ? 'is-dragging' : ''} ${shownName ? 'has-file' : ''}`}
             onDragOver={(e) => {
                 e.preventDefault()
                 setDragging(true)
@@ -46,12 +54,14 @@ export function FileDropzone({ id, file, accept, acceptText, onChange }: FileDro
                 onChange={(e) => onChange(e.target.files?.[0] ?? null)}
             />
 
-            {file ? (
+            {shownName ? (
                 <div className="vz-dropzone__file">
                     <span className="vz-dropzone__badge" aria-hidden="true">{extension}</span>
                     <div className="vz-dropzone__info">
-                        <div className="vz-dropzone__name">{file.name}</div>
-                        <div className="vz-dropzone__meta">{formatFileSize(file.size)} · Listo para subir</div>
+                        <div className="vz-dropzone__name">{shownName}</div>
+                        <div className="vz-dropzone__meta">
+                            {file ? `${formatFileSize(file.size)} · Listo para subir` : 'Archivo actual'}
+                        </div>
                     </div>
                     {/* Visual: el click lo recibe el input que cubre la zona. */}
                     <span className="vz-dropzone__change" aria-hidden="true">Cambiar</span>

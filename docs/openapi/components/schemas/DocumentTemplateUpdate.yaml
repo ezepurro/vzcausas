@@ -1,0 +1,40 @@
+type: object
+description: |
+    Modificación de un modelo formal (HU36), en `multipart/form-data`, como el
+    alta. Todos los campos son opcionales, pero tiene que viajar al menos uno:
+    un cuerpo vacío responde `400 VALIDATION_ERROR`. Cada campo viaja como
+    texto: los booleanos, como `true` o `false`; `jurisdictions` se repite una
+    vez por fuero.
+additionalProperties: false
+minProperties: 1
+properties:
+    name:
+        type: string
+        minLength: 1
+        maxLength: 150
+        description: '"Nombre del modelo". No vacío. Único entre los modelos vigentes, sin distinguir mayúsculas (D-139). El propio no es conflicto.'
+        examples:
+            - Recurso de casación
+    jurisdictions:
+        type: array
+        description: '"Fuero". Si se envía, reemplaza la lista entera. Al menos uno, sin repetir (D-125).'
+        minItems: 1
+        uniqueItems: true
+        items:
+            $ref: ./Jurisdiction.yaml
+        examples:
+            - - CRIMINAL
+              - ADMINISTRATIVE
+    copyToNewCases:
+        type: boolean
+        description: '"Copiar en las causas nuevas de los fueros elegidos".'
+        examples:
+            - false
+    file:
+        type: string
+        format: binary
+        contentMediaType: application/vnd.openxmlformats-officedocument.wordprocessingml.document
+        description: |
+            "Archivo del modelo". Documento Word (`.docx`), hasta 10 MB. Reemplaza
+            el archivo del modelo; el anterior se mueve a la `Papelera` de Drive.
+            Un archivo más grande responde `413 FILE_TOO_LARGE`.

@@ -43,3 +43,27 @@ causas nuevas de los fueros elegidos" y quedaba mal con ella destildada; ahora
 dice qué archivo se sube (CA-34.10).
 
 Falta pedir el mismo cambio en el prototipo.
+
+---
+
+## 2026-11-14 — "Modificar modelo formal" y "Dar de baja el modelo" (HU36, HU37)
+
+**Decisión:** Facundo Fiorani, al programar las dos historias. Lo que manda el
+contrato sobre el prototipo (los fueros como lista, D-125; sin "Reactivar" ni
+modelos dados de baja en la lista, D-126) no va acá: está en
+`API_CONTRACT_V6.md` §3.10.
+
+**Antes (prototipo):**
+
+- "Archivo del modelo" es obligatorio y dice "Reemplazar el archivo crea una
+  versión nueva; la anterior queda en el historial."
+
+**Ahora:**
+
+- En "Modificar modelo formal" el archivo es opcional (sin asterisco). Se ve
+  el archivo actual ("Archivo actual") hasta que se elija otro, y la nota dice
+  "Opcional. Si subís otro, el anterior pasa a la Papelera del estudio en
+  Drive." En V6 no hay historial de versiones: el archivo reemplazado se mueve
+  a la `Papelera` y no se consulta por la API.
+
+Falta pedir el mismo cambio en el prototipo.

@@ -5,6 +5,8 @@ import { Button, Icon, PageHeader, LoadError } from '@/shared/components/ui'
 import { JURISDICTION_LABELS, type Jurisdiction } from '@/features/legal-params'
 import { useDocumentTemplates } from '@/features/documents/api/useDocumentTemplates'
 import { useCreateDocumentTemplate } from '@/features/documents/api/useCreateDocumentTemplate'
+import { useUpdateDocumentTemplate } from '@/features/documents/api/useUpdateDocumentTemplate'
+import { useDeleteDocumentTemplate } from '@/features/documents/api/useDeleteDocumentTemplate'
 import { useDownloadDocumentTemplate } from '@/features/documents/api/useDownloadDocumentTemplate'
 import type { DocumentTemplate, DocumentTemplateFormValues } from '@/features/documents/types/documentTemplate'
 import {
@@ -13,12 +15,15 @@ import {
     type DocumentTemplateErrors,
 } from '@/features/documents/schemas/documentTemplate.schema'
 import { toCreateDocumentTemplateBody } from '@/features/documents/utils/toCreateDocumentTemplateBody'
+import { buildDocumentTemplatePatch, hasChanges } from '@/features/documents/utils/buildDocumentTemplatePatch'
+import { toUpdateDocumentTemplateBody } from '@/features/documents/utils/toUpdateDocumentTemplateBody'
 import { toFormErrors } from '@/features/documents/utils/toFormErrors'
 import { countLabel, jurisdictionsPhrase, summarizeByJurisdiction } from '@/features/documents/utils/templateFormat'
 import { JurisdictionCard } from '@/features/documents/components/JurisdictionCard'
 import { DocumentTemplateCard } from '@/features/documents/components/DocumentTemplateCard'
 import { DocumentTemplatesSkeleton } from '@/features/documents/components/DocumentTemplatesSkeleton'
 import { DocumentTemplateFormModal } from '@/features/documents/components/DocumentTemplateFormModal'
+import { DeleteDocumentTemplateModal } from '@/features/documents/components/DeleteDocumentTemplateModal'
 import { usePageTitle } from '@/shared/hooks/usePageTitle'
 
 /**
@@ -27,7 +32,12 @@ import { usePageTitle } from '@/shared/hooks/usePageTitle'
  */
 const LIMIT = 100
 
-type Modal = { kind: 'create' } | null
+/** Qué diálogo está abierto y sobre qué modelo: un solo estado. */
+type Modal =
+    | { kind: 'create' }
+    | { kind: 'edit'; template: DocumentTemplate }
+    | { kind: 'delete'; template: DocumentTemplate }
+    | null
 
 /** El fuero que se está mirando, o Penal desde la vista general (prototipo). */
 function emptyForm(jurisdiction: Jurisdiction | null): DocumentTemplateFormValues {
@@ -46,6 +56,8 @@ export function DocumentTemplatesPage() {
 
     const query = useDocumentTemplates({ limit: LIMIT, jurisdiction: jurisdiction ?? undefined })
     const create = useCreateDocumentTemplate()
+    const update = useUpdateDocumentTemplate()
+    const remove = useDeleteDocumentTemplate()
     const download = useDownloadDocumentTemplate()
 
     /* Al cambiar de vista, `keepPreviousData` dejaría a la vista los modelos
@@ -59,20 +71,34 @@ export function DocumentTemplatesPage() {
         setErrors({})
         setModal({ kind: 'create' })
     }
+    function openEdit(template: DocumentTemplate) {
+        // El archivo empieza vacío: sin uno nuevo, el modelo conserva el suyo.
+        setValues({
+            name: template.name,
+            jurisdictions: [...template.jurisdictions],
+            copyToNewCases: template.copyToNewCases,
+            file: null,
+        })
+        setErrors({})
+        setModal({ kind: 'edit', template })
+    }
+    function openDelete(template: DocumentTemplate) {
+        setModal({ kind: 'delete', template })
+    }
     function closeModal() {
         setModal(null)
     }
 
-    //ERRORES DEL SERVIDOR
-    function handleCreateError(error: unknown) {
+    //ERRORES DEL SERVIDOR (alta y modificación)
+    function handleFormError(error: unknown) {
         if (!isApiError(error)) throw error
 
-        // CA-34.9: el nombre repetido se marca en su campo.
+        // CA-34.9 y CA-36.3: el nombre repetido se marca en su campo.
         if (error.is('DOCUMENT_TEMPLATE_ALREADY_EXISTS')) {
             setErrors({ name: error.message })
             return
         }
-        // CA-34.10
+        // CA-34.10 y CA-36.5
         if (error.is('FILE_TOO_LARGE')) {
             setErrors({ file: error.message })
             return
@@ -85,7 +111,15 @@ export function DocumentTemplatesPage() {
             }
             // Un 400 sin ningún campo que marcar no puede quedar mudo.
         }
-        // CA-34.7: Drive no responde (502). El modal queda abierto para reintentar.
+        /* CA-36.10: lo dieron de baja con el diálogo abierto. No hay nada que
+           corregir: se cierra y la lista se vuelve a pedir. */
+        if (error.isNotFound) {
+            toast('error', error.message)
+            closeModal()
+            void query.refetch()
+            return
+        }
+        // CA-34.7 y CA-36.8: Drive no responde (502). El modal queda abierto para reintentar.
         toast('error', error.message)
     }
 
@@ -99,8 +133,48 @@ export function DocumentTemplatesPage() {
                 toast('success', `Modelo "${template.name}" registrado para ${jurisdictionsPhrase(template.jurisdictions)}.`)
                 closeModal()
             },
-            onError: handleCreateError,
+            onError: handleFormError,
         })
+    }
+
+    //MODIFICACION DEL MODELO (HU36)
+    function submitEdit() {
+        if (modal?.kind !== 'edit') return
+        const found = validateDocumentTemplate(values, 'edit')
+        setErrors(found)
+        if (!isValid(found)) return
+
+        // Un PATCH vacío es un 400 (CA-36.1): sin cambios no se llama.
+        const changes = buildDocumentTemplatePatch(modal.template, values)
+        if (!hasChanges(changes)) {
+            closeModal()
+            return
+        }
+        update.mutate({ id: modal.template.id, body: toUpdateDocumentTemplateBody(changes) }, {
+            onSuccess: () => {
+                toast('success', 'Modelo actualizado. Las causas ya creadas conservan la copia anterior.')
+                closeModal()
+            },
+            onError: handleFormError,
+        })
+    }
+
+    //BAJA DEL MODELO (HU37)
+    function confirmDelete() {
+        if (modal?.kind !== 'delete') return
+
+        remove.mutate(modal.template.id, {
+            // `info` y no `success`: salió bien, pero no es un logro.
+            onSuccess: () => toast('info', 'Modelo dado de baja.'),
+            /* CA-37.7 (404) o un error del servidor: se avisa. La tarjeta
+               vuelve, o desaparece si ya no existía (`useDeleteDocumentTemplate`). */
+            onError: (error) => {
+                if (!isApiError(error)) throw error
+                toast('error', error.message)
+            },
+        })
+        // Se cierra al confirmar: la tarjeta ya salió de la lista. No hay nada que mostrar si falla.
+        closeModal()
     }
 
     //DESCARGA (CA-35.6)
@@ -167,6 +241,8 @@ export function DocumentTemplatesPage() {
                                 template={template}
                                 downloading={download.isPending && download.variables?.id === template.id}
                                 onDownload={() => downloadFile(template)}
+                                onEdit={() => openEdit(template)}
+                                onDelete={() => openDelete(template)}
                             />
                         ))}
                     </div>
@@ -203,6 +279,27 @@ export function DocumentTemplatesPage() {
                     saving={create.isPending}
                     onChange={(key, value) => setValues((s) => ({ ...s, [key]: value }))}
                     onConfirm={submitCreate}
+                    onCancel={closeModal}
+                />
+            )}
+            {modal?.kind === 'edit' && (
+                <DocumentTemplateFormModal
+                    mode="edit"
+                    sub={modal.template.name}
+                    currentFileName={modal.template.fileName}
+                    values={values}
+                    errors={errors}
+                    saving={update.isPending}
+                    onChange={(key, value) => setValues((s) => ({ ...s, [key]: value }))}
+                    onConfirm={submitEdit}
+                    onCancel={closeModal}
+                />
+            )}
+            {modal?.kind === 'delete' && (
+                <DeleteDocumentTemplateModal
+                    templateName={modal.template.name}
+                    saving={remove.isPending}
+                    onConfirm={confirmDelete}
                     onCancel={closeModal}
                 />
             )}

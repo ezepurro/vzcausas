@@ -18,9 +18,13 @@ modificar un acto procesal, los documentos de la causa y el expediente
 > y la baja de un cliente con causas activas responde
 > `409 CLIENT_HAS_ACTIVE_CASES` (`GÓMEZ`, 1). `JUÁREZ` (18) no tiene causas y
 > `ESCUDERO` (13) tiene sólo una en "Prescripta": las dos se pueden dar de
-> baja. **Lo demás todavía no está en el mock**:
-> `DELETE /cases/{caseId}/procedural-acts/{actId}`, `PATCH` y
-> `DELETE /document-templates/{templateId}`, `GET /reports/monthly` y
+> baja. También `PATCH` y `DELETE /document-templates/{templateId}` (HU36,
+> HU37; 14/11/2026): sumar un fuero o reemplazar el archivo con Drive caído
+> responde `502` y no cambia nada; el nombre es único sólo entre los modelos
+> vigentes, así que el del modelo 13 ("Amparo por mora de la
+> administración", dado de baja) se puede usar (D-139), también en el alta.
+> **Lo demás todavía no está en el mock**:
+> `DELETE /cases/{caseId}/procedural-acts/{actId}`, `GET /reports/monthly` y
 > `GET /reports/monthly/file`. Además, `DELETE /lawyers/{lawyerId}` sigue la
 > regla de V5 (`409` si el abogado tiene causas o un usuario vinculado). V6 la
 > cambia: reasigna sus causas activas con `reassignments`, y el usuario
@@ -440,6 +444,8 @@ Para tener el recurso como lo devuelve la API están los serializadores de
 | `POST` | `/document-templates` | 201, 400, 401, 403, 409, 413, 502 |
 | `GET` | `/document-templates` | 200, 400, 401, 403 |
 | `GET` | `/document-templates/{templateId}` | 200, 400, 401, 403, 404 |
+| `PATCH` | `/document-templates/{templateId}` | 200, 400, 401, 403, 404, 409, 413, 502 |
+| `DELETE` | `/document-templates/{templateId}` | 204, 400, 401, 403, 404 |
 | `GET` | `/document-templates/{templateId}/file` | 200 (archivo), 400, 401, 403, 404, 502 |
 | `GET` | `/dashboards/lawyer` | 200, 401, 403 |
 | `GET` | `/dashboards/administrator` | 200, 401, 403 |

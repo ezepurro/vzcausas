@@ -60,4 +60,25 @@ describe('validateDocumentTemplate', () => {
             name: 'Puede tener hasta 150 caracteres.',
         })
     })
+
+    describe('en la modificación (HU36)', () => {
+        // CA-36.4 y CA-36.5: el archivo es opcional, pero si se elige uno se valida igual.
+        it('el archivo es opcional, y si se elige uno tiene que ser .docx de hasta 10 MB', () => {
+            expect(validateDocumentTemplate({ ...VALID, file: null }, 'edit')).toEqual({})
+            expect(validateDocumentTemplate({ ...VALID, file: file('modelo.pdf', 1024, 'application/pdf') }, 'edit')).toEqual({
+                file: 'El archivo tiene que ser .docx.',
+            })
+            expect(validateDocumentTemplate({ ...VALID, file: file('modelo.docx', 10 * 1024 * 1024 + 1) }, 'edit')).toEqual({
+                file: 'El archivo supera el tamaño máximo de 10 MB.',
+            })
+        })
+
+        // CA-36.2 y CA-36.3: el nombre no queda vacío y hay al menos un fuero.
+        it('el nombre y al menos un fuero siguen siendo obligatorios', () => {
+            expect(validateDocumentTemplate({ ...VALID, name: ' ', jurisdictions: [], file: null }, 'edit')).toEqual({
+                name: 'El nombre del modelo es obligatorio.',
+                jurisdictions: 'Elegí al menos un fuero.',
+            })
+        })
+    })
 })

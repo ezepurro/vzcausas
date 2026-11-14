@@ -13,9 +13,9 @@ ver [Revisión de V5 del 05/11/2026](#revisión-de-v5-del-05112026).
 
 **09/11/2026: contrato V6 (Sprint 5).** El contrato vigente pasa a ser
 `API_CONTRACT_V6.md`, la última versión. Suma lo del Sprint 5: ver
-[Sprint 5](#sprint-5--qué-trae-v6). **Al 14/11/2026 están hechas HU10 y HU11**
-(modificar y dar de baja un cliente), con sus mocks y sus tests en verde; lo
-demás de V6 todavía no está programado. Además hay código hecho que sigue una
+[Sprint 5](#sprint-5--qué-trae-v6). **Al 14/11/2026 están hechas HU10, HU11,
+HU36 y HU37** (modificar y dar de baja un cliente y un modelo formal), con sus
+mocks y sus tests en verde; lo demás de V6 todavía no está programado. Además hay código hecho que sigue una
 regla que V6 cambia (la baja de abogado del mock, `ERROR_CODES`, dos
 comentarios sobre HU29): ver
 [Cambios de V6 sobre lo que ya estaba hecho](#cambios-de-v6-sobre-lo-que-ya-estaba-hecho).
@@ -29,7 +29,8 @@ comentarios sobre HU29): ver
    guía para Claude al final.
 3. `frontend/src/shared/mocks/README.md` — **antes de escribir cualquier
    llamada a la API**. El mock implementa V5 entero (revisión del 05/11/2026);
-   del Sprint 5 (V6) tiene sólo `PATCH` y `DELETE /clients/{clientId}`.
+   del Sprint 5 (V6) tiene sólo `PATCH` y `DELETE` de `/clients/{clientId}` y
+   de `/document-templates/{templateId}`.
    Ahí están los usuarios de prueba y qué puede cada perfil, qué causa semilla
    sirve para probar cada regla, cómo disparar cada error y cómo agregar un
    endpoint. El resumen está en [Los mocks](#los-mocks), más abajo.
@@ -101,8 +102,8 @@ Playwright para los E2E.
 ## Sprint 5 — qué trae V6
 
 Alcance según V6 (D-114): HU 10, 11, 15, 29, 36, 37, 43, 49 y 50. Sprint "VZ
-Sprint 5" de Jira (08/11/2026 – 20/11/2026). Están hechas HU10 y HU11 (ver
-abajo); de las demás todavía no hay pantallas, tipos ni mocks. Los criterios de aceptación de cada
+Sprint 5" de Jira (08/11/2026 – 20/11/2026). Están hechas HU10, HU11, HU36 y
+HU37 (ver abajo); de las demás todavía no hay pantallas, tipos ni mocks. Los criterios de aceptación de cada
 historia están en su issue de Jira, escritos sobre V6 (09/11/2026): CA-10.x,
 CA-11.x, CA-15.x, CA-29.x, CA-36.x, CA-37.x, CA-43.x, CA-49.x y CA-50.x. Las
 decisiones son D-114 a D-139
@@ -146,6 +147,29 @@ mock; contra el backend no se probaron (VZ-211 en revisión, VZ-212 por hacer).
   `renderActiveCases` y la enchufa `src/app/router/ClientsRoute.tsx`, que es
   lo que carga `PAGES.clients`. Si otra pantalla necesita algo de un módulo
   que depende del suyo, es el mismo camino.
+- Tests y nombres que fijan: `TESTING.md` §11, "Sprint 5".
+
+**HU36 y HU37, hechas** (Facundo Fiorani, 14/11/2026). El backend las tiene
+(Mateo Castro, `feature/update-delete-doctemplate`), pero el front sólo se
+probó contra el mock.
+
+- **Modificar modelo formal.** "Modificar" en cada tarjeta abre
+  `DocumentTemplateFormModal` con `mode="edit"`: los campos del alta, con los
+  fueros como lista (D-125, no el selector de uno del prototipo) y el archivo
+  opcional. `FileDropzone` muestra el actual (`currentFileName`) hasta que se
+  elija otro, con la nota "Opcional. Si subís otro, el anterior pasa a la
+  Papelera del estudio en Drive." (`documents/CAMBIOS.md`). El cambio se arma
+  en dos pasos: `buildDocumentTemplatePatch` devuelve sólo lo distinto (los
+  fueros se comparan como conjunto y, si cambian, viaja la lista entera) y
+  `toUpdateDocumentTemplateBody` lo pasa a `multipart/form-data`. Sin cambios,
+  cierra sin llamar. `validateDocumentTemplate(values, 'edit')` no pide archivo.
+- **Dar de baja modelo formal.** "Dar de baja" en cada tarjeta abre
+  `DeleteDocumentTemplateModal` (un `FormModal` sin campos, como
+  `DeleteUserModal`). Sin motivo. Se cierra al confirmar; la tarjeta sale de la
+  lista con la baja optimista de `useDeleteDocumentTemplate`. No hay
+  "Reactivar" (D-126).
+- **La caché.** Las dos mutaciones invalidan `documentTemplateKeys.lists()`,
+  que incluye el contador de "Registrar causa" (`copyToNewCases`, `limit: 1`).
 - Tests y nombres que fijan: `TESTING.md` §11, "Sprint 5".
 
 **Lo que el prototipo muestra y el Sprint 5 no dibuja** (`DECISIONES.md` §3):
@@ -333,7 +357,7 @@ Si aparece una flecha para el otro lado, algo está en el módulo equivocado.
 | `proceedings` | `RegisterProceduralActPage` | `ProceduralActForm`, `DeadlinePreviewAside`, `ProceduralActFormSkeleton` | `stateOptions`, `resolveState`, `terminalState`, `deadlinePreview`, `dueDateText`, `toCreateProceduralActBody`, `toActFormValues`, `buildProceduralActPatch`, `toFormErrors` |
 | `lawyers` | `LawyersPage` | `LawyersTable`, `LawyerFormModal` | `toCreateLawyerBody`, `buildLawyerPatch`, `lawyerLabel`, `toFormErrors` |
 | `users` | `UsersPage` | `UsersTable`, `UserFormModal`, `DeleteUserModal` | `buildUserPatch`, `toCreateUserBody`, `roles`, `lawyerLink`, `toFormErrors` |
-| `documents` | `DocumentTemplatesPage` | `JurisdictionCard`, `DocumentTemplateCard`, `DocumentTemplateFormModal`, `FileDropzone`, `JurisdictionPicker`, `DocumentTemplatesSkeleton` | `templateFormat`, `toCreateDocumentTemplateBody`, `toFormErrors` |
+| `documents` | `DocumentTemplatesPage` | `JurisdictionCard`, `DocumentTemplateCard`, `DocumentTemplateFormModal` (alta y modificación), `DeleteDocumentTemplateModal`, `FileDropzone`, `JurisdictionPicker`, `DocumentTemplatesSkeleton` | `templateFormat`, `toCreateDocumentTemplateBody`, `buildDocumentTemplatePatch`, `toUpdateDocumentTemplateBody`, `toFormErrors` |
 | `dashboard` | `HomePage` | `LawyerDashboardView`, `AdministratorDashboardView`, `SummaryBand`, `FirstDeadline`, `DeadlinesPanel`, `DeadlineCalendar`, `CasesToAdvancePanel`, `PrescriptionAlertsPanel`, `PortfolioByJurisdiction`, `TeamLoadPanel`, `DashboardSkeleton` | `dashboardDate`, `urgency` |
 | `tools` | `ToolsPage` | `ToolSection`, `ToolCard`, `ToolSeal`, `QuickAccessBand` | `catalog`, `filterTools`, `brandStyle` |
 | `deadlines` | — | — | — (sólo `api/`: el atajo de la campana, `deadlines/CAMBIOS.md`) |
@@ -811,7 +835,8 @@ y a este archivo.
 la revisión del 05/11/2026), con MSW: lo de los Sprints 1 a 3 y lo del Sprint 4
 (modificar y dar de baja una causa, la carátula, modificar un acto procesal,
 los documentos de la causa y el expediente). **Del Sprint 5 (V6) tiene sólo
-`PATCH` y `DELETE /clients/{clientId}`** (HU10 y HU11): cada endpoint nuevo se
+`PATCH` y `DELETE` de `/clients/{clientId}` (HU10 y HU11) y de
+`/document-templates/{templateId}` (HU36 y HU37)**: cada endpoint nuevo se
 agrega al mock antes que su pantalla, y la baja
 de abogado sigue la regla de V5 (ver
 [Cambios de V6 sobre lo que ya estaba hecho](#cambios-de-v6-sobre-lo-que-ya-estaba-hecho)).
@@ -1229,7 +1254,7 @@ Al 08/11/2026, con el 3 revisado el 09/11/2026 por V6 y el 1 y el 3
 actualizados el 13/11/2026 por la auditoría del front. No se arreglan al
 paso: cada uno es de su dueño.
 
-1. **`npm test`: pasan los 828** (14/11/2026, ya con los de HU10 y HU11). Corre con la mitad de los
+1. **`npm test`: pasan los 854** (14/11/2026, ya con los de HU10, HU11, HU36 y HU37). Corre con la mitad de los
    núcleos por configuración (`maxWorkers: '50%'` en `vitest.config.ts`):
    con todos fallaban tests al azar por tiempo. Aun así, en alguna corrida de
    la suite entera falla por tiempo `tests/unit/app/pages.test.ts` o el

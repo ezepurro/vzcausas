@@ -282,6 +282,33 @@ que corresponde al servidor: el frontend muestra lo que recibe y no lo prueba.
 | CA-35.10 | `components/documents/DocumentTemplatesPage.test.tsx` (componentes) |
 | CA-35.11 | `components/documents/DocumentTemplatesPage.test.tsx` (componentes) |
 
+## HU-36
+
+| Criterio | Dónde se cubre |
+| --- | --- |
+| CA-36.1 | `components/documents/DocumentTemplatesPage.edit.test.tsx` (componentes)<br>`unit/documents/buildDocumentTemplatePatch.test.ts` (unit)<br>Backend |
+| CA-36.2 | `components/documents/DocumentTemplatesPage.edit.test.tsx` (componentes)<br>`unit/documents/buildDocumentTemplatePatch.test.ts` (unit)<br>`unit/documents/documentTemplate.schema.test.ts` (unit) |
+| CA-36.3 | `components/documents/DocumentTemplatesPage.edit.test.tsx` (componentes)<br>`unit/documents/documentTemplate.schema.test.ts` (unit) |
+| CA-36.4 | `components/documents/DocumentTemplatesPage.edit.test.tsx` (componentes)<br>`unit/documents/buildDocumentTemplatePatch.test.ts` (unit)<br>`unit/documents/documentTemplate.schema.test.ts` (unit) |
+| CA-36.5 | `components/documents/DocumentTemplatesPage.edit.test.tsx` (componentes)<br>`unit/documents/documentTemplate.schema.test.ts` (unit) |
+| CA-36.6 | `components/documents/DocumentTemplatesPage.edit.test.tsx` (componentes)<br>Backend |
+| CA-36.7 | `components/documents/templateMutations.cache.test.tsx` (componentes)<br>Backend |
+| CA-36.8 | `components/documents/DocumentTemplatesPage.edit.test.tsx` (componentes) |
+| CA-36.9 | Backend |
+| CA-36.10 | `components/documents/DocumentTemplatesPage.edit.test.tsx` (componentes) |
+
+## HU-37
+
+| Criterio | Dónde se cubre |
+| --- | --- |
+| CA-37.1 | `components/documents/DocumentTemplatesPage.delete.test.tsx` (componentes) |
+| CA-37.2 | `components/documents/DocumentTemplatesPage.delete.test.tsx` (componentes) |
+| CA-37.3 | `components/documents/templateMutations.cache.test.tsx` (componentes) |
+| CA-37.4 | Backend |
+| CA-37.5 | `components/documents/DocumentTemplatesPage.delete.test.tsx` (componentes)<br>`components/documents/DocumentTemplatesPage.edit.test.tsx` (componentes) |
+| CA-37.6 | Backend |
+| CA-37.7 | `components/documents/DocumentTemplatesPage.delete.test.tsx` (componentes) |
+
 ## HU-38
 
 | Criterio | Dónde se cubre |
@@ -357,4 +384,4 @@ que corresponde al servidor: el frontend muestra lo que recibe y no lo prueba.
 
 ---
 
-220 criterios citados · 42 sólo del backend.
+237 criterios citados · 45 sólo del backend.

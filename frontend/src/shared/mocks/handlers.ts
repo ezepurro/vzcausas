@@ -2912,9 +2912,15 @@ const getCaseTimeline: Handler = ({ request, params }) => {
 const TEMPLATE_NAME_MAX = 150;
 const DOCX_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
-/** El nombre de un modelo es único, sin distinguir mayúsculas (V4 D-71). */
-function templateNameTaken(name: string): boolean {
-    return db.documentTemplates.some((t) => t.name.toLowerCase() === name.toLowerCase());
+/**
+ * El nombre de un modelo es único, sin distinguir mayúsculas (V4 D-71), pero
+ * sólo entre los vigentes: el de uno dado de baja queda libre (V6 D-139,
+ * CA-37.5). Al modificar, el propio no es conflicto (CA-36.3).
+ */
+function templateNameTaken(name: string, exceptId?: number): boolean {
+    return db.documentTemplates.some(
+        (t) => t.active && t.id !== exceptId && t.name.toLowerCase() === name.toLowerCase(),
+    );
 }
 
 /** El modelo vigente con ese id, o `undefined`: uno dado de baja no existe (CA-35.7). */
@@ -3015,6 +3021,99 @@ const getDocumentTemplate: Handler = ({ request, params }) => {
     if (!template) return fail(404, ERRORS.documentTemplateNotFound);
 
     return ok(itemBody(toDocumentTemplate(template)));
+};
+
+/**
+ * Modifica un modelo formal (HU36, V6 §3.10), en `multipart/form-data`. Todo
+ * es opcional, pero tiene que viajar al menos un campo. Los fueros, si
+ * viajan, reemplazan la lista entera (D-125). Un archivo nuevo reemplaza al
+ * anterior y mueve la última versión al momento y al usuario del reemplazo.
+ *
+ * Guardar el archivo nuevo o copiarlo a un fuero que se suma es parte de la
+ * operación (CA-36.8): con Drive caído no cambia nada y responde `502`. Si
+ * sólo cambian el nombre, los fueros que se quitan o `copyToNewCases`, Drive
+ * no interviene (lo que va a la `Papelera` lo mueve después el proceso
+ * diario si falla).
+ */
+const updateDocumentTemplate: Handler = ({ request, params }) => {
+    const auth = requireAdministratorOrLawyer(request);
+    if (!auth.ok) return auth.response;
+
+    const id = readRouteId(params, 'templateId');
+    if (id === undefined) return fail(400, ERRORS.invalidDocumentTemplateId);
+
+    const template = findTemplate(id);
+    if (!template) return fail(404, ERRORS.documentTemplateNotFound);
+
+    const file = formFile(request);
+    if (file && file.size > MAX_FILE_BYTES) return fail(413, ERRORS.fileTooLarge);
+
+    const fields = request.form?.fields ?? {};
+    const hasName = fields.name !== undefined;
+    const hasJurisdictions = fields.jurisdictions !== undefined;
+    const hasCopy = fields.copyToNewCases !== undefined;
+    if (!hasName && !hasJurisdictions && !hasCopy && !file) {
+        return validationError({ body: 'Debe enviarse al menos un campo para modificar.' });
+    }
+
+    const details: Record<string, string> = {};
+
+    const name = formText(request, 'name');
+    if (hasName) {
+        if (name === '') details.name = 'El nombre del modelo es obligatorio.';
+        else if (name.length > TEMPLATE_NAME_MAX) details.name = `Puede tener hasta ${TEMPLATE_NAME_MAX} caracteres.`;
+    }
+
+    const jurisdictions = (fields.jurisdictions ?? []).map((j) => j.trim()).filter(Boolean);
+    if (hasJurisdictions) {
+        if (jurisdictions.length === 0) details.jurisdictions = 'Elegí al menos un fuero.';
+        else if (!jurisdictions.every(isJurisdiction)) details.jurisdictions = 'No existe un fuero procesal con ese nombre.';
+        else if (new Set(jurisdictions).size !== jurisdictions.length) details.jurisdictions = 'No puede repetirse un fuero.';
+    }
+
+    const copyRaw = formText(request, 'copyToNewCases');
+    if (hasCopy && copyRaw !== 'true' && copyRaw !== 'false') details.copyToNewCases = MSG_NOT_BOOLEAN;
+
+    if (file && !/\.docx$/i.test(file.name)) details.file = MSG_NOT_DOCX;
+
+    if (Object.keys(details).length > 0) return validationError(details);
+
+    if (hasName && templateNameTaken(name, template.id)) return fail(409, ERRORS.documentTemplateNameTaken);
+
+    const added = hasJurisdictions && jurisdictions.some((j) => !template.jurisdictions.includes(j as Jurisdiction));
+    if ((file || added) && db.failures.documentStorage) return fail(502, ERRORS.documentStorageUnavailable);
+
+    if (hasName) template.name = name;
+    if (hasJurisdictions) template.jurisdictions = jurisdictions as Jurisdiction[];
+    if (hasCopy) template.copyToNewCases = copyRaw === 'true';
+    if (file) {
+        template.fileName = file.name;
+        // La última versión es el reemplazo (V6 §3.10); cambiar lo demás no la mueve.
+        template.lastVersionAt = nowIso();
+        template.lastVersionById = auth.user.id;
+    }
+
+    return ok(itemBody(toDocumentTemplate(template)));
+};
+
+/**
+ * Da de baja un modelo formal (HU37, V6 §3.10). Es lógica y sin vuelta atrás
+ * (D-126): no se lista, su consulta y su descarga responden `404`, deja de
+ * copiarse a las causas nuevas y su nombre queda libre (D-139). Su archivo va
+ * a la `Papelera`; si Drive no responde la baja no falla (D-131). Sin cuerpo.
+ */
+const deleteDocumentTemplate: Handler = ({ request, params }) => {
+    const auth = requireAdministratorOrLawyer(request);
+    if (!auth.ok) return auth.response;
+
+    const id = readRouteId(params, 'templateId');
+    if (id === undefined) return fail(400, ERRORS.invalidDocumentTemplateId);
+
+    const template = findTemplate(id);
+    if (!template) return fail(404, ERRORS.documentTemplateNotFound);
+
+    template.active = false;
+    return NO_CONTENT;
 };
 
 /**
@@ -4016,6 +4115,8 @@ const ROUTES: Route[] = [
     { method: 'POST', path: '/document-templates', pattern: /^\/document-templates$/, handler: createDocumentTemplate },
     { method: 'GET', path: '/document-templates', pattern: /^\/document-templates$/, handler: listDocumentTemplates },
     { method: 'GET', path: '/document-templates/:templateId', pattern: /^\/document-templates\/(?<templateId>[^/]+)$/, handler: getDocumentTemplate },
+    { method: 'PATCH', path: '/document-templates/:templateId', pattern: /^\/document-templates\/(?<templateId>[^/]+)$/, handler: updateDocumentTemplate },
+    { method: 'DELETE', path: '/document-templates/:templateId', pattern: /^\/document-templates\/(?<templateId>[^/]+)$/, handler: deleteDocumentTemplate },
     { method: 'GET', path: '/document-templates/:templateId/file', pattern: /^\/document-templates\/(?<templateId>[^/]+)\/file$/, handler: downloadDocumentTemplate },
 
     { method: 'GET', path: '/dashboards/lawyer', pattern: /^\/dashboards\/lawyer$/, handler: lawyerDashboard },
