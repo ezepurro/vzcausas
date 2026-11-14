@@ -4,6 +4,7 @@ import { ClientDniAlreadyExistsError, ClientNotFoundError } from "../../domain/e
 import { ClientDocument } from "../../domain/value-objects/client-document.vo";
 import { FindClientUseCase } from "./find-client.use-case";
 import {
+  aClientDeactivation,
   FakeActiveCasesCounter,
   FakeAuditTrail,
   FakeClientCaseCaptions,
@@ -31,6 +32,7 @@ const aClient = (id: number, documentNumber: string, active = true) =>
     email: null,
     clientSince: new Date("2021-03-12T00:00:00Z"),
     active,
+    deactivation: active ? null : aClientDeactivation(),
   });
 
 function build() {

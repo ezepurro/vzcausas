@@ -7,6 +7,7 @@ import { expectData } from '../../shared/contract/envelopes';
 import { createCase, deactivateCase } from '../../shared/factories/case.factory';
 import { createInitialState } from '../../shared/factories/procedural-state.factory';
 import { createLegalQualification } from '../../shared/factories/legal-qualification.factory';
+import { loginAs } from '../../shared/auth/login-as';
 import {
   ProceduralActScenario,
   resetProceduralActData,
@@ -330,6 +331,36 @@ describe('HU52 — verificación diaria de la prescripción', () => {
       expect(mailboxRows.map((r) => [r.kind, r.referenceDate])).toEqual([
         ['PRESCRIPTION_ALERT', civil('2027-01-01')],
         ['PRESCRIPTION_ALERT', civil('2028-10-06')],
+      ]);
+    });
+
+    // CA-52.8 (cambio de plazo de la calificación, HU49) y V-09: la causa referencia la
+    // calificación y nada se guarda calculado (D-08), así que el plazo nuevo se ve en la
+    // corrida siguiente. Cambia `expiresOn`, parte de la clave de `sent_notifications`,
+    // y por eso se vuelve a avisar. Gemelo del test del acto interruptivo de arriba.
+    it('después de cambiar el plazo de la calificación, vuelve a avisar con la fecha nueva', async () => {
+      // Hecho del 1/1/2017 + 120 meses: vence el 1/1/2027, al 97,6 %: alerta.
+      const tenYears = await qualification(120);
+      await withOffense(s.caseRow.id, tenYears.id, '2017-01-01');
+      await dailyRun();
+
+      // 144 meses: vence el 1/1/2029; al 6/10/2026 lleva el 81,4 %: sigue en alerta, con otra fecha.
+      const res = await server()
+        .patch(`/api/v1/legal-qualifications/${tenYears.id}`)
+        .set(loginAs({ permissions: ['qualification:update'] }))
+        .send({ prescriptionMonths: 144 });
+      expect(res.status).toBe(200);
+      emailSender.reset();
+      const run = await dailyRun();
+
+      expect(run.body.mailboxNoticeCount).toBe(1);
+      const mailboxRows = await getPrisma().sentNotification.findMany({
+        where: { caseId: s.caseRow.id, recipientLawyerId: null },
+        orderBy: { id: 'asc' },
+      });
+      expect(mailboxRows.map((r) => [r.kind, r.referenceDate])).toEqual([
+        ['PRESCRIPTION_ALERT', civil('2027-01-01')],
+        ['PRESCRIPTION_ALERT', civil('2029-01-01')],
       ]);
     });
 

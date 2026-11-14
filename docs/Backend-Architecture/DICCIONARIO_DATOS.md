@@ -236,8 +236,14 @@ erDiagram
         timestamptz last_version_at
         integer last_version_by_user_id FK
         boolean active
+        boolean trash_pending
         timestamptz created_at
         timestamptz updated_at
+    }
+    template_files_pending_trash {
+        varchar(128) cloud_file_id PK
+        integer template_id FK
+        timestamptz created_at
     }
     document_template_jurisdictions {
         integer template_id PK, FK
@@ -347,6 +353,7 @@ erDiagram
     jurisdictions ||--o{ document_template_files : "carpeta de modelos de"
     cloud_folders ||--o{ document_template_files : "contiene"
     document_templates ||--o{ document_template_copies : "copiado como"
+    document_templates ||--o{ template_files_pending_trash : "dejó sin referencia"
     cases ||--o{ document_template_copies : "recibe"
     cases ||--o{ case_files : "genera"
     users ||--o{ case_files : "genera"
@@ -633,7 +640,7 @@ prescripción.
 | --- | --- | --- | :-: | :-: | --- |
 | `id` | SERIAL (INTEGER) | 4 B | PK | No | Identificador interno de la calificación legal. |
 | `name` | VARCHAR | 255 |  | No | Nombre de la calificación legal (ej.: Robo calificado). Único entre calificaciones activas, sin distinguir mayúsculas. |
-| `prescription_months` | INTEGER | 4 B |  | No | Plazo de prescripción expresado en meses. Mayor o igual a 1. Modificarlo no recalcula las fechas de prescripción ya guardadas en `offenses`. |
+| `prescription_months` | INTEGER | 4 B |  | No | Plazo de prescripción expresado en meses. Mayor o igual a 1. La causa referencia la calificación y no copia el plazo: modificarlo recalcula la prescripción de las causas que la registran desde la siguiente consulta (V6 §3.5, D-08). |
 | `active` | BOOLEAN | 1 B |  | No | `true`: vigente. `false`: baja lógica (RN12). Por defecto `true`. |
 | `created_at` | TIMESTAMPTZ | 8 B |  | No | Fecha y hora de creación. |
 | `updated_at` | TIMESTAMPTZ | 8 B |  | No | Fecha y hora de la última actualización. |
@@ -742,7 +749,7 @@ fecha del hecho y su fecha de prescripción. Solo las causas del fuero
 | `case_id` | INTEGER | 4 B | PK, FK | No | Causa a la que pertenece el hecho (→ `cases.id`). |
 | `legal_qualification_id` | INTEGER | 4 B | PK, FK | No | Calificación legal del hecho (→ `legal_qualifications.id`). |
 | `offense_date` | DATE | 4 B |  | No | Fecha de comisión del hecho. |
-| `prescription_date` | DATE | 4 B |  | No | Fecha en que prescribe el hecho: inicio del cómputo más los `prescription_months` de la calificación. Al registrar la causa, el inicio es `offense_date`; un acto interruptivo que pasa a ser el más reciente de la causa reinicia el cómputo desde su fecha (RN8, D-49). |
+| `prescription_date` | DATE | 4 B |  | No | Fecha en que prescribe el hecho según los datos del momento en que se guardó la causa (alta o modificación): `offense_date` más los `prescription_months` vigentes entonces. No se actualiza después: ni un acto interruptivo ni un cambio de los meses de la calificación la tocan, así que puede quedar desactualizada. Ninguna lectura la usa: la prescripción se calcula en cada consulta con los meses vigentes y los actos interruptivos de la causa (V6 §4 "Prescripción", D-08, D-113). |
 
 Clave primaria compuesta (`case_id`, `legal_qualification_id`): una
 calificación no se repite en la misma causa. Índices:
@@ -878,13 +885,34 @@ y no tienen filas ahí.
 | `copy_to_new_cases` | BOOLEAN | 1 B |  | No | `true`: se copia a la carpeta de las causas nuevas de sus fueros (HU40). Por defecto `true`. |
 | `last_version_at` | TIMESTAMPTZ | 8 B |  | No | Fecha y hora de la última versión subida. |
 | `last_version_by_user_id` | INTEGER | 4 B | FK | No | Usuario que subió la última versión (→ `users.id`). |
-| `active` | BOOLEAN | 1 B |  | No | `true`: vigente. `false`: baja lógica (RN12). Por defecto `true`. |
+| `active` | BOOLEAN | 1 B |  | No | `true`: vigente. `false`: baja lógica (RN12, HU37). Por defecto `true`. |
+| `trash_pending` | BOOLEAN | 1 B |  | No | `true`: el modelo se dio de baja y sus archivos todavía no se movieron a `/VZ Causas/Papelera` porque Drive no respondió (D-131, HU37). Se pone en `true` al dar de baja y en `false` cuando Drive confirma el movimiento; el proceso diario mueve los que quedaron en `true`. Por defecto `false`. |
 | `created_at` | TIMESTAMPTZ | 8 B |  | No | Fecha y hora de creación. |
 | `updated_at` | TIMESTAMPTZ | 8 B |  | No | Fecha y hora de la última actualización. |
 
 Índices: `document_templates_cloud_file_id_key` (UK) y
 `document_templates_name_active_key`, único parcial sobre `lower(name)`
 entre modelos activos.
+
+#### r bis) Tabla `template_files_pending_trash`
+
+Archivos de un modelo formal que una modificación (HU36, D-125) dejó sin
+referencia y que todavía hay que mover a `/VZ Causas/Papelera`: el archivo
+reemplazado con todas sus copias de las subcarpetas de fuero, la copia de un
+fuero que se quitó y el archivo suelto de un modelo anterior a las subcarpetas.
+
+La fila se escribe en la **misma transacción** que la modificación, así que no se
+pierde si el proceso cae antes de mover el archivo. Se borra cuando Drive confirma
+el movimiento; si Drive no responde queda, y el proceso diario la mueve después
+(D-125). No tiene clave foránea al archivo: ya no es de ningún modelo.
+
+| Atributo | Tipo | Long. | Clave | Nulo | Descripción / valores posibles |
+| --- | --- | --- | :-: | :-: | --- |
+| `cloud_file_id` | VARCHAR | 128 | PK | No | Identificador del archivo en Google Drive. |
+| `template_id` | INTEGER | 4 B | FK | No | Modelo del que era el archivo (→ `document_templates.id`). |
+| `created_at` | TIMESTAMPTZ | 8 B |  | No | Fecha y hora en que se anotó. |
+
+Índices: `template_files_pending_trash_template_id_idx`.
 
 #### s) Tabla `document_template_jurisdictions`
 

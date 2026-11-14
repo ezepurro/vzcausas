@@ -201,6 +201,33 @@ describe('documents al registrar una causa', () => {
       expect(await contentOf(second.id)).toBe('XX Modelo 1 v1');
     });
 
+    // HU36, CA-36.7: modificar un modelo no toca lo ya copiado y las causas nuevas reciben lo vigente.
+    it('modificar un modelo no toca la copia de las causas ya abiertas, y las causas nuevas reciben su archivo vigente', async () => {
+      const first = expectData<{ id: number }>(await register(), 201);
+      expect(await usageCountOfFirst()).toBe(1);
+
+      const patched = await request(app.getHttpServer())
+        .patch(`${TEMPLATES_URL}/${sixTemplates[0].id}`)
+        .set(lawyerActor)
+        .attach('file', Buffer.from('PK nuevo de Modelo 1'), {
+          filename: 'Modelo 1 (2026).docx',
+          contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        });
+      expect(expectData<{ usageCount: number }>(patched, 200).usageCount).toBe(1);
+
+      const second = expectData<{ id: number }>(await register(), 201);
+
+      const copyOf = async (caseId: number, name: string) =>
+        (await filesInFolderOf(caseId)).find((file) => file.name === name);
+      // La causa que ya estaba conserva la copia anterior, con su nombre y su contenido.
+      expect((await copyOf(first.id, 'Modelo 1.docx'))?.content.toString()).toBe('PK Modelo 1 v1');
+      expect(await copyOf(first.id, 'Modelo 1 (2026).docx')).toBeUndefined();
+      // La nueva recibe el archivo vigente.
+      expect((await copyOf(second.id, 'Modelo 1 (2026).docx'))?.content.toString()).toBe('PK nuevo de Modelo 1');
+      expect(await copyOf(second.id, 'Modelo 1.docx')).toBeUndefined();
+      expect(await usageCountOfFirst()).toBe(2);
+    });
+
     // F5 — CA-40.1, CA-40.5, CA-40.6: se copia el archivo del modelo en la subcarpeta del fuero de la causa
     // (no el principal), y un modelo anterior a las subcarpetas se sigue copiando desde su archivo.
     it('copia el archivo del modelo de su fuero, y desde el principal si el modelo es anterior a las subcarpetas', async () => {

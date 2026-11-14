@@ -3,6 +3,7 @@ import { Injectable } from '@nestjs/common';
 import {
   DocumentStoragePort,
   FileCopy,
+  FileMove,
   FileUpload,
   FolderReference,
   FolderRelocation,
@@ -78,7 +79,10 @@ export class InMemoryDocumentStorage implements DocumentStoragePort {
   /** Every file call received, in order: the uploaded name, or the id deleted or downloaded. */
   readonly fileCalls: Array<
     | { method: 'uploadFile'; name: string }
-    | { method: 'deleteFile' | 'downloadFile' | 'copyFile' | 'findFile' | 'exportFile' | 'convertToPdf'; fileId: string }
+    | {
+        method: 'deleteFile' | 'downloadFile' | 'copyFile' | 'moveFile' | 'findFile' | 'exportFile' | 'convertToPdf';
+        fileId: string;
+      }
     | { method: 'listFiles'; folderId: string }
   > = [];
 
@@ -250,6 +254,21 @@ export class InMemoryDocumentStorage implements DocumentStoragePort {
       throw new Error(`The file ${copy.fileId} is not in the storage.`);
     }
     return this.upload({ parentId: copy.parentId, name: copy.name, mimeType: original.mimeType, content: original.content });
+  }
+
+  /** Like a drive: the id and the content stay, and a missing file or parent is a configuration error. */
+  async moveFile(move: FileMove): Promise<StoredFile> {
+    this.fileCalls.push({ method: 'moveFile', fileId: move.fileId });
+    this.failIfRequested('moveFile');
+    const file = this.storedFiles.find((stored) => stored.id === move.fileId);
+    if (!file || !this.stored.some((folder) => folder.id === move.newParentId)) {
+      throw new DocumentStorageUnavailableError(
+        'CONFIGURATION',
+        'The file to move, or its new parent, no longer exists in the storage',
+      );
+    }
+    file.parentId = move.newParentId;
+    return { id: file.id, url: file.url };
   }
 
   async deleteFile(fileId: string): Promise<void> {

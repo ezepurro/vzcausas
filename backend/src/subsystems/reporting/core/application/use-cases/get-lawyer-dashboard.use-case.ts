@@ -80,8 +80,8 @@ export class GetLawyerDashboard {
 
     const casesToAdvance = cases
       .filter((row) => row.dueDate === null)
-      .map((row) => toCaseToAdvance(row, today))
-      .sort(longestWithoutMovementFirst);
+      .map((row) => GetLawyerDashboard.toCaseToAdvance(row, today))
+      .sort(GetLawyerDashboard.longestWithoutMovementFirst);
 
     return {
       date: today,
@@ -92,33 +92,33 @@ export class GetLawyerDashboard {
       casesToAdvance,
     };
   }
-}
 
-/** "Última actuación": the most recent act, procedural or interruptive. */
-function toCaseToAdvance(row: DashboardCaseRow, today: Date): CaseToAdvanceView {
-  const lastActDate = latest(row.lastProceduralActDate, row.lastInterruptiveActDate);
-  return {
-    caseId: row.caseId,
-    sacNumber: row.sacNumber,
-    caption: row.caption,
-    jurisdiction: row.jurisdiction,
-    currentStateName: row.currentStateName,
-    lastActDate,
-    // Calendar days ("71 días"), not business days: it measures how long the case has been still.
-    daysSinceLastAct: lastActDate === null ? null : Math.round((today.getTime() - lastActDate.getTime()) / DAY_MS),
-  };
-}
-
-function latest(a: Date | null, b: Date | null): Date | null {
-  if (a === null) return b;
-  if (b === null) return a;
-  return a > b ? a : b;
-}
-
-/** Cases with no act at all first; then the longest without movement. */
-function longestWithoutMovementFirst(a: CaseToAdvanceView, b: CaseToAdvanceView): number {
-  if (a.daysSinceLastAct === null || b.daysSinceLastAct === null) {
-    return (a.daysSinceLastAct === null ? 0 : 1) - (b.daysSinceLastAct === null ? 0 : 1) || a.caseId - b.caseId;
+  /** "Última actuación": the most recent act, procedural or interruptive. */
+  private static toCaseToAdvance(row: DashboardCaseRow, today: Date): CaseToAdvanceView {
+    const lastActDate = GetLawyerDashboard.latest(row.lastProceduralActDate, row.lastInterruptiveActDate);
+    return {
+      caseId: row.caseId,
+      sacNumber: row.sacNumber,
+      caption: row.caption,
+      jurisdiction: row.jurisdiction,
+      currentStateName: row.currentStateName,
+      lastActDate,
+      // Calendar days ("71 días"), not business days: it measures how long the case has been still.
+      daysSinceLastAct: lastActDate === null ? null : Math.round((today.getTime() - lastActDate.getTime()) / DAY_MS),
+    };
   }
-  return b.daysSinceLastAct - a.daysSinceLastAct || a.caseId - b.caseId;
+
+  private static latest(a: Date | null, b: Date | null): Date | null {
+    if (a === null) return b;
+    if (b === null) return a;
+    return a > b ? a : b;
+  }
+
+  /** Cases with no act at all first; then the longest without movement. */
+  private static longestWithoutMovementFirst(a: CaseToAdvanceView, b: CaseToAdvanceView): number {
+    if (a.daysSinceLastAct === null || b.daysSinceLastAct === null) {
+      return (a.daysSinceLastAct === null ? 0 : 1) - (b.daysSinceLastAct === null ? 0 : 1) || a.caseId - b.caseId;
+    }
+    return b.daysSinceLastAct - a.daysSinceLastAct || a.caseId - b.caseId;
+  }
 }

@@ -45,6 +45,20 @@ export class LegalQualificationNotFoundError extends NotFoundError {
 }
 
 /**
+ * Emitted by `UpdateLegalQualification` (HU49) when the `PATCH` carries no
+ * field: the contract asks for at least one (§3.5, CA-49.1). The text is
+ * ours — the contract gives none — and is the same one `procedural-states`
+ * and `clients` use for the same situation.
+ */
+export class LegalQualificationEmptyPatchError extends ValidationError {
+  constructor() {
+    super('VALIDATION_ERROR', 'Los datos enviados no son válidos.', {
+      body: 'Debe enviarse al menos un campo para modificar.',
+    });
+  }
+}
+
+/**
  * Emitted when the `qualificationId` path parameter is not a positive
  * integer. Mirrors `people`'s `InvalidClientIdError` so every resource
  * rejects a malformed id with the contract's `INVALID_PATH_PARAMETER`

@@ -39,6 +39,7 @@ class FakeQualificationRepository implements LegalQualificationRepository {
 
   findPaginated = jest.fn();
   findActiveById = jest.fn();
+  update = jest.fn();
 }
 
 describe('RegisterLegalQualification', () => {

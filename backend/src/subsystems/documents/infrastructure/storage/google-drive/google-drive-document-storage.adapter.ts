@@ -7,6 +7,7 @@ import { DocumentStorageUnavailableError } from '../../../core/domain/errors/doc
 import {
   DocumentStoragePort,
   FileCopy,
+  FileMove,
   FileUpload,
   FolderReference,
   FolderRelocation,
@@ -205,6 +206,40 @@ export class GoogleDriveDocumentStorage implements DocumentStoragePort {
           this.requestOptions,
         ),
       'The file to copy or the destination folder no longer exists in the storage',
+    );
+    if (!response.data.id) {
+      throw new DocumentStorageUnavailableError('TRANSIENT', 'Drive answered without a file id');
+    }
+    return toStoredFile(response.data);
+  }
+
+  /**
+   * `files.update` with `addParents` and `removeParents`: the file keeps its id
+   * and nothing goes to Drive's own trash (HU37, D-131, as D-104 does for a case
+   * folder). Needs the current parents first (`files.get`). Moving a file that
+   * is already under the new parent leaves it there.
+   */
+  async moveFile(move: FileMove): Promise<StoredFile> {
+    const missing = 'The file to move, or its new parent, no longer exists in the storage';
+    const current = await this.call(
+      'moveFile.getParents',
+      () => this.drive.files.get({ fileId: move.fileId, fields: 'parents' }, this.requestOptions),
+      missing,
+    );
+    const removeParents = (current.data.parents ?? []).filter((parent) => parent !== move.newParentId).join(',');
+    const response = await this.call(
+      'moveFile',
+      () =>
+        this.drive.files.update(
+          {
+            fileId: move.fileId,
+            addParents: move.newParentId,
+            removeParents: removeParents || undefined,
+            fields: FILE_FIELDS,
+          },
+          this.requestOptions,
+        ),
+      missing,
     );
     if (!response.data.id) {
       throw new DocumentStorageUnavailableError('TRANSIENT', 'Drive answered without a file id');

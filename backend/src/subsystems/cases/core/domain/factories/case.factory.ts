@@ -156,6 +156,7 @@ export class CaseFactory {
       currentStateTerminal: input.initialState.terminal,
       proceduralActs: [],
       active: true,
+      deactivation: null,
       createdByUserId: input.createdByUserId,
       createdAt: input.now,
       updatedAt: input.now,

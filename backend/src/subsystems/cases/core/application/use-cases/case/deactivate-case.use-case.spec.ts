@@ -9,7 +9,7 @@ import { DeactivateCase, DeactivateCaseCommand } from './deactivate-case.use-cas
 /*
  * HU21 · Registrar baja de una causa. Solo lo que es del caso de uso: el 404,
  * que un rechazo no escriba nada y la auditoría. Las reglas del motivo están
- * en `case-deactivation.vo.spec.ts` y las de la causa en `case.entity.spec.ts`.
+ * en `shared/domain/deactivation.vo.spec.ts` y las de la causa en `case.entity.spec.ts`.
  */
 
 function build() {

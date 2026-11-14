@@ -62,8 +62,11 @@ const PERMISSIONS = [
   { name: 'client:create', description: 'Registrar clientes.' },
   { name: 'client:read', description: 'Consultar clientes.' },
   { name: 'client:update', description: 'Modificar clientes.' },
+  { name: 'client:delete', description: 'Dar de baja clientes.' },
   { name: 'qualification:create', description: 'Registrar calificaciones legales.' },
   { name: 'qualification:read', description: 'Consultar calificaciones legales.' },
+  { name: 'qualification:update', description: 'Modificar calificaciones legales.' },
+  { name: 'qualification:delete', description: 'Dar de baja calificaciones legales.' },
   // Writing only (HU45, HU17, HU46). Reading procedural states is open to
   // any authenticated user (contract §3.4), so it needs no permission.
   { name: 'procedural-state:create', description: 'Registrar estados procesales.' },
@@ -86,18 +89,21 @@ const PERMISSIONS = [
  * Administrator's": a permission added to the catalogue tomorrow goes to
  * nobody but `ADMINISTRATOR` until someone decides otherwise. If this
  * list is wrong, it fails closed.
- *
- * `qualification:update` and `qualification:delete` are absent because
- * they do not exist yet: HU-49 and HU-50 have no endpoint.
  */
 const STAFF = [
   'client:read',
   'client:create',
-  // HU10: the three profiles modify clients (CA-10.6).
+  // HU10 and HU11: the three profiles modify clients and give them de baja
+  // (CA-10.6, CA-11.6).
   'client:update',
+  'client:delete',
   'lawyer:read',
   'qualification:read',
   'qualification:create',
+  // HU49 and HU50: the three profiles modify and give up legal
+  // qualifications (matriz §5.1, D-39).
+  'qualification:update',
+  'qualification:delete',
   'procedural-state:create',
   'procedural-state:update',
   'procedural-state:delete',

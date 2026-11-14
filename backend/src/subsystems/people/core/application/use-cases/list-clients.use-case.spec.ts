@@ -2,6 +2,7 @@ import { Client } from "../../domain/entities/client.entity";
 import { ClientDocument } from "../../domain/value-objects/client-document.vo";
 import { ListClientsUseCase } from "./list-clients.use-case";
 import {
+  aClientDeactivation,
   FakeActiveCasesCounter,
   FakeClientRepository,
 } from "./test-support/people-fakes";
@@ -38,7 +39,7 @@ describe("ListClientsUseCase", () => {
       phone: "351 401-5573",
       clientSince: CLIENT_SINCE,
     });
-    if (props.active === false) client.deactivate();
+    if (props.active === false) client.deactivate(aClientDeactivation());
     await clients.create(client);
     return client;
   }

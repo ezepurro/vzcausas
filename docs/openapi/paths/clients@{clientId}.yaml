@@ -118,3 +118,65 @@ patch:
               code: CLIENT_DNI_ALREADY_EXISTS
               message: Ya existe un cliente registrado con ese DNI.
               details: null
+
+delete:
+  tags:
+    - Clients
+  operationId: deactivateClient
+  summary: Dar de baja cliente
+  description: |
+    Da de baja un cliente (HU11, V6). La baja es lógica (RN12): el cliente se
+    conserva, deja de aparecer en el listado, su consulta responde `404` y no
+    se puede elegir para una causa nueva. No hay reactivación por la API.
+
+    **Un cliente con causas activas no se da de baja** (D-122): `409`. Las
+    causas en estado terminal y las dadas de baja no la impiden, y siguen
+    mostrando al cliente en su detalle, sin marca (D-134).
+
+    El documento queda libre para otro cliente. El motivo, el usuario y la
+    fecha quedan registrados, sin endpoint para consultarlos.
+
+    **Rol requerido:** cualquier usuario autenticado.
+  requestBody:
+    required: false
+    content:
+      application/json:
+        schema:
+          $ref: ../components/schemas/ClientDeactivation.yaml
+        example:
+          reason: Cliente cargado dos veces.
+  responses:
+    '204':
+      description: Cliente dado de baja. La respuesta no contiene cuerpo.
+    '400':
+      description: Motivo de más de 500 caracteres, campo no admitido o identificador inválido.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          examples:
+            reasonTooLong:
+              summary: Motivo de más de 500 caracteres
+              value:
+                error:
+                  code: VALIDATION_ERROR
+                  message: Los datos enviados no son válidos.
+                  details:
+                    reason: Debe tener hasta 500 caracteres.
+            invalidClientId:
+              $ref: ../components/examples/InvalidClientIdError.yaml
+    '401':
+      $ref: ../components/responses/Unauthorized.yaml
+    '404':
+      $ref: ../components/responses/ClientNotFound.yaml
+    '409':
+      description: El cliente tiene causas activas.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          example:
+            error:
+              code: CLIENT_HAS_ACTIVE_CASES
+              message: No se puede dar de baja el cliente porque tiene causas activas.
+              details: null

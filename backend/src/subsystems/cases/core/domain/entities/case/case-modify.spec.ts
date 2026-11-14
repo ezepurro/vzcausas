@@ -80,6 +80,7 @@ const aPrescribedCase = () =>
     currentStateTerminal: true,
     proceduralActs: [],
     active: true,
+    deactivation: null,
     createdByUserId: 5,
     createdAt: NOW,
     updatedAt: NOW,

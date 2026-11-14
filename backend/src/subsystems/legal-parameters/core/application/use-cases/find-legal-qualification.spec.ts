@@ -26,6 +26,7 @@ describe('FindLegalQualification', () => {
       existsActiveByName: jest.fn(),
       findPaginated: jest.fn(),
       findActiveById: jest.fn().mockResolvedValue(null),
+      update: jest.fn(),
     };
     counter = new FakeActiveCasesCounter();
     useCase = new FindLegalQualification(repository, counter);

@@ -58,6 +58,15 @@ confirmar con el resto del equipo** (C-48 del contrato, §7.1).
 | --- | --- | --- |
 | D-140 | **Revisa D-123.** En `DELETE /lawyers/{lawyerId}`, cada entrada de `reassignments` reasigna la causa (`responsibleLawyerId`) **o la da de baja** (`deactivate: true`), en la misma transacción y con los efectos de `DELETE /cases/{caseId}`. Es la causa que el administrador deja "Sin asignar": el formulario aclara que se dará de baja y la lista en la confirmación. El motivo es fijo, "Abogado dado de baja y no reasignada": lo registra el backend y no se envía. El formulario manda la entrada de forma **explícita**: una causa activa que no figura en el reparto sigue cortando la operación con `409 LAWYER_HAS_DEPENDENCIES`; nunca se da de baja por omisión | Pedido del equipo de backend: no toda causa de un abogado que se va tiene que pasar a otro, y lo que quede sin asignar se da de baja con un motivo fijo, aclarado en el formulario. Se descartaron la baja implícita por omisión, porque daría de baja sin aviso una causa asignada mientras el formulario estaba abierto (la carrera que cubre la regla 3) y la baja de causa no tiene vuelta atrás por la API; y dejar la causa sin responsable o con el abogado dado de baja, porque nadie podría operarla ni recibiría sus avisos. El `ADMINISTRATOR` ya da de baja causas (D-110). No requiere migración: la baja de causa ya está en el esquema. El prototipo solo ofrece reasignar |
 
+**Revisión del 13/11/2026.** Pedido del equipo de backend. Cambia la forma de
+`GET /reports/monthly`: el frontend tiene que ajustar sus tipos y *mocks* del
+reporte.
+
+| ID | Decisión | Fundamento |
+| --- | --- | --- |
+| D-141 | **Revisa D-116 y D-120.** `GET /reports/monthly` devuelve **solo lo que usa la pantalla "Reportes"**; el PDF (`GET /reports/monthly/file`) se arma con el **conjunto completo** de datos del reporte. Dejan de viajar al cliente: `status` y `takenAt`; en `byJurisdiction`, `atStart`, `admitted` y `archived`; en `lawyers`, `registrationNumber` y `differenceFromAverage`; en `monthly`, `balance` y `activeAtEnd`; en `prescription.bands`, `percentage`; `prescription.alerts` y `deadlines`. La foto del mes (D-117) guarda el conjunto completo, para que el PDF de un mes cerrado no cambie. `takenAt` ya no es un campo del reporte (no lo usa ni la pantalla ni el PDF): la foto guarda cuándo se tomó como dato propio. El contrato documenta todo el conjunto (§3.13, "Datos del reporte") y la hoja del PDF queda maquetada en `docs/prototypes/reporte-mensual-pdf.html` | Pedido del equipo de backend: no se manda al front lo que la pantalla no dibuja. Se contrastó con la pantalla "Reportes" del prototipo, que muestra las cuatro tarjetas, la dona (`atEnd` y `percentage`), las barras por mes (`admitted` y `archived`), la carga por abogado, los estados y los cuatro tramos de prescripción, y nada más (los estados los quita D-142); `alerts` y `deadlines` son de las secciones 5 y 6 de la hoja del PDF (`repPdf`). El cliente distingue el mes en curso con `period` y `currentPeriod`, así que no necesita `status`. **Sin migración propia**: la foto ya era un JSON (D-117); lo que cambia es qué parte sale por la API |
+| D-142 | **Revisa D-120.** El reporte ya no tiene "Causas por estado procesal": `proceduralStates` se quita de `GET /reports/monthly` y también del conjunto de datos del reporte (el PDF tampoco lo usa), así que la foto del mes no lo guarda. Dejan de aplicar al reporte el orden de los estados con el de `GET /procedural-states` (D-120) y el "ciclo de vida" que se sacó del prototipo (D-31) | Pedido del equipo de backend: el componente se saca de la pantalla "Reportes", y entonces ninguna parte usa el dato. Lo saca el frontend de la pantalla; el prototipo (`VZ Causas - Prototipo.dc.html`, función `reportesVals`) todavía lo tiene. Sin migración |
+
 ### Decisiones de V5
 
 | ID | Decisión | Fundamento |
@@ -298,7 +307,8 @@ tiene ese código en `frontend/src/shared/api/contract.ts` y en los *mocks*
   - El motivo de la baja en `clients` (D-122).
   - La baja lógica y el motivo de la anulación en `procedural_acts` (D-124).
   - Una tabla para las fotos de los meses cerrados del reporte (D-117): el
-    período, único; los datos del reporte; y cuándo se tomó.
+    período, único; los datos **completos** del reporte (D-141: incluye lo que
+    solo usa el PDF y no sale por la API); y cuándo se tomó.
 
   Las migraciones las corre el equipo con `npx prisma migrate dev`, según
   `USO_PRISMA.md`.
@@ -331,8 +341,8 @@ tiene ese código en `frontend/src/shared/api/contract.ts` y en los *mocks*
 
 **Frontend**
 
-- **Tipos y *mocks*.** Los endpoints nuevos, los enumerados `ReportPeriodStatus`
-  y `PrescriptionBand`, y los códigos `CLIENT_HAS_ACTIVE_CASES` y
+- **Tipos y *mocks*.** Los endpoints nuevos, el enumerado `PrescriptionBand`
+  (`ReportPeriodStatus` no viaja por la API, D-141), y los códigos `CLIENT_HAS_ACTIVE_CASES` y
   `MONTHLY_REPORT_NOT_FOUND`.
 - **Formularios.** "Modificar cliente" con el documento editable, "Eliminar
   cliente" con el aviso de causas activas, "Eliminar abogado" con el reparto (las causas "Sin asignar" con la
@@ -340,8 +350,8 @@ tiene ese código en `frontend/src/shared/api/contract.ts` y en los *mocks*
   en la confirmación y enviadas con `deactivate: true`, D-140) y,
   si tiene usuario, el aviso de qué le pasa (D-133), "Anular acto procesal", y "Modificar modelo
   formal" con la lista de fueros. Se saca "Reactivar" de los modelos.
-- **Reportes.** La pantalla con el selector de mes, las tarjetas y los cinco
-  gráficos, en SVG y CSS sin librería (D-120), y la descarga del PDF.
+- **Reportes.** La pantalla con el selector de mes, las tarjetas y los cuatro
+  gráficos (se saca "Causas por estado procesal", D-142), en SVG y CSS sin librería (D-120), y la descarga del PDF.
 
 **Documentación**
 

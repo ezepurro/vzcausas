@@ -3,6 +3,7 @@ import request from 'supertest';
 import {
   DocumentStoragePort,
   FileCopy,
+  FileMove,
   FileUpload,
   FolderReference,
   FolderRelocation,
@@ -116,6 +117,7 @@ export class SwitchableStorage implements DocumentStoragePort {
   deleteFolder = (folderId: string) => this.current.storage.deleteFolder(folderId);
   uploadFile = (upload: FileUpload) => this.current.storage.uploadFile(upload);
   copyFile = (copy: FileCopy) => this.current.storage.copyFile(copy);
+  moveFile = (move: FileMove) => this.current.storage.moveFile(move);
   deleteFile = (fileId: string) => this.current.storage.deleteFile(fileId);
   downloadFile = (fileId: string) => this.current.storage.downloadFile(fileId);
   listFiles = (folderId: string) => this.current.storage.listFiles(folderId);

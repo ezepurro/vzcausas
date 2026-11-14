@@ -94,6 +94,23 @@ export class PrismaClientRepository implements ClientRepository {
     });
   }
 
+  async saveDeactivation(client: Client): Promise<boolean> {
+    const deactivation = client.deactivation;
+    if (deactivation === null) {
+      throw new Error(`The client ${client.id} has no deactivation to save.`);
+    }
+    const { count } = await this.prisma.db.client.updateMany({
+      where: { id: client.id, active: true },
+      data: {
+        active: false,
+        deactivatedAt: deactivation.deactivatedAt,
+        deactivatedByUserId: deactivation.deactivatedByUserId,
+        deactivationReason: deactivation.reason,
+      },
+    });
+    return count === 1;
+  }
+
   async findActiveById(id: number): Promise<Client | null> {
     const row = await this.prisma.db.client.findFirst({
       where: { id, active: true },

@@ -240,6 +240,7 @@ export function aCaseInState(
     currentStateTerminal,
     proceduralActs: act && !options.currentActNotLoaded ? [act] : [],
     active: true,
+    deactivation: null,
     createdByUserId: 5,
     createdAt: NOW,
     updatedAt: NOW,

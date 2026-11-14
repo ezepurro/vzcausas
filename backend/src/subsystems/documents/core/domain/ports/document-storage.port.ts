@@ -39,6 +39,14 @@ export interface StoredFile {
   url: string;
 }
 
+/** A file to move to another folder: it keeps its id, its name and its content (HU37, D-131). */
+export interface FileMove {
+  /** Provider id of the file to move. */
+  fileId: string;
+  /** Provider id of the folder it moves under. */
+  newParentId: string;
+}
+
 /** A file to upload: its name and type, under a parent folder. */
 export interface FileUpload {
   parentId: string;
@@ -121,6 +129,16 @@ export interface DocumentStoragePort {
    * The copy is independent: later changes to the original do not reach it (CA-40.6).
    */
   copyFile(copy: FileCopy): Promise<StoredFile>;
+
+  /**
+   * Moves a file to another folder, in one step: its id does not change and
+   * nothing is deleted (HU37, D-131). Moving a file that is already there leaves
+   * it there. It does not create the new parent.
+   *
+   * @throws {DocumentStorageUnavailableError} with reason `CONFIGURATION` if the
+   *   file or the new parent no longer exists: the stored id is no longer valid.
+   */
+  moveFile(move: FileMove): Promise<StoredFile>;
 
   /** Deletes a file. Used to undo an upload whose registration then failed (CA-34.7). */
   deleteFile(fileId: string): Promise<void>;

@@ -98,6 +98,107 @@ describe('LegalQualification.create', () => {
   });
 });
 
+/**
+ * HU49: las mismas reglas que el alta. El código del error es el del alta
+ * (`INVALID_LEGAL_QUALIFICATION`): por HTTP no se alcanza, el DTO responde antes
+ * con `VALIDATION_ERROR` (decidido el 13/11/2026, plan de tests de HU49/HU50).
+ */
+describe('LegalQualification.rename', () => {
+  const current = () => LegalQualification.hydrate(props({ name: 'Hurto simple — art. 162 CP' }));
+
+  // CA-49.1
+  it('cambia la denominación recortando los espacios y no toca el resto', () => {
+    const qualification = current();
+
+    qualification.rename('  Hurto calificado — art. 163 CP  ');
+
+    expect(qualification.name).toBe('Hurto calificado — art. 163 CP');
+    expect(qualification.prescriptionMonths).toBe(24);
+    expect(qualification.isActive).toBe(true);
+  });
+
+  // CA-49.2: "las restricciones de la denominación son las del alta".
+  it('admite exactamente 255 caracteres', () => {
+    const qualification = current();
+    const name = 'A'.repeat(QUALIFICATION_NAME_MAX_LENGTH);
+
+    qualification.rename(name);
+
+    expect(qualification.name).toBe(name);
+  });
+
+  it.each([
+    ['vacía', '', { name: 'Es un campo obligatorio.' }],
+    ['en blanco', '   ', { name: 'Es un campo obligatorio.' }],
+    ['de más de 255 caracteres', 'A'.repeat(QUALIFICATION_NAME_MAX_LENGTH + 1), { name: 'Debe tener como máximo 255 caracteres.' }],
+  ])('rechaza una denominación %s sin cambiar la que tenía', (_caso, name, details) => {
+    const qualification = current();
+
+    try {
+      qualification.rename(name);
+      fail('debía rechazarla');
+    } catch (error) {
+      expect(error).toBeInstanceOf(ValidationError);
+      expect((error as ValidationError).code).toBe('INVALID_LEGAL_QUALIFICATION');
+      expect((error as ValidationError).details).toEqual(details);
+    }
+    expect(qualification.name).toBe('Hurto simple — art. 162 CP');
+  });
+});
+
+describe('LegalQualification.changePrescriptionMonths', () => {
+  // CA-49.1 y CA-49.3
+  it('cambia el plazo y no toca el resto', () => {
+    const qualification = LegalQualification.hydrate(props({ prescriptionMonths: 24 }));
+
+    qualification.changePrescriptionMonths(120);
+
+    expect(qualification.prescriptionMonths).toBe(120);
+    expect(qualification.name).toBe('Hurto simple — art. 162 CP');
+  });
+
+  it('admite el plazo mínimo de un mes', () => {
+    const qualification = LegalQualification.hydrate(props({ prescriptionMonths: 24 }));
+
+    qualification.changePrescriptionMonths(1);
+
+    expect(qualification.prescriptionMonths).toBe(1);
+  });
+
+  // CA-49.3: un plazo menor a 1 se rechaza.
+  it.each([
+    ['cero', 0],
+    ['negativo', -6],
+    ['fraccionario', 12.5],
+  ])('rechaza un plazo %s sin cambiar el que tenía', (_caso, prescriptionMonths) => {
+    const qualification = LegalQualification.hydrate(props({ prescriptionMonths: 24 }));
+
+    try {
+      qualification.changePrescriptionMonths(prescriptionMonths);
+      fail('debía rechazarlo');
+    } catch (error) {
+      expect(error).toBeInstanceOf(ValidationError);
+      expect((error as ValidationError).details).toEqual({
+        prescriptionMonths: 'Debe ser un número entero mayor o igual a 1.',
+      });
+    }
+    expect(qualification.prescriptionMonths).toBe(24);
+  });
+});
+
+describe('LegalQualification.deactivate', () => {
+  // CA-50.1: baja lógica; el registro se conserva entero.
+  it('la deja no vigente y conserva la denominación y el plazo', () => {
+    const qualification = LegalQualification.hydrate(props({ prescriptionMonths: 24 }));
+
+    qualification.deactivate();
+
+    expect(qualification.isActive).toBe(false);
+    expect(qualification.name).toBe('Hurto simple — art. 162 CP');
+    expect(qualification.prescriptionMonths).toBe(24);
+  });
+});
+
 describe('LegalQualification.hydrate', () => {
   /**
    * Las filas ya persistidas no se revalidan: una calificación dada de
