@@ -217,7 +217,9 @@ export class PrismaDocumentTemplateRepository implements DocumentTemplateReposit
           });
         }
 
-        return toView(await db.documentTemplate.findUniqueOrThrow({ where: { id }, include: VIEW_INCLUDE }));
+        return PrismaDocumentTemplateRepository.toView(
+          await db.documentTemplate.findUniqueOrThrow({ where: { id }, include: VIEW_INCLUDE }),
+        );
       });
     } catch (error) {
       throw this.nameConflictOr(error);

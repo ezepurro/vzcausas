@@ -73,8 +73,13 @@ repetida y los códigos de Google que ya mapea `drive-error.mapper.spec.ts`.
 
 ### 1.2 Una suite por recurso o por flujo
 
-Cada suite levanta `AppModule` entero (unos 3 s). Por eso se arma **una suite
-por recurso o por flujo**, no una por endpoint: el ABMC de un recurso
+Cada suite levanta `AppModule` entero. Medido el 14/11/2026 con la caché de Jest
+caliente: **cargar el grafo de módulos cuesta de 3 a 7 s por archivo de test**
+(Jest arma un registro nuevo por archivo y reevalúa todo `src` y `node_modules`);
+compilar la inyección de Nest, ~0,1 s, y `app.init()`, ~1 s. La corrida completa
+(`npm run test:int:all`, §4) carga ese grafo una sola vez; una suite suelta
+(`npm run test:int -- <ruta>`) lo paga entero. Aun así conviene armar **una
+suite por recurso o por flujo**, no una por endpoint: el ABMC de un recurso
 (`procedural-states`, `legal-qualifications`, `lawyers`, `clients`) vive en un
 solo archivo, con su `activeCases`. Si dos escenarios necesitan preparaciones
 distintas, van en `describe` anidados con su propio `beforeEach`. Dos suites no
@@ -95,7 +100,9 @@ eso `deadlines` tiene tres).
 ```
 backend/test/
 ├── README.md                     ← este documento
-├── jest-integration.config.ts    ← configuración de Jest para la suite
+├── jest-integration.config.ts    ← configuración de Jest: un archivo de test por suite
+├── jest-integration-all.config.ts ← ídem, pero para la corrida completa (una sola carga)
+├── run-all.entry.ts              ← requiere todas las suites en un solo archivo de test
 ├── tsconfig.json                 ← TypeScript para los tests
 │
 ├── subsystems/                   ← LOS TESTS: un subdirectorio por subsistema
@@ -137,6 +144,8 @@ backend/test/
 | Archivo | Responsabilidad |
 |---|---|
 | `jest-integration.config.ts` | Le dice a Jest **qué** correr (`test/**/*.int.spec.ts`), **cómo** compilarlo (ts-jest con `test/tsconfig.json`), cómo resolver los alias `@shared/*` y `@subsystems/*` (`moduleNameMapper`), y qué correr antes y después de toda la suite (`globalSetup` / `globalTeardown`). Fija `maxWorkers: 1` porque todos los specs comparten una sola base y deben correr en serie. `testTimeout: 30000` da margen a las operaciones contra la base. |
+| `jest-integration-all.config.ts` | Reutiliza `jest-integration.config.ts` entero y cambia solo `testMatch`: busca `run-all.entry.ts` en lugar de cada `*.int.spec.ts`. Es lo que corre `npm run test:int:all`. |
+| `run-all.entry.ts` | Busca todos los `*.int.spec.ts` bajo `test/`, los ordena y hace `require` de cada uno dentro de un `describe('[<ruta>]')`. Al estar todos en un mismo archivo de test comparten el registro de módulos de Jest, y el grafo de `AppModule` se carga una vez. El `describe` deja la ruta en el reporte y acota los `beforeAll` / `afterAll` que una suite declara fuera de su `describe`. No hace falta registrar las suites nuevas: las encuentra por el sufijo. |
 | `tsconfig.json` | Extiende el `tsconfig.json` del backend y amplía `rootDir` e `include` para que TypeScript compile tanto `src/` como `test/`. Agrega los tipos de Jest. |
 
 ### 3.2 `subsystems/` — los tests
@@ -246,7 +255,7 @@ esa queda como verificación manual.
 ## 4. Cómo funciona una corrida
 
 ```
-npm run test:int
+npm run test:int:all            (o `npm run test:int -- <ruta>` para una suite)
    │
    ├─ global-setup.ts ─────► levanta PostgreSQL (Testcontainers)
    │                          aplica migraciones, define DATABASE_URL
@@ -262,6 +271,21 @@ npm run test:int
 
 Hay **un solo contenedor por corrida**, compartido por todos los specs.
 Levantarlo cuesta unos segundos; vaciar tablas, milisegundos.
+
+**Qué cambia entre las dos formas de correr:**
+
+| | `npm run test:int` | `npm run test:int:all` |
+|---|---|---|
+| Archivos de test para Jest | uno por suite | uno solo (`run-all.entry.ts`), que requiere todas |
+| Grafo de `AppModule` | se carga por suite (3 a 7 s cada vez) | se carga una vez |
+| Filtrar por ruta o `-t` | sí | no corre un subconjunto de rutas; usá `test:int` |
+| Aislamiento entre suites | registro de módulos propio | registro compartido: el código a nivel de módulo (`src` y harness) persiste de una suite a otra |
+
+Las apps y las conexiones **no** se comparten: cada suite crea y cierra la suya.
+Lo que sí se comparte es el estado a nivel de módulo (un contador estático, una
+caché, un singleton). Una suite que lo modifique puede afectar a las siguientes
+en `test:int:all` y no en `test:int`; si un test pasa solo y falla en la
+corrida completa, sospechá de eso (§8).
 
 La limpieza de datos **no la hace el harness**: cada spec vacía en su
 `beforeEach` las tablas que usa (ver §5).
@@ -309,16 +333,17 @@ La limpieza de datos **no la hace el harness**: cada spec vacía en su
 
 ```bash
 cd backend
-npm run test:int                          # toda la suite
-npm run test:int -- subsystems/people     # solo un subsistema
+npm run test:int:all                      # toda la suite, cargando la app una vez (la más rápida)
+npm run test:int -- subsystems/people     # solo un subsistema (un archivo de test por suite)
 npm run test:int -- -t "POST /api/v1/lawyers"   # solo un describe / it
 ```
 
 ### Desde el contenedor de desarrollo
 
 ```bash
-make dev-up      # si no está levantado
-make test-int
+make dev-up                    # si no está levantado
+make test-int                  # toda la suite (npm run test:int:all)
+make test-int SUITE=people     # solo las suites cuya ruta coincide (npm run test:int -- people)
 ```
 
 El servicio `backend` del `docker-compose.yaml` monta
@@ -352,5 +377,6 @@ Docker del host, y se conecta a ella a través del host.
 | `Cannot find module '@shared/…'` | Import con alias fuera de `moduleNameMapper` | Usar solo `@shared/*` y `@subsystems/*`, o agregar el alias al config de Jest |
 | `404` en todas las rutas | La ruta del test no lleva el prefijo | Siempre `/api/v1/...` |
 | Un test pasa solo y falla con la suite | Depende de datos de otro test | Limpiar en `beforeEach` las tablas que usa el spec (`deleteMany()`) y crear todo lo que necesita con factories |
+| Pasa con `test:int` y falla con `test:int:all` | Estado a nivel de módulo compartido entre suites (la corrida completa usa un solo registro de módulos, §4): un `jest.spyOn` sin restaurar, un singleton, una variable global del harness | Restaurar en el `afterEach` / `afterAll` de la suite lo que modifica; no dejar estado en el módulo. Para confirmar, correr esa suite sola con `test:int` y luego con `test:int:all` |
 | `Foreign key constraint violated` en un `deleteMany()` | Se borró una tabla padre antes que su hija | Invertir el orden: primero la tabla hija, después la padre |
 | `SyntaxError: Cannot use import statement outside a module` en Faker | Se instaló Faker v10 (solo ESM) | Usar `@faker-js/faker@^9` |
