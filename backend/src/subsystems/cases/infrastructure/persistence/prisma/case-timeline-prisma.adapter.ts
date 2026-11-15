@@ -54,7 +54,8 @@ export class CaseTimelinePrismaAdapter implements CaseTimelineQueryPort {
     const [caseRow, proceduralRows, interruptiveRows] = await this.prisma.$transaction([
       this.prisma.db.case.findFirst({ where: { id: caseId, active: true }, select: CASE_SELECT }),
       this.prisma.db.proceduralAct.findMany({
-        where: { caseId },
+        // An act given de baja leaves the timeline (HU29, D-124).
+        where: { caseId, active: true },
         include: PROCEDURAL_ACT_INCLUDE,
         orderBy: PROCEDURAL_ACTS_NEWEST_FIRST,
       }),

@@ -15,6 +15,8 @@ import { RegisterProceduralAct } from '../../../core/application/use-cases/proce
 import { RequestCaseFolder } from '../../../core/application/use-cases/case/request-case-folder.use-case';
 import { UpdateCase } from '../../../core/application/use-cases/case/update-case.use-case';
 import { UpdateProceduralAct } from '../../../core/application/use-cases/procedural-act/update-procedural-act.use-case';
+import { DeactivateProceduralAct } from '../../../core/application/use-cases/procedural-act/deactivate-procedural-act.use-case';
+import { DeactivateProceduralActRequestDto } from '../dtos/procedural-act/deactivate-procedural-act.request.dto';
 import {
   CaseFolderUnavailableError,
   InvalidCaseIdError,
@@ -63,6 +65,7 @@ export class CasesController {
     private readonly updateCase: UpdateCase,
     private readonly deactivateCase: DeactivateCase,
     private readonly updateProceduralAct: UpdateProceduralAct,
+    private readonly deactivateProceduralAct: DeactivateProceduralAct,
     private readonly declareQualificationPrescription: DeclareQualificationPrescription,
   ) {}
 
@@ -339,6 +342,30 @@ export class CasesController {
       actor,
     );
     return { data: this.proceduralActMapper.toResponse(await this.updateProceduralAct.execute(command)) };
+  }
+
+  /**
+   * `DELETE /cases/{caseId}/procedural-acts/{actId}` (HU29, contract V6 §3.8):
+   * gives an act de baja ("Anular" in the contract and the prototype). Only the
+   * current responsible lawyer may (CA-29.7): the domain checks it, so no
+   * permission is declared here, as in the registration and the modification.
+   * No body in the answer; the client reads the case again, its state may have
+   * changed (CA-29.1).
+   */
+  @Delete(':caseId/procedural-acts/:actId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async deactivateAct(
+    @Param('caseId') caseIdParam: string,
+    @Param('actId') actIdParam: string,
+    @Body() dto: DeactivateProceduralActRequestDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ): Promise<void> {
+    await this.deactivateProceduralAct.execute({
+      caseId: this.parseCaseId(caseIdParam),
+      actId: this.parseActId(actIdParam),
+      input: { reason: dto?.reason },
+      actor,
+    });
   }
 
   private parseLegalQualificationId(raw: string): number {

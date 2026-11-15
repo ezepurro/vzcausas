@@ -76,7 +76,7 @@ info:
         | `/cases/{caseId}/cover`             | Cualquier usuario autenticado                         | -                                                    |
         | `/cases/{caseId}/prescription`      | -                                                     | `ADMINISTRATOR` o `LAWYER`                           |
         | `/cases/{caseId}/folder`            | -                                                     | Cualquier usuario autenticado                        |
-        | `/cases/{caseId}/procedural-acts`   | Cualquier usuario autenticado; `deadline-preview`, solo el abogado responsable | Abogado responsable de la causa, también `PATCH` |
+        | `/cases/{caseId}/procedural-acts`   | Cualquier usuario autenticado; `deadline-preview`, solo el abogado responsable | Abogado responsable de la causa, también `PATCH` y `DELETE` |
         | `/cases/{caseId}/interruptive-acts` | Cualquier usuario autenticado                         | Abogado responsable de la causa                      |
         | `/cases/{caseId}/documents`         | Cualquier usuario autenticado; la descarga de un documento que no es un expediente, `LAWYER` o `SECRETARY` | - |
         | `/cases/{caseId}/case-files`        | -                                                     | Cualquier usuario autenticado                        |
