@@ -63,8 +63,8 @@ const GROUPS: RailGroup[] = [
             { id: '/abogados', label: 'Abogados', icon: 'lawyers' },
             { id: '/estados-y-plazos', label: 'Estados y plazos', icon: 'timeLimits' },
             { id: '/calificaciones-legales', label: 'Calificaciones legales', icon: 'qualifications' },
-            // Oculto: Reportes (HU43, HU44) queda fuera del contrato y no tiene pantalla (DECISIONES.md §3).
-            { id: '/reportes', label: 'Reportes', icon: 'reports', hidden: true },
+            // El reporte mensual de gestión (HU43, V6 §3.13): solo el Administrador (CA-43.1).
+            { id: '/reportes', label: 'Reportes', icon: 'reports' },
         ],
     },
 ]

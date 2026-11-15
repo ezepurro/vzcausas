@@ -52,6 +52,8 @@ export const PAGES = {
         () => import('@/features/documents/pages/DocumentTemplatesPage'),
         (m) => m.DocumentTemplatesPage,
     ),
+    // El reporte mensual (HU43, V6 §3.13).
+    reports: page(() => import('@/features/dashboard/pages/ReportsPage'), (m) => m.ReportsPage),
 } satisfies Record<string, LazyPage>
 
 /**
@@ -69,6 +71,7 @@ export const SECTION_PAGES: Record<string, LazyPage[]> = {
     '/abogados': [PAGES.lawyers],
     '/estados-y-plazos': [PAGES.proceduralStates],
     '/calificaciones-legales': [PAGES.legalQualifications],
+    '/reportes': [PAGES.reports],
 }
 
 /**

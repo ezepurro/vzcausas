@@ -14,6 +14,7 @@ import {
 import { useLawyers, usePrefetchLawyersPage } from '@/features/lawyers/api/useLawyers'
 import { useCreateLawyer } from '@/features/lawyers/api/useCreateLawyer'
 import { useUpdateLawyer } from '@/features/lawyers/api/useUpdateLawyer'
+import { useDeleteLawyer } from '@/features/lawyers/api/useDeleteLawyer'
 import type { Lawyer, LawyerFormValues } from '@/features/lawyers/types/lawyer'
 import { validateLawyer, isValid, type LawyerFormErrors } from '@/features/lawyers/schemas/lawyer.schema'
 import { toCreateLawyerBody } from '@/features/lawyers/utils/toCreateLawyerBody'
@@ -21,6 +22,8 @@ import { buildLawyerPatch, hasChanges } from '@/features/lawyers/utils/buildLawy
 import { toFormErrors } from '@/features/lawyers/utils/toFormErrors'
 import { LawyersTable } from '@/features/lawyers/components/LawyersTable'
 import { LawyerFormModal } from '@/features/lawyers/components/LawyerFormModal'
+import { DeleteLawyerModal } from '@/features/lawyers/components/DeleteLawyerModal'
+import { countByLawyer, toDeleteLawyerBody, type Reassignment } from '@/features/lawyers/utils/reassignment'
 import { lawyerLabel } from '@/features/lawyers/utils/lawyerLabel'
 import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue'
 import { formatPersonName } from '@/shared/lib/personName'
@@ -29,9 +32,14 @@ const LIMIT = 20
 
 /**
  * Qué modal está abierto: UN estado. La edición lleva el abogado que se abrió,
- * contra el que se arma el parche. La baja (HU15) no está en el contrato.
+ * contra el que se arma el parche; la baja (HU15), el abogado y el rechazo del
+ * servidor que se muestra adentro.
  */
-type Modal = { kind: 'create' } | { kind: 'edit'; lawyer: Lawyer } | null
+type Modal =
+    | { kind: 'create' }
+    | { kind: 'edit'; lawyer: Lawyer }
+    | { kind: 'delete'; lawyer: Lawyer; error?: string }
+    | null
 
 const EMPTY_FORM: LawyerFormValues = {
     lastName: '',
@@ -39,14 +47,15 @@ const EMPTY_FORM: LawyerFormValues = {
     registrationNumber: '',
 }
 
-/** La nota que explica por qué "Registrar abogado" y "Modificar" están deshabilitados. */
+/** La nota que explica por qué "Registrar abogado", "Modificar" y "Eliminar" están deshabilitados. */
 const READ_ONLY_NOTE_ID = 'lawyers-read-only-note'
 
 export function LawyersPage() {
     usePageTitle('Abogados')
     const canCreate = useCan('lawyers.create')
     const canEdit = useCan('lawyers.update')
-    const readOnly = !canCreate || !canEdit
+    const canDelete = useCan('lawyers.delete')
+    const readOnly = !canCreate || !canEdit || !canDelete
     const toast = useToast()
 
     /* Paginado y búsqueda viven acá y se pasan al hook: van en la clave de caché. */
@@ -67,6 +76,7 @@ export function LawyersPage() {
     const prefetchPage = usePrefetchLawyersPage(listParams)
     const create = useCreateLawyer()
     const update = useUpdateLawyer()
+    const remove = useDeleteLawyer()
 
     const rows = query.data?.data ?? []
     const pagination = query.data?.pagination
@@ -95,6 +105,11 @@ export function LawyersPage() {
         })
         setErrors({})
         setModal({ kind: 'edit', lawyer })
+    }
+
+    function openDelete(lawyer: Lawyer) {
+        remove.reset()
+        setModal({ kind: 'delete', lawyer })
     }
 
     function closeModal() {
@@ -173,6 +188,49 @@ export function LawyersPage() {
         )
     }
 
+    /* ---------------- baja (HU15) ---------------- */
+
+    function submitDelete(lawyer: Lawyer, reassignment: Reassignment, names: ReadonlyMap<number, string>) {
+        // El rechazo anterior sale: si el nuevo intento falla, el formulario vuelve al reparto.
+        setModal({ kind: 'delete', lawyer })
+        remove.mutate(
+            { id: lawyer.id, body: toDeleteLawyerBody(reassignment) },
+            {
+                onSuccess: () => {
+                    const moved = [...countByLawyer(reassignment)]
+                        .map(([id, n]) => `${names.get(id) ?? id} (${n})`)
+                        .join(', ')
+                    toast(
+                        'info',
+                        moved
+                            ? `Causas reasignadas: ${moved}. Abogado ${formatPersonName(lawyer)} eliminado.`
+                            : `Abogado ${formatPersonName(lawyer)} eliminado. Se conserva su historial.`,
+                    )
+                    // Si era la última fila de la página, se vuelve a la anterior.
+                    if (rows.length === 1 && page > 1) setPage(page - 1)
+                    closeModal()
+                },
+                onError: (error) => {
+                    if (!isApiError(error)) throw error
+                    /* Quedó una causa sin repartir: el hook vuelve a pedir sus
+                       causas y el formulario las muestra sin asignar (CA-15.10). */
+                    if (error.is('LAWYER_HAS_DEPENDENCIES')) {
+                        setModal({ kind: 'delete', lawyer, error: `${error.message} Se actualizaron sus causas: asigná las que faltan.` })
+                        return
+                    }
+                    if (error.isValidation) {
+                        const detail = error.details?.reassignments
+                        setModal({ kind: 'delete', lawyer, error: typeof detail === 'string' ? detail : error.message })
+                        return
+                    }
+                    // Abogado inexistente o ya dado de baja (CA-15.13), 403, red.
+                    toast('error', error.message)
+                    closeModal()
+                },
+            },
+        )
+    }
+
     /* ---------------- pantalla ---------------- */
 
     return (
@@ -187,7 +245,7 @@ export function LawyersPage() {
                 no se ve en el teléfono ni se alcanza con el teclado (H-53). */}
             {readOnly && (
                 <p className="vz-page-note" id={READ_ONLY_NOTE_ID}>
-                    Solo el Administrador registra y modifica abogados.
+                    Solo el Administrador registra, modifica y elimina abogados.
                 </p>
             )}
 
@@ -234,7 +292,9 @@ export function LawyersPage() {
                         busy={query.isPlaceholderData}
                         rows={rows}
                         onEdit={openEdit}
+                        onDelete={openDelete}
                         canEdit={canEdit}
+                        canDelete={canDelete}
                         readOnlyNoteId={readOnly ? READ_ONLY_NOTE_ID : undefined}
                         empty={
                             <div className="vz-empty">
@@ -248,7 +308,17 @@ export function LawyersPage() {
                 )}
             </Panel>
 
-            {modal !== null && (
+            {modal?.kind === 'delete' && (
+                <DeleteLawyerModal
+                    lawyer={modal.lawyer}
+                    saving={remove.isPending}
+                    error={modal.error}
+                    onConfirm={(reassignment, names) => submitDelete(modal.lawyer, reassignment, names)}
+                    onCancel={closeModal}
+                />
+            )}
+
+            {(modal?.kind === 'create' || modal?.kind === 'edit') && (
                 <LawyerFormModal
                     mode={modal.kind}
                     sub={

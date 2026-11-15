@@ -22,6 +22,13 @@ describe('can', () => {
         expect(can(['LAWYER'], 'lawyers.update')).toBe(false)
     })
 
+    /* Dar de baja un abogado es sólo del Administrador (CA-15.7, V6 §3.3). */
+    it('eliminar un abogado es sólo del Administrador', () => {
+        expect(can(['ADMINISTRATOR'], 'lawyers.delete')).toBe(true)
+        expect(can(['SECRETARY'], 'lawyers.delete')).toBe(false)
+        expect(can(['LAWYER'], 'lawyers.delete')).toBe(false)
+    })
+
     /* Marcar prescripta una causa penal es del Administrador y de cualquier
        abogado, aunque no sea el responsable; la Secretaría no (CA-33.1,
        CA-33.2, V4 §4). */

@@ -65,6 +65,8 @@ export const router = createBrowserRouter([
                                     { path: 'causas/:caseId/expediente', lazy: PAGES.generateCaseFile },
                                     { path: 'herramientas', lazy: PAGES.tools },
                                     { path: 'modelos', lazy: PAGES.documentTemplates },
+                                    // El reporte mensual (HU43): solo el Administrador (`ROUTE_ACCESS`).
+                                    { path: 'reportes', lazy: PAGES.reports },
 
 
                                 ],

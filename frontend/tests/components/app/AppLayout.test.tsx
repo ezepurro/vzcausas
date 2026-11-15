@@ -18,11 +18,9 @@ const DAILY_WORK = ['Inicio', 'Causas', 'Clientes', 'Modelos']
 const NOT_FOR_SECRETARY = ['Inicio', 'Modelos']
 /** Lo que la matriz de permisos abre a los tres perfiles (V3 §4, D-39). */
 const SHARED_ADMINISTRATION = ['Abogados', 'Estados y plazos', 'Calificaciones legales']
-/** Lo que sigue siendo sólo del Administrador. */
-const ADMINISTRATOR_ONLY = ['Usuarios']
+/** Lo que sigue siendo sólo del Administrador. Reportes, desde HU43 (CA-43.1). */
+const ADMINISTRATOR_ONLY = ['Usuarios', 'Reportes']
 const ADMINISTRATION = [...SHARED_ADMINISTRATION, ...ADMINISTRATOR_ONLY]
-/** Secciones que el rail no dibuja para nadie (`hidden`): Reportes no tiene pantalla. */
-const HIDDEN = ['Reportes']
 
 /** El menú lateral, tal como lo encuentra un lector de pantalla. */
 function rail() {
@@ -43,9 +41,6 @@ describe('AppLayout', () => {
                 expect(railItem(label)).toBeInTheDocument()
             }
             expect(rail().getByText('Administración')).toBeInTheDocument()
-            for (const label of HIDDEN) {
-                expect(railItem(label)).not.toBeInTheDocument()
-            }
         })
 
         it('un abogado ve el trabajo diario y la administración compartida, sin usuarios ni reportes', async () => {

@@ -15,4 +15,10 @@ export const lawyerKeys = {
 
     /** El detalle de un abogado. */
     detail: (id: number) => [...lawyerKeys.details(), id] as const,
+
+    /** Las causas del abogado, para el reparto de la baja (HU15). Cuelga del detalle. */
+    cases: (id: number) => [...lawyerKeys.detail(id), 'cases'] as const,
+
+    /** El usuario vinculado a la ficha, para el aviso de la baja (CA-15.5). */
+    linkedUser: (id: number) => [...lawyerKeys.detail(id), 'linked-user'] as const,
 }

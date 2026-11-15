@@ -21,9 +21,10 @@ describe('motivo visible de un botón deshabilitado (H-53)', () => {
     })
 
     describe('Abogados', () => {
-        const NOTE = 'Solo el Administrador registra y modifica abogados.'
+        // Desde HU15 la nota suma "Eliminar" (CA-15.7).
+        const NOTE = 'Solo el Administrador registra, modifica y elimina abogados.'
 
-        it('a la Secretaría le dice por qué no registra ni modifica', async () => {
+        it('a la Secretaría le dice por qué no registra, modifica ni elimina', async () => {
             renderWithProviders(<LawyersPage />, { as: 'gestion', path: '/abogados', route: '/abogados' })
             const edits = await screen.findAllByRole('button', { name: 'Modificar' })
 
@@ -33,6 +34,9 @@ describe('motivo visible de un botón deshabilitado (H-53)', () => {
             expect(edits[0]).toBeDisabled()
             expect(edits[0]).toHaveAccessibleDescription(new RegExp(`${NOTE.replace('.', '\\.')}$`))
             expect(edits[0].getAttribute('aria-describedby')).toMatch(/^lawyer-row-\d+ /)
+            const deletes = screen.getAllByRole('button', { name: 'Eliminar' })
+            expect(deletes[0]).toBeDisabled()
+            expect(deletes[0]).toHaveAccessibleDescription(new RegExp(`${NOTE.replace('.', '\\.')}$`))
         })
 
         it('al Administrador no le muestra la nota', async () => {
