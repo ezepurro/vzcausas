@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { isApiError } from '@/shared/api/ApiError'
 import { useFocusFirstError } from '@/shared/hooks/useFocusFirstError'
 import { useAuth } from '@/app/providers/AuthContext'
+import { useSessionTransition } from '@/app/providers/SessionTransitionContext'
 import { useCountdown } from '@/shared/hooks/useCountdown'
 import { useLogin } from '@/features/auth/api/useLogin'
 import { validateLogin, type LoginErrors } from '@/features/auth/schemas/login.schema'
@@ -25,6 +26,7 @@ const EMPTY_FORM: LoginFormValues = { username: '', password: '' }
 export function LoginPage() {
     usePageTitle('Iniciar sesión')
     const { signIn } = useAuth()
+    const playTransition = useSessionTransition()
 
     const [values, setValues] = useState<LoginFormValues>(EMPTY_FORM)
     const [errors, setErrors] = useState<LoginErrors>({})
@@ -129,8 +131,15 @@ export function LoginPage() {
             {
                 /* Sólo abrir la sesión: `RedirectIfSession` se encarga del
                    resto, y con `replace` para que el login no quede en el
-                   historial. */
-                onSuccess: signIn,
+                   historial. Se abre dentro del telón de entrada, que es
+                   corto a propósito (`sessionTransitionTiming.ts`). */
+                onSuccess: (session) => {
+                    void playTransition({
+                        variant: 'enter',
+                        title: `Hola, ${session.user.firstName}`,
+                        swap: () => signIn(session),
+                    })
+                },
                 onError: handleLoginError,
             },
         )

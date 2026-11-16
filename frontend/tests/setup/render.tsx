@@ -22,6 +22,7 @@ import { createMemoryRouter, RouterProvider, type RouteObject } from 'react-rout
 import { queryClient } from '@/shared/api/queryClient'
 import { ToastProvider } from '@/app/providers/ToastProvider'
 import { AuthProvider } from '@/app/providers/AuthProvider'
+import { SessionTransitionProvider } from '@/app/providers/SessionTransitionProvider'
 import { writeStoredSession } from '@/features/auth/utils/sessionStorage'
 import { db, EXPIRES_IN, issueToken, toUser } from '@/shared/mocks'
 
@@ -88,9 +89,11 @@ export function renderWithProviders(ui: ReactElement, options: RenderOptions = {
     const result = render(
         <QueryClientProvider client={queryClient}>
             <ToastProvider>
-                <AuthProvider>
-                    <RouterProvider router={router} />
-                </AuthProvider>
+                <SessionTransitionProvider>
+                    <AuthProvider>
+                        <RouterProvider router={router} />
+                    </AuthProvider>
+                </SessionTransitionProvider>
             </ToastProvider>
         </QueryClientProvider>,
     )

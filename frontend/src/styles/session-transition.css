@@ -1,0 +1,84 @@
+/* ─────────────────────────────────────────────────────────────
+   Telón de la sesión (SessionTransitionProvider)
+   Tapa la app al cerrar sesión y el login al iniciarla, con el
+   monograma del estudio dando una vuelta. Los tiempos los pone el
+   proveedor en variables (sessionTransitionTiming.ts).
+   ───────────────────────────────────────────────────────────── */
+
+.vz-session-transition {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 0 16px;
+  background: var(--vz-rail);
+  color: var(--vz-rail-logo);
+  animation: vz-st-fade-in var(--vz-st-cover) ease-out both;
+}
+.vz-session-transition.is-reveal {
+  animation: vz-st-fade-out var(--vz-st-reveal) ease-in both;
+}
+
+.vz-session-transition__content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  text-align: center;
+  perspective: 600px;
+  animation: vz-st-rise var(--vz-st-cover) ease-out both;
+}
+.vz-session-transition.is-reveal .vz-session-transition__content {
+  animation: vz-st-lift var(--vz-st-reveal) ease-in both;
+}
+
+/* La vuelta: gira sobre el eje vertical, como una moneda. */
+.vz-session-transition__mark {
+  display: block;
+  margin-bottom: 6px;
+  transform-style: preserve-3d;
+  animation: vz-st-flip var(--vz-st-flip-duration) cubic-bezier(.65, 0, .35, 1) var(--vz-st-flip-delay) both;
+}
+.vz-session-transition__mark svg {
+  display: block;
+  width: 84px;
+  height: auto;
+}
+.vz-session-transition--enter .vz-session-transition__mark svg { width: 64px; }
+
+.vz-session-transition__title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -.01em;
+  color: var(--vz-rail-fg-on);
+}
+.vz-session-transition__detail {
+  margin: 0;
+  font-size: 13px;
+  color: var(--vz-rail-fg);
+}
+
+@keyframes vz-st-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes vz-st-fade-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes vz-st-rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes vz-st-lift {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: translateY(-6px) scale(.98); }
+}
+@keyframes vz-st-flip {
+  from { transform: rotateY(0deg); }
+  to { transform: rotateY(360deg); }
+}
+
+/* El proveedor ya no dibuja el telón con movimiento reducido; esto es por
+   si la preferencia cambia con el telón a la vista. */
+@media (prefers-reduced-motion: reduce) {
+  .vz-session-transition,
+  .vz-session-transition__content,
+  .vz-session-transition__mark { animation: none; }
+}

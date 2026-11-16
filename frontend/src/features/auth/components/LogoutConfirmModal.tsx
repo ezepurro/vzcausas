@@ -1,6 +1,7 @@
 import { isApiError } from '@/shared/api/ApiError'
 import { useToast } from '@/app/providers/ToastContext'
 import { useAuth, useCurrentUser } from '@/app/providers/AuthContext'
+import { useSessionTransition } from '@/app/providers/SessionTransitionContext'
 import { FormModal } from '@/shared/components/forms'
 import { formatPersonFullName } from '@/shared/lib/personName'
 import { useLogout } from '@/features/auth/api/useLogout'
@@ -21,6 +22,7 @@ export function LogoutConfirmModal({ onClose }: LogoutConfirmModalProps) {
     const toast = useToast()
     const user = useCurrentUser()
     const { signOut } = useAuth()
+    const playTransition = useSessionTransition()
     const logout = useLogout()
 
     /**
@@ -28,22 +30,32 @@ export function LogoutConfirmModal({ onClose }: LogoutConfirmModalProps) {
      * dejarla adentro por un error de red sería peor. La redirección al login
      * la hace sola la guarda, apenas la sesión queda en nulo.
      *
+     * El cierre va dentro del telón de despedida (`useSessionTransition`): la
+     * pantalla se tapa con el monograma dando una vuelta mientras sale el
+     * pedido, la sesión se cierra con la pantalla tapada —así no se ve la app
+     * vaciarse— y se destapa ya en el login.
+     *
      * El motivo `'user'` importa: le dice a la guarda que **no** anote esta
      * pantalla, así el próximo que inicie sesión arranca en Inicio y no acá.
      */
     function confirm() {
         if (logout.isPending) return
 
-        logout.mutate(undefined, {
-            onSettled: () => signOut('user'),
-            onError: (error) => {
-                /* Un 401 quiere decir que el token ya estaba muerto: no hay
-                   nada que avisar. Un error de red o del servidor sí importa,
-                   porque la sesión puede haber quedado abierta del otro lado. */
-                if (isApiError(error) && !error.isAuth) {
-                    toast('error', error.message)
-                }
-            },
+        const request = logout.mutateAsync().catch((error: unknown) => {
+            /* Un 401 quiere decir que el token ya estaba muerto: no hay
+               nada que avisar. Un error de red o del servidor sí importa,
+               porque la sesión puede haber quedado abierta del otro lado. */
+            if (isApiError(error) && !error.isAuth) {
+                toast('error', error.message)
+            }
+        })
+
+        void playTransition({
+            variant: 'leave',
+            title: `Hasta pronto, ${user.firstName}`,
+            detail: 'Cerrando sesión…',
+            waitFor: request,
+            swap: () => signOut('user'),
         })
     }
 
