@@ -6,6 +6,9 @@ import { usePrototypeToday } from '../../setup/clock'
 import { db } from '@/shared/mocks'
 import { server } from '@/shared/mocks/server'
 import { GenerateCaseFilePage } from '@/features/cases/pages/GenerateCaseFilePage'
+import { readBackgroundTasks } from '@/app/providers/backgroundTaskStorage'
+
+const userId = (username: string) => db.users.find((u) => u.username === username)?.id ?? -1
 
 /**
  * "Generar expediente" (HU-25), con la vista previa de la carátula (HU-24),
@@ -182,27 +185,10 @@ describe('GenerateCaseFilePage', () => {
         expect(generateButton()).toBeEnabled()
     })
 
-    // Quien sale mientras se genera no ve el resultado y lo generaría de nuevo: se avisa antes.
-    it('si se intenta salir mientras genera, avisa y "Quedarme" deja la pantalla como estaba', async () => {
-        server.use(
-            http.post('*/cases/:caseId/case-files', async () => {
-                await delay('infinite')
-            }),
-        )
-        const { user } = renderPage(1)
-        await included()
-        await user.click(generateButton())
-
-        await user.click(screen.getByRole('button', { name: 'Causas' }))
-        const dialog = screen.getByRole('dialog', { name: 'El expediente se está generando' })
-        await user.click(within(dialog).getByRole('button', { name: 'Quedarme' }))
-
-        expect(screen.queryByRole('dialog', { name: 'El expediente se está generando' })).not.toBeInTheDocument()
-        expect(screen.getByRole('heading', { name: 'Generar expediente' })).toBeInTheDocument()
-        expect(screen.getByRole('button', { name: 'Generando…' })).toBeDisabled()
-    })
-
-    it('"Salir igual" deja salir mientras genera', async () => {
+    // Tareas en segundo plano: salir mientras se genera no lo frena. El
+    // expediente sigue como tarea y su tarjeta avisa cómo terminó
+    // (`tests/components/app/BackgroundTasks.test.tsx`).
+    it('se puede salir mientras genera: el expediente sigue como tarea en segundo plano', async () => {
         server.use(
             http.post('*/cases/:caseId/case-files', async () => {
                 await delay('infinite')
@@ -218,9 +204,26 @@ describe('GenerateCaseFilePage', () => {
         await user.click(generateButton())
 
         await user.click(screen.getByRole('button', { name: 'Causas' }))
-        await user.click(screen.getByRole('button', { name: 'Salir igual' }))
 
         expect(await screen.findByRole('heading', { name: 'Listado de causas' })).toBeInTheDocument()
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+        expect(readBackgroundTasks(userId('gestion'))).toEqual([
+            expect.objectContaining({
+                kind: 'cases.caseFile',
+                status: 'running',
+                params: { caseId: 1, previousVersion: 1 },
+            }),
+        ])
+    })
+
+    it('si sigue en la pantalla, el resultado lo muestra ella y no queda tarjeta', async () => {
+        const { user } = renderPage(1)
+        await included()
+
+        await user.click(generateButton())
+
+        expect(await screen.findByRole('dialog', { name: 'Expediente generado' })).toBeInTheDocument()
+        expect(readBackgroundTasks(userId('gestion'))).toEqual([])
     })
 
     // CA-25.10: el expediente lo descarga cualquiera, también el Administrador sin otro rol.

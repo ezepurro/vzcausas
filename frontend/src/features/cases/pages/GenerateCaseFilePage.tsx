@@ -1,5 +1,8 @@
-import { useEffect, useState, type ReactNode } from 'react'
-import { useBlocker, useNavigate, useParams } from 'react-router'
+import { useState, type ReactNode } from 'react'
+import { useNavigate, useParams } from 'react-router'
+import { useBackgroundTasks } from '@/app/providers/BackgroundTasksContext'
+import { useStillShowing } from '@/shared/hooks/useStillShowing'
+import { caseFileTaskParams } from '@/features/cases/api/caseTasks'
 import { usePageTitle } from '@/shared/hooks/usePageTitle'
 import { useCan } from '@/app/access/useCan'
 import { useCurrentUser } from '@/app/providers/AuthContext'
@@ -7,7 +10,7 @@ import { useToast } from '@/app/providers/ToastContext'
 import { useGoBack } from '@/app/router/useGoBack'
 import { caseOperation } from '@/features/cases/utils/responsibleLawyer'
 import { isApiError } from '@/shared/api/ApiError'
-import { Breadcrumbs, Button, LoadError, Modal, PageHeader, Panel, type BreadcrumbItem } from '@/shared/components/ui'
+import { Breadcrumbs, LoadError, PageHeader, Panel, type BreadcrumbItem } from '@/shared/components/ui'
 import { useCase } from '@/features/cases/api/useCase'
 import { useCaseCover } from '@/features/cases/api/useCaseCover'
 import { useCaseEdit } from '@/features/cases/api/useCaseEdit'
@@ -133,7 +136,12 @@ function CaseFileGenerator({ case: c }: { case: Case }) {
     /** El último intento terminó sin respuesta: no se sabe si quedó guardado. */
     const [unconfirmed, setUnconfirmed] = useState(false)
     const generating = createCaseFile.isPending
-    const leaving = useLeaveGuard(generating)
+    /* Antes la pantalla frenaba la salida mientras generaba ("Salir igual" /
+       "Quedarme"). Desde que la generación es una tarea en segundo plano,
+       salir no pierde el resultado; el aviso al cerrar o recargar la pestaña
+       lo da `BackgroundTasksProvider`. */
+    const tasks = useBackgroundTasks()
+    const isHere = useStillShowing(c.id)
 
     const order = selection ?? initialSelection(documents)
     const selected = selectedDocuments(documents, order)
@@ -162,27 +170,50 @@ function CaseFileGenerator({ case: c }: { case: Case }) {
         setErrors((current) => ({ ...current, [key]: undefined }))
     }
 
-    /* Un 400 con detalle se marca en su lugar; el resto (los 422 de carpeta
+    /* La generación es una tarea en segundo plano (`api/caseTasks.ts`): la
+       persona puede irse a otra pantalla y una tarjeta le avisa cómo terminó,
+       aun después de un F5. Si sigue acá cuando termina, el resultado lo
+       muestra esta pantalla y la tarjeta se saca.
+
+       Un 400 con detalle se marca en su lugar; el resto (los 422 de carpeta
        o de conversión, el 502 de Drive) va al aviso con el mensaje del
        servidor. La selección y los textos quedan como estaban.
 
        Sin respuesta (corte por tiempo o red caída) no se dice "intentá de
        nuevo": el backend pudo haberlo guardado y un reintento dejaría otra
-       versión. Queda un aviso fijo en "Resultado" y se vuelve a leer la
-       carpeta, por si ya está. */
+       versión. Queda un aviso fijo en "Resultado", se vuelve a leer la
+       carpeta, y la tarjeta sigue preguntando hasta saberlo. */
     function generate() {
         const validation = validateCaseFile(values, selectedIds)
         setErrors(validation)
         if (Object.keys(validation).length > 0) return
 
         setUnconfirmed(false)
-        createCaseFile.mutate(toCreateCaseFileBody(values, selectedIds, c.jurisdiction), {
-            onSuccess: (file) => setReady({ file, downloaded: false, printed: false }),
-            onError: (error) => {
-                if (!isApiError(error)) throw error
-                if (error.isNetworkError) {
+        const caseId = c.id
+        const work = createCaseFile.mutateAsync(toCreateCaseFileBody(values, selectedIds, c.jurisdiction))
+        const taskId = tasks.start({
+            kind: 'cases.caseFile',
+            subject: c.caption,
+            params: caseFileTaskParams(caseId, documents),
+            work,
+        })
+
+        work.then(
+            (file) => {
+                if (!isHere(caseId)) return
+                tasks.dismiss(taskId)
+                setReady({ file, downloaded: false, printed: false })
+            },
+            (error: unknown) => {
+                if (!isHere(caseId)) return
+                if (isApiError(error) && error.isNetworkError) {
                     setUnconfirmed(true)
                     void documentsQuery.refetch()
+                    return
+                }
+                tasks.dismiss(taskId)
+                if (!isApiError(error)) {
+                    toast('error', 'Ocurrió un error inesperado.')
                     return
                 }
                 if (error.isValidation) {
@@ -194,7 +225,7 @@ function CaseFileGenerator({ case: c }: { case: Case }) {
                 }
                 toast('error', error.message)
             },
-        })
+        )
     }
 
     function fetchCaseFile(disposition: FileDisposition) {
@@ -282,24 +313,6 @@ function CaseFileGenerator({ case: c }: { case: Case }) {
                 />
             )}
             {edit.form && <CaseEditForm {...edit.form} />}
-            {leaving && (
-                <Modal
-                    title="El expediente se está generando"
-                    width="sm"
-                    onClose={leaving.stay}
-                    footer={
-                        <>
-                            <Button variant="secondary" onClick={leaving.leave}>Salir igual</Button>
-                            <Button onClick={leaving.stay}>Quedarme</Button>
-                        </>
-                    }
-                >
-                    <p className="vz-casefile__ready-text">
-                        Si salís, se termina de generar igual y queda en "Documentación", pero no vas a ver el
-                        resultado acá.
-                    </p>
-                </Modal>
-            )}
             {ready && (
                 <CaseFileReadyModal
                     result={ready.file}
@@ -314,39 +327,6 @@ function CaseFileGenerator({ case: c }: { case: Case }) {
             )}
         </>
     )
-}
-
-/**
- * Frena la salida mientras se genera. El servidor lo termina igual, pero quien
- * sale no ve "Expediente generado", y al volver lo generaría otra vez.
- *
- * - Dentro de la aplicación (rail, migas, flecha, atrás del navegador),
- *   `useBlocker`: devuelve qué hacer con la salida pendiente, o `null` si no hay.
- * - Recargar o cerrar la pestaña, `beforeunload`: el diálogo es del navegador
- *   y su texto no se elige.
- *
- * Si la generación termina con el aviso abierto, se queda: el resultado ya
- * está en pantalla.
- */
-function useLeaveGuard(active: boolean): { stay: () => void; leave: () => void } | null {
-    const blocker = useBlocker(active)
-
-    useEffect(() => {
-        if (!active && blocker.state === 'blocked') blocker.reset()
-    }, [active, blocker])
-
-    useEffect(() => {
-        if (!active) return
-        const warn = (e: BeforeUnloadEvent) => {
-            e.preventDefault()
-            e.returnValue = ''
-        }
-        window.addEventListener('beforeunload', warn)
-        return () => window.removeEventListener('beforeunload', warn)
-    }, [active])
-
-    if (blocker.state !== 'blocked') return null
-    return { stay: blocker.reset, leave: blocker.proceed }
 }
 
 /** Error o causa inexistente, dentro de un panel. */

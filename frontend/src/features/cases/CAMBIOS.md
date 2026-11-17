@@ -5,6 +5,75 @@ contrato.
 
 ---
 
+## 2026-11-16 — Expediente y carpeta en segundo plano
+
+**Pedido:** devolución de los profesores: mejorar la espera de lo que tarda.
+Acordado en el equipo (Facundo Fiorani): generar el expediente (HU25) y
+crear o reintentar la carpeta en Drive (HU39) pasan a ser **tareas en
+segundo plano**. Sin cambios de contrato ni de backend: usa los mismos
+endpoints. "Registrar causa" queda como estaba, porque sus errores (SAC
+repetido, datos inválidos) se corrigen en el formulario.
+
+**Antes:** mientras se generaba el expediente, salir de la pantalla pedía
+confirmación ("Quedarme" / "Salir igual", entrada del 03/11/2026). Quien
+salía, o creaba la carpeta y se iba, no se enteraba de cómo terminaba.
+
+**Ahora:**
+
+- **Se puede salir.** Al generar o crear la carpeta aparece una tarjeta abajo
+  a la derecha ("Generando expediente", "Creando carpeta en Drive") que sigue
+  en cualquier pantalla. Al terminar, "Expediente listo" con "Descargar" y
+  "Ver causa", o "Carpeta creada" con "Abrir en Drive"; si falla, el mensaje
+  del servidor. Queda hasta que se cierra; mientras corre no se cierra.
+- **Si la persona sigue en la pantalla**, el resultado lo muestra la pantalla
+  como antes (el diálogo "Expediente generado", la tarjeta "Carpeta en
+  Drive") y la tarjeta de la tarea se saca. Se queda si no llegó respuesta o
+  si la carpeta sigue `CREATING`: ahí sigue preguntando.
+- **Sobrevive al F5.** Las tareas se guardan en `sessionStorage`, con el id
+  del usuario, como los borradores. Al volver a cargar, la tarjeta pregunta
+  al servidor sin repetir el pedido: el expediente, buscando en
+  `GET /cases/{caseId}/documents` una versión mayor que la que había al
+  pedirlo (no se compara por hora: los relojes pueden no coincidir); la
+  carpeta, con `folder.status` de `GET /cases/{caseId}`. Pasados 4 minutos
+  (expediente) o 3 (carpeta) sin saberlo, la tarjeta dice que no se pudo
+  confirmar y manda a la causa.
+- **Sin respuesta no se da por fallido**: el servidor pudo haberlo hecho. El
+  aviso fijo de "Resultado" (`UNCONFIRMED_CASE_FILE_MESSAGE`) sigue igual.
+- **Cerrar sesión** con una tarea en curso lo avisa en la confirmación. Salir
+  a pedido borra las tareas guardadas; una sesión vencida las conserva.
+- **Cerrar o recargar la pestaña** con una tarea en curso muestra el aviso
+  del navegador (`beforeunload`), ahora para las dos tareas.
+- **No se avisa dos veces.** `useCreateCaseFile` y `useCreateCaseFolder`
+  llevan `meta.backgroundTask`, y `leftBehindErrors` no les suma su aviso
+  genérico: ya lo dice la tarjeta.
+
+**Dónde vive.** Lo general, en `src/app/`: `providers/BackgroundTasksProvider`
+(con `BackgroundTasksContext`, `backgroundTaskStorage` y
+`backgroundTaskTiming`), `layouts/BackgroundTaskTray` (las tarjetas, dentro de
+`AppLayout`) y `tasks.ts`, que carga los manejadores con `import()`. Lo de la
+causa, en `api/caseTasks.ts` (`CASE_FILE_TASK`, `CASE_FOLDER_TASK`, publicados
+en el `index.ts`): cómo leer la respuesta, cómo preguntar y qué dice cada
+tarjeta. Va en `api/` aunque use `documentDownloadName` de `utils/`, la misma
+excepción que `useCaseEdit.ts`. `shared/hooks/useStillShowing` dice si la
+pantalla sigue en esa causa cuando llega la respuesta.
+
+**Límite conocido:** si la persona cierra la pestaña o la sesión y el
+expediente falla, no se entera: el contrato no guarda el estado de un pedido
+en curso. Hace falta el backend (un trabajo con `202 Accepted`), que quedó
+afuera por costo.
+
+Tests: `components/app/BackgroundTasks.test.tsx` (la tarjeta, el F5, el
+abandono por tiempo, otro usuario, el cierre de sesión);
+`components/cases/GenerateCaseFilePage.test.tsx` ("se puede salir mientras
+genera…" y "si sigue en la pantalla…", que reemplazan a "si se intenta
+salir…" y "Salir igual…"); `components/cases/CaseDetailPage.folder.test.tsx`
+("si se sale mientras se crea…" y la carpeta pendiente);
+`components/shared/leftBehindErrors.test.tsx` ("una tarea en segundo plano no
+se avisa dos veces"). El F5 real de punta a punta no se prueba con el mock:
+su servidor vive en la página y se reinicia al recargar.
+
+---
+
 ## 2026-11-14 — "Anular" un acto procesal (HU29, V6)
 
 **Contrato:** `DELETE /cases/{caseId}/procedural-acts/{actId}` (V6 §3.8,
@@ -211,7 +280,9 @@ versión en la carpeta.
   detalle (quietos con movimiento reducido). Es una barra sin avance a
   propósito: el contrato no tiene cómo consultar en qué paso va el servidor,
   y por eso tampoco hay mensajes de etapa.
-- **Si se intenta salir mientras se genera**, un aviso: "El expediente se
+- ~~**Si se intenta salir mientras se genera**~~ **Reemplazado el
+  16/11/2026** por las tareas en segundo plano (entrada de esa fecha): ya no
+  se frena la salida. Lo que decía: **si se intenta salir mientras se genera**, un aviso: "El expediente se
   está generando", con "Quedarme" y "Salir igual". El servidor lo termina
   igual, pero quien sale no ve el resultado y al volver lo generaría de
   nuevo. Cubre el rail, las migas, la flecha y el atrás del navegador

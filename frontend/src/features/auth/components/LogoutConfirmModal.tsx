@@ -2,6 +2,7 @@ import { isApiError } from '@/shared/api/ApiError'
 import { useToast } from '@/app/providers/ToastContext'
 import { useAuth, useCurrentUser } from '@/app/providers/AuthContext'
 import { useSessionTransition } from '@/app/providers/SessionTransitionContext'
+import { useBackgroundTasks } from '@/app/providers/BackgroundTasksContext'
 import { FormModal } from '@/shared/components/forms'
 import { formatPersonFullName } from '@/shared/lib/personName'
 import { useLogout } from '@/features/auth/api/useLogout'
@@ -24,6 +25,7 @@ export function LogoutConfirmModal({ onClose }: LogoutConfirmModalProps) {
     const { signOut } = useAuth()
     const playTransition = useSessionTransition()
     const logout = useLogout()
+    const running = useBackgroundTasks().tasks.filter((task) => task.status === 'running').length
 
     /**
      * La sesión local se cierra pase lo que pase: la persona pidió salir y
@@ -64,7 +66,7 @@ export function LogoutConfirmModal({ onClose }: LogoutConfirmModalProps) {
             title="Cerrar sesión"
             sub={`${formatPersonFullName(user)} · ${user.username}`}
             width="sm"
-            note="¿Seguro que deseas cerrar la sesión?"
+            note={`¿Seguro que deseas cerrar la sesión?${runningTasksNotice(running)}`}
             values={{}}
             onChange={() => {}}
             okLabel="Cerrar sesión"
@@ -73,4 +75,16 @@ export function LogoutConfirmModal({ onClose }: LogoutConfirmModalProps) {
             onCancel={onClose}
         />
     )
+}
+
+/**
+ * Con tareas en segundo plano en curso: el servidor las termina igual, pero al
+ * salir se borran sus tarjetas (`AuthProvider`), así que no se ve cómo
+ * terminan. Se dice antes de confirmar.
+ */
+function runningTasksNotice(count: number): string {
+    if (count === 0) return ''
+    const tasks = count === 1 ? 'una tarea en curso' : `${count} tareas en curso`
+    const end = count === 1 ? 'Se va a terminar igual' : 'Se van a terminar igual'
+    return ` Tenés ${tasks} (expediente o carpeta en Drive). ${end}, pero no vas a ver el aviso: el resultado queda en la causa.`
 }

@@ -1,0 +1,116 @@
+/* ─────────────────────────────────────────────────────────────
+   Tareas en segundo plano (BackgroundTaskTray)
+   Tarjetas abajo a la derecha: lo que sigue en curso mientras se
+   trabaja en otra pantalla, y cómo terminó. Claras, para no
+   confundirse con los avisos oscuros del centro (ToastProvider).
+   ───────────────────────────────────────────────────────────── */
+
+.vz-tasks {
+  position: fixed;
+  right: 16px;
+  bottom: 22px;
+  /* Debajo de los avisos (95) y de los modales: una tarjeta no tapa un
+     diálogo abierto. */
+  z-index: 80;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 8px;
+  width: min(360px, calc(100vw - 32px));
+  pointer-events: none;
+}
+
+.vz-task {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 8px 12px 14px;
+  border: 1px solid var(--vz-border);
+  border-radius: 12px;
+  background: var(--vz-surface);
+  color: var(--vz-ink);
+  box-shadow: var(--vz-pop-sh);
+  pointer-events: auto;
+  animation: vz-task-in 220ms ease-out both;
+}
+.vz-task--done { border-color: var(--vz-ok-bd); }
+.vz-task--failed { border-color: var(--vz-danger-bd); }
+.vz-task--unconfirmed { border-color: var(--vz-warn-bd); }
+
+.vz-task__icon {
+  display: flex;
+  flex: 0 0 22px;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  margin-top: 1px;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  background: var(--vz-primary-soft);
+  color: var(--vz-primary);
+}
+.vz-task--done .vz-task__icon { background: var(--vz-ok-bg); color: var(--vz-ok); }
+.vz-task--failed .vz-task__icon { background: var(--vz-danger-bg); color: var(--vz-danger); }
+.vz-task--unconfirmed .vz-task__icon { background: var(--vz-warn-bg); color: var(--vz-warn); }
+
+.vz-task__spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: vz-task-spin 800ms linear infinite;
+}
+
+.vz-task__body { flex: 1; min-width: 0; }
+.vz-task__title { margin: 0; font-size: 13.5px; font-weight: 600; line-height: 1.35; }
+.vz-task__detail {
+  margin: 3px 0 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--vz-muted);
+  overflow-wrap: anywhere;
+}
+.vz-task__actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.vz-task__actions .vz-btn { text-decoration: none; }
+
+.vz-task__close {
+  flex: 0 0 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin-top: -4px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  color: var(--vz-muted);
+  font-size: 18px;
+  cursor: pointer;
+}
+.vz-task__close:hover { background: var(--vz-primary-soft); color: var(--vz-ink); }
+
+@keyframes vz-task-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes vz-task-spin { to { transform: rotate(360deg); } }
+
+/* En el teléfono los avisos ocupan el ancho de abajo: las tarjetas suben,
+   debajo de la barra superior. */
+@media (max-width: 720px) {
+  .vz-tasks {
+    top: 68px;
+    bottom: auto;
+    flex-direction: column;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vz-task { animation: none; }
+  .vz-task__spinner { animation-duration: 2400ms; }
+}

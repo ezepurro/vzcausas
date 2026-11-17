@@ -23,6 +23,8 @@ import { queryClient } from '@/shared/api/queryClient'
 import { ToastProvider } from '@/app/providers/ToastProvider'
 import { AuthProvider } from '@/app/providers/AuthProvider'
 import { SessionTransitionProvider } from '@/app/providers/SessionTransitionProvider'
+import { BackgroundTasksProvider } from '@/app/providers/BackgroundTasksProvider'
+import { TASK_HANDLERS } from '@/app/tasks'
 import { writeStoredSession } from '@/features/auth/utils/sessionStorage'
 import { db, EXPIRES_IN, issueToken, toUser } from '@/shared/mocks'
 
@@ -91,7 +93,9 @@ export function renderWithProviders(ui: ReactElement, options: RenderOptions = {
             <ToastProvider>
                 <SessionTransitionProvider>
                     <AuthProvider>
-                        <RouterProvider router={router} />
+                        <BackgroundTasksProvider handlers={TASK_HANDLERS}>
+                            <RouterProvider router={router} />
+                        </BackgroundTasksProvider>
                     </AuthProvider>
                 </SessionTransitionProvider>
             </ToastProvider>

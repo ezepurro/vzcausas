@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { describe, expect, it } from 'vitest'
 import { screen } from '@testing-library/react'
+import { useMutation } from '@tanstack/react-query'
+import { createCaseFolder } from '@/features/cases/api/cases.api'
 import { renderWithProviders } from '../../setup/render'
 import { configureMocks } from '@/shared/mocks/server'
 import { db } from '@/shared/mocks'
@@ -36,7 +38,17 @@ function Harness() {
     )
 }
 
+/*
+ * Una mutación común contra `POST /cases/{caseId}/folder`. No es
+ * `useCreateCaseFolder`: ésa se sigue como tarea en segundo plano y la avisa
+ * su tarjeta (último caso de este archivo).
+ */
 function FolderScreen() {
+    const { mutate } = useMutation({ mutationFn: () => createCaseFolder(23) })
+    return <button type="button" onClick={() => mutate()}>Crear carpeta</button>
+}
+
+function TaskFolderScreen() {
     const { mutate } = useCreateCaseFolder(23)
     return <button type="button" onClick={() => mutate()}>Crear carpeta</button>
 }
@@ -90,6 +102,28 @@ describe('lo que falla después de salir de la pantalla', () => {
         await new Promise((resolve) => setTimeout(resolve, 400))
 
         expect(screen.queryAllByRole('alert')).toHaveLength(0)
+    })
+
+    // Tareas en segundo plano: "Crear carpeta" lo avisa su tarjeta, no este aviso.
+    it('una tarea en segundo plano no se avisa dos veces', async () => {
+        db.failures.documentStorage = true
+        configureMocks({ latencyProfile: { 'POST /cases/:caseId/folder': 200 } })
+        function TaskHarness() {
+            const [here, setHere] = useState(true)
+            return (
+                <>
+                    {here && <TaskFolderScreen />}
+                    <button type="button" onClick={() => setHere(false)}>Salir</button>
+                </>
+            )
+        }
+        const { user } = renderWithProviders(<TaskHarness />, { as: 'gestion' })
+
+        await user.click(await screen.findByRole('button', { name: 'Crear carpeta' }))
+        await user.click(screen.getByRole('button', { name: 'Salir' }))
+        await new Promise((resolve) => setTimeout(resolve, 400))
+
+        expect(leftBehindToasts()).toHaveLength(0)
     })
 })
 

@@ -1,9 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { screen } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
+import { delay, http } from 'msw'
 import { renderWithProviders } from '../../setup/render'
 import { usePrototypeToday } from '../../setup/clock'
 import { db } from '@/shared/mocks'
+import { server } from '@/shared/mocks/server'
+import { readBackgroundTasks } from '@/app/providers/backgroundTaskStorage'
 import { CaseDetailPage } from '@/features/cases/pages/CaseDetailPage'
+
+const userId = (username: string) => db.users.find((u) => u.username === username)?.id ?? -1
 
 /**
  * La carpeta de la causa en Drive, desde el detalle (HU-39 y HU-40). Los
@@ -77,6 +82,33 @@ describe('CaseDetailPage · carpeta en Drive', () => {
 
         expect(await screen.findByRole('link', { name: OPEN })).toBeInTheDocument()
         expect(db.cases.find((c) => c.id === 23)?.folder?.status).toBe('CREATED')
+        // Siguió en la causa: el resultado lo muestra la tarjeta del detalle,
+        // no queda la de la tarea en segundo plano.
+        await waitFor(() => expect(readBackgroundTasks(userId('gestion'))).toEqual([]))
+    })
+
+    // Tareas en segundo plano: quien se va mientras se crea la sigue con la tarjeta.
+    it('si se sale mientras se crea, la carpeta sigue como tarea en segundo plano', async () => {
+        server.use(
+            http.post('*/cases/:caseId/folder', async () => {
+                await delay('infinite')
+            }),
+        )
+        const { user } = renderWithProviders(<CaseDetailPage />, {
+            as: 'gestion',
+            path: '/causas/:caseId',
+            route: '/causas/23',
+            routes: [{ path: '/causas', element: <h1>Listado de causas</h1> }],
+        })
+        await headerOf('Causa sin SAC')
+
+        await user.click(screen.getByRole('button', { name: CREATE }))
+        await user.click(screen.getByRole('button', { name: 'Causas' }))
+
+        expect(await screen.findByRole('heading', { name: 'Listado de causas' })).toBeInTheDocument()
+        expect(readBackgroundTasks(userId('gestion'))).toEqual([
+            expect.objectContaining({ kind: 'cases.folder', status: 'running', params: { caseId: 23 } }),
+        ])
     })
 
     // CA-39.5: también las causas registradas antes de esta versión.

@@ -18,6 +18,13 @@ import { isApiError } from './ApiError'
  * no se agrega nada: el aviso es el suyo.
  */
 
+/**
+ * La marca (`meta`) de una mutación que se sigue como tarea en segundo plano
+ * (`BackgroundTasksProvider`): su tarjeta ya dice cómo terminó, así que acá
+ * no se avisa otra vez.
+ */
+export const BACKGROUND_TASK_META = 'backgroundTask'
+
 /** Lo que muestra el aviso. Lo registra el proveedor de avisos (`ToastProvider`). */
 let onLeftBehindError: ((message: string) => void) | null = null
 
@@ -75,6 +82,8 @@ export function trackMutationListeners(cache: MutationCache): void {
  */
 export function reportIfLeftBehind(error: unknown, mutation: AnyMutation): void {
     if (discarded.has(mutation)) return
+    /* Una tarea en segundo plano ya avisa cómo terminó, con su tarjeta. */
+    if (mutation.meta?.[BACKGROUND_TASK_META] === true) return
     if ((listeners.get(mutation)?.size ?? 0) > 0) return
     const message = leftBehindMessage(error)
     if (message !== null) onLeftBehindError?.(message)

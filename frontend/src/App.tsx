@@ -3,6 +3,8 @@ import { QueryProvider } from '@/app/providers/QueryProvider'
 import { ToastProvider } from '@/app/providers/ToastProvider'
 import { AuthProvider } from '@/app/providers/AuthProvider'
 import { SessionTransitionProvider } from '@/app/providers/SessionTransitionProvider'
+import { BackgroundTasksProvider } from '@/app/providers/BackgroundTasksProvider'
+import { TASK_HANDLERS } from '@/app/tasks'
 import { router } from '@/app/router'
 
 /**
@@ -15,6 +17,9 @@ import { router } from '@/app/router'
  *   entre la app y el login siga a la vista mientras la pantalla cambia.
  * - `AuthProvider` envolviendo al router, porque las guardas de ruta leen la
  *   sesión para decidir a dónde mandar a cada uno.
+ * - `BackgroundTasksProvider` dentro de `AuthProvider`, porque las tareas en
+ *   segundo plano son de quien tiene la sesión abierta, y fuera del router,
+ *   porque siguen mientras se cambia de pantalla.
  */
 export function App() {
   return (
@@ -22,7 +27,9 @@ export function App() {
       <ToastProvider>
         <SessionTransitionProvider>
           <AuthProvider>
-            <RouterProvider router={router} />
+            <BackgroundTasksProvider handlers={TASK_HANDLERS}>
+              <RouterProvider router={router} />
+            </BackgroundTasksProvider>
           </AuthProvider>
         </SessionTransitionProvider>
       </ToastProvider>

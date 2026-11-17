@@ -18,6 +18,8 @@ export { useCase } from './api/useCase'
 export { useCreateCase } from './api/useCreateCase'
 export { casesKeys } from './api/cases.keys'
 export { refreshCaseAfterAct } from './api/refreshCaseAfterAct'
+/* Las tareas en segundo plano de la causa: las carga `app/tasks.ts`. */
+export { CASE_FILE_TASK, CASE_FOLDER_TASK } from './api/caseTasks'
 export { CaseHeader } from './components/CaseHeader'
 export { CaseHeaderSkeleton } from './components/CaseSkeletons'
 export { CasePrescriptionBar } from './components/CasePrescriptionBar'

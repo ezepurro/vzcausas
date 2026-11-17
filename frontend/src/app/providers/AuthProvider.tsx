@@ -8,6 +8,7 @@ import {
 } from '@/shared/api/http'
 import { isApiError } from '@/shared/api/ApiError'
 import { clearDrafts } from '@/shared/lib/drafts'
+import { clearBackgroundTasks } from './backgroundTaskStorage'
 import {
     clearStoredSession,
     isAccessTokenExpired,
@@ -106,6 +107,11 @@ export function AuthProvider({ children }: Props) {
            recupera lo que estaba cargando. Cada uno lleva el id del usuario,
            así que otro que entre en la misma pestaña no los ve. */
         if (reason === 'user') clearDrafts()
+
+        /* Lo mismo con las tareas en segundo plano: quien pidió salir ya fue
+           avisado de que no iba a ver cómo terminaban (`LogoutConfirmModal`);
+           a quien lo echó un token vencido se le vuelven a mostrar al entrar. */
+        if (reason === 'user') clearBackgroundTasks()
 
         /* La caché entera pertenece a la sesión: lo que se trajo con un
            usuario no tiene por qué verlo el siguiente. Se limpia acá y no en

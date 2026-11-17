@@ -5,6 +5,8 @@ import { useCan } from '@/app/access/useCan'
 import { useGoBack } from '@/app/router/useGoBack'
 import { useCurrentUser } from '@/app/providers/AuthContext'
 import { useToast } from '@/app/providers/ToastContext'
+import { useBackgroundTasks } from '@/app/providers/BackgroundTasksContext'
+import { useStillShowing } from '@/shared/hooks/useStillShowing'
 import { isApiError } from '@/shared/api/ApiError'
 import { Breadcrumbs, Button, Icon, LoadError, Panel, type BreadcrumbItem } from '@/shared/components/ui'
 import { usePageTitle } from '@/shared/hooks/usePageTitle'
@@ -178,6 +180,8 @@ function CaseDetail({ case: c }: { case: Case }) {
     const declarePrescription = useDeclarePrescription(c.id)
     const declareQualificationPrescription = useDeclareQualificationPrescription(c.id)
     const createFolder = useCreateCaseFolder(c.id)
+    const tasks = useBackgroundTasks()
+    const isHere = useStillShowing(c.id)
     const edit = useCaseEdit(c)
     const deleteCase = useDeleteCase(c.id)
     const annulAct = useAnnulProceduralAct(c.id)
@@ -193,6 +197,28 @@ function CaseDetail({ case: c }: { case: Case }) {
         operate: operateAnyCase,
         declarePrescription: declarePrescriptionAnyCase,
     })
+    /**
+     * "Crear carpeta" / "Reintentar" (HU39) como tarea en segundo plano
+     * (`api/caseTasks.ts`): la persona puede irse y una tarjeta le avisa cómo
+     * terminó, aun después de un F5. Si sigue en esta causa cuando termina, el
+     * resultado ya lo muestra "Carpeta en Drive" y la tarjeta se saca, salvo
+     * que Drive todavía no haya contestado (`CREATING`) o que no haya llegado
+     * respuesta: ahí la tarjeta sigue preguntando.
+     */
+    function requestFolder() {
+        const caseId = c.id
+        const work = createFolder.mutateAsync()
+        const taskId = tasks.start({ kind: 'cases.folder', subject: c.caption, params: { caseId }, work })
+        work.then(
+            (folder) => {
+                if (isHere(caseId) && folder.status !== 'CREATING') tasks.dismiss(taskId)
+            },
+            (error: unknown) => {
+                if (isHere(caseId) && !(isApiError(error) && error.isNetworkError)) tasks.dismiss(taskId)
+            },
+        )
+    }
+
     const onlyResponsible = `Solo el abogado responsable (${formatPersonFullName(c.responsibleLawyer)})`
     const notResponsibleNote = `${onlyResponsible} modifica o da de baja la causa.`
     /* Las notas visibles que explican los botones deshabilitados (H-53): el
@@ -555,7 +581,7 @@ function CaseDetail({ case: c }: { case: Case }) {
                                 ? isApiError(createFolder.error) ? createFolder.error.message : 'Ocurrió un error inesperado.'
                                 : null
                         }
-                        onCreate={() => createFolder.mutate()}
+                        onCreate={requestFolder}
                     />
                     <CaseDocumentsCard
                         folderCreated={folderCreated}

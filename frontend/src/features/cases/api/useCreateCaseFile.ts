@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import type { CreateCaseFileBody } from '@/features/cases/types/caseFile'
+import { BACKGROUND_TASK_META } from '@/shared/api/leftBehindErrors'
 import { createCaseFile } from './cases.api'
 import { casesKeys } from './cases.keys'
 
@@ -18,6 +19,8 @@ export function useCreateCaseFile(caseId: number) {
 
     return useMutation({
         mutationKey: casesKeys.mutation(caseId, 'createCaseFile'),
+        /* Se sigue como tarea en segundo plano (`api/caseTasks.ts`): su tarjeta avisa si falla. */
+        meta: { [BACKGROUND_TASK_META]: true },
         mutationFn: (body: CreateCaseFileBody) => createCaseFile(caseId, body),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: casesKeys.documents(caseId) })

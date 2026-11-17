@@ -21,6 +21,7 @@ import { canAccess, matchRoute } from '@/app/access/access'
 import { useHomeRoute } from '@/app/access/useHomeRoute'
 import { preloadSection } from '@/app/router/pages'
 import { NavigationProgress } from '@/app/layouts/NavigationProgress'
+import { BackgroundTaskTray } from '@/app/layouts/BackgroundTaskTray'
 import { useHoverIntent } from '@/shared/hooks/useHoverIntent'
 
 /**
@@ -191,6 +192,9 @@ export function AppLayout() {
         >
             <Outlet />
         </AppShell>
+
+        {/* Lo que sigue en curso mientras se cambia de pantalla (expediente, carpeta). */}
+        <BackgroundTaskTray />
 
         {changingPassword && (
             <ChangePasswordModal onClose={() => setChangingPassword(false)} />
