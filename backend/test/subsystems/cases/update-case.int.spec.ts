@@ -232,6 +232,26 @@ describe('PATCH /api/v1/cases/:caseId', () => {
       expect(reread.registeredBy.id).toBe(first.registeredBy.id);
     });
 
+    // D-143: reasignar una huérfana la deja con abogado y borra orphanedAt; nadie la deja huérfana con un PATCH.
+    it('reasignar una huérfana borra orphanedAt; responsibleLawyerId en null es 400 y no escribe nada', async () => {
+      await getPrisma().case.update({
+        where: { id: s.caseRow.id },
+        data: { responsibleLawyerId: null, orphanedAt: new Date('2026-09-10T15:00:00.000Z') },
+      });
+
+      const before = await snapshot();
+      expectError(await patch({ responsibleLawyerId: null }), 400, 'VALIDATION_ERROR', ['responsibleLawyerId']);
+      expect(await snapshot()).toEqual(before);
+
+      const data = expectData<Body>(await patch({ responsibleLawyerId: s.otherLawyer.id }), 200);
+
+      expect(data).toMatchObject({ responsibleLawyer: { id: s.otherLawyer.id }, orphanedAt: null });
+      expect(await getPrisma().case.findUniqueOrThrow({ where: { id: s.caseRow.id } })).toMatchObject({
+        responsibleLawyerId: s.otherLawyer.id,
+        orphanedAt: null,
+      });
+    });
+
     // CA-19.11
     it('las calificaciones reemplazan la lista entera, y [] la vacía', async () => {
       const robbery = await createLegalQualification({ name: 'HU19 Robo', prescriptionMonths: 96 });

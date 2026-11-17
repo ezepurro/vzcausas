@@ -60,9 +60,12 @@ export class RegisterInterruptiveAct {
 
     targetCase.assertAcceptsActs(TERMINAL_STATE_MESSAGE);
 
+    // An orphaned case has no lawyer in charge: the administrator registers it under their own name (D-144).
+    const orphaned = targetCase.responsibleLawyerId === null;
+
     // The actor is the lawyer in charge, so the record exists: a missing one is broken data, not a user error.
-    const registeredBy = await this.people.findActiveLawyerById(command.actor.lawyerId!);
-    if (!registeredBy) {
+    const registeredBy = orphaned ? null : await this.people.findActiveLawyerById(command.actor.lawyerId!);
+    if (!orphaned && !registeredBy) {
       throw new Error(`The lawyer ${command.actor.lawyerId} in charge of the case ${targetCase.id} is not active.`);
     }
 
@@ -73,12 +76,16 @@ export class RegisterInterruptiveAct {
       actDate: command.actDate,
       notes: command.notes,
       registeredByUserId: command.actor.userId,
-      registeredByLawyerId: registeredBy.id,
+      registeredByLawyerId: registeredBy?.id ?? null,
       today: this.clock.today(),
       now: this.clock.now(),
     });
     await this.acts.save(act);
 
-    return { act, registeredBy: { lastName: registeredBy.lastName, firstName: registeredBy.firstName } };
+    if (registeredBy) {
+      return { act, registeredBy: { lastName: registeredBy.lastName, firstName: registeredBy.firstName } };
+    }
+    // The name of the administrator is the user's, which only persistence reads.
+    return (await this.acts.findViewById(act.id))!;
   }
 }

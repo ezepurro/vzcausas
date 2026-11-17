@@ -1,7 +1,6 @@
 import { AuthenticatedUser } from '@shared/domain/authenticated-user';
 import { ProceduralAct } from '../../../domain/entities/procedural-act.entity';
 import { DayType } from '../../../domain/value-objects/deadline/day-type';
-import { LawyerRef } from '../../../domain/ports/case/people-lookup.port';
 
 /** What the user asks for when registering a procedural act (HU26). */
 export interface RegisterProceduralActCommand {
@@ -23,8 +22,8 @@ export interface RegisterProceduralActResult {
   act: ProceduralAct;
   // Name of the state the case moves to: the one of the table or the hand-written text.
   resultingStateName: string;
-  // The lawyer who registered it (the one in charge of the case).
-  registeredBy: LawyerRef;
+  // Who registered it: the lawyer in charge of the case or, on an orphaned one, the administrator (D-144).
+  registeredBy: { lastName: string; firstName: string };
   // `false` if the act is older than the current one: on record, but the case did not move (CA-26.10).
   becameCurrent: boolean;
 }

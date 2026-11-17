@@ -148,9 +148,17 @@ describe('Case: quién opera una huérfana (nadie coincide con el responsable)',
     ['el abogado que fue su responsable', anActor()],
     ['otro abogado', anActor({ lawyerId: 99 })],
     ['un abogado sin ficha', anActor({ lawyerId: null })],
-    ['un administrador que también es abogado, con o sin ficha', anActor({ roleNames: ['ADMINISTRATOR', 'LAWYER'], lawyerId: null })],
+    ['una SECRETARY', anActor({ roleNames: ['SECRETARY'], lawyerId: null })],
   ])('assertCanRegisterActs la deniega a %s', (_name, actor) => {
     expect(() => orphan().assertCanRegisterActs(actor)).toThrow(NotResponsibleLawyerError);
+  });
+
+  // D-143, D-144: los actos de una huérfana son del administrador, tenga o no ficha de abogado.
+  it.each([
+    ['un ADMINISTRATOR sin ficha', anActor({ roleNames: ['ADMINISTRATOR'], lawyerId: null })],
+    ['un administrador que también es abogado', anActor({ roleNames: ['ADMINISTRATOR', 'LAWYER'] })],
+  ])('assertCanRegisterActs la permite a %s', (_name, actor) => {
+    expect(() => orphan().assertCanRegisterActs(actor)).not.toThrow();
   });
 
   it.each([

@@ -38,8 +38,8 @@ migraciones las corre el equipo con `make migrate-dev`.**
 | T0.1 | S1 | `schema.prisma`: responsable opcional, `orphaned_at`, actos con `registered_by_lawyer_id` opcional | inline | Hecho |
 | T0.2 | S1, S4 | Migraciones `orphaned_cases` (con `CHECK`) y `acts_registered_by_lawyer_optional`, aplicadas | inline (la corre el equipo) | Hecho |
 | T1.1 | S1, S2, S4 | `cases`: dominio y persistencia con responsable nulable; actos con `registeredByLawyerId` nulable; `Case.leaveWithoutResponsible` | delegada | Hecho (`make test-unit` y `make test-int` en verde, 17/11/2026) |
-| T1.2 | S3 | `cases`: filtro `unassigned` y `orphanedAt` en las respuestas | inline | Pendiente |
-| T1.3 | S4 | `cases`: autorización de actos para el administrador en una huérfana | inline | Pendiente |
+| T1.2 | S3 | `cases`: filtro `unassigned` y `orphanedAt` en las respuestas | inline | Hecho (unitarios e integración en verde, 17/11/2026) |
+| T1.3 | S4 | `cases`: autorización de actos para el administrador en una huérfana | inline | Hecho (en verde, 17/11/2026). Modificar y anular actos (HU28/HU29) usan la misma regla pero no tienen test propio |
 | T1.4 | S5 | `deadlines`: avisos solo a la casilla (ajusta el contrato con HU51/52) | inline | Pendiente |
 | T1.5 | S6 | `documents`: carpeta `Sin asignar` | inline | Pendiente |
 | T1.6 | S1, S7 | `people`: caso de uso de baja con reparto atómico | inline | Pendiente |
@@ -95,6 +95,12 @@ tests: se verificaron leyendo `_prisma_migrations` y `information_schema`.
   specs, 180 inserciones y 35 borrados. Verificación del padre: `npx tsc --noEmit -p
   tsconfig.json` sale con 0 errores (el watcher bajó de 16 a 0). Los tests no se
   corrieron. `Risk: item 3` (puertos de `cases` que consumen `deadlines` y `reporting`).
+- **L8 (17/11/2026).** T1.2 y T1.3 en verde. Una corrida de integración dio 65 fallos con
+  500 porque el cliente de Prisma del contenedor no tenía `orphanedAt` (la entidad rechaza
+  `orphanedAt` indefinido con responsable nulo); se arregló con `npm run prisma:generate` y
+  reiniciando el backend. Si pasa de nuevo tras recrear contenedores, es lo primero a mirar.
+  Un test de T1.1 (`case-orphan.spec.ts`) fijaba que el administrador-abogado no operaba una
+  huérfana; contradecía D-143 y se corrigió.
 - **L6 (17/11/2026).** Tras la migración, el compilador marca 16 errores propios.
   La base se reseteó con `make nuke-v` porque la local tenía datos de Sprint 3 que
   chocaban con la migración `…client_document_address_lawyer_optional_registration`.

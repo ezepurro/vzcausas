@@ -39,6 +39,11 @@ export class PrismaInterruptiveActRepository implements InterruptiveActRepositor
     await this.prisma.db.interruptiveAct.create({ data: InterruptiveActPrismaMapper.toCreateData(act) });
   }
 
+  async findViewById(id: number): Promise<InterruptiveActView | null> {
+    const row = await this.prisma.db.interruptiveAct.findUnique({ where: { id }, include: ACT_INCLUDE });
+    return row && toView(row);
+  }
+
   async caseExists(caseId: number): Promise<boolean> {
     const row = await this.prisma.db.case.findFirst({
       where: { id: caseId, active: true },

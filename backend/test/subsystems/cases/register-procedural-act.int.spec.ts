@@ -166,6 +166,41 @@ describe('POST /api/v1/cases/{caseId}/procedural-acts', () => {
     expectData(await register(body, both), 201);
   });
 
+  // D-143, D-144: una huérfana no tiene responsable; sus actos son del administrador, a su nombre.
+  describe('causa huérfana', () => {
+    const body = () => ({ proceduralStateId: s.states.fiveBusinessDays.stateId, actDate: '2026-10-05' });
+    const orphan = () =>
+      getPrisma().case.update({
+        where: { id: s.caseRow.id },
+        data: { responsibleLawyerId: null, orphanedAt: new Date('2026-09-10T15:00:00.000Z') },
+      });
+    const admin = () => loginAs({ userId: s.user.id, roles: ['ADMINISTRATOR'], lawyerId: null });
+
+    it('lo registra el administrador, a su nombre y sin ficha de abogado, y la causa sigue huérfana', async () => {
+      await orphan();
+
+      const data = expectData<Record<string, any>>(await register(body(), admin()), 201);
+
+      expect(data.registeredBy).toEqual({ id: s.user.id, lastName: s.user.lastName, firstName: s.user.firstName });
+      const row = await getPrisma().proceduralAct.findUniqueOrThrow({ where: { id: data.id } });
+      expect(row).toMatchObject({ registeredByUserId: s.user.id, registeredByLawyerId: null });
+      const caseRow = await getPrisma().case.findUniqueOrThrow({ where: { id: s.caseRow.id } });
+      expect(caseRow).toMatchObject({ responsibleLawyerId: null, currentProceduralActId: data.id });
+      expect(caseRow.orphanedAt).not.toBeNull();
+    });
+
+    it('a un abogado, aunque fuera el responsable, o a la secretaría les responde 403 sin guardar nada', async () => {
+      await orphan();
+      const before = await snapshot();
+
+      for (const actor of [s.responsible, s.notResponsible, loginAs({ roles: ['SECRETARY'] })]) {
+        expectError(await register(body(), actor), 403, 'FORBIDDEN');
+      }
+
+      expect(await snapshot()).toEqual(before);
+    });
+  });
+
   // CA-26.4, RN6
   describe('fuero administrativo', () => {
     it('el plazo corre desde la notificación; sin plazo no hace falta notificación', async () => {

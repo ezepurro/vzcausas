@@ -6,7 +6,7 @@ import {
   NotResponsibleLawyerError,
   PrescriptionNotApplicableError,
 } from '../../../domain/errors/case.errors';
-import { InterruptiveActRepository } from '../../../domain/ports/interruptive-act/interruptive-act.repository';
+import { InterruptiveActView } from '../../../domain/ports/interruptive-act/interruptive-act.repository';
 import {
   FakeCaseRepository,
   FakeClock,
@@ -24,6 +24,7 @@ import {
   aCaseInState,
   anActor,
   anAdministrativeCase,
+  anOrphanedCase,
   day,
 } from '../../../test-support/case-fixtures';
 import { RegisterInterruptiveAct, RegisterInterruptiveActCommand } from './register-interruptive-act.use-case';
@@ -38,6 +39,12 @@ class FakeInterruptiveActRepository extends UnusedInterruptiveActRepository {
 
   async save(act: InterruptiveAct): Promise<void> {
     this.saved.push(act);
+  }
+
+  /** What persistence reads for an act with no lawyer: the name of the user who registered it. */
+  async findViewById(id: number): Promise<InterruptiveActView | null> {
+    const act = this.saved.find((saved) => saved.id === id);
+    return act ? { act, registeredBy: { lastName: 'Peralta', firstName: 'Iván' } } : null;
   }
 }
 
@@ -109,6 +116,34 @@ describe('RegisterInterruptiveAct', () => {
     expect(error).toBeInstanceOf(NotResponsibleLawyerError);
     expect((error as Error).message).toBe('Solo el abogado responsable de la causa puede registrar actos interruptivos.');
     expect(acts.saved).toEqual([]);
+  });
+
+  // D-143, D-144: una huérfana no tiene responsable; sus actos son del administrador, a su nombre.
+  describe('causa huérfana', () => {
+    it('el administrador registra el acto a su nombre, sin ficha de abogado', async () => {
+      cases.add(anOrphanedCase());
+      const admin = anActor({ userId: 7, roleNames: ['ADMINISTRATOR'], lawyerId: null });
+
+      const view = await useCase.execute(command({ actor: admin }));
+
+      expect(acts.saved).toEqual([view.act]);
+      expect(view.act.registeredByUserId).toBe(7);
+      expect(view.act.registeredByLawyerId).toBeNull();
+      expect(view.registeredBy).toEqual({ lastName: 'Peralta', firstName: 'Iván' });
+    });
+
+    it.each([
+      ['el abogado que era el responsable', anActor()],
+      ['otro abogado', anActor({ lawyerId: 99 })],
+      ['la secretaría', anActor({ roleNames: ['SECRETARY'], lawyerId: null })],
+    ])('rechaza a %s con el mensaje de los actos interruptivos', async (_caso, actor) => {
+      cases.add(anOrphanedCase());
+
+      const error = await useCase.execute(command({ actor })).catch((e: unknown) => e);
+
+      expect(error).toBeInstanceOf(NotResponsibleLawyerError);
+      expect(acts.saved).toEqual([]);
+    });
   });
 
   // CA-31.9

@@ -22,6 +22,7 @@ import {
   anAct,
   anActor,
   anAdministrativeCase,
+  anOrphanedCase,
   aRegisterProceduralActCommand,
   ADMINISTRATIVE_STATE,
   ARCHIVED,
@@ -112,6 +113,41 @@ describe('RegisterProceduralAct', () => {
       expect(result.act.registeredByUserId).toBe(41);
       expect(result.act.registeredByLawyerId).toBe(LAWYER.id);
       expect(result.act.registeredAt).toBe(NOW);
+    });
+  });
+
+  // D-143, D-144: una huérfana no tiene responsable; sus actos son del administrador, a su nombre.
+  describe('causa huérfana', () => {
+    it('el administrador registra el acto sin ficha de abogado y se lo devuelve con su nombre de usuario', async () => {
+      const { useCase, acts, cases } = build({ existing: anOrphanedCase() });
+      // Lo que lee la persistencia: sin ficha de abogado, el nombre es el del usuario.
+      acts.findInCase = async (_caseId, actId) => ({
+        act: acts.saved.find((saved) => saved.id === actId)!,
+        resultingStateName: OPPOSITION.name,
+        registeredBy: { lastName: 'Peralta', firstName: 'Iván' },
+      });
+      const admin = anActor({ userId: 7, roleNames: ['ADMINISTRATOR'], lawyerId: null });
+
+      const result = await useCase.execute(command({ actor: admin }));
+
+      expect(acts.saved).toEqual([result.act]);
+      expect(result.act.registeredByUserId).toBe(7);
+      expect(result.act.registeredByLawyerId).toBeNull();
+      expect(result.registeredBy).toEqual({ lastName: 'Peralta', firstName: 'Iván' });
+      expect(cases.currentActUpdates).toHaveLength(1);
+    });
+
+    it.each([
+      ['el abogado que era el responsable', anActor()],
+      ['otro abogado', anActor({ lawyerId: 99 })],
+      ['la secretaría', anActor({ roleNames: ['SECRETARY'], lawyerId: null })],
+    ])('rechaza a %s sin escribir nada', async (_caso, actor) => {
+      const { useCase, acts, cases } = build({ existing: anOrphanedCase() });
+
+      await expect(useCase.execute(command({ actor }))).rejects.toBeInstanceOf(NotResponsibleLawyerError);
+
+      expect(acts.saved).toEqual([]);
+      expect(cases.currentActUpdates).toEqual([]);
     });
   });
 

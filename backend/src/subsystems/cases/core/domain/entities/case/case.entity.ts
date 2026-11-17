@@ -559,12 +559,20 @@ export abstract class Case {
    * Only the responsible lawyer of the case registers its acts (D-30): the
    * user must have the lawyer role and be the lawyer assigned to this case.
    * Not even an administrator may do it for a case that is not theirs.
+   * The one exception is an orphaned case, which has no responsible lawyer to
+   * compare with: its acts are the administrator's alone (D-143, D-144).
    *
    * The same rule governs interruptive acts (HU31, D-50); `message` lets that
    * story word the refusal as its contract does. Omitted, it is HU26's.
    * @throws NotResponsibleLawyerError
    */
   assertCanRegisterActs(actor: AuthenticatedUser, message?: string): void {
+    if (this.props.responsibleLawyerId === null) {
+      if (!actor.roleNames.includes(ADMINISTRATOR_ROLE)) {
+        throw new NotResponsibleLawyerError(message);
+      }
+      return;
+    }
     if (!this.isResponsibleLawyer(actor)) {
       throw new NotResponsibleLawyerError(message);
     }
