@@ -16,7 +16,8 @@ export type OpenProceduralDeadlineRow = {
   caption: string;
   sacNumber: string | null;
   jurisdiction: JurisdictionCode;
-  responsibleLawyerId: number;
+  /** `null` for an orphaned case (D-143). */
+  responsibleLawyerId: number | null;
   /** The act that set the current state and opened the deadline. */
   proceduralActId: number;
   dueDate: Date;
@@ -37,7 +38,8 @@ export type OpenHarmfulActRow = {
   caption: string;
   sacNumber: string | null;
   jurisdiction: JurisdictionCode;
-  responsibleLawyerId: number;
+  /** `null` for an orphaned case (D-143). */
+  responsibleLawyerId: number | null;
   harmfulActDate: Date | null;
   harmfulActRenews: boolean | null;
   harmfulActRenewalDays: number | null;

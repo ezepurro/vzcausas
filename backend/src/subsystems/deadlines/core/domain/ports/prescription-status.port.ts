@@ -17,7 +17,8 @@ export interface CasePrescriptionStatus extends PrescriptionFlags {
   caseId: number;
   caption: string;
   sacNumber: string | null;
-  responsibleLawyerId: number;
+  /** `null` for an orphaned case (D-143). */
+  responsibleLawyerId: number | null;
   /** The qualification that prescribes first, the one that governs the case (CA-52.3). */
   legalQualificationName: string;
   /**

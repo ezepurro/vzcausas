@@ -33,7 +33,9 @@ export interface CaseSnapshot {
   proceduralRole: ProceduralRole;
   instructor: Instructor;
   clientId: number;
-  responsibleLawyerId: number;
+  /** `null` while the case is orphaned (D-143); then `orphanedAt` says since when. */
+  responsibleLawyerId: number | null;
+  orphanedAt: Date | null;
   startDate: Date | null;
   courtFeePaid: boolean;
   currentStateId: number | null;

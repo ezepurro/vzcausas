@@ -113,7 +113,10 @@ export type CaseListItem = {
   administrativeRemedyExhaustedOn: Date | null;
   courtFeePaid: boolean;
   client: ClientRef;
-  responsibleLawyer: LawyerRef;
+  /** `null` for an orphaned case (D-143). */
+  responsibleLawyer: LawyerRef | null;
+  /** Since when the case has no responsible lawyer; `null` if it has one (D-143). */
+  orphanedAt: Date | null;
   /** Empty unless the case is criminal. A deactivated qualification still shows (RN12). */
   legalQualifications: CaseQualificationView[];
   /**
@@ -169,6 +172,8 @@ export type CaseSearchFilters = {
   search?: string;
   jurisdiction?: JurisdictionCode;
   responsibleLawyerId?: number;
+  /** `true`: only orphaned cases, without a responsible lawyer (D-143). Exclusive with `responsibleLawyerId`. */
+  unassigned?: boolean;
   clientId?: number;
   /** `true`: only cases with a due date, **overdue ones included**. */
   openDeadline?: boolean;

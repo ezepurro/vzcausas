@@ -146,6 +146,7 @@ export class CaseFactory {
       instructor: { name: instructorName, phone: tribunalPhone, extension: instructorExtension },
       clientId: input.clientId,
       responsibleLawyerId: input.responsibleLawyerId,
+      orphanedAt: null,
       // Without a SAC number the case has not started in court yet: there is no date to invent.
       startDate: startDate ?? null,
       courtFeePaid: input.courtFeePaid ?? false,

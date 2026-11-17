@@ -48,6 +48,7 @@ const CASE_KEYS = [
   'instructorName',
   'jurisdiction',
   'legalQualifications',
+  'orphanedAt',
   'prescription',
   'prescriptionDeclaration',
   'proceduralRole',

@@ -294,6 +294,10 @@ export class SendDailyNotificationDigestUseCase {
   private groupByResponsibleLawyer(notices: Notice[]): Map<number, Notice[]> {
     const groups = new Map<number, Notice[]>();
     for (const notice of notices) {
+      // An orphaned case has no lawyer to copy (D-143); the mailbox gets it. Task T1.4 verifies this.
+      if (notice.responsibleLawyerId === null) {
+        continue;
+      }
       const group = groups.get(notice.responsibleLawyerId);
       if (group) {
         group.push(notice);

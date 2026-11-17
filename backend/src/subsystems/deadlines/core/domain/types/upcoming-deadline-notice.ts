@@ -26,8 +26,8 @@ export interface UpcomingDeadlineNotice {
   caption: string;
   sacNumber: string | null;
   jurisdiction: JurisdictionCode;
-  /** Resolved to an email by this subsystem (N-09), not by HU51. */
-  responsibleLawyerId: number;
+  /** Resolved to an email by this subsystem (N-09), not by HU51. `null` for an orphaned case (D-143). */
+  responsibleLawyerId: number | null;
   kind: 'DEADLINE_WARNING' | 'DEADLINE_DUE_TODAY';
   /** Mirrors `deadline_kind`. */
   origin: 'PROCEDURAL_ACT' | 'HARMFUL_ACT';
@@ -49,7 +49,8 @@ export interface PrescriptionNotice {
   caseId: number;
   caption: string;
   sacNumber: string | null;
-  responsibleLawyerId: number;
+  /** `null` for an orphaned case (D-143). */
+  responsibleLawyerId: number | null;
   kind: 'PRESCRIPTION_ALERT' | 'PRESCRIPTION_EXPIRED';
   /** ISO date. The `prescriptionExpiresOn` of the legal qualification that governs (CA-32.1), never recomputed here. */
   referenceDate: string;

@@ -104,6 +104,10 @@ export class RequestCaseFolder {
     // The lawyer may have been deactivated since the case was registered: the case keeps
     // showing them (RN12), so the folder is still named after them. Only a lawyer that
     // does not exist at all would be a broken reference, which the foreign key rules out.
+    if (found.responsibleLawyerId === null) {
+      // The folder of an orphaned case goes to `Sin asignar` (D-143): task T1.5 of IMPLEMENTACION_CAUSAS_HUERFANAS.md.
+      throw new Error(`The case ${caseId} has no responsible lawyer: its folder is not handled yet (task T1.5).`);
+    }
     const lawyer = await this.people.findLawyerById(found.responsibleLawyerId);
     if (!lawyer) {
       throw new Error(`The lawyer ${found.responsibleLawyerId} of case ${caseId} does not exist.`);

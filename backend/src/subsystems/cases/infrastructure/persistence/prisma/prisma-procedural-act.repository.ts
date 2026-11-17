@@ -18,6 +18,8 @@ import { ProceduralActPrismaMapper } from '../mappers/procedural-act-prisma.mapp
 const ACT_INCLUDE = {
   proceduralState: { select: { name: true } },
   registeredByLawyer: { select: { lastName: true, firstName: true } },
+  // An act an administrator registered on an orphaned case has no lawyer: it is theirs (D-144).
+  registeredBy: { select: { lastName: true, firstName: true } },
   // HU28: the user who last modified it, by name from `users` (decision of 05/11/2026).
   lastModifiedBy: { select: { lastName: true, firstName: true } },
 } satisfies Prisma.ProceduralActInclude;
@@ -129,8 +131,8 @@ function toView(row: ActRow): ProceduralActView {
     act: ProceduralActPrismaMapper.toDomain(row),
     resultingStateName,
     registeredBy: {
-      lastName: row.registeredByLawyer.lastName,
-      firstName: row.registeredByLawyer.firstName,
+      lastName: (row.registeredByLawyer ?? row.registeredBy).lastName,
+      firstName: (row.registeredByLawyer ?? row.registeredBy).firstName,
     },
     lastModifiedBy: row.lastModifiedBy,
   };

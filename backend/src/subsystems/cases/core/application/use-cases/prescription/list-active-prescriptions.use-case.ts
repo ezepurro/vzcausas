@@ -15,7 +15,8 @@ export type ActivePrescriptionView = {
   caseId: number;
   caption: string;
   sacNumber: string | null;
-  responsibleLawyerId: number;
+  /** `null` for an orphaned case (D-143). */
+  responsibleLawyerId: number | null;
   prescription: PrescriptionSummary;
 };
 

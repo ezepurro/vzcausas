@@ -56,6 +56,7 @@ function anItem(overrides: Partial<CaseListItem> = {}): CaseListItem {
     courtFeePaid: false,
     client: CLIENT,
     responsibleLawyer: LAWYER,
+    orphanedAt: null,
     legalQualifications: [
       {
         id: 1,
@@ -128,6 +129,7 @@ describe('CaseHttpMapper.toResponse', () => {
         clientSince: '2021-03-12',
       },
       responsibleLawyer: { id: 2, lastName: 'Ríos', firstName: 'Malena', registrationNumber: '1-36842' },
+      orphanedAt: null,
       legalQualifications: [
         {
           id: 1,
@@ -158,6 +160,18 @@ describe('CaseHttpMapper.toResponse', () => {
       folder: null,
       active: true,
     });
+  });
+
+  // D-143: una causa huérfana no tiene responsable y dice desde cuándo.
+  it('una causa huérfana sale con responsibleLawyer null y orphanedAt como instante ISO 8601', () => {
+    const response = mapper.toResponse({
+      ...anItem(),
+      responsibleLawyer: null,
+      orphanedAt: new Date('2026-11-17T12:00:00.000Z'),
+    });
+
+    expect(response.responsibleLawyer).toBeNull();
+    expect(response.orphanedAt).toBe('2026-11-17T12:00:00.000Z');
   });
 
   // D-112: el estado de cada calificación lo completa el caso de uso. Si llega sin él,
@@ -417,7 +431,7 @@ describe('CaseHttpMapper.fromRegisterResult', () => {
 
   });
 
-  it('produce la misma forma que toResponse: las mismas 30 claves', () => {
+  it('produce la misma forma que toResponse: las mismas claves', () => {
     // Las tres respuestas del contrato son el mismo recurso. Si una ruta
     // agrega o pierde un campo, acá se ve.
     expect(Object.keys(mapper.fromRegisterResult(aResult())).sort()).toEqual(
@@ -460,6 +474,28 @@ describe('CaseHttpMapper.toSearchCriteria', () => {
         jurisdiction: 'No existe un fuero procesal con ese nombre.',
       });
     }
+  });
+
+  describe('filtro unassigned (D-143)', () => {
+    it('reenvía true; false y ausente no filtran', () => {
+      expect(CaseHttpMapper.toSearchCriteria(aQuery({ unassigned: true })).unassigned).toBe(true);
+      expect(CaseHttpMapper.toSearchCriteria(aQuery({ unassigned: false })).unassigned).toBe(false);
+      expect(CaseHttpMapper.toSearchCriteria(aQuery()).unassigned).toBeUndefined();
+      // Con false sí puede ir un responsable: no hay contradicción.
+      expect(() => CaseHttpMapper.toSearchCriteria(aQuery({ unassigned: false, responsibleLawyerId: 3 }))).not.toThrow();
+    });
+
+    it('rechaza unassigned=true con responsibleLawyerId con INVALID_REQUEST', () => {
+      try {
+        CaseHttpMapper.toSearchCriteria(aQuery({ unassigned: true, responsibleLawyerId: 3 }));
+        throw new Error('Se esperaba un error y no se lanzó ninguno.');
+      } catch (error) {
+        expect((error as ValidationError).code).toBe('INVALID_REQUEST');
+        expect((error as ValidationError).details).toEqual({
+          unassigned: 'No puede combinarse con responsibleLawyerId.',
+        });
+      }
+    });
   });
 
   describe('filtro de estado: tres parámetros, un solo valor (CA-20.4)', () => {

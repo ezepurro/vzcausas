@@ -61,6 +61,7 @@ function anItem(dueDate: Date | null, id = 1): CaseListItem {
     courtFeePaid: false,
     client: CLIENT,
     responsibleLawyer: LAWYER,
+    orphanedAt: null,
     legalQualifications: [],
     interruptiveActDates: [],
     prescription: null,

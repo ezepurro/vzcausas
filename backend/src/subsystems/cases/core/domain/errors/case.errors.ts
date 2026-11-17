@@ -47,6 +47,19 @@ export class ExclusiveCaseStateFilterError extends ValidationError {
 }
 
 /**
+ * Emitted by `GET /cases` when `unassigned=true` arrives with `responsibleLawyerId`
+ * (D-143, §3.7): a case cannot be both orphaned and owned by a given lawyer.
+ * Same `INVALID_REQUEST` code as the state filters.
+ */
+export class ExclusiveCaseResponsibleFilterError extends ValidationError {
+  constructor() {
+    super('INVALID_REQUEST', 'Parámetros de query inválidos.', {
+      unassigned: 'No puede combinarse con responsibleLawyerId.',
+    });
+  }
+}
+
+/**
  * Emitted by `GET /cases/{caseId}/cover` when `disposition` is neither `inline` nor
  * `attachment` (HU24, CA-24.10). The contract answers with `INVALID_REQUEST` and the
  * parameter in `details`, not with the pipe's generic `VALIDATION_ERROR`.
@@ -115,6 +128,20 @@ export class CaseFolderNotAvailableError extends BusinessRuleError {
     super(
       'CASE_FOLDER_NOT_AVAILABLE',
       'La causa no tiene su carpeta en Drive creada. Creala antes de generar el expediente.',
+    );
+  }
+}
+
+/**
+ * Emitted by `Case.leaveWithoutResponsible` (HU15, D-143) when the case cannot become orphaned:
+ * it was given de baja or it already has no responsible. Reaching it is a programming error of
+ * the caller, which only offers cases in force with a lawyer; the contract has no code for it.
+ */
+export class CannotOrphanCaseError extends BusinessRuleError {
+  constructor(caseId: number) {
+    super(
+      'CASE_CANNOT_BE_ORPHANED',
+      `La causa ${caseId} no puede quedar sin asignar: está dada de baja o ya no tiene responsable.`,
     );
   }
 }

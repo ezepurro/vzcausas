@@ -7,6 +7,8 @@ import { ProceduralRole } from './procedural-role';
 const SECRETARY_LABEL = 'SECRETARIO/A:';
 const INSTRUCTOR_LABEL = 'INSTRUCTOR:';
 const LAWYER_LABEL = 'DEFENSOR: DR.';
+/** The lawyer line of an orphaned case (D-143); the contract does not say what to print, so this is an open decision. */
+const UNASSIGNED_LAWYER_LINE = 'DEFENSOR: Sin asignar';
 
 /** What the sheet reads from a case: a slice of the read model, so the use case passes it as is. */
 export type CoverSheetSource = Pick<
@@ -116,7 +118,10 @@ export class CoverSheet {
     const client = CoverSheet.clientName(source);
 
     if (source.jurisdiction === JurisdictionCode.CRIMINAL) {
-      const lawyerLine = `${LAWYER_LABEL} ${source.responsibleLawyer.firstName} ${source.responsibleLawyer.lastName}`.trim();
+      // An orphaned case has no lawyer to print (D-143): what the sheet shows is an open decision.
+      const lawyerLine = source.responsibleLawyer
+        ? `${LAWYER_LABEL} ${source.responsibleLawyer.firstName} ${source.responsibleLawyer.lastName}`.trim()
+        : UNASSIGNED_LAWYER_LINE;
       // The factory only admits these two roles in CRIMINAL, so anything else is a defense.
       return source.proceduralRole === ProceduralRole.QUERELLANTE_PARTICULAR
         ? { plaintiff: [`QUERELLANTE (${client})`, lawyerLine], defendant: [] }

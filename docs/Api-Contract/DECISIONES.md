@@ -452,8 +452,11 @@ que deshacer de la D-140 de la baja de causas.
 - **Esquema (requiere migración).** En `cases`: `responsible_lawyer_id` pasa a
   ser opcional (hoy `Int` obligatorio con `onDelete: Restrict`,
   `schema.prisma:415` y `:496`), se suma `orphaned_at` y un `CHECK` que solo
-  permite el `null` junto con `orphaned_at`. Las migraciones las corre el
-  equipo con `npx prisma migrate dev`, según `USO_PRISMA.md`.
+  permite el `null` junto con `orphaned_at`. Además, `registered_by_lawyer_id`
+  pasa a ser opcional en `procedural_acts` y en `interruptive_acts`: en una
+  huérfana no hay responsable que guardar al registrar un acto (D-144). Las
+  migraciones las corre el equipo con `npx prisma migrate dev`, según
+  `USO_PRISMA.md`.
 - **`cases`.** `POST /cases` sigue exigiendo responsable y `PATCH` rechaza
   `null`. El listado suma el filtro `unassigned`. Un `PATCH` con
   `responsibleLawyerId` sobre una huérfana la reasigna y borra `orphaned_at`.

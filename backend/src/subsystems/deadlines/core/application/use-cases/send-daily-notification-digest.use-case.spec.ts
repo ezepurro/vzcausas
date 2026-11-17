@@ -247,6 +247,20 @@ describe("SendDailyNotificationDigestUseCase", () => {
     expect(toUno.html).not.toContain("GÓMEZ");
   });
 
+  // D-143: an orphaned case has no lawyer to copy; the mailbox still gets it. Task T1.4 covers the rest.
+  it("sends a notice of an orphaned case to the mailbox only, without a lawyer copy", async () => {
+    const { useCase, emailSender } = build(true);
+
+    const result = await useCase.execute({
+      deadlineNotices: [deadlineNotice({ responsibleLawyerId: null })],
+      prescriptionNotices: [],
+    });
+
+    expect(result.lawyerSends).toEqual([]);
+    expect(emailSender.sent).toHaveLength(1);
+    expect(emailSender.sent[0].to).toEqual([MAILBOX]);
+  });
+
   it("skips a lawyer with no linked email, without throwing (CA-30.5)", async () => {
     const { useCase, emailSender } = build(true);
     // lawyerContacts has no entry for lawyerId 10 at all.

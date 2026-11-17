@@ -781,7 +781,7 @@ hay una tabla de historial aparte.
 | `deadline_computed_due_date` | DATE | 4 B |  | Sí | Vencimiento calculado por el sistema según los días y el tipo de cómputo. Nulo si el estado no abre plazo. |
 | `deadline_manual_due_date` | DATE | 4 B |  | Sí | Vencimiento ajustado a mano por el abogado. Mayor o igual a `deadline_counts_from`. El vencimiento vigente es este valor o, si es nulo, el calculado. |
 | `registered_by_user_id` | INTEGER | 4 B | FK | No | Usuario que registró el acto (→ `users.id`). |
-| `registered_by_lawyer_id` | INTEGER | 4 B | FK | No | Abogado responsable al momento del registro (→ `lawyers.id`). Si la causa cambia de responsable, el historial conserva quién lo era. |
+| `registered_by_lawyer_id` | INTEGER | 4 B | FK | Sí | Abogado responsable al momento del registro (→ `lawyers.id`). Si la causa cambia de responsable, el historial conserva quién lo era. Nulo si la causa era huérfana y lo registró un administrador (D-143, D-144). |
 | `registered_at` | TIMESTAMPTZ | 8 B |  | No | Fecha y hora de registro. No cambia al modificar el acto. |
 | `last_modified_by_user_id` | INTEGER | 4 B | FK | Sí | Usuario que modificó el acto por última vez (→ `users.id`), HU28, D-98. Nulo si el acto nunca se modificó. |
 | `last_modified_at` | TIMESTAMPTZ | 8 B |  | Sí | Fecha y hora de la última modificación. Se informa junto con `last_modified_by_user_id`, los dos o ninguno, y nunca es anterior a `registered_at`. |
@@ -816,7 +816,7 @@ en el fuero `CRIMINAL`.
 | `act_date` | DATE | 4 B |  | No | Fecha del acto. Si es la más reciente de la causa, desde ella se recalcula la prescripción de los hechos. |
 | `notes` | VARCHAR | 2000 |  | Sí | Observaciones del acto. |
 | `registered_by_user_id` | INTEGER | 4 B | FK | No | Usuario que registró el acto (→ `users.id`). |
-| `registered_by_lawyer_id` | INTEGER | 4 B | FK | No | Abogado responsable al momento del registro (→ `lawyers.id`). |
+| `registered_by_lawyer_id` | INTEGER | 4 B | FK | Sí | Abogado responsable al momento del registro (→ `lawyers.id`). Nulo si la causa era huérfana (D-143, D-144). |
 | `registered_at` | TIMESTAMPTZ | 8 B |  | No | Fecha y hora de registro. |
 
 Índices: `interruptive_acts_case_id_act_date_id_idx` (`case_id`,

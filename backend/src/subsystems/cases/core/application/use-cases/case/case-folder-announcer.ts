@@ -40,6 +40,10 @@ export class CaseFolderAnnouncer {
         return;
       }
       // A lawyer given de baja keeps their folder: look them up active or not.
+      if (target.responsibleLawyerId === null) {
+        // The folder of an orphaned case goes to `Sin asignar` (D-143): task T1.5 of IMPLEMENTACION_CAUSAS_HUERFANAS.md.
+        throw new Error(`The case ${target.id} has no responsible lawyer: its folder is not handled yet (task T1.5).`);
+      }
       const lawyer = await this.people.findLawyerById(target.responsibleLawyerId);
       if (!lawyer) {
         throw new Error(`The lawyer ${target.responsibleLawyerId} of case ${target.id} does not exist.`);

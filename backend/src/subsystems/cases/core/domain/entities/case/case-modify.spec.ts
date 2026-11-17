@@ -72,6 +72,7 @@ const aPrescribedCase = () =>
     instructor: { name: null, phone: null, extension: null },
     clientId: 1,
     responsibleLawyerId: 2,
+    orphanedAt: null,
     startDate: day('2026-09-01'),
     courtFeePaid: false,
     currentStateId: 26,

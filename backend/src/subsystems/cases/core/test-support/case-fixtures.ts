@@ -170,6 +170,13 @@ export function aCase(overrides: Partial<NewCaseInput> = {}): Case {
   return CaseFactory.create(aNewCaseInput(overrides));
 }
 
+/** A criminal case in the initial state whose lawyer was given de baja and left "Sin asignar" (D-143). */
+export function anOrphanedCase(overrides: Partial<NewCaseInput> = {}): Case {
+  const target = aCase(overrides);
+  target.leaveWithoutResponsible(NOW);
+  return target;
+}
+
 /** An administrative case in the initial state. */
 export function anAdministrativeCase(overrides: Partial<NewCaseInput> = {}): Case {
   return aCase({
@@ -232,6 +239,7 @@ export function aCaseInState(
     instructor: { name: null, phone: null, extension: null },
     clientId: CLIENT.id,
     responsibleLawyerId: LAWYER.id,
+    orphanedAt: null,
     startDate: day('2026-09-01'),
     courtFeePaid: false,
     currentStateId,

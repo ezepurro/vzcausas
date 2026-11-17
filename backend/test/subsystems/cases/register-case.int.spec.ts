@@ -152,6 +152,7 @@ describe('POST /api/v1/cases', () => {
         firstName: lawyer.firstName,
         registrationNumber: lawyer.registrationNumber,
       },
+      orphanedAt: null,
       legalQualifications: [
         {
           id: qualification.id,
