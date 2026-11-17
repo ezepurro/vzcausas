@@ -63,7 +63,7 @@ que el contrato fija de él está en
 | `GET`    | `/lawyers`                                            |      Sí       | Cualquier usuario autenticado | Consultar abogados |
 | `GET`    | `/lawyers/{lawyerId}`                                 |      Sí       | Cualquier usuario autenticado | Consultar abogado |
 | `PATCH`  | `/lawyers/{lawyerId}`                                 |      Sí       | `ADMINISTRATOR`               | Modificar abogado (HU14) |
-| `DELETE` | `/lawyers/{lawyerId}`                                 |      Sí       | `ADMINISTRATOR`               | Dar de baja abogado y reasignar o dar de baja sus causas activas (HU15) **(V6, D-140)** |
+| `DELETE` | `/lawyers/{lawyerId}`                                 |      Sí       | `ADMINISTRATOR`               | Dar de baja abogado y reasignar o dejar sin responsable sus causas activas (HU15) **(V6, D-143)** |
 | `POST`   | `/procedural-states`                                  |      Sí       | Cualquier usuario autenticado | Registrar estado procesal |
 | `GET`    | `/procedural-states`                                  |      Sí       | Cualquier usuario autenticado | Consultar estados procesales |
 | `GET`    | `/procedural-states/{stateId}`                        |      Sí       | Cualquier usuario autenticado | Consultar estado procesal |
@@ -89,13 +89,13 @@ que el contrato fija de él está en
 | `POST`   | `/cases/{caseId}/prescription`                        |      Sí       | `ADMINISTRATOR` o abogado responsable de la causa ³ | Marcar toda la causa como prescripta: declara las calificaciones que faltan (D-113) |
 | `POST`   | `/cases/{caseId}/legal-qualifications/{legalQualificationId}/prescription` | Sí | `ADMINISTRATOR` o abogado responsable de la causa ³ | Declarar prescripta una calificación legal de la causa (D-113) |
 | `POST`   | `/cases/{caseId}/folder`                              |      Sí       | Quien opera la causa ³        | Crear o reintentar la carpeta de la causa |
-| `POST`   | `/cases/{caseId}/procedural-acts`                     |      Sí       | Abogado responsable de la causa | Registrar acto procesal |
-| `GET`    | `/cases/{caseId}/procedural-acts/deadline-preview`    |      Sí       | Abogado responsable de la causa | Previsualizar el vencimiento de un acto |
+| `POST`   | `/cases/{caseId}/procedural-acts`                     |      Sí       | Abogado responsable de la causa o, **(D-143)** en una causa huérfana, `ADMINISTRATOR` | Registrar acto procesal |
+| `GET`    | `/cases/{caseId}/procedural-acts/deadline-preview`    |      Sí       | Abogado responsable de la causa o, **(D-143)** en una causa huérfana, `ADMINISTRATOR` | Previsualizar el vencimiento de un acto |
 | `GET`    | `/cases/{caseId}/procedural-acts`                     |      Sí       | Cualquier usuario autenticado | Consultar actos procesales |
 | `GET`    | `/cases/{caseId}/procedural-acts/{actId}`             |      Sí       | Cualquier usuario autenticado | Consultar acto procesal |
-| `PATCH`  | `/cases/{caseId}/procedural-acts/{actId}`             |      Sí       | Abogado responsable de la causa | Modificar acto procesal (HU28) |
-| `DELETE` | `/cases/{caseId}/procedural-acts/{actId}`             |      Sí       | Abogado responsable de la causa | Anular acto procesal (HU29) **(V6)** |
-| `POST`   | `/cases/{caseId}/interruptive-acts`                   |      Sí       | Abogado responsable de la causa | Registrar acto interruptivo |
+| `PATCH`  | `/cases/{caseId}/procedural-acts/{actId}`             |      Sí       | Abogado responsable de la causa o, **(D-143)** en una causa huérfana, `ADMINISTRATOR` | Modificar acto procesal (HU28) |
+| `DELETE` | `/cases/{caseId}/procedural-acts/{actId}`             |      Sí       | Abogado responsable de la causa o, **(D-143)** en una causa huérfana, `ADMINISTRATOR` | Anular acto procesal (HU29) **(V6)** |
+| `POST`   | `/cases/{caseId}/interruptive-acts`                   |      Sí       | Abogado responsable de la causa o, **(D-143)** en una causa huérfana, `ADMINISTRATOR` | Registrar acto interruptivo |
 | `GET`    | `/cases/{caseId}/interruptive-acts`                   |      Sí       | Cualquier usuario autenticado | Consultar actos interruptivos |
 | `GET`    | `/cases/{caseId}/timeline`                            |      Sí       | Cualquier usuario autenticado | Consultar línea de vida de la causa |
 | `GET`    | `/cases/{caseId}/documents`                           |      Sí       | Cualquier usuario autenticado | Consultar documentos de la causa (HU38) |
@@ -1723,7 +1723,7 @@ El campo `activeCases` no es modificable: lo calcula el backend.
 #### `DELETE /lawyers/{lawyerId}`
 
 Da de baja un abogado y, en la misma operación, reasigna sus causas activas a
-otros abogados o, **(D-140)**, da de baja las que no pasan a nadie.
+otros abogados o, **(D-143)**, deja sin responsable las que no pasan a nadie.
 
 **Rol requerido:** `ADMINISTRATOR`.
 
@@ -1732,14 +1732,18 @@ otros abogados o, **(D-140)**, da de baja las que no pasan a nadie.
 > eliminarlo", con la lista "Sin asignar", los abogados de destino ("Pasan a")
 > y el botón "Eliminar y reasignar".
 >
-> **(D-140)** El prototipo solo ofrece reasignar. Además, una causa que el
-> administrador deja "Sin asignar" **se da de baja** en la misma operación, con
-> el motivo "Abogado dado de baja y no reasignada". El formulario lo aclara en
-> cada causa sin asignar ("Se dará de baja: Abogado dado de baja y no
-> reasignada") y en la confirmación, que lista esas causas antes de enviar. El
-> formulario manda esas causas en el reparto con `deactivate: true`: una causa
-> que no figura en el reparto no se da de baja, sino que corta la operación
-> (regla 3). En esto manda la decisión del equipo.
+> **(D-143)** El prototipo solo ofrece reasignar. Además, una causa que el
+> administrador deja "Sin asignar" **queda huérfana**: sin abogado responsable
+> (`responsibleLawyerId: null`), con su estado procesal intacto, y se la puede
+> reasignar después con [`PATCH /cases/{caseId}`](#patch-casescaseid). Si el
+> estudio no la quiere reasignar, la da de baja después con
+> [`DELETE /cases/{caseId}`](#delete-casescaseid). El formulario aclara en cada
+> causa sin asignar que queda sin responsable hasta que se la reasigne, y la
+> confirmación las lista antes de enviar. El formulario manda esas causas en el
+> reparto con `unassigned: true`: una causa que no figura en el reparto no
+> queda huérfana, sino que corta la operación (regla 3). En esto manda la
+> decisión del equipo (D-143, que reemplaza a la D-140 de la baja de causas).
+> Ver [Causa huérfana](#causa-huérfana).
 
 **La baja es lógica, pero el cliente no la percibe.** El backend establece
 `active` en `false` y conserva el registro; para el cliente el abogado deja de
@@ -1753,11 +1757,11 @@ Se evalúan en este orden; la primera que no se cumple corta la operación:
 
 1. **El abogado existe y está vigente.** Si no, `404 LAWYER_NOT_FOUND`.
 2. **El cuerpo es válido** (ver más abajo). Si no, `400 VALIDATION_ERROR`.
-3. **Todas sus causas activas quedan resueltas**: reasignadas o, **(D-140)**,
-   marcadas para darse de baja. Si alguna causa activa del abogado no figura
-   en `reassignments` —por ejemplo, porque se le asignó una causa nueva
+3. **Todas sus causas activas quedan resueltas**: reasignadas o, **(D-143)**,
+   marcadas para quedar sin responsable. Si alguna causa activa del abogado no
+   figura en `reassignments` —por ejemplo, porque se le asignó una causa nueva
    mientras el formulario estaba abierto—, `409 LAWYER_HAS_DEPENDENCIES`, sin
-   cambiar nada. Una causa que no figura **nunca se da de baja por omisión**:
+   cambiar nada. Una causa que no figura **nunca queda huérfana por omisión**:
    la causa nueva no la vio nadie en el formulario ni en su aclaración. El
    formulario vuelve a pedir las causas del abogado y la muestra "Sin asignar".
 
@@ -1787,17 +1791,16 @@ abogado, que dice qué pasa con ella. Cada entrada hace **una de dos cosas**:
 
 - **Reasigna la causa**: lleva `responsibleLawyerId`, el abogado que pasa a ser
   su responsable. Las causas se pueden repartir entre varios abogados.
-- **(D-140) Da de baja la causa**: lleva `deactivate: true`. Es la causa que
-  quedó "Sin asignar" en el formulario. El motivo no se envía: el backend
-  registra siempre **"Abogado dado de baja y no reasignada"**, como el
-  `reason` de [`DELETE /cases/{caseId}`](#delete-casescaseid).
+- **(D-143) Deja la causa sin responsable**: lleva `unassigned: true`. Es la
+  causa que quedó "Sin asignar" en el formulario. No se envía ningún motivo: la
+  causa queda huérfana (ver [Causa huérfana](#causa-huérfana)).
 
 ```json
 {
 	"reassignments": [
 		{ "caseId": 1, "responsibleLawyerId": 4 },
 		{ "caseId": 9, "responsibleLawyerId": 4 },
-		{ "caseId": 12, "deactivate": true }
+		{ "caseId": 12, "unassigned": true }
 	]
 }
 ```
@@ -1806,43 +1809,41 @@ abogado, que dice qué pasa con ella. Cada entrada hace **una de dos cosas**:
 | -------------------------------------- | -------- | :-------: | ------------- |
 | `reassignments`                        | Object[] | Si el abogado tiene causas activas | Una entrada por cada causa activa del abogado, sin repetir causas. Si no tiene causas activas, puede omitirse, ir vacío o no enviarse cuerpo |
 | `reassignments[].caseId`               | Integer  |    Sí     | Una causa activa de la que el abogado es responsable |
-| `reassignments[].responsibleLawyerId`  | Integer  | Si la entrada no lleva `deactivate` | Un abogado vigente, distinto del que se da de baja. No puede ir junto con `deactivate` |
-| `reassignments[].deactivate` **(D-140)** | Boolean | Si la entrada no lleva `responsibleLawyerId` | Solo `true`. No puede ir junto con `responsibleLawyerId` |
+| `reassignments[].responsibleLawyerId`  | Integer  | Si la entrada no lleva `unassigned` | Un abogado vigente, distinto del que se da de baja. No puede ir junto con `unassigned` |
+| `reassignments[].unassigned` **(D-143)** | Boolean | Si la entrada no lleva `responsibleLawyerId` | Solo `true`. No puede ir junto con `responsibleLawyerId` |
 
 Una causa que no es una causa activa de este abogado, una causa repetida, un
 abogado de destino inexistente, dado de baja o igual al que se da de baja, o
-**(D-140)** una entrada sin `responsibleLawyerId` ni `deactivate`, una con los
-dos o un `deactivate` que no es `true` responden `400 VALIDATION_ERROR`, con el detalle en
+**(D-143)** una entrada sin `responsibleLawyerId` ni `unassigned`, una con los
+dos o un `unassigned` que no es `true` responden `400 VALIDATION_ERROR`, con el detalle en
 `details.reassignments` (mismo criterio que D-22: es un dato del formulario
 para corregir).
 
 **(V6) Efectos de la baja**
 
-- **Es atómica.** Las reasignaciones, **(D-140)** las bajas de causas y la baja
-  del abogado se aplican juntas, en una sola transacción: si algo falla, no
-  cambia nada.
+- **Es atómica.** Las reasignaciones, **(D-143)** las causas que quedan sin
+  responsable y la baja del abogado se aplican juntas, en una sola
+  transacción: si algo falla, no cambia nada.
 - **Cada reasignación es un cambio de responsable**, con los mismos efectos que
   cambiar `responsibleLawyerId` con
   [`PATCH /cases/{caseId}`](#patch-casescaseid): queda en la auditoría de la
   causa, el nuevo responsable pasa a operarla (ver
   [Operación de la causa](#operación-de-la-causa)), y la causa pasa a contar en
   su `activeCases`, en su tablero y en sus avisos diarios.
-- **(D-140) Cada baja de causa tiene los efectos de
-  [`DELETE /cases/{caseId}`](#delete-casescaseid)**: la causa deja de existir
-  para el cliente (`404 CASE_NOT_FOUND`, también en sus subrecursos), sale de
-  los `activeCases` de su cliente y sus calificaciones, de los tableros, del
-  proceso diario y del reporte del mes en curso, y su SAC queda libre. El
-  motivo "Abogado dado de baja y no reasignada", el usuario y la fecha quedan
-  en la auditoría de la causa. No hay
-  reactivación por la API. Dar de baja causas es una operación que el
-  `ADMINISTRATOR` ya puede hacer (D-110), así que no hace falta otro permiso.
+- **(D-143) Cada causa que queda sin responsable** pasa a ser una
+  [causa huérfana](#causa-huérfana): `responsibleLawyerId` queda en `null` y se
+  registra desde cuándo (`orphanedAt`). **No cambia su estado procesal ni sus
+  plazos**, y sigue siendo una causa activa y vigente: el cliente la sigue
+  viendo, cuenta en los `activeCases` de su cliente y conserva su SAC. El
+  usuario y la fecha quedan en la auditoría de la causa, como en cualquier
+  cambio de responsable.
 - **Drive.** La carpeta de cada causa reasignada se mueve a
   `/{nuevo abogado}/{fuero}/`, igual que en el `PATCH` (ver
-  [Carpeta de la causa](#carpeta-de-la-causa)). **(D-140)** La de cada causa
-  dada de baja se mueve a `/VZ Causas/Papelera/`, igual que en el `DELETE` de
-  la causa. **Si Drive no responde, la baja no falla**: las causas quedan
-  reasignadas o dadas de baja, y el proceso diario mueve las carpetas de las
-  reasignadas después.
+  [Carpeta de la causa](#carpeta-de-la-causa)). **(D-143)** La de cada causa
+  huérfana se mueve a `/Sin asignar/{fuero}/` (dentro de `Causas`) y, cuando
+  se la reasigna, el `PATCH` la mueve a `/{nuevo abogado}/{fuero}/`. **Si Drive
+  no responde, la baja no falla**: las causas quedan reasignadas o huérfanas, y
+  el proceso diario mueve las carpetas después.
 - **La carpeta del propio abogado** (`/VZ Causas/Causas/{abogado}/`):
   - Si el abogado tiene causas en un estado terminal, su carpeta **queda en
     Drive, con esas causas adentro**, como historial del abogado.
@@ -1852,7 +1853,7 @@ para corregir).
     Ríos—, el sistema las mueve a `/{su responsable}/{fuero}/`, donde
     corresponden.
   - Si no tiene causas terminales, después de mover las carpetas de sus causas
-    activas (a su nuevo responsable o, **(D-140)**, a la `Papelera`) y las de
+    activas (a su nuevo responsable o, **(D-143)**, a `Sin asignar`) y las de
     otros abogados, **su carpeta se mueve a
     `/VZ Causas/Papelera/` con lo que quede adentro** (un archivo suelto, una
     carpeta que el sistema no creó). **No se borra nada**, por si es
@@ -1876,7 +1877,8 @@ para corregir).
     (`POST /auth/refresh`), como cualquier cambio de roles.
 - El abogado dado de baja deja de aparecer en `team` del tablero del
   administrador y en el reporte mensual del mes en curso (§3.13). Los reportes
-  de meses cerrados lo conservan, porque son una foto.
+  de meses cerrados lo conservan, porque son una foto. **(D-143, D-145)** Las
+  causas huérfanas cuentan en el reporte como "Sin asignar" (`unassigned`).
 
 **Respuestas**
 
@@ -1950,15 +1952,15 @@ La respuesta no contiene cuerpo.
 
 **`409 Conflict`**
 
-**(V6)** Quedan causas activas sin reasignar ni marcar para darse de baja
-(regla 3, D-140). El cliente vuelve a pedir las causas del abogado y rearma el
+**(V6)** Quedan causas activas sin reasignar ni marcar como "Sin asignar"
+(regla 3, D-143). El cliente vuelve a pedir las causas del abogado y rearma el
 reparto:
 
 ```json
 {
 	"error": {
 		"code": "LAWYER_HAS_DEPENDENCIES",
-		"message": "El abogado tiene causas activas sin reasignar ni dar de baja.",
+		"message": "El abogado tiene causas activas sin reasignar ni dejar sin asignar.",
 		"details": null
 	}
 }
@@ -3633,7 +3635,8 @@ El recurso causa posee la siguiente estructura:
 | `administrativeRemedyExhaustedOn` | String (fecha ISO 8601) \| `null` | Sí | **Nuevo.** Fecha de agotamiento de la vía administrativa. Solo en `ADMINISTRATIVE`; `null` mientras no se agotó o en los demás fueros |
 | `courtFeePaid`            | Boolean                       |  No  | **Nuevo.** Si se pagó la tasa de justicia. En los tres fueros |
 | `client`                  | Object                        |  No  | Cliente de la causa. Ver estructura más abajo                                                 |
-| `responsibleLawyer`       | Object                        |  No  | Abogado responsable (RN3): `id`, `lastName`, `firstName`, `registrationNumber` (`null` si no tiene, **(Revisión del 05/11/2026)**) |
+| `responsibleLawyer`       | Object \| `null`              |  No  | Abogado responsable (RN3): `id`, `lastName`, `firstName`, `registrationNumber` (`null` si no tiene, **(Revisión del 05/11/2026)**). **(D-143)** `null` en una [causa huérfana](#causa-huérfana), sin abogado responsable |
+| `orphanedAt` **(D-143)**  | String (ISO 8601) \| `null`   |  No  | Desde cuándo la causa no tiene abogado responsable. `null` si lo tiene |
 | `legalQualifications`     | Object[]                      |  No  | Calificaciones legales, cada una con su fecha del hecho y su prescripción. Opcional en `CRIMINAL`; vacío en los demás |
 | `prescription`            | Object \| `null`              |  Sí  | **Nuevo.** Prescripción que rige la causa: la de la calificación que prescribe primero. `null` si la causa no computa prescripción. Calculado |
 | `prescriptionDeclaration` | Object \| `null`              |  Sí  | **Nuevo.** Constancia de que la causa fue marcada como prescripta (HU33). `null` mientras no lo fue |
@@ -4280,7 +4283,8 @@ otra causa urgente, y aparece con "Solo con plazo por vencer".
 | `limit`               | Integer |    No     | `20`              | Entre `1` y `100`               | Cantidad máxima de elementos por página                                     |
 | `search`              | String  |    No     | -                 | -                               | Filtra por `sacNumber`, por `caption` y por apellido y nombres del cliente  |
 | `jurisdiction`        | String  |    No     | -                 | Fuero válido                    | Filtro "Todos los fueros"                                                   |
-| `responsibleLawyerId` | Integer |    No     | -                 | -                               | Filtro "Todos los responsables"                                             |
+| `responsibleLawyerId` | Integer |    No     | -                 | Excluyente con `unassigned`     | Filtro "Todos los responsables"                                             |
+| `unassigned` **(D-143)** | Boolean |  No     | -                 | Excluyente con `responsibleLawyerId` | `true`: solo las [causas huérfanas](#causa-huérfana), sin abogado responsable. Es como se las encuentra para reasignarlas |
 | `proceduralStateId`   | Integer |    No     | -                 | Excluyente con `customState` y `withoutProceduralActs` | Filtro "Todos los estados procesales": estado de la tabla |
 | `customState`         | String  |    No     | -                 | Excluyente con `proceduralStateId` y `withoutProceduralActs` | Mismo filtro, grupo "Escritos a mano en causas". Coincidencia exacta sin distinguir mayúsculas |
 | `withoutProceduralActs` | Boolean |  No     | -                 | Excluyente con `proceduralStateId` y `customState` | Mismo filtro, grupo "Causas nuevas", opción "Iniciada". `true`: solo causas en el estado inicial (`currentState.initial` en `true`) |
@@ -4891,6 +4895,10 @@ libre para eso.
   la próxima petición. Los actos ya registrados conservan su
   `registeredBy`. La carpeta en Drive **se mueve** a la del nuevo abogado
   (`/VZ Causas/Causas/{abogado}/{fuero}/`), que se crea si no existe.
+  **(D-143)** No se puede quitar: `responsibleLawyerId` en `null` responde
+  `400 VALIDATION_ERROR`. Sí se puede **asignar uno a una
+  [causa huérfana](#causa-huérfana)**: es la forma de reasignarla, y la
+  carpeta pasa de `Sin asignar` a la del nuevo abogado.
 - **Carátula (`caption`).** Cambiarla **renombra** la carpeta de la causa en
   Drive, con las mismas reglas de nombre que al crearla.
 - **Carpeta en Drive.** El movimiento y el cambio de nombre no hacen fallar la
@@ -6080,7 +6088,8 @@ operación puede repetirse.
 
 **Autenticación requerida:** Sí.
 **Rol requerido:** abogado responsable de la causa, para el registro y su
-previsualización. La consulta de actos (HU27) es de cualquier
+previsualización. **(D-143)** En una [causa huérfana](#causa-huérfana), el
+`ADMINISTRATOR`, y el acto queda registrado a su nombre. La consulta de actos (HU27) es de cualquier
 usuario autenticado, sobre cualquier causa (RN11).
 
 El acto procesal es lo que **mueve la causa**: al registrarlo se elige el
@@ -6112,7 +6121,7 @@ El recurso acto procesal posee la siguiente estructura:
 | `notificationDate` | String (fecha ISO 8601) \| `null` | Sí | Fecha de notificación. Solo en el fuero `ADMINISTRATIVE` (RN6)                  |
 | `notes`            | String \| `null`              |  Sí  | Observaciones: situaciones que el estado no alcanza a expresar                      |
 | `deadline`         | Object \| `null`              |  Sí  | Plazo que abre el acto. `null` si no abre ninguno. Ver estructura más abajo         |
-| `registeredBy`     | Object                        |  No  | Usuario (abogado) que registró el acto: `id`, `lastName` y `firstName`                           |
+| `registeredBy`     | Object                        |  No  | Usuario (abogado o, **(D-143)** en una causa huérfana, administrador) que registró el acto: `id`, `lastName` y `firstName` |
 | `registeredAt`     | String (ISO 8601)             |  No  | Fecha y hora del registro                                                           |
 | `lastModifiedBy`   | Object \| `null`              |  Sí  | Usuario que modificó el acto por última vez (HU28): `id`, `lastName` y `firstName`. `null` si nunca se modificó |
 | `lastModifiedAt`   | String (ISO 8601) \| `null`   |  Sí  | Fecha y hora de la última modificación. `null` si nunca se modificó         |
@@ -6174,7 +6183,10 @@ Registra un acto procesal sobre la causa (HU26).
 **Rol requerido:** abogado responsable de la causa. El usuario autenticado
 debe tener una ficha de abogado (`lawyerId`) igual a `responsibleLawyer.id` de
 la causa. Ningún otro usuario puede registrar actos sobre ella, aunque tenga el
-rol `LAWYER` o `ADMINISTRATOR`: la respuesta es `403 FORBIDDEN`. Si la causa no
+rol `LAWYER` o `ADMINISTRATOR`: la respuesta es `403 FORBIDDEN`. **(D-143)** La
+excepción es la [causa huérfana](#causa-huérfana), que no tiene responsable: la
+registra un `ADMINISTRATOR`, sin importar si tiene ficha de abogado, y
+`registeredBy` es él. Si la causa no
 existe, la respuesta es `404 CASE_NOT_FOUND`.
 
 **Parámetros de ruta**
@@ -6429,8 +6441,8 @@ Con estado escrito a mano y vencimiento manual:
 
 Calcula el vencimiento que tendría un acto procesal, **sin registrarlo**.
 
-**Rol requerido:** abogado responsable de la causa, igual que el registro del
-acto al que sirve.
+**Rol requerido:** abogado responsable de la causa (o, **(D-143)** en una causa
+huérfana, `ADMINISTRATOR`), igual que el registro del acto al que sirve.
 
 Alimenta el panel "Cómputo del plazo" del formulario de HU26, que muestra el
 vencimiento mientras el usuario completa los datos. Existe para que el cálculo
@@ -6782,7 +6794,8 @@ Modifica los datos de un acto procesal registrado, para corregir
 errores en la carga (HU28).
 
 **Rol requerido:** abogado responsable de la causa, igual que el registro. Cualquier otro usuario, aunque tenga el rol `LAWYER` o
-`ADMINISTRATOR`, recibe `403 FORBIDDEN`. Si después de registrar el acto la
+`ADMINISTRATOR`, recibe `403 FORBIDDEN`. **(D-143)** En una causa huérfana lo
+modifica un `ADMINISTRATOR`, y `lastModifiedBy` es él. Si después de registrar el acto la
 causa cambió de responsable, lo modifica el responsable **actual**, no quien
 lo registró.
 
@@ -6998,7 +7011,8 @@ duplicado.
 **Rol requerido:** abogado responsable de la causa, igual que el registro y la
 modificación. Cualquier otro usuario, aunque tenga el rol `LAWYER` o
 `ADMINISTRATOR`, recibe `403 FORBIDDEN` ("Solo el abogado responsable de la
-causa anula sus actos procesales", como avisa el prototipo). Primero `404`,
+causa anula sus actos procesales", como avisa el prototipo). **(D-143)** En una
+causa huérfana lo anula un `ADMINISTRATOR`. Primero `404`,
 después `403`.
 
 Es el botón "Anular" de cada acto del ciclo de vida, con el formulario
@@ -7138,7 +7152,8 @@ Los actos de una causa "Prescripta" no se anulan, igual que no se modifican
 ### 3.9 Actos interruptivos: /cases/{caseId}/interruptive-acts
 
 **Autenticación requerida:** Sí.
-**Rol requerido:** abogado responsable de la causa, para el registro. La
+**Rol requerido:** abogado responsable de la causa, para el registro
+(**(D-143)** en una causa huérfana, `ADMINISTRATOR`). La
 consulta es de cualquier usuario autenticado (RN11).
 
 Un acto interruptivo **reinicia el cómputo de la prescripción** de la causa
@@ -7211,6 +7226,7 @@ Registra un acto interruptivo sobre una causa penal (HU31).
 
 **Rol requerido:** abogado responsable de la causa. Cualquier otro usuario
 recibe `403 FORBIDDEN`, aunque tenga el rol `LAWYER` o `ADMINISTRATOR`.
+**(D-143)** En una causa huérfana, la excepción es el `ADMINISTRATOR`.
 
 **Parámetros de ruta**
 
@@ -9313,9 +9329,12 @@ Se pide de a un mes; no hay reportes de otros intervalos.
   mes en curso. Un período anterior o futuro responde `404
   MONTHLY_REPORT_NOT_FOUND`.
 - **Los datos de una foto conservan lo que valían ese mes**: un abogado dado de
-  baja después sigue figurando en la carga de los meses en que estaba, con el
-  nombre que tenía. Es la única excepción a que lo dado de baja no exista para
-  el cliente (§4, [Bajas](#bajas)): la foto es un documento histórico.
+  baja después sigue figurando en la carga de los meses **cerrados antes de su
+  baja**, con el nombre que tenía. **(D-145)** El mes en que se lo da de baja
+  ya no lo incluye: la foto se toma después, con los datos de ese momento, y
+  ese mes cuenta sus causas con su nuevo responsable o como "Sin asignar".
+  Es la única excepción a que lo dado de baja no exista para el cliente (§4,
+  [Bajas](#bajas)): la foto es un documento histórico.
 
 #### Qué cuenta el reporte
 
@@ -9331,7 +9350,7 @@ hoy:
 | **Activa a una fecha** | Su `startDate` no es posterior a esa fecha y, a esa fecha, no está en un estado terminal. El estado a una fecha es el del acto vigente más reciente con `actDate` hasta esa fecha (D-14), o "Prescripta" si para entonces ya estaba declarada |
 | **Al inicio** | Activas el último día del mes anterior |
 | **Al cierre** | Activas a `dataAsOf`. Siempre vale: al cierre = al inicio + ingresadas − archivadas |
-| **Responsable** | El abogado responsable de la causa cuando se toman los datos. El sistema no guarda el historial de responsables: por eso el mes se fotografía al cerrarlo |
+| **Responsable** | El abogado responsable de la causa cuando se toman los datos. El sistema no guarda el historial de responsables: por eso el mes se fotografía al cerrarlo. **(D-145)** Una [causa huérfana](#causa-huérfana) no tiene responsable: cuenta como "Sin asignar" (`unassigned`) |
 | **Prescripción** | `prescription` de la causa (§4, [Prescripción](#prescripción)) calculada a la fecha de corte: con los actos interruptivos y las declaraciones hasta esa fecha |
 | **Plazos del mes** | Ver [Datos del reporte](#datos-del-reporte), en `deadlines` |
 
@@ -9369,6 +9388,7 @@ parte de sus datos.
 | `lawyers[].lawyer.registrationNumber` | No | Sí | 3 |
 | `lawyers[].criminal`, `administrative`, `amparo`, `total` | Sí | Sí | 3 |
 | `lawyers[].differenceFromAverage` | No | Sí | 3 |
+| `unassigned.criminal`, `administrative`, `amparo`, `total` **(D-145)** | Sí | Sí | 3 |
 | `monthly[].period`, `admitted`, `archived` | Sí | Sí | 4 |
 | `monthly[].balance`, `activeAtEnd` | No | Sí | 4 |
 | `prescription.cases` | Sí | No | — |
@@ -9393,6 +9413,7 @@ a continuación.
 | `byJurisdiction[].archived` | Integer | "Archivadas" del fuero en el mes |
 | `lawyers[].lawyer.registrationNumber` | String \| `null` | Matrícula. `null` si no tiene (el PDF muestra "—") |
 | `lawyers[].differenceFromAverage` | Number | "Vs. promedio": `total` menos `summary.averagePerLawyer`, con un decimal |
+| `unassigned` **(D-145)** | Object | Causas activas al cierre sin abogado responsable ([causas huérfanas](#causa-huérfana)), por fuero y en total. Solo se cuentan: no se nombran. Siempre viene, con ceros si no hay |
 | `monthly[].balance` | Integer \| `null` | "Saldo": `admitted` menos `archived` del mes. `null` en un mes sin datos |
 | `monthly[].activeAtEnd` | Integer \| `null` | "Activas al cierre" de ese mes. `null` en un mes sin datos |
 | `prescription.bands[].percentage` | Integer | Porcentaje del tramo sobre `prescription.cases`, redondeado |
@@ -9406,7 +9427,8 @@ En `byJurisdiction`, la suma de cada columna es el total del estudio: la de
 `archived`.
 
 Cada elemento de `prescription.alerts` tiene `caseId`, `sacNumber`, `caption`,
-`responsibleLawyer` (`id`, `lastName` y `firstName`), `legalQualificationName`,
+`responsibleLawyer` (`id`, `lastName` y `firstName`; **(D-145)** `null` en una
+causa huérfana, que el PDF muestra como "Sin asignar"), `legalQualificationName`,
 `elapsedPercentage` y `expired`, con el mismo significado que en
 `prescriptionAlerts` de los tableros (§3.11), calculados a la fecha de corte.
 
@@ -9474,6 +9496,7 @@ siete abogados y las siete alertas, está en la constante `REPORT` de
 			"differenceFromAverage": -1.1
 		}
 	],
+	"unassigned": { "criminal": 0, "administrative": 0, "amparo": 0, "total": 0 },
 	"monthly": [
 		{ "period": "2026-01", "admitted": 11, "archived": 8, "balance": 3, "activeAtEnd": 86 },
 		{ "period": "2026-02", "admitted": 9, "archived": 10, "balance": -1, "activeAtEnd": 85 },
@@ -9574,6 +9597,7 @@ prescripción y los plazos del mes) no viaja al cliente: está en
 | `summary`          | Object                  | Indicadores del mes |
 | `byJurisdiction`   | Object[]                | Causas activas por fuero. Siempre los tres fueros, en el orden de [`Jurisdiction`](#jurisdiction) |
 | `lawyers`          | Object[]                | Carga por abogado responsable |
+| `unassigned`       | Object                  | **(D-145)** Causas activas sin abogado responsable. Su renglón "Sin asignar" en la carga por abogado |
 | `monthly`          | Object[]                | Ingresadas y archivadas de cada mes del año, de enero al período |
 | `prescription`     | Object                  | Avance de la prescripción de las causas penales activas |
 
@@ -9586,7 +9610,7 @@ prescripción y los plazos del mes) no viaja al cliente: está en
 | `archived`         | Integer           | "Archivadas en el mes" |
 | `admittedChange`   | Integer \| `null` | Diferencia de `admitted` con el mes anterior ("+7 respecto del mes anterior"). `null` si el mes anterior no tiene reporte |
 | `archivedChange`   | Integer \| `null` | Lo mismo para `archived` |
-| `averagePerLawyer` | Number            | "Promedio por abogado": `activeCases` dividido por la cantidad de abogados de `lawyers`, con un decimal. `0` si no hay abogados |
+| `averagePerLawyer` | Number            | "Promedio por abogado": `activeCases` menos `unassigned.total`, dividido por la cantidad de abogados de `lawyers`, con un decimal: las causas sin asignar no cuentan (D-145). `0` si no hay abogados |
 | `minPerLawyer`     | Integer \| `null` | Menor `total` de `lawyers` ("Entre 13 y 17 causas"). `null` si no hay abogados |
 | `maxPerLawyer`     | Integer \| `null` | Mayor `total` de `lawyers` |
 
@@ -9611,6 +9635,23 @@ descendente y, a igualdad, por `lastName` y `firstName`.
 | `administrative`        | Integer | Las del fuero `ADMINISTRATIVE` |
 | `amparo`                | Integer | Las del fuero `AMPARO` |
 | `total`                 | Integer | La suma de los tres |
+
+**`unassigned`** **(D-145)** — el renglón "Sin asignar" de la carga por
+abogado: las causas activas al cierre que no tienen abogado responsable
+([causas huérfanas](#causa-huérfana)). **Solo se cuentan, no se nombran.** No
+es un abogado: no entra en `lawyers`, ni en `averagePerLawyer`, `minPerLawyer`
+y `maxPerLawyer`. Se suma a `activeCases`: `summary.activeCases` es la suma de
+los `total` de `lawyers` y de `unassigned.total`.
+
+| Campo            | Tipo    | Descripción |
+| ---------------- | ------- | ----------- |
+| `criminal`       | Integer | Causas sin asignar del fuero `CRIMINAL` |
+| `administrative` | Integer | Las del fuero `ADMINISTRATIVE` |
+| `amparo`         | Integer | Las del fuero `AMPARO` |
+| `total`          | Integer | La suma de los tres |
+
+Siempre viene, con ceros si no hay causas sin asignar. La pantalla no dibuja
+el renglón cuando `total` es `0`.
 
 **`monthly[]`** — el gráfico de barras. Un elemento por mes, de enero del año
 del período hasta el período, en orden. Cada mes sale de su propia foto (o del
@@ -9671,6 +9712,7 @@ declaradas, D-113).
 				"total": 13
 			}
 		],
+		"unassigned": { "criminal": 0, "administrative": 0, "amparo": 0, "total": 0 },
 		"monthly": [
 			{ "period": "2026-01", "admitted": 11, "archived": 8 },
 			{ "period": "2026-02", "admitted": 9, "archived": 10 },
@@ -9807,14 +9849,16 @@ Es la hoja del prototipo, en A4, sin número de reporte, versión ni huella
 - **3. Carga por abogado responsable.** "Cuadro 2 · Causas activas al cierre.
   Promedio del estudio: {averagePerLawyer} causas por abogado": `lawyers`, con
   la matrícula ("—" si no tiene), las causas por fuero, el total y "Vs.
-  promedio".
+  promedio". **(D-145)** Si hay causas sin asignar, suma una fila "Sin asignar"
+  con sus causas por fuero y el total (`unassigned`), sin "Vs. promedio".
 - **4. Causas ingresadas y archivadas en el año.** "Cuadro 3": `monthly`, con
   el saldo, las activas al cierre y una barra horizontal de ingresadas y otra
   de archivadas por mes. Se resalta la fila del período; un mes sin datos dice
   "Sin datos".
 - **5. Prescripción de la acción.** "Cuadro 4 · Causas penales activas según el
   porcentaje del plazo transcurrido": `prescription.bands`, y la lista de
-  `prescription.alerts` (SAC, carátula, responsable y avance).
+  `prescription.alerts` (SAC, carátula, responsable y avance). **(D-145)** Una causa sin asignar
+  figura con responsable "Sin asignar".
 - **6. Plazos procesales del mes.** Un párrafo con `deadlines`: "En el mes
   vencieron {total} plazos procesales: {metOnTime} se cumplieron con el acto
   correspondiente dentro del término y {metOnLastDay} se cumplieron el último
@@ -9850,7 +9894,7 @@ cada parte y cómo se ve.
 | Título y recuadro | `period`, `dataAsOf`, el usuario autenticado ("Emitido por"), la fecha y la hora de la descarga ("Emitido el") y, en el mes en curso, `status` para la leyenda |
 | 1. Resumen del período | `dataAsOf`, `summary`, `byJurisdiction`, `lawyers` (los abogados con el mayor y el menor `total`) y la cantidad de `prescription.alerts` |
 | 2. Causas por fuero (Cuadro 1) | `byJurisdiction` |
-| 3. Carga por abogado (Cuadro 2) | `lawyers` y `summary.averagePerLawyer` |
+| 3. Carga por abogado (Cuadro 2) | `lawyers`, `unassigned` y `summary.averagePerLawyer` |
 | 4. Ingresadas y archivadas en el año (Cuadro 3) | `monthly` |
 | 5. Prescripción (Cuadro 4 y lista) | `prescription.bands` y `prescription.alerts` |
 | 6. Plazos procesales del mes | `deadlines` y `status` |
@@ -9972,7 +10016,9 @@ la **operación de la causa** (ver [Operación de la causa](#operación-de-la-ca
 revisión del 08/11/2026) son la excepción: no alcanza con un rol. Solo los registra el abogado responsable de la causa,
 comparando el `lawyerId` del usuario con el responsable de la causa (ver
 [§3.8](#38-actos-procesales-casescaseidprocedural-acts) y
-[§3.9](#39-actos-interruptivos-casescaseidinterruptive-acts)).
+[§3.9](#39-actos-interruptivos-casescaseidinterruptive-acts)). **(D-143)** En
+una [causa huérfana](#causa-huérfana), que no tiene responsable, los registra
+y los modifica un `ADMINISTRATOR`.
 
 #### Operación de la causa
 
@@ -9992,17 +10038,22 @@ operar su carpeta ni registrar o modificar actos.
 | Crear o reintentar la carpeta (`POST …/folder`)             |          ✓          |      —       |        ✓        |      ✓      |
 | Marcar prescripta (`POST …/prescription`)                   |          ✓          |      —       |        ✓        |      —      |
 | Declarar prescripta una calificación (`POST …/legal-qualifications/{id}/prescription`, D-113) | ✓ | — | ✓ | — |
-| Registrar y modificar actos procesales e interruptivos, y **(V6)** anular actos procesales |          ✓          |      —       |        —        |      —      |
+| Registrar y modificar actos procesales e interruptivos, y **(V6)** anular actos procesales |          ✓          |      —       |   **(D-143)** solo en una causa huérfana   |      —      |
 
 "Quien opera la causa" es, por lo tanto, el abogado responsable, un
 `ADMINISTRATOR` o una `SECRETARY`. La restricción nueva alcanza solo a los
 abogados: el Administrador y la Secretaría conservan lo que ya tenían.
+**(D-143)** En una causa huérfana no hay abogado responsable, así que ningún
+abogado la opera: la modifican y la reasignan el `ADMINISTRATOR` y la
+`SECRETARY`, y sus actos los registra el `ADMINISTRATOR` (ver
+[Causa huérfana](#causa-huérfana)).
 
 - **Cómo se evalúa.** Primero se busca la causa (`404 CASE_NOT_FOUND` si no
   existe o está dada de baja). Después, si el usuario tiene un rol que habilita
   la operación sin ser responsable (`ADMINISTRATOR` o `SECRETARY`, según la
   tabla), pasa. Si no, se compara su `lawyerId` con `responsibleLawyer.id`; si
-  no coinciden, o no tiene ficha de abogado, `403 FORBIDDEN`.
+  no coinciden, o no tiene ficha de abogado, `403 FORBIDDEN`. **(D-143)** En una
+  causa huérfana (`responsibleLawyer` en `null`) nunca coinciden.
 - **Varios roles.** Como en el resto del contrato, alcanza con uno: un usuario
   `LAWYER` y `SECRETARY` que no es el responsable puede modificar la causa por
   su rol de Secretaría; uno `LAWYER` y `ADMINISTRATOR`, además, marcarla
@@ -10014,6 +10065,49 @@ abogados: el Administrador y la Secretaría conservan lo que ya tenían.
 - **Lo que no cambia.** El alta de causas (`POST /cases`) sigue abierta a
   cualquier usuario autenticado, con cualquier abogado vigente como
   responsable: la regla es sobre causas existentes.
+
+#### Causa huérfana
+
+**(D-143, 16/11/2026)** Una causa **huérfana** es una causa vigente y activa que
+**no tiene abogado responsable**: `responsibleLawyerId` es `null` y se
+registra desde cuándo (`orphanedAt`). Revisa la regla RN3 ("toda causa tiene un
+abogado responsable") con una única excepción, y reemplaza a la D-140 de la
+baja de causas, que no llegó a aplicarse.
+
+- **Cómo se llega.** Solo por [`DELETE /lawyers/{lawyerId}`](#delete-lawyerslawyerid),
+  cuando el administrador deja una causa activa del abogado "Sin asignar"
+  (`unassigned: true`). `POST /cases` sigue exigiendo un abogado vigente, y
+  `PATCH /cases/{caseId}` no acepta `null` en `responsibleLawyerId`: nadie deja
+  huérfana una causa desde la pantalla de edición.
+- **Qué conserva.** Su estado procesal, sus actos y sus plazos: **los plazos y
+  la prescripción siguen corriendo**. Sigue vigente (no se da de baja), la ve
+  el cliente, cuenta en los `activeCases` de su cliente y conserva su SAC. Se
+  distingue del resto por tener `responsibleLawyer` en `null` y
+  `orphanedAt`, no por un estado procesal.
+- **Cómo se la encuentra.** El listado de causas la ofrece con el filtro
+  `unassigned=true` (ver [`GET /cases`](#get-cases)).
+- **Cómo se la reasigna.** Con `PATCH /cases/{caseId}` y un
+  `responsibleLawyerId` de un abogado vigente, como cualquier cambio de
+  responsable (la carpeta de Drive pasa de `Sin asignar` a la del nuevo
+  abogado). Al reasignarla deja de ser huérfana y se borra `orphanedAt`. Si el
+  estudio no la va a reasignar, la da de baja con
+  [`DELETE /cases/{caseId}`](#delete-casescaseid).
+- **Quién la opera.** Ningún abogado: no hay responsable con quien comparar.
+  La modifican, la reasignan y la dan de baja el `ADMINISTRATOR` y la
+  `SECRETARY`, como siempre. **Los actos procesales e interruptivos los
+  registra, modifica y anula el `ADMINISTRATOR`**, y quedan registrados a su
+  nombre (`registeredBy` y `lastModifiedBy` son él, no un abogado).
+- **Avisos.** Sus vencimientos y su prescripción se avisan solo a la casilla
+  de gestión del estudio, sin copia (ver
+  [Proceso automático diario](#proceso-automático-diario)).
+- **Drive.** Su carpeta vive en `/VZ Causas/Causas/Sin asignar/{fuero}/`. No
+  hay abogado con ese nombre: el nivel del abogado siempre es
+  `Apellido, Nombres`.
+- **Reporte mensual.** Cuentan como "Sin asignar" (`unassigned`): solo el
+  número, sin nombrar la causa, salvo en la lista de alertas de prescripción,
+  donde figuran con responsable "Sin asignar" (D-145, ver
+  [§3.13](#313-reporte-mensual-reportsmonthly)).
+- **Abierto.** Cómo cuentan en el tablero del administrador (C-49).
 
 #### Permisos por perfil
 
@@ -10299,7 +10393,7 @@ carpetas que crea el sistema.
   | Cambia el responsable (`PATCH /cases/{caseId}`)               | La carpeta de la causa se mueve a `/{nuevo abogado}/{fuero}/`, que se crea si no existe |
   | Cambia el nombre de un abogado (`PATCH /lawyers/{lawyerId}`)  | Se renombra la carpeta del abogado. Las de sus causas quedan adentro      |
   | **(V6)** Cambia el nombre de un cliente (`PATCH /clients/{clientId}`) | Cambia la carátula de sus causas (ver [`PATCH /clients/{clientId}`](#patch-clientsclientid)), y se renombra la carpeta de cada causa cuya carátula cambió |
-  | **(V6)** Se da de baja un abogado y se reasignan sus causas (`DELETE /lawyers/{lawyerId}`) | La carpeta de cada causa reasignada se mueve a `/{nuevo abogado}/{fuero}/`, igual que al cambiar el responsable; **(D-140)** la de cada causa dada de baja en la misma operación, a `/VZ Causas/Papelera/`, igual que al dar de baja la causa. Las carpetas de causas de otros abogados que estén adentro por error vuelven a su lugar. La carpeta del abogado queda con sus causas terminales, como historial; si no tiene ninguna, va a la `Papelera` con lo que quede adentro (D-132) |
+  | **(V6)** Se da de baja un abogado y se reasignan sus causas (`DELETE /lawyers/{lawyerId}`) | La carpeta de cada causa reasignada se mueve a `/{nuevo abogado}/{fuero}/`, igual que al cambiar el responsable; **(D-143)** la de cada causa que queda sin responsable, a `/Sin asignar/{fuero}/` (dentro de `Causas`), y al reasignarla el `PATCH` la mueve a `/{nuevo abogado}/{fuero}/`. Las carpetas de causas de otros abogados que estén adentro por error vuelven a su lugar. La carpeta del abogado queda con sus causas terminales, como historial; si no tiene ninguna, va a la `Papelera` con lo que quede adentro (D-132) |
   | Se da de baja la causa (`DELETE /cases/{caseId}`)             | La carpeta de la causa se mueve a `/VZ Causas/Papelera/`, con lo que tiene adentro |
 
   El fuero no cambia, así que una carpeta nunca cambia de carpeta de
@@ -10358,7 +10452,9 @@ estado de la causa: son los números del reporte de un mes que ya terminó.
 - **A quién.** A la casilla de gestión del estudio y, si está configurada la
   copia, al abogado responsable de cada causa, solo con las suyas. La ficha del
   abogado no tiene correo: la copia va al `email` del **usuario vinculado** a ese
-  abogado, y no se envía si no tiene uno.
+  abogado, y no se envía si no tiene uno. **(D-143)** Una
+  [causa huérfana](#causa-huérfana) no tiene responsable: sus avisos van solo a
+  la casilla de gestión, sin copia.
 - **Un correo por día, no uno por causa.** Los avisos del día viajan juntos, en
   un único correo a la casilla, y en uno por abogado si corresponde la copia.
   Si no hay nada que avisar, no se envía correo.
@@ -10389,7 +10485,7 @@ establece el campo `active` en `false` y conserva el registro por trazabilidad
 | Baja **(V6)** | Qué la impide | Qué arrastra |
 | ------------- | ------------- | ------------ |
 | Cliente (`DELETE /clients/{clientId}`) | Que tenga causas activas (`409 CLIENT_HAS_ACTIVE_CASES`) | Nada: sus causas terminales lo siguen mostrando |
-| Abogado (`DELETE /lawyers/{lawyerId}`) | Que tenga causas activas sin reasignar ni marcar para darse de baja (`409 LAWYER_HAS_DEPENDENCIES`) | Reasigna sus causas activas o da de baja las que se marcaron (D-140), en la misma operación; las terminales siguen con él. Su usuario vinculado pierde el rol `LAWYER`, o se da de baja si era el único (D-133) |
+| Abogado (`DELETE /lawyers/{lawyerId}`) | Que tenga causas activas sin reasignar ni marcar como "Sin asignar" (`409 LAWYER_HAS_DEPENDENCIES`) | Reasigna sus causas activas o deja sin responsable las que se marcaron (D-143), en la misma operación; las terminales siguen con él. Su usuario vinculado pierde el rol `LAWYER`, o se da de baja si era el único (D-133) |
 | Modelo formal (`DELETE /document-templates/{templateId}`) | Nada | Sus archivos van a la `Papelera`; las copias en las causas quedan (D-131) |
 | Acto procesal (`DELETE /cases/{caseId}/procedural-acts/{actId}`) | Que la causa esté "Prescripta" (`422 CASE_IN_TERMINAL_STATE`) | Recalcula el estado de la causa; el acto sale de la línea de vida |
 
@@ -10575,7 +10671,7 @@ respuesta.
 | `CASE_SAC_ALREADY_EXISTS`                | 409  | Número de SAC ya registrado (RN2)                                  |
 | `DOCUMENT_TEMPLATE_ALREADY_EXISTS`       | 409  | **Nuevo.** Nombre de modelo formal ya registrado                   |
 | `USER_HAS_DEPENDENCIES`                  | 409  | El usuario posee recursos asociados                                |
-| `LAWYER_HAS_DEPENDENCIES`                | 409  | **(V6)** Al dar de baja al abogado, quedan causas activas suyas sin reasignar ni marcar para darse de baja (D-140) |
+| `LAWYER_HAS_DEPENDENCIES`                | 409  | **(V6)** Al dar de baja al abogado, quedan causas activas suyas sin reasignar ni marcar como "Sin asignar" (D-143) |
 | `CLIENT_HAS_ACTIVE_CASES`                | 409  | **(V6)** Dar de baja un cliente que tiene causas activas (HU11)    |
 | `FILE_TOO_LARGE`                         | 413  | **Nuevo.** El archivo enviado supera los 10 MB                     |
 | `INVALID_CURRENT_PASSWORD`               | 422  | La contraseña actual no coincide                                   |
@@ -10639,12 +10735,13 @@ numeración de los puntos abiertos de versiones anteriores.
 ### 7.1 Sprint 5
 
 Los puntos C-36 a C-47 se revisaron con el equipo el 09/11/2026 y pasaron a
-decisiones (D-128 a D-139 de `DECISIONES.md`). Queda uno, de la revisión del
-12/11/2026:
+decisiones (D-128 a D-139 de `DECISIONES.md`). C-48 (dar de baja las causas
+sin reasignar) se resolvió el 16/11/2026 con otra decisión: D-143, la causa
+queda huérfana. Queda uno, abierto con esa decisión:
 
 | ID | Punto | Qué asume hoy el contrato | Con quién | ¿Bloquea? |
 | --- | --- | --- | --- | :---: |
-| C-48 | **Confirmar D-140**: dar de baja causas activas al dar de baja a su abogado, en lugar de reasignarlas. Revisa D-123, que había decidido el equipo | Que se puede, de forma explícita, en cada entrada de `reassignments` (ver [`DELETE /lawyers/{lawyerId}`](#delete-lawyerslawyerid)) | Equipo | No |
+| C-49 | **Cómo cuenta la causa huérfana en el tablero del administrador** (HU42). En el reporte mensual ya está resuelto (D-145) | Nada: §3.11 no la menciona; hoy el tablero no la cuenta en ningún abogado | Equipo | No |
 
 ### 7.2 Heredados de V5
 

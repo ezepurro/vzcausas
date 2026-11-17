@@ -150,6 +150,7 @@ erDiagram
         varchar(800) subject_matter
         integer client_id FK
         integer responsible_lawyer_id FK
+        timestamptz orphaned_at
         date start_date
         boolean client_detained
         boolean injunction_granted
@@ -673,7 +674,8 @@ carpeta en la nube, declaración de prescripción y baja lógica.
 | `counterparty` | VARCHAR | 255 |  | Sí | Contraparte en la causa. Solo en `ADMINISTRATIVE` y `AMPARO`; nulo en `CRIMINAL`. |
 | `subject_matter` | VARCHAR | 800 |  | Sí | Objeto o materia de la causa. |
 | `client_id` | INTEGER | 4 B | FK | No | Cliente que es parte en la causa (→ `clients.id`). |
-| `responsible_lawyer_id` | INTEGER | 4 B | FK | No | Abogado responsable de la causa (→ `lawyers.id`). |
+| `responsible_lawyer_id` | INTEGER | 4 B | FK | Sí | Abogado responsable de la causa (→ `lawyers.id`). Obligatorio al registrarla (RN3, lo exige la API). Nulo solo en una causa huérfana, que quedó sin responsable al darse de baja su abogado (D-143): `CHECK` con `orphaned_at`. |
+| `orphaned_at` | TIMESTAMPTZ | 8 B |  | Sí | Desde cuándo la causa no tiene abogado responsable (D-143). Nulo si lo tiene; obligatorio si `responsible_lawyer_id` es nulo. Se borra al reasignarla. |
 | `start_date` | DATE | 4 B |  | Sí | Fecha de inicio de la causa en sede judicial. Obligatoria si la causa tiene SAC; nula mientras no lo tiene (D-33). |
 | `client_detained` | BOOLEAN | 1 B |  | Sí | Solo `CRIMINAL`: si el cliente está detenido. Nulo en los demás fueros (D-67). |
 | `injunction_granted` | BOOLEAN | 1 B |  | Sí | Solo `AMPARO`: si se otorgó la medida cautelar. |

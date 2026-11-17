@@ -88,7 +88,7 @@ Entre subsistemas: puertos o eventos, nunca imports cruzados.
   `businessDaysRemaining`. Agregar ese campo rompe el contrato.
 - **Prescripción**: sólo fuero `CRIMINAL` (en los demás `prescription: null`).
   La calcula el backend en cada lectura con `summarizePrescription`
-  (`cases/core/domain/prescription.ts:169`), la misma función que usan tableros
+  (`cases/core/domain/prescription.ts:228`), la misma función que usan tableros
   y proceso diario. Nada se guarda calculado.
 - **Días hábiles incompletos a propósito** (P-02): no excluyen feriados ni
   feria judicial. No lo "arregles"; los tests dan verde igual.

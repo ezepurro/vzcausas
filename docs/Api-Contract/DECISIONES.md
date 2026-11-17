@@ -51,12 +51,12 @@ prototipo.
 | D-139 | El nombre de un modelo formal dado de baja queda libre: la unicidad (D-71) cuenta solo los vigentes | Confirmado por el equipo (C-47). Mismo criterio que el SAC (D-97) y el documento del cliente |
 | D-140 | **(Revisión del 13/11/2026)** El vencimiento de la prescripción suma meses de calendario: si el mes de destino no tiene el día de inicio, vence su último día (31/08 más 6 meses → 28/02, o 29/02 en año bisiesto) | Decisión del equipo del 13/11/2026, a partir de la auditoría del front (H-14). El contrato decía solo "más esos meses"; el backend ya lo calculaba así (`addPrescriptionMonths`, `backend/src/subsystems/cases/core/domain/prescription.ts`) y el prototipo se pasaba al mes siguiente (03/03) |
 
-**Revisión del 12/11/2026.** Propuesta del equipo de backend, **pendiente de
-confirmar con el resto del equipo** (C-48 del contrato, §7.1).
+**Revisión del 12/11/2026.** Propuesta del equipo de backend, **reemplazada el
+16/11/2026 por D-143**: la causa sin reasignar no se da de baja, queda huérfana.
 
 | ID | Decisión | Fundamento |
 | --- | --- | --- |
-| D-140 | **Revisa D-123.** En `DELETE /lawyers/{lawyerId}`, cada entrada de `reassignments` reasigna la causa (`responsibleLawyerId`) **o la da de baja** (`deactivate: true`), en la misma transacción y con los efectos de `DELETE /cases/{caseId}`. Es la causa que el administrador deja "Sin asignar": el formulario aclara que se dará de baja y la lista en la confirmación. El motivo es fijo, "Abogado dado de baja y no reasignada": lo registra el backend y no se envía. El formulario manda la entrada de forma **explícita**: una causa activa que no figura en el reparto sigue cortando la operación con `409 LAWYER_HAS_DEPENDENCIES`; nunca se da de baja por omisión | Pedido del equipo de backend: no toda causa de un abogado que se va tiene que pasar a otro, y lo que quede sin asignar se da de baja con un motivo fijo, aclarado en el formulario. Se descartaron la baja implícita por omisión, porque daría de baja sin aviso una causa asignada mientras el formulario estaba abierto (la carrera que cubre la regla 3) y la baja de causa no tiene vuelta atrás por la API; y dejar la causa sin responsable o con el abogado dado de baja, porque nadie podría operarla ni recibiría sus avisos. El `ADMINISTRATOR` ya da de baja causas (D-110). No requiere migración: la baja de causa ya está en el esquema. El prototipo solo ofrece reasignar |
+| D-140 (reemplazada) | **Reemplazada por D-143.** Proponía que, en `DELETE /lawyers/{lawyerId}`, cada entrada de `reassignments` reasignara la causa o la diera de baja (`deactivate: true`, motivo fijo "Abogado dado de baja y no reasignada"). El equipo la rechazó el 16/11/2026: dar de baja la causa la hace "no existir" para el cliente y se pierde su historia en los reportes | No se aplicó nunca: no hay código ni migración de esta decisión. El número D-140 también lo usa la prescripción en meses de calendario (arriba); esta fila queda solo como registro |
 
 **Revisión del 13/11/2026.** Pedido del equipo de backend. Cambia la forma de
 `GET /reports/monthly`: el frontend tiene que ajustar sus tipos y *mocks* del
@@ -66,6 +66,17 @@ reporte.
 | --- | --- | --- |
 | D-141 | **Revisa D-116 y D-120.** `GET /reports/monthly` devuelve **solo lo que usa la pantalla "Reportes"**; el PDF (`GET /reports/monthly/file`) se arma con el **conjunto completo** de datos del reporte. Dejan de viajar al cliente: `status` y `takenAt`; en `byJurisdiction`, `atStart`, `admitted` y `archived`; en `lawyers`, `registrationNumber` y `differenceFromAverage`; en `monthly`, `balance` y `activeAtEnd`; en `prescription.bands`, `percentage`; `prescription.alerts` y `deadlines`. La foto del mes (D-117) guarda el conjunto completo, para que el PDF de un mes cerrado no cambie. `takenAt` ya no es un campo del reporte (no lo usa ni la pantalla ni el PDF): la foto guarda cuándo se tomó como dato propio. El contrato documenta todo el conjunto (§3.13, "Datos del reporte") y la hoja del PDF queda maquetada en `docs/prototypes/reporte-mensual-pdf.html` | Pedido del equipo de backend: no se manda al front lo que la pantalla no dibuja. Se contrastó con la pantalla "Reportes" del prototipo, que muestra las cuatro tarjetas, la dona (`atEnd` y `percentage`), las barras por mes (`admitted` y `archived`), la carga por abogado, los estados y los cuatro tramos de prescripción, y nada más (los estados los quita D-142); `alerts` y `deadlines` son de las secciones 5 y 6 de la hoja del PDF (`repPdf`). El cliente distingue el mes en curso con `period` y `currentPeriod`, así que no necesita `status`. **Sin migración propia**: la foto ya era un JSON (D-117); lo que cambia es qué parte sale por la API |
 | D-142 | **Revisa D-120.** El reporte ya no tiene "Causas por estado procesal": `proceduralStates` se quita de `GET /reports/monthly` y también del conjunto de datos del reporte (el PDF tampoco lo usa), así que la foto del mes no lo guarda. Dejan de aplicar al reporte el orden de los estados con el de `GET /procedural-states` (D-120) y el "ciclo de vida" que se sacó del prototipo (D-31) | Pedido del equipo de backend: el componente se saca de la pantalla "Reportes", y entonces ninguna parte usa el dato. Lo saca el frontend de la pantalla; el prototipo (`VZ Causas - Prototipo.dc.html`, función `reportesVals`) todavía lo tiene. Sin migración |
+
+**Revisión del 16/11/2026 (D-143, D-144) y del 17/11/2026 (D-145, D-146).** Decisión del equipo de backend. Reemplaza a la D-140 de la baja de
+causas y revisa D-123 y la regla RN3. Cierra C-48 y abre C-49, que D-145 reduce
+al tablero del administrador.
+
+| ID | Decisión | Fundamento |
+| --- | --- | --- |
+| D-143 | **Causa huérfana.** En `DELETE /lawyers/{lawyerId}`, la causa activa que el administrador deja "Sin asignar" no se da de baja: queda **sin abogado responsable** (`responsibleLawyerId` en `null`, con `orphanedAt`), vigente, activa y **con su estado procesal intacto**, así que sus plazos y su prescripción siguen corriendo. La entrada del reparto lleva `unassigned: true` (reemplaza a `deactivate`). Se la encuentra con `GET /cases?unassigned=true` y se la reasigna con `PATCH /cases/{caseId}`; si no se la va a reasignar, se da de baja con `DELETE /cases/{caseId}`. `POST /cases` sigue exigiendo responsable y `PATCH` no acepta `null`: la única entrada a la orfandad es la baja del abogado. Ningún abogado la opera; el `ADMINISTRATOR` y la `SECRETARY` la modifican, y **el `ADMINISTRATOR` registra, modifica y anula sus actos**, que quedan a su nombre (`registeredBy`). Sus avisos van solo a la casilla de gestión. Su carpeta de Drive va a `/VZ Causas/Causas/Sin asignar/{fuero}/` y el `PATCH` la mueve al abogado nuevo | Decisión del equipo (16/11/2026): la causa que se queda sin abogado no debe desaparecer para el cliente ni para los reportes, y puede reasignarse después. Se descartó el estado terminal "Sin asignar" (primera propuesta de esa reunión) porque pisaría el estado procesal real de la causa y detendría sus plazos, y porque una causa terminal no se reasigna. Se descartó dar de baja la causa (D-140) por perder la historia. La orfandad se modela como `responsibleLawyerId` opcional en la base y obligatorio en la API; un `CHECK` exige `orphaned_at` cuando el responsable es `null`. Requiere migración |
+| D-144 | **Autoría de los actos sobre una causa huérfana.** Los actos que el administrador registra, modifica o anula en una causa huérfana quedan a su nombre: `registeredBy` y `lastModifiedBy` son él. No hay un usuario "de sistema" ni un acto automático al quedar huérfana la causa | Decisión del equipo (16/11/2026). Un mecanismo en el que el sistema registre actos por su cuenta queda para más adelante y no se define acá |
+| D-145 | **Las causas huérfanas en el reporte mensual** (HU43). Se cuentan en una clave nueva, `unassigned` (`criminal`, `administrative`, `amparo`, `total`), al lado de `lawyers`, que no cambia. Es un renglón "Sin asignar" de la carga por abogado: **solo el número, sin nombrar la causa**. No es un abogado: queda fuera de `averagePerLawyer`, `minPerLawyer` y `maxPerLawyer`, y `summary.activeCases` es la suma de `lawyers` y `unassigned`. La pantalla no la dibuja si `total` es `0`. **No son "archivadas"**: siguen activas y no tocan `archived`. La **lista de alertas de prescripción** las incluye, con responsable `null` que el PDF muestra como "Sin asignar". El abogado dado de baja **no figura en la foto del mes de su baja** (se toma después, con los datos de entonces) y sí en los meses cerrados antes; las causas que reasignó cuentan para su nuevo responsable. Revisa CA-43.5 | Decisión del equipo (17/11/2026). Se descartó el estado terminal "Sin asignar" y contarlas como archivadas, porque siguen en trámite. Se descartó guardar el abogado anterior de cada huérfana: el sistema no guarda el historial de responsables y el mes se fotografía al cerrarlo (D-117). La clave se suma al lado de `lawyers` para no cambiar la forma de lo que ya existe; la foto es JSONB, así que no requiere migración. Cierra C-49 para el reporte; queda abierto el tablero del administrador |
+| D-146 | **`reporting` escribe la foto del mes.** Enmienda la condición 1 de la ADR-002 ("`reporting` nunca escribe"): `reporting` puede escribir **únicamente** en `monthly_report_snapshots`, al tomar la foto de un mes cerrado, sea en la primera corrida del proceso diario del mes siguiente o al pedirlo por primera vez (D-117). No escribe en ninguna otra tabla ni impone invariantes | Decisión del equipo (17/11/2026). La foto es un dato propio del reporte y quien la calcula es quien mejor sabe qué guardar; la alternativa, que otro subsistema la guarde a través de un puerto, agregaba una pieza sin beneficio. El cálculo del estado y de la prescripción a una fecha de corte reutiliza las funciones puras de `cases` (`summarizePrescription`), como ya hacen los tableros |
 
 ### Decisiones de V5
 
@@ -207,7 +218,8 @@ para los estados procesales) y D-25 (por D-82).
 
 **(V6)** Los puntos abiertos están ahora en
 [`API_CONTRACT_V6.md` §7, "Aspectos por definir"](API_CONTRACT_V6.md#7-aspectos-por-definir):
-del Sprint 5 queda solo C-48, confirmar D-140 (C-36 a C-47 se resolvieron el
+del Sprint 5 queda solo C-49, el tratamiento de las causas huérfanas en el
+tablero del administrador (el del reporte se resolvió con D-145; C-48 se resolvió el 16/11/2026 con D-143; C-36 a C-47 el
 09/11/2026, D-128 a D-139), y siguen abiertos los de V5 (C-34, C-35, C-29, C-33 y C-20). Ninguno
 bloquea el Sprint 5. Se dejan de listar acá para
 que no haya dos versiones del mismo punto; lo que sigue es el registro de los
@@ -224,7 +236,7 @@ resueltos.
 | Orden de los estados en "Causas por estado procesal" | El de `GET /procedural-states` (D-120) |
 | Documento editable del cliente (CA-10.3) y carátula al cambiar su nombre | Editable; la carátula y la carpeta siguen al nombre (D-121) |
 | Baja de un cliente con causas activas | No procede (D-122) |
-| Baja de un abogado: reasignar antes o en el formulario, y usuario vinculado | En el formulario (D-123); cada causa se reasigna o, explícitamente, se da de baja (D-140, revisión del 12/11/2026); el usuario se desvincula y pierde el rol `LAWYER`, o se da de baja si era el único (D-133) |
+| Baja de un abogado: reasignar antes o en el formulario, y usuario vinculado | En el formulario (D-123); cada causa se reasigna o, explícitamente, queda sin responsable como causa huérfana (D-143, revisión del 16/11/2026; reemplaza a la baja de la causa que proponía D-140); el usuario se desvincula y pierde el rol `LAWYER`, o se da de baja si era el único (D-133) |
 | Acto anulado en la línea de vida | No aparece (D-124) |
 | Modelo: un fuero o varios, historial del archivo, reactivación | Lista de fueros; el archivo anterior a la `Papelera`; sin reactivación (D-125, D-126) |
 | C-36 · La historia del reporte en Jira | VZ-51 reformulada, Mateo Machuca, 20 SP; VZ-52 se elimina (D-128) |
@@ -315,10 +327,10 @@ tiene ese código en `frontend/src/shared/api/contract.ts` y en los *mocks*
 - **`people`.** Modificación y baja de clientes. Si cambia el nombre, avisa a
   `cases` para actualizar las carátulas, y `cases` avisa a `documents` para
   renombrar las carpetas, sin fallar si Drive no responde (D-121). Baja de
-  abogado con reasignación atómica (D-123) y, por entrada, baja de la causa
-  (D-140): dar de baja la causa es de `cases`, con el mismo código que
-  `DELETE /cases/{caseId}`, y `people` lo pide con un puerto dentro de la
-  misma transacción, igual que la reasignación. Desvincular al usuario, quitarle
+  abogado con reasignación atómica (D-123) y, por entrada, dejar la causa
+  huérfana (D-143): dejar la causa sin responsable es de `cases`, y `people` lo
+  pide con un puerto dentro de la misma transacción, igual que la
+  reasignación. Desvincular al usuario, quitarle
   el rol `LAWYER` o darlo de baja (D-133) es de `identity`: `people` lo pide con
   un puerto, no con un import cruzado, dentro de la misma transacción.
 - **`cases`.** Anulación de actos con el recálculo del estado (D-124, mismo
@@ -346,8 +358,8 @@ tiene ese código en `frontend/src/shared/api/contract.ts` y en los *mocks*
   `MONTHLY_REPORT_NOT_FOUND`.
 - **Formularios.** "Modificar cliente" con el documento editable, "Eliminar
   cliente" con el aviso de causas activas, "Eliminar abogado" con el reparto (las causas "Sin asignar" con la
-  aclaración "Se dará de baja: Abogado dado de baja y no reasignada", listadas
-  en la confirmación y enviadas con `deactivate: true`, D-140) y,
+  aclaración de que quedan sin responsable hasta reasignarlas, listadas
+  en la confirmación y enviadas con `unassigned: true`, D-143) y,
   si tiene usuario, el aviso de qué le pasa (D-133), "Anular acto procesal", y "Modificar modelo
   formal" con la lista de fueros. Se saca "Reactivar" de los modelos.
 - **Reportes.** La pantalla con el selector de mes, las tarjetas y los cuatro
@@ -357,7 +369,7 @@ tiene ese código en `frontend/src/shared/api/contract.ts` y en los *mocks*
 
 - **Glosario.** `TRADUCCION_DOMINIO.md` tiene que sumar `MonthlyReport`,
   `ReportPeriodStatus`, `PrescriptionBand`, `reassignments` (con su
-  `deactivate`, D-140), `dataAsOf`,
+  `unassigned`, D-143), `orphanedAt`, "causa huérfana", `dataAsOf`,
   `availableFrom` y los campos del reporte.
 - **Referencias.** El `CLAUDE.md` del proyecto, el glosario y la documentación
   de frontend citan V5 como contrato vigente: hay que apuntarlos a V6.
@@ -428,6 +440,49 @@ tiene ese código en `frontend/src/shared/api/contract.ts` y en los *mocks*
 - **ADR-003.** §4.1 se cierra con `drive.readonly` (C-24), y la regla de que la
   carpeta no se mueve ni se renombra cambia con D-104. Además, §2.3 y §4 citan
   "C-45" para los correos que no son de Google: es C-23.
+
+### Impacto de la revisión del 16/11/2026
+
+D-143 y D-144 (causa huérfana) todavía **no están implementadas**: el reparto
+de causas de `DELETE /lawyers/{lawyerId}` no tiene código, así que no hay nada
+que deshacer de la D-140 de la baja de causas.
+
+**Backend**
+
+- **Esquema (requiere migración).** En `cases`: `responsible_lawyer_id` pasa a
+  ser opcional (hoy `Int` obligatorio con `onDelete: Restrict`,
+  `schema.prisma:415` y `:496`), se suma `orphaned_at` y un `CHECK` que solo
+  permite el `null` junto con `orphaned_at`. Las migraciones las corre el
+  equipo con `npx prisma migrate dev`, según `USO_PRISMA.md`.
+- **`cases`.** `POST /cases` sigue exigiendo responsable y `PATCH` rechaza
+  `null`. El listado suma el filtro `unassigned`. Un `PATCH` con
+  `responsibleLawyerId` sobre una huérfana la reasigna y borra `orphaned_at`.
+  La autorización de actos procesales e interruptivos suma al `ADMINISTRATOR`
+  cuando el responsable es `null` (D-144).
+- **`people`.** El reparto de la baja acepta `unassigned: true` por entrada;
+  `cases` deja la causa huérfana dentro de la misma transacción.
+- **`deadlines`.** Los avisos de una causa sin responsable van solo a la casilla
+  de gestión, sin copia.
+- **`documents`.** La carpeta de una huérfana va a
+  `/VZ Causas/Causas/Sin asignar/{fuero}/`.
+- **`reporting`.** Suma la clave `unassigned` al reporte (D-145) y escribe la
+  foto del mes en `monthly_report_snapshots` (D-146).
+- **Pendiente (C-49).** Cómo cuenta la huérfana en el tablero del
+  administrador.
+
+**Frontend**
+
+- "Eliminar abogado": las causas "Sin asignar" quedan sin responsable (ya no se
+  dan de baja). `responsibleLawyer` de la causa puede ser `null`
+  (`frontend/src/shared/mocks/contract.ts`); la lista de causas necesita el filtro
+  de huérfanas, y el administrador puede registrar actos sobre ellas.
+
+**Documentación**
+
+- RN3 se reformula con la excepción de la causa huérfana en
+  `ARQUITECTURA_BACKEND_V1.md:93` y `:464`.
+- `DICCIONARIO_DATOS.md` suma `orphaned_at` y la columna opcional.
+- `TRADUCCION_DOMINIO.md` suma "causa huérfana" y `orphanedAt`.
 
 ### Impacto de la revisión del 13/11/2026
 
