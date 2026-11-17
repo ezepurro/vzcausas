@@ -27,5 +27,5 @@ export interface SessionTransitionTiming {
  */
 export const SESSION_TRANSITION_MS: Record<SessionTransitionVariant, SessionTransitionTiming> = {
     leave: { cover: 320, hold: 900, reveal: 380, flipDelay: 120, flipDuration: 1000 },
-    enter: { cover: 140, hold: 160, reveal: 260, flipDelay: 0, flipDuration: 520 },
+    enter: { cover: 140, hold: 600, reveal: 260, flipDelay: 0, flipDuration: 520 },
 }
