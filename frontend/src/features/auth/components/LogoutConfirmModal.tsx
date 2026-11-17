@@ -84,7 +84,8 @@ export function LogoutConfirmModal({ onClose }: LogoutConfirmModalProps) {
  */
 function runningTasksNotice(count: number): string {
     if (count === 0) return ''
-    const tasks = count === 1 ? 'una tarea en curso' : `${count} tareas en curso`
-    const end = count === 1 ? 'Se va a terminar igual' : 'Se van a terminar igual'
-    return ` Tenés ${tasks} (expediente o carpeta en Drive). ${end}, pero no vas a ver el aviso: el resultado queda en la causa.`
+    /* Para abogados: lo que se está preparando y dónde encontrarlo, no "tareas". */
+    return count === 1
+        ? ' Hay un expediente o una carpeta de Drive preparándose. Se va a terminar igual, pero no vas a ver el aviso: lo vas a encontrar en la causa.'
+        : ` Hay ${count} expedientes o carpetas de Drive preparándose. Se van a terminar igual, pero no vas a ver el aviso: los vas a encontrar en sus causas.`
 }

@@ -22,9 +22,21 @@ salía, o creaba la carpeta y se iba, no se enteraba de cómo terminaba.
 
 - **Se puede salir.** Al generar o crear la carpeta aparece una tarjeta abajo
   a la derecha ("Generando expediente", "Creando carpeta en Drive") que sigue
-  en cualquier pantalla. Al terminar, "Expediente listo" con "Descargar" y
-  "Ver causa", o "Carpeta creada" con "Abrir en Drive"; si falla, el mensaje
-  del servidor. Queda hasta que se cierra; mientras corre no se cierra.
+  en cualquier pantalla. Al terminar, "Carpeta creada" con "Abrir en Drive" y
+  "Ver causa"; si falla, el mensaje del servidor. Queda hasta que se cierra;
+  mientras corre no se cierra.
+- **"Expediente listo" lleva al diálogo de siempre.** Su botón "Ver
+  expediente" abre "Generar expediente" con el diálogo "Expediente generado"
+  ya abierto (`ReadyCaseFile` en el `state` de la navegación), como si la
+  persona se hubiera quedado esperando: ahí se descarga o se imprime. Pedido
+  de Facundo Fiorani al probarlo: con sólo "Descargar" en la tarjeta no se
+  podía imprimir. La tarjeta se cierra al tocarlo, y el `state` se borra al
+  leerlo para que "Atrás" no vuelva a abrir el diálogo. Llegando así, la
+  pantalla anterior no es la causa (es el tablero, Clientes…): "Volver a la
+  causa" va a `/causas/{caseId}` reemplazando esta pantalla, en lugar de
+  volver atrás como en el camino normal. Después de un F5 el
+  renglón de datos no dice las partes ("Versión 2 · 561 KB"): la lista de
+  documentos no las informa.
 - **Si la persona sigue en la pantalla**, el resultado lo muestra la pantalla
   como antes (el diálogo "Expediente generado", la tarjeta "Carpeta en
   Drive") y la tarjeta de la tarea se saca. Se queda si no llegó respuesta o
@@ -34,9 +46,20 @@ salía, o creaba la carpeta y se iba, no se enteraba de cómo terminaba.
   al servidor sin repetir el pedido: el expediente, buscando en
   `GET /cases/{caseId}/documents` una versión mayor que la que había al
   pedirlo (no se compara por hora: los relojes pueden no coincidir); la
-  carpeta, con `folder.status` de `GET /cases/{caseId}`. Pasados 4 minutos
-  (expediente) o 3 (carpeta) sin saberlo, la tarjeta dice que no se pudo
-  confirmar y manda a la causa.
+  carpeta, con `folder.status` de `GET /cases/{caseId}`. Pregunta cada 4 s
+  el primer medio minuto y después cada 15 s, porque leer los documentos lee
+  Drive (`backgroundTaskTiming.ts`). A los 3 minutos sin saberlo, "El
+  expediente está demorando" / "La carpeta está demorando", con qué hacer.
+- **Que no parezca trabada** (Facundo lo vio con el mock, donde el expediente
+  de antes del F5 no aparece nunca): mientras corre, la tarjeta muestra
+  cuánto lleva ("Hace 1 min"); después del F5 se puede cerrar con la ×
+  (mientras espera la respuesta de su pedido, no); y "Generar expediente"
+  avisa si hay uno de esa causa en preparación, para no generar dos
+  (`PENDING_CASE_FILE_MESSAGE`).
+- **Textos para abogados**, revisados con Facundo: dicen qué está pasando y
+  qué hacer, no cómo funciona por dentro ("Puede tardar unos minutos: te
+  avisamos acá cuando esté listo", "Ya está en la documentación de la
+  causa"). Lo mismo el aviso al cerrar sesión.
 - **Sin respuesta no se da por fallido**: el servidor pudo haberlo hecho. El
   aviso fijo de "Resultado" (`UNCONFIRMED_CASE_FILE_MESSAGE`) sigue igual.
 - **Cerrar sesión** con una tarea en curso lo avisa en la confirmación. Salir
@@ -53,20 +76,23 @@ salía, o creaba la carpeta y se iba, no se enteraba de cómo terminaba.
 `AppLayout`) y `tasks.ts`, que carga los manejadores con `import()`. Lo de la
 causa, en `api/caseTasks.ts` (`CASE_FILE_TASK`, `CASE_FOLDER_TASK`, publicados
 en el `index.ts`): cómo leer la respuesta, cómo preguntar y qué dice cada
-tarjeta. Va en `api/` aunque use `documentDownloadName` de `utils/`, la misma
-excepción que `useCaseEdit.ts`. `shared/hooks/useStillShowing` dice si la
-pantalla sigue en esa causa cuando llega la respuesta.
+tarjeta. `shared/hooks/useStillShowing` dice si la pantalla sigue en esa
+causa cuando llega la respuesta. `CaseFileReadyModal` recibe un
+`ReadyCaseFile` (`readyCaseFileFromResponse`, `readyCaseFileMeta`,
+`readyCaseFileFromState` en `utils/caseFile.ts`) en lugar de la respuesta
+entera, porque desde la tarjeta no siempre está.
 
 **Límite conocido:** si la persona cierra la pestaña o la sesión y el
 expediente falla, no se entera: el contrato no guarda el estado de un pedido
 en curso. Hace falta el backend (un trabajo con `202 Accepted`), que quedó
 afuera por costo.
 
-Tests: `components/app/BackgroundTasks.test.tsx` (la tarjeta, el F5, el
-abandono por tiempo, otro usuario, el cierre de sesión);
-`components/cases/GenerateCaseFilePage.test.tsx` ("se puede salir mientras
-genera…" y "si sigue en la pantalla…", que reemplazan a "si se intenta
-salir…" y "Salir igual…"); `components/cases/CaseDetailPage.folder.test.tsx`
+Tests: `components/app/BackgroundTasks.test.tsx` (la tarjeta, "Ver
+expediente" hasta el diálogo, el F5, el abandono por tiempo, otro usuario, el
+cierre de sesión); `components/cases/GenerateCaseFilePage.test.tsx` ("se
+puede salir mientras genera…" y "si sigue en la pantalla…", que reemplazan a
+"si se intenta salir…" y "Salir igual…", y "llegando desde la tarjeta…");
+`unit/cases/caseFile.test.ts` ("sin las partes…" y el `state`); `components/cases/CaseDetailPage.folder.test.tsx`
 ("si se sale mientras se crea…" y la carpeta pendiente);
 `components/shared/leftBehindErrors.test.tsx` ("una tarea en segundo plano no
 se avisa dos veces"). El F5 real de punta a punta no se prueba con el mock:

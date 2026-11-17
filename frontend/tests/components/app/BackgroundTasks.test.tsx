@@ -22,8 +22,16 @@ import { useAuth } from '@/app/providers/AuthContext'
 import { useBackgroundTasks, type BackgroundTask } from '@/app/providers/BackgroundTasksContext'
 import { readBackgroundTasks, writeBackgroundTasks } from '@/app/providers/backgroundTaskStorage'
 import { LogoutConfirmModal } from '@/features/auth/components/LogoutConfirmModal'
+import { GenerateCaseFilePage } from '@/features/cases/pages/GenerateCaseFilePage'
 
 const CAPTION = 'GÓMEZ, Ariel Fernando p.s.a. Robo calificado'
+
+/** Lo que importa de la respuesta de `POST /cases/1/case-files`. */
+const GENERATED = {
+    document: { id: 'doc-v2', name: 'Expediente_13284571_v2.pdf', mimeType: 'application/pdf', sizeBytes: null },
+    version: 2,
+    parts: [{ position: 1 }, { position: 2 }, { position: 3 }],
+}
 
 function userId(username: string): number {
     const user = db.users.find((u) => u.username === username)
@@ -81,7 +89,7 @@ function SignOut() {
 const tray = () => screen.findByRole('region', { name: 'Tareas en segundo plano' })
 
 describe('Tareas en segundo plano', () => {
-    it('la tarjeta acompaña al expediente y, al terminar, ofrece descargarlo', async () => {
+    it('la tarjeta acompaña al expediente y, al terminar, lleva a verlo', async () => {
         const request = deferred()
         const { user } = renderWithProviders(<><Starter work={request.promise} /><BackgroundTaskTray /></>, { as: 'mrios' })
 
@@ -90,15 +98,67 @@ describe('Tareas en segundo plano', () => {
         // Mientras corre no se cierra: es la única señal de que sigue.
         expect(screen.queryByRole('button', { name: /^Cerrar aviso/ })).not.toBeInTheDocument()
 
-        request.resolve({ document: { id: 'doc-v2', name: 'Expediente_13284571_v2.pdf', mimeType: 'application/pdf' }, version: 2 })
+        request.resolve(GENERATED)
 
         expect(await screen.findByText('Expediente listo')).toBeInTheDocument()
-        expect(screen.getByText(`Versión 2 · ${CAPTION}. Quedó en la documentación de la causa.`)).toBeInTheDocument()
-        expect(screen.getByRole('button', { name: 'Descargar' })).toBeInTheDocument()
+        expect(screen.getByText(`Versión 2 · ${CAPTION}. Ya está en la documentación de la causa.`)).toBeInTheDocument()
+        expect(screen.getByRole('link', { name: 'Ver expediente' })).toHaveAttribute('href', '/causas/1/expediente')
         expect(screen.getByRole('link', { name: 'Ver causa' })).toHaveAttribute('href', '/causas/1')
 
         await user.click(screen.getByRole('button', { name: 'Cerrar aviso: Expediente listo' }))
         expect(screen.queryByRole('region', { name: 'Tareas en segundo plano' })).not.toBeInTheDocument()
+    })
+
+    it('"Ver expediente" abre "Generar expediente" con el diálogo para descargarlo o imprimirlo', async () => {
+        const request = deferred()
+        const { user } = renderWithProviders(<><Starter work={request.promise} /><BackgroundTaskTray /></>, {
+            as: 'mrios',
+            path: '/',
+            routes: [{ path: '/causas/:caseId/expediente', element: <><GenerateCaseFilePage /><BackgroundTaskTray /></> }],
+        })
+        await user.click(await screen.findByRole('button', { name: 'Empezar' }))
+        request.resolve(GENERATED)
+
+        await user.click(await screen.findByRole('link', { name: 'Ver expediente' }))
+
+        const dialog = await screen.findByRole('dialog', { name: 'Expediente generado' })
+        expect(within(dialog).getByText('Expediente_13284571_v2.pdf')).toBeInTheDocument()
+        expect(within(dialog).getByText('Versión 2 · 3 partes')).toBeInTheDocument()
+        expect(within(dialog).getByRole('button', { name: 'Descargar' })).toBeInTheDocument()
+        expect(within(dialog).getByRole('button', { name: 'Imprimir' })).toBeInTheDocument()
+        // Lo que avisaba la tarjeta ya está en pantalla: se cierra.
+        expect(screen.queryByText('Expediente listo')).not.toBeInTheDocument()
+    })
+
+    // Desde la tarjeta, la pantalla anterior no es la causa (era el tablero):
+    // "Volver a la causa" no puede volver atrás.
+    it('"Volver a la causa" del diálogo va a la causa aunque se haya llegado desde otra pantalla', async () => {
+        const request = deferred()
+        const { user } = renderWithProviders(<><h1>Tablero</h1><Starter work={request.promise} /><BackgroundTaskTray /></>, {
+            as: 'mrios',
+            path: '/',
+            routes: [
+                { path: '/causas/:caseId/expediente', element: <GenerateCaseFilePage /> },
+                { path: '/causas/:caseId', element: <h1>Detalle de la causa</h1> },
+            ],
+        })
+        await user.click(await screen.findByRole('button', { name: 'Empezar' }))
+        request.resolve(GENERATED)
+        await user.click(await screen.findByRole('link', { name: 'Ver expediente' }))
+        const dialog = await screen.findByRole('dialog', { name: 'Expediente generado' })
+
+        /* `useGoBack` mira el historial del navegador para saber si hay una
+           pantalla anterior; el router en memoria de los tests no lo toca. Así
+           queda como en la aplicación: con el tablero detrás. */
+        window.history.replaceState({ idx: 1 }, '')
+        try {
+            await user.click(within(dialog).getByRole('button', { name: 'Volver a la causa' }))
+        } finally {
+            window.history.replaceState(null, '')
+        }
+
+        expect(await screen.findByRole('heading', { name: 'Detalle de la causa' })).toBeInTheDocument()
+        expect(screen.queryByRole('heading', { name: 'Tablero' })).not.toBeInTheDocument()
     })
 
     it('si el servidor lo rechaza, la tarjeta lo dice con su mensaje', async () => {
@@ -132,7 +192,7 @@ describe('Tareas en segundo plano', () => {
             renderWithProviders(<BackgroundTaskTray />)
 
             expect(await screen.findByText('Expediente listo')).toBeInTheDocument()
-            expect(screen.getByText(`Versión 1 · ${CAPTION}. Quedó en la documentación de la causa.`)).toBeInTheDocument()
+            expect(screen.getByText(`Versión 1 · ${CAPTION}. Ya está en la documentación de la causa.`)).toBeInTheDocument()
         })
 
         it('vuelve a preguntar por la carpeta y ofrece abrirla en Drive', async () => {
@@ -148,7 +208,40 @@ describe('Tareas en segundo plano', () => {
             )
         })
 
-        it('si pasó el tiempo y sigue sin saberse, deja de preguntar y lo dice', async () => {
+        // Lo que vio Facundo con el mock: el expediente de antes del F5 no aparece nunca.
+        it('mientras no aparece, muestra cuánto lleva y se puede cerrar', async () => {
+            const me = signInAs('mrios')
+            writeBackgroundTasks(me.id, [
+                storedTask({ params: { caseId: 1, previousVersion: 9 }, startedAt: Date.now() - 90_000 }),
+            ])
+
+            const { user } = renderWithProviders(<BackgroundTaskTray />)
+
+            expect(await screen.findByText('Generando expediente')).toBeInTheDocument()
+            expect(screen.getByText(`${CAPTION}. Puede tardar unos minutos: te avisamos acá cuando esté listo.`)).toBeInTheDocument()
+            expect(screen.getByText('Hace 1 min')).toBeInTheDocument()
+
+            await user.click(screen.getByRole('button', { name: 'Cerrar aviso: Generando expediente' }))
+            expect(screen.queryByRole('region', { name: 'Tareas en segundo plano' })).not.toBeInTheDocument()
+            expect(readBackgroundTasks(me.id)).toEqual([])
+        })
+
+        it('a los 3 minutos sin aparecer, dice que el expediente está demorando y qué hacer', async () => {
+            const me = signInAs('mrios')
+            writeBackgroundTasks(me.id, [
+                storedTask({ params: { caseId: 1, previousVersion: 9 }, startedAt: Date.now() - 3 * 60_000 - 1000 }),
+            ])
+
+            renderWithProviders(<BackgroundTaskTray />)
+
+            expect(await screen.findByText('El expediente está demorando')).toBeInTheDocument()
+            expect(
+                screen.getByText(`${CAPTION}. Revisá la documentación de la causa: si ya aparece la versión nueva, está listo. Si no, podés volver a generarlo.`),
+            ).toBeInTheDocument()
+            expect(screen.queryByText(/^Hace /)).not.toBeInTheDocument()
+        })
+
+        it('con la carpeta pasa lo mismo: dice que está demorando', async () => {
             const me = signInAs('mrios')
             writeBackgroundTasks(me.id, [
                 storedTask({ kind: 'cases.folder', params: { caseId: 11 }, startedAt: Date.now() - 10 * 60_000 }),
@@ -156,7 +249,7 @@ describe('Tareas en segundo plano', () => {
 
             renderWithProviders(<BackgroundTaskTray />)
 
-            expect(await screen.findByText('La carpeta se sigue creando')).toBeInTheDocument()
+            expect(await screen.findByText('La carpeta está demorando')).toBeInTheDocument()
         })
 
         it('las tareas de otra persona que usó la pestaña no se muestran', async () => {
@@ -180,7 +273,9 @@ describe('Tareas en segundo plano', () => {
 
             renderWithProviders(<LogoutConfirmModal onClose={() => {}} />)
 
-            expect(await screen.findByText(/Tenés una tarea en curso \(expediente o carpeta en Drive\)\. Se va a terminar igual, pero no vas a ver el aviso/)).toBeInTheDocument()
+            expect(await screen.findByText(
+                '¿Seguro que deseas cerrar la sesión? Hay un expediente o una carpeta de Drive preparándose. Se va a terminar igual, pero no vas a ver el aviso: lo vas a encontrar en la causa.',
+            )).toBeInTheDocument()
         })
 
         it('sin tareas en curso, la confirmación es la de siempre', async () => {

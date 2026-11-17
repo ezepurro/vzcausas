@@ -55,6 +55,25 @@ export interface GeneratedCaseFile {
     generatedAt: string
 }
 
+/**
+ * Lo que muestra el diálogo "Expediente generado". Sale de la respuesta del
+ * `POST` o, si se llega desde la tarjeta de la tarea en segundo plano, de lo
+ * que guardó la tarea (`api/caseTasks.ts`). Después de un F5 la tarea lo
+ * encontró en "Documentación", que no dice de cuántas partes es: ahí
+ * `partCount` vale `null`.
+ */
+export interface ReadyCaseFile {
+    document: { id: string; name: string }
+    version: number
+    partCount: number | null
+    sizeBytes: number | null
+}
+
+/** El `state` con que la tarjeta lleva a "Generar expediente" con el diálogo abierto. */
+export interface ReadyCaseFileNavigationState {
+    readyCaseFile: ReadyCaseFile
+}
+
 /** Los dos textos de la pantalla "Generar expediente". */
 export interface CaseFileFormValues {
     opposingParty: string

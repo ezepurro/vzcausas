@@ -49,6 +49,10 @@ export interface TaskAction {
     label: string
     /** Ruta de la aplicación. */
     to?: string
+    /** El `state` con que se navega a `to` (por ejemplo, para abrir un diálogo al llegar). */
+    state?: unknown
+    /** Al tocarlo, la tarjeta se cierra: lo que avisaba ya se ve en la pantalla de destino. */
+    closesTask?: boolean
     /** Enlace externo, en otra pestaña (Drive). */
     href?: string
     run?: () => Promise<void>
@@ -103,6 +107,11 @@ export interface BackgroundTasksValue {
     dismiss: (id: string) => void
     /** El manejador de esa clase, si ya se cargó. */
     handlerFor: (kind: BackgroundTaskKind) => TaskKindHandler | undefined
+    /**
+     * Si la tarea todavía espera la respuesta de su pedido. Después de un F5,
+     * o si el pedido se cortó, ya no: sólo se le pregunta al servidor.
+     */
+    isWaitingForResponse: (id: string) => boolean
 }
 
 export const BackgroundTasksContext = createContext<BackgroundTasksValue | null>(null)

@@ -2,16 +2,19 @@ import type { QueryClient } from '@tanstack/react-query'
 import type {
     BackgroundTask,
     TaskAction,
+    TaskData,
     TaskKindHandler,
     TaskOutcome,
     TaskView,
 } from '@/app/providers/BackgroundTasksContext'
-import { saveFile } from '@/shared/lib/saveFile'
 import type { CaseFolder } from '@/features/cases/types/case'
 import type { CaseDocument } from '@/features/cases/types/caseDocument'
-import type { GeneratedCaseFile } from '@/features/cases/types/caseFile'
-import { documentDownloadName } from '@/features/cases/utils/caseDocument'
-import { downloadCaseDocumentFile, getCase, getCaseDocuments } from './cases.api'
+import type {
+    GeneratedCaseFile,
+    ReadyCaseFile,
+    ReadyCaseFileNavigationState,
+} from '@/features/cases/types/caseFile'
+import { getCase, getCaseDocuments } from './cases.api'
 import { casesKeys } from './cases.keys'
 
 /**
@@ -21,8 +24,7 @@ import { casesKeys } from './cases.keys'
  * servidor sin repetir el pedido y qué dice la tarjeta.
  *
  * Va en `api/` porque habla con el servidor, aunque también arme los textos de
- * la tarjeta y use `documentDownloadName` de `utils/`: separarlo dejaría dos
- * mitades de lo mismo. Es la misma excepción que `useCaseEdit.ts`.
+ * la tarjeta: separarlo dejaría dos mitades de lo mismo.
  */
 
 const caseIdOf = (task: BackgroundTask) => Number(task.params.caseId)
@@ -42,21 +44,36 @@ export function caseFileTaskParams(caseId: number, documents: CaseDocument[]) {
     return { caseId, previousVersion }
 }
 
-function caseFileDone(doc: CaseDocument, version: number): TaskOutcome {
+/**
+ * Lo que guarda la tarea al terminar: lo que necesita el diálogo "Expediente
+ * generado" (`ReadyCaseFile`). `partCount` es `null` si se encontró en
+ * "Documentación" (después de un F5): la lista no dice de cuántas partes es.
+ */
+function caseFileDone(doc: CaseDocument, version: number, partCount: number | null): TaskOutcome {
     return {
         status: 'done',
-        result: { documentId: doc.id, version, fileName: documentDownloadName(doc) },
+        result: { documentId: doc.id, name: doc.name, version, partCount, sizeBytes: doc.sizeBytes },
+    }
+}
+
+function readyCaseFileOf(result: TaskData): ReadyCaseFile {
+    const optionalNumber = (value: TaskData[string]) => (typeof value === 'number' ? value : null)
+    return {
+        document: { id: String(result.documentId), name: String(result.name) },
+        version: Number(result.version),
+        partCount: optionalNumber(result.partCount),
+        sizeBytes: optionalNumber(result.sizeBytes),
     }
 }
 
 export const CASE_FILE_TASK: TaskKindHandler = {
-    /* El pedido espera hasta 2 minutos (`CASE_FILE_TIMEOUT_MS`); se le da otro
-       tanto al servidor antes de dejar de preguntar. */
-    giveUpAfterMs: 4 * 60_000,
+    /* El pedido espera hasta 2 minutos (`CASE_FILE_TIMEOUT_MS`); se le da un
+       minuto más al servidor antes de decir que está demorando. */
+    giveUpAfterMs: 3 * 60_000,
 
     fromResponse(response) {
         const file = response as GeneratedCaseFile
-        return caseFileDone(file.document, file.version)
+        return caseFileDone(file.document, file.version, file.parts.length)
     },
 
     async check(task, queryClient: QueryClient) {
@@ -66,7 +83,7 @@ export const CASE_FILE_TASK: TaskKindHandler = {
         const found = documents.find((doc) => (doc.caseFile?.version ?? 0) > previous)
         if (!found?.caseFile) return null
         void queryClient.invalidateQueries({ queryKey: casesKeys.documents(caseId) })
-        return caseFileDone(found, found.caseFile.version)
+        return caseFileDone(found, found.caseFile.version, null)
     },
 
     describe(task): TaskView {
@@ -74,21 +91,24 @@ export const CASE_FILE_TASK: TaskKindHandler = {
             case 'running':
                 return {
                     title: 'Generando expediente',
-                    detail: `${task.subject}. Podés seguir trabajando: te avisamos acá cuando esté.`,
+                    detail: `${task.subject}. Puede tardar unos minutos: te avisamos acá cuando esté listo.`,
                     actions: [viewCase(task)],
                 }
             case 'done': {
-                const result = task.result ?? {}
-                const caseId = caseIdOf(task)
-                const documentId = String(result.documentId)
-                const fileName = String(result.fileName)
+                const ready = readyCaseFileOf(task.result ?? {})
+                const state: ReadyCaseFileNavigationState = { readyCaseFile: ready }
                 return {
                     title: 'Expediente listo',
-                    detail: `Versión ${result.version} · ${task.subject}. Quedó en la documentación de la causa.`,
+                    detail: `Versión ${ready.version} · ${task.subject}. Ya está en la documentación de la causa.`,
                     actions: [
+                        /* Lleva a "Generar expediente" con el diálogo "Expediente
+                           generado" abierto: ahí se descarga o se imprime, igual
+                           que si la persona se hubiera quedado esperando. */
                         {
-                            label: 'Descargar',
-                            run: async () => saveFile(await downloadCaseDocumentFile(caseId, documentId, 'attachment'), fileName),
+                            label: 'Ver expediente',
+                            to: `/causas/${caseIdOf(task)}/expediente`,
+                            state,
+                            closesTask: true,
                         },
                         viewCase(task),
                     ],
@@ -101,9 +121,10 @@ export const CASE_FILE_TASK: TaskKindHandler = {
                     actions: [viewCase(task)],
                 }
             case 'unconfirmed':
+                /* Los textos son para abogados: qué hacer, no cómo funciona por dentro. */
                 return {
-                    title: 'No pudimos confirmar el expediente',
-                    detail: `${task.subject}. Puede haberse generado igual: antes de volver a generarlo, fijate en "Documentación" de la causa si está la versión nueva.`,
+                    title: 'El expediente está demorando',
+                    detail: `${task.subject}. Revisá la documentación de la causa: si ya aparece la versión nueva, está listo. Si no, podés volver a generarlo.`,
                     actions: [viewCase(task)],
                 }
         }
@@ -149,7 +170,7 @@ export const CASE_FOLDER_TASK: TaskKindHandler = {
             case 'running':
                 return {
                     title: 'Creando carpeta en Drive',
-                    detail: `${task.subject}. Podés seguir trabajando: te avisamos acá cuando esté.`,
+                    detail: `${task.subject}. Puede tardar unos minutos: te avisamos acá cuando esté lista.`,
                     actions: [viewCase(task)],
                 }
             case 'done': {
@@ -168,8 +189,8 @@ export const CASE_FOLDER_TASK: TaskKindHandler = {
                 }
             case 'unconfirmed':
                 return {
-                    title: 'La carpeta se sigue creando',
-                    detail: `${task.subject}. Drive todavía no respondió. En la causa vas a ver cuando termine.`,
+                    title: 'La carpeta está demorando',
+                    detail: `${task.subject}. Drive todavía no terminó de crearla. Vas a verla en la causa cuando esté lista.`,
                     actions: [viewCase(task)],
                 }
         }

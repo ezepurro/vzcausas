@@ -6,7 +6,7 @@ import { usePrototypeToday } from '../../setup/clock'
 import { db } from '@/shared/mocks'
 import { server } from '@/shared/mocks/server'
 import { GenerateCaseFilePage } from '@/features/cases/pages/GenerateCaseFilePage'
-import { readBackgroundTasks } from '@/app/providers/backgroundTaskStorage'
+import { readBackgroundTasks, writeBackgroundTasks } from '@/app/providers/backgroundTaskStorage'
 
 const userId = (username: string) => db.users.find((u) => u.username === username)?.id ?? -1
 
@@ -214,6 +214,50 @@ describe('GenerateCaseFilePage', () => {
                 params: { caseId: 1, previousVersion: 1 },
             }),
         ])
+    })
+
+    // Desde la tarjeta "Expediente listo", después de un F5: no se saben las partes.
+    it('llegando desde la tarjeta de la tarea, arranca con el diálogo "Expediente generado" abierto', async () => {
+        renderWithProviders(<GenerateCaseFilePage />, {
+            as: 'gestion',
+            path: '/causas/:caseId/expediente',
+            route: '/causas/1/expediente',
+            state: {
+                readyCaseFile: {
+                    document: { id: 'exp-v1', name: 'Expediente_13284571_v1.pdf' },
+                    version: 1,
+                    partCount: null,
+                    sizeBytes: null,
+                },
+            },
+        })
+
+        const dialog = await screen.findByRole('dialog', { name: 'Expediente generado' })
+        expect(within(dialog).getByText('Expediente_13284571_v1.pdf')).toBeInTheDocument()
+        expect(within(dialog).getByText('Versión 1')).toBeInTheDocument()
+        expect(within(dialog).getByRole('button', { name: 'Imprimir' })).toBeInTheDocument()
+        expect(within(dialog).getByRole('button', { name: 'Volver a la causa' })).toBeInTheDocument()
+    })
+
+    // Después de un F5 con el expediente preparándose: generar otro dejaría dos versiones.
+    it('si hay un expediente de la causa en preparación, lo avisa antes de generar otro', async () => {
+        writeBackgroundTasks(userId('gestion'), [{
+            id: 'pendiente',
+            kind: 'cases.caseFile',
+            subject: 'GÓMEZ',
+            // Una versión que no va a aparecer: la tarea sigue en preparación todo el test.
+            params: { caseId: 1, previousVersion: 9 },
+            startedAt: Date.now(),
+            status: 'running',
+            result: null,
+            message: null,
+        }])
+        renderPage(1)
+        await included()
+
+        expect(await screen.findByRole('alert')).toHaveTextContent(
+            'Hay un expediente de esta causa en preparación. Antes de generar otro, esperá el aviso o revisá la documentación de la causa.',
+        )
     })
 
     it('si sigue en la pantalla, el resultado lo muestra ella y no queda tarjeta', async () => {

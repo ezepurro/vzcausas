@@ -13,6 +13,8 @@ import type {
     CaseFileFormValues,
     CreateCaseFileBody,
     GeneratedCaseFile,
+    ReadyCaseFile,
+    ReadyCaseFileNavigationState,
 } from '@/features/cases/types/caseFile'
 import { formatFileSize } from '@/features/cases/utils/caseDocument'
 
@@ -118,9 +120,39 @@ export function caseFileSummary(selected: readonly CaseDocument[]): string {
 
 /** "Versión 2 · 3 partes · 561 KB", del diálogo "Expediente generado". */
 export function generatedCaseFileMeta(result: GeneratedCaseFile): string {
-    return [`Versión ${result.version}`, partsLabel(result.parts.length), formatFileSize(result.document.sizeBytes)]
+    return readyCaseFileMeta(readyCaseFileFromResponse(result))
+}
+
+/** Lo que el diálogo "Expediente generado" necesita de la respuesta del `POST`. */
+export function readyCaseFileFromResponse(result: GeneratedCaseFile): ReadyCaseFile {
+    return {
+        document: { id: result.document.id, name: result.document.name },
+        version: result.version,
+        partCount: result.parts.length,
+        sizeBytes: result.document.sizeBytes,
+    }
+}
+
+/** "Versión 2 · 3 partes · 561 KB"; sin las partes si no se saben (después de un F5). */
+export function readyCaseFileMeta(ready: ReadyCaseFile): string {
+    return [
+        `Versión ${ready.version}`,
+        ready.partCount === null ? null : partsLabel(ready.partCount),
+        formatFileSize(ready.sizeBytes),
+    ]
         .filter(Boolean)
         .join(' · ')
+}
+
+/**
+ * El expediente que trae el `state` de la navegación, si se llegó desde la
+ * tarjeta "Expediente listo"; `null` si no. El `state` viene del historial:
+ * se revisa la forma antes de usarlo.
+ */
+export function readyCaseFileFromState(state: unknown): ReadyCaseFile | null {
+    const ready = (state as Partial<ReadyCaseFileNavigationState> | null)?.readyCaseFile
+    if (!ready || typeof ready.document?.id !== 'string' || typeof ready.version !== 'number') return null
+    return ready
 }
 
 function partsLabel(n: number): string {
@@ -155,6 +187,15 @@ export function elapsedLabel(seconds: number): string {
 export const UNCONFIRMED_CASE_FILE_MESSAGE =
     'No llegó la respuesta del servidor, pero el expediente puede haberse generado igual. ' +
     'Antes de volver a generarlo, fijate en "Documentación" de la causa si ya está la versión nueva.'
+
+/**
+ * Hay un expediente de esta causa preparándose como tarea en segundo plano
+ * (después de un F5, o pedido antes de salir y volver): generar otro dejaría
+ * dos versiones. Es para abogados: dice qué hacer, no cómo funciona.
+ */
+export const PENDING_CASE_FILE_MESSAGE =
+    'Hay un expediente de esta causa en preparación. Antes de generar otro, esperá el aviso o revisá la ' +
+    'documentación de la causa.'
 
 /* ---------------- cuerpo y errores ---------------- */
 

@@ -11,6 +11,8 @@ import {
     initialSelection,
     moveItem,
     opposingPartyField,
+    readyCaseFileFromState,
+    readyCaseFileMeta,
     selectedDocuments,
     toCaseFileFormErrors,
     toCreateCaseFileBody,
@@ -106,6 +108,21 @@ describe('resultado', () => {
             generatedAt: '2026-09-15T10:48:00-03:00',
         } satisfies GeneratedCaseFile
         expect(generatedCaseFileMeta(result)).toBe('Versión 2 · 3 partes · 561 KB')
+    })
+
+    // Tareas en segundo plano: después de un F5 se encontró en "Documentación", que no dice las partes.
+    it('sin las partes, arma "Versión 2 · 561 KB"', () => {
+        expect(
+            readyCaseFileMeta({ document: { id: 'nuevo', name: 'x.pdf' }, version: 2, partCount: null, sizeBytes: 574464 }),
+        ).toBe('Versión 2 · 561 KB')
+    })
+
+    it('el `state` de la navegación sólo abre el diálogo si trae un expediente', () => {
+        const ready = { document: { id: 'nuevo', name: 'x.pdf' }, version: 2, partCount: 3, sizeBytes: null }
+        expect(readyCaseFileFromState({ readyCaseFile: ready })).toEqual(ready)
+        expect(readyCaseFileFromState(null)).toBeNull()
+        expect(readyCaseFileFromState({ from: '/causas' })).toBeNull()
+        expect(readyCaseFileFromState({ readyCaseFile: { version: 2 } })).toBeNull()
     })
 })
 

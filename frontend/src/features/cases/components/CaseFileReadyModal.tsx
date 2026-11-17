@@ -1,9 +1,10 @@
 import { Button, Modal } from '@/shared/components/ui'
-import type { FileDisposition, GeneratedCaseFile } from '@/features/cases/types/caseFile'
-import { generatedCaseFileMeta } from '@/features/cases/utils/caseFile'
+import type { FileDisposition, ReadyCaseFile } from '@/features/cases/types/caseFile'
+import { readyCaseFileMeta } from '@/features/cases/utils/caseFile'
 
 export interface CaseFileReadyModalProps {
-    result: GeneratedCaseFile
+    /** De la respuesta del `POST`, o de la tarjeta "Expediente listo" (`ReadyCaseFile`). */
+    result: ReadyCaseFile
     /** Qué botón está esperando la descarga, o `null`. */
     busy: FileDisposition | null
     downloaded: boolean
@@ -48,7 +49,7 @@ export function CaseFileReadyModal({
                     <div className="vz-casefile__name vz-casefile__name--mono" title={result.document.name}>
                         {result.document.name}
                     </div>
-                    <div className="vz-casefile__meta">{generatedCaseFileMeta(result)}</div>
+                    <div className="vz-casefile__meta">{readyCaseFileMeta(result)}</div>
                 </div>
             </div>
             <p className="vz-casefile__ready-text">

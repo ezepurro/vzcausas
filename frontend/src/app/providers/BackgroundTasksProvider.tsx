@@ -14,10 +14,17 @@ import type {
     TaskOutcome,
 } from './BackgroundTasksContext'
 import { readBackgroundTasks, writeBackgroundTasks } from './backgroundTaskStorage'
-import { TASK_POLL_MS } from './backgroundTaskTiming'
+import { TASK_POLL_FAST_FOR_MS, TASK_POLL_MS, TASK_POLL_SLOW_MS } from './backgroundTaskTiming'
 
 let nextId = 0
 const newTaskId = () => `${Date.now().toString(36)}-${(nextId++).toString(36)}`
+
+/**
+ * Cada cuánto se pregunta por una tarea: seguido al principio, que es cuando
+ * suele terminar, y más espaciado después (`backgroundTaskTiming.ts`).
+ */
+const pollEvery = (task: BackgroundTask, now: number) =>
+    now - task.startedAt < TASK_POLL_FAST_FOR_MS ? TASK_POLL_MS : TASK_POLL_SLOW_MS
 
 /**
  * Lleva las tareas en segundo plano de quien tiene la sesión abierta.
@@ -26,7 +33,7 @@ const newTaskId = () => `${Date.now().toString(36)}-${(nextId++).toString(36)}`
  *
  * 1. **Con el pedido en vuelo**: cuando responde, el manejador de su clase
  *    dice cómo terminó (`fromResponse`).
- * 2. **Preguntando al servidor** cada `TASK_POLL_MS` (`check`), cuando no hay
+ * 2. **Preguntando al servidor** (`check`, cada tanto: `pollEvery`), cuando no hay
  *    pedido que esperar: después de un F5, cuando el pedido se cortó sin
  *    respuesta, o cuando la respuesta dice que sigue en curso. Si pasa
  *    `giveUpAfterMs` sin saberlo, queda `unconfirmed`.
@@ -111,8 +118,18 @@ export function BackgroundTasksProvider({ handlers, children }: { handlers: Task
 
     /* ---------- 1. con el pedido en vuelo ---------- */
 
-    /** Las tareas que todavía esperan su pedido: no se le pregunta al servidor por ellas. */
+    /**
+     * Las tareas que todavía esperan su pedido: no se le pregunta al servidor
+     * por ellas. El `ref` lo lee el sondeo; el estado, la tarjeta (una que
+     * espera su pedido no se cierra: es la única señal de que sigue).
+     */
     const live = useRef(new Set<string>())
+    const [liveIds, setLiveIds] = useState<ReadonlySet<string>>(() => new Set())
+    const setLive = useCallback((id: string, isLive: boolean) => {
+        if (isLive) live.current.add(id)
+        else live.current.delete(id)
+        setLiveIds(new Set(live.current))
+    }, [])
 
     const start = useCallback((request: StartTaskRequest): string => {
         const task: BackgroundTask = {
@@ -126,7 +143,7 @@ export function BackgroundTasksProvider({ handlers, children }: { handlers: Task
             message: null,
         }
         setTasks((current) => [...current, task])
-        live.current.add(task.id)
+        setLive(task.id, true)
 
         void (async () => {
             let outcome: TaskOutcome | null
@@ -140,21 +157,28 @@ export function BackgroundTasksProvider({ handlers, children }: { handlers: Task
                     ? null
                     : { status: 'failed', message: isApiError(error) ? error.message : 'Ocurrió un error inesperado.' }
             } finally {
-                live.current.delete(task.id)
+                setLive(task.id, false)
             }
             if (outcome) settle(task.id, outcome)
         })()
 
         return task.id
-    }, [ensureHandler, settle])
+    }, [ensureHandler, settle, setLive])
 
     /* ---------- 2. preguntando al servidor ---------- */
 
     const checking = useRef(new Set<string>())
+    /** Cuándo se preguntó por última vez por cada tarea. */
+    const lastChecked = useRef(new Map<string, number>())
 
     const poll = useCallback(() => {
+        const now = Date.now()
         for (const task of tasksRef.current) {
             if (task.status !== 'running' || live.current.has(task.id) || checking.current.has(task.id)) continue
+            const last = lastChecked.current.get(task.id)
+            /* Un margen chico: el intervalo no cae justo en el milisegundo. */
+            if (last !== undefined && now - last < pollEvery(task, now) - 500) continue
+            lastChecked.current.set(task.id, now)
             checking.current.add(task.id)
             void (async () => {
                 let handler: TaskKindHandler | undefined
@@ -202,10 +226,11 @@ export function BackgroundTasksProvider({ handlers, children }: { handlers: Task
     }, [anyRunning])
 
     const handlerFor = useCallback((kind: BackgroundTaskKind) => loaded[kind], [loaded])
+    const isWaitingForResponse = useCallback((id: string) => liveIds.has(id), [liveIds])
 
     const value = useMemo<BackgroundTasksValue>(
-        () => ({ tasks, start, dismiss, handlerFor }),
-        [tasks, start, dismiss, handlerFor],
+        () => ({ tasks, start, dismiss, handlerFor, isWaitingForResponse }),
+        [tasks, start, dismiss, handlerFor, isWaitingForResponse],
     )
 
     return <BackgroundTasksContext.Provider value={value}>{children}</BackgroundTasksContext.Provider>

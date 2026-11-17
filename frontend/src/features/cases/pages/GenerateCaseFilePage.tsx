@@ -1,5 +1,5 @@
-import { useState, type ReactNode } from 'react'
-import { useNavigate, useParams } from 'react-router'
+import { useEffect, useState, type ReactNode } from 'react'
+import { useLocation, useNavigate, useParams } from 'react-router'
 import { useBackgroundTasks } from '@/app/providers/BackgroundTasksContext'
 import { useStillShowing } from '@/shared/hooks/useStillShowing'
 import { caseFileTaskParams } from '@/features/cases/api/caseTasks'
@@ -30,7 +30,7 @@ import {
     type CaseFileFormErrors,
 } from '@/features/cases/schemas/caseFile.schema'
 import type { Case } from '@/features/cases/types/case'
-import type { CaseFileFormValues, FileDisposition, GeneratedCaseFile } from '@/features/cases/types/caseFile'
+import type { CaseFileFormValues, FileDisposition, ReadyCaseFile } from '@/features/cases/types/caseFile'
 import {
     caseFileNamePreview,
     caseFileSummary,
@@ -43,6 +43,9 @@ import {
     selectedDocuments,
     toCaseFileFormErrors,
     toCreateCaseFileBody,
+    readyCaseFileFromResponse,
+    readyCaseFileFromState,
+    PENDING_CASE_FILE_MESSAGE,
     UNCONFIRMED_CASE_FILE_MESSAGE,
 } from '@/features/cases/utils/caseFile'
 import { sacLabel } from '@/features/cases/utils/sac'
@@ -96,7 +99,7 @@ export function GenerateCaseFilePage() {
 
 /** El diálogo "Expediente generado", con lo que ya se descargó o se mandó a imprimir. */
 interface ReadyState {
-    file: GeneratedCaseFile
+    file: ReadyCaseFile
     downloaded: boolean
     printed: boolean
 }
@@ -104,6 +107,7 @@ interface ReadyState {
 /** La pantalla con la causa ya cargada. */
 function CaseFileGenerator({ case: c }: { case: Case }) {
     const toast = useToast()
+    const navigate = useNavigate()
 
     /* Los documentos se leen de la carpeta: sin ella creada no hay pedido, y el
        expediente no se puede guardar (`422 CASE_FOLDER_NOT_AVAILABLE`). */
@@ -132,7 +136,25 @@ function CaseFileGenerator({ case: c }: { case: Case }) {
     /* `null` mientras nadie tocó la lista: vale la selección inicial, que se
        arma con los documentos cuando llegan, sin copiarlos a un estado. */
     const [selection, setSelection] = useState<string[] | null>(null)
-    const [ready, setReady] = useState<ReadyState | null>(null)
+    /* Desde la tarjeta "Expediente listo" (tarea en segundo plano) se llega
+       con el expediente en el `state`: el diálogo arranca abierto, como si la
+       persona se hubiera quedado esperando. El `state` se borra apenas se lee,
+       así volver con "Atrás" o recargar no lo vuelve a abrir. */
+    const location = useLocation()
+    const [ready, setReady] = useState<ReadyState | null>(() => {
+        const fromTask = readyCaseFileFromState(location.state)
+        return fromTask ? { file: fromTask, downloaded: false, printed: false } : null
+    })
+    /* Si se llegó desde la tarjeta, la pantalla anterior no es la causa sino
+       donde estaba la persona (el tablero, Clientes…): "Volver a la causa" no
+       puede volver atrás. Vale para toda la visita, aunque después genere
+       otro expediente. */
+    const [arrivedFromTask] = useState(() => readyCaseFileFromState(location.state) !== null)
+    useEffect(() => {
+        if (readyCaseFileFromState(location.state)) {
+            navigate(`${location.pathname}${location.search}`, { replace: true, state: null })
+        }
+    }, [location, navigate])
     /** El último intento terminó sin respuesta: no se sabe si quedó guardado. */
     const [unconfirmed, setUnconfirmed] = useState(false)
     const generating = createCaseFile.isPending
@@ -141,6 +163,12 @@ function CaseFileGenerator({ case: c }: { case: Case }) {
        salir no pierde el resultado; el aviso al cerrar o recargar la pestaña
        lo da `BackgroundTasksProvider`. */
     const tasks = useBackgroundTasks()
+    /* Un expediente de esta causa que se sigue preparando sin esta pantalla
+       (se recargó, o se pidió antes de salir y volver): se avisa antes de que
+       genere otro. Mientras genera desde acá, ya lo dice el botón. */
+    const pendingInBackground = !generating && tasks.tasks.some(
+        (task) => task.kind === 'cases.caseFile' && task.status === 'running' && Number(task.params.caseId) === c.id,
+    )
     const isHere = useStillShowing(c.id)
 
     const order = selection ?? initialSelection(documents)
@@ -202,7 +230,7 @@ function CaseFileGenerator({ case: c }: { case: Case }) {
             (file) => {
                 if (!isHere(caseId)) return
                 tasks.dismiss(taskId)
-                setReady({ file, downloaded: false, printed: false })
+                setReady({ file: readyCaseFileFromResponse(file), downloaded: false, printed: false })
             },
             (error: unknown) => {
                 if (!isHere(caseId)) return
@@ -244,7 +272,13 @@ function CaseFileGenerator({ case: c }: { case: Case }) {
     }
 
     // Se llega desde el detalle: volver saca esta pantalla del historial.
-    const goToCase = useGoBack(`/causas/${c.id}`)
+    const goBackToCase = useGoBack(`/causas/${c.id}`)
+    /* Desde la tarjeta "Expediente listo" no se llegó desde el detalle: se va
+       a la causa y se reemplaza esta pantalla, así "Atrás" desde la causa
+       vuelve a donde estaba la persona. */
+    const goToCase = arrivedFromTask
+        ? () => navigate(`/causas/${c.id}`, { replace: true })
+        : goBackToCase
 
     return (
         <>
@@ -294,7 +328,7 @@ function CaseFileGenerator({ case: c }: { case: Case }) {
                         canGenerate={folderCreated && documentsQuery.isSuccess && selected.length > 0}
                         generating={generating}
                         progress={generatingMessage(selected.length)}
-                        notice={unconfirmed ? UNCONFIRMED_CASE_FILE_MESSAGE : null}
+                        notice={unconfirmed ? UNCONFIRMED_CASE_FILE_MESSAGE : pendingInBackground ? PENDING_CASE_FILE_MESSAGE : null}
                         onGenerate={generate}
                     />
                 </aside>
