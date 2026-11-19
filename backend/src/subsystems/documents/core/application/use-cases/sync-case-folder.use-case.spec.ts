@@ -92,6 +92,72 @@ describe('SyncCaseFolder', () => {
     expect((await caseFolder()).name).toBe('RUIZ s amparo');
   });
 
+  // D-143: una causa huérfana no tiene abogado; su carpeta vive en Causas/Sin asignar/{fuero}.
+  describe('causa huérfana (D-143)', () => {
+    it('queda sin responsable: crea Sin asignar y su fuero y mueve la carpeta, con su contenido', async () => {
+      const { sync, storage, caseFolder, originalId, folders } = await aStudioWithCaseFolder();
+      storage.seedFile({ parentId: originalId, name: 'escrito.pdf', mimeType: 'application/pdf', createdAt: new Date() });
+
+      const result = await sync.execute(aSync({ lawyer: null }));
+
+      expect(result).toEqual({ outcome: 'RELOCATED' });
+      expect(storage.calls.filter((c) => c.method === 'createFolder').map((c) => c.reference.name)).toEqual([
+        'Sin asignar',
+        'Penal',
+      ]);
+      const unassigned = (await folders.findByKey(FolderKey.unassigned()))!;
+      const jurisdiction = (await folders.findByKey(FolderKey.unassignedJurisdiction(1)))!;
+      expect(jurisdiction.parentCloudFolderId).toBe(unassigned.cloudFolderId);
+      const row = await caseFolder();
+      expect(row.cloudFolderId).toBe(originalId);
+      expect(row.parentCloudFolderId).toBe(jurisdiction.cloudFolderId);
+      expect(row.lawyerId).toBeNull();
+      expect(storage.files.filter((f) => f.parentId === originalId)).toHaveLength(1);
+      // La carpeta del abogado queda donde estaba: es su historia (D-132).
+      expect(await folders.findByKey(FolderKey.lawyer(3))).not.toBeNull();
+    });
+
+    it('al reasignarla sale de Sin asignar hacia la carpeta del abogado nuevo, y Sin asignar queda', async () => {
+      const { sync, caseFolder, folders } = await aStudioWithCaseFolder();
+      await sync.execute(aSync({ lawyer: null }));
+
+      const result = await sync.execute(aSync({ lawyer: { id: 5, folderLabel: 'Peralta, Ignacio' } }));
+
+      expect(result).toEqual({ outcome: 'RELOCATED' });
+      const newJurisdiction = (await folders.findByKey(FolderKey.jurisdiction(5, 1)))!;
+      const row = await caseFolder();
+      expect(row.parentCloudFolderId).toBe(newJurisdiction.cloudFolderId);
+      expect(row.lawyerId).toBe(5);
+      expect(await folders.findByKey(FolderKey.unassigned())).not.toBeNull();
+    });
+
+    it('es idempotente: repetirlo no toca la nube ni la fila', async () => {
+      const { sync, storage, folders } = await aStudioWithCaseFolder();
+      await sync.execute(aSync({ lawyer: null }));
+      storage.calls.length = 0;
+      storage.relocations.length = 0;
+      folders.relocationCount = 0;
+
+      const result = await sync.execute(aSync({ lawyer: null }));
+
+      expect(result).toEqual({ outcome: 'UNCHANGED' });
+      expect(storage.calls).toEqual([]);
+      expect(folders.relocationCount).toBe(0);
+    });
+
+    it('dos huérfanas del mismo fuero comparten Sin asignar y su fuero, sin duplicarlos', async () => {
+      const { sync, storage, assureSpace } = await aStudioWithCaseFolder();
+      await assureSpace.execute(aCommand({ caseId: 11, caseCaption: 'OTRA' }));
+      await sync.execute(aSync({ lawyer: null }));
+      storage.calls.length = 0;
+
+      await sync.execute(aSync({ caseId: 11, caseCaption: 'OTRA', lawyer: null }));
+
+      expect(storage.calls.filter((c) => c.method === 'createFolder')).toEqual([]);
+      expect(storage.folders.filter((f) => f.name === 'Sin asignar')).toHaveLength(1);
+    });
+  });
+
   it('reutiliza las carpetas del abogado nuevo si ya existen, sin duplicarlas', async () => {
     const { sync, storage, assureSpace } = await aStudioWithCaseFolder();
     await assureSpace.execute(

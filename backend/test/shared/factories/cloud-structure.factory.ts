@@ -93,7 +93,16 @@ export async function createTemplateJurisdictionFolders(
 export async function clearCloudFolders(): Promise<void> {
   const prisma = getPrisma();
   await prisma.case.updateMany({ data: { cloudFolderId: null, folderStatus: null } });
-  for (const kind of ['CASE', 'JURISDICTION', 'LAWYER', 'TEMPLATES', 'ROOT_CASES', 'MAIN'] as const) {
+  for (const kind of [
+    'CASE',
+    'JURISDICTION',
+    'UNASSIGNED_JURISDICTION',
+    'LAWYER',
+    'UNASSIGNED',
+    'TEMPLATES',
+    'ROOT_CASES',
+    'MAIN',
+  ] as const) {
     await prisma.cloudFolder.deleteMany({ where: { kind } });
   }
 }

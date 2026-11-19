@@ -89,7 +89,7 @@ export interface UpcomingDeadlineNotice {
   caption: string;                 // carátula, para el cuerpo del correo
   sacNumber: string | null;
   jurisdiction: Jurisdiction;      // enum ya existente en legal-parameters
-  responsibleLawyerId: number;     // yo resuelvo el email, no HU51/52 (ver abajo)
+  responsibleLawyerId: number | null; // null = causa huérfana (D-143): solo a la casilla. Yo resuelvo el email, no HU51/52 (ver abajo)
   kind: 'DEADLINE_WARNING' | 'DEADLINE_DUE_TODAY';
   origin: 'PROCEDURAL_ACT' | 'HARMFUL_ACT';   // deadline_kind
   dueDate: string;                 // ISO. La misma fecha que currentState.dueDate o harmfulActDeadline (CA-30.10)
@@ -100,7 +100,7 @@ export interface PrescriptionNotice {
   caseId: number;
   caption: string;
   sacNumber: string | null;
-  responsibleLawyerId: number;
+  responsibleLawyerId: number | null;  // null = causa huérfana (D-143)
   kind: 'PRESCRIPTION_ALERT' | 'PRESCRIPTION_EXPIRED';
   referenceDate: string;           // ISO. La prescriptionExpiresOn de la calificación que rige
   legalQualificationName: string;  // para que el correo diga "por <calificación>", no solo "prescribe"

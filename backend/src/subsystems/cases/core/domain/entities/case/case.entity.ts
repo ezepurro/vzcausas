@@ -4,6 +4,7 @@ import {
   CannotDeclarePrescriptionError,
   CaseInTerminalStateError,
   CannotOrphanCaseError,
+  CannotReassignCaseError,
   CaseNotFoundError,
   EmptyCaseUpdateError,
   NotResponsibleLawyerError,
@@ -296,6 +297,23 @@ export abstract class Case {
     }
     this.props.responsibleLawyerId = null;
     this.props.orphanedAt = now;
+    this.props.updatedAt = now;
+  }
+
+  /**
+   * HU15 — the responsible lawyer is given de baja and the administrator hands the case
+   * to another one: the same change of responsible that `PATCH /cases/{caseId}` makes,
+   * without the rest of the modification. If the case was orphaned it stops being so.
+   * Which lawyer is a valid target is the caller's to check.
+   *
+   * @throws CannotReassignCaseError the case was given de baja.
+   */
+  reassignTo(lawyerId: number, now: Date): void {
+    if (!this.props.active) {
+      throw new CannotReassignCaseError(this.props.id);
+    }
+    this.props.responsibleLawyerId = lawyerId;
+    this.props.orphanedAt = null;
     this.props.updatedAt = now;
   }
 

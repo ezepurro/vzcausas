@@ -74,6 +74,8 @@ export class PrismaCloudFolderRepository implements CloudFolderRepository {
         return { kind: 'LAWYER', lawyerId: key.lawyerId };
       case 'JURISDICTION':
         return { kind: 'JURISDICTION', lawyerId: key.lawyerId, jurisdictionId: key.jurisdictionId };
+      case 'UNASSIGNED_JURISDICTION':
+        return { kind: 'UNASSIGNED_JURISDICTION', jurisdictionId: key.jurisdictionId };
       case 'CASE':
         return { kind: 'CASE', case: { is: { id: key.caseId } } };
       default:

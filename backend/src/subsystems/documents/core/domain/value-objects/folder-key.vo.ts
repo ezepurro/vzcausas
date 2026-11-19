@@ -5,9 +5,10 @@ import { CloudFolderKind } from './cloud-folder-kind';
  * unique indexes of `cloud_folders`. The repository looks folders up by it.
  */
 export type FolderKey =
-  | { kind: 'MAIN' | 'TEMPLATES' | 'ROOT_CASES' }
+  | { kind: 'MAIN' | 'TEMPLATES' | 'ROOT_CASES' | 'UNASSIGNED' }
   | { kind: 'LAWYER'; lawyerId: number }
   | { kind: 'JURISDICTION'; lawyerId: number | null; jurisdictionId: number }
+  | { kind: 'UNASSIGNED_JURISDICTION'; jurisdictionId: number }
   | { kind: 'CASE'; caseId: number };
 
 export const FolderKey = {
@@ -20,6 +21,12 @@ export const FolderKey = {
     lawyerId,
     jurisdictionId,
   }),
+  /** `Causas/Sin asignar`: where the orphaned cases live (D-143). */
+  unassigned: (): FolderKey => ({ kind: 'UNASSIGNED' }),
+  unassignedJurisdiction: (jurisdictionId: number): FolderKey => ({
+    kind: 'UNASSIGNED_JURISDICTION',
+    jurisdictionId,
+  }),
   forCase: (caseId: number): FolderKey => ({ kind: 'CASE', caseId }),
 } as const;
 
@@ -30,6 +37,8 @@ export function folderKeyToString(key: FolderKey): string {
       return `LAWYER:${key.lawyerId}`;
     case 'JURISDICTION':
       return `JURISDICTION:${key.lawyerId ?? 'templates'}:${key.jurisdictionId}`;
+    case 'UNASSIGNED_JURISDICTION':
+      return `UNASSIGNED_JURISDICTION:${key.jurisdictionId}`;
     case 'CASE':
       return `CASE:${key.caseId}`;
     default:

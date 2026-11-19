@@ -5,6 +5,8 @@ import { LawyerFolder } from '../entities/lawyer-folder.entity';
 import { MainFolder } from '../entities/main-folder.entity';
 import { RootCasesFolder } from '../entities/root-cases-folder.entity';
 import { TemplatesFolder } from '../entities/templates-folder.entity';
+import { UnassignedFolder } from '../entities/unassigned-folder.entity';
+import { UnassignedJurisdictionFolder } from '../entities/unassigned-jurisdiction-folder.entity';
 import { InvalidCloudFolderError } from '../errors/documents.errors';
 import { CloudFolderKind } from '../value-objects/cloud-folder-kind';
 
@@ -16,7 +18,10 @@ export interface CloudFolderData extends CloudFolderProps {
   kind: CloudFolderKind;
   lawyerId?: number | null;
   jurisdictionId?: number | null;
-  /** Mandatory for `CASE`, with `lawyerId` and `jurisdictionId`: a case folder cannot exist without its case. */
+  /**
+   * Mandatory for `CASE`, with `jurisdictionId`: a case folder cannot exist without its case.
+   * Its `lawyerId` is `null` when the case is orphaned (D-143).
+   */
   caseId?: number | null;
 }
 
@@ -55,11 +60,16 @@ export class CloudFolderFactory {
           jurisdictionId: data.jurisdictionId as number,
           lawyerId: data.lawyerId ?? null,
         });
+      case 'UNASSIGNED':
+        return new UnassignedFolder(base);
+      case 'UNASSIGNED_JURISDICTION':
+        return new UnassignedJurisdictionFolder({ ...base, jurisdictionId: data.jurisdictionId as number });
       case 'CASE':
         return new CaseFolder({
           ...base,
           caseId: data.caseId as number,
-          lawyerId: data.lawyerId as number,
+          // `null` when the case is orphaned and hangs from `Sin asignar` (D-143).
+          lawyerId: data.lawyerId ?? null,
           jurisdictionId: data.jurisdictionId as number,
         });
       default:

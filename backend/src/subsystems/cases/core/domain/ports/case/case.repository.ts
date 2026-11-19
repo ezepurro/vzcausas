@@ -226,6 +226,20 @@ export interface CaseRepository {
   saveModification(modifiedCase: Case): Promise<void>;
 
   /**
+   * The ids of the **active** cases of a lawyer (HU15, D-143): in force and not in a
+   * terminal state, the initial one included. The same predicate as
+   * {@link countActiveByResponsibleLawyer}, so the ids are exactly what that count adds up.
+   * Ascending, so the answer is stable.
+   */
+  findActiveIdsByResponsibleLawyer(lawyerId: number): Promise<number[]>;
+
+  /**
+   * How many cases in force a lawyer is responsible for, in **any** state, terminal ones included
+   * (HU15, D-132): after their active cases were handed over, what is left is their history.
+   */
+  countInForceByResponsibleLawyer(lawyerId: number): Promise<number>;
+
+  /**
    * The cases **in force** of a client — not given de baja, in any state,
    * terminal ones included — loaded like {@link findById} (HU10, CA-10.9).
    */

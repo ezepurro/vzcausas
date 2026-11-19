@@ -40,12 +40,13 @@ migraciones las corre el equipo con `make migrate-dev`.**
 | T1.1 | S1, S2, S4 | `cases`: dominio y persistencia con responsable nulable; actos con `registeredByLawyerId` nulable; `Case.leaveWithoutResponsible` | delegada | Hecho (`make test-unit` y `make test-int` en verde, 17/11/2026) |
 | T1.2 | S3 | `cases`: filtro `unassigned` y `orphanedAt` en las respuestas | inline | Hecho (unitarios e integración en verde, 17/11/2026) |
 | T1.3 | S4 | `cases`: autorización de actos para el administrador en una huérfana | inline | Hecho (en verde, 17/11/2026). Modificar y anular actos (HU28/HU29) usan la misma regla pero no tienen test propio |
-| T1.4 | S5 | `deadlines`: avisos solo a la casilla (ajusta el contrato con HU51/52) | inline | Pendiente |
-| T1.5 | S6 | `documents`: carpeta `Sin asignar` | inline | Pendiente |
-| T1.6 | S1, S7 | `people`: caso de uso de baja con reparto atómico | inline | Pendiente |
-| T1.7 | S7 | `identity`: usuario vinculado (D-133); verificar si el puerto existe | inline | Pendiente |
-| T1.8 | S7 | `DELETE /lawyers/{lawyerId}`: DTO, validaciones, errores | inline | Pendiente |
-| T1.9 | S1 a S7 | Tests de integración de HU-15 | inline | Pendiente |
+| T1.4 | S5 | `deadlines`: avisos solo a la casilla (ajusta el contrato con HU51/52) | inline | Hecho (`daily-run` en verde, 17/11/2026). El código lo dejó T1.1 |
+| T1.5 | S6 | `documents`: carpeta `Sin asignar` (migraciones `cloud_folder_unassigned_kinds` y `cloud_folders_unassigned_constraints`) | inline | Hecho (migraciones aplicadas; unitarios e integración en verde, 18/11/2026). Falta el test de punta a punta con la baja real: va en T1.9 |
+| T1.6 | S1, S7 | `people`: caso de uso de baja con reparto atómico (`DeactivateLawyerUseCase`, `CaseReassignmentPlan`); `cases`: `ReassignLawyerCases`, `AnnounceReassignedCaseFolders`, `Case.reassignTo` | inline | Hecho (unitarios en verde, 19/11/2026) |
+| T1.7 | S7 | `identity`: `UnlinkLawyerUserUseCase` y `User.loseLawyerProfile` (D-133); el puerto `LawyerUserPort` es de `people` | inline | Hecho (unitarios en verde, 19/11/2026) |
+| T1.8 | S7 | `DELETE /lawyers/{lawyerId}`: DTO, controller, módulos con `forwardRef` entre `people` e `identity` | inline | Hecho (la app levanta con el `forwardRef` entre `people` e `identity`; integración en verde, 19/11/2026) |
+| T1.9 | S1 a S7 | Tests de integración de HU-15 (`deactivate-lawyer.int.spec.ts`; ruta nueva en el smoke de 401) | inline | Hecho (`deactivate-lawyer` y smoke en verde, 19/11/2026). La atomicidad con falla real no tiene test de integración (ver el archivo) |
+| T1.10 | S1 | Carpeta del propio abogado a `Papelera` (D-132): `RecycleLawyerFolder` y `LawyerDeactivatedListener` en `documents`; el evento lleva `keepsHistory`, que `people` pide a `cases` (`countCasesInForceOf`) | inline | Hecho (unitarios y `deactivate-lawyer-folders` en verde, 19/11/2026). Las filas de `cloud_folders` del abogado no se tocan (decisión A) |
 | T2.1 | S8, S9 | `reporting`: cálculo a una fecha de corte con `unassigned` | inline | Pendiente |
 | T2.2 | S10 | `reporting`: guardar y leer la foto | inline | Pendiente |
 | T2.3 | S8 | `GET /reports/monthly` | inline | Pendiente |
@@ -70,9 +71,13 @@ tests: se verificaron leyendo `_prisma_migrations` y `information_schema`.
   interna al llamar `leaveWithoutResponsible` sobre una causa inactiva o ya huérfana.
 - El tablero del administrador filtra `responsibleLawyerId: { not: null }`
   (`lawyer-dashboard-prisma.query.ts`): las huérfanas no aparecen hasta cerrar C-49.
-- T1.1 tocó `deadlines` más de lo previsto: puertos, `UpcomingDeadlineNotice` y una línea
-  del digest (`groupByResponsibleLawyer` salta el `null`). Es el núcleo de T1.4: verificar
-  el resto y acordarlo con el compañero de HU51/52.
+- T1.1 tocó `deadlines`: puertos, `UpcomingDeadlineNotice` y una línea del digest
+  (`groupByResponsibleLawyer` salta el `null`). T1.4 verificó el resto: las consultas
+  reales de `cases` (`prisma-open-deadline-query.adapter.ts`,
+  `criminal-prescription-query-prisma.adapter.ts`) no filtran por abogado, así que
+  entregan las huérfanas con `responsibleLawyerId: null`. **Falta avisar al compañero de
+  HU51/52** que `responsibleLawyerId` pasa a `number | null` en los dos avisos
+  (`.claude/rules/notificaciones.md` ya lo dice).
 - Las vistas de actos usan el usuario (`registeredBy`) cuando `registeredByLawyer` es nulo.
 
 ## Log
@@ -95,6 +100,12 @@ tests: se verificaron leyendo `_prisma_migrations` y `information_schema`.
   specs, 180 inserciones y 35 borrados. Verificación del padre: `npx tsc --noEmit -p
   tsconfig.json` sale con 0 errores (el watcher bajó de 16 a 0). Los tests no se
   corrieron. `Risk: item 3` (puertos de `cases` que consumen `deadlines` y `reporting`).
+- **L9 (19/11/2026).** `case-folder.int.spec.ts` es intermitente por tiempos, **previo a esta rama**:
+  su `WAIT_MS` es 300 ms y, con la máquina cargada, el alta responde `CREATING` en el test que
+  justo toque (en una corrida fallaron "sin la estructura configurada"; en otra, "reintenta una
+  carpeta en ERROR" y "perfil LAWYER"). Pasa solo cuando se corre de nuevo. No se corrigió: es un
+  archivo ajeno a HU-15 y un arreglo parcial no cierra la clase de problema (subir `WAIT_MS` o
+  esperar `CREATED` en todos sus tests lo decide el equipo).
 - **L8 (17/11/2026).** T1.2 y T1.3 en verde. Una corrida de integración dio 65 fallos con
   500 porque el cliente de Prisma del contenedor no tenía `orphanedAt` (la entidad rechaza
   `orphanedAt` indefinido con responsable nulo); se arregló con `npm run prisma:generate` y

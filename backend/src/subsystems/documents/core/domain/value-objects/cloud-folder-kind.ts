@@ -9,6 +9,8 @@ export const CLOUD_FOLDER_KINDS = [
   'LAWYER',
   'JURISDICTION',
   'CASE',
+  'UNASSIGNED',
+  'UNASSIGNED_JURISDICTION',
 ] as const;
 
 export type CloudFolderKind = (typeof CLOUD_FOLDER_KINDS)[number];

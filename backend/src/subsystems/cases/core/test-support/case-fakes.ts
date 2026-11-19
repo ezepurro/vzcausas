@@ -60,6 +60,14 @@ export abstract class UnusedCaseRepository implements CaseRepository {
     throw new Error('Este spec no usa saveModification de CaseRepository.');
   }
 
+  async countInForceByResponsibleLawyer(_lawyerId: number): Promise<number> {
+    throw new Error('Este spec no usa countInForceByResponsibleLawyer de CaseRepository.');
+  }
+
+  async findActiveIdsByResponsibleLawyer(_lawyerId: number): Promise<number[]> {
+    throw new Error('Este spec no usa findActiveIdsByResponsibleLawyer de CaseRepository.');
+  }
+
   async findActiveByClientId(_clientId: number): Promise<Case[]> {
     throw new Error('Este spec no usa findActiveByClientId de CaseRepository.');
   }

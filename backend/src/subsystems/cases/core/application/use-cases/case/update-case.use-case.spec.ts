@@ -9,6 +9,7 @@ import { CaseListItem } from '../../../domain/ports/case/case.repository';
 import { CASE_MODIFIED } from '../../../domain/ports/events/case-modified.event';
 import {
   aCase,
+  anOrphanedCase,
   anActor,
   CLIENT,
   INITIAL_STATES,
@@ -39,9 +40,8 @@ import { UpdateCase, UpdateCaseCommand } from './update-case.use-case';
 const OTHER_LAWYER = { id: 7, lastName: 'Peralta', firstName: 'Ignacio', registrationNumber: '1-35207' };
 const OTHER_CLIENT = { ...CLIENT, id: 9, lastName: 'FERREYRA', firstName: 'Lucas' };
 
-function build() {
+function build(existing = aCase()) {
   const cases = new FakeCaseRepository([...Object.values(INITIAL_STATES), ...STATES_TABLE]);
-  const existing = aCase();
   cases.add(existing);
   const audit = new FakeAuditTrail();
   const events = new FakeEventPublisher();
@@ -223,6 +223,19 @@ describe('UpdateCase', () => {
           jurisdiction: { id: 1, label: 'Penal' },
           changed: ['responsibleLawyer'],
         },
+      ]);
+    });
+
+    // D-143: una huérfana no tiene abogado; su carpeta vive en Sin asignar y el evento lo dice con null.
+    it('una huérfana anuncia el cambio sin abogado, para que la carpeta siga en Sin asignar', async () => {
+      const { useCase, events, folders } = build(anOrphanedCase());
+      folders.set(1, 'CREATED');
+      const administrator = anActor({ userId: 7, roleNames: ['ADMINISTRATOR'], lawyerId: null });
+
+      await useCase.execute(command({ actor: administrator, changes: { caption: 'FERREYRA p.s.a. Robo' } }));
+
+      expect(events.published).toEqual([
+        expect.objectContaining({ type: CASE_MODIFIED, caseId: 1, lawyer: null, changed: ['caption'] }),
       ]);
     });
 

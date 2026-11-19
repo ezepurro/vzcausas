@@ -25,12 +25,15 @@ export interface CaseModifiedEvent extends IntegrationEvent {
   readonly caseId: number;
   /** The caption the folder must be named after. */
   readonly caption: string;
-  /** The responsible lawyer whose folder must hold it. */
+  /**
+   * The responsible lawyer whose folder must hold it. `null` when the case is
+   * orphaned (D-143): its folder goes to `Causas/Sin asignar/{fuero}`.
+   */
   readonly lawyer: {
     readonly id: number;
     readonly lastName: string;
     readonly firstName: string;
-  };
+  } | null;
   /** The jurisdiction folder under the lawyer's: it never changes (D-95). */
   readonly jurisdiction: {
     readonly id: number;

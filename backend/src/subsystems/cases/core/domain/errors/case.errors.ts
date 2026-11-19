@@ -146,6 +146,17 @@ export class CannotOrphanCaseError extends BusinessRuleError {
   }
 }
 
+/**
+ * Emitted by `Case.reassignTo` (HU15, D-143) when the case was given de baja. Same nature as
+ * {@link CannotOrphanCaseError}: the caller only offers cases in force, and the contract has
+ * no code for it.
+ */
+export class CannotReassignCaseError extends BusinessRuleError {
+  constructor(caseId: number) {
+    super('CASE_CANNOT_BE_REASSIGNED', `La causa ${caseId} no puede reasignarse: está dada de baja.`);
+  }
+}
+
 /** Emitted when the user is not the lawyer in charge of the case (D-30, 403). */
 export class NotResponsibleLawyerError extends ForbiddenActionError {
   /** The wording of V5 `:6114` for modifying an act (HU28). */

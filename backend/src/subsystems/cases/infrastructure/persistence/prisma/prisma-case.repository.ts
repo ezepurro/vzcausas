@@ -213,6 +213,19 @@ export class PrismaCaseRepository implements CaseRepository {
     });
   }
 
+  async findActiveIdsByResponsibleLawyer(lawyerId: number): Promise<number[]> {
+    const rows = await this.prisma.db.case.findMany({
+      where: { ...ACTIVE_CASE, responsibleLawyerId: lawyerId },
+      select: { id: true },
+      orderBy: { id: 'asc' },
+    });
+    return rows.map((row) => row.id);
+  }
+
+  async countInForceByResponsibleLawyer(lawyerId: number): Promise<number> {
+    return this.prisma.db.case.count({ where: { responsibleLawyerId: lawyerId, active: true } });
+  }
+
   async findActiveByClientId(clientId: number): Promise<Case[]> {
     const rows = await this.prisma.db.case.findMany({
       where: { clientId, active: true },

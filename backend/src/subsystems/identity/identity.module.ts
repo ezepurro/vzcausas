@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { Module, forwardRef } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { JwtModule } from "@nestjs/jwt";
 import { parseTtlToSeconds } from "../../config/parse-ttl";
@@ -13,7 +13,9 @@ import { ListUsersUseCase } from "./core/application/use-cases/list-users.use-ca
 import { LogoutUseCase } from "./core/application/use-cases/logout.use-case";
 import { RefreshSessionUseCase } from "./core/application/use-cases/refresh-session.use-case";
 import { RegisterUserUseCase } from "./core/application/use-cases/register-user.use-case";
+import { UnlinkLawyerUserUseCase } from "./core/application/use-cases/unlink-lawyer-user.use-case";
 import { UpdateUserUseCase } from "./core/application/use-cases/update-user.use-case";
+import { LawyerUserPort } from "@subsystems/people/core/domain/ports/lawyer-user.port";
 import { LAWYER_LOOKUP } from "./core/domain/ports/lawyer-lookup.port";
 import { LAWYER_REGISTRAR } from "./core/domain/ports/lawyer-registrar.port";
 import { LOGIN_THROTTLE } from "./core/domain/ports/login-throttle.port";
@@ -26,6 +28,7 @@ import { USER_REPOSITORY } from "./core/domain/ports/user.repository";
 import { AccessTokenVerifierAdapter } from "./infrastructure/acl/access-token-verifier.adapter";
 import { DeadlinesLawyerContactLookupAdapter } from "./infrastructure/acl/deadlines-lawyer-contact-lookup.adapter";
 import { PeopleLawyerLookupAdapter } from "./infrastructure/acl/lawyer-lookup.adapter";
+import { PeopleLawyerUserAdapter } from "./infrastructure/acl/people-lawyer-user.adapter";
 import { DevSeedService } from "./infrastructure/bootstrap/dev-seed.service";
 import { BcryptPasswordHasherAdapter } from "./infrastructure/external/bcrypt-password-hasher.adapter";
 import { JwtTokenIssuerAdapter } from "./infrastructure/external/jwt-token-issuer.adapter";
@@ -66,7 +69,7 @@ import { PrismaUserRepository } from "./infrastructure/persistence/prisma/prisma
     JwtModule.register({}),
     // `people` exports only its FindLawyer use case; the ACL adapter
     // below is what consumes it.
-    PeopleModule,
+    forwardRef(() => PeopleModule),
   ],
 
   controllers: [AuthController, UserController],
@@ -114,6 +117,10 @@ import { PrismaUserRepository } from "./infrastructure/persistence/prisma/prisma
     ListUsersUseCase,
     UpdateUserUseCase,
     DeactivateUserUseCase,
+    // HU15 (D-133): the user of a lawyer given de baja loses the profile. The port is
+    // `people`'s; `identity` implements it because roles and accounts are its own.
+    UnlinkLawyerUserUseCase,
+    { provide: LawyerUserPort, useClass: PeopleLawyerUserAdapter },
 
     // --- HTTP support ---
     AuthHttpMapper,
@@ -140,6 +147,6 @@ import { PrismaUserRepository } from "./infrastructure/persistence/prisma/prisma
    * `lawyer-lookup.adapter.ts`: `identity` is the provider here, not the
    * consumer — `deadlines` needs it (N-09) to resolve a lawyer's email.
    */
-  exports: [ACCESS_TOKEN_VERIFIER, DeadlinesLawyerContactLookupAdapter],
+  exports: [ACCESS_TOKEN_VERIFIER, DeadlinesLawyerContactLookupAdapter, LawyerUserPort],
 })
 export class IdentityModule {}

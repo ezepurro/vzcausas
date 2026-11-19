@@ -1,6 +1,6 @@
 import { Deactivation } from '@shared/domain/deactivation.vo';
 import { ValidationError } from '@shared/domain/domain-error';
-import { CannotOrphanCaseError, NotResponsibleLawyerError } from '../../errors/case.errors';
+import { CannotOrphanCaseError, CannotReassignCaseError, NotResponsibleLawyerError } from '../../errors/case.errors';
 import { CaseDataRules } from '../../rules/case-data-rules';
 import {
   aCase,
@@ -63,6 +63,34 @@ describe('Case.leaveWithoutResponsible', () => {
     expect(() => target.leaveWithoutResponsible(LATER)).toThrow(CannotOrphanCaseError);
     expect(target.responsibleLawyerId).toBe(LAWYER.id);
     expect(target.orphanedAt).toBeNull();
+  });
+});
+
+describe('Case.reassignTo', () => {
+  it('cambia el responsable y deja el resto de la causa como estaba', () => {
+    const target = aCase();
+    const before = target.toSnapshot();
+
+    target.reassignTo(7, LATER);
+
+    expect(target.toSnapshot()).toEqual({ ...before, responsibleLawyerId: 7, updatedAt: LATER });
+  });
+
+  it('una huérfana deja de serlo: tiene responsable y se borra orphanedAt', () => {
+    const target = anOrphanedCase();
+
+    target.reassignTo(7, LATER);
+
+    expect(target.responsibleLawyerId).toBe(7);
+    expect(target.orphanedAt).toBeNull();
+  });
+
+  it('una causa dada de baja no se reasigna', () => {
+    const target = aCase();
+    target.deactivate(Deactivation.create({ reason: 'Causa duplicada.' }, { deactivatedByUserId: 9, deactivatedAt: LATER }));
+
+    expect(() => target.reassignTo(7, LATER)).toThrow(CannotReassignCaseError);
+    expect(target.responsibleLawyerId).toBe(LAWYER.id);
   });
 });
 

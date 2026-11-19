@@ -6,8 +6,8 @@ export interface SyncCaseFolderCommand {
   caseId: number;
   /** The caption the folder must be named after. */
   caseCaption: string;
-  /** The responsible lawyer whose folder must hold it. */
-  lawyer: { id: number; folderLabel: string };
+  /** The responsible lawyer whose folder must hold it; `null` for an orphaned case, which goes to `Sin asignar` (D-143). */
+  lawyer: { id: number; folderLabel: string } | null;
   jurisdiction: { id: number; folderLabel: string };
   /** `eventId` of the event that triggered this work; absent when invoked directly. */
   causedByEventId?: string;

@@ -49,6 +49,7 @@ describe('[smoke] App de integración', () => {
       ['get', '/api/v1/lawyers'],
       ['post', '/api/v1/lawyers'],
       ['get', '/api/v1/lawyers/1'],
+      ['delete', '/api/v1/lawyers/1'],
       ['get', '/api/v1/clients'],
       ['post', '/api/v1/clients'],
       ['get', '/api/v1/clients/1'],

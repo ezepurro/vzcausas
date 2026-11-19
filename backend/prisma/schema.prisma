@@ -676,7 +676,9 @@ enum CloudFolderKind {
   ROOT_CASES // Causas
   LAWYER // Causas/{abogado}
   JURISDICTION // Modelos formales/{fuero} o Causas/{abogado}/{fuero}
-  CASE // Causas/{abogado}/{fuero}/{carátula}
+  CASE // Causas/{abogado}/{fuero}/{carátula}, o Causas/Sin asignar/{fuero}/{carátula} (D-143)
+  UNASSIGNED // Causas/Sin asignar: la carpeta de las causas huérfanas (D-143)
+  UNASSIGNED_JURISDICTION // Causas/Sin asignar/{fuero}
 
   @@map("cloud_folder_kind")
 }
@@ -728,9 +730,10 @@ model CloudFolder {
   url                 String          @db.VarChar(512)
   // NULL solo en MAIN.
   parentCloudFolderId String?         @map("parent_cloud_folder_id") @db.VarChar(128)
-  // En LAWYER, en la JURISDICTION de causas y en CASE.
+  // En LAWYER, en la JURISDICTION de causas y en CASE (NULL en la CASE de una
+  // causa huérfana, D-143).
   lawyerId            Int?            @map("lawyer_id")
-  // En JURISDICTION y en CASE.
+  // En JURISDICTION, UNASSIGNED_JURISDICTION y CASE.
   jurisdictionId      Int?            @map("jurisdiction_id")
   createdAt           DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
 
@@ -1079,7 +1082,7 @@ model AuditLog {
 //   cases                    ck_cases_folder_created_has_cloud_folder
 //   cases                    ck_cases_prescription_declaration_complete
 //   cases                    ck_cases_prescription_grounds_need_declaration
-//   cloud_folders            ck_cloud_folders_shape_by_kind
+//   cloud_folders            ck_cloud_folders_shape_by_kind (reescrita en la migración cloud_folders_unassigned_constraints, D-143)
 //   document_template_copies ck_document_template_copies_copied_has_file
 //   sent_notifications       ck_sent_notifications_deadline_kind_coherent
 //   sent_notifications       ck_sent_notifications_act_only_for_procedural_deadline

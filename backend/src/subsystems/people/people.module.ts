@@ -2,6 +2,7 @@ import { Module, forwardRef } from '@nestjs/common';
 import { AuditModule } from '@shared/infrastructure/audit/audit.module';
 import { ClockModule } from '@shared/infrastructure/clock/clock.module';
 import { CasesModule } from '@subsystems/cases/case.module';
+import { IdentityModule } from '@subsystems/identity/identity.module';
 import { PEOPLE_LOOKUP } from '@subsystems/cases/core/domain/ports/case/people-lookup.port';
 import { FindClientUseCase } from './core/application/use-cases/find-client.use-case';
 import { FindLawyerUseCase } from './core/application/use-cases/find-lawyer.use-case';
@@ -13,6 +14,7 @@ import { RegisterLawyerUseCase } from './core/application/use-cases/register-law
 import { UpdateLawyerUseCase } from './core/application/use-cases/update-lawyer.use-case';
 import { UpdateClientUseCase } from './core/application/use-cases/update-client.use-case';
 import { DeactivateClientUseCase } from './core/application/use-cases/deactivate-client.use-case';
+import { DeactivateLawyerUseCase } from './core/application/use-cases/deactivate-lawyer.use-case';
 import { CLIENT_REPOSITORY } from './core/domain/ports/client.repository';
 import { LAWYER_REPOSITORY } from './core/domain/ports/lawyer.repository';
 import { CasesPeopleLookupAdapter } from './infrastructure/acl/cases-people-lookup.adapter';
@@ -35,7 +37,7 @@ import { PrismaLawyerRepository } from './infrastructure/persistence/prisma/pris
  * `UpdateLawyer` the audit trail (HU14, CA-14.5).
  */
 @Module({
-  imports: [ClockModule, AuditModule, forwardRef(() => CasesModule)],
+  imports: [ClockModule, AuditModule, forwardRef(() => CasesModule), forwardRef(() => IdentityModule)],
   controllers: [LawyerController, ClientController],
   providers: [
     RegisterLawyerUseCase,
@@ -51,6 +53,9 @@ import { PrismaLawyerRepository } from './infrastructure/persistence/prisma/pris
     UpdateClientUseCase,
     // HU11: the active cases are counted through `cases`' adapter of `ActiveCasesCounterPort`.
     DeactivateClientUseCase,
+    // HU15 (D-143, D-133): the lawyer's cases go through `cases`' adapter of `LawyerCasesPort`
+    // and their user through `identity`'s adapter of `LawyerUserPort`, both exported by those modules.
+    DeactivateLawyerUseCase,
     { provide: LAWYER_REPOSITORY, useClass: PrismaLawyerRepository },
     { provide: CLIENT_REPOSITORY, useClass: PrismaClientRepository },
     // Adapter of the port that `cases` defines to ask for lawyers and clients.

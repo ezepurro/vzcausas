@@ -50,6 +50,17 @@ describe('CaseModifiedListener', () => {
     expect((await folders.findByKey(FolderKey.forCase(10)))!.lawyerId).toBe(5);
   });
 
+  // D-143: un evento sin abogado es el de una causa huérfana; su carpeta va a Sin asignar.
+  it('con el responsable en null mueve la carpeta a Sin asignar, sin abogado', async () => {
+    const { listener, storage, folders } = await aListener();
+
+    await listener.handle(aCaseModifiedEvent({ lawyer: null, changed: ['responsibleLawyer'] }));
+
+    expect(storage.folders.some((f) => f.name === 'Sin asignar')).toBe(true);
+    expect((await folders.findByKey(FolderKey.forCase(10)))!.lawyerId).toBeNull();
+    expect(await folders.findByKey(FolderKey.unassignedJurisdiction(1))).not.toBeNull();
+  });
+
   it('si Drive falla, no propaga el error: lo registra y la fila no cambia (CA-19.10)', async () => {
     const { listener, storage, folders } = await aListener();
     storage.failNextCallTo('relocateFolder', new DocumentStorageUnavailableError('TRANSIENT', 'timeout'));

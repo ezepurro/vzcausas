@@ -53,6 +53,15 @@ export class PrismaLawyerRepository implements LawyerRepository {
     }
   }
 
+  async saveDeactivation(lawyer: Lawyer): Promise<boolean> {
+    // Conditional on `active`, in one statement: of two simultaneous bajas only one writes.
+    const { count } = await this.prisma.db.lawyer.updateMany({
+      where: { id: lawyer.id, active: true },
+      data: { active: false },
+    });
+    return count === 1;
+  }
+
   async create(lawyer: Lawyer): Promise<void> {
     await this.prisma.db.lawyer.create({
       data: {

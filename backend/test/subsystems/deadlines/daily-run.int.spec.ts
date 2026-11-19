@@ -169,6 +169,30 @@ describe('POST /api/v1/internal/deadlines/daily-run', () => {
       expect(rows.map((r) => r.recipientLawyerId).sort()).toEqual([null, lawyer.id].sort());
     });
 
+    // D-143: una causa huérfana no tiene abogado; sus avisos van solo a la casilla, sin copia.
+    it('el aviso de una causa huérfana va solo a la casilla, sin copia, y queda registrado para la casilla', async () => {
+      const admin = await createUser({ roles: ['ADMINISTRATOR'] });
+      const { case: createdCase } = await aCaseWithLawyer(admin.id);
+      await getPrisma().case.update({
+        where: { id: createdCase.id },
+        data: { responsibleLawyerId: null, orphanedAt: new Date('2026-10-01T15:00:00.000Z') },
+      });
+      deadlineDetection.notices = [aDeadlineNotice({ caseId: createdCase.id, responsibleLawyerId: null })];
+
+      const res = await run();
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ mailboxSent: true, mailboxNoticeCount: 1, lawyerSends: [] });
+      expect(emailSender.sent).toHaveLength(1);
+      expect(emailSender.sent[0].to).toEqual([MANAGEMENT_MAILBOX]);
+
+      const rows = await getPrisma().sentNotification.findMany({ where: { caseId: createdCase.id } });
+      expect(rows.map((row) => row.recipientLawyerId)).toEqual([null]);
+
+      // Una segunda corrida no la reenvía a la casilla (CA-30.7).
+      expect((await run()).body).toEqual({ mailboxSent: false, mailboxNoticeCount: 0, lawyerSends: [] });
+    });
+
     it('un abogado sin usuario vinculado no recibe copia, sin error (CA-30.5)', async () => {
       const admin = await createUser({ roles: ['ADMINISTRATOR'] });
       const { lawyer, case: createdCase } = await aCaseWithLawyer(admin.id); // lawyer sin usuario vinculado
