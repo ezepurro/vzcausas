@@ -116,6 +116,8 @@ export class PrismaCaseRepository implements CaseRepository {
           subjectMatter: data.subjectMatter,
           clientId: data.clientId,
           responsibleLawyerId: data.responsibleLawyerId,
+          // Together with the lawyer (`ck_cases_orphaned_coherent`): reassigning an orphan clears it.
+          orphanedAt: data.orphanedAt,
           startDate: data.startDate,
           courtFeePaid: data.courtFeePaid,
           clientDetained: data.clientDetained,
@@ -179,6 +181,7 @@ export class PrismaCaseRepository implements CaseRepository {
         subjectMatter: data.subjectMatter,
         clientId: data.clientId,
         responsibleLawyerId: data.responsibleLawyerId,
+        orphanedAt: data.orphanedAt,
         startDate: data.startDate,
         courtFeePaid: data.courtFeePaid,
         clientDetained: data.clientDetained,
@@ -208,6 +211,19 @@ export class PrismaCaseRepository implements CaseRepository {
         },
       },
     });
+  }
+
+  async findActiveIdsByResponsibleLawyer(lawyerId: number): Promise<number[]> {
+    const rows = await this.prisma.db.case.findMany({
+      where: { ...ACTIVE_CASE, responsibleLawyerId: lawyerId },
+      select: { id: true },
+      orderBy: { id: 'asc' },
+    });
+    return rows.map((row) => row.id);
+  }
+
+  async countInForceByResponsibleLawyer(lawyerId: number): Promise<number> {
+    return this.prisma.db.case.count({ where: { responsibleLawyerId: lawyerId, active: true } });
   }
 
   async findActiveByClientId(clientId: number): Promise<Case[]> {
@@ -442,6 +458,7 @@ export class PrismaCaseRepository implements CaseRepository {
         : {}),
       ...(filters.jurisdiction !== undefined ? { jurisdiction: { name: filters.jurisdiction } } : {}),
       ...(filters.responsibleLawyerId !== undefined ? { responsibleLawyerId: filters.responsibleLawyerId } : {}),
+      ...(filters.unassigned === true ? { responsibleLawyerId: null } : {}),
       ...(filters.clientId !== undefined ? { clientId: filters.clientId } : {}),
       // Overdue ones included: any due date, past or not.
       ...(filters.openDeadline === true
@@ -559,9 +576,12 @@ export class PrismaCaseRepository implements CaseRepository {
       _count: { _all: true },
     });
 
+    // The filter leaves out the orphaned cases, but the type of the column still admits `null`.
     return fill(
       lawyerIds,
-      rows.map((row): [number, number] => [row.responsibleLawyerId, row._count._all]),
+      rows.flatMap((row): [number, number][] =>
+        row.responsibleLawyerId === null ? [] : [[row.responsibleLawyerId, row._count._all]],
+      ),
     );
   }
 
@@ -703,12 +723,15 @@ function toListItem(row: CaseRow): CaseListItem {
       email: row.client.email,
       clientSince: row.client.clientSince,
     },
-    responsibleLawyer: {
-      id: row.responsibleLawyer.id,
-      lastName: row.responsibleLawyer.lastName,
-      firstName: row.responsibleLawyer.firstName,
-      registrationNumber: row.responsibleLawyer.registrationNumber,
-    },
+    responsibleLawyer: row.responsibleLawyer
+      ? {
+          id: row.responsibleLawyer.id,
+          lastName: row.responsibleLawyer.lastName,
+          firstName: row.responsibleLawyer.firstName,
+          registrationNumber: row.responsibleLawyer.registrationNumber,
+        }
+      : null,
+    orphanedAt: row.orphanedAt,
     // HU31: both dates are computed on every read (V4, D-08), from the
     // interruptive acts of the case that restarted each offense (D-113). The
     // `prescription_date` stored at

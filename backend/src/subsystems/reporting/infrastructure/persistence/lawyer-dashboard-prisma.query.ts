@@ -91,7 +91,8 @@ export class LawyerDashboardPrismaQuery implements LawyerDashboardQuery {
 
   async findAllActiveCases(): Promise<DashboardCaseRow[]> {
     const rows = await this.prisma.db.case.findMany({
-      where: ACTIVE_CASE,
+      // An orphaned case has no lawyer to show: how it counts in the administrator's dashboard is open (C-49).
+      where: { ...ACTIVE_CASE, responsibleLawyerId: { not: null } },
       select: CASE_SELECT,
       orderBy: { id: 'asc' },
     });
@@ -100,6 +101,10 @@ export class LawyerDashboardPrismaQuery implements LawyerDashboardQuery {
 
   /** A row of `cases` as the dashboards read it. */
   private static toCaseRow(row: CaseRow): DashboardCaseRow {
+    // Both queries leave the orphaned cases out (D-143, C-49), so this is a broken filter, not a case to render.
+    if (row.responsibleLawyer === null) {
+      throw new Error(`The case ${row.id} has no responsible lawyer and reached a dashboard.`);
+    }
     return {
       caseId: row.id,
       sacNumber: row.sacNumber,

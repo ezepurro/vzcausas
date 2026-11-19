@@ -5,7 +5,7 @@ import * as bcrypt from 'bcryptjs';
 import { getPrisma, startTestApp, stopTestApp } from '../../shared/harness/test-app';
 import { withFixedClock } from '../../shared/harness/fixed-clock';
 import { expectData, expectError, expectPaginated } from '../../shared/contract/envelopes';
-import { TestRole } from '../../shared/auth/login-as';
+import { TestRole, loginAs } from '../../shared/auth/login-as';
 import { createCase, deactivateCase } from '../../shared/factories/case.factory';
 import { createLawyer } from '../../shared/factories/lawyer.factory';
 import { createLegalQualification } from '../../shared/factories/legal-qualification.factory';
@@ -124,6 +124,39 @@ describe('POST /api/v1/cases/:caseId/interruptive-acts', () => {
       name: 'Citación a juicio',
       registeredByUserId: s.user.id,
       registeredByLawyerId: s.lawyer.id,
+    });
+  });
+
+  // D-143, D-144: una huérfana no tiene responsable; sus actos son del administrador, a su nombre.
+  describe('causa huérfana', () => {
+    const orphan = () =>
+      getPrisma().case.update({
+        where: { id: s.caseRow.id },
+        data: { responsibleLawyerId: null, orphanedAt: new Date('2026-09-10T15:00:00.000Z') },
+      });
+    const admin = () => loginAs({ userId: s.user.id, roles: ['ADMINISTRATOR'], lawyerId: null });
+
+    it('lo registra el administrador, a su nombre y sin ficha de abogado', async () => {
+      await orphan();
+
+      const data = expectData<Record<string, any>>(
+        await register({ name: 'Citación a juicio', actDate: '2026-09-15' }, admin()),
+        201,
+      );
+
+      expect(data.registeredBy).toEqual({ id: s.user.id, lastName: s.user.lastName, firstName: s.user.firstName });
+      const row = await getPrisma().interruptiveAct.findUniqueOrThrow({ where: { id: data.id } });
+      expect(row).toMatchObject({ registeredByUserId: s.user.id, registeredByLawyerId: null });
+    });
+
+    it('a un abogado, aunque fuera el responsable, o a la secretaría les responde 403 sin guardar nada', async () => {
+      await orphan();
+
+      for (const actor of [s.responsible, s.notResponsible, loginAs({ roles: ['SECRETARY'] })]) {
+        expectError(await register({ name: 'Citación a juicio', actDate: '2026-09-15' }, actor), 403, 'FORBIDDEN');
+      }
+
+      expect(await getPrisma().interruptiveAct.count()).toBe(0);
     });
   });
 

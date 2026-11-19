@@ -80,6 +80,7 @@ export class CasePrismaMapper {
       instructor: { name: row.instructorName, phone: row.instructorPhone, extension: row.instructorExtension },
       clientId: row.clientId,
       responsibleLawyerId: row.responsibleLawyerId,
+      orphanedAt: row.orphanedAt,
       startDate: row.startDate,
       courtFeePaid: row.courtFeePaid,
       currentStateId: row.currentStateId,

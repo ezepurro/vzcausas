@@ -39,16 +39,21 @@ export class CaseFolderAnnouncer {
       if (folder?.status !== 'CREATED') {
         return;
       }
-      // A lawyer given de baja keeps their folder: look them up active or not.
-      const lawyer = await this.people.findLawyerById(target.responsibleLawyerId);
-      if (!lawyer) {
-        throw new Error(`The lawyer ${target.responsibleLawyerId} of case ${target.id} does not exist.`);
+      // An orphaned case has no lawyer: its folder goes to `Sin asignar` (D-143).
+      let lawyer: CaseModifiedEvent['lawyer'] = null;
+      if (target.responsibleLawyerId !== null) {
+        // A lawyer given de baja keeps their folder: look them up active or not.
+        const found = await this.people.findLawyerById(target.responsibleLawyerId);
+        if (!found) {
+          throw new Error(`The lawyer ${target.responsibleLawyerId} of case ${target.id} does not exist.`);
+        }
+        lawyer = { id: found.id, lastName: found.lastName, firstName: found.firstName };
       }
       const event: CaseModifiedEvent = {
         ...createEventHeader(CASE_MODIFIED, occurredAt),
         caseId: target.id,
         caption: target.caption,
-        lawyer: { id: lawyer.id, lastName: lawyer.lastName, firstName: lawyer.firstName },
+        lawyer,
         jurisdiction: { id: target.jurisdictionId, label: JURISDICTION_FOLDER_LABEL[target.jurisdictionCode] },
         changed: [...changed],
       };

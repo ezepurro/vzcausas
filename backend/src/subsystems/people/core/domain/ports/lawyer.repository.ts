@@ -42,6 +42,13 @@ export interface LawyerRepository {
    */
   update(lawyer: Lawyer): Promise<void>;
 
+  /**
+   * Saves the baja of a lawyer (HU15): `active` goes to `false`. It writes only if the lawyer is
+   * still active and answers whether it did, so two simultaneous bajas do not both win.
+   * Nothing else about the lawyer changes: the record is kept (RN12).
+   */
+  saveDeactivation(lawyer: Lawyer): Promise<boolean>;
+
   /** Loads a lawyer by primary key. Returns `null` if none. */
   findById(id: number): Promise<Lawyer | null>;
 

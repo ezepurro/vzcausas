@@ -5,6 +5,7 @@ import { GoogleOAuthModule } from "@shared/infrastructure/google/google-oauth.mo
 import { ClockModule } from "@shared/infrastructure/clock/clock.module";
 import { DeadlinesLawyerContactLookupAdapter } from "@subsystems/identity/infrastructure/acl/deadlines-lawyer-contact-lookup.adapter";
 import { CasesModule } from "@subsystems/cases/case.module";
+import { ReportingModule } from "@subsystems/reporting/reporting.module";
 import { DetectUpcomingDeadlinesUseCase } from "./core/application/use-cases/detect-upcoming-deadlines.use-case";
 import { DetectUpcomingPrescriptionsUseCase } from "./core/application/use-cases/detect-upcoming-prescriptions.use-case";
 import { SendDailyNotificationDigestUseCase } from "./core/application/use-cases/send-daily-notification-digest.use-case";
@@ -43,7 +44,8 @@ import { PrismaSentNotificationRepository } from "./infrastructure/persistence/p
  *    exist and replace them.
  */
 @Module({
-  imports: [ClockModule, IdentityModule, GoogleOAuthModule, CasesModule],
+  // `ReportingModule` provides the adapter of `MONTHLY_REPORT_CLOSER` (HU43, "Cerrar el mes").
+  imports: [ClockModule, IdentityModule, GoogleOAuthModule, CasesModule, ReportingModule],
 
   controllers: [DailyRunController],
 

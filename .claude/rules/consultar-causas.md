@@ -160,6 +160,8 @@ como pendiente y pará.
 
 Si la tarea depende de alguno, **frená y preguntá**:
 
-- **P-05** — no hay política de reasignación de causas cuando el abogado
-  responsable se da de baja. Toda causa debe tener responsable (RN3), y eso
-  choca con la baja de abogados.
+- **P-05** — política de reasignación de causas cuando el abogado
+  responsable se da de baja. Cubierta por el equipo (D-123, D-143) y sin
+  confirmar por el cliente: la causa que no se reasigna queda **huérfana**
+  (`responsibleLawyerId` nulo, `orphanedAt`). Una consulta de causas tiene que
+  tolerar `responsibleLawyer: null` (RN3 se exige al crear, no siempre después).

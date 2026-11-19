@@ -57,6 +57,7 @@ function anItem(overrides: Partial<CaseListItem> = {}): CaseListItem {
     courtFeePaid: false,
     client: CLIENT,
     responsibleLawyer: LAWYER,
+    orphanedAt: null,
     legalQualifications: [],
     interruptiveActDates: [],
     prescription: null,

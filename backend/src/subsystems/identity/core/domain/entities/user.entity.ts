@@ -312,6 +312,27 @@ export class User {
     this._deletedAt = now;
   }
 
+  /**
+   * HU15, D-133 — the lawyer this user is linked to is given de baja, so the user loses the
+   * professional profile: the link goes, and so does the `LAWYER` role, which requires one
+   * (the same rule as `PATCH /users/{userId}`, CA-6.4). With other roles the user stays in
+   * force with them (a `LAWYER` and `ADMINISTRATOR` goes on as `ADMINISTRATOR`); if `LAWYER`
+   * was the only role, the user is given de baja (HU7).
+   *
+   * @returns what became of the user, so the caller can close the sessions of one who was
+   *   given de baja.
+   */
+  loseLawyerProfile(lawyerRoleId: number, now: Date): "KEPT" | "DEACTIVATED" {
+    this._lawyerId = null;
+    const remaining = this._roleIds.filter((roleId) => roleId !== lawyerRoleId);
+    if (remaining.length === 0) {
+      this.deactivate(now);
+      return "DEACTIVATED";
+    }
+    this._roleIds = remaining;
+    return "KEPT";
+  }
+
   changeLawyerId(newLawyerId: number | null): void {
     if (
       newLawyerId !== null &&

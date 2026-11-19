@@ -90,7 +90,7 @@ Del _Estudio Inicial v1.1_, §3.6.
 | -------- | --------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
 | **RN1**  | La unidad de trabajo es la causa, no el cliente                                                           | `Case` es el agregado raíz de `cases`; `Client` vive en otro subsistema                                  |
 | **RN2**  | La causa se identifica unívocamente por el número de SAC                                                  | El identificador natural es un _value object_ con invariante de unicidad; no se genera numeración propia |
-| **RN3**  | Toda causa tiene un abogado responsable asignado                                                          | Invariante de construcción de `Case`: no existe causa sin responsable                                    |
+| **RN3**  | Toda causa tiene un abogado responsable asignado                                                          | Invariante de construcción de `Case`: no se crea una causa sin responsable. **(D-143)** Única excepción: la causa huérfana, que queda sin responsable cuando se da de baja a su abogado y se la reasigna después                                    |
 | **RN4**  | Los estados procesales dependen del fuero y son parametrizables                                           | Justifica un subsistema `legal-parameters` separado de `cases`                                           |
 | **RN5**  | Al actualizarse el estado, el plazo se deriva de la tabla de actos procesales según tipo de día y fuero   | Dependencia `cases → deadlines` (§6.3)                                                                   |
 | **RN6**  | En procesos administrativos el plazo no corre de oficio; la fecha de notificación se registra manualmente | El cálculo de plazo admite dos modos: automático y diferido. Es un punto de variación del dominio        |
@@ -189,7 +189,7 @@ Calcula, vigila y notifica. Dado un acto procesal y su configuración de plazo, 
 Administra los modelos formales del estudio y la estructura de carpetas en Google Drive (RNF 6). Es el subsistema con la dependencia externa más frágil, y por eso el que más se beneficia del aislamiento por puertos.
 
 **`reporting` — Reportes y Tableros**
-Genera los tableros de inicio y los reportes de gestión. Es un subsistema **de solo lectura**: no tiene entidades propias, no escribe en la base y no impone invariantes. Ver ADR-002 (§6.5) para la excepción que se le concede.
+Genera los tableros de inicio y los reportes de gestión. Es un subsistema **de solo lectura**: no tiene entidades propias, no escribe en la base (salvo la foto del mes del reporte mensual, ADR-002 enmendada por D-146) y no impone invariantes. Ver ADR-002 (§6.5) para la excepción que se le concede.
 
 ### 4.4 Regla de propiedad del dato
 
@@ -487,7 +487,7 @@ Los casos de uso del motor de plazos deben ser **idempotentes**: ejecutarlos dos
 
 **Condiciones estrictas de la excepción:**
 
-1. `reporting` **nunca escribe**. Ni un `INSERT`, ni un `UPDATE`, ni un `DELETE`.
+1. `reporting` **nunca escribe**. Ni un `INSERT`, ni un `UPDATE`, ni un `DELETE`. **(Enmienda D-146, 17/11/2026)** Única excepción: la foto del mes cerrado del reporte mensual (`monthly_report_snapshots`, D-117), que `reporting` calcula y guarda. En ninguna otra tabla.
 2. `reporting` **no impone invariantes**. Si una regla de negocio aparece en un reporte, esa regla vive en el subsistema dueño del dato.
 3. Los modelos de lectura de `reporting` son **estructuras de presentación**, no entidades de dominio. No se reutilizan en ningún otro subsistema.
 4. Es la **única** excepción del sistema. Ningún otro subsistema puede invocarla como precedente.

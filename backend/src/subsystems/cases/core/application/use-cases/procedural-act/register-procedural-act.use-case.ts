@@ -44,9 +44,12 @@ export class RegisterProceduralAct {
   async execute(command: RegisterProceduralActCommand): Promise<RegisterProceduralActResult> {
     const targetCase = await this.loadCaseForActor(command.caseId, command.actor);
 
+    // An orphaned case has no lawyer in charge: the administrator registers it under their own name (D-144).
+    const orphaned = targetCase.responsibleLawyerId === null;
+
     // The actor is the lawyer in charge, so the record exists: a missing one is broken data, not a user error.
-    const registeredBy = await this.people.findActiveLawyerById(command.actor.lawyerId!);
-    if (!registeredBy) {
+    const lawyerInCharge = orphaned ? null : await this.people.findActiveLawyerById(command.actor.lawyerId!);
+    if (!orphaned && !lawyerInCharge) {
       throw new Error(`The lawyer ${command.actor.lawyerId} in charge of the case ${targetCase.id} is not active.`);
     }
 
@@ -83,6 +86,8 @@ export class RegisterProceduralAct {
         await this.cases.saveCurrentAct(targetCase);
       }
     });
+    // The name of an administrator on an orphaned case is the user's, which only persistence reads.
+    const registeredBy = lawyerInCharge ?? (await this.acts.findInCase(targetCase.id, act.id))!.registeredBy;
     return { act, becameCurrent, resultingStateName: (target.state?.name ?? target.customState)!, registeredBy };
   }
 

@@ -86,6 +86,47 @@ describe("User", () => {
     });
   });
 
+  // HU15, D-133: el abogado vinculado se da de baja y el usuario pierde la ficha profesional.
+  describe("loseLawyerProfile", () => {
+    const LAWYER_ROLE = 2;
+    const ADMIN_ROLE = 1;
+    const at = new Date("2026-11-17T15:30:00-03:00");
+
+    it("con otros roles, sigue vigente: pierde la ficha y el rol LAWYER, y conserva los demás", async () => {
+      const user = await User.create({ ...baseCreateProps, roleIds: [LAWYER_ROLE, ADMIN_ROLE], lawyerId: 3 }, hasher);
+
+      const outcome = user.loseLawyerProfile(LAWYER_ROLE, at);
+
+      expect(outcome).toBe("KEPT");
+      expect(user.isActive()).toBe(true);
+      expect(user.deletedAt).toBeNull();
+      expect(user.lawyerId).toBeNull();
+      expect(user.roleIds).toEqual([ADMIN_ROLE]);
+    });
+
+    it("si LAWYER era el único rol, el usuario se da de baja en ese instante, sin ficha", async () => {
+      const user = await User.create({ ...baseCreateProps, roleIds: [LAWYER_ROLE], lawyerId: 3 }, hasher);
+
+      const outcome = user.loseLawyerProfile(LAWYER_ROLE, at);
+
+      expect(outcome).toBe("DEACTIVATED");
+      expect(user.isActive()).toBe(false);
+      expect(user.deletedAt).toEqual(at);
+      expect(user.lawyerId).toBeNull();
+    });
+
+    it("un usuario vinculado que no tiene el rol LAWYER pierde solo la ficha y sigue igual", async () => {
+      const user = await User.create({ ...baseCreateProps, roleIds: [ADMIN_ROLE], lawyerId: 3 }, hasher);
+
+      const outcome = user.loseLawyerProfile(LAWYER_ROLE, at);
+
+      expect(outcome).toBe("KEPT");
+      expect(user.isActive()).toBe(true);
+      expect(user.lawyerId).toBeNull();
+      expect(user.roleIds).toEqual([ADMIN_ROLE]);
+    });
+  });
+
   describe("create", () => {
     it("hashes the plain password and defaults active=true", async () => {
       const user = await User.create(baseCreateProps, hasher);

@@ -58,23 +58,30 @@ export class SyncCaseFolder {
     }
 
     const name = FolderName.of(command.caseCaption);
-    const lawyerName = FolderName.of(command.lawyer.folderLabel);
+    // Validated before anything is created. An orphaned case has no lawyer (D-143).
+    const lawyerName = command.lawyer ? FolderName.of(command.lawyer.folderLabel) : null;
     const jurisdictionName = FolderName.of(command.jurisdiction.folderLabel);
 
-    // The lawyer's jurisdiction folder is only needed (and only created) when the case changes lawyer.
+    // The destination folder is only needed (and only created) when the case changes lawyer,
+    // or goes to or comes back from `Sin asignar`.
     let parentId = folder.parentCloudFolderId;
     let lawyerId = folder.lawyerId;
-    if (folder.lawyerId !== command.lawyer.id) {
+    const newLawyerId = command.lawyer?.id ?? null;
+    if (folder.lawyerId !== newLawyerId) {
       const root = await this.folders.findByKey(FolderKey.rootCases());
       if (!root) {
         throw new StudioRootNotConfiguredError();
       }
-      const parent = await this.chain.ensureJurisdictionFolder(root, {
-        lawyer: { id: command.lawyer.id, name: lawyerName },
-        jurisdiction: { id: command.jurisdiction.id, name: jurisdictionName },
-      });
+      const jurisdiction = { id: command.jurisdiction.id, name: jurisdictionName };
+      const parent =
+        command.lawyer && lawyerName
+          ? await this.chain.ensureJurisdictionFolder(root, {
+              lawyer: { id: command.lawyer.id, name: lawyerName },
+              jurisdiction,
+            })
+          : await this.chain.ensureUnassignedJurisdictionFolder(root, jurisdiction);
       parentId = parent.cloudFolderId;
-      lawyerId = command.lawyer.id;
+      lawyerId = newLawyerId;
     }
 
     const renames = name.toString() !== folder.name;
@@ -93,7 +100,7 @@ export class SyncCaseFolder {
       folder.rename(name.toString());
     }
     if (moves) {
-      folder.moveUnder(parentId as string, lawyerId as number);
+      folder.moveUnder(parentId as string, lawyerId);
     }
     await this.folders.saveRelocation(folder);
 

@@ -13,7 +13,8 @@ export type CriminalCasePrescriptionRow = {
   caseId: number;
   caption: string;
   sacNumber: string | null;
-  responsibleLawyerId: number;
+  /** `null` for an orphaned case (D-143). */
+  responsibleLawyerId: number | null;
   /** At least one. A deactivated qualification still counts: it is part of the case's history (RN12, §4 Bajas). */
   offenses: OffenseForPrescription[];
   /**

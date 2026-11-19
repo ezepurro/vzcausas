@@ -5,6 +5,8 @@ import { EventPublisher } from "@shared/infrastructure/events/event-publisher.po
 import { IntegrationEvent } from "@shared/infrastructure/events/integration-event";
 import { Client } from "../../../domain/entities/client.entity";
 import { ActiveCasesCounterPort } from "../../../domain/ports/active-cases-counter.port";
+import { LawyerCasesPort, LawyerCasesReassignment } from "../../../domain/ports/lawyer-cases.port";
+import { LawyerUserPort } from "../../../domain/ports/lawyer-user.port";
 import {
   CaptionsFollowUp,
   ClientCaseCaptionsPort,
@@ -58,6 +60,20 @@ export class FakeLawyerRepository implements LawyerRepository {
   async update(lawyer: Lawyer): Promise<void> {
     this.updates.push(lawyer);
     this.byId.set(lawyer.id, lawyer);
+  }
+
+  /** The lawyers `saveDeactivation` wrote, in order (HU15). */
+  readonly deactivations: Lawyer[] = [];
+  /** When `true`, `saveDeactivation` finds the lawyer already given de baja: another baja won. */
+  alreadyDeactivatedOnSave = false;
+
+  async saveDeactivation(lawyer: Lawyer): Promise<boolean> {
+    if (this.alreadyDeactivatedOnSave) {
+      return false;
+    }
+    this.deactivations.push(lawyer);
+    this.byId.set(lawyer.id, lawyer);
+    return true;
   }
 
   /**
@@ -353,5 +369,67 @@ export class FakeClock implements ClockPort {
         this.fixed.getUTCDate(),
       ),
     );
+  }
+}
+
+/**
+ * In-memory {@link LawyerCasesPort} (HU15). A spec sets the active cases of a lawyer in
+ * `activeCaseIds`; `reassigned` and `announced` record what was asked, and whether a transaction
+ * was open, so a spec can assert the cases are written with the baja and announced only after
+ * the commit.
+ */
+export class FakeLawyerCases implements LawyerCasesPort {
+  /** The active cases of each lawyer. A `reassign` empties the list of its `fromLawyerId`. */
+  readonly activeCaseIds = new Map<number, number[]>();
+  readonly reassigned: Array<LawyerCasesReassignment & { inTransaction: boolean }> = [];
+  readonly announced: Array<{ caseIds: readonly number[]; inTransaction: boolean }> = [];
+  /** A case that appears as active again once `reassign` ran: another request assigned it meanwhile. */
+  caseAssignedMeanwhile: { lawyerId: number; caseId: number } | null = null;
+  failNextReassignWith: Error | null = null;
+  transactions?: FakeTransactionManager;
+
+  async findActiveCaseIdsOf(lawyerId: number): Promise<number[]> {
+    return [...(this.activeCaseIds.get(lawyerId) ?? [])];
+  }
+
+  /** The cases in a terminal state that stay with each lawyer: the history that `countCasesInForceOf` finds. */
+  readonly historyCases = new Map<number, number>();
+
+  async countCasesInForceOf(lawyerId: number): Promise<number> {
+    return this.historyCases.get(lawyerId) ?? 0;
+  }
+
+  async reassign(order: LawyerCasesReassignment): Promise<void> {
+    if (this.failNextReassignWith) {
+      const error = this.failNextReassignWith;
+      this.failNextReassignWith = null;
+      throw error;
+    }
+    this.reassigned.push({ ...order, inTransaction: this.transactions?.open ?? false });
+    this.activeCaseIds.set(order.fromLawyerId, []);
+    if (this.caseAssignedMeanwhile) {
+      const { lawyerId, caseId } = this.caseAssignedMeanwhile;
+      this.activeCaseIds.set(lawyerId, [caseId]);
+    }
+  }
+
+  async announceFolderMoves(caseIds: readonly number[]): Promise<void> {
+    this.announced.push({ caseIds, inTransaction: this.transactions?.open ?? false });
+  }
+}
+
+/** In-memory {@link LawyerUserPort} (HU15, D-133): records which lawyers were unlinked. */
+export class FakeLawyerUser implements LawyerUserPort {
+  readonly unlinked: Array<{ lawyerId: number; inTransaction: boolean }> = [];
+  failNextWith: Error | null = null;
+  transactions?: FakeTransactionManager;
+
+  async unlinkLawyer(lawyerId: number): Promise<void> {
+    if (this.failNextWith) {
+      const error = this.failNextWith;
+      this.failNextWith = null;
+      throw error;
+    }
+    this.unlinked.push({ lawyerId, inTransaction: this.transactions?.open ?? false });
   }
 }

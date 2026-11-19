@@ -150,6 +150,7 @@ erDiagram
         varchar(800) subject_matter
         integer client_id FK
         integer responsible_lawyer_id FK
+        timestamptz orphaned_at
         date start_date
         boolean client_detained
         boolean injunction_granted
@@ -673,7 +674,8 @@ carpeta en la nube, declaración de prescripción y baja lógica.
 | `counterparty` | VARCHAR | 255 |  | Sí | Contraparte en la causa. Solo en `ADMINISTRATIVE` y `AMPARO`; nulo en `CRIMINAL`. |
 | `subject_matter` | VARCHAR | 800 |  | Sí | Objeto o materia de la causa. |
 | `client_id` | INTEGER | 4 B | FK | No | Cliente que es parte en la causa (→ `clients.id`). |
-| `responsible_lawyer_id` | INTEGER | 4 B | FK | No | Abogado responsable de la causa (→ `lawyers.id`). |
+| `responsible_lawyer_id` | INTEGER | 4 B | FK | Sí | Abogado responsable de la causa (→ `lawyers.id`). Obligatorio al registrarla (RN3, lo exige la API). Nulo solo en una causa huérfana, que quedó sin responsable al darse de baja su abogado (D-143): `CHECK` con `orphaned_at`. |
+| `orphaned_at` | TIMESTAMPTZ | 8 B |  | Sí | Desde cuándo la causa no tiene abogado responsable (D-143). Nulo si lo tiene; obligatorio si `responsible_lawyer_id` es nulo. Se borra al reasignarla. |
 | `start_date` | DATE | 4 B |  | Sí | Fecha de inicio de la causa en sede judicial. Obligatoria si la causa tiene SAC; nula mientras no lo tiene (D-33). |
 | `client_detained` | BOOLEAN | 1 B |  | Sí | Solo `CRIMINAL`: si el cliente está detenido. Nulo en los demás fueros (D-67). |
 | `injunction_granted` | BOOLEAN | 1 B |  | Sí | Solo `AMPARO`: si se otorgó la medida cautelar. |
@@ -779,7 +781,7 @@ hay una tabla de historial aparte.
 | `deadline_computed_due_date` | DATE | 4 B |  | Sí | Vencimiento calculado por el sistema según los días y el tipo de cómputo. Nulo si el estado no abre plazo. |
 | `deadline_manual_due_date` | DATE | 4 B |  | Sí | Vencimiento ajustado a mano por el abogado. Mayor o igual a `deadline_counts_from`. El vencimiento vigente es este valor o, si es nulo, el calculado. |
 | `registered_by_user_id` | INTEGER | 4 B | FK | No | Usuario que registró el acto (→ `users.id`). |
-| `registered_by_lawyer_id` | INTEGER | 4 B | FK | No | Abogado responsable al momento del registro (→ `lawyers.id`). Si la causa cambia de responsable, el historial conserva quién lo era. |
+| `registered_by_lawyer_id` | INTEGER | 4 B | FK | Sí | Abogado responsable al momento del registro (→ `lawyers.id`). Si la causa cambia de responsable, el historial conserva quién lo era. Nulo si la causa era huérfana y lo registró un administrador (D-143, D-144). |
 | `registered_at` | TIMESTAMPTZ | 8 B |  | No | Fecha y hora de registro. No cambia al modificar el acto. |
 | `last_modified_by_user_id` | INTEGER | 4 B | FK | Sí | Usuario que modificó el acto por última vez (→ `users.id`), HU28, D-98. Nulo si el acto nunca se modificó. |
 | `last_modified_at` | TIMESTAMPTZ | 8 B |  | Sí | Fecha y hora de la última modificación. Se informa junto con `last_modified_by_user_id`, los dos o ninguno, y nunca es anterior a `registered_at`. |
@@ -814,7 +816,7 @@ en el fuero `CRIMINAL`.
 | `act_date` | DATE | 4 B |  | No | Fecha del acto. Si es la más reciente de la causa, desde ella se recalcula la prescripción de los hechos. |
 | `notes` | VARCHAR | 2000 |  | Sí | Observaciones del acto. |
 | `registered_by_user_id` | INTEGER | 4 B | FK | No | Usuario que registró el acto (→ `users.id`). |
-| `registered_by_lawyer_id` | INTEGER | 4 B | FK | No | Abogado responsable al momento del registro (→ `lawyers.id`). |
+| `registered_by_lawyer_id` | INTEGER | 4 B | FK | Sí | Abogado responsable al momento del registro (→ `lawyers.id`). Nulo si la causa era huérfana (D-143, D-144). |
 | `registered_at` | TIMESTAMPTZ | 8 B |  | No | Fecha y hora de registro. |
 
 Índices: `interruptive_acts_case_id_act_date_id_idx` (`case_id`,

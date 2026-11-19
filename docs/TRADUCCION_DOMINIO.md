@@ -41,6 +41,7 @@ Los códigos van en inglés; los rótulos que lee el usuario, en castellano. Las
 | Perfil / rol de usuario | `Role`              | Concepto de `identity`. No confundir con `ProceduralRole` |
 | Abogado                 | `Lawyer`            | La ficha profesional. Un usuario puede tener una vinculada |
 | Abogado responsable     | `ResponsibleLawyer` | —                                                        |
+| Causa huérfana          | `orphaned case` (`orphanedAt`, `unassigned`) | Causa sin abogado responsable tras la baja de su abogado (D-143). En la pantalla: "Sin asignar" |
 | Cliente                 | `Client`            | —                                                        |
 
 **Usuario y abogado son entidades distintas.** El usuario es la cuenta; el abogado es la persona matriculada. Se vinculan, pero no son lo mismo: una secretaría tiene usuario y no tiene ficha de abogado.

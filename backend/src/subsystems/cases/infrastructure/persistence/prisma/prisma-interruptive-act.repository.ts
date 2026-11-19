@@ -12,6 +12,8 @@ import { InterruptiveActPrismaMapper } from '../mappers/interruptive-act-prisma.
 /** The lawyer is not filtered by `active`: one given de baja is still part of the case's history (§4, Bajas). */
 const ACT_INCLUDE = {
   registeredByLawyer: { select: { lastName: true, firstName: true } },
+  // An act an administrator registered on an orphaned case has no lawyer: it is theirs (D-144).
+  registeredBy: { select: { lastName: true, firstName: true } },
 } satisfies Prisma.InterruptiveActInclude;
 
 type ActRow = Prisma.InterruptiveActGetPayload<{ include: typeof ACT_INCLUDE }>;
@@ -35,6 +37,11 @@ export class PrismaInterruptiveActRepository implements InterruptiveActRepositor
 
   async save(act: InterruptiveAct): Promise<void> {
     await this.prisma.db.interruptiveAct.create({ data: InterruptiveActPrismaMapper.toCreateData(act) });
+  }
+
+  async findViewById(id: number): Promise<InterruptiveActView | null> {
+    const row = await this.prisma.db.interruptiveAct.findUnique({ where: { id }, include: ACT_INCLUDE });
+    return row && toView(row);
   }
 
   async caseExists(caseId: number): Promise<boolean> {
@@ -66,8 +73,8 @@ function toView(row: ActRow): InterruptiveActView {
   return {
     act: InterruptiveActPrismaMapper.toDomain(row),
     registeredBy: {
-      lastName: row.registeredByLawyer.lastName,
-      firstName: row.registeredByLawyer.firstName,
+      lastName: (row.registeredByLawyer ?? row.registeredBy).lastName,
+      firstName: (row.registeredByLawyer ?? row.registeredBy).firstName,
     },
   };
 }

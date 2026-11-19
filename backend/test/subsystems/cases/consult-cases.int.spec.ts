@@ -61,6 +61,7 @@ const CASE_KEYS = [
   'instructorName',
   'jurisdiction',
   'legalQualifications',
+  'orphanedAt',
   'prescription',
   'prescriptionDeclaration',
   'proceduralRole',
@@ -225,6 +226,27 @@ describe('GET /api/v1/cases (HU20)', () => {
     expect(await filtered({ openDeadline: true })).toEqual(['PENAL']);
   });
 
+  // D-143: `unassigned=true` es como se encuentra a las huérfanas para reasignarlas.
+  it('unassigned=true lista solo las causas huérfanas, con responsibleLawyer null y orphanedAt', async () => {
+    await createCase({ ...owner(), caption: 'CON RESPONSABLE' });
+    const huerfana = await createCase({ ...owner(), caption: 'HUÉRFANA' });
+    await getPrisma().case.update({
+      where: { id: huerfana.id },
+      data: { responsibleLawyerId: null, orphanedAt: new Date('2026-09-10T15:00:00.000Z') },
+    });
+
+    const [item, ...rest] = expectPaginated<Item>(await list({ unassigned: true }), { totalItems: 1 });
+
+    expect(rest).toEqual([]);
+    expect(Object.keys(item).sort()).toEqual(CASE_KEYS);
+    expect(item).toMatchObject({ caption: 'HUÉRFANA', responsibleLawyer: null, active: true });
+    expect(item.orphanedAt).not.toBeNull();
+    // `false` no es un filtro: trae todas.
+    expect(captions(expectPaginated<Item>(await list({ unassigned: false })))).toEqual(
+      expect.arrayContaining(['CON RESPONSABLE', 'HUÉRFANA']),
+    );
+  });
+
   // CA-20.4
   it('los tres filtros de estado filtran cada uno lo suyo; el escrito a mano, por coincidencia exacta sin mayúsculas', async () => {
     const enEstado = await createCase({ ...owner(), caption: 'EN ESTADO DE TABLA' });
@@ -272,6 +294,18 @@ describe('GET /api/v1/cases (HU20)', () => {
       expectError(await list({ withoutProceduralActs: true, proceduralStateId: 1 }), 400, 'INVALID_REQUEST', [
         'withoutProceduralActs',
       ]);
+    });
+
+    // D-143: una huérfana no tiene responsable, así que los dos filtros se contradicen.
+    it('rechaza unassigned=true junto con responsibleLawyerId con INVALID_REQUEST', async () => {
+      const res = await list({ unassigned: true, responsibleLawyerId: s.lawyer.id });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toEqual({
+        code: 'INVALID_REQUEST',
+        message: 'Parámetros de query inválidos.',
+        details: { unassigned: 'No puede combinarse con responsibleLawyerId.' },
+      });
     });
 
     it('rechaza una página o un límite fuera de rango con INVALID_PAGINATION', async () => {

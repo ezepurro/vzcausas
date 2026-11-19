@@ -3,6 +3,8 @@ import { ValidationError } from '@shared/domain/domain-error';
 import {
   CannotDeclarePrescriptionError,
   CaseInTerminalStateError,
+  CannotOrphanCaseError,
+  CannotReassignCaseError,
   CaseNotFoundError,
   EmptyCaseUpdateError,
   NotResponsibleLawyerError,
@@ -157,7 +159,9 @@ export interface CaseProps {
   proceduralRole: ProceduralRole;
   instructor: Instructor;
   clientId: number;
-  responsibleLawyerId: number;
+  // `null` while the case is orphaned (D-143): then `orphanedAt` is set, and the other way round.
+  responsibleLawyerId: number | null;
+  orphanedAt: Date | null;
   // Only a case with a SAC number has one: it is when it started in court.
   startDate: Date | null;
   // Whether the court fee was paid (RN10, D-67). In the three jurisdictions.
@@ -193,6 +197,9 @@ export abstract class Case {
   protected constructor(protected readonly props: CaseProps) {
     if (props.active === (props.deactivation !== null)) {
       throw new Error(`The case ${props.id} must carry its deactivation exactly when it is given de baja.`);
+    }
+    if ((props.responsibleLawyerId === null) !== (props.orphanedAt !== null)) {
+      throw new Error(`The case ${props.id} must carry its orphaned date exactly when it has no responsible lawyer.`);
     }
   }
 
@@ -275,6 +282,39 @@ export abstract class Case {
     this.props.active = false;
     this.props.deactivation = deactivation;
     this.props.updatedAt = deactivation.deactivatedAt;
+  }
+
+  /**
+   * HU15 — the responsible lawyer is given de baja and the administrator leaves the case
+   * "Sin asignar" (D-143): the case stays in force, with its state and deadlines untouched,
+   * and waits for a new lawyer (`PATCH /cases/{caseId}` clears `orphanedAt`).
+   *
+   * @throws CannotOrphanCaseError the case was given de baja or is already orphaned.
+   */
+  leaveWithoutResponsible(now: Date): void {
+    if (!this.props.active || this.props.responsibleLawyerId === null) {
+      throw new CannotOrphanCaseError(this.props.id);
+    }
+    this.props.responsibleLawyerId = null;
+    this.props.orphanedAt = now;
+    this.props.updatedAt = now;
+  }
+
+  /**
+   * HU15 — the responsible lawyer is given de baja and the administrator hands the case
+   * to another one: the same change of responsible that `PATCH /cases/{caseId}` makes,
+   * without the rest of the modification. If the case was orphaned it stops being so.
+   * Which lawyer is a valid target is the caller's to check.
+   *
+   * @throws CannotReassignCaseError the case was given de baja.
+   */
+  reassignTo(lawyerId: number, now: Date): void {
+    if (!this.props.active) {
+      throw new CannotReassignCaseError(this.props.id);
+    }
+    this.props.responsibleLawyerId = lawyerId;
+    this.props.orphanedAt = null;
+    this.props.updatedAt = now;
   }
 
   /**
@@ -454,6 +494,8 @@ export abstract class Case {
       if (sent('responsibleLawyerId')) {
         Case.track(changed, 'responsibleLawyerId', props.responsibleLawyerId, changes.responsibleLawyerId, () => {
           props.responsibleLawyerId = changes.responsibleLawyerId!;
+          // Reassigning an orphan makes it a case with a lawyer again (D-143).
+          props.orphanedAt = null;
         });
       }
       if (sent('proceduralRole')) {
@@ -497,6 +539,7 @@ export abstract class Case {
       instructor: { ...props.instructor },
       clientId: props.clientId,
       responsibleLawyerId: props.responsibleLawyerId,
+      orphanedAt: props.orphanedAt,
       startDate: props.startDate,
       courtFeePaid: props.courtFeePaid,
       currentStateId: props.currentStateId,
@@ -534,12 +577,20 @@ export abstract class Case {
    * Only the responsible lawyer of the case registers its acts (D-30): the
    * user must have the lawyer role and be the lawyer assigned to this case.
    * Not even an administrator may do it for a case that is not theirs.
+   * The one exception is an orphaned case, which has no responsible lawyer to
+   * compare with: its acts are the administrator's alone (D-143, D-144).
    *
    * The same rule governs interruptive acts (HU31, D-50); `message` lets that
    * story word the refusal as its contract does. Omitted, it is HU26's.
    * @throws NotResponsibleLawyerError
    */
   assertCanRegisterActs(actor: AuthenticatedUser, message?: string): void {
+    if (this.props.responsibleLawyerId === null) {
+      if (!actor.roleNames.includes(ADMINISTRATOR_ROLE)) {
+        throw new NotResponsibleLawyerError(message);
+      }
+      return;
+    }
     if (!this.isResponsibleLawyer(actor)) {
       throw new NotResponsibleLawyerError(message);
     }
@@ -910,8 +961,12 @@ export abstract class Case {
     return this.props.clientId;
   }
 
-  get responsibleLawyerId(): number {
+  get responsibleLawyerId(): number | null {
     return this.props.responsibleLawyerId;
+  }
+
+  get orphanedAt(): Date | null {
+    return this.props.orphanedAt;
   }
 
   get startDate(): Date | null {

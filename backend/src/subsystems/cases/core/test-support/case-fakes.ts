@@ -8,7 +8,11 @@ import { InterruptiveAct } from '../domain/entities/interruptive-act.entity';
 import { ProceduralAct } from '../domain/entities/procedural-act.entity';
 import { DeadlineCalculatorPort } from '../domain/ports/procedural-act/deadline-calculator.port';
 import { CaseDueDateKey, CaseListItem, CaseRepository, CaseSearchFilters } from '../domain/ports/case/case.repository';
-import { InterruptiveActPage, InterruptiveActRepository } from '../domain/ports/interruptive-act/interruptive-act.repository';
+import {
+  InterruptiveActPage,
+  InterruptiveActRepository,
+  InterruptiveActView,
+} from '../domain/ports/interruptive-act/interruptive-act.repository';
 import { ProceduralActPage, ProceduralActRepository, ProceduralActView } from '../domain/ports/procedural-act/procedural-act.repository';
 import {
   LegalParametersLookupPort,
@@ -54,6 +58,14 @@ export abstract class UnusedCaseRepository implements CaseRepository {
 
   async saveModification(_modifiedCase: Case): Promise<void> {
     throw new Error('Este spec no usa saveModification de CaseRepository.');
+  }
+
+  async countInForceByResponsibleLawyer(_lawyerId: number): Promise<number> {
+    throw new Error('Este spec no usa countInForceByResponsibleLawyer de CaseRepository.');
+  }
+
+  async findActiveIdsByResponsibleLawyer(_lawyerId: number): Promise<number[]> {
+    throw new Error('Este spec no usa findActiveIdsByResponsibleLawyer de CaseRepository.');
   }
 
   async findActiveByClientId(_clientId: number): Promise<Case[]> {
@@ -160,6 +172,10 @@ export abstract class UnusedInterruptiveActRepository implements InterruptiveAct
 
   async save(_act: InterruptiveAct): Promise<void> {
     throw new Error('Este spec no usa save de InterruptiveActRepository.');
+  }
+
+  async findViewById(_id: number): Promise<InterruptiveActView | null> {
+    throw new Error('Este spec no usa findViewById de InterruptiveActRepository.');
   }
 
   async caseExists(_caseId: number): Promise<boolean> {

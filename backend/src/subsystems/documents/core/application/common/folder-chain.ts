@@ -14,6 +14,9 @@ import { KeyedMutex } from './keyed-mutex';
 
 type ChainLevelData = Pick<CloudFolderData, 'kind' | 'lawyerId' | 'jurisdictionId' | 'caseId'>;
 
+/** Name of the folder that holds the orphaned cases (D-143). It is not a lawyer's name. */
+const UNASSIGNED_FOLDER_NAME = 'Sin asignar';
+
 /**
  * The lawyer and the jurisdiction a case folder hangs from. The names are
  * already cleaned ({@link FolderName}), so the caller validates them before
@@ -71,6 +74,33 @@ export class FolderChain {
         lawyerId: owner.lawyer.id,
         jurisdictionId: owner.jurisdiction.id,
       },
+    );
+  }
+
+  /**
+   * The jurisdiction folder of the orphaned cases, `Causas/Sin asignar/{jurisdiction}`
+   * (D-143), with `Sin asignar` above it: both are created if missing and reused if
+   * they exist. There is no lawyer in this branch.
+   *
+   * @throws {DocumentStorageUnavailableError} if the storage fails.
+   */
+  async ensureUnassignedJurisdictionFolder(
+    root: CloudFolder,
+    jurisdiction: FolderChainOwner['jurisdiction'],
+  ): Promise<CloudFolder> {
+    const unassigned = await this.ensureFolder(
+      FolderKey.unassigned(),
+      root,
+      FolderName.of(UNASSIGNED_FOLDER_NAME),
+      true,
+      { kind: 'UNASSIGNED' },
+    );
+    return this.ensureFolder(
+      FolderKey.unassignedJurisdiction(jurisdiction.id),
+      unassigned,
+      jurisdiction.name,
+      true,
+      { kind: 'UNASSIGNED_JURISDICTION', jurisdictionId: jurisdiction.id },
     );
   }
 

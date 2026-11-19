@@ -4,7 +4,10 @@ import { toIsoDate } from '@shared/infrastructure/http/iso-date';
 import { toPageRequest } from '@shared/infrastructure/http/pagination/pagination';
 import { toJurisdictionFilter } from '../../../core/application/use-cases/case/jurisdiction-filter';
 import { RegisterCaseResult } from '../../../core/application/use-cases/case/register-case.interfaces';
-import { ExclusiveCaseStateFilterError } from '../../../core/domain/errors/case.errors';
+import {
+  ExclusiveCaseResponsibleFilterError,
+  ExclusiveCaseStateFilterError,
+} from '../../../core/domain/errors/case.errors';
 import { PrescriptionStatus } from '../../../core/domain/prescription';
 import {
   CaseListItem,
@@ -89,11 +92,16 @@ export class CaseHttpMapper {
    * `400 INVALID_REQUEST`, same as `GET /cases/custom-states`.
    */
   static toSearchCriteria(query: ListCasesQueryDto): CaseSearchCriteria {
+    // Only `true` narrows the listing; `?unassigned=false` is no filter (like `withoutProceduralActs`).
+    if (query.unassigned === true && query.responsibleLawyerId !== undefined) {
+      throw new ExclusiveCaseResponsibleFilterError();
+    }
     return {
       ...toPageRequest(query),
       search: query.search?.trim() || undefined,
       jurisdiction: toJurisdictionFilter(query.jurisdiction),
       responsibleLawyerId: query.responsibleLawyerId,
+      unassigned: query.unassigned,
       clientId: query.clientId,
       openDeadline: query.openDeadline,
       state: toStateFilter(query),
@@ -131,6 +139,7 @@ export class CaseHttpMapper {
       courtFeePaid: item.courtFeePaid,
       client: { ...item.client, clientSince: toIsoDate(item.client.clientSince) },
       responsibleLawyer: item.responsibleLawyer,
+      orphanedAt: item.orphanedAt && item.orphanedAt.toISOString(),
       legalQualifications: item.legalQualifications.map((qualification) => ({
         id: qualification.id,
         name: qualification.name,
@@ -221,6 +230,7 @@ export class CaseHttpMapper {
       courtFeePaid: newCase.courtFeePaid,
       client: result.client,
       responsibleLawyer: result.responsibleLawyer,
+      orphanedAt: newCase.orphanedAt,
       legalQualifications: newCase.offenses.map((offense, index) => ({
         id: offense.legalQualificationId,
         name: offense.legalQualificationName,

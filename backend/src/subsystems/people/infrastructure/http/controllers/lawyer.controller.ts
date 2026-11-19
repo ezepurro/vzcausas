@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -19,6 +20,7 @@ import {
   toPageRequest,
 } from "@shared/infrastructure/http/pagination/pagination";
 import { FindLawyerUseCase } from "../../../core/application/use-cases/find-lawyer.use-case";
+import { DeactivateLawyerUseCase } from "../../../core/application/use-cases/deactivate-lawyer.use-case";
 import { ListLawyersUseCase } from "../../../core/application/use-cases/list-lawyers.use-case";
 import { RegisterLawyerUseCase } from "../../../core/application/use-cases/register-lawyer.use-case";
 import { UpdateLawyerUseCase } from "../../../core/application/use-cases/update-lawyer.use-case";
@@ -26,6 +28,7 @@ import {
   InvalidLawyerIdError,
   LawyerNotFoundError,
 } from "../../../core/domain/errors/people.errors";
+import { DeactivateLawyerRequestDto } from "../dtos/deactivate-lawyer.request.dto";
 import { LawyerResponseDto } from "../dtos/lawyer.response.dto";
 import { RegisterLawyerRequestDto } from "../dtos/register-lawyer.request.dto";
 import { UpdateLawyerRequestDto } from "../dtos/update-lawyer.request.dto";
@@ -50,6 +53,7 @@ export class LawyerController {
     private readonly listLawyers: ListLawyersUseCase,
     private readonly findLawyer: FindLawyerUseCase,
     private readonly updateLawyer: UpdateLawyerUseCase,
+    private readonly deactivateLawyer: DeactivateLawyerUseCase,
   ) {}
 
   @RequirePermissions("lawyer:create")
@@ -130,6 +134,28 @@ export class LawyerController {
       actorUserId: actor.userId,
     });
     return { data: LawyerHttpMapper.fromView(lawyer) };
+  }
+
+  /**
+   * HU15 (D-143): gives a lawyer de baja and, in the same operation, hands their active cases to
+   * other lawyers or leaves them "Sin asignar". Only the administrator may, through
+   * `lawyer:delete`: the `403` comes from the permission, before the lawyer is read. The body is
+   * optional (a lawyer without active cases needs no distribution); what is wrong with a
+   * distribution is `400`, a case left out is `409`, and nothing is written in either case.
+   */
+  @RequirePermissions("lawyer:delete")
+  @Delete(":lawyerId")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async deactivate(
+    @Param("lawyerId") lawyerIdParam: string,
+    @Body() dto: DeactivateLawyerRequestDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ): Promise<void> {
+    await this.deactivateLawyer.execute({
+      lawyerId: this.parseLawyerId(lawyerIdParam),
+      reassignments: dto?.reassignments,
+      actorUserId: actor.userId,
+    });
   }
 
   private parseLawyerId(raw: string): number {

@@ -34,6 +34,10 @@ Definición del cliente sobre el procedimiento real del estudio en el fuero admi
 
 ## P-05 · Ausencia de política de reasignación de causas
 
+> **Estado (16/11/2026):** cubierto por decisión del equipo, **sin confirmar por el cliente**. El
+> reparto se hace en el formulario de la baja (D-123) y la causa que no se reasigna queda sin
+> responsable como causa huérfana, a cargo del administrador, hasta reasignarla (D-143).
+
 ### Problema
 
 RN3 exige que toda causa tenga un abogado responsable asignado. HU15 permite dar de baja a un abogado. Ninguna historia del backlog especifica qué ocurre con las causas de las que ese abogado era responsable. El invariante de RN3 y la operación de HU15 son incompatibles sin una política intermedia.

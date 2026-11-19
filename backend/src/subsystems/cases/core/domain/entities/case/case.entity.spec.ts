@@ -11,6 +11,7 @@ import { DayType } from '../../value-objects/deadline/day-type';
 import { Deadline } from '../../value-objects/deadline/deadline.vo';
 import {
   aCase,
+  anOrphanedCase,
   aCaseInState,
   anAct,
   anActor,
@@ -91,6 +92,24 @@ describe('Case', () => {
       const withoutFile = anActor({ roleNames: ['LAWYER', 'ADMINISTRATOR'], lawyerId: null });
 
       expect(() => aCase().assertCanRegisterActs(withoutFile)).toThrow(NotResponsibleLawyerError);
+    });
+
+    // D-143: sin responsable no hay con quién comparar; solo el administrador opera los actos.
+    it('en una huérfana lo permite al administrador, con o sin ficha de abogado', () => {
+      const orphan = anOrphanedCase();
+
+      expect(() => orphan.assertCanRegisterActs(anActor({ roleNames: ['ADMINISTRATOR'], lawyerId: null }))).not.toThrow();
+      expect(() => orphan.assertCanRegisterActs(anActor({ roleNames: ['ADMINISTRATOR'] }))).not.toThrow();
+    });
+
+    it('en una huérfana lo deniega a cualquier abogado y a la secretaría', () => {
+      const orphan = anOrphanedCase();
+
+      expect(() => orphan.assertCanRegisterActs(anActor())).toThrow(NotResponsibleLawyerError);
+      expect(() => orphan.assertCanRegisterActs(anActor({ lawyerId: 99 }))).toThrow(NotResponsibleLawyerError);
+      expect(() => orphan.assertCanRegisterActs(anActor({ roleNames: ['SECRETARY'], lawyerId: null }))).toThrow(
+        NotResponsibleLawyerError,
+      );
     });
 
     it('lo permite a quien es abogado y administrador a la vez, si es el responsable', () => {

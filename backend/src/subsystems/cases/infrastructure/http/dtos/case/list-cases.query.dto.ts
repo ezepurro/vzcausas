@@ -32,6 +32,12 @@ export class ListCasesQueryDto extends PaginationQueryDto {
   @IsInt({ message: 'Debe ser un número entero.' })
   responsibleLawyerId?: number;
 
+  /** D-143: `true` lists only orphaned cases. Exclusive with `responsibleLawyerId`; the mapper checks it. */
+  @IsOptional()
+  @Transform(toBoolean)
+  @IsBoolean({ message: 'Debe ser true o false.' })
+  unassigned?: boolean;
+
   @IsOptional()
   @Type(() => Number)
   @IsInt({ message: 'Debe ser un número entero.' })

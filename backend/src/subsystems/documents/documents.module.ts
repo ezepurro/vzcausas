@@ -7,6 +7,7 @@ import { SyncCaseFolder } from './core/application/use-cases/sync-case-folder.us
 import { RecycleBin } from './core/application/common/recycle-bin';
 import { TemplateCloudFiles } from './core/application/common/template-cloud-files';
 import { RecycleCaseFolder } from './core/application/use-cases/recycle-case-folder.use-case';
+import { RecycleLawyerFolder } from './core/application/use-cases/recycle-lawyer-folder.use-case';
 import { CopyTemplatesToCaseFolder } from './core/application/use-cases/copy-templates-to-case-folder.use-case';
 import { DeactivateDocumentTemplate } from './core/application/use-cases/deactivate-document-template.use-case';
 import { DownloadDocumentTemplate } from './core/application/use-cases/download-document-template.use-case';
@@ -32,6 +33,7 @@ import { TEMPLATE_COPY_REPOSITORY } from './core/domain/ports/template-copy.repo
 import { CaseRegisteredListener } from './infrastructure/acl/events/case-registered.listener';
 import { CaseDeactivatedListener } from './infrastructure/acl/events/case-deactivated.listener';
 import { CaseModifiedListener } from './infrastructure/acl/events/case-modified.listener';
+import { LawyerDeactivatedListener } from './infrastructure/acl/events/lawyer-deactivated.listener';
 import { LawyerRenamedListener } from './infrastructure/acl/events/lawyer-renamed.listener';
 import { CaseTemplatesCopyRequestedListener } from './infrastructure/acl/events/case-templates-copy-requested.listener';
 import { DocumentTemplatesController } from './infrastructure/http/controllers/document-templates.controller';
@@ -80,6 +82,8 @@ import { DOCUMENT_STORAGE_PROVIDER } from './infrastructure/storage/document-sto
     // One `RecycleBin` for the whole app: the case and the template bajas share its lock (HU21, HU37).
     RecycleBin,
     RecycleCaseFolder,
+    // HU15 (D-132): the folder of a lawyer given de baja goes to the same `Papelera`.
+    RecycleLawyerFolder,
     RenameLawyerFolder,
     SetupCloudStorage,
     CopyTemplatesToCaseFolder,
@@ -87,6 +91,7 @@ import { DOCUMENT_STORAGE_PROVIDER } from './infrastructure/storage/document-sto
     CaseModifiedListener,
     CaseDeactivatedListener,
     LawyerRenamedListener,
+    LawyerDeactivatedListener,
     CaseTemplatesCopyRequestedListener,
     StorageBootstrap,
     // What registering (HU34) and modifying (HU36) a template share in the cloud storage.

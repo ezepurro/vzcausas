@@ -1,6 +1,7 @@
 import { DailyRunController } from "./daily-run.controller";
 import { DeadlineDetectionPort } from "../../../core/domain/ports/deadline-detection.port";
 import { PrescriptionDetectionPort } from "../../../core/domain/ports/prescription-detection.port";
+import { MonthlyReportCloserPort } from "../../../core/domain/ports/monthly-report-closer.port";
 import {
   SendDailyNotificationDigestCommand,
   SendDailyNotificationDigestResult,
@@ -37,6 +38,71 @@ class FakeDigestUseCase {
   }
 }
 
+/** Records its calls and the order relative to the digest; `failWith` makes it throw. */
+class FakeMonthlyReportCloser implements MonthlyReportCloserPort {
+  calls = 0;
+  failWith: Error | null = null;
+  constructor(
+    private readonly taken: readonly string[] = [],
+    private readonly onCall: () => void = () => undefined,
+  ) {}
+
+  async closeFinishedMonths(): Promise<readonly string[]> {
+    this.calls++;
+    this.onCall();
+    if (this.failWith) throw this.failWith;
+    return this.taken;
+  }
+}
+
+describe("DailyRunController: Cerrar el mes (HU43)", () => {
+  const emptyResult = { mailboxSent: false, mailboxNoticeCount: 0, lawyerSends: [] };
+  const build = (closer: FakeMonthlyReportCloser, onDigest: () => void = () => undefined) => {
+    const digest = {
+      execute: async () => {
+        onDigest();
+        return emptyResult;
+      },
+    };
+    return new DailyRunController(
+      new FakeDeadlineDetection([]),
+      new FakePrescriptionDetection([]),
+      digest as unknown as SendDailyNotificationDigestUseCase,
+      false,
+      closer,
+    );
+  };
+
+  it("closes the month after the digest, once per run, and returns the digest result untouched", async () => {
+    const order: string[] = [];
+    const closer = new FakeMonthlyReportCloser(["2026-11"], () => order.push("close"));
+    const controller = build(closer, () => order.push("digest"));
+
+    const result = await controller.run();
+
+    expect(order).toEqual(["digest", "close"]);
+    expect(closer.calls).toBe(1);
+    expect(result).toEqual(emptyResult);
+  });
+
+  it("closes the month even when there is nothing to notify", async () => {
+    const closer = new FakeMonthlyReportCloser();
+
+    await build(closer).run();
+
+    expect(closer.calls).toBe(1);
+  });
+
+  it("a failure of the report never reaches the response: the digest that went out stays out", async () => {
+    const closer = new FakeMonthlyReportCloser();
+    closer.failWith = new Error("base caída");
+    const controller = build(closer);
+
+    await expect(controller.run()).resolves.toEqual(emptyResult);
+    expect(closer.calls).toBe(1);
+  });
+});
+
 describe("DailyRunController", () => {
   it("runs both detections and passes their notices straight into the digest", async () => {
     const deadline = { caseId: 1 } as UpcomingDeadlineNotice;
@@ -52,6 +118,7 @@ describe("DailyRunController", () => {
       new FakePrescriptionDetection([prescription]),
       digest as unknown as SendDailyNotificationDigestUseCase,
       false,
+      new FakeMonthlyReportCloser(),
     );
 
     const result = await controller.run();
@@ -76,6 +143,7 @@ describe("DailyRunController", () => {
       new FakePrescriptionDetection([]),
       digest as unknown as SendDailyNotificationDigestUseCase,
       false,
+      new FakeMonthlyReportCloser(),
     );
 
     const result = await controller.run();
@@ -99,6 +167,7 @@ describe("DailyRunController", () => {
         new FakePrescriptionDetection([]),
         digest as unknown as SendDailyNotificationDigestUseCase,
         devToolsEnabled,
+        new FakeMonthlyReportCloser(),
       );
       return { controller, detection, digest };
     }

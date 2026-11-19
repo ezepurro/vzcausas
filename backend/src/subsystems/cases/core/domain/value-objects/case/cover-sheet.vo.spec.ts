@@ -57,6 +57,13 @@ describe('CoverSheet', () => {
       expect(sheet.defendant).toEqual([]);
     });
 
+    // D-143: what the sheet prints for an orphaned case is an open decision; this pins the current choice.
+    it('criminal case without a responsible lawyer (orphaned): the lawyer line reads "Sin asignar"', () => {
+      const sheet = CoverSheet.create(aSource({ responsibleLawyer: null }));
+
+      expect(sheet.defendant).toEqual(['SÁNCHEZ CELIA', 'DEFENSOR: SIN ASIGNAR']);
+    });
+
     it.each([JurisdictionCode.ADMINISTRATIVE, JurisdictionCode.AMPARO])(
       '%s with role DEMANDADA: plaintiff is the counterparty, defendant is the client (CA-24.6)',
       (jurisdiction) => {

@@ -14,7 +14,7 @@ export interface ProceduralActProps {
   deadline: Deadline;
   registeredByUserId: number;
   // The responsible lawyer of the case at registration time.
-  registeredByLawyerId: number;
+  registeredByLawyerId: number | null;
   registeredAt: Date;
   // Last modification (HU28, D-98). Absent or `null` while the act was never modified.
   lastModifiedByUserId?: number | null;
@@ -84,7 +84,7 @@ export interface NewProceduralActInput {
   notes?: string | null;
   deadline: Deadline;
   registeredByUserId: number;
-  registeredByLawyerId: number;
+  registeredByLawyerId: number | null;
   // Civil date of the study today, and the instant of registration.
   today: Date;
   now: Date;
@@ -306,7 +306,7 @@ export class ProceduralAct {
     return this.props.registeredByUserId;
   }
 
-  get registeredByLawyerId(): number {
+  get registeredByLawyerId(): number | null {
     return this.props.registeredByLawyerId;
   }
 

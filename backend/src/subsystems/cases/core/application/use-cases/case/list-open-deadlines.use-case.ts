@@ -15,7 +15,8 @@ export type OpenDeadlineView = {
   caption: string;
   sacNumber: string | null;
   jurisdiction: JurisdictionCode;
-  responsibleLawyerId: number;
+  /** `null` for an orphaned case (D-143). */
+  responsibleLawyerId: number | null;
   /**
    * `DeadlineKind` of the contract (V4 §2): the procedural act that set the
    * current state, or the harmful act of an amparo still in "Iniciada" (D-78).

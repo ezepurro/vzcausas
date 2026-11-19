@@ -412,7 +412,12 @@ model Case {
   counterparty        String?        @db.VarChar(255)
   subjectMatter       String?        @map("subject_matter") @db.VarChar(800)
   clientId            Int            @map("client_id")
-  responsibleLawyerId Int            @map("responsible_lawyer_id")
+  // NULL solo en una causa huérfana (D-143): quedó sin responsable al darse de
+  // baja su abogado. Se exige al registrarla (RN3, lo valida la API); el CHECK
+  // `ck_cases_orphaned_coherent` lo liga con `orphaned_at`.
+  responsibleLawyerId Int?           @map("responsible_lawyer_id")
+  // Desde cuándo no tiene responsable (D-143). NULL si lo tiene.
+  orphanedAt          DateTime?      @map("orphaned_at") @db.Timestamptz(6)
   // Fecha de inicio de la causa en sede judicial. NULL mientras no tiene SAC
   // (D-33): obligatoria con SAC y sin SAC no se informa, así que no hay un
   // valor que inventar para esa causa.
@@ -493,7 +498,7 @@ model Case {
   // no debería ocurrir nunca.
   jurisdiction             Jurisdiction     @relation(fields: [jurisdictionId], references: [jurisdictionId], onDelete: Restrict)
   client                   Client           @relation(fields: [clientId], references: [id], onDelete: Restrict)
-  responsibleLawyer        Lawyer           @relation("CaseResponsibleLawyer", fields: [responsibleLawyerId], references: [id], onDelete: Restrict)
+  responsibleLawyer        Lawyer?          @relation("CaseResponsibleLawyer", fields: [responsibleLawyerId], references: [id], onDelete: Restrict)
   createdBy                User             @relation("CaseCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
   currentState             ProceduralState? @relation("CaseCurrentState", fields: [currentStateId], references: [stateId], onDelete: Restrict)
   currentProceduralAct     ProceduralAct?   @relation("CaseCurrentAct", fields: [currentProceduralActId], references: [id], onDelete: Restrict)
@@ -592,8 +597,9 @@ model ProceduralAct {
 
   registeredByUserId   Int      @map("registered_by_user_id")
   // Copia del responsable al momento del registro: si la causa cambia de
-  // responsable, el historial conserva quién lo era.
-  registeredByLawyerId Int      @map("registered_by_lawyer_id")
+  // responsable, el historial conserva quién lo era. NULL si la causa era
+  // huérfana (D-143) y lo registró un administrador (D-144).
+  registeredByLawyerId Int?     @map("registered_by_lawyer_id")
   registeredAt         DateTime @default(now()) @map("registered_at") @db.Timestamptz(6)
 
   // Última modificación (HU28, D-98). NULL las dos si el acto nunca se
@@ -617,7 +623,7 @@ model ProceduralAct {
   currentOfCase      Case?            @relation("CaseCurrentAct")
   proceduralState    ProceduralState? @relation(fields: [proceduralStateId], references: [stateId], onDelete: Restrict)
   registeredBy       User             @relation("ProceduralActRegisteredBy", fields: [registeredByUserId], references: [id], onDelete: Restrict)
-  registeredByLawyer Lawyer           @relation("ProceduralActRegisteredByLawyer", fields: [registeredByLawyerId], references: [id], onDelete: Restrict)
+  registeredByLawyer Lawyer?          @relation("ProceduralActRegisteredByLawyer", fields: [registeredByLawyerId], references: [id], onDelete: Restrict)
   lastModifiedBy     User?            @relation("ProceduralActLastModifiedBy", fields: [lastModifiedByUserId], references: [id], onDelete: Restrict)
   deactivatedBy      User?            @relation("ProceduralActDeactivatedBy", fields: [deactivatedByUserId], references: [id], onDelete: Restrict)
 
@@ -644,13 +650,13 @@ model InterruptiveAct {
 
   registeredByUserId   Int      @map("registered_by_user_id")
   // Copia del responsable al momento del registro, como en los actos
-  // procesales.
-  registeredByLawyerId Int      @map("registered_by_lawyer_id")
+  // procesales. NULL si la causa era huérfana (D-143, D-144).
+  registeredByLawyerId Int?     @map("registered_by_lawyer_id")
   registeredAt         DateTime @default(now()) @map("registered_at") @db.Timestamptz(6)
 
   case               Case   @relation(fields: [caseId], references: [id], onDelete: Restrict)
   registeredBy       User   @relation("InterruptiveActRegisteredBy", fields: [registeredByUserId], references: [id], onDelete: Restrict)
-  registeredByLawyer Lawyer @relation("InterruptiveActRegisteredByLawyer", fields: [registeredByLawyerId], references: [id], onDelete: Restrict)
+  registeredByLawyer Lawyer? @relation("InterruptiveActRegisteredByLawyer", fields: [registeredByLawyerId], references: [id], onDelete: Restrict)
 
   @@index([caseId, actDate(sort: Desc), id(sort: Desc)])
   @@map("interruptive_acts")
@@ -670,7 +676,9 @@ enum CloudFolderKind {
   ROOT_CASES // Causas
   LAWYER // Causas/{abogado}
   JURISDICTION // Modelos formales/{fuero} o Causas/{abogado}/{fuero}
-  CASE // Causas/{abogado}/{fuero}/{carátula}
+  CASE // Causas/{abogado}/{fuero}/{carátula}, o Causas/Sin asignar/{fuero}/{carátula} (D-143)
+  UNASSIGNED // Causas/Sin asignar: la carpeta de las causas huérfanas (D-143)
+  UNASSIGNED_JURISDICTION // Causas/Sin asignar/{fuero}
 
   @@map("cloud_folder_kind")
 }
@@ -722,9 +730,10 @@ model CloudFolder {
   url                 String          @db.VarChar(512)
   // NULL solo en MAIN.
   parentCloudFolderId String?         @map("parent_cloud_folder_id") @db.VarChar(128)
-  // En LAWYER, en la JURISDICTION de causas y en CASE.
+  // En LAWYER, en la JURISDICTION de causas y en CASE (NULL en la CASE de una
+  // causa huérfana, D-143).
   lawyerId            Int?            @map("lawyer_id")
-  // En JURISDICTION y en CASE.
+  // En JURISDICTION, UNASSIGNED_JURISDICTION y CASE.
   jurisdictionId      Int?            @map("jurisdiction_id")
   createdAt           DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
 
@@ -1073,7 +1082,7 @@ model AuditLog {
 //   cases                    ck_cases_folder_created_has_cloud_folder
 //   cases                    ck_cases_prescription_declaration_complete
 //   cases                    ck_cases_prescription_grounds_need_declaration
-//   cloud_folders            ck_cloud_folders_shape_by_kind
+//   cloud_folders            ck_cloud_folders_shape_by_kind (reescrita en la migración cloud_folders_unassigned_constraints, D-143)
 //   document_template_copies ck_document_template_copies_copied_has_file
 //   sent_notifications       ck_sent_notifications_deadline_kind_coherent
 //   sent_notifications       ck_sent_notifications_act_only_for_procedural_deadline
@@ -1096,6 +1105,8 @@ model AuditLog {
 //   procedural_acts          ck_procedural_acts_deactivation_reason_not_blank
 //   monthly_report_snapshots ck_monthly_report_snapshots_period_format  (D-117, D-141)
 //   monthly_report_snapshots ck_monthly_report_snapshots_data_is_object
+//   -- Sprint 5, causa huérfana (migración orphaned_cases)
+//   cases                    ck_cases_orphaned_coherent                 (D-143)
 //
 // Triggers:
 //   -- Sprint 4 (migración sprint4_manual_constraints)

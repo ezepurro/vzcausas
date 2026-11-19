@@ -29,6 +29,12 @@ export interface InterruptiveActRepository {
   /** Inserts a new act. */
   save(act: InterruptiveAct): Promise<void>;
 
+  /**
+   * An act as its readers see it, or `null`. For an act of an orphaned case,
+   * whose registrant is the administrator's user and not a lawyer (D-144).
+   */
+  findViewById(id: number): Promise<InterruptiveActView | null>;
+
   /** Whether an **active** case has that id. A case given de baja answers `false` (§4, Bajas). */
   caseExists(caseId: number): Promise<boolean>;
 

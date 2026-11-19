@@ -107,7 +107,10 @@ export class CaseResponseDto {
   administrativeRemedyExhaustedOn!: string | null;
   courtFeePaid!: boolean;
   client!: ClientResponseDto;
-  responsibleLawyer!: ResponsibleLawyerResponseDto;
+  // `null` while the case is orphaned (D-143).
+  responsibleLawyer!: ResponsibleLawyerResponseDto | null;
+  // ISO 8601 instant; `null` while the case has a responsible lawyer (D-143).
+  orphanedAt!: string | null;
   legalQualifications!: LegalQualificationResponseDto[];
   // `null` outside `CRIMINAL` and in a criminal case without qualifications.
   prescription!: PrescriptionResponseDto | null;

@@ -9,7 +9,7 @@ export interface InterruptiveActProps {
   notes: string | null;
   registeredByUserId: number;
   // The responsible lawyer of the case at registration time.
-  registeredByLawyerId: number;
+  registeredByLawyerId: number | null;
   registeredAt: Date;
 }
 
@@ -20,7 +20,7 @@ export interface NewInterruptiveActInput {
   actDate: Date;
   notes?: string | null;
   registeredByUserId: number;
-  registeredByLawyerId: number;
+  registeredByLawyerId: number | null;
   // Civil date of the study today, and the instant of registration.
   today: Date;
   now: Date;
@@ -121,7 +121,7 @@ export class InterruptiveAct {
     return this.props.registeredByUserId;
   }
 
-  get registeredByLawyerId(): number {
+  get registeredByLawyerId(): number | null {
     return this.props.registeredByLawyerId;
   }
 

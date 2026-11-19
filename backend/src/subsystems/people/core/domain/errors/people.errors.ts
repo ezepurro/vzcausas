@@ -112,6 +112,34 @@ export class ClientDniAlreadyExistsError extends ConflictError {
 }
 
 /**
+ * Emitted by `DeactivateLawyer` (HU15, D-143) when the lawyer still has an active case that the
+ * distribution leaves out: neither handed to a lawyer nor marked "Sin asignar". A case that does
+ * not appear **never** becomes orphaned by omission: nobody saw it in the form, for example one
+ * assigned while the form was open. The client asks again for the lawyer's cases and rebuilds it.
+ */
+export class LawyerHasDependenciesError extends ConflictError {
+  constructor() {
+    super(
+      "LAWYER_HAS_DEPENDENCIES",
+      "El abogado tiene causas activas sin reasignar ni dejar sin asignar.",
+    );
+  }
+}
+
+/**
+ * Emitted by `CaseReassignmentPlan` and `DeactivateLawyer` (HU15, D-143) when the distribution of
+ * the lawyer's cases is wrong. It is a datum of the form to correct (D-22), so the detail is on
+ * `reassignments` and not a code of its own.
+ */
+export class InvalidReassignmentsError extends ValidationError {
+  constructor(reason: string) {
+    super("VALIDATION_ERROR", "Los datos enviados no son válidos.", {
+      reassignments: reason,
+    });
+  }
+}
+
+/**
  * Emitted by `DeactivateClient` (HU11) when the client still has active
  * cases (CA-11.2, D-122): if the case is alive, the client is still part of
  * the firm (RN1). Cases in a terminal state and cases given de baja do not

@@ -25,7 +25,7 @@ export class CaseModifiedListener {
       await this.syncCaseFolder.execute({
         caseId: event.caseId,
         caseCaption: event.caption,
-        lawyer: {
+        lawyer: event.lawyer && {
           id: event.lawyer.id,
           folderLabel: `${event.lawyer.lastName}, ${event.lawyer.firstName}`,
         },

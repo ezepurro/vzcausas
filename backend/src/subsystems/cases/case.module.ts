@@ -7,6 +7,7 @@ import { PRESCRIPTION_STATUS } from '@subsystems/deadlines/core/domain/ports/pre
 import { ActiveCasesCounterPort } from '@subsystems/legal-parameters/core/domain/ports/active-cases-counter.port';
 import { LegalParametersModule } from '@subsystems/legal-parameters/legal-parameters.module';
 import { ActiveCasesCounterPort as PeopleActiveCasesCounterPort } from '@subsystems/people/core/domain/ports/active-cases-counter.port';
+import { LawyerCasesPort } from '@subsystems/people/core/domain/ports/lawyer-cases.port';
 import { ClientCaseCaptionsPort } from '@subsystems/people/core/domain/ports/client-case-captions.port';
 import { PeopleModule } from '@subsystems/people/people.module';
 import { DocumentsModule } from '@subsystems/documents/documents.module';
@@ -41,7 +42,10 @@ import { UpdateCase } from './core/application/use-cases/case/update-case.use-ca
 import { CaseFolderAnnouncer } from './core/application/use-cases/case/case-folder-announcer';
 import { FollowClientRename } from './core/application/use-cases/case/follow-client-rename.use-case';
 import { PeopleClientCaseCaptionsAdapter } from './infrastructure/acl/people-client-case-captions.adapter';
+import { AnnounceReassignedCaseFolders } from './core/application/use-cases/case/announce-reassigned-case-folders.use-case';
 import { DeactivateCase } from './core/application/use-cases/case/deactivate-case.use-case';
+import { ReassignLawyerCases } from './core/application/use-cases/case/reassign-lawyer-cases.use-case';
+import { PeopleLawyerCasesAdapter } from './infrastructure/acl/people-lawyer-cases.adapter';
 import { RegisterCase } from './core/application/use-cases/case/register-case.use-case';
 import { RegisterProceduralAct } from './core/application/use-cases/procedural-act/register-procedural-act.use-case';
 import { RequestCaseFolder } from './core/application/use-cases/case/request-case-folder.use-case';
@@ -207,6 +211,12 @@ import { PrismaProceduralActRepository } from './infrastructure/persistence/pris
     // their own subsystems, which is why one is imported aliased here.
     { provide: ActiveCasesCounterPort, useClass: LegalParametersActiveCasesCounterAdapter },
     { provide: PeopleActiveCasesCounterPort, useClass: PeopleActiveCasesCounterAdapter },
+    // HU15: la baja de un abogado reparte sus causas o las deja huérfanas (D-143). El
+    // puerto es de `people`; `cases` lo implementa porque qué es una causa activa y qué
+    // implica reasignarla son reglas suyas. Solo se exporta el token.
+    ReassignLawyerCases,
+    AnnounceReassignedCaseFolders,
+    { provide: LawyerCasesPort, useClass: PeopleLawyerCasesAdapter },
     // HU10: the captions of a client's cases follow its new name (D-121). The
     // port is `people`'s; `cases` implements it because the caption is its own.
     CaseFolderAnnouncer,
@@ -228,6 +238,7 @@ import { PrismaProceduralActRepository } from './infrastructure/persistence/pris
   exports: [
     ActiveCasesCounterPort,
     PeopleActiveCasesCounterPort,
+    LawyerCasesPort,
     ClientCaseCaptionsPort,
     PRESCRIPTION_STATUS,
     OPEN_DEADLINES,

@@ -35,6 +35,21 @@ describe('CaseFolder (HU19)', () => {
     expect(folder.key).toEqual({ kind: 'CASE', caseId: 10 });
   });
 
+  // D-143: sin abogado la carpeta cuelga de Sin asignar; al reasignarla vuelve a uno.
+  it('moveUnder con abogado nulo la deja sin abogado, y con uno vuelve a tenerlo', () => {
+    const folder = aCaseFolder();
+
+    folder.moveUnder('unassigned-1', null);
+
+    expect(folder.parentCloudFolderId).toBe('unassigned-1');
+    expect(folder.lawyerId).toBeNull();
+    expect(folder.key).toEqual({ kind: 'CASE', caseId: 10 });
+
+    folder.moveUnder('jurisdiction-5', 5);
+
+    expect(folder.lawyerId).toBe(5);
+  });
+
   it('no acepta un nombre vacío, un padre vacío ni un abogado inválido, y no cambia nada', () => {
     const folder = aCaseFolder();
 

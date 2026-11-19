@@ -54,7 +54,10 @@ export function aCaseBody(
 
 export interface CreateCaseOverrides {
   clientId: number;
-  responsibleLawyerId: number;
+  /** `null` crea una causa huérfana (D-143): sin responsable y con `orphanedAt` (CHECK `ck_cases_orphaned_coherent`). */
+  responsibleLawyerId: number | null;
+  /** Fecha de inicio `YYYY-MM-DD`; `null` crea una causa sin fecha (D-33). Por defecto, 12/3/2021. */
+  startDate?: string | null;
   createdByUserId: number;
   sacNumber?: string | null;
   caption?: string;
@@ -144,7 +147,11 @@ export async function createCase(overrides: CreateCaseOverrides) {
       harmfulActTermDayType: harmfulAct?.termDayType ?? null,
       clientId: overrides.clientId,
       responsibleLawyerId: overrides.responsibleLawyerId,
-      startDate: new Date('2021-03-12T00:00:00.000Z'),
+      orphanedAt: overrides.responsibleLawyerId === null ? new Date('2026-09-01T12:00:00.000Z') : null,
+      startDate:
+        overrides.startDate === null
+          ? null
+          : new Date(`${overrides.startDate ?? '2021-03-12'}T00:00:00.000Z`),
       // Exactamente uno de los dos (CHECK de la base).
       currentStateId: inCustomState ? null : (overrides.currentStateId ?? initialState.stateId),
       currentCustomState: overrides.currentCustomState ?? null,
