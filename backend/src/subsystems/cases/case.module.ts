@@ -50,6 +50,7 @@ import { RegisterCase } from './core/application/use-cases/case/register-case.us
 import { RegisterProceduralAct } from './core/application/use-cases/procedural-act/register-procedural-act.use-case';
 import { RequestCaseFolder } from './core/application/use-cases/case/request-case-folder.use-case';
 import { CASE_FOLDER_OUTCOMES } from './core/domain/ports/case/case-folder-outcome.port';
+import { CASE_RESPONSIBLE_CHANGE_REPOSITORY } from './core/domain/ports/responsible-change/case-responsible-change.repository';
 import { CASE_FOLDER_STATE } from './core/domain/ports/case/case-folder-state.port';
 import { CASE_REPOSITORY } from './core/domain/ports/case/case.repository';
 import { CASE_TIMELINE_QUERY } from './core/domain/ports/case/case-timeline-query.port';
@@ -76,6 +77,7 @@ import { InterruptiveActHttpMapper } from './infrastructure/http/mappers/interru
 import { ProceduralActHttpMapper } from './infrastructure/http/mappers/procedural-act-http.mapper';
 import { TimelineHttpMapper } from './infrastructure/http/mappers/timeline-http.mapper';
 import { PrismaCaseFolderStateAdapter } from './infrastructure/persistence/prisma/prisma-case-folder-state.adapter';
+import { PrismaCaseResponsibleChangeRepository } from './infrastructure/persistence/prisma/prisma-case-responsible-change.repository';
 import { PrismaCaseRepository } from './infrastructure/persistence/prisma/prisma-case.repository';
 import { CaseTimelinePrismaAdapter } from './infrastructure/persistence/prisma/case-timeline-prisma.adapter';
 import { CriminalPrescriptionQueryPrismaAdapter } from './infrastructure/persistence/prisma/criminal-prescription-query-prisma.adapter';
@@ -194,6 +196,8 @@ import { PrismaProceduralActRepository } from './infrastructure/persistence/pris
     DeactivateProceduralAct,
     ProceduralActHttpMapper,
     { provide: CASE_REPOSITORY, useClass: PrismaCaseRepository },
+    // HU27, D-147: the changes of responsible, written with the change and read by the line of life.
+    { provide: CASE_RESPONSIBLE_CHANGE_REPOSITORY, useClass: PrismaCaseResponsibleChangeRepository },
     { provide: PROCEDURAL_ACT_REPOSITORY, useClass: PrismaProceduralActRepository },
     // HU31: actos interruptivos. Su efecto sobre la prescripción no se guarda:
     // lo calculan `PrismaCaseRepository` y `withDeadlines` en cada lectura de la causa.

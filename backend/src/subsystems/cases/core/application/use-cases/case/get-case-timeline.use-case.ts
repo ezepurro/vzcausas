@@ -5,6 +5,7 @@ import {
   CASE_TIMELINE_QUERY,
   CaseTimelineQueryPort,
   PrescriptionDeclarationView,
+  ResponsibleChangeView,
 } from '../../../domain/ports/case/case-timeline-query.port';
 import { InterruptiveActView } from '../../../domain/ports/interruptive-act/interruptive-act.repository';
 import { ProceduralActView } from '../../../domain/ports/procedural-act/procedural-act.repository';
@@ -50,18 +51,29 @@ export type TimelineEntry =
       date: Date;
       registeredAt: Date;
       prescriptionDeclaration: PrescriptionDeclarationView;
+    }
+  | {
+      /**
+       * D-147: the responsible lawyer changed. `date` is the civil date of `changedAt` in the
+       * study's time zone; `registeredAt` is `changedAt`. It appears in every jurisdiction.
+       */
+      type: 'RESPONSIBLE_LAWYER_CHANGE';
+      date: Date;
+      registeredAt: Date;
+      responsibleLawyerChange: ResponsibleChangeView;
     };
 
 /**
  * HU27 — the line of life of a case: its procedural acts, its interruptive
- * acts and its passing to "Prescripta", in one list (D-85).
+ * acts, its passing to "Prescripta" and its changes of responsible lawyer
+ * (D-147), in one list (D-85).
  *
  * Open to every profile and every case (RN11). The case is checked first, so a
  * case without movements answers an empty list while one that does not exist,
  * or was given de baja, answers 404 (CA-27.14, CA-27.16).
  *
- * **The interleaving happens here, not in the database**: the three sources
- * live in three tables, so no single `ORDER BY` can sort them together. Newest
+ * **The interleaving happens here, not in the database**: the sources
+ * live in different tables, so no single `ORDER BY` can sort them together. Newest
  * first by date; on the same date, the last registered first (CA-27.2).
  *
  * The initial state ("Iniciada") never appears: no act originated it. And a
@@ -131,6 +143,16 @@ export class GetCaseTimeline {
         date: sources.prescriptionDeclaration.prescriptionDate,
         registeredAt: sources.prescriptionDeclaration.registeredAt,
         prescriptionDeclaration: sources.prescriptionDeclaration,
+      });
+    }
+
+    // D-147: not hidden in any jurisdiction, unlike the interruptive acts and the prescription.
+    for (const view of sources.responsibleChanges) {
+      entries.push({
+        type: 'RESPONSIBLE_LAWYER_CHANGE',
+        date: view.changedOn,
+        registeredAt: view.change.changedAt,
+        responsibleLawyerChange: view,
       });
     }
 

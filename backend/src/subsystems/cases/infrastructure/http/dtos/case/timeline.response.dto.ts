@@ -10,6 +10,18 @@ export class PrescriptionDeclarationResponseDto {
   registeredAt!: string;
 }
 
+/** The `responsibleLawyerChange` of an entry (D-147): the lawyers and the user as `{ id, lastName, firstName }`. */
+export class ResponsibleLawyerChangeResponseDto {
+  id!: number;
+  caseId!: number;
+  kind!: 'REASSIGNED' | 'ORPHANED' | 'ASSIGNED_FROM_ORPHAN';
+  previousLawyer!: { id: number; lastName: string; firstName: string } | null;
+  newLawyer!: { id: number; lastName: string; firstName: string } | null;
+  origin!: 'MANUAL' | 'LAWYER_REMOVAL';
+  changedBy!: { id: number; lastName: string; firstName: string };
+  changedAt!: string;
+}
+
 /**
  * One entry of `GET /cases/{caseId}/timeline` (HU27, D-85). Each carries the
  * resource exactly as its own section of the contract defines it.
@@ -29,4 +41,6 @@ export type TimelineEntryResponseDto =
       legalQualification: { id: number; name: string };
       prescriptionDeclaration: PrescriptionDeclarationResponseDto;
     }
-  | { type: 'PRESCRIPTION_DECLARATION'; date: string; prescriptionDeclaration: PrescriptionDeclarationResponseDto };
+  | { type: 'PRESCRIPTION_DECLARATION'; date: string; prescriptionDeclaration: PrescriptionDeclarationResponseDto }
+  // D-147: a change of the responsible lawyer.
+  | { type: 'RESPONSIBLE_LAWYER_CHANGE'; date: string; responsibleLawyerChange: ResponsibleLawyerChangeResponseDto };

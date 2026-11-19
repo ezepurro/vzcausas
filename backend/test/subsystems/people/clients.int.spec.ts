@@ -64,6 +64,7 @@ async function resetDatabase(): Promise<void> {
   await prisma.offense.deleteMany();
   await prisma.case.updateMany({ data: { currentProceduralActId: null } });
   await prisma.proceduralAct.deleteMany();
+  await prisma.caseResponsibleChange.deleteMany();
   await prisma.case.deleteMany();
   await prisma.client.deleteMany();
   await prisma.user.deleteMany(); // referencia a lawyers

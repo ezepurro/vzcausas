@@ -1,8 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { toIsoDate } from '@shared/infrastructure/http/iso-date';
+import { toIsoDate, toIsoWithOffset } from '@shared/infrastructure/http/iso-date';
 import { TimelineEntry } from '../../../core/application/use-cases/case/get-case-timeline.use-case';
-import { TimelineEntryResponseDto } from '../dtos/case/timeline.response.dto';
+import { ResponsibleChangeView } from '../../../core/domain/ports/case/case-timeline-query.port';
+import { ResponsibleLawyerChangeResponseDto, TimelineEntryResponseDto } from '../dtos/case/timeline.response.dto';
 import { InterruptiveActHttpMapper } from './interruptive-act-http.mapper';
 import { toPrescriptionDeclarationResponse } from './prescription-declaration-http.mapper';
 import { ProceduralActHttpMapper } from './procedural-act-http.mapper';
@@ -61,6 +62,26 @@ export class TimelineHttpMapper {
           date,
           prescriptionDeclaration: toPrescriptionDeclarationResponse(entry.prescriptionDeclaration, this.timeZone),
         };
+      case 'RESPONSIBLE_LAWYER_CHANGE':
+        return {
+          type: entry.type,
+          date,
+          responsibleLawyerChange: this.toResponsibleChange(entry.responsibleLawyerChange),
+        };
     }
+  }
+
+  /** D-147: the keys and their order are the contract's. */
+  private toResponsibleChange(view: ResponsibleChangeView): ResponsibleLawyerChangeResponseDto {
+    return {
+      id: view.id,
+      caseId: view.change.caseId,
+      kind: view.change.kind,
+      previousLawyer: view.previousLawyer,
+      newLawyer: view.newLawyer,
+      origin: view.change.origin,
+      changedBy: view.changedBy,
+      changedAt: toIsoWithOffset(view.change.changedAt, this.timeZone),
+    };
   }
 }

@@ -5,9 +5,14 @@ import { CLOCK, ClockPort } from '@shared/domain/clock.port';
 import { TRANSACTION_MANAGER, TransactionManagerPort } from '@shared/domain/transaction-manager.port';
 import { EventPublisher } from '@shared/infrastructure/events/event-publisher.port';
 import { CaseChanges, CaseModificationContext } from '../../../domain/entities/case/case-changes';
+import { CaseResponsibleChange } from '../../../domain/entities/case-responsible-change.entity';
 import { CaseNotFoundError, CaseSacAlreadyExistsError, NotResponsibleLawyerError } from '../../../domain/errors/case.errors';
 import { CASE_FOLDER_STATE, CaseFolderStatePort } from '../../../domain/ports/case/case-folder-state.port';
 import { CASE_REPOSITORY, CaseListItem, CaseRepository } from '../../../domain/ports/case/case.repository';
+import {
+  CASE_RESPONSIBLE_CHANGE_REPOSITORY,
+  CaseResponsibleChangeRepository,
+} from '../../../domain/ports/responsible-change/case-responsible-change.repository';
 import { LEGAL_PARAMETERS_LOOKUP, LegalParametersLookupPort } from '../../../domain/ports/case/legal-parameters-lookup.port';
 import { PEOPLE_LOOKUP, PeopleLookupPort } from '../../../domain/ports/case/people-lookup.port';
 import { CaseFolderAnnouncer } from './case-folder-announcer';
@@ -30,7 +35,8 @@ export interface UpdateCaseCommand {
  * jurisdiction refuses (422) → the data, with the references looked up here
  * (400) → the SAC is not another active case's (409).
  *
- * The change and its audit record are written in one transaction. Moving or
+ * The change, its audit record and, when the responsible lawyer really changed, the
+ * record of that change for the line of life (D-147) are written in one transaction. Moving or
  * renaming the Drive folder is announced **after** the commit and never fails
  * the request (CA-19.9, CA-19.10, D-104).
  */
@@ -44,6 +50,7 @@ export class UpdateCase {
     @Inject(AUDIT_TRAIL) private readonly auditTrail: AuditTrailPort,
     @Inject(TRANSACTION_MANAGER) private readonly transactions: TransactionManagerPort,
     @Inject(CLOCK) private readonly clock: ClockPort,
+    @Inject(CASE_RESPONSIBLE_CHANGE_REPOSITORY) private readonly responsibleChanges: CaseResponsibleChangeRepository,
     events: EventPublisher,
     private readonly getCase: GetCase,
   ) {
@@ -71,6 +78,7 @@ export class UpdateCase {
 
     target.assertCanBeOperatedBy(command.actor, NotResponsibleLawyerError.FOR_MODIFYING_CASE);
 
+    const previousLawyerId = target.responsibleLawyerId;
     const changes = target.modify(command.changes, await this.contextFor(command.changes));
 
     if (target.sacNumber !== null && changes.fields.includes('sacNumber')) {
@@ -91,6 +99,19 @@ export class UpdateCase {
         // The names of the fields, never their values (audit §4).
         metadata: { changedFields: [...changes.fields] },
       });
+      // `modify` only reports a field that really changed: the same lawyer sent again leaves nothing.
+      if (changes.fields.includes('responsibleLawyerId')) {
+        await this.responsibleChanges.save(
+          CaseResponsibleChange.create({
+            caseId: target.id,
+            previousLawyerId,
+            newLawyerId: target.responsibleLawyerId,
+            changedByUserId: command.actor.userId,
+            origin: 'MANUAL',
+            changedAt: now,
+          }),
+        );
+      }
     });
 
     await this.folderAnnouncer.announce(target, changes.folderChanges(), now);

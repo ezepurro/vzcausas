@@ -35,6 +35,7 @@ export async function resetDatabaseForCaseFolders(): Promise<void> {
   await prisma.offense.deleteMany();
   await prisma.case.updateMany({ data: { currentProceduralActId: null } });
   await prisma.proceduralAct.deleteMany();
+  await prisma.caseResponsibleChange.deleteMany();
   await prisma.case.deleteMany();
   await clearCloudFolders();
   await purgeAuditLog(); // `audit_log` referencia a los usuarios con `Restrict`

@@ -1,9 +1,11 @@
+import { CaseResponsibleChange } from '../../../domain/entities/case-responsible-change.entity';
 import { InterruptiveAct } from '../../../domain/entities/interruptive-act.entity';
 import { CaseNotFoundError } from '../../../domain/errors/case.errors';
 import {
   CaseTimelineQueryPort,
   CaseTimelineSources,
   PrescriptionDeclarationView,
+  ResponsibleChangeView,
 } from '../../../domain/ports/case/case-timeline-query.port';
 import { InterruptiveActView } from '../../../domain/ports/interruptive-act/interruptive-act.repository';
 import { ProceduralActView } from '../../../domain/ports/procedural-act/procedural-act.repository';
@@ -55,6 +57,32 @@ const declaration = (prescriptionDate: string): PrescriptionDeclarationView => (
   registeredAt: at(`${prescriptionDate}T18:00:00.000Z`),
 });
 
+/** `changedAt` is an instant; `changedOn` is its civil date in Córdoba, which the adapter computes. */
+function responsibleChange(
+  id: number,
+  changedAt: string,
+  changedOn: string,
+  lawyers: { previous: number | null; next: number | null } = { previous: 3, next: 4 },
+): ResponsibleChangeView {
+  const person = (lawyerId: number | null) =>
+    lawyerId === null ? null : { id: lawyerId, lastName: `Abogado ${lawyerId}`, firstName: 'X' };
+  return {
+    id,
+    change: CaseResponsibleChange.create({
+      caseId: 1,
+      previousLawyerId: lawyers.previous,
+      newLawyerId: lawyers.next,
+      changedByUserId: 1,
+      origin: 'LAWYER_REMOVAL',
+      changedAt: at(changedAt),
+    }),
+    previousLawyer: person(lawyers.previous),
+    newLawyer: person(lawyers.next),
+    changedBy: { id: 1, lastName: 'Vázquez', firstName: 'Fernando G.' },
+    changedOn: day(changedOn),
+  };
+}
+
 class FakeTimelineQuery implements CaseTimelineQueryPort {
   sources: CaseTimelineSources | null = {
     currentProceduralActId: null,
@@ -62,6 +90,7 @@ class FakeTimelineQuery implements CaseTimelineQueryPort {
     interruptiveActs: [],
     prescriptionDeclaration: null,
     offenses: [],
+    responsibleChanges: [],
   };
 
   async findSources(): Promise<CaseTimelineSources | null> {
@@ -82,6 +111,8 @@ function shape(entries: TimelineEntry[]): string[] {
         return `DECLARADA ${entry.legalQualification.id} ${date}`;
       case 'PRESCRIPTION_DECLARATION':
         return `PRESCRIPTA ${date}`;
+      case 'RESPONSIBLE_LAWYER_CHANGE':
+        return `CAMBIO ${entry.responsibleLawyerChange.id} ${date}`;
     }
   });
 }
@@ -103,6 +134,7 @@ describe('GetCaseTimeline', () => {
       interruptiveActs: [interruptive(7, '2024-07-04')],
       prescriptionDeclaration: declaration('2026-09-30'),
       offenses: [],
+      responsibleChanges: [],
     };
 
     const entries = await useCase.execute({ caseId: 1 });
@@ -200,6 +232,47 @@ describe('GetCaseTimeline', () => {
     const [entry] = await useCase.execute({ caseId: 1 });
 
     expect(entry).toMatchObject({ type: 'PRESCRIPTION_DECLARATION', date: day('2026-09-30') });
+  });
+
+  // D-147: la cuarta fuente
+  describe('cambios de responsable (D-147)', () => {
+    it('intercala el cambio entre los actos, con la fecha civil de Córdoba y no la del instante en UTC', async () => {
+      // 01:30Z del 19/11 son las 22:30 del 18/11 en Córdoba: el cambio es del 18.
+      query.sources!.proceduralActs = [procedural(1, '2026-11-17'), procedural(2, '2026-11-19')];
+      query.sources!.responsibleChanges = [responsibleChange(7, '2026-11-19T01:30:00.000Z', '2026-11-18')];
+
+      expect(shape(await useCase.execute({ caseId: 1 }))).toEqual(['P2 2026-11-19', 'CAMBIO 7 2026-11-18', 'P1 2026-11-17']);
+    });
+
+    it('en la misma fecha va primero el último registrado, sea acto o cambio', async () => {
+      query.sources!.proceduralActs = [procedural(1, '2026-11-18', '2026-11-18T12:00:00.000Z')];
+      query.sources!.responsibleChanges = [
+        responsibleChange(7, '2026-11-18T10:00:00.000Z', '2026-11-18'),
+        responsibleChange(8, '2026-11-18T18:00:00.000Z', '2026-11-18'),
+      ];
+
+      expect(shape(await useCase.execute({ caseId: 1 }))).toEqual([
+        'CAMBIO 8 2026-11-18',
+        'P1 2026-11-18',
+        'CAMBIO 7 2026-11-18',
+      ]);
+    });
+
+    it('aparece en todos los fueros: no se oculta como los interruptivos y la prescripción', async () => {
+      // Una causa que no es penal solo tiene actos procesales y estos cambios: la fuente no depende del fuero.
+      query.sources!.responsibleChanges = [
+        responsibleChange(7, '2026-11-18T15:00:00.000Z', '2026-11-18', { previous: 3, next: null }),
+        responsibleChange(8, '2026-11-19T15:00:00.000Z', '2026-11-19', { previous: null, next: 4 }),
+      ];
+
+      const entries = await useCase.execute({ caseId: 1 });
+
+      expect(shape(entries)).toEqual(['CAMBIO 8 2026-11-19', 'CAMBIO 7 2026-11-18']);
+      expect(entries.map((e) => (e.type === 'RESPONSIBLE_LAWYER_CHANGE' ? e.responsibleLawyerChange.change.kind : null))).toEqual([
+        'ASSIGNED_FROM_ORPHAN',
+        'ORPHANED',
+      ]);
+    });
   });
 
   // CA-27.14

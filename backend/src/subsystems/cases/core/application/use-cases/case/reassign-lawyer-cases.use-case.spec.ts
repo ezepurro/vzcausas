@@ -1,6 +1,7 @@
 import {
   FakeAuditTrail,
   FakeCaseRepository,
+  FakeCaseResponsibleChangeRepository,
   FakeClock,
 } from '../../../test-support/case-fakes';
 import { aCase, anOrphanedCase, INITIAL_STATES, LAWYER, NOW, STATES_TABLE, TODAY } from '../../../test-support/case-fixtures';
@@ -11,8 +12,9 @@ function build(...existing: ReturnType<typeof aCase>[]) {
   const cases = new FakeCaseRepository([...Object.values(INITIAL_STATES), ...STATES_TABLE]);
   existing.forEach((c) => cases.add(c));
   const audit = new FakeAuditTrail();
-  const useCase = new ReassignLawyerCases(cases, audit, new FakeClock(NOW, TODAY));
-  return { useCase, cases, audit };
+  const responsibleChanges = new FakeCaseResponsibleChangeRepository();
+  const useCase = new ReassignLawyerCases(cases, audit, new FakeClock(NOW, TODAY), responsibleChanges);
+  return { useCase, cases, audit, responsibleChanges };
 }
 
 const FROM = LAWYER.id;
@@ -77,12 +79,46 @@ describe('ReassignLawyerCases', () => {
     expect(audit.entries.map((entry) => entry.entityId)).toEqual([String(first.id), String(second.id)]);
   });
 
+  // D-147
+  it('deja un cambio por causa: REASSIGNED o ORPHANED, origen LAWYER_REMOVAL, a nombre de quien da la baja', async () => {
+    const first = aCase({ id: 1 });
+    const second = aCase({ id: 2 });
+    const { useCase, responsibleChanges } = build(first, second);
+
+    await useCase.execute({
+      fromLawyerId: FROM,
+      reassignments: [
+        { caseId: first.id, responsibleLawyerId: 7 },
+        { caseId: second.id, responsibleLawyerId: null },
+      ],
+      actorUserId: 9,
+    });
+
+    expect(responsibleChanges.saved).toHaveLength(2);
+    expect(responsibleChanges.saved[0]).toMatchObject({
+      caseId: 1,
+      previousLawyerId: FROM,
+      newLawyerId: 7,
+      changedByUserId: 9,
+      origin: 'LAWYER_REMOVAL',
+      changedAt: NOW,
+      kind: 'REASSIGNED',
+    });
+    expect(responsibleChanges.saved[1]).toMatchObject({
+      caseId: 2,
+      previousLawyerId: FROM,
+      newLawyerId: null,
+      origin: 'LAWYER_REMOVAL',
+      kind: 'ORPHANED',
+    });
+  });
+
   it.each([
     ['inexistente', () => build(), 99],
     ['de otro abogado', () => build(aCase({ responsibleLawyerId: 99 })), 1],
     ['ya huérfana', () => build(anOrphanedCase()), 1],
   ])('una causa %s es un dato roto: lo informa y no escribe nada', async (_caso, setUp, caseId) => {
-    const { useCase, cases, audit } = setUp();
+    const { useCase, cases, audit, responsibleChanges } = setUp();
 
     await expect(
       useCase.execute({ fromLawyerId: FROM, reassignments: [{ caseId, responsibleLawyerId: 7 }], actorUserId: 9 }),
@@ -90,5 +126,6 @@ describe('ReassignLawyerCases', () => {
 
     expect(cases.modifications).toEqual([]);
     expect(audit.entries).toEqual([]);
+    expect(responsibleChanges.saved).toEqual([]);
   });
 });

@@ -5353,6 +5353,7 @@ pasar a otro acto si cambió cuál es el más reciente (ver
 | `INTERRUPTIVE_ACT`         | `actDate` del acto                     | `interruptiveAct`          | `governsPrescription`: `true` en el acto interruptivo desde el que corre `prescription` de la causa: el que fija su `lastInterruptiveActDate` **(Revisión del 08/11/2026, D-113)** |
 | `QUALIFICATION_PRESCRIPTION_DECLARATION` | `prescriptionDate` de la declaración | `legalQualification` (`id` y `name`) y `prescriptionDeclaration` | **(Revisión del 08/11/2026, D-113)** Una por calificación declarada |
 | `PRESCRIPTION_DECLARATION` | `prescriptionDate` de la declaración   | `prescriptionDeclaration`  | La de la causa: aparece cuando quedó "Prescripta" |
+| `RESPONSIBLE_LAWYER_CHANGE` | fecha de `changedAt`, en Córdoba      | `responsibleLawyerChange`  | **(D-147)** Un cambio de abogado responsable: una reasignación, o la causa que quedó huérfana. Ver [Cambio de responsable](#cambio-de-responsable-en-la-línea-de-vida) |
 
 **(V6)** Los actos procesales anulados (HU29) no aparecen en la línea de vida:
 para el cliente no existen.
@@ -5437,6 +5438,57 @@ Qué **no** aparece:
 
 Una causa sin actos devuelve `data` vacío: no es un error. La causa está en su
 estado inicial.
+
+##### Cambio de responsable en la línea de vida
+
+**(D-147)** Cada vez que una causa cambia de abogado responsable queda una
+entrada `RESPONSIBLE_LAWYER_CHANGE`: cuando se la reasigna con
+[`PATCH /cases/{caseId}`](#patch-casescaseid), cuando la reparte la baja de un
+abogado ([`DELETE /lawyers/{lawyerId}`](#delete-lawyerslawyerid)) y cuando esa
+baja la deja [huérfana](#causa-huérfana). Es la única forma de saber de quién a
+quién pasó: el sistema no la deducía de ninguna otra parte.
+
+```json
+{
+	"type": "RESPONSIBLE_LAWYER_CHANGE",
+	"date": "2026-11-19",
+	"responsibleLawyerChange": {
+		"id": 7,
+		"caseId": 1,
+		"kind": "REASSIGNED",
+		"previousLawyer": { "id": 3, "lastName": "Ríos", "firstName": "Malena" },
+		"newLawyer": { "id": 4, "lastName": "Gaga", "firstName": "Pablo" },
+		"origin": "LAWYER_REMOVAL",
+		"changedBy": { "id": 1, "lastName": "Vázquez", "firstName": "Fernando G." },
+		"changedAt": "2026-11-19T10:15:00-03:00"
+	}
+}
+```
+
+| Campo | Tipo | Nulo | Descripción |
+| ----- | ---- | :--: | ----------- |
+| `id` | Integer | No | Identificador del cambio |
+| `caseId` | Integer | No | La causa |
+| `kind` | String | No | `REASSIGNED`: pasó de un abogado a otro. `ORPHANED`: quedó sin abogado (D-143). `ASSIGNED_FROM_ORPHAN`: una causa huérfana recibió abogado. Lo calcula el backend a partir de los dos abogados |
+| `previousLawyer` | Object | Sí | El abogado que tenía. `null` en `ASSIGNED_FROM_ORPHAN`. Trae `id`, `lastName` y `firstName` |
+| `newLawyer` | Object | Sí | El abogado que pasa a tener. `null` en `ORPHANED` |
+| `origin` | String | No | `LAWYER_REMOVAL`: lo hizo la baja de un abogado. `MANUAL`: lo hizo un usuario con `PATCH /cases/{caseId}` |
+| `changedBy` | Object | No | **El usuario** que hizo el cambio (`id`, `lastName`, `firstName`): en una baja, el administrador; en un `PATCH`, quien modificó la causa. No es necesariamente un abogado |
+| `changedAt` | String (ISO 8601) | No | Cuándo, con el huso del estudio (`America/Argentina/Cordoba`) |
+
+Reglas:
+- **Aparece en todos los fueros**, a diferencia de los actos interruptivos y la
+  prescripción.
+- Los abogados se muestran **como son hoy**: el que fue dado de baja sigue
+  figurando con su nombre, porque es parte de la historia de la causa
+  (RN12, [Bajas](#bajas)).
+- **Solo cuando el responsable cambia de verdad.** Un `PATCH` que manda el mismo
+  abogado, o que no toca el responsable, no deja entrada. Registrar la causa
+  tampoco: el responsable inicial no es un cambio.
+- **Solo hacia adelante.** Los cambios anteriores a esta revisión no se
+  registraron y no pueden reconstruirse: no aparecen.
+- Se ordena como el resto: por `date` y, a igual fecha, primero el último
+  registrado (para esta entrada, `changedAt`).
 
 **`400 Bad Request`**
 
@@ -9350,7 +9402,7 @@ hoy:
 | **Activa a una fecha** | Su `startDate` no es posterior a esa fecha y, a esa fecha, no está en un estado terminal. El estado a una fecha es el del acto vigente más reciente con `actDate` hasta esa fecha (D-14), o "Prescripta" si para entonces ya estaba declarada |
 | **Al inicio** | Activas el último día del mes anterior |
 | **Al cierre** | Activas a `dataAsOf`. Siempre vale: al cierre = al inicio + ingresadas − archivadas |
-| **Responsable** | El abogado responsable de la causa cuando se toman los datos. El sistema no guarda el historial de responsables: por eso el mes se fotografía al cerrarlo. **(D-145)** Una [causa huérfana](#causa-huérfana) no tiene responsable: cuenta como "Sin asignar" (`unassigned`) |
+| **Responsable** | El abogado responsable de la causa cuando se toman los datos. El sistema no guarda el historial de responsables: por eso el mes se fotografía al cerrarlo. **(D-147)** Desde esa revisión se registran los cambios de responsable (se ven en la [línea de vida](#cambio-de-responsable-en-la-línea-de-vida)), pero solo hacia adelante y no reemplazan a la foto: el reporte sigue tomándola al cerrar el mes. **(D-145)** Una [causa huérfana](#causa-huérfana) no tiene responsable: cuenta como "Sin asignar" (`unassigned`) |
 | **Prescripción** | `prescription` de la causa (§4, [Prescripción](#prescripción)) calculada a la fecha de corte: con los actos interruptivos y las declaraciones hasta esa fecha |
 | **Plazos del mes** | Ver [Datos del reporte](#datos-del-reporte), en `deadlines` |
 

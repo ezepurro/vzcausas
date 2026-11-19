@@ -103,6 +103,7 @@ describe('documents al registrar una causa', () => {
 
   afterAll(async () => {
     await clearTemplates();
+    await getPrisma().caseResponsibleChange.deleteMany();
     await getPrisma().case.deleteMany();
     await clearCloudFolders();
     await stopTestApp();
@@ -114,6 +115,7 @@ describe('documents al registrar una causa', () => {
     await prisma.offense.deleteMany();
     await prisma.case.updateMany({ data: { currentProceduralActId: null } });
     await prisma.proceduralAct.deleteMany();
+    await prisma.caseResponsibleChange.deleteMany();
     await prisma.case.deleteMany();
     await clearCloudFolders();
     await prisma.user.deleteMany();

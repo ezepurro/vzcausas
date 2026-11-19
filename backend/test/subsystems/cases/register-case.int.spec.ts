@@ -66,6 +66,7 @@ describe('POST /api/v1/cases', () => {
     // hace `register-procedural-act.int.spec.ts`.
     await prisma.case.updateMany({ data: { currentProceduralActId: null } });
     await prisma.proceduralAct.deleteMany();
+    await prisma.caseResponsibleChange.deleteMany();
     await prisma.case.deleteMany();
     await clearCloudFolders();
     // HU39: la estructura base del estudio, sin la cual la carpeta de una causa no se puede crear.

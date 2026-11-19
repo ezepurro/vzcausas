@@ -33,6 +33,7 @@ export async function resetProceduralActData(): Promise<void> {
   await prisma.interruptiveAct.deleteMany(); // HU31: referencia a causas, usuarios y abogados
   await prisma.case.updateMany({ data: { currentProceduralActId: null } });
   await prisma.proceduralAct.deleteMany();
+  await prisma.caseResponsibleChange.deleteMany();
   await prisma.case.deleteMany();
   await prisma.proceduralState.deleteMany(); // hijos de jurisdictions
   await prisma.jurisdiction.deleteMany();

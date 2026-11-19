@@ -4,8 +4,10 @@ import { ClockPort } from '@shared/domain/clock.port';
 import { TransactionManagerPort } from '@shared/domain/transaction-manager.port';
 import { Case } from '../domain/entities/case/case.entity';
 import { CaseSnapshot } from '../domain/entities/case/case-snapshot';
+import { CaseResponsibleChange } from '../domain/entities/case-responsible-change.entity';
 import { InterruptiveAct } from '../domain/entities/interruptive-act.entity';
 import { ProceduralAct } from '../domain/entities/procedural-act.entity';
+import { CaseResponsibleChangeRepository } from '../domain/ports/responsible-change/case-responsible-change.repository';
 import { DeadlineCalculatorPort } from '../domain/ports/procedural-act/deadline-calculator.port';
 import { CaseDueDateKey, CaseListItem, CaseRepository, CaseSearchFilters } from '../domain/ports/case/case.repository';
 import {
@@ -398,6 +400,15 @@ export class FakeTransactionManager implements TransactionManagerPort {
   async runInTransaction<T>(work: () => Promise<T>): Promise<T> {
     this.calls++;
     return work();
+  }
+}
+
+/** Collects the changes of responsible that were recorded (HU27, D-147). */
+export class FakeCaseResponsibleChangeRepository implements CaseResponsibleChangeRepository {
+  readonly saved: CaseResponsibleChange[] = [];
+
+  async save(change: CaseResponsibleChange): Promise<void> {
+    this.saved.push(change);
   }
 }
 

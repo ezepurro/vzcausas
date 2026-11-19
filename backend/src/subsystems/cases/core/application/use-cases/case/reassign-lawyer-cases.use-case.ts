@@ -1,6 +1,11 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { AUDIT_TRAIL, AuditTrailPort } from '@shared/domain/audit-trail.port';
 import { CLOCK, ClockPort } from '@shared/domain/clock.port';
+import { CaseResponsibleChange } from '../../../domain/entities/case-responsible-change.entity';
+import {
+  CASE_RESPONSIBLE_CHANGE_REPOSITORY,
+  CaseResponsibleChangeRepository,
+} from '../../../domain/ports/responsible-change/case-responsible-change.repository';
 import { CASE_REPOSITORY, CaseRepository } from '../../../domain/ports/case/case.repository';
 
 export interface ReassignLawyerCasesCommand {
@@ -15,7 +20,8 @@ export interface ReassignLawyerCasesCommand {
 /**
  * HU15 — the cases of a lawyer given de baja go to other lawyers or are left orphaned
  * (D-143). Each one is a change of responsible with the same effects as
- * `PATCH /cases/{caseId}`: the case is saved and the change stays in its audit record.
+ * `PATCH /cases/{caseId}`: the case is saved, the change stays in its audit record and in its
+ * record of responsible changes for the line of life (D-147, origin `LAWYER_REMOVAL`).
  *
  * Coordinates and decides nothing: moving a case to another lawyer, or leaving it
  * without one, is `Case.reassignTo` and `Case.leaveWithoutResponsible`. Which lawyers
@@ -30,6 +36,7 @@ export class ReassignLawyerCases {
     @Inject(CASE_REPOSITORY) private readonly cases: CaseRepository,
     @Inject(AUDIT_TRAIL) private readonly auditTrail: AuditTrailPort,
     @Inject(CLOCK) private readonly clock: ClockPort,
+    @Inject(CASE_RESPONSIBLE_CHANGE_REPOSITORY) private readonly responsibleChanges: CaseResponsibleChangeRepository,
   ) {}
 
   /**
@@ -61,6 +68,16 @@ export class ReassignLawyerCases {
         // The names of the fields, never their values (audit §4).
         metadata: { changedFields: ['responsibleLawyerId'] },
       });
+      await this.responsibleChanges.save(
+        CaseResponsibleChange.create({
+          caseId: target.id,
+          previousLawyerId: command.fromLawyerId,
+          newLawyerId: responsibleLawyerId,
+          changedByUserId: command.actorUserId,
+          origin: 'LAWYER_REMOVAL',
+          changedAt: now,
+        }),
+      );
     }
   }
 }

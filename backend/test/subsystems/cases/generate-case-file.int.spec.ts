@@ -104,6 +104,7 @@ describe('POST /api/v1/cases/{caseId}/case-files (HU25)', () => {
     await prisma.case.updateMany({ data: { currentProceduralActId: null } });
     await prisma.proceduralAct.deleteMany();
     await clearCloudFolders();
+    await prisma.caseResponsibleChange.deleteMany();
     await prisma.case.deleteMany();
     await prisma.user.deleteMany();
     await prisma.lawyer.deleteMany();

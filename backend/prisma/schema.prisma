@@ -36,22 +36,24 @@ model User {
   roles         UserRole[]
 
   // Relaciones inversas hacia `cases` (no agregan columnas a `users`).
-  createdCases               Case[]            @relation("CaseCreatedBy")
-  registeredProceduralActs   ProceduralAct[]   @relation("ProceduralActRegisteredBy")
-  interruptiveActs           InterruptiveAct[] @relation("InterruptiveActRegisteredBy")
+  createdCases               Case[]                  @relation("CaseCreatedBy")
+  registeredProceduralActs   ProceduralAct[]         @relation("ProceduralActRegisteredBy")
+  interruptiveActs           InterruptiveAct[]       @relation("InterruptiveActRegisteredBy")
   // Causas que el usuario marcó como prescriptas (HU33).
-  casesMarkedAsPrescribed    Case[]            @relation("CasePrescriptionRegisteredBy")
-  offensesMarkedAsPrescribed Offense[]         @relation("OffensePrescriptionRegisteredBy")
+  casesMarkedAsPrescribed    Case[]                  @relation("CasePrescriptionRegisteredBy")
+  offensesMarkedAsPrescribed Offense[]               @relation("OffensePrescriptionRegisteredBy")
   // Causas que el usuario dio de baja (HU21).
-  deactivatedCases           Case[]            @relation("CaseDeactivatedBy")
+  deactivatedCases           Case[]                  @relation("CaseDeactivatedBy")
   // Actos procesales que el usuario modificó por última vez (HU28, D-98).
-  lastModifiedProceduralActs ProceduralAct[]   @relation("ProceduralActLastModifiedBy")
+  lastModifiedProceduralActs ProceduralAct[]         @relation("ProceduralActLastModifiedBy")
   // Actos procesales que el usuario anuló (HU29, D-124).
-  deactivatedProceduralActs  ProceduralAct[]   @relation("ProceduralActDeactivatedBy")
+  deactivatedProceduralActs  ProceduralAct[]         @relation("ProceduralActDeactivatedBy")
+  // Cambios de responsable de una causa que el usuario hizo (HU27, D-147).
+  responsibleChangesMade     CaseResponsibleChange[] @relation("ResponsibleChangeChangedBy")
 
   // Relaciones inversas hacia `people`.
   // Clientes que el usuario dio de baja (HU11, D-122).
-  deactivatedClients         Client[]          @relation("ClientDeactivatedBy")
+  deactivatedClients Client[] @relation("ClientDeactivatedBy")
 
   // Relaciones inversas hacia `documents`.
   documentTemplateVersions DocumentTemplate[]
@@ -211,10 +213,13 @@ model Lawyer {
   users User[]
 
   // Relaciones inversas hacia `cases` (no agregan columnas a `lawyers`).
-  responsibleCases           Case[]            @relation("CaseResponsibleLawyer")
-  receivedNotifications SentNotification[]
-  registeredProceduralActs   ProceduralAct[]   @relation("ProceduralActRegisteredByLawyer")
-  registeredInterruptiveActs InterruptiveAct[] @relation("InterruptiveActRegisteredByLawyer")
+  responsibleCases           Case[]                  @relation("CaseResponsibleLawyer")
+  receivedNotifications      SentNotification[]
+  registeredProceduralActs   ProceduralAct[]         @relation("ProceduralActRegisteredByLawyer")
+  registeredInterruptiveActs InterruptiveAct[]       @relation("InterruptiveActRegisteredByLawyer")
+  // Cambios de responsable donde el abogado era el anterior o el nuevo (HU27, D-147).
+  responsibleChangesFrom     CaseResponsibleChange[] @relation("ResponsibleChangePrevious")
+  responsibleChangesTo       CaseResponsibleChange[] @relation("ResponsibleChangeNew")
 
   // Relación inversa hacia `documents`: carpetas del abogado en la nube.
   cloudFolders CloudFolder[]
@@ -224,33 +229,33 @@ model Lawyer {
 }
 
 model Client {
-  id          Int      @id @default(autoincrement())
-  lastName    String   @map("last_name") @db.VarChar(100)
-  firstName   String   @map("first_name") @db.VarChar(100)
+  id                  Int          @id @default(autoincrement())
+  lastName            String       @map("last_name") @db.VarChar(100)
+  firstName           String       @map("first_name") @db.VarChar(100)
   // Tipo y número de documento (D-108). El formato de cada tipo lo valida
   // un CHECK manual. Único por (tipo, número) entre los clientes VIGENTES:
   // índice único parcial `clients_document_active_key`, creado a mano.
-  documentType   DocumentType @default(DNI) @map("document_type")
-  documentNumber String        @map("document_number") @db.VarChar(20)
+  documentType        DocumentType @default(DNI) @map("document_type")
+  documentNumber      String       @map("document_number") @db.VarChar(20)
   // Obligatorios (D-109), también en la base.
-  address     String   @db.VarChar(255)
-  phone       String   @db.VarChar(50)
-  email       String?  @db.VarChar(255)
+  address             String       @db.VarChar(255)
+  phone               String       @db.VarChar(50)
+  email               String?      @db.VarChar(255)
   // Fecha civil. La asigna la aplicación con `ClockPort.today()`
   // (Córdoba), nunca `CURRENT_DATE`, que corre en la zona de la base.
-  clientSince DateTime @map("client_since") @db.Date
-  active      Boolean  @default(true)
+  clientSince         DateTime     @map("client_since") @db.Date
+  active              Boolean      @default(true)
   // Baja lógica (HU11, RN12, D-122). Las tres valen NULL mientras el
   // cliente está vigente; con la baja se cargan cuándo y quién, y el
   // motivo si se informó (CHECK manual `ck_clients_deactivation_coherent`).
   // El motivo va acá y no en `audit_log` porque es texto libre que puede
   // tener datos sensibles (AUDITORIA_Y_TRAZABILIDAD.md §4). Mismo criterio
   // que `cases`.
-  deactivatedAt       DateTime? @map("deactivated_at") @db.Timestamptz(6)
-  deactivatedByUserId Int?      @map("deactivated_by_user_id")
-  deactivationReason  String?   @map("deactivation_reason") @db.VarChar(500)
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deactivatedAt       DateTime?    @map("deactivated_at") @db.Timestamptz(6)
+  deactivatedByUserId Int?         @map("deactivated_by_user_id")
+  deactivationReason  String?      @map("deactivation_reason") @db.VarChar(500)
+  createdAt           DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   deactivatedBy User? @relation("ClientDeactivatedBy", fields: [deactivatedByUserId], references: [id], onDelete: Restrict)
 
@@ -506,12 +511,14 @@ model Case {
   prescriptionRegisteredBy User?            @relation("CasePrescriptionRegisteredBy", fields: [prescriptionRegisteredByUserId], references: [id], onDelete: Restrict)
   deactivatedBy            User?            @relation("CaseDeactivatedBy", fields: [deactivatedByUserId], references: [id], onDelete: Restrict)
 
-  proceduralActs    ProceduralAct[]        @relation("CaseProceduralActs")
-  offenses          Offense[]
-  interruptiveActs  InterruptiveAct[]
-  templateCopies    DocumentTemplateCopy[]
-  sentNotifications SentNotification[]
-  caseFiles         CaseFile[]
+  proceduralActs     ProceduralAct[]         @relation("CaseProceduralActs")
+  offenses           Offense[]
+  interruptiveActs   InterruptiveAct[]
+  templateCopies     DocumentTemplateCopy[]
+  sentNotifications  SentNotification[]
+  caseFiles          CaseFile[]
+  // Cambios de abogado responsable, de la línea de vida (HU27, D-147).
+  responsibleChanges CaseResponsibleChange[]
 
   @@index([jurisdictionId])
   @@index([clientId])
@@ -654,8 +661,8 @@ model InterruptiveAct {
   registeredByLawyerId Int?     @map("registered_by_lawyer_id")
   registeredAt         DateTime @default(now()) @map("registered_at") @db.Timestamptz(6)
 
-  case               Case   @relation(fields: [caseId], references: [id], onDelete: Restrict)
-  registeredBy       User   @relation("InterruptiveActRegisteredBy", fields: [registeredByUserId], references: [id], onDelete: Restrict)
+  case               Case    @relation(fields: [caseId], references: [id], onDelete: Restrict)
+  registeredBy       User    @relation("InterruptiveActRegisteredBy", fields: [registeredByUserId], references: [id], onDelete: Restrict)
   registeredByLawyer Lawyer? @relation("InterruptiveActRegisteredByLawyer", fields: [registeredByLawyerId], references: [id], onDelete: Restrict)
 
   @@index([caseId, actDate(sort: Desc), id(sort: Desc)])
@@ -932,21 +939,21 @@ enum NotificationKind {
 // renovación del acto lesivo o un acto interruptivo cambian esa fecha, y
 // entonces se vuelve a avisar.
 model SentNotification {
-  id              Int              @id @default(autoincrement())
-  caseId          Int              @map("case_id")
-  kind            NotificationKind
+  id                Int              @id @default(autoincrement())
+  caseId            Int              @map("case_id")
+  kind              NotificationKind
   // Solo en los avisos de vencimiento.
-  deadlineKind    DeadlineKind?    @map("deadline_kind")
+  deadlineKind      DeadlineKind?    @map("deadline_kind")
   // Acto que abrió el plazo avisado, si es de un acto procesal.
-  proceduralActId Int?             @map("procedural_act_id")
+  proceduralActId   Int?             @map("procedural_act_id")
   // Vencimiento avisado, o fecha de prescripción avisada.
-  referenceDate   DateTime         @map("reference_date") @db.Date
-  recipientLawyerId Int? @map("recipient_lawyer_id")
-  sentAt          DateTime         @default(now()) @map("sent_at") @db.Timestamptz(6)
+  referenceDate     DateTime         @map("reference_date") @db.Date
+  recipientLawyerId Int?             @map("recipient_lawyer_id")
+  sentAt            DateTime         @default(now()) @map("sent_at") @db.Timestamptz(6)
 
-  case          Case           @relation(fields: [caseId], references: [id], onDelete: Restrict)
-  proceduralAct ProceduralAct? @relation(fields: [proceduralActId], references: [id], onDelete: Restrict)
-  recipientLawyer Lawyer? @relation(fields: [recipientLawyerId], references: [id], onDelete: Restrict)
+  case            Case           @relation(fields: [caseId], references: [id], onDelete: Restrict)
+  proceduralAct   ProceduralAct? @relation(fields: [proceduralActId], references: [id], onDelete: Restrict)
+  recipientLawyer Lawyer?        @relation(fields: [recipientLawyerId], references: [id], onDelete: Restrict)
 
   // Un aviso una sola vez. El índice real es NULLS NOT DISTINCT (lo crea
   // a mano `sprint3_manual_constraints`); se declara acá con su nombre
@@ -1038,6 +1045,42 @@ model AuditLog {
 }
 
 // ─────────────────────────────────────────────────────────────
+// Cambios de responsable de una causa (HU27, D-147)
+// ─────────────────────────────────────────────────────────────
+
+enum ResponsibleChangeOrigin {
+  LAWYER_REMOVAL // lo hizo la baja de un abogado (D-143)
+  MANUAL // lo hizo un usuario con PATCH /cases/{caseId}
+
+  @@map("responsible_change_origin")
+}
+
+// Un cambio de abogado responsable de una causa: de quién a quién, quién lo
+// hizo y cuándo. Es lo que muestra la línea de vida (D-147). Se escribe en la
+// misma transacción que el cambio, y solo cuando el responsable cambia de
+// verdad. `previous_lawyer_id` NULL: la causa venía huérfana. `new_lawyer_id`
+// NULL: la causa quedó huérfana. Nunca los dos nulos ni iguales (CHECK manual
+// `ck_case_responsible_changes_differs`). No se borra ni se modifica (RN12).
+model CaseResponsibleChange {
+  id               Int                     @id @default(autoincrement())
+  caseId           Int                     @map("case_id")
+  previousLawyerId Int?                    @map("previous_lawyer_id")
+  newLawyerId      Int?                    @map("new_lawyer_id")
+  changedByUserId  Int                     @map("changed_by_user_id")
+  origin           ResponsibleChangeOrigin
+  // La pone la aplicación con el reloj del estudio, no la base: los tests la fijan.
+  changedAt        DateTime                @map("changed_at") @db.Timestamptz(6)
+
+  case           Case    @relation(fields: [caseId], references: [id], onDelete: Restrict)
+  previousLawyer Lawyer? @relation("ResponsibleChangePrevious", fields: [previousLawyerId], references: [id], onDelete: Restrict)
+  newLawyer      Lawyer? @relation("ResponsibleChangeNew", fields: [newLawyerId], references: [id], onDelete: Restrict)
+  changedBy      User    @relation("ResponsibleChangeChangedBy", fields: [changedByUserId], references: [id], onDelete: Restrict)
+
+  @@index([caseId, changedAt])
+  @@map("case_responsible_changes")
+}
+
+// ─────────────────────────────────────────────────────────────
 // SQL manual — lo que Prisma no expresa
 // ─────────────────────────────────────────────────────────────
 // Va en una migración creada con `migrate dev --create-only`. Si una
@@ -1107,6 +1150,8 @@ model AuditLog {
 //   monthly_report_snapshots ck_monthly_report_snapshots_data_is_object
 //   -- Sprint 5, causa huérfana (migración orphaned_cases)
 //   cases                    ck_cases_orphaned_coherent                 (D-143)
+//   -- Línea de vida, cambios de responsable (migración case_responsible_changes)
+//   case_responsible_changes ck_case_responsible_changes_differs        (D-147)
 //
 // Triggers:
 //   -- Sprint 4 (migración sprint4_manual_constraints)

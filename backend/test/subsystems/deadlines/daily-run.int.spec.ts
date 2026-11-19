@@ -90,6 +90,7 @@ describe('POST /api/v1/internal/deadlines/daily-run', () => {
 
     const prisma = getPrisma();
     await prisma.sentNotification.deleteMany();
+    await prisma.caseResponsibleChange.deleteMany();
     await prisma.case.deleteMany();
     await prisma.user.deleteMany(); // referencia a lawyers
     await prisma.lawyer.deleteMany();

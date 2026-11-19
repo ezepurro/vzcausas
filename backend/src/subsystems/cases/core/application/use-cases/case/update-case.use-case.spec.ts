@@ -22,6 +22,7 @@ import {
 import {
   FakeAuditTrail,
   FakeCaseRepository,
+  FakeCaseResponsibleChangeRepository,
   FakeClock,
   FakeLegalParametersLookup,
   FakePeopleLookup,
@@ -44,6 +45,7 @@ function build(existing = aCase()) {
   const cases = new FakeCaseRepository([...Object.values(INITIAL_STATES), ...STATES_TABLE]);
   cases.add(existing);
   const audit = new FakeAuditTrail();
+  const responsibleChanges = new FakeCaseResponsibleChangeRepository();
   const events = new FakeEventPublisher();
   const folders = new FakeCaseFolderState();
   // The response is `GetCase`'s; here it only has to be asked for the right case.
@@ -56,10 +58,11 @@ function build(existing = aCase()) {
     audit,
     new FakeTransactionManager(),
     new FakeClock(NOW, TODAY),
+    responsibleChanges,
     events,
     getCase,
   );
-  return { useCase, cases, audit, events, folders, existing };
+  return { useCase, cases, audit, events, folders, existing, responsibleChanges };
 }
 
 const command = (overrides: Partial<UpdateCaseCommand> = {}): UpdateCaseCommand => ({
@@ -70,6 +73,64 @@ const command = (overrides: Partial<UpdateCaseCommand> = {}): UpdateCaseCommand 
 });
 
 describe('UpdateCase', () => {
+  // D-147: el cambio de responsable queda para la línea de vida
+  describe('cambio de responsable (D-147)', () => {
+    it('al pasar la causa a otro abogado deja un cambio REASSIGNED, MANUAL, a nombre de quien modifica', async () => {
+      const { useCase, responsibleChanges } = build();
+
+      await useCase.execute(command({ changes: { responsibleLawyerId: OTHER_LAWYER.id } }));
+
+      expect(responsibleChanges.saved).toHaveLength(1);
+      expect(responsibleChanges.saved[0]).toMatchObject({
+        caseId: 1,
+        previousLawyerId: LAWYER.id,
+        newLawyerId: OTHER_LAWYER.id,
+        changedByUserId: 5,
+        origin: 'MANUAL',
+        changedAt: NOW,
+        kind: 'REASSIGNED',
+      });
+    });
+
+    it('si el abogado enviado es el mismo que ya tenía no deja nada', async () => {
+      const { useCase, responsibleChanges } = build();
+
+      await useCase.execute(command({ changes: { responsibleLawyerId: LAWYER.id, court: 'Juzgado N° 3' } }));
+
+      expect(responsibleChanges.saved).toEqual([]);
+    });
+
+    it('si el pedido no toca el responsable no deja nada', async () => {
+      const { useCase, responsibleChanges } = build();
+
+      await useCase.execute(command({ changes: { court: 'Juzgado N° 3' } }));
+
+      expect(responsibleChanges.saved).toEqual([]);
+    });
+
+    it('darle abogado a una huérfana deja un cambio ASSIGNED_FROM_ORPHAN sin abogado anterior', async () => {
+      const { useCase, responsibleChanges } = build(anOrphanedCase());
+
+      await useCase.execute(command({ changes: { responsibleLawyerId: OTHER_LAWYER.id }, actor: anActor({ roleNames: ['ADMINISTRATOR'], lawyerId: null }) }));
+
+      expect(responsibleChanges.saved[0]).toMatchObject({
+        previousLawyerId: null,
+        newLawyerId: OTHER_LAWYER.id,
+        kind: 'ASSIGNED_FROM_ORPHAN',
+      });
+    });
+
+    it('un pedido rechazado no deja ningún cambio', async () => {
+      const { useCase, responsibleChanges } = build();
+
+      await expect(
+        useCase.execute(command({ changes: { responsibleLawyerId: 404 } })),
+      ).rejects.toBeInstanceOf(ValidationError);
+
+      expect(responsibleChanges.saved).toEqual([]);
+    });
+  });
+
   // CA-19.1, CA-19.15
   it('guarda la modificación, la audita con los nombres de los campos y responde con GetCase', async () => {
     const { useCase, cases, audit } = build();

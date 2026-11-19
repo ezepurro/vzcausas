@@ -50,6 +50,7 @@ describe('GET /api/v1/cases/{caseId}/cover', () => {
     await prisma.offense.deleteMany();
     await prisma.case.updateMany({ data: { currentProceduralActId: null } });
     await prisma.proceduralAct.deleteMany();
+    await prisma.caseResponsibleChange.deleteMany();
     await prisma.case.deleteMany();
     await prisma.user.deleteMany();
     await prisma.lawyer.deleteMany();

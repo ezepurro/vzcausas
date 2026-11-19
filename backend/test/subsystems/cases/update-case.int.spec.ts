@@ -294,6 +294,61 @@ describe('PATCH /api/v1/cases/:caseId', () => {
     });
   });
 
+  // D-147: el cambio de responsable queda para la línea de vida (plan: tests-historial-responsable.md, filas 3 a 5).
+  describe('cambio de responsable (D-147)', () => {
+    const changes = () =>
+      getPrisma().caseResponsibleChange.findMany({ where: { caseId: s.caseRow.id }, orderBy: { id: 'asc' } });
+
+    // Plan, fila 3
+    it('pasar la causa a otro abogado deja un REASSIGNED, MANUAL, a nombre de quien modifica', async () => {
+      await patch({ responsibleLawyerId: s.otherLawyer.id }).expect(200);
+
+      const rows = await changes();
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({
+        caseId: s.caseRow.id,
+        previousLawyerId: s.lawyer.id,
+        newLawyerId: s.otherLawyer.id,
+        changedByUserId: secretary.id,
+        origin: 'MANUAL',
+        changedAt: NOW,
+      });
+    });
+
+    // Plan, fila 4
+    it('mandar el mismo abogado, o no tocar el responsable, no deja nada', async () => {
+      await patch({ responsibleLawyerId: s.lawyer.id, court: 'Juzgado N° 3' }).expect(200);
+      await patch({ court: 'Juzgado N° 4' }).expect(200);
+
+      expect(await changes()).toEqual([]);
+    });
+
+    // Plan, fila 5
+    it('darle abogado a una huérfana deja un ASSIGNED_FROM_ORPHAN, sin abogado anterior', async () => {
+      await getPrisma().case.update({
+        where: { id: s.caseRow.id },
+        data: { responsibleLawyerId: null, orphanedAt: new Date('2026-09-10T15:00:00.000Z') },
+      });
+
+      await patch({ responsibleLawyerId: s.otherLawyer.id }).expect(200);
+
+      const rows = await changes();
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({
+        previousLawyerId: null,
+        newLawyerId: s.otherLawyer.id,
+        changedByUserId: secretary.id,
+        origin: 'MANUAL',
+      });
+    });
+
+    it('un pedido rechazado no deja nada', async () => {
+      expectError(await patch({ responsibleLawyerId: 999999 }), 400, 'VALIDATION_ERROR', ['responsibleLawyerId']);
+
+      expect(await changes()).toEqual([]);
+    });
+  });
+
   describe('amparo y estados terminales', () => {
     // CA-19.12
     it('cambiar el acto lesivo recalcula su vencimiento, y harmfulActDate en null lo borra', async () => {

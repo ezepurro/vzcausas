@@ -77,6 +77,7 @@ beforeEach(async () => {
   await prisma.offense.deleteMany();
   await prisma.case.updateMany({ data: { currentProceduralActId: null } });
   await prisma.proceduralAct.deleteMany();
+  await prisma.caseResponsibleChange.deleteMany();
   await prisma.case.deleteMany();
   // Las factories numeran DNI y matrícula desde 1 en cada suite: sin esto chocan con
   // los que dejó otra suite.

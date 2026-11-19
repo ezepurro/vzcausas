@@ -136,6 +136,36 @@ describe('DELETE /api/v1/lawyers/:lawyerId', () => {
       expect(await getPrisma().lawyer.findUnique({ where: { id: s.lawyer.id } })).toMatchObject({ active: false });
     });
 
+    // D-147 (plan tests-historial-responsable.md, fila 6): la baja deja un cambio por causa tocada
+    it('deja un REASSIGNED y dos ORPHANED, origen LAWYER_REMOVAL, a nombre del administrador; la archivada no deja nada', async () => {
+      await remove({
+        reassignments: [
+          { caseId: caseA.id, responsibleLawyerId: s.otherLawyer.id },
+          { caseId: caseB.id, unassigned: true },
+          { caseId: caseC.id, unassigned: true },
+        ],
+      }).expect(204);
+
+      const rows = await getPrisma().caseResponsibleChange.findMany({ orderBy: { caseId: 'asc' } });
+      expect(rows.map((row) => row.caseId)).toEqual([caseA.id, caseB.id, caseC.id]);
+      expect(rows[0]).toMatchObject({
+        previousLawyerId: s.lawyer.id,
+        newLawyerId: s.otherLawyer.id,
+        changedByUserId: admin.id,
+        origin: 'LAWYER_REMOVAL',
+        changedAt: NOW,
+      });
+      for (const orphaned of rows.slice(1)) {
+        expect(orphaned).toMatchObject({
+          previousLawyerId: s.lawyer.id,
+          newLawyerId: null,
+          changedByUserId: admin.id,
+          origin: 'LAWYER_REMOVAL',
+          changedAt: NOW,
+        });
+      }
+    });
+
     // D-143: así se las encuentra para reasignarlas, y la carga del nuevo abogado cuenta la reasignada
     it('las huérfanas aparecen con unassigned=true y la reasignada cuenta en el abogado nuevo', async () => {
       await remove({

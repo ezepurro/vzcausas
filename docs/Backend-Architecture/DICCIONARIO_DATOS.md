@@ -273,6 +273,15 @@ erDiagram
         integer generated_by_user_id FK
         timestamptz generated_at
     }
+    case_responsible_changes {
+        serial id PK
+        integer case_id FK
+        integer previous_lawyer_id FK
+        integer new_lawyer_id FK
+        integer changed_by_user_id FK
+        responsible_change_origin origin
+        timestamptz changed_at
+    }
     user_folder_access {
         integer user_id PK, FK
         varchar(255) email
@@ -358,6 +367,10 @@ erDiagram
     cases ||--o{ document_template_copies : "recibe"
     cases ||--o{ case_files : "genera"
     users ||--o{ case_files : "genera"
+    cases ||--o{ case_responsible_changes : "cambia de responsable"
+    lawyers |o--o{ case_responsible_changes : "responsable anterior"
+    lawyers |o--o{ case_responsible_changes : "responsable nuevo"
+    users ||--o{ case_responsible_changes : "hace el cambio"
 
     cases ||--o{ sent_notifications : "avisada en"
     procedural_acts |o--o{ sent_notifications : "plazo avisado"
@@ -1107,11 +1120,44 @@ objeto JSON). Disparadores: `trg_audit_log_append_only`, que rechaza
 admite borrar dentro de una transacción que active
 `vzcausas.audit_purge`, para la limpieza de los tests.
 
+#### z bis) Tabla `case_responsible_changes`
+
+Cambios de abogado responsable de una causa (HU27, D-147): de quién a
+quién, quién lo hizo y cuándo. Es lo que muestra la línea de vida
+(`GET /cases/{caseId}/timeline`, entrada `RESPONSIBLE_LAWYER_CHANGE`).
+
+La escribe `cases`, en la misma transacción que el cambio, y solo cuando
+el responsable cambia de verdad: con `PATCH /cases/{caseId}` (origen
+`MANUAL`) y con la baja de un abogado (origen `LAWYER_REMOVAL`), sea que
+la causa pase a otro abogado o quede huérfana. Registrar la causa no deja
+fila. Es de solo alta: no se modifica ni se borra (RN12). Solo hacia
+adelante: los cambios anteriores a esta tabla no se guardaron y no pueden
+reconstruirse. El `kind` de la API (`REASSIGNED`, `ORPHANED`,
+`ASSIGNED_FROM_ORPHAN`) no se guarda: lo calcula la aplicación a partir de
+los dos abogados.
+
+| Atributo | Tipo | Long. | Clave | Nulo | Descripción / valores posibles |
+| --- | --- | --- | :-: | :-: | --- |
+| `id` | SERIAL (INTEGER) | 4 B | PK | No | Identificador interno del cambio. |
+| `case_id` | INTEGER | 4 B | FK | No | Causa que cambió de responsable (→ `cases.id`, `ON DELETE RESTRICT`). |
+| `previous_lawyer_id` | INTEGER | 4 B | FK | Sí | Abogado que tenía (→ `lawyers.id`). Nulo si la causa venía huérfana. |
+| `new_lawyer_id` | INTEGER | 4 B | FK | Sí | Abogado que pasa a tener (→ `lawyers.id`). Nulo si la causa quedó huérfana. |
+| `changed_by_user_id` | INTEGER | 4 B | FK | No | Usuario que hizo el cambio (→ `users.id`): en una baja, quien da de baja al abogado; no es necesariamente un abogado. |
+| `origin` | `responsible_change_origin` | — |  | No | `LAWYER_REMOVAL`: lo hizo la baja de un abogado. `MANUAL`: lo hizo un usuario con `PATCH /cases/{caseId}`. |
+| `changed_at` | TIMESTAMPTZ | 8 B |  | No | Instante del cambio. Lo pone la aplicación con el reloj del estudio, no la base. |
+
+Índices: `case_responsible_changes_case_id_changed_at_idx` (`case_id`,
+`changed_at`).
+
+Restricciones: `ck_case_responsible_changes_differs`
+(`previous_lawyer_id IS DISTINCT FROM new_lawyer_id`): nunca los dos
+nulos ni el mismo abogado. Prisma no la expresa; va a mano en la migración.
+
 ## 9.2 Tipos enumerados
 
 Los dominios cerrados se implementan como tipos enumerados de
 PostgreSQL, generados por Prisma a partir de las enumeraciones del
-modelo. Hoy existen ocho:
+modelo. Hoy existen nueve:
 
 | Tipo | Valores posibles | Utilizado en |
 | --- | --- | --- |
@@ -1123,6 +1169,7 @@ modelo. Hoy existen ocho:
 | `template_copy_status` | `COPIED`, `PENDING` | `document_template_copies.status` |
 | `notification_kind` | `DEADLINE_WARNING`, `DEADLINE_DUE_TODAY`, `PRESCRIPTION_ALERT`, `PRESCRIPTION_EXPIRED` | `sent_notifications.kind` |
 | `deadline_kind` | `PROCEDURAL_ACT`, `HARMFUL_ACT` | `sent_notifications.deadline_kind` |
+| `responsible_change_origin` | `LAWYER_REMOVAL`, `MANUAL` | `case_responsible_changes.origin` |
 
 ## 9.3 Correspondencia con el diseño inicial
 

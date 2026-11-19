@@ -139,6 +139,7 @@ beforeEach(async () => {
 describe('GET /api/v1/cases (HU20)', () => {
   // El escenario trae una causa; el listado se arma desde cero en cada test.
   beforeEach(async () => {
+    await getPrisma().caseResponsibleChange.deleteMany({ where: { caseId: s.caseRow.id } });
     await getPrisma().case.delete({ where: { id: s.caseRow.id } });
   });
 
@@ -760,6 +761,128 @@ describe('GET /api/v1/cases/{caseId}/timeline (HU27)', () => {
 
     expect(await timeline()).toEqual([]);
     expect(shape(await timeline(administrative.id))).toEqual(['PROCEDURAL_ACT 2026-09-01']);
+  });
+
+  /**
+   * D-147 (plan \`tests-historial-responsable.md\`, filas 8 a 14): los cambios de responsable. Se insertan
+   * directo en la tabla, con \`changedAt\` explícito: lo que se prueba es la lectura, no la escritura.
+   */
+  describe('cambios de responsable (D-147)', () => {
+    const CHANGE_KEYS = ['caseId', 'changedAt', 'changedBy', 'id', 'kind', 'newLawyer', 'origin', 'previousLawyer'];
+    let admin: { id: number };
+    let gaga: { id: number };
+
+    const recordChange = (overrides: Record<string, unknown> = {}) =>
+      getPrisma().caseResponsibleChange.create({
+        data: {
+          caseId: s.caseRow.id,
+          previousLawyerId: s.lawyer.id,
+          newLawyerId: gaga.id,
+          changedByUserId: admin.id,
+          origin: 'LAWYER_REMOVAL',
+          changedAt: new Date('2026-11-19T13:15:00.000Z'),
+          ...overrides,
+        },
+      });
+
+    beforeEach(async () => {
+      gaga = await createLawyer({ lastName: 'Gaga', firstName: 'Pablo' });
+      admin = await createUser({ roles: ['ADMINISTRATOR'], lastName: 'Vázquez', firstName: 'Fernando G.' });
+    });
+
+    // Plan, fila 9: la forma exacta, textual del contrato
+    it('la entrada sale con el JSON del contrato: tres claves y el recurso con ocho', async () => {
+      const row = await recordChange();
+
+      const [entry] = await timeline();
+
+      expect(Object.keys(entry).sort()).toEqual(['date', 'responsibleLawyerChange', 'type']);
+      expect(Object.keys(entry.responsibleLawyerChange).sort()).toEqual(CHANGE_KEYS);
+      expect(entry).toEqual({
+        type: 'RESPONSIBLE_LAWYER_CHANGE',
+        date: '2026-11-19',
+        responsibleLawyerChange: {
+          id: row.id,
+          caseId: s.caseRow.id,
+          kind: 'REASSIGNED',
+          previousLawyer: { id: s.lawyer.id, lastName: 'Ríos', firstName: 'Malena' },
+          newLawyer: { id: gaga.id, lastName: 'Gaga', firstName: 'Pablo' },
+          origin: 'LAWYER_REMOVAL',
+          changedBy: { id: admin.id, lastName: 'Vázquez', firstName: 'Fernando G.' },
+          changedAt: '2026-11-19T10:15:00-03:00',
+        },
+      });
+    });
+
+    // Plan, filas 1 y 9: el kind y los abogados nulos
+    it('una causa que quedó huérfana trae newLawyer null; la que recibió abogado, previousLawyer null', async () => {
+      await recordChange({ newLawyerId: null, changedAt: new Date('2026-11-18T15:00:00.000Z') });
+      await recordChange({ previousLawyerId: null, changedAt: new Date('2026-11-19T15:00:00.000Z'), origin: 'MANUAL' });
+
+      const entries = await timeline();
+
+      expect(entries.map((e) => [e.responsibleLawyerChange.kind, e.responsibleLawyerChange.origin])).toEqual([
+        ['ASSIGNED_FROM_ORPHAN', 'MANUAL'],
+        ['ORPHANED', 'LAWYER_REMOVAL'],
+      ]);
+      expect(entries[0].responsibleLawyerChange.previousLawyer).toBeNull();
+      expect(entries[1].responsibleLawyerChange.newLawyer).toBeNull();
+    });
+
+    // Plan, fila 10: la fecha civil de Córdoba, no el día en UTC
+    it('date es el día en Córdoba: las 01:30 UTC del 19 son del 18', async () => {
+      await recordChange({ changedAt: new Date('2026-11-19T01:30:00.000Z') });
+
+      const [entry] = await timeline();
+
+      expect(entry.date).toBe('2026-11-18');
+      expect(entry.responsibleLawyerChange.changedAt).toBe('2026-11-18T22:30:00-03:00');
+    });
+
+    // Plan, filas 11 y 12: RN12 y el usuario
+    it('el abogado dado de baja sigue figurando, y changedBy es el usuario y no un abogado', async () => {
+      await recordChange();
+      await getPrisma().lawyer.update({ where: { id: s.lawyer.id }, data: { active: false } });
+
+      const [entry] = await timeline();
+
+      expect(entry.responsibleLawyerChange.previousLawyer).toEqual({ id: s.lawyer.id, lastName: 'Ríos', firstName: 'Malena' });
+      expect(entry.responsibleLawyerChange.changedBy.id).toBe(admin.id);
+    });
+
+    // Plan, fila 14: el orden
+    it('se ordena con el resto: por date y, a igual fecha, primero el último registrado', async () => {
+      // El reloj de la app es FIXED_NOW (2026-10-06T15:30Z): el acto se registra a esa hora, entre los dos cambios.
+      await registerAct({ proceduralStateId: s.states.fiveBusinessDays.stateId, actDate: '2026-10-06' });
+      const early = await recordChange({ changedAt: new Date('2026-10-06T12:00:00.000Z') });
+      const late = await recordChange({ changedAt: new Date('2026-10-06T20:00:00.000Z') });
+      await recordChange({ changedAt: new Date('2026-10-04T20:00:00.000Z') });
+
+      const entries = await timeline();
+
+      expect(entries.map((e) => `${e.type} ${e.date}`)).toEqual([
+        'RESPONSIBLE_LAWYER_CHANGE 2026-10-06',
+        'PROCEDURAL_ACT 2026-10-06',
+        'RESPONSIBLE_LAWYER_CHANGE 2026-10-06',
+        'RESPONSIBLE_LAWYER_CHANGE 2026-10-04',
+      ]);
+      // Los dos cambios del mismo día: el último registrado antes que el acto y el primero después.
+      expect(entries[0].responsibleLawyerChange.id).toBe(late.id);
+      expect(entries[2].responsibleLawyerChange.id).toBe(early.id);
+    });
+
+    // Plan, fila 13: todos los fueros
+    it('una causa administrativa también lo muestra', async () => {
+      const administrative = await createCase({ ...owner(), jurisdiction: 'ADMINISTRATIVE' });
+      await recordChange({ caseId: administrative.id });
+
+      expect(shape(await timeline(administrative.id))).toEqual(['RESPONSIBLE_LAWYER_CHANGE 2026-11-19']);
+    });
+
+    // Plan, fila 8: registrar la causa no deja entrada
+    it('una causa recién cargada no tiene entradas de este tipo', async () => {
+      expect((await timeline()).filter((e) => e.type === 'RESPONSIBLE_LAWYER_CHANGE')).toEqual([]);
+    });
   });
 
   // CA-27.16
