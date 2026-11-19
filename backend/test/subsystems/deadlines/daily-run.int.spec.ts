@@ -16,6 +16,7 @@ import { DEV_TOOLS_ENABLED } from '../../../src/subsystems/deadlines/core/domain
 import { EMAIL_SENDER } from '../../../src/subsystems/deadlines/core/domain/ports/email-sender.port';
 import { DEADLINE_DETECTION } from '../../../src/subsystems/deadlines/core/domain/ports/deadline-detection.port';
 import { PRESCRIPTION_DETECTION } from '../../../src/subsystems/deadlines/core/domain/ports/prescription-detection.port';
+import { MONTHLY_REPORT_CLOSER } from '../../../src/subsystems/deadlines/core/domain/ports/monthly-report-closer.port';
 import { UpcomingDeadlineNotice } from '../../../src/subsystems/deadlines/core/domain/types/upcoming-deadline-notice';
 import { JurisdictionCode } from '../../../src/subsystems/deadlines/core/domain/value-objects/jurisdiction-code';
 
@@ -44,6 +45,7 @@ describe('POST /api/v1/internal/deadlines/daily-run', () => {
   let emailSender: InMemoryEmailSender;
   let deadlineDetection: FakeDeadlineDetection;
   let prescriptionDetection: FakePrescriptionDetection;
+  const monthlyReportCloser = { calls: 0, failWith: null as Error | null, taken: [] as string[] };
 
   beforeAll(async () => {
     emailSender = new InMemoryEmailSender();
@@ -58,6 +60,15 @@ describe('POST /api/v1/internal/deadlines/daily-run', () => {
         .useValue(deadlineDetection)
         .overrideProvider(PRESCRIPTION_DETECTION)
         .useValue(prescriptionDetection)
+        // "Cerrar el mes" (HU43) corre despues del digest; aca se reemplaza para no depender de la tabla de fotos.
+        .overrideProvider(MONTHLY_REPORT_CLOSER)
+        .useValue({
+          closeFinishedMonths: async () => {
+            monthlyReportCloser.calls++;
+            if (monthlyReportCloser.failWith) throw monthlyReportCloser.failWith;
+            return monthlyReportCloser.taken;
+          },
+        })
         // La suite corre con NODE_ENV=test; `?dev=true` solo anda en development.
         .overrideProvider(DEV_TOOLS_ENABLED)
         .useValue(true),
@@ -73,6 +84,9 @@ describe('POST /api/v1/internal/deadlines/daily-run', () => {
     emailSender.reset();
     deadlineDetection.notices = [];
     prescriptionDetection.notices = [];
+    monthlyReportCloser.calls = 0;
+    monthlyReportCloser.failWith = null;
+    monthlyReportCloser.taken = [];
 
     const prisma = getPrisma();
     await prisma.sentNotification.deleteMany();
@@ -140,6 +154,36 @@ describe('POST /api/v1/internal/deadlines/daily-run', () => {
   });
 
   // ── Con avisos ───────────────────────────────────────────────────────
+
+  // HU43: "Cerrar el mes" es el último paso del proceso diario y no depende de los avisos.
+  describe('Cerrar el mes (HU43)', () => {
+    it('lo pide una vez por corrida, también cuando no hay nada para avisar, y no cambia lo que responde', async () => {
+      monthlyReportCloser.taken = ['2026-11'];
+
+      const res = await run();
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ mailboxSent: false, mailboxNoticeCount: 0, lawyerSends: [] });
+      expect(monthlyReportCloser.calls).toBe(1);
+      await run();
+      expect(monthlyReportCloser.calls).toBe(2);
+    });
+
+    it('si el reporte falla, el proceso diario igual responde 200 y los avisos que salieron no se deshacen', async () => {
+      const admin = await createUser({ roles: ['ADMINISTRATOR'] });
+      const { case: createdCase, lawyer } = await aCaseWithLawyer(admin.id);
+      deadlineDetection.notices = [aDeadlineNotice({ caseId: createdCase.id, responsibleLawyerId: lawyer.id })];
+      monthlyReportCloser.failWith = new Error('base caída');
+
+      const res = await run();
+
+      expect(res.status).toBe(200);
+      expect(res.body.mailboxSent).toBe(true);
+      expect(emailSender.sent[0].to).toEqual([MANAGEMENT_MAILBOX]);
+      expect(await getPrisma().sentNotification.count({ where: { caseId: createdCase.id } })).toBeGreaterThan(0);
+    });
+
+  });
 
   describe('con un aviso pendiente', () => {
     it('manda a la casilla con todo y copia al abogado responsable con solo sus causas (CA-30.4, CA-30.5, N-07)', async () => {

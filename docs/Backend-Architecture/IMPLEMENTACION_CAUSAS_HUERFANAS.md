@@ -47,13 +47,13 @@ migraciones las corre el equipo con `make migrate-dev`.**
 | T1.8 | S7 | `DELETE /lawyers/{lawyerId}`: DTO, controller, módulos con `forwardRef` entre `people` e `identity` | inline | Hecho (la app levanta con el `forwardRef` entre `people` e `identity`; integración en verde, 19/11/2026) |
 | T1.9 | S1 a S7 | Tests de integración de HU-15 (`deactivate-lawyer.int.spec.ts`; ruta nueva en el smoke de 401) | inline | Hecho (`deactivate-lawyer` y smoke en verde, 19/11/2026). La atomicidad con falla real no tiene test de integración (ver el archivo) |
 | T1.10 | S1 | Carpeta del propio abogado a `Papelera` (D-132): `RecycleLawyerFolder` y `LawyerDeactivatedListener` en `documents`; el evento lleva `keepsHistory`, que `people` pide a `cases` (`countCasesInForceOf`) | inline | Hecho (unitarios y `deactivate-lawyer-folders` en verde, 19/11/2026). Las filas de `cloud_folders` del abogado no se tocan (decisión A) |
-| T2.1 | S8, S9 | `reporting`: cálculo a una fecha de corte con `unassigned` | inline | Pendiente |
-| T2.2 | S10 | `reporting`: guardar y leer la foto | inline | Pendiente |
-| T2.3 | S8 | `GET /reports/monthly` | inline | Pendiente |
-| T2.4 | S8 | `GET /reports/monthly/file` (PDF) | inline | Pendiente |
-| T2.5 | S9 | Proceso diario: "Cerrar el mes" (verificar si existe) | inline | Pendiente |
-| T2.6 | S8 | Configuración `availableFrom` | inline | Pendiente |
-| T2.7 | S8, S9 | Tests de HU-43 | inline | Pendiente |
+| T2.1 | S8, S9 | `reporting`: cálculo a una fecha de corte con `unassigned` | delegada (respaldo de contexto) | Código y unitarios en verde (19/11/2026); integración **sin correr** |
+| T2.2 | S10 | `reporting`: guardar y leer la foto | delegada | Código y unitarios en verde; integración **sin correr** |
+| T2.3 | S8 | `GET /reports/monthly` | delegada | Código y unitarios en verde; integración **sin correr** |
+| T2.4 | S8 | `GET /reports/monthly/file` (PDF) | delegada | Código y unitarios en verde; el PDF usa Helvetica y Courier (sin Figtree ni Roboto Mono); integración **sin correr** |
+| T2.5 | S9 | Proceso diario: "Cerrar el mes" (verificar si existe) | delegada + inline | Hecho (unitarios en verde, 19/11/2026): `deadlines` declara `MONTHLY_REPORT_CLOSER`, `reporting` lo implementa (`DeadlinesMonthlyReportCloserAdapter`) y el proceso diario lo llama al final, aparte; integración **sin correr** |
+| T2.6 | S8 | Configuración `availableFrom` | delegada | Hecho: variable `MONTHLY_REPORT_AVAILABLE_FROM`, opcional; **falta definirla** en los `.env` (tuyo) |
+| T2.7 | S8, S9 | Tests de HU-43 | delegada | Unitarios en verde (129 de `reporting`); `monthly-report.int.spec.ts` escrito, **sin correr** |
 
 "Hecho" significa código, un test que lo cubre y verde. Las tareas T0.x no tienen
 tests: se verificaron leyendo `_prisma_migrations` y `information_schema`.
@@ -100,6 +100,16 @@ tests: se verificaron leyendo `_prisma_migrations` y `information_schema`.
   specs, 180 inserciones y 35 borrados. Verificación del padre: `npx tsc --noEmit -p
   tsconfig.json` sale con 0 errores (el watcher bajó de 16 a 0). Los tests no se
   corrieron. `Risk: item 3` (puertos de `cases` que consumen `deadlines` y `reporting`).
+- **L11 (19/11/2026).** Decisiones del equipo sobre HU-43 (respuestas a las preguntas del escritor):
+  (3) "Dejemos lo implementado": pedir un mes cerrado sin foto lo calcula y lo guarda en el momento.
+  (4) PDF: "como prefieras pero que se vea bonito": se deja Helvetica y Courier con guion largo en lugar
+  del signo menos, que se ve casi igual; las fuentes Figtree y Roboto Mono piden `fontkit` y archivos de
+  fuente, una dependencia nueva que se suma aparte. (5) "Que cuente como sin asignar": una causa activa
+  cuyo abogado ya no está vigente cuenta en `unassigned`, queda fuera del promedio, el mínimo y el máximo
+  y figura en las alertas sin nombre (`ReportCase.countedUnder`); así `lawyers` + `unassigned` siempre
+  suman `activeCases`. (1) Cerrar el mes se enchufa al proceso diario existente, por un puerto de `deadlines`
+  y un adaptador de `reporting`, al final y con su propio `try/catch`. (2) `MONTHLY_REPORT_AVAILABLE_FROM=2026-11`
+  también en desarrollo.
 - **L10 (19/11/2026).** Verificación independiente de HU-15 (S1 a S7, sobre el árbol al cierre de
   T1.10): todas cumplidas, sin bloqueos; ningún `core` importa de otro subsistema; toda escritura de
   la baja pasa por `prisma.db` (misma transacción). Se corrigieron dos observaciones: el 404 se
@@ -126,3 +136,60 @@ tests: se verificaron leyendo `_prisma_migrations` y `information_schema`.
 - **L6 (17/11/2026).** Tras la migración, el compilador marca 16 errores propios.
   La base se reseteó con `make nuke-v` porque la local tenía datos de Sprint 3 que
   chocaban con la migración `…client_document_address_lawyer_optional_registration`.
+
+## Cosas abiertas pero a propósito
+
+Lo que **se dejó sin resolver sabiéndolo**, con su motivo, para que nadie lo "arregle" por error ni lo
+dé por un olvido. No es lo mismo que *Pendientes abiertos* (arriba): esos esperan una confirmación o
+una decisión; estos ya se decidieron dejar así, y cada uno dice qué lo cerraría.
+
+### Previo a esta rama (no lo causó HU-15 ni HU-43)
+
+- **`details` de los `404`.** `LAWYER_NOT_FOUND` y `USER_NOT_FOUND` responden `details: { lawyerId }` o
+  `{ userId }` y el contrato dice `null`. Es común a `GET` y `PATCH` de abogados; los tests de esos
+  endpoints lo esquivan con `toMatchObject`. Se mira solo el código y el mensaje. *Lo cerraría:* un
+  cambio único de `LawyerNotFoundError` y de `UserNotFoundError`, con sus tests.
+- **Mensaje del `403`.** El guard responde "No tiene permisos para realizar esta operación." y el
+  contrato muestra "Se requiere el rol ADMINISTRATOR…". Común a todas las rutas con permiso.
+- **`case-folder.int.spec.ts` es intermitente por tiempos.** Su espera es de 300 ms (`WAIT_MS`) y con la
+  máquina cargada el alta responde `CREATING` en el test que justo toque (L9). Pasa corriéndolo de nuevo.
+  *Lo cerraría:* subir `WAIT_MS` o esperar `CREATED` en todos sus tests; lo decide el equipo.
+- **`saveModification` sin control de versión.** Una modificación simultánea de la misma causa puede
+  pisar a la otra. Ventana angosta.
+
+### De HU-15 (baja de abogado, causas huérfanas)
+
+- **Carreras de la baja.** Una causa asignada al abogado en el mismo instante del commit, o un abogado
+  de destino dado de baja durante la operación, no se detectan. Cerrarlo pide un bloqueo entre
+  subsistemas. Lo que sí se detecta (una causa asignada entre la lectura y la escritura) deshace todo.
+- **Tiempo límite de la transacción.** La baja escribe una causa por vez, dentro de la transacción de
+  Prisma con su límite por defecto (5 s). Con muchísimas causas activas podría pasarse: deshace todo y
+  responde 500. No se midió. *Lo cerraría:* medirlo, y subir el límite o procesar por lotes.
+- **Sin test de integración que fuerce una falla a mitad de la baja.** La atomicidad está cubierta con
+  dobles (`deactivate-lawyer.use-case.spec.ts`) y por la transacción compartida de la base.
+- **Sin test de integración de modificar o anular un acto de una huérfana (HU28, HU29).** Los cubre la
+  regla del dominio (`Case.assertCanRegisterActs`), que los dos usan.
+- **Las filas de `cloud_folders` del abogado dado de baja no se tocan** cuando su carpeta va a
+  `Papelera` (decisión A): `Papelera` no tiene fila y la del abogado queda como registro. Nadie la lee.
+- **No se devuelven a su lugar las carpetas de otros abogados** que alguien arrastró a mano a la carpeta
+  del abogado dado de baja (D-132). Depende del proceso diario de `documents`, que no existe.
+- **D-83, el acceso de Drive del usuario, queda fuera.** No existe ni al cambiar roles hoy; la baja no
+  puede depender de algo que no está.
+- **Errores internos sin código en el contrato.** `CASE_CANNOT_BE_ORPHANED` y
+  `CASE_CANNOT_BE_REASSIGNED` son guardas de la entidad: el caso de uso solo le ofrece causas
+  vigentes, así que no se alcanzan por la API.
+- **El tablero del administrador no cuenta las huérfanas** hasta cerrar C-49
+  (`lawyer-dashboard-prisma.query.ts` las filtra).
+
+### De HU-43 (reporte mensual)
+
+- **Un mes cerrado sin foto se calcula y se guarda en el momento**, con los responsables de hoy: el
+  sistema no guarda el historial de responsables. Por eso la foto se saca en la primera corrida del mes.
+  *Lo cerraría:* guardar ese historial, o mostrar esos meses como "Sin datos".
+- **Causa reabierta al corregir un acto (D-99).** En el mes de la reapertura, "inicio + ingresadas −
+  archivadas = cierre" queda corrido en 1. Cada cifra es verdadera para su fecha.
+- **PDF con Helvetica y Courier**, y guion largo en lugar del signo menos. Figtree y Roboto Mono piden
+  sumar `fontkit` y los archivos de fuente (una dependencia nueva).
+- **`MONTHLY_REPORT_AVAILABLE_FROM` es opcional.** Sin ella solo existe el reporte del mes en curso. En
+  desarrollo vale `2026-11`. *Lo cerraría:* hacerla obligatoria en `env.validation.ts` y en el entorno
+  de tests cuando haya un valor definitivo.
