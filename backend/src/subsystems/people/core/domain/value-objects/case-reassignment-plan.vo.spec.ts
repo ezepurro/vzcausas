@@ -57,6 +57,7 @@ describe("CaseReassignmentPlan.parse", () => {
       [{ caseId: 1, responsibleLawyerId: 4, unassigned: true }],
       'La causa 1 no puede llevar a la vez un abogado y "sin asignar".',
     ],
+    ["un campo que el contrato no define (no se ignora en silencio)", [{ caseId: 1, unassigned: true, reason: "x" }], "La causa 1 tiene campos no admitidos: reason."],
     ["un `unassigned` que no es true", [{ caseId: 1, unassigned: false }], 'La causa 1 solo admite "sin asignar" con el valor true.'],
     ["un abogado de destino que no es un entero", [{ caseId: 1, responsibleLawyerId: "4" }], "La causa 1 no indica un abogado de destino válido."],
   ])("rechaza %s con el detalle en `reassignments`", (_caso, raw, reason) => {

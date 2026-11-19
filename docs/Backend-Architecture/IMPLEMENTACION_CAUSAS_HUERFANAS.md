@@ -100,6 +100,17 @@ tests: se verificaron leyendo `_prisma_migrations` y `information_schema`.
   specs, 180 inserciones y 35 borrados. Verificación del padre: `npx tsc --noEmit -p
   tsconfig.json` sale con 0 errores (el watcher bajó de 16 a 0). Los tests no se
   corrieron. `Risk: item 3` (puertos de `cases` que consumen `deadlines` y `reporting`).
+- **L10 (19/11/2026).** Verificación independiente de HU-15 (S1 a S7, sobre el árbol al cierre de
+  T1.10): todas cumplidas, sin bloqueos; ningún `core` importa de otro subsistema; toda escritura de
+  la baja pasa por `prisma.db` (misma transacción). Se corrigieron dos observaciones: el 404 se
+  resuelve antes que el cuerpo (el DTO ya no valida la lista) y una entrada del reparto con un campo
+  que el contrato no define se rechaza. **Quedan como observaciones sin tratar:** (1) la transacción
+  usa el tiempo límite por defecto de Prisma (5 s) y la baja hace una escritura por causa en serie,
+  así que un abogado con muchísimas causas activas podría pasarse (deshace todo, 500); no se midió;
+  (2) un abogado de destino dado de baja justo durante la operación no se detecta (misma clase que
+  la carrera documentada); (3) `saveModification` no tiene control de versión (previo); (4) el
+  mensaje del 403 es el del guard, no el del ejemplo del contrato (previo); (5) no hay test de
+  integración de modificar o anular un acto de una huérfana (HU28, HU29).
 - **L9 (19/11/2026).** `case-folder.int.spec.ts` es intermitente por tiempos, **previo a esta rama**:
   su `WAIT_MS` es 300 ms y, con la máquina cargada, el alta responde `CREATING` en el test que
   justo toque (en una corrida fallaron "sin la estructura configurada"; en otra, "reintenta una

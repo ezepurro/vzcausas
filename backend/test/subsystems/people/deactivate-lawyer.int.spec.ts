@@ -292,8 +292,13 @@ describe('DELETE /api/v1/lawyers/:lawyerId', () => {
     });
 
     // El 404 antes que el reparto: un abogado que no existe no revela si el cuerpo era válido
-    it('la forma del cuerpo es 400 antes que todo, y el 404 se resuelve antes que el contenido del reparto', async () => {
-      expectError(await remove({ reassignments: 'no es una lista' }, 999999), 400, 'VALIDATION_ERROR', ['reassignments']);
+    // Contrato V6, reglas de la baja: 1. el abogado existe (404), 2. el cuerpo es válido (400).
+    it('el 404 se resuelve antes que el cuerpo, aunque el cuerpo no sea una lista', async () => {
+      const notAList = await remove({ reassignments: 'no es una lista' }, 999999);
+      expect(notAList.status).toBe(404);
+      expect(notAList.body.error).toMatchObject({ code: 'LAWYER_NOT_FOUND' });
+      // Con el abogado existente, el mismo cuerpo es 400 sobre `reassignments`.
+      expectError(await remove({ reassignments: 'no es una lista' }), 400, 'VALIDATION_ERROR', ['reassignments']);
       const missing = await remove({ reassignments: [{ caseId: 1 }] }, 999999);
       expect(missing.status).toBe(404);
       expect(missing.body.error).toMatchObject({ code: 'LAWYER_NOT_FOUND' });

@@ -16,7 +16,10 @@ export interface ReassignmentContext {
   readonly activeTargetLawyerIds: ReadonlySet<number>;
 }
 
-const isPositiveInteger = (value: unknown): value is number =>
+/** The fields an entry of the distribution may carry (contract V6, `DELETE /lawyers/{lawyerId}`). */
+const ENTRY_FIELDS = ["caseId", "responsibleLawyerId", "unassigned"];
+
+const isPositiveInteger =(value: unknown): value is number =>
   typeof value === "number" && Number.isInteger(value) && value > 0;
 
 /**
@@ -65,6 +68,12 @@ export class CaseReassignmentPlan {
   }
 
   private static entryOf(caseId: number, entry: Record<string, unknown>): CaseReassignment {
+    // As the rest of the API does with a body: what the contract does not define is not silently ignored.
+    const unknown = Object.keys(entry).filter((key) => !ENTRY_FIELDS.includes(key));
+    if (unknown.length > 0) {
+      throw new InvalidReassignmentsError(`La causa ${caseId} tiene campos no admitidos: ${unknown.join(", ")}.`);
+    }
+
     const hasLawyer = entry.responsibleLawyerId !== undefined;
     const hasUnassigned = entry.unassigned !== undefined;
 
