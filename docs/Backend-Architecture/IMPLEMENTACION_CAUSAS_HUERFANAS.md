@@ -188,8 +188,15 @@ una decisión; estos ya se decidieron dejar así, y cada uno dice qué lo cerrar
   *Lo cerraría:* guardar ese historial, o mostrar esos meses como "Sin datos".
 - **Causa reabierta al corregir un acto (D-99).** En el mes de la reapertura, "inicio + ingresadas −
   archivadas = cierre" queda corrido en 1. Cada cifra es verdadera para su fecha.
-- **PDF con Helvetica y Courier**, y guion largo en lugar del signo menos. Figtree y Roboto Mono piden
-  sumar `fontkit` y los archivos de fuente (una dependencia nueva).
+- **PDF con Helvetica y Courier**, y guion largo en lugar del signo menos. El prototipo
+  (`docs/prototypes/reporte-mensual-pdf.html`) usa Figtree y Roboto Mono; el contrato permite
+  reemplazarlas. Se decidió el 19/11/2026 dejarlo así por ahora. *Lo cerraría:* sumar
+  `@pdf-lib/fontkit` (1.1.1) y los archivos Figtree (Regular, SemiBold, Bold) y Roboto Mono (Regular,
+  Medium), de licencia OFL, y cambiar la carga de las cuatro fuentes en
+  `pdf-lib-monthly-report.renderer.ts` (líneas 87-90), con caída a Helvetica si falta un archivo.
+- **El prototipo del PDF y el frontend no conocen `unassigned`** (D-145, posterior al prototipo del
+  13/11): falta la fila "Sin asignar" en la carga por abogado y las alertas sin nombre. Es de frontend y
+  del OpenAPI; el PDF del backend ya las tiene.
 - **`MONTHLY_REPORT_AVAILABLE_FROM` es opcional.** Sin ella solo existe el reporte del mes en curso. En
   desarrollo vale `2026-11`. *Lo cerraría:* hacerla obligatoria en `env.validation.ts` y en el entorno
   de tests cuando haya un valor definitivo.
