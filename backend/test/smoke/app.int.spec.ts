@@ -84,6 +84,8 @@ describe('[smoke] App de integración', () => {
       ['get', '/api/v1/dashboards/administrator'],
       ['get', '/api/v1/reports/monthly'],
       ['get', '/api/v1/reports/monthly/file'],
+      // Demo del asistente de ayuda (docs/experimental/asistente/PROPUESTA_CONTRATO.md).
+      ['post', '/api/v1/help/assistant'],
     ];
 
     for (const [method, path] of routes) {

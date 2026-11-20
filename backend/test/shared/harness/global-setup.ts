@@ -88,6 +88,18 @@ const TEST_ENV: Record<string, string> = {
   GOOGLE_OAUTH_REFRESH_TOKEN: 'test-refresh-token',
   MANAGEMENT_MAILBOX: 'gestion@test.vzcausas.local',
   INTERNAL_TRIGGER_SECRET: 'test-internal-trigger-secret',
+
+  /*
+   * Demo del asistente de ayuda (rama feat/asistente-ayuda-demo): sin
+   * `ASSISTANT_LLM_PROVIDER` el módulo no se carga (`app.module.ts`). La clave
+   * es inventada: el adaptador de Gemini se construye pero el spec reemplaza
+   * `LLM_PORT` por `FakeLlm`, así que ningún test llama a Gemini. El límite por
+   * usuario queda holgado; el spec que lo prueba arma su propio cupo.
+   */
+  ASSISTANT_LLM_PROVIDER: 'gemini',
+  GEMINI_API_KEY: 'test-gemini-key',
+  ASSISTANT_LIMIT_PER_MINUTE: '100000',
+  ASSISTANT_LIMIT_PER_DAY: '100000',
 };
 
 /**

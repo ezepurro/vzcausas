@@ -27,6 +27,7 @@
   },
   "dependencies": {
     "@cantoo/pdf-lib": "^2.11.1",
+    "@google/genai": "2.32.0",
     "@googleapis/drive": "^26.0.2",
     "@googleapis/gmail": "^22.0.2",
     "@nestjs/common": "^11.0.0",

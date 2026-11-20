@@ -4,6 +4,9 @@
   "sourceRoot": "src",
   "compilerOptions": {
     "deleteOutDir": true,
-    "assets": [{ "include": "subsystems/documents/infrastructure/pdf/assets/*.png" }]
+    "assets": [
+      { "include": "subsystems/documents/infrastructure/pdf/assets/*.png" },
+      { "include": "subsystems/assistant/infrastructure/manual/content/*.md" }
+    ]
   }
 }

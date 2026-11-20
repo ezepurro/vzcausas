@@ -20,6 +20,8 @@ import { CasesModule } from './subsystems/cases/case.module';
 import { ReportingModule } from './subsystems/reporting/reporting.module';
 import { DeadlinesModule } from './subsystems/deadlines/deadlines.module';
 import { DocumentsModule } from './subsystems/documents/documents.module';
+import { ConditionalModule } from '@nestjs/config';
+import { AssistantModule } from './subsystems/assistant/assistant.module';
 
 /**
  * `deadlines` (HU30/HU32) needs a Google OAuth client and two secrets
@@ -109,6 +111,12 @@ if (missingDeadlinesVars.length > 0) {
     ReportingModule,
     DocumentsModule,
     ...(missingDeadlinesVars.length === 0 ? [DeadlinesModule] : []),
+    // Demo del asistente de ayuda: solo con ASSISTANT_LLM_PROVIDER. Usa
+    // ConditionalModule (espera a que ConfigModule cargue el .env) y no el
+    // chequeo de process.env de arriba, que corriendo en el host no ve el .env.
+    ConditionalModule.registerWhen(AssistantModule, (env) => !!env.ASSISTANT_LLM_PROVIDER?.trim(), {
+      debug: false,
+    }),
   ],
   controllers: [],
   providers: [
