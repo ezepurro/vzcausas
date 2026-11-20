@@ -17,6 +17,7 @@
  */
 
 import { setupWorker, type SetupWorker } from 'msw/browser';
+import { assistantDemoHandlers } from './assistant.demo';
 import { persistSessions } from './db';
 import {
     configureMocks,
@@ -30,7 +31,11 @@ import {
 /** Reexportados acá para que el navegador tenga una sola puerta de entrada. */
 export { configureMocks, mockOptions, mocksEnabledByEnv, type MockOptions } from './msw-handlers';
 
-export const worker: SetupWorker = setupWorker(...handlers);
+// Demo del asistente de ayuda: su mock va aparte de `ROUTES` (ver `assistant.demo.ts`).
+export const worker: SetupWorker = setupWorker(
+    ...handlers,
+    ...(import.meta.env.VITE_ASSISTANT_ENABLED === 'true' ? assistantDemoHandlers : []),
+);
 
 /**
  * Registra el service worker y empieza a interceptar.

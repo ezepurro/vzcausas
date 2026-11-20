@@ -15,6 +15,30 @@
         "process.env.VITE_USE_MOCKS='true';require('child_process').spawn('npm',['--prefix','frontend','run','dev','--','--port','5175','--strictPort'],{stdio:'inherit',shell:true,env:process.env}).on('exit',c=>process.exit(c??0))"
       ],
       "port": 5175
+    },
+    {
+      "name": "demo-backend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "backend", "run", "start:dev"],
+      "port": 3001
+    },
+    {
+      "name": "demo-frontend",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "-e",
+        "process.env.VITE_USE_MOCKS='false';require('child_process').spawn('npm',['--prefix','frontend','run','dev','--','--port','5176','--strictPort'],{stdio:'inherit',shell:true,env:process.env}).on('exit',c=>process.exit(c??0))"
+      ],
+      "port": 5176
+    },
+    {
+      "name": "demo-frontend-mocks",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "-e",
+        "process.env.VITE_USE_MOCKS='true';require('child_process').spawn('npm',['--prefix','frontend','run','dev','--','--port','5177','--strictPort'],{stdio:'inherit',shell:true,env:process.env}).on('exit',c=>process.exit(c??0))"
+      ],
+      "port": 5177
     }
   ]
 }

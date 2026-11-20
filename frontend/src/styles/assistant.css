@@ -1,0 +1,126 @@
+/* ─────────── asistente de ayuda (demo) ───────────
+   Panel lateral del botón "?" de la barra superior
+   (features/assistant/CAMBIOS.md). No es modal: queda a la derecha, debajo de
+   la barra, sin fondo que tape la pantalla. En el teléfono ocupa el ancho. */
+
+.vz-help-anchor { display: contents; }
+
+.vz-help {
+  position: fixed;
+  top: var(--vz-topbar-h);
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: min(400px, 100vw);
+  padding: var(--vz-panel-pad);
+  background: var(--vz-surface);
+  border-left: 1px solid var(--vz-border);
+  box-shadow: var(--vz-pop-sh);
+}
+
+.vz-help-avatar { flex: none; display: block; }
+
+/* El botón de la barra: el avatar un poco más grande que un ícono común. */
+.vz-help-trigger { gap: 8px; padding-left: 6px; }
+
+.vz-help__head { display: flex; align-items: center; gap: 12px; }
+.vz-help__heading { flex: 1; min-width: 0; }
+.vz-help__title { margin: 0; font-size: 1.05rem; font-weight: 700; color: var(--vz-ink); }
+.vz-help__subtitle { margin: 2px 0 0; font-size: .8rem; color: var(--vz-muted); }
+
+.vz-help__notice {
+  margin: 0;
+  padding: 8px 12px;
+  font-size: .85rem;
+  color: var(--vz-warn);
+  background: var(--vz-warn-bg);
+  border: 1px solid var(--vz-warn-bd);
+  border-radius: var(--vz-r-sm);
+}
+
+.vz-help__log {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.vz-help__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin: auto 0;
+  padding: 12px;
+  text-align: center;
+  color: var(--vz-muted);
+  font-size: .9rem;
+}
+.vz-help__empty p { margin: 0; }
+.vz-help__empty .vz-help__greeting { margin-top: 6px; font-weight: 700; color: var(--vz-ink); }
+
+.vz-help__msg {
+  max-width: 90%;
+  padding: 10px 12px;
+  border-radius: var(--vz-r);
+  font-size: .92rem;
+  line-height: 1.45;
+}
+.vz-help__msg--user {
+  align-self: flex-end;
+  color: var(--vz-on-primary);
+  background: var(--vz-primary);
+}
+.vz-help__msg--assistant {
+  align-self: flex-start;
+  color: var(--vz-ink);
+  background: var(--vz-sunken);
+  border: 1px solid var(--vz-border);
+}
+.vz-help__msg--pending { color: var(--vz-muted); font-style: italic; }
+
+/* El texto respeta los saltos de línea de la respuesta (párrafos y listas). */
+.vz-help__text { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+.vz-help__sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.vz-help__source {
+  padding: 2px 10px;
+  font-size: .78rem;
+  color: var(--vz-primary-hi);
+  background: var(--vz-primary-soft);
+  border-radius: var(--vz-r-pill);
+}
+.vz-help__unsourced { margin: 6px 0 0; font-size: .78rem; color: var(--vz-faint); }
+
+.vz-help__error {
+  margin: 0;
+  padding: 8px 12px;
+  font-size: .85rem;
+  color: var(--vz-danger);
+  background: var(--vz-danger-bg);
+  border: 1px solid var(--vz-danger-bd);
+  border-radius: var(--vz-r-sm);
+}
+
+.vz-help__form { display: flex; flex-direction: column; gap: 8px; }
+.vz-help__form .vz-btn { align-self: flex-end; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .vz-help { animation: vz-help-in .16s ease-out; }
+  @keyframes vz-help-in { from { transform: translateX(16px); opacity: 0; } }
+}

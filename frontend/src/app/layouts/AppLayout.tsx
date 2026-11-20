@@ -17,6 +17,7 @@ import { profileLabel } from '@/features/auth/utils/profileLabel'
 import { ChangePasswordModal } from '@/features/auth/components/ChangePasswordModal'
 import { LogoutConfirmModal } from '@/features/auth/components/LogoutConfirmModal'
 import { DAILY_RUN_ENABLED, useRunDailyNotifications } from '@/features/deadlines'
+import { ASSISTANT_ENABLED, HelpAssistant } from '@/features/assistant'
 import { canAccess, matchRoute } from '@/app/access/access'
 import { useHomeRoute } from '@/app/access/useHomeRoute'
 import { preloadSection } from '@/app/router/pages'
@@ -169,14 +170,20 @@ export function AppLayout() {
                         desarrollo para la corrida diaria. En producción era
                         un botón muerto en todas las pantallas, y el contrato
                         deja las notificaciones afuera (H-08). */}
-                    {DAILY_RUN_ENABLED && (
+                    {(DAILY_RUN_ENABLED || ASSISTANT_ENABLED) && (
                         <div className="vz-topbar__right">
-                            <IconButton
-                                name="notifications"
-                                label="Notificaciones"
-                                disabled={dailyRun.isPending}
-                                onClick={runDailyNotifications}
-                            />
+                            {DAILY_RUN_ENABLED && (
+                                <IconButton
+                                    name="notifications"
+                                    label="Notificaciones"
+                                    disabled={dailyRun.isPending}
+                                    onClick={runDailyNotifications}
+                                />
+                            )}
+                            {/* Demo del asistente de ayuda, sólo con
+                                VITE_ASSISTANT_ENABLED (features/assistant/CAMBIOS.md).
+                                Va a la derecha de la campana. */}
+                            {ASSISTANT_ENABLED && <HelpAssistant />}
                         </div>
                     )}
                     </>
