@@ -283,32 +283,51 @@
    qué es: plazo abierto (bronce), vencido o de hoy (rojo), acto interruptivo
    (bronce), pase a prescripta (rojo), acto que ya pasó (verde claro), cambio
    de abogado responsable (verde oscuro). La línea, del mismo verde que los
-   actos que ya pasaron. */
+   actos que ya pasaron.
+
+   Pelotita y línea salen de la misma referencia (el borde izquierdo del ítem)
+   con medidas enteras: la línea va centrada en la pelotita con
+   (--vz-timeline-dot − --vz-timeline-stroke) / 2 = 6px, sin medios píxeles que
+   el zoom redondee distinto. Cada tramo de línea va del centro de su pelotita
+   al centro de la siguiente: no asoma arriba del primer nodo, no queda hueco
+   antes del último, y la unión entre tramos queda tapada por una pelotita. */
 .vz-timeline {
   --vz-timeline-past: #8FB98A;
   --vz-timeline-line: var(--vz-timeline-past);
   --vz-timeline-responsible: var(--vz-ok);
+  --vz-timeline-dot: 14px;
+  --vz-timeline-stroke: 2px;
+  --vz-timeline-dot-top: 4px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 .vz-timeline__item {
   position: relative;
-  margin-left: 4px;
-  padding: 0 0 22px 24px;
-  border-left: 1px solid var(--vz-timeline-line);
+  padding: 0 0 22px 29px; /* el texto queda donde estaba con el borde de antes */
 }
-.vz-timeline__item:last-child { padding-bottom: 0; border-left-color: transparent; }
+.vz-timeline__item:last-child { padding-bottom: 0; }
 .vz-timeline__item::before {
   content: '';
+  box-sizing: border-box; /* `*` de base.css no alcanza a los ::before: sin esto mide 14px */
   position: absolute;
-  left: -5.5px;
-  top: 4px;
-  width: 10px;
-  height: 10px;
+  z-index: 1;
+  left: 0;
+  top: var(--vz-timeline-dot-top);
+  width: var(--vz-timeline-dot);
+  height: var(--vz-timeline-dot);
   border-radius: 50%;
   background: var(--vz-surface);
   border: 2px solid var(--vz-border-strong);
+}
+.vz-timeline__item:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  left: calc((var(--vz-timeline-dot) - var(--vz-timeline-stroke)) / 2);
+  width: var(--vz-timeline-stroke);
+  top: calc(var(--vz-timeline-dot-top) + var(--vz-timeline-dot) / 2);
+  bottom: calc(-1 * (var(--vz-timeline-dot-top) + var(--vz-timeline-dot) / 2));
+  background: var(--vz-timeline-line);
 }
 .vz-timeline__item--open::before,
 .vz-timeline__item--interruptive::before { border-color: var(--vz-warn-mark); }
