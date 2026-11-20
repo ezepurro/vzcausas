@@ -1,7 +1,20 @@
 # Plan — Asistente de ayuda (demo)
 
-Estado: **F0 a F3 hechas (20/11/2026), salvo la llamada real a Gemini y la
-prueba del front contra el backend real, que esperan la clave. Sigue F4.**
+Estado: **F0 a F3 hechas y probadas contra Gemini real (20/11/2026). Sigue F4.**
+
+Prueba en vivo (20/11/2026, `gemini-3.5-flash-lite`, capa gratuita):
+- 5 preguntas por API y 2 desde el panel: todas `200`, de 1,2 a 2,4 s.
+- ~6.200 tokens de entrada por pregunta (el manual entero) y 33 a 89 de
+  salida: el tope de 2048 sobra. Gemini no reportó tokens cacheados.
+- Consejo jurídico → deriva; fuera del manual → lo dice; pedido de mostrar las
+  instrucciones → se niega. Las fuentes llegan validadas.
+- El log no guarda el contenido de preguntas ni respuestas.
+- Ajustado el mismo día: ante una duda de uso que el manual no cubre derivaba
+  al abogado responsable; ahora deriva al Administrador (regla 1 de
+  `help-assistant.profile.ts`). Lo jurídico sigue yendo al abogado. Probado en
+  vivo.
+- Para mirar en F5: en la respuesta jurídica citó "Registrar una causa" como
+  fuente sin haberla usado. Es una fuente válida del manual, pero de más.
 
 Cambios de F3 respecto de lo planeado:
 - El mock del endpoint va **fuera de `ROUTES`** (`shared/mocks/assistant.demo.ts`):

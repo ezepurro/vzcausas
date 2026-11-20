@@ -12,6 +12,13 @@ describe('HelpAssistantProfile (C6)', () => {
     expect(text.endsWith(manual.render())).toBe(true);
   });
 
+  it('sends app questions the manual does not cover to the Administrator, legal ones to the lawyer', () => {
+    const text = HelpAssistantProfile.create({ model: 'm', maxOutputTokens: 100 }).instructions(manual);
+
+    expect(text).toContain('consultarla con el Administrador del estudio');
+    expect(text).toContain('consultarlo con el abogado responsable');
+  });
+
   it('renders the same instructions every time (stable prefix for caching)', () => {
     const profile = HelpAssistantProfile.create({ model: 'm', maxOutputTokens: 100 });
 
