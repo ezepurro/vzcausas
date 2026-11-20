@@ -188,7 +188,9 @@ function ProceduralActItem({ entry, actions, blockedNoteId }: {
     const act = entry.proceduralAct
     const deadline = act.deadline
     const badge = deadline && entry.current ? actDeadlineBadge(deadline.dueDate) : null
-    const modifier = badge ? (badge.urgent ? 'overdue' : 'open') : null
+    /* Un acto que ya no es el vigente va en verde claro ("ya pasó"); el
+       vigente conserva su color (abierto, vencido o sin plazo). */
+    const modifier = badge ? (badge.urgent ? 'overdue' : 'open') : entry.current ? null : 'past'
 
     return (
         <Item title={act.resultingState.name} date={act.actDate} modifier={modifier}>
@@ -313,7 +315,7 @@ function ResponsibleLawyerChangeItem({ entry }: { entry: TimelineResponsibleLawy
     const name = (person: { lastName: string; firstName: string } | null) =>
         person === null ? UNASSIGNED_LABEL : formatPersonName(person)
     return (
-        <Item title={RESPONSIBLE_CHANGE_TITLES[change.kind]} date={entry.date} modifier={null}>
+        <Item title={RESPONSIBLE_CHANGE_TITLES[change.kind]} date={entry.date} modifier="responsible">
             <div className="vz-timeline__sub">
                 De {name(change.previousLawyer)} a {name(change.newLawyer)}. No modifica el estado procesal.
             </div>
@@ -330,7 +332,7 @@ function ResponsibleLawyerChangeItem({ entry }: { entry: TimelineResponsibleLawy
 function Item({ title, date, modifier, children }: {
     title: string
     date: string
-    modifier: 'open' | 'overdue' | 'interruptive' | 'prescribed' | null
+    modifier: 'open' | 'overdue' | 'interruptive' | 'prescribed' | 'past' | 'responsible' | null
     children: ReactNode
 }) {
     return (

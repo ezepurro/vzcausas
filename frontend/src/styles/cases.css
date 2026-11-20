@@ -281,13 +281,22 @@
 /* ─────────── línea de vida de la causa ─────────── */
 /* Cada movimiento cuelga de una línea vertical, con un punto cuyo color dice
    qué es: plazo abierto (bronce), vencido o de hoy (rojo), acto interruptivo
-   (bronce), pase a prescripta (rojo). */
-.vz-timeline { margin: 0; padding: 0; list-style: none; }
+   (bronce), pase a prescripta (rojo), acto que ya pasó (verde claro), cambio
+   de abogado responsable (verde oscuro). La línea, del mismo verde que los
+   actos que ya pasaron. */
+.vz-timeline {
+  --vz-timeline-past: #8FB98A;
+  --vz-timeline-line: var(--vz-timeline-past);
+  --vz-timeline-responsible: var(--vz-ok);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
 .vz-timeline__item {
   position: relative;
   margin-left: 4px;
   padding: 0 0 22px 24px;
-  border-left: 1px solid var(--vz-border);
+  border-left: 1px solid var(--vz-timeline-line);
 }
 .vz-timeline__item:last-child { padding-bottom: 0; border-left-color: transparent; }
 .vz-timeline__item::before {
@@ -305,6 +314,8 @@
 .vz-timeline__item--interruptive::before { border-color: var(--vz-warn-mark); }
 .vz-timeline__item--overdue::before,
 .vz-timeline__item--prescribed::before { border-color: var(--vz-danger-action); }
+.vz-timeline__item--past::before { border-color: var(--vz-timeline-past); }
+.vz-timeline__item--responsible::before { border-color: var(--vz-timeline-responsible); }
 .vz-timeline__head {
   display: flex;
   justify-content: space-between;
