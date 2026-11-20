@@ -28,6 +28,10 @@ prueba contra el modelo real es manual (F2, último paso) y queda anotada.
 | C14 | `429` por HTTP con `Retry-After` igual a `details.retryAfterSeconds` | límite bajado por configuración en el spec (tope 2 por minuto) | Integración |
 | C15 | Un pedido inválido (`400`) no consume cupo del límite | 400 seguidos y después `200` | Integración |
 | C16 | El manual carga todas las secciones, con `id` único y cuerpo no vacío; un archivo sin `id` o un `id` repetido hace fallar el arranque | `HelpManual` + adaptador de archivos contra el contenido real | Unitario |
+| C18 | Streaming: el texto sale en `delta` a medida que llega y **nunca** la línea `FUENTES:`, aunque llegue partida | `StreamingAnswer` (dominio), caso de uso e integración | Unitario + Integración |
+| C19 | Streaming: `done` trae `{ answer, sources }`, la respuesta definitiva (negativa y corte incluidos) | caso de uso e integración | Unitario + Integración |
+| C20 | Streaming: lo que falla antes del primer evento responde JSON con su código (`400`, `502`); lo que falla en el medio llega como evento `error` con el `code` y el `message` del contrato | integración | Integración |
+| C21 | Streaming: cerrar la conexión corta la llamada al modelo | la señal llega al puerto (caso de uso) y se une al tiempo límite (adaptador); el corte real, **revisión manual** | Unitario |
 | C17 | Sin `ASSISTANT_LLM_PROVIDER`, la app arranca sin el módulo | cubierto por cómo se carga, como `DeadlinesModule`; **revisión manual** (la suite siempre lo carga) | Manual |
 
 ## Textos del contrato (propuesta) que los tests fijan

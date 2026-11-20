@@ -30,18 +30,25 @@ export function HelpPanel({ entries, onEntriesChange, onClose }: HelpPanelProps)
     const form = useRef<HTMLFormElement>(null)
     const list = useRef<HTMLOListElement>(null)
     const nextId = useRef(entries.length)
+    /** Lo que va llegando de la respuesta en curso; `null` si no hay ninguna. */
+    const [streaming, setStreaming] = useState<string | null>(null)
+    /** Para cortar el pedido si se cierra el panel con una respuesta en curso. */
+    const cancel = useRef<AbortController | null>(null)
 
-    // Al abrir, el foco va al campo de la pregunta.
-    useEffect(() => focusQuestion(), [])
+    // Al abrir, el foco va al campo de la pregunta; al cerrar, se corta lo que esté en curso.
+    useEffect(() => {
+        focusQuestion()
+        return () => cancel.current?.abort()
+    }, [])
 
     function focusQuestion() {
         form.current?.querySelector('textarea')?.focus()
     }
 
-    // Cada mensaje nuevo queda a la vista.
+    // Cada mensaje nuevo, y cada pedazo de la respuesta, queda a la vista.
     useEffect(() => {
         list.current?.lastElementChild?.scrollIntoView?.({ block: 'nearest' })
-    }, [entries.length, ask.isPending])
+    }, [entries.length, ask.isPending, streaming])
 
     function send(event?: FormEvent) {
         event?.preventDefault()
@@ -61,14 +68,22 @@ export function HelpPanel({ entries, onEntriesChange, onClose }: HelpPanelProps)
         onEntriesChange(withQuestion)
         setQuestion('')
 
+        cancel.current = new AbortController()
+        setStreaming('')
         ask.mutate(
-            { messages: toRequestMessages(withQuestion) },
             {
+                body: { messages: toRequestMessages(withQuestion) },
+                onDelta: (text) => setStreaming((shown) => (shown ?? '') + text),
+                signal: cancel.current.signal,
+            },
+            {
+                // La respuesta de `done` reemplaza a lo que se fue mostrando.
                 onSuccess: ({ answer, sources }) =>
                     onEntriesChange([
                         ...withQuestion,
                         { id: nextId.current++, role: 'assistant', content: answer, sources },
                     ]),
+                onSettled: () => setStreaming(null),
             },
         )
     }
@@ -103,7 +118,14 @@ export function HelpPanel({ entries, onEntriesChange, onClose }: HelpPanelProps)
                 Demo: responde a partir del manual de uso. No escribas datos de causas ni de clientes.
             </p>
 
-            <ol ref={list} className="vz-help__log" aria-live="polite" aria-label="Conversación">
+            <ol
+                ref={list}
+                className="vz-help__log"
+                aria-live="polite"
+                // Mientras la respuesta se escribe, el lector de pantalla espera a que termine.
+                aria-busy={ask.isPending}
+                aria-label="Conversación"
+            >
                 {entries.length === 0 && (
                     <li className="vz-help__empty">
                         <AssistantAvatar size={64} />
@@ -137,9 +159,20 @@ export function HelpPanel({ entries, onEntriesChange, onClose }: HelpPanelProps)
                     </li>
                 ))}
                 {ask.isPending && (
-                    <li className="vz-help__msg vz-help__msg--assistant vz-help__msg--pending">
-                        <p className="vz-help__text">Buscando en el manual…</p>
-                    </li>
+                    streaming ? (
+                        <li className="vz-help__msg vz-help__msg--assistant vz-help__msg--streaming">
+                            <span className="vz-sr-only">Asistente:</span>
+                            <p className="vz-help__text">
+                                {boldSegments(streaming).map((segment, index) =>
+                                    segment.bold ? <strong key={index}>{segment.text}</strong> : segment.text,
+                                )}
+                            </p>
+                        </li>
+                    ) : (
+                        <li className="vz-help__msg vz-help__msg--assistant vz-help__msg--pending">
+                            <p className="vz-help__text">Buscando en el manual…</p>
+                        </li>
+                    )
                 )}
             </ol>
 

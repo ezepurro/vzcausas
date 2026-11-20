@@ -189,4 +189,78 @@ describe('POST /help/assistant', () => {
       for (let i = 0; i < PER_MINUTE; i++) expectData(await post(ask(), 403), 200);
     });
   });
+
+  describe('streaming (F4, Accept: text/event-stream)', () => {
+    /** Pide en streaming y devuelve el cuerpo crudo y los eventos ya separados. */
+    async function postStream(body: unknown, userId: number) {
+      const res = await request(app.getHttpServer())
+        .post(URL)
+        .set(loginAs({ userId, roles: ['LAWYER'] }))
+        .set('Accept', 'text/event-stream')
+        .send(body as object)
+        .buffer(true)
+        .parse((response, done) => {
+          let raw = '';
+          response.setEncoding('utf8');
+          response.on('data', (chunk: string) => (raw += chunk));
+          response.on('end', () => done(null, raw));
+        });
+      const isStream = /text\/event-stream/.test(res.headers['content-type'] ?? '');
+      const events =
+        isStream && typeof res.body === 'string'
+          ? res.body
+              .split('\n\n')
+              .filter((block: string) => block.trim())
+              .map((block: string) => {
+                const [eventLine, dataLine] = block.split('\n');
+                return { event: eventLine.replace('event: ', ''), data: JSON.parse(dataLine.replace('data: ', '')) };
+              })
+          : [];
+      return { res, events };
+    }
+
+    it('manda el texto en deltas, nunca la línea FUENTES, y cierra con done { answer, sources }', async () => {
+      const { res, events } = await postStream(ask(), 501);
+
+      expect(res.status).toBe(200);
+      expect(res.headers['content-type']).toMatch(/text\/event-stream/);
+      const deltas = events.filter((e) => e.event === 'delta');
+      expect(deltas.length).toBeGreaterThan(1);
+      expect(deltas.map((e) => e.data.text).join('')).toBe('Desde **Nueva causa**, en el menú lateral.');
+      expect(events[events.length - 1]).toEqual({
+        event: 'done',
+        data: {
+          answer: 'Desde **Nueva causa**, en el menú lateral.',
+          sources: [{ id: 'causas-registrar', title: 'Registrar una causa' }],
+        },
+      });
+    });
+
+    it('lo que falla antes de empezar responde JSON con su código: 400 y 502', async () => {
+      const invalid = await postStream({ messages: [] }, 502);
+      expect(invalid.res.status).toBe(400);
+      expect(invalid.res.headers['content-type']).toMatch(/application\/json/);
+
+      llm.failNext();
+      const unavailable = await postStream(ask(), 503);
+      expect(unavailable.res.status).toBe(502);
+      expect(unavailable.res.headers['content-type']).toMatch(/application\/json/);
+    });
+
+    it('si el proveedor falla en el medio, después de los deltas llega un evento error', async () => {
+      llm.failStreamAfter(2);
+
+      const { res, events } = await postStream(ask(), 504);
+
+      expect(res.status).toBe(200);
+      expect(events.filter((e) => e.event === 'delta')).toHaveLength(2);
+      expect(events[events.length - 1]).toEqual({
+        event: 'error',
+        data: {
+          code: 'ASSISTANT_UNAVAILABLE',
+          message: 'El asistente no está disponible en este momento. Intentá de nuevo en unos minutos.',
+        },
+      });
+    });
+  });
 });

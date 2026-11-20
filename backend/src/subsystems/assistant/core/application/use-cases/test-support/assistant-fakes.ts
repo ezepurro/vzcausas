@@ -1,6 +1,6 @@
 import { AssistantQuotaPort } from '../../../domain/ports/assistant-quota.port';
 import { HelpManualPort } from '../../../domain/ports/help-manual.port';
-import { LlmCompletion, LlmPort, LlmRequest } from '../../../domain/ports/llm.port';
+import { LlmCompletion, LlmPort, LlmRequest, LlmStreamEvent } from '../../../domain/ports/llm.port';
 import { AssistantProfile } from '../../../domain/profiles/assistant-profile';
 import { HelpManual } from '../../../domain/value-objects/help-manual.vo';
 
@@ -39,6 +39,25 @@ export class FakeLlmPort implements LlmPort {
       usage: { inputTokens: 10, outputTokens: 5, cachedInputTokens: null },
       ...this.next,
     };
+  }
+
+  /**
+   * Streams `next` as `chunks` (or the same default answer split by words).
+   * With `failAfter`, throws that error after that many deltas.
+   */
+  chunks: string[] | null = null;
+  failAfter: { deltas: number; error: Error } | null = null;
+
+  async *stream(request: LlmRequest): AsyncGenerator<LlmStreamEvent> {
+    this.requests.push(request);
+    if (this.next instanceof Error) throw this.next;
+    const completion = { text: 'Respuesta.\nFUENTES: causas-registrar', outcome: 'COMPLETED' as const, ...this.next };
+    const chunks = this.chunks ?? completion.text.split(/(?<= )/);
+    for (const [index, text] of chunks.entries()) {
+      if (this.failAfter && index === this.failAfter.deltas) throw this.failAfter.error;
+      yield { type: 'delta', text };
+    }
+    yield { type: 'end', outcome: completion.outcome, usage: { inputTokens: 10, outputTokens: 5, cachedInputTokens: null } };
   }
 }
 

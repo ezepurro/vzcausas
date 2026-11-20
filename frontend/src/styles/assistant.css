@@ -120,7 +120,16 @@
 .vz-help__form { display: flex; flex-direction: column; gap: 8px; }
 .vz-help__form .vz-btn { align-self: flex-end; }
 
+/* Respuesta en streaming: un cursor al final mientras se escribe. */
+.vz-help__msg--streaming .vz-help__text::after {
+  content: '▍';
+  margin-left: 1px;
+  color: var(--vz-primary);
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .vz-help { animation: vz-help-in .16s ease-out; }
   @keyframes vz-help-in { from { transform: translateX(16px); opacity: 0; } }
+  .vz-help__msg--streaming .vz-help__text::after { animation: vz-help-caret 1s steps(2) infinite; }
+  @keyframes vz-help-caret { 50% { opacity: 0; } }
 }

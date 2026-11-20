@@ -33,7 +33,7 @@ function response(fields: {
   } as unknown as GenerateContentResponse;
 }
 
-function adapterAnswering(result: GenerateContentResponse | Error) {
+function adapterAnswering(result: GenerateContentResponse | Error, chunks: (GenerateContentResponse | Error)[] = []) {
   const calls: GenerateContentParameters[] = [];
   const models: GeminiModels = {
     generateContent: async (params) => {
@@ -41,8 +41,24 @@ function adapterAnswering(result: GenerateContentResponse | Error) {
       if (result instanceof Error) throw result;
       return result;
     },
+    generateContentStream: async (params) => {
+      calls.push(params);
+      if (result instanceof Error) throw result;
+      return (async function* () {
+        for (const chunk of chunks) {
+          if (chunk instanceof Error) throw chunk;
+          yield chunk;
+        }
+      })();
+    },
   };
   return { adapter: new GeminiLlmAdapter(models, 30_000), calls };
+}
+
+async function collect(stream: AsyncIterable<unknown>) {
+  const events: unknown[] = [];
+  for await (const event of stream) events.push(event);
+  return events;
 }
 
 describe('GeminiLlmAdapter (C12)', () => {
@@ -116,6 +132,50 @@ describe('GeminiLlmAdapter (C12)', () => {
     await expect(adapterAnswering(timeout).adapter.complete(request)).rejects.toMatchObject({ reason: 'TIMEOUT' });
     await expect(adapterAnswering(new TypeError('fetch failed')).adapter.complete(request)).rejects.toMatchObject({
       reason: 'NETWORK',
+    });
+  });
+
+  describe('stream', () => {
+    const ok = response({ text: '', finishReason: FinishReason.STOP });
+
+    it('yields each chunk as a delta, then end with the finish reason and usage of the last one', async () => {
+      const { adapter } = adapterAnswering(ok, [
+        response({ text: 'Desde ' }),
+        response({ text: 'Nueva causa.', finishReason: FinishReason.MAX_TOKENS }),
+      ]);
+
+      await expect(collect(adapter.stream(request))).resolves.toEqual([
+        { type: 'delta', text: 'Desde ' },
+        { type: 'delta', text: 'Nueva causa.' },
+        { type: 'end', outcome: 'TRUNCATED', usage: { inputTokens: 1200, outputTokens: 40, cachedInputTokens: 1000 } },
+      ]);
+    });
+
+    it('a prompt blocked in the first chunk ends REFUSED with no text', async () => {
+      const { adapter } = adapterAnswering(ok, [response({ blockReason: 'SAFETY' })]);
+
+      await expect(collect(adapter.stream(request))).resolves.toEqual([
+        expect.objectContaining({ type: 'end', outcome: 'REFUSED' }),
+      ]);
+    });
+
+    it('a failure to start or in the middle becomes AssistantUnavailableError', async () => {
+      await expect(
+        collect(adapterAnswering(new ApiError({ message: 'x', status: 429 })).adapter.stream(request)),
+      ).rejects.toMatchObject({ code: 'ASSISTANT_UNAVAILABLE', reason: 'RATE_LIMITED' });
+
+      const midway = adapterAnswering(ok, [response({ text: 'Uno ' }), new TypeError('socket hang up')]);
+      await expect(collect(midway.adapter.stream(request))).rejects.toMatchObject({ reason: 'NETWORK' });
+    });
+
+    it('joins the caller signal with the timeout', async () => {
+      const { adapter, calls } = adapterAnswering(ok, [ok]);
+      const controller = new AbortController();
+
+      await collect(adapter.stream({ ...request, signal: controller.signal }));
+      controller.abort();
+
+      expect(calls[0].config?.abortSignal?.aborted).toBe(true);
     });
   });
 

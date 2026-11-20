@@ -2,7 +2,7 @@ import { ValidationError } from '@shared/domain/domain-error';
 import { AssistantUnavailableError, TooManyAssistantRequestsError } from '../../domain/errors/assistant.errors';
 import { LlmCompletion } from '../../domain/ports/llm.port';
 import { AssistantReply } from '../../domain/value-objects/assistant-reply.vo';
-import { AskHelpAssistant } from './ask-help-assistant.use-case';
+import { AskHelpAssistant, HelpStreamEvent } from './ask-help-assistant.use-case';
 import { FakeLlmPort, RecordingQuota, StaticManual, testManual, testProfile } from './test-support/assistant-fakes';
 
 function setup(next: Partial<LlmCompletion> | Error = {}) {
@@ -78,6 +78,76 @@ describe('AskHelpAssistant', () => {
       TooManyAssistantRequestsError,
     );
     expect(llm.requests).toEqual([]);
+  });
+
+  describe('stream', () => {
+    async function collect(useCase: AskHelpAssistant, turns = question) {
+      const events: HelpStreamEvent[] = [];
+      for await (const event of useCase.stream({ userId: 7, turns })) events.push(event);
+      return events;
+    }
+
+    it('C8 — sends the text as it arrives, never the sources line, and closes with the reply', async () => {
+      const { useCase, llm } = setup();
+      llm.chunks = ['Desde ', '**Nueva causa**.', '\nFUEN', 'TES: causas-registrar'];
+
+      const events = await collect(useCase);
+
+      const deltas = events.filter((e) => e.type === 'delta').map((e) => (e as { text: string }).text);
+      expect(deltas.join('')).toBe('Desde **Nueva causa**.');
+      const done = events[events.length - 1];
+      expect(done.type).toBe('done');
+      expect(done.type === 'done' && done.reply.sources).toEqual([
+        { id: 'causas-registrar', title: 'Registrar una causa' },
+      ]);
+    });
+
+    it('C9 — a refusal ends with the fixed answer in done', async () => {
+      const { useCase } = setup({ outcome: 'REFUSED' });
+
+      const events = await collect(useCase);
+
+      const done = events[events.length - 1];
+      expect(done.type === 'done' && done.reply.answer).toBe(AssistantReply.REFUSAL_ANSWER);
+    });
+
+    it('C5/C13 — validation and quota fail on the first next(), before the model', async () => {
+      const { useCase, llm, quota } = setup();
+      quota.rejectWith = new TooManyAssistantRequestsError(30);
+
+      await expect(useCase.stream({ userId: 7, turns: question }).next()).rejects.toBeInstanceOf(
+        TooManyAssistantRequestsError,
+      );
+      await expect(
+        useCase.stream({ userId: 7, turns: [{ role: 'assistant', content: 'x' }] }).next(),
+      ).rejects.toBeInstanceOf(ValidationError);
+      expect(llm.requests).toEqual([]);
+    });
+
+    it('C11 — a provider failure in the middle propagates after the deltas already sent', async () => {
+      const { useCase, llm } = setup();
+      llm.chunks = ['Uno ', 'dos ', 'tres'];
+      llm.failAfter = { deltas: 2, error: new AssistantUnavailableError('NETWORK') };
+      const received: string[] = [];
+
+      await expect(
+        (async () => {
+          for await (const event of useCase.stream({ userId: 7, turns: question })) {
+            if (event.type === 'delta') received.push(event.text);
+          }
+        })(),
+      ).rejects.toBeInstanceOf(AssistantUnavailableError);
+      expect(received.join('')).toBe('Uno dos ');
+    });
+
+    it('passes the cancel signal down to the model', async () => {
+      const { useCase, llm } = setup();
+      const signal = new AbortController().signal;
+
+      for await (const _ of useCase.stream({ userId: 7, turns: question, signal })) void _;
+
+      expect(llm.requests[0].signal).toBe(signal);
+    });
   });
 
   it('C11 — a provider failure propagates as is, and the question was charged', async () => {

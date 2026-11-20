@@ -11,8 +11,8 @@ export type CompletionOutcome = 'COMPLETED' | 'REFUSED' | 'TRUNCATED';
  * Anthropic is writing another adapter of this port, nothing else
  * (plan §3).
  *
- * `tools` and streaming are left out until a profile needs them (the drafting
- * assistant): an option nobody uses is an option nobody tests.
+ * `tools` are left out until a profile needs them (the drafting assistant):
+ * an option nobody uses is an option nobody tests.
  */
 export interface LlmRequest {
   /** Provider model id, chosen by configuration per profile. */
@@ -21,6 +21,8 @@ export interface LlmRequest {
   readonly system: string;
   readonly turns: readonly ConversationTurn[];
   readonly maxOutputTokens: number;
+  /** Cancels the call, for instance when the client closes a stream. */
+  readonly signal?: AbortSignal;
 }
 
 export interface LlmUsage {
@@ -35,10 +37,27 @@ export interface LlmCompletion {
   readonly usage: LlmUsage;
 }
 
+/**
+ * One event of a streamed answer: pieces of text as they are generated, then
+ * one `end` with how the turn ended.
+ */
+export type LlmStreamEvent =
+  | { readonly type: 'delta'; readonly text: string }
+  | { readonly type: 'end'; readonly outcome: CompletionOutcome; readonly usage: LlmUsage };
+
 export interface LlmPort {
   /**
    * @throws AssistantUnavailableError when the provider does not answer, takes
    *   too long, runs out of quota or rejects the request.
    */
   complete(request: LlmRequest): Promise<LlmCompletion>;
+
+  /**
+   * The same answer, piece by piece (proposal §2, "Respuesta en streaming").
+   * Always ends with one `end` event when it finishes normally.
+   *
+   * @throws AssistantUnavailableError while iterating, before the first event
+   *   or in the middle, with the same meaning as in `complete`.
+   */
+  stream(request: LlmRequest): AsyncIterable<LlmStreamEvent>;
 }

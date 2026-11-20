@@ -1,6 +1,23 @@
 # Plan — Asistente de ayuda (demo)
 
-Estado: **F0 a F3 hechas y probadas contra Gemini real (20/11/2026). Sigue F4.**
+Estado: **F0 a F4 hechas y probadas contra Gemini real (20/11/2026). Sigue F5.**
+
+F4, streaming (20/11/2026):
+- Mismo endpoint con `Accept: text/event-stream`. `LlmPort.stream()`, Gemini con
+  `generateContentStream`, `AskHelpAssistant.stream()` y el controller escribe
+  SSE con `EventStreamWriter`. Lo que falla antes del primer evento sigue
+  respondiendo JSON con su código.
+- **`StreamingAnswer`** (dominio) retiene sólo el último renglón mientras pueda
+  ser `FUENTES:`; probado en vivo: la línea nunca llegó al cliente.
+- **Cambio a la propuesta:** `done` trae `{ answer, sources }` (antes, solo
+  `sources`), y manda sobre los `delta`.
+- Cerrar la conexión aborta la llamada a Gemini (`AbortSignal.any` con el
+  tiempo límite).
+- Front: `fetch` sólo para el streaming; un `401` se repite por `http` en JSON.
+- **Medido en vivo:** con `gemini-3.5-flash-lite` casi toda la espera es hasta
+  la primera palabra (2 a 8 s en la capa gratuita, igual que en JSON) y el
+  texto completo llega en ~200 ms. El streaming luce en respuestas largas; en
+  las cortas casi no cambia la espera.
 
 Prueba en vivo (20/11/2026, `gemini-3.5-flash-lite`, capa gratuita):
 - 5 preguntas por API y 2 desde el panel: todas `200`, de 1,2 a 2,4 s.

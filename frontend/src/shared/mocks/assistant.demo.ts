@@ -60,13 +60,37 @@ export const assistantDemoHandlers: RequestHandler[] = [
             });
         }
 
-        await delay(600);
         const match = CANNED.find((canned) => canned.keywords.test(last.content));
-        return HttpResponse.json({
-            data: match ? { answer: match.answer, sources: match.sources } : { answer: NOT_COVERED, sources: [] },
-        });
+        const data = match ? { answer: match.answer, sources: match.sources } : { answer: NOT_COVERED, sources: [] };
+
+        if (request.headers.get('accept')?.includes('text/event-stream')) {
+            return eventStream(data.answer.split(/(?<= )/).map((text) => ['delta', { text }] as const), ['done', data]);
+        }
+
+        await delay(600);
+        return HttpResponse.json({ data });
     }),
 ];
+
+type SseEvent = readonly [event: string, data: unknown];
+
+/**
+ * Una respuesta SSE que manda los eventos de a uno, con una pausa corta entre
+ * cada uno, como el streaming real (propuesta §2).
+ */
+function eventStream(events: readonly SseEvent[], last: SseEvent): HttpResponse<ReadableStream> {
+    const encoder = new TextEncoder();
+    const body = new ReadableStream({
+        async start(controller) {
+            for (const [event, data] of [...events, last]) {
+                await delay(40);
+                controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
+            }
+            controller.close();
+        },
+    });
+    return new HttpResponse(body, { headers: { 'Content-Type': 'text/event-stream' } });
+}
 
 /** Respuestas de error de la propuesta, para los tests (`server.use(...)`). */
 export const assistantDemoErrors = {
@@ -89,6 +113,20 @@ export const assistantDemoErrors = {
                     },
                 },
                 { status: 429, headers: { 'Retry-After': String(retryAfterSeconds) } },
+            ),
+        ),
+    /** El streaming arranca y el proveedor se cae en el medio: un `delta` y después `error`. */
+    failsMidway: () =>
+        http.post('*/help/assistant', () =>
+            eventStream(
+                [['delta', { text: 'Para registrar ' }]],
+                [
+                    'error',
+                    {
+                        code: 'ASSISTANT_UNAVAILABLE',
+                        message: 'El asistente no está disponible en este momento. Intentá de nuevo en unos minutos.',
+                    },
+                ],
             ),
         ),
 };

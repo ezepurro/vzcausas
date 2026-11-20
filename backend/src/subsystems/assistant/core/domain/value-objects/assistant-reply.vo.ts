@@ -46,6 +46,21 @@ export class AssistantReply {
     return new AssistantReply(AssistantReply.REFUSAL_ANSWER, []);
   }
 
+  /** Whether a whole line is a sources line (used while streaming, `StreamingAnswer`). */
+  static isSourcesLine(line: string): boolean {
+    return AssistantReply.SOURCES_LINE.test(line.trim());
+  }
+
+  /**
+   * Whether a line that is still arriving could turn into a sources line:
+   * empty, or the start of "FUENTES" (with the bold markers a model may add).
+   * While streaming, such a line is held back until it is known.
+   */
+  static couldBecomeSourcesLine(partial: string): boolean {
+    const head = partial.trimStart().replace(/^\*+/, '').toLowerCase();
+    return head.length === 0 || 'fuentes'.startsWith(head) || head.startsWith('fuentes');
+  }
+
   /**
    * Only the **last** non-empty line counts as the sources line. A line that
    * starts with "Fuentes:" in the middle of the answer is part of the answer.

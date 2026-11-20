@@ -130,20 +130,27 @@ event: delta
 data: {"text":"sin el número de SAC: es opcional."}
 
 event: done
-data: {"sources":[{"id":"causas-registrar","title":"Registrar una causa"}]}
+data: {"answer":"Sí, podés registrarla sin el número de SAC: es opcional.","sources":[{"id":"causas-registrar","title":"Registrar una causa"}]}
 ```
 
 | Evento | `data` | Cuándo |
 | --- | --- | --- |
-| `delta` | `{ "text": string }` | Cada fragmento nuevo de la respuesta. Concatenados forman `answer` |
-| `done` | `{ "sources": [...] }` | Al terminar. Es el último evento de una respuesta exitosa |
+| `delta` | `{ "text": string }` | Cada fragmento nuevo de la respuesta, para mostrarla mientras se escribe |
+| `done` | `{ "answer": string, "sources": [...] }` | Al terminar. Es el último evento de una respuesta exitosa. Misma forma que `data` en la respuesta JSON |
 | `error` | `{ "code": string, "message": string }` | Si el proveedor falla **después** de empezar a responder. Mismo `code` y `message` que la respuesta JSON |
 
+- **`done.answer` manda sobre los `delta`.** Es la respuesta definitiva: si el
+  modelo se negó, trae el texto fijo de la negativa; si se cortó, el aviso al
+  final. El cliente reemplaza lo que fue mostrando por `done.answer`. (Cambio
+  del 20/11/2026, en F4: antes `done` traía solo `sources`.)
 - **Lo que falla antes de empezar** (autenticación, validación, límite,
   proveedor caído) responde con el error JSON de siempre y su código HTTP, no
   con un evento.
-- **La línea de fuentes nunca aparece en los `delta`**: el servidor la separa
-  antes de mandar el texto.
+- **La línea de fuentes nunca aparece en los `delta`**: el servidor retiene el
+  último renglón mientras pueda ser esa línea y lo suelta en cuanto se sabe que
+  es texto común.
+- **Si el cliente cierra la conexión**, el servidor deja de pedirle la
+  respuesta al proveedor.
 
 **Errores**
 

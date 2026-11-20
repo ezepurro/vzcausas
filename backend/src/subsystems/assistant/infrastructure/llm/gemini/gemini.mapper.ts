@@ -1,6 +1,6 @@
 import { ApiError, Content, FinishReason, GenerateContentResponse } from '@google/genai';
 import { AssistantFailureReason } from '../../../core/domain/errors/assistant.errors';
-import { CompletionOutcome, LlmCompletion, LlmRequest } from '../../../core/domain/ports/llm.port';
+import { CompletionOutcome, LlmCompletion, LlmRequest, LlmUsage } from '../../../core/domain/ports/llm.port';
 
 export interface GeminiFailure {
   readonly reason: AssistantFailureReason;
@@ -37,22 +37,33 @@ export class GeminiMapper {
   }
 
   static toCompletion(response: GenerateContentResponse): LlmCompletion {
-    const usage = {
+    const outcome = GeminiMapper.toOutcome(response);
+    return {
+      text: outcome === 'REFUSED' && response.promptFeedback?.blockReason ? '' : GeminiMapper.toText(response),
+      outcome,
+      usage: GeminiMapper.toUsage(response),
+    };
+  }
+
+  /**
+   * How the turn ended. In a stream, pass the last chunk: Gemini sends the
+   * finish reason there, and the prompt block (if any) in the first one, which
+   * the adapter tracks on its own.
+   */
+  static toOutcome(response: GenerateContentResponse): CompletionOutcome {
+    if (response.promptFeedback?.blockReason) return 'REFUSED';
+    const finishReason = response.candidates?.[0]?.finishReason;
+    if (finishReason === FinishReason.MAX_TOKENS) return 'TRUNCATED';
+    if (finishReason && GeminiMapper.REFUSAL_REASONS.has(finishReason)) return 'REFUSED';
+    return 'COMPLETED';
+  }
+
+  static toUsage(response: GenerateContentResponse): LlmUsage {
+    return {
       inputTokens: response.usageMetadata?.promptTokenCount ?? null,
       outputTokens: response.usageMetadata?.candidatesTokenCount ?? null,
       cachedInputTokens: response.usageMetadata?.cachedContentTokenCount ?? null,
     };
-
-    if (response.promptFeedback?.blockReason) {
-      return { text: '', outcome: 'REFUSED', usage };
-    }
-
-    const finishReason = response.candidates?.[0]?.finishReason;
-    let outcome: CompletionOutcome = 'COMPLETED';
-    if (finishReason === FinishReason.MAX_TOKENS) outcome = 'TRUNCATED';
-    else if (finishReason && GeminiMapper.REFUSAL_REASONS.has(finishReason)) outcome = 'REFUSED';
-
-    return { text: GeminiMapper.readText(response), outcome, usage };
   }
 
   static toFailure(error: unknown): GeminiFailure {
@@ -72,7 +83,7 @@ export class GeminiMapper {
   }
 
   /** `response.text` joins the text parts of the first candidate; it can be undefined. */
-  private static readText(response: GenerateContentResponse): string {
+  static toText(response: GenerateContentResponse): string {
     try {
       return response.text ?? '';
     } catch {

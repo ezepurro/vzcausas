@@ -17,6 +17,16 @@ no está en V6: sale de la propuesta
   recargar la página la borra. Al servidor viajan los últimos 20 mensajes.
 - **Errores:** `429` dice cuántos segundos esperar (`retryAfterSeconds`); `502`,
   que el asistente no está disponible.
+- **Streaming (F4):** la respuesta se muestra mientras se escribe, con un cursor
+  al final. El evento `done` trae la respuesta definitiva y sus fuentes, que
+  reemplazan lo mostrado. Mientras llega, la conversación tiene
+  `aria-busy="true"`, así el lector de pantalla la lee completa al terminar.
+  Cerrar el panel corta el pedido, y el backend deja de pedirle a Gemini.
+- **`fetch` y no `http`, sólo para el streaming** (`api/assistant.api.ts`):
+  axios no transmite por partes en el navegador. Para no duplicar la
+  renovación de la sesión, si el streaming responde `401` el pedido se repite
+  por `http` en JSON, que la resuelve (o cierra la sesión). El resto de los
+  errores se arma como `ApiError` con el mismo sobre de siempre.
 - **Aviso fijo** en el panel: no escribir datos de causas ni de clientes (la
   demo usa la capa gratuita de Gemini).
 - **El avatar** (`components/AssistantAvatar.tsx`) es un SVG dibujado para la
